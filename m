@@ -1,1822 +1,136 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH 04/14] AF_RXRPC: Provide secure RxRPC sockets for use by
-	userspace and kernel both [net-2.6]
-Date: Thu, 26 Apr 2007 20:54:36 +0100
-Message-ID: <20070426195436.24531.34654.stgit@warthog.cambridge.redhat.com>
+Subject: [PATCH 07/14] AF_RXRPC: Make the in-kernel AFS filesystem use
+	AF_RXRPC [net-2.6]
+Date: Thu, 26 Apr 2007 20:54:52 +0100
+Message-ID: <20070426195451.24531.90887.stgit@warthog.cambridge.redhat.com>
 References: <20070426195415.24531.78794.stgit@warthog.cambridge.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: dhowells@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:57870 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([66.187.233.31]:58037 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754992AbXDZTy4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Apr 2007 15:54:56 -0400
+	id S1031466AbXDZTzV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Apr 2007 15:55:21 -0400
 Received: from int-mx1.corp.redhat.com (int-mx1.corp.redhat.com [172.16.52.254])
-	by mx1.redhat.com (8.13.1/8.13.1) with ESMTP id l3QJsscX028488
-	for <netdev@vger.kernel.org>; Thu, 26 Apr 2007 15:54:54 -0400
+	by mx1.redhat.com (8.13.1/8.13.1) with ESMTP id l3QJtJdA029081
+	for <netdev@vger.kernel.org>; Thu, 26 Apr 2007 15:55:19 -0400
 In-Reply-To: <20070426195415.24531.78794.stgit@warthog.cambridge.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Provide AF_RXRPC sockets that can be used to talk to AFS servers, or serve
-answers to AFS clients.  KerberosIV security is fully supported.  The patches
-and some example test programs can be found in:
-
-	http://people.redhat.com/~dhowells/rxrpc/
-
-This will eventually replace the old implementation of kernel-only RxRPC
-currently resident in net/rxrpc/.
-
-The following documentation is from Documentation/networking/rxrpc.txt:
-
-			    ======================
-			    RxRPC NETWORK PROTOCOL
-			    ======================
-
-The RxRPC protocol driver provides a reliable two-phase transport on top of UDP
-that can be used to perform RxRPC remote operations.  This is done over sockets
-of AF_RXRPC family, using sendmsg() and recvmsg() with control data to send and
-receive data, aborts and errors.
-
-Contents of this document:
-
- (*) Overview.
-
- (*) RxRPC protocol summary.
-
- (*) AF_RXRPC driver model.
-
- (*) Control messages.
-
- (*) Socket options.
-
- (*) Security.
-
- (*) Example client usage.
-
- (*) Example server usage.
-
-
-========
-OVERVIEW
-========
-
-RxRPC is a two-layer protocol.  There is a session layer which provides
-reliable virtual connections using UDP over IPv4 (or IPv6) as the transport
-layer, but implements a real network protocol; and there's the presentation
-layer which renders structured data to binary blobs and back again using XDR
-(as does SunRPC):
-
-		+-------------+
-		| Application |
-		+-------------+
-		|     XDR     |		Presentation
-		+-------------+
-		|    RxRPC    |		Session
-		+-------------+
-		|     UDP     |		Transport
-		+-------------+
-
-
-AF_RXRPC provides:
-
- (1) Part of an RxRPC facility for both kernel and userspace applications by
-     making the session part of it a Linux network protocol (AF_RXRPC).
-
- (2) A two-phase protocol.  The client transmits a blob (the request) and then
-     receives a blob (the reply), and the server receives the request and then
-     transmits the reply.
-
- (3) Retention of the reusable bits of the transport system set up for one call
-     to speed up subsequent calls.
-
- (4) A secure protocol, using the Linux kernel's key retention facility to
-     manage security on the client end.  The server end must of necessity be
-     more active in security negotiations.
-
-AF_RXRPC does not provide XDR marshalling/presentation facilities.  That is
-left to the application.  AF_RXRPC only deals in blobs.  Even the operation ID
-is just the first four bytes of the request blob, and as such is beyond the
-kernel's interest.
-
-
-Sockets of AF_RXRPC family are:
-
- (1) created as type SOCK_DGRAM;
-
- (2) provided with a protocol of the type of underlying transport they're going
-     to use - currently only PF_INET is supported.
-
-
-The Andrew File System (AFS) is an example of an application that uses this and
-that has both kernel (filesystem) and userspace (utility) components.
-
-
-======================
-RXRPC PROTOCOL SUMMARY
-======================
-
-An overview of the RxRPC protocol:
-
- (*) RxRPC sits on top of another networking protocol (UDP is the only option
-     currently), and uses this to provide network transport.  UDP ports, for
-     example, provide transport endpoints.
-
- (*) RxRPC supports multiple virtual "connections" from any given transport
-     endpoint, thus allowing the endpoints to be shared, even to the same
-     remote endpoint.
-
- (*) Each connection goes to a particular "service".  A connection may not go
-     to multiple services.  A service may be considered the RxRPC equivalent of
-     a port number.  AF_RXRPC permits multiple services to share an endpoint.
-
- (*) Client-originating packets are marked, thus a transport endpoint can be
-     shared between client and server connections (connections have a
-     direction).
-
- (*) Up to a billion connections may be supported concurrently between one
-     local transport endpoint and one service on one remote endpoint.  An RxRPC
-     connection is described by seven numbers:
-
-	Local address	}
-	Local port	} Transport (UDP) address
-	Remote address	}
-	Remote port	}
-	Direction
-	Connection ID
-	Service ID
-
- (*) Each RxRPC operation is a "call".  A connection may make up to four
-     billion calls, but only up to four calls may be in progress on a
-     connection at any one time.
-
- (*) Calls are two-phase and asymmetric: the client sends its request data,
-     which the service receives; then the service transmits the reply data
-     which the client receives.
-
- (*) The data blobs are of indefinite size, the end of a phase is marked with a
-     flag in the packet.  The number of packets of data making up one blob may
-     not exceed 4 billion, however, as this would cause the sequence number to
-     wrap.
-
- (*) The first four bytes of the request data are the service operation ID.
-
- (*) Security is negotiated on a per-connection basis.  The connection is
-     initiated by the first data packet on it arriving.  If security is
-     requested, the server then issues a "challenge" and then the client
-     replies with a "response".  If the response is successful, the security is
-     set for the lifetime of that connection, and all subsequent calls made
-     upon it use that same security.  In the event that the server lets a
-     connection lapse before the client, the security will be renegotiated if
-     the client uses the connection again.
-
- (*) Calls use ACK packets to handle reliability.  Data packets are also
-     explicitly sequenced per call.
-
- (*) There are two types of positive acknowledgement: hard-ACKs and soft-ACKs.
-     A hard-ACK indicates to the far side that all the data received to a point
-     has been received and processed; a soft-ACK indicates that the data has
-     been received but may yet be discarded and re-requested.  The sender may
-     not discard any transmittable packets until they've been hard-ACK'd.
-
- (*) Reception of a reply data packet implicitly hard-ACK's all the data
-     packets that make up the request.
-
- (*) An call is complete when the request has been sent, the reply has been
-     received and the final hard-ACK on the last packet of the reply has
-     reached the server.
-
- (*) An call may be aborted by either end at any time up to its completion.
-
-
-=====================
-AF_RXRPC DRIVER MODEL
-=====================
-
-About the AF_RXRPC driver:
-
- (*) The AF_RXRPC protocol transparently uses internal sockets of the transport
-     protocol to represent transport endpoints.
-
- (*) AF_RXRPC sockets map onto RxRPC connection bundles.  Actual RxRPC
-     connections are handled transparently.  One client socket may be used to
-     make multiple simultaneous calls to the same service.  One server socket
-     may handle calls from many clients.
-
- (*) Additional parallel client connections will be initiated to support extra
-     concurrent calls, up to a tunable limit.
-
- (*) Each connection is retained for a certain amount of time [tunable] after
-     the last call currently using it has completed in case a new call is made
-     that could reuse it.
-
- (*) Each internal UDP socket is retained [tunable] for a certain amount of
-     time [tunable] after the last connection using it discarded, in case a new
-     connection is made that could use it.
-
- (*) A client-side connection is only shared between calls if they have have
-     the same key struct describing their security (and assuming the calls
-     would otherwise share the connection).  Non-secured calls would also be
-     able to share connections with each other.
-
- (*) A server-side connection is shared if the client says it is.
-
- (*) ACK'ing is handled by the protocol driver automatically, including ping
-     replying.
-
- (*) SO_KEEPALIVE automatically pings the other side to keep the connection
-     alive [TODO].
-
- (*) If an ICMP error is received, all calls affected by that error will be
-     aborted with an appropriate network error passed through recvmsg().
-
-
-Interaction with the user of the RxRPC socket:
-
- (*) A socket is made into a server socket by binding an address with a
-     non-zero service ID.
-
- (*) In the client, sending a request is achieved with one or more sendmsgs,
-     followed by the reply being received with one or more recvmsgs.
-
- (*) The first sendmsg for a request to be sent from a client contains a tag to
-     be used in all other sendmsgs or recvmsgs associated with that call.  The
-     tag is carried in the control data.
-
- (*) connect() is used to supply a default destination address for a client
-     socket.  This may be overridden by supplying an alternate address to the
-     first sendmsg() of a call (struct msghdr::msg_name).
-
- (*) If connect() is called on an unbound client, a random local port will
-     bound before the operation takes place.
-
- (*) A server socket may also be used to make client calls.  To do this, the
-     first sendmsg() of the call must specify the target address.  The server's
-     transport endpoint is used to send the packets.
-
- (*) Once the application has received the last message associated with a call,
-     the tag is guaranteed not to be seen again, and so it can be used to pin
-     client resources.  A new call can then be initiated with the same tag
-     without fear of interference.
-
- (*) In the server, a request is received with one or more recvmsgs, then the
-     the reply is transmitted with one or more sendmsgs, and then the final ACK
-     is received with a last recvmsg.
-
- (*) When sending data for a call, sendmsg is given MSG_MORE if there's more
-     data to come on that call.
-
- (*) When receiving data for a call, recvmsg flags MSG_MORE if there's more
-     data to come for that call.
-
- (*) When receiving data or messages for a call, MSG_EOR is flagged by recvmsg
-     to indicate the terminal message for that call.
-
- (*) A call may be aborted by adding an abort control message to the control
-     data.  Issuing an abort terminates the kernel's use of that call's tag.
-     Any messages waiting in the receive queue for that call will be discarded.
-
- (*) Aborts, busy notifications and challenge packets are delivered by recvmsg,
-     and control data messages will be set to indicate the context.  Receiving
-     an abort or a busy message terminates the kernel's use of that call's tag.
-
- (*) The control data part of the msghdr struct is used for a number of things:
-
-     (*) The tag of the intended or affected call.
-
-     (*) Sending or receiving errors, aborts and busy notifications.
-
-     (*) Notifications of incoming calls.
-
-     (*) Sending debug requests and receiving debug replies [TODO].
-
- (*) When the kernel has received and set up an incoming call, it sends a
-     message to server application to let it know there's a new call awaiting
-     its acceptance [recvmsg reports a special control message].  The server
-     application then uses sendmsg to assign a tag to the new call.  Once that
-     is done, the first part of the request data will be delivered by recvmsg.
-
- (*) The server application has to provide the server socket with a keyring of
-     secret keys corresponding to the security types it permits.  When a secure
-     connection is being set up, the kernel looks up the appropriate secret key
-     in the keyring and then sends a challenge packet to the client and
-     receives a response packet.  The kernel then checks the authorisation of
-     the packet and either aborts the connection or sets up the security.
-
- (*) The name of the key a client will use to secure its communications is
-     nominated by a socket option.
-
-
-Notes on recvmsg:
-
- (*) If there's a sequence of data messages belonging to a particular call on
-     the receive queue, then recvmsg will keep working through them until:
-
-     (a) it meets the end of that call's received data,
-
-     (b) it meets a non-data message,
-
-     (c) it meets a message belonging to a different call, or
-
-     (d) it fills the user buffer.
-
-     If recvmsg is called in blocking mode, it will keep sleeping, awaiting the
-     reception of further data, until one of the above four conditions is met.
-
- (2) MSG_PEEK operates similarly, but will return immediately if it has put any
-     data in the buffer rather than sleeping until it can fill the buffer.
-
- (3) If a data message is only partially consumed in filling a user buffer,
-     then the remainder of that message will be left on the front of the queue
-     for the next taker.  MSG_TRUNC will never be flagged.
-
- (4) If there is more data to be had on a call (it hasn't copied the last byte
-     of the last data message in that phase yet), then MSG_MORE will be
-     flagged.
-
-
-================
-CONTROL MESSAGES
-================
-
-AF_RXRPC makes use of control messages in sendmsg() and recvmsg() to multiplex
-calls, to invoke certain actions and to report certain conditions.  These are:
-
-	MESSAGE ID		SRT DATA	MEANING
-	=======================	=== ===========	===============================
-	RXRPC_USER_CALL_ID	sr- User ID	App's call specifier
-	RXRPC_ABORT		srt Abort code	Abort code to issue/received
-	RXRPC_ACK		-rt n/a		Final ACK received
-	RXRPC_NET_ERROR		-rt error num	Network error on call
-	RXRPC_BUSY		-rt n/a		Call rejected (server busy)
-	RXRPC_LOCAL_ERROR	-rt error num	Local error encountered
-	RXRPC_NEW_CALL		-r- n/a		New call received
-	RXRPC_ACCEPT		s-- n/a		Accept new call
-
-	(SRT = usable in Sendmsg / delivered by Recvmsg / Terminal message)
-
- (*) RXRPC_USER_CALL_ID
-
-     This is used to indicate the application's call ID.  It's an unsigned long
-     that the app specifies in the client by attaching it to the first data
-     message or in the server by passing it in association with an RXRPC_ACCEPT
-     message.  recvmsg() passes it in conjunction with all messages except
-     those of the RXRPC_NEW_CALL message.
-
- (*) RXRPC_ABORT
-
-     This is can be used by an application to abort a call by passing it to
-     sendmsg, or it can be delivered by recvmsg to indicate a remote abort was
-     received.  Either way, it must be associated with an RXRPC_USER_CALL_ID to
-     specify the call affected.  If an abort is being sent, then error EBADSLT
-     will be returned if there is no call with that user ID.
-
- (*) RXRPC_ACK
-
-     This is delivered to a server application to indicate that the final ACK
-     of a call was received from the client.  It will be associated with an
-     RXRPC_USER_CALL_ID to indicate the call that's now complete.
-
- (*) RXRPC_NET_ERROR
-
-     This is delivered to an application to indicate that an ICMP error message
-     was encountered in the process of trying to talk to the peer.  An
-     errno-class integer value will be included in the control message data
-     indicating the problem, and an RXRPC_USER_CALL_ID will indicate the call
-     affected.
-
- (*) RXRPC_BUSY
-
-     This is delivered to a client application to indicate that a call was
-     rejected by the server due to the server being busy.  It will be
-     associated with an RXRPC_USER_CALL_ID to indicate the rejected call.
-
- (*) RXRPC_LOCAL_ERROR
-
-     This is delivered to an application to indicate that a local error was
-     encountered and that a call has been aborted because of it.  An
-     errno-class integer value will be included in the control message data
-     indicating the problem, and an RXRPC_USER_CALL_ID will indicate the call
-     affected.
-
- (*) RXRPC_NEW_CALL
-
-     This is delivered to indicate to a server application that a new call has
-     arrived and is awaiting acceptance.  No user ID is associated with this,
-     as a user ID must subsequently be assigned by doing an RXRPC_ACCEPT.
-
- (*) RXRPC_ACCEPT
-
-     This is used by a server application to attempt to accept a call and
-     assign it a user ID.  It should be associated with an RXRPC_USER_CALL_ID
-     to indicate the user ID to be assigned.  If there is no call to be
-     accepted (it may have timed out, been aborted, etc.), then sendmsg will
-     return error ENODATA.  If the user ID is already in use by another call,
-     then error EBADSLT will be returned.
-
-
-==============
-SOCKET OPTIONS
-==============
-
-AF_RXRPC sockets support a few socket options at the SOL_RXRPC level:
-
- (*) RXRPC_SECURITY_KEY
-
-     This is used to specify the description of the key to be used.  The key is
-     extracted from the calling process's keyrings with request_key() and
-     should be of "rxrpc" type.
-
-     The optval pointer points to the description string, and optlen indicates
-     how long the string is, without the NUL terminator.
-
- (*) RXRPC_SECURITY_KEYRING
-
-     Similar to above but specifies a keyring of server secret keys to use (key
-     type "keyring").  See the "Security" section.
-
- (*) RXRPC_EXCLUSIVE_CONNECTION
-
-     This is used to request that new connections should be used for each call
-     made subsequently on this socket.  optval should be NULL and optlen 0.
-
- (*) RXRPC_MIN_SECURITY_LEVEL
-
-     This is used to specify the minimum security level required for calls on
-     this socket.  optval must point to an int containing one of the following
-     values:
-
-     (a) RXRPC_SECURITY_PLAIN
-
-     	 Encrypted checksum only.
-
-     (b) RXRPC_SECURITY_AUTH
-
-     	 Encrypted checksum plus packet padded and first eight bytes of packet
-     	 encrypted - which includes the actual packet length.
-
-     (c) RXRPC_SECURITY_ENCRYPTED
-
-     	 Encrypted checksum plus entire packet padded and encrypted, including
-     	 actual packet length.
-
-
-========
-SECURITY
-========
-
-Currently, only the kerberos 4 equivalent protocol has been implemented
-(security index 2 - rxkad).  This requires the rxkad module to be loaded and,
-on the client, tickets of the appropriate type to be obtained from the AFS
-kaserver or the kerberos server and installed as "rxrpc" type keys.  This is
-normally done using the klog program.  An example simple klog program can be
-found at:
-
-	http://people.redhat.com/~dhowells/rxrpc/klog.c
-
-The payload provided to add_key() on the client should be of the following
-form:
-
-	struct rxrpc_key_sec2_v1 {
-		uint16_t	security_index;	/* 2 */
-		uint16_t	ticket_length;	/* length of ticket[] */
-		uint32_t	expiry;		/* time at which expires */
-		uint8_t		kvno;		/* key version number */
-		uint8_t		__pad[3];
-		uint8_t		session_key[8];	/* DES session key */
-		uint8_t		ticket[0];	/* the encrypted ticket */
-	};
-
-Where the ticket blob is just appended to the above structure.
-
-
-For the server, keys of type "rxrpc_s" must be made available to the server.
-They have a description of "<serviceID>:<securityIndex>" (eg: "52:2" for an
-rxkad key for the AFS VL service).  When such a key is created, it should be
-given the server's secret key as the instantiation data (see the example
-below).
-
-	add_key("rxrpc_s", "52:2", secret_key, 8, keyring);
-
-A keyring is passed to the server socket by naming it in a sockopt.  The server
-socket then looks the server secret keys up in this keyring when secure
-incoming connections are made.  This can be seen in an example program that can
-be found at:
-
-	http://people.redhat.com/~dhowells/rxrpc/listen.c
-
-
-====================
-EXAMPLE CLIENT USAGE
-====================
-
-A client would issue an operation by:
-
- (1) An RxRPC socket is set up by:
-
-	client = socket(AF_RXRPC, SOCK_DGRAM, PF_INET);
-
-     Where the third parameter indicates the protocol family of the transport
-     socket used - usually IPv4 but it can also be IPv6 [TODO].
-
- (2) A local address can optionally be bound:
-
-	struct sockaddr_rxrpc srx = {
-		.srx_family	= AF_RXRPC,
-		.srx_service	= 0,  /* we're a client */
-		.transport_type	= SOCK_DGRAM,	/* type of transport socket */
-		.transport.sin_family	= AF_INET,
-		.transport.sin_port	= htons(7000), /* AFS callback */
-		.transport.sin_address	= 0,  /* all local interfaces */
-	};
-	bind(client, &srx, sizeof(srx));
-
-     This specifies the local UDP port to be used.  If not given, a random
-     non-privileged port will be used.  A UDP port may be shared between
-     several unrelated RxRPC sockets.  Security is handled on a basis of
-     per-RxRPC virtual connection.
-
- (3) The security is set:
-
-	const char *key = "AFS:cambridge.redhat.com";
-	setsockopt(client, SOL_RXRPC, RXRPC_SECURITY_KEY, key, strlen(key));
-
-     This issues a request_key() to get the key representing the security
-     context.  The minimum security level can be set:
-
-	unsigned int sec = RXRPC_SECURITY_ENCRYPTED;
-	setsockopt(client, SOL_RXRPC, RXRPC_MIN_SECURITY_LEVEL,
-		   &sec, sizeof(sec));
-
- (4) The server to be contacted can then be specified (alternatively this can
-     be done through sendmsg):
-
-	struct sockaddr_rxrpc srx = {
-		.srx_family	= AF_RXRPC,
-		.srx_service	= VL_SERVICE_ID,
-		.transport_type	= SOCK_DGRAM,	/* type of transport socket */
-		.transport.sin_family	= AF_INET,
-		.transport.sin_port	= htons(7005), /* AFS volume manager */
-		.transport.sin_address	= ...,
-	};
-	connect(client, &srx, sizeof(srx));
-
- (5) The request data should then be posted to the server socket using a series
-     of sendmsg() calls, each with the following control message attached:
-
-	RXRPC_USER_CALL_ID	- specifies the user ID for this call
-
-     MSG_MORE should be set in msghdr::msg_flags on all but the last part of
-     the request.  Multiple requests may be made simultaneously.
-
-     If a call is intended to go to a destination other then the default
-     specified through connect(), then msghdr::msg_name should be set on the
-     first request message of that call.
-
- (6) The reply data will then be posted to the server socket for recvmsg() to
-     pick up.  MSG_MORE will be flagged by recvmsg() if there's more reply data
-     for a particular call to be read.  MSG_EOR will be set on the terminal
-     read for a call.
-
-     All data will be delivered with the following control message attached:
-
-	RXRPC_USER_CALL_ID	- specifies the user ID for this call
-
-     If an abort or error occurred, this will be returned in the control data
-     buffer instead, and MSG_EOR will be flagged to indicate the end of that
-     call.
-
-
-====================
-EXAMPLE SERVER USAGE
-====================
-
-A server would be set up to accept operations in the following manner:
-
- (1) An RxRPC socket is created by:
-
-	server = socket(AF_RXRPC, SOCK_DGRAM, PF_INET);
-
-     Where the third parameter indicates the address type of the transport
-     socket used - usually IPv4.
-
- (2) Security is set up if desired by giving the socket a keyring with server
-     secret keys in it:
-
-	keyring = add_key("keyring", "AFSkeys", NULL, 0,
-			  KEY_SPEC_PROCESS_KEYRING);
-
-	const char secret_key[8] = {
-		0xa7, 0x83, 0x8a, 0xcb, 0xc7, 0x83, 0xec, 0x94 };
-	add_key("rxrpc_s", "52:2", secret_key, 8, keyring);
-
-	setsockopt(server, SOL_RXRPC, RXRPC_SECURITY_KEYRING, "AFSkeys", 7);
-
-     The keyring can be manipulated after it has been given to the socket. This
-     permits the server to add more keys, replace keys, etc. whilst it is live.
-
- (2) A local address must then be bound:
-
-	struct sockaddr_rxrpc srx = {
-		.srx_family	= AF_RXRPC,
-		.srx_service	= VL_SERVICE_ID, /* RxRPC service ID */
-		.transport_type	= SOCK_DGRAM,	/* type of transport socket */
-		.transport.sin_family	= AF_INET,
-		.transport.sin_port	= htons(7000), /* AFS callback */
-		.transport.sin_address	= 0,  /* all local interfaces */
-	};
-	bind(server, &srx, sizeof(srx));
-
- (3) The server is then set to listen out for incoming calls:
-
-	listen(server, 100);
-
- (4) The kernel notifies the server of pending incoming connections by sending
-     it a message for each.  This is received with recvmsg() on the server
-     socket.  It has no data, and has a single dataless control message
-     attached:
-
-	RXRPC_NEW_CALL
-
-     The address that can be passed back by recvmsg() at this point should be
-     ignored since the call for which the message was posted may have gone by
-     the time it is accepted - in which case the first call still on the queue
-     will be accepted.
-
- (5) The server then accepts the new call by issuing a sendmsg() with two
-     pieces of control data and no actual data:
-
-	RXRPC_ACCEPT		- indicate connection acceptance
-	RXRPC_USER_CALL_ID	- specify user ID for this call
-
- (6) The first request data packet will then be posted to the server socket for
-     recvmsg() to pick up.  At that point, the RxRPC address for the call can
-     be read from the address fields in the msghdr struct.
-
-     Subsequent request data will be posted to the server socket for recvmsg()
-     to collect as it arrives.  All but the last piece of the request data will
-     be delivered with MSG_MORE flagged.
-
-     All data will be delivered with the following control message attached:
-
-	RXRPC_USER_CALL_ID	- specifies the user ID for this call
-
- (8) The reply data should then be posted to the server socket using a series
-     of sendmsg() calls, each with the following control messages attached:
-
-	RXRPC_USER_CALL_ID	- specifies the user ID for this call
-
-     MSG_MORE should be set in msghdr::msg_flags on all but the last message
-     for a particular call.
-
- (9) The final ACK from the client will be posted for retrieval by recvmsg()
-     when it is received.  It will take the form of a dataless message with two
-     control messages attached:
-
-	RXRPC_USER_CALL_ID	- specifies the user ID for this call
-	RXRPC_ACK		- indicates final ACK (no data)
-
-     MSG_EOR will be flagged to indicate that this is the final message for
-     this call.
-
-(10) Up to the point the final packet of reply data is sent, the call can be
-     aborted by calling sendmsg() with a dataless message with the following
-     control messages attached:
-
-	RXRPC_USER_CALL_ID	- specifies the user ID for this call
-	RXRPC_ABORT		- indicates abort code (4 byte data)
-
-     Any packets waiting in the socket's receive queue will be discarded if
-     this is issued.
-
-Note that all the communications for a particular service take place through
-the one server socket, using control messages on sendmsg() and recvmsg() to
-determine the call affected.
+Make the in-kernel AFS filesystem use AF_RXRPC instead of the old RxRPC=
+ code.
 
 Signed-Off-By: David Howells <dhowells@redhat.com>
 ---
 
- Documentation/networking/rxrpc.txt |  663 +++++++++++++++++++
- include/keys/rxrpc-type.h          |   22 +
- include/linux/net.h                |    2 
- include/linux/rxrpc.h              |   62 ++
- include/linux/socket.h             |    5 
- include/net/af_rxrpc.h             |   17 
- include/rxrpc/packet.h             |   85 ++
- net/Kconfig                        |    1 
- net/Makefile                       |    1 
- net/core/sock.c                    |    6 
- net/rxrpc/Kconfig                  |   37 +
- net/rxrpc/Makefile                 |   31 +
- net/rxrpc/af_rxrpc.c               |  754 ++++++++++++++++++++++
- net/rxrpc/ar-accept.c              |  399 +++++++++++
- net/rxrpc/ar-ack.c                 | 1250 ++++++++++++++++++++++++++++++++++++
- net/rxrpc/ar-call.c                |  787 +++++++++++++++++++++++
- net/rxrpc/ar-connection.c          |  895 ++++++++++++++++++++++++++
- net/rxrpc/ar-connevent.c           |  387 +++++++++++
- net/rxrpc/ar-error.c               |  253 +++++++
- net/rxrpc/ar-input.c               |  791 +++++++++++++++++++++++
- net/rxrpc/ar-internal.h            |  842 ++++++++++++++++++++++++
- net/rxrpc/ar-key.c                 |  334 ++++++++++
- net/rxrpc/ar-local.c               |  309 +++++++++
- net/rxrpc/ar-output.c              |  658 +++++++++++++++++++
- net/rxrpc/ar-peer.c                |  273 ++++++++
- net/rxrpc/ar-proc.c                |  247 +++++++
- net/rxrpc/ar-recvmsg.c             |  366 +++++++++++
- net/rxrpc/ar-security.c            |  258 +++++++
- net/rxrpc/ar-skbuff.c              |  118 +++
- net/rxrpc/ar-transport.c           |  276 ++++++++
- net/rxrpc/rxkad.c                  | 1153 +++++++++++++++++++++++++++++++++
- 31 files changed, 11275 insertions(+), 7 deletions(-)
+ fs/Kconfig          |   13 +
+ fs/afs/Makefile     |    3=20
+ fs/afs/afs.h        |  105 +++++
+ fs/afs/afs_cm.h     |   28 +
+ fs/afs/afs_fs.h     |   41 ++
+ fs/afs/afs_vl.h     |   84 ++++
+ fs/afs/cache.c      |  256 +++++++++++
+ fs/afs/callback.c   |  469 ++++++++++++++++-----
+ fs/afs/cell.c       |  344 +++------------
+ fs/afs/cell.h       |   70 ---
+ fs/afs/cmservice.c  |  781 ++++++++++-------------------------
+ fs/afs/cmservice.h  |   28 -
+ fs/afs/dir.c        |  286 ++++++++-----
+ fs/afs/errors.h     |   36 --
+ fs/afs/file.c       |   39 --
+ fs/afs/fsclient.c   | 1042 ++++++++++++++-----------------------------=
+---
+ fs/afs/fsclient.h   |   54 --
+ fs/afs/inode.c      |  107 ++---
+ fs/afs/internal.h   |  599 ++++++++++++++++++++++++--
+ fs/afs/kafsasyncd.c |  247 -----------
+ fs/afs/kafsasyncd.h |   50 --
+ fs/afs/kafstimod.c  |  194 ---------
+ fs/afs/kafstimod.h  |   45 --
+ fs/afs/main.c       |  135 +-----
+ fs/afs/misc.c       |   11=20
+ fs/afs/mntpt.c      |  106 +++--
+ fs/afs/mount.h      |   23 -
+ fs/afs/proc.c       |   73 ++-
+ fs/afs/rxrpc.c      |  666 +++++++++++++++++++++++++++++
+ fs/afs/server.c     |  624 ++++++++++------------------
+ fs/afs/server.h     |   97 ----
+ fs/afs/super.c      |  106 ++---
+ fs/afs/super.h      |   39 --
+ fs/afs/transport.h  |   21 -
+ fs/afs/types.h      |  109 -----
+ fs/afs/vlclient.c   |  709 +++++--------------------------
+ fs/afs/vlclient.h   |   85 ----
+ fs/afs/vlocation.c  | 1153 +++++++++++++++++++++----------------------=
+--------
+ fs/afs/vnode.c      |  388 +++++++++--------
+ fs/afs/vnode.h      |   84 ----
+ fs/afs/volume.c     |  141 ++----
+ fs/afs/volume.h     |  126 ------
+ 42 files changed, 4194 insertions(+), 5423 deletions(-)
 
-diff --git a/Documentation/networking/rxrpc.txt b/Documentation/networking/rxrpc.txt
-new file mode 100644
-index 0000000..fb809b7
---- /dev/null
-+++ b/Documentation/networking/rxrpc.txt
-@@ -0,0 +1,663 @@
-+			    ======================
-+			    RxRPC NETWORK PROTOCOL
-+			    ======================
-+
-+The RxRPC protocol driver provides a reliable two-phase transport on top of UDP
-+that can be used to perform RxRPC remote operations.  This is done over sockets
-+of AF_RXRPC family, using sendmsg() and recvmsg() with control data to send and
-+receive data, aborts and errors.
-+
-+Contents of this document:
-+
-+ (*) Overview.
-+
-+ (*) RxRPC protocol summary.
-+
-+ (*) AF_RXRPC driver model.
-+
-+ (*) Control messages.
-+
-+ (*) Socket options.
-+
-+ (*) Security.
-+
-+ (*) Example client usage.
-+
-+ (*) Example server usage.
-+
-+
-+========
-+OVERVIEW
-+========
-+
-+RxRPC is a two-layer protocol.  There is a session layer which provides
-+reliable virtual connections using UDP over IPv4 (or IPv6) as the transport
-+layer, but implements a real network protocol; and there's the presentation
-+layer which renders structured data to binary blobs and back again using XDR
-+(as does SunRPC):
-+
-+		+-------------+
-+		| Application |
-+		+-------------+
-+		|     XDR     |		Presentation
-+		+-------------+
-+		|    RxRPC    |		Session
-+		+-------------+
-+		|     UDP     |		Transport
-+		+-------------+
-+
-+
-+AF_RXRPC provides:
-+
-+ (1) Part of an RxRPC facility for both kernel and userspace applications by
-+     making the session part of it a Linux network protocol (AF_RXRPC).
-+
-+ (2) A two-phase protocol.  The client transmits a blob (the request) and then
-+     receives a blob (the reply), and the server receives the request and then
-+     transmits the reply.
-+
-+ (3) Retention of the reusable bits of the transport system set up for one call
-+     to speed up subsequent calls.
-+
-+ (4) A secure protocol, using the Linux kernel's key retention facility to
-+     manage security on the client end.  The server end must of necessity be
-+     more active in security negotiations.
-+
-+AF_RXRPC does not provide XDR marshalling/presentation facilities.  That is
-+left to the application.  AF_RXRPC only deals in blobs.  Even the operation ID
-+is just the first four bytes of the request blob, and as such is beyond the
-+kernel's interest.
-+
-+
-+Sockets of AF_RXRPC family are:
-+
-+ (1) created as type SOCK_DGRAM;
-+
-+ (2) provided with a protocol of the type of underlying transport they're going
-+     to use - currently only PF_INET is supported.
-+
-+
-+The Andrew File System (AFS) is an example of an application that uses this and
-+that has both kernel (filesystem) and userspace (utility) components.
-+
-+
-+======================
-+RXRPC PROTOCOL SUMMARY
-+======================
-+
-+An overview of the RxRPC protocol:
-+
-+ (*) RxRPC sits on top of another networking protocol (UDP is the only option
-+     currently), and uses this to provide network transport.  UDP ports, for
-+     example, provide transport endpoints.
-+
-+ (*) RxRPC supports multiple virtual "connections" from any given transport
-+     endpoint, thus allowing the endpoints to be shared, even to the same
-+     remote endpoint.
-+
-+ (*) Each connection goes to a particular "service".  A connection may not go
-+     to multiple services.  A service may be considered the RxRPC equivalent of
-+     a port number.  AF_RXRPC permits multiple services to share an endpoint.
-+
-+ (*) Client-originating packets are marked, thus a transport endpoint can be
-+     shared between client and server connections (connections have a
-+     direction).
-+
-+ (*) Up to a billion connections may be supported concurrently between one
-+     local transport endpoint and one service on one remote endpoint.  An RxRPC
-+     connection is described by seven numbers:
-+
-+	Local address	}
-+	Local port	} Transport (UDP) address
-+	Remote address	}
-+	Remote port	}
-+	Direction
-+	Connection ID
-+	Service ID
-+
-+ (*) Each RxRPC operation is a "call".  A connection may make up to four
-+     billion calls, but only up to four calls may be in progress on a
-+     connection at any one time.
-+
-+ (*) Calls are two-phase and asymmetric: the client sends its request data,
-+     which the service receives; then the service transmits the reply data
-+     which the client receives.
-+
-+ (*) The data blobs are of indefinite size, the end of a phase is marked with a
-+     flag in the packet.  The number of packets of data making up one blob may
-+     not exceed 4 billion, however, as this would cause the sequence number to
-+     wrap.
-+
-+ (*) The first four bytes of the request data are the service operation ID.
-+
-+ (*) Security is negotiated on a per-connection basis.  The connection is
-+     initiated by the first data packet on it arriving.  If security is
-+     requested, the server then issues a "challenge" and then the client
-+     replies with a "response".  If the response is successful, the security is
-+     set for the lifetime of that connection, and all subsequent calls made
-+     upon it use that same security.  In the event that the server lets a
-+     connection lapse before the client, the security will be renegotiated if
-+     the client uses the connection again.
-+
-+ (*) Calls use ACK packets to handle reliability.  Data packets are also
-+     explicitly sequenced per call.
-+
-+ (*) There are two types of positive acknowledgement: hard-ACKs and soft-ACKs.
-+     A hard-ACK indicates to the far side that all the data received to a point
-+     has been received and processed; a soft-ACK indicates that the data has
-+     been received but may yet be discarded and re-requested.  The sender may
-+     not discard any transmittable packets until they've been hard-ACK'd.
-+
-+ (*) Reception of a reply data packet implicitly hard-ACK's all the data
-+     packets that make up the request.
-+
-+ (*) An call is complete when the request has been sent, the reply has been
-+     received and the final hard-ACK on the last packet of the reply has
-+     reached the server.
-+
-+ (*) An call may be aborted by either end at any time up to its completion.
-+
-+
-+=====================
-+AF_RXRPC DRIVER MODEL
-+=====================
-+
-+About the AF_RXRPC driver:
-+
-+ (*) The AF_RXRPC protocol transparently uses internal sockets of the transport
-+     protocol to represent transport endpoints.
-+
-+ (*) AF_RXRPC sockets map onto RxRPC connection bundles.  Actual RxRPC
-+     connections are handled transparently.  One client socket may be used to
-+     make multiple simultaneous calls to the same service.  One server socket
-+     may handle calls from many clients.
-+
-+ (*) Additional parallel client connections will be initiated to support extra
-+     concurrent calls, up to a tunable limit.
-+
-+ (*) Each connection is retained for a certain amount of time [tunable] after
-+     the last call currently using it has completed in case a new call is made
-+     that could reuse it.
-+
-+ (*) Each internal UDP socket is retained [tunable] for a certain amount of
-+     time [tunable] after the last connection using it discarded, in case a new
-+     connection is made that could use it.
-+
-+ (*) A client-side connection is only shared between calls if they have have
-+     the same key struct describing their security (and assuming the calls
-+     would otherwise share the connection).  Non-secured calls would also be
-+     able to share connections with each other.
-+
-+ (*) A server-side connection is shared if the client says it is.
-+
-+ (*) ACK'ing is handled by the protocol driver automatically, including ping
-+     replying.
-+
-+ (*) SO_KEEPALIVE automatically pings the other side to keep the connection
-+     alive [TODO].
-+
-+ (*) If an ICMP error is received, all calls affected by that error will be
-+     aborted with an appropriate network error passed through recvmsg().
-+
-+
-+Interaction with the user of the RxRPC socket:
-+
-+ (*) A socket is made into a server socket by binding an address with a
-+     non-zero service ID.
-+
-+ (*) In the client, sending a request is achieved with one or more sendmsgs,
-+     followed by the reply being received with one or more recvmsgs.
-+
-+ (*) The first sendmsg for a request to be sent from a client contains a tag to
-+     be used in all other sendmsgs or recvmsgs associated with that call.  The
-+     tag is carried in the control data.
-+
-+ (*) connect() is used to supply a default destination address for a client
-+     socket.  This may be overridden by supplying an alternate address to the
-+     first sendmsg() of a call (struct msghdr::msg_name).
-+
-+ (*) If connect() is called on an unbound client, a random local port will
-+     bound before the operation takes place.
-+
-+ (*) A server socket may also be used to make client calls.  To do this, the
-+     first sendmsg() of the call must specify the target address.  The server's
-+     transport endpoint is used to send the packets.
-+
-+ (*) Once the application has received the last message associated with a call,
-+     the tag is guaranteed not to be seen again, and so it can be used to pin
-+     client resources.  A new call can then be initiated with the same tag
-+     without fear of interference.
-+
-+ (*) In the server, a request is received with one or more recvmsgs, then the
-+     the reply is transmitted with one or more sendmsgs, and then the final ACK
-+     is received with a last recvmsg.
-+
-+ (*) When sending data for a call, sendmsg is given MSG_MORE if there's more
-+     data to come on that call.
-+
-+ (*) When receiving data for a call, recvmsg flags MSG_MORE if there's more
-+     data to come for that call.
-+
-+ (*) When receiving data or messages for a call, MSG_EOR is flagged by recvmsg
-+     to indicate the terminal message for that call.
-+
-+ (*) A call may be aborted by adding an abort control message to the control
-+     data.  Issuing an abort terminates the kernel's use of that call's tag.
-+     Any messages waiting in the receive queue for that call will be discarded.
-+
-+ (*) Aborts, busy notifications and challenge packets are delivered by recvmsg,
-+     and control data messages will be set to indicate the context.  Receiving
-+     an abort or a busy message terminates the kernel's use of that call's tag.
-+
-+ (*) The control data part of the msghdr struct is used for a number of things:
-+
-+     (*) The tag of the intended or affected call.
-+
-+     (*) Sending or receiving errors, aborts and busy notifications.
-+
-+     (*) Notifications of incoming calls.
-+
-+     (*) Sending debug requests and receiving debug replies [TODO].
-+
-+ (*) When the kernel has received and set up an incoming call, it sends a
-+     message to server application to let it know there's a new call awaiting
-+     its acceptance [recvmsg reports a special control message].  The server
-+     application then uses sendmsg to assign a tag to the new call.  Once that
-+     is done, the first part of the request data will be delivered by recvmsg.
-+
-+ (*) The server application has to provide the server socket with a keyring of
-+     secret keys corresponding to the security types it permits.  When a secure
-+     connection is being set up, the kernel looks up the appropriate secret key
-+     in the keyring and then sends a challenge packet to the client and
-+     receives a response packet.  The kernel then checks the authorisation of
-+     the packet and either aborts the connection or sets up the security.
-+
-+ (*) The name of the key a client will use to secure its communications is
-+     nominated by a socket option.
-+
-+
-+Notes on recvmsg:
-+
-+ (*) If there's a sequence of data messages belonging to a particular call on
-+     the receive queue, then recvmsg will keep working through them until:
-+
-+     (a) it meets the end of that call's received data,
-+
-+     (b) it meets a non-data message,
-+
-+     (c) it meets a message belonging to a different call, or
-+
-+     (d) it fills the user buffer.
-+
-+     If recvmsg is called in blocking mode, it will keep sleeping, awaiting the
-+     reception of further data, until one of the above four conditions is met.
-+
-+ (2) MSG_PEEK operates similarly, but will return immediately if it has put any
-+     data in the buffer rather than sleeping until it can fill the buffer.
-+
-+ (3) If a data message is only partially consumed in filling a user buffer,
-+     then the remainder of that message will be left on the front of the queue
-+     for the next taker.  MSG_TRUNC will never be flagged.
-+
-+ (4) If there is more data to be had on a call (it hasn't copied the last byte
-+     of the last data message in that phase yet), then MSG_MORE will be
-+     flagged.
-+
-+
-+================
-+CONTROL MESSAGES
-+================
-+
-+AF_RXRPC makes use of control messages in sendmsg() and recvmsg() to multiplex
-+calls, to invoke certain actions and to report certain conditions.  These are:
-+
-+	MESSAGE ID		SRT DATA	MEANING
-+	=======================	=== ===========	===============================
-+	RXRPC_USER_CALL_ID	sr- User ID	App's call specifier
-+	RXRPC_ABORT		srt Abort code	Abort code to issue/received
-+	RXRPC_ACK		-rt n/a		Final ACK received
-+	RXRPC_NET_ERROR		-rt error num	Network error on call
-+	RXRPC_BUSY		-rt n/a		Call rejected (server busy)
-+	RXRPC_LOCAL_ERROR	-rt error num	Local error encountered
-+	RXRPC_NEW_CALL		-r- n/a		New call received
-+	RXRPC_ACCEPT		s-- n/a		Accept new call
-+
-+	(SRT = usable in Sendmsg / delivered by Recvmsg / Terminal message)
-+
-+ (*) RXRPC_USER_CALL_ID
-+
-+     This is used to indicate the application's call ID.  It's an unsigned long
-+     that the app specifies in the client by attaching it to the first data
-+     message or in the server by passing it in association with an RXRPC_ACCEPT
-+     message.  recvmsg() passes it in conjunction with all messages except
-+     those of the RXRPC_NEW_CALL message.
-+
-+ (*) RXRPC_ABORT
-+
-+     This is can be used by an application to abort a call by passing it to
-+     sendmsg, or it can be delivered by recvmsg to indicate a remote abort was
-+     received.  Either way, it must be associated with an RXRPC_USER_CALL_ID to
-+     specify the call affected.  If an abort is being sent, then error EBADSLT
-+     will be returned if there is no call with that user ID.
-+
-+ (*) RXRPC_ACK
-+
-+     This is delivered to a server application to indicate that the final ACK
-+     of a call was received from the client.  It will be associated with an
-+     RXRPC_USER_CALL_ID to indicate the call that's now complete.
-+
-+ (*) RXRPC_NET_ERROR
-+
-+     This is delivered to an application to indicate that an ICMP error message
-+     was encountered in the process of trying to talk to the peer.  An
-+     errno-class integer value will be included in the control message data
-+     indicating the problem, and an RXRPC_USER_CALL_ID will indicate the call
-+     affected.
-+
-+ (*) RXRPC_BUSY
-+
-+     This is delivered to a client application to indicate that a call was
-+     rejected by the server due to the server being busy.  It will be
-+     associated with an RXRPC_USER_CALL_ID to indicate the rejected call.
-+
-+ (*) RXRPC_LOCAL_ERROR
-+
-+     This is delivered to an application to indicate that a local error was
-+     encountered and that a call has been aborted because of it.  An
-+     errno-class integer value will be included in the control message data
-+     indicating the problem, and an RXRPC_USER_CALL_ID will indicate the call
-+     affected.
-+
-+ (*) RXRPC_NEW_CALL
-+
-+     This is delivered to indicate to a server application that a new call has
-+     arrived and is awaiting acceptance.  No user ID is associated with this,
-+     as a user ID must subsequently be assigned by doing an RXRPC_ACCEPT.
-+
-+ (*) RXRPC_ACCEPT
-+
-+     This is used by a server application to attempt to accept a call and
-+     assign it a user ID.  It should be associated with an RXRPC_USER_CALL_ID
-+     to indicate the user ID to be assigned.  If there is no call to be
-+     accepted (it may have timed out, been aborted, etc.), then sendmsg will
-+     return error ENODATA.  If the user ID is already in use by another call,
-+     then error EBADSLT will be returned.
-+
-+
-+==============
-+SOCKET OPTIONS
-+==============
-+
-+AF_RXRPC sockets support a few socket options at the SOL_RXRPC level:
-+
-+ (*) RXRPC_SECURITY_KEY
-+
-+     This is used to specify the description of the key to be used.  The key is
-+     extracted from the calling process's keyrings with request_key() and
-+     should be of "rxrpc" type.
-+
-+     The optval pointer points to the description string, and optlen indicates
-+     how long the string is, without the NUL terminator.
-+
-+ (*) RXRPC_SECURITY_KEYRING
-+
-+     Similar to above but specifies a keyring of server secret keys to use (key
-+     type "keyring").  See the "Security" section.
-+
-+ (*) RXRPC_EXCLUSIVE_CONNECTION
-+
-+     This is used to request that new connections should be used for each call
-+     made subsequently on this socket.  optval should be NULL and optlen 0.
-+
-+ (*) RXRPC_MIN_SECURITY_LEVEL
-+
-+     This is used to specify the minimum security level required for calls on
-+     this socket.  optval must point to an int containing one of the following
-+     values:
-+
-+     (a) RXRPC_SECURITY_PLAIN
-+
-+	 Encrypted checksum only.
-+
-+     (b) RXRPC_SECURITY_AUTH
-+
-+	 Encrypted checksum plus packet padded and first eight bytes of packet
-+	 encrypted - which includes the actual packet length.
-+
-+     (c) RXRPC_SECURITY_ENCRYPTED
-+
-+	 Encrypted checksum plus entire packet padded and encrypted, including
-+	 actual packet length.
-+
-+
-+========
-+SECURITY
-+========
-+
-+Currently, only the kerberos 4 equivalent protocol has been implemented
-+(security index 2 - rxkad).  This requires the rxkad module to be loaded and,
-+on the client, tickets of the appropriate type to be obtained from the AFS
-+kaserver or the kerberos server and installed as "rxrpc" type keys.  This is
-+normally done using the klog program.  An example simple klog program can be
-+found at:
-+
-+	http://people.redhat.com/~dhowells/rxrpc/klog.c
-+
-+The payload provided to add_key() on the client should be of the following
-+form:
-+
-+	struct rxrpc_key_sec2_v1 {
-+		uint16_t	security_index;	/* 2 */
-+		uint16_t	ticket_length;	/* length of ticket[] */
-+		uint32_t	expiry;		/* time at which expires */
-+		uint8_t		kvno;		/* key version number */
-+		uint8_t		__pad[3];
-+		uint8_t		session_key[8];	/* DES session key */
-+		uint8_t		ticket[0];	/* the encrypted ticket */
-+	};
-+
-+Where the ticket blob is just appended to the above structure.
-+
-+
-+For the server, keys of type "rxrpc_s" must be made available to the server.
-+They have a description of "<serviceID>:<securityIndex>" (eg: "52:2" for an
-+rxkad key for the AFS VL service).  When such a key is created, it should be
-+given the server's secret key as the instantiation data (see the example
-+below).
-+
-+	add_key("rxrpc_s", "52:2", secret_key, 8, keyring);
-+
-+A keyring is passed to the server socket by naming it in a sockopt.  The server
-+socket then looks the server secret keys up in this keyring when secure
-+incoming connections are made.  This can be seen in an example program that can
-+be found at:
-+
-+	http://people.redhat.com/~dhowells/rxrpc/listen.c
-+
-+
-+====================
-+EXAMPLE CLIENT USAGE
-+====================
-+
-+A client would issue an operation by:
-+
-+ (1) An RxRPC socket is set up by:
-+
-+	client = socket(AF_RXRPC, SOCK_DGRAM, PF_INET);
-+
-+     Where the third parameter indicates the protocol family of the transport
-+     socket used - usually IPv4 but it can also be IPv6 [TODO].
-+
-+ (2) A local address can optionally be bound:
-+
-+	struct sockaddr_rxrpc srx = {
-+		.srx_family	= AF_RXRPC,
-+		.srx_service	= 0,  /* we're a client */
-+		.transport_type	= SOCK_DGRAM,	/* type of transport socket */
-+		.transport.sin_family	= AF_INET,
-+		.transport.sin_port	= htons(7000), /* AFS callback */
-+		.transport.sin_address	= 0,  /* all local interfaces */
-+	};
-+	bind(client, &srx, sizeof(srx));
-+
-+     This specifies the local UDP port to be used.  If not given, a random
-+     non-privileged port will be used.  A UDP port may be shared between
-+     several unrelated RxRPC sockets.  Security is handled on a basis of
-+     per-RxRPC virtual connection.
-+
-+ (3) The security is set:
-+
-+	const char *key = "AFS:cambridge.redhat.com";
-+	setsockopt(client, SOL_RXRPC, RXRPC_SECURITY_KEY, key, strlen(key));
-+
-+     This issues a request_key() to get the key representing the security
-+     context.  The minimum security level can be set:
-+
-+	unsigned int sec = RXRPC_SECURITY_ENCRYPTED;
-+	setsockopt(client, SOL_RXRPC, RXRPC_MIN_SECURITY_LEVEL,
-+		   &sec, sizeof(sec));
-+
-+ (4) The server to be contacted can then be specified (alternatively this can
-+     be done through sendmsg):
-+
-+	struct sockaddr_rxrpc srx = {
-+		.srx_family	= AF_RXRPC,
-+		.srx_service	= VL_SERVICE_ID,
-+		.transport_type	= SOCK_DGRAM,	/* type of transport socket */
-+		.transport.sin_family	= AF_INET,
-+		.transport.sin_port	= htons(7005), /* AFS volume manager */
-+		.transport.sin_address	= ...,
-+	};
-+	connect(client, &srx, sizeof(srx));
-+
-+ (5) The request data should then be posted to the server socket using a series
-+     of sendmsg() calls, each with the following control message attached:
-+
-+	RXRPC_USER_CALL_ID	- specifies the user ID for this call
-+
-+     MSG_MORE should be set in msghdr::msg_flags on all but the last part of
-+     the request.  Multiple requests may be made simultaneously.
-+
-+     If a call is intended to go to a destination other then the default
-+     specified through connect(), then msghdr::msg_name should be set on the
-+     first request message of that call.
-+
-+ (6) The reply data will then be posted to the server socket for recvmsg() to
-+     pick up.  MSG_MORE will be flagged by recvmsg() if there's more reply data
-+     for a particular call to be read.  MSG_EOR will be set on the terminal
-+     read for a call.
-+
-+     All data will be delivered with the following control message attached:
-+
-+	RXRPC_USER_CALL_ID	- specifies the user ID for this call
-+
-+     If an abort or error occurred, this will be returned in the control data
-+     buffer instead, and MSG_EOR will be flagged to indicate the end of that
-+     call.
-+
-+
-+====================
-+EXAMPLE SERVER USAGE
-+====================
-+
-+A server would be set up to accept operations in the following manner:
-+
-+ (1) An RxRPC socket is created by:
-+
-+	server = socket(AF_RXRPC, SOCK_DGRAM, PF_INET);
-+
-+     Where the third parameter indicates the address type of the transport
-+     socket used - usually IPv4.
-+
-+ (2) Security is set up if desired by giving the socket a keyring with server
-+     secret keys in it:
-+
-+	keyring = add_key("keyring", "AFSkeys", NULL, 0,
-+			  KEY_SPEC_PROCESS_KEYRING);
-+
-+	const char secret_key[8] = {
-+		0xa7, 0x83, 0x8a, 0xcb, 0xc7, 0x83, 0xec, 0x94 };
-+	add_key("rxrpc_s", "52:2", secret_key, 8, keyring);
-+
-+	setsockopt(server, SOL_RXRPC, RXRPC_SECURITY_KEYRING, "AFSkeys", 7);
-+
-+     The keyring can be manipulated after it has been given to the socket. This
-+     permits the server to add more keys, replace keys, etc. whilst it is live.
-+
-+ (2) A local address must then be bound:
-+
-+	struct sockaddr_rxrpc srx = {
-+		.srx_family	= AF_RXRPC,
-+		.srx_service	= VL_SERVICE_ID, /* RxRPC service ID */
-+		.transport_type	= SOCK_DGRAM,	/* type of transport socket */
-+		.transport.sin_family	= AF_INET,
-+		.transport.sin_port	= htons(7000), /* AFS callback */
-+		.transport.sin_address	= 0,  /* all local interfaces */
-+	};
-+	bind(server, &srx, sizeof(srx));
-+
-+ (3) The server is then set to listen out for incoming calls:
-+
-+	listen(server, 100);
-+
-+ (4) The kernel notifies the server of pending incoming connections by sending
-+     it a message for each.  This is received with recvmsg() on the server
-+     socket.  It has no data, and has a single dataless control message
-+     attached:
-+
-+	RXRPC_NEW_CALL
-+
-+     The address that can be passed back by recvmsg() at this point should be
-+     ignored since the call for which the message was posted may have gone by
-+     the time it is accepted - in which case the first call still on the queue
-+     will be accepted.
-+
-+ (5) The server then accepts the new call by issuing a sendmsg() with two
-+     pieces of control data and no actual data:
-+
-+	RXRPC_ACCEPT		- indicate connection acceptance
-+	RXRPC_USER_CALL_ID	- specify user ID for this call
-+
-+ (6) The first request data packet will then be posted to the server socket for
-+     recvmsg() to pick up.  At that point, the RxRPC address for the call can
-+     be read from the address fields in the msghdr struct.
-+
-+     Subsequent request data will be posted to the server socket for recvmsg()
-+     to collect as it arrives.  All but the last piece of the request data will
-+     be delivered with MSG_MORE flagged.
-+
-+     All data will be delivered with the following control message attached:
-+
-+	RXRPC_USER_CALL_ID	- specifies the user ID for this call
-+
-+ (8) The reply data should then be posted to the server socket using a series
-+     of sendmsg() calls, each with the following control messages attached:
-+
-+	RXRPC_USER_CALL_ID	- specifies the user ID for this call
-+
-+     MSG_MORE should be set in msghdr::msg_flags on all but the last message
-+     for a particular call.
-+
-+ (9) The final ACK from the client will be posted for retrieval by recvmsg()
-+     when it is received.  It will take the form of a dataless message with two
-+     control messages attached:
-+
-+	RXRPC_USER_CALL_ID	- specifies the user ID for this call
-+	RXRPC_ACK		- indicates final ACK (no data)
-+
-+     MSG_EOR will be flagged to indicate that this is the final message for
-+     this call.
-+
-+(10) Up to the point the final packet of reply data is sent, the call can be
-+     aborted by calling sendmsg() with a dataless message with the following
-+     control messages attached:
-+
-+	RXRPC_USER_CALL_ID	- specifies the user ID for this call
-+	RXRPC_ABORT		- indicates abort code (4 byte data)
-+
-+     Any packets waiting in the socket's receive queue will be discarded if
-+     this is issued.
-+
-+Note that all the communications for a particular service take place through
-+the one server socket, using control messages on sendmsg() and recvmsg() to
-+determine the call affected.
-diff --git a/include/keys/rxrpc-type.h b/include/keys/rxrpc-type.h
-new file mode 100644
-index 0000000..e2ee73a
---- /dev/null
-+++ b/include/keys/rxrpc-type.h
-@@ -0,0 +1,22 @@
-+/* RxRPC key type
-+ *
-+ * Copyright (C) 2007 Red Hat, Inc. All Rights Reserved.
-+ * Written by David Howells (dhowells@redhat.com)
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version
-+ * 2 of the License, or (at your option) any later version.
-+ */
-+
-+#ifndef _KEYS_RXRPC_TYPE_H
-+#define _KEYS_RXRPC_TYPE_H
-+
-+#include <linux/key.h>
-+
-+/*
-+ * key type for AF_RXRPC keys
-+ */
-+extern struct key_type key_type_rxrpc;
-+
-+#endif /* _KEYS_USER_TYPE_H */
-diff --git a/include/linux/net.h b/include/linux/net.h
-index 4db21e6..efc4517 100644
---- a/include/linux/net.h
-+++ b/include/linux/net.h
-@@ -24,7 +24,7 @@
- struct poll_table_struct;
- struct inode;
- 
--#define NPROTO		33		/* should be enough for now..	*/
-+#define NPROTO		34		/* should be enough for now..	*/
- 
- #define SYS_SOCKET	1		/* sys_socket(2)		*/
- #define SYS_BIND	2		/* sys_bind(2)			*/
-diff --git a/include/linux/rxrpc.h b/include/linux/rxrpc.h
-new file mode 100644
-index 0000000..f7b826b
---- /dev/null
-+++ b/include/linux/rxrpc.h
-@@ -0,0 +1,62 @@
-+/* AF_RXRPC parameters
-+ *
-+ * Copyright (C) 2007 Red Hat, Inc. All Rights Reserved.
-+ * Written by David Howells (dhowells@redhat.com)
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version
-+ * 2 of the License, or (at your option) any later version.
-+ */
-+
-+#ifndef _LINUX_RXRPC_H
-+#define _LINUX_RXRPC_H
-+
-+#include <linux/in.h>
-+#include <linux/in6.h>
-+
-+/*
-+ * RxRPC socket address
-+ */
-+struct sockaddr_rxrpc {
-+	sa_family_t	srx_family;	/* address family */
-+	u16		srx_service;	/* service desired */
-+	u16		transport_type;	/* type of transport socket (SOCK_DGRAM) */
-+	u16		transport_len;	/* length of transport address */
-+	union {
-+		sa_family_t family;		/* transport address family */
-+		struct sockaddr_in sin;		/* IPv4 transport address */
-+		struct sockaddr_in6 sin6;	/* IPv6 transport address */
-+	} transport;
-+};
-+
-+/*
-+ * RxRPC socket options
-+ */
-+#define RXRPC_SECURITY_KEY		1	/* [clnt] set client security key */
-+#define RXRPC_SECURITY_KEYRING		2	/* [srvr] set ring of server security keys */
-+#define RXRPC_EXCLUSIVE_CONNECTION	3	/* [clnt] use exclusive RxRPC connection */
-+#define RXRPC_MIN_SECURITY_LEVEL	4	/* minimum security level */
-+
-+/*
-+ * RxRPC control messages
-+ * - terminal messages mean that a user call ID tag can be recycled
-+ */
-+#define RXRPC_USER_CALL_ID	1	/* user call ID specifier */
-+#define RXRPC_ABORT		2	/* abort request / notification [terminal] */
-+#define RXRPC_ACK		3	/* [Server] RPC op final ACK received [terminal] */
-+#define RXRPC_NET_ERROR		5	/* network error received [terminal] */
-+#define RXRPC_BUSY		6	/* server busy received [terminal] */
-+#define RXRPC_LOCAL_ERROR	7	/* local error generated [terminal] */
-+#define RXRPC_NEW_CALL		8	/* [Server] new incoming call notification */
-+#define RXRPC_ACCEPT		9	/* [Server] accept request */
-+
-+/*
-+ * RxRPC security levels
-+ */
-+#define RXRPC_SECURITY_PLAIN	0	/* plain secure-checksummed packets only */
-+#define RXRPC_SECURITY_AUTH	1	/* authenticated packets */
-+#define RXRPC_SECURITY_ENCRYPT	2	/* encrypted packets */
-+
-+
-+#endif /* _LINUX_RXRPC_H */
-diff --git a/include/linux/socket.h b/include/linux/socket.h
-index fcd35a2..6e7c948 100644
---- a/include/linux/socket.h
-+++ b/include/linux/socket.h
-@@ -188,7 +188,8 @@ struct ucred {
- #define AF_TIPC		30	/* TIPC sockets			*/
- #define AF_BLUETOOTH	31	/* Bluetooth sockets 		*/
- #define AF_IUCV		32	/* IUCV sockets			*/
--#define AF_MAX		33	/* For now.. */
-+#define AF_RXRPC	33	/* RxRPC sockets 		*/
-+#define AF_MAX		34	/* For now.. */
- 
- /* Protocol families, same as address families. */
- #define PF_UNSPEC	AF_UNSPEC
-@@ -222,6 +223,7 @@ struct ucred {
- #define PF_TIPC		AF_TIPC
- #define PF_BLUETOOTH	AF_BLUETOOTH
- #define PF_IUCV		AF_IUCV
-+#define PF_RXRPC	AF_RXRPC
- #define PF_MAX		AF_MAX
- 
- /* Maximum queue length specifiable by listen.  */
-@@ -284,6 +286,7 @@ struct ucred {
- #define SOL_DCCP	269
- #define SOL_NETLINK	270
- #define SOL_TIPC	271
-+#define SOL_RXRPC	272
- 
- /* IPX options */
- #define IPX_TYPE	1
-diff --git a/include/net/af_rxrpc.h b/include/net/af_rxrpc.h
-new file mode 100644
-index 0000000..b01ca25
---- /dev/null
-+++ b/include/net/af_rxrpc.h
-@@ -0,0 +1,17 @@
-+/* RxRPC definitions
-+ *
-+ * Copyright (C) 2006 Red Hat, Inc. All Rights Reserved.
-+ * Written by David Howells (dhowells@redhat.com)
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version
-+ * 2 of the License, or (at your option) any later version.
-+ */
-+
-+#ifndef _NET_RXRPC_H
-+#define _NET_RXRPC_H
-+
-+#include <linux/rxrpc.h>
-+
-+#endif /* _NET_RXRPC_H */
-diff --git a/include/rxrpc/packet.h b/include/rxrpc/packet.h
-index 1447f0a..452a9bb 100644
---- a/include/rxrpc/packet.h
-+++ b/include/rxrpc/packet.h
-@@ -33,7 +33,8 @@ struct rxrpc_header
- #define RXRPC_MAXCALLS		4			/* max active calls per conn */
- #define RXRPC_CHANNELMASK	(RXRPC_MAXCALLS-1)	/* mask for channel ID */
- #define RXRPC_CIDMASK		(~RXRPC_CHANNELMASK)	/* mask for connection ID */
--#define RXRPC_CIDSHIFT		2			/* shift for connection ID */
-+#define RXRPC_CIDSHIFT		ilog2(RXRPC_MAXCALLS)	/* shift for connection ID */
-+#define RXRPC_CID_INC		(1 << RXRPC_CIDSHIFT)	/* connection ID increment */
- 
- 	__be32		callNumber;	/* call ID (0 for connection-level packets) */
- #define RXRPC_PROCESS_MAXCALLS	(1<<2)	/* maximum number of active calls per conn (power of 2) */
-@@ -62,7 +63,10 @@ struct rxrpc_header
- 
- 	uint8_t		userStatus;	/* app-layer defined status */
- 	uint8_t		securityIndex;	/* security protocol ID */
--	__be16		_rsvd;		/* reserved (used by kerberos security as cksum) */
-+	union {
-+		__be16	_rsvd;		/* reserved */
-+		__be16	cksum;		/* kerberos security checksum */
-+	};
- 	__be16		serviceId;	/* service ID */
- 
- } __attribute__((packed));
-@@ -124,4 +128,81 @@ struct rxrpc_ackpacket
- 
- } __attribute__((packed));
- 
-+/*
-+ * ACK packets can have a further piece of information tagged on the end
-+ */
-+struct rxrpc_ackinfo {
-+	__be32		rxMTU;		/* maximum Rx MTU size (bytes) [AFS 3.3] */
-+	__be32		maxMTU;		/* maximum interface MTU size (bytes) [AFS 3.3] */
-+	__be32		rwind;		/* Rx window size (packets) [AFS 3.4] */
-+	__be32		jumbo_max;	/* max packets to stick into a jumbo packet [AFS 3.5] */
-+};
-+
-+/*****************************************************************************/
-+/*
-+ * Kerberos security type-2 challenge packet
-+ */
-+struct rxkad_challenge {
-+	__be32		version;	/* version of this challenge type */
-+	__be32		nonce;		/* encrypted random number */
-+	__be32		min_level;	/* minimum security level */
-+	__be32		__padding;	/* padding to 8-byte boundary */
-+} __attribute__((packed));
-+
-+/*****************************************************************************/
-+/*
-+ * Kerberos security type-2 response packet
-+ */
-+struct rxkad_response {
-+	__be32		version;	/* version of this reponse type */
-+	__be32		__pad;
-+
-+	/* encrypted bit of the response */
-+	struct {
-+		__be32		epoch;		/* current epoch */
-+		__be32		cid;		/* parent connection ID */
-+		__be32		checksum;	/* checksum */
-+		__be32		securityIndex;	/* security type */
-+		__be32		call_id[4];	/* encrypted call IDs */
-+		__be32		inc_nonce;	/* challenge nonce + 1 */
-+		__be32		level;		/* desired level */
-+	} encrypted;
-+
-+	__be32		kvno;		/* Kerberos key version number */
-+	__be32		ticket_len;	/* Kerberos ticket length  */
-+} __attribute__((packed));
-+
-+/*****************************************************************************/
-+/*
-+ * RxRPC-level abort codes
-+ */
-+#define RX_CALL_DEAD		-1	/* call/conn has been inactive and is shut down */
-+#define RX_INVALID_OPERATION	-2	/* invalid operation requested / attempted */
-+#define RX_CALL_TIMEOUT		-3	/* call timeout exceeded */
-+#define RX_EOF			-4	/* unexpected end of data on read op */
-+#define RX_PROTOCOL_ERROR	-5	/* low-level protocol error */
-+#define RX_USER_ABORT		-6	/* generic user abort */
-+#define RX_ADDRINUSE		-7	/* UDP port in use */
-+#define RX_DEBUGI_BADTYPE	-8	/* bad debugging packet type */
-+
-+/*
-+ * Rx kerberos security abort codes
-+ * - unfortunately we have no generalised security abort codes to say things
-+ *   like "unsupported security", so we have to use these instead and hope the
-+ *   other side understands
-+ */
-+#define RXKADINCONSISTENCY	19270400	/* security module structure inconsistent */
-+#define RXKADPACKETSHORT	19270401	/* packet too short for security challenge */
-+#define RXKADLEVELFAIL		19270402	/* security level negotiation failed */
-+#define RXKADTICKETLEN		19270403	/* ticket length too short or too long */
-+#define RXKADOUTOFSEQUENCE	19270404	/* packet had bad sequence number */
-+#define RXKADNOAUTH		19270405	/* caller not authorised */
-+#define RXKADBADKEY		19270406	/* illegal key: bad parity or weak */
-+#define RXKADBADTICKET		19270407	/* security object was passed a bad ticket */
-+#define RXKADUNKNOWNKEY		19270408	/* ticket contained unknown key version number */
-+#define RXKADEXPIRED		19270409	/* authentication expired */
-+#define RXKADSEALEDINCON	19270410	/* sealed data inconsistent */
-+#define RXKADDATALEN		19270411	/* user data too long */
-+#define RXKADILLEGALLEVEL	19270412	/* caller not authorised to use encrypted conns */
-+
- #endif /* _LINUX_RXRPC_PACKET_H */
-diff --git a/net/Kconfig b/net/Kconfig
-index ae1817d..2fc8e77 100644
---- a/net/Kconfig
-+++ b/net/Kconfig
-@@ -212,6 +212,7 @@ endmenu
- source "net/ax25/Kconfig"
- source "net/irda/Kconfig"
- source "net/bluetooth/Kconfig"
-+source "net/rxrpc/Kconfig"
- 
- config FIB_RULES
- 	bool
-diff --git a/net/Makefile b/net/Makefile
-index 29bbe19..6b74d41 100644
---- a/net/Makefile
-+++ b/net/Makefile
-@@ -38,6 +38,7 @@ obj-$(CONFIG_IRDA)		+= irda/
- obj-$(CONFIG_BT)		+= bluetooth/
- obj-$(CONFIG_SUNRPC)		+= sunrpc/
- obj-$(CONFIG_RXRPC)		+= rxrpc/
-+obj-$(CONFIG_AF_RXRPC)		+= rxrpc/
- obj-$(CONFIG_ATM)		+= atm/
- obj-$(CONFIG_DECNET)		+= decnet/
- obj-$(CONFIG_ECONET)		+= econet/
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 043bdc0..22183c2 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -154,7 +154,8 @@ static const char *af_family_key_strings[AF_MAX+1] = {
-   "sk_lock-21"       , "sk_lock-AF_SNA"      , "sk_lock-AF_IRDA"     ,
-   "sk_lock-AF_PPPOX" , "sk_lock-AF_WANPIPE"  , "sk_lock-AF_LLC"      ,
-   "sk_lock-27"       , "sk_lock-28"          , "sk_lock-29"          ,
--  "sk_lock-AF_TIPC"  , "sk_lock-AF_BLUETOOTH", "sk_lock-AF_MAX"
-+  "sk_lock-AF_TIPC"  , "sk_lock-AF_BLUETOOTH", "sk_lock-IUCV"        ,
-+  "sk_lock-AF_RXRPC" , "sk_lock-AF_MAX"
- };
- static const char *af_family_slock_key_strings[AF_MAX+1] = {
-   "slock-AF_UNSPEC", "slock-AF_UNIX"     , "slock-AF_INET"     ,
-@@ -167,7 +168,8 @@ static const char *af_family_slock_key_strings[AF_MAX+1] = {
-   "slock-21"       , "slock-AF_SNA"      , "slock-AF_IRDA"     ,
-   "slock-AF_PPPOX" , "slock-AF_WANPIPE"  , "slock-AF_LLC"      ,
-   "slock-27"       , "slock-28"          , "slock-29"          ,
--  "slock-AF_TIPC"  , "slock-AF_BLUETOOTH", "slock-AF_MAX"
-+  "slock-AF_TIPC"  , "slock-AF_BLUETOOTH", "slock-AF_IUCV"     ,
-+  "slock-AF_RXRPC" , "slock-AF_MAX"
- };
- #endif
- 
-diff --git a/net/rxrpc/Kconfig b/net/rxrpc/Kconfig
-new file mode 100644
-index 0000000..d72380e
---- /dev/null
-+++ b/net/rxrpc/Kconfig
-@@ -0,0 +1,37 @@
-+#
-+# RxRPC session sockets
-+#
-+
-+config AF_RXRPC
-+	tristate "RxRPC session sockets"
-+	depends on EXPERIMENTAL
-+	help
-+	  Say Y or M here to include support for RxRPC session sockets (just
-+	  the transport part, not the presentation part: (un)marshalling is
-+	  left to the application).
-+
-+	  These are used for AFS kernel filesystem and userspace utilities.
-+
-+	  This module at the moment only supports client operations and is
-+	  currently incomplete.
-+
-+	  See Documentation/networking/rxrpc.txt.
-+
-+
-+config AF_RXRPC_DEBUG
-+	bool "RxRPC dynamic debugging"
-+	depends on AF_RXRPC
+diff --git a/fs/Kconfig b/fs/Kconfig
+index 3c4886b..075c999 100644
+--- a/fs/Kconfig
++++ b/fs/Kconfig
+@@ -2019,7 +2019,7 @@ config CODA_FS_OLD_API
+ config AFS_FS
+ 	tristate "Andrew File System support (AFS) (EXPERIMENTAL)"
+ 	depends on INET && EXPERIMENTAL
+-	select RXRPC
++	select AF_RXRPC
+ 	help
+ 	  If you say Y here, you will get an experimental Andrew File System
+ 	  driver. It currently only supports unsecured read-only AFS access.
+@@ -2028,6 +2028,17 @@ config AFS_FS
+=20
+ 	  If unsure, say N.
+=20
++config AFS_DEBUG
++	bool "AFS dynamic debugging"
++	depends on AFS_FS
 +	help
 +	  Say Y here to make runtime controllable debugging messages appear.
 +
-+	  See Documentation/networking/rxrpc.txt.
++	  See <file:Documentation/filesystems/afs.txt> for more information.
++
++	  If unsure, say N.
 +
 +
-+config RXKAD
-+	tristate "RxRPC Kerberos security"
-+	depends on AF_RXRPC && KEYS
-+	help
-+	  Provide kerberos 4 and AFS kaserver security handling for AF_RXRPC
-+	  through the use of the key retention service.
-+
-+	  See Documentation/networking/rxrpc.txt.
-diff --git a/net/rxrpc/Makefile b/net/rxrpc/Makefile
-index 6efcb6f..07bf82f 100644
---- a/net/rxrpc/Makefile
-+++ b/net/rxrpc/Makefile
-@@ -4,6 +4,35 @@
- 
- #CFLAGS += -finstrument-functions
- 
-+af-rxrpc-objs := \
-+	af_rxrpc.o \
-+	ar-accept.o \
-+	ar-ack.o \
-+	ar-call.o \
-+	ar-connection.o \
-+	ar-connevent.o \
-+	ar-error.o \
-+	ar-input.o \
-+	ar-key.o \
-+	ar-local.o \
-+	ar-output.o \
-+	ar-peer.o \
-+	ar-recvmsg.o \
-+	ar-security.o \
-+	ar-skbuff.o \
-+	ar-transport.o
-+
-+ifeq ($(CONFIG_PROC_FS),y)
-+af-rxrpc-objs += ar-proc.o
-+endif
-+
-+obj-$(CONFIG_AF_RXRPC) += af-rxrpc.o
-+
-+obj-$(CONFIG_RXKAD) += rxkad.o
-+
-+#
-+# obsolete RxRPC interface, still used by fs/afs/
-+#
- rxrpc-objs := \
- 	call.o \
- 	connection.o \
-@@ -22,4 +51,4 @@ ifeq ($(CONFIG_SYSCTL),y)
- rxrpc-objs += sysctl.o
- endif
- 
--obj-$(CONFIG_RXRPC) := rxrpc.o
-+obj-$(CONFIG_RXRPC) += rxrpc.o
-diff --git a/net/rxrpc/af_rxrpc.c b/net/rxrpc/af_rxrpc.c
+ config RXRPC
+ 	tristate
+=20
+diff --git a/fs/afs/Makefile b/fs/afs/Makefile
+index 8e71973..66bdc21 100644
+--- a/fs/afs/Makefile
++++ b/fs/afs/Makefile
+@@ -10,12 +10,11 @@ kafs-objs :=3D \
+ 	file.o \
+ 	fsclient.o \
+ 	inode.o \
+-	kafsasyncd.o \
+-	kafstimod.o \
+ 	main.o \
+ 	misc.o \
+ 	mntpt.o \
+ 	proc.o \
++	rxrpc.o \
+ 	server.o \
+ 	super.o \
+ 	vlclient.o \
+diff --git a/fs/afs/afs.h b/fs/afs/afs.h
 new file mode 100644
-index 0000000..bfa8822
+index 0000000..0362e11
 --- /dev/null
-+++ b/net/rxrpc/af_rxrpc.c
-@@ -0,0 +1,754 @@
-+/* AF_RXRPC implementation
++++ b/fs/afs/afs.h
+@@ -0,0 +1,105 @@
++/* AFS common types
 + *
-+ * Copyright (C) 2007 Red Hat, Inc. All Rights Reserved.
++ * Copyright (C) 2002, 2007 Red Hat, Inc. All Rights Reserved.
 + * Written by David Howells (dhowells@redhat.com)
 + *
 + * This program is free software; you can redistribute it and/or
@@ -1825,1161 +139,108 @@ index 0000000..bfa8822
 + * 2 of the License, or (at your option) any later version.
 + */
 +
-+#include <linux/module.h>
-+#include <linux/net.h>
-+#include <linux/skbuff.h>
-+#include <linux/poll.h>
-+#include <linux/proc_fs.h>
-+#include <net/sock.h>
-+#include <net/af_rxrpc.h>
-+#include "ar-internal.h"
++#ifndef AFS_H
++#define AFS_H
 +
-+MODULE_DESCRIPTION("RxRPC network protocol");
-+MODULE_AUTHOR("Red Hat, Inc.");
-+MODULE_LICENSE("GPL");
-+MODULE_ALIAS_NETPROTO(PF_RXRPC);
-+
-+unsigned rxrpc_debug; // = RXRPC_DEBUG_KPROTO;
-+module_param_named(debug, rxrpc_debug, uint, S_IWUSR | S_IRUGO);
-+MODULE_PARM_DESC(rxrpc_debug, "RxRPC debugging mask");
-+
-+static int sysctl_rxrpc_max_qlen __read_mostly = 10;
-+
-+static struct proto rxrpc_proto;
-+static const struct proto_ops rxrpc_rpc_ops;
-+
-+/* local epoch for detecting local-end reset */
-+__be32 rxrpc_epoch;
-+
-+/* current debugging ID */
-+atomic_t rxrpc_debug_id;
-+
-+/* count of skbs currently in use */
-+atomic_t rxrpc_n_skbs;
-+
-+static void rxrpc_sock_destructor(struct sock *);
-+
-+/*
-+ * see if an RxRPC socket is currently writable
-+ */
-+static inline int rxrpc_writable(struct sock *sk)
-+{
-+	return atomic_read(&sk->sk_wmem_alloc) < (size_t) sk->sk_sndbuf;
-+}
-+
-+/*
-+ * wait for write bufferage to become available
-+ */
-+static void rxrpc_write_space(struct sock *sk)
-+{
-+	_enter("%p", sk);
-+	read_lock(&sk->sk_callback_lock);
-+	if (rxrpc_writable(sk)) {
-+		if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
-+			wake_up_interruptible(sk->sk_sleep);
-+		sk_wake_async(sk, 2, POLL_OUT);
-+	}
-+	read_unlock(&sk->sk_callback_lock);
-+}
-+
-+/*
-+ * validate an RxRPC address
-+ */
-+static int rxrpc_validate_address(struct rxrpc_sock *rx,
-+				  struct sockaddr_rxrpc *srx,
-+				  int len)
-+{
-+	if (len < sizeof(struct sockaddr_rxrpc))
-+		return -EINVAL;
-+
-+	if (srx->srx_family != AF_RXRPC)
-+		return -EAFNOSUPPORT;
-+
-+	if (srx->transport_type != SOCK_DGRAM)
-+		return -ESOCKTNOSUPPORT;
-+
-+	len -= offsetof(struct sockaddr_rxrpc, transport);
-+	if (srx->transport_len < sizeof(sa_family_t) ||
-+	    srx->transport_len > len)
-+		return -EINVAL;
-+
-+	if (srx->transport.family != rx->proto)
-+		return -EAFNOSUPPORT;
-+
-+	switch (srx->transport.family) {
-+	case AF_INET:
-+		_debug("INET: %x @ %u.%u.%u.%u",
-+		       ntohs(srx->transport.sin.sin_port),
-+		       NIPQUAD(srx->transport.sin.sin_addr));
-+		if (srx->transport_len > 8)
-+			memset((void *)&srx->transport + 8, 0,
-+			       srx->transport_len - 8);
-+		break;
-+
-+	case AF_INET6:
-+	default:
-+		return -EAFNOSUPPORT;
-+	}
-+
-+	return 0;
-+}
-+
-+/*
-+ * bind a local address to an RxRPC socket
-+ */
-+static int rxrpc_bind(struct socket *sock, struct sockaddr *saddr, int len)
-+{
-+	struct sockaddr_rxrpc *srx = (struct sockaddr_rxrpc *) saddr;
-+	struct sock *sk = sock->sk;
-+	struct rxrpc_local *local;
-+	struct rxrpc_sock *rx = rxrpc_sk(sk), *prx;
-+	__be16 service_id;
-+	int ret;
-+
-+	_enter("%p,%p,%d", rx, saddr, len);
-+
-+	ret = rxrpc_validate_address(rx, srx, len);
-+	if (ret < 0)
-+		goto error;
-+
-+	lock_sock(&rx->sk);
-+
-+	if (rx->sk.sk_state != RXRPC_UNCONNECTED) {
-+		ret = -EINVAL;
-+		goto error_unlock;
-+	}
-+
-+	memcpy(&rx->srx, srx, sizeof(rx->srx));
-+
-+	/* find a local transport endpoint if we don't have one already */
-+	local = rxrpc_lookup_local(&rx->srx);
-+	if (IS_ERR(local)) {
-+		ret = PTR_ERR(local);
-+		goto error_unlock;
-+	}
-+
-+	rx->local = local;
-+	if (srx->srx_service) {
-+		service_id = htons(srx->srx_service);
-+		write_lock_bh(&local->services_lock);
-+		list_for_each_entry(prx, &local->services, listen_link) {
-+			if (prx->service_id == service_id)
-+				goto service_in_use;
-+		}
-+
-+		rx->service_id = service_id;
-+		list_add_tail(&rx->listen_link, &local->services);
-+		write_unlock_bh(&local->services_lock);
-+
-+		rx->sk.sk_state = RXRPC_SERVER_BOUND;
-+	} else {
-+		rx->sk.sk_state = RXRPC_CLIENT_BOUND;
-+	}
-+
-+	release_sock(&rx->sk);
-+	_leave(" = 0");
-+	return 0;
-+
-+service_in_use:
-+	ret = -EADDRINUSE;
-+	write_unlock_bh(&local->services_lock);
-+error_unlock:
-+	release_sock(&rx->sk);
-+error:
-+	_leave(" = %d", ret);
-+	return ret;
-+}
-+
-+/*
-+ * set the number of pending calls permitted on a listening socket
-+ */
-+static int rxrpc_listen(struct socket *sock, int backlog)
-+{
-+	struct sock *sk = sock->sk;
-+	struct rxrpc_sock *rx = rxrpc_sk(sk);
-+	int ret;
-+
-+	_enter("%p,%d", rx, backlog);
-+
-+	lock_sock(&rx->sk);
-+
-+	switch (rx->sk.sk_state) {
-+	case RXRPC_UNCONNECTED:
-+		ret = -EADDRNOTAVAIL;
-+		break;
-+	case RXRPC_CLIENT_BOUND:
-+	case RXRPC_CLIENT_CONNECTED:
-+	default:
-+		ret = -EBUSY;
-+		break;
-+	case RXRPC_SERVER_BOUND:
-+		ASSERT(rx->local != NULL);
-+		sk->sk_max_ack_backlog = backlog;
-+		rx->sk.sk_state = RXRPC_SERVER_LISTENING;
-+		ret = 0;
-+		break;
-+	}
-+
-+	release_sock(&rx->sk);
-+	_leave(" = %d", ret);
-+	return ret;
-+}
-+
-+/*
-+ * find a transport by address
-+ */
-+static struct rxrpc_transport *rxrpc_name_to_transport(struct socket *sock,
-+						       struct sockaddr *addr,
-+						       int addr_len, int flags)
-+{
-+	struct sockaddr_rxrpc *srx = (struct sockaddr_rxrpc *) addr;
-+	struct rxrpc_transport *trans;
-+	struct rxrpc_sock *rx = rxrpc_sk(sock->sk);
-+	struct rxrpc_peer *peer;
-+
-+	_enter("%p,%p,%d,%d", rx, addr, addr_len, flags);
-+
-+	ASSERT(rx->local != NULL);
-+	ASSERT(rx->sk.sk_state > RXRPC_UNCONNECTED);
-+
-+	if (rx->srx.transport_type != srx->transport_type)
-+		return ERR_PTR(-ESOCKTNOSUPPORT);
-+	if (rx->srx.transport.family != srx->transport.family)
-+		return ERR_PTR(-EAFNOSUPPORT);
-+
-+	/* find a remote transport endpoint from the local one */
-+	peer = rxrpc_get_peer(srx, GFP_KERNEL);
-+	if (IS_ERR(peer))
-+		return ERR_PTR(PTR_ERR(peer));
-+
-+	/* find a transport */
-+	trans = rxrpc_get_transport(rx->local, peer, GFP_KERNEL);
-+	rxrpc_put_peer(peer);
-+	_leave(" = %p", trans);
-+	return trans;
-+}
-+
-+/*
-+ * connect an RxRPC socket
-+ * - this just targets it at a specific destination; no actual connection
-+ *   negotiation takes place
-+ */
-+static int rxrpc_connect(struct socket *sock, struct sockaddr *addr,
-+			 int addr_len, int flags)
-+{
-+	struct sockaddr_rxrpc *srx = (struct sockaddr_rxrpc *) addr;
-+	struct sock *sk = sock->sk;
-+	struct rxrpc_transport *trans;
-+	struct rxrpc_local *local;
-+	struct rxrpc_sock *rx = rxrpc_sk(sk);
-+	int ret;
-+
-+	_enter("%p,%p,%d,%d", rx, addr, addr_len, flags);
-+
-+	ret = rxrpc_validate_address(rx, srx, addr_len);
-+	if (ret < 0) {
-+		_leave(" = %d [bad addr]", ret);
-+		return ret;
-+	}
-+
-+	lock_sock(&rx->sk);
-+
-+	switch (rx->sk.sk_state) {
-+	case RXRPC_UNCONNECTED:
-+		/* find a local transport endpoint if we don't have one already */
-+		ASSERTCMP(rx->local, ==, NULL);
-+		rx->srx.srx_family = AF_RXRPC;
-+		rx->srx.srx_service = 0;
-+		rx->srx.transport_type = srx->transport_type;
-+		rx->srx.transport_len = sizeof(sa_family_t);
-+		rx->srx.transport.family = srx->transport.family;
-+		local = rxrpc_lookup_local(&rx->srx);
-+		if (IS_ERR(local)) {
-+			release_sock(&rx->sk);
-+			return PTR_ERR(local);
-+		}
-+		rx->local = local;
-+		rx->sk.sk_state = RXRPC_CLIENT_BOUND;
-+	case RXRPC_CLIENT_BOUND:
-+		break;
-+	case RXRPC_CLIENT_CONNECTED:
-+		release_sock(&rx->sk);
-+		return -EISCONN;
-+	default:
-+		release_sock(&rx->sk);
-+		return -EBUSY; /* server sockets can't connect as well */
-+	}
-+
-+	trans = rxrpc_name_to_transport(sock, addr, addr_len, flags);
-+	if (IS_ERR(trans)) {
-+		release_sock(&rx->sk);
-+		_leave(" = %ld", PTR_ERR(trans));
-+		return PTR_ERR(trans);
-+	}
-+
-+	rx->trans = trans;
-+	rx->service_id = htons(srx->srx_service);
-+	rx->sk.sk_state = RXRPC_CLIENT_CONNECTED;
-+
-+	release_sock(&rx->sk);
-+	return 0;
-+}
-+
-+/*
-+ * send a message through an RxRPC socket
-+ * - in a client this does a number of things:
-+ *   - finds/sets up a connection for the security specified (if any)
-+ *   - initiates a call (ID in control data)
-+ *   - ends the request phase of a call (if MSG_MORE is not set)
-+ *   - sends a call data packet
-+ *   - may send an abort (abort code in control data)
-+ */
-+static int rxrpc_sendmsg(struct kiocb *iocb, struct socket *sock,
-+			 struct msghdr *m, size_t len)
-+{
-+	struct rxrpc_transport *trans;
-+	struct rxrpc_sock *rx = rxrpc_sk(sock->sk);
-+	int ret;
-+
-+	_enter(",{%d},,%zu", rx->sk.sk_state, len);
-+
-+	if (m->msg_flags & MSG_OOB)
-+		return -EOPNOTSUPP;
-+
-+	if (m->msg_name) {
-+		ret = rxrpc_validate_address(rx, m->msg_name, m->msg_namelen);
-+		if (ret < 0) {
-+			_leave(" = %d [bad addr]", ret);
-+			return ret;
-+		}
-+	}
-+
-+	trans = NULL;
-+	lock_sock(&rx->sk);
-+
-+	if (m->msg_name) {
-+		ret = -EISCONN;
-+		trans = rxrpc_name_to_transport(sock, m->msg_name,
-+						m->msg_namelen, 0);
-+		if (IS_ERR(trans)) {
-+			ret = PTR_ERR(trans);
-+			trans = NULL;
-+			goto out;
-+		}
-+	} else {
-+		trans = rx->trans;
-+		if (trans)
-+			atomic_inc(&trans->usage);
-+	}
-+
-+	switch (rx->sk.sk_state) {
-+	case RXRPC_SERVER_LISTENING:
-+		if (!m->msg_name) {
-+			ret = rxrpc_server_sendmsg(iocb, rx, m, len);
-+			break;
-+		}
-+	case RXRPC_SERVER_BOUND:
-+	case RXRPC_CLIENT_BOUND:
-+		if (!m->msg_name) {
-+			ret = -ENOTCONN;
-+			break;
-+		}
-+	case RXRPC_CLIENT_CONNECTED:
-+		ret = rxrpc_client_sendmsg(iocb, rx, trans, m, len);
-+		break;
-+	default:
-+		ret = -ENOTCONN;
-+		break;
-+	}
-+
-+out:
-+	release_sock(&rx->sk);
-+	if (trans)
-+		rxrpc_put_transport(trans);
-+	_leave(" = %d", ret);
-+	return ret;
-+}
-+
-+/*
-+ * set RxRPC socket options
-+ */
-+static int rxrpc_setsockopt(struct socket *sock, int level, int optname,
-+			    char __user *optval, int optlen)
-+{
-+	struct rxrpc_sock *rx = rxrpc_sk(sock->sk);
-+	unsigned min_sec_level;
-+	int ret;
-+
-+	_enter(",%d,%d,,%d", level, optname, optlen);
-+
-+	lock_sock(&rx->sk);
-+	ret = -EOPNOTSUPP;
-+
-+	if (level == SOL_RXRPC) {
-+		switch (optname) {
-+		case RXRPC_EXCLUSIVE_CONNECTION:
-+			ret = -EINVAL;
-+			if (optlen != 0)
-+				goto error;
-+			ret = -EISCONN;
-+			if (rx->sk.sk_state != RXRPC_UNCONNECTED)
-+				goto error;
-+			set_bit(RXRPC_SOCK_EXCLUSIVE_CONN, &rx->flags);
-+			goto success;
-+
-+		case RXRPC_SECURITY_KEY:
-+			ret = -EINVAL;
-+			if (rx->key)
-+				goto error;
-+			ret = -EISCONN;
-+			if (rx->sk.sk_state != RXRPC_UNCONNECTED)
-+				goto error;
-+			ret = rxrpc_request_key(rx, optval, optlen);
-+			goto error;
-+
-+		case RXRPC_SECURITY_KEYRING:
-+			ret = -EINVAL;
-+			if (rx->key)
-+				goto error;
-+			ret = -EISCONN;
-+			if (rx->sk.sk_state != RXRPC_UNCONNECTED)
-+				goto error;
-+			ret = rxrpc_server_keyring(rx, optval, optlen);
-+			goto error;
-+
-+		case RXRPC_MIN_SECURITY_LEVEL:
-+			ret = -EINVAL;
-+			if (optlen != sizeof(unsigned))
-+				goto error;
-+			ret = -EISCONN;
-+			if (rx->sk.sk_state != RXRPC_UNCONNECTED)
-+				goto error;
-+			ret = get_user(min_sec_level,
-+				       (unsigned __user *) optval);
-+			if (ret < 0)
-+				goto error;
-+			ret = -EINVAL;
-+			if (min_sec_level > RXRPC_SECURITY_MAX)
-+				goto error;
-+			rx->min_sec_level = min_sec_level;
-+			goto success;
-+
-+		default:
-+			break;
-+		}
-+	}
-+
-+success:
-+	ret = 0;
-+error:
-+	release_sock(&rx->sk);
-+	return ret;
-+}
-+
-+/*
-+ * permit an RxRPC socket to be polled
-+ */
-+static unsigned int rxrpc_poll(struct file *file, struct socket *sock,
-+			       poll_table *wait)
-+{
-+	unsigned int mask;
-+	struct sock *sk = sock->sk;
-+
-+	poll_wait(file, sk->sk_sleep, wait);
-+	mask = 0;
-+
-+	/* the socket is readable if there are any messages waiting on the Rx
-+	 * queue */
-+	if (!skb_queue_empty(&sk->sk_receive_queue))
-+		mask |= POLLIN | POLLRDNORM;
-+
-+	/* the socket is writable if there is space to add new data to the
-+	 * socket; there is no guarantee that any particular call in progress
-+	 * on the socket may have space in the Tx ACK window */
-+	if (rxrpc_writable(sk))
-+		mask |= POLLOUT | POLLWRNORM;
-+
-+	return mask;
-+}
-+
-+/*
-+ * create an RxRPC socket
-+ */
-+static int rxrpc_create(struct socket *sock, int protocol)
-+{
-+	struct rxrpc_sock *rx;
-+	struct sock *sk;
-+
-+	_enter("%p,%d", sock, protocol);
-+
-+	/* we support transport protocol UDP only */
-+	if (protocol != PF_INET)
-+		return -EPROTONOSUPPORT;
-+
-+	if (sock->type != SOCK_DGRAM)
-+		return -ESOCKTNOSUPPORT;
-+
-+	sock->ops = &rxrpc_rpc_ops;
-+	sock->state = SS_UNCONNECTED;
-+
-+	sk = sk_alloc(PF_RXRPC, GFP_KERNEL, &rxrpc_proto, 1);
-+	if (!sk)
-+		return -ENOMEM;
-+
-+	sock_init_data(sock, sk);
-+	sk->sk_state		= RXRPC_UNCONNECTED;
-+	sk->sk_write_space	= rxrpc_write_space;
-+	sk->sk_max_ack_backlog	= sysctl_rxrpc_max_qlen;
-+	sk->sk_destruct		= rxrpc_sock_destructor;
-+
-+	rx = rxrpc_sk(sk);
-+	rx->proto = protocol;
-+	rx->calls = RB_ROOT;
-+
-+	INIT_LIST_HEAD(&rx->listen_link);
-+	INIT_LIST_HEAD(&rx->secureq);
-+	INIT_LIST_HEAD(&rx->acceptq);
-+	rwlock_init(&rx->call_lock);
-+	memset(&rx->srx, 0, sizeof(rx->srx));
-+
-+	_leave(" = 0 [%p]", rx);
-+	return 0;
-+}
-+
-+/*
-+ * RxRPC socket destructor
-+ */
-+static void rxrpc_sock_destructor(struct sock *sk)
-+{
-+	_enter("%p", sk);
-+
-+	rxrpc_purge_queue(&sk->sk_receive_queue);
-+
-+	BUG_TRAP(!atomic_read(&sk->sk_wmem_alloc));
-+	BUG_TRAP(sk_unhashed(sk));
-+	BUG_TRAP(!sk->sk_socket);
-+
-+	if (!sock_flag(sk, SOCK_DEAD)) {
-+		printk("Attempt to release alive rxrpc socket: %p\n", sk);
-+		return;
-+	}
-+}
-+
-+/*
-+ * release an RxRPC socket
-+ */
-+static int rxrpc_release_sock(struct sock *sk)
-+{
-+	struct rxrpc_sock *rx = rxrpc_sk(sk);
-+
-+	_enter("%p{%d,%d}", sk, sk->sk_state, atomic_read(&sk->sk_refcnt));
-+
-+	/* declare the socket closed for business */
-+	sock_orphan(sk);
-+	sk->sk_shutdown = SHUTDOWN_MASK;
-+
-+	spin_lock_bh(&sk->sk_receive_queue.lock);
-+	sk->sk_state = RXRPC_CLOSE;
-+	spin_unlock_bh(&sk->sk_receive_queue.lock);
-+
-+	ASSERTCMP(rx->listen_link.next, !=, LIST_POISON1);
-+
-+	if (!list_empty(&rx->listen_link)) {
-+		write_lock_bh(&rx->local->services_lock);
-+		list_del(&rx->listen_link);
-+		write_unlock_bh(&rx->local->services_lock);
-+	}
-+
-+	/* try to flush out this socket */
-+	rxrpc_release_calls_on_socket(rx);
-+	flush_scheduled_work();
-+	rxrpc_purge_queue(&sk->sk_receive_queue);
-+
-+	if (rx->conn) {
-+		rxrpc_put_connection(rx->conn);
-+		rx->conn = NULL;
-+	}
-+
-+	if (rx->bundle) {
-+		rxrpc_put_bundle(rx->trans, rx->bundle);
-+		rx->bundle = NULL;
-+	}
-+	if (rx->trans) {
-+		rxrpc_put_transport(rx->trans);
-+		rx->trans = NULL;
-+	}
-+	if (rx->local) {
-+		rxrpc_put_local(rx->local);
-+		rx->local = NULL;
-+	}
-+
-+	key_put(rx->key);
-+	rx->key = NULL;
-+	key_put(rx->securities);
-+	rx->securities = NULL;
-+	sock_put(sk);
-+
-+	_leave(" = 0");
-+	return 0;
-+}
-+
-+/*
-+ * release an RxRPC BSD socket on close() or equivalent
-+ */
-+static int rxrpc_release(struct socket *sock)
-+{
-+	struct sock *sk = sock->sk;
-+
-+	_enter("%p{%p}", sock, sk);
-+
-+	if (!sk)
-+		return 0;
-+
-+	sock->sk = NULL;
-+
-+	return rxrpc_release_sock(sk);
-+}
-+
-+/*
-+ * RxRPC network protocol
-+ */
-+static const struct proto_ops rxrpc_rpc_ops = {
-+	.family		= PF_UNIX,
-+	.owner		= THIS_MODULE,
-+	.release	= rxrpc_release,
-+	.bind		= rxrpc_bind,
-+	.connect	= rxrpc_connect,
-+	.socketpair	= sock_no_socketpair,
-+	.accept		= sock_no_accept,
-+	.getname	= sock_no_getname,
-+	.poll		= rxrpc_poll,
-+	.ioctl		= sock_no_ioctl,
-+	.listen		= rxrpc_listen,
-+	.shutdown	= sock_no_shutdown,
-+	.setsockopt	= rxrpc_setsockopt,
-+	.getsockopt	= sock_no_getsockopt,
-+	.sendmsg	= rxrpc_sendmsg,
-+	.recvmsg	= rxrpc_recvmsg,
-+	.mmap		= sock_no_mmap,
-+	.sendpage	= sock_no_sendpage,
-+};
-+
-+static struct proto rxrpc_proto = {
-+	.name		= "RXRPC",
-+	.owner		= THIS_MODULE,
-+	.obj_size	= sizeof(struct rxrpc_sock),
-+	.max_header	= sizeof(struct rxrpc_header),
-+};
-+
-+static struct net_proto_family rxrpc_family_ops = {
-+	.family	= PF_RXRPC,
-+	.create = rxrpc_create,
-+	.owner	= THIS_MODULE,
-+};
-+
-+/*
-+ * initialise and register the RxRPC protocol
-+ */
-+static int __init af_rxrpc_init(void)
-+{
-+	struct sk_buff *dummy_skb;
-+	int ret = -1;
-+
-+	BUILD_BUG_ON(sizeof(struct rxrpc_skb_priv) > sizeof(dummy_skb->cb));
-+
-+	rxrpc_epoch = htonl(xtime.tv_sec);
-+
-+	rxrpc_call_jar = kmem_cache_create(
-+		"rxrpc_call_jar", sizeof(struct rxrpc_call), 0,
-+		SLAB_HWCACHE_ALIGN, NULL, NULL);
-+	if (!rxrpc_call_jar) {
-+		printk(KERN_NOTICE "RxRPC: Failed to allocate call jar\n");
-+		ret = -ENOMEM;
-+		goto error_call_jar;
-+	}
-+
-+	ret = proto_register(&rxrpc_proto, 1);
-+        if (ret < 0) {
-+                printk(KERN_CRIT "RxRPC: Cannot register protocol\n");
-+		goto error_proto;
-+	}
-+
-+	ret = sock_register(&rxrpc_family_ops);
-+	if (ret < 0) {
-+                printk(KERN_CRIT "RxRPC: Cannot register socket family\n");
-+		goto error_sock;
-+	}
-+
-+	ret = register_key_type(&key_type_rxrpc);
-+	if (ret < 0) {
-+                printk(KERN_CRIT "RxRPC: Cannot register client key type\n");
-+		goto error_key_type;
-+	}
-+
-+	ret = register_key_type(&key_type_rxrpc_s);
-+	if (ret < 0) {
-+                printk(KERN_CRIT "RxRPC: Cannot register server key type\n");
-+		goto error_key_type_s;
-+	}
-+
-+#ifdef CONFIG_PROC_FS
-+	proc_net_fops_create("rxrpc_calls", 0, &rxrpc_call_seq_fops);
-+	proc_net_fops_create("rxrpc_conns", 0, &rxrpc_connection_seq_fops);
-+#endif
-+	return 0;
-+
-+error_key_type_s:
-+	unregister_key_type(&key_type_rxrpc);
-+error_key_type:
-+	sock_unregister(PF_RXRPC);
-+error_sock:
-+	proto_unregister(&rxrpc_proto);
-+error_proto:
-+	kmem_cache_destroy(rxrpc_call_jar);
-+error_call_jar:
-+	return ret;
-+}
-+
-+/*
-+ * unregister the RxRPC protocol
-+ */
-+static void __exit af_rxrpc_exit(void)
-+{
-+	_enter("");
-+	unregister_key_type(&key_type_rxrpc_s);
-+	unregister_key_type(&key_type_rxrpc);
-+	sock_unregister(PF_RXRPC);
-+	proto_unregister(&rxrpc_proto);
-+	rxrpc_destroy_all_calls();
-+	rxrpc_destroy_all_connections();
-+	rxrpc_destroy_all_transports();
-+	rxrpc_destroy_all_peers();
-+	rxrpc_destroy_all_locals();
-+
-+	ASSERTCMP(atomic_read(&rxrpc_n_skbs), ==, 0);
-+
-+	_debug("flush scheduled work");
-+	flush_scheduled_work();
-+	proc_net_remove("rxrpc_conns");
-+	proc_net_remove("rxrpc_calls");
-+	kmem_cache_destroy(rxrpc_call_jar);
-+	_leave("");
-+}
-+
-+module_init(af_rxrpc_init);
-+module_exit(af_rxrpc_exit);
-diff --git a/net/rxrpc/ar-accept.c b/net/rxrpc/ar-accept.c
-new file mode 100644
-index 0000000..e7af780
---- /dev/null
-+++ b/net/rxrpc/ar-accept.c
-@@ -0,0 +1,399 @@
-+/* incoming call handling
-+ *
-+ * Copyright (C) 2007 Red Hat, Inc. All Rights Reserved.
-+ * Written by David Howells (dhowells@redhat.com)
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version
-+ * 2 of the License, or (at your option) any later version.
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/net.h>
-+#include <linux/skbuff.h>
-+#include <linux/errqueue.h>
-+#include <linux/udp.h>
 +#include <linux/in.h>
-+#include <linux/in6.h>
-+#include <linux/icmp.h>
-+#include <net/sock.h>
-+#include <net/af_rxrpc.h>
-+#include <net/ip.h>
-+#include "ar-internal.h"
++
++typedef unsigned			afs_volid_t;
++typedef unsigned			afs_vnodeid_t;
++typedef unsigned long long		afs_dataversion_t;
++
++typedef enum {
++	AFSVL_RWVOL,			/* read/write volume */
++	AFSVL_ROVOL,			/* read-only volume */
++	AFSVL_BACKVOL,			/* backup volume */
++} __attribute__((packed)) afs_voltype_t;
++
++typedef enum {
++	AFS_FTYPE_INVALID	=3D 0,
++	AFS_FTYPE_FILE		=3D 1,
++	AFS_FTYPE_DIR		=3D 2,
++	AFS_FTYPE_SYMLINK	=3D 3,
++} afs_file_type_t;
 +
 +/*
-+ * generate a connection-level abort
++ * AFS file identifier
 + */
-+static int rxrpc_busy(struct rxrpc_local *local, struct sockaddr_rxrpc *srx,
-+		      struct rxrpc_header *hdr)
-+{
-+	struct msghdr msg;
-+	struct kvec iov[1];
-+	size_t len;
-+	int ret;
-+
-+	_enter("%d,,", local->debug_id);
-+
-+	msg.msg_name	= &srx->transport.sin;
-+	msg.msg_namelen	= sizeof(srx->transport.sin);
-+	msg.msg_control	= NULL;
-+	msg.msg_controllen = 0;
-+	msg.msg_flags	= 0;
-+
-+	hdr->seq	= 0;
-+	hdr->type	= RXRPC_PACKET_TYPE_BUSY;
-+	hdr->flags	= 0;
-+	hdr->userStatus	= 0;
-+	hdr->_rsvd	= 0;
-+
-+	iov[0].iov_base	= hdr;
-+	iov[0].iov_len	= sizeof(*hdr);
-+
-+	len = iov[0].iov_len;
-+
-+	hdr->serial = htonl(1);
-+	_proto("Tx BUSY %%%u", ntohl(hdr->serial));
-+
-+	ret = kernel_sendmsg(local->socket, &msg, iov, 1, len);
-+	if (ret < 0) {
-+		_leave(" = -EAGAIN [sendmsg failed: %d]", ret);
-+		return -EAGAIN;
-+	}
-+
-+	_leave(" = 0");
-+	return 0;
-+}
++struct afs_fid {
++	afs_volid_t	vid;		/* volume ID */
++	afs_vnodeid_t	vnode;		/* file index within volume */
++	unsigned	unique;		/* unique ID number (file index version) */
++};
 +
 +/*
-+ * accept an incoming call that needs peer, transport and/or connection setting
-+ * up
++ * AFS callback notification
 + */
-+static int rxrpc_accept_incoming_call(struct rxrpc_local *local,
-+				      struct rxrpc_sock *rx,
-+				      struct sk_buff *skb,
-+				      struct sockaddr_rxrpc *srx)
-+{
-+	struct rxrpc_connection *conn;
-+	struct rxrpc_transport *trans;
-+	struct rxrpc_skb_priv *sp, *nsp;
-+	struct rxrpc_peer *peer;
-+	struct rxrpc_call *call;
-+	struct sk_buff *notification;
-+	int ret;
++typedef enum {
++	AFSCM_CB_UNTYPED	=3D 0,	/* no type set on CB break */
++	AFSCM_CB_EXCLUSIVE	=3D 1,	/* CB exclusive to CM [not implemented] */
++	AFSCM_CB_SHARED		=3D 2,	/* CB shared by other CM's */
++	AFSCM_CB_DROPPED	=3D 3,	/* CB promise cancelled by file server */
++} afs_callback_type_t;
 +
-+	_enter("");
++struct afs_callback {
++	struct afs_fid		fid;		/* file identifier */
++	unsigned		version;	/* callback version */
++	unsigned		expiry;		/* time at which expires */
++	afs_callback_type_t	type;		/* type of callback */
++};
 +
-+	sp = rxrpc_skb(skb);
-+
-+	/* get a notification message to send to the server app */
-+	notification = alloc_skb(0, GFP_NOFS);
-+	rxrpc_new_skb(notification);
-+	notification->mark = RXRPC_SKB_MARK_NEW_CALL;
-+
-+	peer = rxrpc_get_peer(srx, GFP_NOIO);
-+	if (IS_ERR(peer)) {
-+		_debug("no peer");
-+		ret = -EBUSY;
-+		goto error;
-+	}
-+
-+	trans = rxrpc_get_transport(local, peer, GFP_NOIO);
-+	rxrpc_put_peer(peer);
-+	if (!trans) {
-+		_debug("no trans");
-+		ret = -EBUSY;
-+		goto error;
-+	}
-+
-+	conn = rxrpc_incoming_connection(trans, &sp->hdr, GFP_NOIO);
-+	rxrpc_put_transport(trans);
-+	if (IS_ERR(conn)) {
-+		_debug("no conn");
-+		ret = PTR_ERR(conn);
-+		goto error;
-+	}
-+
-+	call = rxrpc_incoming_call(rx, conn, &sp->hdr, GFP_NOIO);
-+	rxrpc_put_connection(conn);
-+	if (IS_ERR(call)) {
-+		_debug("no call");
-+		ret = PTR_ERR(call);
-+		goto error;
-+	}
-+
-+	/* attach the call to the socket */
-+	read_lock_bh(&local->services_lock);
-+	if (rx->sk.sk_state == RXRPC_CLOSE)
-+		goto invalid_service;
-+
-+	write_lock(&rx->call_lock);
-+	if (!test_and_set_bit(RXRPC_CALL_INIT_ACCEPT, &call->flags)) {
-+		rxrpc_get_call(call);
-+
-+		spin_lock(&call->conn->state_lock);
-+		if (sp->hdr.securityIndex > 0 &&
-+		    call->conn->state == RXRPC_CONN_SERVER_UNSECURED) {
-+			_debug("await conn sec");
-+			list_add_tail(&call->accept_link, &rx->secureq);
-+			call->conn->state = RXRPC_CONN_SERVER_CHALLENGING;
-+			atomic_inc(&call->conn->usage);
-+			set_bit(RXRPC_CONN_CHALLENGE, &call->conn->events);
-+			schedule_work(&call->conn->processor);
-+		} else {
-+			_debug("conn ready");
-+			call->state = RXRPC_CALL_SERVER_ACCEPTING;
-+			list_add_tail(&call->accept_link, &rx->acceptq);
-+			rxrpc_get_call(call);
-+			nsp = rxrpc_skb(notification);
-+			nsp->call = call;
-+
-+			ASSERTCMP(atomic_read(&call->usage), >=, 3);
-+
-+			_debug("notify");
-+			spin_lock(&call->lock);
-+			ret = rxrpc_queue_rcv_skb(call, notification, true,
-+						  false);
-+			spin_unlock(&call->lock);
-+			notification = NULL;
-+			if (ret < 0)
-+				BUG();
-+		}
-+		spin_unlock(&call->conn->state_lock);
-+
-+		_debug("queued");
-+	}
-+	write_unlock(&rx->call_lock);
-+
-+	_debug("process");
-+	rxrpc_fast_process_packet(call, skb);
-+
-+	_debug("done");
-+	read_unlock_bh(&local->services_lock);
-+	rxrpc_free_skb(notification);
-+	rxrpc_put_call(call);
-+	_leave(" = 0");
-+	return 0;
-+
-+invalid_service:
-+	_debug("invalid");
-+	read_unlock_bh(&local->services_lock);
-+
-+	read_lock_bh(&call->state_lock);
-+	if (!test_bit(RXRPC_CALL_RELEASE, &call->flags) &&
-+	    !test_and_set_bit(RXRPC_CALL_RELEASE, &call->events)) {
-+		rxrpc_get_call(call);
-+		schedule_work(&call->processor);
-+	}
-+	read_unlock_bh(&call->state_lock);
-+	rxrpc_put_call(call);
-+	ret = -ECONNREFUSED;
-+error:
-+	rxrpc_free_skb(notification);
-+	_leave(" = %d", ret);
-+	return ret;
-+}
++#define AFSCBMAX 50	/* maximum callbacks transferred per bulk op */
 +
 +/*
-+ * accept incoming calls that need peer, transport and/or connection setting up
-+ * - the packets we get are all incoming client DATA packets that have seq == 1
++ * AFS volume information
 + */
-+void rxrpc_accept_incoming_calls(struct work_struct *work)
-+{
-+	struct rxrpc_local *local =
-+		container_of(work, struct rxrpc_local, acceptor);
-+	struct rxrpc_skb_priv *sp;
-+	struct sockaddr_rxrpc srx;
-+	struct rxrpc_sock *rx;
-+	struct sk_buff *skb;
-+	__be16 service_id;
-+	int ret;
-+
-+	_enter("%d", local->debug_id);
-+
-+	read_lock_bh(&rxrpc_local_lock);
-+	if (atomic_read(&local->usage) > 0)
-+		rxrpc_get_local(local);
-+	else
-+		local = NULL;
-+	read_unlock_bh(&rxrpc_local_lock);
-+	if (!local) {
-+		_leave(" [local dead]");
-+		return;
-+	}
-+
-+process_next_packet:
-+	skb = skb_dequeue(&local->accept_queue);
-+	if (!skb) {
-+		rxrpc_put_local(local);
-+		_leave("\n");
-+		return;
-+	}
-+
-+	_net("incoming call skb %p", skb);
-+
-+	sp = rxrpc_skb(skb);
-+
-+	/* determine the remote address */
-+	memset(&srx, 0, sizeof(srx));
-+	srx.srx_family = AF_RXRPC;
-+	srx.transport.family = local->srx.transport.family;
-+	srx.transport_type = local->srx.transport_type;
-+	switch (srx.transport.family) {
-+	case AF_INET:
-+		srx.transport_len = sizeof(struct sockaddr_in);
-+		srx.transport.sin.sin_port = udp_hdr(skb)->source;
-+		srx.transport.sin.sin_addr.s_addr = ip_hdr(skb)->saddr;
-+		break;
-+	default:
-+		goto busy;
-+	}
-+
-+	/* get the socket providing the service */
-+	service_id = sp->hdr.serviceId;
-+	read_lock_bh(&local->services_lock);
-+	list_for_each_entry(rx, &local->services, listen_link) {
-+		if (rx->service_id == service_id &&
-+		    rx->sk.sk_state != RXRPC_CLOSE)
-+			goto found_service;
-+	}
-+	read_unlock_bh(&local->services_lock);
-+	goto invalid_service;
-+
-+found_service:
-+	_debug("found service %hd", ntohs(rx->service_id));
-+	if (sk_acceptq_is_full(&rx->sk))
-+		goto backlog_full;
-+	sk_acceptq_added(&rx->sk);
-+	sock_hold(&rx->sk);
-+	read_unlock_bh(&local->services_lock);
-+
-+	ret = rxrpc_accept_incoming_call(local, rx, skb, &srx);
-+	if (ret < 0)
-+		sk_acceptq_removed(&rx->sk);
-+	sock_put(&rx->sk);
-+	switch (ret) {
-+	case -ECONNRESET: /* old calls are ignored */
-+	case -ECONNABORTED: /* aborted calls are reaborted or ignored */
-+	case 0:
-+		goto process_next_packet;
-+	case -ECONNREFUSED:
-+		goto invalid_service;
-+	case -EBUSY:
-+		goto busy;
-+	case -EKEYREJECTED:
-+		goto security_mismatch;
-+	default:
-+		BUG();
-+	}
-+
-+backlog_full:
-+	read_unlock_bh(&local->services_lock);
-+busy:
-+	rxrpc_busy(local, &srx, &sp->hdr);
-+	rxrpc_free_skb(skb);
-+	goto process_next_packet;
-+
-+invalid_service:
-+	skb->priority = RX_INVALID_OPERATION;
-+	rxrpc_reject_packet(local, skb);
-+	goto process_next_packet;
-+
-+	/* can't change connection security type mid-flow */
-+security_mismatch:
-+	skb->priority = RX_PROTOCOL_ERROR;
-+	rxrpc_reject_packet(local, skb);
-+	goto process_next_packet;
-+}
++struct afs_volume_info {
++	afs_volid_t		vid;		/* volume ID */
++	afs_voltype_t		type;		/* type of this volume */
++	afs_volid_t		type_vids[5];	/* volume ID's for possible types for this=
+ vol */
++=09
++	/* list of fileservers serving this volume */
++	size_t			nservers;	/* number of entries used in servers[] */
++	struct {
++		struct in_addr	addr;		/* fileserver address */
++	} servers[8];
++};
 +
 +/*
-+ * handle acceptance of a call by userspace
-+ * - assign the user call ID to the call at the front of the queue
++ * AFS file status information
 + */
-+int rxrpc_accept_call(struct rxrpc_sock *rx, unsigned long user_call_ID)
-+{
-+	struct rxrpc_call *call;
-+	struct rb_node *parent, **pp;
-+	int ret;
++struct afs_file_status {
++	unsigned		if_version;	/* interface version */
++#define AFS_FSTATUS_VERSION	1
 +
-+	_enter(",%lx", user_call_ID);
++	afs_file_type_t		type;		/* file type */
++	unsigned		nlink;		/* link count */
++	size_t			size;		/* file size */
++	afs_dataversion_t	data_version;	/* current data version */
++	unsigned		author;		/* author ID */
++	unsigned		owner;		/* owner ID */
++	unsigned		caller_access;	/* access rights for authenticated caller */
++	unsigned		anon_access;	/* access rights for unauthenticated caller */
++	umode_t			mode;		/* UNIX mode */
++	struct afs_fid		parent;		/* parent file ID */
++	time_t			mtime_client;	/* last time client changed data */
++	time_t			mtime_server;	/* last time server changed data */
++};
 +
-+	ASSERT(!irqs_disabled());
++/*
++ * AFS volume synchronisation information
++ */
++struct afs_volsync {
++	time_t			creation;	/* volume creation time */
++};
 +
-+	write_lock(&rx->call_lock);
-+
-+	ret = -ENODATA;
-+	if (list_empty(&rx->acceptq))
-+		goto out;
-+
-+	/* check the user ID isn't already in use */
-+	ret = -EBADSLT;
-+	pp = &rx->calls.rb_node;
-+	parent = NULL;
-+	while (*pp) {
-+		parent = *pp;
-+		call = rb_entry(parent, struct rxrpc_call, sock_node);
-+
-+		if (user_call_ID < call->user_call_ID)
-+			pp = &(*pp)->rb_left;
-+		else if (user_call_ID > call->user_call_ID)
-+			pp = &(*pp)->rb_right;
-+		else
-+			goto out;
-+	}
-+
-+	/* dequeue the first call and check it's still valid */
-+	call = list_entry(rx->acceptq.next, struct rxrpc_call, accept_link);
-+	list_del_init(&call->accept_link);
-+	sk_acceptq_removed(&rx->sk);
-+
-+	write_lock_bh(&call->state_lock);
-+	switch (call->state) {
-+	case RXRPC_CALL_SERVER_ACCEPTING:
-+		call->state = RXRPC_CALL_SERVER_RECV_REQUEST;
-+		break;
-+	case RXRPC_CALL_REMOTELY_ABORTED:
-+	case RXRPC_CALL_LOCALLY_ABORTED:
-+		ret = -ECONNABORTED;
-+		goto out_release;
-+	case RXRPC_CALL_NETWORK_ERROR:
-+		ret = call->conn->error;
-+		goto out_release;
-+	case RXRPC_CALL_DEAD:
-+		ret = -ETIME;
-+		goto out_discard;
-+	default:
-+		BUG();
-+	}
-+
-+	/* formalise the acceptance */
-+	call->user_call_ID = user_call_ID;
-+	rb_link_node(&call->sock_node, parent, pp);
-+	rb_insert_color(&call->sock_node, &rx->calls);
-+	if (test_and_set_bit(RXRPC_CALL_HAS_USERID, &call->flags))
-+		BUG();
-+	if (test_and_set_bit(RXRPC_CALL_ACCEPTED, &call->events))
-+		BUG();
-+	schedule_work(&call->processor);
-+
-+	write_unlock_bh(&call->state_lock);
-+	write_unlock(&rx->call_lock);
-+	_leave(" = 0");
-+	return 0;
-+
-+	/* if the call is already dying or dead, then we leave the socket's ref
-+	 * on it to be released by rxrpc_dead_call_expired() as induced by
-+	 * rxrpc_release_call() */
-+out_release:
-+	_debug("release %p", call);
-+	if (!test_bit(RXRPC_CALL_RELEASED, &call->flags) &&
-+	    !test_and_set_bit(RXRPC_CALL_RELEASE, &call->events))
-+		schedule_work(&call->processor);
-+out_discard:
-+	write_unlock_bh(&call->state_lock);
-+	_debug("discard %p", call);
-+out:
-+	write_unlock(&rx->call_lock);
-+	_leave(" = %d", ret);
-+	return ret;
-+}
-diff --git a/net/rxrpc/ar-ack.c b/net/rxrpc/ar-ack.c
++#endif /* AFS_H */
+diff --git a/fs/afs/afs_cm.h b/fs/afs/afs_cm.h
 new file mode 100644
-index 0000000..8f7764e
+index 0000000..7c8e3d4
 --- /dev/null
-+++ b/net/rxrpc/ar-ack.c
-@@ -0,0 +1,1250 @@
-+/* Management of Tx window, Tx resend, ACKs and out-of-sequence reception
++++ b/fs/afs/afs_cm.h
+@@ -0,0 +1,28 @@
++/* AFS Cache Manager definitions
 + *
 + * Copyright (C) 2007 Red Hat, Inc. All Rights Reserved.
 + * Written by David Howells (dhowells@redhat.com)
@@ -2990,5082 +251,5277 @@ index 0000000..8f7764e
 + * 2 of the License, or (at your option) any later version.
 + */
 +
-+#include <linux/module.h>
-+#include <linux/circ_buf.h>
-+#include <linux/net.h>
-+#include <linux/skbuff.h>
-+#include <linux/udp.h>
-+#include <net/sock.h>
-+#include <net/af_rxrpc.h>
-+#include "ar-internal.h"
++#ifndef AFS_CM_H
++#define AFS_CM_H
 +
-+static unsigned rxrpc_ack_defer = 1;
++#define AFS_CM_PORT		7001	/* AFS file server port */
++#define CM_SERVICE		1	/* AFS File Service ID */
 +
-+static const char *rxrpc_acks[] = {
-+	"---", "REQ", "DUP", "OOS", "WIN", "MEM", "PNG", "PNR", "DLY", "IDL",
-+	"-?-"
++enum AFS_CM_Operations {
++	CBCallBack		=3D 204,	/* break callback promises */
++	CBInitCallBackState	=3D 205,	/* initialise callback state */
++	CBProbe			=3D 206,	/* probe client */
++	CBGetLock		=3D 207,	/* get contents of CM lock table */
++	CBGetCE			=3D 208,	/* get cache file description */
++	CBGetXStatsVersion	=3D 209,	/* get version of extended statistics */
++	CBGetXStats		=3D 210,	/* get contents of extended statistics data */
 +};
 +
-+static const s8 rxrpc_ack_priority[] = {
-+	[0]				= 0,
-+	[RXRPC_ACK_DELAY]		= 1,
-+	[RXRPC_ACK_REQUESTED]		= 2,
-+	[RXRPC_ACK_IDLE]		= 3,
-+	[RXRPC_ACK_PING_RESPONSE]	= 4,
-+	[RXRPC_ACK_DUPLICATE]		= 5,
-+	[RXRPC_ACK_OUT_OF_SEQUENCE]	= 6,
-+	[RXRPC_ACK_EXCEEDS_WINDOW]	= 7,
-+	[RXRPC_ACK_NOSPACE]		= 8,
++#endif /* AFS_FS_H */
+diff --git a/fs/afs/afs_fs.h b/fs/afs/afs_fs.h
+new file mode 100644
+index 0000000..fd38595
+--- /dev/null
++++ b/fs/afs/afs_fs.h
+@@ -0,0 +1,41 @@
++/* AFS File Service definitions
++ *
++ * Copyright (C) 2007 Red Hat, Inc. All Rights Reserved.
++ * Written by David Howells (dhowells@redhat.com)
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version
++ * 2 of the License, or (at your option) any later version.
++ */
++
++#ifndef AFS_FS_H
++#define AFS_FS_H
++
++#define AFS_FS_PORT		7000	/* AFS file server port */
++#define FS_SERVICE		1	/* AFS File Service ID */
++
++enum AFS_FS_Operations {
++	FSFETCHSTATUS		=3D 132,	/* AFS Fetch file status */
++	FSFETCHDATA		=3D 130,	/* AFS Fetch file data */
++	FSGIVEUPCALLBACKS	=3D 147,	/* AFS Discard callback promises */
++	FSGETVOLUMEINFO		=3D 148,	/* AFS Get root volume information */
++	FSGETROOTVOLUME		=3D 151,	/* AFS Get root volume name */
++	FSLOOKUP		=3D 161	/* AFS lookup file in directory */
++};
++
++enum AFS_FS_Errors {
++	VSALVAGE	=3D 101,	/* volume needs salvaging */
++	VNOVNODE	=3D 102,	/* no such file/dir (vnode) */
++	VNOVOL		=3D 103,	/* no such volume or volume unavailable */
++	VVOLEXISTS	=3D 104,	/* volume name already exists */
++	VNOSERVICE	=3D 105,	/* volume not currently in service */
++	VOFFLINE	=3D 106,	/* volume is currently offline (more info available=
+ [VVL-spec]) */
++	VONLINE		=3D 107,	/* volume is already online */
++	VDISKFULL	=3D 108,	/* disk partition is full */
++	VOVERQUOTA	=3D 109,	/* volume's maximum quota exceeded */
++	VBUSY		=3D 110,	/* volume is temporarily unavailable */
++	VMOVED		=3D 111,	/* volume moved to new server - ask this FS where */
++};
++
++#endif /* AFS_FS_H */
+diff --git a/fs/afs/afs_vl.h b/fs/afs/afs_vl.h
+new file mode 100644
+index 0000000..453efa2
+--- /dev/null
++++ b/fs/afs/afs_vl.h
+@@ -0,0 +1,84 @@
++/* AFS Volume Location Service client interface
++ *
++ * Copyright (C) 2002, 2007 Red Hat, Inc. All Rights Reserved.
++ * Written by David Howells (dhowells@redhat.com)
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version
++ * 2 of the License, or (at your option) any later version.
++ */
++
++#ifndef AFS_VL_H
++#define AFS_VL_H
++
++#include "afs.h"
++
++#define AFS_VL_PORT		7003	/* volume location service port */
++#define VL_SERVICE		52	/* RxRPC service ID for the Volume Location ser=
+vice */
++
++enum AFSVL_Operations {
++	VLGETENTRYBYID		=3D 503,	/* AFS Get Cache Entry By ID operation ID */
++	VLGETENTRYBYNAME	=3D 504,	/* AFS Get Cache Entry By Name operation ID=
+ */
++	VLPROBE			=3D 514,	/* AFS Probe Volume Location Service operation ID =
+*/
++};
++
++enum AFSVL_Errors {
++	AFSVL_IDEXIST 		=3D 363520,	/* Volume Id entry exists in vl database =
+*/
++	AFSVL_IO 		=3D 363521,	/* I/O related error */
++	AFSVL_NAMEEXIST 	=3D 363522,	/* Volume name entry exists in vl databa=
+se */
++	AFSVL_CREATEFAIL 	=3D 363523,	/* Internal creation failure */
++	AFSVL_NOENT 		=3D 363524,	/* No such entry */
++	AFSVL_EMPTY 		=3D 363525,	/* Vl database is empty */
++	AFSVL_ENTDELETED 	=3D 363526,	/* Entry is deleted (soft delete) */
++	AFSVL_BADNAME 		=3D 363527,	/* Volume name is illegal */
++	AFSVL_BADINDEX 		=3D 363528,	/* Index is out of range */
++	AFSVL_BADVOLTYPE 	=3D 363529,	/* Bad volume type */
++	AFSVL_BADSERVER 	=3D 363530,	/* Illegal server number (out of range) =
+*/
++	AFSVL_BADPARTITION 	=3D 363531,	/* Bad partition number */
++	AFSVL_REPSFULL 		=3D 363532,	/* Run out of space for Replication site=
+s */
++	AFSVL_NOREPSERVER 	=3D 363533,	/* No such Replication server site exi=
+sts */
++	AFSVL_DUPREPSERVER 	=3D 363534,	/* Replication site already exists */
++	AFSVL_RWNOTFOUND 	=3D 363535,	/* Parent R/W entry not found */
++	AFSVL_BADREFCOUNT 	=3D 363536,	/* Illegal Reference Count number */
++	AFSVL_SIZEEXCEEDED 	=3D 363537,	/* Vl size for attributes exceeded */
++	AFSVL_BADENTRY 		=3D 363538,	/* Bad incoming vl entry */
++	AFSVL_BADVOLIDBUMP 	=3D 363539,	/* Illegal max volid increment */
++	AFSVL_IDALREADYHASHED 	=3D 363540,	/* RO/BACK id already hashed */
++	AFSVL_ENTRYLOCKED 	=3D 363541,	/* Vl entry is already locked */
++	AFSVL_BADVOLOPER 	=3D 363542,	/* Bad volume operation code */
++	AFSVL_BADRELLOCKTYPE 	=3D 363543,	/* Bad release lock type */
++	AFSVL_RERELEASE 	=3D 363544,	/* Status report: last release was abort=
+ed */
++	AFSVL_BADSERVERFLAG 	=3D 363545,	/* Invalid replication site server =B0=
+ag */
++	AFSVL_PERM 		=3D 363546,	/* No permission access */
++	AFSVL_NOMEM 		=3D 363547,	/* malloc/realloc failed to alloc enough me=
+mory */
 +};
 +
 +/*
-+ * propose an ACK be sent
++ * maps to "struct vldbentry" in vvl-spec.pdf
 + */
-+void __rxrpc_propose_ACK(struct rxrpc_call *call, uint8_t ack_reason,
-+			 __be32 serial, bool immediate)
-+{
-+	unsigned long expiry;
-+	s8 prior = rxrpc_ack_priority[ack_reason];
++struct afs_vldbentry {
++	char		name[65];		/* name of volume (with NUL char) */
++	afs_voltype_t	type;			/* volume type */
++	unsigned	num_servers;		/* num servers that hold instances of this vol=
+ */
++	unsigned	clone_id;		/* cloning ID */
 +
-+	ASSERTCMP(prior, >, 0);
++	unsigned	flags;
++#define AFS_VLF_RWEXISTS	0x1000		/* R/W volume exists */
++#define AFS_VLF_ROEXISTS	0x2000		/* R/O volume exists */
++#define AFS_VLF_BACKEXISTS	0x4000		/* backup volume exists */
 +
-+	_enter("{%d},%s,%%%x,%u",
-+	       call->debug_id, rxrpc_acks[ack_reason], ntohl(serial),
-+	       immediate);
++	afs_volid_t	volume_ids[3];		/* volume IDs */
 +
-+	if (prior < rxrpc_ack_priority[call->ackr_reason]) {
-+		if (immediate)
-+			goto cancel_timer;
-+		return;
-+	}
++	struct {
++		struct in_addr	addr;		/* server address */
++		unsigned	partition;	/* partition ID on this server */
++		unsigned	flags;		/* server specific flags */
++#define AFS_VLSF_NEWREPSITE	0x0001	/* unused */
++#define AFS_VLSF_ROVOL		0x0002	/* this server holds a R/O instance of =
+the volume */
++#define AFS_VLSF_RWVOL		0x0004	/* this server holds a R/W instance of =
+the volume */
++#define AFS_VLSF_BACKVOL	0x0008	/* this server holds a backup instance=
+ of the volume */
++	} servers[8];
++};
 +
-+	/* update DELAY, IDLE, REQUESTED and PING_RESPONSE ACK serial
-+	 * numbers */
-+	if (prior == rxrpc_ack_priority[call->ackr_reason]) {
-+		if (prior <= 4)
-+			call->ackr_serial = serial;
-+		if (immediate)
-+			goto cancel_timer;
-+		return;
-+	}
++#endif /* AFS_VL_H */
+diff --git a/fs/afs/cache.c b/fs/afs/cache.c
+new file mode 100644
+index 0000000..de0d7de
+--- /dev/null
++++ b/fs/afs/cache.c
+@@ -0,0 +1,256 @@
++/* AFS caching stuff
++ *
++ * Copyright (C) 2007 Red Hat, Inc. All Rights Reserved.
++ * Written by David Howells (dhowells@redhat.com)
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version
++ * 2 of the License, or (at your option) any later version.
++ */
 +
-+	call->ackr_reason = ack_reason;
-+	call->ackr_serial = serial;
++#ifdef AFS_CACHING_SUPPORT
++static cachefs_match_val_t afs_cell_cache_match(void *target,
++						const void *entry);
++static void afs_cell_cache_update(void *source, void *entry);
 +
-+	switch (ack_reason) {
-+	case RXRPC_ACK_DELAY:
-+		_debug("run delay timer");
-+		call->ack_timer.expires = jiffies + rxrpc_ack_timeout * HZ;
-+		add_timer(&call->ack_timer);
-+		return;
-+
-+	case RXRPC_ACK_IDLE:
-+		if (!immediate) {
-+			_debug("run defer timer");
-+			expiry = 1;
-+			goto run_timer;
-+		}
-+		goto cancel_timer;
-+
-+	case RXRPC_ACK_REQUESTED:
-+		if (!rxrpc_ack_defer)
-+			goto cancel_timer;
-+		if (!immediate || serial == cpu_to_be32(1)) {
-+			_debug("run defer timer");
-+			expiry = rxrpc_ack_defer;
-+			goto run_timer;
-+		}
-+
-+	default:
-+		_debug("immediate ACK");
-+		goto cancel_timer;
-+	}
-+
-+run_timer:
-+	expiry += jiffies;
-+	if (!timer_pending(&call->ack_timer) ||
-+	    time_after(call->ack_timer.expires, expiry))
-+		mod_timer(&call->ack_timer, expiry);
-+	return;
-+
-+cancel_timer:
-+	_debug("cancel timer %%%u", ntohl(serial));
-+	try_to_del_timer_sync(&call->ack_timer);
-+	read_lock_bh(&call->state_lock);
-+	if (call->state <= RXRPC_CALL_COMPLETE &&
-+	    !test_and_set_bit(RXRPC_CALL_ACK, &call->events))
-+		schedule_work(&call->processor);
-+	read_unlock_bh(&call->state_lock);
-+}
++struct cachefs_index_def afs_cache_cell_index_def =3D {
++	.name			=3D "cell_ix",
++	.data_size		=3D sizeof(struct afs_cache_cell),
++	.keys[0]		=3D { CACHEFS_INDEX_KEYS_ASCIIZ, 64 },
++	.match			=3D afs_cell_cache_match,
++	.update			=3D afs_cell_cache_update,
++};
++#endif
 +
 +/*
-+ * propose an ACK be sent, locking the call structure
++ * match a cell record obtained from the cache
 + */
-+void rxrpc_propose_ACK(struct rxrpc_call *call, uint8_t ack_reason,
-+		       __be32 serial, bool immediate)
++#ifdef AFS_CACHING_SUPPORT
++static cachefs_match_val_t afs_cell_cache_match(void *target,
++						const void *entry)
 +{
-+	s8 prior = rxrpc_ack_priority[ack_reason];
++	const struct afs_cache_cell *ccell =3D entry;
++	struct afs_cell *cell =3D target;
 +
-+	if (prior > rxrpc_ack_priority[call->ackr_reason]) {
-+		spin_lock_bh(&call->lock);
-+		__rxrpc_propose_ACK(call, ack_reason, serial, immediate);
-+		spin_unlock_bh(&call->lock);
++	_enter("{%s},{%s}", ccell->name, cell->name);
++
++	if (strncmp(ccell->name, cell->name, sizeof(ccell->name)) =3D=3D 0) {
++		_leave(" =3D SUCCESS");
++		return CACHEFS_MATCH_SUCCESS;
 +	}
++
++	_leave(" =3D FAILED");
++	return CACHEFS_MATCH_FAILED;
 +}
++#endif
 +
 +/*
-+ * set the resend timer
++ * update a cell record in the cache
 + */
-+static void rxrpc_set_resend(struct rxrpc_call *call, u8 resend,
-+			     unsigned long resend_at)
++#ifdef AFS_CACHING_SUPPORT
++static void afs_cell_cache_update(void *source, void *entry)
 +{
-+	read_lock_bh(&call->state_lock);
-+	if (call->state >= RXRPC_CALL_COMPLETE)
-+		resend = 0;
++	struct afs_cache_cell *ccell =3D entry;
++	struct afs_cell *cell =3D source;
 +
-+	if (resend & 1) {
-+		_debug("SET RESEND");
-+		set_bit(RXRPC_CALL_RESEND, &call->events);
-+	}
++	_enter("%p,%p", source, entry);
 +
-+	if (resend & 2) {
-+		_debug("MODIFY RESEND TIMER");
-+		set_bit(RXRPC_CALL_RUN_RTIMER, &call->flags);
-+		mod_timer(&call->resend_timer, resend_at);
-+	} else {
-+		_debug("KILL RESEND TIMER");
-+		del_timer_sync(&call->resend_timer);
-+		clear_bit(RXRPC_CALL_RESEND_TIMER, &call->events);
-+		clear_bit(RXRPC_CALL_RUN_RTIMER, &call->flags);
-+	}
-+	read_unlock_bh(&call->state_lock);
++	strncpy(ccell->name, cell->name, sizeof(ccell->name));
++
++	memcpy(ccell->vl_servers,
++	       cell->vl_addrs,
++	       min(sizeof(ccell->vl_servers), sizeof(cell->vl_addrs)));
++
 +}
++#endif
++
++#ifdef AFS_CACHING_SUPPORT
++static cachefs_match_val_t afs_vlocation_cache_match(void *target,
++						     const void *entry);
++static void afs_vlocation_cache_update(void *source, void *entry);
++
++struct cachefs_index_def afs_vlocation_cache_index_def =3D {
++	.name		=3D "vldb",
++	.data_size	=3D sizeof(struct afs_cache_vlocation),
++	.keys[0]	=3D { CACHEFS_INDEX_KEYS_ASCIIZ, 64 },
++	.match		=3D afs_vlocation_cache_match,
++	.update		=3D afs_vlocation_cache_update,
++};
++#endif
 +
 +/*
-+ * resend packets
++ * match a VLDB record stored in the cache
++ * - may also load target from entry
 + */
-+static void rxrpc_resend(struct rxrpc_call *call)
++#ifdef AFS_CACHING_SUPPORT
++static cachefs_match_val_t afs_vlocation_cache_match(void *target,
++						     const void *entry)
 +{
-+	struct rxrpc_skb_priv *sp;
-+	struct rxrpc_header *hdr;
-+	struct sk_buff *txb;
-+	unsigned long *p_txb, resend_at;
-+	int loop, stop;
-+	u8 resend;
++	const struct afs_cache_vlocation *vldb =3D entry;
++	struct afs_vlocation *vlocation =3D target;
 +
-+	_enter("{%d,%d,%d,%d},",
-+	       call->acks_hard, call->acks_unacked,
-+	       atomic_read(&call->sequence),
-+	       CIRC_CNT(call->acks_head, call->acks_tail, call->acks_winsz));
++	_enter("{%s},{%s}", vlocation->vldb.name, vldb->name);
 +
-+	stop = 0;
-+	resend = 0;
-+	resend_at = 0;
-+
-+	for (loop = call->acks_tail;
-+	     loop != call->acks_head || stop;
-+	     loop = (loop + 1) &  (call->acks_winsz - 1)
-+	     ) {
-+		p_txb = call->acks_window + loop;
-+		smp_read_barrier_depends();
-+		if (*p_txb & 1)
-+			continue;
-+
-+		txb = (struct sk_buff *) *p_txb;
-+		sp = rxrpc_skb(txb);
-+
-+		if (sp->need_resend) {
-+			sp->need_resend = 0;
-+
-+			/* each Tx packet has a new serial number */
-+			sp->hdr.serial =
-+				htonl(atomic_inc_return(&call->conn->serial));
-+
-+			hdr = (struct rxrpc_header *) txb->head;
-+			hdr->serial = sp->hdr.serial;
-+
-+			_proto("Tx DATA %%%u { #%d }",
-+			       ntohl(sp->hdr.serial), ntohl(sp->hdr.seq));
-+			if (rxrpc_send_packet(call->conn->trans, txb) < 0) {
-+				stop = 0;
-+				sp->resend_at = jiffies + 3;
-+			} else {
-+				sp->resend_at =
-+					jiffies + rxrpc_resend_timeout * HZ;
-+			}
-+		}
-+
-+		if (time_after_eq(jiffies + 1, sp->resend_at)) {
-+			sp->need_resend = 1;
-+			resend |= 1;
-+		} else if (resend & 2) {
-+			if (time_before(sp->resend_at, resend_at))
-+				resend_at = sp->resend_at;
-+		} else {
-+			resend_at = sp->resend_at;
-+			resend |= 2;
-+		}
-+	}
-+
-+	rxrpc_set_resend(call, resend, resend_at);
-+	_leave("");
-+}
-+
-+/*
-+ * handle resend timer expiry
-+ */
-+static void rxrpc_resend_timer(struct rxrpc_call *call)
-+{
-+	struct rxrpc_skb_priv *sp;
-+	struct sk_buff *txb;
-+	unsigned long *p_txb, resend_at;
-+	int loop;
-+	u8 resend;
-+
-+	_enter("%d,%d,%d",
-+	       call->acks_tail, call->acks_unacked, call->acks_head);
-+
-+	resend = 0;
-+	resend_at = 0;
-+
-+	for (loop = call->acks_unacked;
-+	     loop != call->acks_head;
-+	     loop = (loop + 1) &  (call->acks_winsz - 1)
-+	     ) {
-+		p_txb = call->acks_window + loop;
-+		smp_read_barrier_depends();
-+		txb = (struct sk_buff *) (*p_txb & ~1);
-+		sp = rxrpc_skb(txb);
-+
-+		ASSERT(!(*p_txb & 1));
-+
-+		if (sp->need_resend) {
-+			;
-+		} else if (time_after_eq(jiffies + 1, sp->resend_at)) {
-+			sp->need_resend = 1;
-+			resend |= 1;
-+		} else if (resend & 2) {
-+			if (time_before(sp->resend_at, resend_at))
-+				resend_at = sp->resend_at;
-+		} else {
-+			resend_at = sp->resend_at;
-+			resend |= 2;
-+		}
-+	}
-+
-+	rxrpc_set_resend(call, resend, resend_at);
-+	_leave("");
-+}
-+
-+/*
-+ * process soft ACKs of our transmitted packets
-+ * - these indicate packets the peer has or has not received, but hasn't yet
-+ *   given to the consumer, and so can still be discarded and re-requested
-+ */
-+static int rxrpc_process_soft_ACKs(struct rxrpc_call *call,
-+				   struct rxrpc_ackpacket *ack,
-+				   struct sk_buff *skb)
-+{
-+	struct rxrpc_skb_priv *sp;
-+	struct sk_buff *txb;
-+	unsigned long *p_txb, resend_at;
-+	int loop;
-+	u8 sacks[RXRPC_MAXACKS], resend;
-+
-+	_enter("{%d,%d},{%d},",
-+	       call->acks_hard,
-+	       CIRC_CNT(call->acks_head, call->acks_tail, call->acks_winsz),
-+	       ack->nAcks);
-+
-+	if (skb_copy_bits(skb, 0, sacks, ack->nAcks) < 0)
-+		goto protocol_error;
-+
-+	resend = 0;
-+	resend_at = 0;
-+	for (loop = 0; loop < ack->nAcks; loop++) {
-+		p_txb = call->acks_window;
-+		p_txb += (call->acks_tail + loop) & (call->acks_winsz - 1);
-+		smp_read_barrier_depends();
-+		txb = (struct sk_buff *) (*p_txb & ~1);
-+		sp = rxrpc_skb(txb);
-+
-+		switch (sacks[loop]) {
-+		case RXRPC_ACK_TYPE_ACK:
-+			sp->need_resend = 0;
-+			*p_txb |= 1;
-+			break;
-+		case RXRPC_ACK_TYPE_NACK:
-+			sp->need_resend = 1;
-+			*p_txb &= ~1;
-+			resend = 1;
-+			break;
-+		default:
-+			_debug("Unsupported ACK type %d", sacks[loop]);
-+			goto protocol_error;
-+		}
-+	}
-+
-+	smp_mb();
-+	call->acks_unacked = (call->acks_tail + loop) & (call->acks_winsz - 1);
-+
-+	/* anything not explicitly ACK'd is implicitly NACK'd, but may just not
-+	 * have been received or processed yet by the far end */
-+	for (loop = call->acks_unacked;
-+	     loop != call->acks_head;
-+	     loop = (loop + 1) &  (call->acks_winsz - 1)
-+	     ) {
-+		p_txb = call->acks_window + loop;
-+		smp_read_barrier_depends();
-+		txb = (struct sk_buff *) (*p_txb & ~1);
-+		sp = rxrpc_skb(txb);
-+
-+		if (*p_txb & 1) {
-+			/* packet must have been discarded */
-+			sp->need_resend = 1;
-+			*p_txb &= ~1;
-+			resend |= 1;
-+		} else if (sp->need_resend) {
-+			;
-+		} else if (time_after_eq(jiffies + 1, sp->resend_at)) {
-+			sp->need_resend = 1;
-+			resend |= 1;
-+		} else if (resend & 2) {
-+			if (time_before(sp->resend_at, resend_at))
-+				resend_at = sp->resend_at;
-+		} else {
-+			resend_at = sp->resend_at;
-+			resend |= 2;
-+		}
-+	}
-+
-+	rxrpc_set_resend(call, resend, resend_at);
-+	_leave(" = 0");
-+	return 0;
-+
-+protocol_error:
-+	_leave(" = -EPROTO");
-+	return -EPROTO;
-+}
-+
-+/*
-+ * discard hard-ACK'd packets from the Tx window
-+ */
-+static void rxrpc_rotate_tx_window(struct rxrpc_call *call, u32 hard)
-+{
-+	struct rxrpc_skb_priv *sp;
-+	unsigned long _skb;
-+	int tail = call->acks_tail, old_tail;
-+	int win = CIRC_CNT(call->acks_head, tail, call->acks_winsz);
-+
-+	_enter("{%u,%u},%u", call->acks_hard, win, hard);
-+
-+	ASSERTCMP(hard - call->acks_hard, <=, win);
-+
-+	while (call->acks_hard < hard) {
-+		smp_read_barrier_depends();
-+		_skb = call->acks_window[tail] & ~1;
-+		sp = rxrpc_skb((struct sk_buff *) _skb);
-+		rxrpc_free_skb((struct sk_buff *) _skb);
-+		old_tail = tail;
-+		tail = (tail + 1) & (call->acks_winsz - 1);
-+		call->acks_tail = tail;
-+		if (call->acks_unacked == old_tail)
-+			call->acks_unacked = tail;
-+		call->acks_hard++;
-+	}
-+
-+	wake_up(&call->tx_waitq);
-+}
-+
-+/*
-+ * clear the Tx window in the event of a failure
-+ */
-+static void rxrpc_clear_tx_window(struct rxrpc_call *call)
-+{
-+	rxrpc_rotate_tx_window(call, atomic_read(&call->sequence));
-+}
-+
-+/*
-+ * drain the out of sequence received packet queue into the packet Rx queue
-+ */
-+static int rxrpc_drain_rx_oos_queue(struct rxrpc_call *call)
-+{
-+	struct rxrpc_skb_priv *sp;
-+	struct sk_buff *skb;
-+	bool terminal;
-+	int ret;
-+
-+	_enter("{%d,%d}", call->rx_data_post, call->rx_first_oos);
-+
-+	spin_lock_bh(&call->lock);
-+
-+	ret = -ECONNRESET;
-+	if (test_bit(RXRPC_CALL_RELEASED, &call->flags))
-+		goto socket_unavailable;
-+
-+	skb = skb_dequeue(&call->rx_oos_queue);
-+	if (skb) {
-+		sp = rxrpc_skb(skb);
-+
-+		_debug("drain OOS packet %d [%d]",
-+		       ntohl(sp->hdr.seq), call->rx_first_oos);
-+
-+		if (ntohl(sp->hdr.seq) != call->rx_first_oos) {
-+			skb_queue_head(&call->rx_oos_queue, skb);
-+			call->rx_first_oos = ntohl(rxrpc_skb(skb)->hdr.seq);
-+			_debug("requeue %p {%u}", skb, call->rx_first_oos);
-+		} else {
-+			skb->mark = RXRPC_SKB_MARK_DATA;
-+			terminal = ((sp->hdr.flags & RXRPC_LAST_PACKET) &&
-+				!(sp->hdr.flags & RXRPC_CLIENT_INITIATED));
-+			ret = rxrpc_queue_rcv_skb(call, skb, true, terminal);
-+			BUG_ON(ret < 0);
-+			_debug("drain #%u", call->rx_data_post);
-+			call->rx_data_post++;
-+
-+			/* find out what the next packet is */
-+			skb = skb_peek(&call->rx_oos_queue);
-+			if (skb)
-+				call->rx_first_oos =
-+					ntohl(rxrpc_skb(skb)->hdr.seq);
-+			else
-+				call->rx_first_oos = 0;
-+			_debug("peek %p {%u}", skb, call->rx_first_oos);
-+		}
-+	}
-+
-+	ret = 0;
-+socket_unavailable:
-+	spin_unlock_bh(&call->lock);
-+	_leave(" = %d", ret);
-+	return ret;
-+}
-+
-+/*
-+ * insert an out of sequence packet into the buffer
-+ */
-+static void rxrpc_insert_oos_packet(struct rxrpc_call *call,
-+				    struct sk_buff *skb)
-+{
-+	struct rxrpc_skb_priv *sp, *psp;
-+	struct sk_buff *p;
-+	u32 seq;
-+
-+	sp = rxrpc_skb(skb);
-+	seq = ntohl(sp->hdr.seq);
-+	_enter(",,{%u}", seq);
-+
-+	skb->destructor = rxrpc_packet_destructor;
-+	ASSERTCMP(sp->call, ==, NULL);
-+	sp->call = call;
-+	rxrpc_get_call(call);
-+
-+	/* insert into the buffer in sequence order */
-+	spin_lock_bh(&call->lock);
-+
-+	skb_queue_walk(&call->rx_oos_queue, p) {
-+		psp = rxrpc_skb(p);
-+		if (ntohl(psp->hdr.seq) > seq) {
-+			_debug("insert oos #%u before #%u",
-+			       seq, ntohl(psp->hdr.seq));
-+			skb_insert(p, skb, &call->rx_oos_queue);
-+			goto inserted;
-+		}
-+	}
-+
-+	_debug("append oos #%u", seq);
-+	skb_queue_tail(&call->rx_oos_queue, skb);
-+inserted:
-+
-+	/* we might now have a new front to the queue */
-+	if (call->rx_first_oos == 0 || seq < call->rx_first_oos)
-+		call->rx_first_oos = seq;
-+
-+	read_lock(&call->state_lock);
-+	if (call->state < RXRPC_CALL_COMPLETE &&
-+	    call->rx_data_post == call->rx_first_oos) {
-+		_debug("drain rx oos now");
-+		set_bit(RXRPC_CALL_DRAIN_RX_OOS, &call->events);
-+	}
-+	read_unlock(&call->state_lock);
-+
-+	spin_unlock_bh(&call->lock);
-+	_leave(" [stored #%u]", call->rx_first_oos);
-+}
-+
-+/*
-+ * clear the Tx window on final ACK reception
-+ */
-+static void rxrpc_zap_tx_window(struct rxrpc_call *call)
-+{
-+	struct rxrpc_skb_priv *sp;
-+	struct sk_buff *skb;
-+	unsigned long _skb, *acks_window;
-+	uint8_t winsz = call->acks_winsz;
-+	int tail;
-+
-+	acks_window = call->acks_window;
-+	call->acks_window = NULL;
-+
-+	while (CIRC_CNT(call->acks_head, call->acks_tail, winsz) > 0) {
-+		tail = call->acks_tail;
-+		smp_read_barrier_depends();
-+		_skb = acks_window[tail] & ~1;
-+		smp_mb();
-+		call->acks_tail = (call->acks_tail + 1) & (winsz - 1);
-+
-+		skb = (struct sk_buff *) _skb;
-+		sp = rxrpc_skb(skb);
-+		_debug("+++ clear Tx %u", ntohl(sp->hdr.seq));
-+		rxrpc_free_skb(skb);
-+	}
-+
-+	kfree(acks_window);
-+}
-+
-+/*
-+ * process packets in the reception queue
-+ */
-+static int rxrpc_process_rx_queue(struct rxrpc_call *call,
-+				  u32 *_abort_code)
-+{
-+	struct rxrpc_ackpacket ack;
-+	struct rxrpc_skb_priv *sp;
-+	struct sk_buff *skb;
-+	bool post_ACK;
-+	int latest;
-+	u32 hard, tx;
-+
-+	_enter("");
-+
-+process_further:
-+	skb = skb_dequeue(&call->rx_queue);
-+	if (!skb)
-+		return -EAGAIN;
-+
-+	_net("deferred skb %p", skb);
-+
-+	sp = rxrpc_skb(skb);
-+
-+	_debug("process %s [st %d]", rxrpc_pkts[sp->hdr.type], call->state);
-+
-+	post_ACK = false;
-+
-+	switch (sp->hdr.type) {
-+		/* data packets that wind up here have been received out of
-+		 * order, need security processing or are jumbo packets */
-+	case RXRPC_PACKET_TYPE_DATA:
-+		_proto("OOSQ DATA %%%u { #%u }",
-+		       ntohl(sp->hdr.serial), ntohl(sp->hdr.seq));
-+
-+		/* secured packets must be verified and possibly decrypted */
-+		if (rxrpc_verify_packet(call, skb, _abort_code) < 0)
-+			goto protocol_error;
-+
-+		rxrpc_insert_oos_packet(call, skb);
-+		goto process_further;
-+
-+		/* partial ACK to process */
-+	case RXRPC_PACKET_TYPE_ACK:
-+		if (skb_copy_bits(skb, 0, &ack, sizeof(ack)) < 0) {
-+			_debug("extraction failure");
-+			goto protocol_error;
-+		}
-+		if (!skb_pull(skb, sizeof(ack)))
-+			BUG();
-+
-+		latest = ntohl(sp->hdr.serial);
-+		hard = ntohl(ack.firstPacket);
-+		tx = atomic_read(&call->sequence);
-+
-+		_proto("Rx ACK %%%u { m=%hu f=#%u p=#%u s=%%%u r=%s n=%u }",
-+		       latest,
-+		       ntohs(ack.maxSkew),
-+		       hard,
-+		       ntohl(ack.previousPacket),
-+		       ntohl(ack.serial),
-+		       rxrpc_acks[ack.reason],
-+		       ack.nAcks);
-+
-+		if (ack.reason == RXRPC_ACK_PING) {
-+			_proto("Rx ACK %%%u PING Request", latest);
-+			rxrpc_propose_ACK(call, RXRPC_ACK_PING_RESPONSE,
-+					  sp->hdr.serial, true);
-+		}
-+
-+		/* discard any out-of-order or duplicate ACKs */
-+		if (latest - call->acks_latest <= 0) {
-+			_debug("discard ACK %d <= %d",
-+			       latest, call->acks_latest);
-+			goto discard;
-+		}
-+		call->acks_latest = latest;
-+
-+		if (call->state != RXRPC_CALL_CLIENT_SEND_REQUEST &&
-+		    call->state != RXRPC_CALL_CLIENT_AWAIT_REPLY &&
-+		    call->state != RXRPC_CALL_SERVER_SEND_REPLY &&
-+		    call->state != RXRPC_CALL_SERVER_AWAIT_ACK)
-+			goto discard;
-+
-+		_debug("Tx=%d H=%u S=%d", tx, call->acks_hard, call->state);
-+
-+		if (hard > 0) {
-+			if (hard - 1 > tx) {
-+				_debug("hard-ACK'd packet %d not transmitted"
-+				       " (%d top)",
-+				       hard - 1, tx);
-+				goto protocol_error;
-+			}
-+
-+			if ((call->state == RXRPC_CALL_CLIENT_AWAIT_REPLY ||
-+			     call->state == RXRPC_CALL_SERVER_AWAIT_ACK) &&
-+			    hard > tx)
-+				goto all_acked;
-+
-+			smp_rmb();
-+			rxrpc_rotate_tx_window(call, hard - 1);
-+		}
-+
-+		if (ack.nAcks > 0) {
-+			if (hard - 1 + ack.nAcks > tx) {
-+				_debug("soft-ACK'd packet %d+%d not"
-+				       " transmitted (%d top)",
-+				       hard - 1, ack.nAcks, tx);
-+				goto protocol_error;
-+			}
-+
-+			if (rxrpc_process_soft_ACKs(call, &ack, skb) < 0)
-+				goto protocol_error;
-+		}
-+		goto discard;
-+
-+		/* complete ACK to process */
-+	case RXRPC_PACKET_TYPE_ACKALL:
-+		goto all_acked;
-+
-+		/* abort and busy are handled elsewhere */
-+	case RXRPC_PACKET_TYPE_BUSY:
-+	case RXRPC_PACKET_TYPE_ABORT:
-+		BUG();
-+
-+		/* connection level events - also handled elsewhere */
-+	case RXRPC_PACKET_TYPE_CHALLENGE:
-+	case RXRPC_PACKET_TYPE_RESPONSE:
-+	case RXRPC_PACKET_TYPE_DEBUG:
-+		BUG();
-+	}
-+
-+	/* if we've had a hard ACK that covers all the packets we've sent, then
-+	 * that ends that phase of the operation */
-+all_acked:
-+	write_lock_bh(&call->state_lock);
-+	_debug("ack all %d", call->state);
-+
-+	switch (call->state) {
-+	case RXRPC_CALL_CLIENT_AWAIT_REPLY:
-+		call->state = RXRPC_CALL_CLIENT_RECV_REPLY;
-+		break;
-+	case RXRPC_CALL_SERVER_AWAIT_ACK:
-+		_debug("srv complete");
-+		call->state = RXRPC_CALL_COMPLETE;
-+		post_ACK = true;
-+		break;
-+	case RXRPC_CALL_CLIENT_SEND_REQUEST:
-+	case RXRPC_CALL_SERVER_RECV_REQUEST:
-+		goto protocol_error_unlock; /* can't occur yet */
-+	default:
-+		write_unlock_bh(&call->state_lock);
-+		goto discard; /* assume packet left over from earlier phase */
-+	}
-+
-+	write_unlock_bh(&call->state_lock);
-+
-+	/* if all the packets we sent are hard-ACK'd, then we can discard
-+	 * whatever we've got left */
-+	_debug("clear Tx %d",
-+	       CIRC_CNT(call->acks_head, call->acks_tail, call->acks_winsz));
-+
-+	del_timer_sync(&call->resend_timer);
-+	clear_bit(RXRPC_CALL_RUN_RTIMER, &call->flags);
-+	clear_bit(RXRPC_CALL_RESEND_TIMER, &call->events);
-+
-+	if (call->acks_window)
-+		rxrpc_zap_tx_window(call);
-+
-+	if (post_ACK) {
-+		/* post the final ACK message for userspace to pick up */
-+		_debug("post ACK");
-+		skb->mark = RXRPC_SKB_MARK_FINAL_ACK;
-+		sp->call = call;
-+		rxrpc_get_call(call);
-+		spin_lock_bh(&call->lock);
-+		if (rxrpc_queue_rcv_skb(call, skb, true, true) < 0)
-+			BUG();
-+		spin_unlock_bh(&call->lock);
-+		goto process_further;
-+	}
-+
-+discard:
-+	rxrpc_free_skb(skb);
-+	goto process_further;
-+
-+protocol_error_unlock:
-+	write_unlock_bh(&call->state_lock);
-+protocol_error:
-+	rxrpc_free_skb(skb);
-+	_leave(" = -EPROTO");
-+	return -EPROTO;
-+}
-+
-+/*
-+ * post a message to the socket Rx queue for recvmsg() to pick up
-+ */
-+static int rxrpc_post_message(struct rxrpc_call *call, u32 mark, u32 error,
-+			      bool fatal)
-+{
-+	struct rxrpc_skb_priv *sp;
-+	struct sk_buff *skb;
-+	int ret;
-+
-+	_enter("{%d,%lx},%u,%u,%d",
-+	       call->debug_id, call->flags, mark, error, fatal);
-+
-+	/* remove timers and things for fatal messages */
-+	if (fatal) {
-+		del_timer_sync(&call->resend_timer);
-+		del_timer_sync(&call->ack_timer);
-+		clear_bit(RXRPC_CALL_RUN_RTIMER, &call->flags);
-+	}
-+
-+	if (mark != RXRPC_SKB_MARK_NEW_CALL &&
-+	    !test_bit(RXRPC_CALL_HAS_USERID, &call->flags)) {
-+		_leave("[no userid]");
-+		return 0;
-+	}
-+
-+	if (!test_bit(RXRPC_CALL_TERMINAL_MSG, &call->flags)) {
-+		skb = alloc_skb(0, GFP_NOFS);
-+		if (!skb)
-+			return -ENOMEM;
-+
-+		rxrpc_new_skb(skb);
-+
-+		skb->mark = mark;
-+
-+		sp = rxrpc_skb(skb);
-+		memset(sp, 0, sizeof(*sp));
-+		sp->error = error;
-+		sp->call = call;
-+		rxrpc_get_call(call);
-+
-+		spin_lock_bh(&call->lock);
-+		ret = rxrpc_queue_rcv_skb(call, skb, true, fatal);
-+		spin_unlock_bh(&call->lock);
-+		if (ret < 0)
-+			BUG();
-+	}
-+
-+	return 0;
-+}
-+
-+/*
-+ * handle background processing of incoming call packets and ACK / abort
-+ * generation
-+ */
-+void rxrpc_process_call(struct work_struct *work)
-+{
-+	struct rxrpc_call *call =
-+		container_of(work, struct rxrpc_call, processor);
-+	struct rxrpc_ackpacket ack;
-+	struct rxrpc_ackinfo ackinfo;
-+	struct rxrpc_header hdr;
-+	struct msghdr msg;
-+	struct kvec iov[5];
-+	unsigned long bits;
-+	__be32 data;
-+	size_t len;
-+	int genbit, loop, nbit, ioc, ret;
-+	u32 abort_code = RX_PROTOCOL_ERROR;
-+	u8 *acks = NULL;
-+
-+	//printk("\n--------------------\n");
-+	_enter("{%d,%s,%lx} [%lu]",
-+	       call->debug_id, rxrpc_call_states[call->state], call->events,
-+	       (jiffies - call->creation_jif) / (HZ / 10));
-+
-+	if (test_and_set_bit(RXRPC_CALL_PROC_BUSY, &call->flags)) {
-+		_debug("XXXXXXXXXXXXX RUNNING ON MULTIPLE CPUS XXXXXXXXXXXXX");
-+		return;
-+	}
-+
-+	/* there's a good chance we're going to have to send a message, so set
-+	 * one up in advance */
-+	msg.msg_name	= &call->conn->trans->peer->srx.transport.sin;
-+	msg.msg_namelen	= sizeof(call->conn->trans->peer->srx.transport.sin);
-+	msg.msg_control	= NULL;
-+	msg.msg_controllen = 0;
-+	msg.msg_flags	= 0;
-+
-+	hdr.epoch	= call->conn->epoch;
-+	hdr.cid		= call->cid;
-+	hdr.callNumber	= call->call_id;
-+	hdr.seq		= 0;
-+	hdr.type	= RXRPC_PACKET_TYPE_ACK;
-+	hdr.flags	= call->conn->out_clientflag;
-+	hdr.userStatus	= 0;
-+	hdr.securityIndex = call->conn->security_ix;
-+	hdr._rsvd	= 0;
-+	hdr.serviceId	= call->conn->service_id;
-+
-+	memset(iov, 0, sizeof(iov));
-+	iov[0].iov_base	= &hdr;
-+	iov[0].iov_len	= sizeof(hdr);
-+
-+	/* deal with events of a final nature */
-+	if (test_bit(RXRPC_CALL_RELEASE, &call->events)) {
-+		rxrpc_release_call(call);
-+		clear_bit(RXRPC_CALL_RELEASE, &call->events);
-+	}
-+
-+	if (test_bit(RXRPC_CALL_RCVD_ERROR, &call->events)) {
-+		int error;
-+
-+		clear_bit(RXRPC_CALL_CONN_ABORT, &call->events);
-+		clear_bit(RXRPC_CALL_REJECT_BUSY, &call->events);
-+		clear_bit(RXRPC_CALL_ABORT, &call->events);
-+
-+		error = call->conn->trans->peer->net_error;
-+		_debug("post net error %d", error);
-+
-+		if (rxrpc_post_message(call, RXRPC_SKB_MARK_NET_ERROR,
-+				       error, true) < 0)
-+			goto no_mem;
-+		clear_bit(RXRPC_CALL_RCVD_ERROR, &call->events);
-+		goto kill_ACKs;
-+	}
-+
-+	if (test_bit(RXRPC_CALL_CONN_ABORT, &call->events)) {
-+		ASSERTCMP(call->state, >, RXRPC_CALL_COMPLETE);
-+
-+		clear_bit(RXRPC_CALL_REJECT_BUSY, &call->events);
-+		clear_bit(RXRPC_CALL_ABORT, &call->events);
-+
-+		_debug("post conn abort");
-+
-+		if (rxrpc_post_message(call, RXRPC_SKB_MARK_LOCAL_ERROR,
-+				       call->conn->error, true) < 0)
-+			goto no_mem;
-+		clear_bit(RXRPC_CALL_CONN_ABORT, &call->events);
-+		goto kill_ACKs;
-+	}
-+
-+	if (test_bit(RXRPC_CALL_REJECT_BUSY, &call->events)) {
-+		hdr.type = RXRPC_PACKET_TYPE_BUSY;
-+		genbit = RXRPC_CALL_REJECT_BUSY;
-+		goto send_message;
-+	}
-+
-+	if (test_bit(RXRPC_CALL_ABORT, &call->events)) {
-+		ASSERTCMP(call->state, >, RXRPC_CALL_COMPLETE);
-+
-+		if (rxrpc_post_message(call, RXRPC_SKB_MARK_LOCAL_ERROR,
-+				       ECONNABORTED, true) < 0)
-+			goto no_mem;
-+		hdr.type = RXRPC_PACKET_TYPE_ABORT;
-+		data = htonl(call->abort_code);
-+		iov[1].iov_base = &data;
-+		iov[1].iov_len = sizeof(data);
-+		genbit = RXRPC_CALL_ABORT;
-+		goto send_message;
-+	}
-+
-+	if (test_bit(RXRPC_CALL_ACK_FINAL, &call->events)) {
-+		hdr.type = RXRPC_PACKET_TYPE_ACKALL;
-+		genbit = RXRPC_CALL_ACK_FINAL;
-+		goto send_message;
-+	}
-+
-+	if (call->events & ((1 << RXRPC_CALL_RCVD_BUSY) |
-+			    (1 << RXRPC_CALL_RCVD_ABORT))
++	if (strncmp(vlocation->vldb.name, vldb->name, sizeof(vldb->name)) =3D=
+=3D 0
 +	    ) {
-+		u32 mark;
-+
-+		if (test_bit(RXRPC_CALL_RCVD_ABORT, &call->events))
-+			mark = RXRPC_SKB_MARK_REMOTE_ABORT;
-+		else
-+			mark = RXRPC_SKB_MARK_BUSY;
-+
-+		_debug("post abort/busy");
-+		rxrpc_clear_tx_window(call);
-+		if (rxrpc_post_message(call, mark, ECONNABORTED, true) < 0)
-+			goto no_mem;
-+
-+		clear_bit(RXRPC_CALL_RCVD_BUSY, &call->events);
-+		clear_bit(RXRPC_CALL_RCVD_ABORT, &call->events);
-+		goto kill_ACKs;
-+	}
-+
-+	if (test_and_clear_bit(RXRPC_CALL_RCVD_ACKALL, &call->events)) {
-+		_debug("do implicit ackall");
-+		rxrpc_clear_tx_window(call);
-+	}
-+
-+	if (test_bit(RXRPC_CALL_LIFE_TIMER, &call->events)) {
-+		write_lock_bh(&call->state_lock);
-+		if (call->state <= RXRPC_CALL_COMPLETE) {
-+			call->state = RXRPC_CALL_LOCALLY_ABORTED;
-+			call->abort_code = RX_CALL_TIMEOUT;
-+			set_bit(RXRPC_CALL_ABORT, &call->events);
-+		}
-+		write_unlock_bh(&call->state_lock);
-+
-+		_debug("post timeout");
-+		if (rxrpc_post_message(call, RXRPC_SKB_MARK_LOCAL_ERROR,
-+				       ETIME, true) < 0)
-+			goto no_mem;
-+
-+		clear_bit(RXRPC_CALL_LIFE_TIMER, &call->events);
-+		goto kill_ACKs;
-+	}
-+
-+	/* deal with assorted inbound messages */
-+	if (!skb_queue_empty(&call->rx_queue)) {
-+		switch (rxrpc_process_rx_queue(call, &abort_code)) {
-+		case 0:
-+		case -EAGAIN:
-+			break;
-+		case -ENOMEM:
-+			goto no_mem;
-+		case -EKEYEXPIRED:
-+		case -EKEYREJECTED:
-+		case -EPROTO:
-+			rxrpc_abort_call(call, abort_code);
-+			goto kill_ACKs;
-+		}
-+	}
-+
-+	/* handle resending */
-+	if (test_and_clear_bit(RXRPC_CALL_RESEND_TIMER, &call->events))
-+		rxrpc_resend_timer(call);
-+	if (test_and_clear_bit(RXRPC_CALL_RESEND, &call->events))
-+		rxrpc_resend(call);
-+
-+	/* consider sending an ordinary ACK */
-+	if (test_bit(RXRPC_CALL_ACK, &call->events)) {
-+		__be32 pad;
-+
-+		_debug("send ACK: window: %d - %d { %lx }",
-+		       call->rx_data_eaten, call->ackr_win_top,
-+		       call->ackr_window[0]);
-+
-+		if (call->state > RXRPC_CALL_SERVER_ACK_REQUEST &&
-+		    call->ackr_reason != RXRPC_ACK_PING_RESPONSE) {
-+			/* ACK by sending reply DATA packet in this state */
-+			clear_bit(RXRPC_CALL_ACK, &call->events);
-+			goto maybe_reschedule;
-+		}
-+
-+		genbit = RXRPC_CALL_ACK;
-+
-+		acks = kzalloc(call->ackr_win_top - call->rx_data_eaten,
-+			       GFP_NOFS);
-+		if (!acks)
-+			goto no_mem;
-+
-+		//hdr.flags	= RXRPC_SLOW_START_OK;
-+		ack.bufferSpace	= htons(8);
-+		ack.maxSkew	= 0;
-+		ack.serial	= 0;
-+		ack.reason	= 0;
-+
-+		ackinfo.rxMTU	= htonl(5692);
-+//		ackinfo.rxMTU	= htonl(call->conn->trans->peer->maxdata);
-+		ackinfo.maxMTU	= htonl(call->conn->trans->peer->maxdata);
-+		ackinfo.rwind	= htonl(32);
-+		ackinfo.jumbo_max = htonl(4);
-+
-+		spin_lock_bh(&call->lock);
-+		ack.reason = call->ackr_reason;
-+		ack.serial = call->ackr_serial;
-+		ack.previousPacket = call->ackr_prev_seq;
-+		ack.firstPacket = htonl(call->rx_data_eaten + 1);
-+
-+		ack.nAcks = 0;
-+		for (loop = 0; loop < RXRPC_ACKR_WINDOW_ASZ; loop++) {
-+			nbit = loop * BITS_PER_LONG;
-+			for (bits = call->ackr_window[loop]; bits; bits >>= 1
-+			     ) {
-+				_debug("- l=%d n=%d b=%lx", loop, nbit, bits);
-+				if (bits & 1) {
-+					acks[nbit] = RXRPC_ACK_TYPE_ACK;
-+					ack.nAcks = nbit + 1;
-+				}
-+				nbit++;
++		if (!vlocation->valid ||
++		    vlocation->vldb.rtime =3D=3D vldb->rtime
++		    ) {
++			vlocation->vldb =3D *vldb;
++			vlocation->valid =3D 1;
++			_leave(" =3D SUCCESS [c->m]");
++			return CACHEFS_MATCH_SUCCESS;
++		} else if (memcmp(&vlocation->vldb, vldb, sizeof(*vldb)) !=3D 0) {
++			/* delete if VIDs for this name differ */
++			if (memcmp(&vlocation->vldb.vid,
++				   &vldb->vid,
++				   sizeof(vldb->vid)) !=3D 0) {
++				_leave(" =3D DELETE");
++				return CACHEFS_MATCH_SUCCESS_DELETE;
 +			}
-+		}
-+		call->ackr_reason = 0;
-+		spin_unlock_bh(&call->lock);
 +
-+		pad = 0;
-+
-+		iov[1].iov_base = &ack;
-+		iov[1].iov_len	= sizeof(ack);
-+		iov[2].iov_base = acks;
-+		iov[2].iov_len	= ack.nAcks;
-+		iov[3].iov_base = &pad;
-+		iov[3].iov_len	= 3;
-+		iov[4].iov_base = &ackinfo;
-+		iov[4].iov_len	= sizeof(ackinfo);
-+
-+		switch (ack.reason) {
-+		case RXRPC_ACK_REQUESTED:
-+		case RXRPC_ACK_DUPLICATE:
-+		case RXRPC_ACK_OUT_OF_SEQUENCE:
-+		case RXRPC_ACK_EXCEEDS_WINDOW:
-+		case RXRPC_ACK_NOSPACE:
-+		case RXRPC_ACK_PING:
-+		case RXRPC_ACK_PING_RESPONSE:
-+			goto send_ACK_with_skew;
-+		case RXRPC_ACK_DELAY:
-+		case RXRPC_ACK_IDLE:
-+			goto send_ACK;
-+		}
-+	}
-+
-+	/* handle completion of security negotiations on an incoming
-+	 * connection */
-+	if (test_and_clear_bit(RXRPC_CALL_SECURED, &call->events)) {
-+		_debug("secured");
-+		spin_lock_bh(&call->lock);
-+
-+		if (call->state == RXRPC_CALL_SERVER_SECURING) {
-+			_debug("securing");
-+			write_lock(&call->conn->lock);
-+			if (!test_bit(RXRPC_CALL_RELEASED, &call->flags) &&
-+			    !test_bit(RXRPC_CALL_RELEASE, &call->events)) {
-+				_debug("not released");
-+				call->state = RXRPC_CALL_SERVER_ACCEPTING;
-+				list_move_tail(&call->accept_link,
-+					       &call->socket->acceptq);
-+			}
-+			write_unlock(&call->conn->lock);
-+			read_lock(&call->state_lock);
-+			if (call->state < RXRPC_CALL_COMPLETE)
-+				set_bit(RXRPC_CALL_POST_ACCEPT, &call->events);
-+			read_unlock(&call->state_lock);
-+		}
-+
-+		spin_unlock_bh(&call->lock);
-+		if (!test_bit(RXRPC_CALL_POST_ACCEPT, &call->events))
-+			goto maybe_reschedule;
-+	}
-+
-+	/* post a notification of an acceptable connection to the app */
-+	if (test_bit(RXRPC_CALL_POST_ACCEPT, &call->events)) {
-+		_debug("post accept");
-+		if (rxrpc_post_message(call, RXRPC_SKB_MARK_NEW_CALL,
-+				       0, false) < 0)
-+			goto no_mem;
-+		clear_bit(RXRPC_CALL_POST_ACCEPT, &call->events);
-+		goto maybe_reschedule;
-+	}
-+
-+	/* handle incoming call acceptance */
-+	if (test_and_clear_bit(RXRPC_CALL_ACCEPTED, &call->events)) {
-+		_debug("accepted");
-+		ASSERTCMP(call->rx_data_post, ==, 0);
-+		call->rx_data_post = 1;
-+		read_lock_bh(&call->state_lock);
-+		if (call->state < RXRPC_CALL_COMPLETE)
-+			set_bit(RXRPC_CALL_DRAIN_RX_OOS, &call->events);
-+		read_unlock_bh(&call->state_lock);
-+	}
-+
-+	/* drain the out of sequence received packet queue into the packet Rx
-+	 * queue */
-+	if (test_and_clear_bit(RXRPC_CALL_DRAIN_RX_OOS, &call->events)) {
-+		while (call->rx_data_post == call->rx_first_oos)
-+			if (rxrpc_drain_rx_oos_queue(call) < 0)
-+				break;
-+		goto maybe_reschedule;
-+	}
-+
-+	/* other events may have been raised since we started checking */
-+	goto maybe_reschedule;
-+
-+send_ACK_with_skew:
-+	ack.maxSkew = htons(atomic_read(&call->conn->hi_serial) -
-+			    ntohl(ack.serial));
-+send_ACK:
-+	hdr.serial = htonl(atomic_inc_return(&call->conn->serial));
-+	_proto("Tx ACK %%%u { m=%hu f=#%u p=#%u s=%%%u r=%s n=%u }",
-+	       ntohl(hdr.serial),
-+	       ntohs(ack.maxSkew),
-+	       ntohl(ack.firstPacket),
-+	       ntohl(ack.previousPacket),
-+	       ntohl(ack.serial),
-+	       rxrpc_acks[ack.reason],
-+	       ack.nAcks);
-+
-+	del_timer_sync(&call->ack_timer);
-+	if (ack.nAcks > 0)
-+		set_bit(RXRPC_CALL_TX_SOFT_ACK, &call->flags);
-+	goto send_message_2;
-+
-+send_message:
-+	_debug("send message");
-+
-+	hdr.serial = htonl(atomic_inc_return(&call->conn->serial));
-+	_proto("Tx %s %%%u", rxrpc_pkts[hdr.type], ntohl(hdr.serial));
-+send_message_2:
-+
-+	len = iov[0].iov_len;
-+	ioc = 1;
-+	if (iov[4].iov_len) {
-+		ioc = 5;
-+		len += iov[4].iov_len;
-+		len += iov[3].iov_len;
-+		len += iov[2].iov_len;
-+		len += iov[1].iov_len;
-+	} else if (iov[3].iov_len) {
-+		ioc = 4;
-+		len += iov[3].iov_len;
-+		len += iov[2].iov_len;
-+		len += iov[1].iov_len;
-+	} else if (iov[2].iov_len) {
-+		ioc = 3;
-+		len += iov[2].iov_len;
-+		len += iov[1].iov_len;
-+	} else if (iov[1].iov_len) {
-+		ioc = 2;
-+		len += iov[1].iov_len;
-+	}
-+
-+	ret = kernel_sendmsg(call->conn->trans->local->socket,
-+			     &msg, iov, ioc, len);
-+	if (ret < 0) {
-+		_debug("sendmsg failed: %d", ret);
-+		read_lock_bh(&call->state_lock);
-+		if (call->state < RXRPC_CALL_DEAD)
-+			schedule_work(&call->processor);
-+		read_unlock_bh(&call->state_lock);
-+		goto error;
-+	}
-+
-+	switch (genbit) {
-+	case RXRPC_CALL_ABORT:
-+		clear_bit(genbit, &call->events);
-+		clear_bit(RXRPC_CALL_RCVD_ABORT, &call->events);
-+		goto kill_ACKs;
-+
-+	case RXRPC_CALL_ACK_FINAL:
-+		write_lock_bh(&call->state_lock);
-+		if (call->state == RXRPC_CALL_CLIENT_FINAL_ACK)
-+			call->state = RXRPC_CALL_COMPLETE;
-+		write_unlock_bh(&call->state_lock);
-+		goto kill_ACKs;
-+
-+	default:
-+		clear_bit(genbit, &call->events);
-+		switch (call->state) {
-+		case RXRPC_CALL_CLIENT_AWAIT_REPLY:
-+		case RXRPC_CALL_CLIENT_RECV_REPLY:
-+		case RXRPC_CALL_SERVER_RECV_REQUEST:
-+		case RXRPC_CALL_SERVER_ACK_REQUEST:
-+			_debug("start ACK timer");
-+			rxrpc_propose_ACK(call, RXRPC_ACK_DELAY,
-+					  call->ackr_serial, false);
-+		default:
-+			break;
-+		}
-+		goto maybe_reschedule;
-+	}
-+
-+kill_ACKs:
-+	del_timer_sync(&call->ack_timer);
-+	if (test_and_clear_bit(RXRPC_CALL_ACK_FINAL, &call->events))
-+		rxrpc_put_call(call);
-+	clear_bit(RXRPC_CALL_ACK, &call->events);
-+
-+maybe_reschedule:
-+	if (call->events || !skb_queue_empty(&call->rx_queue)) {
-+		read_lock_bh(&call->state_lock);
-+		if (call->state < RXRPC_CALL_DEAD)
-+			schedule_work(&call->processor);
-+		read_unlock_bh(&call->state_lock);
-+	}
-+
-+	/* don't leave aborted connections on the accept queue */
-+	if (call->state >= RXRPC_CALL_COMPLETE &&
-+	    !list_empty(&call->accept_link)) {
-+		_debug("X unlinking once-pending call %p { e=%lx f=%lx c=%x }",
-+		       call, call->events, call->flags,
-+		       ntohl(call->conn->cid));
-+
-+		read_lock_bh(&call->state_lock);
-+		if (!test_bit(RXRPC_CALL_RELEASED, &call->flags) &&
-+		    !test_and_set_bit(RXRPC_CALL_RELEASE, &call->events))
-+			schedule_work(&call->processor);
-+		read_unlock_bh(&call->state_lock);
-+	}
-+
-+error:
-+	clear_bit(RXRPC_CALL_PROC_BUSY, &call->flags);
-+	kfree(acks);
-+
-+	/* because we don't want two CPUs both processing the work item for one
-+	 * call at the same time, we use a flag to note when it's busy; however
-+	 * this means there's a race between clearing the flag and setting the
-+	 * work pending bit and the work item being processed again */
-+	if (call->events && !work_pending(&call->processor)) {
-+		_debug("jumpstart %x", ntohl(call->conn->cid));
-+		schedule_work(&call->processor);
-+	}
-+
-+	_leave("");
-+	return;
-+
-+no_mem:
-+	_debug("out of memory");
-+	goto maybe_reschedule;
-+}
-diff --git a/net/rxrpc/ar-call.c b/net/rxrpc/ar-call.c
-new file mode 100644
-index 0000000..ac31cce
---- /dev/null
-+++ b/net/rxrpc/ar-call.c
-@@ -0,0 +1,787 @@
-+/* RxRPC individual remote procedure call handling
-+ *
-+ * Copyright (C) 2007 Red Hat, Inc. All Rights Reserved.
-+ * Written by David Howells (dhowells@redhat.com)
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version
-+ * 2 of the License, or (at your option) any later version.
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/circ_buf.h>
-+#include <net/sock.h>
-+#include <net/af_rxrpc.h>
-+#include "ar-internal.h"
-+
-+struct kmem_cache *rxrpc_call_jar;
-+LIST_HEAD(rxrpc_calls);
-+DEFINE_RWLOCK(rxrpc_call_lock);
-+static unsigned rxrpc_call_max_lifetime = 60;
-+static unsigned rxrpc_dead_call_timeout = 10;
-+
-+static void rxrpc_destroy_call(struct work_struct *work);
-+static void rxrpc_call_life_expired(unsigned long _call);
-+static void rxrpc_dead_call_expired(unsigned long _call);
-+static void rxrpc_ack_time_expired(unsigned long _call);
-+static void rxrpc_resend_time_expired(unsigned long _call);
-+
-+/*
-+ * allocate a new call
-+ */
-+static struct rxrpc_call *rxrpc_alloc_call(gfp_t gfp)
-+{
-+	struct rxrpc_call *call;
-+
-+	call = kmem_cache_zalloc(rxrpc_call_jar, gfp);
-+	if (!call)
-+		return NULL;
-+
-+	call->acks_winsz = 16;
-+	call->acks_window = kmalloc(call->acks_winsz * sizeof(unsigned long),
-+				    gfp);
-+	if (!call->acks_window) {
-+		kmem_cache_free(rxrpc_call_jar, call);
-+		return NULL;
-+	}
-+
-+	setup_timer(&call->lifetimer, &rxrpc_call_life_expired,
-+		    (unsigned long) call);
-+	setup_timer(&call->deadspan, &rxrpc_dead_call_expired,
-+		    (unsigned long) call);
-+	setup_timer(&call->ack_timer, &rxrpc_ack_time_expired,
-+		    (unsigned long) call);
-+	setup_timer(&call->resend_timer, &rxrpc_resend_time_expired,
-+		    (unsigned long) call);
-+	INIT_WORK(&call->destroyer, &rxrpc_destroy_call);
-+	INIT_WORK(&call->processor, &rxrpc_process_call);
-+	INIT_LIST_HEAD(&call->accept_link);
-+	skb_queue_head_init(&call->rx_queue);
-+	skb_queue_head_init(&call->rx_oos_queue);
-+	init_waitqueue_head(&call->tx_waitq);
-+	spin_lock_init(&call->lock);
-+	rwlock_init(&call->state_lock);
-+	atomic_set(&call->usage, 1);
-+	call->debug_id = atomic_inc_return(&rxrpc_debug_id);
-+	call->state = RXRPC_CALL_CLIENT_SEND_REQUEST;
-+
-+	memset(&call->sock_node, 0xed, sizeof(call->sock_node));
-+
-+	call->rx_data_expect = 1;
-+	call->rx_data_eaten = 0;
-+	call->rx_first_oos = 0;
-+	call->ackr_win_top = call->rx_data_eaten + 1 + RXRPC_MAXACKS;
-+	call->creation_jif = jiffies;
-+	return call;
-+}
-+
-+/*
-+ * allocate a new client call and attempt to to get a connection slot for it
-+ */
-+static struct rxrpc_call *rxrpc_alloc_client_call(
-+	struct rxrpc_sock *rx,
-+	struct rxrpc_transport *trans,
-+	struct rxrpc_conn_bundle *bundle,
-+	gfp_t gfp)
-+{
-+	struct rxrpc_call *call;
-+	int ret;
-+
-+	_enter("");
-+
-+	ASSERT(rx != NULL);
-+	ASSERT(trans != NULL);
-+	ASSERT(bundle != NULL);
-+
-+	call = rxrpc_alloc_call(gfp);
-+	if (!call)
-+		return ERR_PTR(-ENOMEM);
-+
-+	sock_hold(&rx->sk);
-+	call->socket = rx;
-+	call->rx_data_post = 1;
-+
-+	ret = rxrpc_connect_call(rx, trans, bundle, call, gfp);
-+	if (ret < 0) {
-+		kmem_cache_free(rxrpc_call_jar, call);
-+		return ERR_PTR(ret);
-+	}
-+
-+	spin_lock(&call->conn->trans->peer->lock);
-+	list_add(&call->error_link, &call->conn->trans->peer->error_targets);
-+	spin_unlock(&call->conn->trans->peer->lock);
-+
-+	call->lifetimer.expires = jiffies + rxrpc_call_max_lifetime * HZ;
-+	add_timer(&call->lifetimer);
-+
-+	_leave(" = %p", call);
-+	return call;
-+}
-+
-+/*
-+ * set up a call for the given data
-+ * - called in process context with IRQs enabled
-+ */
-+struct rxrpc_call *rxrpc_get_client_call(struct rxrpc_sock *rx,
-+					 struct rxrpc_transport *trans,
-+					 struct rxrpc_conn_bundle *bundle,
-+					 unsigned long user_call_ID,
-+					 int create,
-+					 gfp_t gfp)
-+{
-+	struct rxrpc_call *call, *candidate;
-+	struct rb_node *p, *parent, **pp;
-+
-+	_enter("%p,%d,%d,%lx,%d",
-+	       rx, trans ? trans->debug_id : -1, bundle ? bundle->debug_id : -1,
-+	       user_call_ID, create);
-+
-+	/* search the extant calls first for one that matches the specified
-+	 * user ID */
-+	read_lock(&rx->call_lock);
-+
-+	p = rx->calls.rb_node;
-+	while (p) {
-+		call = rb_entry(p, struct rxrpc_call, sock_node);
-+
-+		if (user_call_ID < call->user_call_ID)
-+			p = p->rb_left;
-+		else if (user_call_ID > call->user_call_ID)
-+			p = p->rb_right;
-+		else
-+			goto found_extant_call;
-+	}
-+
-+	read_unlock(&rx->call_lock);
-+
-+	if (!create || !trans)
-+		return ERR_PTR(-EBADSLT);
-+
-+	/* not yet present - create a candidate for a new record and then
-+	 * redo the search */
-+	candidate = rxrpc_alloc_client_call(rx, trans, bundle, gfp);
-+	if (IS_ERR(candidate)) {
-+		_leave(" = %ld", PTR_ERR(candidate));
-+		return candidate;
-+	}
-+
-+	candidate->user_call_ID = user_call_ID;
-+	__set_bit(RXRPC_CALL_HAS_USERID, &candidate->flags);
-+
-+	write_lock(&rx->call_lock);
-+
-+	pp = &rx->calls.rb_node;
-+	parent = NULL;
-+	while (*pp) {
-+		parent = *pp;
-+		call = rb_entry(parent, struct rxrpc_call, sock_node);
-+
-+		if (user_call_ID < call->user_call_ID)
-+			pp = &(*pp)->rb_left;
-+		else if (user_call_ID > call->user_call_ID)
-+			pp = &(*pp)->rb_right;
-+		else
-+			goto found_extant_second;
-+	}
-+
-+	/* second search also failed; add the new call */
-+	call = candidate;
-+	candidate = NULL;
-+	rxrpc_get_call(call);
-+
-+	rb_link_node(&call->sock_node, parent, pp);
-+	rb_insert_color(&call->sock_node, &rx->calls);
-+	write_unlock(&rx->call_lock);
-+
-+	write_lock_bh(&rxrpc_call_lock);
-+	list_add_tail(&call->link, &rxrpc_calls);
-+	write_unlock_bh(&rxrpc_call_lock);
-+
-+	_net("CALL new %d on CONN %d", call->debug_id, call->conn->debug_id);
-+
-+	_leave(" = %p [new]", call);
-+	return call;
-+
-+	/* we found the call in the list immediately */
-+found_extant_call:
-+	rxrpc_get_call(call);
-+	read_unlock(&rx->call_lock);
-+	_leave(" = %p [extant %d]", call, atomic_read(&call->usage));
-+	return call;
-+
-+	/* we found the call on the second time through the list */
-+found_extant_second:
-+	rxrpc_get_call(call);
-+	write_unlock(&rx->call_lock);
-+	rxrpc_put_call(candidate);
-+	_leave(" = %p [second %d]", call, atomic_read(&call->usage));
-+	return call;
-+}
-+
-+/*
-+ * set up an incoming call
-+ * - called in process context with IRQs enabled
-+ */
-+struct rxrpc_call *rxrpc_incoming_call(struct rxrpc_sock *rx,
-+				       struct rxrpc_connection *conn,
-+				       struct rxrpc_header *hdr,
-+				       gfp_t gfp)
-+{
-+	struct rxrpc_call *call, *candidate;
-+	struct rb_node **p, *parent;
-+	__be32 call_id;
-+
-+	_enter(",%d,,%x", conn->debug_id, gfp);
-+
-+	ASSERT(rx != NULL);
-+
-+	candidate = rxrpc_alloc_call(gfp);
-+	if (!candidate)
-+		return ERR_PTR(-EBUSY);
-+
-+	candidate->socket = rx;
-+	candidate->conn = conn;
-+	candidate->cid = hdr->cid;
-+	candidate->call_id = hdr->callNumber;
-+	candidate->channel = ntohl(hdr->cid) & RXRPC_CHANNELMASK;
-+	candidate->rx_data_post = 0;
-+	candidate->state = RXRPC_CALL_SERVER_ACCEPTING;
-+	if (conn->security_ix > 0)
-+		candidate->state = RXRPC_CALL_SERVER_SECURING;
-+
-+	write_lock_bh(&conn->lock);
-+
-+	/* set the channel for this call */
-+	call = conn->channels[candidate->channel];
-+	_debug("channel[%u] is %p", candidate->channel, call);
-+	if (call && call->call_id == hdr->callNumber) {
-+		/* already set; must've been a duplicate packet */
-+		_debug("extant call [%d]", call->state);
-+		ASSERTCMP(call->conn, ==, conn);
-+
-+		read_lock(&call->state_lock);
-+		switch (call->state) {
-+		case RXRPC_CALL_LOCALLY_ABORTED:
-+			if (!test_and_set_bit(RXRPC_CALL_ABORT, &call->events))
-+				schedule_work(&call->processor);
-+		case RXRPC_CALL_REMOTELY_ABORTED:
-+			read_unlock(&call->state_lock);
-+			goto aborted_call;
-+		default:
-+			rxrpc_get_call(call);
-+			read_unlock(&call->state_lock);
-+			goto extant_call;
-+		}
-+	}
-+
-+	if (call) {
-+		/* it seems the channel is still in use from the previous call
-+		 * - ditch the old binding if its call is now complete */
-+		_debug("CALL: %u { %s }",
-+		       call->debug_id, rxrpc_call_states[call->state]);
-+
-+		if (call->state >= RXRPC_CALL_COMPLETE) {
-+			conn->channels[call->channel] = NULL;
++			_leave(" =3D UPDATE");
++			return CACHEFS_MATCH_SUCCESS_UPDATE;
 +		} else {
-+			write_unlock_bh(&conn->lock);
-+			kmem_cache_free(rxrpc_call_jar, candidate);
-+			_leave(" = -EBUSY");
-+			return ERR_PTR(-EBUSY);
++			_leave(" =3D SUCCESS");
++			return CACHEFS_MATCH_SUCCESS;
 +		}
 +	}
 +
-+	/* check the call number isn't duplicate */
-+	_debug("check dup");
-+	call_id = hdr->callNumber;
-+	p = &conn->calls.rb_node;
-+	parent = NULL;
-+	while (*p) {
-+		parent = *p;
-+		call = rb_entry(parent, struct rxrpc_call, conn_node);
++	_leave(" =3D FAILED");
++	return CACHEFS_MATCH_FAILED;
++}
++#endif
 +
-+		if (call_id < call->call_id)
-+			p = &(*p)->rb_left;
-+		else if (call_id > call->call_id)
-+			p = &(*p)->rb_right;
-+		else
-+			goto old_call;
++/*
++ * update a VLDB record stored in the cache
++ */
++#ifdef AFS_CACHING_SUPPORT
++static void afs_vlocation_cache_update(void *source, void *entry)
++{
++	struct afs_cache_vlocation *vldb =3D entry;
++	struct afs_vlocation *vlocation =3D source;
++
++	_enter("");
++
++	*vldb =3D vlocation->vldb;
++}
++#endif
++
++#ifdef AFS_CACHING_SUPPORT
++static cachefs_match_val_t afs_volume_cache_match(void *target,
++						  const void *entry);
++static void afs_volume_cache_update(void *source, void *entry);
++
++struct cachefs_index_def afs_volume_cache_index_def =3D {
++	.name		=3D "volume",
++	.data_size	=3D sizeof(struct afs_cache_vhash),
++	.keys[0]	=3D { CACHEFS_INDEX_KEYS_BIN, 1 },
++	.keys[1]	=3D { CACHEFS_INDEX_KEYS_BIN, 1 },
++	.match		=3D afs_volume_cache_match,
++	.update		=3D afs_volume_cache_update,
++};
++#endif
++
++/*
++ * match a volume hash record stored in the cache
++ */
++#ifdef AFS_CACHING_SUPPORT
++static cachefs_match_val_t afs_volume_cache_match(void *target,
++						  const void *entry)
++{
++	const struct afs_cache_vhash *vhash =3D entry;
++	struct afs_volume *volume =3D target;
++
++	_enter("{%u},{%u}", volume->type, vhash->vtype);
++
++	if (volume->type =3D=3D vhash->vtype) {
++		_leave(" =3D SUCCESS");
++		return CACHEFS_MATCH_SUCCESS;
 +	}
 +
-+	/* make the call available */
-+	_debug("new call");
-+	call = candidate;
-+	candidate = NULL;
-+	rb_link_node(&call->conn_node, parent, p);
-+	rb_insert_color(&call->conn_node, &conn->calls);
-+	conn->channels[call->channel] = call;
-+	sock_hold(&rx->sk);
-+	atomic_inc(&conn->usage);
-+	write_unlock_bh(&conn->lock);
++	_leave(" =3D FAILED");
++	return CACHEFS_MATCH_FAILED;
++}
++#endif
 +
-+	spin_lock(&conn->trans->peer->lock);
-+	list_add(&call->error_link, &conn->trans->peer->error_targets);
-+	spin_unlock(&conn->trans->peer->lock);
++/*
++ * update a volume hash record stored in the cache
++ */
++#ifdef AFS_CACHING_SUPPORT
++static void afs_volume_cache_update(void *source, void *entry)
++{
++	struct afs_cache_vhash *vhash =3D entry;
++	struct afs_volume *volume =3D source;
 +
-+	write_lock_bh(&rxrpc_call_lock);
-+	list_add_tail(&call->link, &rxrpc_calls);
-+	write_unlock_bh(&rxrpc_call_lock);
++	_enter("");
 +
-+	_net("CALL incoming %d on CONN %d", call->debug_id, call->conn->debug_id);
++	vhash->vtype =3D volume->type;
++}
++#endif
 +
-+	call->lifetimer.expires = jiffies + rxrpc_call_max_lifetime * HZ;
-+	add_timer(&call->lifetimer);
-+	_leave(" = %p {%d} [new]", call, call->debug_id);
-+	return call;
++#ifdef AFS_CACHING_SUPPORT
++static cachefs_match_val_t afs_vnode_cache_match(void *target,
++						 const void *entry);
++static void afs_vnode_cache_update(void *source, void *entry);
 +
-+extant_call:
-+	write_unlock_bh(&conn->lock);
-+	kmem_cache_free(rxrpc_call_jar, candidate);
-+	_leave(" = %p {%d} [extant]", call, call ? call->debug_id : -1);
-+	return call;
++struct cachefs_index_def afs_vnode_cache_index_def =3D {
++	.name		=3D "vnode",
++	.data_size	=3D sizeof(struct afs_cache_vnode),
++	.keys[0]	=3D { CACHEFS_INDEX_KEYS_BIN, 4 },
++	.match		=3D afs_vnode_cache_match,
++	.update		=3D afs_vnode_cache_update,
++};
++#endif
 +
-+aborted_call:
-+	write_unlock_bh(&conn->lock);
-+	kmem_cache_free(rxrpc_call_jar, candidate);
-+	_leave(" = -ECONNABORTED");
-+	return ERR_PTR(-ECONNABORTED);
++/*
++ * match a vnode record stored in the cache
++ */
++#ifdef AFS_CACHING_SUPPORT
++static cachefs_match_val_t afs_vnode_cache_match(void *target,
++						 const void *entry)
++{
++	const struct afs_cache_vnode *cvnode =3D entry;
++	struct afs_vnode *vnode =3D target;
 +
-+old_call:
-+	write_unlock_bh(&conn->lock);
-+	kmem_cache_free(rxrpc_call_jar, candidate);
-+	_leave(" = -ECONNRESET [old]");
-+	return ERR_PTR(-ECONNRESET);
++	_enter("{%x,%x,%Lx},{%x,%x,%Lx}",
++	       vnode->fid.vnode,
++	       vnode->fid.unique,
++	       vnode->status.version,
++	       cvnode->vnode_id,
++	       cvnode->vnode_unique,
++	       cvnode->data_version);
++
++	if (vnode->fid.vnode !=3D cvnode->vnode_id) {
++		_leave(" =3D FAILED");
++		return CACHEFS_MATCH_FAILED;
++	}
++
++	if (vnode->fid.unique !=3D cvnode->vnode_unique ||
++	    vnode->status.version !=3D cvnode->data_version) {
++		_leave(" =3D DELETE");
++		return CACHEFS_MATCH_SUCCESS_DELETE;
++	}
++
++	_leave(" =3D SUCCESS");
++	return CACHEFS_MATCH_SUCCESS;
++}
++#endif
++
++/*
++ * update a vnode record stored in the cache
++ */
++#ifdef AFS_CACHING_SUPPORT
++static void afs_vnode_cache_update(void *source, void *entry)
++{
++	struct afs_cache_vnode *cvnode =3D entry;
++	struct afs_vnode *vnode =3D source;
++
++	_enter("");
++
++	cvnode->vnode_id	=3D vnode->fid.vnode;
++	cvnode->vnode_unique	=3D vnode->fid.unique;
++	cvnode->data_version	=3D vnode->status.version;
++}
++#endif
+diff --git a/fs/afs/callback.c b/fs/afs/callback.c
+index 26a48fe..6112155 100644
+--- a/fs/afs/callback.c
++++ b/fs/afs/callback.c
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (c) 2002 Red Hat, Inc. All rights reserved.
++ * Copyright (c) 2002, 2007 Red Hat, Inc. All rights reserved.
+  *
+  * This software may be freely redistributed under the terms of the
+  * GNU General Public License.
+@@ -16,83 +16,182 @@
+ #include <linux/kernel.h>
+ #include <linux/module.h>
+ #include <linux/init.h>
+-#include "server.h"
+-#include "vnode.h"
++#include <linux/circ_buf.h>
+ #include "internal.h"
+-#include "cmservice.h"
++
++unsigned afs_vnode_update_timeout =3D 10;
++
++#define afs_breakring_space(server) \
++	CIRC_SPACE((server)->cb_break_head, (server)->cb_break_tail,	\
++		   ARRAY_SIZE((server)->cb_break))
++
++//static void afs_callback_updater(struct work_struct *);
++
++static struct workqueue_struct *afs_callback_update_worker;
+=20
+ /*
+  * allow the fileserver to request callback state (re-)initialisation
+  */
+-int SRXAFSCM_InitCallBackState(struct afs_server *server)
++void afs_init_callback_state(struct afs_server *server)
+ {
+-	struct list_head callbacks;
++	struct afs_vnode *vnode;
+=20
+-	_enter("%p", server);
++	_enter("{%p}", server);
+=20
+-	INIT_LIST_HEAD(&callbacks);
+-
+-	/* transfer the callback list from the server to a temp holding area =
+*/
+ 	spin_lock(&server->cb_lock);
+=20
+-	list_add(&callbacks, &server->cb_promises);
+-	list_del_init(&server->cb_promises);
++	/* kill all the promises on record from this server */
++	while (!RB_EMPTY_ROOT(&server->cb_promises)) {
++		vnode =3D rb_entry(server->cb_promises.rb_node,
++				 struct afs_vnode, cb_promise);
++		printk("\nUNPROMISE on %p\n", vnode);
++		rb_erase(&vnode->cb_promise, &server->cb_promises);
++		vnode->cb_promised =3D false;
++	}
+=20
+-	/* munch our way through the list, grabbing the inode, dropping all t=
+he
+-	 * locks and regetting them in the right order
+-	 */
+-	while (!list_empty(&callbacks)) {
+-		struct afs_vnode *vnode;
+-		struct inode *inode;
++	spin_unlock(&server->cb_lock);
++	_leave("");
++}
+=20
+-		vnode =3D list_entry(callbacks.next, struct afs_vnode, cb_link);
+-		list_del_init(&vnode->cb_link);
++/*
++ * handle the data invalidation side of a callback being broken
++ */
++void afs_broken_callback_work(struct work_struct *work)
++{
++	struct afs_vnode *vnode =3D
++		container_of(work, struct afs_vnode, cb_broken_work);
+=20
+-		/* try and grab the inode - may fail */
+-		inode =3D igrab(AFS_VNODE_TO_I(vnode));
+-		if (inode) {
+-			int release =3D 0;
++	_enter("");
+=20
+-			spin_unlock(&server->cb_lock);
+-			spin_lock(&vnode->lock);
++	if (test_bit(AFS_VNODE_DELETED, &vnode->flags))
++		return;
+=20
+-			if (vnode->cb_server =3D=3D server) {
+-				vnode->cb_server =3D NULL;
+-				afs_kafstimod_del_timer(&vnode->cb_timeout);
+-				spin_lock(&afs_cb_hash_lock);
+-				list_del_init(&vnode->cb_hash_link);
+-				spin_unlock(&afs_cb_hash_lock);
+-				release =3D 1;
+-			}
++	/* we're only interested in dealing with a broken callback on *this*
++	 * vnode and only if no-one else has dealt with it yet */
++	if (!mutex_trylock(&vnode->cb_broken_lock))
++		return; /* someone else is dealing with it */
+=20
+-			spin_unlock(&vnode->lock);
++	if (test_bit(AFS_VNODE_CB_BROKEN, &vnode->flags)) {
++		if (afs_vnode_fetch_status(vnode) < 0)
++			goto out;
+=20
+-			iput(inode);
+-			afs_put_server(server);
++		if (test_bit(AFS_VNODE_DELETED, &vnode->flags))
++			goto out;
+=20
+-			spin_lock(&server->cb_lock);
++		/* if the vnode's data version number changed then its contents
++		 * are different */
++		if (test_and_clear_bit(AFS_VNODE_ZAP_DATA, &vnode->flags)) {
++			_debug("zap data");
++			invalidate_remote_inode(&vnode->vfs_inode);
+ 		}
+ 	}
+=20
+-	spin_unlock(&server->cb_lock);
++out:
++	mutex_unlock(&vnode->cb_broken_lock);
+=20
+-	_leave(" =3D 0");
+-	return 0;
++	/* avoid the potential race whereby the mutex_trylock() in this
++	 * function happens again between the clear_bit() and the
++	 * mutex_unlock() */
++	if (test_bit(AFS_VNODE_CB_BROKEN, &vnode->flags)) {
++		_debug("requeue");
++		queue_work(afs_callback_update_worker, &vnode->cb_broken_work);
++	}
++	_leave("");
 +}
 +
 +/*
-+ * find an extant server call
-+ * - called in process context with IRQs enabled
++ * actually break a callback
 + */
-+struct rxrpc_call *rxrpc_find_server_call(struct rxrpc_sock *rx,
-+					  unsigned long user_call_ID)
++static void afs_break_callback(struct afs_server *server,
++			       struct afs_vnode *vnode)
 +{
-+	struct rxrpc_call *call;
++	_enter("");
++
++	set_bit(AFS_VNODE_CB_BROKEN, &vnode->flags);
++
++	if (vnode->cb_promised) {
++		spin_lock(&vnode->lock);
++
++		_debug("break callback");
++
++		spin_lock(&server->cb_lock);
++		if (vnode->cb_promised) {
++			rb_erase(&vnode->cb_promise, &server->cb_promises);
++			vnode->cb_promised =3D false;
++		}
++		spin_unlock(&server->cb_lock);
++
++		queue_work(afs_callback_update_worker, &vnode->cb_broken_work);
++		spin_unlock(&vnode->lock);
++	}
++}
++
++/*
++ * allow the fileserver to explicitly break one callback
++ * - happens when
++ *   - the backing file is changed
++ *   - a lock is released
++ */
++static void afs_break_one_callback(struct afs_server *server,
++				   struct afs_fid *fid)
++{
++	struct afs_vnode *vnode;
 +	struct rb_node *p;
 +
-+	_enter("%p,%lx", rx, user_call_ID);
-+
-+	/* search the extant calls for one that matches the specified user
-+	 * ID */
-+	read_lock(&rx->call_lock);
-+
-+	p = rx->calls.rb_node;
++	_debug("find");
++	spin_lock(&server->fs_lock);
++	p =3D server->fs_vnodes.rb_node;
 +	while (p) {
-+		call = rb_entry(p, struct rxrpc_call, sock_node);
-+
-+		if (user_call_ID < call->user_call_ID)
-+			p = p->rb_left;
-+		else if (user_call_ID > call->user_call_ID)
-+			p = p->rb_right;
-+		else
-+			goto found_extant_call;
-+	}
-+
-+	read_unlock(&rx->call_lock);
-+	_leave(" = NULL");
-+	return NULL;
-+
-+	/* we found the call in the list immediately */
-+found_extant_call:
-+	rxrpc_get_call(call);
-+	read_unlock(&rx->call_lock);
-+	_leave(" = %p [%d]", call, atomic_read(&call->usage));
-+	return call;
-+}
-+
-+/*
-+ * detach a call from a socket and set up for release
-+ */
-+void rxrpc_release_call(struct rxrpc_call *call)
-+{
-+	struct rxrpc_sock *rx = call->socket;
-+
-+	_enter("{%d,%d,%d,%d}",
-+	       call->debug_id, atomic_read(&call->usage),
-+	       atomic_read(&call->ackr_not_idle),
-+	       call->rx_first_oos);
-+
-+	spin_lock_bh(&call->lock);
-+	if (test_and_set_bit(RXRPC_CALL_RELEASED, &call->flags))
-+		BUG();
-+	spin_unlock_bh(&call->lock);
-+
-+	/* dissociate from the socket
-+	 * - the socket's ref on the call is passed to the death timer
-+	 */
-+	_debug("RELEASE CALL %p (%d CONN %p)",
-+	       call, call->debug_id, call->conn);
-+
-+	write_lock_bh(&rx->call_lock);
-+	if (!list_empty(&call->accept_link)) {
-+		_debug("unlinking once-pending call %p { e=%lx f=%lx }",
-+		       call, call->events, call->flags);
-+		ASSERT(!test_bit(RXRPC_CALL_HAS_USERID, &call->flags));
-+		list_del_init(&call->accept_link);
-+		sk_acceptq_removed(&rx->sk);
-+	} else if (test_bit(RXRPC_CALL_HAS_USERID, &call->flags)) {
-+		rb_erase(&call->sock_node, &rx->calls);
-+		memset(&call->sock_node, 0xdd, sizeof(call->sock_node));
-+		clear_bit(RXRPC_CALL_HAS_USERID, &call->flags);
-+	}
-+	write_unlock_bh(&rx->call_lock);
-+
-+	if (call->conn->out_clientflag)
-+		spin_lock(&call->conn->trans->client_lock);
-+	write_lock_bh(&call->conn->lock);
-+
-+	/* free up the channel for reuse */
-+	if (call->conn->out_clientflag) {
-+		call->conn->avail_calls++;
-+		if (call->conn->avail_calls == RXRPC_MAXCALLS)
-+			list_move_tail(&call->conn->bundle_link,
-+				       &call->conn->bundle->unused_conns);
-+		else if (call->conn->avail_calls == 1)
-+			list_move_tail(&call->conn->bundle_link,
-+				       &call->conn->bundle->avail_conns);
-+	}
-+
-+	write_lock(&call->state_lock);
-+	if (call->conn->channels[call->channel] == call)
-+		call->conn->channels[call->channel] = NULL;
-+
-+	if (call->state < RXRPC_CALL_COMPLETE &&
-+	    call->state != RXRPC_CALL_CLIENT_FINAL_ACK) {
-+		_debug("+++ ABORTING STATE %d +++\n", call->state);
-+		call->state = RXRPC_CALL_LOCALLY_ABORTED;
-+		call->abort_code = RX_CALL_DEAD;
-+		set_bit(RXRPC_CALL_ABORT, &call->events);
-+		schedule_work(&call->processor);
-+	}
-+	write_unlock(&call->state_lock);
-+	write_unlock_bh(&call->conn->lock);
-+	if (call->conn->out_clientflag)
-+		spin_unlock(&call->conn->trans->client_lock);
-+
-+	if (!skb_queue_empty(&call->rx_queue) ||
-+	    !skb_queue_empty(&call->rx_oos_queue)) {
-+		struct rxrpc_skb_priv *sp;
-+		struct sk_buff *skb;
-+
-+		_debug("purge Rx queues");
-+
-+		spin_lock_bh(&call->lock);
-+		while ((skb = skb_dequeue(&call->rx_queue)) ||
-+		       (skb = skb_dequeue(&call->rx_oos_queue))) {
-+			sp = rxrpc_skb(skb);
-+			if (sp->call) {
-+				ASSERTCMP(sp->call, ==, call);
-+				rxrpc_put_call(call);
-+				sp->call = NULL;
-+			}
-+			skb->destructor = NULL;
-+			spin_unlock_bh(&call->lock);
-+
-+			_debug("- zap %s %%%u #%u",
-+			       rxrpc_pkts[sp->hdr.type],
-+			       ntohl(sp->hdr.serial),
-+			       ntohl(sp->hdr.seq));
-+			rxrpc_free_skb(skb);
-+			spin_lock_bh(&call->lock);
-+		}
-+		spin_unlock_bh(&call->lock);
-+
-+		ASSERTCMP(call->state, !=, RXRPC_CALL_COMPLETE);
-+	}
-+
-+	del_timer_sync(&call->resend_timer);
-+	del_timer_sync(&call->ack_timer);
-+	del_timer_sync(&call->lifetimer);
-+	call->deadspan.expires = jiffies + rxrpc_dead_call_timeout * HZ;
-+	add_timer(&call->deadspan);
-+
-+	_leave("");
-+}
-+
-+/*
-+ * handle a dead call being ready for reaping
-+ */
-+static void rxrpc_dead_call_expired(unsigned long _call)
-+{
-+	struct rxrpc_call *call = (struct rxrpc_call *) _call;
-+
-+	_enter("{%d}", call->debug_id);
-+
-+	write_lock_bh(&call->state_lock);
-+	call->state = RXRPC_CALL_DEAD;
-+	write_unlock_bh(&call->state_lock);
-+	rxrpc_put_call(call);
-+}
-+
-+/*
-+ * mark a call as to be released, aborting it if it's still in progress
-+ * - called with softirqs disabled
-+ */
-+static void rxrpc_mark_call_released(struct rxrpc_call *call)
-+{
-+	bool sched;
-+
-+	write_lock(&call->state_lock);
-+	if (call->state < RXRPC_CALL_DEAD) {
-+		sched = false;
-+		if (call->state < RXRPC_CALL_COMPLETE) {
-+			_debug("abort call %p", call);
-+			call->state = RXRPC_CALL_LOCALLY_ABORTED;
-+			call->abort_code = RX_CALL_DEAD;
-+			if (!test_and_set_bit(RXRPC_CALL_ABORT, &call->events))
-+				sched = true;
-+		}
-+		if (!test_and_set_bit(RXRPC_CALL_RELEASE, &call->events))
-+			sched = true;
-+		if (sched)
-+			schedule_work(&call->processor);
-+	}
-+	write_unlock(&call->state_lock);
-+}
-+
-+/*
-+ * release all the calls associated with a socket
-+ */
-+void rxrpc_release_calls_on_socket(struct rxrpc_sock *rx)
-+{
-+	struct rxrpc_call *call;
-+	struct rb_node *p;
-+
-+	_enter("%p", rx);
-+
-+	read_lock_bh(&rx->call_lock);
-+
-+	/* mark all the calls as no longer wanting incoming packets */
-+	for (p = rb_first(&rx->calls); p; p = rb_next(p)) {
-+		call = rb_entry(p, struct rxrpc_call, sock_node);
-+		rxrpc_mark_call_released(call);
-+	}
-+
-+	/* kill the not-yet-accepted incoming calls */
-+	list_for_each_entry(call, &rx->secureq, accept_link) {
-+		rxrpc_mark_call_released(call);
-+	}
-+
-+	list_for_each_entry(call, &rx->acceptq, accept_link) {
-+		rxrpc_mark_call_released(call);
-+	}
-+
-+	read_unlock_bh(&rx->call_lock);
-+	_leave("");
-+}
-+
-+/*
-+ * release a call
-+ */
-+void __rxrpc_put_call(struct rxrpc_call *call)
-+{
-+	ASSERT(call != NULL);
-+
-+	_enter("%p{u=%d}", call, atomic_read(&call->usage));
-+
-+	ASSERTCMP(atomic_read(&call->usage), >, 0);
-+
-+	if (atomic_dec_and_test(&call->usage)) {
-+		_debug("call %d dead", call->debug_id);
-+		ASSERTCMP(call->state, ==, RXRPC_CALL_DEAD);
-+		schedule_work(&call->destroyer);
-+	}
-+	_leave("");
-+}
-+
-+/*
-+ * clean up a call
-+ */
-+static void rxrpc_cleanup_call(struct rxrpc_call *call)
-+{
-+	_net("DESTROY CALL %d", call->debug_id);
-+
-+	ASSERT(call->socket);
-+
-+	memset(&call->sock_node, 0xcd, sizeof(call->sock_node));
-+
-+	del_timer_sync(&call->lifetimer);
-+	del_timer_sync(&call->deadspan);
-+	del_timer_sync(&call->ack_timer);
-+	del_timer_sync(&call->resend_timer);
-+
-+	ASSERT(test_bit(RXRPC_CALL_RELEASED, &call->flags));
-+	ASSERTCMP(call->events, ==, 0);
-+	if (work_pending(&call->processor)) {
-+		_debug("defer destroy");
-+		schedule_work(&call->destroyer);
-+		return;
-+	}
-+
-+	if (call->conn) {
-+		spin_lock(&call->conn->trans->peer->lock);
-+		list_del(&call->error_link);
-+		spin_unlock(&call->conn->trans->peer->lock);
-+
-+		write_lock_bh(&call->conn->lock);
-+		rb_erase(&call->conn_node, &call->conn->calls);
-+		write_unlock_bh(&call->conn->lock);
-+		rxrpc_put_connection(call->conn);
-+	}
-+
-+	if (call->acks_window) {
-+		_debug("kill Tx window %d",
-+		       CIRC_CNT(call->acks_head, call->acks_tail,
-+				call->acks_winsz));
-+		smp_mb();
-+		while (CIRC_CNT(call->acks_head, call->acks_tail,
-+				call->acks_winsz) > 0) {
-+			struct rxrpc_skb_priv *sp;
-+			unsigned long _skb;
-+
-+			_skb = call->acks_window[call->acks_tail] & ~1;
-+			sp = rxrpc_skb((struct sk_buff *) _skb);
-+			_debug("+++ clear Tx %u", ntohl(sp->hdr.seq));
-+			rxrpc_free_skb((struct sk_buff *) _skb);
-+			call->acks_tail =
-+				(call->acks_tail + 1) & (call->acks_winsz - 1);
-+		}
-+
-+		kfree(call->acks_window);
-+	}
-+
-+	rxrpc_free_skb(call->tx_pending);
-+
-+	rxrpc_purge_queue(&call->rx_queue);
-+	ASSERT(skb_queue_empty(&call->rx_oos_queue));
-+	sock_put(&call->socket->sk);
-+	kmem_cache_free(rxrpc_call_jar, call);
-+}
-+
-+/*
-+ * destroy a call
-+ */
-+static void rxrpc_destroy_call(struct work_struct *work)
-+{
-+	struct rxrpc_call *call =
-+		container_of(work, struct rxrpc_call, destroyer);
-+
-+	_enter("%p{%d,%d,%p}",
-+	       call, atomic_read(&call->usage), call->channel, call->conn);
-+
-+	ASSERTCMP(call->state, ==, RXRPC_CALL_DEAD);
-+
-+	write_lock_bh(&rxrpc_call_lock);
-+	list_del_init(&call->link);
-+	write_unlock_bh(&rxrpc_call_lock);
-+
-+	rxrpc_cleanup_call(call);
-+	_leave("");
-+}
-+
-+/*
-+ * preemptively destroy all the call records from a transport endpoint rather
-+ * than waiting for them to time out
-+ */
-+void __exit rxrpc_destroy_all_calls(void)
-+{
-+	struct rxrpc_call *call;
-+
-+	_enter("");
-+	write_lock_bh(&rxrpc_call_lock);
-+
-+	while (!list_empty(&rxrpc_calls)) {
-+		call = list_entry(rxrpc_calls.next, struct rxrpc_call, link);
-+		_debug("Zapping call %p", call);
-+
-+		list_del_init(&call->link);
-+
-+		switch (atomic_read(&call->usage)) {
-+		case 0:
-+			ASSERTCMP(call->state, ==, RXRPC_CALL_DEAD);
-+			break;
-+		case 1:
-+			if (del_timer_sync(&call->deadspan) != 0 &&
-+			    call->state != RXRPC_CALL_DEAD)
-+				rxrpc_dead_call_expired((unsigned long) call);
-+			if (call->state != RXRPC_CALL_DEAD)
-+				break;
-+		default:
-+			printk(KERN_ERR "RXRPC:"
-+			       " Call %p still in use (%d,%d,%s,%lx,%lx)!\n",
-+			       call, atomic_read(&call->usage),
-+			       atomic_read(&call->ackr_not_idle),
-+			       rxrpc_call_states[call->state],
-+			       call->flags, call->events);
-+			if (!skb_queue_empty(&call->rx_queue))
-+				printk(KERN_ERR"RXRPC: Rx queue occupied\n");
-+			if (!skb_queue_empty(&call->rx_oos_queue))
-+				printk(KERN_ERR"RXRPC: OOS queue occupied\n");
-+			break;
-+		}
-+
-+		write_unlock_bh(&rxrpc_call_lock);
-+		cond_resched();
-+		write_lock_bh(&rxrpc_call_lock);
-+	}
-+
-+	write_unlock_bh(&rxrpc_call_lock);
-+	_leave("");
-+}
-+
-+/*
-+ * handle call lifetime being exceeded
-+ */
-+static void rxrpc_call_life_expired(unsigned long _call)
-+{
-+	struct rxrpc_call *call = (struct rxrpc_call *) _call;
-+
-+	if (call->state >= RXRPC_CALL_COMPLETE)
-+		return;
-+
-+	_enter("{%d}", call->debug_id);
-+	read_lock_bh(&call->state_lock);
-+	if (call->state < RXRPC_CALL_COMPLETE) {
-+		set_bit(RXRPC_CALL_LIFE_TIMER, &call->events);
-+		schedule_work(&call->processor);
-+	}
-+	read_unlock_bh(&call->state_lock);
-+}
-+
-+/*
-+ * handle resend timer expiry
-+ */
-+static void rxrpc_resend_time_expired(unsigned long _call)
-+{
-+	struct rxrpc_call *call = (struct rxrpc_call *) _call;
-+
-+	_enter("{%d}", call->debug_id);
-+
-+	if (call->state >= RXRPC_CALL_COMPLETE)
-+		return;
-+
-+	read_lock_bh(&call->state_lock);
-+	clear_bit(RXRPC_CALL_RUN_RTIMER, &call->flags);
-+	if (call->state < RXRPC_CALL_COMPLETE &&
-+	    !test_and_set_bit(RXRPC_CALL_RESEND_TIMER, &call->events))
-+		schedule_work(&call->processor);
-+	read_unlock_bh(&call->state_lock);
-+}
-+
-+/*
-+ * handle ACK timer expiry
-+ */
-+static void rxrpc_ack_time_expired(unsigned long _call)
-+{
-+	struct rxrpc_call *call = (struct rxrpc_call *) _call;
-+
-+	_enter("{%d}", call->debug_id);
-+
-+	if (call->state >= RXRPC_CALL_COMPLETE)
-+		return;
-+
-+	read_lock_bh(&call->state_lock);
-+	if (call->state < RXRPC_CALL_COMPLETE &&
-+	    !test_and_set_bit(RXRPC_CALL_ACK, &call->events))
-+		schedule_work(&call->processor);
-+	read_unlock_bh(&call->state_lock);
-+}
-diff --git a/net/rxrpc/ar-connection.c b/net/rxrpc/ar-connection.c
-new file mode 100644
-index 0000000..01eb33c
---- /dev/null
-+++ b/net/rxrpc/ar-connection.c
-@@ -0,0 +1,895 @@
-+/* RxRPC virtual connection handler
-+ *
-+ * Copyright (C) 2007 Red Hat, Inc. All Rights Reserved.
-+ * Written by David Howells (dhowells@redhat.com)
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version
-+ * 2 of the License, or (at your option) any later version.
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/net.h>
-+#include <linux/skbuff.h>
-+#include <linux/crypto.h>
-+#include <net/sock.h>
-+#include <net/af_rxrpc.h>
-+#include "ar-internal.h"
-+
-+static void rxrpc_connection_reaper(struct work_struct *work);
-+
-+LIST_HEAD(rxrpc_connections);
-+DEFINE_RWLOCK(rxrpc_connection_lock);
-+static unsigned long rxrpc_connection_timeout = 10 * 60;
-+static DECLARE_DELAYED_WORK(rxrpc_connection_reap, rxrpc_connection_reaper);
-+
-+/*
-+ * allocate a new client connection bundle
-+ */
-+static struct rxrpc_conn_bundle *rxrpc_alloc_bundle(gfp_t gfp)
-+{
-+	struct rxrpc_conn_bundle *bundle;
-+
-+	_enter("");
-+
-+	bundle = kzalloc(sizeof(struct rxrpc_conn_bundle), gfp);
-+	if (bundle) {
-+		INIT_LIST_HEAD(&bundle->unused_conns);
-+		INIT_LIST_HEAD(&bundle->avail_conns);
-+		INIT_LIST_HEAD(&bundle->busy_conns);
-+		init_waitqueue_head(&bundle->chanwait);
-+		atomic_set(&bundle->usage, 1);
-+	}
-+
-+	_leave(" = %p", bundle);
-+	return bundle;
-+}
-+
-+/*
-+ * compare bundle parameters with what we're looking for
-+ * - return -ve, 0 or +ve
-+ */
-+static inline
-+int rxrpc_cmp_bundle(const struct rxrpc_conn_bundle *bundle,
-+		     struct key *key, __be16 service_id)
-+{
-+	return (bundle->service_id - service_id) ?:
-+		((unsigned long) bundle->key - (unsigned long) key);
-+}
-+
-+/*
-+ * get bundle of client connections that a client socket can make use of
-+ */
-+struct rxrpc_conn_bundle *rxrpc_get_bundle(struct rxrpc_sock *rx,
-+					   struct rxrpc_transport *trans,
-+					   struct key *key,
-+					   __be16 service_id,
-+					   gfp_t gfp)
-+{
-+	struct rxrpc_conn_bundle *bundle, *candidate;
-+	struct rb_node *p, *parent, **pp;
-+
-+	_enter("%p{%x},%x,%hx,",
-+	       rx, key_serial(key), trans->debug_id, ntohl(service_id));
-+
-+	if (rx->trans == trans && rx->bundle) {
-+		atomic_inc(&rx->bundle->usage);
-+		return rx->bundle;
-+	}
-+
-+	/* search the extant bundles first for one that matches the specified
-+	 * user ID */
-+	spin_lock(&trans->client_lock);
-+
-+	p = trans->bundles.rb_node;
-+	while (p) {
-+		bundle = rb_entry(p, struct rxrpc_conn_bundle, node);
-+
-+		if (rxrpc_cmp_bundle(bundle, key, service_id) < 0)
-+			p = p->rb_left;
-+		else if (rxrpc_cmp_bundle(bundle, key, service_id) > 0)
-+			p = p->rb_right;
-+		else
-+			goto found_extant_bundle;
-+	}
-+
-+	spin_unlock(&trans->client_lock);
-+
-+	/* not yet present - create a candidate for a new record and then
-+	 * redo the search */
-+	candidate = rxrpc_alloc_bundle(gfp);
-+	if (!candidate) {
-+		_leave(" = -ENOMEM");
-+		return ERR_PTR(-ENOMEM);
-+	}
-+
-+	candidate->key = key_get(key);
-+	candidate->service_id = service_id;
-+
-+	spin_lock(&trans->client_lock);
-+
-+	pp = &trans->bundles.rb_node;
-+	parent = NULL;
-+	while (*pp) {
-+		parent = *pp;
-+		bundle = rb_entry(parent, struct rxrpc_conn_bundle, node);
-+
-+		if (rxrpc_cmp_bundle(bundle, key, service_id) < 0)
-+			pp = &(*pp)->rb_left;
-+		else if (rxrpc_cmp_bundle(bundle, key, service_id) > 0)
-+			pp = &(*pp)->rb_right;
-+		else
-+			goto found_extant_second;
-+	}
-+
-+	/* second search also failed; add the new bundle */
-+	bundle = candidate;
-+	candidate = NULL;
-+
-+	rb_link_node(&bundle->node, parent, pp);
-+	rb_insert_color(&bundle->node, &trans->bundles);
-+	spin_unlock(&trans->client_lock);
-+	_net("BUNDLE new on trans %d", trans->debug_id);
-+	if (!rx->bundle && rx->sk.sk_state == RXRPC_CLIENT_CONNECTED) {
-+		atomic_inc(&bundle->usage);
-+		rx->bundle = bundle;
-+	}
-+	_leave(" = %p [new]", bundle);
-+	return bundle;
-+
-+	/* we found the bundle in the list immediately */
-+found_extant_bundle:
-+	atomic_inc(&bundle->usage);
-+	spin_unlock(&trans->client_lock);
-+	_net("BUNDLE old on trans %d", trans->debug_id);
-+	if (!rx->bundle && rx->sk.sk_state == RXRPC_CLIENT_CONNECTED) {
-+		atomic_inc(&bundle->usage);
-+		rx->bundle = bundle;
-+	}
-+	_leave(" = %p [extant %d]", bundle, atomic_read(&bundle->usage));
-+	return bundle;
-+
-+	/* we found the bundle on the second time through the list */
-+found_extant_second:
-+	atomic_inc(&bundle->usage);
-+	spin_unlock(&trans->client_lock);
-+	kfree(candidate);
-+	_net("BUNDLE old2 on trans %d", trans->debug_id);
-+	if (!rx->bundle && rx->sk.sk_state == RXRPC_CLIENT_CONNECTED) {
-+		atomic_inc(&bundle->usage);
-+		rx->bundle = bundle;
-+	}
-+	_leave(" = %p [second %d]", bundle, atomic_read(&bundle->usage));
-+	return bundle;
-+}
-+
-+/*
-+ * release a bundle
-+ */
-+void rxrpc_put_bundle(struct rxrpc_transport *trans,
-+		      struct rxrpc_conn_bundle *bundle)
-+{
-+	_enter("%p,%p{%d}",trans, bundle, atomic_read(&bundle->usage));
-+
-+	if (atomic_dec_and_lock(&bundle->usage, &trans->client_lock)) {
-+		_debug("Destroy bundle");
-+		rb_erase(&bundle->node, &trans->bundles);
-+		spin_unlock(&trans->client_lock);
-+		ASSERT(list_empty(&bundle->unused_conns));
-+		ASSERT(list_empty(&bundle->avail_conns));
-+		ASSERT(list_empty(&bundle->busy_conns));
-+		ASSERTCMP(bundle->num_conns, ==, 0);
-+		key_put(bundle->key);
-+		kfree(bundle);
-+	}
-+
-+	_leave("");
-+}
-+
-+/*
-+ * allocate a new connection
-+ */
-+static struct rxrpc_connection *rxrpc_alloc_connection(gfp_t gfp)
-+{
-+	struct rxrpc_connection *conn;
-+
-+	_enter("");
-+
-+	conn = kzalloc(sizeof(struct rxrpc_connection), gfp);
-+	if (conn) {
-+		INIT_WORK(&conn->processor, &rxrpc_process_connection);
-+		INIT_LIST_HEAD(&conn->bundle_link);
-+		conn->calls = RB_ROOT;
-+		skb_queue_head_init(&conn->rx_queue);
-+		rwlock_init(&conn->lock);
-+		spin_lock_init(&conn->state_lock);
-+		atomic_set(&conn->usage, 1);
-+		conn->debug_id = atomic_inc_return(&rxrpc_debug_id);
-+		conn->avail_calls = RXRPC_MAXCALLS;
-+		conn->size_align = 4;
-+		conn->header_size = sizeof(struct rxrpc_header);
-+	}
-+
-+	_leave(" = %p{%d}", conn, conn->debug_id);
-+	return conn;
-+}
-+
-+/*
-+ * assign a connection ID to a connection and add it to the transport's
-+ * connection lookup tree
-+ * - called with transport client lock held
-+ */
-+static void rxrpc_assign_connection_id(struct rxrpc_connection *conn)
-+{
-+	struct rxrpc_connection *xconn;
-+	struct rb_node *parent, **p;
-+	__be32 epoch;
-+	u32 real_conn_id;
-+
-+	_enter("");
-+
-+	epoch = conn->epoch;
-+
-+	write_lock_bh(&conn->trans->conn_lock);
-+
-+	conn->trans->conn_idcounter += RXRPC_CID_INC;
-+	if (conn->trans->conn_idcounter < RXRPC_CID_INC)
-+		conn->trans->conn_idcounter = RXRPC_CID_INC;
-+	real_conn_id = conn->trans->conn_idcounter;
-+
-+attempt_insertion:
-+	parent = NULL;
-+	p = &conn->trans->client_conns.rb_node;
-+
-+	while (*p) {
-+		parent = *p;
-+		xconn = rb_entry(parent, struct rxrpc_connection, node);
-+
-+		if (epoch < xconn->epoch)
-+			p = &(*p)->rb_left;
-+		else if (epoch > xconn->epoch)
-+			p = &(*p)->rb_right;
-+		else if (real_conn_id < xconn->real_conn_id)
-+			p = &(*p)->rb_left;
-+		else if (real_conn_id > xconn->real_conn_id)
-+			p = &(*p)->rb_right;
-+		else
-+			goto id_exists;
-+	}
-+
-+	/* we've found a suitable hole - arrange for this connection to occupy
-+	 * it */
-+	rb_link_node(&conn->node, parent, p);
-+	rb_insert_color(&conn->node, &conn->trans->client_conns);
-+
-+	conn->real_conn_id = real_conn_id;
-+	conn->cid = htonl(real_conn_id);
-+	write_unlock_bh(&conn->trans->conn_lock);
-+	_leave(" [CONNID %x CID %x]", real_conn_id, ntohl(conn->cid));
-+	return;
-+
-+	/* we found a connection with the proposed ID - walk the tree from that
-+	 * point looking for the next unused ID */
-+id_exists:
-+	for (;;) {
-+		real_conn_id += RXRPC_CID_INC;
-+		if (real_conn_id < RXRPC_CID_INC) {
-+			real_conn_id = RXRPC_CID_INC;
-+			conn->trans->conn_idcounter = real_conn_id;
-+			goto attempt_insertion;
-+		}
-+
-+		parent = rb_next(parent);
-+		if (!parent)
-+			goto attempt_insertion;
-+
-+		xconn = rb_entry(parent, struct rxrpc_connection, node);
-+		if (epoch < xconn->epoch ||
-+		    real_conn_id < xconn->real_conn_id)
-+			goto attempt_insertion;
-+	}
-+}
-+
-+/*
-+ * add a call to a connection's call-by-ID tree
-+ */
-+static void rxrpc_add_call_ID_to_conn(struct rxrpc_connection *conn,
-+				      struct rxrpc_call *call)
-+{
-+	struct rxrpc_call *xcall;
-+	struct rb_node *parent, **p;
-+	__be32 call_id;
-+
-+	write_lock_bh(&conn->lock);
-+
-+	call_id = call->call_id;
-+	p = &conn->calls.rb_node;
-+	parent = NULL;
-+	while (*p) {
-+		parent = *p;
-+		xcall = rb_entry(parent, struct rxrpc_call, conn_node);
-+
-+		if (call_id < xcall->call_id)
-+			p = &(*p)->rb_left;
-+		else if (call_id > xcall->call_id)
-+			p = &(*p)->rb_right;
-+		else
-+			BUG();
-+	}
-+
-+	rb_link_node(&call->conn_node, parent, p);
-+	rb_insert_color(&call->conn_node, &conn->calls);
-+
-+	write_unlock_bh(&conn->lock);
-+}
-+
-+/*
-+ * connect a call on an exclusive connection
-+ */
-+static int rxrpc_connect_exclusive(struct rxrpc_sock *rx,
-+				   struct rxrpc_transport *trans,
-+				   __be16 service_id,
-+				   struct rxrpc_call *call,
-+				   gfp_t gfp)
-+{
-+	struct rxrpc_connection *conn;
-+	int chan, ret;
-+
-+	_enter("");
-+
-+	conn = rx->conn;
-+	if (!conn) {
-+		/* not yet present - create a candidate for a new connection
-+		 * and then redo the check */
-+		conn = rxrpc_alloc_connection(gfp);
-+		if (IS_ERR(conn)) {
-+			_leave(" = %ld", PTR_ERR(conn));
-+			return PTR_ERR(conn);
-+		}
-+
-+		conn->trans = trans;
-+		conn->bundle = NULL;
-+		conn->service_id = service_id;
-+		conn->epoch = rxrpc_epoch;
-+		conn->in_clientflag = 0;
-+		conn->out_clientflag = RXRPC_CLIENT_INITIATED;
-+		conn->cid = 0;
-+		conn->state = RXRPC_CONN_CLIENT;
-+		conn->avail_calls = RXRPC_MAXCALLS;
-+		conn->security_level = rx->min_sec_level;
-+		conn->key = key_get(rx->key);
-+
-+		ret = rxrpc_init_client_conn_security(conn);
-+		if (ret < 0) {
-+			key_put(conn->key);
-+			kfree(conn);
-+			_leave(" = %d [key]", ret);
-+			return ret;
-+		}
-+
-+		write_lock_bh(&rxrpc_connection_lock);
-+		list_add_tail(&conn->link, &rxrpc_connections);
-+		write_unlock_bh(&rxrpc_connection_lock);
-+
-+		spin_lock(&trans->client_lock);
-+		atomic_inc(&trans->usage);
-+
-+		_net("CONNECT EXCL new %d on TRANS %d",
-+		     conn->debug_id, conn->trans->debug_id);
-+
-+		rxrpc_assign_connection_id(conn);
-+		rx->conn = conn;
-+	}
-+
-+	/* we've got a connection with a free channel and we can now attach the
-+	 * call to it
-+	 * - we're holding the transport's client lock
-+	 * - we're holding a reference on the connection
-+	 */
-+	for (chan = 0; chan < RXRPC_MAXCALLS; chan++)
-+		if (!conn->channels[chan])
-+			goto found_channel;
-+	goto no_free_channels;
-+
-+found_channel:
-+	atomic_inc(&conn->usage);
-+	conn->channels[chan] = call;
-+	call->conn = conn;
-+	call->channel = chan;
-+	call->cid = conn->cid | htonl(chan);
-+	call->call_id = htonl(++conn->call_counter);
-+
-+	_net("CONNECT client on conn %d chan %d as call %x",
-+	     conn->debug_id, chan, ntohl(call->call_id));
-+
-+	spin_unlock(&trans->client_lock);
-+
-+	rxrpc_add_call_ID_to_conn(conn, call);
-+	_leave(" = 0");
-+	return 0;
-+
-+no_free_channels:
-+	spin_unlock(&trans->client_lock);
-+	_leave(" = -ENOSR");
-+	return -ENOSR;
-+}
-+
-+/*
-+ * find a connection for a call
-+ * - called in process context with IRQs enabled
-+ */
-+int rxrpc_connect_call(struct rxrpc_sock *rx,
-+		       struct rxrpc_transport *trans,
-+		       struct rxrpc_conn_bundle *bundle,
-+		       struct rxrpc_call *call,
-+		       gfp_t gfp)
-+{
-+	struct rxrpc_connection *conn, *candidate;
-+	int chan, ret;
-+
-+	DECLARE_WAITQUEUE(myself, current);
-+
-+	_enter("%p,%lx,", rx, call->user_call_ID);
-+
-+	if (test_bit(RXRPC_SOCK_EXCLUSIVE_CONN, &rx->flags))
-+		return rxrpc_connect_exclusive(rx, trans, bundle->service_id,
-+					       call, gfp);
-+
-+	spin_lock(&trans->client_lock);
-+	for (;;) {
-+		/* see if the bundle has a call slot available */
-+		if (!list_empty(&bundle->avail_conns)) {
-+			_debug("avail");
-+			conn = list_entry(bundle->avail_conns.next,
-+					  struct rxrpc_connection,
-+					  bundle_link);
-+			if (--conn->avail_calls == 0)
-+				list_move(&conn->bundle_link,
-+					  &bundle->busy_conns);
-+			atomic_inc(&conn->usage);
-+			break;
-+		}
-+
-+		if (!list_empty(&bundle->unused_conns)) {
-+			_debug("unused");
-+			conn = list_entry(bundle->unused_conns.next,
-+					  struct rxrpc_connection,
-+					  bundle_link);
-+			atomic_inc(&conn->usage);
-+			list_move(&conn->bundle_link, &bundle->avail_conns);
-+			break;
-+		}
-+
-+		/* need to allocate a new connection */
-+		_debug("get new conn [%d]", bundle->num_conns);
-+
-+		spin_unlock(&trans->client_lock);
-+
-+		if (signal_pending(current))
-+			goto interrupted;
-+
-+		if (bundle->num_conns >= 20) {
-+			_debug("too many conns");
-+
-+			if (!(gfp & __GFP_WAIT)) {
-+				_leave(" = -EAGAIN");
-+				return -EAGAIN;
-+			}
-+
-+			add_wait_queue(&bundle->chanwait, &myself);
-+			for (;;) {
-+				set_current_state(TASK_INTERRUPTIBLE);
-+				if (bundle->num_conns < 20 ||
-+				    !list_empty(&bundle->unused_conns) ||
-+				    !list_empty(&bundle->avail_conns))
-+					break;
-+				if (signal_pending(current))
-+					goto interrupted_dequeue;
-+				schedule();
-+			}
-+			remove_wait_queue(&bundle->chanwait, &myself);
-+			__set_current_state(TASK_RUNNING);
-+			spin_lock(&trans->client_lock);
-+			continue;
-+		}
-+
-+		/* not yet present - create a candidate for a new connection and then
-+		 * redo the check */
-+		candidate = rxrpc_alloc_connection(gfp);
-+		if (IS_ERR(candidate)) {
-+			_leave(" = %ld", PTR_ERR(candidate));
-+			return PTR_ERR(candidate);
-+		}
-+
-+		candidate->trans = trans;
-+		candidate->bundle = bundle;
-+		candidate->service_id = bundle->service_id;
-+		candidate->epoch = rxrpc_epoch;
-+		candidate->in_clientflag = 0;
-+		candidate->out_clientflag = RXRPC_CLIENT_INITIATED;
-+		candidate->cid = 0;
-+		candidate->state = RXRPC_CONN_CLIENT;
-+		candidate->avail_calls = RXRPC_MAXCALLS;
-+		candidate->security_level = rx->min_sec_level;
-+		candidate->key = key_get(rx->key);
-+
-+		ret = rxrpc_init_client_conn_security(candidate);
-+		if (ret < 0) {
-+			key_put(candidate->key);
-+			kfree(candidate);
-+			_leave(" = %d [key]", ret);
-+			return ret;
-+		}
-+
-+		write_lock_bh(&rxrpc_connection_lock);
-+		list_add_tail(&candidate->link, &rxrpc_connections);
-+		write_unlock_bh(&rxrpc_connection_lock);
-+
-+		spin_lock(&trans->client_lock);
-+
-+		list_add(&candidate->bundle_link, &bundle->unused_conns);
-+		bundle->num_conns++;
-+		atomic_inc(&bundle->usage);
-+		atomic_inc(&trans->usage);
-+
-+		_net("CONNECT new %d on TRANS %d",
-+		     candidate->debug_id, candidate->trans->debug_id);
-+
-+		rxrpc_assign_connection_id(candidate);
-+		if (candidate->security)
-+			candidate->security->prime_packet_security(candidate);
-+
-+		/* leave the candidate lurking in zombie mode attached to the
-+		 * bundle until we're ready for it */
-+		rxrpc_put_connection(candidate);
-+		candidate = NULL;
-+	}
-+
-+	/* we've got a connection with a free channel and we can now attach the
-+	 * call to it
-+	 * - we're holding the transport's client lock
-+	 * - we're holding a reference on the connection
-+	 * - we're holding a reference on the bundle
-+	 */
-+	for (chan = 0; chan < RXRPC_MAXCALLS; chan++)
-+		if (!conn->channels[chan])
-+			goto found_channel;
-+	BUG();
-+
-+found_channel:
-+	conn->channels[chan] = call;
-+	call->conn = conn;
-+	call->channel = chan;
-+	call->cid = conn->cid | htonl(chan);
-+	call->call_id = htonl(++conn->call_counter);
-+
-+	_net("CONNECT client on conn %d chan %d as call %x",
-+	     conn->debug_id, chan, ntohl(call->call_id));
-+
-+	spin_unlock(&trans->client_lock);
-+
-+	rxrpc_add_call_ID_to_conn(conn, call);
-+
-+	_leave(" = 0");
-+	return 0;
-+
-+interrupted_dequeue:
-+	remove_wait_queue(&bundle->chanwait, &myself);
-+	__set_current_state(TASK_RUNNING);
-+interrupted:
-+	_leave(" = -ERESTARTSYS");
-+	return -ERESTARTSYS;
-+}
-+
-+/*
-+ * get a record of an incoming connection
-+ */
-+struct rxrpc_connection *
-+rxrpc_incoming_connection(struct rxrpc_transport *trans,
-+			  struct rxrpc_header *hdr,
-+			  gfp_t gfp)
-+{
-+	struct rxrpc_connection *conn, *candidate = NULL;
-+	struct rb_node *p, **pp;
-+	const char *new = "old";
-+	__be32 epoch;
-+	u32 conn_id;
-+
-+	_enter("");
-+
-+	ASSERT(hdr->flags & RXRPC_CLIENT_INITIATED);
-+
-+	epoch = hdr->epoch;
-+	conn_id = ntohl(hdr->cid) & RXRPC_CIDMASK;
-+
-+	/* search the connection list first */
-+	read_lock_bh(&trans->conn_lock);
-+
-+	p = trans->server_conns.rb_node;
-+	while (p) {
-+		conn = rb_entry(p, struct rxrpc_connection, node);
-+
-+		_debug("maybe %x", conn->real_conn_id);
-+
-+		if (epoch < conn->epoch)
-+			p = p->rb_left;
-+		else if (epoch > conn->epoch)
-+			p = p->rb_right;
-+		else if (conn_id < conn->real_conn_id)
-+			p = p->rb_left;
-+		else if (conn_id > conn->real_conn_id)
-+			p = p->rb_right;
-+		else
-+			goto found_extant_connection;
-+	}
-+	read_unlock_bh(&trans->conn_lock);
-+
-+	/* not yet present - create a candidate for a new record and then
-+	 * redo the search */
-+	candidate = rxrpc_alloc_connection(gfp);
-+	if (!candidate) {
-+		_leave(" = -ENOMEM");
-+		return ERR_PTR(-ENOMEM);
-+	}
-+
-+	candidate->trans = trans;
-+	candidate->epoch = hdr->epoch;
-+	candidate->cid = hdr->cid & __constant_cpu_to_be32(RXRPC_CIDMASK);
-+	candidate->service_id = hdr->serviceId;
-+	candidate->security_ix = hdr->securityIndex;
-+	candidate->in_clientflag = RXRPC_CLIENT_INITIATED;
-+	candidate->out_clientflag = 0;
-+	candidate->real_conn_id = conn_id;
-+	candidate->state = RXRPC_CONN_SERVER;
-+	if (candidate->service_id)
-+		candidate->state = RXRPC_CONN_SERVER_UNSECURED;
-+
-+	write_lock_bh(&trans->conn_lock);
-+
-+	pp = &trans->server_conns.rb_node;
-+	p = NULL;
-+	while (*pp) {
-+		p = *pp;
-+		conn = rb_entry(p, struct rxrpc_connection, node);
-+
-+		if (epoch < conn->epoch)
-+			pp = &(*pp)->rb_left;
-+		else if (epoch > conn->epoch)
-+			pp = &(*pp)->rb_right;
-+		else if (conn_id < conn->real_conn_id)
-+			pp = &(*pp)->rb_left;
-+		else if (conn_id > conn->real_conn_id)
-+			pp = &(*pp)->rb_right;
-+		else
-+			goto found_extant_second;
-+	}
-+
-+	/* we can now add the new candidate to the list */
-+	conn = candidate;
-+	candidate = NULL;
-+	rb_link_node(&conn->node, p, pp);
-+	rb_insert_color(&conn->node, &trans->server_conns);
-+	atomic_inc(&conn->trans->usage);
-+
-+	write_unlock_bh(&trans->conn_lock);
-+
-+	write_lock_bh(&rxrpc_connection_lock);
-+	list_add_tail(&conn->link, &rxrpc_connections);
-+	write_unlock_bh(&rxrpc_connection_lock);
-+
-+	new = "new";
-+
-+success:
-+	_net("CONNECTION %s %d {%x}", new, conn->debug_id, conn->real_conn_id);
-+
-+	_leave(" = %p {u=%d}", conn, atomic_read(&conn->usage));
-+	return conn;
-+
-+	/* we found the connection in the list immediately */
-+found_extant_connection:
-+	if (hdr->securityIndex != conn->security_ix) {
-+		read_unlock_bh(&trans->conn_lock);
-+		goto security_mismatch;
-+	}
-+	atomic_inc(&conn->usage);
-+	read_unlock_bh(&trans->conn_lock);
-+	goto success;
-+
-+	/* we found the connection on the second time through the list */
-+found_extant_second:
-+	if (hdr->securityIndex != conn->security_ix) {
-+		write_unlock_bh(&trans->conn_lock);
-+		goto security_mismatch;
-+	}
-+	atomic_inc(&conn->usage);
-+	write_unlock_bh(&trans->conn_lock);
-+	kfree(candidate);
-+	goto success;
-+
-+security_mismatch:
-+	kfree(candidate);
-+	_leave(" = -EKEYREJECTED");
-+	return ERR_PTR(-EKEYREJECTED);
-+}
-+
-+/*
-+ * find a connection based on transport and RxRPC connection ID for an incoming
-+ * packet
-+ */
-+struct rxrpc_connection *rxrpc_find_connection(struct rxrpc_transport *trans,
-+					       struct rxrpc_header *hdr)
-+{
-+	struct rxrpc_connection *conn;
-+	struct rb_node *p;
-+	__be32 epoch;
-+	u32 conn_id;
-+
-+	_enter(",{%x,%x}", ntohl(hdr->cid), hdr->flags);
-+
-+	read_lock_bh(&trans->conn_lock);
-+
-+	conn_id = ntohl(hdr->cid) & RXRPC_CIDMASK;
-+	epoch = hdr->epoch;
-+
-+	if (hdr->flags & RXRPC_CLIENT_INITIATED)
-+		p = trans->server_conns.rb_node;
-+	else
-+		p = trans->client_conns.rb_node;
-+
-+	while (p) {
-+		conn = rb_entry(p, struct rxrpc_connection, node);
-+
-+		_debug("maybe %x", conn->real_conn_id);
-+
-+		if (epoch < conn->epoch)
-+			p = p->rb_left;
-+		else if (epoch > conn->epoch)
-+			p = p->rb_right;
-+		else if (conn_id < conn->real_conn_id)
-+			p = p->rb_left;
-+		else if (conn_id > conn->real_conn_id)
-+			p = p->rb_right;
++		vnode =3D rb_entry(p, struct afs_vnode, server_rb);
++		if (fid->vid < vnode->fid.vid)
++			p =3D p->rb_left;
++		else if (fid->vid > vnode->fid.vid)
++			p =3D p->rb_right;
++		else if (fid->vnode < vnode->fid.vnode)
++			p =3D p->rb_left;
++		else if (fid->vnode > vnode->fid.vnode)
++			p =3D p->rb_right;
++		else if (fid->unique < vnode->fid.unique)
++			p =3D p->rb_left;
++		else if (fid->unique > vnode->fid.unique)
++			p =3D p->rb_right;
 +		else
 +			goto found;
 +	}
 +
-+	read_unlock_bh(&trans->conn_lock);
-+	_leave(" = NULL");
-+	return NULL;
++	/* not found so we just ignore it (it may have moved to another
++	 * server) */
++not_available:
++	_debug("not avail");
++	spin_unlock(&server->fs_lock);
++	_leave("");
++	return;
 +
 +found:
-+	atomic_inc(&conn->usage);
-+	read_unlock_bh(&trans->conn_lock);
-+	_leave(" = %p", conn);
-+	return conn;
-+}
++	_debug("found");
++	ASSERTCMP(server, =3D=3D, vnode->server);
 +
-+/*
-+ * release a virtual connection
-+ */
-+void rxrpc_put_connection(struct rxrpc_connection *conn)
-+{
-+	_enter("%p{u=%d,d=%d}",
-+	       conn, atomic_read(&conn->usage), conn->debug_id);
++	if (!igrab(AFS_VNODE_TO_I(vnode)))
++		goto not_available;
++	spin_unlock(&server->fs_lock);
 +
-+	ASSERTCMP(atomic_read(&conn->usage), >, 0);
-+
-+	conn->put_time = xtime.tv_sec;
-+	if (atomic_dec_and_test(&conn->usage)) {
-+		_debug("zombie");
-+		schedule_delayed_work(&rxrpc_connection_reap, 0);
-+	}
-+
++	afs_break_callback(server, vnode);
++	iput(&vnode->vfs_inode);
 +	_leave("");
-+}
-+
-+/*
-+ * destroy a virtual connection
-+ */
-+static void rxrpc_destroy_connection(struct rxrpc_connection *conn)
-+{
-+	_enter("%p{%d}", conn, atomic_read(&conn->usage));
-+
-+	ASSERTCMP(atomic_read(&conn->usage), ==, 0);
-+
-+	_net("DESTROY CONN %d", conn->debug_id);
-+
-+	if (conn->bundle)
-+		rxrpc_put_bundle(conn->trans, conn->bundle);
-+
-+	ASSERT(RB_EMPTY_ROOT(&conn->calls));
-+	rxrpc_purge_queue(&conn->rx_queue);
-+
-+	rxrpc_clear_conn_security(conn);
-+	rxrpc_put_transport(conn->trans);
-+	kfree(conn);
-+	_leave("");
-+}
-+
-+/*
-+ * reap dead connections
-+ */
-+void rxrpc_connection_reaper(struct work_struct *work)
-+{
-+	struct rxrpc_connection *conn, *_p;
-+	unsigned long now, earliest, reap_time;
-+
-+	LIST_HEAD(graveyard);
-+
-+	_enter("");
-+
-+	now = xtime.tv_sec;
-+	earliest = ULONG_MAX;
-+
-+	write_lock_bh(&rxrpc_connection_lock);
-+	list_for_each_entry_safe(conn, _p, &rxrpc_connections, link) {
-+		_debug("reap CONN %d { u=%d,t=%ld }",
-+		       conn->debug_id, atomic_read(&conn->usage),
-+		       (long) now - (long) conn->put_time);
-+
-+		if (likely(atomic_read(&conn->usage) > 0))
-+			continue;
-+
-+		spin_lock(&conn->trans->client_lock);
-+		write_lock(&conn->trans->conn_lock);
-+		reap_time = conn->put_time + rxrpc_connection_timeout;
-+
-+		if (atomic_read(&conn->usage) > 0) {
-+			;
-+		} else if (reap_time <= now) {
-+			list_move_tail(&conn->link, &graveyard);
-+			if (conn->out_clientflag)
-+				rb_erase(&conn->node,
-+					 &conn->trans->client_conns);
-+			else
-+				rb_erase(&conn->node,
-+					 &conn->trans->server_conns);
-+			if (conn->bundle) {
-+				list_del_init(&conn->bundle_link);
-+				conn->bundle->num_conns--;
-+			}
-+
-+		} else if (reap_time < earliest) {
-+			earliest = reap_time;
-+		}
-+
-+		write_unlock(&conn->trans->conn_lock);
-+		spin_unlock(&conn->trans->client_lock);
-+	}
-+	write_unlock_bh(&rxrpc_connection_lock);
-+
-+	if (earliest != ULONG_MAX) {
-+		_debug("reschedule reaper %ld", (long) earliest - now);
-+		ASSERTCMP(earliest, >, now);
-+		schedule_delayed_work(&rxrpc_connection_reap,
-+				      (earliest - now) * HZ);
-+	}
-+
-+	/* then destroy all those pulled out */
-+	while (!list_empty(&graveyard)) {
-+		conn = list_entry(graveyard.next, struct rxrpc_connection,
-+				  link);
-+		list_del_init(&conn->link);
-+
-+		ASSERTCMP(atomic_read(&conn->usage), ==, 0);
-+		rxrpc_destroy_connection(conn);
-+	}
-+
-+	_leave("");
-+}
-+
-+/*
-+ * preemptively destroy all the connection records rather than waiting for them
-+ * to time out
-+ */
-+void __exit rxrpc_destroy_all_connections(void)
-+{
-+	_enter("");
-+
-+	rxrpc_connection_timeout = 0;
-+	cancel_delayed_work(&rxrpc_connection_reap);
-+	schedule_delayed_work(&rxrpc_connection_reap, 0);
-+
-+	_leave("");
-+}
-diff --git a/net/rxrpc/ar-connevent.c b/net/rxrpc/ar-connevent.c
-new file mode 100644
-index 0000000..4b02815
---- /dev/null
-+++ b/net/rxrpc/ar-connevent.c
-@@ -0,0 +1,387 @@
-+/* connection-level event handling
-+ *
-+ * Copyright (C) 2007 Red Hat, Inc. All Rights Reserved.
-+ * Written by David Howells (dhowells@redhat.com)
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version
-+ * 2 of the License, or (at your option) any later version.
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/net.h>
-+#include <linux/skbuff.h>
-+#include <linux/errqueue.h>
-+#include <linux/udp.h>
-+#include <linux/in.h>
-+#include <linux/in6.h>
-+#include <linux/icmp.h>
-+#include <net/sock.h>
-+#include <net/af_rxrpc.h>
-+#include <net/ip.h>
-+#include "ar-internal.h"
-+
-+/*
-+ * pass a connection-level abort onto all calls on that connection
-+ */
-+static void rxrpc_abort_calls(struct rxrpc_connection *conn, int state,
-+			      u32 abort_code)
-+{
-+	struct rxrpc_call *call;
-+	struct rb_node *p;
-+
-+	_enter("{%d},%x", conn->debug_id, abort_code);
-+
-+	read_lock_bh(&conn->lock);
-+
-+	for (p = rb_first(&conn->calls); p; p = rb_next(p)) {
-+		call = rb_entry(p, struct rxrpc_call, conn_node);
-+		write_lock(&call->state_lock);
-+		if (call->state <= RXRPC_CALL_COMPLETE) {
-+			call->state = state;
-+			call->abort_code = abort_code;
-+			if (state == RXRPC_CALL_LOCALLY_ABORTED)
-+				set_bit(RXRPC_CALL_CONN_ABORT, &call->events);
-+			else
-+				set_bit(RXRPC_CALL_RCVD_ABORT, &call->events);
-+			schedule_work(&call->processor);
-+		}
-+		write_unlock(&call->state_lock);
-+	}
-+
-+	read_unlock_bh(&conn->lock);
-+	_leave("");
-+}
-+
-+/*
-+ * generate a connection-level abort
-+ */
-+static int rxrpc_abort_connection(struct rxrpc_connection *conn,
-+				  u32 error, u32 abort_code)
-+{
-+	struct rxrpc_header hdr;
-+	struct msghdr msg;
-+	struct kvec iov[2];
-+	__be32 word;
-+	size_t len;
-+	int ret;
-+
-+	_enter("%d,,%u,%u", conn->debug_id, error, abort_code);
-+
-+	/* generate a connection-level abort */
-+	spin_lock_bh(&conn->state_lock);
-+	if (conn->state < RXRPC_CONN_REMOTELY_ABORTED) {
-+		conn->state = RXRPC_CONN_LOCALLY_ABORTED;
-+		conn->error = error;
-+		spin_unlock_bh(&conn->state_lock);
-+	} else {
-+		spin_unlock_bh(&conn->state_lock);
-+		_leave(" = 0 [already dead]");
-+		return 0;
-+	}
-+
-+	rxrpc_abort_calls(conn, RXRPC_CALL_LOCALLY_ABORTED, abort_code);
-+
-+	msg.msg_name	= &conn->trans->peer->srx.transport.sin;
-+	msg.msg_namelen	= sizeof(conn->trans->peer->srx.transport.sin);
-+	msg.msg_control	= NULL;
-+	msg.msg_controllen = 0;
-+	msg.msg_flags	= 0;
-+
-+	hdr.epoch	= conn->epoch;
-+	hdr.cid		= conn->cid;
-+	hdr.callNumber	= 0;
-+	hdr.seq		= 0;
-+	hdr.type	= RXRPC_PACKET_TYPE_ABORT;
-+	hdr.flags	= conn->out_clientflag;
-+	hdr.userStatus	= 0;
-+	hdr.securityIndex = conn->security_ix;
-+	hdr._rsvd	= 0;
-+	hdr.serviceId	= conn->service_id;
-+
-+	word = htonl(abort_code);
-+
-+	iov[0].iov_base	= &hdr;
-+	iov[0].iov_len	= sizeof(hdr);
-+	iov[1].iov_base	= &word;
-+	iov[1].iov_len	= sizeof(word);
-+
-+	len = iov[0].iov_len + iov[1].iov_len;
-+
-+	hdr.serial = htonl(atomic_inc_return(&conn->serial));
-+	_proto("Tx CONN ABORT %%%u { %d }", ntohl(hdr.serial), abort_code);
-+
-+	ret = kernel_sendmsg(conn->trans->local->socket, &msg, iov, 2, len);
-+	if (ret < 0) {
-+		_debug("sendmsg failed: %d", ret);
-+		return -EAGAIN;
-+	}
-+
-+	_leave(" = 0");
-+	return 0;
-+}
-+
-+/*
-+ * mark a call as being on a now-secured channel
-+ * - must be called with softirqs disabled
-+ */
-+void rxrpc_call_is_secure(struct rxrpc_call *call)
-+{
-+	_enter("%p", call);
-+	if (call) {
-+		read_lock(&call->state_lock);
-+		if (call->state < RXRPC_CALL_COMPLETE &&
-+		    !test_and_set_bit(RXRPC_CALL_SECURED, &call->events))
-+			schedule_work(&call->processor);
-+		read_unlock(&call->state_lock);
-+	}
-+}
-+
-+/*
-+ * connection-level Rx packet processor
-+ */
-+static int rxrpc_process_event(struct rxrpc_connection *conn,
-+			       struct sk_buff *skb,
-+			       u32 *_abort_code)
-+{
-+	struct rxrpc_skb_priv *sp = rxrpc_skb(skb);
-+	__be32 tmp;
-+	u32 serial;
-+	int loop, ret;
-+
-+	if (conn->state >= RXRPC_CONN_REMOTELY_ABORTED)
-+		return -ECONNABORTED;
-+
-+	serial = ntohl(sp->hdr.serial);
-+
-+	switch (sp->hdr.type) {
-+	case RXRPC_PACKET_TYPE_ABORT:
-+		if (skb_copy_bits(skb, 0, &tmp, sizeof(tmp)) < 0)
-+			return -EPROTO;
-+		_proto("Rx ABORT %%%u { ac=%d }", serial, ntohl(tmp));
-+
-+		conn->state = RXRPC_CONN_REMOTELY_ABORTED;
-+		rxrpc_abort_calls(conn, RXRPC_CALL_REMOTELY_ABORTED,
-+				  ntohl(tmp));
-+		return -ECONNABORTED;
-+
-+	case RXRPC_PACKET_TYPE_CHALLENGE:
-+		if (conn->security)
-+			return conn->security->respond_to_challenge(
-+				conn, skb, _abort_code);
-+		return -EPROTO;
-+
-+	case RXRPC_PACKET_TYPE_RESPONSE:
-+		if (!conn->security)
-+			return -EPROTO;
-+
-+		ret = conn->security->verify_response(conn, skb, _abort_code);
-+		if (ret < 0)
-+			return ret;
-+
-+		ret = conn->security->init_connection_security(conn);
-+		if (ret < 0)
-+			return ret;
-+
-+		conn->security->prime_packet_security(conn);
-+		read_lock_bh(&conn->lock);
-+		spin_lock(&conn->state_lock);
-+
-+		if (conn->state == RXRPC_CONN_SERVER_CHALLENGING) {
-+			conn->state = RXRPC_CONN_SERVER;
-+			for (loop = 0; loop < RXRPC_MAXCALLS; loop++)
-+				rxrpc_call_is_secure(conn->channels[loop]);
-+		}
-+
-+		spin_unlock(&conn->state_lock);
-+		read_unlock_bh(&conn->lock);
-+		return 0;
-+
-+	default:
-+		return -EPROTO;
-+	}
-+}
-+
-+/*
-+ * set up security and issue a challenge
-+ */
-+static void rxrpc_secure_connection(struct rxrpc_connection *conn)
-+{
-+	u32 abort_code;
-+	int ret;
-+
-+	_enter("{%d}", conn->debug_id);
-+
-+	ASSERT(conn->security_ix != 0);
-+
-+	if (!conn->key) {
-+		_debug("set up security");
-+		ret = rxrpc_init_server_conn_security(conn);
-+		switch (ret) {
-+		case 0:
-+			break;
-+		case -ENOENT:
-+			abort_code = RX_CALL_DEAD;
-+			goto abort;
-+		default:
-+			abort_code = RXKADNOAUTH;
-+			goto abort;
-+		}
-+	}
-+
-+	ASSERT(conn->security != NULL);
-+
-+	if (conn->security->issue_challenge(conn) < 0) {
-+		abort_code = RX_CALL_DEAD;
-+		ret = -ENOMEM;
-+		goto abort;
+ }
+=20
+ /*
+  * allow the fileserver to break callback promises
+  */
+-int SRXAFSCM_CallBack(struct afs_server *server, size_t count,
+-		      struct afs_callback callbacks[])
++void afs_break_callbacks(struct afs_server *server, size_t count,
++			 struct afs_callback callbacks[])
+ {
+-	_enter("%p,%u,", server, count);
++	_enter("%p,%zu,", server, count);
+=20
+-	for (; count > 0; callbacks++, count--) {
+-		struct afs_vnode *vnode =3D NULL;
+-		struct inode *inode =3D NULL;
+-		int valid =3D 0;
++	ASSERT(server !=3D NULL);
++	ASSERTCMP(count, <=3D, AFSCBMAX);
+=20
++	for (; count > 0; callbacks++, count--) {
+ 		_debug("- Fid { vl=3D%08x n=3D%u u=3D%u }  CB { v=3D%u x=3D%u t=3D%u=
+ }",
+ 		       callbacks->fid.vid,
+ 		       callbacks->fid.vnode,
+@@ -101,66 +200,244 @@ int SRXAFSCM_CallBack(struct afs_server *server,=
+ size_t count,
+ 		       callbacks->expiry,
+ 		       callbacks->type
+ 		       );
++		afs_break_one_callback(server, &callbacks->fid);
 +	}
 +
 +	_leave("");
 +	return;
-+
-+abort:
-+	_debug("abort %d, %d", ret, abort_code);
-+	rxrpc_abort_connection(conn, -ret, abort_code);
-+	_leave(" [aborted]");
 +}
-+
+=20
+-		/* find the inode for this fid */
+-		spin_lock(&afs_cb_hash_lock);
 +/*
-+ * connection-level event processor
++ * record the callback for breaking
++ * - the caller must hold server->cb_lock
 + */
-+void rxrpc_process_connection(struct work_struct *work)
++static void afs_do_give_up_callback(struct afs_server *server,
++				    struct afs_vnode *vnode)
 +{
-+	struct rxrpc_connection *conn =
-+		container_of(work, struct rxrpc_connection, processor);
-+	struct rxrpc_skb_priv *sp;
-+	struct sk_buff *skb;
-+	u32 abort_code = RX_PROTOCOL_ERROR;
-+	int ret;
-+
-+	_enter("{%d}", conn->debug_id);
-+
-+	atomic_inc(&conn->usage);
-+
-+	if (test_and_clear_bit(RXRPC_CONN_CHALLENGE, &conn->events)) {
-+		rxrpc_secure_connection(conn);
-+		rxrpc_put_connection(conn);
-+	}
-+
-+	/* go through the conn-level event packets, releasing the ref on this
-+	 * connection that each one has when we've finished with it */
-+	while ((skb = skb_dequeue(&conn->rx_queue))) {
-+		sp = rxrpc_skb(skb);
-+
-+		ret = rxrpc_process_event(conn, skb, &abort_code);
-+		switch (ret) {
-+		case -EPROTO:
-+		case -EKEYEXPIRED:
-+		case -EKEYREJECTED:
-+			goto protocol_error;
-+		case -EAGAIN:
-+			goto requeue_and_leave;
-+		case -ECONNABORTED:
-+		default:
-+			rxrpc_put_connection(conn);
-+			rxrpc_free_skb(skb);
-+			break;
-+		}
-+	}
-+
-+out:
-+	rxrpc_put_connection(conn);
-+	_leave("");
-+	return;
-+
-+requeue_and_leave:
-+	skb_queue_head(&conn->rx_queue, skb);
-+	goto out;
-+
-+protocol_error:
-+	if (rxrpc_abort_connection(conn, -ret, abort_code) < 0)
-+		goto requeue_and_leave;
-+	rxrpc_put_connection(conn);
-+	rxrpc_free_skb(skb);
-+	_leave(" [EPROTO]");
-+	goto out;
-+}
-+
-+/*
-+ * reject packets through the local endpoint
-+ */
-+void rxrpc_reject_packets(struct work_struct *work)
-+{
-+	union {
-+		struct sockaddr sa;
-+		struct sockaddr_in sin;
-+	} sa;
-+	struct rxrpc_skb_priv *sp;
-+	struct rxrpc_header hdr;
-+	struct rxrpc_local *local;
-+	struct sk_buff *skb;
-+	struct msghdr msg;
-+	struct kvec iov[2];
-+	size_t size;
-+	__be32 code;
-+
-+	local = container_of(work, struct rxrpc_local, rejecter);
-+	rxrpc_get_local(local);
-+
-+	_enter("%d", local->debug_id);
-+
-+	iov[0].iov_base = &hdr;
-+	iov[0].iov_len = sizeof(hdr);
-+	iov[1].iov_base = &code;
-+	iov[1].iov_len = sizeof(code);
-+	size = sizeof(hdr) + sizeof(code);
-+
-+	msg.msg_name = &sa;
-+	msg.msg_control = NULL;
-+	msg.msg_controllen = 0;
-+	msg.msg_flags = 0;
-+
-+	memset(&sa, 0, sizeof(sa));
-+	sa.sa.sa_family = local->srx.transport.family;
-+	switch (sa.sa.sa_family) {
-+	case AF_INET:
-+		msg.msg_namelen = sizeof(sa.sin);
++	struct afs_callback *cb;
+=20
+-		list_for_each_entry(vnode,
+-				    &afs_cb_hash(server, &callbacks->fid),
+-				    cb_hash_link) {
+-			if (memcmp(&vnode->fid, &callbacks->fid,
+-				   sizeof(struct afs_fid)) !=3D 0)
+-				continue;
++	_enter("%p,%p", server, vnode);
+=20
+-			/* right vnode, but is it same server? */
+-			if (vnode->cb_server !=3D server)
+-				break; /* no */
++	cb =3D &server->cb_break[server->cb_break_head];
++	cb->fid		=3D vnode->fid;
++	cb->version	=3D vnode->cb_version;
++	cb->expiry	=3D vnode->cb_expiry;
++	cb->type	=3D vnode->cb_type;
++	smp_wmb();
++	server->cb_break_head =3D
++		(server->cb_break_head + 1) &
++		(ARRAY_SIZE(server->cb_break) - 1);
+=20
+-			/* try and nail the inode down */
+-			inode =3D igrab(AFS_VNODE_TO_I(vnode));
+-			break;
++	/* defer the breaking of callbacks to try and collect as many as
++	 * possible to ship in one operation */
++	switch (atomic_inc_return(&server->cb_break_n)) {
++	case 1 ... AFSCBMAX - 1:
++		queue_delayed_work(afs_callback_update_worker,
++				   &server->cb_break_work, HZ * 2);
++		break;
++	case AFSCBMAX:
++		afs_flush_callback_breaks(server);
 +		break;
 +	default:
-+		msg.msg_namelen = 0;
 +		break;
 +	}
 +
-+	memset(&hdr, 0, sizeof(hdr));
-+	hdr.type = RXRPC_PACKET_TYPE_ABORT;
-+
-+	while ((skb = skb_dequeue(&local->reject_queue))) {
-+		sp = rxrpc_skb(skb);
-+		switch (sa.sa.sa_family) {
-+		case AF_INET:
-+			sa.sin.sin_port = udp_hdr(skb)->source;
-+			sa.sin.sin_addr.s_addr = ip_hdr(skb)->saddr;
-+			code = htonl(skb->priority);
-+
-+			hdr.epoch = sp->hdr.epoch;
-+			hdr.cid = sp->hdr.cid;
-+			hdr.callNumber = sp->hdr.callNumber;
-+			hdr.serviceId = sp->hdr.serviceId;
-+			hdr.flags = sp->hdr.flags;
-+			hdr.flags ^= RXRPC_CLIENT_INITIATED;
-+			hdr.flags &= RXRPC_CLIENT_INITIATED;
-+
-+			kernel_sendmsg(local->socket, &msg, iov, 2, size);
-+			break;
-+
-+		default:
-+			break;
-+		}
-+
-+		rxrpc_free_skb(skb);
-+		rxrpc_put_local(local);
-+	}
-+
-+	rxrpc_put_local(local);
-+	_leave("");
-+}
-diff --git a/net/rxrpc/ar-error.c b/net/rxrpc/ar-error.c
-new file mode 100644
-index 0000000..f5539e2
---- /dev/null
-+++ b/net/rxrpc/ar-error.c
-@@ -0,0 +1,253 @@
-+/* Error message handling (ICMP)
-+ *
-+ * Copyright (C) 2007 Red Hat, Inc. All Rights Reserved.
-+ * Written by David Howells (dhowells@redhat.com)
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version
-+ * 2 of the License, or (at your option) any later version.
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/net.h>
-+#include <linux/skbuff.h>
-+#include <linux/errqueue.h>
-+#include <linux/udp.h>
-+#include <linux/in.h>
-+#include <linux/in6.h>
-+#include <linux/icmp.h>
-+#include <net/sock.h>
-+#include <net/af_rxrpc.h>
-+#include <net/ip.h>
-+#include "ar-internal.h"
-+
-+/*
-+ * handle an error received on the local endpoint
-+ */
-+void rxrpc_UDP_error_report(struct sock *sk)
-+{
-+	struct sock_exterr_skb *serr;
-+	struct rxrpc_transport *trans;
-+	struct rxrpc_local *local = sk->sk_user_data;
-+	struct rxrpc_peer *peer;
-+	struct sk_buff *skb;
-+	__be32 addr;
-+	__be16 port;
-+
-+	_enter("%p{%d}", sk, local->debug_id);
-+
-+	skb = skb_dequeue(&sk->sk_error_queue);
-+	if (!skb) {
-+		_leave("UDP socket errqueue empty");
-+		return;
-+	}
-+
-+	rxrpc_new_skb(skb);
-+
-+	serr = SKB_EXT_ERR(skb);
-+	addr = *(__be32 *)(skb_network_header(skb) + serr->addr_offset);
-+	port = serr->port;
-+
-+	_net("Rx UDP Error from "NIPQUAD_FMT":%hu",
-+	     NIPQUAD(addr), ntohs(port));
-+	_debug("Msg l:%d d:%d", skb->len, skb->data_len);
-+
-+	peer = rxrpc_find_peer(local, addr, port);
-+	if (IS_ERR(peer)) {
-+		rxrpc_free_skb(skb);
-+		_leave(" [no peer]");
-+		return;
-+	}
-+
-+	trans = rxrpc_find_transport(local, peer);
-+	if (!trans) {
-+		rxrpc_put_peer(peer);
-+		rxrpc_free_skb(skb);
-+		_leave(" [no trans]");
-+		return;
-+	}
-+
-+	if (serr->ee.ee_origin == SO_EE_ORIGIN_ICMP &&
-+	    serr->ee.ee_type == ICMP_DEST_UNREACH &&
-+	    serr->ee.ee_code == ICMP_FRAG_NEEDED
-+	    ) {
-+		u32 mtu = serr->ee.ee_info;
-+
-+		_net("Rx Received ICMP Fragmentation Needed (%d)", mtu);
-+
-+		/* wind down the local interface MTU */
-+		if (mtu > 0 && peer->if_mtu == 65535 && mtu < peer->if_mtu) {
-+			peer->if_mtu = mtu;
-+			_net("I/F MTU %u", mtu);
-+		}
-+
-+		/* ip_rt_frag_needed() may have eaten the info */
-+		if (mtu == 0)
-+			mtu = ntohs(icmp_hdr(skb)->un.frag.mtu);
-+
-+		if (mtu == 0) {
-+			/* they didn't give us a size, estimate one */
-+			if (mtu > 1500) {
-+				mtu >>= 1;
-+				if (mtu < 1500)
-+					mtu = 1500;
-+			} else {
-+				mtu -= 100;
-+				if (mtu < peer->hdrsize)
-+					mtu = peer->hdrsize + 4;
-+			}
-+		}
-+
-+		if (mtu < peer->mtu) {
-+			peer->mtu = mtu;
-+			peer->maxdata = peer->mtu - peer->hdrsize;
-+			_net("Net MTU %u (maxdata %u)",
-+			     peer->mtu, peer->maxdata);
-+		}
-+	}
-+
-+	rxrpc_put_peer(peer);
-+
-+	/* pass the transport ref to error_handler to release */
-+	skb_queue_tail(&trans->error_queue, skb);
-+	schedule_work(&trans->error_handler);
-+
-+	/* reset and regenerate socket error */
-+	spin_lock_bh(&sk->sk_error_queue.lock);
-+	sk->sk_err = 0;
-+	skb = skb_peek(&sk->sk_error_queue);
-+	if (skb) {
-+		sk->sk_err = SKB_EXT_ERR(skb)->ee.ee_errno;
-+		spin_unlock_bh(&sk->sk_error_queue.lock);
-+		sk->sk_error_report(sk);
-+	} else {
-+		spin_unlock_bh(&sk->sk_error_queue.lock);
-+	}
-+
++	ASSERT(server->cb_promises.rb_node !=3D NULL);
++	rb_erase(&vnode->cb_promise, &server->cb_promises);
++	vnode->cb_promised =3D false;
 +	_leave("");
 +}
 +
 +/*
-+ * deal with UDP error messages
++ * give up the callback registered for a vnode on the file server when=
+ the
++ * inode is being cleared
 + */
-+void rxrpc_UDP_error_handler(struct work_struct *work)
++void afs_give_up_callback(struct afs_vnode *vnode)
 +{
-+	struct sock_extended_err *ee;
-+	struct sock_exterr_skb *serr;
-+	struct rxrpc_transport *trans =
-+		container_of(work, struct rxrpc_transport, error_handler);
-+	struct sk_buff *skb;
-+	int local, err;
++	struct afs_server *server =3D vnode->server;
++
++	DECLARE_WAITQUEUE(myself, current);
++
++	_enter("%d", vnode->cb_promised);
++
++	_debug("GIVE UP INODE %p", &vnode->vfs_inode);
++
++	if (!vnode->cb_promised) {
++		_leave(" [not promised]");
++		return;
++	}
++
++	ASSERT(server !=3D NULL);
++
++	spin_lock(&server->cb_lock);
++	if (vnode->cb_promised && afs_breakring_space(server) =3D=3D 0) {
++		add_wait_queue(&server->cb_break_waitq, &myself);
++		for (;;) {
++			set_current_state(TASK_UNINTERRUPTIBLE);
++			if (!vnode->cb_promised ||
++			    afs_breakring_space(server) !=3D 0)
++				break;
++			spin_unlock(&server->cb_lock);
++			schedule();
++			spin_lock(&server->cb_lock);
+ 		}
++		remove_wait_queue(&server->cb_break_waitq, &myself);
++		__set_current_state(TASK_RUNNING);
++	}
++
++	/* of course, it's always possible for the server to break this vnode=
+'s
++	 * callback first... */
++	if (vnode->cb_promised)
++		afs_do_give_up_callback(server, vnode);
++
++	spin_unlock(&server->cb_lock);
++	_leave("");
++}
++
++/*
++ * dispatch a deferred give up callbacks operation
++ */
++void afs_dispatch_give_up_callbacks(struct work_struct *work)
++{
++	struct afs_server *server =3D
++		container_of(work, struct afs_server, cb_break_work.work);
 +
 +	_enter("");
 +
-+	skb = skb_dequeue(&trans->error_queue);
-+	if (!skb)
-+		return;
-+
-+	serr = SKB_EXT_ERR(skb);
-+	ee = &serr->ee;
-+
-+	_net("Rx Error o=%d t=%d c=%d e=%d",
-+	     ee->ee_origin, ee->ee_type, ee->ee_code, ee->ee_errno);
-+
-+	err = ee->ee_errno;
-+
-+	switch (ee->ee_origin) {
-+	case SO_EE_ORIGIN_ICMP:
-+		local = 0;
-+		switch (ee->ee_type) {
-+		case ICMP_DEST_UNREACH:
-+			switch (ee->ee_code) {
-+			case ICMP_NET_UNREACH:
-+				_net("Rx Received ICMP Network Unreachable");
-+				err = ENETUNREACH;
-+				break;
-+			case ICMP_HOST_UNREACH:
-+				_net("Rx Received ICMP Host Unreachable");
-+				err = EHOSTUNREACH;
-+				break;
-+			case ICMP_PORT_UNREACH:
-+				_net("Rx Received ICMP Port Unreachable");
-+				err = ECONNREFUSED;
-+				break;
-+			case ICMP_FRAG_NEEDED:
-+				_net("Rx Received ICMP Fragmentation Needed (%d)",
-+				     ee->ee_info);
-+				err = 0; /* dealt with elsewhere */
-+				break;
-+			case ICMP_NET_UNKNOWN:
-+				_net("Rx Received ICMP Unknown Network");
-+				err = ENETUNREACH;
-+				break;
-+			case ICMP_HOST_UNKNOWN:
-+				_net("Rx Received ICMP Unknown Host");
-+				err = EHOSTUNREACH;
-+				break;
-+			default:
-+				_net("Rx Received ICMP DestUnreach code=%u",
-+				     ee->ee_code);
-+				break;
-+			}
-+			break;
-+
-+		case ICMP_TIME_EXCEEDED:
-+			_net("Rx Received ICMP TTL Exceeded");
-+			break;
-+
-+		default:
-+			_proto("Rx Received ICMP error { type=%u code=%u }",
-+			       ee->ee_type, ee->ee_code);
-+			break;
-+		}
-+		break;
-+
-+	case SO_EE_ORIGIN_LOCAL:
-+		_proto("Rx Received local error { error=%d }",
-+		       ee->ee_errno);
-+		local = 1;
-+		break;
-+
-+	case SO_EE_ORIGIN_NONE:
-+	case SO_EE_ORIGIN_ICMP6:
-+	default:
-+		_proto("Rx Received error report { orig=%u }",
-+		       ee->ee_origin);
-+		local = 0;
-+		break;
-+	}
-+
-+	/* terminate all the affected calls if there's an unrecoverable
-+	 * error */
-+	if (err) {
-+		struct rxrpc_call *call, *_n;
-+
-+		_debug("ISSUE ERROR %d", err);
-+
-+		spin_lock_bh(&trans->peer->lock);
-+		trans->peer->net_error = err;
-+
-+		list_for_each_entry_safe(call, _n, &trans->peer->error_targets,
-+					 error_link) {
-+			write_lock(&call->state_lock);
-+			if (call->state != RXRPC_CALL_COMPLETE &&
-+			    call->state < RXRPC_CALL_NETWORK_ERROR) {
-+				call->state = RXRPC_CALL_NETWORK_ERROR;
-+				set_bit(RXRPC_CALL_RCVD_ERROR, &call->events);
-+				schedule_work(&call->processor);
-+			}
-+			write_unlock(&call->state_lock);
-+			list_del_init(&call->error_link);
-+		}
-+
-+		spin_unlock_bh(&trans->peer->lock);
-+	}
-+
-+	if (!skb_queue_empty(&trans->error_queue))
-+		schedule_work(&trans->error_handler);
-+
-+	rxrpc_free_skb(skb);
-+	rxrpc_put_transport(trans);
-+	_leave("");
-+}
-diff --git a/net/rxrpc/ar-input.c b/net/rxrpc/ar-input.c
-new file mode 100644
-index 0000000..323c345
---- /dev/null
-+++ b/net/rxrpc/ar-input.c
-@@ -0,0 +1,791 @@
-+/* RxRPC packet reception
-+ *
-+ * Copyright (C) 2007 Red Hat, Inc. All Rights Reserved.
-+ * Written by David Howells (dhowells@redhat.com)
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version
-+ * 2 of the License, or (at your option) any later version.
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/net.h>
-+#include <linux/skbuff.h>
-+#include <linux/errqueue.h>
-+#include <linux/udp.h>
-+#include <linux/in.h>
-+#include <linux/in6.h>
-+#include <linux/icmp.h>
-+#include <net/sock.h>
-+#include <net/af_rxrpc.h>
-+#include <net/ip.h>
-+#include "ar-internal.h"
-+
-+unsigned long rxrpc_ack_timeout = 1;
-+
-+const char *rxrpc_pkts[] = {
-+	"?00",
-+	"DATA", "ACK", "BUSY", "ABORT", "ACKALL", "CHALL", "RESP", "DEBUG",
-+	"?09", "?10", "?11", "?12", "?13", "?14", "?15"
-+};
-+
-+/*
-+ * queue a packet for recvmsg to pass to userspace
-+ * - the caller must hold a lock on call->lock
-+ * - must not be called with interrupts disabled (sk_filter() disables BH's)
-+ * - eats the packet whether successful or not
-+ * - there must be just one reference to the packet, which the caller passes to
-+ *   this function
-+ */
-+int rxrpc_queue_rcv_skb(struct rxrpc_call *call, struct sk_buff *skb,
-+			bool force, bool terminal)
-+{
-+	struct rxrpc_skb_priv *sp;
-+	struct sock *sk;
-+	int skb_len, ret;
-+
-+	_enter(",,%d,%d", force, terminal);
-+
-+	ASSERT(!irqs_disabled());
-+
-+	sp = rxrpc_skb(skb);
-+	ASSERTCMP(sp->call, ==, call);
-+
-+	/* if we've already posted the terminal message for a call, then we
-+	 * don't post any more */
-+	if (test_bit(RXRPC_CALL_TERMINAL_MSG, &call->flags)) {
-+		_debug("already terminated");
-+		ASSERTCMP(call->state, >=, RXRPC_CALL_COMPLETE);
-+		skb->destructor = NULL;
-+		sp->call = NULL;
-+		rxrpc_put_call(call);
-+		rxrpc_free_skb(skb);
-+		return 0;
-+	}
-+
-+	sk = &call->socket->sk;
-+
-+	if (!force) {
-+		/* cast skb->rcvbuf to unsigned...  It's pointless, but
-+		 * reduces number of warnings when compiling with -W
-+		 * --ANK */
-+//		ret = -ENOBUFS;
-+//		if (atomic_read(&sk->sk_rmem_alloc) + skb->truesize >=
-+//		    (unsigned) sk->sk_rcvbuf)
-+//			goto out;
-+
-+		ret = sk_filter(sk, skb);
-+		if (ret < 0)
-+			goto out;
-+	}
-+
-+	spin_lock_bh(&sk->sk_receive_queue.lock);
-+	if (!test_bit(RXRPC_CALL_TERMINAL_MSG, &call->flags) &&
-+	    !test_bit(RXRPC_CALL_RELEASED, &call->flags) &&
-+	    call->socket->sk.sk_state != RXRPC_CLOSE) {
-+		skb->destructor = rxrpc_packet_destructor;
-+		skb->dev = NULL;
-+		skb->sk = sk;
-+		atomic_add(skb->truesize, &sk->sk_rmem_alloc);
-+
-+		/* Cache the SKB length before we tack it onto the receive
-+		 * queue.  Once it is added it no longer belongs to us and
-+		 * may be freed by other threads of control pulling packets
-+		 * from the queue.
-+		 */
-+		skb_len = skb->len;
-+
-+		_net("post skb %p", skb);
-+		__skb_queue_tail(&sk->sk_receive_queue, skb);
-+		spin_unlock_bh(&sk->sk_receive_queue.lock);
-+
-+		if (!sock_flag(sk, SOCK_DEAD))
-+			sk->sk_data_ready(sk, skb_len);
-+
-+		if (terminal) {
-+			_debug("<<<< TERMINAL MESSAGE >>>>");
-+			set_bit(RXRPC_CALL_TERMINAL_MSG, &call->flags);
-+		}
-+
-+		skb = NULL;
-+	} else {
-+		spin_unlock_bh(&sk->sk_receive_queue.lock);
-+	}
-+	ret = 0;
-+
-+out:
-+	/* release the socket buffer */
-+	if (skb) {
-+		skb->destructor = NULL;
-+		sp->call = NULL;
-+		rxrpc_put_call(call);
-+		rxrpc_free_skb(skb);
-+	}
-+
-+	_leave(" = %d", ret);
-+	return ret;
-+}
-+
-+/*
-+ * process a DATA packet, posting the packet to the appropriate queue
-+ * - eats the packet if successful
-+ */
-+static int rxrpc_fast_process_data(struct rxrpc_call *call,
-+				   struct sk_buff *skb, u32 seq)
-+{
-+	struct rxrpc_skb_priv *sp;
-+	bool terminal;
-+	int ret, ackbit, ack;
-+
-+	_enter("{%u,%u},,{%u}", call->rx_data_post, call->rx_first_oos, seq);
-+
-+	sp = rxrpc_skb(skb);
-+	ASSERTCMP(sp->call, ==, NULL);
-+
-+	spin_lock(&call->lock);
-+
-+	if (call->state > RXRPC_CALL_COMPLETE)
-+		goto discard;
-+
-+	ASSERTCMP(call->rx_data_expect, >=, call->rx_data_post);
-+	ASSERTCMP(call->rx_data_post, >=, call->rx_data_recv);
-+	ASSERTCMP(call->rx_data_recv, >=, call->rx_data_eaten);
-+
-+	if (seq < call->rx_data_post) {
-+		_debug("dup #%u [-%u]", seq, call->rx_data_post);
-+		ack = RXRPC_ACK_DUPLICATE;
-+		ret = -ENOBUFS;
-+		goto discard_and_ack;
-+	}
-+
-+	/* we may already have the packet in the out of sequence queue */
-+	ackbit = seq - (call->rx_data_eaten + 1);
-+	ASSERTCMP(ackbit, >=, 0);
-+	if (__test_and_set_bit(ackbit, &call->ackr_window)) {
-+		_debug("dup oos #%u [%u,%u]",
-+		       seq, call->rx_data_eaten, call->rx_data_post);
-+		ack = RXRPC_ACK_DUPLICATE;
-+		goto discard_and_ack;
-+	}
-+
-+	if (seq >= call->ackr_win_top) {
-+		_debug("exceed #%u [%u]", seq, call->ackr_win_top);
-+		__clear_bit(ackbit, &call->ackr_window);
-+		ack = RXRPC_ACK_EXCEEDS_WINDOW;
-+		goto discard_and_ack;
-+	}
-+
-+	if (seq == call->rx_data_expect) {
-+		clear_bit(RXRPC_CALL_EXPECT_OOS, &call->flags);
-+		call->rx_data_expect++;
-+	} else if (seq > call->rx_data_expect) {
-+		_debug("oos #%u [%u]", seq, call->rx_data_expect);
-+		call->rx_data_expect = seq + 1;
-+		if (test_and_set_bit(RXRPC_CALL_EXPECT_OOS, &call->flags)) {
-+			ack = RXRPC_ACK_OUT_OF_SEQUENCE;
-+			goto enqueue_and_ack;
-+		}
-+		goto enqueue_packet;
-+	}
-+
-+	if (seq != call->rx_data_post) {
-+		_debug("ahead #%u [%u]", seq, call->rx_data_post);
-+		goto enqueue_packet;
-+	}
-+
-+	if (test_bit(RXRPC_CALL_RCVD_LAST, &call->flags))
-+		goto protocol_error;
-+
-+	/* if the packet need security things doing to it, then it goes down
-+	 * the slow path */
-+	if (call->conn->security)
-+		goto enqueue_packet;
-+
-+	sp->call = call;
-+	rxrpc_get_call(call);
-+	terminal = ((sp->hdr.flags & RXRPC_LAST_PACKET) &&
-+		    !(sp->hdr.flags & RXRPC_CLIENT_INITIATED));
-+	ret = rxrpc_queue_rcv_skb(call, skb, false, terminal);
-+	if (ret < 0) {
-+		if (ret == -ENOMEM || ret == -ENOBUFS) {
-+			__clear_bit(ackbit, &call->ackr_window);
-+			ack = RXRPC_ACK_NOSPACE;
-+			goto discard_and_ack;
-+		}
-+		goto out;
-+	}
-+
-+	skb = NULL;
-+
-+	_debug("post #%u", seq);
-+	ASSERTCMP(call->rx_data_post, ==, seq);
-+	call->rx_data_post++;
-+
-+	if (sp->hdr.flags & RXRPC_LAST_PACKET)
-+		set_bit(RXRPC_CALL_RCVD_LAST, &call->flags);
-+
-+	/* if we've reached an out of sequence packet then we need to drain
-+	 * that queue into the socket Rx queue now */
-+	if (call->rx_data_post == call->rx_first_oos) {
-+		_debug("drain rx oos now");
-+		read_lock(&call->state_lock);
-+		if (call->state < RXRPC_CALL_COMPLETE &&
-+		    !test_and_set_bit(RXRPC_CALL_DRAIN_RX_OOS, &call->events))
-+			schedule_work(&call->processor);
-+		read_unlock(&call->state_lock);
-+	}
-+
-+	spin_unlock(&call->lock);
-+	atomic_inc(&call->ackr_not_idle);
-+	rxrpc_propose_ACK(call, RXRPC_ACK_DELAY, sp->hdr.serial, false);
-+	_leave(" = 0 [posted]");
-+	return 0;
-+
-+protocol_error:
-+	ret = -EBADMSG;
-+out:
-+	spin_unlock(&call->lock);
-+	_leave(" = %d", ret);
-+	return ret;
-+
-+discard_and_ack:
-+	_debug("discard and ACK packet %p", skb);
-+	__rxrpc_propose_ACK(call, ack, sp->hdr.serial, true);
-+discard:
-+	spin_unlock(&call->lock);
-+	rxrpc_free_skb(skb);
-+	_leave(" = 0 [discarded]");
-+	return 0;
-+
-+enqueue_and_ack:
-+	__rxrpc_propose_ACK(call, ack, sp->hdr.serial, true);
-+enqueue_packet:
-+	_net("defer skb %p", skb);
-+	spin_unlock(&call->lock);
-+	skb_queue_tail(&call->rx_queue, skb);
-+	atomic_inc(&call->ackr_not_idle);
-+	read_lock(&call->state_lock);
-+	if (call->state < RXRPC_CALL_DEAD)
-+		schedule_work(&call->processor);
-+	read_unlock(&call->state_lock);
-+	_leave(" = 0 [queued]");
-+	return 0;
-+}
-+
-+/*
-+ * assume an implicit ACKALL of the transmission phase of a client socket upon
-+ * reception of the first reply packet
-+ */
-+static void rxrpc_assume_implicit_ackall(struct rxrpc_call *call, u32 serial)
-+{
-+	write_lock_bh(&call->state_lock);
-+
-+	switch (call->state) {
-+	case RXRPC_CALL_CLIENT_AWAIT_REPLY:
-+		call->state = RXRPC_CALL_CLIENT_RECV_REPLY;
-+		call->acks_latest = serial;
-+
-+		_debug("implicit ACKALL %%%u", call->acks_latest);
-+		set_bit(RXRPC_CALL_RCVD_ACKALL, &call->events);
-+		write_unlock_bh(&call->state_lock);
-+
-+		if (try_to_del_timer_sync(&call->resend_timer) >= 0) {
-+			clear_bit(RXRPC_CALL_RESEND_TIMER, &call->events);
-+			clear_bit(RXRPC_CALL_RESEND, &call->events);
-+			clear_bit(RXRPC_CALL_RUN_RTIMER, &call->flags);
-+		}
-+		break;
-+
-+	default:
-+		write_unlock_bh(&call->state_lock);
-+		break;
-+	}
-+}
-+
-+/*
-+ * post an incoming packet to the nominated call to deal with
-+ * - must get rid of the sk_buff, either by freeing it or by queuing it
-+ */
-+void rxrpc_fast_process_packet(struct rxrpc_call *call, struct sk_buff *skb)
-+{
-+	struct rxrpc_skb_priv *sp = rxrpc_skb(skb);
-+	__be32 _abort_code;
-+	u32 serial, hi_serial, seq, abort_code;
-+
-+	_enter("%p,%p", call, skb);
-+
-+	ASSERT(!irqs_disabled());
-+
-+#if 0 // INJECT RX ERROR
-+	if (sp->hdr.type == RXRPC_PACKET_TYPE_DATA) {
-+		static int skip = 0;
-+		if (++skip == 3) {
-+			printk("DROPPED 3RD PACKET!!!!!!!!!!!!!\n");
-+			skip = 0;
-+			goto free_packet;
-+		}
-+	}
-+#endif
-+
-+	/* track the latest serial number on this connection for ACK packet
-+	 * information */
-+	serial = ntohl(sp->hdr.serial);
-+	hi_serial = atomic_read(&call->conn->hi_serial);
-+	while (serial > hi_serial)
-+		hi_serial = atomic_cmpxchg(&call->conn->hi_serial, hi_serial,
-+					   serial);
-+
-+	/* request ACK generation for any ACK or DATA packet that requests
-+	 * it */
-+	if (sp->hdr.flags & RXRPC_REQUEST_ACK) {
-+		_proto("ACK Requested on %%%u", serial);
-+		rxrpc_propose_ACK(call, RXRPC_ACK_REQUESTED, sp->hdr.serial,
-+				  !(sp->hdr.flags & RXRPC_MORE_PACKETS));
-+	}
-+
-+	switch (sp->hdr.type) {
-+	case RXRPC_PACKET_TYPE_ABORT:
-+		_debug("abort");
-+
-+		if (skb_copy_bits(skb, 0, &_abort_code,
-+				  sizeof(_abort_code)) < 0)
-+			goto protocol_error;
-+
-+		abort_code = ntohl(_abort_code);
-+		_proto("Rx ABORT %%%u { %x }", serial, abort_code);
-+
-+		write_lock_bh(&call->state_lock);
-+		if (call->state < RXRPC_CALL_COMPLETE) {
-+			call->state = RXRPC_CALL_REMOTELY_ABORTED;
-+			call->abort_code = abort_code;
-+			set_bit(RXRPC_CALL_RCVD_ABORT, &call->events);
-+			schedule_work(&call->processor);
-+		}
-+		goto free_packet_unlock;
-+
-+	case RXRPC_PACKET_TYPE_BUSY:
-+		_proto("Rx BUSY %%%u", serial);
-+
-+		if (call->conn->out_clientflag)
-+			goto protocol_error;
-+
-+		write_lock_bh(&call->state_lock);
-+		switch (call->state) {
-+		case RXRPC_CALL_CLIENT_SEND_REQUEST:
-+			call->state = RXRPC_CALL_SERVER_BUSY;
-+			set_bit(RXRPC_CALL_RCVD_BUSY, &call->events);
-+			schedule_work(&call->processor);
-+		case RXRPC_CALL_SERVER_BUSY:
-+			goto free_packet_unlock;
-+		default:
-+			goto protocol_error_locked;
-+		}
-+
-+	default:
-+		_proto("Rx %s %%%u", rxrpc_pkts[sp->hdr.type], serial);
-+		goto protocol_error;
-+
-+	case RXRPC_PACKET_TYPE_DATA:
-+		seq = ntohl(sp->hdr.seq);
-+
-+		_proto("Rx DATA %%%u { #%u }", serial, seq);
-+
-+		if (seq == 0)
-+			goto protocol_error;
-+
-+		call->ackr_prev_seq = sp->hdr.seq;
-+
-+		/* received data implicitly ACKs all of the request packets we
-+		 * sent when we're acting as a client */
-+		if (call->state == RXRPC_CALL_CLIENT_AWAIT_REPLY)
-+			rxrpc_assume_implicit_ackall(call, serial);
-+
-+		switch (rxrpc_fast_process_data(call, skb, seq)) {
-+		case 0:
-+			skb = NULL;
-+			goto done;
-+
-+		default:
-+			BUG();
-+
-+			/* data packet received beyond the last packet */
-+		case -EBADMSG:
-+			goto protocol_error;
-+		}
-+
-+	case RXRPC_PACKET_TYPE_ACK:
-+		/* ACK processing is done in process context */
-+		read_lock_bh(&call->state_lock);
-+		if (call->state < RXRPC_CALL_DEAD) {
-+			skb_queue_tail(&call->rx_queue, skb);
-+			schedule_work(&call->processor);
-+			skb = NULL;
-+		}
-+		read_unlock_bh(&call->state_lock);
-+		goto free_packet;
-+	}
-+
-+protocol_error:
-+	_debug("protocol error");
-+	write_lock_bh(&call->state_lock);
-+protocol_error_locked:
-+	if (call->state <= RXRPC_CALL_COMPLETE) {
-+		call->state = RXRPC_CALL_LOCALLY_ABORTED;
-+		call->abort_code = RX_PROTOCOL_ERROR;
-+		set_bit(RXRPC_CALL_ABORT, &call->events);
-+		schedule_work(&call->processor);
-+	}
-+free_packet_unlock:
-+	write_unlock_bh(&call->state_lock);
-+free_packet:
-+	rxrpc_free_skb(skb);
-+done:
-+	_leave("");
-+}
-+
-+/*
-+ * split up a jumbo data packet
-+ */
-+static void rxrpc_process_jumbo_packet(struct rxrpc_call *call,
-+				       struct sk_buff *jumbo)
-+{
-+	struct rxrpc_jumbo_header jhdr;
-+	struct rxrpc_skb_priv *sp;
-+	struct sk_buff *part;
-+
-+	_enter(",{%u,%u}", jumbo->data_len, jumbo->len);
-+
-+	sp = rxrpc_skb(jumbo);
-+
-+	do {
-+		sp->hdr.flags &= ~RXRPC_JUMBO_PACKET;
-+
-+		/* make a clone to represent the first subpacket in what's left
-+		 * of the jumbo packet */
-+		part = skb_clone(jumbo, GFP_ATOMIC);
-+		if (!part) {
-+			/* simply ditch the tail in the event of ENOMEM */
-+			pskb_trim(jumbo, RXRPC_JUMBO_DATALEN);
-+			break;
-+		}
-+		rxrpc_new_skb(part);
-+
-+		pskb_trim(part, RXRPC_JUMBO_DATALEN);
-+
-+		if (!pskb_pull(jumbo, RXRPC_JUMBO_DATALEN))
-+			goto protocol_error;
-+
-+		if (skb_copy_bits(jumbo, 0, &jhdr, sizeof(jhdr)) < 0)
-+			goto protocol_error;
-+		if (!pskb_pull(jumbo, sizeof(jhdr)))
-+			BUG();
-+
-+		sp->hdr.seq	= htonl(ntohl(sp->hdr.seq) + 1);
-+		sp->hdr.serial	= htonl(ntohl(sp->hdr.serial) + 1);
-+		sp->hdr.flags	= jhdr.flags;
-+		sp->hdr._rsvd	= jhdr._rsvd;
-+
-+		_proto("Rx DATA Jumbo %%%u", ntohl(sp->hdr.serial) - 1);
-+
-+		rxrpc_fast_process_packet(call, part);
-+		part = NULL;
-+
-+	} while (sp->hdr.flags & RXRPC_JUMBO_PACKET);
-+
-+	rxrpc_fast_process_packet(call, jumbo);
-+	_leave("");
-+	return;
-+
-+protocol_error:
-+	_debug("protocol error");
-+	rxrpc_free_skb(part);
-+	rxrpc_free_skb(jumbo);
-+	write_lock_bh(&call->state_lock);
-+	if (call->state <= RXRPC_CALL_COMPLETE) {
-+		call->state = RXRPC_CALL_LOCALLY_ABORTED;
-+		call->abort_code = RX_PROTOCOL_ERROR;
-+		set_bit(RXRPC_CALL_ABORT, &call->events);
-+		schedule_work(&call->processor);
-+	}
-+	write_unlock_bh(&call->state_lock);
-+	_leave("");
-+}
-+
-+/*
-+ * post an incoming packet to the appropriate call/socket to deal with
-+ * - must get rid of the sk_buff, either by freeing it or by queuing it
-+ */
-+static void rxrpc_post_packet_to_call(struct rxrpc_connection *conn,
-+				      struct sk_buff *skb)
-+{
-+	struct rxrpc_skb_priv *sp;
-+	struct rxrpc_call *call;
-+	struct rb_node *p;
-+	__be32 call_id;
-+
-+	_enter("%p,%p", conn, skb);
-+
-+	read_lock_bh(&conn->lock);
-+
-+	sp = rxrpc_skb(skb);
-+
-+	/* look at extant calls by channel number first */
-+	call = conn->channels[ntohl(sp->hdr.cid) & RXRPC_CHANNELMASK];
-+	if (!call || call->call_id != sp->hdr.callNumber)
-+		goto call_not_extant;
-+
-+	_debug("extant call [%d]", call->state);
-+	ASSERTCMP(call->conn, ==, conn);
-+
-+	read_lock(&call->state_lock);
-+	switch (call->state) {
-+	case RXRPC_CALL_LOCALLY_ABORTED:
-+		if (!test_and_set_bit(RXRPC_CALL_ABORT, &call->events))
-+			schedule_work(&call->processor);
-+	case RXRPC_CALL_REMOTELY_ABORTED:
-+	case RXRPC_CALL_NETWORK_ERROR:
-+	case RXRPC_CALL_DEAD:
-+		goto free_unlock;
-+	default:
-+		break;
-+	}
-+
-+	read_unlock(&call->state_lock);
-+	rxrpc_get_call(call);
-+	read_unlock_bh(&conn->lock);
-+
-+	if (sp->hdr.type == RXRPC_PACKET_TYPE_DATA &&
-+	    sp->hdr.flags & RXRPC_JUMBO_PACKET)
-+		rxrpc_process_jumbo_packet(call, skb);
-+	else
-+		rxrpc_fast_process_packet(call, skb);
-+
-+	rxrpc_put_call(call);
-+	goto done;
-+
-+call_not_extant:
-+	/* search the completed calls in case what we're dealing with is
-+	 * there */
-+	_debug("call not extant");
-+
-+	call_id = sp->hdr.callNumber;
-+	p = conn->calls.rb_node;
-+	while (p) {
-+		call = rb_entry(p, struct rxrpc_call, conn_node);
-+
-+		if (call_id < call->call_id)
-+			p = p->rb_left;
-+		else if (call_id > call->call_id)
-+			p = p->rb_right;
-+		else
-+			goto found_completed_call;
-+	}
-+
-+dead_call:
-+	/* it's a either a really old call that we no longer remember or its a
-+	 * new incoming call */
-+	read_unlock_bh(&conn->lock);
-+
-+	if (sp->hdr.flags & RXRPC_CLIENT_INITIATED &&
-+	    sp->hdr.seq == __constant_cpu_to_be32(1)) {
-+		_debug("incoming call");
-+		skb_queue_tail(&conn->trans->local->accept_queue, skb);
-+		schedule_work(&conn->trans->local->acceptor);
-+		goto done;
-+	}
-+
-+	_debug("dead call");
-+	skb->priority = RX_CALL_DEAD;
-+	rxrpc_reject_packet(conn->trans->local, skb);
-+	goto done;
-+
-+	/* resend last packet of a completed call
-+	 * - client calls may have been aborted or ACK'd
-+	 * - server calls may have been aborted
++	/* tell the fileserver to discard the callback promises it has
++	 * - in the event of ENOMEM or some other error, we just forget that =
+we
++	 *   had callbacks entirely, and the server will call us later to bre=
+ak
++	 *   them
 +	 */
-+found_completed_call:
-+	_debug("completed call");
-+
-+	if (atomic_read(&call->usage) == 0)
-+		goto dead_call;
-+
-+	/* synchronise any state changes */
-+	read_lock(&call->state_lock);
-+	ASSERTIFCMP(call->state != RXRPC_CALL_CLIENT_FINAL_ACK,
-+		    call->state, >=, RXRPC_CALL_COMPLETE);
-+
-+	if (call->state == RXRPC_CALL_LOCALLY_ABORTED ||
-+	    call->state == RXRPC_CALL_REMOTELY_ABORTED ||
-+	    call->state == RXRPC_CALL_DEAD) {
-+		read_unlock(&call->state_lock);
-+		goto dead_call;
-+	}
-+
-+	if (call->conn->in_clientflag) {
-+		read_unlock(&call->state_lock);
-+		goto dead_call; /* complete server call */
-+	}
-+
-+	_debug("final ack again");
-+	rxrpc_get_call(call);
-+	set_bit(RXRPC_CALL_ACK_FINAL, &call->events);
-+	schedule_work(&call->processor);
-+
-+free_unlock:
-+	read_unlock(&call->state_lock);
-+	read_unlock_bh(&conn->lock);
-+	rxrpc_free_skb(skb);
-+done:
-+	_leave("");
++	afs_fs_give_up_callbacks(server, &afs_async_call);
 +}
 +
 +/*
-+ * post connection-level events to the connection
-+ * - this includes challenges, responses and some aborts
++ * flush the outstanding callback breaks on a server
 + */
-+static void rxrpc_post_packet_to_conn(struct rxrpc_connection *conn,
-+				      struct sk_buff *skb)
++void afs_flush_callback_breaks(struct afs_server *server)
 +{
-+	_enter("%p,%p", conn, skb);
-+
-+	atomic_inc(&conn->usage);
-+	skb_queue_tail(&conn->rx_queue, skb);
-+	schedule_work(&conn->processor);
++	cancel_delayed_work(&server->cb_break_work);
++	queue_delayed_work(afs_callback_update_worker,
++			   &server->cb_break_work, 0);
 +}
-+
-+/*
-+ * handle data received on the local endpoint
-+ * - may be called in interrupt context
-+ */
-+void rxrpc_data_ready(struct sock *sk, int count)
-+{
-+	struct rxrpc_connection *conn;
-+	struct rxrpc_transport *trans;
-+	struct rxrpc_skb_priv *sp;
-+	struct rxrpc_local *local;
-+	struct rxrpc_peer *peer;
-+	struct sk_buff *skb;
-+	int ret;
-+
-+	_enter("%p, %d", sk, count);
-+
-+	ASSERT(!irqs_disabled());
-+
-+	read_lock_bh(&rxrpc_local_lock);
-+	local = sk->sk_user_data;
-+	if (local && atomic_read(&local->usage) > 0)
-+		rxrpc_get_local(local);
-+	else
-+		local = NULL;
-+	read_unlock_bh(&rxrpc_local_lock);
-+	if (!local) {
-+		_leave(" [local dead]");
-+		return;
-+	}
-+
-+	skb = skb_recv_datagram(sk, 0, 1, &ret);
-+	if (!skb) {
-+		rxrpc_put_local(local);
-+		if (ret == -EAGAIN)
-+			return;
-+		_debug("UDP socket error %d", ret);
-+		return;
-+	}
-+
-+	rxrpc_new_skb(skb);
-+
-+	_net("recv skb %p", skb);
-+
-+	/* we'll probably need to checksum it (didn't call sock_recvmsg) */
-+	if (skb_checksum_complete(skb)) {
-+		rxrpc_free_skb(skb);
-+		rxrpc_put_local(local);
-+		_leave(" [CSUM failed]");
-+		return;
-+	}
-+
-+	/* the socket buffer we have is owned by UDP, with UDP's data all over
-+	 * it, but we really want our own */
-+	skb_orphan(skb);
-+	sp = rxrpc_skb(skb);
-+	memset(sp, 0, sizeof(*sp));
-+
-+	_net("Rx UDP packet from %08x:%04hu",
-+	     ntohl(ip_hdr(skb)->saddr), ntohs(udp_hdr(skb)->source));
-+
-+	/* dig out the RxRPC connection details */
-+	if (skb_copy_bits(skb, sizeof(struct udphdr), &sp->hdr,
-+			  sizeof(sp->hdr)) < 0)
-+		goto bad_message;
-+	if (!pskb_pull(skb, sizeof(struct udphdr) + sizeof(sp->hdr)))
-+		BUG();
-+
-+	_net("Rx RxRPC %s ep=%x call=%x:%x",
-+	     sp->hdr.flags & RXRPC_CLIENT_INITIATED ? "ToServer" : "ToClient",
-+	     ntohl(sp->hdr.epoch),
-+	     ntohl(sp->hdr.cid),
-+	     ntohl(sp->hdr.callNumber));
-+
-+	if (sp->hdr.type == 0 || sp->hdr.type >= RXRPC_N_PACKET_TYPES) {
-+		_proto("Rx Bad Packet Type %u", sp->hdr.type);
-+		goto bad_message;
-+	}
-+
-+	if (sp->hdr.type == RXRPC_PACKET_TYPE_DATA &&
-+	    (sp->hdr.callNumber == 0 || sp->hdr.seq == 0))
-+		goto bad_message;
-+
-+	peer = rxrpc_find_peer(local, ip_hdr(skb)->saddr, udp_hdr(skb)->source);
-+	if (IS_ERR(peer))
-+		goto cant_route_call;
-+
-+	trans = rxrpc_find_transport(local, peer);
-+	rxrpc_put_peer(peer);
-+	if (!trans)
-+		goto cant_route_call;
-+
-+	conn = rxrpc_find_connection(trans, &sp->hdr);
-+	rxrpc_put_transport(trans);
-+	if (!conn)
-+		goto cant_route_call;
-+
-+	_debug("CONN %p {%d}", conn, conn->debug_id);
-+
-+	if (sp->hdr.callNumber == 0)
-+		rxrpc_post_packet_to_conn(conn, skb);
-+	else
-+		rxrpc_post_packet_to_call(conn, skb);
-+	rxrpc_put_connection(conn);
-+	rxrpc_put_local(local);
-+	return;
-+
-+cant_route_call:
-+	_debug("can't route call");
-+	if (sp->hdr.flags & RXRPC_CLIENT_INITIATED &&
-+	    sp->hdr.type == RXRPC_PACKET_TYPE_DATA) {
-+		if (sp->hdr.seq == __constant_cpu_to_be32(1)) {
-+			_debug("first packet");
-+			skb_queue_tail(&local->accept_queue, skb);
-+			schedule_work(&local->acceptor);
-+			rxrpc_put_local(local);
-+			_leave(" [incoming]");
-+			return;
-+		}
-+		skb->priority = RX_INVALID_OPERATION;
-+	} else {
-+		skb->priority = RX_CALL_DEAD;
-+	}
-+
-+	_debug("reject");
-+	rxrpc_reject_packet(local, skb);
-+	rxrpc_put_local(local);
-+	_leave(" [no call]");
-+	return;
-+
-+bad_message:
-+	skb->priority = RX_PROTOCOL_ERROR;
-+	rxrpc_reject_packet(local, skb);
-+	rxrpc_put_local(local);
-+	_leave(" [badmsg]");
-+}
-diff --git a/net/rxrpc/ar-internal.h b/net/rxrpc/ar-internal.h
-new file mode 100644
-index 0000000..7bfbf47
---- /dev/null
-+++ b/net/rxrpc/ar-internal.h
-@@ -0,0 +1,842 @@
-+/* AF_RXRPC internal definitions
-+ *
-+ * Copyright (C) 2007 Red Hat, Inc. All Rights Reserved.
-+ * Written by David Howells (dhowells@redhat.com)
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version
-+ * 2 of the License, or (at your option) any later version.
-+ */
-+
-+#include <rxrpc/packet.h>
 +
 +#if 0
-+#define CHECK_SLAB_OKAY(X)				     \
-+	BUG_ON(atomic_read((X)) >> (sizeof(atomic_t) - 2) == \
-+	       (POISON_FREE << 8 | POISON_FREE))
-+#else
-+#define CHECK_SLAB_OKAY(X) do {} while(0)
++/*
++ * update a bunch of callbacks
++ */
++static void afs_callback_updater(struct work_struct *work)
++{
++	struct afs_server *server;
++	struct afs_vnode *vnode, *xvnode;
++	time_t now;
++	long timeout;
++	int ret;
++
++	server =3D container_of(work, struct afs_server, updater);
++
++	_enter("");
+=20
+-		spin_unlock(&afs_cb_hash_lock);
+-
+-		if (inode) {
+-			/* we've found the record for this vnode */
+-			spin_lock(&vnode->lock);
+-			if (vnode->cb_server =3D=3D server) {
+-				/* the callback _is_ on the calling server */
+-				vnode->cb_server =3D NULL;
+-				valid =3D 1;
+-
+-				afs_kafstimod_del_timer(&vnode->cb_timeout);
+-				vnode->flags |=3D AFS_VNODE_CHANGED;
+-
+-				spin_lock(&server->cb_lock);
+-				list_del_init(&vnode->cb_link);
+-				spin_unlock(&server->cb_lock);
+-
+-				spin_lock(&afs_cb_hash_lock);
+-				list_del_init(&vnode->cb_hash_link);
+-				spin_unlock(&afs_cb_hash_lock);
+-			}
+-			spin_unlock(&vnode->lock);
+-
+-			if (valid) {
+-				invalidate_remote_inode(inode);
+-				afs_put_server(server);
+-			}
+-			iput(inode);
++	now =3D get_seconds();
++
++	/* find the first vnode to update */
++	spin_lock(&server->cb_lock);
++	for (;;) {
++		if (RB_EMPTY_ROOT(&server->cb_promises)) {
++			spin_unlock(&server->cb_lock);
++			_leave(" [nothing]");
++			return;
+ 		}
++
++		vnode =3D rb_entry(rb_first(&server->cb_promises),
++				 struct afs_vnode, cb_promise);
++		if (atomic_read(&vnode->usage) > 0)
++			break;
++		rb_erase(&vnode->cb_promise, &server->cb_promises);
++		vnode->cb_promised =3D false;
++	}
++
++	timeout =3D vnode->update_at - now;
++	if (timeout > 0) {
++		queue_delayed_work(afs_vnode_update_worker,
++				   &afs_vnode_update, timeout * HZ);
++		spin_unlock(&server->cb_lock);
++		_leave(" [nothing]");
++		return;
++	}
++
++	list_del_init(&vnode->update);
++	atomic_inc(&vnode->usage);
++	spin_unlock(&server->cb_lock);
++
++	/* we can now perform the update */
++	_debug("update %s", vnode->vldb.name);
++	vnode->state =3D AFS_VL_UPDATING;
++	vnode->upd_rej_cnt =3D 0;
++	vnode->upd_busy_cnt =3D 0;
++
++	ret =3D afs_vnode_update_record(vl, &vldb);
++	switch (ret) {
++	case 0:
++		afs_vnode_apply_update(vl, &vldb);
++		vnode->state =3D AFS_VL_UPDATING;
++		break;
++	case -ENOMEDIUM:
++		vnode->state =3D AFS_VL_VOLUME_DELETED;
++		break;
++	default:
++		vnode->state =3D AFS_VL_UNCERTAIN;
++		break;
++	}
++
++	/* and then reschedule */
++	_debug("reschedule");
++	vnode->update_at =3D get_seconds() + afs_vnode_update_timeout;
++
++	spin_lock(&server->cb_lock);
++
++	if (!list_empty(&server->cb_promises)) {
++		/* next update in 10 minutes, but wait at least 1 second more
++		 * than the newest record already queued so that we don't spam
++		 * the VL server suddenly with lots of requests
++		 */
++		xvnode =3D list_entry(server->cb_promises.prev,
++				    struct afs_vnode, update);
++		if (vnode->update_at <=3D xvnode->update_at)
++			vnode->update_at =3D xvnode->update_at + 1;
++		xvnode =3D list_entry(server->cb_promises.next,
++				    struct afs_vnode, update);
++		timeout =3D xvnode->update_at - now;
++		if (timeout < 0)
++			timeout =3D 0;
++	} else {
++		timeout =3D afs_vnode_update_timeout;
+ 	}
+=20
+-	_leave(" =3D 0");
+-	return 0;
++	list_add_tail(&vnode->update, &server->cb_promises);
++
++	_debug("timeout %ld", timeout);
++	queue_delayed_work(afs_vnode_update_worker,
++			   &afs_vnode_update, timeout * HZ);
++	spin_unlock(&server->cb_lock);
++	afs_put_vnode(vl);
++}
 +#endif
 +
-+extern atomic_t rxrpc_n_skbs;
++/*
++ * initialise the callback update process
++ */
++int __init afs_callback_update_init(void)
++{
++	afs_callback_update_worker =3D
++		create_singlethread_workqueue("kafs_callbackd");
++	return afs_callback_update_worker ? 0 : -ENOMEM;
+ }
+=20
+ /*
+- * allow the fileserver to see if the cache manager is still alive
++ * shut down the callback update process
+  */
+-int SRXAFSCM_Probe(struct afs_server *server)
++void __exit afs_callback_update_kill(void)
+ {
+-	_debug("SRXAFSCM_Probe(%p)\n", server);
+-	return 0;
++	destroy_workqueue(afs_callback_update_worker);
+ }
+diff --git a/fs/afs/cell.c b/fs/afs/cell.c
+index 28ed84e..733c602 100644
+--- a/fs/afs/cell.c
++++ b/fs/afs/cell.c
+@@ -11,15 +11,6 @@
+=20
+ #include <linux/module.h>
+ #include <linux/slab.h>
+-#include <rxrpc/peer.h>
+-#include <rxrpc/connection.h>
+-#include "volume.h"
+-#include "cell.h"
+-#include "server.h"
+-#include "transport.h"
+-#include "vlclient.h"
+-#include "kafstimod.h"
+-#include "super.h"
+ #include "internal.h"
+=20
+ DECLARE_RWSEM(afs_proc_cells_sem);
+@@ -28,34 +19,21 @@ LIST_HEAD(afs_proc_cells);
+ static struct list_head afs_cells =3D LIST_HEAD_INIT(afs_cells);
+ static DEFINE_RWLOCK(afs_cells_lock);
+ static DECLARE_RWSEM(afs_cells_sem); /* add/remove serialisation */
++static DECLARE_WAIT_QUEUE_HEAD(afs_cells_freeable_wq);
+ static struct afs_cell *afs_cell_root;
+=20
+-#ifdef AFS_CACHING_SUPPORT
+-static cachefs_match_val_t afs_cell_cache_match(void *target,
+-						const void *entry);
+-static void afs_cell_cache_update(void *source, void *entry);
+-
+-struct cachefs_index_def afs_cache_cell_index_def =3D {
+-	.name			=3D "cell_ix",
+-	.data_size		=3D sizeof(struct afs_cache_cell),
+-	.keys[0]		=3D { CACHEFS_INDEX_KEYS_ASCIIZ, 64 },
+-	.match			=3D afs_cell_cache_match,
+-	.update			=3D afs_cell_cache_update,
+-};
+-#endif
+-
+ /*
+  * create a cell record
+  * - "name" is the name of the cell
+  * - "vllist" is a colon separated list of IP addresses in "a.b.c.d" f=
+ormat
+  */
+-int afs_cell_create(const char *name, char *vllist, struct afs_cell **=
+_cell)
++struct afs_cell *afs_cell_create(const char *name, char *vllist)
+ {
+ 	struct afs_cell *cell;
+ 	char *next;
+ 	int ret;
+=20
+-	_enter("%s", name);
++	_enter("%s,%s", name, vllist);
+=20
+ 	BUG_ON(!name); /* TODO: want to look up "this cell" in the cache */
+=20
+@@ -63,27 +41,24 @@ int afs_cell_create(const char *name, char *vllist,=
+ struct afs_cell **_cell)
+ 	cell =3D kmalloc(sizeof(struct afs_cell) + strlen(name) + 1, GFP_KERN=
+EL);
+ 	if (!cell) {
+ 		_leave(" =3D -ENOMEM");
+-		return -ENOMEM;
++		return ERR_PTR(-ENOMEM);
+ 	}
+=20
+ 	down_write(&afs_cells_sem);
+=20
+ 	memset(cell, 0, sizeof(struct afs_cell));
+-	atomic_set(&cell->usage, 0);
++	atomic_set(&cell->usage, 1);
+=20
+ 	INIT_LIST_HEAD(&cell->link);
+=20
+-	rwlock_init(&cell->sv_lock);
+-	INIT_LIST_HEAD(&cell->sv_list);
+-	INIT_LIST_HEAD(&cell->sv_graveyard);
+-	spin_lock_init(&cell->sv_gylock);
++	rwlock_init(&cell->servers_lock);
++	INIT_LIST_HEAD(&cell->servers);
+=20
+ 	init_rwsem(&cell->vl_sem);
+ 	INIT_LIST_HEAD(&cell->vl_list);
+-	INIT_LIST_HEAD(&cell->vl_graveyard);
+-	spin_lock_init(&cell->vl_gylock);
++	spin_lock_init(&cell->vl_lock);
+=20
+-	strcpy(cell->name,name);
++	strcpy(cell->name, name);
+=20
+ 	/* fill in the VL server list from the rest of the string */
+ 	ret =3D -EINVAL;
+@@ -106,9 +81,9 @@ int afs_cell_create(const char *name, char *vllist, =
+struct afs_cell **_cell)
+ 		if (cell->vl_naddrs >=3D AFS_CELL_MAX_ADDRS)
+ 			break;
+=20
+-	} while(vllist =3D next, vllist);
++	} while ((vllist =3D next));
+=20
+-	/* add a proc dir for this cell */
++	/* add a proc directory for this cell */
+ 	ret =3D afs_proc_cell_setup(cell);
+ 	if (ret < 0)
+ 		goto error;
+@@ -129,30 +104,29 @@ int afs_cell_create(const char *name, char *vllis=
+t, struct afs_cell **_cell)
+ 	down_write(&afs_proc_cells_sem);
+ 	list_add_tail(&cell->proc_link, &afs_proc_cells);
+ 	up_write(&afs_proc_cells_sem);
+-
+-	*_cell =3D cell;
+ 	up_write(&afs_cells_sem);
+=20
+-	_leave(" =3D 0 (%p)", cell);
+-	return 0;
++	_leave(" =3D %p", cell);
++	return cell;
+=20
+ badaddr:
+-	printk(KERN_ERR "kAFS: bad VL server IP address: '%s'\n", vllist);
++	printk(KERN_ERR "kAFS: bad VL server IP address\n");
+ error:
+ 	up_write(&afs_cells_sem);
+ 	kfree(cell);
+ 	_leave(" =3D %d", ret);
+-	return ret;
++	return ERR_PTR(ret);
+ }
+=20
+ /*
+- * initialise the cell database from module parameters
++ * set the root cell information
++ * - can be called with a module parameter string
++ * - can be called from a write to /proc/fs/afs/rootcell
+  */
+ int afs_cell_init(char *rootcell)
+ {
+ 	struct afs_cell *old_root, *new_root;
+ 	char *cp;
+-	int ret;
+=20
+ 	_enter("");
+=20
+@@ -160,79 +134,60 @@ int afs_cell_init(char *rootcell)
+ 		/* module is loaded with no parameters, or built statically.
+ 		 * - in the future we might initialize cell DB here.
+ 		 */
+-		_leave(" =3D 0 (but no root)");
++		_leave(" =3D 0 [no root]");
+ 		return 0;
+ 	}
+=20
+ 	cp =3D strchr(rootcell, ':');
+ 	if (!cp) {
+ 		printk(KERN_ERR "kAFS: no VL server IP addresses specified\n");
+-		_leave(" =3D %d (no colon)", -EINVAL);
++		_leave(" =3D -EINVAL");
+ 		return -EINVAL;
+ 	}
+=20
+ 	/* allocate a cell record for the root cell */
+ 	*cp++ =3D 0;
+-	ret =3D afs_cell_create(rootcell, cp, &new_root);
+-	if (ret < 0) {
+-		_leave(" =3D %d", ret);
+-		return ret;
++	new_root =3D afs_cell_create(rootcell, cp);
++	if (IS_ERR(new_root)) {
++		_leave(" =3D %ld", PTR_ERR(new_root));
++		return PTR_ERR(new_root);
+ 	}
+=20
+-	/* as afs_put_cell() takes locks by itself, we have to do
+-	 * a little gymnastics to be race-free.
+-	 */
+-	afs_get_cell(new_root);
+-
++	/* install the new cell */
+ 	write_lock(&afs_cells_lock);
+-	while (afs_cell_root) {
+-		old_root =3D afs_cell_root;
+-		afs_cell_root =3D NULL;
+-		write_unlock(&afs_cells_lock);
+-		afs_put_cell(old_root);
+-		write_lock(&afs_cells_lock);
+-	}
++	old_root =3D afs_cell_root;
+ 	afs_cell_root =3D new_root;
+ 	write_unlock(&afs_cells_lock);
++	afs_put_cell(old_root);
+=20
+-	_leave(" =3D %d", ret);
+-	return ret;
++	_leave(" =3D 0");
++	return 0;
+ }
+=20
+ /*
+  * lookup a cell record
+  */
+-int afs_cell_lookup(const char *name, unsigned namesz, struct afs_cell=
+ **_cell)
++struct afs_cell *afs_cell_lookup(const char *name, unsigned namesz)
+ {
+ 	struct afs_cell *cell;
+-	int ret;
+=20
+ 	_enter("\"%*.*s\",", namesz, namesz, name ? name : "");
+=20
+-	*_cell =3D NULL;
++	down_read(&afs_cells_sem);
++	read_lock(&afs_cells_lock);
+=20
+ 	if (name) {
+ 		/* if the cell was named, look for it in the cell record list */
+-		ret =3D -ENOENT;
+-		cell =3D NULL;
+-		read_lock(&afs_cells_lock);
+-
+ 		list_for_each_entry(cell, &afs_cells, link) {
+ 			if (strncmp(cell->name, name, namesz) =3D=3D 0) {
+ 				afs_get_cell(cell);
+ 				goto found;
+ 			}
+ 		}
+-		cell =3D NULL;
++		cell =3D ERR_PTR(-ENOENT);
+ 	found:
+-
+-		read_unlock(&afs_cells_lock);
+-
+-		if (cell)
+-			ret =3D 0;
++		;
+ 	} else {
+-		read_lock(&afs_cells_lock);
+-
+ 		cell =3D afs_cell_root;
+ 		if (!cell) {
+ 			/* this should not happen unless user tries to mount
+@@ -241,37 +196,32 @@ int afs_cell_lookup(const char *name, unsigned na=
+mesz, struct afs_cell **_cell)
+ 			 * ENOENT might be "more appropriate" but they happen
+ 			 * for other reasons.
+ 			 */
+-			ret =3D -EDESTADDRREQ;
++			cell =3D ERR_PTR(-EDESTADDRREQ);
+ 		} else {
+ 			afs_get_cell(cell);
+-			ret =3D 0;
+ 		}
+=20
+-		read_unlock(&afs_cells_lock);
+ 	}
+=20
+-	*_cell =3D cell;
+-	_leave(" =3D %d (%p)", ret, cell);
+-	return ret;
++	read_unlock(&afs_cells_lock);
++	up_read(&afs_cells_sem);
++	_leave(" =3D %p", cell);
++	return cell;
+ }
+=20
+ /*
+  * try and get a cell record
+  */
+-struct afs_cell *afs_get_cell_maybe(struct afs_cell **_cell)
++struct afs_cell *afs_get_cell_maybe(struct afs_cell *cell)
+ {
+-	struct afs_cell *cell;
+-
+ 	write_lock(&afs_cells_lock);
+=20
+-	cell =3D *_cell;
+ 	if (cell && !list_empty(&cell->link))
+ 		afs_get_cell(cell);
+ 	else
+ 		cell =3D NULL;
+=20
+ 	write_unlock(&afs_cells_lock);
+-
+ 	return cell;
+ }
+=20
+@@ -285,8 +235,7 @@ void afs_put_cell(struct afs_cell *cell)
+=20
+ 	_enter("%p{%d,%s}", cell, atomic_read(&cell->usage), cell->name);
+=20
+-	/* sanity check */
+-	BUG_ON(atomic_read(&cell->usage) <=3D 0);
++	ASSERTCMP(atomic_read(&cell->usage), >, 0);
+=20
+ 	/* to prevent a race, the decrement and the dequeue must be effective=
+ly
+ 	 * atomic */
+@@ -298,35 +247,49 @@ void afs_put_cell(struct afs_cell *cell)
+ 		return;
+ 	}
+=20
++	ASSERT(list_empty(&cell->servers));
++	ASSERT(list_empty(&cell->vl_list));
 +
-+#define FCRYPT_BSIZE 8
-+struct rxrpc_crypt {
-+	union {
-+		u8	x[FCRYPT_BSIZE];
-+		u32	n[2];
-+	};
-+} __attribute__((aligned(8)));
+ 	write_unlock(&afs_cells_lock);
+=20
+-	BUG_ON(!list_empty(&cell->sv_list));
+-	BUG_ON(!list_empty(&cell->sv_graveyard));
+-	BUG_ON(!list_empty(&cell->vl_list));
+-	BUG_ON(!list_empty(&cell->vl_graveyard));
++	wake_up(&afs_cells_freeable_wq);
+=20
+ 	_leave(" [unused]");
+ }
+=20
+ /*
+  * destroy a cell record
++ * - must be called with the afs_cells_sem write-locked
++ * - cell->link should have been broken by the caller
+  */
+ static void afs_cell_destroy(struct afs_cell *cell)
+ {
+ 	_enter("%p{%d,%s}", cell, atomic_read(&cell->usage), cell->name);
+=20
+-	/* to prevent a race, the decrement and the dequeue must be effective=
+ly
+-	 * atomic */
+-	write_lock(&afs_cells_lock);
++	ASSERTCMP(atomic_read(&cell->usage), >=3D, 0);
++	ASSERT(list_empty(&cell->link));
+=20
+-	/* sanity check */
+-	BUG_ON(atomic_read(&cell->usage) !=3D 0);
++	/* wait for everyone to stop using the cell */
++	if (atomic_read(&cell->usage) > 0) {
++		DECLARE_WAITQUEUE(myself, current);
+=20
+-	list_del_init(&cell->link);
++		_debug("wait for cell %s", cell->name);
++		set_current_state(TASK_UNINTERRUPTIBLE);
++		add_wait_queue(&afs_cells_freeable_wq, &myself);
+=20
+-	write_unlock(&afs_cells_lock);
++		while (atomic_read(&cell->usage) > 0) {
++			schedule();
++			set_current_state(TASK_UNINTERRUPTIBLE);
++		}
+=20
+-	down_write(&afs_cells_sem);
++		remove_wait_queue(&afs_cells_freeable_wq, &myself);
++		set_current_state(TASK_RUNNING);
++	}
 +
-+extern __be32 rxrpc_epoch;		/* local epoch for detecting local-end reset */
-+extern atomic_t rxrpc_debug_id;		/* current debugging ID */
++	_debug("cell dead");
++	ASSERTCMP(atomic_read(&cell->usage), =3D=3D, 0);
++	ASSERT(list_empty(&cell->servers));
++	ASSERT(list_empty(&cell->vl_list));
+=20
+ 	afs_proc_cell_remove(cell);
+=20
+@@ -338,101 +301,25 @@ static void afs_cell_destroy(struct afs_cell *ce=
+ll)
+ 	cachefs_relinquish_cookie(cell->cache, 0);
+ #endif
+=20
+-	up_write(&afs_cells_sem);
+-
+-	BUG_ON(!list_empty(&cell->sv_list));
+-	BUG_ON(!list_empty(&cell->sv_graveyard));
+-	BUG_ON(!list_empty(&cell->vl_list));
+-	BUG_ON(!list_empty(&cell->vl_graveyard));
+-
+-	/* finish cleaning up the cell */
+ 	kfree(cell);
+=20
+ 	_leave(" [destroyed]");
+ }
+=20
+ /*
+- * lookup the server record corresponding to an Rx RPC peer
+- */
+-int afs_server_find_by_peer(const struct rxrpc_peer *peer,
+-			    struct afs_server **_server)
+-{
+-	struct afs_server *server;
+-	struct afs_cell *cell;
+-
+-	_enter("%p{a=3D%08x},", peer, ntohl(peer->addr.s_addr));
+-
+-	/* search the cell list */
+-	read_lock(&afs_cells_lock);
+-
+-	list_for_each_entry(cell, &afs_cells, link) {
+-
+-		_debug("? cell %s",cell->name);
+-
+-		write_lock(&cell->sv_lock);
+-
+-		/* check the active list */
+-		list_for_each_entry(server, &cell->sv_list, link) {
+-			_debug("?? server %08x", ntohl(server->addr.s_addr));
+-
+-			if (memcmp(&server->addr, &peer->addr,
+-				   sizeof(struct in_addr)) =3D=3D 0)
+-				goto found_server;
+-		}
+-
+-		/* check the inactive list */
+-		spin_lock(&cell->sv_gylock);
+-		list_for_each_entry(server, &cell->sv_graveyard, link) {
+-			_debug("?? dead server %08x",
+-			       ntohl(server->addr.s_addr));
+-
+-			if (memcmp(&server->addr, &peer->addr,
+-				   sizeof(struct in_addr)) =3D=3D 0)
+-				goto found_dead_server;
+-		}
+-		spin_unlock(&cell->sv_gylock);
+-
+-		write_unlock(&cell->sv_lock);
+-	}
+-	read_unlock(&afs_cells_lock);
+-
+-	_leave(" =3D -ENOENT");
+-	return -ENOENT;
+-
+-	/* we found it in the graveyard - resurrect it */
+-found_dead_server:
+-	list_move_tail(&server->link, &cell->sv_list);
+-	afs_get_server(server);
+-	afs_kafstimod_del_timer(&server->timeout);
+-	spin_unlock(&cell->sv_gylock);
+-	goto success;
+-
+-	/* we found it - increment its ref count and return it */
+-found_server:
+-	afs_get_server(server);
+-
+-success:
+-	write_unlock(&cell->sv_lock);
+-	read_unlock(&afs_cells_lock);
+-
+-	*_server =3D server;
+-	_leave(" =3D 0 (s=3D%p c=3D%p)", server, cell);
+-	return 0;
+-}
+-
+-/*
+  * purge in-memory cell database on module unload or afs_init() failur=
+e
+  * - the timeout daemon is stopped before calling this
+  */
+ void afs_cell_purge(void)
+ {
+-	struct afs_vlocation *vlocation;
+ 	struct afs_cell *cell;
+=20
+ 	_enter("");
+=20
+ 	afs_put_cell(afs_cell_root);
+=20
++	down_write(&afs_cells_sem);
++
+ 	while (!list_empty(&afs_cells)) {
+ 		cell =3D NULL;
+=20
+@@ -451,102 +338,11 @@ void afs_cell_purge(void)
+ 			_debug("PURGING CELL %s (%d)",
+ 			       cell->name, atomic_read(&cell->usage));
+=20
+-			BUG_ON(!list_empty(&cell->sv_list));
+-			BUG_ON(!list_empty(&cell->vl_list));
+-
+-			/* purge the cell's VL graveyard list */
+-			_debug(" - clearing VL graveyard");
+-
+-			spin_lock(&cell->vl_gylock);
+-
+-			while (!list_empty(&cell->vl_graveyard)) {
+-				vlocation =3D list_entry(cell->vl_graveyard.next,
+-						       struct afs_vlocation,
+-						       link);
+-				list_del_init(&vlocation->link);
+-
+-				afs_kafstimod_del_timer(&vlocation->timeout);
+-
+-				spin_unlock(&cell->vl_gylock);
+-
+-				afs_vlocation_do_timeout(vlocation);
+-				/* TODO: race if move to use krxtimod instead
+-				 * of kafstimod */
+-
+-				spin_lock(&cell->vl_gylock);
+-			}
+-
+-			spin_unlock(&cell->vl_gylock);
+-
+-			/* purge the cell's server graveyard list */
+-			_debug(" - clearing server graveyard");
+-
+-			spin_lock(&cell->sv_gylock);
+-
+-			while (!list_empty(&cell->sv_graveyard)) {
+-				struct afs_server *server;
+-
+-				server =3D list_entry(cell->sv_graveyard.next,
+-						    struct afs_server, link);
+-				list_del_init(&server->link);
+-
+-				afs_kafstimod_del_timer(&server->timeout);
+-
+-				spin_unlock(&cell->sv_gylock);
+-
+-				afs_server_do_timeout(server);
+-
+-				spin_lock(&cell->sv_gylock);
+-			}
+-
+-			spin_unlock(&cell->sv_gylock);
+-
+ 			/* now the cell should be left with no references */
+ 			afs_cell_destroy(cell);
+ 		}
+ 	}
+=20
++	up_write(&afs_cells_sem);
+ 	_leave("");
+ }
+-
+-/*
+- * match a cell record obtained from the cache
+- */
+-#ifdef AFS_CACHING_SUPPORT
+-static cachefs_match_val_t afs_cell_cache_match(void *target,
+-						const void *entry)
+-{
+-	const struct afs_cache_cell *ccell =3D entry;
+-	struct afs_cell *cell =3D target;
+-
+-	_enter("{%s},{%s}", ccell->name, cell->name);
+-
+-	if (strncmp(ccell->name, cell->name, sizeof(ccell->name)) =3D=3D 0) {
+-		_leave(" =3D SUCCESS");
+-		return CACHEFS_MATCH_SUCCESS;
+-	}
+-
+-	_leave(" =3D FAILED");
+-	return CACHEFS_MATCH_FAILED;
+-}
+-#endif
+-
+-/*
+- * update a cell record in the cache
+- */
+-#ifdef AFS_CACHING_SUPPORT
+-static void afs_cell_cache_update(void *source, void *entry)
+-{
+-	struct afs_cache_cell *ccell =3D entry;
+-	struct afs_cell *cell =3D source;
+-
+-	_enter("%p,%p", source, entry);
+-
+-	strncpy(ccell->name, cell->name, sizeof(ccell->name));
+-
+-	memcpy(ccell->vl_servers,
+-	       cell->vl_addrs,
+-	       min(sizeof(ccell->vl_servers), sizeof(cell->vl_addrs)));
+-
+-}
+-#endif
+diff --git a/fs/afs/cell.h b/fs/afs/cell.h
+deleted file mode 100644
+index c135b00..0000000
+--- a/fs/afs/cell.h
++++ /dev/null
+@@ -1,70 +0,0 @@
+-/* AFS cell record
+- *
+- * Copyright (C) 2002 Red Hat, Inc. All Rights Reserved.
+- * Written by David Howells (dhowells@redhat.com)
+- *
+- * This program is free software; you can redistribute it and/or
+- * modify it under the terms of the GNU General Public License
+- * as published by the Free Software Foundation; either version
+- * 2 of the License, or (at your option) any later version.
+- */
+-
+-#ifndef AFS_CELL_H
+-#define AFS_CELL_H
+-
+-#include "types.h"
+-#include "cache.h"
+-
+-#define AFS_CELL_MAX_ADDRS 15
+-
+-extern volatile int afs_cells_being_purged; /* T when cells are being =
+purged by rmmod */
+-
+-/*
+- * entry in the cached cell catalogue
+- */
+-struct afs_cache_cell {
+-	char			name[64];	/* cell name (padded with NULs) */
+-	struct in_addr		vl_servers[15];	/* cached cell VL servers */
+-};
+-
+-/*
+- * AFS cell record
+- */
+-struct afs_cell {
+-	atomic_t		usage;
+-	struct list_head	link;		/* main cell list link */
+-	struct list_head	proc_link;	/* /proc cell list link */
+-	struct proc_dir_entry	*proc_dir;	/* /proc dir for this cell */
+-#ifdef AFS_CACHING_SUPPORT
+-	struct cachefs_cookie	*cache;		/* caching cookie */
+-#endif
+-
+-	/* server record management */
+-	rwlock_t		sv_lock;	/* active server list lock */
+-	struct list_head	sv_list;	/* active server list */
+-	struct list_head	sv_graveyard;	/* inactive server list */
+-	spinlock_t		sv_gylock;	/* inactive server list lock */
+-
+-	/* volume location record management */
+-	struct rw_semaphore	vl_sem;		/* volume management serialisation semap=
+hore */
+-	struct list_head	vl_list;	/* cell's active VL record list */
+-	struct list_head	vl_graveyard;	/* cell's inactive VL record list */
+-	spinlock_t		vl_gylock;	/* graveyard lock */
+-	unsigned short		vl_naddrs;	/* number of VL servers in addr list */
+-	unsigned short		vl_curr_svix;	/* current server index */
+-	struct in_addr		vl_addrs[AFS_CELL_MAX_ADDRS];	/* cell VL server addre=
+sses */
+-
+-	char			name[0];	/* cell name - must go last */
+-};
+-
+-extern int afs_cell_init(char *);
+-extern int afs_cell_create(const char *, char *, struct afs_cell **);
+-extern int afs_cell_lookup(const char *, unsigned, struct afs_cell **)=
+;
+-
+-#define afs_get_cell(C) do { atomic_inc(&(C)->usage); } while(0)
+-
+-extern struct afs_cell *afs_get_cell_maybe(struct afs_cell **);
+-extern void afs_put_cell(struct afs_cell *);
+-extern void afs_cell_purge(void);
+-
+-#endif /* AFS_CELL_H */
+diff --git a/fs/afs/cmservice.c b/fs/afs/cmservice.c
+index 3f45857..c714117 100644
+--- a/fs/afs/cmservice.c
++++ b/fs/afs/cmservice.c
+@@ -12,623 +12,316 @@
+ #include <linux/module.h>
+ #include <linux/init.h>
+ #include <linux/sched.h>
+-#include <linux/completion.h>
+-#include "server.h"
+-#include "cell.h"
+-#include "transport.h"
+-#include <rxrpc/rxrpc.h>
+-#include <rxrpc/transport.h>
+-#include <rxrpc/connection.h>
+-#include <rxrpc/call.h>
+-#include "cmservice.h"
++#include <linux/ip.h>
+ #include "internal.h"
++#include "afs_cm.h"
+=20
+-static unsigned afscm_usage;		/* AFS cache manager usage count */
+-static struct rw_semaphore afscm_sem;	/* AFS cache manager start/stop =
+semaphore */
+-
+-static int afscm_new_call(struct rxrpc_call *call);
+-static void afscm_attention(struct rxrpc_call *call);
+-static void afscm_error(struct rxrpc_call *call);
+-static void afscm_aemap(struct rxrpc_call *call);
+-
+-static void _SRXAFSCM_CallBack(struct rxrpc_call *call);
+-static void _SRXAFSCM_InitCallBackState(struct rxrpc_call *call);
+-static void _SRXAFSCM_Probe(struct rxrpc_call *call);
+-
+-typedef void (*_SRXAFSCM_xxxx_t)(struct rxrpc_call *call);
+-
+-static const struct rxrpc_operation AFSCM_ops[] =3D {
+-	{
+-		.id	=3D 204,
+-		.asize	=3D RXRPC_APP_MARK_EOF,
+-		.name	=3D "CallBack",
+-		.user	=3D _SRXAFSCM_CallBack,
+-	},
+-	{
+-		.id	=3D 205,
+-		.asize	=3D RXRPC_APP_MARK_EOF,
+-		.name	=3D "InitCallBackState",
+-		.user	=3D _SRXAFSCM_InitCallBackState,
+-	},
+-	{
+-		.id	=3D 206,
+-		.asize	=3D RXRPC_APP_MARK_EOF,
+-		.name	=3D "Probe",
+-		.user	=3D _SRXAFSCM_Probe,
+-	},
+-#if 0
+-	{
+-		.id	=3D 207,
+-		.asize	=3D RXRPC_APP_MARK_EOF,
+-		.name	=3D "GetLock",
+-		.user	=3D _SRXAFSCM_GetLock,
+-	},
+-	{
+-		.id	=3D 208,
+-		.asize	=3D RXRPC_APP_MARK_EOF,
+-		.name	=3D "GetCE",
+-		.user	=3D _SRXAFSCM_GetCE,
+-	},
+-	{
+-		.id	=3D 209,
+-		.asize	=3D RXRPC_APP_MARK_EOF,
+-		.name	=3D "GetXStatsVersion",
+-		.user	=3D _SRXAFSCM_GetXStatsVersion,
+-	},
+-	{
+-		.id	=3D 210,
+-		.asize	=3D RXRPC_APP_MARK_EOF,
+-		.name	=3D "GetXStats",
+-		.user	=3D _SRXAFSCM_GetXStats,
+-	}
+-#endif
+-};
++struct workqueue_struct *afs_cm_workqueue;
+=20
+-static struct rxrpc_service AFSCM_service =3D {
+-	.name		=3D "AFS/CM",
+-	.owner		=3D THIS_MODULE,
+-	.link		=3D LIST_HEAD_INIT(AFSCM_service.link),
+-	.new_call	=3D afscm_new_call,
+-	.service_id	=3D 1,
+-	.attn_func	=3D afscm_attention,
+-	.error_func	=3D afscm_error,
+-	.aemap_func	=3D afscm_aemap,
+-	.ops_begin	=3D &AFSCM_ops[0],
+-	.ops_end	=3D &AFSCM_ops[ARRAY_SIZE(AFSCM_ops)],
+-};
+-
+-static DECLARE_COMPLETION(kafscmd_alive);
+-static DECLARE_COMPLETION(kafscmd_dead);
+-static DECLARE_WAIT_QUEUE_HEAD(kafscmd_sleepq);
+-static LIST_HEAD(kafscmd_attention_list);
+-static LIST_HEAD(afscm_calls);
+-static DEFINE_SPINLOCK(afscm_calls_lock);
+-static DEFINE_SPINLOCK(kafscmd_attention_lock);
+-static int kafscmd_die;
++static int afs_deliver_cb_init_call_back_state(struct afs_call *,
++					       struct sk_buff *, bool);
++static int afs_deliver_cb_probe(struct afs_call *, struct sk_buff *, b=
+ool);
++static int afs_deliver_cb_callback(struct afs_call *, struct sk_buff *=
+, bool);
++static void afs_cm_destructor(struct afs_call *);
+=20
+ /*
+- * AFS Cache Manager kernel thread
++ * CB.CallBack operation type
+  */
+-static int kafscmd(void *arg)
+-{
+-	DECLARE_WAITQUEUE(myself, current);
+-
+-	struct rxrpc_call *call;
+-	_SRXAFSCM_xxxx_t func;
+-	int die;
+-
+-	printk(KERN_INFO "kAFS: Started kafscmd %d\n", current->pid);
+-
+-	daemonize("kafscmd");
+-
+-	complete(&kafscmd_alive);
+-
+-	/* loop around looking for things to attend to */
+-	do {
+-		if (list_empty(&kafscmd_attention_list)) {
+-			set_current_state(TASK_INTERRUPTIBLE);
+-			add_wait_queue(&kafscmd_sleepq, &myself);
+-
+-			for (;;) {
+-				set_current_state(TASK_INTERRUPTIBLE);
+-				if (!list_empty(&kafscmd_attention_list) ||
+-				    signal_pending(current) ||
+-				    kafscmd_die)
+-					break;
+-
+-				schedule();
+-			}
+-
+-			remove_wait_queue(&kafscmd_sleepq, &myself);
+-			set_current_state(TASK_RUNNING);
+-		}
+-
+-		die =3D kafscmd_die;
+-
+-		/* dequeue the next call requiring attention */
+-		call =3D NULL;
+-		spin_lock(&kafscmd_attention_lock);
+-
+-		if (!list_empty(&kafscmd_attention_list)) {
+-			call =3D list_entry(kafscmd_attention_list.next,
+-					  struct rxrpc_call,
+-					  app_attn_link);
+-			list_del_init(&call->app_attn_link);
+-			die =3D 0;
+-		}
+-
+-		spin_unlock(&kafscmd_attention_lock);
+-
+-		if (call) {
+-			/* act upon it */
+-			_debug("@@@ Begin Attend Call %p", call);
+-
+-			func =3D call->app_user;
+-			if (func)
+-				func(call);
+-
+-			rxrpc_put_call(call);
+-
+-			_debug("@@@ End Attend Call %p", call);
+-		}
+-
+-	} while(!die);
+-
+-	/* and that's all */
+-	complete_and_exit(&kafscmd_dead, 0);
+-}
++static const struct afs_call_type afs_SRXCBCallBack =3D {
++	.deliver	=3D afs_deliver_cb_callback,
++	.abort_to_error	=3D afs_abort_to_error,
++	.destructor	=3D afs_cm_destructor,
++};
+=20
+ /*
+- * handle a call coming in to the cache manager
+- * - if I want to keep the call, I must increment its usage count
+- * - the return value will be negated and passed back in an abort pack=
+et if
+- *   non-zero
+- * - serialised by virtue of there only being one krxiod
++ * CB.InitCallBackState operation type
+  */
+-static int afscm_new_call(struct rxrpc_call *call)
+-{
+-	_enter("%p{cid=3D%u u=3D%d}",
+-	       call, ntohl(call->call_id), atomic_read(&call->usage));
+-
+-	rxrpc_get_call(call);
+-
+-	/* add to my current call list */
+-	spin_lock(&afscm_calls_lock);
+-	list_add(&call->app_link,&afscm_calls);
+-	spin_unlock(&afscm_calls_lock);
+-
+-	_leave(" =3D 0");
+-	return 0;
+-}
++static const struct afs_call_type afs_SRXCBInitCallBackState =3D {
++	.deliver	=3D afs_deliver_cb_init_call_back_state,
++	.abort_to_error	=3D afs_abort_to_error,
++	.destructor	=3D afs_cm_destructor,
++};
+=20
+ /*
+- * queue on the kafscmd queue for attention
++ * CB.Probe operation type
+  */
+-static void afscm_attention(struct rxrpc_call *call)
+-{
+-	_enter("%p{cid=3D%u u=3D%d}",
+-	       call, ntohl(call->call_id), atomic_read(&call->usage));
+-
+-	spin_lock(&kafscmd_attention_lock);
+-
+-	if (list_empty(&call->app_attn_link)) {
+-		list_add_tail(&call->app_attn_link, &kafscmd_attention_list);
+-		rxrpc_get_call(call);
+-	}
+-
+-	spin_unlock(&kafscmd_attention_lock);
+-
+-	wake_up(&kafscmd_sleepq);
+-
+-	_leave(" {u=3D%d}", atomic_read(&call->usage));
+-}
++static const struct afs_call_type afs_SRXCBProbe =3D {
++	.deliver	=3D afs_deliver_cb_probe,
++	.abort_to_error	=3D afs_abort_to_error,
++	.destructor	=3D afs_cm_destructor,
++};
+=20
+ /*
+- * handle my call being aborted
+- * - clean up, dequeue and put my ref to the call
++ * route an incoming cache manager call
++ * - return T if supported, F if not
+  */
+-static void afscm_error(struct rxrpc_call *call)
++bool afs_cm_incoming_call(struct afs_call *call)
+ {
+-	int removed;
+-
+-	_enter("%p{est=3D%s ac=3D%u er=3D%d}",
+-	       call,
+-	       rxrpc_call_error_states[call->app_err_state],
+-	       call->app_abort_code,
+-	       call->app_errno);
+-
+-	spin_lock(&kafscmd_attention_lock);
+-
+-	if (list_empty(&call->app_attn_link)) {
+-		list_add_tail(&call->app_attn_link, &kafscmd_attention_list);
+-		rxrpc_get_call(call);
+-	}
+-
+-	spin_unlock(&kafscmd_attention_lock);
+-
+-	removed =3D 0;
+-	spin_lock(&afscm_calls_lock);
+-	if (!list_empty(&call->app_link)) {
+-		list_del_init(&call->app_link);
+-		removed =3D 1;
++	u32 operation_id =3D ntohl(call->operation_ID);
++
++	_enter("{CB.OP %u}", operation_id);
++
++	switch (operation_id) {
++	case CBCallBack:
++		call->type =3D &afs_SRXCBCallBack;
++		return true;
++	case CBInitCallBackState:
++		call->type =3D &afs_SRXCBInitCallBackState;
++		return true;
++	case CBProbe:
++		call->type =3D &afs_SRXCBProbe;
++		return true;
++	default:
++		return false;
+ 	}
+-	spin_unlock(&afscm_calls_lock);
+-
+-	if (removed)
+-		rxrpc_put_call(call);
+-
+-	wake_up(&kafscmd_sleepq);
+-
+-	_leave("");
+ }
+=20
+ /*
+- * map afs abort codes to/from Linux error codes
+- * - called with call->lock held
++ * clean up a cache manager call
+  */
+-static void afscm_aemap(struct rxrpc_call *call)
++static void afs_cm_destructor(struct afs_call *call)
+ {
+-	switch (call->app_err_state) {
+-	case RXRPC_ESTATE_LOCAL_ABORT:
+-		call->app_abort_code =3D -call->app_errno;
+-		break;
+-	case RXRPC_ESTATE_PEER_ABORT:
+-		call->app_errno =3D -ECONNABORTED;
+-		break;
+-	default:
+-		break;
+-	}
++	_enter("");
++
++	afs_put_server(call->server);
++	call->server =3D NULL;
++	kfree(call->buffer);
++	call->buffer =3D NULL;
+ }
+=20
+ /*
+- * start the cache manager service if not already started
++ * allow the fileserver to see if the cache manager is still alive
+  */
+-int afscm_start(void)
++static void SRXAFSCB_CallBack(struct work_struct *work)
+ {
+-	int ret;
+-
+-	down_write(&afscm_sem);
+-	if (!afscm_usage) {
+-		ret =3D kernel_thread(kafscmd, NULL, 0);
+-		if (ret < 0)
+-			goto out;
+-
+-		wait_for_completion(&kafscmd_alive);
+-
+-		ret =3D rxrpc_add_service(afs_transport, &AFSCM_service);
+-		if (ret < 0)
+-			goto kill;
++	struct afs_call *call =3D container_of(work, struct afs_call, work);
+=20
+-		afs_kafstimod_add_timer(&afs_mntpt_expiry_timer,
+-					afs_mntpt_expiry_timeout * HZ);
+-	}
+-
+-	afscm_usage++;
+-	up_write(&afscm_sem);
+-
+-	return 0;
++	_enter("");
+=20
+-kill:
+-	kafscmd_die =3D 1;
+-	wake_up(&kafscmd_sleepq);
+-	wait_for_completion(&kafscmd_dead);
++	/* be sure to send the reply *before* attempting to spam the AFS serv=
+er
++	 * with FSFetchStatus requests on the vnodes with broken callbacks le=
+st
++	 * the AFS server get into a vicious cycle of trying to break further
++	 * callbacks because it hadn't received completion of the CBCallBack =
+op
++	 * yet */
++	afs_send_empty_reply(call);
+=20
+-out:
+-	up_write(&afscm_sem);
+-	return ret;
++	afs_break_callbacks(call->server, call->count, call->request);
++	_leave("");
+ }
+=20
+ /*
+- * stop the cache manager service
++ * deliver request data to a CB.CallBack call
+  */
+-void afscm_stop(void)
++static int afs_deliver_cb_callback(struct afs_call *call, struct sk_bu=
+ff *skb,
++				   bool last)
+ {
+-	struct rxrpc_call *call;
+-
+-	down_write(&afscm_sem);
+-
+-	BUG_ON(afscm_usage =3D=3D 0);
+-	afscm_usage--;
+-
+-	if (afscm_usage =3D=3D 0) {
+-		/* don't want more incoming calls */
+-		rxrpc_del_service(afs_transport, &AFSCM_service);
+-
+-		/* abort any calls I've still got open (the afscm_error() will
+-		 * dequeue them) */
+-		spin_lock(&afscm_calls_lock);
+-		while (!list_empty(&afscm_calls)) {
+-			call =3D list_entry(afscm_calls.next,
+-					  struct rxrpc_call,
+-					  app_link);
+-
+-			list_del_init(&call->app_link);
+-			rxrpc_get_call(call);
+-			spin_unlock(&afscm_calls_lock);
+-
+-			rxrpc_call_abort(call, -ESRCH); /* abort, dequeue and
+-							 * put */
+-
+-			_debug("nuking active call %08x.%d",
+-			       ntohl(call->conn->conn_id),
+-			       ntohl(call->call_id));
+-			rxrpc_put_call(call);
+-			rxrpc_put_call(call);
+-
+-			spin_lock(&afscm_calls_lock);
++	struct afs_callback *cb;
++	struct afs_server *server;
++	struct in_addr addr;
++	__be32 *bp;
++	u32 tmp;
++	int ret, loop;
++
++	_enter("{%u},{%u},%d", call->unmarshall, skb->len, last);
++
++	switch (call->unmarshall) {
++	case 0:
++		call->offset =3D 0;
++		call->unmarshall++;
++
++		/* extract the FID array and its count in two steps */
++	case 1:
++		_debug("extract FID count");
++		ret =3D afs_extract_data(call, skb, last, &call->tmp, 4);
++		switch (ret) {
++		case 0:		break;
++		case -EAGAIN:	return 0;
++		default:	return ret;
+ 		}
+-		spin_unlock(&afscm_calls_lock);
+-
+-		/* get rid of my daemon */
+-		kafscmd_die =3D 1;
+-		wake_up(&kafscmd_sleepq);
+-		wait_for_completion(&kafscmd_dead);
+-
+-		/* dispose of any calls waiting for attention */
+-		spin_lock(&kafscmd_attention_lock);
+-		while (!list_empty(&kafscmd_attention_list)) {
+-			call =3D list_entry(kafscmd_attention_list.next,
+-					  struct rxrpc_call,
+-					  app_attn_link);
+-
+-			list_del_init(&call->app_attn_link);
+-			spin_unlock(&kafscmd_attention_lock);
+=20
+-			rxrpc_put_call(call);
+-
+-			spin_lock(&kafscmd_attention_lock);
++		call->count =3D ntohl(call->tmp);
++		_debug("FID count: %u", call->count);
++		if (call->count > AFSCBMAX)
++			return -EBADMSG;
++
++		call->buffer =3D kmalloc(call->count * 3 * 4, GFP_KERNEL);
++		if (!call->buffer)
++			return -ENOMEM;
++		call->offset =3D 0;
++		call->unmarshall++;
++
++	case 2:
++		_debug("extract FID array");
++		ret =3D afs_extract_data(call, skb, last, call->buffer,
++				       call->count * 3 * 4);
++		switch (ret) {
++		case 0:		break;
++		case -EAGAIN:	return 0;
++		default:	return ret;
+ 		}
+-		spin_unlock(&kafscmd_attention_lock);
+-
+-		afs_kafstimod_del_timer(&afs_mntpt_expiry_timer);
+-	}
+-
+-	up_write(&afscm_sem);
+-}
+=20
+-/*
+- * handle the fileserver breaking a set of callbacks
+- */
+-static void _SRXAFSCM_CallBack(struct rxrpc_call *call)
+-{
+-	struct afs_server *server;
+-	size_t count, qty, tmp;
+-	int ret =3D 0, removed;
+-
+-	_enter("%p{acs=3D%s}", call, rxrpc_call_states[call->app_call_state])=
+;
+-
+-	server =3D afs_server_get_from_peer(call->conn->peer);
+-
+-	switch (call->app_call_state) {
+-		/* we've received the last packet
+-		 * - drain all the data from the call and send the reply
+-		 */
+-	case RXRPC_CSTATE_SRVR_GOT_ARGS:
+-		ret =3D -EBADMSG;
+-		qty =3D call->app_ready_qty;
+-		if (qty < 8 || qty > 50 * (6 * 4) + 8)
+-			break;
+-
+-		{
+-			struct afs_callback *cb, *pcb;
+-			int loop;
+-			__be32 *fp, *bp;
+-
+-			fp =3D rxrpc_call_alloc_scratch(call, qty);
+-
+-			/* drag the entire argument block out to the scratch
+-			 * space */
+-			ret =3D rxrpc_call_read_data(call, fp, qty, 0);
+-			if (ret < 0)
+-				break;
+-
+-			/* and unmarshall the parameter block */
+-			ret =3D -EBADMSG;
+-			count =3D ntohl(*fp++);
+-			if (count>AFSCBMAX ||
+-			    (count * (3 * 4) + 8 !=3D qty &&
+-			     count * (6 * 4) + 8 !=3D qty))
+-				break;
+-
+-			bp =3D fp + count*3;
+-			tmp =3D ntohl(*bp++);
+-			if (tmp > 0 && tmp !=3D count)
+-				break;
+-			if (tmp =3D=3D 0)
+-				bp =3D NULL;
+-
+-			pcb =3D cb =3D rxrpc_call_alloc_scratch_s(
+-				call, struct afs_callback);
+-
+-			for (loop =3D count - 1; loop >=3D 0; loop--) {
+-				pcb->fid.vid	=3D ntohl(*fp++);
+-				pcb->fid.vnode	=3D ntohl(*fp++);
+-				pcb->fid.unique	=3D ntohl(*fp++);
+-				if (bp) {
+-					pcb->version	=3D ntohl(*bp++);
+-					pcb->expiry	=3D ntohl(*bp++);
+-					pcb->type	=3D ntohl(*bp++);
+-				} else {
+-					pcb->version	=3D 0;
+-					pcb->expiry	=3D 0;
+-					pcb->type	=3D AFSCM_CB_UNTYPED;
+-				}
+-				pcb++;
+-			}
+-
+-			/* invoke the actual service routine */
+-			ret =3D SRXAFSCM_CallBack(server, count, cb);
+-			if (ret < 0)
+-				break;
++		_debug("unmarshall FID array");
++		call->request =3D kcalloc(call->count,
++					sizeof(struct afs_callback),
++					GFP_KERNEL);
++		if (!call->request)
++			return -ENOMEM;
++
++		cb =3D call->request;
++		bp =3D call->buffer;
++		for (loop =3D call->count; loop > 0; loop--, cb++) {
++			cb->fid.vid	=3D ntohl(*bp++);
++			cb->fid.vnode	=3D ntohl(*bp++);
++			cb->fid.unique	=3D ntohl(*bp++);
++			cb->type	=3D AFSCM_CB_UNTYPED;
+ 		}
+=20
+-		/* send the reply */
+-		ret =3D rxrpc_call_write_data(call, 0, NULL, RXRPC_LAST_PACKET,
+-					    GFP_KERNEL, 0, &count);
+-		if (ret < 0)
+-			break;
+-		break;
++		call->offset =3D 0;
++		call->unmarshall++;
++
++		/* extract the callback array and its count in two steps */
++	case 3:
++		_debug("extract CB count");
++		ret =3D afs_extract_data(call, skb, last, &call->tmp, 4);
++		switch (ret) {
++		case 0:		break;
++		case -EAGAIN:	return 0;
++		default:	return ret;
++		}
+=20
+-		/* operation complete */
+-	case RXRPC_CSTATE_COMPLETE:
+-		call->app_user =3D NULL;
+-		removed =3D 0;
+-		spin_lock(&afscm_calls_lock);
+-		if (!list_empty(&call->app_link)) {
+-			list_del_init(&call->app_link);
+-			removed =3D 1;
++		tmp =3D ntohl(call->tmp);
++		_debug("CB count: %u", tmp);
++		if (tmp !=3D call->count && tmp !=3D 0)
++			return -EBADMSG;
++		call->offset =3D 0;
++		call->unmarshall++;
++		if (tmp =3D=3D 0)
++			goto empty_cb_array;
++
++	case 4:
++		_debug("extract CB array");
++		ret =3D afs_extract_data(call, skb, last, call->request,
++				       call->count * 3 * 4);
++		switch (ret) {
++		case 0:		break;
++		case -EAGAIN:	return 0;
++		default:	return ret;
+ 		}
+-		spin_unlock(&afscm_calls_lock);
+=20
+-		if (removed)
+-			rxrpc_put_call(call);
+-		break;
++		_debug("unmarshall CB array");
++		cb =3D call->request;
++		bp =3D call->buffer;
++		for (loop =3D call->count; loop > 0; loop--, cb++) {
++			cb->version	=3D ntohl(*bp++);
++			cb->expiry	=3D ntohl(*bp++);
++			cb->type	=3D ntohl(*bp++);
++		}
+=20
+-		/* operation terminated on error */
+-	case RXRPC_CSTATE_ERROR:
+-		call->app_user =3D NULL;
+-		break;
++	empty_cb_array:
++		call->offset =3D 0;
++		call->unmarshall++;
+=20
+-	default:
++	case 5:
++		_debug("trailer");
++		if (skb->len !=3D 0)
++			return -EBADMSG;
+ 		break;
+ 	}
+=20
+-	if (ret < 0)
+-		rxrpc_call_abort(call, ret);
++	if (!last)
++		return 0;
+=20
+-	afs_put_server(server);
++	call->state =3D AFS_CALL_REPLYING;
+=20
+-	_leave(" =3D %d", ret);
++	/* we'll need the file server record as that tells us which set of
++	 * vnodes to operate upon */
++	memcpy(&addr, &ip_hdr(skb)->saddr, 4);
++	server =3D afs_find_server(&addr);
++	if (!server)
++		return -ENOTCONN;
++	call->server =3D server;
++
++	INIT_WORK(&call->work, SRXAFSCB_CallBack);
++	schedule_work(&call->work);
++	return 0;
+ }
+=20
+ /*
+- * handle the fileserver asking us to initialise our callback state
++ * allow the fileserver to request callback state (re-)initialisation
+  */
+-static void _SRXAFSCM_InitCallBackState(struct rxrpc_call *call)
++static void SRXAFSCB_InitCallBackState(struct work_struct *work)
+ {
+-	struct afs_server *server;
+-	size_t count;
+-	int ret =3D 0, removed;
+-
+-	_enter("%p{acs=3D%s}", call, rxrpc_call_states[call->app_call_state])=
+;
+-
+-	server =3D afs_server_get_from_peer(call->conn->peer);
+-
+-	switch (call->app_call_state) {
+-		/* we've received the last packet - drain all the data from the
+-		 * call */
+-	case RXRPC_CSTATE_SRVR_GOT_ARGS:
+-		/* shouldn't be any args */
+-		ret =3D -EBADMSG;
+-		break;
++	struct afs_call *call =3D container_of(work, struct afs_call, work);
+=20
+-		/* send the reply when asked for it */
+-	case RXRPC_CSTATE_SRVR_SND_REPLY:
+-		/* invoke the actual service routine */
+-		ret =3D SRXAFSCM_InitCallBackState(server);
+-		if (ret < 0)
+-			break;
+-
+-		ret =3D rxrpc_call_write_data(call, 0, NULL, RXRPC_LAST_PACKET,
+-					    GFP_KERNEL, 0, &count);
+-		if (ret < 0)
+-			break;
+-		break;
++	_enter("{%p}", call->server);
+=20
+-		/* operation complete */
+-	case RXRPC_CSTATE_COMPLETE:
+-		call->app_user =3D NULL;
+-		removed =3D 0;
+-		spin_lock(&afscm_calls_lock);
+-		if (!list_empty(&call->app_link)) {
+-			list_del_init(&call->app_link);
+-			removed =3D 1;
+-		}
+-		spin_unlock(&afscm_calls_lock);
+-
+-		if (removed)
+-			rxrpc_put_call(call);
+-		break;
+-
+-		/* operation terminated on error */
+-	case RXRPC_CSTATE_ERROR:
+-		call->app_user =3D NULL;
+-		break;
+-
+-	default:
+-		break;
+-	}
+-
+-	if (ret < 0)
+-		rxrpc_call_abort(call, ret);
+-
+-	afs_put_server(server);
+-
+-	_leave(" =3D %d", ret);
++	afs_init_callback_state(call->server);
++	afs_send_empty_reply(call);
++	_leave("");
+ }
+=20
+ /*
+- * handle a probe from a fileserver
++ * deliver request data to a CB.InitCallBackState call
+  */
+-static void _SRXAFSCM_Probe(struct rxrpc_call *call)
++static int afs_deliver_cb_init_call_back_state(struct afs_call *call,
++					       struct sk_buff *skb,
++					       bool last)
+ {
+ 	struct afs_server *server;
+-	size_t count;
+-	int ret =3D 0, removed;
++	struct in_addr addr;
+=20
+-	_enter("%p{acs=3D%s}", call, rxrpc_call_states[call->app_call_state])=
+;
++	_enter(",{%u},%d", skb->len, last);
+=20
+-	server =3D afs_server_get_from_peer(call->conn->peer);
++	if (skb->len > 0)
++		return -EBADMSG;
++	if (!last)
++		return 0;
+=20
+-	switch (call->app_call_state) {
+-		/* we've received the last packet - drain all the data from the
+-		 * call */
+-	case RXRPC_CSTATE_SRVR_GOT_ARGS:
+-		/* shouldn't be any args */
+-		ret =3D -EBADMSG;
+-		break;
++	/* no unmarshalling required */
++	call->state =3D AFS_CALL_REPLYING;
+=20
+-		/* send the reply when asked for it */
+-	case RXRPC_CSTATE_SRVR_SND_REPLY:
+-		/* invoke the actual service routine */
+-		ret =3D SRXAFSCM_Probe(server);
+-		if (ret < 0)
+-			break;
+-
+-		ret =3D rxrpc_call_write_data(call, 0, NULL, RXRPC_LAST_PACKET,
+-					    GFP_KERNEL, 0, &count);
+-		if (ret < 0)
+-			break;
+-		break;
++	/* we'll need the file server record as that tells us which set of
++	 * vnodes to operate upon */
++	memcpy(&addr, &ip_hdr(skb)->saddr, 4);
++	server =3D afs_find_server(&addr);
++	if (!server)
++		return -ENOTCONN;
++	call->server =3D server;
+=20
+-		/* operation complete */
+-	case RXRPC_CSTATE_COMPLETE:
+-		call->app_user =3D NULL;
+-		removed =3D 0;
+-		spin_lock(&afscm_calls_lock);
+-		if (!list_empty(&call->app_link)) {
+-			list_del_init(&call->app_link);
+-			removed =3D 1;
+-		}
+-		spin_unlock(&afscm_calls_lock);
++	INIT_WORK(&call->work, SRXAFSCB_InitCallBackState);
++	schedule_work(&call->work);
++	return 0;
++}
+=20
+-		if (removed)
+-			rxrpc_put_call(call);
+-		break;
++/*
++ * allow the fileserver to see if the cache manager is still alive
++ */
++static void SRXAFSCB_Probe(struct work_struct *work)
++{
++	struct afs_call *call =3D container_of(work, struct afs_call, work);
+=20
+-		/* operation terminated on error */
+-	case RXRPC_CSTATE_ERROR:
+-		call->app_user =3D NULL;
+-		break;
++	_enter("");
++	afs_send_empty_reply(call);
++	_leave("");
++}
+=20
+-	default:
+-		break;
+-	}
++/*
++ * deliver request data to a CB.Probe call
++ */
++static int afs_deliver_cb_probe(struct afs_call *call, struct sk_buff =
+*skb,
++				bool last)
++{
++	_enter(",{%u},%d", skb->len, last);
+=20
+-	if (ret < 0)
+-		rxrpc_call_abort(call, ret);
++	if (skb->len > 0)
++		return -EBADMSG;
++	if (!last)
++		return 0;
+=20
+-	afs_put_server(server);
++	/* no unmarshalling required */
++	call->state =3D AFS_CALL_REPLYING;
+=20
+-	_leave(" =3D %d", ret);
++	INIT_WORK(&call->work, SRXAFSCB_Probe);
++	schedule_work(&call->work);
++	return 0;
+ }
+diff --git a/fs/afs/cmservice.h b/fs/afs/cmservice.h
+deleted file mode 100644
+index 66e10c1..0000000
+--- a/fs/afs/cmservice.h
++++ /dev/null
+@@ -1,28 +0,0 @@
+-/* AFS Cache Manager Service declarations
+- *
+- * Copyright (C) 2002 Red Hat, Inc. All Rights Reserved.
+- * Written by David Howells (dhowells@redhat.com)
+- *
+- * This program is free software; you can redistribute it and/or
+- * modify it under the terms of the GNU General Public License
+- * as published by the Free Software Foundation; either version
+- * 2 of the License, or (at your option) any later version.
+- */
+-
+-#ifndef AFS_CMSERVICE_H
+-#define AFS_CMSERVICE_H
+-
+-#include <rxrpc/transport.h>
+-#include "types.h"
+-
+-/* cache manager start/stop */
+-extern int afscm_start(void);
+-extern void afscm_stop(void);
+-
+-/* cache manager server functions */
+-extern int SRXAFSCM_InitCallBackState(struct afs_server *);
+-extern int SRXAFSCM_CallBack(struct afs_server *, size_t,
+-			     struct afs_callback[]);
+-extern int SRXAFSCM_Probe(struct afs_server *);
+-
+-#endif /* AFS_CMSERVICE_H */
+diff --git a/fs/afs/dir.c b/fs/afs/dir.c
+index 2f6d923..d7697f6 100644
+--- a/fs/afs/dir.c
++++ b/fs/afs/dir.c
+@@ -15,11 +15,6 @@
+ #include <linux/slab.h>
+ #include <linux/fs.h>
+ #include <linux/pagemap.h>
+-#include <linux/smp_lock.h>
+-#include "vnode.h"
+-#include "volume.h"
+-#include <rxrpc/call.h>
+-#include "super.h"
+ #include "internal.h"
+=20
+ static struct dentry *afs_dir_lookup(struct inode *dir, struct dentry =
+*dentry,
+@@ -127,9 +122,10 @@ static inline void afs_dir_check_page(struct inode=
+ *dir, struct page *page)
+ 	if (qty =3D=3D 0)
+ 		goto error;
+=20
+-	if (page->index=3D=3D0 && qty!=3Dntohs(dbuf->blocks[0].pagehdr.npages=
+)) {
++	if (page->index =3D=3D 0 && qty !=3D ntohs(dbuf->blocks[0].pagehdr.np=
+ages)) {
+ 		printk("kAFS: %s(%lu): wrong number of dir blocks %d!=3D%hu\n",
+-		       __FUNCTION__,dir->i_ino,qty,ntohs(dbuf->blocks[0].pagehdr.npa=
+ges));
++		       __FUNCTION__, dir->i_ino, qty,
++		       ntohs(dbuf->blocks[0].pagehdr.npages));
+ 		goto error;
+ 	}
+ #endif
+@@ -194,6 +190,7 @@ static struct page *afs_dir_get_page(struct inode *=
+dir, unsigned long index)
+=20
+ fail:
+ 	afs_dir_put_page(page);
++	_leave(" =3D -EIO");
+ 	return ERR_PTR(-EIO);
+ }
+=20
+@@ -207,7 +204,7 @@ static int afs_dir_open(struct inode *inode, struct=
+ file *file)
+ 	BUILD_BUG_ON(sizeof(union afs_dir_block) !=3D 2048);
+ 	BUILD_BUG_ON(sizeof(union afs_dirent) !=3D 32);
+=20
+-	if (AFS_FS_I(inode)->flags & AFS_VNODE_DELETED)
++	if (test_bit(AFS_VNODE_DELETED, &AFS_FS_I(inode)->flags))
+ 		return -ENOENT;
+=20
+ 	_leave(" =3D 0");
+@@ -242,7 +239,7 @@ static int afs_dir_iterate_block(unsigned *fpos,
+ 		/* skip entries marked unused in the bitmap */
+ 		if (!(block->pagehdr.bitmap[offset / 8] &
+ 		      (1 << (offset % 8)))) {
+-			_debug("ENT[%Zu.%u]: unused\n",
++			_debug("ENT[%Zu.%u]: unused",
+ 			       blkoff / sizeof(union afs_dir_block), offset);
+ 			if (offset >=3D curr)
+ 				*fpos =3D blkoff +
+@@ -256,7 +253,7 @@ static int afs_dir_iterate_block(unsigned *fpos,
+ 			       sizeof(*block) -
+ 			       offset * sizeof(union afs_dirent));
+=20
+-		_debug("ENT[%Zu.%u]: %s %Zu \"%s\"\n",
++		_debug("ENT[%Zu.%u]: %s %Zu \"%s\"",
+ 		       blkoff / sizeof(union afs_dir_block), offset,
+ 		       (offset < curr ? "skip" : "fill"),
+ 		       nlen, dire->u.name);
+@@ -266,7 +263,7 @@ static int afs_dir_iterate_block(unsigned *fpos,
+ 			if (next >=3D AFS_DIRENT_PER_BLOCK) {
+ 				_debug("ENT[%Zu.%u]:"
+ 				       " %u travelled beyond end dir block"
+-				       " (len %u/%Zu)\n",
++				       " (len %u/%Zu)",
+ 				       blkoff / sizeof(union afs_dir_block),
+ 				       offset, next, tmp, nlen);
+ 				return -EIO;
+@@ -274,13 +271,13 @@ static int afs_dir_iterate_block(unsigned *fpos,
+ 			if (!(block->pagehdr.bitmap[next / 8] &
+ 			      (1 << (next % 8)))) {
+ 				_debug("ENT[%Zu.%u]:"
+-				       " %u unmarked extension (len %u/%Zu)\n",
++				       " %u unmarked extension (len %u/%Zu)",
+ 				       blkoff / sizeof(union afs_dir_block),
+ 				       offset, next, tmp, nlen);
+ 				return -EIO;
+ 			}
+=20
+-			_debug("ENT[%Zu.%u]: ext %u/%Zu\n",
++			_debug("ENT[%Zu.%u]: ext %u/%Zu",
+ 			       blkoff / sizeof(union afs_dir_block),
+ 			       next, tmp, nlen);
+ 			next++;
+@@ -311,12 +308,12 @@ static int afs_dir_iterate_block(unsigned *fpos,
+ }
+=20
+ /*
+- * read an AFS directory
++ * iterate through the data blob that lists the contents of an AFS dir=
+ectory
+  */
+ static int afs_dir_iterate(struct inode *dir, unsigned *fpos, void *co=
+okie,
+ 			   filldir_t filldir)
+ {
+-	union afs_dir_block	*dblock;
++	union afs_dir_block *dblock;
+ 	struct afs_dir_page *dbuf;
+ 	struct page *page;
+ 	unsigned blkoff, limit;
+@@ -324,7 +321,7 @@ static int afs_dir_iterate(struct inode *dir, unsig=
+ned *fpos, void *cookie,
+=20
+ 	_enter("{%lu},%u,,", dir->i_ino, *fpos);
+=20
+-	if (AFS_FS_I(dir)->flags & AFS_VNODE_DELETED) {
++	if (test_bit(AFS_VNODE_DELETED, &AFS_FS_I(dir)->flags)) {
+ 		_leave(" =3D -ESTALE");
+ 		return -ESTALE;
+ 	}
+@@ -381,10 +378,12 @@ static int afs_dir_readdir(struct file *file, voi=
+d *cookie, filldir_t filldir)
+ 	unsigned fpos;
+ 	int ret;
+=20
+-	_enter("{%Ld,{%lu}}", file->f_pos, file->f_path.dentry->d_inode->i_in=
+o);
++	_enter("{%Ld,{%lu}}",
++	       file->f_pos, file->f_path.dentry->d_inode->i_ino);
+=20
+ 	fpos =3D file->f_pos;
+-	ret =3D afs_dir_iterate(file->f_path.dentry->d_inode, &fpos, cookie, =
+filldir);
++	ret =3D afs_dir_iterate(file->f_path.dentry->d_inode, &fpos,
++			      cookie, filldir);
+ 	file->f_pos =3D fpos;
+=20
+ 	_leave(" =3D %d", ret);
+@@ -401,9 +400,13 @@ static int afs_dir_lookup_filldir(void *_cookie, c=
+onst char *name, int nlen,
+ {
+ 	struct afs_dir_lookup_cookie *cookie =3D _cookie;
+=20
+-	_enter("{%s,%Zu},%s,%u,,%lu,%u",
++	_enter("{%s,%Zu},%s,%u,,%llu,%u",
+ 	       cookie->name, cookie->nlen, name, nlen, ino, dtype);
+=20
++	/* insanity checks first */
++	BUILD_BUG_ON(sizeof(union afs_dir_block) !=3D 2048);
++	BUILD_BUG_ON(sizeof(union afs_dirent) !=3D 32);
++
+ 	if (cookie->nlen !=3D nlen || memcmp(cookie->name, name, nlen) !=3D 0=
+) {
+ 		_leave(" =3D 0 [no]");
+ 		return 0;
+@@ -418,34 +421,17 @@ static int afs_dir_lookup_filldir(void *_cookie, =
+const char *name, int nlen,
+ }
+=20
+ /*
+- * look up an entry in a directory
++ * do a lookup in a directory
+  */
+-static struct dentry *afs_dir_lookup(struct inode *dir, struct dentry =
+*dentry,
+-				     struct nameidata *nd)
++static int afs_do_lookup(struct inode *dir, struct dentry *dentry,
++			 struct afs_fid *fid)
+ {
+ 	struct afs_dir_lookup_cookie cookie;
+ 	struct afs_super_info *as;
+-	struct afs_vnode *vnode;
+-	struct inode *inode;
+ 	unsigned fpos;
+ 	int ret;
+=20
+-	_enter("{%lu},%p{%s}", dir->i_ino, dentry, dentry->d_name.name);
+-
+-	/* insanity checks first */
+-	BUILD_BUG_ON(sizeof(union afs_dir_block) !=3D 2048);
+-	BUILD_BUG_ON(sizeof(union afs_dirent) !=3D 32);
+-
+-	if (dentry->d_name.len > 255) {
+-		_leave(" =3D -ENAMETOOLONG");
+-		return ERR_PTR(-ENAMETOOLONG);
+-	}
+-
+-	vnode =3D AFS_FS_I(dir);
+-	if (vnode->flags & AFS_VNODE_DELETED) {
+-		_leave(" =3D -ESTALE");
+-		return ERR_PTR(-ESTALE);
+-	}
++	_enter("{%lu},%p{%s},", dir->i_ino, dentry, dentry->d_name.name);
+=20
+ 	as =3D dir->i_sb->s_fs_info;
+=20
+@@ -458,30 +444,64 @@ static struct dentry *afs_dir_lookup(struct inode=
+ *dir, struct dentry *dentry,
+ 	fpos =3D 0;
+ 	ret =3D afs_dir_iterate(dir, &fpos, &cookie, afs_dir_lookup_filldir);
+ 	if (ret < 0) {
+-		_leave(" =3D %d", ret);
+-		return ERR_PTR(ret);
++		_leave(" =3D %d [iter]", ret);
++		return ret;
+ 	}
+=20
+ 	ret =3D -ENOENT;
+ 	if (!cookie.found) {
+-		_leave(" =3D %d", ret);
+-		return ERR_PTR(ret);
++		_leave(" =3D -ENOENT [not found]");
++		return -ENOENT;
+ 	}
+=20
+-	/* instantiate the dentry */
+-	ret =3D afs_iget(dir->i_sb, &cookie.fid, &inode);
++	*fid =3D cookie.fid;
++	_leave(" =3D 0 { vn=3D%u u=3D%u }", fid->vnode, fid->unique);
++	return 0;
++}
 +
 +/*
-+ * sk_state for RxRPC sockets
++ * look up an entry in a directory
 + */
-+enum {
-+	RXRPC_UNCONNECTED = 0,
-+	RXRPC_CLIENT_BOUND,		/* client local address bound */
-+	RXRPC_CLIENT_CONNECTED,		/* client is connected */
-+	RXRPC_SERVER_BOUND,		/* server local address bound */
-+	RXRPC_SERVER_LISTENING,		/* server listening for connections */
-+	RXRPC_CLOSE,			/* socket is being closed */
++static struct dentry *afs_dir_lookup(struct inode *dir, struct dentry =
+*dentry,
++				     struct nameidata *nd)
++{
++	struct afs_vnode *vnode;
++	struct afs_fid fid;
++	struct inode *inode;
++	int ret;
++
++	_enter("{%lu},%p{%s}", dir->i_ino, dentry, dentry->d_name.name);
++
++	if (dentry->d_name.len > 255) {
++		_leave(" =3D -ENAMETOOLONG");
++		return ERR_PTR(-ENAMETOOLONG);
++	}
++
++	vnode =3D AFS_FS_I(dir);
++	if (test_bit(AFS_VNODE_DELETED, &vnode->flags)) {
++		_leave(" =3D -ESTALE");
++		return ERR_PTR(-ESTALE);
++	}
++
++	ret =3D afs_do_lookup(dir, dentry, &fid);
+ 	if (ret < 0) {
+-		_leave(" =3D %d", ret);
++		_leave(" =3D %d [do]", ret);
+ 		return ERR_PTR(ret);
+ 	}
+=20
++	/* instantiate the dentry */
++	inode =3D afs_iget(dir->i_sb, &fid);
++	if (IS_ERR(inode)) {
++		_leave(" =3D %ld", PTR_ERR(inode));
++		return ERR_PTR(PTR_ERR(inode));
++	}
++
+ 	dentry->d_op =3D &afs_fs_dentry_operations;
+-	dentry->d_fsdata =3D (void *) (unsigned long) vnode->status.version;
+=20
+ 	d_add(dentry, inode);
+ 	_leave(" =3D 0 { vn=3D%u u=3D%u } -> { ino=3D%lu v=3D%lu }",
+-	       cookie.fid.vnode,
+-	       cookie.fid.unique,
++	       fid.vnode,
++	       fid.unique,
+ 	       dentry->d_inode->i_ino,
+ 	       dentry->d_inode->i_version);
+=20
+@@ -489,23 +509,65 @@ static struct dentry *afs_dir_lookup(struct inode=
+ *dir, struct dentry *dentry,
+ }
+=20
+ /*
++ * propagate changed and modified flags on a directory to all the chil=
+dren of
++ * that directory as they may indicate that the ACL on the dir has cha=
+nged,
++ * potentially rendering the child inaccessible or that a file has bee=
+n deleted
++ * or renamed
++ */
++static void afs_propagate_dir_changes(struct dentry *dir)
++{
++	struct dentry *child;
++	bool c, m;
++
++	c =3D test_bit(AFS_VNODE_CHANGED, &AFS_FS_I(dir->d_inode)->flags);
++	m =3D test_bit(AFS_VNODE_MODIFIED, &AFS_FS_I(dir->d_inode)->flags);
++
++	_enter("{%d,%d}", c, m);
++
++	spin_lock(&dir->d_lock);
++
++	list_for_each_entry(child, &dir->d_subdirs, d_u.d_child) {
++		if (child->d_inode) {
++			struct afs_vnode *vnode;
++
++			_debug("tag %s", child->d_name.name);
++			vnode =3D AFS_FS_I(child->d_inode);
++			if (c)
++				set_bit(AFS_VNODE_DIR_CHANGED, &vnode->flags);
++			if (m)
++				set_bit(AFS_VNODE_DIR_MODIFIED, &vnode->flags);
++		}
++	}
++
++	spin_unlock(&dir->d_lock);
++}
++
++/*
+  * check that a dentry lookup hit has found a valid entry
+  * - NOTE! the hit can be a negative hit too, so we can't assume we ha=
+ve an
+  *   inode
+- * (derived from nfs_lookup_revalidate)
++ * - there are several things we need to check
++ *   - parent dir data changes (rm, rmdir, rename, mkdir, create, link=
+,
++ *     symlink)
++ *   - parent dir metadata changed (security changes)
++ *   - dentry data changed (write, truncate)
++ *   - dentry metadata changed (security changes)
+  */
+ static int afs_d_revalidate(struct dentry *dentry, struct nameidata *n=
+d)
+ {
+-	struct afs_dir_lookup_cookie cookie;
++	struct afs_vnode *vnode;
++	struct afs_fid fid;
+ 	struct dentry *parent;
+ 	struct inode *inode, *dir;
+-	unsigned fpos;
+ 	int ret;
+=20
+-	_enter("{sb=3D%p n=3D%s},", dentry->d_sb, dentry->d_name.name);
++	vnode =3D AFS_FS_I(dentry->d_inode);
++
++	_enter("{sb=3D%p n=3D%s fl=3D%lx},",
++	       dentry->d_sb, dentry->d_name.name, vnode->flags);
+=20
+ 	/* lock down the parent dentry so we can peer at it */
+-	parent =3D dget_parent(dentry->d_parent);
++	parent =3D dget_parent(dentry);
+=20
+ 	dir =3D parent->d_inode;
+ 	inode =3D dentry->d_inode;
+@@ -517,81 +579,92 @@ static int afs_d_revalidate(struct dentry *dentry=
+, struct nameidata *nd)
+ 	/* handle a bad inode */
+ 	if (is_bad_inode(inode)) {
+ 		printk("kAFS: afs_d_revalidate: %s/%s has bad inode\n",
+-		       dentry->d_parent->d_name.name, dentry->d_name.name);
++		       parent->d_name.name, dentry->d_name.name);
+ 		goto out_bad;
+ 	}
+=20
+-	/* force a full look up if the parent directory changed since last th=
+e
+-	 * server was consulted
+-	 * - otherwise this inode must still exist, even if the inode details
+-	 *   themselves have changed
+-	 */
+-	if (AFS_FS_I(dir)->flags & AFS_VNODE_CHANGED)
+-		afs_vnode_fetch_status(AFS_FS_I(dir));
+-
+-	if (AFS_FS_I(dir)->flags & AFS_VNODE_DELETED) {
++	/* check that this dirent still exists if the directory's contents we=
+re
++	 * modified */
++	if (test_bit(AFS_VNODE_DELETED, &AFS_FS_I(dir)->flags)) {
+ 		_debug("%s: parent dir deleted", dentry->d_name.name);
+ 		goto out_bad;
+ 	}
+=20
+-	if (AFS_FS_I(inode)->flags & AFS_VNODE_DELETED) {
+-		_debug("%s: file already deleted", dentry->d_name.name);
+-		goto out_bad;
+-	}
+-
+-	if ((unsigned long) dentry->d_fsdata !=3D
+-	    (unsigned long) AFS_FS_I(dir)->status.version) {
+-		_debug("%s: parent changed %lu -> %u",
+-		       dentry->d_name.name,
+-		       (unsigned long) dentry->d_fsdata,
+-		       (unsigned) AFS_FS_I(dir)->status.version);
++	if (test_and_clear_bit(AFS_VNODE_DIR_MODIFIED, &vnode->flags)) {
++		/* rm/rmdir/rename may have occurred */
++		_debug("dir modified");
+=20
+ 		/* search the directory for this vnode */
+-		cookie.name	=3D dentry->d_name.name;
+-		cookie.nlen	=3D dentry->d_name.len;
+-		cookie.fid.vid	=3D AFS_FS_I(inode)->volume->vid;
+-		cookie.found	=3D 0;
+-
+-		fpos =3D 0;
+-		ret =3D afs_dir_iterate(dir, &fpos, &cookie,
+-				      afs_dir_lookup_filldir);
++		ret =3D afs_do_lookup(dir, dentry, &fid);
++		if (ret =3D=3D -ENOENT) {
++			_debug("%s: dirent not found", dentry->d_name.name);
++			goto not_found;
++		}
+ 		if (ret < 0) {
+ 			_debug("failed to iterate dir %s: %d",
+ 			       parent->d_name.name, ret);
+ 			goto out_bad;
+ 		}
+=20
+-		if (!cookie.found) {
+-			_debug("%s: dirent not found", dentry->d_name.name);
+-			goto not_found;
+-		}
+-
+ 		/* if the vnode ID has changed, then the dirent points to a
+ 		 * different file */
+-		if (cookie.fid.vnode !=3D AFS_FS_I(inode)->fid.vnode) {
+-			_debug("%s: dirent changed", dentry->d_name.name);
++		if (fid.vnode !=3D vnode->fid.vnode) {
++			_debug("%s: dirent changed [%u !=3D %u]",
++			       dentry->d_name.name, fid.vnode,
++			       vnode->fid.vnode);
+ 			goto not_found;
+ 		}
+=20
+ 		/* if the vnode ID uniqifier has changed, then the file has
+ 		 * been deleted */
+-		if (cookie.fid.unique !=3D AFS_FS_I(inode)->fid.unique) {
++		if (fid.unique !=3D vnode->fid.unique) {
+ 			_debug("%s: file deleted (uq %u -> %u I:%lu)",
+-			       dentry->d_name.name,
+-			       cookie.fid.unique,
+-			       AFS_FS_I(inode)->fid.unique,
+-			       inode->i_version);
+-			spin_lock(&AFS_FS_I(inode)->lock);
+-			AFS_FS_I(inode)->flags |=3D AFS_VNODE_DELETED;
+-			spin_unlock(&AFS_FS_I(inode)->lock);
++			       dentry->d_name.name, fid.unique,
++			       vnode->fid.unique, inode->i_version);
++			spin_lock(&vnode->lock);
++			set_bit(AFS_VNODE_DELETED, &vnode->flags);
++			spin_unlock(&vnode->lock);
+ 			invalidate_remote_inode(inode);
+ 			goto out_bad;
+ 		}
++	}
++
++	/* if the directory's metadata were changed then the security may be
++	 * different and we may no longer have access */
++	mutex_lock(&vnode->cb_broken_lock);
+=20
+-		dentry->d_fsdata =3D
+-			(void *) (unsigned long) AFS_FS_I(dir)->status.version;
++	if (test_and_clear_bit(AFS_VNODE_DIR_CHANGED, &vnode->flags) ||
++	    test_bit(AFS_VNODE_CB_BROKEN, &vnode->flags)) {
++		_debug("%s: changed", dentry->d_name.name);
++		set_bit(AFS_VNODE_CB_BROKEN, &vnode->flags);
++		if (afs_vnode_fetch_status(vnode) < 0) {
++			mutex_unlock(&vnode->cb_broken_lock);
++			goto out_bad;
++		}
+ 	}
+=20
++	if (test_bit(AFS_VNODE_DELETED, &vnode->flags)) {
++		_debug("%s: file already deleted", dentry->d_name.name);
++		mutex_unlock(&vnode->cb_broken_lock);
++		goto out_bad;
++	}
++
++	/* if the vnode's data version number changed then its contents are
++	 * different */
++	if (test_and_clear_bit(AFS_VNODE_ZAP_DATA, &vnode->flags)) {
++		_debug("zap data");
++		invalidate_remote_inode(inode);
++	}
++
++	if (S_ISDIR(inode->i_mode) &&
++	    (test_bit(AFS_VNODE_CHANGED, &vnode->flags) ||
++	     test_bit(AFS_VNODE_MODIFIED, &vnode->flags)))
++		afs_propagate_dir_changes(dentry);
++
++	clear_bit(AFS_VNODE_CHANGED, &vnode->flags);
++	clear_bit(AFS_VNODE_MODIFIED, &vnode->flags);
++	mutex_unlock(&vnode->cb_broken_lock);
++
+ out_valid:
+ 	dput(parent);
+ 	_leave(" =3D 1 [valid]");
+@@ -610,12 +683,10 @@ out_bad:
+ 			goto out_valid;
+ 	}
+=20
+-	shrink_dcache_parent(dentry);
+-
+ 	_debug("dropping dentry %s/%s",
+-	       dentry->d_parent->d_name.name, dentry->d_name.name);
++	       parent->d_name.name, dentry->d_name.name);
++	shrink_dcache_parent(dentry);
+ 	d_drop(dentry);
+-
+ 	dput(parent);
+=20
+ 	_leave(" =3D 0 [bad]");
+@@ -635,10 +706,9 @@ static int afs_d_delete(struct dentry *dentry)
+ 	if (dentry->d_flags & DCACHE_NFSFS_RENAMED)
+ 		goto zap;
+=20
+-	if (dentry->d_inode) {
+-		if (AFS_FS_I(dentry->d_inode)->flags & AFS_VNODE_DELETED)
++	if (dentry->d_inode &&
++	    test_bit(AFS_VNODE_DELETED, &AFS_FS_I(dentry->d_inode)->flags))
+ 			goto zap;
+-	}
+=20
+ 	_leave(" =3D 0 [keep]");
+ 	return 0;
+diff --git a/fs/afs/errors.h b/fs/afs/errors.h
+deleted file mode 100644
+index bcc0a33..0000000
+--- a/fs/afs/errors.h
++++ /dev/null
+@@ -1,36 +0,0 @@
+-/* AFS abort/error codes
+- *
+- * Copyright (C) 2002 Red Hat, Inc. All Rights Reserved.
+- * Written by David Howells (dhowells@redhat.com)
+- *
+- * This program is free software; you can redistribute it and/or
+- * modify it under the terms of the GNU General Public License
+- * as published by the Free Software Foundation; either version
+- * 2 of the License, or (at your option) any later version.
+- */
+-
+-#ifndef AFS_ERRORS_H
+-#define AFS_ERRORS_H
+-
+-#include "types.h"
+-
+-/*
+- * file server abort codes
+- */
+-typedef enum {
+-	VSALVAGE	=3D 101,	/* volume needs salvaging */
+-	VNOVNODE	=3D 102,	/* no such file/dir (vnode) */
+-	VNOVOL		=3D 103,	/* no such volume or volume unavailable */
+-	VVOLEXISTS	=3D 104,	/* volume name already exists */
+-	VNOSERVICE	=3D 105,	/* volume not currently in service */
+-	VOFFLINE	=3D 106,	/* volume is currently offline (more info available=
+ [VVL-spec]) */
+-	VONLINE		=3D 107,	/* volume is already online */
+-	VDISKFULL	=3D 108,	/* disk partition is full */
+-	VOVERQUOTA	=3D 109,	/* volume's maximum quota exceeded */
+-	VBUSY		=3D 110,	/* volume is temporarily unavailable */
+-	VMOVED		=3D 111,	/* volume moved to new server - ask this FS where */
+-} afs_rxfs_abort_t;
+-
+-extern int afs_abort_to_error(int);
+-
+-#endif /* AFS_ERRORS_H */
+diff --git a/fs/afs/file.c b/fs/afs/file.c
+index 01df30d..6990327 100644
+--- a/fs/afs/file.c
++++ b/fs/afs/file.c
+@@ -1,6 +1,6 @@
+-/* file.c: AFS filesystem file handling
++/* AFS filesystem file handling
+  *
+- * Copyright (C) 2002 Red Hat, Inc. All Rights Reserved.
++ * Copyright (C) 2002, 2007 Red Hat, Inc. All Rights Reserved.
+  * Written by David Howells (dhowells@redhat.com)
+  *
+  * This program is free software; you can redistribute it and/or
+@@ -15,9 +15,6 @@
+ #include <linux/slab.h>
+ #include <linux/fs.h>
+ #include <linux/pagemap.h>
+-#include "volume.h"
+-#include "vnode.h"
+-#include <rxrpc/call.h>
+ #include "internal.h"
+=20
+ #if 0
+@@ -80,12 +77,10 @@ static void afs_file_readpage_write_complete(void *=
+cookie_data,
+  */
+ static int afs_file_readpage(struct file *file, struct page *page)
+ {
+-	struct afs_rxfs_fetch_descriptor desc;
+-#ifdef AFS_CACHING_SUPPORT
+-	struct cachefs_page *pageio;
+-#endif
+ 	struct afs_vnode *vnode;
+ 	struct inode *inode;
++	size_t len;
++	off_t offset;
+ 	int ret;
+=20
+ 	inode =3D page->mapping->host;
+@@ -97,14 +92,10 @@ static int afs_file_readpage(struct file *file, str=
+uct page *page)
+ 	BUG_ON(!PageLocked(page));
+=20
+ 	ret =3D -ESTALE;
+-	if (vnode->flags & AFS_VNODE_DELETED)
++	if (test_bit(AFS_VNODE_DELETED, &vnode->flags))
+ 		goto error;
+=20
+ #ifdef AFS_CACHING_SUPPORT
+-	ret =3D cachefs_page_get_private(page, &pageio, GFP_NOIO);
+-	if (ret < 0)
+-		goto error;
+-
+ 	/* is it cached? */
+ 	ret =3D cachefs_read_or_alloc_page(vnode->cache,
+ 					 page,
+@@ -128,26 +119,19 @@ static int afs_file_readpage(struct file *file, s=
+truct page *page)
+ 	case -ENOBUFS:
+ 	case -ENODATA:
+ 	default:
+-		desc.fid	=3D vnode->fid;
+-		desc.offset	=3D page->index << PAGE_CACHE_SHIFT;
+-		desc.size	=3D min((size_t) (inode->i_size - desc.offset),
+-				      (size_t) PAGE_SIZE);
+-		desc.buffer	=3D kmap(page);
+-
+-		clear_page(desc.buffer);
++		offset =3D page->index << PAGE_CACHE_SHIFT;
++		len =3D min_t(size_t, i_size_read(inode) - offset, PAGE_SIZE);
+=20
+ 		/* read the contents of the file from the server into the
+ 		 * page */
+-		ret =3D afs_vnode_fetch_data(vnode, &desc);
+-		kunmap(page);
++		ret =3D afs_vnode_fetch_data(vnode, offset, len, page);
+ 		if (ret < 0) {
+-			if (ret=3D=3D-ENOENT) {
++			if (ret =3D=3D -ENOENT) {
+ 				_debug("got NOENT from server"
+ 				       " - marking file deleted and stale");
+-				vnode->flags |=3D AFS_VNODE_DELETED;
++				set_bit(AFS_VNODE_DELETED, &vnode->flags);
+ 				ret =3D -ESTALE;
+ 			}
+-
+ #ifdef AFS_CACHING_SUPPORT
+ 			cachefs_uncache_page(vnode->cache, page);
+ #endif
+@@ -174,10 +158,9 @@ static int afs_file_readpage(struct file *file, st=
+ruct page *page)
+ 	_leave(" =3D 0");
+ 	return 0;
+=20
+- error:
++error:
+ 	SetPageError(page);
+ 	unlock_page(page);
+-
+ 	_leave(" =3D %d", ret);
+ 	return ret;
+ }
+diff --git a/fs/afs/fsclient.c b/fs/afs/fsclient.c
+index f1c3a18..167ca61 100644
+--- a/fs/afs/fsclient.c
++++ b/fs/afs/fsclient.c
+@@ -1,6 +1,6 @@
+-/* fsclient.c: AFS File Server client stubs
++/* AFS File Server client stubs
+  *
+- * Copyright (C) 2002 Red Hat, Inc. All Rights Reserved.
++ * Copyright (C) 2002, 2007 Red Hat, Inc. All Rights Reserved.
+  * Written by David Howells (dhowells@redhat.com)
+  *
+  * This program is free software; you can redistribute it and/or
+@@ -11,818 +11,396 @@
+=20
+ #include <linux/init.h>
+ #include <linux/sched.h>
+-#include <rxrpc/rxrpc.h>
+-#include <rxrpc/transport.h>
+-#include <rxrpc/connection.h>
+-#include <rxrpc/call.h>
+-#include "fsclient.h"
+-#include "cmservice.h"
+-#include "vnode.h"
+-#include "server.h"
+-#include "errors.h"
++#include <linux/circ_buf.h>
+ #include "internal.h"
+-
+-#define FSFETCHSTATUS		132	/* AFS Fetch file status */
+-#define FSFETCHDATA		130	/* AFS Fetch file data */
+-#define FSGIVEUPCALLBACKS	147	/* AFS Discard callback promises */
+-#define FSGETVOLUMEINFO		148	/* AFS Get root volume information */
+-#define FSGETROOTVOLUME		151	/* AFS Get root volume name */
+-#define FSLOOKUP		161	/* AFS lookup file in directory */
++#include "afs_fs.h"
+=20
+ /*
+- * map afs abort codes to/from Linux error codes
+- * - called with call->lock held
++ * decode an AFSFetchStatus block
+  */
+-static void afs_rxfs_aemap(struct rxrpc_call *call)
++static void xdr_decode_AFSFetchStatus(const __be32 **_bp,
++				      struct afs_vnode *vnode)
+ {
+-	switch (call->app_err_state) {
+-	case RXRPC_ESTATE_LOCAL_ABORT:
+-		call->app_abort_code =3D -call->app_errno;
+-		break;
+-	case RXRPC_ESTATE_PEER_ABORT:
+-		call->app_errno =3D afs_abort_to_error(call->app_abort_code);
+-		break;
+-	default:
+-		break;
++	const __be32 *bp =3D *_bp;
++	umode_t mode;
++	u64 data_version;
++	u32 changed =3D 0; /* becomes non-zero if ctime-type changes seen */
++
++#define EXTRACT(DST)				\
++	do {					\
++		u32 x =3D ntohl(*bp++);		\
++		changed |=3D DST - x;		\
++		DST =3D x;			\
++	} while (0)
++
++	vnode->status.if_version =3D ntohl(*bp++);
++	EXTRACT(vnode->status.type);
++	vnode->status.nlink =3D ntohl(*bp++);
++	EXTRACT(vnode->status.size);
++	data_version =3D ntohl(*bp++);
++	EXTRACT(vnode->status.author);
++	EXTRACT(vnode->status.owner);
++	EXTRACT(vnode->status.caller_access); /* call ticket dependent */
++	EXTRACT(vnode->status.anon_access);
++	EXTRACT(vnode->status.mode);
++	vnode->status.parent.vid =3D vnode->fid.vid;
++	EXTRACT(vnode->status.parent.vnode);
++	EXTRACT(vnode->status.parent.unique);
++	bp++; /* seg size */
++	vnode->status.mtime_client =3D ntohl(*bp++);
++	vnode->status.mtime_server =3D ntohl(*bp++);
++	bp++; /* group */
++	bp++; /* sync counter */
++	data_version |=3D (u64) ntohl(*bp++) << 32;
++	bp++; /* spare2 */
++	bp++; /* spare3 */
++	bp++; /* spare4 */
++	*_bp =3D bp;
++
++	if (changed) {
++		_debug("vnode changed");
++		set_bit(AFS_VNODE_CHANGED, &vnode->flags);
++		vnode->vfs_inode.i_uid		=3D vnode->status.owner;
++		vnode->vfs_inode.i_size		=3D vnode->status.size;
++		vnode->vfs_inode.i_version	=3D vnode->fid.unique;
++
++		vnode->status.mode &=3D S_IALLUGO;
++		mode =3D vnode->vfs_inode.i_mode;
++		mode &=3D ~S_IALLUGO;
++		mode |=3D vnode->status.mode;
++		vnode->vfs_inode.i_mode =3D mode;
++	}
++
++	_debug("vnode time %lx, %lx",
++	       vnode->status.mtime_client, vnode->status.mtime_server);
++	vnode->vfs_inode.i_ctime.tv_sec	=3D vnode->status.mtime_server;
++	vnode->vfs_inode.i_mtime	=3D vnode->vfs_inode.i_ctime;
++	vnode->vfs_inode.i_atime	=3D vnode->vfs_inode.i_ctime;
++
++	if (vnode->status.data_version !=3D data_version) {
++		_debug("vnode modified %llx", data_version);
++		vnode->status.data_version =3D data_version;
++		set_bit(AFS_VNODE_MODIFIED, &vnode->flags);
++		set_bit(AFS_VNODE_ZAP_DATA, &vnode->flags);
+ 	}
+ }
+=20
+ /*
+- * get the root volume name from a fileserver
+- * - this operation doesn't seem to work correctly in OpenAFS server 1=
+=2E2.2
++ * decode an AFSCallBack block
+  */
+-#if 0
+-int afs_rxfs_get_root_volume(struct afs_server *server,
+-			     char *buf, size_t *buflen)
++static void xdr_decode_AFSCallBack(const __be32 **_bp, struct afs_vnod=
+e *vnode)
+ {
+-	struct rxrpc_connection *conn;
+-	struct rxrpc_call *call;
+-	struct kvec piov[2];
+-	size_t sent;
+-	int ret;
+-	u32 param[1];
+-
+-	DECLARE_WAITQUEUE(myself, current);
+-
+-	kenter("%p,%p,%u",server, buf, *buflen);
+-
+-	/* get hold of the fileserver connection */
+-	ret =3D afs_server_get_fsconn(server, &conn);
+-	if (ret < 0)
+-		goto out;
+-
+-	/* create a call through that connection */
+-	ret =3D rxrpc_create_call(conn, NULL, NULL, afs_rxfs_aemap, &call);
+-	if (ret < 0) {
+-		printk("kAFS: Unable to create call: %d\n", ret);
+-		goto out_put_conn;
+-	}
+-	call->app_opcode =3D FSGETROOTVOLUME;
+-
+-	/* we want to get event notifications from the call */
+-	add_wait_queue(&call->waitq, &myself);
+-
+-	/* marshall the parameters */
+-	param[0] =3D htonl(FSGETROOTVOLUME);
+-
+-	piov[0].iov_len =3D sizeof(param);
+-	piov[0].iov_base =3D param;
+-
+-	/* send the parameters to the server */
+-	ret =3D rxrpc_call_write_data(call, 1, piov, RXRPC_LAST_PACKET, GFP_N=
+OFS,
+-				    0, &sent);
+-	if (ret < 0)
+-		goto abort;
+-
+-	/* wait for the reply to completely arrive */
+-	for (;;) {
+-		set_current_state(TASK_INTERRUPTIBLE);
+-		if (call->app_call_state !=3D RXRPC_CSTATE_CLNT_RCV_REPLY ||
+-		    signal_pending(current))
+-			break;
+-		schedule();
+-	}
+-	set_current_state(TASK_RUNNING);
+-
+-	ret =3D -EINTR;
+-	if (signal_pending(current))
+-		goto abort;
+-
+-	switch (call->app_call_state) {
+-	case RXRPC_CSTATE_ERROR:
+-		ret =3D call->app_errno;
+-		kdebug("Got Error: %d", ret);
+-		goto out_unwait;
+-
+-	case RXRPC_CSTATE_CLNT_GOT_REPLY:
+-		/* read the reply */
+-		kdebug("Got Reply: qty=3D%d", call->app_ready_qty);
+-
+-		ret =3D -EBADMSG;
+-		if (call->app_ready_qty <=3D 4)
+-			goto abort;
+-
+-		ret =3D rxrpc_call_read_data(call, NULL, call->app_ready_qty, 0);
+-		if (ret < 0)
+-			goto abort;
+-
+-#if 0
+-		/* unmarshall the reply */
+-		bp =3D buffer;
+-		for (loop =3D 0; loop < 65; loop++)
+-			entry->name[loop] =3D ntohl(*bp++);
+-		entry->name[64] =3D 0;
+-
+-		entry->type =3D ntohl(*bp++);
+-		entry->num_servers =3D ntohl(*bp++);
+-
+-		for (loop =3D 0; loop < 8; loop++)
+-			entry->servers[loop].addr.s_addr =3D *bp++;
+-
+-		for (loop =3D 0; loop < 8; loop++)
+-			entry->servers[loop].partition =3D ntohl(*bp++);
+-
+-		for (loop =3D 0; loop < 8; loop++)
+-			entry->servers[loop].flags =3D ntohl(*bp++);
+-
+-		for (loop =3D 0; loop < 3; loop++)
+-			entry->volume_ids[loop] =3D ntohl(*bp++);
+-
+-		entry->clone_id =3D ntohl(*bp++);
+-		entry->flags =3D ntohl(*bp);
+-#endif
++	const __be32 *bp =3D *_bp;
+=20
+-		/* success */
+-		ret =3D 0;
+-		goto out_unwait;
+-
+-	default:
+-		BUG();
+-	}
+-
+-abort:
+-	set_current_state(TASK_UNINTERRUPTIBLE);
+-	rxrpc_call_abort(call, ret);
+-	schedule();
+-out_unwait:
+-	set_current_state(TASK_RUNNING);
+-	remove_wait_queue(&call->waitq, &myself);
+-	rxrpc_put_call(call);
+-out_put_conn:
+-	afs_server_release_fsconn(server, conn);
+-out:
+-	kleave("");
+-	return ret;
++	vnode->cb_version	=3D ntohl(*bp++);
++	vnode->cb_expiry	=3D ntohl(*bp++);
++	vnode->cb_type		=3D ntohl(*bp++);
++	vnode->cb_expires	=3D vnode->cb_expiry + get_seconds();
++	*_bp =3D bp;
+ }
+-#endif
+=20
+ /*
+- * get information about a volume
++ * decode an AFSVolSync block
+  */
+-#if 0
+-int afs_rxfs_get_volume_info(struct afs_server *server,
+-			     const char *name,
+-			     struct afs_volume_info *vinfo)
++static void xdr_decode_AFSVolSync(const __be32 **_bp,
++				  struct afs_volsync *volsync)
+ {
+-	struct rxrpc_connection *conn;
+-	struct rxrpc_call *call;
+-	struct kvec piov[3];
+-	size_t sent;
+-	int ret;
+-	u32 param[2], *bp, zero;
++	const __be32 *bp =3D *_bp;
+=20
+-	DECLARE_WAITQUEUE(myself, current);
++	volsync->creation =3D ntohl(*bp++);
++	bp++; /* spare2 */
++	bp++; /* spare3 */
++	bp++; /* spare4 */
++	bp++; /* spare5 */
++	bp++; /* spare6 */
++	*_bp =3D bp;
++}
+=20
+-	_enter("%p,%s,%p", server, name, vinfo);
++/*
++ * deliver reply data to an FS.FetchStatus
++ */
++static int afs_deliver_fs_fetch_status(struct afs_call *call,
++				       struct sk_buff *skb, bool last)
++{
++	const __be32 *bp;
+=20
+-	/* get hold of the fileserver connection */
+-	ret =3D afs_server_get_fsconn(server, &conn);
+-	if (ret < 0)
+-		goto out;
++	_enter(",,%u", last);
+=20
+-	/* create a call through that connection */
+-	ret =3D rxrpc_create_call(conn, NULL, NULL, afs_rxfs_aemap, &call);
+-	if (ret < 0) {
+-		printk("kAFS: Unable to create call: %d\n", ret);
+-		goto out_put_conn;
+-	}
+-	call->app_opcode =3D FSGETVOLUMEINFO;
++	afs_transfer_reply(call, skb);
++	if (!last)
++		return 0;
+=20
+-	/* we want to get event notifications from the call */
+-	add_wait_queue(&call->waitq, &myself);
++	if (call->reply_size !=3D call->reply_max)
++		return -EBADMSG;
+=20
+-	/* marshall the parameters */
+-	piov[1].iov_len =3D strlen(name);
+-	piov[1].iov_base =3D (char *) name;
+-
+-	zero =3D 0;
+-	piov[2].iov_len =3D (4 - (piov[1].iov_len & 3)) & 3;
+-	piov[2].iov_base =3D &zero;
+-
+-	param[0] =3D htonl(FSGETVOLUMEINFO);
+-	param[1] =3D htonl(piov[1].iov_len);
+-
+-	piov[0].iov_len =3D sizeof(param);
+-	piov[0].iov_base =3D param;
+-
+-	/* send the parameters to the server */
+-	ret =3D rxrpc_call_write_data(call, 3, piov, RXRPC_LAST_PACKET, GFP_N=
+OFS,
+-				    0, &sent);
+-	if (ret < 0)
+-		goto abort;
+-
+-	/* wait for the reply to completely arrive */
+-	bp =3D rxrpc_call_alloc_scratch(call, 64);
+-
+-	ret =3D rxrpc_call_read_data(call, bp, 64,
+-				   RXRPC_CALL_READ_BLOCK |
+-				   RXRPC_CALL_READ_ALL);
+-	if (ret < 0) {
+-		if (ret =3D=3D -ECONNABORTED) {
+-			ret =3D call->app_errno;
+-			goto out_unwait;
+-		}
+-		goto abort;
+-	}
++	/* unmarshall the reply once we've received all of it */
++	bp =3D call->buffer;
++	xdr_decode_AFSFetchStatus(&bp, call->reply);
++	xdr_decode_AFSCallBack(&bp, call->reply);
++	if (call->reply2)
++		xdr_decode_AFSVolSync(&bp, call->reply2);
+=20
+-	/* unmarshall the reply */
+-	vinfo->vid =3D ntohl(*bp++);
+-	vinfo->type =3D ntohl(*bp++);
+-
+-	vinfo->type_vids[0] =3D ntohl(*bp++);
+-	vinfo->type_vids[1] =3D ntohl(*bp++);
+-	vinfo->type_vids[2] =3D ntohl(*bp++);
+-	vinfo->type_vids[3] =3D ntohl(*bp++);
+-	vinfo->type_vids[4] =3D ntohl(*bp++);
+-
+-	vinfo->nservers =3D ntohl(*bp++);
+-	vinfo->servers[0].addr.s_addr =3D *bp++;
+-	vinfo->servers[1].addr.s_addr =3D *bp++;
+-	vinfo->servers[2].addr.s_addr =3D *bp++;
+-	vinfo->servers[3].addr.s_addr =3D *bp++;
+-	vinfo->servers[4].addr.s_addr =3D *bp++;
+-	vinfo->servers[5].addr.s_addr =3D *bp++;
+-	vinfo->servers[6].addr.s_addr =3D *bp++;
+-	vinfo->servers[7].addr.s_addr =3D *bp++;
+-
+-	ret =3D -EBADMSG;
+-	if (vinfo->nservers > 8)
+-		goto abort;
+-
+-	/* success */
+-	ret =3D 0;
+-
+-out_unwait:
+-	set_current_state(TASK_RUNNING);
+-	remove_wait_queue(&call->waitq, &myself);
+-	rxrpc_put_call(call);
+-out_put_conn:
+-	afs_server_release_fsconn(server, conn);
+-out:
+-	_leave("");
+-	return ret;
+-
+-abort:
+-	set_current_state(TASK_UNINTERRUPTIBLE);
+-	rxrpc_call_abort(call, ret);
+-	schedule();
+-	goto out_unwait;
++	_leave(" =3D 0 [done]");
++	return 0;
+ }
+-#endif
++
++/*
++ * FS.FetchStatus operation type
++ */
++static const struct afs_call_type afs_RXFSFetchStatus =3D {
++	.deliver	=3D afs_deliver_fs_fetch_status,
++	.abort_to_error	=3D afs_abort_to_error,
++	.destructor	=3D afs_flat_call_destructor,
++};
+=20
+ /*
+  * fetch the status information for a file
+  */
+-int afs_rxfs_fetch_file_status(struct afs_server *server,
+-			       struct afs_vnode *vnode,
+-			       struct afs_volsync *volsync)
++int afs_fs_fetch_file_status(struct afs_server *server,
++			     struct afs_vnode *vnode,
++			     struct afs_volsync *volsync,
++			     const struct afs_wait_mode *wait_mode)
+ {
+-	struct afs_server_callslot callslot;
+-	struct rxrpc_call *call;
+-	struct kvec piov[1];
+-	size_t sent;
+-	int ret;
++	struct afs_call *call;
+ 	__be32 *bp;
+=20
+-	DECLARE_WAITQUEUE(myself, current);
++	_enter("");
+=20
+-	_enter("%p,{%u,%u,%u}",
+-	       server, vnode->fid.vid, vnode->fid.vnode, vnode->fid.unique);
++	call =3D afs_alloc_flat_call(&afs_RXFSFetchStatus, 16, 120);
++	if (!call)
++		return -ENOMEM;
+=20
+-	/* get hold of the fileserver connection */
+-	ret =3D afs_server_request_callslot(server, &callslot);
+-	if (ret < 0)
+-		goto out;
+-
+-	/* create a call through that connection */
+-	ret =3D rxrpc_create_call(callslot.conn, NULL, NULL, afs_rxfs_aemap,
+-				&call);
+-	if (ret < 0) {
+-		printk("kAFS: Unable to create call: %d\n", ret);
+-		goto out_put_conn;
+-	}
+-	call->app_opcode =3D FSFETCHSTATUS;
+-
+-	/* we want to get event notifications from the call */
+-	add_wait_queue(&call->waitq, &myself);
++	call->reply =3D vnode;
++	call->reply2 =3D volsync;
++	call->service_id =3D FS_SERVICE;
++	call->port =3D htons(AFS_FS_PORT);
+=20
+ 	/* marshall the parameters */
+-	bp =3D rxrpc_call_alloc_scratch(call, 16);
++	bp =3D call->request;
+ 	bp[0] =3D htonl(FSFETCHSTATUS);
+ 	bp[1] =3D htonl(vnode->fid.vid);
+ 	bp[2] =3D htonl(vnode->fid.vnode);
+ 	bp[3] =3D htonl(vnode->fid.unique);
+=20
+-	piov[0].iov_len =3D 16;
+-	piov[0].iov_base =3D bp;
+-
+-	/* send the parameters to the server */
+-	ret =3D rxrpc_call_write_data(call, 1, piov, RXRPC_LAST_PACKET, GFP_N=
+OFS,
+-				    0, &sent);
+-	if (ret < 0)
+-		goto abort;
+-
+-	/* wait for the reply to completely arrive */
+-	bp =3D rxrpc_call_alloc_scratch(call, 120);
+-
+-	ret =3D rxrpc_call_read_data(call, bp, 120,
+-				   RXRPC_CALL_READ_BLOCK |
+-				   RXRPC_CALL_READ_ALL);
+-	if (ret < 0) {
+-		if (ret =3D=3D -ECONNABORTED) {
+-			ret =3D call->app_errno;
+-			goto out_unwait;
+-		}
+-		goto abort;
+-	}
+-
+-	/* unmarshall the reply */
+-	vnode->status.if_version	=3D ntohl(*bp++);
+-	vnode->status.type		=3D ntohl(*bp++);
+-	vnode->status.nlink		=3D ntohl(*bp++);
+-	vnode->status.size		=3D ntohl(*bp++);
+-	vnode->status.version		=3D ntohl(*bp++);
+-	vnode->status.author		=3D ntohl(*bp++);
+-	vnode->status.owner		=3D ntohl(*bp++);
+-	vnode->status.caller_access	=3D ntohl(*bp++);
+-	vnode->status.anon_access	=3D ntohl(*bp++);
+-	vnode->status.mode		=3D ntohl(*bp++);
+-	vnode->status.parent.vid	=3D vnode->fid.vid;
+-	vnode->status.parent.vnode	=3D ntohl(*bp++);
+-	vnode->status.parent.unique	=3D ntohl(*bp++);
+-	bp++; /* seg size */
+-	vnode->status.mtime_client	=3D ntohl(*bp++);
+-	vnode->status.mtime_server	=3D ntohl(*bp++);
+-	bp++; /* group */
+-	bp++; /* sync counter */
+-	vnode->status.version |=3D ((unsigned long long) ntohl(*bp++)) << 32;
+-	bp++; /* spare2 */
+-	bp++; /* spare3 */
+-	bp++; /* spare4 */
+-
+-	vnode->cb_version		=3D ntohl(*bp++);
+-	vnode->cb_expiry		=3D ntohl(*bp++);
+-	vnode->cb_type			=3D ntohl(*bp++);
+-
+-	if (volsync) {
+-		volsync->creation	=3D ntohl(*bp++);
+-		bp++; /* spare2 */
+-		bp++; /* spare3 */
+-		bp++; /* spare4 */
+-		bp++; /* spare5 */
+-		bp++; /* spare6 */
+-	}
+-
+-	/* success */
+-	ret =3D 0;
+-
+-out_unwait:
+-	set_current_state(TASK_RUNNING);
+-	remove_wait_queue(&call->waitq, &myself);
+-	rxrpc_put_call(call);
+-out_put_conn:
+-	afs_server_release_callslot(server, &callslot);
+-out:
+-	_leave("");
+-	return ret;
+-
+-abort:
+-	set_current_state(TASK_UNINTERRUPTIBLE);
+-	rxrpc_call_abort(call, ret);
+-	schedule();
+-	goto out_unwait;
++	return afs_make_call(&server->addr, call, GFP_NOFS, wait_mode);
+ }
+=20
+ /*
+- * fetch the contents of a file or directory
++ * deliver reply data to an FS.FetchData
+  */
+-int afs_rxfs_fetch_file_data(struct afs_server *server,
+-			     struct afs_vnode *vnode,
+-			     struct afs_rxfs_fetch_descriptor *desc,
+-			     struct afs_volsync *volsync)
++static int afs_deliver_fs_fetch_data(struct afs_call *call,
++				     struct sk_buff *skb, bool last)
+ {
+-	struct afs_server_callslot callslot;
+-	struct rxrpc_call *call;
+-	struct kvec piov[1];
+-	size_t sent;
++	const __be32 *bp;
++	struct page *page;
++	void *buffer;
+ 	int ret;
+-	__be32 *bp;
+=20
+-	DECLARE_WAITQUEUE(myself, current);
+-
+-	_enter("%p,{fid=3D{%u,%u,%u},sz=3D%Zu,of=3D%lu}",
+-	       server,
+-	       desc->fid.vid,
+-	       desc->fid.vnode,
+-	       desc->fid.unique,
+-	       desc->size,
+-	       desc->offset);
+-
+-	/* get hold of the fileserver connection */
+-	ret =3D afs_server_request_callslot(server, &callslot);
+-	if (ret < 0)
+-		goto out;
+-
+-	/* create a call through that connection */
+-	ret =3D rxrpc_create_call(callslot.conn, NULL, NULL, afs_rxfs_aemap, =
+&call);
+-	if (ret < 0) {
+-		printk("kAFS: Unable to create call: %d\n", ret);
+-		goto out_put_conn;
+-	}
+-	call->app_opcode =3D FSFETCHDATA;
++	_enter("{%u},{%u},%d", call->unmarshall, skb->len, last);
++
++	switch (call->unmarshall) {
++	case 0:
++		call->offset =3D 0;
++		call->unmarshall++;
++
++		/* extract the returned data length */
++	case 1:
++		_debug("extract data length");
++		ret =3D afs_extract_data(call, skb, last, &call->tmp, 4);
++		switch (ret) {
++		case 0:		break;
++		case -EAGAIN:	return 0;
++		default:	return ret;
++		}
+=20
+-	/* we want to get event notifications from the call */
+-	add_wait_queue(&call->waitq, &myself);
++		call->count =3D ntohl(call->tmp);
++		_debug("DATA length: %u", call->count);
++		if (call->count > PAGE_SIZE)
++			return -EBADMSG;
++		call->offset =3D 0;
++		call->unmarshall++;
++
++		if (call->count < PAGE_SIZE) {
++			buffer =3D kmap_atomic(call->reply3, KM_USER0);
++			memset(buffer + PAGE_SIZE - call->count, 0,
++			       call->count);
++			kunmap_atomic(buffer, KM_USER0);
++		}
+=20
+-	/* marshall the parameters */
+-	bp =3D rxrpc_call_alloc_scratch(call, 24);
+-	bp[0] =3D htonl(FSFETCHDATA);
+-	bp[1] =3D htonl(desc->fid.vid);
+-	bp[2] =3D htonl(desc->fid.vnode);
+-	bp[3] =3D htonl(desc->fid.unique);
+-	bp[4] =3D htonl(desc->offset);
+-	bp[5] =3D htonl(desc->size);
+-
+-	piov[0].iov_len =3D 24;
+-	piov[0].iov_base =3D bp;
+-
+-	/* send the parameters to the server */
+-	ret =3D rxrpc_call_write_data(call, 1, piov, RXRPC_LAST_PACKET, GFP_N=
+OFS,
+-				    0, &sent);
+-	if (ret < 0)
+-		goto abort;
+-
+-	/* wait for the data count to arrive */
+-	ret =3D rxrpc_call_read_data(call, bp, 4, RXRPC_CALL_READ_BLOCK);
+-	if (ret < 0)
+-		goto read_failed;
+-
+-	desc->actual =3D ntohl(bp[0]);
+-	if (desc->actual !=3D desc->size) {
+-		ret =3D -EBADMSG;
+-		goto abort;
+-	}
++		/* extract the returned data */
++	case 2:
++		_debug("extract data");
++		page =3D call->reply3;
++		buffer =3D kmap_atomic(page, KM_USER0);
++		ret =3D afs_extract_data(call, skb, last, buffer, call->count);
++		kunmap_atomic(buffer, KM_USER0);
++		switch (ret) {
++		case 0:		break;
++		case -EAGAIN:	return 0;
++		default:	return ret;
++		}
+=20
+-	/* call the app to read the actual data */
+-	rxrpc_call_reset_scratch(call);
+-
+-	ret =3D rxrpc_call_read_data(call, desc->buffer, desc->actual,
+-				   RXRPC_CALL_READ_BLOCK);
+-	if (ret < 0)
+-		goto read_failed;
+-
+-	/* wait for the rest of the reply to completely arrive */
+-	rxrpc_call_reset_scratch(call);
+-	bp =3D rxrpc_call_alloc_scratch(call, 120);
+-
+-	ret =3D rxrpc_call_read_data(call, bp, 120,
+-				   RXRPC_CALL_READ_BLOCK |
+-				   RXRPC_CALL_READ_ALL);
+-	if (ret < 0)
+-		goto read_failed;
+-
+-	/* unmarshall the reply */
+-	vnode->status.if_version	=3D ntohl(*bp++);
+-	vnode->status.type		=3D ntohl(*bp++);
+-	vnode->status.nlink		=3D ntohl(*bp++);
+-	vnode->status.size		=3D ntohl(*bp++);
+-	vnode->status.version		=3D ntohl(*bp++);
+-	vnode->status.author		=3D ntohl(*bp++);
+-	vnode->status.owner		=3D ntohl(*bp++);
+-	vnode->status.caller_access	=3D ntohl(*bp++);
+-	vnode->status.anon_access	=3D ntohl(*bp++);
+-	vnode->status.mode		=3D ntohl(*bp++);
+-	vnode->status.parent.vid	=3D desc->fid.vid;
+-	vnode->status.parent.vnode	=3D ntohl(*bp++);
+-	vnode->status.parent.unique	=3D ntohl(*bp++);
+-	bp++; /* seg size */
+-	vnode->status.mtime_client	=3D ntohl(*bp++);
+-	vnode->status.mtime_server	=3D ntohl(*bp++);
+-	bp++; /* group */
+-	bp++; /* sync counter */
+-	vnode->status.version |=3D ((unsigned long long) ntohl(*bp++)) << 32;
+-	bp++; /* spare2 */
+-	bp++; /* spare3 */
+-	bp++; /* spare4 */
++		call->offset =3D 0;
++		call->unmarshall++;
+=20
+-	vnode->cb_version		=3D ntohl(*bp++);
+-	vnode->cb_expiry		=3D ntohl(*bp++);
+-	vnode->cb_type			=3D ntohl(*bp++);
+-
+-	if (volsync) {
+-		volsync->creation	=3D ntohl(*bp++);
+-		bp++; /* spare2 */
+-		bp++; /* spare3 */
+-		bp++; /* spare4 */
+-		bp++; /* spare5 */
+-		bp++; /* spare6 */
+-	}
++		/* extract the metadata */
++	case 3:
++		ret =3D afs_extract_data(call, skb, last, call->buffer, 120);
++		switch (ret) {
++		case 0:		break;
++		case -EAGAIN:	return 0;
++		default:	return ret;
++		}
++
++		bp =3D call->buffer;
++		xdr_decode_AFSFetchStatus(&bp, call->reply);
++		xdr_decode_AFSCallBack(&bp, call->reply);
++		if (call->reply2)
++			xdr_decode_AFSVolSync(&bp, call->reply2);
++
++		call->offset =3D 0;
++		call->unmarshall++;
+=20
+-	/* success */
+-	ret =3D 0;
+-
+-out_unwait:
+-	set_current_state(TASK_RUNNING);
+-	remove_wait_queue(&call->waitq,&myself);
+-	rxrpc_put_call(call);
+-out_put_conn:
+-	afs_server_release_callslot(server, &callslot);
+-out:
+-	_leave(" =3D %d", ret);
+-	return ret;
+-
+-read_failed:
+-	if (ret =3D=3D -ECONNABORTED) {
+-		ret =3D call->app_errno;
+-		goto out_unwait;
++	case 4:
++		_debug("trailer");
++		if (skb->len !=3D 0)
++			return -EBADMSG;
++		break;
+ 	}
+=20
+-abort:
+-	set_current_state(TASK_UNINTERRUPTIBLE);
+-	rxrpc_call_abort(call, ret);
+-	schedule();
+-	goto out_unwait;
++	if (!last)
++		return 0;
++
++	_leave(" =3D 0 [done]");
++	return 0;
+ }
+=20
+ /*
+- * ask the AFS fileserver to discard a callback request on a file
++ * FS.FetchData operation type
+  */
+-int afs_rxfs_give_up_callback(struct afs_server *server,
+-			      struct afs_vnode *vnode)
++static const struct afs_call_type afs_RXFSFetchData =3D {
++	.deliver	=3D afs_deliver_fs_fetch_data,
++	.abort_to_error	=3D afs_abort_to_error,
++	.destructor	=3D afs_flat_call_destructor,
 +};
 +
 +/*
-+ * RxRPC socket definition
++ * fetch data from a file
 + */
-+struct rxrpc_sock {
-+	/* WARNING: sk has to be the first member */
-+	struct sock		sk;
-+	struct rxrpc_local	*local;		/* local endpoint */
-+	struct rxrpc_transport	*trans;		/* transport handler */
-+	struct rxrpc_conn_bundle *bundle;	/* virtual connection bundle */
-+	struct rxrpc_connection	*conn;		/* exclusive virtual connection */
-+	struct list_head	listen_link;	/* link in the local endpoint's listen list */
-+	struct list_head	secureq;	/* calls awaiting connection security clearance */
-+	struct list_head	acceptq;	/* calls awaiting acceptance */
-+	struct key		*key;		/* security for this socket */
-+	struct key		*securities;	/* list of server security descriptors */
-+	struct rb_root		calls;		/* outstanding calls on this socket */
-+	unsigned long		flags;
-+#define RXRPC_SOCK_EXCLUSIVE_CONN	1	/* exclusive connection for a client socket */
-+	rwlock_t		call_lock;	/* lock for calls */
-+	u32			min_sec_level;	/* minimum security level */
-+#define RXRPC_SECURITY_MAX	RXRPC_SECURITY_ENCRYPT
-+	struct sockaddr_rxrpc	srx;		/* local address */
-+	sa_family_t		proto;		/* protocol created with */
-+	__be16			service_id;	/* service ID of local/remote service */
-+};
-+
-+#define rxrpc_sk(__sk) container_of((__sk), struct rxrpc_sock, sk)
-+
++int afs_fs_fetch_data(struct afs_server *server,
++		      struct afs_vnode *vnode,
++		      off_t offset, size_t length,
++		      struct page *buffer,
++		      struct afs_volsync *volsync,
++		      const struct afs_wait_mode *wait_mode)
+ {
+-	struct afs_server_callslot callslot;
+-	struct rxrpc_call *call;
+-	struct kvec piov[1];
+-	size_t sent;
+-	int ret;
++	struct afs_call *call;
+ 	__be32 *bp;
+=20
+-	DECLARE_WAITQUEUE(myself, current);
++	_enter("");
+=20
+-	_enter("%p,{%u,%u,%u}",
+-	       server, vnode->fid.vid, vnode->fid.vnode, vnode->fid.unique);
++	call =3D afs_alloc_flat_call(&afs_RXFSFetchData, 24, 120);
++	if (!call)
++		return -ENOMEM;
+=20
+-	/* get hold of the fileserver connection */
+-	ret =3D afs_server_request_callslot(server, &callslot);
+-	if (ret < 0)
+-		goto out;
+-
+-	/* create a call through that connection */
+-	ret =3D rxrpc_create_call(callslot.conn, NULL, NULL, afs_rxfs_aemap, =
+&call);
+-	if (ret < 0) {
+-		printk("kAFS: Unable to create call: %d\n", ret);
+-		goto out_put_conn;
+-	}
+-	call->app_opcode =3D FSGIVEUPCALLBACKS;
+-
+-	/* we want to get event notifications from the call */
+-	add_wait_queue(&call->waitq, &myself);
++	call->reply =3D vnode;
++	call->reply2 =3D volsync;
++	call->reply3 =3D buffer;
++	call->service_id =3D FS_SERVICE;
++	call->port =3D htons(AFS_FS_PORT);
+=20
+ 	/* marshall the parameters */
+-	bp =3D rxrpc_call_alloc_scratch(call, (1 + 4 + 4) * 4);
+-
+-	piov[0].iov_len =3D (1 + 4 + 4) * 4;
+-	piov[0].iov_base =3D bp;
+-
+-	*bp++ =3D htonl(FSGIVEUPCALLBACKS);
+-	*bp++ =3D htonl(1);
+-	*bp++ =3D htonl(vnode->fid.vid);
+-	*bp++ =3D htonl(vnode->fid.vnode);
+-	*bp++ =3D htonl(vnode->fid.unique);
+-	*bp++ =3D htonl(1);
+-	*bp++ =3D htonl(vnode->cb_version);
+-	*bp++ =3D htonl(vnode->cb_expiry);
+-	*bp++ =3D htonl(vnode->cb_type);
+-
+-	/* send the parameters to the server */
+-	ret =3D rxrpc_call_write_data(call, 1, piov, RXRPC_LAST_PACKET, GFP_N=
+OFS,
+-				    0, &sent);
+-	if (ret < 0)
+-		goto abort;
+-
+-	/* wait for the reply to completely arrive */
+-	for (;;) {
+-		set_current_state(TASK_INTERRUPTIBLE);
+-		if (call->app_call_state !=3D RXRPC_CSTATE_CLNT_RCV_REPLY ||
+-		    signal_pending(current))
+-			break;
+-		schedule();
+-	}
+-	set_current_state(TASK_RUNNING);
+-
+-	ret =3D -EINTR;
+-	if (signal_pending(current))
+-		goto abort;
+-
+-	switch (call->app_call_state) {
+-	case RXRPC_CSTATE_ERROR:
+-		ret =3D call->app_errno;
+-		goto out_unwait;
++	bp =3D call->request;
++	bp[0] =3D htonl(FSFETCHDATA);
++	bp[1] =3D htonl(vnode->fid.vid);
++	bp[2] =3D htonl(vnode->fid.vnode);
++	bp[3] =3D htonl(vnode->fid.unique);
++	bp[4] =3D htonl(offset);
++	bp[5] =3D htonl(length);
+=20
+-	case RXRPC_CSTATE_CLNT_GOT_REPLY:
+-		ret =3D 0;
+-		goto out_unwait;
++	return afs_make_call(&server->addr, call, GFP_NOFS, wait_mode);
++}
+=20
+-	default:
+-		BUG();
+-	}
 +/*
-+ * RxRPC socket buffer private variables
-+ * - max 48 bytes (struct sk_buff::cb)
++ * deliver reply data to an FS.GiveUpCallBacks
 + */
-+struct rxrpc_skb_priv {
-+	struct rxrpc_call	*call;		/* call with which associated */
-+	unsigned long		resend_at;	/* time in jiffies at which to resend */
-+	union {
-+		unsigned	offset;		/* offset into buffer of next read */
-+		int		remain;		/* amount of space remaining for next write */
-+		u32		error;		/* network error code */
-+		bool		need_resend;	/* T if needs resending */
-+	};
-+
-+	struct rxrpc_header	hdr;		/* RxRPC packet header from this packet */
-+};
-+
-+#define rxrpc_skb(__skb) ((struct rxrpc_skb_priv *) &(__skb)->cb)
-+
-+enum {
-+	RXRPC_SKB_MARK_DATA,		/* data message */
-+	RXRPC_SKB_MARK_FINAL_ACK,	/* final ACK received message */
-+	RXRPC_SKB_MARK_BUSY,		/* server busy message */
-+	RXRPC_SKB_MARK_REMOTE_ABORT,	/* remote abort message */
-+	RXRPC_SKB_MARK_NET_ERROR,	/* network error message */
-+	RXRPC_SKB_MARK_LOCAL_ERROR,	/* local error message */
-+	RXRPC_SKB_MARK_NEW_CALL,	/* local error message */
-+};
-+
-+enum rxrpc_command {
-+	RXRPC_CMD_SEND_DATA,		/* send data message */
-+	RXRPC_CMD_SEND_ABORT,		/* request abort generation */
-+	RXRPC_CMD_ACCEPT,		/* [server] accept incoming call */
-+	RXRPC_CMD_REJECT_BUSY,		/* [server] reject a call as busy */
-+};
-+
-+/*
-+ * RxRPC security module interface
++static int afs_deliver_fs_give_up_callbacks(struct afs_call *call,
++					    struct sk_buff *skb, bool last)
++{
++	_enter(",{%u},%d", skb->len, last);
+=20
+-out_unwait:
+-	set_current_state(TASK_RUNNING);
+-	remove_wait_queue(&call->waitq, &myself);
+-	rxrpc_put_call(call);
+-out_put_conn:
+-	afs_server_release_callslot(server, &callslot);
+-out:
+-	_leave("");
+-	return ret;
+-
+-abort:
+-	set_current_state(TASK_UNINTERRUPTIBLE);
+-	rxrpc_call_abort(call, ret);
+-	schedule();
+-	goto out_unwait;
++	if (skb->len > 0)
++		return -EBADMSG; /* shouldn't be any reply data */
++	return 0;
+ }
+=20
+ /*
+- * look a filename up in a directory
+- * - this operation doesn't seem to work correctly in OpenAFS server 1=
+=2E2.2
++ * FS.GiveUpCallBacks operation type
 + */
-+struct rxrpc_security {
-+	struct module		*owner;		/* providing module */
-+	struct list_head	link;		/* link in master list */
-+	const char		*name;		/* name of this service */
-+	u8			security_index;	/* security type provided */
-+
-+	/* initialise a connection's security */
-+	int (*init_connection_security)(struct rxrpc_connection *);
-+
-+	/* prime a connection's packet security */
-+	void (*prime_packet_security)(struct rxrpc_connection *);
-+
-+	/* impose security on a packet */
-+	int (*secure_packet)(const struct rxrpc_call *,
-+			     struct sk_buff *,
-+			     size_t,
-+			     void *);
-+
-+	/* verify the security on a received packet */
-+	int (*verify_packet)(const struct rxrpc_call *, struct sk_buff *,
-+			     u32 *);
-+
-+	/* issue a challenge */
-+	int (*issue_challenge)(struct rxrpc_connection *);
-+
-+	/* respond to a challenge */
-+	int (*respond_to_challenge)(struct rxrpc_connection *,
-+				    struct sk_buff *,
-+				    u32 *);
-+
-+	/* verify a response */
-+	int (*verify_response)(struct rxrpc_connection *,
-+			       struct sk_buff *,
-+			       u32 *);
-+
-+	/* clear connection security */
-+	void (*clear)(struct rxrpc_connection *);
-+};
-+
-+/*
-+ * RxRPC local transport endpoint definition
-+ * - matched by local port, address and protocol type
-+ */
-+struct rxrpc_local {
-+	struct socket		*socket;	/* my UDP socket */
-+	struct work_struct	destroyer;	/* endpoint destroyer */
-+	struct work_struct	acceptor;	/* incoming call processor */
-+	struct work_struct	rejecter;	/* packet reject writer */
-+	struct list_head	services;	/* services listening on this endpoint */
-+	struct list_head	link;		/* link in endpoint list */
-+	struct rw_semaphore	defrag_sem;	/* control re-enablement of IP DF bit */
-+	struct sk_buff_head	accept_queue;	/* incoming calls awaiting acceptance */
-+	struct sk_buff_head	reject_queue;	/* packets awaiting rejection */
-+	spinlock_t		lock;		/* access lock */
-+	rwlock_t		services_lock;	/* lock for services list */
-+	atomic_t		usage;
-+	int			debug_id;	/* debug ID for printks */
-+	volatile char		error_rcvd;	/* T if received ICMP error outstanding */
-+	struct sockaddr_rxrpc	srx;		/* local address */
-+};
-+
-+/*
-+ * RxRPC remote transport endpoint definition
-+ * - matched by remote port, address and protocol type
-+ * - holds the connection ID counter for connections between the two endpoints
-+ */
-+struct rxrpc_peer {
-+	struct work_struct	destroyer;	/* peer destroyer */
-+	struct list_head	link;		/* link in master peer list */
-+	struct list_head	error_targets;	/* targets for net error distribution */
-+	spinlock_t		lock;		/* access lock */
-+	atomic_t		usage;
-+	unsigned		if_mtu;		/* interface MTU for this peer */
-+	unsigned		mtu;		/* network MTU for this peer */
-+	unsigned		maxdata;	/* data size (MTU - hdrsize) */
-+	unsigned short		hdrsize;	/* header size (IP + UDP + RxRPC) */
-+	int			debug_id;	/* debug ID for printks */
-+	int			net_error;	/* network error distributed */
-+	struct sockaddr_rxrpc	srx;		/* remote address */
-+
-+	/* calculated RTT cache */
-+#define RXRPC_RTT_CACHE_SIZE 32
-+	suseconds_t		rtt;		/* current RTT estimate (in uS) */
-+	unsigned		rtt_point;	/* next entry at which to insert */
-+	unsigned		rtt_usage;	/* amount of cache actually used */
-+	suseconds_t		rtt_cache[RXRPC_RTT_CACHE_SIZE]; /* calculated RTT cache */
++static const struct afs_call_type afs_RXFSGiveUpCallBacks =3D {
++	.deliver	=3D afs_deliver_fs_give_up_callbacks,
++	.abort_to_error	=3D afs_abort_to_error,
++	.destructor	=3D afs_flat_call_destructor,
 +};
 +
 +/*
-+ * RxRPC point-to-point transport / connection manager definition
-+ * - handles a bundle of connections between two endpoints
-+ * - matched by { local, peer }
-+ */
-+struct rxrpc_transport {
-+	struct rxrpc_local	*local;		/* local transport endpoint */
-+	struct rxrpc_peer	*peer;		/* remote transport endpoint */
-+	struct work_struct	error_handler;	/* network error distributor */
-+	struct rb_root		bundles;	/* client connection bundles on this transport */
-+	struct rb_root		client_conns;	/* client connections on this transport */
-+	struct rb_root		server_conns;	/* server connections on this transport */
-+	struct list_head	link;		/* link in master session list */
-+	struct sk_buff_head	error_queue;	/* error packets awaiting processing */
-+	time_t			put_time;	/* time at which to reap */
-+	spinlock_t		client_lock;	/* client connection allocation lock */
-+	rwlock_t		conn_lock;	/* lock for active/dead connections */
-+	atomic_t		usage;
-+	int			debug_id;	/* debug ID for printks */
-+	unsigned int		conn_idcounter;	/* connection ID counter (client) */
++ * give up a set of callbacks
++ * - the callbacks are held in the server->cb_break ring
+  */
+-#if 0
+-int afs_rxfs_lookup(struct afs_server *server,
+-		    struct afs_vnode *dir,
+-		    const char *filename,
+-		    struct afs_vnode *vnode,
+-		    struct afs_volsync *volsync)
++int afs_fs_give_up_callbacks(struct afs_server *server,
++			     const struct afs_wait_mode *wait_mode)
+ {
+-	struct rxrpc_connection *conn;
+-	struct rxrpc_call *call;
+-	struct kvec piov[3];
+-	size_t sent;
+-	int ret;
+-	u32 *bp, zero;
++	struct afs_call *call;
++	size_t ncallbacks;
++	__be32 *bp, *tp;
++	int loop;
+=20
+-	DECLARE_WAITQUEUE(myself, current);
++	ncallbacks =3D CIRC_CNT(server->cb_break_head, server->cb_break_tail,
++			      ARRAY_SIZE(server->cb_break));
+=20
+-	kenter("%p,{%u,%u,%u},%s",
+-	       server, fid->vid, fid->vnode, fid->unique, filename);
++	_enter("{%zu},", ncallbacks);
+=20
+-	/* get hold of the fileserver connection */
+-	ret =3D afs_server_get_fsconn(server, &conn);
+-	if (ret < 0)
+-		goto out;
++	if (ncallbacks =3D=3D 0)
++		return 0;
++	if (ncallbacks > AFSCBMAX)
++		ncallbacks =3D AFSCBMAX;
+=20
+-	/* create a call through that connection */
+-	ret =3D rxrpc_create_call(conn, NULL, NULL, afs_rxfs_aemap, &call);
+-	if (ret < 0) {
+-		printk("kAFS: Unable to create call: %d\n", ret);
+-		goto out_put_conn;
+-	}
+-	call->app_opcode =3D FSLOOKUP;
++	_debug("break %zu callbacks", ncallbacks);
+=20
+-	/* we want to get event notifications from the call */
+-	add_wait_queue(&call->waitq,&myself);
++	call =3D afs_alloc_flat_call(&afs_RXFSGiveUpCallBacks,
++				   12 + ncallbacks * 6 * 4, 0);
++	if (!call)
++		return -ENOMEM;
++
++	call->service_id =3D FS_SERVICE;
++	call->port =3D htons(AFS_FS_PORT);
+=20
+ 	/* marshall the parameters */
+-	bp =3D rxrpc_call_alloc_scratch(call, 20);
+-
+-	zero =3D 0;
+-
+-	piov[0].iov_len =3D 20;
+-	piov[0].iov_base =3D bp;
+-	piov[1].iov_len =3D strlen(filename);
+-	piov[1].iov_base =3D (char *) filename;
+-	piov[2].iov_len =3D (4 - (piov[1].iov_len & 3)) & 3;
+-	piov[2].iov_base =3D &zero;
+-
+-	*bp++ =3D htonl(FSLOOKUP);
+-	*bp++ =3D htonl(dirfid->vid);
+-	*bp++ =3D htonl(dirfid->vnode);
+-	*bp++ =3D htonl(dirfid->unique);
+-	*bp++ =3D htonl(piov[1].iov_len);
+-
+-	/* send the parameters to the server */
+-	ret =3D rxrpc_call_write_data(call, 3, piov, RXRPC_LAST_PACKET, GFP_N=
+OFS,
+-				    0, &sent);
+-	if (ret < 0)
+-		goto abort;
+-
+-	/* wait for the reply to completely arrive */
+-	bp =3D rxrpc_call_alloc_scratch(call, 220);
+-
+-	ret =3D rxrpc_call_read_data(call, bp, 220,
+-				   RXRPC_CALL_READ_BLOCK |
+-				   RXRPC_CALL_READ_ALL);
+-	if (ret < 0) {
+-		if (ret =3D=3D -ECONNABORTED) {
+-			ret =3D call->app_errno;
+-			goto out_unwait;
+-		}
+-		goto abort;
++	bp =3D call->request;
++	tp =3D bp + 2 + ncallbacks * 3;
++	*bp++ =3D htonl(FSGIVEUPCALLBACKS);
++	*bp++ =3D htonl(ncallbacks);
++	*tp++ =3D htonl(ncallbacks);
++
++	atomic_sub(ncallbacks, &server->cb_break_n);
++	for (loop =3D ncallbacks; loop > 0; loop--) {
++		struct afs_callback *cb =3D
++			&server->cb_break[server->cb_break_tail];
++
++		*bp++ =3D htonl(cb->fid.vid);
++		*bp++ =3D htonl(cb->fid.vnode);
++		*bp++ =3D htonl(cb->fid.unique);
++		*tp++ =3D htonl(cb->version);
++		*tp++ =3D htonl(cb->expiry);
++		*tp++ =3D htonl(cb->type);
++		smp_mb();
++		server->cb_break_tail =3D
++			(server->cb_break_tail + 1) &
++			(ARRAY_SIZE(server->cb_break) - 1);
+ 	}
+=20
+-	/* unmarshall the reply */
+-	fid->vid		=3D ntohl(*bp++);
+-	fid->vnode		=3D ntohl(*bp++);
+-	fid->unique		=3D ntohl(*bp++);
+-
+-	vnode->status.if_version	=3D ntohl(*bp++);
+-	vnode->status.type		=3D ntohl(*bp++);
+-	vnode->status.nlink		=3D ntohl(*bp++);
+-	vnode->status.size		=3D ntohl(*bp++);
+-	vnode->status.version		=3D ntohl(*bp++);
+-	vnode->status.author		=3D ntohl(*bp++);
+-	vnode->status.owner		=3D ntohl(*bp++);
+-	vnode->status.caller_access	=3D ntohl(*bp++);
+-	vnode->status.anon_access	=3D ntohl(*bp++);
+-	vnode->status.mode		=3D ntohl(*bp++);
+-	vnode->status.parent.vid	=3D dirfid->vid;
+-	vnode->status.parent.vnode	=3D ntohl(*bp++);
+-	vnode->status.parent.unique	=3D ntohl(*bp++);
+-	bp++; /* seg size */
+-	vnode->status.mtime_client	=3D ntohl(*bp++);
+-	vnode->status.mtime_server	=3D ntohl(*bp++);
+-	bp++; /* group */
+-	bp++; /* sync counter */
+-	vnode->status.version |=3D ((unsigned long long) ntohl(*bp++)) << 32;
+-	bp++; /* spare2 */
+-	bp++; /* spare3 */
+-	bp++; /* spare4 */
+-
+-	dir->status.if_version		=3D ntohl(*bp++);
+-	dir->status.type		=3D ntohl(*bp++);
+-	dir->status.nlink		=3D ntohl(*bp++);
+-	dir->status.size		=3D ntohl(*bp++);
+-	dir->status.version		=3D ntohl(*bp++);
+-	dir->status.author		=3D ntohl(*bp++);
+-	dir->status.owner		=3D ntohl(*bp++);
+-	dir->status.caller_access	=3D ntohl(*bp++);
+-	dir->status.anon_access		=3D ntohl(*bp++);
+-	dir->status.mode		=3D ntohl(*bp++);
+-	dir->status.parent.vid		=3D dirfid->vid;
+-	dir->status.parent.vnode	=3D ntohl(*bp++);
+-	dir->status.parent.unique	=3D ntohl(*bp++);
+-	bp++; /* seg size */
+-	dir->status.mtime_client	=3D ntohl(*bp++);
+-	dir->status.mtime_server	=3D ntohl(*bp++);
+-	bp++; /* group */
+-	bp++; /* sync counter */
+-	dir->status.version |=3D ((unsigned long long) ntohl(*bp++)) << 32;
+-	bp++; /* spare2 */
+-	bp++; /* spare3 */
+-	bp++; /* spare4 */
+-
+-	callback->fid		=3D *fid;
+-	callback->version	=3D ntohl(*bp++);
+-	callback->expiry	=3D ntohl(*bp++);
+-	callback->type		=3D ntohl(*bp++);
+-
+-	if (volsync) {
+-		volsync->creation	=3D ntohl(*bp++);
+-		bp++; /* spare2 */
+-		bp++; /* spare3 */
+-		bp++; /* spare4 */
+-		bp++; /* spare5 */
+-		bp++; /* spare6 */
+-	}
++	ASSERT(ncallbacks > 0);
++	wake_up_nr(&server->cb_break_waitq, ncallbacks);
+=20
+-	/* success */
+-	ret =3D 0;
+-
+-out_unwait:
+-	set_current_state(TASK_RUNNING);
+-	remove_wait_queue(&call->waitq, &myself);
+-	rxrpc_put_call(call);
+-out_put_conn:
+-	afs_server_release_fsconn(server, conn);
+-out:
+-	kleave("");
+-	return ret;
+-
+-abort:
+-	set_current_state(TASK_UNINTERRUPTIBLE);
+-	rxrpc_call_abort(call, ret);
+-	schedule();
+-	goto out_unwait;
++	return afs_make_call(&server->addr, call, GFP_NOFS, wait_mode);
+ }
+-#endif
+diff --git a/fs/afs/fsclient.h b/fs/afs/fsclient.h
+deleted file mode 100644
+index e2b0b7b..0000000
+--- a/fs/afs/fsclient.h
++++ /dev/null
+@@ -1,54 +0,0 @@
+-/* AFS File Server client stub declarations
+- *
+- * Copyright (C) 2002 Red Hat, Inc. All Rights Reserved.
+- * Written by David Howells (dhowells@redhat.com)
+- *
+- * This program is free software; you can redistribute it and/or
+- * modify it under the terms of the GNU General Public License
+- * as published by the Free Software Foundation; either version
+- * 2 of the License, or (at your option) any later version.
+- */
+-
+-#ifndef AFS_FSCLIENT_H
+-#define AFS_FSCLIENT_H
+-
+-#include "server.h"
+-
+-extern int afs_rxfs_get_volume_info(struct afs_server *,
+-				    const char *,
+-				    struct afs_volume_info *);
+-
+-extern int afs_rxfs_fetch_file_status(struct afs_server *,
+-				      struct afs_vnode *,
+-				      struct afs_volsync *);
+-
+-struct afs_rxfs_fetch_descriptor {
+-	struct afs_fid	fid;		/* file ID to fetch */
+-	size_t		size;		/* total number of bytes to fetch */
+-	off_t		offset;		/* offset in file to start from */
+-	void		*buffer;	/* read buffer */
+-	size_t		actual;		/* actual size sent back by server */
+-};
+-
+-extern int afs_rxfs_fetch_file_data(struct afs_server *,
+-				    struct afs_vnode *,
+-				    struct afs_rxfs_fetch_descriptor *,
+-				    struct afs_volsync *);
+-
+-extern int afs_rxfs_give_up_callback(struct afs_server *,
+-				     struct afs_vnode *);
+-
+-/* this doesn't appear to work in OpenAFS server */
+-extern int afs_rxfs_lookup(struct afs_server *,
+-			   struct afs_vnode *,
+-			   const char *,
+-			   struct afs_vnode *,
+-			   struct afs_volsync *);
+-
+-/* this is apparently mis-implemented in OpenAFS server */
+-extern int afs_rxfs_get_root_volume(struct afs_server *,
+-				    char *,
+-				    size_t *);
+-
+-
+-#endif /* AFS_FSCLIENT_H */
+diff --git a/fs/afs/inode.c b/fs/afs/inode.c
+index 900c8bb..1886331 100644
+--- a/fs/afs/inode.c
++++ b/fs/afs/inode.c
+@@ -19,9 +19,6 @@
+ #include <linux/slab.h>
+ #include <linux/fs.h>
+ #include <linux/pagemap.h>
+-#include "volume.h"
+-#include "vnode.h"
+-#include "super.h"
+ #include "internal.h"
+=20
+ struct afs_iget_data {
+@@ -40,7 +37,7 @@ static int afs_inode_map_status(struct afs_vnode *vno=
+de)
+ 	       vnode->status.type,
+ 	       vnode->status.nlink,
+ 	       vnode->status.size,
+-	       vnode->status.version,
++	       vnode->status.data_version,
+ 	       vnode->status.mode);
+=20
+ 	switch (vnode->status.type) {
+@@ -78,7 +75,7 @@ static int afs_inode_map_status(struct afs_vnode *vno=
+de)
+ 	if (vnode->status.type =3D=3D AFS_FTYPE_SYMLINK) {
+ 		afs_mntpt_check_symlink(vnode);
+=20
+-		if (vnode->flags & AFS_VNODE_MOUNTPOINT) {
++		if (test_bit(AFS_VNODE_MOUNTPOINT, &vnode->flags)) {
+ 			inode->i_mode	=3D S_IFDIR | vnode->status.mode;
+ 			inode->i_op	=3D &afs_mntpt_inode_operations;
+ 			inode->i_fop	=3D &afs_mntpt_file_operations;
+@@ -89,25 +86,6 @@ static int afs_inode_map_status(struct afs_vnode *vn=
+ode)
+ }
+=20
+ /*
+- * attempt to fetch the status of an inode, coelescing multiple simult=
+aneous
+- * fetches
+- */
+-static int afs_inode_fetch_status(struct inode *inode)
+-{
+-	struct afs_vnode *vnode;
+-	int ret;
+-
+-	vnode =3D AFS_FS_I(inode);
+-
+-	ret =3D afs_vnode_fetch_status(vnode);
+-
+-	if (ret =3D=3D 0)
+-		ret =3D afs_inode_map_status(vnode);
+-
+-	return ret;
+-}
+-
+-/*
+  * iget5() comparator
+  */
+ static int afs_iget5_test(struct inode *inode, void *opaque)
+@@ -137,8 +115,7 @@ static int afs_iget5_set(struct inode *inode, void =
+*opaque)
+ /*
+  * inode retrieval
+  */
+-inline int afs_iget(struct super_block *sb, struct afs_fid *fid,
+-		    struct inode **_inode)
++inline struct inode *afs_iget(struct super_block *sb, struct afs_fid *=
+fid)
+ {
+ 	struct afs_iget_data data =3D { .fid =3D *fid };
+ 	struct afs_super_info *as;
+@@ -155,20 +132,18 @@ inline int afs_iget(struct super_block *sb, struc=
+t afs_fid *fid,
+ 			     &data);
+ 	if (!inode) {
+ 		_leave(" =3D -ENOMEM");
+-		return -ENOMEM;
++		return ERR_PTR(-ENOMEM);
+ 	}
+=20
++	_debug("GOT INODE %p { vl=3D%x vn=3D%x, u=3D%x }",
++	       inode, fid->vid, fid->vnode, fid->unique);
++
+ 	vnode =3D AFS_FS_I(inode);
+=20
+ 	/* deal with an existing inode */
+ 	if (!(inode->i_state & I_NEW)) {
+-		ret =3D afs_vnode_fetch_status(vnode);
+-		if (ret =3D=3D 0)
+-			*_inode =3D inode;
+-		else
+-			iput(inode);
+-		_leave(" =3D %d", ret);
+-		return ret;
++		_leave(" =3D %p", inode);
++		return inode;
+ 	}
+=20
+ #ifdef AFS_CACHING_SUPPORT
+@@ -181,21 +156,19 @@ inline int afs_iget(struct super_block *sb, struc=
+t afs_fid *fid,
+ #endif
+=20
+ 	/* okay... it's a new inode */
+-	inode->i_flags |=3D S_NOATIME;
+-	vnode->flags |=3D AFS_VNODE_CHANGED;
+-	ret =3D afs_inode_fetch_status(inode);
+-	if (ret<0)
++	set_bit(AFS_VNODE_CB_BROKEN, &vnode->flags);
++	ret =3D afs_vnode_fetch_status(vnode);
++	if (ret < 0)
++		goto bad_inode;
++	ret =3D afs_inode_map_status(vnode);
++	if (ret < 0)
+ 		goto bad_inode;
+=20
+ 	/* success */
++	inode->i_flags |=3D S_NOATIME;
+ 	unlock_new_inode(inode);
+-
+-	*_inode =3D inode;
+-	_leave(" =3D 0 [CB { v=3D%u x=3D%lu t=3D%u }]",
+-	       vnode->cb_version,
+-	       vnode->cb_timeout.timo_jif,
+-	       vnode->cb_type);
+-	return 0;
++	_leave(" =3D %p [CB { v=3D%u t=3D%u }]", inode, vnode->cb_version, vn=
+ode->cb_type);
++	return inode;
+=20
+ 	/* failure */
+ bad_inode:
+@@ -204,7 +177,7 @@ bad_inode:
+ 	iput(inode);
+=20
+ 	_leave(" =3D %d [bad]", ret);
+-	return ret;
++	return ERR_PTR(ret);
+ }
+=20
+ /*
+@@ -213,36 +186,13 @@ bad_inode:
+ int afs_inode_getattr(struct vfsmount *mnt, struct dentry *dentry,
+ 		      struct kstat *stat)
+ {
+-	struct afs_vnode *vnode;
+ 	struct inode *inode;
+-	int ret;
+=20
+ 	inode =3D dentry->d_inode;
+=20
+ 	_enter("{ ino=3D%lu v=3D%lu }", inode->i_ino, inode->i_version);
+=20
+-	vnode =3D AFS_FS_I(inode);
+-
+-	ret =3D afs_inode_fetch_status(inode);
+-	if (ret =3D=3D -ENOENT) {
+-		_leave(" =3D %d [%d %p]",
+-		       ret, atomic_read(&dentry->d_count), dentry->d_inode);
+-		return ret;
+-	} else if (ret < 0) {
+-		make_bad_inode(inode);
+-		_leave(" =3D %d", ret);
+-		return ret;
+-	}
+-
+-	/* transfer attributes from the inode structure to the stat
+-	 * structure */
+ 	generic_fillattr(inode, stat);
+-
+-	_leave(" =3D 0 CB { v=3D%u x=3D%u t=3D%u }",
+-	       vnode->cb_version,
+-	       vnode->cb_expiry,
+-	       vnode->cb_type);
+-
+ 	return 0;
+ }
+=20
+@@ -260,12 +210,23 @@ void afs_clear_inode(struct inode *inode)
+ 	       vnode->fid.vnode,
+ 	       vnode->cb_version,
+ 	       vnode->cb_expiry,
+-	       vnode->cb_type
+-	       );
++	       vnode->cb_type);
+=20
+-	BUG_ON(inode->i_ino !=3D vnode->fid.vnode);
++	_debug("CLEAR INODE %p", inode);
++
++	ASSERTCMP(inode->i_ino, =3D=3D, vnode->fid.vnode);
++
++	afs_give_up_callback(vnode);
++
++	if (vnode->server) {
++		spin_lock(&vnode->server->fs_lock);
++		rb_erase(&vnode->server_rb, &vnode->server->fs_vnodes);
++		spin_unlock(&vnode->server->fs_lock);
++		afs_put_server(vnode->server);
++		vnode->server =3D NULL;
++	}
+=20
+-	afs_vnode_give_up_callback(vnode);
++	ASSERT(!vnode->cb_promised);
+=20
+ #ifdef AFS_CACHING_SUPPORT
+ 	cachefs_relinquish_cookie(vnode->cache, 0);
+diff --git a/fs/afs/internal.h b/fs/afs/internal.h
+index b6dd20a..afc6f0f 100644
+--- a/fs/afs/internal.h
++++ b/fs/afs/internal.h
+@@ -1,6 +1,6 @@
+ /* internal AFS stuff
+  *
+- * Copyright (C) 2002 Red Hat, Inc. All Rights Reserved.
++ * Copyright (C) 2002, 2007 Red Hat, Inc. All Rights Reserved.
+  * Written by David Howells (dhowells@redhat.com)
+  *
+  * This program is free software; you can redistribute it and/or
+@@ -9,48 +9,321 @@
+  * 2 of the License, or (at your option) any later version.
+  */
+=20
+-#ifndef AFS_INTERNAL_H
+-#define AFS_INTERNAL_H
+-
+ #include <linux/compiler.h>
+ #include <linux/kernel.h>
+ #include <linux/fs.h>
+ #include <linux/pagemap.h>
++#include <linux/skbuff.h>
++#include <linux/rxrpc.h>
++#include "afs.h"
++#include "afs_vl.h"
++
++#define AFS_CELL_MAX_ADDRS 15
++
++struct afs_call;
++
++typedef enum {
++	AFS_VL_NEW,			/* new, uninitialised record */
++	AFS_VL_CREATING,		/* creating record */
++	AFS_VL_VALID,			/* record is pending */
++	AFS_VL_NO_VOLUME,		/* no such volume available */
++	AFS_VL_UPDATING,		/* update in progress */
++	AFS_VL_VOLUME_DELETED,		/* volume was deleted */
++	AFS_VL_UNCERTAIN,		/* uncertain state (update failed) */
++} __attribute__((packed)) afs_vlocation_state_t;
+=20
+ /*
+- * debug tracing
++ * definition of how to wait for the completion of an operation
+  */
+-#define kenter(FMT, a...)	printk("=3D=3D> %s("FMT")\n",__FUNCTION__ , =
+## a)
+-#define kleave(FMT, a...)	printk("<=3D=3D %s()"FMT"\n",__FUNCTION__ , =
+## a)
+-#define kdebug(FMT, a...)	printk(FMT"\n" , ## a)
+-#define kproto(FMT, a...)	printk("### "FMT"\n" , ## a)
+-#define knet(FMT, a...)		printk(FMT"\n" , ## a)
+-
+-#ifdef __KDEBUG
+-#define _enter(FMT, a...)	kenter(FMT , ## a)
+-#define _leave(FMT, a...)	kleave(FMT , ## a)
+-#define _debug(FMT, a...)	kdebug(FMT , ## a)
+-#define _proto(FMT, a...)	kproto(FMT , ## a)
+-#define _net(FMT, a...)		knet(FMT , ## a)
+-#else
+-#define _enter(FMT, a...)	do { } while(0)
+-#define _leave(FMT, a...)	do { } while(0)
+-#define _debug(FMT, a...)	do { } while(0)
+-#define _proto(FMT, a...)	do { } while(0)
+-#define _net(FMT, a...)		do { } while(0)
+-#endif
++struct afs_wait_mode {
++	/* RxRPC received message notification */
++	void (*rx_wakeup)(struct afs_call *call);
+=20
+-static inline void afs_discard_my_signals(void)
+-{
+-	while (signal_pending(current)) {
+-		siginfo_t sinfo;
++	/* synchronous call waiter and call dispatched notification */
++	int (*wait)(struct afs_call *call);
++
++	/* asynchronous call completion */
++	void (*async_complete)(void *reply, int error);
 +};
 +
-+/*
-+ * RxRPC client connection bundle
-+ * - matched by { transport, service_id, key }
-+ */
-+struct rxrpc_conn_bundle {
-+	struct rb_node		node;		/* node in transport's lookup tree */
-+	struct list_head	unused_conns;	/* unused connections in this bundle */
-+	struct list_head	avail_conns;	/* available connections in this bundle */
-+	struct list_head	busy_conns;	/* busy connections in this bundle */
-+	struct key		*key;		/* security for this bundle */
-+	wait_queue_head_t	chanwait;	/* wait for channel to become available */
-+	atomic_t		usage;
-+	int			debug_id;	/* debug ID for printks */
-+	unsigned short		num_conns;	/* number of connections in this bundle */
-+	__be16			service_id;	/* service ID */
-+	uint8_t			security_ix;	/* security type */
-+};
++extern const struct afs_wait_mode afs_sync_call;
++extern const struct afs_wait_mode afs_async_call;
 +
 +/*
-+ * RxRPC connection definition
-+ * - matched by { transport, service_id, conn_id, direction, key }
-+ * - each connection can only handle four simultaneous calls
++ * a record of an in-progress RxRPC call
 + */
-+struct rxrpc_connection {
-+	struct rxrpc_transport	*trans;		/* transport session */
-+	struct rxrpc_conn_bundle *bundle;	/* connection bundle (client) */
-+	struct work_struct	processor;	/* connection event processor */
-+	struct rb_node		node;		/* node in transport's lookup tree */
-+	struct list_head	link;		/* link in master connection list */
-+	struct list_head	bundle_link;	/* link in bundle */
-+	struct rb_root		calls;		/* calls on this connection */
-+	struct sk_buff_head	rx_queue;	/* received conn-level packets */
-+	struct rxrpc_call	*channels[RXRPC_MAXCALLS]; /* channels (active calls) */
-+	struct rxrpc_security	*security;	/* applied security module */
-+	struct key		*key;		/* security for this connection (client) */
-+	struct key		*server_key;	/* security for this service */
-+	struct crypto_blkcipher	*cipher;	/* encryption handle */
-+	struct rxrpc_crypt	csum_iv;	/* packet checksum base */
-+	unsigned long		events;
-+#define RXRPC_CONN_CHALLENGE	0		/* send challenge packet */
-+	time_t			put_time;	/* time at which to reap */
-+	rwlock_t		lock;		/* access lock */
-+	spinlock_t		state_lock;	/* state-change lock */
-+	atomic_t		usage;
-+	u32			real_conn_id;	/* connection ID (host-endian) */
-+	enum {					/* current state of connection */
-+		RXRPC_CONN_UNUSED,		/* - connection not yet attempted */
-+		RXRPC_CONN_CLIENT,		/* - client connection */
-+		RXRPC_CONN_SERVER_UNSECURED,	/* - server unsecured connection */
-+		RXRPC_CONN_SERVER_CHALLENGING,	/* - server challenging for security */
-+		RXRPC_CONN_SERVER,		/* - server secured connection */
-+		RXRPC_CONN_REMOTELY_ABORTED,	/* - conn aborted by peer */
-+		RXRPC_CONN_LOCALLY_ABORTED,	/* - conn aborted locally */
-+		RXRPC_CONN_NETWORK_ERROR,	/* - conn terminated by network error */
-+	} state;
-+	int			error;		/* error code for local abort */
-+	int			debug_id;	/* debug ID for printks */
-+	unsigned		call_counter;	/* call ID counter */
-+	atomic_t		serial;		/* packet serial number counter */
-+	atomic_t		hi_serial;	/* highest serial number received */
-+	u8			avail_calls;	/* number of calls available */
-+	u8			size_align;	/* data size alignment (for security) */
-+	u8			header_size;	/* rxrpc + security header size */
-+	u8			security_size;	/* security header size */
-+	u32			security_level;	/* security level negotiated */
-+	u32			security_nonce;	/* response re-use preventer */
-+
-+	/* the following are all in net order */
-+	__be32			epoch;		/* epoch of this connection */
-+	__be32			cid;		/* connection ID */
-+	__be16			service_id;	/* service ID */
-+	u8			security_ix;	/* security type */
-+	u8			in_clientflag;	/* RXRPC_CLIENT_INITIATED if we are server */
-+	u8			out_clientflag;	/* RXRPC_CLIENT_INITIATED if we are client */
-+};
-+
-+/*
-+ * RxRPC call definition
-+ * - matched by { connection, call_id }
-+ */
-+struct rxrpc_call {
-+	struct rxrpc_connection	*conn;		/* connection carrying call */
-+	struct rxrpc_sock	*socket;	/* socket responsible */
-+	struct timer_list	lifetimer;	/* lifetime remaining on call */
-+	struct timer_list	deadspan;	/* reap timer for re-ACK'ing, etc  */
-+	struct timer_list	ack_timer;	/* ACK generation timer */
-+	struct timer_list	resend_timer;	/* Tx resend timer */
-+	struct work_struct	destroyer;	/* call destroyer */
-+	struct work_struct	processor;	/* packet processor and ACK generator */
-+	struct list_head	link;		/* link in master call list */
-+	struct list_head	error_link;	/* link in error distribution list */
-+	struct list_head	accept_link;	/* calls awaiting acceptance */
-+	struct rb_node		sock_node;	/* node in socket call tree */
-+	struct rb_node		conn_node;	/* node in connection call tree */
++struct afs_call {
++	const struct afs_call_type *type;	/* type of call */
++	const struct afs_wait_mode *wait_mode;	/* completion wait mode */
++	wait_queue_head_t	waitq;		/* processes awaiting completion */
++	struct work_struct	async_work;	/* asynchronous work processor */
++	struct work_struct	work;		/* actual work processor */
 +	struct sk_buff_head	rx_queue;	/* received packets */
-+	struct sk_buff_head	rx_oos_queue;	/* packets received out of sequence */
-+	struct sk_buff		*tx_pending;	/* Tx socket buffer being filled */
-+	wait_queue_head_t	tx_waitq;	/* wait for Tx window space to become available */
-+	unsigned long		user_call_ID;	/* user-defined call ID */
-+	unsigned long		creation_jif;	/* time of call creation */
-+	unsigned long		flags;
-+#define RXRPC_CALL_RELEASED	0	/* call has been released - no more message to userspace */
-+#define RXRPC_CALL_TERMINAL_MSG	1	/* call has given the socket its final message */
-+#define RXRPC_CALL_RCVD_LAST	2	/* all packets received */
-+#define RXRPC_CALL_RUN_RTIMER	3	/* Tx resend timer started */
-+#define RXRPC_CALL_TX_SOFT_ACK	4	/* sent some soft ACKs */
-+#define RXRPC_CALL_PROC_BUSY	5	/* the processor is busy */
-+#define RXRPC_CALL_INIT_ACCEPT	6	/* acceptance was initiated */
-+#define RXRPC_CALL_HAS_USERID	7	/* has a user ID attached */
-+#define RXRPC_CALL_EXPECT_OOS	8	/* expect out of sequence packets */
-+	unsigned long		events;
-+#define RXRPC_CALL_RCVD_ACKALL	0	/* ACKALL or reply received */
-+#define RXRPC_CALL_RCVD_BUSY	1	/* busy packet received */
-+#define RXRPC_CALL_RCVD_ABORT	2	/* abort packet received */
-+#define RXRPC_CALL_RCVD_ERROR	3	/* network error received */
-+#define RXRPC_CALL_ACK_FINAL	4	/* need to generate final ACK (and release call) */
-+#define RXRPC_CALL_ACK		5	/* need to generate ACK */
-+#define RXRPC_CALL_REJECT_BUSY	6	/* need to generate busy message */
-+#define RXRPC_CALL_ABORT	7	/* need to generate abort */
-+#define RXRPC_CALL_CONN_ABORT	8	/* local connection abort generated */
-+#define RXRPC_CALL_RESEND_TIMER	9	/* Tx resend timer expired */
-+#define RXRPC_CALL_RESEND	10	/* Tx resend required */
-+#define RXRPC_CALL_DRAIN_RX_OOS	11	/* drain the Rx out of sequence queue */
-+#define RXRPC_CALL_LIFE_TIMER	12	/* call's lifetimer ran out */
-+#define RXRPC_CALL_ACCEPTED	13	/* incoming call accepted by userspace app */
-+#define RXRPC_CALL_SECURED	14	/* incoming call's connection is now secure */
-+#define RXRPC_CALL_POST_ACCEPT	15	/* need to post an "accept?" message to the app */
-+#define RXRPC_CALL_RELEASE	16	/* need to release the call's resources */
++	struct rxrpc_call	*rxcall;	/* RxRPC call handle */
++	struct key		*key;		/* security for this call */
++	struct afs_server	*server;	/* server affected by incoming CM call */
++	void			*request;	/* request data (first part) */
++	void			*request2;	/* request data (second part) */
++	void			*buffer;	/* reply receive buffer */
++	void			*reply;		/* reply buffer (first part) */
++	void			*reply2;	/* reply buffer (second part) */
++	void			*reply3;	/* reply buffer (third part) */
++	enum {					/* call state */
++		AFS_CALL_REQUESTING,	/* request is being sent for outgoing call */
++		AFS_CALL_AWAIT_REPLY,	/* awaiting reply to outgoing call */
++		AFS_CALL_AWAIT_OP_ID,	/* awaiting op ID on incoming call */
++		AFS_CALL_AWAIT_REQUEST,	/* awaiting request data on incoming call */
++		AFS_CALL_REPLYING,	/* replying to incoming call */
++		AFS_CALL_AWAIT_ACK,	/* awaiting final ACK of incoming call */
++		AFS_CALL_COMPLETE,	/* successfully completed */
++		AFS_CALL_BUSY,		/* server was busy */
++		AFS_CALL_ABORTED,	/* call was aborted */
++		AFS_CALL_ERROR,		/* call failed due to error */
++	}			state;
++	int			error;		/* error code */
++	unsigned		request_size;	/* size of request data */
++	unsigned		reply_max;	/* maximum size of reply */
++	unsigned		reply_size;	/* current size of reply */
++	unsigned short		offset;		/* offset into received data store */
++	unsigned char		unmarshall;	/* unmarshalling phase */
++	bool			incoming;	/* T if incoming call */
++	u16			service_id;	/* RxRPC service ID to call */
++	__be16			port;		/* target UDP port */
++	__be32			operation_ID;	/* operation ID for an incoming call */
++	u32			count;		/* count for use in unmarshalling */
++	__be32			tmp;		/* place to extract temporary data */
++};
 +
-+	spinlock_t		lock;
-+	rwlock_t		state_lock;	/* lock for state transition */
++struct afs_call_type {
++	/* deliver request or reply data to an call
++	 * - returning an error will cause the call to be aborted
++	 */
++	int (*deliver)(struct afs_call *call, struct sk_buff *skb,
++		       bool last);
++
++	/* map an abort code to an error number */
++	int (*abort_to_error)(u32 abort_code);
++
++	/* clean up a call */
++	void (*destructor)(struct afs_call *call);
++};
++
++/*
++ * AFS superblock private data
++ * - there's one superblock per volume
++ */
++struct afs_super_info {
++	struct afs_volume	*volume;	/* volume record */
++	char			rwparent;	/* T if parent is R/W AFS volume */
++};
+=20
+-		spin_lock_irq(&current->sighand->siglock);
+-		dequeue_signal(current,&current->blocked, &sinfo);
+-		spin_unlock_irq(&current->sighand->siglock);
+-	}
++static inline struct afs_super_info *AFS_FS_S(struct super_block *sb)
++{
++	return sb->s_fs_info;
+ }
+=20
++extern struct file_system_type afs_fs_type;
++
++/*
++ * entry in the cached cell catalogue
++ */
++struct afs_cache_cell {
++	char			name[64];	/* cell name (padded with NULs) */
++	struct in_addr		vl_servers[15];	/* cached cell VL servers */
++};
++
++/*
++ * AFS cell record
++ */
++struct afs_cell {
 +	atomic_t		usage;
-+	atomic_t		sequence;	/* Tx data packet sequence counter */
-+	u32			abort_code;	/* local/remote abort code */
-+	enum {					/* current state of call */
-+		RXRPC_CALL_CLIENT_SEND_REQUEST,	/* - client sending request phase */
-+		RXRPC_CALL_CLIENT_AWAIT_REPLY,	/* - client awaiting reply */
-+		RXRPC_CALL_CLIENT_RECV_REPLY,	/* - client receiving reply phase */
-+		RXRPC_CALL_CLIENT_FINAL_ACK,	/* - client sending final ACK phase */
-+		RXRPC_CALL_SERVER_SECURING,	/* - server securing request connection */
-+		RXRPC_CALL_SERVER_ACCEPTING,	/* - server accepting request */
-+		RXRPC_CALL_SERVER_RECV_REQUEST,	/* - server receiving request */
-+		RXRPC_CALL_SERVER_ACK_REQUEST,	/* - server pending ACK of request */
-+		RXRPC_CALL_SERVER_SEND_REPLY,	/* - server sending reply */
-+		RXRPC_CALL_SERVER_AWAIT_ACK,	/* - server awaiting final ACK */
-+		RXRPC_CALL_COMPLETE,		/* - call completed */
-+		RXRPC_CALL_SERVER_BUSY,		/* - call rejected by busy server */
-+		RXRPC_CALL_REMOTELY_ABORTED,	/* - call aborted by peer */
-+		RXRPC_CALL_LOCALLY_ABORTED,	/* - call aborted locally on error or close */
-+		RXRPC_CALL_NETWORK_ERROR,	/* - call terminated by network error */
-+		RXRPC_CALL_DEAD,		/* - call is dead */
-+	} state;
-+	int			debug_id;	/* debug ID for printks */
-+	u8			channel;	/* connection channel occupied by this call */
++	struct list_head	link;		/* main cell list link */
++	struct list_head	proc_link;	/* /proc cell list link */
++	struct proc_dir_entry	*proc_dir;	/* /proc dir for this cell */
++#ifdef AFS_CACHING_SUPPORT
++	struct cachefs_cookie	*cache;		/* caching cookie */
++#endif
 +
-+	/* transmission-phase ACK management */
-+	uint8_t			acks_head;	/* offset into window of first entry */
-+	uint8_t			acks_tail;	/* offset into window of last entry */
-+	uint8_t			acks_winsz;	/* size of un-ACK'd window */
-+	uint8_t			acks_unacked;	/* lowest unacked packet in last ACK received */
-+	int			acks_latest;	/* serial number of latest ACK received */
-+	rxrpc_seq_t		acks_hard;	/* highest definitively ACK'd msg seq */
-+	unsigned long		*acks_window;	/* sent packet window
-+						 * - elements are pointers with LSB set if ACK'd
-+						 */
++	/* server record management */
++	rwlock_t		servers_lock;	/* active server list lock */
++	struct list_head	servers;	/* active server list */
 +
-+	/* receive-phase ACK management */
-+	rxrpc_seq_t		rx_data_expect;	/* next data seq ID expected to be received */
-+	rxrpc_seq_t		rx_data_post;	/* next data seq ID expected to be posted */
-+	rxrpc_seq_t		rx_data_recv;	/* last data seq ID encountered by recvmsg */
-+	rxrpc_seq_t		rx_data_eaten;	/* last data seq ID consumed by recvmsg */
-+	rxrpc_seq_t		rx_first_oos;	/* first packet in rx_oos_queue (or 0) */
-+	rxrpc_seq_t		ackr_win_top;	/* top of ACK window (rx_data_eaten is bottom) */
-+	rxrpc_seq_net_t		ackr_prev_seq;	/* previous sequence number received */
-+	uint8_t			ackr_reason;	/* reason to ACK */
-+	__be32			ackr_serial;	/* serial of packet being ACK'd */
-+	atomic_t		ackr_not_idle;	/* number of packets in Rx queue */
++	/* volume location record management */
++	struct rw_semaphore	vl_sem;		/* volume management serialisation semap=
+hore */
++	struct list_head	vl_list;	/* cell's active VL record list */
++	spinlock_t		vl_lock;	/* vl_list lock */
++	unsigned short		vl_naddrs;	/* number of VL servers in addr list */
++	unsigned short		vl_curr_svix;	/* current server index */
++	struct in_addr		vl_addrs[AFS_CELL_MAX_ADDRS];	/* cell VL server addre=
+sses */
 +
-+	/* received packet records, 1 bit per record */
-+#define RXRPC_ACKR_WINDOW_ASZ DIV_ROUND_UP(RXRPC_MAXACKS, BITS_PER_LONG)
-+	unsigned long		ackr_window[RXRPC_ACKR_WINDOW_ASZ + 1];
-+
-+	/* the following should all be in net order */
-+	__be32			cid;		/* connection ID + channel index  */
-+	__be32			call_id;	/* call ID on connection  */
++	char			name[0];	/* cell name - must go last */
 +};
 +
 +/*
-+ * RxRPC key for Kerberos (type-2 security)
++ * entry in the cached volume location catalogue
 + */
-+struct rxkad_key {
-+	u16	security_index;		/* RxRPC header security index */
-+	u16	ticket_len;		/* length of ticket[] */
-+	u32	expiry;			/* time at which expires */
-+	u32	kvno;			/* key version number */
-+	u8	session_key[8];		/* DES session key */
-+	u8	ticket[0];		/* the encrypted ticket */
-+};
++struct afs_cache_vlocation {
++	uint8_t			name[64 + 1];	/* volume name (lowercase, padded with NULs) =
+*/
++	uint8_t			nservers;	/* number of entries used in servers[] */
++	uint8_t			vidmask;	/* voltype mask for vid[] */
++	uint8_t			srvtmask[8];	/* voltype masks for servers[] */
++#define AFS_VOL_VTM_RW	0x01 /* R/W version of the volume is available =
+(on this server) */
++#define AFS_VOL_VTM_RO	0x02 /* R/O version of the volume is available =
+(on this server) */
++#define AFS_VOL_VTM_BAK	0x04 /* backup version of the volume is availa=
+ble (on this server) */
 +
-+struct rxrpc_key_payload {
-+	struct rxkad_key k;
++	afs_volid_t		vid[3];		/* volume IDs for R/W, R/O and Bak volumes */
++	struct in_addr		servers[8];	/* fileserver addresses */
++	time_t			rtime;		/* last retrieval time */
 +};
 +
 +/*
-+ * locally abort an RxRPC call
++ * volume -> vnode hash table entry
 + */
-+static inline void rxrpc_abort_call(struct rxrpc_call *call, u32 abort_code)
++struct afs_cache_vhash {
++	afs_voltype_t		vtype;		/* which volume variation */
++	uint8_t			hash_bucket;	/* which hash bucket this represents */
++} __attribute__((packed));
++
++/*
++ * AFS volume location record
++ */
++struct afs_vlocation {
++	atomic_t		usage;
++	time_t			time_of_death;	/* time at which put reduced usage to 0 */
++	struct list_head	link;		/* link in cell volume location list */
++	struct list_head	grave;		/* link in master graveyard list */
++	struct list_head	update;		/* link in master update list */
++	struct afs_cell		*cell;		/* cell to which volume belongs */
++#ifdef AFS_CACHING_SUPPORT
++	struct cachefs_cookie	*cache;		/* caching cookie */
++#endif
++	struct afs_cache_vlocation vldb;	/* volume information DB record */
++	struct afs_volume	*vols[3];	/* volume access record pointer (index by=
+ type) */
++	wait_queue_head_t	waitq;		/* status change waitqueue */
++	time_t			update_at;	/* time at which record should be updated */
++	rwlock_t		lock;		/* access lock */
++	afs_vlocation_state_t	state;		/* volume location state */
++	unsigned short		upd_rej_cnt;	/* ENOMEDIUM count during update */
++	unsigned short		upd_busy_cnt;	/* EBUSY count during update */
++	bool			valid;		/* T if valid */
++};
++
++/*
++ * AFS fileserver record
++ */
++struct afs_server {
++	atomic_t		usage;
++	time_t			time_of_death;	/* time at which put reduced usage to 0 */
++	struct in_addr		addr;		/* server address */
++	struct afs_cell		*cell;		/* cell in which server resides */
++	struct list_head	link;		/* link in cell's server list */
++	struct list_head	grave;		/* link in master graveyard list */
++	struct rb_node		master_rb;	/* link in master by-addr tree */
++	struct rw_semaphore	sem;		/* access lock */
++
++	/* file service access */
++	struct rb_root		fs_vnodes;	/* vnodes backed by this server (ordered b=
+y FID) */
++	unsigned long		fs_act_jif;	/* time at which last activity occurred */
++	unsigned long		fs_dead_jif;	/* time at which no longer to be consider=
+ed dead */
++	spinlock_t		fs_lock;	/* access lock */
++	int			fs_state;      	/* 0 or reason FS currently marked dead (-errno=
+) */
++
++	/* callback promise management */
++	struct rb_root		cb_promises;	/* vnode expiration list (ordered earlie=
+st first) */
++	struct delayed_work	cb_updater;	/* callback updater */
++	struct delayed_work	cb_break_work;	/* collected break dispatcher */
++	wait_queue_head_t	cb_break_waitq;	/* space available in cb_break wait=
+queue */
++	spinlock_t		cb_lock;	/* access lock */
++	struct afs_callback	cb_break[64];	/* ring of callbacks awaiting break=
+ing */
++	atomic_t		cb_break_n;	/* number of pending breaks */
++	u8			cb_break_head;	/* head of callback breaking ring */
++	u8			cb_break_tail;	/* tail of callback breaking ring */
++};
++
++/*
++ * AFS volume access record
++ */
++struct afs_volume {
++	atomic_t		usage;
++	struct afs_cell		*cell;		/* cell to which belongs (unrefd ptr) */
++	struct afs_vlocation	*vlocation;	/* volume location */
++#ifdef AFS_CACHING_SUPPORT
++	struct cachefs_cookie	*cache;		/* caching cookie */
++#endif
++	afs_volid_t		vid;		/* volume ID */
++	afs_voltype_t		type;		/* type of volume */
++	char			type_force;	/* force volume type (suppress R/O -> R/W) */
++	unsigned short		nservers;	/* number of server slots filled */
++	unsigned short		rjservers;	/* number of servers discarded due to -ENO=
+MEDIUM */
++	struct afs_server	*servers[8];	/* servers on which volume resides (or=
+dered) */
++	struct rw_semaphore	server_sem;	/* lock for accessing current server =
+*/
++};
++
++/*
++ * vnode catalogue entry
++ */
++struct afs_cache_vnode {
++	afs_vnodeid_t		vnode_id;	/* vnode ID */
++	unsigned		vnode_unique;	/* vnode ID uniquifier */
++	afs_dataversion_t	data_version;	/* data version */
++};
++
++/*
++ * AFS inode private data
++ */
++struct afs_vnode {
++	struct inode		vfs_inode;	/* the VFS's inode record */
++
++	struct afs_volume	*volume;	/* volume on which vnode resides */
++	struct afs_server	*server;	/* server currently supplying this file */
++	struct afs_fid		fid;		/* the file identifier for this inode */
++	struct afs_file_status	status;		/* AFS status info for this file */
++#ifdef AFS_CACHING_SUPPORT
++	struct cachefs_cookie	*cache;		/* caching cookie */
++#endif
++
++	wait_queue_head_t	update_waitq;	/* status fetch waitqueue */
++	unsigned		update_cnt;	/* number of outstanding ops that will update t=
+he
++						 * status */
++	spinlock_t		lock;		/* waitqueue/flags lock */
++	unsigned long		flags;
++#define AFS_VNODE_CB_BROKEN	0		/* set if vnode's callback was broken *=
+/
++#define AFS_VNODE_CHANGED	1		/* set if vnode's metadata changed */
++#define AFS_VNODE_MODIFIED	2		/* set if vnode's data modified */
++#define AFS_VNODE_ZAP_DATA	3		/* set if vnode's data should be invalid=
+ated */
++#define AFS_VNODE_DELETED	4		/* set if vnode deleted on server */
++#define AFS_VNODE_MOUNTPOINT	5		/* set if vnode is a mountpoint symlin=
+k */
++#define AFS_VNODE_DIR_CHANGED	6		/* set if vnode's parent dir metadata=
+ changed */
++#define AFS_VNODE_DIR_MODIFIED	7		/* set if vnode's parent dir data mo=
+dified */
++
++	/* outstanding callback notification on this file */
++	struct rb_node		server_rb;	/* link in server->fs_vnodes */
++	struct rb_node		cb_promise;	/* link in server->cb_promises */
++	struct work_struct	cb_broken_work;	/* work to be done on callback bre=
+ak */
++	struct mutex		cb_broken_lock;	/* lock against multiple attempts to fi=
+x break */
++//	struct list_head	cb_hash_link;	/* link in master callback hash */
++	time_t			cb_expires;	/* time at which callback expires */
++	time_t			cb_expires_at;	/* time used to order cb_promise */
++	unsigned		cb_version;	/* callback version */
++	unsigned		cb_expiry;	/* callback expiry time */
++	afs_callback_type_t	cb_type;	/* type of callback */
++	bool			cb_promised;	/* true if promise still holds */
++};
++
++/*********************************************************************=
+********/
++/*
++ * callback.c
++ */
++extern void afs_init_callback_state(struct afs_server *);
++extern void afs_broken_callback_work(struct work_struct *);
++extern void afs_break_callbacks(struct afs_server *, size_t,
++				struct afs_callback[]);
++extern void afs_give_up_callback(struct afs_vnode *);
++extern void afs_dispatch_give_up_callbacks(struct work_struct *);
++extern void afs_flush_callback_breaks(struct afs_server *);
++extern int __init afs_callback_update_init(void);
++extern void __exit afs_callback_update_kill(void);
++
+ /*
+  * cell.c
+  */
+@@ -60,6 +333,19 @@ extern struct list_head afs_proc_cells;
+ extern struct cachefs_index_def afs_cache_cell_index_def;
+ #endif
+=20
++#define afs_get_cell(C) do { atomic_inc(&(C)->usage); } while(0)
++extern int afs_cell_init(char *);
++extern struct afs_cell *afs_cell_create(const char *, char *);
++extern struct afs_cell *afs_cell_lookup(const char *, unsigned);
++extern struct afs_cell *afs_grab_cell(struct afs_cell *);
++extern void afs_put_cell(struct afs_cell *);
++extern void afs_cell_purge(void);
++
++/*
++ * cmservice.c
++ */
++extern bool afs_cm_incoming_call(struct afs_call *);
++
+ /*
+  * dir.c
+  */
+@@ -77,9 +363,22 @@ extern int afs_cache_get_page_cookie(struct page *,=
+ struct cachefs_page **);
+ #endif
+=20
+ /*
++ * fsclient.c
++ */
++extern int afs_fs_fetch_file_status(struct afs_server *,
++				    struct afs_vnode *,
++				    struct afs_volsync *,
++				    const struct afs_wait_mode *);
++extern int afs_fs_give_up_callbacks(struct afs_server *,
++				    const struct afs_wait_mode *);
++extern int afs_fs_fetch_data(struct afs_server *, struct afs_vnode *, =
+off_t,
++			     size_t, struct page *, struct afs_volsync *,
++			     const struct afs_wait_mode *);
++
++/*
+  * inode.c
+  */
+-extern int afs_iget(struct super_block *, struct afs_fid *, struct ino=
+de **);
++extern struct inode *afs_iget(struct super_block *, struct afs_fid *);
+ extern int afs_inode_getattr(struct vfsmount *, struct dentry *,
+ 			     struct kstat *);
+ extern void afs_clear_inode(struct inode *);
+@@ -92,15 +391,20 @@ extern struct cachefs_netfs afs_cache_netfs;
+ #endif
+=20
+ /*
++ * misc.c
++ */
++extern int afs_abort_to_error(u32);
++
++/*
+  * mntpt.c
+  */
+ extern const struct inode_operations afs_mntpt_inode_operations;
+ extern const struct file_operations afs_mntpt_file_operations;
+-extern struct afs_timer afs_mntpt_expiry_timer;
+-extern struct afs_timer_ops afs_mntpt_expiry_timer_ops;
+ extern unsigned long afs_mntpt_expiry_timeout;
+=20
+ extern int afs_mntpt_check_symlink(struct afs_vnode *);
++extern void afs_mntpt_kill_timer(void);
++extern void afs_umount_begin(struct vfsmount *, int);
+=20
+ /*
+  * super.c
+@@ -108,16 +412,6 @@ extern int afs_mntpt_check_symlink(struct afs_vnod=
+e *);
+ extern int afs_fs_init(void);
+ extern void afs_fs_exit(void);
+=20
+-#define AFS_CB_HASH_COUNT (PAGE_SIZE / sizeof(struct list_head))
+-
+-extern struct list_head afs_cb_hash_tbl[];
+-extern spinlock_t afs_cb_hash_lock;
+-
+-#define afs_cb_hash(SRV, FID)						\
+-	afs_cb_hash_tbl[((unsigned long)(SRV) +				\
+-			 (FID)->vid + (FID)->vnode + (FID)->unique) &	\
+-			(AFS_CB_HASH_COUNT - 1)]
+-
+ /*
+  * proc.c
+  */
+@@ -126,4 +420,217 @@ extern void afs_proc_cleanup(void);
+ extern int afs_proc_cell_setup(struct afs_cell *);
+ extern void afs_proc_cell_remove(struct afs_cell *);
+=20
+-#endif /* AFS_INTERNAL_H */
++/*
++ * rxrpc.c
++ */
++extern int afs_open_socket(void);
++extern void afs_close_socket(void);
++extern int afs_make_call(struct in_addr *, struct afs_call *, gfp_t,
++			 const struct afs_wait_mode *);
++extern struct afs_call *afs_alloc_flat_call(const struct afs_call_type=
+ *,
++					    size_t, size_t);
++extern void afs_flat_call_destructor(struct afs_call *);
++extern void afs_transfer_reply(struct afs_call *, struct sk_buff *);
++extern void afs_send_empty_reply(struct afs_call *);
++extern int afs_extract_data(struct afs_call *, struct sk_buff *, bool,=
+ void *,
++			    size_t);
++
++/*
++ * server.c
++ */
++extern spinlock_t afs_server_peer_lock;
++
++#define afs_get_server(S) do { atomic_inc(&(S)->usage); } while(0)
++
++extern struct afs_server *afs_lookup_server(struct afs_cell *,
++					    const struct in_addr *);
++extern struct afs_server *afs_find_server(const struct in_addr *);
++extern void afs_put_server(struct afs_server *);
++extern void __exit afs_purge_servers(void);
++
++/*
++ * vlclient.c
++ */
++#ifdef AFS_CACHING_SUPPORT
++extern struct cachefs_index_def afs_vlocation_cache_index_def;
++#endif
++
++extern int afs_vl_get_entry_by_name(struct in_addr *, const char *,
++				    struct afs_cache_vlocation *,
++				    const struct afs_wait_mode *);
++extern int afs_vl_get_entry_by_id(struct in_addr *, afs_volid_t, afs_v=
+oltype_t,
++				  struct afs_cache_vlocation *,
++				  const struct afs_wait_mode *);
++
++/*
++ * vlocation.c
++ */
++#define afs_get_vlocation(V) do { atomic_inc(&(V)->usage); } while(0)
++
++extern int __init afs_vlocation_update_init(void);
++extern struct afs_vlocation *afs_vlocation_lookup(struct afs_cell *,
++						  const char *, size_t);
++extern void afs_put_vlocation(struct afs_vlocation *);
++extern void __exit afs_vlocation_purge(void);
++
++/*
++ * vnode.c
++ */
++#ifdef AFS_CACHING_SUPPORT
++extern struct cachefs_index_def afs_vnode_cache_index_def;
++#endif
++
++extern struct afs_timer_ops afs_vnode_cb_timed_out_ops;
++
++static inline struct afs_vnode *AFS_FS_I(struct inode *inode)
 +{
-+	write_lock_bh(&call->state_lock);
-+	if (call->state < RXRPC_CALL_COMPLETE) {
-+		call->abort_code = abort_code;
-+		call->state = RXRPC_CALL_LOCALLY_ABORTED;
-+		set_bit(RXRPC_CALL_ABORT, &call->events);
-+	}
-+	write_unlock_bh(&call->state_lock);
++	return container_of(inode, struct afs_vnode, vfs_inode);
 +}
 +
-+/*
-+ * put a packet up for transport-level abort
-+ */
-+static inline
-+void rxrpc_reject_packet(struct rxrpc_local *local, struct sk_buff *skb)
++static inline struct inode *AFS_VNODE_TO_I(struct afs_vnode *vnode)
 +{
-+	CHECK_SLAB_OKAY(&local->usage);
-+	if (!atomic_inc_not_zero(&local->usage)) {
-+		printk("resurrected on reject\n");
-+		BUG();
-+	}
-+	skb_queue_tail(&local->reject_queue, skb);
-+	schedule_work(&local->rejecter);
++	return &vnode->vfs_inode;
 +}
 +
-+/*
-+ * ar-accept.c
-+ */
-+extern void rxrpc_accept_incoming_calls(struct work_struct *);
-+extern int rxrpc_accept_call(struct rxrpc_sock *, unsigned long);
++extern int afs_vnode_fetch_status(struct afs_vnode *);
++extern int afs_vnode_fetch_data(struct afs_vnode *vnode, off_t, size_t=
+,
++				struct page *);
 +
 +/*
-+ * ar-ack.c
++ * volume.c
 + */
-+extern void __rxrpc_propose_ACK(struct rxrpc_call *, uint8_t, __be32, bool);
-+extern void rxrpc_propose_ACK(struct rxrpc_call *, uint8_t, __be32, bool);
-+extern void rxrpc_process_call(struct work_struct *);
++#ifdef AFS_CACHING_SUPPORT
++extern struct cachefs_index_def afs_volume_cache_index_def;
++#endif
 +
-+/*
-+ * ar-call.c
-+ */
-+extern struct kmem_cache *rxrpc_call_jar;
-+extern struct list_head rxrpc_calls;
-+extern rwlock_t rxrpc_call_lock;
++#define afs_get_volume(V) do { atomic_inc(&(V)->usage); } while(0)
 +
-+extern struct rxrpc_call *rxrpc_get_client_call(struct rxrpc_sock *,
-+						struct rxrpc_transport *,
-+						struct rxrpc_conn_bundle *,
-+						unsigned long, int, gfp_t);
-+extern struct rxrpc_call *rxrpc_incoming_call(struct rxrpc_sock *,
-+					      struct rxrpc_connection *,
-+					      struct rxrpc_header *, gfp_t);
-+extern struct rxrpc_call *rxrpc_find_server_call(struct rxrpc_sock *,
-+						 unsigned long);
-+extern void rxrpc_release_call(struct rxrpc_call *);
-+extern void rxrpc_release_calls_on_socket(struct rxrpc_sock *);
-+extern void __rxrpc_put_call(struct rxrpc_call *);
-+extern void __exit rxrpc_destroy_all_calls(void);
++extern void afs_put_volume(struct afs_volume *);
++extern struct afs_volume *afs_volume_lookup(const char *, struct afs_c=
+ell *,
++					    int);
++extern struct afs_server *afs_volume_pick_fileserver(struct afs_vnode =
+*);
++extern int afs_volume_release_fileserver(struct afs_vnode *,
++					 struct afs_server *, int);
 +
-+/*
-+ * ar-connection.c
-+ */
-+extern struct list_head rxrpc_connections;
-+extern rwlock_t rxrpc_connection_lock;
-+
-+extern struct rxrpc_conn_bundle *rxrpc_get_bundle(struct rxrpc_sock *,
-+						  struct rxrpc_transport *,
-+						  struct key *,
-+						  __be16, gfp_t);
-+extern void rxrpc_put_bundle(struct rxrpc_transport *,
-+			     struct rxrpc_conn_bundle *);
-+extern int rxrpc_connect_call(struct rxrpc_sock *, struct rxrpc_transport *,
-+			      struct rxrpc_conn_bundle *, struct rxrpc_call *,
-+			      gfp_t);
-+extern void rxrpc_put_connection(struct rxrpc_connection *);
-+extern void __exit rxrpc_destroy_all_connections(void);
-+extern struct rxrpc_connection *rxrpc_find_connection(struct rxrpc_transport *,
-+						      struct rxrpc_header *);
-+extern struct rxrpc_connection *
-+rxrpc_incoming_connection(struct rxrpc_transport *, struct rxrpc_header *,
-+			  gfp_t);
-+
-+/*
-+ * ar-connevent.c
-+ */
-+extern void rxrpc_process_connection(struct work_struct *);
-+extern void rxrpc_reject_packets(struct work_struct *);
-+
-+/*
-+ * ar-error.c
-+ */
-+extern void rxrpc_UDP_error_report(struct sock *);
-+extern void rxrpc_UDP_error_handler(struct work_struct *);
-+
-+/*
-+ * ar-input.c
-+ */
-+extern unsigned long rxrpc_ack_timeout;
-+extern const char *rxrpc_pkts[];
-+
-+extern void rxrpc_data_ready(struct sock *, int);
-+extern int rxrpc_queue_rcv_skb(struct rxrpc_call *, struct sk_buff *, bool,
-+			       bool);
-+extern void rxrpc_fast_process_packet(struct rxrpc_call *, struct sk_buff *);
-+
-+/*
-+ * ar-local.c
-+ */
-+extern rwlock_t rxrpc_local_lock;
-+extern struct rxrpc_local *rxrpc_lookup_local(struct sockaddr_rxrpc *);
-+extern void rxrpc_put_local(struct rxrpc_local *);
-+extern void __exit rxrpc_destroy_all_locals(void);
-+
-+/*
-+ * ar-key.c
-+ */
-+extern struct key_type key_type_rxrpc;
-+extern struct key_type key_type_rxrpc_s;
-+
-+extern int rxrpc_request_key(struct rxrpc_sock *, char __user *, int);
-+extern int rxrpc_server_keyring(struct rxrpc_sock *, char __user *, int);
-+extern int rxrpc_get_server_data_key(struct rxrpc_connection *, const void *,
-+				     time_t, u32);
-+
-+/*
-+ * ar-output.c
-+ */
-+extern int rxrpc_resend_timeout;
-+
-+extern int rxrpc_send_packet(struct rxrpc_transport *, struct sk_buff *);
-+extern int rxrpc_client_sendmsg(struct kiocb *, struct rxrpc_sock *,
-+				struct rxrpc_transport *, struct msghdr *,
-+				size_t);
-+extern int rxrpc_server_sendmsg(struct kiocb *, struct rxrpc_sock *,
-+				struct msghdr *, size_t);
-+
-+/*
-+ * ar-peer.c
-+ */
-+extern struct rxrpc_peer *rxrpc_get_peer(struct sockaddr_rxrpc *, gfp_t);
-+extern void rxrpc_put_peer(struct rxrpc_peer *);
-+extern struct rxrpc_peer *rxrpc_find_peer(struct rxrpc_local *,
-+					  __be32, __be16);
-+extern void __exit rxrpc_destroy_all_peers(void);
-+
-+/*
-+ * ar-proc.c
-+ */
-+extern const char *rxrpc_call_states[];
-+extern struct file_operations rxrpc_call_seq_fops;
-+extern struct file_operations rxrpc_connection_seq_fops;
-+
-+/*
-+ * ar-recvmsg.c
-+ */
-+extern int rxrpc_recvmsg(struct kiocb *, struct socket *, struct msghdr *,
-+			 size_t, int);
-+
-+/*
-+ * ar-security.c
-+ */
-+extern int rxrpc_register_security(struct rxrpc_security *);
-+extern void rxrpc_unregister_security(struct rxrpc_security *);
-+extern int rxrpc_init_client_conn_security(struct rxrpc_connection *);
-+extern int rxrpc_init_server_conn_security(struct rxrpc_connection *);
-+extern int rxrpc_secure_packet(const struct rxrpc_call *, struct sk_buff *,
-+			       size_t, void *);
-+extern int rxrpc_verify_packet(const struct rxrpc_call *, struct sk_buff *,
-+			       u32 *);
-+extern void rxrpc_clear_conn_security(struct rxrpc_connection *);
-+
-+/*
-+ * ar-skbuff.c
-+ */
-+extern void rxrpc_packet_destructor(struct sk_buff *);
-+
-+/*
-+ * ar-transport.c
-+ */
-+extern struct rxrpc_transport *rxrpc_get_transport(struct rxrpc_local *,
-+						   struct rxrpc_peer *,
-+						   gfp_t);
-+extern void rxrpc_put_transport(struct rxrpc_transport *);
-+extern void __exit rxrpc_destroy_all_transports(void);
-+extern struct rxrpc_transport *rxrpc_find_transport(struct rxrpc_local *,
-+						    struct rxrpc_peer *);
-+
++/*********************************************************************=
+********/
 +/*
 + * debug tracing
 + */
-+extern unsigned rxrpc_debug;
++extern unsigned afs_debug;
 +
 +#define dbgprintk(FMT,...) \
-+	printk("[%x%-6.6s] "FMT"\n", smp_processor_id(), current->comm ,##__VA_ARGS__)
++	printk("[%x%-6.6s] "FMT"\n", smp_processor_id(), current->comm ,##__V=
+A_ARGS__)
 +
-+/* make sure we maintain the format strings, even when debugging is disabled */
++/* make sure we maintain the format strings, even when debugging is di=
+sabled */
 +static inline __attribute__((format(printf,1,2)))
 +void _dbprintk(const char *fmt, ...)
 +{
 +}
 +
-+#define kenter(FMT,...)	dbgprintk("==> %s("FMT")",__FUNCTION__ ,##__VA_ARGS__)
-+#define kleave(FMT,...)	dbgprintk("<== %s()"FMT"",__FUNCTION__ ,##__VA_ARGS__)
++#define kenter(FMT,...)	dbgprintk("=3D=3D> %s("FMT")",__FUNCTION__ ,##=
+__VA_ARGS__)
++#define kleave(FMT,...)	dbgprintk("<=3D=3D %s()"FMT"",__FUNCTION__ ,##=
+__VA_ARGS__)
 +#define kdebug(FMT,...)	dbgprintk("    "FMT ,##__VA_ARGS__)
-+#define kproto(FMT,...)	dbgprintk("### "FMT ,##__VA_ARGS__)
-+#define knet(FMT,...)	dbgprintk("@@@ "FMT ,##__VA_ARGS__)
 +
 +
 +#if defined(__KDEBUG)
 +#define _enter(FMT,...)	kenter(FMT,##__VA_ARGS__)
 +#define _leave(FMT,...)	kleave(FMT,##__VA_ARGS__)
 +#define _debug(FMT,...)	kdebug(FMT,##__VA_ARGS__)
-+#define _proto(FMT,...)	kproto(FMT,##__VA_ARGS__)
-+#define _net(FMT,...)	knet(FMT,##__VA_ARGS__)
 +
-+#elif defined(CONFIG_AF_RXRPC_DEBUG)
-+#define RXRPC_DEBUG_KENTER	0x01
-+#define RXRPC_DEBUG_KLEAVE	0x02
-+#define RXRPC_DEBUG_KDEBUG	0x04
-+#define RXRPC_DEBUG_KPROTO	0x08
-+#define RXRPC_DEBUG_KNET	0x10
++#elif defined(CONFIG_AFS_DEBUG)
++#define AFS_DEBUG_KENTER	0x01
++#define AFS_DEBUG_KLEAVE	0x02
++#define AFS_DEBUG_KDEBUG	0x04
 +
 +#define _enter(FMT,...)					\
 +do {							\
-+	if (unlikely(rxrpc_debug & RXRPC_DEBUG_KENTER))	\
++	if (unlikely(afs_debug & AFS_DEBUG_KENTER))	\
 +		kenter(FMT,##__VA_ARGS__);		\
 +} while (0)
 +
 +#define _leave(FMT,...)					\
 +do {							\
-+	if (unlikely(rxrpc_debug & RXRPC_DEBUG_KLEAVE))	\
++	if (unlikely(afs_debug & AFS_DEBUG_KLEAVE))	\
 +		kleave(FMT,##__VA_ARGS__);		\
 +} while (0)
 +
 +#define _debug(FMT,...)					\
 +do {							\
-+	if (unlikely(rxrpc_debug & RXRPC_DEBUG_KDEBUG))	\
++	if (unlikely(afs_debug & AFS_DEBUG_KDEBUG))	\
 +		kdebug(FMT,##__VA_ARGS__);		\
 +} while (0)
 +
-+#define _proto(FMT,...)					\
-+do {							\
-+	if (unlikely(rxrpc_debug & RXRPC_DEBUG_KPROTO))	\
-+		kproto(FMT,##__VA_ARGS__);		\
-+} while (0)
-+
-+#define _net(FMT,...)					\
-+do {							\
-+	if (unlikely(rxrpc_debug & RXRPC_DEBUG_KNET))	\
-+		knet(FMT,##__VA_ARGS__);		\
-+} while (0)
-+
 +#else
-+#define _enter(FMT,...)	_dbprintk("==> %s("FMT")",__FUNCTION__ ,##__VA_ARGS__)
-+#define _leave(FMT,...)	_dbprintk("<== %s()"FMT"",__FUNCTION__ ,##__VA_ARGS__)
++#define _enter(FMT,...)	_dbprintk("=3D=3D> %s("FMT")",__FUNCTION__ ,##=
+__VA_ARGS__)
++#define _leave(FMT,...)	_dbprintk("<=3D=3D %s()"FMT"",__FUNCTION__ ,##=
+__VA_ARGS__)
 +#define _debug(FMT,...)	_dbprintk("    "FMT ,##__VA_ARGS__)
-+#define _proto(FMT,...)	_dbprintk("### "FMT ,##__VA_ARGS__)
-+#define _net(FMT,...)	_dbprintk("@@@ "FMT ,##__VA_ARGS__)
 +#endif
 +
 +/*
@@ -8077,7 +5533,7 @@ index 0000000..7bfbf47
 +do {								\
 +	if (unlikely(!(X))) {					\
 +		printk(KERN_ERR "\n");				\
-+		printk(KERN_ERR "RxRPC: Assertion failed\n");	\
++		printk(KERN_ERR "AFS: Assertion failed\n");	\
 +		BUG();						\
 +	}							\
 +} while(0)
@@ -8086,7 +5542,7 @@ index 0000000..7bfbf47
 +do {									\
 +	if (unlikely(!((X) OP (Y)))) {					\
 +		printk(KERN_ERR "\n");					\
-+		printk(KERN_ERR "RxRPC: Assertion failed\n");		\
++		printk(KERN_ERR "AFS: Assertion failed\n");		\
 +		printk(KERN_ERR "%lu " #OP " %lu is false\n",		\
 +		       (unsigned long)(X), (unsigned long)(Y));		\
 +		printk(KERN_ERR "0x%lx " #OP " 0x%lx is false\n",	\
@@ -8099,7 +5555,7 @@ index 0000000..7bfbf47
 +do {								\
 +	if (unlikely((C) && !(X))) {				\
 +		printk(KERN_ERR "\n");				\
-+		printk(KERN_ERR "RxRPC: Assertion failed\n");	\
++		printk(KERN_ERR "AFS: Assertion failed\n");	\
 +		BUG();						\
 +	}							\
 +} while(0)
@@ -8108,7 +5564,7 @@ index 0000000..7bfbf47
 +do {									\
 +	if (unlikely((C) && !((X) OP (Y)))) {				\
 +		printk(KERN_ERR "\n");					\
-+		printk(KERN_ERR "RxRPC: Assertion failed\n");		\
++		printk(KERN_ERR "AFS: Assertion failed\n");		\
 +		printk(KERN_ERR "%lu " #OP " %lu is false\n",		\
 +		       (unsigned long)(X), (unsigned long)(Y));		\
 +		printk(KERN_ERR "0x%lx " #OP " 0x%lx is false\n",	\
@@ -8136,4140 +5592,6674 @@ index 0000000..7bfbf47
 +} while(0)
 +
 +#endif /* __KDEBUGALL */
+diff --git a/fs/afs/kafsasyncd.c b/fs/afs/kafsasyncd.c
+deleted file mode 100644
+index 8ca01c2..0000000
+--- a/fs/afs/kafsasyncd.c
++++ /dev/null
+@@ -1,247 +0,0 @@
+-/* AFS asynchronous operation daemon
+- *
+- * Copyright (C) 2002 Red Hat, Inc. All Rights Reserved.
+- * Written by David Howells (dhowells@redhat.com)
+- *
+- * This program is free software; you can redistribute it and/or
+- * modify it under the terms of the GNU General Public License
+- * as published by the Free Software Foundation; either version
+- * 2 of the License, or (at your option) any later version.
+- *
+- *
+- * The AFS async daemon is used to the following:
+- * - probe "dead" servers to see whether they've come back to life yet=
+=2E
+- * - probe "live" servers that we haven't talked to for a while to see=
+ if they are better
+- *   candidates for serving than what we're currently using
+- * - poll volume location servers to keep up to date volume location l=
+ists
+- */
+-
+-#include <linux/module.h>
+-#include <linux/init.h>
+-#include <linux/sched.h>
+-#include <linux/completion.h>
+-#include <linux/freezer.h>
+-#include "cell.h"
+-#include "server.h"
+-#include "volume.h"
+-#include "kafsasyncd.h"
+-#include "kafstimod.h"
+-#include <rxrpc/call.h>
+-#include <asm/errno.h>
+-#include "internal.h"
+-
+-static DECLARE_COMPLETION(kafsasyncd_alive);
+-static DECLARE_COMPLETION(kafsasyncd_dead);
+-static DECLARE_WAIT_QUEUE_HEAD(kafsasyncd_sleepq);
+-static struct task_struct *kafsasyncd_task;
+-static int kafsasyncd_die;
+-
+-static int kafsasyncd(void *arg);
+-
+-static LIST_HEAD(kafsasyncd_async_attnq);
+-static LIST_HEAD(kafsasyncd_async_busyq);
+-static DEFINE_SPINLOCK(kafsasyncd_async_lock);
+-
+-static void kafsasyncd_null_call_attn_func(struct rxrpc_call *call)
+-{
+-}
+-
+-static void kafsasyncd_null_call_error_func(struct rxrpc_call *call)
+-{
+-}
+-
+-/*
+- * start the async daemon
+- */
+-int afs_kafsasyncd_start(void)
+-{
+-	int ret;
+-
+-	ret =3D kernel_thread(kafsasyncd, NULL, 0);
+-	if (ret < 0)
+-		return ret;
+-
+-	wait_for_completion(&kafsasyncd_alive);
+-
+-	return ret;
+-}
+-
+-/*
+- * stop the async daemon
+- */
+-void afs_kafsasyncd_stop(void)
+-{
+-	/* get rid of my daemon */
+-	kafsasyncd_die =3D 1;
+-	wake_up(&kafsasyncd_sleepq);
+-	wait_for_completion(&kafsasyncd_dead);
+-}
+-
+-/*
+- * probing daemon
+- */
+-static int kafsasyncd(void *arg)
+-{
+-	struct afs_async_op *op;
+-	int die;
+-
+-	DECLARE_WAITQUEUE(myself, current);
+-
+-	kafsasyncd_task =3D current;
+-
+-	printk("kAFS: Started kafsasyncd %d\n", current->pid);
+-
+-	daemonize("kafsasyncd");
+-
+-	complete(&kafsasyncd_alive);
+-
+-	/* loop around looking for things to attend to */
+-	do {
+-		set_current_state(TASK_INTERRUPTIBLE);
+-		add_wait_queue(&kafsasyncd_sleepq, &myself);
+-
+-		for (;;) {
+-			if (!list_empty(&kafsasyncd_async_attnq) ||
+-			    signal_pending(current) ||
+-			    kafsasyncd_die)
+-				break;
+-
+-			schedule();
+-			set_current_state(TASK_INTERRUPTIBLE);
+-		}
+-
+-		remove_wait_queue(&kafsasyncd_sleepq, &myself);
+-		set_current_state(TASK_RUNNING);
+-
+-		try_to_freeze();
+-
+-		/* discard pending signals */
+-		afs_discard_my_signals();
+-
+-		die =3D kafsasyncd_die;
+-
+-		/* deal with the next asynchronous operation requiring
+-		 * attention */
+-		if (!list_empty(&kafsasyncd_async_attnq)) {
+-			struct afs_async_op *op;
+-
+-			_debug("@@@ Begin Asynchronous Operation");
+-
+-			op =3D NULL;
+-			spin_lock(&kafsasyncd_async_lock);
+-
+-			if (!list_empty(&kafsasyncd_async_attnq)) {
+-				op =3D list_entry(kafsasyncd_async_attnq.next,
+-						struct afs_async_op, link);
+-				list_move_tail(&op->link,
+-					      &kafsasyncd_async_busyq);
+-			}
+-
+-			spin_unlock(&kafsasyncd_async_lock);
+-
+-			_debug("@@@ Operation %p {%p}\n",
+-			       op, op ? op->ops : NULL);
+-
+-			if (op)
+-				op->ops->attend(op);
+-
+-			_debug("@@@ End Asynchronous Operation");
+-		}
+-
+-	} while(!die);
+-
+-	/* need to kill all outstanding asynchronous operations before
+-	 * exiting */
+-	kafsasyncd_task =3D NULL;
+-	spin_lock(&kafsasyncd_async_lock);
+-
+-	/* fold the busy and attention queues together */
+-	list_splice_init(&kafsasyncd_async_busyq,
+-			 &kafsasyncd_async_attnq);
+-
+-	/* dequeue kafsasyncd from all their wait queues */
+-	list_for_each_entry(op, &kafsasyncd_async_attnq, link) {
+-		op->call->app_attn_func =3D kafsasyncd_null_call_attn_func;
+-		op->call->app_error_func =3D kafsasyncd_null_call_error_func;
+-		remove_wait_queue(&op->call->waitq, &op->waiter);
+-	}
+-
+-	spin_unlock(&kafsasyncd_async_lock);
+-
+-	/* abort all the operations */
+-	while (!list_empty(&kafsasyncd_async_attnq)) {
+-		op =3D list_entry(kafsasyncd_async_attnq.next, struct afs_async_op, =
+link);
+-		list_del_init(&op->link);
+-
+-		rxrpc_call_abort(op->call, -EIO);
+-		rxrpc_put_call(op->call);
+-		op->call =3D NULL;
+-
+-		op->ops->discard(op);
+-	}
+-
+-	/* and that's all */
+-	_leave("");
+-	complete_and_exit(&kafsasyncd_dead, 0);
+-}
+-
+-/*
+- * begin an operation
+- * - place operation on busy queue
+- */
+-void afs_kafsasyncd_begin_op(struct afs_async_op *op)
+-{
+-	_enter("");
+-
+-	spin_lock(&kafsasyncd_async_lock);
+-
+-	init_waitqueue_entry(&op->waiter, kafsasyncd_task);
+-	add_wait_queue(&op->call->waitq, &op->waiter);
+-
+-	list_move_tail(&op->link, &kafsasyncd_async_busyq);
+-
+-	spin_unlock(&kafsasyncd_async_lock);
+-
+-	_leave("");
+-}
+-
+-/*
+- * request attention for an operation
+- * - move to attention queue
+- */
+-void afs_kafsasyncd_attend_op(struct afs_async_op *op)
+-{
+-	_enter("");
+-
+-	spin_lock(&kafsasyncd_async_lock);
+-
+-	list_move_tail(&op->link, &kafsasyncd_async_attnq);
+-
+-	spin_unlock(&kafsasyncd_async_lock);
+-
+-	wake_up(&kafsasyncd_sleepq);
+-
+-	_leave("");
+-}
+-
+-/*
+- * terminate an operation
+- * - remove from either queue
+- */
+-void afs_kafsasyncd_terminate_op(struct afs_async_op *op)
+-{
+-	_enter("");
+-
+-	spin_lock(&kafsasyncd_async_lock);
+-
+-	if (!list_empty(&op->link)) {
+-		list_del_init(&op->link);
+-		remove_wait_queue(&op->call->waitq, &op->waiter);
+-	}
+-
+-	spin_unlock(&kafsasyncd_async_lock);
+-
+-	wake_up(&kafsasyncd_sleepq);
+-
+-	_leave("");
+-}
+diff --git a/fs/afs/kafsasyncd.h b/fs/afs/kafsasyncd.h
+deleted file mode 100644
+index 1273eb5..0000000
+--- a/fs/afs/kafsasyncd.h
++++ /dev/null
+@@ -1,50 +0,0 @@
+-/* AFS asynchronous operation daemon
+- *
+- * Copyright (C) 2002 Red Hat, Inc. All Rights Reserved.
+- * Written by David Howells (dhowells@redhat.com)
+- *
+- * This program is free software; you can redistribute it and/or
+- * modify it under the terms of the GNU General Public License
+- * as published by the Free Software Foundation; either version
+- * 2 of the License, or (at your option) any later version.
+- */
+-
+-#ifndef AFS_KAFSASYNCD_H
+-#define AFS_KAFSASYNCD_H
+-
+-#include "types.h"
+-
+-struct afs_async_op;
+-
+-struct afs_async_op_ops {
+-	void (*attend)(struct afs_async_op *);
+-	void (*discard)(struct afs_async_op *);
+-};
+-
+-/*
+- * asynchronous operation record
+- */
+-struct afs_async_op {
+-	struct list_head		link;
+-	struct afs_server		*server;	/* server being contacted */
+-	struct rxrpc_call		*call;		/* RxRPC call performing op */
+-	wait_queue_t			waiter;		/* wait queue for kafsasyncd */
+-	const struct afs_async_op_ops	*ops;		/* operations */
+-};
+-
+-static inline void afs_async_op_init(struct afs_async_op *op,
+-				     const struct afs_async_op_ops *ops)
+-{
+-	INIT_LIST_HEAD(&op->link);
+-	op->call =3D NULL;
+-	op->ops =3D ops;
+-}
+-
+-extern int afs_kafsasyncd_start(void);
+-extern void afs_kafsasyncd_stop(void);
+-
+-extern void afs_kafsasyncd_begin_op(struct afs_async_op *);
+-extern void afs_kafsasyncd_attend_op(struct afs_async_op *);
+-extern void afs_kafsasyncd_terminate_op(struct afs_async_op *);
+-
+-#endif /* AFS_KAFSASYNCD_H */
+diff --git a/fs/afs/kafstimod.c b/fs/afs/kafstimod.c
+deleted file mode 100644
+index 3526dcc..0000000
+--- a/fs/afs/kafstimod.c
++++ /dev/null
+@@ -1,194 +0,0 @@
+-/* AFS timeout daemon
+- *
+- * Copyright (C) 2002 Red Hat, Inc. All Rights Reserved.
+- * Written by David Howells (dhowells@redhat.com)
+- *
+- * This program is free software; you can redistribute it and/or
+- * modify it under the terms of the GNU General Public License
+- * as published by the Free Software Foundation; either version
+- * 2 of the License, or (at your option) any later version.
+- */
+-
+-#include <linux/module.h>
+-#include <linux/init.h>
+-#include <linux/sched.h>
+-#include <linux/completion.h>
+-#include <linux/freezer.h>
+-#include "cell.h"
+-#include "volume.h"
+-#include "kafstimod.h"
+-#include <asm/errno.h>
+-#include "internal.h"
+-
+-static DECLARE_COMPLETION(kafstimod_alive);
+-static DECLARE_COMPLETION(kafstimod_dead);
+-static DECLARE_WAIT_QUEUE_HEAD(kafstimod_sleepq);
+-static int kafstimod_die;
+-
+-static LIST_HEAD(kafstimod_list);
+-static DEFINE_SPINLOCK(kafstimod_lock);
+-
+-static int kafstimod(void *arg);
+-
+-/*
+- * start the timeout daemon
+- */
+-int afs_kafstimod_start(void)
+-{
+-	int ret;
+-
+-	ret =3D kernel_thread(kafstimod, NULL, 0);
+-	if (ret < 0)
+-		return ret;
+-
+-	wait_for_completion(&kafstimod_alive);
+-
+-	return ret;
+-}
+-
+-/*
+- * stop the timeout daemon
+- */
+-void afs_kafstimod_stop(void)
+-{
+-	/* get rid of my daemon */
+-	kafstimod_die =3D 1;
+-	wake_up(&kafstimod_sleepq);
+-	wait_for_completion(&kafstimod_dead);
+-}
+-
+-/*
+- * timeout processing daemon
+- */
+-static int kafstimod(void *arg)
+-{
+-	struct afs_timer *timer;
+-
+-	DECLARE_WAITQUEUE(myself, current);
+-
+-	printk("kAFS: Started kafstimod %d\n", current->pid);
+-
+-	daemonize("kafstimod");
+-
+-	complete(&kafstimod_alive);
+-
+-	/* loop around looking for things to attend to */
+-loop:
+-	set_current_state(TASK_INTERRUPTIBLE);
+-	add_wait_queue(&kafstimod_sleepq, &myself);
+-
+-	for (;;) {
+-		unsigned long jif;
+-		signed long timeout;
+-
+-		/* deal with the server being asked to die */
+-		if (kafstimod_die) {
+-			remove_wait_queue(&kafstimod_sleepq, &myself);
+-			_leave("");
+-			complete_and_exit(&kafstimod_dead, 0);
+-		}
+-
+-		try_to_freeze();
+-
+-		/* discard pending signals */
+-		afs_discard_my_signals();
+-
+-		/* work out the time to elapse before the next event */
+-		spin_lock(&kafstimod_lock);
+-		if (list_empty(&kafstimod_list)) {
+-			timeout =3D MAX_SCHEDULE_TIMEOUT;
+-		} else {
+-			timer =3D list_entry(kafstimod_list.next,
+-					   struct afs_timer, link);
+-			timeout =3D timer->timo_jif;
+-			jif =3D jiffies;
+-
+-			if (time_before_eq((unsigned long) timeout, jif))
+-				goto immediate;
+-			timeout =3D (long) timeout - (long) jiffies;
+-		}
+-		spin_unlock(&kafstimod_lock);
+-
+-		schedule_timeout(timeout);
+-
+-		set_current_state(TASK_INTERRUPTIBLE);
+-	}
+-
+-	/* the thing on the front of the queue needs processing
+-	 * - we come here with the lock held and timer pointing to the expire=
+d
+-	 *   entry
+-	 */
+-immediate:
+-	remove_wait_queue(&kafstimod_sleepq, &myself);
+-	set_current_state(TASK_RUNNING);
+-
+-	_debug("@@@ Begin Timeout of %p", timer);
+-
+-	/* dequeue the timer */
+-	list_del_init(&timer->link);
+-	spin_unlock(&kafstimod_lock);
+-
+-	/* call the timeout function */
+-	timer->ops->timed_out(timer);
+-
+-	_debug("@@@ End Timeout");
+-	goto loop;
+-}
+-
+-/*
+- * (re-)queue a timer
+- */
+-void afs_kafstimod_add_timer(struct afs_timer *timer, unsigned long ti=
+meout)
+-{
+-	struct afs_timer *ptimer;
+-	struct list_head *_p;
+-
+-	_enter("%p,%lu", timer, timeout);
+-
+-	spin_lock(&kafstimod_lock);
+-
+-	list_del(&timer->link);
+-
+-	/* the timer was deferred or reset - put it back in the queue at the
+-	 * right place */
+-	timer->timo_jif =3D jiffies + timeout;
+-
+-	list_for_each(_p, &kafstimod_list) {
+-		ptimer =3D list_entry(_p, struct afs_timer, link);
+-		if (time_before(timer->timo_jif, ptimer->timo_jif))
+-			break;
+-	}
+-
+-	list_add_tail(&timer->link, _p); /* insert before stopping point */
+-
+-	spin_unlock(&kafstimod_lock);
+-
+-	wake_up(&kafstimod_sleepq);
+-
+-	_leave("");
+-}
+-
+-/*
+- * dequeue a timer
+- * - returns 0 if the timer was deleted or -ENOENT if it wasn't queued
+- */
+-int afs_kafstimod_del_timer(struct afs_timer *timer)
+-{
+-	int ret =3D 0;
+-
+-	_enter("%p", timer);
+-
+-	spin_lock(&kafstimod_lock);
+-
+-	if (list_empty(&timer->link))
+-		ret =3D -ENOENT;
+-	else
+-		list_del_init(&timer->link);
+-
+-	spin_unlock(&kafstimod_lock);
+-
+-	wake_up(&kafstimod_sleepq);
+-
+-	_leave(" =3D %d", ret);
+-	return ret;
+-}
+diff --git a/fs/afs/kafstimod.h b/fs/afs/kafstimod.h
+deleted file mode 100644
+index 0d39bec..0000000
+--- a/fs/afs/kafstimod.h
++++ /dev/null
+@@ -1,45 +0,0 @@
+-/* AFS timeout daemon
+- *
+- * Copyright (C) 2002 Red Hat, Inc. All Rights Reserved.
+- * Written by David Howells (dhowells@redhat.com)
+- *
+- * This program is free software; you can redistribute it and/or
+- * modify it under the terms of the GNU General Public License
+- * as published by the Free Software Foundation; either version
+- * 2 of the License, or (at your option) any later version.
+- */
+-
+-#ifndef AFS_KAFSTIMOD_H
+-#define AFS_KAFSTIMOD_H
+-
+-#include "types.h"
+-
+-struct afs_timer;
+-
+-struct afs_timer_ops {
+-	/* called when the front of the timer queue has timed out */
+-	void (*timed_out)(struct afs_timer *);
+-};
+-
+-/*
+- * AFS timer/timeout record
+- */
+-struct afs_timer {
+-	struct list_head		link;		/* link in timer queue */
+-	unsigned long			timo_jif;	/* timeout time */
+-	const struct afs_timer_ops	*ops;		/* timeout expiry function */
+-};
+-
+-static inline void afs_timer_init(struct afs_timer *timer,
+-				  const struct afs_timer_ops *ops)
+-{
+-	INIT_LIST_HEAD(&timer->link);
+-	timer->ops =3D ops;
+-}
+-
+-extern int afs_kafstimod_start(void);
+-extern void afs_kafstimod_stop(void);
+-extern void afs_kafstimod_add_timer(struct afs_timer *, unsigned long)=
+;
+-extern int afs_kafstimod_del_timer(struct afs_timer *);
+-
+-#endif /* AFS_KAFSTIMOD_H */
+diff --git a/fs/afs/main.c b/fs/afs/main.c
+index 5bf39f6..0cf1b02 100644
+--- a/fs/afs/main.c
++++ b/fs/afs/main.c
+@@ -13,43 +13,21 @@
+ #include <linux/moduleparam.h>
+ #include <linux/init.h>
+ #include <linux/completion.h>
+-#include <rxrpc/rxrpc.h>
+-#include <rxrpc/transport.h>
+-#include <rxrpc/call.h>
+-#include <rxrpc/peer.h>
+-#include "cache.h"
+-#include "cell.h"
+-#include "server.h"
+-#include "fsclient.h"
+-#include "cmservice.h"
+-#include "kafstimod.h"
+-#include "kafsasyncd.h"
+ #include "internal.h"
+=20
+-struct rxrpc_transport *afs_transport;
+-
+-static int afs_adding_peer(struct rxrpc_peer *peer);
+-static void afs_discarding_peer(struct rxrpc_peer *peer);
+-
+-
+ MODULE_DESCRIPTION("AFS Client File System");
+ MODULE_AUTHOR("Red Hat, Inc.");
+ MODULE_LICENSE("GPL");
+=20
++unsigned afs_debug;
++module_param_named(debug, afs_debug, uint, S_IWUSR | S_IRUGO);
++MODULE_PARM_DESC(afs_debug, "AFS debugging mask");
 +
-+/*
-+ * socket buffer accounting / leak finding
-+ */
-+static inline void __rxrpc_new_skb(struct sk_buff *skb, const char *fn)
-+{
-+	//_net("new skb %p %s [%d]", skb, fn, atomic_read(&rxrpc_n_skbs));
-+	//atomic_inc(&rxrpc_n_skbs);
-+}
+ static char *rootcell;
+=20
+ module_param(rootcell, charp, 0);
+ MODULE_PARM_DESC(rootcell, "root AFS cell name and VL server IP addr l=
+ist");
+=20
+-
+-static struct rxrpc_peer_ops afs_peer_ops =3D {
+-	.adding		=3D afs_adding_peer,
+-	.discarding	=3D afs_discarding_peer,
+-};
+-
+-struct list_head afs_cb_hash_tbl[AFS_CB_HASH_COUNT];
+-DEFINE_SPINLOCK(afs_cb_hash_lock);
+-
+ #ifdef AFS_CACHING_SUPPORT
+ static struct cachefs_netfs_operations afs_cache_ops =3D {
+ 	.get_page_cookie	=3D afs_cache_get_page_cookie,
+@@ -67,15 +45,10 @@ struct cachefs_netfs afs_cache_netfs =3D {
+  */
+ static int __init afs_init(void)
+ {
+-	int loop, ret;
++	int ret;
+=20
+ 	printk(KERN_INFO "kAFS: Red Hat AFS client v0.1 registering.\n");
+=20
+-	/* initialise the callback hash table */
+-	spin_lock_init(&afs_cb_hash_lock);
+-	for (loop =3D AFS_CB_HASH_COUNT - 1; loop >=3D 0; loop--)
+-		INIT_LIST_HEAD(&afs_cb_hash_tbl[loop]);
+-
+ 	/* register the /proc stuff */
+ 	ret =3D afs_proc_init();
+ 	if (ret < 0)
+@@ -94,22 +67,18 @@ static int __init afs_init(void)
+ 	if (ret < 0)
+ 		goto error_cell_init;
+=20
+-	/* start the timeout daemon */
+-	ret =3D afs_kafstimod_start();
++	/* initialise the VL update process */
++	ret =3D afs_vlocation_update_init();
+ 	if (ret < 0)
+-		goto error_kafstimod;
++		goto error_vl_update_init;
+=20
+-	/* start the async operation daemon */
+-	ret =3D afs_kafsasyncd_start();
+-	if (ret < 0)
+-		goto error_kafsasyncd;
++	/* initialise the callback update process */
++	ret =3D afs_callback_update_init();
+=20
+ 	/* create the RxRPC transport */
+-	ret =3D rxrpc_create_transport(7001, &afs_transport);
++	ret =3D afs_open_socket();
+ 	if (ret < 0)
+-		goto error_transport;
+-
+-	afs_transport->peer_ops =3D &afs_peer_ops;
++		goto error_open_socket;
+=20
+ 	/* register the filesystems */
+ 	ret =3D afs_fs_init();
+@@ -119,17 +88,16 @@ static int __init afs_init(void)
+ 	return ret;
+=20
+ error_fs:
+-	rxrpc_put_transport(afs_transport);
+-error_transport:
+-	afs_kafsasyncd_stop();
+-error_kafsasyncd:
+-	afs_kafstimod_stop();
+-error_kafstimod:
++	afs_close_socket();
++error_open_socket:
++error_vl_update_init:
+ error_cell_init:
+ #ifdef AFS_CACHING_SUPPORT
+ 	cachefs_unregister_netfs(&afs_cache_netfs);
+ error_cache:
+ #endif
++	afs_callback_update_kill();
++	afs_vlocation_purge();
+ 	afs_cell_purge();
+ 	afs_proc_cleanup();
+ 	printk(KERN_ERR "kAFS: failed to register: %d\n", ret);
+@@ -149,9 +117,11 @@ static void __exit afs_exit(void)
+ 	printk(KERN_INFO "kAFS: Red Hat AFS client v0.1 unregistering.\n");
+=20
+ 	afs_fs_exit();
+-	rxrpc_put_transport(afs_transport);
+-	afs_kafstimod_stop();
+-	afs_kafsasyncd_stop();
++	afs_close_socket();
++	afs_purge_servers();
++	afs_callback_update_kill();
++	afs_vlocation_purge();
++	flush_scheduled_work();
+ 	afs_cell_purge();
+ #ifdef AFS_CACHING_SUPPORT
+ 	cachefs_unregister_netfs(&afs_cache_netfs);
+@@ -160,64 +130,3 @@ static void __exit afs_exit(void)
+ }
+=20
+ module_exit(afs_exit);
+-
+-/*
+- * notification that new peer record is being added
+- * - called from krxsecd
+- * - return an error to induce an abort
+- * - mustn't sleep (caller holds an rwlock)
+- */
+-static int afs_adding_peer(struct rxrpc_peer *peer)
+-{
+-	struct afs_server *server;
+-	int ret;
+-
+-	_debug("kAFS: Adding new peer %08x\n", ntohl(peer->addr.s_addr));
+-
+-	/* determine which server the peer resides in (if any) */
+-	ret =3D afs_server_find_by_peer(peer, &server);
+-	if (ret < 0)
+-		return ret; /* none that we recognise, so abort */
+-
+-	_debug("Server %p{u=3D%d}\n", server, atomic_read(&server->usage));
+-
+-	_debug("Cell %p{u=3D%d}\n",
+-	       server->cell, atomic_read(&server->cell->usage));
+-
+-	/* cross-point the structs under a global lock */
+-	spin_lock(&afs_server_peer_lock);
+-	peer->user =3D server;
+-	server->peer =3D peer;
+-	spin_unlock(&afs_server_peer_lock);
+-
+-	afs_put_server(server);
+-
+-	return 0;
+-}
+-
+-/*
+- * notification that a peer record is being discarded
+- * - called from krxiod or krxsecd
+- */
+-static void afs_discarding_peer(struct rxrpc_peer *peer)
+-{
+-	struct afs_server *server;
+-
+-	_enter("%p",peer);
+-
+-	_debug("Discarding peer %08x (rtt=3D%lu.%lumS)\n",
+-	       ntohl(peer->addr.s_addr),
+-	       (long) (peer->rtt / 1000),
+-	       (long) (peer->rtt % 1000));
+-
+-	/* uncross-point the structs under a global lock */
+-	spin_lock(&afs_server_peer_lock);
+-	server =3D peer->user;
+-	if (server) {
+-		peer->user =3D NULL;
+-		server->peer =3D NULL;
+-	}
+-	spin_unlock(&afs_server_peer_lock);
+-
+-	_leave("");
+-}
+diff --git a/fs/afs/misc.c b/fs/afs/misc.c
+index 55bc677..98e9276 100644
+--- a/fs/afs/misc.c
++++ b/fs/afs/misc.c
+@@ -1,6 +1,6 @@
+ /* miscellaneous bits
+  *
+- * Copyright (C) 2002 Red Hat, Inc. All Rights Reserved.
++ * Copyright (C) 2002, 2007 Red Hat, Inc. All Rights Reserved.
+  * Written by David Howells (dhowells@redhat.com)
+  *
+  * This program is free software; you can redistribute it and/or
+@@ -12,18 +12,19 @@
+ #include <linux/kernel.h>
+ #include <linux/module.h>
+ #include <linux/errno.h>
+-#include "errors.h"
+ #include "internal.h"
++#include "afs_fs.h"
+=20
+ /*
+  * convert an AFS abort code to a Linux error number
+  */
+-int afs_abort_to_error(int abortcode)
++int afs_abort_to_error(u32 abort_code)
+ {
+-	switch (abortcode) {
++	switch (abort_code) {
++	case 13:		return -EACCES;
+ 	case VSALVAGE:		return -EIO;
+ 	case VNOVNODE:		return -ENOENT;
+-	case VNOVOL:		return -ENXIO;
++	case VNOVOL:		return -ENOMEDIUM;
+ 	case VVOLEXISTS:	return -EEXIST;
+ 	case VNOSERVICE:	return -EIO;
+ 	case VOFFLINE:		return -ENOENT;
+diff --git a/fs/afs/mntpt.c b/fs/afs/mntpt.c
+index ca3fa81..08c11a0 100644
+--- a/fs/afs/mntpt.c
++++ b/fs/afs/mntpt.c
+@@ -18,10 +18,6 @@
+ #include <linux/mount.h>
+ #include <linux/namei.h>
+ #include <linux/mnt_namespace.h>
+-#include "super.h"
+-#include "cell.h"
+-#include "volume.h"
+-#include "vnode.h"
+ #include "internal.h"
+=20
+=20
+@@ -30,6 +26,7 @@ static struct dentry *afs_mntpt_lookup(struct inode *=
+dir,
+ 				       struct nameidata *nd);
+ static int afs_mntpt_open(struct inode *inode, struct file *file);
+ static void *afs_mntpt_follow_link(struct dentry *dentry, struct namei=
+data *nd);
++static void afs_mntpt_expiry_timed_out(struct work_struct *work);
+=20
+ const struct file_operations afs_mntpt_file_operations =3D {
+ 	.open		=3D afs_mntpt_open,
+@@ -43,16 +40,9 @@ const struct inode_operations afs_mntpt_inode_operat=
+ions =3D {
+ };
+=20
+ static LIST_HEAD(afs_vfsmounts);
++static DECLARE_DELAYED_WORK(afs_mntpt_expiry_timer, afs_mntpt_expiry_t=
+imed_out);
+=20
+-static void afs_mntpt_expiry_timed_out(struct afs_timer *timer);
+-
+-struct afs_timer_ops afs_mntpt_expiry_timer_ops =3D {
+-	.timed_out	=3D afs_mntpt_expiry_timed_out,
+-};
+-
+-struct afs_timer afs_mntpt_expiry_timer;
+-
+-unsigned long afs_mntpt_expiry_timeout =3D 20;
++unsigned long afs_mntpt_expiry_timeout =3D 10 * 60;
+=20
+ /*
+  * check a symbolic link to see whether it actually encodes a mountpoi=
+nt
+@@ -84,7 +74,7 @@ int afs_mntpt_check_symlink(struct afs_vnode *vnode)
+=20
+ 	/* examine the symlink's contents */
+ 	size =3D vnode->status.size;
+-	_debug("symlink to %*.*s", size, (int) size, buf);
++	_debug("symlink to %*.*s", (int) size, (int) size, buf);
+=20
+ 	if (size > 2 &&
+ 	    (buf[0] =3D=3D '%' || buf[0] =3D=3D '#') &&
+@@ -92,7 +82,7 @@ int afs_mntpt_check_symlink(struct afs_vnode *vnode)
+ 	    ) {
+ 		_debug("symlink is a mountpoint");
+ 		spin_lock(&vnode->lock);
+-		vnode->flags |=3D AFS_VNODE_MOUNTPOINT;
++		set_bit(AFS_VNODE_MOUNTPOINT, &vnode->flags);
+ 		spin_unlock(&vnode->lock);
+ 	}
+=20
+@@ -113,7 +103,7 @@ static struct dentry *afs_mntpt_lookup(struct inode=
+ *dir,
+ 				       struct dentry *dentry,
+ 				       struct nameidata *nd)
+ {
+-	kenter("%p,%p{%p{%s},%s}",
++	_enter("%p,%p{%p{%s},%s}",
+ 	       dir,
+ 	       dentry,
+ 	       dentry->d_parent,
+@@ -129,7 +119,7 @@ static struct dentry *afs_mntpt_lookup(struct inode=
+ *dir,
+  */
+ static int afs_mntpt_open(struct inode *inode, struct file *file)
+ {
+-	kenter("%p,%p{%p{%s},%s}",
++	_enter("%p,%p{%p{%s},%s}",
+ 	       inode, file,
+ 	       file->f_path.dentry->d_parent,
+ 	       file->f_path.dentry->d_parent ?
+@@ -152,7 +142,7 @@ static struct vfsmount *afs_mntpt_do_automount(stru=
+ct dentry *mntpt)
+ 	char *buf, *devname =3D NULL, *options =3D NULL;
+ 	int ret;
+=20
+-	kenter("{%s}", mntpt->d_name.name);
++	_enter("{%s}", mntpt->d_name.name);
+=20
+ 	BUG_ON(!mntpt->d_inode);
+=20
+@@ -196,13 +186,13 @@ static struct vfsmount *afs_mntpt_do_automount(st=
+ruct dentry *mntpt)
+ 		strcat(options, ",rwpath");
+=20
+ 	/* try and do the mount */
+-	kdebug("--- attempting mount %s -o %s ---", devname, options);
++	_debug("--- attempting mount %s -o %s ---", devname, options);
+ 	mnt =3D vfs_kern_mount(&afs_fs_type, 0, devname, options);
+-	kdebug("--- mount result %p ---", mnt);
++	_debug("--- mount result %p ---", mnt);
+=20
+ 	free_page((unsigned long) devname);
+ 	free_page((unsigned long) options);
+-	kleave(" =3D %p", mnt);
++	_leave(" =3D %p", mnt);
+ 	return mnt;
+=20
+ error:
+@@ -212,7 +202,7 @@ error:
+ 		free_page((unsigned long) devname);
+ 	if (options)
+ 		free_page((unsigned long) options);
+-	kleave(" =3D %d", ret);
++	_leave(" =3D %d", ret);
+ 	return ERR_PTR(ret);
+ }
+=20
+@@ -222,51 +212,81 @@ error:
+ static void *afs_mntpt_follow_link(struct dentry *dentry, struct namei=
+data *nd)
+ {
+ 	struct vfsmount *newmnt;
+-	struct dentry *old_dentry;
+ 	int err;
+=20
+-	kenter("%p{%s},{%s:%p{%s}}",
++	_enter("%p{%s},{%s:%p{%s}}",
+ 	       dentry,
+ 	       dentry->d_name.name,
+ 	       nd->mnt->mnt_devname,
+ 	       dentry,
+ 	       nd->dentry->d_name.name);
+=20
+-	newmnt =3D afs_mntpt_do_automount(dentry);
++	dput(nd->dentry);
++	nd->dentry =3D dget(dentry);
 +
-+#define rxrpc_new_skb(skb) __rxrpc_new_skb((skb), __func__)
++	newmnt =3D afs_mntpt_do_automount(nd->dentry);
+ 	if (IS_ERR(newmnt)) {
+ 		path_release(nd);
+ 		return (void *)newmnt;
+ 	}
+=20
+-	old_dentry =3D nd->dentry;
+-	nd->dentry =3D dentry;
+-	err =3D do_add_mount(newmnt, nd, 0, &afs_vfsmounts);
+-	nd->dentry =3D old_dentry;
+-
+-	path_release(nd);
+-
+-	if (!err) {
+-		mntget(newmnt);
++	mntget(newmnt);
++	err =3D do_add_mount(newmnt, nd, MNT_SHRINKABLE, &afs_vfsmounts);
++	switch (err) {
++	case 0:
++		path_release(nd);
+ 		nd->mnt =3D newmnt;
+-		dget(newmnt->mnt_root);
+-		nd->dentry =3D newmnt->mnt_root;
++		nd->dentry =3D dget(newmnt->mnt_root);
++		schedule_delayed_work(&afs_mntpt_expiry_timer,
++				      afs_mntpt_expiry_timeout * HZ);
++		break;
++	case -EBUSY:
++		/* someone else made a mount here whilst we were busy */
++		while (d_mountpoint(nd->dentry) &&
++		       follow_down(&nd->mnt, &nd->dentry))
++			;
++		err =3D 0;
++	default:
++		mntput(newmnt);
++		break;
+ 	}
+=20
+-	kleave(" =3D %d", err);
++	_leave(" =3D %d", err);
+ 	return ERR_PTR(err);
+ }
+=20
+ /*
+  * handle mountpoint expiry timer going off
+  */
+-static void afs_mntpt_expiry_timed_out(struct afs_timer *timer)
++static void afs_mntpt_expiry_timed_out(struct work_struct *work)
+ {
+-	kenter("");
++	_enter("");
 +
-+static inline void __rxrpc_kill_skb(struct sk_buff *skb, const char *fn)
-+{
-+	//_net("kill skb %p %s [%d]", skb, fn, atomic_read(&rxrpc_n_skbs));
-+	//atomic_dec(&rxrpc_n_skbs);
-+}
-+
-+#define rxrpc_kill_skb(skb) __rxrpc_kill_skb((skb), __func__)
-+
-+static inline void __rxrpc_free_skb(struct sk_buff *skb, const char *fn)
-+{
-+	if (skb) {
-+		CHECK_SLAB_OKAY(&skb->users);
-+		//_net("free skb %p %s [%d]",
-+		//     skb, fn, atomic_read(&rxrpc_n_skbs));
-+		//atomic_dec(&rxrpc_n_skbs);
-+		kfree_skb(skb);
++	if (!list_empty(&afs_vfsmounts)) {
++		mark_mounts_for_expiry(&afs_vfsmounts);
++		schedule_delayed_work(&afs_mntpt_expiry_timer,
++				      afs_mntpt_expiry_timeout * HZ);
 +	}
++
++	_leave("");
 +}
-+
-+#define rxrpc_free_skb(skb) __rxrpc_free_skb((skb), __func__)
-+
-+static inline void rxrpc_purge_queue(struct sk_buff_head *list)
-+{
-+	struct sk_buff *skb;
-+	while ((skb = skb_dequeue((list))) != NULL)
-+		rxrpc_free_skb(skb);
-+}
-+
-+static inline void __rxrpc__atomic_inc(atomic_t *v)
-+{
-+	CHECK_SLAB_OKAY(v);
-+	atomic_inc(v);
-+}
-+
-+#define atomic_inc(v) __rxrpc__atomic_inc((v))
-+
-+static inline void __rxrpc__atomic_dec(atomic_t *v)
-+{
-+	CHECK_SLAB_OKAY(v);
-+	atomic_dec(v);
-+}
-+
-+#define atomic_dec(v) __rxrpc__atomic_dec((v))
-+
-+static inline int __rxrpc__atomic_dec_and_test(atomic_t *v)
-+{
-+	CHECK_SLAB_OKAY(v);
-+	return atomic_dec_and_test(v);
-+}
-+
-+#define atomic_dec_and_test(v) __rxrpc__atomic_dec_and_test((v))
-+
-+static inline void __rxrpc_get_local(struct rxrpc_local *local, const char *f)
-+{
-+	CHECK_SLAB_OKAY(&local->usage);
-+	if (atomic_inc_return(&local->usage) == 1)
-+		printk("resurrected (%s)\n", f);
-+}
-+
-+#define rxrpc_get_local(LOCAL) __rxrpc_get_local((LOCAL), __func__)
-+
-+#define rxrpc_get_call(CALL)				\
-+do {							\
-+	CHECK_SLAB_OKAY(&(CALL)->usage);		\
-+	if (atomic_inc_return(&(CALL)->usage) == 1)	\
-+		BUG();					\
-+} while(0)
-+
-+#define rxrpc_put_call(CALL)				\
-+do {							\
-+	__rxrpc_put_call(CALL);				\
-+} while(0)
-diff --git a/net/rxrpc/ar-key.c b/net/rxrpc/ar-key.c
-new file mode 100644
-index 0000000..7e049ff
---- /dev/null
-+++ b/net/rxrpc/ar-key.c
-@@ -0,0 +1,334 @@
-+/* RxRPC key management
-+ *
-+ * Copyright (C) 2007 Red Hat, Inc. All Rights Reserved.
-+ * Written by David Howells (dhowells@redhat.com)
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version
-+ * 2 of the License, or (at your option) any later version.
-+ *
-+ * RxRPC keys should have a description of describing their purpose:
-+ *	"afs@CAMBRIDGE.REDHAT.COM>
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/net.h>
-+#include <linux/skbuff.h>
-+#include <linux/key.h>
-+#include <linux/crypto.h>
-+#include <net/sock.h>
-+#include <net/af_rxrpc.h>
-+#include <keys/rxrpc-type.h>
-+#include <keys/user-type.h>
-+#include "ar-internal.h"
-+
-+static int rxrpc_instantiate(struct key *, const void *, size_t);
-+static int rxrpc_instantiate_s(struct key *, const void *, size_t);
-+static void rxrpc_destroy(struct key *);
-+static void rxrpc_destroy_s(struct key *);
-+static void rxrpc_describe(const struct key *, struct seq_file *);
-+
+=20
+-	mark_mounts_for_expiry(&afs_vfsmounts);
 +/*
-+ * rxrpc defined keys take an arbitrary string as the description and an
-+ * arbitrary blob of data as the payload
++ * kill the AFS mountpoint timer if it's still running
 + */
-+struct key_type key_type_rxrpc = {
-+	.name		= "rxrpc",
-+	.instantiate	= rxrpc_instantiate,
-+	.match		= user_match,
-+	.destroy	= rxrpc_destroy,
-+	.describe	= rxrpc_describe,
++void afs_mntpt_kill_timer(void)
++{
++	_enter("");
+=20
+-	afs_kafstimod_add_timer(&afs_mntpt_expiry_timer,
+-				afs_mntpt_expiry_timeout * HZ);
++	ASSERT(list_empty(&afs_vfsmounts));
++	cancel_delayed_work(&afs_mntpt_expiry_timer);
++	flush_scheduled_work();
++}
+=20
+-	kleave("");
++/*
++ * begin unmount by attempting to remove all automounted mountpoints w=
+e added
++ */
++void afs_umount_begin(struct vfsmount *vfsmnt, int flags)
++{
++	shrink_submounts(vfsmnt, &afs_vfsmounts);
+ }
+diff --git a/fs/afs/mount.h b/fs/afs/mount.h
+deleted file mode 100644
+index 41b8483..0000000
+--- a/fs/afs/mount.h
++++ /dev/null
+@@ -1,23 +0,0 @@
+-/* mount parameters
+- *
+- * Copyright (C) 2002 Red Hat, Inc. All Rights Reserved.
+- * Written by David Howells (dhowells@redhat.com)
+- *
+- * This program is free software; you can redistribute it and/or
+- * modify it under the terms of the GNU General Public License
+- * as published by the Free Software Foundation; either version
+- * 2 of the License, or (at your option) any later version.
+- */
+-
+-#ifndef AFS_MOUNT_H
+-#define AFS_MOUNT_H
+-
+-struct afs_mountdata {
+-	const char		*volume;	/* name of volume */
+-	const char		*cell;		/* name of cell containing volume */
+-	const char		*cache;		/* name of cache block device */
+-	size_t			nservers;	/* number of server addresses listed */
+-	uint32_t		servers[10];	/* IP addresses of servers in this cell */
+-};
+-
+-#endif /* AFS_MOUNT_H */
+diff --git a/fs/afs/proc.c b/fs/afs/proc.c
+index 5ebcc0c..d5601f6 100644
+--- a/fs/afs/proc.c
++++ b/fs/afs/proc.c
+@@ -13,8 +13,6 @@
+ #include <linux/module.h>
+ #include <linux/proc_fs.h>
+ #include <linux/seq_file.h>
+-#include "cell.h"
+-#include "volume.h"
+ #include <asm/uaccess.h>
+ #include "internal.h"
+=20
+@@ -315,10 +313,14 @@ static ssize_t afs_proc_cells_write(struct file *=
+file, const char __user *buf,
+=20
+ 	if (strcmp(kbuf, "add") =3D=3D 0) {
+ 		struct afs_cell *cell;
+-		ret =3D afs_cell_create(name, args, &cell);
+-		if (ret < 0)
++
++		cell =3D afs_cell_create(name, args);
++		if (IS_ERR(cell)) {
++			ret =3D PTR_ERR(cell);
+ 			goto done;
++		}
+=20
++		afs_put_cell(cell);
+ 		printk("kAFS: Added new cell '%s'\n", name);
+ 	} else {
+ 		goto inval;
+@@ -472,7 +474,7 @@ static int afs_proc_cell_volumes_open(struct inode =
+*inode, struct file *file)
+ 	struct seq_file *m;
+ 	int ret;
+=20
+-	cell =3D afs_get_cell_maybe((struct afs_cell **) &PDE(inode)->data);
++	cell =3D PDE(inode)->data;
+ 	if (!cell)
+ 		return -ENOENT;
+=20
+@@ -491,13 +493,7 @@ static int afs_proc_cell_volumes_open(struct inode=
+ *inode, struct file *file)
+  */
+ static int afs_proc_cell_volumes_release(struct inode *inode, struct f=
+ile *file)
+ {
+-	struct afs_cell *cell =3D PDE(inode)->data;
+-	int ret;
+-
+-	ret =3D seq_release(inode, file);
+-
+-	afs_put_cell(cell);
+-	return ret;
++	return seq_release(inode, file);
+ }
+=20
+ /*
+@@ -557,6 +553,16 @@ static void afs_proc_cell_volumes_stop(struct seq_=
+file *p, void *v)
+ 	up_read(&cell->vl_sem);
+ }
+=20
++const char afs_vlocation_states[][4] =3D {
++	[AFS_VL_NEW]			=3D "New",
++	[AFS_VL_CREATING]		=3D "Crt",
++	[AFS_VL_VALID]			=3D "Val",
++	[AFS_VL_NO_VOLUME]		=3D "NoV",
++	[AFS_VL_UPDATING]		=3D "Upd",
++	[AFS_VL_VOLUME_DELETED]		=3D "Del",
++	[AFS_VL_UNCERTAIN]		=3D "Unc",
 +};
 +
-+EXPORT_SYMBOL(key_type_rxrpc);
-+
-+/*
-+ * rxrpc server defined keys take "<serviceId>:<securityIndex>" as the
-+ * description and an 8-byte decryption key as the payload
+ /*
+  * display a header line followed by a load of volume lines
+  */
+@@ -567,13 +573,14 @@ static int afs_proc_cell_volumes_show(struct seq_=
+file *m, void *v)
+=20
+ 	/* display header on line 1 */
+ 	if (v =3D=3D (void *) 1) {
+-		seq_puts(m, "USE VLID[0]  VLID[1]  VLID[2]  NAME\n");
++		seq_puts(m, "USE STT VLID[0]  VLID[1]  VLID[2]  NAME\n");
+ 		return 0;
+ 	}
+=20
+ 	/* display one cell per line on subsequent lines */
+-	seq_printf(m, "%3d %08x %08x %08x %s\n",
++	seq_printf(m, "%3d %s %08x %08x %08x %s\n",
+ 		   atomic_read(&vlocation->usage),
++		   afs_vlocation_states[vlocation->state],
+ 		   vlocation->vldb.vid[0],
+ 		   vlocation->vldb.vid[1],
+ 		   vlocation->vldb.vid[2],
+@@ -592,11 +599,11 @@ static int afs_proc_cell_vlservers_open(struct in=
+ode *inode, struct file *file)
+ 	struct seq_file *m;
+ 	int ret;
+=20
+-	cell =3D afs_get_cell_maybe((struct afs_cell**)&PDE(inode)->data);
++	cell =3D PDE(inode)->data;
+ 	if (!cell)
+ 		return -ENOENT;
+=20
+-	ret =3D seq_open(file,&afs_proc_cell_vlservers_ops);
++	ret =3D seq_open(file, &afs_proc_cell_vlservers_ops);
+ 	if (ret<0)
+ 		return ret;
+=20
+@@ -612,13 +619,7 @@ static int afs_proc_cell_vlservers_open(struct ino=
+de *inode, struct file *file)
+ static int afs_proc_cell_vlservers_release(struct inode *inode,
+ 					   struct file *file)
+ {
+-	struct afs_cell *cell =3D PDE(inode)->data;
+-	int ret;
+-
+-	ret =3D seq_release(inode,file);
+-
+-	afs_put_cell(cell);
+-	return ret;
++	return seq_release(inode, file);
+ }
+=20
+ /*
+@@ -703,7 +704,7 @@ static int afs_proc_cell_servers_open(struct inode =
+*inode, struct file *file)
+ 	struct seq_file *m;
+ 	int ret;
+=20
+-	cell =3D afs_get_cell_maybe((struct afs_cell **) &PDE(inode)->data);
++	cell =3D PDE(inode)->data;
+ 	if (!cell)
+ 		return -ENOENT;
+=20
+@@ -722,13 +723,7 @@ static int afs_proc_cell_servers_open(struct inode=
+ *inode, struct file *file)
+ static int afs_proc_cell_servers_release(struct inode *inode,
+ 					 struct file *file)
+ {
+-	struct afs_cell *cell =3D PDE(inode)->data;
+-	int ret;
+-
+-	ret =3D seq_release(inode, file);
+-
+-	afs_put_cell(cell);
+-	return ret;
++	return seq_release(inode, file);
+ }
+=20
+ /*
+@@ -736,7 +731,7 @@ static int afs_proc_cell_servers_release(struct ino=
+de *inode,
+  * first item
+  */
+ static void *afs_proc_cell_servers_start(struct seq_file *m, loff_t *_=
+pos)
+-	__acquires(m->private->sv_lock)
++	__acquires(m->private->servers_lock)
+ {
+ 	struct list_head *_p;
+ 	struct afs_cell *cell =3D m->private;
+@@ -745,7 +740,7 @@ static void *afs_proc_cell_servers_start(struct seq=
+_file *m, loff_t *_pos)
+ 	_enter("cell=3D%p pos=3D%Ld", cell, *_pos);
+=20
+ 	/* lock the list against modification */
+-	read_lock(&cell->sv_lock);
++	read_lock(&cell->servers_lock);
+=20
+ 	/* allow for the header line */
+ 	if (!pos)
+@@ -753,11 +748,11 @@ static void *afs_proc_cell_servers_start(struct s=
+eq_file *m, loff_t *_pos)
+ 	pos--;
+=20
+ 	/* find the n'th element in the list */
+-	list_for_each(_p, &cell->sv_list)
++	list_for_each(_p, &cell->servers)
+ 		if (!pos--)
+ 			break;
+=20
+-	return _p !=3D &cell->sv_list ? _p : NULL;
++	return _p !=3D &cell->servers ? _p : NULL;
+ }
+=20
+ /*
+@@ -774,20 +769,20 @@ static void *afs_proc_cell_servers_next(struct se=
+q_file *p, void *v,
+ 	(*_pos)++;
+=20
+ 	_p =3D v;
+-	_p =3D v =3D=3D (void *) 1 ? cell->sv_list.next : _p->next;
++	_p =3D v =3D=3D (void *) 1 ? cell->servers.next : _p->next;
+=20
+-	return _p !=3D &cell->sv_list ? _p : NULL;
++	return _p !=3D &cell->servers ? _p : NULL;
+ }
+=20
+ /*
+  * clean up after reading from the cells list
+  */
+ static void afs_proc_cell_servers_stop(struct seq_file *p, void *v)
+-	__releases(p->private->sv_lock)
++	__releases(p->private->servers_lock)
+ {
+ 	struct afs_cell *cell =3D p->private;
+=20
+-	read_unlock(&cell->sv_lock);
++	read_unlock(&cell->servers_lock);
+ }
+=20
+ /*
+diff --git a/fs/afs/rxrpc.c b/fs/afs/rxrpc.c
+new file mode 100644
+index 0000000..b927742
+--- /dev/null
++++ b/fs/afs/rxrpc.c
+@@ -0,0 +1,666 @@
++/* Maintain an RxRPC server socket to do AFS communications through
++ *
++ * Copyright (C) 2007 Red Hat, Inc. All Rights Reserved.
++ * Written by David Howells (dhowells@redhat.com)
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version
++ * 2 of the License, or (at your option) any later version.
 + */
-+struct key_type key_type_rxrpc_s = {
-+	.name		= "rxrpc_s",
-+	.instantiate	= rxrpc_instantiate_s,
-+	.match		= user_match,
-+	.destroy	= rxrpc_destroy_s,
-+	.describe	= rxrpc_describe,
++
++#include <net/sock.h>
++#include <net/af_rxrpc.h>
++#include <rxrpc/packet.h>
++#include "internal.h"
++#include "afs_cm.h"
++
++static struct socket *afs_socket; /* my RxRPC socket */
++static struct workqueue_struct *afs_async_calls;
++
++static void afs_wake_up_call_waiter(struct afs_call *);
++static int afs_wait_for_call_to_complete(struct afs_call *);
++static void afs_wake_up_async_call(struct afs_call *);
++static int afs_dont_wait_for_call_to_complete(struct afs_call *);
++static void afs_process_async_call(struct work_struct *);
++static void afs_rx_interceptor(struct sock *, unsigned long, struct sk=
+_buff *);
++static int afs_deliver_cm_op_id(struct afs_call *, struct sk_buff *, b=
+ool);
++
++/* synchronous call management */
++const struct afs_wait_mode afs_sync_call =3D {
++	.rx_wakeup	=3D afs_wake_up_call_waiter,
++	.wait		=3D afs_wait_for_call_to_complete,
 +};
 +
++/* asynchronous call management */
++const struct afs_wait_mode afs_async_call =3D {
++	.rx_wakeup	=3D afs_wake_up_async_call,
++	.wait		=3D afs_dont_wait_for_call_to_complete,
++};
++
++/* asynchronous incoming call management */
++static const struct afs_wait_mode afs_async_incoming_call =3D {
++	.rx_wakeup	=3D afs_wake_up_async_call,
++};
++
++/* asynchronous incoming call initial processing */
++static const struct afs_call_type afs_RXCMxxxx =3D {
++	.deliver	=3D afs_deliver_cm_op_id,
++	.abort_to_error	=3D afs_abort_to_error,
++};
++
++static void afs_collect_incoming_call(struct work_struct *);
++
++static struct sk_buff_head afs_incoming_calls;
++static DECLARE_WORK(afs_collect_incoming_call_work, afs_collect_incomi=
+ng_call);
++
 +/*
-+ * instantiate an rxrpc defined key
-+ * data should be of the form:
-+ *	OFFSET	LEN	CONTENT
-+ *	0	4	key interface version number
-+ *	4	2	security index (type)
-+ *	6	2	ticket length
-+ *	8	4	key expiry time (time_t)
-+ *	12	4	kvno
-+ *	16	8	session key
-+ *	24	[len]	ticket
-+ *
-+ * if no data is provided, then a no-security key is made
++ * open an RxRPC socket and bind it to be a server for callback notifi=
+cations
++ * - the socket is left in blocking mode and non-blocking ops use MSG_=
+DONTWAIT
 + */
-+static int rxrpc_instantiate(struct key *key, const void *data, size_t datalen)
++int afs_open_socket(void)
 +{
-+	const struct rxkad_key *tsec;
-+	struct rxrpc_key_payload *upayload;
-+	size_t plen;
-+	u32 kver;
++	struct sockaddr_rxrpc srx;
++	struct socket *socket;
 +	int ret;
 +
-+	_enter("{%x},,%zu", key_serial(key), datalen);
-+
-+	/* handle a no-security key */
-+	if (!data && datalen == 0)
-+		return 0;
-+
-+	/* get the key interface version number */
-+	ret = -EINVAL;
-+	if (datalen <= 4 || !data)
-+		goto error;
-+	memcpy(&kver, data, sizeof(kver));
-+	data += sizeof(kver);
-+	datalen -= sizeof(kver);
-+
-+	_debug("KEY I/F VERSION: %u", kver);
-+
-+	ret = -EKEYREJECTED;
-+	if (kver != 1)
-+		goto error;
-+
-+	/* deal with a version 1 key */
-+	ret = -EINVAL;
-+	if (datalen < sizeof(*tsec))
-+		goto error;
-+
-+	tsec = data;
-+	if (datalen != sizeof(*tsec) + tsec->ticket_len)
-+		goto error;
-+
-+	_debug("SCIX: %u", tsec->security_index);
-+	_debug("TLEN: %u", tsec->ticket_len);
-+	_debug("EXPY: %x", tsec->expiry);
-+	_debug("KVNO: %u", tsec->kvno);
-+	_debug("SKEY: %02x%02x%02x%02x%02x%02x%02x%02x",
-+	       tsec->session_key[0], tsec->session_key[1],
-+	       tsec->session_key[2], tsec->session_key[3],
-+	       tsec->session_key[4], tsec->session_key[5],
-+	       tsec->session_key[6], tsec->session_key[7]);
-+	if (tsec->ticket_len >= 8)
-+		_debug("TCKT: %02x%02x%02x%02x%02x%02x%02x%02x",
-+		       tsec->ticket[0], tsec->ticket[1],
-+		       tsec->ticket[2], tsec->ticket[3],
-+		       tsec->ticket[4], tsec->ticket[5],
-+		       tsec->ticket[6], tsec->ticket[7]);
-+
-+	ret = -EPROTONOSUPPORT;
-+	if (tsec->security_index != 2)
-+		goto error;
-+
-+	key->type_data.x[0] = tsec->security_index;
-+
-+	plen = sizeof(*upayload) + tsec->ticket_len;
-+	ret = key_payload_reserve(key, plen);
-+	if (ret < 0)
-+		goto error;
-+
-+	ret = -ENOMEM;
-+	upayload = kmalloc(plen, GFP_KERNEL);
-+	if (!upayload)
-+		goto error;
-+
-+	/* attach the data */
-+	memcpy(&upayload->k, tsec, sizeof(*tsec));
-+	memcpy(&upayload->k.ticket, (void *)tsec + sizeof(*tsec),
-+	       tsec->ticket_len);
-+	key->payload.data = upayload;
-+	key->expiry = tsec->expiry;
-+	ret = 0;
-+
-+error:
-+	return ret;
-+}
-+
-+/*
-+ * instantiate a server secret key
-+ * data should be a pointer to the 8-byte secret key
-+ */
-+static int rxrpc_instantiate_s(struct key *key, const void *data,
-+			       size_t datalen)
-+{
-+	struct crypto_blkcipher *ci;
-+
-+	_enter("{%x},,%zu", key_serial(key), datalen);
-+
-+	if (datalen != 8)
-+		return -EINVAL;
-+
-+	memcpy(&key->type_data, data, 8);
-+
-+	ci = crypto_alloc_blkcipher("pcbc(des)", 0, CRYPTO_ALG_ASYNC);
-+	if (IS_ERR(ci)) {
-+		_leave(" = %ld", PTR_ERR(ci));
-+		return PTR_ERR(ci);
-+	}
-+
-+	if (crypto_blkcipher_setkey(ci, data, 8) < 0)
-+		BUG();
-+
-+	key->payload.data = ci;
-+	_leave(" = 0");
-+	return 0;
-+}
-+
-+/*
-+ * dispose of the data dangling from the corpse of a rxrpc key
-+ */
-+static void rxrpc_destroy(struct key *key)
-+{
-+	kfree(key->payload.data);
-+}
-+
-+/*
-+ * dispose of the data dangling from the corpse of a rxrpc key
-+ */
-+static void rxrpc_destroy_s(struct key *key)
-+{
-+	if (key->payload.data) {
-+		crypto_free_blkcipher(key->payload.data);
-+		key->payload.data = NULL;
-+	}
-+}
-+
-+/*
-+ * describe the rxrpc key
-+ */
-+static void rxrpc_describe(const struct key *key, struct seq_file *m)
-+{
-+	seq_puts(m, key->description);
-+}
-+
-+/*
-+ * grab the security key for a socket
-+ */
-+int rxrpc_request_key(struct rxrpc_sock *rx, char __user *optval, int optlen)
-+{
-+	struct key *key;
-+	char *description;
-+
 +	_enter("");
 +
-+	if (optlen <= 0 || optlen > PAGE_SIZE - 1)
-+		return -EINVAL;
++	skb_queue_head_init(&afs_incoming_calls);
 +
-+	description = kmalloc(optlen + 1, GFP_KERNEL);
-+	if (!description)
-+		return -ENOMEM;
-+
-+	if (copy_from_user(description, optval, optlen)) {
-+		kfree(description);
-+		return -EFAULT;
-+	}
-+	description[optlen] = 0;
-+
-+	key = request_key(&key_type_rxrpc, description, NULL);
-+	if (IS_ERR(key)) {
-+		kfree(description);
-+		_leave(" = %ld", PTR_ERR(key));
-+		return PTR_ERR(key);
-+	}
-+
-+	rx->key = key;
-+	kfree(description);
-+	_leave(" = 0 [key %x]", key->serial);
-+	return 0;
-+}
-+
-+/*
-+ * grab the security keyring for a server socket
-+ */
-+int rxrpc_server_keyring(struct rxrpc_sock *rx, char __user *optval,
-+			 int optlen)
-+{
-+	struct key *key;
-+	char *description;
-+
-+	_enter("");
-+
-+	if (optlen <= 0 || optlen > PAGE_SIZE - 1)
-+		return -EINVAL;
-+
-+	description = kmalloc(optlen + 1, GFP_KERNEL);
-+	if (!description)
-+		return -ENOMEM;
-+
-+	if (copy_from_user(description, optval, optlen)) {
-+		kfree(description);
-+		return -EFAULT;
-+	}
-+	description[optlen] = 0;
-+
-+	key = request_key(&key_type_keyring, description, NULL);
-+	if (IS_ERR(key)) {
-+		kfree(description);
-+		_leave(" = %ld", PTR_ERR(key));
-+		return PTR_ERR(key);
-+	}
-+
-+	rx->securities = key;
-+	kfree(description);
-+	_leave(" = 0 [key %x]", key->serial);
-+	return 0;
-+}
-+
-+/*
-+ * generate a server data key
-+ */
-+int rxrpc_get_server_data_key(struct rxrpc_connection *conn,
-+			      const void *session_key,
-+			      time_t expiry,
-+			      u32 kvno)
-+{
-+	struct key *key;
-+	int ret;
-+
-+	struct {
-+		u32 kver;
-+		struct rxkad_key tsec;
-+	} data;
-+
-+	_enter("");
-+
-+	key = key_alloc(&key_type_rxrpc, "x", 0, 0, current, 0,
-+			KEY_ALLOC_NOT_IN_QUOTA);
-+	if (IS_ERR(key)) {
-+		_leave(" = -ENOMEM [alloc %ld]", PTR_ERR(key));
++	afs_async_calls =3D create_singlethread_workqueue("kafsd");
++	if (!afs_async_calls) {
++		_leave(" =3D -ENOMEM [wq]");
 +		return -ENOMEM;
 +	}
 +
-+	_debug("key %d", key_serial(key));
-+
-+	data.kver = 1;
-+	data.tsec.security_index = 2;
-+	data.tsec.ticket_len = 0;
-+	data.tsec.expiry = expiry;
-+	data.tsec.kvno = 0;
-+
-+	memcpy(&data.tsec.session_key, session_key,
-+	       sizeof(data.tsec.session_key));
-+
-+	ret = key_instantiate_and_link(key, &data, sizeof(data), NULL, NULL);
-+	if (ret < 0)
-+		goto error;
-+
-+	conn->key = key;
-+	_leave(" = 0 [%d]", key_serial(key));
-+	return 0;
-+
-+error:
-+	key_revoke(key);
-+	key_put(key);
-+	_leave(" = -ENOMEM [ins %d]", ret);
-+	return -ENOMEM;
-+}
-+
-+EXPORT_SYMBOL(rxrpc_get_server_data_key);
-diff --git a/net/rxrpc/ar-local.c b/net/rxrpc/ar-local.c
-new file mode 100644
-index 0000000..a20a2c0
---- /dev/null
-+++ b/net/rxrpc/ar-local.c
-@@ -0,0 +1,309 @@
-+/* AF_RXRPC local endpoint management
-+ *
-+ * Copyright (C) 2007 Red Hat, Inc. All Rights Reserved.
-+ * Written by David Howells (dhowells@redhat.com)
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version
-+ * 2 of the License, or (at your option) any later version.
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/net.h>
-+#include <linux/skbuff.h>
-+#include <net/sock.h>
-+#include <net/af_rxrpc.h>
-+#include "ar-internal.h"
-+
-+static LIST_HEAD(rxrpc_locals);
-+DEFINE_RWLOCK(rxrpc_local_lock);
-+static DECLARE_RWSEM(rxrpc_local_sem);
-+static DECLARE_WAIT_QUEUE_HEAD(rxrpc_local_wq);
-+
-+static void rxrpc_destroy_local(struct work_struct *work);
-+
-+/*
-+ * allocate a new local
-+ */
-+static
-+struct rxrpc_local *rxrpc_alloc_local(struct sockaddr_rxrpc *srx)
-+{
-+	struct rxrpc_local *local;
-+
-+	local = kzalloc(sizeof(struct rxrpc_local), GFP_KERNEL);
-+	if (local) {
-+		INIT_WORK(&local->destroyer, &rxrpc_destroy_local);
-+		INIT_WORK(&local->acceptor, &rxrpc_accept_incoming_calls);
-+		INIT_WORK(&local->rejecter, &rxrpc_reject_packets);
-+		INIT_LIST_HEAD(&local->services);
-+		INIT_LIST_HEAD(&local->link);
-+		init_rwsem(&local->defrag_sem);
-+		skb_queue_head_init(&local->accept_queue);
-+		skb_queue_head_init(&local->reject_queue);
-+		spin_lock_init(&local->lock);
-+		rwlock_init(&local->services_lock);
-+		atomic_set(&local->usage, 1);
-+		local->debug_id = atomic_inc_return(&rxrpc_debug_id);
-+		memcpy(&local->srx, srx, sizeof(*srx));
-+	}
-+
-+	_leave(" = %p", local);
-+	return local;
-+}
-+
-+/*
-+ * create the local socket
-+ * - must be called with rxrpc_local_sem writelocked
-+ */
-+static int rxrpc_create_local(struct rxrpc_local *local)
-+{
-+	struct sock *sock;
-+	int ret, opt;
-+
-+	_enter("%p{%d}", local, local->srx.transport_type);
-+
-+	/* create a socket to represent the local endpoint */
-+	ret = sock_create_kern(PF_INET, local->srx.transport_type, IPPROTO_UDP,
-+			       &local->socket);
++	ret =3D sock_create_kern(AF_RXRPC, SOCK_DGRAM, PF_INET, &socket);
 +	if (ret < 0) {
-+		_leave(" = %d [socket]", ret);
++		destroy_workqueue(afs_async_calls);
++		_leave(" =3D %d [socket]", ret);
 +		return ret;
 +	}
 +
-+	/* if a local address was supplied then bind it */
-+	if (local->srx.transport_len > sizeof(sa_family_t)) {
-+		_debug("bind");
-+		ret = kernel_bind(local->socket,
-+				  (struct sockaddr *) &local->srx.transport,
-+				  local->srx.transport_len);
-+		if (ret < 0) {
-+			_debug("bind failed");
-+			goto error;
-+		}
-+	}
++	socket->sk->sk_allocation =3D GFP_NOFS;
 +
-+	/* we want to receive ICMP errors */
-+	opt = 1;
-+	ret = kernel_setsockopt(local->socket, SOL_IP, IP_RECVERR,
-+				(char *) &opt, sizeof(opt));
++	/* bind the callback manager's address to make this a server socket *=
+/
++	srx.srx_family			=3D AF_RXRPC;
++	srx.srx_service			=3D CM_SERVICE;
++	srx.transport_type		=3D SOCK_DGRAM;
++	srx.transport_len		=3D sizeof(srx.transport.sin);
++	srx.transport.sin.sin_family	=3D AF_INET;
++	srx.transport.sin.sin_port	=3D htons(AFS_CM_PORT);
++	memset(&srx.transport.sin.sin_addr, 0,
++	       sizeof(srx.transport.sin.sin_addr));
++
++	ret =3D kernel_bind(socket, (struct sockaddr *) &srx, sizeof(srx));
 +	if (ret < 0) {
-+		_debug("setsockopt failed");
-+		goto error;
++		sock_release(socket);
++		_leave(" =3D %d [bind]", ret);
++		return ret;
 +	}
 +
-+	/* we want to set the don't fragment bit */
-+	opt = IP_PMTUDISC_DO;
-+	ret = kernel_setsockopt(local->socket, SOL_IP, IP_MTU_DISCOVER,
-+				(char *) &opt, sizeof(opt));
-+	if (ret < 0) {
-+		_debug("setsockopt failed");
-+		goto error;
-+	}
++	rxrpc_kernel_intercept_rx_messages(socket, afs_rx_interceptor);
 +
-+	write_lock_bh(&rxrpc_local_lock);
-+	list_add(&local->link, &rxrpc_locals);
-+	write_unlock_bh(&rxrpc_local_lock);
-+
-+	/* set the socket up */
-+	sock = local->socket->sk;
-+	sock->sk_user_data	= local;
-+	sock->sk_data_ready	= rxrpc_data_ready;
-+	sock->sk_error_report	= rxrpc_UDP_error_report;
-+	_leave(" = 0");
++	afs_socket =3D socket;
++	_leave(" =3D 0");
 +	return 0;
-+
-+error:
-+	local->socket->ops->shutdown(local->socket, 2);
-+	local->socket->sk->sk_user_data = NULL;
-+	sock_release(local->socket);
-+	local->socket = NULL;
-+
-+	_leave(" = %d", ret);
-+	return ret;
 +}
 +
 +/*
-+ * create a new local endpoint using the specified UDP address
++ * close the RxRPC socket AFS was using
 + */
-+struct rxrpc_local *rxrpc_lookup_local(struct sockaddr_rxrpc *srx)
++void afs_close_socket(void)
 +{
-+	struct rxrpc_local *local;
-+	int ret;
++	_enter("");
 +
-+	_enter("{%d,%u,%u.%u.%u.%u+%hu}",
-+	       srx->transport_type,
-+	       srx->transport.family,
-+	       NIPQUAD(srx->transport.sin.sin_addr),
-+	       ntohs(srx->transport.sin.sin_port));
++	sock_release(afs_socket);
 +
-+	down_write(&rxrpc_local_sem);
-+
-+	/* see if we have a suitable local local endpoint already */
-+	read_lock_bh(&rxrpc_local_lock);
-+
-+	list_for_each_entry(local, &rxrpc_locals, link) {
-+		_debug("CMP {%d,%u,%u.%u.%u.%u+%hu}",
-+		       local->srx.transport_type,
-+		       local->srx.transport.family,
-+		       NIPQUAD(local->srx.transport.sin.sin_addr),
-+		       ntohs(local->srx.transport.sin.sin_port));
-+
-+		if (local->srx.transport_type != srx->transport_type ||
-+		    local->srx.transport.family != srx->transport.family)
-+			continue;
-+
-+		switch (srx->transport.family) {
-+		case AF_INET:
-+			if (local->srx.transport.sin.sin_port !=
-+			    srx->transport.sin.sin_port)
-+				continue;
-+			if (memcmp(&local->srx.transport.sin.sin_addr,
-+				   &srx->transport.sin.sin_addr,
-+				   sizeof(struct in_addr)) != 0)
-+				continue;
-+			goto found_local;
-+
-+		default:
-+			BUG();
-+		}
-+	}
-+
-+	read_unlock_bh(&rxrpc_local_lock);
-+
-+	/* we didn't find one, so we need to create one */
-+	local = rxrpc_alloc_local(srx);
-+	if (!local) {
-+		up_write(&rxrpc_local_sem);
-+		return ERR_PTR(-ENOMEM);
-+	}
-+
-+	ret = rxrpc_create_local(local);
-+	if (ret < 0) {
-+		up_write(&rxrpc_local_sem);
-+		kfree(local);
-+		_leave(" = %d", ret);
-+		return ERR_PTR(ret);
-+	}
-+
-+	up_write(&rxrpc_local_sem);
-+
-+	_net("LOCAL new %d {%d,%u,%u.%u.%u.%u+%hu}",
-+	     local->debug_id,
-+	     local->srx.transport_type,
-+	     local->srx.transport.family,
-+	     NIPQUAD(local->srx.transport.sin.sin_addr),
-+	     ntohs(local->srx.transport.sin.sin_port));
-+
-+	_leave(" = %p [new]", local);
-+	return local;
-+
-+found_local:
-+	rxrpc_get_local(local);
-+	read_unlock_bh(&rxrpc_local_lock);
-+	up_write(&rxrpc_local_sem);
-+
-+	_net("LOCAL old %d {%d,%u,%u.%u.%u.%u+%hu}",
-+	     local->debug_id,
-+	     local->srx.transport_type,
-+	     local->srx.transport.family,
-+	     NIPQUAD(local->srx.transport.sin.sin_addr),
-+	     ntohs(local->srx.transport.sin.sin_port));
-+
-+	_leave(" = %p [reuse]", local);
-+	return local;
-+}
-+
-+/*
-+ * release a local endpoint
-+ */
-+void rxrpc_put_local(struct rxrpc_local *local)
-+{
-+	_enter("%p{u=%d}", local, atomic_read(&local->usage));
-+
-+	ASSERTCMP(atomic_read(&local->usage), >, 0);
-+
-+	/* to prevent a race, the decrement and the dequeue must be effectively
-+	 * atomic */
-+	write_lock_bh(&rxrpc_local_lock);
-+	if (unlikely(atomic_dec_and_test(&local->usage))) {
-+		_debug("destroy local");
-+		schedule_work(&local->destroyer);
-+	}
-+	write_unlock_bh(&rxrpc_local_lock);
++	_debug("dework");
++	destroy_workqueue(afs_async_calls);
 +	_leave("");
 +}
 +
 +/*
-+ * destroy a local endpoint
++ * allocate a call with flat request and reply buffers
 + */
-+static void rxrpc_destroy_local(struct work_struct *work)
++struct afs_call *afs_alloc_flat_call(const struct afs_call_type *type,
++				     size_t request_size, size_t reply_size)
 +{
-+	struct rxrpc_local *local =
-+		container_of(work, struct rxrpc_local, destroyer);
++	struct afs_call *call;
 +
-+	_enter("%p{%d}", local, atomic_read(&local->usage));
-+
-+	down_write(&rxrpc_local_sem);
-+
-+	write_lock_bh(&rxrpc_local_lock);
-+	if (atomic_read(&local->usage) > 0) {
-+		write_unlock_bh(&rxrpc_local_lock);
-+		up_read(&rxrpc_local_sem);
-+		_leave(" [resurrected]");
-+		return;
-+	}
-+
-+	list_del(&local->link);
-+	local->socket->sk->sk_user_data = NULL;
-+	write_unlock_bh(&rxrpc_local_lock);
-+
-+	downgrade_write(&rxrpc_local_sem);
-+
-+	ASSERT(list_empty(&local->services));
-+	ASSERT(!work_pending(&local->acceptor));
-+	ASSERT(!work_pending(&local->rejecter));
-+
-+	/* finish cleaning up the local descriptor */
-+	rxrpc_purge_queue(&local->accept_queue);
-+	rxrpc_purge_queue(&local->reject_queue);
-+	local->socket->ops->shutdown(local->socket, 2);
-+	sock_release(local->socket);
-+
-+	up_read(&rxrpc_local_sem);
-+
-+	_net("DESTROY LOCAL %d", local->debug_id);
-+	kfree(local);
-+
-+	if (list_empty(&rxrpc_locals))
-+		wake_up_all(&rxrpc_local_wq);
-+
-+	_leave("");
-+}
-+
-+/*
-+ * preemptively destroy all local local endpoint rather than waiting for
-+ * them to be destroyed
-+ */
-+void __exit rxrpc_destroy_all_locals(void)
-+{
-+	DECLARE_WAITQUEUE(myself,current);
-+
-+	_enter("");
-+
-+	/* we simply have to wait for them to go away */
-+	if (!list_empty(&rxrpc_locals)) {
-+		set_current_state(TASK_UNINTERRUPTIBLE);
-+		add_wait_queue(&rxrpc_local_wq, &myself);
-+
-+		while (!list_empty(&rxrpc_locals)) {
-+			schedule();
-+			set_current_state(TASK_UNINTERRUPTIBLE);
-+		}
-+
-+		remove_wait_queue(&rxrpc_local_wq, &myself);
-+		set_current_state(TASK_RUNNING);
-+	}
-+
-+	_leave("");
-+}
-diff --git a/net/rxrpc/ar-output.c b/net/rxrpc/ar-output.c
-new file mode 100644
-index 0000000..67aa951
---- /dev/null
-+++ b/net/rxrpc/ar-output.c
-@@ -0,0 +1,658 @@
-+/* RxRPC packet transmission
-+ *
-+ * Copyright (C) 2007 Red Hat, Inc. All Rights Reserved.
-+ * Written by David Howells (dhowells@redhat.com)
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version
-+ * 2 of the License, or (at your option) any later version.
-+ */
-+
-+#include <linux/net.h>
-+#include <linux/skbuff.h>
-+#include <linux/circ_buf.h>
-+#include <net/sock.h>
-+#include <net/af_rxrpc.h>
-+#include "ar-internal.h"
-+
-+int rxrpc_resend_timeout = 4;
-+
-+static int rxrpc_send_data(struct kiocb *iocb,
-+			   struct rxrpc_sock *rx,
-+			   struct rxrpc_call *call,
-+			   struct msghdr *msg, size_t len);
-+
-+/*
-+ * extract control messages from the sendmsg() control buffer
-+ */
-+static int rxrpc_sendmsg_cmsg(struct rxrpc_sock *rx, struct msghdr *msg,
-+			      unsigned long *user_call_ID,
-+			      enum rxrpc_command *command,
-+			      u32 *abort_code,
-+			      bool server)
-+{
-+	struct cmsghdr *cmsg;
-+	int len;
-+
-+	*command = RXRPC_CMD_SEND_DATA;
-+
-+	if (msg->msg_controllen == 0)
-+		return -EINVAL;
-+
-+	for (cmsg = CMSG_FIRSTHDR(msg); cmsg; cmsg = CMSG_NXTHDR(msg, cmsg)) {
-+		if (!CMSG_OK(msg, cmsg))
-+			return -EINVAL;
-+
-+		len = cmsg->cmsg_len - CMSG_ALIGN(sizeof(struct cmsghdr));
-+		_debug("CMSG %d, %d, %d",
-+		       cmsg->cmsg_level, cmsg->cmsg_type, len);
-+
-+		if (cmsg->cmsg_level != SOL_RXRPC)
-+			continue;
-+
-+		switch (cmsg->cmsg_type) {
-+		case RXRPC_USER_CALL_ID:
-+			if (msg->msg_flags & MSG_CMSG_COMPAT) {
-+				if (len != sizeof(u32))
-+					return -EINVAL;
-+				*user_call_ID = *(u32 *) CMSG_DATA(cmsg);
-+			} else {
-+				if (len != sizeof(unsigned long))
-+					return -EINVAL;
-+				*user_call_ID = *(unsigned long *)
-+					CMSG_DATA(cmsg);
-+			}
-+			_debug("User Call ID %lx", *user_call_ID);
-+			break;
-+
-+		case RXRPC_ABORT:
-+			if (*command != RXRPC_CMD_SEND_DATA)
-+				return -EINVAL;
-+			*command = RXRPC_CMD_SEND_ABORT;
-+			if (len != sizeof(*abort_code))
-+				return -EINVAL;
-+			*abort_code = *(unsigned int *) CMSG_DATA(cmsg);
-+			_debug("Abort %x", *abort_code);
-+			if (*abort_code == 0)
-+				return -EINVAL;
-+			break;
-+
-+		case RXRPC_ACCEPT:
-+			if (*command != RXRPC_CMD_SEND_DATA)
-+				return -EINVAL;
-+			*command = RXRPC_CMD_ACCEPT;
-+			if (len != 0)
-+				return -EINVAL;
-+			if (!server)
-+				return -EISCONN;
-+			break;
-+
-+		default:
-+			return -EINVAL;
-+		}
-+	}
-+
-+	_leave(" = 0");
-+	return 0;
-+}
-+
-+/*
-+ * abort a call, sending an ABORT packet to the peer
-+ */
-+static void rxrpc_send_abort(struct rxrpc_call *call, u32 abort_code)
-+{
-+	write_lock_bh(&call->state_lock);
-+
-+	if (call->state <= RXRPC_CALL_COMPLETE) {
-+		call->state = RXRPC_CALL_LOCALLY_ABORTED;
-+		call->abort_code = abort_code;
-+		set_bit(RXRPC_CALL_ABORT, &call->events);
-+		del_timer_sync(&call->resend_timer);
-+		del_timer_sync(&call->ack_timer);
-+		clear_bit(RXRPC_CALL_RESEND_TIMER, &call->events);
-+		clear_bit(RXRPC_CALL_ACK, &call->events);
-+		clear_bit(RXRPC_CALL_RUN_RTIMER, &call->flags);
-+		schedule_work(&call->processor);
-+	}
-+
-+	write_unlock_bh(&call->state_lock);
-+}
-+
-+/*
-+ * send a message forming part of a client call through an RxRPC socket
-+ * - caller holds the socket locked
-+ * - the socket may be either a client socket or a server socket
-+ */
-+int rxrpc_client_sendmsg(struct kiocb *iocb, struct rxrpc_sock *rx,
-+			 struct rxrpc_transport *trans, struct msghdr *msg,
-+			 size_t len)
-+{
-+	struct rxrpc_conn_bundle *bundle;
-+	enum rxrpc_command cmd;
-+	struct rxrpc_call *call;
-+	unsigned long user_call_ID = 0;
-+	struct key *key;
-+	__be16 service_id;
-+	u32 abort_code = 0;
-+	int ret;
-+
-+	_enter("");
-+
-+	ASSERT(trans != NULL);
-+
-+	ret = rxrpc_sendmsg_cmsg(rx, msg, &user_call_ID, &cmd, &abort_code,
-+				 false);
-+	if (ret < 0)
-+		return ret;
-+
-+	bundle = NULL;
-+	if (trans) {
-+		service_id = rx->service_id;
-+		if (msg->msg_name) {
-+			struct sockaddr_rxrpc *srx =
-+				(struct sockaddr_rxrpc *) msg->msg_name;
-+			service_id = htons(srx->srx_service);
-+		}
-+		key = rx->key;
-+		if (key && !rx->key->payload.data)
-+			key = NULL;
-+		bundle = rxrpc_get_bundle(rx, trans, key, service_id,
-+					  GFP_KERNEL);
-+		if (IS_ERR(bundle))
-+			return PTR_ERR(bundle);
-+	}
-+
-+	call = rxrpc_get_client_call(rx, trans, bundle, user_call_ID,
-+				     abort_code == 0, GFP_KERNEL);
-+	if (trans)
-+		rxrpc_put_bundle(trans, bundle);
-+	if (IS_ERR(call)) {
-+		_leave(" = %ld", PTR_ERR(call));
-+		return PTR_ERR(call);
-+	}
-+
-+	_debug("CALL %d USR %lx ST %d on CONN %p",
-+	       call->debug_id, call->user_call_ID, call->state, call->conn);
-+
-+	if (call->state >= RXRPC_CALL_COMPLETE) {
-+		/* it's too late for this call */
-+		ret = -ESHUTDOWN;
-+	} else if (cmd == RXRPC_CMD_SEND_ABORT) {
-+		rxrpc_send_abort(call, abort_code);
-+	} else if (cmd != RXRPC_CMD_SEND_DATA) {
-+		ret = -EINVAL;
-+	} else if (call->state != RXRPC_CALL_CLIENT_SEND_REQUEST) {
-+		/* request phase complete for this client call */
-+		ret = -EPROTO;
-+	} else {
-+		ret = rxrpc_send_data(iocb, rx, call, msg, len);
-+	}
-+
-+	rxrpc_put_call(call);
-+	_leave(" = %d", ret);
-+	return ret;
-+}
-+
-+/*
-+ * send a message through a server socket
-+ * - caller holds the socket locked
-+ */
-+int rxrpc_server_sendmsg(struct kiocb *iocb, struct rxrpc_sock *rx,
-+			 struct msghdr *msg, size_t len)
-+{
-+	enum rxrpc_command cmd;
-+	struct rxrpc_call *call;
-+	unsigned long user_call_ID = 0;
-+	u32 abort_code = 0;
-+	int ret;
-+
-+	_enter("");
-+
-+	ret = rxrpc_sendmsg_cmsg(rx, msg, &user_call_ID, &cmd, &abort_code,
-+				 true);
-+	if (ret < 0)
-+		return ret;
-+
-+	if (cmd == RXRPC_CMD_ACCEPT)
-+		return rxrpc_accept_call(rx, user_call_ID);
-+
-+	call = rxrpc_find_server_call(rx, user_call_ID);
++	call =3D kzalloc(sizeof(*call), GFP_NOFS);
 +	if (!call)
-+		return -EBADSLT;
-+	if (call->state >= RXRPC_CALL_COMPLETE) {
-+		ret = -ESHUTDOWN;
-+		goto out;
++		goto nomem_call;
++
++	if (request_size) {
++		call->request =3D kmalloc(request_size, GFP_NOFS);
++		if (!call->request)
++			goto nomem_request;
 +	}
 +
-+	switch (cmd) {
-+	case RXRPC_CMD_SEND_DATA:
-+		if (call->state != RXRPC_CALL_CLIENT_SEND_REQUEST &&
-+		    call->state != RXRPC_CALL_SERVER_ACK_REQUEST &&
-+		    call->state != RXRPC_CALL_SERVER_SEND_REPLY) {
-+			/* Tx phase not yet begun for this call */
-+			ret = -EPROTO;
-+			break;
-+		}
-+
-+		ret = rxrpc_send_data(iocb, rx, call, msg, len);
-+		break;
-+
-+	case RXRPC_CMD_SEND_ABORT:
-+		rxrpc_send_abort(call, abort_code);
-+		break;
-+	default:
-+		BUG();
++	if (reply_size) {
++		call->buffer =3D kmalloc(reply_size, GFP_NOFS);
++		if (!call->buffer)
++			goto nomem_buffer;
 +	}
 +
-+	out:
-+	rxrpc_put_call(call);
-+	_leave(" = %d", ret);
-+	return ret;
++	call->type =3D type;
++	call->request_size =3D request_size;
++	call->reply_max =3D reply_size;
++
++	init_waitqueue_head(&call->waitq);
++	skb_queue_head_init(&call->rx_queue);
++	return call;
++
++nomem_buffer:
++	kfree(call->request);
++nomem_request:
++	kfree(call);
++nomem_call:
++	return NULL;
 +}
 +
 +/*
-+ * send a packet through the transport endpoint
++ * clean up a call with flat buffer
 + */
-+int rxrpc_send_packet(struct rxrpc_transport *trans, struct sk_buff *skb)
++void afs_flat_call_destructor(struct afs_call *call)
 +{
-+	struct kvec iov[1];
++	_enter("");
++
++	kfree(call->request);
++	call->request =3D NULL;
++	kfree(call->buffer);
++	call->buffer =3D NULL;
++}
++
++/*
++ * initiate a call
++ */
++int afs_make_call(struct in_addr *addr, struct afs_call *call, gfp_t g=
+fp,
++		  const struct afs_wait_mode *wait_mode)
++{
++	struct sockaddr_rxrpc srx;
++	struct rxrpc_call *rxcall;
 +	struct msghdr msg;
-+	int ret, opt;
-+
-+	_enter(",{%d}", skb->len);
-+
-+	iov[0].iov_base = skb->head;
-+	iov[0].iov_len = skb->len;
-+
-+	msg.msg_name = &trans->peer->srx.transport.sin;
-+	msg.msg_namelen = sizeof(trans->peer->srx.transport.sin);
-+	msg.msg_control = NULL;
-+	msg.msg_controllen = 0;
-+	msg.msg_flags = 0;
-+
-+	/* send the packet with the don't fragment bit set if we currently
-+	 * think it's small enough */
-+	if (skb->len - sizeof(struct rxrpc_header) < trans->peer->maxdata) {
-+		down_read(&trans->local->defrag_sem);
-+		/* send the packet by UDP
-+		 * - returns -EMSGSIZE if UDP would have to fragment the packet
-+		 *   to go out of the interface
-+		 *   - in which case, we'll have processed the ICMP error
-+		 *     message and update the peer record
-+		 */
-+		ret = kernel_sendmsg(trans->local->socket, &msg, iov, 1,
-+				     iov[0].iov_len);
-+
-+		up_read(&trans->local->defrag_sem);
-+		if (ret == -EMSGSIZE)
-+			goto send_fragmentable;
-+
-+		_leave(" = %d [%u]", ret, trans->peer->maxdata);
-+		return ret;
-+	}
-+
-+send_fragmentable:
-+	/* attempt to send this message with fragmentation enabled */
-+	_debug("send fragment");
-+
-+	down_write(&trans->local->defrag_sem);
-+	opt = IP_PMTUDISC_DONT;
-+	ret = kernel_setsockopt(trans->local->socket, SOL_IP, IP_MTU_DISCOVER,
-+				(char *) &opt, sizeof(opt));
-+	if (ret == 0) {
-+		ret = kernel_sendmsg(trans->local->socket, &msg, iov, 1,
-+				     iov[0].iov_len);
-+
-+		opt = IP_PMTUDISC_DO;
-+		kernel_setsockopt(trans->local->socket, SOL_IP,
-+				  IP_MTU_DISCOVER, (char *) &opt, sizeof(opt));
-+	}
-+
-+	up_write(&trans->local->defrag_sem);
-+	_leave(" = %d [frag %u]", ret, trans->peer->maxdata);
-+	return ret;
-+}
-+
-+/*
-+ * wait for space to appear in the transmit/ACK window
-+ * - caller holds the socket locked
-+ */
-+static int rxrpc_wait_for_tx_window(struct rxrpc_sock *rx,
-+				    struct rxrpc_call *call,
-+				    long *timeo)
-+{
-+	DECLARE_WAITQUEUE(myself, current);
++	struct kvec iov[1];
 +	int ret;
 +
-+	_enter(",{%d},%ld",
-+	       CIRC_SPACE(call->acks_head, call->acks_tail, call->acks_winsz),
-+	       *timeo);
++	_enter("%x,{%d},", addr->s_addr, ntohs(call->port));
 +
-+	add_wait_queue(&call->tx_waitq, &myself);
++	call->wait_mode =3D wait_mode;
++	INIT_WORK(&call->async_work, afs_process_async_call);
 +
-+	for (;;) {
-+		set_current_state(TASK_INTERRUPTIBLE);
-+		ret = 0;
-+		if (CIRC_SPACE(call->acks_head, call->acks_tail,
-+			       call->acks_winsz) > 0)
-+			break;
-+		if (signal_pending(current)) {
-+			ret = sock_intr_errno(*timeo);
-+			break;
-+		}
++	memset(&srx, 0, sizeof(srx));
++	srx.srx_family =3D AF_RXRPC;
++	srx.srx_service =3D call->service_id;
++	srx.transport_type =3D SOCK_DGRAM;
++	srx.transport_len =3D sizeof(srx.transport.sin);
++	srx.transport.sin.sin_family =3D AF_INET;
++	srx.transport.sin.sin_port =3D call->port;
++	memcpy(&srx.transport.sin.sin_addr, addr, 4);
 +
-+		release_sock(&rx->sk);
-+		*timeo = schedule_timeout(*timeo);
-+		lock_sock(&rx->sk);
++	/* create a call */
++	rxcall =3D rxrpc_kernel_begin_call(afs_socket, &srx, call->key,
++					 (unsigned long) call, gfp);
++	if (IS_ERR(rxcall)) {
++		ret =3D PTR_ERR(rxcall);
++		goto error_kill_call;
 +	}
 +
-+	remove_wait_queue(&call->tx_waitq, &myself);
-+	set_current_state(TASK_RUNNING);
-+	_leave(" = %d", ret);
-+	return ret;
-+}
-+
-+/*
-+ * attempt to schedule an instant Tx resend
-+ */
-+static inline void rxrpc_instant_resend(struct rxrpc_call *call)
-+{
-+	read_lock_bh(&call->state_lock);
-+	if (try_to_del_timer_sync(&call->resend_timer) >= 0) {
-+		clear_bit(RXRPC_CALL_RUN_RTIMER, &call->flags);
-+		if (call->state < RXRPC_CALL_COMPLETE &&
-+		    !test_and_set_bit(RXRPC_CALL_RESEND_TIMER, &call->events))
-+			schedule_work(&call->processor);
-+	}
-+	read_unlock_bh(&call->state_lock);
-+}
-+
-+/*
-+ * queue a packet for transmission, set the resend timer and attempt
-+ * to send the packet immediately
-+ */
-+static void rxrpc_queue_packet(struct rxrpc_call *call, struct sk_buff *skb,
-+			       bool last)
-+{
-+	struct rxrpc_skb_priv *sp = rxrpc_skb(skb);
-+	int ret;
-+
-+	_net("queue skb %p [%d]", skb, call->acks_head);
-+
-+	ASSERT(call->acks_window != NULL);
-+	call->acks_window[call->acks_head] = (unsigned long) skb;
-+	smp_wmb();
-+	call->acks_head = (call->acks_head + 1) & (call->acks_winsz - 1);
-+
-+	if (last || call->state == RXRPC_CALL_SERVER_ACK_REQUEST) {
-+		_debug("________awaiting reply/ACK__________");
-+		write_lock_bh(&call->state_lock);
-+		switch (call->state) {
-+		case RXRPC_CALL_CLIENT_SEND_REQUEST:
-+			call->state = RXRPC_CALL_CLIENT_AWAIT_REPLY;
-+			break;
-+		case RXRPC_CALL_SERVER_ACK_REQUEST:
-+			call->state = RXRPC_CALL_SERVER_SEND_REPLY;
-+			if (!last)
-+				break;
-+		case RXRPC_CALL_SERVER_SEND_REPLY:
-+			call->state = RXRPC_CALL_SERVER_AWAIT_ACK;
-+			break;
-+		default:
-+			break;
-+		}
-+		write_unlock_bh(&call->state_lock);
-+	}
-+
-+	_proto("Tx DATA %%%u { #%u }",
-+	       ntohl(sp->hdr.serial), ntohl(sp->hdr.seq));
-+
-+	sp->need_resend = 0;
-+	sp->resend_at = jiffies + rxrpc_resend_timeout * HZ;
-+	if (!test_and_set_bit(RXRPC_CALL_RUN_RTIMER, &call->flags)) {
-+		_debug("run timer");
-+		call->resend_timer.expires = sp->resend_at;
-+		add_timer(&call->resend_timer);
-+	}
-+
-+	/* attempt to cancel the rx-ACK timer, deferring reply transmission if
-+	 * we're ACK'ing the request phase of an incoming call */
-+	ret = -EAGAIN;
-+	if (try_to_del_timer_sync(&call->ack_timer) >= 0) {
-+		/* the packet may be freed by rxrpc_process_call() before this
-+		 * returns */
-+		ret = rxrpc_send_packet(call->conn->trans, skb);
-+		_net("sent skb %p", skb);
-+	} else {
-+		_debug("failed to delete ACK timer");
-+	}
-+
-+	if (ret < 0) {
-+		_debug("need instant resend %d", ret);
-+		sp->need_resend = 1;
-+		rxrpc_instant_resend(call);
-+	}
-+
-+	_leave("");
-+}
-+
-+/*
-+ * send data through a socket
-+ * - must be called in process context
-+ * - caller holds the socket locked
-+ */
-+static int rxrpc_send_data(struct kiocb *iocb,
-+			   struct rxrpc_sock *rx,
-+			   struct rxrpc_call *call,
-+			   struct msghdr *msg, size_t len)
-+{
-+	struct rxrpc_skb_priv *sp;
-+	unsigned char __user *from;
-+	struct sk_buff *skb;
-+	struct iovec *iov;
-+	struct sock *sk = &rx->sk;
-+	long timeo;
-+	bool more;
-+	int ret, ioc, segment, copied;
-+
-+	_enter(",,,{%zu},%zu", msg->msg_iovlen, len);
-+
-+	timeo = sock_sndtimeo(sk, msg->msg_flags & MSG_DONTWAIT);
-+
-+	/* this should be in poll */
-+	clear_bit(SOCK_ASYNC_NOSPACE, &sk->sk_socket->flags);
-+
-+	if (sk->sk_err || (sk->sk_shutdown & SEND_SHUTDOWN))
-+		return -EPIPE;
-+
-+	iov = msg->msg_iov;
-+	ioc = msg->msg_iovlen - 1;
-+	from = iov->iov_base;
-+	segment = iov->iov_len;
-+	iov++;
-+	more = msg->msg_flags & MSG_MORE;
-+
-+	skb = call->tx_pending;
-+	call->tx_pending = NULL;
-+
-+	copied = 0;
-+	do {
-+		int copy;
-+
-+		if (segment > len)
-+			segment = len;
-+
-+		_debug("SEGMENT %d @%p", segment, from);
-+
-+		if (!skb) {
-+			size_t size, chunk, max, space;
-+
-+			_debug("alloc");
-+
-+			if (CIRC_SPACE(call->acks_head, call->acks_tail,
-+				       call->acks_winsz) <= 0) {
-+				ret = -EAGAIN;
-+				if (msg->msg_flags & MSG_DONTWAIT)
-+					goto maybe_error;
-+				ret = rxrpc_wait_for_tx_window(rx, call,
-+							       &timeo);
-+				if (ret < 0)
-+					goto maybe_error;
-+			}
-+
-+			max = call->conn->trans->peer->maxdata;
-+			max -= call->conn->security_size;
-+			max &= ~(call->conn->size_align - 1UL);
-+
-+			chunk = max;
-+			if (chunk > len)
-+				chunk = len;
-+
-+			space = chunk + call->conn->size_align;
-+			space &= ~(call->conn->size_align - 1UL);
-+
-+			size = space + call->conn->header_size;
-+
-+			_debug("SIZE: %zu/%zu/%zu", chunk, space, size);
-+
-+			/* create a buffer that we can retain until it's ACK'd */
-+			skb = sock_alloc_send_skb(
-+				sk, size, msg->msg_flags & MSG_DONTWAIT, &ret);
-+			if (!skb)
-+				goto maybe_error;
-+
-+			rxrpc_new_skb(skb);
-+
-+			_debug("ALLOC SEND %p", skb);
-+
-+			ASSERTCMP(skb->mark, ==, 0);
-+
-+			_debug("HS: %u", call->conn->header_size);
-+			skb_reserve(skb, call->conn->header_size);
-+			skb->len += call->conn->header_size;
-+
-+			sp = rxrpc_skb(skb);
-+			sp->remain = chunk;
-+			if (sp->remain > skb_tailroom(skb))
-+				sp->remain = skb_tailroom(skb);
-+
-+			_net("skb: hr %d, tr %d, hl %d, rm %d",
-+			       skb_headroom(skb),
-+			       skb_tailroom(skb),
-+			       skb_headlen(skb),
-+			       sp->remain);
-+
-+			skb->ip_summed = CHECKSUM_UNNECESSARY;
-+		}
-+
-+		_debug("append");
-+		sp = rxrpc_skb(skb);
-+
-+		/* append next segment of data to the current buffer */
-+		copy = skb_tailroom(skb);
-+		ASSERTCMP(copy, >, 0);
-+		if (copy > segment)
-+			copy = segment;
-+		if (copy > sp->remain)
-+			copy = sp->remain;
-+
-+		_debug("add");
-+		ret = skb_add_data(skb, from, copy);
-+		_debug("added");
-+		if (ret < 0)
-+			goto efault;
-+		sp->remain -= copy;
-+		skb->mark += copy;
-+
-+		len -= copy;
-+		segment -= copy;
-+		from += copy;
-+		while (segment == 0 && ioc > 0) {
-+			from = iov->iov_base;
-+			segment = iov->iov_len;
-+			iov++;
-+			ioc--;
-+		}
-+		if (len == 0) {
-+			segment = 0;
-+			ioc = 0;
-+		}
-+
-+		/* check for the far side aborting the call or a network error
-+		 * occurring */
-+		if (call->state > RXRPC_CALL_COMPLETE)
-+			goto call_aborted;
-+
-+		/* add the packet to the send queue if it's now full */
-+		if (sp->remain <= 0 || (segment == 0 && !more)) {
-+			struct rxrpc_connection *conn = call->conn;
-+			size_t pad;
-+
-+			/* pad out if we're using security */
-+			if (conn->security) {
-+				pad = conn->security_size + skb->mark;
-+				pad = conn->size_align - pad;
-+				pad &= conn->size_align - 1;
-+				_debug("pad %zu", pad);
-+				if (pad)
-+					memset(skb_put(skb, pad), 0, pad);
-+			}
-+
-+			sp->hdr.epoch = conn->epoch;
-+			sp->hdr.cid = call->cid;
-+			sp->hdr.callNumber = call->call_id;
-+			sp->hdr.seq =
-+				htonl(atomic_inc_return(&call->sequence));
-+			sp->hdr.serial =
-+				htonl(atomic_inc_return(&conn->serial));
-+			sp->hdr.type = RXRPC_PACKET_TYPE_DATA;
-+			sp->hdr.userStatus = 0;
-+			sp->hdr.securityIndex = conn->security_ix;
-+			sp->hdr._rsvd = 0;
-+			sp->hdr.serviceId = conn->service_id;
-+
-+			sp->hdr.flags = conn->out_clientflag;
-+			if (len == 0 && !more)
-+				sp->hdr.flags |= RXRPC_LAST_PACKET;
-+			else if (CIRC_SPACE(call->acks_head, call->acks_tail,
-+					    call->acks_winsz) > 1)
-+				sp->hdr.flags |= RXRPC_MORE_PACKETS;
-+
-+			ret = rxrpc_secure_packet(
-+				call, skb, skb->mark,
-+				skb->head + sizeof(struct rxrpc_header));
-+			if (ret < 0)
-+				goto out;
-+
-+			memcpy(skb->head, &sp->hdr,
-+			       sizeof(struct rxrpc_header));
-+			rxrpc_queue_packet(call, skb, segment == 0 && !more);
-+			skb = NULL;
-+		}
-+
-+	} while (segment > 0);
-+
-+out:
-+	call->tx_pending = skb;
-+	_leave(" = %d", ret);
-+	return ret;
-+
-+call_aborted:
-+	rxrpc_free_skb(skb);
-+	if (call->state == RXRPC_CALL_NETWORK_ERROR)
-+		ret = call->conn->trans->peer->net_error;
-+	else
-+		ret = -ECONNABORTED;
-+	_leave(" = %d", ret);
-+	return ret;
-+
-+maybe_error:
-+	if (copied)
-+		ret = copied;
-+	goto out;
-+
-+efault:
-+	ret = -EFAULT;
-+	goto out;
-+}
-diff --git a/net/rxrpc/ar-peer.c b/net/rxrpc/ar-peer.c
-new file mode 100644
-index 0000000..69ac355
---- /dev/null
-+++ b/net/rxrpc/ar-peer.c
-@@ -0,0 +1,273 @@
-+/* RxRPC remote transport endpoint management
-+ *
-+ * Copyright (C) 2007 Red Hat, Inc. All Rights Reserved.
-+ * Written by David Howells (dhowells@redhat.com)
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version
-+ * 2 of the License, or (at your option) any later version.
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/net.h>
-+#include <linux/skbuff.h>
-+#include <linux/udp.h>
-+#include <linux/in.h>
-+#include <linux/in6.h>
-+#include <linux/icmp.h>
-+#include <net/sock.h>
-+#include <net/af_rxrpc.h>
-+#include <net/ip.h>
-+#include "ar-internal.h"
-+
-+static LIST_HEAD(rxrpc_peers);
-+static DEFINE_RWLOCK(rxrpc_peer_lock);
-+static DECLARE_WAIT_QUEUE_HEAD(rxrpc_peer_wq);
-+
-+static void rxrpc_destroy_peer(struct work_struct *work);
-+
-+/*
-+ * allocate a new peer
-+ */
-+static struct rxrpc_peer *rxrpc_alloc_peer(struct sockaddr_rxrpc *srx,
-+					   gfp_t gfp)
-+{
-+	struct rxrpc_peer *peer;
-+
-+	_enter("");
-+
-+	peer = kzalloc(sizeof(struct rxrpc_peer), gfp);
-+	if (peer) {
-+		INIT_WORK(&peer->destroyer, &rxrpc_destroy_peer);
-+		INIT_LIST_HEAD(&peer->link);
-+		INIT_LIST_HEAD(&peer->error_targets);
-+		spin_lock_init(&peer->lock);
-+		atomic_set(&peer->usage, 1);
-+		peer->debug_id = atomic_inc_return(&rxrpc_debug_id);
-+		memcpy(&peer->srx, srx, sizeof(*srx));
-+
-+		peer->mtu = peer->if_mtu = 65535;
-+
-+		if (srx->transport.family == AF_INET) {
-+			peer->hdrsize = sizeof(struct iphdr);
-+			switch (srx->transport_type) {
-+			case SOCK_DGRAM:
-+				peer->hdrsize += sizeof(struct udphdr);
-+				break;
-+			default:
-+				BUG();
-+				break;
-+			}
-+		} else {
-+			BUG();
-+		}
-+
-+		peer->hdrsize += sizeof(struct rxrpc_header);
-+		peer->maxdata = peer->mtu - peer->hdrsize;
-+	}
-+
-+	_leave(" = %p", peer);
-+	return peer;
-+}
-+
-+/*
-+ * obtain a remote transport endpoint for the specified address
-+ */
-+struct rxrpc_peer *rxrpc_get_peer(struct sockaddr_rxrpc *srx, gfp_t gfp)
-+{
-+	struct rxrpc_peer *peer, *candidate;
-+	const char *new = "old";
-+	int usage;
-+
-+	_enter("{%d,%d,%u.%u.%u.%u+%hu}",
-+	       srx->transport_type,
-+	       srx->transport_len,
-+	       NIPQUAD(srx->transport.sin.sin_addr),
-+	       ntohs(srx->transport.sin.sin_port));
-+
-+	/* search the peer list first */
-+	read_lock_bh(&rxrpc_peer_lock);
-+	list_for_each_entry(peer, &rxrpc_peers, link) {
-+		_debug("check PEER %d { u=%d t=%d l=%d }",
-+		       peer->debug_id,
-+		       atomic_read(&peer->usage),
-+		       peer->srx.transport_type,
-+		       peer->srx.transport_len);
-+
-+		if (atomic_read(&peer->usage) > 0 &&
-+		    peer->srx.transport_type == srx->transport_type &&
-+		    peer->srx.transport_len == srx->transport_len &&
-+		    memcmp(&peer->srx.transport,
-+			   &srx->transport,
-+			   srx->transport_len) == 0)
-+			goto found_extant_peer;
-+	}
-+	read_unlock_bh(&rxrpc_peer_lock);
-+
-+	/* not yet present - create a candidate for a new record and then
-+	 * redo the search */
-+	candidate = rxrpc_alloc_peer(srx, gfp);
-+	if (!candidate) {
-+		_leave(" = -ENOMEM");
-+		return ERR_PTR(-ENOMEM);
-+	}
-+
-+	write_lock_bh(&rxrpc_peer_lock);
-+
-+	list_for_each_entry(peer, &rxrpc_peers, link) {
-+		if (atomic_read(&peer->usage) > 0 &&
-+		    peer->srx.transport_type == srx->transport_type &&
-+		    peer->srx.transport_len == srx->transport_len &&
-+		    memcmp(&peer->srx.transport,
-+			   &srx->transport,
-+			   srx->transport_len) == 0)
-+			goto found_extant_second;
-+	}
-+
-+	/* we can now add the new candidate to the list */
-+	peer = candidate;
-+	candidate = NULL;
-+
-+	list_add_tail(&peer->link, &rxrpc_peers);
-+	write_unlock_bh(&rxrpc_peer_lock);
-+	new = "new";
-+
-+success:
-+	_net("PEER %s %d {%d,%u,%u.%u.%u.%u+%hu}",
-+	     new,
-+	     peer->debug_id,
-+	     peer->srx.transport_type,
-+	     peer->srx.transport.family,
-+	     NIPQUAD(peer->srx.transport.sin.sin_addr),
-+	     ntohs(peer->srx.transport.sin.sin_port));
-+
-+	_leave(" = %p {u=%d}", peer, atomic_read(&peer->usage));
-+	return peer;
-+
-+	/* we found the peer in the list immediately */
-+found_extant_peer:
-+	usage = atomic_inc_return(&peer->usage);
-+	read_unlock_bh(&rxrpc_peer_lock);
-+	goto success;
-+
-+	/* we found the peer on the second time through the list */
-+found_extant_second:
-+	usage = atomic_inc_return(&peer->usage);
-+	write_unlock_bh(&rxrpc_peer_lock);
-+	kfree(candidate);
-+	goto success;
-+}
-+
-+/*
-+ * find the peer associated with a packet
-+ */
-+struct rxrpc_peer *rxrpc_find_peer(struct rxrpc_local *local,
-+				   __be32 addr, __be16 port)
-+{
-+	struct rxrpc_peer *peer;
-+
-+	_enter("");
-+
-+	/* search the peer list */
-+	read_lock_bh(&rxrpc_peer_lock);
-+
-+	if (local->srx.transport.family == AF_INET &&
-+	    local->srx.transport_type == SOCK_DGRAM
-+	    ) {
-+		list_for_each_entry(peer, &rxrpc_peers, link) {
-+			if (atomic_read(&peer->usage) > 0 &&
-+			    peer->srx.transport_type == SOCK_DGRAM &&
-+			    peer->srx.transport.family == AF_INET &&
-+			    peer->srx.transport.sin.sin_port == port &&
-+			    peer->srx.transport.sin.sin_addr.s_addr == addr)
-+				goto found_UDP_peer;
-+		}
-+
-+		goto new_UDP_peer;
-+	}
-+
-+	read_unlock_bh(&rxrpc_peer_lock);
-+	_leave(" = -EAFNOSUPPORT");
-+	return ERR_PTR(-EAFNOSUPPORT);
-+
-+found_UDP_peer:
-+	_net("Rx UDP DGRAM from peer %d", peer->debug_id);
-+	atomic_inc(&peer->usage);
-+	read_unlock_bh(&rxrpc_peer_lock);
-+	_leave(" = %p", peer);
-+	return peer;
-+
-+new_UDP_peer:
-+	_net("Rx UDP DGRAM from NEW peer %d", peer->debug_id);
-+	read_unlock_bh(&rxrpc_peer_lock);
-+	_leave(" = -EBUSY [new]");
-+	return ERR_PTR(-EBUSY);
-+}
-+
-+/*
-+ * release a remote transport endpoint
-+ */
-+void rxrpc_put_peer(struct rxrpc_peer *peer)
-+{
-+	_enter("%p{u=%d}", peer, atomic_read(&peer->usage));
-+
-+	ASSERTCMP(atomic_read(&peer->usage), >, 0);
-+
-+	if (likely(!atomic_dec_and_test(&peer->usage))) {
-+		_leave(" [in use]");
-+		return;
-+	}
-+
-+	schedule_work(&peer->destroyer);
-+	_leave("");
-+}
-+
-+/*
-+ * destroy a remote transport endpoint
-+ */
-+static void rxrpc_destroy_peer(struct work_struct *work)
-+{
-+	struct rxrpc_peer *peer =
-+		container_of(work, struct rxrpc_peer, destroyer);
-+
-+	_enter("%p{%d}", peer, atomic_read(&peer->usage));
-+
-+	write_lock_bh(&rxrpc_peer_lock);
-+	list_del(&peer->link);
-+	write_unlock_bh(&rxrpc_peer_lock);
-+
-+	_net("DESTROY PEER %d", peer->debug_id);
-+	kfree(peer);
-+
-+	if (list_empty(&rxrpc_peers))
-+		wake_up_all(&rxrpc_peer_wq);
-+	_leave("");
-+}
-+
-+/*
-+ * preemptively destroy all the peer records from a transport endpoint rather
-+ * than waiting for them to time out
-+ */
-+void __exit rxrpc_destroy_all_peers(void)
-+{
-+	DECLARE_WAITQUEUE(myself,current);
-+
-+	_enter("");
-+
-+	/* we simply have to wait for them to go away */
-+	if (!list_empty(&rxrpc_peers)) {
-+		set_current_state(TASK_UNINTERRUPTIBLE);
-+		add_wait_queue(&rxrpc_peer_wq, &myself);
-+
-+		while (!list_empty(&rxrpc_peers)) {
-+			schedule();
-+			set_current_state(TASK_UNINTERRUPTIBLE);
-+		}
-+
-+		remove_wait_queue(&rxrpc_peer_wq, &myself);
-+		set_current_state(TASK_RUNNING);
-+	}
-+
-+	_leave("");
-+}
-diff --git a/net/rxrpc/ar-proc.c b/net/rxrpc/ar-proc.c
-new file mode 100644
-index 0000000..58f4b4e
---- /dev/null
-+++ b/net/rxrpc/ar-proc.c
-@@ -0,0 +1,247 @@
-+/* /proc/net/ support for AF_RXRPC
-+ *
-+ * Copyright (C) 2007 Red Hat, Inc. All Rights Reserved.
-+ * Written by David Howells (dhowells@redhat.com)
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version
-+ * 2 of the License, or (at your option) any later version.
-+ */
-+
-+#include <linux/module.h>
-+#include <net/sock.h>
-+#include <net/af_rxrpc.h>
-+#include "ar-internal.h"
-+
-+static const char *rxrpc_conn_states[] = {
-+	[RXRPC_CONN_UNUSED]		= "Unused  ",
-+	[RXRPC_CONN_CLIENT]		= "Client  ",
-+	[RXRPC_CONN_SERVER_UNSECURED]	= "SvUnsec ",
-+	[RXRPC_CONN_SERVER_CHALLENGING]	= "SvChall ",
-+	[RXRPC_CONN_SERVER]		= "SvSecure",
-+	[RXRPC_CONN_REMOTELY_ABORTED]	= "RmtAbort",
-+	[RXRPC_CONN_LOCALLY_ABORTED]	= "LocAbort",
-+	[RXRPC_CONN_NETWORK_ERROR]	= "NetError",
-+};
-+
-+const char *rxrpc_call_states[] = {
-+	[RXRPC_CALL_CLIENT_SEND_REQUEST]	= "ClSndReq",
-+	[RXRPC_CALL_CLIENT_AWAIT_REPLY]		= "ClAwtRpl",
-+	[RXRPC_CALL_CLIENT_RECV_REPLY]		= "ClRcvRpl",
-+	[RXRPC_CALL_CLIENT_FINAL_ACK]		= "ClFnlACK",
-+	[RXRPC_CALL_SERVER_SECURING]		= "SvSecure",
-+	[RXRPC_CALL_SERVER_ACCEPTING]		= "SvAccept",
-+	[RXRPC_CALL_SERVER_RECV_REQUEST]	= "SvRcvReq",
-+	[RXRPC_CALL_SERVER_ACK_REQUEST]		= "SvAckReq",
-+	[RXRPC_CALL_SERVER_SEND_REPLY]		= "SvSndRpl",
-+	[RXRPC_CALL_SERVER_AWAIT_ACK]		= "SvAwtACK",
-+	[RXRPC_CALL_COMPLETE]			= "Complete",
-+	[RXRPC_CALL_SERVER_BUSY]		= "SvBusy  ",
-+	[RXRPC_CALL_REMOTELY_ABORTED]		= "RmtAbort",
-+	[RXRPC_CALL_LOCALLY_ABORTED]		= "LocAbort",
-+	[RXRPC_CALL_NETWORK_ERROR]		= "NetError",
-+	[RXRPC_CALL_DEAD]			= "Dead    ",
-+};
-+
-+/*
-+ * generate a list of extant and dead calls in /proc/net/rxrpc_calls
-+ */
-+static void *rxrpc_call_seq_start(struct seq_file *seq, loff_t *_pos)
-+{
-+	struct list_head *_p;
-+	loff_t pos = *_pos;
-+
-+	read_lock(&rxrpc_call_lock);
-+	if (!pos)
-+		return SEQ_START_TOKEN;
-+	pos--;
-+
-+	list_for_each(_p, &rxrpc_calls)
-+		if (!pos--)
-+			break;
-+
-+	return _p != &rxrpc_calls ? _p : NULL;
-+}
-+
-+static void *rxrpc_call_seq_next(struct seq_file *seq, void *v, loff_t *pos)
-+{
-+	struct list_head *_p;
-+
-+	(*pos)++;
-+
-+	_p = v;
-+	_p = (v == SEQ_START_TOKEN) ? rxrpc_calls.next : _p->next;
-+
-+	return _p != &rxrpc_calls ? _p : NULL;
-+}
-+
-+static void rxrpc_call_seq_stop(struct seq_file *seq, void *v)
-+{
-+	read_unlock(&rxrpc_call_lock);
-+}
-+
-+static int rxrpc_call_seq_show(struct seq_file *seq, void *v)
-+{
-+	struct rxrpc_transport *trans;
-+	struct rxrpc_call *call;
-+	char lbuff[4 + 4 + 4 + 4 + 5 + 1], rbuff[4 + 4 + 4 + 4 + 5 + 1];
-+
-+	if (v == SEQ_START_TOKEN) {
-+		seq_puts(seq,
-+			 "Proto Local                  Remote                "
-+			 " SvID ConnID   CallID   End Use State    Abort   "
-+			 " UserID\n");
-+		return 0;
-+	}
-+
-+	call = list_entry(v, struct rxrpc_call, link);
-+	trans = call->conn->trans;
-+
-+	sprintf(lbuff, NIPQUAD_FMT":%u",
-+		NIPQUAD(trans->local->srx.transport.sin.sin_addr),
-+		ntohs(trans->local->srx.transport.sin.sin_port));
-+
-+	sprintf(rbuff, NIPQUAD_FMT":%u",
-+		NIPQUAD(trans->peer->srx.transport.sin.sin_addr),
-+		ntohs(trans->peer->srx.transport.sin.sin_port));
-+
-+	seq_printf(seq,
-+		   "UDP   %-22.22s %-22.22s %4x %08x %08x %s %3u"
-+		   " %-8.8s %08x %lx\n",
-+		   lbuff,
-+		   rbuff,
-+		   ntohs(call->conn->service_id),
-+		   ntohl(call->conn->cid),
-+		   ntohl(call->call_id),
-+		   call->conn->in_clientflag ? "Svc" : "Clt",
-+		   atomic_read(&call->usage),
-+		   rxrpc_call_states[call->state],
-+		   call->abort_code,
-+		   call->user_call_ID);
-+
-+	return 0;
-+}
-+
-+static struct seq_operations rxrpc_call_seq_ops = {
-+	.start  = rxrpc_call_seq_start,
-+	.next   = rxrpc_call_seq_next,
-+	.stop   = rxrpc_call_seq_stop,
-+	.show   = rxrpc_call_seq_show,
-+};
-+
-+static int rxrpc_call_seq_open(struct inode *inode, struct file *file)
-+{
-+	return seq_open(file, &rxrpc_call_seq_ops);
-+}
-+
-+struct file_operations rxrpc_call_seq_fops = {
-+	.owner		= THIS_MODULE,
-+	.open		= rxrpc_call_seq_open,
-+	.read		= seq_read,
-+	.llseek		= seq_lseek,
-+	.release	= seq_release_private,
-+};
-+
-+/*
-+ * generate a list of extant virtual connections in /proc/net/rxrpc_conns
-+ */
-+static void *rxrpc_connection_seq_start(struct seq_file *seq, loff_t *_pos)
-+{
-+	struct list_head *_p;
-+	loff_t pos = *_pos;
-+
-+	read_lock(&rxrpc_connection_lock);
-+	if (!pos)
-+		return SEQ_START_TOKEN;
-+	pos--;
-+
-+	list_for_each(_p, &rxrpc_connections)
-+		if (!pos--)
-+			break;
-+
-+	return _p != &rxrpc_connections ? _p : NULL;
-+}
-+
-+static void *rxrpc_connection_seq_next(struct seq_file *seq, void *v,
-+				       loff_t *pos)
-+{
-+	struct list_head *_p;
-+
-+	(*pos)++;
-+
-+	_p = v;
-+	_p = (v == SEQ_START_TOKEN) ? rxrpc_connections.next : _p->next;
-+
-+	return _p != &rxrpc_connections ? _p : NULL;
-+}
-+
-+static void rxrpc_connection_seq_stop(struct seq_file *seq, void *v)
-+{
-+	read_unlock(&rxrpc_connection_lock);
-+}
-+
-+static int rxrpc_connection_seq_show(struct seq_file *seq, void *v)
-+{
-+	struct rxrpc_connection *conn;
-+	struct rxrpc_transport *trans;
-+	char lbuff[4 + 4 + 4 + 4 + 5 + 1], rbuff[4 + 4 + 4 + 4 + 5 + 1];
-+
-+	if (v == SEQ_START_TOKEN) {
-+		seq_puts(seq,
-+			 "Proto Local                  Remote                "
-+			 " SvID ConnID   Calls    End Use State    Key     "
-+			 " Serial   ISerial\n"
-+			 );
-+		return 0;
-+	}
-+
-+	conn = list_entry(v, struct rxrpc_connection, link);
-+	trans = conn->trans;
-+
-+	sprintf(lbuff, NIPQUAD_FMT":%u",
-+		NIPQUAD(trans->local->srx.transport.sin.sin_addr),
-+		ntohs(trans->local->srx.transport.sin.sin_port));
-+
-+	sprintf(rbuff, NIPQUAD_FMT":%u",
-+		NIPQUAD(trans->peer->srx.transport.sin.sin_addr),
-+		ntohs(trans->peer->srx.transport.sin.sin_port));
-+
-+	seq_printf(seq,
-+		   "UDP   %-22.22s %-22.22s %4x %08x %08x %s %3u"
-+		   " %s %08x %08x %08x\n",
-+		   lbuff,
-+		   rbuff,
-+		   ntohs(conn->service_id),
-+		   ntohl(conn->cid),
-+		   conn->call_counter,
-+		   conn->in_clientflag ? "Svc" : "Clt",
-+		   atomic_read(&conn->usage),
-+		   rxrpc_conn_states[conn->state],
-+		   key_serial(conn->key),
-+		   atomic_read(&conn->serial),
-+		   atomic_read(&conn->hi_serial));
-+
-+	return 0;
-+}
-+
-+static struct seq_operations rxrpc_connection_seq_ops = {
-+	.start  = rxrpc_connection_seq_start,
-+	.next   = rxrpc_connection_seq_next,
-+	.stop   = rxrpc_connection_seq_stop,
-+	.show   = rxrpc_connection_seq_show,
-+};
-+
-+
-+static int rxrpc_connection_seq_open(struct inode *inode, struct file *file)
-+{
-+	return seq_open(file, &rxrpc_connection_seq_ops);
-+}
-+
-+struct file_operations rxrpc_connection_seq_fops = {
-+	.owner		= THIS_MODULE,
-+	.open		= rxrpc_connection_seq_open,
-+	.read		= seq_read,
-+	.llseek		= seq_lseek,
-+	.release	= seq_release_private,
-+};
-diff --git a/net/rxrpc/ar-recvmsg.c b/net/rxrpc/ar-recvmsg.c
-new file mode 100644
-index 0000000..e947d5c
---- /dev/null
-+++ b/net/rxrpc/ar-recvmsg.c
-@@ -0,0 +1,366 @@
-+/* RxRPC recvmsg() implementation
-+ *
-+ * Copyright (C) 2007 Red Hat, Inc. All Rights Reserved.
-+ * Written by David Howells (dhowells@redhat.com)
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version
-+ * 2 of the License, or (at your option) any later version.
-+ */
-+
-+#include <linux/net.h>
-+#include <linux/skbuff.h>
-+#include <net/sock.h>
-+#include <net/af_rxrpc.h>
-+#include "ar-internal.h"
-+
-+/*
-+ * removal a call's user ID from the socket tree to make the user ID available
-+ * again and so that it won't be seen again in association with that call
-+ */
-+static void rxrpc_remove_user_ID(struct rxrpc_sock *rx, struct rxrpc_call *call)
-+{
-+	_debug("RELEASE CALL %d", call->debug_id);
-+
-+	if (test_bit(RXRPC_CALL_HAS_USERID, &call->flags)) {
-+		write_lock_bh(&rx->call_lock);
-+		rb_erase(&call->sock_node, &call->socket->calls);
-+		clear_bit(RXRPC_CALL_HAS_USERID, &call->flags);
-+		write_unlock_bh(&rx->call_lock);
-+	}
-+
-+	read_lock_bh(&call->state_lock);
-+	if (!test_bit(RXRPC_CALL_RELEASED, &call->flags) &&
-+	    !test_and_set_bit(RXRPC_CALL_RELEASE, &call->events))
-+		schedule_work(&call->processor);
-+	read_unlock_bh(&call->state_lock);
-+}
-+
-+/*
-+ * receive a message from an RxRPC socket
-+ * - we need to be careful about two or more threads calling recvmsg
-+ *   simultaneously
-+ */
-+int rxrpc_recvmsg(struct kiocb *iocb, struct socket *sock,
-+		  struct msghdr *msg, size_t len, int flags)
-+{
-+	struct rxrpc_skb_priv *sp;
-+	struct rxrpc_call *call = NULL, *continue_call = NULL;
-+	struct rxrpc_sock *rx = rxrpc_sk(sock->sk);
-+	struct sk_buff *skb;
-+	long timeo;
-+	int copy, ret, ullen, offset, copied = 0;
-+	u32 abort_code;
-+
-+	DEFINE_WAIT(wait);
-+
-+	_enter(",,,%zu,%d", len, flags);
-+
-+	if (flags & (MSG_OOB | MSG_TRUNC))
-+		return -EOPNOTSUPP;
-+
-+	ullen = msg->msg_flags & MSG_CMSG_COMPAT ? 4 : sizeof(unsigned long);
-+
-+	timeo = sock_rcvtimeo(&rx->sk, flags & MSG_DONTWAIT);
-+	msg->msg_flags |= MSG_MORE;
-+
-+	lock_sock(&rx->sk);
-+
-+	for (;;) {
-+		/* return immediately if a client socket has no outstanding
-+		 * calls */
-+		if (RB_EMPTY_ROOT(&rx->calls)) {
-+			if (copied)
-+				goto out;
-+			if (rx->sk.sk_state != RXRPC_SERVER_LISTENING) {
-+				release_sock(&rx->sk);
-+				if (continue_call)
-+					rxrpc_put_call(continue_call);
-+				return -ENODATA;
-+			}
-+		}
-+
-+		/* get the next message on the Rx queue */
-+		skb = skb_peek(&rx->sk.sk_receive_queue);
-+		if (!skb) {
-+			/* nothing remains on the queue */
-+			if (copied &&
-+			    (msg->msg_flags & MSG_PEEK || timeo == 0))
-+				goto out;
-+
-+			/* wait for a message to turn up */
-+			release_sock(&rx->sk);
-+			prepare_to_wait_exclusive(rx->sk.sk_sleep, &wait,
-+						  TASK_INTERRUPTIBLE);
-+			ret = sock_error(&rx->sk);
-+			if (ret)
-+				goto wait_error;
-+
-+			if (skb_queue_empty(&rx->sk.sk_receive_queue)) {
-+				if (signal_pending(current))
-+					goto wait_interrupted;
-+				timeo = schedule_timeout(timeo);
-+			}
-+			finish_wait(rx->sk.sk_sleep, &wait);
-+			lock_sock(&rx->sk);
-+			continue;
-+		}
-+
-+	peek_next_packet:
-+		sp = rxrpc_skb(skb);
-+		call = sp->call;
-+		ASSERT(call != NULL);
-+
-+		_debug("next pkt %s", rxrpc_pkts[sp->hdr.type]);
-+
-+		/* make sure we wait for the state to be updated in this call */
-+		spin_lock_bh(&call->lock);
-+		spin_unlock_bh(&call->lock);
-+
-+		if (test_bit(RXRPC_CALL_RELEASED, &call->flags)) {
-+			_debug("packet from released call");
-+			if (skb_dequeue(&rx->sk.sk_receive_queue) != skb)
-+				BUG();
-+			rxrpc_free_skb(skb);
-+			continue;
-+		}
-+
-+		/* determine whether to continue last data receive */
-+		if (continue_call) {
-+			_debug("maybe cont");
-+			if (call != continue_call ||
-+			    skb->mark != RXRPC_SKB_MARK_DATA) {
-+				release_sock(&rx->sk);
-+				rxrpc_put_call(continue_call);
-+				_leave(" = %d [noncont]", copied);
-+				return copied;
-+			}
-+		}
-+
-+		rxrpc_get_call(call);
-+
-+		/* copy the peer address and timestamp */
-+		if (!continue_call) {
-+			if (msg->msg_name && msg->msg_namelen > 0)
-+				memcpy(&msg->msg_name, &call->conn->trans->peer->srx,
-+				       sizeof(call->conn->trans->peer->srx));
-+			sock_recv_timestamp(msg, &rx->sk, skb);
-+		}
-+
-+		/* receive the message */
-+		if (skb->mark != RXRPC_SKB_MARK_DATA)
-+			goto receive_non_data_message;
-+
-+		_debug("recvmsg DATA #%u { %d, %d }",
-+		       ntohl(sp->hdr.seq), skb->len, sp->offset);
-+
-+		if (!continue_call) {
-+			/* only set the control data once per recvmsg() */
-+			ret = put_cmsg(msg, SOL_RXRPC, RXRPC_USER_CALL_ID,
-+				       ullen, &call->user_call_ID);
-+			if (ret < 0)
-+				goto copy_error;
-+			ASSERT(test_bit(RXRPC_CALL_HAS_USERID, &call->flags));
-+		}
-+
-+		ASSERTCMP(ntohl(sp->hdr.seq), >=, call->rx_data_recv);
-+		ASSERTCMP(ntohl(sp->hdr.seq), <=, call->rx_data_recv + 1);
-+		call->rx_data_recv = ntohl(sp->hdr.seq);
-+
-+		ASSERTCMP(ntohl(sp->hdr.seq), >, call->rx_data_eaten);
-+
-+		offset = sp->offset;
-+		copy = skb->len - offset;
-+		if (copy > len - copied)
-+			copy = len - copied;
-+
-+		if (skb->ip_summed == CHECKSUM_UNNECESSARY) {
-+			ret = skb_copy_datagram_iovec(skb, offset,
-+						      msg->msg_iov, copy);
-+		} else {
-+			ret = skb_copy_and_csum_datagram_iovec(skb, offset,
-+							       msg->msg_iov);
-+			if (ret == -EINVAL)
-+				goto csum_copy_error;
-+		}
-+
-+		if (ret < 0)
-+			goto copy_error;
-+
-+		/* handle piecemeal consumption of data packets */
-+		_debug("copied %d+%d", copy, copied);
-+
-+		offset += copy;
-+		copied += copy;
-+
-+		if (!(flags & MSG_PEEK))
-+			sp->offset = offset;
-+
-+		if (sp->offset < skb->len) {
-+			_debug("buffer full");
-+			ASSERTCMP(copied, ==, len);
-+			break;
-+		}
-+
-+		/* we transferred the whole data packet */
-+		if (sp->hdr.flags & RXRPC_LAST_PACKET) {
-+			_debug("last");
-+			if (call->conn->out_clientflag) {
-+				 /* last byte of reply received */
-+				ret = copied;
-+				goto terminal_message;
-+			}
-+
-+			/* last bit of request received */
-+			if (!(flags & MSG_PEEK)) {
-+				_debug("eat packet");
-+				if (skb_dequeue(&rx->sk.sk_receive_queue) !=
-+				    skb)
-+					BUG();
-+				rxrpc_free_skb(skb);
-+			}
-+			msg->msg_flags &= ~MSG_MORE;
-+			break;
-+		}
-+
-+		/* move on to the next data message */
-+		_debug("next");
-+		if (!continue_call)
-+			continue_call = sp->call;
-+		else
-+			rxrpc_put_call(call);
-+		call = NULL;
-+
-+		if (flags & MSG_PEEK) {
-+			_debug("peek next");
-+			skb = skb->next;
-+			if (skb == (struct sk_buff *) &rx->sk.sk_receive_queue)
-+				break;
-+			goto peek_next_packet;
-+		}
-+
-+		_debug("eat packet");
-+		if (skb_dequeue(&rx->sk.sk_receive_queue) != skb)
-+			BUG();
-+		rxrpc_free_skb(skb);
-+	}
-+
-+	/* end of non-terminal data packet reception for the moment */
-+	_debug("end rcv data");
-+out:
-+	release_sock(&rx->sk);
-+	if (call)
-+		rxrpc_put_call(call);
-+	if (continue_call)
-+		rxrpc_put_call(continue_call);
-+	_leave(" = %d [data]", copied);
-+	return copied;
-+
-+	/* handle non-DATA messages such as aborts, incoming connections and
-+	 * final ACKs */
-+receive_non_data_message:
-+	_debug("non-data");
-+
-+	if (skb->mark == RXRPC_SKB_MARK_NEW_CALL) {
-+		_debug("RECV NEW CALL");
-+		ret = put_cmsg(msg, SOL_RXRPC, RXRPC_NEW_CALL, 0, &abort_code);
-+		if (ret < 0)
-+			goto copy_error;
-+		if (!(flags & MSG_PEEK)) {
-+			if (skb_dequeue(&rx->sk.sk_receive_queue) != skb)
-+				BUG();
-+			rxrpc_free_skb(skb);
-+		}
-+		goto out;
-+	}
-+
-+	ret = put_cmsg(msg, SOL_RXRPC, RXRPC_USER_CALL_ID,
-+		       ullen, &call->user_call_ID);
++	call->rxcall =3D rxcall;
++
++	/* send the request */
++	iov[0].iov_base	=3D call->request;
++	iov[0].iov_len	=3D call->request_size;
++
++	msg.msg_name		=3D NULL;
++	msg.msg_namelen		=3D 0;
++	msg.msg_iov		=3D (struct iovec *) iov;
++	msg.msg_iovlen		=3D 1;
++	msg.msg_control		=3D NULL;
++	msg.msg_controllen	=3D 0;
++	msg.msg_flags		=3D 0;
++
++	/* have to change the state *before* sending the last packet as RxRPC
++	 * might give us the reply before it returns from sending the
++	 * request */
++	call->state =3D AFS_CALL_AWAIT_REPLY;
++	ret =3D rxrpc_kernel_send_data(rxcall, &msg, call->request_size);
 +	if (ret < 0)
-+		goto copy_error;
-+	ASSERT(test_bit(RXRPC_CALL_HAS_USERID, &call->flags));
++		goto error_do_abort;
 +
-+	switch (skb->mark) {
-+	case RXRPC_SKB_MARK_DATA:
-+		BUG();
-+	case RXRPC_SKB_MARK_FINAL_ACK:
-+		ret = put_cmsg(msg, SOL_RXRPC, RXRPC_ACK, 0, &abort_code);
-+		break;
-+	case RXRPC_SKB_MARK_BUSY:
-+		ret = put_cmsg(msg, SOL_RXRPC, RXRPC_BUSY, 0, &abort_code);
-+		break;
-+	case RXRPC_SKB_MARK_REMOTE_ABORT:
-+		abort_code = call->abort_code;
-+		ret = put_cmsg(msg, SOL_RXRPC, RXRPC_ABORT, 4, &abort_code);
-+		break;
-+	case RXRPC_SKB_MARK_NET_ERROR:
-+		_debug("RECV NET ERROR %d", sp->error);
-+		abort_code = sp->error;
-+		ret = put_cmsg(msg, SOL_RXRPC, RXRPC_NET_ERROR, 4, &abort_code);
-+		break;
-+	case RXRPC_SKB_MARK_LOCAL_ERROR:
-+		_debug("RECV LOCAL ERROR %d", sp->error);
-+		abort_code = sp->error;
-+		ret = put_cmsg(msg, SOL_RXRPC, RXRPC_LOCAL_ERROR, 4,
-+			       &abort_code);
-+		break;
-+	default:
-+		BUG();
-+		break;
-+	}
++	/* at this point, an async call may no longer exist as it may have
++	 * already completed */
++	return wait_mode->wait(call);
 +
-+	if (ret < 0)
-+		goto copy_error;
-+
-+terminal_message:
-+	_debug("terminal");
-+	msg->msg_flags &= ~MSG_MORE;
-+	msg->msg_flags |= MSG_EOR;
-+
-+	if (!(flags & MSG_PEEK)) {
-+		_net("free terminal skb %p", skb);
-+		if (skb_dequeue(&rx->sk.sk_receive_queue) != skb)
-+			BUG();
-+		rxrpc_free_skb(skb);
-+		rxrpc_remove_user_ID(rx, call);
-+	}
-+
-+	release_sock(&rx->sk);
-+	rxrpc_put_call(call);
-+	if (continue_call)
-+		rxrpc_put_call(continue_call);
-+	_leave(" = %d", ret);
-+	return ret;
-+
-+copy_error:
-+	_debug("copy error");
-+	release_sock(&rx->sk);
-+	rxrpc_put_call(call);
-+	if (continue_call)
-+		rxrpc_put_call(continue_call);
-+	_leave(" = %d", ret);
-+	return ret;
-+
-+csum_copy_error:
-+	_debug("csum error");
-+	release_sock(&rx->sk);
-+	if (continue_call)
-+		rxrpc_put_call(continue_call);
-+	rxrpc_kill_skb(skb);
-+	skb_kill_datagram(&rx->sk, skb, flags);
-+	rxrpc_put_call(call);
-+	return -EAGAIN;
-+
-+wait_interrupted:
-+	ret = sock_intr_errno(timeo);
-+wait_error:
-+	finish_wait(rx->sk.sk_sleep, &wait);
-+	if (continue_call)
-+		rxrpc_put_call(continue_call);
-+	if (copied)
-+		copied = ret;
-+	_leave(" = %d [waitfail %d]", copied, ret);
-+	return copied;
-+
-+}
-diff --git a/net/rxrpc/ar-security.c b/net/rxrpc/ar-security.c
-new file mode 100644
-index 0000000..60d1d36
---- /dev/null
-+++ b/net/rxrpc/ar-security.c
-@@ -0,0 +1,258 @@
-+/* RxRPC security handling
-+ *
-+ * Copyright (C) 2007 Red Hat, Inc. All Rights Reserved.
-+ * Written by David Howells (dhowells@redhat.com)
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version
-+ * 2 of the License, or (at your option) any later version.
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/net.h>
-+#include <linux/skbuff.h>
-+#include <linux/udp.h>
-+#include <linux/crypto.h>
-+#include <net/sock.h>
-+#include <net/af_rxrpc.h>
-+#include "ar-internal.h"
-+
-+static LIST_HEAD(rxrpc_security_methods);
-+static DECLARE_RWSEM(rxrpc_security_sem);
-+
-+/*
-+ * get an RxRPC security module
-+ */
-+static struct rxrpc_security *rxrpc_security_get(struct rxrpc_security *sec)
-+{
-+	return try_module_get(sec->owner) ? sec : NULL;
-+}
-+
-+/*
-+ * release an RxRPC security module
-+ */
-+static void rxrpc_security_put(struct rxrpc_security *sec)
-+{
-+	module_put(sec->owner);
-+}
-+
-+/*
-+ * look up an rxrpc security module
-+ */
-+struct rxrpc_security *rxrpc_security_lookup(u8 security_index)
-+{
-+	struct rxrpc_security *sec = NULL;
-+
-+	_enter("");
-+
-+	down_read(&rxrpc_security_sem);
-+
-+	list_for_each_entry(sec, &rxrpc_security_methods, link) {
-+		if (sec->security_index == security_index) {
-+			if (unlikely(!rxrpc_security_get(sec)))
-+				break;
-+			goto out;
-+		}
-+	}
-+
-+	sec = NULL;
-+out:
-+	up_read(&rxrpc_security_sem);
-+	_leave(" = %p [%s]", sec, sec ? sec->name : "");
-+	return sec;
-+}
-+
-+/**
-+ * rxrpc_register_security - register an RxRPC security handler
-+ * @sec: security module
-+ *
-+ * register an RxRPC security handler for use by RxRPC
-+ */
-+int rxrpc_register_security(struct rxrpc_security *sec)
-+{
-+	struct rxrpc_security *psec;
-+	int ret;
-+
-+	_enter("");
-+	down_write(&rxrpc_security_sem);
-+
-+	ret = -EEXIST;
-+	list_for_each_entry(psec, &rxrpc_security_methods, link) {
-+		if (psec->security_index == sec->security_index)
-+			goto out;
-+	}
-+
-+	list_add(&sec->link, &rxrpc_security_methods);
-+
-+	printk(KERN_NOTICE "RxRPC: Registered security type %d '%s'\n",
-+	       sec->security_index, sec->name);
-+	ret = 0;
-+
-+out:
-+	up_write(&rxrpc_security_sem);
-+	_leave(" = %d", ret);
++error_do_abort:
++	rxrpc_kernel_abort_call(rxcall, RX_USER_ABORT);
++	rxrpc_kernel_end_call(rxcall);
++error_kill_call:
++	call->type->destructor(call);
++	ASSERT(skb_queue_empty(&call->rx_queue));
++	kfree(call);
++	_leave(" =3D %d", ret);
 +	return ret;
 +}
 +
-+EXPORT_SYMBOL_GPL(rxrpc_register_security);
-+
-+/**
-+ * rxrpc_unregister_security - unregister an RxRPC security handler
-+ * @sec: security module
-+ *
-+ * unregister an RxRPC security handler
-+ */
-+void rxrpc_unregister_security(struct rxrpc_security *sec)
-+{
-+
-+	_enter("");
-+	down_write(&rxrpc_security_sem);
-+	list_del_init(&sec->link);
-+	up_write(&rxrpc_security_sem);
-+
-+	printk(KERN_NOTICE "RxRPC: Unregistered security type %d '%s'\n",
-+	       sec->security_index, sec->name);
-+}
-+
-+EXPORT_SYMBOL_GPL(rxrpc_unregister_security);
-+
 +/*
-+ * initialise the security on a client connection
-+ */
-+int rxrpc_init_client_conn_security(struct rxrpc_connection *conn)
-+{
-+	struct rxrpc_security *sec;
-+	struct key *key = conn->key;
-+	int ret;
-+
-+	_enter("{%d},{%x}", conn->debug_id, key_serial(key));
-+
-+	if (!key)
-+		return 0;
-+
-+	ret = key_validate(key);
-+	if (ret < 0)
-+		return ret;
-+
-+	sec = rxrpc_security_lookup(key->type_data.x[0]);
-+	if (!sec)
-+		return -EKEYREJECTED;
-+	conn->security = sec;
-+
-+	ret = conn->security->init_connection_security(conn);
-+	if (ret < 0) {
-+		rxrpc_security_put(conn->security);
-+		conn->security = NULL;
-+		return ret;
-+	}
-+
-+	_leave(" = 0");
-+	return 0;
-+}
-+
-+/*
-+ * initialise the security on a server connection
-+ */
-+int rxrpc_init_server_conn_security(struct rxrpc_connection *conn)
-+{
-+	struct rxrpc_security *sec;
-+	struct rxrpc_local *local = conn->trans->local;
-+	struct rxrpc_sock *rx;
-+	struct key *key;
-+	key_ref_t kref;
-+	char kdesc[5+1+3+1];
-+
-+	_enter("");
-+
-+	sprintf(kdesc, "%u:%u", ntohs(conn->service_id), conn->security_ix);
-+
-+	sec = rxrpc_security_lookup(conn->security_ix);
-+	if (!sec) {
-+		_leave(" = -ENOKEY [lookup]");
-+		return -ENOKEY;
-+	}
-+
-+	/* find the service */
-+	read_lock_bh(&local->services_lock);
-+	list_for_each_entry(rx, &local->services, listen_link) {
-+		if (rx->service_id == conn->service_id)
-+			goto found_service;
-+	}
-+
-+	/* the service appears to have died */
-+	read_unlock_bh(&local->services_lock);
-+	rxrpc_security_put(sec);
-+	_leave(" = -ENOENT");
-+	return -ENOENT;
-+
-+found_service:
-+	if (!rx->securities) {
-+		read_unlock_bh(&local->services_lock);
-+		rxrpc_security_put(sec);
-+		_leave(" = -ENOKEY");
-+		return -ENOKEY;
-+	}
-+
-+	/* look through the service's keyring */
-+	kref = keyring_search(make_key_ref(rx->securities, 1UL),
-+			      &key_type_rxrpc_s, kdesc);
-+	if (IS_ERR(kref)) {
-+		read_unlock_bh(&local->services_lock);
-+		rxrpc_security_put(sec);
-+		_leave(" = %ld [search]", PTR_ERR(kref));
-+		return PTR_ERR(kref);
-+	}
-+
-+	key = key_ref_to_ptr(kref);
-+	read_unlock_bh(&local->services_lock);
-+
-+	conn->server_key = key;
-+	conn->security = sec;
-+
-+	_leave(" = 0");
-+	return 0;
-+}
-+
-+/*
-+ * secure a packet prior to transmission
-+ */
-+int rxrpc_secure_packet(const struct rxrpc_call *call,
-+			struct sk_buff *skb,
-+			size_t data_size,
-+			void *sechdr)
-+{
-+	if (call->conn->security)
-+		return call->conn->security->secure_packet(
-+			call, skb, data_size, sechdr);
-+	return 0;
-+}
-+
-+/*
-+ * secure a packet prior to transmission
-+ */
-+int rxrpc_verify_packet(const struct rxrpc_call *call, struct sk_buff *skb,
-+			u32 *_abort_code)
-+{
-+	if (call->conn->security)
-+		return call->conn->security->verify_packet(
-+			call, skb, _abort_code);
-+	return 0;
-+}
-+
-+/*
-+ * clear connection security
-+ */
-+void rxrpc_clear_conn_security(struct rxrpc_connection *conn)
-+{
-+	_enter("{%d}", conn->debug_id);
-+
-+	if (conn->security) {
-+		conn->security->clear(conn);
-+		rxrpc_security_put(conn->security);
-+		conn->security = NULL;
-+	}
-+
-+	key_put(conn->key);
-+	key_put(conn->server_key);
-+}
-diff --git a/net/rxrpc/ar-skbuff.c b/net/rxrpc/ar-skbuff.c
-new file mode 100644
-index 0000000..d73f6fc
---- /dev/null
-+++ b/net/rxrpc/ar-skbuff.c
-@@ -0,0 +1,118 @@
-+/* ar-skbuff.c: socket buffer destruction handling
-+ *
-+ * Copyright (C) 2007 Red Hat, Inc. All Rights Reserved.
-+ * Written by David Howells (dhowells@redhat.com)
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version
-+ * 2 of the License, or (at your option) any later version.
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/net.h>
-+#include <linux/skbuff.h>
-+#include <net/sock.h>
-+#include <net/af_rxrpc.h>
-+#include "ar-internal.h"
-+
-+/*
-+ * set up for the ACK at the end of the receive phase when we discard the final
-+ * receive phase data packet
++ * handles intercepted messages that were arriving in the socket's Rx =
+queue
++ * - called with the socket receive queue lock held to ensure message =
+ordering
 + * - called with softirqs disabled
 + */
-+static void rxrpc_request_final_ACK(struct rxrpc_call *call)
++static void afs_rx_interceptor(struct sock *sk, unsigned long user_cal=
+l_ID,
++			       struct sk_buff *skb)
 +{
-+	/* the call may be aborted before we have a chance to ACK it */
-+	write_lock(&call->state_lock);
++	struct afs_call *call =3D (struct afs_call *) user_call_ID;
 +
-+	switch (call->state) {
-+	case RXRPC_CALL_CLIENT_RECV_REPLY:
-+		call->state = RXRPC_CALL_CLIENT_FINAL_ACK;
-+		_debug("request final ACK");
++	_enter("%p,,%u", call, skb->mark);
 +
-+		/* get an extra ref on the call for the final-ACK generator to
-+		 * release */
-+		rxrpc_get_call(call);
-+		set_bit(RXRPC_CALL_ACK_FINAL, &call->events);
-+		if (try_to_del_timer_sync(&call->ack_timer) >= 0)
-+			schedule_work(&call->processor);
-+		break;
++	ASSERTCMP(sk, =3D=3D, afs_socket->sk);
 +
-+	case RXRPC_CALL_SERVER_RECV_REQUEST:
-+		call->state = RXRPC_CALL_SERVER_ACK_REQUEST;
-+	default:
-+		break;
++	if (!call) {
++		/* its an incoming call for our callback service */
++		__skb_queue_tail(&afs_incoming_calls, skb);
++		schedule_work(&afs_collect_incoming_call_work);
++	} else {
++		/* route the messages directly to the appropriate call */
++		__skb_queue_tail(&call->rx_queue, skb);
++		call->wait_mode->rx_wakeup(call);
 +	}
 +
-+	write_unlock(&call->state_lock);
-+}
-+
-+/*
-+ * drop the bottom ACK off of the call ACK window and advance the window
-+ */
-+static void rxrpc_hard_ACK_data(struct rxrpc_call *call,
-+				struct rxrpc_skb_priv *sp)
-+{
-+	int loop;
-+	u32 seq;
-+
-+	spin_lock_bh(&call->lock);
-+
-+	_debug("hard ACK #%u", ntohl(sp->hdr.seq));
-+
-+	for (loop = 0; loop < RXRPC_ACKR_WINDOW_ASZ; loop++) {
-+		call->ackr_window[loop] >>= 1;
-+		call->ackr_window[loop] |=
-+			call->ackr_window[loop + 1] << (BITS_PER_LONG - 1);
-+	}
-+
-+	seq = ntohl(sp->hdr.seq);
-+	ASSERTCMP(seq, ==, call->rx_data_eaten + 1);
-+	call->rx_data_eaten = seq;
-+
-+	if (call->ackr_win_top < UINT_MAX)
-+		call->ackr_win_top++;
-+
-+	ASSERTIFCMP(call->state <= RXRPC_CALL_COMPLETE,
-+		    call->rx_data_post, >=, call->rx_data_recv);
-+	ASSERTIFCMP(call->state <= RXRPC_CALL_COMPLETE,
-+		    call->rx_data_recv, >=, call->rx_data_eaten);
-+
-+	if (sp->hdr.flags & RXRPC_LAST_PACKET) {
-+		rxrpc_request_final_ACK(call);
-+	} else if (atomic_dec_and_test(&call->ackr_not_idle) &&
-+		   test_and_clear_bit(RXRPC_CALL_TX_SOFT_ACK, &call->flags)) {
-+		_debug("send Rx idle ACK");
-+		__rxrpc_propose_ACK(call, RXRPC_ACK_IDLE, sp->hdr.serial,
-+				    true);
-+	}
-+
-+	spin_unlock_bh(&call->lock);
-+}
-+
-+/*
-+ * destroy a packet that has an RxRPC control buffer
-+ * - advance the hard-ACK state of the parent call (done here in case something
-+ *   in the kernel bypasses recvmsg() and steals the packet directly off of the
-+ *   socket receive queue)
-+ */
-+void rxrpc_packet_destructor(struct sk_buff *skb)
-+{
-+	struct rxrpc_skb_priv *sp = rxrpc_skb(skb);
-+	struct rxrpc_call *call = sp->call;
-+
-+	_enter("%p{%p}", skb, call);
-+
-+	if (call) {
-+		/* send the final ACK on a client call */
-+		if (sp->hdr.type == RXRPC_PACKET_TYPE_DATA)
-+			rxrpc_hard_ACK_data(call, sp);
-+		rxrpc_put_call(call);
-+		sp->call = NULL;
-+	}
-+
-+	if (skb->sk)
-+		sock_rfree(skb);
 +	_leave("");
 +}
-diff --git a/net/rxrpc/ar-transport.c b/net/rxrpc/ar-transport.c
-new file mode 100644
-index 0000000..9b4e5cb
---- /dev/null
-+++ b/net/rxrpc/ar-transport.c
-@@ -0,0 +1,276 @@
-+/* RxRPC point-to-point transport session management
-+ *
-+ * Copyright (C) 2007 Red Hat, Inc. All Rights Reserved.
-+ * Written by David Howells (dhowells@redhat.com)
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version
-+ * 2 of the License, or (at your option) any later version.
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/net.h>
-+#include <linux/skbuff.h>
-+#include <net/sock.h>
-+#include <net/af_rxrpc.h>
-+#include "ar-internal.h"
-+
-+static void rxrpc_transport_reaper(struct work_struct *work);
-+
-+static LIST_HEAD(rxrpc_transports);
-+static DEFINE_RWLOCK(rxrpc_transport_lock);
-+static unsigned long rxrpc_transport_timeout = 3600 * 24;
-+static DECLARE_DELAYED_WORK(rxrpc_transport_reap, rxrpc_transport_reaper);
 +
 +/*
-+ * allocate a new transport session manager
++ * deliver messages to a call
 + */
-+static struct rxrpc_transport *rxrpc_alloc_transport(struct rxrpc_local *local,
-+						     struct rxrpc_peer *peer,
-+						     gfp_t gfp)
++static void afs_deliver_to_call(struct afs_call *call)
 +{
-+	struct rxrpc_transport *trans;
++	struct sk_buff *skb;
++	bool last;
++	u32 abort_code;
++	int ret;
 +
 +	_enter("");
 +
-+	trans = kzalloc(sizeof(struct rxrpc_transport), gfp);
-+	if (trans) {
-+		trans->local = local;
-+		trans->peer = peer;
-+		INIT_LIST_HEAD(&trans->link);
-+		trans->bundles = RB_ROOT;
-+		trans->client_conns = RB_ROOT;
-+		trans->server_conns = RB_ROOT;
-+		skb_queue_head_init(&trans->error_queue);
-+		spin_lock_init(&trans->client_lock);
-+		rwlock_init(&trans->conn_lock);
-+		atomic_set(&trans->usage, 1);
-+		trans->debug_id = atomic_inc_return(&rxrpc_debug_id);
-+
-+		if (peer->srx.transport.family == AF_INET) {
-+			switch (peer->srx.transport_type) {
-+			case SOCK_DGRAM:
-+				INIT_WORK(&trans->error_handler,
-+					  rxrpc_UDP_error_handler);
++	while ((call->state =3D=3D AFS_CALL_AWAIT_REPLY ||
++		call->state =3D=3D AFS_CALL_AWAIT_OP_ID ||
++		call->state =3D=3D AFS_CALL_AWAIT_REQUEST ||
++		call->state =3D=3D AFS_CALL_AWAIT_ACK) &&
++	       (skb =3D skb_dequeue(&call->rx_queue))) {
++		switch (skb->mark) {
++		case RXRPC_SKB_MARK_DATA:
++			_debug("Rcv DATA");
++			last =3D rxrpc_kernel_is_data_last(skb);
++			ret =3D call->type->deliver(call, skb, last);
++			switch (ret) {
++			case 0:
++				if (last &&
++				    call->state =3D=3D AFS_CALL_AWAIT_REPLY)
++					call->state =3D AFS_CALL_COMPLETE;
 +				break;
++			case -ENOTCONN:
++				abort_code =3D RX_CALL_DEAD;
++				goto do_abort;
++			case -ENOTSUPP:
++				abort_code =3D RX_INVALID_OPERATION;
++				goto do_abort;
 +			default:
-+				BUG();
++				abort_code =3D RXGEN_CC_UNMARSHAL;
++				if (call->state !=3D AFS_CALL_AWAIT_REPLY)
++					abort_code =3D RXGEN_SS_UNMARSHAL;
++			do_abort:
++				rxrpc_kernel_abort_call(call->rxcall,
++							abort_code);
++				call->error =3D ret;
++				call->state =3D AFS_CALL_ERROR;
 +				break;
 +			}
-+		} else {
++			rxrpc_kernel_data_delivered(skb);
++			skb =3D NULL;
++			break;
++		case RXRPC_SKB_MARK_FINAL_ACK:
++			_debug("Rcv ACK");
++			call->state =3D AFS_CALL_COMPLETE;
++			break;
++		case RXRPC_SKB_MARK_BUSY:
++			_debug("Rcv BUSY");
++			call->error =3D -EBUSY;
++			call->state =3D AFS_CALL_BUSY;
++			break;
++		case RXRPC_SKB_MARK_REMOTE_ABORT:
++			abort_code =3D rxrpc_kernel_get_abort_code(skb);
++			call->error =3D call->type->abort_to_error(abort_code);
++			call->state =3D AFS_CALL_ABORTED;
++			_debug("Rcv ABORT %u -> %d", abort_code, call->error);
++			break;
++		case RXRPC_SKB_MARK_NET_ERROR:
++			call->error =3D -rxrpc_kernel_get_error_number(skb);
++			call->state =3D AFS_CALL_ERROR;
++			_debug("Rcv NET ERROR %d", call->error);
++			break;
++		case RXRPC_SKB_MARK_LOCAL_ERROR:
++			call->error =3D -rxrpc_kernel_get_error_number(skb);
++			call->state =3D AFS_CALL_ERROR;
++			_debug("Rcv LOCAL ERROR %d", call->error);
++			break;
++		default:
 +			BUG();
++			break;
++		}
++
++		rxrpc_kernel_free_skb(skb);
++	}
++
++	/* make sure the queue is empty if the call is done with (we might ha=
+ve
++	 * aborted the call early because of an unmarshalling error) */
++	if (call->state >=3D AFS_CALL_COMPLETE) {
++		while ((skb =3D skb_dequeue(&call->rx_queue)))
++			rxrpc_kernel_free_skb(skb);
++		if (call->incoming) {
++			rxrpc_kernel_end_call(call->rxcall);
++			call->type->destructor(call);
++			ASSERT(skb_queue_empty(&call->rx_queue));
++			kfree(call);
 +		}
 +	}
 +
-+	_leave(" = %p", trans);
-+	return trans;
-+}
-+
-+/*
-+ * obtain a transport session for the nominated endpoints
-+ */
-+struct rxrpc_transport *rxrpc_get_transport(struct rxrpc_local *local,
-+					    struct rxrpc_peer *peer,
-+					    gfp_t gfp)
-+{
-+	struct rxrpc_transport *trans, *candidate;
-+	const char *new = "old";
-+	int usage;
-+
-+	_enter("{%u.%u.%u.%u+%hu},{%u.%u.%u.%u+%hu},",
-+	       NIPQUAD(local->srx.transport.sin.sin_addr),
-+	       ntohs(local->srx.transport.sin.sin_port),
-+	       NIPQUAD(peer->srx.transport.sin.sin_addr),
-+	       ntohs(peer->srx.transport.sin.sin_port));
-+
-+	/* search the transport list first */
-+	read_lock_bh(&rxrpc_transport_lock);
-+	list_for_each_entry(trans, &rxrpc_transports, link) {
-+		if (trans->local == local && trans->peer == peer)
-+			goto found_extant_transport;
-+	}
-+	read_unlock_bh(&rxrpc_transport_lock);
-+
-+	/* not yet present - create a candidate for a new record and then
-+	 * redo the search */
-+	candidate = rxrpc_alloc_transport(local, peer, gfp);
-+	if (!candidate) {
-+		_leave(" = -ENOMEM");
-+		return ERR_PTR(-ENOMEM);
-+	}
-+
-+	write_lock_bh(&rxrpc_transport_lock);
-+
-+	list_for_each_entry(trans, &rxrpc_transports, link) {
-+		if (trans->local == local && trans->peer == peer)
-+			goto found_extant_second;
-+	}
-+
-+	/* we can now add the new candidate to the list */
-+	trans = candidate;
-+	candidate = NULL;
-+
-+	rxrpc_get_local(trans->local);
-+	atomic_inc(&trans->peer->usage);
-+	list_add_tail(&trans->link, &rxrpc_transports);
-+	write_unlock_bh(&rxrpc_transport_lock);
-+	new = "new";
-+
-+success:
-+	_net("TRANSPORT %s %d local %d -> peer %d",
-+	     new,
-+	     trans->debug_id,
-+	     trans->local->debug_id,
-+	     trans->peer->debug_id);
-+
-+	_leave(" = %p {u=%d}", trans, atomic_read(&trans->usage));
-+	return trans;
-+
-+	/* we found the transport in the list immediately */
-+found_extant_transport:
-+	usage = atomic_inc_return(&trans->usage);
-+	read_unlock_bh(&rxrpc_transport_lock);
-+	goto success;
-+
-+	/* we found the transport on the second time through the list */
-+found_extant_second:
-+	usage = atomic_inc_return(&trans->usage);
-+	write_unlock_bh(&rxrpc_transport_lock);
-+	kfree(candidate);
-+	goto success;
-+}
-+
-+/*
-+ * find the transport connecting two endpoints
-+ */
-+struct rxrpc_transport *rxrpc_find_transport(struct rxrpc_local *local,
-+					     struct rxrpc_peer *peer)
-+{
-+	struct rxrpc_transport *trans;
-+
-+	_enter("{%u.%u.%u.%u+%hu},{%u.%u.%u.%u+%hu},",
-+	       NIPQUAD(local->srx.transport.sin.sin_addr),
-+	       ntohs(local->srx.transport.sin.sin_port),
-+	       NIPQUAD(peer->srx.transport.sin.sin_addr),
-+	       ntohs(peer->srx.transport.sin.sin_port));
-+
-+	/* search the transport list */
-+	read_lock_bh(&rxrpc_transport_lock);
-+
-+	list_for_each_entry(trans, &rxrpc_transports, link) {
-+		if (trans->local == local && trans->peer == peer)
-+			goto found_extant_transport;
-+	}
-+
-+	read_unlock_bh(&rxrpc_transport_lock);
-+	_leave(" = NULL");
-+	return NULL;
-+
-+found_extant_transport:
-+	atomic_inc(&trans->usage);
-+	read_unlock_bh(&rxrpc_transport_lock);
-+	_leave(" = %p", trans);
-+	return trans;
-+}
-+
-+/*
-+ * release a transport session
-+ */
-+void rxrpc_put_transport(struct rxrpc_transport *trans)
-+{
-+	_enter("%p{u=%d}", trans, atomic_read(&trans->usage));
-+
-+	ASSERTCMP(atomic_read(&trans->usage), >, 0);
-+
-+	trans->put_time = xtime.tv_sec;
-+	if (unlikely(atomic_dec_and_test(&trans->usage)))
-+		_debug("zombie");
-+		/* let the reaper determine the timeout to avoid a race with
-+		 * overextending the timeout if the reaper is running at the
-+		 * same time */
-+		schedule_delayed_work(&rxrpc_transport_reap, 0);
 +	_leave("");
 +}
 +
 +/*
-+ * clean up a transport session
++ * wait synchronously for a call to complete
 + */
-+static void rxrpc_cleanup_transport(struct rxrpc_transport *trans)
++static int afs_wait_for_call_to_complete(struct afs_call *call)
 +{
-+	_net("DESTROY TRANS %d", trans->debug_id);
-+
-+	rxrpc_purge_queue(&trans->error_queue);
-+
-+	rxrpc_put_local(trans->local);
-+	rxrpc_put_peer(trans->peer);
-+	kfree(trans);
-+}
-+
-+/*
-+ * reap dead transports that have passed their expiry date
-+ */
-+static void rxrpc_transport_reaper(struct work_struct *work)
-+{
-+	struct rxrpc_transport *trans, *_p;
-+	unsigned long now, earliest, reap_time;
-+
-+	LIST_HEAD(graveyard);
-+
-+	_enter("");
-+
-+	now = xtime.tv_sec;
-+	earliest = ULONG_MAX;
-+
-+	/* extract all the transports that have been dead too long */
-+	write_lock_bh(&rxrpc_transport_lock);
-+	list_for_each_entry_safe(trans, _p, &rxrpc_transports, link) {
-+		_debug("reap TRANS %d { u=%d t=%ld }",
-+		       trans->debug_id, atomic_read(&trans->usage),
-+		       (long) now - (long) trans->put_time);
-+
-+		if (likely(atomic_read(&trans->usage) > 0))
-+			continue;
-+
-+		reap_time = trans->put_time + rxrpc_transport_timeout;
-+		if (reap_time <= now)
-+			list_move_tail(&trans->link, &graveyard);
-+		else if (reap_time < earliest)
-+			earliest = reap_time;
-+	}
-+	write_unlock_bh(&rxrpc_transport_lock);
-+
-+	if (earliest != ULONG_MAX) {
-+		_debug("reschedule reaper %ld", (long) earliest - now);
-+		ASSERTCMP(earliest, >, now);
-+		schedule_delayed_work(&rxrpc_transport_reap,
-+				      (earliest - now) * HZ);
-+	}
-+
-+	/* then destroy all those pulled out */
-+	while (!list_empty(&graveyard)) {
-+		trans = list_entry(graveyard.next, struct rxrpc_transport,
-+				   link);
-+		list_del_init(&trans->link);
-+
-+		ASSERTCMP(atomic_read(&trans->usage), ==, 0);
-+		rxrpc_cleanup_transport(trans);
-+	}
-+
-+	_leave("");
-+}
-+
-+/*
-+ * preemptively destroy all the transport session records rather than waiting
-+ * for them to time out
-+ */
-+void __exit rxrpc_destroy_all_transports(void)
-+{
-+	_enter("");
-+
-+	rxrpc_transport_timeout = 0;
-+	cancel_delayed_work(&rxrpc_transport_reap);
-+	schedule_delayed_work(&rxrpc_transport_reap, 0);
-+
-+	_leave("");
-+}
-diff --git a/net/rxrpc/rxkad.c b/net/rxrpc/rxkad.c
-new file mode 100644
-index 0000000..1eaf529
---- /dev/null
-+++ b/net/rxrpc/rxkad.c
-@@ -0,0 +1,1153 @@
-+/* Kerberos-based RxRPC security
-+ *
-+ * Copyright (C) 2007 Red Hat, Inc. All Rights Reserved.
-+ * Written by David Howells (dhowells@redhat.com)
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version
-+ * 2 of the License, or (at your option) any later version.
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/net.h>
-+#include <linux/skbuff.h>
-+#include <linux/udp.h>
-+#include <linux/crypto.h>
-+#include <linux/scatterlist.h>
-+#include <linux/ctype.h>
-+#include <net/sock.h>
-+#include <net/af_rxrpc.h>
-+#include "ar-internal.h"
-+
-+#define RXKAD_VERSION			2
-+#define MAXKRB5TICKETLEN		1024
-+#define RXKAD_TKT_TYPE_KERBEROS_V5	256
-+#define ANAME_SZ			40	/* size of authentication name */
-+#define INST_SZ				40	/* size of principal's instance */
-+#define REALM_SZ			40	/* size of principal's auth domain */
-+#define SNAME_SZ			40	/* size of service name */
-+
-+unsigned rxrpc_debug;
-+module_param_named(debug, rxrpc_debug, uint, S_IWUSR | S_IRUGO);
-+MODULE_PARM_DESC(rxrpc_debug, "rxkad debugging mask");
-+
-+struct rxkad_level1_hdr {
-+	__be32	data_size;	/* true data size (excluding padding) */
-+};
-+
-+struct rxkad_level2_hdr {
-+	__be32	data_size;	/* true data size (excluding padding) */
-+	__be32	checksum;	/* decrypted data checksum */
-+};
-+
-+MODULE_DESCRIPTION("RxRPC network protocol type-2 security (Kerberos)");
-+MODULE_AUTHOR("Red Hat, Inc.");
-+MODULE_LICENSE("GPL");
-+
-+/*
-+ * this holds a pinned cipher so that keventd doesn't get called by the cipher
-+ * alloc routine, but since we have it to hand, we use it to decrypt RESPONSE
-+ * packets
-+ */
-+static struct crypto_blkcipher *rxkad_ci;
-+static DEFINE_MUTEX(rxkad_ci_mutex);
-+
-+/*
-+ * initialise connection security
-+ */
-+static int rxkad_init_connection_security(struct rxrpc_connection *conn)
-+{
-+	struct rxrpc_key_payload *payload;
-+	struct crypto_blkcipher *ci;
++	struct sk_buff *skb;
 +	int ret;
 +
-+	_enter("{%d},{%x}", conn->debug_id, key_serial(conn->key));
++	DECLARE_WAITQUEUE(myself, current);
 +
-+	payload = conn->key->payload.data;
-+	conn->security_ix = payload->k.security_index;
++	_enter("");
 +
-+	ci = crypto_alloc_blkcipher("pcbc(fcrypt)", 0, CRYPTO_ALG_ASYNC);
-+	if (IS_ERR(ci)) {
-+		_debug("no cipher");
-+		ret = PTR_ERR(ci);
-+		goto error;
++	add_wait_queue(&call->waitq, &myself);
++	for (;;) {
++		set_current_state(TASK_INTERRUPTIBLE);
++
++		/* deliver any messages that are in the queue */
++		if (!skb_queue_empty(&call->rx_queue)) {
++			__set_current_state(TASK_RUNNING);
++			afs_deliver_to_call(call);
++			continue;
++		}
++
++		ret =3D call->error;
++		if (call->state >=3D AFS_CALL_COMPLETE)
++			break;
++		ret =3D -EINTR;
++		if (signal_pending(current))
++			break;
++		schedule();
 +	}
 +
-+	if (crypto_blkcipher_setkey(ci, payload->k.session_key,
-+				    sizeof(payload->k.session_key)) < 0)
-+		BUG();
++	remove_wait_queue(&call->waitq, &myself);
++	__set_current_state(TASK_RUNNING);
 +
-+	switch (conn->security_level) {
-+	case RXRPC_SECURITY_PLAIN:
-+		break;
-+	case RXRPC_SECURITY_AUTH:
-+		conn->size_align = 8;
-+		conn->security_size = sizeof(struct rxkad_level1_hdr);
-+		conn->header_size += sizeof(struct rxkad_level1_hdr);
-+		break;
-+	case RXRPC_SECURITY_ENCRYPT:
-+		conn->size_align = 8;
-+		conn->security_size = sizeof(struct rxkad_level2_hdr);
-+		conn->header_size += sizeof(struct rxkad_level2_hdr);
-+		break;
-+	default:
-+		ret = -EKEYREJECTED;
-+		goto error;
++	/* kill the call */
++	if (call->state < AFS_CALL_COMPLETE) {
++		_debug("call incomplete");
++		rxrpc_kernel_abort_call(call->rxcall, RX_CALL_DEAD);
++		while ((skb =3D skb_dequeue(&call->rx_queue)))
++			rxrpc_kernel_free_skb(skb);
 +	}
 +
-+	conn->cipher = ci;
-+	ret = 0;
-+error:
-+	_leave(" = %d", ret);
++	_debug("call complete");
++	rxrpc_kernel_end_call(call->rxcall);
++	call->type->destructor(call);
++	ASSERT(skb_queue_empty(&call->rx_queue));
++	kfree(call);
++	_leave(" =3D %d", ret);
 +	return ret;
 +}
 +
 +/*
-+ * prime the encryption state with the invariant parts of a connection's
-+ * description
++ * wake up a waiting call
 + */
-+static void rxkad_prime_packet_security(struct rxrpc_connection *conn)
++static void afs_wake_up_call_waiter(struct afs_call *call)
 +{
-+	struct rxrpc_key_payload *payload;
-+	struct blkcipher_desc desc;
-+	struct scatterlist sg[2];
-+	struct rxrpc_crypt iv;
-+	struct {
-+		__be32 x[4];
-+	} tmpbuf __attribute__((aligned(16))); /* must all be in same page */
++	wake_up(&call->waitq);
++}
++
++/*
++ * wake up an asynchronous call
++ */
++static void afs_wake_up_async_call(struct afs_call *call)
++{
++	_enter("");
++	queue_work(afs_async_calls, &call->async_work);
++}
++
++/*
++ * put a call into asynchronous mode
++ * - mustn't touch the call descriptor as the call my have completed b=
+y the
++ *   time we get here
++ */
++static int afs_dont_wait_for_call_to_complete(struct afs_call *call)
++{
++	_enter("");
++	return -EINPROGRESS;
++}
++
++/*
++ * delete an asynchronous call
++ */
++static void afs_delete_async_call(struct work_struct *work)
++{
++	struct afs_call *call =3D
++		container_of(work, struct afs_call, async_work);
 +
 +	_enter("");
 +
-+	if (!conn->key)
++	ASSERT(skb_queue_empty(&call->rx_queue));
++	ASSERT(!work_pending(&call->async_work));
++	kfree(call);
++
++	_leave("");
++}
++
++/*
++ * perform processing on an asynchronous call
++ * - on a multiple-thread workqueue this work item may try to run on s=
+everal
++ *   CPUs at the same time
++ */
++static void afs_process_async_call(struct work_struct *work)
++{
++	struct afs_call *call =3D
++		container_of(work, struct afs_call, async_work);
++
++	_enter("");
++
++	if (!skb_queue_empty(&call->rx_queue))
++		afs_deliver_to_call(call);
++
++	if (call->state >=3D AFS_CALL_COMPLETE && call->wait_mode) {
++		if (call->wait_mode->async_complete)
++			call->wait_mode->async_complete(call->reply,
++							call->error);
++		call->reply =3D NULL;
++
++		/* kill the call */
++		rxrpc_kernel_end_call(call->rxcall);
++		if (call->type->destructor)
++			call->type->destructor(call);
++
++		/* we can't just delete the call because the work item may be
++		 * queued */
++		PREPARE_WORK(&call->async_work, afs_delete_async_call);
++		queue_work(afs_async_calls, &call->async_work);
++	}
++
++	_leave("");
++}
++
++/*
++ * empty a socket buffer into a flat reply buffer
++ */
++void afs_transfer_reply(struct afs_call *call, struct sk_buff *skb)
++{
++	size_t len =3D skb->len;
++
++	if (skb_copy_bits(skb, 0, call->buffer + call->reply_size, len) < 0)
++		BUG();
++	call->reply_size +=3D len;
++}
++
++/*
++ * accept the backlog of incoming calls
++ */
++static void afs_collect_incoming_call(struct work_struct *work)
++{
++	struct rxrpc_call *rxcall;
++	struct afs_call *call =3D NULL;
++	struct sk_buff *skb;
++
++	while ((skb =3D skb_dequeue(&afs_incoming_calls))) {
++		_debug("new call");
++
++		/* don't need the notification */
++		rxrpc_kernel_free_skb(skb);
++
++		if (!call) {
++			call =3D kzalloc(sizeof(struct afs_call), GFP_KERNEL);
++			if (!call) {
++				rxrpc_kernel_reject_call(afs_socket);
++				return;
++			}
++
++			INIT_WORK(&call->async_work, afs_process_async_call);
++			call->wait_mode =3D &afs_async_incoming_call;
++			call->type =3D &afs_RXCMxxxx;
++			init_waitqueue_head(&call->waitq);
++			skb_queue_head_init(&call->rx_queue);
++			call->state =3D AFS_CALL_AWAIT_OP_ID;
++		}
++
++		rxcall =3D rxrpc_kernel_accept_call(afs_socket,
++						  (unsigned long) call);
++		if (!IS_ERR(rxcall)) {
++			call->rxcall =3D rxcall;
++			call =3D NULL;
++		}
++	}
++
++	kfree(call);
++}
++
++/*
++ * grab the operation ID from an incoming cache manager call
++ */
++static int afs_deliver_cm_op_id(struct afs_call *call, struct sk_buff =
+*skb,
++				bool last)
++{
++	size_t len =3D skb->len;
++	void *oibuf =3D (void *) &call->operation_ID;
++
++	_enter("{%u},{%zu},%d", call->offset, len, last);
++
++	ASSERTCMP(call->offset, <, 4);
++
++	/* the operation ID forms the first four bytes of the request data */
++	len =3D min_t(size_t, len, 4 - call->offset);
++	if (skb_copy_bits(skb, 0, oibuf + call->offset, len) < 0)
++		BUG();
++	if (!pskb_pull(skb, len))
++		BUG();
++	call->offset +=3D len;
++
++	if (call->offset < 4) {
++		if (last) {
++			_leave(" =3D -EBADMSG [op ID short]");
++			return -EBADMSG;
++		}
++		_leave(" =3D 0 [incomplete]");
++		return 0;
++	}
++
++	call->state =3D AFS_CALL_AWAIT_REQUEST;
++
++	/* ask the cache manager to route the call (it'll change the call typ=
+e
++	 * if successful) */
++	if (!afs_cm_incoming_call(call))
++		return -ENOTSUPP;
++
++	/* pass responsibility for the remainer of this message off to the
++	 * cache manager op */
++	return call->type->deliver(call, skb, last);
++}
++
++/*
++ * send an empty reply
++ */
++void afs_send_empty_reply(struct afs_call *call)
++{
++	struct msghdr msg;
++	struct iovec iov[1];
++
++	_enter("");
++
++	iov[0].iov_base		=3D NULL;
++	iov[0].iov_len		=3D 0;
++	msg.msg_name		=3D NULL;
++	msg.msg_namelen		=3D 0;
++	msg.msg_iov		=3D iov;
++	msg.msg_iovlen		=3D 0;
++	msg.msg_control		=3D NULL;
++	msg.msg_controllen	=3D 0;
++	msg.msg_flags		=3D 0;
++
++	call->state =3D AFS_CALL_AWAIT_ACK;
++	switch (rxrpc_kernel_send_data(call->rxcall, &msg, 0)) {
++	case 0:
++		_leave(" [replied]");
 +		return;
 +
-+	payload = conn->key->payload.data;
-+	memcpy(&iv, payload->k.session_key, sizeof(iv));
-+
-+	desc.tfm = conn->cipher;
-+	desc.info = iv.x;
-+	desc.flags = 0;
-+
-+	tmpbuf.x[0] = conn->epoch;
-+	tmpbuf.x[1] = conn->cid;
-+	tmpbuf.x[2] = 0;
-+	tmpbuf.x[3] = htonl(conn->security_ix);
-+
-+	memset(sg, 0, sizeof(sg));
-+	sg_set_buf(&sg[0], &tmpbuf, sizeof(tmpbuf));
-+	sg_set_buf(&sg[1], &tmpbuf, sizeof(tmpbuf));
-+	crypto_blkcipher_encrypt_iv(&desc, &sg[0], &sg[1], sizeof(tmpbuf));
-+
-+	memcpy(&conn->csum_iv, &tmpbuf.x[2], sizeof(conn->csum_iv));
-+	ASSERTCMP(conn->csum_iv.n[0], ==, tmpbuf.x[2]);
-+
-+	_leave("");
-+}
-+
-+/*
-+ * partially encrypt a packet (level 1 security)
-+ */
-+static int rxkad_secure_packet_auth(const struct rxrpc_call *call,
-+				    struct sk_buff *skb,
-+				    u32 data_size,
-+				    void *sechdr)
-+{
-+	struct rxrpc_skb_priv *sp;
-+	struct blkcipher_desc desc;
-+	struct rxrpc_crypt iv;
-+	struct scatterlist sg[2];
-+	struct {
-+		struct rxkad_level1_hdr hdr;
-+		__be32	first;	/* first four bytes of data and padding */
-+	} tmpbuf __attribute__((aligned(8))); /* must all be in same page */
-+	u16 check;
-+
-+	sp = rxrpc_skb(skb);
-+
-+	_enter("");
-+
-+	check = ntohl(sp->hdr.seq ^ sp->hdr.callNumber);
-+	data_size |= (u32) check << 16;
-+
-+	tmpbuf.hdr.data_size = htonl(data_size);
-+	memcpy(&tmpbuf.first, sechdr + 4, sizeof(tmpbuf.first));
-+
-+	/* start the encryption afresh */
-+	memset(&iv, 0, sizeof(iv));
-+	desc.tfm = call->conn->cipher;
-+	desc.info = iv.x;
-+	desc.flags = 0;
-+
-+	memset(sg, 0, sizeof(sg));
-+	sg_set_buf(&sg[0], &tmpbuf, sizeof(tmpbuf));
-+	sg_set_buf(&sg[1], &tmpbuf, sizeof(tmpbuf));
-+	crypto_blkcipher_encrypt_iv(&desc, &sg[0], &sg[1], sizeof(tmpbuf));
-+
-+	memcpy(sechdr, &tmpbuf, sizeof(tmpbuf));
-+
-+	_leave(" = 0");
-+	return 0;
-+}
-+
-+/*
-+ * wholly encrypt a packet (level 2 security)
-+ */
-+static int rxkad_secure_packet_encrypt(const struct rxrpc_call *call,
-+					struct sk_buff *skb,
-+					u32 data_size,
-+					void *sechdr)
-+{
-+	const struct rxrpc_key_payload *payload;
-+	struct rxkad_level2_hdr rxkhdr
-+		__attribute__((aligned(8))); /* must be all on one page */
-+	struct rxrpc_skb_priv *sp;
-+	struct blkcipher_desc desc;
-+	struct rxrpc_crypt iv;
-+	struct scatterlist sg[16];
-+	struct sk_buff *trailer;
-+	unsigned len;
-+	u16 check;
-+	int nsg;
-+
-+	sp = rxrpc_skb(skb);
-+
-+	_enter("");
-+
-+	check = ntohl(sp->hdr.seq ^ sp->hdr.callNumber);
-+
-+	rxkhdr.data_size = htonl(data_size | (u32) check << 16);
-+	rxkhdr.checksum = 0;
-+
-+	/* encrypt from the session key */
-+	payload = call->conn->key->payload.data;
-+	memcpy(&iv, payload->k.session_key, sizeof(iv));
-+	desc.tfm = call->conn->cipher;
-+	desc.info = iv.x;
-+	desc.flags = 0;
-+
-+	memset(sg, 0, sizeof(sg[0]) * 2);
-+	sg_set_buf(&sg[0], sechdr, sizeof(rxkhdr));
-+	sg_set_buf(&sg[1], &rxkhdr, sizeof(rxkhdr));
-+	crypto_blkcipher_encrypt_iv(&desc, &sg[0], &sg[1], sizeof(rxkhdr));
-+
-+	/* we want to encrypt the skbuff in-place */
-+	nsg = skb_cow_data(skb, 0, &trailer);
-+	if (nsg < 0 || nsg > 16)
-+		return -ENOMEM;
-+
-+	len = data_size + call->conn->size_align - 1;
-+	len &= ~(call->conn->size_align - 1);
-+
-+	skb_to_sgvec(skb, sg, 0, len);
-+	crypto_blkcipher_encrypt_iv(&desc, sg, sg, len);
-+
-+	_leave(" = 0");
-+	return 0;
-+}
-+
-+/*
-+ * checksum an RxRPC packet header
-+ */
-+static int rxkad_secure_packet(const struct rxrpc_call *call,
-+				struct sk_buff *skb,
-+				size_t data_size,
-+				void *sechdr)
-+{
-+	struct rxrpc_skb_priv *sp;
-+	struct blkcipher_desc desc;
-+	struct rxrpc_crypt iv;
-+	struct scatterlist sg[2];
-+	struct {
-+		__be32 x[2];
-+	} tmpbuf __attribute__((aligned(8))); /* must all be in same page */
-+	__be32 x;
-+	int ret;
-+
-+	sp = rxrpc_skb(skb);
-+
-+	_enter("{%d{%x}},{#%u},%zu,",
-+	       call->debug_id, key_serial(call->conn->key), ntohl(sp->hdr.seq),
-+	       data_size);
-+
-+	if (!call->conn->cipher)
-+		return 0;
-+
-+	ret = key_validate(call->conn->key);
-+	if (ret < 0)
-+		return ret;
-+
-+	/* continue encrypting from where we left off */
-+	memcpy(&iv, call->conn->csum_iv.x, sizeof(iv));
-+	desc.tfm = call->conn->cipher;
-+	desc.info = iv.x;
-+	desc.flags = 0;
-+
-+	/* calculate the security checksum */
-+	x = htonl(call->channel << (32 - RXRPC_CIDSHIFT));
-+	x |= sp->hdr.seq & __constant_cpu_to_be32(0x3fffffff);
-+	tmpbuf.x[0] = sp->hdr.callNumber;
-+	tmpbuf.x[1] = x;
-+
-+	memset(&sg, 0, sizeof(sg));
-+	sg_set_buf(&sg[0], &tmpbuf, sizeof(tmpbuf));
-+	sg_set_buf(&sg[1], &tmpbuf, sizeof(tmpbuf));
-+	crypto_blkcipher_encrypt_iv(&desc, &sg[0], &sg[1], sizeof(tmpbuf));
-+
-+	x = ntohl(tmpbuf.x[1]);
-+	x = (x >> 16) & 0xffff;
-+	if (x == 0)
-+		x = 1; /* zero checksums are not permitted */
-+	sp->hdr.cksum = htons(x);
-+
-+	switch (call->conn->security_level) {
-+	case RXRPC_SECURITY_PLAIN:
-+		ret = 0;
-+		break;
-+	case RXRPC_SECURITY_AUTH:
-+		ret = rxkad_secure_packet_auth(call, skb, data_size, sechdr);
-+		break;
-+	case RXRPC_SECURITY_ENCRYPT:
-+		ret = rxkad_secure_packet_encrypt(call, skb, data_size,
-+						  sechdr);
-+		break;
++	case -ENOMEM:
++		_debug("oom");
++		rxrpc_kernel_abort_call(call->rxcall, RX_USER_ABORT);
 +	default:
-+		ret = -EPERM;
-+		break;
++		rxrpc_kernel_end_call(call->rxcall);
++		call->rxcall =3D NULL;
++		call->type->destructor(call);
++		ASSERT(skb_queue_empty(&call->rx_queue));
++		kfree(call);
++		_leave(" [error]");
++		return;
 +	}
-+
-+	_leave(" = %d [set %hx]", ret, x);
-+	return ret;
 +}
 +
 +/*
-+ * decrypt partial encryption on a packet (level 1 security)
++ * extract a piece of data from the received data socket buffers
 + */
-+static int rxkad_verify_packet_auth(const struct rxrpc_call *call,
-+				    struct sk_buff *skb,
-+				    u32 *_abort_code)
++int afs_extract_data(struct afs_call *call, struct sk_buff *skb,
++		     bool last, void *buf, size_t count)
 +{
-+	struct rxkad_level1_hdr sechdr;
-+	struct rxrpc_skb_priv *sp;
-+	struct blkcipher_desc desc;
-+	struct rxrpc_crypt iv;
-+	struct scatterlist sg[2];
-+	struct sk_buff *trailer;
-+	u32 data_size, buf;
-+	u16 check;
++	size_t len =3D skb->len;
 +
-+	_enter("");
++	_enter("{%u},{%zu},%d,,%zu", call->offset, len, last, count);
 +
-+	sp = rxrpc_skb(skb);
++	ASSERTCMP(call->offset, <, count);
 +
-+	/* we want to decrypt the skbuff in-place */
-+	if (skb_cow_data(skb, 0, &trailer) < 0)
-+		goto nomem;
-+
-+	skb_to_sgvec(skb, sg, 0, 8);
-+
-+	/* start the decryption afresh */
-+	memset(&iv, 0, sizeof(iv));
-+	desc.tfm = call->conn->cipher;
-+	desc.info = iv.x;
-+	desc.flags = 0;
-+
-+	crypto_blkcipher_decrypt_iv(&desc, sg, sg, 8);
-+
-+	/* remove the decrypted packet length */
-+	if (skb_copy_bits(skb, 0, &sechdr, sizeof(sechdr)) < 0)
-+		goto datalen_error;
-+	if (!skb_pull(skb, sizeof(sechdr)))
++	len =3D min_t(size_t, len, count - call->offset);
++	if (skb_copy_bits(skb, 0, buf + call->offset, len) < 0 ||
++	    !pskb_pull(skb, len))
 +		BUG();
++	call->offset +=3D len;
 +
-+	buf = ntohl(sechdr.data_size);
-+	data_size = buf & 0xffff;
-+
-+	check = buf >> 16;
-+	check ^= ntohl(sp->hdr.seq ^ sp->hdr.callNumber);
-+	check &= 0xffff;
-+	if (check != 0) {
-+		*_abort_code = RXKADSEALEDINCON;
-+		goto protocol_error;
-+	}
-+
-+	/* shorten the packet to remove the padding */
-+	if (data_size > skb->len)
-+		goto datalen_error;
-+	else if (data_size < skb->len)
-+		skb->len = data_size;
-+
-+	_leave(" = 0 [dlen=%x]", data_size);
-+	return 0;
-+
-+datalen_error:
-+	*_abort_code = RXKADDATALEN;
-+protocol_error:
-+	_leave(" = -EPROTO");
-+	return -EPROTO;
-+
-+nomem:
-+	_leave(" = -ENOMEM");
-+	return -ENOMEM;
-+}
-+
-+/*
-+ * wholly decrypt a packet (level 2 security)
-+ */
-+static int rxkad_verify_packet_encrypt(const struct rxrpc_call *call,
-+				       struct sk_buff *skb,
-+				       u32 *_abort_code)
-+{
-+	const struct rxrpc_key_payload *payload;
-+	struct rxkad_level2_hdr sechdr;
-+	struct rxrpc_skb_priv *sp;
-+	struct blkcipher_desc desc;
-+	struct rxrpc_crypt iv;
-+	struct scatterlist _sg[4], *sg;
-+	struct sk_buff *trailer;
-+	u32 data_size, buf;
-+	u16 check;
-+	int nsg;
-+
-+	_enter(",{%d}", skb->len);
-+
-+	sp = rxrpc_skb(skb);
-+
-+	/* we want to decrypt the skbuff in-place */
-+	nsg = skb_cow_data(skb, 0, &trailer);
-+	if (nsg < 0)
-+		goto nomem;
-+
-+	sg = _sg;
-+	if (unlikely(nsg > 4)) {
-+		sg = kmalloc(sizeof(*sg) * nsg, GFP_NOIO);
-+		if (!sg)
-+			goto nomem;
-+	}
-+
-+	skb_to_sgvec(skb, sg, 0, skb->len);
-+
-+	/* decrypt from the session key */
-+	payload = call->conn->key->payload.data;
-+	memcpy(&iv, payload->k.session_key, sizeof(iv));
-+	desc.tfm = call->conn->cipher;
-+	desc.info = iv.x;
-+	desc.flags = 0;
-+
-+	crypto_blkcipher_decrypt_iv(&desc, sg, sg, skb->len);
-+	if (sg != _sg)
-+		kfree(sg);
-+
-+	/* remove the decrypted packet length */
-+	if (skb_copy_bits(skb, 0, &sechdr, sizeof(sechdr)) < 0)
-+		goto datalen_error;
-+	if (!skb_pull(skb, sizeof(sechdr)))
-+		BUG();
-+
-+	buf = ntohl(sechdr.data_size);
-+	data_size = buf & 0xffff;
-+
-+	check = buf >> 16;
-+	check ^= ntohl(sp->hdr.seq ^ sp->hdr.callNumber);
-+	check &= 0xffff;
-+	if (check != 0) {
-+		*_abort_code = RXKADSEALEDINCON;
-+		goto protocol_error;
-+	}
-+
-+	/* shorten the packet to remove the padding */
-+	if (data_size > skb->len)
-+		goto datalen_error;
-+	else if (data_size < skb->len)
-+		skb->len = data_size;
-+
-+	_leave(" = 0 [dlen=%x]", data_size);
-+	return 0;
-+
-+datalen_error:
-+	*_abort_code = RXKADDATALEN;
-+protocol_error:
-+	_leave(" = -EPROTO");
-+	return -EPROTO;
-+
-+nomem:
-+	_leave(" = -ENOMEM");
-+	return -ENOMEM;
-+}
-+
-+/*
-+ * verify the security on a received packet
-+ */
-+static int rxkad_verify_packet(const struct rxrpc_call *call,
-+			       struct sk_buff *skb,
-+			       u32 *_abort_code)
-+{
-+	struct blkcipher_desc desc;
-+	struct rxrpc_skb_priv *sp;
-+	struct rxrpc_crypt iv;
-+	struct scatterlist sg[2];
-+	struct {
-+		__be32 x[2];
-+	} tmpbuf __attribute__((aligned(8))); /* must all be in same page */
-+	__be32 x;
-+	__be16 cksum;
-+	int ret;
-+
-+	sp = rxrpc_skb(skb);
-+
-+	_enter("{%d{%x}},{#%u}",
-+	       call->debug_id, key_serial(call->conn->key),
-+	       ntohl(sp->hdr.seq));
-+
-+	if (!call->conn->cipher)
-+		return 0;
-+
-+	if (sp->hdr.securityIndex != 2) {
-+		*_abort_code = RXKADINCONSISTENCY;
-+		_leave(" = -EPROTO [not rxkad]");
-+		return -EPROTO;
-+	}
-+
-+	/* continue encrypting from where we left off */
-+	memcpy(&iv, call->conn->csum_iv.x, sizeof(iv));
-+	desc.tfm = call->conn->cipher;
-+	desc.info = iv.x;
-+	desc.flags = 0;
-+
-+	/* validate the security checksum */
-+	x = htonl(call->channel << (32 - RXRPC_CIDSHIFT));
-+	x |= sp->hdr.seq & __constant_cpu_to_be32(0x3fffffff);
-+	tmpbuf.x[0] = call->call_id;
-+	tmpbuf.x[1] = x;
-+
-+	memset(&sg, 0, sizeof(sg));
-+	sg_set_buf(&sg[0], &tmpbuf, sizeof(tmpbuf));
-+	sg_set_buf(&sg[1], &tmpbuf, sizeof(tmpbuf));
-+	crypto_blkcipher_encrypt_iv(&desc, &sg[0], &sg[1], sizeof(tmpbuf));
-+
-+	x = ntohl(tmpbuf.x[1]);
-+	x = (x >> 16) & 0xffff;
-+	if (x == 0)
-+		x = 1; /* zero checksums are not permitted */
-+
-+	cksum = htons(x);
-+	if (sp->hdr.cksum != cksum) {
-+		*_abort_code = RXKADSEALEDINCON;
-+		_leave(" = -EPROTO [csum failed]");
-+		return -EPROTO;
-+	}
-+
-+	switch (call->conn->security_level) {
-+	case RXRPC_SECURITY_PLAIN:
-+		ret = 0;
-+		break;
-+	case RXRPC_SECURITY_AUTH:
-+		ret = rxkad_verify_packet_auth(call, skb, _abort_code);
-+		break;
-+	case RXRPC_SECURITY_ENCRYPT:
-+		ret = rxkad_verify_packet_encrypt(call, skb, _abort_code);
-+		break;
-+	default:
-+		ret = -ENOANO;
-+		break;
-+	}
-+
-+	_leave(" = %d", ret);
-+	return ret;
-+}
-+
-+/*
-+ * issue a challenge
-+ */
-+static int rxkad_issue_challenge(struct rxrpc_connection *conn)
-+{
-+	struct rxkad_challenge challenge;
-+	struct rxrpc_header hdr;
-+	struct msghdr msg;
-+	struct kvec iov[2];
-+	size_t len;
-+	int ret;
-+
-+	_enter("{%d,%x}", conn->debug_id, key_serial(conn->key));
-+
-+	ret = key_validate(conn->key);
-+	if (ret < 0)
-+		return ret;
-+
-+	get_random_bytes(&conn->security_nonce, sizeof(conn->security_nonce));
-+
-+	challenge.version	= htonl(2);
-+	challenge.nonce		= htonl(conn->security_nonce);
-+	challenge.min_level	= htonl(0);
-+	challenge.__padding	= 0;
-+
-+	msg.msg_name	= &conn->trans->peer->srx.transport.sin;
-+	msg.msg_namelen	= sizeof(conn->trans->peer->srx.transport.sin);
-+	msg.msg_control	= NULL;
-+	msg.msg_controllen = 0;
-+	msg.msg_flags	= 0;
-+
-+	hdr.epoch	= conn->epoch;
-+	hdr.cid		= conn->cid;
-+	hdr.callNumber	= 0;
-+	hdr.seq		= 0;
-+	hdr.type	= RXRPC_PACKET_TYPE_CHALLENGE;
-+	hdr.flags	= conn->out_clientflag;
-+	hdr.userStatus	= 0;
-+	hdr.securityIndex = conn->security_ix;
-+	hdr._rsvd	= 0;
-+	hdr.serviceId	= conn->service_id;
-+
-+	iov[0].iov_base	= &hdr;
-+	iov[0].iov_len	= sizeof(hdr);
-+	iov[1].iov_base	= &challenge;
-+	iov[1].iov_len	= sizeof(challenge);
-+
-+	len = iov[0].iov_len + iov[1].iov_len;
-+
-+	hdr.serial = htonl(atomic_inc_return(&conn->serial));
-+	_proto("Tx CHALLENGE %%%u", ntohl(hdr.serial));
-+
-+	ret = kernel_sendmsg(conn->trans->local->socket, &msg, iov, 2, len);
-+	if (ret < 0) {
-+		_debug("sendmsg failed: %d", ret);
++	if (call->offset < count) {
++		if (last) {
++			_leave(" =3D -EBADMSG [%d < %lu]", call->offset, count);
++			return -EBADMSG;
++		}
++		_leave(" =3D -EAGAIN");
 +		return -EAGAIN;
 +	}
-+
-+	_leave(" = 0");
 +	return 0;
 +}
+diff --git a/fs/afs/server.c b/fs/afs/server.c
+index 44b0ce5..d44bba3 100644
+--- a/fs/afs/server.c
++++ b/fs/afs/server.c
+@@ -1,6 +1,6 @@
+ /* AFS server record management
+  *
+- * Copyright (C) 2002 Red Hat, Inc. All Rights Reserved.
++ * Copyright (C) 2002, 2007 Red Hat, Inc. All Rights Reserved.
+  * Written by David Howells (dhowells@redhat.com)
+  *
+  * This program is free software; you can redistribute it and/or
+@@ -11,127 +11,205 @@
+=20
+ #include <linux/sched.h>
+ #include <linux/slab.h>
+-#include <rxrpc/peer.h>
+-#include <rxrpc/connection.h>
+-#include "volume.h"
+-#include "cell.h"
+-#include "server.h"
+-#include "transport.h"
+-#include "vlclient.h"
+-#include "kafstimod.h"
+ #include "internal.h"
+=20
+-DEFINE_SPINLOCK(afs_server_peer_lock);
++unsigned afs_server_timeout =3D 10;	/* server timeout in seconds */
+=20
+-#define FS_SERVICE_ID		1	/* AFS Volume Location Service ID */
+-#define VL_SERVICE_ID		52	/* AFS Volume Location Service ID */
++static void afs_reap_server(struct work_struct *);
+=20
+-static void __afs_server_timeout(struct afs_timer *timer)
++/* tree of all the servers, indexed by IP address */
++static struct rb_root afs_servers =3D RB_ROOT;
++static DEFINE_RWLOCK(afs_servers_lock);
++
++/* LRU list of all the servers not currently in use */
++static LIST_HEAD(afs_server_graveyard);
++static DEFINE_SPINLOCK(afs_server_graveyard_lock);
++static DECLARE_DELAYED_WORK(afs_server_reaper, afs_reap_server);
 +
 +/*
-+ * send a Kerberos security response
++ * install a server record in the master tree
 + */
-+static int rxkad_send_response(struct rxrpc_connection *conn,
-+			       struct rxrpc_header *hdr,
-+			       struct rxkad_response *resp,
-+			       const struct rxkad_key *s2)
-+{
-+	struct msghdr msg;
-+	struct kvec iov[3];
-+	size_t len;
++static int afs_install_server(struct afs_server *server)
+ {
+-	struct afs_server *server =3D
+-		list_entry(timer, struct afs_server, timeout);
++	struct afs_server *xserver;
++	struct rb_node **pp, *p;
 +	int ret;
 +
++	_enter("%p", server);
+=20
+-	_debug("SERVER TIMEOUT [%p{u=3D%d}]",
+-	       server, atomic_read(&server->usage));
++	write_lock(&afs_servers_lock);
++
++	ret =3D -EEXIST;
++	pp =3D &afs_servers.rb_node;
++	p =3D NULL;
++	while (*pp) {
++		p =3D *pp;
++		_debug("- consider %p", p);
++		xserver =3D rb_entry(p, struct afs_server, master_rb);
++		if (server->addr.s_addr < xserver->addr.s_addr)
++			pp =3D &(*pp)->rb_left;
++		else if (server->addr.s_addr > xserver->addr.s_addr)
++			pp =3D &(*pp)->rb_right;
++		else
++			goto error;
++	}
+=20
+-	afs_server_do_timeout(server);
+-}
++	rb_link_node(&server->master_rb, p, pp);
++	rb_insert_color(&server->master_rb, &afs_servers);
++	ret =3D 0;
+=20
+-static const struct afs_timer_ops afs_server_timer_ops =3D {
+-	.timed_out	=3D __afs_server_timeout,
+-};
++error:
++	write_unlock(&afs_servers_lock);
++	return ret;
++}
+=20
+ /*
+- * lookup a server record in a cell
+- * - TODO: search the cell's server list
++ * allocate a new server record
+  */
+-int afs_server_lookup(struct afs_cell *cell, const struct in_addr *add=
+r,
+-		      struct afs_server **_server)
++static struct afs_server *afs_alloc_server(struct afs_cell *cell,
++					   const struct in_addr *addr)
+ {
+-	struct afs_server *server, *active, *zombie;
+-	int loop;
++	struct afs_server *server;
+=20
+-	_enter("%p,%08x,", cell, ntohl(addr->s_addr));
 +	_enter("");
+=20
+-	/* allocate and initialise a server record */
+ 	server =3D kzalloc(sizeof(struct afs_server), GFP_KERNEL);
+-	if (!server) {
+-		_leave(" =3D -ENOMEM");
+-		return -ENOMEM;
++	if (server) {
++		atomic_set(&server->usage, 1);
++		server->cell =3D cell;
 +
-+	msg.msg_name	= &conn->trans->peer->srx.transport.sin;
-+	msg.msg_namelen	= sizeof(conn->trans->peer->srx.transport.sin);
-+	msg.msg_control	= NULL;
-+	msg.msg_controllen = 0;
-+	msg.msg_flags	= 0;
++		INIT_LIST_HEAD(&server->link);
++		INIT_LIST_HEAD(&server->grave);
++		init_rwsem(&server->sem);
++		spin_lock_init(&server->fs_lock);
++		server->fs_vnodes =3D RB_ROOT;
++		server->cb_promises =3D RB_ROOT;
++		spin_lock_init(&server->cb_lock);
++		init_waitqueue_head(&server->cb_break_waitq);
++		INIT_DELAYED_WORK(&server->cb_break_work,
++				  afs_dispatch_give_up_callbacks);
 +
-+	hdr->epoch	= conn->epoch;
-+	hdr->seq	= 0;
-+	hdr->type	= RXRPC_PACKET_TYPE_RESPONSE;
-+	hdr->flags	= conn->out_clientflag;
-+	hdr->userStatus	= 0;
-+	hdr->_rsvd	= 0;
-+
-+	iov[0].iov_base	= hdr;
-+	iov[0].iov_len	= sizeof(*hdr);
-+	iov[1].iov_base	= resp;
-+	iov[1].iov_len	= sizeof(*resp);
-+	iov[2].iov_base	= (void *) s2->ticket;
-+	iov[2].iov_len	= s2->ticket_len;
-+
-+	len = iov[0].iov_len + iov[1].iov_len + iov[2].iov_len;
-+
-+	hdr->serial = htonl(atomic_inc_return(&conn->serial));
-+	_proto("Tx RESPONSE %%%u", ntohl(hdr->serial));
-+
-+	ret = kernel_sendmsg(conn->trans->local->socket, &msg, iov, 3, len);
-+	if (ret < 0) {
-+		_debug("sendmsg failed: %d", ret);
-+		return -EAGAIN;
++		memcpy(&server->addr, addr, sizeof(struct in_addr));
++		server->addr.s_addr =3D addr->s_addr;
+ 	}
+=20
+-	atomic_set(&server->usage, 1);
++	_leave(" =3D %p{%d}", server, atomic_read(&server->usage));
++	return server;
++}
+=20
+-	INIT_LIST_HEAD(&server->link);
+-	init_rwsem(&server->sem);
+-	INIT_LIST_HEAD(&server->fs_callq);
+-	spin_lock_init(&server->fs_lock);
+-	INIT_LIST_HEAD(&server->cb_promises);
+-	spin_lock_init(&server->cb_lock);
++/*
++ * get an FS-server record for a cell
++ */
++struct afs_server *afs_lookup_server(struct afs_cell *cell,
++				     const struct in_addr *addr)
++{
++	struct afs_server *server, *candidate;
+=20
+-	for (loop =3D 0; loop < AFS_SERVER_CONN_LIST_SIZE; loop++)
+-		server->fs_conn_cnt[loop] =3D 4;
++	_enter("%p,"NIPQUAD_FMT, cell, NIPQUAD(addr->s_addr));
+=20
+-	memcpy(&server->addr, addr, sizeof(struct in_addr));
+-	server->addr.s_addr =3D addr->s_addr;
++	/* quick scan of the list to see if we already have the server */
++	read_lock(&cell->servers_lock);
++=09
++	list_for_each_entry(server, &cell->servers, link) {
++		if (server->addr.s_addr =3D=3D addr->s_addr)
++			goto found_server_quickly;
 +	}
-+
-+	_leave(" = 0");
-+	return 0;
-+}
-+
-+/*
-+ * calculate the response checksum
-+ */
-+static void rxkad_calc_response_checksum(struct rxkad_response *response)
-+{
-+	u32 csum = 1000003;
-+	int loop;
-+	u8 *p = (u8 *) response;
-+
-+	for (loop = sizeof(*response); loop > 0; loop--)
-+		csum = csum * 0x10204081 + *p++;
-+
-+	response->encrypted.checksum = htonl(csum);
-+}
-+
-+/*
-+ * load a scatterlist with a potentially split-page buffer
-+ */
-+static void rxkad_sg_set_buf2(struct scatterlist sg[2],
-+			      void *buf, size_t buflen)
-+{
-+
-+	memset(sg, 0, sizeof(sg));
-+
-+	sg_set_buf(&sg[0], buf, buflen);
-+	if (sg[0].offset + buflen > PAGE_SIZE) {
-+		/* the buffer was split over two pages */
-+		sg[0].length = PAGE_SIZE - sg[0].offset;
-+		sg_set_buf(&sg[1], buf + sg[0].length, buflen - sg[0].length);
++	read_unlock(&cell->servers_lock);
+=20
+-	afs_timer_init(&server->timeout, &afs_server_timer_ops);
++	candidate =3D afs_alloc_server(cell, addr);
++	if (!candidate) {
++		_leave(" =3D -ENOMEM");
++		return ERR_PTR(-ENOMEM);
 +	}
+=20
+-	/* add to the cell */
+-	write_lock(&cell->sv_lock);
++	write_lock(&cell->servers_lock);
+=20
+-	/* check the active list */
+-	list_for_each_entry(active, &cell->sv_list, link) {
+-		if (active->addr.s_addr =3D=3D addr->s_addr)
+-			goto use_active_server;
++	/* check the cell's server list again */
++	list_for_each_entry(server, &cell->servers, link) {
++		if (server->addr.s_addr =3D=3D addr->s_addr)
++			goto found_server;
+ 	}
+=20
+-	/* check the inactive list */
+-	spin_lock(&cell->sv_gylock);
+-	list_for_each_entry(zombie, &cell->sv_graveyard, link) {
+-		if (zombie->addr.s_addr =3D=3D addr->s_addr)
+-			goto resurrect_server;
+-	}
+-	spin_unlock(&cell->sv_gylock);
++	_debug("new");
++	server =3D candidate;
++	if (afs_install_server(server) < 0)
++		goto server_in_two_cells;
+=20
+ 	afs_get_cell(cell);
+-	server->cell =3D cell;
+-	list_add_tail(&server->link, &cell->sv_list);
+-
+-	write_unlock(&cell->sv_lock);
+-
+-	*_server =3D server;
+-	_leave(" =3D 0 (%p)", server);
+-	return 0;
++	list_add_tail(&server->link, &cell->servers);
 +
-+	ASSERTCMP(sg[0].length + sg[1].length, ==, buflen);
-+}
++	write_unlock(&cell->servers_lock);
++	_leave(" =3D %p{%d}", server, atomic_read(&server->usage));
++	return server;
 +
-+/*
-+ * encrypt the response packet
-+ */
-+static void rxkad_encrypt_response(struct rxrpc_connection *conn,
-+				   struct rxkad_response *resp,
-+				   const struct rxkad_key *s2)
-+{
-+	struct blkcipher_desc desc;
-+	struct rxrpc_crypt iv;
-+	struct scatterlist ssg[2], dsg[2];
-+
-+	/* continue encrypting from where we left off */
-+	memcpy(&iv, s2->session_key, sizeof(iv));
-+	desc.tfm = conn->cipher;
-+	desc.info = iv.x;
-+	desc.flags = 0;
-+
-+	rxkad_sg_set_buf2(ssg, &resp->encrypted, sizeof(resp->encrypted));
-+	memcpy(dsg, ssg, sizeof(dsg));
-+	crypto_blkcipher_encrypt_iv(&desc, dsg, ssg, sizeof(resp->encrypted));
-+}
-+
-+/*
-+ * respond to a challenge packet
-+ */
-+static int rxkad_respond_to_challenge(struct rxrpc_connection *conn,
-+				      struct sk_buff *skb,
-+				      u32 *_abort_code)
-+{
-+	const struct rxrpc_key_payload *payload;
-+	struct rxkad_challenge challenge;
-+	struct rxkad_response resp
-+		__attribute__((aligned(8))); /* must be aligned for crypto */
-+	struct rxrpc_skb_priv *sp;
-+	u32 version, nonce, min_level, abort_code;
-+	int ret;
-+
-+	_enter("{%d,%x}", conn->debug_id, key_serial(conn->key));
-+
-+	if (!conn->key) {
-+		_leave(" = -EPROTO [no key]");
-+		return -EPROTO;
++	/* found a matching server quickly */
++found_server_quickly:
++	_debug("found quickly");
++	afs_get_server(server);
++	read_unlock(&cell->servers_lock);
++no_longer_unused:
++	if (!list_empty(&server->grave)) {
++		spin_lock(&afs_server_graveyard_lock);
++		list_del_init(&server->grave);
++		spin_unlock(&afs_server_graveyard_lock);
 +	}
++	_leave(" =3D %p{%d}", server, atomic_read(&server->usage));
++	return server;
 +
-+	ret = key_validate(conn->key);
-+	if (ret < 0) {
-+		*_abort_code = RXKADEXPIRED;
-+		return ret;
-+	}
++	/* found a matching server on the second pass */
++found_server:
++	_debug("found");
++	afs_get_server(server);
++	write_unlock(&cell->servers_lock);
++	kfree(candidate);
++	goto no_longer_unused;
 +
-+	abort_code = RXKADPACKETSHORT;
-+	sp = rxrpc_skb(skb);
-+	if (skb_copy_bits(skb, 0, &challenge, sizeof(challenge)) < 0)
-+		goto protocol_error;
-+
-+	version = ntohl(challenge.version);
-+	nonce = ntohl(challenge.nonce);
-+	min_level = ntohl(challenge.min_level);
-+
-+	_proto("Rx CHALLENGE %%%u { v=%u n=%u ml=%u }",
-+	       ntohl(sp->hdr.serial), version, nonce, min_level);
-+
-+	abort_code = RXKADINCONSISTENCY;
-+	if (version != RXKAD_VERSION)
-+		goto protocol_error;
-+
-+	abort_code = RXKADLEVELFAIL;
-+	if (conn->security_level < min_level)
-+		goto protocol_error;
-+
-+	payload = conn->key->payload.data;
-+
-+	/* build the response packet */
-+	memset(&resp, 0, sizeof(resp));
-+
-+	resp.version = RXKAD_VERSION;
-+	resp.encrypted.epoch = conn->epoch;
-+	resp.encrypted.cid = conn->cid;
-+	resp.encrypted.securityIndex = htonl(conn->security_ix);
-+	resp.encrypted.call_id[0] =
-+		(conn->channels[0] ? conn->channels[0]->call_id : 0);
-+	resp.encrypted.call_id[1] =
-+		(conn->channels[1] ? conn->channels[1]->call_id : 0);
-+	resp.encrypted.call_id[2] =
-+		(conn->channels[2] ? conn->channels[2]->call_id : 0);
-+	resp.encrypted.call_id[3] =
-+		(conn->channels[3] ? conn->channels[3]->call_id : 0);
-+	resp.encrypted.inc_nonce = htonl(nonce + 1);
-+	resp.encrypted.level = htonl(conn->security_level);
-+	resp.kvno = htonl(payload->k.kvno);
-+	resp.ticket_len = htonl(payload->k.ticket_len);
-+
-+	/* calculate the response checksum and then do the encryption */
-+	rxkad_calc_response_checksum(&resp);
-+	rxkad_encrypt_response(conn, &resp, &payload->k);
-+	return rxkad_send_response(conn, &sp->hdr, &resp, &payload->k);
-+
-+protocol_error:
-+	*_abort_code = abort_code;
-+	_leave(" = -EPROTO [%d]", abort_code);
-+	return -EPROTO;
++	/* found a server that seems to be in two cells */
++server_in_two_cells:
++	write_unlock(&cell->servers_lock);
++	kfree(candidate);
++	printk(KERN_NOTICE "kAFS:"
++	       " Server "NIPQUAD_FMT" appears to be in two cells\n",
++	       NIPQUAD(*addr));
++	_leave(" =3D -EEXIST");
++	return ERR_PTR(-EEXIST);
 +}
-+
+=20
+-	/* found a matching active server */
+-use_active_server:
+-	_debug("active server");
+-	afs_get_server(active);
+-	write_unlock(&cell->sv_lock);
 +/*
-+ * decrypt the kerberos IV ticket in the response
++ * look up a server by its IP address
 + */
-+static int rxkad_decrypt_ticket(struct rxrpc_connection *conn,
-+				void *ticket, size_t ticket_len,
-+				struct rxrpc_crypt *_session_key,
-+				time_t *_expiry,
-+				u32 *_abort_code)
++struct afs_server *afs_find_server(const struct in_addr *_addr)
 +{
-+	struct blkcipher_desc desc;
-+	struct rxrpc_crypt iv, key;
-+	struct scatterlist ssg[1], dsg[1];
-+	struct in_addr addr;
-+	unsigned life;
-+	time_t issue, now;
-+	bool little_endian;
-+	int ret;
-+	u8 *p, *q, *name, *end;
-+
-+	_enter("{%d},{%x}", conn->debug_id, key_serial(conn->server_key));
-+
-+	*_expiry = 0;
-+
-+	ret = key_validate(conn->server_key);
-+	if (ret < 0) {
-+		switch (ret) {
-+		case -EKEYEXPIRED:
-+			*_abort_code = RXKADEXPIRED;
-+			goto error;
-+		default:
-+			*_abort_code = RXKADNOAUTH;
-+			goto error;
++	struct afs_server *server =3D NULL;
++	struct rb_node *p;
++	struct in_addr addr =3D *_addr;
+=20
+-	kfree(server);
++	_enter(NIPQUAD_FMT, NIPQUAD(addr.s_addr));
+=20
+-	*_server =3D active;
+-	_leave(" =3D 0 (%p)", active);
+-	return 0;
++	read_lock(&afs_servers_lock);
+=20
+-	/* found a matching server in the graveyard, so resurrect it and
+-	 * dispose of the new record */
+-resurrect_server:
+-	_debug("resurrecting server");
++	p =3D afs_servers.rb_node;
++	while (p) {
++		server =3D rb_entry(p, struct afs_server, master_rb);
+=20
+-	list_move_tail(&zombie->link, &cell->sv_list);
+-	afs_get_server(zombie);
+-	afs_kafstimod_del_timer(&zombie->timeout);
+-	spin_unlock(&cell->sv_gylock);
+-	write_unlock(&cell->sv_lock);
++		_debug("- consider %p", p);
+=20
+-	kfree(server);
++		if (addr.s_addr < server->addr.s_addr) {
++			p =3D p->rb_left;
++		} else if (addr.s_addr > server->addr.s_addr) {
++			p =3D p->rb_right;
++		} else {
++			afs_get_server(server);
++			goto found;
 +		}
 +	}
+=20
+-	*_server =3D zombie;
+-	_leave(" =3D 0 (%p)", zombie);
+-	return 0;
++	server =3D NULL;
++found:
++	read_unlock(&afs_servers_lock);
++	ASSERTIFCMP(server, server->addr.s_addr, =3D=3D, addr.s_addr);
++	_leave(" =3D %p", server);
++	return server;
+ }
+=20
+ /*
+@@ -140,347 +218,105 @@ resurrect_server:
+  */
+ void afs_put_server(struct afs_server *server)
+ {
+-	struct afs_cell *cell;
+-
+ 	if (!server)
+ 		return;
+=20
+-	_enter("%p", server);
+-
+-	cell =3D server->cell;
+-
+-	/* sanity check */
+-	BUG_ON(atomic_read(&server->usage) <=3D 0);
++	_enter("%p{%d}", server, atomic_read(&server->usage));
+=20
+-	/* to prevent a race, the decrement and the dequeue must be effective=
+ly
+-	 * atomic */
+-	write_lock(&cell->sv_lock);
++	ASSERTCMP(atomic_read(&server->usage), >, 0);
+=20
+ 	if (likely(!atomic_dec_and_test(&server->usage))) {
+-		write_unlock(&cell->sv_lock);
+ 		_leave("");
+ 		return;
+ 	}
+=20
+-	spin_lock(&cell->sv_gylock);
+-	list_move_tail(&server->link, &cell->sv_graveyard);
++	afs_flush_callback_breaks(server);
+=20
+-	/* time out in 10 secs */
+-	afs_kafstimod_add_timer(&server->timeout, 10 * HZ);
+-
+-	spin_unlock(&cell->sv_gylock);
+-	write_unlock(&cell->sv_lock);
+-
+-	_leave(" [killed]");
++	spin_lock(&afs_server_graveyard_lock);
++	if (atomic_read(&server->usage) =3D=3D 0) {
++		list_move_tail(&server->grave, &afs_server_graveyard);
++		server->time_of_death =3D get_seconds();
++		schedule_delayed_work(&afs_server_reaper,
++				      afs_server_timeout * HZ);
++	}
++	spin_unlock(&afs_server_graveyard_lock);
++	_leave(" [dead]");
+ }
+=20
+ /*
+- * timeout server record
+- * - removes from the cell's graveyard if the usage count is zero
++ * destroy a dead server
+  */
+-void afs_server_do_timeout(struct afs_server *server)
++static void afs_destroy_server(struct afs_server *server)
+ {
+-	struct rxrpc_peer *peer;
+-	struct afs_cell *cell;
+-	int loop;
+-
+ 	_enter("%p", server);
+=20
+-	cell =3D server->cell;
+-
+-	BUG_ON(atomic_read(&server->usage) < 0);
+-
+-	/* remove from graveyard if still dead */
+-	spin_lock(&cell->vl_gylock);
+-	if (atomic_read(&server->usage) =3D=3D 0)
+-		list_del_init(&server->link);
+-	else
+-		server =3D NULL;
+-	spin_unlock(&cell->vl_gylock);
+-
+-	if (!server) {
+-		_leave("");
+-		return; /* resurrected */
+-	}
+-
+-	/* we can now destroy it properly */
+-	afs_put_cell(cell);
+-
+-	/* uncross-point the structs under a global lock */
+-	spin_lock(&afs_server_peer_lock);
+-	peer =3D server->peer;
+-	if (peer) {
+-		server->peer =3D NULL;
+-		peer->user =3D NULL;
+-	}
+-	spin_unlock(&afs_server_peer_lock);
+-
+-	/* finish cleaning up the server */
+-	for (loop =3D AFS_SERVER_CONN_LIST_SIZE - 1; loop >=3D 0; loop--)
+-		if (server->fs_conn[loop])
+-			rxrpc_put_connection(server->fs_conn[loop]);
+-
+-	if (server->vlserver)
+-		rxrpc_put_connection(server->vlserver);
++	ASSERTCMP(server->fs_vnodes.rb_node, =3D=3D, NULL);
++	ASSERTCMP(server->cb_promises.rb_node, =3D=3D, NULL);
++	ASSERTCMP(server->cb_break_head, =3D=3D, server->cb_break_tail);
++	ASSERTCMP(atomic_read(&server->cb_break_n), =3D=3D, 0);
+=20
++	afs_put_cell(server->cell);
+ 	kfree(server);
+-
+-	_leave(" [destroyed]");
+ }
+=20
+ /*
+- * get a callslot on a connection to the fileserver on the specified s=
+erver
++ * reap dead server records
+  */
+-int afs_server_request_callslot(struct afs_server *server,
+-				struct afs_server_callslot *callslot)
++static void afs_reap_server(struct work_struct *work)
+ {
+-	struct afs_server_callslot *pcallslot;
+-	struct rxrpc_connection *conn;
+-	int nconn, ret;
+-
+-	_enter("%p,",server);
+-
+-	INIT_LIST_HEAD(&callslot->link);
+-	callslot->task =3D current;
+-	callslot->conn =3D NULL;
+-	callslot->nconn =3D -1;
+-	callslot->ready =3D 0;
+-
+-	ret =3D 0;
+-	conn =3D NULL;
+-
+-	/* get hold of a callslot first */
+-	spin_lock(&server->fs_lock);
+-
+-	/* resurrect the server if it's death timeout has expired */
+-	if (server->fs_state) {
+-		if (time_before(jiffies, server->fs_dead_jif)) {
+-			ret =3D server->fs_state;
+-			spin_unlock(&server->fs_lock);
+-			_leave(" =3D %d [still dead]", ret);
+-			return ret;
++	LIST_HEAD(corpses);
++	struct afs_server *server;
++	unsigned long delay, expiry;
++	time_t now;
 +
-+	ASSERT(conn->server_key->payload.data != NULL);
-+	ASSERTCMP((unsigned long) ticket & 7UL, ==, 0);
++	now =3D get_seconds();
++	spin_lock(&afs_server_graveyard_lock);
 +
-+	memcpy(&iv, &conn->server_key->type_data, sizeof(iv));
++	while (!list_empty(&afs_server_graveyard)) {
++		server =3D list_entry(afs_server_graveyard.next,
++				    struct afs_server, grave);
 +
-+	desc.tfm = conn->server_key->payload.data;
-+	desc.info = iv.x;
-+	desc.flags = 0;
++		/* the queue is ordered most dead first */
++		expiry =3D server->time_of_death + afs_server_timeout;
++		if (expiry > now) {
++			delay =3D (expiry - now) * HZ;
++			if (!schedule_delayed_work(&afs_server_reaper, delay)) {
++				cancel_delayed_work(&afs_server_reaper);
++				schedule_delayed_work(&afs_server_reaper,
++						      delay);
++			}
++			break;
+ 		}
+=20
+-		server->fs_state =3D 0;
+-	}
+-
+-	/* try and find a connection that has spare callslots */
+-	for (nconn =3D 0; nconn < AFS_SERVER_CONN_LIST_SIZE; nconn++) {
+-		if (server->fs_conn_cnt[nconn] > 0) {
+-			server->fs_conn_cnt[nconn]--;
+-			spin_unlock(&server->fs_lock);
+-			callslot->nconn =3D nconn;
+-			goto obtained_slot;
++		write_lock(&server->cell->servers_lock);
++		write_lock(&afs_servers_lock);
++		if (atomic_read(&server->usage) > 0) {
++			list_del_init(&server->grave);
++		} else {
++			list_move_tail(&server->grave, &corpses);
++			list_del_init(&server->link);
++			rb_erase(&server->master_rb, &afs_servers);
+ 		}
++		write_unlock(&afs_servers_lock);
++		write_unlock(&server->cell->servers_lock);
+ 	}
+=20
+-	/* none were available - wait interruptibly for one to become
+-	 * available */
+-	set_current_state(TASK_INTERRUPTIBLE);
+-	list_add_tail(&callslot->link, &server->fs_callq);
+-	spin_unlock(&server->fs_lock);
+-
+-	while (!callslot->ready && !signal_pending(current)) {
+-		schedule();
+-		set_current_state(TASK_INTERRUPTIBLE);
+-	}
+-
+-	set_current_state(TASK_RUNNING);
+-
+-	/* even if we were interrupted we may still be queued */
+-	if (!callslot->ready) {
+-		spin_lock(&server->fs_lock);
+-		list_del_init(&callslot->link);
+-		spin_unlock(&server->fs_lock);
+-	}
+-
+-	nconn =3D callslot->nconn;
+-
+-	/* if interrupted, we must release any slot we also got before
+-	 * returning an error */
+-	if (signal_pending(current)) {
+-		ret =3D -EINTR;
+-		goto error_release;
+-	}
+-
+-	/* if we were woken up with an error, then pass that error back to th=
+e
+-	 * called */
+-	if (nconn < 0) {
+-		_leave(" =3D %d", callslot->errno);
+-		return callslot->errno;
+-	}
+-
+-	/* were we given a connection directly? */
+-	if (callslot->conn) {
+-		/* yes - use it */
+-		_leave(" =3D 0 (nc=3D%d)", nconn);
+-		return 0;
+-	}
++	spin_unlock(&afs_server_graveyard_lock);
+=20
+-	/* got a callslot, but no connection */
+-obtained_slot:
+-
+-	/* need to get hold of the RxRPC connection */
+-	down_write(&server->sem);
+-
+-	/* quick check to see if there's an outstanding error */
+-	ret =3D server->fs_state;
+-	if (ret)
+-		goto error_release_upw;
+-
+-	if (server->fs_conn[nconn]) {
+-		/* reuse an existing connection */
+-		rxrpc_get_connection(server->fs_conn[nconn]);
+-		callslot->conn =3D server->fs_conn[nconn];
+-	} else {
+-		/* create a new connection */
+-		ret =3D rxrpc_create_connection(afs_transport,
+-					      htons(7000),
+-					      server->addr.s_addr,
+-					      FS_SERVICE_ID,
+-					      NULL,
+-					      &server->fs_conn[nconn]);
+-
+-		if (ret < 0)
+-			goto error_release_upw;
+-
+-		callslot->conn =3D server->fs_conn[0];
+-		rxrpc_get_connection(callslot->conn);
++	/* now reap the corpses we've extracted */
++	while (!list_empty(&corpses)) {
++		server =3D list_entry(corpses.next, struct afs_server, grave);
++		list_del(&server->grave);
++		afs_destroy_server(server);
+ 	}
+-
+-	up_write(&server->sem);
+-
+- 	_leave(" =3D 0");
+-	return 0;
+-
+-	/* handle an error occurring */
+-error_release_upw:
+-	up_write(&server->sem);
+-
+-error_release:
+-	/* either release the callslot or pass it along to another deserving
+-	 * task */
+-	spin_lock(&server->fs_lock);
+-
+-	if (nconn < 0) {
+-		/* no callslot allocated */
+-	} else if (list_empty(&server->fs_callq)) {
+-		/* no one waiting */
+-		server->fs_conn_cnt[nconn]++;
+-		spin_unlock(&server->fs_lock);
+-	} else {
+-		/* someone's waiting - dequeue them and wake them up */
+-		pcallslot =3D list_entry(server->fs_callq.next,
+-				       struct afs_server_callslot, link);
+-		list_del_init(&pcallslot->link);
+-
+-		pcallslot->errno =3D server->fs_state;
+-		if (!pcallslot->errno) {
+-			/* pass them out callslot details */
+-			callslot->conn =3D xchg(&pcallslot->conn,
+-					      callslot->conn);
+-			pcallslot->nconn =3D nconn;
+-			callslot->nconn =3D nconn =3D -1;
+-		}
+-		pcallslot->ready =3D 1;
+-		wake_up_process(pcallslot->task);
+-		spin_unlock(&server->fs_lock);
+-	}
+-
+-	rxrpc_put_connection(callslot->conn);
+-	callslot->conn =3D NULL;
+-
+-	_leave(" =3D %d", ret);
+-	return ret;
+ }
+=20
+ /*
+- * release a callslot back to the server
+- * - transfers the RxRPC connection to the next pending callslot if po=
+ssible
++ * discard all the server records for rmmod
+  */
+-void afs_server_release_callslot(struct afs_server *server,
+-				 struct afs_server_callslot *callslot)
++void __exit afs_purge_servers(void)
+ {
+-	struct afs_server_callslot *pcallslot;
+-
+-	_enter("{ad=3D%08x,cnt=3D%u},{%d}",
+-	       ntohl(server->addr.s_addr),
+-	       server->fs_conn_cnt[callslot->nconn],
+-	       callslot->nconn);
+-
+-	BUG_ON(callslot->nconn < 0);
+-
+-	spin_lock(&server->fs_lock);
+-
+-	if (list_empty(&server->fs_callq)) {
+-		/* no one waiting */
+-		server->fs_conn_cnt[callslot->nconn]++;
+-		spin_unlock(&server->fs_lock);
+-	} else {
+-		/* someone's waiting - dequeue them and wake them up */
+-		pcallslot =3D list_entry(server->fs_callq.next,
+-				       struct afs_server_callslot, link);
+-		list_del_init(&pcallslot->link);
+-
+-		pcallslot->errno =3D server->fs_state;
+-		if (!pcallslot->errno) {
+-			/* pass them out callslot details */
+-			callslot->conn =3D xchg(&pcallslot->conn, callslot->conn);
+-			pcallslot->nconn =3D callslot->nconn;
+-			callslot->nconn =3D -1;
+-		}
+-
+-		pcallslot->ready =3D 1;
+-		wake_up_process(pcallslot->task);
+-		spin_unlock(&server->fs_lock);
+-	}
+-
+-	rxrpc_put_connection(callslot->conn);
+-
+-	_leave("");
+-}
+-
+-/*
+- * get a handle to a connection to the vlserver (volume location) on t=
+he
+- * specified server
+- */
+-int afs_server_get_vlconn(struct afs_server *server,
+-			  struct rxrpc_connection **_conn)
+-{
+-	struct rxrpc_connection *conn;
+-	int ret;
+-
+-	_enter("%p,", server);
+-
+-	ret =3D 0;
+-	conn =3D NULL;
+-	down_read(&server->sem);
+-
+-	if (server->vlserver) {
+-		/* reuse an existing connection */
+-		rxrpc_get_connection(server->vlserver);
+-		conn =3D server->vlserver;
+-		up_read(&server->sem);
+-	} else {
+-		/* create a new connection */
+-		up_read(&server->sem);
+-		down_write(&server->sem);
+-		if (!server->vlserver) {
+-			ret =3D rxrpc_create_connection(afs_transport,
+-						      htons(7003),
+-						      server->addr.s_addr,
+-						      VL_SERVICE_ID,
+-						      NULL,
+-						      &server->vlserver);
+-		}
+-		if (ret =3D=3D 0) {
+-			rxrpc_get_connection(server->vlserver);
+-			conn =3D server->vlserver;
+-		}
+-		up_write(&server->sem);
+-	}
+-
+-	*_conn =3D conn;
+-	_leave(" =3D %d", ret);
+-	return ret;
++	afs_server_timeout =3D 0;
++	cancel_delayed_work(&afs_server_reaper);
++	schedule_delayed_work(&afs_server_reaper, 0);
+ }
+diff --git a/fs/afs/server.h b/fs/afs/server.h
+deleted file mode 100644
+index e1a0068..0000000
+--- a/fs/afs/server.h
++++ /dev/null
+@@ -1,97 +0,0 @@
+-/* AFS server record
+- *
+- * Copyright (C) 2002 Red Hat, Inc. All Rights Reserved.
+- * Written by David Howells (dhowells@redhat.com)
+- *
+- * This program is free software; you can redistribute it and/or
+- * modify it under the terms of the GNU General Public License
+- * as published by the Free Software Foundation; either version
+- * 2 of the License, or (at your option) any later version.
+- */
+-
+-#ifndef AFS_SERVER_H
+-#define AFS_SERVER_H
+-
+-#include "types.h"
+-#include "kafstimod.h"
+-#include <rxrpc/peer.h>
+-#include <linux/rwsem.h>
+-
+-extern spinlock_t afs_server_peer_lock;
+-
+-/*
+- * AFS server record
+- */
+-struct afs_server {
+-	atomic_t		usage;
+-	struct afs_cell		*cell;		/* cell in which server resides */
+-	struct list_head	link;		/* link in cell's server list */
+-	struct rw_semaphore	sem;		/* access lock */
+-	struct afs_timer	timeout;	/* graveyard timeout */
+-	struct in_addr		addr;		/* server address */
+-	struct rxrpc_peer	*peer;		/* peer record for this server */
+-	struct rxrpc_connection	*vlserver;	/* connection to the volume locati=
+on service */
+-
+-	/* file service access */
+-#define AFS_SERVER_CONN_LIST_SIZE 2
+-	struct rxrpc_connection	*fs_conn[AFS_SERVER_CONN_LIST_SIZE]; /* FS co=
+nnections */
+-	unsigned		fs_conn_cnt[AFS_SERVER_CONN_LIST_SIZE];	/* per conn call co=
+unt */
+-	struct list_head	fs_callq;	/* queue of processes waiting to make a ca=
+ll */
+-	spinlock_t		fs_lock;	/* access lock */
+-	int			fs_state;      	/* 0 or reason FS currently marked dead (-errno=
+) */
+-	unsigned		fs_rtt;		/* FS round trip time */
+-	unsigned long		fs_act_jif;	/* time at which last activity occurred */
+-	unsigned long		fs_dead_jif;	/* time at which no longer to be consider=
+ed dead */
+-
+-	/* callback promise management */
+-	struct list_head	cb_promises;	/* as yet unbroken promises from this s=
+erver */
+-	spinlock_t		cb_lock;	/* access lock */
+-};
+-
+-extern int afs_server_lookup(struct afs_cell *, const struct in_addr *=
+,
+-			     struct afs_server **);
+-
+-#define afs_get_server(S) do { atomic_inc(&(S)->usage); } while(0)
+-
+-extern void afs_put_server(struct afs_server *);
+-extern void afs_server_do_timeout(struct afs_server *);
+-
+-extern int afs_server_find_by_peer(const struct rxrpc_peer *,
+-				   struct afs_server **);
+-
+-extern int afs_server_get_vlconn(struct afs_server *,
+-				 struct rxrpc_connection **);
+-
+-static inline
+-struct afs_server *afs_server_get_from_peer(struct rxrpc_peer *peer)
+-{
+-	struct afs_server *server;
+-
+-	spin_lock(&afs_server_peer_lock);
+-	server =3D peer->user;
+-	if (server)
+-		afs_get_server(server);
+-	spin_unlock(&afs_server_peer_lock);
+-
+-	return server;
+-}
+-
+-/*
+- * AFS server callslot grant record
+- */
+-struct afs_server_callslot {
+-	struct list_head	link;		/* link in server's list */
+-	struct task_struct	*task;		/* process waiting to make call */
+-	struct rxrpc_connection	*conn;		/* connection to use (or NULL on erro=
+r) */
+-	short			nconn;		/* connection slot number (-1 on error) */
+-	char			ready;		/* T when ready */
+-	int			errno;		/* error number if nconn=3D=3D-1 */
+-};
+-
+-extern int afs_server_request_callslot(struct afs_server *,
+-				       struct afs_server_callslot *);
+-
+-extern void afs_server_release_callslot(struct afs_server *,
+-					struct afs_server_callslot *);
+-
+-#endif /* AFS_SERVER_H */
+diff --git a/fs/afs/super.c b/fs/afs/super.c
+index 0470a5c..efc4fe6 100644
+--- a/fs/afs/super.c
++++ b/fs/afs/super.c
+@@ -1,6 +1,6 @@
+ /* AFS superblock handling
+  *
+- * Copyright (c) 2002 Red Hat, Inc. All rights reserved.
++ * Copyright (c) 2002, 2007 Red Hat, Inc. All rights reserved.
+  *
+  * This software may be freely redistributed under the terms of the
+  * GNU General Public License.
+@@ -20,12 +20,6 @@
+ #include <linux/slab.h>
+ #include <linux/fs.h>
+ #include <linux/pagemap.h>
+-#include "vnode.h"
+-#include "volume.h"
+-#include "cell.h"
+-#include "cmservice.h"
+-#include "fsclient.h"
+-#include "super.h"
+ #include "internal.h"
+=20
+ #define AFS_FS_MAGIC 0x6B414653 /* 'kAFS' */
+@@ -63,6 +57,7 @@ static const struct super_operations afs_super_ops =3D=
+ {
+ 	.drop_inode	=3D generic_delete_inode,
+ 	.destroy_inode	=3D afs_destroy_inode,
+ 	.clear_inode	=3D afs_clear_inode,
++	.umount_begin	=3D afs_umount_begin,
+ 	.put_super	=3D afs_put_super,
+ };
+=20
+@@ -78,8 +73,6 @@ int __init afs_fs_init(void)
+=20
+ 	_enter("");
+=20
+-	afs_timer_init(&afs_mntpt_expiry_timer, &afs_mntpt_expiry_timer_ops);
+-
+ 	/* create ourselves an inode cache */
+ 	atomic_set(&afs_count_active_inodes, 0);
+=20
+@@ -99,11 +92,11 @@ int __init afs_fs_init(void)
+ 	ret =3D register_filesystem(&afs_fs_type);
+ 	if (ret < 0) {
+ 		kmem_cache_destroy(afs_inode_cachep);
+-		kleave(" =3D %d", ret);
++		_leave(" =3D %d", ret);
+ 		return ret;
+ 	}
+=20
+-	kleave(" =3D 0");
++	_leave(" =3D 0");
+ 	return 0;
+ }
+=20
+@@ -112,6 +105,9 @@ int __init afs_fs_init(void)
+  */
+ void __exit afs_fs_exit(void)
+ {
++	_enter("");
 +
-+	sg_init_one(&ssg[0], ticket, ticket_len);
-+	memcpy(dsg, ssg, sizeof(dsg));
-+	crypto_blkcipher_decrypt_iv(&desc, dsg, ssg, ticket_len);
++	afs_mntpt_kill_timer();
+ 	unregister_filesystem(&afs_fs_type);
+=20
+ 	if (atomic_read(&afs_count_active_inodes) !=3D 0) {
+@@ -121,6 +117,7 @@ void __exit afs_fs_exit(void)
+ 	}
+=20
+ 	kmem_cache_destroy(afs_inode_cachep);
++	_leave("");
+ }
+=20
+ /*
+@@ -154,9 +151,9 @@ static int want_no_value(char *const *_value, const=
+ char *option)
+  *   shamelessly adapted it from the msdos fs
+  */
+ static int afs_super_parse_options(struct afs_mount_params *params,
+-				   char *options,
+-				   const char **devname)
++				   char *options, const char **devname)
+ {
++	struct afs_cell *cell;
+ 	char *key, *value;
+ 	int ret;
+=20
+@@ -165,43 +162,37 @@ static int afs_super_parse_options(struct afs_mou=
+nt_params *params,
+ 	options[PAGE_SIZE - 1] =3D 0;
+=20
+ 	ret =3D 0;
+-	while ((key =3D strsep(&options, ",")) !=3D 0)
+-	{
++	while ((key =3D strsep(&options, ","))) {
+ 		value =3D strchr(key, '=3D');
+ 		if (value)
+ 			*value++ =3D 0;
+=20
+-		printk("kAFS: KEY: %s, VAL:%s\n", key, value ?: "-");
++		_debug("kAFS: KEY: %s, VAL:%s", key, value ?: "-");
+=20
+ 		if (strcmp(key, "rwpath") =3D=3D 0) {
+ 			if (!want_no_value(&value, "rwpath"))
+ 				return -EINVAL;
+ 			params->rwpath =3D 1;
+-			continue;
+ 		} else if (strcmp(key, "vol") =3D=3D 0) {
+ 			if (!want_arg(&value, "vol"))
+ 				return -EINVAL;
+ 			*devname =3D value;
+-			continue;
+ 		} else if (strcmp(key, "cell") =3D=3D 0) {
+ 			if (!want_arg(&value, "cell"))
+ 				return -EINVAL;
++			cell =3D afs_cell_lookup(value, strlen(value));
++			if (IS_ERR(cell))
++				return PTR_ERR(cell);
+ 			afs_put_cell(params->default_cell);
+-			ret =3D afs_cell_lookup(value,
+-					      strlen(value),
+-					      &params->default_cell);
+-			if (ret < 0)
+-				return -EINVAL;
+-			continue;
++			params->default_cell =3D cell;
++		} else {
++			printk("kAFS: Unknown mount option: '%s'\n",  key);
++			ret =3D -EINVAL;
++			goto error;
+ 		}
+-
+-		printk("kAFS: Unknown mount option: '%s'\n",  key);
+-		ret =3D -EINVAL;
+-		goto error;
+ 	}
+=20
+ 	ret =3D 0;
+-
+ error:
+ 	_leave(" =3D %d", ret);
+ 	return ret;
+@@ -230,7 +221,7 @@ static int afs_fill_super(struct super_block *sb, v=
+oid *data, int silent)
+ 	struct inode *inode =3D NULL;
+ 	int ret;
+=20
+-	kenter("");
++	_enter("");
+=20
+ 	/* allocate a superblock info record */
+ 	as =3D kzalloc(sizeof(struct afs_super_info), GFP_KERNEL);
+@@ -253,9 +244,9 @@ static int afs_fill_super(struct super_block *sb, v=
+oid *data, int silent)
+ 	fid.vid		=3D as->volume->vid;
+ 	fid.vnode	=3D 1;
+ 	fid.unique	=3D 1;
+-	ret =3D afs_iget(sb, &fid, &inode);
+-	if (ret < 0)
+-		goto error;
++	inode =3D afs_iget(sb, &fid);
++	if (IS_ERR(inode))
++		goto error_inode;
+=20
+ 	ret =3D -ENOMEM;
+ 	root =3D d_alloc_root(inode);
+@@ -264,9 +255,12 @@ static int afs_fill_super(struct super_block *sb, =
+void *data, int silent)
+=20
+ 	sb->s_root =3D root;
+=20
+-	kleave(" =3D 0");
++	_leave(" =3D 0");
+ 	return 0;
+=20
++error_inode:
++	ret =3D PTR_ERR(inode);
++	inode =3D NULL;
+ error:
+ 	iput(inode);
+ 	afs_put_volume(as->volume);
+@@ -274,7 +268,7 @@ error:
+=20
+ 	sb->s_fs_info =3D NULL;
+=20
+-	kleave(" =3D %d", ret);
++	_leave(" =3D %d", ret);
+ 	return ret;
+ }
+=20
+@@ -290,19 +284,13 @@ static int afs_get_sb(struct file_system_type *fs=
+_type,
+ {
+ 	struct afs_mount_params params;
+ 	struct super_block *sb;
++	struct afs_volume *vol;
+ 	int ret;
+=20
+ 	_enter(",,%s,%p", dev_name, options);
+=20
+ 	memset(&params, 0, sizeof(params));
+=20
+-	/* start the cache manager */
+-	ret =3D afscm_start();
+-	if (ret < 0) {
+-		_leave(" =3D %d", ret);
+-		return ret;
+-	}
+-
+ 	/* parse the options */
+ 	if (options) {
+ 		ret =3D afs_super_parse_options(&params, options, &dev_name);
+@@ -316,17 +304,20 @@ static int afs_get_sb(struct file_system_type *fs=
+_type,
+ 	}
+=20
+ 	/* parse the device name */
+-	ret =3D afs_volume_lookup(dev_name,
+-				params.default_cell,
+-				params.rwpath,
+-				&params.volume);
+-	if (ret < 0)
++	vol =3D afs_volume_lookup(dev_name, params.default_cell, params.rwpat=
+h);
++	if (IS_ERR(vol)) {
++		ret =3D PTR_ERR(vol);
+ 		goto error;
++	}
 +
-+	p = ticket;
-+	end = p + ticket_len;
++	params.volume =3D vol;
+=20
+ 	/* allocate a deviceless superblock */
+ 	sb =3D sget(fs_type, afs_test_super, set_anon_super, &params);
+-	if (IS_ERR(sb))
++	if (IS_ERR(sb)) {
++		ret =3D PTR_ERR(sb);
+ 		goto error;
++	}
+=20
+ 	sb->s_flags =3D flags;
+=20
+@@ -341,13 +332,12 @@ static int afs_get_sb(struct file_system_type *fs=
+_type,
+=20
+ 	afs_put_volume(params.volume);
+ 	afs_put_cell(params.default_cell);
+-	_leave(" =3D 0 [%p]", 0, sb);
++	_leave(" =3D 0 [%p]", sb);
+ 	return 0;
+=20
+ error:
+ 	afs_put_volume(params.volume);
+ 	afs_put_cell(params.default_cell);
+-	afscm_stop();
+ 	_leave(" =3D %d", ret);
+ 	return ret;
+ }
+@@ -362,7 +352,6 @@ static void afs_put_super(struct super_block *sb)
+ 	_enter("");
+=20
+ 	afs_put_volume(as->volume);
+-	afscm_stop();
+=20
+ 	_leave("");
+ }
+@@ -381,10 +370,8 @@ static void afs_i_init_once(void *_vnode, struct k=
+mem_cache *cachep,
+ 		inode_init_once(&vnode->vfs_inode);
+ 		init_waitqueue_head(&vnode->update_waitq);
+ 		spin_lock_init(&vnode->lock);
+-		INIT_LIST_HEAD(&vnode->cb_link);
+-		INIT_LIST_HEAD(&vnode->cb_hash_link);
+-		afs_timer_init(&vnode->cb_timeout,
+-			       &afs_vnode_cb_timed_out_ops);
++		INIT_WORK(&vnode->cb_broken_work, afs_broken_callback_work);
++		mutex_init(&vnode->cb_broken_lock);
+ 	}
+ }
+=20
+@@ -407,6 +394,7 @@ static struct inode *afs_alloc_inode(struct super_b=
+lock *sb)
+ 	vnode->volume		=3D NULL;
+ 	vnode->update_cnt	=3D 0;
+ 	vnode->flags		=3D 0;
++	vnode->cb_promised	=3D false;
+=20
+ 	return &vnode->vfs_inode;
+ }
+@@ -416,8 +404,14 @@ static struct inode *afs_alloc_inode(struct super_=
+block *sb)
+  */
+ static void afs_destroy_inode(struct inode *inode)
+ {
++	struct afs_vnode *vnode =3D AFS_FS_I(inode);
 +
-+#define Z(size)						\
-+	({						\
-+		u8 *__str = p;				\
-+		q = memchr(p, 0, end - p);		\
-+		if (!q || q - p > (size))		\
-+			goto bad_ticket;		\
-+		for (; p < q; p++)			\
-+			if (!isprint(*p))		\
-+				goto bad_ticket;	\
-+		p++;					\
-+		__str;					\
-+	})
+ 	_enter("{%lu}", inode->i_ino);
+=20
+-	kmem_cache_free(afs_inode_cachep, AFS_FS_I(inode));
++	_debug("DESTROY INODE %p", inode);
 +
-+	/* extract the ticket flags */
-+	_debug("KIV FLAGS: %x", *p);
-+	little_endian = *p & 1;
-+	p++;
++	ASSERTCMP(vnode->server, =3D=3D, NULL);
 +
-+	/* extract the authentication name */
-+	name = Z(ANAME_SZ);
-+	_debug("KIV ANAME: %s", name);
++	kmem_cache_free(afs_inode_cachep, vnode);
+ 	atomic_dec(&afs_count_active_inodes);
+ }
+diff --git a/fs/afs/super.h b/fs/afs/super.h
+deleted file mode 100644
+index c95b48e..0000000
+--- a/fs/afs/super.h
++++ /dev/null
+@@ -1,39 +0,0 @@
+-/* AFS filesystem internal private data
+- *
+- * Copyright (c) 2002 Red Hat, Inc. All rights reserved.
+- *
+- * This software may be freely redistributed under the terms of the
+- * GNU General Public License.
+- *
+- * You should have received a copy of the GNU General Public License
+- * along with this program; if not, write to the Free Software
+- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+- *
+- * Authors: David Woodhouse <dwmw2@cambridge.redhat.com>
+- *          David Howells <dhowells@redhat.com>
+- *
+- */
+-
+-#ifndef AFS_SUPER_H
+-#define AFS_SUPER_H
+-
+-#include <linux/fs.h>
+-#include "server.h"
+-
+-/*
+- * AFS superblock private data
+- * - there's one superblock per volume
+- */
+-struct afs_super_info {
+-	struct afs_volume	*volume;	/* volume record */
+-	char			rwparent;	/* T if parent is R/W AFS volume */
+-};
+-
+-static inline struct afs_super_info *AFS_FS_S(struct super_block *sb)
+-{
+-	return sb->s_fs_info;
+-}
+-
+-extern struct file_system_type afs_fs_type;
+-
+-#endif /* AFS_SUPER_H */
+diff --git a/fs/afs/transport.h b/fs/afs/transport.h
+deleted file mode 100644
+index f56be4b..0000000
+--- a/fs/afs/transport.h
++++ /dev/null
+@@ -1,21 +0,0 @@
+-/* AFS transport management
+- *
+- * Copyright (C) 2002 Red Hat, Inc. All Rights Reserved.
+- * Written by David Howells (dhowells@redhat.com)
+- *
+- * This program is free software; you can redistribute it and/or
+- * modify it under the terms of the GNU General Public License
+- * as published by the Free Software Foundation; either version
+- * 2 of the License, or (at your option) any later version.
+- */
+-
+-#ifndef AFS_TRANSPORT_H
+-#define AFS_TRANSPORT_H
+-
+-#include "types.h"
+-#include <rxrpc/transport.h>
+-
+-/* the cache manager transport endpoint */
+-extern struct rxrpc_transport *afs_transport;
+-
+-#endif /* AFS_TRANSPORT_H */
+diff --git a/fs/afs/types.h b/fs/afs/types.h
+deleted file mode 100644
+index db2b5dc..0000000
+--- a/fs/afs/types.h
++++ /dev/null
+@@ -1,109 +0,0 @@
+-/* AFS types
+- *
+- * Copyright (C) 2002 Red Hat, Inc. All Rights Reserved.
+- * Written by David Howells (dhowells@redhat.com)
+- *
+- * This program is free software; you can redistribute it and/or
+- * modify it under the terms of the GNU General Public License
+- * as published by the Free Software Foundation; either version
+- * 2 of the License, or (at your option) any later version.
+- */
+-
+-#ifndef AFS_TYPES_H
+-#define AFS_TYPES_H
+-
+-#include <rxrpc/types.h>
+-
+-typedef unsigned			afs_volid_t;
+-typedef unsigned			afs_vnodeid_t;
+-typedef unsigned long long		afs_dataversion_t;
+-
+-typedef enum {
+-	AFSVL_RWVOL,			/* read/write volume */
+-	AFSVL_ROVOL,			/* read-only volume */
+-	AFSVL_BACKVOL,			/* backup volume */
+-} __attribute__((packed)) afs_voltype_t;
+-
+-typedef enum {
+-	AFS_FTYPE_INVALID	=3D 0,
+-	AFS_FTYPE_FILE		=3D 1,
+-	AFS_FTYPE_DIR		=3D 2,
+-	AFS_FTYPE_SYMLINK	=3D 3,
+-} afs_file_type_t;
+-
+-struct afs_cell;
+-struct afs_vnode;
+-
+-/*
+- * AFS file identifier
+- */
+-struct afs_fid {
+-	afs_volid_t	vid;		/* volume ID */
+-	afs_vnodeid_t	vnode;		/* file index within volume */
+-	unsigned	unique;		/* unique ID number (file index version) */
+-};
+-
+-/*
+- * AFS callback notification
+- */
+-typedef enum {
+-	AFSCM_CB_UNTYPED	=3D 0,	/* no type set on CB break */
+-	AFSCM_CB_EXCLUSIVE	=3D 1,	/* CB exclusive to CM [not implemented] */
+-	AFSCM_CB_SHARED		=3D 2,	/* CB shared by other CM's */
+-	AFSCM_CB_DROPPED	=3D 3,	/* CB promise cancelled by file server */
+-} afs_callback_type_t;
+-
+-struct afs_callback {
+-	struct afs_server	*server;	/* server that made the promise */
+-	struct afs_fid		fid;		/* file identifier */
+-	unsigned		version;	/* callback version */
+-	unsigned		expiry;		/* time at which expires */
+-	afs_callback_type_t	type;		/* type of callback */
+-};
+-
+-#define AFSCBMAX 50
+-
+-/*
+- * AFS volume information
+- */
+-struct afs_volume_info {
+-	afs_volid_t		vid;		/* volume ID */
+-	afs_voltype_t		type;		/* type of this volume */
+-	afs_volid_t		type_vids[5];	/* volume ID's for possible types for this=
+ vol */
+-=09
+-	/* list of fileservers serving this volume */
+-	size_t			nservers;	/* number of entries used in servers[] */
+-	struct {
+-		struct in_addr	addr;		/* fileserver address */
+-	} servers[8];
+-};
+-
+-/*
+- * AFS file status information
+- */
+-struct afs_file_status {
+-	unsigned		if_version;	/* interface version */
+-#define AFS_FSTATUS_VERSION	1
+-
+-	afs_file_type_t		type;		/* file type */
+-	unsigned		nlink;		/* link count */
+-	size_t			size;		/* file size */
+-	afs_dataversion_t	version;	/* current data version */
+-	unsigned		author;		/* author ID */
+-	unsigned		owner;		/* owner ID */
+-	unsigned		caller_access;	/* access rights for authenticated caller */
+-	unsigned		anon_access;	/* access rights for unauthenticated caller */
+-	umode_t			mode;		/* UNIX mode */
+-	struct afs_fid		parent;		/* parent file ID */
+-	time_t			mtime_client;	/* last time client changed data */
+-	time_t			mtime_server;	/* last time server changed data */
+-};
+-
+-/*
+- * AFS volume synchronisation information
+- */
+-struct afs_volsync {
+-	time_t			creation;	/* volume creation time */
+-};
+-
+-#endif /* AFS_TYPES_H */
+diff --git a/fs/afs/vlclient.c b/fs/afs/vlclient.c
+index dac9faa..0c7eba1 100644
+--- a/fs/afs/vlclient.c
++++ b/fs/afs/vlclient.c
+@@ -11,243 +11,76 @@
+=20
+ #include <linux/init.h>
+ #include <linux/sched.h>
+-#include <rxrpc/rxrpc.h>
+-#include <rxrpc/transport.h>
+-#include <rxrpc/connection.h>
+-#include <rxrpc/call.h>
+-#include "server.h"
+-#include "volume.h"
+-#include "vlclient.h"
+-#include "kafsasyncd.h"
+-#include "kafstimod.h"
+-#include "errors.h"
+ #include "internal.h"
+=20
+-#define VLGETENTRYBYID		503	/* AFS Get Cache Entry By ID operation ID =
+*/
+-#define VLGETENTRYBYNAME	504	/* AFS Get Cache Entry By Name operation =
+ID */
+-#define VLPROBE			514	/* AFS Probe Volume Location Service operation I=
+D */
+-
+-static void afs_rxvl_get_entry_by_id_attn(struct rxrpc_call *call);
+-static void afs_rxvl_get_entry_by_id_error(struct rxrpc_call *call);
+-
+ /*
+- * map afs VL abort codes to/from Linux error codes
+- * - called with call->lock held
++ * map volume locator abort codes to error codes
+  */
+-static void afs_rxvl_aemap(struct rxrpc_call *call)
++static int afs_vl_abort_to_error(u32 abort_code)
+ {
+-	int err;
+-
+-	_enter("{%u,%u,%d}",
+-	       call->app_err_state, call->app_abort_code, call->app_errno);
+-
+-	switch (call->app_err_state) {
+-	case RXRPC_ESTATE_LOCAL_ABORT:
+-		call->app_abort_code =3D -call->app_errno;
+-		return;
+-
+-	case RXRPC_ESTATE_PEER_ABORT:
+-		switch (call->app_abort_code) {
+-		case AFSVL_IDEXIST:		err =3D -EEXIST;		break;
+-		case AFSVL_IO:			err =3D -EREMOTEIO;	break;
+-		case AFSVL_NAMEEXIST:		err =3D -EEXIST;		break;
+-		case AFSVL_CREATEFAIL:		err =3D -EREMOTEIO;	break;
+-		case AFSVL_NOENT:		err =3D -ENOMEDIUM;	break;
+-		case AFSVL_EMPTY:		err =3D -ENOMEDIUM;	break;
+-		case AFSVL_ENTDELETED:		err =3D -ENOMEDIUM;	break;
+-		case AFSVL_BADNAME:		err =3D -EINVAL;		break;
+-		case AFSVL_BADINDEX:		err =3D -EINVAL;		break;
+-		case AFSVL_BADVOLTYPE:		err =3D -EINVAL;		break;
+-		case AFSVL_BADSERVER:		err =3D -EINVAL;		break;
+-		case AFSVL_BADPARTITION:	err =3D -EINVAL;		break;
+-		case AFSVL_REPSFULL:		err =3D -EFBIG;		break;
+-		case AFSVL_NOREPSERVER:		err =3D -ENOENT;		break;
+-		case AFSVL_DUPREPSERVER:	err =3D -EEXIST;		break;
+-		case AFSVL_RWNOTFOUND:		err =3D -ENOENT;		break;
+-		case AFSVL_BADREFCOUNT:		err =3D -EINVAL;		break;
+-		case AFSVL_SIZEEXCEEDED:	err =3D -EINVAL;		break;
+-		case AFSVL_BADENTRY:		err =3D -EINVAL;		break;
+-		case AFSVL_BADVOLIDBUMP:	err =3D -EINVAL;		break;
+-		case AFSVL_IDALREADYHASHED:	err =3D -EINVAL;		break;
+-		case AFSVL_ENTRYLOCKED:		err =3D -EBUSY;		break;
+-		case AFSVL_BADVOLOPER:		err =3D -EBADRQC;		break;
+-		case AFSVL_BADRELLOCKTYPE:	err =3D -EINVAL;		break;
+-		case AFSVL_RERELEASE:		err =3D -EREMOTEIO;	break;
+-		case AFSVL_BADSERVERFLAG:	err =3D -EINVAL;		break;
+-		case AFSVL_PERM:		err =3D -EACCES;		break;
+-		case AFSVL_NOMEM:		err =3D -EREMOTEIO;	break;
+-		default:
+-			err =3D afs_abort_to_error(call->app_abort_code);
+-			break;
+-		}
+-		call->app_errno =3D err;
+-		return;
+-
++	_enter("%u", abort_code);
 +
-+	/* extract the principal's instance */
-+	name = Z(INST_SZ);
-+	_debug("KIV INST : %s", name);
++	switch (abort_code) {
++	case AFSVL_IDEXIST:		return -EEXIST;
++	case AFSVL_IO:			return -EREMOTEIO;
++	case AFSVL_NAMEEXIST:		return -EEXIST;
++	case AFSVL_CREATEFAIL:		return -EREMOTEIO;
++	case AFSVL_NOENT:		return -ENOMEDIUM;
++	case AFSVL_EMPTY:		return -ENOMEDIUM;
++	case AFSVL_ENTDELETED:		return -ENOMEDIUM;
++	case AFSVL_BADNAME:		return -EINVAL;
++	case AFSVL_BADINDEX:		return -EINVAL;
++	case AFSVL_BADVOLTYPE:		return -EINVAL;
++	case AFSVL_BADSERVER:		return -EINVAL;
++	case AFSVL_BADPARTITION:	return -EINVAL;
++	case AFSVL_REPSFULL:		return -EFBIG;
++	case AFSVL_NOREPSERVER:		return -ENOENT;
++	case AFSVL_DUPREPSERVER:	return -EEXIST;
++	case AFSVL_RWNOTFOUND:		return -ENOENT;
++	case AFSVL_BADREFCOUNT:		return -EINVAL;
++	case AFSVL_SIZEEXCEEDED:	return -EINVAL;
++	case AFSVL_BADENTRY:		return -EINVAL;
++	case AFSVL_BADVOLIDBUMP:	return -EINVAL;
++	case AFSVL_IDALREADYHASHED:	return -EINVAL;
++	case AFSVL_ENTRYLOCKED:		return -EBUSY;
++	case AFSVL_BADVOLOPER:		return -EBADRQC;
++	case AFSVL_BADRELLOCKTYPE:	return -EINVAL;
++	case AFSVL_RERELEASE:		return -EREMOTEIO;
++	case AFSVL_BADSERVERFLAG:	return -EINVAL;
++	case AFSVL_PERM:		return -EACCES;
++	case AFSVL_NOMEM:		return -EREMOTEIO;
+ 	default:
+-		return;
++		return afs_abort_to_error(abort_code);
+ 	}
+ }
+=20
+-#if 0
+ /*
+- * probe a volume location server to see if it is still alive -- unuse=
+d
++ * deliver reply data to a VL.GetEntryByXXX call
+  */
+-static int afs_rxvl_probe(struct afs_server *server, int alloc_flags)
++static int afs_deliver_vl_get_entry_by_xxx(struct afs_call *call,
++					   struct sk_buff *skb, bool last)
+ {
+-	struct rxrpc_connection *conn;
+-	struct rxrpc_call *call;
+-	struct kvec piov[1];
+-	size_t sent;
+-	int ret;
+-	__be32 param[1];
+-
+-	DECLARE_WAITQUEUE(myself, current);
+-
+-	/* get hold of the vlserver connection */
+-	ret =3D afs_server_get_vlconn(server, &conn);
+-	if (ret < 0)
+-		goto out;
+-
+-	/* create a call through that connection */
+-	ret =3D rxrpc_create_call(conn, NULL, NULL, afs_rxvl_aemap, &call);
+-	if (ret < 0) {
+-		printk("kAFS: Unable to create call: %d\n", ret);
+-		goto out_put_conn;
+-	}
+-	call->app_opcode =3D VLPROBE;
+-
+-	/* we want to get event notifications from the call */
+-	add_wait_queue(&call->waitq, &myself);
+-
+-	/* marshall the parameters */
+-	param[0] =3D htonl(VLPROBE);
+-	piov[0].iov_len =3D sizeof(param);
+-	piov[0].iov_base =3D param;
+-
+-	/* send the parameters to the server */
+-	ret =3D rxrpc_call_write_data(call, 1, piov, RXRPC_LAST_PACKET,
+-				    alloc_flags, 0, &sent);
+-	if (ret < 0)
+-		goto abort;
+-
+-	/* wait for the reply to completely arrive */
+-	for (;;) {
+-		set_current_state(TASK_INTERRUPTIBLE);
+-		if (call->app_call_state !=3D RXRPC_CSTATE_CLNT_RCV_REPLY ||
+-		    signal_pending(current))
+-			break;
+-		schedule();
+-	}
+-	set_current_state(TASK_RUNNING);
+-
+-	ret =3D -EINTR;
+-	if (signal_pending(current))
+-		goto abort;
+-
+-	switch (call->app_call_state) {
+-	case RXRPC_CSTATE_ERROR:
+-		ret =3D call->app_errno;
+-		goto out_unwait;
+-
+-	case RXRPC_CSTATE_CLNT_GOT_REPLY:
+-		ret =3D 0;
+-		goto out_unwait;
+-
+-	default:
+-		BUG();
+-	}
++	struct afs_cache_vlocation *entry;
++	__be32 *bp;
++	u32 tmp;
++	int loop;
+=20
+-abort:
+-	set_current_state(TASK_UNINTERRUPTIBLE);
+-	rxrpc_call_abort(call, ret);
+-	schedule();
+-
+-out_unwait:
+-	set_current_state(TASK_RUNNING);
+-	remove_wait_queue(&call->waitq, &myself);
+-	rxrpc_put_call(call);
+-out_put_conn:
+-	rxrpc_put_connection(conn);
+-out:
+-	return ret;
+-}
+-#endif
++	_enter(",,%u", last);
+=20
+-/*
+- * look up a volume location database entry by name
+- */
+-int afs_rxvl_get_entry_by_name(struct afs_server *server,
+-			       const char *volname,
+-			       unsigned volnamesz,
+-			       struct afs_cache_vlocation *entry)
+-{
+-	DECLARE_WAITQUEUE(myself, current);
+-
+-	struct rxrpc_connection *conn;
+-	struct rxrpc_call *call;
+-	struct kvec piov[3];
+-	unsigned tmp;
+-	size_t sent;
+-	int ret, loop;
+-	__be32 *bp, param[2], zero;
+-
+-	_enter(",%*.*s,%u,", volnamesz, volnamesz, volname, volnamesz);
+-
+-	memset(entry, 0, sizeof(*entry));
+-
+-	/* get hold of the vlserver connection */
+-	ret =3D afs_server_get_vlconn(server, &conn);
+-	if (ret < 0)
+-		goto out;
+-
+-	/* create a call through that connection */
+-	ret =3D rxrpc_create_call(conn, NULL, NULL, afs_rxvl_aemap, &call);
+-	if (ret < 0) {
+-		printk("kAFS: Unable to create call: %d\n", ret);
+-		goto out_put_conn;
+-	}
+-	call->app_opcode =3D VLGETENTRYBYNAME;
++	afs_transfer_reply(call, skb);
++	if (!last)
++		return 0;
+=20
+-	/* we want to get event notifications from the call */
+-	add_wait_queue(&call->waitq, &myself);
++	if (call->reply_size !=3D call->reply_max)
++		return -EBADMSG;
+=20
+-	/* marshall the parameters */
+-	piov[1].iov_len =3D volnamesz;
+-	piov[1].iov_base =3D (char *) volname;
+-
+-	zero =3D 0;
+-	piov[2].iov_len =3D (4 - (piov[1].iov_len & 3)) & 3;
+-	piov[2].iov_base =3D &zero;
+-
+-	param[0] =3D htonl(VLGETENTRYBYNAME);
+-	param[1] =3D htonl(piov[1].iov_len);
+-
+-	piov[0].iov_len =3D sizeof(param);
+-	piov[0].iov_base =3D param;
+-
+-	/* send the parameters to the server */
+-	ret =3D rxrpc_call_write_data(call, 3, piov, RXRPC_LAST_PACKET, GFP_N=
+OFS,
+-				    0, &sent);
+-	if (ret < 0)
+-		goto abort;
+-
+-	/* wait for the reply to completely arrive */
+-	bp =3D rxrpc_call_alloc_scratch(call, 384);
+-
+-	ret =3D rxrpc_call_read_data(call, bp, 384,
+-				   RXRPC_CALL_READ_BLOCK |
+-				   RXRPC_CALL_READ_ALL);
+-	if (ret < 0) {
+-		if (ret =3D=3D -ECONNABORTED) {
+-			ret =3D call->app_errno;
+-			goto out_unwait;
+-		}
+-		goto abort;
+-	}
++	/* unmarshall the reply once we've received all of it */
++	entry =3D call->reply;
++	bp =3D call->buffer;
+=20
+-	/* unmarshall the reply */
+ 	for (loop =3D 0; loop < 64; loop++)
+ 		entry->name[loop] =3D ntohl(*bp++);
++	entry->name[loop] =3D 0;
+ 	bp++; /* final NUL */
+=20
+ 	bp++; /* type */
+@@ -260,6 +93,7 @@ int afs_rxvl_get_entry_by_name(struct afs_server *se=
+rver,
+=20
+ 	for (loop =3D 0; loop < 8; loop++) {
+ 		tmp =3D ntohl(*bp++);
++		entry->srvtmask[loop] =3D 0;
+ 		if (tmp & AFS_VLSF_RWVOL)
+ 			entry->srvtmask[loop] |=3D AFS_VOL_VTM_RW;
+ 		if (tmp & AFS_VLSF_ROVOL)
+@@ -275,409 +109,104 @@ int afs_rxvl_get_entry_by_name(struct afs_serve=
+r *server,
+ 	bp++; /* clone ID */
+=20
+ 	tmp =3D ntohl(*bp++); /* flags */
++	entry->vidmask =3D 0;
+ 	if (tmp & AFS_VLF_RWEXISTS)
+ 		entry->vidmask |=3D AFS_VOL_VTM_RW;
+ 	if (tmp & AFS_VLF_ROEXISTS)
+ 		entry->vidmask |=3D AFS_VOL_VTM_RO;
+ 	if (tmp & AFS_VLF_BACKEXISTS)
+ 		entry->vidmask |=3D AFS_VOL_VTM_BAK;
+-
+-	ret =3D -ENOMEDIUM;
+ 	if (!entry->vidmask)
+-		goto abort;
+-
+-	/* success */
+-	entry->rtime =3D get_seconds();
+-	ret =3D 0;
+-
+-out_unwait:
+-	set_current_state(TASK_RUNNING);
+-	remove_wait_queue(&call->waitq, &myself);
+-	rxrpc_put_call(call);
+-out_put_conn:
+-	rxrpc_put_connection(conn);
+-out:
+-	_leave(" =3D %d", ret);
+-	return ret;
+-
+-abort:
+-	set_current_state(TASK_UNINTERRUPTIBLE);
+-	rxrpc_call_abort(call, ret);
+-	schedule();
+-	goto out_unwait;
++		return -EBADMSG;
 +
-+	/* extract the principal's authentication domain */
-+	name = Z(REALM_SZ);
-+	_debug("KIV REALM: %s", name);
++	_leave(" =3D 0 [done]");
++	return 0;
+ }
+=20
+ /*
+- * look up a volume location database entry by ID
++ * VL.GetEntryByName operation type
+  */
+-int afs_rxvl_get_entry_by_id(struct afs_server *server,
+-			     afs_volid_t volid,
+-			     afs_voltype_t voltype,
+-			     struct afs_cache_vlocation *entry)
+-{
+-	DECLARE_WAITQUEUE(myself, current);
+-
+-	struct rxrpc_connection *conn;
+-	struct rxrpc_call *call;
+-	struct kvec piov[1];
+-	unsigned tmp;
+-	size_t sent;
+-	int ret, loop;
+-	__be32 *bp, param[3];
+-
+-	_enter(",%x,%d,", volid, voltype);
+-
+-	memset(entry, 0, sizeof(*entry));
+-
+-	/* get hold of the vlserver connection */
+-	ret =3D afs_server_get_vlconn(server, &conn);
+-	if (ret < 0)
+-		goto out;
+-
+-	/* create a call through that connection */
+-	ret =3D rxrpc_create_call(conn, NULL, NULL, afs_rxvl_aemap, &call);
+-	if (ret < 0) {
+-		printk("kAFS: Unable to create call: %d\n", ret);
+-		goto out_put_conn;
+-	}
+-	call->app_opcode =3D VLGETENTRYBYID;
+-
+-	/* we want to get event notifications from the call */
+-	add_wait_queue(&call->waitq, &myself);
+-
+-	/* marshall the parameters */
+-	param[0] =3D htonl(VLGETENTRYBYID);
+-	param[1] =3D htonl(volid);
+-	param[2] =3D htonl(voltype);
+-
+-	piov[0].iov_len =3D sizeof(param);
+-	piov[0].iov_base =3D param;
+-
+-	/* send the parameters to the server */
+-	ret =3D rxrpc_call_write_data(call, 1, piov, RXRPC_LAST_PACKET, GFP_N=
+OFS,
+-				    0, &sent);
+-	if (ret < 0)
+-		goto abort;
+-
+-	/* wait for the reply to completely arrive */
+-	bp =3D rxrpc_call_alloc_scratch(call, 384);
+-
+-	ret =3D rxrpc_call_read_data(call, bp, 384,
+-				   RXRPC_CALL_READ_BLOCK |
+-				   RXRPC_CALL_READ_ALL);
+-	if (ret < 0) {
+-		if (ret =3D=3D -ECONNABORTED) {
+-			ret =3D call->app_errno;
+-			goto out_unwait;
+-		}
+-		goto abort;
+-	}
+-
+-	/* unmarshall the reply */
+-	for (loop =3D 0; loop < 64; loop++)
+-		entry->name[loop] =3D ntohl(*bp++);
+-	bp++; /* final NUL */
+-
+-	bp++; /* type */
+-	entry->nservers =3D ntohl(*bp++);
+-
+-	for (loop =3D 0; loop < 8; loop++)
+-		entry->servers[loop].s_addr =3D *bp++;
+-
+-	bp +=3D 8; /* partition IDs */
+-
+-	for (loop =3D 0; loop < 8; loop++) {
+-		tmp =3D ntohl(*bp++);
+-		if (tmp & AFS_VLSF_RWVOL)
+-			entry->srvtmask[loop] |=3D AFS_VOL_VTM_RW;
+-		if (tmp & AFS_VLSF_ROVOL)
+-			entry->srvtmask[loop] |=3D AFS_VOL_VTM_RO;
+-		if (tmp & AFS_VLSF_BACKVOL)
+-			entry->srvtmask[loop] |=3D AFS_VOL_VTM_BAK;
+-	}
+-
+-	entry->vid[0] =3D ntohl(*bp++);
+-	entry->vid[1] =3D ntohl(*bp++);
+-	entry->vid[2] =3D ntohl(*bp++);
+-
+-	bp++; /* clone ID */
+-
+-	tmp =3D ntohl(*bp++); /* flags */
+-	if (tmp & AFS_VLF_RWEXISTS)
+-		entry->vidmask |=3D AFS_VOL_VTM_RW;
+-	if (tmp & AFS_VLF_ROEXISTS)
+-		entry->vidmask |=3D AFS_VOL_VTM_RO;
+-	if (tmp & AFS_VLF_BACKEXISTS)
+-		entry->vidmask |=3D AFS_VOL_VTM_BAK;
++static const struct afs_call_type afs_RXVLGetEntryByName =3D {
++	.deliver	=3D afs_deliver_vl_get_entry_by_xxx,
++	.abort_to_error	=3D afs_vl_abort_to_error,
++	.destructor	=3D afs_flat_call_destructor,
++};
+=20
+-	ret =3D -ENOMEDIUM;
+-	if (!entry->vidmask)
+-		goto abort;
+-
+-#if 0 /* TODO: remove */
+-	entry->nservers =3D 3;
+-	entry->servers[0].s_addr =3D htonl(0xac101249);
+-	entry->servers[1].s_addr =3D htonl(0xac101243);
+-	entry->servers[2].s_addr =3D htonl(0xac10125b /*0xac10125b*/);
+-
+-	entry->srvtmask[0] =3D AFS_VOL_VTM_RO;
+-	entry->srvtmask[1] =3D AFS_VOL_VTM_RO;
+-	entry->srvtmask[2] =3D AFS_VOL_VTM_RO | AFS_VOL_VTM_RW;
+-#endif
+-
+-	/* success */
+-	entry->rtime =3D get_seconds();
+-	ret =3D 0;
+-
+-out_unwait:
+-	set_current_state(TASK_RUNNING);
+-	remove_wait_queue(&call->waitq, &myself);
+-	rxrpc_put_call(call);
+-out_put_conn:
+-	rxrpc_put_connection(conn);
+-out:
+-	_leave(" =3D %d", ret);
+-	return ret;
+-
+-abort:
+-	set_current_state(TASK_UNINTERRUPTIBLE);
+-	rxrpc_call_abort(call, ret);
+-	schedule();
+-	goto out_unwait;
+-}
++/*
++ * VL.GetEntryById operation type
++ */
++static const struct afs_call_type afs_RXVLGetEntryById =3D {
++	.deliver	=3D afs_deliver_vl_get_entry_by_xxx,
++	.abort_to_error	=3D afs_vl_abort_to_error,
++	.destructor	=3D afs_flat_call_destructor,
++};
+=20
+ /*
+- * look up a volume location database entry by ID asynchronously
++ * dispatch a get volume entry by name operation
+  */
+-int afs_rxvl_get_entry_by_id_async(struct afs_async_op *op,
+-				   afs_volid_t volid,
+-				   afs_voltype_t voltype)
++int afs_vl_get_entry_by_name(struct in_addr *addr,
++			     const char *volname,
++			     struct afs_cache_vlocation *entry,
++			     const struct afs_wait_mode *wait_mode)
+ {
+-	struct rxrpc_connection *conn;
+-	struct rxrpc_call *call;
+-	struct kvec piov[1];
+-	size_t sent;
+-	int ret;
+-	__be32 param[3];
+-
+-	_enter(",%x,%d,", volid, voltype);
+-
+-	/* get hold of the vlserver connection */
+-	ret =3D afs_server_get_vlconn(op->server, &conn);
+-	if (ret < 0) {
+-		_leave(" =3D %d", ret);
+-		return ret;
+-	}
++	struct afs_call *call;
++	size_t volnamesz, reqsz, padsz;
++	__be32 *bp;
+=20
+-	/* create a call through that connection */
+-	ret =3D rxrpc_create_call(conn,
+-				afs_rxvl_get_entry_by_id_attn,
+-				afs_rxvl_get_entry_by_id_error,
+-				afs_rxvl_aemap,
+-				&op->call);
+-	rxrpc_put_connection(conn);
+-
+-	if (ret < 0) {
+-		printk("kAFS: Unable to create call: %d\n", ret);
+-		_leave(" =3D %d", ret);
+-		return ret;
+-	}
++	_enter("");
+=20
+-	op->call->app_opcode =3D VLGETENTRYBYID;
+-	op->call->app_user =3D op;
++	volnamesz =3D strlen(volname);
++	padsz =3D (4 - (volnamesz & 3)) & 3;
++	reqsz =3D 8 + volnamesz + padsz;
+=20
+-	call =3D op->call;
+-	rxrpc_get_call(call);
++	call =3D afs_alloc_flat_call(&afs_RXVLGetEntryByName, reqsz, 384);
++	if (!call)
++		return -ENOMEM;
+=20
+-	/* send event notifications from the call to kafsasyncd */
+-	afs_kafsasyncd_begin_op(op);
++	call->reply =3D entry;
++	call->service_id =3D VL_SERVICE;
++	call->port =3D htons(AFS_VL_PORT);
+=20
+ 	/* marshall the parameters */
+-	param[0] =3D htonl(VLGETENTRYBYID);
+-	param[1] =3D htonl(volid);
+-	param[2] =3D htonl(voltype);
+-
+-	piov[0].iov_len =3D sizeof(param);
+-	piov[0].iov_base =3D param;
+-
+-	/* allocate result read buffer in scratch space */
+-	call->app_scr_ptr =3D rxrpc_call_alloc_scratch(op->call, 384);
+-
+-	/* send the parameters to the server */
+-	ret =3D rxrpc_call_write_data(call, 1, piov, RXRPC_LAST_PACKET, GFP_N=
+OFS,
+-				    0, &sent);
+-	if (ret < 0) {
+-		rxrpc_call_abort(call, ret); /* handle from kafsasyncd */
+-		ret =3D 0;
+-		goto out;
+-	}
+-
+-	/* wait for the reply to completely arrive */
+-	ret =3D rxrpc_call_read_data(call, call->app_scr_ptr, 384, 0);
+-	switch (ret) {
+-	case 0:
+-	case -EAGAIN:
+-	case -ECONNABORTED:
+-		ret =3D 0;
+-		break;	/* all handled by kafsasyncd */
+-
+-	default:
+-		rxrpc_call_abort(call, ret); /* make kafsasyncd handle it */
+-		ret =3D 0;
+-		break;
+-	}
+-
+-out:
+-	rxrpc_put_call(call);
+-	_leave(" =3D %d", ret);
+-	return ret;
++	bp =3D call->request;
++	*bp++ =3D htonl(VLGETENTRYBYNAME);
++	*bp++ =3D htonl(volnamesz);
++	memcpy(bp, volname, volnamesz);
++	if (padsz > 0)
++		memset((void *) bp + volnamesz, 0, padsz);
 +
-+	if (end - p < 4 + 8 + 4 + 2)
-+		goto bad_ticket;
++	/* initiate the call */
++	return afs_make_call(addr, call, GFP_KERNEL, wait_mode);
+ }
+=20
+ /*
+- * attend to the asynchronous get VLDB entry by ID
++ * dispatch a get volume entry by ID operation
+  */
+-int afs_rxvl_get_entry_by_id_async2(struct afs_async_op *op,
+-				    struct afs_cache_vlocation *entry)
++int afs_vl_get_entry_by_id(struct in_addr *addr,
++			   afs_volid_t volid,
++			   afs_voltype_t voltype,
++			   struct afs_cache_vlocation *entry,
++			   const struct afs_wait_mode *wait_mode)
+ {
++	struct afs_call *call;
+ 	__be32 *bp;
+-	__u32 tmp;
+-	int loop, ret;
+-
+-	_enter("{op=3D%p cst=3D%u}", op, op->call->app_call_state);
+-
+-	memset(entry, 0, sizeof(*entry));
+-
+-	if (op->call->app_call_state =3D=3D RXRPC_CSTATE_COMPLETE) {
+-		/* operation finished */
+-		afs_kafsasyncd_terminate_op(op);
+-
+-		bp =3D op->call->app_scr_ptr;
+-
+-		/* unmarshall the reply */
+-		for (loop =3D 0; loop < 64; loop++)
+-			entry->name[loop] =3D ntohl(*bp++);
+-		bp++; /* final NUL */
+-
+-		bp++; /* type */
+-		entry->nservers =3D ntohl(*bp++);
+-
+-		for (loop =3D 0; loop < 8; loop++)
+-			entry->servers[loop].s_addr =3D *bp++;
+-
+-		bp +=3D 8; /* partition IDs */
+-
+-		for (loop =3D 0; loop < 8; loop++) {
+-			tmp =3D ntohl(*bp++);
+-			if (tmp & AFS_VLSF_RWVOL)
+-				entry->srvtmask[loop] |=3D AFS_VOL_VTM_RW;
+-			if (tmp & AFS_VLSF_ROVOL)
+-				entry->srvtmask[loop] |=3D AFS_VOL_VTM_RO;
+-			if (tmp & AFS_VLSF_BACKVOL)
+-				entry->srvtmask[loop] |=3D AFS_VOL_VTM_BAK;
+-		}
+-
+-		entry->vid[0] =3D ntohl(*bp++);
+-		entry->vid[1] =3D ntohl(*bp++);
+-		entry->vid[2] =3D ntohl(*bp++);
+-
+-		bp++; /* clone ID */
+-
+-		tmp =3D ntohl(*bp++); /* flags */
+-		if (tmp & AFS_VLF_RWEXISTS)
+-			entry->vidmask |=3D AFS_VOL_VTM_RW;
+-		if (tmp & AFS_VLF_ROEXISTS)
+-			entry->vidmask |=3D AFS_VOL_VTM_RO;
+-		if (tmp & AFS_VLF_BACKEXISTS)
+-			entry->vidmask |=3D AFS_VOL_VTM_BAK;
+-
+-		ret =3D -ENOMEDIUM;
+-		if (!entry->vidmask) {
+-			rxrpc_call_abort(op->call, ret);
+-			goto done;
+-		}
+-
+-#if 0 /* TODO: remove */
+-		entry->nservers =3D 3;
+-		entry->servers[0].s_addr =3D htonl(0xac101249);
+-		entry->servers[1].s_addr =3D htonl(0xac101243);
+-		entry->servers[2].s_addr =3D htonl(0xac10125b /*0xac10125b*/);
+-
+-		entry->srvtmask[0] =3D AFS_VOL_VTM_RO;
+-		entry->srvtmask[1] =3D AFS_VOL_VTM_RO;
+-		entry->srvtmask[2] =3D AFS_VOL_VTM_RO | AFS_VOL_VTM_RW;
+-#endif
+-
+-		/* success */
+-		entry->rtime =3D get_seconds();
+-		ret =3D 0;
+-		goto done;
+-	}
+-
+-	if (op->call->app_call_state =3D=3D RXRPC_CSTATE_ERROR) {
+-		/* operation error */
+-		ret =3D op->call->app_errno;
+-		goto done;
+-	}
+-
+-	_leave(" =3D -EAGAIN");
+-	return -EAGAIN;
+-
+-done:
+-	rxrpc_put_call(op->call);
+-	op->call =3D NULL;
+-	_leave(" =3D %d", ret);
+-	return ret;
+-}
+-
+-/*
+- * handle attention events on an async get-entry-by-ID op
+- * - called from krxiod
+- */
+-static void afs_rxvl_get_entry_by_id_attn(struct rxrpc_call *call)
+-{
+-	struct afs_async_op *op =3D call->app_user;
+-
+-	_enter("{op=3D%p cst=3D%u}", op, call->app_call_state);
+-
+-	switch (call->app_call_state) {
+-	case RXRPC_CSTATE_COMPLETE:
+-		afs_kafsasyncd_attend_op(op);
+-		break;
+-	case RXRPC_CSTATE_CLNT_RCV_REPLY:
+-		if (call->app_async_read)
+-			break;
+-	case RXRPC_CSTATE_CLNT_GOT_REPLY:
+-		if (call->app_read_count =3D=3D 0)
+-			break;
+-		printk("kAFS: Reply bigger than expected"
+-		       " {cst=3D%u asyn=3D%d mark=3D%Zu rdy=3D%Zu pr=3D%u%s}",
+-		       call->app_call_state,
+-		       call->app_async_read,
+-		       call->app_mark,
+-		       call->app_ready_qty,
+-		       call->pkt_rcv_count,
+-		       call->app_last_rcv ? " last" : "");
+-
+-		rxrpc_call_abort(call, -EBADMSG);
+-		break;
+-	default:
+-		BUG();
+-	}
+=20
+-	_leave("");
+-}
++	_enter("");
+=20
+-/*
+- * handle error events on an async get-entry-by-ID op
+- * - called from krxiod
+- */
+-static void afs_rxvl_get_entry_by_id_error(struct rxrpc_call *call)
+-{
+-	struct afs_async_op *op =3D call->app_user;
++	call =3D afs_alloc_flat_call(&afs_RXVLGetEntryById, 12, 384);
++	if (!call)
++		return -ENOMEM;
+=20
+-	_enter("{op=3D%p cst=3D%u}", op, call->app_call_state);
++	call->reply =3D entry;
++	call->service_id =3D VL_SERVICE;
++	call->port =3D htons(AFS_VL_PORT);
+=20
+-	afs_kafsasyncd_attend_op(op);
++	/* marshall the parameters */
++	bp =3D call->request;
++	*bp++ =3D htonl(VLGETENTRYBYID);
++	*bp++ =3D htonl(volid);
++	*bp   =3D htonl(voltype);
+=20
+-	_leave("");
++	/* initiate the call */
++	return afs_make_call(addr, call, GFP_KERNEL, wait_mode);
+ }
+diff --git a/fs/afs/vlclient.h b/fs/afs/vlclient.h
+deleted file mode 100644
+index 11dc10f..0000000
+--- a/fs/afs/vlclient.h
++++ /dev/null
+@@ -1,85 +0,0 @@
+-/* Volume Location Service client interface
+- *
+- * Copyright (C) 2002 Red Hat, Inc. All Rights Reserved.
+- * Written by David Howells (dhowells@redhat.com)
+- *
+- * This program is free software; you can redistribute it and/or
+- * modify it under the terms of the GNU General Public License
+- * as published by the Free Software Foundation; either version
+- * 2 of the License, or (at your option) any later version.
+- */
+-
+-#ifndef AFS_VLCLIENT_H
+-#define AFS_VLCLIENT_H
+-
+-#include "types.h"
+-
+-enum AFSVL_Errors {
+-	AFSVL_IDEXIST 		=3D 363520,	/* Volume Id entry exists in vl database =
+*/
+-	AFSVL_IO 		=3D 363521,	/* I/O related error */
+-	AFSVL_NAMEEXIST 	=3D 363522,	/* Volume name entry exists in vl databa=
+se */
+-	AFSVL_CREATEFAIL 	=3D 363523,	/* Internal creation failure */
+-	AFSVL_NOENT 		=3D 363524,	/* No such entry */
+-	AFSVL_EMPTY 		=3D 363525,	/* Vl database is empty */
+-	AFSVL_ENTDELETED 	=3D 363526,	/* Entry is deleted (soft delete) */
+-	AFSVL_BADNAME 		=3D 363527,	/* Volume name is illegal */
+-	AFSVL_BADINDEX 		=3D 363528,	/* Index is out of range */
+-	AFSVL_BADVOLTYPE 	=3D 363529,	/* Bad volume type */
+-	AFSVL_BADSERVER 	=3D 363530,	/* Illegal server number (out of range) =
+*/
+-	AFSVL_BADPARTITION 	=3D 363531,	/* Bad partition number */
+-	AFSVL_REPSFULL 		=3D 363532,	/* Run out of space for Replication site=
+s */
+-	AFSVL_NOREPSERVER 	=3D 363533,	/* No such Replication server site exi=
+sts */
+-	AFSVL_DUPREPSERVER 	=3D 363534,	/* Replication site already exists */
+-	AFSVL_RWNOTFOUND 	=3D 363535,	/* Parent R/W entry not found */
+-	AFSVL_BADREFCOUNT 	=3D 363536,	/* Illegal Reference Count number */
+-	AFSVL_SIZEEXCEEDED 	=3D 363537,	/* Vl size for attributes exceeded */
+-	AFSVL_BADENTRY 		=3D 363538,	/* Bad incoming vl entry */
+-	AFSVL_BADVOLIDBUMP 	=3D 363539,	/* Illegal max volid increment */
+-	AFSVL_IDALREADYHASHED 	=3D 363540,	/* RO/BACK id already hashed */
+-	AFSVL_ENTRYLOCKED 	=3D 363541,	/* Vl entry is already locked */
+-	AFSVL_BADVOLOPER 	=3D 363542,	/* Bad volume operation code */
+-	AFSVL_BADRELLOCKTYPE 	=3D 363543,	/* Bad release lock type */
+-	AFSVL_RERELEASE 	=3D 363544,	/* Status report: last release was abort=
+ed */
+-	AFSVL_BADSERVERFLAG 	=3D 363545,	/* Invalid replication site server =B0=
+ag */
+-	AFSVL_PERM 		=3D 363546,	/* No permission access */
+-	AFSVL_NOMEM 		=3D 363547,	/* malloc/realloc failed to alloc enough me=
+mory */
+-};
+-
+-/* maps to "struct vldbentry" in vvl-spec.pdf */
+-struct afs_vldbentry {
+-	char		name[65];		/* name of volume (including NUL char) */
+-	afs_voltype_t	type;			/* volume type */
+-	unsigned	num_servers;		/* num servers that hold instances of this vol=
+ */
+-	unsigned	clone_id;		/* cloning ID */
+-
+-	unsigned	flags;
+-#define AFS_VLF_RWEXISTS	0x1000		/* R/W volume exists */
+-#define AFS_VLF_ROEXISTS	0x2000		/* R/O volume exists */
+-#define AFS_VLF_BACKEXISTS	0x4000		/* backup volume exists */
+-
+-	afs_volid_t	volume_ids[3];		/* volume IDs */
+-
+-	struct {
+-		struct in_addr	addr;		/* server address */
+-		unsigned	partition;	/* partition ID on this server */
+-		unsigned	flags;		/* server specific flags */
+-#define AFS_VLSF_NEWREPSITE	0x0001	/* unused */
+-#define AFS_VLSF_ROVOL		0x0002	/* this server holds a R/O instance of =
+the volume */
+-#define AFS_VLSF_RWVOL		0x0004	/* this server holds a R/W instance of =
+the volume */
+-#define AFS_VLSF_BACKVOL	0x0008	/* this server holds a backup instance=
+ of the volume */
+-	} servers[8];
+-};
+-
+-extern int afs_rxvl_get_entry_by_name(struct afs_server *, const char =
+*,
+-				      unsigned, struct afs_cache_vlocation *);
+-extern int afs_rxvl_get_entry_by_id(struct afs_server *, afs_volid_t,
+-				    afs_voltype_t,
+-				    struct afs_cache_vlocation *);
+-
+-extern int afs_rxvl_get_entry_by_id_async(struct afs_async_op *,
+-					  afs_volid_t, afs_voltype_t);
+-
+-extern int afs_rxvl_get_entry_by_id_async2(struct afs_async_op *,
+-					   struct afs_cache_vlocation *);
+-
+-#endif /* AFS_VLCLIENT_H */
+diff --git a/fs/afs/vlocation.c b/fs/afs/vlocation.c
+index e48728c..60cb2f4 100644
+--- a/fs/afs/vlocation.c
++++ b/fs/afs/vlocation.c
+@@ -1,6 +1,6 @@
+-/* volume location management
++/* AFS volume location management
+  *
+- * Copyright (C) 2002 Red Hat, Inc. All Rights Reserved.
++ * Copyright (C) 2002, 2007 Red Hat, Inc. All Rights Reserved.
+  * Written by David Howells (dhowells@redhat.com)
+  *
+  * This program is free software; you can redistribute it and/or
+@@ -12,130 +12,60 @@
+ #include <linux/kernel.h>
+ #include <linux/module.h>
+ #include <linux/init.h>
+-#include <linux/slab.h>
+-#include <linux/fs.h>
+-#include <linux/pagemap.h>
+-#include "volume.h"
+-#include "cell.h"
+-#include "cmservice.h"
+-#include "fsclient.h"
+-#include "vlclient.h"
+-#include "kafstimod.h"
+-#include <rxrpc/connection.h>
+ #include "internal.h"
+=20
+-#define AFS_VLDB_TIMEOUT HZ*1000
++unsigned afs_vlocation_timeout =3D 10;	/* volume location timeout in s=
+econds */
++unsigned afs_vlocation_update_timeout =3D 10 * 60;
+=20
+-static void afs_vlocation_update_timer(struct afs_timer *timer);
+-static void afs_vlocation_update_attend(struct afs_async_op *op);
+-static void afs_vlocation_update_discard(struct afs_async_op *op);
+-static void __afs_put_vlocation(struct afs_vlocation *vlocation);
++static void afs_vlocation_reaper(struct work_struct *);
++static void afs_vlocation_updater(struct work_struct *);
+=20
+-static void __afs_vlocation_timeout(struct afs_timer *timer)
+-{
+-	struct afs_vlocation *vlocation =3D
+-		list_entry(timer, struct afs_vlocation, timeout);
+-
+-	_debug("VL TIMEOUT [%s{u=3D%d}]",
+-	       vlocation->vldb.name, atomic_read(&vlocation->usage));
+-
+-	afs_vlocation_do_timeout(vlocation);
+-}
+-
+-static const struct afs_timer_ops afs_vlocation_timer_ops =3D {
+-	.timed_out	=3D __afs_vlocation_timeout,
+-};
+-
+-static const struct afs_timer_ops afs_vlocation_update_timer_ops =3D {
+-	.timed_out	=3D afs_vlocation_update_timer,
+-};
+-
+-static const struct afs_async_op_ops afs_vlocation_update_op_ops =3D {
+-	.attend		=3D afs_vlocation_update_attend,
+-	.discard	=3D afs_vlocation_update_discard,
+-};
+-
+-static LIST_HEAD(afs_vlocation_update_pendq);	/* queue of VLs awaiting=
+ update */
+-static struct afs_vlocation *afs_vlocation_update;	/* VL currently bei=
+ng updated */
+-static DEFINE_SPINLOCK(afs_vlocation_update_lock); /* lock guarding up=
+date queue */
+-
+-#ifdef AFS_CACHING_SUPPORT
+-static cachefs_match_val_t afs_vlocation_cache_match(void *target,
+-						     const void *entry);
+-static void afs_vlocation_cache_update(void *source, void *entry);
+-
+-struct cachefs_index_def afs_vlocation_cache_index_def =3D {
+-	.name		=3D "vldb",
+-	.data_size	=3D sizeof(struct afs_cache_vlocation),
+-	.keys[0]	=3D { CACHEFS_INDEX_KEYS_ASCIIZ, 64 },
+-	.match		=3D afs_vlocation_cache_match,
+-	.update		=3D afs_vlocation_cache_update,
+-};
+-#endif
++static LIST_HEAD(afs_vlocation_updates);
++static LIST_HEAD(afs_vlocation_graveyard);
++static DEFINE_SPINLOCK(afs_vlocation_updates_lock);
++static DEFINE_SPINLOCK(afs_vlocation_graveyard_lock);
++static DECLARE_DELAYED_WORK(afs_vlocation_reap, afs_vlocation_reaper);
++static DECLARE_DELAYED_WORK(afs_vlocation_update, afs_vlocation_update=
+r);
++static struct workqueue_struct *afs_vlocation_update_worker;
+=20
+ /*
+  * iterate through the VL servers in a cell until one of them admits k=
+nowing
+  * about the volume in question
+- * - caller must have cell->vl_sem write-locked
+  */
+-static int afs_vlocation_access_vl_by_name(struct afs_vlocation *vloca=
+tion,
+-					   const char *name,
+-					   unsigned namesz,
++static int afs_vlocation_access_vl_by_name(struct afs_vlocation *vl,
+ 					   struct afs_cache_vlocation *vldb)
+ {
+-	struct afs_server *server =3D NULL;
+-	struct afs_cell *cell =3D vlocation->cell;
++	struct afs_cell *cell =3D vl->cell;
++	struct in_addr addr;
+ 	int count, ret;
+=20
+-	_enter("%s,%*.*s,%u", cell->name, namesz, namesz, name, namesz);
++	_enter("%s,%s", cell->name, vl->vldb.name);
+=20
++	down_write(&vl->cell->vl_sem);
+ 	ret =3D -ENOMEDIUM;
+ 	for (count =3D cell->vl_naddrs; count > 0; count--) {
+-		_debug("CellServ[%hu]: %08x",
+-		       cell->vl_curr_svix,
+-		       cell->vl_addrs[cell->vl_curr_svix].s_addr);
+-
+-		/* try and create a server */
+-		ret =3D afs_server_lookup(cell,
+-					&cell->vl_addrs[cell->vl_curr_svix],
+-					&server);
+-		switch (ret) {
+-		case 0:
+-			break;
+-		case -ENOMEM:
+-		case -ENONET:
+-			goto out;
+-		default:
+-			goto rotate;
+-		}
++		addr =3D cell->vl_addrs[cell->vl_curr_svix];
 +
-+	/* get the IPv4 address of the entity that requested the ticket */
-+	memcpy(&addr, p, sizeof(addr));
-+	p += 4;
-+	_debug("KIV ADDR : "NIPQUAD_FMT, NIPQUAD(addr));
++		_debug("CellServ[%hu]: %08x", cell->vl_curr_svix, addr.s_addr);
+=20
+ 		/* attempt to access the VL server */
+-		ret =3D afs_rxvl_get_entry_by_name(server, name, namesz, vldb);
++		ret =3D afs_vl_get_entry_by_name(&addr, vl->vldb.name, vldb,
++					       &afs_sync_call);
+ 		switch (ret) {
+ 		case 0:
+-			afs_put_server(server);
+ 			goto out;
+ 		case -ENOMEM:
+ 		case -ENONET:
+ 		case -ENETUNREACH:
+ 		case -EHOSTUNREACH:
+ 		case -ECONNREFUSED:
+-			down_write(&server->sem);
+-			if (server->vlserver) {
+-				rxrpc_put_connection(server->vlserver);
+-				server->vlserver =3D NULL;
+-			}
+-			up_write(&server->sem);
+-			afs_put_server(server);
+ 			if (ret =3D=3D -ENOMEM || ret =3D=3D -ENONET)
+ 				goto out;
+ 			goto rotate;
+ 		case -ENOMEDIUM:
+-			afs_put_server(server);
+ 			goto out;
+ 		default:
+-			afs_put_server(server);
+-			ret =3D -ENOMEDIUM;
++			ret =3D -EIO;
+ 			goto rotate;
+ 		}
+=20
+@@ -146,6 +76,7 @@ static int afs_vlocation_access_vl_by_name(struct af=
+s_vlocation *vlocation,
+ 	}
+=20
+ out:
++	up_write(&vl->cell->vl_sem);
+ 	_leave(" =3D %d", ret);
+ 	return ret;
+ }
+@@ -153,66 +84,56 @@ out:
+ /*
+  * iterate through the VL servers in a cell until one of them admits k=
+nowing
+  * about the volume in question
+- * - caller must have cell->vl_sem write-locked
+  */
+-static int afs_vlocation_access_vl_by_id(struct afs_vlocation *vlocati=
+on,
++static int afs_vlocation_access_vl_by_id(struct afs_vlocation *vl,
+ 					 afs_volid_t volid,
+ 					 afs_voltype_t voltype,
+ 					 struct afs_cache_vlocation *vldb)
+ {
+-	struct afs_server *server =3D NULL;
+-	struct afs_cell *cell =3D vlocation->cell;
++	struct afs_cell *cell =3D vl->cell;
++	struct in_addr addr;
+ 	int count, ret;
+=20
+ 	_enter("%s,%x,%d,", cell->name, volid, voltype);
+=20
++	down_write(&vl->cell->vl_sem);
+ 	ret =3D -ENOMEDIUM;
+ 	for (count =3D cell->vl_naddrs; count > 0; count--) {
+-		_debug("CellServ[%hu]: %08x",
+-		       cell->vl_curr_svix,
+-		       cell->vl_addrs[cell->vl_curr_svix].s_addr);
+-
+-		/* try and create a server */
+-		ret =3D afs_server_lookup(cell,
+-					&cell->vl_addrs[cell->vl_curr_svix],
+-					&server);
+-		switch (ret) {
+-		case 0:
+-			break;
+-		case -ENOMEM:
+-		case -ENONET:
+-			goto out;
+-		default:
+-			goto rotate;
+-		}
++		addr =3D cell->vl_addrs[cell->vl_curr_svix];
 +
-+	/* get the session key from the ticket */
-+	memcpy(&key, p, sizeof(key));
-+	p += 8;
-+	_debug("KIV KEY  : %08x %08x", ntohl(key.n[0]), ntohl(key.n[1]));
-+	memcpy(_session_key, &key, sizeof(key));
++		_debug("CellServ[%hu]: %08x", cell->vl_curr_svix, addr.s_addr);
+=20
+ 		/* attempt to access the VL server */
+-		ret =3D afs_rxvl_get_entry_by_id(server, volid, voltype, vldb);
++		ret =3D afs_vl_get_entry_by_id(&addr, volid, voltype, vldb,
++					     &afs_sync_call);
+ 		switch (ret) {
+ 		case 0:
+-			afs_put_server(server);
+ 			goto out;
+ 		case -ENOMEM:
+ 		case -ENONET:
+ 		case -ENETUNREACH:
+ 		case -EHOSTUNREACH:
+ 		case -ECONNREFUSED:
+-			down_write(&server->sem);
+-			if (server->vlserver) {
+-				rxrpc_put_connection(server->vlserver);
+-				server->vlserver =3D NULL;
+-			}
+-			up_write(&server->sem);
+-			afs_put_server(server);
+ 			if (ret =3D=3D -ENOMEM || ret =3D=3D -ENONET)
+ 				goto out;
+ 			goto rotate;
++		case -EBUSY:
++			vl->upd_busy_cnt++;
++			if (vl->upd_busy_cnt <=3D 3) {
++				if (vl->upd_busy_cnt > 1) {
++					/* second+ BUSY - sleep a little bit */
++					set_current_state(TASK_UNINTERRUPTIBLE);
++					schedule_timeout(1);
++					__set_current_state(TASK_RUNNING);
++				}
++				continue;
++			}
++			break;
+ 		case -ENOMEDIUM:
+-			afs_put_server(server);
+-			goto out;
++			vl->upd_rej_cnt++;
++			goto rotate;
+ 		default:
+-			afs_put_server(server);
+-			ret =3D -ENOMEDIUM;
++			ret =3D -EIO;
+ 			goto rotate;
+ 		}
+=20
+@@ -220,150 +141,83 @@ static int afs_vlocation_access_vl_by_id(struct =
+afs_vlocation *vlocation,
+ 	rotate:
+ 		cell->vl_curr_svix++;
+ 		cell->vl_curr_svix %=3D cell->vl_naddrs;
++		vl->upd_busy_cnt =3D 0;
+ 	}
+=20
+ out:
++	if (ret < 0 && vl->upd_rej_cnt > 0) {
++		printk(KERN_NOTICE "kAFS:"
++		       " Active volume no longer valid '%s'\n",
++		       vl->vldb.name);
++		vl->valid =3D 0;
++		ret =3D -ENOMEDIUM;
++	}
 +
-+	/* get the ticket's lifetime */
-+	life = *p++ * 5 * 60;
-+	_debug("KIV LIFE : %u", life);
++	up_write(&vl->cell->vl_sem);
+ 	_leave(" =3D %d", ret);
+ 	return ret;
+ }
+=20
+ /*
+- * lookup volume location
+- * - caller must have cell->vol_sem write-locked
+- * - iterate through the VL servers in a cell until one of them admits=
+ knowing
+- *   about the volume in question
+- * - lookup in the local cache if not able to find on the VL server
+- * - insert/update in the local cache if did get a VL response
++ * allocate a volume location record
+  */
+-int afs_vlocation_lookup(struct afs_cell *cell,
+-			 const char *name,
+-			 unsigned namesz,
+-			 struct afs_vlocation **_vlocation)
++static struct afs_vlocation *afs_vlocation_alloc(struct afs_cell *cell=
+,
++						 const char *name,
++						 size_t namesz)
+ {
+-	struct afs_cache_vlocation vldb;
+-	struct afs_vlocation *vlocation;
+-	afs_voltype_t voltype;
+-	afs_volid_t vid;
+-	int active =3D 0, ret;
+-
+-	_enter("{%s},%*.*s,%u,", cell->name, namesz, namesz, name, namesz);
+-
+-	if (namesz > sizeof(vlocation->vldb.name)) {
+-		_leave(" =3D -ENAMETOOLONG");
+-		return -ENAMETOOLONG;
+-	}
+-
+-	/* search the cell's active list first */
+-	list_for_each_entry(vlocation, &cell->vl_list, link) {
+-		if (namesz < sizeof(vlocation->vldb.name) &&
+-		    vlocation->vldb.name[namesz] !=3D '\0')
+-			continue;
+-
+-		if (memcmp(vlocation->vldb.name, name, namesz) =3D=3D 0)
+-			goto found_in_memory;
+-	}
+-
+-	/* search the cell's graveyard list second */
+-	spin_lock(&cell->vl_gylock);
+-	list_for_each_entry(vlocation, &cell->vl_graveyard, link) {
+-		if (namesz < sizeof(vlocation->vldb.name) &&
+-		    vlocation->vldb.name[namesz] !=3D '\0')
+-			continue;
+-
+-		if (memcmp(vlocation->vldb.name, name, namesz) =3D=3D 0)
+-			goto found_in_graveyard;
+-	}
+-	spin_unlock(&cell->vl_gylock);
+-
+-	/* not in the cell's in-memory lists - create a new record */
+-	vlocation =3D kzalloc(sizeof(struct afs_vlocation), GFP_KERNEL);
+-	if (!vlocation)
+-		return -ENOMEM;
+-
+-	atomic_set(&vlocation->usage, 1);
+-	INIT_LIST_HEAD(&vlocation->link);
+-	rwlock_init(&vlocation->lock);
+-	memcpy(vlocation->vldb.name, name, namesz);
+-
+-	afs_timer_init(&vlocation->timeout, &afs_vlocation_timer_ops);
+-	afs_timer_init(&vlocation->upd_timer, &afs_vlocation_update_timer_ops=
+);
+-	afs_async_op_init(&vlocation->upd_op, &afs_vlocation_update_op_ops);
+-
+-	afs_get_cell(cell);
+-	vlocation->cell =3D cell;
+-
+-	list_add_tail(&vlocation->link, &cell->vl_list);
+-
+-#ifdef AFS_CACHING_SUPPORT
+-	/* we want to store it in the cache, plus it might already be
+-	 * encached */
+-	cachefs_acquire_cookie(cell->cache,
+-			       &afs_volume_cache_index_def,
+-			       vlocation,
+-			       &vlocation->cache);
+-
+-	if (vlocation->valid)
+-		goto found_in_cache;
+-#endif
+-
+-	/* try to look up an unknown volume in the cell VL databases by name =
+*/
+-	ret =3D afs_vlocation_access_vl_by_name(vlocation, name, namesz, &vld=
+b);
+-	if (ret < 0) {
+-		printk("kAFS: failed to locate '%*.*s' in cell '%s'\n",
+-		       namesz, namesz, name, cell->name);
+-		goto error;
++	struct afs_vlocation *vl;
 +
-+	/* get the issue time of the ticket */
-+	if (little_endian) {
-+		__le32 stamp;
-+		memcpy(&stamp, p, 4);
-+		issue = le32_to_cpu(stamp);
++	vl =3D kzalloc(sizeof(struct afs_vlocation), GFP_KERNEL);
++	if (vl) {
++		vl->cell =3D cell;
++		vl->state =3D AFS_VL_NEW;
++		atomic_set(&vl->usage, 1);
++		INIT_LIST_HEAD(&vl->link);
++		INIT_LIST_HEAD(&vl->grave);
++		INIT_LIST_HEAD(&vl->update);
++		init_waitqueue_head(&vl->waitq);
++		rwlock_init(&vl->lock);
++		memcpy(vl->vldb.name, name, namesz);
+ 	}
+=20
+-	goto found_on_vlserver;
+-
+-found_in_graveyard:
+-	/* found in the graveyard - resurrect */
+-	_debug("found in graveyard");
+-	atomic_inc(&vlocation->usage);
+-	list_move_tail(&vlocation->link, &cell->vl_list);
+-	spin_unlock(&cell->vl_gylock);
+-
+-	afs_kafstimod_del_timer(&vlocation->timeout);
+-	goto active;
+-
+-found_in_memory:
+-	/* found in memory - check to see if it's active */
+-	_debug("found in memory");
+-	atomic_inc(&vlocation->usage);
++	_leave(" =3D %p", vl);
++	return vl;
++}
+=20
+-active:
+-	active =3D 1;
++/*
++ * update record if we found it in the cache
++ */
++static int afs_vlocation_update_record(struct afs_vlocation *vl,
++				       struct afs_cache_vlocation *vldb)
++{
++	afs_voltype_t voltype;
++	afs_volid_t vid;
++	int ret;
+=20
+-#ifdef AFS_CACHING_SUPPORT
+-found_in_cache:
+-#endif
+ 	/* try to look up a cached volume in the cell VL databases by ID */
+-	_debug("found in cache");
+-
+ 	_debug("Locally Cached: %s %02x { %08x(%x) %08x(%x) %08x(%x) }",
+-	       vlocation->vldb.name,
+-	       vlocation->vldb.vidmask,
+-	       ntohl(vlocation->vldb.servers[0].s_addr),
+-	       vlocation->vldb.srvtmask[0],
+-	       ntohl(vlocation->vldb.servers[1].s_addr),
+-	       vlocation->vldb.srvtmask[1],
+-	       ntohl(vlocation->vldb.servers[2].s_addr),
+-	       vlocation->vldb.srvtmask[2]
+-	       );
++	       vl->vldb.name,
++	       vl->vldb.vidmask,
++	       ntohl(vl->vldb.servers[0].s_addr),
++	       vl->vldb.srvtmask[0],
++	       ntohl(vl->vldb.servers[1].s_addr),
++	       vl->vldb.srvtmask[1],
++	       ntohl(vl->vldb.servers[2].s_addr),
++	       vl->vldb.srvtmask[2]);
+=20
+ 	_debug("Vids: %08x %08x %08x",
+-	       vlocation->vldb.vid[0],
+-	       vlocation->vldb.vid[1],
+-	       vlocation->vldb.vid[2]);
++	       vl->vldb.vid[0],
++	       vl->vldb.vid[1],
++	       vl->vldb.vid[2]);
+=20
+-	if (vlocation->vldb.vidmask & AFS_VOL_VTM_RW) {
+-		vid =3D vlocation->vldb.vid[0];
++	if (vl->vldb.vidmask & AFS_VOL_VTM_RW) {
++		vid =3D vl->vldb.vid[0];
+ 		voltype =3D AFSVL_RWVOL;
+-	} else if (vlocation->vldb.vidmask & AFS_VOL_VTM_RO) {
+-		vid =3D vlocation->vldb.vid[1];
++	} else if (vl->vldb.vidmask & AFS_VOL_VTM_RO) {
++		vid =3D vl->vldb.vid[1];
+ 		voltype =3D AFSVL_ROVOL;
+-	} else if (vlocation->vldb.vidmask & AFS_VOL_VTM_BAK) {
+-		vid =3D vlocation->vldb.vid[2];
++	} else if (vl->vldb.vidmask & AFS_VOL_VTM_BAK) {
++		vid =3D vl->vldb.vid[2];
+ 		voltype =3D AFSVL_BACKVOL;
+ 	} else {
+ 		BUG();
+@@ -371,551 +225,482 @@ found_in_cache:
+ 		voltype =3D 0;
+ 	}
+=20
+-	ret =3D afs_vlocation_access_vl_by_id(vlocation, vid, voltype, &vldb)=
+;
++	/* contact the server to make sure the volume is still available
++	 * - TODO: need to handle disconnected operation here
++	 */
++	ret =3D afs_vlocation_access_vl_by_id(vl, vid, voltype, vldb);
+ 	switch (ret) {
+ 		/* net error */
+ 	default:
+-		printk("kAFS: failed to volume '%*.*s' (%x) up in '%s': %d\n",
+-		       namesz, namesz, name, vid, cell->name, ret);
+-		goto error;
++		printk(KERN_WARNING "kAFS:"
++		       " failed to update volume '%s' (%x) up in '%s': %d\n",
++		       vl->vldb.name, vid, vl->cell->name, ret);
++		_leave(" =3D %d", ret);
++		return ret;
+=20
+ 		/* pulled from local cache into memory */
+ 	case 0:
+-		goto found_on_vlserver;
++		_leave(" =3D 0");
++		return 0;
+=20
+ 		/* uh oh... looks like the volume got deleted */
+ 	case -ENOMEDIUM:
+-		printk("kAFS: volume '%*.*s' (%x) does not exist '%s'\n",
+-		       namesz, namesz, name, vid, cell->name);
++		printk(KERN_ERR "kAFS:"
++		       " volume '%s' (%x) does not exist '%s'\n",
++		       vl->vldb.name, vid, vl->cell->name);
+=20
+ 		/* TODO: make existing record unavailable */
+-		goto error;
++		_leave(" =3D %d", ret);
++		return ret;
+ 	}
++}
+=20
+-found_on_vlserver:
+-	_debug("Done VL Lookup: %*.*s %02x { %08x(%x) %08x(%x) %08x(%x) }",
+-	       namesz, namesz, name,
+-	       vldb.vidmask,
+-	       ntohl(vldb.servers[0].s_addr), vldb.srvtmask[0],
+-	       ntohl(vldb.servers[1].s_addr), vldb.srvtmask[1],
+-	       ntohl(vldb.servers[2].s_addr), vldb.srvtmask[2]
+-	       );
+-
+-	_debug("Vids: %08x %08x %08x", vldb.vid[0], vldb.vid[1], vldb.vid[2])=
+;
++/*
++ * apply the update to a VL record
++ */
++static void afs_vlocation_apply_update(struct afs_vlocation *vl,
++				       struct afs_cache_vlocation *vldb)
++{
++	_debug("Done VL Lookup: %s %02x { %08x(%x) %08x(%x) %08x(%x) }",
++	       vldb->name, vldb->vidmask,
++	       ntohl(vldb->servers[0].s_addr), vldb->srvtmask[0],
++	       ntohl(vldb->servers[1].s_addr), vldb->srvtmask[1],
++	       ntohl(vldb->servers[2].s_addr), vldb->srvtmask[2]);
+=20
+-	if ((namesz < sizeof(vlocation->vldb.name) &&
+-	     vlocation->vldb.name[namesz] !=3D '\0') ||
+-	    memcmp(vldb.name, name, namesz) !=3D 0)
+-		printk("kAFS: name of volume '%*.*s' changed to '%s' on server\n",
+-		       namesz, namesz, name, vldb.name);
++	_debug("Vids: %08x %08x %08x",
++	       vldb->vid[0], vldb->vid[1], vldb->vid[2]);
+=20
+-	memcpy(&vlocation->vldb, &vldb, sizeof(vlocation->vldb));
++	if (strcmp(vldb->name, vl->vldb.name) !=3D 0)
++		printk(KERN_NOTICE "kAFS:"
++		       " name of volume '%s' changed to '%s' on server\n",
++		       vl->vldb.name, vldb->name);
+=20
+-	afs_kafstimod_add_timer(&vlocation->upd_timer, 10 * HZ);
++	vl->vldb =3D *vldb;
+=20
+ #ifdef AFS_CACHING_SUPPORT
+ 	/* update volume entry in local cache */
+-	cachefs_update_cookie(vlocation->cache);
+-#endif
+-
+-	*_vlocation =3D vlocation;
+-	_leave(" =3D 0 (%p)",vlocation);
+-	return 0;
+-
+-error:
+-	if (vlocation) {
+-		if (active) {
+-			__afs_put_vlocation(vlocation);
+-		} else {
+-			list_del(&vlocation->link);
+-#ifdef AFS_CACHING_SUPPORT
+-			cachefs_relinquish_cookie(vlocation->cache, 0);
++	cachefs_update_cookie(vl->cache);
+ #endif
+-			afs_put_cell(vlocation->cell);
+-			kfree(vlocation);
+-		}
+-	}
+-
+-	_leave(" =3D %d", ret);
+-	return ret;
+ }
+=20
+ /*
+- * finish using a volume location record
+- * - caller must have cell->vol_sem write-locked
++ * fill in a volume location record, consulting the cache and the VL s=
+erver
++ * both
+  */
+-static void __afs_put_vlocation(struct afs_vlocation *vlocation)
++static int afs_vlocation_fill_in_record(struct afs_vlocation *vl)
+ {
+-	struct afs_cell *cell;
++	struct afs_cache_vlocation vldb;
++	int ret;
+=20
+-	if (!vlocation)
+-		return;
++	_enter("");
+=20
+-	_enter("%s", vlocation->vldb.name);
++	ASSERTCMP(vl->valid, =3D=3D, 0);
+=20
+-	cell =3D vlocation->cell;
++	memset(&vldb, 0, sizeof(vldb));
+=20
+-	/* sanity check */
+-	BUG_ON(atomic_read(&vlocation->usage) <=3D 0);
++	/* see if we have an in-cache copy (will set vl->valid if there is) *=
+/
++#ifdef AFS_CACHING_SUPPORT
++	cachefs_acquire_cookie(cell->cache,
++			       &afs_volume_cache_index_def,
++			       vlocation,
++			       &vl->cache);
++#endif
+=20
+-	spin_lock(&cell->vl_gylock);
+-	if (likely(!atomic_dec_and_test(&vlocation->usage))) {
+-		spin_unlock(&cell->vl_gylock);
+-		_leave("");
+-		return;
++	if (vl->valid) {
++		/* try to update a known volume in the cell VL databases by
++		 * ID as the name may have changed */
++		_debug("found in cache");
++		ret =3D afs_vlocation_update_record(vl, &vldb);
 +	} else {
-+		__be32 stamp;
-+		memcpy(&stamp, p, 4);
-+		issue = be32_to_cpu(stamp);
++		/* try to look up an unknown volume in the cell VL databases by
++		 * name */
++		ret =3D afs_vlocation_access_vl_by_name(vl, &vldb);
++		if (ret < 0) {
++			printk("kAFS: failed to locate '%s' in cell '%s'\n",
++			       vl->vldb.name, vl->cell->name);
++			return ret;
++		}
+ 	}
+=20
+-	/* move to graveyard queue */
+-	list_move_tail(&vlocation->link,&cell->vl_graveyard);
+-
+-	/* remove from pending timeout queue (refcounted if actually being
+-	 * updated) */
+-	list_del_init(&vlocation->upd_op.link);
+-
+-	/* time out in 10 secs */
+-	afs_kafstimod_del_timer(&vlocation->upd_timer);
+-	afs_kafstimod_add_timer(&vlocation->timeout, 10 * HZ);
+-
+-	spin_unlock(&cell->vl_gylock);
+-
+-	_leave(" [killed]");
++	afs_vlocation_apply_update(vl, &vldb);
++	_leave(" =3D 0");
++	return 0;
+ }
+=20
+ /*
+- * finish using a volume location record
++ * queue a vlocation record for updates
+  */
+-void afs_put_vlocation(struct afs_vlocation *vlocation)
++void afs_vlocation_queue_for_updates(struct afs_vlocation *vl)
+ {
+-	if (vlocation) {
+-		struct afs_cell *cell =3D vlocation->cell;
++	struct afs_vlocation *xvl;
+=20
+-		down_write(&cell->vl_sem);
+-		__afs_put_vlocation(vlocation);
+-		up_write(&cell->vl_sem);
++	/* wait at least 10 minutes before updating... */
++	vl->update_at =3D get_seconds() + afs_vlocation_update_timeout;
++
++	spin_lock(&afs_vlocation_updates_lock);
++
++	if (!list_empty(&afs_vlocation_updates)) {
++		/* ... but wait at least 1 second more than the newest record
++		 * already queued so that we don't spam the VL server suddenly
++		 * with lots of requests
++		 */
++		xvl =3D list_entry(afs_vlocation_updates.prev,
++				 struct afs_vlocation, update);
++		if (vl->update_at <=3D xvl->update_at)
++			vl->update_at =3D xvl->update_at + 1;
++	} else {
++		queue_delayed_work(afs_vlocation_update_worker,
++				   &afs_vlocation_update,
++				   afs_vlocation_update_timeout * HZ);
+ 	}
++
++	list_add_tail(&vl->update, &afs_vlocation_updates);
++	spin_unlock(&afs_vlocation_updates_lock);
+ }
+=20
+ /*
+- * timeout vlocation record
+- * - removes from the cell's graveyard if the usage count is zero
++ * lookup volume location
++ * - iterate through the VL servers in a cell until one of them admits=
+ knowing
++ *   about the volume in question
++ * - lookup in the local cache if not able to find on the VL server
++ * - insert/update in the local cache if did get a VL response
+  */
+-void afs_vlocation_do_timeout(struct afs_vlocation *vlocation)
++struct afs_vlocation *afs_vlocation_lookup(struct afs_cell *cell,
++					   const char *name,
++					   size_t namesz)
+ {
+-	struct afs_cell *cell;
+-
+-	_enter("%s", vlocation->vldb.name);
+-
+-	cell =3D vlocation->cell;
++	struct afs_vlocation *vl;
++	int ret;
+=20
+-	BUG_ON(atomic_read(&vlocation->usage) < 0);
++	_enter("{%s},%*.*s,%zu",
++	       cell->name, (int) namesz, (int) namesz, name, namesz);
+=20
+-	/* remove from graveyard if still dead */
+-	spin_lock(&cell->vl_gylock);
+-	if (atomic_read(&vlocation->usage) =3D=3D 0)
+-		list_del_init(&vlocation->link);
+-	else
+-		vlocation =3D NULL;
+-	spin_unlock(&cell->vl_gylock);
++	if (namesz > sizeof(vl->vldb.name)) {
++		_leave(" =3D -ENAMETOOLONG");
++		return ERR_PTR(-ENAMETOOLONG);
 +	}
-+	p += 4;
-+	now = xtime.tv_sec;
-+	_debug("KIV ISSUE: %lx [%lx]", issue, now);
-+
-+	/* check the ticket is in date */
-+	if (issue > now) {
-+		*_abort_code = RXKADNOAUTH;
-+		ret = -EKEYREJECTED;
-+		goto error;
+=20
+-	if (!vlocation) {
+-		_leave("");
+-		return; /* resurrected */
++	/* see if we have an in-memory copy first */
++	down_write(&cell->vl_sem);
++	spin_lock(&cell->vl_lock);
++	list_for_each_entry(vl, &cell->vl_list, link) {
++		if (vl->vldb.name[namesz] !=3D '\0')
++			continue;
++		if (memcmp(vl->vldb.name, name, namesz) =3D=3D 0)
++			goto found_in_memory;
+ 	}
++	spin_unlock(&cell->vl_lock);
+=20
+-	/* we can now destroy it properly */
+-#ifdef AFS_CACHING_SUPPORT
+-	cachefs_relinquish_cookie(vlocation->cache, 0);
+-#endif
+-	afs_put_cell(cell);
++	/* not in the cell's in-memory lists - create a new record */
++	vl =3D afs_vlocation_alloc(cell, name, namesz);
++	if (!vl) {
++		up_write(&cell->vl_sem);
++		return ERR_PTR(-ENOMEM);
 +	}
+=20
+-	kfree(vlocation);
++	afs_get_cell(cell);
+=20
+-	_leave(" [destroyed]");
+-}
++	list_add_tail(&vl->link, &cell->vl_list);
++	vl->state =3D AFS_VL_CREATING;
++	up_write(&cell->vl_sem);
+=20
+-/*
+- * send an update operation to the currently selected server
+- */
+-static int afs_vlocation_update_begin(struct afs_vlocation *vlocation)
+-{
+-	afs_voltype_t voltype;
+-	afs_volid_t vid;
+-	int ret;
++fill_in_record:
++	ret =3D afs_vlocation_fill_in_record(vl);
++	if (ret < 0)
++		goto error_abandon;
++	vl->state =3D AFS_VL_VALID;
++	wake_up(&vl->waitq);
+=20
+-	_enter("%s{ufs=3D%u ucs=3D%u}",
+-	       vlocation->vldb.name,
+-	       vlocation->upd_first_svix,
+-	       vlocation->upd_curr_svix);
++	/* schedule for regular updates */
++	afs_vlocation_queue_for_updates(vl);
++	goto success;
+=20
+-	/* try to look up a cached volume in the cell VL databases by ID */
+-	if (vlocation->vldb.vidmask & AFS_VOL_VTM_RW) {
+-		vid =3D vlocation->vldb.vid[0];
+-		voltype =3D AFSVL_RWVOL;
+-	} else if (vlocation->vldb.vidmask & AFS_VOL_VTM_RO) {
+-		vid =3D vlocation->vldb.vid[1];
+-		voltype =3D AFSVL_ROVOL;
+-	} else if (vlocation->vldb.vidmask & AFS_VOL_VTM_BAK) {
+-		vid =3D vlocation->vldb.vid[2];
+-		voltype =3D AFSVL_BACKVOL;
+-	} else {
+-		BUG();
+-		vid =3D 0;
+-		voltype =3D 0;
++found_in_memory:
++	/* found in memory */
++	_debug("found in memory");
++	atomic_inc(&vl->usage);
++	spin_unlock(&cell->vl_lock);
++	if (!list_empty(&vl->grave)) {
++		spin_lock(&afs_vlocation_graveyard_lock);
++		list_del_init(&vl->grave);
++		spin_unlock(&afs_vlocation_graveyard_lock);
+ 	}
++	up_write(&cell->vl_sem);
+=20
+-	/* contact the chosen server */
+-	ret =3D afs_server_lookup(
+-		vlocation->cell,
+-		&vlocation->cell->vl_addrs[vlocation->upd_curr_svix],
+-		&vlocation->upd_op.server);
++	/* see if it was an abandoned record that we might try filling in */
++	while (vl->state !=3D AFS_VL_VALID) {
++		afs_vlocation_state_t state =3D vl->state;
+=20
+-	switch (ret) {
+-	case 0:
+-		break;
+-	case -ENOMEM:
+-	case -ENONET:
+-	default:
+-		_leave(" =3D %d", ret);
+-		return ret;
+-	}
++		_debug("invalid [state %d]", state);
+=20
+-	/* initiate the update operation */
+-	ret =3D afs_rxvl_get_entry_by_id_async(&vlocation->upd_op, vid, volty=
+pe);
+-	if (ret < 0) {
+-		_leave(" =3D %d", ret);
+-		return ret;
++		if ((state =3D=3D AFS_VL_NEW || state =3D=3D AFS_VL_NO_VOLUME)) {
++			if (cmpxchg(&vl->state, state, AFS_VL_CREATING) =3D=3D
++			    state)
++				goto fill_in_record;
++			continue;
++		}
 +
-+	if (issue < now - life) {
-+		*_abort_code = RXKADEXPIRED;
-+		ret = -EKEYEXPIRED;
-+		goto error;
-+	}
++		/* must now wait for creation or update by someone else to
++		 * complete */
++		_debug("wait");
 +
-+	*_expiry = issue + life;
++		ret =3D wait_event_interruptible(
++			vl->waitq,
++			vl->state =3D=3D AFS_VL_NEW ||
++			vl->state =3D=3D AFS_VL_VALID ||
++			vl->state =3D=3D AFS_VL_NO_VOLUME);
++		if (ret < 0)
++			goto error;
+ 	}
+=20
++success:
++	_leave(" =3D %p",vl);
++	return vl;
 +
-+	/* get the service name */
-+	name = Z(SNAME_SZ);
-+	_debug("KIV SNAME: %s", name);
-+
-+	/* get the service instance name */
-+	name = Z(INST_SZ);
-+	_debug("KIV SINST: %s", name);
-+
-+	ret = 0;
++error_abandon:
++	vl->state =3D AFS_VL_NEW;
++	wake_up(&vl->waitq);
 +error:
-+	_leave(" = %d", ret);
-+	return ret;
++	ASSERT(vl !=3D NULL);
++	afs_put_vlocation(vl);
+ 	_leave(" =3D %d", ret);
+-	return ret;
++	return ERR_PTR(ret);
+ }
+=20
+ /*
+- * abandon updating a VL record
+- * - does not restart the update timer
++ * finish using a volume location record
+  */
+-static void afs_vlocation_update_abandon(struct afs_vlocation *vlocati=
+on,
+-					 afs_vlocation_upd_t state,
+-					 int ret)
++void afs_put_vlocation(struct afs_vlocation *vl)
+ {
+-	_enter("%s,%u", vlocation->vldb.name, state);
+-
+-	if (ret < 0)
+-		printk("kAFS: Abandoning VL update '%s': %d\n",
+-		       vlocation->vldb.name, ret);
+-
+-	/* discard the server record */
+-	afs_put_server(vlocation->upd_op.server);
+-	vlocation->upd_op.server =3D NULL;
++	if (!vl)
++		return;
+=20
+-	spin_lock(&afs_vlocation_update_lock);
+-	afs_vlocation_update =3D NULL;
+-	vlocation->upd_state =3D state;
++	_enter("%s", vl->vldb.name);
+=20
+-	/* TODO: start updating next VL record on pending list */
++	ASSERTCMP(atomic_read(&vl->usage), >, 0);
+=20
+-	spin_unlock(&afs_vlocation_update_lock);
++	if (likely(!atomic_dec_and_test(&vl->usage))) {
++		_leave("");
++		return;
++	}
+=20
+-	_leave("");
++	spin_lock(&afs_vlocation_graveyard_lock);
++	if (atomic_read(&vl->usage) =3D=3D 0) {
++		_debug("buried");
++		list_move_tail(&vl->grave, &afs_vlocation_graveyard);
++		vl->time_of_death =3D get_seconds();
++		schedule_delayed_work(&afs_vlocation_reap,
++				      afs_vlocation_timeout * HZ);
 +
-+bad_ticket:
-+	*_abort_code = RXKADBADTICKET;
-+	ret = -EBADMSG;
-+	goto error;
++		/* suspend updates on this record */
++		if (!list_empty(&vl->update)) {
++			spin_lock(&afs_vlocation_updates_lock);
++			list_del_init(&vl->update);
++			spin_unlock(&afs_vlocation_updates_lock);
++		}
++	}
++	spin_unlock(&afs_vlocation_graveyard_lock);
++	_leave(" [killed?]");
+ }
+=20
+ /*
+- * handle periodic update timeouts and busy retry timeouts
+- * - called from kafstimod
++ * destroy a dead volume location record
+  */
+-static void afs_vlocation_update_timer(struct afs_timer *timer)
++static void afs_vlocation_destroy(struct afs_vlocation *vl)
+ {
+-	struct afs_vlocation *vlocation =3D
+-		list_entry(timer, struct afs_vlocation, upd_timer);
+-	int ret;
++	_enter("%p", vl);
+=20
+-	_enter("%s", vlocation->vldb.name);
++#ifdef AFS_CACHING_SUPPORT
++	cachefs_relinquish_cookie(vl->cache, 0);
++#endif
+=20
+-	/* only update if not in the graveyard (defend against putting too) *=
+/
+-	spin_lock(&vlocation->cell->vl_gylock);
++	afs_put_cell(vl->cell);
++	kfree(vl);
 +}
 +
 +/*
-+ * decrypt the response packet
++ * reap dead volume location records
 + */
-+static void rxkad_decrypt_response(struct rxrpc_connection *conn,
-+				   struct rxkad_response *resp,
-+				   const struct rxrpc_crypt *session_key)
++static void afs_vlocation_reaper(struct work_struct *work)
 +{
-+	struct blkcipher_desc desc;
-+	struct scatterlist ssg[2], dsg[2];
-+	struct rxrpc_crypt iv;
++	LIST_HEAD(corpses);
++	struct afs_vlocation *vl;
++	unsigned long delay, expiry;
++	time_t now;
+=20
+-	if (!atomic_read(&vlocation->usage))
+-		goto out_unlock1;
++	_enter("");
+=20
+-	spin_lock(&afs_vlocation_update_lock);
++	now =3D get_seconds();
++	spin_lock(&afs_vlocation_graveyard_lock);
 +
-+	_enter(",,%08x%08x",
-+	       ntohl(session_key->n[0]), ntohl(session_key->n[1]));
++	while (!list_empty(&afs_vlocation_graveyard)) {
++		vl =3D list_entry(afs_vlocation_graveyard.next,
++				struct afs_vlocation, grave);
 +
-+	ASSERT(rxkad_ci != NULL);
++		_debug("check %p", vl);
 +
-+	mutex_lock(&rxkad_ci_mutex);
-+	if (crypto_blkcipher_setkey(rxkad_ci, session_key->x,
-+				    sizeof(*session_key)) < 0)
++		/* the queue is ordered most dead first */
++		expiry =3D vl->time_of_death + afs_vlocation_timeout;
++		if (expiry > now) {
++			delay =3D (expiry - now) * HZ;
++			_debug("delay %lu", delay);
++			if (!schedule_delayed_work(&afs_vlocation_reap,
++						   delay)) {
++				cancel_delayed_work(&afs_vlocation_reap);
++				schedule_delayed_work(&afs_vlocation_reap,
++						      delay);
++			}
++			break;
++		}
+=20
+-	/* if we were woken up due to EBUSY sleep then restart immediately if
+-	 * possible or else jump to front of pending queue */
+-	if (vlocation->upd_state =3D=3D AFS_VLUPD_BUSYSLEEP) {
+-		if (afs_vlocation_update) {
+-			list_add(&vlocation->upd_op.link,
+-				 &afs_vlocation_update_pendq);
++		spin_lock(&vl->cell->vl_lock);
++		if (atomic_read(&vl->usage) > 0) {
++			_debug("no reap");
++			list_del_init(&vl->grave);
+ 		} else {
+-			afs_get_vlocation(vlocation);
+-			afs_vlocation_update =3D vlocation;
+-			vlocation->upd_state =3D AFS_VLUPD_INPROGRESS;
++			_debug("reap");
++			list_move_tail(&vl->grave, &corpses);
++			list_del_init(&vl->link);
+ 		}
+-		goto out_unlock2;
++		spin_unlock(&vl->cell->vl_lock);
+ 	}
+=20
+-	/* put on pending queue if there's already another update in progress=
+ */
+-	if (afs_vlocation_update) {
+-		vlocation->upd_state =3D AFS_VLUPD_PENDING;
+-		list_add_tail(&vlocation->upd_op.link,
+-			      &afs_vlocation_update_pendq);
+-		goto out_unlock2;
+-	}
++	spin_unlock(&afs_vlocation_graveyard_lock);
+=20
+-	/* hold a ref on it while actually updating */
+-	afs_get_vlocation(vlocation);
+-	afs_vlocation_update =3D vlocation;
+-	vlocation->upd_state =3D AFS_VLUPD_INPROGRESS;
+-
+-	spin_unlock(&afs_vlocation_update_lock);
+-	spin_unlock(&vlocation->cell->vl_gylock);
+-
+-	/* okay... we can start the update */
+-	_debug("BEGIN VL UPDATE [%s]", vlocation->vldb.name);
+-	vlocation->upd_first_svix =3D vlocation->cell->vl_curr_svix;
+-	vlocation->upd_curr_svix =3D vlocation->upd_first_svix;
+-	vlocation->upd_rej_cnt =3D 0;
+-	vlocation->upd_busy_cnt =3D 0;
+-
+-	ret =3D afs_vlocation_update_begin(vlocation);
+-	if (ret < 0) {
+-		afs_vlocation_update_abandon(vlocation, AFS_VLUPD_SLEEP, ret);
+-		afs_kafstimod_add_timer(&vlocation->upd_timer,
+-					AFS_VLDB_TIMEOUT);
+-		afs_put_vlocation(vlocation);
++	/* now reap the corpses we've extracted */
++	while (!list_empty(&corpses)) {
++		vl =3D list_entry(corpses.next, struct afs_vlocation, grave);
++		list_del(&vl->grave);
++		afs_vlocation_destroy(vl);
+ 	}
+=20
+ 	_leave("");
+-	return;
++}
+=20
+-out_unlock2:
+-	spin_unlock(&afs_vlocation_update_lock);
+-out_unlock1:
+-	spin_unlock(&vlocation->cell->vl_gylock);
+-	_leave("");
++/*
++ * initialise the VL update process
++ */
++int __init afs_vlocation_update_init(void)
++{
++	afs_vlocation_update_worker =3D
++		create_singlethread_workqueue("kafs_vlupdated");
++	return afs_vlocation_update_worker ? 0 : -ENOMEM;
++}
++
++/*
++ * discard all the volume location records for rmmod
++ */
++void __exit afs_vlocation_purge(void)
++{
++	afs_vlocation_timeout =3D 0;
++
++	spin_lock(&afs_vlocation_updates_lock);
++	list_del_init(&afs_vlocation_updates);
++	spin_unlock(&afs_vlocation_updates_lock);
++	cancel_delayed_work(&afs_vlocation_update);
++	queue_delayed_work(afs_vlocation_update_worker,
++			   &afs_vlocation_update, 0);
++	destroy_workqueue(afs_vlocation_update_worker);
++
++	cancel_delayed_work(&afs_vlocation_reap);
++	schedule_delayed_work(&afs_vlocation_reap, 0);
+ }
+=20
+ /*
+- * attend to an update operation upon which an event happened
+- * - called in kafsasyncd context
++ * update a volume location
+  */
+-static void afs_vlocation_update_attend(struct afs_async_op *op)
++static void afs_vlocation_updater(struct work_struct *work)
+ {
+ 	struct afs_cache_vlocation vldb;
+-	struct afs_vlocation *vlocation =3D
+-		list_entry(op, struct afs_vlocation, upd_op);
+-	unsigned tmp;
++	struct afs_vlocation *vl, *xvl;
++	time_t now;
++	long timeout;
+ 	int ret;
+=20
+-	_enter("%s", vlocation->vldb.name);
+-
+-	ret =3D afs_rxvl_get_entry_by_id_async2(op, &vldb);
+-	switch (ret) {
+-	case -EAGAIN:
+-		_leave(" [unfinished]");
+-		return;
+-
+-	case 0:
+-		_debug("END VL UPDATE: %d\n", ret);
+-		vlocation->valid =3D 1;
+-
+-		_debug("Done VL Lookup: %02x { %08x(%x) %08x(%x) %08x(%x) }",
+-		       vldb.vidmask,
+-		       ntohl(vldb.servers[0].s_addr), vldb.srvtmask[0],
+-		       ntohl(vldb.servers[1].s_addr), vldb.srvtmask[1],
+-		       ntohl(vldb.servers[2].s_addr), vldb.srvtmask[2]
+-		       );
+-
+-		_debug("Vids: %08x %08x %08x",
+-		       vldb.vid[0], vldb.vid[1], vldb.vid[2]);
+-
+-		afs_vlocation_update_abandon(vlocation, AFS_VLUPD_SLEEP, 0);
+-
+-		down_write(&vlocation->cell->vl_sem);
+-
+-		/* actually update the cache */
+-		if (strncmp(vldb.name, vlocation->vldb.name,
+-			    sizeof(vlocation->vldb.name)) !=3D 0)
+-			printk("kAFS: name of volume '%s'"
+-			       " changed to '%s' on server\n",
+-			       vlocation->vldb.name, vldb.name);
+-
+-		memcpy(&vlocation->vldb, &vldb, sizeof(vlocation->vldb));
+-
+-#if 0
+-		/* TODO update volume entry in local cache */
+-#endif
+-
+-		up_write(&vlocation->cell->vl_sem);
+-
+-		if (ret < 0)
+-			printk("kAFS: failed to update local cache: %d\n", ret);
+-
+-		afs_kafstimod_add_timer(&vlocation->upd_timer,
+-					AFS_VLDB_TIMEOUT);
+-		afs_put_vlocation(vlocation);
+-		_leave(" [found]");
+-		return;
+-
+-	case -ENOMEDIUM:
+-		vlocation->upd_rej_cnt++;
+-		goto try_next;
+-
+-		/* the server is locked - retry in a very short while */
+-	case -EBUSY:
+-		vlocation->upd_busy_cnt++;
+-		if (vlocation->upd_busy_cnt > 3)
+-			goto try_next; /* too many retries */
+-
+-		afs_vlocation_update_abandon(vlocation,
+-					     AFS_VLUPD_BUSYSLEEP, 0);
+-		afs_kafstimod_add_timer(&vlocation->upd_timer, HZ / 2);
+-		afs_put_vlocation(vlocation);
+-		_leave(" [busy]");
+-		return;
+-
+-	case -ENETUNREACH:
+-	case -EHOSTUNREACH:
+-	case -ECONNREFUSED:
+-	case -EREMOTEIO:
+-		/* record bad vlserver info in the cell too
+-		 * - TODO: use down_write_trylock() if available
+-		 */
+-		if (vlocation->upd_curr_svix =3D=3D vlocation->cell->vl_curr_svix)
+-			vlocation->cell->vl_curr_svix =3D
+-				vlocation->cell->vl_curr_svix %
+-				vlocation->cell->vl_naddrs;
+-
+-	case -EBADRQC:
+-	case -EINVAL:
+-	case -EACCES:
+-	case -EBADMSG:
+-		goto try_next;
+-
+-	default:
+-		goto abandon;
+-	}
+-
+-	/* try contacting the next server */
+-try_next:
+-	vlocation->upd_busy_cnt =3D 0;
+-
+-	/* discard the server record */
+-	afs_put_server(vlocation->upd_op.server);
+-	vlocation->upd_op.server =3D NULL;
++	_enter("");
+=20
+-	tmp =3D vlocation->cell->vl_naddrs;
+-	if (tmp =3D=3D 0)
+-		goto abandon;
++	now =3D get_seconds();
+=20
+-	vlocation->upd_curr_svix++;
+-	if (vlocation->upd_curr_svix >=3D tmp)
+-		vlocation->upd_curr_svix =3D 0;
+-	if (vlocation->upd_first_svix >=3D tmp)
+-		vlocation->upd_first_svix =3D tmp - 1;
++	/* find a record to update */
++	spin_lock(&afs_vlocation_updates_lock);
++	for (;;) {
++		if (list_empty(&afs_vlocation_updates)) {
++			spin_unlock(&afs_vlocation_updates_lock);
++			_leave(" [nothing]");
++			return;
++		}
+=20
+-	/* move to the next server */
+-	if (vlocation->upd_curr_svix !=3D vlocation->upd_first_svix) {
+-		afs_vlocation_update_begin(vlocation);
+-		_leave(" [next]");
+-		return;
++		vl =3D list_entry(afs_vlocation_updates.next,
++				struct afs_vlocation, update);
++		if (atomic_read(&vl->usage) > 0)
++			break;
++		list_del_init(&vl->update);
+ 	}
+=20
+-	/* run out of servers to try - was the volume rejected? */
+-	if (vlocation->upd_rej_cnt > 0) {
+-		printk("kAFS: Active volume no longer valid '%s'\n",
+-		       vlocation->vldb.name);
+-		vlocation->valid =3D 0;
+-		afs_vlocation_update_abandon(vlocation, AFS_VLUPD_SLEEP, 0);
+-		afs_kafstimod_add_timer(&vlocation->upd_timer,
+-					AFS_VLDB_TIMEOUT);
+-		afs_put_vlocation(vlocation);
+-		_leave(" [invalidated]");
++	timeout =3D vl->update_at - now;
++	if (timeout > 0) {
++		queue_delayed_work(afs_vlocation_update_worker,
++				   &afs_vlocation_update, timeout * HZ);
++		spin_unlock(&afs_vlocation_updates_lock);
++		_leave(" [nothing]");
+ 		return;
+ 	}
+=20
+-	/* abandon the update */
+-abandon:
+-	afs_vlocation_update_abandon(vlocation, AFS_VLUPD_SLEEP, ret);
+-	afs_kafstimod_add_timer(&vlocation->upd_timer, HZ * 10);
+-	afs_put_vlocation(vlocation);
+-	_leave(" [abandoned]");
+-}
++	list_del_init(&vl->update);
++	atomic_inc(&vl->usage);
++	spin_unlock(&afs_vlocation_updates_lock);
+=20
+-/*
+- * deal with an update operation being discarded
+- * - called in kafsasyncd context when it's dying due to rmmod
+- * - the call has already been aborted and put()'d
+- */
+-static void afs_vlocation_update_discard(struct afs_async_op *op)
+-{
+-	struct afs_vlocation *vlocation =3D
+-		list_entry(op, struct afs_vlocation, upd_op);
+-
+-	_enter("%s", vlocation->vldb.name);
++	/* we can now perform the update */
++	_debug("update %s", vl->vldb.name);
++	vl->state =3D AFS_VL_UPDATING;
++	vl->upd_rej_cnt =3D 0;
++	vl->upd_busy_cnt =3D 0;
+=20
+-	afs_put_server(op->server);
+-	op->server =3D NULL;
+-
+-	afs_put_vlocation(vlocation);
++	ret =3D afs_vlocation_update_record(vl, &vldb);
++	switch (ret) {
++	case 0:
++		afs_vlocation_apply_update(vl, &vldb);
++		vl->state =3D AFS_VL_VALID;
++		break;
++	case -ENOMEDIUM:
++		vl->state =3D AFS_VL_VOLUME_DELETED;
++		break;
++	default:
++		vl->state =3D AFS_VL_UNCERTAIN;
++		break;
++	}
+=20
+-	_leave("");
+-}
++	/* and then reschedule */
++	_debug("reschedule");
++	vl->update_at =3D get_seconds() + afs_vlocation_update_timeout;
+=20
+-/*
+- * match a VLDB record stored in the cache
+- * - may also load target from entry
+- */
+-#ifdef AFS_CACHING_SUPPORT
+-static cachefs_match_val_t afs_vlocation_cache_match(void *target,
+-						     const void *entry)
+-{
+-	const struct afs_cache_vlocation *vldb =3D entry;
+-	struct afs_vlocation *vlocation =3D target;
+-
+-	_enter("{%s},{%s}", vlocation->vldb.name, vldb->name);
+-
+-	if (strncmp(vlocation->vldb.name, vldb->name, sizeof(vldb->name)) =3D=
+=3D 0
+-	    ) {
+-		if (!vlocation->valid ||
+-		    vlocation->vldb.rtime =3D=3D vldb->rtime
+-		    ) {
+-			vlocation->vldb =3D *vldb;
+-			vlocation->valid =3D 1;
+-			_leave(" =3D SUCCESS [c->m]");
+-			return CACHEFS_MATCH_SUCCESS;
+-		} else if (memcmp(&vlocation->vldb, vldb, sizeof(*vldb)) !=3D 0) {
+-			/* delete if VIDs for this name differ */
+-			if (memcmp(&vlocation->vldb.vid,
+-				   &vldb->vid,
+-				   sizeof(vldb->vid)) !=3D 0) {
+-				_leave(" =3D DELETE");
+-				return CACHEFS_MATCH_SUCCESS_DELETE;
+-			}
++	spin_lock(&afs_vlocation_updates_lock);
+=20
+-			_leave(" =3D UPDATE");
+-			return CACHEFS_MATCH_SUCCESS_UPDATE;
+-		} else {
+-			_leave(" =3D SUCCESS");
+-			return CACHEFS_MATCH_SUCCESS;
+-		}
++	if (!list_empty(&afs_vlocation_updates)) {
++		/* next update in 10 minutes, but wait at least 1 second more
++		 * than the newest record already queued so that we don't spam
++		 * the VL server suddenly with lots of requests
++		 */
++		xvl =3D list_entry(afs_vlocation_updates.prev,
++				 struct afs_vlocation, update);
++		if (vl->update_at <=3D xvl->update_at)
++			vl->update_at =3D xvl->update_at + 1;
++		xvl =3D list_entry(afs_vlocation_updates.next,
++				 struct afs_vlocation, update);
++		timeout =3D xvl->update_at - now;
++		if (timeout < 0)
++			timeout =3D 0;
++	} else {
++		timeout =3D afs_vlocation_update_timeout;
+ 	}
+=20
+-	_leave(" =3D FAILED");
+-	return CACHEFS_MATCH_FAILED;
+-}
+-#endif
++	ASSERT(list_empty(&vl->update));
+=20
+-/*
+- * update a VLDB record stored in the cache
+- */
+-#ifdef AFS_CACHING_SUPPORT
+-static void afs_vlocation_cache_update(void *source, void *entry)
+-{
+-	struct afs_cache_vlocation *vldb =3D entry;
+-	struct afs_vlocation *vlocation =3D source;
+-
+-	_enter("");
++	list_add_tail(&vl->update, &afs_vlocation_updates);
+=20
+-	*vldb =3D vlocation->vldb;
++	_debug("timeout %ld", timeout);
++	queue_delayed_work(afs_vlocation_update_worker,
++			   &afs_vlocation_update, timeout * HZ);
++	spin_unlock(&afs_vlocation_updates_lock);
++	afs_put_vlocation(vl);
+ }
+-#endif
+diff --git a/fs/afs/vnode.c b/fs/afs/vnode.c
+index 4ab1ed7..d2ca139 100644
+--- a/fs/afs/vnode.c
++++ b/fs/afs/vnode.c
+@@ -1,6 +1,6 @@
+ /* AFS vnode management
+  *
+- * Copyright (C) 2002 Red Hat, Inc. All Rights Reserved.
++ * Copyright (C) 2002, 2007 Red Hat, Inc. All Rights Reserved.
+  * Written by David Howells (dhowells@redhat.com)
+  *
+  * This program is free software; you can redistribute it and/or
+@@ -14,72 +14,183 @@
+ #include <linux/init.h>
+ #include <linux/slab.h>
+ #include <linux/fs.h>
+-#include <linux/pagemap.h>
+-#include "volume.h"
+-#include "cell.h"
+-#include "cmservice.h"
+-#include "fsclient.h"
+-#include "vlclient.h"
+-#include "vnode.h"
+ #include "internal.h"
+=20
+-static void afs_vnode_cb_timed_out(struct afs_timer *timer);
++#if 0
++static noinline bool dump_tree_aux(struct rb_node *node, struct rb_nod=
+e *parent,
++				   int depth, char lr)
++{
++	struct afs_vnode *vnode;
++	bool bad =3D false;
++
++	if (!node)
++		return false;
++
++	if (node->rb_left)
++		bad =3D dump_tree_aux(node->rb_left, node, depth + 2, '/');
++
++	vnode =3D rb_entry(node, struct afs_vnode, cb_promise);
++	kdebug("%c %*.*s%c%p {%d}",
++	       rb_is_red(node) ? 'R' : 'B',
++	       depth, depth, "", lr,
++	       vnode, vnode->cb_expires_at);
++	if (rb_parent(node) !=3D parent) {
++		printk("BAD: %p !=3D %p\n", rb_parent(node), parent);
++		bad =3D true;
++	}
+=20
+-struct afs_timer_ops afs_vnode_cb_timed_out_ops =3D {
+-	.timed_out	=3D afs_vnode_cb_timed_out,
+-};
++	if (node->rb_right)
++		bad |=3D dump_tree_aux(node->rb_right, node, depth + 2, '\\');
+=20
+-#ifdef AFS_CACHING_SUPPORT
+-static cachefs_match_val_t afs_vnode_cache_match(void *target,
+-						 const void *entry);
+-static void afs_vnode_cache_update(void *source, void *entry);
++	return bad;
++}
+=20
+-struct cachefs_index_def afs_vnode_cache_index_def =3D {
+-	.name		=3D "vnode",
+-	.data_size	=3D sizeof(struct afs_cache_vnode),
+-	.keys[0]	=3D { CACHEFS_INDEX_KEYS_BIN, 4 },
+-	.match		=3D afs_vnode_cache_match,
+-	.update		=3D afs_vnode_cache_update,
+-};
++static noinline void dump_tree(const char *name, struct afs_server *se=
+rver)
++{
++	kenter("%s", name);
++	if (dump_tree_aux(server->cb_promises.rb_node, NULL, 0, '-'))
 +		BUG();
++}
+ #endif
+=20
+ /*
+- * handle a callback timing out
+- * TODO: retain a ref to vnode struct for an outstanding callback time=
+out
++ * insert a vnode into the backing server's vnode tree
+  */
+-static void afs_vnode_cb_timed_out(struct afs_timer *timer)
++static void afs_install_vnode(struct afs_vnode *vnode,
++			      struct afs_server *server)
+ {
+-	struct afs_server *oldserver;
+-	struct afs_vnode *vnode;
++	struct afs_server *old_server =3D vnode->server;
++	struct afs_vnode *xvnode;
++	struct rb_node *parent, **p;
+=20
+-	vnode =3D list_entry(timer, struct afs_vnode, cb_timeout);
++	_enter("%p,%p", vnode, server);
+=20
+-	_enter("%p", vnode);
++	if (old_server) {
++		spin_lock(&old_server->fs_lock);
++		rb_erase(&vnode->server_rb, &old_server->fs_vnodes);
++		spin_unlock(&old_server->fs_lock);
++	}
+=20
+-	/* set the changed flag in the vnode and release the server */
+-	spin_lock(&vnode->lock);
++	afs_get_server(server);
++	vnode->server =3D server;
++	afs_put_server(old_server);
 +
-+	memcpy(&iv, session_key, sizeof(iv));
-+	desc.tfm = rxkad_ci;
-+	desc.info = iv.x;
-+	desc.flags = 0;
++	/* insert into the server's vnode tree in FID order */
++	spin_lock(&server->fs_lock);
 +
-+	rxkad_sg_set_buf2(ssg, &resp->encrypted, sizeof(resp->encrypted));
-+	memcpy(dsg, ssg, sizeof(dsg));
-+	crypto_blkcipher_decrypt_iv(&desc, dsg, ssg, sizeof(resp->encrypted));
-+	mutex_unlock(&rxkad_ci_mutex);
-+
++	parent =3D NULL;
++	p =3D &server->fs_vnodes.rb_node;
++	while (*p) {
++		parent =3D *p;
++		xvnode =3D rb_entry(parent, struct afs_vnode, server_rb);
++		if (vnode->fid.vid < xvnode->fid.vid)
++			p =3D &(*p)->rb_left;
++		else if (vnode->fid.vid > xvnode->fid.vid)
++			p =3D &(*p)->rb_right;
++		else if (vnode->fid.vnode < xvnode->fid.vnode)
++			p =3D &(*p)->rb_left;
++		else if (vnode->fid.vnode > xvnode->fid.vnode)
++			p =3D &(*p)->rb_right;
++		else if (vnode->fid.unique < xvnode->fid.unique)
++			p =3D &(*p)->rb_left;
++		else if (vnode->fid.unique > xvnode->fid.unique)
++			p =3D &(*p)->rb_right;
++		else
++			BUG(); /* can't happen unless afs_iget() malfunctions */
++	}
+=20
+-	oldserver =3D xchg(&vnode->cb_server, NULL);
+-	if (oldserver) {
+-		vnode->flags |=3D AFS_VNODE_CHANGED;
++	rb_link_node(&vnode->server_rb, parent, p);
++	rb_insert_color(&vnode->server_rb, &server->fs_vnodes);
+=20
+-		spin_lock(&afs_cb_hash_lock);
+-		list_del_init(&vnode->cb_hash_link);
+-		spin_unlock(&afs_cb_hash_lock);
++	spin_unlock(&server->fs_lock);
 +	_leave("");
 +}
-+
+=20
+-		spin_lock(&oldserver->cb_lock);
+-		list_del_init(&vnode->cb_link);
+-		spin_unlock(&oldserver->cb_lock);
 +/*
-+ * verify a response
++ * insert a vnode into the promising server's update/expiration tree
++ * - caller must hold vnode->lock
 + */
-+static int rxkad_verify_response(struct rxrpc_connection *conn,
-+				 struct sk_buff *skb,
-+				 u32 *_abort_code)
++static void afs_vnode_note_promise(struct afs_vnode *vnode,
++				   struct afs_server *server)
 +{
-+	struct rxkad_response response
-+		__attribute__((aligned(8))); /* must be aligned for crypto */
-+	struct rxrpc_skb_priv *sp;
-+	struct rxrpc_crypt session_key;
-+	time_t expiry;
-+	void *ticket;
-+	u32 abort_code, version, kvno, ticket_len, csum, level;
-+	int ret;
++	struct afs_server *old_server;
++	struct afs_vnode *xvnode;
++	struct rb_node *parent, **p;
 +
-+	_enter("{%d,%x}", conn->debug_id, key_serial(conn->server_key));
++	_enter("%p,%p", vnode, server);
 +
-+	abort_code = RXKADPACKETSHORT;
-+	if (skb_copy_bits(skb, 0, &response, sizeof(response)) < 0)
-+		goto protocol_error;
-+	if (!pskb_pull(skb, sizeof(response)))
-+		BUG();
++	ASSERT(server !=3D NULL);
 +
-+	version = ntohl(response.version);
-+	ticket_len = ntohl(response.ticket_len);
-+	kvno = ntohl(response.kvno);
-+	sp = rxrpc_skb(skb);
-+	_proto("Rx RESPONSE %%%u { v=%u kv=%u tl=%u }",
-+	       ntohl(sp->hdr.serial), version, kvno, ticket_len);
++	old_server =3D vnode->server;
++	if (vnode->cb_promised) {
++		if (server =3D=3D old_server &&
++		    vnode->cb_expires =3D=3D vnode->cb_expires_at) {
++			_leave(" [no change]");
++			return;
++		}
 +
-+	abort_code = RXKADINCONSISTENCY;
-+	if (version != RXKAD_VERSION)
++		spin_lock(&old_server->cb_lock);
++		if (vnode->cb_promised) {
++			_debug("delete");
++			rb_erase(&vnode->cb_promise, &old_server->cb_promises);
++			vnode->cb_promised =3D false;
++		}
++		spin_unlock(&old_server->cb_lock);
+ 	}
+=20
+-	spin_unlock(&vnode->lock);
++	if (vnode->server !=3D server)
++		afs_install_vnode(vnode, server);
 +
-+	abort_code = RXKADTICKETLEN;
-+	if (ticket_len < 4 || ticket_len > MAXKRB5TICKETLEN)
-+		goto protocol_error;
++	vnode->cb_expires_at =3D vnode->cb_expires;
++	_debug("PROMISE on %p {%lu}",
++	       vnode, (unsigned long) vnode->cb_expires_at);
 +
-+	abort_code = RXKADUNKNOWNKEY;
-+	if (kvno >= RXKAD_TKT_TYPE_KERBEROS_V5)
-+		goto protocol_error;
++	/* abuse an RB-tree to hold the expiration order (we may have multipl=
+e
++	 * items with the same expiration time) */
++	spin_lock(&server->cb_lock);
 +
-+	/* extract the kerberos ticket and decrypt and decode it */
-+	ticket = kmalloc(ticket_len, GFP_NOFS);
-+	if (!ticket)
-+		return -ENOMEM;
++	parent =3D NULL;
++	p =3D &server->cb_promises.rb_node;
++	while (*p) {
++		parent =3D *p;
++		xvnode =3D rb_entry(parent, struct afs_vnode, cb_promise);
++		if (vnode->cb_expires_at < xvnode->cb_expires_at)
++			p =3D &(*p)->rb_left;
++		else
++			p =3D &(*p)->rb_right;
++	}
+=20
+-	afs_put_server(oldserver);
++	rb_link_node(&vnode->cb_promise, parent, p);
++	rb_insert_color(&vnode->cb_promise, &server->cb_promises);
++	vnode->cb_promised =3D true;
+=20
++	spin_unlock(&server->cb_lock);
+ 	_leave("");
+ }
+=20
+ /*
++ * handle remote file deletion by discarding the callback promise
++ */
++static void afs_vnode_deleted_remotely(struct afs_vnode *vnode)
++{
++	struct afs_server *server;
 +
-+	abort_code = RXKADPACKETSHORT;
-+	if (skb_copy_bits(skb, 0, ticket, ticket_len) < 0)
-+		goto protocol_error_free;
++	set_bit(AFS_VNODE_DELETED, &vnode->flags);
 +
-+	ret = rxkad_decrypt_ticket(conn, ticket, ticket_len, &session_key,
-+				   &expiry, &abort_code);
-+	if (ret < 0) {
-+		*_abort_code = abort_code;
-+		kfree(ticket);
-+		return ret;
++	server =3D vnode->server;
++	if (vnode->cb_promised) {
++		spin_lock(&server->cb_lock);
++		if (vnode->cb_promised) {
++			rb_erase(&vnode->cb_promise, &server->cb_promises);
++			vnode->cb_promised =3D false;
++		}
++		spin_unlock(&server->cb_lock);
 +	}
 +
-+	/* use the session key from inside the ticket to decrypt the
-+	 * response */
-+	rxkad_decrypt_response(conn, &response, &session_key);
++	afs_put_server(server);
++}
 +
-+	abort_code = RXKADSEALEDINCON;
-+	if (response.encrypted.epoch != conn->epoch)
-+		goto protocol_error_free;
-+	if (response.encrypted.cid != conn->cid)
-+		goto protocol_error_free;
-+	if (ntohl(response.encrypted.securityIndex) != conn->security_ix)
-+		goto protocol_error_free;
-+	csum = response.encrypted.checksum;
-+	response.encrypted.checksum = 0;
-+	rxkad_calc_response_checksum(&response);
-+	if (response.encrypted.checksum != csum)
-+		goto protocol_error_free;
-+
-+	if (ntohl(response.encrypted.call_id[0]) > INT_MAX ||
-+	    ntohl(response.encrypted.call_id[1]) > INT_MAX ||
-+	    ntohl(response.encrypted.call_id[2]) > INT_MAX ||
-+	    ntohl(response.encrypted.call_id[3]) > INT_MAX)
-+		goto protocol_error_free;
-+
-+	abort_code = RXKADOUTOFSEQUENCE;
-+	if (response.encrypted.inc_nonce != htonl(conn->security_nonce + 1))
-+		goto protocol_error_free;
-+
-+	abort_code = RXKADLEVELFAIL;
-+	level = ntohl(response.encrypted.level);
-+	if (level > RXRPC_SECURITY_ENCRYPT)
-+		goto protocol_error_free;
-+	conn->security_level = level;
-+
-+	/* create a key to hold the security data and expiration time - after
-+	 * this the connection security can be handled in exactly the same way
-+	 * as for a client connection */
-+	ret = rxrpc_get_server_data_key(conn, &session_key, expiry, kvno);
-+	if (ret < 0) {
-+		kfree(ticket);
-+		return ret;
++/*
+  * finish off updating the recorded status of a file
+  * - starts callback expiry timer
+  * - adds to server's callback list
+@@ -94,43 +205,19 @@ static void afs_vnode_finalise_status_update(struc=
+t afs_vnode *vnode,
+=20
+ 	spin_lock(&vnode->lock);
+=20
+-	vnode->flags &=3D ~AFS_VNODE_CHANGED;
+-
+-	if (ret =3D=3D 0) {
+-		/* adjust the callback timeout appropriately */
+-		afs_kafstimod_add_timer(&vnode->cb_timeout,
+-					vnode->cb_expiry * HZ);
+-
+-		spin_lock(&afs_cb_hash_lock);
+-		list_move_tail(&vnode->cb_hash_link,
+-			       &afs_cb_hash(server, &vnode->fid));
+-		spin_unlock(&afs_cb_hash_lock);
+-
+-		/* swap ref to old callback server with that for new callback
+-		 * server */
+-		oldserver =3D xchg(&vnode->cb_server, server);
+-		if (oldserver !=3D server) {
+-			if (oldserver) {
+-				spin_lock(&oldserver->cb_lock);
+-				list_del_init(&vnode->cb_link);
+-				spin_unlock(&oldserver->cb_lock);
+-			}
+-
+-			afs_get_server(server);
+-			spin_lock(&server->cb_lock);
+-			list_add_tail(&vnode->cb_link, &server->cb_promises);
+-			spin_unlock(&server->cb_lock);
+-		} else {
+-			/* same server */
+-			oldserver =3D NULL;
+-		}
+-	} else if (ret =3D=3D -ENOENT) {
+-		/* the file was deleted - clear the callback timeout */
+-		oldserver =3D xchg(&vnode->cb_server, NULL);
+-		afs_kafstimod_del_timer(&vnode->cb_timeout);
++	clear_bit(AFS_VNODE_CB_BROKEN, &vnode->flags);
+=20
++	switch (ret) {
++	case 0:
++		afs_vnode_note_promise(vnode, server);
++		break;
++	case -ENOENT:
++		/* the file was deleted on the server */
+ 		_debug("got NOENT from server - marking file deleted");
+-		vnode->flags |=3D AFS_VNODE_DELETED;
++		afs_vnode_deleted_remotely(vnode);
++		break;
++	default:
++		break;
+ 	}
+=20
+ 	vnode->update_cnt--;
+@@ -162,19 +249,21 @@ int afs_vnode_fetch_status(struct afs_vnode *vnod=
+e)
+ 	       vnode->volume->vlocation->vldb.name,
+ 	       vnode->fid.vid, vnode->fid.vnode, vnode->fid.unique);
+=20
+-	if (!(vnode->flags & AFS_VNODE_CHANGED) && vnode->cb_server) {
++	if (!test_bit(AFS_VNODE_CB_BROKEN, &vnode->flags) &&
++	    vnode->cb_promised) {
+ 		_leave(" [unchanged]");
+ 		return 0;
+ 	}
+=20
+-	if (vnode->flags & AFS_VNODE_DELETED) {
++	if (test_bit(AFS_VNODE_DELETED, &vnode->flags)) {
+ 		_leave(" [deleted]");
+ 		return -ENOENT;
+ 	}
+=20
+ 	spin_lock(&vnode->lock);
+=20
+-	if (!(vnode->flags & AFS_VNODE_CHANGED)) {
++	if (!test_bit(AFS_VNODE_CB_BROKEN, &vnode->flags) &&
++	    vnode->cb_promised) {
+ 		spin_unlock(&vnode->lock);
+ 		_leave(" [unchanged]");
+ 		return 0;
+@@ -183,17 +272,18 @@ int afs_vnode_fetch_status(struct afs_vnode *vnod=
+e)
+ 	if (vnode->update_cnt > 0) {
+ 		/* someone else started a fetch */
+ 		set_current_state(TASK_UNINTERRUPTIBLE);
++		ASSERT(myself.func !=3D NULL);
+ 		add_wait_queue(&vnode->update_waitq, &myself);
+=20
+ 		/* wait for the status to be updated */
+ 		for (;;) {
+-			if (!(vnode->flags & AFS_VNODE_CHANGED))
++			if (!test_bit(AFS_VNODE_CB_BROKEN, &vnode->flags))
+ 				break;
+-			if (vnode->flags & AFS_VNODE_DELETED)
++			if (test_bit(AFS_VNODE_DELETED, &vnode->flags))
+ 				break;
+=20
+-			/* it got updated and invalidated all before we saw
+-			 * it */
++			/* check to see if it got updated and invalidated all
++			 * before we saw it */
+ 			if (vnode->update_cnt =3D=3D 0) {
+ 				remove_wait_queue(&vnode->update_waitq,
+ 						  &myself);
+@@ -213,7 +303,8 @@ int afs_vnode_fetch_status(struct afs_vnode *vnode)
+ 		spin_unlock(&vnode->lock);
+ 		set_current_state(TASK_RUNNING);
+=20
+-		return vnode->flags & AFS_VNODE_DELETED ? -ENOENT : 0;
++		return test_bit(AFS_VNODE_DELETED, &vnode->flags) ?
++			-ENOENT : 0;
+ 	}
+=20
+ get_anyway:
+@@ -226,15 +317,17 @@ get_anyway:
+ 	 * vnode */
+ 	do {
+ 		/* pick a server to query */
+-		ret =3D afs_volume_pick_fileserver(vnode->volume, &server);
+-		if (ret<0)
+-			return ret;
++		server =3D afs_volume_pick_fileserver(vnode);
++		if (IS_ERR(server))
++			return PTR_ERR(server);
+=20
+-		_debug("USING SERVER: %08x\n", ntohl(server->addr.s_addr));
++		_debug("USING SERVER: %p{%08x}",
++		       server, ntohl(server->addr.s_addr));
+=20
+-		ret =3D afs_rxfs_fetch_file_status(server, vnode, NULL);
++		ret =3D afs_fs_fetch_file_status(server, vnode, NULL,
++					       &afs_sync_call);
+=20
+-	} while (!afs_volume_release_fileserver(vnode->volume, server, ret));
++	} while (!afs_volume_release_fileserver(vnode, server, ret));
+=20
+ 	/* adjust the flags */
+ 	afs_vnode_finalise_status_update(vnode, server, ret);
+@@ -247,8 +340,8 @@ get_anyway:
+  * fetch file data from the volume
+  * - TODO implement caching and server failover
+  */
+-int afs_vnode_fetch_data(struct afs_vnode *vnode,
+-			 struct afs_rxfs_fetch_descriptor *desc)
++int afs_vnode_fetch_data(struct afs_vnode *vnode, off_t offset, size_t=
+ length,
++			 struct page *page)
+ {
+ 	struct afs_server *server;
+ 	int ret;
+@@ -268,15 +361,16 @@ int afs_vnode_fetch_data(struct afs_vnode *vnode,
+ 	 * vnode */
+ 	do {
+ 		/* pick a server to query */
+-		ret =3D afs_volume_pick_fileserver(vnode->volume, &server);
+-		if (ret < 0)
+-			return ret;
++		server =3D afs_volume_pick_fileserver(vnode);
++		if (IS_ERR(server))
++			return PTR_ERR(server);
+=20
+ 		_debug("USING SERVER: %08x\n", ntohl(server->addr.s_addr));
+=20
+-		ret =3D afs_rxfs_fetch_file_data(server, vnode, desc, NULL);
++		ret =3D afs_fs_fetch_data(server, vnode, offset, length, page,
++					NULL, &afs_sync_call);
+=20
+-	} while (!afs_volume_release_fileserver(vnode->volume, server, ret));
++	} while (!afs_volume_release_fileserver(vnode, server, ret));
+=20
+ 	/* adjust the flags */
+ 	afs_vnode_finalise_status_update(vnode, server, ret);
+@@ -284,99 +378,3 @@ int afs_vnode_fetch_data(struct afs_vnode *vnode,
+ 	_leave(" =3D %d", ret);
+ 	return ret;
+ }
+-
+-/*
+- * break any outstanding callback on a vnode
+- * - only relevent to server that issued it
+- */
+-int afs_vnode_give_up_callback(struct afs_vnode *vnode)
+-{
+-	struct afs_server *server;
+-	int ret;
+-
+-	_enter("%s,{%u,%u,%u}",
+-	       vnode->volume->vlocation->vldb.name,
+-	       vnode->fid.vid,
+-	       vnode->fid.vnode,
+-	       vnode->fid.unique);
+-
+-	spin_lock(&afs_cb_hash_lock);
+-	list_del_init(&vnode->cb_hash_link);
+-	spin_unlock(&afs_cb_hash_lock);
+-
+-	/* set the changed flag in the vnode and release the server */
+-	spin_lock(&vnode->lock);
+-
+-	afs_kafstimod_del_timer(&vnode->cb_timeout);
+-
+-	server =3D xchg(&vnode->cb_server, NULL);
+-	if (server) {
+-		vnode->flags |=3D AFS_VNODE_CHANGED;
+-
+-		spin_lock(&server->cb_lock);
+-		list_del_init(&vnode->cb_link);
+-		spin_unlock(&server->cb_lock);
+-	}
+-
+-	spin_unlock(&vnode->lock);
+-
+-	ret =3D 0;
+-	if (server) {
+-		ret =3D afs_rxfs_give_up_callback(server, vnode);
+-		afs_put_server(server);
+-	}
+-
+-	_leave(" =3D %d", ret);
+-	return ret;
+-}
+-
+-/*
+- * match a vnode record stored in the cache
+- */
+-#ifdef AFS_CACHING_SUPPORT
+-static cachefs_match_val_t afs_vnode_cache_match(void *target,
+-						 const void *entry)
+-{
+-	const struct afs_cache_vnode *cvnode =3D entry;
+-	struct afs_vnode *vnode =3D target;
+-
+-	_enter("{%x,%x,%Lx},{%x,%x,%Lx}",
+-	       vnode->fid.vnode,
+-	       vnode->fid.unique,
+-	       vnode->status.version,
+-	       cvnode->vnode_id,
+-	       cvnode->vnode_unique,
+-	       cvnode->data_version);
+-
+-	if (vnode->fid.vnode !=3D cvnode->vnode_id) {
+-		_leave(" =3D FAILED");
+-		return CACHEFS_MATCH_FAILED;
+-	}
+-
+-	if (vnode->fid.unique !=3D cvnode->vnode_unique ||
+-	    vnode->status.version !=3D cvnode->data_version) {
+-		_leave(" =3D DELETE");
+-		return CACHEFS_MATCH_SUCCESS_DELETE;
+-	}
+-
+-	_leave(" =3D SUCCESS");
+-	return CACHEFS_MATCH_SUCCESS;
+-}
+-#endif
+-
+-/*
+- * update a vnode record stored in the cache
+- */
+-#ifdef AFS_CACHING_SUPPORT
+-static void afs_vnode_cache_update(void *source, void *entry)
+-{
+-	struct afs_cache_vnode *cvnode =3D entry;
+-	struct afs_vnode *vnode =3D source;
+-
+-	_enter("");
+-
+-	cvnode->vnode_id	=3D vnode->fid.vnode;
+-	cvnode->vnode_unique	=3D vnode->fid.unique;
+-	cvnode->data_version	=3D vnode->status.version;
+-}
+-#endif
+diff --git a/fs/afs/vnode.h b/fs/afs/vnode.h
+deleted file mode 100644
+index 7f6d05b..0000000
+--- a/fs/afs/vnode.h
++++ /dev/null
+@@ -1,84 +0,0 @@
+-/* AFS vnode record
+- *
+- * Copyright (C) 2002 Red Hat, Inc. All Rights Reserved.
+- * Written by David Howells (dhowells@redhat.com)
+- *
+- * This program is free software; you can redistribute it and/or
+- * modify it under the terms of the GNU General Public License
+- * as published by the Free Software Foundation; either version
+- * 2 of the License, or (at your option) any later version.
+- */
+-
+-#ifndef AFS_VNODE_H
+-#define AFS_VNODE_H
+-
+-#include <linux/fs.h>
+-#include "server.h"
+-#include "kafstimod.h"
+-#include "cache.h"
+-
+-struct afs_rxfs_fetch_descriptor;
+-
+-extern struct afs_timer_ops afs_vnode_cb_timed_out_ops;
+-
+-/*
+- * vnode catalogue entry
+- */
+-struct afs_cache_vnode {
+-	afs_vnodeid_t		vnode_id;	/* vnode ID */
+-	unsigned		vnode_unique;	/* vnode ID uniquifier */
+-	afs_dataversion_t	data_version;	/* data version */
+-};
+-
+-#ifdef AFS_CACHING_SUPPORT
+-extern struct cachefs_index_def afs_vnode_cache_index_def;
+-#endif
+-
+-/*
+- * AFS inode private data
+- */
+-struct afs_vnode {
+-	struct inode		vfs_inode;	/* the VFS's inode record */
+-
+-	struct afs_volume	*volume;	/* volume on which vnode resides */
+-	struct afs_fid		fid;		/* the file identifier for this inode */
+-	struct afs_file_status	status;		/* AFS status info for this file */
+-#ifdef AFS_CACHING_SUPPORT
+-	struct cachefs_cookie	*cache;		/* caching cookie */
+-#endif
+-
+-	wait_queue_head_t	update_waitq;	/* status fetch waitqueue */
+-	unsigned		update_cnt;	/* number of outstanding ops that will update t=
+he
+-						 * status */
+-	spinlock_t		lock;		/* waitqueue/flags lock */
+-	unsigned		flags;
+-#define AFS_VNODE_CHANGED	0x00000001	/* set if vnode reported changed =
+by callback */
+-#define AFS_VNODE_DELETED	0x00000002	/* set if vnode deleted on server=
+ */
+-#define AFS_VNODE_MOUNTPOINT	0x00000004	/* set if vnode is a mountpoin=
+t symlink */
+-
+-	/* outstanding callback notification on this file */
+-	struct afs_server	*cb_server;	/* server that made the current promise=
+ */
+-	struct list_head	cb_link;	/* link in server's promises list */
+-	struct list_head	cb_hash_link;	/* link in master callback hash */
+-	struct afs_timer	cb_timeout;	/* timeout on promise */
+-	unsigned		cb_version;	/* callback version */
+-	unsigned		cb_expiry;	/* callback expiry time */
+-	afs_callback_type_t	cb_type;	/* type of callback */
+-};
+-
+-static inline struct afs_vnode *AFS_FS_I(struct inode *inode)
+-{
+-	return container_of(inode, struct afs_vnode, vfs_inode);
+-}
+-
+-static inline struct inode *AFS_VNODE_TO_I(struct afs_vnode *vnode)
+-{
+-	return &vnode->vfs_inode;
+-}
+-
+-extern int afs_vnode_fetch_status(struct afs_vnode *);
+-extern int afs_vnode_fetch_data(struct afs_vnode *,
+-				struct afs_rxfs_fetch_descriptor *);
+-extern int afs_vnode_give_up_callback(struct afs_vnode *);
+-
+-#endif /* AFS_VNODE_H */
+diff --git a/fs/afs/volume.c b/fs/afs/volume.c
+index c82e1bb..45491cf 100644
+--- a/fs/afs/volume.c
++++ b/fs/afs/volume.c
+@@ -1,6 +1,6 @@
+ /* AFS volume management
+  *
+- * Copyright (C) 2002 Red Hat, Inc. All Rights Reserved.
++ * Copyright (C) 2002, 2007 Red Hat, Inc. All Rights Reserved.
+  * Written by David Howells (dhowells@redhat.com)
+  *
+  * This program is free software; you can redistribute it and/or
+@@ -15,33 +15,9 @@
+ #include <linux/slab.h>
+ #include <linux/fs.h>
+ #include <linux/pagemap.h>
+-#include "volume.h"
+-#include "vnode.h"
+-#include "cell.h"
+-#include "cache.h"
+-#include "cmservice.h"
+-#include "fsclient.h"
+-#include "vlclient.h"
+ #include "internal.h"
+=20
+-#ifdef __KDEBUG
+ static const char *afs_voltypes[] =3D { "R/W", "R/O", "BAK" };
+-#endif
+-
+-#ifdef AFS_CACHING_SUPPORT
+-static cachefs_match_val_t afs_volume_cache_match(void *target,
+-						  const void *entry);
+-static void afs_volume_cache_update(void *source, void *entry);
+-
+-struct cachefs_index_def afs_volume_cache_index_def =3D {
+-	.name		=3D "volume",
+-	.data_size	=3D sizeof(struct afs_cache_vhash),
+-	.keys[0]	=3D { CACHEFS_INDEX_KEYS_BIN, 1 },
+-	.keys[1]	=3D { CACHEFS_INDEX_KEYS_BIN, 1 },
+-	.match		=3D afs_volume_cache_match,
+-	.update		=3D afs_volume_cache_update,
+-};
+-#endif
+=20
+ /*
+  * lookup a volume by name
+@@ -65,11 +41,12 @@ struct cachefs_index_def afs_volume_cache_index_def=
+ =3D {
+  * - Rule 3: If parent volume is R/W, then only mount R/W volume unles=
+s
+  *           explicitly told otherwise
+  */
+-int afs_volume_lookup(const char *name, struct afs_cell *cell, int rwp=
+ath,
+-		      struct afs_volume **_volume)
++struct afs_volume *afs_volume_lookup(const char *name, struct afs_cell=
+ *cell,
++				     int rwpath)
+ {
+ 	struct afs_vlocation *vlocation =3D NULL;
+ 	struct afs_volume *volume =3D NULL;
++	struct afs_server *server =3D NULL;
+ 	afs_voltype_t type;
+ 	const char *cellname, *volname, *suffix;
+ 	char srvtmask;
+@@ -79,7 +56,7 @@ int afs_volume_lookup(const char *name, struct afs_ce=
+ll *cell, int rwpath,
+=20
+ 	if (!name || (name[0] !=3D '%' && name[0] !=3D '#') || !name[1]) {
+ 		printk("kAFS: unparsable volume name\n");
+-		return -EINVAL;
++		return ERR_PTR(-EINVAL);
+ 	}
+=20
+ 	/* determine the type of volume we're looking for */
+@@ -128,8 +105,9 @@ int afs_volume_lookup(const char *name, struct afs_=
+cell *cell, int rwpath,
+=20
+ 	/* lookup the cell record */
+ 	if (cellname || !cell) {
+-		ret =3D afs_cell_lookup(cellname, cellnamesz, &cell);
+-		if (ret<0) {
++		cell =3D afs_cell_lookup(cellname, cellnamesz);
++		if (IS_ERR(cell)) {
++			ret =3D PTR_ERR(cell);
+ 			printk("kAFS: unable to lookup cell '%s'\n",
+ 			       cellname ?: "");
+ 			goto error;
+@@ -139,9 +117,12 @@ int afs_volume_lookup(const char *name, struct afs=
+_cell *cell, int rwpath,
+ 	}
+=20
+ 	/* lookup the volume location record */
+-	ret =3D afs_vlocation_lookup(cell, volname, volnamesz, &vlocation);
+-	if (ret < 0)
++	vlocation =3D afs_vlocation_lookup(cell, volname, volnamesz);
++	if (IS_ERR(vlocation)) {
++		ret =3D PTR_ERR(vlocation);
++		vlocation =3D NULL;
+ 		goto error;
++	}
+=20
+ 	/* make the final decision on the type we want */
+ 	ret =3D -ENOMEDIUM;
+@@ -192,13 +173,14 @@ int afs_volume_lookup(const char *name, struct af=
+s_cell *cell, int rwpath,
+ 	/* look up all the applicable server records */
+ 	for (loop =3D 0; loop < 8; loop++) {
+ 		if (vlocation->vldb.srvtmask[loop] & (1 << volume->type)) {
+-			ret =3D afs_server_lookup(
+-				volume->cell,
+-				&vlocation->vldb.servers[loop],
+-				&volume->servers[volume->nservers]);
+-			if (ret < 0)
++			server =3D afs_lookup_server(
++			       volume->cell, &vlocation->vldb.servers[loop]);
++			if (IS_ERR(server)) {
++				ret =3D PTR_ERR(server);
+ 				goto error_discard;
++			}
+=20
++			volume->servers[volume->nservers] =3D server;
+ 			volume->nservers++;
+ 		}
+ 	}
+@@ -219,8 +201,11 @@ int afs_volume_lookup(const char *name, struct afs=
+_cell *cell, int rwpath,
+ success:
+ 	_debug("kAFS selected %s volume %08x",
+ 	       afs_voltypes[volume->type], volume->vid);
+-	*_volume =3D volume;
+-	ret =3D 0;
++	up_write(&cell->vl_sem);
++	afs_put_vlocation(vlocation);
++	afs_put_cell(cell);
++	_leave(" =3D %p", volume);
++	return volume;
+=20
+ 	/* clean up */
+ error_up:
+@@ -228,9 +213,8 @@ error_up:
+ error:
+ 	afs_put_vlocation(vlocation);
+ 	afs_put_cell(cell);
+-
+-	_leave(" =3D %d (%p)", ret, volume);
+-	return ret;
++	_leave(" =3D %d", ret);
++	return ERR_PTR(ret);
+=20
+ error_discard:
+ 	up_write(&cell->vl_sem);
+@@ -255,10 +239,9 @@ void afs_put_volume(struct afs_volume *volume)
+=20
+ 	_enter("%p", volume);
+=20
+-	vlocation =3D volume->vlocation;
++	ASSERTCMP(atomic_read(&volume->usage), >, 0);
+=20
+-	/* sanity check */
+-	BUG_ON(atomic_read(&volume->usage) <=3D 0);
++	vlocation =3D volume->vlocation;
+=20
+ 	/* to prevent a race, the decrement and the dequeue must be effective=
+ly
+ 	 * atomic */
+@@ -292,14 +275,21 @@ void afs_put_volume(struct afs_volume *volume)
+  * pick a server to use to try accessing this volume
+  * - returns with an elevated usage count on the server chosen
+  */
+-int afs_volume_pick_fileserver(struct afs_volume *volume,
+-			       struct afs_server **_server)
++struct afs_server *afs_volume_pick_fileserver(struct afs_vnode *vnode)
+ {
++	struct afs_volume *volume =3D vnode->volume;
+ 	struct afs_server *server;
+ 	int ret, state, loop;
+=20
+ 	_enter("%s", volume->vlocation->vldb.name);
+=20
++	/* stick with the server we're already using if we can */
++	if (vnode->server && vnode->server->fs_state =3D=3D 0) {
++		afs_get_server(vnode->server);
++		_leave(" =3D %p [current]", vnode->server);
++		return vnode->server;
 +	}
 +
-+	kfree(ticket);
-+	_leave(" = 0");
-+	return 0;
+ 	down_read(&volume->server_sem);
+=20
+ 	/* handle the no-server case */
+@@ -307,7 +297,7 @@ int afs_volume_pick_fileserver(struct afs_volume *v=
+olume,
+ 		ret =3D volume->rjservers ? -ENOMEDIUM : -ESTALE;
+ 		up_read(&volume->server_sem);
+ 		_leave(" =3D %d [no servers]", ret);
+-		return ret;
++		return ERR_PTR(ret);
+ 	}
+=20
+ 	/* basically, just search the list for the first live server and use
+@@ -317,15 +307,16 @@ int afs_volume_pick_fileserver(struct afs_volume =
+*volume,
+ 		server =3D volume->servers[loop];
+ 		state =3D server->fs_state;
+=20
++		_debug("consider %d [%d]", loop, state);
 +
-+protocol_error_free:
-+	kfree(ticket);
-+protocol_error:
-+	*_abort_code = abort_code;
-+	_leave(" = -EPROTO [%d]", abort_code);
-+	return -EPROTO;
-+}
-+
-+/*
-+ * clear the connection security
-+ */
-+static void rxkad_clear(struct rxrpc_connection *conn)
-+{
-+	_enter("");
-+
-+	if (conn->cipher)
-+		crypto_free_blkcipher(conn->cipher);
-+}
-+
-+/*
-+ * RxRPC Kerberos-based security
-+ */
-+static struct rxrpc_security rxkad = {
-+	.owner				= THIS_MODULE,
-+	.name				= "rxkad",
-+	.security_index			= RXKAD_VERSION,
-+	.init_connection_security	= rxkad_init_connection_security,
-+	.prime_packet_security		= rxkad_prime_packet_security,
-+	.secure_packet			= rxkad_secure_packet,
-+	.verify_packet			= rxkad_verify_packet,
-+	.issue_challenge		= rxkad_issue_challenge,
-+	.respond_to_challenge		= rxkad_respond_to_challenge,
-+	.verify_response		= rxkad_verify_response,
-+	.clear				= rxkad_clear,
-+};
-+
-+static __init int rxkad_init(void)
-+{
-+	_enter("");
-+
-+	/* pin the cipher we need so that the crypto layer doesn't invoke
-+	 * keventd to go get it */
-+	rxkad_ci = crypto_alloc_blkcipher("pcbc(fcrypt)", 0, CRYPTO_ALG_ASYNC);
-+	if (IS_ERR(rxkad_ci))
-+		return PTR_ERR(rxkad_ci);
-+
-+	return rxrpc_register_security(&rxkad);
-+}
-+
-+module_init(rxkad_init);
-+
-+static __exit void rxkad_exit(void)
-+{
-+	_enter("");
-+
-+	rxrpc_unregister_security(&rxkad);
-+	crypto_free_blkcipher(rxkad_ci);
-+}
-+
-+module_exit(rxkad_exit);
+ 		switch (state) {
+ 			/* found an apparently healthy server */
+ 		case 0:
+ 			afs_get_server(server);
+ 			up_read(&volume->server_sem);
+-			*_server =3D server;
+-			_leave(" =3D 0 (picked %08x)",
+-			       ntohl(server->addr.s_addr));
+-			return 0;
++			_leave(" =3D %p (picked %08x)",
++			       server, ntohl(server->addr.s_addr));
++			return server;
+=20
+ 		case -ENETUNREACH:
+ 			if (ret =3D=3D 0)
+@@ -361,7 +352,7 @@ int afs_volume_pick_fileserver(struct afs_volume *v=
+olume,
+ 	 */
+ 	up_read(&volume->server_sem);
+ 	_leave(" =3D %d", ret);
+-	return ret;
++	return ERR_PTR(ret);
+ }
+=20
+ /*
+@@ -370,10 +361,11 @@ int afs_volume_pick_fileserver(struct afs_volume =
+*volume,
+  * - records result of using a particular server to access a volume
+  * - return 0 to try again, 1 if okay or to issue error
+  */
+-int afs_volume_release_fileserver(struct afs_volume *volume,
++int afs_volume_release_fileserver(struct afs_vnode *vnode,
+ 				  struct afs_server *server,
+ 				  int result)
+ {
++	struct afs_volume *volume =3D vnode->volume;
+ 	unsigned loop;
+=20
+ 	_enter("%s,%08x,%d",
+@@ -384,6 +376,7 @@ int afs_volume_release_fileserver(struct afs_volume=
+ *volume,
+ 		/* success */
+ 	case 0:
+ 		server->fs_act_jif =3D jiffies;
++		server->fs_state =3D 0;
+ 		break;
+=20
+ 		/* the fileserver denied all knowledge of the volume */
+@@ -391,7 +384,7 @@ int afs_volume_release_fileserver(struct afs_volume=
+ *volume,
+ 		server->fs_act_jif =3D jiffies;
+ 		down_write(&volume->server_sem);
+=20
+-		/* first, find where the server is in the active list (if it
++		/* firstly, find where the server is in the active list (if it
+ 		 * is) */
+ 		for (loop =3D 0; loop < volume->nservers; loop++)
+ 			if (volume->servers[loop] =3D=3D server)
+@@ -429,6 +422,7 @@ int afs_volume_release_fileserver(struct afs_volume=
+ *volume,
+ 	case -ENETUNREACH:
+ 	case -EHOSTUNREACH:
+ 	case -ECONNREFUSED:
++	case -ETIME:
+ 	case -ETIMEDOUT:
+ 	case -EREMOTEIO:
+ 		/* mark the server as dead
+@@ -464,40 +458,3 @@ try_next_server:
+ 	_leave(" [try next server]");
+ 	return 0;
+ }
+-
+-/*
+- * match a volume hash record stored in the cache
+- */
+-#ifdef AFS_CACHING_SUPPORT
+-static cachefs_match_val_t afs_volume_cache_match(void *target,
+-						  const void *entry)
+-{
+-	const struct afs_cache_vhash *vhash =3D entry;
+-	struct afs_volume *volume =3D target;
+-
+-	_enter("{%u},{%u}", volume->type, vhash->vtype);
+-
+-	if (volume->type =3D=3D vhash->vtype) {
+-		_leave(" =3D SUCCESS");
+-		return CACHEFS_MATCH_SUCCESS;
+-	}
+-
+-	_leave(" =3D FAILED");
+-	return CACHEFS_MATCH_FAILED;
+-}
+-#endif
+-
+-/*
+- * update a volume hash record stored in the cache
+- */
+-#ifdef AFS_CACHING_SUPPORT
+-static void afs_volume_cache_update(void *source, void *entry)
+-{
+-	struct afs_cache_vhash *vhash =3D entry;
+-	struct afs_volume *volume =3D source;
+-
+-	_enter("");
+-
+-	vhash->vtype =3D volume->type;
+-}
+-#endif
+diff --git a/fs/afs/volume.h b/fs/afs/volume.h
+deleted file mode 100644
+index a605bea..0000000
+--- a/fs/afs/volume.h
++++ /dev/null
+@@ -1,126 +0,0 @@
+-/* AFS volume management
+- *
+- * Copyright (C) 2002 Red Hat, Inc. All Rights Reserved.
+- * Written by David Howells (dhowells@redhat.com)
+- *
+- * This program is free software; you can redistribute it and/or
+- * modify it under the terms of the GNU General Public License
+- * as published by the Free Software Foundation; either version
+- * 2 of the License, or (at your option) any later version.
+- */
+-
+-#ifndef AFS_VOLUME_H
+-#define AFS_VOLUME_H
+-
+-#include "types.h"
+-#include "fsclient.h"
+-#include "kafstimod.h"
+-#include "kafsasyncd.h"
+-#include "cache.h"
+-
+-typedef enum {
+-	AFS_VLUPD_SLEEP,		/* sleeping waiting for update timer to fire */
+-	AFS_VLUPD_PENDING,		/* on pending queue */
+-	AFS_VLUPD_INPROGRESS,		/* op in progress */
+-	AFS_VLUPD_BUSYSLEEP,		/* sleeping because server returned EBUSY */
+-} __attribute__((packed)) afs_vlocation_upd_t;
+-
+-/*
+- * entry in the cached volume location catalogue
+- */
+-struct afs_cache_vlocation {
+-	uint8_t			name[64];	/* volume name (lowercase, padded with NULs) */
+-	uint8_t			nservers;	/* number of entries used in servers[] */
+-	uint8_t			vidmask;	/* voltype mask for vid[] */
+-	uint8_t			srvtmask[8];	/* voltype masks for servers[] */
+-#define AFS_VOL_VTM_RW	0x01 /* R/W version of the volume is available =
+(on this server) */
+-#define AFS_VOL_VTM_RO	0x02 /* R/O version of the volume is available =
+(on this server) */
+-#define AFS_VOL_VTM_BAK	0x04 /* backup version of the volume is availa=
+ble (on this server) */
+-
+-	afs_volid_t		vid[3];		/* volume IDs for R/W, R/O and Bak volumes */
+-	struct in_addr		servers[8];	/* fileserver addresses */
+-	time_t			rtime;		/* last retrieval time */
+-};
+-
+-#ifdef AFS_CACHING_SUPPORT
+-extern struct cachefs_index_def afs_vlocation_cache_index_def;
+-#endif
+-
+-/*
+- * volume -> vnode hash table entry
+- */
+-struct afs_cache_vhash {
+-	afs_voltype_t		vtype;		/* which volume variation */
+-	uint8_t			hash_bucket;	/* which hash bucket this represents */
+-} __attribute__((packed));
+-
+-#ifdef AFS_CACHING_SUPPORT
+-extern struct cachefs_index_def afs_volume_cache_index_def;
+-#endif
+-
+-/*
+- * AFS volume location record
+- */
+-struct afs_vlocation {
+-	atomic_t		usage;
+-	struct list_head	link;		/* link in cell volume location list */
+-	struct afs_timer	timeout;	/* decaching timer */
+-	struct afs_cell		*cell;		/* cell to which volume belongs */
+-#ifdef AFS_CACHING_SUPPORT
+-	struct cachefs_cookie	*cache;		/* caching cookie */
+-#endif
+-	struct afs_cache_vlocation vldb;	/* volume information DB record */
+-	struct afs_volume	*vols[3];	/* volume access record pointer (index by=
+ type) */
+-	rwlock_t		lock;		/* access lock */
+-	unsigned long		read_jif;	/* time at which last read from vlserver */
+-	struct afs_timer	upd_timer;	/* update timer */
+-	struct afs_async_op	upd_op;		/* update operation */
+-	afs_vlocation_upd_t	upd_state;	/* update state */
+-	unsigned short		upd_first_svix;	/* first server index during update *=
+/
+-	unsigned short		upd_curr_svix;	/* current server index during update =
+*/
+-	unsigned short		upd_rej_cnt;	/* ENOMEDIUM count during update */
+-	unsigned short		upd_busy_cnt;	/* EBUSY count during update */
+-	unsigned short		valid;		/* T if valid */
+-};
+-
+-extern int afs_vlocation_lookup(struct afs_cell *, const char *, unsig=
+ned,
+-				struct afs_vlocation **);
+-
+-#define afs_get_vlocation(V) do { atomic_inc(&(V)->usage); } while(0)
+-
+-extern void afs_put_vlocation(struct afs_vlocation *);
+-extern void afs_vlocation_do_timeout(struct afs_vlocation *);
+-
+-/*
+- * AFS volume access record
+- */
+-struct afs_volume {
+-	atomic_t		usage;
+-	struct afs_cell		*cell;		/* cell to which belongs (unrefd ptr) */
+-	struct afs_vlocation	*vlocation;	/* volume location */
+-#ifdef AFS_CACHING_SUPPORT
+-	struct cachefs_cookie	*cache;		/* caching cookie */
+-#endif
+-	afs_volid_t		vid;		/* volume ID */
+-	afs_voltype_t		type;		/* type of volume */
+-	char			type_force;	/* force volume type (suppress R/O -> R/W) */
+-	unsigned short		nservers;	/* number of server slots filled */
+-	unsigned short		rjservers;	/* number of servers discarded due to -ENO=
+MEDIUM */
+-	struct afs_server	*servers[8];	/* servers on which volume resides (or=
+dered) */
+-	struct rw_semaphore	server_sem;	/* lock for accessing current server =
+*/
+-};
+-
+-extern int afs_volume_lookup(const char *, struct afs_cell *, int,
+-			     struct afs_volume **);
+-
+-#define afs_get_volume(V) do { atomic_inc(&(V)->usage); } while(0)
+-
+-extern void afs_put_volume(struct afs_volume *);
+-
+-extern int afs_volume_pick_fileserver(struct afs_volume *,
+-				      struct afs_server **);
+-
+-extern int afs_volume_release_fileserver(struct afs_volume *,
+-					 struct afs_server *, int);
+-
+-#endif /* AFS_VOLUME_H */
 
