@@ -1,29 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 4/4] bridge: missing rtnl
-Date: Wed, 25 Apr 2007 22:08:59 -0700 (PDT)
-Message-ID: <20070425.220859.56861479.davem@davemloft.net>
-References: <20070425234737.727790594@linux-foundation.org>
-	<20070425234950.847694502@linux-foundation.org>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [Security] [PATCH] infinite recursion in netlink
+Date: Wed, 25 Apr 2007 22:29:12 -0700
+Message-ID: <20070426052912.GA17402@kroah.com>
+References: <20070425183856.GA6028@ms2.inr.ac.ru> <alpine.LFD.0.98.0704251311270.9964@woody.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@linux-foundation.org
-To: shemminger@linux-foundation.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, davem@davemloft.net,
+	security@kernel.org, netdev@vger.kernel.org, jaco@kroon.co.za
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50721
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754703AbXDZFIv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2007 01:08:51 -0400
-In-Reply-To: <20070425234950.847694502@linux-foundation.org>
+Received: from pentafluge.infradead.org ([213.146.154.40]:48810 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754713AbXDZF3W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2007 01:29:22 -0400
+Content-Disposition: inline
+In-Reply-To: <alpine.LFD.0.98.0704251311270.9964@woody.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Date: Wed, 25 Apr 2007 16:47:41 -0700
-
-> Writing to /sys/class/net/brX/bridge/stp_state causes a warning because
-> RTNL is not held when call br_stp_if.c
+On Wed, Apr 25, 2007 at 01:15:12PM -0700, Linus Torvalds wrote:
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+> 
+> On Wed, 25 Apr 2007, Alexey Kuznetsov wrote:
+> > 
+> > Reply to NETLINK_FIB_LOOKUP messages were misrouted back to kernel,
+> > which resulted in infinite recursion and stack overflow.
 
-Applied, thanks Stephen.
+Wait, I just had the bright idea of actually testing this before I
+pushed out a 2.6.20.9 kernel with another fix in it, and nope, still
+crashes, even with this patch  :(
+
+Full stackdump in a picture (forgot to have netconsole running) at:
+	http://www.kroah.com/netlink_oops.jpg
+
+Any thoughts?
+
+I'll go try 2.6.21 now too...
+
+thanks,
+
+greg k-h
