@@ -1,35 +1,36 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: IPV6 source routing patch is still broken?
-Date: Fri, 27 Apr 2007 08:52:10 +0900 (JST)
-Message-ID: <20070427.085210.117150909.yoshfuji@linux-ipv6.org>
-References: <46311F76.9040803@redhat.com>
-	<20070426.150434.91313967.davem@davemloft.net>
-	<46313180.6040809@redhat.com>
+From: Jon Paul Maloy <jon.maloy@ericsson.com>
+Subject: Re: [PATCH] [TIPC]: Changed msg_set_bits params type
+Date: Thu, 26 Apr 2007 19:50:42 -0400
+Message-ID: <46313AD2.6060809@ericsson.com>
+References: <46310443.7090405@ericsson.com> <20070426.144521.98863152.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	yoshfuji@linux-ipv6.org, nakam@linux-ipv6.org
-To: cebbert@redhat.com
+Cc: netdev@vger.kernel.org, allan.stephens@windriver.com,
+	jon.maloy@donjonn.com, per.liden@ericsson.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:33194 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755283AbXDZXwM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2007 19:52:12 -0400
-In-Reply-To: <46313180.6040809@redhat.com>
+Received: from imr1.ericy.com ([198.24.6.9]:52919 "EHLO imr1.ericy.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755286AbXDZXzq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Apr 2007 19:55:46 -0400
+In-Reply-To: <20070426.144521.98863152.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In article <46313180.6040809@redhat.com> (at Thu, 26 Apr 2007 19:10:56 -0400), Chuck Ebbert <cebbert@redhat.com> says:
+David Miller wrote:
+> Did you actually run sparse to see what warnings this change
+> adds or deletes or are you submitting untested changes?
+>
+>   
+I did, and I am aware that sparse shows several warnings
+for TIPC, which we will have to fix this asap, of course.
+The patched line did not show up in the warning list, which
+along with a full regression test made me conclude that we
+didn't introduce a problem, at least. I see now that it
+didn't cause a warning before the change either, so I was
+probably too quick to try to please people. You can can
+ignore the patch if you want to, but it is safe.
 
-> Another question: is it a good idea to even be shipping release
-> kernels with Mobile IPV6 enabled? Unfortunately, "experimental"
-> isn't enough to go by...
+///jon
 
-Well, we have still 2 missing pieces in 2.6.21, and we are trying to
-push them (source address selection, which is already in net-2.6 and
-xfrm subpolicy, which is still on dave's backlog?) to 2.6.22.
-After 2.6.23, we would say yes.
-
---yoshfuji
