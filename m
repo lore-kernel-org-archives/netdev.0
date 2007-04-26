@@ -1,125 +1,33 @@
-From: Greg KH <greg@kroah.com>
+From: Chris Wright <chrisw@sous-sol.org>
 Subject: Re: [Security] [PATCH] infinite recursion in netlink
-Date: Wed, 25 Apr 2007 22:48:42 -0700
-Message-ID: <20070426054842.GA18630@kroah.com>
-References: <20070425183856.GA6028@ms2.inr.ac.ru> <alpine.LFD.0.98.0704251311270.9964@woody.linux-foundation.org> <20070426052912.GA17402@kroah.com> <20070425.223201.108808547.davem@davemloft.net> <20070426054420.GA18057@kroah.com>
+Date: Wed, 25 Apr 2007 22:52:59 -0700
+Message-ID: <20070426055259.GF2819@sequoia.sous-sol.org>
+References: <20070425183856.GA6028@ms2.inr.ac.ru> <alpine.LFD.0.98.0704251311270.9964@woody.linux-foundation.org> <20070426052912.GA17402@kroah.com> <20070425.223201.108808547.davem@davemloft.net> <20070426054420.GA18057@kroah.com> <20070426054842.GA18630@kroah.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: torvalds@linux-foundation.org, kuznet@ms2.inr.ac.ru,
-	security@kernel.org, netdev@vger.kernel.org, jaco@kroon.co.za
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
+	security@kernel.org, torvalds@linux-foundation.org,
+	jaco@kroon.co.za, netdev@vger.kernel.org
+To: Greg KH <greg@kroah.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:42550 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754723AbXDZFsT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2007 01:48:19 -0400
+Received: from 216-99-217-87.dsl.aracnet.com ([216.99.217.87]:41373 "EHLO
+	sous-sol.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754745AbXDZFz2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Apr 2007 01:55:28 -0400
 Content-Disposition: inline
-In-Reply-To: <20070426054420.GA18057@kroah.com>
+In-Reply-To: <20070426054842.GA18630@kroah.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 25, 2007 at 10:44:20PM -0700, Greg KH wrote:
-> On Wed, Apr 25, 2007 at 10:32:01PM -0700, David Miller wrote:
-> > From: Greg KH <greg@kroah.com>
-> > Date: Wed, 25 Apr 2007 22:29:12 -0700
-> > 
-> > > On Wed, Apr 25, 2007 at 01:15:12PM -0700, Linus Torvalds wrote:
-> > > > 
-> > > > 
-> > > > On Wed, 25 Apr 2007, Alexey Kuznetsov wrote:
-> > > > > 
-> > > > > Reply to NETLINK_FIB_LOOKUP messages were misrouted back to kernel,
-> > > > > which resulted in infinite recursion and stack overflow.
-> > > 
-> > > Wait, I just had the bright idea of actually testing this before I
-> > > pushed out a 2.6.20.9 kernel with another fix in it, and nope, still
-> > > crashes, even with this patch  :(
-> > > 
-> > > Full stackdump in a picture (forgot to have netconsole running) at:
-> > > 	http://www.kroah.com/netlink_oops.jpg
-> > > 
-> > > Any thoughts?
-> > > 
-> > > I'll go try 2.6.21 now too...
-> > 
-> > Crap.  We should have let this one simmer for a day to get
-> > more eyes on it.
-> > 
-> > Thanks for catching this Greg.
-> 
-> Odd, 2.6.21 doesn't crash at all.
-> 
-> Can anyone verify that I made the 2.6.20.8 release correctly with the
-> proper patch?
+* Greg KH (greg@kroah.com) wrote:
+> fyi, here's the patch that I applied, perhaps 2.6.20 needed something
+> else too?
+<snip>
+> @@ -809,7 +815,7 @@ static void nl_fib_input(struct sock *sk
+>  
+>  	nl_fib_lookup(frn, tb);
+>  	
+> -	pid = nlh->nlmsg_pid;           /*pid of sending process */
+> +	pid = NETLINK_CB(skb).pid;       /* pid of sending process */
 
-fyi, here's the patch that I applied, perhaps 2.6.20 needed something
-else too?
-
-thanks,
-
-greg k-h
-
-
-Subject: NETLINK: Infinite recursion in netlink.
-
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-
-[NETLINK]: Infinite recursion in netlink.
-
-Reply to NETLINK_FIB_LOOKUP messages were misrouted back to kernel,
-which resulted in infinite recursion and stack overflow.
-
-The bug is present in all kernel versions since the feature appeared.
-
-The patch also makes some minimal cleanup:
-
-1. Return something consistent (-ENOENT) when fib table is missing
-2. Do not crash when queue is empty (does not happen, but yet)
-3. Put result of lookup
-
-Signed-off-by: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Signed-off-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
-
----
- net/ipv4/fib_frontend.c |    8 +++++++-
- 1 file changed, 7 insertions(+), 1 deletion(-)
-
---- a/net/ipv4/fib_frontend.c
-+++ b/net/ipv4/fib_frontend.c
-@@ -772,6 +772,8 @@ static void nl_fib_lookup(struct fib_res
- 				       .nl_u = { .ip4_u = { .daddr = frn->fl_addr,
- 							    .tos = frn->fl_tos,
- 							    .scope = frn->fl_scope } } };
-+
-+	frn->err = -ENOENT;
- 	if (tb) {
- 		local_bh_disable();
- 
-@@ -783,6 +785,7 @@ static void nl_fib_lookup(struct fib_res
- 			frn->nh_sel = res.nh_sel;
- 			frn->type = res.type;
- 			frn->scope = res.scope;
-+			fib_res_put(&res);
- 		}
- 		local_bh_enable();
- 	}
-@@ -797,6 +800,9 @@ static void nl_fib_input(struct sock *sk
- 	struct fib_table *tb;
- 	
- 	skb = skb_dequeue(&sk->sk_receive_queue);
-+	if (skb == NULL)
-+		return;
-+
- 	nlh = (struct nlmsghdr *)skb->data;
- 	if (skb->len < NLMSG_SPACE(0) || skb->len < nlh->nlmsg_len ||
- 	    nlh->nlmsg_len < NLMSG_LENGTH(sizeof(*frn))) {
-@@ -809,7 +815,7 @@ static void nl_fib_input(struct sock *sk
- 
- 	nl_fib_lookup(frn, tb);
- 	
--	pid = nlh->nlmsg_pid;           /*pid of sending process */
-+	pid = NETLINK_CB(skb).pid;       /* pid of sending process */
- 	NETLINK_CB(skb).pid = 0;         /* from kernel */
- 	NETLINK_CB(skb).dst_group = 0;  /* unicast */
- 	netlink_unicast(sk, skb, pid, MSG_DONTWAIT);
+That's the important bit.  I'm testing against 2.6.20.8 right now.
