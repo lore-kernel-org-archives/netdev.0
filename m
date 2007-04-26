@@ -1,55 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][XFRM] export SAD info
-Date: Thu, 26 Apr 2007 14:18:47 -0700 (PDT)
-Message-ID: <20070426.141847.10298516.davem@davemloft.net>
-References: <1177516490.9923.7.camel@localhost>
-	<20070426.001850.55508944.davem@davemloft.net>
-	<1177593010.4077.18.camel@localhost>
+Subject: Re: [PATCH 7/9] wext: reduce inline abuse
+Date: Thu, 26 Apr 2007 14:37:01 -0700 (PDT)
+Message-ID: <20070426.143701.131919386.davem@davemloft.net>
+References: <20070426165032.GB22576@bougret.hpl.hp.com>
+	<200704261903.27932.mb@bu3sch.de>
+	<20070426171517.GA22667@bougret.hpl.hp.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: hadi@cyberus.ca
+Cc: mb@bu3sch.de, johannes@sipsolutions.net, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org
+To: jt@hpl.hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52621
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59818
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755127AbXDZVSk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2007 17:18:40 -0400
-In-Reply-To: <1177593010.4077.18.camel@localhost>
+	by vger.kernel.org with ESMTP id S1755143AbXDZVgy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2007 17:36:54 -0400
+In-Reply-To: <20070426171517.GA22667@bougret.hpl.hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: jamal <hadi@cyberus.ca>
-Date: Thu, 26 Apr 2007 09:10:10 -0400
+From: Jean Tourrilhes <jt@hpl.hp.com>
+Date: Thu, 26 Apr 2007 10:15:17 -0700
 
-> I would have liked to just do a read_lock_bh when retrieving the table
-> metadata; however, the state table lock is defined as DEFINE_SPINLOCK
-> unlike the policy table which is defined as DEFINE_RWLOCK.
-> Any objection to change the state lock to be RW?
+> On Thu, Apr 26, 2007 at 07:03:27PM +0200, Michael Buesch wrote:
+> > 
+> > Sure, other people have different opinions on that, but I think
+> > with my approach we get smallest code with good speed.
+> 
+> 	Try with gcc-3.3 if you don't trust me. Your patch will
+> produce bigger and slower code. Thanks.
 
-I wouldn't mind if it actually helped anything.
+A broken compiler is not an argument for keeping all of these
+bogus inlines around.
 
-The SMP cache line transactions are more expensive than the
-execution of the code blocks they are protecting.  rwlock's
-rarely help, and when they do (the execution path is more
-expensive than the SMP atomic operations) then you're holding
-the lock too long :-)
+It is the compilers job to optimize things correctly, and current
+gcc's do.
 
-> One other angle is start rejecting additions to the table after some
-> point. To test, I wrote a little DOS tool that just kept adding entries
-> until an OOM hit. It is a lot of fun to watch when you hit a point that
-> swap is guzzling 2G or more. The add latency starts going up
-> exponentially.
-
-I would prefer a dynamic algorithm that reacts to system memory
-pressure and yet-another-knob that people will get wrong and
-there is no sane default for.
-
-I plan to do away with all the GC threshold madness in the
-routing cache, for example, and just let the MM layer call
-back into us when there is memory pressure to trigger GC.
-
-See set_shrinker() and friends.  The MM calls into these
-handlers in response to memory pressure.  There is no
-reason the networking can't hook into this and do things
-properly instead of the ad-hoc manner we currently use.
+We've always had this approach to dealing with compiler "issues".
