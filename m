@@ -1,148 +1,96 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: RE: [PATCH] IPROUTE: Modify tc for new PRIO multiqueue behavior
-Date: Thu, 26 Apr 2007 09:30:24 -0700
-Message-ID: <D5C1322C3E673F459512FB59E0DDC32902B9710F@orsmsx414.amr.corp.intel.com>
-References: <4630CBF3.9030202@trash.net>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: Unexcepted latency (order of 100-200 ms) with TCP (packet receive)
+Date: Thu, 26 Apr 2007 09:38:38 -0700
+Message-ID: <4630D58E.5020709@hp.com>
+References: <Pine.LNX.4.64.0704241518370.28337@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Stephen Hemminger" <shemminger@linux-foundation.org>,
-	<netdev@vger.kernel.org>, <jgarzik@pobox.com>,
-	"cramerj" <cramerj@intel.com>,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
-	"Leech, Christopher" <christopher.leech@intel.com>,
-	<davem@davemloft.net>
-To: "Patrick McHardy" <kaber@trash.net>, <hadi@cyberus.ca>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Netdev <netdev@vger.kernel.org>
+To: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:55498 "EHLO mga03.intel.com"
+Received: from palrel11.hp.com ([156.153.255.246]:53467 "EHLO palrel11.hp.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752203AbXDZQa1 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2007 12:30:27 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <4630CBF3.9030202@trash.net>
+	id S1754811AbXDZQil (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Apr 2007 12:38:41 -0400
+In-Reply-To: <Pine.LNX.4.64.0704241518370.28337@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> jamal wrote:
-> > On Wed, 2007-25-04 at 10:45 -0700, Waskiewicz Jr, Peter P wrote:
-> > 
-> >>The previous version of my multiqueue patches I sent for 
-> consideration 
-> >>had feedback from Patrick McHardy asking that the user be able to 
-> >>configure the PRIO qdisc to run with multiqueue support or 
-> not.  That 
-> >>is why TC needed a modification, since I agreed with 
-> Patrick that this 
-> >>would be a useful option.
-> > 
-> > 
-> > Patrick is a smart guy and I am almost sure he gave you that advice 
-> > based on how your kernel patches work. Since i havent 
-> looked at your 
-> > patches, I cant swear to that as a fact - hence the "almost"
-> 
-> 
-> The reason for suggesting to add a TC option was that these 
-> patches move (parts of) the scheduling policy into the driver 
-> since it can start and stop individual subqueues, which in 
-> turn cause single bands of prio not to be dequeued anymore. 
-> To avoid surprising users by this it should be explicitly 
-> enabled. Another reason is that prio below a classful qdisc 
-> should most likely not care about multiqueue.
-> 
-> >>All the versions of multiqueue network device support I've sent for 
-> >>consideration had PRIO modified to support multiqueue 
-> devices, since 
-> >>it lends itself well for the model of multiple, independent flows.
-> > 
-> > 
-> > So it seems your approach is to make changes to every qdisc 
-> so you can 
-> > support device-multiq, no? This is what i suspected and was 
-> > questioning earlier, not the fact you had it in tc (which 
-> is a consequence).
-> > 
-> > My view is:
-> > - the burden of the changes should be on the driver. A thin layer 
-> > between the qdisc and driver hw tx should help hide those 
-> changes from 
-> > the qdiscs; i.e i dont see why the kernel side qdisc needs 
-> to change.
-> > The rest you leave to the user; if the user configures HTB for a 
-> > hardware that does multiq which is WRR, then that is their problem.
-> 
-> 
-> We need to change the qdisc layer as well so it knows about 
-> the state of subqueues and can dequeue individual (active) 
-> subqueues. The alternative to adding it to prio (or a 
-> completely new qdisc) is to add something very similar to 
-> qdisc_restart and have it pass the subqueue it wishes to 
-> dequeue to ->dequeue, but that would be less flexible and 
-> doesn't seem to offer any advantages.
-> 
-> I wouldn't object to putting this into a completely new scheduler
-> (sch_multiqueue) though since the scheduling policy might be 
-> something completely different than strict priority.
+Ilpo J=E4rvinen wrote:
+> Hi,
+>=20
+> ...
+> Some time ago I noticed that with 2.6.18 I occassionally get latency
+> spikes as long as 100-200ms in the TCP transfers between components
+> (I describe later how TCP was tuned during these tests to avoid
+> problems that occur with small segments). I started to investigate
+> the spikes, and here are the findings so far:
+> ...
+>  - I placed a hub to get exact timings on the wire without potential=20
+>    interference from tcpdump on the emulator host (test done with 2.6=
+=2E18)=20
+>    but to my great surprise, the problem vanished completely
 
-We have plans to write a new qdisc that has no priority given to any
-skb's being sent to the driver.  The reasoning for providing a
-multiqueue mode for PRIO is it's a well-known qdisc, so the hope was
-people could quickly associate with what's going on.  The other
-reasoning is we wanted to provide a way to prioritize various network
-flows (ala PRIO), and since hardware doesn't currently exist that
-provides flow prioritization, we decided to allow it to continue
-happening in software.
+Sounds like tcpdump getting in the way?  How many CPUs do you have in=20
+the system, and have you tried some explicit binding of processes to=20
+different CPUs? (taskset etc...)
 
-> 
-> > The driver should be configurable to be X num of queues via 
-> probably 
-> > ethtool. It should default to single ring to maintain old behavior.
-> 
-> 
-> That would probably make sense in either case.
+When running tcpdump are you simply sending raw traces to a file, or ar=
+e=20
+you having the ASCII redirected to a file?  What about name resolution=20
+(ie areyou using -n)?
 
-This shouldn't be something enforced by the OS, rather, an
-implementation detail for the driver you write.  If you want this to be
-something to be configured at run-time, on the fly, then the OS would
-need to support it.  However, I'd rather see people try the multiqueue
-support as-is first to make sure the simple things work as expected,
-then we can get into run-time reconfiguration issues (like queue
-draining if you shrink available queues, etc.).  This will also require
-some heavy lifting by the driver to tear down queues, etc.
+>  - Due to the hub test result, I tested 10/100/duplex settings and fo=
+und=20
+>    out that if the emulator host has 10fd, the problem does not occur=
+ with
+>    2.6 either?!? This could be due to luck but I cannot say for sure,=
+ yet
+>    the couple of tests I've run with 10fd, did not show this...
+>  - Tried to change cable & switch that connect hosts together, no eff=
+ect
+>=20
+>=20
+> To prove this with 100Mbps, I setup routing so that with a host with =
+10/FD=20
+> configuration (known, based on earlier, to be unlikely to cause error=
+s) I=20
+> collected all traffic between the emulator host and one of the packet=
+=20
+> capture hosts. Here is one example point where a long delay occurs=20
+> (EMU is the emulator host, in the real log each packet is shown twice=
+, I=20
+> only leave the later one here):
+>=20
+> 1177577267.364596 IP CAP.35305 > EMU.52246: . 17231434:17232894(1460)=
+ ack 383357 win 16293
+> 1177577267.364688 IP CAP.35305 > EMU.52246: P 17232894:17232946(52) a=
+ck 383357 win 16293
+> 1177577267.366093 IP EMU.52246 > CAP.35305: . ack 17232894 win 32718
+> 1177577267.493815 IP EMU.52246 > CAP.35305: P 383357:383379(22) ack 1=
+7232894 win 32718
+> 1177577267.534252 IP CAP.35305 > EMU.52246: . ack 383379 win 16293
 
-> 
-> > Ok, i see; none of those other intel people put you through 
-> the hazing 
-> > yet? ;-> This is a netdev matter - so i have taken off lkml
-> > 
+What is the length of the standalone ACK timer these days?
 
-I appreciate the desire to lower clutter from mailing lists, but I see
-'tc' as a kernel configuration utility, and as such, people should know
-what we're doing outside of netdev, IMO.  But I'm fine with keeping this
-off lkml if that's what people think.
+> 1177577267.534517 IP EMU.59050 > CAP.58452: P 624496:624528(32) ack 3=
+28 win 365
+> 1177577267.534730 IP CAP.58452 > EMU.59050: . ack 624528 win 16293
+> 1177577267.536267 IP CAP.35305 > EMU.52246: . 17232946:17234406(1460)=
+ ack 383379 win 16293
+> 1177577267.536360 IP CAP.35305 > EMU.52246: P 17234406:17234458(52) a=
+ck 383379 win 16293
+> 1177577267.537764 IP EMU.52246 > CAP.35305: . ack 17234406 win 32718
+> ...
+> All things use TCP_NODELAY. The network is isolated so that=20
+> no other traffic can cause unexcepted effects. The emulator does coll=
+ect=20
+> log only to a mem buffer that is flushed through TCP only between tes=
+ts=20
+> (and thus does not cause timing problems).
 
-> > I will try to talk to the other gent to see if we can join 
-> into this 
-> > effort instead of a parallel one; the wireless cards have 
-> similar needs.
-> > I plan to spend time looking at your approach (sorry, my 
-> brain likes 
-> > to work that way; otherwise i would have looked at it by now).
-> 
-> 
-> The wireless multiqueue scheduler is pratically identical to 
-> this one, modulo the wireless classifier that should be a 
-> seperate module anyway.
+Might tcp_abc have crept back-in?
 
-Yi Zhu from the wireless world has been active with me in this
-development effort.  He and I are copresenting a paper at OLS on this
-specific topic, so I have been getting a perspective from the wireless
-world.
-
-I'd like to know if anyone has looked at the actual kernel patches,
-instead of the tiny patch to tc here, since that might answer many
-questions or concerns being presented here.  :-)
-
-Thanks,
--PJ Waskiewicz
+rick jones
