@@ -1,60 +1,67 @@
-From: David Howells <dhowells@redhat.com>
-Subject: Transforming code to using ICMP packet accessors
-Date: Thu, 26 Apr 2007 12:23:39 +0100
-Message-ID: <11959.1177586619@redhat.com>
-To: netdev@vger.kernel.org
+From: "Arnaldo Carvalho de Melo" <acme@ghostprotocols.net>
+Subject: Re: Transforming code to using ICMP packet accessors
+Date: Thu, 26 Apr 2007 09:18:16 -0300
+Message-ID: <39e6f6c70704260518q68ff180eu7722a9917681136@mail.gmail.com>
+References: <11959.1177586619@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: "David Howells" <dhowells@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:53998 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754644AbXDZLXn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Apr 2007 07:23:43 -0400
-Received: from int-mx1.corp.redhat.com (int-mx1.corp.redhat.com [172.16.52.254])
-	by mx1.redhat.com (8.13.1/8.13.1) with ESMTP id l3QBNgGK017608
-	for <netdev@vger.kernel.org>; Thu, 26 Apr 2007 07:23:42 -0400
-Received: from warthog.cambridge.redhat.com (warthog.cambridge.redhat.com [172.16.18.73])
-	by int-mx1.corp.redhat.com (8.13.1/8.13.1) with ESMTP id l3QBNfru022136
-	for <netdev@vger.kernel.org>; Thu, 26 Apr 2007 07:23:41 -0400
-Received: from redhat.com (localhost.localdomain [127.0.0.1])
-	by warthog.cambridge.redhat.com (8.13.8/8.13.8) with ESMTP id l3QBNdIM011960
-	for <netdev@vger.kernel.org>; Thu, 26 Apr 2007 12:23:40 +0100
+Received: from wr-out-0506.google.com ([64.233.184.238]:52212 "EHLO
+	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1031200AbXDZMSW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2007 08:18:22 -0400
+Received: by wr-out-0506.google.com with SMTP id 76so589795wra
+        for <netdev@vger.kernel.org>; Thu, 26 Apr 2007 05:18:22 -0700 (PDT)
+In-Reply-To: <11959.1177586619@redhat.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On 4/26/07, David Howells <dhowells@redhat.com> wrote:
+>
+> How do I convert:
+>
+>         addr = *(__be32 *)(skb->nh.raw + serr->addr_offset);
+>
+> to use the ICMP accessor macros now that skb->nh is no longer available?  I
+> was using this to pluck an address out of the ICMP packet payload, but
+>
+>         void rxrpc_UDP_error_report(struct sock *sk)
+>         {
+>                 struct sock_exterr_skb *serr;
+>         ...
+>                 struct sk_buff *skb;
+>                 __be32 addr;
+>                 __be16 port;
+>         ...
+>
+>                 skb = skb_dequeue(&sk->sk_error_queue);
+>                 if (!skb) {
+>                         _leave("UDP socket errqueue empty");
+>                         return;
+>                 }
+>         ...
+>
+>                 serr = SKB_EXT_ERR(skb);
+>                 addr = *(__be32 *)(skb->nh.raw + serr->addr_offset);
+>                 port = serr->port;
+>
+>                 _net("Rx UDP Error from "NIPQUAD_FMT":%hu",
+>                      NIPQUAD(addr), ntohs(port));
+>         ...
+>         }
+>
+> Should I do this?:
+>
+>         addr = *(__be32 *)(skb_network_header(skb) + serr->addr_offset);
 
-How do I convert:
+Yes, as this is the only use in this function.
 
-	addr = *(__be32 *)(skb->nh.raw + serr->addr_offset);
+When there is more than one use, create a pointer from
+skb_network_header(skb). That way the skb->head + skb->network_header
+math is done just once.
 
-to use the ICMP accessor macros now that skb->nh is no longer available?  I
-was using this to pluck an address out of the ICMP packet payload, but 
-
-	void rxrpc_UDP_error_report(struct sock *sk)
-	{
-		struct sock_exterr_skb *serr;
-	...
-		struct sk_buff *skb;
-		__be32 addr;
-		__be16 port;
-	...
-
-		skb = skb_dequeue(&sk->sk_error_queue);
-		if (!skb) {
-			_leave("UDP socket errqueue empty");
-			return;
-		}
-	...
-
-		serr = SKB_EXT_ERR(skb);
-		addr = *(__be32 *)(skb->nh.raw + serr->addr_offset);
-		port = serr->port;
-
-		_net("Rx UDP Error from "NIPQUAD_FMT":%hu",
-		     NIPQUAD(addr), ntohs(port));
-	...
-	}
-
-Should I do this?:
-
-	addr = *(__be32 *)(skb_network_header(skb) + serr->addr_offset);
-
-David
+- Arnaldo
