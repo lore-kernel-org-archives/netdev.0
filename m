@@ -1,75 +1,40 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] IPROUTE: Modify tc for new PRIO multiqueue behavior
-Date: Thu, 26 Apr 2007 18:44:25 +0200
-Message-ID: <4630D6E9.7090201@trash.net>
-References: <D5C1322C3E673F459512FB59E0DDC32902B9710F@orsmsx414.amr.corp.intel.com>
+From: Jean Tourrilhes <jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 3/9] wext: remove dead debug code
+Date: Thu, 26 Apr 2007 09:46:32 -0700
+Message-ID: <20070426164632.GA22576@bougret.hpl.hp.com>
+References: <20070424180732.371620000@sipsolutions.net> <20070424180847.982382000@sipsolutions.net>
+Reply-To: jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	netdev@vger.kernel.org, jgarzik@pobox.com,
-	cramerj <cramerj@intel.com>,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
-	"Leech, Christopher" <christopher.leech@intel.com>,
-	davem@davemloft.net
-To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:60657 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751627AbXDZQph (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2007 12:45:37 -0400
-In-Reply-To: <D5C1322C3E673F459512FB59E0DDC32902B9710F@orsmsx414.amr.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20070424180847.982382000-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Waskiewicz Jr, Peter P wrote:
->>I wouldn't object to putting this into a completely new scheduler
->>(sch_multiqueue) though since the scheduling policy might be 
->>something completely different than strict priority.
+On Tue, Apr 24, 2007 at 08:07:35PM +0200, Johannes Berg wrote:
+> This patch kills a whole bunch of code that can only ever be used by
+> defining some things in wext.c. Also, the things that are printed are
+> mostly useless since the API is fairly well-tested.
 > 
-> 
-> We have plans to write a new qdisc that has no priority given to any
-> skb's being sent to the driver.
+> Signed-off-by: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
 
+	Hi,
 
-I'm not sure I understand correctly, "no priority" == single band
-qdisc?
+	Overall ok with the patches. Comments on a few of them...
+	I personally would not remove this DEBUG code, because it
+decreases the overall maitainability of the code.
+	First, it does not only help to debug the API, but it can be
+used to debug userspace and drivers in some extreme cases.
+	Second, this debugging act as documentation. He points out
+which are the important variables and how they are used at critical
+points of the code.
+	As this debug is localised, and compiled out, it does not
+bother anybody and should stay.
 
-> The reasoning for providing a
-> multiqueue mode for PRIO is it's a well-known qdisc, so the hope was
-> people could quickly associate with what's going on.  The other
-> reasoning is we wanted to provide a way to prioritize various network
-> flows (ala PRIO), and since hardware doesn't currently exist that
-> provides flow prioritization, we decided to allow it to continue
-> happening in software.
+	Regards,
 
-
-Any qdisc serving multiple queues needs some scheduling policy to
-decide which one to dequeue in case multiple queues are active, so
-a new qdisc might as well also use strict priority. Two reasons
-why it might make sense to add a new qdisc are a) the hardware
-scheduling policy could be something different than prio, like WRR,
-so a neutral name like sch_multiqueue seems more fitting and b)
-you don't have to figure out how to pass the new parameter to prio
-without breaking compatibility.
-
->>The wireless multiqueue scheduler is pratically identical to 
->>this one, modulo the wireless classifier that should be a 
->>seperate module anyway.
-> 
-> 
-> Yi Zhu from the wireless world has been active with me in this
-> development effort.  He and I are copresenting a paper at OLS on this
-> specific topic, so I have been getting a perspective from the wireless
-> world.
-> 
-> I'd like to know if anyone has looked at the actual kernel patches,
-> instead of the tiny patch to tc here, since that might answer many
-> questions or concerns being presented here.  :-)
-
-
-I did and I'm fine with the current patches if you get rid of the prio
-ABI breakage. Using a new scheduler is just a suggestion, but I think
-it would be cleaner to do so.
-
+	Jean
