@@ -1,596 +1,583 @@
 From: akpm@linux-foundation.org
-Subject: [patch 04/11] drivers/net/vioc/: possible cleanups
-Date: Thu, 26 Apr 2007 00:23:16 -0700
-Message-ID: <200704260723.l3Q7NHfL023829@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, bunk@stusta.de,
-	schidambaram@fabric7.com
+Subject: [patch 08/11] add NAPI support to sb1250-mac.c
+Date: Thu, 26 Apr 2007 00:23:22 -0700
+Message-ID: <200704260723.l3Q7NNAV023841@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
+	mmason@upwardaccess.com, mason@broadcom.com
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([65.172.181.25]:59610 "EHLO
+Received: from smtp1.linux-foundation.org ([65.172.181.25]:56503 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933331AbXDZHYP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2007 03:24:15 -0400
+	by vger.kernel.org with ESMTP id S933330AbXDZHYL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2007 03:24:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Adrian Bunk <bunk@stusta.de>
+From: Mark Mason <mmason@upwardaccess.com>
 
-- remove dead #ifdef EXPORT_SYMTAB code
-- no "inline" functions in C files - gcc knows best whether or not to
-  inline static functions
-- move the vioc_ethtool_ops prototype to a header file
-- make needlessly global code static
-- #if 0 unused code
-- vioc_irq.c: remove the unused vioc_driver_lock
+Patch to add NAPI support to sb1250-mac.c (rev 2).  This patch differs from
+the last in that the NAPI support isn't marked as experimental, nor is it
+configurable (ie.  once applied - NAPI is enabled all the time).  This was
+based on feedback from Ralf and others.
 
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
-Cc: Sriram Chidambaram <schidambaram@fabric7.com>
+Signed-off-by: Mark Mason <mason@broadcom.com>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/net/vioc/f7/sppapi.h      |    2 
- drivers/net/vioc/khash.h          |   10 ----
- drivers/net/vioc/spp.c            |   60 ++++++++++++++++++----------
- drivers/net/vioc/vioc_api.c       |    5 +-
- drivers/net/vioc/vioc_api.h       |    3 -
- drivers/net/vioc/vioc_driver.c    |    3 -
- drivers/net/vioc/vioc_ethtool.c   |    2 
- drivers/net/vioc/vioc_irq.c       |    9 ----
- drivers/net/vioc/vioc_provision.c |   16 ++++---
- drivers/net/vioc/vioc_receive.c   |    2 
- drivers/net/vioc/vioc_spp.c       |    6 +-
- drivers/net/vioc/vioc_transmit.c  |   40 ++++++++++--------
- 12 files changed, 85 insertions(+), 73 deletions(-)
+ drivers/net/sb1250-mac.c |  273 ++++++++++++++++++++++++-------------
+ 1 file changed, 180 insertions(+), 93 deletions(-)
 
-diff -puN drivers/net/vioc/f7/sppapi.h~drivers-net-vioc-possible-cleanups drivers/net/vioc/f7/sppapi.h
---- a/drivers/net/vioc/f7/sppapi.h~drivers-net-vioc-possible-cleanups
-+++ a/drivers/net/vioc/f7/sppapi.h
-@@ -234,7 +234,5 @@ extern int spp_msg_register(u32 key_faci
- 
- extern void spp_msg_unregister(u32 key_facility);
- 
--extern int read_spp_regbank32(int vioc, int bank, char *buffer);
--
- #endif /* _SPPAPI_H_ */
- 
-diff -puN drivers/net/vioc/khash.h~drivers-net-vioc-possible-cleanups drivers/net/vioc/khash.h
---- a/drivers/net/vioc/khash.h~drivers-net-vioc-possible-cleanups
-+++ a/drivers/net/vioc/khash.h
-@@ -52,14 +52,4 @@ struct hash_elem_t {
- };
- 
- 
--struct shash_t  *hashT_create(u32, size_t, size_t, u32(*)(unsigned char *, unsigned long), int(*)(void *, void *), unsigned int);
--int hashT_delete(struct shash_t * , void *);
--struct hash_elem_t *hashT_lookup(struct shash_t * , void *);
--struct hash_elem_t *hashT_add(struct shash_t *, void *);
--void hashT_destroy(struct shash_t *);
--/* Accesors */
--void **hashT_getkeys(struct shash_t *);
--size_t hashT_tablesize(struct shash_t *);
--size_t hashT_size(struct shash_t *);
--
+diff -puN drivers/net/sb1250-mac.c~add-napi-support-to-sb1250-macc-take-2 drivers/net/sb1250-mac.c
+--- a/drivers/net/sb1250-mac.c~add-napi-support-to-sb1250-macc-take-2
++++ a/drivers/net/sb1250-mac.c
+@@ -95,19 +95,28 @@ MODULE_PARM_DESC(full_duplex, "1-" __MOD
  #endif
-diff -puN drivers/net/vioc/spp.c~drivers-net-vioc-possible-cleanups drivers/net/vioc/spp.c
---- a/drivers/net/vioc/spp.c~drivers-net-vioc-possible-cleanups
-+++ a/drivers/net/vioc/spp.c
-@@ -50,6 +50,15 @@
-   c -= a; c -= b; c ^= (b >> 15); \
- }
  
-+static struct hash_elem_t *hashT_add(struct shash_t *htable, void *key);
-+static struct shash_t *hashT_create(u32 sizehint, size_t keybuf_size,
-+                                    size_t databuf_size,
-+                                    u32(*hfunc) (unsigned char *,
-+						 unsigned long),
-+                                    int (*cfunc) (void *, void *),
-+                                    unsigned int flags);
-+static void hashT_destroy(struct shash_t *htable);
-+static struct hash_elem_t *hashT_lookup(struct shash_t *htable, void *key);
- 
- struct shash_t {
- 	/* Common fields for all hash tables types */
-@@ -65,7 +74,9 @@ struct shash_t {
- };
- 
- struct hash_ops {
-+#if 0
- 	int (*delete) (struct shash_t *, void *);
-+#endif  /*  0  */
- 	struct hash_elem_t *(*lookup) (struct shash_t *, void *);
- 	void (*destroy) (struct shash_t *);
- 	struct hash_elem_t *(*add) (struct shash_t *, void *);
-@@ -143,6 +154,7 @@ static u32 gethash(struct shash_t *htabl
- 	return ((htable->hash_fn(key, len)) & (htable->tsize - 1));
- }
- 
-+#if 0
- /* Data associated to this key MUST be freed by the caller */
- static int ch_delete(struct shash_t *htable, void *key)
- {
-@@ -181,6 +193,7 @@ static int ch_delete(struct shash_t *hta
- 
- 	return -1;
- }
-+#endif  /*  0  */
- 
- static void ch_destroy(struct shash_t *htable)
- {
-@@ -232,16 +245,21 @@ static void **ch_getkeys(struct shash_t 
- }
- 
- /* Accesors ******************************************************************/
--inline size_t hashT_tablesize(struct shash_t * htable)
-+
-+#if 0
-+
-+size_t hashT_tablesize(struct shash_t * htable)
- {
- 	return htable->tsize;
- }
- 
--inline size_t hashT_size(struct shash_t * htable)
-+size_t hashT_size(struct shash_t * htable)
- {
- 	return htable->nelems;
- }
- 
-+#endif  /*  0  */
-+
- static struct hash_elem_t *ch_lookup(struct shash_t *htable, void *key)
- {
- 	u32 idx;
-@@ -330,15 +348,17 @@ static int key_compare(void *key_in, voi
- 		return 1;
- }
- 
--struct hash_ops ch_ops = {
-+static struct hash_ops ch_ops = {
-+#if 0
- 	.delete = ch_delete,
-+#endif  /*  0  */
- 	.lookup = ch_lookup,
- 	.destroy = ch_destroy,
- 	.getkeys = ch_getkeys,
- 	.add = ch_add
- };
- 
--struct facility fTable[FACILITY_CNT];
-+static struct facility fTable[FACILITY_CNT];
- 
- int spp_init(void)
- {
-@@ -511,7 +531,7 @@ void spp_msg_unregister(u32 key_facility
- 	spin_unlock(&elem->lock);
- }
- 
+ #ifdef CONFIG_SBMAC_COALESCE
+-static int int_pktcnt = 0;
+-module_param(int_pktcnt, int, S_IRUGO);
+-MODULE_PARM_DESC(int_pktcnt, "Packet count");
 -
-+#if 0
- int read_spp_regbank32(int vioc_idx, int bank, char *buffer)
- {
- 	struct vioc_device *viocdev = vioc_viocdev(vioc_idx);
-@@ -531,14 +551,14 @@ int read_spp_regbank32(int vioc_idx, int
- 
- 	return i;
- }
-+#endif  /*  0  */
- 
--struct shash_t *hashT_create(u32 sizehint,
--							size_t keybuf_size,
--							size_t databuf_size,
--							u32(*hfunc) (unsigned char *,
--							unsigned long),
--							int (*cfunc) (void *, void *),
--							unsigned int flags)
-+static struct shash_t *hashT_create(u32 sizehint, size_t keybuf_size,
-+                                    size_t databuf_size,
-+                                    u32(*hfunc) (unsigned char *,
-+                                                 unsigned long),
-+                                    int (*cfunc) (void *, void *),
-+                                    unsigned int flags)
- {
- 	struct shash_t *htable;
- 	u32 size = 0;		/* Table size */
-@@ -591,36 +611,34 @@ struct shash_t *hashT_create(u32 sizehin
- 	return htable;
- }
- 
-+#if 0
- int hashT_delete(struct shash_t *htable, void *key)
- {
- 	return htable->h_ops->delete(htable, key);
- }
-+#endif  /*  0  */
- 
--struct hash_elem_t *hashT_add(struct shash_t *htable, void *key)
-+static struct hash_elem_t *hashT_add(struct shash_t *htable, void *key)
- {
- 	return htable->h_ops->add(htable, key);
- }
- 
--struct hash_elem_t *hashT_lookup(struct shash_t *htable, void *key)
-+static struct hash_elem_t *hashT_lookup(struct shash_t *htable, void *key)
- {
- 	return htable->h_ops->lookup(htable, key);
- }
- 
--void hashT_destroy(struct shash_t *htable)
-+static void hashT_destroy(struct shash_t *htable)
- {
--
- 	htable->h_ops->destroy(htable);
- 
- 	vfree(htable);
- }
- 
-+#if 0
- void **hashT_getkeys(struct shash_t *htable)
- {
- 	return htable->h_ops->getkeys(htable);
- }
-+#endif  /*  0  */
- 
--#ifdef EXPORT_SYMTAB
--EXPORT_SYMBOL(spp_msg_register);
--EXPORT_SYMBOL(spp_msg_unregister);
--EXPORT_SYMBOL(read_spp_regbank32);
--#endif
-diff -puN drivers/net/vioc/vioc_api.c~drivers-net-vioc-possible-cleanups drivers/net/vioc/vioc_api.c
---- a/drivers/net/vioc/vioc_api.c~drivers-net-vioc-possible-cleanups
-+++ a/drivers/net/vioc/vioc_api.c
-@@ -46,7 +46,8 @@
- #include "vioc_vnic.h"
- #include "vioc_api.h"
- 
--int vioc_set_rx_intr_param(int viocdev_idx, int rx_intr_id, u32 timeout, u32 cntout)
-+static int vioc_set_rx_intr_param(int viocdev_idx, int rx_intr_id,
-+				  u32 timeout, u32 cntout)
- {
- 	int ret = 0;
- 	struct vioc_device *viocdev;
-@@ -83,6 +84,7 @@ int vioc_get_vnic_mac(int viocdev_idx, u
- 	return 0;
- }
- 
-+#if 0
- int vioc_set_vnic_mac(int viocdev_idx, u32 vnic_id, u8 * p)
- {
- 	struct vioc_device *viocdev = vioc_viocdev(viocdev_idx);
-@@ -101,6 +103,7 @@ int vioc_set_vnic_mac(int viocdev_idx, u
- 
- 	return 0;
- }
-+#endif  /*  0  */
- 
- int vioc_set_txq(int viocdev_idx, u32 vnic_id, u32 txq_id, dma_addr_t base,
- 		 u32 num_elements)
-diff -puN drivers/net/vioc/vioc_api.h~drivers-net-vioc-possible-cleanups drivers/net/vioc/vioc_api.h
---- a/drivers/net/vioc/vioc_api.h~drivers-net-vioc-possible-cleanups
-+++ a/drivers/net/vioc/vioc_api.h
-@@ -30,11 +30,12 @@
- #include <asm/io.h>
- #include "vioc_vnic.h"
- 
-+extern struct ethtool_ops vioc_ethtool_ops;
+-static int int_timeout = 0;
+-module_param(int_timeout, int, S_IRUGO);
+-MODULE_PARM_DESC(int_timeout, "Timeout value");
++static int int_pktcnt_tx = 255;
++module_param(int_pktcnt_tx, int, S_IRUGO);
++MODULE_PARM_DESC(int_pktcnt_tx, "TX packet count");
 +
- extern int vioc_vnic_resources_set(int vioc_id, u32 vnic_id);
- extern void vioc_sw_reset(int vioc_id);
- extern u32 vioc_rrd(int vioc_id, int module_id, int vnic_id, int reg_addr);
- extern int vioc_rwr(int vioc_id, int module_id, int vnic_id, int reg_addr, u32 value);
--extern int vioc_set_vnic_mac(int vioc_id, u32 vnic_id, u8 * p);
- extern int vioc_get_vnic_mac(int vioc_id, u32 vnic_id, u8 * p);
- extern int vioc_set_txq(int vioc_id, u32 vnic_id, u32 txq_id, dma_addr_t base,
-                 u32 num_elements);
-diff -puN drivers/net/vioc/vioc_driver.c~drivers-net-vioc-possible-cleanups drivers/net/vioc/vioc_driver.c
---- a/drivers/net/vioc/vioc_driver.c~drivers-net-vioc-possible-cleanups
-+++ a/drivers/net/vioc/vioc_driver.c
-@@ -868,6 +868,3 @@ static void __exit vioc_module_exit(void
- module_init(vioc_module_init);
- module_exit(vioc_module_exit);
- 
--#ifdef EXPORT_SYMTAB
--EXPORT_SYMBOL(vioc_viocdev);
--#endif				/* EXPORT_SYMTAB */
-diff -puN drivers/net/vioc/vioc_ethtool.c~drivers-net-vioc-possible-cleanups drivers/net/vioc/vioc_ethtool.c
---- a/drivers/net/vioc/vioc_ethtool.c~drivers-net-vioc-possible-cleanups
-+++ a/drivers/net/vioc/vioc_ethtool.c
-@@ -155,7 +155,7 @@ static int vnic_get_settings(struct net_
- 	return 0;
- }
- 
--int vioc_trace;
-+static int vioc_trace;
- 
- static u32 vnic_get_msglevel(struct net_device *netdev)
- {
-diff -puN drivers/net/vioc/vioc_irq.c~drivers-net-vioc-possible-cleanups drivers/net/vioc/vioc_irq.c
---- a/drivers/net/vioc/vioc_irq.c~drivers-net-vioc-possible-cleanups
-+++ a/drivers/net/vioc/vioc_irq.c
-@@ -55,9 +55,6 @@
- #define VIOC_INTERRUPTS_CNT    19	/* 16 Rx + 1 Tx + 1 BMC + 1 Error */
- #define VIOC_INTERRUPTS_CNT_PIN_IRQ    4	/* 2 Rx + 1 Tx + 1 BMC */
- 
--#define VIOC_SLVAR(x) x spinlock_t vioc_driver_lock = SPIN_LOCK_UNLOCKED
--#define VIOC_CLI spin_lock_irq(&vioc_driver_lock)
--#define VIOC_STI spin_unlock_irq(&vioc_driver_lock)
- #define IRQRETURN return IRQ_HANDLED
- #define TX_IRQ_IDX			16
- #define BMC_IRQ_IDX			17
-@@ -92,9 +89,7 @@ struct viocdev_intreq {
- };
- 
- /* GLOBAL VIOC Interrupt table/structure */
--struct viocdev_intreq vioc_interrupts[VIOC_MAX_VIOCS];
--
--VIOC_SLVAR();
-+static struct viocdev_intreq vioc_interrupts[VIOC_MAX_VIOCS];
- 
- static irqreturn_t taskq_handler(int i, void *p)
- {
-@@ -227,7 +222,7 @@ int vioc_irq_init(void)
- 	return 0;
- }
- 
--int get_pci_pin_irq(struct pci_dev *dev_in, int func)
-+static int get_pci_pin_irq(struct pci_dev *dev_in, int func)
- {
- 	struct pci_dev *dev = NULL;
- 	unsigned int slot, fn, devfn;
-diff -puN drivers/net/vioc/vioc_provision.c~drivers-net-vioc-possible-cleanups drivers/net/vioc/vioc_provision.c
---- a/drivers/net/vioc/vioc_provision.c~drivers-net-vioc-possible-cleanups
-+++ a/drivers/net/vioc/vioc_provision.c
-@@ -75,7 +75,7 @@ struct rxd_q_prov {
- 
- */
- 
--struct vnic_prov_def vnic_set_0 = {
-+static struct vnic_prov_def vnic_set_0 = {
- 	.rxd_ring[0].buf_size = RXDQ_SMALL_ALLOC_BUFSIZE,
- 	.rxd_ring[0].entries = RXDQ_SMALL_ENTRIES,
- 	.rxd_ring[0].id = 0,
-@@ -92,7 +92,7 @@ struct vnic_prov_def vnic_set_0 = {
- 	    0,.rxc_intr_id = 0
- };
- 
--struct vnic_prov_def vnic_set_1 = {
-+static struct vnic_prov_def vnic_set_1 = {
- 	.rxd_ring[0].buf_size = RXDQ_SMALL_ALLOC_BUFSIZE,
- 	.rxd_ring[0].entries = RXDQ_SMALL_ENTRIES,
- 	.rxd_ring[0].id = 4,
-@@ -109,7 +109,7 @@ struct vnic_prov_def vnic_set_1 = {
- 	    1,.rxc_intr_id = 1
- };
- 
--struct vnic_prov_def vnic_set_2 = {
-+static struct vnic_prov_def vnic_set_2 = {
- 	.rxd_ring[0].buf_size = RXDQ_SMALL_ALLOC_BUFSIZE,
- 	.rxd_ring[0].entries = RXDQ_SMALL_ENTRIES,
- 	.rxd_ring[0].id = 8,
-@@ -126,7 +126,7 @@ struct vnic_prov_def vnic_set_2 = {
- 	    2,.rxc_intr_id = 2
- };
- 
--struct vnic_prov_def vnic_set_3 = {
-+static struct vnic_prov_def vnic_set_3 = {
- 	.rxd_ring[0].buf_size = RXDQ_SMALL_ALLOC_BUFSIZE,
- 	.rxd_ring[0].entries = RXDQ_SMALL_ENTRIES,
- 	.rxd_ring[0].id = 12,
-@@ -143,6 +143,7 @@ struct vnic_prov_def vnic_set_3 = {
- 	    3,.rxc_intr_id = 3
- };
- 
-+#if 0
- struct vnic_prov_def vnic_set_sim = {
- 	.rxd_ring[0].buf_size = RXDQ_STD_ALLOC_BUFSIZE,
- 	.rxd_ring[0].entries = 256,
-@@ -158,8 +159,9 @@ struct vnic_prov_def vnic_set_sim = {
- 	.rxd_ring[2].state = 1,
- 	.tx_entries = 256,.rxc_entries = 256 * 3,.rxc_id = 0,.rxc_intr_id = 0
- };
-+#endif  /*  0  */
- 
--struct vnic_prov_def *vnic_prov_pmm_pin_irq[VIOC_MAX_VNICS] = {
-+static struct vnic_prov_def *vnic_prov_pmm_pin_irq[VIOC_MAX_VNICS] = {
- 	&vnic_set_0,
- 	&vnic_set_1,
- 	&vnic_set_0,
-@@ -178,7 +180,7 @@ struct vnic_prov_def *vnic_prov_pmm_pin_
- 	&vnic_set_1
- };
- 
--struct vnic_prov_def *vnic_prov_pmm_msi_x[VIOC_MAX_VNICS] = {
-+static struct vnic_prov_def *vnic_prov_pmm_msi_x[VIOC_MAX_VNICS] = {
- 	&vnic_set_0,
- 	&vnic_set_1,
- 	&vnic_set_2,
-@@ -197,6 +199,7 @@ struct vnic_prov_def *vnic_prov_pmm_msi_
- 	&vnic_set_3
- };
- 
-+#if 0
- struct vnic_prov_def *vnic_prov_sim[VIOC_MAX_VNICS] = {
- 	&vnic_set_sim,
- 	&vnic_set_sim,
-@@ -215,6 +218,7 @@ struct vnic_prov_def *vnic_prov_sim[VIOC
- 	&vnic_set_sim,
- 	&vnic_set_sim
- };
-+#endif  /*  0  */
- 
- struct vnic_prov_def **vioc_prov_get(int num_rx_irq)
- {
-diff -puN drivers/net/vioc/vioc_receive.c~drivers-net-vioc-possible-cleanups drivers/net/vioc/vioc_receive.c
---- a/drivers/net/vioc/vioc_receive.c~drivers-net-vioc-possible-cleanups
-+++ a/drivers/net/vioc/vioc_receive.c
-@@ -58,7 +58,7 @@
-  * one RxSet, no locking is needed on RxDQs or RxCQs.
-  * Return true if we got a packet, false if the queue is empty.
-  */
--int vioc_rx_pkt(struct vioc_device *viocdev, struct rxc *rxc, u32 sw_idx)
-+static int vioc_rx_pkt(struct vioc_device *viocdev, struct rxc *rxc, u32 sw_idx)
- {
- 	u32 rx_status;
- 	u32 vnic_id;
-diff -puN drivers/net/vioc/vioc_spp.c~drivers-net-vioc-possible-cleanups drivers/net/vioc/vioc_spp.c
---- a/drivers/net/vioc/vioc_spp.c~drivers-net-vioc-possible-cleanups
-+++ a/drivers/net/vioc/vioc_spp.c
-@@ -84,12 +84,12 @@
- 
- static DECLARE_MUTEX(vnic_prov_sem);
- 
--static inline void vnic_prov_get_sema(void)
-+static void vnic_prov_get_sema(void)
- {
- 	down(&vnic_prov_sem);
- }
- 
--static inline void vnic_prov_put_sema(void)
-+static void vnic_prov_put_sema(void)
- {
- 	up(&vnic_prov_sem);
- }
-@@ -290,7 +290,7 @@ void vioc_hb_to_bmc(int vioc_id)
- 	vioc_reg_wr(1, viocdev->ba.virt, SPP_HB_SENSOR_REG);
- }
- 
--void vioc_reset_rq_to_bmc(int vioc_id, u32 command)
-+static void vioc_reset_rq_to_bmc(int vioc_id, u32 command)
- {
- 	struct vioc_device *viocdev = vioc_viocdev(0);
- 
-diff -puN drivers/net/vioc/vioc_transmit.c~drivers-net-vioc-possible-cleanups drivers/net/vioc/vioc_transmit.c
---- a/drivers/net/vioc/vioc_transmit.c~drivers-net-vioc-possible-cleanups
-+++ a/drivers/net/vioc/vioc_transmit.c
-@@ -73,49 +73,52 @@
- #define TXQ0            0
- #define NOT_SET        -1
- 
--static inline u32 vnic_rd_txd_ctl(struct txq *txq)
-+static u32 vnic_rd_txd_ctl(struct txq *txq)
- {
- 	return readl(txq->va_of_vreg_veng_txd_ctl);
- }
- 
--static inline void vnic_ring_tx_bell(struct txq *txq)
-+static void vnic_ring_tx_bell(struct txq *txq)
- {
- 	writel(txq->shadow_VREG_VENG_TXD_CTL | VREG_VENG_TXD_CTL_QRING_MASK,
- 	       txq->va_of_vreg_veng_txd_ctl);
- 	txq->bells++;
- }
- 
--static inline void vnic_reset_tx_ring_err(struct txq *txq)
-+static void vnic_reset_tx_ring_err(struct txq *txq)
- {
- 	writel(txq->shadow_VREG_VENG_TXD_CTL |
- 	       (VREG_VENG_TXD_CTL_QENABLE_MASK | VREG_VENG_TXD_CTL_CLEARMASK),
- 	       txq->va_of_vreg_veng_txd_ctl);
- }
- 
--static inline void vnic_enable_tx_ring(struct txq *txq)
-+static void vnic_enable_tx_ring(struct txq *txq)
- {
- 	txq->shadow_VREG_VENG_TXD_CTL = VREG_VENG_TXD_CTL_QENABLE_MASK;
- 	writel(txq->shadow_VREG_VENG_TXD_CTL, txq->va_of_vreg_veng_txd_ctl);
- }
- 
--static inline void vnic_disable_tx_ring(struct txq *txq)
-+static void vnic_disable_tx_ring(struct txq *txq)
- {
- 	txq->shadow_VREG_VENG_TXD_CTL = 0;
- 	writel(0, txq->va_of_vreg_veng_txd_ctl);
- }
- 
--static inline void vnic_pause_tx_ring(struct txq *txq)
-+#if 0
++static int int_timeout_tx = 255;
++module_param(int_timeout_tx, int, S_IRUGO);
++MODULE_PARM_DESC(int_timeout_tx, "TX timeout value");
 +
-+static void vnic_pause_tx_ring(struct txq *txq)
- {
- 	txq->shadow_VREG_VENG_TXD_CTL |= VREG_VENG_TXD_CTL_QPAUSE_MASK;
- 	writel(txq->shadow_VREG_VENG_TXD_CTL, txq->va_of_vreg_veng_txd_ctl);
- }
- 
--static inline void vnic_resume_tx_ring(struct txq *txq)
-+static void vnic_resume_tx_ring(struct txq *txq)
- {
- 	txq->shadow_VREG_VENG_TXD_CTL &= ~VREG_VENG_TXD_CTL_QPAUSE_MASK;
- 	writel(txq->shadow_VREG_VENG_TXD_CTL, txq->va_of_vreg_veng_txd_ctl);
- }
- 
-+#endif  /*  0  */
- 
- /* TxQ must be locked */
- static void vnic_reset_txq(struct vnic_device *vnicdev, struct txq *txq)
-@@ -395,8 +398,9 @@ void vioc_tx_interrupt(struct work_struc
- 	viocdev->vioc_stats.tx_tasklets++;
- 	// read_unlock(&viocdev->lock);
- }
--void vnic_enqueue_tx_pkt(struct vnic_device *vnicdev, struct txq *txq,
--			 struct sk_buff *skb, struct vioc_prov *prov)
++static int int_pktcnt_rx = 64;
++module_param(int_pktcnt_rx, int, S_IRUGO);
++MODULE_PARM_DESC(int_pktcnt_rx, "RX packet count");
 +
-+static void vnic_enqueue_tx_pkt(struct vnic_device *vnicdev, struct txq *txq,
-+				struct sk_buff *skb, struct vioc_prov *prov)
- {
- 	int idx, sop_idx, eop_idx, f;
- 	struct tx_pktBufDesc_Phys_w *txd;
-@@ -512,8 +516,9 @@ void vnic_enqueue_tx_pkt(struct vnic_dev
++static int int_timeout_rx = 64;
++module_param(int_timeout_rx, int, S_IRUGO);
++MODULE_PARM_DESC(int_timeout_rx, "RX timeout value");
+ #endif
  
- }
+ #include <asm/sibyte/sb1250.h>
+ #if defined(CONFIG_SIBYTE_BCM1x55) || defined(CONFIG_SIBYTE_BCM1x80)
+ #include <asm/sibyte/bcm1480_regs.h>
+ #include <asm/sibyte/bcm1480_int.h>
++#define R_MAC_DMA_OODPKTLOST_RX	R_MAC_DMA_OODPKTLOST
+ #elif defined(CONFIG_SIBYTE_SB1250) || defined(CONFIG_SIBYTE_BCM112X)
+ #include <asm/sibyte/sb1250_regs.h>
+ #include <asm/sibyte/sb1250_int.h>
+@@ -155,8 +164,8 @@ typedef enum { sbmac_state_uninit, sbmac
  
--void vnic_enqueue_tx_buffers(struct vnic_device *vnicdev, struct txq *txq,
--			     struct sk_buff *skb, struct vioc_prov *prov)
-+static void vnic_enqueue_tx_buffers(struct vnic_device *vnicdev,
-+				    struct txq *txq, struct sk_buff *skb,
-+				    struct vioc_prov *prov)
+ #define NUMCACHEBLKS(x) (((x)+SMP_CACHE_BYTES-1)/SMP_CACHE_BYTES)
+ 
+-#define SBMAC_MAX_TXDESCR	32
+-#define SBMAC_MAX_RXDESCR	32
++#define SBMAC_MAX_TXDESCR	256
++#define SBMAC_MAX_RXDESCR	256
+ 
+ #define ETHER_ALIGN	2
+ #define ETHER_ADDR_LEN	6
+@@ -185,10 +194,10 @@ typedef struct sbmacdma_s {
+ 	 * associated with it.
+ 	 */
+ 
+-	struct sbmac_softc *sbdma_eth;	        /* back pointer to associated MAC */
+-	int              sbdma_channel;	/* channel number */
++	struct sbmac_softc *sbdma_eth;	    /* back pointer to associated MAC */
++	int              sbdma_channel;	    /* channel number */
+ 	int		 sbdma_txdir;       /* direction (1=transmit) */
+-	int		 sbdma_maxdescr;	/* total # of descriptors in ring */
++	int		 sbdma_maxdescr;    /* total # of descriptors in ring */
+ #ifdef CONFIG_SBMAC_COALESCE
+ 	int		 sbdma_int_pktcnt;  /* # descriptors rx/tx before interrupt*/
+ 	int		 sbdma_int_timeout; /* # usec rx/tx interrupt */
+@@ -197,13 +206,16 @@ typedef struct sbmacdma_s {
+ 	volatile void __iomem *sbdma_config0;	/* DMA config register 0 */
+ 	volatile void __iomem *sbdma_config1;	/* DMA config register 1 */
+ 	volatile void __iomem *sbdma_dscrbase;	/* Descriptor base address */
+-	volatile void __iomem *sbdma_dscrcnt;     /* Descriptor count register */
++	volatile void __iomem *sbdma_dscrcnt;   /* Descriptor count register */
+ 	volatile void __iomem *sbdma_curdscr;	/* current descriptor address */
++	volatile void __iomem *sbdma_oodpktlost;/* pkt drop (rx only) */
++
+ 
+ 	/*
+ 	 * This stuff is for maintenance of the ring
+ 	 */
+ 
++	sbdmadscr_t     *sbdma_dscrtable_unaligned;
+ 	sbdmadscr_t     *sbdma_dscrtable;	/* base of descriptor table */
+ 	sbdmadscr_t     *sbdma_dscrtable_end; /* end of descriptor table */
+ 
+@@ -286,8 +298,8 @@ static int sbdma_add_rcvbuffer(sbmacdma_
+ static int sbdma_add_txbuffer(sbmacdma_t *d,struct sk_buff *m);
+ static void sbdma_emptyring(sbmacdma_t *d);
+ static void sbdma_fillring(sbmacdma_t *d);
+-static void sbdma_rx_process(struct sbmac_softc *sc,sbmacdma_t *d);
+-static void sbdma_tx_process(struct sbmac_softc *sc,sbmacdma_t *d);
++static int sbdma_rx_process(struct sbmac_softc *sc,sbmacdma_t *d, int work_to_do, int poll);
++static void sbdma_tx_process(struct sbmac_softc *sc,sbmacdma_t *d, int poll);
+ static int sbmac_initctx(struct sbmac_softc *s);
+ static void sbmac_channel_start(struct sbmac_softc *s);
+ static void sbmac_channel_stop(struct sbmac_softc *s);
+@@ -308,6 +320,8 @@ static struct net_device_stats *sbmac_ge
+ static void sbmac_set_rx_mode(struct net_device *dev);
+ static int sbmac_mii_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
+ static int sbmac_close(struct net_device *dev);
++static int sbmac_poll(struct net_device *poll_dev, int *budget);
++
+ static int sbmac_mii_poll(struct sbmac_softc *s,int noisy);
+ static int sbmac_mii_probe(struct net_device *dev);
+ 
+@@ -679,6 +693,10 @@ static void sbdma_initctx(sbmacdma_t *d,
+ 			  int txrx,
+ 			  int maxdescr)
  {
++#ifdef CONFIG_SBMAC_COALESCE
++	int int_pktcnt, int_timeout;
++#endif
++
+ 	/*
+ 	 * Save away interesting stuff in the structure
+ 	 */
+@@ -728,6 +746,11 @@ static void sbdma_initctx(sbmacdma_t *d,
+ 		s->sbm_base + R_MAC_DMA_REGISTER(txrx,chan,R_MAC_DMA_DSCR_CNT);
+ 	d->sbdma_curdscr =
+ 		s->sbm_base + R_MAC_DMA_REGISTER(txrx,chan,R_MAC_DMA_CUR_DSCRADDR);
++	if (d->sbdma_txdir)
++		d->sbdma_oodpktlost = NULL;
++	else
++		d->sbdma_oodpktlost =
++			s->sbm_base + R_MAC_DMA_REGISTER(txrx,chan,R_MAC_DMA_OODPKTLOST_RX);
+ 
+ 	/*
+ 	 * Allocate memory for the ring
+@@ -735,6 +758,7 @@ static void sbdma_initctx(sbmacdma_t *d,
+ 
+ 	d->sbdma_maxdescr = maxdescr;
+ 
++	d->sbdma_dscrtable_unaligned =
+ 	d->sbdma_dscrtable = (sbdmadscr_t *)
+ 		kmalloc((d->sbdma_maxdescr+1)*sizeof(sbdmadscr_t), GFP_KERNEL);
+ 
+@@ -765,12 +789,14 @@ static void sbdma_initctx(sbmacdma_t *d,
+ 	 * Setup Rx/Tx DMA coalescing defaults
+ 	 */
+ 
++	int_pktcnt = (txrx == DMA_TX) ? int_pktcnt_tx : int_pktcnt_rx;
+ 	if ( int_pktcnt ) {
+ 		d->sbdma_int_pktcnt = int_pktcnt;
+ 	} else {
+ 		d->sbdma_int_pktcnt = 1;
+ 	}
+ 
++	int_timeout = (txrx == DMA_TX) ? int_timeout_tx : int_timeout_rx;
+ 	if ( int_timeout ) {
+ 		d->sbdma_int_timeout = int_timeout;
+ 	} else {
+@@ -1150,30 +1176,41 @@ static void sbmac_netpoll(struct net_dev
+ #endif
+ 
+ /**********************************************************************
+- *  SBDMA_RX_PROCESS(sc,d)
++ *  SBDMA_RX_PROCESS(sc,d,work_to_do,poll)
+  *
+  *  Process "completed" receive buffers on the specified DMA channel.
+- *  Note that this isn't really ideal for priority channels, since
+- *  it processes all of the packets on a given channel before
+- *  returning.
+  *
+  *  Input parameters:
+- *	   sc - softc structure
+- *  	   d - DMA channel context
++ *            sc - softc structure
++ *  	       d - DMA channel context
++ *    work_to_do - no. of packets to process before enabling interrupt
++ *                 again (for NAPI)
++ *          poll - 1: using polling (for NAPI)
+  *
+  *  Return value:
+  *  	   nothing
+  ********************************************************************* */
+ 
+-static void sbdma_rx_process(struct sbmac_softc *sc,sbmacdma_t *d)
++static int sbdma_rx_process(struct sbmac_softc *sc,sbmacdma_t *d,
++                             int work_to_do, int poll)
+ {
+ 	int curidx;
+ 	int hwidx;
+ 	sbdmadscr_t *dsc;
+ 	struct sk_buff *sb;
  	int len;
- 	int idx;
-@@ -586,7 +591,7 @@ void vnic_enqueue_tx_buffers(struct vnic
- 	txq->next_to_use = idx;
- }
++	int work_done = 0;
++	int dropped = 0;
  
--static inline void init_f7_header(struct sk_buff *skb)
-+static void init_f7_header(struct sk_buff *skb)
- {
- 	struct vioc_f7pf_w *f7p;
- 	unsigned char tag;
-@@ -675,7 +680,7 @@ void vioc_tx_timer(unsigned long data)
-  * not hold - add a tx_enabled flag to the vnic struct protected
-  * by txq->lock.  Or just read-lock the VIOC.
-  */
--int vnic_start_xmit(struct sk_buff *skb, struct net_device *netdev)
-+static int vnic_start_xmit(struct sk_buff *skb, struct net_device *netdev)
- {
- 	struct vnic_device *vnicdev = netdev->priv;
- 	struct txq *txq = &vnicdev->txq;
-@@ -734,8 +739,9 @@ int vnic_start_xmit(struct sk_buff *skb,
-  *      saddr=NULL      means use device source address
-  *      daddr=NULL      means leave destination address (eg unresolved arp)
-  */
--int vnic_eth_header(struct sk_buff *skb, struct net_device *dev,
--		    unsigned short type, void *daddr, void *saddr, unsigned len)
-+static int vnic_eth_header(struct sk_buff *skb, struct net_device *dev,
-+			   unsigned short type, void *daddr, void *saddr,
-+			   unsigned len)
- {
- 	struct ethhdr *eth = (struct ethhdr *)skb_push(skb, ETH_HLEN);
+-	for (;;) {
++	prefetch(d);
++
++again:
++	/* Check if the HW dropped any frames */
++	sc->sbm_stats.rx_fifo_errors
++	    += __raw_readq(sc->sbm_rxdma.sbdma_oodpktlost) & 0xffff;
++	__raw_writeq(0, sc->sbm_rxdma.sbdma_oodpktlost);
++
++	while (work_to_do-- > 0) {
+ 		/*
+ 		 * figure out where we are (as an index) and where
+ 		 * the hardware is (also as an index)
+@@ -1185,7 +1222,12 @@ static void sbdma_rx_process(struct sbma
+ 		 * (sbdma_remptr) and the physical address (sbdma_curdscr CSR)
+ 		 */
  
-@@ -952,6 +958,7 @@ static void vnic_free_tx_resources(struc
- 	vnicdev->txq.vbuf = NULL;
- }
+-		curidx = d->sbdma_remptr - d->sbdma_dscrtable;
++		dsc = d->sbdma_remptr;
++		curidx = dsc - d->sbdma_dscrtable;
++
++		prefetch(dsc);
++		prefetch(&d->sbdma_ctxtable[curidx]);
++
+ 		hwidx = (int) (((__raw_readq(d->sbdma_curdscr) & M_DMA_CURDSCR_ADDR) -
+ 				d->sbdma_dscrtable_phys) / sizeof(sbdmadscr_t));
  
-+#if 0
- void vioc_reset_if_tx(struct net_device *netdev)
- {
- 	struct vnic_device *vnicdev = netdev->priv;
-@@ -959,8 +966,7 @@ void vioc_reset_if_tx(struct net_device 
+@@ -1196,13 +1238,12 @@ static void sbdma_rx_process(struct sbma
+ 		 */
  
- 	vnic_reset_txq(vnicdev, txq);
- }
+ 		if (curidx == hwidx)
+-			break;
++			goto done;
+ 
+ 		/*
+ 		 * Otherwise, get the packet's sk_buff ptr back
+ 		 */
+ 
+-		dsc = &(d->sbdma_dscrtable[curidx]);
+ 		sb = d->sbdma_ctxtable[curidx];
+ 		d->sbdma_ctxtable[curidx] = NULL;
+ 
+@@ -1214,7 +1255,7 @@ static void sbdma_rx_process(struct sbma
+ 		 * receive ring.
+ 		 */
+ 
+-		if (!(dsc->dscr_a & M_DMA_ETHRX_BAD)) {
++		if (likely (!(dsc->dscr_a & M_DMA_ETHRX_BAD))) {
+ 
+ 			/*
+ 			 * Add a new buffer to replace the old one.  If we fail
+@@ -1222,9 +1263,14 @@ static void sbdma_rx_process(struct sbma
+ 			 * packet and put it right back on the receive ring.
+ 			 */
+ 
+-			if (sbdma_add_rcvbuffer(d,NULL) == -ENOBUFS) {
+-				sc->sbm_stats.rx_dropped++;
++			if (unlikely (sbdma_add_rcvbuffer(d,NULL) ==
++				      -ENOBUFS)) {
++ 				sc->sbm_stats.rx_dropped++;
+ 				sbdma_add_rcvbuffer(d,sb); /* re-add old buffer */
++				/* No point in continuing at the moment */
++				printk(KERN_ERR "dropped packet (1)\n");
++				d->sbdma_remptr = SBDMA_NEXTBUF(d,sbdma_remptr);
++				goto done;
+ 			} else {
+ 				/*
+ 				 * Set length into the packet
+@@ -1236,8 +1282,6 @@ static void sbdma_rx_process(struct sbma
+ 				 * receive ring.  Pass the buffer to
+ 				 * the kernel
+ 				 */
+-				sc->sbm_stats.rx_bytes += len;
+-				sc->sbm_stats.rx_packets++;
+ 				sb->protocol = eth_type_trans(sb,d->sbdma_eth->sbm_dev);
+ 				/* Check hw IPv4/TCP checksum if supported */
+ 				if (sc->rx_hw_checksum == ENABLE) {
+@@ -1249,8 +1293,22 @@ static void sbdma_rx_process(struct sbma
+ 						sb->ip_summed = CHECKSUM_NONE;
+ 					}
+ 				}
 -
--extern struct ethtool_ops vioc_ethtool_ops;
-+#endif  /*  0  */
+-				netif_rx(sb);
++				prefetch(sb->data);
++				prefetch((const void *)(((char *)sb->data)+32));
++				if (poll)
++					dropped = netif_receive_skb(sb);
++				else
++					dropped = netif_rx(sb);
++
++				if (dropped == NET_RX_DROP) {
++					sc->sbm_stats.rx_dropped++;
++					d->sbdma_remptr = SBDMA_NEXTBUF(d,sbdma_remptr);
++					goto done;
++				}
++				else {
++					sc->sbm_stats.rx_bytes += len;
++					sc->sbm_stats.rx_packets++;
++				}
+ 			}
+ 		} else {
+ 			/*
+@@ -1267,12 +1325,16 @@ static void sbdma_rx_process(struct sbma
+ 		 */
  
- /**
-  * vnic_uninit - Device Termination Routine
+ 		d->sbdma_remptr = SBDMA_NEXTBUF(d,sbdma_remptr);
+-
++		work_done++;
++	}
++	if (!poll) {
++		work_to_do = 32;
++		goto again; /* collect fifo drop statistics again */
+ 	}
++done:
++	return work_done;
+ }
+ 
+-
+-
+ /**********************************************************************
+  *  SBDMA_TX_PROCESS(sc,d)
+  *
+@@ -1284,22 +1346,30 @@ static void sbdma_rx_process(struct sbma
+  *
+  *  Input parameters:
+  *      sc - softc structure
+- *  	   d - DMA channel context
++ *  	 d - DMA channel context
++ *    poll - 1: using polling (for NAPI)
+  *
+  *  Return value:
+  *  	   nothing
+  ********************************************************************* */
+ 
+-static void sbdma_tx_process(struct sbmac_softc *sc,sbmacdma_t *d)
++static void sbdma_tx_process(struct sbmac_softc *sc,sbmacdma_t *d, int poll)
+ {
+ 	int curidx;
+ 	int hwidx;
+ 	sbdmadscr_t *dsc;
+ 	struct sk_buff *sb;
+ 	unsigned long flags;
++	int packets_handled = 0;
+ 
+ 	spin_lock_irqsave(&(sc->sbm_lock), flags);
+ 
++	if (d->sbdma_remptr == d->sbdma_addptr)
++	  goto end_unlock;
++
++	hwidx = (int) (((__raw_readq(d->sbdma_curdscr) & M_DMA_CURDSCR_ADDR) -
++			d->sbdma_dscrtable_phys) / sizeof(sbdmadscr_t));
++
+ 	for (;;) {
+ 		/*
+ 		 * figure out where we are (as an index) and where
+@@ -1313,8 +1383,6 @@ static void sbdma_tx_process(struct sbma
+ 		 */
+ 
+ 		curidx = d->sbdma_remptr - d->sbdma_dscrtable;
+-		hwidx = (int) (((__raw_readq(d->sbdma_curdscr) & M_DMA_CURDSCR_ADDR) -
+-				d->sbdma_dscrtable_phys) / sizeof(sbdmadscr_t));
+ 
+ 		/*
+ 		 * If they're the same, that means we've processed all
+@@ -1352,6 +1420,8 @@ static void sbdma_tx_process(struct sbma
+ 
+ 		d->sbdma_remptr = SBDMA_NEXTBUF(d,sbdma_remptr);
+ 
++		packets_handled++;
++
+ 	}
+ 
+ 	/*
+@@ -1360,8 +1430,10 @@ static void sbdma_tx_process(struct sbma
+ 	 * watermark on the transmit queue.
+ 	 */
+ 
+-	netif_wake_queue(d->sbdma_eth->sbm_dev);
++	if (packets_handled)
++		netif_wake_queue(d->sbdma_eth->sbm_dev);
+ 
++end_unlock:
+ 	spin_unlock_irqrestore(&(sc->sbm_lock), flags);
+ 
+ }
+@@ -1435,9 +1507,9 @@ static int sbmac_initctx(struct sbmac_so
+ 
+ static void sbdma_uninitctx(struct sbmacdma_s *d)
+ {
+-	if (d->sbdma_dscrtable) {
+-		kfree(d->sbdma_dscrtable);
+-		d->sbdma_dscrtable = NULL;
++	if (d->sbdma_dscrtable_unaligned) {
++		kfree(d->sbdma_dscrtable_unaligned);
++		d->sbdma_dscrtable_unaligned = d->sbdma_dscrtable = NULL;
+ 	}
+ 
+ 	if (d->sbdma_ctxtable) {
+@@ -1635,15 +1707,9 @@ static void sbmac_channel_start(struct s
+ #endif
+ 
+ #ifdef CONFIG_SBMAC_COALESCE
+-	/*
+-	 * Accept any TX interrupt and EOP count/timer RX interrupts on ch 0
+-	 */
+ 	__raw_writeq(((M_MAC_INT_EOP_COUNT | M_MAC_INT_EOP_TIMER) << S_MAC_TX_CH0) |
+ 		       ((M_MAC_INT_EOP_COUNT | M_MAC_INT_EOP_TIMER) << S_MAC_RX_CH0), s->sbm_imr);
+ #else
+-	/*
+-	 * Accept any kind of interrupt on TX and RX DMA channel 0
+-	 */
+ 	__raw_writeq((M_MAC_INT_CHANNEL << S_MAC_TX_CH0) |
+ 		       (M_MAC_INT_CHANNEL << S_MAC_RX_CH0), s->sbm_imr);
+ #endif
+@@ -2076,57 +2142,46 @@ static irqreturn_t sbmac_intr(int irq,vo
+ 	uint64_t isr;
+ 	int handled = 0;
+ 
+-	for (;;) {
+-
+-		/*
+-		 * Read the ISR (this clears the bits in the real
+-		 * register, except for counter addr)
+-		 */
++	/*
++	 * Read the ISR (this clears the bits in the real
++	 * register, except for counter addr)
++	 */
+ 
+-		isr = __raw_readq(sc->sbm_isr) & ~M_MAC_COUNTER_ADDR;
++	isr = __raw_readq(sc->sbm_isr) & ~M_MAC_COUNTER_ADDR;
+ 
+-		if (isr == 0)
+-			break;
++	if (isr == 0)
++		return IRQ_RETVAL(0);
++	handled = 1;
+ 
+-		handled = 1;
+-
+-		/*
+-		 * Transmits on channel 0
+-		 */
++	/*
++	 * Transmits on channel 0
++	 */
+ 
+-		if (isr & (M_MAC_INT_CHANNEL << S_MAC_TX_CH0)) {
+-			sbdma_tx_process(sc,&(sc->sbm_txdma));
++	if (isr & (M_MAC_INT_CHANNEL << S_MAC_TX_CH0)) {
++		sbdma_tx_process(sc,&(sc->sbm_txdma), 0);
++#ifdef CONFIG_NETPOLL_TRAP
++		if (netpoll_trap()) {
++			if (test_and_clear_bit(__LINK_STATE_XOFF, &dev->state))
++				__netif_schedule(dev);
+ 		}
++#endif
++	}
+ 
+-		/*
+-		 * Receives on channel 0
+-		 */
+-
+-		/*
+-		 * It's important to test all the bits (or at least the
+-		 * EOP_SEEN bit) when deciding to do the RX process
+-		 * particularly when coalescing, to make sure we
+-		 * take care of the following:
+-		 *
+-		 * If you have some packets waiting (have been received
+-		 * but no interrupt) and get a TX interrupt before
+-		 * the RX timer or counter expires, reading the ISR
+-		 * above will clear the timer and counter, and you
+-		 * won't get another interrupt until a packet shows
+-		 * up to start the timer again.  Testing
+-		 * EOP_SEEN here takes care of this case.
+-		 * (EOP_SEEN is part of M_MAC_INT_CHANNEL << S_MAC_RX_CH0)
+-		 */
+-
+-
+-		if (isr & (M_MAC_INT_CHANNEL << S_MAC_RX_CH0)) {
+-			sbdma_rx_process(sc,&(sc->sbm_rxdma));
++	if (isr & (M_MAC_INT_CHANNEL << S_MAC_RX_CH0)) {
++		if (netif_rx_schedule_prep(dev)) {
++			__raw_writeq(0, sc->sbm_imr);
++			__netif_rx_schedule(dev);
++			/* Depend on the exit from poll to reenable intr */
++		}
++		else {
++			/* may leave some packets behind */
++			sbdma_rx_process(sc,&(sc->sbm_rxdma),
++					 SBMAC_MAX_RXDESCR * 2, 0);
+ 		}
+ 	}
+ 	return IRQ_RETVAL(handled);
+ }
+ 
+-
+ /**********************************************************************
+  *  SBMAC_START_TX(skb,dev)
+  *
+@@ -2256,8 +2311,6 @@ static void sbmac_setmulti(struct sbmac_
+ 	}
+ }
+ 
+-
+-
+ #if defined(SBMAC_ETH0_HWADDR) || defined(SBMAC_ETH1_HWADDR) || defined(SBMAC_ETH2_HWADDR) || defined(SBMAC_ETH3_HWADDR)
+ /**********************************************************************
+  *  SBMAC_PARSE_XDIGIT(str)
+@@ -2420,6 +2473,8 @@ static int sbmac_init(struct net_device 
+ 	dev->do_ioctl           = sbmac_mii_ioctl;
+ 	dev->tx_timeout         = sbmac_tx_timeout;
+ 	dev->watchdog_timeo     = TX_TIMEOUT;
++	dev->poll               = sbmac_poll;
++	dev->weight             = 16;
+ 
+ 	dev->change_mtu         = sb1250_change_mtu;
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+@@ -2822,7 +2877,39 @@ static int sbmac_close(struct net_device
+ 	return 0;
+ }
+ 
++static int sbmac_poll(struct net_device *dev, int *budget)
++{
++	int work_to_do;
++	int work_done;
++	struct sbmac_softc *sc = netdev_priv(dev);
++
++	work_to_do = min(*budget, dev->quota);
++	work_done = sbdma_rx_process(sc, &(sc->sbm_rxdma), work_to_do, 1);
++
++	if (work_done > work_to_do)
++		printk(KERN_ERR "%s exceeded work_to_do budget=%d quota=%d work-done=%d\n",
++		       sc->sbm_dev->name, *budget, dev->quota, work_done);
+ 
++	sbdma_tx_process(sc, &(sc->sbm_txdma), 1);
++
++	*budget -= work_done;
++	dev->quota -= work_done;
++
++	if (work_done < work_to_do) {
++		netif_rx_complete(dev);
++
++#ifdef CONFIG_SBMAC_COALESCE
++		__raw_writeq(((M_MAC_INT_EOP_COUNT | M_MAC_INT_EOP_TIMER) << S_MAC_TX_CH0) |
++			     ((M_MAC_INT_EOP_COUNT | M_MAC_INT_EOP_TIMER) << S_MAC_RX_CH0),
++			     sc->sbm_imr);
++#else
++		__raw_writeq((M_MAC_INT_CHANNEL << S_MAC_TX_CH0) |
++			     (M_MAC_INT_CHANNEL << S_MAC_RX_CH0), sc->sbm_imr);
++#endif
++	}
++
++	return (work_done >= work_to_do);
++}
+ 
+ #if defined(SBMAC_ETH0_HWADDR) || defined(SBMAC_ETH1_HWADDR) || defined(SBMAC_ETH2_HWADDR) || defined(SBMAC_ETH3_HWADDR)
+ static void
+@@ -2909,7 +2996,7 @@ sbmac_init_module(void)
+ 
+ 		/*
+ 		 * The R_MAC_ETHERNET_ADDR register will be set to some nonzero
+-		 * value for us by the firmware if we're going to use this MAC.
++		 * value for us by the firmware if we are going to use this MAC.
+ 		 * If we find a zero, skip this MAC.
+ 		 */
+ 
 _
