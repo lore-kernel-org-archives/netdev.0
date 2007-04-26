@@ -1,66 +1,35 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [PATCH] ipv6: track device renames in snmp6
-Date: Thu, 26 Apr 2007 16:42:47 -0700
-Message-ID: <20070426164247.3b3b2c7a@freekitty>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: IPV6 source routing patch is still broken?
+Date: Fri, 27 Apr 2007 08:52:10 +0900 (JST)
+Message-ID: <20070427.085210.117150909.yoshfuji@linux-ipv6.org>
+References: <46311F76.9040803@redhat.com>
+	<20070426.150434.91313967.davem@davemloft.net>
+	<46313180.6040809@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stable@kernel.org
-To: =?UTF-8?B?5ZCJ6Jek6Iux5piO?= <yoshfuji@linux-ipv6.org>,
-	"David S. Miller" <davem@davemloft.net>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	yoshfuji@linux-ipv6.org, nakam@linux-ipv6.org
+To: cebbert@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([65.172.181.25]:48050 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755248AbXDZXtY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2007 19:49:24 -0400
+Received: from yue.linux-ipv6.org ([203.178.140.15]:33194 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755283AbXDZXwM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2007 19:52:12 -0400
+In-Reply-To: <46313180.6040809@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When network device's are renamed, the IPV6 snmp6 code
-gets confused. It doesn't track name changes so it will OOPS
-when network device's are removed.
+In article <46313180.6040809@redhat.com> (at Thu, 26 Apr 2007 19:10:56 -0400), Chuck Ebbert <cebbert@redhat.com> says:
 
-The fix is trivial, just unregister/re-register in notify handler.
+> Another question: is it a good idea to even be shipping release
+> kernels with Mobile IPV6 enabled? Unfortunately, "experimental"
+> isn't enough to go by...
 
-Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+Well, we have still 2 missing pieces in 2.6.21, and we are trying to
+push them (source address selection, which is already in net-2.6 and
+xfrm subpolicy, which is still on dave's backlog?) to 2.6.22.
+After 2.6.23, we would say yes.
 
-
----
- net/ipv6/addrconf.c |    6 ++++--
- net/ipv6/proc.c     |    1 +
- 2 files changed, 5 insertions(+), 2 deletions(-)
-
---- linux-2.6.orig/net/ipv6/addrconf.c	2007-04-25 10:19:07.000000000 -0700
-+++ linux-2.6/net/ipv6/addrconf.c	2007-04-26 16:37:36.000000000 -0700
-@@ -2281,8 +2281,9 @@ static int addrconf_notify(struct notifi
- 		break;
- 
- 	case NETDEV_CHANGENAME:
--#ifdef CONFIG_SYSCTL
- 		if (idev) {
-+			snmp6_unregister_dev(idev);
-+#ifdef CONFIG_SYSCTL
- 			addrconf_sysctl_unregister(&idev->cnf);
- 			neigh_sysctl_unregister(idev->nd_parms);
- 			neigh_sysctl_register(dev, idev->nd_parms,
-@@ -2290,8 +2291,9 @@ static int addrconf_notify(struct notifi
- 					      &ndisc_ifinfo_sysctl_change,
- 					      NULL);
- 			addrconf_sysctl_register(idev, &idev->cnf);
--		}
- #endif
-+			snmp6_register_dev(idev);
-+		}
- 		break;
- 	};
- 
---- linux-2.6.orig/net/ipv6/proc.c	2007-04-10 10:11:19.000000000 -0700
-+++ linux-2.6/net/ipv6/proc.c	2007-04-26 16:37:36.000000000 -0700
-@@ -236,6 +236,7 @@ int snmp6_unregister_dev(struct inet6_de
- 		return -EINVAL;
- 	remove_proc_entry(idev->stats.proc_dir_entry->name,
- 			  proc_net_devsnmp6);
-+	idev->stats.proc_dir_entry = NULL;
- 	return 0;
- }
- 
+--yoshfuji
