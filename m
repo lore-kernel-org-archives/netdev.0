@@ -1,43 +1,28 @@
-From: Chuck Ebbert <cebbert@redhat.com>
-Subject: IPV6 source routing patch is still broken?
-Date: Thu, 26 Apr 2007 17:53:58 -0400
-Message-ID: <46311F76.9040803@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: fix-slab-corruption-running-ip6sic.patch
+Date: Thu, 26 Apr 2007 14:59:32 -0700 (PDT)
+Message-ID: <20070426.145932.13769222.davem@davemloft.net>
+References: <20070426141133.21ef2e17.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>
-To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Cc: herbert@gondor.apana.org.au, jarkao2@o2.pl, netdev@vger.kernel.org
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:60928 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755062AbXDZVyE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Apr 2007 17:54:04 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45644
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1755085AbXDZV70 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2007 17:59:26 -0400
+In-Reply-To: <20070426141133.21ef2e17.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Looking at the patch that went into 2.6.20.9, I can't see
-how type 2 packets get through at all. Shouldn't this part
-read:
+From: Andrew Morton <akpm@linux-foundation.org>
+Date: Thu, 26 Apr 2007 14:11:33 -0700
 
-+       case IPV6_SRCRT_TYPE_2:
-+               if (accept_source_route >= 0)
-+                       break;
-+               kfree_skb(skb);
-+               return -1;
-+       case IPV6_SRCRT_TYPE_0:
-+               if (accept_source_route > 0)
-+                       break;
-+               kfree_skb(skb);
-+               return -1;
+> 
+> I have this floating about in my tree.  Is it of any interest?
 
-And what does this do?
-
-+	switch (hdr->type) {
-+#ifdef CONFIG_IPV6_MIP6
-+		break;
-+#endif
-
-break by itself like that doesn't do anything. If it did
-then people with mobile ipv6 enabled would always accept all
-source routing. (They should at least know that's a problem.)
-
+I have it too, it's in my backlog which I'm not processing
+because I'm trying to fix up how we screwed up both networking
+"security" fixes by adding a new regression with each one :-)
