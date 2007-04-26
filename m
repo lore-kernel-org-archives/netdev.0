@@ -1,69 +1,54 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Netchannels status
-Date: Thu, 26 Apr 2007 19:36:15 +0400
-Message-ID: <20070426153615.GA8982@2ka.mipt.ru>
-References: <d0383f90704260721h7b1ec3ceya781063d9f0ddb8c@mail.gmail.com>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: [RFT] e100 driver on ARM
+Date: Thu, 26 Apr 2007 08:40:00 -0700
+Message-ID: <4630C7D0.8030901@intel.com>
+References: <44FC0261.6010807@garzik.org> <20060904123123.GB1285@xi.wantstofly.org> <460AF480.7050609@intel.com> <460B4BF2.1070803@roinet.com> <20070329141041.GA3510@csclub.uwaterloo.ca> <46239138.4040408@roinet.com> <20070417173507.GB5575@csclub.uwaterloo.ca> <4630AC02.7040706@roinet.com> <20070426135013.GA12154@xi.wantstofly.org> <4630C159.1060707@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: netdev@vger.kernel.org
-To: Ian Brown <ianbrn@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Lennert Buytenhek <buytenh@wantstofly.org>,
+	David Acker <dacker@roinet.com>,
+	Lennart Sorensen <lsorense@csclub.uwaterloo.ca>,
+	"Kok, Auke" <auke-jan.h.kok@intel.com>,
+	Netdev List <netdev@vger.kernel.org>,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	Russell King <rmk+lkml@arm.linux.org.uk>
+To: Jeff Garzik <jeff@garzik.org>, Andrew Morton <akpm@osdl.org>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:35619 "EHLO 2ka.mipt.ru"
+Received: from mga03.intel.com ([143.182.124.21]:14334 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1031289AbXDZPgT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Apr 2007 11:36:19 -0400
-Content-Disposition: inline
-In-Reply-To: <d0383f90704260721h7b1ec3ceya781063d9f0ddb8c@mail.gmail.com>
+	id S1031187AbXDZPkF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Apr 2007 11:40:05 -0400
+In-Reply-To: <4630C159.1060707@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 26, 2007 at 05:21:35PM +0300, Ian Brown (ianbrn@gmail.com) wrote:
-> Hello,
-> I read a bit about netchannels in linux (according to Van Jacobson ideas).
-> I see that the last version of netchannels (20) is from:
-> Fri, 29 Dec 2006.
-> http://tservice.net.ru/~s0mbre/blog/2006/12/29#2006_12_29
+Jeff Garzik wrote:
+> Lennert Buytenhek wrote:
+>> This is all a while ago now, but wasn't the e100 S-bit patch originally
+>> written by Intel people in response to the very same quote by Russell
+>> King that you've quoted above?
 > 
-> My question is : what is the status of the netchannels project ?
-> is there intention to try to integrate it into the linux kernel ? Or
-> was it abandoned ?
+> Correct.
+> 
+> I just wanted to make sure it didn't kill any boxes.
 
-Hmm... Netchannels as is are likely too intrusive changes from my point
-of view, so I started to port some of its bits as separated projects -
-likely you noticed my patches to replace socket lookup hash tables with
-unified trie based storage - idea (and initial implementation) was
-copied from netchannels lookup. It does not allow simple wildcard
-support (which was a main feature of the netchannels, since they also
-supported netfilter (I only implemented NAT)). If I will not be able to
-prove that dynamic unified lookup structure is faster than properly sized 
-hash table including additional memory allocation/freeing overhead, then
-netchannels are not yet ready (since they use even slower algo).
-I will continue to work on this interesting idea, but since I do it in
-my spare time I can not say any definitive time limits.
+Neither did we. On top of that we didn't have the equipment to test on ARM on 
+until recently, and the system that I got recently will not even load the kernel 
+with an e100 NIC in the PCI slot (way way way before e100.ko loads, e1000 works 
+just fine). that doesn't help either.
 
-Actually since I do not have 10gige testlab I can not prove my
-imeplementation does increase processing, since I moved from Van
-Jacobson idea quite a bit - he proposed to use different processing
-context for usual sockets, I wrote a small TCP/IP stack and moved 
-everything in userspace, which showed huge increase in performance but 
-mainly because of hugely reduced amount of system calls for small packets.
-Initial implementation with socket processing in process context did
-show small performance increase in 1gige setup though.
+Meanwhile we've not sat still and jesse wrote a patch to have e100 use IO 
+optionally for plagued platforms which seems to fix some of these issues, and 
+Jeff Kirsher has been actively tracking a e100 IPMI issue on a very specific 
+platform.
 
-Another great idea derived from netchannels is unified flow cache, which
-I'm working on as a socket lookup algo.
+Jeff, I think I should just push the IO patch and the sbit code to Andrew and 
+have it sit there. That is a vastly larger test resource than we currently can 
+generate for this. If needed we just let is sit there for a whole release cycle 
+before moving it to #upstream.
 
-So, things move forward, but with different names.
-Thanks for interest, feel free to provide ideas and discussion about it.
+seems like a good idea, right?
 
-Feel free to 
-
-> Regards,
-> Ian
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
--- 
-	Evgeniy Polyakov
+Auke
