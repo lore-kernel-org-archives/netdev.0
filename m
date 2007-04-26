@@ -1,37 +1,29 @@
-From: Jean Tourrilhes <jt@hpl.hp.com>
-Subject: Re: [PATCH 7/9] wext: reduce inline abuse
-Date: Thu, 26 Apr 2007 09:50:32 -0700
-Message-ID: <20070426165032.GB22576@bougret.hpl.hp.com>
-References: <20070424180732.371620000@sipsolutions.net> <20070424180849.651555000@sipsolutions.net>
-Reply-To: jt@hpl.hp.com
+From: Jean Tourrilhes <jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 9/9] net_device: dont include wext bits if not required
+Date: Thu, 26 Apr 2007 09:53:04 -0700
+Message-ID: <20070426165304.GC22576@bougret.hpl.hp.com>
+References: <20070424180732.371620000@sipsolutions.net> <20070424180850.595757000@sipsolutions.net>
+Reply-To: jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gundega.hpl.hp.com ([192.6.19.190]:54194 "EHLO
-	gundega.hpl.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754845AbXDZQui (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2007 12:50:38 -0400
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20070424180849.651555000@sipsolutions.net>
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <20070424180850.595757000-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 24, 2007 at 08:07:39PM +0200, Johannes Berg wrote:
-> This patch removes a bunch of inline abuse from wext. Most functions
-> that were marked inline are only used once so the compiler will inline
-> them anyway, others are used multiple times but there's no requirement
-> for them to be inline since they aren't in any fast paths.
+On Tue, Apr 24, 2007 at 08:07:41PM +0200, Johannes Berg wrote:
+> This patch makes the wext bits in struct net_device depend on
+> CONFIG_WIRELESS_EXT.
 > 
-> Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
+> Signed-off-by: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
 
-	That's clearly not true of all compilers. All gcc versions
-before 4.0 need serious help to inline functions used only once. Our
-current minimal requirement for the kernel is gcc 3.2, therefore this
-code is still useful.
-	Note that this is a legitimate use of inline (tell the
-compiler to inline the function), not an abuse.
+	I personally would not do that. Having conditional fields in
+"struct net_device" is very bad, it's a sure way to crash on modules
+in some cases. If I remember well, Jeff Garzik has been fighting those
+over the years.
 
 	Jean
