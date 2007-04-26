@@ -1,125 +1,90 @@
-From: David Howells <dhowells@redhat.com>
-Subject: [PATCH 13/14] AFS: Implement the CB.InitCallBackState3 operation
-	[net-2.6]
-Date: Thu, 26 Apr 2007 20:55:22 +0100
-Message-ID: <20070426195522.24531.63006.stgit@warthog.cambridge.redhat.com>
-References: <20070426195415.24531.78794.stgit@warthog.cambridge.redhat.com>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: ipv6 addrconf hardware type restrictions
+Date: Thu, 26 Apr 2007 21:24:17 +0200
+Message-ID: <4630FC61.1080706@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: dhowells@redhat.com
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, Urs Thuermann <urs@isnogud.escape.de>
+To: yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:58057 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1031469AbXDZTzZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Apr 2007 15:55:25 -0400
-Received: from int-mx1.corp.redhat.com (int-mx1.corp.redhat.com [172.16.52.254])
-	by mx1.redhat.com (8.13.1/8.13.1) with ESMTP id l3QJtOxP029140
-	for <netdev@vger.kernel.org>; Thu, 26 Apr 2007 15:55:24 -0400
-In-Reply-To: <20070426195415.24531.78794.stgit@warthog.cambridge.redhat.com>
+Received: from mo-p00-fb.rzone.de ([81.169.146.163]:58113 "EHLO
+	mo-p00-fb.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754992AbXDZT4E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2007 15:56:04 -0400
+Received: from mo-p00-ob.rzone.de (fruni-mo-p00-ob.mail [192.168.63.71])
+	by charnel-fb-04.store (RZmta 5.8) with ESMTP id 40179dj3QIsm7l
+	for <netdev@vger.kernel.org>; Thu, 26 Apr 2007 21:25:56 +0200 (MEST)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Implement the CB.InitCallBackState3 operation for the fileserver to call.
-This reduces the amount of network traffic because if this op is aborted, the
-fileserver will then attempt an CB.InitCallBackState operation.
+Hello,
 
-Signed-Off-By: David Howells <dhowells@redhat.com>
----
+since the invocation of ipv6_add_dev() at NETDEV_REGISTER time in 
+addrconf_notify() i get an 'add_dev failed' when registering a netdevice 
+with a MTU of 16.
 
- fs/afs/afs_cm.h    |    1 +
- fs/afs/cmservice.c |   46 ++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 47 insertions(+), 0 deletions(-)
+As the code doesn't check for ipv6 capable hardware types it simply runs 
+into an error for some non-ipv6 capable networking hw ...
 
-diff --git a/fs/afs/afs_cm.h b/fs/afs/afs_cm.h
-index d4bd201..7b4d4fa 100644
---- a/fs/afs/afs_cm.h
-+++ b/fs/afs/afs_cm.h
-@@ -23,6 +23,7 @@ enum AFS_CM_Operations {
- 	CBGetCE			= 208,	/* get cache file description */
- 	CBGetXStatsVersion	= 209,	/* get version of extended statistics */
- 	CBGetXStats		= 210,	/* get contents of extended statistics data */
-+	CBInitCallBackState3	= 213,	/* initialise callback state, version 3 */
- 	CBGetCapabilities	= 65538, /* get client capabilities */
- };
+This patch below may just be a hint - maybe you find any 'nicer' 
+implementation for this.
+
+Best regards,
+Oliver
+
+Signed-Off-By: Oliver Hartkopp <socketcan@hartkopp.net>
+
+--- addrconf.c-orig    2007-04-26 20:40:38.000000000 +0200
++++ addrconf.c    2007-04-26 20:54:58.000000000 +0200
+@@ -2076,15 +2076,6 @@
  
-diff --git a/fs/afs/cmservice.c b/fs/afs/cmservice.c
-index a6af3ac..6685f4c 100644
---- a/fs/afs/cmservice.c
-+++ b/fs/afs/cmservice.c
-@@ -20,6 +20,8 @@ struct workqueue_struct *afs_cm_workqueue;
+     ASSERT_RTNL();
  
- static int afs_deliver_cb_init_call_back_state(struct afs_call *,
- 					       struct sk_buff *, bool);
-+static int afs_deliver_cb_init_call_back_state3(struct afs_call *,
-+						struct sk_buff *, bool);
- static int afs_deliver_cb_probe(struct afs_call *, struct sk_buff *, bool);
- static int afs_deliver_cb_callback(struct afs_call *, struct sk_buff *, bool);
- static int afs_deliver_cb_get_capabilities(struct afs_call *, struct sk_buff *,
-@@ -47,6 +49,16 @@ static const struct afs_call_type afs_SRXCBInitCallBackState = {
- };
- 
- /*
-+ * CB.InitCallBackState3 operation type
-+ */
-+static const struct afs_call_type afs_SRXCBInitCallBackState3 = {
-+	.name		= "CB.InitCallBackState3",
-+	.deliver	= afs_deliver_cb_init_call_back_state3,
-+	.abort_to_error	= afs_abort_to_error,
-+	.destructor	= afs_cm_destructor,
-+};
-+
-+/*
-  * CB.Probe operation type
-  */
- static const struct afs_call_type afs_SRXCBProbe = {
-@@ -83,6 +95,9 @@ bool afs_cm_incoming_call(struct afs_call *call)
- 	case CBInitCallBackState:
- 		call->type = &afs_SRXCBInitCallBackState;
- 		return true;
-+	case CBInitCallBackState3:
-+		call->type = &afs_SRXCBInitCallBackState3;
-+		return true;
- 	case CBProbe:
- 		call->type = &afs_SRXCBProbe;
- 		return true;
-@@ -312,6 +327,37 @@ static int afs_deliver_cb_init_call_back_state(struct afs_call *call,
+-    if ((dev->type != ARPHRD_ETHER) &&
+-        (dev->type != ARPHRD_FDDI) &&
+-        (dev->type != ARPHRD_IEEE802_TR) &&
+-        (dev->type != ARPHRD_ARCNET) &&
+-        (dev->type != ARPHRD_INFINIBAND)) {
+-        /* Alas, we support only Ethernet autoconfiguration. */
+-        return;
+-    }
+-
+     idev = addrconf_add_dev(dev);
+     if (idev == NULL)
+         return;
+@@ -2172,6 +2163,21 @@
+     ip6_tnl_add_linklocal(idev);
  }
  
- /*
-+ * deliver request data to a CB.InitCallBackState3 call
-+ */
-+static int afs_deliver_cb_init_call_back_state3(struct afs_call *call,
-+						struct sk_buff *skb,
-+						bool last)
++static int ipv6_hwtype(struct net_device *dev)
 +{
-+	struct afs_server *server;
-+	struct in_addr addr;
++    if ((dev->type == ARPHRD_ETHER) ||
++        (dev->type == ARPHRD_LOOPBACK) ||
++        (dev->type == ARPHRD_SIT) ||
++        (dev->type == ARPHRD_TUNNEL6) ||
++        (dev->type == ARPHRD_FDDI) ||
++        (dev->type == ARPHRD_IEEE802_TR) ||
++        (dev->type == ARPHRD_ARCNET) ||
++        (dev->type == ARPHRD_INFINIBAND))
++        return 1;
 +
-+	_enter(",{%u},%d", skb->len, last);
-+
-+	if (!last)
-+		return 0;
-+
-+	/* no unmarshalling required */
-+	call->state = AFS_CALL_REPLYING;
-+
-+	/* we'll need the file server record as that tells us which set of
-+	 * vnodes to operate upon */
-+	memcpy(&addr, &ip_hdr(skb)->saddr, 4);
-+	server = afs_find_server(&addr);
-+	if (!server)
-+		return -ENOTCONN;
-+	call->server = server;
-+
-+	INIT_WORK(&call->work, SRXAFSCB_InitCallBackState);
-+	schedule_work(&call->work);
-+	return 0;
++    return 0;
 +}
 +
-+/*
-  * allow the fileserver to see if the cache manager is still alive
-  */
- static void SRXAFSCB_Probe(struct work_struct *work)
+ static int addrconf_notify(struct notifier_block *this, unsigned long 
+event,
+                void * data)
+ {
+@@ -2179,6 +2185,9 @@
+     struct inet6_dev *idev = __in6_dev_get(dev);
+     int run_pending = 0;
+ 
++    if (!ipv6_hwtype(dev))
++        return NOTIFY_OK;
++
+     switch(event) {
+     case NETDEV_REGISTER:
+         if (!idev) {
+
 
