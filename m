@@ -1,54 +1,66 @@
-From: speedy <speedy@3d-io.com>
-Subject: Re[2]: [BUG REPORT] 2.6.21-rc7 - Yukon-EC Ultra <-> sky2 driver bug(s)
-Date: Fri, 27 Apr 2007 01:19:56 +0200
-Message-ID: <183140279.20070427011956@3d-io.com>
-References: <1005889901.20070426035905@3d-io.com> <20070426130339.109e42ea@freekitty> <1901675644.20070427003443@3d-io.com> <20070426153517.2a78c3c4@dxpl.pdx.osdl.net>
-Reply-To: speedy <speedy@3d-io.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: [PATCH] ipv6: track device renames in snmp6
+Date: Thu, 26 Apr 2007 16:42:47 -0700
+Message-ID: <20070426164247.3b3b2c7a@freekitty>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: netdev@vger.kernel.org, stable@kernel.org
+To: =?UTF-8?B?5ZCJ6Jek6Iux5piO?= <yoshfuji@linux-ipv6.org>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bromine.webpack.hosteurope.de ([217.115.142.123]:45040 "EHLO
-	bromine.webpack.hosteurope.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1031506AbXDZXUD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2007 19:20:03 -0400
-In-Reply-To: <20070426153517.2a78c3c4@dxpl.pdx.osdl.net>
+Received: from smtp1.linux-foundation.org ([65.172.181.25]:48050 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755248AbXDZXtY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2007 19:49:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello Stephen,
+When network device's are renamed, the IPV6 snmp6 code
+gets confused. It doesn't track name changes so it will OOPS
+when network device's are removed.
 
-Friday, April 27, 2007, 12:35:17 AM, you wrote:
+The fix is trivial, just unregister/re-register in notify handler.
 
-SH> On Fri, 27 Apr 2007 00:34:43 +0200
-SH> speedy <speedy@3d-io.com> wrote:
+Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
->> Hello Stephen,
->> 
->> Thursday, April 26, 2007, 10:03:39 PM, you wrote:
->> 
->> SH> On Thu, 26 Apr 2007 03:59:05 +0200
->> SH> speedy <speedy@3d-io.com> wrote:
->> 
->> >> Kernel: 2.6.21-rc7
->> >> Device: Yukon-EC Ultra (0xb4) rev 2 [integrated on Gigabyte GA-965P-DQ6]
->> >> OS: Ubuntu 7.04 (Feisty Fawn)
 
-SH> I have that motherboard, that is why I blacklisted it..
-SH> Neither my driver (or the vendor driver works). Right now I suspect some
-SH> problem unique to full x86-64 mode. Windows runs it in i386 mode.
+---
+ net/ipv6/addrconf.c |    6 ++++--
+ net/ipv6/proc.c     |    1 +
+ 2 files changed, 5 insertions(+), 2 deletions(-)
 
-The box is running in 32bit mode, for both Linux and Windows if that matters.
-Umm - at least I think so for Linux.. I think Ubuntu is a 32bit
-version. Hmm.. "uname -a" says i686.
-
-Maybe there are tools to sniff the bus traffic of the Windows driver and
-compare it to what you do? (ie. like what folk from NVidia open-source drivers
-are doing..) I suspect you are touching something windows driver does not -
-so it requires power-off/power-on to resume normal device operation.
-
-Cheers,
-speedy over&out
-
+--- linux-2.6.orig/net/ipv6/addrconf.c	2007-04-25 10:19:07.000000000 -0700
++++ linux-2.6/net/ipv6/addrconf.c	2007-04-26 16:37:36.000000000 -0700
+@@ -2281,8 +2281,9 @@ static int addrconf_notify(struct notifi
+ 		break;
+ 
+ 	case NETDEV_CHANGENAME:
+-#ifdef CONFIG_SYSCTL
+ 		if (idev) {
++			snmp6_unregister_dev(idev);
++#ifdef CONFIG_SYSCTL
+ 			addrconf_sysctl_unregister(&idev->cnf);
+ 			neigh_sysctl_unregister(idev->nd_parms);
+ 			neigh_sysctl_register(dev, idev->nd_parms,
+@@ -2290,8 +2291,9 @@ static int addrconf_notify(struct notifi
+ 					      &ndisc_ifinfo_sysctl_change,
+ 					      NULL);
+ 			addrconf_sysctl_register(idev, &idev->cnf);
+-		}
+ #endif
++			snmp6_register_dev(idev);
++		}
+ 		break;
+ 	};
+ 
+--- linux-2.6.orig/net/ipv6/proc.c	2007-04-10 10:11:19.000000000 -0700
++++ linux-2.6/net/ipv6/proc.c	2007-04-26 16:37:36.000000000 -0700
+@@ -236,6 +236,7 @@ int snmp6_unregister_dev(struct inet6_de
+ 		return -EINVAL;
+ 	remove_proc_entry(idev->stats.proc_dir_entry->name,
+ 			  proc_net_devsnmp6);
++	idev->stats.proc_dir_entry = NULL;
+ 	return 0;
+ }
+ 
