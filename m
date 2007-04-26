@@ -1,118 +1,69 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 3/5 2.6.21-rc7] l2tp: pppol2tp core
-Date: Thu, 26 Apr 2007 17:16:12 +0200
-Message-ID: <4630C23C.8090409@trash.net>
-References: <200704231601.l3NG13TN030167@quickie.katalix.com> <462E29D9.8000600@trash.net> <462E57D9.3030606@katalix.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: Netchannels status
+Date: Thu, 26 Apr 2007 19:36:15 +0400
+Message-ID: <20070426153615.GA8982@2ka.mipt.ru>
+References: <d0383f90704260721h7b1ec3ceya781063d9f0ddb8c@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=koi8-r
 Cc: netdev@vger.kernel.org
-To: James Chapman <jchapman@katalix.com>
+To: Ian Brown <ianbrn@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:59148 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964821AbXDZPRX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2007 11:17:23 -0400
-In-Reply-To: <462E57D9.3030606@katalix.com>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:35619 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1031289AbXDZPgT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Apr 2007 11:36:19 -0400
+Content-Disposition: inline
+In-Reply-To: <d0383f90704260721h7b1ec3ceya781063d9f0ddb8c@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-James Chapman wrote:
-> Patrick McHardy wrote:
+On Thu, Apr 26, 2007 at 05:21:35PM +0300, Ian Brown (ianbrn@gmail.com) wrote:
+> Hello,
+> I read a bit about netchannels in linux (according to Van Jacobson ideas).
+> I see that the last version of netchannels (20) is from:
+> Fri, 29 Dec 2006.
+> http://tservice.net.ru/~s0mbre/blog/2006/12/29#2006_12_29
 > 
->> Still the ugly old_data_ready/old_sk_destruct and pppol2tp_fget hacks.
-> 
-> 
-> I added comments in the code about why I think pppol2tp_fget is needed.
-> This driver handles PPP-over-L2TP sockets. These are attached to a plain
-> UDP (L2TP) socket. When a pppol2tp socket is created, it is provided
-> with the fd of the UDP (L2TP) tunnel socket. The tunnel socket is
-> created by l2tpd, which passes the fd to pppd when it forks pppd for
-> each session in the tunnel. Since it is pppd that does the connect on
-> the pppol2tp socket (this driver) it needs to get the UDP socket via the
-> passed fd/pid. Is there another way to do this?
+> My question is : what is the status of the netchannels project ?
+> is there intention to try to integrate it into the linux kernel ? Or
+> was it abandoned ?
 
+Hmm... Netchannels as is are likely too intrusive changes from my point
+of view, so I started to port some of its bits as separated projects -
+likely you noticed my patches to replace socket lookup hash tables with
+unified trie based storage - idea (and initial implementation) was
+copied from netchannels lookup. It does not allow simple wildcard
+support (which was a main feature of the netchannels, since they also
+supported netfilter (I only implemented NAT)). If I will not be able to
+prove that dynamic unified lookup structure is faster than properly sized 
+hash table including additional memory allocation/freeing overhead, then
+netchannels are not yet ready (since they use even slower algo).
+I will continue to work on this interesting idea, but since I do it in
+my spare time I can not say any definitive time limits.
 
-AFAICT the only reason why you need this is for receiving data from
-the socket by overloading sk_data_ready, so the need for this should
-go away with using encapsulation sockets.
+Actually since I do not have 10gige testlab I can not prove my
+imeplementation does increase processing, since I moved from Van
+Jacobson idea quite a bit - he proposed to use different processing
+context for usual sockets, I wrote a small TCP/IP stack and moved 
+everything in userspace, which showed huge increase in performance but 
+mainly because of hugely reduced amount of system calls for small packets.
+Initial implementation with socket processing in process context did
+show small performance increase in 1gige setup though.
 
->> What prevents you from using encapsulation sockets 
-> 
-> 
-> It would break L2TP/IPSec. There isn't a way to stack encapsulations.
+Another great idea derived from netchannels is unified flow cache, which
+I'm working on as a socket lookup algo.
 
+So, things move forward, but with different names.
+Thanks for interest, feel free to provide ideas and discussion about it.
 
-Thats not true. After decapsulating+decrypting ESP in UDP packets a
-new socket lookup is done and this one can be another encapsulation
-socket.
+Feel free to 
 
->> to get rid of this
->> stuff and have ppp_generic filter out non-data frames for userspace
->> as for other ppp drivers?
-> 
-> Not sure what you mean. ppp_generic is doing that.
+> Regards,
+> Ian
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-
-I might have misunderstood the code, I'm talking about this:
-
-+static void pppol2tp_data_ready(struct sock *sk, int len)
-+{
-...
-+       skb = skb_dequeue(&sk->sk_receive_queue);
-+       if (skb != NULL) {
-+               if (pppol2tp_recv_core(sk, skb)) {
-
-+                       skb_queue_head(&sk->sk_receive_queue, skb);
-+                       tunnel->old_data_ready(sk, len);
-
-
-This will requeue the UDP packets for userspace to read them
-directly, right? It also seems to block processing of further
-packets until userspace read it since its still at the head
-of the receive queue.
-
->>> +/* Used by sort()
->>> + */
->>> +static void pppol2tp_seq_swap(void *a, void *b, int size)
->>> +[...]
->>
->>
->> Why is this needed? Can't userspace sort them itself in case it really
->> needs some defined ordering?
-> 
-> 
-> Personal preference. I don't think it's a lot of code, but I don't have
-> a problem removing it.
-
-
-Please, it seems a bit silly to allocate extra memory and go through
-the trouble of sorting the entries just for nicer /proc output.
-
->>> +static void pppol2tp_seq_tunnel_show(struct seq_file *m, void *v)
->>> +{
->>> +    struct pppol2tp_tunnel *tunnel = v;
->>> +
->>> +    seq_printf(m, "\nTUNNEL '%s', %c %d MAGIC %s\n",
->>> +           tunnel->name,
->>> +           (tunnel == tunnel->sock->sk_user_data) ? 'Y':'N',
->>> +           atomic_read(&tunnel->ref_count) - 1,
->>> +           (tunnel->magic == L2TP_TUNNEL_MAGIC) ? "OK" : "BAD");
->>> +    seq_printf(m, " %08x %llu/%llu/%llu %llu/%llu/%llu\n",
->>> +           tunnel->debug,
->>> +           tunnel->stats.tx_packets, tunnel->stats.tx_bytes,
->>> +           tunnel->stats.tx_errors,
->>> +           tunnel->stats.rx_packets, tunnel->stats.rx_bytes,
->>> +           tunnel->stats.rx_errors);
->>
->>
->>
->> Still no return value checks.
-> 
-> 
-> Are they needed now that I changed the seq file handling such that a new
-> buffer should be provided per tunnel and per session. I looked for
-> examples of seq_printf and almost all don't use the return value.
-
-
-You're right, that seems to be OK.
+-- 
+	Evgeniy Polyakov
