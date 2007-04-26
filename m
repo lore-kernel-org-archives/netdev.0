@@ -1,28 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: fix-slab-corruption-running-ip6sic.patch
-Date: Thu, 26 Apr 2007 14:59:32 -0700 (PDT)
-Message-ID: <20070426.145932.13769222.davem@davemloft.net>
-References: <20070426141133.21ef2e17.akpm@linux-foundation.org>
+Subject: Re: IPV6 source routing patch is still broken?
+Date: Thu, 26 Apr 2007 15:04:34 -0700 (PDT)
+Message-ID: <20070426.150434.91313967.davem@davemloft.net>
+References: <46311F76.9040803@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, jarkao2@o2.pl, netdev@vger.kernel.org
-To: akpm@linux-foundation.org
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
+To: cebbert@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45644
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42084
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755085AbXDZV70 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2007 17:59:26 -0400
-In-Reply-To: <20070426141133.21ef2e17.akpm@linux-foundation.org>
+	by vger.kernel.org with ESMTP id S1755126AbXDZWE1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2007 18:04:27 -0400
+In-Reply-To: <46311F76.9040803@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Andrew Morton <akpm@linux-foundation.org>
-Date: Thu, 26 Apr 2007 14:11:33 -0700
+From: Chuck Ebbert <cebbert@redhat.com>
+Date: Thu, 26 Apr 2007 17:53:58 -0400
 
+> And what does this do?
 > 
-> I have this floating about in my tree.  Is it of any interest?
+> +	switch (hdr->type) {
+> +#ifdef CONFIG_IPV6_MIP6
+> +		break;
+> +#endif
+> 
+> break by itself like that doesn't do anything. If it did
+> then people with mobile ipv6 enabled would always accept all
+> source routing. (They should at least know that's a problem.)
 
-I have it too, it's in my backlog which I'm not processing
-because I'm trying to fix up how we screwed up both networking
-"security" fixes by adding a new regression with each one :-)
+We are aware of this part already, and I've sent the fix to
+the -stable folks and Linus so we can figure out how to deal
+with this and the netlink OOPS'er too.
+
+To be honest I don't blame anyone but the compiler, it shouldn't
+accept that code without at least a warning.
