@@ -1,51 +1,41 @@
 From: akpm@linux-foundation.org
-Subject: [patch 03/11] vioc cast warningfix
-Date: Thu, 26 Apr 2007 00:23:16 -0700
-Message-ID: <200704260723.l3Q7NGFH023826@shell0.pdx.osdl.net>
+Subject: [patch 05/11] vioc: replace more deprecated SA_xxx interrupt flags
+Date: Thu, 26 Apr 2007 00:23:17 -0700
+Message-ID: <200704260723.l3Q7NHeg023832@shell0.pdx.osdl.net>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	driver-support@fabric7.com, schidambaram@fabric7.com
+	tglx@linutronix.de, schidambaram@fabric7.com
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([65.172.181.25]:50009 "EHLO
+Received: from smtp1.linux-foundation.org ([65.172.181.25]:34328 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933320AbXDZHYB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2007 03:24:01 -0400
+	by vger.kernel.org with ESMTP id S933325AbXDZHYK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2007 03:24:10 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Andrew Morton <akpm@linux-foundation.org>
+From: Thomas Gleixner <tglx@linutronix.de>
 
-i386:
+Fix the obnoxious users of the deprecated SA_xxx interrupt flags.
 
-drivers/net/vioc/vioc_receive.c: In function '_vioc_fill_n_xfer':
-drivers/net/vioc/vioc_receive.c:198: warning: cast from pointer to integer of different size
-drivers/net/vioc/vioc_receive.c:199: warning: cast to pointer from integer of different size
-drivers/net/vioc/vioc_irq.c: In function 'vioc_set_intr_func_param':
-drivers/net/vioc/vioc_irq.c:344: warning: cast to pointer from integer of different size
-
-This code looks fishy.
-
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 Cc: Sriram Chidambaram <schidambaram@fabric7.com>
-Cc: Fabric7 Driver-Support <driver-support@fabric7.com>
 Cc: Jeff Garzik <jeff@garzik.org>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/net/vioc/vioc_receive.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/vioc/vioc_irq.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff -puN drivers/net/vioc/vioc_receive.c~vioc-cast-warning-fix drivers/net/vioc/vioc_receive.c
---- a/drivers/net/vioc/vioc_receive.c~vioc-cast-warning-fix
-+++ a/drivers/net/vioc/vioc_receive.c
-@@ -195,8 +195,8 @@ static u32 _vioc_fill_n_xfer(struct rxdq
- 				goto undo_refill;
- 			}
- 			/* Cache align */
--			x = (u64) skb->data;
--			skb->data = (unsigned char *)ALIGN(x, 64);
-+			x = (u64)(long)skb->data;
-+			skb->data = (unsigned char *)(long)ALIGN(x, 64);
- 			rxdq->vbuf[idx].skb = skb;
- 			rxdq->vbuf[idx].dma =
- 			    pci_map_single(rxdq->viocdev->pdev,
+diff -puN drivers/net/vioc/vioc_irq.c~vioc-replace-more-deprecated-sa_xxx-interrupt-flags drivers/net/vioc/vioc_irq.c
+--- a/drivers/net/vioc/vioc_irq.c~vioc-replace-more-deprecated-sa_xxx-interrupt-flags
++++ a/drivers/net/vioc/vioc_irq.c
+@@ -319,7 +319,7 @@ static int vioc_irq_install(struct pci_d
+ 
+ 	ret = request_irq(vioc_interrupts[vioc_id].intreq[intr_id].irq,
+ 			  vioc_interrupts[vioc_id].intreq[intr_id].hthandler,
+-			  SA_INTERRUPT,
++			  IRQF_DISABLED,
+ 			  vioc_interrupts[vioc_id].intreq[intr_id].name,
+ 			  vioc_interrupts[vioc_id].intreq[intr_id].
+ 			  intrFuncparm);
 _
