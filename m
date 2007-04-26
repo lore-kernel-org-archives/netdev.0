@@ -1,33 +1,67 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 04/15] Delete unused header file
- linux/if_wanpipe_common.h
-Date: Thu, 26 Apr 2007 00:59:38 -0700 (PDT)
-Message-ID: <20070426.005938.115640657.davem@davemloft.net>
-References: <200704260727.l3Q7RNep023952@shell0.pdx.osdl.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rpjday@mindspring.com, khc@pm.waw.pl
-To: akpm@linux-foundation.org
+From: akpm@linux-foundation.org
+Subject: [patch 13/15] irda_device_dongle_init: fix kzalloc(GFP_KERNEL) in spinlock
+Date: Thu, 26 Apr 2007 00:27:35 -0700
+Message-ID: <200704260727.l3Q7RZr7023981@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
+	matthias.kaehlcke@gmail.com, samuel@sortiz.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33986
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S933593AbXDZH73 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2007 03:59:29 -0400
-In-Reply-To: <200704260727.l3Q7RNep023952@shell0.pdx.osdl.net>
+Received: from smtp1.linux-foundation.org ([65.172.181.25]:34227 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S933599AbXDZH74 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2007 03:59:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: akpm@linux-foundation.org
-Date: Thu, 26 Apr 2007 00:27:23 -0700
+From: Andrew Morton <akpm@linux-foundation.org>
 
-> From: "Robert P. J. Day" <rpjday@mindspring.com>
-> 
-> Delete the unreferenced header file include/linux/if_wanpipe_common.h,
-> as well as the reference to it in the Doc file.
-> 
-> Signed-off-by: Robert P. J. Day <rpjday@mindspring.com>
-> Cc: Krzysztof Halasa <khc@pm.waw.pl>
-> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Fix http://bugzilla.kernel.org/show_bug.cgi?id=8343
 
-Applied.
+Cc: Samuel Ortiz <samuel@sortiz.org>
+Cc: <matthias.kaehlcke@gmail.com>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+---
+
+ net/irda/irda_device.c |   21 ++++++++-------------
+ 1 file changed, 8 insertions(+), 13 deletions(-)
+
+diff -puN net/irda/irda_device.c~irda_device_dongle_init-fix-kzallocgfp_kernel-in-spinlock net/irda/irda_device.c
+--- a/net/irda/irda_device.c~irda_device_dongle_init-fix-kzallocgfp_kernel-in-spinlock
++++ a/net/irda/irda_device.c
+@@ -375,7 +375,7 @@ EXPORT_SYMBOL(alloc_irdadev);
+ dongle_t *irda_device_dongle_init(struct net_device *dev, int type)
+ {
+ 	struct dongle_reg *reg;
+-	dongle_t *dongle = NULL;
++	dongle_t *dongle = kzalloc(sizeof(dongle_t), GFP_KERNEL);
+ 
+ 	might_sleep();
+ 
+@@ -397,19 +397,14 @@ dongle_t *irda_device_dongle_init(struct
+ 	if (!reg || !try_module_get(reg->owner) ) {
+ 		IRDA_ERROR("IrDA: Unable to find requested dongle type %x\n",
+ 			   type);
+-		goto out;
++		kfree(dongle);
++		dongle = NULL;
++	}
++	if (dongle) {
++		/* Bind the registration info to this particular instance */
++		dongle->issue = reg;
++		dongle->dev = dev;
+ 	}
+-
+-	/* Allocate dongle info for this instance */
+-	dongle = kzalloc(sizeof(dongle_t), GFP_KERNEL);
+-	if (!dongle)
+-		goto out;
+-
+-	/* Bind the registration info to this particular instance */
+-	dongle->issue = reg;
+-	dongle->dev = dev;
+-
+- out:
+ 	spin_unlock(&dongles->hb_spinlock);
+ 	return dongle;
+ }
+_
