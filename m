@@ -1,53 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] RF Kill
-Date: Thu, 26 Apr 2007 00:54:57 -0700 (PDT)
-Message-ID: <20070426.005457.27951605.davem@davemloft.net>
-References: <200704100158.58451.dtor@insightbb.com>
-	<200704100229.32393.dtor@insightbb.com>
-	<20070426.004951.85412315.davem@davemloft.net>
+Subject: Re: [patch 02/15] net/: possible cleanups
+Date: Thu, 26 Apr 2007 00:57:55 -0700 (PDT)
+Message-ID: <20070426.005755.07455553.davem@davemloft.net>
+References: <200704260727.l3Q7RMSV023946@shell0.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ivdoorn@gmail.com, linville@tuxdriver.com,
-	akpm@linux-foundation.org
-To: dtor@insightbb.com
+Cc: netdev@vger.kernel.org, bunk@stusta.de
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57803
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33972
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S933473AbXDZHyt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2007 03:54:49 -0400
-In-Reply-To: <20070426.004951.85412315.davem@davemloft.net>
+	by vger.kernel.org with ESMTP id S933409AbXDZH5r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2007 03:57:47 -0400
+In-Reply-To: <200704260727.l3Q7RMSV023946@shell0.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: David Miller <davem@davemloft.net>
-Date: Thu, 26 Apr 2007 00:49:51 -0700 (PDT)
+From: akpm@linux-foundation.org
+Date: Thu, 26 Apr 2007 00:27:22 -0700
 
-> From: Dmitry Torokhov <dtor@insightbb.com>
-> Date: Tue, 10 Apr 2007 02:29:31 -0400
+> From: Adrian Bunk <bunk@stusta.de>
 > 
-> > On Tuesday 10 April 2007 01:58, Dmitry Torokhov wrote:
-> > > Hi,
-> > > 
-> > > This is a modified version of rfkill patch that provides infrastructure
-> > > for controlling state of RF transmitters found on various cards.
-> > 
-> > Well, Andrew found bunch of issues with the patch so here is an
-> > updated version...
+> - make the following needlessly global variables static:
+>   - core/rtnetlink.c: struct rtnl_msg_handlers[]
+>   - netfilter/nf_conntrack_proto.c: struct nf_ct_protos[]
+> - make the following needlessly global functions static:
+>   - core/rtnetlink.c: rtnl_dump_all()
+>   - netlink/af_netlink.c: netlink_queue_skip()
 > 
-> Patch applied, although one part of the locking is slightly
-> suspect:
+> Signed-off-by: Adrian Bunk <bunk@stusta.de>
+> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 
-Actually, I'm reverting this, sorry.
-
-Besides the locking and other issues I pointed out, this
-thing won't even link.  Please do not test the build with
-various configurations when submitting new code like this.
-
-Thanks.
-
-  MODPOST 139 modules
-WARNING: "input_register_handle" [net/rfkill/rfkill-input.ko] undefined!
-WARNING: "input_unregister_handle" [net/rfkill/rfkill-input.ko] undefined!
-make[1]: *** [__modpost] Error 1
-make: *** [modules] Error 2
+Applied.
