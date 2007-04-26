@@ -1,50 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: IPV6 source routing patch is still broken?
-Date: Thu, 26 Apr 2007 15:31:42 -0700 (PDT)
-Message-ID: <20070426.153142.57441302.davem@davemloft.net>
-References: <46311F76.9040803@redhat.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [BUG REPORT] 2.6.21-rc7 - Yukon-EC Ultra <-> sky2 driver bug(s)
+Date: Thu, 26 Apr 2007 15:35:17 -0700
+Message-ID: <20070426153517.2a78c3c4@dxpl.pdx.osdl.net>
+References: <1005889901.20070426035905@3d-io.com>
+	<20070426130339.109e42ea@freekitty>
+	<1901675644.20070427003443@3d-io.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
-To: cebbert@redhat.com
+Cc: netdev@vger.kernel.org
+To: speedy <speedy@3d-io.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40918
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753309AbXDZWbf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2007 18:31:35 -0400
-In-Reply-To: <46311F76.9040803@redhat.com>
+Received: from smtp1.linux-foundation.org ([65.172.181.25]:39732 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755139AbXDZWib (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2007 18:38:31 -0400
+In-Reply-To: <1901675644.20070427003443@3d-io.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Chuck Ebbert <cebbert@redhat.com>
-Date: Thu, 26 Apr 2007 17:53:58 -0400
+On Fri, 27 Apr 2007 00:34:43 +0200
+speedy <speedy@3d-io.com> wrote:
 
-> Looking at the patch that went into 2.6.20.9, I can't see
-> how type 2 packets get through at all. Shouldn't this part
-> read:
+> Hello Stephen,
 > 
-> +       case IPV6_SRCRT_TYPE_2:
-> +               if (accept_source_route >= 0)
-> +                       break;
-> +               kfree_skb(skb);
-> +               return -1;
-> +       case IPV6_SRCRT_TYPE_0:
-> +               if (accept_source_route > 0)
-> +                       break;
-> +               kfree_skb(skb);
-> +               return -1;
+> Thursday, April 26, 2007, 10:03:39 PM, you wrote:
+> 
+> SH> On Thu, 26 Apr 2007 03:59:05 +0200
+> SH> speedy <speedy@3d-io.com> wrote:
+> 
+> >> Kernel: 2.6.21-rc7
+> >> Device: Yukon-EC Ultra (0xb4) rev 2 [integrated on Gigabyte GA-965P-DQ6]
+> >> OS: Ubuntu 7.04 (Feisty Fawn)
 
-Yes, that looks like it matches the sysctl documentation more closely:
-
-accept_source_route - INTEGER
-	Accept source routing (routing extension header).
-
-	> 0: Accept routing header.
-	= 0: Accept only routing header type 2.
-	< 0: Do not accept routing header.
-
-Type 2 packets should get through as long as the value of the sysctl
-is not negative.
-
-Hmmm?
+I have that motherboard, that is why I blacklisted it..
+Neither my driver (or the vendor driver works). Right now I suspect some
+problem unique to full x86-64 mode. Windows runs it in i386 mode.
