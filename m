@@ -1,35 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 08/15] sunrpc: cleanup: use seq_release_private() where
- appropriate
-Date: Thu, 26 Apr 2007 01:04:00 -0700 (PDT)
-Message-ID: <20070426.010400.35468950.davem@davemloft.net>
-References: <200704260727.l3Q7RR5a023964@shell0.pdx.osdl.net>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [RFC] RF Kill
+Date: Thu, 26 Apr 2007 01:00:29 -0700
+Message-ID: <20070426010029.0bd49f3b.akpm@linux-foundation.org>
+References: <200704100158.58451.dtor@insightbb.com>
+	<200704100229.32393.dtor@insightbb.com>
+	<20070426.004951.85412315.davem@davemloft.net>
+	<20070426.005457.27951605.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mp3@de.ibm.com, neilb@suse.de,
-	trond.myklebust@fys.uio.no
-To: akpm@linux-foundation.org
+Cc: dtor@insightbb.com, netdev@vger.kernel.org, ivdoorn@gmail.com,
+	linville@tuxdriver.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43474
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S933638AbXDZIDw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2007 04:03:52 -0400
-In-Reply-To: <200704260727.l3Q7RR5a023964@shell0.pdx.osdl.net>
+Received: from smtp1.linux-foundation.org ([65.172.181.25]:50568 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S933632AbXDZIBm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2007 04:01:42 -0400
+In-Reply-To: <20070426.005457.27951605.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: akpm@linux-foundation.org
-Date: Thu, 26 Apr 2007 00:27:27 -0700
+On Thu, 26 Apr 2007 00:54:57 -0700 (PDT) David Miller <davem@davemloft.net> wrote:
 
-> From: Martin Peschke <mp3@de.ibm.com>
+> From: David Miller <davem@davemloft.net>
+> Date: Thu, 26 Apr 2007 00:49:51 -0700 (PDT)
 > 
-> We can save some lines of code by using seq_release_private().
+> > From: Dmitry Torokhov <dtor@insightbb.com>
+> > Date: Tue, 10 Apr 2007 02:29:31 -0400
+> > 
+> > > On Tuesday 10 April 2007 01:58, Dmitry Torokhov wrote:
+> > > > Hi,
+> > > > 
+> > > > This is a modified version of rfkill patch that provides infrastructure
+> > > > for controlling state of RF transmitters found on various cards.
+> > > 
+> > > Well, Andrew found bunch of issues with the patch so here is an
+> > > updated version...
+> > 
+> > Patch applied, although one part of the locking is slightly
+> > suspect:
 > 
-> Signed-off-by: Martin Peschke <mp3@de.ibm.com>
-> Cc: Trond Myklebust <trond.myklebust@fys.uio.no>
-> Acked-by: Neil Brown <neilb@suse.de>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+> Actually, I'm reverting this, sorry.
+> 
+> Besides the locking and other issues I pointed out, this
+> thing won't even link.  Please do not test the build with
+> various configurations when submitting new code like this.
+> 
+> Thanks.
+> 
+>   MODPOST 139 modules
+> WARNING: "input_register_handle" [net/rfkill/rfkill-input.ko] undefined!
+> WARNING: "input_unregister_handle" [net/rfkill/rfkill-input.ko] undefined!
+> make[1]: *** [__modpost] Error 1
+> make: *** [modules] Error 2
 
-Applied, thank you.
+ah, OK, it has input dependencies, sorry.  It happens very rarely.
+
