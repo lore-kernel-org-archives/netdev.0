@@ -1,95 +1,56 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] sis900: Allocate rx replacement buffer before rx operation
-Date: Thu, 26 Apr 2007 13:47:36 -0400
-Message-ID: <20070426174736.GC6000@localhost.localdomain>
-References: <20070420135458.GB16191@hmsreliant.homelinux.net> <462E33A8.5060107@garzik.org>
+From: Ayaz Abdulla <aabdulla@nvidia.com>
+Subject: Re: [patch 09/11] forcedeth: improve NAPI logic
+Date: Thu, 26 Apr 2007 10:53:04 -0400
+Message-ID: <4630BCD0.9040702@nvidia.com>
+References: <200704260723.l3Q7NNCj023844@shell0.pdx.osdl.net> <4630B76C.7070603@nvidia.com> <4630EE50.4000109@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, venza@brownhat.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org, mingo@elte.hu
 To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:4262 "EHLO ra.tuxdriver.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1031426AbXDZS2m (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Apr 2007 14:28:42 -0400
-Content-Disposition: inline
-In-Reply-To: <462E33A8.5060107@garzik.org>
+Received: from hqemgate01.nvidia.com ([216.228.112.170]:1676 "EHLO
+	HQEMGATE01.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1031429AbXDZShD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2007 14:37:03 -0400
+In-Reply-To: <4630EE50.4000109@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 24, 2007 at 12:43:20PM -0400, Jeff Garzik wrote:
-> Neil Horman wrote:
-> >Hey there-
-> >	The sis900 driver appears to have a bug in which the receive routine
-> >passes the skbuff holding the received frame to the network stack before
-> >refilling the buffer in the rx ring.  If a new skbuff cannot be allocated, 
-> >the
-> >driver simply leaves a hole in the rx ring, which causes the driver to stop
-> >receiving frames and become non-recoverable without an rmmod/insmod 
-> >according to
-> >reporters.  This patch reverses that order, attempting to allocate a 
-> >replacement
-> >buffer first, and receiving the new frame only if one can be allocated.  
-> >If no
-> >skbuff can be allocated, the current skbuf in the rx ring is recycled, 
-> >dropping
-> >the current frame, but keeping the NIC operational.
-> >
-> >Thanks & Regards
-> >Neil
+
+
+Jeff Garzik wrote:
+> Ayaz Abdulla wrote:
+> 
+>> I don't see why the NAPI handler needs to process tx packets. The ISR 
+>> will handle all tx processing.
+> 
+> 
+> It is a design choice, not a requirement.
+> 
+> Moving non-RX interrupt processing to the NAPI handler can help as loads 
+> increase.  The basic idea is to do as much work as possible in the NAPI 
+> handler with NIC interrupts masked.  That mitigates global system 
+> per-interrupt overhead even more than an only-RX NAPI scheme.
+> 
+> Several net drivers do TX completion handling in the NAPI handler.
+
+Ok. In that case, the patch needs to be improved.
+
+The following needs to be done when NAPI is enabled:
+- remove the tx handling within the ISRs
+- mask off the tx interrupts within the ISRs that handle tx processing
+- re-enable tx interrupts within the NAPI handler
+- add tx handling within the NAPI handler (this patch covers it)
+
+> 
+>     Jeff
+> 
 > 
 
-
-
-Just found a hole in my last patch.  It was reported to me that shortly after we
-integrated this patch.  The report was of an oops that took place inside of
-netif_rx when using the sis900 driver.  Looking at my origional patch I noted
-that there was a spot between the new skb_alloc and the refill_rx_ring label
-where skb got reassigned to the pointer currently held in the rx_ring for the
-purposes of receiveing the frame.  The result of this is however that the buffer
-that gets passed to netif_rx (if it is called), then gets placed right back into
-the rx_ring.  So if you receive frames fast enough the skb being processed by
-the network stack can get corrupted.  The reporter is testing out the fix I've
-written for this below (I'm not near my hardware at the moment to test myself),
-but I wanted to post it for review ASAP.  I'll post test results when I hear
-them, but I think this is a pretty straightforward fix.  It just uses a separate
-pointer to do the rx operation, so that we don't improperly reassign the pointer
-that we use to refill the rx ring.
-
-Thanks & Regards
-Neil
-
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-
-
- sis900.c |    9 +++++----
- 1 file changed, 5 insertions(+), 4 deletions(-)
-
-
-diff --git a/drivers/net/sis900.c b/drivers/net/sis900.c
-index a6a0f09..7e44939 100644
---- a/drivers/net/sis900.c
-+++ b/drivers/net/sis900.c
-@@ -1754,6 +1754,7 @@ static int sis900_rx(struct net_device *net_dev)
- 			sis_priv->rx_ring[entry].cmdsts = RX_BUF_SIZE;
- 		} else {
- 			struct sk_buff * skb;
-+			struct sk_buff * rx_skb;
- 
- 			pci_unmap_single(sis_priv->pci_dev,
- 				sis_priv->rx_ring[entry].bufptr, RX_BUF_SIZE,
-@@ -1787,10 +1788,10 @@ static int sis900_rx(struct net_device *net_dev)
- 			}
- 
- 			/* give the socket buffer to upper layers */
--			skb = sis_priv->rx_skbuff[entry];
--			skb_put(skb, rx_size);
--			skb->protocol = eth_type_trans(skb, net_dev);
--			netif_rx(skb);
-+			rx_skb = sis_priv->rx_skbuff[entry];
-+			skb_put(rx_skb, rx_size);
-+			skb->protocol = eth_type_trans(rx_skb, net_dev);
-+			netif_rx(rx_skb);
- 
- 			/* some network statistics */
- 			if ((rx_status & BCAST) == MCAST)
+-----------------------------------------------------------------------------------
+This email message is for the sole use of the intended recipient(s) and may contain
+confidential information.  Any unauthorized review, use, disclosure or distribution
+is prohibited.  If you are not the intended recipient, please contact the sender by
+reply email and destroy all copies of the original message.
+-----------------------------------------------------------------------------------
