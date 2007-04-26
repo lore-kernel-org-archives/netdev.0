@@ -1,53 +1,39 @@
 From: akpm@linux-foundation.org
-Subject: [patch 01/11] git-netdev-all: export ieee80211_debug_level
-Date: Thu, 26 Apr 2007 00:23:14 -0700
-Message-ID: <200704260723.l3Q7NE1I023820@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, dsd@gentoo.org,
-	johannes@sipsolutions.net, josejx@gentoo.org
-To: jeff@garzik.org
+Subject: [patch 01/15] git-net: fix yam.c
+Date: Thu, 26 Apr 2007 00:27:21 -0700
+Message-ID: <200704260727.l3Q7RLxU023943@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([65.172.181.25]:46571 "EHLO
+Received: from smtp1.linux-foundation.org ([65.172.181.25]:38345 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933159AbXDZHYc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2007 03:24:32 -0400
+	by vger.kernel.org with ESMTP id S933408AbXDZH2A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2007 03:28:00 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Andrew Morton <akpm@linux-foundation.org>
 
-Someone has been forgetting their SubmitChecklist medicine.
+drivers/net/hamradio/yam.c: In function `yam_tx_byte':
+drivers/net/hamradio/yam.c:643: warning: passing arg 1 of `skb_copy_from_linear_data_offset' from incompatible pointer type
 
-ERROR: "ieee80211_debug_level" [net/ieee80211/ieee80211_crypt_ccmp.ko] undefined!
-
-Fix some unneeded space-wasting initialisations, too.  How often must this be
-said?
-
-Cc: Johannes Berg <johannes@sipsolutions.net>
-Cc: Joe Jezak <josejx@gentoo.org>
-Cc: Daniel Drake <dsd@gentoo.org>
-Cc: Jeff Garzik <jeff@garzik.org>
+Cc: "David S. Miller" <davem@davemloft.net>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- net/ieee80211/ieee80211_module.c |    8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
+ drivers/net/hamradio/yam.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff -puN net/ieee80211/ieee80211_module.c~git-netdev-all-export-ieee80211_debug_level net/ieee80211/ieee80211_module.c
---- a/net/ieee80211/ieee80211_module.c~git-netdev-all-export-ieee80211_debug_level
-+++ a/net/ieee80211/ieee80211_module.c
-@@ -227,9 +227,11 @@ void free_ieee80211(struct net_device *d
- 
- #ifdef CONFIG_IEEE80211_DEBUG
- 
--static int debug = 0;
--u32 ieee80211_debug_level = 0;
--static struct proc_dir_entry *ieee80211_proc = NULL;
-+static int debug;
-+u32 ieee80211_debug_level;
-+static struct proc_dir_entry *ieee80211_proc;
-+
-+EXPORT_SYMBOL(ieee80211_debug_level);
- 
- static int show_debug_level(char *page, char **start, off_t offset,
- 			    int count, int *eof, void *data)
+diff -puN drivers/net/hamradio/yam.c~git-net-fix-yamc drivers/net/hamradio/yam.c
+--- a/drivers/net/hamradio/yam.c~git-net-fix-yamc
++++ a/drivers/net/hamradio/yam.c
+@@ -638,7 +638,7 @@ static void yam_tx_byte(struct net_devic
+         			dev_kfree_skb_any(skb);
+ 				break;
+ 			}
+-			skb_copy_from_linear_data_offset(skb->data, 1,
++			skb_copy_from_linear_data_offset(skb, 1,
+ 							 yp->tx_buf,
+ 							 yp->tx_len);
+ 			dev_kfree_skb_any(skb);
 _
