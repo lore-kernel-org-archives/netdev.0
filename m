@@ -1,61 +1,55 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: fix-slab-corruption-running-ip6sic.patch
-Date: Thu, 26 Apr 2007 14:11:33 -0700
-Message-ID: <20070426141133.21ef2e17.akpm@linux-foundation.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH][XFRM] export SAD info
+Date: Thu, 26 Apr 2007 14:18:47 -0700 (PDT)
+Message-ID: <20070426.141847.10298516.davem@davemloft.net>
+References: <1177516490.9923.7.camel@localhost>
+	<20070426.001850.55508944.davem@davemloft.net>
+	<1177593010.4077.18.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>,
-	Jarek Poplawski <jarkao2@o2.pl>
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([65.172.181.25]:45104 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752994AbXDZVMU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2007 17:12:20 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52621
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1755127AbXDZVSk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2007 17:18:40 -0400
+In-Reply-To: <1177593010.4077.18.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: jamal <hadi@cyberus.ca>
+Date: Thu, 26 Apr 2007 09:10:10 -0400
 
-I have this floating about in my tree.  Is it of any interest?
+> I would have liked to just do a read_lock_bh when retrieving the table
+> metadata; however, the state table lock is defined as DEFINE_SPINLOCK
+> unlike the policy table which is defined as DEFINE_RWLOCK.
+> Any objection to change the state lock to be RW?
 
+I wouldn't mind if it actually helped anything.
 
+The SMP cache line transactions are more expensive than the
+execution of the code blocks they are protecting.  rwlock's
+rarely help, and when they do (the execution path is more
+expensive than the SMP atomic operations) then you're holding
+the lock too long :-)
 
-From: Jarek Poplawski <jarkao2@o2.pl>
+> One other angle is start rejecting additions to the table after some
+> point. To test, I wrote a little DOS tool that just kept adding entries
+> until an OOM hit. It is a lot of fun to watch when you hit a point that
+> swap is guzzling 2G or more. The add latency starts going up
+> exponentially.
 
-* Herbert Xu (herbert@gondor.apana.org.au) wrote:
-> Jarek Poplawski <jarkao2@o2.pl> wrote:
-> >
-> > My proposal is: maybe Eric could change this in
-> > xfrm6_tunnel_rcv() from xfrm6_tunnel.c e.g. like this:
-> >
-> > return xfrm6_rcv_spi(skb, spi) > 0 ? : 0;
-> >
-> > and, if no errors in testing, he could resubmit this patch?
->
-> I agree, this is the right fix.
+I would prefer a dynamic algorithm that reacts to system memory
+pressure and yet-another-knob that people will get wrong and
+there is no sane default for.
 
-The fix proposed by Jarek indeed fixes the problem, tested on two boxes,
-with an -rc5 kernel and a yesterdays git
+I plan to do away with all the GC threshold madness in the
+routing cache, for example, and just let the MM layer call
+back into us when there is memory pressure to trigger GC.
 
-Acked-by: Eric Sesterhenn <snakebyte@gmx.de>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
----
-
- net/ipv6/xfrm6_tunnel.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff -puN net/ipv6/xfrm6_tunnel.c~fix-slab-corruption-running-ip6sic net/ipv6/xfrm6_tunnel.c
---- a/net/ipv6/xfrm6_tunnel.c~fix-slab-corruption-running-ip6sic
-+++ a/net/ipv6/xfrm6_tunnel.c
-@@ -261,7 +261,7 @@ static int xfrm6_tunnel_rcv(struct sk_bu
- 	__be32 spi;
- 
- 	spi = xfrm6_tunnel_spi_lookup((xfrm_address_t *)&iph->saddr);
--	return xfrm6_rcv_spi(skb, spi);
-+	return xfrm6_rcv_spi(skb, spi) > 0 ? : 0;
- }
- 
- static int xfrm6_tunnel_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
-_
-
+See set_shrinker() and friends.  The MM calls into these
+handlers in response to memory pressure.  There is no
+reason the networking can't hook into this and do things
+properly instead of the ad-hoc manner we currently use.
