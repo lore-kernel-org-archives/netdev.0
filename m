@@ -1,86 +1,80 @@
-From: "Dmitry Torokhov" <dmitry.torokhov@gmail.com>
-Subject: Re: [RFC] RF Kill
-Date: Thu, 26 Apr 2007 08:52:55 -0400
-Message-ID: <d120d5000704260552l62fe10e8s84f36d9adabe21a9@mail.gmail.com>
-References: <200704100158.58451.dtor@insightbb.com>
-	 <200704100229.32393.dtor@insightbb.com>
-	 <20070426.004951.85412315.davem@davemloft.net>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH][XFRM] export SAD info
+Date: Thu, 26 Apr 2007 08:55:54 -0400
+Message-ID: <1177592154.4077.2.camel@localhost>
+References: <1177515761.9923.3.camel@localhost>
+	 <20070426.001050.97294686.davem@davemloft.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ivdoorn@gmail.com, linville@tuxdriver.com,
-	akpm@linux-foundation.org
-To: "David Miller" <davem@davemloft.net>
+Content-Type: multipart/mixed; boundary="=-/1iDFpApc/2RDHlklj+R"
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nz-out-0506.google.com ([64.233.162.225]:13765 "EHLO
-	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754654AbXDZMw4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2007 08:52:56 -0400
-Received: by nz-out-0506.google.com with SMTP id o1so709776nzf
-        for <netdev@vger.kernel.org>; Thu, 26 Apr 2007 05:52:55 -0700 (PDT)
-In-Reply-To: <20070426.004951.85412315.davem@davemloft.net>
-Content-Disposition: inline
+Received: from wx-out-0506.google.com ([66.249.82.224]:42775 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1031217AbXDZMz6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2007 08:55:58 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so569136wxd
+        for <netdev@vger.kernel.org>; Thu, 26 Apr 2007 05:55:57 -0700 (PDT)
+In-Reply-To: <20070426.001050.97294686.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 4/26/07, David Miller <davem@davemloft.net> wrote:
-> From: Dmitry Torokhov <dtor@insightbb.com>
-> Date: Tue, 10 Apr 2007 02:29:31 -0400
->
-> > On Tuesday 10 April 2007 01:58, Dmitry Torokhov wrote:
-> > > Hi,
-> > >
-> > > This is a modified version of rfkill patch that provides infrastructure
-> > > for controlling state of RF transmitters found on various cards.
-> >
-> > Well, Andrew found bunch of issues with the patch so here is an
-> > updated version...
->
-> Patch applied, although one part of the locking is slightly
-> suspect:
->
-> > +static void rfkill_task_handler(struct work_struct *work)
-> > +{
-> > +     struct rfkill_task *task = container_of(work, struct rfkill_task, work);
-> > +     enum rfkill_state state;
-> > +
-> > +     mutex_lock(&task->mutex);
-> > +
-> > +     spin_lock_irq(&task->lock);
-> > +     state = task->desired_state;
-> > +     spin_unlock_irq(&task->lock);
-> > +
-> > +     if (state != task->current_state) {
-> > +             rfkill_switch_all(task->type, state);
-> > +             task->current_state = state;
-> > +     }
-> > +
-> > +     mutex_unlock(&task->mutex);
-> > +}
->
-> I applied this, but...
->
-> That lock around the read doesn't make any sense, reads
-> are atomic on all SMP processors. You're not going to
-> see a partial word-update if you take away that lock so
-> it isn't doing anything.
->
 
-Ah, OK. I was always concerned with partial word updates but if we
-have this guarantee this makes things simplier. I will remove the lock
-there and I will add a comment that a temp is still needed since
-desired_state may be changed from other thread.
+--=-/1iDFpApc/2RDHlklj+R
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
-> If locking is really needed here, it probably need to protect
-> the whole read-modify-write operation transferring the
-> desired_state to the current_state.
->
-> In another code block, this ->desired_state thing is
-> treated like a boolean instead of the enumeration that
-> it is supposed to be:
+Thanks Dave.
+Here's a missing bit to get in sync with latest net-2.6
 
-It is boolean enumeration with values of 0 and 1 ;) and so state =
-!state should work.
+I will send you the policy side sometime tonight or tommorow.
 
--- 
-Dmitry
+cheers,
+jamal
+
+--=-/1iDFpApc/2RDHlklj+R
+Content-Disposition: attachment; filename=xfrm_sadinfo-net26
+Content-Type: text/plain; name=xfrm_sadinfo-net26; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+
+[XFRM] missing bits to SAD info
+
+This brings the SAD info in sync with net-2.6.22/net-2.6
+
+Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
+
+---
+commit e1dbdd993637d14c17bc30ba55e5c66640d39907
+tree fef4015f92e4e50f98e1a1630333cc59ed4ec523
+parent bfbf3c0968498f5232c02965cf41695edae1bc4d
+author Jamal Hadi Salim <hadi@cyberus.ca> Thu, 26 Apr 2007 08:52:29 -0400
+committer Jamal Hadi Salim <hadi@cyberus.ca> Thu, 26 Apr 2007 08:52:29 -0400
+
+ net/xfrm/xfrm_user.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
+
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index cb4cc1b..69110fe 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -1878,6 +1878,7 @@ static const int xfrm_msg_min[XFRM_NR_MSGTYPES] = {
+ 	[XFRM_MSG_GETAE       - XFRM_MSG_BASE] = XMSGSIZE(xfrm_aevent_id),
+ 	[XFRM_MSG_REPORT      - XFRM_MSG_BASE] = XMSGSIZE(xfrm_user_report),
+ 	[XFRM_MSG_MIGRATE     - XFRM_MSG_BASE] = XMSGSIZE(xfrm_userpolicy_id),
++	[XFRM_MSG_GETSADINFO  - XFRM_MSG_BASE] = NLMSG_LENGTH(sizeof(u32)),
+ };
+ 
+ #undef XMSGSIZE
+@@ -1905,7 +1906,7 @@ static struct xfrm_link {
+ 	[XFRM_MSG_NEWAE       - XFRM_MSG_BASE] = { .doit = xfrm_new_ae  },
+ 	[XFRM_MSG_GETAE       - XFRM_MSG_BASE] = { .doit = xfrm_get_ae  },
+ 	[XFRM_MSG_MIGRATE     - XFRM_MSG_BASE] = { .doit = xfrm_do_migrate    },
+-	[XFRM_MSG_GETSADINFO  - XFRM_MSG_BASE] = { .doit = xfrm_get_sadinfo    },
++	[XFRM_MSG_GETSADINFO  - XFRM_MSG_BASE] = { .doit = xfrm_get_sadinfo   },
+ };
+ 
+ static int xfrm_user_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+
+--=-/1iDFpApc/2RDHlklj+R--
+
