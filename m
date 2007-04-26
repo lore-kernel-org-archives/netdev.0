@@ -1,35 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 02/15] net/: possible cleanups
-Date: Thu, 26 Apr 2007 00:57:55 -0700 (PDT)
-Message-ID: <20070426.005755.07455553.davem@davemloft.net>
-References: <200704260727.l3Q7RMSV023946@shell0.pdx.osdl.net>
+Subject: Re: [patch 03/15] Delete unused header file linux/sdla_fr.h.
+Date: Thu, 26 Apr 2007 00:58:52 -0700 (PDT)
+Message-ID: <20070426.005852.85418990.davem@davemloft.net>
+References: <200704260727.l3Q7RMwm023949@shell0.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bunk@stusta.de
+Cc: netdev@vger.kernel.org, rpjday@mindspring.com
 To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33972
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33976
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S933409AbXDZH5r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2007 03:57:47 -0400
-In-Reply-To: <200704260727.l3Q7RMSV023946@shell0.pdx.osdl.net>
+	by vger.kernel.org with ESMTP id S933510AbXDZH6o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2007 03:58:44 -0400
+In-Reply-To: <200704260727.l3Q7RMwm023949@shell0.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: akpm@linux-foundation.org
 Date: Thu, 26 Apr 2007 00:27:22 -0700
 
-> From: Adrian Bunk <bunk@stusta.de>
+> From: "Robert P. J. Day" <rpjday@mindspring.com>
 > 
-> - make the following needlessly global variables static:
->   - core/rtnetlink.c: struct rtnl_msg_handlers[]
->   - netfilter/nf_conntrack_proto.c: struct nf_ct_protos[]
-> - make the following needlessly global functions static:
->   - core/rtnetlink.c: rtnl_dump_all()
->   - netlink/af_netlink.c: netlink_queue_skip()
+> Delete the unreferenced header file include/linux/sdla_fr.h.
 > 
-> Signed-off-by: Adrian Bunk <bunk@stusta.de>
+> Signed-off-by: Robert P. J. Day <rpjday@mindspring.com>
 > Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 
 Applied.
