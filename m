@@ -1,50 +1,103 @@
 From: akpm@linux-foundation.org
-Subject: [patch 07/15] iucv: fix compilation on s390-up
-Date: Thu, 26 Apr 2007 00:27:26 -0700
-Message-ID: <200704260727.l3Q7RQWQ023961@shell0.pdx.osdl.net>
+Subject: [patch 04/15] Delete unused header file linux/if_wanpipe_common.h
+Date: Thu, 26 Apr 2007 00:27:23 -0700
+Message-ID: <200704260727.l3Q7RNep023952@shell0.pdx.osdl.net>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	adobriyan@gmail.com, heiko.carstens@de.ibm.com
+	rpjday@mindspring.com, khc@pm.waw.pl
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([65.172.181.25]:42915 "EHLO
+Received: from smtp1.linux-foundation.org ([65.172.181.25]:56236 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933410AbXDZH2H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2007 03:28:07 -0400
+	by vger.kernel.org with ESMTP id S933408AbXDZH2R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2007 03:28:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Alexey Dobriyan <adobriyan@gmail.com>
+From: "Robert P. J. Day" <rpjday@mindspring.com>
 
-  CC [M]  net/iucv/iucv.o
-net/iucv/iucv.c: In function 'iucv_init':
-net/iucv/iucv.c:1556: error: 'iucv_cpu_notifier' undeclared (first use in this function)
+Delete the unreferenced header file include/linux/if_wanpipe_common.h,
+as well as the reference to it in the Doc file.
 
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
-Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
-Cc: "David S. Miller" <davem@davemloft.net>
+Signed-off-by: Robert P. J. Day <rpjday@mindspring.com>
+Cc: Krzysztof Halasa <khc@pm.waw.pl>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- net/iucv/iucv.c |    2 --
- 1 file changed, 2 deletions(-)
+ Documentation/networking/wan-router.txt |    1 
+ include/linux/if_wanpipe_common.h       |   58 ----------------------
+ 2 files changed, 59 deletions(-)
 
-diff -puN net/iucv/iucv.c~iucv-fix-compilation-on-s390-up net/iucv/iucv.c
---- a/net/iucv/iucv.c~iucv-fix-compilation-on-s390-up
-+++ a/net/iucv/iucv.c
-@@ -519,7 +519,6 @@ static void iucv_disable(void)
- 	kfree(iucv_path_table);
- }
+diff -puN Documentation/networking/wan-router.txt~delete-unused-header-file-linux-if_wanpipe_commonh Documentation/networking/wan-router.txt
+--- a/Documentation/networking/wan-router.txt~delete-unused-header-file-linux-if_wanpipe_commonh
++++ a/Documentation/networking/wan-router.txt
+@@ -250,7 +250,6 @@ PRODUCT COMPONENTS AND RELATED FILES
+ 	sdladrv.h	SDLA support module API definitions
+ 	sdlasfm.h	SDLA firmware module definitions
+ 	if_wanpipe.h	WANPIPE Socket definitions
+-	if_wanpipe_common.h	WANPIPE Socket/Driver common definitions.
+ 	sdlapci.h	WANPIPE PCI definitions
+ 	
  
--#ifdef CONFIG_HOTPLUG_CPU
- static int __cpuinit iucv_cpu_notify(struct notifier_block *self,
- 				     unsigned long action, void *hcpu)
- {
-@@ -565,7 +564,6 @@ static int __cpuinit iucv_cpu_notify(str
- static struct notifier_block iucv_cpu_notifier = {
- 	.notifier_call = iucv_cpu_notify,
- };
+diff -puN include/linux/if_wanpipe_common.h~delete-unused-header-file-linux-if_wanpipe_commonh /dev/null
+--- a/include/linux/if_wanpipe_common.h
++++ /dev/null
+@@ -1,58 +0,0 @@
+-/*****************************************************************************
+-* if_wanipe_common.h   Sangoma Driver/Socket common area definitions.
+-*
+-* Author:       Nenad Corbic <ncorbic@sangoma.com>
+-*
+-* Copyright:    (c) 2000 Sangoma Technologies Inc.
+-*
+-*               This program is free software; you can redistribute it and/or
+-*               modify it under the terms of the GNU General Public License
+-*               as published by the Free Software Foundation; either version
+-*               2 of the License, or (at your option) any later version.
+-* ============================================================================
+-* Jan 13, 2000  Nenad Corbic      Initial version
+-*****************************************************************************/
+-
+-
+-#ifndef _WANPIPE_SOCK_DRIVER_COMMON_H
+-#define _WANPIPE_SOCK_DRIVER_COMMON_H
+-
+-typedef struct {
+-	struct net_device *slave;
+-	atomic_t packet_sent;
+-	atomic_t receive_block;
+-	atomic_t command;
+-	atomic_t disconnect;
+-	atomic_t driver_busy;
+-	long common_critical;
+-	struct timer_list *tx_timer;
+-	struct sock *sk;		/* Wanpipe Sock bind's here */ 
+-	int (*func)(struct sk_buff *skb, struct net_device *dev, 
+-		    struct sock *sk);
+-
+-	struct work_struct wanpipe_work;    /* deferred keventd work */
+-	unsigned char rw_bind;			  /* Sock bind state */
+-	unsigned char usedby;
+-	unsigned char state;
+-	unsigned char svc;
+-	unsigned short lcn;
+-	void *mbox;
+-} wanpipe_common_t;
+-
+-
+-enum {
+-	WANSOCK_UNCONFIGURED,	/* link/channel is not configured */
+-	WANSOCK_DISCONNECTED,	/* link/channel is disconnected */
+-	WANSOCK_CONNECTING,		/* connection is in progress */
+-	WANSOCK_CONNECTED,		/* link/channel is operational */
+-	WANSOCK_LIMIT,		/* for verification only */
+-	WANSOCK_DUALPORT,		/* for Dual Port cards */
+-	WANSOCK_DISCONNECTING,
+-	WANSOCK_BINDED,
+-	WANSOCK_BIND_LISTEN,
+-	WANSOCK_LISTEN
+-};
+-
 -#endif
- 
- /**
-  * iucv_sever_pathid
+-
+-
 _
