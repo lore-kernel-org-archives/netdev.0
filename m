@@ -1,7 +1,8 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH 08/14] AF_RXRPC: Delete the old RxRPC code. [net-2.6]
-Date: Thu, 26 Apr 2007 20:54:57 +0100
-Message-ID: <20070426195457.24531.96398.stgit@warthog.cambridge.redhat.com>
+Subject: [PATCH 12/14] AFS: Add support for the CB.GetCapabilities operation
+	[net-2.6]
+Date: Thu, 26 Apr 2007 20:55:17 +0100
+Message-ID: <20070426195517.24531.21482.stgit@warthog.cambridge.redhat.com>
 References: <20070426195415.24531.78794.stgit@warthog.cambridge.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -9,7064 +10,870 @@ Content-Transfer-Encoding: 7bit
 Cc: dhowells@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:58001 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([66.187.233.31]:58053 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1031401AbXDZTzQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Apr 2007 15:55:16 -0400
+	id S1031467AbXDZTzZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Apr 2007 15:55:25 -0400
 Received: from int-mx1.corp.redhat.com (int-mx1.corp.redhat.com [172.16.52.254])
-	by mx1.redhat.com (8.13.1/8.13.1) with ESMTP id l3QJtDEC028942
-	for <netdev@vger.kernel.org>; Thu, 26 Apr 2007 15:55:14 -0400
+	by mx1.redhat.com (8.13.1/8.13.1) with ESMTP id l3QJtOdX029129
+	for <netdev@vger.kernel.org>; Thu, 26 Apr 2007 15:55:24 -0400
 In-Reply-To: <20070426195415.24531.78794.stgit@warthog.cambridge.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Delete the old RxRPC code as it's now no longer used.
+Add support for the CB.GetCapabilities operation with which the fileserver can
+ask the client for the following information:
+
+ (1) The list of network interfaces it has available as IPv4 address + netmask
+     plus the MTUs.
+
+ (2) The client's UUID.
+
+ (3) The extended capabilities of the client, for which the only current one
+     is unified error mapping (abort code interpretation).
+
+To support this, the patch adds the following routines to AFS:
+
+ (1) A function to iterate through all the network interfaces using RTNETLINK
+     to extract IPv4 addresses and MTUs.
+
+ (2) A function to iterate through all the network interfaces using RTNETLINK
+     to pull out the MAC address of the lowest index interface to use in UUID
+     construction.
 
 Signed-Off-By: David Howells <dhowells@redhat.com>
 ---
 
- fs/Kconfig                 |    4 
- include/rxrpc/call.h       |  212 ----
- include/rxrpc/connection.h |   83 --
- include/rxrpc/krxiod.h     |   27 -
- include/rxrpc/krxsecd.h    |   22 
- include/rxrpc/krxtimod.h   |   45 -
- include/rxrpc/message.h    |   71 -
- include/rxrpc/packet.h     |   22 
- include/rxrpc/peer.h       |   82 --
- include/rxrpc/rxrpc.h      |   36 -
- include/rxrpc/transport.h  |  106 --
- net/rxrpc/Makefile         |   27 -
- net/rxrpc/call.c           | 2277 --------------------------------------------
- net/rxrpc/connection.c     |  777 ---------------
- net/rxrpc/internal.h       |  106 --
- net/rxrpc/krxiod.c         |  262 -----
- net/rxrpc/krxsecd.c        |  270 -----
- net/rxrpc/krxtimod.c       |  204 ----
- net/rxrpc/main.c           |  180 ---
- net/rxrpc/peer.c           |  398 --------
- net/rxrpc/proc.c           |  617 ------------
- net/rxrpc/rxrpc_syms.c     |   34 -
- net/rxrpc/sysctl.c         |  121 --
- net/rxrpc/transport.c      |  846 ----------------
- 24 files changed, 9 insertions(+), 6820 deletions(-)
+ fs/afs/Makefile        |    1 
+ fs/afs/afs_cm.h        |    3 
+ fs/afs/cmservice.c     |   98 ++++++++++
+ fs/afs/internal.h      |   42 ++++
+ fs/afs/main.c          |   49 +++++
+ fs/afs/rxrpc.c         |   39 ++++
+ fs/afs/use-rtnetlink.c |  473 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 7 files changed, 705 insertions(+), 0 deletions(-)
 
-diff --git a/fs/Kconfig b/fs/Kconfig
-index 075c999..e33c089 100644
---- a/fs/Kconfig
-+++ b/fs/Kconfig
-@@ -2038,10 +2038,6 @@ config AFS_DEBUG
+diff --git a/fs/afs/Makefile b/fs/afs/Makefile
+index cca198b..01545eb 100644
+--- a/fs/afs/Makefile
++++ b/fs/afs/Makefile
+@@ -18,6 +18,7 @@ kafs-objs := \
+ 	security.o \
+ 	server.o \
+ 	super.o \
++	use-rtnetlink.o \
+ 	vlclient.o \
+ 	vlocation.o \
+ 	vnode.o \
+diff --git a/fs/afs/afs_cm.h b/fs/afs/afs_cm.h
+index 7c8e3d4..d4bd201 100644
+--- a/fs/afs/afs_cm.h
++++ b/fs/afs/afs_cm.h
+@@ -23,6 +23,9 @@ enum AFS_CM_Operations {
+ 	CBGetCE			= 208,	/* get cache file description */
+ 	CBGetXStatsVersion	= 209,	/* get version of extended statistics */
+ 	CBGetXStats		= 210,	/* get contents of extended statistics data */
++	CBGetCapabilities	= 65538, /* get client capabilities */
+ };
  
- 	  If unsure, say N.
++#define AFS_CAP_ERROR_TRANSLATION	0x1
++
+ #endif /* AFS_FS_H */
+diff --git a/fs/afs/cmservice.c b/fs/afs/cmservice.c
+index c3ec57a..a6af3ac 100644
+--- a/fs/afs/cmservice.c
++++ b/fs/afs/cmservice.c
+@@ -22,6 +22,8 @@ static int afs_deliver_cb_init_call_back_state(struct afs_call *,
+ 					       struct sk_buff *, bool);
+ static int afs_deliver_cb_probe(struct afs_call *, struct sk_buff *, bool);
+ static int afs_deliver_cb_callback(struct afs_call *, struct sk_buff *, bool);
++static int afs_deliver_cb_get_capabilities(struct afs_call *, struct sk_buff *,
++					   bool);
+ static void afs_cm_destructor(struct afs_call *);
  
--
--config RXRPC
--	tristate
--
- config 9P_FS
- 	tristate "Plan 9 Resource Sharing Support (9P2000) (Experimental)"
- 	depends on INET && EXPERIMENTAL
-diff --git a/include/rxrpc/call.h b/include/rxrpc/call.h
-deleted file mode 100644
-index b86f837..0000000
---- a/include/rxrpc/call.h
-+++ /dev/null
-@@ -1,212 +0,0 @@
--/* call.h: Rx call record
-- *
-- * Copyright (C) 2002 Red Hat, Inc. All Rights Reserved.
-- * Written by David Howells (dhowells@redhat.com)
-- *
-- * This program is free software; you can redistribute it and/or
-- * modify it under the terms of the GNU General Public License
-- * as published by the Free Software Foundation; either version
-- * 2 of the License, or (at your option) any later version.
-- */
--
--#ifndef _LINUX_RXRPC_CALL_H
--#define _LINUX_RXRPC_CALL_H
--
--#include <rxrpc/types.h>
--#include <rxrpc/rxrpc.h>
--#include <rxrpc/packet.h>
--#include <linux/timer.h>
--
--#define RXRPC_CALL_ACK_WINDOW_SIZE	16
--
--extern unsigned rxrpc_call_rcv_timeout;		/* receive activity timeout (secs) */
--
--/* application call state
-- * - only state 0 and ffff are reserved, the state is set to 1 after an opid is received
-- */
--enum rxrpc_app_cstate {
--	RXRPC_CSTATE_COMPLETE		= 0,	/* operation complete */
--	RXRPC_CSTATE_ERROR,			/* operation ICMP error or aborted */
--	RXRPC_CSTATE_SRVR_RCV_OPID,		/* [SERVER] receiving operation ID */
--	RXRPC_CSTATE_SRVR_RCV_ARGS,		/* [SERVER] receiving operation data */
--	RXRPC_CSTATE_SRVR_GOT_ARGS,		/* [SERVER] completely received operation data */
--	RXRPC_CSTATE_SRVR_SND_REPLY,		/* [SERVER] sending operation reply */
--	RXRPC_CSTATE_SRVR_RCV_FINAL_ACK,	/* [SERVER] receiving final ACK */
--	RXRPC_CSTATE_CLNT_SND_ARGS,		/* [CLIENT] sending operation args */
--	RXRPC_CSTATE_CLNT_RCV_REPLY,		/* [CLIENT] receiving operation reply */
--	RXRPC_CSTATE_CLNT_GOT_REPLY,		/* [CLIENT] completely received operation reply */
--} __attribute__((packed));
--
--extern const char *rxrpc_call_states[];
--
--enum rxrpc_app_estate {
--	RXRPC_ESTATE_NO_ERROR		= 0,	/* no error */
--	RXRPC_ESTATE_LOCAL_ABORT,		/* aborted locally by application layer */
--	RXRPC_ESTATE_PEER_ABORT,		/* aborted remotely by peer */
--	RXRPC_ESTATE_LOCAL_ERROR,		/* local ICMP network error */
--	RXRPC_ESTATE_REMOTE_ERROR,		/* remote ICMP network error */
--} __attribute__((packed));
--
--extern const char *rxrpc_call_error_states[];
--
--/*****************************************************************************/
--/*
-- * Rx call record and application scratch buffer
-- * - the call record occupies the bottom of a complete page
-- * - the application scratch buffer occupies the rest
-- */
--struct rxrpc_call
--{
--	atomic_t		usage;
--	struct rxrpc_connection	*conn;		/* connection upon which active */
--	spinlock_t		lock;		/* access lock */
--	struct module		*owner;		/* owner module */
--	wait_queue_head_t	waitq;		/* wait queue for events to happen */
--	struct list_head	link;		/* general internal list link */
--	struct list_head	call_link;	/* master call list link */
--	__be32			chan_ix;	/* connection channel index  */
--	__be32			call_id;	/* call ID on connection  */
--	unsigned long		cjif;		/* jiffies at call creation */
--	unsigned long		flags;		/* control flags */
--#define RXRPC_CALL_ACKS_TIMO	0x00000001	/* ACKS timeout reached */
--#define RXRPC_CALL_ACKR_TIMO	0x00000002	/* ACKR timeout reached */
--#define RXRPC_CALL_RCV_TIMO	0x00000004	/* RCV timeout reached */
--#define RXRPC_CALL_RCV_PKT	0x00000008	/* received packet */
--
--	/* transmission */
--	rxrpc_seq_t		snd_seq_count;	/* outgoing packet sequence number counter */
--	struct rxrpc_message	*snd_nextmsg;	/* next message being constructed for sending */
--	struct rxrpc_message	*snd_ping;	/* last ping message sent */
--	unsigned short		snd_resend_cnt;	/* count of resends since last ACK */
--
--	/* transmission ACK tracking */
--	struct list_head	acks_pendq;	/* messages pending ACK (ordered by seq) */
--	unsigned		acks_pend_cnt;	/* number of un-ACK'd packets */
--	rxrpc_seq_t		acks_dftv_seq;	/* highest definitively ACK'd msg seq */
--	struct timer_list	acks_timeout;	/* timeout on expected ACK */
--
--	/* reception */
--	struct list_head	rcv_receiveq;	/* messages pending reception (ordered by seq) */
--	struct list_head	rcv_krxiodq_lk;	/* krxiod queue for new inbound packets */
--	struct timer_list	rcv_timeout;	/* call receive activity timeout */
--
--	/* reception ACK'ing */
--	rxrpc_seq_t		ackr_win_bot;	/* bottom of ACK window */
--	rxrpc_seq_t		ackr_win_top;	/* top of ACK window */
--	rxrpc_seq_t		ackr_high_seq;	/* highest seqno yet received */
--	rxrpc_seq_net_t		ackr_prev_seq;	/* previous seqno received */
--	unsigned		ackr_pend_cnt;	/* number of pending ACKs */
--	struct timer_list	ackr_dfr_timo;	/* timeout on deferred ACK */
--	char			ackr_dfr_perm;	/* request for deferred ACKs permitted */
--	rxrpc_seq_t		ackr_dfr_seq;	/* seqno for deferred ACK */
--	struct rxrpc_ackpacket	ackr;		/* pending normal ACK packet */
--	uint8_t			ackr_array[RXRPC_CALL_ACK_WINDOW_SIZE];	/* ACK records */
--
--	/* presentation layer */
--	char			app_last_rcv;	/* T if received last packet from remote end */
--	enum rxrpc_app_cstate	app_call_state;	/* call state */
--	enum rxrpc_app_estate	app_err_state;	/* abort/error state */
--	struct list_head	app_readyq;	/* ordered ready received packet queue */
--	struct list_head	app_unreadyq;	/* ordered post-hole recv'd packet queue */
--	rxrpc_seq_t		app_ready_seq;	/* last seq number dropped into readyq */
--	size_t			app_ready_qty;	/* amount of data ready in readyq */
--	unsigned		app_opcode;	/* operation ID */
--	unsigned		app_abort_code;	/* abort code (when aborted) */
--	int			app_errno;	/* error number (when ICMP error received) */
--
--	/* statisics */
--	unsigned		pkt_rcv_count;	/* count of received packets on this call */
--	unsigned		pkt_snd_count;	/* count of sent packets on this call */
--	unsigned		app_read_count;	/* number of reads issued */
--
--	/* bits for the application to use */
--	rxrpc_call_attn_func_t	app_attn_func;	/* callback when attention required */
--	rxrpc_call_error_func_t	app_error_func;	/* callback when abort sent (cleanup and put) */
--	rxrpc_call_aemap_func_t	app_aemap_func;	/* callback to map abort code to/from errno */
--	void			*app_user;	/* application data */
--	struct list_head	app_link;	/* application list linkage */
--	struct list_head	app_attn_link;	/* application attention list linkage */
--	size_t			app_mark;	/* trigger callback when app_ready_qty>=app_mark */
--	char			app_async_read;	/* T if in async-read mode */
--	uint8_t			*app_read_buf;	/* application async read buffer (app_mark size) */
--	uint8_t			*app_scr_alloc;	/* application scratch allocation pointer */
--	void			*app_scr_ptr;	/* application pointer into scratch buffer */
--
--#define RXRPC_APP_MARK_EOF 0xFFFFFFFFU	/* mark at end of input */
--
--	/* application scratch buffer */
--	uint8_t			app_scratch[0] __attribute__((aligned(sizeof(long))));
--};
--
--#define RXRPC_CALL_SCRATCH_SIZE (PAGE_SIZE - sizeof(struct rxrpc_call))
--
--#define rxrpc_call_reset_scratch(CALL) \
--do { (CALL)->app_scr_alloc = (CALL)->app_scratch; } while(0)
--
--#define rxrpc_call_alloc_scratch(CALL,SIZE)						\
--({											\
--	void *ptr;									\
--	ptr = (CALL)->app_scr_alloc;							\
--	(CALL)->app_scr_alloc += (SIZE);						\
--	if ((SIZE)>RXRPC_CALL_SCRATCH_SIZE ||						\
--	    (size_t)((CALL)->app_scr_alloc - (u8*)(CALL)) > RXRPC_CALL_SCRATCH_SIZE) {	\
--		printk("rxrpc_call_alloc_scratch(%p,%Zu)\n",(CALL),(size_t)(SIZE));	\
--		BUG();									\
--	}										\
--	ptr;										\
--})
--
--#define rxrpc_call_alloc_scratch_s(CALL,TYPE)						\
--({											\
--	size_t size = sizeof(TYPE);							\
--	TYPE *ptr;									\
--	ptr = (TYPE*)(CALL)->app_scr_alloc;						\
--	(CALL)->app_scr_alloc += size;							\
--	if (size>RXRPC_CALL_SCRATCH_SIZE ||						\
--	    (size_t)((CALL)->app_scr_alloc - (u8*)(CALL)) > RXRPC_CALL_SCRATCH_SIZE) {	\
--		printk("rxrpc_call_alloc_scratch(%p,%Zu)\n",(CALL),size);		\
--		BUG();									\
--	}										\
--	ptr;										\
--})
--
--#define rxrpc_call_is_ack_pending(CALL) ((CALL)->ackr.reason != 0)
--
--extern int rxrpc_create_call(struct rxrpc_connection *conn,
--			     rxrpc_call_attn_func_t attn,
--			     rxrpc_call_error_func_t error,
--			     rxrpc_call_aemap_func_t aemap,
--			     struct rxrpc_call **_call);
--
--extern int rxrpc_incoming_call(struct rxrpc_connection *conn,
--			       struct rxrpc_message *msg,
--			       struct rxrpc_call **_call);
--
--static inline void rxrpc_get_call(struct rxrpc_call *call)
--{
--	BUG_ON(atomic_read(&call->usage)<=0);
--	atomic_inc(&call->usage);
--	/*printk("rxrpc_get_call(%p{u=%d})\n",(C),atomic_read(&(C)->usage));*/
--}
--
--extern void rxrpc_put_call(struct rxrpc_call *call);
--
--extern void rxrpc_call_do_stuff(struct rxrpc_call *call);
--
--extern int rxrpc_call_abort(struct rxrpc_call *call, int error);
--
--#define RXRPC_CALL_READ_BLOCK	0x0001	/* block if not enough data and not yet EOF */
--#define RXRPC_CALL_READ_ALL	0x0002	/* error if insufficient data received */
--extern int rxrpc_call_read_data(struct rxrpc_call *call, void *buffer, size_t size, int flags);
--
--extern int rxrpc_call_write_data(struct rxrpc_call *call,
--				 size_t sioc,
--				 struct kvec *siov,
--				 uint8_t rxhdr_flags,
--				 gfp_t alloc_flags,
--				 int dup_data,
--				 size_t *size_sent);
--
--extern void rxrpc_call_handle_error(struct rxrpc_call *conn, int local, int errno);
--
--#endif /* _LINUX_RXRPC_CALL_H */
-diff --git a/include/rxrpc/connection.h b/include/rxrpc/connection.h
-deleted file mode 100644
-index 41e6781..0000000
---- a/include/rxrpc/connection.h
-+++ /dev/null
-@@ -1,83 +0,0 @@
--/* connection.h: Rx connection record
-- *
-- * Copyright (C) 2002 Red Hat, Inc. All Rights Reserved.
-- * Written by David Howells (dhowells@redhat.com)
-- *
-- * This program is free software; you can redistribute it and/or
-- * modify it under the terms of the GNU General Public License
-- * as published by the Free Software Foundation; either version
-- * 2 of the License, or (at your option) any later version.
-- */
--
--#ifndef _LINUX_RXRPC_CONNECTION_H
--#define _LINUX_RXRPC_CONNECTION_H
--
--#include <rxrpc/types.h>
--#include <rxrpc/krxtimod.h>
--
--struct sk_buff;
--
--/*****************************************************************************/
--/*
-- * Rx connection
-- * - connections are matched by (rmt_port,rmt_addr,service_id,conn_id,clientflag)
-- * - connections only retain a refcount on the peer when they are active
-- * - connections with refcount==0 are inactive and reside in the peer's graveyard
-- */
--struct rxrpc_connection
--{
--	atomic_t		usage;
--	struct rxrpc_transport	*trans;		/* transport endpoint */
--	struct rxrpc_peer	*peer;		/* peer from/to which connected */
--	struct rxrpc_service	*service;	/* responsible service (inbound conns) */
--	struct rxrpc_timer	timeout;	/* decaching timer */
--	struct list_head	link;		/* link in peer's list */
--	struct list_head	proc_link;	/* link in proc list */
--	struct list_head	err_link;	/* link in ICMP error processing list */
--	struct list_head	id_link;	/* link in ID grant list */
--	struct sockaddr_in	addr;		/* remote address */
--	struct rxrpc_call	*channels[4];	/* channels (active calls) */
--	wait_queue_head_t	chanwait;	/* wait for channel to become available */
--	spinlock_t		lock;		/* access lock */
--	struct timeval		atime;		/* last access time */
--	size_t			mtu_size;	/* MTU size for outbound messages */
--	unsigned		call_counter;	/* call ID counter */
--	rxrpc_serial_t		serial_counter;	/* packet serial number counter */
--
--	/* the following should all be in net order */
--	__be32			in_epoch;	/* peer's epoch */
--	__be32			out_epoch;	/* my epoch */
--	__be32			conn_id;	/* connection ID, appropriately shifted */
--	__be16			service_id;	/* service ID */
--	uint8_t			security_ix;	/* security ID */
--	uint8_t			in_clientflag;	/* RXRPC_CLIENT_INITIATED if we are server */
--	uint8_t			out_clientflag;	/* RXRPC_CLIENT_INITIATED if we are client */
--};
--
--extern int rxrpc_create_connection(struct rxrpc_transport *trans,
--				   __be16 port,
--				   __be32 addr,
--				   uint16_t service_id,
--				   void *security,
--				   struct rxrpc_connection **_conn);
--
--extern int rxrpc_connection_lookup(struct rxrpc_peer *peer,
--				   struct rxrpc_message *msg,
--				   struct rxrpc_connection **_conn);
--
--static inline void rxrpc_get_connection(struct rxrpc_connection *conn)
--{
--	BUG_ON(atomic_read(&conn->usage)<0);
--	atomic_inc(&conn->usage);
--	//printk("rxrpc_get_conn(%p{u=%d})\n",conn,atomic_read(&conn->usage));
--}
--
--extern void rxrpc_put_connection(struct rxrpc_connection *conn);
--
--extern int rxrpc_conn_receive_call_packet(struct rxrpc_connection *conn,
--					  struct rxrpc_call *call,
--					  struct rxrpc_message *msg);
--
--extern void rxrpc_conn_handle_error(struct rxrpc_connection *conn, int local, int errno);
--
--#endif /* _LINUX_RXRPC_CONNECTION_H */
-diff --git a/include/rxrpc/krxiod.h b/include/rxrpc/krxiod.h
-deleted file mode 100644
-index c0e0e82..0000000
---- a/include/rxrpc/krxiod.h
-+++ /dev/null
-@@ -1,27 +0,0 @@
--/* krxiod.h: Rx RPC I/O kernel thread interface
-- *
-- * Copyright (C) 2002 Red Hat, Inc. All Rights Reserved.
-- * Written by David Howells (dhowells@redhat.com)
-- *
-- * This program is free software; you can redistribute it and/or
-- * modify it under the terms of the GNU General Public License
-- * as published by the Free Software Foundation; either version
-- * 2 of the License, or (at your option) any later version.
-- */
--
--#ifndef _LINUX_RXRPC_KRXIOD_H
--#define _LINUX_RXRPC_KRXIOD_H
--
--#include <rxrpc/types.h>
--
--extern int rxrpc_krxiod_init(void);
--extern void rxrpc_krxiod_kill(void);
--extern void rxrpc_krxiod_queue_transport(struct rxrpc_transport *trans);
--extern void rxrpc_krxiod_dequeue_transport(struct rxrpc_transport *trans);
--extern void rxrpc_krxiod_queue_peer(struct rxrpc_peer *peer);
--extern void rxrpc_krxiod_dequeue_peer(struct rxrpc_peer *peer);
--extern void rxrpc_krxiod_clear_peers(struct rxrpc_transport *trans);
--extern void rxrpc_krxiod_queue_call(struct rxrpc_call *call);
--extern void rxrpc_krxiod_dequeue_call(struct rxrpc_call *call);
--
--#endif /* _LINUX_RXRPC_KRXIOD_H */
-diff --git a/include/rxrpc/krxsecd.h b/include/rxrpc/krxsecd.h
-deleted file mode 100644
-index 55ce43a..0000000
---- a/include/rxrpc/krxsecd.h
-+++ /dev/null
-@@ -1,22 +0,0 @@
--/* krxsecd.h: Rx RPC security kernel thread interface
-- *
-- * Copyright (C) 2002 Red Hat, Inc. All Rights Reserved.
-- * Written by David Howells (dhowells@redhat.com)
-- *
-- * This program is free software; you can redistribute it and/or
-- * modify it under the terms of the GNU General Public License
-- * as published by the Free Software Foundation; either version
-- * 2 of the License, or (at your option) any later version.
-- */
--
--#ifndef _LINUX_RXRPC_KRXSECD_H
--#define _LINUX_RXRPC_KRXSECD_H
--
--#include <rxrpc/types.h>
--
--extern int rxrpc_krxsecd_init(void);
--extern void rxrpc_krxsecd_kill(void);
--extern void rxrpc_krxsecd_clear_transport(struct rxrpc_transport *trans);
--extern void rxrpc_krxsecd_queue_incoming_call(struct rxrpc_message *msg);
--
--#endif /* _LINUX_RXRPC_KRXSECD_H */
-diff --git a/include/rxrpc/krxtimod.h b/include/rxrpc/krxtimod.h
-deleted file mode 100644
-index b3d298b..0000000
---- a/include/rxrpc/krxtimod.h
-+++ /dev/null
-@@ -1,45 +0,0 @@
--/* krxtimod.h: RxRPC timeout daemon
-- *
-- * Copyright (C) 2002 Red Hat, Inc. All Rights Reserved.
-- * Written by David Howells (dhowells@redhat.com)
-- *
-- * This program is free software; you can redistribute it and/or
-- * modify it under the terms of the GNU General Public License
-- * as published by the Free Software Foundation; either version
-- * 2 of the License, or (at your option) any later version.
-- */
--
--#ifndef _LINUX_RXRPC_KRXTIMOD_H
--#define _LINUX_RXRPC_KRXTIMOD_H
--
--#include <rxrpc/types.h>
--
--struct rxrpc_timer_ops {
--	/* called when the front of the timer queue has timed out */
--	void (*timed_out)(struct rxrpc_timer *timer);
--};
--
--/*****************************************************************************/
--/*
-- * RXRPC timer/timeout record
-- */
--struct rxrpc_timer
--{
--	struct list_head		link;		/* link in timer queue */
--	unsigned long			timo_jif;	/* timeout time */
--	const struct rxrpc_timer_ops	*ops;		/* timeout expiry function */
--};
--
--static inline void rxrpc_timer_init(rxrpc_timer_t *timer, const struct rxrpc_timer_ops *ops)
--{
--	INIT_LIST_HEAD(&timer->link);
--	timer->ops = ops;
--}
--
--extern int rxrpc_krxtimod_start(void);
--extern void rxrpc_krxtimod_kill(void);
--
--extern void rxrpc_krxtimod_add_timer(rxrpc_timer_t *timer, unsigned long timeout);
--extern int rxrpc_krxtimod_del_timer(rxrpc_timer_t *timer);
--
--#endif /* _LINUX_RXRPC_KRXTIMOD_H */
-diff --git a/include/rxrpc/message.h b/include/rxrpc/message.h
-deleted file mode 100644
-index b318f27..0000000
---- a/include/rxrpc/message.h
-+++ /dev/null
-@@ -1,71 +0,0 @@
--/* message.h: Rx message caching
-- *
-- * Copyright (C) 2002 Red Hat, Inc. All Rights Reserved.
-- * Written by David Howells (dhowells@redhat.com)
-- *
-- * This program is free software; you can redistribute it and/or
-- * modify it under the terms of the GNU General Public License
-- * as published by the Free Software Foundation; either version
-- * 2 of the License, or (at your option) any later version.
-- */
--
--#ifndef _LINUX_RXRPC_MESSAGE_H
--#define _LINUX_RXRPC_MESSAGE_H
--
--#include <rxrpc/packet.h>
--
--/*****************************************************************************/
--/*
-- * Rx message record
-- */
--struct rxrpc_message
--{
--	atomic_t		usage;
--	struct list_head	link;		/* list link */
--	struct timeval		stamp;		/* time received or last sent */
--	rxrpc_seq_t		seq;		/* message sequence number */
--
--	int			state;		/* the state the message is currently in */
--#define RXRPC_MSG_PREPARED	0
--#define RXRPC_MSG_SENT		1
--#define RXRPC_MSG_ACKED		2		/* provisionally ACK'd */
--#define RXRPC_MSG_DONE		3		/* definitively ACK'd (msg->seq<ack.firstPacket) */
--#define RXRPC_MSG_RECEIVED	4
--#define RXRPC_MSG_ERROR		-1
--	char			rttdone;	/* used for RTT */
--
--	struct rxrpc_transport	*trans;		/* transport received through */
--	struct rxrpc_connection	*conn;		/* connection received over */
--	struct sk_buff		*pkt;		/* received packet */
--	off_t			offset;		/* offset into pkt of next byte of data */
--
--	struct rxrpc_header	hdr;		/* message header */
--
--	int			dcount;		/* data part count */
--	size_t			dsize;		/* data size */
--#define RXRPC_MSG_MAX_IOCS 8
--	struct kvec		data[RXRPC_MSG_MAX_IOCS]; /* message data */
--	unsigned long		dfree;		/* bit mask indicating kfree(data[x]) if T */
--};
--
--#define rxrpc_get_message(M) do { atomic_inc(&(M)->usage); } while(0)
--
--extern void __rxrpc_put_message(struct rxrpc_message *msg);
--static inline void rxrpc_put_message(struct rxrpc_message *msg)
--{
--	BUG_ON(atomic_read(&msg->usage)<=0);
--	if (atomic_dec_and_test(&msg->usage))
--		__rxrpc_put_message(msg);
--}
--
--extern int rxrpc_conn_newmsg(struct rxrpc_connection *conn,
--			     struct rxrpc_call *call,
--			     uint8_t type,
--			     int count,
--			     struct kvec *diov,
--			     gfp_t alloc_flags,
--			     struct rxrpc_message **_msg);
--
--extern int rxrpc_conn_sendmsg(struct rxrpc_connection *conn, struct rxrpc_message *msg);
--
--#endif /* _LINUX_RXRPC_MESSAGE_H */
-diff --git a/include/rxrpc/packet.h b/include/rxrpc/packet.h
-index 09b11a1..b69e6e1 100644
---- a/include/rxrpc/packet.h
-+++ b/include/rxrpc/packet.h
-@@ -1,6 +1,6 @@
- /* packet.h: Rx packet layout and definitions
-  *
-- * Copyright (C) 2002 Red Hat, Inc. All Rights Reserved.
-+ * Copyright (C) 2002, 2007 Red Hat, Inc. All Rights Reserved.
-  * Written by David Howells (dhowells@redhat.com)
-  *
-  * This program is free software; you can redistribute it and/or
-@@ -12,21 +12,17 @@
- #ifndef _LINUX_RXRPC_PACKET_H
- #define _LINUX_RXRPC_PACKET_H
+ /*
+@@ -55,6 +57,16 @@ static const struct afs_call_type afs_SRXCBProbe = {
+ };
  
--#include <rxrpc/types.h>
--
--#define RXRPC_IPUDP_SIZE		28
--extern size_t RXRPC_MAX_PACKET_SIZE;
--#define RXRPC_MAX_PACKET_DATA_SIZE	(RXRPC_MAX_PACKET_SIZE - sizeof(struct rxrpc_header))
--#define RXRPC_LOCAL_PACKET_SIZE		RXRPC_MAX_PACKET_SIZE
--#define RXRPC_REMOTE_PACKET_SIZE	(576 - RXRPC_IPUDP_SIZE)
-+typedef u32	rxrpc_seq_t;	/* Rx message sequence number */
-+typedef u32	rxrpc_serial_t;	/* Rx message serial number */
-+typedef __be32	rxrpc_seq_net_t; /* on-the-wire Rx message sequence number */
-+typedef __be32	rxrpc_serial_net_t; /* on-the-wire Rx message serial number */
+ /*
++ * CB.GetCapabilities operation type
++ */
++static const struct afs_call_type afs_SRXCBGetCapabilites = {
++	.name		= "CB.GetCapabilities",
++	.deliver	= afs_deliver_cb_get_capabilities,
++	.abort_to_error	= afs_abort_to_error,
++	.destructor	= afs_cm_destructor,
++};
++
++/*
+  * route an incoming cache manager call
+  * - return T if supported, F if not
+  */
+@@ -74,6 +86,9 @@ bool afs_cm_incoming_call(struct afs_call *call)
+ 	case CBProbe:
+ 		call->type = &afs_SRXCBProbe;
+ 		return true;
++	case CBGetCapabilities:
++		call->type = &afs_SRXCBGetCapabilites;
++		return true;
+ 	default:
+ 		return false;
+ 	}
+@@ -328,3 +343,86 @@ static int afs_deliver_cb_probe(struct afs_call *call, struct sk_buff *skb,
+ 	schedule_work(&call->work);
+ 	return 0;
+ }
++
++/*
++ * allow the fileserver to ask about the cache manager's capabilities
++ */
++static void SRXAFSCB_GetCapabilities(struct work_struct *work)
++{
++	struct afs_interface *ifs;
++	struct afs_call *call = container_of(work, struct afs_call, work);
++	int loop, nifs;
++
++	struct {
++		struct /* InterfaceAddr */ {
++			__be32 nifs;
++			__be32 uuid[11];
++			__be32 ifaddr[32];
++			__be32 netmask[32];
++			__be32 mtu[32];
++		} ia;
++		struct /* Capabilities */ {
++			__be32 capcount;
++			__be32 caps[1];
++		} cap;
++	} reply;
++
++	_enter("");
++
++	nifs = 0;
++	ifs = kcalloc(32, sizeof(*ifs), GFP_KERNEL);
++	if (ifs) {
++		nifs = afs_get_ipv4_interfaces(ifs, 32, false);
++		if (nifs < 0) {
++			kfree(ifs);
++			ifs = NULL;
++			nifs = 0;
++		}
++	}
++
++	memset(&reply, 0, sizeof(reply));
++	reply.ia.nifs = htonl(nifs);
++
++	reply.ia.uuid[0] = htonl(afs_uuid.time_low);
++	reply.ia.uuid[1] = htonl(afs_uuid.time_mid);
++	reply.ia.uuid[2] = htonl(afs_uuid.time_hi_and_version);
++	reply.ia.uuid[3] = htonl((s8) afs_uuid.clock_seq_hi_and_reserved);
++	reply.ia.uuid[4] = htonl((s8) afs_uuid.clock_seq_low);
++	for (loop = 0; loop < 6; loop++)
++		reply.ia.uuid[loop + 5] = htonl((s8) afs_uuid.node[loop]);
++
++	if (ifs) {
++		for (loop = 0; loop < nifs; loop++) {
++			reply.ia.ifaddr[loop] = ifs[loop].address.s_addr;
++			reply.ia.netmask[loop] = ifs[loop].netmask.s_addr;
++			reply.ia.mtu[loop] = htonl(ifs[loop].mtu);
++		}
++	}
++
++	reply.cap.capcount = htonl(1);
++	reply.cap.caps[0] = htonl(AFS_CAP_ERROR_TRANSLATION);
++	afs_send_simple_reply(call, &reply, sizeof(reply));
++
++	_leave("");
++}
++
++/*
++ * deliver request data to a CB.GetCapabilities call
++ */
++static int afs_deliver_cb_get_capabilities(struct afs_call *call,
++					   struct sk_buff *skb, bool last)
++{
++	_enter(",{%u},%d", skb->len, last);
++
++	if (skb->len > 0)
++		return -EBADMSG;
++	if (!last)
++		return 0;
++
++	/* no unmarshalling required */
++	call->state = AFS_CALL_REPLYING;
++
++	INIT_WORK(&call->work, SRXAFSCB_GetCapabilities);
++	schedule_work(&call->work);
++	return 0;
++}
+diff --git a/fs/afs/internal.h b/fs/afs/internal.h
+index 8bed242..6120d4b 100644
+--- a/fs/afs/internal.h
++++ b/fs/afs/internal.h
+@@ -346,6 +346,40 @@ struct afs_permits {
+ 	struct afs_permit	permits[0];	/* the permits so far examined */
+ };
  
++/*
++ * record of one of a system's set of network interfaces
++ */
++struct afs_interface {
++	unsigned	index;		/* interface index */
++	struct in_addr	address;	/* IPv4 address bound to interface */
++	struct in_addr	netmask;	/* netmask applied to address */
++	unsigned	mtu;		/* MTU of interface */
++};
++
++/*
++ * UUID definition [internet draft]
++ * - the timestamp is a 60-bit value, split 32/16/12, and goes in 100ns
++ *   increments since midnight 15th October 1582
++ *   - add AFS_UUID_TO_UNIX_TIME to convert unix time in 100ns units to UUID
++ *     time
++ * - the clock sequence is a 14-bit counter to avoid duplicate times
++ */
++struct afs_uuid {
++	u32		time_low;			/* low part of timestamp */
++	u16		time_mid;			/* mid part of timestamp */
++	u16		time_hi_and_version;		/* high part of timestamp and version  */
++#define AFS_UUID_TO_UNIX_TIME	0x01b21dd213814000
++#define AFS_UUID_TIMEHI_MASK	0x0fff
++#define AFS_UUID_VERSION_TIME	0x1000	/* time-based UUID */
++#define AFS_UUID_VERSION_NAME	0x3000	/* name-based UUID */
++#define AFS_UUID_VERSION_RANDOM	0x4000	/* (pseudo-)random generated UUID */
++	u8		clock_seq_hi_and_reserved;	/* clock seq hi and variant */
++#define AFS_UUID_CLOCKHI_MASK	0x3f
++#define AFS_UUID_VARIANT_STD	0x80
++	u8		clock_seq_low;			/* clock seq low */
++	u8		node[6];			/* spatially unique node ID (MAC addr) */
++};
++
  /*****************************************************************************/
  /*
-  * on-the-wire Rx packet header
-  * - all multibyte fields should be in network byte order
+  * callback.c
+@@ -430,6 +464,7 @@ extern void afs_clear_inode(struct inode *);
+ /*
+  * main.c
   */
--struct rxrpc_header
--{
-+struct rxrpc_header {
- 	__be32		epoch;		/* client boot timestamp */
++extern struct afs_uuid afs_uuid;
+ #ifdef AFS_CACHING_SUPPORT
+ extern struct cachefs_netfs afs_cache_netfs;
+ #endif
+@@ -470,6 +505,7 @@ extern struct afs_call *afs_alloc_flat_call(const struct afs_call_type *,
+ extern void afs_flat_call_destructor(struct afs_call *);
+ extern void afs_transfer_reply(struct afs_call *, struct sk_buff *);
+ extern void afs_send_empty_reply(struct afs_call *);
++extern void afs_send_simple_reply(struct afs_call *, const void *, size_t);
+ extern int afs_extract_data(struct afs_call *, struct sk_buff *, bool, void *,
+ 			    size_t);
  
- 	__be32		cid;		/* connection and channel ID */
-@@ -85,8 +81,7 @@ extern const char *rxrpc_pkts[];
-  *   - new__rsvd = j__rsvd
-  *   - duplicating all other fields
+@@ -501,6 +537,12 @@ extern int afs_fs_init(void);
+ extern void afs_fs_exit(void);
+ 
+ /*
++ * use-rtnetlink.c
++ */
++extern int afs_get_ipv4_interfaces(struct afs_interface *, size_t, bool);
++extern int afs_get_MAC_address(u8 [6]);
++
++/*
+  * vlclient.c
   */
--struct rxrpc_jumbo_header
--{
-+struct rxrpc_jumbo_header {
- 	uint8_t		flags;		/* packet flags (as per rxrpc_header) */
- 	uint8_t		pad;
- 	__be16		_rsvd;		/* reserved (used by kerberos security as cksum) */
-@@ -99,8 +94,7 @@ struct rxrpc_jumbo_header
-  * on-the-wire Rx ACK packet data payload
-  * - all multibyte fields should be in network byte order
+ #ifdef AFS_CACHING_SUPPORT
+diff --git a/fs/afs/main.c b/fs/afs/main.c
+index 0cf1b02..40c2704 100644
+--- a/fs/afs/main.c
++++ b/fs/afs/main.c
+@@ -40,6 +40,51 @@ struct cachefs_netfs afs_cache_netfs = {
+ };
+ #endif
+ 
++struct afs_uuid afs_uuid;
++
++/*
++ * get a client UUID
++ */
++static int __init afs_get_client_UUID(void)
++{
++	struct timespec ts;
++	u64 uuidtime;
++	u16 clockseq;
++	int ret;
++
++	/* read the MAC address of one of the external interfaces and construct
++	 * a UUID from it */
++	ret = afs_get_MAC_address(afs_uuid.node);
++	if (ret < 0)
++		return ret;
++
++	getnstimeofday(&ts);
++	uuidtime = (u64) ts.tv_sec * 1000 * 1000 * 10;
++	uuidtime += ts.tv_nsec / 100;
++	uuidtime += AFS_UUID_TO_UNIX_TIME;
++	afs_uuid.time_low = uuidtime;
++	afs_uuid.time_mid = uuidtime >> 32;
++	afs_uuid.time_hi_and_version = (uuidtime >> 48) & AFS_UUID_TIMEHI_MASK;
++	afs_uuid.time_hi_and_version = AFS_UUID_VERSION_TIME;
++
++	get_random_bytes(&clockseq, 2);
++	afs_uuid.clock_seq_low = clockseq;
++	afs_uuid.clock_seq_hi_and_reserved =
++		(clockseq >> 8) & AFS_UUID_CLOCKHI_MASK;
++	afs_uuid.clock_seq_hi_and_reserved = AFS_UUID_VARIANT_STD;
++
++	_debug("AFS UUID: %08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x",
++	       afs_uuid.time_low,
++	       afs_uuid.time_mid,
++	       afs_uuid.time_hi_and_version,
++	       afs_uuid.clock_seq_hi_and_reserved,
++	       afs_uuid.clock_seq_low,
++	       afs_uuid.node[0], afs_uuid.node[1], afs_uuid.node[2],
++	       afs_uuid.node[3], afs_uuid.node[4], afs_uuid.node[5]);
++
++	return 0;
++}
++
+ /*
+  * initialise the AFS client FS module
   */
--struct rxrpc_ackpacket
--{
-+struct rxrpc_ackpacket {
- 	__be16		bufferSpace;	/* number of packet buffers available */
- 	__be16		maxSkew;	/* diff between serno being ACK'd and highest serial no
- 					 * received */
-diff --git a/include/rxrpc/peer.h b/include/rxrpc/peer.h
-deleted file mode 100644
-index 8b8fe97..0000000
---- a/include/rxrpc/peer.h
-+++ /dev/null
-@@ -1,82 +0,0 @@
--/* peer.h: Rx RPC per-transport peer record
-- *
-- * Copyright (C) 2002 Red Hat, Inc. All Rights Reserved.
-- * Written by David Howells (dhowells@redhat.com)
-- *
-- * This program is free software; you can redistribute it and/or
-- * modify it under the terms of the GNU General Public License
-- * as published by the Free Software Foundation; either version
-- * 2 of the License, or (at your option) any later version.
-- */
--
--#ifndef _LINUX_RXRPC_PEER_H
--#define _LINUX_RXRPC_PEER_H
--
--#include <linux/wait.h>
--#include <rxrpc/types.h>
--#include <rxrpc/krxtimod.h>
--
--struct rxrpc_peer_ops
--{
--	/* peer record being added */
--	int (*adding)(struct rxrpc_peer *peer);
--
--	/* peer record being discarded from graveyard */
--	void (*discarding)(struct rxrpc_peer *peer);
--
--	/* change of epoch detected on connection */
--	void (*change_of_epoch)(struct rxrpc_connection *conn);
--};
--
--/*****************************************************************************/
--/*
-- * Rx RPC per-transport peer record
-- * - peers only retain a refcount on the transport when they are active
-- * - peers with refcount==0 are inactive and reside in the transport's graveyard
-- */
--struct rxrpc_peer
--{
--	atomic_t		usage;
--	struct rxrpc_peer_ops	*ops;		/* operations on this peer */
--	struct rxrpc_transport	*trans;		/* owner transport */
--	struct rxrpc_timer	timeout;	/* timeout for grave destruction */
--	struct list_head	link;		/* link in transport's peer list */
--	struct list_head	proc_link;	/* link in /proc list */
--	rwlock_t		conn_idlock;	/* lock for connection IDs */
--	struct list_head	conn_idlist;	/* list of connections granted IDs */
--	uint32_t		conn_idcounter;	/* connection ID counter */
--	rwlock_t		conn_lock;	/* lock for active/dead connections */
--	struct list_head	conn_active;	/* active connections to/from this peer */
--	struct list_head	conn_graveyard;	/* graveyard for inactive connections */
--	spinlock_t		conn_gylock;	/* lock for conn_graveyard */
--	wait_queue_head_t	conn_gy_waitq;	/* wait queue hit when graveyard is empty */
--	atomic_t		conn_count;	/* number of attached connections */
--	struct in_addr		addr;		/* remote address */
--	size_t			if_mtu;		/* interface MTU for this peer */
--	spinlock_t		lock;		/* access lock */
--
--	void			*user;		/* application layer data */
--
--	/* calculated RTT cache */
--#define RXRPC_RTT_CACHE_SIZE 32
--	suseconds_t		rtt;		/* current RTT estimate (in uS) */
--	unsigned		rtt_point;	/* next entry at which to insert */
--	unsigned		rtt_usage;	/* amount of cache actually used */
--	suseconds_t		rtt_cache[RXRPC_RTT_CACHE_SIZE]; /* calculated RTT cache */
--};
--
--
--extern int rxrpc_peer_lookup(struct rxrpc_transport *trans,
--			     __be32 addr,
--			     struct rxrpc_peer **_peer);
--
--static inline void rxrpc_get_peer(struct rxrpc_peer *peer)
--{
--	BUG_ON(atomic_read(&peer->usage)<0);
--	atomic_inc(&peer->usage);
--	//printk("rxrpc_get_peer(%p{u=%d})\n",peer,atomic_read(&peer->usage));
--}
--
--extern void rxrpc_put_peer(struct rxrpc_peer *peer);
--
--#endif /* _LINUX_RXRPC_PEER_H */
-diff --git a/include/rxrpc/rxrpc.h b/include/rxrpc/rxrpc.h
-deleted file mode 100644
-index 8d9874c..0000000
---- a/include/rxrpc/rxrpc.h
-+++ /dev/null
-@@ -1,36 +0,0 @@
--/* rx.h: Rx RPC interface
-- *
-- * Copyright (C) 2002 Red Hat, Inc. All Rights Reserved.
-- * Written by David Howells (dhowells@redhat.com)
-- *
-- * This program is free software; you can redistribute it and/or
-- * modify it under the terms of the GNU General Public License
-- * as published by the Free Software Foundation; either version
-- * 2 of the License, or (at your option) any later version.
-- */
--
--#ifndef _LINUX_RXRPC_RXRPC_H
--#define _LINUX_RXRPC_RXRPC_H
--
--#ifdef __KERNEL__
--
--extern __be32 rxrpc_epoch;
--
--#ifdef CONFIG_SYSCTL
--extern int rxrpc_ktrace;
--extern int rxrpc_kdebug;
--extern int rxrpc_kproto;
--extern int rxrpc_knet;
--#else
--#define rxrpc_ktrace	0
--#define rxrpc_kdebug	0
--#define rxrpc_kproto	0
--#define rxrpc_knet	0
--#endif
--
--extern int rxrpc_sysctl_init(void);
--extern void rxrpc_sysctl_cleanup(void);
--
--#endif /* __KERNEL__ */
--
--#endif /* _LINUX_RXRPC_RXRPC_H */
-diff --git a/include/rxrpc/transport.h b/include/rxrpc/transport.h
-deleted file mode 100644
-index 7c7b968..0000000
---- a/include/rxrpc/transport.h
-+++ /dev/null
-@@ -1,106 +0,0 @@
--/* transport.h: Rx transport management
-- *
-- * Copyright (C) 2002 Red Hat, Inc. All Rights Reserved.
-- * Written by David Howells (dhowells@redhat.com)
-- *
-- * This program is free software; you can redistribute it and/or
-- * modify it under the terms of the GNU General Public License
-- * as published by the Free Software Foundation; either version
-- * 2 of the License, or (at your option) any later version.
-- */
--
--#ifndef _LINUX_RXRPC_TRANSPORT_H
--#define _LINUX_RXRPC_TRANSPORT_H
--
--#include <rxrpc/types.h>
--#include <rxrpc/krxiod.h>
--#include <rxrpc/rxrpc.h>
--#include <linux/skbuff.h>
--#include <linux/rwsem.h>
--
--typedef int (*rxrpc_newcall_fnx_t)(struct rxrpc_call *call);
--
--extern wait_queue_head_t rxrpc_krxiod_wq;
--
--/*****************************************************************************/
--/*
-- * Rx operation specification
-- * - tables of these must be sorted by op ID so that they can be binary-chop searched
-- */
--struct rxrpc_operation
--{
--	unsigned		id;		/* operation ID */
--	size_t			asize;		/* minimum size of argument block */
--	const char		*name;		/* name of operation */
--	void			*user;		/* initial user data */
--};
--
--/*****************************************************************************/
--/*
-- * Rx transport service record
-- */
--struct rxrpc_service
--{
--	struct list_head	link;		/* link in services list on transport */
--	struct module		*owner;		/* owner module */
--	rxrpc_newcall_fnx_t	new_call;	/* new call handler function */
--	const char		*name;		/* name of service */
--	unsigned short		service_id;	/* Rx service ID */
--	rxrpc_call_attn_func_t	attn_func;	/* call requires attention callback */
--	rxrpc_call_error_func_t	error_func;	/* call error callback */
--	rxrpc_call_aemap_func_t	aemap_func;	/* abort -> errno mapping callback */
--
--	const struct rxrpc_operation	*ops_begin;	/* beginning of operations table */
--	const struct rxrpc_operation	*ops_end;	/* end of operations table */
--};
--
--/*****************************************************************************/
--/*
-- * Rx transport endpoint record
-- */
--struct rxrpc_transport
--{
--	atomic_t		usage;
--	struct socket		*socket;	/* my UDP socket */
--	struct list_head	services;	/* services listening on this socket */
--	struct list_head	link;		/* link in transport list */
--	struct list_head	proc_link;	/* link in transport proc list */
--	struct list_head	krxiodq_link;	/* krxiod attention queue link */
--	spinlock_t		lock;		/* access lock */
--	struct list_head	peer_active;	/* active peers connected to over this socket */
--	struct list_head	peer_graveyard;	/* inactive peer list */
--	spinlock_t		peer_gylock;	/* peer graveyard lock */
--	wait_queue_head_t	peer_gy_waitq;	/* wait queue hit when peer graveyard is empty */
--	rwlock_t		peer_lock;	/* peer list access lock */
--	atomic_t		peer_count;	/* number of peers */
--	struct rxrpc_peer_ops	*peer_ops;	/* default peer operations */
--	unsigned short		port;		/* port upon which listening */
--	volatile char		error_rcvd;	/* T if received ICMP error outstanding */
--};
--
--extern int rxrpc_create_transport(unsigned short port,
--				  struct rxrpc_transport **_trans);
--
--static inline void rxrpc_get_transport(struct rxrpc_transport *trans)
--{
--	BUG_ON(atomic_read(&trans->usage) <= 0);
--	atomic_inc(&trans->usage);
--	//printk("rxrpc_get_transport(%p{u=%d})\n",
--	//       trans, atomic_read(&trans->usage));
--}
--
--extern void rxrpc_put_transport(struct rxrpc_transport *trans);
--
--extern int rxrpc_add_service(struct rxrpc_transport *trans,
--			     struct rxrpc_service *srv);
--
--extern void rxrpc_del_service(struct rxrpc_transport *trans,
--			      struct rxrpc_service *srv);
--
--extern void rxrpc_trans_receive_packet(struct rxrpc_transport *trans);
--
--extern int rxrpc_trans_immediate_abort(struct rxrpc_transport *trans,
--				       struct rxrpc_message *msg,
--				       int error);
--
--#endif /* _LINUX_RXRPC_TRANSPORT_H */
-diff --git a/net/rxrpc/Makefile b/net/rxrpc/Makefile
-index 07bf82f..c46867c 100644
---- a/net/rxrpc/Makefile
-+++ b/net/rxrpc/Makefile
-@@ -1,9 +1,7 @@
- #
--# Makefile for Linux kernel Rx RPC
-+# Makefile for Linux kernel RxRPC
- #
+@@ -49,6 +94,10 @@ static int __init afs_init(void)
  
--#CFLAGS += -finstrument-functions
--
- af-rxrpc-objs := \
- 	af_rxrpc.o \
- 	ar-accept.o \
-@@ -29,26 +27,3 @@ endif
- obj-$(CONFIG_AF_RXRPC) += af-rxrpc.o
+ 	printk(KERN_INFO "kAFS: Red Hat AFS client v0.1 registering.\n");
  
- obj-$(CONFIG_RXKAD) += rxkad.o
--
--#
--# obsolete RxRPC interface, still used by fs/afs/
--#
--rxrpc-objs := \
--	call.o \
--	connection.o \
--	krxiod.o \
--	krxsecd.o \
--	krxtimod.o \
--	main.o \
--	peer.o \
--	rxrpc_syms.o \
--	transport.o
--
--ifeq ($(CONFIG_PROC_FS),y)
--rxrpc-objs += proc.o
--endif
--ifeq ($(CONFIG_SYSCTL),y)
--rxrpc-objs += sysctl.o
--endif
--
--obj-$(CONFIG_RXRPC) += rxrpc.o
-diff --git a/net/rxrpc/call.c b/net/rxrpc/call.c
-deleted file mode 100644
-index d07122b..0000000
---- a/net/rxrpc/call.c
-+++ /dev/null
-@@ -1,2277 +0,0 @@
--/* call.c: Rx call routines
-- *
-- * Copyright (C) 2002 Red Hat, Inc. All Rights Reserved.
-- * Written by David Howells (dhowells@redhat.com)
-- *
-- * This program is free software; you can redistribute it and/or
-- * modify it under the terms of the GNU General Public License
-- * as published by the Free Software Foundation; either version
-- * 2 of the License, or (at your option) any later version.
-- */
--
--#include <linux/sched.h>
--#include <linux/slab.h>
--#include <linux/module.h>
--#include <rxrpc/rxrpc.h>
--#include <rxrpc/transport.h>
--#include <rxrpc/peer.h>
--#include <rxrpc/connection.h>
--#include <rxrpc/call.h>
--#include <rxrpc/message.h>
--#include "internal.h"
--
--__RXACCT_DECL(atomic_t rxrpc_call_count);
--__RXACCT_DECL(atomic_t rxrpc_message_count);
--
--LIST_HEAD(rxrpc_calls);
--DECLARE_RWSEM(rxrpc_calls_sem);
--
--unsigned rxrpc_call_rcv_timeout			= HZ/3;
--static unsigned rxrpc_call_acks_timeout		= HZ/3;
--static unsigned rxrpc_call_dfr_ack_timeout	= HZ/20;
--static unsigned short rxrpc_call_max_resend	= HZ/10;
--
--const char *rxrpc_call_states[] = {
--	"COMPLETE",
--	"ERROR",
--	"SRVR_RCV_OPID",
--	"SRVR_RCV_ARGS",
--	"SRVR_GOT_ARGS",
--	"SRVR_SND_REPLY",
--	"SRVR_RCV_FINAL_ACK",
--	"CLNT_SND_ARGS",
--	"CLNT_RCV_REPLY",
--	"CLNT_GOT_REPLY"
--};
--
--const char *rxrpc_call_error_states[] = {
--	"NO_ERROR",
--	"LOCAL_ABORT",
--	"PEER_ABORT",
--	"LOCAL_ERROR",
--	"REMOTE_ERROR"
--};
--
--const char *rxrpc_pkts[] = {
--	"?00",
--	"data", "ack", "busy", "abort", "ackall", "chall", "resp", "debug",
--	"?09", "?10", "?11", "?12", "?13", "?14", "?15"
--};
--
--static const char *rxrpc_acks[] = {
--	"---", "REQ", "DUP", "SEQ", "WIN", "MEM", "PNG", "PNR", "DLY", "IDL",
--	"-?-"
--};
--
--static const char _acktype[] = "NA-";
--
--static void rxrpc_call_receive_packet(struct rxrpc_call *call);
--static void rxrpc_call_receive_data_packet(struct rxrpc_call *call,
--					   struct rxrpc_message *msg);
--static void rxrpc_call_receive_ack_packet(struct rxrpc_call *call,
--					  struct rxrpc_message *msg);
--static void rxrpc_call_definitively_ACK(struct rxrpc_call *call,
--					rxrpc_seq_t higest);
--static void rxrpc_call_resend(struct rxrpc_call *call, rxrpc_seq_t highest);
--static int __rxrpc_call_read_data(struct rxrpc_call *call);
--
--static int rxrpc_call_record_ACK(struct rxrpc_call *call,
--				 struct rxrpc_message *msg,
--				 rxrpc_seq_t seq,
--				 size_t count);
--
--static int rxrpc_call_flush(struct rxrpc_call *call);
--
--#define _state(call) \
--	_debug("[[[ state %s ]]]", rxrpc_call_states[call->app_call_state]);
--
--static void rxrpc_call_default_attn_func(struct rxrpc_call *call)
--{
--	wake_up(&call->waitq);
--}
--
--static void rxrpc_call_default_error_func(struct rxrpc_call *call)
--{
--	wake_up(&call->waitq);
--}
--
--static void rxrpc_call_default_aemap_func(struct rxrpc_call *call)
--{
--	switch (call->app_err_state) {
--	case RXRPC_ESTATE_LOCAL_ABORT:
--		call->app_abort_code = -call->app_errno;
--	case RXRPC_ESTATE_PEER_ABORT:
--		call->app_errno = -ECONNABORTED;
--	default:
--		break;
--	}
--}
--
--static void __rxrpc_call_acks_timeout(unsigned long _call)
--{
--	struct rxrpc_call *call = (struct rxrpc_call *) _call;
--
--	_debug("ACKS TIMEOUT %05lu", jiffies - call->cjif);
--
--	call->flags |= RXRPC_CALL_ACKS_TIMO;
--	rxrpc_krxiod_queue_call(call);
--}
--
--static void __rxrpc_call_rcv_timeout(unsigned long _call)
--{
--	struct rxrpc_call *call = (struct rxrpc_call *) _call;
--
--	_debug("RCV TIMEOUT %05lu", jiffies - call->cjif);
--
--	call->flags |= RXRPC_CALL_RCV_TIMO;
--	rxrpc_krxiod_queue_call(call);
--}
--
--static void __rxrpc_call_ackr_timeout(unsigned long _call)
--{
--	struct rxrpc_call *call = (struct rxrpc_call *) _call;
--
--	_debug("ACKR TIMEOUT %05lu",jiffies - call->cjif);
--
--	call->flags |= RXRPC_CALL_ACKR_TIMO;
--	rxrpc_krxiod_queue_call(call);
--}
--
--/*****************************************************************************/
--/*
-- * calculate a timeout based on an RTT value
-- */
--static inline unsigned long __rxrpc_rtt_based_timeout(struct rxrpc_call *call,
--						      unsigned long val)
--{
--	unsigned long expiry = call->conn->peer->rtt / (1000000 / HZ);
--
--	expiry += 10;
--	if (expiry < HZ / 25)
--		expiry = HZ / 25;
--	if (expiry > HZ)
--		expiry = HZ;
--
--	_leave(" = %lu jiffies", expiry);
--	return jiffies + expiry;
--} /* end __rxrpc_rtt_based_timeout() */
--
--/*****************************************************************************/
--/*
-- * create a new call record
-- */
--static inline int __rxrpc_create_call(struct rxrpc_connection *conn,
--				      struct rxrpc_call **_call)
--{
--	struct rxrpc_call *call;
--
--	_enter("%p", conn);
--
--	/* allocate and initialise a call record */
--	call = (struct rxrpc_call *) get_zeroed_page(GFP_KERNEL);
--	if (!call) {
--		_leave(" ENOMEM");
--		return -ENOMEM;
--	}
--
--	atomic_set(&call->usage, 1);
--
--	init_waitqueue_head(&call->waitq);
--	spin_lock_init(&call->lock);
--	INIT_LIST_HEAD(&call->link);
--	INIT_LIST_HEAD(&call->acks_pendq);
--	INIT_LIST_HEAD(&call->rcv_receiveq);
--	INIT_LIST_HEAD(&call->rcv_krxiodq_lk);
--	INIT_LIST_HEAD(&call->app_readyq);
--	INIT_LIST_HEAD(&call->app_unreadyq);
--	INIT_LIST_HEAD(&call->app_link);
--	INIT_LIST_HEAD(&call->app_attn_link);
--
--	init_timer(&call->acks_timeout);
--	call->acks_timeout.data = (unsigned long) call;
--	call->acks_timeout.function = __rxrpc_call_acks_timeout;
--
--	init_timer(&call->rcv_timeout);
--	call->rcv_timeout.data = (unsigned long) call;
--	call->rcv_timeout.function = __rxrpc_call_rcv_timeout;
--
--	init_timer(&call->ackr_dfr_timo);
--	call->ackr_dfr_timo.data = (unsigned long) call;
--	call->ackr_dfr_timo.function = __rxrpc_call_ackr_timeout;
--
--	call->conn = conn;
--	call->ackr_win_bot = 1;
--	call->ackr_win_top = call->ackr_win_bot + RXRPC_CALL_ACK_WINDOW_SIZE - 1;
--	call->ackr_prev_seq = 0;
--	call->app_mark = RXRPC_APP_MARK_EOF;
--	call->app_attn_func = rxrpc_call_default_attn_func;
--	call->app_error_func = rxrpc_call_default_error_func;
--	call->app_aemap_func = rxrpc_call_default_aemap_func;
--	call->app_scr_alloc = call->app_scratch;
--
--	call->cjif = jiffies;
--
--	_leave(" = 0 (%p)", call);
--
--	*_call = call;
--
--	return 0;
--} /* end __rxrpc_create_call() */
--
--/*****************************************************************************/
--/*
-- * create a new call record for outgoing calls
-- */
--int rxrpc_create_call(struct rxrpc_connection *conn,
--		      rxrpc_call_attn_func_t attn,
--		      rxrpc_call_error_func_t error,
--		      rxrpc_call_aemap_func_t aemap,
--		      struct rxrpc_call **_call)
--{
--	DECLARE_WAITQUEUE(myself, current);
--
--	struct rxrpc_call *call;
--	int ret, cix, loop;
--
--	_enter("%p", conn);
--
--	/* allocate and initialise a call record */
--	ret = __rxrpc_create_call(conn, &call);
--	if (ret < 0) {
--		_leave(" = %d", ret);
--		return ret;
--	}
--
--	call->app_call_state = RXRPC_CSTATE_CLNT_SND_ARGS;
--	if (attn)
--		call->app_attn_func = attn;
--	if (error)
--		call->app_error_func = error;
--	if (aemap)
--		call->app_aemap_func = aemap;
--
--	_state(call);
--
--	spin_lock(&conn->lock);
--	set_current_state(TASK_INTERRUPTIBLE);
--	add_wait_queue(&conn->chanwait, &myself);
--
-- try_again:
--	/* try to find an unused channel */
--	for (cix = 0; cix < 4; cix++)
--		if (!conn->channels[cix])
--			goto obtained_chan;
--
--	/* no free channels - wait for one to become available */
--	ret = -EINTR;
--	if (signal_pending(current))
--		goto error_unwait;
--
--	spin_unlock(&conn->lock);
--
--	schedule();
--	set_current_state(TASK_INTERRUPTIBLE);
--
--	spin_lock(&conn->lock);
--	goto try_again;
--
--	/* got a channel - now attach to the connection */
-- obtained_chan:
--	remove_wait_queue(&conn->chanwait, &myself);
--	set_current_state(TASK_RUNNING);
--
--	/* concoct a unique call number */
-- next_callid:
--	call->call_id = htonl(++conn->call_counter);
--	for (loop = 0; loop < 4; loop++)
--		if (conn->channels[loop] &&
--		    conn->channels[loop]->call_id == call->call_id)
--			goto next_callid;
--
--	rxrpc_get_connection(conn);
--	conn->channels[cix] = call; /* assign _after_ done callid check loop */
--	do_gettimeofday(&conn->atime);
--	call->chan_ix = htonl(cix);
--
--	spin_unlock(&conn->lock);
--
--	down_write(&rxrpc_calls_sem);
--	list_add_tail(&call->call_link, &rxrpc_calls);
--	up_write(&rxrpc_calls_sem);
--
--	__RXACCT(atomic_inc(&rxrpc_call_count));
--	*_call = call;
--
--	_leave(" = 0 (call=%p cix=%u)", call, cix);
--	return 0;
--
-- error_unwait:
--	remove_wait_queue(&conn->chanwait, &myself);
--	set_current_state(TASK_RUNNING);
--	spin_unlock(&conn->lock);
--
--	free_page((unsigned long) call);
--	_leave(" = %d", ret);
--	return ret;
--} /* end rxrpc_create_call() */
--
--/*****************************************************************************/
--/*
-- * create a new call record for incoming calls
-- */
--int rxrpc_incoming_call(struct rxrpc_connection *conn,
--			struct rxrpc_message *msg,
--			struct rxrpc_call **_call)
--{
--	struct rxrpc_call *call;
--	unsigned cix;
--	int ret;
--
--	cix = ntohl(msg->hdr.cid) & RXRPC_CHANNELMASK;
--
--	_enter("%p,%u,%u", conn, ntohl(msg->hdr.callNumber), cix);
--
--	/* allocate and initialise a call record */
--	ret = __rxrpc_create_call(conn, &call);
--	if (ret < 0) {
--		_leave(" = %d", ret);
--		return ret;
--	}
--
--	call->pkt_rcv_count = 1;
--	call->app_call_state = RXRPC_CSTATE_SRVR_RCV_OPID;
--	call->app_mark = sizeof(uint32_t);
--
--	_state(call);
--
--	/* attach to the connection */
--	ret = -EBUSY;
--	call->chan_ix = htonl(cix);
--	call->call_id = msg->hdr.callNumber;
--
--	spin_lock(&conn->lock);
--
--	if (!conn->channels[cix] ||
--	    conn->channels[cix]->app_call_state == RXRPC_CSTATE_COMPLETE ||
--	    conn->channels[cix]->app_call_state == RXRPC_CSTATE_ERROR
--	    ) {
--		conn->channels[cix] = call;
--		rxrpc_get_connection(conn);
--		ret = 0;
--	}
--
--	spin_unlock(&conn->lock);
--
--	if (ret < 0) {
--		free_page((unsigned long) call);
--		call = NULL;
--	}
--
--	if (ret == 0) {
--		down_write(&rxrpc_calls_sem);
--		list_add_tail(&call->call_link, &rxrpc_calls);
--		up_write(&rxrpc_calls_sem);
--		__RXACCT(atomic_inc(&rxrpc_call_count));
--		*_call = call;
--	}
--
--	_leave(" = %d [%p]", ret, call);
--	return ret;
--} /* end rxrpc_incoming_call() */
--
--/*****************************************************************************/
--/*
-- * free a call record
-- */
--void rxrpc_put_call(struct rxrpc_call *call)
--{
--	struct rxrpc_connection *conn = call->conn;
--	struct rxrpc_message *msg;
--
--	_enter("%p{u=%d}",call,atomic_read(&call->usage));
--
--	/* sanity check */
--	if (atomic_read(&call->usage) <= 0)
--		BUG();
--
--	/* to prevent a race, the decrement and the de-list must be effectively
--	 * atomic */
--	spin_lock(&conn->lock);
--	if (likely(!atomic_dec_and_test(&call->usage))) {
--		spin_unlock(&conn->lock);
--		_leave("");
--		return;
--	}
--
--	if (conn->channels[ntohl(call->chan_ix)] == call)
--		conn->channels[ntohl(call->chan_ix)] = NULL;
--
--	spin_unlock(&conn->lock);
--
--	wake_up(&conn->chanwait);
--
--	rxrpc_put_connection(conn);
--
--	/* clear the timers and dequeue from krxiod */
--	del_timer_sync(&call->acks_timeout);
--	del_timer_sync(&call->rcv_timeout);
--	del_timer_sync(&call->ackr_dfr_timo);
--
--	rxrpc_krxiod_dequeue_call(call);
--
--	/* clean up the contents of the struct */
--	if (call->snd_nextmsg)
--		rxrpc_put_message(call->snd_nextmsg);
--
--	if (call->snd_ping)
--		rxrpc_put_message(call->snd_ping);
--
--	while (!list_empty(&call->acks_pendq)) {
--		msg = list_entry(call->acks_pendq.next,
--				 struct rxrpc_message, link);
--		list_del(&msg->link);
--		rxrpc_put_message(msg);
--	}
--
--	while (!list_empty(&call->rcv_receiveq)) {
--		msg = list_entry(call->rcv_receiveq.next,
--				 struct rxrpc_message, link);
--		list_del(&msg->link);
--		rxrpc_put_message(msg);
--	}
--
--	while (!list_empty(&call->app_readyq)) {
--		msg = list_entry(call->app_readyq.next,
--				 struct rxrpc_message, link);
--		list_del(&msg->link);
--		rxrpc_put_message(msg);
--	}
--
--	while (!list_empty(&call->app_unreadyq)) {
--		msg = list_entry(call->app_unreadyq.next,
--				 struct rxrpc_message, link);
--		list_del(&msg->link);
--		rxrpc_put_message(msg);
--	}
--
--	module_put(call->owner);
--
--	down_write(&rxrpc_calls_sem);
--	list_del(&call->call_link);
--	up_write(&rxrpc_calls_sem);
--
--	__RXACCT(atomic_dec(&rxrpc_call_count));
--	free_page((unsigned long) call);
--
--	_leave(" [destroyed]");
--} /* end rxrpc_put_call() */
--
--/*****************************************************************************/
--/*
-- * actually generate a normal ACK
-- */
--static inline int __rxrpc_call_gen_normal_ACK(struct rxrpc_call *call,
--					      rxrpc_seq_t seq)
--{
--	struct rxrpc_message *msg;
--	struct kvec diov[3];
--	__be32 aux[4];
--	int delta, ret;
--
--	/* ACKs default to DELAY */
--	if (!call->ackr.reason)
--		call->ackr.reason = RXRPC_ACK_DELAY;
--
--	_proto("Rx %05lu Sending ACK { m=%hu f=#%u p=#%u s=%%%u r=%s n=%u }",
--	       jiffies - call->cjif,
--	       ntohs(call->ackr.maxSkew),
--	       ntohl(call->ackr.firstPacket),
--	       ntohl(call->ackr.previousPacket),
--	       ntohl(call->ackr.serial),
--	       rxrpc_acks[call->ackr.reason],
--	       call->ackr.nAcks);
--
--	aux[0] = htonl(call->conn->peer->if_mtu);	/* interface MTU */
--	aux[1] = htonl(1444);				/* max MTU */
--	aux[2] = htonl(16);				/* rwind */
--	aux[3] = htonl(4);				/* max packets */
--
--	diov[0].iov_len  = sizeof(struct rxrpc_ackpacket);
--	diov[0].iov_base = &call->ackr;
--	diov[1].iov_len  = call->ackr_pend_cnt + 3;
--	diov[1].iov_base = call->ackr_array;
--	diov[2].iov_len  = sizeof(aux);
--	diov[2].iov_base = &aux;
--
--	/* build and send the message */
--	ret = rxrpc_conn_newmsg(call->conn,call, RXRPC_PACKET_TYPE_ACK,
--				3, diov, GFP_KERNEL, &msg);
--	if (ret < 0)
--		goto out;
--
--	msg->seq = seq;
--	msg->hdr.seq = htonl(seq);
--	msg->hdr.flags |= RXRPC_SLOW_START_OK;
--
--	ret = rxrpc_conn_sendmsg(call->conn, msg);
--	rxrpc_put_message(msg);
--	if (ret < 0)
--		goto out;
--	call->pkt_snd_count++;
--
--	/* count how many actual ACKs there were at the front */
--	for (delta = 0; delta < call->ackr_pend_cnt; delta++)
--		if (call->ackr_array[delta] != RXRPC_ACK_TYPE_ACK)
--			break;
--
--	call->ackr_pend_cnt -= delta; /* all ACK'd to this point */
--
--	/* crank the ACK window around */
--	if (delta == 0) {
--		/* un-ACK'd window */
--	}
--	else if (delta < RXRPC_CALL_ACK_WINDOW_SIZE) {
--		/* partially ACK'd window
--		 * - shuffle down to avoid losing out-of-sequence packets
--		 */
--		call->ackr_win_bot += delta;
--		call->ackr_win_top += delta;
--
--		memmove(&call->ackr_array[0],
--			&call->ackr_array[delta],
--			call->ackr_pend_cnt);
--
--		memset(&call->ackr_array[call->ackr_pend_cnt],
--		       RXRPC_ACK_TYPE_NACK,
--		       sizeof(call->ackr_array) - call->ackr_pend_cnt);
--	}
--	else {
--		/* fully ACK'd window
--		 * - just clear the whole thing
--		 */
--		memset(&call->ackr_array,
--		       RXRPC_ACK_TYPE_NACK,
--		       sizeof(call->ackr_array));
--	}
--
--	/* clear this ACK */
--	memset(&call->ackr, 0, sizeof(call->ackr));
--
-- out:
--	if (!call->app_call_state)
--		printk("___ STATE 0 ___\n");
--	return ret;
--} /* end __rxrpc_call_gen_normal_ACK() */
--
--/*****************************************************************************/
--/*
-- * note the reception of a packet in the call's ACK records and generate an
-- * appropriate ACK packet if necessary
-- * - returns 0 if packet should be processed, 1 if packet should be ignored
-- *   and -ve on an error
-- */
--static int rxrpc_call_generate_ACK(struct rxrpc_call *call,
--				   struct rxrpc_header *hdr,
--				   struct rxrpc_ackpacket *ack)
--{
--	struct rxrpc_message *msg;
--	rxrpc_seq_t seq;
--	unsigned offset;
--	int ret = 0, err;
--	u8 special_ACK, do_ACK, force;
--
--	_enter("%p,%p { seq=%d tp=%d fl=%02x }",
--	       call, hdr, ntohl(hdr->seq), hdr->type, hdr->flags);
--
--	seq = ntohl(hdr->seq);
--	offset = seq - call->ackr_win_bot;
--	do_ACK = RXRPC_ACK_DELAY;
--	special_ACK = 0;
--	force = (seq == 1);
--
--	if (call->ackr_high_seq < seq)
--		call->ackr_high_seq = seq;
--
--	/* deal with generation of obvious special ACKs first */
--	if (ack && ack->reason == RXRPC_ACK_PING) {
--		special_ACK = RXRPC_ACK_PING_RESPONSE;
--		ret = 1;
--		goto gen_ACK;
--	}
--
--	if (seq < call->ackr_win_bot) {
--		special_ACK = RXRPC_ACK_DUPLICATE;
--		ret = 1;
--		goto gen_ACK;
--	}
--
--	if (seq >= call->ackr_win_top) {
--		special_ACK = RXRPC_ACK_EXCEEDS_WINDOW;
--		ret = 1;
--		goto gen_ACK;
--	}
--
--	if (call->ackr_array[offset] != RXRPC_ACK_TYPE_NACK) {
--		special_ACK = RXRPC_ACK_DUPLICATE;
--		ret = 1;
--		goto gen_ACK;
--	}
--
--	/* okay... it's a normal data packet inside the ACK window */
--	call->ackr_array[offset] = RXRPC_ACK_TYPE_ACK;
--
--	if (offset < call->ackr_pend_cnt) {
--	}
--	else if (offset > call->ackr_pend_cnt) {
--		do_ACK = RXRPC_ACK_OUT_OF_SEQUENCE;
--		call->ackr_pend_cnt = offset;
--		goto gen_ACK;
--	}
--
--	if (hdr->flags & RXRPC_REQUEST_ACK) {
--		do_ACK = RXRPC_ACK_REQUESTED;
--	}
--
--	/* generate an ACK on the final packet of a reply just received */
--	if (hdr->flags & RXRPC_LAST_PACKET) {
--		if (call->conn->out_clientflag)
--			force = 1;
--	}
--	else if (!(hdr->flags & RXRPC_MORE_PACKETS)) {
--		do_ACK = RXRPC_ACK_REQUESTED;
--	}
--
--	/* re-ACK packets previously received out-of-order */
--	for (offset++; offset < RXRPC_CALL_ACK_WINDOW_SIZE; offset++)
--		if (call->ackr_array[offset] != RXRPC_ACK_TYPE_ACK)
--			break;
--
--	call->ackr_pend_cnt = offset;
--
--	/* generate an ACK if we fill up the window */
--	if (call->ackr_pend_cnt >= RXRPC_CALL_ACK_WINDOW_SIZE)
--		force = 1;
--
-- gen_ACK:
--	_debug("%05lu ACKs pend=%u norm=%s special=%s%s",
--	       jiffies - call->cjif,
--	       call->ackr_pend_cnt,
--	       rxrpc_acks[do_ACK],
--	       rxrpc_acks[special_ACK],
--	       force ? " immediate" :
--	       do_ACK == RXRPC_ACK_REQUESTED ? " merge-req" :
--	       hdr->flags & RXRPC_LAST_PACKET ? " finalise" :
--	       " defer"
--	       );
--
--	/* send any pending normal ACKs if need be */
--	if (call->ackr_pend_cnt > 0) {
--		/* fill out the appropriate form */
--		call->ackr.bufferSpace	= htons(RXRPC_CALL_ACK_WINDOW_SIZE);
--		call->ackr.maxSkew	= htons(min(call->ackr_high_seq - seq,
--						    65535U));
--		call->ackr.firstPacket	= htonl(call->ackr_win_bot);
--		call->ackr.previousPacket = call->ackr_prev_seq;
--		call->ackr.serial	= hdr->serial;
--		call->ackr.nAcks	= call->ackr_pend_cnt;
--
--		if (do_ACK == RXRPC_ACK_REQUESTED)
--			call->ackr.reason = do_ACK;
--
--		/* generate the ACK immediately if necessary */
--		if (special_ACK || force) {
--			err = __rxrpc_call_gen_normal_ACK(
--				call, do_ACK == RXRPC_ACK_DELAY ? 0 : seq);
--			if (err < 0) {
--				ret = err;
--				goto out;
--			}
--		}
--	}
--
--	if (call->ackr.reason == RXRPC_ACK_REQUESTED)
--		call->ackr_dfr_seq = seq;
--
--	/* start the ACK timer if not running if there are any pending deferred
--	 * ACKs */
--	if (call->ackr_pend_cnt > 0 &&
--	    call->ackr.reason != RXRPC_ACK_REQUESTED &&
--	    !timer_pending(&call->ackr_dfr_timo)
--	    ) {
--		unsigned long timo;
--
--		timo = rxrpc_call_dfr_ack_timeout + jiffies;
--
--		_debug("START ACKR TIMER for cj=%lu", timo - call->cjif);
--
--		spin_lock(&call->lock);
--		mod_timer(&call->ackr_dfr_timo, timo);
--		spin_unlock(&call->lock);
--	}
--	else if ((call->ackr_pend_cnt == 0 ||
--		  call->ackr.reason == RXRPC_ACK_REQUESTED) &&
--		 timer_pending(&call->ackr_dfr_timo)
--		 ) {
--		/* stop timer if no pending ACKs */
--		_debug("CLEAR ACKR TIMER");
--		del_timer_sync(&call->ackr_dfr_timo);
--	}
--
--	/* send a special ACK if one is required */
--	if (special_ACK) {
--		struct rxrpc_ackpacket ack;
--		struct kvec diov[2];
--		uint8_t acks[1] = { RXRPC_ACK_TYPE_ACK };
--
--		/* fill out the appropriate form */
--		ack.bufferSpace	= htons(RXRPC_CALL_ACK_WINDOW_SIZE);
--		ack.maxSkew	= htons(min(call->ackr_high_seq - seq,
--					    65535U));
--		ack.firstPacket	= htonl(call->ackr_win_bot);
--		ack.previousPacket = call->ackr_prev_seq;
--		ack.serial	= hdr->serial;
--		ack.reason	= special_ACK;
--		ack.nAcks	= 0;
--
--		_proto("Rx Sending s-ACK"
--		       " { m=%hu f=#%u p=#%u s=%%%u r=%s n=%u }",
--		       ntohs(ack.maxSkew),
--		       ntohl(ack.firstPacket),
--		       ntohl(ack.previousPacket),
--		       ntohl(ack.serial),
--		       rxrpc_acks[ack.reason],
--		       ack.nAcks);
--
--		diov[0].iov_len  = sizeof(struct rxrpc_ackpacket);
--		diov[0].iov_base = &ack;
--		diov[1].iov_len  = sizeof(acks);
--		diov[1].iov_base = acks;
--
--		/* build and send the message */
--		err = rxrpc_conn_newmsg(call->conn,call, RXRPC_PACKET_TYPE_ACK,
--					hdr->seq ? 2 : 1, diov,
--					GFP_KERNEL,
--					&msg);
--		if (err < 0) {
--			ret = err;
--			goto out;
--		}
--
--		msg->seq = seq;
--		msg->hdr.seq = htonl(seq);
--		msg->hdr.flags |= RXRPC_SLOW_START_OK;
--
--		err = rxrpc_conn_sendmsg(call->conn, msg);
--		rxrpc_put_message(msg);
--		if (err < 0) {
--			ret = err;
--			goto out;
--		}
--		call->pkt_snd_count++;
--	}
--
-- out:
--	if (hdr->seq)
--		call->ackr_prev_seq = hdr->seq;
--
--	_leave(" = %d", ret);
--	return ret;
--} /* end rxrpc_call_generate_ACK() */
--
--/*****************************************************************************/
--/*
-- * handle work to be done on a call
-- * - includes packet reception and timeout processing
-- */
--void rxrpc_call_do_stuff(struct rxrpc_call *call)
--{
--	_enter("%p{flags=%lx}", call, call->flags);
--
--	/* handle packet reception */
--	if (call->flags & RXRPC_CALL_RCV_PKT) {
--		_debug("- receive packet");
--		call->flags &= ~RXRPC_CALL_RCV_PKT;
--		rxrpc_call_receive_packet(call);
--	}
--
--	/* handle overdue ACKs */
--	if (call->flags & RXRPC_CALL_ACKS_TIMO) {
--		_debug("- overdue ACK timeout");
--		call->flags &= ~RXRPC_CALL_ACKS_TIMO;
--		rxrpc_call_resend(call, call->snd_seq_count);
--	}
--
--	/* handle lack of reception */
--	if (call->flags & RXRPC_CALL_RCV_TIMO) {
--		_debug("- reception timeout");
--		call->flags &= ~RXRPC_CALL_RCV_TIMO;
--		rxrpc_call_abort(call, -EIO);
--	}
--
--	/* handle deferred ACKs */
--	if (call->flags & RXRPC_CALL_ACKR_TIMO ||
--	    (call->ackr.nAcks > 0 && call->ackr.reason == RXRPC_ACK_REQUESTED)
--	    ) {
--		_debug("- deferred ACK timeout: cj=%05lu r=%s n=%u",
--		       jiffies - call->cjif,
--		       rxrpc_acks[call->ackr.reason],
--		       call->ackr.nAcks);
--
--		call->flags &= ~RXRPC_CALL_ACKR_TIMO;
--
--		if (call->ackr.nAcks > 0 &&
--		    call->app_call_state != RXRPC_CSTATE_ERROR) {
--			/* generate ACK */
--			__rxrpc_call_gen_normal_ACK(call, call->ackr_dfr_seq);
--			call->ackr_dfr_seq = 0;
--		}
--	}
--
--	_leave("");
--
--} /* end rxrpc_call_do_stuff() */
--
--/*****************************************************************************/
--/*
-- * send an abort message at call or connection level
-- * - must be called with call->lock held
-- * - the supplied error code is sent as the packet data
-- */
--static int __rxrpc_call_abort(struct rxrpc_call *call, int errno)
--{
--	struct rxrpc_connection *conn = call->conn;
--	struct rxrpc_message *msg;
--	struct kvec diov[1];
--	int ret;
--	__be32 _error;
--
--	_enter("%p{%08x},%p{%d},%d",
--	       conn, ntohl(conn->conn_id), call, ntohl(call->call_id), errno);
--
--	/* if this call is already aborted, then just wake up any waiters */
--	if (call->app_call_state == RXRPC_CSTATE_ERROR) {
--		spin_unlock(&call->lock);
--		call->app_error_func(call);
--		_leave(" = 0");
--		return 0;
--	}
--
--	rxrpc_get_call(call);
--
--	/* change the state _with_ the lock still held */
--	call->app_call_state	= RXRPC_CSTATE_ERROR;
--	call->app_err_state	= RXRPC_ESTATE_LOCAL_ABORT;
--	call->app_errno		= errno;
--	call->app_mark		= RXRPC_APP_MARK_EOF;
--	call->app_read_buf	= NULL;
--	call->app_async_read	= 0;
--
--	_state(call);
--
--	/* ask the app to translate the error code */
--	call->app_aemap_func(call);
--
--	spin_unlock(&call->lock);
--
--	/* flush any outstanding ACKs */
--	del_timer_sync(&call->acks_timeout);
--	del_timer_sync(&call->rcv_timeout);
--	del_timer_sync(&call->ackr_dfr_timo);
--
--	if (rxrpc_call_is_ack_pending(call))
--		__rxrpc_call_gen_normal_ACK(call, 0);
--
--	/* send the abort packet only if we actually traded some other
--	 * packets */
--	ret = 0;
--	if (call->pkt_snd_count || call->pkt_rcv_count) {
--		/* actually send the abort */
--		_proto("Rx Sending Call ABORT { data=%d }",
--		       call->app_abort_code);
--
--		_error = htonl(call->app_abort_code);
--
--		diov[0].iov_len  = sizeof(_error);
--		diov[0].iov_base = &_error;
--
--		ret = rxrpc_conn_newmsg(conn, call, RXRPC_PACKET_TYPE_ABORT,
--					1, diov, GFP_KERNEL, &msg);
--		if (ret == 0) {
--			ret = rxrpc_conn_sendmsg(conn, msg);
--			rxrpc_put_message(msg);
--		}
--	}
--
--	/* tell the app layer to let go */
--	call->app_error_func(call);
--
--	rxrpc_put_call(call);
--
--	_leave(" = %d", ret);
--	return ret;
--} /* end __rxrpc_call_abort() */
--
--/*****************************************************************************/
--/*
-- * send an abort message at call or connection level
-- * - the supplied error code is sent as the packet data
-- */
--int rxrpc_call_abort(struct rxrpc_call *call, int error)
--{
--	spin_lock(&call->lock);
--
--	return __rxrpc_call_abort(call, error);
--
--} /* end rxrpc_call_abort() */
--
--/*****************************************************************************/
--/*
-- * process packets waiting for this call
-- */
--static void rxrpc_call_receive_packet(struct rxrpc_call *call)
--{
--	struct rxrpc_message *msg;
--	struct list_head *_p;
--
--	_enter("%p", call);
--
--	rxrpc_get_call(call); /* must not go away too soon if aborted by
--			       * app-layer */
--
--	while (!list_empty(&call->rcv_receiveq)) {
--		/* try to get next packet */
--		_p = NULL;
--		spin_lock(&call->lock);
--		if (!list_empty(&call->rcv_receiveq)) {
--			_p = call->rcv_receiveq.next;
--			list_del_init(_p);
--		}
--		spin_unlock(&call->lock);
--
--		if (!_p)
--			break;
--
--		msg = list_entry(_p, struct rxrpc_message, link);
--
--		_proto("Rx %05lu Received %s packet (%%%u,#%u,%c%c%c%c%c)",
--		       jiffies - call->cjif,
--		       rxrpc_pkts[msg->hdr.type],
--		       ntohl(msg->hdr.serial),
--		       msg->seq,
--		       msg->hdr.flags & RXRPC_JUMBO_PACKET	? 'j' : '-',
--		       msg->hdr.flags & RXRPC_MORE_PACKETS	? 'm' : '-',
--		       msg->hdr.flags & RXRPC_LAST_PACKET	? 'l' : '-',
--		       msg->hdr.flags & RXRPC_REQUEST_ACK	? 'r' : '-',
--		       msg->hdr.flags & RXRPC_CLIENT_INITIATED	? 'C' : 'S'
--		       );
--
--		switch (msg->hdr.type) {
--			/* deal with data packets */
--		case RXRPC_PACKET_TYPE_DATA:
--			/* ACK the packet if necessary */
--			switch (rxrpc_call_generate_ACK(call, &msg->hdr,
--							NULL)) {
--			case 0: /* useful packet */
--				rxrpc_call_receive_data_packet(call, msg);
--				break;
--			case 1: /* duplicate or out-of-window packet */
--				break;
--			default:
--				rxrpc_put_message(msg);
--				goto out;
--			}
--			break;
--
--			/* deal with ACK packets */
--		case RXRPC_PACKET_TYPE_ACK:
--			rxrpc_call_receive_ack_packet(call, msg);
--			break;
--
--			/* deal with abort packets */
--		case RXRPC_PACKET_TYPE_ABORT: {
--			__be32 _dbuf, *dp;
--
--			dp = skb_header_pointer(msg->pkt, msg->offset,
--						sizeof(_dbuf), &_dbuf);
--			if (dp == NULL)
--				printk("Rx Received short ABORT packet\n");
--
--			_proto("Rx Received Call ABORT { data=%d }",
--			       (dp ? ntohl(*dp) : 0));
--
--			spin_lock(&call->lock);
--			call->app_call_state	= RXRPC_CSTATE_ERROR;
--			call->app_err_state	= RXRPC_ESTATE_PEER_ABORT;
--			call->app_abort_code	= (dp ? ntohl(*dp) : 0);
--			call->app_errno		= -ECONNABORTED;
--			call->app_mark		= RXRPC_APP_MARK_EOF;
--			call->app_read_buf	= NULL;
--			call->app_async_read	= 0;
--
--			/* ask the app to translate the error code */
--			call->app_aemap_func(call);
--			_state(call);
--			spin_unlock(&call->lock);
--			call->app_error_func(call);
--			break;
--		}
--		default:
--			/* deal with other packet types */
--			_proto("Rx Unsupported packet type %u (#%u)",
--			       msg->hdr.type, msg->seq);
--			break;
--		}
--
--		rxrpc_put_message(msg);
--	}
--
-- out:
--	rxrpc_put_call(call);
--	_leave("");
--} /* end rxrpc_call_receive_packet() */
--
--/*****************************************************************************/
--/*
-- * process next data packet
-- * - as the next data packet arrives:
-- *   - it is queued on app_readyq _if_ it is the next one expected
-- *     (app_ready_seq+1)
-- *   - it is queued on app_unreadyq _if_ it is not the next one expected
-- *   - if a packet placed on app_readyq completely fills a hole leading up to
-- *     the first packet on app_unreadyq, then packets now in sequence are
-- *     tranferred to app_readyq
-- * - the application layer can only see packets on app_readyq
-- *   (app_ready_qty bytes)
-- * - the application layer is prodded every time a new packet arrives
-- */
--static void rxrpc_call_receive_data_packet(struct rxrpc_call *call,
--					   struct rxrpc_message *msg)
--{
--	const struct rxrpc_operation *optbl, *op;
--	struct rxrpc_message *pmsg;
--	struct list_head *_p;
--	int ret, lo, hi, rmtimo;
--	__be32 opid;
--
--	_enter("%p{%u},%p{%u}", call, ntohl(call->call_id), msg, msg->seq);
--
--	rxrpc_get_message(msg);
--
--	/* add to the unready queue if we'd have to create a hole in the ready
--	 * queue otherwise */
--	if (msg->seq != call->app_ready_seq + 1) {
--		_debug("Call add packet %d to unreadyq", msg->seq);
--
--		/* insert in seq order */
--		list_for_each(_p, &call->app_unreadyq) {
--			pmsg = list_entry(_p, struct rxrpc_message, link);
--			if (pmsg->seq > msg->seq)
--				break;
--		}
--
--		list_add_tail(&msg->link, _p);
--
--		_leave(" [unreadyq]");
--		return;
--	}
--
--	/* next in sequence - simply append into the call's ready queue */
--	_debug("Call add packet %d to readyq (+%Zd => %Zd bytes)",
--	       msg->seq, msg->dsize, call->app_ready_qty);
--
--	spin_lock(&call->lock);
--	call->app_ready_seq = msg->seq;
--	call->app_ready_qty += msg->dsize;
--	list_add_tail(&msg->link, &call->app_readyq);
--
--	/* move unready packets to the readyq if we got rid of a hole */
--	while (!list_empty(&call->app_unreadyq)) {
--		pmsg = list_entry(call->app_unreadyq.next,
--				  struct rxrpc_message, link);
--
--		if (pmsg->seq != call->app_ready_seq + 1)
--			break;
--
--		/* next in sequence - just move list-to-list */
--		_debug("Call transfer packet %d to readyq (+%Zd => %Zd bytes)",
--		       pmsg->seq, pmsg->dsize, call->app_ready_qty);
--
--		call->app_ready_seq = pmsg->seq;
--		call->app_ready_qty += pmsg->dsize;
--		list_move_tail(&pmsg->link, &call->app_readyq);
--	}
--
--	/* see if we've got the last packet yet */
--	if (!list_empty(&call->app_readyq)) {
--		pmsg = list_entry(call->app_readyq.prev,
--				  struct rxrpc_message, link);
--		if (pmsg->hdr.flags & RXRPC_LAST_PACKET) {
--			call->app_last_rcv = 1;
--			_debug("Last packet on readyq");
--		}
--	}
--
--	switch (call->app_call_state) {
--		/* do nothing if call already aborted */
--	case RXRPC_CSTATE_ERROR:
--		spin_unlock(&call->lock);
--		_leave(" [error]");
--		return;
--
--		/* extract the operation ID from an incoming call if that's not
--		 * yet been done */
--	case RXRPC_CSTATE_SRVR_RCV_OPID:
--		spin_unlock(&call->lock);
--
--		/* handle as yet insufficient data for the operation ID */
--		if (call->app_ready_qty < 4) {
--			if (call->app_last_rcv)
--				/* trouble - last packet seen */
--				rxrpc_call_abort(call, -EINVAL);
--
--			_leave("");
--			return;
--		}
--
--		/* pull the operation ID out of the buffer */
--		ret = rxrpc_call_read_data(call, &opid, sizeof(opid), 0);
--		if (ret < 0) {
--			printk("Unexpected error from read-data: %d\n", ret);
--			if (call->app_call_state != RXRPC_CSTATE_ERROR)
--				rxrpc_call_abort(call, ret);
--			_leave("");
--			return;
--		}
--		call->app_opcode = ntohl(opid);
--
--		/* locate the operation in the available ops table */
--		optbl = call->conn->service->ops_begin;
--		lo = 0;
--		hi = call->conn->service->ops_end - optbl;
--
--		while (lo < hi) {
--			int mid = (hi + lo) / 2;
--			op = &optbl[mid];
--			if (call->app_opcode == op->id)
--				goto found_op;
--			if (call->app_opcode > op->id)
--				lo = mid + 1;
--			else
--				hi = mid;
--		}
--
--		/* search failed */
--		kproto("Rx Client requested operation %d from %s service",
--		       call->app_opcode, call->conn->service->name);
--		rxrpc_call_abort(call, -EINVAL);
--		_leave(" [inval]");
--		return;
--
--	found_op:
--		_proto("Rx Client requested operation %s from %s service",
--		       op->name, call->conn->service->name);
--
--		/* we're now waiting for the argument block (unless the call
--		 * was aborted) */
--		spin_lock(&call->lock);
--		if (call->app_call_state == RXRPC_CSTATE_SRVR_RCV_OPID ||
--		    call->app_call_state == RXRPC_CSTATE_SRVR_SND_REPLY) {
--			if (!call->app_last_rcv)
--				call->app_call_state =
--					RXRPC_CSTATE_SRVR_RCV_ARGS;
--			else if (call->app_ready_qty > 0)
--				call->app_call_state =
--					RXRPC_CSTATE_SRVR_GOT_ARGS;
--			else
--				call->app_call_state =
--					RXRPC_CSTATE_SRVR_SND_REPLY;
--			call->app_mark = op->asize;
--			call->app_user = op->user;
--		}
--		spin_unlock(&call->lock);
--
--		_state(call);
--		break;
--
--	case RXRPC_CSTATE_SRVR_RCV_ARGS:
--		/* change state if just received last packet of arg block */
--		if (call->app_last_rcv)
--			call->app_call_state = RXRPC_CSTATE_SRVR_GOT_ARGS;
--		spin_unlock(&call->lock);
--
--		_state(call);
--		break;
--
--	case RXRPC_CSTATE_CLNT_RCV_REPLY:
--		/* change state if just received last packet of reply block */
--		rmtimo = 0;
--		if (call->app_last_rcv) {
--			call->app_call_state = RXRPC_CSTATE_CLNT_GOT_REPLY;
--			rmtimo = 1;
--		}
--		spin_unlock(&call->lock);
--
--		if (rmtimo) {
--			del_timer_sync(&call->acks_timeout);
--			del_timer_sync(&call->rcv_timeout);
--			del_timer_sync(&call->ackr_dfr_timo);
--		}
--
--		_state(call);
--		break;
--
--	default:
--		/* deal with data reception in an unexpected state */
--		printk("Unexpected state [[[ %u ]]]\n", call->app_call_state);
--		__rxrpc_call_abort(call, -EBADMSG);
--		_leave("");
--		return;
--	}
--
--	if (call->app_call_state == RXRPC_CSTATE_CLNT_RCV_REPLY &&
--	    call->app_last_rcv)
--		BUG();
--
--	/* otherwise just invoke the data function whenever we can satisfy its desire for more
--	 * data
--	 */
--	_proto("Rx Received Op Data: st=%u qty=%Zu mk=%Zu%s",
--	       call->app_call_state, call->app_ready_qty, call->app_mark,
--	       call->app_last_rcv ? " last-rcvd" : "");
--
--	spin_lock(&call->lock);
--
--	ret = __rxrpc_call_read_data(call);
--	switch (ret) {
--	case 0:
--		spin_unlock(&call->lock);
--		call->app_attn_func(call);
--		break;
--	case -EAGAIN:
--		spin_unlock(&call->lock);
--		break;
--	case -ECONNABORTED:
--		spin_unlock(&call->lock);
--		break;
--	default:
--		__rxrpc_call_abort(call, ret);
--		break;
--	}
--
--	_state(call);
--
--	_leave("");
--
--} /* end rxrpc_call_receive_data_packet() */
--
--/*****************************************************************************/
--/*
-- * received an ACK packet
-- */
--static void rxrpc_call_receive_ack_packet(struct rxrpc_call *call,
--					  struct rxrpc_message *msg)
--{
--	struct rxrpc_ackpacket _ack, *ap;
--	rxrpc_serial_net_t serial;
--	rxrpc_seq_t seq;
--	int ret;
--
--	_enter("%p{%u},%p{%u}", call, ntohl(call->call_id), msg, msg->seq);
--
--	/* extract the basic ACK record */
--	ap = skb_header_pointer(msg->pkt, msg->offset, sizeof(_ack), &_ack);
--	if (ap == NULL) {
--		printk("Rx Received short ACK packet\n");
--		return;
--	}
--	msg->offset += sizeof(_ack);
--
--	serial = ap->serial;
--	seq = ntohl(ap->firstPacket);
--
--	_proto("Rx Received ACK %%%d { b=%hu m=%hu f=%u p=%u s=%u r=%s n=%u }",
--	       ntohl(msg->hdr.serial),
--	       ntohs(ap->bufferSpace),
--	       ntohs(ap->maxSkew),
--	       seq,
--	       ntohl(ap->previousPacket),
--	       ntohl(serial),
--	       rxrpc_acks[ap->reason],
--	       call->ackr.nAcks
--	       );
--
--	/* check the other side isn't ACK'ing a sequence number I haven't sent
--	 * yet */
--	if (ap->nAcks > 0 &&
--	    (seq > call->snd_seq_count ||
--	     seq + ap->nAcks - 1 > call->snd_seq_count)) {
--		printk("Received ACK (#%u-#%u) for unsent packet\n",
--		       seq, seq + ap->nAcks - 1);
--		rxrpc_call_abort(call, -EINVAL);
--		_leave("");
--		return;
--	}
--
--	/* deal with RTT calculation */
--	if (serial) {
--		struct rxrpc_message *rttmsg;
--
--		/* find the prompting packet */
--		spin_lock(&call->lock);
--		if (call->snd_ping && call->snd_ping->hdr.serial == serial) {
--			/* it was a ping packet */
--			rttmsg = call->snd_ping;
--			call->snd_ping = NULL;
--			spin_unlock(&call->lock);
--
--			if (rttmsg) {
--				rttmsg->rttdone = 1;
--				rxrpc_peer_calculate_rtt(call->conn->peer,
--							 rttmsg, msg);
--				rxrpc_put_message(rttmsg);
--			}
--		}
--		else {
--			struct list_head *_p;
--
--			/* it ought to be a data packet - look in the pending
--			 * ACK list */
--			list_for_each(_p, &call->acks_pendq) {
--				rttmsg = list_entry(_p, struct rxrpc_message,
--						    link);
--				if (rttmsg->hdr.serial == serial) {
--					if (rttmsg->rttdone)
--						/* never do RTT twice without
--						 * resending */
--						break;
--
--					rttmsg->rttdone = 1;
--					rxrpc_peer_calculate_rtt(
--						call->conn->peer, rttmsg, msg);
--					break;
--				}
--			}
--			spin_unlock(&call->lock);
--		}
--	}
--
--	switch (ap->reason) {
--		/* deal with negative/positive acknowledgement of data
--		 * packets */
--	case RXRPC_ACK_REQUESTED:
--	case RXRPC_ACK_DELAY:
--	case RXRPC_ACK_IDLE:
--		rxrpc_call_definitively_ACK(call, seq - 1);
--
--	case RXRPC_ACK_DUPLICATE:
--	case RXRPC_ACK_OUT_OF_SEQUENCE:
--	case RXRPC_ACK_EXCEEDS_WINDOW:
--		call->snd_resend_cnt = 0;
--		ret = rxrpc_call_record_ACK(call, msg, seq, ap->nAcks);
--		if (ret < 0)
--			rxrpc_call_abort(call, ret);
--		break;
--
--		/* respond to ping packets immediately */
--	case RXRPC_ACK_PING:
--		rxrpc_call_generate_ACK(call, &msg->hdr, ap);
--		break;
--
--		/* only record RTT on ping response packets */
--	case RXRPC_ACK_PING_RESPONSE:
--		if (call->snd_ping) {
--			struct rxrpc_message *rttmsg;
--
--			/* only do RTT stuff if the response matches the
--			 * retained ping */
--			rttmsg = NULL;
--			spin_lock(&call->lock);
--			if (call->snd_ping &&
--			    call->snd_ping->hdr.serial == ap->serial) {
--				rttmsg = call->snd_ping;
--				call->snd_ping = NULL;
--			}
--			spin_unlock(&call->lock);
--
--			if (rttmsg) {
--				rttmsg->rttdone = 1;
--				rxrpc_peer_calculate_rtt(call->conn->peer,
--							 rttmsg, msg);
--				rxrpc_put_message(rttmsg);
--			}
--		}
--		break;
--
--	default:
--		printk("Unsupported ACK reason %u\n", ap->reason);
--		break;
--	}
--
--	_leave("");
--} /* end rxrpc_call_receive_ack_packet() */
--
--/*****************************************************************************/
--/*
-- * record definitive ACKs for all messages up to and including the one with the
-- * 'highest' seq
-- */
--static void rxrpc_call_definitively_ACK(struct rxrpc_call *call,
--					rxrpc_seq_t highest)
--{
--	struct rxrpc_message *msg;
--	int now_complete;
--
--	_enter("%p{ads=%u},%u", call, call->acks_dftv_seq, highest);
--
--	while (call->acks_dftv_seq < highest) {
--		call->acks_dftv_seq++;
--
--		_proto("Definitive ACK on packet #%u", call->acks_dftv_seq);
--
--		/* discard those at front of queue until message with highest
--		 * ACK is found */
--		spin_lock(&call->lock);
--		msg = NULL;
--		if (!list_empty(&call->acks_pendq)) {
--			msg = list_entry(call->acks_pendq.next,
--					 struct rxrpc_message, link);
--			list_del_init(&msg->link); /* dequeue */
--			if (msg->state == RXRPC_MSG_SENT)
--				call->acks_pend_cnt--;
--		}
--		spin_unlock(&call->lock);
--
--		/* insanity check */
--		if (!msg)
--			panic("%s(): acks_pendq unexpectedly empty\n",
--			      __FUNCTION__);
--
--		if (msg->seq != call->acks_dftv_seq)
--			panic("%s(): Packet #%u expected at front of acks_pendq"
--			      " (#%u found)\n",
--			      __FUNCTION__, call->acks_dftv_seq, msg->seq);
--
--		/* discard the message */
--		msg->state = RXRPC_MSG_DONE;
--		rxrpc_put_message(msg);
--	}
--
--	/* if all sent packets are definitively ACK'd then prod any sleepers just in case */
--	now_complete = 0;
--	spin_lock(&call->lock);
--	if (call->acks_dftv_seq == call->snd_seq_count) {
--		if (call->app_call_state != RXRPC_CSTATE_COMPLETE) {
--			call->app_call_state = RXRPC_CSTATE_COMPLETE;
--			_state(call);
--			now_complete = 1;
--		}
--	}
--	spin_unlock(&call->lock);
--
--	if (now_complete) {
--		del_timer_sync(&call->acks_timeout);
--		del_timer_sync(&call->rcv_timeout);
--		del_timer_sync(&call->ackr_dfr_timo);
--		call->app_attn_func(call);
--	}
--
--	_leave("");
--} /* end rxrpc_call_definitively_ACK() */
--
--/*****************************************************************************/
--/*
-- * record the specified amount of ACKs/NAKs
-- */
--static int rxrpc_call_record_ACK(struct rxrpc_call *call,
--				 struct rxrpc_message *msg,
--				 rxrpc_seq_t seq,
--				 size_t count)
--{
--	struct rxrpc_message *dmsg;
--	struct list_head *_p;
--	rxrpc_seq_t highest;
--	unsigned ix;
--	size_t chunk;
--	char resend, now_complete;
--	u8 acks[16];
--
--	_enter("%p{apc=%u ads=%u},%p,%u,%Zu",
--	       call, call->acks_pend_cnt, call->acks_dftv_seq,
--	       msg, seq, count);
--
--	/* handle re-ACK'ing of definitively ACK'd packets (may be out-of-order
--	 * ACKs) */
--	if (seq <= call->acks_dftv_seq) {
--		unsigned delta = call->acks_dftv_seq - seq;
--
--		if (count <= delta) {
--			_leave(" = 0 [all definitively ACK'd]");
--			return 0;
--		}
--
--		seq += delta;
--		count -= delta;
--		msg->offset += delta;
--	}
--
--	highest = seq + count - 1;
--	resend = 0;
--	while (count > 0) {
--		/* extract up to 16 ACK slots at a time */
--		chunk = min(count, sizeof(acks));
--		count -= chunk;
--
--		memset(acks, 2, sizeof(acks));
--
--		if (skb_copy_bits(msg->pkt, msg->offset, &acks, chunk) < 0) {
--			printk("Rx Received short ACK packet\n");
--			_leave(" = -EINVAL");
--			return -EINVAL;
--		}
--		msg->offset += chunk;
--
--		/* check that the ACK set is valid */
--		for (ix = 0; ix < chunk; ix++) {
--			switch (acks[ix]) {
--			case RXRPC_ACK_TYPE_ACK:
--				break;
--			case RXRPC_ACK_TYPE_NACK:
--				resend = 1;
--				break;
--			default:
--				printk("Rx Received unsupported ACK state"
--				       " %u\n", acks[ix]);
--				_leave(" = -EINVAL");
--				return -EINVAL;
--			}
--		}
--
--		_proto("Rx ACK of packets #%u-#%u "
--		       "[%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c] (pend=%u)",
--		       seq, (unsigned) (seq + chunk - 1),
--		       _acktype[acks[0x0]],
--		       _acktype[acks[0x1]],
--		       _acktype[acks[0x2]],
--		       _acktype[acks[0x3]],
--		       _acktype[acks[0x4]],
--		       _acktype[acks[0x5]],
--		       _acktype[acks[0x6]],
--		       _acktype[acks[0x7]],
--		       _acktype[acks[0x8]],
--		       _acktype[acks[0x9]],
--		       _acktype[acks[0xA]],
--		       _acktype[acks[0xB]],
--		       _acktype[acks[0xC]],
--		       _acktype[acks[0xD]],
--		       _acktype[acks[0xE]],
--		       _acktype[acks[0xF]],
--		       call->acks_pend_cnt
--		       );
--
--		/* mark the packets in the ACK queue as being provisionally
--		 * ACK'd */
--		ix = 0;
--		spin_lock(&call->lock);
--
--		/* find the first packet ACK'd/NAK'd here */
--		list_for_each(_p, &call->acks_pendq) {
--			dmsg = list_entry(_p, struct rxrpc_message, link);
--			if (dmsg->seq == seq)
--				goto found_first;
--			_debug("- %u: skipping #%u", ix, dmsg->seq);
--		}
--		goto bad_queue;
--
--	found_first:
--		do {
--			_debug("- %u: processing #%u (%c) apc=%u",
--			       ix, dmsg->seq, _acktype[acks[ix]],
--			       call->acks_pend_cnt);
--
--			if (acks[ix] == RXRPC_ACK_TYPE_ACK) {
--				if (dmsg->state == RXRPC_MSG_SENT)
--					call->acks_pend_cnt--;
--				dmsg->state = RXRPC_MSG_ACKED;
--			}
--			else {
--				if (dmsg->state == RXRPC_MSG_ACKED)
--					call->acks_pend_cnt++;
--				dmsg->state = RXRPC_MSG_SENT;
--			}
--			ix++;
--			seq++;
--
--			_p = dmsg->link.next;
--			dmsg = list_entry(_p, struct rxrpc_message, link);
--		} while(ix < chunk &&
--			_p != &call->acks_pendq &&
--			dmsg->seq == seq);
--
--		if (ix < chunk)
--			goto bad_queue;
--
--		spin_unlock(&call->lock);
--	}
--
--	if (resend)
--		rxrpc_call_resend(call, highest);
--
--	/* if all packets are provisionally ACK'd, then wake up anyone who's
--	 * waiting for that */
--	now_complete = 0;
--	spin_lock(&call->lock);
--	if (call->acks_pend_cnt == 0) {
--		if (call->app_call_state == RXRPC_CSTATE_SRVR_RCV_FINAL_ACK) {
--			call->app_call_state = RXRPC_CSTATE_COMPLETE;
--			_state(call);
--		}
--		now_complete = 1;
--	}
--	spin_unlock(&call->lock);
--
--	if (now_complete) {
--		_debug("- wake up waiters");
--		del_timer_sync(&call->acks_timeout);
--		del_timer_sync(&call->rcv_timeout);
--		del_timer_sync(&call->ackr_dfr_timo);
--		call->app_attn_func(call);
--	}
--
--	_leave(" = 0 (apc=%u)", call->acks_pend_cnt);
--	return 0;
--
-- bad_queue:
--	panic("%s(): acks_pendq in bad state (packet #%u absent)\n",
--	      __FUNCTION__, seq);
--
--} /* end rxrpc_call_record_ACK() */
--
--/*****************************************************************************/
--/*
-- * transfer data from the ready packet queue to the asynchronous read buffer
-- * - since this func is the only one going to look at packets queued on
-- *   app_readyq, we don't need a lock to modify or access them, only to modify
-- *   the queue pointers
-- * - called with call->lock held
-- * - the buffer must be in kernel space
-- * - returns:
-- *	0 if buffer filled
-- *	-EAGAIN if buffer not filled and more data to come
-- *	-EBADMSG if last packet received and insufficient data left
-- *	-ECONNABORTED if the call has in an error state
-- */
--static int __rxrpc_call_read_data(struct rxrpc_call *call)
--{
--	struct rxrpc_message *msg;
--	size_t qty;
--	int ret;
--
--	_enter("%p{as=%d buf=%p qty=%Zu/%Zu}",
--	       call,
--	       call->app_async_read, call->app_read_buf,
--	       call->app_ready_qty, call->app_mark);
--
--	/* check the state */
--	switch (call->app_call_state) {
--	case RXRPC_CSTATE_SRVR_RCV_ARGS:
--	case RXRPC_CSTATE_CLNT_RCV_REPLY:
--		if (call->app_last_rcv) {
--			printk("%s(%p,%p,%Zd):"
--			       " Inconsistent call state (%s, last pkt)",
--			       __FUNCTION__,
--			       call, call->app_read_buf, call->app_mark,
--			       rxrpc_call_states[call->app_call_state]);
--			BUG();
--		}
--		break;
--
--	case RXRPC_CSTATE_SRVR_RCV_OPID:
--	case RXRPC_CSTATE_SRVR_GOT_ARGS:
--	case RXRPC_CSTATE_CLNT_GOT_REPLY:
--		break;
--
--	case RXRPC_CSTATE_SRVR_SND_REPLY:
--		if (!call->app_last_rcv) {
--			printk("%s(%p,%p,%Zd):"
--			       " Inconsistent call state (%s, not last pkt)",
--			       __FUNCTION__,
--			       call, call->app_read_buf, call->app_mark,
--			       rxrpc_call_states[call->app_call_state]);
--			BUG();
--		}
--		_debug("Trying to read data from call in SND_REPLY state");
--		break;
--
--	case RXRPC_CSTATE_ERROR:
--		_leave(" = -ECONNABORTED");
--		return -ECONNABORTED;
--
--	default:
--		printk("reading in unexpected state [[[ %u ]]]\n",
--		       call->app_call_state);
--		BUG();
--	}
--
--	/* handle the case of not having an async buffer */
--	if (!call->app_async_read) {
--		if (call->app_mark == RXRPC_APP_MARK_EOF) {
--			ret = call->app_last_rcv ? 0 : -EAGAIN;
--		}
--		else {
--			if (call->app_mark >= call->app_ready_qty) {
--				call->app_mark = RXRPC_APP_MARK_EOF;
--				ret = 0;
--			}
--			else {
--				ret = call->app_last_rcv ? -EBADMSG : -EAGAIN;
--			}
--		}
--
--		_leave(" = %d [no buf]", ret);
--		return 0;
--	}
--
--	while (!list_empty(&call->app_readyq) && call->app_mark > 0) {
--		msg = list_entry(call->app_readyq.next,
--				 struct rxrpc_message, link);
--
--		/* drag as much data as we need out of this packet */
--		qty = min(call->app_mark, msg->dsize);
--
--		_debug("reading %Zu from skb=%p off=%lu",
--		       qty, msg->pkt, msg->offset);
--
--		if (call->app_read_buf)
--			if (skb_copy_bits(msg->pkt, msg->offset,
--					  call->app_read_buf, qty) < 0)
--				panic("%s: Failed to copy data from packet:"
--				      " (%p,%p,%Zd)",
--				      __FUNCTION__,
--				      call, call->app_read_buf, qty);
--
--		/* if that packet is now empty, discard it */
--		call->app_ready_qty -= qty;
--		msg->dsize -= qty;
--
--		if (msg->dsize == 0) {
--			list_del_init(&msg->link);
--			rxrpc_put_message(msg);
--		}
--		else {
--			msg->offset += qty;
--		}
--
--		call->app_mark -= qty;
--		if (call->app_read_buf)
--			call->app_read_buf += qty;
--	}
--
--	if (call->app_mark == 0) {
--		call->app_async_read = 0;
--		call->app_mark = RXRPC_APP_MARK_EOF;
--		call->app_read_buf = NULL;
--
--		/* adjust the state if used up all packets */
--		if (list_empty(&call->app_readyq) && call->app_last_rcv) {
--			switch (call->app_call_state) {
--			case RXRPC_CSTATE_SRVR_RCV_OPID:
--				call->app_call_state = RXRPC_CSTATE_SRVR_SND_REPLY;
--				call->app_mark = RXRPC_APP_MARK_EOF;
--				_state(call);
--				del_timer_sync(&call->rcv_timeout);
--				break;
--			case RXRPC_CSTATE_SRVR_GOT_ARGS:
--				call->app_call_state = RXRPC_CSTATE_SRVR_SND_REPLY;
--				_state(call);
--				del_timer_sync(&call->rcv_timeout);
--				break;
--			default:
--				call->app_call_state = RXRPC_CSTATE_COMPLETE;
--				_state(call);
--				del_timer_sync(&call->acks_timeout);
--				del_timer_sync(&call->ackr_dfr_timo);
--				del_timer_sync(&call->rcv_timeout);
--				break;
--			}
--		}
--
--		_leave(" = 0");
--		return 0;
--	}
--
--	if (call->app_last_rcv) {
--		_debug("Insufficient data (%Zu/%Zu)",
--		       call->app_ready_qty, call->app_mark);
--		call->app_async_read = 0;
--		call->app_mark = RXRPC_APP_MARK_EOF;
--		call->app_read_buf = NULL;
--
--		_leave(" = -EBADMSG");
--		return -EBADMSG;
--	}
--
--	_leave(" = -EAGAIN");
--	return -EAGAIN;
--} /* end __rxrpc_call_read_data() */
--
--/*****************************************************************************/
--/*
-- * attempt to read the specified amount of data from the call's ready queue
-- * into the buffer provided
-- * - since this func is the only one going to look at packets queued on
-- *   app_readyq, we don't need a lock to modify or access them, only to modify
-- *   the queue pointers
-- * - if the buffer pointer is NULL, then data is merely drained, not copied
-- * - if flags&RXRPC_CALL_READ_BLOCK, then the function will wait until there is
-- *   enough data or an error will be generated
-- *   - note that the caller must have added the calling task to the call's wait
-- *     queue beforehand
-- * - if flags&RXRPC_CALL_READ_ALL, then an error will be generated if this
-- *   function doesn't read all available data
-- */
--int rxrpc_call_read_data(struct rxrpc_call *call,
--			 void *buffer, size_t size, int flags)
--{
--	int ret;
--
--	_enter("%p{arq=%Zu},%p,%Zd,%x",
--	       call, call->app_ready_qty, buffer, size, flags);
--
--	spin_lock(&call->lock);
--
--	if (unlikely(!!call->app_read_buf)) {
--		spin_unlock(&call->lock);
--		_leave(" = -EBUSY");
--		return -EBUSY;
--	}
--
--	call->app_mark = size;
--	call->app_read_buf = buffer;
--	call->app_async_read = 1;
--	call->app_read_count++;
--
--	/* read as much data as possible */
--	ret = __rxrpc_call_read_data(call);
--	switch (ret) {
--	case 0:
--		if (flags & RXRPC_CALL_READ_ALL &&
--		    (!call->app_last_rcv || call->app_ready_qty > 0)) {
--			_leave(" = -EBADMSG");
--			__rxrpc_call_abort(call, -EBADMSG);
--			return -EBADMSG;
--		}
--
--		spin_unlock(&call->lock);
--		call->app_attn_func(call);
--		_leave(" = 0");
--		return ret;
--
--	case -ECONNABORTED:
--		spin_unlock(&call->lock);
--		_leave(" = %d [aborted]", ret);
--		return ret;
--
--	default:
--		__rxrpc_call_abort(call, ret);
--		_leave(" = %d", ret);
--		return ret;
--
--	case -EAGAIN:
--		spin_unlock(&call->lock);
--
--		if (!(flags & RXRPC_CALL_READ_BLOCK)) {
--			_leave(" = -EAGAIN");
--			return -EAGAIN;
--		}
--
--		/* wait for the data to arrive */
--		_debug("blocking for data arrival");
--
--		for (;;) {
--			set_current_state(TASK_INTERRUPTIBLE);
--			if (!call->app_async_read || signal_pending(current))
--				break;
--			schedule();
--		}
--		set_current_state(TASK_RUNNING);
--
--		if (signal_pending(current)) {
--			_leave(" = -EINTR");
--			return -EINTR;
--		}
--
--		if (call->app_call_state == RXRPC_CSTATE_ERROR) {
--			_leave(" = -ECONNABORTED");
--			return -ECONNABORTED;
--		}
--
--		_leave(" = 0");
--		return 0;
--	}
--
--} /* end rxrpc_call_read_data() */
--
--/*****************************************************************************/
--/*
-- * write data to a call
-- * - the data may not be sent immediately if it doesn't fill a buffer
-- * - if we can't queue all the data for buffering now, siov[] will have been
-- *   adjusted to take account of what has been sent
-- */
--int rxrpc_call_write_data(struct rxrpc_call *call,
--			  size_t sioc,
--			  struct kvec *siov,
--			  u8 rxhdr_flags,
--			  gfp_t alloc_flags,
--			  int dup_data,
--			  size_t *size_sent)
--{
--	struct rxrpc_message *msg;
--	struct kvec *sptr;
--	size_t space, size, chunk, tmp;
--	char *buf;
--	int ret;
--
--	_enter("%p,%Zu,%p,%02x,%x,%d,%p",
--	       call, sioc, siov, rxhdr_flags, alloc_flags, dup_data,
--	       size_sent);
--
--	*size_sent = 0;
--	size = 0;
--	ret = -EINVAL;
--
--	/* can't send more if we've sent last packet from this end */
--	switch (call->app_call_state) {
--	case RXRPC_CSTATE_SRVR_SND_REPLY:
--	case RXRPC_CSTATE_CLNT_SND_ARGS:
--		break;
--	case RXRPC_CSTATE_ERROR:
--		ret = call->app_errno;
--	default:
--		goto out;
--	}
--
--	/* calculate how much data we've been given */
--	sptr = siov;
--	for (; sioc > 0; sptr++, sioc--) {
--		if (!sptr->iov_len)
--			continue;
--
--		if (!sptr->iov_base)
--			goto out;
--
--		size += sptr->iov_len;
--	}
--
--	_debug("- size=%Zu mtu=%Zu", size, call->conn->mtu_size);
--
--	do {
--		/* make sure there's a message under construction */
--		if (!call->snd_nextmsg) {
--			/* no - allocate a message with no data yet attached */
--			ret = rxrpc_conn_newmsg(call->conn, call,
--						RXRPC_PACKET_TYPE_DATA,
--						0, NULL, alloc_flags,
--						&call->snd_nextmsg);
--			if (ret < 0)
--				goto out;
--			_debug("- allocated new message [ds=%Zu]",
--			       call->snd_nextmsg->dsize);
--		}
--
--		msg = call->snd_nextmsg;
--		msg->hdr.flags |= rxhdr_flags;
--
--		/* deal with zero-length terminal packet */
--		if (size == 0) {
--			if (rxhdr_flags & RXRPC_LAST_PACKET) {
--				ret = rxrpc_call_flush(call);
--				if (ret < 0)
--					goto out;
--			}
--			break;
--		}
--
--		/* work out how much space current packet has available */
--		space = call->conn->mtu_size - msg->dsize;
--		chunk = min(space, size);
--
--		_debug("- [before] space=%Zu chunk=%Zu", space, chunk);
--
--		while (!siov->iov_len)
--			siov++;
--
--		/* if we are going to have to duplicate the data then coalesce
--		 * it too */
--		if (dup_data) {
--			/* don't allocate more that 1 page at a time */
--			if (chunk > PAGE_SIZE)
--				chunk = PAGE_SIZE;
--
--			/* allocate a data buffer and attach to the message */
--			buf = kmalloc(chunk, alloc_flags);
--			if (unlikely(!buf)) {
--				if (msg->dsize ==
--				    sizeof(struct rxrpc_header)) {
--					/* discard an empty msg and wind back
--					 * the seq counter */
--					rxrpc_put_message(msg);
--					call->snd_nextmsg = NULL;
--					call->snd_seq_count--;
--				}
--
--				ret = -ENOMEM;
--				goto out;
--			}
--
--			tmp = msg->dcount++;
--			set_bit(tmp, &msg->dfree);
--			msg->data[tmp].iov_base = buf;
--			msg->data[tmp].iov_len = chunk;
--			msg->dsize += chunk;
--			*size_sent += chunk;
--			size -= chunk;
--
--			/* load the buffer with data */
--			while (chunk > 0) {
--				tmp = min(chunk, siov->iov_len);
--				memcpy(buf, siov->iov_base, tmp);
--				buf += tmp;
--				siov->iov_base += tmp;
--				siov->iov_len -= tmp;
--				if (!siov->iov_len)
--					siov++;
--				chunk -= tmp;
--			}
--		}
--		else {
--			/* we want to attach the supplied buffers directly */
--			while (chunk > 0 &&
--			       msg->dcount < RXRPC_MSG_MAX_IOCS) {
--				tmp = msg->dcount++;
--				msg->data[tmp].iov_base = siov->iov_base;
--				msg->data[tmp].iov_len = siov->iov_len;
--				msg->dsize += siov->iov_len;
--				*size_sent += siov->iov_len;
--				size -= siov->iov_len;
--				chunk -= siov->iov_len;
--				siov++;
--			}
--		}
--
--		_debug("- [loaded] chunk=%Zu size=%Zu", chunk, size);
--
--		/* dispatch the message when full, final or requesting ACK */
--		if (msg->dsize >= call->conn->mtu_size || rxhdr_flags) {
--			ret = rxrpc_call_flush(call);
--			if (ret < 0)
--				goto out;
--		}
--
--	} while(size > 0);
--
--	ret = 0;
-- out:
--	_leave(" = %d (%Zd queued, %Zd rem)", ret, *size_sent, size);
--	return ret;
--
--} /* end rxrpc_call_write_data() */
--
--/*****************************************************************************/
--/*
-- * flush outstanding packets to the network
-- */
--static int rxrpc_call_flush(struct rxrpc_call *call)
--{
--	struct rxrpc_message *msg;
--	int ret = 0;
--
--	_enter("%p", call);
--
--	rxrpc_get_call(call);
--
--	/* if there's a packet under construction, then dispatch it now */
--	if (call->snd_nextmsg) {
--		msg = call->snd_nextmsg;
--		call->snd_nextmsg = NULL;
--
--		if (msg->hdr.flags & RXRPC_LAST_PACKET) {
--			msg->hdr.flags &= ~RXRPC_MORE_PACKETS;
--			if (call->app_call_state != RXRPC_CSTATE_CLNT_SND_ARGS)
--				msg->hdr.flags |= RXRPC_REQUEST_ACK;
--		}
--		else {
--			msg->hdr.flags |= RXRPC_MORE_PACKETS;
--		}
--
--		_proto("Sending DATA message { ds=%Zu dc=%u df=%02lu }",
--		       msg->dsize, msg->dcount, msg->dfree);
--
--		/* queue and adjust call state */
--		spin_lock(&call->lock);
--		list_add_tail(&msg->link, &call->acks_pendq);
--
--		/* decide what to do depending on current state and if this is
--		 * the last packet */
--		ret = -EINVAL;
--		switch (call->app_call_state) {
--		case RXRPC_CSTATE_SRVR_SND_REPLY:
--			if (msg->hdr.flags & RXRPC_LAST_PACKET) {
--				call->app_call_state =
--					RXRPC_CSTATE_SRVR_RCV_FINAL_ACK;
--				_state(call);
--			}
--			break;
--
--		case RXRPC_CSTATE_CLNT_SND_ARGS:
--			if (msg->hdr.flags & RXRPC_LAST_PACKET) {
--				call->app_call_state =
--					RXRPC_CSTATE_CLNT_RCV_REPLY;
--				_state(call);
--			}
--			break;
--
--		case RXRPC_CSTATE_ERROR:
--			ret = call->app_errno;
--		default:
--			spin_unlock(&call->lock);
--			goto out;
--		}
--
--		call->acks_pend_cnt++;
--
--		mod_timer(&call->acks_timeout,
--			  __rxrpc_rtt_based_timeout(call,
--						    rxrpc_call_acks_timeout));
--
--		spin_unlock(&call->lock);
--
--		ret = rxrpc_conn_sendmsg(call->conn, msg);
--		if (ret == 0)
--			call->pkt_snd_count++;
--	}
--
-- out:
--	rxrpc_put_call(call);
--
--	_leave(" = %d", ret);
--	return ret;
--
--} /* end rxrpc_call_flush() */
--
--/*****************************************************************************/
--/*
-- * resend NAK'd or unacknowledged packets up to the highest one specified
-- */
--static void rxrpc_call_resend(struct rxrpc_call *call, rxrpc_seq_t highest)
--{
--	struct rxrpc_message *msg;
--	struct list_head *_p;
--	rxrpc_seq_t seq = 0;
--
--	_enter("%p,%u", call, highest);
--
--	_proto("Rx Resend required");
--
--	/* handle too many resends */
--	if (call->snd_resend_cnt >= rxrpc_call_max_resend) {
--		_debug("Aborting due to too many resends (rcv=%d)",
--		       call->pkt_rcv_count);
--		rxrpc_call_abort(call,
--				 call->pkt_rcv_count > 0 ? -EIO : -ETIMEDOUT);
--		_leave("");
--		return;
--	}
--
--	spin_lock(&call->lock);
--	call->snd_resend_cnt++;
--	for (;;) {
--		/* determine which the next packet we might need to ACK is */
--		if (seq <= call->acks_dftv_seq)
--			seq = call->acks_dftv_seq;
--		seq++;
--
--		if (seq > highest)
--			break;
--
--		/* look for the packet in the pending-ACK queue */
--		list_for_each(_p, &call->acks_pendq) {
--			msg = list_entry(_p, struct rxrpc_message, link);
--			if (msg->seq == seq)
--				goto found_msg;
--		}
--
--		panic("%s(%p,%d):"
--		      " Inconsistent pending-ACK queue (ds=%u sc=%u sq=%u)\n",
--		      __FUNCTION__, call, highest,
--		      call->acks_dftv_seq, call->snd_seq_count, seq);
--
--	found_msg:
--		if (msg->state != RXRPC_MSG_SENT)
--			continue; /* only un-ACK'd packets */
--
--		rxrpc_get_message(msg);
--		spin_unlock(&call->lock);
--
--		/* send each message again (and ignore any errors we might
--		 * incur) */
--		_proto("Resending DATA message { ds=%Zu dc=%u df=%02lu }",
--		       msg->dsize, msg->dcount, msg->dfree);
--
--		if (rxrpc_conn_sendmsg(call->conn, msg) == 0)
--			call->pkt_snd_count++;
--
--		rxrpc_put_message(msg);
--
--		spin_lock(&call->lock);
--	}
--
--	/* reset the timeout */
--	mod_timer(&call->acks_timeout,
--		  __rxrpc_rtt_based_timeout(call, rxrpc_call_acks_timeout));
--
--	spin_unlock(&call->lock);
--
--	_leave("");
--} /* end rxrpc_call_resend() */
--
--/*****************************************************************************/
--/*
-- * handle an ICMP error being applied to a call
-- */
--void rxrpc_call_handle_error(struct rxrpc_call *call, int local, int errno)
--{
--	_enter("%p{%u},%d", call, ntohl(call->call_id), errno);
--
--	/* if this call is already aborted, then just wake up any waiters */
--	if (call->app_call_state == RXRPC_CSTATE_ERROR) {
--		call->app_error_func(call);
--	}
--	else {
--		/* tell the app layer what happened */
--		spin_lock(&call->lock);
--		call->app_call_state = RXRPC_CSTATE_ERROR;
--		_state(call);
--		if (local)
--			call->app_err_state = RXRPC_ESTATE_LOCAL_ERROR;
--		else
--			call->app_err_state = RXRPC_ESTATE_REMOTE_ERROR;
--		call->app_errno		= errno;
--		call->app_mark		= RXRPC_APP_MARK_EOF;
--		call->app_read_buf	= NULL;
--		call->app_async_read	= 0;
--
--		/* map the error */
--		call->app_aemap_func(call);
--
--		del_timer_sync(&call->acks_timeout);
--		del_timer_sync(&call->rcv_timeout);
--		del_timer_sync(&call->ackr_dfr_timo);
--
--		spin_unlock(&call->lock);
--
--		call->app_error_func(call);
--	}
--
--	_leave("");
--} /* end rxrpc_call_handle_error() */
-diff --git a/net/rxrpc/connection.c b/net/rxrpc/connection.c
-deleted file mode 100644
-index 665a999..0000000
---- a/net/rxrpc/connection.c
-+++ /dev/null
-@@ -1,777 +0,0 @@
--/* connection.c: Rx connection routines
-- *
-- * Copyright (C) 2002 Red Hat, Inc. All Rights Reserved.
-- * Written by David Howells (dhowells@redhat.com)
-- *
-- * This program is free software; you can redistribute it and/or
-- * modify it under the terms of the GNU General Public License
-- * as published by the Free Software Foundation; either version
-- * 2 of the License, or (at your option) any later version.
-- */
--
--#include <linux/sched.h>
--#include <linux/slab.h>
--#include <linux/module.h>
--#include <rxrpc/rxrpc.h>
--#include <rxrpc/transport.h>
--#include <rxrpc/peer.h>
--#include <rxrpc/connection.h>
--#include <rxrpc/call.h>
--#include <rxrpc/message.h>
--#include <linux/udp.h>
--#include <linux/ip.h>
--#include <net/sock.h>
--#include <asm/uaccess.h>
--#include "internal.h"
--
--__RXACCT_DECL(atomic_t rxrpc_connection_count);
--
--LIST_HEAD(rxrpc_conns);
--DECLARE_RWSEM(rxrpc_conns_sem);
--unsigned long rxrpc_conn_timeout = 60 * 60;
--
--static void rxrpc_conn_do_timeout(struct rxrpc_connection *conn);
--
--static void __rxrpc_conn_timeout(rxrpc_timer_t *timer)
--{
--	struct rxrpc_connection *conn =
--		list_entry(timer, struct rxrpc_connection, timeout);
--
--	_debug("Rx CONN TIMEOUT [%p{u=%d}]", conn, atomic_read(&conn->usage));
--
--	rxrpc_conn_do_timeout(conn);
--}
--
--static const struct rxrpc_timer_ops rxrpc_conn_timer_ops = {
--	.timed_out	= __rxrpc_conn_timeout,
--};
--
--/*****************************************************************************/
--/*
-- * create a new connection record
-- */
--static inline int __rxrpc_create_connection(struct rxrpc_peer *peer,
--					    struct rxrpc_connection **_conn)
--{
--	struct rxrpc_connection *conn;
--
--	_enter("%p",peer);
--
--	/* allocate and initialise a connection record */
--	conn = kzalloc(sizeof(struct rxrpc_connection), GFP_KERNEL);
--	if (!conn) {
--		_leave(" = -ENOMEM");
--		return -ENOMEM;
--	}
--
--	atomic_set(&conn->usage, 1);
--
--	INIT_LIST_HEAD(&conn->link);
--	INIT_LIST_HEAD(&conn->id_link);
--	init_waitqueue_head(&conn->chanwait);
--	spin_lock_init(&conn->lock);
--	rxrpc_timer_init(&conn->timeout, &rxrpc_conn_timer_ops);
--
--	do_gettimeofday(&conn->atime);
--	conn->mtu_size = 1024;
--	conn->peer = peer;
--	conn->trans = peer->trans;
--
--	__RXACCT(atomic_inc(&rxrpc_connection_count));
--	*_conn = conn;
--	_leave(" = 0 (%p)", conn);
--
--	return 0;
--} /* end __rxrpc_create_connection() */
--
--/*****************************************************************************/
--/*
-- * create a new connection record for outgoing connections
-- */
--int rxrpc_create_connection(struct rxrpc_transport *trans,
--			    __be16 port,
--			    __be32 addr,
--			    uint16_t service_id,
--			    void *security,
--			    struct rxrpc_connection **_conn)
--{
--	struct rxrpc_connection *candidate, *conn;
--	struct rxrpc_peer *peer;
--	struct list_head *_p;
--	__be32 connid;
--	int ret;
--
--	_enter("%p{%hu},%u,%hu", trans, trans->port, ntohs(port), service_id);
--
--	/* get a peer record */
--	ret = rxrpc_peer_lookup(trans, addr, &peer);
--	if (ret < 0) {
--		_leave(" = %d", ret);
--		return ret;
--	}
--
--	/* allocate and initialise a connection record */
--	ret = __rxrpc_create_connection(peer, &candidate);
--	if (ret < 0) {
--		rxrpc_put_peer(peer);
--		_leave(" = %d", ret);
--		return ret;
--	}
--
--	/* fill in the specific bits */
--	candidate->addr.sin_family	= AF_INET;
--	candidate->addr.sin_port	= port;
--	candidate->addr.sin_addr.s_addr	= addr;
--
--	candidate->in_epoch		= rxrpc_epoch;
--	candidate->out_epoch		= rxrpc_epoch;
--	candidate->in_clientflag	= 0;
--	candidate->out_clientflag	= RXRPC_CLIENT_INITIATED;
--	candidate->service_id		= htons(service_id);
--
--	/* invent a unique connection ID */
--	write_lock(&peer->conn_idlock);
--
-- try_next_id:
--	connid = htonl(peer->conn_idcounter & RXRPC_CIDMASK);
--	peer->conn_idcounter += RXRPC_MAXCALLS;
--
--	list_for_each(_p, &peer->conn_idlist) {
--		conn = list_entry(_p, struct rxrpc_connection, id_link);
--		if (connid == conn->conn_id)
--			goto try_next_id;
--		if (connid > conn->conn_id)
--			break;
--	}
--
--	_debug("selected candidate conn ID %x.%u",
--	       ntohl(peer->addr.s_addr), ntohl(connid));
--
--	candidate->conn_id = connid;
--	list_add_tail(&candidate->id_link, _p);
--
--	write_unlock(&peer->conn_idlock);
--
--	/* attach to peer */
--	candidate->peer = peer;
--
--	write_lock(&peer->conn_lock);
--
--	/* search the peer's transport graveyard list */
--	spin_lock(&peer->conn_gylock);
--	list_for_each(_p, &peer->conn_graveyard) {
--		conn = list_entry(_p, struct rxrpc_connection, link);
--		if (conn->addr.sin_port	== candidate->addr.sin_port	&&
--		    conn->security_ix	== candidate->security_ix	&&
--		    conn->service_id	== candidate->service_id	&&
--		    conn->in_clientflag	== 0)
--			goto found_in_graveyard;
--	}
--	spin_unlock(&peer->conn_gylock);
--
--	/* pick the new candidate */
--	_debug("created connection: {%08x} [out]", ntohl(candidate->conn_id));
--	atomic_inc(&peer->conn_count);
--	conn = candidate;
--	candidate = NULL;
--
-- make_active:
--	list_add_tail(&conn->link, &peer->conn_active);
--	write_unlock(&peer->conn_lock);
--
--	if (candidate) {
--		write_lock(&peer->conn_idlock);
--		list_del(&candidate->id_link);
--		write_unlock(&peer->conn_idlock);
--
--		__RXACCT(atomic_dec(&rxrpc_connection_count));
--		kfree(candidate);
--	}
--	else {
--		down_write(&rxrpc_conns_sem);
--		list_add_tail(&conn->proc_link, &rxrpc_conns);
--		up_write(&rxrpc_conns_sem);
--	}
--
--	*_conn = conn;
--	_leave(" = 0 (%p)", conn);
--
--	return 0;
--
--	/* handle resurrecting a connection from the graveyard */
-- found_in_graveyard:
--	_debug("resurrecting connection: {%08x} [out]", ntohl(conn->conn_id));
--	rxrpc_get_connection(conn);
--	rxrpc_krxtimod_del_timer(&conn->timeout);
--	list_del_init(&conn->link);
--	spin_unlock(&peer->conn_gylock);
--	goto make_active;
--} /* end rxrpc_create_connection() */
--
--/*****************************************************************************/
--/*
-- * lookup the connection for an incoming packet
-- * - create a new connection record for unrecorded incoming connections
-- */
--int rxrpc_connection_lookup(struct rxrpc_peer *peer,
--			    struct rxrpc_message *msg,
--			    struct rxrpc_connection **_conn)
--{
--	struct rxrpc_connection *conn, *candidate = NULL;
--	struct list_head *_p;
--	struct sk_buff *pkt = msg->pkt;
--	int ret, fresh = 0;
--	__be32 x_epoch, x_connid;
--	__be16 x_port, x_servid;
--	__u32 x_secix;
--	u8 x_clflag;
--
--	_enter("%p{{%hu}},%u,%hu",
--	       peer,
--	       peer->trans->port,
--	       ntohs(udp_hdr(pkt)->source),
--	       ntohs(msg->hdr.serviceId));
--
--	x_port		= udp_hdr(pkt)->source;
--	x_epoch		= msg->hdr.epoch;
--	x_clflag	= msg->hdr.flags & RXRPC_CLIENT_INITIATED;
--	x_connid	= htonl(ntohl(msg->hdr.cid) & RXRPC_CIDMASK);
--	x_servid	= msg->hdr.serviceId;
--	x_secix		= msg->hdr.securityIndex;
--
--	/* [common case] search the transport's active list first */
--	read_lock(&peer->conn_lock);
--	list_for_each(_p, &peer->conn_active) {
--		conn = list_entry(_p, struct rxrpc_connection, link);
--		if (conn->addr.sin_port		== x_port	&&
--		    conn->in_epoch		== x_epoch	&&
--		    conn->conn_id		== x_connid	&&
--		    conn->security_ix		== x_secix	&&
--		    conn->service_id		== x_servid	&&
--		    conn->in_clientflag		== x_clflag)
--			goto found_active;
--	}
--	read_unlock(&peer->conn_lock);
--
--	/* [uncommon case] not active
--	 * - create a candidate for a new record if an inbound connection
--	 * - only examine the graveyard for an outbound connection
--	 */
--	if (x_clflag) {
--		ret = __rxrpc_create_connection(peer, &candidate);
--		if (ret < 0) {
--			_leave(" = %d", ret);
--			return ret;
--		}
--
--		/* fill in the specifics */
--		candidate->addr.sin_family	= AF_INET;
--		candidate->addr.sin_port	= x_port;
--		candidate->addr.sin_addr.s_addr = ip_hdr(pkt)->saddr;
--		candidate->in_epoch		= x_epoch;
--		candidate->out_epoch		= x_epoch;
--		candidate->in_clientflag	= RXRPC_CLIENT_INITIATED;
--		candidate->out_clientflag	= 0;
--		candidate->conn_id		= x_connid;
--		candidate->service_id		= x_servid;
--		candidate->security_ix		= x_secix;
--	}
--
--	/* search the active list again, just in case it appeared whilst we
--	 * were busy */
--	write_lock(&peer->conn_lock);
--	list_for_each(_p, &peer->conn_active) {
--		conn = list_entry(_p, struct rxrpc_connection, link);
--		if (conn->addr.sin_port		== x_port	&&
--		    conn->in_epoch		== x_epoch	&&
--		    conn->conn_id		== x_connid	&&
--		    conn->security_ix		== x_secix	&&
--		    conn->service_id		== x_servid	&&
--		    conn->in_clientflag		== x_clflag)
--			goto found_active_second_chance;
--	}
--
--	/* search the transport's graveyard list */
--	spin_lock(&peer->conn_gylock);
--	list_for_each(_p, &peer->conn_graveyard) {
--		conn = list_entry(_p, struct rxrpc_connection, link);
--		if (conn->addr.sin_port		== x_port	&&
--		    conn->in_epoch		== x_epoch	&&
--		    conn->conn_id		== x_connid	&&
--		    conn->security_ix		== x_secix	&&
--		    conn->service_id		== x_servid	&&
--		    conn->in_clientflag		== x_clflag)
--			goto found_in_graveyard;
--	}
--	spin_unlock(&peer->conn_gylock);
--
--	/* outbound connections aren't created here */
--	if (!x_clflag) {
--		write_unlock(&peer->conn_lock);
--		_leave(" = -ENOENT");
--		return -ENOENT;
--	}
--
--	/* we can now add the new candidate to the list */
--	_debug("created connection: {%08x} [in]", ntohl(candidate->conn_id));
--	rxrpc_get_peer(peer);
--	conn = candidate;
--	candidate = NULL;
--	atomic_inc(&peer->conn_count);
--	fresh = 1;
--
-- make_active:
--	list_add_tail(&conn->link, &peer->conn_active);
--
-- success_uwfree:
--	write_unlock(&peer->conn_lock);
--
--	if (candidate) {
--		write_lock(&peer->conn_idlock);
--		list_del(&candidate->id_link);
--		write_unlock(&peer->conn_idlock);
--
--		__RXACCT(atomic_dec(&rxrpc_connection_count));
--		kfree(candidate);
--	}
--
--	if (fresh) {
--		down_write(&rxrpc_conns_sem);
--		list_add_tail(&conn->proc_link, &rxrpc_conns);
--		up_write(&rxrpc_conns_sem);
--	}
--
-- success:
--	*_conn = conn;
--	_leave(" = 0 (%p)", conn);
--	return 0;
--
--	/* handle the connection being found in the active list straight off */
-- found_active:
--	rxrpc_get_connection(conn);
--	read_unlock(&peer->conn_lock);
--	goto success;
--
--	/* handle resurrecting a connection from the graveyard */
-- found_in_graveyard:
--	_debug("resurrecting connection: {%08x} [in]", ntohl(conn->conn_id));
--	rxrpc_get_peer(peer);
--	rxrpc_get_connection(conn);
--	rxrpc_krxtimod_del_timer(&conn->timeout);
--	list_del_init(&conn->link);
--	spin_unlock(&peer->conn_gylock);
--	goto make_active;
--
--	/* handle finding the connection on the second time through the active
--	 * list */
-- found_active_second_chance:
--	rxrpc_get_connection(conn);
--	goto success_uwfree;
--
--} /* end rxrpc_connection_lookup() */
--
--/*****************************************************************************/
--/*
-- * finish using a connection record
-- * - it will be transferred to the peer's connection graveyard when refcount
-- *   reaches 0
-- */
--void rxrpc_put_connection(struct rxrpc_connection *conn)
--{
--	struct rxrpc_peer *peer;
--
--	if (!conn)
--		return;
--
--	_enter("%p{u=%d p=%hu}",
--	       conn, atomic_read(&conn->usage), ntohs(conn->addr.sin_port));
--
--	peer = conn->peer;
--	spin_lock(&peer->conn_gylock);
--
--	/* sanity check */
--	if (atomic_read(&conn->usage) <= 0)
--		BUG();
--
--	if (likely(!atomic_dec_and_test(&conn->usage))) {
--		spin_unlock(&peer->conn_gylock);
--		_leave("");
--		return;
--	}
--
--	/* move to graveyard queue */
--	_debug("burying connection: {%08x}", ntohl(conn->conn_id));
--	list_move_tail(&conn->link, &peer->conn_graveyard);
--
--	rxrpc_krxtimod_add_timer(&conn->timeout, rxrpc_conn_timeout * HZ);
--
--	spin_unlock(&peer->conn_gylock);
--
--	rxrpc_put_peer(conn->peer);
--
--	_leave(" [killed]");
--} /* end rxrpc_put_connection() */
--
--/*****************************************************************************/
--/*
-- * free a connection record
-- */
--static void rxrpc_conn_do_timeout(struct rxrpc_connection *conn)
--{
--	struct rxrpc_peer *peer;
--
--	_enter("%p{u=%d p=%hu}",
--	       conn, atomic_read(&conn->usage), ntohs(conn->addr.sin_port));
--
--	peer = conn->peer;
--
--	if (atomic_read(&conn->usage) < 0)
--		BUG();
--
--	/* remove from graveyard if still dead */
--	spin_lock(&peer->conn_gylock);
--	if (atomic_read(&conn->usage) == 0) {
--		list_del_init(&conn->link);
--	}
--	else {
--		conn = NULL;
--	}
--	spin_unlock(&peer->conn_gylock);
--
--	if (!conn) {
--		_leave("");
--		return; /* resurrected */
--	}
--
--	_debug("--- Destroying Connection %p{%08x} ---",
--	       conn, ntohl(conn->conn_id));
--
--	down_write(&rxrpc_conns_sem);
--	list_del(&conn->proc_link);
--	up_write(&rxrpc_conns_sem);
--
--	write_lock(&peer->conn_idlock);
--	list_del(&conn->id_link);
--	write_unlock(&peer->conn_idlock);
--
--	__RXACCT(atomic_dec(&rxrpc_connection_count));
--	kfree(conn);
--
--	/* if the graveyard is now empty, wake up anyone waiting for that */
--	if (atomic_dec_and_test(&peer->conn_count))
--		wake_up(&peer->conn_gy_waitq);
--
--	_leave(" [destroyed]");
--} /* end rxrpc_conn_do_timeout() */
--
--/*****************************************************************************/
--/*
-- * clear all connection records from a peer endpoint
-- */
--void rxrpc_conn_clearall(struct rxrpc_peer *peer)
--{
--	DECLARE_WAITQUEUE(myself, current);
--
--	struct rxrpc_connection *conn;
--	int err;
--
--	_enter("%p", peer);
--
--	/* there shouldn't be any active conns remaining */
--	if (!list_empty(&peer->conn_active))
--		BUG();
--
--	/* manually timeout all conns in the graveyard */
--	spin_lock(&peer->conn_gylock);
--	while (!list_empty(&peer->conn_graveyard)) {
--		conn = list_entry(peer->conn_graveyard.next,
--				  struct rxrpc_connection, link);
--		err = rxrpc_krxtimod_del_timer(&conn->timeout);
--		spin_unlock(&peer->conn_gylock);
--
--		if (err == 0)
--			rxrpc_conn_do_timeout(conn);
--
--		spin_lock(&peer->conn_gylock);
--	}
--	spin_unlock(&peer->conn_gylock);
--
--	/* wait for the the conn graveyard to be completely cleared */
--	set_current_state(TASK_UNINTERRUPTIBLE);
--	add_wait_queue(&peer->conn_gy_waitq, &myself);
--
--	while (atomic_read(&peer->conn_count) != 0) {
--		schedule();
--		set_current_state(TASK_UNINTERRUPTIBLE);
--	}
--
--	remove_wait_queue(&peer->conn_gy_waitq, &myself);
--	set_current_state(TASK_RUNNING);
--
--	_leave("");
--} /* end rxrpc_conn_clearall() */
--
--/*****************************************************************************/
--/*
-- * allocate and prepare a message for sending out through the transport
-- * endpoint
-- */
--int rxrpc_conn_newmsg(struct rxrpc_connection *conn,
--		      struct rxrpc_call *call,
--		      uint8_t type,
--		      int dcount,
--		      struct kvec diov[],
--		      gfp_t alloc_flags,
--		      struct rxrpc_message **_msg)
--{
--	struct rxrpc_message *msg;
--	int loop;
--
--	_enter("%p{%d},%p,%u", conn, ntohs(conn->addr.sin_port), call, type);
--
--	if (dcount > 3) {
--		_leave(" = -EINVAL");
--		return -EINVAL;
--	}
--
--	msg = kzalloc(sizeof(struct rxrpc_message), alloc_flags);
--	if (!msg) {
--		_leave(" = -ENOMEM");
--		return -ENOMEM;
--	}
--
--	atomic_set(&msg->usage, 1);
--
--	INIT_LIST_HEAD(&msg->link);
--
--	msg->state = RXRPC_MSG_PREPARED;
--
--	msg->hdr.epoch		= conn->out_epoch;
--	msg->hdr.cid		= conn->conn_id | (call ? call->chan_ix : 0);
--	msg->hdr.callNumber	= call ? call->call_id : 0;
--	msg->hdr.type		= type;
--	msg->hdr.flags		= conn->out_clientflag;
--	msg->hdr.securityIndex	= conn->security_ix;
--	msg->hdr.serviceId	= conn->service_id;
--
--	/* generate sequence numbers for data packets */
--	if (call) {
--		switch (type) {
--		case RXRPC_PACKET_TYPE_DATA:
--			msg->seq = ++call->snd_seq_count;
--			msg->hdr.seq = htonl(msg->seq);
--			break;
--		case RXRPC_PACKET_TYPE_ACK:
--			/* ACK sequence numbers are complicated. The following
--			 * may be wrong:
--			 * - jumbo packet ACKs should have a seq number
--			 * - normal ACKs should not
--			 */
--		default:
--			break;
--		}
--	}
--
--	msg->dcount = dcount + 1;
--	msg->dsize = sizeof(msg->hdr);
--	msg->data[0].iov_len = sizeof(msg->hdr);
--	msg->data[0].iov_base = &msg->hdr;
--
--	for (loop=0; loop < dcount; loop++) {
--		msg->dsize += diov[loop].iov_len;
--		msg->data[loop+1].iov_len  = diov[loop].iov_len;
--		msg->data[loop+1].iov_base = diov[loop].iov_base;
--	}
--
--	__RXACCT(atomic_inc(&rxrpc_message_count));
--	*_msg = msg;
--	_leave(" = 0 (%p) #%d", msg, atomic_read(&rxrpc_message_count));
--	return 0;
--} /* end rxrpc_conn_newmsg() */
--
--/*****************************************************************************/
--/*
-- * free a message
-- */
--void __rxrpc_put_message(struct rxrpc_message *msg)
--{
--	int loop;
--
--	_enter("%p #%d", msg, atomic_read(&rxrpc_message_count));
--
--	if (msg->pkt)
--		kfree_skb(msg->pkt);
--	rxrpc_put_connection(msg->conn);
--
--	for (loop = 0; loop < 8; loop++)
--		if (test_bit(loop, &msg->dfree))
--			kfree(msg->data[loop].iov_base);
--
--	__RXACCT(atomic_dec(&rxrpc_message_count));
--	kfree(msg);
--
--	_leave("");
--} /* end __rxrpc_put_message() */
--
--/*****************************************************************************/
--/*
-- * send a message out through the transport endpoint
-- */
--int rxrpc_conn_sendmsg(struct rxrpc_connection *conn,
--		       struct rxrpc_message *msg)
--{
--	struct msghdr msghdr;
--	int ret;
--
--	_enter("%p{%d}", conn, ntohs(conn->addr.sin_port));
--
--	/* fill in some fields in the header */
--	spin_lock(&conn->lock);
--	msg->hdr.serial = htonl(++conn->serial_counter);
--	msg->rttdone = 0;
--	spin_unlock(&conn->lock);
--
--	/* set up the message to be transmitted */
--	msghdr.msg_name		= &conn->addr;
--	msghdr.msg_namelen	= sizeof(conn->addr);
--	msghdr.msg_control	= NULL;
--	msghdr.msg_controllen	= 0;
--	msghdr.msg_flags	= MSG_CONFIRM | MSG_DONTWAIT;
--
--	_net("Sending message type %d of %Zd bytes to %08x:%d",
--	     msg->hdr.type,
--	     msg->dsize,
--	     ntohl(conn->addr.sin_addr.s_addr),
--	     ntohs(conn->addr.sin_port));
--
--	/* send the message */
--	ret = kernel_sendmsg(conn->trans->socket, &msghdr,
--			     msg->data, msg->dcount, msg->dsize);
--	if (ret < 0) {
--		msg->state = RXRPC_MSG_ERROR;
--	} else {
--		msg->state = RXRPC_MSG_SENT;
--		ret = 0;
--
--		spin_lock(&conn->lock);
--		do_gettimeofday(&conn->atime);
--		msg->stamp = conn->atime;
--		spin_unlock(&conn->lock);
--	}
--
--	_leave(" = %d", ret);
--
--	return ret;
--} /* end rxrpc_conn_sendmsg() */
--
--/*****************************************************************************/
--/*
-- * deal with a subsequent call packet
-- */
--int rxrpc_conn_receive_call_packet(struct rxrpc_connection *conn,
--				   struct rxrpc_call *call,
--				   struct rxrpc_message *msg)
--{
--	struct rxrpc_message *pmsg;
--	struct dst_entry *dst;
--	struct list_head *_p;
--	unsigned cix, seq;
--	int ret = 0;
--
--	_enter("%p,%p,%p", conn, call, msg);
--
--	if (!call) {
--		cix = ntohl(msg->hdr.cid) & RXRPC_CHANNELMASK;
--
--		spin_lock(&conn->lock);
--		call = conn->channels[cix];
--
--		if (!call || call->call_id != msg->hdr.callNumber) {
--			spin_unlock(&conn->lock);
--			rxrpc_trans_immediate_abort(conn->trans, msg, -ENOENT);
--			goto out;
--		}
--		else {
--			rxrpc_get_call(call);
--			spin_unlock(&conn->lock);
--		}
--	}
--	else {
--		rxrpc_get_call(call);
--	}
--
--	_proto("Received packet %%%u [%u] on call %hu:%u:%u",
--	       ntohl(msg->hdr.serial),
--	       ntohl(msg->hdr.seq),
--	       ntohs(msg->hdr.serviceId),
--	       ntohl(conn->conn_id),
--	       ntohl(call->call_id));
--
--	call->pkt_rcv_count++;
--
--	dst = msg->pkt->dst;
--	if (dst && dst->dev)
--		conn->peer->if_mtu =
--			dst->dev->mtu - dst->dev->hard_header_len;
--
--	/* queue on the call in seq order */
--	rxrpc_get_message(msg);
--	seq = msg->seq;
--
--	spin_lock(&call->lock);
--	list_for_each(_p, &call->rcv_receiveq) {
--		pmsg = list_entry(_p, struct rxrpc_message, link);
--		if (pmsg->seq > seq)
--			break;
--	}
--	list_add_tail(&msg->link, _p);
--
--	/* reset the activity timeout */
--	call->flags |= RXRPC_CALL_RCV_PKT;
--	mod_timer(&call->rcv_timeout,jiffies + rxrpc_call_rcv_timeout * HZ);
--
--	spin_unlock(&call->lock);
--
--	rxrpc_krxiod_queue_call(call);
--
--	rxrpc_put_call(call);
-- out:
--	_leave(" = %d", ret);
--	return ret;
--} /* end rxrpc_conn_receive_call_packet() */
--
--/*****************************************************************************/
--/*
-- * handle an ICMP error being applied to a connection
-- */
--void rxrpc_conn_handle_error(struct rxrpc_connection *conn,
--			     int local, int errno)
--{
--	struct rxrpc_call *calls[4];
--	int loop;
--
--	_enter("%p{%d},%d", conn, ntohs(conn->addr.sin_port), errno);
--
--	/* get a ref to all my calls in one go */
--	memset(calls, 0, sizeof(calls));
--	spin_lock(&conn->lock);
--
--	for (loop = 3; loop >= 0; loop--) {
--		if (conn->channels[loop]) {
--			calls[loop] = conn->channels[loop];
--			rxrpc_get_call(calls[loop]);
--		}
--	}
--
--	spin_unlock(&conn->lock);
--
--	/* now kick them all */
--	for (loop = 3; loop >= 0; loop--) {
--		if (calls[loop]) {
--			rxrpc_call_handle_error(calls[loop], local, errno);
--			rxrpc_put_call(calls[loop]);
--		}
--	}
--
--	_leave("");
--} /* end rxrpc_conn_handle_error() */
-diff --git a/net/rxrpc/internal.h b/net/rxrpc/internal.h
-deleted file mode 100644
-index cc0c579..0000000
---- a/net/rxrpc/internal.h
-+++ /dev/null
-@@ -1,106 +0,0 @@
--/* internal.h: internal Rx RPC stuff
-- *
-- * Copyright (c) 2002   David Howells (dhowells@redhat.com).
-- */
--
--#ifndef RXRPC_INTERNAL_H
--#define RXRPC_INTERNAL_H
--
--#include <linux/compiler.h>
--#include <linux/kernel.h>
--
--/*
-- * debug accounting
-- */
--#if 1
--#define __RXACCT_DECL(X) X
--#define __RXACCT(X) do { X; } while(0)
--#else
--#define __RXACCT_DECL(X)
--#define __RXACCT(X) do { } while(0)
--#endif
--
--__RXACCT_DECL(extern atomic_t rxrpc_transport_count);
--__RXACCT_DECL(extern atomic_t rxrpc_peer_count);
--__RXACCT_DECL(extern atomic_t rxrpc_connection_count);
--__RXACCT_DECL(extern atomic_t rxrpc_call_count);
--__RXACCT_DECL(extern atomic_t rxrpc_message_count);
--
--/*
-- * debug tracing
-- */
--#define kenter(FMT, a...)	printk("==> %s("FMT")\n",__FUNCTION__ , ##a)
--#define kleave(FMT, a...)	printk("<== %s()"FMT"\n",__FUNCTION__ , ##a)
--#define kdebug(FMT, a...)	printk("    "FMT"\n" , ##a)
--#define kproto(FMT, a...)	printk("### "FMT"\n" , ##a)
--#define knet(FMT, a...)		printk("    "FMT"\n" , ##a)
--
--#if 0
--#define _enter(FMT, a...)	kenter(FMT , ##a)
--#define _leave(FMT, a...)	kleave(FMT , ##a)
--#define _debug(FMT, a...)	kdebug(FMT , ##a)
--#define _proto(FMT, a...)	kproto(FMT , ##a)
--#define _net(FMT, a...)		knet(FMT , ##a)
--#else
--#define _enter(FMT, a...)	do { if (rxrpc_ktrace) kenter(FMT , ##a); } while(0)
--#define _leave(FMT, a...)	do { if (rxrpc_ktrace) kleave(FMT , ##a); } while(0)
--#define _debug(FMT, a...)	do { if (rxrpc_kdebug) kdebug(FMT , ##a); } while(0)
--#define _proto(FMT, a...)	do { if (rxrpc_kproto) kproto(FMT , ##a); } while(0)
--#define _net(FMT, a...)		do { if (rxrpc_knet)   knet  (FMT , ##a); } while(0)
--#endif
--
--static inline void rxrpc_discard_my_signals(void)
--{
--	while (signal_pending(current)) {
--		siginfo_t sinfo;
--
--		spin_lock_irq(&current->sighand->siglock);
--		dequeue_signal(current, &current->blocked, &sinfo);
--		spin_unlock_irq(&current->sighand->siglock);
--	}
--}
--
--/*
-- * call.c
-- */
--extern struct list_head rxrpc_calls;
--extern struct rw_semaphore rxrpc_calls_sem;
--
--/*
-- * connection.c
-- */
--extern struct list_head rxrpc_conns;
--extern struct rw_semaphore rxrpc_conns_sem;
--extern unsigned long rxrpc_conn_timeout;
--
--extern void rxrpc_conn_clearall(struct rxrpc_peer *peer);
--
--/*
-- * peer.c
-- */
--extern struct list_head rxrpc_peers;
--extern struct rw_semaphore rxrpc_peers_sem;
--extern unsigned long rxrpc_peer_timeout;
--
--extern void rxrpc_peer_calculate_rtt(struct rxrpc_peer *peer,
--				     struct rxrpc_message *msg,
--				     struct rxrpc_message *resp);
--
--extern void rxrpc_peer_clearall(struct rxrpc_transport *trans);
--
--
--/*
-- * proc.c
-- */
--#ifdef CONFIG_PROC_FS
--extern int rxrpc_proc_init(void);
--extern void rxrpc_proc_cleanup(void);
--#endif
--
--/*
-- * transport.c
-- */
--extern struct list_head rxrpc_proc_transports;
--extern struct rw_semaphore rxrpc_proc_transports_sem;
--
--#endif /* RXRPC_INTERNAL_H */
-diff --git a/net/rxrpc/krxiod.c b/net/rxrpc/krxiod.c
-deleted file mode 100644
-index bbbcd6c..0000000
---- a/net/rxrpc/krxiod.c
-+++ /dev/null
-@@ -1,262 +0,0 @@
--/* krxiod.c: Rx I/O daemon
-- *
-- * Copyright (C) 2002 Red Hat, Inc. All Rights Reserved.
-- * Written by David Howells (dhowells@redhat.com)
-- *
-- * This program is free software; you can redistribute it and/or
-- * modify it under the terms of the GNU General Public License
-- * as published by the Free Software Foundation; either version
-- * 2 of the License, or (at your option) any later version.
-- */
--
--#include <linux/sched.h>
--#include <linux/completion.h>
--#include <linux/spinlock.h>
--#include <linux/init.h>
--#include <linux/freezer.h>
--#include <rxrpc/krxiod.h>
--#include <rxrpc/transport.h>
--#include <rxrpc/peer.h>
--#include <rxrpc/call.h>
--#include "internal.h"
--
--static DECLARE_WAIT_QUEUE_HEAD(rxrpc_krxiod_sleepq);
--static DECLARE_COMPLETION(rxrpc_krxiod_dead);
--
--static atomic_t rxrpc_krxiod_qcount = ATOMIC_INIT(0);
--
--static LIST_HEAD(rxrpc_krxiod_transportq);
--static DEFINE_SPINLOCK(rxrpc_krxiod_transportq_lock);
--
--static LIST_HEAD(rxrpc_krxiod_callq);
--static DEFINE_SPINLOCK(rxrpc_krxiod_callq_lock);
--
--static volatile int rxrpc_krxiod_die;
--
--/*****************************************************************************/
--/*
-- * Rx I/O daemon
-- */
--static int rxrpc_krxiod(void *arg)
--{
--	DECLARE_WAITQUEUE(krxiod,current);
--
--	printk("Started krxiod %d\n",current->pid);
--
--	daemonize("krxiod");
--
--	/* loop around waiting for work to do */
--	do {
--		/* wait for work or to be told to exit */
--		_debug("### Begin Wait");
--		if (!atomic_read(&rxrpc_krxiod_qcount)) {
--			set_current_state(TASK_INTERRUPTIBLE);
--
--			add_wait_queue(&rxrpc_krxiod_sleepq, &krxiod);
--
--			for (;;) {
--				set_current_state(TASK_INTERRUPTIBLE);
--				if (atomic_read(&rxrpc_krxiod_qcount) ||
--				    rxrpc_krxiod_die ||
--				    signal_pending(current))
--					break;
--
--				schedule();
--			}
--
--			remove_wait_queue(&rxrpc_krxiod_sleepq, &krxiod);
--			set_current_state(TASK_RUNNING);
--		}
--		_debug("### End Wait");
--
--		/* do work if been given some to do */
--		_debug("### Begin Work");
--
--		/* see if there's a transport in need of attention */
--		if (!list_empty(&rxrpc_krxiod_transportq)) {
--			struct rxrpc_transport *trans = NULL;
--
--			spin_lock_irq(&rxrpc_krxiod_transportq_lock);
--
--			if (!list_empty(&rxrpc_krxiod_transportq)) {
--				trans = list_entry(
--					rxrpc_krxiod_transportq.next,
--					struct rxrpc_transport,
--					krxiodq_link);
--
--				list_del_init(&trans->krxiodq_link);
--				atomic_dec(&rxrpc_krxiod_qcount);
--
--				/* make sure it hasn't gone away and doesn't go
--				 * away */
--				if (atomic_read(&trans->usage)>0)
--					rxrpc_get_transport(trans);
--				else
--					trans = NULL;
--			}
--
--			spin_unlock_irq(&rxrpc_krxiod_transportq_lock);
--
--			if (trans) {
--				rxrpc_trans_receive_packet(trans);
--				rxrpc_put_transport(trans);
--			}
--		}
--
--		/* see if there's a call in need of attention */
--		if (!list_empty(&rxrpc_krxiod_callq)) {
--			struct rxrpc_call *call = NULL;
--
--			spin_lock_irq(&rxrpc_krxiod_callq_lock);
--
--			if (!list_empty(&rxrpc_krxiod_callq)) {
--				call = list_entry(rxrpc_krxiod_callq.next,
--						  struct rxrpc_call,
--						  rcv_krxiodq_lk);
--				list_del_init(&call->rcv_krxiodq_lk);
--				atomic_dec(&rxrpc_krxiod_qcount);
--
--				/* make sure it hasn't gone away and doesn't go
--				 * away */
--				if (atomic_read(&call->usage) > 0) {
--					_debug("@@@ KRXIOD"
--					       " Begin Attend Call %p", call);
--					rxrpc_get_call(call);
--				}
--				else {
--					call = NULL;
--				}
--			}
--
--			spin_unlock_irq(&rxrpc_krxiod_callq_lock);
--
--			if (call) {
--				rxrpc_call_do_stuff(call);
--				rxrpc_put_call(call);
--				_debug("@@@ KRXIOD End Attend Call %p", call);
--			}
--		}
--
--		_debug("### End Work");
--
--		try_to_freeze();
--
--		/* discard pending signals */
--		rxrpc_discard_my_signals();
--
--	} while (!rxrpc_krxiod_die);
--
--	/* and that's all */
--	complete_and_exit(&rxrpc_krxiod_dead, 0);
--
--} /* end rxrpc_krxiod() */
--
--/*****************************************************************************/
--/*
-- * start up a krxiod daemon
-- */
--int __init rxrpc_krxiod_init(void)
--{
--	return kernel_thread(rxrpc_krxiod, NULL, 0);
--
--} /* end rxrpc_krxiod_init() */
--
--/*****************************************************************************/
--/*
-- * kill the krxiod daemon and wait for it to complete
-- */
--void rxrpc_krxiod_kill(void)
--{
--	rxrpc_krxiod_die = 1;
--	wake_up_all(&rxrpc_krxiod_sleepq);
--	wait_for_completion(&rxrpc_krxiod_dead);
--
--} /* end rxrpc_krxiod_kill() */
--
--/*****************************************************************************/
--/*
-- * queue a transport for attention by krxiod
-- */
--void rxrpc_krxiod_queue_transport(struct rxrpc_transport *trans)
--{
--	unsigned long flags;
--
--	_enter("");
--
--	if (list_empty(&trans->krxiodq_link)) {
--		spin_lock_irqsave(&rxrpc_krxiod_transportq_lock, flags);
--
--		if (list_empty(&trans->krxiodq_link)) {
--			if (atomic_read(&trans->usage) > 0) {
--				list_add_tail(&trans->krxiodq_link,
--					      &rxrpc_krxiod_transportq);
--				atomic_inc(&rxrpc_krxiod_qcount);
--			}
--		}
--
--		spin_unlock_irqrestore(&rxrpc_krxiod_transportq_lock, flags);
--		wake_up_all(&rxrpc_krxiod_sleepq);
--	}
--
--	_leave("");
--
--} /* end rxrpc_krxiod_queue_transport() */
--
--/*****************************************************************************/
--/*
-- * dequeue a transport from krxiod's attention queue
-- */
--void rxrpc_krxiod_dequeue_transport(struct rxrpc_transport *trans)
--{
--	unsigned long flags;
--
--	_enter("");
--
--	spin_lock_irqsave(&rxrpc_krxiod_transportq_lock, flags);
--	if (!list_empty(&trans->krxiodq_link)) {
--		list_del_init(&trans->krxiodq_link);
--		atomic_dec(&rxrpc_krxiod_qcount);
--	}
--	spin_unlock_irqrestore(&rxrpc_krxiod_transportq_lock, flags);
--
--	_leave("");
--
--} /* end rxrpc_krxiod_dequeue_transport() */
--
--/*****************************************************************************/
--/*
-- * queue a call for attention by krxiod
-- */
--void rxrpc_krxiod_queue_call(struct rxrpc_call *call)
--{
--	unsigned long flags;
--
--	if (list_empty(&call->rcv_krxiodq_lk)) {
--		spin_lock_irqsave(&rxrpc_krxiod_callq_lock, flags);
--		if (atomic_read(&call->usage) > 0) {
--			list_add_tail(&call->rcv_krxiodq_lk,
--				      &rxrpc_krxiod_callq);
--			atomic_inc(&rxrpc_krxiod_qcount);
--		}
--		spin_unlock_irqrestore(&rxrpc_krxiod_callq_lock, flags);
--	}
--	wake_up_all(&rxrpc_krxiod_sleepq);
--
--} /* end rxrpc_krxiod_queue_call() */
--
--/*****************************************************************************/
--/*
-- * dequeue a call from krxiod's attention queue
-- */
--void rxrpc_krxiod_dequeue_call(struct rxrpc_call *call)
--{
--	unsigned long flags;
--
--	spin_lock_irqsave(&rxrpc_krxiod_callq_lock, flags);
--	if (!list_empty(&call->rcv_krxiodq_lk)) {
--		list_del_init(&call->rcv_krxiodq_lk);
--		atomic_dec(&rxrpc_krxiod_qcount);
--	}
--	spin_unlock_irqrestore(&rxrpc_krxiod_callq_lock, flags);
--
--} /* end rxrpc_krxiod_dequeue_call() */
-diff --git a/net/rxrpc/krxsecd.c b/net/rxrpc/krxsecd.c
-deleted file mode 100644
-index 9a1e7f5..0000000
---- a/net/rxrpc/krxsecd.c
-+++ /dev/null
-@@ -1,270 +0,0 @@
--/* krxsecd.c: Rx security daemon
-- *
-- * Copyright (C) 2002 Red Hat, Inc. All Rights Reserved.
-- * Written by David Howells (dhowells@redhat.com)
-- *
-- * This program is free software; you can redistribute it and/or
-- * modify it under the terms of the GNU General Public License
-- * as published by the Free Software Foundation; either version
-- * 2 of the License, or (at your option) any later version.
-- *
-- * This daemon deals with:
-- * - consulting the application as to whether inbound peers and calls should be authorised
-- * - generating security challenges for inbound connections
-- * - responding to security challenges on outbound connections
-- */
--
--#include <linux/module.h>
--#include <linux/sched.h>
--#include <linux/completion.h>
--#include <linux/spinlock.h>
--#include <linux/init.h>
--#include <rxrpc/krxsecd.h>
--#include <rxrpc/transport.h>
--#include <rxrpc/connection.h>
--#include <rxrpc/message.h>
--#include <rxrpc/peer.h>
--#include <rxrpc/call.h>
--#include <linux/udp.h>
--#include <linux/ip.h>
--#include <linux/freezer.h>
--#include <net/sock.h>
--#include "internal.h"
--
--static DECLARE_WAIT_QUEUE_HEAD(rxrpc_krxsecd_sleepq);
--static DECLARE_COMPLETION(rxrpc_krxsecd_dead);
--static volatile int rxrpc_krxsecd_die;
--
--static atomic_t rxrpc_krxsecd_qcount;
--
--/* queue of unprocessed inbound messages with seqno #1 and
-- * RXRPC_CLIENT_INITIATED flag set */
--static LIST_HEAD(rxrpc_krxsecd_initmsgq);
--static DEFINE_SPINLOCK(rxrpc_krxsecd_initmsgq_lock);
--
--static void rxrpc_krxsecd_process_incoming_call(struct rxrpc_message *msg);
--
--/*****************************************************************************/
--/*
-- * Rx security daemon
-- */
--static int rxrpc_krxsecd(void *arg)
--{
--	DECLARE_WAITQUEUE(krxsecd, current);
--
--	int die;
--
--	printk("Started krxsecd %d\n", current->pid);
--
--	daemonize("krxsecd");
--
--	/* loop around waiting for work to do */
--	do {
--		/* wait for work or to be told to exit */
--		_debug("### Begin Wait");
--		if (!atomic_read(&rxrpc_krxsecd_qcount)) {
--			set_current_state(TASK_INTERRUPTIBLE);
--
--			add_wait_queue(&rxrpc_krxsecd_sleepq, &krxsecd);
--
--			for (;;) {
--				set_current_state(TASK_INTERRUPTIBLE);
--				if (atomic_read(&rxrpc_krxsecd_qcount) ||
--				    rxrpc_krxsecd_die ||
--				    signal_pending(current))
--					break;
--
--				schedule();
--			}
--
--			remove_wait_queue(&rxrpc_krxsecd_sleepq, &krxsecd);
--			set_current_state(TASK_RUNNING);
--		}
--		die = rxrpc_krxsecd_die;
--		_debug("### End Wait");
--
--		/* see if there're incoming calls in need of authenticating */
--		_debug("### Begin Inbound Calls");
--
--		if (!list_empty(&rxrpc_krxsecd_initmsgq)) {
--			struct rxrpc_message *msg = NULL;
--
--			spin_lock(&rxrpc_krxsecd_initmsgq_lock);
--
--			if (!list_empty(&rxrpc_krxsecd_initmsgq)) {
--				msg = list_entry(rxrpc_krxsecd_initmsgq.next,
--						 struct rxrpc_message, link);
--				list_del_init(&msg->link);
--				atomic_dec(&rxrpc_krxsecd_qcount);
--			}
--
--			spin_unlock(&rxrpc_krxsecd_initmsgq_lock);
--
--			if (msg) {
--				rxrpc_krxsecd_process_incoming_call(msg);
--				rxrpc_put_message(msg);
--			}
--		}
--
--		_debug("### End Inbound Calls");
--
--		try_to_freeze();
--
--		/* discard pending signals */
--		rxrpc_discard_my_signals();
--
--	} while (!die);
--
--	/* and that's all */
--	complete_and_exit(&rxrpc_krxsecd_dead, 0);
--
--} /* end rxrpc_krxsecd() */
--
--/*****************************************************************************/
--/*
-- * start up a krxsecd daemon
-- */
--int __init rxrpc_krxsecd_init(void)
--{
--	return kernel_thread(rxrpc_krxsecd, NULL, 0);
--
--} /* end rxrpc_krxsecd_init() */
--
--/*****************************************************************************/
--/*
-- * kill the krxsecd daemon and wait for it to complete
-- */
--void rxrpc_krxsecd_kill(void)
--{
--	rxrpc_krxsecd_die = 1;
--	wake_up_all(&rxrpc_krxsecd_sleepq);
--	wait_for_completion(&rxrpc_krxsecd_dead);
--
--} /* end rxrpc_krxsecd_kill() */
--
--/*****************************************************************************/
--/*
-- * clear all pending incoming calls for the specified transport
-- */
--void rxrpc_krxsecd_clear_transport(struct rxrpc_transport *trans)
--{
--	LIST_HEAD(tmp);
--
--	struct rxrpc_message *msg;
--	struct list_head *_p, *_n;
--
--	_enter("%p",trans);
--
--	/* move all the messages for this transport onto a temp list */
--	spin_lock(&rxrpc_krxsecd_initmsgq_lock);
--
--	list_for_each_safe(_p, _n, &rxrpc_krxsecd_initmsgq) {
--		msg = list_entry(_p, struct rxrpc_message, link);
--		if (msg->trans == trans) {
--			list_move_tail(&msg->link, &tmp);
--			atomic_dec(&rxrpc_krxsecd_qcount);
--		}
--	}
--
--	spin_unlock(&rxrpc_krxsecd_initmsgq_lock);
--
--	/* zap all messages on the temp list */
--	while (!list_empty(&tmp)) {
--		msg = list_entry(tmp.next, struct rxrpc_message, link);
--		list_del_init(&msg->link);
--		rxrpc_put_message(msg);
--	}
--
--	_leave("");
--} /* end rxrpc_krxsecd_clear_transport() */
--
--/*****************************************************************************/
--/*
-- * queue a message on the incoming calls list
-- */
--void rxrpc_krxsecd_queue_incoming_call(struct rxrpc_message *msg)
--{
--	_enter("%p", msg);
--
--	/* queue for processing by krxsecd */
--	spin_lock(&rxrpc_krxsecd_initmsgq_lock);
--
--	if (!rxrpc_krxsecd_die) {
--		rxrpc_get_message(msg);
--		list_add_tail(&msg->link, &rxrpc_krxsecd_initmsgq);
--		atomic_inc(&rxrpc_krxsecd_qcount);
--	}
--
--	spin_unlock(&rxrpc_krxsecd_initmsgq_lock);
--
--	wake_up(&rxrpc_krxsecd_sleepq);
--
--	_leave("");
--} /* end rxrpc_krxsecd_queue_incoming_call() */
--
--/*****************************************************************************/
--/*
-- * process the initial message of an incoming call
-- */
--void rxrpc_krxsecd_process_incoming_call(struct rxrpc_message *msg)
--{
--	struct rxrpc_transport *trans = msg->trans;
--	struct rxrpc_service *srv;
--	struct rxrpc_call *call;
--	struct list_head *_p;
--	unsigned short sid;
--	int ret;
--
--	_enter("%p{tr=%p}", msg, trans);
--
--	ret = rxrpc_incoming_call(msg->conn, msg, &call);
--	if (ret < 0)
--		goto out;
--
--	/* find the matching service on the transport */
--	sid = ntohs(msg->hdr.serviceId);
--	srv = NULL;
--
--	spin_lock(&trans->lock);
--	list_for_each(_p, &trans->services) {
--		srv = list_entry(_p, struct rxrpc_service, link);
--		if (srv->service_id == sid && try_module_get(srv->owner)) {
--			/* found a match (made sure it won't vanish) */
--			_debug("found service '%s'", srv->name);
--			call->owner = srv->owner;
--			break;
--		}
--	}
--	spin_unlock(&trans->lock);
--
--	/* report the new connection
--	 * - the func must inc the call's usage count to keep it
--	 */
--	ret = -ENOENT;
--	if (_p != &trans->services) {
--		/* attempt to accept the call */
--		call->conn->service = srv;
--		call->app_attn_func = srv->attn_func;
--		call->app_error_func = srv->error_func;
--		call->app_aemap_func = srv->aemap_func;
--
--		ret = srv->new_call(call);
--
--		/* send an abort if an error occurred */
--		if (ret < 0) {
--			rxrpc_call_abort(call, ret);
--		}
--		else {
--			/* formally receive and ACK the new packet */
--			ret = rxrpc_conn_receive_call_packet(call->conn,
--							     call, msg);
--		}
--	}
--
--	rxrpc_put_call(call);
-- out:
--	if (ret < 0)
--		rxrpc_trans_immediate_abort(trans, msg, ret);
--
--	_leave(" (%d)", ret);
--} /* end rxrpc_krxsecd_process_incoming_call() */
-diff --git a/net/rxrpc/krxtimod.c b/net/rxrpc/krxtimod.c
-deleted file mode 100644
-index 9a9b613..0000000
---- a/net/rxrpc/krxtimod.c
-+++ /dev/null
-@@ -1,204 +0,0 @@
--/* krxtimod.c: RXRPC timeout daemon
-- *
-- * Copyright (C) 2002 Red Hat, Inc. All Rights Reserved.
-- * Written by David Howells (dhowells@redhat.com)
-- *
-- * This program is free software; you can redistribute it and/or
-- * modify it under the terms of the GNU General Public License
-- * as published by the Free Software Foundation; either version
-- * 2 of the License, or (at your option) any later version.
-- */
--
--#include <linux/module.h>
--#include <linux/init.h>
--#include <linux/sched.h>
--#include <linux/completion.h>
--#include <linux/freezer.h>
--#include <rxrpc/rxrpc.h>
--#include <rxrpc/krxtimod.h>
--#include <asm/errno.h>
--#include "internal.h"
--
--static DECLARE_COMPLETION(krxtimod_alive);
--static DECLARE_COMPLETION(krxtimod_dead);
--static DECLARE_WAIT_QUEUE_HEAD(krxtimod_sleepq);
--static int krxtimod_die;
--
--static LIST_HEAD(krxtimod_list);
--static DEFINE_SPINLOCK(krxtimod_lock);
--
--static int krxtimod(void *arg);
--
--/*****************************************************************************/
--/*
-- * start the timeout daemon
-- */
--int rxrpc_krxtimod_start(void)
--{
--	int ret;
--
--	ret = kernel_thread(krxtimod, NULL, 0);
--	if (ret < 0)
--		return ret;
--
--	wait_for_completion(&krxtimod_alive);
--
--	return ret;
--} /* end rxrpc_krxtimod_start() */
--
--/*****************************************************************************/
--/*
-- * stop the timeout daemon
-- */
--void rxrpc_krxtimod_kill(void)
--{
--	/* get rid of my daemon */
--	krxtimod_die = 1;
--	wake_up(&krxtimod_sleepq);
--	wait_for_completion(&krxtimod_dead);
--
--} /* end rxrpc_krxtimod_kill() */
--
--/*****************************************************************************/
--/*
-- * timeout processing daemon
-- */
--static int krxtimod(void *arg)
--{
--	DECLARE_WAITQUEUE(myself, current);
--
--	rxrpc_timer_t *timer;
--
--	printk("Started krxtimod %d\n", current->pid);
--
--	daemonize("krxtimod");
--
--	complete(&krxtimod_alive);
--
--	/* loop around looking for things to attend to */
-- loop:
--	set_current_state(TASK_INTERRUPTIBLE);
--	add_wait_queue(&krxtimod_sleepq, &myself);
--
--	for (;;) {
--		unsigned long jif;
--		long timeout;
--
--		/* deal with the server being asked to die */
--		if (krxtimod_die) {
--			remove_wait_queue(&krxtimod_sleepq, &myself);
--			_leave("");
--			complete_and_exit(&krxtimod_dead, 0);
--		}
--
--		try_to_freeze();
--
--		/* discard pending signals */
--		rxrpc_discard_my_signals();
--
--		/* work out the time to elapse before the next event */
--		spin_lock(&krxtimod_lock);
--		if (list_empty(&krxtimod_list)) {
--			timeout = MAX_SCHEDULE_TIMEOUT;
--		}
--		else {
--			timer = list_entry(krxtimod_list.next,
--					   rxrpc_timer_t, link);
--			timeout = timer->timo_jif;
--			jif = jiffies;
--
--			if (time_before_eq((unsigned long) timeout, jif))
--				goto immediate;
--
--			else {
--				timeout = (long) timeout - (long) jiffies;
--			}
--		}
--		spin_unlock(&krxtimod_lock);
--
--		schedule_timeout(timeout);
--
--		set_current_state(TASK_INTERRUPTIBLE);
--	}
--
--	/* the thing on the front of the queue needs processing
--	 * - we come here with the lock held and timer pointing to the expired
--	 *   entry
--	 */
-- immediate:
--	remove_wait_queue(&krxtimod_sleepq, &myself);
--	set_current_state(TASK_RUNNING);
--
--	_debug("@@@ Begin Timeout of %p", timer);
--
--	/* dequeue the timer */
--	list_del_init(&timer->link);
--	spin_unlock(&krxtimod_lock);
--
--	/* call the timeout function */
--	timer->ops->timed_out(timer);
--
--	_debug("@@@ End Timeout");
--	goto loop;
--
--} /* end krxtimod() */
--
--/*****************************************************************************/
--/*
-- * (re-)queue a timer
-- */
--void rxrpc_krxtimod_add_timer(rxrpc_timer_t *timer, unsigned long timeout)
--{
--	struct list_head *_p;
--	rxrpc_timer_t *ptimer;
--
--	_enter("%p,%lu", timer, timeout);
--
--	spin_lock(&krxtimod_lock);
--
--	list_del(&timer->link);
--
--	/* the timer was deferred or reset - put it back in the queue at the
--	 * right place */
--	timer->timo_jif = jiffies + timeout;
--
--	list_for_each(_p, &krxtimod_list) {
--		ptimer = list_entry(_p, rxrpc_timer_t, link);
--		if (time_before(timer->timo_jif, ptimer->timo_jif))
--			break;
--	}
--
--	list_add_tail(&timer->link, _p); /* insert before stopping point */
--
--	spin_unlock(&krxtimod_lock);
--
--	wake_up(&krxtimod_sleepq);
--
--	_leave("");
--} /* end rxrpc_krxtimod_add_timer() */
--
--/*****************************************************************************/
--/*
-- * dequeue a timer
-- * - returns 0 if the timer was deleted or -ENOENT if it wasn't queued
-- */
--int rxrpc_krxtimod_del_timer(rxrpc_timer_t *timer)
--{
--	int ret = 0;
--
--	_enter("%p", timer);
--
--	spin_lock(&krxtimod_lock);
--
--	if (list_empty(&timer->link))
--		ret = -ENOENT;
--	else
--		list_del_init(&timer->link);
--
--	spin_unlock(&krxtimod_lock);
--
--	wake_up(&krxtimod_sleepq);
--
--	_leave(" = %d", ret);
--	return ret;
--} /* end rxrpc_krxtimod_del_timer() */
-diff --git a/net/rxrpc/main.c b/net/rxrpc/main.c
-deleted file mode 100644
-index cead31b..0000000
---- a/net/rxrpc/main.c
-+++ /dev/null
-@@ -1,180 +0,0 @@
--/* main.c: Rx RPC interface
-- *
-- * Copyright (C) 2002 Red Hat, Inc. All Rights Reserved.
-- * Written by David Howells (dhowells@redhat.com)
-- *
-- * This program is free software; you can redistribute it and/or
-- * modify it under the terms of the GNU General Public License
-- * as published by the Free Software Foundation; either version
-- * 2 of the License, or (at your option) any later version.
-- */
--
--#include <linux/module.h>
--#include <linux/init.h>
--#include <linux/sched.h>
--#include <rxrpc/rxrpc.h>
--#include <rxrpc/krxiod.h>
--#include <rxrpc/krxsecd.h>
--#include <rxrpc/krxtimod.h>
--#include <rxrpc/transport.h>
--#include <rxrpc/connection.h>
--#include <rxrpc/call.h>
--#include <rxrpc/message.h>
--#include "internal.h"
--
--MODULE_DESCRIPTION("Rx RPC implementation");
--MODULE_AUTHOR("Red Hat, Inc.");
--MODULE_LICENSE("GPL");
--
--__be32 rxrpc_epoch;
--
--/*****************************************************************************/
--/*
-- * initialise the Rx module
-- */
--static int __init rxrpc_initialise(void)
--{
--	int ret;
--
--	/* my epoch value */
--	rxrpc_epoch = htonl(get_seconds());
--
--	/* register the /proc interface */
--#ifdef CONFIG_PROC_FS
--	ret = rxrpc_proc_init();
--	if (ret<0)
--		return ret;
--#endif
--
--	/* register the sysctl files */
--#ifdef CONFIG_SYSCTL
--	ret = rxrpc_sysctl_init();
--	if (ret<0)
--		goto error_proc;
--#endif
--
--	/* start the krxtimod daemon */
--	ret = rxrpc_krxtimod_start();
--	if (ret<0)
--		goto error_sysctl;
--
--	/* start the krxiod daemon */
--	ret = rxrpc_krxiod_init();
--	if (ret<0)
--		goto error_krxtimod;
--
--	/* start the krxsecd daemon */
--	ret = rxrpc_krxsecd_init();
--	if (ret<0)
--		goto error_krxiod;
--
--	kdebug("\n\n");
--
--	return 0;
--
-- error_krxiod:
--	rxrpc_krxiod_kill();
-- error_krxtimod:
--	rxrpc_krxtimod_kill();
-- error_sysctl:
--#ifdef CONFIG_SYSCTL
--	rxrpc_sysctl_cleanup();
-- error_proc:
--#endif
--#ifdef CONFIG_PROC_FS
--	rxrpc_proc_cleanup();
--#endif
--	return ret;
--} /* end rxrpc_initialise() */
--
--module_init(rxrpc_initialise);
--
--/*****************************************************************************/
--/*
-- * clean up the Rx module
-- */
--static void __exit rxrpc_cleanup(void)
--{
--	kenter("");
--
--	__RXACCT(printk("Outstanding Messages   : %d\n",
--			atomic_read(&rxrpc_message_count)));
--	__RXACCT(printk("Outstanding Calls      : %d\n",
--			atomic_read(&rxrpc_call_count)));
--	__RXACCT(printk("Outstanding Connections: %d\n",
--			atomic_read(&rxrpc_connection_count)));
--	__RXACCT(printk("Outstanding Peers      : %d\n",
--			atomic_read(&rxrpc_peer_count)));
--	__RXACCT(printk("Outstanding Transports : %d\n",
--			atomic_read(&rxrpc_transport_count)));
--
--	rxrpc_krxsecd_kill();
--	rxrpc_krxiod_kill();
--	rxrpc_krxtimod_kill();
--#ifdef CONFIG_SYSCTL
--	rxrpc_sysctl_cleanup();
--#endif
--#ifdef CONFIG_PROC_FS
--	rxrpc_proc_cleanup();
--#endif
--
--	__RXACCT(printk("Outstanding Messages   : %d\n",
--			atomic_read(&rxrpc_message_count)));
--	__RXACCT(printk("Outstanding Calls      : %d\n",
--			atomic_read(&rxrpc_call_count)));
--	__RXACCT(printk("Outstanding Connections: %d\n",
--			atomic_read(&rxrpc_connection_count)));
--	__RXACCT(printk("Outstanding Peers      : %d\n",
--			atomic_read(&rxrpc_peer_count)));
--	__RXACCT(printk("Outstanding Transports : %d\n",
--			atomic_read(&rxrpc_transport_count)));
--
--	kleave("");
--} /* end rxrpc_cleanup() */
--
--module_exit(rxrpc_cleanup);
--
--/*****************************************************************************/
--/*
-- * clear the dead space between task_struct and kernel stack
-- * - called by supplying -finstrument-functions to gcc
-- */
--#if 0
--void __cyg_profile_func_enter (void *this_fn, void *call_site)
--__attribute__((no_instrument_function));
--
--void __cyg_profile_func_enter (void *this_fn, void *call_site)
--{
--       asm volatile("  movl    %%esp,%%edi     \n"
--		    "  andl    %0,%%edi        \n"
--		    "  addl    %1,%%edi        \n"
--		    "  movl    %%esp,%%ecx     \n"
--		    "  subl    %%edi,%%ecx     \n"
--		    "  shrl    $2,%%ecx        \n"
--		    "  movl    $0xedededed,%%eax     \n"
--		    "  rep stosl               \n"
--		    :
--		    : "i"(~(THREAD_SIZE-1)), "i"(sizeof(struct thread_info))
--		    : "eax", "ecx", "edi", "memory", "cc"
--		    );
--}
--
--void __cyg_profile_func_exit(void *this_fn, void *call_site)
--__attribute__((no_instrument_function));
--
--void __cyg_profile_func_exit(void *this_fn, void *call_site)
--{
--       asm volatile("  movl    %%esp,%%edi     \n"
--		    "  andl    %0,%%edi        \n"
--		    "  addl    %1,%%edi        \n"
--		    "  movl    %%esp,%%ecx     \n"
--		    "  subl    %%edi,%%ecx     \n"
--		    "  shrl    $2,%%ecx        \n"
--		    "  movl    $0xdadadada,%%eax     \n"
--		    "  rep stosl               \n"
--		    :
--		    : "i"(~(THREAD_SIZE-1)), "i"(sizeof(struct thread_info))
--		    : "eax", "ecx", "edi", "memory", "cc"
--		    );
--}
--#endif
-diff --git a/net/rxrpc/peer.c b/net/rxrpc/peer.c
-deleted file mode 100644
-index 8a27515..0000000
---- a/net/rxrpc/peer.c
-+++ /dev/null
-@@ -1,398 +0,0 @@
--/* peer.c: Rx RPC peer management
-- *
-- * Copyright (C) 2002 Red Hat, Inc. All Rights Reserved.
-- * Written by David Howells (dhowells@redhat.com)
-- *
-- * This program is free software; you can redistribute it and/or
-- * modify it under the terms of the GNU General Public License
-- * as published by the Free Software Foundation; either version
-- * 2 of the License, or (at your option) any later version.
-- */
--
--#include <linux/sched.h>
--#include <linux/slab.h>
--#include <linux/module.h>
--#include <rxrpc/rxrpc.h>
--#include <rxrpc/transport.h>
--#include <rxrpc/peer.h>
--#include <rxrpc/connection.h>
--#include <rxrpc/call.h>
--#include <rxrpc/message.h>
--#include <linux/udp.h>
--#include <linux/ip.h>
--#include <net/sock.h>
--#include <asm/uaccess.h>
--#include <asm/div64.h>
--#include "internal.h"
--
--__RXACCT_DECL(atomic_t rxrpc_peer_count);
--LIST_HEAD(rxrpc_peers);
--DECLARE_RWSEM(rxrpc_peers_sem);
--unsigned long rxrpc_peer_timeout = 12 * 60 * 60;
--
--static void rxrpc_peer_do_timeout(struct rxrpc_peer *peer);
--
--static void __rxrpc_peer_timeout(rxrpc_timer_t *timer)
--{
--	struct rxrpc_peer *peer =
--		list_entry(timer, struct rxrpc_peer, timeout);
--
--	_debug("Rx PEER TIMEOUT [%p{u=%d}]", peer, atomic_read(&peer->usage));
--
--	rxrpc_peer_do_timeout(peer);
--}
--
--static const struct rxrpc_timer_ops rxrpc_peer_timer_ops = {
--	.timed_out	= __rxrpc_peer_timeout,
--};
--
--/*****************************************************************************/
--/*
-- * create a peer record
-- */
--static int __rxrpc_create_peer(struct rxrpc_transport *trans, __be32 addr,
--			       struct rxrpc_peer **_peer)
--{
--	struct rxrpc_peer *peer;
--
--	_enter("%p,%08x", trans, ntohl(addr));
--
--	/* allocate and initialise a peer record */
--	peer = kzalloc(sizeof(struct rxrpc_peer), GFP_KERNEL);
--	if (!peer) {
--		_leave(" = -ENOMEM");
--		return -ENOMEM;
--	}
--
--	atomic_set(&peer->usage, 1);
--
--	INIT_LIST_HEAD(&peer->link);
--	INIT_LIST_HEAD(&peer->proc_link);
--	INIT_LIST_HEAD(&peer->conn_idlist);
--	INIT_LIST_HEAD(&peer->conn_active);
--	INIT_LIST_HEAD(&peer->conn_graveyard);
--	spin_lock_init(&peer->conn_gylock);
--	init_waitqueue_head(&peer->conn_gy_waitq);
--	rwlock_init(&peer->conn_idlock);
--	rwlock_init(&peer->conn_lock);
--	atomic_set(&peer->conn_count, 0);
--	spin_lock_init(&peer->lock);
--	rxrpc_timer_init(&peer->timeout, &rxrpc_peer_timer_ops);
--
--	peer->addr.s_addr = addr;
--
--	peer->trans = trans;
--	peer->ops = trans->peer_ops;
--
--	__RXACCT(atomic_inc(&rxrpc_peer_count));
--	*_peer = peer;
--	_leave(" = 0 (%p)", peer);
--
--	return 0;
--} /* end __rxrpc_create_peer() */
--
--/*****************************************************************************/
--/*
-- * find a peer record on the specified transport
-- * - returns (if successful) with peer record usage incremented
-- * - resurrects it from the graveyard if found there
-- */
--int rxrpc_peer_lookup(struct rxrpc_transport *trans, __be32 addr,
--		      struct rxrpc_peer **_peer)
--{
--	struct rxrpc_peer *peer, *candidate = NULL;
--	struct list_head *_p;
--	int ret;
--
--	_enter("%p{%hu},%08x", trans, trans->port, ntohl(addr));
--
--	/* [common case] search the transport's active list first */
--	read_lock(&trans->peer_lock);
--	list_for_each(_p, &trans->peer_active) {
--		peer = list_entry(_p, struct rxrpc_peer, link);
--		if (peer->addr.s_addr == addr)
--			goto found_active;
--	}
--	read_unlock(&trans->peer_lock);
--
--	/* [uncommon case] not active - create a candidate for a new record */
--	ret = __rxrpc_create_peer(trans, addr, &candidate);
--	if (ret < 0) {
--		_leave(" = %d", ret);
--		return ret;
--	}
--
--	/* search the active list again, just in case it appeared whilst we
--	 * were busy */
--	write_lock(&trans->peer_lock);
--	list_for_each(_p, &trans->peer_active) {
--		peer = list_entry(_p, struct rxrpc_peer, link);
--		if (peer->addr.s_addr == addr)
--			goto found_active_second_chance;
--	}
--
--	/* search the transport's graveyard list */
--	spin_lock(&trans->peer_gylock);
--	list_for_each(_p, &trans->peer_graveyard) {
--		peer = list_entry(_p, struct rxrpc_peer, link);
--		if (peer->addr.s_addr == addr)
--			goto found_in_graveyard;
--	}
--	spin_unlock(&trans->peer_gylock);
--
--	/* we can now add the new candidate to the list
--	 * - tell the application layer that this peer has been added
--	 */
--	rxrpc_get_transport(trans);
--	peer = candidate;
--	candidate = NULL;
--
--	if (peer->ops && peer->ops->adding) {
--		ret = peer->ops->adding(peer);
--		if (ret < 0) {
--			write_unlock(&trans->peer_lock);
--			__RXACCT(atomic_dec(&rxrpc_peer_count));
--			kfree(peer);
--			rxrpc_put_transport(trans);
--			_leave(" = %d", ret);
--			return ret;
--		}
--	}
--
--	atomic_inc(&trans->peer_count);
--
-- make_active:
--	list_add_tail(&peer->link, &trans->peer_active);
--
-- success_uwfree:
--	write_unlock(&trans->peer_lock);
--
--	if (candidate) {
--		__RXACCT(atomic_dec(&rxrpc_peer_count));
--		kfree(candidate);
--	}
--
--	if (list_empty(&peer->proc_link)) {
--		down_write(&rxrpc_peers_sem);
--		list_add_tail(&peer->proc_link, &rxrpc_peers);
--		up_write(&rxrpc_peers_sem);
--	}
--
-- success:
--	*_peer = peer;
--
--	_leave(" = 0 (%p{u=%d cc=%d})",
--	       peer,
--	       atomic_read(&peer->usage),
--	       atomic_read(&peer->conn_count));
--	return 0;
--
--	/* handle the peer being found in the active list straight off */
-- found_active:
--	rxrpc_get_peer(peer);
--	read_unlock(&trans->peer_lock);
--	goto success;
--
--	/* handle resurrecting a peer from the graveyard */
-- found_in_graveyard:
--	rxrpc_get_peer(peer);
--	rxrpc_get_transport(peer->trans);
--	rxrpc_krxtimod_del_timer(&peer->timeout);
--	list_del_init(&peer->link);
--	spin_unlock(&trans->peer_gylock);
--	goto make_active;
--
--	/* handle finding the peer on the second time through the active
--	 * list */
-- found_active_second_chance:
--	rxrpc_get_peer(peer);
--	goto success_uwfree;
--
--} /* end rxrpc_peer_lookup() */
--
--/*****************************************************************************/
--/*
-- * finish with a peer record
-- * - it gets sent to the graveyard from where it can be resurrected or timed
-- *   out
-- */
--void rxrpc_put_peer(struct rxrpc_peer *peer)
--{
--	struct rxrpc_transport *trans = peer->trans;
--
--	_enter("%p{cc=%d a=%08x}",
--	       peer,
--	       atomic_read(&peer->conn_count),
--	       ntohl(peer->addr.s_addr));
--
--	/* sanity check */
--	if (atomic_read(&peer->usage) <= 0)
--		BUG();
--
--	write_lock(&trans->peer_lock);
--	spin_lock(&trans->peer_gylock);
--	if (likely(!atomic_dec_and_test(&peer->usage))) {
--		spin_unlock(&trans->peer_gylock);
--		write_unlock(&trans->peer_lock);
--		_leave("");
--		return;
--	}
--
--	/* move to graveyard queue */
--	list_del(&peer->link);
--	write_unlock(&trans->peer_lock);
--
--	list_add_tail(&peer->link, &trans->peer_graveyard);
--
--	BUG_ON(!list_empty(&peer->conn_active));
--
--	rxrpc_krxtimod_add_timer(&peer->timeout, rxrpc_peer_timeout * HZ);
--
--	spin_unlock(&trans->peer_gylock);
--
--	rxrpc_put_transport(trans);
--
--	_leave(" [killed]");
--} /* end rxrpc_put_peer() */
--
--/*****************************************************************************/
--/*
-- * handle a peer timing out in the graveyard
-- * - called from krxtimod
-- */
--static void rxrpc_peer_do_timeout(struct rxrpc_peer *peer)
--{
--	struct rxrpc_transport *trans = peer->trans;
--
--	_enter("%p{u=%d cc=%d a=%08x}",
--	       peer,
--	       atomic_read(&peer->usage),
--	       atomic_read(&peer->conn_count),
--	       ntohl(peer->addr.s_addr));
--
--	BUG_ON(atomic_read(&peer->usage) < 0);
--
--	/* remove from graveyard if still dead */
--	spin_lock(&trans->peer_gylock);
--	if (atomic_read(&peer->usage) == 0)
--		list_del_init(&peer->link);
--	else
--		peer = NULL;
--	spin_unlock(&trans->peer_gylock);
--
--	if (!peer) {
--		_leave("");
--		return; /* resurrected */
--	}
--
--	/* clear all connections on this peer */
--	rxrpc_conn_clearall(peer);
--
--	BUG_ON(!list_empty(&peer->conn_active));
--	BUG_ON(!list_empty(&peer->conn_graveyard));
--
--	/* inform the application layer */
--	if (peer->ops && peer->ops->discarding)
--		peer->ops->discarding(peer);
--
--	if (!list_empty(&peer->proc_link)) {
--		down_write(&rxrpc_peers_sem);
--		list_del(&peer->proc_link);
--		up_write(&rxrpc_peers_sem);
--	}
--
--	__RXACCT(atomic_dec(&rxrpc_peer_count));
--	kfree(peer);
--
--	/* if the graveyard is now empty, wake up anyone waiting for that */
--	if (atomic_dec_and_test(&trans->peer_count))
--		wake_up(&trans->peer_gy_waitq);
--
--	_leave(" [destroyed]");
--} /* end rxrpc_peer_do_timeout() */
--
--/*****************************************************************************/
--/*
-- * clear all peer records from a transport endpoint
-- */
--void rxrpc_peer_clearall(struct rxrpc_transport *trans)
--{
--	DECLARE_WAITQUEUE(myself,current);
--
--	struct rxrpc_peer *peer;
--	int err;
--
--	_enter("%p",trans);
--
--	/* there shouldn't be any active peers remaining */
--	BUG_ON(!list_empty(&trans->peer_active));
--
--	/* manually timeout all peers in the graveyard */
--	spin_lock(&trans->peer_gylock);
--	while (!list_empty(&trans->peer_graveyard)) {
--		peer = list_entry(trans->peer_graveyard.next,
--				  struct rxrpc_peer, link);
--		_debug("Clearing peer %p\n", peer);
--		err = rxrpc_krxtimod_del_timer(&peer->timeout);
--		spin_unlock(&trans->peer_gylock);
--
--		if (err == 0)
--			rxrpc_peer_do_timeout(peer);
--
--		spin_lock(&trans->peer_gylock);
--	}
--	spin_unlock(&trans->peer_gylock);
--
--	/* wait for the the peer graveyard to be completely cleared */
--	set_current_state(TASK_UNINTERRUPTIBLE);
--	add_wait_queue(&trans->peer_gy_waitq, &myself);
--
--	while (atomic_read(&trans->peer_count) != 0) {
--		schedule();
--		set_current_state(TASK_UNINTERRUPTIBLE);
--	}
--
--	remove_wait_queue(&trans->peer_gy_waitq, &myself);
--	set_current_state(TASK_RUNNING);
--
--	_leave("");
--} /* end rxrpc_peer_clearall() */
--
--/*****************************************************************************/
--/*
-- * calculate and cache the Round-Trip-Time for a message and its response
-- */
--void rxrpc_peer_calculate_rtt(struct rxrpc_peer *peer,
--			      struct rxrpc_message *msg,
--			      struct rxrpc_message *resp)
--{
--	unsigned long long rtt;
--	int loop;
--
--	_enter("%p,%p,%p", peer, msg, resp);
--
--	/* calculate the latest RTT */
--	rtt = resp->stamp.tv_sec - msg->stamp.tv_sec;
--	rtt *= 1000000UL;
--	rtt += resp->stamp.tv_usec - msg->stamp.tv_usec;
--
--	/* add to cache */
--	peer->rtt_cache[peer->rtt_point] = rtt;
--	peer->rtt_point++;
--	peer->rtt_point %= RXRPC_RTT_CACHE_SIZE;
--
--	if (peer->rtt_usage < RXRPC_RTT_CACHE_SIZE)
--		peer->rtt_usage++;
--
--	/* recalculate RTT */
--	rtt = 0;
--	for (loop = peer->rtt_usage - 1; loop >= 0; loop--)
--		rtt += peer->rtt_cache[loop];
--
--	do_div(rtt, peer->rtt_usage);
--	peer->rtt = rtt;
--
--	_leave(" RTT=%lu.%lums",
--	       (long) (peer->rtt / 1000), (long) (peer->rtt % 1000));
--
--} /* end rxrpc_peer_calculate_rtt() */
-diff --git a/net/rxrpc/proc.c b/net/rxrpc/proc.c
-deleted file mode 100644
-index 8551c87..0000000
---- a/net/rxrpc/proc.c
-+++ /dev/null
-@@ -1,617 +0,0 @@
--/* proc.c: /proc interface for RxRPC
-- *
-- * Copyright (C) 2002 Red Hat, Inc. All Rights Reserved.
-- * Written by David Howells (dhowells@redhat.com)
-- *
-- * This program is free software; you can redistribute it and/or
-- * modify it under the terms of the GNU General Public License
-- * as published by the Free Software Foundation; either version
-- * 2 of the License, or (at your option) any later version.
-- */
--
--#include <linux/sched.h>
--#include <linux/slab.h>
--#include <linux/module.h>
--#include <linux/proc_fs.h>
--#include <linux/seq_file.h>
--#include <rxrpc/rxrpc.h>
--#include <rxrpc/transport.h>
--#include <rxrpc/peer.h>
--#include <rxrpc/connection.h>
--#include <rxrpc/call.h>
--#include <rxrpc/message.h>
--#include "internal.h"
--
--static struct proc_dir_entry *proc_rxrpc;
--
--static int rxrpc_proc_transports_open(struct inode *inode, struct file *file);
--static void *rxrpc_proc_transports_start(struct seq_file *p, loff_t *pos);
--static void *rxrpc_proc_transports_next(struct seq_file *p, void *v, loff_t *pos);
--static void rxrpc_proc_transports_stop(struct seq_file *p, void *v);
--static int rxrpc_proc_transports_show(struct seq_file *m, void *v);
--
--static struct seq_operations rxrpc_proc_transports_ops = {
--	.start	= rxrpc_proc_transports_start,
--	.next	= rxrpc_proc_transports_next,
--	.stop	= rxrpc_proc_transports_stop,
--	.show	= rxrpc_proc_transports_show,
--};
--
--static const struct file_operations rxrpc_proc_transports_fops = {
--	.open		= rxrpc_proc_transports_open,
--	.read		= seq_read,
--	.llseek		= seq_lseek,
--	.release	= seq_release,
--};
--
--static int rxrpc_proc_peers_open(struct inode *inode, struct file *file);
--static void *rxrpc_proc_peers_start(struct seq_file *p, loff_t *pos);
--static void *rxrpc_proc_peers_next(struct seq_file *p, void *v, loff_t *pos);
--static void rxrpc_proc_peers_stop(struct seq_file *p, void *v);
--static int rxrpc_proc_peers_show(struct seq_file *m, void *v);
--
--static struct seq_operations rxrpc_proc_peers_ops = {
--	.start	= rxrpc_proc_peers_start,
--	.next	= rxrpc_proc_peers_next,
--	.stop	= rxrpc_proc_peers_stop,
--	.show	= rxrpc_proc_peers_show,
--};
--
--static const struct file_operations rxrpc_proc_peers_fops = {
--	.open		= rxrpc_proc_peers_open,
--	.read		= seq_read,
--	.llseek		= seq_lseek,
--	.release	= seq_release,
--};
--
--static int rxrpc_proc_conns_open(struct inode *inode, struct file *file);
--static void *rxrpc_proc_conns_start(struct seq_file *p, loff_t *pos);
--static void *rxrpc_proc_conns_next(struct seq_file *p, void *v, loff_t *pos);
--static void rxrpc_proc_conns_stop(struct seq_file *p, void *v);
--static int rxrpc_proc_conns_show(struct seq_file *m, void *v);
--
--static struct seq_operations rxrpc_proc_conns_ops = {
--	.start	= rxrpc_proc_conns_start,
--	.next	= rxrpc_proc_conns_next,
--	.stop	= rxrpc_proc_conns_stop,
--	.show	= rxrpc_proc_conns_show,
--};
--
--static const struct file_operations rxrpc_proc_conns_fops = {
--	.open		= rxrpc_proc_conns_open,
--	.read		= seq_read,
--	.llseek		= seq_lseek,
--	.release	= seq_release,
--};
--
--static int rxrpc_proc_calls_open(struct inode *inode, struct file *file);
--static void *rxrpc_proc_calls_start(struct seq_file *p, loff_t *pos);
--static void *rxrpc_proc_calls_next(struct seq_file *p, void *v, loff_t *pos);
--static void rxrpc_proc_calls_stop(struct seq_file *p, void *v);
--static int rxrpc_proc_calls_show(struct seq_file *m, void *v);
--
--static struct seq_operations rxrpc_proc_calls_ops = {
--	.start	= rxrpc_proc_calls_start,
--	.next	= rxrpc_proc_calls_next,
--	.stop	= rxrpc_proc_calls_stop,
--	.show	= rxrpc_proc_calls_show,
--};
--
--static const struct file_operations rxrpc_proc_calls_fops = {
--	.open		= rxrpc_proc_calls_open,
--	.read		= seq_read,
--	.llseek		= seq_lseek,
--	.release	= seq_release,
--};
--
--static const char *rxrpc_call_states7[] = {
--	"complet",
--	"error  ",
--	"rcv_op ",
--	"rcv_arg",
--	"got_arg",
--	"snd_rpl",
--	"fin_ack",
--	"snd_arg",
--	"rcv_rpl",
--	"got_rpl"
--};
--
--static const char *rxrpc_call_error_states7[] = {
--	"no_err ",
--	"loc_abt",
--	"rmt_abt",
--	"loc_err",
--	"rmt_err"
--};
--
--/*****************************************************************************/
--/*
-- * initialise the /proc/net/rxrpc/ directory
-- */
--int rxrpc_proc_init(void)
--{
--	struct proc_dir_entry *p;
--
--	proc_rxrpc = proc_mkdir("rxrpc", proc_net);
--	if (!proc_rxrpc)
--		goto error;
--	proc_rxrpc->owner = THIS_MODULE;
--
--	p = create_proc_entry("calls", 0, proc_rxrpc);
--	if (!p)
--		goto error_proc;
--	p->proc_fops = &rxrpc_proc_calls_fops;
--	p->owner = THIS_MODULE;
--
--	p = create_proc_entry("connections", 0, proc_rxrpc);
--	if (!p)
--		goto error_calls;
--	p->proc_fops = &rxrpc_proc_conns_fops;
--	p->owner = THIS_MODULE;
--
--	p = create_proc_entry("peers", 0, proc_rxrpc);
--	if (!p)
--		goto error_calls;
--	p->proc_fops = &rxrpc_proc_peers_fops;
--	p->owner = THIS_MODULE;
--
--	p = create_proc_entry("transports", 0, proc_rxrpc);
--	if (!p)
--		goto error_conns;
--	p->proc_fops = &rxrpc_proc_transports_fops;
--	p->owner = THIS_MODULE;
--
--	return 0;
--
-- error_conns:
--	remove_proc_entry("connections", proc_rxrpc);
-- error_calls:
--	remove_proc_entry("calls", proc_rxrpc);
-- error_proc:
--	remove_proc_entry("rxrpc", proc_net);
-- error:
--	return -ENOMEM;
--} /* end rxrpc_proc_init() */
--
--/*****************************************************************************/
--/*
-- * clean up the /proc/net/rxrpc/ directory
-- */
--void rxrpc_proc_cleanup(void)
--{
--	remove_proc_entry("transports", proc_rxrpc);
--	remove_proc_entry("peers", proc_rxrpc);
--	remove_proc_entry("connections", proc_rxrpc);
--	remove_proc_entry("calls", proc_rxrpc);
--
--	remove_proc_entry("rxrpc", proc_net);
--
--} /* end rxrpc_proc_cleanup() */
--
--/*****************************************************************************/
--/*
-- * open "/proc/net/rxrpc/transports" which provides a summary of extant transports
-- */
--static int rxrpc_proc_transports_open(struct inode *inode, struct file *file)
--{
--	struct seq_file *m;
--	int ret;
--
--	ret = seq_open(file, &rxrpc_proc_transports_ops);
--	if (ret < 0)
--		return ret;
--
--	m = file->private_data;
--	m->private = PDE(inode)->data;
--
--	return 0;
--} /* end rxrpc_proc_transports_open() */
--
--/*****************************************************************************/
--/*
-- * set up the iterator to start reading from the transports list and return the first item
-- */
--static void *rxrpc_proc_transports_start(struct seq_file *m, loff_t *_pos)
--{
--	struct list_head *_p;
--	loff_t pos = *_pos;
--
--	/* lock the list against modification */
--	down_read(&rxrpc_proc_transports_sem);
--
--	/* allow for the header line */
--	if (!pos)
--		return SEQ_START_TOKEN;
--	pos--;
--
--	/* find the n'th element in the list */
--	list_for_each(_p, &rxrpc_proc_transports)
--		if (!pos--)
--			break;
--
--	return _p != &rxrpc_proc_transports ? _p : NULL;
--} /* end rxrpc_proc_transports_start() */
--
--/*****************************************************************************/
--/*
-- * move to next call in transports list
-- */
--static void *rxrpc_proc_transports_next(struct seq_file *p, void *v, loff_t *pos)
--{
--	struct list_head *_p;
--
--	(*pos)++;
--
--	_p = v;
--	_p = (v == SEQ_START_TOKEN) ? rxrpc_proc_transports.next : _p->next;
--
--	return _p != &rxrpc_proc_transports ? _p : NULL;
--} /* end rxrpc_proc_transports_next() */
--
--/*****************************************************************************/
--/*
-- * clean up after reading from the transports list
-- */
--static void rxrpc_proc_transports_stop(struct seq_file *p, void *v)
--{
--	up_read(&rxrpc_proc_transports_sem);
--
--} /* end rxrpc_proc_transports_stop() */
--
--/*****************************************************************************/
--/*
-- * display a header line followed by a load of call lines
-- */
--static int rxrpc_proc_transports_show(struct seq_file *m, void *v)
--{
--	struct rxrpc_transport *trans =
--		list_entry(v, struct rxrpc_transport, proc_link);
--
--	/* display header on line 1 */
--	if (v == SEQ_START_TOKEN) {
--		seq_puts(m, "LOCAL USE\n");
--		return 0;
--	}
--
--	/* display one transport per line on subsequent lines */
--	seq_printf(m, "%5hu %3d\n",
--		   trans->port,
--		   atomic_read(&trans->usage)
--		   );
--
--	return 0;
--} /* end rxrpc_proc_transports_show() */
--
--/*****************************************************************************/
--/*
-- * open "/proc/net/rxrpc/peers" which provides a summary of extant peers
-- */
--static int rxrpc_proc_peers_open(struct inode *inode, struct file *file)
--{
--	struct seq_file *m;
--	int ret;
--
--	ret = seq_open(file, &rxrpc_proc_peers_ops);
--	if (ret < 0)
--		return ret;
--
--	m = file->private_data;
--	m->private = PDE(inode)->data;
--
--	return 0;
--} /* end rxrpc_proc_peers_open() */
--
--/*****************************************************************************/
--/*
-- * set up the iterator to start reading from the peers list and return the
-- * first item
-- */
--static void *rxrpc_proc_peers_start(struct seq_file *m, loff_t *_pos)
--{
--	struct list_head *_p;
--	loff_t pos = *_pos;
--
--	/* lock the list against modification */
--	down_read(&rxrpc_peers_sem);
--
--	/* allow for the header line */
--	if (!pos)
--		return SEQ_START_TOKEN;
--	pos--;
--
--	/* find the n'th element in the list */
--	list_for_each(_p, &rxrpc_peers)
--		if (!pos--)
--			break;
--
--	return _p != &rxrpc_peers ? _p : NULL;
--} /* end rxrpc_proc_peers_start() */
--
--/*****************************************************************************/
--/*
-- * move to next conn in peers list
-- */
--static void *rxrpc_proc_peers_next(struct seq_file *p, void *v, loff_t *pos)
--{
--	struct list_head *_p;
--
--	(*pos)++;
--
--	_p = v;
--	_p = (v == SEQ_START_TOKEN) ? rxrpc_peers.next : _p->next;
--
--	return _p != &rxrpc_peers ? _p : NULL;
--} /* end rxrpc_proc_peers_next() */
--
--/*****************************************************************************/
--/*
-- * clean up after reading from the peers list
-- */
--static void rxrpc_proc_peers_stop(struct seq_file *p, void *v)
--{
--	up_read(&rxrpc_peers_sem);
--
--} /* end rxrpc_proc_peers_stop() */
--
--/*****************************************************************************/
--/*
-- * display a header line followed by a load of conn lines
-- */
--static int rxrpc_proc_peers_show(struct seq_file *m, void *v)
--{
--	struct rxrpc_peer *peer = list_entry(v, struct rxrpc_peer, proc_link);
--	long timeout;
--
--	/* display header on line 1 */
--	if (v == SEQ_START_TOKEN) {
--		seq_puts(m, "LOCAL REMOTE   USAGE CONNS  TIMEOUT"
--			 "   MTU RTT(uS)\n");
--		return 0;
--	}
--
--	/* display one peer per line on subsequent lines */
--	timeout = 0;
--	if (!list_empty(&peer->timeout.link))
--		timeout = (long) peer->timeout.timo_jif -
--			(long) jiffies;
--
--	seq_printf(m, "%5hu %08x %5d %5d %8ld %5Zu %7lu\n",
--		   peer->trans->port,
--		   ntohl(peer->addr.s_addr),
--		   atomic_read(&peer->usage),
--		   atomic_read(&peer->conn_count),
--		   timeout,
--		   peer->if_mtu,
--		   (long) peer->rtt
--		   );
--
--	return 0;
--} /* end rxrpc_proc_peers_show() */
--
--/*****************************************************************************/
--/*
-- * open "/proc/net/rxrpc/connections" which provides a summary of extant
-- * connections
-- */
--static int rxrpc_proc_conns_open(struct inode *inode, struct file *file)
--{
--	struct seq_file *m;
--	int ret;
--
--	ret = seq_open(file, &rxrpc_proc_conns_ops);
--	if (ret < 0)
--		return ret;
--
--	m = file->private_data;
--	m->private = PDE(inode)->data;
--
--	return 0;
--} /* end rxrpc_proc_conns_open() */
--
--/*****************************************************************************/
--/*
-- * set up the iterator to start reading from the conns list and return the
-- * first item
-- */
--static void *rxrpc_proc_conns_start(struct seq_file *m, loff_t *_pos)
--{
--	struct list_head *_p;
--	loff_t pos = *_pos;
--
--	/* lock the list against modification */
--	down_read(&rxrpc_conns_sem);
--
--	/* allow for the header line */
--	if (!pos)
--		return SEQ_START_TOKEN;
--	pos--;
--
--	/* find the n'th element in the list */
--	list_for_each(_p, &rxrpc_conns)
--		if (!pos--)
--			break;
--
--	return _p != &rxrpc_conns ? _p : NULL;
--} /* end rxrpc_proc_conns_start() */
--
--/*****************************************************************************/
--/*
-- * move to next conn in conns list
-- */
--static void *rxrpc_proc_conns_next(struct seq_file *p, void *v, loff_t *pos)
--{
--	struct list_head *_p;
--
--	(*pos)++;
--
--	_p = v;
--	_p = (v == SEQ_START_TOKEN) ? rxrpc_conns.next : _p->next;
--
--	return _p != &rxrpc_conns ? _p : NULL;
--} /* end rxrpc_proc_conns_next() */
--
--/*****************************************************************************/
--/*
-- * clean up after reading from the conns list
-- */
--static void rxrpc_proc_conns_stop(struct seq_file *p, void *v)
--{
--	up_read(&rxrpc_conns_sem);
--
--} /* end rxrpc_proc_conns_stop() */
--
--/*****************************************************************************/
--/*
-- * display a header line followed by a load of conn lines
-- */
--static int rxrpc_proc_conns_show(struct seq_file *m, void *v)
--{
--	struct rxrpc_connection *conn;
--	long timeout;
--
--	conn = list_entry(v, struct rxrpc_connection, proc_link);
--
--	/* display header on line 1 */
--	if (v == SEQ_START_TOKEN) {
--		seq_puts(m,
--			 "LOCAL REMOTE   RPORT SRVC CONN     END SERIALNO "
--			 "CALLNO     MTU  TIMEOUT"
--			 "\n");
--		return 0;
--	}
--
--	/* display one conn per line on subsequent lines */
--	timeout = 0;
--	if (!list_empty(&conn->timeout.link))
--		timeout = (long) conn->timeout.timo_jif -
--			(long) jiffies;
--
--	seq_printf(m,
--		   "%5hu %08x %5hu %04hx %08x %-3.3s %08x %08x %5Zu %8ld\n",
--		   conn->trans->port,
--		   ntohl(conn->addr.sin_addr.s_addr),
--		   ntohs(conn->addr.sin_port),
--		   ntohs(conn->service_id),
--		   ntohl(conn->conn_id),
--		   conn->out_clientflag ? "CLT" : "SRV",
--		   conn->serial_counter,
--		   conn->call_counter,
--		   conn->mtu_size,
--		   timeout
--		   );
--
--	return 0;
--} /* end rxrpc_proc_conns_show() */
--
--/*****************************************************************************/
--/*
-- * open "/proc/net/rxrpc/calls" which provides a summary of extant calls
-- */
--static int rxrpc_proc_calls_open(struct inode *inode, struct file *file)
--{
--	struct seq_file *m;
--	int ret;
--
--	ret = seq_open(file, &rxrpc_proc_calls_ops);
--	if (ret < 0)
--		return ret;
--
--	m = file->private_data;
--	m->private = PDE(inode)->data;
--
--	return 0;
--} /* end rxrpc_proc_calls_open() */
--
--/*****************************************************************************/
--/*
-- * set up the iterator to start reading from the calls list and return the
-- * first item
-- */
--static void *rxrpc_proc_calls_start(struct seq_file *m, loff_t *_pos)
--{
--	struct list_head *_p;
--	loff_t pos = *_pos;
--
--	/* lock the list against modification */
--	down_read(&rxrpc_calls_sem);
--
--	/* allow for the header line */
--	if (!pos)
--		return SEQ_START_TOKEN;
--	pos--;
--
--	/* find the n'th element in the list */
--	list_for_each(_p, &rxrpc_calls)
--		if (!pos--)
--			break;
--
--	return _p != &rxrpc_calls ? _p : NULL;
--} /* end rxrpc_proc_calls_start() */
--
--/*****************************************************************************/
--/*
-- * move to next call in calls list
-- */
--static void *rxrpc_proc_calls_next(struct seq_file *p, void *v, loff_t *pos)
--{
--	struct list_head *_p;
--
--	(*pos)++;
--
--	_p = v;
--	_p = (v == SEQ_START_TOKEN) ? rxrpc_calls.next : _p->next;
--
--	return _p != &rxrpc_calls ? _p : NULL;
--} /* end rxrpc_proc_calls_next() */
--
--/*****************************************************************************/
--/*
-- * clean up after reading from the calls list
-- */
--static void rxrpc_proc_calls_stop(struct seq_file *p, void *v)
--{
--	up_read(&rxrpc_calls_sem);
--
--} /* end rxrpc_proc_calls_stop() */
--
--/*****************************************************************************/
--/*
-- * display a header line followed by a load of call lines
-- */
--static int rxrpc_proc_calls_show(struct seq_file *m, void *v)
--{
--	struct rxrpc_call *call = list_entry(v, struct rxrpc_call, call_link);
--
--	/* display header on line 1 */
--	if (v == SEQ_START_TOKEN) {
--		seq_puts(m,
--			 "LOCAL REMOT SRVC CONN     CALL     DIR USE "
--			 " L STATE   OPCODE ABORT    ERRNO\n"
--			 );
--		return 0;
--	}
--
--	/* display one call per line on subsequent lines */
--	seq_printf(m,
--		   "%5hu %5hu %04hx %08x %08x %s %3u%c"
--		   " %c %-7.7s %6d %08x %5d\n",
--		   call->conn->trans->port,
--		   ntohs(call->conn->addr.sin_port),
--		   ntohs(call->conn->service_id),
--		   ntohl(call->conn->conn_id),
--		   ntohl(call->call_id),
--		   call->conn->service ? "SVC" : "CLT",
--		   atomic_read(&call->usage),
--		   waitqueue_active(&call->waitq) ? 'w' : ' ',
--		   call->app_last_rcv ? 'Y' : '-',
--		   (call->app_call_state!=RXRPC_CSTATE_ERROR ?
--		    rxrpc_call_states7[call->app_call_state] :
--		    rxrpc_call_error_states7[call->app_err_state]),
--		   call->app_opcode,
--		   call->app_abort_code,
--		   call->app_errno
--		   );
--
--	return 0;
--} /* end rxrpc_proc_calls_show() */
-diff --git a/net/rxrpc/rxrpc_syms.c b/net/rxrpc/rxrpc_syms.c
-deleted file mode 100644
-index 9896fd8..0000000
---- a/net/rxrpc/rxrpc_syms.c
-+++ /dev/null
-@@ -1,34 +0,0 @@
--/* rxrpc_syms.c: exported Rx RPC layer interface symbols
-- *
-- * Copyright (C) 2002 Red Hat, Inc. All Rights Reserved.
-- * Written by David Howells (dhowells@redhat.com)
-- *
-- * This program is free software; you can redistribute it and/or
-- * modify it under the terms of the GNU General Public License
-- * as published by the Free Software Foundation; either version
-- * 2 of the License, or (at your option) any later version.
-- */
--
--#include <linux/module.h>
--
--#include <rxrpc/transport.h>
--#include <rxrpc/connection.h>
--#include <rxrpc/call.h>
--#include <rxrpc/krxiod.h>
--
--/* call.c */
--EXPORT_SYMBOL(rxrpc_create_call);
--EXPORT_SYMBOL(rxrpc_put_call);
--EXPORT_SYMBOL(rxrpc_call_abort);
--EXPORT_SYMBOL(rxrpc_call_read_data);
--EXPORT_SYMBOL(rxrpc_call_write_data);
--
--/* connection.c */
--EXPORT_SYMBOL(rxrpc_create_connection);
--EXPORT_SYMBOL(rxrpc_put_connection);
--
--/* transport.c */
--EXPORT_SYMBOL(rxrpc_create_transport);
--EXPORT_SYMBOL(rxrpc_put_transport);
--EXPORT_SYMBOL(rxrpc_add_service);
--EXPORT_SYMBOL(rxrpc_del_service);
-diff --git a/net/rxrpc/sysctl.c b/net/rxrpc/sysctl.c
-deleted file mode 100644
-index 8842907..0000000
---- a/net/rxrpc/sysctl.c
-+++ /dev/null
-@@ -1,121 +0,0 @@
--/* sysctl.c: Rx RPC control
-- *
-- * Copyright (C) 2002 Red Hat, Inc. All Rights Reserved.
-- * Written by David Howells (dhowells@redhat.com)
-- *
-- * This program is free software; you can redistribute it and/or
-- * modify it under the terms of the GNU General Public License
-- * as published by the Free Software Foundation; either version
-- * 2 of the License, or (at your option) any later version.
-- */
--
--#include <linux/sched.h>
--#include <linux/slab.h>
--#include <linux/module.h>
--#include <linux/sysctl.h>
--#include <rxrpc/types.h>
--#include <rxrpc/rxrpc.h>
--#include <asm/errno.h>
--#include "internal.h"
--
--int rxrpc_ktrace;
--int rxrpc_kdebug;
--int rxrpc_kproto;
--int rxrpc_knet;
--
--#ifdef CONFIG_SYSCTL
--static struct ctl_table_header *rxrpc_sysctl = NULL;
--
--static ctl_table rxrpc_sysctl_table[] = {
--	{
--		.ctl_name	= 1,
--		.procname	= "kdebug",
--		.data		= &rxrpc_kdebug,
--		.maxlen		= sizeof(int),
--		.mode		= 0644,
--		.proc_handler	= &proc_dointvec
--	},
--	{
--		.ctl_name	= 2,
--		.procname	= "ktrace",
--		.data		= &rxrpc_ktrace,
--		.maxlen		= sizeof(int),
--		.mode		= 0644,
--		.proc_handler	= &proc_dointvec
--	},
--	{
--		.ctl_name	= 3,
--		.procname	= "kproto",
--		.data		= &rxrpc_kproto,
--		.maxlen		= sizeof(int),
--		.mode		= 0644,
--		.proc_handler	= &proc_dointvec
--	},
--	{
--		.ctl_name	= 4,
--		.procname	= "knet",
--		.data		= &rxrpc_knet,
--		.maxlen		= sizeof(int),
--		.mode		= 0644,
--		.proc_handler	= &proc_dointvec
--	},
--	{
--		.ctl_name	= 5,
--		.procname	= "peertimo",
--		.data		= &rxrpc_peer_timeout,
--		.maxlen		= sizeof(unsigned long),
--		.mode		= 0644,
--		.proc_handler	= &proc_doulongvec_minmax
--	},
--	{
--		.ctl_name	= 6,
--		.procname	= "conntimo",
--		.data		= &rxrpc_conn_timeout,
--		.maxlen		= sizeof(unsigned long),
--		.mode		= 0644,
--		.proc_handler	= &proc_doulongvec_minmax
--	},
--	{ .ctl_name = 0 }
--};
--
--static ctl_table rxrpc_dir_sysctl_table[] = {
--	{
--		.ctl_name	= 1,
--		.procname	= "rxrpc",
--		.maxlen		= 0,
--		.mode		= 0555,
--		.child		= rxrpc_sysctl_table
--	},
--	{ .ctl_name = 0 }
--};
--#endif /* CONFIG_SYSCTL */
--
--/*****************************************************************************/
--/*
-- * initialise the sysctl stuff for Rx RPC
-- */
--int rxrpc_sysctl_init(void)
--{
--#ifdef CONFIG_SYSCTL
--	rxrpc_sysctl = register_sysctl_table(rxrpc_dir_sysctl_table);
--	if (!rxrpc_sysctl)
--		return -ENOMEM;
--#endif /* CONFIG_SYSCTL */
--
--	return 0;
--} /* end rxrpc_sysctl_init() */
--
--/*****************************************************************************/
--/*
-- * clean up the sysctl stuff for Rx RPC
-- */
--void rxrpc_sysctl_cleanup(void)
--{
--#ifdef CONFIG_SYSCTL
--	if (rxrpc_sysctl) {
--		unregister_sysctl_table(rxrpc_sysctl);
--		rxrpc_sysctl = NULL;
--	}
--#endif /* CONFIG_SYSCTL */
--
--} /* end rxrpc_sysctl_cleanup() */
-diff --git a/net/rxrpc/transport.c b/net/rxrpc/transport.c
-deleted file mode 100644
-index 62398fd..0000000
---- a/net/rxrpc/transport.c
-+++ /dev/null
-@@ -1,846 +0,0 @@
--/* transport.c: Rx Transport routines
-- *
-- * Copyright (C) 2002 Red Hat, Inc. All Rights Reserved.
-- * Written by David Howells (dhowells@redhat.com)
-- *
-- * This program is free software; you can redistribute it and/or
-- * modify it under the terms of the GNU General Public License
-- * as published by the Free Software Foundation; either version
-- * 2 of the License, or (at your option) any later version.
-- */
--
--#include <linux/slab.h>
--#include <linux/module.h>
--#include <rxrpc/transport.h>
--#include <rxrpc/peer.h>
--#include <rxrpc/connection.h>
--#include <rxrpc/call.h>
--#include <rxrpc/message.h>
--#include <rxrpc/krxiod.h>
--#include <rxrpc/krxsecd.h>
--#include <linux/udp.h>
--#include <linux/in.h>
--#include <linux/in6.h>
--#include <linux/icmp.h>
--#include <linux/skbuff.h>
--#include <net/sock.h>
--#include <net/ip.h>
--#if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
--#include <linux/ipv6.h>	/* this should _really_ be in errqueue.h.. */
--#endif
--#include <linux/errqueue.h>
--#include <asm/uaccess.h>
--#include "internal.h"
--
--struct errormsg {
--	struct cmsghdr			cmsg;		/* control message header */
--	struct sock_extended_err	ee;		/* extended error information */
--	struct sockaddr_in		icmp_src;	/* ICMP packet source address */
--};
--
--static DEFINE_SPINLOCK(rxrpc_transports_lock);
--static struct list_head rxrpc_transports = LIST_HEAD_INIT(rxrpc_transports);
--
--__RXACCT_DECL(atomic_t rxrpc_transport_count);
--LIST_HEAD(rxrpc_proc_transports);
--DECLARE_RWSEM(rxrpc_proc_transports_sem);
--
--static void rxrpc_data_ready(struct sock *sk, int count);
--static void rxrpc_error_report(struct sock *sk);
--static int rxrpc_trans_receive_new_call(struct rxrpc_transport *trans,
--					struct list_head *msgq);
--static void rxrpc_trans_receive_error_report(struct rxrpc_transport *trans);
--
--/*****************************************************************************/
--/*
-- * create a new transport endpoint using the specified UDP port
-- */
--int rxrpc_create_transport(unsigned short port,
--			   struct rxrpc_transport **_trans)
--{
--	struct rxrpc_transport *trans;
--	struct sockaddr_in sin;
--	mm_segment_t oldfs;
--	struct sock *sock;
--	int ret, opt;
--
--	_enter("%hu", port);
--
--	trans = kzalloc(sizeof(struct rxrpc_transport), GFP_KERNEL);
--	if (!trans)
--		return -ENOMEM;
--
--	atomic_set(&trans->usage, 1);
--	INIT_LIST_HEAD(&trans->services);
--	INIT_LIST_HEAD(&trans->link);
--	INIT_LIST_HEAD(&trans->krxiodq_link);
--	spin_lock_init(&trans->lock);
--	INIT_LIST_HEAD(&trans->peer_active);
--	INIT_LIST_HEAD(&trans->peer_graveyard);
--	spin_lock_init(&trans->peer_gylock);
--	init_waitqueue_head(&trans->peer_gy_waitq);
--	rwlock_init(&trans->peer_lock);
--	atomic_set(&trans->peer_count, 0);
--	trans->port = port;
--
--	/* create a UDP socket to be my actual transport endpoint */
--	ret = sock_create_kern(PF_INET, SOCK_DGRAM, IPPROTO_UDP, &trans->socket);
--	if (ret < 0)
--		goto error;
--
--	/* use the specified port */
--	if (port) {
--		memset(&sin, 0, sizeof(sin));
--		sin.sin_family = AF_INET;
--		sin.sin_port = htons(port);
--		ret = trans->socket->ops->bind(trans->socket,
--					       (struct sockaddr *) &sin,
--					       sizeof(sin));
--		if (ret < 0)
--			goto error;
--	}
--
--	opt = 1;
--	oldfs = get_fs();
--	set_fs(KERNEL_DS);
--	ret = trans->socket->ops->setsockopt(trans->socket, SOL_IP, IP_RECVERR,
--					     (char *) &opt, sizeof(opt));
--	set_fs(oldfs);
--
--	spin_lock(&rxrpc_transports_lock);
--	list_add(&trans->link, &rxrpc_transports);
--	spin_unlock(&rxrpc_transports_lock);
--
--	/* set the socket up */
--	sock = trans->socket->sk;
--	sock->sk_user_data	= trans;
--	sock->sk_data_ready	= rxrpc_data_ready;
--	sock->sk_error_report	= rxrpc_error_report;
--
--	down_write(&rxrpc_proc_transports_sem);
--	list_add_tail(&trans->proc_link, &rxrpc_proc_transports);
--	up_write(&rxrpc_proc_transports_sem);
--
--	__RXACCT(atomic_inc(&rxrpc_transport_count));
--
--	*_trans = trans;
--	_leave(" = 0 (%p)", trans);
--	return 0;
--
-- error:
--	/* finish cleaning up the transport (not really needed here, but...) */
--	if (trans->socket)
--		trans->socket->ops->shutdown(trans->socket, 2);
--
--	/* close the socket */
--	if (trans->socket) {
--		trans->socket->sk->sk_user_data = NULL;
--		sock_release(trans->socket);
--		trans->socket = NULL;
--	}
--
--	kfree(trans);
--
--
--	_leave(" = %d", ret);
--	return ret;
--} /* end rxrpc_create_transport() */
--
--/*****************************************************************************/
--/*
-- * destroy a transport endpoint
-- */
--void rxrpc_put_transport(struct rxrpc_transport *trans)
--{
--	_enter("%p{u=%d p=%hu}",
--	       trans, atomic_read(&trans->usage), trans->port);
--
--	BUG_ON(atomic_read(&trans->usage) <= 0);
--
--	/* to prevent a race, the decrement and the dequeue must be
--	 * effectively atomic */
--	spin_lock(&rxrpc_transports_lock);
--	if (likely(!atomic_dec_and_test(&trans->usage))) {
--		spin_unlock(&rxrpc_transports_lock);
--		_leave("");
--		return;
--	}
--
--	list_del(&trans->link);
--	spin_unlock(&rxrpc_transports_lock);
--
--	/* finish cleaning up the transport */
--	if (trans->socket)
--		trans->socket->ops->shutdown(trans->socket, 2);
--
--	rxrpc_krxsecd_clear_transport(trans);
--	rxrpc_krxiod_dequeue_transport(trans);
--
--	/* discard all peer information */
--	rxrpc_peer_clearall(trans);
--
--	down_write(&rxrpc_proc_transports_sem);
--	list_del(&trans->proc_link);
--	up_write(&rxrpc_proc_transports_sem);
--	__RXACCT(atomic_dec(&rxrpc_transport_count));
--
--	/* close the socket */
--	if (trans->socket) {
--		trans->socket->sk->sk_user_data = NULL;
--		sock_release(trans->socket);
--		trans->socket = NULL;
--	}
--
--	kfree(trans);
--
--	_leave("");
--} /* end rxrpc_put_transport() */
--
--/*****************************************************************************/
--/*
-- * add a service to a transport to be listened upon
-- */
--int rxrpc_add_service(struct rxrpc_transport *trans,
--		      struct rxrpc_service *newsrv)
--{
--	struct rxrpc_service *srv;
--	struct list_head *_p;
--	int ret = -EEXIST;
--
--	_enter("%p{%hu},%p{%hu}",
--	       trans, trans->port, newsrv, newsrv->service_id);
--
--	/* verify that the service ID is not already present */
--	spin_lock(&trans->lock);
--
--	list_for_each(_p, &trans->services) {
--		srv = list_entry(_p, struct rxrpc_service, link);
--		if (srv->service_id == newsrv->service_id)
--			goto out;
--	}
--
--	/* okay - add the transport to the list */
--	list_add_tail(&newsrv->link, &trans->services);
--	rxrpc_get_transport(trans);
--	ret = 0;
--
-- out:
--	spin_unlock(&trans->lock);
--
--	_leave("= %d", ret);
--	return ret;
--} /* end rxrpc_add_service() */
--
--/*****************************************************************************/
--/*
-- * remove a service from a transport
-- */
--void rxrpc_del_service(struct rxrpc_transport *trans, struct rxrpc_service *srv)
--{
--	_enter("%p{%hu},%p{%hu}", trans, trans->port, srv, srv->service_id);
--
--	spin_lock(&trans->lock);
--	list_del(&srv->link);
--	spin_unlock(&trans->lock);
--
--	rxrpc_put_transport(trans);
--
--	_leave("");
--} /* end rxrpc_del_service() */
--
--/*****************************************************************************/
--/*
-- * INET callback when data has been received on the socket.
-- */
--static void rxrpc_data_ready(struct sock *sk, int count)
--{
--	struct rxrpc_transport *trans;
--
--	_enter("%p{t=%p},%d", sk, sk->sk_user_data, count);
--
--	/* queue the transport for attention by krxiod */
--	trans = (struct rxrpc_transport *) sk->sk_user_data;
--	if (trans)
--		rxrpc_krxiod_queue_transport(trans);
--
--	/* wake up anyone waiting on the socket */
--	if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
--		wake_up_interruptible(sk->sk_sleep);
--
--	_leave("");
--} /* end rxrpc_data_ready() */
--
--/*****************************************************************************/
--/*
-- * INET callback when an ICMP error packet is received
-- * - sk->err is error (EHOSTUNREACH, EPROTO or EMSGSIZE)
-- */
--static void rxrpc_error_report(struct sock *sk)
--{
--	struct rxrpc_transport *trans;
--
--	_enter("%p{t=%p}", sk, sk->sk_user_data);
--
--	/* queue the transport for attention by krxiod */
--	trans = (struct rxrpc_transport *) sk->sk_user_data;
--	if (trans) {
--		trans->error_rcvd = 1;
--		rxrpc_krxiod_queue_transport(trans);
--	}
--
--	/* wake up anyone waiting on the socket */
--	if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
--		wake_up_interruptible(sk->sk_sleep);
--
--	_leave("");
--} /* end rxrpc_error_report() */
--
--/*****************************************************************************/
--/*
-- * split a message up, allocating message records and filling them in
-- * from the contents of a socket buffer
-- */
--static int rxrpc_incoming_msg(struct rxrpc_transport *trans,
--			      struct sk_buff *pkt,
--			      struct list_head *msgq)
--{
--	struct rxrpc_message *msg;
--	int ret;
--
--	_enter("");
--
--	msg = kzalloc(sizeof(struct rxrpc_message), GFP_KERNEL);
--	if (!msg) {
--		_leave(" = -ENOMEM");
--		return -ENOMEM;
--	}
--
--	atomic_set(&msg->usage, 1);
--	list_add_tail(&msg->link,msgq);
--
--	/* dig out the Rx routing parameters */
--	if (skb_copy_bits(pkt, sizeof(struct udphdr),
--			  &msg->hdr, sizeof(msg->hdr)) < 0) {
--		ret = -EBADMSG;
--		goto error;
--	}
--
--	msg->trans = trans;
--	msg->state = RXRPC_MSG_RECEIVED;
--	skb_get_timestamp(pkt, &msg->stamp);
--	if (msg->stamp.tv_sec == 0) {
--		do_gettimeofday(&msg->stamp);
--		if (pkt->sk)
--			sock_enable_timestamp(pkt->sk);
--	}
--	msg->seq = ntohl(msg->hdr.seq);
--
--	/* attach the packet */
--	skb_get(pkt);
--	msg->pkt = pkt;
--
--	msg->offset = sizeof(struct udphdr) + sizeof(struct rxrpc_header);
--	msg->dsize = msg->pkt->len - msg->offset;
--
--	_net("Rx Received packet from %s (%08x;%08x,%1x,%d,%s,%02x,%d,%d)",
--	     msg->hdr.flags & RXRPC_CLIENT_INITIATED ? "client" : "server",
--	     ntohl(msg->hdr.epoch),
--	     (ntohl(msg->hdr.cid) & RXRPC_CIDMASK) >> RXRPC_CIDSHIFT,
--	     ntohl(msg->hdr.cid) & RXRPC_CHANNELMASK,
--	     ntohl(msg->hdr.callNumber),
--	     rxrpc_pkts[msg->hdr.type],
--	     msg->hdr.flags,
--	     ntohs(msg->hdr.serviceId),
--	     msg->hdr.securityIndex);
--
--	__RXACCT(atomic_inc(&rxrpc_message_count));
--
--	/* split off jumbo packets */
--	while (msg->hdr.type == RXRPC_PACKET_TYPE_DATA &&
--	       msg->hdr.flags & RXRPC_JUMBO_PACKET
--	       ) {
--		struct rxrpc_jumbo_header jumbo;
--		struct rxrpc_message *jumbomsg = msg;
--
--		_debug("split jumbo packet");
--
--		/* quick sanity check */
--		ret = -EBADMSG;
--		if (msg->dsize <
--		    RXRPC_JUMBO_DATALEN + sizeof(struct rxrpc_jumbo_header))
--			goto error;
--		if (msg->hdr.flags & RXRPC_LAST_PACKET)
--			goto error;
--
--		/* dig out the secondary header */
--		if (skb_copy_bits(pkt, msg->offset + RXRPC_JUMBO_DATALEN,
--				  &jumbo, sizeof(jumbo)) < 0)
--			goto error;
--
--		/* allocate a new message record */
--		ret = -ENOMEM;
--		msg = kmemdup(jumbomsg, sizeof(struct rxrpc_message), GFP_KERNEL);
--		if (!msg)
--			goto error;
--
--		list_add_tail(&msg->link, msgq);
--
--		/* adjust the jumbo packet */
--		jumbomsg->dsize = RXRPC_JUMBO_DATALEN;
--
--		/* attach the packet here too */
--		skb_get(pkt);
--
--		/* adjust the parameters */
--		msg->seq++;
--		msg->hdr.seq = htonl(msg->seq);
--		msg->hdr.serial = htonl(ntohl(msg->hdr.serial) + 1);
--		msg->offset += RXRPC_JUMBO_DATALEN +
--			sizeof(struct rxrpc_jumbo_header);
--		msg->dsize -= RXRPC_JUMBO_DATALEN +
--			sizeof(struct rxrpc_jumbo_header);
--		msg->hdr.flags = jumbo.flags;
--		msg->hdr._rsvd = jumbo._rsvd;
--
--		_net("Rx Split jumbo packet from %s"
--		     " (%08x;%08x,%1x,%d,%s,%02x,%d,%d)",
--		     msg->hdr.flags & RXRPC_CLIENT_INITIATED ? "client" : "server",
--		     ntohl(msg->hdr.epoch),
--		     (ntohl(msg->hdr.cid) & RXRPC_CIDMASK) >> RXRPC_CIDSHIFT,
--		     ntohl(msg->hdr.cid) & RXRPC_CHANNELMASK,
--		     ntohl(msg->hdr.callNumber),
--		     rxrpc_pkts[msg->hdr.type],
--		     msg->hdr.flags,
--		     ntohs(msg->hdr.serviceId),
--		     msg->hdr.securityIndex);
--
--		__RXACCT(atomic_inc(&rxrpc_message_count));
--	}
--
--	_leave(" = 0 #%d", atomic_read(&rxrpc_message_count));
--	return 0;
--
-- error:
--	while (!list_empty(msgq)) {
--		msg = list_entry(msgq->next, struct rxrpc_message, link);
--		list_del_init(&msg->link);
--
--		rxrpc_put_message(msg);
--	}
--
--	_leave(" = %d", ret);
--	return ret;
--} /* end rxrpc_incoming_msg() */
--
--/*****************************************************************************/
--/*
-- * accept a new call
-- * - called from krxiod in process context
-- */
--void rxrpc_trans_receive_packet(struct rxrpc_transport *trans)
--{
--	struct rxrpc_message *msg;
--	struct rxrpc_peer *peer;
--	struct sk_buff *pkt;
--	int ret;
--	__be32 addr;
--	__be16 port;
--
--	LIST_HEAD(msgq);
--
--	_enter("%p{%d}", trans, trans->port);
--
--	for (;;) {
--		/* deal with outstanting errors first */
--		if (trans->error_rcvd)
--			rxrpc_trans_receive_error_report(trans);
--
--		/* attempt to receive a packet */
--		pkt = skb_recv_datagram(trans->socket->sk, 0, 1, &ret);
--		if (!pkt) {
--			if (ret == -EAGAIN) {
--				_leave(" EAGAIN");
--				return;
--			}
--
--			/* an icmp error may have occurred */
--			rxrpc_krxiod_queue_transport(trans);
--			_leave(" error %d\n", ret);
--			return;
--		}
--
--		/* we'll probably need to checksum it (didn't call
--		 * sock_recvmsg) */
--		if (skb_checksum_complete(pkt)) {
--			kfree_skb(pkt);
--			rxrpc_krxiod_queue_transport(trans);
--			_leave(" CSUM failed");
--			return;
--		}
--
--		addr = ip_hdr(pkt)->saddr;
--		port = udp_hdr(pkt)->source;
--
--		_net("Rx Received UDP packet from %08x:%04hu",
--		     ntohl(addr), ntohs(port));
--
--		/* unmarshall the Rx parameters and split jumbo packets */
--		ret = rxrpc_incoming_msg(trans, pkt, &msgq);
--		if (ret < 0) {
--			kfree_skb(pkt);
--			rxrpc_krxiod_queue_transport(trans);
--			_leave(" bad packet");
--			return;
--		}
--
--		BUG_ON(list_empty(&msgq));
--
--		msg = list_entry(msgq.next, struct rxrpc_message, link);
--
--		/* locate the record for the peer from which it
--		 * originated */
--		ret = rxrpc_peer_lookup(trans, addr, &peer);
--		if (ret < 0) {
--			kdebug("Rx No connections from that peer");
--			rxrpc_trans_immediate_abort(trans, msg, -EINVAL);
--			goto finished_msg;
--		}
--
--		/* try and find a matching connection */
--		ret = rxrpc_connection_lookup(peer, msg, &msg->conn);
--		if (ret < 0) {
--			kdebug("Rx Unknown Connection");
--			rxrpc_trans_immediate_abort(trans, msg, -EINVAL);
--			rxrpc_put_peer(peer);
--			goto finished_msg;
--		}
--		rxrpc_put_peer(peer);
--
--		/* deal with the first packet of a new call */
--		if (msg->hdr.flags & RXRPC_CLIENT_INITIATED &&
--		    msg->hdr.type == RXRPC_PACKET_TYPE_DATA &&
--		    ntohl(msg->hdr.seq) == 1
--		    ) {
--			_debug("Rx New server call");
--			rxrpc_trans_receive_new_call(trans, &msgq);
--			goto finished_msg;
--		}
--
--		/* deal with subsequent packet(s) of call */
--		_debug("Rx Call packet");
--		while (!list_empty(&msgq)) {
--			msg = list_entry(msgq.next, struct rxrpc_message, link);
--			list_del_init(&msg->link);
--
--			ret = rxrpc_conn_receive_call_packet(msg->conn, NULL, msg);
--			if (ret < 0) {
--				rxrpc_trans_immediate_abort(trans, msg, ret);
--				rxrpc_put_message(msg);
--				goto finished_msg;
--			}
--
--			rxrpc_put_message(msg);
--		}
--
--		goto finished_msg;
--
--		/* dispose of the packets */
--	finished_msg:
--		while (!list_empty(&msgq)) {
--			msg = list_entry(msgq.next, struct rxrpc_message, link);
--			list_del_init(&msg->link);
--
--			rxrpc_put_message(msg);
--		}
--		kfree_skb(pkt);
--	}
--
--	_leave("");
--
--} /* end rxrpc_trans_receive_packet() */
--
--/*****************************************************************************/
--/*
-- * accept a new call from a client trying to connect to one of my services
-- * - called in process context
-- */
--static int rxrpc_trans_receive_new_call(struct rxrpc_transport *trans,
--					struct list_head *msgq)
--{
--	struct rxrpc_message *msg;
--
--	_enter("");
--
--	/* only bother with the first packet */
--	msg = list_entry(msgq->next, struct rxrpc_message, link);
--	list_del_init(&msg->link);
--	rxrpc_krxsecd_queue_incoming_call(msg);
--	rxrpc_put_message(msg);
--
--	_leave(" = 0");
--
--	return 0;
--} /* end rxrpc_trans_receive_new_call() */
--
--/*****************************************************************************/
--/*
-- * perform an immediate abort without connection or call structures
-- */
--int rxrpc_trans_immediate_abort(struct rxrpc_transport *trans,
--				struct rxrpc_message *msg,
--				int error)
--{
--	struct rxrpc_header ahdr;
--	struct sockaddr_in sin;
--	struct msghdr msghdr;
--	struct kvec iov[2];
--	__be32 _error;
--	int len, ret;
--
--	_enter("%p,%p,%d", trans, msg, error);
--
--	/* don't abort an abort packet */
--	if (msg->hdr.type == RXRPC_PACKET_TYPE_ABORT) {
--		_leave(" = 0");
--		return 0;
--	}
--
--	_error = htonl(-error);
--
--	/* set up the message to be transmitted */
--	memcpy(&ahdr, &msg->hdr, sizeof(ahdr));
--	ahdr.epoch	= msg->hdr.epoch;
--	ahdr.serial	= htonl(1);
--	ahdr.seq	= 0;
--	ahdr.type	= RXRPC_PACKET_TYPE_ABORT;
--	ahdr.flags	= RXRPC_LAST_PACKET;
--	ahdr.flags	|= ~msg->hdr.flags & RXRPC_CLIENT_INITIATED;
--
--	iov[0].iov_len	= sizeof(ahdr);
--	iov[0].iov_base	= &ahdr;
--	iov[1].iov_len	= sizeof(_error);
--	iov[1].iov_base	= &_error;
--
--	len = sizeof(ahdr) + sizeof(_error);
--
--	memset(&sin,0,sizeof(sin));
--	sin.sin_family		= AF_INET;
--	sin.sin_port		= udp_hdr(msg->pkt)->source;
--	sin.sin_addr.s_addr	= ip_hdr(msg->pkt)->saddr;
--
--	msghdr.msg_name		= &sin;
--	msghdr.msg_namelen	= sizeof(sin);
--	msghdr.msg_control	= NULL;
--	msghdr.msg_controllen	= 0;
--	msghdr.msg_flags	= MSG_DONTWAIT;
--
--	_net("Sending message type %d of %d bytes to %08x:%d",
--	     ahdr.type,
--	     len,
--	     ntohl(sin.sin_addr.s_addr),
--	     ntohs(sin.sin_port));
--
--	/* send the message */
--	ret = kernel_sendmsg(trans->socket, &msghdr, iov, 2, len);
--
--	_leave(" = %d", ret);
--	return ret;
--} /* end rxrpc_trans_immediate_abort() */
--
--/*****************************************************************************/
--/*
-- * receive an ICMP error report and percolate it to all connections
-- * heading to the affected host or port
-- */
--static void rxrpc_trans_receive_error_report(struct rxrpc_transport *trans)
--{
--	struct rxrpc_connection *conn;
--	struct sockaddr_in sin;
--	struct rxrpc_peer *peer;
--	struct list_head connq, *_p;
--	struct errormsg emsg;
--	struct msghdr msg;
--	__be16 port;
--	int local, err;
--
--	_enter("%p", trans);
--
--	for (;;) {
--		trans->error_rcvd = 0;
--
--		/* try and receive an error message */
--		msg.msg_name	= &sin;
--		msg.msg_namelen	= sizeof(sin);
--		msg.msg_control	= &emsg;
--		msg.msg_controllen = sizeof(emsg);
--		msg.msg_flags	= 0;
--
--		err = kernel_recvmsg(trans->socket, &msg, NULL, 0, 0,
--				   MSG_ERRQUEUE | MSG_DONTWAIT | MSG_TRUNC);
--
--		if (err == -EAGAIN) {
--			_leave("");
--			return;
--		}
--
--		if (err < 0) {
--			printk("%s: unable to recv an error report: %d\n",
--			       __FUNCTION__, err);
--			_leave("");
--			return;
--		}
--
--		msg.msg_controllen = (char *) msg.msg_control - (char *) &emsg;
--
--		if (msg.msg_controllen < sizeof(emsg.cmsg) ||
--		    msg.msg_namelen < sizeof(sin)) {
--			printk("%s: short control message"
--			       " (nlen=%u clen=%Zu fl=%x)\n",
--			       __FUNCTION__,
--			       msg.msg_namelen,
--			       msg.msg_controllen,
--			       msg.msg_flags);
--			continue;
--		}
--
--		_net("Rx Received control message"
--		     " { len=%Zu level=%u type=%u }",
--		     emsg.cmsg.cmsg_len,
--		     emsg.cmsg.cmsg_level,
--		     emsg.cmsg.cmsg_type);
--
--		if (sin.sin_family != AF_INET) {
--			printk("Rx Ignoring error report with non-INET address"
--			       " (fam=%u)",
--			       sin.sin_family);
--			continue;
--		}
--
--		_net("Rx Received message pertaining to host addr=%x port=%hu",
--		     ntohl(sin.sin_addr.s_addr), ntohs(sin.sin_port));
--
--		if (emsg.cmsg.cmsg_level != SOL_IP ||
--		    emsg.cmsg.cmsg_type != IP_RECVERR) {
--			printk("Rx Ignoring unknown error report"
--			       " { level=%u type=%u }",
--			       emsg.cmsg.cmsg_level,
--			       emsg.cmsg.cmsg_type);
--			continue;
--		}
--
--		if (msg.msg_controllen < sizeof(emsg.cmsg) + sizeof(emsg.ee)) {
--			printk("%s: short error message (%Zu)\n",
--			       __FUNCTION__, msg.msg_controllen);
--			_leave("");
--			return;
--		}
--
--		port = sin.sin_port;
--
--		switch (emsg.ee.ee_origin) {
--		case SO_EE_ORIGIN_ICMP:
--			local = 0;
--			switch (emsg.ee.ee_type) {
--			case ICMP_DEST_UNREACH:
--				switch (emsg.ee.ee_code) {
--				case ICMP_NET_UNREACH:
--					_net("Rx Received ICMP Network Unreachable");
--					port = 0;
--					err = -ENETUNREACH;
--					break;
--				case ICMP_HOST_UNREACH:
--					_net("Rx Received ICMP Host Unreachable");
--					port = 0;
--					err = -EHOSTUNREACH;
--					break;
--				case ICMP_PORT_UNREACH:
--					_net("Rx Received ICMP Port Unreachable");
--					err = -ECONNREFUSED;
--					break;
--				case ICMP_NET_UNKNOWN:
--					_net("Rx Received ICMP Unknown Network");
--					port = 0;
--					err = -ENETUNREACH;
--					break;
--				case ICMP_HOST_UNKNOWN:
--					_net("Rx Received ICMP Unknown Host");
--					port = 0;
--					err = -EHOSTUNREACH;
--					break;
--				default:
--					_net("Rx Received ICMP DestUnreach { code=%u }",
--					     emsg.ee.ee_code);
--					err = emsg.ee.ee_errno;
--					break;
--				}
--				break;
--
--			case ICMP_TIME_EXCEEDED:
--				_net("Rx Received ICMP TTL Exceeded");
--				err = emsg.ee.ee_errno;
--				break;
--
--			default:
--				_proto("Rx Received ICMP error { type=%u code=%u }",
--				       emsg.ee.ee_type, emsg.ee.ee_code);
--				err = emsg.ee.ee_errno;
--				break;
--			}
--			break;
--
--		case SO_EE_ORIGIN_LOCAL:
--			_proto("Rx Received local error { error=%d }",
--			       emsg.ee.ee_errno);
--			local = 1;
--			err = emsg.ee.ee_errno;
--			break;
--
--		case SO_EE_ORIGIN_NONE:
--		case SO_EE_ORIGIN_ICMP6:
--		default:
--			_proto("Rx Received error report { orig=%u }",
--			       emsg.ee.ee_origin);
--			local = 0;
--			err = emsg.ee.ee_errno;
--			break;
--		}
--
--		/* find all the connections between this transport and the
--		 * affected destination */
--		INIT_LIST_HEAD(&connq);
--
--		if (rxrpc_peer_lookup(trans, sin.sin_addr.s_addr,
--				      &peer) == 0) {
--			read_lock(&peer->conn_lock);
--			list_for_each(_p, &peer->conn_active) {
--				conn = list_entry(_p, struct rxrpc_connection,
--						  link);
--				if (port && conn->addr.sin_port != port)
--					continue;
--				if (!list_empty(&conn->err_link))
--					continue;
--
--				rxrpc_get_connection(conn);
--				list_add_tail(&conn->err_link, &connq);
--			}
--			read_unlock(&peer->conn_lock);
--
--			/* service all those connections */
--			while (!list_empty(&connq)) {
--				conn = list_entry(connq.next,
--						  struct rxrpc_connection,
--						  err_link);
--				list_del(&conn->err_link);
--
--				rxrpc_conn_handle_error(conn, local, err);
--
--				rxrpc_put_connection(conn);
--			}
--
--			rxrpc_put_peer(peer);
--		}
--	}
--
--	_leave("");
--	return;
--} /* end rxrpc_trans_receive_error_report() */
++	ret = afs_get_client_UUID();
++	if (ret < 0)
++		return ret;
++
+ 	/* register the /proc stuff */
+ 	ret = afs_proc_init();
+ 	if (ret < 0)
+diff --git a/fs/afs/rxrpc.c b/fs/afs/rxrpc.c
+index e86c527..e7b0473 100644
+--- a/fs/afs/rxrpc.c
++++ b/fs/afs/rxrpc.c
+@@ -714,6 +714,45 @@ void afs_send_empty_reply(struct afs_call *call)
+ }
+ 
+ /*
++ * send a simple reply
++ */
++void afs_send_simple_reply(struct afs_call *call, const void *buf, size_t len)
++{
++	struct msghdr msg;
++	struct iovec iov[1];
++
++	_enter("");
++
++	iov[0].iov_base		= (void *) buf;
++	iov[0].iov_len		= len;
++	msg.msg_name		= NULL;
++	msg.msg_namelen		= 0;
++	msg.msg_iov		= iov;
++	msg.msg_iovlen		= 1;
++	msg.msg_control		= NULL;
++	msg.msg_controllen	= 0;
++	msg.msg_flags		= 0;
++
++	call->state = AFS_CALL_AWAIT_ACK;
++	switch (rxrpc_kernel_send_data(call->rxcall, &msg, len)) {
++	case 0:
++		_leave(" [replied]");
++		return;
++
++	case -ENOMEM:
++		_debug("oom");
++		rxrpc_kernel_abort_call(call->rxcall, RX_USER_ABORT);
++	default:
++		rxrpc_kernel_end_call(call->rxcall);
++		call->rxcall = NULL;
++		call->type->destructor(call);
++		afs_free_call(call);
++		_leave(" [error]");
++		return;
++	}
++}
++
++/*
+  * extract a piece of data from the received data socket buffers
+  */
+ int afs_extract_data(struct afs_call *call, struct sk_buff *skb,
+diff --git a/fs/afs/use-rtnetlink.c b/fs/afs/use-rtnetlink.c
+new file mode 100644
+index 0000000..82f0daa
+--- /dev/null
++++ b/fs/afs/use-rtnetlink.c
+@@ -0,0 +1,473 @@
++/* RTNETLINK client
++ *
++ * Copyright (C) 2007 Red Hat, Inc. All Rights Reserved.
++ * Written by David Howells (dhowells@redhat.com)
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version
++ * 2 of the License, or (at your option) any later version.
++ */
++#include <linux/netlink.h>
++#include <linux/rtnetlink.h>
++#include <linux/if_addr.h>
++#include <linux/if_arp.h>
++#include <linux/inetdevice.h>
++#include <net/netlink.h>
++#include "internal.h"
++
++struct afs_rtm_desc {
++	struct socket		*nlsock;
++	struct afs_interface	*bufs;
++	u8			*mac;
++	size_t			nbufs;
++	size_t			maxbufs;
++	void			*data;
++	ssize_t			datalen;
++	size_t			datamax;
++	int			msg_seq;
++	unsigned		mac_index;
++	bool			wantloopback;
++	int (*parse)(struct afs_rtm_desc *, struct nlmsghdr *);
++};
++
++/*
++ * parse an RTM_GETADDR response
++ */
++static int afs_rtm_getaddr_parse(struct afs_rtm_desc *desc,
++				 struct nlmsghdr *nlhdr)
++{
++	struct afs_interface *this;
++	struct ifaddrmsg *ifa;
++	struct rtattr *rtattr;
++	const char *name;
++	size_t len;
++
++	ifa = (struct ifaddrmsg *) NLMSG_DATA(nlhdr);
++
++	_enter("{ix=%d,af=%d}", ifa->ifa_index, ifa->ifa_family);
++
++	if (ifa->ifa_family != AF_INET) {
++		_leave(" = 0 [family %d]", ifa->ifa_family);
++		return 0;
++	}
++	if (desc->nbufs >= desc->maxbufs) {
++		_leave(" = 0 [max %zu/%zu]", desc->nbufs, desc->maxbufs);
++		return 0;
++	}
++
++	this = &desc->bufs[desc->nbufs];
++
++	this->index = ifa->ifa_index;
++	this->netmask.s_addr = inet_make_mask(ifa->ifa_prefixlen);
++	this->mtu = 0;
++
++	rtattr = NLMSG_DATA(nlhdr) + NLMSG_ALIGN(sizeof(struct ifaddrmsg));
++	len = NLMSG_PAYLOAD(nlhdr, sizeof(struct ifaddrmsg));
++
++	name = "unknown";
++	for (; RTA_OK(rtattr, len); rtattr = RTA_NEXT(rtattr, len)) {
++		switch (rtattr->rta_type) {
++		case IFA_ADDRESS:
++			memcpy(&this->address, RTA_DATA(rtattr), 4);
++			break;
++		case IFA_LABEL:
++			name = RTA_DATA(rtattr);
++			break;
++		}
++	}
++
++	_debug("%s: "NIPQUAD_FMT"/"NIPQUAD_FMT,
++	       name, NIPQUAD(this->address), NIPQUAD(this->netmask));
++
++	desc->nbufs++;
++	_leave(" = 0");
++	return 0;
++}
++
++/*
++ * parse an RTM_GETLINK response for MTUs
++ */
++static int afs_rtm_getlink_if_parse(struct afs_rtm_desc *desc,
++				    struct nlmsghdr *nlhdr)
++{
++	struct afs_interface *this;
++	struct ifinfomsg *ifi;
++	struct rtattr *rtattr;
++	const char *name;
++	size_t len, loop;
++
++	ifi = (struct ifinfomsg *) NLMSG_DATA(nlhdr);
++
++	_enter("{ix=%d}", ifi->ifi_index);
++
++	for (loop = 0; loop < desc->nbufs; loop++) {
++		this = &desc->bufs[loop];
++		if (this->index == ifi->ifi_index)
++			goto found;
++	}
++
++	_leave(" = 0 [no match]");
++	return 0;
++
++found:
++	if (ifi->ifi_type == ARPHRD_LOOPBACK && !desc->wantloopback) {
++		_leave(" = 0 [loopback]");
++		return 0;
++	}
++
++	rtattr = NLMSG_DATA(nlhdr) + NLMSG_ALIGN(sizeof(struct ifinfomsg));
++	len = NLMSG_PAYLOAD(nlhdr, sizeof(struct ifinfomsg));
++
++	name = "unknown";
++	for (; RTA_OK(rtattr, len); rtattr = RTA_NEXT(rtattr, len)) {
++		switch (rtattr->rta_type) {
++		case IFLA_MTU:
++			memcpy(&this->mtu, RTA_DATA(rtattr), 4);
++			break;
++		case IFLA_IFNAME:
++			name = RTA_DATA(rtattr);
++			break;
++		}
++	}
++
++	_debug("%s: "NIPQUAD_FMT"/"NIPQUAD_FMT" mtu %u",
++	       name, NIPQUAD(this->address), NIPQUAD(this->netmask),
++	       this->mtu);
++
++	_leave(" = 0");
++	return 0;
++}
++
++/*
++ * parse an RTM_GETLINK response for the MAC address belonging to the lowest
++ * non-internal interface
++ */
++static int afs_rtm_getlink_mac_parse(struct afs_rtm_desc *desc,
++				     struct nlmsghdr *nlhdr)
++{
++	struct ifinfomsg *ifi;
++	struct rtattr *rtattr;
++	const char *name;
++	size_t remain, len;
++	bool set;
++
++	ifi = (struct ifinfomsg *) NLMSG_DATA(nlhdr);
++
++	_enter("{ix=%d}", ifi->ifi_index);
++
++	if (ifi->ifi_index >= desc->mac_index) {
++		_leave(" = 0 [high]");
++		return 0;
++	}
++	if (ifi->ifi_type == ARPHRD_LOOPBACK) {
++		_leave(" = 0 [loopback]");
++		return 0;
++	}
++
++	rtattr = NLMSG_DATA(nlhdr) + NLMSG_ALIGN(sizeof(struct ifinfomsg));
++	remain = NLMSG_PAYLOAD(nlhdr, sizeof(struct ifinfomsg));
++
++	name = "unknown";
++	set = false;
++	for (; RTA_OK(rtattr, remain); rtattr = RTA_NEXT(rtattr, remain)) {
++		switch (rtattr->rta_type) {
++		case IFLA_ADDRESS:
++			len = RTA_PAYLOAD(rtattr);
++			memcpy(desc->mac, RTA_DATA(rtattr),
++			       min_t(size_t, len, 6));
++			desc->mac_index = ifi->ifi_index;
++			set = true;
++			break;
++		case IFLA_IFNAME:
++			name = RTA_DATA(rtattr);
++			break;
++		}
++	}
++
++	if (set)
++		_debug("%s: %02x:%02x:%02x:%02x:%02x:%02x",
++		       name,
++		       desc->mac[0], desc->mac[1], desc->mac[2],
++		       desc->mac[3], desc->mac[4], desc->mac[5]);
++
++	_leave(" = 0");
++	return 0;
++}
++
++/*
++ * read the rtnetlink response and pass to parsing routine
++ */
++static int afs_read_rtm(struct afs_rtm_desc *desc)
++{
++	struct nlmsghdr *nlhdr, tmphdr;
++	struct msghdr msg;
++	struct kvec iov[1];
++	void *data;
++	bool last = false;
++	int len, ret, remain;
++
++	_enter("");
++
++	do {
++		/* first of all peek to see how big the packet is */
++		memset(&msg, 0, sizeof(msg));
++		iov[0].iov_base = &tmphdr;
++		iov[0].iov_len = sizeof(tmphdr);
++		len = kernel_recvmsg(desc->nlsock, &msg, iov, 1,
++				     sizeof(tmphdr), MSG_PEEK | MSG_TRUNC);
++		if (len < 0) {
++			_leave(" = %d [peek]", len);
++			return len;
++		}
++		if (len == 0)
++			continue;
++		if (len < sizeof(tmphdr) || len < NLMSG_PAYLOAD(&tmphdr, 0)) {
++			_leave(" = -EMSGSIZE");
++			return -EMSGSIZE;
++		}
++
++		if (desc->datamax < len) {
++			kfree(desc->data);
++			desc->data = NULL;
++			data = kmalloc(len, GFP_KERNEL);
++			if (!data)
++				return -ENOMEM;
++			desc->data = data;
++		}
++		desc->datamax = len;
++
++		/* read all the data from this packet */
++		iov[0].iov_base = desc->data;
++		iov[0].iov_len = desc->datamax;
++		desc->datalen = kernel_recvmsg(desc->nlsock, &msg, iov, 1,
++					       desc->datamax, 0);
++		if (desc->datalen < 0) {
++			_leave(" = %ld [recv]", desc->datalen);
++			return desc->datalen;
++		}
++
++		nlhdr = desc->data;
++
++		/* check if the header is valid */
++		if (!NLMSG_OK(nlhdr, desc->datalen) ||
++		    nlhdr->nlmsg_type == NLMSG_ERROR) {
++			_leave(" = -EIO");
++			return -EIO;
++		}
++
++		/* see if this is the last message */
++		if (nlhdr->nlmsg_type == NLMSG_DONE ||
++		    !(nlhdr->nlmsg_flags & NLM_F_MULTI))
++			last = true;
++
++		/* parse the bits we got this time */
++		nlmsg_for_each_msg(nlhdr, desc->data, desc->datalen, remain) {
++			ret = desc->parse(desc, nlhdr);
++			if (ret < 0) {
++				_leave(" = %d [parse]", ret);
++				return ret;
++			}
++		}
++
++	} while (!last);
++
++	_leave(" = 0");
++	return 0;
++}
++
++/*
++ * list the interface bound addresses to get the address and netmask
++ */
++static int afs_rtm_getaddr(struct afs_rtm_desc *desc)
++{
++	struct msghdr msg;
++	struct kvec iov[1];
++	int ret;
++
++	struct {
++		struct nlmsghdr nl_msg __attribute__((aligned(NLMSG_ALIGNTO)));
++		struct ifaddrmsg addr_msg __attribute__((aligned(NLMSG_ALIGNTO)));
++	} request;
++
++	_enter("");
++
++	memset(&request, 0, sizeof(request));
++
++	request.nl_msg.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifaddrmsg));
++	request.nl_msg.nlmsg_type = RTM_GETADDR;
++	request.nl_msg.nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP;
++	request.nl_msg.nlmsg_seq = desc->msg_seq++;
++	request.nl_msg.nlmsg_pid = 0;
++
++	memset(&msg, 0, sizeof(msg));
++	iov[0].iov_base = &request;
++	iov[0].iov_len = sizeof(request);
++
++	ret = kernel_sendmsg(desc->nlsock, &msg, iov, 1, iov[0].iov_len);
++	_leave(" = %d", ret);
++	return ret;
++}
++
++/*
++ * list the interface link statuses to get the MTUs
++ */
++static int afs_rtm_getlink(struct afs_rtm_desc *desc)
++{
++	struct msghdr msg;
++	struct kvec iov[1];
++	int ret;
++
++	struct {
++		struct nlmsghdr nl_msg __attribute__((aligned(NLMSG_ALIGNTO)));
++		struct ifinfomsg link_msg __attribute__((aligned(NLMSG_ALIGNTO)));
++	} request;
++
++	_enter("");
++
++	memset(&request, 0, sizeof(request));
++
++	request.nl_msg.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
++	request.nl_msg.nlmsg_type = RTM_GETLINK;
++	request.nl_msg.nlmsg_flags = NLM_F_REQUEST | NLM_F_ROOT;
++	request.nl_msg.nlmsg_seq = desc->msg_seq++;
++	request.nl_msg.nlmsg_pid = 0;
++
++	memset(&msg, 0, sizeof(msg));
++	iov[0].iov_base = &request;
++	iov[0].iov_len = sizeof(request);
++
++	ret = kernel_sendmsg(desc->nlsock, &msg, iov, 1, iov[0].iov_len);
++	_leave(" = %d", ret);
++	return ret;
++}
++
++/*
++ * cull any interface records for which there isn't an MTU value
++ */
++static void afs_cull_interfaces(struct afs_rtm_desc *desc)
++{
++	struct afs_interface *bufs = desc->bufs;
++	size_t nbufs = desc->nbufs;
++	int loop, point = 0;
++
++	_enter("{%zu}", nbufs);
++
++	for (loop = 0; loop < nbufs; loop++) {
++		if (desc->bufs[loop].mtu != 0) {
++			if (loop != point) {
++				ASSERTCMP(loop, >, point);
++				bufs[point] = bufs[loop];
++			}
++			point++;
++		}
++	}
++
++	desc->nbufs = point;
++	_leave(" [%zu/%zu]", desc->nbufs, nbufs);
++}
++
++/*
++ * get a list of this system's interface IPv4 addresses, netmasks and MTUs
++ * - returns the number of interface records in the buffer
++ */
++int afs_get_ipv4_interfaces(struct afs_interface *bufs, size_t maxbufs,
++			    bool wantloopback)
++{
++	struct afs_rtm_desc desc;
++	int ret, loop;
++
++	_enter("");
++
++	memset(&desc, 0, sizeof(desc));
++	desc.bufs = bufs;
++	desc.maxbufs = maxbufs;
++	desc.wantloopback = wantloopback;
++
++	ret = sock_create_kern(AF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE,
++			       &desc.nlsock);
++	if (ret < 0) {
++		_leave(" = %d [sock]", ret);
++		return ret;
++	}
++
++	/* issue RTM_GETADDR */
++	desc.parse = afs_rtm_getaddr_parse;
++	ret = afs_rtm_getaddr(&desc);
++	if (ret < 0)
++		goto error;
++	ret = afs_read_rtm(&desc);
++	if (ret < 0)
++		goto error;
++
++	/* issue RTM_GETLINK */
++	desc.parse = afs_rtm_getlink_if_parse;
++	ret = afs_rtm_getlink(&desc);
++	if (ret < 0)
++		goto error;
++	ret = afs_read_rtm(&desc);
++	if (ret < 0)
++		goto error;
++
++	afs_cull_interfaces(&desc);
++	ret = desc.nbufs;
++
++	for (loop = 0; loop < ret; loop++)
++		_debug("[%d] "NIPQUAD_FMT"/"NIPQUAD_FMT" mtu %u",
++		       bufs[loop].index,
++		       NIPQUAD(bufs[loop].address),
++		       NIPQUAD(bufs[loop].netmask),
++		       bufs[loop].mtu);
++
++error:
++	kfree(desc.data);
++	sock_release(desc.nlsock);
++	_leave(" = %d", ret);
++	return ret;
++}
++
++/*
++ * get a MAC address from a random ethernet interface that has a real one
++ * - the buffer should be 6 bytes in size
++ */
++int afs_get_MAC_address(u8 mac[6])
++{
++	struct afs_rtm_desc desc;
++	int ret;
++
++	_enter("");
++
++	memset(&desc, 0, sizeof(desc));
++	desc.mac = mac;
++	desc.mac_index = UINT_MAX;
++
++	ret = sock_create_kern(AF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE,
++			       &desc.nlsock);
++	if (ret < 0) {
++		_leave(" = %d [sock]", ret);
++		return ret;
++	}
++
++	/* issue RTM_GETLINK */
++	desc.parse = afs_rtm_getlink_mac_parse;
++	ret = afs_rtm_getlink(&desc);
++	if (ret < 0)
++		goto error;
++	ret = afs_read_rtm(&desc);
++	if (ret < 0)
++		goto error;
++
++	if (desc.mac_index < UINT_MAX) {
++		/* got a MAC address */
++		_debug("[%d] %02x:%02x:%02x:%02x:%02x:%02x",
++		       desc.mac_index,
++		       mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
++	} else {
++		ret = -ENONET;
++	}
++
++error:
++	sock_release(desc.nlsock);
++	_leave(" = %d", ret);
++	return ret;
++}
 
