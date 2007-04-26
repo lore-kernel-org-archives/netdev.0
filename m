@@ -1,36 +1,38 @@
-From: "Nic Gyrovague" <nic.gyrovague@gmail.com>
-Subject: determining IP address within network device driver
-Date: Thu, 26 Apr 2007 16:46:50 +0200
-Message-ID: <e14fe6280704260746u228e6d3vf369e5add59879cb@mail.gmail.com>
-References: <e14fe6280704260742p944cfaeua17e671d2e50e716@mail.gmail.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [RFT] e100 driver on ARM
+Date: Thu, 26 Apr 2007 11:12:25 -0400
+Message-ID: <4630C159.1060707@garzik.org>
+References: <44FC0261.6010807@garzik.org> <20060904123123.GB1285@xi.wantstofly.org> <460AF480.7050609@intel.com> <460B4BF2.1070803@roinet.com> <20070329141041.GA3510@csclub.uwaterloo.ca> <46239138.4040408@roinet.com> <20070417173507.GB5575@csclub.uwaterloo.ca> <4630AC02.7040706@roinet.com> <20070426135013.GA12154@xi.wantstofly.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: David Acker <dacker@roinet.com>,
+	Lennart Sorensen <lsorense@csclub.uwaterloo.ca>,
+	"Kok, Auke" <auke-jan.h.kok@intel.com>,
+	Netdev List <netdev@vger.kernel.org>,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@osdl.org>,
+	Russell King <rmk+lkml@arm.linux.org.uk>
+To: Lennert Buytenhek <buytenh@wantstofly.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nz-out-0506.google.com ([64.233.162.227]:36384 "EHLO
-	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1031228AbXDZOqw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2007 10:46:52 -0400
-Received: by nz-out-0506.google.com with SMTP id o1so757550nzf
-        for <netdev@vger.kernel.org>; Thu, 26 Apr 2007 07:46:51 -0700 (PDT)
-In-Reply-To: <e14fe6280704260742p944cfaeua17e671d2e50e716@mail.gmail.com>
-Content-Disposition: inline
+Received: from srv5.dvmed.net ([207.36.208.214]:58459 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1031255AbXDZPMi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Apr 2007 11:12:38 -0400
+In-Reply-To: <20070426135013.GA12154@xi.wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I have a hw network device that can benefit from knowing what its
-associated IP addresses (if any) are... Is there a "correct" way to
-determine the IP address(es) from within the driver code? Its
-obviously possible to snoop into ARP
-and IP traffic to try to "guess", but this is not always 100% reliable
-(e.g. with bridging) and also only gives you the IP address once packets
-have started flowing... In other words, if userspace
-sets/changes or adds (e.g. IP alias) an IP address to the
-device (e.g. "ifconfig eth0  192.168.1.5"), I'd like to somehow be
-informed of that within
-my driver, or at the least, be able to somehow poll a
-kernel structure or API to determine said information...
+Lennert Buytenhek wrote:
+> This is all a while ago now, but wasn't the e100 S-bit patch originally
+> written by Intel people in response to the very same quote by Russell
+> King that you've quoted above?
 
--- 
-gyrovague
+Correct.
+
+I just wanted to make sure it didn't kill any boxes.
+
+	Jeff
+
+
+
