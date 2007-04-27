@@ -1,96 +1,97 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: Unexcepted latency (order of 100-200 ms) with TCP (packet receive)
-Date: Fri, 27 Apr 2007 18:07:11 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0704271122230.28337@kivilampi-30.cs.helsinki.fi>
-References: <Pine.LNX.4.64.0704241518370.28337@kivilampi-30.cs.helsinki.fi>
- <4630D069.30605@redhat.com> <Pine.LNX.4.64.0704262219200.18515@kivilampi-30.cs.helsinki.fi>
- <20070427031757.513f6ad7.billfink@mindspring.com>
+From: jamal <hadi@cyberus.ca>
+Subject: RE: [PATCH] IPROUTE: Modify tc for new PRIO multiqueue behavior
+Date: Fri, 27 Apr 2007 11:09:58 -0400
+Message-ID: <1177686598.4059.79.camel@localhost>
+References: <D5C1322C3E673F459512FB59E0DDC32902B9710F@orsmsx414.amr.corp.intel.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; boundary="-696243703-1028982146-1177662163=:28337"
-Cc: Chuck Ebbert <cebbert@redhat.com>, Netdev <netdev@vger.kernel.org>
-To: Bill Fink <billfink@mindspring.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Patrick McHardy <kaber@trash.net>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	netdev@vger.kernel.org, jgarzik@pobox.com,
+	cramerj <cramerj@intel.com>,
+	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
+	"Leech, Christopher" <christopher.leech@intel.com>,
+	davem@davemloft.net
+To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:48293 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755966AbXD0PHO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Apr 2007 11:07:14 -0400
-In-Reply-To: <20070427031757.513f6ad7.billfink@mindspring.com>
-Content-ID: <Pine.LNX.4.64.0704271750210.6246@kivilampi-30.cs.helsinki.fi>
+Received: from wx-out-0506.google.com ([66.249.82.234]:21910 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755973AbXD0PKG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Apr 2007 11:10:06 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so931803wxd
+        for <netdev@vger.kernel.org>; Fri, 27 Apr 2007 08:10:05 -0700 (PDT)
+In-Reply-To: <D5C1322C3E673F459512FB59E0DDC32902B9710F@orsmsx414.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On Thu, 2007-26-04 at 09:30 -0700, Waskiewicz Jr, Peter P wrote:
+> > jamal wrote:
+> > > On Wed, 2007-25-04 at 10:45 -0700, Waskiewicz Jr, Peter P wrote:
 
----696243703-1028982146-1177662163=:28337
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
-Content-ID: <Pine.LNX.4.64.0704271153361.28337@kivilampi-30.cs.helsinki.fi>
-
-On Fri, 27 Apr 2007, Bill Fink wrote:
-
-> On Thu, 26 Apr 2007, Ilpo Järvinen wrote:
+> We have plans to write a new qdisc that has no priority given to any
+> skb's being sent to the driver.  The reasoning for providing a
+> multiqueue mode for PRIO is it's a well-known qdisc, so the hope was
+> people could quickly associate with what's going on.  The other
+> reasoning is we wanted to provide a way to prioritize various network
+> flows (ala PRIO), and since hardware doesn't currently exist that
+> provides flow prioritization, we decided to allow it to continue
+> happening in software.
 > 
-> > On Thu, 26 Apr 2007, Chuck Ebbert wrote:
+
+Reading the above validates my fears that we have some strong
+differences (refer to my email to Patrick). To be fair to you, i would
+have to look at your patches. Now i am actually thinking not to look at
+them at all incase they influence me;->
+I think the thing for me to do is provide alternative patches and then
+we can have smoother discussion.
+The way i see it is you dont touch any qdisc code. qdiscs that are
+provided by Linux cover a majority of those provided by hardware
+(Heck, I have was involved on an ethernet switch chip from your company
+that provided strict prion multiqueues in hardware and didnt need to
+touch the qdisc code)
+
 > > 
-> > > Ilpo Järvinen wrote:
-> > > > ...I'm unsure how to continue the investigation from this point onward 
-> > > > and asking for ideas/suggestions or how to rule out more possibilities... 
-> > > > Or is there some knob which I don't know of that should be toggled or 
-> > > > something, is 2.6 network stack expected to behave this way?
-> > > > 
+> > > The driver should be configurable to be X num of queues via 
+> > probably 
+> > > ethtool. It should default to single ring to maintain old behavior.
+> > 
+> > 
+> > That would probably make sense in either case.
+> 
+> This shouldn't be something enforced by the OS, rather, an
+> implementation detail for the driver you write.  If you want this to be
+> something to be configured at run-time, on the fly, then the OS would
+> need to support it.  However, I'd rather see people try the multiqueue
+> support as-is first to make sure the simple things work as expected,
+> then we can get into run-time reconfiguration issues (like queue
+> draining if you shrink available queues, etc.).  This will also require
+> some heavy lifting by the driver to tear down queues, etc.
+> 
+
+It could be probably a module insertion/boot time operation.
+
+> > 
+> > > Ok, i see; none of those other intel people put you through 
+> > the hazing 
+> > > yet? ;-> This is a netdev matter - so i have taken off lkml
 > > > 
-> > > Try a different network adapter.
-> > 
-> > Hmm, I thought I had already done this but I just noticed that it is so 
-> > that the adapter was still the same as the other host has two adapter (now 
-> > that I look again). I'll give it a try tomorrow to see if using the 
-> > another adapter makes any difference.
-
-...Much more promising result this time. I noticed that there was another 
-eth hw on mainboard, thus my previous test with different hw was not 
-valid as I assumed "wrong" (didn't even notice the other) one to be eth0:
-
-02:05.0 Ethernet controller: 3Com Corporation 3c905C-TX/TX-M [Tornado] (rev 74)
-02:08.0 Ethernet controller: Intel Corporation 82801DB PRO/100 VE (LOM) Ethernet Controller (rev 82)
-
-With 3c905 I have the problem, with Intel one it does not show up 
-(tested today).
-
-> > > Try turning off hardware TSO offload:
-> > >   ethtool -K ethX tso off
-> > 
-> > # ethtool -K eth0 tso off
-> > Cannot set device tcp segmentation offload settings: Operation not 
-> > supported
 > 
-> Could the delays be caused by Ethernet PAUSE frames (which might not
-> be rquired at the slower 10FD but might at 100)?  TX and RX pause
-> control settings (check with "ethtool -a") might be different between
-> the 2.4 and 2.6 kernels.
+> I appreciate the desire to lower clutter from mailing lists, but I see
+> 'tc' as a kernel configuration utility, and as such, people should know
+> what we're doing outside of netdev, IMO.  But I'm fine with keeping this
+> off lkml if that's what people think.
+> 
 
-# ethtool -a eth0
-Pause parameters for eth0:
-Cannot get device pause settings: Operation not supported
-
-
-> Also check things like net.core.netdev_max_backlog and ifconfig
-> txqueuelen settings. 
-
-# cat /proc/sys/net/core/netdev_max_backlog 
-1000
-
-...and...
-
-txqueuelen:1000
-
-> And check "ethtool -S", "netstat -s", and ifconfig error counters.
-
-Nothigh really alarming was found, errors were all zero, only thing that 
-could be even remotely interesting is this:
-    5 delayed acks further delayed because of locked socket
+All of netdev has to do with the kernel - that doesnt justify cross
+posting.
+People interested in network related subsystem development will
+subscribe to netdev. Interest in scsi =. subscribe to scsi mailing lists
+etc.
 
 
--- 
- i.
----696243703-1028982146-1177662163=:28337--
+cheers,
+
+
+
