@@ -1,50 +1,39 @@
-From: David Howells <dhowells@redhat.com>
-Subject: Re: [PATCH 00/14] AF_RXRPC socket family and AFS rewrite [net-2.6]
-Date: Fri, 27 Apr 2007 15:28:26 +0100
-Message-ID: <23441.1177684106@redhat.com>
-References: <20070426.204112.118626412.davem@davemloft.net>  <20070426195415.24531.78794.stgit@warthog.cambridge.redhat.com> <20070426.161522.76328746.davem@davemloft.net> <20070426.200809.04441500.davem@davemloft.net>
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH][XFRM] export SPD info
+Date: Fri, 27 Apr 2007 10:29:28 -0400
+Message-ID: <1177684168.4059.38.camel@localhost>
+References: <1177681421.4059.2.camel@localhost> <463200CC.6010207@trash.net>
+Reply-To: hadi@cyberus.ca
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:46073 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755855AbXD0O2c (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Apr 2007 10:28:32 -0400
-In-Reply-To: <20070426.204112.118626412.davem@davemloft.net> 
+Received: from wx-out-0506.google.com ([66.249.82.227]:58576 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755907AbXD0O3c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Apr 2007 10:29:32 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so919226wxd
+        for <netdev@vger.kernel.org>; Fri, 27 Apr 2007 07:29:32 -0700 (PDT)
+In-Reply-To: <463200CC.6010207@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> wrote:
+On Fri, 2007-27-04 at 15:55 +0200, Patrick McHardy wrote:
 
-> Here is how I'm fixing this for now to get the tree into
-> a buildable state.
+> 
+> It it really worth the extra code for dumping them conditionally?
+> The attributes are neither large nor will they be sent very often.
+> 
 
-Okay, that looks mostly reasonable, but it needs to go a little bit further.
+That thought did cross my mind when i was coding this;-> I hate the way
+netlink filters are done in user space with iproute2 - dumping 50
+objects just so i can get to one. So i used that as my guiding
+principle; i have no qualms with the few extra lines.
+Actually, I was hoping it would provide motivation for someone else to
+do a better filtering scheme (which sits in the kernel).
 
-> If you have a better fix, please send it to me relative
-> to what's in net-2.6, thanks.
+cheers,
+jamal
 
-I'm about to dispatch three patches to you:
-
- (1) Extend your fixes to the VL update manager.  The state changing to
-     AFS_VL_VALID isn't the only place a wakeup is missing.
-
- (2) I compiled against all of these arches in addition to x86_64:
-
-	i386, frv, frv (nommu), pa-risc, s390, powerpc (16 & 32), sparc64,
-	mips, alpha, ia64.
-
-     And came up with a few more problems, notably wrt to compiling the
-     modules in.
-
-     Due to general arch problems, I tried and failed to build for:
-
-	m68k, cris, arm, h8300, sh, v850, sparc.
-
-     Due to lack of a suitable compiler, I couldn't build for:
-
-	sh64, xtensa
-
- (3) I also came across some other networking compilation bugs.
-
-David
