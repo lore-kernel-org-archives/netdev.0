@@ -1,39 +1,59 @@
-From: "Nic Gyrovague" <nic.gyrovague@gmail.com>
-Subject: how to determine IP address within network device driver?
-Date: Fri, 27 Apr 2007 08:35:08 +0200
-Message-ID: <e14fe6280704262335l754fcc56s115e43a220ed35c4@mail.gmail.com>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: fix-slab-corruption-running-ip6sic.patch
+Date: Fri, 27 Apr 2007 09:18:59 +0200
+Message-ID: <20070427071859.GD997@ff.dom.local>
+References: <20070426141133.21ef2e17.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org,
+	Eric Sesterhenn <snakebyte@gmx.de>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nz-out-0506.google.com ([64.233.162.237]:62802 "EHLO
-	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755401AbXD0GfK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Apr 2007 02:35:10 -0400
-Received: by nz-out-0506.google.com with SMTP id o1so1038809nzf
-        for <netdev@vger.kernel.org>; Thu, 26 Apr 2007 23:35:09 -0700 (PDT)
+Received: from mx2.go2.pl ([193.17.41.42]:49245 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755430AbXD0HNI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Apr 2007 03:13:08 -0400
 Content-Disposition: inline
+In-Reply-To: <20070426141133.21ef2e17.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-(apologies for the repost, I thought people may have missed this
-question since it was not phrased as such)
+On Thu, Apr 26, 2007 at 02:11:33PM -0700, Andrew Morton wrote:
+> 
+> I have this floating about in my tree.  Is it of any interest?
+> 
+> 
+> 
+> From: Jarek Poplawski <jarkao2@o2.pl>
 
-I have a hw network device that can benefit from knowing what its
-associated IP addresses (if any) are... Is there a "correct" way to
-determine the IP address(es) from within the driver code?
+I know you've more interesting problems, but I'd like to
+straighten something: this is not my patch!
 
-Its obviously possible to snoop into ARP
-and IP traffic to try to "guess", but this is not always 100% reliable
-(e.g. with bridging) and also only gives you the IP address once packets
-have started flowing...
+Please, change this to:
 
-In other words, if userspace sets/changes or adds (e.g. IP alias) an
-IP address to the device (e.g. "ifconfig eth0  192.168.1.5"), I'd like
-to somehow be informed of that within my driver, or failing that, be
-able to somehow poll a kernel structure or API to determine said
-information...
+From: Eric Sesterhenn <snakebyte@gmx.de>
 
--- 
-gyrovague
+> 
+> * Herbert Xu (herbert@gondor.apana.org.au) wrote:
+> > Jarek Poplawski <jarkao2@o2.pl> wrote:
+> > >
+> > > My proposal is: maybe Eric could change this in
+> > > xfrm6_tunnel_rcv() from xfrm6_tunnel.c e.g. like this:
+> > >
+> > > return xfrm6_rcv_spi(skb, spi) > 0 ? : 0;
+> > >
+> > > and, if no errors in testing, he could resubmit this patch?
+> >
+> > I agree, this is the right fix.
+> 
+> The fix proposed by Jarek indeed fixes the problem, tested on two boxes,
+> with an -rc5 kernel and a yesterdays git
+> 
+> Acked-by: Eric Sesterhenn <snakebyte@gmx.de>
+> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+> ---
+
+Thanks,
+Jarek P.
+
+PS: And this one time it's not a joke... I really mean it.
