@@ -1,69 +1,39 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [TCP]: Update references in two old comments
-Date: Fri, 27 Apr 2007 10:38:08 +0100
-Message-ID: <200704271038.08260@strip-the-willow>
+From: Vitaly Wool <vwool@ru.mvista.com>
+Subject: [PATCH] smc911x: fix compilation breakage wjen debug is on
+Date: Fri, 27 Apr 2007 14:42:09 +0400
+Message-ID: <20070427144209.00006694.vwool@ru.mvista.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: dustin@sensoria.com, netdev@vger.kernel.org
+To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:53655 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755545AbXD0Jxy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Apr 2007 05:53:54 -0400
-Content-Disposition: inline
+Received: from rtsoft2.corbina.net ([85.21.88.2]:55792 "HELO
+	mail.dev.rtsoft.ru" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with SMTP id S1755573AbXD0KmM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Apr 2007 06:42:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[TCP]: Update references in two old comments
+Hello Jeff,
 
-This updates references to drafts in comments which must be about 10
-years old.  Internet draft draft-ietf-tcpimpl-prob-03.txt expired in 1998
-and was replaced by RFC 2525 in March 1999.
+the patch below fixes compilation breakage of smc911x driver when ENABLE_SMC_DEBUG_PKTS equals to 1.
 
-Section 3.10 of the draft maps almost identically into section 2.17 of RFC
-2525: both are entitled "Failure to RST on close with data pending", the
-differences in text body amount to a typo and minor sentence change.
+ smc911x.c |    2 +-
+ 1 files changed, 1 insertion(+), 1 deletion(-)
 
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
----
- net/ipv4/tcp.c        |   14 ++++++--------
- net/ipv4/tcp_output.c |    2 +-
- 2 files changed, 7 insertions(+), 9 deletions(-)
+Signed-off-by: Vitaly Wool <vitalywool@gmail.com>
 
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -1573,14 +1573,12 @@ void tcp_close(struct sock *sk, long tim
+Index: linux-2.6/drivers/net/smc911x.c
+===================================================================
+--- linux-2.6.orig/drivers/net/smc911x.c
++++ linux-2.6/drivers/net/smc911x.c
+@@ -499,7 +499,7 @@ static inline void	 smc911x_rcv(struct n
+ 		SMC_SET_RX_CFG(RX_CFG_RX_END_ALGN4_ | ((2<<8) & RX_CFG_RXDOFF_));
+ 		SMC_PULL_DATA(data, pkt_len+2+3);
  
- 	sk_stream_mem_reclaim(sk);
- 
--	/* As outlined in draft-ietf-tcpimpl-prob-03.txt, section
--	 * 3.10, we send a RST here because data was lost.  To
--	 * witness the awful effects of the old behavior of always
--	 * doing a FIN, run an older 2.1.x kernel or 2.0.x, start
--	 * a bulk GET in an FTP client, suspend the process, wait
--	 * for the client to advertise a zero window, then kill -9
--	 * the FTP client, wheee...  Note: timeout is always zero
--	 * in such a case.
-+	/* As outlined in RFC 2525, section 2.17, we send a RST here because
-+	 * data was lost. To witness the awful effects of the old behavior of
-+	 * always doing a FIN, run an older 2.1.x kernel or 2.0.x, start a bulk
-+	 * GET in an FTP client, suspend the process, wait for the client to
-+	 * advertise a zero window, then kill -9 the FTP client, wheee...
-+	 * Note: timeout is always zero in such a case.
- 	 */
- 	if (data_was_unread) {
- 		/* Unread data was tossed, zap the connection. */
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2035,7 +2035,7 @@ void tcp_send_fin(struct sock *sk)
- /* We get here when a process closes a file descriptor (either due to
-  * an explicit close() or as a byproduct of exit()'ing) and there
-  * was unread data in the receive queue.  This behavior is recommended
-- * by draft-ietf-tcpimpl-prob-03.txt section 3.10.  -DaveM
-+ * by RFC 2525, section 2.17.  -DaveM
-  */
- void tcp_send_active_reset(struct sock *sk, gfp_t priority)
- {
+-		DBG(SMC_DEBUG_PKTS, "%s: Received packet\n", dev->name,);
++		DBG(SMC_DEBUG_PKTS, "%s: Received packet\n", dev->name);
+ 		PRINT_PKT(data, ((pkt_len - 4) <= 64) ? pkt_len - 4 : 64);
+ 		dev->last_rx = jiffies;
+ 		skb->dev = dev;
