@@ -1,34 +1,35 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
+From: David Miller <davem@davemloft.net>
 Subject: Re: IPV6 source routing patch is still broken?
-Date: Fri, 27 Apr 2007 18:36:35 +0900 (JST)
-Message-ID: <20070427.183635.108797764.yoshfuji@linux-ipv6.org>
-References: <20070426.153142.57441302.davem@davemloft.net>
-	<46312E42.4070204@redhat.com>
+Date: Fri, 27 Apr 2007 02:41:16 -0700 (PDT)
+Message-ID: <20070427.024116.74748059.davem@davemloft.net>
+References: <46312E42.4070204@redhat.com>
 	<20070427.020805.88703639.davem@davemloft.net>
+	<20070427.183635.108797764.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: cebbert@redhat.com, netdev@vger.kernel.org, vsu@altlinux.ru,
-	yoshfuji@linux-ipv6.org
-To: davem@davemloft.net
+Cc: cebbert@redhat.com, netdev@vger.kernel.org, vsu@altlinux.ru
+To: yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:33246 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755521AbXD0Jgd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Apr 2007 05:36:33 -0400
-In-Reply-To: <20070427.020805.88703639.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49736
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1755522AbXD0JlH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Apr 2007 05:41:07 -0400
+In-Reply-To: <20070427.183635.108797764.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In article <20070427.020805.88703639.davem@davemloft.net> (at Fri, 27 Apr 2007 02:08:05 -0700 (PDT)), David Miller <davem@davemloft.net> says:
+From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
+Date: Fri, 27 Apr 2007 18:36:35 +0900 (JST)
 
-> then the function proceeds to use the largest of
-> 'accept_source_route' and 'idev->cnf.accept_source_route'
-> for further checks.
+> In article <20070427.020805.88703639.davem@davemloft.net> (at Fri, 27 Apr 2007 02:08:05 -0700 (PDT)), David Miller <davem@davemloft.net> says:
+> 
+> > then the function proceeds to use the largest of
+> > 'accept_source_route' and 'idev->cnf.accept_source_route'
+> > for further checks.
+> 
+> Smallest:
+>         if (accept_source_route > idev->cnf.accept_source_route)
+>                 accept_source_route = idev->cnf.accept_source_route;
 
-Smallest:
-        if (accept_source_route > idev->cnf.accept_source_route)
-                accept_source_route = idev->cnf.accept_source_route;
-
---yoshufji
+Correct, my mistake.
