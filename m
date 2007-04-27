@@ -1,83 +1,135 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PROBLEM] Bonding driver in linux-2.6.21-rc6-mm1
-Date: Fri, 27 Apr 2007 15:32:37 -0700
-Message-ID: <20070427153237.03f3b59c.akpm@linux-foundation.org>
-References: <200704262058.33087.ve@vetienne.net>
-	<010a01c788ae$0a7d0140$5601a8c0@apws2>
-	<20070427122039.98e02471.akpm@linux-foundation.org>
-	<200704272205.29131.ve@vetienne.net>
+From: Bryan Lawver <lawver1@llnl.gov>
+Subject: Re: [ofa-general] Re: IPoIB forwarding
+Date: Fri, 27 Apr 2007 15:43:54 -0700
+Message-ID: <6.1.2.0.2.20070427153952.13fc7d08@mail.llnl.gov>
+References: <6.1.2.0.2.20070423160212.12db6400@mail.llnl.gov>
+	<20070425124652.GG1624@mellanox.co.il>
+	<6.1.2.0.2.20070426083410.1389d9e0@mail.llnl.gov>
+	<20070426161409.GF15540@mellanox.co.il>
+	<6.1.2.0.2.20070426095112.138e9a68@mail.llnl.gov>
+	<20070426180618.GJ15540@mellanox.co.il>
+	<6.1.2.0.2.20070427115435.13ea5ec0@mail.llnl.gov>
+	<46325DF3.2050203@hp.com>
+	<6.1.2.0.2.20070427152027.13fe46d0@mail.llnl.gov>
+	<46327A07.1000404@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	netdev@vger.kernel.org
-To: Vincent ETIENNE <ve@vetienne.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([65.172.181.25]:48224 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757502AbXD0Wco (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Apr 2007 18:32:44 -0400
-In-Reply-To: <200704272205.29131.ve@vetienne.net>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"; format=flowed
+Cc: Linux Network Development list <netdev@vger.kernel.org>,
+	"Michael S. Tsirkin" <mst@dev.mellanox.co.il>,
+	general@lists.openfabrics.org
+To: Rick Jones <rick.jones2@hp.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <46327A07.1000404@hp.com>
+References: <6.1.2.0.2.20070423160212.12db6400@mail.llnl.gov>
+	<20070425124652.GG1624@mellanox.co.il>
+	<6.1.2.0.2.20070426083410.1389d9e0@mail.llnl.gov>
+	<20070426161409.GF15540@mellanox.co.il>
+	<6.1.2.0.2.20070426095112.138e9a68@mail.llnl.gov>
+	<20070426180618.GJ15540@mellanox.co.il>
+	<6.1.2.0.2.20070427115435.13ea5ec0@mail.llnl.gov>
+	<46325DF3.2050203@hp.com>
+	<6.1.2.0.2.20070427152027.13fe46d0@mail.llnl.gov>
+	<46327A07.1000404@hp.com>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 27 Apr 2007 22:05:28 +0200
-Vincent ETIENNE <ve@vetienne.net> wrote:
-
-> Le Friday 27 April 2007 21:20:39, vous avez __crit__:
-> > On Fri, 27 Apr 2007 11:25:46 +0200 "VE \(HOME\)" <ve@vetienne.net> wrote:
-> > > Andrew Morton wrote:
-> > > > On Thu, 26 Apr 2007 20:58:32 +0200 Vincent ETIENNE <ve@vetienne.net>
-> > > > wrote:
-> > > >
-> > > >
-> > > > This was due to locking bustage in the net tree.  It should be fixed
-> > > > in 2.6.21-rc7-mm2.
-> > >
-> > > I have tried this version. Same problem ( see
-> > > http://mail1.vetienne.net/linux/dmesg-2.6.21-rc7-mm2.log )
-> >
-> > That file has disappeared.
-> 
-> Sorry wrong right on the file. Should be ok now
-
-Please don't go off-list.  Now the people who work on this code don't know
-that the log is available.  I've reestablished a few cc's.
+I had so much debugging turned on that it was not the "slowing of the 
+traffic" but the "non-coelescencing" that was the remedy.  The NIC is a 
+MyriCom NIC and these are easy options to set.
 
 
-The troublesome part is here:
-
-e1000: eth0: e1000_watchdog_task: NIC Link is Up 100 Mbps Full Duplex, Flow Control: RX/TX
-e1000: eth0: e1000_watchdog_task: 10/100 speed: disabling TSO
-bonding: bond0: link status definitely up for interface eth0.
-bonding: bond0: making interface eth0 the new active one.
-RTNL: assertion failed at net/ipv4/devinet.c (1055)
-
-Call Trace:
- <IRQ>  [<ffffffff8049b9a1>] inetdev_event+0x48/0x283
- [<ffffffff804c85d1>] _spin_lock_bh+0x9/0x19
- [<ffffffff804753d7>] rt_run_flush+0x7e/0xaf
- [<ffffffff8022d388>] notifier_call_chain+0x29/0x56
- [<ffffffff80457994>] dev_set_mac_address+0x53/0x59
- [<ffffffff88006d6d>] :bonding:alb_set_slave_mac_addr+0x41/0x6c
- [<ffffffff880071e9>] :bonding:alb_swap_mac_addr+0x91/0x165
- [<ffffffff88002022>] :bonding:bond_change_active_slave+0x227/0x382
- [<ffffffff880024c2>] :bonding:bond_select_active_slave+0xb7/0xe5
- [<ffffffff88004172>] :bonding:bond_mii_monitor+0x3cd/0x41e
- [<ffffffff88003da5>] :bonding:bond_mii_monitor+0x0/0x41e
- [<ffffffff802299a0>] run_timer_softirq+0x130/0x19f
- [<ffffffff80226b64>] __do_softirq+0x55/0xc4
- [<ffffffff8020a6ac>] call_softirq+0x1c/0x28
- [<ffffffff8020bfb9>] do_softirq+0x2c/0x7d
- [<ffffffff802145a7>] smp_apic_timer_interrupt+0x49/0x5e
- [<ffffffff80208989>] mwait_idle+0x0/0x47
- [<ffffffff8020a156>] apic_timer_interrupt+0x66/0x70
- <EOI>  [<ffffffff802089cb>] mwait_idle+0x42/0x47
- [<ffffffff80208921>] cpu_idle+0x7f/0xa2
- [<ffffffff806349bd>] start_kernel+0x242/0x24e
- [<ffffffff80634146>] _sinittext+0x146/0x14a
-
-
-because we thought we'd fixed the rtnl_lock() problems in 2.6.21-rc7-mm2. 
-Are you sure that log is from 2.6.21-rc7-mm2?
-
+At 03:32 PM 4/27/2007, Rick Jones wrote:
+>Bryan Lawver wrote:
+>>I hit the IP NIC over the head with a hammer and turned off all offload 
+>>features and I no longer get the super jumbo packet and I have symmetric 
+>>performance.  This NIC supported "ethtool -K ethx tso/tx/rx/sg on/off" 
+>>and I am not sure at this time which one I needed to whack but all off 
+>>solved the problem.
+>
+>Yeah, that does seem like a rather broad remedy, but I guess if it 
+>works... :) And I suppose most of those offloads don't matter for a NIC 
+>being used in a router.
+>
+>Only problem is we don't know if it worked because it slowed-down the 10G 
+>side or because it had LRO disabling as a side-effect. If I were to guess, 
+>of those things listed, I'd guess that receive cko would have that as a 
+>side effect.
+>
+>Just what sort of 10G NIC was this anyway?  With that knowledge we could 
+>probably narrow things down to a more specific modprobe setting, or maybe 
+>even an ethtool command, for some suitable revision of ethtool.
+>
+>rick jones
+>
+>>Thanks for listening and re enforcing my search process.
+>>bryan
+>>At 01:32 PM 4/27/2007, Rick Jones wrote:
+>>
+>>>Bryan Lawver wrote:
+>>>
+>>>>Your right about the ipoib module not combining packets (I believed you 
+>>>>without checking) but I did never the less.  The ipoib_start_xmit 
+>>>>routine is definitely handed a "double packet"  which means that the IP 
+>>>>NIC driver or the kernel is combining two packets into a single super 
+>>>>jumbo packet.  This issue is irrespective of the IP MTU setting because 
+>>>>I have set all interfaces to 9000k yet  ipoib accepts and forwards this 
+>>>>17964 packet to the next IB node and onto the TCP stack where it is 
+>>>>never acknowledged.  This may not have come up in prior testing because 
+>>>>I am using some of the fastest IP NICs which have no trouble keeping up 
+>>>>with or exceeding the bandwidth of the IB side.
+>>>>This issue arises exactly every 8 packets...(ring buffer overrun??)
+>>>>I will be at Sonoma for the next few days as many on this list will be.
+>>>
+>>>
+>>>
+>>>Some NICs (esp 10G) support large receive offload - they coalesce TCP 
+>>>segments from the wire/fiber into larger ones they pass up the stack.
+>>>Perhaps that is happening here?
+>>>
+>>>I'm going to go out a bit on a limb, cross the streams, and include 
+>>>netdev, because I suspect that if a system is acting as an IP router, 
+>>>one doesn't want large receive offload enabled.  That may need some 
+>>>discussion in netdev - it may then require some changes to default 
+>>>settings or some documentation enhancements.  That or I'll learn that 
+>>>the stack is already dealing with the issue...
+>>>
+>>>rick jones
+>>>
+>>>>bryan
+>>>>
+>>>>At 11:06 AM 4/26/2007, Michael S. Tsirkin wrote:
+>>>>
+>>>>> > Quoting Bryan Lawver <lawver1@llnl.gov>:
+>>>>> > Subject: Re: IPoIB forwarding
+>>>>> >
+>>>>> > Here's a tcpdump of the same sequence.  The TCP MSS is 8960 and it 
+>>>>> appears
+>>>>> > that two payloads are queued at ipoib which combines them into a single
+>>>>> > 17920 payload with assumingly correct IP header (40) and IB header
+>>>>> > (4).  The application or TCP stack does not acknowledge this double 
+>>>>> packet
+>>>>> > ie. it does not ACK until each of the 8960 packets are resent
+>>>>> > individually.  Being an IB newbie, I am guessing this combining is
+>>>>> > allowable but may violate TCP protocol.
+>>>>>
+>>>>>IPoIB does nothing like this - it's just a network device so
+>>>>>it sends all packets out as is.
+>>>>>
+>>>>>--
+>>>>>MST
+>>>>
+>>>>
+>>>>_______________________________________________
+>>>>general mailing list
+>>>>general@lists.openfabrics.org
+>>>>http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general
+>>>>To unsubscribe, please visit 
+>>>>http://openib.org/mailman/listinfo/openib-general
