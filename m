@@ -1,41 +1,68 @@
 From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Re: [PATCH 9/9] net_device: dont include wext bits if not required
-Date: Thu, 26 Apr 2007 20:50:13 -0400
-Message-ID: <20070427005013.GA25332@tuxdriver.com>
-References: <20070424180732.371620000@sipsolutions.net> <20070424180850.595757000@sipsolutions.net> <20070426165304.GC22576@bougret.hpl.hp.com>
+Subject: [PATCH] cfg80211: fix locking in wiphy_new
+Date: Thu, 26 Apr 2007 21:47:44 -0400
+Message-ID: <20070427014744.GE25332@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
 	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Jean Tourrilhes <jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org>
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
 Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20070426165304.GC22576-yAE0UhLNZJawPNPzzlOzwdBPR1lH4CV8@public.gmane.org>
 Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 26, 2007 at 09:53:04AM -0700, Jean Tourrilhes wrote:
-> On Tue, Apr 24, 2007 at 08:07:41PM +0200, Johannes Berg wrote:
-> > This patch makes the wext bits in struct net_device depend on
-> > CONFIG_WIRELESS_EXT.
-> > 
-> > Signed-off-by: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-> 
-> 	I personally would not do that. Having conditional fields in
-> "struct net_device" is very bad, it's a sure way to crash on modules
-> in some cases. If I remember well, Jeff Garzik has been fighting those
-> over the years.
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
 
-I'm not sure I understand the reasoning here.  Without a doubt kernel
-modules need to be built against the same configuration as the kernels
-that are loading them.  So, conditional component of net_device should
-not cause crashes.
+This patch fixes the locking in wiphy new. Ingo Oeser <netdev-BkyiQQGWkgE@public.gmane.org>
+noticed that locking in the error case was wrong and also suggested this
+fix.
 
-FWIW, there are other conditionally compiled portions of net_device
-(NETPOLL, NET_POLL_CONTROLLER).  I don't see the harm here.
+Signed-off-by: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Signed-off-by: John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+---
+ net/wireless/core.c |   16 ++++++++++------
+ 1 files changed, 10 insertions(+), 6 deletions(-)
 
-John
+diff --git a/net/wireless/core.c b/net/wireless/core.c
+index 532e1e0..24a21ad 100644
+--- a/net/wireless/core.c
++++ b/net/wireless/core.c
+@@ -53,21 +53,25 @@ struct wiphy *wiphy_new(struct cfg80211_ops *ops, int sizeof_priv)
+ 
+ 	mutex_lock(&cfg80211_drv_mutex);
+ 
+-	if (unlikely(wiphy_counter<0)) {
++	drv->idx = wiphy_counter;
++
++	/* now increase counter for the next device unless
++	 * it has wrapped previously */
++	if (wiphy_counter >= 0)
++		wiphy_counter++;
++
++	mutex_unlock(&cfg80211_drv_mutex);
++
++	if (unlikely(drv->idx < 0)) {
+ 		/* ugh, wrapped! */
+ 		kfree(drv);
+ 		return NULL;
+ 	}
+-	drv->idx = wiphy_counter;
+ 
+ 	/* give it a proper name */
+ 	snprintf(drv->wiphy.dev.bus_id, BUS_ID_SIZE,
+ 		 PHY_NAME "%d", drv->idx);
+ 
+-	/* now increase counter for the next time */
+-	wiphy_counter++;
+-	mutex_unlock(&cfg80211_drv_mutex);
+-
+ 	mutex_init(&drv->mtx);
+ 	mutex_init(&drv->devlist_mtx);
+ 	INIT_LIST_HEAD(&drv->netdev_list);
+-- 
+1.5.0.6
+
 -- 
 John W. Linville
 linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
