@@ -1,58 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/14] AF_RXRPC socket family and AFS rewrite [net-2.6]
-Date: Thu, 26 Apr 2007 20:12:13 -0700 (PDT)
-Message-ID: <20070426.201213.85816532.davem@davemloft.net>
-References: <20070426195415.24531.78794.stgit@warthog.cambridge.redhat.com>
-	<20070426.161522.76328746.davem@davemloft.net>
-	<20070426.200809.04441500.davem@davemloft.net>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: [ofa-general] Re: [PATCH 2.6.22 5/5] iw_cxgb3: Update required
+	firmware revision to 4.0.0.
+Date: Thu, 26 Apr 2007 20:12:42 -0700
+Message-ID: <adaps5qo6hh.fsf@cisco.com>
+References: <20070426202057.24234.56383.stgit@dell3.ogc.int>
+	<20070426202126.24234.71523.stgit@dell3.ogc.int>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dhowells@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44359
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755207AbXD0DMF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2007 23:12:05 -0400
-In-Reply-To: <20070426.200809.04441500.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, general@lists.openfabrics.org, divy@chelsio.com,
+	jeff@garzik.org, linux-kernel@vger.kernel.org
+To: Steve Wise <swise@opengridcomputing.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <20070426202126.24234.71523.stgit@dell3.ogc.int> (Steve Wise's
+	message of "Thu, 26 Apr 2007 15:21:26 -0500")
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-From: David Miller <davem@davemloft.net>
-Date: Thu, 26 Apr 2007 20:08:09 -0700 (PDT)
+ > Update required firmware revision to 4.0.0.
 
-> From: David Miller <davem@davemloft.net>
-> Date: Thu, 26 Apr 2007 16:15:22 -0700 (PDT)
-> 
-> > Ok, I applied it all and added a compiler warning fix for 64-bit
-> > at the end.
-> 
-> I just found a problem in your work, you cannot use cmpxchg() in
-> generic code, it is not available on all processors:
+Hmm... should we fold this into the earlier patch, which actually
+needs this new FW?  Or at least merge this patch first?
 
-And even more problems, what the heck are you doing here?
+Also, is it cool with everyone to require a new FW, even for users who
+might not be using (or even building) the RDMA driver?  I'm not sure
+what a good solution would be really, so maybe the pain of forcing
+everyone to update FW is the least bad thing to do.
 
-In file included from net/rxrpc/rxkad.c:21:
-net/rxrpc/ar-internal.h:803:1: warning: "atomic_dec" redefined
-In file included from include/linux/spinlock.h:326,
-                 from include/linux/module.h:9,
-                 from net/rxrpc/rxkad.c:12:
-include/asm/atomic.h:67:1: warning: this is the location of the previous definition
-
-You can't override atomic_dec() like this, in fact I'd suggest you
-don't try to do that at all and instead use your own rxrpc_drop_ref()
-or whatever to get this functionality and pepper the rxrpc sources
-with calls to your local version.
-
-I'm going to ask that you test build any future work on a couple of
-platforms besides x86 and x86_64 or else I'm not merging your work
-until someone does.
-
-I'm a little bit upset that I waited so many iterations of your
-changes, and still there is massive fallout like this on a simple
-platform like sparc64.
-
-It's not even run-time fallout, it's build-time detectable stuff,
-things you could have prevented without having access to any of these
-systems.
+ - R.
