@@ -1,26 +1,29 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/9] various wext cleanups
-Date: Thu, 26 Apr 2007 20:48:54 -0700 (PDT)
-Message-ID: <20070426.204854.92515397.davem@davemloft.net>
-References: <20070424180732.371620000@sipsolutions.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] cfg80211: fix locking in wiphy_new
+Date: Thu, 26 Apr 2007 20:50:45 -0700 (PDT)
+Message-ID: <20070426.205045.122940453.davem@davemloft.net>
+References: <20070427014744.GE25332@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	jt@hpl.hp.com
-To: johannes@sipsolutions.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38242
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755238AbXD0Dsq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2007 23:48:46 -0400
-In-Reply-To: <20070424180732.371620000@sipsolutions.net>
-Sender: netdev-owner@vger.kernel.org
+Cc: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20070427014744.GE25332-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Johannes Berg <johannes@sipsolutions.net>
-Date: Tue, 24 Apr 2007 20:07:32 +0200
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Thu, 26 Apr 2007 21:47:44 -0400
 
-> This patch series contains various cleanups to the wireless extensions code.
+> From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+> 
+> This patch fixes the locking in wiphy new. Ingo Oeser <netdev-BkyiQQGWkgE@public.gmane.org>
+> noticed that locking in the error case was wrong and also suggested this
+> fix.
+> 
+> Signed-off-by: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+> Signed-off-by: John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
 
-All applied, thanks Johannes.
+Applied.
