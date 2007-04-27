@@ -1,20 +1,20 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH 00/14] AF_RXRPC socket family and AFS rewrite [net-2.6]
-Date: Thu, 26 Apr 2007 20:18:29 -0700 (PDT)
-Message-ID: <20070426.201829.110908085.davem@davemloft.net>
+Date: Thu, 26 Apr 2007 20:20:37 -0700 (PDT)
+Message-ID: <20070426.202037.94552269.davem@davemloft.net>
 References: <20070426.161522.76328746.davem@davemloft.net>
 	<20070426.200809.04441500.davem@davemloft.net>
 	<20070426.201213.85816532.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain; charset=iso-2022-jp-2
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: dhowells@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38634
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38637
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755203AbXD0DSV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2007 23:18:21 -0400
+	by vger.kernel.org with ESMTP id S1755204AbXD0DU3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2007 23:20:29 -0400
 In-Reply-To: <20070426.201213.85816532.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
@@ -22,60 +22,52 @@ List-Id: netdev.vger.kernel.org
 From: David Miller <davem@davemloft.net>
 Date: Thu, 26 Apr 2007 20:12:13 -0700 (PDT)
 
-> In file included from net/rxrpc/rxkad.c:21:
-> net/rxrpc/ar-internal.h:803:1: warning: "atomic_dec" redefined
-> In file included from include/linux/spinlock.h:326,
->                  from include/linux/module.h:9,
->                  from net/rxrpc/rxkad.c:12:
-> include/asm/atomic.h:67:1: warning: this is the location of the previous definition
+> And even more problems, what the heck are you doing here?
 
-I'm fixing this as follows, if you want this debugging code
-back do it properly, thanks.
+And even more:
 
-commit 411faf5810cdd0e4f5071a3805d8adb49d120a07
+commit 68c708fd5e90f6d178c84bb7e641589eb2842319
 Author: David S. Miller <davem@sunset.davemloft.net>
-Date:   Thu Apr 26 20:18:17 2007 -0700
+Date:   Thu Apr 26 20:20:21 2007 -0700
 
-    [RXRPC]: Remove bogus atomic_* overrides.
+    [RXRPC]: Fix pointers passed to bitops.
     
-    These are done with CPP defines which several platforms
-    use for their atomic.h implementation, which floods the
-    build with warnings and breaks the build.
+      CC [M]  net/rxrpc/ar-input.o
+    net/rxrpc/ar-input.c: In function $,1rx(Brxrpc_fast_process_data$,1ry(B:
+    net/rxrpc/ar-input.c:171: warning: passing argument 2 of $,1rx(B__test_and_set_bit$,1ry(B from incompatible pointer type
+    net/rxrpc/ar-input.c:180: warning: passing argument 2 of $,1rx(B__clear_bit$,1ry(B from incompatible pointer type
+    net/rxrpc/ar-input.c:218: warning: passing argument 2 of $,1rx(B__clear_bit$,1ry(B from incompatible pointer type
     
     Signed-off-by: David S. Miller <davem@davemloft.net>
 
-diff --git a/net/rxrpc/ar-internal.h b/net/rxrpc/ar-internal.h
-index cb1eb49..58aaf89 100644
---- a/net/rxrpc/ar-internal.h
-+++ b/net/rxrpc/ar-internal.h
-@@ -786,30 +786,6 @@ static inline void rxrpc_purge_queue(struct sk_buff_head *list)
- 		rxrpc_free_skb(skb);
- }
+diff --git a/net/rxrpc/ar-input.c b/net/rxrpc/ar-input.c
+index ceb5d61..91b5bbb 100644
+--- a/net/rxrpc/ar-input.c
++++ b/net/rxrpc/ar-input.c
+@@ -168,7 +168,7 @@ static int rxrpc_fast_process_data(struct rxrpc_call *call,
+ 	/* we may already have the packet in the out of sequence queue */
+ 	ackbit = seq - (call->rx_data_eaten + 1);
+ 	ASSERTCMP(ackbit, >=, 0);
+-	if (__test_and_set_bit(ackbit, &call->ackr_window)) {
++	if (__test_and_set_bit(ackbit, call->ackr_window)) {
+ 		_debug("dup oos #%u [%u,%u]",
+ 		       seq, call->rx_data_eaten, call->rx_data_post);
+ 		ack = RXRPC_ACK_DUPLICATE;
+@@ -177,7 +177,7 @@ static int rxrpc_fast_process_data(struct rxrpc_call *call,
  
--static inline void __rxrpc__atomic_inc(atomic_t *v)
--{
--	CHECK_SLAB_OKAY(v);
--	atomic_inc(v);
--}
--
--#define atomic_inc(v) __rxrpc__atomic_inc((v))
--
--static inline void __rxrpc__atomic_dec(atomic_t *v)
--{
--	CHECK_SLAB_OKAY(v);
--	atomic_dec(v);
--}
--
--#define atomic_dec(v) __rxrpc__atomic_dec((v))
--
--static inline int __rxrpc__atomic_dec_and_test(atomic_t *v)
--{
--	CHECK_SLAB_OKAY(v);
--	return atomic_dec_and_test(v);
--}
--
--#define atomic_dec_and_test(v) __rxrpc__atomic_dec_and_test((v))
--
- static inline void __rxrpc_get_local(struct rxrpc_local *local, const char *f)
- {
- 	CHECK_SLAB_OKAY(&local->usage);
+ 	if (seq >= call->ackr_win_top) {
+ 		_debug("exceed #%u [%u]", seq, call->ackr_win_top);
+-		__clear_bit(ackbit, &call->ackr_window);
++		__clear_bit(ackbit, call->ackr_window);
+ 		ack = RXRPC_ACK_EXCEEDS_WINDOW;
+ 		goto discard_and_ack;
+ 	}
+@@ -215,7 +215,7 @@ static int rxrpc_fast_process_data(struct rxrpc_call *call,
+ 	ret = rxrpc_queue_rcv_skb(call, skb, false, terminal);
+ 	if (ret < 0) {
+ 		if (ret == -ENOMEM || ret == -ENOBUFS) {
+-			__clear_bit(ackbit, &call->ackr_window);
++			__clear_bit(ackbit, call->ackr_window);
+ 			ack = RXRPC_ACK_NOSPACE;
+ 			goto discard_and_ack;
+ 		}
