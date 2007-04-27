@@ -1,32 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: netdev file size restrictions??? Was: Re: [PATCH 04/14]
- AF_RXRPC: Provide secure RxRPC sockets for ...
-Date: Fri, 27 Apr 2007 00:55:41 -0700 (PDT)
-Message-ID: <20070427.005541.90822976.davem@davemloft.net>
-References: <20070426195415.24531.78794.stgit@warthog.cambridge.redhat.com>
-	<20070426195436.24531.34654.stgit@warthog.cambridge.redhat.com>
-	<20070427035220.643283e0.billfink@mindspring.com>
+From: dmitry pervushin <dpervushin@gmail.com>
+Subject: [PATCH] SMC on pxa3xx (was: pxa3xx base patch [5/5] - net)
+Date: Fri, 27 Apr 2007 12:52:08 +0400
+Message-ID: <1177663928.4307.7.camel@diimka.dev.rtsoft.ru>
+Reply-To: dpervushin@gmail.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: dhowells@redhat.com, netdev@vger.kernel.org
-To: billfink@mindspring.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39526
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755464AbXD0Hzd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Apr 2007 03:55:33 -0400
-In-Reply-To: <20070427035220.643283e0.billfink@mindspring.com>
+Received: from ug-out-1314.google.com ([66.249.92.173]:51471 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755496AbXD0Iup (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Apr 2007 04:50:45 -0400
+Received: by ug-out-1314.google.com with SMTP id 44so777591uga
+        for <netdev@vger.kernel.org>; Fri, 27 Apr 2007 01:50:43 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Bill Fink <billfink@mindspring.com>
-Date: Fri, 27 Apr 2007 03:52:20 -0400
+This patch is to support network adapter on pxa3xx-based boards
 
-> Did the file size restrictions for netdev somehow get lifted?
-> I just received this e-mail that my mail client says is 339.3KB
-> (and a few others that are over 100KB (some well over)).
+Signed-off-by: dmitry pervushin <dpervushin@ru.mvista.com>
+KernelVersion: 2.6.21
 
-Yes, I bumped it up slightly on a few lists where I've
-been seeing large patches rejected that were rather
-legitimate postings.
+Index: linux-2.6.21/drivers/net/smc91x.h
+===================================================================
+--- linux-2.6.21.orig/drivers/net/smc91x.h
++++ linux-2.6.21/drivers/net/smc91x.h
+@@ -175,6 +175,20 @@ SMC_outw(u16 val, void __iomem *ioaddr, 
+ 	}
+ }
+ 
++#elif defined(CONFIG_PXA3xx)
++#define SMC_CAN_USE_8BIT	1
++#define SMC_CAN_USE_16BIT	1
++#define SMC_CAN_USE_32BIT	0
++#define SMC_IO_SHIFT		0
++#define SMC_NOWAIT		1
++#define SMC_USE_PXA_DMA		1
++#define SMC_inb(a, r)		readb((a) + (r))
++#define SMC_outb(v, a, r)	writeb(v, (a) + (r))
++#define SMC_inw(a, r)		readw((a) + (r))
++#define SMC_outw(v, a, r)	writew(v, (a) + (r))
++#define SMC_insw(a, r, p, l)	insw((a) + (r), p, l)
++#define SMC_outsw(a, r, p, l)	outsw((a) + (r), p, l)
++
+ #elif	defined(CONFIG_ARCH_OMAP)
+ 
+ /* We can only do 16-bit reads and writes in the static memory space. */
+
+
