@@ -1,48 +1,53 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
+From: "Tim Durack" <tdurack@gmail.com>
 Subject: Re: r8169 ethernet bonding problems
-Date: Fri, 27 Apr 2007 14:30:49 -0700
-Message-ID: <12883.1177709449@death>
-References: <9e246b4d0704180552q16b05017wd0d7041c3ce04f46@mail.gmail.com> <20070418181333.GA2261@electric-eye.fr.zoreil.com> <9e246b4d0704271353g105ecd62j4f35a6e9027ad590@mail.gmail.com>
+Date: Fri, 27 Apr 2007 17:44:22 -0400
+Message-ID: <9e246b4d0704271444o93dfca0we0203030a0a9fd05@mail.gmail.com>
+References: <9e246b4d0704180552q16b05017wd0d7041c3ce04f46@mail.gmail.com>
+	 <20070418181333.GA2261@electric-eye.fr.zoreil.com>
+	 <9e246b4d0704271353g105ecd62j4f35a6e9027ad590@mail.gmail.com>
+	 <12883.1177709449@death>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: "Francois Romieu" <romieu@fr.zoreil.com>, netdev@vger.kernel.org
-To: "Tim Durack" <tdurack@gmail.com>
+To: "Jay Vosburgh" <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e34.co.us.ibm.com ([32.97.110.152]:41669 "EHLO
-	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751597AbXD0Vaw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Apr 2007 17:30:52 -0400
-Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
-	by e34.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l3RLUqV4000429
-	for <netdev@vger.kernel.org>; Fri, 27 Apr 2007 17:30:52 -0400
-Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
-	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l3RLUplr172460
-	for <netdev@vger.kernel.org>; Fri, 27 Apr 2007 15:30:51 -0600
-Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l3RLUpYI005092
-	for <netdev@vger.kernel.org>; Fri, 27 Apr 2007 15:30:51 -0600
-In-reply-to: <9e246b4d0704271353g105ecd62j4f35a6e9027ad590@mail.gmail.com> 
+Received: from wx-out-0506.google.com ([66.249.82.224]:54049 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757218AbXD0VoX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Apr 2007 17:44:23 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so1032423wxd
+        for <netdev@vger.kernel.org>; Fri, 27 Apr 2007 14:44:22 -0700 (PDT)
+In-Reply-To: <12883.1177709449@death>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Tim Durack <tdurack@gmail.com> wrote:
+> >ip link set dev eth1 promisc on
+> >ip link set dev eth2 promisc off
 
-[...]
->Bond comes up, cannot ping unless I manually force promisc on both member links:
+typo, "ip link set dev eth2 promisc on" of course
+
 >
->ip link set dev eth1 promisc on
->ip link set dev eth2 promisc off
+>        From looking at the source code for r8169, but it appears that
+> the r8169 driver only reads the device MAC address at probe time, and
+> doesn't propogate changes to the MAC out to the device.  That might
+> explain the "promisc" problem if the device also does MAC filtering.  Am
+> I missing something in the driver?
 
-	From looking at the source code for r8169, but it appears that
-the r8169 driver only reads the device MAC address at probe time, and
-doesn't propogate changes to the MAC out to the device.  That might
-explain the "promisc" problem if the device also does MAC filtering.  Am
-I missing something in the driver?
+I have applied all patches from the set, including:
 
-	I don't actually have one of these to test with, I'm just
-looking at the source and observing that dev_addr is only ever
-referenced in the probe function, and that's only to read in the MAC
-from the device.
+0012-r8169-mac-address-change-support.patch
 
-	-J
+which I assume adds the ability to reprogram MAC filtering.
 
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+Behaviour indicates the MAC filter doesn't get reprogrammed though.
+
+>        I don't actually have one of these to test with, I'm just
+> looking at the source and observing that dev_addr is only ever
+> referenced in the probe function, and that's only to read in the MAC
+> from the device.
+
+You're not missing much, believe me :-|
+
+Tim:>
