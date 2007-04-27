@@ -1,54 +1,46 @@
-From: Vitaly Wool <vwool@ru.mvista.com>
-Subject: [PATCH] fix smc911x compilation breakage
-Date: Fri, 27 Apr 2007 14:35:52 +0400
-Message-ID: <20070427143552.0000757a.vwool@ru.mvista.com>
+From: Ingo Oeser <netdev@axxeo.de>
+Subject: Re: [Fwd: [PATCH] [TIPC]: Enhancements to msg_set_bits() routine]
+Date: Fri, 27 Apr 2007 13:06:16 +0200
+Message-ID: <200704271306.17480.netdev@axxeo.de>
+References: <462E52DE.5000900@ericsson.com> <200704251839.44056.netdev@axxeo.de> <462FBADA.2060701@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: dustin@sensoria.com, netdev@vger.kernel.org
-To: jgarzik@pobox.com
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Jon Paul Maloy <jon.maloy@ericsson.com>,
+	Per Liden <per.liden@ericsson.com>,
+	"Stephens, Allan" <allan.stephens@windriver.com>
+To: Jon Paul Maloy <jon.maloy@ericsson.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtsoft2.corbina.net ([85.21.88.2]:55906 "HELO
-	mail.dev.rtsoft.ru" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with SMTP id S1755582AbXD0Kmg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Apr 2007 06:42:36 -0400
+Received: from mail.axxeo.de ([82.100.226.146]:42374 "EHLO mail.axxeo.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755600AbXD0LG0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Apr 2007 07:06:26 -0400
+In-Reply-To: <462FBADA.2060701@ericsson.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Jeff,
+Hi Jon,
 
-currently (with 2.6.21) compilation of smc911x driver fails in the following way:
+Jon Paul Maloy schrieb:
+> Ingo Oeser wrote:
+> > static inlinevoid msg_set_bits(struct tipc_msg *m, u32 w,
+> >   				u32 pos, __be32 mask, __be32 val)
+> >
+> >
+> > Care to resubmit?
 
-  CC      drivers/net/smc911x.o
-/sandbox/vital/opensource/linux-2.6/drivers/net/smc911x.c: In function `smc911x_probe':
-/sandbox/vital/opensource/linux-2.6/drivers/net/smc911x.c:2125: warning: implicit declaration of function `set_irq_type'
-/sandbox/vital/opensource/linux-2.6/drivers/net/smc911x.c:2125: error: `IRQ_TYPE_EDGE_FALLING' undeclared (first use in this function)
-/sandbox/vital/opensource/linux-2.6/drivers/net/smc911x.c:2125: error: (Each undeclared identifier is reported only once
-/sandbox/vital/opensource/linux-2.6/drivers/net/smc911x.c:2125: error: for each function it appears in.)
-make[3]: *** [drivers/net/smc911x.o] Error 1
-make[2]: *** [drivers/net] Error 2
-make[1]: *** [drivers] Error 2
-make: *** [zImage] Error 2
+> I don't mind at all, but I would first like to understand better
+> what this means. 
+> If I understand it correctly __be32 literally means "big-endian
+> 32-bit integer", but the way it is used doesn't seem to imply this,
+> since both input and output to htonl() often is of that type.
 
-The patch inlined below fixes the problem.
+Yes, you are right! I mixed up htonl and ntohl :-)
+Sorry for the confusion!
 
- smc911x.c |    2 +-
- 1 files changed, 1 insertion(+), 1 deletion(-)
+Best Regards
 
-Signed-off-by: Vitaly Wool <vitalywool@gmail.com>
-
-Index: linux-2.6/drivers/net/smc911x.c
-===================================================================
---- linux-2.6.orig/drivers/net/smc911x.c
-+++ linux-2.6/drivers/net/smc911x.c
-@@ -75,9 +75,9 @@ static const char version[] =
- #include <linux/netdevice.h>
- #include <linux/etherdevice.h>
- #include <linux/skbuff.h>
-+#include <linux/irq.h>
- 
- #include <asm/io.h>
--#include <asm/irq.h>
- 
- #include "smc911x.h"
- 
+Ingo Oeser
