@@ -1,47 +1,44 @@
-From: Mitsuru Chinen <mitch@linux.vnet.ibm.com>
-Subject: Re: [PATCH 6/6] [IPV4] SNMP: Display new statistics at
- /proc/net/snmp
-Date: Fri, 27 Apr 2007 16:46:30 +0900
-Message-ID: <20070427164630.3160ded5.mitch@linux.vnet.ibm.com>
-References: <20070417200944.bd82ded2.mitch@linux.vnet.ibm.com>
-	<20070417201436.ab8f3f7a.mitch@linux.vnet.ibm.com>
+From: Bill Fink <billfink@mindspring.com>
+Subject: netdev file size restrictions???  Was: Re: [PATCH 04/14] AF_RXRPC:
+ Provide secure RxRPC sockets for ...
+Date: Fri, 27 Apr 2007 03:52:20 -0400
+Message-ID: <20070427035220.643283e0.billfink@mindspring.com>
+References: <20070426195415.24531.78794.stgit@warthog.cambridge.redhat.com>
+	<20070426195436.24531.34654.stgit@warthog.cambridge.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Mitsuru Chinen <mitch@linux.vnet.ibm.com>
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: David Howells <dhowells@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e2.ny.us.ibm.com ([32.97.182.142]:46085 "EHLO e2.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754120AbXD0Hqp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Apr 2007 03:46:45 -0400
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e2.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l3R7kiAj028111
-	for <netdev@vger.kernel.org>; Fri, 27 Apr 2007 03:46:44 -0400
-Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
-	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l3R7kib9532914
-	for <netdev@vger.kernel.org>; Fri, 27 Apr 2007 03:46:44 -0400
-Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
-	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l3R7kipR005722
-	for <netdev@vger.kernel.org>; Fri, 27 Apr 2007 03:46:44 -0400
-In-Reply-To: <20070417201436.ab8f3f7a.mitch@linux.vnet.ibm.com>
+Received: from elasmtp-scoter.atl.sa.earthlink.net ([209.86.89.67]:51863 "EHLO
+	elasmtp-scoter.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755455AbXD0HwV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Apr 2007 03:52:21 -0400
+In-Reply-To: <20070426195436.24531.34654.stgit@warthog.cambridge.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 17 Apr 2007 20:14:36 +0900
-Mitsuru Chinen <mitch@linux.vnet.ibm.com> wrote:
+On Thu, 26 Apr 2007 20:54:36 +0100, David Howells wrote:
 
-> This displays the statistics specified in the updated IP-MIB RFC
-> (RFC4293) at /proc/net/snmp. As new statistics are placed as the
-> last elements, this change wouldn't affect netstat, net-snmp, etc.
+> Provide AF_RXRPC sockets that can be used to talk to AFS servers, or serve
+> answers to AFS clients.  KerberosIV security is fully supported.  The patches
+> and some example test programs can be found in:
+> 
+> 	http://people.redhat.com/~dhowells/rxrpc/
+> 
+> This will eventually replace the old implementation of kernel-only RxRPC
+> currently resident in net/rxrpc/.
+> 
+> The following documentation is from Documentation/networking/rxrpc.txt:
+> 
+> 			    ======================
+> 			    RxRPC NETWORK PROTOCOL
+> 			    ======================
+...
 
-I'm sorry. I found adding new entries to /proc/net/snmp affects
-net-snmp. I'm ashamed of my inadequate investigation.
+Did the file size restrictions for netdev somehow get lifted?
+I just received this e-mail that my mail client says is 339.3KB
+(and a few others that are over 100KB (some well over)).
 
-However the other patches to support new statistics will be useful.
-Could you pick up 1st to 5th patches?
-
-Thank you,
-----
-Mitsuru Chinen <mitch@linux.vnet.ibm.com>
-
+						-Bill
