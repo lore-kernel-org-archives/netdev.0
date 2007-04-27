@@ -1,60 +1,46 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 8382] New: 2.6.20 cannot route packets outside
- tunnel
-Date: Fri, 27 Apr 2007 16:05:54 -0700
-Message-ID: <20070427160554.8419450c.akpm@linux-foundation.org>
-References: <200704272301.l3RN14As026026@fire-2.osdl.org>
+From: David Howells <dhowells@redhat.com>
+Subject: Re: linux-2.6.21-ga205752d build #249 failed in net/rxrpc/rxkad.o:(.bss+0x0): multiple definition of `rxrpc_debug'
+Date: Sat, 28 Apr 2007 00:19:30 +0100
+Message-ID: <31645.1177715970@redhat.com>
+References: <200704272124.29189.toralf.foerster@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "bugme-daemon@kernel-bugs.osdl.org"
-	<bugme-daemon@bugzilla.kernel.org>, frlinux@frlinux.net
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Toralf =?us-ascii?Q?=3D=3Fiso-8859-1=3Fq=3FF=3DF6rster=3F=3D?=
+	<toralf.foerster@gmx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([65.172.181.25]:34661 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757863AbXD0XGJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Apr 2007 19:06:09 -0400
-In-Reply-To: <200704272301.l3RN14As026026@fire-2.osdl.org>
+Received: from mx1.redhat.com ([66.187.233.31]:36329 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757889AbXD0XTn convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Apr 2007 19:19:43 -0400
+In-Reply-To: <200704272124.29189.toralf.foerster@gmx.de> 
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-,On Fri, 27 Apr 2007 16:01:04 -0700
-bugme-daemon@bugzilla.kernel.org wrote:
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=8382
-> 
->            Summary: 2.6.20 cannot route packets outside tunnel
->     Kernel Version: 2.6.20.9
->             Status: NEW
->           Severity: high
->              Owner: yoshfuji@linux-ipv6.org
->          Submitter: frlinux@frlinux.net
-> 
-> 
-> Most recent kernel where this bug did *NOT* occur: 2.6.19.7
-> Distribution: Debian Etch 4.0
-> Hardware Environment: i386 VIA Samuel 2 700mhz
-> Software Environment: Debian Etch 
-> Problem Description:
-> 
-> I am using an IPv6 tunnel broker (SixXs) which is using aiccu (dynamic IPv4
-> address using heartbeat to get in sync with IPv6 tunnel to SixXS). When using
-> 2.6.20.x it doesn't route packets outside the tunnel anymore. This means that
-> from my gateway, i can ping my local interface and my remote one but not a
-> single other IPv6 address.
-> 
-> When trying to traceroute or send IPv6 packets from any other machine on my
-> network to an outside IPv6 address, i keep getting a network unreachable message.
-> 
-> This was tested against 2.6.20.{5,7,8,9} and also 2.6.19.6/7. It works perfectly
-> on any 2.6.19.x kernel or previous but fails under 2.6.20.x
-> 
-> I made a diff in the IPv6 stack between 19 and 20 but my programming skills are
-> clearly lacking :(
-> 
-> Steps to reproduce:
-> 
-> Compile with IPv6 settings that I am including with this bug report, 2.6.19
-> works, 2.6.20 doesn't.
+Toralf F=F6rster <toralf.foerster@gmx.de> wrote:
 
+> net/rxrpc/rxkad.o:(.bss+0x0): multiple definition of `rxrpc_debug'
+> net/rxrpc/af-rxrpc.o:(.bss+0x10): first defined here
+
+I've submitted a patch that fixes that already.
+
+	Subject: [PATCH 2/3] AF_RXRPC/AFS: Arch-specific fixes
+
+Though DaveM isn't keen on the way I did it, so there'll be another pat=
+ch to
+change it.
+
+What I intend to do, I think, is to drop the #define of rxrpc_debug ->
+rxkad_debug and also to drop the definition of rxrpc_debug in rxkad.c. =
+ The
+rxrpc_debug in af_rxrpc.c can then be EXPORT_SYMBOL'd and shared betwee=
+n the
+two related modules.
+
+Unfortunately, it'll have to wait till later today to give me a chance =
+to test
+it.
+
+David
