@@ -1,46 +1,56 @@
-From: David Howells <dhowells@redhat.com>
-Subject: Re: linux-2.6.21-ga205752d build #249 failed in net/rxrpc/rxkad.o:(.bss+0x0): multiple definition of `rxrpc_debug'
-Date: Sat, 28 Apr 2007 00:19:30 +0100
-Message-ID: <31645.1177715970@redhat.com>
-References: <200704272124.29189.toralf.foerster@gmx.de>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [ofa-general] Re: IPoIB forwarding
+Date: Fri, 27 Apr 2007 16:37:49 -0700
+Message-ID: <4632894D.40705@hp.com>
+References: <6.1.2.0.2.20070423160212.12db6400@mail.llnl.gov>	<20070425124652.GG1624@mellanox.co.il>	<6.1.2.0.2.20070426083410.1389d9e0@mail.llnl.gov>	<20070426161409.GF15540@mellanox.co.il>	<6.1.2.0.2.20070426095112.138e9a68@mail.llnl.gov>	<20070426180618.GJ15540@mellanox.co.il>	<6.1.2.0.2.20070427115435.13ea5ec0@mail.llnl.gov>	<46325DF3.2050203@hp.com>	<6.1.2.0.2.20070427152027.13fe46d0@mail.llnl.gov>	<46327A07.1000404@hp.com>
+	<6.1.2.0.2.20070427153952.13fc7d08@mail.llnl.gov>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Toralf =?us-ascii?Q?=3D=3Fiso-8859-1=3Fq=3FF=3DF6rster=3F=3D?=
-	<toralf.foerster@gmx.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:36329 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757889AbXD0XTn convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Apr 2007 19:19:43 -0400
-In-Reply-To: <200704272124.29189.toralf.foerster@gmx.de> 
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linux Network Development list <netdev@vger.kernel.org>,
+	"Michael S. Tsirkin" <mst@dev.mellanox.co.il>,
+	general@lists.openfabrics.org
+To: Bryan Lawver <lawver1@llnl.gov>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <6.1.2.0.2.20070427153952.13fc7d08@mail.llnl.gov>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
+Bryan Lawver wrote:
+> I had so much debugging turned on that it was not the "slowing of the 
+> traffic" but the "non-coelescencing" that was the remedy.  The NIC is a 
+> MyriCom NIC and these are easy options to set.
 
-Toralf F=F6rster <toralf.foerster@gmx.de> wrote:
+As chance would have it, I've played with some Myricom myri10ge NICs recently, 
+and even disabled large receive offload during some netperf tests :)  It is a 
+modprobe option.  Going back now to the driver source and the README I see :-)
 
-> net/rxrpc/rxkad.o:(.bss+0x0): multiple definition of `rxrpc_debug'
-> net/rxrpc/af-rxrpc.o:(.bss+0x10): first defined here
 
-I've submitted a patch that fixes that already.
+<excerpt>
+Troubleshooting
+===============
 
-	Subject: [PATCH 2/3] AF_RXRPC/AFS: Arch-specific fixes
+Large Receive Offload (LRO) is enabled by default.  This will
+interfere with forwarding TCP traffic.  If you plan to forward TCP
+traffic (using the host with the Myri10GE NIC as a router or bridge),
+you must disable LRO.  To disable LRO, load the myri10ge driver
+with myri10ge_lro set to 0:
 
-Though DaveM isn't keen on the way I did it, so there'll be another pat=
-ch to
-change it.
+          # modprobe myri10ge myri10ge_lro=0
 
-What I intend to do, I think, is to drop the #define of rxrpc_debug ->
-rxkad_debug and also to drop the definition of rxrpc_debug in rxkad.c. =
- The
-rxrpc_debug in af_rxrpc.c can then be EXPORT_SYMBOL'd and shared betwee=
-n the
-two related modules.
+Alternatively, you can disable LRO at runtime by disabling
+receive checksum offloading via ethtool:
 
-Unfortunately, it'll have to wait till later today to give me a chance =
-to test
-it.
+    # ethtool -K eth2 rx off
 
-David
+</excerpt>
+
+rick jones
