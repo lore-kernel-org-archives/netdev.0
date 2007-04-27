@@ -1,74 +1,39 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [stable] [PATCH] ipv6: track device renames in snmp6
-Date: Fri, 27 Apr 2007 11:17:57 -0700
-Message-ID: <20070427111757.35ac3a52@freekitty>
-References: <20070426164247.3b3b2c7a@freekitty>
-	<20070427041659.GB4841@kroah.com>
+From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
+Subject: Re: [RFT] e100 driver on ARM
+Date: Fri, 27 Apr 2007 15:01:27 -0400
+Message-ID: <20070427190127.GB5578@csclub.uwaterloo.ca>
+References: <44FC0261.6010807@garzik.org> <20060904123123.GB1285@xi.wantstofly.org> <460AF480.7050609@intel.com> <460B4BF2.1070803@roinet.com> <20070329141041.GA3510@csclub.uwaterloo.ca> <46239138.4040408@roinet.com> <20070417173507.GB5575@csclub.uwaterloo.ca> <4630D116.4080202@zytor.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: ???????????? <yoshfuji@linux-ipv6.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	stable@kernel.org
-To: Greg KH <greg@kroah.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Acker <dacker@roinet.com>,
+	"Kok, Auke" <auke-jan.h.kok@intel.com>,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	Jeff Garzik <jeff@garzik.org>,
+	Netdev List <netdev@vger.kernel.org>,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@osdl.org>,
+	Russell King <rmk+lkml@arm.linux.org.uk>
+To: "H. Peter Anvin" <hpa@zytor.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([65.172.181.25]:34690 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754309AbXD0STh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Apr 2007 14:19:37 -0400
-In-Reply-To: <20070427041659.GB4841@kroah.com>
+Received: from caffeine.uwaterloo.ca ([129.97.134.17]:38235 "EHLO
+	caffeine.csclub.uwaterloo.ca" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757087AbXD0TB2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Apr 2007 15:01:28 -0400
+Content-Disposition: inline
+In-Reply-To: <4630D116.4080202@zytor.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-That patch I sent was against 2.6.21, but both 2.6.20 and 2.6.21 have
-the problem.  Here is a version for 2.6.20.
-=============================================
+On Thu, Apr 26, 2007 at 09:19:34AM -0700, H. Peter Anvin wrote:
+> Why wouldn't that be permitted?  It, in fact, happens all the time (the
+> host bridge withdraws the GNT# line and raises STOP#, which does a
+> Termination With Data of the bus transfer.)  This is a normal event and
+> if you can't handle it you won't work with many host bridges at all.
 
-When network device's are renamed, the IPV6 snmp6 code
-gets confused. It doesn't track name changes so it will OOPS
-when network device's are removed.
+Well there must have been something else wrong then.  Certainly I saw
+data corruption on a rtl8139.  No problems with the same hardware using
+a geode SC1200, so I have no idea.  I liked the speed of the PXA255 a
+lot better than the slow poke SC1200.
 
-The fix is trivial, just unregister/re-register in notify handler.
-
-Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
-
-
----
- net/ipv6/addrconf.c |    6 ++++--
- net/ipv6/proc.c     |    1 +
- 2 files changed, 5 insertions(+), 2 deletions(-)
-
---- linux-2.6.20.y.orig/net/ipv6/addrconf.c	2007-04-27 11:14:51.000000000 -0700
-+++ linux-2.6.20.y/net/ipv6/addrconf.c	2007-04-27 11:16:26.000000000 -0700
-@@ -2338,8 +2338,9 @@ static int addrconf_notify(struct notifi
- 		break;
- 
- 	case NETDEV_CHANGENAME:
--#ifdef CONFIG_SYSCTL
- 		if (idev) {
-+			snmp6_unregister_dev(idev);
-+#ifdef CONFIG_SYSCTL
- 			addrconf_sysctl_unregister(&idev->cnf);
- 			neigh_sysctl_unregister(idev->nd_parms);
- 			neigh_sysctl_register(dev, idev->nd_parms,
-@@ -2347,8 +2348,9 @@ static int addrconf_notify(struct notifi
- 					      &ndisc_ifinfo_sysctl_change,
- 					      NULL);
- 			addrconf_sysctl_register(idev, &idev->cnf);
--		}
- #endif
-+			snmp6_register_dev(idev);
-+		}
- 		break;
- 	};
- 
---- linux-2.6.20.y.orig/net/ipv6/proc.c	2007-02-23 15:34:07.000000000 -0800
-+++ linux-2.6.20.y/net/ipv6/proc.c	2007-04-27 11:16:26.000000000 -0700
-@@ -237,6 +237,7 @@ int snmp6_unregister_dev(struct inet6_de
- 		return -EINVAL;
- 	remove_proc_entry(idev->stats.proc_dir_entry->name,
- 			  proc_net_devsnmp6);
-+	idev->stats.proc_dir_entry = NULL;
- 	return 0;
- }
- 
+--
+Len Sorensen
