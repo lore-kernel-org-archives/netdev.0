@@ -1,35 +1,69 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: IPV6 source routing patch is still broken?
-Date: Fri, 27 Apr 2007 02:41:16 -0700 (PDT)
-Message-ID: <20070427.024116.74748059.davem@davemloft.net>
-References: <46312E42.4070204@redhat.com>
-	<20070427.020805.88703639.davem@davemloft.net>
-	<20070427.183635.108797764.yoshfuji@linux-ipv6.org>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: [TCP]: Update references in two old comments
+Date: Fri, 27 Apr 2007 10:38:08 +0100
+Message-ID: <200704271038.08260@strip-the-willow>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: cebbert@redhat.com, netdev@vger.kernel.org, vsu@altlinux.ru
-To: yoshfuji@linux-ipv6.org
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49736
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755522AbXD0JlH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Apr 2007 05:41:07 -0400
-In-Reply-To: <20070427.183635.108797764.yoshfuji@linux-ipv6.org>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:53655 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755545AbXD0Jxy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Apr 2007 05:53:54 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
-Date: Fri, 27 Apr 2007 18:36:35 +0900 (JST)
+[TCP]: Update references in two old comments
 
-> In article <20070427.020805.88703639.davem@davemloft.net> (at Fri, 27 Apr 2007 02:08:05 -0700 (PDT)), David Miller <davem@davemloft.net> says:
-> 
-> > then the function proceeds to use the largest of
-> > 'accept_source_route' and 'idev->cnf.accept_source_route'
-> > for further checks.
-> 
-> Smallest:
->         if (accept_source_route > idev->cnf.accept_source_route)
->                 accept_source_route = idev->cnf.accept_source_route;
+This updates references to drafts in comments which must be about 10
+years old.  Internet draft draft-ietf-tcpimpl-prob-03.txt expired in 1998
+and was replaced by RFC 2525 in March 1999.
 
-Correct, my mistake.
+Section 3.10 of the draft maps almost identically into section 2.17 of RFC
+2525: both are entitled "Failure to RST on close with data pending", the
+differences in text body amount to a typo and minor sentence change.
+
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+---
+ net/ipv4/tcp.c        |   14 ++++++--------
+ net/ipv4/tcp_output.c |    2 +-
+ 2 files changed, 7 insertions(+), 9 deletions(-)
+
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -1573,14 +1573,12 @@ void tcp_close(struct sock *sk, long tim
+ 
+ 	sk_stream_mem_reclaim(sk);
+ 
+-	/* As outlined in draft-ietf-tcpimpl-prob-03.txt, section
+-	 * 3.10, we send a RST here because data was lost.  To
+-	 * witness the awful effects of the old behavior of always
+-	 * doing a FIN, run an older 2.1.x kernel or 2.0.x, start
+-	 * a bulk GET in an FTP client, suspend the process, wait
+-	 * for the client to advertise a zero window, then kill -9
+-	 * the FTP client, wheee...  Note: timeout is always zero
+-	 * in such a case.
++	/* As outlined in RFC 2525, section 2.17, we send a RST here because
++	 * data was lost. To witness the awful effects of the old behavior of
++	 * always doing a FIN, run an older 2.1.x kernel or 2.0.x, start a bulk
++	 * GET in an FTP client, suspend the process, wait for the client to
++	 * advertise a zero window, then kill -9 the FTP client, wheee...
++	 * Note: timeout is always zero in such a case.
+ 	 */
+ 	if (data_was_unread) {
+ 		/* Unread data was tossed, zap the connection. */
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2035,7 +2035,7 @@ void tcp_send_fin(struct sock *sk)
+ /* We get here when a process closes a file descriptor (either due to
+  * an explicit close() or as a byproduct of exit()'ing) and there
+  * was unread data in the receive queue.  This behavior is recommended
+- * by draft-ietf-tcpimpl-prob-03.txt section 3.10.  -DaveM
++ * by RFC 2525, section 2.17.  -DaveM
+  */
+ void tcp_send_active_reset(struct sock *sk, gfp_t priority)
+ {
