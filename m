@@ -1,63 +1,47 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: Unexcepted latency (order of 100-200 ms) with TCP (packet
- receive)
-Date: Fri, 27 Apr 2007 03:17:57 -0400
-Message-ID: <20070427031757.513f6ad7.billfink@mindspring.com>
-References: <Pine.LNX.4.64.0704241518370.28337@kivilampi-30.cs.helsinki.fi>
-	<4630D069.30605@redhat.com>
-	<Pine.LNX.4.64.0704262219200.18515@kivilampi-30.cs.helsinki.fi>
+From: Mitsuru Chinen <mitch@linux.vnet.ibm.com>
+Subject: Re: [PATCH 6/6] [IPV4] SNMP: Display new statistics at
+ /proc/net/snmp
+Date: Fri, 27 Apr 2007 16:46:30 +0900
+Message-ID: <20070427164630.3160ded5.mitch@linux.vnet.ibm.com>
+References: <20070417200944.bd82ded2.mitch@linux.vnet.ibm.com>
+	<20070417201436.ab8f3f7a.mitch@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Chuck Ebbert <cebbert@redhat.com>, Netdev <netdev@vger.kernel.org>
-To: "Ilpo =?ISO-8859-1?Q?J=E4rvinen" ?= <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Mitsuru Chinen <mitch@linux.vnet.ibm.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-spurfowl.atl.sa.earthlink.net ([209.86.89.66]:48523
-	"EHLO elasmtp-spurfowl.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755445AbXD0H1q convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Apr 2007 03:27:46 -0400
-In-Reply-To: <Pine.LNX.4.64.0704262219200.18515@kivilampi-30.cs.helsinki.fi>
+Received: from e2.ny.us.ibm.com ([32.97.182.142]:46085 "EHLO e2.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754120AbXD0Hqp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Apr 2007 03:46:45 -0400
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by e2.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l3R7kiAj028111
+	for <netdev@vger.kernel.org>; Fri, 27 Apr 2007 03:46:44 -0400
+Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
+	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l3R7kib9532914
+	for <netdev@vger.kernel.org>; Fri, 27 Apr 2007 03:46:44 -0400
+Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
+	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l3R7kipR005722
+	for <netdev@vger.kernel.org>; Fri, 27 Apr 2007 03:46:44 -0400
+In-Reply-To: <20070417201436.ab8f3f7a.mitch@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 26 Apr 2007, Ilpo J=E4rvinen wrote:
+On Tue, 17 Apr 2007 20:14:36 +0900
+Mitsuru Chinen <mitch@linux.vnet.ibm.com> wrote:
 
-> On Thu, 26 Apr 2007, Chuck Ebbert wrote:
->=20
-> > Ilpo J=E4rvinen wrote:
-> > > ...I'm unsure how to continue the investigation from this point o=
-nward=20
-> > > and asking for ideas/suggestions or how to rule out more possibil=
-ities...=20
-> > > Or is there some knob which I don't know of that should be toggle=
-d or=20
-> > > something, is 2.6 network stack expected to behave this way?
-> > >=20
-> >=20
-> > Try a different network adapter.
->=20
-> Hmm, I thought I had already done this but I just noticed that it is =
-so=20
-> that the adapter was still the same as the other host has two adapter=
- (now=20
-> that I look again). I'll give it a try tomorrow to see if using the=20
-> another adapter makes any difference.
->=20
-> > Try turning off hardware TSO offload:
-> >   ethtool -K ethX tso off
->=20
-> # ethtool -K eth0 tso off
-> Cannot set device tcp segmentation offload settings: Operation not=20
-> supported
+> This displays the statistics specified in the updated IP-MIB RFC
+> (RFC4293) at /proc/net/snmp. As new statistics are placed as the
+> last elements, this change wouldn't affect netstat, net-snmp, etc.
 
-Could the delays be caused by Ethernet PAUSE frames (which might not
-be rquired at the slower 10FD but might at 100)?  TX and RX pause
-control settings (check with "ethtool -a") might be different between
-the 2.4 and 2.6 kernels.
+I'm sorry. I found adding new entries to /proc/net/snmp affects
+net-snmp. I'm ashamed of my inadequate investigation.
 
-Also check things like net.core.netdev_max_backlog and ifconfig
-txqueuelen settings.  And check "ethtool -S", "netstat -s", and
-ifconfig error counters.
+However the other patches to support new statistics will be useful.
+Could you pick up 1st to 5th patches?
 
-						-Bill
+Thank you,
+----
+Mitsuru Chinen <mitch@linux.vnet.ibm.com>
+
