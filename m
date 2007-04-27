@@ -1,52 +1,53 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [patch 09/11] forcedeth: improve NAPI logic
-Date: Fri, 27 Apr 2007 08:27:10 -0400
-Message-ID: <4631EC1E.4030401@garzik.org>
-References: <200704260723.l3Q7NNCj023844@shell0.pdx.osdl.net> <4630B76C.7070603@nvidia.com> <4630EE50.4000109@garzik.org> <4630BCD0.9040702@nvidia.com>
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: Re: [PATCH 2.6.22 5/5] iw_cxgb3: Update required firmware revision
+	to 4.0.0.
+Date: Fri, 27 Apr 2007 08:03:56 -0500
+Message-ID: <1177679036.10490.15.camel@stevo-desktop>
+References: <20070426202057.24234.56383.stgit@dell3.ogc.int>
+	 <20070426202126.24234.71523.stgit@dell3.ogc.int>
+	 <adaps5qo6hh.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org, mingo@elte.hu
-To: Ayaz Abdulla <aabdulla@nvidia.com>
+Cc: jeff@garzik.org, divy@chelsio.com, general@lists.openfabrics.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Roland Dreier <rdreier@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:38949 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755733AbXD0M1U (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Apr 2007 08:27:20 -0400
-In-Reply-To: <4630BCD0.9040702@nvidia.com>
+Received: from rrcs-71-42-183-126.sw.biz.rr.com ([71.42.183.126]:48231 "EHLO
+	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755790AbXD0ND5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Apr 2007 09:03:57 -0400
+In-Reply-To: <adaps5qo6hh.fsf@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ayaz Abdulla wrote:
+On Thu, 2007-04-26 at 20:12 -0700, Roland Dreier wrote:
+>  > Update required firmware revision to 4.0.0.
 > 
+> Hmm... should we fold this into the earlier patch, which actually
+> needs this new FW?  Or at least merge this patch first?
 > 
-> Jeff Garzik wrote:
->> Ayaz Abdulla wrote:
->>
->>> I don't see why the NAPI handler needs to process tx packets. The ISR 
->>> will handle all tx processing.
->>
->>
->> It is a design choice, not a requirement.
->>
->> Moving non-RX interrupt processing to the NAPI handler can help as 
->> loads increase.  The basic idea is to do as much work as possible in 
->> the NAPI handler with NIC interrupts masked.  That mitigates global 
->> system per-interrupt overhead even more than an only-RX NAPI scheme.
->>
->> Several net drivers do TX completion handling in the NAPI handler.
-> 
-> Ok. In that case, the patch needs to be improved.
-> 
-> The following needs to be done when NAPI is enabled:
-> - remove the tx handling within the ISRs
-> - mask off the tx interrupts within the ISRs that handle tx processing
-> - re-enable tx interrupts within the NAPI handler
-> - add tx handling within the NAPI handler (this patch covers it)
 
-Agreed.
+I separated it only because cxgb3 is maintained by Jeff.  Feel free to
+make it one commit.  That is the proper way IMO. But I didn't know what
+SOP was for changes that hit different maintainers but are prerequisites
+of each other...
 
-	Jeff
+
+> Also, is it cool with everyone to require a new FW, even for users who
+> might not be using (or even building) the RDMA driver?  I'm not sure
+> what a good solution would be really, so maybe the pain of forcing
+> everyone to update FW is the least bad thing to do.
+>  - R.
+
+I was asked to package the firmware version change along with my rdma
+changes by Divy since they didn't have any other cxgb3 changes right
+now.  I believe Chelsio wants folks on this new firmware asap.
+
+
+Steve.
+
+
 
 
 
