@@ -1,140 +1,99 @@
-From: David Howells <dhowells@redhat.com>
-Subject: [PATCH 2/3] AF_RXRPC/AFS: Arch-specific fixes
-Date: Fri, 27 Apr 2007 15:31:40 +0100
-Message-ID: <20070427143140.23545.37397.stgit@warthog.cambridge.redhat.com>
-References: <20070427143135.23545.43386.stgit@warthog.cambridge.redhat.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH] IPROUTE: Modify tc for new PRIO multiqueue behavior
+Date: Fri, 27 Apr 2007 10:58:38 -0400
+Message-ID: <1177685918.4059.67.camel@localhost>
+References: <D5C1322C3E673F459512FB59E0DDC32902B96813@orsmsx414.amr.corp.intel.com>
+	 <1177594079.4077.37.camel@localhost>  <4630CBF3.9030202@trash.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: dhowells@redhat.com
-To: netdev@vger.kernel.org
+Cc: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	netdev@vger.kernel.org, jgarzik@pobox.com,
+	cramerj <cramerj@intel.com>,
+	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
+	"Leech, Christopher" <christopher.leech@intel.com>,
+	davem@davemloft.net
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:47053 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755960AbXD0Obs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Apr 2007 10:31:48 -0400
-Received: from int-mx1.corp.redhat.com (int-mx1.corp.redhat.com [172.16.52.254])
-	by mx1.redhat.com (8.13.1/8.13.1) with ESMTP id l3REVlM8030705
-	for <netdev@vger.kernel.org>; Fri, 27 Apr 2007 10:31:47 -0400
-In-Reply-To: <20070427143135.23545.43386.stgit@warthog.cambridge.redhat.com>
+Received: from wx-out-0506.google.com ([66.249.82.224]:14326 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755967AbXD0O6s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Apr 2007 10:58:48 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so928173wxd
+        for <netdev@vger.kernel.org>; Fri, 27 Apr 2007 07:58:44 -0700 (PDT)
+In-Reply-To: <4630CBF3.9030202@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fixes for various arch compilation problems:
+On Thu, 2007-26-04 at 17:57 +0200, Patrick McHardy wrote:
 
- (*) Missing module exports.
+> The reason for suggesting to add a TC option was that these patches
+> move (parts of) the scheduling policy into the driver since it can
+> start and stop individual subqueues, which in turn cause single
+> bands of prio not to be dequeued anymore. 
 
- (*) Variable name collision when rxkad and af_rxrpc both built in
-     (rxrpc_debug).
+I see.
 
- (*) Large constant representation problem (AFS_UUID_TO_UNIX_TIME).
+> To avoid surprising users
+> by this it should be explicitly enabled. Another reason is that
+> prio below a classful qdisc should most likely not care about
+> multiqueue.
 
- (*) Configuration dependencies.
+Heres the way i see it from a user perspective:
+If a NIC has 3 hardware queues; if that NIC supports strict priority
+(i.e the prio qdisc) which we already support, there should be no need
+for the user to really explicitly enable that support. 
+It should be transparent to them - because by configuring a multi queue
+prio qdisc (3 bands/queues default), they are already doing multiqueues.
+i.e when i say "tc qdisc add root prio bands 4" on eth0, i am already
+asking explicitly for 4 strict priority queues on eth0.
+This in my opinion is separate from enabling the hardware to do 4
+queues - which is a separate abstraction layer (and ethtool would
+do fine there).
 
- (*) printk() format warnings.
+> We need to change the qdisc layer as well so it knows about the state
+> of subqueues and can dequeue individual (active) subqueues. 
 
-Signed-Off-By: David Howells <dhowells@redhat.com>
----
+The alternative approach is to change the drivers tx state
+machine netif_XX to act as well on a per hardware queue level. This is
+what i have in mind working with Ashwin.
 
- arch/ia64/lib/csum_partial_copy.c |    2 ++
- fs/Kconfig                        |    1 +
- fs/afs/internal.h                 |    2 +-
- fs/afs/rxrpc.c                    |    2 +-
- fs/afs/use-rtnetlink.c            |    2 +-
- net/rxrpc/Kconfig                 |    5 +++++
- net/rxrpc/rxkad.c                 |    1 +
- 7 files changed, 12 insertions(+), 3 deletions(-)
+> The
+> alternative to adding it to prio (or a completely new qdisc) is to add
+> something very similar to qdisc_restart and have it pass the subqueue
+> it wishes to dequeue to ->dequeue, but that would be less flexible
+> and doesn't seem to offer any advantages.
+> 
 
-diff --git a/arch/ia64/lib/csum_partial_copy.c b/arch/ia64/lib/csum_partial_copy.c
-index 503dfe6..118daf5 100644
---- a/arch/ia64/lib/csum_partial_copy.c
-+++ b/arch/ia64/lib/csum_partial_copy.c
-@@ -128,6 +128,8 @@ csum_partial_copy_from_user(const void __user *src, void *dst,
- 	return (__force __wsum)result;
- }
- 
-+EXPORT_SYMBOL(csum_partial_copy_from_user);
-+
- __wsum
- csum_partial_copy_nocheck(const void *src, void *dst, int len, __wsum sum)
- {
-diff --git a/fs/Kconfig b/fs/Kconfig
-index e33c089..a42f767 100644
---- a/fs/Kconfig
-+++ b/fs/Kconfig
-@@ -2020,6 +2020,7 @@ config AFS_FS
- 	tristate "Andrew File System support (AFS) (EXPERIMENTAL)"
- 	depends on INET && EXPERIMENTAL
- 	select AF_RXRPC
-+	select KEYS
- 	help
- 	  If you say Y here, you will get an experimental Andrew File System
- 	  driver. It currently only supports unsecured read-only AFS access.
-diff --git a/fs/afs/internal.h b/fs/afs/internal.h
-index 6dd3197..34665f7 100644
---- a/fs/afs/internal.h
-+++ b/fs/afs/internal.h
-@@ -367,7 +367,7 @@ struct afs_uuid {
- 	u32		time_low;			/* low part of timestamp */
- 	u16		time_mid;			/* mid part of timestamp */
- 	u16		time_hi_and_version;		/* high part of timestamp and version  */
--#define AFS_UUID_TO_UNIX_TIME	0x01b21dd213814000
-+#define AFS_UUID_TO_UNIX_TIME	0x01b21dd213814000ULL
- #define AFS_UUID_TIMEHI_MASK	0x0fff
- #define AFS_UUID_VERSION_TIME	0x1000	/* time-based UUID */
- #define AFS_UUID_VERSION_NAME	0x3000	/* name-based UUID */
-diff --git a/fs/afs/rxrpc.c b/fs/afs/rxrpc.c
-index e7b0473..222c1a3 100644
---- a/fs/afs/rxrpc.c
-+++ b/fs/afs/rxrpc.c
-@@ -772,7 +772,7 @@ int afs_extract_data(struct afs_call *call, struct sk_buff *skb,
- 
- 	if (call->offset < count) {
- 		if (last) {
--			_leave(" = -EBADMSG [%d < %lu]", call->offset, count);
-+			_leave(" = -EBADMSG [%d < %zu]", call->offset, count);
- 			return -EBADMSG;
- 		}
- 		_leave(" = -EAGAIN");
-diff --git a/fs/afs/use-rtnetlink.c b/fs/afs/use-rtnetlink.c
-index 82f0daa..f8991c7 100644
---- a/fs/afs/use-rtnetlink.c
-+++ b/fs/afs/use-rtnetlink.c
-@@ -243,7 +243,7 @@ static int afs_read_rtm(struct afs_rtm_desc *desc)
- 		desc->datalen = kernel_recvmsg(desc->nlsock, &msg, iov, 1,
- 					       desc->datamax, 0);
- 		if (desc->datalen < 0) {
--			_leave(" = %ld [recv]", desc->datalen);
-+			_leave(" = %zd [recv]", desc->datalen);
- 			return desc->datalen;
- 		}
- 
-diff --git a/net/rxrpc/Kconfig b/net/rxrpc/Kconfig
-index d72380e..8750f6d 100644
---- a/net/rxrpc/Kconfig
-+++ b/net/rxrpc/Kconfig
-@@ -30,6 +30,11 @@ config AF_RXRPC_DEBUG
- config RXKAD
- 	tristate "RxRPC Kerberos security"
- 	depends on AF_RXRPC && KEYS
-+	select CRYPTO
-+	select CRYPTO_MANAGER
-+	select CRYPTO_BLKCIPHER
-+	select CRYPTO_PCBC
-+	select CRYPTO_FCRYPT
- 	help
- 	  Provide kerberos 4 and AFS kaserver security handling for AF_RXRPC
- 	  through the use of the key retention service.
-diff --git a/net/rxrpc/rxkad.c b/net/rxrpc/rxkad.c
-index 1eaf529..5ec7051 100644
---- a/net/rxrpc/rxkad.c
-+++ b/net/rxrpc/rxkad.c
-@@ -18,6 +18,7 @@
- #include <linux/ctype.h>
- #include <net/sock.h>
- #include <net/af_rxrpc.h>
-+#define rxrpc_debug rxkad_debug
- #include "ar-internal.h"
- 
- #define RXKAD_VERSION			2
+Another approach is to add between the qdisc restart and driver tx
+a think layer.
+You pass the skb->prio and use that as a "classification key"  to select
+the correct hardware ring and dont have to change any qdisc since that
+layer is between the driver and qdisc.
+The challenge then becomes how to throttle/unthrottle a software queue.
+But you leave that brunt work to the driver.
+
+> I wouldn't object to putting this into a completely new scheduler
+> (sch_multiqueue) though since the scheduling policy might be something
+> completely different than strict priority.
+
+I think the wireless work is already in the kernel?
+The way i see it is the software scheduler should match the hardware
+scheduler. The majority of these hardware scheduling approaches I have
+seen match precisely to prio qdisc. i.e there is no need to write a new
+scheduler ( for that matter touch an existing scheduler that matches).
+Others I have seen may require some work conserving schedulers that dont
+have a precise match in Linux today; i think those may have to be
+written from scratch.
+
+> The wireless multiqueue scheduler is pratically identical to this one,
+> modulo the wireless classifier that should be a seperate module anyway.
+
+The wireless folks seemed to have created an extra netdev to provide the
+hierachy. I think that is a sane interim approach, just a little dirty.
+
+cheers,
+jamal
 
