@@ -1,56 +1,51 @@
-From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
-Subject: Re: [PATCH] netpoll: remove CONFIG_NETPOLL_RX
-Date: Sat, 28 Apr 2007 22:52:36 +0400
-Message-ID: <200704282252.36591.sshtylyov@ru.mvista.com>
-References: <200704282248.52072.sshtylyov@ru.mvista.com>
+From: Diego Calleja <diegocg@gmail.com>
+Subject: Re: 2.6.21 known regressions (v2) (for -stable team)
+Date: Sat, 28 Apr 2007 21:06:49 +0200
+Message-ID: <20070428210649.de34a681.diegocg@gmail.com>
+References: <463375E5.5040108@googlemail.com>
+	<46338C5B.4010809@m3y3r.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@linux-foundation.org,
-	mpm@selenic.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from h155.mvista.com ([63.81.120.155]:41762 "EHLO imap.sh.mvista.com"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753544AbXD1Su7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 28 Apr 2007 14:50:59 -0400
-In-Reply-To: <200704282248.52072.sshtylyov@ru.mvista.com>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>,
+	stable@kernel.org, Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	linux-acpi@vger.kernel.org,
+	Riccardo Ricci <rricci@nuovanetmore.it>,
+	"Udo A. Steinberg" <us15@os.inf.tu-dresden.de>,
+	Len Brown <len.brown@intel.com>,
+	David Brownell <david-b@pacbell.net>,
+	Jeff Mahoney <jeffm@suse.com>, reiserfs-dev@namesys.com,
+	Jeff Chua <jeff.chua.linux@gmail.com>,
+	Francois SIMOND <curio@free.fr>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	netdev@vger.kernel.org,
+	=?ISO-8859-1?B?SOVrYW4=?= Lindqvist <lindqvist@netstar.se>,
+	Vincent Frentzel <zcecc22@ucl.ac.uk>,
+	=?ISO-8859-1?B?RnJhbudvaXM=?= Valenduc
+	<francois.valenduc@skynet.be>, Thomas Meyer <thomas.mey@web.de>,
+	Giorgio Lando <patroclo7@gmail.com>,
+	Dave Jones <davej@redh
+To: Thomas Meyer <thomas@m3y3r.de>
+Return-path: <linux-acpi-owner@vger.kernel.org>
+In-Reply-To: <46338C5B.4010809@m3y3r.de>
+Sender: linux-acpi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Saturday 28 April 2007 22:48, Sergei Shtylyov wrote:
-> Get rid of the CONFIG_NETPOLL_RX option completely since all the
-> dependencies have been removed long ago...
+El Sat, 28 Apr 2007 20:03:07 +0200, Thomas Meyer <thomas@m3y3r.de> escr=
+ibi=F3:
 
-   Same here:
+> Please remove this from the regression list. This seems to be an
+> userspace only problem and is not related to any kernel driver:
+> amarok and/or audacious seems to repeatedly read/write to the X socke=
+t:
 
-> Signed-off-by: Sergei Shtylyov <sshtylyov@ru.mvista.com>
-Acked-by: Jeff Garzik <jgarzik@pobox.com>
-Acked-by: Matt Mackall <mpm@selenic.com>
-
-> ---
-> See commit e3c265bcf67f21d847e970e71504890f61f37824 in tglx/history.git for
-> the patch that removed the #ifdef's.
->
->  drivers/net/Kconfig       |    5 -----
->  1 files changed, 0 insertions(+), 5 deletions(-)
->
-> Index: linux-2.6/drivers/net/Kconfig
-> ===================================================================
-> --- linux-2.6.orig/drivers/net/Kconfig
-> +++ linux-2.6/drivers/net/Kconfig
-> @@ -2928,11 +2928,6 @@ endif #NETDEVICES
->  config NETPOLL
->  	def_bool NETCONSOLE
->
-> -config NETPOLL_RX
-> -	bool "Netpoll support for trapping incoming packets"
-> -	default n
-> -	depends on NETPOLL
-> -
->  config NETPOLL_TRAP
->  	bool "Netpoll traffic trapping"
->  	default n
-
+OK - I added it just to be sure that there wasn't any dynticks regressi=
+on,
+it's gone now.
+-
+To unsubscribe from this list: send the line "unsubscribe linux-acpi" i=
+n
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
