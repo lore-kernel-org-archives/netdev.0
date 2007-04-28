@@ -1,52 +1,61 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: [stable] 2.6.21 known regressions (v2) (for -stable team)
-Date: Sat, 28 Apr 2007 23:21:54 +0200
-Message-ID: <m3647gchzh.fsf@maximus.localdomain>
-References: <463375E5.5040108@googlemail.com>
-	<200704281252.20381.gene.heskett@gmail.com>
-	<20070428181933.GA9811@kroah.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PROBLEM] Bonding driver in linux-2.6.21-rc6-mm1
+Date: Sat, 28 Apr 2007 14:31:02 -0700
+Message-ID: <20070428143102.f39299b5.akpm@linux-foundation.org>
+References: <200704262058.33087.ve@vetienne.net>
+	<200704272205.29131.ve@vetienne.net>
+	<20070427153237.03f3b59c.akpm@linux-foundation.org>
+	<200704282237.42753.ve@vetienne.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Gene Heskett <gene.heskett@gmail.com>,
-	Michal Piotrowski <michal.k.k.piotrowski@gmail.com>,
-	Jeff Mahoney <jeffm@suse.com>,
-	Vincent Frentzel <zcecc22@ucl.ac.uk>,
-	Riccardo Ricci <rricci@nuovanetmore.it>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	David Brownell <david-b@pacbell.net>,
-	Giorgio Lando <patroclo7@gmail.com>,
-	Jeff Chua <jeff.chua.linux@gmail.com>,
-	H??kan Lindqvist <lindqvist@netstar.se>,
-	Fran??ois Valenduc <francois.valenduc@skynet.be>,
-	"Udo A. Steinberg" <us15@os.inf.tu-dresden.de>,
-	linux-acpi@vger.kernel.org, Thomas Meyer <thomas.mey@web.de>,
-	stable@kernel.org, Len Brown <len.brown@intel.com>,
-	Dave Jones <davej@redhat.com>,
-	Thomas Gleixner <tglx@linutronix.de>, netdev@vger.kernel.org,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Francois SIMOND <curio@free.fr>,
-	Andrew Morton <akpm@lin
-To: Greg KH <greg@kroah.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	netdev@vger.kernel.org
+To: Vincent ETIENNE <ve@vetienne.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:55529 "EHLO khc.piap.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753641AbXD1VV5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 28 Apr 2007 17:21:57 -0400
-In-Reply-To: <20070428181933.GA9811@kroah.com> (Greg KH's message of "Sat, 28 Apr 2007 11:19:33 -0700")
+Received: from smtp1.linux-foundation.org ([65.172.181.25]:56546 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1030848AbXD1VbH convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 28 Apr 2007 17:31:07 -0400
+In-Reply-To: <200704282237.42753.ve@vetienne.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Greg KH <greg@kroah.com> writes:
+On Sat, 28 Apr 2007 22:37:42 +0200 Vincent ETIENNE <ve@vetienne.net> wr=
+ote:
 
->> Also, assignation of ttyUSB#'s is volatile depending on phase of the
->> moon when booted.
->
-> That's always been the case, ever since the 2.2 kernel releases.  Please
-> use udev if you want persistent device names for your tty USB devices.
+> Le Saturday 28 April 2007 00:32:37 Andrew Morton, vous avez =E9crit=A0=
+:
+> > On Fri, 27 Apr 2007 22:05:28 +0200
+> >
+>=20
+> > because we thought we'd fixed the rtnl_lock() problems in 2.6.21-rc=
+7-mm2.
+> > Are you sure that log is from 2.6.21-rc7-mm2?
+>=20
+>=20
+> Yes. I have retested it another time ( for adding the small usb debug=
+=20
+> message ) and get the same message a new time.
+>=20
+> Maybe a tiny difference : only eth0 was setup during boot ( bond0 and=
+ eth1 was=20
+> not setup - volontary  - to avoid problem that could interfere with u=
+sb ).=20
+> Ony after having done my usb test, i have stopped the eth0, setup bon=
+d=20
+> interface and restart bond interface and got the same problem with th=
+e same=20
+> back trace.
 
-I don't know how udev (or anything) could help here. AFAIK the
-converters have no serial numbers and no other means to
-differentiate.
--- 
-Krzysztof Halasa
+OK, thanks.
+
+> Is there anything i can do to get you more precise information ?
+
+I guess if you could provide us with your .config and a step-by-step re=
+cipe
+which developers should use to reproduce the problem then we should be =
+able
+to fix this pretty easily when someone finds the time to do so.
+
