@@ -1,37 +1,46 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [patch 09/11] forcedeth: improve NAPI logic
-Date: Fri, 27 Apr 2007 20:10:54 -0400
-Message-ID: <4632910E.6030408@garzik.org>
-References: <200704260723.l3Q7NNCj023844@shell0.pdx.osdl.net>
+Subject: Re: [PATCH 1/7] NetXen: Use multiple PCI functions
+Date: Fri, 27 Apr 2007 20:13:35 -0400
+Message-ID: <463291AF.9070901@garzik.org>
+References: <200704201452.l3KEqbAd004477@dut39.unminc.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mingo@elte.hu, aabdulla@nvidia.com
-To: akpm@linux-foundation.org
+Cc: netdev@vger.kernel.org, amitkale@netxen.com,
+	netxenproj@linsyssoft.com, rob@netxen.com
+To: Mithlesh Thukral <mithlesh@netxen.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:48183 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:48200 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757943AbXD1AK5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Apr 2007 20:10:57 -0400
-In-Reply-To: <200704260723.l3Q7NNCj023844@shell0.pdx.osdl.net>
+	id S1752812AbXD1ANh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Apr 2007 20:13:37 -0400
+In-Reply-To: <200704201452.l3KEqbAd004477@dut39.unminc.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-akpm@linux-foundation.org wrote:
-> From: Ingo Molnar <mingo@elte.hu>
+Mithlesh Thukral wrote:
+> NetXen: Make driver use multiple PCI functions.
+> This patch will make NetXen driver work with multiple PCI functions. This will
+> make the usage of memory resources as well as interrupts more independent
+> among different functions which results in better throughput. This change has
+> been done after the multiport support is added in firmware.
 > 
-> Another forcedeth.c thing: i noticed that its NAPI handler does not do
-> tx-ring processing.  The patch below implements this - tested on DESC_VER_2
-> hardware, with CONFIG_FORCEDETH_NAPI=y.
+> Signed-off by: Mithlesh Thukral <mithlesh@netxen.com>
 > 
-> Signed-off-by: Ingo Molnar <mingo@elte.hu>
-> Cc: Ayaz Abdulla <aabdulla@nvidia.com>
-> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 > ---
 > 
->  drivers/net/forcedeth.c |    8 ++++++++
->  1 file changed, 8 insertions(+)
+>  drivers/net/netxen/netxen_nic.h          |  125 ++--
+>  drivers/net/netxen/netxen_nic_ethtool.c  |   83 +--
+>  drivers/net/netxen/netxen_nic_hdr.h      |    8 
+>  drivers/net/netxen/netxen_nic_hw.c       |  221 ++++++--
+>  drivers/net/netxen/netxen_nic_hw.h       |   18 
+>  drivers/net/netxen/netxen_nic_init.c     |  117 +---
+>  drivers/net/netxen/netxen_nic_isr.c      |   87 +--
+>  drivers/net/netxen/netxen_nic_main.c     |  526 ++++++++++-----------
+>  drivers/net/netxen/netxen_nic_niu.c      |   27 -
+>  drivers/net/netxen/netxen_nic_phan_reg.h |  125 ----
+>  10 files changed, 646 insertions(+), 691 deletions(-)
 
-See thread comments -- this patch should be expanded.
+applied
 
 
