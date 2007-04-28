@@ -1,47 +1,149 @@
-From: Vincent ETIENNE <ve@vetienne.net>
-Subject: Re: [PROBLEM] Bonding driver in linux-2.6.21-rc6-mm1
-Date: Sat, 28 Apr 2007 22:37:42 +0200
-Message-ID: <200704282237.42753.ve@vetienne.net>
-References: <200704262058.33087.ve@vetienne.net> <200704272205.29131.ve@vetienne.net> <20070427153237.03f3b59c.akpm@linux-foundation.org>
+From: olof@lixom.net (Olof Johansson)
+Subject: [PATCH v3] [2/10] [REAL 2/10] pasemi_mac: Move the IRQ mapping from the PCI layer to the driver
+Date: Sat, 28 Apr 2007 15:57:26 -0500
+Message-ID: <20070428205726.GB4811@lixom.net>
+References: <20070428203624.GA4331@lixom.net> <20070428203650.GC4331@lixom.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.vetienne.net ([87.98.219.23]:3610 "EHLO
-	mail1.vetienne.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754757AbXD1Uqv convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Apr 2007 16:46:51 -0400
-In-Reply-To: <20070427153237.03f3b59c.akpm@linux-foundation.org>
+Received: from lixom.net ([66.141.50.11]:41079 "EHLO mail.lixom.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1030413AbXD1U4t (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 28 Apr 2007 16:56:49 -0400
 Content-Disposition: inline
+In-Reply-To: <20070428203650.GC4331@lixom.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le Saturday 28 April 2007 00:32:37 Andrew Morton, vous avez =E9crit=A0:
-> On Fri, 27 Apr 2007 22:05:28 +0200
->
+Fixes for ethernet IRQ mapping, to be done in the driver instead of in
+the platform setup code.
 
-> because we thought we'd fixed the rtnl_lock() problems in 2.6.21-rc7-=
-mm2.
-> Are you sure that log is from 2.6.21-rc7-mm2?
+Signed-off-by: Olof Johansson <olof@lixom.net>
 
 
-Yes. I have retested it another time ( for adding the small usb debug=20
-message ) and get the same message a new time.
-
-Maybe a tiny difference : only eth0 was setup during boot ( bond0 and e=
-th1 was=20
-not setup - volontary  - to avoid problem that could interfere with usb=
- ).=20
-Ony after having done my usb test, i have stopped the eth0, setup bond=20
-interface and restart bond interface and got the same problem with the =
-same=20
-back trace.
-
-Is there anything i can do to get you more precise information ?
-
-
-
-
+Index: netdev-2.6/arch/powerpc/platforms/pasemi/pci.c
+===================================================================
+--- netdev-2.6.orig/arch/powerpc/platforms/pasemi/pci.c
++++ netdev-2.6/arch/powerpc/platforms/pasemi/pci.c
+@@ -163,19 +163,6 @@ static void __init pas_fixup_phb_resourc
+ }
+ 
+ 
+-void __devinit pas_pci_irq_fixup(struct pci_dev *dev)
+-{
+-	/* DMA is special, 84 interrupts (128 -> 211), all but 128
+-	 * need to be mapped by hand here.
+-	 */
+-	if (dev->vendor == 0x1959 && dev->device == 0xa007) {
+-		int i;
+-		for (i = 129; i < 212; i++)
+-			irq_create_mapping(NULL, i);
+-	}
+-}
+-
+-
+ void __init pas_pci_init(void)
+ {
+ 	struct device_node *np, *root;
+Index: netdev-2.6/arch/powerpc/platforms/pasemi/setup.c
+===================================================================
+--- netdev-2.6.orig/arch/powerpc/platforms/pasemi/setup.c
++++ netdev-2.6/arch/powerpc/platforms/pasemi/setup.c
+@@ -240,5 +240,4 @@ define_machine(pas) {
+ 	.check_legacy_ioport    = pas_check_legacy_ioport,
+ 	.progress		= pas_progress,
+ 	.machine_check_exception = pas_machine_check_handler,
+-	.pci_irq_fixup		= pas_pci_irq_fixup,
+ };
+Index: netdev-2.6/drivers/net/pasemi_mac.c
+===================================================================
+--- netdev-2.6.orig/drivers/net/pasemi_mac.c
++++ netdev-2.6/drivers/net/pasemi_mac.c
+@@ -33,6 +33,8 @@
+ #include <linux/tcp.h>
+ #include <net/checksum.h>
+ 
++#include <asm/irq.h>
++
+ #include "pasemi_mac.h"
+ 
+ 
+@@ -531,6 +533,7 @@ static irqreturn_t pasemi_mac_tx_intr(in
+ static int pasemi_mac_open(struct net_device *dev)
+ {
+ 	struct pasemi_mac *mac = netdev_priv(dev);
++	int base_irq;
+ 	unsigned int flags;
+ 	int ret;
+ 
+@@ -594,28 +597,37 @@ static int pasemi_mac_open(struct net_de
+ 	netif_start_queue(dev);
+ 	netif_poll_enable(dev);
+ 
+-	ret = request_irq(mac->dma_pdev->irq + mac->dma_txch,
+-			  &pasemi_mac_tx_intr, IRQF_DISABLED,
++	/* Interrupts are a bit different for our DMA controller: While
++	 * it's got one a regular PCI device header, the interrupt there
++	 * is really the base of the range it's using. Each tx and rx
++	 * channel has it's own interrupt source.
++	 */
++
++	base_irq = virq_to_hw(mac->dma_pdev->irq);
++
++	mac->tx_irq = irq_create_mapping(NULL, base_irq + mac->dma_txch);
++	mac->rx_irq = irq_create_mapping(NULL, base_irq + 20 + mac->dma_txch);
++
++	ret = request_irq(mac->tx_irq, &pasemi_mac_tx_intr, IRQF_DISABLED,
+ 			  mac->tx->irq_name, dev);
+ 	if (ret) {
+ 		dev_err(&mac->pdev->dev, "request_irq of irq %d failed: %d\n",
+-		       mac->dma_pdev->irq + mac->dma_txch, ret);
++			base_irq + mac->dma_txch, ret);
+ 		goto out_tx_int;
+ 	}
+ 
+-	ret = request_irq(mac->dma_pdev->irq + 20 + mac->dma_rxch,
+-			  &pasemi_mac_rx_intr, IRQF_DISABLED,
++	ret = request_irq(mac->rx_irq, &pasemi_mac_rx_intr, IRQF_DISABLED,
+ 			  mac->rx->irq_name, dev);
+ 	if (ret) {
+ 		dev_err(&mac->pdev->dev, "request_irq of irq %d failed: %d\n",
+-		       mac->dma_pdev->irq + 20 + mac->dma_rxch, ret);
++			base_irq + 20 + mac->dma_rxch, ret);
+ 		goto out_rx_int;
+ 	}
+ 
+ 	return 0;
+ 
+ out_rx_int:
+-	free_irq(mac->dma_pdev->irq + mac->dma_txch, dev);
++	free_irq(mac->tx_irq, dev);
+ out_tx_int:
+ 	netif_poll_disable(dev);
+ 	netif_stop_queue(dev);
+@@ -699,8 +711,8 @@ static int pasemi_mac_close(struct net_d
+ 	pci_write_config_dword(mac->dma_pdev,
+ 			       PAS_DMA_RXINT_RCMDSTA(mac->dma_if), 0);
+ 
+-	free_irq(mac->dma_pdev->irq + mac->dma_txch, dev);
+-	free_irq(mac->dma_pdev->irq + 20 + mac->dma_rxch, dev);
++	free_irq(mac->tx_irq, dev);
++	free_irq(mac->rx_irq, dev);
+ 
+ 	/* Free resources */
+ 	pasemi_mac_free_rx_resources(dev);
+Index: netdev-2.6/drivers/net/pasemi_mac.h
+===================================================================
+--- netdev-2.6.orig/drivers/net/pasemi_mac.h
++++ netdev-2.6/drivers/net/pasemi_mac.h
+@@ -73,6 +73,8 @@ struct pasemi_mac {
+ 
+ 	struct pasemi_mac_txring *tx;
+ 	struct pasemi_mac_rxring *rx;
++	unsigned long	tx_irq;
++	unsigned long	rx_irq;
+ };
+ 
+ /* Software status descriptor (desc_info) */
