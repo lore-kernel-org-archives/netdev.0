@@ -1,208 +1,105 @@
 From: olof@lixom.net (Olof Johansson)
-Subject: [PATCH v3] [2/10] pasemi_mac: Move the IRQ mapping from the PCI layer to the driver[PATCH v3] [7/10] pasemi_mac: Logic cleanup / rx performance improvements
-Date: Sat, 28 Apr 2007 15:37:52 -0500
-Message-ID: <20070428203752.GH4331@lixom.net>
+Subject: [PATCH v3] [8/10] pasemi_mac: Add msglevel support and "pasemi_mac_debug" module param
+Date: Sat, 28 Apr 2007 15:38:03 -0500
+Message-ID: <20070428203803.GI4331@lixom.net>
 References: <20070428203624.GA4331@lixom.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
 To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lixom.net ([66.141.50.11]:50940 "EHLO mail.lixom.net"
+Received: from lixom.net ([66.141.50.11]:50942 "EHLO mail.lixom.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753952AbXD1UhP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 28 Apr 2007 16:37:15 -0400
+	id S1753043AbXD1Uh0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 28 Apr 2007 16:37:26 -0400
 Content-Disposition: inline
 In-Reply-To: <20070428203624.GA4331@lixom.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Logic cleanup and some performance enhancements to the RX path.
+Add msglevel support for pasemi_mac. Move the MODULE_* defines to the
+top to go together with the variable (similar to tg3).
 
 Signed-off-by: Olof Johansson <olof@lixom.net>
+
 
 Index: netdev-2.6/drivers/net/pasemi_mac.c
 ===================================================================
 --- netdev-2.6.orig/drivers/net/pasemi_mac.c
 +++ netdev-2.6/drivers/net/pasemi_mac.c
-@@ -305,19 +305,20 @@ static void pasemi_mac_replenish_rx_ring
- 	struct pasemi_mac *mac = netdev_priv(dev);
- 	unsigned int i;
- 	int start = mac->rx->next_to_fill;
--	unsigned int count;
-+	unsigned int limit, count;
+@@ -53,6 +53,16 @@
+ #define RX_RING_SIZE 512
+ #define TX_RING_SIZE 512
  
--	count = (mac->rx->next_to_clean + RX_RING_SIZE -
-+	limit = (mac->rx->next_to_clean + RX_RING_SIZE -
- 		 mac->rx->next_to_fill) & (RX_RING_SIZE - 1);
++#define DEFAULT_MSG_ENABLE	  \
++	(NETIF_MSG_DRV		| \
++	 NETIF_MSG_PROBE	| \
++	 NETIF_MSG_LINK		| \
++	 NETIF_MSG_TIMER	| \
++	 NETIF_MSG_IFDOWN	| \
++	 NETIF_MSG_IFUP		| \
++	 NETIF_MSG_RX_ERR	| \
++	 NETIF_MSG_TX_ERR)
++
+ #define TX_DESC(mac, num)	((mac)->tx->desc[(num) & (TX_RING_SIZE-1)])
+ #define TX_DESC_INFO(mac, num)	((mac)->tx->desc_info[(num) & (TX_RING_SIZE-1)])
+ #define RX_DESC(mac, num)	((mac)->rx->desc[(num) & (RX_RING_SIZE-1)])
+@@ -61,6 +71,14 @@
  
- 	/* Check to see if we're doing first-time setup */
- 	if (unlikely(mac->rx->next_to_clean == 0 && mac->rx->next_to_fill == 0))
--		count = RX_RING_SIZE;
-+		limit = RX_RING_SIZE;
+ #define BUF_SIZE 1646 /* 1500 MTU + ETH_HLEN + VLAN_HLEN + 2 64B cachelines */
  
--	if (count <= 0)
-+	if (limit <= 0)
- 		return;
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR ("Olof Johansson <olof@lixom.net>");
++MODULE_DESCRIPTION("PA Semi PWRficient Ethernet driver");
++
++static int pasemi_mac_debug = -1;	/* -1 == use DEFAULT_MSG_ENABLE as value */
++module_param(pasemi_mac_debug, int, 0);
++MODULE_PARM_DESC(pasemi_mac_debug, "PA Semi MAC bitmapped debugging message enable value");
++
+ static struct pasdma_status *dma_status;
  
--	for (i = start; i < start + count; i++) {
-+	i = start;
-+	for (count = limit; count; count--) {
- 		struct pasemi_mac_buffer *info = &RX_DESC_INFO(mac, i);
- 		u64 *buff = &RX_BUFF(mac, i);
- 		struct sk_buff *skb;
-@@ -335,27 +336,27 @@ static void pasemi_mac_replenish_rx_ring
- 		dma = pci_map_single(mac->dma_pdev, skb->data, skb->len,
- 				     PCI_DMA_FROMDEVICE);
- 
--		if (dma_mapping_error(dma)) {
-+		if (unlikely(dma_mapping_error(dma))) {
- 			dev_kfree_skb_irq(info->skb);
--			count = i - start;
- 			break;
- 		}
- 
- 		info->skb = skb;
- 		info->dma = dma;
- 		*buff = XCT_RXB_LEN(BUF_SIZE) | XCT_RXB_ADDR(dma);
-+		i++;
- 	}
- 
- 	wmb();
- 
- 	pci_write_config_dword(mac->dma_pdev,
- 			       PAS_DMA_RXCHAN_INCR(mac->dma_rxch),
--			       count);
-+			       limit - count);
- 	pci_write_config_dword(mac->dma_pdev,
- 			       PAS_DMA_RXINT_INCR(mac->dma_if),
--			       count);
-+			       limit - count);
- 
--	mac->rx->next_to_fill += count;
-+	mac->rx->next_to_fill += limit - count;
+ static int pasemi_get_mac_addr(struct pasemi_mac *mac)
+@@ -873,6 +891,7 @@ static struct net_device_stats *pasemi_m
+ 	return &mac->stats;
  }
  
- static void pasemi_mac_restart_rx_intr(struct pasemi_mac *mac)
-@@ -393,32 +394,31 @@ static void pasemi_mac_restart_tx_intr(s
- }
- 
- 
--
- static int pasemi_mac_clean_rx(struct pasemi_mac *mac, int limit)
++
+ static void pasemi_mac_set_rx_mode(struct net_device *dev)
  {
--	unsigned int i;
--	int start, count;
-+	unsigned int n;
-+	int count;
-+	struct pas_dma_xct_descr *dp;
-+	struct pasemi_mac_buffer *info;
-+	struct sk_buff *skb;
-+	unsigned int i, len;
-+	u64 macrx;
-+	dma_addr_t dma;
+ 	struct pasemi_mac *mac = netdev_priv(dev);
+@@ -1007,6 +1026,12 @@ pasemi_mac_probe(struct pci_dev *pdev, c
+ 	mac->rx_status = &dma_status->rx_sta[mac->dma_rxch];
+ 	mac->tx_status = &dma_status->tx_sta[mac->dma_txch];
  
- 	spin_lock(&mac->rx->lock);
- 
--	start = mac->rx->next_to_clean;
--	count = 0;
-+	n = mac->rx->next_to_clean;
- 
--	for (i = start; i < (start + RX_RING_SIZE) && count < limit; i++) {
--		struct pas_dma_xct_descr *dp;
--		struct pasemi_mac_buffer *info;
--		struct sk_buff *skb;
--		unsigned int j, len;
--		dma_addr_t dma;
-+	for (count = limit; count; count--) {
- 
- 		rmb();
- 
--		dp = &RX_DESC(mac, i);
-+		dp = &RX_DESC(mac, n);
-+		macrx = dp->macrx;
- 
--		if (!(dp->macrx & XCT_MACRX_O))
-+		if (!(macrx & XCT_MACRX_O))
- 			break;
- 
--		count++;
- 
- 		info = NULL;
- 
-@@ -430,22 +430,20 @@ static int pasemi_mac_clean_rx(struct pa
- 		 */
- 
- 		dma = (dp->ptr & XCT_PTR_ADDR_M);
--		for (j = start; j < (start + RX_RING_SIZE); j++) {
--			info = &RX_DESC_INFO(mac, j);
-+		for (i = n; i < (n + RX_RING_SIZE); i++) {
-+			info = &RX_DESC_INFO(mac, i);
- 			if (info->dma == dma)
- 				break;
- 		}
- 
--		BUG_ON(!info);
--		BUG_ON(info->dma != dma);
- 		skb = info->skb;
-+		info->dma = 0;
- 
--		pci_unmap_single(mac->dma_pdev, info->dma, info->skb->len,
-+		pci_unmap_single(mac->dma_pdev, dma, skb->len,
- 				 PCI_DMA_FROMDEVICE);
--		info->dma = 0;
- 
-+		len = (macrx & XCT_MACRX_LLEN_M) >> XCT_MACRX_LLEN_S;
- 
--		len = (dp->macrx & XCT_MACRX_LLEN_M) >> XCT_MACRX_LLEN_S;
- 		if (len < 256) {
- 			struct sk_buff *new_skb =
- 			    netdev_alloc_skb(mac->netdev, len + NET_IP_ALIGN);
-@@ -465,9 +463,9 @@ static int pasemi_mac_clean_rx(struct pa
- 
- 		skb->protocol = eth_type_trans(skb, mac->netdev);
- 
--		if ((dp->macrx & XCT_MACRX_HTY_M) == XCT_MACRX_HTY_IPV4_OK) {
-+		if ((macrx & XCT_MACRX_HTY_M) == XCT_MACRX_HTY_IPV4_OK) {
- 			skb->ip_summed = CHECKSUM_COMPLETE;
--			skb->csum = (dp->macrx & XCT_MACRX_CSUM_M) >>
-+			skb->csum = (macrx & XCT_MACRX_CSUM_M) >>
- 					   XCT_MACRX_CSUM_S;
- 		} else
- 			skb->ip_summed = CHECKSUM_NONE;
-@@ -477,13 +475,13 @@ static int pasemi_mac_clean_rx(struct pa
- 
- 		netif_receive_skb(skb);
- 
--		info->dma = 0;
--		info->skb = NULL;
- 		dp->ptr = 0;
- 		dp->macrx = 0;
++	/* Enable most messages by default */
++	if (pasemi_mac_debug > 0)
++		mac->msg_enable = DEFAULT_MSG_ENABLE;
++	else
++		mac->msg_enable = pasemi_mac_debug;
 +
-+		n++;
- 	}
+ 	err = register_netdev(dev);
  
--	mac->rx->next_to_clean += count;
-+	mac->rx->next_to_clean += limit - count;
- 	pasemi_mac_replenish_rx_ring(mac->netdev);
- 
- 	spin_unlock(&mac->rx->lock);
-@@ -899,6 +897,9 @@ static int pasemi_mac_poll(struct net_de
- 
- 	pkts = pasemi_mac_clean_rx(mac, limit);
- 
-+	dev->quota -= pkts;
-+	*budget -= pkts;
-+
- 	if (pkts < limit) {
- 		/* all done, no more packets present */
- 		netif_rx_complete(dev);
-@@ -907,8 +908,6 @@ static int pasemi_mac_poll(struct net_de
- 		return 0;
- 	} else {
- 		/* used up our quantum, so reschedule */
--		dev->quota -= pkts;
--		*budget -= pkts;
- 		return 1;
- 	}
+ 	if (err) {
+@@ -1081,9 +1106,5 @@ int pasemi_mac_init_module(void)
+ 	return pci_register_driver(&pasemi_mac_driver);
  }
+ 
+-MODULE_LICENSE("GPL");
+-MODULE_AUTHOR ("Olof Johansson <olof@lixom.net>");
+-MODULE_DESCRIPTION("PA Semi PWRficient Ethernet driver");
+-
+ module_init(pasemi_mac_init_module);
+ module_exit(pasemi_mac_cleanup_module);
+Index: netdev-2.6/drivers/net/pasemi_mac.h
+===================================================================
+--- netdev-2.6.orig/drivers/net/pasemi_mac.h
++++ netdev-2.6/drivers/net/pasemi_mac.h
+@@ -75,6 +75,8 @@ struct pasemi_mac {
+ 	struct pasemi_mac_rxring *rx;
+ 	unsigned long	tx_irq;
+ 	unsigned long	rx_irq;
++
++	unsigned int	msg_enable;
+ };
+ 
+ /* Software status descriptor (desc_info) */
