@@ -1,57 +1,35 @@
-From: Matt Mackall <mpm@selenic.com>
-Subject: Re: [PATCH repost] netpoll: trapping fix/cleanup
-Date: Sat, 28 Apr 2007 08:00:55 -0500
-Message-ID: <20070428130055.GW11115@waste.org>
-References: <200704272344.00410.sshtylyov@ru.mvista.com> <20070427202713.GS11115@waste.org> <46334477.3070109@ru.mvista.com>
+From: "Denys" <denys@visp.net.lb>
+Subject: local sendto/classes/qdisc strange behaviour
+Date: Sat, 28 Apr 2007 16:18:48 +0300
+Message-ID: <20070428131328.M81086@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	shemminger@linux-foundation.org
-To: Sergei Shtylyov <sshtylyov@ru.mvista.com>
+Content-Type: text/plain;
+	charset=koi8-r
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from waste.org ([66.93.16.53]:58615 "EHLO waste.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965805AbXD1NNh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 28 Apr 2007 09:13:37 -0400
-Content-Disposition: inline
-In-Reply-To: <46334477.3070109@ru.mvista.com>
+Received: from usermail.globalproof.net ([194.146.153.18]:47932 "EHLO
+	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756186AbXD1NS7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Apr 2007 09:18:59 -0400
+Received: from visp.net.lb (localhost [127.0.0.1])
+	by usermail.globalproof.net (Postfix) with ESMTP id 93BF2BE3C6
+	for <netdev@vger.kernel.org>; Sat, 28 Apr 2007 16:18:48 +0300 (EEST)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Apr 28, 2007 at 04:56:23PM +0400, Sergei Shtylyov wrote:
-> Hello.
-> 
-> Matt Mackall wrote:
-> 
-> >>CONFIG_NETPOLL_TRAP causes the TX queue controls to be completely 
-> >>bypassed in
-> >>the netpoll's "trapped" mode which easily causes overflows in the drivers 
-> >>with
-> >>short TX queues (most notably, in 8139too with its 4-deep queue).
-> >>Make this option more sensible by only bypassing TX softirq wakeup and 
-> >>remove
-> >>CONFIG_NETPOLL_RX option completely since there is *no* code depending on 
-> >>it.
-> 
-> >You've got two unrelated patches here, so that's an automatic NAK.
-> 
->   Come on, killing a long ago no-op option doesn't worth the sepearte 
->   patch. :-)
-> 
-> >I suppose we can kill the config option.
-> 
->   I've even posted the refs to the commits introducing and killing the 
->   #ifdef's.
-> 
-> >What did you test the NETPOLL_TRAP test with?
-> 
->   KGDBoE (and maybe also netconsole -- don't remember already).
+Hi all
 
-Ok, KGDBoE is a pretty good test here. Netconsole isn't.
+I noticed, if i set up "shaper" with iproute2, u32 filters, some htb classes,
+and if i have program doing sendto to nonblocking socked, sometimes i am
+getting EAGAIN, even qdisc is empty. In same timed forwarded traffic is
+getting buffered, and thus way i am not loosing any packet in case of small
+bursts, just i have small increase in delay (that what pfifo qdisc useful for).
 
-Please resend as two separate patches and add:
+Is there any way to setup htb shaper, to have local sendto traffic buffered
+over qdisc? (not just discareded with returned EAGAIN).
 
-Acked-by: Matt Mackall <mpm@selenic.com>
+--
+Denys Fedoryshchenko
+Technical Manager
+Virtual ISP S.A.L.
 
--- 
-Mathematics is the supreme nostalgia of our time.
