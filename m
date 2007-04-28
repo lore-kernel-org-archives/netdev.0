@@ -1,95 +1,68 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] sis900: Allocate rx replacement buffer before rx operation
-Date: Fri, 27 Apr 2007 20:17:00 -0400
-Message-ID: <4632927C.7010801@garzik.org>
-References: <20070420135458.GB16191@hmsreliant.homelinux.net> <462E33A8.5060107@garzik.org> <20070426174736.GC6000@localhost.localdomain>
+Subject: Re: [PATCH] usb-net/pegasus: simplify carrier detection
+Date: Fri, 27 Apr 2007 20:17:10 -0400
+Message-ID: <46329286.8050708@garzik.org>
+References: <1177424406.13684.5.camel@localhost.localdomain>	 <462E3508.1030703@garzik.org> <20070424170429.GA13668@kroah.com>	 <58298.85.91.128.158.1177436881.squirrel@nucleusys.com>	 <1177446286.18030.13.camel@localhost.localdomain>	 <Pine.LNX.4.64.0704251648050.16498@bender.nucleusys.com>	 <1177513723.3612.0.camel@localhost.localdomain>	 <Pine.LNX.4.64.0704251808210.16498@bender.nucleusys.com>	 <1177516990.3612.2.camel@localhost.localdomain>	 <462F7B9A.2090904@garzik.org> <1177551029.1684.2.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, venza@brownhat.org
-To: Neil Horman <nhorman@tuxdriver.com>
+Cc: Petko Manolov <petkan@nucleusys.com>, Greg KH <greg@kroah.com>,
+	netdev@vger.kernel.org
+To: Dan Williams <dcbw@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:48239 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:48252 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754621AbXD1ARD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Apr 2007 20:17:03 -0400
-In-Reply-To: <20070426174736.GC6000@localhost.localdomain>
+	id S1757947AbXD1ARP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Apr 2007 20:17:15 -0400
+In-Reply-To: <1177551029.1684.2.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Neil Horman wrote:
-> On Tue, Apr 24, 2007 at 12:43:20PM -0400, Jeff Garzik wrote:
->> Neil Horman wrote:
->>> Hey there-
->>> 	The sis900 driver appears to have a bug in which the receive routine
->>> passes the skbuff holding the received frame to the network stack before
->>> refilling the buffer in the rx ring.  If a new skbuff cannot be allocated, 
->>> the
->>> driver simply leaves a hole in the rx ring, which causes the driver to stop
->>> receiving frames and become non-recoverable without an rmmod/insmod 
->>> according to
->>> reporters.  This patch reverses that order, attempting to allocate a 
->>> replacement
->>> buffer first, and receiving the new frame only if one can be allocated.  
->>> If no
->>> skbuff can be allocated, the current skbuf in the rx ring is recycled, 
->>> dropping
->>> the current frame, but keeping the NIC operational.
->>>
->>> Thanks & Regards
->>> Neil
+Dan Williams wrote:
+> Simplify pegasus carrier detection; rely only on the periodic MII
+> polling.  Reverts pieces of c43c49bd61fdb9bb085ddafcaadb17d06f95ec43.
 > 
+> Signed-off-by: Dan Williams <dcbw@redhat.com>
 > 
-> 
-> Just found a hole in my last patch.  It was reported to me that shortly after we
-> integrated this patch.  The report was of an oops that took place inside of
-> netif_rx when using the sis900 driver.  Looking at my origional patch I noted
-> that there was a spot between the new skb_alloc and the refill_rx_ring label
-> where skb got reassigned to the pointer currently held in the rx_ring for the
-> purposes of receiveing the frame.  The result of this is however that the buffer
-> that gets passed to netif_rx (if it is called), then gets placed right back into
-> the rx_ring.  So if you receive frames fast enough the skb being processed by
-> the network stack can get corrupted.  The reporter is testing out the fix I've
-> written for this below (I'm not near my hardware at the moment to test myself),
-> but I wanted to post it for review ASAP.  I'll post test results when I hear
-> them, but I think this is a pretty straightforward fix.  It just uses a separate
-> pointer to do the rx operation, so that we don't improperly reassign the pointer
-> that we use to refill the rx ring.
-> 
-> Thanks & Regards
-> Neil
-> 
-> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-> 
-> 
->  sis900.c |    9 +++++----
->  1 file changed, 5 insertions(+), 4 deletions(-)
-> 
-> 
-> diff --git a/drivers/net/sis900.c b/drivers/net/sis900.c
-> index a6a0f09..7e44939 100644
-> --- a/drivers/net/sis900.c
-> +++ b/drivers/net/sis900.c
-> @@ -1754,6 +1754,7 @@ static int sis900_rx(struct net_device *net_dev)
->  			sis_priv->rx_ring[entry].cmdsts = RX_BUF_SIZE;
->  		} else {
->  			struct sk_buff * skb;
-> +			struct sk_buff * rx_skb;
+> --- a/drivers/usb/net/pegasus.h	2007-04-25 21:21:00.000000000 -0400
+> +++ b/drivers/usb/net/pegasus.h	2007-04-25 21:21:13.000000000 -0400
+> @@ -11,7 +11,6 @@
 >  
->  			pci_unmap_single(sis_priv->pci_dev,
->  				sis_priv->rx_ring[entry].bufptr, RX_BUF_SIZE,
-> @@ -1787,10 +1788,10 @@ static int sis900_rx(struct net_device *net_dev)
->  			}
+>  #define	PEGASUS_II		0x80000000
+>  #define	HAS_HOME_PNA		0x40000000
+> -#define	TRUST_LINK_STATUS	0x20000000
 >  
->  			/* give the socket buffer to upper layers */
-> -			skb = sis_priv->rx_skbuff[entry];
-> -			skb_put(skb, rx_size);
-> -			skb->protocol = eth_type_trans(skb, net_dev);
-> -			netif_rx(skb);
-> +			rx_skb = sis_priv->rx_skbuff[entry];
-> +			skb_put(rx_skb, rx_size);
-> +			skb->protocol = eth_type_trans(rx_skb, net_dev);
+>  #define	PEGASUS_MTU		1536
+>  #define	RX_SKBS			4
+> @@ -204,7 +203,7 @@
+>  PEGASUS_DEV( "Allied Telesyn Int. AT-USB100", VENDOR_ALLIEDTEL, 0xb100,
+>  		DEFAULT_GPIO_RESET | PEGASUS_II )
+>  PEGASUS_DEV( "Belkin F5D5050 USB Ethernet", VENDOR_BELKIN, 0x0121,
+> -		DEFAULT_GPIO_RESET | PEGASUS_II | TRUST_LINK_STATUS )
+> +		DEFAULT_GPIO_RESET | PEGASUS_II )
+>  PEGASUS_DEV( "Billionton USB-100", VENDOR_BILLIONTON, 0x0986,
+>  		DEFAULT_GPIO_RESET )
+>  PEGASUS_DEV( "Billionton USBLP-100", VENDOR_BILLIONTON, 0x0987,
+> --- a/drivers/usb/net/pegasus.c	2007-04-25 21:20:32.000000000 -0400
+> +++ b/drivers/usb/net/pegasus.c	2007-04-25 21:22:15.000000000 -0400
+> @@ -848,16 +848,6 @@
+>  		 * d[0].NO_CARRIER kicks in only with failed TX.
+>  		 * ... so monitoring with MII may be safest.
+>  		 */
+> -		if (pegasus->features & TRUST_LINK_STATUS) {
+> -			if (d[5] & LINK_STATUS)
+> -				netif_carrier_on(net);
+> -			else
+> -				netif_carrier_off(net);
+> -		} else {
+> -			/* Never set carrier _on_ based on ! NO_CARRIER */
+> -			if (d[0] & NO_CARRIER)
+> -				netif_carrier_off(net);	
+> -		}
+>  
+>  		/* bytes 3-4 == rx_lostpkt, reg 2E/2F */
+>  		pegasus->stats.rx_missed_errors += ((d[3] & 0x7f) << 8) | d[4];
 
-applied this, and the one-line fix to this
+applied
 
 
