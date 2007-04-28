@@ -1,66 +1,48 @@
-From: Vincent ETIENNE <ve@vetienne.net>
-Subject: Re: [PROBLEM] Bonding driver in linux-2.6.21-rc6-mm1
-Date: Sun, 29 Apr 2007 00:04:31 +0200
-Message-ID: <200704290004.31698.ve@vetienne.net>
-References: <200704262058.33087.ve@vetienne.net> <200704282237.42753.ve@vetienne.net> <20070428143102.f39299b5.akpm@linux-foundation.org>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] sis900: Allocate rx replacement buffer before rx operation
+Date: Sat, 28 Apr 2007 18:24:36 -0400
+Message-ID: <20070428222436.GC24300@hmsreliant.homelinux.net>
+References: <20070420135458.GB16191@hmsreliant.homelinux.net> <462E33A8.5060107@garzik.org> <20070426174736.GC6000@localhost.localdomain> <4632927C.7010801@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, venza@brownhat.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.vetienne.net ([87.98.219.23]:2262 "EHLO
-	mail1.vetienne.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1160997AbXD1WEd convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Apr 2007 18:04:33 -0400
-In-Reply-To: <20070428143102.f39299b5.akpm@linux-foundation.org>
+Received: from ra.tuxdriver.com ([70.61.120.52]:4669 "EHLO ra.tuxdriver.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1161232AbXD1WZK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 28 Apr 2007 18:25:10 -0400
 Content-Disposition: inline
+In-Reply-To: <4632927C.7010801@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le Saturday 28 April 2007 23:31:02 Andrew Morton, vous avez =E9crit=A0:
->
-> > Is there anything i can do to get you more precise information ?
->
-> I guess if you could provide us with your .config and a step-by-step =
-recipe
-> which developers should use to reproduce the problem then we should b=
-e able
-> to fix this pretty easily when someone finds the time to do so.
-
-=46or the config, i have uploaded it to=20
-http://mail1.vetienne.net/linux/config-2.6.21-rc7-mm2.=20
-
-=46or reproducing the problem, it 's simple (for me at least) :
-
-	-  setup a bonding interface ( IP 192.168.1.5/255.255.255.0 so nothing=
-=20
-fancy ) bond (mode 6 : alb ) on two NIC card (in my case  E1000 and TG3=
- ).=20
-Don't know if it's important or not but the two cards are connected to =
-the=20
-same cheap 100Mb switch ( So no gigabit )
-
-	- Reboot  : when the bond interface went up ( after the two physical s=
-laves )=20
-the bug is triggered ( for the moment always, but i have only rebooted =
-2 or 3=20
-times with 2.6.21-rc7-mm2  ).
-
-	- You could also play with networks cable and put down/up one interfac=
-e or=20
-another  during normal work : it would often triggered the same trace (=
- not=20
-always although ). You don't need to have load on the network. The inte=
-rface=20
-that went down or up doesn't seem to be important as far as i can see.
-
-	- No lockup of the kernel, network still work fine after the problem
-
-
-
-
-
-
+> >diff --git a/drivers/net/sis900.c b/drivers/net/sis900.c
+> >index a6a0f09..7e44939 100644
+> >--- a/drivers/net/sis900.c
+> >+++ b/drivers/net/sis900.c
+> >@@ -1754,6 +1754,7 @@ static int sis900_rx(struct net_device *net_dev)
+> > 			sis_priv->rx_ring[entry].cmdsts = RX_BUF_SIZE;
+> > 		} else {
+> > 			struct sk_buff * skb;
+> >+			struct sk_buff * rx_skb;
+> > 
+> > 			pci_unmap_single(sis_priv->pci_dev,
+> > 				sis_priv->rx_ring[entry].bufptr, RX_BUF_SIZE,
+> >@@ -1787,10 +1788,10 @@ static int sis900_rx(struct net_device *net_dev)
+> > 			}
+> > 
+> > 			/* give the socket buffer to upper layers */
+> >-			skb = sis_priv->rx_skbuff[entry];
+> >-			skb_put(skb, rx_size);
+> >-			skb->protocol = eth_type_trans(skb, net_dev);
+> >-			netif_rx(skb);
+> >+			rx_skb = sis_priv->rx_skbuff[entry];
+> >+			skb_put(rx_skb, rx_size);
+> >+			skb->protocol = eth_type_trans(rx_skb, net_dev);
+> 
+> applied this, and the one-line fix to this
+> 
+Thanks Jeff, sorry again for the headache.  I'll be more careful in the future
+Neil
 
