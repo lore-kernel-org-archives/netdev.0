@@ -1,67 +1,56 @@
 From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
-Subject: Re: [PATCH] netpoll: fix TX queue overflow in trapped mode
-Date: Sat, 28 Apr 2007 22:52:01 +0400
-Message-ID: <200704282252.01296.sshtylyov@ru.mvista.com>
-References: <200704282212.32443.sshtylyov@ru.mvista.com>
+Subject: Re: [PATCH] netpoll: remove CONFIG_NETPOLL_RX
+Date: Sat, 28 Apr 2007 22:52:36 +0400
+Message-ID: <200704282252.36591.sshtylyov@ru.mvista.com>
+References: <200704282248.52072.sshtylyov@ru.mvista.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, shemminger@linux-foundation.org,
+	mpm@selenic.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from h155.mvista.com ([63.81.120.155]:41757 "EHLO imap.sh.mvista.com"
+Received: from h155.mvista.com ([63.81.120.155]:41762 "EHLO imap.sh.mvista.com"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752262AbXD1SuX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 28 Apr 2007 14:50:23 -0400
-In-Reply-To: <200704282212.32443.sshtylyov@ru.mvista.com>
+	id S1753544AbXD1Su7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 28 Apr 2007 14:50:59 -0400
+In-Reply-To: <200704282248.52072.sshtylyov@ru.mvista.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Saturday 28 April 2007 22:12, you wrote:
-> CONFIG_NETPOLL_TRAP causes the TX queue controls to be completely bypassed
-> in the netpoll's "trapped" mode which easily causes overflows in the
-> drivers with short TX queues (most notably, in 8139too with its 4-deep
-> queue).  So, make this option more sensible by making it only bypass the TX
-> softirq wakeup.
+On Saturday 28 April 2007 22:48, Sergei Shtylyov wrote:
+> Get rid of the CONFIG_NETPOLL_RX option completely since all the
+> dependencies have been removed long ago...
 
-   Dammit!  Finally forgot to add acks earned so far:
+   Same here:
 
 > Signed-off-by: Sergei Shtylyov <sshtylyov@ru.mvista.com>
 Acked-by: Jeff Garzik <jgarzik@pobox.com>
 Acked-by: Matt Mackall <mpm@selenic.com>
 
 > ---
-> Split this part form the initial patch as request by Matt Mackall.
+> See commit e3c265bcf67f21d847e970e71504890f61f37824 in tglx/history.git for
+> the patch that removed the #ifdef's.
 >
->  include/linux/netdevice.h |    8 +++-----
->  2 files changed, 3 insertions(+), 10 deletions(-)
+>  drivers/net/Kconfig       |    5 -----
+>  1 files changed, 0 insertions(+), 5 deletions(-)
 >
-> Index: linux-2.6/include/linux/netdevice.h
+> Index: linux-2.6/drivers/net/Kconfig
 > ===================================================================
-> --- linux-2.6.orig/include/linux/netdevice.h
-> +++ linux-2.6/include/linux/netdevice.h
-> @@ -647,8 +647,10 @@ static inline void netif_start_queue(str
->  static inline void netif_wake_queue(struct net_device *dev)
->  {
->  #ifdef CONFIG_NETPOLL_TRAP
-> -	if (netpoll_trap())
-> +	if (netpoll_trap()) {
-> +		clear_bit(__LINK_STATE_XOFF, &dev->state);
->  		return;
-> +	}
->  #endif
->  	if (test_and_clear_bit(__LINK_STATE_XOFF, &dev->state))
->  		__netif_schedule(dev);
-> @@ -656,10 +658,6 @@ static inline void netif_wake_queue(stru
+> --- linux-2.6.orig/drivers/net/Kconfig
+> +++ linux-2.6/drivers/net/Kconfig
+> @@ -2928,11 +2928,6 @@ endif #NETDEVICES
+>  config NETPOLL
+>  	def_bool NETCONSOLE
 >
->  static inline void netif_stop_queue(struct net_device *dev)
->  {
-> -#ifdef CONFIG_NETPOLL_TRAP
-> -	if (netpoll_trap())
-> -		return;
-> -#endif
->  	set_bit(__LINK_STATE_XOFF, &dev->state);
->  }
+> -config NETPOLL_RX
+> -	bool "Netpoll support for trapping incoming packets"
+> -	default n
+> -	depends on NETPOLL
+> -
+>  config NETPOLL_TRAP
+>  	bool "Netpoll traffic trapping"
+>  	default n
 
