@@ -1,61 +1,55 @@
-From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
-Subject: [PATCH] netpoll: fix TX queue overflow in trapped mode
-Date: Sat, 28 Apr 2007 22:12:32 +0400
-Message-ID: <200704282212.32443.sshtylyov@ru.mvista.com>
+From: Vitaly Wool <vwool@ru.mvista.com>
+Subject: Re: [PATCH] fix smc911x compilation breakage
+Date: Sat, 28 Apr 2007 22:10:57 +0400
+Message-ID: <1177783857.1532.4.camel@barja>
+References: <20070427143552.0000757a.vwool@ru.mvista.com>
+	 <4633693B.7070404@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@linux-foundation.org,
-	mpm@selenic.com
-To: davem@davemloft.net
+Cc: dustin@sensoria.com, netdev@vger.kernel.org,
+	Russell King <rmk+lkml@arm.linux.org.uk>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from h155.mvista.com ([63.81.120.155]:41647 "EHLO imap.sh.mvista.com"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1163418AbXD1SK6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 28 Apr 2007 14:10:58 -0400
-Content-Disposition: inline
+Received: from rtsoft3.corbina.net ([85.21.88.6]:48675 "EHLO
+	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1163423AbXD1SLA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Apr 2007 14:11:00 -0400
+In-Reply-To: <4633693B.7070404@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-CONFIG_NETPOLL_TRAP causes the TX queue controls to be completely bypassed in
-the netpoll's "trapped" mode which easily causes overflows in the drivers with
-short TX queues (most notably, in 8139too with its 4-deep queue).  So, make
-this option more sensible by making it only bypass the TX softirq wakeup.
+Hello Jeff,
 
-Signed-off-by: Sergei Shtylyov <sshtylyov@ru.mvista.com>
+> Vitaly Wool wrote:
+> > Index: linux-2.6/drivers/net/smc911x.c
+> > ===================================================================
+> > --- linux-2.6.orig/drivers/net/smc911x.c
+> > +++ linux-2.6/drivers/net/smc911x.c
+> > @@ -75,9 +75,9 @@ static const char version[] =
+> >  #include <linux/netdevice.h>
+> >  #include <linux/etherdevice.h>
+> >  #include <linux/skbuff.h>
+> > +#include <linux/irq.h>
+> >  
+> >  #include <asm/io.h>
+> > -#include <asm/irq.h>
+> >  
+> >  #include "smc911x.h"
+> 
+> This seems to clash with rmk's comment at the top of linux/irq.h?
 
----
-Split this part form the initial patch as request by Matt Mackall.
+In a way, yes, but I just was fixing the compilation problem, and not
+changing the logic in any way. The driver currently calls set_irq_type
+so it has to include linux/irq.h, just as it had to include asm/irq.h
+before.
 
- include/linux/netdevice.h |    8 +++-----
- 2 files changed, 3 insertions(+), 10 deletions(-)
+I'd guess that set_irq_type better be called by generic code and either
+just make the driver don't even bother or call a callback set by
+platform part. If you're fine with any of these, and think it's better
+than the initial patch, please let me know and I'll proceed with that.
 
-Index: linux-2.6/include/linux/netdevice.h
-===================================================================
---- linux-2.6.orig/include/linux/netdevice.h
-+++ linux-2.6/include/linux/netdevice.h
-@@ -647,8 +647,10 @@ static inline void netif_start_queue(str
- static inline void netif_wake_queue(struct net_device *dev)
- {
- #ifdef CONFIG_NETPOLL_TRAP
--	if (netpoll_trap())
-+	if (netpoll_trap()) {
-+		clear_bit(__LINK_STATE_XOFF, &dev->state);
- 		return;
-+	}
- #endif
- 	if (test_and_clear_bit(__LINK_STATE_XOFF, &dev->state))
- 		__netif_schedule(dev);
-@@ -656,10 +658,6 @@ static inline void netif_wake_queue(stru
- 
- static inline void netif_stop_queue(struct net_device *dev)
- {
--#ifdef CONFIG_NETPOLL_TRAP
--	if (netpoll_trap())
--		return;
--#endif
- 	set_bit(__LINK_STATE_XOFF, &dev->state);
- }
- 
+Thanks,
+   Vitaly
 
