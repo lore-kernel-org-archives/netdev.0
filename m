@@ -1,71 +1,36 @@
-From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
-Subject: Re: [PATCH] netpoll: fix TX queue overflow in trapped mode
-Date: Sun, 29 Apr 2007 00:25:41 +0400
-Message-ID: <200704290025.41760.sshtylyov@ru.mvista.com>
-References: <200704282212.32443.sshtylyov@ru.mvista.com> <200704282252.01296.sshtylyov@ru.mvista.com>
+From: olof@lixom.net (Olof Johansson)
+Subject: [PATCH v3] [0/10] pasemi_mac: fixes and enhancements
+Date: Sat, 28 Apr 2007 15:36:24 -0500
+Message-ID: <20070428203624.GA4331@lixom.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from h155.mvista.com ([63.81.120.155]:42082 "EHLO imap.sh.mvista.com"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1749667AbXD1UYG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 28 Apr 2007 16:24:06 -0400
-In-Reply-To: <200704282252.01296.sshtylyov@ru.mvista.com>
+Received: from lixom.net ([66.141.50.11]:38596 "EHLO mail.lixom.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750719AbXD1Ufr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 28 Apr 2007 16:35:47 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Saturday 28 April 2007 22:52, I wrote:
+Hi,
 
-> > CONFIG_NETPOLL_TRAP causes the TX queue controls to be completely
-> > bypassed in the netpoll's "trapped" mode which easily causes overflows in
-> > the drivers with short TX queues (most notably, in 8139too with its
-> > 4-deep queue).  So, make this option more sensible by making it only
-> > bypass the TX softirq wakeup.
->    Dammit!  Finally forgot to add acks earned so far:
+The following patch set contains a number of fixes and improvements of
+the pasemi_mac driver:
 
-   Oh, and there was even another one:
+1/10: A couple of minor bugfixes.
+2/10: Move the IRQ mapping from the PCI layer under our platform, to
+     the driver.
+3/10: Abstract and fix up interrupt restart routines
+4/10: Timer and interrupt fixes
+5/10: Add SKB reuse / copy-break
+6/10: Minor cleanup / define fixes
+7/10: Logic cleanup / rx performance improvements
+8/10: Add msglevel support and "pasemi_mac_debug" module param
+9/10: PHY support
+10/10: Use local-mac-address instead of mac-address if available.
 
-> > Signed-off-by: Sergei Shtylyov <sshtylyov@ru.mvista.com>
 
-> Acked-by: Jeff Garzik <jgarzik@pobox.com>
-Acked-by: Tom Rini <trini@kernel.crashing.org>
-> Acked-by: Matt Mackall <mpm@selenic.com>
-
-> > ---
-> > Split this part form the initial patch as request by Matt Mackall.
-> >
-> >  include/linux/netdevice.h |    8 +++-----
-> >  2 files changed, 3 insertions(+), 10 deletions(-)
-> >
-> > Index: linux-2.6/include/linux/netdevice.h
-> > ===================================================================
-> > --- linux-2.6.orig/include/linux/netdevice.h
-> > +++ linux-2.6/include/linux/netdevice.h
-> > @@ -647,8 +647,10 @@ static inline void netif_start_queue(str
-> >  static inline void netif_wake_queue(struct net_device *dev)
-> >  {
-> >  #ifdef CONFIG_NETPOLL_TRAP
-> > -	if (netpoll_trap())
-> > +	if (netpoll_trap()) {
-> > +		clear_bit(__LINK_STATE_XOFF, &dev->state);
-> >  		return;
-> > +	}
-> >  #endif
-> >  	if (test_and_clear_bit(__LINK_STATE_XOFF, &dev->state))
-> >  		__netif_schedule(dev);
-> > @@ -656,10 +658,6 @@ static inline void netif_wake_queue(stru
-> >
-> >  static inline void netif_stop_queue(struct net_device *dev)
-> >  {
-> > -#ifdef CONFIG_NETPOLL_TRAP
-> > -	if (netpoll_trap())
-> > -		return;
-> > -#endif
-> >  	set_bit(__LINK_STATE_XOFF, &dev->state);
-> >  }
-
+-Olof
