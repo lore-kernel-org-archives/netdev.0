@@ -1,30 +1,71 @@
-From: olof@lixom.net (Olof Johansson)
-Subject: Re: [RESEND] [PATCH v2] [4/5] pasemi_mac: phy support
-Date: Sat, 28 Apr 2007 15:09:47 -0500
-Message-ID: <20070428200947.GC2442@lixom.net>
-References: <20070428054952.GA22074@lixom.net> <20070428055140.GE22074@lixom.net> <463366FE.60201@pobox.com>
+From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
+Subject: Re: [PATCH] netpoll: fix TX queue overflow in trapped mode
+Date: Sun, 29 Apr 2007 00:25:41 +0400
+Message-ID: <200704290025.41760.sshtylyov@ru.mvista.com>
+References: <200704282212.32443.sshtylyov@ru.mvista.com> <200704282252.01296.sshtylyov@ru.mvista.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Jeff Garzik <jgarzik@pobox.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lixom.net ([66.141.50.11]:56456 "EHLO mail.lixom.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754142AbXD1UJK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 28 Apr 2007 16:09:10 -0400
+Received: from h155.mvista.com ([63.81.120.155]:42082 "EHLO imap.sh.mvista.com"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1749667AbXD1UYG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 28 Apr 2007 16:24:06 -0400
+In-Reply-To: <200704282252.01296.sshtylyov@ru.mvista.com>
 Content-Disposition: inline
-In-Reply-To: <463366FE.60201@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Apr 28, 2007 at 11:23:42AM -0400, Jeff Garzik wrote:
+On Saturday 28 April 2007 22:52, I wrote:
 
-> msg_enable should be initialized in a standard fashion, from your debug 
-> module parameter.  grep for 'msg_enable' in other drivers.
+> > CONFIG_NETPOLL_TRAP causes the TX queue controls to be completely
+> > bypassed in the netpoll's "trapped" mode which easily causes overflows in
+> > the drivers with short TX queues (most notably, in 8139too with its
+> > 4-deep queue).  So, make this option more sensible by making it only
+> > bypass the TX softirq wakeup.
+>    Dammit!  Finally forgot to add acks earned so far:
 
-Ah, good point. Done, and broken out as a separate patch.
+   Oh, and there was even another one:
 
+> > Signed-off-by: Sergei Shtylyov <sshtylyov@ru.mvista.com>
 
-Thanks,
+> Acked-by: Jeff Garzik <jgarzik@pobox.com>
+Acked-by: Tom Rini <trini@kernel.crashing.org>
+> Acked-by: Matt Mackall <mpm@selenic.com>
 
--Olof
+> > ---
+> > Split this part form the initial patch as request by Matt Mackall.
+> >
+> >  include/linux/netdevice.h |    8 +++-----
+> >  2 files changed, 3 insertions(+), 10 deletions(-)
+> >
+> > Index: linux-2.6/include/linux/netdevice.h
+> > ===================================================================
+> > --- linux-2.6.orig/include/linux/netdevice.h
+> > +++ linux-2.6/include/linux/netdevice.h
+> > @@ -647,8 +647,10 @@ static inline void netif_start_queue(str
+> >  static inline void netif_wake_queue(struct net_device *dev)
+> >  {
+> >  #ifdef CONFIG_NETPOLL_TRAP
+> > -	if (netpoll_trap())
+> > +	if (netpoll_trap()) {
+> > +		clear_bit(__LINK_STATE_XOFF, &dev->state);
+> >  		return;
+> > +	}
+> >  #endif
+> >  	if (test_and_clear_bit(__LINK_STATE_XOFF, &dev->state))
+> >  		__netif_schedule(dev);
+> > @@ -656,10 +658,6 @@ static inline void netif_wake_queue(stru
+> >
+> >  static inline void netif_stop_queue(struct net_device *dev)
+> >  {
+> > -#ifdef CONFIG_NETPOLL_TRAP
+> > -	if (netpoll_trap())
+> > -		return;
+> > -#endif
+> >  	set_bit(__LINK_STATE_XOFF, &dev->state);
+> >  }
+
