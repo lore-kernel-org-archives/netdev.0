@@ -1,149 +1,208 @@
 From: olof@lixom.net (Olof Johansson)
-Subject: [PATCH v3] [2/10] [REAL 2/10] pasemi_mac: Move the IRQ mapping from the PCI layer to the driver
-Date: Sat, 28 Apr 2007 15:57:26 -0500
-Message-ID: <20070428205726.GB4811@lixom.net>
-References: <20070428203624.GA4331@lixom.net> <20070428203650.GC4331@lixom.net>
+Subject: [PATCH v3] [7/10] pasemi_mac: Logic cleanup / rx performance improvements
+Date: Sat, 28 Apr 2007 15:58:15 -0500
+Message-ID: <20070428205815.GC4811@lixom.net>
+References: <20070428203624.GA4331@lixom.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
 To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lixom.net ([66.141.50.11]:41079 "EHLO mail.lixom.net"
+Received: from lixom.net ([66.141.50.11]:41087 "EHLO mail.lixom.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030413AbXD1U4t (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 28 Apr 2007 16:56:49 -0400
+	id S1030351AbXD1U5i (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 28 Apr 2007 16:57:38 -0400
 Content-Disposition: inline
-In-Reply-To: <20070428203650.GC4331@lixom.net>
+In-Reply-To: <20070428203624.GA4331@lixom.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fixes for ethernet IRQ mapping, to be done in the driver instead of in
-the platform setup code.
+Logic cleanup and some performance enhancements to the RX path.
 
 Signed-off-by: Olof Johansson <olof@lixom.net>
 
-
-Index: netdev-2.6/arch/powerpc/platforms/pasemi/pci.c
-===================================================================
---- netdev-2.6.orig/arch/powerpc/platforms/pasemi/pci.c
-+++ netdev-2.6/arch/powerpc/platforms/pasemi/pci.c
-@@ -163,19 +163,6 @@ static void __init pas_fixup_phb_resourc
- }
- 
- 
--void __devinit pas_pci_irq_fixup(struct pci_dev *dev)
--{
--	/* DMA is special, 84 interrupts (128 -> 211), all but 128
--	 * need to be mapped by hand here.
--	 */
--	if (dev->vendor == 0x1959 && dev->device == 0xa007) {
--		int i;
--		for (i = 129; i < 212; i++)
--			irq_create_mapping(NULL, i);
--	}
--}
--
--
- void __init pas_pci_init(void)
- {
- 	struct device_node *np, *root;
-Index: netdev-2.6/arch/powerpc/platforms/pasemi/setup.c
-===================================================================
---- netdev-2.6.orig/arch/powerpc/platforms/pasemi/setup.c
-+++ netdev-2.6/arch/powerpc/platforms/pasemi/setup.c
-@@ -240,5 +240,4 @@ define_machine(pas) {
- 	.check_legacy_ioport    = pas_check_legacy_ioport,
- 	.progress		= pas_progress,
- 	.machine_check_exception = pas_machine_check_handler,
--	.pci_irq_fixup		= pas_pci_irq_fixup,
- };
 Index: netdev-2.6/drivers/net/pasemi_mac.c
 ===================================================================
 --- netdev-2.6.orig/drivers/net/pasemi_mac.c
 +++ netdev-2.6/drivers/net/pasemi_mac.c
-@@ -33,6 +33,8 @@
- #include <linux/tcp.h>
- #include <net/checksum.h>
- 
-+#include <asm/irq.h>
-+
- #include "pasemi_mac.h"
- 
- 
-@@ -531,6 +533,7 @@ static irqreturn_t pasemi_mac_tx_intr(in
- static int pasemi_mac_open(struct net_device *dev)
- {
+@@ -305,19 +305,20 @@ static void pasemi_mac_replenish_rx_ring
  	struct pasemi_mac *mac = netdev_priv(dev);
-+	int base_irq;
- 	unsigned int flags;
- 	int ret;
+ 	unsigned int i;
+ 	int start = mac->rx->next_to_fill;
+-	unsigned int count;
++	unsigned int limit, count;
  
-@@ -594,28 +597,37 @@ static int pasemi_mac_open(struct net_de
- 	netif_start_queue(dev);
- 	netif_poll_enable(dev);
+-	count = (mac->rx->next_to_clean + RX_RING_SIZE -
++	limit = (mac->rx->next_to_clean + RX_RING_SIZE -
+ 		 mac->rx->next_to_fill) & (RX_RING_SIZE - 1);
  
--	ret = request_irq(mac->dma_pdev->irq + mac->dma_txch,
--			  &pasemi_mac_tx_intr, IRQF_DISABLED,
-+	/* Interrupts are a bit different for our DMA controller: While
-+	 * it's got one a regular PCI device header, the interrupt there
-+	 * is really the base of the range it's using. Each tx and rx
-+	 * channel has it's own interrupt source.
-+	 */
-+
-+	base_irq = virq_to_hw(mac->dma_pdev->irq);
-+
-+	mac->tx_irq = irq_create_mapping(NULL, base_irq + mac->dma_txch);
-+	mac->rx_irq = irq_create_mapping(NULL, base_irq + 20 + mac->dma_txch);
-+
-+	ret = request_irq(mac->tx_irq, &pasemi_mac_tx_intr, IRQF_DISABLED,
- 			  mac->tx->irq_name, dev);
- 	if (ret) {
- 		dev_err(&mac->pdev->dev, "request_irq of irq %d failed: %d\n",
--		       mac->dma_pdev->irq + mac->dma_txch, ret);
-+			base_irq + mac->dma_txch, ret);
- 		goto out_tx_int;
+ 	/* Check to see if we're doing first-time setup */
+ 	if (unlikely(mac->rx->next_to_clean == 0 && mac->rx->next_to_fill == 0))
+-		count = RX_RING_SIZE;
++		limit = RX_RING_SIZE;
+ 
+-	if (count <= 0)
++	if (limit <= 0)
+ 		return;
+ 
+-	for (i = start; i < start + count; i++) {
++	i = start;
++	for (count = limit; count; count--) {
+ 		struct pasemi_mac_buffer *info = &RX_DESC_INFO(mac, i);
+ 		u64 *buff = &RX_BUFF(mac, i);
+ 		struct sk_buff *skb;
+@@ -335,27 +336,27 @@ static void pasemi_mac_replenish_rx_ring
+ 		dma = pci_map_single(mac->dma_pdev, skb->data, skb->len,
+ 				     PCI_DMA_FROMDEVICE);
+ 
+-		if (dma_mapping_error(dma)) {
++		if (unlikely(dma_mapping_error(dma))) {
+ 			dev_kfree_skb_irq(info->skb);
+-			count = i - start;
+ 			break;
+ 		}
+ 
+ 		info->skb = skb;
+ 		info->dma = dma;
+ 		*buff = XCT_RXB_LEN(BUF_SIZE) | XCT_RXB_ADDR(dma);
++		i++;
  	}
  
--	ret = request_irq(mac->dma_pdev->irq + 20 + mac->dma_rxch,
--			  &pasemi_mac_rx_intr, IRQF_DISABLED,
-+	ret = request_irq(mac->rx_irq, &pasemi_mac_rx_intr, IRQF_DISABLED,
- 			  mac->rx->irq_name, dev);
- 	if (ret) {
- 		dev_err(&mac->pdev->dev, "request_irq of irq %d failed: %d\n",
--		       mac->dma_pdev->irq + 20 + mac->dma_rxch, ret);
-+			base_irq + 20 + mac->dma_rxch, ret);
- 		goto out_rx_int;
- 	}
+ 	wmb();
  
- 	return 0;
- 
- out_rx_int:
--	free_irq(mac->dma_pdev->irq + mac->dma_txch, dev);
-+	free_irq(mac->tx_irq, dev);
- out_tx_int:
- 	netif_poll_disable(dev);
- 	netif_stop_queue(dev);
-@@ -699,8 +711,8 @@ static int pasemi_mac_close(struct net_d
  	pci_write_config_dword(mac->dma_pdev,
- 			       PAS_DMA_RXINT_RCMDSTA(mac->dma_if), 0);
+ 			       PAS_DMA_RXCHAN_INCR(mac->dma_rxch),
+-			       count);
++			       limit - count);
+ 	pci_write_config_dword(mac->dma_pdev,
+ 			       PAS_DMA_RXINT_INCR(mac->dma_if),
+-			       count);
++			       limit - count);
  
--	free_irq(mac->dma_pdev->irq + mac->dma_txch, dev);
--	free_irq(mac->dma_pdev->irq + 20 + mac->dma_rxch, dev);
-+	free_irq(mac->tx_irq, dev);
-+	free_irq(mac->rx_irq, dev);
+-	mac->rx->next_to_fill += count;
++	mac->rx->next_to_fill += limit - count;
+ }
  
- 	/* Free resources */
- 	pasemi_mac_free_rx_resources(dev);
-Index: netdev-2.6/drivers/net/pasemi_mac.h
-===================================================================
---- netdev-2.6.orig/drivers/net/pasemi_mac.h
-+++ netdev-2.6/drivers/net/pasemi_mac.h
-@@ -73,6 +73,8 @@ struct pasemi_mac {
+ static void pasemi_mac_restart_rx_intr(struct pasemi_mac *mac)
+@@ -393,32 +394,31 @@ static void pasemi_mac_restart_tx_intr(s
+ }
  
- 	struct pasemi_mac_txring *tx;
- 	struct pasemi_mac_rxring *rx;
-+	unsigned long	tx_irq;
-+	unsigned long	rx_irq;
- };
  
- /* Software status descriptor (desc_info) */
+-
+ static int pasemi_mac_clean_rx(struct pasemi_mac *mac, int limit)
+ {
+-	unsigned int i;
+-	int start, count;
++	unsigned int n;
++	int count;
++	struct pas_dma_xct_descr *dp;
++	struct pasemi_mac_buffer *info;
++	struct sk_buff *skb;
++	unsigned int i, len;
++	u64 macrx;
++	dma_addr_t dma;
+ 
+ 	spin_lock(&mac->rx->lock);
+ 
+-	start = mac->rx->next_to_clean;
+-	count = 0;
++	n = mac->rx->next_to_clean;
+ 
+-	for (i = start; i < (start + RX_RING_SIZE) && count < limit; i++) {
+-		struct pas_dma_xct_descr *dp;
+-		struct pasemi_mac_buffer *info;
+-		struct sk_buff *skb;
+-		unsigned int j, len;
+-		dma_addr_t dma;
++	for (count = limit; count; count--) {
+ 
+ 		rmb();
+ 
+-		dp = &RX_DESC(mac, i);
++		dp = &RX_DESC(mac, n);
++		macrx = dp->macrx;
+ 
+-		if (!(dp->macrx & XCT_MACRX_O))
++		if (!(macrx & XCT_MACRX_O))
+ 			break;
+ 
+-		count++;
+ 
+ 		info = NULL;
+ 
+@@ -430,22 +430,20 @@ static int pasemi_mac_clean_rx(struct pa
+ 		 */
+ 
+ 		dma = (dp->ptr & XCT_PTR_ADDR_M);
+-		for (j = start; j < (start + RX_RING_SIZE); j++) {
+-			info = &RX_DESC_INFO(mac, j);
++		for (i = n; i < (n + RX_RING_SIZE); i++) {
++			info = &RX_DESC_INFO(mac, i);
+ 			if (info->dma == dma)
+ 				break;
+ 		}
+ 
+-		BUG_ON(!info);
+-		BUG_ON(info->dma != dma);
+ 		skb = info->skb;
++		info->dma = 0;
+ 
+-		pci_unmap_single(mac->dma_pdev, info->dma, info->skb->len,
++		pci_unmap_single(mac->dma_pdev, dma, skb->len,
+ 				 PCI_DMA_FROMDEVICE);
+-		info->dma = 0;
+ 
++		len = (macrx & XCT_MACRX_LLEN_M) >> XCT_MACRX_LLEN_S;
+ 
+-		len = (dp->macrx & XCT_MACRX_LLEN_M) >> XCT_MACRX_LLEN_S;
+ 		if (len < 256) {
+ 			struct sk_buff *new_skb =
+ 			    netdev_alloc_skb(mac->netdev, len + NET_IP_ALIGN);
+@@ -465,9 +463,9 @@ static int pasemi_mac_clean_rx(struct pa
+ 
+ 		skb->protocol = eth_type_trans(skb, mac->netdev);
+ 
+-		if ((dp->macrx & XCT_MACRX_HTY_M) == XCT_MACRX_HTY_IPV4_OK) {
++		if ((macrx & XCT_MACRX_HTY_M) == XCT_MACRX_HTY_IPV4_OK) {
+ 			skb->ip_summed = CHECKSUM_COMPLETE;
+-			skb->csum = (dp->macrx & XCT_MACRX_CSUM_M) >>
++			skb->csum = (macrx & XCT_MACRX_CSUM_M) >>
+ 					   XCT_MACRX_CSUM_S;
+ 		} else
+ 			skb->ip_summed = CHECKSUM_NONE;
+@@ -477,13 +475,13 @@ static int pasemi_mac_clean_rx(struct pa
+ 
+ 		netif_receive_skb(skb);
+ 
+-		info->dma = 0;
+-		info->skb = NULL;
+ 		dp->ptr = 0;
+ 		dp->macrx = 0;
++
++		n++;
+ 	}
+ 
+-	mac->rx->next_to_clean += count;
++	mac->rx->next_to_clean += limit - count;
+ 	pasemi_mac_replenish_rx_ring(mac->netdev);
+ 
+ 	spin_unlock(&mac->rx->lock);
+@@ -899,6 +897,9 @@ static int pasemi_mac_poll(struct net_de
+ 
+ 	pkts = pasemi_mac_clean_rx(mac, limit);
+ 
++	dev->quota -= pkts;
++	*budget -= pkts;
++
+ 	if (pkts < limit) {
+ 		/* all done, no more packets present */
+ 		netif_rx_complete(dev);
+@@ -907,8 +908,6 @@ static int pasemi_mac_poll(struct net_de
+ 		return 0;
+ 	} else {
+ 		/* used up our quantum, so reschedule */
+-		dev->quota -= pkts;
+-		*budget -= pkts;
+ 		return 1;
+ 	}
+ }
