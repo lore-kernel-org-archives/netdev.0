@@ -1,102 +1,136 @@
-From: Gene Heskett <gene.heskett@gmail.com>
+From: Thomas Meyer <thomas@m3y3r.de>
 Subject: Re: 2.6.21 known regressions (v2) (for -stable team)
-Date: Sat, 28 Apr 2007 13:52:44 -0400
-Message-ID: <200704281352.44784.gene.heskett@gmail.com>
-References: <463375E5.5040108@googlemail.com> <200704281252.20381.gene.heskett@gmail.com> <6bffcb0e0704281018h68a6d63fw8747b63bc1b86a4b@mail.gmail.com>
+Date: Sat, 28 Apr 2007 20:03:07 +0200
+Message-ID: <46338C5B.4010809@m3y3r.de>
+References: <463375E5.5040108@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: stable@kernel.org, "Andrew Morton" <akpm@linux-foundation.org>,
-	"Linus Torvalds" <torvalds@linux-foundation.org>,
-	"Linux Kernel Mailing List" <linux-kernel@vger.kernel.org>,
+Cc: stable@kernel.org, Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
 	linux-acpi@vger.kernel.org,
-	"Riccardo Ricci" <rricci@nuovanetmore.it>,
+	Riccardo Ricci <rricci@nuovanetmore.it>,
 	"Udo A. Steinberg" <us15@os.inf.tu-dresden.de>,
-	"Len Brown" <len.brown@intel.com>,
-	"David Brownell" <david-b@pacbell.net>,
-	"Jeff Mahoney" <jeffm@suse.com>, reiserfs-dev@namesys.com,
-	"Jeff Chua" <jeff.chua.linux@gmail.com>,
-	"Francois SIMOND" <curio@free.fr>,
-	"Stephen Hemminger" <shemminger@linux-foundation.org>,
+	Len Brown <len.brown@intel.com>,
+	David Brownell <david-b@pacbell.net>,
+	Jeff Mahoney <jeffm@suse.com>, reiserfs-dev@namesys.com,
+	Jeff Chua <jeff.chua.linux@gmail.com>,
+	Francois SIMOND <curio@free.fr>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
 	netdev@vger.kernel.org,
-	"=?iso-8859-1?q?H=E5kan?= Lindqvist" <lindqvist@netstar.se>,
-	"Vincent Frentzel" <zcecc22@ucl.ac.uk>,
-	"=?iso-8859-1?q?Fran=E7ois?= Valenduc" <francois.valenduc@skynet.be>,
-	"Thomas Meyer" <thomas.mey@web.de>,
-	"Giorgio Lando" <patroclo7@gmail.com>,
-	"Dave Jones" <davej@redhat.com>,
-	"Thomas Gleixner
-To: "Michal Piotrowski" <michal.k.k.piotrowski@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from qb-out-0506.google.com ([72.14.204.226]:16368 "EHLO
-	qb-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1163309AbXD1Rwu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Apr 2007 13:52:50 -0400
-Received: by qb-out-0506.google.com with SMTP id a16so4328956qbd
-        for <netdev@vger.kernel.org>; Sat, 28 Apr 2007 10:52:48 -0700 (PDT)
-In-Reply-To: <6bffcb0e0704281018h68a6d63fw8747b63bc1b86a4b@mail.gmail.com>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+	=?UTF-8?B?SMOla2FuIExpbmRxdmlzdA==?= <lindqvist@netstar.se>,
+	Vincent Frentzel <zcecc22@ucl.ac.uk>,
+	=?UTF-8?B?RnJhbsOnb2lzIFZhbGVuZHVj?= <francois.valenduc@skynet.be>,
+	Thomas Meyer <thomas.mey@web.de>,
+	Giorgio Lando <patroclo7@gmail.com>,
+	Dave Jones <davej@redhat.com>,
+	Thomas Gleixner <tglx@linutronix.de>
+To: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1163363AbXD1SE4@vger.kernel.org>
+In-Reply-To: <463375E5.5040108@googlemail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Saturday 28 April 2007, Michal Piotrowski wrote:
->Hi Gene,
+Michal Piotrowski schrieb:
+> Subject    : Bad interaction between dynticks and amarok?
+> References : http://lkml.org/lkml/2007/4/26/307
+> Submitter  : Thomas Meyer <thomas.mey@web.de>
+> Status     : Unknow
 >
->On 28/04/07, Gene Heskett <gene.heskett@gmail.com> wrote:
->> On Saturday 28 April 2007, Michal Piotrowski wrote:
->> >Hi all,
->> >
->> >Here is a list of known regressions reported after 2.6.21 release.
->> >
->> >Feel free to add new regressions/remove fixed etc.
->> >http://kernelnewbies.org/known_regressions
->>
->> I went here, but without a login the page is immutable
->>
->> Therefore I'll add it here
->>
->> Subject         :proprietary belkin upsd turns into cpu hog
->
->I'm not sure if I understand correctly. Is it a proprietary driver?
->If so, it's not a task for -stable team.
->
->> Submitter       :gene.heskett@gmail.com
->> Reference       :something changed in how /dev/ttyUSB's handle 1 and 2
->> byte messages from pl2303 usb<->serial adaptors.  Also, assignation of
->> ttyUSB#'s is volatile depending on phase of the moon when booted.
->
->Regards,
->Michal
+>   
+Please remove this from the regression list. This seems to be an
+userspace only problem and is not related to any kernel driver:
+amarok and/or audacious seems to repeatedly read/write to the X socket:
 
-I'm not sure if my use of that should be dismissed out of hand because its 
-proprietary, the point being that the pl2303 driver seems to have 
-deteriorated over the last month or so to the point that now neither of my 
-pl2303 cables is working, while the FTDI adaptor I put in the heyu path a 
-month ago is working just fine.  I do have another FTDI cable too, but I need 
-to get an extension for it, 10" overall just won't reach the ups so its not 
-yet tested. 
+tail of the strace of audacious:
+gettimeofday({1177782978, 24491}, NULL) = 0
+clock_gettime(CLOCK_MONOTONIC, {224, 581502867}) = 0
+clock_gettime(CLOCK_MONOTONIC, {224, 581614815}) = 0
+select(4, [3], [3], NULL, NULL)         = 1 (out [3])
+writev(3,
+[{"\221\3\n\0\3\0\200\2#\0\200\2\0\6@\0\240\4\20\0L\0\20\0"..., 40}], 1)
+= 40
+read(3, 0x80da6c8, 4096)                = -1 EAGAIN (Resource
+temporarily unavailable)
+gettimeofday({1177782978, 25286}, NULL) = 0
+poll([{fd=4, events=POLLIN}, {fd=3, events=POLLIN}], 2, 9) = 0
+gettimeofday({1177782978, 33242}, NULL) = 0
+read(3, 0x80da6c8, 4096)                = -1 EAGAIN (Resource
+temporarily unavailable)
+gettimeofday({1177782978, 33475}, NULL) = 0
+poll([{fd=4, events=POLLIN}, {fd=3, events=POLLIN}], 2, 1) = 0
+gettimeofday({1177782978, 36548}, NULL) = 0
+clock_gettime(CLOCK_MONOTONIC, {224, 593554129}) = 0
+read(3, 0x80da6c8, 4096)                = -1 EAGAIN (Resource
+temporarily unavailable)
+gettimeofday({1177782978, 36921}, NULL) = 0
+poll([{fd=4, events=POLLIN}, {fd=3, events=POLLIN}], 2, 9) = 0
+gettimeofday({1177782978, 46572}, NULL) = 0
+clock_gettime(CLOCK_MONOTONIC, {224, 603578038}) = 0
+clock_gettime(CLOCK_MONOTONIC, {224, 603689148}) = 0
+select(4, [3], [3], NULL, NULL)         = 1 (out [3])
+writev(3, [{"\221\3\n\0\3\0\200\2#\0\200\2\0\6@\0\0\4 \0L\0\20\0\23"...,
+40}], 1) = 40
+read(3, 0x80da6c8, 4096)                = -1 EAGAIN (Resource
+temporarily unavailable)
+gettimeofday({1177782978, 47341}, NULL) = 0
+poll([{fd=4, events=POLLIN}, {fd=3, events=POLLIN}], 2, 9) = 0
+gettimeofday({1177782978, 56566}, NULL) = 0
+read(3, 0x80da6c8, 4096)                = -1 EAGAIN (Resource
+temporarily unavailable)
+gettimeofday({1177782978, 56799}, NULL) = 0
+poll([{fd=4, events=POLLIN}, {fd=3, events=POLLIN}], 2, 0) = 0
+clock_gettime(CLOCK_MONOTONIC, {224, 613921380}) = 0
+read(3, 0x80da6c8, 4096)                = -1 EAGAIN (Resource
+temporarily unavailable)
+gettimeofday({1177782978, 57282}, NULL) = 0
+poll([{fd=4, events=POLLIN}, {fd=3, events=POLLIN}], 2, 9) = 0
+gettimeofday({1177782978, 67696}, NULL) = 0
+clock_gettime(CLOCK_MONOTONIC, {224, 624704202}) = 0
+clock_gettime(CLOCK_MONOTONIC, {224, 624817966}) = 0
+select(4, [3], [3], NULL, NULL)         = 1 (out [3])
+writev(3, [{"\221\3\n\0\3\0\200\2#\0\200\2\0\6@\0P\4
+\0L\0\20\0\23\0"..., 40}], 1) = 40
+read(3, 0x80da6c8, 4096)                = -1 EAGAIN (Resource
+temporarily unavailable)
+gettimeofday({1177782978, 68476}, NULL) = 0
+poll([{fd=4, events=POLLIN}, {fd=3, events=POLLIN}], 2, 9) = 0
+gettimeofday({1177782978, 76564}, NULL) = 0
+read(3, 0x80da6c8, 4096)                = -1 EAGAIN (Resource
+temporarily unavailable)
+gettimeofday({1177782978, 76796}, NULL) = 0
+poll([{fd=4, events=POLLIN}, {fd=3, events=POLLIN}], 2, 0) = 0
+clock_gettime(CLOCK_MONOTONIC, {224, 633919963}) = 0
+read(3, 0x80da6c8, 4096)                = -1 EAGAIN (Resource
+temporarily unavailable)
+gettimeofday({1177782978, 77280}, NULL) = 0
+poll([{fd=4, events=POLLIN}, {fd=3, events=POLLIN}], 2, 9) = 0
+gettimeofday({1177782978, 86898}, NULL) = 0
+clock_gettime(CLOCK_MONOTONIC, {224, 643911329}) = 0
+clock_gettime(CLOCK_MONOTONIC, {224, 644025581}) = 0
+select(4, [3], [3], NULL, NULL)         = 1 (out [3])
+writev(3, [{"\221\3\n\0\3\0\200\2#\0\200\2\0\6@\0\240\4
+\0L\0\20\0\23"..., 40}], 1) = 40
+read(3, 0x80da6c8, 4096)                = -1 EAGAIN (Resource
+temporarily unavailable)
+gettimeofday({1177782978, 87702}, NULL) = 0
+poll([{fd=4, events=POLLIN}, {fd=3, events=POLLIN, revents=POLLIN}], 2,
+9) = 1
+read(3, "\n\3P\v\4\0\200\2\0\0\0\0\210v\274\277r\300\10\10x\35!"...,
+4096) = 96
+read(3, 0x80da6c8, 4096)                = -1 EAGAIN (Resource
+temporarily unavailable)
+read(3, 0x80da6c8, 4096)                = -1 EAGAIN (Resource
+temporarily unavailable)
+read(3, 0x80da6c8, 4096)                = -1 EAGAIN (Resource
+temporarily unavailable)
+gettimeofday({1177782978, 90108}, NULL) = 0
+gettimeofday({1177782978, 90163}, NULL) = 0
 
-Up until this boot to 2.6.21-cfs-v7, I could usually make that proprietary 
-upsd driver daemon work if I killed it, reconfigured it to use whatever port 
-it got at this bootup, kill it, restart it etc and eventually it would settle 
-down to 0.0% cpu, and work fine.  Today I had to swap ports in both its 
-config and in heyu's after the reboot.  heyu is fine now, but the pl2303 is 
-totally, can't even cat the 1 or 2 bytes a second worth of data that should 
-be coming from it, dead.
+But i didn't have a look at what is going on here. But running amarok
+and/or audacious (without playing a song!) adds 50-70 more interrupts to
+the timer interrupt.
 
-Hence, I'm pointing my personal finger of blame at the pl2303 driver, which 
-I've noted has been touched a couple of times recently.
-
-In this case, no other change in the kernel config, just swapped the sd046 
-patch for the cfs-v7 patch, installed and rebooted.
-
-I started having trouble with this in the middle (roughly) of the 2.6.21-rc 
-series.
--- 
-Cheers, Gene
-"There are four boxes to be used in defense of liberty:
- soap, ballot, jury, and ammo. Please use in that order."
--Ed Howdershelt (Author)
-Universe, n.:
-	The problem.
+with kind regards
+thomas
