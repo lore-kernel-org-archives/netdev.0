@@ -1,31 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [ofa-general] Re: IPoIB forwarding
-Date: Fri, 27 Apr 2007 16:52:32 -0700 (PDT)
-Message-ID: <20070427.165232.74560572.davem@davemloft.net>
-References: <4632894D.40705@hp.com>
-	<20070427.163934.106263903.davem@davemloft.net>
-	<46328BB0.9030501@hp.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [patch 09/11] forcedeth: improve NAPI logic
+Date: Fri, 27 Apr 2007 20:10:54 -0400
+Message-ID: <4632910E.6030408@garzik.org>
+References: <200704260723.l3Q7NNCj023844@shell0.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: lawver1@llnl.gov, mst@dev.mellanox.co.il,
-	general@lists.openfabrics.org, netdev@vger.kernel.org
-To: rick.jones2@hp.com
+Cc: netdev@vger.kernel.org, mingo@elte.hu, aabdulla@nvidia.com
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57697
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1757920AbXD0XwX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Apr 2007 19:52:23 -0400
-In-Reply-To: <46328BB0.9030501@hp.com>
+Received: from srv5.dvmed.net ([207.36.208.214]:48183 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757943AbXD1AK5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Apr 2007 20:10:57 -0400
+In-Reply-To: <200704260723.l3Q7NNCj023844@shell0.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Rick Jones <rick.jones2@hp.com>
-Date: Fri, 27 Apr 2007 16:48:00 -0700
+akpm@linux-foundation.org wrote:
+> From: Ingo Molnar <mingo@elte.hu>
+> 
+> Another forcedeth.c thing: i noticed that its NAPI handler does not do
+> tx-ring processing.  The patch below implements this - tested on DESC_VER_2
+> hardware, with CONFIG_FORCEDETH_NAPI=y.
+> 
+> Signed-off-by: Ingo Molnar <mingo@elte.hu>
+> Cc: Ayaz Abdulla <aabdulla@nvidia.com>
+> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+> ---
+> 
+>  drivers/net/forcedeth.c |    8 ++++++++
+>  1 file changed, 8 insertions(+)
 
-> No problem - just to play whatif/devil's advocate for a bit
-> though... is there any way to tie that in with the setting of
-> net.ipv4.ip_forward (and/or its IPv6 counterpart)?
+See thread comments -- this patch should be expanded.
 
-Even ignoring that, consider the potential issues this
-kind of problem could be causing netfilter.
+
