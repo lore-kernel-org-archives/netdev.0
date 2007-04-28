@@ -1,74 +1,68 @@
-From: "Michal Piotrowski" <michal.k.k.piotrowski@gmail.com>
-Subject: Re: 2.6.21 known regressions (v2) (for -stable team)
-Date: Sat, 28 Apr 2007 19:18:20 +0200
-Message-ID: <6bffcb0e0704281018h68a6d63fw8747b63bc1b86a4b@mail.gmail.com>
-References: <463375E5.5040108@googlemail.com>
-	 <200704281252.20381.gene.heskett@gmail.com>
+From: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
+Subject: Re: [PATCH 2/3] ne: MIPS: Use platform_driver for ne on RBTX49XX
+Date: Sun, 29 Apr 2007 02:24:28 +0900 (JST)
+Message-ID: <20070429.022428.71103613.anemo@mba.ocn.ne.jp>
+References: <20070425.015549.108742168.anemo@mba.ocn.ne.jp>
+	<463363ED.3050307@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: stable@kernel.org, "Andrew Morton" <akpm@linux-foundation.org>,
-	"Linus Torvalds" <torvalds@linux-foundation.org>,
-	"Linux Kernel Mailing List" <linux-kernel@vger.kernel.org>,
-	linux-acpi@vger.kernel.org,
-	"Riccardo Ricci" <rricci@nuovanetmore.it>,
-	"Udo A. Steinberg" <us15@os.inf.tu-dresden.de>,
-	"Len Brown" <len.brown@intel.com>,
-	"David Brownell" <david-b@pacbell.net>,
-	"Jeff Mahoney" <jeffm@suse.com>, reiserfs-dev@namesys.com,
-	"Jeff Chua" <jeff.chua.linux@gmail.com>,
-	"Francois SIMOND" <curio@free.fr>,
-	"Stephen Hemminger" <shemminger@linux-foundation.org>,
-	netdev@vger.kernel.org,
-	"=?ISO-8859-1?Q?H=E5kan_Lindqvist?=" <lindqvist@netstar.se>,
-	"Vincent Frentzel" <zcecc22@ucl.ac.uk>,
-	"=?ISO-8859-1?Q?Fran=E7ois_Valenduc?=" <francois.valenduc@skynet.be>,
-	"Thomas Meyer" <thomas.mey@web.de>,
-	"Giorgio Lando" <patroclo7@gmail.com>,
-	"Dave Jones" <davej@redhat.com>,
-	"Thomas Gleixner
-To: "Gene Heskett" <gene.heskett@gmail.com>
+Cc: linux-mips@linux-mips.org, netdev@vger.kernel.org,
+	ralf@linux-mips.org, sshtylyov@ru.mvista.com,
+	akpm@linux-foundation.org
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nz-out-0506.google.com ([64.233.162.225]:27768 "EHLO
-	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756498AbXD1RSW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Apr 2007 13:18:22 -0400
-Received: by nz-out-0506.google.com with SMTP id o1so1505643nzf
-        for <netdev@vger.kernel.org>; Sat, 28 Apr 2007 10:18:21 -0700 (PDT)
-In-Reply-To: <200704281252.20381.gene.heskett@gmail.com>
-Content-Disposition: inline
+Received: from mba.ocn.ne.jp ([122.1.175.29]:53000 "EHLO smtp.mba.ocn.ne.jp"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1031565AbXD1RY1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 28 Apr 2007 13:24:27 -0400
+In-Reply-To: <463363ED.3050307@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Gene,
+On Sat, 28 Apr 2007 11:10:37 -0400, Jeff Garzik <jeff@garzik.org> wrote:
+> >  static unsigned int netcard_portlist[] __initdata = {
+> > -	0x300, 0x280, 0x320, 0x340, 0x360, 0x380, 0
+> > +#if defined(CONFIG_ISA) || defined(CONFIG_M32R)
+> > +	0x300, 0x280, 0x320, 0x340, 0x360, 0x380,
+> > +#endif
+> > +	0
+> 
+> This looks a bit strange, and perhaps more difficult to maintain long term.
+> 
+> I would suggest creating a NEEDS_PORTLIST cpp macro at the top of ne.c, 
+> to be defined or undefined based on CONFIG_xxx symbols.  Then, down in 
+> the code itself, conditionally include or exclude all portlist related 
+> data tables and code.
+> 
+> Sound sane?
 
-On 28/04/07, Gene Heskett <gene.heskett@gmail.com> wrote:
-> On Saturday 28 April 2007, Michal Piotrowski wrote:
-> >Hi all,
-> >
-> >Here is a list of known regressions reported after 2.6.21 release.
-> >
-> >Feel free to add new regressions/remove fixed etc.
-> >http://kernelnewbies.org/known_regressions
-> >
-> I went here, but without a login the page is immutable
->
-> Therefore I'll add it here
->
-> Subject         :proprietary belkin upsd turns into cpu hog
+Sure.  Do you mean something like this?
 
-I'm not sure if I understand correctly. Is it a proprietary driver?
-If so, it's not a task for -stable team.
 
-> Submitter       :gene.heskett@gmail.com
-> Reference       :something changed in how /dev/ttyUSB's handle 1 and 2 byte messages
-> from pl2303 usb<->serial adaptors.  Also, assignation of ttyUSB#'s is
-> volatile depending on phase of the moon when booted.
+#if !defined(MODULE) && (defined(CONFIG_ISA) || defined(CONFIG_M32R))
+#define NEEDS_PORTLIST
+#endif
+...
+#ifdef NEEDS_PORTLIST
+static unsigned int netcard_portlist[] __initdata = {
+	0x300, 0x280, 0x320, 0x340, 0x360, 0x380, 0
+};
+#endif
+...
+#ifdef NEEDS_PORTLIST
+	int orig_irq = dev->irq;
+#endif
+...
+#ifdef NEEDS_PORTLIST
+	/* Last resort. The semi-risky ISA auto-probe. */
+	for (base_addr = 0; netcard_portlist[base_addr] != 0; base_addr++) {
+		int ioaddr = netcard_portlist[base_addr];
+		dev->irq = orig_irq;
+		if (ne_probe1(dev, ioaddr) == 0)
+			return 0;
+	}
+#endif
 
-Regards,
-Michal
-
--- 
-Michal K. K. Piotrowski
-Kernel Monkeys
-(http://kernel.wikidot.com/start)
+---
+Atsushi Nemoto
