@@ -1,59 +1,56 @@
-From: Russell King <rmk@arm.linux.org.uk>
-Subject: Re: [PATCH] fix smc911x compilation breakage
-Date: Sun, 29 Apr 2007 09:05:12 +0100
-Message-ID: <20070429080512.GA855@flint.arm.linux.org.uk>
-References: <20070427143552.0000757a.vwool@ru.mvista.com> <4633693B.7070404@pobox.com> <1177783857.1532.4.camel@barja>
+From: "Michal Piotrowski" <michal.k.k.piotrowski@gmail.com>
+Subject: Re: PROBLEM: oops in 2.6.21.1 after bringing up the network
+Date: Sun, 29 Apr 2007 14:15:23 +0200
+Message-ID: <6bffcb0e0704290515h51cf5064y7310203a84cecd73@mail.gmail.com>
+References: <200704300000.25594.b.n.ryland@massey.ac.nz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>, dustin@sensoria.com,
-	netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>
-To: Vitaly Wool <vwool@ru.mvista.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Daniele Venzano" <venza@brownhat.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Brett Ryland" <nappers@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caramon.arm.linux.org.uk ([217.147.92.249]:2384 "EHLO
-	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932771AbXD2IFY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Apr 2007 04:05:24 -0400
+Received: from nz-out-0506.google.com ([64.233.162.228]:60297 "EHLO
+	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756434AbXD2MPY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Apr 2007 08:15:24 -0400
+Received: by nz-out-0506.google.com with SMTP id o1so1643574nzf
+        for <netdev@vger.kernel.org>; Sun, 29 Apr 2007 05:15:24 -0700 (PDT)
+In-Reply-To: <200704300000.25594.b.n.ryland@massey.ac.nz>
 Content-Disposition: inline
-In-Reply-To: <1177783857.1532.4.camel@barja>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Apr 28, 2007 at 10:10:57PM +0400, Vitaly Wool wrote:
-> Hello Jeff,
-> 
-> > Vitaly Wool wrote:
-> > > Index: linux-2.6/drivers/net/smc911x.c
-> > > ===================================================================
-> > > --- linux-2.6.orig/drivers/net/smc911x.c
-> > > +++ linux-2.6/drivers/net/smc911x.c
-> > > @@ -75,9 +75,9 @@ static const char version[] =
-> > >  #include <linux/netdevice.h>
-> > >  #include <linux/etherdevice.h>
-> > >  #include <linux/skbuff.h>
-> > > +#include <linux/irq.h>
-> > >  
-> > >  #include <asm/io.h>
-> > > -#include <asm/irq.h>
-> > >  
-> > >  #include "smc911x.h"
-> > 
-> > This seems to clash with rmk's comment at the top of linux/irq.h?
-> 
-> In a way, yes, but I just was fixing the compilation problem, and not
-> changing the logic in any way. The driver currently calls set_irq_type
-> so it has to include linux/irq.h, just as it had to include asm/irq.h
-> before.
-> 
-> I'd guess that set_irq_type better be called by generic code and either
-> just make the driver don't even bother or call a callback set by
-> platform part. If you're fine with any of these, and think it's better
-> than the initial patch, please let me know and I'll proceed with that.
+Hi Brett,
 
-Drivers should really be using IRQF_TRIGGER_* constants, not set_irq_type()
-unless they have a very good reason.  I doubt this driver has such a
-reason, and it's just coded for an older version of the ARM IRQ API.
+On 29/04/07, Brett Ryland <nappers@gmail.com> wrote:
+> Hi,
+> I am consistently getting a kernel oops from a vanilla 2.6.21.1 kernel. It
+> also occurs in vanilla 2.6.21, but not in 2.6.20.8. The relevant section of
+> the kernel is networking, in particular the sis900 module (I think).
+> The attached file contains the oops and the information asked for on the site
+> http://www.kernel.org/pub/linux/docs/lkml/reporting-bugs.html for reporting
+> kernel oopses. The oops fully crashes my computer and leaves the capslock and
+> numlock leds flashing, so the oops is transcribed by hand from a photo
+> (hopefully I haven't made a mistake, I do still have the photo if it's
+> needed).
+>
+> I'm not subscribed to the mailing list so please CC any questions/solutions to
+> me.
+>
+> Regards,
+> Nappers.
+>
+>
+
+I added your report to known regressions
+(http://kernelnewbies.org/known_regressions). Please send your .config
+file.
+
+Regards,
+Michal
 
 -- 
-Russell King
- Linux kernel    2.6 ARM Linux   - http://www.arm.linux.org.uk/
- maintainer of:
+Michal K. K. Piotrowski
+Kernel Monkeys
+(http://kernel.wikidot.com/start)
