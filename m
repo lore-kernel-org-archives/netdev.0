@@ -1,58 +1,52 @@
-From: Ulrich Drepper <drepper@redhat.com>
-Subject: Re: [RFC] [GIT PATCH net-2.6.23] IPV6: Configurable IPv6 address
- selection policy table (RFC3484)
-Date: Sat, 28 Apr 2007 23:39:22 -0700
-Message-ID: <46343D9A.8010201@redhat.com>
-References: <20070419.162856.20840698.yoshfuji@linux-ipv6.org> <20070428.231707.39159334.davem@davemloft.net>
+From: "Quan Sun" <cfk.quan@gmail.com>
+Subject: Re: Slow tcp handshakes rate of 2.6.20 and 2.6.19
+Date: Sun, 29 Apr 2007 15:27:49 +0800
+Message-ID: <e810d8480704290027s3d54c087j774ad666443cbc5e@mail.gmail.com>
+References: <e810d8480704271935l3a597d89g260bcb185c457937@mail.gmail.com>
+	 <7e63f56c0704272143s677cdad8rcf64d1e97d88fc40@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig1EB54E42AFC36708670C8B4F"
-Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: "Robert Iakobashvili" <coroberti@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:56059 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932203AbXD2Gjp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 29 Apr 2007 02:39:45 -0400
-In-Reply-To: <20070428.231707.39159334.davem@davemloft.net>
+Received: from nz-out-0506.google.com ([64.233.162.234]:43942 "EHLO
+	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756261AbXD2H1u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Apr 2007 03:27:50 -0400
+Received: by nz-out-0506.google.com with SMTP id o1so1616782nzf
+        for <netdev@vger.kernel.org>; Sun, 29 Apr 2007 00:27:49 -0700 (PDT)
+In-Reply-To: <7e63f56c0704272143s677cdad8rcf64d1e97d88fc40@mail.gmail.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig1EB54E42AFC36708670C8B4F
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+Hi,
+On 4/28/07, Robert Iakobashvili <coroberti@gmail.com> wrote:
+> What are the
+> #cat /proc/sys/net/ipv4/tcp_mem values for your kernels?
+>
+> Do you see tcp memory pressure by
+> #netstat -s ?
+>
 
-David Miller wrote:
-> One idea is to have glibc have some kind of socket open, subscribed
-> to a group which gets "sticky" events.
+In my original kernel (2.6.20.6),  tcp_mem is
+ 24576, 32768, 49152
+There is several memory_pressure in the `netstat -s`.
 
-I don't quite yet know the context but I have to intervene: keeping
-sockets open is not good.  This will only cause problems.
+After patching
+author  John Heffner <jheffner@psc.edu>
+        Fri, 16 Mar 2007 22:04:03 +0000 (15:04 -0700)
+commit  53cdcc04c1e85d4e423b2822b66149b6f2e52c2c
+[TCP]: Fix tcp_mem[] initialization.
 
-Any interface must be memory based.  Something like "register a word
-which is set when an event arrives" is a much better interface.  Who you
-then go and retrieve messages is another issue.  If this is a rare event
-then opening is new netlink socket is no problem.
+In 2.6.20.6-patched, tcp_mem is
+97440, 129920, 194880
+And during my benchmark, 'memory_pressure' is always 0.
 
---=20
-=E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro St =
-=E2=9E=A7 Mountain View, CA =E2=9D=96
+After these two days test, this patch works fine for me and benchmark
+gets a good result(as good as 2.6.18).
 
-
---------------enig1EB54E42AFC36708670C8B4F
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.7 (GNU/Linux)
-Comment: Using GnuPG with Fedora - http://enigmail.mozdev.org
-
-iD8DBQFGND2a2ijCOnn/RHQRAljqAJkBY5V8E81/S5UUJwGtNzlJ1LJQAQCgtBQX
-zyY1CsD8XMUKk/RHpcI3F40=
-=8yYg
------END PGP SIGNATURE-----
-
---------------enig1EB54E42AFC36708670C8B4F--
+Thank you very much for your help.
+-- 
+Quan Sun
