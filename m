@@ -1,38 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [NET]: Get rid of NETIF_F_INTERNAL_STATS
-Date: Sat, 28 Apr 2007 21:04:24 -0700 (PDT)
-Message-ID: <20070428.210424.98555920.davem@davemloft.net>
-References: <20070411122317.GA21159@gondor.apana.org.au>
-	<1177739161.30071.165.camel@localhost.localdomain>
-	<20070428055246.GA6172@gondor.apana.org.au>
+Subject: Re: [Bugme-new] [Bug 8342] New: sctp_getsockopt_local_addrs_old()
+ calls copy_to_user() while a spinlock is held
+Date: Sat, 28 Apr 2007 21:14:18 -0700 (PDT)
+Message-ID: <20070428.211418.38713510.davem@davemloft.net>
+References: <462CF047.3050809@hp.com>
+	<20070425.215405.110014911.davem@davemloft.net>
+	<4630A783.4050200@hp.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: rusty@rustcorp.com.au, netdev@vger.kernel.org, jgarzik@pobox.com,
-	buytenh@gnu.org
-To: herbert@gondor.apana.org.au
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, matthias.kaehlcke@gmail.com,
+	lksctp-developers@lists.sourceforge.net
+To: vladislav.yasevich@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47775
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34057
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754560AbXD2EEO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Apr 2007 00:04:14 -0400
-In-Reply-To: <20070428055246.GA6172@gondor.apana.org.au>
+	by vger.kernel.org with ESMTP id S1751789AbXD2EOO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Apr 2007 00:14:14 -0400
+In-Reply-To: <4630A783.4050200@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Sat, 28 Apr 2007 15:52:46 +1000
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Date: Thu, 26 Apr 2007 09:22:11 -0400
 
-> > ==
-> > Remove NETIF_F_INTERNAL_STATS: default to internal stats.
-> > 
-> > Herbert Xu conviced me that a new flag was overkill; every driver
-> > currently overrides get_stats, so we might as well make the internal
-> > one the default.  If someone did fail to set get_stats, they would now
-> > get all 0 stats instead of "No statistics available".
-> > 
-> > Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
-> 
-> Looks good to me.
+> Here is an updated patch.  bytes_copied got turned into an int
+> everywhere since that is what the new API expects, so it should be
+> enough for the old api as well.  This also makes the code more
+> consistent.
 
-Applied, thanks everyone.
+Applied, thanks Vlad.
