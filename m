@@ -1,56 +1,41 @@
-From: "Michal Piotrowski" <michal.k.k.piotrowski@gmail.com>
-Subject: Re: PROBLEM: oops in 2.6.21.1 after bringing up the network
-Date: Sun, 29 Apr 2007 14:15:23 +0200
-Message-ID: <6bffcb0e0704290515h51cf5064y7310203a84cecd73@mail.gmail.com>
-References: <200704300000.25594.b.n.ryland@massey.ac.nz>
+From: Andi Kleen <ak@suse.de>
+Subject: Dead loop on netdevice eth0, fix it urgently! in -git2
+Date: Sun, 29 Apr 2007 15:51:55 +0200
+Message-ID: <200704291551.55730.ak@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "Daniele Venzano" <venza@brownhat.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Brett Ryland" <nappers@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nz-out-0506.google.com ([64.233.162.228]:60297 "EHLO
-	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756434AbXD2MPY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Apr 2007 08:15:24 -0400
-Received: by nz-out-0506.google.com with SMTP id o1so1643574nzf
-        for <netdev@vger.kernel.org>; Sun, 29 Apr 2007 05:15:24 -0700 (PDT)
-In-Reply-To: <200704300000.25594.b.n.ryland@massey.ac.nz>
+Received: from cantor.suse.de ([195.135.220.2]:35686 "EHLO mx1.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756477AbXD2NwA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 29 Apr 2007 09:52:00 -0400
+Received: from Relay2.suse.de (mail2.suse.de [195.135.221.8])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by mx1.suse.de (Postfix) with ESMTP id C4DAD1223E
+	for <netdev@vger.kernel.org>; Sun, 29 Apr 2007 15:51:59 +0200 (CEST)
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Brett,
 
-On 29/04/07, Brett Ryland <nappers@gmail.com> wrote:
-> Hi,
-> I am consistently getting a kernel oops from a vanilla 2.6.21.1 kernel. It
-> also occurs in vanilla 2.6.21, but not in 2.6.20.8. The relevant section of
-> the kernel is networking, in particular the sis900 module (I think).
-> The attached file contains the oops and the information asked for on the site
-> http://www.kernel.org/pub/linux/docs/lkml/reporting-bugs.html for reporting
-> kernel oopses. The oops fully crashes my computer and leaves the capslock and
-> numlock leds flashing, so the oops is transcribed by hand from a photo
-> (hopefully I haven't made a mistake, I do still have the photo if it's
-> needed).
->
-> I'm not subscribed to the mailing list so please CC any questions/solutions to
-> me.
->
-> Regards,
-> Nappers.
->
->
 
-I added your report to known regressions
-(http://kernelnewbies.org/known_regressions). Please send your .config
-file.
+FYI,
 
-Regards,
-Michal
+While testing 2.6.21-git2 on a NFS root box and pulling the ethernet cable of the NFS 
+server for a few seconds I got this
 
--- 
-Michal K. K. Piotrowski
-Kernel Monkeys
-(http://kernel.wikidot.com/start)
+nfs: server 10.23.204.1 not responding, still trying
+nfs: server 10.23.204.1 not responding, still trying
+Dead loop on netdevice eth0, fix it urgently!
+nfs: server 10.23.204.1 OK
+nfs: server 10.23.204.1 OK
+
+I haven't investigated closely.
+
+-Andi
+
+
