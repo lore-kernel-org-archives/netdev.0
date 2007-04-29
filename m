@@ -1,52 +1,41 @@
-From: "Quan Sun" <cfk.quan@gmail.com>
-Subject: Re: Slow tcp handshakes rate of 2.6.20 and 2.6.19
-Date: Sun, 29 Apr 2007 15:27:49 +0800
-Message-ID: <e810d8480704290027s3d54c087j774ad666443cbc5e@mail.gmail.com>
-References: <e810d8480704271935l3a597d89g260bcb185c457937@mail.gmail.com>
-	 <7e63f56c0704272143s677cdad8rcf64d1e97d88fc40@mail.gmail.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH 2/2] Rename get_property to of_get_property: drivers/net
+Date: Sun, 29 Apr 2007 00:43:48 -0700
+Message-ID: <20070429004348.ea30f3fc.akpm@linux-foundation.org>
+References: <20070427145508.9c5641a2.sfr@canb.auug.org.au>
+	<4633689E.50900@garzik.org>
+	<20070429114446.31f40a30.sfr@canb.auug.org.au>
+	<20070428.204754.62343452.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "Robert Iakobashvili" <coroberti@gmail.com>
+Cc: sfr@canb.auug.org.au, jeff@garzik.org, paulus@samba.org,
+	linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nz-out-0506.google.com ([64.233.162.234]:43942 "EHLO
-	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756261AbXD2H1u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Apr 2007 03:27:50 -0400
-Received: by nz-out-0506.google.com with SMTP id o1so1616782nzf
-        for <netdev@vger.kernel.org>; Sun, 29 Apr 2007 00:27:49 -0700 (PDT)
-In-Reply-To: <7e63f56c0704272143s677cdad8rcf64d1e97d88fc40@mail.gmail.com>
-Content-Disposition: inline
+Received: from smtp1.linux-foundation.org ([65.172.181.25]:55597 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755031AbXD2Hod (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Apr 2007 03:44:33 -0400
+In-Reply-To: <20070428.204754.62343452.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
-On 4/28/07, Robert Iakobashvili <coroberti@gmail.com> wrote:
-> What are the
-> #cat /proc/sys/net/ipv4/tcp_mem values for your kernels?
->
-> Do you see tcp memory pressure by
-> #netstat -s ?
->
+On Sat, 28 Apr 2007 20:47:54 -0700 (PDT) David Miller <davem@davemloft.net> wrote:
 
-In my original kernel (2.6.20.6),  tcp_mem is
- 24576, 32768, 49152
-There is several memory_pressure in the `netstat -s`.
+> From: Stephen Rothwell <sfr@canb.auug.org.au>
+> Date: Sun, 29 Apr 2007 11:44:46 +1000
+> 
+> > So can I take this as a future OK for architecture specific network
+> > drivers changes to go through the architecture trees (cc'd to you)?
+> 
+> It's been my experience that if I'm just working through some
+> platform or bus specific API changes, people like Jeff tend to
+> not mind if it goes via ARCH trees and the like.
 
-After patching
-author  John Heffner <jheffner@psc.edu>
-        Fri, 16 Mar 2007 22:04:03 +0000 (15:04 -0700)
-commit  53cdcc04c1e85d4e423b2822b66149b6f2e52c2c
-[TCP]: Fix tcp_mem[] initialization.
+This all started with me having a dummyspit over yet another huge reject
+because of intersections between subsystem trees.
 
-In 2.6.20.6-patched, tcp_mem is
-97440, 129920, 194880
-And during my benchmark, 'memory_pressure' is always 0.
+Normally we get away with it but when there's so much material pending,
+things deteriorate.
 
-After these two days test, this patch works fine for me and benchmark
-gets a good result(as good as 2.6.18).
-
-Thank you very much for your help.
--- 
-Quan Sun
