@@ -1,54 +1,69 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [stable] 2.6.21 known regressions (v2) (for -stable team)
-Date: Sat, 28 Apr 2007 18:25:08 -0700
-Message-ID: <20070429012508.GA11629@kroah.com>
-References: <463375E5.5040108@googlemail.com> <200704281252.20381.gene.heskett@gmail.com> <20070428181933.GA9811@kroah.com> <m3647gchzh.fsf@maximus.localdomain>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: [PATCH 2/2] Rename get_property to of_get_property: drivers/net
+Date: Sun, 29 Apr 2007 11:44:46 +1000
+Message-ID: <20070429114446.31f40a30.sfr@canb.auug.org.au>
+References: <20070427145107.4f73e436.sfr@canb.auug.org.au>
+	<20070427145508.9c5641a2.sfr@canb.auug.org.au>
+	<4633689E.50900@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Gene Heskett <gene.heskett@gmail.com>,
-	Michal Piotrowski <michal.k.k.piotrowski@gmail.com>,
-	Jeff Mahoney <jeffm@suse.com>,
-	Vincent Frentzel <zcecc22@ucl.ac.uk>,
-	Riccardo Ricci <rricci@nuovanetmore.it>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	David Brownell <david-b@pacbell.net>,
-	Giorgio Lando <patroclo7@gmail.com>,
-	Jeff Chua <jeff.chua.linux@gmail.com>,
-	H??kan Lindqvist <lindqvist@netstar.se>,
-	Fran??ois Valenduc <francois.valenduc@skynet.be>,
-	"Udo A. Steinberg" <us15@os.inf.tu-dresden.de>,
-	linux-acpi@vger.kernel.org, Thomas Meyer <thomas.mey@web.de>,
-	stable@kernel.org, Len Brown <len.brown@intel.com>,
-	Dave Jones <davej@redhat.com>,
-	Thomas Gleixner <tglx@linutronix.de>, netdev@vger.kernel.org,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Francois SIMOND <curio@free.fr>,
-	Andrew Morton <akpm@lin
-To: Krzysztof Halasa <khc@pm.waw.pl>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <m3647gchzh.fsf@maximus.localdomain>
-Sender: linux-acpi-owner@vger.kernel.org
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Sun__29_Apr_2007_11_44_46_+1000_6HKc2Bugqnm4Gh1C"
+Cc: paulus@samba.org, akpm@linux-foundation.org,
+	ppc-dev <linuxppc-dev@ozlabs.org>, netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from chilli.pcug.org.au ([203.10.76.44]:59212 "EHLO smtps.tip.net.au"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753504AbXD2Bom (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 28 Apr 2007 21:44:42 -0400
+In-Reply-To: <4633689E.50900@garzik.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Apr 28, 2007 at 11:21:54PM +0200, Krzysztof Halasa wrote:
-> Greg KH <greg@kroah.com> writes:
-> 
-> >> Also, assignation of ttyUSB#'s is volatile depending on phase of the
-> >> moon when booted.
-> >
-> > That's always been the case, ever since the 2.2 kernel releases.  Please
-> > use udev if you want persistent device names for your tty USB devices.
-> 
-> I don't know how udev (or anything) could help here. AFAIK the
-> converters have no serial numbers and no other means to
-> differentiate.
+--Signature=_Sun__29_Apr_2007_11_44_46_+1000_6HKc2Bugqnm4Gh1C
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: 7bit
 
-Some do have serial numbers, and others do not.  You can also use hints
-on which port they are plugged into, which is usually the best way to
-name these types of things persistently.
+On Sat, 28 Apr 2007 11:30:38 -0400 Jeff Garzik <jeff@garzik.org> wrote:
+>
+> Sorry for your being a football here.
 
-thanks,
+That's OK.
 
-greg k-h
+> AFAICS, looking at the two patches, it seems clear they should go in via
+> Paulus's tree.  There are clear dependencies, and it is clearly
+> arch-specific code.
+
+So can I take this as a future OK for architecture specific network
+drivers changes to go through the architecture trees (cc'd to you)?
+
+> If anything, it sounds like I should drop a ucc_geth patch or two from
+> my tree.  Is that the case?
+
+No, my patches can wait (there are backward compatibility hacks in place)
+so once you have merged your changes with Linus (I am assuming it won't
+be to long), we will put these through Paulus' tree.
+
+(The ucc_geth stuff was a pain, but the real kicker (as far as I was
+concered) was the ehea changes - parts of that driver have been
+completely rewritten in your tree.)
+
+--
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+--Signature=_Sun__29_Apr_2007_11_44_46_+1000_6HKc2Bugqnm4Gh1C
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.6 (GNU/Linux)
+
+iD8DBQFGM/imFdBgD/zoJvwRAnI2AJ0SJKscy3o/eaE2P7hY7r9hav6wGwCgjuXJ
+EmjHIeulhAWyHY3cl7HG7h4=
+=VIzU
+-----END PGP SIGNATURE-----
+
+--Signature=_Sun__29_Apr_2007_11_44_46_+1000_6HKc2Bugqnm4Gh1C--
