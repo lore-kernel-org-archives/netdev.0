@@ -1,40 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [NETLINK] Don't attach callback to a going-away netlink socket
-Date: Sat, 28 Apr 2007 23:18:49 -0700 (PDT)
-Message-ID: <20070428.231849.59657032.davem@davemloft.net>
-References: <20070418.170636.77057313.davem@davemloft.net>
-	<E1HeM9f-0001Dt-00@gondolin.me.apana.org.au>
+From: Ulrich Drepper <drepper@redhat.com>
+Subject: Re: [RFC] [GIT PATCH net-2.6.23] IPV6: Configurable IPv6 address
+ selection policy table (RFC3484)
+Date: Sat, 28 Apr 2007 23:39:22 -0700
+Message-ID: <46343D9A.8010201@redhat.com>
+References: <20070419.162856.20840698.yoshfuji@linux-ipv6.org> <20070428.231707.39159334.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: xemul@sw.ru, netdev@vger.kernel.org, akpm@osdl.org,
-	linux-kernel@vger.kernel.org, devel@openvz.org, kaber@trash.net,
-	dev@openvz.org
-To: herbert@gondor.apana.org.au
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig1EB54E42AFC36708670C8B4F"
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55134
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756242AbXD2GSw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Apr 2007 02:18:52 -0400
-In-Reply-To: <E1HeM9f-0001Dt-00@gondolin.me.apana.org.au>
+Received: from mx1.redhat.com ([66.187.233.31]:56059 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932203AbXD2Gjp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 29 Apr 2007 02:39:45 -0400
+In-Reply-To: <20070428.231707.39159334.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Thu, 19 Apr 2007 12:13:51 +1000
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig1EB54E42AFC36708670C8B4F
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-> [NETLINK]: Kill CB only when socket is unused
-> 
-> Since we can still receive packets until all references to the
-> socket are gone, we don't need to kill the CB until that happens.
-> This also aligns ourselves with the receive queue purging which
-> happens at that point.
-> 
-> Original patch by Pavel Emelianov who noticed this race condition.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+David Miller wrote:
+> One idea is to have glibc have some kind of socket open, subscribed
+> to a group which gets "sticky" events.
 
-Herbert, could you refresh this refinement to the current
-tree?
+I don't quite yet know the context but I have to intervene: keeping
+sockets open is not good.  This will only cause problems.
 
-Thanks a lot!
+Any interface must be memory based.  Something like "register a word
+which is set when an event arrives" is a much better interface.  Who you
+then go and retrieve messages is another issue.  If this is a rare event
+then opening is new netlink socket is no problem.
+
+--=20
+=E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro St =
+=E2=9E=A7 Mountain View, CA =E2=9D=96
+
+
+--------------enig1EB54E42AFC36708670C8B4F
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.7 (GNU/Linux)
+Comment: Using GnuPG with Fedora - http://enigmail.mozdev.org
+
+iD8DBQFGND2a2ijCOnn/RHQRAljqAJkBY5V8E81/S5UUJwGtNzlJ1LJQAQCgtBQX
+zyY1CsD8XMUKk/RHpcI3F40=
+=8yYg
+-----END PGP SIGNATURE-----
+
+--------------enig1EB54E42AFC36708670C8B4F--
