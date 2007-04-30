@@ -1,27 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 5/5 2.6.21-rc7] l2tp: add pppol2tp maintainer
-Date: Mon, 30 Apr 2007 00:21:57 -0700 (PDT)
-Message-ID: <20070430.002157.64808094.davem@davemloft.net>
-References: <200704231601.l3NG13xW030179@quickie.katalix.com>
+Subject: Re: many sockets, slow sendto
+Date: Mon, 30 Apr 2007 00:26:43 -0700 (PDT)
+Message-ID: <20070430.002643.68156452.davem@davemloft.net>
+References: <4600592E.80605@fw.hu>
+	<460064C6.5030302@cosmosbay.com>
+	<4601ADD8.8040500@cosmosbay.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jchapman@katalix.com
+Cc: zacco@fw.hu, baruch@ev-en.org, netdev@vger.kernel.org
+To: dada1@cosmosbay.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58488
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52036
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1423107AbXD3HWA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Apr 2007 03:22:00 -0400
-In-Reply-To: <200704231601.l3NG13xW030179@quickie.katalix.com>
+	by vger.kernel.org with ESMTP id S1423103AbXD3H0r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Apr 2007 03:26:47 -0400
+In-Reply-To: <4601ADD8.8040500@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: James Chapman <jchapman@katalix.com>
-Date: Mon, 23 Apr 2007 17:01:03 +0100
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Wed, 21 Mar 2007 23:12:40 +0100
 
-> [L2TP]: Update maintainers file for PPP over L2TP.
+> [PATCH] INET : IPV4 UDP lookups converted to a 2 pass algo
 > 
-> Signed-off-by: James Chapman <jchapman@katalix.com>
+> Some people want to have many UDP sockets, binded to a single port but many 
+> different addresses. We currently hash all those sockets into a single chain. 
+> Processing of incoming packets is very expensive, because the whole chain must 
+> be examined to find the best match.
+> 
+> I chose in this patch to hash UDP sockets with a hash function that take into 
+> account both their port number and address : This has a drawback because we 
+> need two lookups : one with a given address, one with a wildcard (null) address.
+> 
+> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
 
-I'll apply this once patches #2 and #3 are fixed up, thanks.
+Eric, I've applied this, thanks again.
+
+Could I trouble you to cook up an ipv6 version of this patch?
+
+Thanks a lot.
