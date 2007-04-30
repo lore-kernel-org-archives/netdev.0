@@ -1,31 +1,30 @@
-From: "SANGTAE HA" <sangtae.ha@gmail.com>
-Subject: net-2.6.22 TCP testing
-Date: Mon, 30 Apr 2007 16:20:24 -0400
-Message-ID: <649aecc70704301320raf437d0v8dcc6072729b9a0b@mail.gmail.com>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [RFC, PATCH] IPV6 : add 64 bits components in struct in6_addr to speedup ipv6_addr_equal() & ipv6_addr_any()
+Date: 30 Apr 2007 23:34:20 +0200
+Message-ID: <p73bqh5zgv7.fsf@bingen.suse.de>
+References: <20070430162851.ca3c7869.dada1@cosmosbay.com>
+	<20070430.121029.21927349.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: sha2@ncsu.edu
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: dada1@cosmosbay.com, yoshfuji@linux-ipv6.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.225]:36467 "EHLO
-	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1946755AbXD3UU1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Apr 2007 16:20:27 -0400
-Received: by wr-out-0506.google.com with SMTP id 76so1704160wra
-        for <netdev@vger.kernel.org>; Mon, 30 Apr 2007 13:20:27 -0700 (PDT)
-Content-Disposition: inline
+Received: from ns2.suse.de ([195.135.220.15]:53694 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1946799AbXD3UhI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Apr 2007 16:37:08 -0400
+In-Reply-To: <20070430.121029.21927349.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+David Miller <davem@davemloft.net> writes:
+> 
+> Unfortunately, as mentioned elsewhere, we're only able to assume
+> 32-bit alignment of ipv6 packet headers and that isn't likely to
+> change any time soon.
 
-See the TCP testing results of net-2.6.22.git tree at
-http://netsrv.csc.ncsu.edu/wiki/index.php/Intra_protocol_fairness_testing_with_net-2.6.22.git
+On x86 it would be fine at least -- unaligned access is cheap. I believe
+the same is true for POWER4/5/s390x. Should it be made conditional perhaps?
 
-In addition to Stephen's recent 1Mbit DSL result, the results include
-the cases with four different bandwidths (10M/100M/200M/400M) and
-the presence of background traffic.
-
-Thanks,
-Sangtae
+-Andi
