@@ -1,199 +1,405 @@
-From: James Chapman <jchapman@katalix.com>
-Subject: [PATCH 5/5 2.6.21] L2TP: Add PPPoL2TP in-kernel documentation
-Date: Mon, 30 Apr 2007 10:52:01 +0100
-Message-ID: <200704300952.l3U9q13w031857@quickie.katalix.com>
-To: netdev@vger.kernel.org
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: many sockets, slow sendto
+Date: Mon, 30 Apr 2007 19:56:04 +0900 (JST)
+Message-ID: <20070430.195604.26499662.yoshfuji@linux-ipv6.org>
+References: <460064C6.5030302@cosmosbay.com>
+	<4601ADD8.8040500@cosmosbay.com>
+	<20070430.002643.68156452.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: zacco@fw.hu, baruch@ev-en.org, netdev@vger.kernel.org,
+	yoshfuji@linux-ipv6.org
+To: davem@davemloft.net, dada1@cosmosbay.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s36.avahost.net ([74.53.95.194]:42319 "EHLO s36.avahost.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1031525AbXD3Jwo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Apr 2007 05:52:44 -0400
-Received: from jchapman.plus.com ([84.92.108.75] helo=quickie.katalix.com)
-	by s36.avahost.net with esmtps (TLSv1:AES256-SHA:256)
-	(Exim 4.63)
-	(envelope-from <jchapman@katalix.com>)
-	id 1HiSYj-0006Eb-Ql
-	for netdev@vger.kernel.org; Mon, 30 Apr 2007 04:52:42 -0500
-Received: from quickie.katalix.com (quickie.katalix.com [127.0.0.1])
-	by quickie.katalix.com (8.13.5/8.13.5) with ESMTP id l3U9q1TW031865
-	for <netdev@vger.kernel.org>; Mon, 30 Apr 2007 10:52:01 +0100
-Received: (from james@localhost)
-	by quickie.katalix.com (8.13.5/8.13.5/Submit) id l3U9q13w031857
-	for netdev@vger.kernel.org; Mon, 30 Apr 2007 10:52:01 +0100
+Received: from yue.linux-ipv6.org ([203.178.140.15]:33388 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754657AbXD3K4F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Apr 2007 06:56:05 -0400
+In-Reply-To: <20070430.002643.68156452.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: James Chapman <jchapman@katalix.com>
+In article <20070430.002643.68156452.davem@davemloft.net> (at Mon, 30 Apr 2007 00:26:43 -0700 (PDT)), David Miller <davem@davemloft.net> says:
 
-Index: linux-2.6.21/Documentation/networking/l2tp.txt
-===================================================================
---- /dev/null
-+++ linux-2.6.21/Documentation/networking/l2tp.txt
-@@ -0,0 +1,167 @@
-+This brief document describes how to use the kernel's PPPoL2TP driver
-+to provide L2TP functionality. L2TP is a protocol that tunnels one or
-+more PPP sessions over a UDP tunnel. It is commonly used for VPNs
-+(L2TP/IPSec) and by ISPs to tunnel subscriber PPP sessions over an IP
-+network infrastructure.
+> > Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+> 
+> Eric, I've applied this, thanks again.
+> 
+> Could I trouble you to cook up an ipv6 version of this patch?
+
+Here's my tentative version.  Not tested.
+Dave, Eric, could you double-check this, please?
+
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+
+---
+diff --git a/include/net/udp.h b/include/net/udp.h
+index 98755eb..2c06017 100644
+--- a/include/net/udp.h
++++ b/include/net/udp.h
+@@ -120,8 +120,12 @@ static inline void udp_lib_close(struct sock *sk, long timeout)
+ 
+ 
+ /* net/ipv4/udp.c */
++extern unsigned int udp_hash_port_and_rcvaddr(__u16 port,
++					      const struct sock *sk);
+ extern int	udp_get_port(struct sock *sk, unsigned short snum,
+-			     int (*saddr_cmp)(const struct sock *, const struct sock *));
++			     int (*saddr_cmp)(const struct sock *, const struct sock *),
++			     unsigned int (*hash_port_rcvaddr)(__u16 port,
++				     			       const struct sock *sk));
+ extern void	udp_err(struct sk_buff *, u32);
+ 
+ extern int	udp_sendmsg(struct kiocb *iocb, struct sock *sk,
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 1449707..9d4293d 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -125,6 +125,12 @@ static inline unsigned int hash_port_and_addr(__u16 port, __be32 addr)
+ 	return port ^ addr;
+ }
+ 
++unsigned int udp4_hash_port_and_rcvaddr(__u16 port,
++					const struct sock *sk)
++{
++	return hash_port_and_addr(port, inet_sk(sk)->rcv_saddr);
++}
 +
-+Design
-+======
+ static inline int __udp_lib_port_inuse(unsigned int hash, int port,
+ 	__be32 daddr, struct hlist_head udptable[])
+ {
+@@ -156,7 +162,9 @@ static inline int __udp_lib_port_inuse(unsigned int hash, int port,
+ int __udp_lib_get_port(struct sock *sk, unsigned short snum,
+ 		       struct hlist_head udptable[], int *port_rover,
+ 		       int (*saddr_comp)(const struct sock *sk1,
+-					 const struct sock *sk2 )    )
++					 const struct sock *sk2),
++		       unsigned int (*hash_port_rcvaddr)(__u16 port,
++							 const struct sock *sk))
+ {
+ 	struct hlist_node *node;
+ 	struct hlist_head *head;
+@@ -176,8 +184,7 @@ int __udp_lib_get_port(struct sock *sk, unsigned short snum,
+ 		for (i = 0; i < UDP_HTABLE_SIZE; i++, result++) {
+ 			int size;
+ 
+-			hash = hash_port_and_addr(result,
+-					inet_sk(sk)->rcv_saddr);
++			hash = hash_port_rcvaddr(result, sk);
+ 			head = &udptable[hash & (UDP_HTABLE_SIZE - 1)];
+ 			if (hlist_empty(head)) {
+ 				if (result > sysctl_local_port_range[1])
+@@ -203,8 +210,7 @@ int __udp_lib_get_port(struct sock *sk, unsigned short snum,
+ 				result = sysctl_local_port_range[0]
+ 					+ ((result - sysctl_local_port_range[0]) &
+ 					   (UDP_HTABLE_SIZE - 1));
+-			hash = hash_port_and_addr(result,
+-					inet_sk(sk)->rcv_saddr);
++			hash = hash_port_rcvaddr(result, sk);
+ 			if (! __udp_lib_port_inuse(hash, result,
+ 				inet_sk(sk)->rcv_saddr, udptable))
+ 				break;
+@@ -214,7 +220,7 @@ int __udp_lib_get_port(struct sock *sk, unsigned short snum,
+ gotit:
+ 		*port_rover = snum = result;
+ 	} else {
+-		hash = hash_port_and_addr(snum, inet_sk(sk)->rcv_saddr);
++		hash = hash_port_rcvaddr(snum, sk);
+ 		head = &udptable[hash & (UDP_HTABLE_SIZE - 1)];
+ 
+ 		sk_for_each(sk2, node, head)
+@@ -241,9 +247,11 @@ fail:
+ }
+ 
+ int udp_get_port(struct sock *sk, unsigned short snum,
+-			int (*scmp)(const struct sock *, const struct sock *))
++			int (*scmp)(const struct sock *, const struct sock *),
++			unsigned int (*uhash)(u16 port, const struct sock *))
+ {
+-	return  __udp_lib_get_port(sk, snum, udp_hash, &udp_port_rover, scmp);
++	return  __udp_lib_get_port(sk, snum, udp_hash, &udp_port_rover,
++				   scmp, uhash);
+ }
+ 
+ int ipv4_rcv_saddr_equal(const struct sock *sk1, const struct sock *sk2)
+@@ -257,7 +265,8 @@ int ipv4_rcv_saddr_equal(const struct sock *sk1, const struct sock *sk2)
+ 
+ static inline int udp_v4_get_port(struct sock *sk, unsigned short snum)
+ {
+-	return udp_get_port(sk, snum, ipv4_rcv_saddr_equal);
++	return udp_get_port(sk, snum, ipv4_rcv_saddr_equal,
++			    udp4_hash_port_and_rcvaddr);
+ }
+ 
+ /* UDP is nearly always wildcards out the wazoo, it makes no sense to try
+@@ -328,8 +337,8 @@ found:
+ }
+ 
+ static inline struct sock *udp_v4_mcast_next(
+-			struct sock *sk,
+-			unsigned int hnum, __be16 loc_port, __be32 loc_addr,
++			struct sock *sk, unsigned int hnum,
++			__be16 loc_port, __be32 loc_addr,
+ 			__be16 rmt_port, __be32 rmt_addr,
+ 			int dif)
+ {
+diff --git a/net/ipv4/udp_impl.h b/net/ipv4/udp_impl.h
+index 820a477..d7216c8 100644
+--- a/net/ipv4/udp_impl.h
++++ b/net/ipv4/udp_impl.h
+@@ -10,7 +10,8 @@ extern void 	__udp4_lib_err(struct sk_buff *, u32, struct hlist_head []);
+ 
+ extern int	__udp_lib_get_port(struct sock *sk, unsigned short snum,
+ 				   struct hlist_head udptable[], int *port_rover,
+-				   int (*)(const struct sock*,const struct sock*));
++				   int (*)(const struct sock*,const struct sock*),
++				   unsigned int (*)(__u16, const struct sock*));
+ extern int	ipv4_rcv_saddr_equal(const struct sock *, const struct sock *);
+ 
+ 
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index b083c09..fa566c5 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -52,56 +52,92 @@
+ 
+ DEFINE_SNMP_STAT(struct udp_mib, udp_stats_in6) __read_mostly;
+ 
++static inline unsigned int udp6_hash_port_and_addr(__u16 port,
++						  const struct in6_addr *addr)
++{
++	u32 hash = 0;
++	if (addr) {
++		hash = (__force u32) addr->s6_addr32[0] ^
++		       (__force u32) addr->s6_addr32[1] ^
++		       (__force u32) addr->s6_addr32[2] ^
++		       (__force u32) addr->s6_addr32[3];
++		hash ^= hash >> 16;
++		hash ^= hash >> 8;
++	}
++	return port ^ hash;
++}
 +
-+The PPPoL2TP driver, drivers/net/pppol2tp.c, provides a mechanism by
-+which PPP frames carried through an L2TP session are passed through
-+the kernel's PPP subsystem. The standard PPP daemon, pppd, handles all
-+PPP interaction with the peer. PPP network interfaces are created for
-+each local PPP endpoint.
++unsigned int udp6_hash_port_and_rcvaddr(__u16 port,
++					const struct sock *sk)
++{
++	return udp6_hash_port_and_addr(port, &inet6_sk(sk)->rcv_saddr);
++}
 +
-+The L2TP protocol http://www.faqs.org/rfcs/rfc2661.html defines L2TP
-+control and data frames. L2TP control frames carry messages between
-+L2TP clients/servers and are used to setup / teardown tunnels and
-+sessions. An L2TP client or server is implemented in userspace and
-+will use a regular UDP socket per tunnel. L2TP data frames carry PPP
-+frames, which may be PPP control or PPP data. The kernel's PPP
-+subsystem arranges for PPP control frames to be delivered to pppd,
-+while data frames are forwarded as usual.
+ static inline int udp_v6_get_port(struct sock *sk, unsigned short snum)
+ {
+-	return udp_get_port(sk, snum, ipv6_rcv_saddr_equal);
++	return udp_get_port(sk, snum,
++			    ipv6_rcv_saddr_equal,
++			    udp6_hash_port_and_rcvaddr);
+ }
+ 
+ static struct sock *__udp6_lib_lookup(struct in6_addr *saddr, __be16 sport,
+ 				      struct in6_addr *daddr, __be16 dport,
+ 				      int dif, struct hlist_head udptable[])
+ {
+-	struct sock *sk, *result = NULL;
++	struct sock *sk = NULL, *result = NULL;
+ 	struct hlist_node *node;
+-	unsigned short hnum = ntohs(dport);
+-	int badness = -1;
++	unsigned hash, hashwild;
++	int score, best = -1;
 +
-+Each tunnel and session within a tunnel is assigned a unique tunnel_id
-+and session_id. These ids are carried in the L2TP header of every
-+control and data packet. The pppol2tp driver uses them to lookup
-+internal tunnel and/or session contexts. Zero tunnel / session ids are
-+treated specially - zero ids are never assigned to tunnels or sessions
-+in the network. In the driver, the tunnel context keeps a pointer to
-+the tunnel UDP socket. The session context keeps a pointer to the
-+PPPoL2TP socket, as well as other data that lets the driver interface
-+to the kernel PPP subsystem.
++	hash = udp6_hash_port_and_addr(ntohs(dport), saddr);
++	hashwild = udp6_hash_port_and_addr(ntohs(dport), NULL);
+ 
+ 	read_lock(&udp_hash_lock);
+-	sk_for_each(sk, node, &udptable[hnum & (UDP_HTABLE_SIZE - 1)]) {
++lookup:
++	sk_for_each(sk, node, &udptable[hash & (UDP_HTABLE_SIZE - 1)]) {
+ 		struct inet_sock *inet = inet_sk(sk);
++		struct ipv6_pinfo *np = inet6_sk(sk);
+ 
+-		if (sk->sk_hash == hnum && sk->sk_family == PF_INET6) {
+-			struct ipv6_pinfo *np = inet6_sk(sk);
+-			int score = 0;
+-			if (inet->dport) {
+-				if (inet->dport != sport)
+-					continue;
+-				score++;
+-			}
+-			if (!ipv6_addr_any(&np->rcv_saddr)) {
+-				if (!ipv6_addr_equal(&np->rcv_saddr, daddr))
+-					continue;
+-				score++;
+-			}
+-			if (!ipv6_addr_any(&np->daddr)) {
+-				if (!ipv6_addr_equal(&np->daddr, saddr))
+-					continue;
+-				score++;
+-			}
+-			if (sk->sk_bound_dev_if) {
+-				if (sk->sk_bound_dev_if != dif)
+-					continue;
+-				score++;
+-			}
+-			if (score == 4) {
+-				result = sk;
+-				break;
+-			} else if (score > badness) {
+-				result = sk;
+-				badness = score;
+-			}
++		if (sk->sk_hash != hash || sk->sk_family != PF_INET6 ||
++		    inet->num != dport)
++			continue;
 +
-+Note that the pppol2tp kernel driver handles only L2TP data frames;
-+L2TP control frames are simply passed up to userspace in the UDP
-+tunnel socket. The kernel handles all datapath aspects of the
-+protocol, including data packet resequencing (if enabled).
++		score = 0;
 +
-+There are a number of requirements on the userspace L2TP daemon in
-+order to use the pppol2tp driver.
++		if (inet->dport) {
++			if (inet->dport != sport)
++				continue;
++			score++;
++		}
++		if (!ipv6_addr_any(&np->rcv_saddr)) {
++			if (!ipv6_addr_equal(&np->rcv_saddr, daddr))
++				continue;
++			score++;
++		}
++		if (!ipv6_addr_any(&np->daddr)) {
++			if (!ipv6_addr_equal(&np->daddr, saddr))
++				continue;
++			score++;
+ 		}
++		if (sk->sk_bound_dev_if) {
++			if (sk->sk_bound_dev_if != dif)
++				continue;
++			score++;
++		}
++		if (score == 4) {
++			result = sk;
++			goto found;
++		} else if (score > best) {
++			result = sk;
++			best = score;
++		}
++	}
 +
-+1. Use a UDP socket per tunnel.
++	if (hash != hashwild) {
++		hash = hashwild;
++		goto lookup;
+ 	}
++found:
+ 	if (result)
+ 		sock_hold(result);
+ 	read_unlock(&udp_hash_lock);
+@@ -302,38 +338,41 @@ drop:
+ }
+ 
+ static struct sock *udp_v6_mcast_next(struct sock *sk,
++				      unsigned int hnum,
+ 				      __be16 loc_port, struct in6_addr *loc_addr,
+ 				      __be16 rmt_port, struct in6_addr *rmt_addr,
+ 				      int dif)
+ {
+ 	struct hlist_node *node;
+ 	struct sock *s = sk;
+-	unsigned short num = ntohs(loc_port);
+ 
+ 	sk_for_each_from(s, node) {
+ 		struct inet_sock *inet = inet_sk(s);
++		struct ipv6_pinfo *np = inet6_sk(s);
+ 
+-		if (s->sk_hash == num && s->sk_family == PF_INET6) {
+-			struct ipv6_pinfo *np = inet6_sk(s);
+-			if (inet->dport) {
+-				if (inet->dport != rmt_port)
+-					continue;
+-			}
+-			if (!ipv6_addr_any(&np->daddr) &&
+-			    !ipv6_addr_equal(&np->daddr, rmt_addr))
+-				continue;
++		if (s->sk_hash != hnum || s->sk_family != PF_INET6 ||
++		    inet->num != loc_port)
++			continue;
+ 
+-			if (s->sk_bound_dev_if && s->sk_bound_dev_if != dif)
++		if (inet->dport) {
++			if (inet->dport != rmt_port)
+ 				continue;
++		}
++		if (!ipv6_addr_any(&np->daddr) &&
++		    !ipv6_addr_equal(&np->daddr, rmt_addr))
++			continue;
+ 
+-			if (!ipv6_addr_any(&np->rcv_saddr)) {
+-				if (!ipv6_addr_equal(&np->rcv_saddr, loc_addr))
+-					continue;
+-			}
+-			if (!inet6_mc_check(s, loc_addr, rmt_addr))
++		if (s->sk_bound_dev_if && s->sk_bound_dev_if != dif)
++			continue;
 +
-+2. Create a single PPPoL2TP socket per tunnel. This is used only for
-+   for communicating with the driver but must remain open while the
-+   tunnel is active. The driver marks the tunnel socket as an L2TP UDP
-+   encapsulation socket, which hooks up the UDP receive path via
-+   usp_encap_rcv() in net/ipv4/udp.c. PPP data frames are never passed
-+   in this special PPPoX socket.
++		if (!ipv6_addr_any(&np->rcv_saddr)) {
++			if (!ipv6_addr_equal(&np->rcv_saddr, loc_addr))
+ 				continue;
+-			return s;
+ 		}
 +
-+3. Create a PPPoL2TP socket per L2TP session. This is typically done
-+   by starting pppd with the pppol2tp plugin and appropriate
-+   arguments. A PPPoL2TP tunnel management socket (Step 2) must be
-+   created before the first PPPoL2TP session socket is created.
++		if (!inet6_mc_check(s, loc_addr, rmt_addr))
++			continue;
++		return s;
+ 	}
+ 	return NULL;
+ }
+@@ -348,20 +387,42 @@ static int __udp6_lib_mcast_deliver(struct sk_buff *skb, struct in6_addr *saddr,
+ 	struct sock *sk, *sk2;
+ 	const struct udphdr *uh = udp_hdr(skb);
+ 	int dif;
++	int hport = ntohs(uh->dest);
++	unsigned int hash = udp6_hash_port_and_addr(ntohs(uh->dest), daddr);
++	unsigned int hashwild = udp6_hash_port_and_addr(ntohs(uh->dest), NULL);
+ 
+-	read_lock(&udp_hash_lock);
+-	sk = sk_head(&udptable[ntohs(uh->dest) & (UDP_HTABLE_SIZE - 1)]);
+ 	dif = inet6_iif(skb);
+-	sk = udp_v6_mcast_next(sk, uh->dest, daddr, uh->source, saddr, dif);
 +
-+When creating PPPoL2TP sockets, the application provides information
-+to the driver about the socket in a socket connect() call. Source and
-+destination tunnel and session ids are provided, as well as the file
-+descriptor of a UDP socket. See struct pppol2tp_addr in
-+include/linux/if_ppp.h. Note that zero tunnel / session ids are
-+treated specially. When creating the per-tunnel PPPoL2TP management
-+socket in Step 2 above, zero source and destination session ids are
-+specified, which tells the driver to prepare the supplied UDP file
-+descriptor for use as an L2TP tunnel socket.
++	read_lock(&udp_hash_lock);
++redo:
++	sk = sk_head(&udptable[hash & (UDP_HTABLE_SIZE - 1)]);
++	sk = udp_v6_mcast_next(sk, hash, uh->dest, daddr, uh->source, saddr, dif);
+ 	if (!sk) {
++		if (hash != hashwild) {
++			hash = hashwild;
++			goto redo;
++		}
+ 		kfree_skb(skb);
+ 		goto out;
+ 	}
+ 
+ 	sk2 = sk;
+-	while ((sk2 = udp_v6_mcast_next(sk_next(sk2), uh->dest, daddr,
+-					uh->source, saddr, dif))) {
+-		struct sk_buff *buff = skb_clone(skb, GFP_ATOMIC);
++	while(1) {
++		struct sk_buff *buff;
 +
-+Userspace may control behavior of the tunnel or session using
-+setsockopt and ioctl on the PPPoX socket. The following socket
-+options are supported:-
++		sk2 = udp_v6_mcast_next(sk_next(sk2), hash, hport, daddr,
++					uh->source, saddr, dif);
++		if (!sk2) {
++			if (hash == hashwild)
++				break;
++			hash = hashwild;
++			sk2 = sk_head(&udptable[hash & (UDP_HTABLE_SIZE - 1)]);
++			sk2 = udp_v6_mcast_next(sk2, hash, uh->dest, daddr, uh->source, saddr, dif);
++			if (!sk2)
++				break;
++		}
 +
-+DEBUG     - bitmask of debug message categories. See below.
-+SENDSEQ   - 0 => don't send packets with sequence numbers
-+            1 => send packets with sequence numbers
-+RECVSEQ   - 0 => receive packet sequence numbers are optional
-+            1 => drop receive packets without sequence numbers
-+LNSMODE   - 0 => act as LAC.
-+            1 => act as LNS.
-+REORDERTO - reorder timeout (in millisecs). If 0, don't try to reorder.
-+
-+Only the DEBUG option is supported by the special tunnel management
-+PPPoX socket.
-+
-+In addition to the standard PPP ioctls, a PPPIOCGL2TPSTATS is provided
-+to retrieve tunnel and session statistics from the kernel using the
-+PPPoX socket of the required tunnel or session.
-+
-+Debugging
-+=========
-+
-+The driver supports a flexible debug scheme where kernel trace
-+messages may be optionally enabled per tunnel and per session. Care is
-+needed when debugging a live system since the messages are not
-+rate-limited and a busy system could be swamped. Userspace uses
-+setsockopt on the PPPoX socket to set a debug mask.
-+
-+The following debug mask bits are available:
-+
-+PPPOL2TP_MSG_DEBUG    verbose debug (if compiled in)
-+PPPOL2TP_MSG_CONTROL  userspace - kernel interface
-+PPPOL2TP_MSG_SEQ      sequence numbers handling
-+PPPOL2TP_MSG_DATA     data packets
-+
-+Sample Userspace Code
-+=====================
-+
-+1. Create tunnel management PPPoX socket
-+
-+        kernel_fd = socket(AF_PPPOX, SOCK_DGRAM, PX_PROTO_OL2TP);
-+        if (kernel_fd >= 0) {
-+                struct sockaddr_pppol2tp sax;
-+                struct sockaddr_in const *peer_addr;
-+
-+                peer_addr = l2tp_tunnel_get_peer_addr(tunnel);
-+                memset(&sax, 0, sizeof(sax));
-+                sax.sa_family = AF_PPPOX;
-+                sax.sa_protocol = PX_PROTO_OL2TP;
-+                sax.pppol2tp.fd = udp_fd;       /* fd of tunnel UDP socket */
-+                sax.pppol2tp.addr.sin_addr.s_addr = peer_addr->sin_addr.s_addr;
-+                sax.pppol2tp.addr.sin_port = peer_addr->sin_port;
-+                sax.pppol2tp.addr.sin_family = AF_INET;
-+                sax.pppol2tp.s_tunnel = tunnel_id;
-+                sax.pppol2tp.s_session = 0;     /* special case: mgmt socket */
-+                sax.pppol2tp.d_tunnel = 0;
-+                sax.pppol2tp.d_session = 0;     /* special case: mgmt socket */
-+
-+                if(connect(kernel_fd, (struct sockaddr *)&sax, sizeof(sax) ) < 0 ) {
-+                        perror("connect failed");
-+                        result = -errno;
-+                        goto err;
-+                }
-+        }
-+
-+2. Create session PPPoX data socket
-+
-+        struct sockaddr_pppol2tp sax;
-+        int fd;
-+
-+        /* Note, the target socket must be bound already, else it will not be ready */
-+        sax.sa_family = AF_PPPOX;
-+        sax.sa_protocol = PX_PROTO_OL2TP;
-+        sax.pppol2tp.fd = tunnel_fd;
-+        sax.pppol2tp.addr.sin_addr.s_addr = addr->sin_addr.s_addr;
-+        sax.pppol2tp.addr.sin_port = addr->sin_port;
-+        sax.pppol2tp.addr.sin_family = AF_INET;
-+        sax.pppol2tp.s_tunnel  = tunnel_id;
-+        sax.pppol2tp.s_session = session_id;
-+        sax.pppol2tp.d_tunnel  = peer_tunnel_id;
-+        sax.pppol2tp.d_session = peer_session_id;
-+
-+        /* session_fd is the fd of the session's PPPoL2TP socket.
-+         * tunnel_fd is the fd of the tunnel UDP socket.
-+         */
-+        fd = connect(session_fd, (struct sockaddr *)&sax, sizeof(sax));
-+        if (fd < 0 )    {
-+                return -errno;
-+        }
-+        return 0;
-+
-+Miscellanous
-+============
-+
-+The PPPoL2TP driver was developed as part of the OpenL2TP project by
-+Katalix Systems Ltd. OpenL2TP is a full-featured L2TP client / server,
-+designed from the ground up to have the L2TP datapath in the
-+kernel. The project also implemented the pppol2tp plugin for pppd
-+which allows pppd to use the kernel driver. Details can be found at
-+http://openl2tp.sourceforge.net.
++		buff = skb_clone(skb, GFP_ATOMIC);
+ 		if (buff)
+ 			udpv6_queue_rcv_skb(sk2, buff);
+ 	}
+
+-- 
+YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
+GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
