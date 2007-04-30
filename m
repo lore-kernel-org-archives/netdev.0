@@ -1,30 +1,35 @@
-From: "SANGTAE HA" <sangtae.ha@gmail.com>
-Subject: Net-2.6.22 TCP testing
-Date: Mon, 30 Apr 2007 14:25:53 -0400
-Message-ID: <649aecc70704301125j1659c2fat460825f93f6abc0d@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC, PATCH] IPV6 : add 64 bits components in struct in6_addr
+ to speedup ipv6_addr_equal() & ipv6_addr_any()
+Date: Mon, 30 Apr 2007 11:59:37 -0700 (PDT)
+Message-ID: <20070430.115937.104035556.davem@davemloft.net>
+References: <20070430162851.ca3c7869.dada1@cosmosbay.com>
+	<463618DB.7020309@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: dada1@cosmosbay.com, yoshfuji@linux-ipv6.org,
+	netdev@vger.kernel.org
+To: brian.haley@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.226]:47213 "EHLO
-	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1423579AbXD3SZz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Apr 2007 14:25:55 -0400
-Received: by wr-out-0506.google.com with SMTP id 76so1667493wra
-        for <netdev@vger.kernel.org>; Mon, 30 Apr 2007 11:25:54 -0700 (PDT)
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34015
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1946574AbXD3S7Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Apr 2007 14:59:24 -0400
+In-Reply-To: <463618DB.7020309@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+From: Brian Haley <brian.haley@hp.com>
+Date: Mon, 30 Apr 2007 12:27:07 -0400
 
-See the TCP testing results of net-2.6.22.git tree at
-http://netsrv.csc.ncsu.edu/wiki/index.php/Intra_protocol_fairness_testing_with_net-2.6.22.git
+> The problem is that drivers don't necessarily align the address on the 
+> correct boundary, so on some 64-bit arches this could be fatal.  There's 
+> ways around it since I did it in a previous life, but you'd need to copy 
+> the addresses and hide them in the skb in the rare case, neither of 
+> which is a great thing to do.
 
-In addition to Stephen's recent 1Mbit DSL result, the results include
-the cases with four different bandwidths (10M/100M/200M/400M) and
-background traffic.
-
-Thanks,
-Sangtae
+Yes, the majority of the network drivers are only ensuring 32-bit
+alignment after the ethernet header currently on receive.  They
+were designed with ipv4 in mind long ago and then the logic just
+gets copied everywhere.
