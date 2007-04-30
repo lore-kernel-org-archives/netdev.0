@@ -1,38 +1,48 @@
-From: Frank Pavlic <fpavlic@de.ibm.com>
-Subject: Re: [PATCH 3/5] s390: use kthread_run in qeth and lcs
-Date: Mon, 30 Apr 2007 18:30:04 +0200
-Message-ID: <20070430163004.GA17951@de.ibm.com>
-References: <20070430154256.GC23666@de.ibm.com> <20070430160329.GB27438@infradead.org>
+From: Masahide NAKAMURA <nakam@linux-ipv6.org>
+Subject: Re: [RFC] [PATCH] [XFRM]: Restrict upper layer information by bundle.
+Date: Tue, 01 May 2007 01:30:12 +0900
+Message-ID: <20070501010903.AC3E.NAKAM@linux-ipv6.org>
+References: <20070430133236.F84E.NAKAM@linux-ipv6.org> <20070429.222145.35014046.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
-To: hch@infradead.org, jgarzik@pobox.com
+Content-Type: text/plain; charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e2.ny.us.ibm.com ([32.97.182.142]:50317 "EHLO e2.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1946092AbXD3Q1i (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Apr 2007 12:27:38 -0400
-Content-Disposition: inline
-In-Reply-To: <20070430160329.GB27438@infradead.org>
+Received: from [203.178.140.9] ([203.178.140.9]:35344 "EHLO mail.gomagoma.org"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1423516AbXD3Q3X (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Apr 2007 12:29:23 -0400
+In-Reply-To: <20070429.222145.35014046.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 30, 2007 at 05:03:29PM +0100, Christoph Hellwig wrote:
-> On Mon, Apr 30, 2007 at 05:42:57PM +0200, Frank Pavlic wrote:
-> > From: Eric Biederman <ebiederm@xmission.com>
-> > 
-> > This patch modifies the qeth_recover thread to be started
-> > with kthread_run not a combination of kernel_thread and
-> > daemonize.  Resulting in slightly simpler and more maintainable
-> > code.
+
+On Sun, 29 Apr 2007 22:21:45 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
+
+> From: Masahide NAKAMURA <nakam@linux-ipv6.org>
+> Date: Mon, 30 Apr 2007 13:36:03 +0900
 > 
-> NACK, this is Eric's partial conversion which doesn't help much
-> at all.  In fact it might actually hurt by introducing unpaired
-> kthread calls.
+> > Can you have a time to check this?
+> > If it is lost, I can send it again.
+> 
+> I still have it, I just have not processed it yet.  Each time you try
+> to remind me and I have to reply with the same exact answer every
+> time, that takes up time I could be spending getting to your patch.
+> 
+> The way my backlog works is that I process all the things that take
+> very little brain power first, then if I still have energy left I try
+> to tackle the entries that require thinking.
+> 
+> Most days I never get to that latter type of entry, and sadly your's
+> fails into that category.
+> 
+> So you either must be patient or clone me.
 
-Alright Christoph, thanks for clarifying this..
+David, I'm sorry that I bothered
+and thank you for clarify.
 
-@Jeff, 
-I'll send you another set without this one...
+-- 
+Masahide NAKAMURA
 
-Frank
