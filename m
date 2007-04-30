@@ -1,88 +1,82 @@
-From: Stefan Wenk <stefan.wenk@gmx.at>
-Subject: Re: [Bugme-new] [Bug 8405] New: pppd does stops compresion with "Lost compression sync"
-Date: Mon, 30 Apr 2007 14:08:58 +0200
-Message-ID: <200704301408.58185.stefan.wenk@gmx.at>
-References: <200704292001.l3TK1P6d000716@fire-2.osdl.org> <20070429142047.d8617669.akpm@linux-foundation.org>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: many sockets, slow sendto
+Date: Mon, 30 Apr 2007 14:47:15 +0200
+Message-ID: <20070430144715.b0c03c83.dada1@cosmosbay.com>
+References: <460064C6.5030302@cosmosbay.com>
+	<4601ADD8.8040500@cosmosbay.com>
+	<20070430.002643.68156452.davem@davemloft.net>
+	<20070430.195604.26499662.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"bugme-daemon@kernel-bugs.osdl.org"
-	<bugme-daemon@bugzilla.kernel.org>,
-	Richard Purdie <rpurdie@rpsys.net>
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, zacco@fw.hu, baruch@ev-en.org,
+	netdev@vger.kernel.org
+To: YOSHIFUJI Hideaki / =?UTF-8?B?5ZCJ6Jek6Iux5piO?=
+	<yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.gmx.net ([213.165.64.20]:50394 "HELO mail.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1423188AbXD3MKi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Apr 2007 08:10:38 -0400
-In-Reply-To: <20070429142047.d8617669.akpm@linux-foundation.org>
-Content-Disposition: inline
+Received: from pfx2.jmh.fr ([194.153.89.55]:48696 "EHLO pfx2.jmh.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1423212AbXD3MrU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Apr 2007 08:47:20 -0400
+In-Reply-To: <20070430.195604.26499662.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sunday 29 April 2007 23:20, Andrew Morton wrote:
-> (switch to email - please retain all ccs)
->
-> On Sun, 29 Apr 2007 13:01:25 -0700 bugme-daemon@bugzilla.kernel.org wrote:
-> > http://bugzilla.kernel.org/show_bug.cgi?id=8405
-> >
-> >            Summary: pppd does stops compresion with "Lost compression
-> > sync" Kernel Version: 2.6.18-2.6.21
-> >             Status: NEW
-> >           Severity: normal
-> >              Owner: other_modules@kernel-bugs.osdl.org
-> >          Submitter: stefan.wenk@gmx.at
-> >
-> >
-> > Most recent kernel where this bug did *NOT* occur:2.6.17
-> > Distribution: Fedora core 3
-> > Hardware Environment:
-> > Software Environment:
-> > Problem Description:
-> > I have the same problem as reported on
-> > http://www.luga.at/mailing-lists/luga/2007/02/msg00032.html (in German).
-> > When I connect to my ISP via an analogue serial modem my Linux Box sends
-> > a PPP Compression Control Protocol Termination Request with  "Lost
-> > compression sync" to the provider and then the provider dropps the link.
-> > This does not happen with kernel
-> > 2.6.17, but happens from kernel version 2.6.18 to 2.6.21 (not tested:
-> > 2.6.19). If I put the nodeflate command line to the pppd then the link
-> > remains stable. Steps to reproduce:
-> > In order to find out what is happening I have set up a ppp connection via
-> > a serial nullmodem to another old Linux box (kernel 2.2.14) and have
-> > activated the kernel debug in the ppp_deflate.ko module. The "Lost
-> > compression sync:" is reproducable in this configuration - the only
-> > difference is that the link remains (without deflate compression).
-> >
-> > Here is the log vor /var/log/messages:
-> >
-> > Apr 29 16:53:34 linux kernel: PPP Deflate Compression module registered
-> > Apr 29 16:53:47 linux pppd[9090]: pppd 2.4.4 started by root, uid 0
-> > Apr 29 16:53:47 linux pppd[9090]: Using interface ppp0
-> > Apr 29 16:53:47 linux pppd[9090]: Connect: ppp0 <--> /dev/pts/9
-> > Apr 29 16:53:47 linux pppd[9090]: kernel does not support PPP filtering
-> > Apr 29 16:53:47 linux pppd[9090]: Deflate (15) compression enabled
-> > Apr 29 16:53:47 linux pppd[9090]: Cannot determine ethernet address for
-> > proxy ARP Apr 29 16:53:47 linux pppd[9090]: local  IP address 192.168.3.2
-> > Apr 29 16:53:47 linux pppd[9090]: remote IP address 192.168.3.1
-> > Apr 29 16:54:03 linux kernel: z_decompress0: inflate returned -5 ()
-> > Apr 29 16:54:03 linux pppd[9090]: PPPIOCGFLAGS flags: c030c0
-> > Apr 29 16:54:03 linux pppd[9090]: Lost compression sync: disabling
-> > compression
-> >
-> > I had a look at the kernel patch of 2.6.18 - the lib/zlib/zlib_inflate
-> > was changed a lot and for me it looks to be the reason of the problem.
->
-> If you're referring to 4f3865fb57a04db7cca068fed1c15badc064a302,
-> "zlib_inflate: Upgrade library code to a recent version" then that was
-> mainly a zlib_inflate change, not a zlib_deflate change.
->
-> But yes, I'd say that this patch might well have been the cause.
->
-> http://userweb.kernel.org/~akpm/zlib-backout.patch is a backout patch
-> against 2.6.21.  If you apply that to 2.6.21 does it make ppp work again?
+On Mon, 30 Apr 2007 19:56:04 +0900 (JST)
+YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E <yoshfuji@linu=
+x-ipv6.org> wrote:
 
-thanks for this backout patch. I have applied it to 2.6.21 and now pppd is 
-working with deflate again.
+> In article <20070430.002643.68156452.davem@davemloft.net> (at Mon, 30=
+ Apr 2007 00:26:43 -0700 (PDT)), David Miller <davem@davemloft.net> say=
+s:
+>=20
+> > > Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+> >=20
+> > Eric, I've applied this, thanks again.
+> >=20
+> > Could I trouble you to cook up an ipv6 version of this patch?
+>=20
+> Here's my tentative version.  Not tested.
+> Dave, Eric, could you double-check this, please?
+
+Hi Yoshifuji
+
+Your patch seems good, thank you.
+
+I have two minor comments about udp6_hash_port_and_addr()
+
+Compiler knows that const 'struct in6_addr *addr' is NULL when we call =
+udp6_hash_port_and_addr(..., NULL)
+
+But not when we pass saddr :  udp6_hash_port_and_addr(port, saddr)
+
+So to avoid one conditional branch, you could use udp6_hash_port_and_ad=
+dr() only once, with addr not NULL :
+
+Also, I am not sure we need to use all 128 bits of IPV6 address, maybe =
+the 64 low order bits are enough ?
+
+static inline unsigned int udp6_hash_port_and_addr(__u16 port,
+						  const struct in6_addr *addr)
+{
+	u32 hash =3D (__force u32) addr->s6_addr32[2] ^
+		   (__force u32) addr->s6_addr32[3];
+	hash ^=3D hash >> 16;
+	hash ^=3D hash >> 8;
+
+	return port ^ hash;
+}
+
+static inline unsigned int udp6_hash_wildcard(__u16 port,
+					      const struct in6_addr *addr)
+{
+	return port;
+}
+
+=2E..
+
+
+	hash =3D udp6_hash_port_and_addr(ntohs(dport), saddr);
+	hashwild =3D udp6_hash_wildcard(ntohs(dport), saddr);
+
+Eric
