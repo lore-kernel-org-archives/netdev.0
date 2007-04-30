@@ -1,40 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] [PATCH] [XFRM]: Restrict upper layer information by
- bundle.
-Date: Sun, 29 Apr 2007 22:21:45 -0700 (PDT)
-Message-ID: <20070429.222145.35014046.davem@davemloft.net>
-References: <20070411.232448.08345852.davem@davemloft.net>
-	<461DD76D.8020806@linux-ipv6.org>
-	<20070430133236.F84E.NAKAM@linux-ipv6.org>
+From: Jelle Foks <jelle@foks.8m.com>
+Subject: r8169.c broke for me from 2.6.20.4 to 2.6.21
+Date: Mon, 30 Apr 2007 01:31:23 -0400
+Message-ID: <46357F2B.2070806@foks.8m.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: nakam@linux-ipv6.org
+To: romieu@fr.zoreil.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59258
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1161610AbXD3FVu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Apr 2007 01:21:50 -0400
-In-Reply-To: <20070430133236.F84E.NAKAM@linux-ipv6.org>
+Received: from ms-smtp-02.tampabay.rr.com ([65.32.5.132]:46440 "EHLO
+	ms-smtp-02.tampabay.rr.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1423039AbXD3Fb2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Apr 2007 01:31:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Masahide NAKAMURA <nakam@linux-ipv6.org>
-Date: Mon, 30 Apr 2007 13:36:03 +0900
+Hello,
 
-> Can you have a time to check this?
-> If it is lost, I can send it again.
+When I upgraded from 2.6.20.4 to 2.6.21, the r8169 kept thinking that
+the link was down, while with 2.6.20.4, the link was detected at 10Mbit/s.
 
-I still have it, I just have not processed it yet.  Each time you try
-to remind me and I have to reply with the same exact answer every
-time, that takes up time I could be spending getting to your patch.
+This is on a (I admit, probably out-of-spec) cable to a Gbit switch from
+the r8169 on the mainboard of an AOpen XC Cube EX761.
 
-The way my backlog works is that I process all the things that take
-very little brain power first, then if I still have energy left I try
-to tackle the entries that require thinking.
+With 2.6.20.4, the 'link' goes through these states when I boot:
 
-Most days I never get to that latter type of entry, and sadly your's
-fails into that category.
+r8169: eth1: link down
+ADDRCONF(NETDEV_UP): link is not ready
+ADDRCONF(NETDEV_CHANGE):  link becomes ready
+r8169: eth1: link up
 
-So you either must be patient or clone me.
+And then it works (at 10Mbit). With 2.6.21, the link stays down.
+
+When I revert rtl8169_xmii_reset_enable() to the code from the driver in
+2.6.20.4 (see the diff below), then it works again, with the same
+behaviour as with 2.6.20.4.
+
+My guess is that the 2.6.20.4 code resets the mii in a way that allows
+the chip to see a link on my (bad) cable, and the 2.6.21 code does not...
+
+Jelle.
+
+--- linux-2.6.21/drivers/net/r8169.c    2007-04-25 23:08:32.000000000 -0400
++++ linux-2.6.21-jelle/drivers/net/r8169.c      2007-04-30
+01:25:59.000000000 -0400
+@@ -574,8 +574,10 @@
+ {
+        unsigned int val;
+
+-       val = mdio_read(ioaddr, MII_BMCR) | BMCR_RESET;
+-       mdio_write(ioaddr, MII_BMCR, val & 0xffff);
++       mdio_write(ioaddr, MII_BMCR, BMCR_RESET);
++       val = mdio_read(ioaddr, MII_BMCR);
++/*      val = mdio_read(ioaddr, MII_BMCR) | BMCR_RESET;*/
++/*      mdio_write(ioaddr, MII_BMCR, val & 0xffff);*/
+ }
+
+ static void rtl8169_check_link_status(struct net_device *dev,
+
+
