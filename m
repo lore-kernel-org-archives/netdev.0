@@ -1,53 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/5 2.6.21-rc7] l2tp: pppol2tp changes to existing ppp
- kernel headers
-Date: Mon, 30 Apr 2007 00:08:49 -0700 (PDT)
-Message-ID: <20070430.000849.55725376.davem@davemloft.net>
-References: <200704231601.l3NG13hW030163@quickie.katalix.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: r8169.c broke for me from 2.6.20.4 to 2.6.21
+Date: Mon, 30 Apr 2007 09:16:59 +0200
+Message-ID: <20070430071659.GA22320@electric-eye.fr.zoreil.com>
+References: <46357F2B.2070806@foks.8m.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: jchapman@katalix.com
+To: Jelle Foks <jelle@foks.8m.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57179
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1423098AbXD3HIw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Apr 2007 03:08:52 -0400
-In-Reply-To: <200704231601.l3NG13hW030163@quickie.katalix.com>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:48528 "EHLO
+	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1423104AbXD3HSB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Apr 2007 03:18:01 -0400
+Content-Disposition: inline
+In-Reply-To: <46357F2B.2070806@foks.8m.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: James Chapman <jchapman@katalix.com>
-Date: Mon, 23 Apr 2007 17:01:03 +0100
+Jelle Foks <jelle@foks.8m.com> :
+[...]
+> When I upgraded from 2.6.20.4 to 2.6.21, the r8169 kept thinking that
+> the link was down, while with 2.6.20.4, the link was detected at 10Mbit/s.
+> 
+> This is on a (I admit, probably out-of-spec) cable to a Gbit switch from
+> the r8169 on the mainboard of an AOpen XC Cube EX761.
 
-> Index: linux-2.6.21-rc7/include/linux/if_pppox.h
-> ===================================================================
-> --- linux-2.6.21-rc7.orig/include/linux/if_pppox.h
-> +++ linux-2.6.21-rc7/include/linux/if_pppox.h
-> @@ -18,7 +18,19 @@
->  
->  
->  #include <asm/types.h>
-> +#ifdef __KERNEL__
->  #include <asm/byteorder.h>
-> +#else
-> +#include <endian.h>
-> +#include <byteswap.h>
-> +#if __BYTE_ORDER == __LITTLE_ENDIAN
-> +#define __LITTLE_ENDIAN_BITFIELD
-> +#elif __BYTE_ORDER == __BIG_ENDIAN
-> +#define __BIG_ENDIAN_BITFIELD
-> +#else
-> +#error "Adjust your <endian.h> defines."
-> +#endif
-> +#endif
+Grmblmbl...
 
-Please don't do this, doubly especially without a changelog comment
-explaining why.
+> With 2.6.20.4, the 'link' goes through these states when I boot:
+> 
+> r8169: eth1: link down
+> ADDRCONF(NETDEV_UP): link is not ready
+> ADDRCONF(NETDEV_CHANGE):  link becomes ready
+> r8169: eth1: link up
+> 
+> And then it works (at 10Mbit). With 2.6.21, the link stays down.
+> 
+> When I revert rtl8169_xmii_reset_enable() to the code from the driver in
+> 2.6.20.4 (see the diff below), then it works again, with the same
+> behaviour as with 2.6.20.4.
+[snip]
 
-No other kernel header has to accomodate userland issues like this, so
-please find another way that doesn't involve crapping up the in-kernel
-header files.
+This patch alone is known to change things but it does not work
+everywhere :o/
 
-Thanks.
+Can you:
+- send the output of a 'lspci -vvx'
+- send the output of mii-tool including hex dump of the registers with
+  2.6.20.4 and 2.6.21
+- try 2.6.21 + http://www.fr.zoreil.com/people/francois/misc/20070430-2.6.21-r8169-test.patch
+
+-- 
+Ueimor
+
+Anybody got a battery for my Ultra 10 ?
