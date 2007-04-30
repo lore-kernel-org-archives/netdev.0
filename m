@@ -1,52 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] [PATCH] [XFRM]: Restrict upper layer information by
- bundle.
-Date: Mon, 30 Apr 2007 00:34:37 -0700 (PDT)
-Message-ID: <20070430.003437.57159715.davem@davemloft.net>
-References: <11758443392651-git-send-email-nakam@linux-ipv6.org>
+Subject: Re: garbage of TCP sock mem in sockstat?
+Date: Mon, 30 Apr 2007 00:38:42 -0700 (PDT)
+Message-ID: <20070430.003842.26533021.davem@davemloft.net>
+References: <46185FFC.8020104@cs.columbia.edu>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: nakam@linux-ipv6.org
+To: kumiko@cs.columbia.edu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33017
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37374
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1423120AbXD3Hek (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Apr 2007 03:34:40 -0400
-In-Reply-To: <11758443392651-git-send-email-nakam@linux-ipv6.org>
+	by vger.kernel.org with ESMTP id S1423114AbXD3Hip (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Apr 2007 03:38:45 -0400
+In-Reply-To: <46185FFC.8020104@cs.columbia.edu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Masahide NAKAMURA <nakam@linux-ipv6.org>
-Date: Fri,  6 Apr 2007 16:25:39 +0900
+From: Kumiko Ono <kumiko@cs.columbia.edu>
+Date: Sat, 07 Apr 2007 23:22:36 -0400
 
-> On MIPv6 usage, XFRM sub policy is enabled.
-> When main (IPsec) and sub (MIPv6) policy selectors have the same
-> address set but different upper layer information (i.e. protocol
-> number and its ports or type/code), multiple bundle should be created.
-> However, currently we have issue to use the same bundle created for
-> the first time with all flows covered by the case.
-> 
-> It is useful for the bundle to have the upper layer information
-> to be restructured correctly if it does not match with the flow.
-> 
-> 1. Bundle was created by two policies
-> Selector from another policy is added to xfrm_dst.
-> If the flow does not match the selector, it goes to slow path to
-> restructure new bundle by single policy.
-> 
-> 2. Bundle was created by one policy
-> Flow cache is added to xfrm_dst as originated one. If the flow does
-> not match the cache, it goes to slow path to try searching another
-> policy.
-> 
-> Signed-off-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
+> Could anybody tell me why the garbage in the memory for TCP socket 
+> buffers remains? Is this a problem on deallocation of socket buffers, or 
+> just on sockstat?  Or I'm missing something?
 
-This is an OK solution for the problem for now.
+It is not garbage, it is simply holding on to the receive buffer
+allocation in anticipation of future packet receives for that
+socket.
 
-My senses tell me that there is probably some cleaner way to
-handle this problem.  If you come up with a better idea for it,
-please feel free to bounce your ideas to me.
+The values in the global pool, which you saw via sockstat, are
+allocated from on a per-socket basis into a per-socket allocation
+quota.  Packets attached to that socket have to take from this
+quota.
 
-Thanks.
+The idea is that once you get a per-socket allocation, you use
+that until you need more.  When you release, you keep the
+per-socket allocation unless we are under global memory
+pressure.
+
+This prevents having to go to allocate from the global pool
+too often which is very expensive especially on SMP since
+it is a shared datastructure and requires locking.
