@@ -1,47 +1,88 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH][XFRM] export SPD info
-Date: Mon, 30 Apr 2007 08:04:36 -0400
-Message-ID: <1177934676.7027.11.camel@localhost>
-References: <1177681421.4059.2.camel@localhost> <463200CC.6010207@trash.net>
-	 <1177684168.4059.38.camel@localhost>
-	 <20070428.211936.35015201.davem@davemloft.net>
-Reply-To: hadi@cyberus.ca
+From: Stefan Wenk <stefan.wenk@gmx.at>
+Subject: Re: [Bugme-new] [Bug 8405] New: pppd does stops compresion with "Lost compression sync"
+Date: Mon, 30 Apr 2007 14:08:58 +0200
+Message-ID: <200704301408.58185.stefan.wenk@gmx.at>
+References: <200704292001.l3TK1P6d000716@fire-2.osdl.org> <20070429142047.d8617669.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org,
+	"bugme-daemon@kernel-bugs.osdl.org"
+	<bugme-daemon@bugzilla.kernel.org>,
+	Richard Purdie <rpurdie@rpsys.net>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.229]:1636 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1031544AbXD3MEk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Apr 2007 08:04:40 -0400
-Received: by wx-out-0506.google.com with SMTP id h31so1509261wxd
-        for <netdev@vger.kernel.org>; Mon, 30 Apr 2007 05:04:39 -0700 (PDT)
-In-Reply-To: <20070428.211936.35015201.davem@davemloft.net>
+Received: from mail.gmx.net ([213.165.64.20]:50394 "HELO mail.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1423188AbXD3MKi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Apr 2007 08:10:38 -0400
+In-Reply-To: <20070429142047.d8617669.akpm@linux-foundation.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2007-28-04 at 21:19 -0700, David Miller wrote:
+On Sunday 29 April 2007 23:20, Andrew Morton wrote:
+> (switch to email - please retain all ccs)
+>
+> On Sun, 29 Apr 2007 13:01:25 -0700 bugme-daemon@bugzilla.kernel.org wrote:
+> > http://bugzilla.kernel.org/show_bug.cgi?id=8405
+> >
+> >            Summary: pppd does stops compresion with "Lost compression
+> > sync" Kernel Version: 2.6.18-2.6.21
+> >             Status: NEW
+> >           Severity: normal
+> >              Owner: other_modules@kernel-bugs.osdl.org
+> >          Submitter: stefan.wenk@gmx.at
+> >
+> >
+> > Most recent kernel where this bug did *NOT* occur:2.6.17
+> > Distribution: Fedora core 3
+> > Hardware Environment:
+> > Software Environment:
+> > Problem Description:
+> > I have the same problem as reported on
+> > http://www.luga.at/mailing-lists/luga/2007/02/msg00032.html (in German).
+> > When I connect to my ISP via an analogue serial modem my Linux Box sends
+> > a PPP Compression Control Protocol Termination Request with  "Lost
+> > compression sync" to the provider and then the provider dropps the link.
+> > This does not happen with kernel
+> > 2.6.17, but happens from kernel version 2.6.18 to 2.6.21 (not tested:
+> > 2.6.19). If I put the nodeflate command line to the pppd then the link
+> > remains stable. Steps to reproduce:
+> > In order to find out what is happening I have set up a ppp connection via
+> > a serial nullmodem to another old Linux box (kernel 2.2.14) and have
+> > activated the kernel debug in the ppp_deflate.ko module. The "Lost
+> > compression sync:" is reproducable in this configuration - the only
+> > difference is that the link remains (without deflate compression).
+> >
+> > Here is the log vor /var/log/messages:
+> >
+> > Apr 29 16:53:34 linux kernel: PPP Deflate Compression module registered
+> > Apr 29 16:53:47 linux pppd[9090]: pppd 2.4.4 started by root, uid 0
+> > Apr 29 16:53:47 linux pppd[9090]: Using interface ppp0
+> > Apr 29 16:53:47 linux pppd[9090]: Connect: ppp0 <--> /dev/pts/9
+> > Apr 29 16:53:47 linux pppd[9090]: kernel does not support PPP filtering
+> > Apr 29 16:53:47 linux pppd[9090]: Deflate (15) compression enabled
+> > Apr 29 16:53:47 linux pppd[9090]: Cannot determine ethernet address for
+> > proxy ARP Apr 29 16:53:47 linux pppd[9090]: local  IP address 192.168.3.2
+> > Apr 29 16:53:47 linux pppd[9090]: remote IP address 192.168.3.1
+> > Apr 29 16:54:03 linux kernel: z_decompress0: inflate returned -5 ()
+> > Apr 29 16:54:03 linux pppd[9090]: PPPIOCGFLAGS flags: c030c0
+> > Apr 29 16:54:03 linux pppd[9090]: Lost compression sync: disabling
+> > compression
+> >
+> > I had a look at the kernel patch of 2.6.18 - the lib/zlib/zlib_inflate
+> > was changed a lot and for me it looks to be the reason of the problem.
+>
+> If you're referring to 4f3865fb57a04db7cca068fed1c15badc064a302,
+> "zlib_inflate: Upgrade library code to a recent version" then that was
+> mainly a zlib_inflate change, not a zlib_deflate change.
+>
+> But yes, I'd say that this patch might well have been the cause.
+>
+> http://userweb.kernel.org/~akpm/zlib-backout.patch is a backout patch
+> against 2.6.21.  If you apply that to 2.6.21 does it make ppp work again?
 
-> I think filtering in the kernel makes sense when the kernel
-> is in a unique place to make the algorithmic complexity of the
-> filtering minimal.  The TCP socket dumping is a good example
-> of that.
-> 
-> For things like this I think it's really unnecessary.
-> 
-
-Ok, maybe it was a little overkill - and i forgot about the tcpdiag
-code, so there is already a sample that can be referenced.. 
-
-> Figure out what the basic information is and just provide it every
-> time.  You have a full release cycle to work out what that is, and if
-> we miss anything, afterwards we can still extend with attributes.
-
-Will do sometime this week - I will also do the same for the earlier SAD
-patch.
-
-cheers,
-jamal
-
+thanks for this backout patch. I have applied it to 2.6.21 and now pppd is 
+working with deflate again.
