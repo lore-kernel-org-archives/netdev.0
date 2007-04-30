@@ -1,155 +1,167 @@
 From: Jan Engelhardt <jengelh@linux01.gwdg.de>
-Subject: [PATCH 21/36] Use menuconfig objects II - netdev/atm
-Date: Mon, 30 Apr 2007 13:44:08 +0200 (MEST)
-Message-ID: <Pine.LNX.4.61.0704301343220.29151@yvahk01.tjqt.qr>
+Subject: [PATCH 23/36] Use menuconfig objects II - netdev/wan
+Date: Mon, 30 Apr 2007 13:45:51 +0200 (MEST)
+Message-ID: <Pine.LNX.4.61.0704301345101.29151@yvahk01.tjqt.qr>
 References: <Pine.LNX.4.61.0704301225060.29151@yvahk01.tjqt.qr>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, Jeff Garzik <jgarzik@pobox.com>
-To: Andrew Morton <akpm@linux-foundation.org>
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org
+To: Krzysztof Halasa <khc@pm.waw.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailer.gwdg.de ([134.76.10.26]:50193 "EHLO mailer.gwdg.de"
+Received: from mailer.gwdg.de ([134.76.10.26]:51888 "EHLO mailer.gwdg.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161662AbXD3Lpn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Apr 2007 07:45:43 -0400
+	id S1031100AbXD3LrZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Apr 2007 07:47:25 -0400
 In-Reply-To: <Pine.LNX.4.61.0704301225060.29151@yvahk01.tjqt.qr>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-Make a "menuconfig" out of the Kconfig objects "menu, ..., endmenu",
-so that the user can disable all the options in that menu at once
-instead of having to disable each option separately.
+Change Kconfig objects from "menu, config" into "menuconfig" so
+that the user can disable the whole feature without having to
+enter the menu first.
 
 Signed-off-by: Jan Engelhardt <jengelh@gmx.de>
 
 ---
- drivers/atm/Kconfig |   32 +++++++++++++++++---------------
- 1 file changed, 17 insertions(+), 15 deletions(-)
+ drivers/net/wan/Kconfig |   34 +++++++++++++++-------------------
+ 1 file changed, 15 insertions(+), 19 deletions(-)
 
---- linux-2.6.21-mm_20070428.orig/drivers/atm/Kconfig
-+++ linux-2.6.21-mm_20070428/drivers/atm/Kconfig
-@@ -2,19 +2,22 @@
- # ATM device configuration
+--- linux-2.6.21-mm_20070428.orig/drivers/net/wan/Kconfig
++++ linux-2.6.21-mm_20070428/drivers/net/wan/Kconfig
+@@ -2,10 +2,7 @@
+ # wan devices configuration
  #
  
--menu "ATM drivers"
-+menuconfig ATM_DRIVERS
-+	bool "ATM drivers"
- 	depends on NETDEVICES && ATM
-+	default y
+-menu "Wan interfaces"
+-	depends on NETDEVICES
+-
+-config WAN
++menuconfig WAN
+ 	bool "Wan interfaces support"
+ 	---help---
+ 	  Wide Area Networks (WANs), such as X.25, Frame Relay and leased
+@@ -23,10 +20,12 @@ config WAN
+ 
+ 	  If unsure, say N.
+ 
++if WAN
 +
-+if ATM_DRIVERS
- 
- config ATM_DUMMY
- 	tristate "Dummy ATM driver"
--	depends on ATM
+ # There is no way to detect a comtrol sv11 - force it modular for now.
+ config HOSTESS_SV11
+ 	tristate "Comtrol Hostess SV-11 support"
+-	depends on WAN && ISA && m && ISA_DMA_API && INET
++	depends on ISA && m && ISA_DMA_API && INET
  	help
- 	  Dummy ATM driver. Useful for proxy signalling, testing,
- 	  and development.  If unsure, say N.
+ 	  Driver for Comtrol Hostess SV-11 network card which
+ 	  operates on low speed synchronous serial links at up to
+@@ -38,7 +37,7 @@ config HOSTESS_SV11
+ # The COSA/SRP driver has not been tested as non-modular yet.
+ config COSA
+ 	tristate "COSA/SRP sync serial boards support"
+-	depends on WAN && ISA && m && ISA_DMA_API
++	depends on ISA && m && ISA_DMA_API
+ 	---help---
+ 	  Driver for COSA and SRP synchronous serial boards.
  
- config ATM_TCP
- 	tristate "ATM over TCP"
--	depends on INET && ATM
-+	depends on INET
- 	help
- 	  ATM over TCP driver. Useful mainly for development and for
- 	  experiments. If unsure, say N.
-@@ -30,7 +33,7 @@ config ATM_LANAI
- 
- config ATM_ENI
- 	tristate "Efficient Networks ENI155P"
--	depends on PCI && ATM
+@@ -62,7 +61,7 @@ config COSA
+ #
+ config LANMEDIA
+ 	tristate "LanMedia Corp. SSI/V.35, T1/E1, HSSI, T3 boards"
+-	depends on WAN && PCI
 +	depends on PCI
  	---help---
- 	  Driver for the Efficient Networks ENI155p series and SMC ATM
- 	  Power155 155 Mbps ATM adapters. Both, the versions with 512KB and
-@@ -139,7 +142,7 @@ config ATM_ENI_BURST_RX_2W
+ 	  Driver for the following Lan Media family of serial boards:
  
- config ATM_FIRESTREAM
- 	tristate "Fujitsu FireStream (FS50/FS155) "
--	depends on PCI && ATM
-+	depends on PCI
+@@ -89,7 +88,7 @@ config LANMEDIA
+ # There is no way to detect a Sealevel board. Force it modular
+ config SEALEVEL_4021
+ 	tristate "Sealevel Systems 4021 support"
+-	depends on WAN && ISA && m && ISA_DMA_API && INET
++	depends on ISA && m && ISA_DMA_API && INET
  	help
- 	  Driver for the Fujitsu FireStream 155 (MB86697) and
- 	  FireStream 50 (MB86695) ATM PCI chips.
-@@ -149,7 +152,7 @@ config ATM_FIRESTREAM
+ 	  This is a driver for the Sealevel Systems ACB 56 serial I/O adapter.
  
- config ATM_ZATM
- 	tristate "ZeitNet ZN1221/ZN1225"
--	depends on PCI && ATM
-+	depends on PCI
+@@ -99,7 +98,6 @@ config SEALEVEL_4021
+ # Generic HDLC
+ config HDLC
+ 	tristate "Generic HDLC layer"
+-	depends on WAN
  	help
- 	  Driver for the ZeitNet ZN1221 (MMF) and ZN1225 (UTP-5) 155 Mbps ATM
- 	  adapters.
-@@ -169,7 +172,7 @@ config ATM_ZATM_DEBUG
+ 	  Say Y to this option if your Linux box contains a WAN (Wide Area
+ 	  Network) card supported by this driver and you are planning to
+@@ -167,7 +165,7 @@ config HDLC_X25
+ 	  If unsure, say N.
  
- config ATM_NICSTAR
- 	tristate "IDT 77201 (NICStAR) (ForeRunnerLE)"
--	depends on PCI && ATM && !64BIT
-+	depends on PCI && !64BIT
- 	help
- 	  The NICStAR chipset family is used in a large number of ATM NICs for
- 	  25 and for 155 Mbps, including IDT cards and the Fore ForeRunnerLE
-@@ -202,7 +205,7 @@ config ATM_NICSTAR_USE_IDT77105
+ comment "X.25/LAPB support is disabled"
+-	depends on WAN && HDLC && (LAPB!=m || HDLC!=m) && LAPB!=y
++	depends on HDLC && (LAPB!=m || HDLC!=m) && LAPB!=y
  
- config ATM_IDT77252
- 	tristate "IDT 77252 (NICStAR II)"
--	depends on PCI && ATM
-+	depends on PCI
- 	help
- 	  Driver for the IDT 77252 ATM PCI chips.
+ config PCI200SYN
+ 	tristate "Goramo PCI200SYN support"
+@@ -230,10 +228,10 @@ config PC300_MLPPP
+ 	  Multilink PPP over the PC300 synchronous communication boards.
  
-@@ -237,7 +240,7 @@ config ATM_IDT77252_USE_SUNI
+ comment "Cyclades-PC300 MLPPP support is disabled."
+-	depends on WAN && HDLC && PC300 && (PPP=n || !PPP_MULTILINK || PPP_SYNC_TTY=n || !HDLC_PPP)
++	depends on HDLC && PC300 && (PPP=n || !PPP_MULTILINK || PPP_SYNC_TTY=n || !HDLC_PPP)
  
- config ATM_AMBASSADOR
- 	tristate "Madge Ambassador (Collage PCI 155 Server)"
--	depends on PCI && ATM
-+	depends on PCI
- 	select BITREVERSE
- 	help
- 	  This is a driver for ATMizer based ATM card produced by Madge
-@@ -262,7 +265,7 @@ config ATM_AMBASSADOR_DEBUG
+ comment "Refer to the file README.mlppp, provided by PC300 package."
+-	depends on WAN && HDLC && PC300 && (PPP=n || !PPP_MULTILINK || PPP_SYNC_TTY=n || !HDLC_PPP)
++	depends on HDLC && PC300 && (PPP=n || !PPP_MULTILINK || PPP_SYNC_TTY=n || !HDLC_PPP)
  
- config ATM_HORIZON
- 	tristate "Madge Horizon [Ultra] (Collage PCI 25 and Collage PCI 155 Client)"
--	depends on PCI && ATM
-+	depends on PCI
- 	help
- 	  This is a driver for the Horizon chipset ATM adapter cards once
- 	  produced by Madge Networks Ltd. Say Y (or M to compile as a module
-@@ -286,7 +289,7 @@ config ATM_HORIZON_DEBUG
+ config PC300TOO
+ 	tristate "Cyclades PC300 RSV/X21 alternative support"
+@@ -338,7 +336,6 @@ config DSCC4_PCI_RST
  
- config ATM_IA
- 	tristate "Interphase ATM PCI x575/x525/x531"
--	depends on PCI && ATM && !64BIT
-+	depends on PCI && !64BIT
+ config DLCI
+ 	tristate "Frame Relay DLCI support"
+-	depends on WAN
  	---help---
- 	  This is a driver for the Interphase (i)ChipSAR adapter cards
- 	  which include a variety of variants in term of the size of the
-@@ -319,7 +322,7 @@ config ATM_IA_DEBUG
+ 	  Support for the Frame Relay protocol.
  
- config ATM_FORE200E_MAYBE
- 	tristate "FORE Systems 200E-series"
--	depends on (PCI || SBUS) && ATM
-+	depends on PCI || SBUS
+@@ -385,7 +382,7 @@ config SDLA
+ # Wan router core.
+ config WAN_ROUTER_DRIVERS
+ 	tristate "WAN router drivers"
+-	depends on WAN && WAN_ROUTER
++	depends on WAN_ROUTER
  	---help---
- 	  This is a driver for the FORE Systems 200E-series ATM adapter
- 	  cards. It simultaneously supports PCA-200E and SBA-200E models
-@@ -436,7 +439,7 @@ config ATM_FORE200E
+ 	  Connect LAN to WAN via Linux box.
  
- config ATM_HE
- 	tristate "ForeRunner HE Series"
--	depends on PCI && ATM
-+	depends on PCI
- 	help
- 	  This is a driver for the Marconi ForeRunner HE-series ATM adapter
- 	  cards. It simultaneously supports the 155 and 622 versions.
-@@ -448,5 +451,4 @@ config ATM_HE_USE_SUNI
- 	  Support for the S/UNI-Ultra and S/UNI-622 found in the ForeRunner
- 	  HE cards.  This driver provides carrier detection some statistics.
+@@ -440,7 +437,7 @@ config CYCLOMX_X25
+ # X.25 network drivers
+ config LAPBETHER
+ 	tristate "LAPB over Ethernet driver (EXPERIMENTAL)"
+-	depends on WAN && LAPB && X25
++	depends on LAPB && X25
+ 	---help---
+ 	  Driver for a pseudo device (typically called /dev/lapb0) which allows
+ 	  you to open an LAPB point-to-point connection to some other computer
+@@ -456,7 +453,7 @@ config LAPBETHER
+ 
+ config X25_ASY
+ 	tristate "X.25 async driver (EXPERIMENTAL)"
+-	depends on WAN && LAPB && X25
++	depends on LAPB && X25
+ 	---help---
+ 	  Send and receive X.25 frames over regular asynchronous serial
+ 	  lines such as telephone lines equipped with ordinary modems.
+@@ -471,7 +468,7 @@ config X25_ASY
+ 
+ config SBNI
+ 	tristate "Granch SBNI12 Leased Line adapter support"
+-	depends on WAN && X86
++	depends on X86
+ 	---help---
+ 	  Driver for ISA SBNI12-xx cards which are low cost alternatives to
+ 	  leased line modems.
+@@ -497,5 +494,4 @@ config SBNI_MULTILINE
+ 
+ 	  If unsure, say N.
  
 -endmenu
 -
-+endif # ATM
++endif # WAN
