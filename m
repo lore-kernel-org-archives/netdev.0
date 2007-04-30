@@ -1,37 +1,42 @@
-From: Stefan Roese <sr@denx.de>
-Subject: IEEE1588 Precision Time Protocol (PTP) driver for AMCC 405EZ
-Date: Mon, 30 Apr 2007 16:41:32 +0200
-Message-ID: <200704301641.32686.sr@denx.de>
+From: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
+Subject: Re: [PATCH 2/3] ne: MIPS: Use platform_driver for ne on RBTX49XX
+Date: Tue, 01 May 2007 00:14:26 +0900 (JST)
+Message-ID: <20070501.001426.75186152.anemo@mba.ocn.ne.jp>
+References: <20070425.015549.108742168.anemo@mba.ocn.ne.jp>
+	<20070428010414.2ba43a30.akpm@linux-foundation.org>
+	<20070429.021037.41179188.anemo@mba.ocn.ne.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org
-To: netdev@vger.kernel.org
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Cc: linux-mips@linux-mips.org, netdev@vger.kernel.org, jeff@garzik.org,
+	ralf@linux-mips.org, sshtylyov@ru.mvista.com
+To: akpm@linux-foundation.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mba.ocn.ne.jp ([122.1.175.29]:54337 "EHLO smtp.mba.ocn.ne.jp"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755450AbXD3PO0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Apr 2007 11:14:26 -0400
+In-Reply-To: <20070429.021037.41179188.anemo@mba.ocn.ne.jp>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+On Sun, 29 Apr 2007 02:10:37 +0900 (JST), Atsushi Nemoto <anemo@mba.ocn.ne.jp> wrote:
+> > platform_device_register_simple() copies *res by value, so I believe we can
+> > make res[] static __initdata.  This way we don't need to evaluate the array
+> > on the stack at runtime, and the data gets discarded after initcalls have
+> > run.
+> > 
+> > Can you please review and test the below?  I had a go but wasn't able to
+> > fumble my way to a suitable config (I hope):
+> 
+> It looks OK.  I will merge your fix to updated patch.  Thank you.
 
-I'm in the stage of integrating an IEEE1588 PTP driver for the AMCC 405EZ PPC 
-and looking for the correct location to place this driver in the Linux source 
-tree. The driver is a character-driver that enables the user space 
-applications to configure the time stamping unit and to read/write the 
-timestamps.
+Unfortunately, the RBTX4938 part can not be converted to static
+__initdata since RBTX4938_RTL_8019_BASE is not a constant.
 
-Is "drivers/net/ptp" or "drivers/net/ieee1588" a good solution? Or should it 
-go to "drivers/char/ptp" because of the chrdev nature of the driver?
+And I think the change for toshiba_rbtx4927_rtc_init() should be an
+another patch.  So I will add the "static __initdata" only to
+rbtx4927_ne_init().
 
-Any suggestions welcome (could be that I missed an already existing example).
-
-Best regards,
-Stefan
+---
+Atsushi Nemoto
