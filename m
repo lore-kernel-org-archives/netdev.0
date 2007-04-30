@@ -1,56 +1,41 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: r8169.c broke for me from 2.6.20.4 to 2.6.21
-Date: Mon, 30 Apr 2007 09:16:59 +0200
-Message-ID: <20070430071659.GA22320@electric-eye.fr.zoreil.com>
-References: <46357F2B.2070806@foks.8m.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 3/5 2.6.21-rc7] l2tp: pppol2tp core
+Date: Mon, 30 Apr 2007 00:18:48 -0700 (PDT)
+Message-ID: <20070430.001848.10298399.davem@davemloft.net>
+References: <200704231601.l3NG13TN030167@quickie.katalix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Jelle Foks <jelle@foks.8m.com>
+To: jchapman@katalix.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:48528 "EHLO
-	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1423104AbXD3HSB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Apr 2007 03:18:01 -0400
-Content-Disposition: inline
-In-Reply-To: <46357F2B.2070806@foks.8m.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47392
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1423092AbXD3HSv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Apr 2007 03:18:51 -0400
+In-Reply-To: <200704231601.l3NG13TN030167@quickie.katalix.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jelle Foks <jelle@foks.8m.com> :
-[...]
-> When I upgraded from 2.6.20.4 to 2.6.21, the r8169 kept thinking that
-> the link was down, while with 2.6.20.4, the link was detected at 10Mbit/s.
+From: James Chapman <jchapman@katalix.com>
+Date: Mon, 23 Apr 2007 17:01:03 +0100
+
+> [L2TP]: Add PPP-over-L2TP driver core.
 > 
-> This is on a (I admit, probably out-of-spec) cable to a Gbit switch from
-> the r8169 on the mainboard of an AOpen XC Cube EX761.
-
-Grmblmbl...
-
-> With 2.6.20.4, the 'link' goes through these states when I boot:
+> This driver handles only L2TP data frames; control frames are handled
+> by a userspace application. It implements L2TP using the PPPoX socket
+> family. Data is sent or received using regular socket sendmsg() /
+> recvmsg() calls. Kernel parameters of the socket can be read or
+> modified using ioctl() or [gs]etsockopt() calls.
 > 
-> r8169: eth1: link down
-> ADDRCONF(NETDEV_UP): link is not ready
-> ADDRCONF(NETDEV_CHANGE):  link becomes ready
-> r8169: eth1: link up
-> 
-> And then it works (at 10Mbit). With 2.6.21, the link stays down.
-> 
-> When I revert rtl8169_xmii_reset_enable() to the code from the driver in
-> 2.6.20.4 (see the diff below), then it works again, with the same
-> behaviour as with 2.6.20.4.
-[snip]
+> Signed-off-by: James Chapman <jchapman@katalix.com>
 
-This patch alone is known to change things but it does not work
-everywhere :o/
+I have no major objections to this patch.
 
-Can you:
-- send the output of a 'lspci -vvx'
-- send the output of mii-tool including hex dump of the registers with
-  2.6.20.4 and 2.6.21
-- try 2.6.21 + http://www.fr.zoreil.com/people/francois/misc/20070430-2.6.21-r8169-test.patch
+It is certainly verbose and could stand a lot of cleanup
+and debug code removal, but it's functional and has no
+glaring abuses of the networking.
 
--- 
-Ueimor
+Please fixup patch #2 so I can apply this one.
 
-Anybody got a battery for my Ultra 10 ?
+Thanks.
