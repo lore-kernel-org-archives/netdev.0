@@ -1,21 +1,26 @@
 From: Jan Engelhardt <jengelh@linux01.gwdg.de>
-Subject: [PATCH 23/36] Use menuconfig objects II - netdev/wan
-Date: Mon, 30 Apr 2007 13:45:51 +0200 (MEST)
-Message-ID: <Pine.LNX.4.61.0704301345101.29151@yvahk01.tjqt.qr>
+Subject: [PATCH 22/36] Use menuconfig objects II - netdev/pcmcia
+Date: Mon, 30 Apr 2007 13:45:03 +0200 (MEST)
+Message-ID: <Pine.LNX.4.61.0704301344100.29151@yvahk01.tjqt.qr>
 References: <Pine.LNX.4.61.0704301225060.29151@yvahk01.tjqt.qr>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org
-To: Krzysztof Halasa <khc@pm.waw.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailer.gwdg.de ([134.76.10.26]:51888 "EHLO mailer.gwdg.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1031100AbXD3LrZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Apr 2007 07:47:25 -0400
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-pcmcia@lists.infradead.org,
+	Jeff Garzik <jgarzik@pobox.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-pcmcia-bounces+glkpd-linux-pcmcia=m.gmane.org@lists.infradead.org>
 In-Reply-To: <Pine.LNX.4.61.0704301225060.29151@yvahk01.tjqt.qr>
-Sender: netdev-owner@vger.kernel.org
+List-Unsubscribe: <http://lists.infradead.org/mailman/listinfo/linux-pcmcia>,
+	<mailto:linux-pcmcia-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-pcmcia>
+List-Post: <mailto:linux-pcmcia@lists.infradead.org>
+List-Help: <mailto:linux-pcmcia-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-pcmcia>,
+	<mailto:linux-pcmcia-request@lists.infradead.org?subject=subscribe>
+Sender: linux-pcmcia-bounces@lists.infradead.org
+Errors-To: linux-pcmcia-bounces+glkpd-linux-pcmcia=m.gmane.org+glkpd-linux-pcmcia=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
 
@@ -26,142 +31,115 @@ enter the menu first.
 Signed-off-by: Jan Engelhardt <jengelh@gmx.de>
 
 ---
- drivers/net/wan/Kconfig |   34 +++++++++++++++-------------------
- 1 file changed, 15 insertions(+), 19 deletions(-)
+ drivers/net/pcmcia/Kconfig |   23 +++++++----------------
+ 1 file changed, 7 insertions(+), 16 deletions(-)
 
---- linux-2.6.21-mm_20070428.orig/drivers/net/wan/Kconfig
-+++ linux-2.6.21-mm_20070428/drivers/net/wan/Kconfig
-@@ -2,10 +2,7 @@
- # wan devices configuration
+--- linux-2.6.21-mm_20070428.orig/drivers/net/pcmcia/Kconfig
++++ linux-2.6.21-mm_20070428/drivers/net/pcmcia/Kconfig
+@@ -2,11 +2,9 @@
+ # PCMCIA Network device configuration
  #
  
--menu "Wan interfaces"
--	depends on NETDEVICES
+-menu "PCMCIA network device support"
+-	depends on NETDEVICES && PCMCIA!=n
 -
--config WAN
-+menuconfig WAN
- 	bool "Wan interfaces support"
+-config NET_PCMCIA
++menuconfig NET_PCMCIA
+ 	bool "PCMCIA network device support"
++	depends on PCMCIA
  	---help---
- 	  Wide Area Networks (WANs), such as X.25, Frame Relay and leased
-@@ -23,10 +20,12 @@ config WAN
+ 	  Say Y if you would like to include support for any PCMCIA or CardBus
+ 	  network adapters, then say Y to the driver for your particular card
+@@ -21,9 +19,10 @@ config NET_PCMCIA
  
  	  If unsure, say N.
  
-+if WAN
++if NET_PCMCIA
 +
- # There is no way to detect a comtrol sv11 - force it modular for now.
- config HOSTESS_SV11
- 	tristate "Comtrol Hostess SV-11 support"
--	depends on WAN && ISA && m && ISA_DMA_API && INET
-+	depends on ISA && m && ISA_DMA_API && INET
+ config PCMCIA_3C589
+ 	tristate "3Com 3c589 PCMCIA support"
+-	depends on NET_PCMCIA && PCMCIA
  	help
- 	  Driver for Comtrol Hostess SV-11 network card which
- 	  operates on low speed synchronous serial links at up to
-@@ -38,7 +37,7 @@ config HOSTESS_SV11
- # The COSA/SRP driver has not been tested as non-modular yet.
- config COSA
- 	tristate "COSA/SRP sync serial boards support"
--	depends on WAN && ISA && m && ISA_DMA_API
-+	depends on ISA && m && ISA_DMA_API
- 	---help---
- 	  Driver for COSA and SRP synchronous serial boards.
+ 	  Say Y here if you intend to attach a 3Com 3c589 or compatible PCMCIA
+ 	  (PC-card) Ethernet card to your computer.
+@@ -33,7 +32,6 @@ config PCMCIA_3C589
  
-@@ -62,7 +61,7 @@ config COSA
- #
- config LANMEDIA
- 	tristate "LanMedia Corp. SSI/V.35, T1/E1, HSSI, T3 boards"
--	depends on WAN && PCI
-+	depends on PCI
- 	---help---
- 	  Driver for the following Lan Media family of serial boards:
- 
-@@ -89,7 +88,7 @@ config LANMEDIA
- # There is no way to detect a Sealevel board. Force it modular
- config SEALEVEL_4021
- 	tristate "Sealevel Systems 4021 support"
--	depends on WAN && ISA && m && ISA_DMA_API && INET
-+	depends on ISA && m && ISA_DMA_API && INET
+ config PCMCIA_3C574
+ 	tristate "3Com 3c574 PCMCIA support"
+-	depends on NET_PCMCIA && PCMCIA
  	help
- 	  This is a driver for the Sealevel Systems ACB 56 serial I/O adapter.
+ 	  Say Y here if you intend to attach a 3Com 3c574 or compatible PCMCIA
+ 	  (PC-card) Fast Ethernet card to your computer.
+@@ -43,7 +41,6 @@ config PCMCIA_3C574
  
-@@ -99,7 +98,6 @@ config SEALEVEL_4021
- # Generic HDLC
- config HDLC
- 	tristate "Generic HDLC layer"
--	depends on WAN
+ config PCMCIA_FMVJ18X
+ 	tristate "Fujitsu FMV-J18x PCMCIA support"
+-	depends on NET_PCMCIA && PCMCIA
+ 	select CRC32
  	help
- 	  Say Y to this option if your Linux box contains a WAN (Wide Area
- 	  Network) card supported by this driver and you are planning to
-@@ -167,7 +165,7 @@ config HDLC_X25
- 	  If unsure, say N.
+ 	  Say Y here if you intend to attach a Fujitsu FMV-J18x or compatible
+@@ -54,7 +51,6 @@ config PCMCIA_FMVJ18X
  
- comment "X.25/LAPB support is disabled"
--	depends on WAN && HDLC && (LAPB!=m || HDLC!=m) && LAPB!=y
-+	depends on HDLC && (LAPB!=m || HDLC!=m) && LAPB!=y
+ config PCMCIA_PCNET
+ 	tristate "NE2000 compatible PCMCIA support"
+-	depends on NET_PCMCIA && PCMCIA
+ 	select CRC32
+ 	help
+ 	  Say Y here if you intend to attach an NE2000 compatible PCMCIA
+@@ -65,7 +61,6 @@ config PCMCIA_PCNET
  
- config PCI200SYN
- 	tristate "Goramo PCI200SYN support"
-@@ -230,10 +228,10 @@ config PC300_MLPPP
- 	  Multilink PPP over the PC300 synchronous communication boards.
+ config PCMCIA_NMCLAN
+ 	tristate "New Media PCMCIA support"
+-	depends on NET_PCMCIA && PCMCIA
+ 	help
+ 	  Say Y here if you intend to attach a New Media Ethernet or LiveWire
+ 	  PCMCIA (PC-card) Ethernet card to your computer.
+@@ -75,7 +70,6 @@ config PCMCIA_NMCLAN
  
- comment "Cyclades-PC300 MLPPP support is disabled."
--	depends on WAN && HDLC && PC300 && (PPP=n || !PPP_MULTILINK || PPP_SYNC_TTY=n || !HDLC_PPP)
-+	depends on HDLC && PC300 && (PPP=n || !PPP_MULTILINK || PPP_SYNC_TTY=n || !HDLC_PPP)
+ config PCMCIA_SMC91C92
+ 	tristate "SMC 91Cxx PCMCIA support"
+-	depends on NET_PCMCIA && PCMCIA
+ 	select CRC32
+ 	select MII
+ 	help
+@@ -87,7 +81,6 @@ config PCMCIA_SMC91C92
  
- comment "Refer to the file README.mlppp, provided by PC300 package."
--	depends on WAN && HDLC && PC300 && (PPP=n || !PPP_MULTILINK || PPP_SYNC_TTY=n || !HDLC_PPP)
-+	depends on HDLC && PC300 && (PPP=n || !PPP_MULTILINK || PPP_SYNC_TTY=n || !HDLC_PPP)
+ config PCMCIA_XIRC2PS
+ 	tristate "Xircom 16-bit PCMCIA support"
+-	depends on NET_PCMCIA && PCMCIA
+ 	help
+ 	  Say Y here if you intend to attach a Xircom 16-bit PCMCIA (PC-card)
+ 	  Ethernet or Fast Ethernet card to your computer.
+@@ -97,7 +90,6 @@ config PCMCIA_XIRC2PS
  
- config PC300TOO
- 	tristate "Cyclades PC300 RSV/X21 alternative support"
-@@ -338,7 +336,6 @@ config DSCC4_PCI_RST
- 
- config DLCI
- 	tristate "Frame Relay DLCI support"
--	depends on WAN
+ config PCMCIA_AXNET
+ 	tristate "Asix AX88190 PCMCIA support"
+-	depends on NET_PCMCIA && PCMCIA
  	---help---
- 	  Support for the Frame Relay protocol.
+ 	  Say Y here if you intend to attach an Asix AX88190-based PCMCIA
+ 	  (PC-card) Fast Ethernet card to your computer.  These cards are
+@@ -109,7 +101,7 @@ config PCMCIA_AXNET
  
-@@ -385,7 +382,7 @@ config SDLA
- # Wan router core.
- config WAN_ROUTER_DRIVERS
- 	tristate "WAN router drivers"
--	depends on WAN && WAN_ROUTER
-+	depends on WAN_ROUTER
- 	---help---
- 	  Connect LAN to WAN via Linux box.
+ config ARCNET_COM20020_CS
+ 	tristate "COM20020 ARCnet PCMCIA support"
+-	depends on NET_PCMCIA && ARCNET_COM20020 && PCMCIA
++	depends on ARCNET_COM20020
+ 	help
+ 	  Say Y here if you intend to attach this type of ARCnet PCMCIA card
+ 	  to your computer.
+@@ -119,7 +111,7 @@ config ARCNET_COM20020_CS
  
-@@ -440,7 +437,7 @@ config CYCLOMX_X25
- # X.25 network drivers
- config LAPBETHER
- 	tristate "LAPB over Ethernet driver (EXPERIMENTAL)"
--	depends on WAN && LAPB && X25
-+	depends on LAPB && X25
- 	---help---
- 	  Driver for a pseudo device (typically called /dev/lapb0) which allows
- 	  you to open an LAPB point-to-point connection to some other computer
-@@ -456,7 +453,7 @@ config LAPBETHER
- 
- config X25_ASY
- 	tristate "X.25 async driver (EXPERIMENTAL)"
--	depends on WAN && LAPB && X25
-+	depends on LAPB && X25
- 	---help---
- 	  Send and receive X.25 frames over regular asynchronous serial
- 	  lines such as telephone lines equipped with ordinary modems.
-@@ -471,7 +468,7 @@ config X25_ASY
- 
- config SBNI
- 	tristate "Granch SBNI12 Leased Line adapter support"
--	depends on WAN && X86
-+	depends on X86
- 	---help---
- 	  Driver for ISA SBNI12-xx cards which are low cost alternatives to
- 	  leased line modems.
-@@ -497,5 +494,4 @@ config SBNI_MULTILINE
- 
- 	  If unsure, say N.
+ config PCMCIA_IBMTR
+ 	tristate "IBM PCMCIA tokenring adapter support"
+-	depends on NET_PCMCIA && IBMTR!=y && TR && PCMCIA && !64BIT
++	depends on IBMTR!=y && TR && !64BIT
+ 	help
+ 	  Say Y here if you intend to attach this type of Token Ring PCMCIA
+ 	  card to your computer. You then also need to say Y to "Token Ring
+@@ -128,5 +120,4 @@ config PCMCIA_IBMTR
+ 	  To compile this driver as a module, choose M here: the module will be
+ 	  called ibmtr_cs.
  
 -endmenu
 -
-+endif # WAN
++endif # NET_PCMCIA
