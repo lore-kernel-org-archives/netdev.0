@@ -1,62 +1,60 @@
-From: Masahide NAKAMURA <nakam@linux-ipv6.org>
-Subject: Re: [RFC] [PATCH] [XFRM]: Restrict upper layer information by bundle.
-Date: Tue, 01 May 2007 01:30:21 +0900
-Message-ID: <20070501011930.AC41.NAKAM@linux-ipv6.org>
-References: <11758443392651-git-send-email-nakam@linux-ipv6.org> <20070430.003437.57159715.davem@davemloft.net>
+From: Vitaly Wool <vitalywool@gmail.com>
+Subject: [patch] fix smc911x compilation breakage
+Date: Mon, 30 Apr 2007 20:57:30 +0400
+Message-ID: <46361FFA.8050400@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: jgarzik@pobox.com, rmk@arm.linux.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [203.178.140.9] ([203.178.140.9]:35347 "EHLO mail.gomagoma.org"
-	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1946351AbXD3Q3c (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Apr 2007 12:29:32 -0400
-In-Reply-To: <20070430.003437.57159715.davem@davemloft.net>
+Received: from mu-out-0910.google.com ([209.85.134.185]:26052 "EHLO
+	mu-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1946392AbXD3Q5n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Apr 2007 12:57:43 -0400
+Received: by mu-out-0910.google.com with SMTP id g7so5790muf
+        for <netdev@vger.kernel.org>; Mon, 30 Apr 2007 09:57:42 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hello,
 
-On Mon, 30 Apr 2007 00:34:37 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
+this is the updated version of smc911x compilation breakage fix.
+Hope it's fine now. It just adapts the driver to the new IRQ API
+according to what Russell has pointed out.
 
-> From: Masahide NAKAMURA <nakam@linux-ipv6.org>
-> Date: Fri,  6 Apr 2007 16:25:39 +0900
-> 
-> > On MIPv6 usage, XFRM sub policy is enabled.
-> > When main (IPsec) and sub (MIPv6) policy selectors have the same
-> > address set but different upper layer information (i.e. protocol
-> > number and its ports or type/code), multiple bundle should be created.
-> > However, currently we have issue to use the same bundle created for
-> > the first time with all flows covered by the case.
-> > 
-> > It is useful for the bundle to have the upper layer information
-> > to be restructured correctly if it does not match with the flow.
-> > 
-> > 1. Bundle was created by two policies
-> > Selector from another policy is added to xfrm_dst.
-> > If the flow does not match the selector, it goes to slow path to
-> > restructure new bundle by single policy.
-> > 
-> > 2. Bundle was created by one policy
-> > Flow cache is added to xfrm_dst as originated one. If the flow does
-> > not match the cache, it goes to slow path to try searching another
-> > policy.
-> > 
-> > Signed-off-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
-> 
-> This is an OK solution for the problem for now.
-> 
-> My senses tell me that there is probably some cleaner way to
-> handle this problem.  If you come up with a better idea for it,
-> please feel free to bounce your ideas to me.
+ drivers/net/smc911x.c |    6 ++----
+ 1 files changed, 2 insertions(+), 4 deletions(-)
 
-I get it. It is added to my TODOs to find another way (which may include
-design level change) to achive it.
+Signed-off-by: Vitaly Wool <vitalywool@gmail.com>
 
-Thank you,
+diff --git a/drivers/net/smc911x.c b/drivers/net/smc911x.c
+index c956141..4b9bdad 100644
+--- a/drivers/net/smc911x.c
++++ b/drivers/net/smc911x.c
+@@ -77,7 +77,6 @@ static const char version[] =
+ #include <linux/skbuff.h>
+ 
+ #include <asm/io.h>
+-#include <asm/irq.h>
+ 
+ #include "smc911x.h"
+ 
+@@ -2086,12 +2085,11 @@ static int __init smc911x_probe(struct n
+ 	lp->ctl_rspeed = 100;
+ 
+ 	/* Grab the IRQ */
+-	retval = request_irq(dev->irq, &smc911x_interrupt, IRQF_SHARED, dev->name, dev);
++	retval = request_irq(dev->irq, &smc911x_interrupt,
++			IRQF_SHARED | IRQF_TRIGGER_FALLING, dev->name, dev);
+ 	if (retval)
+ 		goto err_out;
+ 
+-	set_irq_type(dev->irq, IRQT_FALLING);
+-
+ #ifdef SMC_USE_DMA
+ 	lp->rxdma = SMC_DMA_REQUEST(dev, smc911x_rx_dma_irq);
+ 	lp->txdma = SMC_DMA_REQUEST(dev, smc911x_tx_dma_irq);
 
--- 
-Masahide NAKAMURA
+
 
