@@ -1,38 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC, PATCH] IPV6 : add 64 bits components in struct in6_addr
- to speedup ipv6_addr_equal() & ipv6_addr_any()
-Date: Mon, 30 Apr 2007 13:37:49 -0700 (PDT)
-Message-ID: <20070430.133749.41636290.davem@davemloft.net>
-References: <20070430162851.ca3c7869.dada1@cosmosbay.com>
-	<20070430.121029.21927349.davem@davemloft.net>
-	<p73bqh5zgv7.fsf@bingen.suse.de>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [ofa-general] Re: IPoIB forwarding
+Date: Mon, 30 Apr 2007 14:12:52 -0700
+Message-ID: <46365BD4.5060607@hp.com>
+References: <6.1.2.0.2.20070423160212.12db6400@mail.llnl.gov>	<20070425124652.GG1624@mellanox.co.il>	<6.1.2.0.2.20070426083410.1389d9e0@mail.llnl.gov>	<20070426161409.GF15540@mellanox.co.il>	<6.1.2.0.2.20070426095112.138e9a68@mail.llnl.gov>	<20070426180618.GJ15540@mellanox.co.il>	<6.1.2.0.2.20070427115435.13ea5ec0@mail.llnl.gov>	<46325DF3.2050203@hp.com>	<6.1.2.0.2.20070427152027.13fe46d0@mail.llnl.gov>	<46327A07.1000404@hp.com>	<6.1.2.0.2.20070427153952.13fc7d08@mail.llnl.gov>	<4632894D.40705@hp.com>	<20070428025117.a3b1200a.billfink@mindspring.com>
+	<4634F49F.9030408@myri.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: dada1@cosmosbay.com, yoshfuji@linux-ipv6.org,
-	netdev@vger.kernel.org
-To: andi@firstfloor.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55974
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1946809AbXD3Uhu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Apr 2007 16:37:50 -0400
-In-Reply-To: <p73bqh5zgv7.fsf@bingen.suse.de>
-Sender: netdev-owner@vger.kernel.org
+Cc: Bryan Lawver <lawver1@llnl.gov>,
+	Linux Network Development list <netdev@vger.kernel.org>,
+	Bill Fink <billfink@mindspring.com>,
+	"Michael S. Tsirkin" <mst@dev.mellanox.co.il>,
+	general@lists.openfabrics.org
+To: Loic Prylli <loic@myri.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <4634F49F.9030408@myri.com>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-From: Andi Kleen <andi@firstfloor.org>
-Date: 30 Apr 2007 23:34:20 +0200
-
-> David Miller <davem@davemloft.net> writes:
-> > 
-> > Unfortunately, as mentioned elsewhere, we're only able to assume
-> > 32-bit alignment of ipv6 packet headers and that isn't likely to
-> > change any time soon.
+> Only the 1.2.0 version of the external driver makes LRO incompatible 
+> with forwarding. The problem should be fixed in version 1.3.0 released a 
+> few weeks ago (forwarding with myri10ge_lro enabled should then work), 
+> let us know otherwise.
 > 
-> On x86 it would be fine at least -- unaligned access is cheap. I believe
-> the same is true for POWER4/5/s390x. Should it be made conditional perhaps?
+> Anyway, following David Miller remark about netfilter, for the next 
+> version we might ask the user to explicitely enable LRO rather than 
+> making the default.
 
-We have that conditional, it's callet {get,put}_unaligned() but it's
-better to fix the infrastructure so that conditionalization isn't
-even needed.
+Speaking of defaults, it would seem that the external 1.2.0 driver comes 
+with 9000 bytes as the default MTU?  At least I think that is what I am 
+seeing now that I've started looking more closely.
+
+rick jones
