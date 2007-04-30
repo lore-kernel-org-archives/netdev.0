@@ -1,137 +1,109 @@
-From: Guennadi Liakhovetski <gl@dsa-ac.de>
-Subject: Re: [irda-users] [BUG] 2.6.20.1-rt8 irnet + pppd recursive spinlock...
-Date: Mon, 30 Apr 2007 15:24:05 +0200 (CEST)
-Message-ID: <Pine.LNX.4.63.0704301451510.19781@pcgl.dsa-ac.de>
-References: <Pine.LNX.4.63.0704050846480.534@pcgl.dsa-ac.de>
- <Pine.LNX.4.63.0704051250170.534@pcgl.dsa-ac.de> <20070407005926.GE4177@sortiz.org>
- <20070410181037.GA3780@sortiz.org>
+From: Richard Purdie <rpurdie@rpsys.net>
+Subject: Re: [Bugme-new] [Bug 8405] New: pppd does stops compresion with
+	"Lost compression sync"
+Date: Mon, 30 Apr 2007 14:31:09 +0100
+Message-ID: <1177939870.5872.29.camel@localhost.localdomain>
+References: <200704292001.l3TK1P6d000716@fire-2.osdl.org>
+	 <20070429142047.d8617669.akpm@linux-foundation.org>
+	 <200704301408.58185.stefan.wenk@gmx.at>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Paul Mackerras <paulus@samba.org>,
-	irda-users@lists.sourceforge.net, linux-rt-users@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Samuel Ortiz <samuel@sortiz.org>
-Return-path: <linux-rt-users-owner@vger.kernel.org>
-In-Reply-To: <20070410181037.GA3780@sortiz.org>
-Sender: linux-rt-users-owner@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+	"bugme-daemon@kernel-bugs.osdl.org"
+	<bugme-daemon@bugzilla.kernel.org>
+To: Stefan Wenk <stefan.wenk@gmx.at>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from tim.rpsys.net ([194.106.48.114]:60199 "EHLO tim.rpsys.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1423264AbXD3NbW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Apr 2007 09:31:22 -0400
+In-Reply-To: <200704301408.58185.stefan.wenk@gmx.at>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 10 Apr 2007, Samuel Ortiz wrote:
-
-> Hi Guennadi,
+On Mon, 2007-04-30 at 14:08 +0200, Stefan Wenk wrote:
+> On Sunday 29 April 2007 23:20, Andrew Morton wrote:
+> > (switch to email - please retain all ccs)
+> >
+> > On Sun, 29 Apr 2007 13:01:25 -0700 bugme-daemon@bugzilla.kernel.org wrote:
+> > > http://bugzilla.kernel.org/show_bug.cgi?id=8405
+> > >
+> > > Here is the log vor /var/log/messages:
+> > >
+> > > Apr 29 16:53:34 linux kernel: PPP Deflate Compression module registered
+> > > Apr 29 16:53:47 linux pppd[9090]: pppd 2.4.4 started by root, uid 0
+> > > Apr 29 16:53:47 linux pppd[9090]: Using interface ppp0
+> > > Apr 29 16:53:47 linux pppd[9090]: Connect: ppp0 <--> /dev/pts/9
+> > > Apr 29 16:53:47 linux pppd[9090]: kernel does not support PPP filtering
+> > > Apr 29 16:53:47 linux pppd[9090]: Deflate (15) compression enabled
+> > > Apr 29 16:53:47 linux pppd[9090]: Cannot determine ethernet address for
+> > > proxy ARP Apr 29 16:53:47 linux pppd[9090]: local  IP address 192.168.3.2
+> > > Apr 29 16:53:47 linux pppd[9090]: remote IP address 192.168.3.1
+> > > Apr 29 16:54:03 linux kernel: z_decompress0: inflate returned -5 ()
+> > > Apr 29 16:54:03 linux pppd[9090]: PPPIOCGFLAGS flags: c030c0
+> > > Apr 29 16:54:03 linux pppd[9090]: Lost compression sync: disabling
+> > > compression
+> > >
+> > > I had a look at the kernel patch of 2.6.18 - the lib/zlib/zlib_inflate
+> > > was changed a lot and for me it looks to be the reason of the problem.
+> >
+> > If you're referring to 4f3865fb57a04db7cca068fed1c15badc064a302,
+> > "zlib_inflate: Upgrade library code to a recent version" then that was
+> > mainly a zlib_inflate change, not a zlib_deflate change.
+> >
+> > But yes, I'd say that this patch might well have been the cause.
+> >
+> > http://userweb.kernel.org/~akpm/zlib-backout.patch is a backout patch
+> > against 2.6.21.  If you apply that to 2.6.21 does it make ppp work again?
 > 
-> The patch below schedules irnet_flow_indication() asynchronously. Could
-> you please give it a try (it builds, but I couldn't test it...) ? :
+> thanks for this backout patch. I have applied it to 2.6.21 and now pppd is 
+> working with deflate again.
 
-Ok, your patch (still below) works too (now that I fixed that state 
-machine race, btw, we still have to decide on the final form how it goes 
-in the mainline) __after__ you also add the line
+The key line of that log is 
+"Apr 29 16:54:03 linux kernel: z_decompress0: inflate returned -5 ()"
 
-+	INIT_WORK(&new->irnet_flow_work, irttp_flow_restart);
+linux/zlib.h says:
 
-in irttp_dup() (remember spinlock_init()?:-)), otherwise it oopses. 
-Generally, I like your patch better than mine to ppp_generic.c, where I 
-explicitly check if a recursion is occurring. Still, I am a bit concerned 
-about introducing yet another execution context into irda... We have seen 
-a couple of locking issues there already in the last 2-3 months especially 
-under rt-preempt... Would you be able to run some tests too? I will be 
-testing it too, but don't know how much longer and how intensively. Do you 
-think we might get some new problems with this new context?
+#define Z_BUF_ERROR    (-5)
 
-Thanks
-Guennadi
+so somehow we're triggering a buffer error...
 
-> 
-> diff --git a/include/net/irda/irttp.h b/include/net/irda/irttp.h
-> index a899e58..941f0f1 100644
-> --- a/include/net/irda/irttp.h
-> +++ b/include/net/irda/irttp.h
-> @@ -128,6 +128,7 @@ struct tsap_cb {
->  
->  	struct net_device_stats stats;
->  	struct timer_list todo_timer; 
-> +	struct work_struct irnet_flow_work;   /* irttp asynchronous flow restart */
->  
->  	__u32 max_seg_size;     /* Max data that fit into an IrLAP frame */
->  	__u8  max_header_size;
-> diff --git a/net/irda/irnet/irnet.h b/net/irda/irnet/irnet.h
-> diff --git a/net/irda/irttp.c b/net/irda/irttp.c
-> index 7069e4a..a0d0f26 100644
-> --- a/net/irda/irttp.c
-> +++ b/net/irda/irttp.c
-> @@ -367,6 +367,29 @@ static int irttp_param_max_sdu_size(void *instance, irda_param_t *param,
->  /*************************** CLIENT CALLS ***************************/
->  /************************** LMP CALLBACKS **************************/
->  /* Everything is happily mixed up. Waiting for next clean up - Jean II */
-> +static void irttp_flow_restart(struct work_struct *work)
-> +{
-> +	struct tsap_cb * self =
-> +		container_of(work, struct tsap_cb, irnet_flow_work);
-> +
-> +	if (self == NULL)
-> +		return;
-> +
-> +	/* Check if we can accept more frames from client. */
-> +	if ((self->tx_sdu_busy) &&
-> +	    (skb_queue_len(&self->tx_queue) < TTP_TX_LOW_THRESHOLD) &&
-> +	    (!self->close_pend)) {
-> +		if (self->notify.flow_indication)
-> +			self->notify.flow_indication(self->notify.instance,
-> +						     self, FLOW_START);
-> +
-> +		/* self->tx_sdu_busy is the state of the client.
-> +		 * We don't really have a race here, but it's always safer
-> +		 * to update our state after the client - Jean II */
-> +		self->tx_sdu_busy = FALSE;
-> +	}
-> +}
-> +
->  
->  /*
->   * Function irttp_open_tsap (stsap, notify)
-> @@ -402,6 +425,8 @@ struct tsap_cb *irttp_open_tsap(__u8 stsap_sel, int credit, notify_t *notify)
->  	self->todo_timer.data     = (unsigned long) self;
->  	self->todo_timer.function = &irttp_todo_expired;
->  
-> +	INIT_WORK(&self->irnet_flow_work, irttp_flow_restart);
-> +
->  	/* Initialize callbacks for IrLMP to use */
->  	irda_notify_init(&ttp_notify);
->  	ttp_notify.connect_confirm = irttp_connect_confirm;
-> @@ -761,25 +786,10 @@ static void irttp_run_tx_queue(struct tsap_cb *self)
->  		self->stats.tx_packets++;
->  	}
->  
-> -	/* Check if we can accept more frames from client.
-> -	 * We don't want to wait until the todo timer to do that, and we
-> -	 * can't use tasklets (grr...), so we are obliged to give control
-> -	 * to client. That's ok, this test will be true not too often
-> -	 * (max once per LAP window) and we are called from places
-> -	 * where we can spend a bit of time doing stuff. - Jean II */
->  	if ((self->tx_sdu_busy) &&
->  	    (skb_queue_len(&self->tx_queue) < TTP_TX_LOW_THRESHOLD) &&
->  	    (!self->close_pend))
-> -	{
-> -		if (self->notify.flow_indication)
-> -			self->notify.flow_indication(self->notify.instance,
-> -						     self, FLOW_START);
-> -
-> -		/* self->tx_sdu_busy is the state of the client.
-> -		 * We don't really have a race here, but it's always safer
-> -		 * to update our state after the client - Jean II */
-> -		self->tx_sdu_busy = FALSE;
-> -	}
-> +		schedule_work(&self->irnet_flow_work);
->  
->  	/* Reset lock */
->  	self->tx_queue_lock = 0;
-> 
-> 
-> 
+Looking at zlib_inflate() in lib/zlib_inflate/inflate.c, it seems that
+error only occurs if we had success (Z_OK) but no remaining input/output
+space. I suspect you can just have ppp_deflate ignore that "error" code
+and it might just work.
 
----------------------------------
-Guennadi Liakhovetski, Ph.D.
-DSA Daten- und Systemtechnik GmbH
-Pascalstr. 28
-D-52076 Aachen
-Germany
+Can you try the following patch:
+
+Index: linux-2.6.20/drivers/net/ppp_deflate.c
+===================================================================
+--- linux-2.6.20.orig/drivers/net/ppp_deflate.c	2007-02-04 18:44:54.000000000 +0000
++++ linux-2.6.20/drivers/net/ppp_deflate.c	2007-04-30 14:27:08.000000000 +0100
+@@ -487,12 +487,16 @@ int z_decompress(void *arg, unsigned cha
+ 	 */
+ 	for (;;) {
+ 		r = zlib_inflate(&state->strm, Z_PACKET_FLUSH);
+-		if (r != Z_OK) {
++		if ((r != Z_OK) && (r != Z_BUF_ERROR)) {
+ 			if (state->debug)
+ 				printk(KERN_DEBUG "z_decompress%d: inflate returned %d (%s)\n",
+ 				       state->unit, r, (state->strm.msg? state->strm.msg: ""));
+ 			return DECOMP_FATALERROR;
+ 		}
++		if (r == Z_BUF_ERROR) {
++			printk(KERN_DEBUG "z_decompress%d: Would have triggered an error as inflate returned %d (%s)\n",
++				       state->unit, r, (state->strm.msg? state->strm.msg: ""));
++		}
+ 		if (state->strm.avail_out != 0)
+ 			break;		/* all done */
+ 		if (decode_proto) {
+
+This should continue but print some debug output when the problem
+occurs.
+
+Richard
+
+
+
+
