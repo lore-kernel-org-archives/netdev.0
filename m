@@ -1,69 +1,96 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH] [RFC] [TCP]: Catch skb with S+L bugs earlier
-Date: Mon, 30 Apr 2007 11:09:44 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0704301100410.29336@kivilampi-30.cs.helsinki.fi>
-References: <20070430.002837.27783394.davem@davemloft.net>
- <Pine.LNX.4.64.0704301037080.29336@kivilampi-30.cs.helsinki.fi>
- <Pine.LNX.4.64.0704301045100.29336@kivilampi-30.cs.helsinki.fi>
- <20070430.005737.24335918.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-1666965684-1177920584=:29336"
-Cc: Netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+From: James Chapman <jchapman@katalix.com>
+Subject: [PATCH 0/5 2.6.21] L2TP: Introduce PPP-over-L2TP driver
+Date: Mon, 30 Apr 2007 10:51:01 +0100
+Message-ID: <200704300951.l3U9p17K031833@quickie.katalix.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:45941 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1423157AbXD3IJr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Apr 2007 04:09:47 -0400
-In-Reply-To: <20070430.005737.24335918.davem@davemloft.net>
+Received: from s36.avahost.net ([74.53.95.194]:42103 "EHLO s36.avahost.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1031516AbXD3Jvn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Apr 2007 05:51:43 -0400
+Received: from jchapman.plus.com ([84.92.108.75] helo=quickie.katalix.com)
+	by s36.avahost.net with esmtps (TLSv1:AES256-SHA:256)
+	(Exim 4.63)
+	(envelope-from <jchapman@katalix.com>)
+	id 1HiSXl-00060S-7o
+	for netdev@vger.kernel.org; Mon, 30 Apr 2007 04:51:41 -0500
+Received: from quickie.katalix.com (quickie.katalix.com [127.0.0.1])
+	by quickie.katalix.com (8.13.5/8.13.5) with ESMTP id l3U9p1xx031835
+	for <netdev@vger.kernel.org>; Mon, 30 Apr 2007 10:51:01 +0100
+Received: (from james@localhost)
+	by quickie.katalix.com (8.13.5/8.13.5/Submit) id l3U9p17K031833
+	for netdev@vger.kernel.org; Mon, 30 Apr 2007 10:51:01 +0100
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+This patch set adds a driver for PPP over L2TP. Patches to follow.
 
----696243703-1666965684-1177920584=:29336
-Content-Type: TEXT/PLAIN; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
+The following changes have been made since the previous version
+submitted 23-APR-07.
 
-On Mon, 30 Apr 2007, David Miller wrote:
+- Hold list lock while processing reorder queue in
+  pppol2tp_recv_dequeue().
 
-> From: "Ilpo_Järvinen" <ilpo.jarvinen@helsinki.fi>
-> Date: Mon, 30 Apr 2007 10:49:21 +0300 (EEST)
-> 
-> > On Mon, 30 Apr 2007, Ilpo Järvinen wrote:
-> > 
-> > > On Mon, 30 Apr 2007, David Miller wrote:
-> > > 
-> > > > From: "Ilpo_Järvinen" <ilpo.jarvinen@helsinki.fi>
-> > > > Date: Wed, 28 Mar 2007 17:02:47 +0300 (EEST)
-> > > > 
-> > > > > SACKED_ACKED and LOST are mutually exclusive, thus this
-> > > > > condition is bug with SACK (IMHO). NewReno, however, could get
-> > 
-> > [...snip...]
-> > 
-> > > > I've applied this, thanks for your patience.
-> > 
-> > ...heh... I was getting a bit unsure whether you still had them...
-> > 
-> > > I think I sent an updated version later (hopefully I reach you before 
-> > > you push these out :-)), which made the BUG_ON unconditional (I used it 
-> > > instead of BUG_TRAP as it seems to be generic machinery for handling 
-> > > these).
-> > 
-> > Here:
-> >   http://marc.info/?l=linux-netdev&m=117648826715609&w=2
-> 
-> Thanks, I'll swap in that version of the patch.
+- Fix more __be type annotations.
 
-Hmm, just looked a bit more, is the left_out really that necessary as a 
-separate variable? It's always possible to calculate it in the places 
-where it is needed and users are quite few after all (basically the 
-packets_in_flight callers)... ...it just would save some bytes in
-tcp_sock... ;-)
+- Add a new UDP encapsulation socket type for L2TP (new patch). Modify
+  driver receive path so that it hooks on udp_encap_rcv() rather than
+  overload the socket's sk_data_ready() for skb reception.
+
+- Remove pppol2tp_fget() and friends. Previous code needed to find the
+  tunnel fd from a context other than the one that created the
+  socket. I now use the PPPoX management socket creation (which is
+  done by the same process that creates the UDP socket, i.e. l2tpd) to
+  derive the socket of the UDP tunnel using sockfd_lookup().
+
+- Reorder some functions in proc file handling code to avoid needing
+  function prototypes.
+
+- Remove code that sorted entries which are output in
+  /proc/net/pppol2tp. Output now shows tunnels and sessions unordered.
+
+- Remove stupid userland conditional includes from the if_pppox.h
+  changes.
+
+- Remove skb_queue_walk_safe and pppox-autoload patches from the
+  series since they have now been applied.
+
+- Add in-kernel documentation (new patch).
+
+- Rebased to 2.6.21.
+
+The code still uses sk->sk_destruct() on the tunnel socket to cleanup
+internal contexts if the tunnel UDP socket is destroyed.
 
 
--- 
- i.
----696243703-1666965684-1177920584=:29336--
+About this patch series:
+
+The implementation uses the existing PPPoX subsystem that is currently
+used only by PPPoE. A userspace daemon handles all L2TP control
+protocol messages, while a PPPoX socket carries user data. The system
+architecture is similar to PPPoE, where a pppd plugin uses the PPPoX
+socket to send/receive PPP frames over an L2TP tunnel. PPP control
+frames are delivered to pppd while data frames are handled entirely by
+the kernel.
+
+There are 5 patches in the series:-
+
+1 - Introduce new UDP encapsulation type for L2TP.
+
+2 - API changes for L2TP. Adds definitions for L2TP in existing headers.
+
+3 - pppol2tp driver core. New code. Requires patches 1, 2, and the 
+    recently applied skb_queue_walk_safe patch.
+
+4 - Add an entry to MAINTAINERS file for this driver.
+
+5 - Add in-kernel documentation.
+
+The driver is being used on x86, ia64, ppc, arm, mips32 and possibly
+other architectures. It is also known to work on multi-core SMP boxes.
+
+--
+James Chapman
+Katalix Systems Ltd
+http://www.katalix.com
+Catalysts for your Embedded Linux software development
