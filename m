@@ -1,54 +1,55 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: Bonding two 802.1q interfaces triggers "sleeping function called from invalid context"
-Date: Tue, 1 May 2007 15:31:05 -0400
-Message-ID: <20070501193105.GA4737@gospo.rdu.redhat.com>
-References: <46378B5F.9060301@redhat.com>
+From: Ulrich Kunitz <kune-hUSrv6EASfkEnNRfnnE9gw@public.gmane.org>
+Subject: Re: [PATCH] zd1211rw-mac80211: limit URB buffering in tx path
+Date: Tue, 1 May 2007 21:50:08 +0200
+Message-ID: <20070501195008.GA14294@p15091797.pureserver.info>
+References: <20070501030100.BDE3D7B409F@zog.reactivated.net> <20070501123411.081c43c6@logostar.upir.cz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Netdev <netdev@vger.kernel.org>, fubar@us.ibm.com
-To: Chuck Ebbert <cebbert@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:34504 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755301AbXEATbI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 May 2007 15:31:08 -0400
+Cc: Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Jiri Benc <jbenc-AlSwsSmVLrQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <46378B5F.9060301@redhat.com>
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <20070501123411.081c43c6-NimcoU2PGpwZjWj6TdD+Jg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, May 01, 2007 at 02:47:59PM -0400, Chuck Ebbert wrote:
-> https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=238307
-> 
-> This is kernel 2.6.20.3.
-> 
-> From the bugzilla comment:
-> 
-> ===============================================================================
-> 
-> I need to use a bonding through two 802.1q tag VLAN virtual interface in the
-> same physical network interface. When I bond interface with command :
-> ifenslave bond0 eth1.10 eth1.20
-> Console and dmesg will continues report BUG:
-> --------------Output1 begin kernel 2.6.20-1.2933.fc6------------
-> BUG: sleeping function called from invalid context at include/asm/uaccess.h:500
-> in_atomic():1, irqs_disabled():0
->  [<c04ecadb>] copy_from_user+0x35/0x66
->  [<c05c2e78>] dev_ethtool+0x51/0xa0d
->  [<c05ee503>] tcp_current_mss+0x71/0xdf
->  [<c05ee169>] tcp_rcv_established+0x74f/0x7de
->  [<c04cf48f>] selinux_netlbl_sock_rcv_skb+0x1d/0x5b
->  [<c05f3a78>] tcp_v4_do_rcv+0x1bf/0x49c
->  [<c05f5f1b>] tcp_v4_rcv+0x564/0x8b1
->  [<d8a3ac03>] vlan_dev_ioctl+0x7b/0xa7 [8021q]
->  [<d8a3ab88>] vlan_dev_ioctl+0x0/0xa7 [8021q]
->  [<d8a53102>] bond_update_speed_duplex+0x88/0xd7 [bonding]
->  [<d8a5688e>] bond_mii_monitor+0x0/0x403 [bonding]
->  [<d8a56c01>] bond_mii_monitor+0x373/0x403 [bonding]
+On 07-05-01 12:34 Jiri Benc wrote:
 
-Jay Vosburgh and I have been working on something to address this and
-other issues related to possible sleeping activities that might come
-from the monitoring functions.  I feel like we are getting close to
-something so I hope we can post something soon.
+> On Tue,  1 May 2007 04:01:00 +0100 (BST), Daniel Drake wrote:
+> > The old code allowed unlimited buffing of tx frames in URBs
+> > submitted for transfer to the device. This patch stops the
+> > ieee80211_hw queue(s) if to many URBs are ready for submit to the
+> > device. Actually the ZD1211 device supports currently only one
+> > queue.
+> 
+> This doesn't look correct to me. The limits should be per queue and you
+> should always stop queues selectively.
 
-Care to add anything, Jay?
+The old ZD1211 chip doesn't support queuing and the new ZD1211B
+chip has support, but it is unclear how to put packets in the
+different queues. However the error condition here is, that
+packets can't be transmitted over the USB, which will affect all
+queues. Sure one could manage different high level marks for the
+different queues, but this is all theoretical currently. I could
+have coded with the explicit knowledge that we support only one
+queue, but it is really work the hassle.
+
+> > +/**
+> > + * wake_queues - wakes all queues
+> > + * @hw: a &struct ieee80211_hw pointer
+> > + *
+> > + * Such a function is not provided by mac80211, so we have to provide them on
+> > + * our own.
+> > + */
+> > +static void wake_queues(struct ieee80211_hw *hw)
+> 
+> It is :-) Look for ieee80211_wake_queues. But as I said, you shouldn't need
+> that.
+
+I provided the patch to add ieee80211_wake_queues(). Sorry for
+missing the moment, when it has been integrated. I will update the
+patch.
+
+-- 
+Uli Kunitz
