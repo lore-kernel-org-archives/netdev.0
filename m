@@ -1,55 +1,65 @@
-From: Ulrich Kunitz <kune-hUSrv6EASfkEnNRfnnE9gw@public.gmane.org>
-Subject: Re: [PATCH] zd1211rw-mac80211: limit URB buffering in tx path
-Date: Tue, 1 May 2007 21:50:08 +0200
-Message-ID: <20070501195008.GA14294@p15091797.pureserver.info>
-References: <20070501030100.BDE3D7B409F@zog.reactivated.net> <20070501123411.081c43c6@logostar.upir.cz>
+From: =?ISO-8859-2?Q?Rafa=B3_Bilski?= <rafalbilski@interia.pl>
+Subject: Re: Natsemi DP83815 driver spaming
+Date: Tue, 01 May 2007 21:52:30 +0200
+Message-ID: <46379A7E.3000109@interia.pl>
+References: <46365887.3010705@interia.pl> <20070430205522.abad2481.akpm@linux-foundation.org> <20070501084639.GA528@sirena.org.uk> <46371590.4090004@interia.pl> <20070501180830.GA31630@sirena.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Jiri Benc <jbenc-AlSwsSmVLrQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20070501123411.081c43c6-NimcoU2PGpwZjWj6TdD+Jg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=ISO-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Mark Brown <broonie@sirena.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp35.poczta.interia.pl ([80.48.65.35]:15355 "EHLO
+	smtp4.poczta.interia.pl" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752573AbXEATwm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 May 2007 15:52:42 -0400
+In-Reply-To: <20070501180830.GA31630@sirena.org.uk>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 07-05-01 12:34 Jiri Benc wrote:
+>> eth0: Media selection timer tick.
+>> eth0: possible phy reset: re-initializing
+>=20
+> This is why the reset is being triggered - it's a workaround for a ha=
+rdware
+> bug which checks to make sure the hardware is in the state that the
+> kernel thinks it is is going off.  The code has this explanatory comm=
+ent:
+>=20
+>  * 2) check for sudden death of the NIC:
+>  *    It seems that a reference set for this chip went out with incor=
+rect info,
+>  *    and there exist boards that aren't quite right.  An unexpected =
+voltage
+>  *    drop can cause the PHY to get itself in a weird state (basicall=
+y reset).
+>  *    NOTE: this only seems to affect revC chips.
+>=20
+Code commented out and NIC is working OK. Strange.
+eth0: DSPCFG accepted after 0 usec.
+eth0: link up.
+eth0: Setting full-duplex based on negotiated link capability.
+dspcfg =3D 0x00000000  np->dspcfg =3D 0x00005060
+dspcfg =3D 0x00000000  np->dspcfg =3D 0x00005060
+dspcfg =3D 0x00000000  np->dspcfg =3D 0x00005060
+dspcfg =3D 0x00000000  np->dspcfg =3D 0x00005060
+dspcfg =3D 0x00000000  np->dspcfg =3D 0x00005060
+dspcfg =3D 0x00000000  np->dspcfg =3D 0x00005060
+dspcfg =3D 0x00000000  np->dspcfg =3D 0x00005060
 
-> On Tue,  1 May 2007 04:01:00 +0100 (BST), Daniel Drake wrote:
-> > The old code allowed unlimited buffing of tx frames in URBs
-> > submitted for transfer to the device. This patch stops the
-> > ieee80211_hw queue(s) if to many URBs are ready for submit to the
-> > device. Actually the ZD1211 device supports currently only one
-> > queue.
-> 
-> This doesn't look correct to me. The limits should be per queue and you
-> should always stop queues selectively.
+One problem solved in mean time :-)
+> PCI: CS5530 video turned off.
 
-The old ZD1211 chip doesn't support queuing and the new ZD1211B
-chip has support, but it is unclear how to put packets in the
-different queues. However the error condition here is, that
-packets can't be transmitted over the USB, which will affect all
-queues. Sure one could manage different high level marks for the
-different queues, but this is all theoretical currently. I could
-have coded with the explicit knowledge that we support only one
-queue, but it is really work the hassle.
+[BTW, as Andrew said please don't drop people from the CC.]
+I didn't. It is Thunderbird. I'm included instead of You. Fixed=20
+manually this time.
 
-> > +/**
-> > + * wake_queues - wakes all queues
-> > + * @hw: a &struct ieee80211_hw pointer
-> > + *
-> > + * Such a function is not provided by mac80211, so we have to provide them on
-> > + * our own.
-> > + */
-> > +static void wake_queues(struct ieee80211_hw *hw)
-> 
-> It is :-) Look for ieee80211_wake_queues. But as I said, you shouldn't need
-> that.
+Regards
+Rafa=B3
 
-I provided the patch to add ieee80211_wake_queues(). Sorry for
-missing the moment, when it has been integrated. I will update the
-patch.
 
--- 
-Uli Kunitz
+-----------------------------------------------------------------------=
+ Linda jako gospodyni domowa - zobacz!!!
+>>> http://link.interia.pl/f1a79
+
