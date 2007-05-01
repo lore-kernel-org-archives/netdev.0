@@ -1,68 +1,46 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [PATCH] TCP FIN gets dropped prematurely, results in ack storm
-Date: Tue, 1 May 2007 20:20:50 +0400
-Message-ID: <20070501162050.GB21896@2ka.mipt.ru>
-References: <20070501151354.GB1751@kvack.org>
+From: Loic Prylli <loic@myri.com>
+Subject: Re: [ofa-general] Re: IPoIB forwarding
+Date: Tue, 01 May 2007 12:26:48 -0400
+Message-ID: <46376A48.3050102@myri.com>
+References: <6.1.2.0.2.20070423160212.12db6400@mail.llnl.gov>	<20070425124652.GG1624@mellanox.co.il>	<6.1.2.0.2.20070426083410.1389d9e0@mail.llnl.gov>	<20070426161409.GF15540@mellanox.co.il>	<6.1.2.0.2.20070426095112.138e9a68@mail.llnl.gov>	<20070426180618.GJ15540@mellanox.co.il>	<6.1.2.0.2.20070427115435.13ea5ec0@mail.llnl.gov>	<46325DF3.2050203@hp.com>	<6.1.2.0.2.20070427152027.13fe46d0@mail.llnl.gov>	<46327A07.1000404@hp.com>	<6.1.2.0.2.20070427153952.13fc7d08@mail.llnl.gov>	<4632894D.40705@hp.com>	<20070428025117.a3b1200a.billfink@mindspring.com>	<46362244.9030406@hp.com>
+	<20070501015731.3568d28b.billfink@mindspring.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Benjamin LaHaise <bcrl@kvack.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:49757 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754336AbXEAQ0S (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 May 2007 12:26:18 -0400
-Content-Disposition: inline
-In-Reply-To: <20070501151354.GB1751@kvack.org>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Bryan Lawver <lawver1@llnl.gov>,
+	Linux Network Development list <netdev@vger.kernel.org>,
+	"Michael S. Tsirkin" <mst@dev.mellanox.co.il>,
+	general@lists.openfabrics.org
+To: Bill Fink <billfink@mindspring.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <20070501015731.3568d28b.billfink@mindspring.com>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, May 01, 2007 at 11:13:54AM -0400, Benjamin LaHaise (bcrl@kvack.org) wrote:
-> Hello,
+On 5/1/2007 1:57 AM, Bill Fink wrote:
+> On Mon, 30 Apr 2007, Rick Jones wrote:
+>
+>   
+>> Ethtool -i on the interface reports 1.2.0 as the driver version.
+>>     
+>
+> Perhaps it would be useful to have different version strings for
+> the in-kernel Linux version and the Myricom externally provided
+> version.  Just a thought.
+>   
 
-Hi Benjamin.
 
-> While testing a failover scenario, I managed to trigger an ack storm 
-> between a Linux box and another system.  Although the cause of this particular 
-> ACK storm was due to the other box forgetting that it sent out a FIN (the 
-> second node was unaware of the FIN the first sent in its dying gasp, which 
-> is what I'm trying to fix, but it's a tricky race), the resulting Linux 
-> behaviour wasn't very robust.  Is there any particularly good reason that 
-> FIN flag gets cleared on a connection which is being shut down?  The trace 
-> that motivates this can be seen at 
-> http://www.kvack.org/~bcrl/ack-storm.log .  As near as I can tell, a 
-> similar effect can occur between two Linux boxes if the right packets get 
-> reordered/dropped during connection teardown.
+Indeed, and it is the case as of March-21 git (or any myri10ge version 
+ >= 1.3.0). The in-kernel version will show something like:
+1.3.0-1.226, the external version will only show1.3.0.
 
-Could you archive 24Mb file or cut more precise bits out of it?
 
-> +++ b/net/ipv4/tcp_output.c
-> -	TCP_SKB_CB(skb)->flags = flags & ~(TCPCB_FLAG_FIN|TCPCB_FLAG_PSH);
-> +	TCP_SKB_CB(skb)->flags = flags & ~(TCPCB_FLAG_PSH);
-
-Will it break 793 RFC:
-
-while the FIN is considered
-to occur after the last actual data octet in a segment in which it occurs.
-
-...
-
-In this case, a FIN segment can be constructed and placed on the
-outgoing segment queue.  No further SENDs from the user will be
-accepted by the TCP, and it enters the FIN-WAIT-1 state.
-RECEIVEs are allowed in this state.  All segments preceding and
-including FIN will be retransmitted until acknowledged.  When the
-other TCP has both acknowledged the FIN and sent a FIN of its
-own, the first TCP can ACK this FIN.  Note that a TCP receiving
-a FIN will ACK but not send its own FIN until its user has
-CLOSED the connection also.
-
-According to your patch, several packets with fin bit might be sent,
-including one with data. If another host does not receive fin
-retransmit, then that logic is broken, and it can not be fixed by
-duplicating fins, I would even say, that remote box should drop second
-packet with fin, while it can carry data, which will break higher
-connection logic.
-
--- 
-	Evgeniy Polyakov
+Loic
