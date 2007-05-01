@@ -1,93 +1,84 @@
-From: Eric Sesterhenn / Snakebyte <snakebyte@gmx.de>
-Subject: BUG with ipv6 jumbo frames over loopback
-Date: Tue, 1 May 2007 13:22:30 +0200
-Message-ID: <20070501112230.GA6360@alice>
+From: Milton Miller <miltonm@bga.com>
+Subject: [PATCH] e100 rx: or s and el bits
+Date: Tue, 1 May 2007 06:24:14 -0500 (CDT)
+Message-ID: <200705011124.l41BOEG4007662@sullivan.realtime.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.gmx.net ([213.165.64.20]:54094 "HELO mail.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1031680AbXEALXJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 May 2007 07:23:09 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Auke Kok <auke-jan.h.kok@intel.com>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Scott Feldman <sfeldma@pobox.com>, Jeff Garzik <jeff@garzik.org>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Hi,
+In commit d52df4a35af569071fda3f4eb08e47cc7023f094, the description
+talks about emulating another driver by setting addtional bits and
+the being unable to test when submitted.  Seeing the & operator to
+set more bits made me suspicious, and indeed the bits are defined
+in positive logic:
 
-with the double skb_free() issue fixed, I ran some more ip6sic
-tests, after a while i hit the following:
+	cb_s      = 0x4000,
+	cb_el     = 0x8000,
 
-[  346.941000] Oops: 0000 [#1]
-[  346.941000] PREEMPT 
-[  346.941000] Modules linked in:
-[  346.941000] CPU:    0
-[  346.941000] EIP:    0060:[<c05ce396>]    Not tainted VLI
-[  346.941000] EFLAGS: 00010246   (2.6.21-g40caf5ea #3)
-[  346.941000] EIP is at ipv6_hop_jumbo+0x26/0x180
-[  346.941000] eax: 00000000   ebx: c93ce978   ecx: 00000001   edx:
-00000103
-[  346.941000] esi: c8ca2126   edi: 0000008c   ebp: c0816f14   esp:
-c0816f04
-[  346.941000] ds: 007b   es: 007b   fs: 00d8  gs: 0033  ss: 0068
-[  346.941000] Process ip6sic (pid: 4959, ti=c0816000 task=c9ea4aa0
-task.ti=c8c2e000)
-[  346.941000] Stack: c945a400 c0816f34 c07bf33c 0000002a c0816f3c
-c05cdb9f c0816f6c c07bf334 
-[  346.941000]        c93ce978 c8ca20fc 00000496 c93ce978 c0816f6c
-c93ce9b4 c0816f4c c05ce6f1 
-[  346.941000]        00000000 cf8cfd84 c0816f7c c05ada2e 00000001
-00000514 c07a3be0 00000506 
-[  346.941000] Call Trace:
-[  346.941000]  [<c010490a>] show_trace_log_lvl+0x1a/0x30
-[  346.941000]  [<c01049c9>] show_stack_log_lvl+0xa9/0xd0
-[  346.941000]  [<c0104c0c>] show_registers+0x21c/0x3a0
-[  346.941000]  [<c0104e94>] die+0x104/0x260
-[  346.941000]  [<c0116087>] do_page_fault+0x277/0x610
-[  346.941000]  [<c062a75c>] error_code+0x74/0x7c
-[  346.941000]  [<c05cdb9f>] ip6_parse_tlv+0xef/0x130
-[  346.941000]  [<c05ce6f1>] ipv6_parse_hopopts+0x41/0xb0
-[  346.941000]  [<c05ada2e>] ipv6_rcv+0x1be/0x370
-[  346.941000]  [<c053978b>] netif_receive_skb+0x21b/0x2b0
-[  346.941000]  [<c053b6e2>] process_backlog+0x82/0xf0
-[  346.941000]  [<c053b97b>] net_rx_action+0xab/0x1c0
-[  346.941000]  [<c01209a2>] __do_softirq+0x62/0xc0
-[  346.941000]  [<c010632a>] do_softirq+0x8a/0xf0
-[  346.941000]  [<c0120c96>] local_bh_enable+0xa6/0x160
-[  346.941000]  [<c053bb28>] dev_queue_xmit+0x98/0x330
-[  346.941000]  [<c05dfe38>] packet_sendmsg+0x208/0x260
-[  346.941000]  [<c052eb05>] sock_sendmsg+0xc5/0xf0
-[  346.941000]  [<c052ee0f>] sys_sendto+0xbf/0xe0
-[  346.941000]  [<c052fd37>] sys_socketcall+0x187/0x260
-[  346.941000]  [<c0104194>] sysenter_past_esp+0x5d/0x99
-[  346.941000]  =======================
-[  346.941000] Code: 90 8d 74 26 00 55 89 e5 56 53 83 ec 08 8b 18 8b 4b
-78 8d 34 11 80 7e 01 04 74 3b a1 30 7c 7c c0 85 c0 0f 85 7d 00 00 00 8b
-43 1c <8b> 80 8c 00 00 00 85 c0 74 09 8b 80 38 01 00 00 ff 40 08 a1 04 
-[  346.941000] EIP: [<c05ce396>] ipv6_hop_jumbo+0x26/0x180 SS:ESP
-0068:c0816f04
-[  346.953000] Kernel panic - not syncing: Fatal exception in interrupt
+So anding those together would be 0.   I'm guessing they should
+be or'd, but don't have hardware here to test, much like the
+committed patch.  In fact, I'll let someone else do the compile
+test too.  I'll update the comment.
+
+(It looks like the end of list and s bits would not be set
+in the template nor cleared when linking in recieve skbs, so
+as long as the kernel can keep up with the 100Mb card we 
+wouldn't see the adapter go off the linked list, possibly
+explaining any successful use of this patch written against
+2.6.14).
+
+Signed-off-by: Milton Miller <miltonm@bga.com>
 
 
-It looks like packets coming via the loopback interface dont have
-skb->dst set, therefore we crash in ipv6_hop_jumbo() in exthdrs.c
-doing:
+--- linux-2.6/drivers/net/e100.c.orig	2007-05-01 05:19:17.000000000 -0500
++++ linux-2.6/drivers/net/e100.c	2007-05-01 05:22:14.000000000 -0500
+@@ -947,7 +947,7 @@ static void e100_get_defaults(struct nic
+ 		((nic->mac >= mac_82558_D101_A4) ? cb_cid : cb_i));
+ 
+ 	/* Template for a freshly allocated RFD */
+-	nic->blank_rfd.command = cpu_to_le16(cb_el & cb_s);
++	nic->blank_rfd.command = cpu_to_le16(cb_el | cb_s);
+ 	nic->blank_rfd.rbd = 0xFFFFFFFF;
+ 	nic->blank_rfd.size = cpu_to_le16(VLAN_ETH_FRAME_LEN);
+ 
+@@ -1769,13 +1769,13 @@ static int e100_rx_alloc_skb(struct nic 
+ 	}
+ 
+ 	/* Link the RFD to end of RFA by linking previous RFD to
+-	 * this one, and clearing EL bit of previous.  */
++	 * this one, and clearing EL and S bit of previous.  */
+ 	if(rx->prev->skb) {
+ 		struct rfd *prev_rfd = (struct rfd *)rx->prev->skb->data;
+ 		put_unaligned(cpu_to_le32(rx->dma_addr),
+ 			(u32 *)&prev_rfd->link);
+ 		wmb();
+-		prev_rfd->command &= ~cpu_to_le16(cb_el & cb_s);
++		prev_rfd->command &= ~cpu_to_le16(cb_el | cb_s);
+ 		pci_dma_sync_single_for_device(nic->pdev, rx->prev->dma_addr,
+ 			sizeof(struct rfd), PCI_DMA_TODEVICE);
+ 	}
 
-IP6_INC_STATS_BH(ip6_dst_idev(skb->dst), IPSTATS_MIB_INHDRERRORS);
-
-the ip6_dst_idev() call dereferences skb->dst which is not set, causing
-the oops and hardlocking the box.
-
-The obvious fix would be to make ip6_dst_idev() return NULL if the
-parameter is NULL, since IP6_INC_STATS_BH() can handle a NULL argument,
-but not sure if this would be correct.
-
-To reproduce use: ip6sic -i lo -d ::1 -p 100000 -r 4959
-it should crash at 92.4%, i was unable to capture the stuff, since the
-box locks up hard, if i find a faster testcase I'll let you know.
-
-Greetings, Eric
-
--- 
- www.cobra-basket.de -- just my stuff
+-------------------------------------------------------------------------
+This SF.net email is sponsored by DB2 Express
+Download DB2 Express C - the FREE version of DB2 express and take
+control of your XML. No limits. Just data. Click to get it now.
+http://sourceforge.net/powerbar/db2/
