@@ -1,46 +1,46 @@
-From: Loic Prylli <loic@myri.com>
-Subject: Re: [ofa-general] Re: IPoIB forwarding
-Date: Tue, 01 May 2007 12:26:48 -0400
-Message-ID: <46376A48.3050102@myri.com>
-References: <6.1.2.0.2.20070423160212.12db6400@mail.llnl.gov>	<20070425124652.GG1624@mellanox.co.il>	<6.1.2.0.2.20070426083410.1389d9e0@mail.llnl.gov>	<20070426161409.GF15540@mellanox.co.il>	<6.1.2.0.2.20070426095112.138e9a68@mail.llnl.gov>	<20070426180618.GJ15540@mellanox.co.il>	<6.1.2.0.2.20070427115435.13ea5ec0@mail.llnl.gov>	<46325DF3.2050203@hp.com>	<6.1.2.0.2.20070427152027.13fe46d0@mail.llnl.gov>	<46327A07.1000404@hp.com>	<6.1.2.0.2.20070427153952.13fc7d08@mail.llnl.gov>	<4632894D.40705@hp.com>	<20070428025117.a3b1200a.billfink@mindspring.com>	<46362244.9030406@hp.com>
-	<20070501015731.3568d28b.billfink@mindspring.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Bryan Lawver <lawver1@llnl.gov>,
-	Linux Network Development list <netdev@vger.kernel.org>,
-	"Michael S. Tsirkin" <mst@dev.mellanox.co.il>,
-	general@lists.openfabrics.org
-To: Bill Fink <billfink@mindspring.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <20070501015731.3568d28b.billfink@mindspring.com>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+From: Richard Knutsson <ricknu-0@student.ltu.se>
+Subject: [PATCH] drivers/net/tokenring: Convert to generic boolean
+Date: Tue, 1 May 2007 18:31:52 +0200 (MEST)
+Message-ID: <20070501162923.2890.36653.sendpatchset@thinktank.campus.ltu.se>
+Cc: netdev@vger.kernel.org, kernel-janitors@lists.osdl.org,
+	Richard Knutsson <ricknu-0@student.ltu.se>
+To: mikep@linuxtr.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gepetto.dc.ltu.se ([130.240.42.40]:33553 "EHLO
+	gepetto.dc.ltu.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754601AbXEAQcG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 May 2007 12:32:06 -0400
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 5/1/2007 1:57 AM, Bill Fink wrote:
-> On Mon, 30 Apr 2007, Rick Jones wrote:
->
->   
->> Ethtool -i on the interface reports 1.2.0 as the driver version.
->>     
->
-> Perhaps it would be useful to have different version strings for
-> the in-kernel Linux version and the Myricom externally provided
-> version.  Just a thought.
->   
+Convert to generic boolean
+
+Signed-off-by: Richard Knutsson <ricknu-0@student.ltu.se>
+---
+Compile-tested with all(yes|mod|no)config on x86(|_64) & sparc(|64)
+Diffed against Linus' git-tree.
 
 
-Indeed, and it is the case as of March-21 git (or any myri10ge version 
- >= 1.3.0). The in-kernel version will show something like:
-1.3.0-1.226, the external version will only show1.3.0.
-
-
-Loic
+diff --git a/drivers/net/tokenring/ibmtr.c b/drivers/net/tokenring/ibmtr.c
+index 1e8958e..0c69eaa 100644
+--- a/drivers/net/tokenring/ibmtr.c
++++ b/drivers/net/tokenring/ibmtr.c
+@@ -116,9 +116,6 @@ in the event that chatty debug messages are desired - jjs 12/30/98 */
+ #define ENABLE_PAGING 1		
+ #endif
+ 
+-#define FALSE 0
+-#define TRUE (!FALSE)
+-
+ /* changes the output format of driver initialization */
+ #define TR_VERBOSE	0
+ 
+@@ -1542,7 +1539,7 @@ static void initial_tok_int(struct net_device *dev)
+ 	ti->ring_speed = init_status & 0x01 ? 16 : 4;
+ 	DPRINTK("Initial interrupt : %d Mbps, shared RAM base %08x.\n",
+ 				ti->ring_speed, (unsigned int)dev->mem_start);
+-	ti->auto_speedsave=readb(ti->init_srb+INIT_STATUS_2_OFST)&4?TRUE:FALSE;
++	ti->auto_speedsave = (readb(ti->init_srb+INIT_STATUS_2_OFST) & 4) != 0;
+ 
+         if (ti->open_mode == MANUAL)	wake_up(&ti->wait_for_reset);
+ 	else				tok_open_adapter((unsigned long)dev);
