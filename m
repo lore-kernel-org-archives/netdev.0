@@ -1,37 +1,57 @@
-From: "Tim Durack" <tdurack@gmail.com>
-Subject: Re: r8169 ethernet bonding problems
-Date: Tue, 1 May 2007 16:59:28 -0400
-Message-ID: <9e246b4d0705011359r208ce760yba6edda835ca67a6@mail.gmail.com>
-References: <9e246b4d0704180552q16b05017wd0d7041c3ce04f46@mail.gmail.com>
-	 <20070418181333.GA2261@electric-eye.fr.zoreil.com>
-	 <9e246b4d0704271353g105ecd62j4f35a6e9027ad590@mail.gmail.com>
-	 <20070427220918.GB24358@electric-eye.fr.zoreil.com>
-	 <9e246b4d0705011317t72bc9413u2b002b71ca3865e9@mail.gmail.com>
-	 <20070501204721.GB19212@electric-eye.fr.zoreil.com>
+From: Jiri Benc <jbenc-AlSwsSmVLrQ@public.gmane.org>
+Subject: Re: [PATCH] zd1211rw-mac80211: limit URB buffering in tx path
+Date: Tue, 1 May 2007 23:10:28 +0200
+Message-ID: <20070501231028.4cfa4053@logostar.upir.cz>
+References: <20070501030100.BDE3D7B409F@zog.reactivated.net>
+	<20070501123411.081c43c6@logostar.upir.cz>
+	<20070501195008.GA14294@p15091797.pureserver.info>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "Francois Romieu" <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.233]:13897 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1945925AbXEAU73 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 May 2007 16:59:29 -0400
-Received: by wx-out-0506.google.com with SMTP id h31so1934926wxd
-        for <netdev@vger.kernel.org>; Tue, 01 May 2007 13:59:28 -0700 (PDT)
-In-Reply-To: <20070501204721.GB19212@electric-eye.fr.zoreil.com>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Cc: Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Ulrich Kunitz <kune-hUSrv6EASfkEnNRfnnE9gw@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20070501195008.GA14294-WhJF3imHnk+bHbQv0o6mQ2hcgWyyV7dXYZdqe9AaVak@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-> Can you try to set the MAC address by hand with the completely patched
-> kernel (i.e. including the mac-address-change patch) ?
+On Tue, 1 May 2007 21:50:08 +0200, Ulrich Kunitz wrote:
+> On 07-05-01 12:34 Jiri Benc wrote:
+> > On Tue,  1 May 2007 04:01:00 +0100 (BST), Daniel Drake wrote:
+> > > The old code allowed unlimited buffing of tx frames in URBs
+> > > submitted for transfer to the device. This patch stops the
+> > > ieee80211_hw queue(s) if to many URBs are ready for submit to the
+> > > device. Actually the ZD1211 device supports currently only one
+> > > queue.
+> > 
+> > This doesn't look correct to me. The limits should be per queue and you
+> > should always stop queues selectively.
+> 
+> The old ZD1211 chip doesn't support queuing and the new ZD1211B
+> chip has support, but it is unclear how to put packets in the
+> different queues. However the error condition here is, that
+> packets can't be transmitted over the USB, which will affect all
+> queues.
 
-Yup. Works fine. The randomly changing interface order is proving to
-be a challenge!
+Really? From what you wrote ("if too many URBs are ready for submit") it
+seems that the code is triggered when the queue is just full. That's not
+necessarily an error condition and the only thing needed to do is to stop
+the queue. Unless zd1211 is really special here (and then I'd like to know
+how is it special).
 
-> Given the last report in http://bugzilla.kernel.org/show_bug.cgi?id=6032,
-> it should be straightforward with your Debian system.
->
-> No clear idea why your three cards are not handled the same though.
+> Sure one could manage different high level marks for the
+> different queues, but this is all theoretical currently. I could
+> have coded with the explicit knowledge that we support only one
+> queue, but it is really work the hassle.
+
+If you support one queue only, call ieee80211_stop_queue(hw, 0). Calling
+ieee80211_stop_queues if you have just a full queue is wrong.
+
+Thanks,
+
+ Jiri
+
+-- 
+Jiri Benc
+SUSE Labs
