@@ -1,40 +1,38 @@
-From: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH] libertas: fix for wireless Kconfig changes
-Date: Tue, 01 May 2007 07:53:38 -0400
-Message-ID: <1178020418.21671.3.camel@localhost.localdomain>
-References: <20070429002844.GA11225@tuxdriver.com>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: Re: [PATCH 4/5] ne: MIPS: Use platform_driver for ne on RBTX49XX
+Date: Tue, 1 May 2007 07:31:34 +0100
+Message-ID: <20070501063134.GA5183@linux-mips.org>
+References: <20070501.002758.15250764.anemo@mba.ocn.ne.jp>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20070429002844.GA11225-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-mips@linux-mips.org, netdev@vger.kernel.org, jeff@garzik.org,
+	sshtylyov@ru.mvista.com, akpm@linux-foundation.org
+To: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ftp.linux-mips.org ([194.74.144.162]:35705 "EHLO
+	ftp.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1031682AbXEAMEY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 May 2007 08:04:24 -0400
+Received: from localhost.localdomain ([127.0.0.1]:23976 "EHLO
+	dl5rb.ham-radio-op.net") by ftp.linux-mips.org with ESMTP
+	id S20022750AbXEAMEV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 May 2007 13:04:21 +0100
+Content-Disposition: inline
+In-Reply-To: <20070501.002758.15250764.anemo@mba.ocn.ne.jp>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2007-04-28 at 20:28 -0400, John W. Linville wrote:
-> Need to change the libertas Kconfig entry to match changes made for
-> other wireless drivers.
+On Tue, May 01, 2007 at 12:27:58AM +0900, Atsushi Nemoto wrote:
+
+> This patch lets RBTX49XX boards use generic platform_driver interface
+> for the ne driver.
 > 
-> Signed-off-by: John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-> ---
-> diff --git a/drivers/net/wireless/Kconfig b/drivers/net/wireless/Kconfig
-> index c4b3dc2..cb09e6b 100644
-> --- a/drivers/net/wireless/Kconfig
-> +++ b/drivers/net/wireless/Kconfig
-> @@ -267,7 +267,7 @@ config IPW2200_DEBUG
->  
->  config LIBERTAS_USB
->  	tristate "Marvell Libertas 8388 802.11a/b/g cards"
-> -	depends on NET_RADIO && USB
-> +	depends on USB && WLAN_80211
->  	select FW_LOADER
->  	---help---
->  	  A driver for Marvell Libertas 8388 USB devices.
+> * Use platform_device to pass ioaddr and irq to the ne driver.
+> * Remove unnecessary ifdefs for RBTX49XX from the ne driver.
+> * Make the ne driver selectable on these boards regardless of CONFIG_ISA
+> 
+> Signed-off-by: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
 
-Will apply, we need to pull in wireless-dev first to get the NET_RADIO
-name change.
+Acked-by: Ralf Baechle <ralf@linux-mips.org>
 
-Dan
+  Ralf
