@@ -1,72 +1,83 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: Bonding two 802.1q interfaces triggers "sleeping function called from invalid context"
-Date: Tue, 01 May 2007 13:33:26 -0700
-Message-ID: <6380.1178051606@death>
-References: <46378B5F.9060301@redhat.com> <20070501193105.GA4737@gospo.rdu.redhat.com>
-Cc: Chuck Ebbert <cebbert@redhat.com>, Netdev <netdev@vger.kernel.org>
-To: Andy Gospodarek <andy@greyhouse.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e1.ny.us.ibm.com ([32.97.182.141]:34992 "EHLO e1.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1423548AbXEAUdb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 May 2007 16:33:31 -0400
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e1.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l41KXVCQ020180
-	for <netdev@vger.kernel.org>; Tue, 1 May 2007 16:33:31 -0400
-Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l41KXTPI530102
-	for <netdev@vger.kernel.org>; Tue, 1 May 2007 16:33:31 -0400
-Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
-	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l41KXSHa021030
-	for <netdev@vger.kernel.org>; Tue, 1 May 2007 16:33:29 -0400
-In-reply-to: <20070501193105.GA4737@gospo.rdu.redhat.com> 
-Sender: netdev-owner@vger.kernel.org
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: [patch 31/33] m68k: kill skb_copy_from_linear_data compiler warnings
+Date: Tue, 01 May 2007 22:33:05 +0200
+Message-ID: <20070501203338.331311229@mail.of.borg>
+References: <20070501203234.252205858@mail.of.borg>
+Cc: linux-m68k@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
+To: Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1423648AbXEAUgz@vger.kernel.org>
+Content-Disposition: inline; filename=m68k-skb_copy_from_linear_data-warnings.diff
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andy Gospodarek <andy@greyhouse.net> wrote:
+The recent conversion from `memcpy' to `skb_copy_from_linear_data' removed a
+few casts, which were needed to silence compiler warnings. Re-add them.
 
->> I need to use a bonding through two 802.1q tag VLAN virtual interface in the
->> same physical network interface. When I bond interface with command :
->> ifenslave bond0 eth1.10 eth1.20
->> Console and dmesg will continues report BUG:
->> --------------Output1 begin kernel 2.6.20-1.2933.fc6------------
->> BUG: sleeping function called from invalid context at include/asm/uaccess.h:500
->> in_atomic():1, irqs_disabled():0
->>  [<c04ecadb>] copy_from_user+0x35/0x66
->>  [<c05c2e78>] dev_ethtool+0x51/0xa0d
->>  [<c05ee503>] tcp_current_mss+0x71/0xdf
->>  [<c05ee169>] tcp_rcv_established+0x74f/0x7de
->>  [<c04cf48f>] selinux_netlbl_sock_rcv_skb+0x1d/0x5b
->>  [<c05f3a78>] tcp_v4_do_rcv+0x1bf/0x49c
->>  [<c05f5f1b>] tcp_v4_rcv+0x564/0x8b1
->>  [<d8a3ac03>] vlan_dev_ioctl+0x7b/0xa7 [8021q]
->>  [<d8a3ab88>] vlan_dev_ioctl+0x0/0xa7 [8021q]
->>  [<d8a53102>] bond_update_speed_duplex+0x88/0xd7 [bonding]
->>  [<d8a5688e>] bond_mii_monitor+0x0/0x403 [bonding]
->>  [<d8a56c01>] bond_mii_monitor+0x373/0x403 [bonding]
->
->Jay Vosburgh and I have been working on something to address this and
->other issues related to possible sleeping activities that might come
->from the monitoring functions.  I feel like we are getting close to
->something so I hope we can post something soon.
->
->Care to add anything, Jay?
-
-	I was thinking about this one a couple of days ago; it's a
-little tricky to get out of, since we nominally need to do the ethtool
-calls holding only rtnl, but don't want to cycle rtnl for each monitor
-pass.
-
-	The warning only shows up with VLANs because VLAN get_settings()
-calls dev_ethtool() directly, and the copy_from_user() in dev_ethtool()
-is the complaining party here.
-
-	Calling an end device driver's get_settings() directly doesn't
-trigger the warning.  I think that's safe without rtnl (at least insofar
-as the slave won't vanish), since the slave cannot vanish without
-bonding being notified via the NETDEV_UNREGISTER notifier.
-
-	-J
-
+Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
 ---
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+ drivers/net/7990.c       |    6 +++---
+ drivers/net/a2065.c      |    4 ++--
+ drivers/net/sun3_82586.c |    5 +++--
+ 3 files changed, 8 insertions(+), 7 deletions(-)
+
+--- linux-m68k-2.6.21.orig/drivers/net/7990.c
++++ linux-m68k-2.6.21/drivers/net/7990.c
+@@ -565,9 +565,9 @@ int lance_start_xmit (struct sk_buff *sk
+         ib->btx_ring [entry].length = (-len) | 0xf000;
+         ib->btx_ring [entry].misc = 0;
+ 
+-    	if (skb->len < ETH_ZLEN)
+-    		memset((char *)&ib->tx_buf[entry][0], 0, ETH_ZLEN);
+-        skb_copy_from_linear_data(skb, &ib->tx_buf[entry][0], skblen);
++	if (skb->len < ETH_ZLEN)
++		memset((void *)&ib->tx_buf[entry][0], 0, ETH_ZLEN);
++        skb_copy_from_linear_data(skb, (void *)&ib->tx_buf[entry][0], skblen);
+ 
+         /* Now, give the packet to the lance */
+         ib->btx_ring [entry].tmd1_bits = (LE_T1_POK|LE_T1_OWN);
+--- linux-m68k-2.6.21.orig/drivers/net/a2065.c
++++ linux-m68k-2.6.21/drivers/net/a2065.c
+@@ -597,11 +597,11 @@ static int lance_start_xmit (struct sk_b
+ 	ib->btx_ring [entry].length = (-len) | 0xf000;
+ 	ib->btx_ring [entry].misc = 0;
+ 
+-	skb_copy_from_linear_data(skb, &ib->tx_buf [entry][0], skblen);
++	skb_copy_from_linear_data(skb, (void *)&ib->tx_buf [entry][0], skblen);
+ 
+ 	/* Clear the slack of the packet, do I need this? */
+ 	if (len != skblen)
+-		memset ((char *) &ib->tx_buf [entry][skblen], 0, len - skblen);
++		memset ((void *) &ib->tx_buf [entry][skblen], 0, len - skblen);
+ 
+ 	/* Now, give the packet to the lance */
+ 	ib->btx_ring [entry].tmd1_bits = (LE_T1_POK|LE_T1_OWN);
+--- linux-m68k-2.6.21.orig/drivers/net/sun3_82586.c
++++ linux-m68k-2.6.21/drivers/net/sun3_82586.c
+@@ -1023,10 +1023,11 @@ static int sun3_82586_send_packet(struct
+ 	{
+ 		len = skb->len;
+ 		if (len < ETH_ZLEN) {
+-			memset((char *)p->xmit_cbuffs[p->xmit_count], 0, ETH_ZLEN);
++			memset((void *)p->xmit_cbuffs[p->xmit_count], 0,
++			       ETH_ZLEN);
+ 			len = ETH_ZLEN;
+ 		}
+-		skb_copy_from_linear_data(skb, p->xmit_cbuffs[p->xmit_count], skb->len);
++		skb_copy_from_linear_data(skb, (void *)p->xmit_cbuffs[p->xmit_count], skb->len);
+ 
+ #if (NUM_XMIT_BUFFS == 1)
+ #	ifdef NO_NOPCOMMANDS
+
+--
+Gr{oetje,eeting}s,
+
+						Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+							    -- Linus Torvalds
