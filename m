@@ -1,73 +1,41 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+From: Benjamin LaHaise <bcrl@kvack.org>
 Subject: Re: [PATCH] TCP FIN gets dropped prematurely, results in ack storm
-Date: Tue, 1 May 2007 22:02:49 +0400
-Message-ID: <20070501180249.GB11542@2ka.mipt.ru>
-References: <20070501151354.GB1751@kvack.org> <20070501162050.GB21896@2ka.mipt.ru> <20070501164935.GC1751@kvack.org> <20070501174126.GA7577@2ka.mipt.ru> <20070501175718.GA11542@2ka.mipt.ru>
+Date: Tue, 1 May 2007 14:04:05 -0400
+Message-ID: <20070501180405.GE1751@kvack.org>
+References: <20070501151354.GB1751@kvack.org> <20070501162050.GB21896@2ka.mipt.ru> <20070501164935.GC1751@kvack.org> <46377EBB.6080604@psc.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Benjamin LaHaise <bcrl@kvack.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: John Heffner <jheffner@psc.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:41740 "EHLO 2ka.mipt.ru"
+Received: from kanga.kvack.org ([66.96.29.28]:36906 "EHLO kanga.kvack.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755220AbXEASDF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 May 2007 14:03:05 -0400
+	id S1755233AbXEASEY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 May 2007 14:04:24 -0400
 Content-Disposition: inline
-In-Reply-To: <20070501175718.GA11542@2ka.mipt.ru>
+In-Reply-To: <46377EBB.6080604@psc.edu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, May 01, 2007 at 09:57:18PM +0400, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
-> > I think if you will storm any system with acks lower than expected
-> > unacknowledged number, result will be the same - ack, that it was bogus
-> > message, if sending system sends wrong ack again, it will again receive
-> > that it was bogus...
-> 
-> Wrong syn number of course.
-> I described not exactly correct case - likely broken side does not know 
-> that its messages were lost (or specially crafts such packets), so it 
-> retransmit the same bogus packet with wrong syn, which already was acked.
-> 
-> As far as I can see, this is it:
-> 
-> /* step 1: check sequence number */
-> if (!tcp_sequence(tp, TCP_SKB_CB(skb)->seq, TCP_SKB_CB(skb)->end_seq)) {
-> 	if (!th->rst)
-> 		tcp_send_dupack(sk, skb);
-> 	goto discard;
-> }
+On Tue, May 01, 2007 at 01:54:03PM -0400, John Heffner wrote:
+> Looking at your trace, it seems like the behavior of the test system 
+> 192.168.2.2 is broken in two ways.  First, like you said it has broken 
+> state in that it has forgotten that it sent the FIN.  Once you do that, 
+> the connection state is corrupt and all bets are off.  It's sending an 
+> out-of-window segment that's getting tossed by Linux, and Linux 
+> generates an ack in response.  This is in direct RFC compliance.  The 
+> second problem is that the other system is generating these broken acks 
+> in response to the legitimate acks Linux is sending, causing the ack 
+> war.  I can't really guess why it's doing that...
 
-And this is part of the RFC Linux follows:
+I know it's a bug, and I'm trying to fix it, but that doesn't change the 
+fact that A) the system is already deployed and B) Linux is not retransmitting 
+the FIN, which (from Linux's point of view) remains unacknowledged by the 
+other side.  The patch might be wrong, but the goal of fixing the behaviour 
+isn't.
 
-        There are four cases for the acceptability test for an incoming
-        segment:
-
-        Segment Receive  Test
-        Length  Window
-        ------- -------  -------------------------------------------
-
-           0       0     SEG.SEQ = RCV.NXT
-
-           0      >0     RCV.NXT =< SEG.SEQ < RCV.NXT+RCV.WND
-
-          >0       0     not acceptable
-
-          >0      >0     RCV.NXT =< SEG.SEQ < RCV.NXT+RCV.WND
-                      or RCV.NXT =< SEG.SEQ+SEG.LEN-1 < RCV.NXT+RCV.WND
-
-        If the RCV.WND is zero, no segments will be acceptable, but
-        special allowance should be made to accept valid ACKs, URGs and
-        RSTs.
-
-        If an incoming segment is not acceptable, an acknowledgment
-        should be sent in reply (unless the RST bit is set, if so drop
-        the segment and return):
-
-          <SEQ=SND.NXT><ACK=RCV.NXT><CTL=ACK>
-
-        After sending the acknowledgment, drop the unacceptable segment
-        and return.
-
-
+		-ben
 -- 
-	Evgeniy Polyakov
+"Time is of no importance, Mr. President, only life is important."
+Don't Email: <zyntrop@kvack.org>.
