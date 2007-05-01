@@ -1,37 +1,52 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH] AFS: Fix use of __exit functions from __init path
-Date: Tue, 1 May 2007 20:30:56 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0705012030450.27246@anakin>
-References: <20070501181706.28008.10566.stgit@warthog.cambridge.redhat.com>
+From: =?ISO-8859-1?Q?Mart=EDn?= Ferrari <martin.ferrari@gmail.com>
+Subject: IFF_PROMISC again
+Date: Tue, 01 May 2007 15:36:08 -0300
+Message-ID: <1178044568.7116.14.camel@abraxas.dyn-o-saur.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@osdl.org>,
-	Linux Kernel Development <linux-kernel@vger.kernel.org>,
-	linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org
-To: David Howells <dhowells@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hoboe2bl1.telenet-ops.be ([195.130.137.73]:34045 "EHLO
-	hoboe2bl1.telenet-ops.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1031239AbXEASa7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 May 2007 14:30:59 -0400
-In-Reply-To: <20070501181706.28008.10566.stgit@warthog.cambridge.redhat.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: linux-net@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 1 May 2007, David Howells wrote:
-> Fix use of __exit functions from __init path.
-> 
-> Signed-off-by: David Howells <dhowells@redhat.com>
+Hi, for the nth time I send this email, hoping that majordomo won't eat
+it again.
 
-Acked-by: Geert Uytterhoeven <geert@linux-m68k.org>
 
-Gr{oetje,eeting}s,
+I know this has been extensibly discussed circa 2001, but I found that
+there's still problems: in debian (at least) neither ifconfig nor ip
+can tell that the interface is in promiscuous mode.
 
-						Geert
+I know about the deprecation of IFF_PROMISC, but I couldn't find out
+which is the current way of knowing the real state of the interface. I
+want to fix ifconfig, so this is not an issue of
+PACKET_(ADD|REMOVE)_MEMBERSHIP, I need to query the real device state.
 
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+Also, it's unclear to me what happens when you set/reset IFF_PROMISC
+and then libpcap fiddles with membership. Is this documented
+somewhere?
 
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-							    -- Linus Torvalds
+It has been said many times that ip should give this information. I
+cannot see this:
+
+$ sudo tcpdump -ni eth2 port 3333 &
+$ dmesg |tail -2
+device eth2 entered promiscuous mode
+audit(1175904782.767:40): dev=3Deth2 prom=3D256 old_prom=3D0 auid=3D429=
+4967295
+$ ip link show eth2
+4: eth2: <BROADCAST,MULTICAST,UP,10000> mtu 1500 qdisc pfifo_fast qlen
+1000
+   link/ether 00:18:de:81:24:a2 brd ff:ff:ff:ff:ff:ff
+$ ip -V
+ip utility, iproute2-ss060323
+
+I think that is a problem for user tools to not know about this, and I
+want to fix them. I don't know how. Can anyone give me a pointer?
+
+Thanks, Mart=C3=ADn.
+
+--=20
+Mart=C3=ADn Ferrari <martin.ferrari@gmail.com>
+
