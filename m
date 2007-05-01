@@ -1,51 +1,38 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: r8169 2.2LK: Low link speed after suspend
-Date: Tue, 1 May 2007 22:07:23 +0200
-Message-ID: <20070501200723.GA19212@electric-eye.fr.zoreil.com>
-References: <200704162241.31729.peter.missel@onlinehome.de> <200704172236.43280.peter.missel@onlinehome.de> <20070417223027.GA9517@electric-eye.fr.zoreil.com> <200705012119.48598.peter.missel@onlinehome.de>
+From: "Tim Durack" <tdurack@gmail.com>
+Subject: Re: r8169 ethernet bonding problems
+Date: Tue, 1 May 2007 16:17:44 -0400
+Message-ID: <9e246b4d0705011317t72bc9413u2b002b71ca3865e9@mail.gmail.com>
+References: <9e246b4d0704180552q16b05017wd0d7041c3ce04f46@mail.gmail.com>
+	 <20070418181333.GA2261@electric-eye.fr.zoreil.com>
+	 <9e246b4d0704271353g105ecd62j4f35a6e9027ad590@mail.gmail.com>
+	 <20070427220918.GB24358@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Peter Missel <peter.missel@onlinehome.de>
+To: "Francois Romieu" <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:49540 "EHLO
-	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753831AbXEAUKF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 May 2007 16:10:05 -0400
+Received: from wx-out-0506.google.com ([66.249.82.238]:56978 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753639AbXEAURp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 May 2007 16:17:45 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so1924801wxd
+        for <netdev@vger.kernel.org>; Tue, 01 May 2007 13:17:45 -0700 (PDT)
+In-Reply-To: <20070427220918.GB24358@electric-eye.fr.zoreil.com>
 Content-Disposition: inline
-In-Reply-To: <200705012119.48598.peter.missel@onlinehome.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Peter Missel <peter.missel@onlinehome.de> :
-[...]
-> Sorry, returning to this issue took me longer than anticipated before I could 
-> return to the issue.
+> A tcpdump trace 1) before promiscuous mode 2) after promiscuous mode 3)
+> after link failure (i.e. failover does not work) would be welcome.
 
-No problem, it is in my bugs store.
+Okay, after fixing STP forwarding delays on the switch, bonding
+failover now works, as long as member links are forced to promisc
+mode.
 
-[...]
-> Unfortunately the driver that comes with 2.6.18 doesn't appear to support 
-> mii-tool. I get this message:
-> 
-> >Mars:~ # mii-tool -w eth2
-> >SIOCGMIIPHY on 'eth2' failed: Operation not supported
+Still Have a problem with links randomly failing to achieve link on
+boot. This then requires a "modprobe -r r8169; modprobe r8169" cycle
+to get link. Side effect is the mac address corruption I have
+described previously.
 
-Are you sure that your system is kept up-to-date ?
-
-If I read correctly, Suse's 10.2's kernel 2.6.18.8-0.1 includes a
-2.6.19-rc5 version of the r8169 driver. It should support the relevant
-ioctl (please add '-v -v' to the mii-tool command btw).
-
-However...
-
-> Next I'll be looking at the provided backport. Also, I'll be confronted with 
-> SuSE 10.2 and the RTL8111B at work next week.
-
-... for the 8168/8111B, it is strongly suggested to use 2.6.21 +
-http://www.fr.zoreil.com/people/francois/misc/20070430-2.6.21-r8169-test.patch
-
--- 
-Ueimor
-
-Anybody got a battery for my Ultra 10 ?
+Tim:>
