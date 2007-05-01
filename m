@@ -1,93 +1,67 @@
-From: Richard Purdie <rpurdie@rpsys.net>
-Subject: Re: [Bugme-new] [Bug 8405] New: pppd does stops compresion with
-	"Lost compression sync"
-Date: Tue, 01 May 2007 22:22:40 +0100
-Message-ID: <1178054560.5883.87.camel@localhost.localdomain>
-References: <200704292001.l3TK1P6d000716@fire-2.osdl.org>
-	 <200705010520.10097.stefan.wenk@gmx.at>
-	 <20070430203606.ce9bc944.akpm@linux-foundation.org>
-	 <200705010927.52426.stefan.wenk@gmx.at>
+From: Mark Brown <broonie@sirena.org.uk>
+Subject: Re: Natsemi DP83815 driver spaming
+Date: Tue, 1 May 2007 22:27:51 +0100
+Message-ID: <20070501212750.GC31630@sirena.org.uk>
+References: <46365887.3010705@interia.pl> <20070430205522.abad2481.akpm@linux-foundation.org> <20070501084639.GA528@sirena.org.uk> <46371590.4090004@interia.pl> <20070501180830.GA31630@sirena.org.uk> <46379A7E.3000109@interia.pl>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	"bugme-daemon@kernel-bugs.osdl.org"
-	<bugme-daemon@bugzilla.kernel.org>
-To: Stefan Wenk <stefan.wenk@gmx.at>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="lCAWRPmW1mITcIfM"
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: =?utf-8?B?UmFmYcWC?= Bilski <rafalbilski@interia.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tim.rpsys.net ([194.106.48.114]:56902 "EHLO tim.rpsys.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1423661AbXEAVXE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 May 2007 17:23:04 -0400
-In-Reply-To: <200705010927.52426.stefan.wenk@gmx.at>
+Received: from cassiel.sirena.org.uk ([80.68.93.111]:4114 "EHLO
+	cassiel.sirena.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1423672AbXEAV2i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 May 2007 17:28:38 -0400
+Content-Disposition: inline
+In-Reply-To: <46379A7E.3000109@interia.pl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2007-05-01 at 09:27 +0200, Stefan Wenk wrote:
-> Now I have changed these modifications 
-> back, and I do not see more debug information except those below:
-> 
-> z_decompress0: Would have triggered an error as inflate returned -5 ()
-> z_decompress0: Would have triggered an error as inflate returned -5 ()
-> z_decompress0: Would have triggered an error as inflate returned -5 ()
-> ..
-> As there are no debug logs in inflate.c I can't provide more information by 
-> now.
 
-I had a look at that trace you sent, the echo and replys were normal but
-obviously something is going wrong and it tries to negotiate turning off
-the compression...
+--lCAWRPmW1mITcIfM
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Having looked at the code a bit further, I have a theory that it was
-impossible to reach the zlib_inflateSyncPacket call ppp deflate needs.
-The patch below fixes that and also adds some debugging so if that isn't
-the problem, we might get some further clues as to what the problem
-is...
+On Tue, May 01, 2007 at 09:52:30PM +0200, Rafa=C5=82 Bilski wrote:
 
-Thanks for the patience :)
+> >  * 2) check for sudden death of the NIC:
+> >  *    It seems that a reference set for this chip went out with incorre=
+ct info,
+> >  *    and there exist boards that aren't quite right.  An unexpected vo=
+ltage
+> >  *    drop can cause the PHY to get itself in a weird state (basically =
+reset).
+> >  *    NOTE: this only seems to affect revC chips.
 
-Richard
+> Code commented out and NIC is working OK. Strange.
+> eth0: DSPCFG accepted after 0 usec.
+> eth0: link up.
+> eth0: Setting full-duplex based on negotiated link capability.
+> dspcfg =3D 0x00000000  np->dspcfg =3D 0x00005060
 
-Index: linux/drivers/net/ppp_deflate.c
-===================================================================
---- linux.orig/drivers/net/ppp_deflate.c	2007-01-18 00:52:50.000000000 +0000
-+++ linux/drivers/net/ppp_deflate.c	2007-05-01 22:21:27.000000000 +0100
-@@ -488,6 +488,13 @@ int z_decompress(void *arg, unsigned cha
- 	for (;;) {
- 		r = zlib_inflate(&state->strm, Z_PACKET_FLUSH);
- 		if (r != Z_OK) {
-+			printk(KERN_ERR "z_decompress%d: inflate returned %d (%s)"
-+				",av in %d, av out %d, t in %ld, t out %ld, dp %d,"
-+				" of %d, is %d, os %d\n",
-+				state->unit, r, (state->strm.msg? state->strm.msg: ""),
-+				state->strm.avail_in, state->strm.avail_out,
-+				state->strm.total_in, state->strm.total_out,
-+				decode_proto, overflow, isize, osize);
- 			if (state->debug)
- 				printk(KERN_DEBUG "z_decompress%d: inflate returned %d (%s)\n",
- 				       state->unit, r, (state->strm.msg? state->strm.msg: ""));
-Index: linux/lib/zlib_inflate/inflate.c
-===================================================================
---- linux.orig/lib/zlib_inflate/inflate.c	2007-01-18 00:53:08.000000000 +0000
-+++ linux/lib/zlib_inflate/inflate.c	2007-05-01 22:03:53.000000000 +0100
-@@ -743,12 +743,14 @@ int zlib_inflate(z_streamp strm, int flu
- 
-     strm->data_type = state->bits + (state->last ? 64 : 0) +
-                       (state->mode == TYPE ? 128 : 0);
--    if (((in == 0 && out == 0) || flush == Z_FINISH) && ret == Z_OK)
--        ret = Z_BUF_ERROR;
- 
-     if (flush == Z_PACKET_FLUSH && ret == Z_OK &&
-             (strm->avail_out != 0 || strm->avail_in == 0))
- 		return zlib_inflateSyncPacket(strm);
-+
-+    if (((in == 0 && out == 0) || flush == Z_FINISH) && ret == Z_OK)
-+        ret = Z_BUF_ERROR;
-+
-     return ret;
- }
- 
+Oh, that's entertaining.  I have to confess that I've never seen an that
+triggered the workaround before - adding the maintainer, Tim Hockin, who
+may be able to shed some light on the expected behaviour here?
 
+--=20
+"You grabbed my hand and we fell into it, like a daydream - or a fever."
 
+--lCAWRPmW1mITcIfM
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.6 (GNU/Linux)
 
+iQCVAwUBRjew0g2erOLNe+68AQLB7gP/UF8EfsfYk3DpjOXTDxpq3sQULwcfwbKx
+AqbjNFlQU+W/LuIBYIuUN5yYGRGHzGYE8u8lrjz25xXPDlia/K7YPbR6kJa68cTM
+JUmeX6HD3h1PoYt5jUwzq4ZiIQP9mZJObGA5VLQ10erd+aKEE5Mz25wxVq0xX9ix
+ZUn0gafqhM4=
+=bjmt
+-----END PGP SIGNATURE-----
+
+--lCAWRPmW1mITcIfM--
