@@ -1,49 +1,40 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+From: John Heffner <jheffner@psc.edu>
 Subject: Re: [PATCH] TCP FIN gets dropped prematurely, results in ack storm
-Date: Tue, 1 May 2007 22:07:08 +0400
-Message-ID: <20070501180708.GA1882@2ka.mipt.ru>
-References: <20070501151354.GB1751@kvack.org> <20070501162050.GB21896@2ka.mipt.ru> <20070501164935.GC1751@kvack.org> <46377EBB.6080604@psc.edu> <20070501180405.GE1751@kvack.org>
+Date: Tue, 01 May 2007 14:03:04 -0400
+Message-ID: <463780D8.2080105@psc.edu>
+References: <20070501151354.GB1751@kvack.org> <20070501162050.GB21896@2ka.mipt.ru> <20070501164935.GC1751@kvack.org> <20070501174126.GA7577@2ka.mipt.ru> <20070501175340.GD1751@kvack.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: John Heffner <jheffner@psc.edu>,
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
 	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 To: Benjamin LaHaise <bcrl@kvack.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:42536 "EHLO 2ka.mipt.ru"
+Received: from mailer2.psc.edu ([128.182.66.106]:61350 "EHLO mailer2.psc.edu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755243AbXEASHY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 May 2007 14:07:24 -0400
-Content-Disposition: inline
-In-Reply-To: <20070501180405.GE1751@kvack.org>
+	id S1755255AbXEASIN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 May 2007 14:08:13 -0400
+In-Reply-To: <20070501175340.GD1751@kvack.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, May 01, 2007 at 02:04:05PM -0400, Benjamin LaHaise (bcrl@kvack.org) wrote:
-> I know it's a bug, and I'm trying to fix it, but that doesn't change the 
-> fact that A) the system is already deployed and B) Linux is not retransmitting 
-> the FIN, which (from Linux's point of view) remains unacknowledged by the 
-> other side.  The patch might be wrong, but the goal of fixing the behaviour 
-> isn't.
+Benjamin LaHaise wrote:
+> On Tue, May 01, 2007 at 09:41:28PM +0400, Evgeniy Polyakov wrote:
+>> Hmm, 2.2 machine in your test seems to behave incorrectly:
+> 
+> I am aware of that.  However, I think that the loss of certain packets and 
+> reordering can result in the same behaviour.  What's more, is that this 
+> behaviour can occur in real deployed systems.  "Be strict in what you send 
+> and liberal in what you accept."  Both systems should be fixed, which is 
+> what I'm trying to do.
 
-It does retransmit fin:
+Actually, you cannot get in this situation by loss or reordering of 
+packets, only be corruption of state on one side.  It sends the FIN, 
+which effectively increases the sequence number by one.  However, all 
+later segments it sends have an old lower sequence number, which are now 
+out of window.
 
-10:23:32.298477 IP (tos 0x0, ttl 255, id 39972, offset 0, flags [DF],
-proto: TCP (6), length: 52) 192.168.1.1.59192 > 192.168.2.2.bgp: F,
-cksum 0x5558 (correct), 1562038077:1562038077(0) ack 2624175183 win 183
-<nop,nop,timestamp 1549356119 781231>
-10:23:32.599809 IP (tos 0x0, ttl 255, id 39973, offset 0, flags [DF],
-proto: TCP (6), length: 52) 192.168.1.1.59192 > 192.168.2.2.bgp: F,
-cksum 0x542b (correct), 1562038077:1562038077(0) ack 2624175183 win 183
-<nop,nop,timestamp 1549356420 781231>
-10:23:33.201722 IP (tos 0x0, ttl 255, id 40802, offset 0, flags [DF],
-proto: TCP (6), length: 52) 192.168.1.1.59192 > 192.168.2.2.bgp: F,
-cksum 0x51d1 (correct), 1562038077:1562038077(0) ack 2624175183 win 183
-<nop,nop,timestamp 1549357022 781231>
-10:23:34.405537 IP (tos 0x0, ttl 255, id 40914, offset 0, flags [DF],
-proto: TCP (6), length: 52) 192.168.1.1.59192 > 192.168.2.2.bgp: F,
-cksum 0x4d1d (correct), 1562038077:1562038077(0) ack 2624175183 win 183
-<nop,nop,timestamp 1549358226 781231>
+Being liberal in what you accept is good to a point, but sometimes you 
+have to draw the line.
 
-
--- 
-	Evgeniy Polyakov
+   -John
