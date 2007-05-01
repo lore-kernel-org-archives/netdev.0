@@ -1,70 +1,86 @@
-From: Benjamin LaHaise <bcrl@kvack.org>
-Subject: [PATCH] TCP FIN gets dropped prematurely, results in ack storm
-Date: Tue, 1 May 2007 11:13:54 -0400
-Message-ID: <20070501151354.GB1751@kvack.org>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: [PATCH] e100 rx: or s and el bits
+Date: Tue, 01 May 2007 08:21:33 -0700
+Message-ID: <46375AFD.7000609@intel.com>
+References: <200705011124.l41BOEG4007662@sullivan.realtime.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Scott Feldman <sfeldma@pobox.com>, Jeff Garzik <jeff@garzik.org>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	John Ronciak <john.ronciak@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: Milton Miller <miltonm@bga.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kanga.kvack.org ([66.96.29.28]:34987 "EHLO kanga.kvack.org"
+Received: from mga02.intel.com ([134.134.136.20]:36619 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754752AbXEAPOH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 May 2007 11:14:07 -0400
-Content-Disposition: inline
+	id S965686AbXEAPVg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 May 2007 11:21:36 -0400
+In-Reply-To: <200705011124.l41BOEG4007662@sullivan.realtime.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+Milton Miller wrote:
+> In commit d52df4a35af569071fda3f4eb08e47cc7023f094, the description
+> talks about emulating another driver by setting addtional bits and
+> the being unable to test when submitted.  Seeing the & operator to
+> set more bits made me suspicious, and indeed the bits are defined
+> in positive logic:
+> 
+> 	cb_s      = 0x4000,
+> 	cb_el     = 0x8000,
+> 
+> So anding those together would be 0.   I'm guessing they should
+> be or'd, but don't have hardware here to test, much like the
+> committed patch.  In fact, I'll let someone else do the compile
+> test too.  I'll update the comment.
+> 
+> (It looks like the end of list and s bits would not be set
+> in the template nor cleared when linking in recieve skbs, so
+> as long as the kernel can keep up with the 100Mb card we 
+> wouldn't see the adapter go off the linked list, possibly
+> explaining any successful use of this patch written against
+> 2.6.14).
 
-While testing a failover scenario, I managed to trigger an ack storm 
-between a Linux box and another system.  Although the cause of this particular 
-ACK storm was due to the other box forgetting that it sent out a FIN (the 
-second node was unaware of the FIN the first sent in its dying gasp, which 
-is what I'm trying to fix, but it's a tricky race), the resulting Linux 
-behaviour wasn't very robust.  Is there any particularly good reason that 
-FIN flag gets cleared on a connection which is being shut down?  The trace 
-that motivates this can be seen at 
-http://www.kvack.org/~bcrl/ack-storm.log .  As near as I can tell, a 
-similar effect can occur between two Linux boxes if the right packets get 
-reordered/dropped during connection teardown.
+yes, that definately doesn't seem right. I'll try to run this and watch out for 
+David Ackers report as well.
 
-		-ben
+Thanks,
 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 0faacf9..1e54291 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -635,9 +635,9 @@ int tcp_fragment(struct sock *sk, struct sk_buff *skb, u32 len, unsigned int mss
- 	TCP_SKB_CB(buff)->end_seq = TCP_SKB_CB(skb)->end_seq;
- 	TCP_SKB_CB(skb)->end_seq = TCP_SKB_CB(buff)->seq;
- 
--	/* PSH and FIN should only be set in the second packet. */
-+	/* PSH should only be set in the second packet. */
- 	flags = TCP_SKB_CB(skb)->flags;
--	TCP_SKB_CB(skb)->flags = flags & ~(TCPCB_FLAG_FIN|TCPCB_FLAG_PSH);
-+	TCP_SKB_CB(skb)->flags = flags & ~(TCPCB_FLAG_PSH);
- 	TCP_SKB_CB(buff)->flags = flags;
- 	TCP_SKB_CB(buff)->sacked = TCP_SKB_CB(skb)->sacked;
- 	TCP_SKB_CB(skb)->sacked &= ~TCPCB_AT_TAIL;
-@@ -1124,9 +1124,9 @@ static int tso_fragment(struct sock *sk, struct sk_buff *skb, unsigned int len,
- 	TCP_SKB_CB(buff)->end_seq = TCP_SKB_CB(skb)->end_seq;
- 	TCP_SKB_CB(skb)->end_seq = TCP_SKB_CB(buff)->seq;
- 
--	/* PSH and FIN should only be set in the second packet. */
-+	/* PSH should only be set in the second packet. */
- 	flags = TCP_SKB_CB(skb)->flags;
--	TCP_SKB_CB(skb)->flags = flags & ~(TCPCB_FLAG_FIN|TCPCB_FLAG_PSH);
-+	TCP_SKB_CB(skb)->flags = flags & ~(TCPCB_FLAG_PSH);
- 	TCP_SKB_CB(buff)->flags = flags;
- 
- 	/* This packet was never sent out yet, so no SACK bits. */
-@@ -1308,7 +1308,7 @@ static int tcp_mtu_probe(struct sock *sk)
- 			sk_stream_free_skb(sk, skb);
- 		} else {
- 			TCP_SKB_CB(nskb)->flags |= TCP_SKB_CB(skb)->flags &
--						   ~(TCPCB_FLAG_FIN|TCPCB_FLAG_PSH);
-+						   ~(TCPCB_FLAG_PSH);
- 			if (!skb_shinfo(skb)->nr_frags) {
- 				skb_pull(skb, copy);
- 				if (skb->ip_summed != CHECKSUM_PARTIAL)
+Auke
+
+
+> 
+> Signed-off-by: Milton Miller <miltonm@bga.com>
+> 
+> 
+> --- linux-2.6/drivers/net/e100.c.orig	2007-05-01 05:19:17.000000000 -0500
+> +++ linux-2.6/drivers/net/e100.c	2007-05-01 05:22:14.000000000 -0500
+> @@ -947,7 +947,7 @@ static void e100_get_defaults(struct nic
+>  		((nic->mac >= mac_82558_D101_A4) ? cb_cid : cb_i));
+>  
+>  	/* Template for a freshly allocated RFD */
+> -	nic->blank_rfd.command = cpu_to_le16(cb_el & cb_s);
+> +	nic->blank_rfd.command = cpu_to_le16(cb_el | cb_s);
+>  	nic->blank_rfd.rbd = 0xFFFFFFFF;
+>  	nic->blank_rfd.size = cpu_to_le16(VLAN_ETH_FRAME_LEN);
+>  
+> @@ -1769,13 +1769,13 @@ static int e100_rx_alloc_skb(struct nic 
+>  	}
+>  
+>  	/* Link the RFD to end of RFA by linking previous RFD to
+> -	 * this one, and clearing EL bit of previous.  */
+> +	 * this one, and clearing EL and S bit of previous.  */
+>  	if(rx->prev->skb) {
+>  		struct rfd *prev_rfd = (struct rfd *)rx->prev->skb->data;
+>  		put_unaligned(cpu_to_le32(rx->dma_addr),
+>  			(u32 *)&prev_rfd->link);
+>  		wmb();
+> -		prev_rfd->command &= ~cpu_to_le16(cb_el & cb_s);
+> +		prev_rfd->command &= ~cpu_to_le16(cb_el | cb_s);
+>  		pci_dma_sync_single_for_device(nic->pdev, rx->prev->dma_addr,
+>  			sizeof(struct rfd), PCI_DMA_TODEVICE);
+>  	}
