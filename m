@@ -1,40 +1,245 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [PATCH] TCP FIN gets dropped prematurely, results in ack storm
-Date: Tue, 1 May 2007 22:25:06 +0400
-Message-ID: <20070501182506.GA17626@2ka.mipt.ru>
-References: <20070501151354.GB1751@kvack.org> <20070501182006.GA12030@2ka.mipt.ru>
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: RE: [PATCH] IPROUTE: Modify tc for new PRIO multiqueue behavior
+Date: Tue, 1 May 2007 11:27:58 -0700
+Message-ID: <D5C1322C3E673F459512FB59E0DDC32902C0DB88@orsmsx414.amr.corp.intel.com>
+References: <1177937770.7027.61.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Benjamin LaHaise <bcrl@kvack.org>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Patrick McHardy" <kaber@trash.net>,
+	"Stephen Hemminger" <shemminger@linux-foundation.org>,
+	<netdev@vger.kernel.org>, <jgarzik@pobox.com>,
+	"cramerj" <cramerj@intel.com>,
+	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
+	"Leech, Christopher" <christopher.leech@intel.com>,
+	<davem@davemloft.net>
+To: <hadi@cyberus.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:49383 "EHLO 2ka.mipt.ru"
+Received: from mga02.intel.com ([134.134.136.20]:42562 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030936AbXEASZO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 May 2007 14:25:14 -0400
-Content-Disposition: inline
-In-Reply-To: <20070501182006.GA12030@2ka.mipt.ru>
+	id S1030998AbXEAS2B convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 May 2007 14:28:01 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <1177937770.7027.61.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, May 01, 2007 at 10:20:07PM +0400, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
-> On Tue, May 01, 2007 at 11:13:54AM -0400, Benjamin LaHaise (bcrl@kvack.org) wrote:
-> > Hello,
-> > 
-> > While testing a failover scenario, I managed to trigger an ack storm 
-> > between a Linux box and another system.  Although the cause of this particular 
-> > ACK storm was due to the other box forgetting that it sent out a FIN (the 
-> > second node was unaware of the FIN the first sent in its dying gasp, which 
-> > is what I'm trying to fix, but it's a tricky race), the resulting Linux 
-> > behaviour wasn't very robust.  Is there any particularly good reason that 
+> On Fri, 2007-27-04 at 08:45 -0700, Waskiewicz Jr, Peter P wrote:
+> > > On Thu, 2007-26-04 at 09:30 -0700, Waskiewicz Jr, Peter P wrote:
 > 
-> One of the packets sent by broken 1.1 host has incorrect checksum, so it
-> will be dropped by 2.2 system in theory, could that packet somehow break
-> 2.2 stack's state machine?
+> 
+> > I agree, that to be fair for discussing the code that you 
+> should look 
+> > at the patches before drawing conclusions.
+> > I appreciate the fact you have
+> > a different idea for your approach for multiqueue, but 
+> without having 
+> > specific things to discuss in terms of implementation, I'm 
+> at a loss 
+> > for what you want to see done.  These patches have been released in 
+> > the community for a few months now, and the general 
+> approach has been 
+> > accepted for the most part.
+> > 
+> 
+> Sorry, I (was too busy with real work and) wasnt keeping up 
+> with netdev.
+> And stop whining please if you want me to comment; that is 
+> such an important part of the network subsystem - so your 
+> patches need more scrutiny because their impact is huge. And 
+> i know that subsystem enough that i dont need to look at your 
+> patches to know you are going to be hit by a big truck (by 
+> just observing you are crossing a busy highway on foot).
 
-It seems so, 2.2 stack expects i-1 sequence number, so when you add fin
-into both (i-1)'th and i'th packets, 2.2 system correctly completes session
-thinking that i-1 is the real last message, which is not.
+I don't know how you think I'm whining here.  I'm just expecting people
+that make comments on patches submitted to actually look at them if they
+wish to make comments.  Otherwise, I have no idea what to fix if you
+don't give context.  The basis of your criticism and comments should be
+based on the code, and not be influenced that my approach is different
+than your approach.  If you have a better approach, then please post it
+so the community can decide.  My patches have been under discussion for
+a few months, and the general approach has been fairly well-accepted.
+The comments that David, Patrick, and Thomas have given were more on
+implementation, which have been fixed and are what you see today.  So if
+you don't like my approach, then please provide an alternative.
 
--- 
-	Evgeniy Polyakov
+> 
+> > That being said, my approach was to provide an API for drivers to 
+> > implement multiqueue support.  We originally went with an 
+> idea to do 
+> > the multiqueue support in the driver.
+> 
+> That is certainly one (brute) approach. This way you meet the 
+> requirement of not changing anything on the qdisc level (user 
+> or kernel level). But i am not sure you need an "API" perse.
+
+Please explain why this is a brute force approach.  Today, netdev gives
+drivers an API to manage the device queue (dev->queue_lock).  I extended
+this to provide a management API to manage each queue on a device.  This
+to me makes complete sense; why hide the fact a device has multiple
+queues from the kernel?  I don't understand your comments here.
+
+>  
+> > However, many questions came up that
+> > were answered by pulling things into the qdisc / netdev layer.
+> > Specifically, if all the multiqueue code is in the driver, 
+> how would 
+> > you ensure one flow of traffic (say on queue 0) doesn't 
+> interfere with 
+> > another flow (say on queue 1)?  If queue 1 on your NIC ran out of 
+> > descriptors, the driver will set dev->queue_lock to 
+> __LINK_STATE_XOFF, 
+> > which will cause all entry points into the scheduler to 
+> stop (i.e. - 
+> > no more packets going to the NIC).  That will also shut 
+> down queue 0.  
+> > As soon as that happens, that is not multiqueue network 
+> support.  The 
+> > other question was how to classify traffic.  We're 
+> proposing to use tc 
+> > filters to do it, since the user has control over that; having 
+> > flexibility to meet different network needs is a plus.  We 
+> had tried 
+> > doing queue selection in the driver, and it killed 
+> performance.  Hence 
+> > why we pulled it into the qdisc layer.
+> 
+> at some point when my thinking was evolving, I had similar 
+> thoughts crossing my mind, but came to the conclusion i was 
+> thinking too hard when i started (until i started to 
+> look/think about the OLPC mesh network challenge).
+> 
+> Lets take baby steps so we can make this a meaningful discussion.
+> Ignore wireless for a second and talk just about simple wired 
+> interfaces; we can then come back to wireless in a later discussion.
+> 
+> For the first baby steps, lets look at strict prio which if i 
+> am not mistaken is what you e1000 NICs support; but even that 
+> were not the case, strict prio covers a huge amount of 
+> multi-queue capability. 
+> For simplicity, lets pick something with just 2 hardware 
+> queues; PH and PL (PH stands for High Prio and PL low prio). 
+> With me so far?
+
+E1000 is not strict prio scheduling, rather, it is round-robin.  This
+question was posed by Patrick McHardy on netdev and I answered it 2
+weeks ago.
+
+> 
+> I am making the assumptions that: 
+> a) you understand the basics of strict prio scheduling
+> b) You have configured strict prio in the qdisc level and the 
+> hardware levels to be synced i.e if your hardware is capable 
+> of only strict prio, then you better use a matching strict 
+> prio qdisc (and not another qdisc like HTB etc). If your 
+> hardware is capable 2 queues, you better have your qdisc with 
+> only two bands.
+
+I disagree.  If you read Patrick's comments, using strict PRIO in
+software and in hardware will probably give you results you don't want.
+Why do 2 layers of QoS?  If your hardware has a hardware-based QoS, then
+you should have a generic round-robin (unassuming) qdisc above it.  I
+don't understand why you would ever want to do 2 layers of
+prioritization; this is just unnecessary work for the CPU to be doing.
+And if you see how my patches to PRIO are working, you'd see that it
+allows a user to choose as many bands as he/she wants, and they will be
+assigned to the underlying hardware queues.  This is very similar to the
+mapping that the 802.1p spec calls out for how to map many priorities to
+fewer queues.
+
+> c) If you programmed a TOS, DSCP , IEEE 802.1p to go to qdisc 
+> queue PH via some classifier, then you will make sure that 
+> packets from qdisc PH end up in hardware queue PH.
+> 
+> Not following #b and #c means it is a misconfiguration; i 
+> hope we can agree on that. i.e you need to have both the 
+> exact qdisc that maps to your hardware qdisc as well as 
+> synced configuration between the two layers.
+
+Please see my comments above.  Restricting any configuration of a
+scheduler like this to a user is undesirable; if a user wants to
+configure something that could shoot themselves in the foot, then that
+should be their problem.
+
+> 
+> Ok, so you ask when to shut down the hw tx path?
+> 1) Lets say you had so many PH packets coming into the 
+> hardware PH and that causes the PH-ring to fill up. At that 
+> point you shutdown the hw-tx path. So what are the 
+> consequences? none - newer PH packets still come in and queue 
+> at the qdisc level. Newer PL packets? who cares PH is more 
+> important - so they can rot in qdisc level...
+> 2) Lets say you had so many PL packets coming into the 
+> hardware PL and that causes the PL-ring to fill up. At that 
+> point you shutdown the hw-tx path. So what are the 
+> consequences? none - newer PH packets still come in and queue 
+> at the qdisc level; the PL packets causing the tx path to 
+> shut down can be considered to be "already sent to the wire".
+> And if there was any PH packets to begin with, the qdisc PL 
+> packets would never have been able to shut down the PL-ring.
+
+How do packets keep getting transmitted from the qdisc in this example?
+As soon as the hardware-tx path is shut down in your example
+(netif_stop_queue() is called on the netdev, shutting down the device
+queue), no packets will flow into qdisc_run():
+
+>From include/net/pkt_sched.h:
+
+static inline void qdisc_run(struct net_device *dev)
+{
+        if (!netif_queue_stopped(dev) &&
+            !test_and_set_bit(__LINK_STATE_QDISC_RUNNING, &dev->state))
+                __qdisc_run(dev);
+}
+
+If that queue is stopped, the qdisc will never get called to run and
+->dequeue(), and hard_start_xmit() will never be called.  So in your
+example, if your PL-ring fills up, you're going to shut down the entry
+point for your PH to the driver.  As soon as you do this, multiqueue is
+still single-queue.  The effort here is to make the kernel
+multiqueue-capable, not the devices.
+
+> 
+> So what am i saying?
+> You dont need to touch the qdisc code in the kernel. You just 
+> need to instrument a mapping between qdisc-queues and 
+> hw-rings. i.e You need to meet #b and #c above.
+> Both #b and #c are provable via queueing and feedback control theory. 
+> Since you said you like implementation and you are coming to 
+> OLS (which i stopped attending last 2 years), visit the 
+> ottawa canals not far from the venue of OLS. Watch how they 
+> open the different cascaded gates to allow the boats in. It 
+> is the same engineering challenge as you are trying to solve here.
+
+I'm very familiar with the Rideau Canal system, and this is not what I'm
+trying to solve.  What would be analagous to my goal is the lockmaster
+would direct different flows of boats into multiple lock entrypoints,
+based on some criteria.  What you're saying is how to put all packets
+into one bucket, and then select one at a time for dequeueing, which
+still allows those different packets to interfere with each other.  So
+perhaps you're not completely grasping what it is I'm trying to
+implement.
+
+> 
+> I showed 2 queus in a strict prio setup, you can show N 
+> queues for that scheduler. You can then extend it to other 
+> schedulers, both work and non-work conserving.
+> 
+> If what i said above is coherent, come back with a counter 
+> example/use case or we can discuss a different scheduler of 
+> your choice.
+
+I'd rather you base any argument for or against this code with examples
+from the code that you do or don't like.  Making the statement early on
+that you haven't followed the netdev discussion on this, and that you
+have your own approach (and therefore don't want to sway your thinking
+by looking at these patches) is insulting when you comment on what it is
+we've done in these patches.  I appreciate the feedback, but it isn't
+really relevant because it isn't what we're proposing here.  Either
+review the code and make comments, or propose and post an alternative
+solution for multiqueue support so I and the rest of netdev can
+understand specifically where we differ in our approached.
+
+Thanks,
+-PJ Waskiewicz
