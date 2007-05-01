@@ -1,59 +1,44 @@
-From: =?ISO-8859-2?Q?Rafa=B3_Bilski?= <rafalbilski@interia.pl>
-Subject: Re: Natsemi DP83815 driver spaming
-Date: Tue, 01 May 2007 21:10:30 +0200
-Message-ID: <463790A6.50003@interia.pl>
-References: <46365887.3010705@interia.pl> <20070430205522.abad2481.akpm@linux-foundation.org> <20070501084639.GA528@sirena.org.uk> <46371590.4090004@interia.pl> <20070501180830.GA31630@sirena.org.uk>
+From: Benjamin LaHaise <bcrl@kvack.org>
+Subject: Re: [PATCH] TCP FIN gets dropped prematurely, results in ack storm
+Date: Tue, 1 May 2007 15:19:31 -0400
+Message-ID: <20070501191931.GF1751@kvack.org>
+References: <20070501151354.GB1751@kvack.org> <20070501162050.GB21896@2ka.mipt.ru> <20070501164935.GC1751@kvack.org> <20070501174126.GA7577@2ka.mipt.ru> <20070501175340.GD1751@kvack.org> <463780D8.2080105@psc.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: John Heffner <jheffner@psc.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp35.poczta.interia.pl ([80.48.65.35]:32894 "EHLO
-	smtp4.poczta.interia.pl" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1161792AbXEATKo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 May 2007 15:10:44 -0400
-In-Reply-To: <20070501180830.GA31630@sirena.org.uk>
+Received: from kanga.kvack.org ([66.96.29.28]:38017 "EHLO kanga.kvack.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1161809AbXEATTo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 May 2007 15:19:44 -0400
+Content-Disposition: inline
+In-Reply-To: <463780D8.2080105@psc.edu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->> eth0: Media selection timer tick.
->> eth0: possible phy reset: re-initializing
->=20
-> This is why the reset is being triggered - it's a workaround for a ha=
-rdware
-> bug which checks to make sure the hardware is in the state that the
-> kernel thinks it is is going off.  The code has this explanatory comm=
-ent:
->=20
->  * 2) check for sudden death of the NIC:
->  *    It seems that a reference set for this chip went out with incor=
-rect info,
->  *    and there exist boards that aren't quite right.  An unexpected =
-voltage
->  *    drop can cause the PHY to get itself in a weird state (basicall=
-y reset).
->  *    NOTE: this only seems to affect revC chips.
+On Tue, May 01, 2007 at 02:03:04PM -0400, John Heffner wrote:
+> Actually, you cannot get in this situation by loss or reordering of 
+> packets, only be corruption of state on one side.  It sends the FIN, 
+> which effectively increases the sequence number by one.  However, all 
+> later segments it sends have an old lower sequence number, which are now 
+> out of window.
 
-Yes. I have revision C chip.
-=20
-> I'd suggest checking your power supply as a first step.
+Okay, I missed the other packets with a FIN later on in the storm.  What is 
+different about them is that they get sent with different timestamps than 
+the acks being thrown about.  Perhaps narrowly looking at the lack of FIN 
+is wrong -- I'll try instrumenting what the PAWS code is doing on both 
+sides as that is probably what short circuits an ACK into being sent.
 
-5,25V when not connected. 5,04V when connected to Wyse. I don't have ac=
-cess to=20
-osciloscope.
-I will check if this code is nedded. If it is then I will try to get ne=
-w power=20
-supply.
-=20
-> [BTW, as Andrew said please don't drop people from the CC.]
-OK. Will not happen again.
+> Being liberal in what you accept is good to a point, but sometimes you 
+> have to draw the line.
 
-Rafa=B3
+True.  Still, both sides are doing completely the wrong thing in this case, 
+and I'd like to get an idea of the best way to prevent the ACK storm from 
+happenning.
 
-
-
-----------------------------------------------------------------------
-Kasia Cichopek eksponuje biust =20
->>> http://link.interia.pl/f1a6f
-
+		-ben
+-- 
+"Time is of no importance, Mr. President, only life is important."
+Don't Email: <zyntrop@kvack.org>.
