@@ -1,42 +1,60 @@
-From: Benjamin LaHaise <bcrl@kvack.org>
-Subject: Re: [PATCH] TCP FIN gets dropped prematurely, results in ack storm
-Date: Tue, 1 May 2007 12:49:35 -0400
-Message-ID: <20070501164935.GC1751@kvack.org>
-References: <20070501151354.GB1751@kvack.org> <20070501162050.GB21896@2ka.mipt.ru>
+From: Scott Wood <scottwood@freescale.com>
+Subject: [PATCH] gianfar: Add I/O barriers when touching buffer descriptor ownership.
+Date: Tue, 1 May 2007 11:55:42 -0500
+Message-ID: <20070501165542.GA31285@ld0162-tx32.am.freescale.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
+To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kanga.kvack.org ([66.96.29.28]:35755 "EHLO kanga.kvack.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754759AbXEAQtp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 May 2007 12:49:45 -0400
+Received: from az33egw01.freescale.net ([192.88.158.102]:50412 "EHLO
+	az33egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754801AbXEAQzz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 May 2007 12:55:55 -0400
 Content-Disposition: inline
-In-Reply-To: <20070501162050.GB21896@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, May 01, 2007 at 08:20:50PM +0400, Evgeniy Polyakov wrote:
-> > http://www.kvack.org/~bcrl/ack-storm.log .  As near as I can tell, a 
-> > similar effect can occur between two Linux boxes if the right packets get 
-> > reordered/dropped during connection teardown.
-> 
-> Could you archive 24Mb file or cut more precise bits out of it?
+The hardware must not see that is given ownership of a buffer until it is
+completely written, and when the driver receives ownership of a buffer,
+it must ensure that any other reads to the buffer reflect its final
+state.  Thus, I/O barriers are added where required.
 
-The interesting bits are the first 10 lines.
+Without this patch, I have observed GCC reordering the setting of
+bdp->length and bdp->status in gfar_new_skb.
 
-> According to your patch, several packets with fin bit might be sent,
-> including one with data. If another host does not receive fin
-> retransmit, then that logic is broken, and it can not be fixed by
-> duplicating fins, I would even say, that remote box should drop second
-> packet with fin, while it can carry data, which will break higher
-> connection logic.
+Signed-off-by: Scott Wood <scottwood@freescale.com>
+---
+ drivers/net/gianfar.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
 
-The FIN hasn't been ack'd by the other side, though and yet Linux is no 
-longer transmitting packets with it sent.  Read the beginning of the trace.
-
-		-ben
+diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
+index b666a0c..f187dc3 100644
+--- a/drivers/net/gianfar.c
++++ b/drivers/net/gianfar.c
+@@ -1025,6 +1025,7 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	dev->trans_start = jiffies;
+ 
++	iobarrier_w();
+ 	txbdp->status = status;
+ 
+ 	/* If this was the last BD in the ring, the next one */
+@@ -1301,6 +1302,7 @@ struct sk_buff * gfar_new_skb(struct net_device *dev, struct rxbd8 *bdp)
+ 	bdp->length = 0;
+ 
+ 	/* Mark the buffer empty */
++	iobarrier_w();
+ 	bdp->status |= (RXBD_EMPTY | RXBD_INTERRUPT);
+ 
+ 	return skb;
+@@ -1484,6 +1486,7 @@ int gfar_clean_rx_ring(struct net_device *dev, int rx_work_limit)
+ 	bdp = priv->cur_rx;
+ 
+ 	while (!((bdp->status & RXBD_EMPTY) || (--rx_work_limit < 0))) {
++		iobarrier_r();
+ 		skb = priv->rx_skbuff[priv->skb_currx];
+ 
+ 		if (!(bdp->status &
 -- 
-"Time is of no importance, Mr. President, only life is important."
-Don't Email: <zyntrop@kvack.org>.
+1.5.0.3
