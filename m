@@ -1,45 +1,45 @@
-From: Ulrich Kunitz <kune-hUSrv6EASfkEnNRfnnE9gw@public.gmane.org>
-Subject: Re: [PATCH] zd1211rw-mac80211: limit URB buffering in tx path
-Date: Wed, 2 May 2007 00:40:45 +0200
-Message-ID: <20070501224045.GA26845@p15091797.pureserver.info>
-References: <20070501030100.BDE3D7B409F@zog.reactivated.net> <20070501123411.081c43c6@logostar.upir.cz> <20070501195008.GA14294@p15091797.pureserver.info> <20070501231028.4cfa4053@logostar.upir.cz>
+From: Loic Prylli <loic@myri.com>
+Subject: [PATCH] make myri10ge use default MTU of 1500 bytes
+Date: Tue, 01 May 2007 15:43:08 -0700
+Message-ID: <4637C27C.5060405@myri.com>
+References: <4632894D.40705@hp.com>	<20070427.163934.106263903.davem@davemloft.net>	<46328BB0.9030501@hp.com> <20070427.165232.74560572.davem@davemloft.net> <46362475.3080605@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Jiri Benc <jbenc-AlSwsSmVLrQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20070501231028.4cfa4053-NimcoU2PGpwZjWj6TdD+Jg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Rick Jones <rick.jones2@hp.com>, David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dsl.myri.com ([64.172.73.26]:1877 "EHLO myri.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753568AbXEAWnN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 May 2007 18:43:13 -0400
+In-Reply-To: <46362475.3080605@hp.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 07-05-01 23:10 Jiri Benc wrote:
+Change default MTU from jumbo (9000) to standard (1500) for myri10ge
 
-> Really? From what you wrote ("if too many URBs are ready for submit") it
-> seems that the code is triggered when the queue is just full. That's not
-> necessarily an error condition and the only thing needed to do is to stop
-> the queue. Unless zd1211 is really special here (and then I'd like to know
-> how is it special).
 
-Jiri, even if ZD1211B supports multiple queues, there is only one
-USB endpoint receiving packets for transmission. I suppose that
-the queue for the packet can be set in the control data for the
-packet. However if the device doesn't read USB blocks anymore, all
-queues will be affected. At this point in time I have to stop all
-queues. Sure I could care for the different priorities of the
-queues by stopping low-priority queues earlier, but if the user is
-overloading the device, I have to stop all queues.
+Signed-off-by: Loic Prylli <loic@myri.com>
+---
+ drivers/net/myri10ge/myri10ge.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-> If you support one queue only, call ieee80211_stop_queue(hw, 0). Calling
-> ieee80211_stop_queues if you have just a full queue is wrong.
-
-Again I don't just have a full queue, I cannot send any packets to
-the device anymore. Under this condition I simply stop all queues,
-not caring whether there are 1 or 1024. Sure with the explicit
-knowledge that I have only one queue, I could stop it explicitly,
-but this would require a change of the code as soon as a second
-queue comes into play.
-
+diff --git a/drivers/net/myri10ge/myri10ge.c b/drivers/net/myri10ge/myri10ge.c
+index 16e3c43..0e9cc17 100644
+--- a/drivers/net/myri10ge/myri10ge.c
++++ b/drivers/net/myri10ge/myri10ge.c
+@@ -252,7 +252,7 @@ module_param(myri10ge_force_firmware, int, S_IRUGO);
+ MODULE_PARM_DESC(myri10ge_force_firmware,
+                 "Force firmware to assume aligned completions\n");
+ 
+-static int myri10ge_initial_mtu = MYRI10GE_MAX_ETHER_MTU - ETH_HLEN;
++static int myri10ge_initial_mtu  = 1500;
+ module_param(myri10ge_initial_mtu, int, S_IRUGO);
+ MODULE_PARM_DESC(myri10ge_initial_mtu, "Initial MTU\n");
+ 
 -- 
-Uli Kunitz
+1.5.0.1
+
+
+
