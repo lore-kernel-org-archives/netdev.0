@@ -1,38 +1,52 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: r8169 ethernet bonding problems
-Date: Tue, 1 May 2007 22:47:21 +0200
-Message-ID: <20070501204721.GB19212@electric-eye.fr.zoreil.com>
-References: <9e246b4d0704180552q16b05017wd0d7041c3ce04f46@mail.gmail.com> <20070418181333.GA2261@electric-eye.fr.zoreil.com> <9e246b4d0704271353g105ecd62j4f35a6e9027ad590@mail.gmail.com> <20070427220918.GB24358@electric-eye.fr.zoreil.com> <9e246b4d0705011317t72bc9413u2b002b71ca3865e9@mail.gmail.com>
+From: "Beschorner Daniel" <Daniel.Beschorner@facton.com>
+Subject: Telnet closing delay
+Date: Tue, 1 May 2007 22:48:11 +0200
+Message-ID: <3C59DB883F7B0B4D8096010D45ACCD1323004D@exch.facton.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Tim Durack <tdurack@gmail.com>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:33395 "EHLO
-	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1945960AbXEAUuG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 May 2007 16:50:06 -0400
-Content-Disposition: inline
-In-Reply-To: <9e246b4d0705011317t72bc9413u2b002b71ca3865e9@mail.gmail.com>
+Received: from alpha.facton.com ([83.236.152.122]:50748 "EHLO alpha.facton.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1945948AbXEAUxV convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 May 2007 16:53:21 -0400
+Received: from exch.facton.local (exch [192.168.200.5])
+	by alpha.facton.com (8.13.8/8.13.8/FACTON) with ESMTP id l41KmBwj019960
+	for <netdev@vger.kernel.org>; Tue, 1 May 2007 22:48:11 +0200
+Content-class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Tim Durack <tdurack@gmail.com> :
-[...]
-> Still Have a problem with links randomly failing to achieve link on
-> boot. This then requires a "modprobe -r r8169; modprobe r8169" cycle
-> to get link. Side effect is the mac address corruption I have
-> described previously.
+Since 2.6.21 I often got a 2 seconds delay when closing a telnet session
+to such a machine (even to localhost).
+I was at least not aware of this with older versions, but maybe I'm
+wrong?!?
 
-Can you try to set the MAC address by hand with the completely patched
-kernel (i.e. including the mac-address-change patch) ?
+Client with delay:
 
-Given the last report in http://bugzilla.kernel.org/show_bug.cgi?id=6032,
-it should be straightforward with your Debian system.
+0.000062 select(4, [0 3], [], [3], NULL) = 1 (in [3])
+1.803057 recvfrom(3, "", 8192, 0, NULL, NULL) = 0
 
-No clear idea why your three cards are not handled the same though.
+without delay:
 
--- 
-Ueimor
+0.000061 select(4, [0 3], [], [3], NULL) = 1 (in [3])
+0.001491 recvfrom(3, "", 8192, 0, NULL, NULL) = 0
 
-Anybody got a battery for my Ultra 10 ?
+Server with delay:
+
+0.000095 select(4, [0 3], [], [0], NULL) = 1 (in [3])
+0.001779 read(3, 0x8059de0, 8192)  = -1 EIO (Input/output error)
+0.000103 select(4, [0 3], [], [0], NULL) = 1 (in [3])
+0.000171 read(3, 0x8059de0, 8192)  = -1 EIO (Input/output error)
+ ---- and 10000 lines more of this select/read----
+0.000103 select(4, [0 3], [], [0], NULL) = 1 (in [3])
+0.000343 --- SIGCHLD (Child exited) @ 0 (0) ---
+
+without delay:
+
+0.000100 select(4, [0 3], [], [0], NULL) = 1 (in [3])
+0.001757 --- SIGCHLD (Child exited) @ 0 (0) ---
+
+Daniel
