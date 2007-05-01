@@ -1,44 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: udp hash change and ipv6
-Date: Mon, 30 Apr 2007 22:33:51 -0700 (PDT)
-Message-ID: <20070430.223351.95061522.davem@davemloft.net>
-References: <20070501.130717.115545945.yoshfuji@linux-ipv6.org>
+From: Bill Fink <billfink@mindspring.com>
+Subject: Re: [ofa-general] Re: IPoIB forwarding
+Date: Tue, 1 May 2007 01:57:31 -0400
+Message-ID: <20070501015731.3568d28b.billfink@mindspring.com>
+References: <6.1.2.0.2.20070423160212.12db6400@mail.llnl.gov>
+	<20070425124652.GG1624@mellanox.co.il>
+	<6.1.2.0.2.20070426083410.1389d9e0@mail.llnl.gov>
+	<20070426161409.GF15540@mellanox.co.il>
+	<6.1.2.0.2.20070426095112.138e9a68@mail.llnl.gov>
+	<20070426180618.GJ15540@mellanox.co.il>
+	<6.1.2.0.2.20070427115435.13ea5ec0@mail.llnl.gov>
+	<46325DF3.2050203@hp.com>
+	<6.1.2.0.2.20070427152027.13fe46d0@mail.llnl.gov>
+	<46327A07.1000404@hp.com>
+	<6.1.2.0.2.20070427153952.13fc7d08@mail.llnl.gov>
+	<4632894D.40705@hp.com>
+	<20070428025117.a3b1200a.billfink@mindspring.com>
+	<46362244.9030406@hp.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: yoshfuji@linux-ipv6.org
+Cc: Bryan Lawver <lawver1@llnl.gov>,
+	"Michael S. Tsirkin" <mst@dev.mellanox.co.il>,
+	general@lists.openfabrics.org,
+	Linux Network Development list <netdev@vger.kernel.org>
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42149
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1030965AbXEAFdx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 May 2007 01:33:53 -0400
-In-Reply-To: <20070501.130717.115545945.yoshfuji@linux-ipv6.org>
+Received: from elasmtp-mealy.atl.sa.earthlink.net ([209.86.89.69]:52184 "EHLO
+	elasmtp-mealy.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1946594AbXEAF5h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 May 2007 01:57:37 -0400
+In-Reply-To: <46362244.9030406@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
-Date: Tue, 01 May 2007 13:07:17 +0900 (JST)
+On Mon, 30 Apr 2007, Rick Jones wrote:
 
-> Because I do not have enough time before depature to Lima
-> via LAX, I cannot send a full fix for this, but anyway...
+> > What version of the myri10ge driver is this?  With the 1.2.0 version
+> > that comes with the 2.6.20.7 kernel, there is no myri10ge_lro module
+> > parameter.
+> > 
+> > [root@lang2 ~]# modinfo myri10ge | grep -i lro
+> > [root@lang2 ~]# 
+> > 
+> > And I've been testing IP forwarding using two Myricom 10-GigE NICs
+> > without setting any special modprobe parameters.
 > 
-> In net-2.6, __udp_lib_get_port() touches inet_sk(sk)->rcv_saddr,
-> which will break ipv6, I think.  We probably need to add a
-> extra function pointer to check is sk has wildcard rcv_saddr
-> for the protocol.
 > 
-> static udp4_is_rcvaddr_any(const struct sock *sk)
-> {
->     return (!inet_sk(sk)->rcv_saddr);
-> }
-> 
-> static udp6_is_rcvaddr_any(const struct sock *sk)
-> {
->     return (ipv6_addr_any(inet_sk(sk)->rcv_saddr));
-> }
-> 
-> Or something.  We may need to think about ipv6only socket
-> option.
+> Ethtool -i on the interface reports 1.2.0 as the driver version.
 
-I am aware of these issues and will take care of them.
+Perhaps it would be useful to have different version strings for
+the in-kernel Linux version and the Myricom externally provided
+version.  Just a thought.
+
+						-Bill
