@@ -1,36 +1,48 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 3/20][BNX2]: Add 40-bit DMA workaround for 5708.
-Date: Wed, 02 May 2007 16:30:36 -0400
-Message-ID: <4638F4EC.3000705@garzik.org>
-References: <1551EAE59135BE47B544934E30FC4FC09400DB@nt-irva-0751.brcm.ad.broadcom.com> <4638AE42.5000908@garzik.org> <1178130232.4820.62.camel@dell> <4638D775.3010905@garzik.org> <1178136161.4820.91.camel@dell>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH 2/2] NetXen: Updates for register access routines
+Date: Wed, 2 May 2007 22:31:46 +0200
+Message-ID: <20070502203146.GA17833@electric-eye.fr.zoreil.com>
+References: <Pine.LNX.4.64.0705020815260.3154@dut46>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Michael Chan <mchan@broadcom.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev mailing list <netdev@vger.kernel.org>,
+	netxenproj@linsyssoft.com, Jeff Garzik <jeff@garzik.org>,
+	rob@netxen.com
+To: Mithlesh Thukral <mithlesh@netxen.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:33533 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1766991AbXEBUak (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 May 2007 16:30:40 -0400
-In-Reply-To: <1178136161.4820.91.camel@dell>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:54391 "EHLO
+	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1766839AbXEBUek (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 May 2007 16:34:40 -0400
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0705020815260.3154@dut46>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michael Chan wrote:
-> If CONFIG_HIGHMEM is not set,
-> wouldn't the device get > 32-bit DMA addresses that it cannot handle?
-
-No -- presuming your PCI device's DMA mask is set correctly.
-
-
-> I know that there are 64-bit systems without IOMMUs.  That's why we need
+Mithlesh Thukral <mithlesh@netxen.com> :
 [...]
-> needed or not.  These systems without IOMMU must support 32-bit only
-> cards, right?  How do they do that if they are not using CONFIG_HIGHMEM?
+> diff --git a/drivers/net/netxen/netxen_nic.h 
+> b/drivers/net/netxen/netxen_nic.h
+> index ad6688e..71edb5c 100644
+> --- a/drivers/net/netxen/netxen_nic.h
+> +++ b/drivers/net/netxen/netxen_nic.h
+> @@ -302,29 +302,28 @@ #define FLAGS_IPSEC_SA_ADD	0x04
+[...]
+> -#define netxen_set_cmd_desc_num_of_buff(cmd_desc, val)	\
+> -	((cmd_desc)->num_of_buffers_total_length &= ~cpu_to_le32(0xff), \
+> -	(cmd_desc)->num_of_buffers_total_length |= cpu_to_le32((val) & 0xff))
+> -#define netxen_set_cmd_desc_totallength(cmd_desc, val)	\
+> -	((cmd_desc)->num_of_buffers_total_length &= 
+> ~cpu_to_le32(0xffffff00), \
+> -	(cmd_desc)->num_of_buffers_total_length |= cpu_to_le32(val << 8))
+> +#define netxen_set_cmd_desc_num_of_buff(cmd_desc, val)                 \
+> +	((cmd_desc)->num_of_buffers_total_length &= ~(0xff<<0),         \
+> +	(cmd_desc)->num_of_buffers_total_length |= (val & 0xff)<<0)
 
-pci_set_dma_mask()
+The cpu_to_leXY have disappeared but the fields of the struct are
+still annotated with __le. Is sparse happy with it ?
 
-	Jeff
+-- 
+Ueimor
 
-
+Anybody got a battery for my Ultra 10 ?
