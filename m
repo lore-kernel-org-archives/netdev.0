@@ -1,48 +1,33 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] Virtual ethernet device (tunnel)
-Date: Wed, 02 May 2007 14:59:05 +0200
-Message-ID: <46388B19.70300@trash.net>
-References: <46386DFB.7090109@sw.ru>  <46388562.9050305@trash.net> <1178110192.4074.55.camel@localhost>
+From: Frank Pavlic <fpavlic@de.ibm.com>
+Subject: [PATCH 0/4]: s390: network driver fixes and feature
+Date: Wed, 2 May 2007 15:13:32 +0200
+Message-ID: <20070502131331.GA13217@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Pavel Emelianov <xemul@sw.ru>, David Miller <davem@davemloft.net>,
-	Ben Greear <greearb@candelatech.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Linux Containers <containers@lists.osdl.org>,
-	Kirill Korotaev <dev@sw.ru>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, devel@openvz.org,
-	Stephen Hemminger <shemminger@linux-foundation.org>
-To: hadi@cyberus.ca
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+	fpavlic@de.ibm.com
+To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:34752 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S2993122AbXEBNAQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2007 09:00:16 -0400
-In-Reply-To: <1178110192.4074.55.camel@localhost>
+Received: from e36.co.us.ibm.com ([32.97.110.154]:51182 "EHLO
+	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S2993135AbXEBNKw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2007 09:10:52 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> On Wed, 2007-02-05 at 14:34 +0200, Patrick McHardy wrote:
-> 
-> 
->>Thats a lot better than using sysfs, but I think it would be
->>preferrable to use rtnetlink instead of genetlink for network
->>configuration.
-> 
-> 
-> or you can just hold rtnl while using genl.
-> I do agree it would be easier to just use rtnetlink ...
+Hi ,
+this is the second version of patches I have sent already two days ago.
+I removed the kthread_run patch (3/5) .
 
+Patches 1-3 contain fixes,patch 4 includes some 
+kind of a new feature although it is just an adaption 
+to the latest OSA hardware specification
+and just prints out human readable text on 
+specific error return codes.
 
-The rtnl needs to be held in either case, but using a different
-netlink family introduces races in message processing. For example
-a simple:
+Please apply them .
 
-ip link add dev veth0
-ip route add 10.0.0.0/8 dev veth0
+Thank you .
 
-might fail because we have two different input queues and the routing
-message might get processed before the link message.
+Frank
