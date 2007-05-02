@@ -1,137 +1,46 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH] sky2: re-enable 88E8056 for most motherboards
-Date: Wed, 2 May 2007 15:42:25 -0700
-Message-ID: <20070502154225.6c82a10d@freekitty>
-References: <20070430142349.79754c1b@freekitty>
-	<46374784.7010401@gentoo.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 3/20][BNX2]: Add 40-bit DMA workaround for 5708.
+Date: Wed, 02 May 2007 15:48:02 -0700 (PDT)
+Message-ID: <20070502.154802.26506902.davem@davemloft.net>
+References: <1178141269.4820.109.camel@dell>
+	<20070502.144538.68132264.davem@davemloft.net>
+	<1178148502.4820.117.camel@dell>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
-	stable@kernel.org, Francois SIMOND <curio@free.fr>
-To: Daniel Drake <dsd@gentoo.org>
+Cc: jeff@garzik.org, netdev@vger.kernel.org
+To: mchan@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:43714 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1767147AbXEBWoH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 May 2007 18:44:07 -0400
-In-Reply-To: <46374784.7010401@gentoo.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48206
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1767154AbXEBWsB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2007 18:48:01 -0400
+In-Reply-To: <1178148502.4820.117.camel@dell>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 01 May 2007 09:58:28 -0400
-Daniel Drake <dsd@gentoo.org> wrote:
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Wed, 02 May 2007 16:28:22 -0700
 
-> Hi Stephen,
-> 
-> Stephen Hemminger wrote:
-> > This fixes the regression in 2.6.21 for users with 88e8056 on motherboard.
-> > Allow all but the Gigabyte motherboard has some unresolved bus problems.
-> 
-> > +	/* Some Gigabyte motherboards have 88e8056 but cause problems
-> > +	 * There is some unresolved hardware related problem that causes
-> > +	 * descriptor errors and receive data corruption.
-> > +	 */
-> > +	if (pdev->vendor == PCI_VENDOR_ID_MARVELL &&
-> > +	    pdev->device == 0x4364 && pdev->subsystem_vendor == 0x1458) {
-> > +		dev_err(&pdev->dev,
-> > +			"88E8056 on Gigabyte motherboards not supported\n");
-> 
-> Gentoo have reports of sky2 working fine on Gigabyte boards which have 
-> 88E8056 devices:
-> https://bugs.gentoo.org/show_bug.cgi?id=176219
-> 
-> Can the patch be refined further?
-> 
-> Specifically:
-> 
-> Gigabyte DQ6
-> 03:00.0 0200: 11ab:4364 (rev 12)
->          Subsystem: 1458:e000
->          Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
-> Stepping- SERR- FastB2B-
->          Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- 
-> <TAbort-
-> <MAbort- >SERR- <PERR-
->          Latency: 0, Cache Line Size: 32 bytes
->          Interrupt: pin A routed to IRQ 219
->          Region 0: Memory at f7000000 (64-bit, non-prefetchable) [size=16K]
->          Region 2: I/O ports at 7000 [size=256]
->          [virtual] Expansion ROM at 40000000 [disabled] [size=128K]
->          Capabilities: [48] Power Management version 3
->                  Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=0mA
-> PME(D0+,D1+,D2+,D3hot+,D3cold+)
->                  Status: D0 PME-Enable- DSel=0 DScale=1 PME-
->          Capabilities: [50] Vital Product Data
->          Capabilities: [5c] Message Signalled Interrupts: 64bit+ Queue=0/0
-> Enable+
->                  Address: 00000000fee0300c  Data: 413a
->          Capabilities: [e0] Express Legacy Endpoint IRQ 0
->                  Device: Supported: MaxPayload 128 bytes, PhantFunc 0, 
-> ExtTag-
->                  Device: Latency L0s unlimited, L1 unlimited
->                  Device: AtnBtn- AtnInd- PwrInd-
->                  Device: Errors: Correctable- Non-Fatal- Fatal- Unsupported-
->                  Device: RlxdOrd- ExtTag- PhantFunc- AuxPwr- NoSnoop-
->                  Device: MaxPayload 128 bytes, MaxReadReq 512 bytes
->                  Link: Supported Speed 2.5Gb/s, Width x1, ASPM L0s L1, 
-> Port 0
->                  Link: Latency L0s <256ns, L1 unlimited
->                  Link: ASPM Disabled RCB 128 bytes CommClk- ExtSynch-
->                  Link: Speed 2.5Gb/s, Width x1
->          Capabilities: [100] Advanced Error Reporting
-> 00: ab 11 64 43 07 04 10 00 12 00 00 02 08 00 00 00
-> 10: 04 00 00 f7 00 00 00 00 01 70 00 00 00 00 00 00
-> 20: 00 00 00 00 00 00 00 00 00 00 00 00 58 14 00 e0
-> 30: 00 00 00 00 48 00 00 00 00 00 00 00 0a 01 00 00
-> 
-> 
-> Gigabyte S3: sorry, no lspci dump available yet
-> 
-> Gigabyte DS3:
-> 04:00.0 Ethernet controller [0200]: Marvell Technology Group Ltd. Unknown
-> device [11ab:4364] (rev 12)
->          Subsystem: Giga-byte Technology Unknown device [1458:e000]
->          Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
-> Stepping- SERR- FastB2B-
->          Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- 
-> <TAbort-
-> <MAbort- >SERR- <PERR-
->          Latency: 0, Cache Line Size: 32 bytes
->          Interrupt: pin A routed to IRQ 16
->          Region 0: Memory at f8000000 (64-bit, non-prefetchable) [size=16K]
->          Region 2: I/O ports at 8000 [size=256]
->          [virtual] Expansion ROM at 40000000 [disabled] [size=128K]
->          Capabilities: [48] Power Management version 3
->                  Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=0mA
-> PME(D0+,D1+,D2+,D3hot+,D3cold+)
->                  Status: D0 PME-Enable- DSel=0 DScale=1 PME-
->          Capabilities: [50] Vital Product Data
->          Capabilities: [5c] Message Signalled Interrupts: Mask- 64bit+ 
-> Queue=0/0
-> Enable-
->                  Address: 0000000000000000  Data: 0000
->          Capabilities: [e0] Express Legacy Endpoint IRQ 0
->                  Device: Supported: MaxPayload 128 bytes, PhantFunc 0, 
-> ExtTag-
->                  Device: Latency L0s unlimited, L1 unlimited
->                  Device: AtnBtn- AtnInd- PwrInd-
->                  Device: Errors: Correctable- Non-Fatal- Fatal- Unsupported-
->                  Device: RlxdOrd- ExtTag- PhantFunc- AuxPwr- NoSnoop-
->                  Device: MaxPayload 128 bytes, MaxReadReq 512 bytes
->                  Link: Supported Speed 2.5Gb/s, Width x1, ASPM L0s L1, 
-> Port 0
->                  Link: Latency L0s <256ns, L1 unlimited
->                  Link: ASPM Disabled RCB 128 bytes CommClk- ExtSynch-
->                  Link: Speed 2.5Gb/s, Width x1
->          Capabilities: [100] Advanced Error Reporting
-> 00: ab 11 64 43 07 00 10 00 12 00 00 02 08 00 00 00
-> 10: 04 00 00 f8 00 00 00 00 01 80 00 00 00 00 00 00
-> 20: 00 00 00 00 00 00 00 00 00 00 00 00 58 14 00 e0
-> 30: 00 00 00 00 48 00 00 00 00 00 00 00 0b 01 00 00
+> Is it correct to assume that all 64-bit systems using 64-bit
+> dma_addr_t will either have real IOMMUs or will use SWIOTLB?  If
+> this is true, we can just set the DMA mask to what is supported by
+> the hardware and let pci_map_xxx() handle all necessary translations
+> or bounce buffering.
 
-The PCI info is basically the same between working/non working
-Gigabyte boards. Is there any other difference?  Kernel config?
-chip revision?
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+This should work.
+
+Especailly since every platform has to support 32-bit DMA masks, the
+worst possible case is that the 40-bit DMA mask set fails, and you
+have to fall back to 32-bit.
+
+But since every driver has that fallback logic, it should be totally
+transparent.
+
+We might want to formalize that at some point to save driver code.
+Ie. we'd have an interface that takes a prioritized array of DMA
+masks the driver wants to use, and you get back the index that was
+selected or an error if none of them could be accomodated.
+
+It's just a tangental future cleanup idea, since we're discussing
+this.
