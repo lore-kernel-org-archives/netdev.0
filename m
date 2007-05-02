@@ -1,89 +1,66 @@
-From: Michael Ellerman <michael@ellerman.id.au>
-Subject: Re: [PATCH 2/2] ehea: NAPI multi queue TX/RX path for SMP
-Date: Wed, 02 May 2007 14:59:43 +1000
-Message-ID: <1178081983.5296.5.camel@concordia.ozlabs.ibm.com>
-References: <200702281834.10856.ossthema@de.ibm.com>
-Reply-To: michael@ellerman.id.au
+From: =?ISO-8859-2?Q?Rafa=B3_Bilski?= <rafalbilski@interia.pl>
+Subject: Re: Natsemi DP83815 driver spaming
+Date: Wed, 02 May 2007 07:54:32 +0200
+Message-ID: <46382798.2090709@interia.pl>
+References: <46365887.3010705@interia.pl>	 <20070430205522.abad2481.akpm@linux-foundation.org>	 <20070501084639.GA528@sirena.org.uk> <46371590.4090004@interia.pl>	 <20070501180830.GA31630@sirena.org.uk> <46379A7E.3000109@interia.pl>	 <20070501212750.GC31630@sirena.org.uk> <b3ece790705011543gdca3a9ei905d3499b6c18dc8@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-QHBAM+ndYevc28pSUDFh"
-Cc: Jeff Garzik <jeff@garzik.org>, Thomas Klein <tklein@de.ibm.com>,
-	Jan-Bernd Themann <themann@de.ibm.com>,
-	netdev <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	linux-ppc <linuxppc-dev@ozlabs.org>,
-	Christoph Raisch <raisch@de.ibm.com>,
-	Marcus Eder <meder@de.ibm.com>,
-	Stefan Roscher <stefan.roscher@de.ibm.com>
-To: Jan-Bernd Themann <ossthema@de.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:58524 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S2992741AbXEBE7q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 May 2007 00:59:46 -0400
-In-Reply-To: <200702281834.10856.ossthema@de.ibm.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Tim Hockin <thockin@hockin.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030628AbXEBFyu@vger.kernel.org>
+In-Reply-To: <b3ece790705011543gdca3a9ei905d3499b6c18dc8@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
---=-QHBAM+ndYevc28pSUDFh
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
-
-On Wed, 2007-02-28 at 18:34 +0100, Jan-Bernd Themann wrote:
-> This patch provides a functionality that allows parallel=20
-> RX processing on multiple RX queues by using dummy netdevices.
+>> > >  * 2) check for sudden death of the NIC:
+>> > >  *    It seems that a reference set for this chip went out with
+>> incorrect info,
+>> > >  *    and there exist boards that aren't quite right.  An
+>> unexpected voltage
+>> > >  *    drop can cause the PHY to get itself in a weird state
+>> (basically reset).
+>> > >  *    NOTE: this only seems to affect revC chips.
+>>
+>> > Code commented out and NIC is working OK. Strange.
+>> > eth0: DSPCFG accepted after 0 usec.
+>> > eth0: link up.
+>> > eth0: Setting full-duplex based on negotiated link capability.
+>> > dspcfg =3D 0x00000000  np->dspcfg =3D 0x00005060
+>>
+>> Oh, that's entertaining.  I have to confess that I've never seen an =
+that
+>> triggered the workaround before - adding the maintainer, Tim Hockin,=
+ who
+>> may be able to shed some light on the expected behaviour here?
 >=20
->=20
-> Signed-off-by: Jan-Bernd Themann <themann@de.ibm.com>
-> ---
+> It's been quite a while since I dealt with this issue, so I am going
+> on faulty memory.  A particular reference design for this chip had ba=
+d
+> resistor values, or something similar.  That caused the chip to get
+> very very confused and need a reset.
+Can You send me documentation? I can't find anything in datasheet.=20
+I will replace bad resitors with correct ones.
+> So the driver is finding your chip to be hosed over and over again.
+> dspcfg =3D 0x000000 is bad.  I'd be very surprised if you don't get
+> other wierdness - bad performance or noise or who knows what.
+No. It is much better. Much less packets need to be retransmitted. =20
+I was blaming w3cache.tkdami.net earlier.
+> You could take out the error message and just let the driver do it's
+> thing, or you can try to run with that logic removed.  But I'd measur=
+e
+> both and see what they do.  Specifically - look  for packet errors.
+With code commented out I have 1 error / 30000 transmitted packets from=
+=20
+DP83815C. I have 1 error / 100000 transmitted packets to DP83815C. Mayb=
+e=20
+it works at all because I have short cable, only 10m long.
+I don't remember any errors with plain 2.6.21.1.
+> Tim
+Rafa=B3
 
-> @@ -1789,6 +1798,22 @@ static void ehea_xmit3(struct sk_buff *s
->  	dev_kfree_skb(skb);
->  }
-> =20
-> +static inline int ehea_hash_skb(struct sk_buff *skb, int num_qps)
-> +{
-> +	struct tcphdr *tcp;
-> +	u32 tmp;
-> +
-> +	if ((skb->protocol =3D=3D htons(ETH_P_IP)) &&
-> +	    (skb->nh.iph->protocol =3D=3D IPPROTO_TCP)) {
 
-This breaks the build, looks like skb->nh went away:
-b0e380b1d8a8e0aca215df97702f99815f05c094
-
-/scratch/michael/kisskb-build/src/drivers/net/ehea/ehea_main.c:1806: error:=
- 'struct sk_buff' has no member named 'nh'
-/scratch/michael/kisskb-build/src/drivers/net/ehea/ehea_main.c:1807: error:=
- 'struct sk_buff' has no member named 'nh'
-/scratch/michael/kisskb-build/src/drivers/net/ehea/ehea_main.c:1807: error:=
- 'struct sk_buff' has no member named 'nh'
-/scratch/michael/kisskb-build/src/drivers/net/ehea/ehea_main.c:1809: error:=
- 'struct sk_buff' has no member named 'nh'
-
-cheers
-
---=20
-Michael Ellerman
-OzLabs, IBM Australia Development Lab
-
-wwweb: http://michael.ellerman.id.au
-phone: +61 2 6212 1183 (tie line 70 21183)
-
-We do not inherit the earth from our ancestors,
-we borrow it from our children. - S.M.A.R.T Person
-
---=-QHBAM+ndYevc28pSUDFh
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.6 (GNU/Linux)
-
-iD8DBQBGOBq/dSjSd0sB4dIRAiTPAKCVylILpeJAj70ItmUjBsd2icLayACeLoSq
-43nBSFyiC/bKGGxIA8Uy6oE=
-=AsQ6
------END PGP SIGNATURE-----
-
---=-QHBAM+ndYevc28pSUDFh--
-
+----------------------------------------------------------------------
+NIE KUPUJ!!!
+=2E..zanim nie porownasz cen >> http://link.interia.pl/f1a5e
