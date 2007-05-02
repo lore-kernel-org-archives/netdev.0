@@ -1,42 +1,43 @@
-From: Jeremy Fitzhardinge <jeremy@goop.org>
+From: Rusty Russell <rusty@rustcorp.com.au>
 Subject: Re: netfront for review
-Date: Tue, 01 May 2007 21:18:14 -0700
-Message-ID: <46381106.8010605@goop.org>
-References: <4637D672.5030706@goop.org> <1178077033.28659.173.camel@localhost.localdomain>
+Date: Wed, 02 May 2007 14:23:02 +1000
+Message-ID: <1178079783.28659.183.camel@localhost.localdomain>
+References: <4637D672.5030706@goop.org>
+	 <1178077033.28659.173.camel@localhost.localdomain>
+	 <20070502035127.GA28090@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: lkml - Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: Rusty Russell <rusty@rustcorp.com.au>
+Cc: Jeremy Fitzhardinge <jeremy@goop.org>,
+	lkml - Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw.goop.org ([64.81.55.164]:44247 "EHLO mail.goop.org"
+Received: from ozlabs.org ([203.10.76.45]:52596 "EHLO ozlabs.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751998AbXEBESY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 May 2007 00:18:24 -0400
-In-Reply-To: <1178077033.28659.173.camel@localhost.localdomain>
+	id S1753979AbXEBEXQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 May 2007 00:23:16 -0400
+In-Reply-To: <20070502035127.GA28090@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Rusty Russell wrote:
-> On Tue, 2007-05-01 at 17:08 -0700, Jeremy Fitzhardinge wrote:
->   
->> Add the Xen virtual network device driver.
->>     
->
-> (Herbert: there's a question for you: grep for Herbert)
->
-> OK, this is a remarkably non-trivial driver.  If the v0.1 of the driver
-> had been in the kernel, I'm sure it would have been about 1/4 the size
-> and far easier to review 8(
->
-> Nonetheless, I have scoured the entire thing.  It's not actually too
-> bad.
->   
+On Wed, 2007-05-02 at 13:51 +1000, Herbert Xu wrote:
+> On Wed, May 02, 2007 at 01:37:13PM +1000, Rusty Russell wrote:
+> >
+> > > +static int xennet_change_mtu(struct net_device *dev, int mtu)
+> > > +{
+> > > +	int max = xennet_can_sg(dev) ? 65535 - ETH_HLEN : ETH_DATA_LEN;
+> >
+> > This seems odd to me: just because a device does TSO should we really
+> > allow huge mtu settings?  Herbert?
+> 
+> Actually this has nothing to do with TSO/GSO.  This driver inherently
+> supports arbitrary MTUs that's only limited by our network stack.  If
+> the physical network device can't handle it you'll just get an ICMP
+> error back or fragmentation.
 
-Lovely, thanks.  I'm at the double disadvantage of not really knowing
-how the network stack works or precisely how Xen does networking, but
-the homework exercises ("comment this") will definitely help my education.
+Oops, I misread "xennet_can_sg" as a test for GSO.
 
-    J
+Thanks for the clarification,
+Rusty.
+
