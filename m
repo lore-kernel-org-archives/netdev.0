@@ -1,37 +1,68 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/20][BNX2]: Add 40-bit DMA workaround for 5708.
-Date: Wed, 02 May 2007 14:45:38 -0700 (PDT)
-Message-ID: <20070502.144538.68132264.davem@davemloft.net>
-References: <1551EAE59135BE47B544934E30FC4FC09400DB@nt-irva-0751.brcm.ad.broadcom.com>
-	<20070502.124000.116378720.davem@davemloft.net>
-	<1178141269.4820.109.camel@dell>
+From: "Ono, Kumiko" <kumiko@cs.columbia.edu>
+Subject: Re: garbage of TCP sock mem in sockstat?
+Date: Wed, 02 May 2007 18:03:26 -0400
+Message-ID: <46390AAE.8020304@cs.columbia.edu>
+References: <46185FFC.8020104@cs.columbia.edu> <20070430.003842.26533021.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org
-To: mchan@broadcom.com
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49192
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1767085AbXEBVpi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2007 17:45:38 -0400
-In-Reply-To: <1178141269.4820.109.camel@dell>
+Received: from cs.columbia.edu ([128.59.16.20]:51938 "EHLO cs.columbia.edu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S2993176AbXEBWDb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 May 2007 18:03:31 -0400
+In-Reply-To: <20070430.003842.26533021.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Wed, 02 May 2007 14:27:49 -0700
+Thanks a lot for your response.
 
-> I see.  So IA64 always uses the SWIOTLB when it doesn't have IOMMU then?
+However, it is still unclear, since the allocated memory for TCP socket 
+buffers, which I saw via sockstat, shows zero when calling send() after 
+recv() as shown in the previous email.
+
+Do you mean that it is necessary to hold the receive buffer allocation 
+for future packet when calling only recv(), but not necessary when 
+calling send() after recv()?
+
+> On the other hand, when a server calls read() and send() for echoing messages for all connections, the sockstat shows that all the socket buffers are deallocated after competing echoing as follows:
 > 
-> I'm a bit confused.  Is it enough to just set the DMA mask to 40-bit and
-> forget about all this checking?  I thought that wasn't enough.  A tx
-> packet can be anywhere in 64-bit memory.  When it gets to the driver,
-> pci_map will not do any translation even if DMA mask is set to 40-bit if
-> it doesn't have IOMMU.  Is that right?
+> TCP: inuse 13 orphan 0 tw 0 alloc 19 mem 0
+> TCP: inuse 1237 orphan 0 tw 0 alloc 1243 mem 0
+> TCP: inuse 2461 orphan 0 tw 0 alloc 2467 mem 0
+> TCP: inuse 3688 orphan 0 tw 0 alloc 3694 mem 0
+> TCP: inuse 4912 orphan 0 tw 0 alloc 4918 mem 268
+> TCP: inuse 5012 orphan 0 tw 0 alloc 5018 mem 101
+> TCP: inuse 5012 orphan 0 tw 0 alloc 5018 mem 0
 
-If the buffer doesn't meet the DMA mask specification, it should do
-bounce buffering.
+Regards,
+Kumiko
 
-Have a look at lib/swiotlb.c, that is exactly what it appears to
-be doing.
+David Miller wrote:
+> From: Kumiko Ono <kumiko@cs.columbia.edu>
+> Date: Sat, 07 Apr 2007 23:22:36 -0400
+> 
+>> Could anybody tell me why the garbage in the memory for TCP socket 
+>> buffers remains? Is this a problem on deallocation of socket buffers, or 
+>> just on sockstat?  Or I'm missing something?
+> 
+> It is not garbage, it is simply holding on to the receive buffer
+> allocation in anticipation of future packet receives for that
+> socket.
+> 
+> The values in the global pool, which you saw via sockstat, are
+> allocated from on a per-socket basis into a per-socket allocation
+> quota.  Packets attached to that socket have to take from this
+> quota.
+> 
+> The idea is that once you get a per-socket allocation, you use
+> that until you need more.  When you release, you keep the
+> per-socket allocation unless we are under global memory
+> pressure.
+> 
+> This prevents having to go to allocate from the global pool
+> too often which is very expensive especially on SMP since
+> it is a shared datastructure and requires locking.
+
