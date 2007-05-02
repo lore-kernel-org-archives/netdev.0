@@ -1,52 +1,54 @@
-From: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH] libertas: fix for wireless Kconfig changes
-Date: Wed, 02 May 2007 08:10:55 -0400
-Message-ID: <1178107855.31220.21.camel@localhost.localdomain>
-References: <20070429002844.GA11225@tuxdriver.com>
-	 <1178020418.21671.3.camel@localhost.localdomain>
-	 <20070501135454.GD8604@tuxdriver.com>
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
+Subject: Re: [Devel] [PATCH] Virtual ethernet device (tunnel)
+Date: Wed, 02 May 2007 14:07:26 +0200
+Message-ID: <46387EFE.1080103@fr.ibm.com>
+References: <46386DFB.7090109@sw.ru>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20070501135454.GD8604-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Linux Containers <containers@lists.osdl.org>,
+	Ben Greear <greearb@candelatech.com>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	devel@openvz.org
+To: Pavel Emelianov <xemul@sw.ru>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mtagate4.de.ibm.com ([195.212.29.153]:53642 "EHLO
+	mtagate4.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S2993063AbXEBMHy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2007 08:07:54 -0400
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
+	by mtagate4.de.ibm.com (8.13.8/8.13.8) with ESMTP id l42C7rCF153272
+	for <netdev@vger.kernel.org>; Wed, 2 May 2007 12:07:53 GMT
+Received: from d12av02.megacenter.de.ibm.com (d12av02.megacenter.de.ibm.com [9.149.165.228])
+	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l42C7rIM3940590
+	for <netdev@vger.kernel.org>; Wed, 2 May 2007 14:07:53 +0200
+Received: from d12av02.megacenter.de.ibm.com (loopback [127.0.0.1])
+	by d12av02.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l42C7psM019157
+	for <netdev@vger.kernel.org>; Wed, 2 May 2007 14:07:52 +0200
+In-Reply-To: <46386DFB.7090109@sw.ru>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2007-05-01 at 09:54 -0400, John W. Linville wrote:
-> On Tue, May 01, 2007 at 07:53:38AM -0400, Dan Williams wrote:
-> > On Sat, 2007-04-28 at 20:28 -0400, John W. Linville wrote:
-> > > Need to change the libertas Kconfig entry to match changes made for
-> > > other wireless drivers.
-> > > 
-> > > Signed-off-by: John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-> > > ---
-> > > diff --git a/drivers/net/wireless/Kconfig b/drivers/net/wireless/Kconfig
-> > > index c4b3dc2..cb09e6b 100644
-> > > --- a/drivers/net/wireless/Kconfig
-> > > +++ b/drivers/net/wireless/Kconfig
-> > > @@ -267,7 +267,7 @@ config IPW2200_DEBUG
-> > >  
-> > >  config LIBERTAS_USB
-> > >  	tristate "Marvell Libertas 8388 802.11a/b/g cards"
-> > > -	depends on NET_RADIO && USB
-> > > +	depends on USB && WLAN_80211
-> > >  	select FW_LOADER
-> > >  	---help---
-> > >  	  A driver for Marvell Libertas 8388 USB devices.
-> > 
-> > Will apply, we need to pull in wireless-dev first to get the NET_RADIO
-> > name change.
-> 
-> No, that is already in Linus' tree via Jeff's tree.
-> 
-> Jeff, I figured you would just apply the patch.  If you'd prefer I
-> can send a pull request, but I don't have anything else pending ATM.
+Pavel Emelianov wrote:
+> Veth stands for Virtual ETHernet. It is a simple tunnel driver
+> that works at the link layer and looks like a pair of ethernet
+> devices interconnected with each other.
+>
+> Mainly it allows to communicate between network namespaces but
+> it can be used as is as well.
+>
+> Eric recently sent a similar driver called etun. This
+> implementation is closer to the OpenVZ one and it lacks
+> some unimportant features of etun driver (like ethtool_ops)
+> for simplicity.
+>
+> The general difference from etun is that a netlink interface
+> is used to create and destroy the pairs. The patch for an
+> ip utility is also provided.
+if etun and veth are similar, why didn't you put the netlink interface 
+to the etun driver instead of sending a new driver ?
 
-Really?  Marcelo said he pulled 2.6.21 into the libertas tree but that
-didn't appear to touch drivers/net/wireless/Kconfig at all...
-
-Dan
+    -- Daniel
