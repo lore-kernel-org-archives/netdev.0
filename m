@@ -1,61 +1,42 @@
-From: Jiri Benc <jbenc-AlSwsSmVLrQ@public.gmane.org>
-Subject: Re: [PATCH] zd1211rw-mac80211: limit URB buffering in tx path
-Date: Wed, 2 May 2007 01:35:34 +0200
-Message-ID: <20070502013534.0de2fa33@logostar.upir.cz>
-References: <20070501030100.BDE3D7B409F@zog.reactivated.net>
-	<20070501123411.081c43c6@logostar.upir.cz>
-	<20070501195008.GA14294@p15091797.pureserver.info>
-	<20070501231028.4cfa4053@logostar.upir.cz>
-	<20070501224045.GA26845@p15091797.pureserver.info>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH 0/20][BNX2]: Bug fixes and more 5709 suppot.
+Date: Tue, 01 May 2007 18:11:43 -0700
+Message-ID: <1178068303.4820.35.camel@dell>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Ulrich Kunitz <kune-hUSrv6EASfkEnNRfnnE9gw@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20070501224045.GA26845-WhJF3imHnk+bHbQv0o6mQ2hcgWyyV7dXYZdqe9AaVak@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:4694 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1946051AbXEBAYs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 May 2007 20:24:48 -0400
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2 May 2007 00:40:45 +0200, Ulrich Kunitz wrote:
-> Jiri, even if ZD1211B supports multiple queues, there is only one
-> USB endpoint receiving packets for transmission. I suppose that
-> the queue for the packet can be set in the control data for the
-> packet. However if the device doesn't read USB blocks anymore, all
-> queues will be affected.
+David, please review and apply the following patches that will follow.
+The firmware patches 6-11 will be sent to you off-list due to large
+size.
 
-Ah, that's stupid. I hope nobody is advertising these devices have a decent
-QoS support.
+[PATCH 1/20][BNX2]: Block MII access when ifdown.
+[PATCH 2/20][BNX2]: Fix register and memory test on 5709.
+[PATCH 3/20][BNX2]: Add 40-bit DMA workaround for 5708.
+[PATCH 4/20][BNX2]: Fix race conditions when calling register_netdev().
+[PATCH 5/20][BNX2]: Save PCI state during suspend.
+[PATCH 6/20][BNX2]: Update 5708 firmware.
+[PATCH 7/20][BNX2]: Update 5709 firmware part 1.
+[PATCH 8/20][BNX2]: Update 5709 firmware part 2.
+[PATCH 9/20][BNX2]: Update 5709 firmware part 3.
+[PATCH 10/20][BNX2]: Update 5709 firmware part 4.
+[PATCH 11/20][BNX2]: Update 5709 firmware part 5.
+[PATCH 12/20][BNX2]: Add ipv6 TSO and checksum for 5709.
+[PATCH 13/20][BNX2]: Put MII register offsets in the bnx2 struct.
+[PATCH 14/20][BNX2]: Re-structure the 2.5G Serdes code.
+[PATCH 15/20][BNX2]: Add support for 5709 Serdes.
+[PATCH 16/20][BNX2]: Add indirect spinlock.
+[PATCH 17/20][BNX2]: Enhance the heartbeat.
+[PATCH 18/20][BNX2]: Add 1-shot MSI handler for 5709.
+[PATCH 19/20][BNX2]: Print bus information for PCIE devices.
+[PATCH 20/20][BNX2]: Update version and reldate.
 
-> At this point in time I have to stop all
-> queues. Sure I could care for the different priorities of the
-> queues by stopping low-priority queues earlier, but if the user is
-> overloading the device, I have to stop all queues.
 
-Or you can split the available buffer space in the device, i.e. reserve
-some fixed part for the first queue, some part for the second queue, etc.
-Otherwise, the QoS is not so useful (you will still profit from the shorter
-backoff, of course, so it's not completely useless).
-
-But I don't know how many urbs the device can accept, it may not be
-feasible to do that. (But if it can accept reasonable amount of urbs, I'd
-suggest to implement that. It will need some testing to see whether it
-really improves something or not, though.)
-
-> > If you support one queue only, call ieee80211_stop_queue(hw, 0). Calling
-> > ieee80211_stop_queues if you have just a full queue is wrong.
-> 
-> Again I don't just have a full queue, I cannot send any packets to
-> the device anymore. Under this condition I simply stop all queues,
-> not caring whether there are 1 or 1024.
-
-Okay, ACK then.
-
-Thanks for the clarification,
-
- Jiri
-
--- 
-Jiri Benc
-SUSE Labs
