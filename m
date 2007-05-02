@@ -1,216 +1,174 @@
 From: jamal <hadi@cyberus.ca>
-Subject: [PATCH][XFRM] SPD info TLV aggregation
-Date: Wed, 02 May 2007 18:26:58 -0400
-Message-ID: <1178144818.4078.9.camel@localhost>
+Subject: [PATCH][IPROUTE2]  see SAD info
+Date: Wed, 02 May 2007 18:31:56 -0400
+Message-ID: <1178145116.4078.13.camel@localhost>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-iTFnIPRrT3ZqP3xMZzSu"
-Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
-To: David Miller <davem@davemloft.net>
+Content-Type: multipart/mixed; boundary="=-YLE2nAUMJ81pyjhwzwLL"
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.227]:12119 "EHLO
+Received: from wx-out-0506.google.com ([66.249.82.226]:14878 "EHLO
 	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S2993202AbXEBW1D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2007 18:27:03 -0400
-Received: by wx-out-0506.google.com with SMTP id h31so270949wxd
-        for <netdev@vger.kernel.org>; Wed, 02 May 2007 15:27:02 -0700 (PDT)
+	with ESMTP id S1766739AbXEBWcA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2007 18:32:00 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so271960wxd
+        for <netdev@vger.kernel.org>; Wed, 02 May 2007 15:32:00 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---=-iTFnIPRrT3ZqP3xMZzSu
+--=-YLE2nAUMJ81pyjhwzwLL
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 
-And heres the SPD version also against latest net-2.6
+Stephen,
+You need to pull the latest net-2.6 include/linux/xfrm.h for this 
+(and the earlier migrate stuff from Nakamura-san)...
 
 cheers,
 jamal
 
-
-
---=-iTFnIPRrT3ZqP3xMZzSu
-Content-Disposition: attachment; filename=xfrmk-spd-2622-1
-Content-Type: text/plain; name=xfrmk-spd-2622-1; charset=us-ascii
+--=-YLE2nAUMJ81pyjhwzwLL
+Content-Disposition: attachment; filename=xfrmu_sadinfo-1
+Content-Type: text/plain; name=xfrmu_sadinfo-1; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 
-[XFRM] SPD info TLV aggregation
-Aggregate the SPD info TLVs.
+[XFRM] see SAD info
+
+i.e instead of something like ip xfrm state ls | grep -i src | wc -l
+do:
+
+ip xfrm state count
+And you get the count; you can also pass -s to the command line and
+get the hash info.
 
 Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
 
 ---
-commit 3ff6ef841a7d6c55de1e5e362779d0210be85920
-tree cfde9356d22d6a9da1b859cbcf245f3fd0899b62
-parent 48d8642f8e49b2c4e249858a65bf760ac03a4be7
-author Jamal Hadi Salim <hadi@cyberus.ca> Wed, 02 May 2007 18:20:48 -0400
-committer Jamal Hadi Salim <hadi@cyberus.ca> Wed, 02 May 2007 18:20:48 -0400
+commit 32ad83a9c67bf149e72933472f4371ecf2dbfc4f
+tree 2d0964c5af081aae29419bc82459a584f872b94d
+parent ab4c2f14fb93700c9aefeb02ed9918565ba332a1
+author Jamal Hadi Salim <hadi@cyberus.ca> Wed, 02 May 2007 15:41:07 -0400
+committer Jamal Hadi Salim <hadi@cyberus.ca> Wed, 02 May 2007 15:41:07 -0400
 
- include/linux/xfrm.h   |   35 ++++++++++++-----------------------
- include/net/xfrm.h     |   13 +------------
- net/xfrm/xfrm_policy.c |    2 +-
- net/xfrm/xfrm_user.c   |   37 +++----------------------------------
- 4 files changed, 17 insertions(+), 70 deletions(-)
+ ip/xfrm.h            |    1 +
+ ip/xfrm_state.c      |   76 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 157 insertions(+), 0 deletions(-)
 
-diff --git a/include/linux/xfrm.h b/include/linux/xfrm.h
-index 31e2a2a..2f49541 100644
---- a/include/linux/xfrm.h
-+++ b/include/linux/xfrm.h
-@@ -288,36 +288,25 @@ struct xfrmu_sadinfo {
- 	__u32 sadcnt; /* current running count */
- };
+diff --git a/ip/xfrm.h b/ip/xfrm.h
+index d1959bb..71345b9 100644
+--- a/ip/xfrm.h
++++ b/ip/xfrm.h
+@@ -57,6 +57,7 @@
  
--/* SPD Table filter flags  */
--enum xfrm_spd_ftype_t {
--	XFRM_SPD_UNSPEC,
--	XFRM_SPD_HMASK=1,
--	XFRM_SPD_HMAX=2,
--	XFRM_SPD_ICNT=4,
--	XFRM_SPD_OCNT=8,
--	XFRM_SPD_FCNT=16,
--	XFRM_SPD_ISCNT=32,
--	XFRM_SPD_OSCNT=64,
--	XFRM_SPD_FSCNT=128,
--	__XFRM_SPD_MAX
--
--#define XFRM_SPD_MAX (__XFRM_SPD_MAX - 1)
--};
- enum xfrm_spdattr_type_t {
- 	XFRMA_SPD_UNSPEC,
--	XFRMA_SPDHMASK,
--	XFRMA_SPDHMAX,
--	XFRMA_SPDICNT,
--	XFRMA_SPDOCNT,
--	XFRMA_SPDFCNT,
--	XFRMA_SPDISCNT,
--	XFRMA_SPDOSCNT,
--	XFRMA_SPDFSCNT,
-+	XFRMA_SPDINFO,
- 	__XFRMA_SPD_MAX
+ #define XFRMREP_RTA(x)	((struct rtattr*)(((char*)(x)) + NLMSG_ALIGN(sizeof(struct xfrm_user_report))))
  
- #define XFRMA_SPD_MAX (__XFRMA_SPD_MAX - 1)
- };
++#define XFRMSAPD_RTA(x)	((struct rtattr*)(((char*)(x)) + NLMSG_ALIGN(sizeof(__u32))))
+ #define XFRM_FLAG_PRINT(fp, flags, f, s) \
+ 	do { \
+ 		if (flags & f) { \
+diff --git a/ip/xfrm_state.c b/ip/xfrm_state.c
+index 42e3949..11535e2 100644
+--- a/ip/xfrm_state.c
++++ b/ip/xfrm_state.c
+@@ -64,6 +64,7 @@ static void usage(void)
+ 	fprintf(stderr, "Usage: ip xfrm state { deleteall | list } [ ID ] [ mode MODE ] [ reqid REQID ]\n");
+ 	fprintf(stderr, "        [ flag FLAG_LIST ]\n");
+ 	fprintf(stderr, "Usage: ip xfrm state flush [ proto XFRM_PROTO ]\n");
++	fprintf(stderr, "Usage: ip xfrm state count \n");
  
-+struct xfrmu_spdinfo {
-+	__u32 incnt;
-+	__u32 outcnt;
-+	__u32 fwdcnt;
-+	__u32 inscnt;
-+	__u32 outscnt;
-+	__u32 fwdscnt;
-+	__u32 spdhcnt;
-+	__u32 spdhmcnt;
-+};
-+
- struct xfrm_usersa_info {
- 	struct xfrm_selector		sel;
- 	struct xfrm_id			id;
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index d3551b2..0ab6008 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -416,17 +416,6 @@ struct xfrm_audit
- 	u32	secid;
- };
- 
--struct xfrm_spdinfo
--{
--	u32 incnt;
--	u32 outcnt;
--	u32 fwdcnt;
--	u32 inscnt;
--	u32 outscnt;
--	u32 fwdscnt;
--	u32 spdhcnt;
--	u32 spdhmcnt;
--};
- #ifdef CONFIG_AUDITSYSCALL
- extern void xfrm_audit_log(uid_t auid, u32 secid, int type, int result,
- 		    struct xfrm_policy *xp, struct xfrm_state *x);
-@@ -960,7 +949,7 @@ extern struct xfrm_state *xfrm_find_acq_byseq(u32 seq);
- extern int xfrm_state_delete(struct xfrm_state *x);
- extern void xfrm_state_flush(u8 proto, struct xfrm_audit *audit_info);
- extern void xfrm_sad_getinfo(struct xfrmu_sadinfo *si);
--extern void xfrm_spd_getinfo(struct xfrm_spdinfo *si);
-+extern void xfrm_spd_getinfo(struct xfrmu_spdinfo *si);
- extern int xfrm_replay_check(struct xfrm_state *x, __be32 seq);
- extern void xfrm_replay_advance(struct xfrm_state *x, __be32 seq);
- extern void xfrm_replay_notify(struct xfrm_state *x, int event);
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 263e34e..6d08383 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -579,7 +579,7 @@ static inline int xfrm_byidx_should_resize(int total)
- 	return 0;
+ 	fprintf(stderr, "ID := [ src ADDR ] [ dst ADDR ] [ proto XFRM_PROTO ] [ spi SPI ]\n");
+ 	//fprintf(stderr, "XFRM_PROTO := [ esp | ah | comp ]\n");
+@@ -933,6 +934,78 @@ static int xfrm_state_list_or_deleteall(int argc, char **argv, int deleteall)
+ 	exit(0);
  }
  
--void xfrm_spd_getinfo(struct xfrm_spdinfo *si)
-+void xfrm_spd_getinfo(struct xfrmu_spdinfo *si)
++int print_sadinfo(struct nlmsghdr *n, void *arg)
++{
++	FILE *fp = (FILE*)arg;
++	__u32 *f = NLMSG_DATA(n);
++	struct rtattr *tb[XFRMA_SAD_MAX+1];
++	struct rtattr *rta;
++	struct xfrmu_sadinfo *si;	
++
++	int len = n->nlmsg_len;
++
++	len -= NLMSG_LENGTH(sizeof(__u32));
++	if (len < 0) {
++		fprintf(stderr, "SADinfo: Wrong len %d\n", len);
++		return -1;
++	}
++
++	rta = XFRMSAPD_RTA(f);
++	parse_rtattr(tb, XFRMA_SAD_MAX, rta, len);
++
++	if (tb[XFRMA_SADINFO]) {
++		if (RTA_PAYLOAD(tb[XFRMA_SADINFO]) < sizeof(*si)) {
++			fprintf(fp,"BAD SAD length returned\n");
++			return -1;
++		}
++
++		fprintf(fp,"\t SAD");
++		si = (struct xfrmu_sadinfo *)RTA_DATA(tb[XFRMA_SADINFO]);
++		fprintf(fp," count %d", si->sadcnt);
++		if (show_stats ) {
++			fprintf(fp," (buckets ");
++			fprintf(fp,"count %d", si->sadhcnt);
++			fprintf(fp," Max %d", si->sadhmcnt);
++			fprintf(fp,")");
++		}
++		fprintf(fp,"\n");
++	} else {
++		fprintf(fp,"BAD SAD info returned\n");
++		return -1;
++	}
++
++
++        return 0;
++}
++
++static int xfrm_sad_getinfo(int argc, char **argv)
++{
++	struct rtnl_handle rth;
++	struct {
++		struct nlmsghdr			n;
++		__u32				flags;
++		char				ans[64];
++	} req;
++
++	memset(&req, 0, sizeof(req));
++	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(req.flags));
++	req.n.nlmsg_flags = NLM_F_REQUEST;
++	req.n.nlmsg_type = XFRM_MSG_GETSADINFO;
++	req.flags = 0XFFFFFFFF;
++
++	if (rtnl_open_byproto(&rth, 0, NETLINK_XFRM) < 0)
++		exit(1);
++
++	if (rtnl_talk(&rth, &req.n, 0, 0, &req.n, NULL, NULL) < 0)
++		exit(2);
++
++	print_sadinfo(&req.n, (void*)stdout);
++
++	rtnl_close(&rth);
++
++	return 0;
++}
++
+ static int xfrm_state_flush(int argc, char **argv)
  {
- 	read_lock_bh(&xfrm_policy_lock);
- 	si->incnt = xfrm_policy_count[XFRM_POLICY_IN];
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index 0d98955..f52f66d 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -674,7 +674,7 @@ static struct sk_buff *xfrm_state_netlink(struct sk_buff *in_skb,
- 
- static int build_spdinfo(struct sk_buff *skb, u32 pid, u32 seq, u32 flags)
- {
--	struct xfrm_spdinfo si;
-+	struct xfrmu_spdinfo si;
- 	struct nlmsghdr *nlh;
- 	u32 *f;
- 
-@@ -686,22 +686,7 @@ static int build_spdinfo(struct sk_buff *skb, u32 pid, u32 seq, u32 flags)
- 	*f = flags;
- 	xfrm_spd_getinfo(&si);
- 
--	if (flags & XFRM_SPD_HMASK)
--		NLA_PUT_U32(skb, XFRMA_SPDHMASK, si.spdhcnt);
--	if (flags & XFRM_SPD_HMAX)
--		NLA_PUT_U32(skb, XFRMA_SPDHMAX, si.spdhmcnt);
--	if (flags & XFRM_SPD_ICNT)
--		NLA_PUT_U32(skb, XFRMA_SPDICNT, si.incnt);
--	if (flags & XFRM_SPD_OCNT)
--		NLA_PUT_U32(skb, XFRMA_SPDOCNT, si.outcnt);
--	if (flags & XFRM_SPD_FCNT)
--		NLA_PUT_U32(skb, XFRMA_SPDFCNT, si.fwdcnt);
--	if (flags & XFRM_SPD_ISCNT)
--		NLA_PUT_U32(skb, XFRMA_SPDISCNT, si.inscnt);
--	if (flags & XFRM_SPD_OSCNT)
--		NLA_PUT_U32(skb, XFRMA_SPDOSCNT, si.inscnt);
--	if (flags & XFRM_SPD_FSCNT)
--		NLA_PUT_U32(skb, XFRMA_SPDFSCNT, si.inscnt);
-+	NLA_PUT(skb, XFRMA_SPDINFO, sizeof(si), &si);
- 
- 	return nlmsg_end(skb, nlh);
- 
-@@ -719,23 +704,7 @@ static int xfrm_get_spdinfo(struct sk_buff *skb, struct nlmsghdr *nlh,
- 	u32 seq = nlh->nlmsg_seq;
- 	int len = NLMSG_LENGTH(sizeof(u32));
- 
--
--	if (*flags & XFRM_SPD_HMASK)
--		len += RTA_SPACE(sizeof(u32));
--	if (*flags & XFRM_SPD_HMAX)
--		len += RTA_SPACE(sizeof(u32));
--	if (*flags & XFRM_SPD_ICNT)
--		len += RTA_SPACE(sizeof(u32));
--	if (*flags & XFRM_SPD_OCNT)
--		len += RTA_SPACE(sizeof(u32));
--	if (*flags & XFRM_SPD_FCNT)
--		len += RTA_SPACE(sizeof(u32));
--	if (*flags & XFRM_SPD_ISCNT)
--		len += RTA_SPACE(sizeof(u32));
--	if (*flags & XFRM_SPD_OSCNT)
--		len += RTA_SPACE(sizeof(u32));
--	if (*flags & XFRM_SPD_FSCNT)
--		len += RTA_SPACE(sizeof(u32));
-+	len += RTA_SPACE(sizeof(struct xfrmu_spdinfo));
- 
- 	r_skb = alloc_skb(len, GFP_ATOMIC);
- 	if (r_skb == NULL)
+ 	struct rtnl_handle rth;
+@@ -1010,6 +1083,9 @@ int do_xfrm_state(int argc, char **argv)
+ 		return xfrm_state_get_or_delete(argc-1, argv+1, 0);
+ 	if (matches(*argv, "flush") == 0)
+ 		return xfrm_state_flush(argc-1, argv+1);
++	if (matches(*argv, "count") == 0) {
++		return xfrm_sad_getinfo(argc, argv);
++	}
+ 	if (matches(*argv, "help") == 0)
+ 		usage();
+ 	fprintf(stderr, "Command \"%s\" is unknown, try \"ip xfrm state help\".\n", *argv);
 
---=-iTFnIPRrT3ZqP3xMZzSu--
+--=-YLE2nAUMJ81pyjhwzwLL--
 
