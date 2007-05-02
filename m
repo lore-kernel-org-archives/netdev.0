@@ -1,59 +1,38 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH 20/20][BNX2]: Update version and reldate.
-Date: Tue, 01 May 2007 18:18:05 -0700
-Message-ID: <1178068685.4820.56.camel@dell>
-Mime-Version: 1.0
-Content-Type: text/plain
+From: Segher Boessenkool <segher@kernel.crashing.org>
+Subject: Re: [PATCH] gianfar: Add I/O barriers when touching buffer descriptor ownership.
+Date: Wed, 2 May 2007 02:54:40 +0200
+Message-ID: <65f0b79871a670eb595cca7d78e2f4e9@kernel.crashing.org>
+References: <20070501165542.GA31285@ld0162-tx32.am.freescale.net>
+Mime-Version: 1.0 (Apple Message framework v623)
+Content-Type: text/plain; charset=US-ASCII; format=flowed
 Content-Transfer-Encoding: 7bit
-To: davem@davemloft.net, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org, jgarzik@pobox.com
+To: Scott Wood <scottwood@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2323 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S2992516AbXEBAbH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 May 2007 20:31:07 -0400
+Received: from mail-in-13.arcor-online.net ([151.189.21.53]:37408 "EHLO
+	mail-in-13.arcor-online.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S2992634AbXEBAyy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 May 2007 20:54:54 -0400
+In-Reply-To: <20070501165542.GA31285@ld0162-tx32.am.freescale.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[BNX2]: Update version and reldate.
+> The hardware must not see that is given ownership of a buffer until it 
+> is
+> completely written, and when the driver receives ownership of a buffer,
+> it must ensure that any other reads to the buffer reflect its final
+> state.  Thus, I/O barriers are added where required.
+>
+> Without this patch, I have observed GCC reordering the setting of
+> bdp->length and bdp->status in gfar_new_skb.
 
-Update version to 1.5.10.
+The :::"memory" in the barriers you used prevent GCC
+from reordering accesses around the barriers.
 
-Signed-off-by: Michael Chan <mchan@broadcom.com>
+AFAICS you need stronger barriers though; {w,r,}mb(),
+to prevent _any_ reordering of those memory accesses,
+not just the compiler-generated ones.
 
-diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index fc25d2c..7da6340 100644
---- a/drivers/net/bnx2.c
-+++ b/drivers/net/bnx2.c
-@@ -1,6 +1,6 @@
- /* bnx2.c: Broadcom NX2 network driver.
-  *
-- * Copyright (c) 2004, 2005, 2006 Broadcom Corporation
-+ * Copyright (c) 2004-2007 Broadcom Corporation
-  *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License as published by
-@@ -54,8 +54,8 @@
- 
- #define DRV_MODULE_NAME		"bnx2"
- #define PFX DRV_MODULE_NAME	": "
--#define DRV_MODULE_VERSION	"1.5.8"
--#define DRV_MODULE_RELDATE	"April 24, 2007"
-+#define DRV_MODULE_VERSION	"1.5.10"
-+#define DRV_MODULE_RELDATE	"May 1, 2007"
- 
- #define RUN_AT(x) (jiffies + (x))
- 
-diff --git a/drivers/net/bnx2.h b/drivers/net/bnx2.h
-index 322153c..bd6288d 100644
---- a/drivers/net/bnx2.h
-+++ b/drivers/net/bnx2.h
-@@ -1,6 +1,6 @@
- /* bnx2.h: Broadcom NX2 network driver.
-  *
-- * Copyright (c) 2004, 2005, 2006 Broadcom Corporation
-+ * Copyright (c) 2004-2007 Broadcom Corporation
-  *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License as published by
 
+Segher
 
