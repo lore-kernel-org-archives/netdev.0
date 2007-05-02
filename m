@@ -1,41 +1,59 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH] libertas: fix for wireless Kconfig changes
-Date: Wed, 2 May 2007 09:36:51 -0400
-Message-ID: <20070502133651.GB6187@tuxdriver.com>
-References: <20070429002844.GA11225@tuxdriver.com> <1178020418.21671.3.camel@localhost.localdomain> <20070501135454.GD8604@tuxdriver.com> <1178107855.31220.21.camel@localhost.localdomain>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH] Virtual ethernet device (tunnel)
+Date: Wed, 02 May 2007 07:40:31 -0600
+Message-ID: <m1647bxs1c.fsf@ebiederm.dsl.xmission.com>
+References: <46386DFB.7090109@sw.ru> <46388562.9050305@trash.net>
+	<1178110192.4074.55.camel@localhost> <46388B19.70300@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: jeff@garzik.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Dan Williams <dcbw@redhat.com>
+Cc: hadi@cyberus.ca, Pavel Emelianov <xemul@sw.ru>,
+	David Miller <davem@davemloft.net>,
+	Ben Greear <greearb@candelatech.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Linux Containers <containers@lists.osdl.org>,
+	Kirill Korotaev <dev@sw.ru>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, devel@openvz.org,
+	Stephen Hemminger <shemminger@linux-foundation.org>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:4513 "EHLO ra.tuxdriver.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S2993170AbXEBNwS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 May 2007 09:52:18 -0400
-Content-Disposition: inline
-In-Reply-To: <1178107855.31220.21.camel@localhost.localdomain>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:35001 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S2993196AbXEBNws (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2007 09:52:48 -0400
+In-Reply-To: <46388B19.70300@trash.net> (Patrick McHardy's message of "Wed, 02
+	May 2007 14:59:05 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, May 02, 2007 at 08:10:55AM -0400, Dan Williams wrote:
-> On Tue, 2007-05-01 at 09:54 -0400, John W. Linville wrote:
-> > On Tue, May 01, 2007 at 07:53:38AM -0400, Dan Williams wrote:
+Patrick McHardy <kaber@trash.net> writes:
 
-> > > Will apply, we need to pull in wireless-dev first to get the NET_RADIO
-> > > name change.
-> > 
-> > No, that is already in Linus' tree via Jeff's tree.
-> > 
-> > Jeff, I figured you would just apply the patch.  If you'd prefer I
-> > can send a pull request, but I don't have anything else pending ATM.
-> 
-> Really?  Marcelo said he pulled 2.6.21 into the libertas tree but that
-> didn't appear to touch drivers/net/wireless/Kconfig at all...
+> jamal wrote:
+>> On Wed, 2007-02-05 at 14:34 +0200, Patrick McHardy wrote:
+>> 
+>> 
+>>>Thats a lot better than using sysfs, but I think it would be
+>>>preferrable to use rtnetlink instead of genetlink for network
+>>>configuration.
+>> 
+>> 
+>> or you can just hold rtnl while using genl.
+>> I do agree it would be easier to just use rtnetlink ...
+>
+>
+> The rtnl needs to be held in either case, but using a different
+> netlink family introduces races in message processing. For example
+> a simple:
+>
+> ip link add dev veth0
+> ip route add 10.0.0.0/8 dev veth0
+>
+> might fail because we have two different input queues and the routing
+> message might get processed before the link message.
 
-The changes are after 2.6.21.
+The consensus from the last thread was pretty much that we need
+to implement RTM_NEWLINK and RTM_DELLINK, if it is at all possible.
 
-John
--- 
-John W. Linville
-linville@tuxdriver.com
+So that we can get code reuse between different virtual devices.
+Although I suspect we will need some per type attribute parsing.
+
+Eric
