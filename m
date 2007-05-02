@@ -1,43 +1,38 @@
-From: "Tim Durack" <tdurack@gmail.com>
-Subject: Re: r8169 ethernet bonding problems
-Date: Wed, 2 May 2007 14:03:54 -0400
-Message-ID: <9e246b4d0705021103o28a7dd02t7dc9021a1651c8f8@mail.gmail.com>
-References: <9e246b4d0704180552q16b05017wd0d7041c3ce04f46@mail.gmail.com>
-	 <20070418181333.GA2261@electric-eye.fr.zoreil.com>
-	 <9e246b4d0704271353g105ecd62j4f35a6e9027ad590@mail.gmail.com>
-	 <20070427220918.GB24358@electric-eye.fr.zoreil.com>
-	 <9e246b4d0705011317t72bc9413u2b002b71ca3865e9@mail.gmail.com>
-	 <20070501204721.GB19212@electric-eye.fr.zoreil.com>
-	 <9e246b4d0705011359r208ce760yba6edda835ca67a6@mail.gmail.com>
-	 <20070501211754.GB17225@electric-eye.fr.zoreil.com>
-	 <9e246b4d0705021038q458ab32r1c4f7431e7bd0f1@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+From: Segher Boessenkool <segher@kernel.crashing.org>
+Subject: Re: [PATCH] gianfar: Add I/O barriers when touching buffer descriptor ownership.
+Date: Wed, 2 May 2007 20:05:43 +0200
+Message-ID: <4334c860f893dbc537a51999cea25532@kernel.crashing.org>
+References: <20070501165542.GA31285@ld0162-tx32.am.freescale.net> <65f0b79871a670eb595cca7d78e2f4e9@kernel.crashing.org> <4638B673.4090504@freescale.com>
+Mime-Version: 1.0 (Apple Message framework v623)
+Content-Type: text/plain; charset=US-ASCII; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "Francois Romieu" <romieu@fr.zoreil.com>
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org, jgarzik@pobox.com
+To: Scott Wood <scottwood@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.234]:40946 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1767030AbXEBSEA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2007 14:04:00 -0400
-Received: by wx-out-0506.google.com with SMTP id h31so204239wxd
-        for <netdev@vger.kernel.org>; Wed, 02 May 2007 11:04:00 -0700 (PDT)
-In-Reply-To: <9e246b4d0705021038q458ab32r1c4f7431e7bd0f1@mail.gmail.com>
-Content-Disposition: inline
+Received: from mail-in-07.arcor-online.net ([151.189.21.47]:43277 "EHLO
+	mail-in-07.arcor-online.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1767042AbXEBSFu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2007 14:05:50 -0400
+In-Reply-To: <4638B673.4090504@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 5/2/07, Tim Durack <tdurack@gmail.com> wrote:
-> > > Yup. Works fine. The randomly changing interface order is proving to
-> > > be a challenge!
-> >
-> > udev should be your friend to do a BUS/ID based rename.
+>> AFAICS you need stronger barriers though; {w,r,}mb(),
+>> to prevent _any_ reordering of those memory accesses,
+>> not just the compiler-generated ones.
+>
+> My impression was that the eieio used by iobarrier would be sufficient 
+> for that, as we're not trying to synchronize between accesses to 
+> different types of memory.  Is sync really required here?
 
-Okay, the udev workaround isn't too painful.
+For accesses to main system memory, eieio only orders
+writes, not reads, so iobarrier_r() doesn't do what
+you want; and iobarrier_w() isn't meant to be used for
+main memory access ordering either.
 
-Would be great if I could do something like
-ATTRS{address}="00:30:18:ab:cd:ef" and have that force the mac during
-initialisation.
+Also, it is better to not use powerpc-specific interfaces
+in a device driver if you don't have a strong reason to.
 
-Tim:>
+
+Segher
+
