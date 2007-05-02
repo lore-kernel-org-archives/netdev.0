@@ -1,53 +1,71 @@
-From: Thomas Klein <osstklei@de.ibm.com>
-Subject: [PATCH] ehea: Fix skb header access
-Date: Wed, 2 May 2007 16:07:05 +0200
-Message-ID: <200705021607.05338.osstklei@de.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+From: Kumar Gala <galak@kernel.crashing.org>
+Subject: Re: patches for 2.6.22
+Date: Wed, 2 May 2007 09:12:36 -0500
+Message-ID: <42664CF1-75AF-4343-BC50-870D3614C683@kernel.crashing.org>
+References: <17969.56735.644629.328360@cargo.ozlabs.ibm.com>
+	<20070430145119.6713490e.kim.phillips@freescale.com>
+Mime-Version: 1.0 (Apple Message framework v752.2)
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Christoph Raisch <raisch@de.ibm.com>,
-	"Jan-Bernd Themann" <ossthema@de.ibm.com>,
-	"Jan-Bernd Themann" <themann@de.ibm.com>,
-	"linux-kernel" <linux-kernel@vger.kernel.org>,
-	"linux-ppc" <linuxppc-dev@ozlabs.org>,
-	Marcus Eder <meder@de.ibm.com>,
-	netdev <netdev@vger.kernel.org>,
-	Thomas Klein <tklein@de.ibm.com>,
-	Stefan Roscher <ossrosch@linux.vnet.ibm.com>
-To: Jeff Garzik <jeff@garzik.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate7.uk.ibm.com ([195.212.29.140]:47423 "EHLO
-	mtagate7.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S2993217AbXEBOHI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2007 10:07:08 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Cc: linuxppc-dev list <linuxppc-dev@ozlabs.org>,
+	Paul Mackerras <paulus@samba.org>, jeff Garzik <jeff@garzik.org>,
+	netdev <netdev@vger.kernel.org>
+To: Kim Phillips <kim.phillips@freescale.com>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+In-Reply-To: <20070430145119.6713490e.kim.phillips@freescale.com>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-Adapt to new skb header access functions.
 
-Signed-off-by: Thomas Klein <tklein@de.ibm.com>
----
+On Apr 30, 2007, at 2:51 PM, Kim Phillips wrote:
 
+> On Fri, 27 Apr 2007 21:25:19 +1000
+> Paul Mackerras <paulus@samba.org> wrote:
+>
+>> If anyone has patches that I haven't picked up yet which they think
+>> should go into 2.6.22, please send me either a pointer to the
+>
+> these were missed:
+>
+> [PATCH 1/4 v5] powerpc: document phy-connection-type property
+> Tue Apr 24 07:26:10 EST 2007
+> http://ozlabs.org/pipermail/linuxppc-dev/2007-April/034669.html
 
-diff --git a/drivers/net/ehea/ehea_main.c b/drivers/net/ehea/ehea_main.c
-index c7a5614..7211648 100644
---- a/drivers/net/ehea/ehea_main.c
-+++ b/drivers/net/ehea/ehea_main.c
-@@ -1803,10 +1803,10 @@ static inline int ehea_hash_skb(struct s
- 	u32 tmp;
- 
- 	if ((skb->protocol == htons(ETH_P_IP)) &&
--	    (skb->nh.iph->protocol == IPPROTO_TCP)) {
--		tcp = (struct tcphdr*)(skb->nh.raw + (skb->nh.iph->ihl * 4));
-+	    (ip_hdr(skb)->protocol == IPPROTO_TCP)) {
-+		tcp = (struct tcphdr*)(skb_network_header(skb) + (ip_hdr(skb)->ihl * 4));
- 		tmp = (tcp->source + (tcp->dest << 16)) % 31;
--		tmp += skb->nh.iph->daddr % 31;
-+		tmp += ip_hdr(skb)->daddr % 31;
- 		return tmp % num_qps;
- 	}
- 	else
+ok.
 
+> [PATCH 2/4 v4] powerpc: replace undocumented interface properties  
+> in dts files
+> Tue Apr 24 07:26:14 EST 2007
+> http://ozlabs.org/pipermail/linuxppc-dev/2007-April/034670.html
 
+I have issues with this since it looks like the current ucc driver in  
+linus's tree is using a previous rev of your patch and thus using  
+interface-type and max-speed still.
+
+> [PATCH 3/4] powerpc: Add 'mdio' to bus scan id list for platforms  
+> with QE UEC
+> Wed Apr 11 07:56:49 EST 2007
+> http://ozlabs.org/pipermail/linuxppc-dev/2007-April/034163.html
+
+ok
+
+>
+> [PATCH 4/4] powerpc: turn on corresponding PHY drivers in QE UEC  
+> platforms defconfigs
+> Wed Apr 11 07:56:53 EST 2007
+> http://ozlabs.org/pipermail/linuxppc-dev/2007-April/034164.html
+
+ok
+
+I'll pull patches 1, 3, 4 and wait on the dts changes until you sort  
+of the ucc driver issues with Jeff.
+
+- k
