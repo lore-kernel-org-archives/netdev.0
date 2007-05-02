@@ -1,89 +1,187 @@
 From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH 4/20][BNX2]: Fix race conditions when calling
- register_netdev().
-Date: Tue, 01 May 2007 18:14:07 -0700
-Message-ID: <1178068447.4820.40.camel@dell>
+Subject: [PATCH 12/20][BNX2]: Add ipv6 TSO and checksum for 5709.
+Date: Tue, 01 May 2007 18:15:37 -0700
+Message-ID: <1178068537.4820.48.camel@dell>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:1949 "EHLO MMS3.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:3280 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161717AbXEBA1M (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 May 2007 20:27:12 -0400
+	id S1161718AbXEBA26 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 May 2007 20:28:58 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[BNX2]: Fix race conditions when calling register_netdev().
-    
-Hot-plug scripts can call bnx2_open() as soon as register_netdev() is
-called in bnx2_init_one().  We need to call pci_set_drvdata() and
-setup everything before calling register_netdev(). netif_carrier_off()
-also needs to be moved to bnx2_open() to avoid race conditions with
-the irq.
-    
+[BNX2]: Add ipv6 TSO and checksum for 5709.
+
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 
 diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index dba4088..971607c 100644
+index 8520967..8610f7f 100644
 --- a/drivers/net/bnx2.c
 +++ b/drivers/net/bnx2.c
-@@ -4350,6 +4350,8 @@ bnx2_open(struct net_device *dev)
- 	struct bnx2 *bp = netdev_priv(dev);
- 	int rc;
+@@ -4624,35 +4624,49 @@ bnx2_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		u32 tcp_opt_len, ip_tcp_len;
+ 		struct iphdr *iph;
  
-+	netif_carrier_off(dev);
-+
- 	bnx2_set_power_state(bp, PCI_D0);
- 	bnx2_disable_int(bp);
- 
-@@ -6195,6 +6197,18 @@ bnx2_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	dev->poll_controller = poll_bnx2;
- #endif
- 
-+	pci_set_drvdata(pdev, dev);
-+
-+	memcpy(dev->dev_addr, bp->mac_addr, 6);
-+	memcpy(dev->perm_addr, bp->mac_addr, 6);
-+	bp->name = board_info[ent->driver_data].name;
-+
-+	dev->features |= NETIF_F_IP_CSUM | NETIF_F_SG;
-+#ifdef BCM_VLAN
-+	dev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
-+#endif
-+	dev->features |= NETIF_F_TSO | NETIF_F_TSO_ECN;
-+
- 	if ((rc = register_netdev(dev))) {
- 		dev_err(&pdev->dev, "Cannot register net device\n");
- 		if (bp->regview)
-@@ -6206,11 +6220,6 @@ bnx2_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		return rc;
- 	}
- 
--	pci_set_drvdata(pdev, dev);
+-		if (skb_header_cloned(skb) &&
+-		    pskb_expand_head(skb, 0, 0, GFP_ATOMIC)) {
+-			dev_kfree_skb(skb);
+-			return NETDEV_TX_OK;
+-		}
 -
--	memcpy(dev->dev_addr, bp->mac_addr, 6);
--	memcpy(dev->perm_addr, bp->mac_addr, 6);
--	bp->name = board_info[ent->driver_data].name,
- 	printk(KERN_INFO "%s: %s (%c%d) PCI%s %s %dMHz found at mem %lx, "
- 		"IRQ %d, ",
- 		dev->name,
-@@ -6228,15 +6237,6 @@ bnx2_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		printk("%2.2x", dev->dev_addr[i]);
- 	printk("\n");
+ 		vlan_tag_flags |= TX_BD_FLAGS_SW_LSO;
  
--	dev->features |= NETIF_F_SG;
--	dev->features |= NETIF_F_IP_CSUM;
--#ifdef BCM_VLAN
--	dev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
--#endif
--	dev->features |= NETIF_F_TSO | NETIF_F_TSO_ECN;
--
--	netif_carrier_off(bp->dev);
--
+-		tcp_opt_len = 0;
+-		if (tcp_hdr(skb)->doff > 5)
+-			tcp_opt_len = tcp_optlen(skb);
++		tcp_opt_len = tcp_optlen(skb);
+ 
+-		ip_tcp_len = ip_hdrlen(skb) + sizeof(struct tcphdr);
++		if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6) {
++			u32 tcp_off = skb_transport_offset(skb) -
++				      sizeof(struct ipv6hdr) - ETH_HLEN;
+ 
+-		iph = ip_hdr(skb);
+-		iph->check = 0;
+-		iph->tot_len = htons(mss + ip_tcp_len + tcp_opt_len);
+-		tcp_hdr(skb)->check = ~csum_tcpudp_magic(iph->saddr,
+-							 iph->daddr, 0,
+-							 IPPROTO_TCP, 0);
+-		if (tcp_opt_len || (iph->ihl > 5)) {
+-			vlan_tag_flags |= ((iph->ihl - 5) +
+-					   (tcp_opt_len >> 2)) << 8;
++			vlan_tag_flags |= ((tcp_opt_len >> 2) << 8) |
++					  TX_BD_FLAGS_SW_FLAGS;
++			if (likely(tcp_off == 0))
++				vlan_tag_flags &= ~TX_BD_FLAGS_TCP6_OFF0_MSK;
++			else {
++				tcp_off >>= 3;
++				vlan_tag_flags |= ((tcp_off & 0x3) <<
++						   TX_BD_FLAGS_TCP6_OFF0_SHL) |
++						  ((tcp_off & 0x10) <<
++						   TX_BD_FLAGS_TCP6_OFF4_SHL);
++				mss |= (tcp_off & 0xc) << TX_BD_TCP6_OFF2_SHL;
++			}
++		} else {
++			if (skb_header_cloned(skb) &&
++			    pskb_expand_head(skb, 0, 0, GFP_ATOMIC)) {
++				dev_kfree_skb(skb);
++				return NETDEV_TX_OK;
++			}
++
++			ip_tcp_len = ip_hdrlen(skb) + sizeof(struct tcphdr);
++
++			iph = ip_hdr(skb);
++			iph->check = 0;
++			iph->tot_len = htons(mss + ip_tcp_len + tcp_opt_len);
++			tcp_hdr(skb)->check = ~csum_tcpudp_magic(iph->saddr,
++								 iph->daddr, 0,
++								 IPPROTO_TCP,
++								 0);
++			if (tcp_opt_len || (iph->ihl > 5)) {
++				vlan_tag_flags |= ((iph->ihl - 5) +
++						   (tcp_opt_len >> 2)) << 8;
++			}
+ 		}
+-	}
+-	else
+-	{
++	} else
+ 		mss = 0;
+-	}
+ 
+ 	mapping = pci_map_single(bp->pdev, skb->data, len, PCI_DMA_TODEVICE);
+ 
+@@ -5335,10 +5349,15 @@ bnx2_set_rx_csum(struct net_device *dev, u32 data)
+ static int
+ bnx2_set_tso(struct net_device *dev, u32 data)
+ {
+-	if (data)
++	struct bnx2 *bp = netdev_priv(dev);
++
++	if (data) {
+ 		dev->features |= NETIF_F_TSO | NETIF_F_TSO_ECN;
+-	else
+-		dev->features &= ~(NETIF_F_TSO | NETIF_F_TSO_ECN);
++		if (CHIP_NUM(bp) == CHIP_NUM_5709)
++			dev->features |= NETIF_F_TSO6;
++	} else
++		dev->features &= ~(NETIF_F_TSO | NETIF_F_TSO6 |
++				   NETIF_F_TSO_ECN);
  	return 0;
  }
  
+@@ -5636,6 +5655,17 @@ bnx2_phys_id(struct net_device *dev, u32 data)
+ 	return 0;
+ }
+ 
++static int
++bnx2_set_tx_csum(struct net_device *dev, u32 data)
++{
++	struct bnx2 *bp = netdev_priv(dev);
++
++	if (CHIP_NUM(bp) == CHIP_NUM_5709)
++		return (ethtool_op_set_tx_hw_csum(dev, data));
++	else
++		return (ethtool_op_set_tx_csum(dev, data));
++}
++
+ static const struct ethtool_ops bnx2_ethtool_ops = {
+ 	.get_settings		= bnx2_get_settings,
+ 	.set_settings		= bnx2_set_settings,
+@@ -5658,7 +5688,7 @@ static const struct ethtool_ops bnx2_ethtool_ops = {
+ 	.get_rx_csum		= bnx2_get_rx_csum,
+ 	.set_rx_csum		= bnx2_set_rx_csum,
+ 	.get_tx_csum		= ethtool_op_get_tx_csum,
+-	.set_tx_csum		= ethtool_op_set_tx_csum,
++	.set_tx_csum		= bnx2_set_tx_csum,
+ 	.get_sg			= ethtool_op_get_sg,
+ 	.set_sg			= ethtool_op_set_sg,
+ 	.get_tso		= ethtool_op_get_tso,
+@@ -6203,11 +6233,16 @@ bnx2_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	memcpy(dev->perm_addr, bp->mac_addr, 6);
+ 	bp->name = board_info[ent->driver_data].name;
+ 
+-	dev->features |= NETIF_F_IP_CSUM | NETIF_F_SG;
++	if (CHIP_NUM(bp) == CHIP_NUM_5709)
++		dev->features |= NETIF_F_HW_CSUM | NETIF_F_SG;
++	else
++		dev->features |= NETIF_F_IP_CSUM | NETIF_F_SG;
+ #ifdef BCM_VLAN
+ 	dev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
+ #endif
+ 	dev->features |= NETIF_F_TSO | NETIF_F_TSO_ECN;
++	if (CHIP_NUM(bp) == CHIP_NUM_5709)
++		dev->features |= NETIF_F_TSO6;
+ 
+ 	if ((rc = register_netdev(dev))) {
+ 		dev_err(&pdev->dev, "Cannot register net device\n");
+diff --git a/drivers/net/bnx2.h b/drivers/net/bnx2.h
+index 8e7b29a..70fb639 100644
+--- a/drivers/net/bnx2.h
++++ b/drivers/net/bnx2.h
+@@ -24,8 +24,11 @@ struct tx_bd {
+ 	u32 tx_bd_haddr_hi;
+ 	u32 tx_bd_haddr_lo;
+ 	u32 tx_bd_mss_nbytes;
++		#define TX_BD_TCP6_OFF2_SHL		(14)
+ 	u32 tx_bd_vlan_tag_flags;
+ 		#define TX_BD_FLAGS_CONN_FAULT		(1<<0)
++		#define TX_BD_FLAGS_TCP6_OFF0_MSK	(3<<1)
++		#define TX_BD_FLAGS_TCP6_OFF0_SHL	(1)
+ 		#define TX_BD_FLAGS_TCP_UDP_CKSUM	(1<<1)
+ 		#define TX_BD_FLAGS_IP_CKSUM		(1<<2)
+ 		#define TX_BD_FLAGS_VLAN_TAG		(1<<3)
+@@ -34,6 +37,7 @@ struct tx_bd {
+ 		#define TX_BD_FLAGS_END			(1<<6)
+ 		#define TX_BD_FLAGS_START		(1<<7)
+ 		#define TX_BD_FLAGS_SW_OPTION_WORD	(0x1f<<8)
++		#define TX_BD_FLAGS_TCP6_OFF4_SHL	(12)
+ 		#define TX_BD_FLAGS_SW_FLAGS		(1<<13)
+ 		#define TX_BD_FLAGS_SW_SNAP		(1<<14)
+ 		#define TX_BD_FLAGS_SW_LSO		(1<<15)
 
 
