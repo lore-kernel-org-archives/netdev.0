@@ -1,34 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/20][BNX2]: Add 40-bit DMA workaround for 5708.
-Date: Wed, 02 May 2007 15:50:34 -0700 (PDT)
-Message-ID: <20070502.155034.08679790.davem@davemloft.net>
-References: <4638D775.3010905@garzik.org>
-	<1178136161.4820.91.camel@dell>
-	<20070502224858.GA2363@infradead.org>
+From: Chris Leech <christopher.leech@intel.com>
+Subject: Re: [GIT PULL] I/OAT updates for 2.6.22
+Date: Wed, 02 May 2007 16:27:44 -0700
+Message-ID: <1178148464.16670.14.camel@cleech-lnx>
+References: <1178145460.16258.3.camel@cleech-lnx>
+	 <20070502.154403.77034296.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: mchan@broadcom.com, jeff@garzik.org, netdev@vger.kernel.org
-To: hch@infradead.org
+Cc: linux-kernel@vger.kernel.org, torvalds@linux-foundation.org,
+	akpm@linux-foundation.org, netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36266
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1767161AbXEBWud (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2007 18:50:33 -0400
-In-Reply-To: <20070502224858.GA2363@infradead.org>
+Received: from mga02.intel.com ([134.134.136.20]:10494 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1767227AbXEBX1j (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 May 2007 19:27:39 -0400
+In-Reply-To: <20070502.154403.77034296.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Christoph Hellwig <hch@infradead.org>
-Date: Wed, 2 May 2007 23:48:58 +0100
-
-> On Wed, May 02, 2007 at 01:02:41PM -0700, Michael Chan wrote:
-> > Let's say I have a 32-bit card that cannot do dual address cycle on a
-> > 64-bit dma_addr_t system without IOMMU.  If CONFIG_HIGHMEM is not set,
-> > wouldn't the device get > 32-bit DMA addresses that it cannot handle?
+On Wed, 2007-05-02 at 15:44 -0700, David Miller wrote:
 > 
-> It needs to set it's dma mask to 32bits and the upper layers (net, block)
-> will do the bouncing for it.  
+> Chrstopher, I really really would like you to post these patches early
+> and often to netdev@vger.kernel.org especially because you are
+> touching the TCP code.
 
-Not the case for networking, we rely upon the DMA API to take
-care of things, which it does.
+You're right, I should have sent this to netdev as well.  I'm Sorry.
+
+As for early and often, I have posted all of these patches to netdev,
+and made suggested changes, and re-posted.
+
+And when I have other networking changes, you can bet they'll get sent
+to netdev for review first before I think about asking that they be
+included.
+
+> You aren't doing this, for several rounds, and just submitting your
+> stuff directly to Linus, Andrew, and lkml, and it's starting to annoy
+> me greatly.
+
+For several rounds, I've been posting patches that go nowhere.  I
+honestly don't care if they go straight to Linus, through you, or
+through Andrew.
+
+- Chris
