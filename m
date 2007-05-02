@@ -1,30 +1,31 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 13/20][BNX2]: Put MII register offsets in the bnx2 struct.
-Date: Wed, 02 May 2007 03:12:36 -0400
-Message-ID: <463839E4.60103@garzik.org>
-References: <1178068549.4820.49.camel@dell>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 3/20][BNX2]: Add 40-bit DMA workaround for 5708.
+Date: Wed, 02 May 2007 00:12:43 -0700 (PDT)
+Message-ID: <20070502.001243.70193466.davem@davemloft.net>
+References: <1178068414.4820.39.camel@dell>
+	<46383883.8070209@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Michael Chan <mchan@broadcom.com>
+Cc: mchan@broadcom.com, netdev@vger.kernel.org
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:56047 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754919AbXEBHMj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 May 2007 03:12:39 -0400
-In-Reply-To: <1178068549.4820.49.camel@dell>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57620
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754922AbXEBHMo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2007 03:12:44 -0400
+In-Reply-To: <46383883.8070209@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michael Chan wrote:
-> [BNX2]: Put MII register offsets in the bnx2 struct.
-> 
-> The 5709 Serdes device uses non-standard MII register offsets.  This
-> re-structuring will make it easier to support 5709 Serdes.
-> 
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
+From: Jeff Garzik <jeff@garzik.org>
+Date: Wed, 02 May 2007 03:06:43 -0400
 
-ACK patches 12-13
+> Second, CONFIG_HIGHMEM is a bad test for IOMMU presence.  I don't
+> think you /can/ test for IOMMU presence.  Maybe DaveM knows a way
+> that I do not?
 
+You really can't.
 
+We have platforms that are both IOMMU and non-IOMMU for the same
+configuration, it isn't known until run-time.
