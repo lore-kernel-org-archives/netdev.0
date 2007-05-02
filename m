@@ -1,65 +1,87 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [PATCH 3/20][BNX2]: Add 40-bit DMA workaround for 5708.
-Date: Wed, 02 May 2007 13:02:41 -0700
-Message-ID: <1178136161.4820.91.camel@dell>
-References: <1551EAE59135BE47B544934E30FC4FC09400DB@nt-irva-0751.brcm.ad.broadcom.com>
- <4638AE42.5000908@garzik.org> <1178130232.4820.62.camel@dell>
- <4638D775.3010905@garzik.org>
-Mime-Version: 1.0
-Content-Type: text/plain
+From: Kumar Gala <galak@kernel.crashing.org>
+Subject: Re: [PATCH v2] gianfar: Add I/O barriers when touching buffer descriptor ownership.
+Date: Wed, 2 May 2007 15:09:56 -0500
+Message-ID: <F1B250DD-A472-470F-B3D0-EBB2F042E454@kernel.crashing.org>
+References: <20070502195712.GA16541@ld0162-tx32.am.freescale.net>
+Mime-Version: 1.0 (Apple Message framework v752.2)
+Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>,
-	"netdev" <netdev@vger.kernel.org>
-To: "Jeff Garzik" <jeff@garzik.org>
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
+To: Scott Wood <scottwood@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4965 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1766898AbXEBUHM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 May 2007 16:07:12 -0400
-In-Reply-To: <4638D775.3010905@garzik.org>
+Received: from nommos.sslcatacombnetworking.com ([67.18.224.114]:19637 "EHLO
+	nommos.sslcatacombnetworking.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1766932AbXEBUKl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2007 16:10:41 -0400
+In-Reply-To: <20070502195712.GA16541@ld0162-tx32.am.freescale.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2007-05-02 at 14:24 -0400, Jeff Garzik wrote:
-> Michael Chan wrote:
-> > On Wed, 2007-05-02 at 11:29 -0400, Jeff Garzik wrote:
-> >> Michael Chan wrote:
-> >>> A non-IOMMU system using 64-bit dma_addr_t will always set
-> >>> CONFIG_HIGHMEM, right?
-> >> No.
-> >>
-> > May be I misunderstood the code in illegal_highdma() in net/core/dev.c
-> > where it is checking to see if it needs to linearize the SKB when the
-> > device does not support 64-bit DMA.  I'm using similar assumptions for
-> > the 40-bit address check in the patch.
-> 
-> That function is just checking for highmem pages, no more, no less.
-> 
 
-Let's say I have a 32-bit card that cannot do dual address cycle on a
-64-bit dma_addr_t system without IOMMU.  If CONFIG_HIGHMEM is not set,
-wouldn't the device get > 32-bit DMA addresses that it cannot handle?
+On May 2, 2007, at 2:57 PM, Scott Wood wrote:
 
-> Your question quoted far above presumes that no 64-bit systems exist 
-> lacking IOMMUs, which is not the case.  64-bit platforms with a 64-bit 
-> dma_addr_t will /not/ set CONFIG_HIGHMEM, regardless of IOMMU presence.
+> The hardware must not see that is given ownership of a buffer until  
+> it is
+> completely written, and when the driver receives ownership of a  
+> buffer,
+> it must ensure that any other reads to the buffer reflect its final
+> state.  Thus, I/O barriers are added where required.
+>
+> Without this patch, I have observed GCC reordering the setting of
+> bdp->length and bdp->status in gfar_new_skb.
+>
+> Signed-off-by: Scott Wood <scottwood@freescale.com>
+> ---
+> This is version 2 of this patch.  I was told that eieio doesn't order
+> loads from main memory, so a sync is used instead.  Also, due to
+> objectons that iobarrier_* shouldn't be used for main memory, I used
+> eieio() instead (a wmb() would be unnecessarily heavy).
 
-I know that there are 64-bit systems without IOMMUs.  That's why we need
-the workaround code.  Otherwise we can always just set the DMA mask to
-40-bit and let the IOMMU handle the translation.  I'm trying to come up
-with the right conditions to determine whether the address checking is
-needed or not.  These systems without IOMMU must support 32-bit only
-cards, right?  How do they do that if they are not using CONFIG_HIGHMEM?
+I'd rather see a wmb() instead of eieio() to keep this code non-ppc  
+specific.  (also, we implement wmb as eieio, so I don't keep the  
+comment about it being too heavy, unless you mean generically).
 
-> 
-> Probably you want to base your actions on some combination of
-> 
-> * CONFIG_64BIT
-> * sizeof(dma_addr_t)
-> * pci_set_dma_mask() for >32 bit platforms
-> 
+- k
 
-Sure I can use these if CONFIG_HIGHMEM is not right.
-
-
+>
+>  drivers/net/gianfar.c |    3 +++
+>  1 files changed, 3 insertions(+), 0 deletions(-)
+>
+> diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
+> index b666a0c..b014d27 100644
+> --- a/drivers/net/gianfar.c
+> +++ b/drivers/net/gianfar.c
+> @@ -1025,6 +1025,7 @@ static int gfar_start_xmit(struct sk_buff  
+> *skb, struct net_device *dev)
+>
+>  	dev->trans_start = jiffies;
+>
+> +	eieio();
+>  	txbdp->status = status;
+>
+>  	/* If this was the last BD in the ring, the next one */
+> @@ -1301,6 +1302,7 @@ struct sk_buff * gfar_new_skb(struct  
+> net_device *dev, struct rxbd8 *bdp)
+>  	bdp->length = 0;
+>
+>  	/* Mark the buffer empty */
+> +	eieio();
+>  	bdp->status |= (RXBD_EMPTY | RXBD_INTERRUPT);
+>
+>  	return skb;
+> @@ -1484,6 +1486,7 @@ int gfar_clean_rx_ring(struct net_device  
+> *dev, int rx_work_limit)
+>  	bdp = priv->cur_rx;
+>
+>  	while (!((bdp->status & RXBD_EMPTY) || (--rx_work_limit < 0))) {
+> +		rmb();
+>  		skb = priv->rx_skbuff[priv->skb_currx];
+>
+>  		if (!(bdp->status &
+> -- 
+> 1.5.0.3
+> _______________________________________________
+> Linuxppc-dev mailing list
+> Linuxppc-dev@ozlabs.org
+> https://ozlabs.org/mailman/listinfo/linuxppc-dev
 
