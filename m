@@ -1,42 +1,49 @@
 From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH 0/20][BNX2]: Bug fixes and more 5709 suppot.
-Date: Tue, 01 May 2007 18:11:43 -0700
-Message-ID: <1178068303.4820.35.camel@dell>
+Subject: [PATCH 1/20][BNX2]: Block MII access when ifdown.
+Date: Tue, 01 May 2007 18:12:21 -0700
+Message-ID: <1178068341.4820.37.camel@dell>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4694 "EHLO mms1.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:1718 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1946051AbXEBAYs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 May 2007 20:24:48 -0400
+	id S1946159AbXEBAZ0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 May 2007 20:25:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David, please review and apply the following patches that will follow.
-The firmware patches 6-11 will be sent to you off-list due to large
-size.
+[BNX2]: Block MII access when ifdown.
 
-[PATCH 1/20][BNX2]: Block MII access when ifdown.
-[PATCH 2/20][BNX2]: Fix register and memory test on 5709.
-[PATCH 3/20][BNX2]: Add 40-bit DMA workaround for 5708.
-[PATCH 4/20][BNX2]: Fix race conditions when calling register_netdev().
-[PATCH 5/20][BNX2]: Save PCI state during suspend.
-[PATCH 6/20][BNX2]: Update 5708 firmware.
-[PATCH 7/20][BNX2]: Update 5709 firmware part 1.
-[PATCH 8/20][BNX2]: Update 5709 firmware part 2.
-[PATCH 9/20][BNX2]: Update 5709 firmware part 3.
-[PATCH 10/20][BNX2]: Update 5709 firmware part 4.
-[PATCH 11/20][BNX2]: Update 5709 firmware part 5.
-[PATCH 12/20][BNX2]: Add ipv6 TSO and checksum for 5709.
-[PATCH 13/20][BNX2]: Put MII register offsets in the bnx2 struct.
-[PATCH 14/20][BNX2]: Re-structure the 2.5G Serdes code.
-[PATCH 15/20][BNX2]: Add support for 5709 Serdes.
-[PATCH 16/20][BNX2]: Add indirect spinlock.
-[PATCH 17/20][BNX2]: Enhance the heartbeat.
-[PATCH 18/20][BNX2]: Add 1-shot MSI handler for 5709.
-[PATCH 19/20][BNX2]: Print bus information for PCIE devices.
-[PATCH 20/20][BNX2]: Update version and reldate.
+The device may be in D3hot state and should not allow MII register
+access.
+
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+index f98a220..9f0a067 100644
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -5562,6 +5562,9 @@ bnx2_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ 	case SIOCGMIIREG: {
+ 		u32 mii_regval;
+ 
++		if (!netif_running(dev))
++			return -EAGAIN;
++
+ 		spin_lock_bh(&bp->phy_lock);
+ 		err = bnx2_read_phy(bp, data->reg_num & 0x1f, &mii_regval);
+ 		spin_unlock_bh(&bp->phy_lock);
+@@ -5575,6 +5578,9 @@ bnx2_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ 		if (!capable(CAP_NET_ADMIN))
+ 			return -EPERM;
+ 
++		if (!netif_running(dev))
++			return -EAGAIN;
++
+ 		spin_lock_bh(&bp->phy_lock);
+ 		err = bnx2_write_phy(bp, data->reg_num & 0x1f, data->val_in);
+ 		spin_unlock_bh(&bp->phy_lock);
 
 
