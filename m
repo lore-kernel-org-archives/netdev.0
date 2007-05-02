@@ -1,108 +1,36 @@
-From: Frank Pavlic <fpavlic@de.ibm.com>
-Subject: [PATCH 1/4] s390: qeth driver connection hang
-Date: Wed, 2 May 2007 15:17:11 +0200
-Message-ID: <20070502131711.GA25700@de.ibm.com>
-References: <20070502131331.GA13217@de.ibm.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [NETFILTER] sip: Fix RTP address NAT
+Date: Wed, 02 May 2007 15:19:21 +0200
+Message-ID: <46388FD9.1030907@trash.net>
+References: <20070502040102.GA28343@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
-To: jgarzik@pobox.com
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e36.co.us.ibm.com ([32.97.110.154]:36526 "EHLO
-	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S2993129AbXEBNPx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2007 09:15:53 -0400
-Content-Disposition: inline
-In-Reply-To: <20070502131331.GA13217@de.ibm.com>
+Received: from stinky.trash.net ([213.144.137.162]:35354 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S2993155AbXEBNUa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2007 09:20:30 -0400
+In-Reply-To: <20070502040102.GA28343@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ursula Braun <braunu@de.ibm.com>
-      Frank Pavlic <fpavlic@de.ibm.com>
-      
-Connection hangs when using EDDP mode because sk_protocol is NULL
-when skb has been copied via skb_copy. This results in dropping 
-packets.
-Also keep MAC address after recovery of Virtual NICs so that
-traffic can flow again and duplicate statements in 
-qeth_dev_set_route_store removed.
+Herbert Xu wrote:
+> [NETFILTER] sip: Fix RTP address NAT
+> 
+> I needed to use this recently to talk to a Cisco server.  In my case
+> I only did SNAT while the Cisco server used a different address for
+> RTP traffic than the one for SIP.  I discovered that nf_nat_sip NATed
+> the RTP address to the SIP one which was unnecessary but OK.  However,
+> in doing so it did not DNAT the destination address on the RTP traffic
+> to the Cisco back to the original RTP address.
+> 
+> This patch corrects this by noting down the RTP address and using it
+> when the expectation fires.
 
-Signed-off-by: Ursula Braun <braunu@de.ibm.com>
-Signed-off-by: Frank Pavlic <fpavlic@de.ibm.com>
----
- qeth_eddp.c |    4 ++--
- qeth_eddp.h |    3 ++-
- qeth_main.c |    5 +++--
- qeth_sys.c  |    2 --
- 4 files changed, 7 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/s390/net/qeth_eddp.c b/drivers/s390/net/qeth_eddp.c
-index dd7034f..4640f32 100644
---- a/drivers/s390/net/qeth_eddp.c
-+++ b/drivers/s390/net/qeth_eddp.c
-@@ -620,10 +620,10 @@ qeth_eddp_create_context_tcp(struct qeth_card *card, struct sk_buff *skb,
- 
- struct qeth_eddp_context *
- qeth_eddp_create_context(struct qeth_card *card, struct sk_buff *skb,
--			 struct qeth_hdr *qhdr)
-+			 struct qeth_hdr *qhdr, unsigned char sk_protocol)
- {
- 	QETH_DBF_TEXT(trace, 5, "creddpc");
--	switch (skb->sk->sk_protocol){
-+	switch (sk_protocol) {
- 	case IPPROTO_TCP:
- 		return qeth_eddp_create_context_tcp(card, skb, qhdr);
- 	default:
-diff --git a/drivers/s390/net/qeth_eddp.h b/drivers/s390/net/qeth_eddp.h
-index 103768d..52910c9 100644
---- a/drivers/s390/net/qeth_eddp.h
-+++ b/drivers/s390/net/qeth_eddp.h
-@@ -34,7 +34,8 @@ struct qeth_eddp_context_reference {
- };
- 
- extern struct qeth_eddp_context *
--qeth_eddp_create_context(struct qeth_card *,struct sk_buff *,struct qeth_hdr *);
-+qeth_eddp_create_context(struct qeth_card *,struct sk_buff *,
-+			 struct qeth_hdr *, unsigned char);
- 
- extern void
- qeth_eddp_put_context(struct qeth_eddp_context *);
-diff --git a/drivers/s390/net/qeth_main.c b/drivers/s390/net/qeth_main.c
-index ad7792d..54839fa 100644
---- a/drivers/s390/net/qeth_main.c
-+++ b/drivers/s390/net/qeth_main.c
-@@ -4423,7 +4423,8 @@ qeth_send_packet(struct qeth_card *card, struct sk_buff *skb)
- 		qeth_fill_header(card, hdr, new_skb, ipv, cast_type);
- 	}
- 	if (large_send == QETH_LARGE_SEND_EDDP) {
--		ctx = qeth_eddp_create_context(card, new_skb, hdr);
-+		ctx = qeth_eddp_create_context(card, new_skb, hdr,
-+					       skb->sk->sk_protocol);
- 		if (ctx == NULL) {
- 			__qeth_free_new_skb(skb, new_skb);
- 			PRINT_WARN("could not create eddp context\n");
-@@ -6584,7 +6585,7 @@ qeth_setadpparms_change_macaddr_cb(struct qeth_card *card,
- 	QETH_DBF_TEXT(trace,4,"chgmaccb");
- 
- 	cmd = (struct qeth_ipa_cmd *) data;
--	if (!card->options.layer2 || card->info.guestlan ||
-+	if (!card->options.layer2 ||
- 	    !(card->info.mac_bits & QETH_LAYER2_MAC_READ)) {
- 		memcpy(card->dev->dev_addr,
- 		       &cmd->data.setadapterparms.data.change_addr.addr,
-diff --git a/drivers/s390/net/qeth_sys.c b/drivers/s390/net/qeth_sys.c
-index d518419..65ffc21 100644
---- a/drivers/s390/net/qeth_sys.c
-+++ b/drivers/s390/net/qeth_sys.c
-@@ -384,8 +384,6 @@ qeth_dev_route_store(struct qeth_card *card, struct qeth_routing_info *route,
- 		route->type = PRIMARY_CONNECTOR;
- 	} else if (!strcmp(tmp, "secondary_connector")) {
- 		route->type = SECONDARY_CONNECTOR;
--	} else if (!strcmp(tmp, "multicast_router")) {
--		route->type = MULTICAST_ROUTER;
- 	} else if (!strcmp(tmp, "primary_router")) {
- 		route->type = PRIMARY_ROUTER;
- 	} else if (!strcmp(tmp, "secondary_router")) {
--- 
-1.5.1.2
+Applied, thanks a lot Herbert. My last attempt at fixing this resulted
+in a patch that was too ugly to live :)
 
