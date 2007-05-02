@@ -1,36 +1,41 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Telnet closing delay
-Date: Wed, 2 May 2007 13:19:52 +0400
-Message-ID: <20070502091952.GA6060@2ka.mipt.ru>
-References: <3C59DB883F7B0B4D8096010D45ACCD1323004D@exch.facton.local>
+From: Andrew Victor <andrew@sanpeople.com>
+Subject: [PATCH 2.6.21] AT91RM9200 Ethernet: Fix multicast addressing
+Date: 02 May 2007 12:11:38 +0200
+Message-ID: <1178100698.14657.8.camel@fuzzie.sanpeople.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: netdev@vger.kernel.org
-To: Beschorner Daniel <Daniel.Beschorner@facton.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: jgarzik@pobox.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:38832 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030848AbXEBJUD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 May 2007 05:20:03 -0400
-Content-Disposition: inline
-In-Reply-To: <3C59DB883F7B0B4D8096010D45ACCD1323004D@exch.facton.local>
+Received: from za-gw.sanpeople.com ([196.211.225.226]:2772 "EHLO
+	za-gw.sanpeople.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S2993020AbXEBKeg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2007 06:34:36 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, May 01, 2007 at 10:48:11PM +0200, Beschorner Daniel (Daniel.Beschorner@facton.com) wrote:
-> Since 2.6.21 I often got a 2 seconds delay when closing a telnet session
-> to such a machine (even to localhost).
-> I was at least not aware of this with older versions, but maybe I'm
-> wrong?!?
-> Server with delay:
-> 
-> 0.000095 select(4, [0 3], [], [0], NULL) = 1 (in [3])
-> 0.001779 read(3, 0x8059de0, 8192)  = -1 EIO (Input/output error)
+The order that the two 32-bit words written to the Hash Address (Low,
+High) Registers for matching of multicast addresses is incorrect.
 
-Hmm, does not it supposed to stop doing such things on the closed
-socket and not enter 10000 select/read loop?
-Server behaves incorrectly in this scenario, why and how it can be fixed
-is another questions better asked the author.
+Signed-off-by: Lars Reemts <Lars.Reemts@entwicklung.eq-3.de>
+Signed-off-by: Andrew Victor <andrew@sanpeople.com>
 
--- 
-	Evgeniy Polyakov
+
+diff -urN linux-2.6.21/drivers/net/arm/at91_ether.c linux-2.6.21.new/drivers/net/arm/at91_ether.c
+--- linux-2.6.21/drivers/net/arm/at91_ether.c	Thu Apr 26 05:08:32 2007
++++ linux-2.6.21.new/drivers/net/arm/at91_ether.c	Wed May  2 12:03:21 2007
+@@ -535,8 +535,8 @@
+ 		mc_filter[bitnr >> 5] |= 1 << (bitnr & 31);
+ 	}
+ 
+-	at91_emac_write(AT91_EMAC_HSH, mc_filter[0]);
+-	at91_emac_write(AT91_EMAC_HSL, mc_filter[1]);
++	at91_emac_write(AT91_EMAC_HSL, mc_filter[0]);
++	at91_emac_write(AT91_EMAC_HSH, mc_filter[1]);
+ }
+ 
+ /*
+
+
+
