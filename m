@@ -1,44 +1,43 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH 17/20][BNX2]: Enhance the heartbeat.
-Date: Wed, 2 May 2007 10:44:35 -0700
-Message-ID: <20070502104435.6471751e@localhost.localdomain>
-References: <46383B00.4080605@garzik.org>
-	<20070502.002426.38687430.davem@davemloft.net>
-	<4638400D.5010306@garzik.org>
-	<20070502.005412.99176640.davem@davemloft.net>
-	<46384540.6090509@garzik.org>
+From: "Tim Durack" <tdurack@gmail.com>
+Subject: Re: r8169 ethernet bonding problems
+Date: Wed, 2 May 2007 14:03:54 -0400
+Message-ID: <9e246b4d0705021103o28a7dd02t7dc9021a1651c8f8@mail.gmail.com>
+References: <9e246b4d0704180552q16b05017wd0d7041c3ce04f46@mail.gmail.com>
+	 <20070418181333.GA2261@electric-eye.fr.zoreil.com>
+	 <9e246b4d0704271353g105ecd62j4f35a6e9027ad590@mail.gmail.com>
+	 <20070427220918.GB24358@electric-eye.fr.zoreil.com>
+	 <9e246b4d0705011317t72bc9413u2b002b71ca3865e9@mail.gmail.com>
+	 <20070501204721.GB19212@electric-eye.fr.zoreil.com>
+	 <9e246b4d0705011359r208ce760yba6edda835ca67a6@mail.gmail.com>
+	 <20070501211754.GB17225@electric-eye.fr.zoreil.com>
+	 <9e246b4d0705021038q458ab32r1c4f7431e7bd0f1@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, mchan@broadcom.com,
-	netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+Cc: netdev@vger.kernel.org
+To: "Francois Romieu" <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:39063 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1766954AbXEBRtn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 May 2007 13:49:43 -0400
-In-Reply-To: <46384540.6090509@garzik.org>
+Received: from wx-out-0506.google.com ([66.249.82.234]:40946 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1767030AbXEBSEA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2007 14:04:00 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so204239wxd
+        for <netdev@vger.kernel.org>; Wed, 02 May 2007 11:04:00 -0700 (PDT)
+In-Reply-To: <9e246b4d0705021038q458ab32r1c4f7431e7bd0f1@mail.gmail.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 02 May 2007 04:01:04 -0400
-Jeff Garzik <jeff@garzik.org> wrote:
+On 5/2/07, Tim Durack <tdurack@gmail.com> wrote:
+> > > Yup. Works fine. The randomly changing interface order is proving to
+> > > be a challenge!
+> >
+> > udev should be your friend to do a BUS/ID based rename.
 
-> David Miller wrote:
-> > From: Jeff Garzik <jeff@garzik.org>
-> > Date: Wed, 02 May 2007 03:38:53 -0400
-> > 
-> >> * adding code for a situation that never occurs in the upstream kernel.
-> > 
-> > What we could do is simply have Ingo carry this bnx2 driver patch in
-> > his -rt patch series, and then it will propagate into upstream as soon
-> > as it matters.
-> 
-> Seems quite reasonable to me...
-> 
-> 	Jeff
+Okay, the udev workaround isn't too painful.
 
-Maybe if we used a hrtimer in this case, the -rt kernel wouldn't delay
-the timer.  Seems like a real time system would have some mechanism
-to ensure a timer fires in time.
+Would be great if I could do something like
+ATTRS{address}="00:30:18:ab:cd:ef" and have that force the mac during
+initialisation.
+
+Tim:>
