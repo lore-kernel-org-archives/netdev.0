@@ -1,45 +1,54 @@
-From: Chris Leech <christopher.leech@intel.com>
-Subject: Re: [GIT PULL] I/OAT updates for 2.6.22
-Date: Wed, 02 May 2007 16:27:44 -0700
-Message-ID: <1178148464.16670.14.camel@cleech-lnx>
-References: <1178145460.16258.3.camel@cleech-lnx>
-	 <20070502.154403.77034296.davem@davemloft.net>
+From: Topher Fischer <javert42@cs.byu.edu>
+Subject: Re: ARP Spoofing
+Date: Wed, 02 May 2007 17:45:05 -0600
+Message-ID: <46392281.8040909@cs.byu.edu>
+References: <4638CDED.4020100@cs.byu.edu> <4638DEB9.90608@hp.com> <4638F6E8.3060609@nortel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, torvalds@linux-foundation.org,
-	akpm@linux-foundation.org, netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: Chris Friesen <cfriesen@nortel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:10494 "EHLO mga02.intel.com"
+Received: from mead.cs.byu.edu ([128.187.80.29]:38320 "EHLO mail.cs.byu.edu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1767227AbXEBX1j (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 May 2007 19:27:39 -0400
-In-Reply-To: <20070502.154403.77034296.davem@davemloft.net>
+	id S1767248AbXEBXko (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 May 2007 19:40:44 -0400
+In-Reply-To: <4638F6E8.3060609@nortel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2007-05-02 at 15:44 -0700, David Miller wrote:
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
+
+Chris Friesen wrote:
+> Vlad Yasevich wrote:
 > 
-> Chrstopher, I really really would like you to post these patches early
-> and often to netdev@vger.kernel.org especially because you are
-> touching the TCP code.
+>> If by arp spoofing you mean receiving arp replies from multiple
+>> sources and
+>> trusting all of them, then I haven't seen anything.
+>>
+>> I don't know the history as to why nothing has has been done.
+> 
+> This concept is a valuable tool to allow for fast publishing of IP
+> address takeover in redundant-server situations.
+> 
+> There are ways in which it can be misused, but that doesn't make it an
+> invalid technique.
 
-You're right, I should have sent this to netdev as well.  I'm Sorry.
+I don't think it would be too difficult to preserve this kind of
+functionality while improving security.  Is this really the only reason
+why nothing has been done to protect machines from ARP spoofing?
 
-As for early and often, I have posted all of these patches to netdev,
-and made suggested changes, and re-posted.
 
-And when I have other networking changes, you can bet they'll get sent
-to netdev for review first before I think about asking that they be
-included.
+- --
+Topher Fischer
+GnuPG Fingerprint: 3597 1B8D C7A5 C5AF 2E19  EFF5 2FC3 BE99 D123 6674
+javert42@cs.byu.edu
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.5 (GNU/Linux)
+Comment: Using GnuPG with Fedora - http://enigmail.mozdev.org
 
-> You aren't doing this, for several rounds, and just submitting your
-> stuff directly to Linus, Andrew, and lkml, and it's starting to annoy
-> me greatly.
-
-For several rounds, I've been posting patches that go nowhere.  I
-honestly don't care if they go straight to Linus, through you, or
-through Andrew.
-
-- Chris
+iD8DBQFGOSKBL8O+mdEjZnQRAowZAJoCawbK1IM+TxBvAaNGtzdw5UrDmgCdGB5L
+1mJdu4W61Opj+zqgtQJfdp8=
+=qlBs
+-----END PGP SIGNATURE-----
