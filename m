@@ -1,54 +1,45 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 2/2] Rename get_property to of_get_property: drivers/net
-Date: Wed, 02 May 2007 12:00:23 -0400
-Message-ID: <4638B597.20604@garzik.org>
-References: <20070427145508.9c5641a2.sfr@canb.auug.org.au> <4633689E.50900@garzik.org> <20070429114446.31f40a30.sfr@canb.auug.org.au> <20070428.204754.62343452.davem@davemloft.net> <3802D7AD-67EC-4FA2-B361-A388AFCB0B94@kernel.crashing.org> <46389D85.7000301@garzik.org> <9B877BC8-C064-4CD1-9325-5C3EA925346E@kernel.crashing.org>
+From: Scott Wood <scottwood@freescale.com>
+Subject: Re: [PATCH] gianfar: Add I/O barriers when touching buffer descriptor
+ ownership.
+Date: Wed, 02 May 2007 11:04:03 -0500
+Message-ID: <4638B673.4090504@freescale.com>
+References: <20070501165542.GA31285@ld0162-tx32.am.freescale.net> <65f0b79871a670eb595cca7d78e2f4e9@kernel.crashing.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, sfr@canb.auug.org.au,
-	paulus@samba.org, akpm@linux-foundation.org,
-	linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
-To: Kumar Gala <galak@kernel.crashing.org>
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org, jgarzik@pobox.com
+To: Segher Boessenkool <segher@kernel.crashing.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:59571 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S2993428AbXEBQAu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 May 2007 12:00:50 -0400
-In-Reply-To: <9B877BC8-C064-4CD1-9325-5C3EA925346E@kernel.crashing.org>
+Received: from de01egw01.freescale.net ([192.88.165.102]:34765 "EHLO
+	de01egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S2993426AbXEBQEV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2007 12:04:21 -0400
+In-Reply-To: <65f0b79871a670eb595cca7d78e2f4e9@kernel.crashing.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Kumar Gala wrote:
-> 
-> On May 2, 2007, at 9:17 AM, Jeff Garzik wrote:
-> 
->> Kumar Gala wrote:
->>> On Apr 28, 2007, at 10:47 PM, David Miller wrote:
->>>> From: Stephen Rothwell <sfr@canb.auug.org.au>
->>>> Date: Sun, 29 Apr 2007 11:44:46 +1000
->>>>
->>>>> So can I take this as a future OK for architecture specific network
->>>>> drivers changes to go through the architecture trees (cc'd to you)?
->>>>
->>>> It's been my experience that if I'm just working through some
->>>> platform or bus specific API changes, people like Jeff tend to
->>>> not mind if it goes via ARCH trees and the like.
->>> Is this acceptable?   Just want to make sure before I ask Paul to 
->>> pull some changes that touches the following drivers:
->>> drivers/net/fs_enet/mac-scc.c           |    2 +-
->>> drivers/net/ucc_geth.c                  |   30 ++++----
->>> drivers/serial/cpm_uart/cpm_uart_cpm1.c |    4 +-
->>> drivers/serial/cpm_uart/cpm_uart_cpm2.c |    4 +-
+Segher Boessenkool wrote:
+>> The hardware must not see that is given ownership of a buffer until it is
+>> completely written, and when the driver receives ownership of a buffer,
+>> it must ensure that any other reads to the buffer reflect its final
+>> state.  Thus, I/O barriers are added where required.
 >>
->> I don't see a patch, just a diffstat.
+>> Without this patch, I have observed GCC reordering the setting of
+>> bdp->length and bdp->status in gfar_new_skb.
 > 
-> I haven't sent a patch, just asking the question if I need to break it 
-> up or not.
+> 
+> The :::"memory" in the barriers you used prevent GCC
+> from reordering accesses around the barriers.
 
-Without seeing the patch, I have no idea...
+Sure... it was just an example to point out that it's actually 
+happening, rather than a theoretical concern.
 
-	Jeff
+> AFAICS you need stronger barriers though; {w,r,}mb(),
+> to prevent _any_ reordering of those memory accesses,
+> not just the compiler-generated ones.
 
+My impression was that the eieio used by iobarrier would be sufficient 
+for that, as we're not trying to synchronize between accesses to 
+different types of memory.  Is sync really required here?
 
-
+-Scott
