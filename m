@@ -1,511 +1,1155 @@
-From: Frank Pavlic <fpavlic@de.ibm.com>
-Subject: [PATCH 4/4] s390: qeth driver hardware specs adaptions
-Date: Wed, 2 May 2007 15:19:35 +0200
-Message-ID: <20070502131935.GD25700@de.ibm.com>
-References: <20070502131331.GA13217@de.ibm.com>
+From: Pavel Emelianov <xemul@sw.ru>
+Subject: [PATCH] Rework dev_base via list_head
+Date: Wed, 02 May 2007 17:40:56 +0400
+Message-ID: <463894E8.6090204@sw.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
-To: jgarzik@pobox.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Kirill Korotaev <dev@sw.ru>
+To: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e3.ny.us.ibm.com ([32.97.182.143]:53109 "EHLO e3.ny.us.ibm.com"
+Received: from mailhub.sw.ru ([195.214.233.200]:3931 "EHLO relay.sw.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S2993155AbXEBNUy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 May 2007 09:20:54 -0400
-Content-Disposition: inline
-In-Reply-To: <20070502131331.GA13217@de.ibm.com>
+	id S2993183AbXEBNlD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 May 2007 09:41:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Peter Tiedemann <ptiedem@de.ibm.com>
+Cleanup of dev_base list use, with the aim to simplify making
+device list per-namespace. In almost every occasion, use of
+dev_base variable and dev->next pointer could be easily replaced
+by  for_each_netdev loop. A few most complicated places were
+converted to using first_netdev()/next_netdev().
 
-s390: qeth driver hardware specs adaptions
-    - according to the latest OSA hardware specification
-      incorporate actual IPA command and return codes into qeth.
-    - whitespaces removed from qeth_mpc.h
+Fits 2.6.21-rc7 tree.
 
-Signed-off-by: Peter Tiedemann <ptiedem@de.ibm.com>
-Signed-off-by: Frank Pavlic <fpavlic@de.ibm.com>
+Signed-off-by: Pavel Emelianov <xemul@openvz.org>
+Acked-by: Kirill Korotaev <dev@openvz.org>
+
 ---
-qeth_main.c |   26 +++++--
-qeth_mpc.c  |  101 +++++++++++++++++++++++++++
-qeth_mpc.h  |  219 ++++++++++++++++++++++++++++++++++--------------------------
-3 files changed, 247 insertions(+), 99 deletions(-)
 
-diff --git a/drivers/s390/net/qeth_main.c b/drivers/s390/net/qeth_main.c
-index e0eb113..aaa5703 100644
---- a/drivers/s390/net/qeth_main.c
-+++ b/drivers/s390/net/qeth_main.c
-@@ -1615,6 +1615,21 @@ qeth_put_reply(struct qeth_reply *reply)
- 		kfree(reply);
+diff --git a/arch/s390/appldata/appldata_net_sum.c b/arch/s390/appldata/appldata_net_sum.c
+index f64b8c8..c271c9e 100644
+--- a/arch/s390/appldata/appldata_net_sum.c
++++ b/arch/s390/appldata/appldata_net_sum.c
+@@ -107,7 +107,7 @@ static void appldata_get_net_sum_data(vo
+ 	tx_dropped = 0;
+ 	collisions = 0;
+ 	read_lock(&dev_base_lock);
+-	for (dev = dev_base; dev != NULL; dev = dev->next) {
++	for_each_netdev(dev) {
+ 		if (dev->get_stats == NULL) {
+ 			continue;
+ 		}
+diff --git a/arch/sparc64/solaris/ioctl.c b/arch/sparc64/solaris/ioctl.c
+index 330743c..18352a4 100644
+--- a/arch/sparc64/solaris/ioctl.c
++++ b/arch/sparc64/solaris/ioctl.c
+@@ -686,7 +686,8 @@ static inline int solaris_i(unsigned int
+ 			int i = 0;
+ 			
+ 			read_lock_bh(&dev_base_lock);
+-			for (d = dev_base; d; d = d->next) i++;
++			for_each_netdev(d)
++				i++;
+ 			read_unlock_bh(&dev_base_lock);
+ 
+ 			if (put_user (i, (int __user *)A(arg)))
+diff --git a/drivers/block/aoe/aoecmd.c b/drivers/block/aoe/aoecmd.c
+index 8d17d8d..236ec10 100644
+--- a/drivers/block/aoe/aoecmd.c
++++ b/drivers/block/aoe/aoecmd.c
+@@ -193,15 +193,15 @@ aoecmd_cfg_pkts(ushort aoemajor, unsigne
+ 	sl = sl_tail = NULL;
+ 
+ 	read_lock(&dev_base_lock);
+-	for (ifp = dev_base; ifp; dev_put(ifp), ifp = ifp->next) {
++	for_each_netdev(ifp) {
+ 		dev_hold(ifp);
+ 		if (!is_aoe_netif(ifp))
+-			continue;
++			goto cont;
+ 
+ 		skb = new_skb(sizeof *h + sizeof *ch);
+ 		if (skb == NULL) {
+ 			printk(KERN_INFO "aoe: skb alloc failure\n");
+-			continue;
++			goto cont;
+ 		}
+ 		skb_put(skb, sizeof *h + sizeof *ch);
+ 		skb->dev = ifp;
+@@ -220,6 +220,8 @@ aoecmd_cfg_pkts(ushort aoemajor, unsigne
+ 
+ 		skb->next = sl;
+ 		sl = skb;
++cont:
++		dev_put(ifp);
+ 	}
+ 	read_unlock(&dev_base_lock);
+ 
+diff --git a/drivers/net/wireless/strip.c b/drivers/net/wireless/strip.c
+index f5ce1c6..200d131 100644
+--- a/drivers/net/wireless/strip.c
++++ b/drivers/net/wireless/strip.c
+@@ -1971,8 +1971,7 @@ static struct net_device *get_strip_dev(
+ 		      sizeof(zero_address))) {
+ 		struct net_device *dev;
+ 		read_lock_bh(&dev_base_lock);
+-		dev = dev_base;
+-		while (dev) {
++		for_each_netdev(dev) {
+ 			if (dev->type == strip_info->dev->type &&
+ 			    !memcmp(dev->dev_addr,
+ 				    &strip_info->true_dev_addr,
+@@ -1983,7 +1982,6 @@ static struct net_device *get_strip_dev(
+ 				read_unlock_bh(&dev_base_lock);
+ 				return (dev);
+ 			}
+-			dev = dev->next;
+ 		}
+ 		read_unlock_bh(&dev_base_lock);
+ 	}
+diff --git a/drivers/parisc/led.c b/drivers/parisc/led.c
+index d190c05..5db0526 100644
+--- a/drivers/parisc/led.c
++++ b/drivers/parisc/led.c
+@@ -365,7 +365,7 @@ static __inline__ int led_get_net_activi
+ 	 * for reading should be OK */
+ 	read_lock(&dev_base_lock);
+ 	rcu_read_lock();
+-	for (dev = dev_base; dev; dev = dev->next) {
++	for_each_netdev(dev) {
+ 	    struct net_device_stats *stats;
+ 	    struct in_device *in_dev = __in_dev_get_rcu(dev);
+ 	    if (!in_dev || !in_dev->ifa_list)
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 1a52854..7038e43 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -302,7 +302,7 @@ struct net_device
+ 
+ 	unsigned long		state;
+ 
+-	struct net_device	*next;
++	struct list_head	dev_list;
+ 	
+ 	/* The device initialization function. Called only once. */
+ 	int			(*init)(struct net_device *dev);
+@@ -569,9 +569,31 @@ struct packet_type {
+ #include <linux/notifier.h>
+ 
+ extern struct net_device		loopback_dev;		/* The loopback */
+-extern struct net_device		*dev_base;		/* All devices */
++extern struct list_head			dev_base_head;		/* All devices */
+ extern rwlock_t				dev_base_lock;		/* Device list lock */
+ 
++#define for_each_netdev(d)		\
++		list_for_each_entry(d, &dev_base_head, dev_list)
++#define for_each_netdev_safe(d, n)	\
++		list_for_each_entry_safe(d, n, &dev_base_head, dev_list)
++#define for_each_netdev_continue(d)		\
++		list_for_each_entry_continue(d, &dev_base_head, dev_list)
++#define net_device_entry(lh)	list_entry(lh, struct net_device, dev_list)
++
++static inline struct net_device *next_net_device(struct net_device *dev)
++{
++	struct list_head *lh;
++
++	lh = dev->dev_list.next;
++	return lh == &dev_base_head ? NULL : net_device_entry(lh);
++}
++
++static inline struct net_device *first_net_device(void)
++{
++	return list_empty(&dev_base_head) ? NULL :
++		net_device_entry(dev_base_head.next);
++}
++
+ extern int 			netdev_boot_setup_check(struct net_device *dev);
+ extern unsigned long		netdev_boot_base(const char *prefix, int unit);
+ extern struct net_device    *dev_getbyhwaddr(unsigned short type, char *hwaddr);
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index eb1c71e..8e5e84e 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -117,8 +117,7 @@ static void __exit vlan_cleanup_devices(
+ 	struct net_device *dev, *nxt;
+ 
+ 	rtnl_lock();
+-	for (dev = dev_base; dev; dev = nxt) {
+-		nxt = dev->next;
++	for_each_netdev_safe(dev, nxt) {
+ 		if (dev->priv_flags & IFF_802_1Q_VLAN) {
+ 			unregister_vlan_dev(VLAN_DEV_INFO(dev)->real_dev,
+ 					    VLAN_DEV_INFO(dev)->vlan_id);
+diff --git a/net/8021q/vlanproc.c b/net/8021q/vlanproc.c
+index 5e24f72..d216a64 100644
+--- a/net/8021q/vlanproc.c
++++ b/net/8021q/vlanproc.c
+@@ -237,13 +237,9 @@ int vlan_proc_rem_dev(struct net_device 
+  * The following few functions build the content of /proc/net/vlan/config
+  */
+ 
+-/* starting at dev, find a VLAN device */
+-static struct net_device *vlan_skip(struct net_device *dev)
++static inline int is_vlan_dev(struct net_device *dev)
+ {
+-	while (dev && !(dev->priv_flags & IFF_802_1Q_VLAN))
+-		dev = dev->next;
+-
+-	return dev;
++	return dev->priv_flags & IFF_802_1Q_VLAN;
  }
  
-+static void
-+qeth_issue_ipa_msg(struct qeth_ipa_cmd *cmd, struct qeth_card *card)
-+{
-+	int rc;
-+	int com;
-+	char * ipa_name;
+ /* start read of /proc/net/vlan/config */
+@@ -257,19 +253,35 @@ static void *vlan_seq_start(struct seq_f
+ 	if (*pos == 0)
+ 		return SEQ_START_TOKEN;
+ 
+-	for (dev = vlan_skip(dev_base); dev && i < *pos;
+-	     dev = vlan_skip(dev->next), ++i);
++	for_each_netdev(dev) {
++		if (!is_vlan_dev(dev))
++			continue;
 +
-+	com = cmd->hdr.command;
-+	rc  = cmd->hdr.return_code;
-+	ipa_name = qeth_get_ipa_cmd_name(com);
-+
-+	PRINT_ERR("%s(x%X) for %s returned x%X \"%s\"\n", ipa_name, com,
-+		   QETH_CARD_IFNAME(card), rc, qeth_get_ipa_msg(rc));
-+}
-+
- static struct qeth_ipa_cmd *
- qeth_check_ipa_data(struct qeth_card *card, struct qeth_cmd_buffer *iob)
++		if (i++ == *pos)
++			return dev;
++	}
+ 
+-	return  (i == *pos) ? dev : NULL;
++	return  NULL;
+ }
+ 
+ static void *vlan_seq_next(struct seq_file *seq, void *v, loff_t *pos)
  {
-@@ -1623,8 +1638,11 @@ qeth_check_ipa_data(struct qeth_card *card, struct qeth_cmd_buffer *iob)
- 	QETH_DBF_TEXT(trace,5,"chkipad");
- 	if (IS_IPA(iob->data)){
- 		cmd = (struct qeth_ipa_cmd *) PDU_ENCAPSULATION(iob->data);
--		if (IS_IPA_REPLY(cmd))
-+		if (IS_IPA_REPLY(cmd)) {
-+			if (cmd->hdr.return_code)
-+				qeth_issue_ipa_msg(cmd, card);
- 			return cmd;
-+		}
- 		else {
- 			switch (cmd->hdr.command) {
- 			case IPA_CMD_STOPLAN:
-@@ -5883,9 +5901,6 @@ qeth_layer2_send_setmac_cb(struct qeth_card *card,
- 	cmd = (struct qeth_ipa_cmd *) data;
- 	if (cmd->hdr.return_code) {
- 		QETH_DBF_TEXT_(trace, 2, "L2er%x", cmd->hdr.return_code);
--		PRINT_WARN("Error in registering MAC address on " \
--			   "device %s: x%x\n", CARD_BUS_ID(card),
--			   cmd->hdr.return_code);
- 		card->info.mac_bits &= ~QETH_LAYER2_MAC_REGISTERED;
- 		cmd->hdr.return_code = -EIO;
- 	} else {
-@@ -5920,9 +5935,6 @@ qeth_layer2_send_delmac_cb(struct qeth_card *card,
- 	QETH_DBF_TEXT(trace, 2, "L2Dmaccb");
- 	cmd = (struct qeth_ipa_cmd *) data;
- 	if (cmd->hdr.return_code) {
--		PRINT_WARN("Error in deregistering MAC address on " \
--			   "device %s: x%x\n", CARD_BUS_ID(card),
--			   cmd->hdr.return_code);
- 		QETH_DBF_TEXT_(trace, 2, "err%d", cmd->hdr.return_code);
- 		cmd->hdr.return_code = -EIO;
- 		return 0;
-diff --git a/drivers/s390/net/qeth_mpc.c b/drivers/s390/net/qeth_mpc.c
-index 77c8320..f54fdfd 100644
---- a/drivers/s390/net/qeth_mpc.c
-+++ b/drivers/s390/net/qeth_mpc.c
-@@ -157,12 +157,113 @@ unsigned char READ_CCW[]={
- };
- 
- 
-+struct ipa_rc_msg {
-+	enum qeth_ipa_return_codes rc;
-+	char *msg;
-+};
- 
-+struct ipa_rc_msg qeth_ipa_rc_msg[] = {
-+	{IPA_RC_SUCCESS,		"success"},
-+	{IPA_RC_NOTSUPP,		"Command not supported"},
-+	{IPA_RC_IP_TABLE_FULL,		"Add Addr IP Table Full - ipv6"},
-+	{IPA_RC_UNKNOWN_ERROR,		"IPA command failed - reason unknown"},
-+	{IPA_RC_UNSUPPORTED_COMMAND,	"Command not supported"},
-+	{IPA_RC_DUP_IPV6_REMOTE,"ipv6 address already registered remote"},
-+	{IPA_RC_DUP_IPV6_HOME,		"ipv6 address already registered"},
-+	{IPA_RC_UNREGISTERED_ADDR,	"Address not registered"},
-+	{IPA_RC_NO_ID_AVAILABLE,	"No identifiers available"},
-+	{IPA_RC_ID_NOT_FOUND,		"Identifier not found"},
-+	{IPA_RC_INVALID_IP_VERSION,	"IP version incorrect"},
-+	{IPA_RC_LAN_FRAME_MISMATCH,	"LAN and frame mismatch"},
-+	{IPA_RC_L2_UNSUPPORTED_CMD,	"Unsupported layer 2 command"},
-+	{IPA_RC_L2_DUP_MAC,		"Duplicate MAC address"},
-+	{IPA_RC_L2_ADDR_TABLE_FULL,	"Layer2 address table full"},
-+	{IPA_RC_L2_DUP_LAYER3_MAC,	"Duplicate with layer 3 MAC"},
-+	{IPA_RC_L2_GMAC_NOT_FOUND,	"GMAC not found"},
-+	{IPA_RC_L2_MAC_NOT_FOUND,	"L2 mac address not found"},
-+	{IPA_RC_L2_INVALID_VLAN_ID,	"L2 invalid vlan id"},
-+	{IPA_RC_L2_DUP_VLAN_ID,		"L2 duplicate vlan id"},
-+	{IPA_RC_L2_VLAN_ID_NOT_FOUND,	"L2 vlan id not found"},
-+	{IPA_RC_DATA_MISMATCH,		"Data field mismatch (v4/v6 mixed)"},
-+	{IPA_RC_INVALID_MTU_SIZE,	"Invalid MTU size"},
-+	{IPA_RC_INVALID_LANTYPE,	"Invalid LAN type"},
-+	{IPA_RC_INVALID_LANNUM,		"Invalid LAN num"},
-+	{IPA_RC_DUPLICATE_IP_ADDRESS,	"Address already registered"},
-+	{IPA_RC_IP_ADDR_TABLE_FULL,	"IP address table full"},
-+	{IPA_RC_LAN_PORT_STATE_ERROR,	"LAN port state error"},
-+	{IPA_RC_SETIP_NO_STARTLAN,	"Setip no startlan received"},
-+	{IPA_RC_SETIP_ALREADY_RECEIVED,	"Setip already received"},
-+	{IPA_RC_IP_ADDR_ALREADY_USED,	"IP address already in use on LAN"},
-+	{IPA_RC_MULTICAST_FULL,		"No task available, multicast full"},
-+	{IPA_RC_SETIP_INVALID_VERSION,	"SETIP invalid IP version"},
-+	{IPA_RC_UNSUPPORTED_SUBCMD,	"Unsupported assist subcommand"},
-+	{IPA_RC_ARP_ASSIST_NO_ENABLE,	"Only partial success, no enable"},
-+	{IPA_RC_PRIMARY_ALREADY_DEFINED,"Primary already defined"},
-+	{IPA_RC_SECOND_ALREADY_DEFINED,	"Secondary already defined"},
-+	{IPA_RC_INVALID_SETRTG_INDICATOR,"Invalid SETRTG indicator"},
-+	{IPA_RC_MC_ADDR_ALREADY_DEFINED,"Multicast address already defined"},
-+	{IPA_RC_LAN_OFFLINE,		"STRTLAN_LAN_DISABLED - LAN offline"},
-+	{IPA_RC_INVALID_IP_VERSION2,	"Invalid IP version"},
-+	{IPA_RC_FFFF,			"Unknown Error"}
-+};
- 
- 
- 
-+char *
-+qeth_get_ipa_msg(enum qeth_ipa_return_codes rc)
-+{
-+	int x = 0;
-+	qeth_ipa_rc_msg[sizeof(qeth_ipa_rc_msg) /
-+			sizeof(struct ipa_rc_msg) - 1].rc = rc;
-+	while(qeth_ipa_rc_msg[x].rc != rc)
-+		x++;
-+	return qeth_ipa_rc_msg[x].msg;
-+}
- 
- 
-+struct ipa_cmd_names {
-+	enum qeth_ipa_cmds cmd;
-+	char *name;
-+};
++	struct net_device *dev;
 +
-+struct ipa_cmd_names qeth_ipa_cmd_names[] = {
-+	{IPA_CMD_STARTLAN,	"startlan"},
-+	{IPA_CMD_STOPLAN,	"stoplan"},
-+	{IPA_CMD_SETVMAC,	"setvmac"},
-+	{IPA_CMD_DELVMAC,	"delvmca"},
-+	{IPA_CMD_SETGMAC,	"setgmac"},
-+	{IPA_CMD_DELGMAC,	"delgmac"},
-+	{IPA_CMD_SETVLAN,	"setvlan"},
-+	{IPA_CMD_DELVLAN,	"delvlan"},
-+	{IPA_CMD_SETCCID,	"setccid"},
-+	{IPA_CMD_DELCCID,	"delccid"},
-+	{IPA_CMD_MODCCID,	"setip"},
-+	{IPA_CMD_SETIP,		"setip"},
-+	{IPA_CMD_QIPASSIST,	"qipassist"},
-+	{IPA_CMD_SETASSPARMS,	"setassparms"},
-+	{IPA_CMD_SETIPM,	"setipm"},
-+	{IPA_CMD_DELIPM,	"delipm"},
-+	{IPA_CMD_SETRTG,	"setrtg"},
-+	{IPA_CMD_DELIP,		"delip"},
-+	{IPA_CMD_SETADAPTERPARMS, "setadapterparms"},
-+	{IPA_CMD_SET_DIAG_ASS,	"set_diag_ass"},
-+	{IPA_CMD_CREATE_ADDR,	"create_addr"},
-+	{IPA_CMD_DESTROY_ADDR,	"destroy_addr"},
-+	{IPA_CMD_REGISTER_LOCAL_ADDR,	"register_local_addr"},
-+	{IPA_CMD_UNREGISTER_LOCAL_ADDR,	"unregister_local_addr"},
-+	{IPA_CMD_UNKNOWN,	"unknown"},
-+};
+ 	++*pos;
  
-+char *
-+qeth_get_ipa_cmd_name(enum qeth_ipa_cmds cmd)
-+{
-+	int x = 0;
-+	qeth_ipa_cmd_names[
-+		sizeof(qeth_ipa_cmd_names)/
-+			sizeof(struct ipa_cmd_names)-1].cmd = cmd;
-+	while(qeth_ipa_cmd_names[x].cmd != cmd)
-+		x++;
-+	return qeth_ipa_cmd_names[x].name;
-+}
+-	return vlan_skip((v == SEQ_START_TOKEN)
+-			    ? dev_base
+-			    : ((struct net_device *)v)->next);
++	dev = (struct net_device *)v;
++	if (v == SEQ_START_TOKEN)
++		dev = net_device_entry(&dev_base_head);
++
++	for_each_netdev_continue(dev) {
++		if (!is_vlan_dev(dev))
++			continue;
++
++		return dev;
++	}
++
++	return NULL;
+ }
  
+ static void vlan_seq_stop(struct seq_file *seq, void *v)
+diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+index f3a2e29..60b8f90 100644
+--- a/net/bridge/br_if.c
++++ b/net/bridge/br_if.c
+@@ -471,11 +471,9 @@ void __exit br_cleanup_bridges(void)
+ 	struct net_device *dev, *nxt;
  
-diff --git a/drivers/s390/net/qeth_mpc.h b/drivers/s390/net/qeth_mpc.h
-index 0477c47..de0a113 100644
---- a/drivers/s390/net/qeth_mpc.h
-+++ b/drivers/s390/net/qeth_mpc.h
-@@ -25,14 +25,14 @@ extern unsigned char IPA_PDU_HEADER[];
+ 	rtnl_lock();
+-	for (dev = dev_base; dev; dev = nxt) {
+-		nxt = dev->next;
++	for_each_netdev_safe(dev, nxt)
+ 		if (dev->priv_flags & IFF_EBRIDGE)
+ 			del_br(dev->priv);
+-	}
+ 	rtnl_unlock();
  
- #define IPA_CMD_LENGTH	(IPA_PDU_HEADER_SIZE + sizeof(struct qeth_ipa_cmd))
+ }
+diff --git a/net/bridge/br_ioctl.c b/net/bridge/br_ioctl.c
+index 147015f..4274e5d 100644
+--- a/net/bridge/br_ioctl.c
++++ b/net/bridge/br_ioctl.c
+@@ -27,7 +27,9 @@ static int get_bridge_ifindices(int *ind
+ 	struct net_device *dev;
+ 	int i = 0;
  
--#define QETH_SEQ_NO_LENGTH 	4
--#define QETH_MPC_TOKEN_LENGTH 	4
-+#define QETH_SEQ_NO_LENGTH	4
-+#define QETH_MPC_TOKEN_LENGTH	4
- #define QETH_MCL_LENGTH		4
- #define OSA_ADDR_LEN		6
+-	for (dev = dev_base; dev && i < num; dev = dev->next) {
++	for_each_netdev(dev) {
++		if (i >= num)
++			break;
+ 		if (dev->priv_flags & IFF_EBRIDGE)
+ 			indices[i++] = dev->ifindex;
+ 	}
+diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+index 7d68b24..4c13d3a 100644
+--- a/net/bridge/br_netlink.c
++++ b/net/bridge/br_netlink.c
+@@ -111,7 +111,8 @@ static int br_dump_ifinfo(struct sk_buff
+ 	int idx;
  
--#define QETH_TIMEOUT 		(10 * HZ)
--#define QETH_IPA_TIMEOUT 	(45 * HZ)
--#define QETH_IDX_COMMAND_SEQNO 	0xffff0000
-+#define QETH_TIMEOUT		(10 * HZ)
-+#define QETH_IPA_TIMEOUT	(45 * HZ)
-+#define QETH_IDX_COMMAND_SEQNO	0xffff0000
- #define SR_INFO_LEN		16
+ 	read_lock(&dev_base_lock);
+-	for (dev = dev_base, idx = 0; dev; dev = dev->next) {
++	idx = 0;
++	for_each_netdev(dev) {
+ 		/* not a bridge port */
+ 		if (dev->br_port == NULL || idx < cb->args[0])
+ 			goto skip;
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 4dc93cc..df7836f 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -156,13 +156,13 @@ static spinlock_t net_dma_event_lock;
+ #endif
  
- #define QETH_CLEAR_CHANNEL_PARM	-10
-@@ -92,79 +92,107 @@ enum qeth_checksum_types {
+ /*
+- * The @dev_base list is protected by @dev_base_lock and the rtnl
++ * The @dev_base_head list is protected by @dev_base_lock and the rtnl
+  * semaphore.
+  *
+  * Pure readers hold dev_base_lock for reading.
+  *
+  * Writers must hold the rtnl semaphore while they loop through the
+- * dev_base list, and hold dev_base_lock for writing when they do the
++ * dev_base_head list, and hold dev_base_lock for writing when they do the
+  * actual updates.  This allows pure readers to access the list even
+  * while a writer is preparing to update it.
+  *
+@@ -174,11 +174,10 @@ static spinlock_t net_dma_event_lock;
+  * unregister_netdevice(), which must be called with the rtnl
+  * semaphore held.
   */
- #define RESET_ROUTING_FLAG 0x10 /* indicate that routing type shall be set */
- enum qeth_routing_types {
--	NO_ROUTER           = 0, /* TODO: set to bit flag used in IPA Command */
--	PRIMARY_ROUTER      = 1,
--	SECONDARY_ROUTER    = 2,
--	MULTICAST_ROUTER    = 3,
--	PRIMARY_CONNECTOR   = 4,
--	SECONDARY_CONNECTOR = 5,
-+	NO_ROUTER		= 0, /* TODO: set to bit flag used in IPA Command */
-+	PRIMARY_ROUTER		= 1,
-+	SECONDARY_ROUTER	= 2,
-+	MULTICAST_ROUTER	= 3,
-+	PRIMARY_CONNECTOR	= 4,
-+	SECONDARY_CONNECTOR	= 5,
- };
+-struct net_device *dev_base;
+-static struct net_device **dev_tail = &dev_base;
++LIST_HEAD(dev_base_head);
+ DEFINE_RWLOCK(dev_base_lock);
  
+-EXPORT_SYMBOL(dev_base);
++EXPORT_SYMBOL(dev_base_head);
+ EXPORT_SYMBOL(dev_base_lock);
+ 
+ #define NETDEV_HASHBITS	8
+@@ -575,7 +574,7 @@ struct net_device *dev_getbyhwaddr(unsig
+ 
+ 	ASSERT_RTNL();
+ 
+-	for (dev = dev_base; dev; dev = dev->next)
++	for_each_netdev(dev)
+ 		if (dev->type == type &&
+ 		    !memcmp(dev->dev_addr, ha, dev->addr_len))
+ 			break;
+@@ -589,7 +588,7 @@ struct net_device *dev_getfirstbyhwtype(
+ 	struct net_device *dev;
+ 
+ 	rtnl_lock();
+-	for (dev = dev_base; dev; dev = dev->next) {
++	for_each_netdev(dev) {
+ 		if (dev->type == type) {
+ 			dev_hold(dev);
+ 			break;
+@@ -617,7 +616,7 @@ struct net_device * dev_get_by_flags(uns
+ 	struct net_device *dev;
+ 
+ 	read_lock(&dev_base_lock);
+-	for (dev = dev_base; dev != NULL; dev = dev->next) {
++	for_each_netdev(dev) {
+ 		if (((dev->flags ^ if_flags) & mask) == 0) {
+ 			dev_hold(dev);
+ 			break;
+@@ -690,7 +689,7 @@ int dev_alloc_name(struct net_device *de
+ 		if (!inuse)
+ 			return -ENOMEM;
+ 
+-		for (d = dev_base; d; d = d->next) {
++		for_each_netdev(d) {
+ 			if (!sscanf(d->name, name, &i))
+ 				continue;
+ 			if (i < 0 || i >= max_netdevices)
+@@ -973,7 +972,7 @@ int register_netdevice_notifier(struct n
+ 	rtnl_lock();
+ 	err = raw_notifier_chain_register(&netdev_chain, nb);
+ 	if (!err) {
+-		for (dev = dev_base; dev; dev = dev->next) {
++		for_each_netdev(dev) {
+ 			nb->notifier_call(nb, NETDEV_REGISTER, dev);
+ 
+ 			if (dev->flags & IFF_UP)
+@@ -2044,7 +2043,7 @@ static int dev_ifconf(char __user *arg)
+ 	 */
+ 
+ 	total = 0;
+-	for (dev = dev_base; dev; dev = dev->next) {
++	for_each_netdev(dev) {
+ 		for (i = 0; i < NPROTO; i++) {
+ 			if (gifconf_list[i]) {
+ 				int done;
+@@ -2076,26 +2075,28 @@ static int dev_ifconf(char __user *arg)
+  *	This is invoked by the /proc filesystem handler to display a device
+  *	in detail.
+  */
+-static __inline__ struct net_device *dev_get_idx(loff_t pos)
++void *dev_seq_start(struct seq_file *seq, loff_t *pos)
+ {
++	loff_t off;
+ 	struct net_device *dev;
+-	loff_t i;
+ 
+-	for (i = 0, dev = dev_base; dev && i < pos; ++i, dev = dev->next);
++	read_lock(&dev_base_lock);
++	if (!*pos)
++		return SEQ_START_TOKEN;
+ 
+-	return i == pos ? dev : NULL;
+-}
++	off = 1;
++	for_each_netdev(dev)
++		if (off++ == *pos)
++			return dev;
+ 
+-void *dev_seq_start(struct seq_file *seq, loff_t *pos)
+-{
+-	read_lock(&dev_base_lock);
+-	return *pos ? dev_get_idx(*pos - 1) : SEQ_START_TOKEN;
++	return NULL;
+ }
+ 
+ void *dev_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+ {
+ 	++*pos;
+-	return v == SEQ_START_TOKEN ? dev_base : ((struct net_device *)v)->next;
++	return v == SEQ_START_TOKEN ?
++		first_net_device() : next_net_device((struct net_device *)v);
+ }
+ 
+ void dev_seq_stop(struct seq_file *seq, void *v)
+@@ -2974,11 +2975,9 @@ int register_netdevice(struct net_device
+ 
+ 	set_bit(__LINK_STATE_PRESENT, &dev->state);
+ 
+-	dev->next = NULL;
+ 	dev_init_scheduler(dev);
+ 	write_lock_bh(&dev_base_lock);
+-	*dev_tail = dev;
+-	dev_tail = &dev->next;
++	list_add_tail(&dev->dev_list, &dev_base_head);
+ 	hlist_add_head(&dev->name_hlist, head);
+ 	hlist_add_head(&dev->index_hlist, dev_index_hash(dev->ifindex));
+ 	dev_hold(dev);
+@@ -3246,8 +3245,6 @@ void synchronize_net(void)
+ 
+ void unregister_netdevice(struct net_device *dev)
+ {
+-	struct net_device *d, **dp;
 -
- /* IPA Commands */
- enum qeth_ipa_cmds {
--	IPA_CMD_STARTLAN              = 0x01,
--	IPA_CMD_STOPLAN               = 0x02,
--	IPA_CMD_SETVMAC 	      = 0x21,
--	IPA_CMD_DELVMAC 	      =	0x22,
--	IPA_CMD_SETGMAC  	      = 0x23,
--	IPA_CMD_DELGMAC 	      = 0x24,
--	IPA_CMD_SETVLAN 	      = 0x25,
--	IPA_CMD_DELVLAN 	      = 0x26,
--	IPA_CMD_SETCCID               = 0x41,
--	IPA_CMD_DELCCID               = 0x42,
--	IPA_CMD_MODCCID               = 0x43,
--	IPA_CMD_SETIP                 = 0xb1,
--	IPA_CMD_DELIP                 = 0xb7,
--	IPA_CMD_QIPASSIST             = 0xb2,
--	IPA_CMD_SETASSPARMS           = 0xb3,
--	IPA_CMD_SETIPM                = 0xb4,
--	IPA_CMD_DELIPM                = 0xb5,
--	IPA_CMD_SETRTG                = 0xb6,
--	IPA_CMD_SETADAPTERPARMS       = 0xb8,
--	IPA_CMD_IPFRAME               = 0xb9,
--	IPA_CMD_ADD_ADDR_ENTRY        = 0xc1,
--	IPA_CMD_DELETE_ADDR_ENTRY     = 0xc2,
--	IPA_CMD_CREATE_ADDR           = 0xc3,
--	IPA_CMD_DESTROY_ADDR          = 0xc4,
--	IPA_CMD_REGISTER_LOCAL_ADDR   = 0xd1,
--	IPA_CMD_UNREGISTER_LOCAL_ADDR = 0xd2,
-+	IPA_CMD_STARTLAN		= 0x01,
-+	IPA_CMD_STOPLAN			= 0x02,
-+	IPA_CMD_SETVMAC			= 0x21,
-+	IPA_CMD_DELVMAC			= 0x22,
-+	IPA_CMD_SETGMAC			= 0x23,
-+	IPA_CMD_DELGMAC			= 0x24,
-+	IPA_CMD_SETVLAN			= 0x25,
-+	IPA_CMD_DELVLAN			= 0x26,
-+	IPA_CMD_SETCCID			= 0x41,
-+	IPA_CMD_DELCCID			= 0x42,
-+	IPA_CMD_MODCCID			= 0x43,
-+	IPA_CMD_SETIP			= 0xb1,
-+	IPA_CMD_QIPASSIST		= 0xb2,
-+	IPA_CMD_SETASSPARMS		= 0xb3,
-+	IPA_CMD_SETIPM			= 0xb4,
-+	IPA_CMD_DELIPM			= 0xb5,
-+	IPA_CMD_SETRTG			= 0xb6,
-+	IPA_CMD_DELIP			= 0xb7,
-+	IPA_CMD_SETADAPTERPARMS		= 0xb8,
-+	IPA_CMD_SET_DIAG_ASS		= 0xb9,
-+	IPA_CMD_CREATE_ADDR		= 0xc3,
-+	IPA_CMD_DESTROY_ADDR		= 0xc4,
-+	IPA_CMD_REGISTER_LOCAL_ADDR	= 0xd1,
-+	IPA_CMD_UNREGISTER_LOCAL_ADDR	= 0xd2,
-+	IPA_CMD_UNKNOWN			= 0x00
- };
+ 	BUG_ON(dev_boot_phase);
+ 	ASSERT_RTNL();
  
- enum qeth_ip_ass_cmds {
- 	IPA_CMD_ASS_START	= 0x0001,
- 	IPA_CMD_ASS_STOP	= 0x0002,
--	IPA_CMD_ASS_CONFIGURE 	= 0x0003,
--	IPA_CMD_ASS_ENABLE 	= 0x0004,
-+	IPA_CMD_ASS_CONFIGURE	= 0x0003,
-+	IPA_CMD_ASS_ENABLE	= 0x0004,
- };
+@@ -3267,19 +3264,11 @@ void unregister_netdevice(struct net_dev
+ 		dev_close(dev);
  
- enum qeth_arp_process_subcmds {
--	IPA_CMD_ASS_ARP_SET_NO_ENTRIES 	= 0x0003,
--	IPA_CMD_ASS_ARP_QUERY_CACHE 	= 0x0004,
--	IPA_CMD_ASS_ARP_ADD_ENTRY 	= 0x0005,
--	IPA_CMD_ASS_ARP_REMOVE_ENTRY 	= 0x0006,
--	IPA_CMD_ASS_ARP_FLUSH_CACHE 	= 0x0007,
--	IPA_CMD_ASS_ARP_QUERY_INFO 	= 0x0104,
--	IPA_CMD_ASS_ARP_QUERY_STATS 	= 0x0204,
-+	IPA_CMD_ASS_ARP_SET_NO_ENTRIES	= 0x0003,
-+	IPA_CMD_ASS_ARP_QUERY_CACHE	= 0x0004,
-+	IPA_CMD_ASS_ARP_ADD_ENTRY	= 0x0005,
-+	IPA_CMD_ASS_ARP_REMOVE_ENTRY	= 0x0006,
-+	IPA_CMD_ASS_ARP_FLUSH_CACHE	= 0x0007,
-+	IPA_CMD_ASS_ARP_QUERY_INFO	= 0x0104,
-+	IPA_CMD_ASS_ARP_QUERY_STATS	= 0x0204,
- };
+ 	/* And unlink it from device chain. */
+-	for (dp = &dev_base; (d = *dp) != NULL; dp = &d->next) {
+-		if (d == dev) {
+-			write_lock_bh(&dev_base_lock);
+-			hlist_del(&dev->name_hlist);
+-			hlist_del(&dev->index_hlist);
+-			if (dev_tail == &dev->next)
+-				dev_tail = dp;
+-			*dp = d->next;
+-			write_unlock_bh(&dev_base_lock);
+-			break;
+-		}
+-	}
+-	BUG_ON(!d);
++	write_lock_bh(&dev_base_lock);
++	list_del(&dev->dev_list);
++	hlist_del(&dev->name_hlist);
++	hlist_del(&dev->index_hlist);
++	write_unlock_bh(&dev_base_lock);
  
--/* Return Codes for IPA Commands */
+ 	dev->reg_state = NETREG_UNREGISTERING;
+ 
+diff --git a/net/core/dev_mcast.c b/net/core/dev_mcast.c
+index 56b310c..9d49f5c 100644
+--- a/net/core/dev_mcast.c
++++ b/net/core/dev_mcast.c
+@@ -223,7 +223,7 @@ static void *dev_mc_seq_start(struct seq
+ 	loff_t off = 0;
+ 
+ 	read_lock(&dev_base_lock);
+-	for (dev = dev_base; dev; dev = dev->next) {
++	for_each_netdev(dev) {
+ 		if (off++ == *pos)
+ 			return dev;
+ 	}
+@@ -232,9 +232,8 @@ static void *dev_mc_seq_start(struct seq
+ 
+ static void *dev_mc_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+ {
+-	struct net_device *dev = v;
+ 	++*pos;
+-	return dev->next;
++	return next_net_device((struct net_device *)v);
+ }
+ 
+ static void dev_mc_seq_stop(struct seq_file *seq, void *v)
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 33ea8ea..070a34c 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -394,13 +394,16 @@ static int rtnl_dump_ifinfo(struct sk_bu
+ 	struct net_device *dev;
+ 
+ 	read_lock(&dev_base_lock);
+-	for (dev=dev_base, idx=0; dev; dev = dev->next, idx++) {
++	idx = 0;
++	for_each_netdev(dev) {
+ 		if (idx < s_idx)
+-			continue;
++			goto cont;
+ 		if (rtnl_fill_ifinfo(skb, dev, NULL, 0, RTM_NEWLINK,
+ 				     NETLINK_CB(cb->skb).pid,
+ 				     cb->nlh->nlmsg_seq, 0, NLM_F_MULTI) <= 0)
+ 			break;
++cont:
++		idx++;
+ 	}
+ 	read_unlock(&dev_base_lock);
+ 	cb->args[0] = idx;
+diff --git a/net/decnet/af_decnet.c b/net/decnet/af_decnet.c
+index c6568d6..36c8c66 100644
+--- a/net/decnet/af_decnet.c
++++ b/net/decnet/af_decnet.c
+@@ -746,7 +746,7 @@ static int dn_bind(struct socket *sock, 
+ 	if (!(saddr->sdn_flags & SDF_WILD)) {
+ 		if (dn_ntohs(saddr->sdn_nodeaddrl)) {
+ 			read_lock(&dev_base_lock);
+-			for(dev = dev_base; dev; dev = dev->next) {
++			for_each_netdev(dev) {
+ 				if (!dev->dn_ptr)
+ 					continue;
+ 				if (dn_dev_islocal(dev, dn_saddr2dn(saddr)))
+diff --git a/net/decnet/dn_dev.c b/net/decnet/dn_dev.c
+index 060d725..91ae9d6 100644
+--- a/net/decnet/dn_dev.c
++++ b/net/decnet/dn_dev.c
+@@ -800,9 +800,10 @@ static int dn_nl_dump_ifaddr(struct sk_b
+ 	skip_naddr = cb->args[1];
+ 
+ 	read_lock(&dev_base_lock);
+-	for (dev = dev_base, idx = 0; dev; dev = dev->next, idx++) {
++	idx = 0;
++	for_each_netdev(dev) {
+ 		if (idx < skip_ndevs)
+-			continue;
++			goto cont;
+ 		else if (idx > skip_ndevs) {
+ 			/* Only skip over addresses for first dev dumped
+ 			 * in this iteration (idx == skip_ndevs) */
+@@ -810,18 +811,20 @@ static int dn_nl_dump_ifaddr(struct sk_b
+ 		}
+ 
+ 		if ((dn_db = dev->dn_ptr) == NULL)
+-			continue;
++			goto cont;
+ 
+ 		for (ifa = dn_db->ifa_list, dn_idx = 0; ifa;
+ 		     ifa = ifa->ifa_next, dn_idx++) {
+ 			if (dn_idx < skip_naddr)
+-				continue;
++				goto cont;
+ 
+ 			if (dn_nl_fill_ifaddr(skb, ifa, NETLINK_CB(cb->skb).pid,
+ 					      cb->nlh->nlmsg_seq, RTM_NEWADDR,
+ 					      NLM_F_MULTI) < 0)
+ 				goto done;
+ 		}
++cont:
++		idx++;
+ 	}
+ done:
+ 	read_unlock(&dev_base_lock);
+@@ -1299,7 +1302,7 @@ void dn_dev_devices_off(void)
+ 	struct net_device *dev;
+ 
+ 	rtnl_lock();
+-	for(dev = dev_base; dev; dev = dev->next)
++	for_each_netdev(dev)
+ 		dn_dev_down(dev);
+ 	rtnl_unlock();
+ 
+@@ -1310,7 +1313,7 @@ void dn_dev_devices_on(void)
+ 	struct net_device *dev;
+ 
+ 	rtnl_lock();
+-	for(dev = dev_base; dev; dev = dev->next) {
++	for_each_netdev(dev) {
+ 		if (dev->flags & IFF_UP)
+ 			dn_dev_up(dev);
+ 	}
+@@ -1328,62 +1331,56 @@ int unregister_dnaddr_notifier(struct no
+ }
+ 
+ #ifdef CONFIG_PROC_FS
+-static inline struct net_device *dn_dev_get_next(struct seq_file *seq, struct net_device *dev)
++static inline int is_dn_dev(struct net_device *dev)
+ {
+-	do {
+-		dev = dev->next;
+-	} while(dev && !dev->dn_ptr);
+-
+-	return dev;
++	return dev->dn_ptr != NULL;
+ }
+ 
+-static struct net_device *dn_dev_get_idx(struct seq_file *seq, loff_t pos)
++static void *dn_dev_seq_start(struct seq_file *seq, loff_t *pos)
+ {
++	int i;
+ 	struct net_device *dev;
+ 
+-	dev = dev_base;
+-	if (dev && !dev->dn_ptr)
+-		dev = dn_dev_get_next(seq, dev);
+-	if (pos) {
+-		while(dev && (dev = dn_dev_get_next(seq, dev)))
+-			--pos;
+-	}
+-	return dev;
+-}
++	read_lock(&dev_base_lock);
+ 
+-static void *dn_dev_seq_start(struct seq_file *seq, loff_t *pos)
+-{
+-	if (*pos) {
+-		struct net_device *dev;
+-		read_lock(&dev_base_lock);
+-		dev = dn_dev_get_idx(seq, *pos - 1);
+-		if (dev == NULL)
+-			read_unlock(&dev_base_lock);
+-		return dev;
++	if (*pos == 0)
++		return SEQ_START_TOKEN;
 +
-+/* Return Codes for IPA Commands
-+ * according to OSA card Specs */
++	i = 1;
++	for_each_netdev(dev) {
++		if (!is_dn_dev(dev))
++			continue;
 +
- enum qeth_ipa_return_codes {
--	IPA_RC_SUCCESS             = 0x0000,
--	IPA_RC_NOTSUPP             = 0x0001,
--	IPA_RC_NO_ACCESS           = 0x0002,
--	IPA_RC_FAILED              = 0x0003,
--	IPA_RC_DATA_MISMATCH       = 0xe001,
--	IPA_RC_INVALID_LAN_TYPE    = 0xe003,
--	IPA_RC_INVALID_LAN_NO      = 0xe004,
--	IPA_RC_IPADDR_ALREADY_REG  = 0xe005,
--	IPA_RC_IPADDR_TABLE_FULL   = 0xe006,
--	IPA_RC_IPADDR_ALREADY_USED = 0xe00a,
--	IPA_RC_ASSNO_NOT_SUPP      = 0xe00d,
--	IPA_RC_ASSCMD_START_FAILED = 0xe00e,
--	IPA_RC_ASSCMD_PART_SUCCESS = 0xe00f,
--	IPA_RC_IPADDR_NOT_DEFINED  = 0xe010,
--	IPA_RC_LAN_OFFLINE         = 0xe080,
-+	IPA_RC_SUCCESS			= 0x0000,
-+	IPA_RC_NOTSUPP			= 0x0001,
-+	IPA_RC_IP_TABLE_FULL		= 0x0002,
-+	IPA_RC_UNKNOWN_ERROR		= 0x0003,
-+	IPA_RC_UNSUPPORTED_COMMAND	= 0x0004,
-+	IPA_RC_DUP_IPV6_REMOTE		= 0x0008,
-+	IPA_RC_DUP_IPV6_HOME		= 0x0010,
-+	IPA_RC_UNREGISTERED_ADDR	= 0x0011,
-+	IPA_RC_NO_ID_AVAILABLE		= 0x0012,
-+	IPA_RC_ID_NOT_FOUND		= 0x0013,
-+	IPA_RC_INVALID_IP_VERSION	= 0x0020,
-+	IPA_RC_LAN_FRAME_MISMATCH	= 0x0040,
-+	IPA_RC_L2_UNSUPPORTED_CMD	= 0x2003,
-+	IPA_RC_L2_DUP_MAC		= 0x2005,
-+	IPA_RC_L2_ADDR_TABLE_FULL	= 0x2006,
-+	IPA_RC_L2_DUP_LAYER3_MAC	= 0x200a,
-+	IPA_RC_L2_GMAC_NOT_FOUND	= 0x200b,
-+	IPA_RC_L2_MAC_NOT_FOUND		= 0x2010,
-+	IPA_RC_L2_INVALID_VLAN_ID	= 0x2015,
-+	IPA_RC_L2_DUP_VLAN_ID		= 0x2016,
-+	IPA_RC_L2_VLAN_ID_NOT_FOUND	= 0x2017,
-+	IPA_RC_DATA_MISMATCH		= 0xe001,
-+	IPA_RC_INVALID_MTU_SIZE		= 0xe002,
-+	IPA_RC_INVALID_LANTYPE		= 0xe003,
-+	IPA_RC_INVALID_LANNUM		= 0xe004,
-+	IPA_RC_DUPLICATE_IP_ADDRESS	= 0xe005,
-+	IPA_RC_IP_ADDR_TABLE_FULL	= 0xe006,
-+	IPA_RC_LAN_PORT_STATE_ERROR	= 0xe007,
-+	IPA_RC_SETIP_NO_STARTLAN	= 0xe008,
-+	IPA_RC_SETIP_ALREADY_RECEIVED	= 0xe009,
-+	IPA_RC_IP_ADDR_ALREADY_USED	= 0xe00a,
-+	IPA_RC_MULTICAST_FULL		= 0xe00b,
-+	IPA_RC_SETIP_INVALID_VERSION	= 0xe00d,
-+	IPA_RC_UNSUPPORTED_SUBCMD	= 0xe00e,
-+	IPA_RC_ARP_ASSIST_NO_ENABLE	= 0xe00f,
-+	IPA_RC_PRIMARY_ALREADY_DEFINED	= 0xe010,
-+	IPA_RC_SECOND_ALREADY_DEFINED	= 0xe011,
-+	IPA_RC_INVALID_SETRTG_INDICATOR	= 0xe012,
-+	IPA_RC_MC_ADDR_ALREADY_DEFINED	= 0xe013,
-+	IPA_RC_LAN_OFFLINE		= 0xe080,
-+	IPA_RC_INVALID_IP_VERSION2	= 0xf001,
-+	IPA_RC_FFFF			= 0xffff
- };
- 
- /* IPA function flags; each flag marks availability of respective function */
-@@ -182,7 +210,9 @@ enum qeth_ipa_funcs {
- 	IPA_SETADAPTERPARMS     = 0x00000400L,
- 	IPA_VLAN_PRIO           = 0x00000800L,
- 	IPA_PASSTHRU            = 0x00001000L,
-+	IPA_FLUSH_ARP_SUPPORT   = 0x00002000L,
- 	IPA_FULL_VLAN           = 0x00004000L,
-+	IPA_INBOUND_PASSTHRU    = 0x00008000L,
- 	IPA_SOURCE_MAC          = 0x00010000L,
- 	IPA_OSA_MC_ROUTER       = 0x00020000L,
- 	IPA_QUERY_ARP_ASSIST	= 0x00040000L,
-@@ -203,31 +233,30 @@ enum qeth_ipa_setdelip_flags {
- /* SETADAPTER IPA Command: ****************************************************/
- enum qeth_ipa_setadp_cmd {
- 	IPA_SETADP_QUERY_COMMANDS_SUPPORTED	= 0x01,
--	IPA_SETADP_ALTER_MAC_ADDRESS 		= 0x02,
--	IPA_SETADP_ADD_DELETE_GROUP_ADDRESS 	= 0x04,
--	IPA_SETADP_ADD_DELETE_FUNCTIONAL_ADDR 	= 0x08,
--	IPA_SETADP_SET_ADDRESSING_MODE 		= 0x10,
--	IPA_SETADP_SET_CONFIG_PARMS 		= 0x20,
--	IPA_SETADP_SET_CONFIG_PARMS_EXTENDED 	= 0x40,
--	IPA_SETADP_SET_BROADCAST_MODE 		= 0x80,
--	IPA_SETADP_SEND_OSA_MESSAGE 		= 0x0100,
--	IPA_SETADP_SET_SNMP_CONTROL 		= 0x0200,
--	IPA_SETADP_READ_SNMP_PARMS 		= 0x0400,
-+	IPA_SETADP_ALTER_MAC_ADDRESS		= 0x02,
-+	IPA_SETADP_ADD_DELETE_GROUP_ADDRESS	= 0x04,
-+	IPA_SETADP_ADD_DELETE_FUNCTIONAL_ADDR	= 0x08,
-+	IPA_SETADP_SET_ADDRESSING_MODE		= 0x10,
-+	IPA_SETADP_SET_CONFIG_PARMS		= 0x20,
-+	IPA_SETADP_SET_CONFIG_PARMS_EXTENDED	= 0x40,
-+	IPA_SETADP_SET_BROADCAST_MODE		= 0x80,
-+	IPA_SETADP_SEND_OSA_MESSAGE		= 0x0100,
-+	IPA_SETADP_SET_SNMP_CONTROL		= 0x0200,
-+	IPA_SETADP_QUERY_CARD_INFO		= 0x0400,
- 	IPA_SETADP_SET_PROMISC_MODE		= 0x0800,
--	IPA_SETADP_QUERY_CARD_INFO 		= 0x1000,
- };
- enum qeth_ipa_mac_ops {
--	CHANGE_ADDR_READ_MAC 		= 0,
--	CHANGE_ADDR_REPLACE_MAC 	= 1,
--	CHANGE_ADDR_ADD_MAC 		= 2,
--	CHANGE_ADDR_DEL_MAC 		= 4,
--	CHANGE_ADDR_RESET_MAC 		= 8,
-+	CHANGE_ADDR_READ_MAC		= 0,
-+	CHANGE_ADDR_REPLACE_MAC		= 1,
-+	CHANGE_ADDR_ADD_MAC		= 2,
-+	CHANGE_ADDR_DEL_MAC		= 4,
-+	CHANGE_ADDR_RESET_MAC		= 8,
- };
- enum qeth_ipa_addr_ops {
--	CHANGE_ADDR_READ_ADDR 		= 0,
--	CHANGE_ADDR_ADD_ADDR 		= 1,
--	CHANGE_ADDR_DEL_ADDR 		= 2,
--	CHANGE_ADDR_FLUSH_ADDR_TABLE 	= 4,
-+	CHANGE_ADDR_READ_ADDR		= 0,
-+	CHANGE_ADDR_ADD_ADDR		= 1,
-+	CHANGE_ADDR_DEL_ADDR		= 2,
-+	CHANGE_ADDR_FLUSH_ADDR_TABLE	= 4,
- };
- enum qeth_ipa_promisc_modes {
- 	SET_PROMISC_MODE_OFF		= 0,
-@@ -406,15 +435,15 @@ struct qeth_ipacmd_hdr {
- struct qeth_ipa_cmd {
- 	struct qeth_ipacmd_hdr hdr;
- 	union {
--		struct qeth_ipacmd_setdelip4   		setdelip4;
--		struct qeth_ipacmd_setdelip6   		setdelip6;
-+		struct qeth_ipacmd_setdelip4		setdelip4;
-+		struct qeth_ipacmd_setdelip6		setdelip6;
- 		struct qeth_ipacmd_setdelipm		setdelipm;
--		struct qeth_ipacmd_setassparms 		setassparms;
--		struct qeth_ipacmd_layer2setdelmac  	setdelmac;
--		struct qeth_ipacmd_layer2setdelvlan 	setdelvlan;
--		struct qeth_create_destroy_address 	create_destroy_addr;
--		struct qeth_ipacmd_setadpparms 		setadapterparms;
--		struct qeth_set_routing 		setrtg;
-+		struct qeth_ipacmd_setassparms		setassparms;
-+		struct qeth_ipacmd_layer2setdelmac	setdelmac;
-+		struct qeth_ipacmd_layer2setdelvlan	setdelvlan;
-+		struct qeth_create_destroy_address	create_destroy_addr;
-+		struct qeth_ipacmd_setadpparms		setadapterparms;
-+		struct qeth_set_routing			setrtg;
- 	} data;
- } __attribute__ ((packed));
- 
-@@ -432,6 +461,12 @@ enum qeth_ipa_arp_return_codes {
- 	QETH_IPA_ARP_RC_Q_NO_DATA    = 0x0008,
- };
- 
++		if (i++ == *pos)
++			return dev;
+ 	}
+-	return SEQ_START_TOKEN;
 +
-+extern char *
-+qeth_get_ipa_msg(enum qeth_ipa_return_codes rc);
-+extern char *
-+qeth_get_ipa_cmd_name(enum qeth_ipa_cmds cmd);
-+
- #define QETH_SETASS_BASE_LEN (sizeof(struct qeth_ipacmd_hdr) + \
- 			       sizeof(struct qeth_ipacmd_setassparms_hdr))
- #define QETH_IPA_ARP_DATA_POS(buffer) (buffer + IPA_PDU_HEADER_SIZE + \
-@@ -520,7 +555,7 @@ extern unsigned char DM_ACT[];
- extern unsigned char IDX_ACTIVATE_READ[];
- extern unsigned char IDX_ACTIVATE_WRITE[];
++	return NULL;
+ }
  
--#define IDX_ACTIVATE_SIZE 	0x22
-+#define IDX_ACTIVATE_SIZE	0x22
- #define QETH_IDX_ACT_ISSUER_RM_TOKEN(buffer) (buffer+0x0c)
- #define QETH_IDX_NO_PORTNAME_REQUIRED(buffer) ((buffer)[0x0b]&0x80)
- #define QETH_IDX_ACT_FUNC_LEVEL(buffer) (buffer+0x10)
--- 
-1.5.1.2
-
+ static void *dn_dev_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+ {
+-	struct net_device *dev = v;
+-	loff_t one = 1;
++	struct net_device *dev;
+ 
+-	if (v == SEQ_START_TOKEN) {
+-		dev = dn_dev_seq_start(seq, &one);
+-	} else {
+-		dev = dn_dev_get_next(seq, dev);
+-		if (dev == NULL)
+-			read_unlock(&dev_base_lock);
+-	}
+ 	++*pos;
+-	return dev;
++
++	dev = (struct net_device *)v;
++	if (v == SEQ_START_TOKEN)
++		dev = net_device_entry(&dev_base_head);
++
++	for_each_netdev_continue(dev) {
++		if (!is_dn_dev(dev))
++			continue;
++
++		return dev;
++	}
++
++	return NULL;
+ }
+ 
+ static void dn_dev_seq_stop(struct seq_file *seq, void *v)
+ {
+-	if (v && v != SEQ_START_TOKEN)
+-		read_unlock(&dev_base_lock);
++	read_unlock(&dev_base_lock);
+ }
+ 
+ static char *dn_type2asc(char type)
+diff --git a/net/decnet/dn_fib.c b/net/decnet/dn_fib.c
+index 82d58a9..68352ad 100644
+--- a/net/decnet/dn_fib.c
++++ b/net/decnet/dn_fib.c
+@@ -602,7 +602,7 @@ static void dn_fib_del_ifaddr(struct dn_
+ 
+ 	/* Scan device list */
+ 	read_lock(&dev_base_lock);
+-	for(dev = dev_base; dev; dev = dev->next) {
++	for_each_netdev(dev) {
+ 		dn_db = dev->dn_ptr;
+ 		if (dn_db == NULL)
+ 			continue;
+diff --git a/net/decnet/dn_route.c b/net/decnet/dn_route.c
+index c1b5502..394f009 100644
+--- a/net/decnet/dn_route.c
++++ b/net/decnet/dn_route.c
+@@ -924,7 +924,7 @@ static int dn_route_output_slow(struct d
+ 			goto out;
+ 		}
+ 		read_lock(&dev_base_lock);
+-		for(dev_out = dev_base; dev_out; dev_out = dev_out->next) {
++		for_each_netdev(dev_out) {
+ 			if (!dev_out->dn_ptr)
+ 				continue;
+ 			if (!dn_dev_islocal(dev_out, oldflp->fld_src))
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index 98a00d0..fb6ea96 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -911,7 +911,7 @@ no_in_dev:
+ 	 */
+ 	read_lock(&dev_base_lock);
+ 	rcu_read_lock();
+-	for (dev = dev_base; dev; dev = dev->next) {
++	for_each_netdev(dev) {
+ 		if ((in_dev = __in_dev_get_rcu(dev)) == NULL)
+ 			continue;
+ 
+@@ -990,7 +990,7 @@ __be32 inet_confirm_addr(const struct ne
+ 
+ 	read_lock(&dev_base_lock);
+ 	rcu_read_lock();
+-	for (dev = dev_base; dev; dev = dev->next) {
++	for_each_netdev(dev) {
+ 		if ((in_dev = __in_dev_get_rcu(dev))) {
+ 			addr = confirm_addr_indev(in_dev, dst, local, scope);
+ 			if (addr)
+@@ -1184,21 +1184,22 @@ static int inet_dump_ifaddr(struct sk_bu
+ 
+ 	s_ip_idx = ip_idx = cb->args[1];
+ 	read_lock(&dev_base_lock);
+-	for (dev = dev_base, idx = 0; dev; dev = dev->next, idx++) {
++	idx = 0;
++	for_each_netdev(dev) {
+ 		if (idx < s_idx)
+-			continue;
++			goto cont;
+ 		if (idx > s_idx)
+ 			s_ip_idx = 0;
+ 		rcu_read_lock();
+ 		if ((in_dev = __in_dev_get_rcu(dev)) == NULL) {
+ 			rcu_read_unlock();
+-			continue;
++			goto cont;
+ 		}
+ 
+ 		for (ifa = in_dev->ifa_list, ip_idx = 0; ifa;
+ 		     ifa = ifa->ifa_next, ip_idx++) {
+ 			if (ip_idx < s_ip_idx)
+-				continue;
++				goto cont;
+ 			if (inet_fill_ifaddr(skb, ifa, NETLINK_CB(cb->skb).pid,
+ 					     cb->nlh->nlmsg_seq,
+ 					     RTM_NEWADDR, NLM_F_MULTI) <= 0) {
+@@ -1207,6 +1208,8 @@ static int inet_dump_ifaddr(struct sk_bu
+ 			}
+ 		}
+ 		rcu_read_unlock();
++cont:
++		idx++;
+ 	}
+ 
+ done:
+@@ -1265,7 +1268,7 @@ void inet_forward_change(void)
+ 	ipv4_devconf_dflt.forwarding = on;
+ 
+ 	read_lock(&dev_base_lock);
+-	for (dev = dev_base; dev; dev = dev->next) {
++	for_each_netdev(dev) {
+ 		struct in_device *in_dev;
+ 		rcu_read_lock();
+ 		in_dev = __in_dev_get_rcu(dev);
+diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
+index 8cedb2a..884cbab 100644
+--- a/net/ipv4/igmp.c
++++ b/net/ipv4/igmp.c
+@@ -2285,9 +2285,8 @@ static inline struct ip_mc_list *igmp_mc
+ 	struct ip_mc_list *im = NULL;
+ 	struct igmp_mc_iter_state *state = igmp_mc_seq_private(seq);
+ 
+-	for (state->dev = dev_base, state->in_dev = NULL;
+-	     state->dev;
+-	     state->dev = state->dev->next) {
++	state->in_dev = NULL;
++	for_each_netdev(state->dev) {
+ 		struct in_device *in_dev;
+ 		in_dev = in_dev_get(state->dev);
+ 		if (!in_dev)
+@@ -2313,7 +2312,7 @@ static struct ip_mc_list *igmp_mc_get_ne
+ 			read_unlock(&state->in_dev->mc_list_lock);
+ 			in_dev_put(state->in_dev);
+ 		}
+-		state->dev = state->dev->next;
++		state->dev = next_net_device(state->dev);
+ 		if (!state->dev) {
+ 			state->in_dev = NULL;
+ 			break;
+@@ -2447,9 +2446,9 @@ static inline struct ip_sf_list *igmp_mc
+ 	struct ip_mc_list *im = NULL;
+ 	struct igmp_mcf_iter_state *state = igmp_mcf_seq_private(seq);
+ 
+-	for (state->dev = dev_base, state->idev = NULL, state->im = NULL;
+-	     state->dev;
+-	     state->dev = state->dev->next) {
++	state->idev = NULL;
++	state->im = NULL;
++	for_each_netdev(state->dev) {
+ 		struct in_device *idev;
+ 		idev = in_dev_get(state->dev);
+ 		if (unlikely(idev == NULL))
+@@ -2485,7 +2484,7 @@ static struct ip_sf_list *igmp_mcf_get_n
+ 				read_unlock(&state->idev->mc_list_lock);
+ 				in_dev_put(state->idev);
+ 			}
+-			state->dev = state->dev->next;
++			state->dev = next_net_device(state->dev);
+ 			if (!state->dev) {
+ 				state->idev = NULL;
+ 				goto out;
+diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
+index cf49de1..b049b5c 100644
+--- a/net/ipv4/ipconfig.c
++++ b/net/ipv4/ipconfig.c
+@@ -192,7 +192,7 @@ static int __init ic_open_devs(void)
+ 	if (dev_change_flags(&loopback_dev, loopback_dev.flags | IFF_UP) < 0)
+ 		printk(KERN_ERR "IP-Config: Failed to open %s\n", loopback_dev.name);
+ 
+-	for (dev = dev_base; dev; dev = dev->next) {
++	for_each_netdev(dev) {
+ 		if (dev == &loopback_dev)
+ 			continue;
+ 		if (user_dev_name[0] ? !strcmp(dev->name, user_dev_name) :
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 7552663..76c5edb 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -415,7 +415,7 @@ static void addrconf_forward_change(void
+ 	struct inet6_dev *idev;
+ 
+ 	read_lock(&dev_base_lock);
+-	for (dev=dev_base; dev; dev=dev->next) {
++	for_each_netdev(dev) {
+ 		rcu_read_lock();
+ 		idev = __in6_dev_get(dev);
+ 		if (idev) {
+@@ -859,7 +859,7 @@ int ipv6_dev_get_saddr(struct net_device
+ 	read_lock(&dev_base_lock);
+ 	rcu_read_lock();
+ 
+-	for (dev = dev_base; dev; dev=dev->next) {
++	for_each_netdev(dev) {
+ 		struct inet6_dev *idev;
+ 		struct inet6_ifaddr *ifa;
+ 
+@@ -1992,7 +1992,7 @@ static void sit_add_v4_addrs(struct inet
+ 		return;
+ 	}
+ 
+-	for (dev = dev_base; dev != NULL; dev = dev->next) {
++	for_each_netdev(dev) {
+ 		struct in_device * in_dev = __in_dev_get_rtnl(dev);
+ 		if (in_dev && (dev->flags & IFF_UP)) {
+ 			struct in_ifaddr * ifa;
+@@ -2145,7 +2145,7 @@ static void ip6_tnl_add_linklocal(struct
+ 			return;
+ 	}
+ 	/* then try to inherit it from any device */
+-	for (link_dev = dev_base; link_dev; link_dev = link_dev->next) {
++	for_each_netdev(link_dev) {
+ 		if (!ipv6_inherit_linklocal(idev, link_dev))
+ 			return;
+ 	}
+@@ -3164,14 +3164,15 @@ static int inet6_dump_addr(struct sk_buf
+ 	s_ip_idx = ip_idx = cb->args[1];
+ 	read_lock(&dev_base_lock);
+ 
+-	for (dev = dev_base, idx = 0; dev; dev = dev->next, idx++) {
++	idx = 0;
++	for_each_netdev(dev) {
+ 		if (idx < s_idx)
+-			continue;
++			goto cont;
+ 		if (idx > s_idx)
+ 			s_ip_idx = 0;
+ 		ip_idx = 0;
+ 		if ((idev = in6_dev_get(dev)) == NULL)
+-			continue;
++			goto cont;
+ 		read_lock_bh(&idev->lock);
+ 		switch (type) {
+ 		case UNICAST_ADDR:
+@@ -3218,6 +3219,8 @@ static int inet6_dump_addr(struct sk_buf
+ 		}
+ 		read_unlock_bh(&idev->lock);
+ 		in6_dev_put(idev);
++cont:
++		idx++;
+ 	}
+ done:
+ 	if (err <= 0) {
+@@ -3439,16 +3442,19 @@ static int inet6_dump_ifinfo(struct sk_b
+ 	struct inet6_dev *idev;
+ 
+ 	read_lock(&dev_base_lock);
+-	for (dev=dev_base, idx=0; dev; dev = dev->next, idx++) {
++	idx = 0;
++	for_each_netdev(dev) {
+ 		if (idx < s_idx)
+-			continue;
++			goto cont;
+ 		if ((idev = in6_dev_get(dev)) == NULL)
+-			continue;
++			goto cont;
+ 		err = inet6_fill_ifinfo(skb, idev, NETLINK_CB(cb->skb).pid,
+ 				cb->nlh->nlmsg_seq, RTM_NEWLINK, NLM_F_MULTI);
+ 		in6_dev_put(idev);
+ 		if (err <= 0)
+ 			break;
++cont:
++		idx++;
+ 	}
+ 	read_unlock(&dev_base_lock);
+ 	cb->args[0] = idx;
+@@ -4084,7 +4090,7 @@ void __exit addrconf_cleanup(void)
+ 	 *	clean dev list.
+ 	 */
+ 
+-	for (dev=dev_base; dev; dev=dev->next) {
++	for_each_netdev(dev) {
+ 		if ((idev = __in6_dev_get(dev)) == NULL)
+ 			continue;
+ 		addrconf_ifdown(dev, 1);
+diff --git a/net/ipv6/anycast.c b/net/ipv6/anycast.c
+index 09117d6..f873ef6 100644
+--- a/net/ipv6/anycast.c
++++ b/net/ipv6/anycast.c
+@@ -426,7 +426,7 @@ int ipv6_chk_acast_addr(struct net_devic
+ 	if (dev)
+ 		return ipv6_chk_acast_dev(dev, addr);
+ 	read_lock(&dev_base_lock);
+-	for (dev=dev_base; dev; dev=dev->next)
++	for_each_netdev(dev)
+ 		if (ipv6_chk_acast_dev(dev, addr))
+ 			break;
+ 	read_unlock(&dev_base_lock);
+@@ -447,9 +447,8 @@ static inline struct ifacaddr6 *ac6_get_
+ 	struct ifacaddr6 *im = NULL;
+ 	struct ac6_iter_state *state = ac6_seq_private(seq);
+ 
+-	for (state->dev = dev_base, state->idev = NULL;
+-	     state->dev;
+-	     state->dev = state->dev->next) {
++	state->idev = NULL;
++	for_each_netdev(state->dev) {
+ 		struct inet6_dev *idev;
+ 		idev = in6_dev_get(state->dev);
+ 		if (!idev)
+@@ -476,7 +475,7 @@ static struct ifacaddr6 *ac6_get_next(st
+ 			read_unlock_bh(&state->idev->lock);
+ 			in6_dev_put(state->idev);
+ 		}
+-		state->dev = state->dev->next;
++		state->dev = next_net_device(state->dev);
+ 		if (!state->dev) {
+ 			state->idev = NULL;
+ 			break;
+diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
+index a8d6625..abe0a60 100644
+--- a/net/ipv6/mcast.c
++++ b/net/ipv6/mcast.c
+@@ -2329,9 +2329,8 @@ static inline struct ifmcaddr6 *igmp6_mc
+ 	struct ifmcaddr6 *im = NULL;
+ 	struct igmp6_mc_iter_state *state = igmp6_mc_seq_private(seq);
+ 
+-	for (state->dev = dev_base, state->idev = NULL;
+-	     state->dev;
+-	     state->dev = state->dev->next) {
++	state->idev = NULL;
++	for_each_netdev(state->dev) {
+ 		struct inet6_dev *idev;
+ 		idev = in6_dev_get(state->dev);
+ 		if (!idev)
+@@ -2358,7 +2357,7 @@ static struct ifmcaddr6 *igmp6_mc_get_ne
+ 			read_unlock_bh(&state->idev->lock);
+ 			in6_dev_put(state->idev);
+ 		}
+-		state->dev = state->dev->next;
++		state->dev = next_net_device(state->dev);
+ 		if (!state->dev) {
+ 			state->idev = NULL;
+ 			break;
+@@ -2473,9 +2472,9 @@ static inline struct ip6_sf_list *igmp6_
+ 	struct ifmcaddr6 *im = NULL;
+ 	struct igmp6_mcf_iter_state *state = igmp6_mcf_seq_private(seq);
+ 
+-	for (state->dev = dev_base, state->idev = NULL, state->im = NULL;
+-	     state->dev;
+-	     state->dev = state->dev->next) {
++	state->idev = NULL;
++	state->im = NULL;
++	for_each_netdev(state->dev) {
+ 		struct inet6_dev *idev;
+ 		idev = in6_dev_get(state->dev);
+ 		if (unlikely(idev == NULL))
+@@ -2511,7 +2510,7 @@ static struct ip6_sf_list *igmp6_mcf_get
+ 				read_unlock_bh(&state->idev->lock);
+ 				in6_dev_put(state->idev);
+ 			}
+-			state->dev = state->dev->next;
++			state->dev = next_net_device(state->dev);
+ 			if (!state->dev) {
+ 				state->idev = NULL;
+ 				goto out;
+diff --git a/net/llc/llc_core.c b/net/llc/llc_core.c
+index d12413c..d4b13a0 100644
+--- a/net/llc/llc_core.c
++++ b/net/llc/llc_core.c
+@@ -160,8 +160,14 @@ static struct packet_type llc_tr_packet_
+ 
+ static int __init llc_init(void)
+ {
+-	if (dev_base->next)
+-		memcpy(llc_station_mac_sa, dev_base->next->dev_addr, ETH_ALEN);
++	struct net_device *dev;
++
++	dev = first_net_device();
++	if (dev != NULL)
++		dev = next_net_device(dev);
++
++	if (dev != NULL)
++		memcpy(llc_station_mac_sa, dev->dev_addr, ETH_ALEN);
+ 	else
+ 		memset(llc_station_mac_sa, 0, ETH_ALEN);
+ 	dev_add_pack(&llc_packet_type);
+diff --git a/net/netrom/nr_route.c b/net/netrom/nr_route.c
+index 8e6bd4e..d1e8d5b 100644
+--- a/net/netrom/nr_route.c
++++ b/net/netrom/nr_route.c
+@@ -598,7 +598,7 @@ struct net_device *nr_dev_first(void)
+ 	struct net_device *dev, *first = NULL;
+ 
+ 	read_lock(&dev_base_lock);
+-	for (dev = dev_base; dev != NULL; dev = dev->next) {
++	for_each_netdev(dev) {
+ 		if ((dev->flags & IFF_UP) && dev->type == ARPHRD_NETROM)
+ 			if (first == NULL || strncmp(dev->name, first->name, 3) < 0)
+ 				first = dev;
+@@ -618,7 +618,7 @@ struct net_device *nr_dev_get(ax25_addre
+ 	struct net_device *dev;
+ 
+ 	read_lock(&dev_base_lock);
+-	for (dev = dev_base; dev != NULL; dev = dev->next) {
++	for_each_netdev(dev) {
+ 		if ((dev->flags & IFF_UP) && dev->type == ARPHRD_NETROM && ax25cmp(addr, (ax25_address *)dev->dev_addr) == 0) {
+ 			dev_hold(dev);
+ 			goto out;
+diff --git a/net/rose/rose_route.c b/net/rose/rose_route.c
+index a1233e1..def0ffc 100644
+--- a/net/rose/rose_route.c
++++ b/net/rose/rose_route.c
+@@ -596,7 +596,7 @@ struct net_device *rose_dev_first(void)
+ 	struct net_device *dev, *first = NULL;
+ 
+ 	read_lock(&dev_base_lock);
+-	for (dev = dev_base; dev != NULL; dev = dev->next) {
++	for_each_netdev(dev) {
+ 		if ((dev->flags & IFF_UP) && dev->type == ARPHRD_ROSE)
+ 			if (first == NULL || strncmp(dev->name, first->name, 3) < 0)
+ 				first = dev;
+@@ -614,7 +614,7 @@ struct net_device *rose_dev_get(rose_add
+ 	struct net_device *dev;
+ 
+ 	read_lock(&dev_base_lock);
+-	for (dev = dev_base; dev != NULL; dev = dev->next) {
++	for_each_netdev(dev) {
+ 		if ((dev->flags & IFF_UP) && dev->type == ARPHRD_ROSE && rosecmp(addr, (rose_address *)dev->dev_addr) == 0) {
+ 			dev_hold(dev);
+ 			goto out;
+@@ -630,7 +630,7 @@ static int rose_dev_exists(rose_address 
+ 	struct net_device *dev;
+ 
+ 	read_lock(&dev_base_lock);
+-	for (dev = dev_base; dev != NULL; dev = dev->next) {
++	for_each_netdev(dev) {
+ 		if ((dev->flags & IFF_UP) && dev->type == ARPHRD_ROSE && rosecmp(addr, (rose_address *)dev->dev_addr) == 0)
+ 			goto out;
+ 	}
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index ecc988a..6c73ae6 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -857,9 +857,10 @@ static int tc_dump_qdisc(struct sk_buff 
+ 	s_idx = cb->args[0];
+ 	s_q_idx = q_idx = cb->args[1];
+ 	read_lock(&dev_base_lock);
+-	for (dev=dev_base, idx=0; dev; dev = dev->next, idx++) {
++	idx = 0;
++	for_each_netdev(dev) {
+ 		if (idx < s_idx)
+-			continue;
++			goto cont;
+ 		if (idx > s_idx)
+ 			s_q_idx = 0;
+ 		read_lock(&qdisc_tree_lock);
+@@ -877,6 +878,8 @@ static int tc_dump_qdisc(struct sk_buff 
+ 			q_idx++;
+ 		}
+ 		read_unlock(&qdisc_tree_lock);
++cont:
++		idx++;
+ 	}
+ 
+ done:
+diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
+index e17a823..82aef01 100644
+--- a/net/sctp/protocol.c
++++ b/net/sctp/protocol.c
+@@ -170,7 +170,7 @@ static void sctp_get_local_addr_list(voi
+ 	struct sctp_af *af;
+ 
+ 	read_lock(&dev_base_lock);
+-	for (dev = dev_base; dev; dev = dev->next) {
++	for_each_netdev(dev) {
+ 		__list_for_each(pos, &sctp_address_families) {
+ 			af = list_entry(pos, struct sctp_af, list);
+ 			af->copy_addrlist(&sctp_local_addr_list, dev);
+diff --git a/net/tipc/eth_media.c b/net/tipc/eth_media.c
+index 9be4839..218a101 100644
+--- a/net/tipc/eth_media.c
++++ b/net/tipc/eth_media.c
+@@ -120,16 +120,18 @@ static int recv_msg(struct sk_buff *buf,
+ 
+ static int enable_bearer(struct tipc_bearer *tb_ptr)
+ {
+-	struct net_device *dev = dev_base;
++	struct net_device *dev, *pdev;
+ 	struct eth_bearer *eb_ptr = &eth_bearers[0];
+ 	struct eth_bearer *stop = &eth_bearers[MAX_ETH_BEARERS];
+ 	char *driver_name = strchr((const char *)tb_ptr->name, ':') + 1;
+ 
+ 	/* Find device with specified name */
+-
+-	while (dev && dev->name && strncmp(dev->name, driver_name, IFNAMSIZ)) {
+-		dev = dev->next;
+-	}
++	dev = NULL;
++	for_each_netdev(pdev)
++		if (!strncmp(dev->name, driver_name, IFNAMSIZ)) {
++			dev = pdev;
++			break;
++		}
+ 	if (!dev)
+ 		return -ENODEV;
+ 
