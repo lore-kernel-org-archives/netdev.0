@@ -1,29 +1,46 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 20/20][BNX2]: Update version and reldate.
-Date: Wed, 02 May 2007 03:18:29 -0400
-Message-ID: <46383B45.3040608@garzik.org>
-References: <1178068685.4820.56.camel@dell>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 17/20][BNX2]: Enhance the heartbeat.
+Date: Wed, 02 May 2007 00:24:26 -0700 (PDT)
+Message-ID: <20070502.002426.38687430.davem@davemloft.net>
+References: <1178068656.4820.53.camel@dell>
+	<46383B00.4080605@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Michael Chan <mchan@broadcom.com>
+Cc: mchan@broadcom.com, netdev@vger.kernel.org
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:56117 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754357AbXEBHSc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 May 2007 03:18:32 -0400
-In-Reply-To: <1178068685.4820.56.camel@dell>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33600
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754909AbXEBHYa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2007 03:24:30 -0400
+In-Reply-To: <46383B00.4080605@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michael Chan wrote:
-> [BNX2]: Update version and reldate.
+From: Jeff Garzik <jeff@garzik.org>
+Date: Wed, 02 May 2007 03:17:20 -0400
+
+> Michael Chan wrote:
+> > [BNX2]: Enhance the heartbeat.
+> > 
+> > In addition to the periodic heartbeat, we're adding a heartbeat
+> > request interrupt when the heartbeat is late.  This is useful
+> > especially in -rt kernels where the timer frequently runs late.
+> > 
+> > Signed-off-by: Michael Chan <mchan@broadcom.com>
 > 
-> Update version to 1.5.10.
+> Should we really be adding code for such a special situation to upstream 
+> code?
 > 
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
+> I lean towards "no", but defer to your and DaveM's judgement here.
 
-ACK patches 18-20
+My understanding of this situation is that if the timer is delayed a
+lot, which can happen with the -rt kernel, we don't send the heartbeat
+ping to the chip within the required margin.
 
+If the margin is not met, the ASF firmware takes this as a signal that
+the host system is down, and does things like reset the network card
+and other things we don't want it to do.
 
+Clarification from Michael would be appreciated, for sure.
