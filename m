@@ -1,33 +1,37 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [NETFILTER] sip: Fix RTP address NAT
-Date: Wed, 2 May 2007 14:01:02 +1000
-Message-ID: <20070502040102.GA28343@gondor.apana.org.au>
+Subject: Re: [NETLINK] Don't attach callback to a going-away netlink socket
+Date: Wed, 2 May 2007 14:12:22 +1000
+Message-ID: <20070502041222.GA28620@gondor.apana.org.au>
+References: <20070418.170636.77057313.davem@davemloft.net> <E1HeM9f-0001Dt-00@gondolin.me.apana.org.au> <20070428.231849.59657032.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: xemul@sw.ru, netdev@vger.kernel.org, akpm@osdl.org,
+	linux-kernel@vger.kernel.org, devel@openvz.org, kaber@trash.net,
+	dev@openvz.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:3983 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:4019 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S2992704AbXEBEB2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2007 00:01:28 -0400
+	with ESMTP id S2992714AbXEBENF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2007 00:13:05 -0400
 Content-Disposition: inline
+In-Reply-To: <20070428.231849.59657032.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi:
+On Sat, Apr 28, 2007 at 11:18:49PM -0700, David Miller wrote:
+> 
+> Herbert, could you refresh this refinement to the current
+> tree?
 
-[NETFILTER] sip: Fix RTP address NAT
+Dave, thanks for reminding me.  Here it is.
 
-I needed to use this recently to talk to a Cisco server.  In my case
-I only did SNAT while the Cisco server used a different address for
-RTP traffic than the one for SIP.  I discovered that nf_nat_sip NATed
-the RTP address to the SIP one which was unnecessary but OK.  However,
-in doing so it did not DNAT the destination address on the RTP traffic
-to the Cisco back to the original RTP address.
+[NETLINK]: Kill CB only when socket is unused
 
-This patch corrects this by noting down the RTP address and using it
-when the expectation fires.
+Since we can still receive packets until all references to the
+socket are gone, we don't need to kill the CB until that happens.
+This also aligns ourselves with the receive queue purging which
+happens at that point.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
@@ -38,53 +42,65 @@ Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
 PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 --
-diff --git a/net/ipv4/netfilter/nf_nat_sip.c b/net/ipv4/netfilter/nf_nat_sip.c
-index bfd88e4..fac97cf 100644
---- a/net/ipv4/netfilter/nf_nat_sip.c
-+++ b/net/ipv4/netfilter/nf_nat_sip.c
-@@ -222,6 +222,29 @@ static unsigned int mangle_sdp(struct sk_buff **pskb,
- 	return mangle_content_len(pskb, ctinfo, ct, dptr);
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 42d2fb9..7fc6b4d 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -140,6 +140,15 @@ static struct hlist_head *nl_pid_hashfn(struct nl_pid_hash *hash, u32 pid)
+ 
+ static void netlink_sock_destruct(struct sock *sk)
+ {
++	struct netlink_sock *nlk = nlk_sk(sk);
++
++	BUG_ON(mutex_is_locked(nlk_sk(sk)->cb_mutex));
++	if (nlk->cb) {
++		if (nlk->cb->done)
++			nlk->cb->done(nlk->cb);
++		netlink_destroy_callback(nlk->cb);
++	}
++
+ 	skb_queue_purge(&sk->sk_receive_queue);
+ 
+ 	if (!sock_flag(sk, SOCK_DEAD)) {
+@@ -148,7 +157,6 @@ static void netlink_sock_destruct(struct sock *sk)
+ 	}
+ 	BUG_TRAP(!atomic_read(&sk->sk_rmem_alloc));
+ 	BUG_TRAP(!atomic_read(&sk->sk_wmem_alloc));
+-	BUG_TRAP(!nlk_sk(sk)->cb);
+ 	BUG_TRAP(!nlk_sk(sk)->groups);
  }
  
-+static void ip_nat_sdp_expect(struct nf_conn *ct,
-+			      struct nf_conntrack_expect *exp)
-+{
-+	struct nf_nat_range range;
-+
-+	/* This must be a fresh one. */
-+	BUG_ON(ct->status & IPS_NAT_DONE_MASK);
-+
-+	/* Change src to where master sends to */
-+	range.flags = IP_NAT_RANGE_MAP_IPS;
-+	range.min_ip = range.max_ip
-+		= ct->master->tuplehash[!exp->dir].tuple.dst.u3.ip;
-+	/* hook doesn't matter, but it has to do source manip */
-+	nf_nat_setup_info(ct, &range, NF_IP_POST_ROUTING);
-+
-+	/* For DST manip, map port here to where it's expected. */
-+	range.flags = (IP_NAT_RANGE_MAP_IPS | IP_NAT_RANGE_PROTO_SPECIFIED);
-+	range.min = range.max = exp->saved_proto;
-+	range.min_ip = range.max_ip = exp->saved_ip;
-+	/* hook doesn't matter, but it has to do destination manip */
-+	nf_nat_setup_info(ct, &range, NF_IP_PRE_ROUTING);
-+}
-+
- /* So, this packet has hit the connection tracking matching code.
-    Mangle it, and change the expectation to match the new version. */
- static unsigned int ip_nat_sdp(struct sk_buff **pskb,
-@@ -239,13 +262,14 @@ static unsigned int ip_nat_sdp(struct sk_buff **pskb,
- 	/* Connection will come from reply */
- 	newip = ct->tuplehash[!dir].tuple.dst.u3.ip;
+@@ -456,17 +464,10 @@ static int netlink_release(struct socket *sock)
+ 	sock_orphan(sk);
+ 	nlk = nlk_sk(sk);
  
-+	exp->saved_ip = exp->tuple.dst.u3.ip;
- 	exp->tuple.dst.u3.ip = newip;
- 	exp->saved_proto.udp.port = exp->tuple.dst.u.udp.port;
- 	exp->dir = !dir;
+-	mutex_lock(nlk->cb_mutex);
+-	if (nlk->cb) {
+-		if (nlk->cb->done)
+-			nlk->cb->done(nlk->cb);
+-		netlink_destroy_callback(nlk->cb);
+-		nlk->cb = NULL;
+-	}
+-	mutex_unlock(nlk->cb_mutex);
+-
+-	/* OK. Socket is unlinked, and, therefore,
+-	   no new packets will arrive */
++	/*
++	 * OK. Socket is unlinked, any packets that arrive now
++	 * will be purged.
++	 */
  
- 	/* When you see the packet, we need to NAT it the same as the
- 	   this one. */
--	exp->expectfn = nf_nat_follow_master;
-+	exp->expectfn = ip_nat_sdp_expect;
- 
- 	/* Try to get same port: if not, try to change it. */
- 	for (port = ntohs(exp->saved_proto.udp.port); port != 0; port++) {
+ 	sock->sk = NULL;
+ 	wake_up_interruptible_all(&nlk->wait);
+@@ -1426,9 +1427,9 @@ int netlink_dump_start(struct sock *ssk, struct sk_buff *skb,
+ 		return -ECONNREFUSED;
+ 	}
+ 	nlk = nlk_sk(sk);
+-	/* A dump or destruction is in progress... */
++	/* A dump is in progress... */
+ 	mutex_lock(nlk->cb_mutex);
+-	if (nlk->cb || sock_flag(sk, SOCK_DEAD)) {
++	if (nlk->cb) {
+ 		mutex_unlock(nlk->cb_mutex);
+ 		netlink_destroy_callback(cb);
+ 		sock_put(sk);
