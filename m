@@ -1,38 +1,49 @@
-From: Segher Boessenkool <segher@kernel.crashing.org>
-Subject: Re: [PATCH] gianfar: Add I/O barriers when touching buffer descriptor ownership.
-Date: Wed, 2 May 2007 20:05:43 +0200
-Message-ID: <4334c860f893dbc537a51999cea25532@kernel.crashing.org>
-References: <20070501165542.GA31285@ld0162-tx32.am.freescale.net> <65f0b79871a670eb595cca7d78e2f4e9@kernel.crashing.org> <4638B673.4090504@freescale.com>
-Mime-Version: 1.0 (Apple Message framework v623)
-Content-Type: text/plain; charset=US-ASCII; format=flowed
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 3/20][BNX2]: Add 40-bit DMA workaround for 5708.
+Date: Wed, 02 May 2007 14:24:53 -0400
+Message-ID: <4638D775.3010905@garzik.org>
+References: <1551EAE59135BE47B544934E30FC4FC09400DB@nt-irva-0751.brcm.ad.broadcom.com> <4638AE42.5000908@garzik.org> <1178130232.4820.62.camel@dell>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org, jgarzik@pobox.com
-To: Scott Wood <scottwood@freescale.com>
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Michael Chan <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-in-07.arcor-online.net ([151.189.21.47]:43277 "EHLO
-	mail-in-07.arcor-online.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1767042AbXEBSFu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2007 14:05:50 -0400
-In-Reply-To: <4638B673.4090504@freescale.com>
+Received: from srv5.dvmed.net ([207.36.208.214]:60732 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1767127AbXEBSY5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 May 2007 14:24:57 -0400
+In-Reply-To: <1178130232.4820.62.camel@dell>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->> AFAICS you need stronger barriers though; {w,r,}mb(),
->> to prevent _any_ reordering of those memory accesses,
->> not just the compiler-generated ones.
->
-> My impression was that the eieio used by iobarrier would be sufficient 
-> for that, as we're not trying to synchronize between accesses to 
-> different types of memory.  Is sync really required here?
+Michael Chan wrote:
+> On Wed, 2007-05-02 at 11:29 -0400, Jeff Garzik wrote:
+>> Michael Chan wrote:
+>>> A non-IOMMU system using 64-bit dma_addr_t will always set
+>>> CONFIG_HIGHMEM, right?
+>> No.
+>>
+> May be I misunderstood the code in illegal_highdma() in net/core/dev.c
+> where it is checking to see if it needs to linearize the SKB when the
+> device does not support 64-bit DMA.  I'm using similar assumptions for
+> the 40-bit address check in the patch.
 
-For accesses to main system memory, eieio only orders
-writes, not reads, so iobarrier_r() doesn't do what
-you want; and iobarrier_w() isn't meant to be used for
-main memory access ordering either.
+That function is just checking for highmem pages, no more, no less.
 
-Also, it is better to not use powerpc-specific interfaces
-in a device driver if you don't have a strong reason to.
+Your question quoted far above presumes that no 64-bit systems exist 
+lacking IOMMUs, which is not the case.  64-bit platforms with a 64-bit 
+dma_addr_t will /not/ set CONFIG_HIGHMEM, regardless of IOMMU presence.
+
+Probably you want to base your actions on some combination of
+
+* CONFIG_64BIT
+* sizeof(dma_addr_t)
+* pci_set_dma_mask() for >32 bit platforms
+
+Regards,
+
+	Jeff
 
 
-Segher
 
