@@ -1,45 +1,48 @@
-From: =?ISO-8859-2?Q?Rafa=B3_Bilski?= <rafalbilski@interia.pl>
-Subject: Re: Natsemi DP83815 driver spaming
-Date: Thu, 03 May 2007 08:33:17 +0200
-Message-ID: <4639822D.2060302@interia.pl>
-References: <46379A7E.3000109@interia.pl> <20070501212750.GC31630@sirena.org.uk> <b3ece790705011543gdca3a9ei905d3499b6c18dc8@mail.gmail.com> <46382798.2090709@interia.pl> <b3ece790705012303x1e5a2d03xddf6c14aec5a99d8@mail.gmail.com> <463830E1.8080107@interia.pl> <b3ece790705012351g5c0ff8a6g9f2f350ff86f3319@mail.gmail.com> <20070502082211.GD31630@sirena.org.uk> <b3ece790705020744p2e73bb5fo2c0acad947a5de15@mail.gmail.com> <4638EF0B.9050701@interia.pl> <20070502214128.GA4814@sirena.org.uk>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [ETHTOOL]: Add 2.5G bit definitions.
+Date: Thu, 03 May 2007 00:25:51 -0700
+Message-ID: <1178177151.4909.62.camel@dell>
+References: <1178068303.4820.35.camel@dell>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Tim Hockin <thockin@hockin.org>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Mark Brown <broonie@sirena.org.uk>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "netdev" <netdev@vger.kernel.org>
+To: "David Miller" <davem@davemloft.net>, jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp35.poczta.interia.pl ([80.48.65.35]:38965 "EHLO
-	smtp4.poczta.interia.pl" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754705AbXECGde (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2007 02:33:34 -0400
-In-Reply-To: <20070502214128.GA4814@sirena.org.uk>
+Received: from mms1.broadcom.com ([216.31.210.17]:2108 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753930AbXECGis (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 May 2007 02:38:48 -0400
+In-Reply-To: <1178068303.4820.35.camel@dell>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->> What about module option?
->=20
-> That would work, though you crossed in the post with me writing a pat=
-ch
-> adding a sysfs file; I merged the two for overkill (below).  I also h=
-ave
-> a patch which changes the log message for the workaround so that it i=
-s
-> displayed by default in order to make this easier to diagnose.
+[ETHTOOL]: Add 2.5G bit definitions.
 
-Applied. I set default value to 0. Flashed. However
-> +	if (!NATSEMI_CREATE_FILE(pdev, dspcfg_workaround))
-> +		goto err_create_file;
-is going to err_create_file. Without these lines drivers works fine.
+Add 2.5G supported and advertising bit definitions.  2.5G is supported
+by the bnx2 driver.
 
-Rafa=B3
+Signed-off-by: Michael Chan <mchan@broadcom.com>
 
-
-
-----------------------------------------------------------------------
-NIE KUPUJ!!!
-=2E..zanim nie porownasz cen >> http://link.interia.pl/f1a5e
-
+diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+index c6310ae..f2d248f 100644
+--- a/include/linux/ethtool.h
++++ b/include/linux/ethtool.h
+@@ -434,6 +434,7 @@ struct ethtool_ops {
+ #define SUPPORTED_10000baseT_Full	(1 << 12)
+ #define SUPPORTED_Pause			(1 << 13)
+ #define SUPPORTED_Asym_Pause		(1 << 14)
++#define SUPPORTED_2500baseX_Full	(1 << 15)
+ 
+ /* Indicates what features are advertised by the interface. */
+ #define ADVERTISED_10baseT_Half		(1 << 0)
+@@ -451,6 +452,7 @@ struct ethtool_ops {
+ #define ADVERTISED_10000baseT_Full	(1 << 12)
+ #define ADVERTISED_Pause		(1 << 13)
+ #define ADVERTISED_Asym_Pause		(1 << 14)
++#define ADVERTISED_2500baseX_Full	(1 << 15)
+ 
+ /* The following are all involved in forcing a particular link
+  * mode for the device for setting things.  When getting the
 
 
