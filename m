@@ -1,62 +1,45 @@
-From: "Robert P. J. Day" <rpjday@mindspring.com>
-Subject: finding your own dead "CONFIG_" variables
-Date: Thu, 3 May 2007 04:19:48 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0705030400120.20539@localhost.localdomain>
+From: Mark Brown <broonie@sirena.org.uk>
+Subject: [PATCH 1/2] natsemi: Improve diagnostics for DspCfg workaround
+Date: Thu, 03 May 2007 10:36:50 +0100
+Message-ID: <20070503093650.7800.45441.stgit@mercator.sirena.org.uk>
+References: <20070503093435.7800.38591.stgit@mercator.sirena.org.uk>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: =?utf-8?b?UmFmYcWC?= Bilski <rafalbilski@interia.pl>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Tim Hockin <thockin@hockin.org>, Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nic.NetDirect.CA ([216.16.235.2]:47075 "EHLO
-	rubicon.netdirect.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750888AbXECIUJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2007 04:20:09 -0400
+Received: from cassiel.sirena.org.uk ([80.68.93.111]:3883 "EHLO
+	cassiel.sirena.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030802AbXECJhN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2007 05:37:13 -0400
+In-Reply-To: <20070503093435.7800.38591.stgit@mercator.sirena.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+The natsemi driver has a workaround for broken hardware which resets itself
+from time to time.  There is a diagnostic message for this workaround but
+it is not printed by default, making the driver behavior more obscure than
+it needs to be.  Make the message be displayed by default.
 
-  while there's still a pile of possible dead CONFIG_ variables under
-the fs/ and drivers/ directories i haven't posted yet, you don't need
-to wait for me to generate them.  take a minute and run the script
-yourself:
+Signed-Off-By: Mark Brown <broonie@sirena.org.uk>
+---
 
-http://fsdev.net/wiki/index.php?title=Dead_CONFIG_variables
+ drivers/net/natsemi.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-  a couple of examples:
+diff --git a/drivers/net/natsemi.c b/drivers/net/natsemi.c
+index a8d7ff2..109e802 100644
+--- a/drivers/net/natsemi.c
++++ b/drivers/net/natsemi.c
+@@ -1756,7 +1756,7 @@ static void netdev_timer(unsigned long data)
+ 		if (dspcfg != np->dspcfg) {
+ 			if (!netif_queue_stopped(dev)) {
+ 				spin_unlock_irq(&np->lock);
+-				if (netif_msg_hw(np))
++				if (netif_msg_drv(np))
+ 					printk(KERN_NOTICE "%s: possible phy reset: "
+ 						"re-initializing\n", dev->name);
+ 				disable_irq(dev->irq);
 
-$ ../dead_config.sh net/wanrouter
-========== WANPIPE_MULTPPP ==========
-net/wanrouter/wanmain.c:#ifdef CONFIG_WANPIPE_MULTPPP
-net/wanrouter/wanmain.c:#ifdef CONFIG_WANPIPE_MULTPPP
-net/wanrouter/wanmain.c:#ifdef CONFIG_WANPIPE_MULTPPP
-
-$ ../dead_config.sh drivers/net/wireless
-========== BCM947XX ==========
-drivers/net/wireless/bcm43xx/bcm43xx_dma.c:663:#ifdef CONFIG_BCM947XX
-drivers/net/wireless/bcm43xx/bcm43xx_main.h:36:#ifdef CONFIG_BCM947XX
-drivers/net/wireless/bcm43xx/bcm43xx_main.c:64:#ifdef CONFIG_BCM947XX
-drivers/net/wireless/bcm43xx/bcm43xx_main.c:145:#ifdef CONFIG_BCM947XX
-drivers/net/wireless/bcm43xx/bcm43xx_main.c:789:#ifdef CONFIG_BCM947XX
-drivers/net/wireless/bcm43xx/bcm43xx_main.c:799:#ifdef CONFIG_BCM947XX
-drivers/net/wireless/bcm43xx/bcm43xx_main.c:1228:#ifdef CONFIG_BCM947XX
-drivers/net/wireless/bcm43xx/bcm43xx_main.c:1390://FIXME: Do we _really_ want #ifndef CONFIG_BCM947XX here?
-drivers/net/wireless/bcm43xx/bcm43xx_main.c:1392:#ifndef CONFIG_BCM947XX
-drivers/net/wireless/bcm43xx/bcm43xx_main.c:2143:#ifdef CONFIG_BCM947XX
-drivers/net/wireless/bcm43xx/bcm43xx_main.c:2155:#ifdef CONFIG_BCM947XX
-drivers/net/wireless/bcm43xx/bcm43xx_main.c:2648:#ifdef CONFIG_BCM947XX
-drivers/net/wireless/bcm43xx/bcm43xx_main.c:4147:#ifdef CONFIG_BCM947XX
-drivers/net/wireless/bcm43xx/bcm43xx.h:661:#ifdef CONFIG_BCM947XX
-drivers/net/wireless/bcm43xx/bcm43xx.h:792:#ifdef CONFIG_BCM947XX
-$
-
-  go wild.
-
-rday
--- 
-========================================================================
-Robert P. J. Day
-Linux Consulting, Training and Annoying Kernel Pedantry
-Waterloo, Ontario, CANADA
-
-http://fsdev.net/wiki/index.php?title=Main_Page
-========================================================================
