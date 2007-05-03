@@ -1,32 +1,49 @@
-From: Daniel Drake <dsd@gentoo.org>
-Subject: Re: [PATCH] sky2: re-enable 88E8056 for most motherboards
-Date: Thu, 03 May 2007 15:23:04 -0400
-Message-ID: <463A3698.5020904@gentoo.org>
-References: <20070430142349.79754c1b@freekitty>	<46374784.7010401@gentoo.org> <20070502154225.6c82a10d@freekitty>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: [PATCH] ehea: fix compilation
+Date: Fri, 4 May 2007 00:04:00 +0400
+Message-ID: <20070503200400.GD5836@martell.zuzino.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
-	stable@kernel.org, Francois SIMOND <curio@free.fr>
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: acme@ghostprotocols.net, tklein@de.ibm.com, netdev@vger.kernel.org
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp111.iad.emailsrvr.com ([207.97.245.111]:56291 "EHLO
-	smtp111.iad.emailsrvr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1767754AbXECTXv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2007 15:23:51 -0400
-In-Reply-To: <20070502154225.6c82a10d@freekitty>
+Received: from ug-out-1314.google.com ([66.249.92.170]:32623 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754052AbXECUD5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2007 16:03:57 -0400
+Received: by ug-out-1314.google.com with SMTP id 44so524600uga
+        for <netdev@vger.kernel.org>; Thu, 03 May 2007 13:03:55 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> The PCI info is basically the same between working/non working
-> Gigabyte boards. Is there any other difference?  Kernel config?
-> chip revision?
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+---
 
-I've never seen any reports of the corruption which you describe, so I 
-can't make the comparison myself. Here's the chip info from a working 
-Gigabyte DS3:
+ Compile-tested only.
 
-sky2 0000:04:00.0: v1.14 addr 0xf8000000 irq 16 Yukon-EC Ultra (0xb4) rev 2
+ drivers/net/ehea/ehea_main.c |    7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-Daniel
+--- a/drivers/net/ehea/ehea_main.c
++++ b/drivers/net/ehea/ehea_main.c
+@@ -1799,14 +1799,15 @@ static void ehea_xmit3(struct sk_buff *skb, struct net_device *dev,
+ 
+ static inline int ehea_hash_skb(struct sk_buff *skb, int num_qps)
+ {
++	struct iphdr *iph = ip_hdr(skb);
+ 	struct tcphdr *tcp;
+ 	u32 tmp;
+ 
+ 	if ((skb->protocol == htons(ETH_P_IP)) &&
+-	    (skb->nh.iph->protocol == IPPROTO_TCP)) {
+-		tcp = (struct tcphdr*)(skb->nh.raw + (skb->nh.iph->ihl * 4));
++	    (iph->protocol == IPPROTO_TCP)) {
++		tcp = (struct tcphdr*)(skb_network_header(skb) + iph->ihl * 4);
+ 		tmp = (tcp->source + (tcp->dest << 16)) % 31;
+-		tmp += skb->nh.iph->daddr % 31;
++		tmp += iph->daddr % 31;
+ 		return tmp % num_qps;
+ 	}
+ 	else
+
