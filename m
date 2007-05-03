@@ -1,56 +1,32 @@
-From: Aji_Srinivas@emc.com
-Subject: [PATCH] TCP: zero out rx_opt in tcp_disconnect()
-Date: Thu, 3 May 2007 11:53:36 -0700
-Message-ID: <20070503185336.GA19639@rainfinity.com>
+From: Daniel Drake <dsd@gentoo.org>
+Subject: Re: [PATCH] sky2: re-enable 88E8056 for most motherboards
+Date: Thu, 03 May 2007 15:23:04 -0400
+Message-ID: <463A3698.5020904@gentoo.org>
+References: <20070430142349.79754c1b@freekitty>	<46374784.7010401@gentoo.org> <20070502154225.6c82a10d@freekitty>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
+	stable@kernel.org, Francois SIMOND <curio@free.fr>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mexforward.lss.emc.com ([128.222.32.20]:38831 "EHLO
-	mexforward.lss.emc.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755337AbXECSxj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2007 14:53:39 -0400
-Received: from mailhub.lss.emc.com (nirah.lss.emc.com [10.254.144.13])
-	by mexforward.lss.emc.com (Switch-3.2.5/Switch-3.1.7) with ESMTP id l43IrcE7023618
-	for <netdev@vger.kernel.org>; Thu, 3 May 2007 14:53:38 -0400 (EDT)
-Received: from localhost ([128.222.177.151])
-	by mailhub.lss.emc.com (Switch-3.2.5/Switch-3.1.7) with ESMTP id l43IratR009110
-	for <netdev@vger.kernel.org>; Thu, 3 May 2007 14:53:37 -0400 (EDT)
-Content-Disposition: inline
+Received: from smtp111.iad.emailsrvr.com ([207.97.245.111]:56291 "EHLO
+	smtp111.iad.emailsrvr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1767754AbXECTXv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2007 15:23:51 -0400
+In-Reply-To: <20070502154225.6c82a10d@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When the server drops its connection, NFS client reconnects using the
-same socket after disconnecting. If the new connection's SYN,ACK
-doesn't contain the TCP timestamp option and the old connection's did,
-tp->tcp_header_len is recomputed assuming no timestamp header but
-tp->rx_opt.tstamp_ok remains set. Then tcp_build_and_update_options()
-adds in a timestamp option past the end of the allocated TCP header,
-overwriting TCP data, or when the data is in skb_shinfo(skb)->frags[],
-overwriting skb_shinfo(skb) causing a crash soon after. (The issue was
-debugged from such a crash.)
+Stephen Hemminger wrote:
+> The PCI info is basically the same between working/non working
+> Gigabyte boards. Is there any other difference?  Kernel config?
+> chip revision?
 
-Similarly, wscale_ok and sack_ok also get set based on the SYN,ACK
-packet but not reset on disconnect, since they are zeroed out at
-initialization. The patch zeroes out the entire tp->rx_opt struct in
-tcp_disconnect() to avoid this sort of problem.
+I've never seen any reports of the corruption which you describe, so I 
+can't make the comparison myself. Here's the chip info from a working 
+Gigabyte DS3:
 
-Signed-off-by: Srinivas Aji <Aji_Srinivas@emc.com>
----
- net/ipv4/tcp.c |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
+sky2 0000:04:00.0: v1.14 addr 0xf8000000 irq 16 Yukon-EC Ultra (0xb4) rev 2
 
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index d6e4886..8b124ea 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -1760,8 +1760,7 @@ int tcp_disconnect(struct sock *sk, int flags)
- 	tcp_clear_retrans(tp);
- 	inet_csk_delack_init(sk);
- 	tcp_init_send_head(sk);
--	tp->rx_opt.saw_tstamp = 0;
--	tcp_sack_reset(&tp->rx_opt);
-+	memset(&tp->rx_opt, 0, sizeof(tp->rx_opt));
- 	__sk_dst_reset(sk);
- 
- 	BUG_TRAP(!inet->num || icsk->icsk_bind_hash);
+Daniel
