@@ -1,38 +1,36 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] Rework dev_base via list_head (v2)
-Date: Thu, 03 May 2007 16:52:23 +0200
-Message-ID: <4639F727.8080100@trash.net>
-References: <4639C95A.3030809@sw.ru> <4639CB11.2050508@trash.net> <4639F542.7010800@sw.ru>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: netfront for review
+Date: Thu, 3 May 2007 16:17:56 +0100
+Message-ID: <20070503151756.GA29629@infradead.org>
+References: <4637D672.5030706@goop.org> <1178077033.28659.173.camel@localhost.localdomain> <4638EAC0.7020107@goop.org> <46399057.4000409@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Kirill Korotaev <dev@sw.ru>, devel@openvz.org
-To: Pavel Emelianov <xemul@sw.ru>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeremy Fitzhardinge <jeremy@goop.org>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	lkml - Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Keir Fraser <Keir.Fraser@cl.cam.ac.uk>
+To: Gerd Hoffmann <kraxel@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:64561 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1162079AbXECOw7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2007 10:52:59 -0400
-In-Reply-To: <4639F542.7010800@sw.ru>
+Received: from pentafluge.infradead.org ([213.146.154.40]:48640 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S2993244AbXECPSE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2007 11:18:04 -0400
+Content-Disposition: inline
+In-Reply-To: <46399057.4000409@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Pavel Emelianov wrote:
-> Patrick McHardy wrote:
+On Thu, May 03, 2007 at 09:33:43AM +0200, Gerd Hoffmann wrote:
+> >Guess so.  It defaults to flip.  I simplified the rx_copy/flip module
+> >parameter to a simple rx_mode=0/1, but this is preserved from the
+> >original.  My guess is that originally there was only flip, and copy was
+> >added later.
 > 
->>This seems to be missing fs/afs/netdevices.c.
->>
-> 
-> 
-> Hm... I've cloned the git repo this morning but there's not such file...
-> 
-> $ ls fs/afs/netdevices.c
-> /bin/ls: fs/afs/netdevices.c: No such file or directory
-> 
-> Repo was cloned from
-> git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-2.6.git
+> Yep, page flipping is the old (pre xen 3.0.3) way, copy was added (and 
+> made the default) later.
 
+So can we please just rip out the obsolete code completely?  There's
+no point adding this code anymore.
 
-You need to update, its there in the current tree.
