@@ -1,48 +1,47 @@
-From: "Robert P. J. Day" <rpjday@mindspring.com>
-Subject: Re: finding your own dead "CONFIG_" variables
-Date: Thu, 3 May 2007 05:49:10 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0705030546310.29962@localhost.localdomain>
-References: <Pine.LNX.4.64.0705030400120.20539@localhost.localdomain>
- <a781481a0705030237l7d636b55t93f2ee5151cd7709@mail.gmail.com>
+From: David Howells <dhowells@redhat.com>
+Subject: [PATCH 1/5] [NETLINK]: Fix use after free in netlink_recvmsg
+Date: Thu, 03 May 2007 10:53:15 +0100
+Message-ID: <20070503095315.26912.24270.stgit@warthog.cambridge.redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Satyam Sharma <satyam.sharma@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nic.NetDirect.CA ([216.16.235.2]:48758 "EHLO
-	rubicon.netdirect.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030991AbXECJth (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2007 05:49:37 -0400
-In-Reply-To: <a781481a0705030237l7d636b55t93f2ee5151cd7709@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	netdev@vger.kernel.org, kaber@trash.net, dhowells@redhat.com
+To: akpm@osdl.org
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 3 May 2007, Satyam Sharma wrote:
+When the user passes in MSG_TRUNC the skb is used after getting freed.
 
-> > http://fsdev.net/wiki/index.php?title=Dead_CONFIG_variables
->
-> > kcfiles=$(find . -name "Kconfig*")
->
-> Suggest: configfiles=$(find . -name 'Kconfig*' -or -name '*defconfig*')
->
-> Some CONFIG_ options exist that are not declared anywhere in the
-> Kconfig files but defined directly in the arch/.../*defconfig*
-> files.
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+Signed-off-by: David Howells <dhowells@redhat.com>
+---
 
-it's my understanding that entries in any defconfig files are
-*automatically* pruned at some point once a CONFIG_ variable no longer
-exists in any Kconfig file, so i'm not going to be touching those
-files.  also, adding that extra check wouldn't add anything useful to
-the output.
+ net/netlink/af_netlink.c |    6 ++----
+ 1 files changed, 2 insertions(+), 4 deletions(-)
 
-rday
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 42d2fb9..7419f70 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -1245,16 +1245,14 @@ static int netlink_recvmsg(struct kiocb *kiocb, struct socket *sock,
+ 		siocb->scm = &scm;
+ 	}
+ 	siocb->scm->creds = *NETLINK_CREDS(skb);
++	if (flags & MSG_TRUNC)
++		copied = skb->len;
+ 	skb_free_datagram(sk, skb);
+ 
+ 	if (nlk->cb && atomic_read(&sk->sk_rmem_alloc) <= sk->sk_rcvbuf / 2)
+ 		netlink_dump(sk);
+ 
+ 	scm_recv(sock, msg, siocb->scm, flags);
+-
+-	if (flags & MSG_TRUNC)
+-		copied = skb->len;
+-
+ out:
+ 	netlink_rcv_wake(sk);
+ 	return err ? : copied;
 
--- 
-========================================================================
-Robert P. J. Day
-Linux Consulting, Training and Annoying Kernel Pedantry
-Waterloo, Ontario, CANADA
-
-http://fsdev.net/wiki/index.php?title=Main_Page
-========================================================================
