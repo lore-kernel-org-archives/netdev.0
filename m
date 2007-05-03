@@ -1,35 +1,59 @@
-From: Jeremy Fitzhardinge <jeremy@goop.org>
-Subject: Re: netfront for review
-Date: Thu, 03 May 2007 09:00:48 -0700
-Message-ID: <463A0730.8070007@goop.org>
-References: <4637D672.5030706@goop.org> <1178077033.28659.173.camel@localhost.localdomain> <4638EAC0.7020107@goop.org> <46399057.4000409@redhat.com> <20070503151756.GA29629@infradead.org> <463A01F7.90500@redhat.com>
+From: Scott Wood <scottwood@freescale.com>
+Subject: Re: [PATCH v2] gianfar: Add I/O barriers when touching buffer
+	descriptor ownership.
+Date: Thu, 03 May 2007 11:00:50 -0500
+Message-ID: <463A0732.2060802@freescale.com>
+References: <20070502195712.GA16541@ld0162-tx32.am.freescale.net>
+	<F1B250DD-A472-470F-B3D0-EBB2F042E454@kernel.crashing.org>
+	<4638F0C4.2000406@freescale.com>
+	<FA9554A4-5A7D-4E03-BE28-C4B6B80D9DB9@kernel.crashing.org>
+	<4638F734.2040809@freescale.com>
+	<41B347BE-06AA-4346-BEFB-19DFB52AC533@kernel.crashing.org>
+	<463902EB.8070401@freescale.com>
+	<Pine.LNX.4.64.0705022109350.1690@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Christoph Hellwig <hch@infradead.org>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	lkml - Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Keir Fraser <Keir.Fraser@cl.cam.ac.uk>
-To: Gerd Hoffmann <kraxel@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw.goop.org ([64.81.55.164]:48132 "EHLO mail.goop.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1162153AbXECQAv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 May 2007 12:00:51 -0400
-In-Reply-To: <463A01F7.90500@redhat.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, jgarzik@pobox.com, linuxppc-dev@ozlabs.org
+To: Kumar Gala <galak@kernel.crashing.org>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+In-Reply-To: <Pine.LNX.4.64.0705022109350.1690@localhost.localdomain>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-Gerd Hoffmann wrote:
-> Drawback is that the guest kernel wouldn't work with older xen
-> versions (dom0 netback driver to be exact) any more.  Probably
-> wouldn't be a showstopper though, given that xen 3.0.3 probably is
-> almost one year out by the time 2.6.22 will be released ...
+Kumar Gala wrote:
+> So what about some thing like this where we do the read only once?
+> 
+> - k
+> 
+> diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
+> index a06d8d1..9cd7d1e 100644
+> --- a/drivers/net/gianfar.c
+> +++ b/drivers/net/gianfar.c
+> @@ -1438,31 +1438,35 @@ int gfar_clean_rx_ring(struct net_device *dev, int rx_work_limit)
+>  {
+>  	struct rxbd8 *bdp;
+>  	struct sk_buff *skb;
+> -	u16 pkt_len;
+> +	u16 pkt_len, status;
+> +	u32 bd_info;
 
-I don't think we've decided how backwards-compatible the pv_ops guest
-should be.  I've been working on the basis "as much as possible", so
-long as it isn't a large burden.
 
-    J
+I suggested that on IRC yesterday, and Segher was concerned that the 
+compiler might, in theory, "optimize" it into to two lhz instructions. 
+I'm rather skeptical that it would actually do so (even if it needs to 
+load twice due to register pressure, why not just use lwz both times?), 
+and there's probably many other places that would break if it did, but I 
+wasn't up for digging around GCC to prove otherwise.
+
+Plus, that wouldn't synchronize the bd_info read with the buffer data reads.
+
+-Scott
