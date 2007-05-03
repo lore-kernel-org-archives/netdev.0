@@ -1,59 +1,62 @@
-From: Guennadi Liakhovetski <gl@dsa-ac.de>
-Subject: ppp_generic.c recursive spinlock_bh(&pch->downl)
-Date: Thu, 3 May 2007 10:12:10 +0200 (CEST)
-Message-ID: <Pine.LNX.4.63.0705030923590.19781@pcgl.dsa-ac.de>
+From: "Robert P. J. Day" <rpjday@mindspring.com>
+Subject: finding your own dead "CONFIG_" variables
+Date: Thu, 3 May 2007 04:19:48 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0705030400120.20539@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: irda-users@lists.sourceforge.net, netdev@vger.kernel.org,
-	Samuel Ortiz <samuel@sortiz.org>
-To: Paul Mackerras <paulus@samba.org>
+Cc: netdev@vger.kernel.org
+To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.dsa-ac.de ([62.112.80.99]:38565 "EHLO mail.dsa-ac.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750968AbXECIMP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 May 2007 04:12:15 -0400
+Received: from nic.NetDirect.CA ([216.16.235.2]:47075 "EHLO
+	rubicon.netdirect.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750888AbXECIUJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2007 04:20:09 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Paul,
 
-This has been discussed on these lists since some time already, but as we 
-don't seem to come to a proper fix, I decided to summarize our problem 
-once again.
+  while there's still a pile of possible dead CONFIG_ variables under
+the fs/ and drivers/ directories i haven't posted yet, you don't need
+to wait for me to generate them.  take a minute and run the script
+yourself:
 
-A short summary from the ppp PoV:
+http://fsdev.net/wiki/index.php?title=Dead_CONFIG_variables
 
-ppp_push()
-{
-	spin_lock_bh(&pch->downl);
-	pch->chan->ops->start_xmit(pch->chan, skb)
-	{
-		...
-		ppp_output_wakeup()
-		{
-			ppp_channel_push()
-			{
-				spin_lock_bh(&pch->downl);
-BANG!...
+  a couple of examples:
 
-This happens with IrNET. So, the question is, is it legitimate to call 
-ppp_channel_push() from the .start_xmit() method? How do other ppp drivers 
-do it? Looks like, for examplke, ppp_async checks explicitly for 
-recursion, synctty does a try_spinlock_bh()... Is it just a bug in IrNET 
-and one just cannot do this, or is there a simple fix for this?
+$ ../dead_config.sh net/wanrouter
+========== WANPIPE_MULTPPP ==========
+net/wanrouter/wanmain.c:#ifdef CONFIG_WANPIPE_MULTPPP
+net/wanrouter/wanmain.c:#ifdef CONFIG_WANPIPE_MULTPPP
+net/wanrouter/wanmain.c:#ifdef CONFIG_WANPIPE_MULTPPP
 
-Samuel's suggestion is to offload the call to ppp_output_wakeup() to the 
-keventd workqueue, but we haven't been able to make this work properly so 
-far.
+$ ../dead_config.sh drivers/net/wireless
+========== BCM947XX ==========
+drivers/net/wireless/bcm43xx/bcm43xx_dma.c:663:#ifdef CONFIG_BCM947XX
+drivers/net/wireless/bcm43xx/bcm43xx_main.h:36:#ifdef CONFIG_BCM947XX
+drivers/net/wireless/bcm43xx/bcm43xx_main.c:64:#ifdef CONFIG_BCM947XX
+drivers/net/wireless/bcm43xx/bcm43xx_main.c:145:#ifdef CONFIG_BCM947XX
+drivers/net/wireless/bcm43xx/bcm43xx_main.c:789:#ifdef CONFIG_BCM947XX
+drivers/net/wireless/bcm43xx/bcm43xx_main.c:799:#ifdef CONFIG_BCM947XX
+drivers/net/wireless/bcm43xx/bcm43xx_main.c:1228:#ifdef CONFIG_BCM947XX
+drivers/net/wireless/bcm43xx/bcm43xx_main.c:1390://FIXME: Do we _really_ want #ifndef CONFIG_BCM947XX here?
+drivers/net/wireless/bcm43xx/bcm43xx_main.c:1392:#ifndef CONFIG_BCM947XX
+drivers/net/wireless/bcm43xx/bcm43xx_main.c:2143:#ifdef CONFIG_BCM947XX
+drivers/net/wireless/bcm43xx/bcm43xx_main.c:2155:#ifdef CONFIG_BCM947XX
+drivers/net/wireless/bcm43xx/bcm43xx_main.c:2648:#ifdef CONFIG_BCM947XX
+drivers/net/wireless/bcm43xx/bcm43xx_main.c:4147:#ifdef CONFIG_BCM947XX
+drivers/net/wireless/bcm43xx/bcm43xx.h:661:#ifdef CONFIG_BCM947XX
+drivers/net/wireless/bcm43xx/bcm43xx.h:792:#ifdef CONFIG_BCM947XX
+$
 
-I have a dirty workaround, whereby I explicitly verify recursion in 
-ppp_channel_push(). This works, but it doesn't seem to be a good solution.
+  go wild.
 
-Thanks
-Guennadi
----------------------------------
-Guennadi Liakhovetski, Ph.D.
-DSA Daten- und Systemtechnik GmbH
-Pascalstr. 28
-D-52076 Aachen
-Germany
+rday
+-- 
+========================================================================
+Robert P. J. Day
+Linux Consulting, Training and Annoying Kernel Pedantry
+Waterloo, Ontario, CANADA
+
+http://fsdev.net/wiki/index.php?title=Main_Page
+========================================================================
