@@ -1,134 +1,190 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: kernel BUG at include/net/tcp.h:739
-Date: Thu, 3 May 2007 09:51:36 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0705030841140.3607@kivilampi-30.cs.helsinki.fi>
-References: <4638F14E.6000803@googlemail.com>
+From: Andrew Victor <andrew@sanpeople.com>
+Subject: [PATCH 2.6.21] AT91RM9200 Ethernet: Support additional PHYs
+Date: 03 May 2007 09:17:15 +0200
+Message-ID: <1178176634.14657.153.camel@fuzzie.sanpeople.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-1270442657-1178175096=:3607"
-Cc: Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: jgarzik@pobox.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:34597 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161802AbXECGvi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2007 02:51:38 -0400
-In-Reply-To: <4638F14E.6000803@googlemail.com>
+Received: from za-gw.sanpeople.com ([196.211.225.226]:3731 "EHLO
+	za-gw.sanpeople.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964796AbXECHbQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2007 03:31:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+Add support for a number of new PHY's in the AT91RM9200 Ethernet driver.
+- Teridian 78Q21x3
+- SMSC LAN83C185
+  (Patch from Luca Gamma)
+- National Semiconductor DP83848
+  (Patches from Ivan Kuten & Thomas Foldesi)
 
----696243703-1270442657-1178175096=:3607
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
-
-On Wed, 2 May 2007, Michal Piotrowski wrote:
-
-> Please take a look at this bug
-> 
-> [15236.638092] kernel BUG at /mnt/md0/devel/linux-git/include/net/tcp.h:739!
-> [15236.644860] invalid opcode: 0000 [#1]
-> [15236.648514] PREEMPT SMP 
-> [15236.651075] Modules linked in: ipt_MASQUERADE iptable_nat nf_nat autofs4 af_packet nf_conntrack_netbios_ns ipt_REJECT nf_conntrack_ipv4 xt_state nf_conntrack nfnetlink iptable_filter ip_tables ip6t_REJECT xt_tcpudp ip6table_filter ip6_tables x_tables ipv6 binfmt_misc thermal processor fan container nvram snd_intel8x0 snd_ac97_codec ac97_bus snd_seq_dummy snd_seq_oss snd_seq_midi_event snd_seq snd_seq_device snd_pcm_oss snd_mixer_oss snd_pcm evdev snd_timer snd intel_agp i2c_i801 soundcore agpgart snd_page_alloc ide_cd cdrom rtc unix
-> [15236.698898] CPU:    0
-> [15236.698899] EIP:    0060:[<c02f798b>]    Not tainted VLI
-> [15236.698900] EFLAGS: 00010206   (2.6.21-gdc87c398 #169)
-> [15236.711580] EIP is at tcp_ack+0xc54/0x16a0
-> [15236.715664] eax: 00000017   ebx: 00000000   ecx: 00000003   edx: 0000010e
-> [15236.722433] esi: d5bc1254   edi: 0000010e   ebp: c0462e18   esp: c0462da8
-> [15236.729202] ds: 007b   es: 007b   fs: 00d8  gs: 0000  ss: 0068
-> [15236.735019] Process swapper (pid: 0, ti=c0462000 task=c03f14e0 task.ti=c0427000)
-> [15236.742219] Stack: 00000000 00000000 00000000 00000198 00000100 00000000 00000000 00000018 
-> [15236.750698]        3b4d5775 0ffef1c0 3b4d79ad 00000001 00000018 00000006 3b4d79ad 003f14e0 
-> [15236.759178]        00000006 0000082a d4b9cde0 00e4059a 0000000c 00000000 00000000 0130204a 
-> [15236.767649] Call Trace:
-> [15236.770286]  [<c0105039>] show_trace_log_lvl+0x1a/0x2f
-> [15236.775438]  [<c01050eb>] show_stack_log_lvl+0x9d/0xa5
-> [15236.780590]  [<c01052e0>] show_registers+0x1ed/0x32c
-> [15236.785569]  [<c0105537>] die+0x118/0x22f
-> [15236.789588]  [<c01056c7>] do_trap+0x79/0x91
-> [15236.793781]  [<c0105f57>] do_invalid_op+0x97/0xa1
-> [15236.798501]  [<c031f38c>] error_code+0x7c/0x84
-> [15236.802960]  [<c02fafb7>] tcp_rcv_established+0x568/0x645
-> [15236.808354]  [<c03000bd>] tcp_v4_do_rcv+0x2b/0x32c
-> [15236.813144]  [<c030243a>] tcp_v4_rcv+0x7f9/0x86b
-> [15236.817777]  [<c02e9dd3>] ip_local_deliver+0x170/0x235
-> [15236.822928]  [<c02e9c2a>] ip_rcv+0x4f3/0x52c
-> [15236.827199]  [<c02d4909>] netif_receive_skb+0x1b9/0x252
-> [15236.832437]  [<c02635c2>] skge_poll+0x47a/0x545
-> [15236.836967]  [<c02d68df>] net_rx_action+0x9f/0x192
-> [15236.841772]  [<c0126408>] __do_softirq+0x6d/0xea
-> [15236.846407]  [<c01069b5>] do_softirq+0x64/0xd1
-> [15236.850867]  =======================
-> [15236.854437] Code: 69 42 c0 f7 d0 64 8b 15 04 00 00 00 8b 04 90 ff 80 a4 00 00 00 8b 9e 70 05 00 00 89 d8 03 86 74 05 00 00 3b 86 8c 04 00 00 76 04 <0f> 0b eb fe 89 86 90 04 00 00 8a 86 88 03 00 00 84 c0 75 3c 83 
-> [15236.874343] EIP: [<c02f798b>] tcp_ack+0xc54/0x16a0 SS:ESP 0068:c0462da8
-> 
-> l *0xc02f798b
-> 0xc02f798b is in tcp_ack (/mnt/md0/devel/linux-git/include/net/tcp.h:739).
-> 734                                 (tp->snd_cwnd >> 2)));
-> 735     }
-> 736
-> 737     static inline void tcp_sync_left_out(struct tcp_sock *tp)
-> 738     {
-> 739             BUG_ON(tp->sacked_out + tp->lost_out > tp->packets_out);
-> 740             tp->left_out = tp->sacked_out + tp->lost_out;
-> 741     }
-> 742
-> 743     extern void tcp_enter_cwr(struct sock *sk, const int set_ssthresh);
-> 
-> Caused by commit 34588b4c046c34773e5a1a962da7b78b05c4d1bd 
-
-I think I found the reason:
-
-tcp_clean_rtx_queue without SACK it does not decrement sacked_out but
-tcp_reset_reno_sack/remove_reno_sack is being called later in
-tcp_fastretrans_alert. Before that, tcp_sync_left_out is being called, 
-at least by tcp_fastretrans_alert itself, which sees sacked_out that 
-includes also segments that are no longer in window (this also explains 
-why the original code did not do the reduction in the non-SACK case). Also 
-tcp_process_frto calls tcp_sync_left_out, so it would also lead to the 
-same problem.
-
-Here is a change that ignores this trap without SACK. However, it would be 
-useful to trap this without SACK too as S+L skb causes potentially a 
-negative packets in flight (= large one) disturbing cwnd compares. 
+Signed-off-by: Andrew Victor <andrew@sanpeople.com>
 
 
-[PATCH] [TCP]: Use S+L catcher only with SACK for now
-
-TCP has a transitional state when SACK is not in use during
-which this invariant is temporarily broken. Without SACK,
-tcp_clean_rtx_queue does not decrement sacked_out. Therefore
-calls to tcp_sync_left_out before sacked_out is again
-corrected by tcp_fastretrans_alert can trigger this trap as
-sacked_out still has couple of segments that are already out
-of window.
-
-Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
----
- include/net/tcp.h |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
-
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index ef8f9d4..e22b4f0 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -736,7 +736,8 @@ static inline __u32 tcp_current_ssthresh
+diff -urN linux-2.6.21.new/drivers/net/arm/at91_ether.c linux-2.6.21/drivers/net/arm/at91_ether.c
+--- linux-2.6.21.new/drivers/net/arm/at91_ether.c	Thu May  3 08:32:10 2007
++++ linux-2.6.21/drivers/net/arm/at91_ether.c	Thu May  3 08:58:34 2007
+@@ -225,6 +225,16 @@
+ 		if (!(phy & ((1 << 2) | 1)))
+ 			goto done;
+ 	}
++	else if (lp->phy_type == MII_T78Q21x3_ID) {			/* ack interrupt in Teridian PHY */
++		read_phy(lp->phy_address, MII_T78Q21INT_REG, &phy);
++		if (!(phy & ((1 << 2) | 1)))
++			goto done;
++	}
++	else if (lp->phy_type == MII_DP83848_ID) {
++		read_phy(lp->phy_address, MII_DPPHYSTS_REG, &phy);	/* ack interrupt in DP83848 PHY */
++		if (!(phy & (1 << 7)))
++			goto done;
++	}
  
- static inline void tcp_sync_left_out(struct tcp_sock *tp)
- {
--	BUG_ON(tp->sacked_out + tp->lost_out > tp->packets_out);
-+	BUG_ON(tp->rx_opt.sack_ok &&
-+	       (tp->sacked_out + tp->lost_out > tp->packets_out));
- 	tp->left_out = tp->sacked_out + tp->lost_out;
+ 	update_linkspeed(dev, 0);
+ 
+@@ -280,6 +290,19 @@
+ 		dsintr = (1 << 10) | ( 1 << 8);
+ 		write_phy(lp->phy_address, MII_TPISTATUS, dsintr);
+ 	}
++	else if (lp->phy_type == MII_T78Q21x3_ID) {	/* for Teridian PHY */
++		read_phy(lp->phy_address, MII_T78Q21INT_REG, &dsintr);
++		dsintr = dsintr | 0x500;		/* set bits 8, 10 */
++		write_phy(lp->phy_address, MII_T78Q21INT_REG, dsintr);
++	}
++	else if (lp->phy_type == MII_DP83848_ID) {	/* National Semiconductor DP83848 PHY */
++		read_phy(lp->phy_address, MII_DPMISR_REG, &dsintr);
++		dsintr = dsintr | 0x3c;			/* set bits 2..5 */
++		write_phy(lp->phy_address, MII_DPMISR_REG, dsintr);
++		read_phy(lp->phy_address, MII_DPMICR_REG, &dsintr);
++		dsintr = dsintr | 0x3;			/* set bits 0,1 */
++		write_phy(lp->phy_address, MII_DPMICR_REG, dsintr);
++	}
+ 
+ 	disable_mdi();
+ 	spin_unlock_irq(&lp->lock);
+@@ -323,6 +346,19 @@
+ 		dsintr = ~((1 << 10) | (1 << 8));
+ 		write_phy(lp->phy_address, MII_TPISTATUS, dsintr);
+ 	}
++	else if (lp->phy_type == MII_T78Q21x3_ID) {	/* for Teridian PHY */
++		read_phy(lp->phy_address, MII_T78Q21INT_REG, &dsintr);
++		dsintr = dsintr & ~0x500;			/* clear bits 8, 10 */
++		write_phy(lp->phy_address, MII_T78Q21INT_REG, dsintr);
++	}
++	else if (lp->phy_type == MII_DP83848_ID) {	/* National Semiconductor DP83848 PHY */
++		read_phy(lp->phy_address, MII_DPMICR_REG, &dsintr);
++		dsintr = dsintr & ~0x3;				/* clear bits 0, 1 */
++		write_phy(lp->phy_address, MII_DPMICR_REG, dsintr);
++		read_phy(lp->phy_address, MII_DPMISR_REG, &dsintr);
++		dsintr = dsintr & ~0x3c;			/* clear bits 2..5 */
++		write_phy(lp->phy_address, MII_DPMISR_REG, dsintr);
++	}
+ 
+ 	disable_mdi();
+ 	spin_unlock_irq(&lp->lock);
+@@ -1063,10 +1099,16 @@
+ 		printk(KERN_INFO "%s: Broadcom BCM5221 PHY\n", dev->name);
+ 	else if (phy_type == MII_DP83847_ID)
+ 		printk(KERN_INFO "%s: National Semiconductor DP83847 PHY\n", dev->name);
++	else if (phy_type == MII_DP83848_ID)
++		printk(KERN_INFO "%s: National Semiconductor DP83848 PHY\n", dev->name);
+ 	else if (phy_type == MII_AC101L_ID)
+ 		printk(KERN_INFO "%s: Altima AC101L PHY\n", dev->name);
+ 	else if (phy_type == MII_KS8721_ID)
+ 		printk(KERN_INFO "%s: Micrel KS8721 PHY\n", dev->name);
++	else if (phy_type == MII_T78Q21x3_ID)
++		printk(KERN_INFO "%s: Teridian 78Q21x3 PHY\n", dev->name);
++	else if (phy_type == MII_LAN83C185_ID)
++		printk(KERN_INFO "%s: SMSC LAN83C185 PHY\n", dev->name);
+ 
+ 	return 0;
  }
+@@ -1104,8 +1146,11 @@
+ 			case MII_RTL8201_ID:		/* Realtek RTL8201: PHY_ID1 = 0, PHY_ID2 = 0x8201 */
+ 			case MII_BCM5221_ID:		/* Broadcom BCM5221: PHY_ID1 = 0x40, PHY_ID2 = 0x61e0 */
+ 			case MII_DP83847_ID:		/* National Semiconductor DP83847:  */
++			case MII_DP83848_ID:		/* National Semiconductor DP83848:  */
+ 			case MII_AC101L_ID:		/* Altima AC101L: PHY_ID1 = 0x22, PHY_ID2 = 0x5520 */
+ 			case MII_KS8721_ID:		/* Micrel KS8721: PHY_ID1 = 0x22, PHY_ID2 = 0x1610 */
++			case MII_T78Q21x3_ID:		/* Teridian 78Q21x3: PHY_ID1 = 0x0E, PHY_ID2 = 7237 */
++			case MII_LAN83C185_ID:		/* SMSC LAN83C185: PHY_ID1 = 0x0007, PHY_ID2 = 0xC0A1 */
+ 				detected = at91ether_setup(phy_id, phy_address, pdev, ether_clk);
+ 				break;
+ 		}
+diff -urN linux-2.6.21.new/drivers/net/arm/at91_ether.h linux-2.6.21/drivers/net/arm/at91_ether.h
+--- linux-2.6.21.new/drivers/net/arm/at91_ether.h	Thu Apr 26 05:08:32 2007
++++ linux-2.6.21/drivers/net/arm/at91_ether.h	Thu May  3 08:58:01 2007
+@@ -17,39 +17,46 @@
  
--- 
-1.4.2
+ 
+ /* Davicom 9161 PHY */
+-#define MII_DM9161_ID	0x0181b880
+-#define MII_DM9161A_ID	0x0181b8a0
+-
+-/* Davicom specific registers */
+-#define MII_DSCR_REG	16
+-#define MII_DSCSR_REG	17
+-#define MII_DSINTR_REG	21
++#define MII_DM9161_ID		0x0181b880
++#define MII_DM9161A_ID		0x0181b8a0
++#define MII_DSCR_REG		16
++#define MII_DSCSR_REG		17
++#define MII_DSINTR_REG		21
+ 
+ /* Intel LXT971A PHY */
+-#define MII_LXT971A_ID	0x001378E0
+-
+-/* Intel specific registers */
+-#define MII_ISINTE_REG	18
+-#define MII_ISINTS_REG	19
+-#define MII_LEDCTRL_REG	20
++#define MII_LXT971A_ID		0x001378E0
++#define MII_ISINTE_REG		18
++#define MII_ISINTS_REG		19
++#define MII_LEDCTRL_REG		20
+ 
+ /* Realtek RTL8201 PHY */
+-#define MII_RTL8201_ID	0x00008200
++#define MII_RTL8201_ID		0x00008200
+ 
+ /* Broadcom BCM5221 PHY */
+-#define MII_BCM5221_ID	0x004061e0
+-
+-/* Broadcom specific registers */
+-#define MII_BCMINTR_REG	26
++#define MII_BCM5221_ID		0x004061e0
++#define MII_BCMINTR_REG		26
+ 
+ /* National Semiconductor DP83847 */
+-#define MII_DP83847_ID	0x20005c30
++#define MII_DP83847_ID		0x20005c30
++
++/* National Semiconductor DP83848 */
++#define MII_DP83848_ID		0x20005c90
++#define MII_DPPHYSTS_REG	16
++#define MII_DPMICR_REG		17
++#define MII_DPMISR_REG		18
+ 
+ /* Altima AC101L PHY */
+-#define MII_AC101L_ID	0x00225520
++#define MII_AC101L_ID		0x00225520
+ 
+ /* Micrel KS8721 PHY */
+-#define MII_KS8721_ID	0x00221610
++#define MII_KS8721_ID		0x00221610
++
++/* Teridian 78Q2123/78Q2133 */
++#define MII_T78Q21x3_ID		0x000e7230
++#define MII_T78Q21INT_REG	17
++
++/* SMSC LAN83C185 */
++#define MII_LAN83C185_ID	0x0007C0A0
+ 
+ /* ........................................................................ */
+ 
 
 
 
----696243703-1270442657-1178175096=:3607--
