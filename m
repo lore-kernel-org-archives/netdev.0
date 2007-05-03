@@ -1,30 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][XFRM] SAD info TLV aggregation
-Date: Thu, 03 May 2007 13:15:35 -0700 (PDT)
-Message-ID: <20070503.131535.116939146.davem@davemloft.net>
-References: <1178144288.4078.5.camel@localhost>
-	<4639298E.8090100@trash.net>
-	<1178197316.4077.4.camel@localhost>
+Subject: Re: [ETHTOOL]: Add 2.5G bit definitions.
+Date: Thu, 03 May 2007 13:17:34 -0700 (PDT)
+Message-ID: <20070503.131734.66780476.davem@davemloft.net>
+References: <1178068303.4820.35.camel@dell>
+	<1178177151.4909.62.camel@dell>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org
-To: hadi@cyberus.ca
+Cc: jeff@garzik.org, netdev@vger.kernel.org
+To: mchan@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50565
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50570
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753742AbXECUPf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2007 16:15:35 -0400
-In-Reply-To: <1178197316.4077.4.camel@localhost>
+	by vger.kernel.org with ESMTP id S1753694AbXECURd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2007 16:17:33 -0400
+In-Reply-To: <1178177151.4909.62.camel@dell>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: jamal <hadi@cyberus.ca>
-Date: Thu, 03 May 2007 09:01:56 -0400
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Thu, 03 May 2007 00:25:51 -0700
 
-> > In any case consistent naming here would be nice (SAD_ vs. SADXXX).
+> [ETHTOOL]: Add 2.5G bit definitions.
 > 
-> yes, i need to make this change on the SPD as well. Dave hold onto both
-> patches - i will resend.
+> Add 2.5G supported and advertising bit definitions.  2.5G is supported
+> by the bnx2 driver.
+> 
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
 
-Okie dokie.
+Applied.
