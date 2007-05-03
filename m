@@ -1,29 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] AFS: Fix use of __exit functions from __init path
-Date: Thu, 03 May 2007 03:12:56 -0700 (PDT)
-Message-ID: <20070503.031256.41677663.davem@davemloft.net>
-References: <20070501181706.28008.10566.stgit@warthog.cambridge.redhat.com>
+Subject: Re: [PATCH 6/6] [IPV4] SNMP: Display new statistics at
+ /proc/net/snmp
+Date: Thu, 03 May 2007 03:15:46 -0700 (PDT)
+Message-ID: <20070503.031546.83595703.davem@davemloft.net>
+References: <20070427164630.3160ded5.mitch@linux.vnet.ibm.com>
+	<20070430.005014.09663543.davem@davemloft.net>
+	<20070502100513.033aecd7.mitch@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: torvalds@osdl.org, akpm@osdl.org, linux-kernel@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org,
-	geert@linux-m68k.org
-To: dhowells@redhat.com
+Cc: netdev@vger.kernel.org
+To: mitch@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59100
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45143
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752854AbXECKMz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2007 06:12:55 -0400
-In-Reply-To: <20070501181706.28008.10566.stgit@warthog.cambridge.redhat.com>
+	by vger.kernel.org with ESMTP id S1031113AbXECKPp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2007 06:15:45 -0400
+In-Reply-To: <20070502100513.033aecd7.mitch@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: David Howells <dhowells@redhat.com>
-Date: Tue, 01 May 2007 19:17:06 +0100
+From: Mitsuru Chinen <mitch@linux.vnet.ibm.com>
+Date: Wed, 2 May 2007 10:05:13 +0900
 
-> Fix use of __exit functions from __init path.
+> [IPV4] SNMP: Display new statistics at /proc/net/netstat
 > 
-> Signed-off-by: David Howells <dhowells@redhat.com>
+> This displays the statistics specified in the updated IP-MIB RFC
+> (RFC4293) in /proc/net/netstat. The reason why these are not added
+> to /proc/net/snmp is that some existing utilities are developed under
+> the assumption that ipstat items in /proc/net/snmp is unchanged.
+> 
+> Signed-off-by: Mitsuru Chinen <mitch@linux.vnet.ibm.com>
 
-Applied.
+Magic constant "17" is not the best, somebody will break this
+next time this table it touched.
+
+Why not use another sentinel, or something like that, to mark
+the entry groups?
