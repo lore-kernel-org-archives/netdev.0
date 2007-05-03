@@ -1,7 +1,8 @@
 From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH v2 8/16][BNX2]: Add ipv6 TSO and checksum for 5709.
-Date: Thu, 03 May 2007 00:29:53 -0700
-Message-ID: <1178177393.4909.71.camel@dell>
+Subject: [PATCH v2 9/16][BNX2]: Put MII register offsets in the bnx2
+ struct.
+Date: Thu, 03 May 2007 00:30:06 -0700
+Message-ID: <1178177406.4909.72.camel@dell>
 References: <1178068303.4820.35.camel@dell>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,180 +12,342 @@ To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mms2.broadcom.com ([216.31.210.18]:1385 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161161AbXECGmp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 May 2007 02:42:45 -0400
+	id S1161204AbXECGnF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 May 2007 02:43:05 -0400
 In-Reply-To: <1178068303.4820.35.camel@dell>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[BNX2]: Add ipv6 TSO and checksum for 5709.
+[BNX2]: Put MII register offsets in the bnx2 struct.
+
+The 5709 Serdes device uses non-standard MII register offsets.  This
+re-structuring will make it easier to support 5709 Serdes.
 
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 
 diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index 89681b3..01977de 100644
+index 01977de..a634315 100644
 --- a/drivers/net/bnx2.c
 +++ b/drivers/net/bnx2.c
-@@ -4537,35 +4537,49 @@ bnx2_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		u32 tcp_opt_len, ip_tcp_len;
- 		struct iphdr *iph;
+@@ -572,8 +572,8 @@ bnx2_report_fw_link(struct bnx2 *bp)
+ 		if (bp->autoneg) {
+ 			fw_link_status |= BNX2_LINK_STATUS_AN_ENABLED;
  
--		if (skb_header_cloned(skb) &&
--		    pskb_expand_head(skb, 0, 0, GFP_ATOMIC)) {
--			dev_kfree_skb(skb);
--			return NETDEV_TX_OK;
--		}
--
- 		vlan_tag_flags |= TX_BD_FLAGS_SW_LSO;
+-			bnx2_read_phy(bp, MII_BMSR, &bmsr);
+-			bnx2_read_phy(bp, MII_BMSR, &bmsr);
++			bnx2_read_phy(bp, bp->mii_bmsr, &bmsr);
++			bnx2_read_phy(bp, bp->mii_bmsr, &bmsr);
  
--		tcp_opt_len = 0;
--		if (tcp_hdr(skb)->doff > 5)
--			tcp_opt_len = tcp_optlen(skb);
-+		tcp_opt_len = tcp_optlen(skb);
-+
-+		if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6) {
-+			u32 tcp_off = skb_transport_offset(skb) -
-+				      sizeof(struct ipv6hdr) - ETH_HLEN;
+ 			if (!(bmsr & BMSR_ANEGCOMPLETE) ||
+ 			    bp->phy_flags & PHY_PARALLEL_DETECT_FLAG)
+@@ -654,8 +654,8 @@ bnx2_resolve_flow_ctrl(struct bnx2 *bp)
+ 		return;
+ 	}
  
--		ip_tcp_len = ip_hdrlen(skb) + sizeof(struct tcphdr);
-+			vlan_tag_flags |= ((tcp_opt_len >> 2) << 8) |
-+					  TX_BD_FLAGS_SW_FLAGS;
-+			if (likely(tcp_off == 0))
-+				vlan_tag_flags &= ~TX_BD_FLAGS_TCP6_OFF0_MSK;
-+			else {
-+				tcp_off >>= 3;
-+				vlan_tag_flags |= ((tcp_off & 0x3) <<
-+						   TX_BD_FLAGS_TCP6_OFF0_SHL) |
-+						  ((tcp_off & 0x10) <<
-+						   TX_BD_FLAGS_TCP6_OFF4_SHL);
-+				mss |= (tcp_off & 0xc) << TX_BD_TCP6_OFF2_SHL;
-+			}
-+		} else {
-+			if (skb_header_cloned(skb) &&
-+			    pskb_expand_head(skb, 0, 0, GFP_ATOMIC)) {
-+				dev_kfree_skb(skb);
-+				return NETDEV_TX_OK;
-+			}
+-	bnx2_read_phy(bp, MII_ADVERTISE, &local_adv);
+-	bnx2_read_phy(bp, MII_LPA, &remote_adv);
++	bnx2_read_phy(bp, bp->mii_adv, &local_adv);
++	bnx2_read_phy(bp, bp->mii_lpa, &remote_adv);
  
--		iph = ip_hdr(skb);
--		iph->check = 0;
--		iph->tot_len = htons(mss + ip_tcp_len + tcp_opt_len);
--		tcp_hdr(skb)->check = ~csum_tcpudp_magic(iph->saddr,
--							 iph->daddr, 0,
--							 IPPROTO_TCP, 0);
--		if (tcp_opt_len || (iph->ihl > 5)) {
--			vlan_tag_flags |= ((iph->ihl - 5) +
--					   (tcp_opt_len >> 2)) << 8;
-+			ip_tcp_len = ip_hdrlen(skb) + sizeof(struct tcphdr);
-+
-+			iph = ip_hdr(skb);
-+			iph->check = 0;
-+			iph->tot_len = htons(mss + ip_tcp_len + tcp_opt_len);
-+			tcp_hdr(skb)->check = ~csum_tcpudp_magic(iph->saddr,
-+								 iph->daddr, 0,
-+								 IPPROTO_TCP,
-+								 0);
-+			if (tcp_opt_len || (iph->ihl > 5)) {
-+				vlan_tag_flags |= ((iph->ihl - 5) +
-+						   (tcp_opt_len >> 2)) << 8;
-+			}
- 		}
--	}
--	else
--	{
-+	} else
- 		mss = 0;
--	}
+ 	if (bp->phy_flags & PHY_SERDES_FLAG) {
+ 		u32 new_local_adv = 0;
+@@ -736,7 +736,7 @@ bnx2_5706s_linkup(struct bnx2 *bp)
+ 	bp->link_up = 1;
+ 	bp->line_speed = SPEED_1000;
  
- 	mapping = pci_map_single(bp->pdev, skb->data, len, PCI_DMA_TODEVICE);
+-	bnx2_read_phy(bp, MII_BMCR, &bmcr);
++	bnx2_read_phy(bp, bp->mii_bmcr, &bmcr);
+ 	if (bmcr & BMCR_FULLDPLX) {
+ 		bp->duplex = DUPLEX_FULL;
+ 	}
+@@ -748,8 +748,8 @@ bnx2_5706s_linkup(struct bnx2 *bp)
+ 		return 0;
+ 	}
  
-@@ -5233,10 +5247,15 @@ bnx2_set_rx_csum(struct net_device *dev, u32 data)
- static int
- bnx2_set_tso(struct net_device *dev, u32 data)
+-	bnx2_read_phy(bp, MII_ADVERTISE, &local_adv);
+-	bnx2_read_phy(bp, MII_LPA, &remote_adv);
++	bnx2_read_phy(bp, bp->mii_adv, &local_adv);
++	bnx2_read_phy(bp, bp->mii_lpa, &remote_adv);
+ 
+ 	common = local_adv & remote_adv;
+ 	if (common & (ADVERTISE_1000XHALF | ADVERTISE_1000XFULL)) {
+@@ -770,7 +770,7 @@ bnx2_copper_linkup(struct bnx2 *bp)
  {
--	if (data)
-+	struct bnx2 *bp = netdev_priv(dev);
+ 	u32 bmcr;
+ 
+-	bnx2_read_phy(bp, MII_BMCR, &bmcr);
++	bnx2_read_phy(bp, bp->mii_bmcr, &bmcr);
+ 	if (bmcr & BMCR_ANENABLE) {
+ 		u32 local_adv, remote_adv, common;
+ 
+@@ -787,8 +787,8 @@ bnx2_copper_linkup(struct bnx2 *bp)
+ 			bp->duplex = DUPLEX_HALF;
+ 		}
+ 		else {
+-			bnx2_read_phy(bp, MII_ADVERTISE, &local_adv);
+-			bnx2_read_phy(bp, MII_LPA, &remote_adv);
++			bnx2_read_phy(bp, bp->mii_adv, &local_adv);
++			bnx2_read_phy(bp, bp->mii_lpa, &remote_adv);
+ 
+ 			common = local_adv & remote_adv;
+ 			if (common & ADVERTISE_100FULL) {
+@@ -911,8 +911,8 @@ bnx2_set_link(struct bnx2 *bp)
+ 
+ 	link_up = bp->link_up;
+ 
+-	bnx2_read_phy(bp, MII_BMSR, &bmsr);
+-	bnx2_read_phy(bp, MII_BMSR, &bmsr);
++	bnx2_read_phy(bp, bp->mii_bmsr, &bmsr);
++	bnx2_read_phy(bp, bp->mii_bmsr, &bmsr);
+ 
+ 	if ((bp->phy_flags & PHY_SERDES_FLAG) &&
+ 	    (CHIP_NUM(bp) == CHIP_NUM_5706)) {
+@@ -971,13 +971,13 @@ bnx2_reset_phy(struct bnx2 *bp)
+ 	int i;
+ 	u32 reg;
+ 
+-        bnx2_write_phy(bp, MII_BMCR, BMCR_RESET);
++        bnx2_write_phy(bp, bp->mii_bmcr, BMCR_RESET);
+ 
+ #define PHY_RESET_MAX_WAIT 100
+ 	for (i = 0; i < PHY_RESET_MAX_WAIT; i++) {
+ 		udelay(10);
+ 
+-		bnx2_read_phy(bp, MII_BMCR, &reg);
++		bnx2_read_phy(bp, bp->mii_bmcr, &reg);
+ 		if (!(reg & BMCR_RESET)) {
+ 			udelay(20);
+ 			break;
+@@ -1033,10 +1033,10 @@ bnx2_setup_serdes_phy(struct bnx2 *bp)
+ 		u32 new_bmcr;
+ 		int force_link_down = 0;
+ 
+-		bnx2_read_phy(bp, MII_ADVERTISE, &adv);
++		bnx2_read_phy(bp, bp->mii_adv, &adv);
+ 		adv &= ~(ADVERTISE_1000XFULL | ADVERTISE_1000XHALF);
+ 
+-		bnx2_read_phy(bp, MII_BMCR, &bmcr);
++		bnx2_read_phy(bp, bp->mii_bmcr, &bmcr);
+ 		new_bmcr = bmcr & ~(BMCR_ANENABLE | BCM5708S_BMCR_FORCE_2500);
+ 		new_bmcr |= BMCR_SPEED1000;
+ 		if (bp->req_line_speed == SPEED_2500) {
+@@ -1067,19 +1067,19 @@ bnx2_setup_serdes_phy(struct bnx2 *bp)
+ 		if ((new_bmcr != bmcr) || (force_link_down)) {
+ 			/* Force a link down visible on the other side */
+ 			if (bp->link_up) {
+-				bnx2_write_phy(bp, MII_ADVERTISE, adv &
++				bnx2_write_phy(bp, bp->mii_adv, adv &
+ 					       ~(ADVERTISE_1000XFULL |
+ 						 ADVERTISE_1000XHALF));
+-				bnx2_write_phy(bp, MII_BMCR, bmcr |
++				bnx2_write_phy(bp, bp->mii_bmcr, bmcr |
+ 					BMCR_ANRESTART | BMCR_ANENABLE);
+ 
+ 				bp->link_up = 0;
+ 				netif_carrier_off(bp->dev);
+-				bnx2_write_phy(bp, MII_BMCR, new_bmcr);
++				bnx2_write_phy(bp, bp->mii_bmcr, new_bmcr);
+ 				bnx2_report_link(bp);
+ 			}
+-			bnx2_write_phy(bp, MII_ADVERTISE, adv);
+-			bnx2_write_phy(bp, MII_BMCR, new_bmcr);
++			bnx2_write_phy(bp, bp->mii_adv, adv);
++			bnx2_write_phy(bp, bp->mii_bmcr, new_bmcr);
+ 		}
+ 		return 0;
+ 	}
+@@ -1095,21 +1095,21 @@ bnx2_setup_serdes_phy(struct bnx2 *bp)
+ 
+ 	new_adv |= bnx2_phy_get_pause_adv(bp);
+ 
+-	bnx2_read_phy(bp, MII_ADVERTISE, &adv);
+-	bnx2_read_phy(bp, MII_BMCR, &bmcr);
++	bnx2_read_phy(bp, bp->mii_adv, &adv);
++	bnx2_read_phy(bp, bp->mii_bmcr, &bmcr);
+ 
+ 	bp->serdes_an_pending = 0;
+ 	if ((adv != new_adv) || ((bmcr & BMCR_ANENABLE) == 0)) {
+ 		/* Force a link down visible on the other side */
+ 		if (bp->link_up) {
+-			bnx2_write_phy(bp, MII_BMCR, BMCR_LOOPBACK);
++			bnx2_write_phy(bp, bp->mii_bmcr, BMCR_LOOPBACK);
+ 			spin_unlock_bh(&bp->phy_lock);
+ 			msleep(20);
+ 			spin_lock_bh(&bp->phy_lock);
+ 		}
+ 
+-		bnx2_write_phy(bp, MII_ADVERTISE, new_adv);
+-		bnx2_write_phy(bp, MII_BMCR, bmcr | BMCR_ANRESTART |
++		bnx2_write_phy(bp, bp->mii_adv, new_adv);
++		bnx2_write_phy(bp, bp->mii_bmcr, bmcr | BMCR_ANRESTART |
+ 			BMCR_ANENABLE);
+ 		/* Speed up link-up time when the link partner
+ 		 * does not autonegotiate which is very common
+@@ -1146,14 +1146,14 @@ bnx2_setup_copper_phy(struct bnx2 *bp)
+ 	u32 bmcr;
+ 	u32 new_bmcr;
+ 
+-	bnx2_read_phy(bp, MII_BMCR, &bmcr);
++	bnx2_read_phy(bp, bp->mii_bmcr, &bmcr);
+ 
+ 	if (bp->autoneg & AUTONEG_SPEED) {
+ 		u32 adv_reg, adv1000_reg;
+ 		u32 new_adv_reg = 0;
+ 		u32 new_adv1000_reg = 0;
+ 
+-		bnx2_read_phy(bp, MII_ADVERTISE, &adv_reg);
++		bnx2_read_phy(bp, bp->mii_adv, &adv_reg);
+ 		adv_reg &= (PHY_ALL_10_100_SPEED | ADVERTISE_PAUSE_CAP |
+ 			ADVERTISE_PAUSE_ASYM);
+ 
+@@ -1179,9 +1179,9 @@ bnx2_setup_copper_phy(struct bnx2 *bp)
+ 			(adv_reg != new_adv_reg) ||
+ 			((bmcr & BMCR_ANENABLE) == 0)) {
+ 
+-			bnx2_write_phy(bp, MII_ADVERTISE, new_adv_reg);
++			bnx2_write_phy(bp, bp->mii_adv, new_adv_reg);
+ 			bnx2_write_phy(bp, MII_CTRL1000, new_adv1000_reg);
+-			bnx2_write_phy(bp, MII_BMCR, BMCR_ANRESTART |
++			bnx2_write_phy(bp, bp->mii_bmcr, BMCR_ANRESTART |
+ 				BMCR_ANENABLE);
+ 		}
+ 		else if (bp->link_up) {
+@@ -1204,21 +1204,21 @@ bnx2_setup_copper_phy(struct bnx2 *bp)
+ 	if (new_bmcr != bmcr) {
+ 		u32 bmsr;
+ 
+-		bnx2_read_phy(bp, MII_BMSR, &bmsr);
+-		bnx2_read_phy(bp, MII_BMSR, &bmsr);
++		bnx2_read_phy(bp, bp->mii_bmsr, &bmsr);
++		bnx2_read_phy(bp, bp->mii_bmsr, &bmsr);
+ 
+ 		if (bmsr & BMSR_LSTATUS) {
+ 			/* Force link down */
+-			bnx2_write_phy(bp, MII_BMCR, BMCR_LOOPBACK);
++			bnx2_write_phy(bp, bp->mii_bmcr, BMCR_LOOPBACK);
+ 			spin_unlock_bh(&bp->phy_lock);
+ 			msleep(50);
+ 			spin_lock_bh(&bp->phy_lock);
+ 
+-			bnx2_read_phy(bp, MII_BMSR, &bmsr);
+-			bnx2_read_phy(bp, MII_BMSR, &bmsr);
++			bnx2_read_phy(bp, bp->mii_bmsr, &bmsr);
++			bnx2_read_phy(bp, bp->mii_bmsr, &bmsr);
+ 		}
+ 
+-		bnx2_write_phy(bp, MII_BMCR, new_bmcr);
++		bnx2_write_phy(bp, bp->mii_bmcr, new_bmcr);
+ 
+ 		/* Normally, the new speed is setup after the link has
+ 		 * gone down and up again. In some cases, link will not go
+@@ -1396,6 +1396,11 @@ bnx2_init_phy(struct bnx2 *bp)
+ 	bp->phy_flags &= ~PHY_INT_MODE_MASK_FLAG;
+ 	bp->phy_flags |= PHY_INT_MODE_LINK_READY_FLAG;
+ 
++	bp->mii_bmcr = MII_BMCR;
++	bp->mii_bmsr = MII_BMSR;
++	bp->mii_adv = MII_ADVERTISE;
++	bp->mii_lpa = MII_LPA;
 +
-+	if (data) {
- 		dev->features |= NETIF_F_TSO | NETIF_F_TSO_ECN;
--	else
--		dev->features &= ~(NETIF_F_TSO | NETIF_F_TSO_ECN);
-+		if (CHIP_NUM(bp) == CHIP_NUM_5709)
-+			dev->features |= NETIF_F_TSO6;
-+	} else
-+		dev->features &= ~(NETIF_F_TSO | NETIF_F_TSO6 |
-+				   NETIF_F_TSO_ECN);
- 	return 0;
- }
+         REG_WR(bp, BNX2_EMAC_ATTENTION_ENA, BNX2_EMAC_ATTENTION_ENA_LINK);
  
-@@ -5534,6 +5553,17 @@ bnx2_phys_id(struct net_device *dev, u32 data)
- 	return 0;
- }
+ 	bnx2_reset_phy(bp);
+@@ -1442,7 +1447,7 @@ bnx2_set_phy_loopback(struct bnx2 *bp)
+ 	int rc, i;
  
-+static int
-+bnx2_set_tx_csum(struct net_device *dev, u32 data)
-+{
-+	struct bnx2 *bp = netdev_priv(dev);
-+
-+	if (CHIP_NUM(bp) == CHIP_NUM_5709)
-+		return (ethtool_op_set_tx_hw_csum(dev, data));
-+	else
-+		return (ethtool_op_set_tx_csum(dev, data));
-+}
-+
- static const struct ethtool_ops bnx2_ethtool_ops = {
- 	.get_settings		= bnx2_get_settings,
- 	.set_settings		= bnx2_set_settings,
-@@ -5556,7 +5586,7 @@ static const struct ethtool_ops bnx2_ethtool_ops = {
- 	.get_rx_csum		= bnx2_get_rx_csum,
- 	.set_rx_csum		= bnx2_set_rx_csum,
- 	.get_tx_csum		= ethtool_op_get_tx_csum,
--	.set_tx_csum		= ethtool_op_set_tx_csum,
-+	.set_tx_csum		= bnx2_set_tx_csum,
- 	.get_sg			= ethtool_op_get_sg,
- 	.set_sg			= ethtool_op_set_sg,
- 	.get_tso		= ethtool_op_get_tso,
-@@ -6094,11 +6124,16 @@ bnx2_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	memcpy(dev->perm_addr, bp->mac_addr, 6);
- 	bp->name = board_info[ent->driver_data].name;
+ 	spin_lock_bh(&bp->phy_lock);
+-	rc = bnx2_write_phy(bp, MII_BMCR, BMCR_LOOPBACK | BMCR_FULLDPLX |
++	rc = bnx2_write_phy(bp, bp->mii_bmcr, BMCR_LOOPBACK | BMCR_FULLDPLX |
+ 			    BMCR_SPEED1000);
+ 	spin_unlock_bh(&bp->phy_lock);
+ 	if (rc)
+@@ -4185,8 +4190,8 @@ bnx2_test_link(struct bnx2 *bp)
+ 	u32 bmsr;
  
--	dev->features |= NETIF_F_IP_CSUM | NETIF_F_SG;
-+	if (CHIP_NUM(bp) == CHIP_NUM_5709)
-+		dev->features |= NETIF_F_HW_CSUM | NETIF_F_SG;
-+	else
-+		dev->features |= NETIF_F_IP_CSUM | NETIF_F_SG;
- #ifdef BCM_VLAN
- 	dev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
- #endif
- 	dev->features |= NETIF_F_TSO | NETIF_F_TSO_ECN;
-+	if (CHIP_NUM(bp) == CHIP_NUM_5709)
-+		dev->features |= NETIF_F_TSO6;
+ 	spin_lock_bh(&bp->phy_lock);
+-	bnx2_read_phy(bp, MII_BMSR, &bmsr);
+-	bnx2_read_phy(bp, MII_BMSR, &bmsr);
++	bnx2_read_phy(bp, bp->mii_bmsr, &bmsr);
++	bnx2_read_phy(bp, bp->mii_bmsr, &bmsr);
+ 	spin_unlock_bh(&bp->phy_lock);
  
- 	if ((rc = register_netdev(dev))) {
- 		dev_err(&pdev->dev, "Cannot register net device\n");
+ 	if (bmsr & BMSR_LSTATUS) {
+@@ -4236,7 +4241,7 @@ bnx2_5706_serdes_timer(struct bnx2 *bp)
+ 
+ 		bp->current_interval = bp->timer_interval;
+ 
+-		bnx2_read_phy(bp, MII_BMCR, &bmcr);
++		bnx2_read_phy(bp, bp->mii_bmcr, &bmcr);
+ 
+ 		if (bmcr & BMCR_ANENABLE) {
+ 			u32 phy1, phy2;
+@@ -4254,7 +4259,7 @@ bnx2_5706_serdes_timer(struct bnx2 *bp)
+ 
+ 				bmcr &= ~BMCR_ANENABLE;
+ 				bmcr |= BMCR_SPEED1000 | BMCR_FULLDPLX;
+-				bnx2_write_phy(bp, MII_BMCR, bmcr);
++				bnx2_write_phy(bp, bp->mii_bmcr, bmcr);
+ 				bp->phy_flags |= PHY_PARALLEL_DETECT_FLAG;
+ 			}
+ 		}
+@@ -4268,9 +4273,9 @@ bnx2_5706_serdes_timer(struct bnx2 *bp)
+ 		if (phy2 & 0x20) {
+ 			u32 bmcr;
+ 
+-			bnx2_read_phy(bp, MII_BMCR, &bmcr);
++			bnx2_read_phy(bp, bp->mii_bmcr, &bmcr);
+ 			bmcr |= BMCR_ANENABLE;
+-			bnx2_write_phy(bp, MII_BMCR, bmcr);
++			bnx2_write_phy(bp, bp->mii_bmcr, bmcr);
+ 
+ 			bp->phy_flags &= ~PHY_PARALLEL_DETECT_FLAG;
+ 		}
+@@ -4294,7 +4299,7 @@ bnx2_5708_serdes_timer(struct bnx2 *bp)
+ 	else if ((bp->link_up == 0) && (bp->autoneg & AUTONEG_SPEED)) {
+ 		u32 bmcr;
+ 
+-		bnx2_read_phy(bp, MII_BMCR, &bmcr);
++		bnx2_read_phy(bp, bp->mii_bmcr, &bmcr);
+ 
+ 		if (bmcr & BMCR_ANENABLE) {
+ 			bmcr &= ~BMCR_ANENABLE;
+@@ -5013,7 +5018,7 @@ bnx2_nway_reset(struct net_device *dev)
+ 
+ 	/* Force a link down visible on the other side */
+ 	if (bp->phy_flags & PHY_SERDES_FLAG) {
+-		bnx2_write_phy(bp, MII_BMCR, BMCR_LOOPBACK);
++		bnx2_write_phy(bp, bp->mii_bmcr, BMCR_LOOPBACK);
+ 		spin_unlock_bh(&bp->phy_lock);
+ 
+ 		msleep(20);
+@@ -5025,9 +5030,9 @@ bnx2_nway_reset(struct net_device *dev)
+ 		mod_timer(&bp->timer, jiffies + bp->current_interval);
+ 	}
+ 
+-	bnx2_read_phy(bp, MII_BMCR, &bmcr);
++	bnx2_read_phy(bp, bp->mii_bmcr, &bmcr);
+ 	bmcr &= ~BMCR_LOOPBACK;
+-	bnx2_write_phy(bp, MII_BMCR, bmcr | BMCR_ANRESTART | BMCR_ANENABLE);
++	bnx2_write_phy(bp, bp->mii_bmcr, bmcr | BMCR_ANRESTART | BMCR_ANENABLE);
+ 
+ 	spin_unlock_bh(&bp->phy_lock);
+ 
 diff --git a/drivers/net/bnx2.h b/drivers/net/bnx2.h
-index 8e7b29a..70fb639 100644
+index 70fb639..d4a85d7 100644
 --- a/drivers/net/bnx2.h
 +++ b/drivers/net/bnx2.h
-@@ -24,8 +24,11 @@ struct tx_bd {
- 	u32 tx_bd_haddr_hi;
- 	u32 tx_bd_haddr_lo;
- 	u32 tx_bd_mss_nbytes;
-+		#define TX_BD_TCP6_OFF2_SHL		(14)
- 	u32 tx_bd_vlan_tag_flags;
- 		#define TX_BD_FLAGS_CONN_FAULT		(1<<0)
-+		#define TX_BD_FLAGS_TCP6_OFF0_MSK	(3<<1)
-+		#define TX_BD_FLAGS_TCP6_OFF0_SHL	(1)
- 		#define TX_BD_FLAGS_TCP_UDP_CKSUM	(1<<1)
- 		#define TX_BD_FLAGS_IP_CKSUM		(1<<2)
- 		#define TX_BD_FLAGS_VLAN_TAG		(1<<3)
-@@ -34,6 +37,7 @@ struct tx_bd {
- 		#define TX_BD_FLAGS_END			(1<<6)
- 		#define TX_BD_FLAGS_START		(1<<7)
- 		#define TX_BD_FLAGS_SW_OPTION_WORD	(0x1f<<8)
-+		#define TX_BD_FLAGS_TCP6_OFF4_SHL	(12)
- 		#define TX_BD_FLAGS_SW_FLAGS		(1<<13)
- 		#define TX_BD_FLAGS_SW_SNAP		(1<<14)
- 		#define TX_BD_FLAGS_SW_LSO		(1<<15)
+@@ -6498,6 +6498,12 @@ struct bnx2 {
+ #define PHY_INT_MODE_LINK_READY_FLAG	0x200
+ #define PHY_DIS_EARLY_DAC_FLAG		0x400
+ 
++	u32			mii_bmcr;
++	u32			mii_bmsr;
++	u32			mii_adv;
++	u32			mii_lpa;
++	u32			mii_up1;
++
+ 	u32			chip_id;
+ 	/* chip num:16-31, rev:12-15, metal:4-11, bond_id:0-3 */
+ #define CHIP_NUM(bp)			(((bp)->chip_id) & 0xffff0000)
 
 
