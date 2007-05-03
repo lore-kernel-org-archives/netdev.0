@@ -1,56 +1,602 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [NETLINK 01/04]: Fix use after free in netlink_recvmsg
-Date: Thu,  3 May 2007 02:04:14 +0200 (MEST)
-Message-ID: <20070503000257.30775.79601.sendpatchset@localhost.localdomain>
+Subject: [AFS 04/04]: Replace rtnetlink client by direct dev_base walking
+Date: Thu,  3 May 2007 02:04:18 +0200 (MEST)
+Message-ID: <20070503000301.30775.22053.sendpatchset@localhost.localdomain>
 References: <20070503000256.30775.81929.sendpatchset@localhost.localdomain>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	howells@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:48175 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:48186 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1767266AbXECAEP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2007 20:04:15 -0400
+	with ESMTP id S1767272AbXECAEU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2007 20:04:20 -0400
 In-Reply-To: <20070503000256.30775.81929.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[NETLINK]: Fix use after free in netlink_recvmsg
+[AFS]: Replace rtnetlink client by direct dev_base walking
 
-When the user passes in MSG_TRUNC the skb is used after getting freed.
+Replace the large and complicated rtnetlink client by two simple
+functions for getting the MAC address for the first ethernet device
+and building a list of IPv4 addresses.
 
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 
 ---
-commit 831e920626706afd5ced0c72ca15c8af340bc157
-tree 1320e7a446a55e826f671d32e6b9f35e302eeb0d
-parent dc87c3985e9b442c60994308a96f887579addc39
-author Patrick McHardy <kaber@trash.net> Wed, 02 May 2007 20:18:57 +0200
-committer Patrick McHardy <kaber@trash.net> Wed, 02 May 2007 20:18:57 +0200
+commit 66ad658e3c44a6d929340877f1388948c64885be
+tree 8dc780b127b05f2a200bfde362b0fedfa25f3609
+parent 3c87ab894405bb9997ff07ceb7dde4902762596a
+author Patrick McHardy <kaber@trash.net> Wed, 02 May 2007 20:47:14 +0200
+committer Patrick McHardy <kaber@trash.net> Wed, 02 May 2007 20:47:14 +0200
 
- net/netlink/af_netlink.c |    6 ++----
- 1 files changed, 2 insertions(+), 4 deletions(-)
+ fs/afs/Makefile        |    2 
+ fs/afs/internal.h      |    1 
+ fs/afs/netdevices.c    |   54 +++++
+ fs/afs/use-rtnetlink.c |  473 ------------------------------------------------
+ 4 files changed, 55 insertions(+), 475 deletions(-)
 
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 42d2fb9..7419f70 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -1245,16 +1245,14 @@ static int netlink_recvmsg(struct kiocb *kiocb, struct socket *sock,
- 		siocb->scm = &scm;
- 	}
- 	siocb->scm->creds = *NETLINK_CREDS(skb);
-+	if (flags & MSG_TRUNC)
-+		copied = skb->len;
- 	skb_free_datagram(sk, skb);
- 
- 	if (nlk->cb && atomic_read(&sk->sk_rmem_alloc) <= sk->sk_rcvbuf / 2)
- 		netlink_dump(sk);
- 
- 	scm_recv(sock, msg, siocb->scm, flags);
+diff --git a/fs/afs/Makefile b/fs/afs/Makefile
+index 01545eb..cf83e5d 100644
+--- a/fs/afs/Makefile
++++ b/fs/afs/Makefile
+@@ -18,7 +18,7 @@ kafs-objs := \
+ 	security.o \
+ 	server.o \
+ 	super.o \
+-	use-rtnetlink.o \
++	netdevices.o \
+ 	vlclient.o \
+ 	vlocation.o \
+ 	vnode.o \
+diff --git a/fs/afs/internal.h b/fs/afs/internal.h
+index 34665f7..27d9441 100644
+--- a/fs/afs/internal.h
++++ b/fs/afs/internal.h
+@@ -349,7 +349,6 @@ struct afs_permits {
+  * record of one of a system's set of network interfaces
+  */
+ struct afs_interface {
+-	unsigned	index;		/* interface index */
+ 	struct in_addr	address;	/* IPv4 address bound to interface */
+ 	struct in_addr	netmask;	/* netmask applied to address */
+ 	unsigned	mtu;		/* MTU of interface */
+diff --git a/fs/afs/netdevices.c b/fs/afs/netdevices.c
+new file mode 100644
+index 0000000..2b30873
+--- /dev/null
++++ b/fs/afs/netdevices.c
+@@ -0,0 +1,54 @@
++/* AFS network device helpers
++ *
++ * Copyright (c) 2007 Patrick McHardy <kaber@trash.net>
++ */
++
++#include <linux/string.h>
++#include <linux/rtnetlink.h>
++#include <linux/inetdevice.h>
++#include <linux/netdevice.h>
++#include <linux/if_arp.h>
++#include "internal.h"
++
++int afs_get_MAC_address(u8 mac[ETH_ALEN])
++{
++	struct net_device *dev;
++	int ret = -ENODEV;
++
++	rtnl_lock();
++	dev = __dev_getfirstbyhwtype(ARPHRD_ETHER);
++	if (dev) {
++		memcpy(mac, dev->dev_addr, ETH_ALEN);
++		ret = 0;
++	}
++	rtnl_unlock();
++	return ret;
++}
++
++int afs_get_ipv4_interfaces(struct afs_interface *bufs, size_t maxbufs,
++			    bool wantloopback)
++{
++	struct net_device *dev;
++	struct in_device *idev;
++	int n = 0;
++
++	rtnl_lock();
++	for (dev = dev_base; dev; dev = dev->next) {
++		if (dev->type == ARPHRD_LOOPBACK && !wantloopback)
++			continue;
++		idev = __in_dev_get_rtnl(dev);
++		if (!idev)
++			continue;
++		for_primary_ifa(idev) {
++			if (n == maxbufs)
++				goto out;
++			bufs[n].address.s_addr = ifa->ifa_address;
++			bufs[n].netmask.s_addr = ifa->ifa_mask;
++			bufs[n].mtu = dev->mtu;
++			n++;
++		} endfor_ifa(idev)
++	}
++out:
++	rtnl_unlock();
++	return n;
++}
+diff --git a/fs/afs/use-rtnetlink.c b/fs/afs/use-rtnetlink.c
+deleted file mode 100644
+index f8991c7..0000000
+--- a/fs/afs/use-rtnetlink.c
++++ /dev/null
+@@ -1,473 +0,0 @@
+-/* RTNETLINK client
+- *
+- * Copyright (C) 2007 Red Hat, Inc. All Rights Reserved.
+- * Written by David Howells (dhowells@redhat.com)
+- *
+- * This program is free software; you can redistribute it and/or
+- * modify it under the terms of the GNU General Public License
+- * as published by the Free Software Foundation; either version
+- * 2 of the License, or (at your option) any later version.
+- */
+-#include <linux/netlink.h>
+-#include <linux/rtnetlink.h>
+-#include <linux/if_addr.h>
+-#include <linux/if_arp.h>
+-#include <linux/inetdevice.h>
+-#include <net/netlink.h>
+-#include "internal.h"
 -
--	if (flags & MSG_TRUNC)
--		copied = skb->len;
+-struct afs_rtm_desc {
+-	struct socket		*nlsock;
+-	struct afs_interface	*bufs;
+-	u8			*mac;
+-	size_t			nbufs;
+-	size_t			maxbufs;
+-	void			*data;
+-	ssize_t			datalen;
+-	size_t			datamax;
+-	int			msg_seq;
+-	unsigned		mac_index;
+-	bool			wantloopback;
+-	int (*parse)(struct afs_rtm_desc *, struct nlmsghdr *);
+-};
 -
- out:
- 	netlink_rcv_wake(sk);
- 	return err ? : copied;
+-/*
+- * parse an RTM_GETADDR response
+- */
+-static int afs_rtm_getaddr_parse(struct afs_rtm_desc *desc,
+-				 struct nlmsghdr *nlhdr)
+-{
+-	struct afs_interface *this;
+-	struct ifaddrmsg *ifa;
+-	struct rtattr *rtattr;
+-	const char *name;
+-	size_t len;
+-
+-	ifa = (struct ifaddrmsg *) NLMSG_DATA(nlhdr);
+-
+-	_enter("{ix=%d,af=%d}", ifa->ifa_index, ifa->ifa_family);
+-
+-	if (ifa->ifa_family != AF_INET) {
+-		_leave(" = 0 [family %d]", ifa->ifa_family);
+-		return 0;
+-	}
+-	if (desc->nbufs >= desc->maxbufs) {
+-		_leave(" = 0 [max %zu/%zu]", desc->nbufs, desc->maxbufs);
+-		return 0;
+-	}
+-
+-	this = &desc->bufs[desc->nbufs];
+-
+-	this->index = ifa->ifa_index;
+-	this->netmask.s_addr = inet_make_mask(ifa->ifa_prefixlen);
+-	this->mtu = 0;
+-
+-	rtattr = NLMSG_DATA(nlhdr) + NLMSG_ALIGN(sizeof(struct ifaddrmsg));
+-	len = NLMSG_PAYLOAD(nlhdr, sizeof(struct ifaddrmsg));
+-
+-	name = "unknown";
+-	for (; RTA_OK(rtattr, len); rtattr = RTA_NEXT(rtattr, len)) {
+-		switch (rtattr->rta_type) {
+-		case IFA_ADDRESS:
+-			memcpy(&this->address, RTA_DATA(rtattr), 4);
+-			break;
+-		case IFA_LABEL:
+-			name = RTA_DATA(rtattr);
+-			break;
+-		}
+-	}
+-
+-	_debug("%s: "NIPQUAD_FMT"/"NIPQUAD_FMT,
+-	       name, NIPQUAD(this->address), NIPQUAD(this->netmask));
+-
+-	desc->nbufs++;
+-	_leave(" = 0");
+-	return 0;
+-}
+-
+-/*
+- * parse an RTM_GETLINK response for MTUs
+- */
+-static int afs_rtm_getlink_if_parse(struct afs_rtm_desc *desc,
+-				    struct nlmsghdr *nlhdr)
+-{
+-	struct afs_interface *this;
+-	struct ifinfomsg *ifi;
+-	struct rtattr *rtattr;
+-	const char *name;
+-	size_t len, loop;
+-
+-	ifi = (struct ifinfomsg *) NLMSG_DATA(nlhdr);
+-
+-	_enter("{ix=%d}", ifi->ifi_index);
+-
+-	for (loop = 0; loop < desc->nbufs; loop++) {
+-		this = &desc->bufs[loop];
+-		if (this->index == ifi->ifi_index)
+-			goto found;
+-	}
+-
+-	_leave(" = 0 [no match]");
+-	return 0;
+-
+-found:
+-	if (ifi->ifi_type == ARPHRD_LOOPBACK && !desc->wantloopback) {
+-		_leave(" = 0 [loopback]");
+-		return 0;
+-	}
+-
+-	rtattr = NLMSG_DATA(nlhdr) + NLMSG_ALIGN(sizeof(struct ifinfomsg));
+-	len = NLMSG_PAYLOAD(nlhdr, sizeof(struct ifinfomsg));
+-
+-	name = "unknown";
+-	for (; RTA_OK(rtattr, len); rtattr = RTA_NEXT(rtattr, len)) {
+-		switch (rtattr->rta_type) {
+-		case IFLA_MTU:
+-			memcpy(&this->mtu, RTA_DATA(rtattr), 4);
+-			break;
+-		case IFLA_IFNAME:
+-			name = RTA_DATA(rtattr);
+-			break;
+-		}
+-	}
+-
+-	_debug("%s: "NIPQUAD_FMT"/"NIPQUAD_FMT" mtu %u",
+-	       name, NIPQUAD(this->address), NIPQUAD(this->netmask),
+-	       this->mtu);
+-
+-	_leave(" = 0");
+-	return 0;
+-}
+-
+-/*
+- * parse an RTM_GETLINK response for the MAC address belonging to the lowest
+- * non-internal interface
+- */
+-static int afs_rtm_getlink_mac_parse(struct afs_rtm_desc *desc,
+-				     struct nlmsghdr *nlhdr)
+-{
+-	struct ifinfomsg *ifi;
+-	struct rtattr *rtattr;
+-	const char *name;
+-	size_t remain, len;
+-	bool set;
+-
+-	ifi = (struct ifinfomsg *) NLMSG_DATA(nlhdr);
+-
+-	_enter("{ix=%d}", ifi->ifi_index);
+-
+-	if (ifi->ifi_index >= desc->mac_index) {
+-		_leave(" = 0 [high]");
+-		return 0;
+-	}
+-	if (ifi->ifi_type == ARPHRD_LOOPBACK) {
+-		_leave(" = 0 [loopback]");
+-		return 0;
+-	}
+-
+-	rtattr = NLMSG_DATA(nlhdr) + NLMSG_ALIGN(sizeof(struct ifinfomsg));
+-	remain = NLMSG_PAYLOAD(nlhdr, sizeof(struct ifinfomsg));
+-
+-	name = "unknown";
+-	set = false;
+-	for (; RTA_OK(rtattr, remain); rtattr = RTA_NEXT(rtattr, remain)) {
+-		switch (rtattr->rta_type) {
+-		case IFLA_ADDRESS:
+-			len = RTA_PAYLOAD(rtattr);
+-			memcpy(desc->mac, RTA_DATA(rtattr),
+-			       min_t(size_t, len, 6));
+-			desc->mac_index = ifi->ifi_index;
+-			set = true;
+-			break;
+-		case IFLA_IFNAME:
+-			name = RTA_DATA(rtattr);
+-			break;
+-		}
+-	}
+-
+-	if (set)
+-		_debug("%s: %02x:%02x:%02x:%02x:%02x:%02x",
+-		       name,
+-		       desc->mac[0], desc->mac[1], desc->mac[2],
+-		       desc->mac[3], desc->mac[4], desc->mac[5]);
+-
+-	_leave(" = 0");
+-	return 0;
+-}
+-
+-/*
+- * read the rtnetlink response and pass to parsing routine
+- */
+-static int afs_read_rtm(struct afs_rtm_desc *desc)
+-{
+-	struct nlmsghdr *nlhdr, tmphdr;
+-	struct msghdr msg;
+-	struct kvec iov[1];
+-	void *data;
+-	bool last = false;
+-	int len, ret, remain;
+-
+-	_enter("");
+-
+-	do {
+-		/* first of all peek to see how big the packet is */
+-		memset(&msg, 0, sizeof(msg));
+-		iov[0].iov_base = &tmphdr;
+-		iov[0].iov_len = sizeof(tmphdr);
+-		len = kernel_recvmsg(desc->nlsock, &msg, iov, 1,
+-				     sizeof(tmphdr), MSG_PEEK | MSG_TRUNC);
+-		if (len < 0) {
+-			_leave(" = %d [peek]", len);
+-			return len;
+-		}
+-		if (len == 0)
+-			continue;
+-		if (len < sizeof(tmphdr) || len < NLMSG_PAYLOAD(&tmphdr, 0)) {
+-			_leave(" = -EMSGSIZE");
+-			return -EMSGSIZE;
+-		}
+-
+-		if (desc->datamax < len) {
+-			kfree(desc->data);
+-			desc->data = NULL;
+-			data = kmalloc(len, GFP_KERNEL);
+-			if (!data)
+-				return -ENOMEM;
+-			desc->data = data;
+-		}
+-		desc->datamax = len;
+-
+-		/* read all the data from this packet */
+-		iov[0].iov_base = desc->data;
+-		iov[0].iov_len = desc->datamax;
+-		desc->datalen = kernel_recvmsg(desc->nlsock, &msg, iov, 1,
+-					       desc->datamax, 0);
+-		if (desc->datalen < 0) {
+-			_leave(" = %zd [recv]", desc->datalen);
+-			return desc->datalen;
+-		}
+-
+-		nlhdr = desc->data;
+-
+-		/* check if the header is valid */
+-		if (!NLMSG_OK(nlhdr, desc->datalen) ||
+-		    nlhdr->nlmsg_type == NLMSG_ERROR) {
+-			_leave(" = -EIO");
+-			return -EIO;
+-		}
+-
+-		/* see if this is the last message */
+-		if (nlhdr->nlmsg_type == NLMSG_DONE ||
+-		    !(nlhdr->nlmsg_flags & NLM_F_MULTI))
+-			last = true;
+-
+-		/* parse the bits we got this time */
+-		nlmsg_for_each_msg(nlhdr, desc->data, desc->datalen, remain) {
+-			ret = desc->parse(desc, nlhdr);
+-			if (ret < 0) {
+-				_leave(" = %d [parse]", ret);
+-				return ret;
+-			}
+-		}
+-
+-	} while (!last);
+-
+-	_leave(" = 0");
+-	return 0;
+-}
+-
+-/*
+- * list the interface bound addresses to get the address and netmask
+- */
+-static int afs_rtm_getaddr(struct afs_rtm_desc *desc)
+-{
+-	struct msghdr msg;
+-	struct kvec iov[1];
+-	int ret;
+-
+-	struct {
+-		struct nlmsghdr nl_msg __attribute__((aligned(NLMSG_ALIGNTO)));
+-		struct ifaddrmsg addr_msg __attribute__((aligned(NLMSG_ALIGNTO)));
+-	} request;
+-
+-	_enter("");
+-
+-	memset(&request, 0, sizeof(request));
+-
+-	request.nl_msg.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifaddrmsg));
+-	request.nl_msg.nlmsg_type = RTM_GETADDR;
+-	request.nl_msg.nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP;
+-	request.nl_msg.nlmsg_seq = desc->msg_seq++;
+-	request.nl_msg.nlmsg_pid = 0;
+-
+-	memset(&msg, 0, sizeof(msg));
+-	iov[0].iov_base = &request;
+-	iov[0].iov_len = sizeof(request);
+-
+-	ret = kernel_sendmsg(desc->nlsock, &msg, iov, 1, iov[0].iov_len);
+-	_leave(" = %d", ret);
+-	return ret;
+-}
+-
+-/*
+- * list the interface link statuses to get the MTUs
+- */
+-static int afs_rtm_getlink(struct afs_rtm_desc *desc)
+-{
+-	struct msghdr msg;
+-	struct kvec iov[1];
+-	int ret;
+-
+-	struct {
+-		struct nlmsghdr nl_msg __attribute__((aligned(NLMSG_ALIGNTO)));
+-		struct ifinfomsg link_msg __attribute__((aligned(NLMSG_ALIGNTO)));
+-	} request;
+-
+-	_enter("");
+-
+-	memset(&request, 0, sizeof(request));
+-
+-	request.nl_msg.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
+-	request.nl_msg.nlmsg_type = RTM_GETLINK;
+-	request.nl_msg.nlmsg_flags = NLM_F_REQUEST | NLM_F_ROOT;
+-	request.nl_msg.nlmsg_seq = desc->msg_seq++;
+-	request.nl_msg.nlmsg_pid = 0;
+-
+-	memset(&msg, 0, sizeof(msg));
+-	iov[0].iov_base = &request;
+-	iov[0].iov_len = sizeof(request);
+-
+-	ret = kernel_sendmsg(desc->nlsock, &msg, iov, 1, iov[0].iov_len);
+-	_leave(" = %d", ret);
+-	return ret;
+-}
+-
+-/*
+- * cull any interface records for which there isn't an MTU value
+- */
+-static void afs_cull_interfaces(struct afs_rtm_desc *desc)
+-{
+-	struct afs_interface *bufs = desc->bufs;
+-	size_t nbufs = desc->nbufs;
+-	int loop, point = 0;
+-
+-	_enter("{%zu}", nbufs);
+-
+-	for (loop = 0; loop < nbufs; loop++) {
+-		if (desc->bufs[loop].mtu != 0) {
+-			if (loop != point) {
+-				ASSERTCMP(loop, >, point);
+-				bufs[point] = bufs[loop];
+-			}
+-			point++;
+-		}
+-	}
+-
+-	desc->nbufs = point;
+-	_leave(" [%zu/%zu]", desc->nbufs, nbufs);
+-}
+-
+-/*
+- * get a list of this system's interface IPv4 addresses, netmasks and MTUs
+- * - returns the number of interface records in the buffer
+- */
+-int afs_get_ipv4_interfaces(struct afs_interface *bufs, size_t maxbufs,
+-			    bool wantloopback)
+-{
+-	struct afs_rtm_desc desc;
+-	int ret, loop;
+-
+-	_enter("");
+-
+-	memset(&desc, 0, sizeof(desc));
+-	desc.bufs = bufs;
+-	desc.maxbufs = maxbufs;
+-	desc.wantloopback = wantloopback;
+-
+-	ret = sock_create_kern(AF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE,
+-			       &desc.nlsock);
+-	if (ret < 0) {
+-		_leave(" = %d [sock]", ret);
+-		return ret;
+-	}
+-
+-	/* issue RTM_GETADDR */
+-	desc.parse = afs_rtm_getaddr_parse;
+-	ret = afs_rtm_getaddr(&desc);
+-	if (ret < 0)
+-		goto error;
+-	ret = afs_read_rtm(&desc);
+-	if (ret < 0)
+-		goto error;
+-
+-	/* issue RTM_GETLINK */
+-	desc.parse = afs_rtm_getlink_if_parse;
+-	ret = afs_rtm_getlink(&desc);
+-	if (ret < 0)
+-		goto error;
+-	ret = afs_read_rtm(&desc);
+-	if (ret < 0)
+-		goto error;
+-
+-	afs_cull_interfaces(&desc);
+-	ret = desc.nbufs;
+-
+-	for (loop = 0; loop < ret; loop++)
+-		_debug("[%d] "NIPQUAD_FMT"/"NIPQUAD_FMT" mtu %u",
+-		       bufs[loop].index,
+-		       NIPQUAD(bufs[loop].address),
+-		       NIPQUAD(bufs[loop].netmask),
+-		       bufs[loop].mtu);
+-
+-error:
+-	kfree(desc.data);
+-	sock_release(desc.nlsock);
+-	_leave(" = %d", ret);
+-	return ret;
+-}
+-
+-/*
+- * get a MAC address from a random ethernet interface that has a real one
+- * - the buffer should be 6 bytes in size
+- */
+-int afs_get_MAC_address(u8 mac[6])
+-{
+-	struct afs_rtm_desc desc;
+-	int ret;
+-
+-	_enter("");
+-
+-	memset(&desc, 0, sizeof(desc));
+-	desc.mac = mac;
+-	desc.mac_index = UINT_MAX;
+-
+-	ret = sock_create_kern(AF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE,
+-			       &desc.nlsock);
+-	if (ret < 0) {
+-		_leave(" = %d [sock]", ret);
+-		return ret;
+-	}
+-
+-	/* issue RTM_GETLINK */
+-	desc.parse = afs_rtm_getlink_mac_parse;
+-	ret = afs_rtm_getlink(&desc);
+-	if (ret < 0)
+-		goto error;
+-	ret = afs_read_rtm(&desc);
+-	if (ret < 0)
+-		goto error;
+-
+-	if (desc.mac_index < UINT_MAX) {
+-		/* got a MAC address */
+-		_debug("[%d] %02x:%02x:%02x:%02x:%02x:%02x",
+-		       desc.mac_index,
+-		       mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+-	} else {
+-		ret = -ENONET;
+-	}
+-
+-error:
+-	sock_release(desc.nlsock);
+-	_leave(" = %d", ret);
+-	return ret;
+-}
