@@ -1,77 +1,202 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: 2.6.20.7 mss negotiation and path mtu discovery mostly
- broken?
-Date: Thu, 03 May 2007 16:24:20 -0700
-Message-ID: <1178234660.4887.3.camel@dell>
-References: <7CCD07160348804497EF29E9EA5560D7020F6212@exchtewks2.starentnetworks.com>
- <7CCD07160348804497EF29E9EA5560D7020F6213@exchtewks2.starentnetworks.com>
- <20070425.131602.18289973.davem@davemloft.net>
+From: jamal <hadi@cyberus.ca>
+Subject: [RESEND][PATCH][XFRM] SAD info TLV aggregation
+Date: Thu, 03 May 2007 19:06:41 -0400
+Message-ID: <1178233601.4068.2.camel@localhost>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: bristuccia@starentnetworks.com, "netdev" <netdev@vger.kernel.org>
-To: "David Miller" <davem@davemloft.net>
+Content-Type: multipart/mixed; boundary="=-xh7Ga5zMtpsQ/wbUVOSs"
+Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:1365 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1767456AbXECWhO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 May 2007 18:37:14 -0400
-In-Reply-To: <20070425.131602.18289973.davem@davemloft.net>
+Received: from wx-out-0506.google.com ([66.249.82.239]:16947 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1767423AbXECXGs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2007 19:06:48 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so589474wxd
+        for <netdev@vger.kernel.org>; Thu, 03 May 2007 16:06:46 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2007-04-25 at 13:16 -0700, David Miller wrote:
-> From: "Ristuccia, Brian" <bristuccia@starentnetworks.com>
-> Date: Wed, 25 Apr 2007 16:11:51 -0400
-> 
-> > > I'm seeing a 
-> > > problem where the kernel attempts to send packets with a MSS 
-> > > larger than the one negotiated when the TCP connection is 
-> > > established. Even after ICMP "can't fragment" messages 
-> > > arrive, the kernel still attempts to increase the MSS rather 
-> > > aggressively. The end result is extremely poor throughput 
-> > > when sending to a network with a smaller MTU. 
-> > 
-> > I've tracked this problem to the TSO feature in the bnx2 driver. Turning
-> > off TSO with "ethtool -K eth1 tso off" seems to work around the problem.
-> > It appears that the bnx2 device is not using the correct mss when
-> > performing segmentation offload. 
-> 
-> Thanks for narrowing it down like that.
-> 
-> Michael can you have a look?  Is the bnx2 firmware using the MTU
-> setting in the device and ignoring the passed in MSS or something
-> like that?
-> 
 
-This should fix it.  I will send this and other selected BNX2 fixes to
-stable as well.  Thanks.
+--=-xh7Ga5zMtpsQ/wbUVOSs
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
-[BNX2]: Fix TSO problem with small MSS.
+Ok, heres a resend of the SAD details with IPSEC and HASH info
+separated. Against net-2.6
+Dave, please apply.
 
-Remove the check for skb->len greater than MTU when doing TSO.  When
-the destination has a smaller MSS than the source, a TSO packet may
-be smaller than the MTU at the source and we still need to process it
-as a TSO packet.
+cheers,
+jamal
 
-Thanks to Brian Ristuccia <bristuccia@starentnetworks.com> for
-reporting the problem.
 
-Signed-off-by: Michael Chan <mchan@broadcom.com>
+--=-xh7Ga5zMtpsQ/wbUVOSs
+Content-Disposition: attachment; filename=xfrmk-sad-2622-2
+Content-Type: text/plain; name=xfrmk-sad-2622-2; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 
-diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index 605347f..88b33c6 100644
---- a/drivers/net/bnx2.c
-+++ b/drivers/net/bnx2.c
-@@ -4836,8 +4836,7 @@ bnx2_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		vlan_tag_flags |=
- 			(TX_BD_FLAGS_VLAN_TAG | (vlan_tx_tag_get(skb) << 16));
- 	}
--	if ((mss = skb_shinfo(skb)->gso_size) &&
--		(skb->len > (bp->dev->mtu + ETH_HLEN))) {
-+	if ((mss = skb_shinfo(skb)->gso_size)) {
- 		u32 tcp_opt_len, ip_tcp_len;
- 		struct iphdr *iph;
+[XFRM] SAD info TLV aggregationx
+
+Aggregate the SAD info TLVs.
+
+Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
+
+---
+commit c157d47586129bc4cb8320217df9f80a4dea8b6f
+tree 161b0ae239ab783e8df3a425e7cb58ac36d0fb8e
+parent fc38582db98533066f4ba64f948720483fbfe7b2
+author Jamal Hadi Salim <hadi@cyberus.ca> Thu, 03 May 2007 14:54:47 -0400
+committer Jamal Hadi Salim <hadi@cyberus.ca> Thu, 03 May 2007 14:54:47 -0400
+
+ include/linux/xfrm.h  |   21 +++++++--------------
+ include/net/xfrm.h    |   17 ++++++++---------
+ net/xfrm/xfrm_state.c |    2 +-
+ net/xfrm/xfrm_user.c  |   22 +++++++++-------------
+ 4 files changed, 25 insertions(+), 37 deletions(-)
+
+diff --git a/include/linux/xfrm.h b/include/linux/xfrm.h
+index a5d53e0..81c95aa 100644
+--- a/include/linux/xfrm.h
++++ b/include/linux/xfrm.h
+@@ -243,17 +243,6 @@ enum xfrm_ae_ftype_t {
+ #define XFRM_AE_MAX (__XFRM_AE_MAX - 1)
+ };
+ 
+-/* SAD Table filter flags  */
+-enum xfrm_sad_ftype_t {
+-	XFRM_SAD_UNSPEC,
+-	XFRM_SAD_HMASK=1,
+-	XFRM_SAD_HMAX=2,
+-	XFRM_SAD_CNT=4,
+-	__XFRM_SAD_MAX
+-
+-#define XFRM_SAD_MAX (__XFRM_SAD_MAX - 1)
+-};
+-
+ struct xfrm_userpolicy_type {
+ 	__u8		type;
+ 	__u16		reserved1;
+@@ -286,15 +275,19 @@ enum xfrm_attr_type_t {
+ };
+ 
+ enum xfrm_sadattr_type_t {
+-	XFRMA_SAD_UNSPEC,
+-	XFRMA_SADHMASK,
+-	XFRMA_SADHMAX,
++	XFRMA_SADUNSPEC,
+ 	XFRMA_SADCNT,
++	XFRMA_SADHINFO,
+ 	__XFRMA_SAD_MAX
+ 
+ #define XFRMA_SAD_MAX (__XFRMA_SAD_MAX - 1)
+ };
+ 
++struct xfrmu_sadhinfo {
++	__u32 sadhcnt; /* current hash bkts */
++	__u32 sadhmcnt; /* max allowed hash bkts */
++};
++
+ /* SPD Table filter flags  */
+ enum xfrm_spd_ftype_t {
+ 	XFRM_SPD_UNSPEC,
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index 66c2d3e..d0d7db5 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -416,14 +416,6 @@ struct xfrm_audit
+ 	u32	secid;
+ };
+ 
+-/* SAD metadata, add more later */
+-struct xfrm_sadinfo
+-{
+-	u32 sadhcnt; /* current hash bkts */
+-	u32 sadhmcnt; /* max allowed hash bkts */
+-	u32 sadcnt; /* current running count */
+-};
+-
+ struct xfrm_spdinfo
+ {
+ 	u32 incnt;
+@@ -964,10 +956,17 @@ static inline int xfrm_state_sort(struct xfrm_state **dst, struct xfrm_state **s
+ 	return -ENOSYS;
+ }
+ #endif
++
++struct xfrmk_sadinfo {
++	u32 sadhcnt; /* current hash bkts */
++	u32 sadhmcnt; /* max allowed hash bkts */
++	u32 sadcnt; /* current running count */
++};
++
+ extern struct xfrm_state *xfrm_find_acq_byseq(u32 seq);
+ extern int xfrm_state_delete(struct xfrm_state *x);
+ extern void xfrm_state_flush(u8 proto, struct xfrm_audit *audit_info);
+-extern void xfrm_sad_getinfo(struct xfrm_sadinfo *si);
++extern void xfrm_sad_getinfo(struct xfrmk_sadinfo *si);
+ extern void xfrm_spd_getinfo(struct xfrm_spdinfo *si);
+ extern int xfrm_replay_check(struct xfrm_state *x, __be32 seq);
+ extern void xfrm_replay_advance(struct xfrm_state *x, __be32 seq);
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index f3a61eb..9955ff4 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -421,7 +421,7 @@ restart:
+ }
+ EXPORT_SYMBOL(xfrm_state_flush);
+ 
+-void xfrm_sad_getinfo(struct xfrm_sadinfo *si)
++void xfrm_sad_getinfo(struct xfrmk_sadinfo *si)
+ {
+ 	spin_lock_bh(&xfrm_state_lock);
+ 	si->sadcnt = xfrm_state_num;
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index 4210d91..9220d14 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -749,7 +749,8 @@ static int xfrm_get_spdinfo(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 
+ static int build_sadinfo(struct sk_buff *skb, u32 pid, u32 seq, u32 flags)
+ {
+-	struct xfrm_sadinfo si;
++	struct xfrmk_sadinfo si;
++	struct xfrmu_sadhinfo sh;
+ 	struct nlmsghdr *nlh;
+ 	u32 *f;
+ 
+@@ -761,12 +762,11 @@ static int build_sadinfo(struct sk_buff *skb, u32 pid, u32 seq, u32 flags)
+ 	*f = flags;
+ 	xfrm_sad_getinfo(&si);
+ 
+-	if (flags & XFRM_SAD_HMASK)
+-		NLA_PUT_U32(skb, XFRMA_SADHMASK, si.sadhcnt);
+-	if (flags & XFRM_SAD_HMAX)
+-		NLA_PUT_U32(skb, XFRMA_SADHMAX, si.sadhmcnt);
+-	if (flags & XFRM_SAD_CNT)
+-		NLA_PUT_U32(skb, XFRMA_SADCNT, si.sadcnt);
++	sh.sadhmcnt = si.sadhmcnt;
++	sh.sadhcnt = si.sadhcnt;
++
++	NLA_PUT_U32(skb, XFRMA_SADCNT, si.sadcnt);
++	NLA_PUT(skb, XFRMA_SADHINFO, sizeof(sh), &sh);
+ 
+ 	return nlmsg_end(skb, nlh);
+ 
+@@ -784,12 +784,8 @@ static int xfrm_get_sadinfo(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 	u32 seq = nlh->nlmsg_seq;
+ 	int len = NLMSG_LENGTH(sizeof(u32));
+ 
+-	if (*flags & XFRM_SAD_HMASK)
+-		len += RTA_SPACE(sizeof(u32));
+-	if (*flags & XFRM_SAD_HMAX)
+-		len += RTA_SPACE(sizeof(u32));
+-	if (*flags & XFRM_SAD_CNT)
+-		len += RTA_SPACE(sizeof(u32));
++	len += RTA_SPACE(sizeof(struct xfrmu_sadhinfo));
++	len += RTA_SPACE(sizeof(u32));
+ 
+ 	r_skb = alloc_skb(len, GFP_ATOMIC);
  
 
+--=-xh7Ga5zMtpsQ/wbUVOSs--
 
