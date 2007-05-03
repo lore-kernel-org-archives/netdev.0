@@ -1,40 +1,52 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH][XFRM] SAD info TLV aggregation
-Date: Thu, 03 May 2007 02:15:10 +0200
-Message-ID: <4639298E.8090100@trash.net>
-References: <1178144288.4078.5.camel@localhost>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: ARP Spoofing
+Date: Wed, 2 May 2007 17:16:19 -0700
+Message-ID: <20070502171619.020a4def@freekitty>
+References: <4638CDED.4020100@cs.byu.edu>
+	<4638DEB9.90608@hp.com>
+	<4638F6E8.3060609@nortel.com>
+	<46392281.8040909@cs.byu.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: hadi@cyberus.ca
+Cc: Chris Friesen <cfriesen@nortel.com>, netdev@vger.kernel.org
+To: Topher Fischer <javert42@cs.byu.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:48349 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1767282AbXECAPr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2007 20:15:47 -0400
-In-Reply-To: <1178144288.4078.5.camel@localhost>
+Received: from smtp.osdl.org ([65.172.181.24]:44809 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1767281AbXECAQq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 May 2007 20:16:46 -0400
+In-Reply-To: <46392281.8040909@cs.byu.edu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> I am keeping the thin 32 bit header, but other than that everything is
-> in one TLV. SPD info one to follow..
+On Wed, 02 May 2007 17:45:05 -0600
+Topher Fischer <javert42@cs.byu.edu> wrote:
 
+> -----BEGIN PGP SIGNED MESSAGE-----
+> Hash: SHA1
+> 
+> Chris Friesen wrote:
+> > Vlad Yasevich wrote:
+> > 
+> >> If by arp spoofing you mean receiving arp replies from multiple
+> >> sources and
+> >> trusting all of them, then I haven't seen anything.
+> >>
+> >> I don't know the history as to why nothing has has been done.
+> > 
+> > This concept is a valuable tool to allow for fast publishing of IP
+> > address takeover in redundant-server situations.
+> > 
+> > There are ways in which it can be misused, but that doesn't make it an
+> > invalid technique.
+> 
+> I don't think it would be too difficult to preserve this kind of
+> functionality while improving security.  Is this really the only reason
+> why nothing has been done to protect machines from ARP spoofing?
+> 
 
-I think using attributes here wasn't a bad idea since this exports
-things that are implementation details and might need to be changed
-or extended at some point.
+Surely, you can do what you want with netfilter/arptables.
 
->  enum xfrm_sadattr_type_t {
->  	XFRMA_SAD_UNSPEC,
-> -	XFRMA_SADHMASK,
-> -	XFRMA_SADHMAX,
-> -	XFRMA_SADCNT,
-> +	XFRMA_SADINFO,
->  	__XFRMA_SAD_MAX
->  
->  #define XFRMA_SAD_MAX (__XFRMA_SAD_MAX - 1)
->  };
-
-In any case consistent naming here would be nice (SAD_ vs. SADXXX).
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
