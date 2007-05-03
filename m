@@ -1,30 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 16/16][BNX2]: Update version and reldate.
-Date: Thu, 03 May 2007 13:25:45 -0700 (PDT)
-Message-ID: <20070503.132545.119989341.davem@davemloft.net>
-References: <1178068303.4820.35.camel@dell>
-	<1178177522.4909.79.camel@dell>
+Subject: Re: [PATCH] [TCP] Highspeed: Limited slow-start is nowadays in
+ tcp_slow_start
+Date: Thu, 03 May 2007 13:29:09 -0700 (PDT)
+Message-ID: <20070503.132909.93447193.davem@davemloft.net>
+References: <Pine.LNX.4.64.0705031531170.3607@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
-To: mchan@broadcom.com
+To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42742
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42750
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1031248AbXECUZo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2007 16:25:44 -0400
-In-Reply-To: <1178177522.4909.79.camel@dell>
+	by vger.kernel.org with ESMTP id S1031206AbXECU3I convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 May 2007 16:29:08 -0400
+In-Reply-To: <Pine.LNX.4.64.0705031531170.3607@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Thu, 03 May 2007 00:32:02 -0700
+=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Thu, 3 May 2007 15:34:25 +0300 (EEST)
 
-> [BNX2]: Update version and reldate.
-> 
-> Update version to 1.5.10.
-> 
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
+> Reuse limited slow-start (RFC3742) included into tcp_cong instead
+> of having another implementation in High Speed TCP.
+>=20
+> Compile tested only.
+>=20
+> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
 
-Applied.
+Thanks for noticing this code duplication.
+
+I've applied this, but it would be great if someone would
+do some sanity tests of highspeed to make sure it's
+ok.
