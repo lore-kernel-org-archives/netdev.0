@@ -1,35 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 4/16][BNX2]: Fix race conditions when calling
- register_netdev().
-Date: Thu, 03 May 2007 13:20:25 -0700 (PDT)
-Message-ID: <20070503.132025.06567594.davem@davemloft.net>
+Subject: Re: [PATCH v2 5/16][BNX2]: Save PCI state during suspend.
+Date: Thu, 03 May 2007 13:20:49 -0700 (PDT)
+Message-ID: <20070503.132049.109627805.davem@davemloft.net>
 References: <1178068303.4820.35.camel@dell>
-	<1178177347.4909.68.camel@dell>
+	<1178177359.4909.69.camel@dell>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: mchan@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52978
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52980
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753670AbXECUUZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2007 16:20:25 -0400
-In-Reply-To: <1178177347.4909.68.camel@dell>
+	by vger.kernel.org with ESMTP id S1754077AbXECUUs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2007 16:20:48 -0400
+In-Reply-To: <1178177359.4909.69.camel@dell>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: "Michael Chan" <mchan@broadcom.com>
-Date: Thu, 03 May 2007 00:29:06 -0700
+Date: Thu, 03 May 2007 00:29:19 -0700
 
-> [BNX2]: Fix race conditions when calling register_netdev().
->     
-> Hot-plug scripts can call bnx2_open() as soon as register_netdev() is
-> called in bnx2_init_one().  We need to call pci_set_drvdata() and
-> setup everything before calling register_netdev(). netif_carrier_off()
-> also needs to be moved to bnx2_open() to avoid race conditions with
-> the irq.
->     
+> [BNX2]: Save PCI state during suspend.
+> 
+> This is needed to save the MSI state which will be lost during
+> suspend.
+> 
 > Signed-off-by: Michael Chan <mchan@broadcom.com>
 
 Applied.
