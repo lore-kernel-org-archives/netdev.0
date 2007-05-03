@@ -1,7 +1,8 @@
 From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH v2 5/16][BNX2]: Save PCI state during suspend.
-Date: Thu, 03 May 2007 00:29:19 -0700
-Message-ID: <1178177359.4909.69.camel@dell>
+Subject: [PATCH v2 4/16][BNX2]: Fix race conditions when calling
+ register_netdev().
+Date: Thu, 03 May 2007 00:29:06 -0700
+Message-ID: <1178177347.4909.68.camel@dell>
 References: <1178068303.4820.35.camel@dell>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,40 +10,83 @@ Content-Transfer-Encoding: 7bit
 Cc: "netdev" <netdev@vger.kernel.org>
 To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:1385 "EHLO mms2.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:3639 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161148AbXECGmU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 May 2007 02:42:20 -0400
+	id S1030933AbXECGmF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 May 2007 02:42:05 -0400
 In-Reply-To: <1178068303.4820.35.camel@dell>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[BNX2]: Save PCI state during suspend.
-
-This is needed to save the MSI state which will be lost during
-suspend.
-
+[BNX2]: Fix race conditions when calling register_netdev().
+    
+Hot-plug scripts can call bnx2_open() as soon as register_netdev() is
+called in bnx2_init_one().  We need to call pci_set_drvdata() and
+setup everything before calling register_netdev(). netif_carrier_off()
+also needs to be moved to bnx2_open() to avoid race conditions with
+the irq.
+    
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 
 diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index cffdec3..89681b3 100644
+index 679ee66..cffdec3 100644
 --- a/drivers/net/bnx2.c
 +++ b/drivers/net/bnx2.c
-@@ -6172,6 +6172,7 @@ bnx2_suspend(struct pci_dev *pdev, pm_message_t state)
- 		reset_code = BNX2_DRV_MSG_CODE_SUSPEND_NO_WOL;
- 	bnx2_reset_chip(bp, reset_code);
- 	bnx2_free_skbs(bp);
-+	pci_save_state(pdev);
- 	bnx2_set_power_state(bp, pci_choose_state(pdev, state));
+@@ -4350,6 +4350,8 @@ bnx2_open(struct net_device *dev)
+ 	struct bnx2 *bp = netdev_priv(dev);
+ 	int rc;
+ 
++	netif_carrier_off(dev);
++
+ 	bnx2_set_power_state(bp, PCI_D0);
+ 	bnx2_disable_int(bp);
+ 
+@@ -6086,6 +6088,18 @@ bnx2_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	dev->poll_controller = poll_bnx2;
+ #endif
+ 
++	pci_set_drvdata(pdev, dev);
++
++	memcpy(dev->dev_addr, bp->mac_addr, 6);
++	memcpy(dev->perm_addr, bp->mac_addr, 6);
++	bp->name = board_info[ent->driver_data].name;
++
++	dev->features |= NETIF_F_IP_CSUM | NETIF_F_SG;
++#ifdef BCM_VLAN
++	dev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
++#endif
++	dev->features |= NETIF_F_TSO | NETIF_F_TSO_ECN;
++
+ 	if ((rc = register_netdev(dev))) {
+ 		dev_err(&pdev->dev, "Cannot register net device\n");
+ 		if (bp->regview)
+@@ -6097,11 +6111,6 @@ bnx2_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		return rc;
+ 	}
+ 
+-	pci_set_drvdata(pdev, dev);
+-
+-	memcpy(dev->dev_addr, bp->mac_addr, 6);
+-	memcpy(dev->perm_addr, bp->mac_addr, 6);
+-	bp->name = board_info[ent->driver_data].name,
+ 	printk(KERN_INFO "%s: %s (%c%d) PCI%s %s %dMHz found at mem %lx, "
+ 		"IRQ %d, ",
+ 		dev->name,
+@@ -6119,15 +6128,6 @@ bnx2_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		printk("%2.2x", dev->dev_addr[i]);
+ 	printk("\n");
+ 
+-	dev->features |= NETIF_F_SG;
+-	dev->features |= NETIF_F_IP_CSUM;
+-#ifdef BCM_VLAN
+-	dev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
+-#endif
+-	dev->features |= NETIF_F_TSO | NETIF_F_TSO_ECN;
+-
+-	netif_carrier_off(bp->dev);
+-
  	return 0;
  }
-@@ -6185,6 +6186,7 @@ bnx2_resume(struct pci_dev *pdev)
- 	if (!netif_running(dev))
- 		return 0;
  
-+	pci_restore_state(pdev);
- 	bnx2_set_power_state(bp, PCI_D0);
- 	netif_device_attach(dev);
- 	bnx2_init_nic(bp);
 
 
