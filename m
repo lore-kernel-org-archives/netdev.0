@@ -1,128 +1,50 @@
-From: David Howells <dhowells@redhat.com>
-Subject: [PATCH 5/5] AFS: Adjust the new netdevice scanning code
-Date: Thu, 03 May 2007 10:53:36 +0100
-Message-ID: <20070503095336.26912.55434.stgit@warthog.cambridge.redhat.com>
-References: <20070503095315.26912.24270.stgit@warthog.cambridge.redhat.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: finding your own dead "CONFIG_" variables
+Date: Thu, 3 May 2007 12:02:56 +0200
+Message-ID: <200705031202.56805.arnd@arndb.de>
+References: <Pine.LNX.4.64.0705030400120.20539@localhost.localdomain> <a781481a0705030237l7d636b55t93f2ee5151cd7709@mail.gmail.com> <Pine.LNX.4.64.0705030546310.29962@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	netdev@vger.kernel.org, kaber@trash.net, dhowells@redhat.com
-To: akpm@osdl.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161612AbXECJyf@vger.kernel.org>
-In-Reply-To: <20070503095315.26912.24270.stgit@warthog.cambridge.redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Satyam Sharma <satyam.sharma@gmail.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: "Robert P. J. Day" <rpjday@mindspring.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from moutng.kundenserver.de ([212.227.126.187]:54429 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161458AbXECKDH convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2007 06:03:07 -0400
+In-Reply-To: <Pine.LNX.4.64.0705030546310.29962@localhost.localdomain>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Adjust the new netdevice scanning code provided by Patrick McHardy:
+On Thursday 03 May 2007, Robert P. J. Day wrote:
+> > Suggest: configfiles=3D$(find . -name 'Kconfig*' -or -name '*defcon=
+fig*')
+> >
+> > Some CONFIG_ options exist that are not declared anywhere in the
+> > Kconfig files but defined directly in the arch/.../*defconfig*
+> > files.
+>=20
+> it's my understanding that entries in any defconfig files are
+> *automatically* pruned at some point once a CONFIG_ variable no longe=
+r
+> exists in any Kconfig file, so i'm not going to be touching those
+> files. =A0also, adding that extra check wouldn't add anything useful =
+to
+> the output.
 
- (1) Restore the function banner comments that were dropped.
 
- (2) Rather than using an array size of 6 in some places and an array size of
-     ETH_ALEN in others, pass a pointer instead and pass the array size
-     through so that we can actually check it.
+An interesting category would be a symbol that is
 
- (3) Do the buffer fill count check before checking the for_primary_ifa
-     condition again.  This permits us to skip that check should maxbufs be
-     reached before we run out of interfaces.
+- used in a source file
+- defined in an old defconfig
+- not present in any Kconfig* file
 
-Signed-off-by: David Howells <dhowells@redhat.com>
----
+If any of these exist, I would consider them _worse_ than the ones
+found by your initial script, because some functionality that once
+was there has been recently removed.
 
- fs/afs/internal.h   |    2 +-
- fs/afs/main.c       |    2 +-
- fs/afs/netdevices.c |   24 +++++++++++++++++++-----
- 3 files changed, 21 insertions(+), 7 deletions(-)
-
-diff --git a/fs/afs/internal.h b/fs/afs/internal.h
-index 551db89..d90c158 100644
---- a/fs/afs/internal.h
-+++ b/fs/afs/internal.h
-@@ -563,7 +563,7 @@ extern void afs_fs_exit(void);
-  * use-rtnetlink.c
-  */
- extern int afs_get_ipv4_interfaces(struct afs_interface *, size_t, bool);
--extern int afs_get_MAC_address(u8 [6]);
-+extern int afs_get_MAC_address(u8 *, size_t);
- 
- /*
-  * vlclient.c
-diff --git a/fs/afs/main.c b/fs/afs/main.c
-index 40c2704..80ec6fd 100644
---- a/fs/afs/main.c
-+++ b/fs/afs/main.c
-@@ -54,7 +54,7 @@ static int __init afs_get_client_UUID(void)
- 
- 	/* read the MAC address of one of the external interfaces and construct
- 	 * a UUID from it */
--	ret = afs_get_MAC_address(afs_uuid.node);
-+	ret = afs_get_MAC_address(afs_uuid.node, sizeof(afs_uuid.node));
- 	if (ret < 0)
- 		return ret;
- 
-diff --git a/fs/afs/netdevices.c b/fs/afs/netdevices.c
-index 2b30873..ce08977 100644
---- a/fs/afs/netdevices.c
-+++ b/fs/afs/netdevices.c
-@@ -10,21 +10,33 @@
- #include <linux/if_arp.h>
- #include "internal.h"
- 
--int afs_get_MAC_address(u8 mac[ETH_ALEN])
-+/*
-+ * get a MAC address from a random ethernet interface that has a real one
-+ * - the buffer will normally be 6 bytes in size
-+ */
-+int afs_get_MAC_address(u8 *mac, size_t maclen)
- {
- 	struct net_device *dev;
- 	int ret = -ENODEV;
- 
-+	if (maclen != ETH_ALEN)
-+		BUG();
-+
- 	rtnl_lock();
- 	dev = __dev_getfirstbyhwtype(ARPHRD_ETHER);
- 	if (dev) {
--		memcpy(mac, dev->dev_addr, ETH_ALEN);
-+		memcpy(mac, dev->dev_addr, maclen);
- 		ret = 0;
- 	}
- 	rtnl_unlock();
- 	return ret;
- }
- 
-+/*
-+ * get a list of this system's interface IPv4 addresses, netmasks and MTUs
-+ * - maxbufs must be at least 1
-+ * - returns the number of interface records in the buffer
-+ */
- int afs_get_ipv4_interfaces(struct afs_interface *bufs, size_t maxbufs,
- 			    bool wantloopback)
- {
-@@ -32,6 +44,8 @@ int afs_get_ipv4_interfaces(struct afs_interface *bufs, size_t maxbufs,
- 	struct in_device *idev;
- 	int n = 0;
- 
-+	ASSERT(maxbufs > 0);
-+
- 	rtnl_lock();
- 	for (dev = dev_base; dev; dev = dev->next) {
- 		if (dev->type == ARPHRD_LOOPBACK && !wantloopback)
-@@ -40,13 +54,13 @@ int afs_get_ipv4_interfaces(struct afs_interface *bufs, size_t maxbufs,
- 		if (!idev)
- 			continue;
- 		for_primary_ifa(idev) {
--			if (n == maxbufs)
--				goto out;
- 			bufs[n].address.s_addr = ifa->ifa_address;
- 			bufs[n].netmask.s_addr = ifa->ifa_mask;
- 			bufs[n].mtu = dev->mtu;
- 			n++;
--		} endfor_ifa(idev)
-+			if (n >= maxbufs)
-+				goto out;
-+		} endfor_ifa(idev);
- 	}
- out:
- 	rtnl_unlock();
+	Arnd <><
