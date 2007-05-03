@@ -1,54 +1,41 @@
-From: Patrick McHardy <kaber@trash.net>
+From: jamal <hadi@cyberus.ca>
 Subject: Re: [PATCH][XFRM] SAD info TLV aggregation
-Date: Thu, 03 May 2007 15:15:59 +0200
-Message-ID: <4639E08F.5030101@trash.net>
-References: <1178144288.4078.5.camel@localhost> <4639298E.8090100@trash.net> <1178197316.4077.4.camel@localhost>
+Date: Thu, 03 May 2007 09:26:04 -0400
+Message-ID: <1178198764.4077.30.camel@localhost>
+References: <1178144288.4078.5.camel@localhost> <4639298E.8090100@trash.net>
+	 <1178197316.4077.4.camel@localhost>  <4639E08F.5030101@trash.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: hadi@cyberus.ca
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:62356 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161927AbXECNRc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2007 09:17:32 -0400
-In-Reply-To: <1178197316.4077.4.camel@localhost>
+Received: from wx-out-0506.google.com ([66.249.82.233]:26221 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754114AbXECN0J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2007 09:26:09 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so438162wxd
+        for <netdev@vger.kernel.org>; Thu, 03 May 2007 06:26:09 -0700 (PDT)
+In-Reply-To: <4639E08F.5030101@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> On Thu, 2007-03-05 at 02:15 +0200, Patrick McHardy wrote:
-> 
-> 
->>I think using attributes here
-> 
-> 
-> "here" as in SAD or SPD as well?
+On Thu, 2007-03-05 at 15:15 +0200, Patrick McHardy wrote:
 
-Both.
-
->> wasn't a bad idea since this exports
->>things that are implementation details and might need to be changed
->>or extended at some point.
+> > 
+> > I think it may be reasonable to group the Hash info in one TLV
+> > and the IPSEC specific info in a separate TLV - is this what you are
+> > saying? Be explicit so i dont have to redo the patch over and over.
 > 
-> 
-> I think it may be reasonable to group the Hash info in one TLV
-> and the IPSEC specific info in a separate TLV - is this what you are
-> saying? Be explicit so i dont have to redo the patch over and over.
+> Yes, thats what I imagined too.
 
-Yes, thats what I imagined too.
+Ok, thanks Patrick - indeed it is a wise thing to do to improve
+longevity of user space.
 
-> The other way to look at it is in the future, a new TLV could be added
-> that replaces the current one.
+I will make those two changes sometime tonight or tommorow morn
+and resend.
 
-It would still make sense to seperate hash related things from the
-SA count in my opinion.
+cheers,
+jamal
 
->>In any case consistent naming here would be nice (SAD_ vs. SADXXX).
-> 
-> 
-> yes, i need to make this change on the SPD as well. Dave hold onto both
-> patches - i will resend.
-
-Thanks.
