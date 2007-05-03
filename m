@@ -1,21 +1,48 @@
-From: Mark Brown <broonie@sirena.org.uk>
-Subject: [PATCH 0/2] natsemi: Improve DspCfg workaround
-Date: Thu, 03 May 2007 10:36:44 +0100
-Message-ID: <20070503093435.7800.38591.stgit@mercator.sirena.org.uk>
+From: "Robert P. J. Day" <rpjday@mindspring.com>
+Subject: Re: finding your own dead "CONFIG_" variables
+Date: Thu, 3 May 2007 05:49:10 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0705030546310.29962@localhost.localdomain>
+References: <Pine.LNX.4.64.0705030400120.20539@localhost.localdomain>
+ <a781481a0705030237l7d636b55t93f2ee5151cd7709@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: =?utf-8?b?UmFmYcWC?= Bilski <rafalbilski@interia.pl>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Tim Hockin <thockin@hockin.org>, Jeff Garzik <jeff@garzik.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1031059AbXECJh6@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Satyam Sharma <satyam.sharma@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nic.NetDirect.CA ([216.16.235.2]:48758 "EHLO
+	rubicon.netdirect.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030991AbXECJth (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2007 05:49:37 -0400
+In-Reply-To: <a781481a0705030237l7d636b55t93f2ee5151cd7709@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The natsemi driver contains a workaround for broken hardware which can
-on some boards cause more problems than it solves.  The following patch
-series improves this by making the diagnostic more obvious and allowing
-users to disable the workaround if it causes them problems.
+On Thu, 3 May 2007, Satyam Sharma wrote:
+
+> > http://fsdev.net/wiki/index.php?title=Dead_CONFIG_variables
+>
+> > kcfiles=$(find . -name "Kconfig*")
+>
+> Suggest: configfiles=$(find . -name 'Kconfig*' -or -name '*defconfig*')
+>
+> Some CONFIG_ options exist that are not declared anywhere in the
+> Kconfig files but defined directly in the arch/.../*defconfig*
+> files.
+
+it's my understanding that entries in any defconfig files are
+*automatically* pruned at some point once a CONFIG_ variable no longer
+exists in any Kconfig file, so i'm not going to be touching those
+files.  also, adding that extra check wouldn't add anything useful to
+the output.
+
+rday
 
 -- 
-"You grabbed my hand and we fell into it, like a daydream - or a fever."
+========================================================================
+Robert P. J. Day
+Linux Consulting, Training and Annoying Kernel Pedantry
+Waterloo, Ontario, CANADA
+
+http://fsdev.net/wiki/index.php?title=Main_Page
+========================================================================
