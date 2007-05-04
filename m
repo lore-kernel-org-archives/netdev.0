@@ -1,7 +1,7 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 09/40] mm: optimize gfp_to_rank()
-Date: Fri, 04 May 2007 12:27:00 +0200
-Message-ID: <20070504103157.465884989@chello.nl>
+Subject: [PATCH 05/40] mm: emergency pool
+Date: Fri, 04 May 2007 12:26:56 +0200
+Message-ID: <20070504103156.517234991@chello.nl>
 References: <20070504102651.923946304@chello.nl>
 Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	Trond Myklebust <trond.myklebust@fys.uio.no>,
@@ -14,90 +14,194 @@ Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
 To: linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from amsfep17-int.chello.nl ([213.46.243.15]:3563 "EHLO
+Received: from amsfep17-int.chello.nl ([213.46.243.15]:3022 "EHLO
 	amsfep14-int.chello.nl" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1767819AbXEDKiq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2007 06:38:46 -0400
-Content-Disposition: inline; filename=mm-optimize-gtp_to_rank.patch
+	by vger.kernel.org with ESMTP id S2993212AbXEDKex (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2007 06:34:53 -0400
+Content-Disposition: inline; filename=mm-page_alloc-emerg.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The gfp_to_rank() call in the slab allocator severely impacts performance.
-Hence reduce it to the bone, keeping only what is needed to make the reserve
-work.
+Provide means to reserve a specific amount of pages.
 
-[more AIM9 results go here]
-
- AIM9 test          2.6.21-rc5            2.6.21-rc5-slab1             
-                                         CONFIG_SLAB_FAIR=y            
-
-54 tcp_test      2124.48 +/-  10.85    2137.43 +/-  9.22    12.95      
-55 udp_test      5204.43 +/-  45.13    5231.59 +/- 56.66    27.16      
-56 fifo_test    20991.42 +/-  46.71   19675.97 +/- 56.35  1315.44      
-57 stream_pipe  10024.16 +/- 119.88    9912.53 +/- 75.52   111.63      
-58 dgram_pipe    9460.18 +/- 119.50    9502.75 +/- 89.06    42.57      
-59 pipe_cpy     30719.81 +/- 117.01   27885.52 +/- 46.81  2834.28      
-
-                                          2.6.21-rc5-slab2    
-                                         CONFIG_SLAB_FAIR=y   
-                                                              
-54 tcp_test      2124.48 +/-  10.85    2122.80 +/-   4.70     1.68
-55 udp_test      5204.43 +/-  45.13    5136.98 +/-  62.31    67.45
-56 fifo_test    20991.42 +/-  46.71   19646.81 +/-  53.61  1344.60
-57 stream_pipe  10024.16 +/- 119.88    9940.87 +/- 280.73    83.29
-58 dgram_pipe    9460.18 +/- 119.50    9432.69 +/- 250.27    27.49
-59 pipe_cpy     30719.81 +/- 117.01   27870.70 +/-  65.50  2849.10
+The emergency pool is separated from the min watermark because ALLOC_HARDER
+and ALLOC_HIGH modify the watermark in a relative way and thus do not ensure
+a strict minimum.
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 ---
- mm/internal.h |   33 +++++++++++++++++++++++++++++++--
- 1 file changed, 31 insertions(+), 2 deletions(-)
+ include/linux/mmzone.h |    3 +-
+ mm/page_alloc.c        |   52 ++++++++++++++++++++++++++++++++++++++++---------
+ mm/vmstat.c            |    6 ++---
+ 3 files changed, 48 insertions(+), 13 deletions(-)
 
-Index: linux-2.6-git/mm/internal.h
+Index: linux-2.6-git/include/linux/mmzone.h
 ===================================================================
---- linux-2.6-git.orig/mm/internal.h	2007-02-22 14:09:39.000000000 +0100
-+++ linux-2.6-git/mm/internal.h	2007-02-22 14:24:34.000000000 +0100
-@@ -105,9 +105,38 @@ static inline int alloc_flags_to_rank(in
- 	return rank;
- }
+--- linux-2.6-git.orig/include/linux/mmzone.h	2007-02-12 09:40:51.000000000 +0100
++++ linux-2.6-git/include/linux/mmzone.h	2007-02-12 11:13:58.000000000 +0100
+@@ -178,7 +178,7 @@ enum zone_type {
  
--static inline int gfp_to_rank(gfp_t gfp_mask)
-+static __always_inline int gfp_to_rank(gfp_t gfp_mask)
+ struct zone {
+ 	/* Fields commonly accessed by the page allocator */
+-	unsigned long		pages_min, pages_low, pages_high;
++	unsigned long		pages_emerg, pages_min, pages_low, pages_high;
+ 	/*
+ 	 * We don't know if the memory that we're going to allocate will be freeable
+ 	 * or/and it will be released eventually, so to avoid totally wasting several
+@@ -562,6 +562,7 @@ int sysctl_min_unmapped_ratio_sysctl_han
+ 			struct file *, void __user *, size_t *, loff_t *);
+ int sysctl_min_slab_ratio_sysctl_handler(struct ctl_table *, int,
+ 			struct file *, void __user *, size_t *, loff_t *);
++void adjust_memalloc_reserve(int pages);
+ 
+ #include <linux/topology.h>
+ /* Returns the number of the current Node. */
+Index: linux-2.6-git/mm/page_alloc.c
+===================================================================
+--- linux-2.6-git.orig/mm/page_alloc.c	2007-02-12 11:13:35.000000000 +0100
++++ linux-2.6-git/mm/page_alloc.c	2007-02-12 11:14:16.000000000 +0100
+@@ -101,6 +101,7 @@ static char * const zone_names[MAX_NR_ZO
+ 
+ static DEFINE_SPINLOCK(min_free_lock);
+ int min_free_kbytes = 1024;
++int var_free_kbytes;
+ 
+ unsigned long __meminitdata nr_kernel_pages;
+ unsigned long __meminitdata nr_all_pages;
+@@ -995,7 +996,8 @@ int zone_watermark_ok(struct zone *z, in
+ 	if (alloc_flags & ALLOC_HARDER)
+ 		min -= min / 4;
+ 
+-	if (free_pages <= min + z->lowmem_reserve[classzone_idx])
++	if (free_pages <= min + z->lowmem_reserve[classzone_idx] +
++			z->pages_emerg)
+ 		return 0;
+ 	for (o = 0; o < order; o++) {
+ 		/* At the next order, this order's pages become unavailable */
+@@ -1348,8 +1350,8 @@ nofail_alloc:
+ nopage:
+ 	if (!(gfp_mask & __GFP_NOWARN) && printk_ratelimit()) {
+ 		printk(KERN_WARNING "%s: page allocation failure."
+-			" order:%d, mode:0x%x\n",
+-			p->comm, order, gfp_mask);
++			" order:%d, mode:0x%x, alloc_flags:0x%x, pflags:0x%lx\n",
++			p->comm, order, gfp_mask, alloc_flags, p->flags);
+ 		dump_stack();
+ 		show_mem();
+ 	}
+@@ -1562,9 +1564,9 @@ void show_free_areas(void)
+ 			"\n",
+ 			zone->name,
+ 			K(zone_page_state(zone, NR_FREE_PAGES)),
+-			K(zone->pages_min),
+-			K(zone->pages_low),
+-			K(zone->pages_high),
++			K(zone->pages_emerg + zone->pages_min),
++			K(zone->pages_emerg + zone->pages_low),
++			K(zone->pages_emerg + zone->pages_high),
+ 			K(zone_page_state(zone, NR_ACTIVE)),
+ 			K(zone_page_state(zone, NR_INACTIVE)),
+ 			K(zone->present_pages),
+@@ -3000,7 +3002,7 @@ static void calculate_totalreserve_pages
+ 			}
+ 
+ 			/* we treat pages_high as reserved pages. */
+-			max += zone->pages_high;
++			max += zone->pages_high + zone->pages_emerg;
+ 
+ 			if (max > zone->present_pages)
+ 				max = zone->present_pages;
+@@ -3057,7 +3059,8 @@ static void setup_per_zone_lowmem_reserv
+  */
+ static void __setup_per_zone_pages_min(void)
  {
--	return alloc_flags_to_rank(gfp_to_alloc_flags(gfp_mask));
-+	/*
-+	 * Although correct this full version takes a ~3% performance hit
-+	 * on the network test in aim9.
-+	 *
-+	 * return alloc_flags_to_rank(gfp_to_alloc_flags(gfp_mask));
-+	 *
-+	 * So we go cheat a little. We'll only focus on the correctness of
-+	 * rank 0.
-+	 */
-+
-+	if (likely(!(gfp_mask & __GFP_NOMEMALLOC))) {
-+		if (gfp_mask & __GFP_EMERGENCY)
-+			return 0;
-+		else if (!in_irq() && (current->flags & PF_MEMALLOC))
-+			return 0;
-+		/*
-+		 * We skip the TIF_MEMDIE test:
-+		 *
-+		 * if (!in_interrupt() && unlikely(test_thread_flag(TIF_MEMDIE)))
-+		 * 	return 0;
-+		 *
-+		 * this will force an alloc but since we are allowed the memory
-+		 * that will succeed. This will make this very rare occurence
-+		 * very expensive when under severe memory pressure, but it
-+		 * seems a valid tradeoff.
-+		 */
-+	}
-+
-+	/* Cheat by lumping everybody else in rank 1. */
-+	return 1;
+-	unsigned long pages_min = min_free_kbytes >> (PAGE_SHIFT - 10);
++	unsigned pages_min = min_free_kbytes >> (PAGE_SHIFT - 10);
++	unsigned pages_emerg = var_free_kbytes >> (PAGE_SHIFT - 10);
+ 	unsigned long lowmem_pages = 0;
+ 	struct zone *zone;
+ 	unsigned long flags;
+@@ -3069,11 +3072,13 @@ static void __setup_per_zone_pages_min(v
+ 	}
+ 
+ 	for_each_zone(zone) {
+-		u64 tmp;
++		u64 tmp, tmp_emerg;
+ 
+ 		spin_lock_irqsave(&zone->lru_lock, flags);
+ 		tmp = (u64)pages_min * zone->present_pages;
+ 		do_div(tmp, lowmem_pages);
++		tmp_emerg = (u64)pages_emerg * zone->present_pages;
++		do_div(tmp_emerg, lowmem_pages);
+ 		if (is_highmem(zone)) {
+ 			/*
+ 			 * __GFP_HIGH and PF_MEMALLOC allocations usually don't
+@@ -3092,12 +3097,14 @@ static void __setup_per_zone_pages_min(v
+ 			if (min_pages > 128)
+ 				min_pages = 128;
+ 			zone->pages_min = min_pages;
++			zone->pages_emerg = min_pages;
+ 		} else {
+ 			/*
+ 			 * If it's a lowmem zone, reserve a number of pages
+ 			 * proportionate to the zone's size.
+ 			 */
+ 			zone->pages_min = tmp;
++			zone->pages_emerg = tmp_emerg;
+ 		}
+ 
+ 		zone->pages_low   = zone->pages_min + (tmp >> 2);
+@@ -3118,6 +3125,33 @@ void setup_per_zone_pages_min(void)
+ 	spin_unlock_irqrestore(&min_free_lock, flags);
  }
  
- #endif
++/**
++ *	adjust_memalloc_reserve - adjust the memalloc reserve
++ *	@pages: number of pages to add
++ *
++ *	It adds a number of pages to the memalloc reserve; if
++ *	the number was positive it kicks kswapd into action to
++ *	satisfy the higher watermarks.
++ *
++ *	NOTE: there is only a single caller, hence no locking.
++ */
++void adjust_memalloc_reserve(int pages)
++{
++	var_free_kbytes += pages << (PAGE_SHIFT - 10);
++	BUG_ON(var_free_kbytes < 0);
++	setup_per_zone_pages_min();
++	if (pages > 0) {
++		struct zone *zone;
++		for_each_zone(zone)
++			wakeup_kswapd(zone, 0);
++	}
++	if (pages)
++		printk(KERN_DEBUG "Emergency reserve: %d\n",
++				var_free_kbytes);
++}
++
++EXPORT_SYMBOL_GPL(adjust_memalloc_reserve);
++
+ /*
+  * Initialise min_free_kbytes.
+  *
+Index: linux-2.6-git/mm/vmstat.c
+===================================================================
+--- linux-2.6-git.orig/mm/vmstat.c	2007-02-12 09:40:51.000000000 +0100
++++ linux-2.6-git/mm/vmstat.c	2007-02-12 11:14:28.000000000 +0100
+@@ -513,9 +513,9 @@ static int zoneinfo_show(struct seq_file
+ 			   "\n        spanned  %lu"
+ 			   "\n        present  %lu",
+ 			   zone_page_state(zone, NR_FREE_PAGES),
+-			   zone->pages_min,
+-			   zone->pages_low,
+-			   zone->pages_high,
++			   zone->pages_emerg + zone->pages_min,
++			   zone->pages_emerg + zone->pages_low,
++			   zone->pages_emerg + zone->pages_high,
+ 			   zone->pages_scanned,
+ 			   zone->nr_scan_active, zone->nr_scan_inactive,
+ 			   zone->spanned_pages,
 
 --
 
