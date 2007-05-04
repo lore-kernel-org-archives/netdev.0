@@ -1,28 +1,24 @@
-From: Patrick McHardy <kaber@trash.net>
+From: David Howells <dhowells@redhat.com>
 Subject: Re: How to find I/F to destination
-Date: Fri, 04 May 2007 15:00:01 +0200
-Message-ID: <463B2E51.90808@trash.net>
-References: <5484.1178282928@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Howells <dhowells@redhat.com>
+Date: Fri, 04 May 2007 14:04:20 +0100
+Message-ID: <5802.1178283860@redhat.com>
+References: <20070504125438.GA5439@2ka.mipt.ru>  <5484.1178282928@redhat.com>
+Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:54537 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754924AbXEDNAi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2007 09:00:38 -0400
-In-Reply-To: <5484.1178282928@redhat.com>
+Received: from mx1.redhat.com ([66.187.233.31]:57502 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755120AbXEDNEg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 May 2007 09:04:36 -0400
+In-Reply-To: <20070504125438.GA5439@2ka.mipt.ru> 
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Howells wrote:
-> I would like to determine through which interface packets sent to a particular
-> UDP destination will go through, and so determine the MTU size for that
-> interface.  Can anyone suggest a good way of doing this from within the
-> kernel?
+Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
 
+> 	err = __ip_route_output_key(rp, flp);
 
-Do a route lookup (ip_route_output_key), then either use dst_mtu to get
-the PMTU value or dst->dev in case you really want the device's MTU.
+Is there any way to get at this without having to link against the ipv4
+module?
+
+David
