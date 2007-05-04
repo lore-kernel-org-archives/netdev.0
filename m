@@ -1,42 +1,37 @@
-From: =?ISO-8859-2?Q?Rafa=B3_Bilski?= <rafalbilski@interia.pl>
-Subject: Re: [PATCH 0/2] natsemi: Improve DspCfg workaround
-Date: Fri, 04 May 2007 07:58:55 +0200
-Message-ID: <463ACB9F.2090509@interia.pl>
-References: <20070503093435.7800.38591.stgit@mercator.sirena.org.uk>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH][SOCK]: shrink struct sock
+Date: Fri, 04 May 2007 08:10:15 +0200
+Message-ID: <463ACE47.6080807@cosmosbay.com>
+References: <20070504041101.GA27519@ghostprotocols.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Tim Hockin <thockin@hockin.org>, Jeff Garzik <jeff@garzik.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Mark Brown <broonie@sirena.org.uk>
+To: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp35.poczta.interia.pl ([80.48.65.35]:31955 "EHLO
-	smtp4.poczta.interia.pl" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754576AbXEDF7R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2007 01:59:17 -0400
-In-Reply-To: <20070503093435.7800.38591.stgit@mercator.sirena.org.uk>
+Received: from gw1.cosmosbay.com ([86.65.150.130]:58065 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753528AbXEDGK2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2007 02:10:28 -0400
+In-Reply-To: <20070504041101.GA27519@ghostprotocols.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> The natsemi driver contains a workaround for broken hardware which ca=
-n
-> on some boards cause more problems than it solves.  The following pat=
-ch
-> series improves this by making the diagnostic more obvious and allowi=
-ng
-> users to disable the workaround if it causes them problems.
-
-Works great. Thank You all for help.
-
-Thanks
-Rafa=B3
-
+Arnaldo Carvalho de Melo a =E9crit :
+>=20
+> [acme@mica linux-2.6]$ pahole -C sk_buff_head net/core/sock.o
+> struct sk_buff_head {
+> 	struct sk_buff *           next;                 /*     0     8 */
+> 	struct sk_buff *           prev;                 /*     8     8 */
+> 	__u32                      qlen;                 /*    16     4 */
+> 	spinlock_t                 lock;                 /*    20     8 */
+> }; /* size: 32, cachelines: 1 */
+>    /* padding: 4 */
+>    /* last cacheline: 32 bytes */
 
 
-
-----------------------------------------------------------------------
-NIE KUPUJ!!!
-=2E..zanim nie porownasz cen >> http://link.interia.pl/f1a5e
-
-
+Hum, maybe not enough tea this morning, but I always thought spinlock_t=
+ size=20
+was 4 bytes....
 
