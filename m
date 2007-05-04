@@ -1,30 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RESEND][PATCH][XFRM] SAD info TLV aggregation
-Date: Fri, 04 May 2007 12:55:52 -0700 (PDT)
-Message-ID: <20070504.125552.98555980.davem@davemloft.net>
-References: <463A7BF7.5010604@trash.net>
-	<1178239828.4068.52.camel@localhost>
-	<463B7724.8000300@trash.net>
+From: Christoph Lameter <clameter@sgi.com>
+Subject: Re: [PATCH 08/40] mm: kmem_cache_objsize
+Date: Fri, 4 May 2007 12:58:27 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0705041256210.25267@schroedinger.engr.sgi.com>
+References: <20070504102651.923946304@chello.nl>  <20070504103157.215424767@chello.nl>
+  <Pine.LNX.4.64.0705040932200.22033@schroedinger.engr.sgi.com>
+ <1178301545.24217.56.camel@twins>  <Pine.LNX.4.64.0705041104110.23539@schroedinger.engr.sgi.com>
+ <1178302904.2767.6.camel@lappy> <Pine.LNX.4.64.0705041128270.24283@schroedinger.engr.sgi.com>
+ <463B7E5C.8030201@cs.helsinki.fi> <Pine.LNX.4.64.0705041142350.24625@schroedinger.engr.sgi.com>
+ <463B812D.5090009@cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, netdev@vger.kernel.org
-To: kaber@trash.net
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+	netdev@vger.kernel.org,
+	Trond Myklebust <trond.myklebust@fys.uio.no>,
+	Thomas Graf <tgraf@suug.ch>,
+	David Miller <davem@davemloft.net>,
+	James Bottomley <James.Bottomley@SteelEye.com>,
+	Mike Christie <michaelc@cs.wisc.edu>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Daniel Phillips <phillips@google.com>
+To: Pekka Enberg <penberg@cs.helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60949
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1161922AbXEDT4F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2007 15:56:05 -0400
-In-Reply-To: <463B7724.8000300@trash.net>
+Received: from netops-testserver-4-out.sgi.com ([192.48.171.29]:53405 "EHLO
+	relay.sgi.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1161926AbXEDT62 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2007 15:58:28 -0400
+In-Reply-To: <463B812D.5090009@cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Fri, 04 May 2007 20:10:44 +0200
+On Fri, 4 May 2007, Pekka Enberg wrote:
 
-> Here they are, thanks for your patience :)
+> Christoph Lameter wrote:
+> > SLAB can calculate exactly how many pages are needed. The per cpu and per
+> > node stuff is setup at boot and does not change. We are talking about the
+> > worst case scenario here. True in case of an off slab
+> > we have additional overhead that would also have to go into worst case
+> > scenario.
 > 
-> I've changed them to XFRMA_SAD_... and XFRMA_SPD_... since
-> UNSPEC and MAX are usually seperated by an underscore.
+> Fair enough. But there's no way it can take into account any slab management
+> structures it needs to allocate. The slab simply doesn't know how many pages
+> are needed to _allocate n amount of objects_.
 
-Applied, thanks everyone.
+In the worst case we will need need nr_objects / nr_object_per_slab off slab management 
+structures. There is one off slab management object per allocated slab.
+ 
+> Peter is interested in a _rough estimate_ so I don't see the point of adding
+> that kind of logic in the slab. It's an API that simply cannot satisfy all its
+> callers which is why I suggested exposing buffer size in the first place (the
+> slab certainly knows how many bytes it needs for one object).
+
+But the slab size is not useful to the caller since the caller does not 
+know about off slab structures etc. It is only the SLAB that can 
+calculate the worst case.
+
