@@ -1,152 +1,280 @@
-From: Pavel Emelianov <xemul@sw.ru>
-Subject: [PATCH] Consolidate udp hash calculations
-Date: Fri, 04 May 2007 18:51:36 +0400
-Message-ID: <463B4878.4060902@sw.ru>
+From: David Howells <dhowells@redhat.com>
+Subject: [PATCH] AF_RXRPC: Sort out MTU handling
+Date: Fri, 04 May 2007 15:56:47 +0100
+Message-ID: <20070504145647.19125.99441.stgit@warthog.cambridge.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: devel@openvz.org
-To: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.233.200]:28750 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754943AbXEDOq4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 May 2007 10:46:56 -0400
-Sender: netdev-owner@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	dhowells@redhat.com
+To: netdev@vger.kernel.org
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Make access to udphash/udplitehash symmetrical to inet hashes.
+Sort out the MTU determination and handling in AF_RXRPC:
 
-This may also help network namespaces, since they tend to use
-one hash for different namespaces by selecting the hash chain
-depending on a hash value and the namespace.
+ (1) If it's present, parse the additional information supplied by the peer at
+     the end of the ACK packet (struct ackinfo) to determine the MTU sizes
+     that peer is willing to support.
 
-Signed-off-by: Pavel Emelianov <xemul@openvz.org>
+ (2) Initialise the MTU size to that peer from the kernel's routing records.
 
+ (3) Send ACKs rather than ACKALLs as the former carry the additional info,
+     and the latter do not.
+
+ (4) Declare the interface MTU size in outgoing ACKs as a maximum amount of
+     data that can be stuffed into an RxRPC packet without it having to be
+     fragmented to come in this computer's NIC.
+
+ (5) If sendmsg() is given MSG_MORE then it should allocate an skb of the
+     maximum size rather than one just big enough for the data it's got left
+     to process on the theory that there is more data to come that it can
+     append to that packet.
+
+     This means, for example, that if AFS does a large StoreData op, all the
+     packets barring the last will be filled to the maximum unfragmented size.
+
+Signed-off-by: David Howells <dhowells@redhat.com>
 ---
 
-diff --git a/include/linux/udp.h b/include/linux/udp.h
-index 6de445c..a40ccd4 100644
---- a/include/linux/udp.h
-+++ b/include/linux/udp.h
-@@ -49,6 +49,11 @@ static inline struct udphdr *udp_hdr(con
- #include <net/inet_sock.h>
- #define UDP_HTABLE_SIZE		128
+ net/rxrpc/ar-ack.c    |   80 ++++++++++++++++++++++++++++++++++++++++++-------
+ net/rxrpc/ar-error.c  |    2 +
+ net/rxrpc/ar-output.c |    2 +
+ net/rxrpc/ar-peer.c   |   45 +++++++++++++++++++++++++++-
+ 4 files changed, 115 insertions(+), 14 deletions(-)
+
+diff --git a/net/rxrpc/ar-ack.c b/net/rxrpc/ar-ack.c
+index fc07a92..657ee69 100644
+--- a/net/rxrpc/ar-ack.c
++++ b/net/rxrpc/ar-ack.c
+@@ -543,6 +543,38 @@ static void rxrpc_zap_tx_window(struct rxrpc_call *call)
+ }
  
-+static inline unsigned int udp_hashfn(unsigned int num)
+ /*
++ * process the extra information that may be appended to an ACK packet
++ */
++static void rxrpc_extract_ackinfo(struct rxrpc_call *call, struct sk_buff *skb,
++				  unsigned latest, int nAcks)
 +{
-+	return num & (UDP_HTABLE_SIZE - 1);
++	struct rxrpc_ackinfo ackinfo;
++	struct rxrpc_peer *peer;
++	unsigned mtu;
++
++	if (skb_copy_bits(skb, nAcks + 3, &ackinfo, sizeof(ackinfo)) < 0) {
++		_leave(" [no ackinfo]");
++		return;
++	}
++
++	_proto("Rx ACK %%%u Info { rx=%u max=%u rwin=%u jm=%u }",
++	       latest,
++	       ntohl(ackinfo.rxMTU), ntohl(ackinfo.maxMTU),
++	       ntohl(ackinfo.rwind), ntohl(ackinfo.jumbo_max));
++
++	mtu = min(ntohl(ackinfo.rxMTU), ntohl(ackinfo.maxMTU));
++
++	peer = call->conn->trans->peer;
++	if (mtu < peer->maxdata) {
++		spin_lock_bh(&peer->lock);
++		peer->maxdata = mtu;
++		peer->mtu = mtu + peer->hdrsize;
++		spin_unlock_bh(&peer->lock);
++		_net("Net MTU %u (maxdata %u)", peer->mtu, peer->maxdata);
++	}
 +}
 +
- struct udp_sock {
- 	/* inet_sock has to be the first member */
- 	struct inet_sock inet;
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 113e0c4..8ea1c81 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -132,7 +132,7 @@ static inline int __udp_lib_port_inuse(u
- 	struct hlist_node *node;
- 	struct inet_sock *inet;
++/*
+  * process packets in the reception queue
+  */
+ static int rxrpc_process_rx_queue(struct rxrpc_call *call,
+@@ -606,6 +638,8 @@ process_further:
+ 		       rxrpc_acks[ack.reason],
+ 		       ack.nAcks);
  
--	sk_for_each(sk, node, &udptable[hash & (UDP_HTABLE_SIZE - 1)]) {
-+	sk_for_each(sk, node, &udptable[udp_hashfn(hash)]) {
- 		if (sk->sk_hash != hash)
- 			continue;
- 		inet = inet_sk(sk);
-@@ -159,7 +159,6 @@ int __udp_lib_get_port(struct sock *sk, 
- 					 const struct sock *sk2 )    )
- {
- 	struct hlist_node *node;
--	struct hlist_head *head;
- 	struct sock *sk2;
- 	unsigned int hash;
- 	int    error = 1;
-@@ -175,10 +174,11 @@ int __udp_lib_get_port(struct sock *sk, 
- 		best = result = *port_rover;
- 		for (i = 0; i < UDP_HTABLE_SIZE; i++, result++) {
- 			int size;
-+			struct hlist_head *head;
++		rxrpc_extract_ackinfo(call, skb, latest, ack.nAcks);
++
+ 		if (ack.reason == RXRPC_ACK_PING) {
+ 			_proto("Rx ACK %%%u PING Request", latest);
+ 			rxrpc_propose_ACK(call, RXRPC_ACK_PING_RESPONSE,
+@@ -801,9 +835,9 @@ void rxrpc_process_call(struct work_struct *work)
+ 	struct msghdr msg;
+ 	struct kvec iov[5];
+ 	unsigned long bits;
+-	__be32 data;
++	__be32 data, pad;
+ 	size_t len;
+-	int genbit, loop, nbit, ioc, ret;
++	int genbit, loop, nbit, ioc, ret, mtu;
+ 	u32 abort_code = RX_PROTOCOL_ERROR;
+ 	u8 *acks = NULL;
  
- 			hash = hash_port_and_addr(result,
- 					inet_sk(sk)->rcv_saddr);
--			head = &udptable[hash & (UDP_HTABLE_SIZE - 1)];
-+			head = &udptable[udp_hashfn(hash)];
- 			if (hlist_empty(head)) {
- 				if (result > sysctl_local_port_range[1])
- 					result = sysctl_local_port_range[0] +
-@@ -222,9 +222,7 @@ gotit:
- 		*port_rover = snum = result;
- 	} else {
- 		hash = hash_port_and_addr(snum, 0);
--		head = &udptable[hash & (UDP_HTABLE_SIZE - 1)];
--
--		sk_for_each(sk2, node, head)
-+		sk_for_each(sk2, node, &udptable[udp_hashfn(hash)])
- 			if (sk2->sk_hash == hash &&
- 			    sk2 != sk &&
- 			    inet_sk(sk2)->num == snum &&
-@@ -237,9 +235,7 @@ gotit:
- 		if (inet_sk(sk)->rcv_saddr) {
- 			hash = hash_port_and_addr(snum,
- 						  inet_sk(sk)->rcv_saddr);
--			head = &udptable[hash & (UDP_HTABLE_SIZE - 1)];
--
--			sk_for_each(sk2, node, head)
-+			sk_for_each(sk2, node, &udptable[udp_hashfn(hash)])
- 				if (sk2->sk_hash == hash &&
- 				    sk2 != sk &&
- 				    inet_sk(sk2)->num == snum &&
-@@ -255,8 +251,7 @@ gotit:
- 	inet_sk(sk)->num = snum;
- 	sk->sk_hash = hash;
- 	if (sk_unhashed(sk)) {
--		head = &udptable[hash & (UDP_HTABLE_SIZE - 1)];
--		sk_add_node(sk, head);
-+		sk_add_node(sk, &udptable[udp_hashfn(hash)]);
- 		sock_prot_inc_use(sk->sk_prot);
+@@ -899,9 +933,30 @@ void rxrpc_process_call(struct work_struct *work)
  	}
- 	error = 0;
-@@ -304,7 +299,7 @@ static struct sock *__udp4_lib_lookup(__
  
- lookup:
+ 	if (test_bit(RXRPC_CALL_ACK_FINAL, &call->events)) {
+-		hdr.type = RXRPC_PACKET_TYPE_ACKALL;
+ 		genbit = RXRPC_CALL_ACK_FINAL;
+-		goto send_message;
++
++		ack.bufferSpace	= htons(8);
++		ack.maxSkew	= 0;
++		ack.serial	= 0;
++		ack.reason	= RXRPC_ACK_IDLE;
++		ack.nAcks	= 0;
++		call->ackr_reason = 0;
++
++		spin_lock_bh(&call->lock);
++		ack.serial = call->ackr_serial;
++		ack.previousPacket = call->ackr_prev_seq;
++		ack.firstPacket = htonl(call->rx_data_eaten + 1);
++		spin_unlock_bh(&call->lock);
++
++		pad = 0;
++
++		iov[1].iov_base = &ack;
++		iov[1].iov_len	= sizeof(ack);
++		iov[2].iov_base = &pad;
++		iov[2].iov_len	= 3;
++		iov[3].iov_base = &ackinfo;
++		iov[3].iov_len	= sizeof(ackinfo);
++		goto send_ACK;
+ 	}
  
--	sk_for_each(sk, node, &udptable[hash & (UDP_HTABLE_SIZE - 1)]) {
-+	sk_for_each(sk, node, &udptable[udp_hashfn(hash)]) {
- 		struct inet_sock *inet = inet_sk(sk);
+ 	if (call->events & ((1 << RXRPC_CALL_RCVD_BUSY) |
+@@ -971,8 +1026,6 @@ void rxrpc_process_call(struct work_struct *work)
  
- 		if (sk->sk_hash != hash || ipv6_only_sock(sk) ||
-@@ -1205,8 +1200,8 @@ static int __udp4_lib_mcast_deliver(stru
+ 	/* consider sending an ordinary ACK */
+ 	if (test_bit(RXRPC_CALL_ACK, &call->events)) {
+-		__be32 pad;
+-
+ 		_debug("send ACK: window: %d - %d { %lx }",
+ 		       call->rx_data_eaten, call->ackr_win_top,
+ 		       call->ackr_window[0]);
+@@ -997,12 +1050,6 @@ void rxrpc_process_call(struct work_struct *work)
+ 		ack.serial	= 0;
+ 		ack.reason	= 0;
  
- 	read_lock(&udp_hash_lock);
+-		ackinfo.rxMTU	= htonl(5692);
+-//		ackinfo.rxMTU	= htonl(call->conn->trans->peer->maxdata);
+-		ackinfo.maxMTU	= htonl(call->conn->trans->peer->maxdata);
+-		ackinfo.rwind	= htonl(32);
+-		ackinfo.jumbo_max = htonl(4);
+-
+ 		spin_lock_bh(&call->lock);
+ 		ack.reason = call->ackr_reason;
+ 		ack.serial = call->ackr_serial;
+@@ -1116,6 +1163,15 @@ send_ACK_with_skew:
+ 	ack.maxSkew = htons(atomic_read(&call->conn->hi_serial) -
+ 			    ntohl(ack.serial));
+ send_ACK:
++	mtu = call->conn->trans->peer->if_mtu;
++	mtu -= call->conn->trans->peer->hdrsize;
++	ackinfo.maxMTU	= htonl(mtu);
++	ackinfo.rwind	= htonl(32);
++
++	/* permit the peer to send us jumbo packets if it wants to */
++	ackinfo.rxMTU	= htonl(5692);
++	ackinfo.jumbo_max = htonl(4);
++
+ 	hdr.serial = htonl(atomic_inc_return(&call->conn->serial));
+ 	_proto("Tx ACK %%%u { m=%hu f=#%u p=#%u s=%%%u r=%s n=%u }",
+ 	       ntohl(hdr.serial),
+diff --git a/net/rxrpc/ar-error.c b/net/rxrpc/ar-error.c
+index 2c27df1..6cb3e88 100644
+--- a/net/rxrpc/ar-error.c
++++ b/net/rxrpc/ar-error.c
+@@ -100,8 +100,10 @@ void rxrpc_UDP_error_report(struct sock *sk)
+ 		}
  
--	sk = sk_head(&udptable[hash & (UDP_HTABLE_SIZE - 1)]);
--	skw = sk_head(&udptable[hashwild & (UDP_HTABLE_SIZE - 1)]);
-+	sk = sk_head(&udptable[udp_hashfn(hash)]);
-+	skw = sk_head(&udptable[udp_hashfn(hashwild)]);
+ 		if (mtu < peer->mtu) {
++			spin_lock_bh(&peer->lock);
+ 			peer->mtu = mtu;
+ 			peer->maxdata = peer->mtu - peer->hdrsize;
++			spin_unlock_bh(&peer->lock);
+ 			_net("Net MTU %u (maxdata %u)",
+ 			     peer->mtu, peer->maxdata);
+ 		}
+diff --git a/net/rxrpc/ar-output.c b/net/rxrpc/ar-output.c
+index 5cdde4a..591c442 100644
+--- a/net/rxrpc/ar-output.c
++++ b/net/rxrpc/ar-output.c
+@@ -582,7 +582,7 @@ static int rxrpc_send_data(struct kiocb *iocb,
+ 			max &= ~(call->conn->size_align - 1UL);
  
- 	sk = udp_v4_mcast_next(sk, hash, hport, daddr, uh->source, saddr, dif);
- 	if (!sk) {
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index b083c09..a0a8915 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -67,7 +67,7 @@ static struct sock *__udp6_lib_lookup(st
- 	int badness = -1;
+ 			chunk = max;
+-			if (chunk > len)
++			if (chunk > len && !more)
+ 				chunk = len;
  
- 	read_lock(&udp_hash_lock);
--	sk_for_each(sk, node, &udptable[hnum & (UDP_HTABLE_SIZE - 1)]) {
-+	sk_for_each(sk, node, &udptable[udp_hashfn(hnum)]) {
- 		struct inet_sock *inet = inet_sk(sk);
+ 			space = chunk + call->conn->size_align;
+diff --git a/net/rxrpc/ar-peer.c b/net/rxrpc/ar-peer.c
+index d399de4..ce08b78 100644
+--- a/net/rxrpc/ar-peer.c
++++ b/net/rxrpc/ar-peer.c
+@@ -19,6 +19,7 @@
+ #include <net/sock.h>
+ #include <net/af_rxrpc.h>
+ #include <net/ip.h>
++#include <net/route.h>
+ #include "ar-internal.h"
  
- 		if (sk->sk_hash == hnum && sk->sk_family == PF_INET6) {
-@@ -350,7 +350,7 @@ static int __udp6_lib_mcast_deliver(stru
- 	int dif;
+ static LIST_HEAD(rxrpc_peers);
+@@ -28,6 +29,47 @@ static DECLARE_WAIT_QUEUE_HEAD(rxrpc_peer_wq);
+ static void rxrpc_destroy_peer(struct work_struct *work);
  
- 	read_lock(&udp_hash_lock);
--	sk = sk_head(&udptable[ntohs(uh->dest) & (UDP_HTABLE_SIZE - 1)]);
-+	sk = sk_head(&udptable[udp_hashfn(ntohs(uh->dest))]);
- 	dif = inet6_iif(skb);
- 	sk = udp_v6_mcast_next(sk, uh->dest, daddr, uh->source, saddr, dif);
- 	if (!sk) {
+ /*
++ * assess the MTU size for the network interface through which this peer is
++ * reached
++ */
++static void rxrpc_assess_MTU_size(struct rxrpc_peer *peer)
++{
++	struct rtable *rt;
++	struct flowi fl;
++	int ret;
++
++	peer->if_mtu = 1500;
++
++	memset(&fl, 0, sizeof(fl));
++
++	switch (peer->srx.transport.family) {
++	case AF_INET:
++		fl.oif = 0;
++		fl.proto = IPPROTO_UDP,
++		fl.nl_u.ip4_u.saddr = 0;
++		fl.nl_u.ip4_u.daddr = peer->srx.transport.sin.sin_addr.s_addr;
++		fl.nl_u.ip4_u.tos = 0;
++		/* assume AFS.CM talking to AFS.FS */
++		fl.uli_u.ports.sport = htons(7001);
++		fl.uli_u.ports.dport = htons(7000);
++		break;
++	default:
++		BUG();
++	}
++
++	ret = ip_route_output_key(&rt, &fl);
++	if (ret < 0) {
++		kleave(" [route err %d]", ret);
++		return;
++	}
++
++	peer->if_mtu = dst_mtu(&rt->u.dst);
++	dst_release(&rt->u.dst);
++
++	kleave(" [if_mtu %u]", peer->if_mtu);
++}
++
++/*
+  * allocate a new peer
+  */
+ static struct rxrpc_peer *rxrpc_alloc_peer(struct sockaddr_rxrpc *srx,
+@@ -47,7 +89,8 @@ static struct rxrpc_peer *rxrpc_alloc_peer(struct sockaddr_rxrpc *srx,
+ 		peer->debug_id = atomic_inc_return(&rxrpc_debug_id);
+ 		memcpy(&peer->srx, srx, sizeof(*srx));
+ 
+-		peer->mtu = peer->if_mtu = 65535;
++		rxrpc_assess_MTU_size(peer);
++		peer->mtu = peer->if_mtu;
+ 
+ 		if (srx->transport.family == AF_INET) {
+ 			peer->hdrsize = sizeof(struct iphdr);
+
