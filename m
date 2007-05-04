@@ -1,41 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Consolidate udp hash calculations
-Date: Fri, 04 May 2007 12:39:09 -0700 (PDT)
-Message-ID: <20070504.123909.88476080.davem@davemloft.net>
-References: <463B4878.4060902@sw.ru>
+Subject: Re: [PATCH] AF_RXRPC: Sort out MTU handling
+Date: Fri, 04 May 2007 12:42:25 -0700 (PDT)
+Message-ID: <20070504.124225.111205875.davem@davemloft.net>
+References: <20070504145647.19125.99441.stgit@warthog.cambridge.redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, devel@openvz.org
-To: xemul@sw.ru
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43627
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1161895AbXEDTjW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2007 15:39:22 -0400
-In-Reply-To: <463B4878.4060902@sw.ru>
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org
+To: dhowells@redhat.com
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <20070504145647.19125.99441.stgit@warthog.cambridge.redhat.com>
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Pavel Emelianov <xemul@sw.ru>
-Date: Fri, 04 May 2007 18:51:36 +0400
+From: David Howells <dhowells@redhat.com>
+Date: Fri, 04 May 2007 15:56:47 +0100
 
-> Make access to udphash/udplitehash symmetrical to inet hashes.
+> Sort out the MTU determination and handling in AF_RXRPC:
 > 
-> This may also help network namespaces, since they tend to use
-> one hash for different namespaces by selecting the hash chain
-> depending on a hash value and the namespace.
+>  (1) If it's present, parse the additional information supplied by the peer at
+>      the end of the ACK packet (struct ackinfo) to determine the MTU sizes
+>      that peer is willing to support.
 > 
-> Signed-off-by: Pavel Emelianov <xemul@openvz.org>
+>  (2) Initialise the MTU size to that peer from the kernel's routing records.
+> 
+>  (3) Send ACKs rather than ACKALLs as the former carry the additional info,
+>      and the latter do not.
+> 
+>  (4) Declare the interface MTU size in outgoing ACKs as a maximum amount of
+>      data that can be stuffed into an RxRPC packet without it having to be
+>      fragmented to come in this computer's NIC.
+> 
+>  (5) If sendmsg() is given MSG_MORE then it should allocate an skb of the
+>      maximum size rather than one just big enough for the data it's got left
+>      to process on the theory that there is more data to come that it can
+>      append to that packet.
+> 
+>      This means, for example, that if AFS does a large StoreData op, all the
+>      packets barring the last will be filled to the maximum unfragmented size.
+> 
+> Signed-off-by: David Howells <dhowells@redhat.com>
 
-This is not the "UDP Hash Function", it is a mask to bring
-the hash value modulo of the hash table size.
+Applied, thanks.
 
-So your function name is misleading and makes the code
-even worse.
-
-I'm also not so sure this cleanup really adds any clarity,
-even with a proper function name.
-
-I can only assume you wish to do something with the UDP hash table
-sizes, and therefore only want to have a need to touch one function.
