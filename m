@@ -1,7 +1,7 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 36/40] iscsi: fixup of the ep_connect patch
-Date: Fri, 04 May 2007 12:27:27 +0200
-Message-ID: <20070504103203.911980306@chello.nl>
+Subject: [PATCH 29/40] nfs: fix various memory recursions possible with swap over NFS.
+Date: Fri, 04 May 2007 12:27:20 +0200
+Message-ID: <20070504103202.226987847@chello.nl>
 References: <20070504102651.923946304@chello.nl>
 Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	Trond Myklebust <trond.myklebust@fys.uio.no>,
@@ -13,79 +13,62 @@ Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	Daniel Phillips <phillips@google.com>
 To: linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1031366AbXEDKol@vger.kernel.org>
-Content-Disposition: inline; filename=iscsi_ep_connect_fix.patch
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S2993285AbXEDKpE@vger.kernel.org>
+Content-Disposition: inline; filename=nfs-alloc-recursions.patch
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Make sure a malicious user-space program cannot crash the kernel module
-by prematurely closing the filedesc.
+GFP_NOFS is not enough, since swap traffic is IO, hence fall back to GFP_NOIO.
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Acked-by: Mike Christie <michaelc@cs.wisc.edu>
 ---
- drivers/scsi/iscsi_tcp.c |   23 +++++++++++++++++++----
- 1 file changed, 19 insertions(+), 4 deletions(-)
+ fs/nfs/pagelist.c |    2 +-
+ fs/nfs/write.c    |    6 +++---
+ 2 files changed, 4 insertions(+), 4 deletions(-)
 
-Index: linux-2.6-git/drivers/scsi/iscsi_tcp.c
+Index: linux-2.6-git/fs/nfs/write.c
 ===================================================================
---- linux-2.6-git.orig/drivers/scsi/iscsi_tcp.c	2007-01-16 14:15:50.000000000 +0100
-+++ linux-2.6-git/drivers/scsi/iscsi_tcp.c	2007-01-16 14:24:05.000000000 +0100
-@@ -1830,11 +1830,25 @@ tcp_conn_alloc_fail:
- }
+--- linux-2.6-git.orig/fs/nfs/write.c
++++ linux-2.6-git/fs/nfs/write.c
+@@ -45,7 +45,7 @@ static struct kmem_cache *nfs_wdata_cach
  
- static void
-+iscsi_tcp_release_conn(struct iscsi_conn *conn)
-+{
-+	struct iscsi_tcp_conn *tcp_conn = conn->dd_data;
-+
-+	if (!tcp_conn->sock)
-+		return;
-+
-+	sockfd_put(tcp_conn->sock);
-+	tcp_conn->sock = NULL;
-+	conn->recv_lock = NULL;
-+}
-+
-+static void
- iscsi_tcp_conn_destroy(struct iscsi_cls_conn *cls_conn)
+ struct nfs_write_data *nfs_commit_alloc(void)
  {
- 	struct iscsi_conn *conn = cls_conn->dd_data;
- 	struct iscsi_tcp_conn *tcp_conn = conn->dd_data;
+-	struct nfs_write_data *p = kmem_cache_alloc(nfs_wdata_cachep, GFP_NOFS);
++	struct nfs_write_data *p = kmem_cache_alloc(nfs_wdata_cachep, GFP_NOIO);
  
-+	iscsi_tcp_release_conn(conn);
- 	iscsi_conn_teardown(cls_conn);
- 	if (tcp_conn->tx_hash.tfm)
- 		crypto_free_hash(tcp_conn->tx_hash.tfm);
-@@ -1851,6 +1865,7 @@ iscsi_tcp_conn_stop(struct iscsi_cls_con
- 	struct iscsi_tcp_conn *tcp_conn = conn->dd_data;
+ 	if (p) {
+ 		memset(p, 0, sizeof(*p));
+@@ -69,7 +69,7 @@ void nfs_commit_free(struct nfs_write_da
  
- 	iscsi_conn_stop(cls_conn, flag);
-+	iscsi_tcp_release_conn(conn);
- 	tcp_conn->hdr_size = sizeof(struct iscsi_hdr);
- }
+ struct nfs_write_data *nfs_writedata_alloc(unsigned int pagecount)
+ {
+-	struct nfs_write_data *p = kmem_cache_alloc(nfs_wdata_cachep, GFP_NOFS);
++	struct nfs_write_data *p = kmem_cache_alloc(nfs_wdata_cachep, GFP_NOIO);
  
-@@ -1873,8 +1888,10 @@ iscsi_tcp_conn_bind(struct iscsi_cls_ses
- 	}
- 
- 	err = iscsi_conn_bind(cls_session, cls_conn, is_leading, transport_eph);
--	if (err)
--		goto done;
-+	if (err) {
-+		sockfd_put(sock);
-+		return err;
-+	}
- 
- 	/* bind iSCSI connection and socket */
- 	tcp_conn->sock = sock;
-@@ -1898,8 +1915,6 @@ iscsi_tcp_conn_bind(struct iscsi_cls_ses
- 	 */
- 	tcp_conn->in_progress = IN_PROGRESS_WAIT_HEADER;
- 
--done:
--	sockfd_put(sock);
- 	return err;
- }
- 
+ 	if (p) {
+ 		memset(p, 0, sizeof(*p));
+@@ -78,7 +78,7 @@ struct nfs_write_data *nfs_writedata_all
+ 		if (pagecount <= ARRAY_SIZE(p->page_array))
+ 			p->pagevec = p->page_array;
+ 		else {
+-			p->pagevec = kcalloc(pagecount, sizeof(struct page *), GFP_NOFS);
++			p->pagevec = kcalloc(pagecount, sizeof(struct page *), GFP_NOIO);
+ 			if (!p->pagevec) {
+ 				kmem_cache_free(nfs_wdata_cachep, p);
+ 				p = NULL;
+Index: linux-2.6-git/fs/nfs/pagelist.c
+===================================================================
+--- linux-2.6-git.orig/fs/nfs/pagelist.c
++++ linux-2.6-git/fs/nfs/pagelist.c
+@@ -28,7 +28,7 @@ static inline struct nfs_page *
+ nfs_page_alloc(void)
+ {
+ 	struct nfs_page	*p;
+-	p = kmem_cache_alloc(nfs_page_cachep, GFP_KERNEL);
++	p = kmem_cache_alloc(nfs_page_cachep, GFP_NOIO);
+ 	if (p) {
+ 		memset(p, 0, sizeof(*p));
+ 		INIT_LIST_HEAD(&p->wb_list);
 
 --
