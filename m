@@ -1,7 +1,7 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 32/40] block: add a swapdev callback to the request_queue
-Date: Fri, 04 May 2007 12:27:23 +0200
-Message-ID: <20070504103202.950175722@chello.nl>
+Subject: [PATCH 01/40] mm: page allocation rank
+Date: Fri, 04 May 2007 12:26:52 +0200
+Message-ID: <20070504103155.582370247@chello.nl>
 References: <20070504102651.923946304@chello.nl>
 Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	Trond Myklebust <trond.myklebust@fys.uio.no>,
@@ -10,97 +10,240 @@ Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	James Bottomley <James.Bottomley@SteelEye.com>,
 	Mike Christie <michaelc@cs.wisc.edu>,
 	Andrew Morton <akpm@linux-foundation.org>,
-	Daniel Phillips <phillips@google.com>,
-	Jens Axboe <jens.axboe@oracle.com>
+	Daniel Phillips <phillips@google.com>
 To: linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from amsfep17-int.chello.nl ([213.46.243.15]:3563 "EHLO
-	amsfep14-int.chello.nl" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1767843AbXEDKjP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2007 06:39:15 -0400
-Content-Disposition: inline; filename=blk_queue_swapdev.patch
-Sender: netdev-owner@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1423704AbXEDKj4@vger.kernel.org>
+Content-Disposition: inline; filename=mm-page_alloc-rank.patch
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Networked storage devices need a swap-on/off callback in order to setup
-some state and reserve memory. Place the block device callback in the
-request_queue as suggested by James Bottomley.
+Introduce page allocation rank.
+
+This allocation rank is an measure of the 'hardness' of the page allocation.
+Where hardness refers to how deep we have to reach (and thereby if reclaim 
+was activated) to obtain the page.
+
+It basically is a mapping from the ALLOC_/gfp flags into a scalar quantity,
+which allows for comparisons of the kind: 
+  'would this allocation have succeeded using these gfp flags'.
+
+For the gfp -> alloc_flags mapping we use the 'hardest' possible, those
+used by __alloc_pages() right before going into direct reclaim.
+
+The alloc_flags -> rank mapping is given by: 2*2^wmark - harder - 2*high
+where wmark = { min = 1, low, high } and harder, high are booleans.
+This gives:
+  0 is the hardest possible allocation - ALLOC_NO_WATERMARK,
+  1 is ALLOC_WMARK_MIN|ALLOC_HARDER|ALLOC_HIGH,
+  ...
+  15 is ALLOC_WMARK_HIGH|ALLOC_HARDER,
+  16 is the softest allocation - ALLOC_WMARK_HIGH.
+
+Rank <= 4 will have woke up kswapd and when also > 0 might have ran into
+direct reclaim.
+
+Rank > 8 rarely happens and means lots of memory free (due to parallel oom kill).
+
+The allocation rank is stored in page->index for successful allocations.
+
+'offline' testing of the rank is made impossible by direct reclaim and
+fragmentation issues. That is, it is impossible to tell if a given allocation
+will succeed without actually doing it.
+
+The purpose of this measure is to introduce some fairness into the slab
+allocator.
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Cc: Jens Axboe <jens.axboe@oracle.com>
-Cc: James Bottomley <James.Bottomley@SteelEye.com>
 ---
- include/linux/blkdev.h |   19 +++++++++++++++++++
- mm/swapfile.c          |    4 ++++
- 2 files changed, 23 insertions(+)
+ mm/internal.h   |   70 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ mm/page_alloc.c |   58 +++++++++++++---------------------------------
+ 2 files changed, 87 insertions(+), 41 deletions(-)
 
-Index: linux-2.6-git/include/linux/blkdev.h
+Index: linux-2.6-git/mm/internal.h
 ===================================================================
---- linux-2.6-git.orig/include/linux/blkdev.h	2007-01-08 11:53:13.000000000 +0100
-+++ linux-2.6-git/include/linux/blkdev.h	2007-01-16 14:14:50.000000000 +0100
-@@ -341,6 +341,7 @@ typedef int (merge_bvec_fn) (request_que
- typedef int (issue_flush_fn) (request_queue_t *, struct gendisk *, sector_t *);
- typedef void (prepare_flush_fn) (request_queue_t *, struct request *);
- typedef void (softirq_done_fn)(struct request *);
-+typedef int (swapdev_fn)(void*, int);
+--- linux-2.6-git.orig/mm/internal.h	2007-02-22 13:56:00.000000000 +0100
++++ linux-2.6-git/mm/internal.h	2007-02-22 14:08:41.000000000 +0100
+@@ -12,6 +12,7 @@
+ #define __MM_INTERNAL_H
  
- enum blk_queue_state {
- 	Queue_down,
-@@ -379,6 +380,8 @@ struct request_queue
- 	issue_flush_fn		*issue_flush_fn;
- 	prepare_flush_fn	*prepare_flush_fn;
- 	softirq_done_fn		*softirq_done_fn;
-+	swapdev_fn		*swapdev_fn;
-+	void			*swapdev_obj;
+ #include <linux/mm.h>
++#include <linux/hardirq.h>
  
- 	/*
- 	 * Dispatch queue sorting
-@@ -766,6 +769,22 @@ request_queue_t *blk_alloc_queue(gfp_t);
- request_queue_t *blk_alloc_queue_node(gfp_t, int);
- extern void blk_put_queue(request_queue_t *);
+ static inline void set_page_count(struct page *page, int v)
+ {
+@@ -37,4 +38,73 @@ static inline void __put_page(struct pag
+ extern void fastcall __init __free_pages_bootmem(struct page *page,
+ 						unsigned int order);
  
-+static inline
-+void blk_queue_swapdev(struct request_queue *rq,
-+		       swapdev_fn *swapdev_fn, void *swapdev_obj)
++#define ALLOC_HARDER		0x01 /* try to alloc harder */
++#define ALLOC_HIGH		0x02 /* __GFP_HIGH set */
++#define ALLOC_WMARK_MIN		0x04 /* use pages_min watermark */
++#define ALLOC_WMARK_LOW		0x08 /* use pages_low watermark */
++#define ALLOC_WMARK_HIGH	0x10 /* use pages_high watermark */
++#define ALLOC_NO_WATERMARKS	0x20 /* don't check watermarks at all */
++#define ALLOC_CPUSET		0x40 /* check for correct cpuset */
++
++/*
++ * get the deepest reaching allocation flags for the given gfp_mask
++ */
++static int inline gfp_to_alloc_flags(gfp_t gfp_mask)
 +{
-+	rq->swapdev_fn = swapdev_fn;
-+	rq->swapdev_obj = swapdev_obj;
++	struct task_struct *p = current;
++	int alloc_flags = ALLOC_WMARK_MIN | ALLOC_CPUSET;
++	const gfp_t wait = gfp_mask & __GFP_WAIT;
++
++	/*
++	 * The caller may dip into page reserves a bit more if the caller
++	 * cannot run direct reclaim, or if the caller has realtime scheduling
++	 * policy or is asking for __GFP_HIGH memory.  GFP_ATOMIC requests will
++	 * set both ALLOC_HARDER (!wait) and ALLOC_HIGH (__GFP_HIGH).
++	 */
++	if (gfp_mask & __GFP_HIGH)
++		alloc_flags |= ALLOC_HIGH;
++
++	if (!wait) {
++		alloc_flags |= ALLOC_HARDER;
++		/*
++		 * Ignore cpuset if GFP_ATOMIC (!wait) rather than fail alloc.
++		 * See also cpuset_zone_allowed() comment in kernel/cpuset.c.
++		 */
++		alloc_flags &= ~ALLOC_CPUSET;
++	} else if (unlikely(rt_task(p)) && !in_interrupt())
++		alloc_flags |= ALLOC_HARDER;
++
++	if (likely(!(gfp_mask & __GFP_NOMEMALLOC))) {
++		if (!in_interrupt() &&
++		    ((p->flags & PF_MEMALLOC) ||
++		     unlikely(test_thread_flag(TIF_MEMDIE))))
++			alloc_flags |= ALLOC_NO_WATERMARKS;
++	}
++
++	return alloc_flags;
 +}
 +
-+static inline
-+int blk_queue_swapdev_fn(struct request_queue *rq, int enable)
++#define MAX_ALLOC_RANK	16
++
++/*
++ * classify the allocation: 0 is hardest, 16 is easiest.
++ */
++static inline int alloc_flags_to_rank(int alloc_flags)
 +{
-+	if (rq->swapdev_fn)
-+		return rq->swapdev_fn(rq->swapdev_obj, enable);
-+	return 0;
++	int rank;
++
++	if (alloc_flags & ALLOC_NO_WATERMARKS)
++		return 0;
++
++	rank = alloc_flags & (ALLOC_WMARK_MIN|ALLOC_WMARK_LOW|ALLOC_WMARK_HIGH);
++	rank -= alloc_flags & (ALLOC_HARDER|ALLOC_HIGH);
++
++	return rank;
 +}
 +
- /*
-  * tag stuff
-  */
-Index: linux-2.6-git/mm/swapfile.c
++static inline int gfp_to_rank(gfp_t gfp_mask)
++{
++	return alloc_flags_to_rank(gfp_to_alloc_flags(gfp_mask));
++}
++
+ #endif
+Index: linux-2.6-git/mm/page_alloc.c
 ===================================================================
---- linux-2.6-git.orig/mm/swapfile.c	2007-01-15 09:59:02.000000000 +0100
-+++ linux-2.6-git/mm/swapfile.c	2007-01-16 14:14:50.000000000 +0100
-@@ -1305,6 +1305,7 @@ asmlinkage long sys_swapoff(const char _
- 	inode = mapping->host;
- 	if (S_ISBLK(inode->i_mode)) {
- 		struct block_device *bdev = I_BDEV(inode);
-+		blk_queue_swapdev_fn(bdev->bd_disk->queue, 0);
- 		set_blocksize(bdev, p->old_block_size);
- 		bd_release(bdev);
- 	} else {
-@@ -1524,6 +1525,9 @@ asmlinkage long sys_swapon(const char __
- 		error = set_blocksize(bdev, PAGE_SIZE);
- 		if (error < 0)
- 			goto bad_swap;
-+		error = blk_queue_swapdev_fn(bdev->bd_disk->queue, 1);
-+		if (error < 0)
-+			goto bad_swap;
- 		p->bdev = bdev;
- 	} else if (S_ISREG(inode->i_mode)) {
- 		p->bdev = inode->i_sb->s_bdev;
+--- linux-2.6-git.orig/mm/page_alloc.c	2007-02-22 13:56:00.000000000 +0100
++++ linux-2.6-git/mm/page_alloc.c	2007-02-22 14:08:41.000000000 +0100
+@@ -892,14 +892,6 @@ failed:
+ 	return NULL;
+ }
+ 
+-#define ALLOC_NO_WATERMARKS	0x01 /* don't check watermarks at all */
+-#define ALLOC_WMARK_MIN		0x02 /* use pages_min watermark */
+-#define ALLOC_WMARK_LOW		0x04 /* use pages_low watermark */
+-#define ALLOC_WMARK_HIGH	0x08 /* use pages_high watermark */
+-#define ALLOC_HARDER		0x10 /* try to alloc harder */
+-#define ALLOC_HIGH		0x20 /* __GFP_HIGH set */
+-#define ALLOC_CPUSET		0x40 /* check for correct cpuset */
+-
+ #ifdef CONFIG_FAIL_PAGE_ALLOC
+ 
+ static struct fail_page_alloc_attr {
+@@ -1190,6 +1182,7 @@ zonelist_scan:
+ 
+ 		page = buffered_rmqueue(zonelist, zone, order, gfp_mask);
+ 		if (page)
++			page->index = alloc_flags_to_rank(alloc_flags);
+ 			break;
+ this_zone_full:
+ 		if (NUMA_BUILD)
+@@ -1263,48 +1256,27 @@ restart:
+ 	 * OK, we're below the kswapd watermark and have kicked background
+ 	 * reclaim. Now things get more complex, so set up alloc_flags according
+ 	 * to how we want to proceed.
+-	 *
+-	 * The caller may dip into page reserves a bit more if the caller
+-	 * cannot run direct reclaim, or if the caller has realtime scheduling
+-	 * policy or is asking for __GFP_HIGH memory.  GFP_ATOMIC requests will
+-	 * set both ALLOC_HARDER (!wait) and ALLOC_HIGH (__GFP_HIGH).
+ 	 */
+-	alloc_flags = ALLOC_WMARK_MIN;
+-	if ((unlikely(rt_task(p)) && !in_interrupt()) || !wait)
+-		alloc_flags |= ALLOC_HARDER;
+-	if (gfp_mask & __GFP_HIGH)
+-		alloc_flags |= ALLOC_HIGH;
+-	if (wait)
+-		alloc_flags |= ALLOC_CPUSET;
++	alloc_flags = gfp_to_alloc_flags(gfp_mask);
+ 
+-	/*
+-	 * Go through the zonelist again. Let __GFP_HIGH and allocations
+-	 * coming from realtime tasks go deeper into reserves.
+-	 *
+-	 * This is the last chance, in general, before the goto nopage.
+-	 * Ignore cpuset if GFP_ATOMIC (!wait) rather than fail alloc.
+-	 * See also cpuset_zone_allowed() comment in kernel/cpuset.c.
+-	 */
+-	page = get_page_from_freelist(gfp_mask, order, zonelist, alloc_flags);
++	/* This is the last chance, in general, before the goto nopage. */
++	page = get_page_from_freelist(gfp_mask, order, zonelist,
++			alloc_flags & ~ALLOC_NO_WATERMARKS);
+ 	if (page)
+ 		goto got_pg;
+ 
+ 	/* This allocation should allow future memory freeing. */
+-
+ rebalance:
+-	if (((p->flags & PF_MEMALLOC) || unlikely(test_thread_flag(TIF_MEMDIE)))
+-			&& !in_interrupt()) {
+-		if (!(gfp_mask & __GFP_NOMEMALLOC)) {
++	if (alloc_flags & ALLOC_NO_WATERMARKS) {
+ nofail_alloc:
+-			/* go through the zonelist yet again, ignoring mins */
+-			page = get_page_from_freelist(gfp_mask, order,
++		/* go through the zonelist yet again, ignoring mins */
++		page = get_page_from_freelist(gfp_mask, order,
+ 				zonelist, ALLOC_NO_WATERMARKS);
+-			if (page)
+-				goto got_pg;
+-			if (gfp_mask & __GFP_NOFAIL) {
+-				congestion_wait(WRITE, HZ/50);
+-				goto nofail_alloc;
+-			}
++		if (page)
++			goto got_pg;
++		if (wait && (gfp_mask & __GFP_NOFAIL)) {
++			congestion_wait(WRITE, HZ/50);
++			goto nofail_alloc;
+ 		}
+ 		goto nopage;
+ 	}
+@@ -1313,6 +1285,10 @@ nofail_alloc:
+ 	if (!wait)
+ 		goto nopage;
+ 
++	/* Avoid recursion of direct reclaim */
++	if (p->flags & PF_MEMALLOC)
++		goto nopage;
++
+ 	cond_resched();
+ 
+ 	/* We now go into synchronous reclaim */
 
 --
-
