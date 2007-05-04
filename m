@@ -1,35 +1,74 @@
-From: David Miller <davem@davemloft.net>
+From: Daniel Walker <dwalker@mvista.com>
 Subject: Re: [PATCH 00/40] Swap over Networked storage -v12
-Date: Fri, 04 May 2007 12:27:16 -0700 (PDT)
-Message-ID: <20070504.122716.31641374.davem@davemloft.net>
+Date: Fri, 04 May 2007 12:31:26 -0700
+Message-ID: <1178307086.7997.75.camel@imap.mvista.com>
 References: <20070504102651.923946304@chello.nl>
+	 <1178292179.7997.12.camel@imap.mvista.com>
+	 <1178293081.24217.46.camel@twins>
+	 <1178294379.7997.26.camel@imap.mvista.com>
+	 <170fa0d20705041109j1d130456p4b7cef3633f8edb4@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org, trond.myklebust@fys.uio.no, tgraf@suug.ch,
-	James.Bottomley@SteelEye.com, michaelc@cs.wisc.edu,
-	akpm@linux-foundation.org, phillips@google.com
-To: a.p.zijlstra@chello.nl
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+	netdev@vger.kernel.org,
+	Trond Myklebust <trond.myklebust@fys.uio.no>,
+	Thomas Graf <tgraf@suug.ch>,
+	David Miller <davem@davemloft.net>,
+	James Bottomley <James.Bottomley@steeleye.com>,
+	Mike Christie <michaelc@cs.wisc.edu>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Daniel Phillips <phillips@google.com>
+To: Mike Snitzer <snitzer@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50091
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1423078AbXEDT13 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2007 15:27:29 -0400
-In-Reply-To: <20070504102651.923946304@chello.nl>
+Received: from gateway-1237.mvista.com ([63.81.120.158]:61021 "EHLO
+	gateway-1237.mvista.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1423103AbXEDTdK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2007 15:33:10 -0400
+In-Reply-To: <170fa0d20705041109j1d130456p4b7cef3633f8edb4@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Date: Fri, 04 May 2007 12:26:51 +0200
+On Fri, 2007-05-04 at 14:09 -0400, Mike Snitzer wrote:
+> On 5/4/07, Daniel Walker <dwalker@mvista.com> wrote:
+> > On Fri, 2007-05-04 at 17:38 +0200, Peter Zijlstra wrote:
+> > > >
+> > > > This is kind of a lot of patches all at once .. Have you release any of
+> > > > these patch sets prior to this release ?
+> > >
+> > > Like the -v12 suggests, this is the 12th posting of this patch set.
+> > > Some is the same, some has changed.
+> >
+> > I can find one prior release with this subject (-v11) , what was the
+> > subject prior to that release? It's not a hard rule, but usually >15
+> > patches is too many (check Documentation/SubmittingPatches under
+> > references).. You might want to consider submitting a URL instead.
+> 
+> Previous subjects were like:
+> [PATCH 00/20] vm deadlock avoidance for NFS, NBD and iSCSI (take 7)
+> 
+> A URL doesn't allow for true discussion about a particular patch
+> unless the reviewer takes the initiative to create a new thread to
+> discuss the Nth patch it a patchset; whereby taking on the burden of a
+> structured subject and so on.  It would get out of control on a large
+> patchset that actually got a lot of simultaneous feedback... reviewers
+> don't have a forum to talk about each individual change without
+> stepping on each others' toes.
 
-> There is a fundamental deadlock associated with paging;
+True ..
 
-I know you'd really like people like myself to review this work, but a
-set of 40 patches is just too much to try and digest at once
-especially when I have other things going on.  When I have lots of
-other things already on my plate, when I see a huge patch set like
-this I have to just say "delete" because I don't kid myself since
-I know I'll never get to it.
+> > I think it's a benefit to release less since a developer (like myself)
+> > might know very little about "Swap over Networked storage", but if you
+> > submit 10 patches that developer might still review it, 40 patches they
+> > likely wouldn't review it.
+> 
+> The _suggestions_ in Documentation/SubmittingPatches are nice and all
+> but the quantity of patches shouldn't _really_ matter.
 
-Sorry there's now way I can review this with my current workload.
+I guess I take the documentation more seriously than your do. It's
+clearly not mandatory, but for my reviewing I appreciate less then 15
+sets of "logical changes".
+
+Daniel
+
