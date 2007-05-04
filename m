@@ -1,7 +1,7 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 18/40] netvm: prevent a TCP specific deadlock
-Date: Fri, 04 May 2007 12:27:09 +0200
-Message-ID: <20070504103159.616506817@chello.nl>
+Subject: [PATCH 08/40] mm: kmem_cache_objsize
+Date: Fri, 04 May 2007 12:26:59 +0200
+Message-ID: <20070504103157.215424767@chello.nl>
 References: <20070504102651.923946304@chello.nl>
 Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	Trond Myklebust <trond.myklebust@fys.uio.no>,
@@ -10,84 +10,123 @@ Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	James Bottomley <James.Bottomley@SteelEye.com>,
 	Mike Christie <michaelc@cs.wisc.edu>,
 	Andrew Morton <akpm@linux-foundation.org>,
-	Daniel Phillips <phillips@google.com>
+	Daniel Phillips <phillips@google.com>,
+	Pekka Enberg <penberg@cs.helsinki.fi>
 To: linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from amsfep17-int.chello.nl ([213.46.243.15]:31145 "EHLO
-	amsfep13-int.chello.nl" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S2993226AbXEDKe7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2007 06:34:59 -0400
-Content-Disposition: inline; filename=netvm-tcp-deadlock.patch
-Sender: netdev-owner@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1767848AbXEDKry@vger.kernel.org>
+Content-Disposition: inline; filename=mm-kmem_objsize.patch
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-It could happen that all !SOCK_VMIO sockets have buffered so much data
-that we're over the global rmem limit. This will prevent SOCK_VMIO buffers
-from receiving data, which will prevent userspace from running, which is needed
-to reduce the buffered data.
+Expost buffer_size in order to allow fair estimates on the actual space 
+used/needed.
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Cc: Pekka Enberg <penberg@cs.helsinki.fi>
 ---
- include/net/sock.h  |    7 ++++---
- net/core/stream.c   |    5 +++--
- net/ipv4/tcp_ipv4.c |    8 ++++++++
- net/ipv6/tcp_ipv6.c |    8 ++++++++
- 4 files changed, 23 insertions(+), 5 deletions(-)
+ include/linux/slab.h |    2 ++
+ mm/slab.c            |   16 ++++++++++++++--
+ mm/slob.c            |   18 ++++++++++++++++++
+ 3 files changed, 34 insertions(+), 2 deletions(-)
 
-Index: linux-2.6-git/include/net/sock.h
+Index: linux-2.6-git/include/linux/slab.h
 ===================================================================
---- linux-2.6-git.orig/include/net/sock.h	2007-02-14 12:09:05.000000000 +0100
-+++ linux-2.6-git/include/net/sock.h	2007-02-14 12:09:21.000000000 +0100
-@@ -730,7 +730,8 @@ static inline struct inode *SOCK_INODE(s
- }
+--- linux-2.6-git.orig/include/linux/slab.h	2007-03-26 14:18:59.000000000 +0200
++++ linux-2.6-git/include/linux/slab.h	2007-03-26 18:33:58.000000000 +0200
+@@ -54,6 +54,7 @@ void *kmem_cache_alloc(struct kmem_cache
+ void *kmem_cache_zalloc(struct kmem_cache *, gfp_t);
+ void kmem_cache_free(struct kmem_cache *, void *);
+ unsigned int kmem_cache_size(struct kmem_cache *);
++unsigned int kmem_cache_objsize(struct kmem_cache *);
+ const char *kmem_cache_name(struct kmem_cache *);
+ int kmem_ptr_validate(struct kmem_cache *cachep, const void *ptr);
  
- extern void __sk_stream_mem_reclaim(struct sock *sk);
--extern int sk_stream_mem_schedule(struct sock *sk, int size, int kind);
-+extern int sk_stream_mem_schedule(struct sock *sk, struct sk_buff *skb,
-+		int size, int kind);
+@@ -74,6 +75,7 @@ void *__kmalloc(size_t, gfp_t);
+ void *__kzalloc(size_t, gfp_t);
+ void kfree(const void *);
+ unsigned int ksize(const void *);
++unsigned int kobjsize(size_t);
  
- #define SK_STREAM_MEM_QUANTUM ((int)PAGE_SIZE)
- 
-@@ -757,13 +758,13 @@ static inline void sk_stream_writequeue_
- static inline int sk_stream_rmem_schedule(struct sock *sk, struct sk_buff *skb)
- {
- 	return (int)skb->truesize <= sk->sk_forward_alloc ||
--		sk_stream_mem_schedule(sk, skb->truesize, 1);
-+		sk_stream_mem_schedule(sk, skb, skb->truesize, 1);
- }
- 
- static inline int sk_stream_wmem_schedule(struct sock *sk, int size)
- {
- 	return size <= sk->sk_forward_alloc ||
--	       sk_stream_mem_schedule(sk, size, 0);
-+	       sk_stream_mem_schedule(sk, NULL, size, 0);
- }
- 
- /* Used by processes to "lock" a socket state, so that
-Index: linux-2.6-git/net/core/stream.c
+ /**
+  * kcalloc - allocate memory for an array. The memory is set to zero.
+Index: linux-2.6-git/mm/slab.c
 ===================================================================
---- linux-2.6-git.orig/net/core/stream.c	2007-02-14 12:09:05.000000000 +0100
-+++ linux-2.6-git/net/core/stream.c	2007-02-14 12:09:21.000000000 +0100
-@@ -207,7 +207,7 @@ void __sk_stream_mem_reclaim(struct sock
+--- linux-2.6-git.orig/mm/slab.c	2007-03-26 15:44:34.000000000 +0200
++++ linux-2.6-git/mm/slab.c	2007-03-28 10:10:36.000000000 +0200
+@@ -3205,12 +3205,12 @@ static inline void *____cache_alloc(stru
+ }
  
- EXPORT_SYMBOL(__sk_stream_mem_reclaim);
- 
--int sk_stream_mem_schedule(struct sock *sk, int size, int kind)
-+int sk_stream_mem_schedule(struct sock *sk, struct sk_buff *skb, int size, int kind)
+ #ifdef CONFIG_SLAB_FAIR
+-static inline int slab_alloc_rank(gfp_t flags)
++static __always_inline int slab_alloc_rank(gfp_t flags)
  {
- 	int amt = sk_stream_pages(size);
+ 	return gfp_to_rank(flags);
+ }
+ #else
+-static inline int slab_alloc_rank(gfp_t flags)
++static __always_inline int slab_alloc_rank(gfp_t flags)
+ {
+ 	return 0;
+ }
+@@ -3815,6 +3815,12 @@ unsigned int kmem_cache_size(struct kmem
+ }
+ EXPORT_SYMBOL(kmem_cache_size);
  
-@@ -224,7 +224,8 @@ int sk_stream_mem_schedule(struct sock *
- 	/* Over hard limit. */
- 	if (atomic_read(sk->sk_prot->memory_allocated) > sk->sk_prot->sysctl_mem[2]) {
- 		sk->sk_prot->enter_memory_pressure();
--		goto suppress_allocation;
-+		if (!skb || (skb && !skb_emergency(skb)))
-+			goto suppress_allocation;
- 	}
++unsigned int kmem_cache_objsize(struct kmem_cache *cachep)
++{
++	return cachep->buffer_size;
++}
++EXPORT_SYMBOL_GPL(kmem_cache_objsize);
++
+ const char *kmem_cache_name(struct kmem_cache *cachep)
+ {
+ 	return cachep->name;
+@@ -4512,3 +4518,9 @@ unsigned int ksize(const void *objp)
  
- 	/* Under pressure. */
+ 	return obj_size(virt_to_cache(objp));
+ }
++
++unsigned int kobjsize(size_t size)
++{
++	return kmem_cache_objsize(kmem_find_general_cachep(size, 0));
++}
++EXPORT_SYMBOL_GPL(kobjsize);
+Index: linux-2.6-git/mm/slob.c
+===================================================================
+--- linux-2.6-git.orig/mm/slob.c	2007-03-26 14:18:59.000000000 +0200
++++ linux-2.6-git/mm/slob.c	2007-03-26 18:33:58.000000000 +0200
+@@ -240,6 +240,15 @@ unsigned int ksize(const void *block)
+ 	return ((slob_t *)block - 1)->units * SLOB_UNIT;
+ }
+ 
++unsigned int kobjsize(size_t size)
++{
++	if (size < PAGE_SIZE)
++		return size;
++
++	return PAGE_SIZE << find_order(size);
++}
++EXPORT_SYMBOL_GPL(kobjsize);
++
+ struct kmem_cache {
+ 	unsigned int size, align;
+ 	const char *name;
+@@ -321,6 +330,15 @@ unsigned int kmem_cache_size(struct kmem
+ }
+ EXPORT_SYMBOL(kmem_cache_size);
+ 
++unsigned int kmem_cache_objsize(struct kmem_cache *c)
++{
++	if (c->size < PAGE_SIZE)
++		return c->size + c->align;
++
++	return PAGE_SIZE << find_order(c->size);
++}
++EXPORT_SYMBOL_GPL(kmem_cache_objsize);
++
+ const char *kmem_cache_name(struct kmem_cache *c)
+ {
+ 	return c->name;
 
 --
-
