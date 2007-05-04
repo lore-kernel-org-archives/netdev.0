@@ -1,34 +1,37 @@
-From: David Miller <davem@davemloft.net>
+From: jamal <hadi@cyberus.ca>
 Subject: Re: [RESEND][PATCH][XFRM] SAD info TLV aggregation
-Date: Thu, 03 May 2007 17:52:51 -0700 (PDT)
-Message-ID: <20070503.175251.122616732.davem@davemloft.net>
-References: <1178233601.4068.2.camel@localhost>
-	<463A7BF7.5010604@trash.net>
-	<1178239828.4068.52.camel@localhost>
+Date: Thu, 03 May 2007 21:01:17 -0400
+Message-ID: <1178240477.4068.56.camel@localhost>
+References: <1178233601.4068.2.camel@localhost> <463A7BF7.5010604@trash.net>
+	 <1178239828.4068.52.camel@localhost>
+	 <20070503.175251.122616732.davem@davemloft.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: kaber@trash.net, netdev@vger.kernel.org
-To: hadi@cyberus.ca
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37667
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1767552AbXEDAwu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2007 20:52:50 -0400
-In-Reply-To: <1178239828.4068.52.camel@localhost>
+Received: from wx-out-0506.google.com ([66.249.82.227]:8123 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1767529AbXEDBBV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2007 21:01:21 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so608187wxd
+        for <netdev@vger.kernel.org>; Thu, 03 May 2007 18:01:21 -0700 (PDT)
+In-Reply-To: <20070503.175251.122616732.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: jamal <hadi@cyberus.ca>
-Date: Thu, 03 May 2007 20:50:28 -0400
+On Thu, 2007-03-05 at 17:52 -0700, David Miller wrote:
 
-> On Fri, 2007-04-05 at 02:19 +0200, Patrick McHardy wrote:
-> 
-> > If you dont mind I'm just going to resend myself with fixed
-> > names tomorrow so you don't have to bother doing this again.
-> 
-> If you have the cycles please go ahead. Otherwise i could do it
-> in a couple of days.
+> I'll sit tight and wait for the next version, whoever
+> creates it :-)
 
-I'll sit tight and wait for the next version, whoever
-creates it :-)
+I could send you an incremental patch if that would work
+( a 4+/- liner on the include). 
+
+cheers,
+jamal
+
+
+
