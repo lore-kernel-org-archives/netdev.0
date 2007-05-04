@@ -1,7 +1,7 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 31/40] mm: balance_dirty_pages() vs throttle_vm_writeout() deadlock
-Date: Fri, 04 May 2007 12:27:22 +0200
-Message-ID: <20070504103202.718545249@chello.nl>
+Subject: [PATCH 11/40] net: wrap sk->sk_backlog_rcv()
+Date: Fri, 04 May 2007 12:27:02 +0200
+Message-ID: <20070504103157.934516800@chello.nl>
 References: <20070504102651.923946304@chello.nl>
 Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	Trond Myklebust <trond.myklebust@fys.uio.no>,
@@ -13,45 +13,90 @@ Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	Daniel Phillips <phillips@google.com>
 To: linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1767824AbXEDKqs@vger.kernel.org>
-Content-Disposition: inline; filename=nfs_mm-throttle_vm_writeout.patch
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from amsfep17-int.chello.nl ([213.46.243.15]:46698 "EHLO
+	amsfep12-int.chello.nl" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S2993218AbXEDKfo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2007 06:35:44 -0400
+Content-Disposition: inline; filename=net-backlog.patch
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-If we have a lot of dirty memory and hit the throttle in balance_dirty_pages()
-we (potentially) generate a lot of writeback and unstable pages, if however
-during this writeback we need to reclaim a bit, we might hit
-throttle_vm_writeout(), which might delay us until the combined total of
-NR_UNSTABLE_NFS + NR_WRITEBACK falls below the dirty limit.
-
-However unstable pages don't go away automagickally, they need a push. While
-balance_dirty_pages() does this push, throttle_vm_writeout() doesn't. So we can
-sit here ad infintum.
-
-Hence I propose to remove the NR_UNSTABLE_NFS count from throttle_vm_writeout().
-
-Akpm's recent GFP checks don't much change this picture, any __GFP_IO|__GFP_FS
-alloc can still get stalled by this. It turns into a deadlock when swapping
-over NFS.
+Wrap calling sk->sk_backlog_rcv() in a function. This will allow extending the
+generic sk_backlog_rcv behaviour.
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 ---
- mm/page-writeback.c |    3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ include/net/sock.h   |    5 +++++
+ net/core/sock.c      |    4 ++--
+ net/ipv4/tcp.c       |    2 +-
+ net/ipv4/tcp_timer.c |    2 +-
+ 4 files changed, 9 insertions(+), 4 deletions(-)
 
-Index: linux-2.6-git/mm/page-writeback.c
+Index: linux-2.6-git/include/net/sock.h
 ===================================================================
---- linux-2.6-git.orig/mm/page-writeback.c	2007-03-06 17:44:23.000000000 +0100
-+++ linux-2.6-git/mm/page-writeback.c	2007-03-15 15:09:16.000000000 +0100
-@@ -320,8 +320,7 @@ void throttle_vm_writeout(gfp_t gfp_mask
-                  */
-                 dirty_thresh += dirty_thresh / 10;      /* wheeee... */
+--- linux-2.6-git.orig/include/net/sock.h	2007-02-14 11:29:55.000000000 +0100
++++ linux-2.6-git/include/net/sock.h	2007-02-14 11:42:00.000000000 +0100
+@@ -480,6 +480,11 @@ static inline void sk_add_backlog(struct
+ 	skb->next = NULL;
+ }
  
--                if (global_page_state(NR_UNSTABLE_NFS) +
--			global_page_state(NR_WRITEBACK) <= dirty_thresh)
-+                if (global_page_state(NR_WRITEBACK) <= dirty_thresh)
-                         	break;
-                 congestion_wait(WRITE, HZ/10);
-         }
++static inline int sk_backlog_rcv(struct sock *sk, struct sk_buff *skb)
++{
++	return sk->sk_backlog_rcv(sk, skb);
++}
++
+ #define sk_wait_event(__sk, __timeo, __condition)		\
+ ({	int rc;							\
+ 	release_sock(__sk);					\
+Index: linux-2.6-git/net/core/sock.c
+===================================================================
+--- linux-2.6-git.orig/net/core/sock.c	2007-02-14 11:29:55.000000000 +0100
++++ linux-2.6-git/net/core/sock.c	2007-02-14 11:42:00.000000000 +0100
+@@ -290,7 +290,7 @@ int sk_receive_skb(struct sock *sk, stru
+ 		 */
+ 		mutex_acquire(&sk->sk_lock.dep_map, 0, 1, _RET_IP_);
+ 
+-		rc = sk->sk_backlog_rcv(sk, skb);
++		rc = sk_backlog_rcv(sk, skb);
+ 
+ 		mutex_release(&sk->sk_lock.dep_map, 1, _RET_IP_);
+ 	} else
+@@ -1244,7 +1244,7 @@ static void __release_sock(struct sock *
+ 			struct sk_buff *next = skb->next;
+ 
+ 			skb->next = NULL;
+-			sk->sk_backlog_rcv(sk, skb);
++			sk_backlog_rcv(sk, skb);
+ 
+ 			/*
+ 			 * We are in process context here with softirqs
+Index: linux-2.6-git/net/ipv4/tcp.c
+===================================================================
+--- linux-2.6-git.orig/net/ipv4/tcp.c	2007-02-14 11:29:35.000000000 +0100
++++ linux-2.6-git/net/ipv4/tcp.c	2007-02-14 11:42:00.000000000 +0100
+@@ -1002,7 +1002,7 @@ static void tcp_prequeue_process(struct 
+ 	 * necessary */
+ 	local_bh_disable();
+ 	while ((skb = __skb_dequeue(&tp->ucopy.prequeue)) != NULL)
+-		sk->sk_backlog_rcv(sk, skb);
++		sk_backlog_rcv(sk, skb);
+ 	local_bh_enable();
+ 
+ 	/* Clear memory counter. */
+Index: linux-2.6-git/net/ipv4/tcp_timer.c
+===================================================================
+--- linux-2.6-git.orig/net/ipv4/tcp_timer.c	2007-02-14 11:29:36.000000000 +0100
++++ linux-2.6-git/net/ipv4/tcp_timer.c	2007-02-14 11:42:00.000000000 +0100
+@@ -198,7 +198,7 @@ static void tcp_delack_timer(unsigned lo
+ 		NET_INC_STATS_BH(LINUX_MIB_TCPSCHEDULERFAILED);
+ 
+ 		while ((skb = __skb_dequeue(&tp->ucopy.prequeue)) != NULL)
+-			sk->sk_backlog_rcv(sk, skb);
++			sk_backlog_rcv(sk, skb);
+ 
+ 		tp->ucopy.memory = 0;
+ 	}
 
 --
+
