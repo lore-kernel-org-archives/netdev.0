@@ -1,7 +1,7 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 28/40] nfs: enable swap on NFS
-Date: Fri, 04 May 2007 12:27:19 +0200
-Message-ID: <20070504103201.987245048@chello.nl>
+Subject: [PATCH 09/40] mm: optimize gfp_to_rank()
+Date: Fri, 04 May 2007 12:27:00 +0200
+Message-ID: <20070504103157.465884989@chello.nl>
 References: <20070504102651.923946304@chello.nl>
 Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	Trond Myklebust <trond.myklebust@fys.uio.no>,
@@ -13,260 +13,91 @@ Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	Daniel Phillips <phillips@google.com>
 To: linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1423706AbXEDKpA@vger.kernel.org>
-Content-Disposition: inline; filename=nfs-swapfile.patch
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from amsfep17-int.chello.nl ([213.46.243.15]:3563 "EHLO
+	amsfep14-int.chello.nl" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1767819AbXEDKiq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2007 06:38:46 -0400
+Content-Disposition: inline; filename=mm-optimize-gtp_to_rank.patch
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Provide an a_ops->swapfile() implementation for NFS. This will set the
-NFS socket to SOCK_VMIO and run socket reconnect under PF_MEMALLOC as well
-as reset SOCK_VMIO before engaging the protocol ->connect() method.
+The gfp_to_rank() call in the slab allocator severely impacts performance.
+Hence reduce it to the bone, keeping only what is needed to make the reserve
+work.
 
-PF_MEMALLOC should allow the allocation of struct socket and related objects
-and the early (re)setting of SOCK_VMIO should allow us to receive the packets
-required for the TCP connection buildup.
+[more AIM9 results go here]
 
-(swapping continues over a server reset during heavy network traffic)
+ AIM9 test          2.6.21-rc5            2.6.21-rc5-slab1             
+                                         CONFIG_SLAB_FAIR=y            
+
+54 tcp_test      2124.48 +/-  10.85    2137.43 +/-  9.22    12.95      
+55 udp_test      5204.43 +/-  45.13    5231.59 +/- 56.66    27.16      
+56 fifo_test    20991.42 +/-  46.71   19675.97 +/- 56.35  1315.44      
+57 stream_pipe  10024.16 +/- 119.88    9912.53 +/- 75.52   111.63      
+58 dgram_pipe    9460.18 +/- 119.50    9502.75 +/- 89.06    42.57      
+59 pipe_cpy     30719.81 +/- 117.01   27885.52 +/- 46.81  2834.28      
+
+                                          2.6.21-rc5-slab2    
+                                         CONFIG_SLAB_FAIR=y   
+                                                              
+54 tcp_test      2124.48 +/-  10.85    2122.80 +/-   4.70     1.68
+55 udp_test      5204.43 +/-  45.13    5136.98 +/-  62.31    67.45
+56 fifo_test    20991.42 +/-  46.71   19646.81 +/-  53.61  1344.60
+57 stream_pipe  10024.16 +/- 119.88    9940.87 +/- 280.73    83.29
+58 dgram_pipe    9460.18 +/- 119.50    9432.69 +/- 250.27    27.49
+59 pipe_cpy     30719.81 +/- 117.01   27870.70 +/-  65.50  2849.10
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Cc: Trond Myklebust <trond.myklebust@fys.uio.no>
 ---
- fs/Kconfig                  |   19 +++++++++++++++
- fs/nfs/file.c               |   10 ++++++++
- include/linux/sunrpc/xprt.h |    5 +++-
- net/sunrpc/sched.c          |    7 ++++-
- net/sunrpc/xprtsock.c       |   54 ++++++++++++++++++++++++++++++++++++++++++++
- 5 files changed, 92 insertions(+), 3 deletions(-)
+ mm/internal.h |   33 +++++++++++++++++++++++++++++++--
+ 1 file changed, 31 insertions(+), 2 deletions(-)
 
-Index: linux-2.6-git/fs/nfs/file.c
+Index: linux-2.6-git/mm/internal.h
 ===================================================================
---- linux-2.6-git.orig/fs/nfs/file.c
-+++ linux-2.6-git/fs/nfs/file.c
-@@ -324,6 +324,13 @@ static int nfs_launder_page(struct page 
- 	return nfs_wb_page(page_file_mapping(page)->host, page);
+--- linux-2.6-git.orig/mm/internal.h	2007-02-22 14:09:39.000000000 +0100
++++ linux-2.6-git/mm/internal.h	2007-02-22 14:24:34.000000000 +0100
+@@ -105,9 +105,38 @@ static inline int alloc_flags_to_rank(in
+ 	return rank;
  }
  
-+#ifdef CONFIG_NFS_SWAP
-+static int nfs_swapfile(struct address_space *mapping, int enable)
-+{
-+	return xs_swapper(NFS_CLIENT(mapping->host)->cl_xprt, enable);
-+}
-+#endif
-+
- const struct address_space_operations nfs_file_aops = {
- 	.readpage = nfs_readpage,
- 	.readpages = nfs_readpages,
-@@ -338,6 +345,9 @@ const struct address_space_operations nf
- 	.direct_IO = nfs_direct_IO,
- #endif
- 	.launder_page = nfs_launder_page,
-+#ifdef CONFIG_NFS_SWAP
-+	.swapfile = nfs_swapfile,
-+#endif
- };
- 
- static ssize_t nfs_file_write(struct kiocb *iocb, const struct iovec *iov,
-Index: linux-2.6-git/include/linux/sunrpc/xprt.h
-===================================================================
---- linux-2.6-git.orig/include/linux/sunrpc/xprt.h
-+++ linux-2.6-git/include/linux/sunrpc/xprt.h
-@@ -151,7 +151,9 @@ struct rpc_xprt {
- 	unsigned int		max_reqs;	/* total slots */
- 	unsigned long		state;		/* transport state */
- 	unsigned char		shutdown   : 1,	/* being shut down */
--				resvport   : 1; /* use a reserved port */
-+				resvport   : 1, /* use a reserved port */
-+				swapper    : 1; /* we're swapping over this
-+						   transport */
- 	unsigned int		bind_index;	/* bind function index */
- 
- 	/*
-@@ -244,6 +246,7 @@ void			xprt_disconnect(struct rpc_xprt *
-  */
- struct rpc_xprt *	xs_setup_udp(struct sockaddr *addr, size_t addrlen, struct rpc_timeout *to);
- struct rpc_xprt *	xs_setup_tcp(struct sockaddr *addr, size_t addrlen, struct rpc_timeout *to);
-+int			xs_swapper(struct rpc_xprt *xprt, int enable);
- 
- /*
-  * Reserved bit positions in xprt->state
-Index: linux-2.6-git/net/sunrpc/sched.c
-===================================================================
---- linux-2.6-git.orig/net/sunrpc/sched.c
-+++ linux-2.6-git/net/sunrpc/sched.c
-@@ -755,7 +755,10 @@ static void rpc_async_schedule(struct wo
- void *rpc_malloc(struct rpc_task *task, size_t size)
+-static inline int gfp_to_rank(gfp_t gfp_mask)
++static __always_inline int gfp_to_rank(gfp_t gfp_mask)
  {
- 	size_t *buf;
--	gfp_t gfp = RPC_IS_SWAPPER(task) ? GFP_ATOMIC : GFP_NOWAIT;
-+	gfp_t gfp = GFP_NOWAIT;
+-	return alloc_flags_to_rank(gfp_to_alloc_flags(gfp_mask));
++	/*
++	 * Although correct this full version takes a ~3% performance hit
++	 * on the network test in aim9.
++	 *
++	 * return alloc_flags_to_rank(gfp_to_alloc_flags(gfp_mask));
++	 *
++	 * So we go cheat a little. We'll only focus on the correctness of
++	 * rank 0.
++	 */
 +
-+	if (RPC_IS_SWAPPER(task))
-+		gfp |= __GFP_EMERGENCY;
- 
- 	size += sizeof(size_t);
- 	if (size <= RPC_BUFFER_MAXSIZE)
-@@ -837,7 +840,7 @@ void rpc_init_task(struct rpc_task *task
- static struct rpc_task *
- rpc_alloc_task(void)
- {
--	return (struct rpc_task *)mempool_alloc(rpc_task_mempool, GFP_NOFS);
-+	return (struct rpc_task *)mempool_alloc(rpc_task_mempool, GFP_NOIO);
- }
- 
- static void rpc_free_task(struct rcu_head *rcu)
-Index: linux-2.6-git/net/sunrpc/xprtsock.c
-===================================================================
---- linux-2.6-git.orig/net/sunrpc/xprtsock.c
-+++ linux-2.6-git/net/sunrpc/xprtsock.c
-@@ -1215,11 +1215,15 @@ static void xs_udp_connect_worker(struct
- 		container_of(work, struct sock_xprt, connect_worker.work);
- 	struct rpc_xprt *xprt = &transport->xprt;
- 	struct socket *sock = transport->sock;
-+	unsigned long pflags = current->flags;
- 	int err, status = -EIO;
- 
- 	if (xprt->shutdown || !xprt_bound(xprt))
- 		goto out;
- 
-+	if (xprt->swapper)
-+		current->flags |= PF_MEMALLOC;
-+
- 	/* Start by resetting any existing state */
- 	xs_close(xprt);
- 
-@@ -1257,6 +1261,9 @@ static void xs_udp_connect_worker(struct
- 		transport->sock = sock;
- 		transport->inet = sk;
- 
-+		if (xprt->swapper)
-+			sk_set_vmio(sk);
-+
- 		write_unlock_bh(&sk->sk_callback_lock);
- 	}
- 	xs_udp_do_set_buffer_size(xprt);
-@@ -1264,6 +1271,7 @@ static void xs_udp_connect_worker(struct
- out:
- 	xprt_wake_pending_tasks(xprt, status);
- 	xprt_clear_connecting(xprt);
-+	tsk_restore_flags(current, pflags, PF_MEMALLOC);
- }
- 
- /*
-@@ -1302,11 +1310,15 @@ static void xs_tcp_connect_worker(struct
- 		container_of(work, struct sock_xprt, connect_worker.work);
- 	struct rpc_xprt *xprt = &transport->xprt;
- 	struct socket *sock = transport->sock;
-+	unsigned long pflags = current->flags;
- 	int err, status = -EIO;
- 
- 	if (xprt->shutdown || !xprt_bound(xprt))
- 		goto out;
- 
-+	if (xprt->swapper)
-+		current->flags |= PF_MEMALLOC;
-+
- 	if (!sock) {
- 		/* start from scratch */
- 		if ((err = sock_create_kern(PF_INET, SOCK_STREAM, IPPROTO_TCP, &sock)) < 0) {
-@@ -1356,6 +1368,10 @@ static void xs_tcp_connect_worker(struct
- 		write_unlock_bh(&sk->sk_callback_lock);
- 	}
- 
-+
-+	if (xprt->swapper)
-+		sk_set_vmio(transport->inet);
-+
- 	/* Tell the socket layer to start connecting... */
- 	xprt->stat.connect_count++;
- 	xprt->stat.connect_start = jiffies;
-@@ -1383,6 +1399,7 @@ out:
- 	xprt_wake_pending_tasks(xprt, status);
- out_clear:
- 	xprt_clear_connecting(xprt);
-+	tsk_restore_flags(current, pflags, PF_MEMALLOC);
- }
- 
- /**
-@@ -1642,6 +1659,43 @@ int init_socket_xprt(void)
- 	return 0;
- }
- 
-+#ifdef CONFIG_SUNRPC_SWAP
-+#define RPC_BUF_RESERVE_PAGES	\
-+	DIV_ROUND_UP((RPC_MAX_SLOT_TABLE * \
-+				kobjsize(sizeof(struct rpc_rqst))), \
-+			PAGE_SIZE)
-+#define RPC_RESERVE_PAGES	(RPC_BUF_RESERVE_PAGES + TX_RESERVE_PAGES)
-+
-+/**
-+ * xs_swapper - Tag this transport as being used for swap.
-+ * @xprt: transport to tag
-+ * @enable: enable/disable
-+ *
-+ */
-+int xs_swapper(struct rpc_xprt *xprt, int enable)
-+{
-+	struct sock_xprt *transport = container_of(xprt, struct sock_xprt, xprt);
-+	int err = 0;
-+
-+	if (enable) {
++	if (likely(!(gfp_mask & __GFP_NOMEMALLOC))) {
++		if (gfp_mask & __GFP_EMERGENCY)
++			return 0;
++		else if (!in_irq() && (current->flags & PF_MEMALLOC))
++			return 0;
 +		/*
-+		 * keep one extra sock reference so the reserve won't dip
-+		 * when the socket gets reconnected.
++		 * We skip the TIF_MEMDIE test:
++		 *
++		 * if (!in_interrupt() && unlikely(test_thread_flag(TIF_MEMDIE)))
++		 * 	return 0;
++		 *
++		 * this will force an alloc but since we are allowed the memory
++		 * that will succeed. This will make this very rare occurence
++		 * very expensive when under severe memory pressure, but it
++		 * seems a valid tradeoff.
 +		 */
-+		sk_adjust_memalloc(1, RPC_RESERVE_PAGES);
-+		sk_set_vmio(transport->inet);
-+		xprt->swapper = 1;
-+	} else if (xprt->swapper) {
-+		xprt->swapper = 0;
-+		sk_clear_vmio(transport->inet);
-+		sk_adjust_memalloc(-1, -RPC_RESERVE_PAGES);
 +	}
 +
-+	return err;
-+}
-+EXPORT_SYMBOL_GPL(xs_swapper);
-+#endif
-+
- /**
-  * cleanup_socket_xprt - remove xprtsock's sysctls
-  *
-Index: linux-2.6-git/fs/Kconfig
-===================================================================
---- linux-2.6-git.orig/fs/Kconfig
-+++ linux-2.6-git/fs/Kconfig
-@@ -1621,6 +1621,18 @@ config NFS_DIRECTIO
- 	  causes open() to return EINVAL if a file residing in NFS is
- 	  opened with the O_DIRECT flag.
++	/* Cheat by lumping everybody else in rank 1. */
++	return 1;
+ }
  
-+config NFS_SWAP
-+	bool "Provide swap over NFS support"
-+	default n
-+	depends on NFS_FS
-+	select SUNRPC_SWAP
-+	help
-+	  This option enables swapon to work on files located on NFS mounts.
-+
-+	  For more details, see Documentation/vm_deadlock.txt
-+
-+	  If unsure, say N.
-+
- config NFSD
- 	tristate "NFS server support"
- 	depends on INET
-@@ -1746,6 +1758,13 @@ config SUNRPC_BIND34
- 	  If unsure, say N to get traditional behavior (version 2 rpcbind
- 	  requests only).
- 
-+config SUNRPC_SWAP
-+	def_bool n
-+	depends on SUNRPC
-+	select SLAB_FAIR
-+	select NETVM
-+	select SWAP_FILE
-+
- config RPCSEC_GSS_KRB5
- 	tristate "Secure RPC: Kerberos V mechanism (EXPERIMENTAL)"
- 	depends on SUNRPC && EXPERIMENTAL
+ #endif
 
 --
+
