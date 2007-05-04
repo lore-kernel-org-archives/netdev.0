@@ -1,7 +1,7 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 07/40] mm: allow mempool to fall back to memalloc reserves
-Date: Fri, 04 May 2007 12:26:58 +0200
-Message-ID: <20070504103156.997011750@chello.nl>
+Subject: [PATCH 03/40] mm: allow PF_MEMALLOC from softirq context
+Date: Fri, 04 May 2007 12:26:54 +0200
+Message-ID: <20070504103156.057213163@chello.nl>
 References: <20070504102651.923946304@chello.nl>
 Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	Trond Myklebust <trond.myklebust@fys.uio.no>,
@@ -13,46 +13,80 @@ Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	Daniel Phillips <phillips@google.com>
 To: linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S2993258AbXEDKf2@vger.kernel.org>
-Content-Disposition: inline; filename=mm-mempool_fixup.patch
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from amsfep17-int.chello.nl ([213.46.243.15]:5096 "EHLO
+	amsfep18-int.chello.nl" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S2993244AbXEDKf0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2007 06:35:26 -0400
+Content-Disposition: inline; filename=mm-PF_MEMALLOC-softirq.patch
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Allow the mempool to use the memalloc reserves when all else fails and
-the allocation context would otherwise allow it.
+Allow PF_MEMALLOC to be set in softirq context. When running softirqs from
+a borrowed context save current->flags, ksoftirqd will have its own 
+task_struct.
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 ---
- mm/mempool.c |   10 ++++++++++
- 1 file changed, 10 insertions(+)
+ include/linux/sched.h |    4 ++++
+ kernel/softirq.c      |    3 +++
+ mm/internal.h         |    7 ++++---
+ 3 files changed, 11 insertions(+), 3 deletions(-)
 
-Index: linux-2.6-git/mm/mempool.c
+Index: linux-2.6-git/mm/internal.h
 ===================================================================
---- linux-2.6-git.orig/mm/mempool.c	2007-01-12 08:03:44.000000000 +0100
-+++ linux-2.6-git/mm/mempool.c	2007-01-12 10:38:57.000000000 +0100
-@@ -14,6 +14,7 @@
- #include <linux/mempool.h>
- #include <linux/blkdev.h>
- #include <linux/writeback.h>
-+#include "internal.h"
+--- linux-2.6-git.orig/mm/internal.h	2007-02-22 14:44:37.000000000 +0100
++++ linux-2.6-git/mm/internal.h	2007-02-22 15:16:58.000000000 +0100
+@@ -75,9 +75,10 @@ static int inline gfp_to_alloc_flags(gfp
+ 		alloc_flags |= ALLOC_HARDER;
  
- static void add_element(mempool_t *pool, void *element)
- {
-@@ -229,6 +230,15 @@ repeat_alloc:
+ 	if (likely(!(gfp_mask & __GFP_NOMEMALLOC))) {
+-		if (!in_interrupt() &&
+-		    ((p->flags & PF_MEMALLOC) ||
+-		     unlikely(test_thread_flag(TIF_MEMDIE))))
++		if (!in_irq() && (p->flags & PF_MEMALLOC))
++			alloc_flags |= ALLOC_NO_WATERMARKS;
++		else if (!in_interrupt() &&
++				unlikely(test_thread_flag(TIF_MEMDIE)))
+ 			alloc_flags |= ALLOC_NO_WATERMARKS;
  	}
- 	spin_unlock_irqrestore(&pool->lock, flags);
  
-+	/* if we really had right to the emergency reserves try those */
-+	if (gfp_to_alloc_flags(gfp_mask) & ALLOC_NO_WATERMARKS) {
-+		if (gfp_temp & __GFP_NOMEMALLOC) {
-+			gfp_temp &= ~(__GFP_NOMEMALLOC|__GFP_NOWARN);
-+			goto repeat_alloc;
-+		} else
-+			gfp_temp |= __GFP_NOMEMALLOC|__GFP_NOWARN;
-+	}
+Index: linux-2.6-git/kernel/softirq.c
+===================================================================
+--- linux-2.6-git.orig/kernel/softirq.c	2007-02-22 14:44:35.000000000 +0100
++++ linux-2.6-git/kernel/softirq.c	2007-02-22 15:29:38.000000000 +0100
+@@ -210,6 +210,8 @@ asmlinkage void __do_softirq(void)
+ 	__u32 pending;
+ 	int max_restart = MAX_SOFTIRQ_RESTART;
+ 	int cpu;
++	unsigned long pflags = current->flags;
++	current->flags &= ~PF_MEMALLOC;
+ 
+ 	pending = local_softirq_pending();
+ 	account_system_vtime(current);
+@@ -248,6 +250,7 @@ restart:
+ 
+ 	account_system_vtime(current);
+ 	_local_bh_enable();
++	tsk_restore_flags(current, pflags, PF_MEMALLOC);
+ }
+ 
+ #ifndef __ARCH_HAS_DO_SOFTIRQ
+Index: linux-2.6-git/include/linux/sched.h
+===================================================================
+--- linux-2.6-git.orig/include/linux/sched.h	2007-02-22 15:17:39.000000000 +0100
++++ linux-2.6-git/include/linux/sched.h	2007-02-22 15:29:05.000000000 +0100
+@@ -1185,6 +1185,10 @@ static inline void put_task_struct(struc
+ #define tsk_used_math(p) ((p)->flags & PF_USED_MATH)
+ #define used_math() tsk_used_math(current)
+ 
++#define tsk_restore_flags(p, pflags, mask) \
++	do {	(p)->flags &= ~(mask); \
++		(p)->flags |= ((pflags) & (mask)); } while (0)
 +
- 	/* We must not sleep in the GFP_ATOMIC case */
- 	if (!(gfp_mask & __GFP_WAIT))
- 		return NULL;
+ #ifdef CONFIG_SMP
+ extern int set_cpus_allowed(struct task_struct *p, cpumask_t new_mask);
+ #else
 
 --
+
