@@ -1,7 +1,7 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 19/40] netfilter: notify about NF_QUEUE vs emergency skbs
-Date: Fri, 04 May 2007 12:27:10 +0200
-Message-ID: <20070504103159.868846185@chello.nl>
+Subject: [PATCH 39/40] mm: a process flags to avoid blocking allocations
+Date: Fri, 04 May 2007 12:27:30 +0200
+Message-ID: <20070504103204.628880236@chello.nl>
 References: <20070504102651.923946304@chello.nl>
 Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	Trond Myklebust <trond.myklebust@fys.uio.no>,
@@ -10,41 +10,111 @@ Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	James Bottomley <James.Bottomley@SteelEye.com>,
 	Mike Christie <michaelc@cs.wisc.edu>,
 	Andrew Morton <akpm@linux-foundation.org>,
-	Daniel Phillips <phillips@google.com>,
-	Patrick McHardy <kaber@trash.net>
+	Daniel Phillips <phillips@google.com>
 To: linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1767814AbXEDKjb@vger.kernel.org>
-Content-Disposition: inline; filename=emergency-nf_queue.patch
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from amsfep17-int.chello.nl ([213.46.243.15]:3563 "EHLO
+	amsfep14-int.chello.nl" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1767837AbXEDKi6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2007 06:38:58 -0400
+Content-Disposition: inline; filename=pf_mem_nowait.patch
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Avoid memory getting stuck waiting for userspace, drop all emergency packets.
-This of course requires the regular storage route to not include an NF_QUEUE
-target ;-)
+PF_MEM_NOWAIT - will make allocations fail before blocking. This is usefull
+to convert process behaviour to non-blocking.
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Cc: Patrick McHardy <kaber@trash.net>
+Cc: Mike Christie <michaelc@cs.wisc.edu>
 ---
- net/netfilter/core.c |    3 +++
- 1 file changed, 3 insertions(+)
+ include/linux/sched.h |    1 +
+ kernel/softirq.c      |    4 ++--
+ mm/internal.h         |   11 ++++++++++-
+ mm/page_alloc.c       |    4 ++--
+ 4 files changed, 15 insertions(+), 5 deletions(-)
 
-Index: linux-2.6-git/net/netfilter/core.c
+Index: linux-2.6-git/include/linux/sched.h
 ===================================================================
---- linux-2.6-git.orig/net/netfilter/core.c	2007-02-22 15:48:28.000000000 +0100
-+++ linux-2.6-git/net/netfilter/core.c	2007-02-26 14:23:25.000000000 +0100
-@@ -184,9 +184,12 @@ next_hook:
- 		ret = 1;
- 		goto unlock;
- 	} else if (verdict == NF_DROP) {
-+drop:
- 		kfree_skb(*pskb);
- 		ret = -EPERM;
- 	} else if ((verdict & NF_VERDICT_MASK)  == NF_QUEUE) {
-+		if (skb_emergency(*pskb))
-+			goto drop;
- 		NFDEBUG("nf_hook: Verdict = QUEUE.\n");
- 		if (!nf_queue(*pskb, elem, pf, hook, indev, outdev, okfn,
- 			      verdict >> NF_VERDICT_BITS))
+--- linux-2.6-git.orig/include/linux/sched.h	2007-03-26 12:03:07.000000000 +0200
++++ linux-2.6-git/include/linux/sched.h	2007-03-26 12:03:09.000000000 +0200
+@@ -1158,6 +1158,7 @@ static inline void put_task_struct(struc
+ #define PF_SPREAD_SLAB	0x02000000	/* Spread some slab caches over cpuset */
+ #define PF_MEMPOLICY	0x10000000	/* Non-default NUMA mempolicy */
+ #define PF_MUTEX_TESTER	0x20000000	/* Thread belongs to the rt mutex tester */
++#define PF_MEM_NOWAIT	0x40000000	/* Make allocations fail instead of block */
+ 
+ /*
+  * Only the _current_ task can read/write to tsk->flags, but other
+Index: linux-2.6-git/mm/page_alloc.c
+===================================================================
+--- linux-2.6-git.orig/mm/page_alloc.c	2007-03-26 12:03:07.000000000 +0200
++++ linux-2.6-git/mm/page_alloc.c	2007-03-26 12:03:09.000000000 +0200
+@@ -1234,11 +1234,11 @@ struct page * fastcall
+ __alloc_pages(gfp_t gfp_mask, unsigned int order,
+ 		struct zonelist *zonelist)
+ {
+-	const gfp_t wait = gfp_mask & __GFP_WAIT;
++	struct task_struct *p = current;
++	const bool wait = gfp_wait(gfp_mask);
+ 	struct zone **z;
+ 	struct page *page;
+ 	struct reclaim_state reclaim_state;
+-	struct task_struct *p = current;
+ 	int do_retry;
+ 	int alloc_flags;
+ 	int did_some_progress;
+Index: linux-2.6-git/mm/internal.h
+===================================================================
+--- linux-2.6-git.orig/mm/internal.h	2007-03-26 12:03:07.000000000 +0200
++++ linux-2.6-git/mm/internal.h	2007-03-26 12:03:09.000000000 +0200
+@@ -46,6 +46,15 @@ extern void fastcall __init __free_pages
+ #define ALLOC_NO_WATERMARKS	0x20 /* don't check watermarks at all */
+ #define ALLOC_CPUSET		0x40 /* check for correct cpuset */
+ 
++static bool inline gfp_wait(gfp_t gfp_mask)
++{
++	bool wait = gfp_mask & __GFP_WAIT;
++	if (wait && !in_irq() && (current->flags & PF_MEM_NOWAIT))
++		wait = false;
++
++	return wait;
++}
++
+ /*
+  * get the deepest reaching allocation flags for the given gfp_mask
+  */
+@@ -53,7 +62,7 @@ static int inline gfp_to_alloc_flags(gfp
+ {
+ 	struct task_struct *p = current;
+ 	int alloc_flags = ALLOC_WMARK_MIN | ALLOC_CPUSET;
+-	const gfp_t wait = gfp_mask & __GFP_WAIT;
++	const bool wait = gfp_wait(gfp_mask);
+ 
+ 	/*
+ 	 * The caller may dip into page reserves a bit more if the caller
+Index: linux-2.6-git/kernel/softirq.c
+===================================================================
+--- linux-2.6-git.orig/kernel/softirq.c	2007-03-26 12:03:07.000000000 +0200
++++ linux-2.6-git/kernel/softirq.c	2007-03-26 12:12:58.000000000 +0200
+@@ -211,7 +211,7 @@ asmlinkage void __do_softirq(void)
+ 	int max_restart = MAX_SOFTIRQ_RESTART;
+ 	int cpu;
+ 	unsigned long pflags = current->flags;
+-	current->flags &= ~PF_MEMALLOC;
++	current->flags &= ~(PF_MEMALLOC|PF_MEM_NOWAIT);
+ 
+ 	pending = local_softirq_pending();
+ 	account_system_vtime(current);
+@@ -250,7 +250,7 @@ restart:
+ 
+ 	account_system_vtime(current);
+ 	_local_bh_enable();
+-	tsk_restore_flags(current, pflags, PF_MEMALLOC);
++	tsk_restore_flags(current, pflags, (PF_MEMALLOC|PF_MEM_NOWAIT));
+ }
+ 
+ #ifndef __ARCH_HAS_DO_SOFTIRQ
 
 --
+
