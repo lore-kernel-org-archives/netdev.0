@@ -1,14 +1,11 @@
-From: Christoph Lameter <clameter@sgi.com>
+From: Pekka Enberg <penberg@cs.helsinki.fi>
 Subject: Re: [PATCH 08/40] mm: kmem_cache_objsize
-Date: Fri, 4 May 2007 11:47:41 -0700 (PDT)
-Message-ID: <Pine.LNX.4.64.0705041147000.24625@schroedinger.engr.sgi.com>
-References: <20070504102651.923946304@chello.nl>  <20070504103157.215424767@chello.nl>
-  <Pine.LNX.4.64.0705040932200.22033@schroedinger.engr.sgi.com>
- <1178301545.24217.56.camel@twins>  <Pine.LNX.4.64.0705041104110.23539@schroedinger.engr.sgi.com>
-  <1178302904.2767.6.camel@lappy>  <Pine.LNX.4.64.0705041128270.24283@schroedinger.engr.sgi.com>
- <1178303538.2767.9.camel@lappy> <463B7F63.8070508@cs.helsinki.fi>
+Date: Fri, 04 May 2007 21:53:33 +0300
+Message-ID: <463B812D.5090009@cs.helsinki.fi>
+References: <20070504102651.923946304@chello.nl>  <20070504103157.215424767@chello.nl>  <Pine.LNX.4.64.0705040932200.22033@schroedinger.engr.sgi.com>  <1178301545.24217.56.camel@twins>  <Pine.LNX.4.64.0705041104110.23539@schroedinger.engr.sgi.com> <1178302904.2767.6.camel@lappy> <Pine.LNX.4.64.0705041128270.24283@schroedinger.engr.sgi.com> <463B7E5C.8030201@cs.helsinki.fi> <Pine.LNX.4.64.0705041142350.24625@schroedinger.engr.sgi.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org,
@@ -19,21 +16,31 @@ Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	Mike Christie <michaelc@cs.wisc.edu>,
 	Andrew Morton <akpm@linux-foundation.org>,
 	Daniel Phillips <phillips@google.com>
-To: Pekka Enberg <penberg@cs.helsinki.fi>
+To: Christoph Lameter <clameter@sgi.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from netops-testserver-4-out.sgi.com ([192.48.171.29]:48911 "EHLO
-	relay.sgi.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1161605AbXEDSrm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2007 14:47:42 -0400
-In-Reply-To: <463B7F63.8070508@cs.helsinki.fi>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:54151 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161622AbXEDSxU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2007 14:53:20 -0400
+In-Reply-To: <Pine.LNX.4.64.0705041142350.24625@schroedinger.engr.sgi.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 4 May 2007, Pekka Enberg wrote:
+Christoph Lameter wrote:
+> SLAB can calculate exactly how many pages are needed. The per 
+> cpu and per node stuff is setup at boot and does not change. We are 
+> talking about the worst case scenario here. True in case of an off slab
+> we have additional overhead that would also have to go into worst case 
+> scenario.
 
-> Again, slab has no way of actually estimating how many pages you need for a
-> given number of objects. So we end up calculating some upper bound which
-> doesn't belong in mm/slab.c. I am perfectly okay with:
+Fair enough. But there's no way it can take into account any slab 
+management structures it needs to allocate. The slab simply doesn't know 
+how many pages are needed to _allocate n amount of objects_.
 
-It can give a worst case number and that is what he wants.
+Peter is interested in a _rough estimate_ so I don't see the point of 
+adding that kind of logic in the slab. It's an API that simply cannot 
+satisfy all its callers which is why I suggested exposing buffer size in 
+the first place (the slab certainly knows how many bytes it needs for 
+one object).
 
+			Pekka
