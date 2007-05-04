@@ -1,32 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/40] Swap over Networked storage -v12
-Date: Fri, 04 May 2007 13:02:39 -0700 (PDT)
-Message-ID: <20070504.130239.38710262.davem@davemloft.net>
-References: <20070504102651.923946304@chello.nl>
-	<20070504.122716.31641374.davem@davemloft.net>
-	<1178307709.2767.19.camel@lappy>
+Subject: Re: [PATCH] IPROUTE: Modify tc for new PRIO multiqueue behavior
+Date: Fri, 04 May 2007 13:06:19 -0700 (PDT)
+Message-ID: <20070504.130619.99203618.davem@davemloft.net>
+References: <1178109829.4074.48.camel@localhost>
+	<D5C1322C3E673F459512FB59E0DDC32902C70A5C@orsmsx414.amr.corp.intel.com>
+	<20070504130110.0694aee6@freekitty>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org, trond.myklebust@fys.uio.no, tgraf@suug.ch,
-	James.Bottomley@SteelEye.com, michaelc@cs.wisc.edu,
-	akpm@linux-foundation.org, phillips@google.com
-To: a.p.zijlstra@chello.nl
+Cc: peter.p.waskiewicz.jr@intel.com, hadi@cyberus.ca, kaber@trash.net,
+	netdev@vger.kernel.org, jgarzik@pobox.com, cramerj@intel.com,
+	auke-jan.h.kok@intel.com, christopher.leech@intel.com
+To: shemminger@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36277
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37646
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1031393AbXEDUCw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2007 16:02:52 -0400
-In-Reply-To: <1178307709.2767.19.camel@lappy>
+	by vger.kernel.org with ESMTP id S1161568AbXEDUGd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2007 16:06:33 -0400
+In-Reply-To: <20070504130110.0694aee6@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Date: Fri, 04 May 2007 21:41:49 +0200
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Date: Fri, 4 May 2007 13:01:10 -0700
 
-> How would you prefer I present these?
+> Just because they want to standardize, and put it in hardware doesn't
+> mean it is a good idea and Linux needs to support it!
+> 
+> Why is it better for hardware to make the "next packet to send" decision?
+> For wired ethernet, I can't see how adding the complexity of fixed number
+> of small queues is a gain. Better to just do the priority decision in software
+> and then queue it to the hardware. This seems like the old Token Ring
+> and MAP/TOP style crap crammed on top of Ethernet.
 
-How about 8 or 9 at a time?  You are building infrastructure
-and therefore you could post them 1 at a time for review
-since each patch should be able to stand on it's own.
+I suspect perhaps the real impetus behind this facility is not being
+disclosed.
+
+It certainly is not going to be faster to do this in hardware.
+
+I myself don't see why in the world one would want to do this in
+hardware either.  Software can do the selection fast enough and with
+tons more flexibility.
