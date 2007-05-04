@@ -1,7 +1,7 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 03/40] mm: allow PF_MEMALLOC from softirq context
-Date: Fri, 04 May 2007 12:26:54 +0200
-Message-ID: <20070504103156.057213163@chello.nl>
+Subject: [PATCH 34/40] sock: safely expose kernel sockets to userspace
+Date: Fri, 04 May 2007 12:27:25 +0200
+Message-ID: <20070504103203.418277742@chello.nl>
 References: <20070504102651.923946304@chello.nl>
 Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	Trond Myklebust <trond.myklebust@fys.uio.no>,
@@ -10,83 +10,79 @@ Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	James Bottomley <James.Bottomley@SteelEye.com>,
 	Mike Christie <michaelc@cs.wisc.edu>,
 	Andrew Morton <akpm@linux-foundation.org>,
-	Daniel Phillips <phillips@google.com>
+	Daniel Phillips <phillips@google.com>,
+	Mike Christie <mchristi@redhat.com>
 To: linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from amsfep17-int.chello.nl ([213.46.243.15]:5096 "EHLO
-	amsfep18-int.chello.nl" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S2993244AbXEDKf0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2007 06:35:26 -0400
-Content-Disposition: inline; filename=mm-PF_MEMALLOC-softirq.patch
+Received: from amsfep17-int.chello.nl ([213.46.243.15]:46698 "EHLO
+	amsfep12-int.chello.nl" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754248AbXEDKgB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2007 06:36:01 -0400
+Content-Disposition: inline; filename=net-SOCK_KERNEL.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Allow PF_MEMALLOC to be set in softirq context. When running softirqs from
-a borrowed context save current->flags, ksoftirqd will have its own 
-task_struct.
+SOCK_KERNEL - avoids user-space from actually using this socket for anything.
+This enables sticking kernel sockets into the files_table for identifying and
+reference counting purposes.
+
+(iSCSI wants to do this)
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Cc: Mike Christie <mchristi@redhat.com>
 ---
- include/linux/sched.h |    4 ++++
- kernel/softirq.c      |    3 +++
- mm/internal.h         |    7 ++++---
- 3 files changed, 11 insertions(+), 3 deletions(-)
+ include/net/sock.h |    1 +
+ net/socket.c       |   10 +++++++++-
+ 2 files changed, 10 insertions(+), 1 deletion(-)
 
-Index: linux-2.6-git/mm/internal.h
+Index: linux-2.6-git/include/net/sock.h
 ===================================================================
---- linux-2.6-git.orig/mm/internal.h	2007-02-22 14:44:37.000000000 +0100
-+++ linux-2.6-git/mm/internal.h	2007-02-22 15:16:58.000000000 +0100
-@@ -75,9 +75,10 @@ static int inline gfp_to_alloc_flags(gfp
- 		alloc_flags |= ALLOC_HARDER;
+--- linux-2.6-git.orig/include/net/sock.h	2007-03-22 11:29:07.000000000 +0100
++++ linux-2.6-git/include/net/sock.h	2007-03-22 11:29:08.000000000 +0100
+@@ -394,6 +394,7 @@ enum sock_flags {
+ 	SOCK_LOCALROUTE, /* route locally only, %SO_DONTROUTE setting */
+ 	SOCK_QUEUE_SHRUNK, /* write queue has been shrunk recently */
+ 	SOCK_VMIO, /* the VM depends on us - make sure we're serviced */
++	SOCK_KERNEL, /* userspace cannot touch this socket */
+ };
  
- 	if (likely(!(gfp_mask & __GFP_NOMEMALLOC))) {
--		if (!in_interrupt() &&
--		    ((p->flags & PF_MEMALLOC) ||
--		     unlikely(test_thread_flag(TIF_MEMDIE))))
-+		if (!in_irq() && (p->flags & PF_MEMALLOC))
-+			alloc_flags |= ALLOC_NO_WATERMARKS;
-+		else if (!in_interrupt() &&
-+				unlikely(test_thread_flag(TIF_MEMDIE)))
- 			alloc_flags |= ALLOC_NO_WATERMARKS;
- 	}
- 
-Index: linux-2.6-git/kernel/softirq.c
+ static inline void sock_copy_flags(struct sock *nsk, struct sock *osk)
+Index: linux-2.6-git/net/socket.c
 ===================================================================
---- linux-2.6-git.orig/kernel/softirq.c	2007-02-22 14:44:35.000000000 +0100
-+++ linux-2.6-git/kernel/softirq.c	2007-02-22 15:29:38.000000000 +0100
-@@ -210,6 +210,8 @@ asmlinkage void __do_softirq(void)
- 	__u32 pending;
- 	int max_restart = MAX_SOFTIRQ_RESTART;
- 	int cpu;
-+	unsigned long pflags = current->flags;
-+	current->flags &= ~PF_MEMALLOC;
- 
- 	pending = local_softirq_pending();
- 	account_system_vtime(current);
-@@ -248,6 +250,7 @@ restart:
- 
- 	account_system_vtime(current);
- 	_local_bh_enable();
-+	tsk_restore_flags(current, pflags, PF_MEMALLOC);
+--- linux-2.6-git.orig/net/socket.c	2007-03-22 11:28:58.000000000 +0100
++++ linux-2.6-git/net/socket.c	2007-03-26 12:00:36.000000000 +0200
+@@ -353,7 +353,7 @@ static int sock_alloc_fd(struct file **f
+ 	return fd;
  }
  
- #ifndef __ARCH_HAS_DO_SOFTIRQ
-Index: linux-2.6-git/include/linux/sched.h
-===================================================================
---- linux-2.6-git.orig/include/linux/sched.h	2007-02-22 15:17:39.000000000 +0100
-+++ linux-2.6-git/include/linux/sched.h	2007-02-22 15:29:05.000000000 +0100
-@@ -1185,6 +1185,10 @@ static inline void put_task_struct(struc
- #define tsk_used_math(p) ((p)->flags & PF_USED_MATH)
- #define used_math() tsk_used_math(current)
+-static int sock_attach_fd(struct socket *sock, struct file *file)
++static noinline int sock_attach_fd(struct socket *sock, struct file *file)
+ {
+ 	struct qstr this;
+ 	char name[32];
+@@ -381,6 +381,10 @@ static int sock_attach_fd(struct socket 
+ 	file->f_op = SOCK_INODE(sock)->i_fop = &socket_file_ops;
+ 	file->f_mode = FMODE_READ | FMODE_WRITE;
+ 	file->f_flags = O_RDWR;
++	if (unlikely(sock->sk && sock_flag(sock->sk, SOCK_KERNEL))) {
++		file->f_mode = 0;
++		file->f_flags = 0;
++	}
+ 	file->f_pos = 0;
+ 	file->private_data = sock;
  
-+#define tsk_restore_flags(p, pflags, mask) \
-+	do {	(p)->flags &= ~(mask); \
-+		(p)->flags |= ((pflags) & (mask)); } while (0)
+@@ -806,6 +810,10 @@ static long sock_ioctl(struct file *file
+ 	int pid, err;
+ 
+ 	sock = file->private_data;
 +
- #ifdef CONFIG_SMP
- extern int set_cpus_allowed(struct task_struct *p, cpumask_t new_mask);
- #else
++	if (unlikely(sock_flag(sock->sk, SOCK_KERNEL)))
++		return -EBADF;
++
+ 	if (cmd >= SIOCDEVPRIVATE && cmd <= (SIOCDEVPRIVATE + 15)) {
+ 		err = dev_ioctl(cmd, argp);
+ 	} else
 
 --
 
