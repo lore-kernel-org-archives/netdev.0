@@ -1,7 +1,7 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 25/40] nfs: remove mempools
-Date: Fri, 04 May 2007 12:27:16 +0200
-Message-ID: <20070504103201.289858346@chello.nl>
+Subject: [PATCH 32/40] block: add a swapdev callback to the request_queue
+Date: Fri, 04 May 2007 12:27:23 +0200
+Message-ID: <20070504103202.950175722@chello.nl>
 References: <20070504102651.923946304@chello.nl>
 Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	Trond Myklebust <trond.myklebust@fys.uio.no>,
@@ -10,173 +10,97 @@ Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	James Bottomley <James.Bottomley@SteelEye.com>,
 	Mike Christie <michaelc@cs.wisc.edu>,
 	Andrew Morton <akpm@linux-foundation.org>,
-	Daniel Phillips <phillips@google.com>
+	Daniel Phillips <phillips@google.com>,
+	Jens Axboe <jens.axboe@oracle.com>
 To: linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from amsfep17-int.chello.nl ([213.46.243.15]:3563 "EHLO
 	amsfep14-int.chello.nl" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1767849AbXEDKjL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2007 06:39:11 -0400
-Content-Disposition: inline; filename=nfs-no-mempool.patch
+	by vger.kernel.org with ESMTP id S1767843AbXEDKjP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2007 06:39:15 -0400
+Content-Disposition: inline; filename=blk_queue_swapdev.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-With the introduction of the shared dirty page accounting in .19, NFS should
-not be able to surpise the VM with all dirty pages. Thus it should always be
-able to free some memory. Hence no more need for mempools.
+Networked storage devices need a swap-on/off callback in order to setup
+some state and reserve memory. Place the block device callback in the
+request_queue as suggested by James Bottomley.
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Cc: Trond Myklebust <trond.myklebust@fys.uio.no>
+Cc: Jens Axboe <jens.axboe@oracle.com>
+Cc: James Bottomley <James.Bottomley@SteelEye.com>
 ---
- fs/nfs/read.c  |   15 +++------------
- fs/nfs/write.c |   27 +++++----------------------
- 2 files changed, 8 insertions(+), 34 deletions(-)
+ include/linux/blkdev.h |   19 +++++++++++++++++++
+ mm/swapfile.c          |    4 ++++
+ 2 files changed, 23 insertions(+)
 
-Index: linux-2.6-git/fs/nfs/read.c
+Index: linux-2.6-git/include/linux/blkdev.h
 ===================================================================
---- linux-2.6-git.orig/fs/nfs/read.c
-+++ linux-2.6-git/fs/nfs/read.c
-@@ -33,13 +33,10 @@ static const struct rpc_call_ops nfs_rea
- static const struct rpc_call_ops nfs_read_full_ops;
+--- linux-2.6-git.orig/include/linux/blkdev.h	2007-01-08 11:53:13.000000000 +0100
++++ linux-2.6-git/include/linux/blkdev.h	2007-01-16 14:14:50.000000000 +0100
+@@ -341,6 +341,7 @@ typedef int (merge_bvec_fn) (request_que
+ typedef int (issue_flush_fn) (request_queue_t *, struct gendisk *, sector_t *);
+ typedef void (prepare_flush_fn) (request_queue_t *, struct request *);
+ typedef void (softirq_done_fn)(struct request *);
++typedef int (swapdev_fn)(void*, int);
  
- static struct kmem_cache *nfs_rdata_cachep;
--static mempool_t *nfs_rdata_mempool;
--
--#define MIN_POOL_READ	(32)
+ enum blk_queue_state {
+ 	Queue_down,
+@@ -379,6 +380,8 @@ struct request_queue
+ 	issue_flush_fn		*issue_flush_fn;
+ 	prepare_flush_fn	*prepare_flush_fn;
+ 	softirq_done_fn		*softirq_done_fn;
++	swapdev_fn		*swapdev_fn;
++	void			*swapdev_obj;
  
- struct nfs_read_data *nfs_readdata_alloc(unsigned int pagecount)
- {
--	struct nfs_read_data *p = mempool_alloc(nfs_rdata_mempool, GFP_NOFS);
-+	struct nfs_read_data *p = kmem_cache_alloc(nfs_rdata_cachep, GFP_NOFS);
- 
- 	if (p) {
- 		memset(p, 0, sizeof(*p));
-@@ -50,7 +47,7 @@ struct nfs_read_data *nfs_readdata_alloc
- 		else {
- 			p->pagevec = kcalloc(pagecount, sizeof(struct page *), GFP_NOFS);
- 			if (!p->pagevec) {
--				mempool_free(p, nfs_rdata_mempool);
-+				kmem_cache_free(nfs_rdata_cachep, p);
- 				p = NULL;
- 			}
- 		}
-@@ -63,7 +60,7 @@ static void nfs_readdata_rcu_free(struct
- 	struct nfs_read_data *p = container_of(head, struct nfs_read_data, task.u.tk_rcu);
- 	if (p && (p->pagevec != &p->page_array[0]))
- 		kfree(p->pagevec);
--	mempool_free(p, nfs_rdata_mempool);
-+	kmem_cache_free(nfs_rdata_cachep, p);
- }
- 
- static void nfs_readdata_free(struct nfs_read_data *rdata)
-@@ -590,16 +587,10 @@ int __init nfs_init_readpagecache(void)
- 	if (nfs_rdata_cachep == NULL)
- 		return -ENOMEM;
- 
--	nfs_rdata_mempool = mempool_create_slab_pool(MIN_POOL_READ,
--						     nfs_rdata_cachep);
--	if (nfs_rdata_mempool == NULL)
--		return -ENOMEM;
--
- 	return 0;
- }
- 
- void nfs_destroy_readpagecache(void)
- {
--	mempool_destroy(nfs_rdata_mempool);
- 	kmem_cache_destroy(nfs_rdata_cachep);
- }
-Index: linux-2.6-git/fs/nfs/write.c
-===================================================================
---- linux-2.6-git.orig/fs/nfs/write.c
-+++ linux-2.6-git/fs/nfs/write.c
-@@ -29,9 +29,6 @@
- 
- #define NFSDBG_FACILITY		NFSDBG_PAGECACHE
- 
--#define MIN_POOL_WRITE		(32)
--#define MIN_POOL_COMMIT		(4)
--
- /*
-  * Local function declarations
-  */
-@@ -45,12 +42,10 @@ static const struct rpc_call_ops nfs_wri
- static const struct rpc_call_ops nfs_commit_ops;
- 
- static struct kmem_cache *nfs_wdata_cachep;
--static mempool_t *nfs_wdata_mempool;
--static mempool_t *nfs_commit_mempool;
- 
- struct nfs_write_data *nfs_commit_alloc(void)
- {
--	struct nfs_write_data *p = mempool_alloc(nfs_commit_mempool, GFP_NOFS);
-+	struct nfs_write_data *p = kmem_cache_alloc(nfs_wdata_cachep, GFP_NOFS);
- 
- 	if (p) {
- 		memset(p, 0, sizeof(*p));
-@@ -64,7 +59,7 @@ void nfs_commit_rcu_free(struct rcu_head
- 	struct nfs_write_data *p = container_of(head, struct nfs_write_data, task.u.tk_rcu);
- 	if (p && (p->pagevec != &p->page_array[0]))
- 		kfree(p->pagevec);
--	mempool_free(p, nfs_commit_mempool);
-+	kmem_cache_free(nfs_wdata_cachep, p);
- }
- 
- void nfs_commit_free(struct nfs_write_data *wdata)
-@@ -74,7 +69,7 @@ void nfs_commit_free(struct nfs_write_da
- 
- struct nfs_write_data *nfs_writedata_alloc(unsigned int pagecount)
- {
--	struct nfs_write_data *p = mempool_alloc(nfs_wdata_mempool, GFP_NOFS);
-+	struct nfs_write_data *p = kmem_cache_alloc(nfs_wdata_cachep, GFP_NOFS);
- 
- 	if (p) {
- 		memset(p, 0, sizeof(*p));
-@@ -85,7 +80,7 @@ struct nfs_write_data *nfs_writedata_all
- 		else {
- 			p->pagevec = kcalloc(pagecount, sizeof(struct page *), GFP_NOFS);
- 			if (!p->pagevec) {
--				mempool_free(p, nfs_wdata_mempool);
-+				kmem_cache_free(nfs_wdata_cachep, p);
- 				p = NULL;
- 			}
- 		}
-@@ -98,7 +93,7 @@ static void nfs_writedata_rcu_free(struc
- 	struct nfs_write_data *p = container_of(head, struct nfs_write_data, task.u.tk_rcu);
- 	if (p && (p->pagevec != &p->page_array[0]))
- 		kfree(p->pagevec);
--	mempool_free(p, nfs_wdata_mempool);
-+	kmem_cache_free(nfs_wdata_cachep, p);
- }
- 
- static void nfs_writedata_free(struct nfs_write_data *wdata)
-@@ -1465,16 +1460,6 @@ int __init nfs_init_writepagecache(void)
- 	if (nfs_wdata_cachep == NULL)
- 		return -ENOMEM;
- 
--	nfs_wdata_mempool = mempool_create_slab_pool(MIN_POOL_WRITE,
--						     nfs_wdata_cachep);
--	if (nfs_wdata_mempool == NULL)
--		return -ENOMEM;
--
--	nfs_commit_mempool = mempool_create_slab_pool(MIN_POOL_COMMIT,
--						      nfs_wdata_cachep);
--	if (nfs_commit_mempool == NULL)
--		return -ENOMEM;
--
  	/*
- 	 * NFS congestion size, scale with available memory.
- 	 *
-@@ -1500,8 +1485,6 @@ int __init nfs_init_writepagecache(void)
+ 	 * Dispatch queue sorting
+@@ -766,6 +769,22 @@ request_queue_t *blk_alloc_queue(gfp_t);
+ request_queue_t *blk_alloc_queue_node(gfp_t, int);
+ extern void blk_put_queue(request_queue_t *);
  
- void nfs_destroy_writepagecache(void)
- {
--	mempool_destroy(nfs_commit_mempool);
--	mempool_destroy(nfs_wdata_mempool);
- 	kmem_cache_destroy(nfs_wdata_cachep);
- }
- 
++static inline
++void blk_queue_swapdev(struct request_queue *rq,
++		       swapdev_fn *swapdev_fn, void *swapdev_obj)
++{
++	rq->swapdev_fn = swapdev_fn;
++	rq->swapdev_obj = swapdev_obj;
++}
++
++static inline
++int blk_queue_swapdev_fn(struct request_queue *rq, int enable)
++{
++	if (rq->swapdev_fn)
++		return rq->swapdev_fn(rq->swapdev_obj, enable);
++	return 0;
++}
++
+ /*
+  * tag stuff
+  */
+Index: linux-2.6-git/mm/swapfile.c
+===================================================================
+--- linux-2.6-git.orig/mm/swapfile.c	2007-01-15 09:59:02.000000000 +0100
++++ linux-2.6-git/mm/swapfile.c	2007-01-16 14:14:50.000000000 +0100
+@@ -1305,6 +1305,7 @@ asmlinkage long sys_swapoff(const char _
+ 	inode = mapping->host;
+ 	if (S_ISBLK(inode->i_mode)) {
+ 		struct block_device *bdev = I_BDEV(inode);
++		blk_queue_swapdev_fn(bdev->bd_disk->queue, 0);
+ 		set_blocksize(bdev, p->old_block_size);
+ 		bd_release(bdev);
+ 	} else {
+@@ -1524,6 +1525,9 @@ asmlinkage long sys_swapon(const char __
+ 		error = set_blocksize(bdev, PAGE_SIZE);
+ 		if (error < 0)
+ 			goto bad_swap;
++		error = blk_queue_swapdev_fn(bdev->bd_disk->queue, 1);
++		if (error < 0)
++			goto bad_swap;
+ 		p->bdev = bdev;
+ 	} else if (S_ISREG(inode->i_mode)) {
+ 		p->bdev = inode->i_sb->s_bdev;
 
 --
 
