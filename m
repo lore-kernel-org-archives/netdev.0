@@ -1,36 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] [AF_IUCV/IUCV] : Add missing section annotations
-Date: Fri, 04 May 2007 12:24:19 -0700 (PDT)
-Message-ID: <20070504.122419.28789261.davem@davemloft.net>
-References: <20070428.230626.79066898.davem@davemloft.net>
-	<20070504094652.GA22917@de.ibm.com>
-	<20070504095238.GB32153@de.ibm.com>
+Subject: Re: [PATCH 00/40] Swap over Networked storage -v12
+Date: Fri, 04 May 2007 12:27:16 -0700 (PDT)
+Message-ID: <20070504.122716.31641374.davem@davemloft.net>
+References: <20070504102651.923946304@chello.nl>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
-To: fpavlic@de.ibm.com
+Cc: linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+	netdev@vger.kernel.org, trond.myklebust@fys.uio.no, tgraf@suug.ch,
+	James.Bottomley@SteelEye.com, michaelc@cs.wisc.edu,
+	akpm@linux-foundation.org, phillips@google.com
+To: a.p.zijlstra@chello.nl
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52338
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50091
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1423043AbXEDTYd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2007 15:24:33 -0400
-In-Reply-To: <20070504095238.GB32153@de.ibm.com>
+	by vger.kernel.org with ESMTP id S1423078AbXEDT13 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2007 15:27:29 -0400
+In-Reply-To: <20070504102651.923946304@chello.nl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Frank Pavlic <fpavlic@de.ibm.com>
-Date: Fri, 4 May 2007 11:52:38 +0200
+From: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Date: Fri, 04 May 2007 12:26:51 +0200
 
-> From: Heiko Carstens <heiko.carstens@de.ibm.com>
-> 
-> Add missing section annotations and found and fixed some
-> Coding Style issues.
-> 
-> Signed-off-by: Heiko Carstens <heiko.carstens@de.ibm.com>
-> Signed-off-by: Frank Pavlic <fpavlic@de.ibm.com>
+> There is a fundamental deadlock associated with paging;
 
-Applied, although I find it amusing that the changelog
-header talks about section annotations (plural!) but
-that is one line of the patch, whereas %99 of the patch
-is coding style cleanups.
+I know you'd really like people like myself to review this work, but a
+set of 40 patches is just too much to try and digest at once
+especially when I have other things going on.  When I have lots of
+other things already on my plate, when I see a huge patch set like
+this I have to just say "delete" because I don't kid myself since
+I know I'll never get to it.
+
+Sorry there's now way I can review this with my current workload.
