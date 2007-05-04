@@ -1,37 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: 2.6.20.7 mss negotiation and path mtu discovery mostly broken?
-Date: Thu, 03 May 2007 17:23:58 -0700 (PDT)
-Message-ID: <20070503.172358.07643741.davem@davemloft.net>
-References: <7CCD07160348804497EF29E9EA5560D7020F6213@exchtewks2.starentnetworks.com>
-	<20070425.131602.18289973.davem@davemloft.net>
-	<1178234660.4887.3.camel@dell>
+Subject: Re: [PATCH] TCP: zero out rx_opt in tcp_disconnect()
+Date: Thu, 03 May 2007 17:31:57 -0700 (PDT)
+Message-ID: <20070503.173157.41635650.davem@davemloft.net>
+References: <20070503185336.GA19639@rainfinity.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bristuccia@starentnetworks.com, netdev@vger.kernel.org
-To: mchan@broadcom.com
+Cc: netdev@vger.kernel.org
+To: Aji_Srinivas@emc.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54115
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58810
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1423575AbXEDAX6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2007 20:23:58 -0400
-In-Reply-To: <1178234660.4887.3.camel@dell>
+	by vger.kernel.org with ESMTP id S1767524AbXEDAbz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2007 20:31:55 -0400
+In-Reply-To: <20070503185336.GA19639@rainfinity.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Thu, 03 May 2007 16:24:20 -0700
+From: Aji_Srinivas@emc.com
+Date: Thu, 3 May 2007 11:53:36 -0700
 
-> [BNX2]: Fix TSO problem with small MSS.
+> When the server drops its connection, NFS client reconnects using the
+> same socket after disconnecting. If the new connection's SYN,ACK
+> doesn't contain the TCP timestamp option and the old connection's did,
+> tp->tcp_header_len is recomputed assuming no timestamp header but
+> tp->rx_opt.tstamp_ok remains set. Then tcp_build_and_update_options()
+> adds in a timestamp option past the end of the allocated TCP header,
+> overwriting TCP data, or when the data is in skb_shinfo(skb)->frags[],
+> overwriting skb_shinfo(skb) causing a crash soon after. (The issue was
+> debugged from such a crash.)
 > 
-> Remove the check for skb->len greater than MTU when doing TSO.  When
-> the destination has a smaller MSS than the source, a TSO packet may
-> be smaller than the MTU at the source and we still need to process it
-> as a TSO packet.
+> Similarly, wscale_ok and sack_ok also get set based on the SYN,ACK
+> packet but not reset on disconnect, since they are zeroed out at
+> initialization. The patch zeroes out the entire tp->rx_opt struct in
+> tcp_disconnect() to avoid this sort of problem.
 > 
-> Thanks to Brian Ristuccia <bristuccia@starentnetworks.com> for
-> reporting the problem.
-> 
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
+> Signed-off-by: Srinivas Aji <Aji_Srinivas@emc.com>
 
-Applied, thanks Michael.
+Thanks for catching this.  It is rare to take advantage of
+the connect() with AF_UNSPEC feature that allows this.
+
+Most applications close the socket and make a new one before
+connecting again.
+
+I'll apply this fix, thanks a lot.
+
