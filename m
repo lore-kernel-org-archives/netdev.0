@@ -1,7 +1,7 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 33/40] uml: enable scsi and add iscsi config
-Date: Fri, 04 May 2007 12:27:24 +0200
-Message-ID: <20070504103203.181287020@chello.nl>
+Subject: [PATCH 27/40] nfs: disable data cache revalidation for swapfiles
+Date: Fri, 04 May 2007 12:27:18 +0200
+Message-ID: <20070504103201.758248175@chello.nl>
 References: <20070504102651.923946304@chello.nl>
 Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	Trond Myklebust <trond.myklebust@fys.uio.no>,
@@ -10,120 +10,157 @@ Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	James Bottomley <James.Bottomley@SteelEye.com>,
 	Mike Christie <michaelc@cs.wisc.edu>,
 	Andrew Morton <akpm@linux-foundation.org>,
-	Daniel Phillips <phillips@google.com>,
-	Jeff Dike <jdike@addtoit.com>
+	Daniel Phillips <phillips@google.com>
 To: linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from amsfep17-int.chello.nl ([213.46.243.15]:18601 "EHLO
-	amsfep13-int.chello.nl" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S2993230AbXEDKfE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2007 06:35:04 -0400
-Content-Disposition: inline; filename=uml_iscsi.patch
-Sender: netdev-owner@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S2993233AbXEDKpB@vger.kernel.org>
+Content-Disposition: inline; filename=nfs-swapper.patch
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Enable (i)SCSI on UML, dunno why SCSI was deemed broken, it works like a charm.
+Do as Trond suggested:
+  http://lkml.org/lkml/2006/8/25/348
+
+Disable NFS data cache revalidation on swap files since it doesn't really 
+make sense to have other clients change the file while you are using it.
+
+Thereby we can stop setting PG_private on swap pages, since there ought to
+be no further races with invalidate_inode_pages2() to deal with.
+
+And since we cannot set PG_private we cannot use page->private (which is
+already used by PG_swapcache pages anyway) to store the nfs_page. Thus
+augment the new nfs_page_find_request logic.
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Acked-by: Jeff Dike <jdike@addtoit.com>
-Cc: James Bottomley <James.Bottomley@SteelEye.com>
-Cc: Mike Christie <michaelc@cs.wisc.edu>
+Cc: Trond Myklebust <trond.myklebust@fys.uio.no>
 ---
- arch/um/Kconfig      |   16 --------------
- arch/um/Kconfig.scsi |   58 ---------------------------------------------------
- 2 files changed, 1 insertion(+), 73 deletions(-)
+ fs/nfs/inode.c |    6 ++++++
+ fs/nfs/write.c |   42 ++++++++++++++++++++++++++----------------
+ 2 files changed, 32 insertions(+), 16 deletions(-)
 
-Index: linux-2.6-git/arch/um/Kconfig
+Index: linux-2.6-git/fs/nfs/inode.c
 ===================================================================
---- linux-2.6-git.orig/arch/um/Kconfig	2006-12-11 14:39:09.000000000 +0100
-+++ linux-2.6-git/arch/um/Kconfig	2007-01-16 14:14:45.000000000 +0100
-@@ -317,21 +317,7 @@ source "crypto/Kconfig"
+--- linux-2.6-git.orig/fs/nfs/inode.c
++++ linux-2.6-git/fs/nfs/inode.c
+@@ -722,6 +722,12 @@ int nfs_revalidate_mapping_nolock(struct
+ 	struct nfs_inode *nfsi = NFS_I(inode);
+ 	int ret = 0;
  
- source "lib/Kconfig"
- 
--menu "SCSI support"
--depends on BROKEN
--
--config SCSI
--	tristate "SCSI support"
--
--# This gives us free_dma, which scsi.c wants.
--config GENERIC_ISA_DMA
--	bool
--	depends on SCSI
--	default y
--
--source "arch/um/Kconfig.scsi"
--
--endmenu
-+source "drivers/scsi/Kconfig"
- 
- source "drivers/md/Kconfig"
- 
-Index: linux-2.6-git/arch/um/Kconfig.scsi
++	/*
++	 * swapfiles are not supposed to be shared.
++	 */
++	if (IS_SWAPFILE(inode))
++		goto out;
++
+ 	if ((nfsi->cache_validity & NFS_INO_REVAL_PAGECACHE)
+ 			|| nfs_attribute_timeout(inode) || NFS_STALE(inode)) {
+ 		ret = __nfs_revalidate_inode(NFS_SERVER(inode), inode);
+Index: linux-2.6-git/fs/nfs/write.c
 ===================================================================
---- linux-2.6-git.orig/arch/um/Kconfig.scsi	2006-09-05 15:30:39.000000000 +0200
-+++ /dev/null	1970-01-01 00:00:00.000000000 +0000
-@@ -1,58 +0,0 @@
--comment "SCSI support type (disk, tape, CD-ROM)"
--	depends on SCSI
--
--config BLK_DEV_SD
--	tristate "SCSI disk support"
--	depends on SCSI
--
--config SD_EXTRA_DEVS
--	int "Maximum number of SCSI disks that can be loaded as modules"
--	depends on BLK_DEV_SD
--	default "40"
--
--config CHR_DEV_ST
--	tristate "SCSI tape support"
--	depends on SCSI
--
--config BLK_DEV_SR
--	tristate "SCSI CD-ROM support"
--	depends on SCSI
--
--config BLK_DEV_SR_VENDOR
--	bool "Enable vendor-specific extensions (for SCSI CDROM)"
--	depends on BLK_DEV_SR
--
--config SR_EXTRA_DEVS
--	int "Maximum number of CDROM devices that can be loaded as modules"
--	depends on BLK_DEV_SR
--	default "2"
--
--config CHR_DEV_SG
--	tristate "SCSI generic support"
--	depends on SCSI
--
--comment "Some SCSI devices (e.g. CD jukebox) support multiple LUNs"
--	depends on SCSI
--
--#if [ "$CONFIG_EXPERIMENTAL" = "y" ]; then
--config SCSI_DEBUG_QUEUES
--	bool "Enable extra checks in new queueing code"
--	depends on SCSI
--
--#fi
--config SCSI_MULTI_LUN
--	bool "Probe all LUNs on each SCSI device"
--	depends on SCSI
--
--config SCSI_CONSTANTS
--	bool "Verbose SCSI error reporting (kernel size +=12K)"
--	depends on SCSI
--
--config SCSI_LOGGING
--	bool "SCSI logging facility"
--	depends on SCSI
--
--config SCSI_DEBUG
--	tristate "SCSI debugging host simulator (EXPERIMENTAL)"
--	depends on SCSI
--
+--- linux-2.6-git.orig/fs/nfs/write.c
++++ linux-2.6-git/fs/nfs/write.c
+@@ -106,25 +106,29 @@ void nfs_writedata_release(void *wdata)
+ 	nfs_writedata_free(wdata);
+ }
+ 
+-static struct nfs_page *nfs_page_find_request_locked(struct page *page)
++static struct nfs_page *nfs_page_find_request_locked(struct nfs_inode *nfsi, struct page *page)
+ {
+ 	struct nfs_page *req = NULL;
+ 
+-	if (PagePrivate(page)) {
++	if (PagePrivate(page))
+ 		req = (struct nfs_page *)page_private(page);
+-		if (req != NULL)
+-			atomic_inc(&req->wb_count);
+-	}
++	else if (unlikely(PageSwapCache(page)))
++		req = radix_tree_lookup(&nfsi->nfs_page_tree, page_file_index(page));
++
++	if (req != NULL)
++		atomic_inc(&req->wb_count);
++
+ 	return req;
+ }
+ 
+ static struct nfs_page *nfs_page_find_request(struct page *page)
+ {
+ 	struct nfs_page *req = NULL;
+-	spinlock_t *req_lock = &NFS_I(page_file_mapping(page)->host)->req_lock;
++	struct nfs_inode *nfsi = NFS_I(page_file_mapping(page)->host);
++	spinlock_t *req_lock = &nfsi->req_lock;
+ 
+ 	spin_lock(req_lock);
+-	req = nfs_page_find_request_locked(page);
++	req = nfs_page_find_request_locked(nfsi, page);
+ 	spin_unlock(req_lock);
+ 	return req;
+ }
+@@ -256,7 +260,7 @@ static int nfs_page_async_flush(struct n
+ 
+ 	spin_lock(req_lock);
+ 	for(;;) {
+-		req = nfs_page_find_request_locked(page);
++		req = nfs_page_find_request_locked(nfsi, page);
+ 		if (req == NULL) {
+ 			spin_unlock(req_lock);
+ 			return 1;
+@@ -389,8 +393,14 @@ static int nfs_inode_add_request(struct 
+ 		if (nfs_have_delegation(inode, FMODE_WRITE))
+ 			nfsi->change_attr++;
+ 	}
+-	SetPagePrivate(req->wb_page);
+-	set_page_private(req->wb_page, (unsigned long)req);
++	/*
++	 * Swap-space should not get truncated. Hence no need to plug the race
++	 * with invalidate/truncate.
++	 */
++	if (likely(!PageSwapCache(req->wb_page))) {
++		SetPagePrivate(req->wb_page);
++		set_page_private(req->wb_page, (unsigned long)req);
++	}
+ 	if (PageDirty(req->wb_page))
+ 		set_bit(PG_NEED_FLUSH, &req->wb_flags);
+ 	nfsi->npages++;
+@@ -409,8 +419,10 @@ static void nfs_inode_remove_request(str
+ 	BUG_ON (!NFS_WBACK_BUSY(req));
+ 
+ 	spin_lock(&nfsi->req_lock);
+-	set_page_private(req->wb_page, 0);
+-	ClearPagePrivate(req->wb_page);
++	if (likely(!PageSwapCache(req->wb_page))) {
++		set_page_private(req->wb_page, 0);
++		ClearPagePrivate(req->wb_page);
++	}
+ 	radix_tree_delete(&nfsi->nfs_page_tree, req->wb_index);
+ 	if (test_and_clear_bit(PG_NEED_FLUSH, &req->wb_flags))
+ 		__set_page_dirty_nobuffers(req->wb_page);
+@@ -608,7 +620,7 @@ static struct nfs_page * nfs_update_requ
+ 		 * A request for the page we wish to update
+ 		 */
+ 		spin_lock(&nfsi->req_lock);
+-		req = nfs_page_find_request_locked(page);
++		req = nfs_page_find_request_locked(nfsi, page);
+ 		if (req) {
+ 			if (!nfs_lock_request_dontget(req)) {
+ 				int error;
+@@ -1402,8 +1414,6 @@ int nfs_wb_page_priority(struct inode *i
+ 		if (ret < 0)
+ 			goto out;
+ 	}
+-	if (!PagePrivate(page))
+-		return 0;
+ 	ret = nfs_sync_mapping_wait(page_file_mapping(page), &wbc, how);
+ 	if (ret >= 0)
+ 		return 0;
+@@ -1435,7 +1445,7 @@ int nfs_set_page_dirty(struct page *page
+ 		goto out_raced;
+ 	req_lock = &NFS_I(inode)->req_lock;
+ 	spin_lock(req_lock);
+-	req = nfs_page_find_request_locked(page);
++	req = nfs_page_find_request_locked(NFS_I(inode), page);
+ 	if (req != NULL) {
+ 		/* Mark any existing write requests for flushing */
+ 		ret = !test_and_set_bit(PG_NEED_FLUSH, &req->wb_flags);
 
 --
-
