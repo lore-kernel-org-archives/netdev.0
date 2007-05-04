@@ -1,42 +1,23 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+From: David Howells <dhowells@redhat.com>
 Subject: Re: How to find I/F to destination
-Date: Fri, 4 May 2007 17:20:09 +0400
-Message-ID: <20070504132008.GB2291@2ka.mipt.ru>
-References: <20070504125438.GA5439@2ka.mipt.ru> <5484.1178282928@redhat.com> <5910.1178284095@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
+Date: Fri, 04 May 2007 14:23:24 +0100
+Message-ID: <7844.1178285004@redhat.com>
+References: <20070504125438.GA5439@2ka.mipt.ru>  <5484.1178282928@redhat.com>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
-To: David Howells <dhowells@redhat.com>
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:48424 "EHLO 2ka.mipt.ru"
+Received: from mx1.redhat.com ([66.187.233.31]:35098 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755166AbXEDNUv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 May 2007 09:20:51 -0400
-Content-Disposition: inline
-In-Reply-To: <5910.1178284095@redhat.com>
+	id S1755155AbXEDNX3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 May 2007 09:23:29 -0400
+In-Reply-To: <20070504125438.GA5439@2ka.mipt.ru> 
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, May 04, 2007 at 02:08:15PM +0100, David Howells (dhowells@redhat.com) wrote:
-> 
-> Should route_get_raw() release the rtable if gets back?
+Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
 
-You can also cache returned entry and then just clone it and check
-->obsolete() callback.
+> static int netchannel_ip_route_output_flow(struct rtable **rp, struct flowi *flp, int flags)
 
-Something like this:
-struct dst_entry *route_get(struct dst_entry *dst)
-{
-	if (dst && dst->obsolete && dst->ops->check(dst, 0) == NULL) {
-		dst_release(dst);
-		return NULL;
-	}
-	return dst_clone(dst);
-}
+What's proto?  Should that be IPPROTO_UDP?
 
-Copied from route code too.
-
-> David
-
--- 
-	Evgeniy Polyakov
+David
