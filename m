@@ -1,7 +1,7 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 39/40] mm: a process flags to avoid blocking allocations
-Date: Fri, 04 May 2007 12:27:30 +0200
-Message-ID: <20070504103204.628880236@chello.nl>
+Subject: [PATCH 20/40] netvm: skb processing
+Date: Fri, 04 May 2007 12:27:11 +0200
+Message-ID: <20070504103200.092467721@chello.nl>
 References: <20070504102651.923946304@chello.nl>
 Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	Trond Myklebust <trond.myklebust@fys.uio.no>,
@@ -13,108 +13,180 @@ Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	Daniel Phillips <phillips@google.com>
 To: linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from amsfep17-int.chello.nl ([213.46.243.15]:3563 "EHLO
-	amsfep14-int.chello.nl" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1767837AbXEDKi6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2007 06:38:58 -0400
-Content-Disposition: inline; filename=pf_mem_nowait.patch
-Sender: netdev-owner@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754946AbXEDKkU@vger.kernel.org>
+Content-Disposition: inline; filename=netvm.patch
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-PF_MEM_NOWAIT - will make allocations fail before blocking. This is usefull
-to convert process behaviour to non-blocking.
+In order to make sure emergency packets receive all memory needed to proceed
+ensure processing of emergency skbs happens under PF_MEMALLOC.
+
+Use the (new) sk_backlog_rcv() wrapper to ensure this for backlog processing.
+
+Skip taps, since those are user-space again.
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Cc: Mike Christie <michaelc@cs.wisc.edu>
 ---
- include/linux/sched.h |    1 +
- kernel/softirq.c      |    4 ++--
- mm/internal.h         |   11 ++++++++++-
- mm/page_alloc.c       |    4 ++--
- 4 files changed, 15 insertions(+), 5 deletions(-)
+ include/net/sock.h |    4 ++++
+ net/core/dev.c     |   42 +++++++++++++++++++++++++++++++++++++-----
+ net/core/sock.c    |   19 +++++++++++++++++++
+ 3 files changed, 60 insertions(+), 5 deletions(-)
 
-Index: linux-2.6-git/include/linux/sched.h
+Index: linux-2.6-git/net/core/dev.c
 ===================================================================
---- linux-2.6-git.orig/include/linux/sched.h	2007-03-26 12:03:07.000000000 +0200
-+++ linux-2.6-git/include/linux/sched.h	2007-03-26 12:03:09.000000000 +0200
-@@ -1158,6 +1158,7 @@ static inline void put_task_struct(struc
- #define PF_SPREAD_SLAB	0x02000000	/* Spread some slab caches over cpuset */
- #define PF_MEMPOLICY	0x10000000	/* Non-default NUMA mempolicy */
- #define PF_MUTEX_TESTER	0x20000000	/* Thread belongs to the rt mutex tester */
-+#define PF_MEM_NOWAIT	0x40000000	/* Make allocations fail instead of block */
- 
- /*
-  * Only the _current_ task can read/write to tsk->flags, but other
-Index: linux-2.6-git/mm/page_alloc.c
-===================================================================
---- linux-2.6-git.orig/mm/page_alloc.c	2007-03-26 12:03:07.000000000 +0200
-+++ linux-2.6-git/mm/page_alloc.c	2007-03-26 12:03:09.000000000 +0200
-@@ -1234,11 +1234,11 @@ struct page * fastcall
- __alloc_pages(gfp_t gfp_mask, unsigned int order,
- 		struct zonelist *zonelist)
- {
--	const gfp_t wait = gfp_mask & __GFP_WAIT;
-+	struct task_struct *p = current;
-+	const bool wait = gfp_wait(gfp_mask);
- 	struct zone **z;
- 	struct page *page;
- 	struct reclaim_state reclaim_state;
--	struct task_struct *p = current;
- 	int do_retry;
- 	int alloc_flags;
- 	int did_some_progress;
-Index: linux-2.6-git/mm/internal.h
-===================================================================
---- linux-2.6-git.orig/mm/internal.h	2007-03-26 12:03:07.000000000 +0200
-+++ linux-2.6-git/mm/internal.h	2007-03-26 12:03:09.000000000 +0200
-@@ -46,6 +46,15 @@ extern void fastcall __init __free_pages
- #define ALLOC_NO_WATERMARKS	0x20 /* don't check watermarks at all */
- #define ALLOC_CPUSET		0x40 /* check for correct cpuset */
- 
-+static bool inline gfp_wait(gfp_t gfp_mask)
-+{
-+	bool wait = gfp_mask & __GFP_WAIT;
-+	if (wait && !in_irq() && (current->flags & PF_MEM_NOWAIT))
-+		wait = false;
+--- linux-2.6-git.orig/net/core/dev.c
++++ linux-2.6-git/net/core/dev.c
+@@ -1756,10 +1756,23 @@ int netif_receive_skb(struct sk_buff *sk
+ 	struct net_device *orig_dev;
+ 	int ret = NET_RX_DROP;
+ 	__be16 type;
++	unsigned long pflags = current->flags;
 +
-+	return wait;
-+}
++	/* Emergency skb are special, they should
++	 *  - be delivered to SOCK_VMIO sockets only
++	 *  - stay away from userspace
++	 *  - have bounded memory usage
++	 *
++	 * Use PF_MEMALLOC as a poor mans memory pool - the grouping kind.
++	 * This saves us from propagating the allocation context down to all
++	 * allocation sites.
++	 */
++	if (skb_emergency(skb))
++		current->flags |= PF_MEMALLOC;
+ 
+ 	/* if we've gotten here through NAPI, check netpoll */
+ 	if (skb->dev->poll && netpoll_rx(skb))
+-		return NET_RX_DROP;
++		goto out;
+ 
+ 	if (!skb->tstamp.tv64)
+ 		net_timestamp(skb);
+@@ -1770,7 +1783,7 @@ int netif_receive_skb(struct sk_buff *sk
+ 	orig_dev = skb_bond(skb);
+ 
+ 	if (!orig_dev)
+-		return NET_RX_DROP;
++		goto out;
+ 
+ 	__get_cpu_var(netdev_rx_stat).total++;
+ 
+@@ -1789,6 +1802,9 @@ int netif_receive_skb(struct sk_buff *sk
+ 	}
+ #endif
+ 
++	if (skb_emergency(skb))
++		goto skip_taps;
 +
- /*
-  * get the deepest reaching allocation flags for the given gfp_mask
-  */
-@@ -53,7 +62,7 @@ static int inline gfp_to_alloc_flags(gfp
- {
- 	struct task_struct *p = current;
- 	int alloc_flags = ALLOC_WMARK_MIN | ALLOC_CPUSET;
--	const gfp_t wait = gfp_mask & __GFP_WAIT;
-+	const bool wait = gfp_wait(gfp_mask);
+ 	list_for_each_entry_rcu(ptype, &ptype_all, list) {
+ 		if (!ptype->dev || ptype->dev == skb->dev) {
+ 			if (pt_prev)
+@@ -1797,6 +1813,7 @@ int netif_receive_skb(struct sk_buff *sk
+ 		}
+ 	}
  
- 	/*
- 	 * The caller may dip into page reserves a bit more if the caller
-Index: linux-2.6-git/kernel/softirq.c
-===================================================================
---- linux-2.6-git.orig/kernel/softirq.c	2007-03-26 12:03:07.000000000 +0200
-+++ linux-2.6-git/kernel/softirq.c	2007-03-26 12:12:58.000000000 +0200
-@@ -211,7 +211,7 @@ asmlinkage void __do_softirq(void)
- 	int max_restart = MAX_SOFTIRQ_RESTART;
- 	int cpu;
- 	unsigned long pflags = current->flags;
--	current->flags &= ~PF_MEMALLOC;
-+	current->flags &= ~(PF_MEMALLOC|PF_MEM_NOWAIT);
++skip_taps:
+ #ifdef CONFIG_NET_CLS_ACT
+ 	if (pt_prev) {
+ 		ret = deliver_skb(skb, pt_prev, orig_dev);
+@@ -1809,16 +1826,28 @@ int netif_receive_skb(struct sk_buff *sk
  
- 	pending = local_softirq_pending();
- 	account_system_vtime(current);
-@@ -250,7 +250,7 @@ restart:
+ 	if (ret == TC_ACT_SHOT || (ret == TC_ACT_STOLEN)) {
+ 		kfree_skb(skb);
+-		goto out;
++		goto unlock;
+ 	}
  
- 	account_system_vtime(current);
- 	_local_bh_enable();
--	tsk_restore_flags(current, pflags, PF_MEMALLOC);
-+	tsk_restore_flags(current, pflags, (PF_MEMALLOC|PF_MEM_NOWAIT));
+ 	skb->tc_verd = 0;
+ ncls:
+ #endif
+ 
++	if (skb_emergency(skb))
++		switch(skb->protocol) {
++			case __constant_htons(ETH_P_ARP):
++			case __constant_htons(ETH_P_IP):
++			case __constant_htons(ETH_P_IPV6):
++			case __constant_htons(ETH_P_8021Q):
++				break;
++
++			default:
++				goto drop;
++		}
++
+ 	skb = handle_bridge(skb, &pt_prev, &ret, orig_dev);
+ 	if (!skb)
+-		goto out;
++		goto unlock;
+ 
+ 	type = skb->protocol;
+ 	list_for_each_entry_rcu(ptype, &ptype_base[ntohs(type)&15], list) {
+@@ -1833,6 +1862,7 @@ ncls:
+ 	if (pt_prev) {
+ 		ret = pt_prev->func(skb, skb->dev, pt_prev, orig_dev);
+ 	} else {
++drop:
+ 		kfree_skb(skb);
+ 		/* Jamal, now you will not able to escape explaining
+ 		 * me how you were going to use this. :-)
+@@ -1840,8 +1870,10 @@ ncls:
+ 		ret = NET_RX_DROP;
+ 	}
+ 
+-out:
++unlock:
+ 	rcu_read_unlock();
++out:
++	tsk_restore_flags(current, pflags, PF_MEMALLOC);
+ 	return ret;
  }
  
- #ifndef __ARCH_HAS_DO_SOFTIRQ
+Index: linux-2.6-git/include/net/sock.h
+===================================================================
+--- linux-2.6-git.orig/include/net/sock.h
++++ linux-2.6-git/include/net/sock.h
+@@ -527,10 +527,14 @@ static inline void sk_add_backlog(struct
+ 	skb->next = NULL;
+ }
+ 
++#ifndef CONFIG_NETVM
+ static inline int sk_backlog_rcv(struct sock *sk, struct sk_buff *skb)
+ {
+ 	return sk->sk_backlog_rcv(sk, skb);
+ }
++#else
++extern int sk_backlog_rcv(struct sock *sk, struct sk_buff *skb);
++#endif
+ 
+ #define sk_wait_event(__sk, __timeo, __condition)		\
+ ({	int rc;							\
+Index: linux-2.6-git/net/core/sock.c
+===================================================================
+--- linux-2.6-git.orig/net/core/sock.c
++++ linux-2.6-git/net/core/sock.c
+@@ -332,6 +332,25 @@ int sk_clear_vmio(struct sock *sk)
+ }
+ EXPORT_SYMBOL_GPL(sk_clear_vmio);
+ 
++#ifdef CONFIG_NETVM
++int sk_backlog_rcv(struct sock *sk, struct sk_buff *skb)
++{
++	if (skb_emergency(skb)) {
++		int ret;
++		unsigned long pflags = current->flags;
++	       	/* these should have been dropped before queueing */
++		BUG_ON(!sk_has_vmio(sk));
++		current->flags |= PF_MEMALLOC;
++		ret = sk->sk_backlog_rcv(sk, skb);
++		tsk_restore_flags(current, pflags, PF_MEMALLOC);
++		return ret;
++	}
++
++	return sk->sk_backlog_rcv(sk, skb);
++}
++EXPORT_SYMBOL(sk_backlog_rcv);
++#endif
++
+ static int sock_set_timeout(long *timeo_p, char __user *optval, int optlen)
+ {
+ 	struct timeval tv;
 
 --
-
