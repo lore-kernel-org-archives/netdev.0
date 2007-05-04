@@ -1,7 +1,7 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 38/40] netlink: add SOCK_VMIO support to AF_NETLINK
-Date: Fri, 04 May 2007 12:27:29 +0200
-Message-ID: <20070504103204.389358464@chello.nl>
+Subject: [PATCH 15/40] netvm: INET reserves.
+Date: Fri, 04 May 2007 12:27:06 +0200
+Message-ID: <20070504103158.907994448@chello.nl>
 References: <20070504102651.923946304@chello.nl>
 Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	Trond Myklebust <trond.myklebust@fys.uio.no>,
@@ -13,144 +13,208 @@ Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	Daniel Phillips <phillips@google.com>
 To: linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from amsfep17-int.chello.nl ([213.46.243.15]:41470 "EHLO
-	amsfep12-int.chello.nl" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S2993233AbXEDKf1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2007 06:35:27 -0400
-Content-Disposition: inline; filename=netlink_vmio.patch
-Sender: netdev-owner@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S2993281AbXEDKfi@vger.kernel.org>
+Content-Disposition: inline; filename=netvm-reserve-inet.patch
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Modify the netlink code so that SOCK_VMIO has the desired effect on the
-user-space side of the connection.
+Add reserves for INET.
 
-Modify sys_{send,recv}msg to use sk->sk_allocation instead of GFP_KERNEL,
-this should not change existing behaviour because the default of
-sk->sk_allocation is GFP_KERNEL, and no user-space exposed socket would
-have it any different at this time.
+The two big users seem to be the route cache and ip-fragment cache.
 
-This change allows the system calls to succeed for SOCK_VMIO sockets 
-(who have sk->sk_allocation |= GFP_EMERGENCY) even under extreme memory
-pressure.
-
-Since netlink_sendmsg is used to transfer msgs from user- to kernel-space
-treat the skb allocation there as a receive allocation.
-
-Also export netlink_lookup, this is needed to locate the kernel side struct
-sock object associated with the user-space netlink socket. 
+Account the route cache to the auxillary reserve.
+Account the fragments to the skb reserve so that one can at least
+overflow the fragment cache (avoids fragment deadlocks).
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Cc: David Miller <davem@davemloft.net>
-Cc: Mike Christie <michaelc@cs.wisc.edu>
 ---
- include/linux/netlink.h  |    1 +
- net/compat.c             |    2 +-
- net/netlink/af_netlink.c |   12 +++++++++---
- net/socket.c             |    6 +++---
- 4 files changed, 14 insertions(+), 7 deletions(-)
+ net/ipv4/ip_fragment.c     |    1 +
+ net/ipv4/route.c           |   19 ++++++++++++++++++-
+ net/ipv4/sysctl_net_ipv4.c |   14 +++++++++++++-
+ net/ipv6/reassembly.c      |    1 +
+ net/ipv6/route.c           |   19 ++++++++++++++++++-
+ net/ipv6/sysctl_net_ipv6.c |   13 ++++++++++++-
+ 6 files changed, 63 insertions(+), 4 deletions(-)
 
-Index: linux-2.6-git/net/netlink/af_netlink.c
+Index: linux-2.6-git/net/ipv4/sysctl_net_ipv4.c
 ===================================================================
---- linux-2.6-git.orig/net/netlink/af_netlink.c
-+++ linux-2.6-git/net/netlink/af_netlink.c
-@@ -203,7 +203,7 @@ netlink_unlock_table(void)
- 		wake_up(&nl_table_wait);
+--- linux-2.6-git.orig/net/ipv4/sysctl_net_ipv4.c	2007-03-26 12:01:01.000000000 +0200
++++ linux-2.6-git/net/ipv4/sysctl_net_ipv4.c	2007-03-26 12:37:19.000000000 +0200
+@@ -18,6 +18,7 @@
+ #include <net/route.h>
+ #include <net/tcp.h>
+ #include <net/cipso_ipv4.h>
++#include <net/sock.h>
+ 
+ /* From af_inet.c */
+ extern int sysctl_ip_nonlocal_bind;
+@@ -186,6 +187,17 @@ static int strategy_allowed_congestion_c
+ 
  }
  
--static __inline__ struct sock *netlink_lookup(int protocol, u32 pid)
-+struct sock *netlink_lookup(int protocol, u32 pid)
- {
- 	struct nl_pid_hash *hash = &nl_table[protocol].hash;
- 	struct hlist_head *head;
-@@ -1157,7 +1157,7 @@ static int netlink_sendmsg(struct kiocb 
- 	if (len > sk->sk_sndbuf - 32)
- 		goto out;
- 	err = -ENOBUFS;
--	skb = alloc_skb(len, GFP_KERNEL);
-+	skb = __alloc_skb(len, GFP_KERNEL, SKB_ALLOC_RX, -1);
- 	if (skb==NULL)
- 		goto out;
- 
-@@ -1186,8 +1186,13 @@ static int netlink_sendmsg(struct kiocb 
- 	}
- 
- 	if (dst_group) {
-+		gfp_t gfp_mask = sk->sk_allocation;
++static int proc_dointvec_fragment(ctl_table *table, int write, struct file *filp,
++		     void __user *buffer, size_t *lenp, loff_t *ppos)
++{
++	int ret;
++	int old_thresh = *(int *)table->data;
++	ret = proc_dointvec(table,write,filp,buffer,lenp,ppos);
++	if (write)
++		skb_reserve_memory(*(int *)table->data - old_thresh);
++	return ret;
++}
 +
-+		if (skb_emergency(skb))
-+			gfp_mask |= __GFP_EMERGENCY;
+ ctl_table ipv4_table[] = {
+ 	{
+ 		.ctl_name	= NET_IPV4_TCP_TIMESTAMPS,
+@@ -291,7 +303,7 @@ ctl_table ipv4_table[] = {
+ 		.data		= &sysctl_ipfrag_high_thresh,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+-		.proc_handler	= &proc_dointvec
++		.proc_handler	= &proc_dointvec_fragment
+ 	},
+ 	{
+ 		.ctl_name	= NET_IPV4_IPFRAG_LOW_THRESH,
+Index: linux-2.6-git/net/ipv6/sysctl_net_ipv6.c
+===================================================================
+--- linux-2.6-git.orig/net/ipv6/sysctl_net_ipv6.c	2007-03-26 12:01:01.000000000 +0200
++++ linux-2.6-git/net/ipv6/sysctl_net_ipv6.c	2007-03-26 12:37:52.000000000 +0200
+@@ -15,6 +15,17 @@
+ 
+ #ifdef CONFIG_SYSCTL
+ 
++static int proc_dointvec_fragment(ctl_table *table, int write, struct file *filp,
++		     void __user *buffer, size_t *lenp, loff_t *ppos)
++{
++	int ret;
++	int old_thresh = *(int *)table->data;
++	ret = proc_dointvec(table,write,filp,buffer,lenp,ppos);
++	if (write)
++		skb_reserve_memory(*(int *)table->data - old_thresh);
++	return ret;
++}
 +
- 		atomic_inc(&skb->users);
--		netlink_broadcast(sk, skb, dst_pid, dst_group, GFP_KERNEL);
-+		netlink_broadcast(sk, skb, dst_pid, dst_group, gfp_mask);
- 	}
- 	err = netlink_unicast(sk, skb, dst_pid, msg->msg_flags&MSG_DONTWAIT);
- 
-@@ -1850,6 +1855,7 @@ panic:
- 
- core_initcall(netlink_proto_init);
- 
-+EXPORT_SYMBOL(netlink_lookup);
- EXPORT_SYMBOL(netlink_ack);
- EXPORT_SYMBOL(netlink_run_queue);
- EXPORT_SYMBOL(netlink_broadcast);
-Index: linux-2.6-git/net/socket.c
+ static ctl_table ipv6_table[] = {
+ 	{
+ 		.ctl_name	= NET_IPV6_ROUTE,
+@@ -44,7 +55,7 @@ static ctl_table ipv6_table[] = {
+ 		.data		= &sysctl_ip6frag_high_thresh,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+-		.proc_handler	= &proc_dointvec
++		.proc_handler	= &proc_dointvec_fragment
+ 	},
+ 	{
+ 		.ctl_name	= NET_IPV6_IP6FRAG_LOW_THRESH,
+Index: linux-2.6-git/net/ipv4/ip_fragment.c
 ===================================================================
---- linux-2.6-git.orig/net/socket.c
-+++ linux-2.6-git/net/socket.c
-@@ -1817,7 +1817,7 @@ asmlinkage long sys_sendmsg(int fd, stru
- 	err = -ENOMEM;
- 	iov_size = msg_sys.msg_iovlen * sizeof(struct iovec);
- 	if (msg_sys.msg_iovlen > UIO_FASTIOV) {
--		iov = sock_kmalloc(sock->sk, iov_size, GFP_KERNEL);
-+		iov = sock_kmalloc(sock->sk, iov_size, sock->sk->sk_allocation);
- 		if (!iov)
- 			goto out_put;
- 	}
-@@ -1846,7 +1846,7 @@ asmlinkage long sys_sendmsg(int fd, stru
- 		ctl_len = msg_sys.msg_controllen;
- 	} else if (ctl_len) {
- 		if (ctl_len > sizeof(ctl)) {
--			ctl_buf = sock_kmalloc(sock->sk, ctl_len, GFP_KERNEL);
-+			ctl_buf = sock_kmalloc(sock->sk, ctl_len, sock->sk->sk_allocation);
- 			if (ctl_buf == NULL)
- 				goto out_freeiov;
- 		}
-@@ -1922,7 +1922,7 @@ asmlinkage long sys_recvmsg(int fd, stru
- 	err = -ENOMEM;
- 	iov_size = msg_sys.msg_iovlen * sizeof(struct iovec);
- 	if (msg_sys.msg_iovlen > UIO_FASTIOV) {
--		iov = sock_kmalloc(sock->sk, iov_size, GFP_KERNEL);
-+		iov = sock_kmalloc(sock->sk, iov_size, sock->sk->sk_allocation);
- 		if (!iov)
- 			goto out_put;
- 	}
-Index: linux-2.6-git/include/linux/netlink.h
+--- linux-2.6-git.orig/net/ipv4/ip_fragment.c	2007-03-26 12:01:01.000000000 +0200
++++ linux-2.6-git/net/ipv4/ip_fragment.c	2007-03-26 12:03:07.000000000 +0200
+@@ -743,6 +743,7 @@ void ipfrag_init(void)
+ 	ipfrag_secret_timer.function = ipfrag_secret_rebuild;
+ 	ipfrag_secret_timer.expires = jiffies + sysctl_ipfrag_secret_interval;
+ 	add_timer(&ipfrag_secret_timer);
++	skb_reserve_memory(sysctl_ipfrag_high_thresh);
+ }
+ 
+ EXPORT_SYMBOL(ip_defrag);
+Index: linux-2.6-git/net/ipv6/reassembly.c
 ===================================================================
---- linux-2.6-git.orig/include/linux/netlink.h
-+++ linux-2.6-git/include/linux/netlink.h
-@@ -157,6 +157,7 @@ struct netlink_skb_parms
- #define NETLINK_CREDS(skb)	(&NETLINK_CB((skb)).creds)
- 
- 
-+extern struct sock *netlink_lookup(int protocol, __u32 pid);
- extern struct sock *netlink_kernel_create(int unit, unsigned int groups,
- 					  void (*input)(struct sock *sk, int len),
- 					  struct mutex *cb_mutex,
-Index: linux-2.6-git/net/compat.c
+--- linux-2.6-git.orig/net/ipv6/reassembly.c	2007-03-26 12:01:01.000000000 +0200
++++ linux-2.6-git/net/ipv6/reassembly.c	2007-03-26 12:03:07.000000000 +0200
+@@ -772,4 +772,5 @@ void __init ipv6_frag_init(void)
+ 	ip6_frag_secret_timer.function = ip6_frag_secret_rebuild;
+ 	ip6_frag_secret_timer.expires = jiffies + sysctl_ip6frag_secret_interval;
+ 	add_timer(&ip6_frag_secret_timer);
++	skb_reserve_memory(sysctl_ip6frag_high_thresh);
+ }
+Index: linux-2.6-git/net/ipv4/route.c
 ===================================================================
---- linux-2.6-git.orig/net/compat.c
-+++ linux-2.6-git/net/compat.c
-@@ -169,7 +169,7 @@ int cmsghdr_from_user_compat_to_kern(str
- 	 * from the user.
- 	 */
- 	if (kcmlen > stackbuf_size)
--		kcmsg_base = kcmsg = sock_kmalloc(sk, kcmlen, GFP_KERNEL);
-+		kcmsg_base = kcmsg = sock_kmalloc(sk, kcmlen, sk->sk_allocation);
- 	if (kcmsg == NULL)
- 		return -ENOBUFS;
+--- linux-2.6-git.orig/net/ipv4/route.c	2007-03-26 12:01:01.000000000 +0200
++++ linux-2.6-git/net/ipv4/route.c	2007-03-26 12:31:43.000000000 +0200
+@@ -2884,6 +2884,21 @@ static int ipv4_sysctl_rtcache_flush_str
+ 	return 0;
+ }
  
++static int proc_dointvec_rt_size(ctl_table *table, int write, struct file *filp,
++		     void __user *buffer, size_t *lenp, loff_t *ppos)
++{
++	int ret;
++	int new_pages;
++	int old_pages = guess_kmem_cache_pages(ipv4_dst_ops.kmem_cachep,
++			*(int *)table->data);
++	ret = proc_dointvec(table,write,filp,buffer,lenp,ppos);
++	new_pages = guess_kmem_cache_pages(ipv4_dst_ops.kmem_cachep,
++			*(int *)table->data);
++	if (write && (new_pages - old_pages))
++		aux_reserve_memory(new_pages - old_pages);
++	return ret;
++}
++
+ ctl_table ipv4_route_table[] = {
+ 	{
+ 		.ctl_name 	= NET_IPV4_ROUTE_FLUSH,
+@@ -2926,7 +2941,7 @@ ctl_table ipv4_route_table[] = {
+ 		.data		= &ip_rt_max_size,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+-		.proc_handler	= &proc_dointvec,
++		.proc_handler	= &proc_dointvec_rt_size,
+ 	},
+ 	{
+ 		/*  Deprecated. Use gc_min_interval_ms */
+@@ -3153,6 +3168,8 @@ int __init ip_rt_init(void)
+ 
+ 	ipv4_dst_ops.gc_thresh = (rt_hash_mask + 1);
+ 	ip_rt_max_size = (rt_hash_mask + 1) * 16;
++	aux_reserve_memory(guess_kmem_cache_pages(ipv4_dst_ops.kmem_cachep,
++				ip_rt_max_size));
+ 
+ 	devinet_init();
+ 	ip_fib_init();
+Index: linux-2.6-git/net/ipv6/route.c
+===================================================================
+--- linux-2.6-git.orig/net/ipv6/route.c	2007-03-26 12:02:29.000000000 +0200
++++ linux-2.6-git/net/ipv6/route.c	2007-03-26 12:37:43.000000000 +0200
+@@ -2370,6 +2370,21 @@ int ipv6_sysctl_rtcache_flush(ctl_table 
+ 		return -EINVAL;
+ }
+ 
++static int proc_dointvec_rt_size(ctl_table *table, int write, struct file *filp,
++		     void __user *buffer, size_t *lenp, loff_t *ppos)
++{
++	int ret;
++	int new_pages;
++	int old_pages = guess_kmem_cache_pages(ip6_dst_ops.kmem_cachep,
++			*(int *)table->data);
++	ret = proc_dointvec(table,write,filp,buffer,lenp,ppos);
++	new_pages = guess_kmem_cache_pages(ip6_dst_ops.kmem_cachep,
++			*(int *)table->data);
++	if (write && (new_pages - old_pages))
++		aux_reserve_memory(new_pages - old_pages);
++	return ret;
++}
++
+ ctl_table ipv6_route_table[] = {
+ 	{
+ 		.ctl_name	=	NET_IPV6_ROUTE_FLUSH,
+@@ -2393,7 +2408,7 @@ ctl_table ipv6_route_table[] = {
+ 		.data		=	&ip6_rt_max_size,
+ 		.maxlen		=	sizeof(int),
+ 		.mode		=	0644,
+-		.proc_handler	=	&proc_dointvec,
++         	.proc_handler	=	&proc_dointvec_rt_size,
+ 	},
+ 	{
+ 		.ctl_name	=	NET_IPV6_ROUTE_GC_MIN_INTERVAL,
+@@ -2478,6 +2493,8 @@ void __init ip6_route_init(void)
+ 
+ 	proc_net_fops_create("rt6_stats", S_IRUGO, &rt6_stats_seq_fops);
+ #endif
++	aux_reserve_memory(guess_kmem_cache_pages(ip6_dst_ops.kmem_cachep,
++				ip6_rt_max_size));
+ #ifdef CONFIG_XFRM
+ 	xfrm6_init();
+ #endif
 
 --
-
