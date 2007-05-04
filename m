@@ -1,7 +1,7 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 27/40] nfs: disable data cache revalidation for swapfiles
-Date: Fri, 04 May 2007 12:27:18 +0200
-Message-ID: <20070504103201.758248175@chello.nl>
+Subject: [PATCH 18/40] netvm: prevent a TCP specific deadlock
+Date: Fri, 04 May 2007 12:27:09 +0200
+Message-ID: <20070504103159.616506817@chello.nl>
 References: <20070504102651.923946304@chello.nl>
 Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	Trond Myklebust <trond.myklebust@fys.uio.no>,
@@ -13,154 +13,81 @@ Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	Daniel Phillips <phillips@google.com>
 To: linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S2993233AbXEDKpB@vger.kernel.org>
-Content-Disposition: inline; filename=nfs-swapper.patch
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from amsfep17-int.chello.nl ([213.46.243.15]:31145 "EHLO
+	amsfep13-int.chello.nl" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S2993226AbXEDKe7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2007 06:34:59 -0400
+Content-Disposition: inline; filename=netvm-tcp-deadlock.patch
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Do as Trond suggested:
-  http://lkml.org/lkml/2006/8/25/348
-
-Disable NFS data cache revalidation on swap files since it doesn't really 
-make sense to have other clients change the file while you are using it.
-
-Thereby we can stop setting PG_private on swap pages, since there ought to
-be no further races with invalidate_inode_pages2() to deal with.
-
-And since we cannot set PG_private we cannot use page->private (which is
-already used by PG_swapcache pages anyway) to store the nfs_page. Thus
-augment the new nfs_page_find_request logic.
+It could happen that all !SOCK_VMIO sockets have buffered so much data
+that we're over the global rmem limit. This will prevent SOCK_VMIO buffers
+from receiving data, which will prevent userspace from running, which is needed
+to reduce the buffered data.
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Cc: Trond Myklebust <trond.myklebust@fys.uio.no>
 ---
- fs/nfs/inode.c |    6 ++++++
- fs/nfs/write.c |   42 ++++++++++++++++++++++++++----------------
- 2 files changed, 32 insertions(+), 16 deletions(-)
+ include/net/sock.h  |    7 ++++---
+ net/core/stream.c   |    5 +++--
+ net/ipv4/tcp_ipv4.c |    8 ++++++++
+ net/ipv6/tcp_ipv6.c |    8 ++++++++
+ 4 files changed, 23 insertions(+), 5 deletions(-)
 
-Index: linux-2.6-git/fs/nfs/inode.c
+Index: linux-2.6-git/include/net/sock.h
 ===================================================================
---- linux-2.6-git.orig/fs/nfs/inode.c
-+++ linux-2.6-git/fs/nfs/inode.c
-@@ -722,6 +722,12 @@ int nfs_revalidate_mapping_nolock(struct
- 	struct nfs_inode *nfsi = NFS_I(inode);
- 	int ret = 0;
+--- linux-2.6-git.orig/include/net/sock.h	2007-02-14 12:09:05.000000000 +0100
++++ linux-2.6-git/include/net/sock.h	2007-02-14 12:09:21.000000000 +0100
+@@ -730,7 +730,8 @@ static inline struct inode *SOCK_INODE(s
+ }
  
-+	/*
-+	 * swapfiles are not supposed to be shared.
-+	 */
-+	if (IS_SWAPFILE(inode))
-+		goto out;
-+
- 	if ((nfsi->cache_validity & NFS_INO_REVAL_PAGECACHE)
- 			|| nfs_attribute_timeout(inode) || NFS_STALE(inode)) {
- 		ret = __nfs_revalidate_inode(NFS_SERVER(inode), inode);
-Index: linux-2.6-git/fs/nfs/write.c
+ extern void __sk_stream_mem_reclaim(struct sock *sk);
+-extern int sk_stream_mem_schedule(struct sock *sk, int size, int kind);
++extern int sk_stream_mem_schedule(struct sock *sk, struct sk_buff *skb,
++		int size, int kind);
+ 
+ #define SK_STREAM_MEM_QUANTUM ((int)PAGE_SIZE)
+ 
+@@ -757,13 +758,13 @@ static inline void sk_stream_writequeue_
+ static inline int sk_stream_rmem_schedule(struct sock *sk, struct sk_buff *skb)
+ {
+ 	return (int)skb->truesize <= sk->sk_forward_alloc ||
+-		sk_stream_mem_schedule(sk, skb->truesize, 1);
++		sk_stream_mem_schedule(sk, skb, skb->truesize, 1);
+ }
+ 
+ static inline int sk_stream_wmem_schedule(struct sock *sk, int size)
+ {
+ 	return size <= sk->sk_forward_alloc ||
+-	       sk_stream_mem_schedule(sk, size, 0);
++	       sk_stream_mem_schedule(sk, NULL, size, 0);
+ }
+ 
+ /* Used by processes to "lock" a socket state, so that
+Index: linux-2.6-git/net/core/stream.c
 ===================================================================
---- linux-2.6-git.orig/fs/nfs/write.c
-+++ linux-2.6-git/fs/nfs/write.c
-@@ -106,25 +106,29 @@ void nfs_writedata_release(void *wdata)
- 	nfs_writedata_free(wdata);
- }
+--- linux-2.6-git.orig/net/core/stream.c	2007-02-14 12:09:05.000000000 +0100
++++ linux-2.6-git/net/core/stream.c	2007-02-14 12:09:21.000000000 +0100
+@@ -207,7 +207,7 @@ void __sk_stream_mem_reclaim(struct sock
  
--static struct nfs_page *nfs_page_find_request_locked(struct page *page)
-+static struct nfs_page *nfs_page_find_request_locked(struct nfs_inode *nfsi, struct page *page)
+ EXPORT_SYMBOL(__sk_stream_mem_reclaim);
+ 
+-int sk_stream_mem_schedule(struct sock *sk, int size, int kind)
++int sk_stream_mem_schedule(struct sock *sk, struct sk_buff *skb, int size, int kind)
  {
- 	struct nfs_page *req = NULL;
+ 	int amt = sk_stream_pages(size);
  
--	if (PagePrivate(page)) {
-+	if (PagePrivate(page))
- 		req = (struct nfs_page *)page_private(page);
--		if (req != NULL)
--			atomic_inc(&req->wb_count);
--	}
-+	else if (unlikely(PageSwapCache(page)))
-+		req = radix_tree_lookup(&nfsi->nfs_page_tree, page_file_index(page));
-+
-+	if (req != NULL)
-+		atomic_inc(&req->wb_count);
-+
- 	return req;
- }
- 
- static struct nfs_page *nfs_page_find_request(struct page *page)
- {
- 	struct nfs_page *req = NULL;
--	spinlock_t *req_lock = &NFS_I(page_file_mapping(page)->host)->req_lock;
-+	struct nfs_inode *nfsi = NFS_I(page_file_mapping(page)->host);
-+	spinlock_t *req_lock = &nfsi->req_lock;
- 
- 	spin_lock(req_lock);
--	req = nfs_page_find_request_locked(page);
-+	req = nfs_page_find_request_locked(nfsi, page);
- 	spin_unlock(req_lock);
- 	return req;
- }
-@@ -256,7 +260,7 @@ static int nfs_page_async_flush(struct n
- 
- 	spin_lock(req_lock);
- 	for(;;) {
--		req = nfs_page_find_request_locked(page);
-+		req = nfs_page_find_request_locked(nfsi, page);
- 		if (req == NULL) {
- 			spin_unlock(req_lock);
- 			return 1;
-@@ -389,8 +393,14 @@ static int nfs_inode_add_request(struct 
- 		if (nfs_have_delegation(inode, FMODE_WRITE))
- 			nfsi->change_attr++;
+@@ -224,7 +224,8 @@ int sk_stream_mem_schedule(struct sock *
+ 	/* Over hard limit. */
+ 	if (atomic_read(sk->sk_prot->memory_allocated) > sk->sk_prot->sysctl_mem[2]) {
+ 		sk->sk_prot->enter_memory_pressure();
+-		goto suppress_allocation;
++		if (!skb || (skb && !skb_emergency(skb)))
++			goto suppress_allocation;
  	}
--	SetPagePrivate(req->wb_page);
--	set_page_private(req->wb_page, (unsigned long)req);
-+	/*
-+	 * Swap-space should not get truncated. Hence no need to plug the race
-+	 * with invalidate/truncate.
-+	 */
-+	if (likely(!PageSwapCache(req->wb_page))) {
-+		SetPagePrivate(req->wb_page);
-+		set_page_private(req->wb_page, (unsigned long)req);
-+	}
- 	if (PageDirty(req->wb_page))
- 		set_bit(PG_NEED_FLUSH, &req->wb_flags);
- 	nfsi->npages++;
-@@ -409,8 +419,10 @@ static void nfs_inode_remove_request(str
- 	BUG_ON (!NFS_WBACK_BUSY(req));
  
- 	spin_lock(&nfsi->req_lock);
--	set_page_private(req->wb_page, 0);
--	ClearPagePrivate(req->wb_page);
-+	if (likely(!PageSwapCache(req->wb_page))) {
-+		set_page_private(req->wb_page, 0);
-+		ClearPagePrivate(req->wb_page);
-+	}
- 	radix_tree_delete(&nfsi->nfs_page_tree, req->wb_index);
- 	if (test_and_clear_bit(PG_NEED_FLUSH, &req->wb_flags))
- 		__set_page_dirty_nobuffers(req->wb_page);
-@@ -608,7 +620,7 @@ static struct nfs_page * nfs_update_requ
- 		 * A request for the page we wish to update
- 		 */
- 		spin_lock(&nfsi->req_lock);
--		req = nfs_page_find_request_locked(page);
-+		req = nfs_page_find_request_locked(nfsi, page);
- 		if (req) {
- 			if (!nfs_lock_request_dontget(req)) {
- 				int error;
-@@ -1402,8 +1414,6 @@ int nfs_wb_page_priority(struct inode *i
- 		if (ret < 0)
- 			goto out;
- 	}
--	if (!PagePrivate(page))
--		return 0;
- 	ret = nfs_sync_mapping_wait(page_file_mapping(page), &wbc, how);
- 	if (ret >= 0)
- 		return 0;
-@@ -1435,7 +1445,7 @@ int nfs_set_page_dirty(struct page *page
- 		goto out_raced;
- 	req_lock = &NFS_I(inode)->req_lock;
- 	spin_lock(req_lock);
--	req = nfs_page_find_request_locked(page);
-+	req = nfs_page_find_request_locked(NFS_I(inode), page);
- 	if (req != NULL) {
- 		/* Mark any existing write requests for flushing */
- 		ret = !test_and_set_bit(PG_NEED_FLUSH, &req->wb_flags);
+ 	/* Under pressure. */
 
 --
+
