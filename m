@@ -1,47 +1,55 @@
-From: Frederik Deweerdt <deweerdt@free.fr>
-Subject: Re: Strange soft lockup detected message (looks like spin_lock bug in pcnet32)
-Date: Fri, 4 May 2007 17:34:38 +0200
-Message-ID: <20070504153438.GE24769@slug>
-References: <20070503203143.GA8753@csclub.uwaterloo.ca> <20070504141024.GB8753@csclub.uwaterloo.ca> <20070504143326.GD24769@slug> <20070504151934.GA8754@csclub.uwaterloo.ca>
+From: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Subject: Re: [PATCH 00/40] Swap over Networked storage -v12
+Date: Fri, 04 May 2007 17:38:01 +0200
+Message-ID: <1178293081.24217.46.camel@twins>
+References: <20070504102651.923946304@chello.nl>
+	 <1178292179.7997.12.camel@imap.mvista.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+	netdev@vger.kernel.org,
+	Trond Myklebust <trond.myklebust@fys.uio.no>,
+	Thomas Graf <tgraf@suug.ch>,
+	David Miller <davem@davemloft.net>,
+	James Bottomley <James.Bottomley@SteelEye.com>,
+	Mike Christie <michaelc@cs.wisc.edu>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Daniel Phillips <phillips@google.com>
+To: Daniel Walker <dwalker@mvista.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.168]:39552 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030760AbXEDPfi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2007 11:35:38 -0400
-Received: by ug-out-1314.google.com with SMTP id 44so669563uga
-        for <netdev@vger.kernel.org>; Fri, 04 May 2007 08:35:37 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20070504151934.GA8754@csclub.uwaterloo.ca>
+Received: from amsfep17-int.chello.nl ([213.46.243.15]:12141 "EHLO
+	amsfep18-int.chello.nl" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1030510AbXEDPiG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2007 11:38:06 -0400
+In-Reply-To: <1178292179.7997.12.camel@imap.mvista.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, May 04, 2007 at 11:19:34AM -0400, Lennart Sorensen wrote:
-> On Fri, May 04, 2007 at 04:33:26PM +0200, Frederik Deweerdt wrote:
-> > On Fri, May 04, 2007 at 10:10:24AM -0400, Lennart Sorensen wrote:
-> > > On Thu, May 03, 2007 at 04:31:43PM -0400, Lennart Sorensen wrote:
-> > [...]
-> > > Should line 2563 be a spin_lock_irqsave instead along with the
-> > > appropriate unluck later?
-> > IIRC, when you enable lockdep, it will complain about spinlocks used in
-> > an invalid context.
+On Fri, 2007-05-04 at 08:22 -0700, Daniel Walker wrote:
+> On Fri, 2007-05-04 at 12:26 +0200, Peter Zijlstra wrote:
 > 
-> What is lockdep and how do I enable it?
-For the "what" part, see Documentation/lockdep-design.txt. You'll enable
-it by with SPINLOCK_DEBUG, indeed.
+> > 1) introduce the memory reserve and make the SLAB allocator play nice with it.
+> >    patches 01-10
+> > 
+> > 2) add some needed infrastructure to the network code
+> >    patches 11-13
+> > 
+> > 3) implement the idea outlined above
+> >    patches 14-20
+> > 
+> > 4) teach the swap machinery to use generic address_spaces
+> >    patches 21-24
+> > 
+> > 5) implement swap over NFS using all the new stuff
+> >    patches 25-31
+> > 
+> > 6) implement swap over iSCSI
+> >    patches 32-40
 > 
-> I enabled SPINLOCK_DEBUG and am going to try that kernel now (except it
-> hit the bug before I could even log in and install the kernel this time,
-> so another reboot first).
-> 
-> --
-> Len Sorensen
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
-> 
+> This is kind of a lot of patches all at once .. Have you release any of
+> these patch sets prior to this release ? 
+
+Like the -v12 suggests, this is the 12th posting of this patch set.
+Some is the same, some has changed.
+
