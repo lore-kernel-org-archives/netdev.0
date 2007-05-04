@@ -1,41 +1,38 @@
-From: Pekka Enberg <penberg@cs.helsinki.fi>
-Subject: Re: [PATCH 08/40] mm: kmem_cache_objsize
-Date: Fri, 04 May 2007 21:54:22 +0300
-Message-ID: <463B815E.8010806@cs.helsinki.fi>
-References: <20070504102651.923946304@chello.nl>  <20070504103157.215424767@chello.nl>  <Pine.LNX.4.64.0705040932200.22033@schroedinger.engr.sgi.com>  <1178301545.24217.56.camel@twins>  <Pine.LNX.4.64.0705041104110.23539@schroedinger.engr.sgi.com>  <1178302904.2767.6.camel@lappy>  <Pine.LNX.4.64.0705041128270.24283@schroedinger.engr.sgi.com> <1178303538.2767.9.camel@lappy> <463B7F63.8070508@cs.helsinki.fi> <Pine.LNX.4.64.0705041147000.24625@schroedinger.engr.sgi.com>
+From: Don Fry <pcnet32@verizon.net>
+Subject: Re: Strange soft lockup detected message (looks like spin_lock bug in pcnet32)
+Date: Fri, 4 May 2007 11:24:33 -0700
+Message-ID: <20070504182433.GA11595@verizon.net>
+References: <20070503203143.GA8753@csclub.uwaterloo.ca> <20070504141024.GB8753@csclub.uwaterloo.ca> <20070504143326.GD24769@slug> <20070504151934.GA8754@csclub.uwaterloo.ca> <20070504153438.GE24769@slug> <20070504154009.GE8751@csclub.uwaterloo.ca> <20070504174456.GC8753@csclub.uwaterloo.ca> <20070504175017.GD8753@csclub.uwaterloo.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org,
-	Trond Myklebust <trond.myklebust@fys.uio.no>,
-	Thomas Graf <tgraf@suug.ch>,
-	David Miller <davem@davemloft.net>,
-	James Bottomley <James.Bottomley@SteelEye.com>,
-	Mike Christie <michaelc@cs.wisc.edu>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Daniel Phillips <phillips@google.com>
-To: Christoph Lameter <clameter@sgi.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Frederik Deweerdt <deweerdt@free.fr>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:54151 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161653AbXEDSyJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2007 14:54:09 -0400
-In-Reply-To: <Pine.LNX.4.64.0705041147000.24625@schroedinger.engr.sgi.com>
+Received: from [71.117.224.81] ([71.117.224.81]:22090 "EHLO linux.site"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1161605AbXEDSzY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 May 2007 14:55:24 -0400
+Content-Disposition: inline
+In-Reply-To: <20070504175017.GD8753@csclub.uwaterloo.ca>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Christoph Lameter wrote:
-> On Fri, 4 May 2007, Pekka Enberg wrote:
-> 
->> Again, slab has no way of actually estimating how many pages you need for a
->> given number of objects. So we end up calculating some upper bound which
->> doesn't belong in mm/slab.c. I am perfectly okay with:
-> 
-> It can give a worst case number and that is what he wants.
+All instances of obtaining the lock in pcnet32 are done as
+spin_lock_irqsave except the interrupt handler itself.  The interrupt mask
+needs to be saved everywhere else, but the interrupt handler is known not
+to need to save the flags.
 
-Sure. But he can calculate that elsewhere instead of bringing it in 
-mm/slab.c where it's no use for anyone else...
+If the lock is held and the same CPU tries to get the lock again, it will
+wait a very long time ;-(.  I believe the locking is fine for a
+non-preemptable kernel, but I have little experience with a preemptable
+kernel.
 
+When does a preemptable kernel allow interrupts to occur?
+Is there a bug in this particular architectures locking code?
+>From looking at preempt-locking.txt the driver has (1) no per-cpu data,
+(2) 'CPU state protection' should be fine,
+(3) the 'lock is acquired and released by the same task'.
+I don't see a problem unless I am misunderstanding something.
 
+Don
