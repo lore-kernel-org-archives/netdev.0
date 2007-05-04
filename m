@@ -1,7 +1,7 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 17/40] netvm: filter emergency skbs.
-Date: Fri, 04 May 2007 12:27:08 +0200
-Message-ID: <20070504103159.389910222@chello.nl>
+Subject: [PATCH 36/40] iscsi: fixup of the ep_connect patch
+Date: Fri, 04 May 2007 12:27:27 +0200
+Message-ID: <20070504103203.911980306@chello.nl>
 References: <20070504102651.923946304@chello.nl>
 Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	Trond Myklebust <trond.myklebust@fys.uio.no>,
@@ -13,37 +13,79 @@ Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	Daniel Phillips <phillips@google.com>
 To: linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from amsfep17-int.chello.nl ([213.46.243.15]:15195 "EHLO
-	amsfep14-int.chello.nl" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S2993215AbXEDKe6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2007 06:34:58 -0400
-Content-Disposition: inline; filename=netvm-sk_filter.patch
-Sender: netdev-owner@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1031366AbXEDKol@vger.kernel.org>
+Content-Disposition: inline; filename=iscsi_ep_connect_fix.patch
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Toss all emergency packets not for a SOCK_VMIO socket. This ensures our
-precious memory reserve doesn't get stuck waiting for user-space.
+Make sure a malicious user-space program cannot crash the kernel module
+by prematurely closing the filedesc.
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Acked-by: Mike Christie <michaelc@cs.wisc.edu>
 ---
- include/net/sock.h |    3 +++
- 1 file changed, 3 insertions(+)
+ drivers/scsi/iscsi_tcp.c |   23 +++++++++++++++++++----
+ 1 file changed, 19 insertions(+), 4 deletions(-)
 
-Index: linux-2.6-git/include/net/sock.h
+Index: linux-2.6-git/drivers/scsi/iscsi_tcp.c
 ===================================================================
---- linux-2.6-git.orig/include/net/sock.h	2007-02-14 16:15:49.000000000 +0100
-+++ linux-2.6-git/include/net/sock.h	2007-02-14 16:16:27.000000000 +0100
-@@ -926,6 +926,9 @@ static inline int sk_filter(struct sock 
- {
- 	int err;
- 	struct sk_filter *filter;
+--- linux-2.6-git.orig/drivers/scsi/iscsi_tcp.c	2007-01-16 14:15:50.000000000 +0100
++++ linux-2.6-git/drivers/scsi/iscsi_tcp.c	2007-01-16 14:24:05.000000000 +0100
+@@ -1830,11 +1830,25 @@ tcp_conn_alloc_fail:
+ }
+ 
+ static void
++iscsi_tcp_release_conn(struct iscsi_conn *conn)
++{
++	struct iscsi_tcp_conn *tcp_conn = conn->dd_data;
 +
-+	if (skb_emergency(skb) && !sk_has_vmio(sk))
-+		return -EPERM;
- 	
- 	err = security_sock_rcv_skb(sk, skb);
- 	if (err)
++	if (!tcp_conn->sock)
++		return;
++
++	sockfd_put(tcp_conn->sock);
++	tcp_conn->sock = NULL;
++	conn->recv_lock = NULL;
++}
++
++static void
+ iscsi_tcp_conn_destroy(struct iscsi_cls_conn *cls_conn)
+ {
+ 	struct iscsi_conn *conn = cls_conn->dd_data;
+ 	struct iscsi_tcp_conn *tcp_conn = conn->dd_data;
+ 
++	iscsi_tcp_release_conn(conn);
+ 	iscsi_conn_teardown(cls_conn);
+ 	if (tcp_conn->tx_hash.tfm)
+ 		crypto_free_hash(tcp_conn->tx_hash.tfm);
+@@ -1851,6 +1865,7 @@ iscsi_tcp_conn_stop(struct iscsi_cls_con
+ 	struct iscsi_tcp_conn *tcp_conn = conn->dd_data;
+ 
+ 	iscsi_conn_stop(cls_conn, flag);
++	iscsi_tcp_release_conn(conn);
+ 	tcp_conn->hdr_size = sizeof(struct iscsi_hdr);
+ }
+ 
+@@ -1873,8 +1888,10 @@ iscsi_tcp_conn_bind(struct iscsi_cls_ses
+ 	}
+ 
+ 	err = iscsi_conn_bind(cls_session, cls_conn, is_leading, transport_eph);
+-	if (err)
+-		goto done;
++	if (err) {
++		sockfd_put(sock);
++		return err;
++	}
+ 
+ 	/* bind iSCSI connection and socket */
+ 	tcp_conn->sock = sock;
+@@ -1898,8 +1915,6 @@ iscsi_tcp_conn_bind(struct iscsi_cls_ses
+ 	 */
+ 	tcp_conn->in_progress = IN_PROGRESS_WAIT_HEADER;
+ 
+-done:
+-	sockfd_put(sock);
+ 	return err;
+ }
+ 
 
 --
-
