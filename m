@@ -1,74 +1,41 @@
-From: Daniel Walker <dwalker@mvista.com>
-Subject: Re: [PATCH 00/40] Swap over Networked storage -v12
-Date: Fri, 04 May 2007 12:31:26 -0700
-Message-ID: <1178307086.7997.75.camel@imap.mvista.com>
-References: <20070504102651.923946304@chello.nl>
-	 <1178292179.7997.12.camel@imap.mvista.com>
-	 <1178293081.24217.46.camel@twins>
-	 <1178294379.7997.26.camel@imap.mvista.com>
-	 <170fa0d20705041109j1d130456p4b7cef3633f8edb4@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Consolidate udp hash calculations
+Date: Fri, 04 May 2007 12:39:09 -0700 (PDT)
+Message-ID: <20070504.123909.88476080.davem@davemloft.net>
+References: <463B4878.4060902@sw.ru>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org,
-	Trond Myklebust <trond.myklebust@fys.uio.no>,
-	Thomas Graf <tgraf@suug.ch>,
-	David Miller <davem@davemloft.net>,
-	James Bottomley <James.Bottomley@steeleye.com>,
-	Mike Christie <michaelc@cs.wisc.edu>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Daniel Phillips <phillips@google.com>
-To: Mike Snitzer <snitzer@gmail.com>
+Cc: netdev@vger.kernel.org, devel@openvz.org
+To: xemul@sw.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gateway-1237.mvista.com ([63.81.120.158]:61021 "EHLO
-	gateway-1237.mvista.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1423103AbXEDTdK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2007 15:33:10 -0400
-In-Reply-To: <170fa0d20705041109j1d130456p4b7cef3633f8edb4@mail.gmail.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43627
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1161895AbXEDTjW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2007 15:39:22 -0400
+In-Reply-To: <463B4878.4060902@sw.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2007-05-04 at 14:09 -0400, Mike Snitzer wrote:
-> On 5/4/07, Daniel Walker <dwalker@mvista.com> wrote:
-> > On Fri, 2007-05-04 at 17:38 +0200, Peter Zijlstra wrote:
-> > > >
-> > > > This is kind of a lot of patches all at once .. Have you release any of
-> > > > these patch sets prior to this release ?
-> > >
-> > > Like the -v12 suggests, this is the 12th posting of this patch set.
-> > > Some is the same, some has changed.
-> >
-> > I can find one prior release with this subject (-v11) , what was the
-> > subject prior to that release? It's not a hard rule, but usually >15
-> > patches is too many (check Documentation/SubmittingPatches under
-> > references).. You might want to consider submitting a URL instead.
+From: Pavel Emelianov <xemul@sw.ru>
+Date: Fri, 04 May 2007 18:51:36 +0400
+
+> Make access to udphash/udplitehash symmetrical to inet hashes.
 > 
-> Previous subjects were like:
-> [PATCH 00/20] vm deadlock avoidance for NFS, NBD and iSCSI (take 7)
+> This may also help network namespaces, since they tend to use
+> one hash for different namespaces by selecting the hash chain
+> depending on a hash value and the namespace.
 > 
-> A URL doesn't allow for true discussion about a particular patch
-> unless the reviewer takes the initiative to create a new thread to
-> discuss the Nth patch it a patchset; whereby taking on the burden of a
-> structured subject and so on.  It would get out of control on a large
-> patchset that actually got a lot of simultaneous feedback... reviewers
-> don't have a forum to talk about each individual change without
-> stepping on each others' toes.
+> Signed-off-by: Pavel Emelianov <xemul@openvz.org>
 
-True ..
+This is not the "UDP Hash Function", it is a mask to bring
+the hash value modulo of the hash table size.
 
-> > I think it's a benefit to release less since a developer (like myself)
-> > might know very little about "Swap over Networked storage", but if you
-> > submit 10 patches that developer might still review it, 40 patches they
-> > likely wouldn't review it.
-> 
-> The _suggestions_ in Documentation/SubmittingPatches are nice and all
-> but the quantity of patches shouldn't _really_ matter.
+So your function name is misleading and makes the code
+even worse.
 
-I guess I take the documentation more seriously than your do. It's
-clearly not mandatory, but for my reviewing I appreciate less then 15
-sets of "logical changes".
+I'm also not so sure this cleanup really adds any clarity,
+even with a proper function name.
 
-Daniel
-
+I can only assume you wish to do something with the UDP hash table
+sizes, and therefore only want to have a need to touch one function.
