@@ -1,46 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] AF_RXRPC: Sort out MTU handling
-Date: Fri, 04 May 2007 12:42:25 -0700 (PDT)
-Message-ID: <20070504.124225.111205875.davem@davemloft.net>
-References: <20070504145647.19125.99441.stgit@warthog.cambridge.redhat.com>
+From: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Subject: Re: [PATCH 00/40] Swap over Networked storage -v12
+Date: Fri, 04 May 2007 21:41:49 +0200
+Message-ID: <1178307709.2767.19.camel@lappy>
+References: <20070504102651.923946304@chello.nl>
+	 <20070504.122716.31641374.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org
-To: dhowells@redhat.com
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <20070504145647.19125.99441.stgit@warthog.cambridge.redhat.com>
-Sender: linux-fsdevel-owner@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+	netdev@vger.kernel.org, trond.myklebust@fys.uio.no, tgraf@suug.ch,
+	James.Bottomley@SteelEye.com, michaelc@cs.wisc.edu,
+	akpm@linux-foundation.org, phillips@google.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from amsfep17-int.chello.nl ([213.46.243.15]:9938 "EHLO
+	amsfep18-int.chello.nl" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1422665AbXEDTqt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2007 15:46:49 -0400
+In-Reply-To: <20070504.122716.31641374.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: David Howells <dhowells@redhat.com>
-Date: Fri, 04 May 2007 15:56:47 +0100
+On Fri, 2007-05-04 at 12:27 -0700, David Miller wrote:
+> From: Peter Zijlstra <a.p.zijlstra@chello.nl>
+> Date: Fri, 04 May 2007 12:26:51 +0200
+> 
+> > There is a fundamental deadlock associated with paging;
+> 
+> I know you'd really like people like myself to review this work, but a
+> set of 40 patches is just too much to try and digest at once
+> especially when I have other things going on.
 
-> Sort out the MTU determination and handling in AF_RXRPC:
-> 
->  (1) If it's present, parse the additional information supplied by the peer at
->      the end of the ACK packet (struct ackinfo) to determine the MTU sizes
->      that peer is willing to support.
-> 
->  (2) Initialise the MTU size to that peer from the kernel's routing records.
-> 
->  (3) Send ACKs rather than ACKALLs as the former carry the additional info,
->      and the latter do not.
-> 
->  (4) Declare the interface MTU size in outgoing ACKs as a maximum amount of
->      data that can be stuffed into an RxRPC packet without it having to be
->      fragmented to come in this computer's NIC.
-> 
->  (5) If sendmsg() is given MSG_MORE then it should allocate an skb of the
->      maximum size rather than one just big enough for the data it's got left
->      to process on the theory that there is more data to come that it can
->      append to that packet.
-> 
->      This means, for example, that if AFS does a large StoreData op, all the
->      packets barring the last will be filled to the maximum unfragmented size.
-> 
-> Signed-off-by: David Howells <dhowells@redhat.com>
+I realize this, however I expected you to mainly look at the the 10
+network related patches, namely: 11/40 - 20/40.
 
-Applied, thanks.
+I know they build upon the previous 10 patches, which are mostly VM, and
+you seem to have an interest in that as well, so that would be 20
+patches to look at. Still a sizable set.
+
+How would you prefer I present these?
+
+The other patches are NFS and iSCSI, I'd not expect you to review those
+in depth.
+
 
