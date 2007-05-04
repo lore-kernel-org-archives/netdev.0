@@ -1,55 +1,58 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: RE: [PATCH] IPROUTE: Modify tc for new PRIO multiqueue behavior
-Date: Fri, 04 May 2007 23:22:28 +0200
-Message-ID: <1178313748.7408.41.camel@johannes.berg>
-References: <D5C1322C3E673F459512FB59E0DDC32902CA58E7@orsmsx414.amr.corp.intel.com>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: Re: [PATCH 00/40] Swap over Networked storage -v12
+Date: Fri, 04 May 2007 18:36:50 -0300
+Message-ID: <463BA772.9070203@redhat.com>
+References: <20070504102651.923946304@chello.nl> <1178292179.7997.12.camel@imap.mvista.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-UuAeHQZZdwRiyPzwZAAa"
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	hadi@cyberus.ca, Patrick McHardy <kaber@trash.net>,
-	netdev@vger.kernel.org, jgarzik@pobox.com,
-	cramerj <cramerj@intel.com>,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
-	"Leech, Christopher" <christopher.leech@intel.com>,
-	davem@davemloft.net
-To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+	netdev@vger.kernel.org,
+	Trond Myklebust <trond.myklebust@fys.uio.no>,
+	Thomas Graf <tgraf@suug.ch>,
+	David Miller <davem@davemloft.net>,
+	James Bottomley <James.Bottomley@SteelEye.com>,
+	Mike Christie <michaelc@cs.wisc.edu>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Daniel Phillips <phillips@google.com>
+To: Daniel Walker <dwalker@mvista.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:37603 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754140AbXEDVVU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2007 17:21:20 -0400
-In-Reply-To: <D5C1322C3E673F459512FB59E0DDC32902CA58E7@orsmsx414.amr.corp.intel.com>
+Received: from mx1.redhat.com ([66.187.233.31]:57452 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1031708AbXEDVhd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 May 2007 17:37:33 -0400
+In-Reply-To: <1178292179.7997.12.camel@imap.mvista.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Daniel Walker wrote:
+> On Fri, 2007-05-04 at 12:26 +0200, Peter Zijlstra wrote:
+>
+>   
+>> 1) introduce the memory reserve and make the SLAB allocator play nice with it.
+>>    patches 01-10
+>>
+>> 2) add some needed infrastructure to the network code
+>>    patches 11-13
+>>
+>> 3) implement the idea outlined above
+>>    patches 14-20
+>>
+>> 4) teach the swap machinery to use generic address_spaces
+>>    patches 21-24
+>>
+>> 5) implement swap over NFS using all the new stuff
+>>    patches 25-31
+>>
+>> 6) implement swap over iSCSI
+>>    patches 32-40
+>>     
+>
+> This is kind of a lot of patches all at once .. Have you release any of
+> these patch sets prior to this release ? 
+>   
 
---=-UuAeHQZZdwRiyPzwZAAa
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+Yes, several times AFAIK.
 
-On Fri, 2007-05-04 at 13:43 -0700, Waskiewicz Jr, Peter P wrote:
-> If hardware exists that wants the granularity to
-> start/stop queues independent of each other and continue to have
-> traffic
-> flow, I really think it should be able to do that.=20
-
-Not much of an if there, I'm pretty sure at least some wireless hardware
-can do that. We've been watching this multiqueue stuff for a while now
-with some interest but haven't hashed out yet how we could use it.
-
-johannes
-
---=-UuAeHQZZdwRiyPzwZAAa
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iD8DBQBGO6QU/ETPhpq3jKURAlKiAJ92Kog4351Bt33lRPo08M/BGPLa1QCdEGyw
-20ksK8cHqPBfzYF6AANRUpc=
-=z6pH
------END PGP SIGNATURE-----
-
---=-UuAeHQZZdwRiyPzwZAAa--
-
+- Arnaldo
