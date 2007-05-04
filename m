@@ -1,53 +1,32 @@
-From: Christoph Lameter <clameter@sgi.com>
-Subject: Re: [PATCH 08/40] mm: kmem_cache_objsize
-Date: Fri, 4 May 2007 12:59:44 -0700 (PDT)
-Message-ID: <Pine.LNX.4.64.0705041258390.25267@schroedinger.engr.sgi.com>
-References: <20070504102651.923946304@chello.nl>  <20070504103157.215424767@chello.nl>
-  <Pine.LNX.4.64.0705040932200.22033@schroedinger.engr.sgi.com>
- <1178301545.24217.56.camel@twins>  <Pine.LNX.4.64.0705041104110.23539@schroedinger.engr.sgi.com>
-  <1178302904.2767.6.camel@lappy>  <Pine.LNX.4.64.0705041128270.24283@schroedinger.engr.sgi.com>
- <1178303538.2767.9.camel@lappy> <463B7F63.8070508@cs.helsinki.fi>
- <Pine.LNX.4.64.0705041147000.24625@schroedinger.engr.sgi.com>
- <463B815E.8010806@cs.helsinki.fi>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 00/40] Swap over Networked storage -v12
+Date: Fri, 04 May 2007 13:02:39 -0700 (PDT)
+Message-ID: <20070504.130239.38710262.davem@davemloft.net>
+References: <20070504102651.923946304@chello.nl>
+	<20070504.122716.31641374.davem@davemloft.net>
+	<1178307709.2767.19.camel@lappy>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org,
-	Trond Myklebust <trond.myklebust@fys.uio.no>,
-	Thomas Graf <tgraf@suug.ch>,
-	David Miller <davem@davemloft.net>,
-	James Bottomley <James.Bottomley@SteelEye.com>,
-	Mike Christie <michaelc@cs.wisc.edu>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Daniel Phillips <phillips@google.com>
-To: Pekka Enberg <penberg@cs.helsinki.fi>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+	netdev@vger.kernel.org, trond.myklebust@fys.uio.no, tgraf@suug.ch,
+	James.Bottomley@SteelEye.com, michaelc@cs.wisc.edu,
+	akpm@linux-foundation.org, phillips@google.com
+To: a.p.zijlstra@chello.nl
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from netops-testserver-4-out.sgi.com ([192.48.171.29]:53471 "EHLO
-	relay.sgi.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1031505AbXEDT7p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2007 15:59:45 -0400
-In-Reply-To: <463B815E.8010806@cs.helsinki.fi>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36277
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1031393AbXEDUCw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2007 16:02:52 -0400
+In-Reply-To: <1178307709.2767.19.camel@lappy>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 4 May 2007, Pekka Enberg wrote:
+From: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Date: Fri, 04 May 2007 21:41:49 +0200
 
-> Christoph Lameter wrote:
-> > On Fri, 4 May 2007, Pekka Enberg wrote:
-> > 
-> > > Again, slab has no way of actually estimating how many pages you need for
-> > > a
-> > > given number of objects. So we end up calculating some upper bound which
-> > > doesn't belong in mm/slab.c. I am perfectly okay with:
-> > 
-> > It can give a worst case number and that is what he wants.
-> 
-> Sure. But he can calculate that elsewhere instead of bringing it in mm/slab.c
-> where it's no use for anyone else...
+> How would you prefer I present these?
 
-He is not able to calculate it just using the object size since he does 
-not know where the slab put the slab management structure. And in case of 
-SLUB there is no slab management structure... Which means he would have to 
-special case based on the slab allocator selected.
-
+How about 8 or 9 at a time?  You are building infrastructure
+and therefore you could post them 1 at a time for review
+since each patch should be able to stand on it's own.
