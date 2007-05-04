@@ -1,36 +1,52 @@
-From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
-Subject: Re: Strange soft lockup detected message (looks like spin_lock bug in pcnet32)
-Date: Fri, 4 May 2007 11:19:34 -0400
-Message-ID: <20070504151934.GA8754@csclub.uwaterloo.ca>
-References: <20070503203143.GA8753@csclub.uwaterloo.ca> <20070504141024.GB8753@csclub.uwaterloo.ca> <20070504143326.GD24769@slug>
+From: Daniel Walker <dwalker@mvista.com>
+Subject: Re: [PATCH 00/40] Swap over Networked storage -v12
+Date: Fri, 04 May 2007 08:22:59 -0700
+Message-ID: <1178292179.7997.12.camel@imap.mvista.com>
+References: <20070504102651.923946304@chello.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Frederik Deweerdt <deweerdt@free.fr>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+	netdev@vger.kernel.org,
+	Trond Myklebust <trond.myklebust@fys.uio.no>,
+	Thomas Graf <tgraf@suug.ch>,
+	David Miller <davem@davemloft.net>,
+	James Bottomley <James.Bottomley@SteelEye.com>,
+	Mike Christie <michaelc@cs.wisc.edu>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Daniel Phillips <phillips@google.com>
+To: Peter Zijlstra <a.p.zijlstra@chello.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caffeine.uwaterloo.ca ([129.97.134.17]:53745 "EHLO
-	caffeine.csclub.uwaterloo.ca" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933089AbXEDPTf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2007 11:19:35 -0400
-Content-Disposition: inline
-In-Reply-To: <20070504143326.GD24769@slug>
+Received: from gateway-1237.mvista.com ([63.81.120.158]:46296 "EHLO
+	gateway-1237.mvista.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933102AbXEDPYp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2007 11:24:45 -0400
+In-Reply-To: <20070504102651.923946304@chello.nl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, May 04, 2007 at 04:33:26PM +0200, Frederik Deweerdt wrote:
-> On Fri, May 04, 2007 at 10:10:24AM -0400, Lennart Sorensen wrote:
-> > On Thu, May 03, 2007 at 04:31:43PM -0400, Lennart Sorensen wrote:
-> [...]
-> > Should line 2563 be a spin_lock_irqsave instead along with the
-> > appropriate unluck later?
-> IIRC, when you enable lockdep, it will complain about spinlocks used in
-> an invalid context.
+On Fri, 2007-05-04 at 12:26 +0200, Peter Zijlstra wrote:
 
-What is lockdep and how do I enable it?
+> 1) introduce the memory reserve and make the SLAB allocator play nice with it.
+>    patches 01-10
+> 
+> 2) add some needed infrastructure to the network code
+>    patches 11-13
+> 
+> 3) implement the idea outlined above
+>    patches 14-20
+> 
+> 4) teach the swap machinery to use generic address_spaces
+>    patches 21-24
+> 
+> 5) implement swap over NFS using all the new stuff
+>    patches 25-31
+> 
+> 6) implement swap over iSCSI
+>    patches 32-40
 
-I enabled SPINLOCK_DEBUG and am going to try that kernel now (except it
-hit the bug before I could even log in and install the kernel this time,
-so another reboot first).
+This is kind of a lot of patches all at once .. Have you release any of
+these patch sets prior to this release ? 
 
---
-Len Sorensen
+Daniel
+
