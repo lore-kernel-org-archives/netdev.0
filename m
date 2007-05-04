@@ -1,7 +1,8 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 00/40] Swap over Networked storage -v12
-Date: Fri, 04 May 2007 12:26:51 +0200
-Message-ID: <20070504102651.923946304@chello.nl>
+Subject: [PATCH 25/40] nfs: remove mempools
+Date: Fri, 04 May 2007 12:27:16 +0200
+Message-ID: <20070504103201.289858346@chello.nl>
+References: <20070504102651.923946304@chello.nl>
 Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	Trond Myklebust <trond.myklebust@fys.uio.no>,
 	Thomas Graf <tgraf@suug.ch>,
@@ -15,83 +16,167 @@ To: linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from amsfep17-int.chello.nl ([213.46.243.15]:3563 "EHLO
 	amsfep14-int.chello.nl" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1767835AbXEDKi4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2007 06:38:56 -0400
+	by vger.kernel.org with ESMTP id S1767849AbXEDKjL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2007 06:39:11 -0400
+Content-Disposition: inline; filename=nfs-no-mempool.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-There is a fundamental deadlock associated with paging; when writing out a page
-to free memory requires free memory to complete. The usually solution is to
-keep a small amount of memory available at all times so we can overcome this
-problem. This however assumes the amount of memory needed for writeout is
-(constant and) smaller than the provided reserve.
+With the introduction of the shared dirty page accounting in .19, NFS should
+not be able to surpise the VM with all dirty pages. Thus it should always be
+able to free some memory. Hence no more need for mempools.
 
-It is this latter assumption that breaks when doing writeout over network.
-Network can take up an unspecified amount of memory while waiting for a reply
-to our write request. This re-introduces the deadlock; we might never complete
-the writeout, for we might not have enough memory to receive the completion
-message.
+Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Cc: Trond Myklebust <trond.myklebust@fys.uio.no>
+---
+ fs/nfs/read.c  |   15 +++------------
+ fs/nfs/write.c |   27 +++++----------------------
+ 2 files changed, 8 insertions(+), 34 deletions(-)
 
-The proposed solution is simple, only allow traffic servicing the VM to make
-use of the reserves.
-
-This however implies you know what packets are for whom, which generally
-speaking you don't. Hence we need to receive all packets but discard them as
-soon as we encounter a non VM bound packet allocated from the reserves.
-
-Also knowing it is headed towards the VM needs a little help, hence we
-introduce the socket flag SOCK_VMIO to mark sockets with.
-
-Of course, since we are paging all this has to happen in kernel-space, since
-user-space might just not be there.
-
-Since packet processing might also require memory, this all also implies that
-those auxiliary allocations may use the reserves when an emergency packet is
-processed. This is accomplished by using PF_MEMALLOC.
-
-How much memory is to be reserved is also an issue, enough memory to saturate
-both the route cache and IP fragment reassembly, along with various constants.
-
-This patch-set comes in 6 parts:
-
-1) introduce the memory reserve and make the SLAB allocator play nice with it.
-   patches 01-10
-
-2) add some needed infrastructure to the network code
-   patches 11-13
-
-3) implement the idea outlined above
-   patches 14-20
-
-4) teach the swap machinery to use generic address_spaces
-   patches 21-24
-
-5) implement swap over NFS using all the new stuff
-   patches 25-31
-
-6) implement swap over iSCSI
-   patches 32-40
-
-Patches can also be found here:
-  http://programming.kicks-ass.net/kernel-patches/vm_deadlock/v12/
-
-If I receive no feedback, I will assume the various maintainers do not object
-and I will respin the series against -mm and submit for inclusion.
-
-There is interest in this feature from the stateless linux world; that is both
-the virtualization world, and the cluster world.
-
-I have been contacted by various groups, some have just expressed their
-interest, others have been testing this work in their environments.
-
-Various hardware vendors have also expressed interest, and, of course, my
-employer finds it important enough to have me work on it.
-
-Also, while it doesn't present a full-fledged reserve-based allocator API yet,
-it does lay most of the groundwork for it. There is a GFP_NOFAIL elimination
-project wanting to use this as a foundation. Elimination of GFP_NOFAIL will
-greatly improve the basic soundness and stability of the code that currently
-uses that construct - most disk based filesystems.
+Index: linux-2.6-git/fs/nfs/read.c
+===================================================================
+--- linux-2.6-git.orig/fs/nfs/read.c
++++ linux-2.6-git/fs/nfs/read.c
+@@ -33,13 +33,10 @@ static const struct rpc_call_ops nfs_rea
+ static const struct rpc_call_ops nfs_read_full_ops;
+ 
+ static struct kmem_cache *nfs_rdata_cachep;
+-static mempool_t *nfs_rdata_mempool;
+-
+-#define MIN_POOL_READ	(32)
+ 
+ struct nfs_read_data *nfs_readdata_alloc(unsigned int pagecount)
+ {
+-	struct nfs_read_data *p = mempool_alloc(nfs_rdata_mempool, GFP_NOFS);
++	struct nfs_read_data *p = kmem_cache_alloc(nfs_rdata_cachep, GFP_NOFS);
+ 
+ 	if (p) {
+ 		memset(p, 0, sizeof(*p));
+@@ -50,7 +47,7 @@ struct nfs_read_data *nfs_readdata_alloc
+ 		else {
+ 			p->pagevec = kcalloc(pagecount, sizeof(struct page *), GFP_NOFS);
+ 			if (!p->pagevec) {
+-				mempool_free(p, nfs_rdata_mempool);
++				kmem_cache_free(nfs_rdata_cachep, p);
+ 				p = NULL;
+ 			}
+ 		}
+@@ -63,7 +60,7 @@ static void nfs_readdata_rcu_free(struct
+ 	struct nfs_read_data *p = container_of(head, struct nfs_read_data, task.u.tk_rcu);
+ 	if (p && (p->pagevec != &p->page_array[0]))
+ 		kfree(p->pagevec);
+-	mempool_free(p, nfs_rdata_mempool);
++	kmem_cache_free(nfs_rdata_cachep, p);
+ }
+ 
+ static void nfs_readdata_free(struct nfs_read_data *rdata)
+@@ -590,16 +587,10 @@ int __init nfs_init_readpagecache(void)
+ 	if (nfs_rdata_cachep == NULL)
+ 		return -ENOMEM;
+ 
+-	nfs_rdata_mempool = mempool_create_slab_pool(MIN_POOL_READ,
+-						     nfs_rdata_cachep);
+-	if (nfs_rdata_mempool == NULL)
+-		return -ENOMEM;
+-
+ 	return 0;
+ }
+ 
+ void nfs_destroy_readpagecache(void)
+ {
+-	mempool_destroy(nfs_rdata_mempool);
+ 	kmem_cache_destroy(nfs_rdata_cachep);
+ }
+Index: linux-2.6-git/fs/nfs/write.c
+===================================================================
+--- linux-2.6-git.orig/fs/nfs/write.c
++++ linux-2.6-git/fs/nfs/write.c
+@@ -29,9 +29,6 @@
+ 
+ #define NFSDBG_FACILITY		NFSDBG_PAGECACHE
+ 
+-#define MIN_POOL_WRITE		(32)
+-#define MIN_POOL_COMMIT		(4)
+-
+ /*
+  * Local function declarations
+  */
+@@ -45,12 +42,10 @@ static const struct rpc_call_ops nfs_wri
+ static const struct rpc_call_ops nfs_commit_ops;
+ 
+ static struct kmem_cache *nfs_wdata_cachep;
+-static mempool_t *nfs_wdata_mempool;
+-static mempool_t *nfs_commit_mempool;
+ 
+ struct nfs_write_data *nfs_commit_alloc(void)
+ {
+-	struct nfs_write_data *p = mempool_alloc(nfs_commit_mempool, GFP_NOFS);
++	struct nfs_write_data *p = kmem_cache_alloc(nfs_wdata_cachep, GFP_NOFS);
+ 
+ 	if (p) {
+ 		memset(p, 0, sizeof(*p));
+@@ -64,7 +59,7 @@ void nfs_commit_rcu_free(struct rcu_head
+ 	struct nfs_write_data *p = container_of(head, struct nfs_write_data, task.u.tk_rcu);
+ 	if (p && (p->pagevec != &p->page_array[0]))
+ 		kfree(p->pagevec);
+-	mempool_free(p, nfs_commit_mempool);
++	kmem_cache_free(nfs_wdata_cachep, p);
+ }
+ 
+ void nfs_commit_free(struct nfs_write_data *wdata)
+@@ -74,7 +69,7 @@ void nfs_commit_free(struct nfs_write_da
+ 
+ struct nfs_write_data *nfs_writedata_alloc(unsigned int pagecount)
+ {
+-	struct nfs_write_data *p = mempool_alloc(nfs_wdata_mempool, GFP_NOFS);
++	struct nfs_write_data *p = kmem_cache_alloc(nfs_wdata_cachep, GFP_NOFS);
+ 
+ 	if (p) {
+ 		memset(p, 0, sizeof(*p));
+@@ -85,7 +80,7 @@ struct nfs_write_data *nfs_writedata_all
+ 		else {
+ 			p->pagevec = kcalloc(pagecount, sizeof(struct page *), GFP_NOFS);
+ 			if (!p->pagevec) {
+-				mempool_free(p, nfs_wdata_mempool);
++				kmem_cache_free(nfs_wdata_cachep, p);
+ 				p = NULL;
+ 			}
+ 		}
+@@ -98,7 +93,7 @@ static void nfs_writedata_rcu_free(struc
+ 	struct nfs_write_data *p = container_of(head, struct nfs_write_data, task.u.tk_rcu);
+ 	if (p && (p->pagevec != &p->page_array[0]))
+ 		kfree(p->pagevec);
+-	mempool_free(p, nfs_wdata_mempool);
++	kmem_cache_free(nfs_wdata_cachep, p);
+ }
+ 
+ static void nfs_writedata_free(struct nfs_write_data *wdata)
+@@ -1465,16 +1460,6 @@ int __init nfs_init_writepagecache(void)
+ 	if (nfs_wdata_cachep == NULL)
+ 		return -ENOMEM;
+ 
+-	nfs_wdata_mempool = mempool_create_slab_pool(MIN_POOL_WRITE,
+-						     nfs_wdata_cachep);
+-	if (nfs_wdata_mempool == NULL)
+-		return -ENOMEM;
+-
+-	nfs_commit_mempool = mempool_create_slab_pool(MIN_POOL_COMMIT,
+-						      nfs_wdata_cachep);
+-	if (nfs_commit_mempool == NULL)
+-		return -ENOMEM;
+-
+ 	/*
+ 	 * NFS congestion size, scale with available memory.
+ 	 *
+@@ -1500,8 +1485,6 @@ int __init nfs_init_writepagecache(void)
+ 
+ void nfs_destroy_writepagecache(void)
+ {
+-	mempool_destroy(nfs_commit_mempool);
+-	mempool_destroy(nfs_wdata_mempool);
+ 	kmem_cache_destroy(nfs_wdata_cachep);
+ }
+ 
 
 --
 
