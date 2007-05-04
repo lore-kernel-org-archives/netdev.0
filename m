@@ -1,7 +1,7 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 11/40] net: wrap sk->sk_backlog_rcv()
-Date: Fri, 04 May 2007 12:27:02 +0200
-Message-ID: <20070504103157.934516800@chello.nl>
+Subject: [PATCH 33/40] uml: enable scsi and add iscsi config
+Date: Fri, 04 May 2007 12:27:24 +0200
+Message-ID: <20070504103203.181287020@chello.nl>
 References: <20070504102651.923946304@chello.nl>
 Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	Trond Myklebust <trond.myklebust@fys.uio.no>,
@@ -10,93 +10,120 @@ Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	James Bottomley <James.Bottomley@SteelEye.com>,
 	Mike Christie <michaelc@cs.wisc.edu>,
 	Andrew Morton <akpm@linux-foundation.org>,
-	Daniel Phillips <phillips@google.com>
+	Daniel Phillips <phillips@google.com>,
+	Jeff Dike <jdike@addtoit.com>
 To: linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from amsfep17-int.chello.nl ([213.46.243.15]:46698 "EHLO
-	amsfep12-int.chello.nl" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S2993218AbXEDKfo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2007 06:35:44 -0400
-Content-Disposition: inline; filename=net-backlog.patch
+Received: from amsfep17-int.chello.nl ([213.46.243.15]:18601 "EHLO
+	amsfep13-int.chello.nl" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S2993230AbXEDKfE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2007 06:35:04 -0400
+Content-Disposition: inline; filename=uml_iscsi.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Wrap calling sk->sk_backlog_rcv() in a function. This will allow extending the
-generic sk_backlog_rcv behaviour.
+Enable (i)SCSI on UML, dunno why SCSI was deemed broken, it works like a charm.
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Acked-by: Jeff Dike <jdike@addtoit.com>
+Cc: James Bottomley <James.Bottomley@SteelEye.com>
+Cc: Mike Christie <michaelc@cs.wisc.edu>
 ---
- include/net/sock.h   |    5 +++++
- net/core/sock.c      |    4 ++--
- net/ipv4/tcp.c       |    2 +-
- net/ipv4/tcp_timer.c |    2 +-
- 4 files changed, 9 insertions(+), 4 deletions(-)
+ arch/um/Kconfig      |   16 --------------
+ arch/um/Kconfig.scsi |   58 ---------------------------------------------------
+ 2 files changed, 1 insertion(+), 73 deletions(-)
 
-Index: linux-2.6-git/include/net/sock.h
+Index: linux-2.6-git/arch/um/Kconfig
 ===================================================================
---- linux-2.6-git.orig/include/net/sock.h	2007-02-14 11:29:55.000000000 +0100
-+++ linux-2.6-git/include/net/sock.h	2007-02-14 11:42:00.000000000 +0100
-@@ -480,6 +480,11 @@ static inline void sk_add_backlog(struct
- 	skb->next = NULL;
- }
+--- linux-2.6-git.orig/arch/um/Kconfig	2006-12-11 14:39:09.000000000 +0100
++++ linux-2.6-git/arch/um/Kconfig	2007-01-16 14:14:45.000000000 +0100
+@@ -317,21 +317,7 @@ source "crypto/Kconfig"
  
-+static inline int sk_backlog_rcv(struct sock *sk, struct sk_buff *skb)
-+{
-+	return sk->sk_backlog_rcv(sk, skb);
-+}
-+
- #define sk_wait_event(__sk, __timeo, __condition)		\
- ({	int rc;							\
- 	release_sock(__sk);					\
-Index: linux-2.6-git/net/core/sock.c
+ source "lib/Kconfig"
+ 
+-menu "SCSI support"
+-depends on BROKEN
+-
+-config SCSI
+-	tristate "SCSI support"
+-
+-# This gives us free_dma, which scsi.c wants.
+-config GENERIC_ISA_DMA
+-	bool
+-	depends on SCSI
+-	default y
+-
+-source "arch/um/Kconfig.scsi"
+-
+-endmenu
++source "drivers/scsi/Kconfig"
+ 
+ source "drivers/md/Kconfig"
+ 
+Index: linux-2.6-git/arch/um/Kconfig.scsi
 ===================================================================
---- linux-2.6-git.orig/net/core/sock.c	2007-02-14 11:29:55.000000000 +0100
-+++ linux-2.6-git/net/core/sock.c	2007-02-14 11:42:00.000000000 +0100
-@@ -290,7 +290,7 @@ int sk_receive_skb(struct sock *sk, stru
- 		 */
- 		mutex_acquire(&sk->sk_lock.dep_map, 0, 1, _RET_IP_);
- 
--		rc = sk->sk_backlog_rcv(sk, skb);
-+		rc = sk_backlog_rcv(sk, skb);
- 
- 		mutex_release(&sk->sk_lock.dep_map, 1, _RET_IP_);
- 	} else
-@@ -1244,7 +1244,7 @@ static void __release_sock(struct sock *
- 			struct sk_buff *next = skb->next;
- 
- 			skb->next = NULL;
--			sk->sk_backlog_rcv(sk, skb);
-+			sk_backlog_rcv(sk, skb);
- 
- 			/*
- 			 * We are in process context here with softirqs
-Index: linux-2.6-git/net/ipv4/tcp.c
-===================================================================
---- linux-2.6-git.orig/net/ipv4/tcp.c	2007-02-14 11:29:35.000000000 +0100
-+++ linux-2.6-git/net/ipv4/tcp.c	2007-02-14 11:42:00.000000000 +0100
-@@ -1002,7 +1002,7 @@ static void tcp_prequeue_process(struct 
- 	 * necessary */
- 	local_bh_disable();
- 	while ((skb = __skb_dequeue(&tp->ucopy.prequeue)) != NULL)
--		sk->sk_backlog_rcv(sk, skb);
-+		sk_backlog_rcv(sk, skb);
- 	local_bh_enable();
- 
- 	/* Clear memory counter. */
-Index: linux-2.6-git/net/ipv4/tcp_timer.c
-===================================================================
---- linux-2.6-git.orig/net/ipv4/tcp_timer.c	2007-02-14 11:29:36.000000000 +0100
-+++ linux-2.6-git/net/ipv4/tcp_timer.c	2007-02-14 11:42:00.000000000 +0100
-@@ -198,7 +198,7 @@ static void tcp_delack_timer(unsigned lo
- 		NET_INC_STATS_BH(LINUX_MIB_TCPSCHEDULERFAILED);
- 
- 		while ((skb = __skb_dequeue(&tp->ucopy.prequeue)) != NULL)
--			sk->sk_backlog_rcv(sk, skb);
-+			sk_backlog_rcv(sk, skb);
- 
- 		tp->ucopy.memory = 0;
- 	}
+--- linux-2.6-git.orig/arch/um/Kconfig.scsi	2006-09-05 15:30:39.000000000 +0200
++++ /dev/null	1970-01-01 00:00:00.000000000 +0000
+@@ -1,58 +0,0 @@
+-comment "SCSI support type (disk, tape, CD-ROM)"
+-	depends on SCSI
+-
+-config BLK_DEV_SD
+-	tristate "SCSI disk support"
+-	depends on SCSI
+-
+-config SD_EXTRA_DEVS
+-	int "Maximum number of SCSI disks that can be loaded as modules"
+-	depends on BLK_DEV_SD
+-	default "40"
+-
+-config CHR_DEV_ST
+-	tristate "SCSI tape support"
+-	depends on SCSI
+-
+-config BLK_DEV_SR
+-	tristate "SCSI CD-ROM support"
+-	depends on SCSI
+-
+-config BLK_DEV_SR_VENDOR
+-	bool "Enable vendor-specific extensions (for SCSI CDROM)"
+-	depends on BLK_DEV_SR
+-
+-config SR_EXTRA_DEVS
+-	int "Maximum number of CDROM devices that can be loaded as modules"
+-	depends on BLK_DEV_SR
+-	default "2"
+-
+-config CHR_DEV_SG
+-	tristate "SCSI generic support"
+-	depends on SCSI
+-
+-comment "Some SCSI devices (e.g. CD jukebox) support multiple LUNs"
+-	depends on SCSI
+-
+-#if [ "$CONFIG_EXPERIMENTAL" = "y" ]; then
+-config SCSI_DEBUG_QUEUES
+-	bool "Enable extra checks in new queueing code"
+-	depends on SCSI
+-
+-#fi
+-config SCSI_MULTI_LUN
+-	bool "Probe all LUNs on each SCSI device"
+-	depends on SCSI
+-
+-config SCSI_CONSTANTS
+-	bool "Verbose SCSI error reporting (kernel size +=12K)"
+-	depends on SCSI
+-
+-config SCSI_LOGGING
+-	bool "SCSI logging facility"
+-	depends on SCSI
+-
+-config SCSI_DEBUG
+-	tristate "SCSI debugging host simulator (EXPERIMENTAL)"
+-	depends on SCSI
+-
 
 --
 
