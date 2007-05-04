@@ -1,51 +1,71 @@
-From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
-Subject: Re: Strange soft lockup detected message (looks like spin_lock bug in pcnet32)
-Date: Fri, 4 May 2007 15:02:36 -0400
-Message-ID: <20070504190236.GE8753@csclub.uwaterloo.ca>
-References: <20070503203143.GA8753@csclub.uwaterloo.ca> <20070504141024.GB8753@csclub.uwaterloo.ca> <20070504143326.GD24769@slug> <20070504151934.GA8754@csclub.uwaterloo.ca> <20070504153438.GE24769@slug> <20070504154009.GE8751@csclub.uwaterloo.ca> <20070504174456.GC8753@csclub.uwaterloo.ca> <20070504175017.GD8753@csclub.uwaterloo.ca> <20070504182433.GA11595@verizon.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: git-net locking bustage
+Date: Fri, 04 May 2007 21:02:56 +0200
+Message-ID: <463B8360.10805@trash.net>
+References: <20070504115316.998c7fd3.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Frederik Deweerdt <deweerdt@free.fr>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Don Fry <pcnet32@verizon.net>
+Content-Type: multipart/mixed;
+ boundary="------------090001000700080702000304"
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caffeine.uwaterloo.ca ([129.97.134.17]:46102 "EHLO
-	caffeine.csclub.uwaterloo.ca" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755364AbXEDTCh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2007 15:02:37 -0400
-Content-Disposition: inline
-In-Reply-To: <20070504182433.GA11595@verizon.net>
+Received: from stinky.trash.net ([213.144.137.162]:61965 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755434AbXEDTDZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2007 15:03:25 -0400
+In-Reply-To: <20070504115316.998c7fd3.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, May 04, 2007 at 11:24:33AM -0700, Don Fry wrote:
-> All instances of obtaining the lock in pcnet32 are done as
-> spin_lock_irqsave except the interrupt handler itself.  The interrupt mask
-> needs to be saved everywhere else, but the interrupt handler is known not
-> to need to save the flags.
-> 
-> If the lock is held and the same CPU tries to get the lock again, it will
-> wait a very long time ;-(.  I believe the locking is fine for a
-> non-preemptable kernel, but I have little experience with a preemptable
-> kernel.
-> 
-> When does a preemptable kernel allow interrupts to occur?
+This is a multi-part message in MIME format.
+--------------090001000700080702000304
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
 
-I have no idea actually.
+Andrew Morton wrote:
+> kernel BUG at net/netlink/af_netlink.c:144!
 
-> Is there a bug in this particular architectures locking code?
 
-On i386?  I hope not.
+The BUG_ON(mutex_is_locked(nlk_sk(sk)->cb_mutex)) is bogus,
+this patch removes it.
 
-> From looking at preempt-locking.txt the driver has (1) no per-cpu data,
-> (2) 'CPU state protection' should be fine,
-> (3) the 'lock is acquired and released by the same task'.
-> I don't see a problem unless I am misunderstanding something.
 
-Well I don't know, but something is going wrong and causing the soft
-lock up.  I must admit I am surprised if an interrupt can occour while
-handling an interrupt, but then again maybe that is supposed to be
-allowed.
+--------------090001000700080702000304
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
 
---
-Len Sorensen
+[NETLINK]: Remove bogus BUG_ON
+
+Remove bogus BUG_ON(mutex_is_locked(nlk_sk(sk)->cb_mutex)), when the
+netlink_kernel_create caller specifies an external mutex it might
+validly be locked.
+
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+---
+commit c83f581b321efb7e7119c9f906ba8ecb6c43541d
+tree 4430e76db65599f1c02d1eaeec0b0606ea167175
+parent 572b08f6ad7d473edd282fd40ceadbb4dce522a2
+author Patrick McHardy <kaber@trash.net> Fri, 04 May 2007 21:02:24 +0200
+committer Patrick McHardy <kaber@trash.net> Fri, 04 May 2007 21:02:24 +0200
+
+ net/netlink/af_netlink.c |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
+
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index ac1cead..507828d 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -142,7 +142,6 @@ static void netlink_sock_destruct(struct sock *sk)
+ {
+ 	struct netlink_sock *nlk = nlk_sk(sk);
+ 
+-	BUG_ON(mutex_is_locked(nlk_sk(sk)->cb_mutex));
+ 	if (nlk->cb) {
+ 		if (nlk->cb->done)
+ 			nlk->cb->done(nlk->cb);
+
+--------------090001000700080702000304--
