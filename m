@@ -1,51 +1,55 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: Routing 600+ vlan's via linux problems (looks like arp
-	problems)
-Date: Thu, 03 May 2007 20:01:38 -0400
-Message-ID: <1178236898.4068.47.camel@localhost>
-References: <d20c3b7d0705031325r13834382r38ea31f26965c50@mail.gmail.com>
-	 <20070503205346.GD18539@uranus.ravnborg.org>
-	 <20070503143832.17a08fbb@freekitty>
-Reply-To: hadi@cyberus.ca
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH] Fix ppp_deflate issues with recent zlib_inflate changes
+Date: Thu, 3 May 2007 17:11:45 -0700
+Message-ID: <20070503171145.aafa29fb.akpm@linux-foundation.org>
+References: <1178230689.27450.9.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Sam Ravnborg <sam@ravnborg.org>,
-	=?ISO-8859-1?Q?=D8yvind_V=E5gen_J=E6gtnes?= <lorrides@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: Stefan Wenk <stefan.wenk@gmx.at>, netdev@vger.kernel.org
+To: Richard Purdie <rpurdie@rpsys.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.225]:44128 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1767473AbXEDABo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2007 20:01:44 -0400
-Received: by wx-out-0506.google.com with SMTP id h31so598713wxd
-        for <netdev@vger.kernel.org>; Thu, 03 May 2007 17:01:43 -0700 (PDT)
-In-Reply-To: <20070503143832.17a08fbb@freekitty>
+Received: from smtp1.linux-foundation.org ([65.172.181.25]:48264 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1423508AbXEDAL6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2007 20:11:58 -0400
+In-Reply-To: <1178230689.27450.9.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2007-03-05 at 14:38 -0700, Stephen Hemminger wrote:
+On Thu, 03 May 2007 23:18:09 +0100
+Richard Purdie <rpurdie@rpsys.net> wrote:
 
-> What kernel version?  Are you on a recent 2.6 kernel or stuck on some 
-> old "vendor stable" 2.4 kernel?
+> The last zlib_inflate update broke certain corner cases for ppp_deflate
+> decompression handling. This patch fixes some logic to make things work
+> properly again. Users other than ppp_deflate (the only Z_PACKET_FLUSH
+> user) should be unaffected.
+> 
+> Fixes bug 8405 (confirmed by the reporter).
+> 
+> Signed-off-by: Richard Purdie <rpurdie@rpsys.net>
+> 
+> Index: linux/lib/zlib_inflate/inflate.c
+> ===================================================================
+> --- linux.orig/lib/zlib_inflate/inflate.c	2007-05-03 23:08:27.000000000 +0100
+> +++ linux/lib/zlib_inflate/inflate.c	2007-05-03 23:09:39.000000000 +0100
+> @@ -743,12 +743,14 @@ int zlib_inflate(z_streamp strm, int flu
+>  
+>      strm->data_type = state->bits + (state->last ? 64 : 0) +
+>                        (state->mode == TYPE ? 128 : 0);
+> -    if (((in == 0 && out == 0) || flush == Z_FINISH) && ret == Z_OK)
+> -        ret = Z_BUF_ERROR;
+>  
+>      if (flush == Z_PACKET_FLUSH && ret == Z_OK &&
+> -            (strm->avail_out != 0 || strm->avail_in == 0))
+> +            strm->avail_out != 0 && strm->avail_in == 0)
+>  		return zlib_inflateSyncPacket(strm);
+> +
+> +    if (((in == 0 && out == 0) || flush == Z_FINISH) && ret == Z_OK)
+> +        ret = Z_BUF_ERROR;
+> +
+>      return ret;
+>  }
+>  
 
-VendorStable(tm)?;->
-
-Sounds to me like an ARP gc challenge to me.
-If it is, it would help incrementing the values in  
-/proc/sys/net/ipv4/neigh/default/gc_thresh*
-
-Try multiplying by some factor like 5 to see what happens i.e
----
-hadi@lilsol:~$ cat /proc/sys/net/ipv4/neigh/default/gc_thresh1
-128
----
-
-Make that 640 and repeat multiplying by 5 all the other thresholds
-
-cheers,
-jamal
-
-PS:- As usual i took lkml off the list
-
+Thanks heaps, guys.  It was a tough one.  I'll tag it for 2.6.21.x too.
