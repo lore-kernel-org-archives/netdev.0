@@ -1,7 +1,7 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 12/40] net: packet split receive api
-Date: Fri, 04 May 2007 12:27:03 +0200
-Message-ID: <20070504103158.188458962@chello.nl>
+Subject: [PATCH 38/40] netlink: add SOCK_VMIO support to AF_NETLINK
+Date: Fri, 04 May 2007 12:27:29 +0200
+Message-ID: <20070504103204.389358464@chello.nl>
 References: <20070504102651.923946304@chello.nl>
 Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	Trond Myklebust <trond.myklebust@fys.uio.no>,
@@ -14,184 +14,143 @@ Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
 To: linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from amsfep17-int.chello.nl ([213.46.243.15]:46698 "EHLO
+Received: from amsfep17-int.chello.nl ([213.46.243.15]:41470 "EHLO
 	amsfep12-int.chello.nl" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754775AbXEDKgF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2007 06:36:05 -0400
-Content-Disposition: inline; filename=net-ps_rx.patch
+	by vger.kernel.org with ESMTP id S2993233AbXEDKf1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2007 06:35:27 -0400
+Content-Disposition: inline; filename=netlink_vmio.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add some packet-split receive hooks.
+Modify the netlink code so that SOCK_VMIO has the desired effect on the
+user-space side of the connection.
 
-For one this allows to do NUMA node affine page allocs.  Later on these hooks
-will be extended to do emergency reserve allocations for fragments.
+Modify sys_{send,recv}msg to use sk->sk_allocation instead of GFP_KERNEL,
+this should not change existing behaviour because the default of
+sk->sk_allocation is GFP_KERNEL, and no user-space exposed socket would
+have it any different at this time.
+
+This change allows the system calls to succeed for SOCK_VMIO sockets 
+(who have sk->sk_allocation |= GFP_EMERGENCY) even under extreme memory
+pressure.
+
+Since netlink_sendmsg is used to transfer msgs from user- to kernel-space
+treat the skb allocation there as a receive allocation.
+
+Also export netlink_lookup, this is needed to locate the kernel side struct
+sock object associated with the user-space netlink socket. 
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Cc: David Miller <davem@davemloft.net>
+Cc: Mike Christie <michaelc@cs.wisc.edu>
 ---
- drivers/net/e1000/e1000_main.c |    8 ++------
- drivers/net/sky2.c             |   16 ++++++----------
- include/linux/skbuff.h         |   23 +++++++++++++++++++++++
- net/core/skbuff.c              |   20 ++++++++++++++++++++
- 4 files changed, 51 insertions(+), 16 deletions(-)
+ include/linux/netlink.h  |    1 +
+ net/compat.c             |    2 +-
+ net/netlink/af_netlink.c |   12 +++++++++---
+ net/socket.c             |    6 +++---
+ 4 files changed, 14 insertions(+), 7 deletions(-)
 
-Index: linux-2.6-git/drivers/net/e1000/e1000_main.c
+Index: linux-2.6-git/net/netlink/af_netlink.c
 ===================================================================
---- linux-2.6-git.orig/drivers/net/e1000/e1000_main.c	2007-02-14 08:31:12.000000000 +0100
-+++ linux-2.6-git/drivers/net/e1000/e1000_main.c	2007-02-14 11:42:07.000000000 +0100
-@@ -4412,12 +4412,8 @@ e1000_clean_rx_irq_ps(struct e1000_adapt
- 			pci_unmap_page(pdev, ps_page_dma->ps_page_dma[j],
- 					PAGE_SIZE, PCI_DMA_FROMDEVICE);
- 			ps_page_dma->ps_page_dma[j] = 0;
--			skb_fill_page_desc(skb, j, ps_page->ps_page[j], 0,
--			                   length);
-+			skb_add_rx_frag(skb, j, ps_page->ps_page[j], 0, length);
- 			ps_page->ps_page[j] = NULL;
--			skb->len += length;
--			skb->data_len += length;
--			skb->truesize += length;
- 		}
- 
- 		/* strip the ethernet crc, problem is we're using pages now so
-@@ -4623,7 +4619,7 @@ e1000_alloc_rx_buffers_ps(struct e1000_a
- 			if (j < adapter->rx_ps_pages) {
- 				if (likely(!ps_page->ps_page[j])) {
- 					ps_page->ps_page[j] =
--						alloc_page(GFP_ATOMIC);
-+						netdev_alloc_page(netdev);
- 					if (unlikely(!ps_page->ps_page[j])) {
- 						adapter->alloc_rx_buff_failed++;
- 						goto no_buffers;
-Index: linux-2.6-git/include/linux/skbuff.h
-===================================================================
---- linux-2.6-git.orig/include/linux/skbuff.h	2007-02-14 11:29:54.000000000 +0100
-+++ linux-2.6-git/include/linux/skbuff.h	2007-02-14 11:59:04.000000000 +0100
-@@ -813,6 +813,9 @@ static inline void skb_fill_page_desc(st
- 	skb_shinfo(skb)->nr_frags = i + 1;
+--- linux-2.6-git.orig/net/netlink/af_netlink.c
++++ linux-2.6-git/net/netlink/af_netlink.c
+@@ -203,7 +203,7 @@ netlink_unlock_table(void)
+ 		wake_up(&nl_table_wait);
  }
  
-+extern void skb_add_rx_frag(struct sk_buff *skb, int i, struct page *page,
-+			    int off, int size);
-+
- #define SKB_PAGE_ASSERT(skb) 	BUG_ON(skb_shinfo(skb)->nr_frags)
- #define SKB_FRAG_ASSERT(skb) 	BUG_ON(skb_shinfo(skb)->frag_list)
- #define SKB_LINEAR_ASSERT(skb)  BUG_ON(skb_is_nonlinear(skb))
-@@ -1148,6 +1151,26 @@ static inline struct sk_buff *netdev_all
- 	return __netdev_alloc_skb(dev, length, GFP_ATOMIC);
- }
- 
-+extern struct page *__netdev_alloc_page(struct net_device *dev, gfp_t gfp_mask);
-+
-+/**
-+ *	netdev_alloc_page - allocate a page for ps-rx on a specific device
-+ *	@dev: network device to receive on
-+ *
-+ * 	Allocate a new page node local to the specified device.
-+ *
-+ * 	%NULL is returned if there is no free memory.
-+ */
-+static inline struct page *netdev_alloc_page(struct net_device *dev)
-+{
-+	return __netdev_alloc_page(dev, GFP_ATOMIC);
-+}
-+
-+static inline void netdev_free_page(struct net_device *dev, struct page *page)
-+{
-+	__free_page(page);
-+}
-+
- /**
-  *	skb_cow - copy header of skb when it is required
-  *	@skb: buffer to cow
-Index: linux-2.6-git/net/core/skbuff.c
-===================================================================
---- linux-2.6-git.orig/net/core/skbuff.c	2007-02-14 11:29:54.000000000 +0100
-+++ linux-2.6-git/net/core/skbuff.c	2007-02-14 12:01:40.000000000 +0100
-@@ -279,6 +279,24 @@ struct sk_buff *__netdev_alloc_skb(struc
- 	return skb;
- }
- 
-+struct page *__netdev_alloc_page(struct net_device *dev, gfp_t gfp_mask)
-+{
-+	int node = dev->dev.parent ? dev_to_node(dev->dev.parent) : -1;
-+	struct page *page;
-+
-+	page = alloc_pages_node(node, gfp_mask, 0);
-+	return page;
-+}
-+
-+void skb_add_rx_frag(struct sk_buff *skb, int i, struct page *page, int off,
-+		int size)
-+{
-+	skb_fill_page_desc(skb, i, page, off, size);
-+	skb->len += size;
-+	skb->data_len += size;
-+	skb->truesize += size;
-+}
-+
- static void skb_drop_list(struct sk_buff **listp)
+-static __inline__ struct sock *netlink_lookup(int protocol, u32 pid)
++struct sock *netlink_lookup(int protocol, u32 pid)
  {
- 	struct sk_buff *list = *listp;
-@@ -2066,6 +2084,8 @@ EXPORT_SYMBOL(kfree_skb);
- EXPORT_SYMBOL(__pskb_pull_tail);
- EXPORT_SYMBOL(__alloc_skb);
- EXPORT_SYMBOL(__netdev_alloc_skb);
-+EXPORT_SYMBOL(__netdev_alloc_page);
-+EXPORT_SYMBOL(skb_add_rx_frag);
- EXPORT_SYMBOL(pskb_copy);
- EXPORT_SYMBOL(pskb_expand_head);
- EXPORT_SYMBOL(skb_checksum);
-Index: linux-2.6-git/drivers/net/sky2.c
-===================================================================
---- linux-2.6-git.orig/drivers/net/sky2.c	2007-02-14 08:31:12.000000000 +0100
-+++ linux-2.6-git/drivers/net/sky2.c	2007-02-14 12:00:22.000000000 +0100
-@@ -1083,7 +1083,7 @@ static struct sk_buff *sky2_rx_alloc(str
- 	skb_reserve(skb, ALIGN(p, RX_SKB_ALIGN) - p);
+ 	struct nl_pid_hash *hash = &nl_table[protocol].hash;
+ 	struct hlist_head *head;
+@@ -1157,7 +1157,7 @@ static int netlink_sendmsg(struct kiocb 
+ 	if (len > sk->sk_sndbuf - 32)
+ 		goto out;
+ 	err = -ENOBUFS;
+-	skb = alloc_skb(len, GFP_KERNEL);
++	skb = __alloc_skb(len, GFP_KERNEL, SKB_ALLOC_RX, -1);
+ 	if (skb==NULL)
+ 		goto out;
  
- 	for (i = 0; i < sky2->rx_nfrags; i++) {
--		struct page *page = alloc_page(GFP_ATOMIC);
-+		struct page *page = netdev_alloc_page(sky2->netdev);
- 
- 		if (!page)
- 			goto free_partial;
-@@ -1972,8 +1972,8 @@ static struct sk_buff *receive_copy(stru
- }
- 
- /* Adjust length of skb with fragments to match received data */
--static void skb_put_frags(struct sk_buff *skb, unsigned int hdr_space,
--			  unsigned int length)
-+static void skb_put_frags(struct sky2_port *sky2, struct sk_buff *skb,
-+			  unsigned int hdr_space, unsigned int length)
- {
- 	int i, num_frags;
- 	unsigned int size;
-@@ -1990,15 +1990,11 @@ static void skb_put_frags(struct sk_buff
- 
- 		if (length == 0) {
- 			/* don't need this page */
--			__free_page(frag->page);
-+			netdev_free_page(sky2->netdev, frag->page);
- 			--skb_shinfo(skb)->nr_frags;
- 		} else {
- 			size = min(length, (unsigned) PAGE_SIZE);
--
--			frag->size = size;
--			skb->data_len += size;
--			skb->truesize += size;
--			skb->len += size;
-+			skb_add_rx_frag(skb, i, frag->page, 0, size);
- 			length -= size;
- 		}
+@@ -1186,8 +1186,13 @@ static int netlink_sendmsg(struct kiocb 
  	}
-@@ -2027,7 +2023,7 @@ static struct sk_buff *receive_new(struc
- 	sky2_rx_map_skb(sky2->hw->pdev, re, hdr_space);
  
- 	if (skb_shinfo(skb)->nr_frags)
--		skb_put_frags(skb, hdr_space, length);
-+		skb_put_frags(sky2, skb, hdr_space, length);
- 	else
- 		skb_put(skb, length);
- 	return skb;
+ 	if (dst_group) {
++		gfp_t gfp_mask = sk->sk_allocation;
++
++		if (skb_emergency(skb))
++			gfp_mask |= __GFP_EMERGENCY;
++
+ 		atomic_inc(&skb->users);
+-		netlink_broadcast(sk, skb, dst_pid, dst_group, GFP_KERNEL);
++		netlink_broadcast(sk, skb, dst_pid, dst_group, gfp_mask);
+ 	}
+ 	err = netlink_unicast(sk, skb, dst_pid, msg->msg_flags&MSG_DONTWAIT);
+ 
+@@ -1850,6 +1855,7 @@ panic:
+ 
+ core_initcall(netlink_proto_init);
+ 
++EXPORT_SYMBOL(netlink_lookup);
+ EXPORT_SYMBOL(netlink_ack);
+ EXPORT_SYMBOL(netlink_run_queue);
+ EXPORT_SYMBOL(netlink_broadcast);
+Index: linux-2.6-git/net/socket.c
+===================================================================
+--- linux-2.6-git.orig/net/socket.c
++++ linux-2.6-git/net/socket.c
+@@ -1817,7 +1817,7 @@ asmlinkage long sys_sendmsg(int fd, stru
+ 	err = -ENOMEM;
+ 	iov_size = msg_sys.msg_iovlen * sizeof(struct iovec);
+ 	if (msg_sys.msg_iovlen > UIO_FASTIOV) {
+-		iov = sock_kmalloc(sock->sk, iov_size, GFP_KERNEL);
++		iov = sock_kmalloc(sock->sk, iov_size, sock->sk->sk_allocation);
+ 		if (!iov)
+ 			goto out_put;
+ 	}
+@@ -1846,7 +1846,7 @@ asmlinkage long sys_sendmsg(int fd, stru
+ 		ctl_len = msg_sys.msg_controllen;
+ 	} else if (ctl_len) {
+ 		if (ctl_len > sizeof(ctl)) {
+-			ctl_buf = sock_kmalloc(sock->sk, ctl_len, GFP_KERNEL);
++			ctl_buf = sock_kmalloc(sock->sk, ctl_len, sock->sk->sk_allocation);
+ 			if (ctl_buf == NULL)
+ 				goto out_freeiov;
+ 		}
+@@ -1922,7 +1922,7 @@ asmlinkage long sys_recvmsg(int fd, stru
+ 	err = -ENOMEM;
+ 	iov_size = msg_sys.msg_iovlen * sizeof(struct iovec);
+ 	if (msg_sys.msg_iovlen > UIO_FASTIOV) {
+-		iov = sock_kmalloc(sock->sk, iov_size, GFP_KERNEL);
++		iov = sock_kmalloc(sock->sk, iov_size, sock->sk->sk_allocation);
+ 		if (!iov)
+ 			goto out_put;
+ 	}
+Index: linux-2.6-git/include/linux/netlink.h
+===================================================================
+--- linux-2.6-git.orig/include/linux/netlink.h
++++ linux-2.6-git/include/linux/netlink.h
+@@ -157,6 +157,7 @@ struct netlink_skb_parms
+ #define NETLINK_CREDS(skb)	(&NETLINK_CB((skb)).creds)
+ 
+ 
++extern struct sock *netlink_lookup(int protocol, __u32 pid);
+ extern struct sock *netlink_kernel_create(int unit, unsigned int groups,
+ 					  void (*input)(struct sock *sk, int len),
+ 					  struct mutex *cb_mutex,
+Index: linux-2.6-git/net/compat.c
+===================================================================
+--- linux-2.6-git.orig/net/compat.c
++++ linux-2.6-git/net/compat.c
+@@ -169,7 +169,7 @@ int cmsghdr_from_user_compat_to_kern(str
+ 	 * from the user.
+ 	 */
+ 	if (kcmlen > stackbuf_size)
+-		kcmsg_base = kcmsg = sock_kmalloc(sk, kcmlen, GFP_KERNEL);
++		kcmsg_base = kcmsg = sock_kmalloc(sk, kcmlen, sk->sk_allocation);
+ 	if (kcmsg == NULL)
+ 		return -ENOBUFS;
+ 
 
 --
 
