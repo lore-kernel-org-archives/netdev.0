@@ -1,18 +1,13 @@
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
+From: Pekka Enberg <penberg@cs.helsinki.fi>
 Subject: Re: [PATCH 08/40] mm: kmem_cache_objsize
-Date: Fri, 04 May 2007 20:32:18 +0200
-Message-ID: <1178303538.2767.9.camel@lappy>
-References: <20070504102651.923946304@chello.nl>
-	 <20070504103157.215424767@chello.nl>
-	 <Pine.LNX.4.64.0705040932200.22033@schroedinger.engr.sgi.com>
-	 <1178301545.24217.56.camel@twins>
-	 <Pine.LNX.4.64.0705041104110.23539@schroedinger.engr.sgi.com>
-	 <1178302904.2767.6.camel@lappy>
-	 <Pine.LNX.4.64.0705041128270.24283@schroedinger.engr.sgi.com>
+Date: Fri, 04 May 2007 21:41:32 +0300
+Message-ID: <463B7E5C.8030201@cs.helsinki.fi>
+References: <20070504102651.923946304@chello.nl>  <20070504103157.215424767@chello.nl>  <Pine.LNX.4.64.0705040932200.22033@schroedinger.engr.sgi.com>  <1178301545.24217.56.camel@twins>  <Pine.LNX.4.64.0705041104110.23539@schroedinger.engr.sgi.com> <1178302904.2767.6.camel@lappy> <Pine.LNX.4.64.0705041128270.24283@schroedinger.engr.sgi.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org,
 	Trond Myklebust <trond.myklebust@fys.uio.no>,
 	Thomas Graf <tgraf@suug.ch>,
@@ -20,27 +15,18 @@ Cc: linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	James Bottomley <James.Bottomley@SteelEye.com>,
 	Mike Christie <michaelc@cs.wisc.edu>,
 	Andrew Morton <akpm@linux-foundation.org>,
-	Daniel Phillips <phillips@google.com>,
-	Pekka Enberg <penberg@cs.helsinki.fi>
+	Daniel Phillips <phillips@google.com>
 To: Christoph Lameter <clameter@sgi.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from amsfep17-int.chello.nl ([213.46.243.15]:4820 "EHLO
-	amsfep14-int.chello.nl" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1161605AbXEDShR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2007 14:37:17 -0400
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:42427 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161616AbXEDSlV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2007 14:41:21 -0400
 In-Reply-To: <Pine.LNX.4.64.0705041128270.24283@schroedinger.engr.sgi.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2007-05-04 at 11:30 -0700, Christoph Lameter wrote:
-> On Fri, 4 May 2007, Peter Zijlstra wrote:
-> 
-> > > Ok so you really need the number of objects per page? If you know the 
-> > > number of objects then you can calculate the pages needed which would be 
-> > > the maximum memory needed?
-> > 
-> > Yes, that would work.
-> 
+Christoph Lameter wrote:
 > Hmmm... Maybe lets have
 > 
 > unsigned kmem_estimate_pages(struct kmem_cache *slab_cache, int objects)
@@ -48,5 +34,13 @@ On Fri, 2007-05-04 at 11:30 -0700, Christoph Lameter wrote:
 > which would calculate the worst case memory scenario for allocation the 
 > number of indicated objects?
 
-Perfectly fine with me, Pekka, any objections?
+IIRC this looks more or less what Peter had initially. I don't like the 
+API because there's no way for slab (perhaps this is different for slub) 
+how many pages you really need due to per-node and per-cpu caches, etc.
+
+It's better that the slab tells you what it actually knows and lets the 
+callers figure out what a worst-case upper bound is.
+
+				Pekka
+
 
