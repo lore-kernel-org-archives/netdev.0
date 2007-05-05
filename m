@@ -1,54 +1,47 @@
-From: Segher Boessenkool <segher@kernel.crashing.org>
-Subject: Re: [PATCH v2] gianfar: Add I/O barriers when touching buffer descriptor ownership.
-Date: Sat, 5 May 2007 02:41:20 +0200
-Message-ID: <319ad63a0d38335a6b0c221e8f3c26b0@kernel.crashing.org>
-References: <20070502195712.GA16541@ld0162-tx32.am.freescale.net> <F1B250DD-A472-470F-B3D0-EBB2F042E454@kernel.crashing.org> <4638F0C4.2000406@freescale.com> <FA9554A4-5A7D-4E03-BE28-C4B6B80D9DB9@kernel.crashing.org> <4638F734.2040809@freescale.com> <20070504221309.GR6193@austin.ibm.com>
-Mime-Version: 1.0 (Apple Message framework v623)
-Content-Type: text/plain; charset=US-ASCII; format=flowed
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 10/11][TG3]: Reduce spurious interrupts.
+Date: Fri, 04 May 2007 20:42:43 -0400
+Message-ID: <463BD303.7000500@garzik.org>
+References: <1178326521.4859.26.camel@dell>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Scott Wood <scottwood@freescale.com>, netdev@vger.kernel.org,
-	linuxppc-dev@ozlabs.org, jgarzik@pobox.com
-To: linas@austin.ibm.com (Linas Vepstas)
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Michael Chan <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-in-03.arcor-online.net ([151.189.21.43]:53329 "EHLO
-	mail-in-03.arcor-online.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1161609AbXEEAlo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2007 20:41:44 -0400
-In-Reply-To: <20070504221309.GR6193@austin.ibm.com>
+Received: from srv5.dvmed.net ([207.36.208.214]:53284 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1423710AbXEEAmq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 May 2007 20:42:46 -0400
+In-Reply-To: <1178326521.4859.26.camel@dell>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->> Well, Segher doesn't want me to use iobarrier (because it's not I/O).
->> Andy doesn't want me to use wmb() (because it's sync).  I don't think
->> something like gfar_wmb() would be appropriate.  So the remaining
->> options are either eieio(),
->
-> ? Just curious... the original intent of eieio was to order I/O,
-> such as MMIO; it has no effect on memory that isn't marked
-> cache-inhibited or write-trhough or guarded. Has this changed?
+Michael Chan wrote:
+> [TG3]: Reduce spurious interrupts.
+> 
+> Spurious interrupts are often encountered especially on systems
+> using the 8259 PIC mode.  This is because the I/O write to deassert
+> the interrupt is posted and won't get to the chip immediately.  As
+> a result, the IRQ may remain asserted after the IRQ handler exits,
+> causing spurious interrupts.
+> 
+> An unconditional read to flush the I/O write to force the IRQ to de-
+> assert immediately is not desirable because it impacts performance in
+> the fast path.  So we only do this after we have some indications of
+> spurious interrupts.
+> 
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
 
-eieio orders all accesses to address space that is WIMG=1xxx
-or WIMG=x1x1; separately, it orders stores to address space
-that is WIMG=001x.
+hmmmm, this is a bit questionable that it needs to be here.
 
-> I guess I haven't kept up with the times ... is eieio now
-> being used to provide some other kind of barrier?
+I think it's just a fact of life that it is important to flush certain 
+writes...
 
-Nothing changed.
+I'm not sure a driver needs to be adding code to avoid the obvious 
+solution.  It would be annoying if all drivers had code to do this.
 
-> Is eieio providing some sort of SMP synchronization side-effect?
-
-It orders stores to "well-behaved" memory yes.
-
-> Point being: if Segher doesn't let you "use iobarrier (because
-> it's not I/O)", then I don't understand why eieio would work (since
-> that's for io only).
-
-iobarrier() is a kernel-level primitive, meant for ordering
-I/O only, as its name indicates.  eieio is a CPU insn that
-orders stores to main memory (amongst other things), not that
-its name would tell you.
+	Jeff
 
 
-Segher
 
