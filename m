@@ -1,80 +1,82 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: How to find I/F to destination
-Date: Sat, 5 May 2007 13:15:36 +0400
-Message-ID: <20070505091535.GB5742@2ka.mipt.ru>
-References: <20070504132934.GD2291@2ka.mipt.ru> <20070504131657.GA2291@2ka.mipt.ru> <20070504125438.GA5439@2ka.mipt.ru> <5484.1178282928@redhat.com> <5910.1178284095@redhat.com> <7884.1178285089@redhat.com> <11217.1178285625@redhat.com>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: [patch 25/29] xen: Add the Xen virtual network device driver.
+Date: Sat, 5 May 2007 10:16:24 +0100
+Message-ID: <20070505091624.GA8890@infradead.org>
+References: <20070504232051.411946839@goop.org> <20070504232121.492190579@goop.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
-To: David Howells <dhowells@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andi Kleen <ak@suse.de>, Andrew Morton <akpm@linux-foundation.org>,
+	virtualization@lists.osdl.org, lkml <linux-kernel@vger.kernel.org>,
+	Chris Wright <chrisw@sous-sol.org>,
+	Ian Pratt <ian.pratt@xensource.com>,
+	Christian Limpach <Christian.Limpach@cl.cam.ac.uk>,
+	netdev@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
+	Stephen Hemminger <shemminge@linux-foundation.org>,
+	Christoph Hellwig <hch@infradead.org>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Jeremy Fitzhardinge <jeremy@goop.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:32857 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1423148AbXEEJP4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 5 May 2007 05:15:56 -0400
+Received: from pentafluge.infradead.org ([213.146.154.40]:40457 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1423178AbXEEJQv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 May 2007 05:16:51 -0400
 Content-Disposition: inline
-In-Reply-To: <11217.1178285625@redhat.com>
+In-Reply-To: <20070504232121.492190579@goop.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, May 04, 2007 at 02:33:45PM +0100, David Howells (dhowells@redhat.com) wrote:
-> Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
-> 
-> > That is the same, dst is dereferenced as rtable.
-> > Cloned dst is returned, so it must be put back at the ned of the usage.
-> 
-> If that's the case, then why do you bother to clone it in route_get_raw()?
-> Surely that'll give you *two* clones...
-> 
-> BTW, it seems to work.  The attached function gives me:
-> 
-> 	[0mount ] <== rxrpc_assess_MTU_size() [if_mtu 1500]
-> 
-> Thanks!
-> 
-> David
-> 
-> ---
-> static void rxrpc_assess_MTU_size(struct rxrpc_peer *peer)
-> {
-> 	struct rtable *rt;
-> 	struct flowi fl;
-> 	int ret;
-> 
-> 	peer->if_mtu = 1500;
-> 
-> 	memset(&fl, 0, sizeof(fl));
-> 
-> 	switch (peer->srx.transport.family) {
-> 	case AF_INET:
-> 		fl.oif = 0;
-> 		fl.proto = IPPROTO_UDP,
-> 		fl.nl_u.ip4_u.saddr = 0;
-> 		fl.nl_u.ip4_u.daddr = peer->srx.transport.sin.sin_addr.s_addr;
-> 		fl.nl_u.ip4_u.tos = 0;
-> 		/* assume AFS.CM talking to AFS.FS */
-> 		fl.uli_u.ports.sport = htonl(7001);
-> 		fl.uli_u.ports.dport = htonl(7000);
-> 		break;
-> 	default:
-> 		BUG();
-> 	}
-> 
-> 	ret = ip_route_output_key(&rt, &fl);
+On Fri, May 04, 2007 at 04:21:16PM -0700, Jeremy Fitzhardinge wrote:
+> +/*
+> + * Mutually-exclusive module options to select receive data path:
+> + *  rx_copy : Packets are copied by network backend into local memory
+> + *  rx_flip : Page containing packet data is transferred to our ownership
+> + * For fully-virtualised guests there is no option - copying must be used.
+> + * For paravirtualised guests, flipping is the default.
+> + */
+> +static enum {
+> +	RX_COPY = 0,
+> +	RX_FLIP = 1,
+> +} rx_mode = RX_FLIP;
+> +MODULE_PARM_DESC(rx_mode, "How to get packets from card: 0->copy, 1->flip");
 
-This one is quite slow compared to atomic reference increase, so yes,
-there are two clones - one for main 'route', which then is being cloned
-for each used in fast path. When it is not needed anymore (netchannel is
-removed), the first one is dropped.
+There only seems to be a module description but no actual paramter for
+this.  I wish people would have listened to me back then and made the
+description part of the modular_param statement..
 
-> 	if (ret < 0) {
-> 		kleave(" [route err %d]", ret);
-> 		return;
-> 	}
-> 
-> 	peer->if_mtu = dst_mtu(&rt->u.dst);
-> 	kleave(" [if_mtu %u]", peer->if_mtu);
-> }
+> +
+> +#define RX_COPY_THRESHOLD 256
+> +
+> +#define GRANT_INVALID_REF	0
+> +
+> +#define NET_TX_RING_SIZE __RING_SIZE((struct xen_netif_tx_sring *)0, PAGE_SIZE)
+> +#define NET_RX_RING_SIZE __RING_SIZE((struct xen_netif_rx_sring *)0, PAGE_SIZE)
 
--- 
-	Evgeniy Polyakov
+__RING_SIZE is not in my tree, so it seems to be some kind of Xen
+addition.  Can you make that clear in the name and give it a less
+awkware calling convention, e.g. only pass in the type, not a null
+pointer of the given type?
+
+
+> +/*
+> + * Implement our own carrier flag: the network stack's version causes delays
+> + * when the carrier is re-enabled (in particular, dev_activate() may not
+> + * immediately be called, which can cause packet loss).
+> + */
+> +#define netfront_carrier_on(netif)	((netif)->carrier = 1)
+> +#define netfront_carrier_off(netif)	((netif)->carrier = 0)
+> +#define netfront_carrier_ok(netif)	((netif)->carrier)
+
+This doesn't implement my review suggestion despite you ACKing
+them.  Didn't you like it in the end or did you simply forget
+about it?
+
+> +/*
+> + * Access macros for acquiring freeing slots in tx_skbs[].
+> + */
+> +
+> +static void add_id_to_freelist(unsigned *head, union skb_entry *list, unsigned short id)
+
+
+no lines longer than 80 chars please.
+
