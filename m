@@ -1,111 +1,80 @@
 From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH 5/11][TG3]: Remove reset during MAC address changes.
-Date: Fri, 04 May 2007 17:52:58 -0700
-Message-ID: <1178326378.4859.21.camel@dell>
+Subject: [PATCH 6/11][TG3]: Eliminate the TG3_FLAG_GOT_SERDES_FLOWCTL
+ flag.
+Date: Fri, 04 May 2007 17:54:01 -0700
+Message-ID: <1178326441.4859.22.camel@dell>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3931 "EHLO mms2.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:3359 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1767925AbXEEAFq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 May 2007 20:05:46 -0400
+	id S1767925AbXEEAGs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 May 2007 20:06:48 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[TG3]: Remove reset during MAC address changes.
+[TG3]: Eliminate the TG3_FLAG_GOT_SERDES_FLOWCTL flag.
 
-The reset was added a while back so that ASF could re-init whatever
-MAC address it wanted to use after the MAC address was changed.
-Instead of resetting, we can just keep MAC address 1 unchanged during
-MAC address changes if MAC address 1 is different from MAC address 0.
-
-This fixes 2 problems:
-
-1. Bonding calls set_mac_address in contexts that cannot sleep.
-It no longer sleeps with the chip reset removed.
-
-2. When ASF shares the same MAC address as the NIC, it needs to
-always do that even when the MAC address is changed. 
+This flag does not do anything useful.
 
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index e829262..6094d6b 100644
+index 6094d6b..84fc498 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -5934,7 +5934,7 @@ static int tg3_load_tso_firmware(struct tg3 *tp)
- 
- 
- /* tp->lock is held. */
--static void __tg3_set_mac_addr(struct tg3 *tp)
-+static void __tg3_set_mac_addr(struct tg3 *tp, int skip_mac_1)
+@@ -2595,10 +2595,8 @@ static int tg3_setup_fiber_by_hand(struct tg3 *tp, u32 mac_status)
  {
- 	u32 addr_high, addr_low;
- 	int i;
-@@ -5946,6 +5946,8 @@ static void __tg3_set_mac_addr(struct tg3 *tp)
- 		    (tp->dev->dev_addr[4] <<  8) |
- 		    (tp->dev->dev_addr[5] <<  0));
- 	for (i = 0; i < 4; i++) {
-+		if (i == 1 && skip_mac_1)
-+			continue;
- 		tw32(MAC_ADDR_0_HIGH + (i * 8), addr_high);
- 		tw32(MAC_ADDR_0_LOW + (i * 8), addr_low);
- 	}
-@@ -5972,7 +5974,7 @@ static int tg3_set_mac_addr(struct net_device *dev, void *p)
- {
- 	struct tg3 *tp = netdev_priv(dev);
- 	struct sockaddr *addr = p;
--	int err = 0;
-+	int err = 0, skip_mac_1 = 0;
+ 	int current_link_up = 0;
  
- 	if (!is_valid_ether_addr(addr->sa_data))
- 		return -EINVAL;
-@@ -5983,22 +5985,21 @@ static int tg3_set_mac_addr(struct net_device *dev, void *p)
- 		return 0;
+- 	if (!(mac_status & MAC_STATUS_PCS_SYNCED)) {
+-		tp->tg3_flags &= ~TG3_FLAG_GOT_SERDES_FLOWCTL;
++ 	if (!(mac_status & MAC_STATUS_PCS_SYNCED))
+ 		goto out;
+-	}
  
- 	if (tp->tg3_flags & TG3_FLAG_ENABLE_ASF) {
--		/* Reset chip so that ASF can re-init any MAC addresses it
--		 * needs.
--		 */
--		tg3_netif_stop(tp);
--		tg3_full_lock(tp, 1);
-+		u32 addr0_high, addr0_low, addr1_high, addr1_low;
+ 	if (tp->link_config.autoneg == AUTONEG_ENABLE) {
+ 		u32 flags;
+@@ -2616,7 +2614,6 @@ static int tg3_setup_fiber_by_hand(struct tg3 *tp, u32 mac_status)
  
--		tg3_halt(tp, RESET_KIND_SHUTDOWN, 1);
--		err = tg3_restart_hw(tp, 0);
--		if (!err)
--			tg3_netif_start(tp);
--		tg3_full_unlock(tp);
--	} else {
--		spin_lock_bh(&tp->lock);
--		__tg3_set_mac_addr(tp);
--		spin_unlock_bh(&tp->lock);
-+		addr0_high = tr32(MAC_ADDR_0_HIGH);
-+		addr0_low = tr32(MAC_ADDR_0_LOW);
-+		addr1_high = tr32(MAC_ADDR_1_HIGH);
-+		addr1_low = tr32(MAC_ADDR_1_LOW);
-+
-+		/* Skip MAC addr 1 if ASF is using it. */
-+		if ((addr0_high != addr1_high || addr0_low != addr1_low) &&
-+		    !(addr1_high == 0 && addr1_low == 0))
-+			skip_mac_1 = 1;
- 	}
-+	spin_lock_bh(&tp->lock);
-+	__tg3_set_mac_addr(tp, skip_mac_1);
-+	spin_unlock_bh(&tp->lock);
+ 			tg3_setup_flow_control(tp, local_adv, remote_adv);
  
- 	return err;
- }
-@@ -6315,7 +6316,7 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
- 		     tp->rx_jumbo_ptr);
+-			tp->tg3_flags |= TG3_FLAG_GOT_SERDES_FLOWCTL;
+ 			current_link_up = 1;
+ 		}
+ 		for (i = 0; i < 30; i++) {
+@@ -2639,7 +2636,6 @@ static int tg3_setup_fiber_by_hand(struct tg3 *tp, u32 mac_status)
+ 	} else {
+ 		/* Forcing 1000FD link up. */
+ 		current_link_up = 1;
+-		tp->tg3_flags |= TG3_FLAG_GOT_SERDES_FLOWCTL;
  
- 	/* Initialize MAC address and backoff seed. */
--	__tg3_set_mac_addr(tp);
-+	__tg3_set_mac_addr(tp, 0);
+ 		tw32_f(MAC_MODE, (tp->mac_mode | MAC_MODE_SEND_CONFIGS));
+ 		udelay(40);
+@@ -7400,9 +7396,7 @@ static int tg3_close(struct net_device *dev)
  
- 	/* MTU + ethernet header + FCS + optional VLAN tag */
- 	tw32(MAC_RX_MTU_SIZE, tp->dev->mtu + ETH_HLEN + 8);
+ 	tg3_halt(tp, RESET_KIND_SHUTDOWN, 1);
+ 	tg3_free_rings(tp);
+-	tp->tg3_flags &=
+-		~(TG3_FLAG_INIT_COMPLETE |
+-		  TG3_FLAG_GOT_SERDES_FLOWCTL);
++	tp->tg3_flags &= ~TG3_FLAG_INIT_COMPLETE;
+ 
+ 	tg3_full_unlock(tp);
+ 
+diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
+index f76e310..dd04a46 100644
+--- a/drivers/net/tg3.h
++++ b/drivers/net/tg3.h
+@@ -2222,7 +2222,6 @@ struct tg3 {
+ #define TG3_FLAG_IN_RESET_TASK		0x04000000
+ #define TG3_FLAG_40BIT_DMA_BUG		0x08000000
+ #define TG3_FLAG_BROKEN_CHECKSUMS	0x10000000
+-#define TG3_FLAG_GOT_SERDES_FLOWCTL	0x20000000
+ #define TG3_FLAG_CHIP_RESETTING		0x40000000
+ #define TG3_FLAG_INIT_COMPLETE		0x80000000
+ 	u32				tg3_flags2;
 
 
