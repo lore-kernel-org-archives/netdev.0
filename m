@@ -1,46 +1,59 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH 0/4] add mac80211 wireless infrastructure
-Date: Sat, 5 May 2007 01:26:35 -0400
-Message-ID: <20070505052635.GB6041@tuxdriver.com>
-References: <20070505031749.GA5308@tuxdriver.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [NETLINK]: Remove references to process ID
+Date: Sat, 5 May 2007 15:33:43 +1000
+Message-ID: <20070505053343.GA17499@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: jeff@garzik.org, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org
-To: davem@davemloft.net
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:4342 "EHLO ra.tuxdriver.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755452AbXEEFc0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 5 May 2007 01:32:26 -0400
+Received: from rhun.apana.org.au ([64.62.148.172]:1174 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755448AbXEEFds (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 May 2007 01:33:48 -0400
 Content-Disposition: inline
-In-Reply-To: <20070505031749.GA5308@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, May 04, 2007 at 11:17:49PM -0400, John W. Linville wrote:
+Hi Dave:
 
-> The wireless developers would like this to be considered for merge
-> in time for 2.6.22.  Patches for at least one mac80211-based driver
-> will follow shortly.
+[NETLINK]: Remove references to process ID
 
-Ooops!  I forgot to add a "From: Jiri Benc..." line to the top of
-the mailed patches.
+People treating the *_pid fields in netlink as a process ID has caused
+endless confusion over the years.  The fact that our own netlink.h
+does this only adds to the confusion.
 
-Dave, can you add that before applying them?  Or shall I resend?
+So here is a patch to change the comments to refer to it as the port
+ID which hopefully will make it clear what the purpose of the fields
+really is.
 
-Also, if you apply the copies on my kernel.org page or if you pull
-from git then the Author information should already be correct:
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-	git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git mac80211
-
-Sorry for the confusion!
-
-John
-
-P.S.  Hmmm...I would have thought that I would have seen the patches
-I sent by now...?  Did the list eat them?  I don't think they were
-that big...?  Let me know if I need to re-send.
+Cheers,
 -- 
-John W. Linville
-linville@tuxdriver.com
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+diff --git a/include/linux/netlink.h b/include/linux/netlink.h
+index f41688f..2e23353 100644
+--- a/include/linux/netlink.h
++++ b/include/linux/netlink.h
+@@ -31,7 +31,7 @@ struct sockaddr_nl
+ {
+ 	sa_family_t	nl_family;	/* AF_NETLINK	*/
+ 	unsigned short	nl_pad;		/* zero		*/
+-	__u32		nl_pid;		/* process pid	*/
++	__u32		nl_pid;		/* port ID	*/
+        	__u32		nl_groups;	/* multicast groups mask */
+ };
+ 
+@@ -41,7 +41,7 @@ struct nlmsghdr
+ 	__u16		nlmsg_type;	/* Message content */
+ 	__u16		nlmsg_flags;	/* Additional flags */
+ 	__u32		nlmsg_seq;	/* Sequence number */
+-	__u32		nlmsg_pid;	/* Sending process PID */
++	__u32		nlmsg_pid;	/* Sending process port ID */
+ };
+ 
+ /* Flags values */
