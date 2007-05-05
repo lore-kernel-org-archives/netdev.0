@@ -1,7 +1,7 @@
 From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH 9/11][TG3]: Add ASPM workaround.
-Date: Fri, 04 May 2007 17:55:14 -0700
-Message-ID: <1178326514.4859.25.camel@dell>
+Subject: [PATCH 10/11][TG3]: Reduce spurious interrupts.
+Date: Fri, 04 May 2007 17:55:21 -0700
+Message-ID: <1178326521.4859.26.camel@dell>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -9,112 +9,124 @@ To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mms2.broadcom.com ([216.31.210.18]:4066 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1422996AbXEEAH4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 May 2007 20:07:56 -0400
+	id S1422996AbXEEAIL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 May 2007 20:08:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[TG3]: Add ASPM workaround.
+[TG3]: Reduce spurious interrupts.
 
-This patch adds workaround to fix performance problems caused by slow
-PCIE L1->L0 transitions on ICH8 platforms.
+Spurious interrupts are often encountered especially on systems
+using the 8259 PIC mode.  This is because the I/O write to deassert
+the interrupt is posted and won't get to the chip immediately.  As
+a result, the IRQ may remain asserted after the IRQ handler exits,
+causing spurious interrupts.
 
-Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
+An unconditional read to flush the I/O write to force the IRQ to de-
+assert immediately is not desirable because it impacts performance in
+the fast path.  So we only do this after we have some indications of
+spurious interrupts.
+
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 4fe38a0..b3681e4 100644
+index b3681e4..c264eb0 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -3019,6 +3019,15 @@ static int tg3_setup_phy(struct tg3 *tp, int force_reset)
- 		}
- 	}
+@@ -3608,12 +3608,31 @@ out:
+ 	return IRQ_RETVAL(handled);
+ }
  
-+	if (tp->tg3_flags & TG3_FLAG_ASPM_WORKAROUND) {
-+		u32 val = tr32(0x7d28);
-+		if (!netif_carrier_ok(tp->dev))
-+			val = (val & ~0x0000ff00) | tp->pwrmgmt_thresh;
-+		else
-+			val |= 0x0000ff00;
-+		tw32(0x7d28, val);
++static void tg3_check_spurious_int(struct tg3 *tp)
++{
++	if (tp->spurious_int_mode)
++		return;
++
++	/* Interrupt mailbox and status block have been flushed at this
++	 * point.  If the tag is unchanged, we are either getting a spurious
++	 * interrupt or sharing interrupt with another device.
++	 */
++	if (tp->hw_status->status_tag == tp->last_tag) {
++		tp->spurious_int++;
++		if (tp->spurious_int > 500)
++			/* Assume we're getting too many spurious interrupts.
++			 * Setting the flag will cause the IRQ handler to
++			 * do a read back to immediately deassert the IRQ.
++			 */
++			tp->spurious_int_mode = 1;
 +	}
++}
 +
- 	return err;
- }
+ static irqreturn_t tg3_interrupt_tagged(int irq, void *dev_id)
+ {
+ 	struct net_device *dev = dev_id;
+ 	struct tg3 *tp = netdev_priv(dev);
+ 	struct tg3_hw_status *sblk = tp->hw_status;
+-	unsigned int handled = 1;
  
-@@ -10004,6 +10013,8 @@ static void __devinit tg3_get_eeprom_hw_cfg(struct tg3 *tp)
- 			tp->tg3_flags &= ~TG3_FLAG_EEPROM_WRITE_PROT;
- 			tp->tg3_flags2 |= TG3_FLG2_IS_NIC;
- 		}
-+		if (tr32(VCPU_CFGSHDW) & VCPU_CFGSHDW_ASPM_DBNC)
-+			tp->tg3_flags |= TG3_FLAG_ASPM_WORKAROUND;
- 		return;
- 	}
- 
-@@ -10131,6 +10142,14 @@ static void __devinit tg3_get_eeprom_hw_cfg(struct tg3 *tp)
- 		/* bootcode if bit 18 is set */
- 		if (cfg2 & (1 << 18))
- 			tp->tg3_flags2 |= TG3_FLG2_SERDES_PREEMPHASIS;
-+
-+		if (tp->tg3_flags2 & TG3_FLG2_PCI_EXPRESS) {
-+			u32 cfg3;
-+
-+			tg3_read_mem(tp, NIC_SRAM_DATA_CFG_3, &cfg3);
-+			if (cfg3 & NIC_SRAM_ASPM_DEBOUNCE)
-+				tp->tg3_flags |= TG3_FLAG_ASPM_WORKAROUND;
-+		}
- 	}
- }
- 
-@@ -10997,6 +11016,9 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
+ 	/* In INTx mode, it is possible for the interrupt to arrive at
+ 	 * the CPU before the status block posted prior to the interrupt.
+@@ -3621,11 +3640,15 @@ static irqreturn_t tg3_interrupt_tagged(int irq, void *dev_id)
+ 	 * interrupt is ours and will flush the status block.
  	 */
- 	tp->tg3_flags &= ~TG3_FLAG_WOL_ENABLE;
- 
-+	if (tp->tg3_flags & TG3_FLAG_ASPM_WORKAROUND)
-+		tp->pwrmgmt_thresh = tr32(0x7d28) & 0x0000ff00;
+ 	if (unlikely(sblk->status_tag == tp->last_tag)) {
+-		if ((tp->tg3_flags & TG3_FLAG_CHIP_RESETTING) ||
+-		    (tr32(TG3PCI_PCISTATE) & PCISTATE_INT_NOT_ACTIVE)) {
+-			handled = 0;
+-			goto out;
+-		}
++		u32 inta;
 +
- 	return err;
++		if (tp->tg3_flags & TG3_FLAG_CHIP_RESETTING)
++			return IRQ_NONE;
++
++		inta = tr32(TG3PCI_PCISTATE);
++		tg3_check_spurious_int(tp);
++		if (inta & PCISTATE_INT_NOT_ACTIVE)
++			return IRQ_NONE;
+ 	}
+ 
+ 	/*
+@@ -3636,6 +3659,8 @@ static irqreturn_t tg3_interrupt_tagged(int irq, void *dev_id)
+ 	 * event coalescing.
+ 	 */
+ 	tw32_mailbox(MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW, 0x00000001);
++	if (unlikely(tp->spurious_int_mode))
++		tr32_mailbox(MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW);
+ 	if (tg3_irq_sync(tp))
+ 		goto out;
+ 	if (netif_rx_schedule_prep(dev)) {
+@@ -3649,7 +3674,7 @@ static irqreturn_t tg3_interrupt_tagged(int irq, void *dev_id)
+ 		__netif_rx_schedule(dev);
+ 	}
+ out:
+-	return IRQ_RETVAL(handled);
++	return IRQ_HANDLED;
  }
  
+ /* ISR for interrupt test */
+@@ -6886,6 +6911,8 @@ static int tg3_request_irq(struct tg3 *tp)
+ 	unsigned long flags;
+ 	struct net_device *dev = tp->dev;
+ 
++	tp->spurious_int = 0;
++	tp->spurious_int_mode = 0;
+ 	if (tp->tg3_flags2 & TG3_FLG2_USING_MSI) {
+ 		fn = tg3_msi;
+ 		if (tp->tg3_flags2 & TG3_FLG2_1SHOT_MSI)
 diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
-index dcdfc08..d88a859 100644
+index d88a859..7413643 100644
 --- a/drivers/net/tg3.h
 +++ b/drivers/net/tg3.h
-@@ -1150,6 +1150,9 @@
- #define  VCPU_STATUS_INIT_DONE		 0x04000000
- #define  VCPU_STATUS_DRV_RESET		 0x08000000
+@@ -2151,6 +2151,9 @@ struct tg3 {
+ 	dma_addr_t			status_mapping;
+ 	u32				last_tag;
  
-+#define VCPU_CFGSHDW			0x00005104
-+#define  VCPU_CFGSHDW_ASPM_DBNC		 0x00001000
++	u16				spurious_int;
++	u16				spurious_int_mode;
 +
- /* Mailboxes */
- #define GRCMBOX_BASE			0x00005600
- #define GRCMBOX_INTERRUPT_0		0x00005800 /* 64-bit */
-@@ -1593,6 +1596,9 @@
- #define  SHASTA_EXT_LED_MAC		 0x00010000
- #define  SHASTA_EXT_LED_COMBO		 0x00018000
+ 	u32				msg_enable;
  
-+#define NIC_SRAM_DATA_CFG_3		0x00000d3c
-+#define  NIC_SRAM_ASPM_DEBOUNCE		 0x00000002
-+
- #define NIC_SRAM_RX_MINI_BUFFER_DESC	0x00001000
- 
- #define NIC_SRAM_DMA_DESC_POOL_BASE	0x00002000
-@@ -2200,6 +2206,7 @@ struct tg3 {
- #define TG3_FLAG_USE_LINKCHG_REG	0x00000008
- #define TG3_FLAG_USE_MI_INTERRUPT	0x00000010
- #define TG3_FLAG_ENABLE_ASF		0x00000020
-+#define TG3_FLAG_ASPM_WORKAROUND	0x00000040
- #define TG3_FLAG_POLL_SERDES		0x00000080
- #define TG3_FLAG_MBOX_WRITE_REORDER	0x00000100
- #define TG3_FLAG_PCIX_TARGET_HWBUG	0x00000200
-@@ -2288,6 +2295,7 @@ struct tg3 {
- 	u32				grc_local_ctrl;
- 	u32				dma_rwctrl;
- 	u32				coalesce_mode;
-+	u32				pwrmgmt_thresh;
- 
- 	/* PCI block */
- 	u16				pci_chip_rev_id;
+ 	/* begin "tx thread" cacheline section */
 
 
