@@ -1,80 +1,80 @@
 From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH 6/11][TG3]: Eliminate the TG3_FLAG_GOT_SERDES_FLOWCTL
+Subject: [PATCH 7/11][TG3]: Eliminate the TG3_FLAG_5701_REG_WRITE_BUG
  flag.
-Date: Fri, 04 May 2007 17:54:01 -0700
-Message-ID: <1178326441.4859.22.camel@dell>
+Date: Fri, 04 May 2007 17:54:17 -0700
+Message-ID: <1178326457.4859.23.camel@dell>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:3359 "EHLO mms1.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:4000 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1767925AbXEEAGs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 May 2007 20:06:48 -0400
+	id S1767930AbXEEAHG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 May 2007 20:07:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[TG3]: Eliminate the TG3_FLAG_GOT_SERDES_FLOWCTL flag.
+[TG3]: Eliminate the TG3_FLAG_5701_REG_WRITE_BUG flag.
 
-This flag does not do anything useful.
+This patch removes the use of the TG3_FLAG_5701_REG_WRITE_BUG flag.
 
+Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 6094d6b..84fc498 100644
+index 84fc498..23a9477 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -2595,10 +2595,8 @@ static int tg3_setup_fiber_by_hand(struct tg3 *tp, u32 mac_status)
- {
- 	int current_link_up = 0;
+@@ -10673,17 +10673,6 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
+ 	if (GET_CHIP_REV(tp->pci_chip_rev_id) == CHIPREV_5700_BX)
+ 		tp->tg3_flags |= TG3_FLAG_TXD_MBOX_HWBUG;
  
-- 	if (!(mac_status & MAC_STATUS_PCS_SYNCED)) {
--		tp->tg3_flags &= ~TG3_FLAG_GOT_SERDES_FLOWCTL;
-+ 	if (!(mac_status & MAC_STATUS_PCS_SYNCED))
- 		goto out;
--	}
+-	/* Back to back register writes can cause problems on this chip,
+-	 * the workaround is to read back all reg writes except those to
+-	 * mailbox regs.  See tg3_write_indirect_reg32().
+-	 *
+-	 * PCI Express 5750_A0 rev chips need this workaround too.
+-	 */
+-	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5701 ||
+-	    ((tp->tg3_flags2 & TG3_FLG2_PCI_EXPRESS) &&
+-	     tp->pci_chip_rev_id == CHIPREV_ID_5750_A0))
+-		tp->tg3_flags |= TG3_FLAG_5701_REG_WRITE_BUG;
+-
+ 	if ((pci_state_reg & PCISTATE_BUS_SPEED_HIGH) != 0)
+ 		tp->tg3_flags |= TG3_FLAG_PCI_HIGH_SPEED;
+ 	if ((pci_state_reg & PCISTATE_BUS_32BIT) != 0)
+@@ -10707,8 +10696,18 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
+ 	/* Various workaround register access methods */
+ 	if (tp->tg3_flags & TG3_FLAG_PCIX_TARGET_HWBUG)
+ 		tp->write32 = tg3_write_indirect_reg32;
+-	else if (tp->tg3_flags & TG3_FLAG_5701_REG_WRITE_BUG)
++	else if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5701 ||
++		 ((tp->tg3_flags2 & TG3_FLG2_PCI_EXPRESS) &&
++		  tp->pci_chip_rev_id == CHIPREV_ID_5750_A0)) {
++		/* Back to back register writes can cause problems on this chip,
++		 * the workaround is to read back all reg writes except those to
++		 * mailbox regs.  See tg3_write_indirect_reg32().
++		 *
++		 * PCI Express 5750_A0 rev chips need this workaround too.
++		 */
+ 		tp->write32 = tg3_write_flush_reg32;
++	}
++
  
- 	if (tp->link_config.autoneg == AUTONEG_ENABLE) {
- 		u32 flags;
-@@ -2616,7 +2614,6 @@ static int tg3_setup_fiber_by_hand(struct tg3 *tp, u32 mac_status)
- 
- 			tg3_setup_flow_control(tp, local_adv, remote_adv);
- 
--			tp->tg3_flags |= TG3_FLAG_GOT_SERDES_FLOWCTL;
- 			current_link_up = 1;
- 		}
- 		for (i = 0; i < 30; i++) {
-@@ -2639,7 +2636,6 @@ static int tg3_setup_fiber_by_hand(struct tg3 *tp, u32 mac_status)
- 	} else {
- 		/* Forcing 1000FD link up. */
- 		current_link_up = 1;
--		tp->tg3_flags |= TG3_FLAG_GOT_SERDES_FLOWCTL;
- 
- 		tw32_f(MAC_MODE, (tp->mac_mode | MAC_MODE_SEND_CONFIGS));
- 		udelay(40);
-@@ -7400,9 +7396,7 @@ static int tg3_close(struct net_device *dev)
- 
- 	tg3_halt(tp, RESET_KIND_SHUTDOWN, 1);
- 	tg3_free_rings(tp);
--	tp->tg3_flags &=
--		~(TG3_FLAG_INIT_COMPLETE |
--		  TG3_FLAG_GOT_SERDES_FLOWCTL);
-+	tp->tg3_flags &= ~TG3_FLAG_INIT_COMPLETE;
- 
- 	tg3_full_unlock(tp);
- 
+ 	if ((tp->tg3_flags & TG3_FLAG_TXD_MBOX_HWBUG) ||
+ 	    (tp->tg3_flags & TG3_FLAG_MBOX_WRITE_REORDER)) {
 diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
-index f76e310..dd04a46 100644
+index dd04a46..c52acb0 100644
 --- a/drivers/net/tg3.h
 +++ b/drivers/net/tg3.h
-@@ -2222,7 +2222,6 @@ struct tg3 {
- #define TG3_FLAG_IN_RESET_TASK		0x04000000
- #define TG3_FLAG_40BIT_DMA_BUG		0x08000000
- #define TG3_FLAG_BROKEN_CHECKSUMS	0x10000000
--#define TG3_FLAG_GOT_SERDES_FLOWCTL	0x20000000
- #define TG3_FLAG_CHIP_RESETTING		0x40000000
- #define TG3_FLAG_INIT_COMPLETE		0x80000000
- 	u32				tg3_flags2;
+@@ -2199,7 +2199,6 @@ struct tg3 {
+ #define TG3_FLAG_USE_LINKCHG_REG	0x00000008
+ #define TG3_FLAG_USE_MI_INTERRUPT	0x00000010
+ #define TG3_FLAG_ENABLE_ASF		0x00000020
+-#define TG3_FLAG_5701_REG_WRITE_BUG	0x00000040
+ #define TG3_FLAG_POLL_SERDES		0x00000080
+ #define TG3_FLAG_MBOX_WRITE_REORDER	0x00000100
+ #define TG3_FLAG_PCIX_TARGET_HWBUG	0x00000200
 
 
