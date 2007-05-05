@@ -1,42 +1,58 @@
-From: Heiko Carstens <heiko.carstens@de.ibm.com>
-Subject: Re: [PATCH 2/2] [AF_IUCV/IUCV] : Add missing section annotations
-Date: Sat, 5 May 2007 13:30:36 +0200
-Message-ID: <20070505113036.GA13660@osiris.boeblingen.de.ibm.com>
-References: <20070428.230626.79066898.davem@davemloft.net> <20070504094652.GA22917@de.ibm.com> <20070504095238.GB32153@de.ibm.com> <20070504.122419.28789261.davem@davemloft.net>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [-mm patch] fix fs/nfs/nfsroot.c compile error
+Date: Sat, 5 May 2007 18:44:23 +0200
+Message-ID: <20070505164422.GD8975@stusta.de>
+References: <20070505014955.8f3990b5.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: fpavlic@de.ibm.com, netdev@vger.kernel.org,
-	linux-s390@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>,
+	trond.myklebust@fys.uio.no, davem@davemloft.net,
+	David Howells <dhowells@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate8.uk.ibm.com ([195.212.29.141]:43516 "EHLO
-	mtagate8.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755564AbXEEQQs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 May 2007 12:16:48 -0400
+Received: from mailout.stusta.mhn.de ([141.84.69.5]:38916 "EHLO
+	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S933947AbXEEQoZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 May 2007 12:44:25 -0400
 Content-Disposition: inline
-In-Reply-To: <20070504.122419.28789261.davem@davemloft.net>
+In-Reply-To: <20070505014955.8f3990b5.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, May 04, 2007 at 12:24:19PM -0700, David Miller wrote:
-> From: Frank Pavlic <fpavlic@de.ibm.com>
-> Date: Fri, 4 May 2007 11:52:38 +0200
-> 
-> > From: Heiko Carstens <heiko.carstens@de.ibm.com>
-> > 
-> > Add missing section annotations and found and fixed some
-> > Coding Style issues.
-> > 
-> > Signed-off-by: Heiko Carstens <heiko.carstens@de.ibm.com>
-> > Signed-off-by: Frank Pavlic <fpavlic@de.ibm.com>
-> 
-> Applied, although I find it amusing that the changelog
-> header talks about section annotations (plural!) but
-> that is one line of the patch, whereas %99 of the patch
-> is coding style cleanups.
+On Sat, May 05, 2007 at 01:49:55AM -0700, Andrew Morton wrote:
+>...
+> Changes since 2.6.21-rc7-mm2:
+>...
+>  git-net.patch
+>...
+>  git trees
+>...
 
-Actually it contained the breathtaking number of 3 section
-annotations, so that only 95% of the patch is coding style
-cleanups ;)
-Apparantly Frank merged two patches and took the one line
-patch description of the first one.
+match_table_t was made "const" and gcc doesn't like "const __initdata":
+
+<--  snip  -->
+
+...
+  CC      fs/nfs/nfsroot.o
+/home/bunk/linux/kernel-2.6/linux-2.6.21-mm1/fs/nfs/nfsroot.c:131: error: tokens causes a section type conflict
+make[3]: *** [fs/nfs/nfsroot.o] Error 1
+
+<--  snip  -->
+
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
+
+---
+
+BTW: Why is this change to include/linux/parser.h in the net tree?
+
+--- linux-2.6.21-mm1/fs/nfs/nfsroot.c.old	2007-05-05 18:36:26.000000000 +0200
++++ linux-2.6.21-mm1/fs/nfs/nfsroot.c	2007-05-05 18:36:44.000000000 +0200
+@@ -128,7 +128,7 @@
+ 	Opt_err
+ };
+ 
+-static match_table_t __initdata tokens = {
++static match_table_t tokens = {
+ 	{Opt_port, "port=%u"},
+ 	{Opt_rsize, "rsize=%u"},
+ 	{Opt_wsize, "wsize=%u"},
