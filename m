@@ -1,43 +1,51 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [PATCH 7/11][TG3]: Eliminate the TG3_FLAG_5701_REG_WRITE_BUG flag.
-Date: Sat, 5 May 2007 10:46:12 +0100
-Message-ID: <20070505094612.GB9592@infradead.org>
-References: <1178326457.4859.23.camel@dell>
+From: Trond Myklebust <trond.myklebust@fys.uio.no>
+Subject: Re: [-mm patch] fix fs/nfs/nfsroot.c compile error
+Date: Sat, 05 May 2007 13:27:14 -0400
+Message-ID: <1178386034.6561.53.camel@heimdal.trondhjem.org>
+References: <20070505014955.8f3990b5.akpm@linux-foundation.org>
+	 <20070505164422.GD8975@stusta.de>
+	 <1178385646.6561.46.camel@heimdal.trondhjem.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Michael Chan <mchan@broadcom.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>, davem@davemloft.net,
+	David Howells <dhowells@redhat.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Adrian Bunk <bunk@stusta.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:46516 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934084AbXEERZy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 May 2007 13:25:54 -0400
-Content-Disposition: inline
-In-Reply-To: <1178326457.4859.23.camel@dell>
+Received: from pat.uio.no ([129.240.10.15]:34920 "EHLO pat.uio.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S934086AbXEER1W (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 5 May 2007 13:27:22 -0400
+In-Reply-To: <1178385646.6561.46.camel@heimdal.trondhjem.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, May 04, 2007 at 05:54:17PM -0700, Michael Chan wrote:
-> +	else if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5701 ||
-> +		 ((tp->tg3_flags2 & TG3_FLG2_PCI_EXPRESS) &&
-> +		  tp->pci_chip_rev_id == CHIPREV_ID_5750_A0)) {
-> +		/* Back to back register writes can cause problems on this chip,
-> +		 * the workaround is to read back all reg writes except those to
-> +		 * mailbox regs.  See tg3_write_indirect_reg32().
-> +		 *
-> +		 * PCI Express 5750_A0 rev chips need this workaround too.
-> +		 */
->  		tp->write32 = tg3_write_flush_reg32;
+On Sat, 2007-05-05 at 13:20 -0400, Trond Myklebust wrote:
+> On Sat, 2007-05-05 at 18:44 +0200, Adrian Bunk wrote:
+> > On Sat, May 05, 2007 at 01:49:55AM -0700, Andrew Morton wrote:
+> > >...
+> > > Changes since 2.6.21-rc7-mm2:
+> > >...
+> > >  git-net.patch
+> > >...
+> > >  git trees
+> > >...
+> > 
+> > match_table_t was made "const" and gcc doesn't like "const __initdata":
+> 
+> Then please revert the "fix" to match_table_t...
+> 
+> There is no reason for something like the nfsroot parser to be kept in
+> memory after the system has booted. That would be code bloat.
+> 
+> Trond
 
-This comment is a little odd now.  What about
+Alternatively, please change the nfsroot parser to use
 
-		/*
-		 * Back to back register writes can cause problems on these
-		 * chips, the workaround is to read back all reg writes
-		 * except those to mailbox regs.
-		 *
-		 * See tg3_write_indirect_reg32().
-		 */
+        static struct match_token tokens[] __initdata = {
 
-instead?
+That is in any case cleaner than using a typedef.
+
+Trond
 
