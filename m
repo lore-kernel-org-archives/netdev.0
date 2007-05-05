@@ -1,51 +1,48 @@
-From: Trond Myklebust <trond.myklebust@fys.uio.no>
-Subject: Re: [-mm patch] fix fs/nfs/nfsroot.c compile error
-Date: Sat, 05 May 2007 13:27:14 -0400
-Message-ID: <1178386034.6561.53.camel@heimdal.trondhjem.org>
-References: <20070505014955.8f3990b5.akpm@linux-foundation.org>
-	 <20070505164422.GD8975@stusta.de>
-	 <1178385646.6561.46.camel@heimdal.trondhjem.org>
+From: William Lee Irwin III <wli@holomorphy.com>
+Subject: Re: [PATCH 00/40] Swap over Networked storage -v12
+Date: Sat, 5 May 2007 02:55:10 -0700
+Message-ID: <20070505095510.GA19966@holomorphy.com>
+References: <20070504102651.923946304@chello.nl> <20070504.122716.31641374.davem@davemloft.net> <20070505094300.GA9592@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>, davem@davemloft.net,
-	David Howells <dhowells@redhat.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Adrian Bunk <bunk@stusta.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, a.p.zijlstra@chello.nl,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+	netdev@vger.kernel.org, trond.myklebust@fys.uio.no, tgraf@suug.ch,
+	James.Bottomley@SteelEye.com, michaelc@cs.wisc.edu,
+	akpm@linux-foundation.org, phillips@google.com
+To: Christoph Hellwig <hch@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pat.uio.no ([129.240.10.15]:34920 "EHLO pat.uio.no"
+Received: from holomorphy.com ([66.93.40.71]:40058 "EHLO holomorphy.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934086AbXEER1W (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 5 May 2007 13:27:22 -0400
-In-Reply-To: <1178385646.6561.46.camel@heimdal.trondhjem.org>
+	id S934130AbXEERwU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 5 May 2007 13:52:20 -0400
+Content-Disposition: inline
+In-Reply-To: <20070505094300.GA9592@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2007-05-05 at 13:20 -0400, Trond Myklebust wrote:
-> On Sat, 2007-05-05 at 18:44 +0200, Adrian Bunk wrote:
-> > On Sat, May 05, 2007 at 01:49:55AM -0700, Andrew Morton wrote:
-> > >...
-> > > Changes since 2.6.21-rc7-mm2:
-> > >...
-> > >  git-net.patch
-> > >...
-> > >  git trees
-> > >...
-> > 
-> > match_table_t was made "const" and gcc doesn't like "const __initdata":
-> 
-> Then please revert the "fix" to match_table_t...
-> 
-> There is no reason for something like the nfsroot parser to be kept in
-> memory after the system has booted. That would be code bloat.
-> 
-> Trond
+On Fri, 04 May 2007 12:26:51 +0200, Peter Zijlstra <a.p.zijlstra@chello.nl> wrote:
+>>> There is a fundamental deadlock associated with paging;
 
-Alternatively, please change the nfsroot parser to use
+On Fri, May 04, 2007 at 12:27:16PM -0700, David Miller wrote:
+>> I know you'd really like people like myself to review this work, but a
+>> set of 40 patches is just too much to try and digest at once
+>> especially when I have other things going on.  When I have lots of
+>> other things already on my plate, when I see a huge patch set like
+>> this I have to just say "delete" because I don't kid myself since
+>> I know I'll never get to it.
+>> Sorry there's now way I can review this with my current workload.
 
-        static struct match_token tokens[] __initdata = {
+On Sat, May 05, 2007 at 10:43:00AM +0100, Christoph Hellwig wrote:
+> There also quite alot of only semi-related thing in there.  It would
+> be much better to only do the network stack and iscsi parts first
+> and leave nfs out for a while.  Especially as the former are definitively
+> useful while I strongly doubt that for swap over nfs.
 
-That is in any case cleaner than using a typedef.
+This is backward. As much as we hate it, the common case is swap over
+nfs, essentially because that is/was how things were commonly set up
+for other operating systems. I'm not a Solaris administrator, though,
+so various disclaimers apply.
 
-Trond
 
+-- wli
