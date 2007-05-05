@@ -1,110 +1,120 @@
 From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH 8/11][TG3]: Add TG3_FLAG_SUPPORT_MSI flag.
-Date: Fri, 04 May 2007 17:54:54 -0700
-Message-ID: <1178326494.4859.24.camel@dell>
+Subject: [PATCH 9/11][TG3]: Add ASPM workaround.
+Date: Fri, 04 May 2007 17:55:14 -0700
+Message-ID: <1178326514.4859.25.camel@dell>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:3411 "EHLO mms1.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:4066 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1422954AbXEEAHi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 May 2007 20:07:38 -0400
+	id S1422996AbXEEAH4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 May 2007 20:07:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[TG3]: Add TG3_FLAG_SUPPORT_MSI flag.
+[TG3]: Add ASPM workaround.
 
-And fix up the code to always allow MSI on 5714 A2.
+This patch adds workaround to fix performance problems caused by slow
+PCIE L1->L0 transitions on ICH8 platforms.
 
-Call tg3_find_peer() earlier because we need that information before
-we can determine whether we can set TG3_FLAG_SUPPORT_MSI or not.
-
+Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 23a9477..4fe38a0 100644
+index 4fe38a0..b3681e4 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -7033,11 +7033,7 @@ static int tg3_open(struct net_device *dev)
- 	if (err)
- 		return err;
+@@ -3019,6 +3019,15 @@ static int tg3_setup_phy(struct tg3 *tp, int force_reset)
+ 		}
+ 	}
  
--	if ((tp->tg3_flags2 & TG3_FLG2_5750_PLUS) &&
--	    (GET_CHIP_REV(tp->pci_chip_rev_id) != CHIPREV_5750_AX) &&
--	    (GET_CHIP_REV(tp->pci_chip_rev_id) != CHIPREV_5750_BX) &&
--	    !((GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5714) &&
--	      (tp->pdev_peer == tp->pdev))) {
-+	if (tp->tg3_flags & TG3_FLAG_SUPPORT_MSI) {
- 		/* All MSI supporting chips should support tagged
- 		 * status.  Assert that this is the case.
- 		 */
-@@ -10404,6 +10400,8 @@ static void __devinit tg3_read_fw_ver(struct tg3 *tp)
++	if (tp->tg3_flags & TG3_FLAG_ASPM_WORKAROUND) {
++		u32 val = tr32(0x7d28);
++		if (!netif_carrier_ok(tp->dev))
++			val = (val & ~0x0000ff00) | tp->pwrmgmt_thresh;
++		else
++			val |= 0x0000ff00;
++		tw32(0x7d28, val);
++	}
++
+ 	return err;
+ }
+ 
+@@ -10004,6 +10013,8 @@ static void __devinit tg3_get_eeprom_hw_cfg(struct tg3 *tp)
+ 			tp->tg3_flags &= ~TG3_FLAG_EEPROM_WRITE_PROT;
+ 			tp->tg3_flags2 |= TG3_FLG2_IS_NIC;
+ 		}
++		if (tr32(VCPU_CFGSHDW) & VCPU_CFGSHDW_ASPM_DBNC)
++			tp->tg3_flags |= TG3_FLAG_ASPM_WORKAROUND;
+ 		return;
+ 	}
+ 
+@@ -10131,6 +10142,14 @@ static void __devinit tg3_get_eeprom_hw_cfg(struct tg3 *tp)
+ 		/* bootcode if bit 18 is set */
+ 		if (cfg2 & (1 << 18))
+ 			tp->tg3_flags2 |= TG3_FLG2_SERDES_PREEMPHASIS;
++
++		if (tp->tg3_flags2 & TG3_FLG2_PCI_EXPRESS) {
++			u32 cfg3;
++
++			tg3_read_mem(tp, NIC_SRAM_DATA_CFG_3, &cfg3);
++			if (cfg3 & NIC_SRAM_ASPM_DEBOUNCE)
++				tp->tg3_flags |= TG3_FLAG_ASPM_WORKAROUND;
++		}
  	}
  }
  
-+static struct pci_dev * __devinit tg3_find_peer(struct tg3 *);
-+
- static int __devinit tg3_get_invariants(struct tg3 *tp)
- {
- 	static struct pci_device_id write_reorder_chipsets[] = {
-@@ -10559,6 +10557,10 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
- 	tp->pci_hdr_type     = (cacheline_sz_reg >> 16) & 0xff;
- 	tp->pci_bist         = (cacheline_sz_reg >> 24) & 0xff;
+@@ -10997,6 +11016,9 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
+ 	 */
+ 	tp->tg3_flags &= ~TG3_FLAG_WOL_ENABLE;
  
-+	if ((GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5704) ||
-+	    (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5714))
-+		tp->pdev_peer = tg3_find_peer(tp);
++	if (tp->tg3_flags & TG3_FLAG_ASPM_WORKAROUND)
++		tp->pwrmgmt_thresh = tr32(0x7d28) & 0x0000ff00;
 +
- 	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5750 ||
- 	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5752 ||
- 	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5755 ||
-@@ -10572,6 +10574,14 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
- 		tp->tg3_flags2 |= TG3_FLG2_5705_PLUS;
+ 	return err;
+ }
  
- 	if (tp->tg3_flags2 & TG3_FLG2_5750_PLUS) {
-+		tp->tg3_flags |= TG3_FLAG_SUPPORT_MSI;
-+		if (GET_CHIP_REV(tp->pci_chip_rev_id) == CHIPREV_5750_AX ||
-+		    GET_CHIP_REV(tp->pci_chip_rev_id) == CHIPREV_5750_BX ||
-+		    (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5714 &&
-+		     tp->pci_chip_rev_id <= CHIPREV_ID_5714_A2 &&
-+		     tp->pdev_peer == tp->pdev))
-+			tp->tg3_flags &= ~TG3_FLAG_SUPPORT_MSI;
-+
- 		if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5755 ||
- 		    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5787 ||
- 		    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5906) {
-@@ -11896,10 +11906,6 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
- 		tp->rx_pending = 63;
- 	}
- 
--	if ((GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5704) ||
--	    (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5714))
--		tp->pdev_peer = tg3_find_peer(tp);
--
- 	err = tg3_get_device_address(tp);
- 	if (err) {
- 		printk(KERN_ERR PFX "Could not obtain valid ethernet address, "
 diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
-index c52acb0..dcdfc08 100644
+index dcdfc08..d88a859 100644
 --- a/drivers/net/tg3.h
 +++ b/drivers/net/tg3.h
-@@ -131,6 +131,7 @@
- #define  CHIPREV_ID_5752_A0_HW		 0x5000
- #define  CHIPREV_ID_5752_A0		 0x6000
- #define  CHIPREV_ID_5752_A1		 0x6001
-+#define  CHIPREV_ID_5714_A2		 0x9002
- #define  CHIPREV_ID_5906_A1		 0xc001
- #define  GET_ASIC_REV(CHIP_REV_ID)	((CHIP_REV_ID) >> 12)
- #define   ASIC_REV_5700			 0x07
-@@ -2221,6 +2222,7 @@ struct tg3 {
- #define TG3_FLAG_IN_RESET_TASK		0x04000000
- #define TG3_FLAG_40BIT_DMA_BUG		0x08000000
- #define TG3_FLAG_BROKEN_CHECKSUMS	0x10000000
-+#define TG3_FLAG_SUPPORT_MSI		0x20000000
- #define TG3_FLAG_CHIP_RESETTING		0x40000000
- #define TG3_FLAG_INIT_COMPLETE		0x80000000
- 	u32				tg3_flags2;
+@@ -1150,6 +1150,9 @@
+ #define  VCPU_STATUS_INIT_DONE		 0x04000000
+ #define  VCPU_STATUS_DRV_RESET		 0x08000000
+ 
++#define VCPU_CFGSHDW			0x00005104
++#define  VCPU_CFGSHDW_ASPM_DBNC		 0x00001000
++
+ /* Mailboxes */
+ #define GRCMBOX_BASE			0x00005600
+ #define GRCMBOX_INTERRUPT_0		0x00005800 /* 64-bit */
+@@ -1593,6 +1596,9 @@
+ #define  SHASTA_EXT_LED_MAC		 0x00010000
+ #define  SHASTA_EXT_LED_COMBO		 0x00018000
+ 
++#define NIC_SRAM_DATA_CFG_3		0x00000d3c
++#define  NIC_SRAM_ASPM_DEBOUNCE		 0x00000002
++
+ #define NIC_SRAM_RX_MINI_BUFFER_DESC	0x00001000
+ 
+ #define NIC_SRAM_DMA_DESC_POOL_BASE	0x00002000
+@@ -2200,6 +2206,7 @@ struct tg3 {
+ #define TG3_FLAG_USE_LINKCHG_REG	0x00000008
+ #define TG3_FLAG_USE_MI_INTERRUPT	0x00000010
+ #define TG3_FLAG_ENABLE_ASF		0x00000020
++#define TG3_FLAG_ASPM_WORKAROUND	0x00000040
+ #define TG3_FLAG_POLL_SERDES		0x00000080
+ #define TG3_FLAG_MBOX_WRITE_REORDER	0x00000100
+ #define TG3_FLAG_PCIX_TARGET_HWBUG	0x00000200
+@@ -2288,6 +2295,7 @@ struct tg3 {
+ 	u32				grc_local_ctrl;
+ 	u32				dma_rwctrl;
+ 	u32				coalesce_mode;
++	u32				pwrmgmt_thresh;
+ 
+ 	/* PCI block */
+ 	u16				pci_chip_rev_id;
 
 
