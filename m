@@ -1,48 +1,40 @@
-From: William Lee Irwin III <wli@holomorphy.com>
-Subject: Re: [PATCH 00/40] Swap over Networked storage -v12
-Date: Sat, 5 May 2007 02:55:10 -0700
-Message-ID: <20070505095510.GA19966@holomorphy.com>
-References: <20070504102651.923946304@chello.nl> <20070504.122716.31641374.davem@davemloft.net> <20070505094300.GA9592@infradead.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/4] add mac80211 wireless infrastructure
+Date: Sat, 05 May 2007 11:49:06 -0700 (PDT)
+Message-ID: <20070505.114906.71553321.davem@davemloft.net>
+References: <20070505031749.GA5308@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, a.p.zijlstra@chello.nl,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org, trond.myklebust@fys.uio.no, tgraf@suug.ch,
-	James.Bottomley@SteelEye.com, michaelc@cs.wisc.edu,
-	akpm@linux-foundation.org, phillips@google.com
-To: Christoph Hellwig <hch@infradead.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jeff@garzik.org, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org
+To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from holomorphy.com ([66.93.40.71]:40058 "EHLO holomorphy.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934130AbXEERwU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 5 May 2007 13:52:20 -0400
-Content-Disposition: inline
-In-Reply-To: <20070505094300.GA9592@infradead.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43062
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754643AbXEEStU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 May 2007 14:49:20 -0400
+In-Reply-To: <20070505031749.GA5308@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 04 May 2007 12:26:51 +0200, Peter Zijlstra <a.p.zijlstra@chello.nl> wrote:
->>> There is a fundamental deadlock associated with paging;
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Fri, 4 May 2007 23:17:49 -0400
 
-On Fri, May 04, 2007 at 12:27:16PM -0700, David Miller wrote:
->> I know you'd really like people like myself to review this work, but a
->> set of 40 patches is just too much to try and digest at once
->> especially when I have other things going on.  When I have lots of
->> other things already on my plate, when I see a huge patch set like
->> this I have to just say "delete" because I don't kid myself since
->> I know I'll never get to it.
->> Sorry there's now way I can review this with my current workload.
+> This series adds the mac80211 component.  This is the new wireless
+> infrastructure for "softmac"-style wireless hardware.  It originated
+> as code contributed by Devicescape, and has been under development by
+> the community for well over a year.  Thanks are due especially to Jiri
+> Benc and Michael Wu as well as Johannes Berg and a number of other
+> contributors who have worked to hammer this into its current form.
+> 
+> This component was in -mm for most of the 2.6.21 cycle, with few
+> reported bugs.  The code is also currently available in Fedora rawhide
+> where it has performed well.
+> 
+> The wireless developers would like this to be considered for merge
+> in time for 2.6.22.  Patches for at least one mac80211-based driver
+> will follow shortly.
 
-On Sat, May 05, 2007 at 10:43:00AM +0100, Christoph Hellwig wrote:
-> There also quite alot of only semi-related thing in there.  It would
-> be much better to only do the network stack and iscsi parts first
-> and leave nfs out for a while.  Especially as the former are definitively
-> useful while I strongly doubt that for swap over nfs.
-
-This is backward. As much as we hate it, the common case is swap over
-nfs, essentially because that is/was how things were commonly set up
-for other operating systems. I'm not a Solaris administrator, though,
-so various disclaimers apply.
-
-
--- wli
+Applied and pushed out to net-2.6, I'll push this stuff to
+Linus, thanks a lot!
