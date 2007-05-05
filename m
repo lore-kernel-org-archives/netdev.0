@@ -1,53 +1,54 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 9/11][TG3]: Add ASPM workaround.
-Date: Fri, 04 May 2007 20:40:09 -0400
-Message-ID: <463BD269.7010501@garzik.org>
-References: <1178326514.4859.25.camel@dell>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+From: Segher Boessenkool <segher@kernel.crashing.org>
+Subject: Re: [PATCH v2] gianfar: Add I/O barriers when touching buffer descriptor ownership.
+Date: Sat, 5 May 2007 02:41:20 +0200
+Message-ID: <319ad63a0d38335a6b0c221e8f3c26b0@kernel.crashing.org>
+References: <20070502195712.GA16541@ld0162-tx32.am.freescale.net> <F1B250DD-A472-470F-B3D0-EBB2F042E454@kernel.crashing.org> <4638F0C4.2000406@freescale.com> <FA9554A4-5A7D-4E03-BE28-C4B6B80D9DB9@kernel.crashing.org> <4638F734.2040809@freescale.com> <20070504221309.GR6193@austin.ibm.com>
+Mime-Version: 1.0 (Apple Message framework v623)
+Content-Type: text/plain; charset=US-ASCII; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Michael Chan <mchan@broadcom.com>
+Cc: Scott Wood <scottwood@freescale.com>, netdev@vger.kernel.org,
+	linuxppc-dev@ozlabs.org, jgarzik@pobox.com
+To: linas@austin.ibm.com (Linas Vepstas)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:53252 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1423707AbXEEAkM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 May 2007 20:40:12 -0400
-In-Reply-To: <1178326514.4859.25.camel@dell>
+Received: from mail-in-03.arcor-online.net ([151.189.21.43]:53329 "EHLO
+	mail-in-03.arcor-online.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1161609AbXEEAlo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2007 20:41:44 -0400
+In-Reply-To: <20070504221309.GR6193@austin.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michael Chan wrote:
-> --- a/drivers/net/tg3.c
-> +++ b/drivers/net/tg3.c
-> @@ -3019,6 +3019,15 @@ static int tg3_setup_phy(struct tg3 *tp, int force_reset)
->  		}
->  	}
->  
-> +	if (tp->tg3_flags & TG3_FLAG_ASPM_WORKAROUND) {
-> +		u32 val = tr32(0x7d28);
-> +		if (!netif_carrier_ok(tp->dev))
-> +			val = (val & ~0x0000ff00) | tp->pwrmgmt_thresh;
-> +		else
-> +			val |= 0x0000ff00;
-> +		tw32(0x7d28, val);
-> +	}
-> +
->  	return err;
->  }
->  
-> @@ -10997,6 +11016,9 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
->  	 */
->  	tp->tg3_flags &= ~TG3_FLAG_WOL_ENABLE;
->  
-> +	if (tp->tg3_flags & TG3_FLAG_ASPM_WORKAROUND)
-> +		tp->pwrmgmt_thresh = tr32(0x7d28) & 0x0000ff00;
+>> Well, Segher doesn't want me to use iobarrier (because it's not I/O).
+>> Andy doesn't want me to use wmb() (because it's sync).  I don't think
+>> something like gfar_wmb() would be appropriate.  So the remaining
+>> options are either eieio(),
+>
+> ? Just curious... the original intent of eieio was to order I/O,
+> such as MMIO; it has no effect on memory that isn't marked
+> cache-inhibited or write-trhough or guarded. Has this changed?
+
+eieio orders all accesses to address space that is WIMG=1xxx
+or WIMG=x1x1; separately, it orders stores to address space
+that is WIMG=001x.
+
+> I guess I haven't kept up with the times ... is eieio now
+> being used to provide some other kind of barrier?
+
+Nothing changed.
+
+> Is eieio providing some sort of SMP synchronization side-effect?
+
+It orders stores to "well-behaved" memory yes.
+
+> Point being: if Segher doesn't let you "use iobarrier (because
+> it's not I/O)", then I don't understand why eieio would work (since
+> that's for io only).
+
+iobarrier() is a kernel-level primitive, meant for ordering
+I/O only, as its name indicates.  eieio is a CPU insn that
+orders stores to main memory (amongst other things), not that
+its name would tell you.
 
 
-NAK -- magic numbers.
-
-Please create a named constant for the register at 0x7d28.
-
-	Jeff
-
+Segher
 
