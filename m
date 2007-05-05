@@ -1,54 +1,51 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Re: [PATCH 0/4] add mac80211 wireless infrastructure
-Date: Sat, 5 May 2007 12:00:56 -0400
-Message-ID: <20070505160056.GH4155@tuxdriver.com>
-References: <20070505031749.GA5308@tuxdriver.com> <20070505093336.GA9307@infradead.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 8/11][TG3]: Add TG3_FLAG_SUPPORT_MSI flag.
+Date: Sat, 05 May 2007 13:09:47 -0700 (PDT)
+Message-ID: <20070505.130947.124083244.davem@davemloft.net>
+References: <1178326494.4859.24.camel@dell>
+	<463BD213.2070004@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20070505093336.GA9307-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: mchan@broadcom.com, netdev@vger.kernel.org
+To: jeff@garzik.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55806
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S933264AbXEEUKA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 May 2007 16:10:00 -0400
+In-Reply-To: <463BD213.2070004@garzik.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, May 05, 2007 at 10:33:36AM +0100, Christoph Hellwig wrote:
-> On Fri, May 04, 2007 at 11:17:49PM -0400, John W. Linville wrote:
+From: Jeff Garzik <jeff@garzik.org>
+Date: Fri, 04 May 2007 20:38:43 -0400
 
-> > This component was in -mm for most of the 2.6.21 cycle, with few
-> > reported bugs.  The code is also currently available in Fedora rawhide
-> > where it has performed well.
-> > 
-> > The wireless developers would like this to be considered for merge
-> > in time for 2.6.22.  Patches for at least one mac80211-based driver
-> > will follow shortly.
+> Michael Chan wrote:
+> > @@ -10404,6 +10400,8 @@ static void __devinit tg3_read_fw_ver(struct tg3 *tp)
+> >  	}
+> >  }
+> >  
+> > +static struct pci_dev * __devinit tg3_find_peer(struct tg3 *);
+> > +
+> >  static int __devinit tg3_get_invariants(struct tg3 *tp)
+> >  {
+> >  	static struct pci_device_id write_reorder_chipsets[] = {
 > 
-> Please send out patches for review first.  Last time I looked through
-> the stuff in -mm there were a lot of things that were in pretty bad
-> shape still.
+> 
+> Prototypes are better kept at the top of the file, grouped together.  It 
+> can sometimes be a pain later on, if they are scattered throughout a big 
+> source file like tg3.c.
+> 
+> ACK the patch's content of course
 
-I had a little email trouble w/ the orignal patch post.  I hand edited
-some headers and I must have screwed them up.
+I disagree with this.  In my drivers I try to keep the forward
+declarations as far down in the file as possible, so that functions
+are only visible to the stuff that actually needs it.
 
-Anyway, the patches have been reposted and they seem to have made
-it through to the list.  Please do look at them -- I'm sure they can
-benefit from your loving eye.  :-)
+In any event, even if I agreed with this idea, the tg3.c driver
+has not followed that convention and such a switch over
+would be a seperate change.
 
-The patches are also available here:
+Patch applied, thanks Michael.
 
-	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/mac80211/
-
-I realize this is a bit late in the merge cycle -- this timing is the
-best we could manage.  If the patches are fatally flawed then we can
-try for 2.6.23.  But if possible, we would like to get them into the
-current cycle.
-
-FWIW, the patches have been paired-down a bit from what is in -mm,
-including the removal of AP and WDS mode support and related ioctls.
-
-John
--- 
-John W. Linville
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
