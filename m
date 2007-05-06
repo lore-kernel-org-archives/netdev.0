@@ -1,44 +1,34 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH revised 11/11][TG3]: Update version and reldate.
-Date: Sat, 05 May 2007 17:21:06 -0700
-Message-ID: <1178410866.4859.52.camel@dell>
-References: <20070504.194207.82054727.davem@davemloft.net>
- <1551EAE59135BE47B544934E30FC4FC0940105@nt-irva-0751.brcm.ad.broadcom.com>
- <20070504.204700.24899658.davem@davemloft.net>
+From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Subject: Merging SSB upstream
+Date: Sun, 6 May 2007 03:03:17 +0200
+Message-ID: <200705060303.17594.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, "netdev" <netdev@vger.kernel.org>
-To: "David Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:4435 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755324AbXEEXdp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 5 May 2007 19:33:45 -0400
-In-Reply-To: <20070504.204700.24899658.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
+Cc: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Gary Zambrano <zambrano-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+To: John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Jeff Garzik <jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-[TG3]: Update version and reldate.
+So, now that mac80211 is merged upstream, I think it's
+time to merge SSB and the b44-ssb port upstream.
+Note that bcm43xx-mac80211 is _not_ ready for upstream, yet.
 
-Update version to 3.76.
+What do you think? I'd like to merge ssb as-is, although
+the embedded-device parts are not quite finished, yet.
+But they don't interfere with the non-embedded parts used
+by b44 and the bcm43xx PCI cards.
+So we _could_ remove the ssb-mips code, but I don't like to
+do that for better maintainability. It doesn't hurt anyone IMO.
 
-Signed-off-by: Michael Chan <mchan@broadcom.com>
+Some opinions?
 
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 70b8c5e..184c275 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -64,8 +64,8 @@
- 
- #define DRV_MODULE_NAME		"tg3"
- #define PFX DRV_MODULE_NAME	": "
--#define DRV_MODULE_VERSION	"3.75"
--#define DRV_MODULE_RELDATE	"March 23, 2007"
-+#define DRV_MODULE_VERSION	"3.76"
-+#define DRV_MODULE_RELDATE	"May 5, 2007"
- 
- #define TG3_DEF_MAC_MODE	0
- #define TG3_DEF_RX_MODE		0
-
-
+-- 
+Greetings Michael.
