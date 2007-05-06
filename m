@@ -1,39 +1,31 @@
-From: "Ian Brown" <ianbrn@gmail.com>
-Subject: cleanup suggestion of 5 fields
-Date: Sun, 6 May 2007 17:54:32 +0300
-Message-ID: <d0383f90705060754l1e738013y4cd9205ade0c3e9b@mail.gmail.com>
+From: "Emil S Tantilov" <emils.tantilov@gmail.com>
+Subject: Re: eth1 became eth2, but dmesg still says eth1
+Date: Sun, 6 May 2007 09:19:40 -0700
+Message-ID: <bde4e1140705060919l46f40a1ajf0d38426b02c5d7d@mail.gmail.com>
+References: <20070506053824.GC6222@tau.solarneutrino.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: "Ryan Richter" <ryan@tau.solarneutrino.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nz-out-0506.google.com ([64.233.162.238]:45318 "EHLO
-	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754645AbXEFOyd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 May 2007 10:54:33 -0400
-Received: by nz-out-0506.google.com with SMTP id o1so1305874nzf
-        for <netdev@vger.kernel.org>; Sun, 06 May 2007 07:54:33 -0700 (PDT)
+Received: from an-out-0708.google.com ([209.85.132.247]:8903 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754927AbXEFQTk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 May 2007 12:19:40 -0400
+Received: by an-out-0708.google.com with SMTP id d18so82984and
+        for <netdev@vger.kernel.org>; Sun, 06 May 2007 09:19:40 -0700 (PDT)
+In-Reply-To: <20070506053824.GC6222@tau.solarneutrino.net>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+> However the bond0 interface failed to come up, complaining that there
+> was no such interface as eth1.  I checked /proc/net/dev, and it listed
+> eth0 and _eth2_.  I changed the bonding configuration to use eth0 and
+> eth2 and it's working fine now.
 
-It seems to me that the following fields should be cleaned up as except the
-definition, they do not appear anywhere in the kernel code:
+Check your udev rules. This is usually what is causing interface to
+come up differently than what you would expect.
 
-a) since FASTROUTE is no longer used:
-
-in include/linux/if_packet.h:
-#define PACKET_FASTROUTE        6               /* Fastrouted frame     */
-in include/linux/if_wanpipe.h:
-#define WAN_PACKET_FASTROUTE	6		/* Fastrouted frame	*/
-
-b) and (not conncected to removal of FASTROUTE)
-in include/linux/if_arp.h
-#define	ARPOP_InREQUEST	8		/* InARP request		*/
-#define	ARPOP_InREPLY	9		/* InARP reply			*/
-#define	ARPOP_NAK	10		/* (ATM)ARP NAK			*/
-
-Regards,
-Ian
+Emil
