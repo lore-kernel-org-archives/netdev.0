@@ -1,39 +1,41 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH] mac80211: include <linux/delay.h> instead of <asm/delay.h>
-Date: Sun, 6 May 2007 16:48:26 -0400
-Message-ID: <20070506204826.GA11238@tuxdriver.com>
-References: <Pine.LNX.4.64.0705062236030.4741@anakin>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@osdl.org>,
-	Jiri Benc <jbenc@suse.cz>, netdev@vger.kernel.org,
-	Linux Kernel Development <linux-kernel@vger.kernel.org>
-To: Geert Uytterhoeven <geert@linux-m68k.org>
+From: "Josef 'Jeff' Sipek" <jsipek@cs.sunysb.edu>
+Subject: [PATCH 1/1] net/core: Fix error handling
+Date: Sun,  6 May 2007 19:20:43 -0400
+Message-ID: <11784936433022-git-send-email-jsipek@cs.sunysb.edu>
+Cc: "Josef 'Jeff' Sipek" <jsipek@cs.sunysb.edu>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:3392 "EHLO ra.tuxdriver.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756025AbXEFVC3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 6 May 2007 17:02:29 -0400
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0705062236030.4741@anakin>
+Received: from filer.fsl.cs.sunysb.edu ([130.245.126.2]:43035 "EHLO
+	filer.fsl.cs.sunysb.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752105AbXEFXUt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 May 2007 19:20:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, May 06, 2007 at 10:37:17PM +0200, Geert Uytterhoeven wrote:
-> |   CC      net/mac80211/ieee80211_sta.o
-> | In file included from linux/net/mac80211/ieee80211_sta.c:31:
-> | include2/asm/delay.h: In function '__const_udelay':
-> | include2/asm/delay.h:33: error: 'loops_per_jiffy' undeclared (first use in this function)
-> | include2/asm/delay.h:33: error: (Each undeclared identifier is reported only once
-> | include2/asm/delay.h:33: error: for each function it appears in.)
-> 
-> mac80211: include <linux/delay.h> instead of <asm/delay.h>
+Upon failure to register "ptype" procfs entry, "softnet_stat" was not
+removed, and an incorrect attempt was made to remove the "ptype" entry.
 
-Got it, thanks!
+Signed-off-by: Josef 'Jeff' Sipek <jsipek@cs.sunysb.edu>
+---
+ net/core/dev.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-Please send/copy to linux-wireless@vger.kernel.org in the future.
-
-John
+diff --git a/net/core/dev.c b/net/core/dev.c
+index d5e42d1..d8dc621 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2365,9 +2365,9 @@ static int __init dev_proc_init(void)
+ out:
+ 	return rc;
+ out_softnet:
+-	proc_net_remove("softnet_stat");
+-out_dev2:
+ 	proc_net_remove("ptype");
++out_dev2:
++	proc_net_remove("softnet_stat");
+ out_dev:
+ 	proc_net_remove("dev");
+ 	goto out;
 -- 
-John W. Linville
-linville@tuxdriver.com
+1.5.2.rc1.20.g86b9
+
