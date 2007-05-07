@@ -1,73 +1,59 @@
-From: David Acker <dacker@roinet.com>
-Subject: Re: [PATCH] e100 rx: or s and el bits
-Date: Mon, 07 May 2007 11:27:19 -0400
-Message-ID: <463F4557.9030901@roinet.com>
-References: <200705011124.l41BOEG4007662@sullivan.realtime.net>
-	<46375664.8030701@roinet.com> <4638F2B2.2000103@roinet.com>
-	<463BA906.30205@roinet.com>
-	<85f07fc58d5ed2147d5214d0f0b4fe32@bga.com>
+From: Michael Wu <flamingice-R9e9/4HEdknk1uMJSBkQmQ@public.gmane.org>
+Subject: Re: [PATCH 1/2] Add 93cx6 eeprom library
+Date: Mon, 7 May 2007 11:40:25 -0400
+Message-ID: <200705071140.29435.flamingice@sourmilk.net>
+References: <200705070346.04982.flamingice@sourmilk.net> <20070507142715.GB32546@fluff.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: multipart/signed;
+  boundary="nextPart28748411.TuTEUJFSIm";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: Auke Kok <auke-jan.h.kok@intel.com>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Scott Feldman <sfeldma@pobox.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: Milton Miller <miltonm@bga.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <85f07fc58d5ed2147d5214d0f0b4fe32@bga.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Ivo van Doorn <ivdoorn-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Jeff Garzik <jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>
+To: Ben Dooks <ben-linux-elnMNo+KYs3YtjvyW6yDsg@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20070507142715.GB32546-elnMNo+KYs3pIgCt6eIbzw@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Milton Miller wrote:
-> While this will help the problem with the cache-incoherent DMA systems 
-> not running, it guarantees the hardware will stop every <ring-size> 
-> packets and wait for the cpu to respond to an interrupt.  It would seem 
-> that this will lead to packet drops.
-> 
-Well, in NAPI mode, we the CPU may poll its way to the last buffer 
-without having to go through an interrupt cycle.  You are right that 
-buffers would probably get dropped between the time the hardware hit the 
-S-bit and the CPU caught up.
+--nextPart28748411.TuTEUJFSIm
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-> [download manual from site in source file]
-> 
-> In fact 6.4.3.4 says 82557 will start dropping frames immediately.
-> 
-> Looking at the descriptions around page 101:
-> (1) The link pointer, S, and EL is read when hw starts recieving the frame.
-> (2) Its pretty clear EL overrides S from the order of the descriptions 
-> in the text.
-My testing confirms this.
+On Monday 07 May 2007 10:27, Ben Dooks wrote:
+> On Mon, May 07, 2007 at 03:46:04AM -0400, Michael Wu wrote:
+> > From: Ivo van Doorn <ivdoorn-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> >
+> > This patch adds a library for reading from and writing to 93cx6 eeproms.
+>
+> This looks remarkably like an SPI device, why not use the
+> spi framework to drive this?
+>
+Yeah, it's SPI/microwire. As for using the SPI framework.. I dunno. The rt2=
+x00=20
+drivers depend on this too and I'd rather not change the code at this point=
+=20
+since it's well tested and working. Thanks for the heads up about using SPI=
+,=20
+however. I (or maybe Ivo if he has any time) will check the SPI framework=20
+later and see if that simplifies things.
 
-> (3) 6.4.3.3.1 #4 looks intresting -- That is a RFD with size 0 skips 
-> frame fill and goes to the next packet.
-> 
-> How about putting a zero length descriptor in consistent memory to 
-> suspend the rx unit before the last real frame?   In other words  fr0 -> 
-> fr1 ... frN-2 -> frN-1 -> WaitHere0 -> FrN.   We could then have 2 such 
-> frames, and when we refill modify FrN to the new chain, with the 
-> WaitHere1 as its next-to-last, do the syncs, then clear the S bit on 
-> WaitHere0.   When the rx passes WaitHere0 we can reclaim it for the next 
-> use (might want a slightly larger pool, basically need RxRingSize / 
-> RxRingFillBatch such frames.
+=2DMichael Wu
 
-Hmm...I will take a look at this.  My test worked over the weekend by 
-the way.  A patch will be coming.
--Ack
+--nextPart28748411.TuTEUJFSIm
+Content-Type: application/pgp-signature
 
--------------------------------------------------------------------------
-This SF.net email is sponsored by DB2 Express
-Download DB2 Express C - the FREE version of DB2 express and take
-control of your XML. No limits. Just data. Click to get it now.
-http://sourceforge.net/powerbar/db2/
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.5 (GNU/Linux)
+
+iD8DBQBGP0htT3Oqt9AH4aERAoCMAJ9Xc1wZ3D+umBZPbL0PsiWHwP6ESwCgoNr4
+635h2sCf7D8z8hsf9UFGLko=
+=b10o
+-----END PGP SIGNATURE-----
+
+--nextPart28748411.TuTEUJFSIm--
