@@ -1,29 +1,51 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: smp_affinity, MSI-X and 2.6.21.1
-Date: Mon, 07 May 2007 13:53:39 -0700
-Message-ID: <463F91D3.3010000@hp.com>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: [PATCH 1/3] WAN Kconfig: change "depends on HDLC" to "select"
+Date: Mon, 07 May 2007 22:54:53 +0200
+Message-ID: <m3k5vkfj6q.fsf@maximus.localdomain>
+References: <m3abwhcy74.fsf@maximus.localdomain>
+	<m3y7k1biov.fsf@maximus.localdomain>
+	<Pine.LNX.4.64.0705070343330.2733@scrub.home>
+	<m3tzupc6wz.fsf@maximus.localdomain>
+	<Pine.LNX.4.64.0705071318150.1479@scrub.home>
+	<m3r6psc0ee.fsf@maximus.localdomain>
+	<Pine.LNX.4.64.0705071509290.1479@scrub.home>
+	<463F27CE.2040008@garzik.org>
+	<Pine.LNX.4.64.0705071538060.1479@scrub.home>
+	<m3lkg0a88y.fsf@maximus.localdomain>
+	<Pine.LNX.4.64.0705071901020.1479@scrub.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Linux Network Development list <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jeff@garzik.org>, Russell King <rmk@arm.linux.org.uk>,
+	lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.arm.linux.org.uk
+To: Roman Zippel <zippel@linux-m68k.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel11.hp.com ([156.153.255.246]:45841 "EHLO palrel11.hp.com"
+Received: from khc.piap.pl ([195.187.100.11]:41328 "EHLO khc.piap.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S966557AbXEGUxl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 May 2007 16:53:41 -0400
-Received: from tardy.cup.hp.com (tardy.cup.hp.com [15.244.56.217])
-	by palrel11.hp.com (Postfix) with ESMTP id 539413411B
-	for <netdev@vger.kernel.org>; Mon,  7 May 2007 13:53:40 -0700 (PDT)
-Received: from [127.0.0.1] (localhost [127.0.0.1])
-	by tardy.cup.hp.com (8.9.3 (PHNE_28810)/8.9.3 SMKit7.02) with ESMTP id NAA13597
-	for <netdev@vger.kernel.org>; Mon, 7 May 2007 13:53:39 -0700 (PDT)
+	id S966860AbXEGUyz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 May 2007 16:54:55 -0400
+In-Reply-To: <Pine.LNX.4.64.0705071901020.1479@scrub.home> (Roman Zippel's message of "Mon, 7 May 2007 19:07:43 +0200 (CEST)")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Folks -
+Roman Zippel <zippel@linux-m68k.org> writes:
 
-Is it a bug, or a feature that after changing a device's smp_affinity via echo 
-"N" >> /proc/irq/M/smp_affinity that the new mask isn't visible via cat 
-/proc/irq/M/smp_affinity until after actual interrupts are taken?
+> Normal dependencies, you basically have to manually make sure they are 
+> correct (and it seems with your patch they aren't). Again, _please_ (with 
+> sugar on top) don't use select unless you have a good reason for it.
 
-rick jones
+You perhaps mean WAN dependency, don't you? I was under impression
+that the "menu" patches have already been merged so the WAN
+dependency would be automatic.
+
+Anything other than that? Sure, I can see now. I can only say,
+in my defense, that I was (and still am) very tired. I'm going to
+get some coffee.
+
+There is still a very good reason for the select.
+CONFIG_HDLC _is_ a simple library, though probably not the most
+simple one. I really feel it's an improvement.
+
+Attaching two patches, hopefully the double check is enough.
+-- 
+Krzysztof Halasa
