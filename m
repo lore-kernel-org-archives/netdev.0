@@ -1,47 +1,35 @@
-From: Trond Myklebust <trond.myklebust@fys.uio.no>
-Subject: Re: [-mm patch] fix fs/nfs/nfsroot.c compile error
-Date: Mon, 07 May 2007 09:12:23 -0400
-Message-ID: <1178543543.6158.7.camel@heimdal.trondhjem.org>
-References: <20070505164422.GD8975@stusta.de>
-	 <20070505014955.8f3990b5.akpm@linux-foundation.org>
-	 <15958.1178534871@redhat.com>  <20070507105607.GB4226@stusta.de>
+From: Roman Zippel <zippel@linux-m68k.org>
+Subject: Re: [PATCH 1/3] WAN Kconfig: change "depends on HDLC" to "select"
+Date: Mon, 7 May 2007 15:17:42 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0705071509290.1479@scrub.home>
+References: <m3abwhcy74.fsf@maximus.localdomain> <m3y7k1biov.fsf@maximus.localdomain>
+ <Pine.LNX.4.64.0705070343330.2733@scrub.home> <m3tzupc6wz.fsf@maximus.localdomain>
+ <Pine.LNX.4.64.0705071318150.1479@scrub.home> <m3r6psc0ee.fsf@maximus.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: David Howells <dhowells@redhat.com>,
-	Andrew Morton <akpm@linux-foundation.org>, davem@davemloft.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Adrian Bunk <bunk@stusta.de>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Jeff Garzik <jeff@garzik.org>, Russell King <rmk@arm.linux.org.uk>,
+	lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.arm.linux.org.uk
+To: Krzysztof Halasa <khc@pm.waw.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pat.uio.no ([129.240.10.15]:59378 "EHLO pat.uio.no"
+Received: from scrub.xs4all.nl ([194.109.195.176]:1903 "EHLO scrub.xs4all.nl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933775AbXEGNMl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 May 2007 09:12:41 -0400
-In-Reply-To: <20070507105607.GB4226@stusta.de>
+	id S933807AbXEGNRs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 May 2007 09:17:48 -0400
+In-Reply-To: <m3r6psc0ee.fsf@maximus.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2007-05-07 at 12:56 +0200, Adrian Bunk wrote:
-> On Mon, May 07, 2007 at 11:47:51AM +0100, David Howells wrote:
-> > Adrian Bunk <bunk@stusta.de> wrote:
-> > 
-> > > match_table_t was made "const" and gcc doesn't like "const __initdata":
-> > 
-> > Hmmm...  My gcc seems quite happy with it.  What gcc are you using?
-> 
-> 4.1
-> 
-> > Shouldn't __initdata override const?
-> > 
-> > > BTW: Why is this change to include/linux/parser.h in the net tree?
-> > 
-> > Because DaveM picked it up as part of my AFS patches, I guess.
-> 
-> It might make sense, but it doesn't seem to be in any way AFS specific.
+Hi,
 
-It makes little or no sense to be forcing attributes like 'const' in a
-typedef. That is basically stating that it is inconceivable to use
-anything else. Clearly not the case here...
+On Mon, 7 May 2007, Krzysztof Halasa wrote:
 
-Trond
+> Actually I can't see any bad idea here.
+> The original dependency was certainly, uhm, not the best one.
 
+select seriously screws with the dependencies, it's especially problematic 
+if the selected symbol has other dependencies as HDLC in this case, it 
+makes it only more complicated to get the dependencies correct again.
+Please use it only if it solves a real problem.
+
+bye, Roman
