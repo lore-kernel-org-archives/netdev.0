@@ -1,86 +1,45 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: [PATCH 2a/3] Intel IXP4xx network drivers
-Date: Mon, 07 May 2007 12:27:43 +0200
-Message-ID: <m3fy69c4io.fsf@maximus.localdomain>
-References: <m3abwhcy74.fsf@maximus.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: trying to track a change to drivers/isdn/usb-gigaset.c
+Date: Mon, 07 May 2007 03:41:17 -0700 (PDT)
+Message-ID: <20070507.034117.115910272.davem@davemloft.net>
+References: <463EF77A.9020808@imap.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Russell King <rmk@arm.linux.org.uk>,
-	lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.arm.linux.org.uk
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, acme@redhat.com,
+	netdev@vger.kernel.org
+To: tilman@imap.cc
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:38360 "EHLO khc.piap.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754291AbXEGK1p (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 May 2007 06:27:45 -0400
-In-Reply-To: <m3abwhcy74.fsf@maximus.localdomain> (Krzysztof Halasa's message of "Mon, 07 May 2007 01:46:39 +0200")
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37101
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S932203AbXEGKlO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 May 2007 06:41:14 -0400
+In-Reply-To: <463EF77A.9020808@imap.cc>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Adds "fuse" functions to help determine installed IXP4xx CPU
-components and to reset/disable/enable them (only NPE - network
-coprocessors - can be reset and reenabled).
+From: Tilman Schmidt <tilman@imap.cc>
+Date: Mon, 07 May 2007 11:55:06 +0200
 
-Signed-off-by: Krzysztof Halasa <khc@pm.waw.pl>
+[ netdev@vger.kernel.org is the place to discuss kernel networking
+  issues, thanks ]
 
-diff --git a/include/asm-arm/arch-ixp4xx/ixp4xx-regs.h b/include/asm-arm/arch-ixp4xx/ixp4xx-regs.h
-index 5d949d7..5652c41 100644
---- a/include/asm-arm/arch-ixp4xx/ixp4xx-regs.h
-+++ b/include/asm-arm/arch-ixp4xx/ixp4xx-regs.h
-@@ -607,4 +607,55 @@
- 
- #define DCMD_LENGTH	0x01fff		/* length mask (max = 8K - 1) */
- 
-+/* Fuse Bits of IXP_EXP_CFG2 */
-+#define IXP4XX_FUSE_RCOMP		(1 << 0)
-+#define IXP4XX_FUSE_USB_DEVICE		(1 << 1)
-+#define IXP4XX_FUSE_HASH		(1 << 2)
-+#define IXP4XX_FUSE_AES			(1 << 3)
-+#define IXP4XX_FUSE_DES			(1 << 4)
-+#define IXP4XX_FUSE_HDLC		(1 << 5)
-+#define IXP4XX_FUSE_AAL			(1 << 6)
-+#define IXP4XX_FUSE_HSS			(1 << 7)
-+#define IXP4XX_FUSE_UTOPIA		(1 << 8)
-+#define IXP4XX_FUSE_NPEB_ETH0		(1 << 9)
-+#define IXP4XX_FUSE_NPEC_ETH		(1 << 10)
-+#define IXP4XX_FUSE_RESET_NPEA		(1 << 11)
-+#define IXP4XX_FUSE_RESET_NPEB		(1 << 12)
-+#define IXP4XX_FUSE_RESET_NPEC		(1 << 13)
-+#define IXP4XX_FUSE_PCI			(1 << 14)
-+#define IXP4XX_FUSE_ECC_TIMESYNC	(1 << 15)
-+#define IXP4XX_FUSE_UTOPIA_PHY_LIMIT	(3 << 16)
-+#define IXP4XX_FUSE_USB_HOST		(1 << 18)
-+#define IXP4XX_FUSE_NPEA_ETH		(1 << 19)
-+#define IXP4XX_FUSE_NPEB_ETH_1_TO_3	(1 << 20)
-+#define IXP4XX_FUSE_RSA			(1 << 21)
-+#define IXP4XX_FUSE_XSCALE_MAX_FREQ	(3 << 22)
-+#define IXP4XX_FUSE_RESERVED		(0xFF << 24)
-+
-+#define IXP4XX_FUSE_IXP46X_ONLY (IXP4XX_FUSE_ECC_TIMESYNC |		\
-+				 IXP4XX_FUSE_USB_HOST |			\
-+				 IXP4XX_FUSE_NPEA_ETH |			\
-+				 IXP4XX_FUSE_NPEB_ETH_1_TO_3 |		\
-+				 IXP4XX_FUSE_RSA |			\
-+				 IXP4XX_FUSE_XSCALE_MAX_FREQ)
-+
-+#ifndef __ASSEMBLY__
-+
-+static inline u32 ixp4xx_read_fuses(void)
-+{
-+	unsigned int fuses = ~*IXP4XX_EXP_CFG2;
-+	fuses &= ~IXP4XX_FUSE_RESERVED;
-+	if (!cpu_is_ixp46x())
-+		fuses &= ~IXP4XX_FUSE_IXP46X_ONLY;
-+
-+	return fuses;
-+}
-+
-+static inline void ixp4xx_write_fuses(u32 value)
-+{
-+	*IXP4XX_EXP_CFG2 = ~value;
-+}
-+
-+#endif /* __ASSEMBLY__ */
-+
- #endif
+> But I cannot remember seeing that patch via the maintainer
+> addresses for ISDN or the Gigaset driver, and the LKML archive
+> doesn't seem to have it either.
+> 
+> Where was that patch discussed? What is its rationale?
+
+This was a wholesale change done across the entire tree, they were all
+straightforward transformations that didn't change what the code did.
+
+It was a change done so that we could hide the skb data buffering
+details to the point where we could change the protocol header
+pointers into 32-bit offsets which saves 4 bytes per such pointer per
+protocol header stored in struct sk_buff.
+
+We're not going to notify the maintainer of each of the hundreds of
+source files we had to touch in order to pull this off, sorry.
+
+These changes were posted to netdev@vger.kernel.org, they also
+sat in Andrew Morton's -mm tree for quite some time.
