@@ -1,7 +1,7 @@
 From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: [PATCH] Use menuconfig objects II - netdev/wan
-Date: Mon, 07 May 2007 23:02:46 +0200
-Message-ID: <m3fy68fitl.fsf_-_@maximus.localdomain>
+Subject: [PATCH 1a/3] WAN Kconfig: change "depends on HDLC" to "select"
+Date: Mon, 07 May 2007 23:08:41 +0200
+Message-ID: <m3ejlsfijq.fsf_-_@maximus.localdomain>
 References: <m3abwhcy74.fsf@maximus.localdomain>
 	<m3y7k1biov.fsf@maximus.localdomain>
 	<Pine.LNX.4.64.0705070343330.2733@scrub.home>
@@ -19,157 +19,108 @@ Cc: Jeff Garzik <jeff@garzik.org>, Russell King <rmk@arm.linux.org.uk>,
 	lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
 	linux-arm-kernel@lists.arm.linux.org.uk
 To: Roman Zippel <zippel@linux-m68k.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S966944AbXEGVC4@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from khc.piap.pl ([195.187.100.11]:55910 "EHLO khc.piap.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S966969AbXEGVIo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 May 2007 17:08:44 -0400
 In-Reply-To: <Pine.LNX.4.64.0705071901020.1479@scrub.home> (Roman Zippel's message of "Mon, 7 May 2007 19:07:43 +0200 (CEST)")
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jan Engelhardt <jengelh@linux01.gwdg.de>
+Allow enabling WAN drivers without selecting generic HDLC first,
+HDLC will be selected automatically.
 
-Change Kconfig objects from "menu, config" into "menuconfig" so
-that the user can disable the whole feature without having to
-enter the menu first.
-
-Signed-off-by: Jan Engelhardt <jengelh@gmx.de>
 Signed-off-by: Krzysztof Halasa <khc@pm.waw.pl>
 
----
- drivers/net/wan/Kconfig |   34 +++++++++++++++-------------------
- 1 file changed, 15 insertions(+), 19 deletions(-)
-
---- linux-2.6.21-mm_20070428.orig/drivers/net/wan/Kconfig
-+++ linux-2.6.21-mm_20070428/drivers/net/wan/Kconfig
-@@ -2,10 +2,7 @@
- # wan devices configuration
- #
- 
--menu "Wan interfaces"
--	depends on NETDEVICES
--
--config WAN
-+menuconfig WAN
- 	bool "Wan interfaces support"
- 	---help---
- 	  Wide Area Networks (WANs), such as X.25, Frame Relay and leased
-@@ -23,10 +20,12 @@ config WAN
- 
- 	  If unsure, say N.
- 
-+if WAN
-+
- # There is no way to detect a comtrol sv11 - force it modular for now.
- config HOSTESS_SV11
- 	tristate "Comtrol Hostess SV-11 support"
--	depends on WAN && ISA && m && ISA_DMA_API && INET
-+	depends on ISA && m && ISA_DMA_API && INET
- 	help
- 	  Driver for Comtrol Hostess SV-11 network card which
- 	  operates on low speed synchronous serial links at up to
-@@ -38,7 +37,7 @@ config HOSTESS_SV11
- # The COSA/SRP driver has not been tested as non-modular yet.
- config COSA
- 	tristate "COSA/SRP sync serial boards support"
--	depends on WAN && ISA && m && ISA_DMA_API
-+	depends on ISA && m && ISA_DMA_API
- 	---help---
- 	  Driver for COSA and SRP synchronous serial boards.
- 
-@@ -62,7 +61,7 @@ config COSA
- #
- config LANMEDIA
- 	tristate "LanMedia Corp. SSI/V.35, T1/E1, HSSI, T3 boards"
--	depends on WAN && PCI
-+	depends on PCI
- 	---help---
- 	  Driver for the following Lan Media family of serial boards:
- 
-@@ -89,7 +88,7 @@ config LANMEDIA
- # There is no way to detect a Sealevel board. Force it modular
- config SEALEVEL_4021
- 	tristate "Sealevel Systems 4021 support"
--	depends on WAN && ISA && m && ISA_DMA_API && INET
-+	depends on ISA && m && ISA_DMA_API && INET
- 	help
- 	  This is a driver for the Sealevel Systems ACB 56 serial I/O adapter.
- 
-@@ -99,7 +98,6 @@ config SEALEVEL_4021
- # Generic HDLC
- config HDLC
- 	tristate "Generic HDLC layer"
--	depends on WAN
- 	help
- 	  Say Y to this option if your Linux box contains a WAN (Wide Area
- 	  Network) card supported by this driver and you are planning to
-@@ -167,7 +165,7 @@ config HDLC_X25
- 	  If unsure, say N.
- 
- comment "X.25/LAPB support is disabled"
--	depends on WAN && HDLC && (LAPB!=m || HDLC!=m) && LAPB!=y
-+	depends on HDLC && (LAPB!=m || HDLC!=m) && LAPB!=y
+--- linux/drivers/net/wan/Kconfig	2007-05-07 22:46:06.000000000 +0200
++++ linux/drivers/net/wan/Kconfig	2007-05-07 22:45:13.000000000 +0200
+@@ -169,7 +169,8 @@
  
  config PCI200SYN
  	tristate "Goramo PCI200SYN support"
-@@ -230,10 +228,10 @@ config PC300_MLPPP
+-	depends on HDLC && PCI
++	depends on PCI
++	select HDLC
+ 	help
+ 	  Driver for PCI200SYN cards by Goramo sp. j.
+ 
+@@ -183,7 +184,8 @@
+ 
+ config WANXL
+ 	tristate "SBE Inc. wanXL support"
+-	depends on HDLC && PCI
++	depends on PCI
++	select HDLC
+ 	help
+ 	  Driver for wanXL PCI cards by SBE Inc.
+ 
+@@ -206,7 +208,8 @@
+ 
+ config PC300
+ 	tristate "Cyclades-PC300 support (RS-232/V.35, X.21, T1/E1 boards)"
+-	depends on HDLC && PCI
++	depends on PCI
++	select HDLC
+ 	---help---
+ 	  Driver for the Cyclades-PC300 synchronous communication boards.
+ 
+@@ -228,14 +231,15 @@
  	  Multilink PPP over the PC300 synchronous communication boards.
  
  comment "Cyclades-PC300 MLPPP support is disabled."
--	depends on WAN && HDLC && PC300 && (PPP=n || !PPP_MULTILINK || PPP_SYNC_TTY=n || !HDLC_PPP)
-+	depends on HDLC && PC300 && (PPP=n || !PPP_MULTILINK || PPP_SYNC_TTY=n || !HDLC_PPP)
+-	depends on HDLC && PC300 && (PPP=n || !PPP_MULTILINK || PPP_SYNC_TTY=n || !HDLC_PPP)
++	depends on PC300 && (PPP=n || !PPP_MULTILINK || PPP_SYNC_TTY=n || !HDLC_PPP)
  
  comment "Refer to the file README.mlppp, provided by PC300 package."
--	depends on WAN && HDLC && PC300 && (PPP=n || !PPP_MULTILINK || PPP_SYNC_TTY=n || !HDLC_PPP)
-+	depends on HDLC && PC300 && (PPP=n || !PPP_MULTILINK || PPP_SYNC_TTY=n || !HDLC_PPP)
+-	depends on HDLC && PC300 && (PPP=n || !PPP_MULTILINK || PPP_SYNC_TTY=n || !HDLC_PPP)
++	depends on PC300 && (PPP=n || !PPP_MULTILINK || PPP_SYNC_TTY=n || !HDLC_PPP)
  
  config PC300TOO
  	tristate "Cyclades PC300 RSV/X21 alternative support"
-@@ -338,7 +336,6 @@ config DSCC4_PCI_RST
+-	depends on HDLC && PCI
++	depends on PCI
++	select HDLC
+ 	help
+ 	  Alternative driver for PC300 RSV/X21 PCI cards made by
+ 	  Cyclades, Inc. If you have such a card, say Y here and see
+@@ -248,7 +252,8 @@
  
- config DLCI
- 	tristate "Frame Relay DLCI support"
--	depends on WAN
+ config N2
+ 	tristate "SDL RISCom/N2 support"
+-	depends on HDLC && ISA
++	depends on ISA
++	select HDLC
+ 	help
+ 	  Driver for RISCom/N2 single or dual channel ISA cards by
+ 	  SDL Communications Inc.
+@@ -265,7 +270,8 @@
+ 
+ config C101
+ 	tristate "Moxa C101 support"
+-	depends on HDLC && ISA
++	depends on ISA
++	select HDLC
+ 	help
+ 	  Driver for C101 SuperSync ISA cards by Moxa Technologies Co., Ltd.
+ 
+@@ -279,7 +285,8 @@
+ 
+ config FARSYNC
+ 	tristate "FarSync T-Series support"
+-	depends on HDLC && PCI
++	depends on PCI
++	select HDLC
  	---help---
- 	  Support for the Frame Relay protocol.
+ 	  Support for the FarSync T-Series X.21 (and V.35/V.24) cards by
+ 	  FarSite Communications Ltd.
+@@ -298,7 +305,8 @@
  
-@@ -385,7 +382,7 @@ config SDLA
- # Wan router core.
- config WAN_ROUTER_DRIVERS
- 	tristate "WAN router drivers"
--	depends on WAN && WAN_ROUTER
-+	depends on WAN_ROUTER
- 	---help---
- 	  Connect LAN to WAN via Linux box.
- 
-@@ -440,7 +437,7 @@ config CYCLOMX_X25
- # X.25 network drivers
- config LAPBETHER
- 	tristate "LAPB over Ethernet driver (EXPERIMENTAL)"
--	depends on WAN && LAPB && X25
-+	depends on LAPB && X25
- 	---help---
- 	  Driver for a pseudo device (typically called /dev/lapb0) which allows
- 	  you to open an LAPB point-to-point connection to some other computer
-@@ -456,7 +453,7 @@ config LAPBETHER
- 
- config X25_ASY
- 	tristate "X.25 async driver (EXPERIMENTAL)"
--	depends on WAN && LAPB && X25
-+	depends on LAPB && X25
- 	---help---
- 	  Send and receive X.25 frames over regular asynchronous serial
- 	  lines such as telephone lines equipped with ordinary modems.
-@@ -471,7 +468,7 @@ config X25_ASY
- 
- config SBNI
- 	tristate "Granch SBNI12 Leased Line adapter support"
--	depends on WAN && X86
-+	depends on X86
- 	---help---
- 	  Driver for ISA SBNI12-xx cards which are low cost alternatives to
- 	  leased line modems.
-@@ -497,5 +494,4 @@ config SBNI_MULTILINE
- 
- 	  If unsure, say N.
- 
--endmenu
--
-+endif # WAN
+ config DSCC4
+ 	tristate "Etinc PCISYNC serial board support"
+-	depends on HDLC && PCI && m
++	depends on PCI && m
++	select HDLC
+ 	help
+ 	  Driver for Etinc PCISYNC boards based on the Infineon (ex. Siemens)
+ 	  DSCC4 chipset.
