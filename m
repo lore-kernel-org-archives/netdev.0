@@ -1,34 +1,24 @@
-From: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
-Subject: [PATCH] tc35815: Remove unnecessary skb->dev assignment
-Date: Tue, 08 May 2007 00:46:04 +0900 (JST)
-Message-ID: <20070508.004604.108738613.anemo@mba.ocn.ne.jp>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org
-To: jeff@garzik.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mba.ocn.ne.jp ([122.1.175.29]:49897 "EHLO smtp.mba.ocn.ne.jp"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934347AbXEGPp5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 May 2007 11:45:57 -0400
-Sender: netdev-owner@vger.kernel.org
+From: David Howells <dhowells@redhat.com>
+Subject: Re: [-mm patch] fix fs/nfs/nfsroot.c compile error
+Date: Mon, 07 May 2007 16:49:57 +0100
+Message-ID: <20340.1178552997@redhat.com>
+References: <1178543543.6158.7.camel@heimdal.trondhjem.org>  <20070505164422.GD8975@stusta.de> <20070505014955.8f3990b5.akpm@linux-foundation.org> <15958.1178534871@redhat.com> <20070507105607.GB4226@stusta.de>
+Cc: Adrian Bunk <bunk@stusta.de>,
+	Andrew Morton <akpm@linux-foundation.org>, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Trond Myklebust <trond.myklebust@fys.uio.no>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S934422AbXEGPwS@vger.kernel.org>
+In-Reply-To: <1178543543.6158.7.camel@heimdal.trondhjem.org> 
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Apply changes in commit 4c13eb6657fe9ef7b4dc8f1a405c902e9e5234e0 to
-newly added piece of code.
+Trond Myklebust <trond.myklebust@fys.uio.no> wrote:
 
-Signed-off-by: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
----
-diff --git a/drivers/net/tc35815.c b/drivers/net/tc35815.c
-index f1e2dfc..463d600 100644
---- a/drivers/net/tc35815.c
-+++ b/drivers/net/tc35815.c
-@@ -540,7 +540,6 @@ static struct sk_buff *alloc_rxbuf_skb(struct net_device *dev,
- 	skb = dev_alloc_skb(RX_BUF_SIZE);
- 	if (!skb)
- 		return NULL;
--	skb->dev = dev;
- 	*dma_handle = pci_map_single(hwdev, skb->data, RX_BUF_SIZE,
- 				     PCI_DMA_FROMDEVICE);
- 	if (pci_dma_mapping_error(*dma_handle)) {
+> It makes little or no sense to be forcing attributes like 'const' in a
+> typedef. That is basically stating that it is inconceivable to use
+> anything else. Clearly not the case here...
+
+Yeah.  I think that there shouldn't be a typedef.  There's no real need for
+it.
+
+David
