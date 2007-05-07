@@ -1,50 +1,37 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: Re: [-mm patch] fix fs/nfs/nfsroot.c compile error
-Date: Mon, 7 May 2007 12:56:07 +0200
-Message-ID: <20070507105607.GB4226@stusta.de>
-References: <20070505164422.GD8975@stusta.de> <20070505014955.8f3990b5.akpm@linux-foundation.org> <15958.1178534871@redhat.com>
+From: Roman Zippel <zippel@linux-m68k.org>
+Subject: Re: [PATCH 1/3] WAN Kconfig: change "depends on HDLC" to "select"
+Date: Mon, 7 May 2007 13:22:40 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0705071318150.1479@scrub.home>
+References: <m3abwhcy74.fsf@maximus.localdomain> <m3y7k1biov.fsf@maximus.localdomain>
+ <Pine.LNX.4.64.0705070343330.2733@scrub.home> <m3tzupc6wz.fsf@maximus.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	trond.myklebust@fys.uio.no, davem@davemloft.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: David Howells <dhowells@redhat.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Jeff Garzik <jeff@garzik.org>, Russell King <rmk@arm.linux.org.uk>,
+	lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.arm.linux.org.uk
+To: Krzysztof Halasa <khc@pm.waw.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout.stusta.mhn.de ([141.84.69.5]:40445 "EHLO
-	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932659AbXEGK4H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 May 2007 06:56:07 -0400
-Content-Disposition: inline
-In-Reply-To: <15958.1178534871@redhat.com>
+Received: from scrub.xs4all.nl ([194.109.195.176]:1298 "EHLO scrub.xs4all.nl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933041AbXEGLWx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 May 2007 07:22:53 -0400
+In-Reply-To: <m3tzupc6wz.fsf@maximus.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, May 07, 2007 at 11:47:51AM +0100, David Howells wrote:
-> Adrian Bunk <bunk@stusta.de> wrote:
+Hi,
+
+On Mon, 7 May 2007, Krzysztof Halasa wrote:
+
+> Roman Zippel <zippel@linux-m68k.org> writes:
 > 
-> > match_table_t was made "const" and gcc doesn't like "const __initdata":
+> > What's the advantage? The HDLC option is directly before this?
 > 
-> Hmmm...  My gcc seems quite happy with it.  What gcc are you using?
+> You don't have to know it's required, you can just select a driver
+> for your hardware, without enabling HDLC first.
 
-4.1
+Is this a real problem?
+Using select you should also consider removing HDLC as visible option and 
+use only select. Mixing depends and selects is generally a bad idea.
 
-> Shouldn't __initdata override const?
-> 
-> > BTW: Why is this change to include/linux/parser.h in the net tree?
-> 
-> Because DaveM picked it up as part of my AFS patches, I guess.
-
-It might make sense, but it doesn't seem to be in any way AFS specific.
-
-> David
-
-cu
-Adrian
-
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
-
+bye, Roman
