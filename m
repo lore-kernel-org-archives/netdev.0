@@ -1,43 +1,30 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 2/2] Add rtl8187 wireless driver
-Date: Mon, 07 May 2007 01:39:50 -0700 (PDT)
-Message-ID: <20070507.013950.39156872.davem@davemloft.net>
-References: <20070507073636.4232.93444.stgit@panda.sourmilk.net>
-	<200705070346.17868.flamingice@sourmilk.net>
-	<20070507081531.GA28498@infradead.org>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: [PATCH 1/3] WAN Kconfig: change "depends on HDLC" to "select"
+Date: Mon, 07 May 2007 11:35:56 +0200
+Message-ID: <m3tzupc6wz.fsf@maximus.localdomain>
+References: <m3abwhcy74.fsf@maximus.localdomain>
+	<m3y7k1biov.fsf@maximus.localdomain>
+	<Pine.LNX.4.64.0705070343330.2733@scrub.home>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: flamingice-R9e9/4HEdknk1uMJSBkQmQ@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	andrea.merello-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20070507081531.GA28498-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jeff@garzik.org>, Russell King <rmk@arm.linux.org.uk>,
+	lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.arm.linux.org.uk
+To: Roman Zippel <zippel@linux-m68k.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from khc.piap.pl ([195.187.100.11]:46913 "EHLO khc.piap.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754125AbXEGJf6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 May 2007 05:35:58 -0400
+In-Reply-To: <Pine.LNX.4.64.0705070343330.2733@scrub.home> (Roman Zippel's message of "Mon, 7 May 2007 03:44:37 +0200 (CEST)")
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-Date: Mon, 7 May 2007 09:15:31 +0100
+Roman Zippel <zippel@linux-m68k.org> writes:
 
-> On Mon, May 07, 2007 at 03:46:17AM -0400, Michael Wu wrote:
-> > This patch adds a mac80211 based wireless driver for the rtl8187 USB
-> > wireless card.
-> > 
-> > Signed-off-by: Michael Wu <flamingice-R9e9/4HEdknk1uMJSBkQmQ@public.gmane.org>
-> > ---
-> > 
-> >  MAINTAINERS                                        |   10 
-> >  drivers/net/wireless/Kconfig                       |    2 
-> >  drivers/net/wireless/Makefile                      |    3 
-> >  drivers/net/wireless/mac80211/Kconfig              |    1 
-> >  drivers/net/wireless/mac80211/Makefile             |    1 
-> >  drivers/net/wireless/mac80211/rtl818x/Kconfig      |   16 
-> >  drivers/net/wireless/mac80211/rtl818x/Makefile     |    2 
-> >  drivers/net/wireless/mac80211/rtl818x/rtl8187.h    |  125 +++
-> >
-> 
-> Driver shouldn't be in another useless sub-hiearchay just because
-> of some common code they use.
+> What's the advantage? The HDLC option is directly before this?
 
-Agreed.
+You don't have to know it's required, you can just select a driver
+for your hardware, without enabling HDLC first.
+-- 
+Krzysztof Halasa
