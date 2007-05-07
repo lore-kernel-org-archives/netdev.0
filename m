@@ -1,30 +1,34 @@
 From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: [PATCH 1/3] WAN Kconfig: change "depends on HDLC" to "select"
-Date: Mon, 07 May 2007 11:35:56 +0200
-Message-ID: <m3tzupc6wz.fsf@maximus.localdomain>
+Subject: Re: [PATCH 2/3] ARM: include IXP4xx "fuses" support
+Date: Mon, 07 May 2007 12:24:46 +0200
+Message-ID: <m3k5vlc4nl.fsf@maximus.localdomain>
 References: <m3abwhcy74.fsf@maximus.localdomain>
-	<m3y7k1biov.fsf@maximus.localdomain>
-	<Pine.LNX.4.64.0705070343330.2733@scrub.home>
+	<m3wszlbiom.fsf@maximus.localdomain>
+	<f19298770705062224v5f60535bn7dfce17f4a5e04f@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jeff@garzik.org>, Russell King <rmk@arm.linux.org.uk>,
-	lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.arm.linux.org.uk
-To: Roman Zippel <zippel@linux-m68k.org>
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.arm.linux.org.uk,
+	Russell King <rmk@arm.linux.org.uk>,
+	Jeff Garzik <jeff@garzik.org>,
+	lkml <linux-kernel@vger.kernel.org>
+To: "Alexey Zaytsev" <alexey.zaytsev@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:46913 "EHLO khc.piap.pl"
+Received: from khc.piap.pl ([195.187.100.11]:59301 "EHLO khc.piap.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754125AbXEGJf6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 May 2007 05:35:58 -0400
-In-Reply-To: <Pine.LNX.4.64.0705070343330.2733@scrub.home> (Roman Zippel's message of "Mon, 7 May 2007 03:44:37 +0200 (CEST)")
+	id S1754287AbXEGKYr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 May 2007 06:24:47 -0400
+In-Reply-To: <f19298770705062224v5f60535bn7dfce17f4a5e04f@mail.gmail.com> (Alexey Zaytsev's message of "Mon, 7 May 2007 09:24:48 +0400")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Roman Zippel <zippel@linux-m68k.org> writes:
+Hello,
 
-> What's the advantage? The HDLC option is directly before this?
+"Alexey Zaytsev" <alexey.zaytsev@gmail.com> writes:
 
-You don't have to know it's required, you can just select a driver
-for your hardware, without enabling HDLC first.
+> #ifndef __ASSEMBLY__
+>
+>> +static inline u32 ixp4xx_read_fuses(void)
+
+Oops. You're right, of course.
 -- 
 Krzysztof Halasa
