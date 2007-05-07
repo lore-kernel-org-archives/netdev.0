@@ -1,38 +1,46 @@
-From: Frederik Deweerdt <deweerdt@free.fr>
-Subject: Re: Strange soft lockup detected message (looks like spin_lock bug in pcnet32)
-Date: Mon, 7 May 2007 16:48:37 +0200
-Message-ID: <20070507144837.GA30865@slug>
-References: <20070504141024.GB8753@csclub.uwaterloo.ca> <20070504143326.GD24769@slug> <20070504151934.GA8754@csclub.uwaterloo.ca> <20070504153438.GE24769@slug> <20070504154009.GE8751@csclub.uwaterloo.ca> <20070504174456.GC8753@csclub.uwaterloo.ca> <20070504175017.GD8753@csclub.uwaterloo.ca> <20070504182433.GA11595@verizon.net> <20070504190236.GE8753@csclub.uwaterloo.ca> <20070507140807.GF8753@csclub.uwaterloo.ca>
+From: Jeff Garzik <jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH v2] Add rtl8187 wireless driver
+Date: Mon, 07 May 2007 11:25:26 -0400
+Message-ID: <463F44E6.5030705@garzik.org>
+References: <200705071022.11711.flamingice@sourmilk.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Don Fry <pcnet32@verizon.net>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.249]:29590 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754426AbXEGOt5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 May 2007 10:49:57 -0400
-Received: by an-out-0708.google.com with SMTP id d18so147615and
-        for <netdev@vger.kernel.org>; Mon, 07 May 2007 07:49:56 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20070507140807.GF8753@csclub.uwaterloo.ca>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Andrea Merello <andrea.merello-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Michael Wu <flamingice-R9e9/4HEdknk1uMJSBkQmQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <200705071022.11711.flamingice-R9e9/4HEdknk1uMJSBkQmQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, May 07, 2007 at 10:08:07AM -0400, Lennart Sorensen wrote:
-> On Fri, May 04, 2007 at 03:02:36PM -0400, Lennart Sorensen wrote:
-> > Well I don't know, but something is going wrong and causing the soft
-> > lock up.  I must admit I am surprised if an interrupt can occour while
-> > handling an interrupt, but then again maybe that is supposed to be
-> > allowed.
+Michael Wu wrote:
+> This patch adds a mac80211 based wireless driver for the rtl8187 USB
+> wireless card.
 > 
-> I tried building a kernel where the only change was enabling the spin
-> lock debugging.  It doesn't fail, while without spin lock debugging it
-> seemed to fail very frequently.  Darn!  I hate when debugging makes hides
-> the problem.
-Can you try running on another Geode LX system, just to rule out a
-hardware problem on you board?
+> Signed-off-by: Michael Wu <flamingice-R9e9/4HEdknk1uMJSBkQmQ@public.gmane.org>
+> ---
+> 
+>  MAINTAINERS                                    |   10 
+>  drivers/net/wireless/Kconfig                   |    2 
+>  drivers/net/wireless/Makefile                  |    3 
+>  drivers/net/wireless/rtl818x/Kconfig           |   16 +
+>  drivers/net/wireless/rtl818x/Makefile          |    2 
+>  drivers/net/wireless/rtl818x/rtl8187.h         |  125 ++++
+>  drivers/net/wireless/rtl818x/rtl8187_dev.c     |  730 ++++++++++++++++++++++++
+>  drivers/net/wireless/rtl818x/rtl8187_rtl8225.c |  744 ++++++++++++++++++++++++
+>  drivers/net/wireless/rtl818x/rtl8187_rtl8225.h |   30 +
+>  drivers/net/wireless/rtl818x/rtl818x.h         |  212 +++++++
+>  10 files changed, 1874 insertions(+), 0 deletions(-)
 
-Regards,
-Frederik
+Much better.
+
+For the record, new wireless drivers go TO John Linville for merging 
+(and he pushes to me, in turn).
+
+I am a bit skeptical that multiple files are needed.  It seems like 
+drivers/net/wireless/rtl818x.c would be a better path, a la tg3.c.
+
+	Jeff
