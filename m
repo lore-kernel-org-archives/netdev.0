@@ -1,37 +1,58 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Re: [PATCH 1/2] Add 93cx6 eeprom library
-Date: Mon, 7 May 2007 11:34:50 -0400
-Message-ID: <20070507153450.GC5125@tuxdriver.com>
-References: <200705070346.04982.flamingice@sourmilk.net> <20070507142715.GB32546@fluff.org.uk>
+From: Tilman Schmidt <tilman@imap.cc>
+Subject: Re: trying to track a change to drivers/isdn/usb-gigaset.c
+Date: Mon, 07 May 2007 18:23:23 +0200
+Message-ID: <463F527B.4030509@imap.cc>
+References: <463EF77A.9020808@imap.cc> <20070507.034117.115910272.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Michael Wu <flamingice-R9e9/4HEdknk1uMJSBkQmQ@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Ivo van Doorn <ivdoorn-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Jeff Garzik <jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>
-To: Ben Dooks <ben-linux-elnMNo+KYs3YtjvyW6yDsg@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20070507142715.GB32546-elnMNo+KYs3pIgCt6eIbzw@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig4F3726D7F8EC3654B4594E34"
+Cc: linux-kernel@vger.kernel.org, acme@redhat.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965714AbXEGQXe@vger.kernel.org>
+In-Reply-To: <20070507.034117.115910272.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, May 07, 2007 at 02:27:15PM +0000, Ben Dooks wrote:
-> On Mon, May 07, 2007 at 03:46:04AM -0400, Michael Wu wrote:
-> > From: Ivo van Doorn <ivdoorn-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> > 
-> > This patch adds a library for reading from and writing to 93cx6 eeproms.
-> 
-> This looks remarkably like an SPI device, why not use the
-> spi framework to drive this?
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig4F3726D7F8EC3654B4594E34
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-This isn't intended to be a user-visible device.  Rather, it
-is a support library for internal use by drivers to read hardware
-configuration info, etc.  Given that, do we really need something as
-heavy as implementing an SPI master, etc?
+David Miller schrieb:
+> [ netdev@vger.kernel.org is the place to discuss kernel networking
+>   issues, thanks ]
 
-John
--- 
-John W. Linville
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+OIC. My bad. I didn't make the connection from "skb" to "networking". Sor=
+ry.
+
+> It was a change done so that we could hide the skb data buffering
+> details to the point where we could change the protocol header
+> pointers into 32-bit offsets which saves 4 bytes per such pointer per
+> protocol header stored in struct sk_buff.
+
+Thanks for the explanation.
+
+--=20
+Tilman Schmidt                    E-Mail: tilman@imap.cc
+Bonn, Germany
+Diese Nachricht besteht zu 100% aus wiederverwerteten Bits.
+Unge=F6ffnet mindestens haltbar bis: (siehe R=FCckseite)
+
+
+--------------enig4F3726D7F8EC3654B4594E34
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.4 (MingW32)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
+
+iD8DBQFGP1J7MdB4Whm86/kRAhFVAJoDavWzJI0JB/25462KFZRP/RT9VgCcDQ+1
+brkVMCEPOahm/JDaa3nut3Y=
+=dyoQ
+-----END PGP SIGNATURE-----
+
+--------------enig4F3726D7F8EC3654B4594E34--
