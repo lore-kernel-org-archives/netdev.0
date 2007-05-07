@@ -1,34 +1,86 @@
 From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: [PATCH 2/3] ARM: include IXP4xx "fuses" support
-Date: Mon, 07 May 2007 12:24:46 +0200
-Message-ID: <m3k5vlc4nl.fsf@maximus.localdomain>
+Subject: [PATCH 2a/3] Intel IXP4xx network drivers
+Date: Mon, 07 May 2007 12:27:43 +0200
+Message-ID: <m3fy69c4io.fsf@maximus.localdomain>
 References: <m3abwhcy74.fsf@maximus.localdomain>
-	<m3wszlbiom.fsf@maximus.localdomain>
-	<f19298770705062224v5f60535bn7dfce17f4a5e04f@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.arm.linux.org.uk,
-	Russell King <rmk@arm.linux.org.uk>,
-	Jeff Garzik <jeff@garzik.org>,
-	lkml <linux-kernel@vger.kernel.org>
-To: "Alexey Zaytsev" <alexey.zaytsev@gmail.com>
+Cc: Russell King <rmk@arm.linux.org.uk>,
+	lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.arm.linux.org.uk
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:59301 "EHLO khc.piap.pl"
+Received: from khc.piap.pl ([195.187.100.11]:38360 "EHLO khc.piap.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754287AbXEGKYr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 May 2007 06:24:47 -0400
-In-Reply-To: <f19298770705062224v5f60535bn7dfce17f4a5e04f@mail.gmail.com> (Alexey Zaytsev's message of "Mon, 7 May 2007 09:24:48 +0400")
+	id S1754291AbXEGK1p (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 May 2007 06:27:45 -0400
+In-Reply-To: <m3abwhcy74.fsf@maximus.localdomain> (Krzysztof Halasa's message of "Mon, 07 May 2007 01:46:39 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+Adds "fuse" functions to help determine installed IXP4xx CPU
+components and to reset/disable/enable them (only NPE - network
+coprocessors - can be reset and reenabled).
 
-"Alexey Zaytsev" <alexey.zaytsev@gmail.com> writes:
+Signed-off-by: Krzysztof Halasa <khc@pm.waw.pl>
 
-> #ifndef __ASSEMBLY__
->
->> +static inline u32 ixp4xx_read_fuses(void)
-
-Oops. You're right, of course.
--- 
-Krzysztof Halasa
+diff --git a/include/asm-arm/arch-ixp4xx/ixp4xx-regs.h b/include/asm-arm/arch-ixp4xx/ixp4xx-regs.h
+index 5d949d7..5652c41 100644
+--- a/include/asm-arm/arch-ixp4xx/ixp4xx-regs.h
++++ b/include/asm-arm/arch-ixp4xx/ixp4xx-regs.h
+@@ -607,4 +607,55 @@
+ 
+ #define DCMD_LENGTH	0x01fff		/* length mask (max = 8K - 1) */
+ 
++/* Fuse Bits of IXP_EXP_CFG2 */
++#define IXP4XX_FUSE_RCOMP		(1 << 0)
++#define IXP4XX_FUSE_USB_DEVICE		(1 << 1)
++#define IXP4XX_FUSE_HASH		(1 << 2)
++#define IXP4XX_FUSE_AES			(1 << 3)
++#define IXP4XX_FUSE_DES			(1 << 4)
++#define IXP4XX_FUSE_HDLC		(1 << 5)
++#define IXP4XX_FUSE_AAL			(1 << 6)
++#define IXP4XX_FUSE_HSS			(1 << 7)
++#define IXP4XX_FUSE_UTOPIA		(1 << 8)
++#define IXP4XX_FUSE_NPEB_ETH0		(1 << 9)
++#define IXP4XX_FUSE_NPEC_ETH		(1 << 10)
++#define IXP4XX_FUSE_RESET_NPEA		(1 << 11)
++#define IXP4XX_FUSE_RESET_NPEB		(1 << 12)
++#define IXP4XX_FUSE_RESET_NPEC		(1 << 13)
++#define IXP4XX_FUSE_PCI			(1 << 14)
++#define IXP4XX_FUSE_ECC_TIMESYNC	(1 << 15)
++#define IXP4XX_FUSE_UTOPIA_PHY_LIMIT	(3 << 16)
++#define IXP4XX_FUSE_USB_HOST		(1 << 18)
++#define IXP4XX_FUSE_NPEA_ETH		(1 << 19)
++#define IXP4XX_FUSE_NPEB_ETH_1_TO_3	(1 << 20)
++#define IXP4XX_FUSE_RSA			(1 << 21)
++#define IXP4XX_FUSE_XSCALE_MAX_FREQ	(3 << 22)
++#define IXP4XX_FUSE_RESERVED		(0xFF << 24)
++
++#define IXP4XX_FUSE_IXP46X_ONLY (IXP4XX_FUSE_ECC_TIMESYNC |		\
++				 IXP4XX_FUSE_USB_HOST |			\
++				 IXP4XX_FUSE_NPEA_ETH |			\
++				 IXP4XX_FUSE_NPEB_ETH_1_TO_3 |		\
++				 IXP4XX_FUSE_RSA |			\
++				 IXP4XX_FUSE_XSCALE_MAX_FREQ)
++
++#ifndef __ASSEMBLY__
++
++static inline u32 ixp4xx_read_fuses(void)
++{
++	unsigned int fuses = ~*IXP4XX_EXP_CFG2;
++	fuses &= ~IXP4XX_FUSE_RESERVED;
++	if (!cpu_is_ixp46x())
++		fuses &= ~IXP4XX_FUSE_IXP46X_ONLY;
++
++	return fuses;
++}
++
++static inline void ixp4xx_write_fuses(u32 value)
++{
++	*IXP4XX_EXP_CFG2 = ~value;
++}
++
++#endif /* __ASSEMBLY__ */
++
+ #endif
