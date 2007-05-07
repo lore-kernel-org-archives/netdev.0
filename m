@@ -1,45 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: trying to track a change to drivers/isdn/usb-gigaset.c
-Date: Mon, 07 May 2007 03:41:17 -0700 (PDT)
-Message-ID: <20070507.034117.115910272.davem@davemloft.net>
-References: <463EF77A.9020808@imap.cc>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, acme@redhat.com,
-	netdev@vger.kernel.org
-To: tilman@imap.cc
+From: David Howells <dhowells@redhat.com>
+Subject: Re: [-mm patch] fix fs/nfs/nfsroot.c compile error
+Date: Mon, 07 May 2007 11:47:51 +0100
+Message-ID: <15958.1178534871@redhat.com>
+References: <20070505164422.GD8975@stusta.de>  <20070505014955.8f3990b5.akpm@linux-foundation.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	trond.myklebust@fys.uio.no, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Adrian Bunk <bunk@stusta.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37101
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S932203AbXEGKlO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 May 2007 06:41:14 -0400
-In-Reply-To: <463EF77A.9020808@imap.cc>
+Received: from mx1.redhat.com ([66.187.233.31]:57149 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932263AbXEGKuN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 May 2007 06:50:13 -0400
+In-Reply-To: <20070505164422.GD8975@stusta.de> 
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Tilman Schmidt <tilman@imap.cc>
-Date: Mon, 07 May 2007 11:55:06 +0200
+Adrian Bunk <bunk@stusta.de> wrote:
 
-[ netdev@vger.kernel.org is the place to discuss kernel networking
-  issues, thanks ]
+> match_table_t was made "const" and gcc doesn't like "const __initdata":
 
-> But I cannot remember seeing that patch via the maintainer
-> addresses for ISDN or the Gigaset driver, and the LKML archive
-> doesn't seem to have it either.
-> 
-> Where was that patch discussed? What is its rationale?
+Hmmm...  My gcc seems quite happy with it.  What gcc are you using?
 
-This was a wholesale change done across the entire tree, they were all
-straightforward transformations that didn't change what the code did.
+Shouldn't __initdata override const?
 
-It was a change done so that we could hide the skb data buffering
-details to the point where we could change the protocol header
-pointers into 32-bit offsets which saves 4 bytes per such pointer per
-protocol header stored in struct sk_buff.
+> BTW: Why is this change to include/linux/parser.h in the net tree?
 
-We're not going to notify the maintainer of each of the hundreds of
-source files we had to touch in order to pull this off, sorry.
+Because DaveM picked it up as part of my AFS patches, I guess.
 
-These changes were posted to netdev@vger.kernel.org, they also
-sat in Andrew Morton's -mm tree for quite some time.
+David
