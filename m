@@ -1,46 +1,73 @@
-From: Jeff Garzik <jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH v2] Add rtl8187 wireless driver
-Date: Mon, 07 May 2007 11:25:26 -0400
-Message-ID: <463F44E6.5030705@garzik.org>
-References: <200705071022.11711.flamingice@sourmilk.net>
+From: David Acker <dacker@roinet.com>
+Subject: Re: [PATCH] e100 rx: or s and el bits
+Date: Mon, 07 May 2007 11:27:19 -0400
+Message-ID: <463F4557.9030901@roinet.com>
+References: <200705011124.l41BOEG4007662@sullivan.realtime.net>
+	<46375664.8030701@roinet.com> <4638F2B2.2000103@roinet.com>
+	<463BA906.30205@roinet.com>
+	<85f07fc58d5ed2147d5214d0f0b4fe32@bga.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Andrea Merello <andrea.merello-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Michael Wu <flamingice-R9e9/4HEdknk1uMJSBkQmQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <200705071022.11711.flamingice-R9e9/4HEdknk1uMJSBkQmQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Auke Kok <auke-jan.h.kok@intel.com>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Scott Feldman <sfeldma@pobox.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: Milton Miller <miltonm@bga.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <85f07fc58d5ed2147d5214d0f0b4fe32@bga.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Michael Wu wrote:
-> This patch adds a mac80211 based wireless driver for the rtl8187 USB
-> wireless card.
+Milton Miller wrote:
+> While this will help the problem with the cache-incoherent DMA systems 
+> not running, it guarantees the hardware will stop every <ring-size> 
+> packets and wait for the cpu to respond to an interrupt.  It would seem 
+> that this will lead to packet drops.
 > 
-> Signed-off-by: Michael Wu <flamingice-R9e9/4HEdknk1uMJSBkQmQ@public.gmane.org>
-> ---
+Well, in NAPI mode, we the CPU may poll its way to the last buffer 
+without having to go through an interrupt cycle.  You are right that 
+buffers would probably get dropped between the time the hardware hit the 
+S-bit and the CPU caught up.
+
+> [download manual from site in source file]
 > 
->  MAINTAINERS                                    |   10 
->  drivers/net/wireless/Kconfig                   |    2 
->  drivers/net/wireless/Makefile                  |    3 
->  drivers/net/wireless/rtl818x/Kconfig           |   16 +
->  drivers/net/wireless/rtl818x/Makefile          |    2 
->  drivers/net/wireless/rtl818x/rtl8187.h         |  125 ++++
->  drivers/net/wireless/rtl818x/rtl8187_dev.c     |  730 ++++++++++++++++++++++++
->  drivers/net/wireless/rtl818x/rtl8187_rtl8225.c |  744 ++++++++++++++++++++++++
->  drivers/net/wireless/rtl818x/rtl8187_rtl8225.h |   30 +
->  drivers/net/wireless/rtl818x/rtl818x.h         |  212 +++++++
->  10 files changed, 1874 insertions(+), 0 deletions(-)
+> In fact 6.4.3.4 says 82557 will start dropping frames immediately.
+> 
+> Looking at the descriptions around page 101:
+> (1) The link pointer, S, and EL is read when hw starts recieving the frame.
+> (2) Its pretty clear EL overrides S from the order of the descriptions 
+> in the text.
+My testing confirms this.
 
-Much better.
+> (3) 6.4.3.3.1 #4 looks intresting -- That is a RFD with size 0 skips 
+> frame fill and goes to the next packet.
+> 
+> How about putting a zero length descriptor in consistent memory to 
+> suspend the rx unit before the last real frame?   In other words  fr0 -> 
+> fr1 ... frN-2 -> frN-1 -> WaitHere0 -> FrN.   We could then have 2 such 
+> frames, and when we refill modify FrN to the new chain, with the 
+> WaitHere1 as its next-to-last, do the syncs, then clear the S bit on 
+> WaitHere0.   When the rx passes WaitHere0 we can reclaim it for the next 
+> use (might want a slightly larger pool, basically need RxRingSize / 
+> RxRingFillBatch such frames.
 
-For the record, new wireless drivers go TO John Linville for merging 
-(and he pushes to me, in turn).
+Hmm...I will take a look at this.  My test worked over the weekend by 
+the way.  A patch will be coming.
+-Ack
 
-I am a bit skeptical that multiple files are needed.  It seems like 
-drivers/net/wireless/rtl818x.c would be a better path, a la tg3.c.
-
-	Jeff
+-------------------------------------------------------------------------
+This SF.net email is sponsored by DB2 Express
+Download DB2 Express C - the FREE version of DB2 express and take
+control of your XML. No limits. Just data. Click to get it now.
+http://sourceforge.net/powerbar/db2/
