@@ -1,31 +1,40 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Re: Please pull 'upstream' branch of wireless-2.6
-Date: Mon, 7 May 2007 18:51:29 -0400
-Message-ID: <20070507225129.GA4245@tuxdriver.com>
-References: <20070507175121.GF5125@tuxdriver.com> <1178572550.11805.7.camel@localhost.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] fib_info_hashfn leads to long hash chains
+Date: Mon, 07 May 2007 16:09:11 -0700 (PDT)
+Message-ID: <20070507.160911.35663865.davem@davemloft.net>
+References: <20070429150336.GC10824@kvack.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1178572550.11805.7.camel-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: bcrl@kvack.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57294
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754892AbXEGXJI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 May 2007 19:09:08 -0400
+In-Reply-To: <20070429150336.GC10824@kvack.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, May 07, 2007 at 05:15:50PM -0400, Dan Williams wrote:
-> On Mon, 2007-05-07 at 13:51 -0400, John W. Linville wrote:
+From: Benjamin LaHaise <bcrl@kvack.org>
+Date: Sun, 29 Apr 2007 11:03:36 -0400
 
-> > John W. Linville (1):
-> >       libertas: fix for wireless Kconfig changes
+> Hello
 > 
-> So the kconfig changes with s/NET_RADIO/NET_80211 (or whatever it was)
-> are in for 2.6.22?  Or is that for 2.6.23?
+> The patch below fixes a case where fib_find_info() is consume excessive 
+> amounts of CPU during the creation of 10000 PPP interfaces.  In access 
+> servers, each point to point link has the same local address, but a different 
+> destination and interface.  Because the device is not included in the hash 
+> calculation, the chain grows excessively large and we end up spinning the 
+> CPU walking the list.  As near as I can tell, this shouldn't have any negative 
+> sideeffects, but someone with a better understanding of fib_semantics.c will 
+> need to check over it.  Cheers,
 
-My hope/intent is for Jeff to pull and pass this along in time for 2.6.22.
+fib_create_info() makes sure that fi->fib_nhs is always at least one.
+So the conditional can be removed.  After a fib_info is create, it's
+fi->fib_nhs is immutable, it doesn't change.
 
-John
--- 
-John W. Linville
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+In fact there are some checks for fi->fib_nhs == 0 elsewhere in this
+code, those are bogus too, and I imagine you saw those when coding
+up this patch. :-)
