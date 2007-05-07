@@ -1,126 +1,154 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: [PATCH 1a/3] WAN Kconfig: change "depends on HDLC" to "select"
-Date: Mon, 07 May 2007 23:08:41 +0200
-Message-ID: <m3ejlsfijq.fsf_-_@maximus.localdomain>
-References: <m3abwhcy74.fsf@maximus.localdomain>
-	<m3y7k1biov.fsf@maximus.localdomain>
-	<Pine.LNX.4.64.0705070343330.2733@scrub.home>
-	<m3tzupc6wz.fsf@maximus.localdomain>
-	<Pine.LNX.4.64.0705071318150.1479@scrub.home>
-	<m3r6psc0ee.fsf@maximus.localdomain>
-	<Pine.LNX.4.64.0705071509290.1479@scrub.home>
-	<463F27CE.2040008@garzik.org>
-	<Pine.LNX.4.64.0705071538060.1479@scrub.home>
-	<m3lkg0a88y.fsf@maximus.localdomain>
-	<Pine.LNX.4.64.0705071901020.1479@scrub.home>
+From: Jeremy Fitzhardinge <jeremy@goop.org>
+Subject: Re: [patch 25/29] xen: Add the Xen virtual network device driver.
+Date: Mon, 07 May 2007 14:10:27 -0700
+Message-ID: <463F95C3.60407@goop.org>
+References: <20070504232051.411946839@goop.org> <20070504232121.492190579@goop.org> <20070505091624.GA8890@infradead.org> <463C56D3.8060609@goop.org> <20070505102305.GA12771@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jeff@garzik.org>, Russell King <rmk@arm.linux.org.uk>,
-	lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.arm.linux.org.uk
-To: Roman Zippel <zippel@linux-m68k.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Christoph Hellwig <hch@infradead.org>, Andi Kleen <ak@suse.de>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	virtualization@lists.osdl.org, lkml <linux-kernel@vger.kernel.org>,
+	Chris Wright <chrisw@sous-sol.org>,
+	Ian Pratt <ian.pratt@xensource.com>,
+	Christian Limpach <Christian.Limpach@cl.cam.ac.uk>,
+	netdev@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
+	Stephen Hemminger <shemminge@linux-foundation.org>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	Keir Fraser <Keir.Fraser@cl.cam.ac.uk>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:55910 "EHLO khc.piap.pl"
+Received: from gw.goop.org ([64.81.55.164]:57257 "EHLO mail.goop.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S966969AbXEGVIo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 May 2007 17:08:44 -0400
-In-Reply-To: <Pine.LNX.4.64.0705071901020.1479@scrub.home> (Roman Zippel's message of "Mon, 7 May 2007 19:07:43 +0200 (CEST)")
+	id S1750925AbXEGVKa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 May 2007 17:10:30 -0400
+In-Reply-To: <20070505102305.GA12771@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Allow enabling WAN drivers without selecting generic HDLC first,
-HDLC will be selected automatically.
+Herbert Xu wrote:
+> On Sat, May 05, 2007 at 03:05:07AM -0700, Jeremy Fitzhardinge wrote:
+>   
+>> Sorry, I forgot about it.  I was waiting to hear back from network
+>> people about what this is actually for, and whether we really need it. 
+>>     
+>
+> We should just change this to use netif_device_attach and
+> netif_device_detach.
+>   
 
-Signed-off-by: Krzysztof Halasa <khc@pm.waw.pl>
+Like this?
 
---- linux/drivers/net/wan/Kconfig	2007-05-07 22:46:06.000000000 +0200
-+++ linux/drivers/net/wan/Kconfig	2007-05-07 22:45:13.000000000 +0200
-@@ -169,7 +169,8 @@
+---
+ drivers/net/xen-netfront.c |   28 +++++++++-------------------
+ 1 file changed, 9 insertions(+), 19 deletions(-)
+
+===================================================================
+--- a/drivers/net/xen-netfront.c
++++ b/drivers/net/xen-netfront.c
+@@ -95,7 +95,6 @@ struct netfront_info {
  
- config PCI200SYN
- 	tristate "Goramo PCI200SYN support"
--	depends on HDLC && PCI
-+	depends on PCI
-+	select HDLC
- 	help
- 	  Driver for PCI200SYN cards by Goramo sp. j.
+ 	unsigned int evtchn;
+ 	unsigned int copying_receiver;
+-	unsigned int carrier;
  
-@@ -183,7 +184,8 @@
+ 	/* Receive-ring batched refills. */
+ #define RX_MIN_TARGET 8
+@@ -142,15 +141,6 @@ struct netfront_rx_info {
+ };
  
- config WANXL
- 	tristate "SBE Inc. wanXL support"
--	depends on HDLC && PCI
-+	depends on PCI
-+	select HDLC
- 	help
- 	  Driver for wanXL PCI cards by SBE Inc.
+ /*
+- * Implement our own carrier flag: the network stack's version causes delays
+- * when the carrier is re-enabled (in particular, dev_activate() may not
+- * immediately be called, which can cause packet loss).
+- */
+-#define netfront_carrier_on(netif)	((netif)->carrier = 1)
+-#define netfront_carrier_off(netif)	((netif)->carrier = 0)
+-#define netfront_carrier_ok(netif)	((netif)->carrier)
+-
+-/*
+  * Access macros for acquiring freeing slots in tx_skbs[].
+  */
  
-@@ -206,7 +208,8 @@
+@@ -241,7 +231,7 @@ static void xennet_alloc_rx_buffers(stru
+ 	int nr_flips;
+ 	struct xen_netif_rx_request *req;
  
- config PC300
- 	tristate "Cyclades-PC300 support (RS-232/V.35, X.21, T1/E1 boards)"
--	depends on HDLC && PCI
-+	depends on PCI
-+	select HDLC
- 	---help---
- 	  Driver for the Cyclades-PC300 synchronous communication boards.
+-	if (unlikely(!netfront_carrier_ok(np)))
++	if (unlikely(!netif_device_present(dev)))
+ 		return;
  
-@@ -228,14 +231,15 @@
- 	  Multilink PPP over the PC300 synchronous communication boards.
+ 	/*
+@@ -380,7 +370,7 @@ static int xennet_open(struct net_device
+ 	memset(&np->stats, 0, sizeof(np->stats));
  
- comment "Cyclades-PC300 MLPPP support is disabled."
--	depends on HDLC && PC300 && (PPP=n || !PPP_MULTILINK || PPP_SYNC_TTY=n || !HDLC_PPP)
-+	depends on PC300 && (PPP=n || !PPP_MULTILINK || PPP_SYNC_TTY=n || !HDLC_PPP)
+ 	spin_lock_bh(&np->rx_lock);
+-	if (netfront_carrier_ok(np)) {
++	if (netif_device_present(dev)) {
+ 		xennet_alloc_rx_buffers(dev);
+ 		np->rx.sring->rsp_event = np->rx.rsp_cons + 1;
+ 		if (RING_HAS_UNCONSUMED_RESPONSES(&np->rx))
+@@ -400,7 +390,7 @@ static void xennet_tx_buf_gc(struct net_
+ 	struct netfront_info *np = netdev_priv(dev);
+ 	struct sk_buff *skb;
  
- comment "Refer to the file README.mlppp, provided by PC300 package."
--	depends on HDLC && PC300 && (PPP=n || !PPP_MULTILINK || PPP_SYNC_TTY=n || !HDLC_PPP)
-+	depends on PC300 && (PPP=n || !PPP_MULTILINK || PPP_SYNC_TTY=n || !HDLC_PPP)
+-	BUG_ON(!netfront_carrier_ok(np));
++	BUG_ON(!netif_device_present(dev));
  
- config PC300TOO
- 	tristate "Cyclades PC300 RSV/X21 alternative support"
--	depends on HDLC && PCI
-+	depends on PCI
-+	select HDLC
- 	help
- 	  Alternative driver for PC300 RSV/X21 PCI cards made by
- 	  Cyclades, Inc. If you have such a card, say Y here and see
-@@ -248,7 +252,8 @@
+ 	do {
+ 		prod = np->tx.sring->rsp_prod;
+@@ -540,7 +530,7 @@ static int xennet_start_xmit(struct sk_b
  
- config N2
- 	tristate "SDL RISCom/N2 support"
--	depends on HDLC && ISA
-+	depends on ISA
-+	select HDLC
- 	help
- 	  Driver for RISCom/N2 single or dual channel ISA cards by
- 	  SDL Communications Inc.
-@@ -265,7 +270,8 @@
+ 	spin_lock_irq(&np->tx_lock);
  
- config C101
- 	tristate "Moxa C101 support"
--	depends on HDLC && ISA
-+	depends on ISA
-+	select HDLC
- 	help
- 	  Driver for C101 SuperSync ISA cards by Moxa Technologies Co., Ltd.
+-	if (unlikely(!netfront_carrier_ok(np) ||
++	if (unlikely(!netif_device_present(dev) ||
+ 		     (frags > 1 && !xennet_can_sg(dev)) ||
+ 		     netif_needs_gso(dev, skb))) {
+ 		spin_unlock_irq(&np->tx_lock);
+@@ -973,7 +963,7 @@ static int xennet_poll(struct net_device
  
-@@ -279,7 +285,8 @@
+ 	spin_lock(&np->rx_lock);
  
- config FARSYNC
- 	tristate "FarSync T-Series support"
--	depends on HDLC && PCI
-+	depends on PCI
-+	select HDLC
- 	---help---
- 	  Support for the FarSync T-Series X.21 (and V.35/V.24) cards by
- 	  FarSite Communications Ltd.
-@@ -298,7 +305,8 @@
+-	if (unlikely(!netfront_carrier_ok(np))) {
++	if (unlikely(!netif_device_present(dev))) {
+ 		spin_unlock(&np->rx_lock);
+ 		return 0;
+ 	}
+@@ -1308,7 +1298,7 @@ static struct net_device * __devinit xen
  
- config DSCC4
- 	tristate "Etinc PCISYNC serial board support"
--	depends on HDLC && PCI && m
-+	depends on PCI && m
-+	select HDLC
- 	help
- 	  Driver for Etinc PCISYNC boards based on the Infineon (ex. Siemens)
- 	  DSCC4 chipset.
+ 	np->netdev = netdev;
+ 
+-	netfront_carrier_off(np);
++	netif_device_detach(netdev);
+ 
+ 	return netdev;
+ 
+@@ -1376,7 +1366,7 @@ static void xennet_disconnect_backend(st
+ 	/* Stop old i/f to prevent errors whilst we rebuild the state. */
+ 	spin_lock_bh(&info->rx_lock);
+ 	spin_lock_irq(&info->tx_lock);
+-	netfront_carrier_off(info);
++	netif_device_detach(info->netdev);
+ 	spin_unlock_irq(&info->tx_lock);
+ 	spin_unlock_bh(&info->rx_lock);
+ 
+@@ -1440,7 +1430,7 @@ static irqreturn_t xennet_interrupt(int 
+ 
+ 	spin_lock_irqsave(&np->tx_lock, flags);
+ 
+-	if (likely(netfront_carrier_ok(np))) {
++	if (likely(netif_device_present(dev))) {
+ 		xennet_tx_buf_gc(dev);
+ 		/* Under tx_lock: protects access to rx shared-ring indexes. */
+ 		if (RING_HAS_UNCONSUMED_RESPONSES(&np->rx))
+@@ -1728,7 +1718,7 @@ static int xennet_connect(struct net_dev
+ 	 * domain a kick because we've probably just requeued some
+ 	 * packets.
+ 	 */
+-	netfront_carrier_on(np);
++	netif_device_attach(np->netdev);
+ 	notify_remote_via_irq(np->netdev->irq);
+ 	xennet_tx_buf_gc(dev);
+ 	xennet_alloc_rx_buffers(dev);
+
