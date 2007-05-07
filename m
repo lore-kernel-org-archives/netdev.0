@@ -1,45 +1,37 @@
-From: Roman Zippel <zippel@linux-m68k.org>
-Subject: Re: [PATCH 1/3] WAN Kconfig: change "depends on HDLC" to "select"
-Date: Mon, 7 May 2007 22:57:57 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0705072254020.2733@scrub.home>
-References: <m3abwhcy74.fsf@maximus.localdomain>  <Pine.LNX.4.64.0705070343330.2733@scrub.home>
-  <m3tzupc6wz.fsf@maximus.localdomain>  <Pine.LNX.4.64.0705071318150.1479@scrub.home>
-  <m3r6psc0ee.fsf@maximus.localdomain>  <Pine.LNX.4.64.0705071509290.1479@scrub.home>
-  <463F27CE.2040008@garzik.org>  <Pine.LNX.4.64.0705071538060.1479@scrub.home>
-  <m3lkg0a88y.fsf@maximus.localdomain>  <Pine.LNX.4.64.0705071901020.1479@scrub.home>
- <a781481a0705071115v5bce9382q166b9c0e0c52c6ef@mail.gmail.com>
- <463F8CB4.3040603@garzik.org>
+From: Ismail =?utf-8?q?D=C3=B6nmez?= <ismail@pardus.org.tr>
+Subject: Kconfig warnings on latest GIT
+Date: Tue, 8 May 2007 00:04:14 +0300
+Message-ID: <200705080004.14570.ismail@pardus.org.tr>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Satyam Sharma <satyam.sharma@gmail.com>,
-	Krzysztof Halasa <khc@pm.waw.pl>,
-	Russell King <rmk@arm.linux.org.uk>,
-	lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.arm.linux.org.uk
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Linux Kernel <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from scrub.xs4all.nl ([194.109.195.176]:3659 "EHLO scrub.xs4all.nl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S966607AbXEGU6J (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 May 2007 16:58:09 -0400
-In-Reply-To: <463F8CB4.3040603@garzik.org>
+Received: from ns2.uludag.org.tr ([193.140.100.220]:52164 "EHLO uludag.org.tr"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S966631AbXEGVC0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 May 2007 17:02:26 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Hi,
 
-On Mon, 7 May 2007, Jeff Garzik wrote:
+Following Kconfig warnings shows up with latest GIT :
 
-> Tough, the kernel community has voted against you.
-> 
-> It makes far more sense to include a driver during kernel configuration, and
-> have that driver pull in its libraries via 'select'.  The lame alternative
-> requires developers to know which libraries they need BEFORE picking their
-> drivers, which is backwards and requires legwork on the part of the kernel
-> developer.
+drivers/net/Kconfig:2279:warning: 'select' used by config symbol 'UCC_GETH' 
+refers to undefined symbol 'UCC_FAST'
 
-Jeff, there was never anything to "vote" about! There is no 
-autoconfiguration, kernel configuration isn't ready for Aunt Tilly and 
-select is no substitute for it...
+drivers/input/keyboard/Kconfig:170:warning: 'select' used by config 
+symbol 'KEYBOARD_ATARI' refers to undefined symbol 'ATARI_KBD_CORE'
 
-bye, Roman
+drivers/input/mouse/Kconfig:161:warning: 'select' used by config 
+symbol 'MOUSE_ATARI' refers to undefined symbol 'ATARI_KBD_CORE'
+
+Regards,
+ismail
+
+-- 
+Le mieux est l'ennemi du bien.
