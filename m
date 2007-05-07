@@ -1,116 +1,70 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [patch 25/29] xen: Add the Xen virtual network device driver.
-Date: Tue, 08 May 2007 08:35:22 +1000
-Message-ID: <1178577322.28438.16.camel@localhost.localdomain>
-References: <20070504232051.411946839@goop.org>
-	 <20070504232121.492190579@goop.org> <20070505091624.GA8890@infradead.org>
-	 <463F9608.40803@goop.org>
+From: "Satyam Sharma" <satyam.sharma@gmail.com>
+Subject: Re: [PATCH 1/3] WAN Kconfig: change "depends on HDLC" to "select"
+Date: Tue, 8 May 2007 04:09:41 +0530
+Message-ID: <a781481a0705071539o75b256a4p91228a4f8c4a63a7@mail.gmail.com>
+References: <m3abwhcy74.fsf@maximus.localdomain>
+	 <m3r6psc0ee.fsf@maximus.localdomain>
+	 <Pine.LNX.4.64.0705071509290.1479@scrub.home>
+	 <463F27CE.2040008@garzik.org>
+	 <Pine.LNX.4.64.0705071538060.1479@scrub.home>
+	 <m3lkg0a88y.fsf@maximus.localdomain>
+	 <Pine.LNX.4.64.0705071901020.1479@scrub.home>
+	 <a781481a0705071115v5bce9382q166b9c0e0c52c6ef@mail.gmail.com>
+	 <463F8CB4.3040603@garzik.org>
+	 <20070507135052.cc7e74ca.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Christoph Hellwig <hch@infradead.org>, Andi Kleen <ak@suse.de>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	virtualization@lists.osdl.org, lkml <linux-kernel@vger.kernel.org>,
-	Chris Wright <chrisw@sous-sol.org>,
-	Ian Pratt <ian.pratt@xensource.com>,
-	Christian Limpach <Christian.Limpach@cl.cam.ac.uk>,
-	netdev@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
-	Stephen Hemminger <shemminge@linux-foundation.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: Jeremy Fitzhardinge <jeremy@goop.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:56797 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S966962AbXEGWfp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 May 2007 18:35:45 -0400
-In-Reply-To: <463F9608.40803@goop.org>
-Sender: netdev-owner@vger.kernel.org
+Cc: "Jeff Garzik" <jeff@garzik.org>,
+	"Roman Zippel" <zippel@linux-m68k.org>,
+	"Krzysztof Halasa" <khc@pm.waw.pl>,
+	"Russell King" <rmk@arm.linux.org.uk>,
+	lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.arm.linux.org.uk
+To: "Randy Dunlap" <randy.dunlap@oracle.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S967158AbXEGWj7@vger.kernel.org>
+In-Reply-To: <20070507135052.cc7e74ca.randy.dunlap@oracle.com>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2007-05-07 at 14:11 -0700, Jeremy Fitzhardinge wrote:
-> Christoph Hellwig wrote:
-> > On Fri, May 04, 2007 at 04:21:16PM -0700, Jeremy Fitzhardinge wrote:
-> >   
-> >> +/*
-> >> + * Mutually-exclusive module options to select receive data path:
-> >> + *  rx_copy : Packets are copied by network backend into local memory
-> >> + *  rx_flip : Page containing packet data is transferred to our ownership
-> >> + * For fully-virtualised guests there is no option - copying must be used.
-> >> + * For paravirtualised guests, flipping is the default.
-> >> + */
-> >> +static enum {
-> >> +	RX_COPY = 0,
-> >> +	RX_FLIP = 1,
-> >> +} rx_mode = RX_FLIP;
-> >> +MODULE_PARM_DESC(rx_mode, "How to get packets from card: 0->copy, 1->flip");
-> >>     
+On 5/8/07, Randy Dunlap <randy.dunlap@oracle.com> wrote:
+> On Mon, 07 May 2007 16:31:48 -0400 Jeff Garzik wrote:
+>
+> > Satyam Sharma wrote:
+> > > Yes, mixing select and depends is a recipe for build disasters. Call
+> > > me a rabid fanatic, but I would in fact go as far as to say that this
+> > > whole "select" thing in the Kconfig process is one big BUG, and not a
+> > > feature. People are lazy by nature and would rather just "select" a
+> > > dependency for their config option than burden users with several
+> > > "depends".
 > >
-> > There only seems to be a module description but no actual paramter for
-> > this.  I wish people would have listened to me back then and made the
-> > description part of the modular_param statement..
-> 
-> Is this correct?
-> 
-> ---
->  drivers/net/xen-netfront.c |   32 ++++++++++++++++++++++++++++----
->  1 file changed, 28 insertions(+), 4 deletions(-)
-> 
-> ===================================================================
-> --- a/drivers/net/xen-netfront.c
-> +++ b/drivers/net/xen-netfront.c
-> @@ -62,16 +62,40 @@ struct netfront_cb {
->  
->  /*
->   * Mutually-exclusive module options to select receive data path:
-> - *  rx_copy : Packets are copied by network backend into local memory
-> - *  rx_flip : Page containing packet data is transferred to our ownership
-> + *  copy : Packets are copied by network backend into local memory
-> + *  flip : Page containing packet data is transferred to our ownership
->   * For fully-virtualised guests there is no option - copying must be used.
->   * For paravirtualised guests, flipping is the default.
->   */
-> -static enum {
-> +static enum rx_mode {
->  	RX_COPY = 0,
->  	RX_FLIP = 1,
->  } rx_mode = RX_FLIP;
-> -MODULE_PARM_DESC(rx_mode, "How to get packets from card: 0->copy, 1->flip");
-> +MODULE_PARM_DESC(rx_mode, "How to get packets from card: \"copy\" or \"flip\"");
-> +
-> +static int set_rx_mode(const char *val, struct kernel_param *kp)
-> +{
-> +	enum rx_mode *rxmp = kp->arg;
-> +	int ret = 0;
-> +
-> +	if (strcmp(val, "copy") == 0)
-> +		*rxmp = RX_COPY;
-> +	else if (strcmp(val, "flip") == 0)
-> +		*rxmp = RX_FLIP;
-> +	else
-> +		ret = -EINVAL;
-> +
-> +	return ret;
-> +}
-> +
-> +static int get_rx_mode(char *buffer, struct kernel_param *kp)
-> +{
-> +	enum rx_mode *rxmp = kp->arg;
-> +
-> +	return sprintf(buffer, "%s", *rxmp == RX_COPY ? "copy" : "flip");
-> +}
-> +
-> +module_param_call(rx_mode, set_rx_mode, get_rx_mode, &rx_mode, 0400);
+> > Tough, the kernel community has voted against you.
+>
+> Andrew (usually) implores people not to use "select" and I agree
+> with him.
+>
+> > It makes far more sense to include a driver during kernel configuration,
+> > and have that driver pull in its libraries via 'select'.  The lame
+> > alternative requires developers to know which libraries they need BEFORE
+> > picking their drivers, which is backwards and requires legwork on the
+> > part of the kernel developer.
+>
+> Developers?  If you had said "users," I might agree, but IMO it's
+> OK (or even Good) for developers to know what libraries their code
+> uses/requires.  Yes, that's a good thing.
 
-Looks good, you can slightly improve it to be the model use of new
-module_param types by calling your functions param_set_rx_mode and
-param_get_rx_mode, then simply using "module_param(rx_mode, rx_mode,
-0400)"
+You're absolutely right, but to give Jeff the benefit of the doubt I'm
+sure he _meant_ "users" there although he said "developers". Stating
+the obvious, the developer _has_ to know what stuff his code uses
+anyway, otherwise what does he "select"s or "depends" his config
+option on.
 
-Cheers,
-Rusty.
-
-
->  
->  #define RX_COPY_THRESHOLD 256
->  
-
+As for users, we _can_ avoid pitfalls by building a complete
+dependency tree and just selecting _everything_ that we require for a
+particular config option to be selected, but some users could
+conceivably prefer only being _told_ about what else they need to
+successfully pick a config option (than everything just getting in
+behind their backs). Actually (correct me if I'm wrong), this is not
+presently possible: an option is not visible unless dependencies are
+already picked. Just a suggestion, though.
