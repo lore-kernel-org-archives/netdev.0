@@ -1,40 +1,71 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] fib_info_hashfn leads to long hash chains
-Date: Mon, 07 May 2007 16:09:11 -0700 (PDT)
-Message-ID: <20070507.160911.35663865.davem@davemloft.net>
-References: <20070429150336.GC10824@kvack.org>
+From: Jeff Garzik <jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>
+Subject: Re: Please pull 'upstream' branch of wireless-2.6
+Date: Mon, 07 May 2007 19:09:20 -0400
+Message-ID: <463FB1A0.3070608@garzik.org>
+References: <20070507175121.GF5125@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: bcrl@kvack.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57294
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754892AbXEGXJI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 May 2007 19:09:08 -0400
-In-Reply-To: <20070429150336.GC10824@kvack.org>
-Sender: netdev-owner@vger.kernel.org
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20070507175121.GF5125-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Benjamin LaHaise <bcrl@kvack.org>
-Date: Sun, 29 Apr 2007 11:03:36 -0400
-
-> Hello
+John W. Linville wrote:
+> The following changes since commit 15700770ef7c5d12e2f1659d2ddbeb3f658d9f37:
+>   Linus Torvalds (1):
+>         Merge git://git.kernel.org/.../sam/kbuild
 > 
-> The patch below fixes a case where fib_find_info() is consume excessive 
-> amounts of CPU during the creation of 10000 PPP interfaces.  In access 
-> servers, each point to point link has the same local address, but a different 
-> destination and interface.  Because the device is not included in the hash 
-> calculation, the chain grows excessively large and we end up spinning the 
-> CPU walking the list.  As near as I can tell, this shouldn't have any negative 
-> sideeffects, but someone with a better understanding of fib_semantics.c will 
-> need to check over it.  Cheers,
+> are found in the git repository at:
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git upstream
+> 
+> Daniel Drake (1):
+>       zd1211rw: Add ID for ZyXEL AG-225H v2
+> 
+> Geert Uytterhoeven (1):
+>       mac80211: include <linux/delay.h> instead of <asm/delay.h>
+> 
+> Ivo van Doorn (1):
+>       Add 93cx6 eeprom library
+> 
+> John W. Linville (1):
+>       libertas: fix for wireless Kconfig changes
+> 
+> Larry Finger (3):
+>       ieee80211: add ieee80211_channel_to_freq
+>       ieee80211: include frequency in scan results
+>       bcm43xx: Remove dead configuration variable CONFIG_947XX
+> 
+> Matthew Davidson (1):
+>       zd1211rw: Add ID for Sitecom WL-117
+> 
+> Michael Wu (1):
+>       Add rtl8187 wireless driver
+> 
+> Ulrich Kunitz (1):
+>       zd1211rw: Added new USB id for Planex GW-US54ZGL
 
-fib_create_info() makes sure that fi->fib_nhs is always at least one.
-So the conditional can be removed.  After a fib_info is create, it's
-fi->fib_nhs is immutable, it doesn't change.
 
-In fact there are some checks for fi->fib_nhs == 0 elsewhere in this
-code, those are bogus too, and I imagine you saw those when coding
-up this patch. :-)
+The normal development process is:
+
+* commit new code to your repository
+* that goes into -mm for public testing and review
+* merge window opens
+* the code that has seen public testing and review goes upstream
+
+The general idea is everything you want in 2.6.22 should be prepared and 
+in -mm BEFORE 2.6.21 is released, and the 2.6.22 merge window opens.
+
+It's quite normal for fixes and minor changes to trickle in after the 
+push that follows the merge window opening.  But new drivers that have 
+not been through this process do not fall under "fixes and minor changes."
+
+I also did not see any response to my "better as a single file driver" 
+suggestion.
+
+So, I'll pull if you remove the two late additions.
+
+	Jeff
