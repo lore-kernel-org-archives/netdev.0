@@ -1,58 +1,25 @@
-From: Tilman Schmidt <tilman@imap.cc>
-Subject: Re: trying to track a change to drivers/isdn/usb-gigaset.c
-Date: Mon, 07 May 2007 18:23:23 +0200
-Message-ID: <463F527B.4030509@imap.cc>
-References: <463EF77A.9020808@imap.cc> <20070507.034117.115910272.davem@davemloft.net>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH 10/11][TG3]: Reduce spurious interrupts.
+Date: Mon, 07 May 2007 09:39:49 -0700
+Message-ID: <463F5655.7050107@hp.com>
+References: <1551EAE59135BE47B544934E30FC4FC0940105@nt-irva-0751.brcm.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig4F3726D7F8EC3654B4594E34"
-Cc: linux-kernel@vger.kernel.org, acme@redhat.com,
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, jeff@garzik.org,
 	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965714AbXEGQXe@vger.kernel.org>
-In-Reply-To: <20070507.034117.115910272.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+To: Michael Chan <mchan@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from palrel13.hp.com ([156.153.255.238]:52860 "EHLO palrel13.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S934329AbXEGQjw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 May 2007 12:39:52 -0400
+In-Reply-To: <1551EAE59135BE47B544934E30FC4FC0940105@nt-irva-0751.brcm.ad.broadcom.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig4F3726D7F8EC3654B4594E34
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+On how "topologically big" a system has this resurrection of the PIO read been 
+tried so far?
 
-David Miller schrieb:
-> [ netdev@vger.kernel.org is the place to discuss kernel networking
->   issues, thanks ]
-
-OIC. My bad. I didn't make the connection from "skb" to "networking". Sor=
-ry.
-
-> It was a change done so that we could hide the skb data buffering
-> details to the point where we could change the protocol header
-> pointers into 32-bit offsets which saves 4 bytes per such pointer per
-> protocol header stored in struct sk_buff.
-
-Thanks for the explanation.
-
---=20
-Tilman Schmidt                    E-Mail: tilman@imap.cc
-Bonn, Germany
-Diese Nachricht besteht zu 100% aus wiederverwerteten Bits.
-Unge=F6ffnet mindestens haltbar bis: (siehe R=FCckseite)
-
-
---------------enig4F3726D7F8EC3654B4594E34
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.4 (MingW32)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
-
-iD8DBQFGP1J7MdB4Whm86/kRAhFVAJoDavWzJI0JB/25462KFZRP/RT9VgCcDQ+1
-brkVMCEPOahm/JDaa3nut3Y=
-=dyoQ
------END PGP SIGNATURE-----
-
---------------enig4F3726D7F8EC3654B4594E34--
+rick jones
+ever the paranoid :)
