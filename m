@@ -1,47 +1,44 @@
-From: "Gary Zambrano" <zambrano-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Subject: Re: Merging SSB upstream
-Date: Mon, 07 May 2007 09:43:18 -0700
-Message-ID: <1178556198.8350.2.camel@dhcp-10-12-136-115.broadcom.com>
-References: <200705060303.17594.mb@bu3sch.de>
- <463D4770.9060903@garzik.org>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: [PATCH 2/2] skge: allow WOL except for known broken chips
+Date: Mon, 7 May 2007 11:01:55 -0700
+Message-ID: <20070507110155.2063c74d@freekitty>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "Michael Buesch" <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>,
-	"John Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	"Andrew Morton" <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-To: "Jeff Garzik" <jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <463D4770.9060903-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev@vger.kernel.org, stable@kernel.org
+To: Jeff Garzik <jgarzik@pobox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.osdl.org ([65.172.181.24]:51093 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965985AbXEGSFi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 May 2007 14:05:38 -0400
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2007-05-05 at 23:11 -0400, Jeff Garzik wrote:
-> Michael Buesch wrote:
-> > So, now that mac80211 is merged upstream, I think it's
-> > time to merge SSB and the b44-ssb port upstream.
-> > Note that bcm43xx-mac80211 is _not_ ready for upstream, yet.
-> > 
-> > What do you think? I'd like to merge ssb as-is, although
-> > the embedded-device parts are not quite finished, yet.
-> > But they don't interfere with the non-embedded parts used
-> > by b44 and the bcm43xx PCI cards.
-> > So we _could_ remove the ssb-mips code, but I don't like to
-> > do that for better maintainability. It doesn't hurt anyone IMO.
-> 
-> What does Ralf (MIPS maintainer) and Gary (Broadcom maintainer) think?
-> 
-> For my part, I'm not going to render even a tentative opinion without a 
-> link to actual code.
-> 
-> Last I saw of the code, and descriptions in IRC, it sounded sane.
-> 
-> 	Jeff
-> 
+Wake On Lan works correctly on Yukon-FE and other variants.
 
-I would like to put some test mileage behind the ssb.
-We had a hard time testing it a while back, so we will try the latest.
-Thanks,
-Gary
+Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>a
+
+---
+ drivers/net/skge.c |    9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
+
+--- sky2-2.6.21.orig/drivers/net/skge.c	2007-05-07 10:04:06.000000000 -0700
++++ sky2-2.6.21/drivers/net/skge.c	2007-05-07 10:04:47.000000000 -0700
+@@ -135,10 +135,13 @@ static void skge_get_regs(struct net_dev
+ /* Wake on Lan only supported on Yukon chips with rev 1 or above */
+ static u32 wol_supported(const struct skge_hw *hw)
+ {
+-	if (hw->chip_id == CHIP_ID_YUKON && hw->chip_rev != 0)
+-		return WAKE_MAGIC | WAKE_PHY;
+-	else
++	if (hw->chip_id == CHIP_ID_GENESIS)
+ 		return 0;
++
++	if (hw->chip_id == CHIP_ID_YUKON && hw->chip_rev == 0)
++		return 0;
++
++	return WAKE_MAGIC | WAKE_PHY;
+ }
+ 
+ static u32 pci_wake_enabled(struct pci_dev *dev)
