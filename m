@@ -1,47 +1,70 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: [PATCH 1/3] WAN Kconfig: change "depends on HDLC" to "select"
-Date: Mon, 07 May 2007 13:56:41 +0200
-Message-ID: <m3r6psc0ee.fsf@maximus.localdomain>
+From: Michael-Luke Jones <mlj28@cam.ac.uk>
+Subject: Re: [PATCH 3/3] Intel IXP4xx network drivers
+Date: Mon, 7 May 2007 13:59:26 +0100
+Message-ID: <5BB7E1AB-5CE1-43C8-8CE3-E0DE0236BD09@cam.ac.uk>
 References: <m3abwhcy74.fsf@maximus.localdomain>
-	<m3y7k1biov.fsf@maximus.localdomain>
-	<Pine.LNX.4.64.0705070343330.2733@scrub.home>
-	<m3tzupc6wz.fsf@maximus.localdomain>
-	<Pine.LNX.4.64.0705071318150.1479@scrub.home>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jeff@garzik.org>, Russell King <rmk@arm.linux.org.uk>,
-	lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.arm.linux.org.uk
-To: Roman Zippel <zippel@linux-m68k.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:56528 "EHLO khc.piap.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933691AbXEGMwi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 May 2007 08:52:38 -0400
-In-Reply-To: <Pine.LNX.4.64.0705071318150.1479@scrub.home> (Roman Zippel's message of "Mon, 7 May 2007 13:22:40 +0200 (CEST)")
-Sender: netdev-owner@vger.kernel.org
+	<m3vef5biob.fsf@maximus.localdomain>
+Mime-Version: 1.0 (Apple Message framework v752.2)
+Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.arm.linux.org.uk,
+	Russell King <rmk@arm.linux.org.uk>, Jeff Garzik <jeff@garzik.org>,
+	lkml <linux-kernel@vger.kernel.org>
+To: Krzysztof Halasa <khc@pm.waw.pl>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.arm.linux.org.uk>
+In-Reply-To: <m3vef5biob.fsf@maximus.localdomain>
+List-Unsubscribe: <http://lists.arm.linux.org.uk/mailman/listinfo/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.arm.linux.org.uk?subject=unsubscribe>
+List-Archive: <http://lists.arm.linux.org.uk/pipermail/linux-arm-kernel>
+List-Post: <mailto:linux-arm-kernel@lists.arm.linux.org.uk>
+List-Help: <mailto:linux-arm-kernel-request@lists.arm.linux.org.uk?subject=help>
+List-Subscribe: <http://lists.arm.linux.org.uk/mailman/listinfo/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.arm.linux.org.uk?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.arm.linux.org.uk
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org+linux-arm-kernel=m.gmane.org@lists.arm.linux.org.uk
 List-Id: netdev.vger.kernel.org
 
-Roman Zippel <zippel@linux-m68k.org> writes:
+On 7 May 2007, at 01:07, Krzysztof Halasa wrote:
 
->> You don't have to know it's required, you can just select a driver
->> for your hardware, without enabling HDLC first.
+> Adds IXP4xx drivers for built-in CPU components:
+> - hardware queue manager
+> - NPE (network coprocessors),
+> - Ethernet ports,
+> - HSS (sync serial) ports (currently only non-channelized HDLC).
 >
-> Is this a real problem?
+> Both Ethernet and HSS drivers use queue manager and NPE driver and
+> require external firmware file(s) available from www.intel.com.
+>
+> "Platform device" definitions for Ethernet ports on IXDP425  
+> development
+> platform are provided (though it has been tested on not yet available
+> IXP425-based hardware only)
+>
+> Signed-off-by: Krzysztof Halasa <khc@pm.waw.pl>
 
-I think the "select" is better.
+Immediate comments as follows:
 
-> Using select you should also consider removing HDLC as visible option and 
-> use only select. Mixing depends and selects is generally a bad idea.
+(Krzysztof has already seen them in a private email but I'm putting  
+them out so people can publically disagree with me if I have got this  
+wrong.)
 
-It has to stay there for external modules.
+Code placement:
+Queue Manager & NPE code => arch/arm/mach-ixp4xx
+WAN driver code => drivers/net/wan
+Eth code => drivers/net/arm
 
-It's similar to MII - drivers select MII automatically but you can
-turn it on (Y or M) by hand as well.
+Kconfig:
+I'm not convinced about 'config IXP4XX_NETDEVICES'. I'd lose it  
+together with the drivers/net/ixp4xx directory
+Ethernet & HSS code should probably select NPE and QMGR (rather than  
+depend) but these options should still be exposed in arch/arm/mach- 
+ixp4xx/Kconfig
 
-And you can have HDLC=y and driver=m (and it makes perfect sense).
+Michael-Luke Jones
 
-Actually I can't see any bad idea here.
-The original dependency was certainly, uhm, not the best one.
--- 
-Krzysztof Halasa
+PS: Please cc me on replies as I only subscribe to l-a-k.
+
+-------------------------------------------------------------------
+List admin: http://lists.arm.linux.org.uk/mailman/listinfo/linux-arm-kernel
+FAQ:        http://www.arm.linux.org.uk/mailinglists/faq.php
+Etiquette:  http://www.arm.linux.org.uk/mailinglists/etiquette.php
