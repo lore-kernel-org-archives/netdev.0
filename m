@@ -1,31 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Bluetooth patches for 2.6.22
-Date: Mon, 07 May 2007 00:32:25 -0700 (PDT)
-Message-ID: <20070507.003225.78706580.davem@davemloft.net>
-References: <1178328218.2891.3.camel@violet>
+Subject: Re: [PATCH 1/1] net/core: Fix error handling
+Date: Mon, 07 May 2007 00:33:28 -0700 (PDT)
+Message-ID: <20070507.003328.122256749.davem@davemloft.net>
+References: <11784936433022-git-send-email-jsipek@cs.sunysb.edu>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: marcel@holtmann.org
+To: jsipek@cs.sunysb.edu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52367
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52371
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754114AbXEGHcW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 May 2007 03:32:22 -0400
-In-Reply-To: <1178328218.2891.3.camel@violet>
+	by vger.kernel.org with ESMTP id S1754117AbXEGHdY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 May 2007 03:33:24 -0400
+In-Reply-To: <11784936433022-git-send-email-jsipek@cs.sunysb.edu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Marcel Holtmann <marcel@holtmann.org>
-Date: Sat, 05 May 2007 03:23:38 +0200
+From: "Josef 'Jeff' Sipek" <jsipek@cs.sunysb.edu>
+Date: Sun,  6 May 2007 19:20:43 -0400
 
-> these are the Bluetooth fixes for the 2.6.22 kernel release. Please pull
-> and send them of to Linus as soon as possible since one of them actually
-> fixes an information leak.
- ...
-> Please pull from
+> Upon failure to register "ptype" procfs entry, "softnet_stat" was not
+> removed, and an incorrect attempt was made to remove the "ptype" entry.
 > 
->         git://git.kernel.org/pub/scm/linux/kernel/git/holtmann/bluetooth-2.6.git
+> Signed-off-by: Josef 'Jeff' Sipek <jsipek@cs.sunysb.edu>
 
-Pulled, thanks a lot.
+Applied, thanks Josef.
