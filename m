@@ -1,80 +1,38 @@
-From: Christian Hohnstaedt <chohnstaedt@innominate.com>
-Subject: Re: [PATCH 3/3] Intel IXP4xx network drivers
-Date: Mon, 7 May 2007 19:52:13 +0200
-Message-ID: <20070507175213.GU23611@tweety>
-References: <m3abwhcy74.fsf@maximus.localdomain>
-	<m3vef5biob.fsf@maximus.localdomain>
-	<5BB7E1AB-5CE1-43C8-8CE3-E0DE0236BD09@cam.ac.uk>
-	<m3hcqoa772.fsf@maximus.localdomain>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: [PATCH 1/2] skge: default WOL should be magic only
+Date: Mon, 7 May 2007 11:00:36 -0700
+Message-ID: <20070507110036.050e7b5b@freekitty>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
-	lkml <linux-kernel@vger.kernel.org>,
-	linux-arm-kernel@lists.arm.linux.org.uk,
-	Russell King <rmk@arm.linux.org.uk>
-To: Krzysztof Halasa <khc@pm.waw.pl>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.arm.linux.org.uk>
-Content-Disposition: inline
-In-Reply-To: <m3hcqoa772.fsf@maximus.localdomain>
-List-Unsubscribe: <http://lists.arm.linux.org.uk/mailman/listinfo/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.arm.linux.org.uk?subject=unsubscribe>
-List-Archive: <http://lists.arm.linux.org.uk/pipermail/linux-arm-kernel>
-List-Post: <mailto:linux-arm-kernel@lists.arm.linux.org.uk>
-List-Help: <mailto:linux-arm-kernel-request@lists.arm.linux.org.uk?subject=help>
-List-Subscribe: <http://lists.arm.linux.org.uk/mailman/listinfo/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.arm.linux.org.uk?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.arm.linux.org.uk
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org+linux-arm-kernel=m.gmane.org@lists.arm.linux.org.uk
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
+	stable@kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.osdl.org ([65.172.181.24]:51066 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754728AbXEGSB5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 May 2007 14:01:57 -0400
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, May 07, 2007 at 07:12:49PM +0200, Krzysztof Halasa wrote:
-> Michael-Luke Jones <mlj28@cam.ac.uk> writes:
-> 
-> > Code placement:
-> > Queue Manager & NPE code => arch/arm/mach-ixp4xx
-> > WAN driver code => drivers/net/wan
-> > Eth code => drivers/net/arm
-> 
-> Why would you want such placement?
-> Potential problems: header files would have to be moved to
-> include/asm-arm = headers pollution.
-> All 4 drivers are, in fact, network (related) drivers.
-No.
+By default, the skge driver now enables wake on magic and wake on PHY.
+This is a bad default (bug), wake on PHY means machine will never shutdown 
+if connected to a switch.
 
-- qmgr is a versatile hardware fifo stack, that is currently
-  used to exchange data with the NPE.
+Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>a
 
-- the NPE can also be used as DMA engine and for crypto operations.
-  Both are not network related.
-  Additionally, the NPE is not only ixp4xx related, but is
-  also used in IXP23xx CPUs, so it could be placed in
-  arch/arm/common or arch/arm/xscale ?
+---
+ drivers/net/skge.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-- The MAC is used on IXP23xx, too. So the drivers for
-  both CPU familys only differ in the way they exchange
-  network packets between the NPE and the kernel.
-  
-> 
-> drivers/net/arm would probably make (some) sense if it was
-> a single (or not so single) Ethernet driver.
-If Queue Manager & NPE move to arch/.... , it can be a single file.
-
-Christian Hohnstaedt
-
--- 
-Christian Hohnstaedt
-Software Engineer
-
-Innominate Security Technologies AG  /protecting industrial networks/
-tel: +49.30.6392-3285 fax: +49.30.6392-3307
-Albert-Einstein-Strasse 14, D-12489 Berlin, Germany
-http://www.innominate.com
-
-Register Court: AG Charlottenburg, HR B 81603
-Management Board: Joachim Fietz, Dirk Seewald
-Chairman of the Supervisory Board: Edward M. Stadum
-
--------------------------------------------------------------------
-List admin: http://lists.arm.linux.org.uk/mailman/listinfo/linux-arm-kernel
-FAQ:        http://www.arm.linux.org.uk/mailinglists/faq.php
-Etiquette:  http://www.arm.linux.org.uk/mailinglists/etiquette.php
+--- sky2-2.6.21.orig/drivers/net/skge.c	2007-05-07 10:01:47.000000000 -0700
++++ sky2-2.6.21/drivers/net/skge.c	2007-05-07 10:03:29.000000000 -0700
+@@ -3591,7 +3591,7 @@ static struct net_device *skge_devinit(s
+ 	skge->duplex = -1;
+ 	skge->speed = -1;
+ 	skge->advertising = skge_supported_modes(hw);
+-	skge->wol = pci_wake_enabled(hw->pdev) ? wol_supported(hw) : 0;
++	skge->wol = pci_wake_enabled(hw->pdev) ? WAKE_MAGIC : 0;
+ 
+ 	hw->dev[port] = dev;
+ 
