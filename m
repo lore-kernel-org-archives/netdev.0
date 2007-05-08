@@ -1,36 +1,42 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/2] natsemi: Improve diagnostics for DspCfg workaround
-Date: Tue, 08 May 2007 01:17:19 -0400
-Message-ID: <464007DF.5030102@garzik.org>
-References: <20070503093435.7800.38591.stgit@mercator.sirena.org.uk> <20070503093650.7800.45441.stgit@mercator.sirena.org.uk>
+Subject: Re: [PATCH 1/4] s390: qeth driver connection hang
+Date: Tue, 08 May 2007 01:17:31 -0400
+Message-ID: <464007EB.2020308@garzik.org>
+References: <20070502131331.GA13217@de.ibm.com> <20070502131711.GA25700@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Tim Hockin <thockin@hockin.org>,
-	=?UTF-8?B?UmFmYcWCIEJpbHNraQ==?= <rafalbilski@interia.pl>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Mark Brown <broonie@sirena.org.uk>
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
+To: Frank Pavlic <fpavlic@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:54334 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:54347 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S967901AbXEHFRZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 May 2007 01:17:25 -0400
-In-Reply-To: <20070503093650.7800.45441.stgit@mercator.sirena.org.uk>
+	id S967903AbXEHFRe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 May 2007 01:17:34 -0400
+In-Reply-To: <20070502131711.GA25700@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Mark Brown wrote:
-> The natsemi driver has a workaround for broken hardware which resets itself
-> from time to time.  There is a diagnostic message for this workaround but
-> it is not printed by default, making the driver behavior more obscure than
-> it needs to be.  Make the message be displayed by default.
+Frank Pavlic wrote:
+> From: Ursula Braun <braunu@de.ibm.com>
+>       Frank Pavlic <fpavlic@de.ibm.com>
+>       
+> Connection hangs when using EDDP mode because sk_protocol is NULL
+> when skb has been copied via skb_copy. This results in dropping 
+> packets.
+> Also keep MAC address after recovery of Virtual NICs so that
+> traffic can flow again and duplicate statements in 
+> qeth_dev_set_route_store removed.
 > 
-> Signed-Off-By: Mark Brown <broonie@sirena.org.uk>
+> Signed-off-by: Ursula Braun <braunu@de.ibm.com>
+> Signed-off-by: Frank Pavlic <fpavlic@de.ibm.com>
 > ---
-> 
->  drivers/net/natsemi.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
+>  qeth_eddp.c |    4 ++--
+>  qeth_eddp.h |    3 ++-
+>  qeth_main.c |    5 +++--
+>  qeth_sys.c  |    2 --
+>  4 files changed, 7 insertions(+), 7 deletions(-)
 
-applied 1-2
+applied 1-4
 
 
