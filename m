@@ -1,35 +1,52 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: [PATCH] Intel IXP4xx network drivers v.2 - Ethernet and HSS
-Date: Tue, 8 May 2007 17:52:01 +0200
-Message-ID: <20070508155201.GA1251@xi.wantstofly.org>
-References: <464034CF.20700@wpkg.org> <f19298770705080148u70638ac2ue87241382681088@mail.gmail.com> <m3bqgv72sq.fsf@maximus.localdomain>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: [PATCH] mac80211: include <linux/delay.h> instead of <asm/delay.h>
+Date: Tue, 8 May 2007 11:50:11 -0400
+Message-ID: <20070508155011.GD6479@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Alexey Zaytsev <alexey.zaytsev@gmail.com>,
-	Tomasz Chmielewski <mangoo@wpkg.org>,
-	linux-kernel@vger.kernel.org,
-	linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org,
-	Michael Jones <mlj28@cam.ac.uk>
-To: Krzysztof Halasa <khc@pm.waw.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from alephnull.demon.nl ([83.160.184.112]:50301 "EHLO
-	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S968266AbXEHPwE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 May 2007 11:52:04 -0400
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <m3bqgv72sq.fsf@maximus.localdomain>
-Sender: netdev-owner@vger.kernel.org
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, May 08, 2007 at 05:28:21PM +0200, Krzysztof Halasa wrote:
+From: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
 
-> > I was always curious, why do people want to run ixp4xx in LE mode? What
-> > are the benefits that overweight the obvious performance degradation?
-> 
-> Debian is indeed a valid reason.
-> I wonder if it would be much work to create BE Debian as well.
+|   CC      net/mac80211/ieee80211_sta.o
+| In file included from linux/net/mac80211/ieee80211_sta.c:31:
+| include2/asm/delay.h: In function '__const_udelay':
+| include2/asm/delay.h:33: error: 'loops_per_jiffy' undeclared (first use in this function)
+| include2/asm/delay.h:33: error: (Each undeclared identifier is reported only once
+| include2/asm/delay.h:33: error: for each function it appears in.)
 
-There _is_ an ARM BE version of Debian.
+mac80211: include <linux/delay.h> instead of <asm/delay.h>
 
-It's not an official port, but it's not maintained any worse than
-the 'official' LE ARM Debian port is.
+Signed-off-by: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
+Signed-off-by: John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+---
+ net/mac80211/ieee80211_sta.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/mac80211/ieee80211_sta.c b/net/mac80211/ieee80211_sta.c
+index 822917d..3e07e9d 100644
+--- a/net/mac80211/ieee80211_sta.c
++++ b/net/mac80211/ieee80211_sta.c
+@@ -17,6 +17,7 @@
+  * scan result table filtering (by capability (privacy, IBSS/BSS, WPA/RSN IE,
+  *    SSID)
+  */
++#include <linux/delay.h>
+ #include <linux/if_ether.h>
+ #include <linux/skbuff.h>
+ #include <linux/netdevice.h>
+@@ -27,7 +28,6 @@
+ #include <linux/rtnetlink.h>
+ #include <net/iw_handler.h>
+ #include <asm/types.h>
+-#include <asm/delay.h>
+ 
+ #include <net/mac80211.h>
+ #include "ieee80211_i.h"
+-- 
+1.5.0.6
