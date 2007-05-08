@@ -1,41 +1,36 @@
-From: "Quan Sun" <cfk.quan@gmail.com>
-Subject: Different scheduler behavior between 2.4 and 2.6
-Date: Tue, 8 May 2007 11:07:34 +0800
-Message-ID: <e810d8480705072007i2daa3fc0n9c9570b87435e790@mail.gmail.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 08/12] r8169: cleanup
+Date: Tue, 08 May 2007 00:52:08 -0400
+Message-ID: <464001F8.80805@garzik.org>
+References: <20070426205714.GA12701@electric-eye.fr.zoreil.com> <20070426214856.GI7344@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, Edward Hsu <edward_hsu@realtek.com>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nz-out-0506.google.com ([64.233.162.238]:27023 "EHLO
-	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S967681AbXEHDHf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 May 2007 23:07:35 -0400
-Received: by nz-out-0506.google.com with SMTP id o1so1819535nzf
-        for <netdev@vger.kernel.org>; Mon, 07 May 2007 20:07:35 -0700 (PDT)
-Content-Disposition: inline
+Received: from srv5.dvmed.net ([207.36.208.214]:54106 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S967752AbXEHEwM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 May 2007 00:52:12 -0400
+In-Reply-To: <20070426214856.GI7344@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
-   Recently I met a problem on different scheduler behavior between
-2.4.22 and 2.6.18.8.
-   The application works as a proxy, it listen on an interface,
-connect through another interface. This application works on a box
-with two Xeon cpu, each of them is hyper-threading.
-   On 2.4.22, CPU0 serve interrupts, the application works on other
-three CPUs.
-   But on 2.6.18.8, if I turn on 'noirqbalance' kernel parameter, and no
-irqbalance  process, the application will stuck to CPU0 as well as interrupts
-after several seconds' working. Then there will be a 0% idle cpu, and
-three 100%idle CPUs.
+Francois Romieu wrote:
+> No functionnal change:
+> - trim the old history log
+> - whitespace/indent/case police
+> - unsigned int where signedness does not matte
+> - removal of obsolete assert
+> - needless cast from void * (dev_instance)
+> 
+> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+> Cc: Edward Hsu <edward_hsu@realtek.com>
+> ---
+>  drivers/net/r8169.c |  311 ++++++++++++++++++++++-----------------------------
+>  1 files changed, 133 insertions(+), 178 deletions(-)
 
-  /proc/interrupt shows all eths's interrupts are working at CPU0.
+ACK patches 1-8
 
-  It seems that scheduler ignores the working load of interrupts.
 
-   My question is, is there a way to tune 2.6 kernel working as 2.4?
-Just one cpu for interrupts, other three cpu for normal work.
-
--- 
-wonvoo
