@@ -1,47 +1,45 @@
-From: Brice Goglin <brice@myri.com>
-Subject: Re: [PATCH 4/6] myri10ge: limit the number of recoveries
-Date: Tue, 08 May 2007 23:10:41 +0200
-Message-ID: <4640E751.3040804@myri.com>
-References: <463F9E9E.8000808@ens-lyon.org> <463F9F4E.4060706@myri.com> <464006F6.1040204@garzik.org>
+From: "Eric Van Hensbergen" <ericvh@gmail.com>
+Subject: Re: [V9fs-developer] [PATCH 1/4] v9fs: rename non-vfs related structs and functions to be moved to net/9p
+Date: Tue, 8 May 2007 17:07:05 -0500
+Message-ID: <a4e6962a0705081507u39ab95c6oee147ac3e453624a@mail.gmail.com>
+References: <f158dc670705081351j4d46b433o2bdd2e8212a52e15@mail.gmail.com>
+	 <20070508141012.7fdf4c24.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+Cc: "Latchesar Ionkov" <lucho@ionkov.net>,
+	linux-fsdevel@vger.kernel.org,
+	"V9FS Developers" <v9fs-developer@lists.sourceforge.net>,
+	"Linux Kernel" <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: "Andrew Morton" <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl.myri.com ([64.172.73.26]:1835 "EHLO myri.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1032202AbXEHVLE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 May 2007 17:11:04 -0400
-In-Reply-To: <464006F6.1040204@garzik.org>
+Received: from nz-out-0506.google.com ([64.233.162.238]:57662 "EHLO
+	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752030AbXEHWHG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 May 2007 18:07:06 -0400
+Received: by nz-out-0506.google.com with SMTP id o1so2154186nzf
+        for <netdev@vger.kernel.org>; Tue, 08 May 2007 15:07:05 -0700 (PDT)
+In-Reply-To: <20070508141012.7fdf4c24.akpm@linux-foundation.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
-> Brice Goglin wrote:
->> Limit the number of recoveries from a NIC hw watchdog reset to
->> 1 by default.  This is tweakable via the myri10ge_reset_recover
->> tunable.
+On 5/8/07, Andrew Morton <akpm@linux-foundation.org> wrote:
+> On Tue, 8 May 2007 14:51:02 -0600
+> "Latchesar Ionkov" <lucho@ionkov.net> wrote:
 >
-> NAK.  Tunables like this are generally (a) never touched by the vast
-> majority of users, and (b) have useful values and purposes known only
-> to Myri employees :)
+> > This patchset moves non-filesystem interfaces of v9fs from fs/9p to net/9p.
+> > It moves the transport, packet marshalling and connection layers to net/9p
+> > leaving only the VFS related files in fs/9p.
+>
+> (Please cc netdev@vger.kernel.org on net-related work)
+>
+> These changes would be best handled via Eric's git tree, with appropriate
+> acks from the net maintainers.
+>
 
-Well, actually, it's kind of the opposite. Myri employees won't need to
-tune this value since they will be able to replace the NIC with another
-one immediately. The whole point of this tunable is to help end-users:
-* The default value (set to 1) enables detection of defective NICs
-immediately. These memory parity errors are expected to happen very
-rarely (less than once per century per NIC). However, a defective NIC
-(very rare, fortunately) can see such an error quite often, ie. every
-few minutes under high load.
-* An increased limit value will still allow people with mission critical
-installations to crank up the tunable and recover an INTMAX number of
-times while waiting for a downtime window to replace the NIC. The
-performance won't be optimal, but at least, it will still work.
+Ack.  I was waiting to see if Lucho hit any major brick walls with the
+community before pulling them in.
 
-Should I resent the patch?
-
-Thanks,
-Brice
-
+                -eric
