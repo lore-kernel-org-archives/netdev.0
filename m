@@ -1,60 +1,44 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: RE: [PATCH] IPROUTE: Modify tc for new PRIO multiqueue behavior
-Date: Tue, 08 May 2007 11:45:38 +0200
-Message-ID: <1178617538.18162.54.camel@johannes.berg>
-References: <D5C1322C3E673F459512FB59E0DDC32902CA58E7@orsmsx414.amr.corp.intel.com>
-	 <1178313748.7408.41.camel@johannes.berg>
-	 <1178616837.3385.85.camel@debian.sh.intel.com>
+From: "Denys" <denys@visp.net.lb>
+Subject: strange TCP behaviour
+Date: Tue, 8 May 2007 12:49:36 +0300
+Message-ID: <20070508094330.M22276@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-FNQF8PP8W5XMUkYcnX77"
-Cc: jamal <hadi@cyberus.ca>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	jgarzik@pobox.com, cramerj <cramerj@intel.com>,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
-	"Leech, Christopher" <christopher.leech@intel.com>,
-	davem@davemloft.net
-To: Zhu Yi <yi.zhu@intel.com>
+Content-Type: text/plain;
+	charset=koi8-r
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:39940 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966194AbXEHJni (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 May 2007 05:43:38 -0400
-In-Reply-To: <1178616837.3385.85.camel@debian.sh.intel.com>
+Received: from usermail.globalproof.net ([194.146.153.18]:39455 "EHLO
+	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934644AbXEHJuK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 May 2007 05:50:10 -0400
+Received: from visp.net.lb (localhost [127.0.0.1])
+	by usermail.globalproof.net (Postfix) with ESMTP id D0CB4BC7E7
+	for <netdev@vger.kernel.org>; Tue,  8 May 2007 12:49:36 +0300 (EEST)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Dear All
 
---=-FNQF8PP8W5XMUkYcnX77
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+I have application, thats accept redirected requests from squid (over iptables
+... -j REDIRECT), getting ip over getsockopt/SO_ORIGINAL_DST and throwing data
+in to the tunnel.
 
-Somehow I didn't see the mails inbetween. Let me think.
+And i have strange behaviour, when i do
+sysctl net.ipv4.tcp_frto=0
 
-On Tue, 2007-05-08 at 17:33 +0800, Zhu Yi wrote:
+And i try any website with attachments (means a lot of data going to be sent
+to redirect), i am getting after 3-10 seconds message "Read error: Connection
+timed out". Thats a bit strange, possible it is related to application, but i
+guess kernel must not give error to recv/read (i dont know what squid is
+using). It is a bit difficult to reproduce the problem, but i can give a
+remote access to PC where all things installed. But i have no idea, who of
+TCP(?) maintainers can help me with this. I think there is no app problem,
+tcpdump looks normal, there is no reset(and message will be different in case
+of reset).
 
-> Jamal, as you said, the wireless subsystem uses an interim workaround
-> (the extra netdev approach) to achieve hardware packets scheduling. But
-> with Peter's patch, the wireless stack doesn't need the workaround
-> anymore. This is the actual fix.
 
-Actually, we still need multiple devices for virtual devices? Or which
-multiple devices are you talking about here?
-
-johannes
-
---=-FNQF8PP8W5XMUkYcnX77
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iD8DBQBGQEbC/ETPhpq3jKURAiC2AKCmOysevErQGPor4TAI/OSy4evwyACgtQdF
-fsMcpH7+RyAY+TvBpFBwF/c=
-=VdFY
------END PGP SIGNATURE-----
-
---=-FNQF8PP8W5XMUkYcnX77--
+--
+Denys Fedoryshchenko
+Technical Manager
+Virtual ISP S.A.L.
 
