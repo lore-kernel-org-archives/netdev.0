@@ -1,55 +1,46 @@
-From: Kim Phillips <kim.phillips@freescale.com>
-Subject: Re: Kconfig warnings on latest GIT
-Date: Tue, 8 May 2007 14:31:27 -0500
-Message-ID: <20070508143127.38fafa3c.kim.phillips@freescale.com>
-References: <200705080004.14570.ismail@pardus.org.tr>
+From: David Howells <dhowells@redhat.com>
+Subject: [PATCH 1/3] AFS: Export a couple of core functions for AFS write
+	support
+Date: Tue, 08 May 2007 20:43:59 +0100
+Message-ID: <20070508194358.27477.74888.stgit@warthog.cambridge.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Timur Tabi <timur@freescale.com>,
-	Kumar Gala <galak@kernel.crashing.org>
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Ismail =?ISO-8859-1?Q?D=F6nmez?= <ismail@pardus.org.tr>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from de01egw02.freescale.net ([192.88.165.103]:35098 "EHLO
-	de01egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S967821AbXEHTb5 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 May 2007 15:31:57 -0400
-In-Reply-To: <200705080004.14570.ismail@pardus.org.tr>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	dhowells@redhat.com
+To: akpm@osdl.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S967983AbXEHTpB@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 8 May 2007 00:04:14 +0300
-Ismail D=F6nmez <ismail@pardus.org.tr> wrote:
+Export a couple of core functions for AFS write support to use:
 
->=20
-> drivers/net/Kconfig:2279:warning: 'select' used by config symbol 'UCC=
-_GETH'=20
-> refers to undefined symbol 'UCC_FAST'
+	find_get_pages_contig()
+	find_get_pages_tag()
 
-looks like this introduces the error:
+Signed-off-by: David Howells <dhowells@redhat.com>
+---
 
-commit 7d776cb596994219584257eb5956b87628e5deaf
-Author: Timur Tabi <timur@freescale.com>
-Date:   Mon Mar 12 15:40:27 2007 -0500
+ mm/filemap.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-    [POWERPC] QE: automatically select QE options
-
-    Change the Kconfig files so that the Freescale QE options are autom=
-atically
-    selected if a QE device is selected.  Previously, you'd need to man=
-ually
-    select UCC_FAST if you want any "fast" UCC devices, such as Gigabit=
- Ethernet
-    Now, the QE Gigabit Ethernet option is always available if the devi=
-ce has a
-    QE, and UCC_FAST is automatically enabled.  A side-effect is that t=
-he
-    "QE Options" menu no longer exists.
-
-    Signed-off-by: Timur Tabi <timur@freescale.com>
-    Signed-off-by: Kumar Gala <galak@kernel.crashing.org>
-
-cc:ing authors, fti.
-
-Kim
+diff --git a/mm/filemap.c b/mm/filemap.c
+index 5631d6b..b276508 100644
+--- a/mm/filemap.c
++++ b/mm/filemap.c
+@@ -750,6 +750,7 @@ unsigned find_get_pages_contig(struct address_space *mapping, pgoff_t index,
+ 	read_unlock_irq(&mapping->tree_lock);
+ 	return i;
+ }
++EXPORT_SYMBOL(find_get_pages_contig);
+ 
+ /**
+  * find_get_pages_tag - find and return pages that match @tag
+@@ -778,6 +779,7 @@ unsigned find_get_pages_tag(struct address_space *mapping, pgoff_t *index,
+ 	read_unlock_irq(&mapping->tree_lock);
+ 	return ret;
+ }
++EXPORT_SYMBOL(find_get_pages_tag);
+ 
+ /**
+  * grab_cache_page_nowait - returns locked page at given index in given cache
