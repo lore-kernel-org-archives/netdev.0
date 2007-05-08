@@ -1,1927 +1,1552 @@
-From: David Howells <dhowells@redhat.com>
-Subject: [PATCH 3/3] AFS: Implement basic file write support
-Date: Tue, 08 May 2007 20:44:11 +0100
-Message-ID: <20070508194411.27477.7552.stgit@warthog.cambridge.redhat.com>
-References: <20070508194358.27477.74888.stgit@warthog.cambridge.redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	dhowells@redhat.com
-To: akpm@osdl.org, netdev@vger.kernel.org
+From: Timur Tabi <timur@freescale.com>
+Subject: [PATCH v4] powerpc: change rheap functions to use ulongs instead of pointers
+Date: Tue,  8 May 2007 14:46:36 -0500
+Message-ID: <11786535963742-git-send-email-timur@freescale.com>
+Cc: Timur Tabi <timur@freescale.com>
+To: galak@kernel.crashing.org, linuxppc-dev@ozlabs.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:48299 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S967998AbXEHTpE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 May 2007 15:45:04 -0400
-In-Reply-To: <20070508194358.27477.74888.stgit@warthog.cambridge.redhat.com>
+Received: from de01egw01.freescale.net ([192.88.165.102]:46785 "EHLO
+	de01egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1031283AbXEHTrD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 May 2007 15:47:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Implement support for writing to regular AFS files, including:
+The rheap allocation functions return a pointer, but the actual value is based
+on how the heap was initialized, and so it can be anything, e.g. an offset
+into a buffer.  A ulong is a better representation of the value returned by
+the allocation functions.
 
- (1) write
+This patch changes all of the relevant rheap functions to use a unsigned long
+integers instead of a pointer.  In case of an error, the value returned is
+a negative error code that has been cast to an unsigned long.  The caller can
+use the IS_ERR_VALUE() macro to check for this.
 
- (2) truncate
+All code which calls the rheap functions is updated accordingly.  Macros
+IS_MURAM_ERR() and IS_DPERR(), have been deleted in favor of IS_ERR_VALUE().
 
- (3) fsync, fdatasync
+Also added error checking to rh_attach_region().
 
- (4) chmod, chown, chgrp, utime.
-
-AFS writeback attempts to batch writes into as chunks as large as it can manage
-up to the point that it writes back 65535 pages in one chunk or it meets a
-locked page.
-
-Furthermore, if a page has been written to using a particular key, then should
-another write to that page use some other key, the first write will be flushed
-before the second is allowed to take place.  If the first write fails due to a
-security error, then the page will be scrapped and reread before the second
-write takes place.
-
-If a page is dirty and the callback on it is broken by the server, then the
-dirty data is not discarded (same behaviour as NFS).
-
-Shared-writable mappings are not supported by this patch.
-
-Signed-Off-By: David Howells <dhowells@redhat.com>
+Signed-off-by: Timur Tabi <timur@freescale.com>
 ---
 
- fs/afs/Makefile   |    3 
- fs/afs/afs_fs.h   |    2 
- fs/afs/dir.c      |    1 
- fs/afs/file.c     |   32 ++
- fs/afs/fsclient.c |  332 ++++++++++++++++++++-
- fs/afs/inode.c    |   47 +++
- fs/afs/internal.h |   66 ++++
- fs/afs/rxrpc.c    |   80 +++++
- fs/afs/super.c    |    3 
- fs/afs/vnode.c    |  107 +++++++
- fs/afs/write.c    |  835 +++++++++++++++++++++++++++++++++++++++++++++++++++++
- 11 files changed, 1482 insertions(+), 26 deletions(-)
+Updated for Paul's latest tree.  Even though this patch changes powerpc,
+netdev, and serial drivers, it cannot be split up.  The powerpc side deletes
+a function and changes prototypes of other functions, so if the netdev and
+serial drivers are not updated at the same time, they won't compile.
 
-diff --git a/fs/afs/Makefile b/fs/afs/Makefile
-index cf83e5d..73ce561 100644
---- a/fs/afs/Makefile
-+++ b/fs/afs/Makefile
-@@ -22,6 +22,7 @@ kafs-objs := \
- 	vlclient.o \
- 	vlocation.o \
- 	vnode.o \
--	volume.o
-+	volume.o \
-+	write.o
- 
- obj-$(CONFIG_AFS_FS)  := kafs.o
-diff --git a/fs/afs/afs_fs.h b/fs/afs/afs_fs.h
-index 89e0d16..2198006 100644
---- a/fs/afs/afs_fs.h
-+++ b/fs/afs/afs_fs.h
-@@ -18,6 +18,8 @@
- enum AFS_FS_Operations {
- 	FSFETCHDATA		= 130,	/* AFS Fetch file data */
- 	FSFETCHSTATUS		= 132,	/* AFS Fetch file status */
-+	FSSTOREDATA		= 133,	/* AFS Store file data */
-+	FSSTORESTATUS		= 135,	/* AFS Store file status */
- 	FSREMOVEFILE		= 136,	/* AFS Remove a file */
- 	FSCREATEFILE		= 137,	/* AFS Create a file */
- 	FSRENAME		= 138,	/* AFS Rename or move a file or directory */
-diff --git a/fs/afs/dir.c b/fs/afs/dir.c
-index eca7bf8..ac982a8 100644
---- a/fs/afs/dir.c
-+++ b/fs/afs/dir.c
-@@ -56,6 +56,7 @@ const struct inode_operations afs_dir_inode_operations = {
- 	.rename		= afs_rename,
- 	.permission	= afs_permission,
- 	.getattr	= afs_getattr,
-+	.setattr	= afs_setattr,
- };
- 
- static struct dentry_operations afs_fs_dentry_operations = {
-diff --git a/fs/afs/file.c b/fs/afs/file.c
-index 3eb3fc7..3e25795 100644
---- a/fs/afs/file.c
-+++ b/fs/afs/file.c
-@@ -15,32 +15,43 @@
+ arch/powerpc/lib/rheap.c                |  117 ++++++++++++++++++-------------
+ arch/powerpc/sysdev/commproc.c          |   20 +++---
+ arch/powerpc/sysdev/cpm2_common.c       |   21 +++---
+ arch/powerpc/sysdev/qe_lib/qe.c         |   29 ++++----
+ arch/powerpc/sysdev/qe_lib/ucc_fast.c   |    5 +-
+ arch/powerpc/sysdev/qe_lib/ucc_slow.c   |    7 +-
+ arch/ppc/8xx_io/commproc.c              |   22 +++---
+ arch/ppc/lib/rheap.c                    |   95 +++++++++++++------------
+ arch/ppc/syslib/cpm2_common.c           |   23 +++---
+ drivers/net/fs_enet/mac-scc.c           |    2 +-
+ drivers/net/ucc_geth.c                  |   30 ++++----
+ drivers/serial/cpm_uart/cpm_uart_cpm1.c |    4 +-
+ drivers/serial/cpm_uart/cpm_uart_cpm2.c |    4 +-
+ include/asm-powerpc/qe.h                |   13 +---
+ include/asm-ppc/commproc.h              |   13 +---
+ include/asm-ppc/cpm2.h                  |   13 +---
+ include/asm-ppc/rheap.h                 |   20 +++---
+ 17 files changed, 221 insertions(+), 217 deletions(-)
+
+diff --git a/arch/powerpc/lib/rheap.c b/arch/powerpc/lib/rheap.c
+index 6c5c5dd..b2f6dcc 100644
+--- a/arch/powerpc/lib/rheap.c
++++ b/arch/powerpc/lib/rheap.c
+@@ -133,7 +133,7 @@ static rh_block_t *get_slot(rh_info_t * info)
+ 	info->empty_slots--;
+
+ 	/* Initialize */
+-	blk->start = NULL;
++	blk->start = 0;
+ 	blk->size = 0;
+ 	blk->owner = NULL;
+
+@@ -158,7 +158,7 @@ static void attach_free_block(rh_info_t * info, rh_block_t * blkn)
+
+ 	/* We assume that they are aligned properly */
+ 	size = blkn->size;
+-	s = (unsigned long)blkn->start;
++	s = blkn->start;
+ 	e = s + size;
+
+ 	/* Find the blocks immediately before and after the given one
+@@ -170,7 +170,7 @@ static void attach_free_block(rh_info_t * info, rh_block_t * blkn)
+ 	list_for_each(l, &info->free_list) {
+ 		blk = list_entry(l, rh_block_t, list);
+
+-		bs = (unsigned long)blk->start;
++		bs = blk->start;
+ 		be = bs + blk->size;
+
+ 		if (next == NULL && s >= bs)
+@@ -188,10 +188,10 @@ static void attach_free_block(rh_info_t * info, rh_block_t * blkn)
+ 	}
+
+ 	/* Now check if they are really adjacent */
+-	if (before != NULL && s != (unsigned long)before->start + before->size)
++	if (before && s != (before->start + before->size))
+ 		before = NULL;
+
+-	if (after != NULL && e != (unsigned long)after->start)
++	if (after && e != after->start)
+ 		after = NULL;
+
+ 	/* No coalescing; list insert and return */
+@@ -216,7 +216,7 @@ static void attach_free_block(rh_info_t * info, rh_block_t * blkn)
+
+ 	/* Grow the after block backwards */
+ 	if (before == NULL && after != NULL) {
+-		after->start = (int8_t *)after->start - size;
++		after->start -= size;
+ 		after->size += size;
+ 		return;
+ 	}
+@@ -321,14 +321,14 @@ void rh_init(rh_info_t * info, unsigned int alignment, int max_blocks,
+ }
+
+ /* Attach a free memory region, coalesces regions if adjuscent */
+-int rh_attach_region(rh_info_t * info, void *start, int size)
++int rh_attach_region(rh_info_t * info, unsigned long start, int size)
+ {
+ 	rh_block_t *blk;
+ 	unsigned long s, e, m;
+ 	int r;
+
+ 	/* The region must be aligned */
+-	s = (unsigned long)start;
++	s = start;
+ 	e = s + size;
+ 	m = info->alignment - 1;
+
+@@ -338,9 +338,12 @@ int rh_attach_region(rh_info_t * info, void *start, int size)
+ 	/* Round end down */
+ 	e = e & ~m;
+
++	if (IS_ERR_VALUE(e) || (e < s))
++		return -ERANGE;
++
+ 	/* Take final values */
+-	start = (void *)s;
+-	size = (int)(e - s);
++	start = s;
++	size = e - s;
+
+ 	/* Grow the blocks, if needed */
+ 	r = assure_empty(info, 1);
+@@ -358,7 +361,7 @@ int rh_attach_region(rh_info_t * info, void *start, int size)
+ }
+
+ /* Detatch given address range, splits free block if needed. */
+-void *rh_detach_region(rh_info_t * info, void *start, int size)
++unsigned long rh_detach_region(rh_info_t * info, unsigned long start, int size)
+ {
+ 	struct list_head *l;
+ 	rh_block_t *blk, *newblk;
+@@ -366,10 +369,10 @@ void *rh_detach_region(rh_info_t * info, void *start, int size)
+
+ 	/* Validate size */
+ 	if (size <= 0)
+-		return ERR_PTR(-EINVAL);
++		return (unsigned long) -EINVAL;
+
+ 	/* The region must be aligned */
+-	s = (unsigned long)start;
++	s = start;
+ 	e = s + size;
+ 	m = info->alignment - 1;
+
+@@ -380,34 +383,34 @@ void *rh_detach_region(rh_info_t * info, void *start, int size)
+ 	e = e & ~m;
+
+ 	if (assure_empty(info, 1) < 0)
+-		return ERR_PTR(-ENOMEM);
++		return (unsigned long) -ENOMEM;
+
+ 	blk = NULL;
+ 	list_for_each(l, &info->free_list) {
+ 		blk = list_entry(l, rh_block_t, list);
+ 		/* The range must lie entirely inside one free block */
+-		bs = (unsigned long)blk->start;
+-		be = (unsigned long)blk->start + blk->size;
++		bs = blk->start;
++		be = blk->start + blk->size;
+ 		if (s >= bs && e <= be)
+ 			break;
+ 		blk = NULL;
+ 	}
+
+ 	if (blk == NULL)
+-		return ERR_PTR(-ENOMEM);
++		return (unsigned long) -ENOMEM;
+
+ 	/* Perfect fit */
+ 	if (bs == s && be == e) {
+ 		/* Delete from free list, release slot */
+ 		list_del(&blk->list);
+ 		release_slot(info, blk);
+-		return (void *)s;
++		return s;
+ 	}
+
+ 	/* blk still in free list, with updated start and/or size */
+ 	if (bs == s || be == e) {
+ 		if (bs == s)
+-			blk->start = (int8_t *)blk->start + size;
++			blk->start += size;
+ 		blk->size -= size;
+
+ 	} else {
+@@ -416,25 +419,29 @@ void *rh_detach_region(rh_info_t * info, void *start, int size)
+
+ 		/* the back free fragment */
+ 		newblk = get_slot(info);
+-		newblk->start = (void *)e;
++		newblk->start = e;
+ 		newblk->size = be - e;
+
+ 		list_add(&newblk->list, &blk->list);
+ 	}
+
+-	return (void *)s;
++	return s;
+ }
+
+-void *rh_alloc_align(rh_info_t * info, int size, int alignment, const char *owner)
++/* Allocate a block of memory at the specified alignment.  The value returned
++ * is an offset into the buffer initialized by rh_init(), or a negative number
++ * if there is an error.
++ */
++unsigned long rh_alloc_align(rh_info_t * info, int size, int alignment, const char *owner)
+ {
+ 	struct list_head *l;
+ 	rh_block_t *blk;
+ 	rh_block_t *newblk;
+-	void *start;
++	unsigned long start;
+
+-	/* Validate size, (must be power of two) */
++	/* Validate size, and alignment must be power of two */
+ 	if (size <= 0 || (alignment & (alignment - 1)) != 0)
+-		return ERR_PTR(-EINVAL);
++		return (unsigned long) -EINVAL;
+
+ 	/* given alignment larger that default rheap alignment */
+ 	if (alignment > info->alignment)
+@@ -444,7 +451,7 @@ void *rh_alloc_align(rh_info_t * info, int size, int alignment, const char *owne
+ 	size = (size + (info->alignment - 1)) & ~(info->alignment - 1);
+
+ 	if (assure_empty(info, 1) < 0)
+-		return ERR_PTR(-ENOMEM);
++		return (unsigned long) -ENOMEM;
+
+ 	blk = NULL;
+ 	list_for_each(l, &info->free_list) {
+@@ -455,7 +462,7 @@ void *rh_alloc_align(rh_info_t * info, int size, int alignment, const char *owne
+ 	}
+
+ 	if (blk == NULL)
+-		return ERR_PTR(-ENOMEM);
++		return (unsigned long) -ENOMEM;
+
+ 	/* Just fits */
+ 	if (blk->size == size) {
+@@ -475,7 +482,7 @@ void *rh_alloc_align(rh_info_t * info, int size, int alignment, const char *owne
+ 	newblk->owner = owner;
+
+ 	/* blk still in free list, with updated start, size */
+-	blk->start = (int8_t *)blk->start + size;
++	blk->start += size;
+ 	blk->size -= size;
+
+ 	start = newblk->start;
+@@ -486,19 +493,25 @@ void *rh_alloc_align(rh_info_t * info, int size, int alignment, const char *owne
+ 	/* this is no problem with the deallocator since */
+ 	/* we scan for pointers that lie in the blocks   */
+ 	if (alignment > info->alignment)
+-		start = (void *)(((unsigned long)start + alignment - 1) &
+-				~(alignment - 1));
++		start = (start + alignment - 1) & ~(alignment - 1);
+
+ 	return start;
+ }
+
+-void *rh_alloc(rh_info_t * info, int size, const char *owner)
++/* Allocate a block of memory at the default alignment.  The value returned is
++ * an offset into the buffer initialized by rh_init(), or a negative number if
++ * there is an error.
++ */
++unsigned long rh_alloc(rh_info_t * info, int size, const char *owner)
+ {
+ 	return rh_alloc_align(info, size, info->alignment, owner);
+ }
+
+-/* allocate at precisely the given address */
+-void *rh_alloc_fixed(rh_info_t * info, void *start, int size, const char *owner)
++/* Allocate a block of memory at the given offset, rounded up to the default
++ * alignment.  The value returned is an offset into the buffer initialized by
++ * rh_init(), or a negative number if there is an error.
++ */
++unsigned long rh_alloc_fixed(rh_info_t * info, unsigned long start, int size, const char *owner)
+ {
+ 	struct list_head *l;
+ 	rh_block_t *blk, *newblk1, *newblk2;
+@@ -506,10 +519,10 @@ void *rh_alloc_fixed(rh_info_t * info, void *start, int size, const char *owner)
+
+ 	/* Validate size */
+ 	if (size <= 0)
+-		return ERR_PTR(-EINVAL);
++		return (unsigned long) -EINVAL;
+
+ 	/* The region must be aligned */
+-	s = (unsigned long)start;
++	s = start;
+ 	e = s + size;
+ 	m = info->alignment - 1;
+
+@@ -520,20 +533,20 @@ void *rh_alloc_fixed(rh_info_t * info, void *start, int size, const char *owner)
+ 	e = e & ~m;
+
+ 	if (assure_empty(info, 2) < 0)
+-		return ERR_PTR(-ENOMEM);
++		return (unsigned long) -ENOMEM;
+
+ 	blk = NULL;
+ 	list_for_each(l, &info->free_list) {
+ 		blk = list_entry(l, rh_block_t, list);
+ 		/* The range must lie entirely inside one free block */
+-		bs = (unsigned long)blk->start;
+-		be = (unsigned long)blk->start + blk->size;
++		bs = blk->start;
++		be = blk->start + blk->size;
+ 		if (s >= bs && e <= be)
+ 			break;
+ 	}
+
+ 	if (blk == NULL)
+-		return ERR_PTR(-ENOMEM);
++		return (unsigned long) -ENOMEM;
+
+ 	/* Perfect fit */
+ 	if (bs == s && be == e) {
+@@ -551,7 +564,7 @@ void *rh_alloc_fixed(rh_info_t * info, void *start, int size, const char *owner)
+ 	/* blk still in free list, with updated start and/or size */
+ 	if (bs == s || be == e) {
+ 		if (bs == s)
+-			blk->start = (int8_t *)blk->start + size;
++			blk->start += size;
+ 		blk->size -= size;
+
+ 	} else {
+@@ -560,14 +573,14 @@ void *rh_alloc_fixed(rh_info_t * info, void *start, int size, const char *owner)
+
+ 		/* The back free fragment */
+ 		newblk2 = get_slot(info);
+-		newblk2->start = (void *)e;
++		newblk2->start = e;
+ 		newblk2->size = be - e;
+
+ 		list_add(&newblk2->list, &blk->list);
+ 	}
+
+ 	newblk1 = get_slot(info);
+-	newblk1->start = (void *)s;
++	newblk1->start = s;
+ 	newblk1->size = e - s;
+ 	newblk1->owner = owner;
+
+@@ -577,7 +590,11 @@ void *rh_alloc_fixed(rh_info_t * info, void *start, int size, const char *owner)
+ 	return start;
+ }
+
+-int rh_free(rh_info_t * info, void *start)
++/* Deallocate the memory previously allocated by one of the rh_alloc functions.
++ * The return value is the size of the deallocated block, or a negative number
++ * if there is an error.
++ */
++int rh_free(rh_info_t * info, unsigned long start)
+ {
+ 	rh_block_t *blk, *blk2;
+ 	struct list_head *l;
+@@ -642,7 +659,7 @@ int rh_get_stats(rh_info_t * info, int what, int max_stats, rh_stats_t * stats)
+ 	return nr;
+ }
+
+-int rh_set_owner(rh_info_t * info, void *start, const char *owner)
++int rh_set_owner(rh_info_t * info, unsigned long start, const char *owner)
+ {
+ 	rh_block_t *blk, *blk2;
+ 	struct list_head *l;
+@@ -684,8 +701,8 @@ void rh_dump(rh_info_t * info)
+ 		nr = maxnr;
+ 	for (i = 0; i < nr; i++)
+ 		printk(KERN_INFO
+-		       "    0x%p-0x%p (%u)\n",
+-		       st[i].start, (int8_t *) st[i].start + st[i].size,
++		       "    0x%lx-0x%lx (%u)\n",
++		       st[i].start, st[i].start + st[i].size,
+ 		       st[i].size);
+ 	printk(KERN_INFO "\n");
+
+@@ -695,8 +712,8 @@ void rh_dump(rh_info_t * info)
+ 		nr = maxnr;
+ 	for (i = 0; i < nr; i++)
+ 		printk(KERN_INFO
+-		       "    0x%p-0x%p (%u) %s\n",
+-		       st[i].start, (int8_t *) st[i].start + st[i].size,
++		       "    0x%lx-0x%lx (%u) %s\n",
++		       st[i].start, st[i].start + st[i].size,
+ 		       st[i].size, st[i].owner != NULL ? st[i].owner : "");
+ 	printk(KERN_INFO "\n");
+ }
+@@ -704,6 +721,6 @@ void rh_dump(rh_info_t * info)
+ void rh_dump_blk(rh_info_t * info, rh_block_t * blk)
+ {
+ 	printk(KERN_INFO
+-	       "blk @0x%p: 0x%p-0x%p (%u)\n",
+-	       blk, blk->start, (int8_t *) blk->start + blk->size, blk->size);
++	       "blk @0x%p: 0x%lx-0x%lx (%u)\n",
++	       blk, blk->start, blk->start + blk->size, blk->size);
+ }
+diff --git a/arch/powerpc/sysdev/commproc.c b/arch/powerpc/sysdev/commproc.c
+index 9b4fafd..4f67b89 100644
+--- a/arch/powerpc/sysdev/commproc.c
++++ b/arch/powerpc/sysdev/commproc.c
+@@ -330,7 +330,7 @@ void m8xx_cpm_dpinit(void)
+ 	 * with the processor and the microcode patches applied / activated.
+ 	 * But the following should be at least safe.
+ 	 */
+-	rh_attach_region(&cpm_dpmem_info, (void *)CPM_DATAONLY_BASE, CPM_DATAONLY_SIZE);
++	rh_attach_region(&cpm_dpmem_info, CPM_DATAONLY_BASE, CPM_DATAONLY_SIZE);
+ }
+
+ /*
+@@ -338,9 +338,9 @@ void m8xx_cpm_dpinit(void)
+  * This function returns an offset into the DPRAM area.
+  * Use cpm_dpram_addr() to get the virtual address of the area.
+  */
+-uint cpm_dpalloc(uint size, uint align)
++unsigned long cpm_dpalloc(uint size, uint align)
+ {
+-	void *start;
++	unsigned long start;
+ 	unsigned long flags;
+
+ 	spin_lock_irqsave(&cpm_dpmem_lock, flags);
+@@ -352,30 +352,30 @@ uint cpm_dpalloc(uint size, uint align)
+ }
+ EXPORT_SYMBOL(cpm_dpalloc);
+
+-int cpm_dpfree(uint offset)
++int cpm_dpfree(unsigned long offset)
+ {
+ 	int ret;
+ 	unsigned long flags;
+
+ 	spin_lock_irqsave(&cpm_dpmem_lock, flags);
+-	ret = rh_free(&cpm_dpmem_info, (void *)offset);
++	ret = rh_free(&cpm_dpmem_info, offset);
+ 	spin_unlock_irqrestore(&cpm_dpmem_lock, flags);
+
+ 	return ret;
+ }
+ EXPORT_SYMBOL(cpm_dpfree);
+
+-uint cpm_dpalloc_fixed(uint offset, uint size, uint align)
++unsigned long cpm_dpalloc_fixed(unsigned long offset, uint size, uint align)
+ {
+-	void *start;
++	unsigned long start;
+ 	unsigned long flags;
+
+ 	spin_lock_irqsave(&cpm_dpmem_lock, flags);
+ 	cpm_dpmem_info.alignment = align;
+-	start = rh_alloc_fixed(&cpm_dpmem_info, (void *)offset, size, "commproc");
++	start = rh_alloc_fixed(&cpm_dpmem_info, offset, size, "commproc");
+ 	spin_unlock_irqrestore(&cpm_dpmem_lock, flags);
+
+-	return (uint)start;
++	return start;
+ }
+ EXPORT_SYMBOL(cpm_dpalloc_fixed);
+
+@@ -385,7 +385,7 @@ void cpm_dpdump(void)
+ }
+ EXPORT_SYMBOL(cpm_dpdump);
+
+-void *cpm_dpram_addr(uint offset)
++void *cpm_dpram_addr(unsigned long offset)
+ {
+ 	return (void *)(dpram_vbase + offset);
+ }
+diff --git a/arch/powerpc/sysdev/cpm2_common.c b/arch/powerpc/sysdev/cpm2_common.c
+index ec26599..9244129 100644
+--- a/arch/powerpc/sysdev/cpm2_common.c
++++ b/arch/powerpc/sysdev/cpm2_common.c
+@@ -248,15 +248,14 @@ static void cpm2_dpinit(void)
+ 	 * varies with the processor and the microcode patches activated.
+ 	 * But the following should be at least safe.
+ 	 */
+-	rh_attach_region(&cpm_dpmem_info, (void *)CPM_DATAONLY_BASE,
+-			CPM_DATAONLY_SIZE);
++	rh_attach_region(&cpm_dpmem_info, CPM_DATAONLY_BASE, CPM_DATAONLY_SIZE);
+ }
+
+ /* This function returns an index into the DPRAM area.
+  */
+-uint cpm_dpalloc(uint size, uint align)
++unsigned long cpm_dpalloc(uint size, uint align)
+ {
+-	void *start;
++	unsigned long start;
+ 	unsigned long flags;
+
+ 	spin_lock_irqsave(&cpm_dpmem_lock, flags);
+@@ -268,13 +267,13 @@ uint cpm_dpalloc(uint size, uint align)
+ }
+ EXPORT_SYMBOL(cpm_dpalloc);
+
+-int cpm_dpfree(uint offset)
++int cpm_dpfree(unsigned long offset)
+ {
+ 	int ret;
+ 	unsigned long flags;
+
+ 	spin_lock_irqsave(&cpm_dpmem_lock, flags);
+-	ret = rh_free(&cpm_dpmem_info, (void *)offset);
++	ret = rh_free(&cpm_dpmem_info, offset);
+ 	spin_unlock_irqrestore(&cpm_dpmem_lock, flags);
+
+ 	return ret;
+@@ -282,17 +281,17 @@ int cpm_dpfree(uint offset)
+ EXPORT_SYMBOL(cpm_dpfree);
+
+ /* not sure if this is ever needed */
+-uint cpm_dpalloc_fixed(uint offset, uint size, uint align)
++unsigned long cpm_dpalloc_fixed(unsigned long offset, uint size, uint align)
+ {
+-	void *start;
++	unsigned long start;
+ 	unsigned long flags;
+
+ 	spin_lock_irqsave(&cpm_dpmem_lock, flags);
+ 	cpm_dpmem_info.alignment = align;
+-	start = rh_alloc_fixed(&cpm_dpmem_info, (void *)offset, size, "commproc");
++	start = rh_alloc_fixed(&cpm_dpmem_info, offset, size, "commproc");
+ 	spin_unlock_irqrestore(&cpm_dpmem_lock, flags);
+
+-	return (uint)start;
++	return start;
+ }
+ EXPORT_SYMBOL(cpm_dpalloc_fixed);
+
+@@ -302,7 +301,7 @@ void cpm_dpdump(void)
+ }
+ EXPORT_SYMBOL(cpm_dpdump);
+
+-void *cpm_dpram_addr(uint offset)
++void *cpm_dpram_addr(unsigned long offset)
+ {
+ 	return (void *)(im_dprambase + offset);
+ }
+diff --git a/arch/powerpc/sysdev/qe_lib/qe.c b/arch/powerpc/sysdev/qe_lib/qe.c
+index 7f4c075..90f8740 100644
+--- a/arch/powerpc/sysdev/qe_lib/qe.c
++++ b/arch/powerpc/sysdev/qe_lib/qe.c
+@@ -244,7 +244,7 @@ EXPORT_SYMBOL(qe_put_snum);
+ static int qe_sdma_init(void)
+ {
+ 	struct sdma *sdma = &qe_immr->sdma;
+-	u32 sdma_buf_offset;
++	unsigned long sdma_buf_offset;
+
+ 	if (!sdma)
+ 		return -ENODEV;
+@@ -252,10 +252,10 @@ static int qe_sdma_init(void)
+ 	/* allocate 2 internal temporary buffers (512 bytes size each) for
+ 	 * the SDMA */
+  	sdma_buf_offset = qe_muram_alloc(512 * 2, 4096);
+-	if (IS_MURAM_ERR(sdma_buf_offset))
++	if (IS_ERR_VALUE(sdma_buf_offset))
+ 		return -ENOMEM;
+
+-	out_be32(&sdma->sdebcr, sdma_buf_offset & QE_SDEBCR_BA_MASK);
++	out_be32(&sdma->sdebcr, (u32) sdma_buf_offset & QE_SDEBCR_BA_MASK);
+  	out_be32(&sdma->sdmr, (QE_SDMR_GLB_1_MSK |
+  					(0x1 << QE_SDMR_CEN_SHIFT)));
+
+@@ -291,33 +291,32 @@ static void qe_muram_init(void)
+ 	if ((np = of_find_node_by_name(NULL, "data-only")) != NULL) {
+ 		address = *of_get_address(np, 0, &size, &flags);
+ 		of_node_put(np);
+-		rh_attach_region(&qe_muram_info,
+-			(void *)address, (int)size);
++		rh_attach_region(&qe_muram_info, address, (int) size);
+ 	}
+ }
+
+ /* This function returns an index into the MURAM area.
+  */
+-u32 qe_muram_alloc(u32 size, u32 align)
++unsigned long qe_muram_alloc(int size, int align)
+ {
+-	void *start;
++	unsigned long start;
+ 	unsigned long flags;
+
+ 	spin_lock_irqsave(&qe_muram_lock, flags);
+ 	start = rh_alloc_align(&qe_muram_info, size, align, "QE");
+ 	spin_unlock_irqrestore(&qe_muram_lock, flags);
+
+-	return (u32) start;
++	return start;
+ }
+ EXPORT_SYMBOL(qe_muram_alloc);
+
+-int qe_muram_free(u32 offset)
++int qe_muram_free(unsigned long offset)
+ {
+ 	int ret;
+ 	unsigned long flags;
+
+ 	spin_lock_irqsave(&qe_muram_lock, flags);
+-	ret = rh_free(&qe_muram_info, (void *)offset);
++	ret = rh_free(&qe_muram_info, offset);
+ 	spin_unlock_irqrestore(&qe_muram_lock, flags);
+
+ 	return ret;
+@@ -325,16 +324,16 @@ int qe_muram_free(u32 offset)
+ EXPORT_SYMBOL(qe_muram_free);
+
+ /* not sure if this is ever needed */
+-u32 qe_muram_alloc_fixed(u32 offset, u32 size)
++unsigned long qe_muram_alloc_fixed(unsigned long offset, int size)
+ {
+-	void *start;
++	unsigned long start;
+ 	unsigned long flags;
+
+ 	spin_lock_irqsave(&qe_muram_lock, flags);
+-	start = rh_alloc_fixed(&qe_muram_info, (void *)offset, size, "commproc");
++	start = rh_alloc_fixed(&qe_muram_info, offset, size, "commproc");
+ 	spin_unlock_irqrestore(&qe_muram_lock, flags);
+
+-	return (u32) start;
++	return start;
+ }
+ EXPORT_SYMBOL(qe_muram_alloc_fixed);
+
+@@ -344,7 +343,7 @@ void qe_muram_dump(void)
+ }
+ EXPORT_SYMBOL(qe_muram_dump);
+
+-void *qe_muram_addr(u32 offset)
++void *qe_muram_addr(unsigned long offset)
+ {
+ 	return (void *)&qe_immr->muram[offset];
+ }
+diff --git a/arch/powerpc/sysdev/qe_lib/ucc_fast.c b/arch/powerpc/sysdev/qe_lib/ucc_fast.c
+index 66137bf..9143236 100644
+--- a/arch/powerpc/sysdev/qe_lib/ucc_fast.c
++++ b/arch/powerpc/sysdev/qe_lib/ucc_fast.c
+@@ -18,6 +18,7 @@
  #include <linux/slab.h>
- #include <linux/fs.h>
- #include <linux/pagemap.h>
-+#include <linux/writeback.h>
- #include "internal.h"
- 
- static int afs_readpage(struct file *file, struct page *page);
- static void afs_invalidatepage(struct page *page, unsigned long offset);
- static int afs_releasepage(struct page *page, gfp_t gfp_flags);
-+static int afs_launder_page(struct page *page);
- 
- const struct file_operations afs_file_operations = {
- 	.open		= afs_open,
- 	.release	= afs_release,
- 	.llseek		= generic_file_llseek,
- 	.read		= do_sync_read,
-+	.write		= do_sync_write,
- 	.aio_read	= generic_file_aio_read,
-+	.aio_write	= afs_file_write,
- 	.mmap		= generic_file_readonly_mmap,
- 	.sendfile	= generic_file_sendfile,
-+	.fsync		= afs_fsync,
- };
- 
- const struct inode_operations afs_file_inode_operations = {
- 	.getattr	= afs_getattr,
-+	.setattr	= afs_setattr,
- 	.permission	= afs_permission,
- };
- 
- const struct address_space_operations afs_fs_aops = {
- 	.readpage	= afs_readpage,
--	.set_page_dirty	= __set_page_dirty_nobuffers,
-+	.set_page_dirty	= afs_set_page_dirty,
-+	.launder_page	= afs_launder_page,
- 	.releasepage	= afs_releasepage,
- 	.invalidatepage	= afs_invalidatepage,
-+	.prepare_write	= afs_prepare_write,
-+	.commit_write	= afs_commit_write,
-+	.writepage	= afs_writepage,
-+	.writepages	= afs_writepages,
- };
- 
+ #include <linux/stddef.h>
+ #include <linux/interrupt.h>
++#include <linux/err.h>
+
+ #include <asm/io.h>
+ #include <asm/immap_qe.h>
+@@ -268,7 +269,7 @@ int ucc_fast_init(struct ucc_fast_info * uf_info, struct ucc_fast_private ** ucc
+ 	/* Allocate memory for Tx Virtual Fifo */
+ 	uccf->ucc_fast_tx_virtual_fifo_base_offset =
+ 	    qe_muram_alloc(uf_info->utfs, UCC_FAST_VIRT_FIFO_REGS_ALIGNMENT);
+-	if (IS_MURAM_ERR(uccf->ucc_fast_tx_virtual_fifo_base_offset)) {
++	if (IS_ERR_VALUE(uccf->ucc_fast_tx_virtual_fifo_base_offset)) {
+ 		printk(KERN_ERR "%s: cannot allocate MURAM for TX FIFO", __FUNCTION__);
+ 		uccf->ucc_fast_tx_virtual_fifo_base_offset = 0;
+ 		ucc_fast_free(uccf);
+@@ -280,7 +281,7 @@ int ucc_fast_init(struct ucc_fast_info * uf_info, struct ucc_fast_private ** ucc
+ 		qe_muram_alloc(uf_info->urfs +
+ 			   UCC_FAST_RECEIVE_VIRTUAL_FIFO_SIZE_FUDGE_FACTOR,
+ 			   UCC_FAST_VIRT_FIFO_REGS_ALIGNMENT);
+-	if (IS_MURAM_ERR(uccf->ucc_fast_rx_virtual_fifo_base_offset)) {
++	if (IS_ERR_VALUE(uccf->ucc_fast_rx_virtual_fifo_base_offset)) {
+ 		printk(KERN_ERR "%s: cannot allocate MURAM for RX FIFO", __FUNCTION__);
+ 		uccf->ucc_fast_rx_virtual_fifo_base_offset = 0;
+ 		ucc_fast_free(uccf);
+diff --git a/arch/powerpc/sysdev/qe_lib/ucc_slow.c b/arch/powerpc/sysdev/qe_lib/ucc_slow.c
+index b930d68..1f65c26 100644
+--- a/arch/powerpc/sysdev/qe_lib/ucc_slow.c
++++ b/arch/powerpc/sysdev/qe_lib/ucc_slow.c
+@@ -18,6 +18,7 @@
+ #include <linux/slab.h>
+ #include <linux/stddef.h>
+ #include <linux/interrupt.h>
++#include <linux/err.h>
+
+ #include <asm/io.h>
+ #include <asm/immap_qe.h>
+@@ -175,7 +176,7 @@ int ucc_slow_init(struct ucc_slow_info * us_info, struct ucc_slow_private ** ucc
+ 	/* Get PRAM base */
+ 	uccs->us_pram_offset =
+ 		qe_muram_alloc(UCC_SLOW_PRAM_SIZE, ALIGNMENT_OF_UCC_SLOW_PRAM);
+-	if (IS_MURAM_ERR(uccs->us_pram_offset)) {
++	if (IS_ERR_VALUE(uccs->us_pram_offset)) {
+ 		printk(KERN_ERR "%s: cannot allocate MURAM for PRAM", __FUNCTION__);
+ 		ucc_slow_free(uccs);
+ 		return -ENOMEM;
+@@ -210,7 +211,7 @@ int ucc_slow_init(struct ucc_slow_info * us_info, struct ucc_slow_private ** ucc
+ 	uccs->rx_base_offset =
+ 		qe_muram_alloc(us_info->rx_bd_ring_len * sizeof(struct qe_bd),
+ 				QE_ALIGNMENT_OF_BD);
+-	if (IS_MURAM_ERR(uccs->rx_base_offset)) {
++	if (IS_ERR_VALUE(uccs->rx_base_offset)) {
+ 		printk(KERN_ERR "%s: cannot allocate RX BDs", __FUNCTION__);
+ 		uccs->rx_base_offset = 0;
+ 		ucc_slow_free(uccs);
+@@ -220,7 +221,7 @@ int ucc_slow_init(struct ucc_slow_info * us_info, struct ucc_slow_private ** ucc
+ 	uccs->tx_base_offset =
+ 		qe_muram_alloc(us_info->tx_bd_ring_len * sizeof(struct qe_bd),
+ 			QE_ALIGNMENT_OF_BD);
+-	if (IS_MURAM_ERR(uccs->tx_base_offset)) {
++	if (IS_ERR_VALUE(uccs->tx_base_offset)) {
+ 		printk(KERN_ERR "%s: cannot allocate TX BDs", __FUNCTION__);
+ 		uccs->tx_base_offset = 0;
+ 		ucc_slow_free(uccs);
+diff --git a/arch/ppc/8xx_io/commproc.c b/arch/ppc/8xx_io/commproc.c
+index 7a8722b..e2c6210 100644
+--- a/arch/ppc/8xx_io/commproc.c
++++ b/arch/ppc/8xx_io/commproc.c
+@@ -402,7 +402,7 @@ void m8xx_cpm_dpinit(void)
+ 	 * with the processor and the microcode patches applied / activated.
+ 	 * But the following should be at least safe.
+ 	 */
+-	rh_attach_region(&cpm_dpmem_info, (void *)CPM_DATAONLY_BASE, CPM_DATAONLY_SIZE);
++	rh_attach_region(&cpm_dpmem_info, CPM_DATAONLY_BASE, CPM_DATAONLY_SIZE);
+ }
+
  /*
-@@ -230,11 +241,6 @@ static void afs_invalidatepage(struct page *page, unsigned long offset)
- 	BUG_ON(!PageLocked(page));
- 
- 	if (PagePrivate(page)) {
--#ifdef AFS_CACHING_SUPPORT
--		struct afs_vnode *vnode = AFS_FS_I(page->mapping->host);
--		cachefs_uncache_page(vnode->cache,page);
--#endif
+@@ -410,9 +410,9 @@ void m8xx_cpm_dpinit(void)
+  * This function returns an offset into the DPRAM area.
+  * Use cpm_dpram_addr() to get the virtual address of the area.
+  */
+-uint cpm_dpalloc(uint size, uint align)
++unsigned long cpm_dpalloc(uint size, uint align)
+ {
+-	void *start;
++	unsigned long start;
+ 	unsigned long flags;
+
+ 	spin_lock_irqsave(&cpm_dpmem_lock, flags);
+@@ -420,34 +420,34 @@ uint cpm_dpalloc(uint size, uint align)
+ 	start = rh_alloc(&cpm_dpmem_info, size, "commproc");
+ 	spin_unlock_irqrestore(&cpm_dpmem_lock, flags);
+
+-	return (uint)start;
++	return start;
+ }
+ EXPORT_SYMBOL(cpm_dpalloc);
+
+-int cpm_dpfree(uint offset)
++int cpm_dpfree(unsigned long offset)
+ {
+ 	int ret;
+ 	unsigned long flags;
+
+ 	spin_lock_irqsave(&cpm_dpmem_lock, flags);
+-	ret = rh_free(&cpm_dpmem_info, (void *)offset);
++	ret = rh_free(&cpm_dpmem_info, offset);
+ 	spin_unlock_irqrestore(&cpm_dpmem_lock, flags);
+
+ 	return ret;
+ }
+ EXPORT_SYMBOL(cpm_dpfree);
+
+-uint cpm_dpalloc_fixed(uint offset, uint size, uint align)
++unsigned long cpm_dpalloc_fixed(unsigned long offset, uint size, uint align)
+ {
+-	void *start;
++	unsigned long start;
+ 	unsigned long flags;
+
+ 	spin_lock_irqsave(&cpm_dpmem_lock, flags);
+ 	cpm_dpmem_info.alignment = align;
+-	start = rh_alloc_fixed(&cpm_dpmem_info, (void *)offset, size, "commproc");
++	start = rh_alloc_fixed(&cpm_dpmem_info, offset, size, "commproc");
+ 	spin_unlock_irqrestore(&cpm_dpmem_lock, flags);
+
+-	return (uint)start;
++	return start;
+ }
+ EXPORT_SYMBOL(cpm_dpalloc_fixed);
+
+@@ -457,7 +457,7 @@ void cpm_dpdump(void)
+ }
+ EXPORT_SYMBOL(cpm_dpdump);
+
+-void *cpm_dpram_addr(uint offset)
++void *cpm_dpram_addr(unsigned long offset)
+ {
+ 	return ((immap_t *)IMAP_ADDR)->im_cpm.cp_dpmem + offset;
+ }
+diff --git a/arch/ppc/lib/rheap.c b/arch/ppc/lib/rheap.c
+index d407007..9dc2f34 100644
+--- a/arch/ppc/lib/rheap.c
++++ b/arch/ppc/lib/rheap.c
+@@ -132,7 +132,7 @@ static rh_block_t *get_slot(rh_info_t * info)
+ 	info->empty_slots--;
+
+ 	/* Initialize */
+-	blk->start = NULL;
++	blk->start = 0;
+ 	blk->size = 0;
+ 	blk->owner = NULL;
+
+@@ -157,7 +157,7 @@ static void attach_free_block(rh_info_t * info, rh_block_t * blkn)
+
+ 	/* We assume that they are aligned properly */
+ 	size = blkn->size;
+-	s = (unsigned long)blkn->start;
++	s = blkn->start;
+ 	e = s + size;
+
+ 	/* Find the blocks immediately before and after the given one
+@@ -169,7 +169,7 @@ static void attach_free_block(rh_info_t * info, rh_block_t * blkn)
+ 	list_for_each(l, &info->free_list) {
+ 		blk = list_entry(l, rh_block_t, list);
+
+-		bs = (unsigned long)blk->start;
++		bs = blk->start;
+ 		be = bs + blk->size;
+
+ 		if (next == NULL && s >= bs)
+@@ -187,10 +187,10 @@ static void attach_free_block(rh_info_t * info, rh_block_t * blkn)
+ 	}
+
+ 	/* Now check if they are really adjacent */
+-	if (before != NULL && s != (unsigned long)before->start + before->size)
++	if (before && s != (before->start + before->size))
+ 		before = NULL;
+
+-	if (after != NULL && e != (unsigned long)after->start)
++	if (after && e != after->start)
+ 		after = NULL;
+
+ 	/* No coalescing; list insert and return */
+@@ -215,7 +215,7 @@ static void attach_free_block(rh_info_t * info, rh_block_t * blkn)
+
+ 	/* Grow the after block backwards */
+ 	if (before == NULL && after != NULL) {
+-		after->start = (int8_t *)after->start - size;
++		after->start -= size;
+ 		after->size += size;
+ 		return;
+ 	}
+@@ -320,14 +320,14 @@ void rh_init(rh_info_t * info, unsigned int alignment, int max_blocks,
+ }
+
+ /* Attach a free memory region, coalesces regions if adjuscent */
+-int rh_attach_region(rh_info_t * info, void *start, int size)
++int rh_attach_region(rh_info_t * info, unsigned long start, int size)
+ {
+ 	rh_block_t *blk;
+ 	unsigned long s, e, m;
+ 	int r;
+
+ 	/* The region must be aligned */
+-	s = (unsigned long)start;
++	s = start;
+ 	e = s + size;
+ 	m = info->alignment - 1;
+
+@@ -337,9 +337,12 @@ int rh_attach_region(rh_info_t * info, void *start, int size)
+ 	/* Round end down */
+ 	e = e & ~m;
+
++	if (IS_ERR_VALUE(e) || (e < s))
++		return -ERANGE;
++
+ 	/* Take final values */
+-	start = (void *)s;
+-	size = (int)(e - s);
++	start = s;
++	size = e - s;
+
+ 	/* Grow the blocks, if needed */
+ 	r = assure_empty(info, 1);
+@@ -357,7 +360,7 @@ int rh_attach_region(rh_info_t * info, void *start, int size)
+ }
+
+ /* Detatch given address range, splits free block if needed. */
+-void *rh_detach_region(rh_info_t * info, void *start, int size)
++unsigned long rh_detach_region(rh_info_t * info, unsigned long start, int size)
+ {
+ 	struct list_head *l;
+ 	rh_block_t *blk, *newblk;
+@@ -365,10 +368,10 @@ void *rh_detach_region(rh_info_t * info, void *start, int size)
+
+ 	/* Validate size */
+ 	if (size <= 0)
+-		return ERR_PTR(-EINVAL);
++		return (unsigned long) -EINVAL;
+
+ 	/* The region must be aligned */
+-	s = (unsigned long)start;
++	s = start;
+ 	e = s + size;
+ 	m = info->alignment - 1;
+
+@@ -379,34 +382,34 @@ void *rh_detach_region(rh_info_t * info, void *start, int size)
+ 	e = e & ~m;
+
+ 	if (assure_empty(info, 1) < 0)
+-		return ERR_PTR(-ENOMEM);
++		return (unsigned long) -ENOMEM;
+
+ 	blk = NULL;
+ 	list_for_each(l, &info->free_list) {
+ 		blk = list_entry(l, rh_block_t, list);
+ 		/* The range must lie entirely inside one free block */
+-		bs = (unsigned long)blk->start;
+-		be = (unsigned long)blk->start + blk->size;
++		bs = blk->start;
++		be = blk->start + blk->size;
+ 		if (s >= bs && e <= be)
+ 			break;
+ 		blk = NULL;
+ 	}
+
+ 	if (blk == NULL)
+-		return ERR_PTR(-ENOMEM);
++		return (unsigned long) -ENOMEM;
+
+ 	/* Perfect fit */
+ 	if (bs == s && be == e) {
+ 		/* Delete from free list, release slot */
+ 		list_del(&blk->list);
+ 		release_slot(info, blk);
+-		return (void *)s;
++		return s;
+ 	}
+
+ 	/* blk still in free list, with updated start and/or size */
+ 	if (bs == s || be == e) {
+ 		if (bs == s)
+-			blk->start = (int8_t *)blk->start + size;
++			blk->start += size;
+ 		blk->size -= size;
+
+ 	} else {
+@@ -415,31 +418,31 @@ void *rh_detach_region(rh_info_t * info, void *start, int size)
+
+ 		/* the back free fragment */
+ 		newblk = get_slot(info);
+-		newblk->start = (void *)e;
++		newblk->start = e;
+ 		newblk->size = be - e;
+
+ 		list_add(&newblk->list, &blk->list);
+ 	}
+
+-	return (void *)s;
++	return s;
+ }
+
+-void *rh_alloc(rh_info_t * info, int size, const char *owner)
++unsigned long rh_alloc(rh_info_t * info, int size, const char *owner)
+ {
+ 	struct list_head *l;
+ 	rh_block_t *blk;
+ 	rh_block_t *newblk;
+-	void *start;
++	unsigned long start;
+
+ 	/* Validate size */
+ 	if (size <= 0)
+-		return ERR_PTR(-EINVAL);
++		return (unsigned long) -EINVAL;
+
+ 	/* Align to configured alignment */
+ 	size = (size + (info->alignment - 1)) & ~(info->alignment - 1);
+
+ 	if (assure_empty(info, 1) < 0)
+-		return ERR_PTR(-ENOMEM);
++		return (unsigned long) -ENOMEM;
+
+ 	blk = NULL;
+ 	list_for_each(l, &info->free_list) {
+@@ -450,7 +453,7 @@ void *rh_alloc(rh_info_t * info, int size, const char *owner)
+ 	}
+
+ 	if (blk == NULL)
+-		return ERR_PTR(-ENOMEM);
++		return (unsigned long) -ENOMEM;
+
+ 	/* Just fits */
+ 	if (blk->size == size) {
+@@ -470,7 +473,7 @@ void *rh_alloc(rh_info_t * info, int size, const char *owner)
+ 	newblk->owner = owner;
+
+ 	/* blk still in free list, with updated start, size */
+-	blk->start = (int8_t *)blk->start + size;
++	blk->start += size;
+ 	blk->size -= size;
+
+ 	start = newblk->start;
+@@ -481,18 +484,18 @@ void *rh_alloc(rh_info_t * info, int size, const char *owner)
+ }
+
+ /* allocate at precisely the given address */
+-void *rh_alloc_fixed(rh_info_t * info, void *start, int size, const char *owner)
++unsigned long rh_alloc_fixed(rh_info_t * info, unsigned long start, int size, const char *owner)
+ {
+ 	struct list_head *l;
+ 	rh_block_t *blk, *newblk1, *newblk2;
+-	unsigned long s, e, m, bs, be;
++	unsigned long s, e, m, bs=0, be=0;
+
+ 	/* Validate size */
+ 	if (size <= 0)
+-		return ERR_PTR(-EINVAL);
++		return (unsigned long) -EINVAL;
+
+ 	/* The region must be aligned */
+-	s = (unsigned long)start;
++	s = start;
+ 	e = s + size;
+ 	m = info->alignment - 1;
+
+@@ -503,20 +506,20 @@ void *rh_alloc_fixed(rh_info_t * info, void *start, int size, const char *owner)
+ 	e = e & ~m;
+
+ 	if (assure_empty(info, 2) < 0)
+-		return ERR_PTR(-ENOMEM);
++		return (unsigned long) -ENOMEM;
+
+ 	blk = NULL;
+ 	list_for_each(l, &info->free_list) {
+ 		blk = list_entry(l, rh_block_t, list);
+ 		/* The range must lie entirely inside one free block */
+-		bs = (unsigned long)blk->start;
+-		be = (unsigned long)blk->start + blk->size;
++		bs = blk->start;
++		be = blk->start + blk->size;
+ 		if (s >= bs && e <= be)
+ 			break;
+ 	}
+
+ 	if (blk == NULL)
+-		return ERR_PTR(-ENOMEM);
++		return (unsigned long) -ENOMEM;
+
+ 	/* Perfect fit */
+ 	if (bs == s && be == e) {
+@@ -534,7 +537,7 @@ void *rh_alloc_fixed(rh_info_t * info, void *start, int size, const char *owner)
+ 	/* blk still in free list, with updated start and/or size */
+ 	if (bs == s || be == e) {
+ 		if (bs == s)
+-			blk->start = (int8_t *)blk->start + size;
++			blk->start += size;
+ 		blk->size -= size;
+
+ 	} else {
+@@ -543,14 +546,14 @@ void *rh_alloc_fixed(rh_info_t * info, void *start, int size, const char *owner)
+
+ 		/* The back free fragment */
+ 		newblk2 = get_slot(info);
+-		newblk2->start = (void *)e;
++		newblk2->start = e;
+ 		newblk2->size = be - e;
+
+ 		list_add(&newblk2->list, &blk->list);
+ 	}
+
+ 	newblk1 = get_slot(info);
+-	newblk1->start = (void *)s;
++	newblk1->start = s;
+ 	newblk1->size = e - s;
+ 	newblk1->owner = owner;
+
+@@ -560,7 +563,7 @@ void *rh_alloc_fixed(rh_info_t * info, void *start, int size, const char *owner)
+ 	return start;
+ }
+
+-int rh_free(rh_info_t * info, void *start)
++int rh_free(rh_info_t * info, unsigned long start)
+ {
+ 	rh_block_t *blk, *blk2;
+ 	struct list_head *l;
+@@ -625,7 +628,7 @@ int rh_get_stats(rh_info_t * info, int what, int max_stats, rh_stats_t * stats)
+ 	return nr;
+ }
+
+-int rh_set_owner(rh_info_t * info, void *start, const char *owner)
++int rh_set_owner(rh_info_t * info, unsigned long start, const char *owner)
+ {
+ 	rh_block_t *blk, *blk2;
+ 	struct list_head *l;
+@@ -667,8 +670,8 @@ void rh_dump(rh_info_t * info)
+ 		nr = maxnr;
+ 	for (i = 0; i < nr; i++)
+ 		printk(KERN_INFO
+-		       "    0x%p-0x%p (%u)\n",
+-		       st[i].start, (int8_t *) st[i].start + st[i].size,
++		       "    0x%lx-0x%lx (%u)\n",
++		       st[i].start, st[i].start + st[i].size,
+ 		       st[i].size);
+ 	printk(KERN_INFO "\n");
+
+@@ -678,8 +681,8 @@ void rh_dump(rh_info_t * info)
+ 		nr = maxnr;
+ 	for (i = 0; i < nr; i++)
+ 		printk(KERN_INFO
+-		       "    0x%p-0x%p (%u) %s\n",
+-		       st[i].start, (int8_t *) st[i].start + st[i].size,
++		       "    0x%lx-0x%lx (%u) %s\n",
++		       st[i].start, st[i].start + st[i].size,
+ 		       st[i].size, st[i].owner != NULL ? st[i].owner : "");
+ 	printk(KERN_INFO "\n");
+ }
+@@ -687,6 +690,6 @@ void rh_dump(rh_info_t * info)
+ void rh_dump_blk(rh_info_t * info, rh_block_t * blk)
+ {
+ 	printk(KERN_INFO
+-	       "blk @0x%p: 0x%p-0x%p (%u)\n",
+-	       blk, blk->start, (int8_t *) blk->start + blk->size, blk->size);
++	       "blk @0x%p: 0x%lx-0x%lx (%u)\n",
++	       blk, blk->start, blk->start + blk->size, blk->size);
+ }
+diff --git a/arch/ppc/syslib/cpm2_common.c b/arch/ppc/syslib/cpm2_common.c
+index cbac44b..6cd859d 100644
+--- a/arch/ppc/syslib/cpm2_common.c
++++ b/arch/ppc/syslib/cpm2_common.c
+@@ -136,15 +136,14 @@ static void cpm2_dpinit(void)
+ 	 * varies with the processor and the microcode patches activated.
+ 	 * But the following should be at least safe.
+ 	 */
+-	rh_attach_region(&cpm_dpmem_info, (void *)CPM_DATAONLY_BASE,
+-			CPM_DATAONLY_SIZE);
++	rh_attach_region(&cpm_dpmem_info, CPM_DATAONLY_BASE, CPM_DATAONLY_SIZE);
+ }
+
+ /* This function returns an index into the DPRAM area.
+  */
+-uint cpm_dpalloc(uint size, uint align)
++unsigned long cpm_dpalloc(uint size, uint align)
+ {
+-	void *start;
++	unsigned long start;
+ 	unsigned long flags;
+
+ 	spin_lock_irqsave(&cpm_dpmem_lock, flags);
+@@ -152,17 +151,17 @@ uint cpm_dpalloc(uint size, uint align)
+ 	start = rh_alloc(&cpm_dpmem_info, size, "commproc");
+ 	spin_unlock_irqrestore(&cpm_dpmem_lock, flags);
+
+-	return (uint)start;
++	return start;
+ }
+ EXPORT_SYMBOL(cpm_dpalloc);
+
+-int cpm_dpfree(uint offset)
++int cpm_dpfree(unsigned long offset)
+ {
+ 	int ret;
+ 	unsigned long flags;
+
+ 	spin_lock_irqsave(&cpm_dpmem_lock, flags);
+-	ret = rh_free(&cpm_dpmem_info, (void *)offset);
++	ret = rh_free(&cpm_dpmem_info, offset);
+ 	spin_unlock_irqrestore(&cpm_dpmem_lock, flags);
+
+ 	return ret;
+@@ -170,17 +169,17 @@ int cpm_dpfree(uint offset)
+ EXPORT_SYMBOL(cpm_dpfree);
+
+ /* not sure if this is ever needed */
+-uint cpm_dpalloc_fixed(uint offset, uint size, uint align)
++unsigned long cpm_dpalloc_fixed(unsigned long offset, uint size, uint align)
+ {
+-	void *start;
++	unsigned long start;
+ 	unsigned long flags;
+
+ 	spin_lock_irqsave(&cpm_dpmem_lock, flags);
+ 	cpm_dpmem_info.alignment = align;
+-	start = rh_alloc_fixed(&cpm_dpmem_info, (void *)offset, size, "commproc");
++	start = rh_alloc_fixed(&cpm_dpmem_info, offset, size, "commproc");
+ 	spin_unlock_irqrestore(&cpm_dpmem_lock, flags);
+
+-	return (uint)start;
++	return start;
+ }
+ EXPORT_SYMBOL(cpm_dpalloc_fixed);
+
+@@ -190,7 +189,7 @@ void cpm_dpdump(void)
+ }
+ EXPORT_SYMBOL(cpm_dpdump);
+
+-void *cpm_dpram_addr(uint offset)
++void *cpm_dpram_addr(unsigned long offset)
+ {
+ 	return (void *)&cpm2_immr->im_dprambase[offset];
+ }
+diff --git a/drivers/net/fs_enet/mac-scc.c b/drivers/net/fs_enet/mac-scc.c
+index d0f2898..7540966 100644
+--- a/drivers/net/fs_enet/mac-scc.c
++++ b/drivers/net/fs_enet/mac-scc.c
+@@ -167,7 +167,7 @@ static int allocate_bd(struct net_device *dev)
+
+ 	fep->ring_mem_addr = cpm_dpalloc((fpi->tx_ring + fpi->rx_ring) *
+ 					 sizeof(cbd_t), 8);
+-	if (IS_DPERR(fep->ring_mem_addr))
++	if (IS_ERR_VALUE(fep->ring_mem_addr))
+ 		return -ENOMEM;
+
+ 	fep->ring_base = cpm_dpram_addr(fep->ring_mem_addr);
+diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
+index d7aff81..0f66765 100644
+--- a/drivers/net/ucc_geth.c
++++ b/drivers/net/ucc_geth.c
+@@ -293,7 +293,7 @@ static int fill_init_enet_entries(struct ucc_geth_private *ugeth,
+ 		else {
+ 			init_enet_offset =
+ 			    qe_muram_alloc(thread_size, thread_alignment);
+-			if (IS_MURAM_ERR(init_enet_offset)) {
++			if (IS_ERR_VALUE(init_enet_offset)) {
+ 				ugeth_err
+ 		("fill_init_enet_entries: Can not allocate DPRAM memory.");
+ 				qe_put_snum((u8) snum);
+@@ -2594,7 +2594,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 			ugeth->tx_bd_ring_offset[j] =
+ 			    qe_muram_alloc(length,
+ 					   UCC_GETH_TX_BD_RING_ALIGNMENT);
+-			if (!IS_MURAM_ERR(ugeth->tx_bd_ring_offset[j]))
++			if (!IS_ERR_VALUE(ugeth->tx_bd_ring_offset[j]))
+ 				ugeth->p_tx_bd_ring[j] =
+ 				    (u8 *) qe_muram_addr(ugeth->
+ 							 tx_bd_ring_offset[j]);
+@@ -2629,7 +2629,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 			ugeth->rx_bd_ring_offset[j] =
+ 			    qe_muram_alloc(length,
+ 					   UCC_GETH_RX_BD_RING_ALIGNMENT);
+-			if (!IS_MURAM_ERR(ugeth->rx_bd_ring_offset[j]))
++			if (!IS_ERR_VALUE(ugeth->rx_bd_ring_offset[j]))
+ 				ugeth->p_rx_bd_ring[j] =
+ 				    (u8 *) qe_muram_addr(ugeth->
+ 							 rx_bd_ring_offset[j]);
+@@ -2713,7 +2713,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 	ugeth->tx_glbl_pram_offset =
+ 	    qe_muram_alloc(sizeof(struct ucc_geth_tx_global_pram),
+ 			   UCC_GETH_TX_GLOBAL_PRAM_ALIGNMENT);
+-	if (IS_MURAM_ERR(ugeth->tx_glbl_pram_offset)) {
++	if (IS_ERR_VALUE(ugeth->tx_glbl_pram_offset)) {
+ 		ugeth_err
+ 		    ("%s: Can not allocate DPRAM memory for p_tx_glbl_pram.",
+ 		     __FUNCTION__);
+@@ -2735,7 +2735,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 			   sizeof(struct ucc_geth_thread_data_tx) +
+ 			   32 * (numThreadsTxNumerical == 1),
+ 			   UCC_GETH_THREAD_DATA_ALIGNMENT);
+-	if (IS_MURAM_ERR(ugeth->thread_dat_tx_offset)) {
++	if (IS_ERR_VALUE(ugeth->thread_dat_tx_offset)) {
+ 		ugeth_err
+ 		    ("%s: Can not allocate DPRAM memory for p_thread_data_tx.",
+ 		     __FUNCTION__);
+@@ -2763,7 +2763,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 	    qe_muram_alloc(ug_info->numQueuesTx *
+ 			   sizeof(struct ucc_geth_send_queue_qd),
+ 			   UCC_GETH_SEND_QUEUE_QUEUE_DESCRIPTOR_ALIGNMENT);
+-	if (IS_MURAM_ERR(ugeth->send_q_mem_reg_offset)) {
++	if (IS_ERR_VALUE(ugeth->send_q_mem_reg_offset)) {
+ 		ugeth_err
+ 		    ("%s: Can not allocate DPRAM memory for p_send_q_mem_reg.",
+ 		     __FUNCTION__);
+@@ -2806,7 +2806,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 		ugeth->scheduler_offset =
+ 		    qe_muram_alloc(sizeof(struct ucc_geth_scheduler),
+ 				   UCC_GETH_SCHEDULER_ALIGNMENT);
+-		if (IS_MURAM_ERR(ugeth->scheduler_offset)) {
++		if (IS_ERR_VALUE(ugeth->scheduler_offset)) {
+ 			ugeth_err
+ 			 ("%s: Can not allocate DPRAM memory for p_scheduler.",
+ 			     __FUNCTION__);
+@@ -2854,7 +2854,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 		    qe_muram_alloc(sizeof
+ 				   (struct ucc_geth_tx_firmware_statistics_pram),
+ 				   UCC_GETH_TX_STATISTICS_ALIGNMENT);
+-		if (IS_MURAM_ERR(ugeth->tx_fw_statistics_pram_offset)) {
++		if (IS_ERR_VALUE(ugeth->tx_fw_statistics_pram_offset)) {
+ 			ugeth_err
+ 			    ("%s: Can not allocate DPRAM memory for"
+ 				" p_tx_fw_statistics_pram.", __FUNCTION__);
+@@ -2893,7 +2893,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 	ugeth->rx_glbl_pram_offset =
+ 	    qe_muram_alloc(sizeof(struct ucc_geth_rx_global_pram),
+ 			   UCC_GETH_RX_GLOBAL_PRAM_ALIGNMENT);
+-	if (IS_MURAM_ERR(ugeth->rx_glbl_pram_offset)) {
++	if (IS_ERR_VALUE(ugeth->rx_glbl_pram_offset)) {
+ 		ugeth_err
+ 		    ("%s: Can not allocate DPRAM memory for p_rx_glbl_pram.",
+ 		     __FUNCTION__);
+@@ -2914,7 +2914,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 	    qe_muram_alloc(numThreadsRxNumerical *
+ 			   sizeof(struct ucc_geth_thread_data_rx),
+ 			   UCC_GETH_THREAD_DATA_ALIGNMENT);
+-	if (IS_MURAM_ERR(ugeth->thread_dat_rx_offset)) {
++	if (IS_ERR_VALUE(ugeth->thread_dat_rx_offset)) {
+ 		ugeth_err
+ 		    ("%s: Can not allocate DPRAM memory for p_thread_data_rx.",
+ 		     __FUNCTION__);
+@@ -2937,7 +2937,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 		    qe_muram_alloc(sizeof
+ 				   (struct ucc_geth_rx_firmware_statistics_pram),
+ 				   UCC_GETH_RX_STATISTICS_ALIGNMENT);
+-		if (IS_MURAM_ERR(ugeth->rx_fw_statistics_pram_offset)) {
++		if (IS_ERR_VALUE(ugeth->rx_fw_statistics_pram_offset)) {
+ 			ugeth_err
+ 				("%s: Can not allocate DPRAM memory for"
+ 				" p_rx_fw_statistics_pram.", __FUNCTION__);
+@@ -2959,7 +2959,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 	    qe_muram_alloc(ug_info->numQueuesRx *
+ 			   sizeof(struct ucc_geth_rx_interrupt_coalescing_entry)
+ 			   + 4, UCC_GETH_RX_INTERRUPT_COALESCING_ALIGNMENT);
+-	if (IS_MURAM_ERR(ugeth->rx_irq_coalescing_tbl_offset)) {
++	if (IS_ERR_VALUE(ugeth->rx_irq_coalescing_tbl_offset)) {
+ 		ugeth_err
+ 		    ("%s: Can not allocate DPRAM memory for"
+ 			" p_rx_irq_coalescing_tbl.", __FUNCTION__);
+@@ -3027,7 +3027,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 			   (sizeof(struct ucc_geth_rx_bd_queues_entry) +
+ 			    sizeof(struct ucc_geth_rx_prefetched_bds)),
+ 			   UCC_GETH_RX_BD_QUEUES_ALIGNMENT);
+-	if (IS_MURAM_ERR(ugeth->rx_bd_qs_tbl_offset)) {
++	if (IS_ERR_VALUE(ugeth->rx_bd_qs_tbl_offset)) {
+ 		ugeth_err
+ 		    ("%s: Can not allocate DPRAM memory for p_rx_bd_qs_tbl.",
+ 		     __FUNCTION__);
+@@ -3116,7 +3116,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 		ugeth->exf_glbl_param_offset =
+ 		    qe_muram_alloc(sizeof(struct ucc_geth_exf_global_pram),
+ 		UCC_GETH_RX_EXTENDED_FILTERING_GLOBAL_PARAMETERS_ALIGNMENT);
+-		if (IS_MURAM_ERR(ugeth->exf_glbl_param_offset)) {
++		if (IS_ERR_VALUE(ugeth->exf_glbl_param_offset)) {
+ 			ugeth_err
+ 				("%s: Can not allocate DPRAM memory for"
+ 				" p_exf_glbl_param.", __FUNCTION__);
+@@ -3258,7 +3258,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+
+ 	/* Allocate InitEnet command parameter structure */
+ 	init_enet_pram_offset = qe_muram_alloc(sizeof(struct ucc_geth_init_pram), 4);
+-	if (IS_MURAM_ERR(init_enet_pram_offset)) {
++	if (IS_ERR_VALUE(init_enet_pram_offset)) {
+ 		ugeth_err
+ 		    ("%s: Can not allocate DPRAM memory for p_init_enet_pram.",
+ 		     __FUNCTION__);
+diff --git a/drivers/serial/cpm_uart/cpm_uart_cpm1.c b/drivers/serial/cpm_uart/cpm_uart_cpm1.c
+index 925fb60..bb7afe9 100644
+--- a/drivers/serial/cpm_uart/cpm_uart_cpm1.c
++++ b/drivers/serial/cpm_uart/cpm_uart_cpm1.c
+@@ -125,7 +125,7 @@ int cpm_uart_allocbuf(struct uart_cpm_port *pinfo, unsigned int is_con)
+ {
+ 	int dpmemsz, memsz;
+ 	u8 *dp_mem;
+-	uint dp_offset;
++	unsigned long dp_offset;
+ 	u8 *mem_addr;
+ 	dma_addr_t dma_addr = 0;
+
+@@ -133,7 +133,7 @@ int cpm_uart_allocbuf(struct uart_cpm_port *pinfo, unsigned int is_con)
+
+ 	dpmemsz = sizeof(cbd_t) * (pinfo->rx_nrfifos + pinfo->tx_nrfifos);
+ 	dp_offset = cpm_dpalloc(dpmemsz, 8);
+-	if (IS_DPERR(dp_offset)) {
++	if (IS_ERR_VALUE(dp_offset)) {
+ 		printk(KERN_ERR
+ 		       "cpm_uart_cpm1.c: could not allocate buffer descriptors\n");
+ 		return -ENOMEM;
+diff --git a/drivers/serial/cpm_uart/cpm_uart_cpm2.c b/drivers/serial/cpm_uart/cpm_uart_cpm2.c
+index fa45599..1eeea36 100644
+--- a/drivers/serial/cpm_uart/cpm_uart_cpm2.c
++++ b/drivers/serial/cpm_uart/cpm_uart_cpm2.c
+@@ -222,7 +222,7 @@ int cpm_uart_allocbuf(struct uart_cpm_port *pinfo, unsigned int is_con)
+ {
+ 	int dpmemsz, memsz;
+ 	u8 *dp_mem;
+-	uint dp_offset;
++	unsigned long dp_offset;
+ 	u8 *mem_addr;
+ 	dma_addr_t dma_addr = 0;
+
+@@ -230,7 +230,7 @@ int cpm_uart_allocbuf(struct uart_cpm_port *pinfo, unsigned int is_con)
+
+ 	dpmemsz = sizeof(cbd_t) * (pinfo->rx_nrfifos + pinfo->tx_nrfifos);
+ 	dp_offset = cpm_dpalloc(dpmemsz, 8);
+-	if (IS_DPERR(dp_offset)) {
++	if (IS_ERR_VALUE(dp_offset)) {
+ 		printk(KERN_ERR
+ 		       "cpm_uart_cpm.c: could not allocate buffer descriptors\n");
+ 		return -ENOMEM;
+diff --git a/include/asm-powerpc/qe.h b/include/asm-powerpc/qe.h
+index a62168e..9d304b1 100644
+--- a/include/asm-powerpc/qe.h
++++ b/include/asm-powerpc/qe.h
+@@ -38,11 +38,11 @@ int qe_issue_cmd(u32 cmd, u32 device, u8 mcn_protocol, u32 cmd_input);
+ void qe_setbrg(u32 brg, u32 rate);
+ int qe_get_snum(void);
+ void qe_put_snum(u8 snum);
+-u32 qe_muram_alloc(u32 size, u32 align);
+-int qe_muram_free(u32 offset);
+-u32 qe_muram_alloc_fixed(u32 offset, u32 size);
++unsigned long qe_muram_alloc(int size, int align);
++int qe_muram_free(unsigned long offset);
++unsigned long qe_muram_alloc_fixed(unsigned long offset, int size);
+ void qe_muram_dump(void);
+-void *qe_muram_addr(u32 offset);
++void *qe_muram_addr(unsigned long offset);
+
+ /* Buffer descriptors */
+ struct qe_bd {
+@@ -448,10 +448,5 @@ struct ucc_slow_pram {
+ #define UCC_FAST_FUNCTION_CODE_DTB_LCL	0x02
+ #define UCC_FAST_FUNCTION_CODE_BDB_LCL	0x01
+
+-static inline long IS_MURAM_ERR(const u32 offset)
+-{
+-	return offset > (u32) - 1000L;
+-}
 -
- 		/* We release buffers only if the entire page is being
- 		 * invalidated.
- 		 * The get_block cached value has been unconditionally
-@@ -255,19 +261,33 @@ static void afs_invalidatepage(struct page *page, unsigned long offset)
- }
- 
- /*
-+ * write back a dirty page
-+ */
-+static int afs_launder_page(struct page *page)
-+{
-+	_enter("{%lu}", page->index);
-+
-+	return 0;
-+}
-+
-+/*
-  * release a page and cleanup its private data
+ #endif /* __KERNEL__ */
+ #endif /* _ASM_POWERPC_QE_H */
+diff --git a/include/asm-ppc/commproc.h b/include/asm-ppc/commproc.h
+index 4f99df1..3972487 100644
+--- a/include/asm-ppc/commproc.h
++++ b/include/asm-ppc/commproc.h
+@@ -63,20 +63,15 @@
+ #define CPM_DATAONLY_SIZE	((uint)0x0700)
+ #define CPM_DP_NOSPACE		((uint)0x7fffffff)
+
+-static inline long IS_DPERR(const uint offset)
+-{
+-	return (uint)offset > (uint)-1000L;
+-}
+-
+ /* Export the base address of the communication processor registers
+  * and dual port ram.
   */
- static int afs_releasepage(struct page *page, gfp_t gfp_flags)
- {
- 	struct afs_vnode *vnode = AFS_FS_I(page->mapping->host);
-+	struct afs_writeback *wb;
- 
- 	_enter("{{%x:%u}[%lu],%lx},%x",
- 	       vnode->fid.vid, vnode->fid.vnode, page->index, page->flags,
- 	       gfp_flags);
- 
- 	if (PagePrivate(page)) {
-+		wb = (struct afs_writeback *) page_private(page);
-+		ASSERT(wb != NULL);
- 		set_page_private(page, 0);
- 		ClearPagePrivate(page);
-+		afs_put_writeback(wb);
- 	}
- 
- 	_leave(" = 0");
-diff --git a/fs/afs/fsclient.c b/fs/afs/fsclient.c
-index 1e65fee..a552699 100644
---- a/fs/afs/fsclient.c
-+++ b/fs/afs/fsclient.c
-@@ -33,8 +33,10 @@ static void xdr_decode_AFSFid(const __be32 **_bp, struct afs_fid *fid)
+ extern	cpm8xx_t	*cpmp;		/* Pointer to comm processor */
+-extern uint cpm_dpalloc(uint size, uint align);
+-extern int cpm_dpfree(uint offset);
+-extern uint cpm_dpalloc_fixed(uint offset, uint size, uint align);
++extern unsigned long cpm_dpalloc(uint size, uint align);
++extern int cpm_dpfree(unsigned long offset);
++extern unsigned long cpm_dpalloc_fixed(unsigned long offset, uint size, uint align);
+ extern void cpm_dpdump(void);
+-extern void *cpm_dpram_addr(uint offset);
++extern void *cpm_dpram_addr(unsigned long offset);
+ extern uint cpm_dpram_phys(u8* addr);
+ extern void cpm_setbrg(uint brg, uint rate);
+
+diff --git a/include/asm-ppc/cpm2.h b/include/asm-ppc/cpm2.h
+index 220cc2d..12a2860 100644
+--- a/include/asm-ppc/cpm2.h
++++ b/include/asm-ppc/cpm2.h
+@@ -104,21 +104,16 @@
   */
- static void xdr_decode_AFSFetchStatus(const __be32 **_bp,
- 				      struct afs_file_status *status,
--				      struct afs_vnode *vnode)
-+				      struct afs_vnode *vnode,
-+				      afs_dataversion_t *store_version)
- {
-+	afs_dataversion_t expected_version;
- 	const __be32 *bp = *_bp;
- 	umode_t mode;
- 	u64 data_version, size;
-@@ -101,7 +103,11 @@ static void xdr_decode_AFSFetchStatus(const __be32 **_bp,
- 		vnode->vfs_inode.i_atime	= vnode->vfs_inode.i_ctime;
- 	}
- 
--	if (status->data_version != data_version) {
-+	expected_version = status->data_version;
-+	if (store_version)
-+		expected_version = *store_version;
-+
-+	if (expected_version != data_version) {
- 		status->data_version = data_version;
- 		if (vnode && !test_bit(AFS_VNODE_UNSET, &vnode->flags)) {
- 			_debug("vnode modified %llx on {%x:%u}",
-@@ -110,6 +116,8 @@ static void xdr_decode_AFSFetchStatus(const __be32 **_bp,
- 			set_bit(AFS_VNODE_MODIFIED, &vnode->flags);
- 			set_bit(AFS_VNODE_ZAP_DATA, &vnode->flags);
- 		}
-+	} else if (store_version) {
-+		status->data_version = data_version;
- 	}
- }
- 
-@@ -156,6 +164,44 @@ static void xdr_decode_AFSVolSync(const __be32 **_bp,
- }
- 
- /*
-+ * encode the requested attributes into an AFSStoreStatus block
-+ */
-+static void xdr_encode_AFS_StoreStatus(__be32 **_bp, struct iattr *attr)
-+{
-+	__be32 *bp = *_bp;
-+	u32 mask = 0, mtime = 0, owner = 0, group = 0, mode = 0;
-+
-+	mask = 0;
-+	if (attr->ia_valid & ATTR_MTIME) {
-+		mask |= AFS_SET_MTIME;
-+		mtime = attr->ia_mtime.tv_sec;
-+	}
-+
-+	if (attr->ia_valid & ATTR_UID) {
-+		mask |= AFS_SET_OWNER;
-+		owner = attr->ia_uid;
-+	}
-+
-+	if (attr->ia_valid & ATTR_GID) {
-+		mask |= AFS_SET_GROUP;
-+		group = attr->ia_gid;
-+	}
-+
-+	if (attr->ia_valid & ATTR_MODE) {
-+		mask |= AFS_SET_MODE;
-+		mode = attr->ia_mode & S_IALLUGO;
-+	}
-+
-+	*bp++ = htonl(mask);
-+	*bp++ = htonl(mtime);
-+	*bp++ = htonl(owner);
-+	*bp++ = htonl(group);
-+	*bp++ = htonl(mode);	
-+	*bp++ = 0;		/* segment size */
-+	*_bp = bp;
-+}
-+
-+/*
-  * deliver reply data to an FS.FetchStatus
+ #define NUM_CPM_HOST_PAGES	2
+
+-static inline long IS_DPERR(const uint offset)
+-{
+-	return (uint)offset > (uint)-1000L;
+-}
+-
+ /* Export the base address of the communication processor registers
+  * and dual port ram.
   */
- static int afs_deliver_fs_fetch_status(struct afs_call *call,
-@@ -175,7 +221,7 @@ static int afs_deliver_fs_fetch_status(struct afs_call *call,
- 
- 	/* unmarshall the reply once we've received all of it */
- 	bp = call->buffer;
--	xdr_decode_AFSFetchStatus(&bp, &vnode->status, vnode);
-+	xdr_decode_AFSFetchStatus(&bp, &vnode->status, vnode, NULL);
- 	xdr_decode_AFSCallBack(&bp, vnode);
- 	if (call->reply2)
- 		xdr_decode_AFSVolSync(&bp, call->reply2);
-@@ -295,7 +341,7 @@ static int afs_deliver_fs_fetch_data(struct afs_call *call,
- 		}
- 
- 		bp = call->buffer;
--		xdr_decode_AFSFetchStatus(&bp, &vnode->status, vnode);
-+		xdr_decode_AFSFetchStatus(&bp, &vnode->status, vnode, NULL);
- 		xdr_decode_AFSCallBack(&bp, vnode);
- 		if (call->reply2)
- 			xdr_decode_AFSVolSync(&bp, call->reply2);
-@@ -479,8 +525,8 @@ static int afs_deliver_fs_create_vnode(struct afs_call *call,
- 	/* unmarshall the reply once we've received all of it */
- 	bp = call->buffer;
- 	xdr_decode_AFSFid(&bp, call->reply2);
--	xdr_decode_AFSFetchStatus(&bp, call->reply3, NULL);
--	xdr_decode_AFSFetchStatus(&bp, &vnode->status, vnode);
-+	xdr_decode_AFSFetchStatus(&bp, call->reply3, NULL, NULL);
-+	xdr_decode_AFSFetchStatus(&bp, &vnode->status, vnode, NULL);
- 	xdr_decode_AFSCallBack_raw(&bp, call->reply4);
- 	/* xdr_decode_AFSVolSync(&bp, call->replyX); */
- 
-@@ -577,7 +623,7 @@ static int afs_deliver_fs_remove(struct afs_call *call,
- 
- 	/* unmarshall the reply once we've received all of it */
- 	bp = call->buffer;
--	xdr_decode_AFSFetchStatus(&bp, &vnode->status, vnode);
-+	xdr_decode_AFSFetchStatus(&bp, &vnode->status, vnode, NULL);
- 	/* xdr_decode_AFSVolSync(&bp, call->replyX); */
- 
- 	_leave(" = 0 [done]");
-@@ -660,8 +706,8 @@ static int afs_deliver_fs_link(struct afs_call *call,
- 
- 	/* unmarshall the reply once we've received all of it */
- 	bp = call->buffer;
--	xdr_decode_AFSFetchStatus(&bp, &vnode->status, vnode);
--	xdr_decode_AFSFetchStatus(&bp, &dvnode->status, dvnode);
-+	xdr_decode_AFSFetchStatus(&bp, &vnode->status, vnode, NULL);
-+	xdr_decode_AFSFetchStatus(&bp, &dvnode->status, dvnode, NULL);
- 	/* xdr_decode_AFSVolSync(&bp, call->replyX); */
- 
- 	_leave(" = 0 [done]");
-@@ -749,8 +795,8 @@ static int afs_deliver_fs_symlink(struct afs_call *call,
- 	/* unmarshall the reply once we've received all of it */
- 	bp = call->buffer;
- 	xdr_decode_AFSFid(&bp, call->reply2);
--	xdr_decode_AFSFetchStatus(&bp, call->reply3, NULL);
--	xdr_decode_AFSFetchStatus(&bp, &vnode->status, vnode);
-+	xdr_decode_AFSFetchStatus(&bp, call->reply3, NULL, NULL);
-+	xdr_decode_AFSFetchStatus(&bp, &vnode->status, vnode, NULL);
- 	/* xdr_decode_AFSVolSync(&bp, call->replyX); */
- 
- 	_leave(" = 0 [done]");
-@@ -855,9 +901,10 @@ static int afs_deliver_fs_rename(struct afs_call *call,
- 
- 	/* unmarshall the reply once we've received all of it */
- 	bp = call->buffer;
--	xdr_decode_AFSFetchStatus(&bp, &orig_dvnode->status, orig_dvnode);
-+	xdr_decode_AFSFetchStatus(&bp, &orig_dvnode->status, orig_dvnode, NULL);
- 	if (new_dvnode != orig_dvnode)
--		xdr_decode_AFSFetchStatus(&bp, &new_dvnode->status, new_dvnode);
-+		xdr_decode_AFSFetchStatus(&bp, &new_dvnode->status, new_dvnode,
-+					  NULL);
- 	/* xdr_decode_AFSVolSync(&bp, call->replyX); */
- 
- 	_leave(" = 0 [done]");
-@@ -939,3 +986,262 @@ int afs_fs_rename(struct afs_server *server,
- 
- 	return afs_make_call(&server->addr, call, GFP_NOFS, wait_mode);
- }
-+
-+/*
-+ * deliver reply data to an FS.StoreData
-+ */
-+static int afs_deliver_fs_store_data(struct afs_call *call,
-+				     struct sk_buff *skb, bool last)
-+{
-+	struct afs_vnode *vnode = call->reply;
-+	const __be32 *bp;
-+
-+	_enter(",,%u", last);
-+
-+	afs_transfer_reply(call, skb);
-+	if (!last) {
-+		_leave(" = 0 [more]");
-+		return 0;
-+	}
-+
-+	if (call->reply_size != call->reply_max) {
-+		_leave(" = -EBADMSG [%u != %u]",
-+		       call->reply_size, call->reply_max);
-+		return -EBADMSG;
-+	}
-+
-+	/* unmarshall the reply once we've received all of it */
-+	bp = call->buffer;
-+	xdr_decode_AFSFetchStatus(&bp, &vnode->status, vnode,
-+				  &call->store_version);
-+	/* xdr_decode_AFSVolSync(&bp, call->replyX); */
-+
-+	afs_pages_written_back(vnode, call);
-+
-+	_leave(" = 0 [done]");
-+	return 0;
-+}
-+
-+/*
-+ * FS.StoreData operation type
-+ */
-+static const struct afs_call_type afs_RXFSStoreData = {
-+	.name		= "FS.StoreData",
-+	.deliver	= afs_deliver_fs_store_data,
-+	.abort_to_error	= afs_abort_to_error,
-+	.destructor	= afs_flat_call_destructor,
-+};
-+
-+/*
-+ * store a set of pages
-+ */
-+int afs_fs_store_data(struct afs_server *server, struct afs_writeback *wb,
-+		      pgoff_t first, pgoff_t last,
-+		      unsigned offset, unsigned to,
-+		      const struct afs_wait_mode *wait_mode)
-+{
-+	struct afs_vnode *vnode = wb->vnode;
-+	struct afs_call *call;
-+	loff_t size, pos, i_size;
-+	__be32 *bp;
-+
-+	_enter(",%x,{%x:%u},,",
-+	       key_serial(wb->key), vnode->fid.vid, vnode->fid.vnode);
-+
-+	size = to - offset;
-+	if (first != last)
-+		size += (loff_t)(last - first) << PAGE_SHIFT;
-+	pos = (loff_t)first << PAGE_SHIFT;
-+	pos += offset;
-+
-+	i_size = i_size_read(&vnode->vfs_inode);
-+	if (pos + size > i_size)
-+		i_size = size + pos;
-+
-+	_debug("size %llx, at %llx, i_size %llx",
-+	       (unsigned long long) size, (unsigned long long) pos,
-+	       (unsigned long long) i_size);
-+
-+	BUG_ON(i_size > 0xffffffff); // TODO: use 64-bit store
-+
-+	call = afs_alloc_flat_call(&afs_RXFSStoreData,
-+				   (4 + 6 + 3) * 4,
-+				   (21 + 6) * 4);
-+	if (!call)
-+		return -ENOMEM;
-+
-+	call->wb = wb;
-+	call->key = wb->key;
-+	call->reply = vnode;
-+	call->service_id = FS_SERVICE;
-+	call->port = htons(AFS_FS_PORT);
-+	call->mapping = vnode->vfs_inode.i_mapping;
-+	call->first = first;
-+	call->last = last;
-+	call->first_offset = offset;
-+	call->last_to = to;
-+	call->send_pages = true;
-+	call->store_version = vnode->status.data_version + 1;
-+
-+	/* marshall the parameters */
-+	bp = call->request;
-+	*bp++ = htonl(FSSTOREDATA);
-+	*bp++ = htonl(vnode->fid.vid);
-+	*bp++ = htonl(vnode->fid.vnode);
-+	*bp++ = htonl(vnode->fid.unique);
-+
-+	*bp++ = 0; /* mask */
-+	*bp++ = 0; /* mtime */
-+	*bp++ = 0; /* owner */
-+	*bp++ = 0; /* group */
-+	*bp++ = 0; /* unix mode */
-+	*bp++ = 0; /* segment size */
-+
-+	*bp++ = htonl(pos);
-+	*bp++ = htonl(size);
-+	*bp++ = htonl(i_size);
-+
-+	return afs_make_call(&server->addr, call, GFP_NOFS, wait_mode);
-+}
-+
-+/*
-+ * deliver reply data to an FS.StoreStatus
-+ */
-+static int afs_deliver_fs_store_status(struct afs_call *call,
-+				       struct sk_buff *skb, bool last)
-+{
-+	afs_dataversion_t *store_version;
-+	struct afs_vnode *vnode = call->reply;
-+	const __be32 *bp;
-+
-+	_enter(",,%u", last);
-+
-+	afs_transfer_reply(call, skb);
-+	if (!last) {
-+		_leave(" = 0 [more]");
-+		return 0;
-+	}
-+
-+	if (call->reply_size != call->reply_max) {
-+		_leave(" = -EBADMSG [%u != %u]",
-+		       call->reply_size, call->reply_max);
-+		return -EBADMSG;
-+	}
-+
-+	/* unmarshall the reply once we've received all of it */
-+	store_version = NULL;
-+	if (call->operation_ID == FSSTOREDATA)
-+		store_version = &call->store_version;
-+
-+	bp = call->buffer;
-+	xdr_decode_AFSFetchStatus(&bp, &vnode->status, vnode, store_version);
-+	/* xdr_decode_AFSVolSync(&bp, call->replyX); */
-+
-+	_leave(" = 0 [done]");
-+	return 0;
-+}
-+
-+/*
-+ * FS.StoreStatus operation type
-+ */
-+static const struct afs_call_type afs_RXFSStoreStatus = {
-+	.name		= "FS.StoreStatus",
-+	.deliver	= afs_deliver_fs_store_status,
-+	.abort_to_error	= afs_abort_to_error,
-+	.destructor	= afs_flat_call_destructor,
-+};
-+
-+static const struct afs_call_type afs_RXFSStoreData_as_Status = {
-+	.name		= "FS.StoreData",
-+	.deliver	= afs_deliver_fs_store_status,
-+	.abort_to_error	= afs_abort_to_error,
-+	.destructor	= afs_flat_call_destructor,
-+};
-+
-+/*
-+ * set the attributes on a file, using FS.StoreData rather than FS.StoreStatus
-+ * so as to alter the file size also
-+ */
-+static int afs_fs_setattr_size(struct afs_server *server, struct key *key,
-+			       struct afs_vnode *vnode, struct iattr *attr,
-+			       const struct afs_wait_mode *wait_mode)
-+{
-+	struct afs_call *call;
-+	__be32 *bp;
-+
-+	_enter(",%x,{%x:%u},,",
-+	       key_serial(key), vnode->fid.vid, vnode->fid.vnode);
-+
-+	ASSERT(attr->ia_valid & ATTR_SIZE);
-+	ASSERTCMP(attr->ia_size, <=, 0xffffffff); // TODO: use 64-bit store
-+
-+	call = afs_alloc_flat_call(&afs_RXFSStoreData_as_Status,
-+				   (4 + 6 + 3) * 4,
-+				   (21 + 6) * 4);
-+	if (!call)
-+		return -ENOMEM;
-+
-+	call->key = key;
-+	call->reply = vnode;
-+	call->service_id = FS_SERVICE;
-+	call->port = htons(AFS_FS_PORT);
-+	call->store_version = vnode->status.data_version + 1;
-+	call->operation_ID = FSSTOREDATA;
-+
-+	/* marshall the parameters */
-+	bp = call->request;
-+	*bp++ = htonl(FSSTOREDATA);
-+	*bp++ = htonl(vnode->fid.vid);
-+	*bp++ = htonl(vnode->fid.vnode);
-+	*bp++ = htonl(vnode->fid.unique);
-+
-+	xdr_encode_AFS_StoreStatus(&bp, attr);
-+
-+	*bp++ = 0;				/* position of start of write */
-+	*bp++ = 0;				/* size of write */
-+	*bp++ = htonl(attr->ia_size);		/* new file length */
-+
-+	return afs_make_call(&server->addr, call, GFP_NOFS, wait_mode);
-+}
-+
-+/*
-+ * set the attributes on a file, using FS.StoreData if there's a change in file
-+ * size, and FS.StoreStatus otherwise
-+ */
-+int afs_fs_setattr(struct afs_server *server, struct key *key,
-+		   struct afs_vnode *vnode, struct iattr *attr,
-+		   const struct afs_wait_mode *wait_mode)
-+{
-+	struct afs_call *call;
-+	__be32 *bp;
-+
-+	if (attr->ia_valid & ATTR_SIZE)
-+		return afs_fs_setattr_size(server, key, vnode, attr,
-+					   wait_mode);
-+
-+	_enter(",%x,{%x:%u},,",
-+	       key_serial(key), vnode->fid.vid, vnode->fid.vnode);
-+
-+	call = afs_alloc_flat_call(&afs_RXFSStoreStatus,
-+				   (4 + 6) * 4,
-+				   (21 + 6) * 4);
-+	if (!call)
-+		return -ENOMEM;
-+
-+	call->key = key;
-+	call->reply = vnode;
-+	call->service_id = FS_SERVICE;
-+	call->port = htons(AFS_FS_PORT);
-+	call->operation_ID = FSSTORESTATUS;
-+
-+	/* marshall the parameters */
-+	bp = call->request;
-+	*bp++ = htonl(FSSTORESTATUS);
-+	*bp++ = htonl(vnode->fid.vid);
-+	*bp++ = htonl(vnode->fid.vnode);
-+	*bp++ = htonl(vnode->fid.unique);
-+
-+	xdr_encode_AFS_StoreStatus(&bp, attr);
-+
-+	return afs_make_call(&server->addr, call, GFP_NOFS, wait_mode);
-+}
-diff --git a/fs/afs/inode.c b/fs/afs/inode.c
-index 9c984cc..515a5d1 100644
---- a/fs/afs/inode.c
-+++ b/fs/afs/inode.c
-@@ -209,7 +209,7 @@ bad_inode:
-  */
- void afs_zap_data(struct afs_vnode *vnode)
- {
--	kenter("zap data {%x:%u}", vnode->fid.vid, vnode->fid.vnode);
-+	_enter("zap data {%x:%u}", vnode->fid.vid, vnode->fid.vnode);
- 
- 	/* nuke all the non-dirty pages that aren't locked, mapped or being
- 	 * written back */
-@@ -334,6 +334,7 @@ void afs_clear_inode(struct inode *inode)
- 		vnode->server = NULL;
- 	}
- 
-+	ASSERT(list_empty(&vnode->writebacks));
- 	ASSERT(!vnode->cb_promised);
- 
- #ifdef AFS_CACHING_SUPPORT
-@@ -350,3 +351,47 @@ void afs_clear_inode(struct inode *inode)
- 
- 	_leave("");
- }
-+
-+/*
-+ * set the attributes of an inode
-+ */
-+int afs_setattr(struct dentry *dentry, struct iattr *attr)
-+{
-+	struct afs_vnode *vnode = AFS_FS_I(dentry->d_inode);
-+	struct key *key;
-+	int ret;
-+
-+	_enter("{%x:%u},{n=%s},%x",
-+	       vnode->fid.vid, vnode->fid.vnode, dentry->d_name.name,
-+	       attr->ia_valid);
-+
-+	if (!(attr->ia_valid & (ATTR_SIZE | ATTR_MODE | ATTR_UID | ATTR_GID |
-+				ATTR_MTIME))) {
-+		_leave(" = 0 [unsupported]");
-+		return 0;
-+	}
-+
-+	/* flush any dirty data outstanding on a regular file */
-+	if (S_ISREG(vnode->vfs_inode.i_mode)) {
-+		filemap_write_and_wait(vnode->vfs_inode.i_mapping);
-+		afs_writeback_all(vnode);
-+	}
-+
-+	if (attr->ia_valid & ATTR_FILE) {
-+		key = attr->ia_file->private_data;
-+	} else {
-+		key = afs_request_key(vnode->volume->cell);
-+		if (IS_ERR(key)) {
-+			ret = PTR_ERR(key);
-+			goto error;
-+		}
-+	}
-+
-+	ret = afs_vnode_setattr(vnode, key, attr);
-+	if (!(attr->ia_valid & ATTR_FILE))
-+		key_put(key);
-+
-+error:
-+	_leave(" = %d", ret);
-+	return ret;
-+}
-diff --git a/fs/afs/internal.h b/fs/afs/internal.h
-index 881b7dc..5545f90 100644
---- a/fs/afs/internal.h
-+++ b/fs/afs/internal.h
-@@ -21,6 +21,7 @@
- 
- #define AFS_CELL_MAX_ADDRS 15
- 
-+struct pagevec;
- struct afs_call;
- 
- typedef enum {
-@@ -75,12 +76,15 @@ struct afs_call {
- 	struct key		*key;		/* security for this call */
- 	struct afs_server	*server;	/* server affected by incoming CM call */
- 	void			*request;	/* request data (first part) */
--	void			*request2;	/* request data (second part) */
-+	struct address_space	*mapping;	/* page set */
-+	struct afs_writeback	*wb;		/* writeback being performed */
- 	void			*buffer;	/* reply receive buffer */
- 	void			*reply;		/* reply buffer (first part) */
- 	void			*reply2;	/* reply buffer (second part) */
- 	void			*reply3;	/* reply buffer (third part) */
- 	void			*reply4;	/* reply buffer (fourth part) */
-+	pgoff_t			first;		/* first page in mapping to deal with */
-+	pgoff_t			last;		/* last page in mapping to deal with */
- 	enum {					/* call state */
- 		AFS_CALL_REQUESTING,	/* request is being sent for outgoing call */
- 		AFS_CALL_AWAIT_REPLY,	/* awaiting reply to outgoing call */
-@@ -97,14 +101,18 @@ struct afs_call {
- 	unsigned		request_size;	/* size of request data */
- 	unsigned		reply_max;	/* maximum size of reply */
- 	unsigned		reply_size;	/* current size of reply */
-+	unsigned		first_offset;	/* offset into mapping[first] */
-+	unsigned		last_to;	/* amount of mapping[last] */
- 	unsigned short		offset;		/* offset into received data store */
- 	unsigned char		unmarshall;	/* unmarshalling phase */
- 	bool			incoming;	/* T if incoming call */
-+	bool			send_pages;	/* T if data from mapping should be sent */
- 	u16			service_id;	/* RxRPC service ID to call */
- 	__be16			port;		/* target UDP port */
- 	__be32			operation_ID;	/* operation ID for an incoming call */
- 	u32			count;		/* count for use in unmarshalling */
- 	__be32			tmp;		/* place to extract temporary data */
-+	afs_dataversion_t	store_version;	/* updated version expected from store */
- };
- 
- struct afs_call_type {
-@@ -124,6 +132,32 @@ struct afs_call_type {
- };
- 
- /*
-+ * record of an outstanding writeback on a vnode
-+ */
-+struct afs_writeback {
-+	struct list_head	link;		/* link in vnode->writebacks */
-+	struct work_struct	writer;		/* work item to perform the writeback */
-+	struct afs_vnode	*vnode;		/* vnode to which this write applies */
-+	struct key		*key;		/* owner of this write */
-+	wait_queue_head_t	waitq;		/* completion and ready wait queue */
-+	pgoff_t			first;		/* first page in batch */
-+	pgoff_t			point;		/* last page in current store op */
-+	pgoff_t			last;		/* last page in batch (inclusive) */
-+	unsigned		offset_first;	/* offset into first page of start of write */
-+	unsigned		to_last;	/* offset into last page of end of write */
-+	int			num_conflicts;	/* count of conflicting writes in list */
-+	int			usage;
-+	bool			conflicts;	/* T if has dependent conflicts */
-+	enum {
-+		AFS_WBACK_SYNCING,		/* synchronisation being performed */
-+		AFS_WBACK_PENDING,		/* write pending */
-+		AFS_WBACK_CONFLICTING,		/* conflicting writes posted */
-+		AFS_WBACK_WRITING,		/* writing back */
-+		AFS_WBACK_COMPLETE		/* the writeback record has been unlinked */
-+	} state __attribute__((packed));
-+};
-+
-+/*
-  * AFS superblock private data
-  * - there's one superblock per volume
-  */
-@@ -305,6 +339,7 @@ struct afs_vnode {
- 	wait_queue_head_t	update_waitq;	/* status fetch waitqueue */
- 	int			update_cnt;	/* number of outstanding ops that will update the
- 						 * status */
-+	spinlock_t		writeback_lock;	/* lock for writebacks */
- 	spinlock_t		lock;		/* waitqueue/flags lock */
- 	unsigned long		flags;
- #define AFS_VNODE_CB_BROKEN	0		/* set if vnode's callback was broken */
-@@ -316,6 +351,8 @@ struct afs_vnode {
- 
- 	long			acl_order;	/* ACL check count (callback break count) */
- 
-+	struct list_head	writebacks;	/* alterations in pagecache that need writing */
-+
- 	/* outstanding callback notification on this file */
- 	struct rb_node		server_rb;	/* link in server->fs_vnodes */
- 	struct rb_node		cb_promise;	/* link in server->cb_promises */
-@@ -463,6 +500,12 @@ extern int afs_fs_rename(struct afs_server *, struct key *,
- 			 struct afs_vnode *, const char *,
- 			 struct afs_vnode *, const char *,
- 			 const struct afs_wait_mode *);
-+extern int afs_fs_store_data(struct afs_server *, struct afs_writeback *,
-+			     pgoff_t, pgoff_t, unsigned, unsigned,
-+			     const struct afs_wait_mode *);
-+extern int afs_fs_setattr(struct afs_server *, struct key *,
-+			  struct afs_vnode *, struct iattr *,
-+			  const struct afs_wait_mode *);
- 
- /*
-  * inode.c
-@@ -473,6 +516,7 @@ extern struct inode *afs_iget(struct super_block *, struct key *,
- extern void afs_zap_data(struct afs_vnode *);
- extern int afs_validate(struct afs_vnode *, struct key *);
- extern int afs_getattr(struct vfsmount *, struct dentry *, struct kstat *);
-+extern int afs_setattr(struct dentry *, struct iattr *);
- extern void afs_clear_inode(struct inode *);
- 
- /*
-@@ -626,6 +670,9 @@ extern int afs_vnode_symlink(struct afs_vnode *, struct key *, const char *,
- 			     struct afs_file_status *, struct afs_server **);
- extern int afs_vnode_rename(struct afs_vnode *, struct afs_vnode *,
- 			    struct key *, const char *, const char *);
-+extern int afs_vnode_store_data(struct afs_writeback *, pgoff_t, pgoff_t,
-+				unsigned, unsigned);
-+extern int afs_vnode_setattr(struct afs_vnode *, struct key *, struct iattr *);
- 
- /*
-  * volume.c
-@@ -642,6 +689,23 @@ extern struct afs_server *afs_volume_pick_fileserver(struct afs_vnode *);
- extern int afs_volume_release_fileserver(struct afs_vnode *,
- 					 struct afs_server *, int);
- 
-+/*
-+ * write.c
-+ */
-+extern int afs_set_page_dirty(struct page *);
-+extern void afs_put_writeback(struct afs_writeback *);
-+extern int afs_prepare_write(struct file *, struct page *, unsigned, unsigned);
-+extern int afs_commit_write(struct file *, struct page *, unsigned, unsigned);
-+extern int afs_writepage(struct page *, struct writeback_control *);
-+extern int afs_writepages(struct address_space *, struct writeback_control *);
-+extern int afs_write_inode(struct inode *, int);
-+extern void afs_pages_written_back(struct afs_vnode *, struct afs_call *);
-+extern ssize_t afs_file_write(struct kiocb *, const struct iovec *,
-+			      unsigned long, loff_t);
-+extern int afs_writeback_all(struct afs_vnode *);
-+extern int afs_fsync(struct file *, struct dentry *, int);
-+
-+
- /*****************************************************************************/
- /*
-  * debug tracing
-diff --git a/fs/afs/rxrpc.c b/fs/afs/rxrpc.c
-index 222c1a3..04189c4 100644
---- a/fs/afs/rxrpc.c
-+++ b/fs/afs/rxrpc.c
-@@ -237,6 +237,70 @@ void afs_flat_call_destructor(struct afs_call *call)
- }
- 
- /*
-+ * attach the data from a bunch of pages on an inode to a call
-+ */
-+int afs_send_pages(struct afs_call *call, struct msghdr *msg, struct kvec *iov)
-+{
-+	struct page *pages[8];
-+	unsigned count, n, loop, offset, to;
-+	pgoff_t first = call->first, last = call->last;
-+	int ret;
-+
-+	_enter("");
-+
-+	offset = call->first_offset;
-+	call->first_offset = 0;
-+
-+	do {
-+		_debug("attach %lx-%lx", first, last);
-+
-+		count = last - first + 1;
-+		if (count > ARRAY_SIZE(pages))
-+			count = ARRAY_SIZE(pages);
-+		n = find_get_pages_contig(call->mapping, first, count, pages);
-+		ASSERTCMP(n, ==, count);
-+
-+		loop = 0;
-+		do {
-+			msg->msg_flags = 0;
-+			to = PAGE_SIZE;
-+			if (first + loop >= last)
-+				to = call->last_to;
-+			else
-+				msg->msg_flags = MSG_MORE;
-+			iov->iov_base = kmap(pages[loop]) + offset;
-+			iov->iov_len = to - offset;
-+			offset = 0;
-+
-+			_debug("- range %u-%u%s",
-+			       offset, to, msg->msg_flags ? " [more]" : "");
-+			msg->msg_iov = (struct iovec *) iov;
-+			msg->msg_iovlen = 1;
-+
-+			/* have to change the state *before* sending the last
-+			 * packet as RxRPC might give us the reply before it
-+			 * returns from sending the request */
-+			if (first + loop >= last)
-+				call->state = AFS_CALL_AWAIT_REPLY;
-+			ret = rxrpc_kernel_send_data(call->rxcall, msg,
-+						     to - offset);
-+			kunmap(pages[loop]);
-+			if (ret < 0)
-+				break;
-+		} while (++loop < count);
-+		first += count;
-+
-+		for (loop = 0; loop < count; loop++)
-+			put_page(pages[loop]);
-+		if (ret < 0)
-+			break;
-+	} while (first < last);
-+
-+	_leave(" = %d", ret);
-+	return ret;
-+}
-+
-+/*
-  * initiate a call
-  */
- int afs_make_call(struct in_addr *addr, struct afs_call *call, gfp_t gfp,
-@@ -253,8 +317,9 @@ int afs_make_call(struct in_addr *addr, struct afs_call *call, gfp_t gfp,
- 	ASSERT(call->type != NULL);
- 	ASSERT(call->type->name != NULL);
- 
--	_debug("MAKE %p{%s} [%d]",
--	       call, call->type->name, atomic_read(&afs_outstanding_calls));
-+	_debug("____MAKE %p{%s,%x} [%d]____",
-+	       call, call->type->name, key_serial(call->key),
-+	       atomic_read(&afs_outstanding_calls));
- 
- 	call->wait_mode = wait_mode;
- 	INIT_WORK(&call->async_work, afs_process_async_call);
-@@ -289,16 +354,23 @@ int afs_make_call(struct in_addr *addr, struct afs_call *call, gfp_t gfp,
- 	msg.msg_iovlen		= 1;
- 	msg.msg_control		= NULL;
- 	msg.msg_controllen	= 0;
--	msg.msg_flags		= 0;
-+	msg.msg_flags		= (call->send_pages ? MSG_MORE : 0);
- 
- 	/* have to change the state *before* sending the last packet as RxRPC
- 	 * might give us the reply before it returns from sending the
- 	 * request */
--	call->state = AFS_CALL_AWAIT_REPLY;
-+	if (!call->send_pages)
-+		call->state = AFS_CALL_AWAIT_REPLY;
- 	ret = rxrpc_kernel_send_data(rxcall, &msg, call->request_size);
- 	if (ret < 0)
- 		goto error_do_abort;
- 
-+	if (call->send_pages) {
-+		ret = afs_send_pages(call, &msg, iov);
-+		if (ret < 0)
-+			goto error_do_abort;
-+	}
-+
- 	/* at this point, an async call may no longer exist as it may have
- 	 * already completed */
- 	return wait_mode->wait(call);
-diff --git a/fs/afs/super.c b/fs/afs/super.c
-index 7030d76..b9b9eed 100644
---- a/fs/afs/super.c
-+++ b/fs/afs/super.c
-@@ -50,6 +50,7 @@ static const struct super_operations afs_super_ops = {
- 	.statfs		= simple_statfs,
- 	.alloc_inode	= afs_alloc_inode,
- 	.drop_inode	= generic_delete_inode,
-+	.write_inode	= afs_write_inode,
- 	.destroy_inode	= afs_destroy_inode,
- 	.clear_inode	= afs_clear_inode,
- 	.umount_begin	= afs_umount_begin,
-@@ -459,7 +460,9 @@ static void afs_i_init_once(void *_vnode, struct kmem_cache *cachep,
- 		init_waitqueue_head(&vnode->update_waitq);
- 		mutex_init(&vnode->permits_lock);
- 		mutex_init(&vnode->validate_lock);
-+		spin_lock_init(&vnode->writeback_lock);
- 		spin_lock_init(&vnode->lock);
-+		INIT_LIST_HEAD(&vnode->writebacks);
- 		INIT_WORK(&vnode->cb_broken_work, afs_broken_callback_work);
- 	}
- }
-diff --git a/fs/afs/vnode.c b/fs/afs/vnode.c
-index 0e37f99..ec81466 100644
---- a/fs/afs/vnode.c
-+++ b/fs/afs/vnode.c
-@@ -753,3 +753,110 @@ no_server:
- 	_leave(" = %ld [cnt %d]", PTR_ERR(server), orig_dvnode->update_cnt);
- 	return PTR_ERR(server);
- }
-+
-+/*
-+ * write to a file
-+ */
-+int afs_vnode_store_data(struct afs_writeback *wb, pgoff_t first, pgoff_t last,
-+			 unsigned offset, unsigned to)
-+{
-+	struct afs_server *server;
-+	struct afs_vnode *vnode = wb->vnode;
-+	int ret;
-+
-+	_enter("%s{%x:%u.%u},%x,%lx,%lx,%x,%x",
-+	       vnode->volume->vlocation->vldb.name,
-+	       vnode->fid.vid,
-+	       vnode->fid.vnode,
-+	       vnode->fid.unique,
-+	       key_serial(wb->key),
-+	       first, last, offset, to);
-+
-+	/* this op will fetch the status */
-+	spin_lock(&vnode->lock);
-+	vnode->update_cnt++;
-+	spin_unlock(&vnode->lock);
-+
-+	do {
-+		/* pick a server to query */
-+		server = afs_volume_pick_fileserver(vnode);
-+		if (IS_ERR(server))
-+			goto no_server;
-+
-+		_debug("USING SERVER: %08x\n", ntohl(server->addr.s_addr));
-+
-+		ret = afs_fs_store_data(server, wb, first, last, offset, to,
-+					&afs_sync_call);
-+
-+	} while (!afs_volume_release_fileserver(vnode, server, ret));
-+
-+	/* adjust the flags */
-+	if (ret == 0) {
-+		afs_vnode_finalise_status_update(vnode, server);
-+		afs_put_server(server);
-+	} else {
-+		afs_vnode_status_update_failed(vnode, ret);
-+	}
-+
-+	_leave(" = %d", ret);
-+	return ret;
-+
-+no_server:
-+	spin_lock(&vnode->lock);
-+	vnode->update_cnt--;
-+	ASSERTCMP(vnode->update_cnt, >=, 0);
-+	spin_unlock(&vnode->lock);
-+	return PTR_ERR(server);
-+}
-+
-+/*
-+ * set the attributes on a file
-+ */
-+int afs_vnode_setattr(struct afs_vnode *vnode, struct key *key,
-+		      struct iattr *attr)
-+{
-+	struct afs_server *server;
-+	int ret;
-+
-+	_enter("%s{%x:%u.%u},%x",
-+	       vnode->volume->vlocation->vldb.name,
-+	       vnode->fid.vid,
-+	       vnode->fid.vnode,
-+	       vnode->fid.unique,
-+	       key_serial(key));
-+
-+	/* this op will fetch the status */
-+	spin_lock(&vnode->lock);
-+	vnode->update_cnt++;
-+	spin_unlock(&vnode->lock);
-+
-+	do {
-+		/* pick a server to query */
-+		server = afs_volume_pick_fileserver(vnode);
-+		if (IS_ERR(server))
-+			goto no_server;
-+
-+		_debug("USING SERVER: %08x\n", ntohl(server->addr.s_addr));
-+
-+		ret = afs_fs_setattr(server, key, vnode, attr, &afs_sync_call);
-+
-+	} while (!afs_volume_release_fileserver(vnode, server, ret));
-+
-+	/* adjust the flags */
-+	if (ret == 0) {
-+		afs_vnode_finalise_status_update(vnode, server);
-+		afs_put_server(server);
-+	} else {
-+		afs_vnode_status_update_failed(vnode, ret);
-+	}
-+
-+	_leave(" = %d", ret);
-+	return ret;
-+
-+no_server:
-+	spin_lock(&vnode->lock);
-+	vnode->update_cnt--;
-+	ASSERTCMP(vnode->update_cnt, >=, 0);
-+	spin_unlock(&vnode->lock);
-+	return PTR_ERR(server);
-+}
-diff --git a/fs/afs/write.c b/fs/afs/write.c
-new file mode 100644
-index 0000000..256d0a9
---- /dev/null
-+++ b/fs/afs/write.c
-@@ -0,0 +1,835 @@
-+/* handling of writes to regular files and writing back to the server
-+ *
-+ * Copyright (C) 2007 Red Hat, Inc. All Rights Reserved.
-+ * Written by David Howells (dhowells@redhat.com)
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version
-+ * 2 of the License, or (at your option) any later version.
-+ */
-+
-+#include <linux/slab.h>
-+#include <linux/fs.h>
-+#include <linux/pagemap.h>
-+#include <linux/writeback.h>
-+#include <linux/pagevec.h>
-+#include "internal.h"
-+
-+static int afs_write_back_from_locked_page(struct afs_writeback *wb,
-+					   struct page *page);
-+
-+/*
-+ * mark a page as having been made dirty and thus needing writeback
-+ */
-+int afs_set_page_dirty(struct page *page)
-+{
-+	_enter("");
-+	return __set_page_dirty_nobuffers(page);
-+}
-+
-+/*
-+ * unlink a writeback record because its usage has reached zero
-+ * - must be called with the wb->vnode->writeback_lock held
-+ */
-+static void afs_unlink_writeback(struct afs_writeback *wb)
-+{
-+	struct afs_writeback *front;
-+	struct afs_vnode *vnode = wb->vnode;
-+
-+	list_del_init(&wb->link);
-+	if (!list_empty(&vnode->writebacks)) {
-+		/* if an fsync rises to the front of the queue then wake it
-+		 * up */
-+		front = list_entry(vnode->writebacks.next,
-+				   struct afs_writeback, link);
-+		if (front->state == AFS_WBACK_SYNCING) {
-+			_debug("wake up sync");
-+			front->state = AFS_WBACK_COMPLETE;
-+			wake_up(&front->waitq);
-+		}
-+	}
-+}
-+
-+/*
-+ * free a writeback record
-+ */
-+static void afs_free_writeback(struct afs_writeback *wb)
-+{
-+	_enter("");
-+	key_put(wb->key);
-+	kfree(wb);
-+}
-+
-+/*
-+ * dispose of a reference to a writeback record
-+ */
-+void afs_put_writeback(struct afs_writeback *wb)
-+{
-+	struct afs_vnode *vnode = wb->vnode;
-+
-+	_enter("{%d}", wb->usage);
-+
-+	spin_lock(&vnode->writeback_lock);
-+	if (--wb->usage == 0)
-+		afs_unlink_writeback(wb);
-+	else
-+		wb = NULL;
-+	spin_unlock(&vnode->writeback_lock);
-+	if (wb)
-+		afs_free_writeback(wb);
-+}
-+
-+/*
-+ * partly or wholly fill a page that's under preparation for writing
-+ */
-+static int afs_fill_page(struct afs_vnode *vnode, struct key *key,
-+			 unsigned start, unsigned len, struct page *page)
-+{
-+	int ret;
-+
-+	_enter(",,%u,%u", start, len);
-+
-+	ASSERTCMP(start + len, <=, PAGE_SIZE);
-+
-+	ret = afs_vnode_fetch_data(vnode, key, start, len, page);
-+	if (ret < 0) {
-+		if (ret == -ENOENT) {
-+			_debug("got NOENT from server"
-+			       " - marking file deleted and stale");
-+			set_bit(AFS_VNODE_DELETED, &vnode->flags);
-+			ret = -ESTALE;
-+		}
-+	}
-+
-+	_leave(" = %d", ret);
-+	return ret;
-+}
-+
-+/*
-+ * prepare a page for being written to
-+ */
-+static int afs_prepare_page(struct afs_vnode *vnode, struct page *page,
-+			    struct key *key, unsigned offset, unsigned to)
-+{
-+	unsigned eof, tail, start, stop, len;
-+	loff_t i_size, pos;
-+	void *p;
-+	int ret;
-+
-+	_enter("");
-+
-+	if (offset == 0 && to == PAGE_SIZE)
-+		return 0;
-+
-+	p = kmap(page);
-+
-+	i_size = i_size_read(&vnode->vfs_inode);
-+	pos = (loff_t) page->index << PAGE_SHIFT;
-+	if (pos >= i_size) {
-+		/* partial write, page beyond EOF */
-+		_debug("beyond");
-+		if (offset > 0)
-+			memset(p, 0, offset);
-+		if (to < PAGE_SIZE)
-+			memset(p + to, 0, PAGE_SIZE - to);
-+		kunmap(page);
-+		return 0;
-+	}
-+
-+	if (i_size - pos >= PAGE_SIZE) {
-+		/* partial write, page entirely before EOF */
-+		_debug("before");
-+		tail = eof = PAGE_SIZE;
-+	} else {
-+		/* partial write, page overlaps EOF */
-+		eof = i_size - pos;
-+		_debug("overlap %u", eof);
-+		tail = max(eof, to);
-+		if (tail < PAGE_SIZE)
-+			memset(p + tail, 0, PAGE_SIZE - tail);
-+		if (offset > eof)
-+			memset(p + eof, 0, PAGE_SIZE - eof);
-+	}
-+
-+	kunmap(p);
-+
-+	ret = 0;
-+	if (offset > 0 || eof > to) {
-+		/* need to fill one or two bits that aren't going to be written
-+		 * (cover both fillers in one read if there are two) */
-+		start = (offset > 0) ? 0 : to;
-+		stop = (eof > to) ? eof : offset;
-+		len = stop - start;
-+		_debug("wr=%u-%u av=0-%u rd=%u@%u",
-+		       offset, to, eof, start, len);
-+		ret = afs_fill_page(vnode, key, start, len, page);
-+	}
-+
-+	_leave(" = %d", ret);
-+	return ret;
-+}
-+
-+/*
-+ * prepare to perform part of a write to a page
-+ * - the caller holds the page locked, preventing it from being written out or
-+ *   modified by anyone else
-+ */
-+int afs_prepare_write(struct file *file, struct page *page,
-+		      unsigned offset, unsigned to)
-+{
-+	struct afs_writeback *candidate, *wb;
-+	struct afs_vnode *vnode = AFS_FS_I(file->f_dentry->d_inode);
-+	struct key *key = file->private_data;
-+	pgoff_t index;
-+	int ret;
-+
-+	_enter("{%x:%u},{%lx},%u,%u",
-+	       vnode->fid.vid, vnode->fid.vnode, page->index, offset, to);
-+
-+	candidate = kzalloc(sizeof(*candidate), GFP_KERNEL);
-+	if (!candidate)
-+		return -ENOMEM;
-+	candidate->vnode = vnode;
-+	candidate->first = candidate->last = page->index;
-+	candidate->offset_first = offset;
-+	candidate->to_last = to;
-+	candidate->usage = 1;
-+	candidate->state = AFS_WBACK_PENDING;
-+	init_waitqueue_head(&candidate->waitq);
-+
-+	if (!PageUptodate(page)) {
-+		_debug("not up to date");
-+		ret = afs_prepare_page(vnode, page, key, offset, to);
-+		if (ret < 0) {
-+			kfree(candidate);
-+			_leave(" = %d [prep]", ret);
-+			return ret;
-+		}
-+		SetPageUptodate(page);
-+	}
-+
-+try_again:
-+	index = page->index;
-+	spin_lock(&vnode->writeback_lock);
-+
-+	/* see if this page is already pending a writeback under a suitable key
-+	 * - if so we can just join onto that one */
-+	wb = (struct afs_writeback *) page_private(page);
-+	if (wb) {
-+		if (wb->key == key && wb->state == AFS_WBACK_PENDING)
-+			goto subsume_in_current_wb;
-+		goto flush_conflicting_wb;
-+	}
-+
-+	if (index > 0) {
-+		/* see if we can find an already pending writeback that we can
-+		 * append this page to */
-+		list_for_each_entry(wb, &vnode->writebacks, link) {
-+			if (wb->last == index - 1 && wb->key == key &&
-+			    wb->state == AFS_WBACK_PENDING)
-+				goto append_to_previous_wb;
-+		}
-+	}
-+
-+	list_add_tail(&candidate->link, &vnode->writebacks);
-+	candidate->key = key_get(key);
-+	spin_unlock(&vnode->writeback_lock);
-+	SetPagePrivate(page);
-+	set_page_private(page, (unsigned long) candidate);
-+	_leave(" = 0 [new]");
-+	return 0;
-+
-+subsume_in_current_wb:
-+	_debug("subsume");
-+	ASSERTRANGE(wb->first, <=, index, <=, wb->last);
-+	if (index == wb->first && offset < wb->offset_first)
-+		wb->offset_first = offset;
-+	if (index == wb->last && to > wb->to_last)
-+		wb->to_last = to;
-+	spin_unlock(&vnode->writeback_lock);
-+	kfree(candidate);
-+	_leave(" = 0 [sub]");
-+	return 0;
-+
-+append_to_previous_wb:
-+	_debug("append into %lx-%lx", wb->first, wb->last);
-+	wb->usage++;
-+	wb->last++;
-+	wb->to_last = to;
-+	spin_unlock(&vnode->writeback_lock);
-+	SetPagePrivate(page);
-+	set_page_private(page, (unsigned long) wb);
-+	kfree(candidate);
-+	_leave(" = 0 [app]");
-+	return 0;
-+
-+	/* the page is currently bound to another context, so if it's dirty we
-+	 * need to flush it before we can use the new context */
-+flush_conflicting_wb:
-+	_debug("flush conflict");
-+	if (wb->state == AFS_WBACK_PENDING)
-+		wb->state = AFS_WBACK_CONFLICTING;
-+	spin_unlock(&vnode->writeback_lock);
-+	if (PageDirty(page)) {
-+		ret = afs_write_back_from_locked_page(wb, page);
-+		if (ret < 0) {
-+			afs_put_writeback(candidate);
-+			_leave(" = %d", ret);
-+			return ret;
-+		}
-+	}
-+
-+	/* the page holds a ref on the writeback record */
-+	afs_put_writeback(wb);
-+	set_page_private(page, 0);
-+	ClearPagePrivate(page);
-+	goto try_again;
-+}
-+
-+/*
-+ * finalise part of a write to a page
-+ */
-+int afs_commit_write(struct file *file, struct page *page,
-+		     unsigned offset, unsigned to)
-+{
-+	struct afs_vnode *vnode = AFS_FS_I(file->f_dentry->d_inode);
-+	loff_t i_size, maybe_i_size;
-+
-+	_enter("{%x:%u},{%lx},%u,%u",
-+	       vnode->fid.vid, vnode->fid.vnode, page->index, offset, to);
-+
-+	maybe_i_size = (loff_t) page->index << PAGE_SHIFT;
-+	maybe_i_size += to;
-+
-+	i_size = i_size_read(&vnode->vfs_inode);
-+	if (maybe_i_size > i_size) {
-+		spin_lock(&vnode->writeback_lock);
-+		i_size = i_size_read(&vnode->vfs_inode);
-+		if (maybe_i_size > i_size)
-+			i_size_write(&vnode->vfs_inode, maybe_i_size);
-+		spin_unlock(&vnode->writeback_lock);
-+	}
-+
-+	set_page_dirty(page);
-+
-+	if (PageDirty(page))
-+		_debug("dirtied");
-+
-+	return 0;
-+}
-+
-+/*
-+ * kill all the pages in the given range
-+ */
-+static void afs_kill_pages(struct afs_vnode *vnode, bool error,
-+			   pgoff_t first, pgoff_t last)
-+{
-+	struct pagevec pv;
-+	unsigned count, loop;
-+
-+	_enter("{%x:%u},%lx-%lx",
-+	       vnode->fid.vid, vnode->fid.vnode, first, last);
-+
-+	pagevec_init(&pv, 0);
-+
-+	do {
-+		_debug("kill %lx-%lx", first, last);
-+
-+		count = last - first + 1;
-+		if (count > PAGEVEC_SIZE)
-+			count = PAGEVEC_SIZE;
-+		pv.nr = find_get_pages_contig(vnode->vfs_inode.i_mapping,
-+					      first, count, pv.pages);
-+		ASSERTCMP(pv.nr, ==, count);
-+
-+		for (loop = 0; loop < count; loop++) {
-+			ClearPageUptodate(pv.pages[loop]);
-+			if (error)
-+				SetPageError(pv.pages[loop]);
-+			end_page_writeback(pv.pages[loop]);
-+		}
-+
-+		__pagevec_release(&pv);
-+	} while (first < last);
-+
-+	_leave("");
-+}
-+
-+/*
-+ * synchronously write back the locked page and any subsequent non-locked dirty
-+ * pages also covered by the same writeback record
-+ */
-+static int afs_write_back_from_locked_page(struct afs_writeback *wb,
-+					   struct page *primary_page)
-+{
-+	struct page *pages[8], *page;
-+	unsigned long count;
-+	unsigned n, offset, to;
-+	pgoff_t start, first, last;
-+	int loop, ret;
-+
-+	_enter(",%lx", primary_page->index);
-+
-+	count = 1;
-+	if (!clear_page_dirty_for_io(primary_page))
-+		BUG();
-+	if (test_set_page_writeback(primary_page))
-+		BUG();
-+
-+	/* find all consecutive lockable dirty pages, stopping when we find a
-+	 * page that is not immediately lockable, is not dirty or is missing,
-+	 * or we reach the end of the range */
-+	start = primary_page->index;
-+	if (start >= wb->last)
-+		goto no_more;
-+	start++;
-+	do {
-+		_debug("more %lx [%lx]", start, count);
-+		n = wb->last - start + 1;
-+		if (n > ARRAY_SIZE(pages))
-+			n = ARRAY_SIZE(pages);
-+		n = find_get_pages_contig(wb->vnode->vfs_inode.i_mapping,
-+					  start, n, pages);
-+		_debug("fgpc %u", n);
-+		if (n == 0)
-+			goto no_more;
-+		if (pages[0]->index != start) {
-+			for (n--; n >= 0; n--)
-+				put_page(pages[n]);
-+			goto no_more;
-+		}
-+
-+		for (loop = 0; loop < n; loop++) {
-+			page = pages[loop];
-+			if (page->index > wb->last)
-+				break;
-+			if (TestSetPageLocked(page))
-+				break;
-+			if (!PageDirty(page) ||
-+			    page_private(page) != (unsigned long) wb) {
-+				unlock_page(page);
-+				break;
-+			}
-+			if (!clear_page_dirty_for_io(page))
-+				BUG();
-+			if (test_set_page_writeback(page))
-+				BUG();
-+			unlock_page(page);
-+			put_page(page);
-+		}
-+		count += loop;
-+		if (loop < n) {
-+			for (; loop < n; loop++)
-+				put_page(pages[loop]);
-+			goto no_more;
-+		}
-+
-+		start += loop;
-+	} while (start <= wb->last && count < 65536);
-+
-+no_more:
-+	/* we now have a contiguous set of dirty pages, each with writeback set
-+	 * and the dirty mark cleared; the first page is locked and must remain
-+	 * so, all the rest are unlocked */
-+	first = primary_page->index;
-+	last = first + count - 1;
-+
-+	offset = (first == wb->first) ? wb->offset_first : 0;
-+	to = (last == wb->last) ? wb->to_last : PAGE_SIZE;
-+
-+	_debug("write back %lx[%u..] to %lx[..%u]", first, offset, last, to);
-+
-+	ret = afs_vnode_store_data(wb, first, last, offset, to);
-+	if (ret < 0) {
-+		switch (ret) {
-+		case -EDQUOT:
-+		case -ENOSPC:
-+			set_bit(AS_ENOSPC,
-+				&wb->vnode->vfs_inode.i_mapping->flags);
-+			break;
-+		case -EROFS:
-+		case -EIO:
-+		case -EREMOTEIO:
-+		case -EFBIG:
-+		case -ENOENT:
-+		case -ENOMEDIUM:
-+		case -ENXIO:
-+			afs_kill_pages(wb->vnode, true, first, last);
-+			set_bit(AS_EIO, &wb->vnode->vfs_inode.i_mapping->flags);
-+			break;
-+		case -EACCES:
-+		case -EPERM:
-+		case -ENOKEY:
-+		case -EKEYEXPIRED:
-+		case -EKEYREJECTED:
-+		case -EKEYREVOKED:
-+			afs_kill_pages(wb->vnode, false, first, last);
-+			break;
-+		default:
-+			break;
-+		}
-+	} else {
-+		ret = count;
-+	}
-+
-+	_leave(" = %d", ret);
-+	return ret;
-+}
-+
-+/*
-+ * write a page back to the server
-+ * - the caller locked the page for us
-+ */
-+int afs_writepage(struct page *page, struct writeback_control *wbc)
-+{
-+	struct backing_dev_info *bdi = page->mapping->backing_dev_info;
-+	struct afs_writeback *wb;
-+	int ret;
-+
-+	_enter("{%lx},", page->index);
-+
-+	if (wbc->sync_mode != WB_SYNC_NONE)
-+		wait_on_page_writeback(page);
-+
-+	if (PageWriteback(page) || !PageDirty(page)) {
-+		unlock_page(page);
-+		return 0;
-+	}
-+
-+	wb = (struct afs_writeback *) page_private(page);
-+	ASSERT(wb != NULL);
-+
-+	ret = afs_write_back_from_locked_page(wb, page);
-+	unlock_page(page);
-+	if (ret < 0) {
-+		_leave(" = %d", ret);
-+		return 0;
-+	}
-+
-+	wbc->nr_to_write -= ret;
-+	if (wbc->nonblocking && bdi_write_congested(bdi))
-+		wbc->encountered_congestion = 1;
-+
-+	_leave(" = 0");
-+	return 0;
-+}
-+
-+/*
-+ * write a region of pages back to the server
-+ */
-+int afs_writepages_region(struct address_space *mapping,
-+			  struct writeback_control *wbc,
-+			  pgoff_t index, pgoff_t end, pgoff_t *_next)
-+{
-+	struct backing_dev_info *bdi = mapping->backing_dev_info;
-+	struct afs_writeback *wb;
-+	struct page *page;
-+	int ret, n;
-+
-+	_enter(",,%lx,%lx,", index, end);
-+
-+	do {
-+		n = find_get_pages_tag(mapping, &index, PAGECACHE_TAG_DIRTY,
-+				       1, &page);
-+		if (!n)
-+			break;
-+
-+		_debug("wback %lx", page->index);
-+
-+		if (page->index > end) {
-+			*_next = index;
-+			page_cache_release(page);
-+			_leave(" = 0 [%lx]", *_next);
-+			return 0;
-+		}
-+
-+		/* at this point we hold neither mapping->tree_lock nor lock on
-+		 * the page itself: the page may be truncated or invalidated
-+		 * (changing page->mapping to NULL), or even swizzled back from
-+		 * swapper_space to tmpfs file mapping
-+		 */
-+		lock_page(page);
-+
-+		if (page->mapping != mapping) {
-+			unlock_page(page);
-+			page_cache_release(page);
-+			continue;
-+		}
-+
-+		if (wbc->sync_mode != WB_SYNC_NONE)
-+			wait_on_page_writeback(page);
-+
-+		if (PageWriteback(page) || !PageDirty(page)) {
-+			unlock_page(page);
-+			continue;
-+		}
-+
-+		wb = (struct afs_writeback *) page_private(page);
-+		ASSERT(wb != NULL);
-+
-+		spin_lock(&wb->vnode->writeback_lock);
-+		wb->state = AFS_WBACK_WRITING;
-+		spin_unlock(&wb->vnode->writeback_lock);
-+
-+		ret = afs_write_back_from_locked_page(wb, page);
-+		unlock_page(page);
-+		page_cache_release(page);
-+		if (ret < 0) {
-+			_leave(" = %d", ret);
-+			return ret;
-+		}
-+
-+		wbc->nr_to_write -= ret;
-+
-+		if (wbc->nonblocking && bdi_write_congested(bdi)) {
-+			wbc->encountered_congestion = 1;
-+			break;
-+		}
-+
-+		cond_resched();
-+	} while (index < end && wbc->nr_to_write > 0);
-+
-+	*_next = index;
-+	_leave(" = 0 [%lx]", *_next);
-+	return 0;
-+}
-+
-+/*
-+ * write some of the pending data back to the server
-+ */
-+int afs_writepages(struct address_space *mapping,
-+		   struct writeback_control *wbc)
-+{
-+	struct backing_dev_info *bdi = mapping->backing_dev_info;
-+	pgoff_t start, end, next;
-+	int ret;
-+
-+	_enter("");
-+
-+	if (wbc->nonblocking && bdi_write_congested(bdi)) {
-+		wbc->encountered_congestion = 1;
-+		_leave(" = 0 [congest]");
-+		return 0;
-+	}
-+
-+	if (wbc->range_cyclic) {
-+		start = mapping->writeback_index;
-+		end = -1;
-+		ret = afs_writepages_region(mapping, wbc, start, end, &next);
-+		if (start > 0 && wbc->nr_to_write > 0 && ret == 0 &&
-+		    !(wbc->nonblocking && wbc->encountered_congestion))
-+			ret = afs_writepages_region(mapping, wbc, 0, start,
-+						    &next);
-+		mapping->writeback_index = next;
-+	} else if (wbc->range_start == 0 && wbc->range_end == LLONG_MAX) {
-+		end = LLONG_MAX >> PAGE_CACHE_SHIFT;
-+		ret = afs_writepages_region(mapping, wbc, 0, end, &next);
-+		if (wbc->nr_to_write > 0)
-+			mapping->writeback_index = next;
-+	} else {
-+		start = wbc->range_start >> PAGE_CACHE_SHIFT;
-+		end = wbc->range_end >> PAGE_CACHE_SHIFT;
-+		ret = afs_writepages_region(mapping, wbc, start, end, &next);
-+	}
-+
-+	_leave(" = %d", ret);
-+	return ret;
-+}
-+
-+/*
-+ * write an inode back
-+ */
-+int afs_write_inode(struct inode *inode, int sync)
-+{
-+	struct afs_vnode *vnode = AFS_FS_I(inode);
-+	int ret;
-+
-+	_enter("{%x:%u},", vnode->fid.vid, vnode->fid.vnode);
-+
-+	ret = 0;
-+	if (sync) {
-+		ret = filemap_fdatawait(inode->i_mapping);
-+		if (ret < 0)
-+			__mark_inode_dirty(inode, I_DIRTY_DATASYNC);
-+	}
-+
-+	_leave(" = %d", ret);
-+	return ret;
-+}
-+
-+/*
-+ * completion of write to server
-+ */
-+void afs_pages_written_back(struct afs_vnode *vnode, struct afs_call *call)
-+{
-+	struct afs_writeback *wb = call->wb;
-+	struct pagevec pv;
-+	unsigned count, loop;
-+	pgoff_t first = call->first, last = call->last;
-+	bool free_wb;
-+
-+	_enter("{%x:%u},{%lx-%lx}",
-+	       vnode->fid.vid, vnode->fid.vnode, first, last);
-+
-+	ASSERT(wb != NULL);
-+
-+	pagevec_init(&pv, 0);
-+
-+	do {
-+		_debug("attach %lx-%lx", first, last);
-+
-+		count = last - first + 1;
-+		if (count > PAGEVEC_SIZE)
-+			count = PAGEVEC_SIZE;
-+		pv.nr = find_get_pages_contig(call->mapping, first, count,
-+					      pv.pages);
-+		ASSERTCMP(pv.nr, ==, count);
-+
-+		spin_lock(&vnode->writeback_lock);
-+		for (loop = 0; loop < count; loop++) {
-+			struct page *page = pv.pages[loop];
-+			end_page_writeback(page);
-+			if (page_private(page) == (unsigned long) wb) {
-+				set_page_private(page, 0);
-+				ClearPagePrivate(page);
-+				wb->usage--;
-+			}
-+		}
-+		free_wb = false;
-+		if (wb->usage == 0) {
-+			afs_unlink_writeback(wb);
-+			free_wb = true;
-+		}
-+		spin_unlock(&vnode->writeback_lock);
-+		first += count;
-+		if (free_wb) {
-+			afs_free_writeback(wb);
-+			wb = NULL;
-+		}
-+
-+		__pagevec_release(&pv);
-+	} while (first < last);
-+
-+	_leave("");
-+}
-+
-+/*
-+ * write to an AFS file
-+ */
-+ssize_t afs_file_write(struct kiocb *iocb, const struct iovec *iov,
-+		       unsigned long nr_segs, loff_t pos)
-+{
-+	struct dentry *dentry = iocb->ki_filp->f_path.dentry;
-+	struct afs_vnode *vnode = AFS_FS_I(dentry->d_inode);
-+	ssize_t result;
-+	size_t count = iov_length(iov, nr_segs);
-+	int ret;
-+
-+	_enter("{%x.%u},{%lu},%lu,",
-+	       vnode->fid.vid, vnode->fid.vnode, count, nr_segs);
-+
-+	if (IS_SWAPFILE(&vnode->vfs_inode)) {
-+		printk(KERN_INFO
-+		       "AFS: Attempt to write to active swap file!\n");
-+		return -EBUSY;
-+	}
-+
-+	if (!count)
-+		return 0;
-+
-+	result = generic_file_aio_write(iocb, iov, nr_segs, pos);
-+	if (IS_ERR_VALUE(result)) {
-+		_leave(" = %ld", result);
-+		return result;
-+	}
-+
-+	/* return error values for O_SYNC and IS_SYNC() */
-+	if (IS_SYNC(&vnode->vfs_inode) || iocb->ki_filp->f_flags & O_SYNC) {
-+		ret = afs_fsync(iocb->ki_filp, dentry, 1);
-+		if (ret < 0)
-+			result = ret;
-+	}
-+
-+	_leave(" = %ld", result);
-+	return result;
-+}
-+
-+/*
-+ * flush the vnode to the fileserver
-+ */
-+int afs_writeback_all(struct afs_vnode *vnode)
-+{
-+	struct address_space *mapping = vnode->vfs_inode.i_mapping;
-+	struct writeback_control wbc = {
-+		.bdi		= mapping->backing_dev_info,
-+		.sync_mode	= WB_SYNC_ALL,
-+		.nr_to_write	= LONG_MAX,
-+		.for_writepages = 1,
-+		.range_cyclic	= 1,
-+	};
-+	int ret;
-+
-+	_enter("");
-+
-+	ret = mapping->a_ops->writepages(mapping, &wbc);
-+	__mark_inode_dirty(mapping->host, I_DIRTY_PAGES);
-+
-+	_leave(" = %d", ret);
-+	return ret;
-+}
-+
-+/*
-+ * flush any dirty pages for this process, and check for write errors.
-+ * - the return status from this call provides a reliable indication of
-+ *   whether any write errors occurred for this process.
-+ */
-+int afs_fsync(struct file *file, struct dentry *dentry, int datasync)
-+{
-+	struct afs_writeback *wb, *xwb;
-+	struct afs_vnode *vnode = AFS_FS_I(dentry->d_inode);
-+	int ret;
-+
-+	_enter("{%x:%u},{n=%s},%d",
-+	       vnode->fid.vid, vnode->fid.vnode, dentry->d_name.name,
-+	       datasync);
-+
-+	/* use a writeback record as a marker in the queue - when this reaches
-+	 * the front of the queue, all the outstanding writes are either
-+	 * completed or rejected */
-+	wb = kzalloc(sizeof(*wb), GFP_KERNEL);
-+	if (!wb)
-+		return -ENOMEM;
-+	wb->vnode = vnode;
-+	wb->first = 0;
-+	wb->last = -1;
-+	wb->offset_first = 0;
-+	wb->to_last = PAGE_SIZE;
-+	wb->usage = 1;
-+	wb->state = AFS_WBACK_SYNCING;
-+	init_waitqueue_head(&wb->waitq);
-+
-+	spin_lock(&vnode->writeback_lock);
-+	list_for_each_entry(xwb, &vnode->writebacks, link) {
-+		if (xwb->state == AFS_WBACK_PENDING)
-+			xwb->state = AFS_WBACK_CONFLICTING;
-+	}
-+	list_add_tail(&wb->link, &vnode->writebacks);
-+	spin_unlock(&vnode->writeback_lock);
-+
-+	/* push all the outstanding writebacks to the server */
-+	ret = afs_writeback_all(vnode);
-+	if (ret < 0) {
-+		afs_put_writeback(wb);
-+		_leave(" = %d [wb]", ret);
-+		return ret;
-+	}
-+
-+	/* wait for the preceding writes to actually complete */
-+	ret = wait_event_interruptible(wb->waitq,
-+				       wb->state == AFS_WBACK_COMPLETE ||
-+				       vnode->writebacks.next == &wb->link);
-+	afs_put_writeback(wb);
-+	_leave(" = %d", ret);
-+	return ret;
-+}
+ extern		cpm_cpm2_t	*cpmp;	 /* Pointer to comm processor */
+
+-extern uint cpm_dpalloc(uint size, uint align);
+-extern int cpm_dpfree(uint offset);
+-extern uint cpm_dpalloc_fixed(uint offset, uint size, uint align);
++extern unsigned long cpm_dpalloc(uint size, uint align);
++extern int cpm_dpfree(unsigned long offset);
++extern unsigned long cpm_dpalloc_fixed(unsigned long offset, uint size, uint align);
+ extern void cpm_dpdump(void);
+-extern void *cpm_dpram_addr(uint offset);
++extern void *cpm_dpram_addr(unsigned long offset);
+ extern void cpm_setbrg(uint brg, uint rate);
+ extern void cpm2_fastbrg(uint brg, uint rate, int div16);
+ extern void cpm2_reset(void);
+diff --git a/include/asm-ppc/rheap.h b/include/asm-ppc/rheap.h
+index 39a10d8..1723817 100644
+--- a/include/asm-ppc/rheap.h
++++ b/include/asm-ppc/rheap.h
+@@ -18,7 +18,7 @@
+
+ typedef struct _rh_block {
+ 	struct list_head list;
+-	void *start;
++	unsigned long start;
+ 	int size;
+ 	const char *owner;
+ } rh_block_t;
+@@ -37,8 +37,8 @@ typedef struct _rh_info {
+ #define RHIF_STATIC_INFO	0x1
+ #define RHIF_STATIC_BLOCK	0x2
+
+-typedef struct rh_stats_t {
+-	void *start;
++typedef struct _rh_stats {
++	unsigned long start;
+ 	int size;
+ 	const char *owner;
+ } rh_stats_t;
+@@ -57,24 +57,24 @@ extern void rh_init(rh_info_t * info, unsigned int alignment, int max_blocks,
+ 		    rh_block_t * block);
+
+ /* Attach a free region to manage */
+-extern int rh_attach_region(rh_info_t * info, void *start, int size);
++extern int rh_attach_region(rh_info_t * info, unsigned long start, int size);
+
+ /* Detach a free region */
+-extern void *rh_detach_region(rh_info_t * info, void *start, int size);
++extern unsigned long rh_detach_region(rh_info_t * info, unsigned long start, int size);
+
+ /* Allocate the given size from the remote heap (with alignment) */
+-extern void *rh_alloc_align(rh_info_t * info, int size, int alignment,
++extern unsigned long rh_alloc_align(rh_info_t * info, int size, int alignment,
+ 		const char *owner);
+
+ /* Allocate the given size from the remote heap */
+-extern void *rh_alloc(rh_info_t * info, int size, const char *owner);
++extern unsigned long rh_alloc(rh_info_t * info, int size, const char *owner);
+
+ /* Allocate the given size from the given address */
+-extern void *rh_alloc_fixed(rh_info_t * info, void *start, int size,
++extern unsigned long rh_alloc_fixed(rh_info_t * info, unsigned long start, int size,
+ 			    const char *owner);
+
+ /* Free the allocated area */
+-extern int rh_free(rh_info_t * info, void *start);
++extern int rh_free(rh_info_t * info, unsigned long start);
+
+ /* Get stats for debugging purposes */
+ extern int rh_get_stats(rh_info_t * info, int what, int max_stats,
+@@ -84,6 +84,6 @@ extern int rh_get_stats(rh_info_t * info, int what, int max_stats,
+ extern void rh_dump(rh_info_t * info);
+
+ /* Set owner of taken block */
+-extern int rh_set_owner(rh_info_t * info, void *start, const char *owner);
++extern int rh_set_owner(rh_info_t * info, unsigned long start, const char *owner);
+
+ #endif				/* __ASM_PPC_RHEAP_H__ */
+--
+1.5.0.2.260.g2eb065
 
