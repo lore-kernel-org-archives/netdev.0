@@ -1,57 +1,44 @@
-From: Michael-Luke Jones <mlj28@cam.ac.uk>
-Subject: Re: [PATCH] Intel IXP4xx network drivers v.2 - Ethernet and HSS
-Date: Tue, 8 May 2007 09:35:54 +0100
-Message-ID: <94A84191-A7C6-41D2-83A0-2C28EB210B5B@cam.ac.uk>
-References: <200705080826.l488Qnrb006666@harpo.it.uu.se>
-Mime-Version: 1.0 (Apple Message framework v752.2)
-Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Krzysztof Halasa <khc@pm.waw.pl>, Jeff Garzik <jeff@garzik.org>,
-	ARM Linux Mailing List
-	<linux-arm-kernel@lists.arm.linux.org.uk>,
-	lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	Russell King <rmk@arm.linux.org.uk>
-To: Mikael Pettersson <mikpe@it.uu.se>,
-	Tomasz Chmielewski <mangoo@wpkg.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ppsw-2.csi.cam.ac.uk ([131.111.8.132]:32838 "EHLO
-	ppsw-2.csi.cam.ac.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934678AbXEHIgx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 May 2007 04:36:53 -0400
-In-Reply-To: <200705080826.l488Qnrb006666@harpo.it.uu.se>
-Sender: netdev-owner@vger.kernel.org
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: Please pull 'upstream' branch of wireless-2.6
+Date: Tue, 08 May 2007 10:49:07 +0200
+Message-ID: <1178614147.18162.30.camel@johannes.berg>
+References: <20070507175121.GF5125@tuxdriver.com>
+	 <1178572550.11805.7.camel@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-tPa19ckNh83blEZ4tVmV"
+Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1178572550.11805.7.camel-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 8 May 2007, at 09:26, Mikael Pettersson wrote:
 
-> On Tue, 8 May 2007 08:22:17 +0100, Michael-Luke Jones wrote:
-> AFAIK, it's a HW limitation of the IXP4xx NPEs, or
-> possibly Intel's microcode for them.
->
-> I run my IXP42x boxes big-endian and don't mind doing so.
->
-> /Mikael
+--=-tPa19ckNh83blEZ4tVmV
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-*cough*
-http://www.hohnstaedt.de/ixp_npe/0.2.0/0001-IXP4XX-Driver-for-NPE- 
-QMGR-MAC-0.2.0.txt
-:p
+On Mon, 2007-05-07 at 17:15 -0400, Dan Williams wrote:
 
----
+> So the kconfig changes with s/NET_RADIO/NET_80211 (or whatever it was)
+> are in for 2.6.22?  Or is that for 2.6.23?
 
-On 8 May 2007, at 09:29, Tomasz Chmielewski wrote:
-> Christian Hohnstaedt's work did support LE though.
+http://git.kernel.org/?p=3Dlinux/kernel/git/torvalds/linux-2.6.git;a=3Dcomm=
+it;h=3D2a5e1c0eb9efe26eed1dd072fe08de5797a7efd5
 
-Indeed.
+johannes
 
-> Krzysztof, why is LE not supported?
+--=-tPa19ckNh83blEZ4tVmV
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
 
-Butting in here. It's not supported because LE mode has to work in a  
-brain-damaged way. NPE DMAs the complete skb straight out of RAM.  
-Unfortunately it expects the skb to already be written out in ram BE.
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
 
-Thus, in LE mode we have to byteswap the skb with CPU before the NPE  
-can DMA it. This hasn't been implemented yet.
+iD8DBQBGQDmC/ETPhpq3jKURAtFfAJ9E6qSxe7L8uSdEtZFJApdnJ5GuEgCgmXlm
+R0k6sEMZky8AxkLCSk0vkp4=
+=9Vfh
+-----END PGP SIGNATURE-----
 
-Michael-Luke Jones
-
+--=-tPa19ckNh83blEZ4tVmV--
