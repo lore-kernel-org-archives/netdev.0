@@ -1,38 +1,55 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: [PATCH] Intel IXP4xx network drivers v.2 - Ethernet and HSS
-Date: Tue, 08 May 2007 19:51:29 +0200
-Message-ID: <m31whr5hlq.fsf@maximus.localdomain>
-References: <464034CF.20700@wpkg.org>
-	<f19298770705080148u70638ac2ue87241382681088@mail.gmail.com>
-	<m3bqgv72sq.fsf@maximus.localdomain>
-	<20070508155201.GA1251@xi.wantstofly.org>
-	<m3hcqn5j0p.fsf@maximus.localdomain> <4640B3EE.1020707@wpkg.org>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: Please pull 'upstream' branch of wireless-2.6
+Date: Tue, 8 May 2007 13:38:11 -0400
+Message-ID: <20070508173811.GG6479@tuxdriver.com>
+References: <20070507175121.GF5125@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Lennert Buytenhek <buytenh@wantstofly.org>,
-	Alexey Zaytsev <alexey.zaytsev@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Michael Jones <mlj28@cam.ac.uk>
-To: Tomasz Chmielewski <mangoo@wpkg.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:47259 "EHLO khc.piap.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S966751AbXEHRvb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 May 2007 13:51:31 -0400
-In-Reply-To: <4640B3EE.1020707@wpkg.org> (Tomasz Chmielewski's message of "Tue, 08 May 2007 19:31:26 +0200")
-Sender: netdev-owner@vger.kernel.org
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20070507175121.GF5125-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Tomasz Chmielewski <mangoo@wpkg.org> writes:
+This request is withdrawn.  New request to follow.
 
-> Does using ixp4xx on LE have any other drawbacks than inferior network
-> performance?
+On Mon, May 07, 2007 at 01:51:21PM -0400, John W. Linville wrote:
+> The following changes since commit 15700770ef7c5d12e2f1659d2ddbeb3f658d9f37:
+>   Linus Torvalds (1):
+>         Merge git://git.kernel.org/.../sam/kbuild
+> 
+> are found in the git repository at:
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git upstream
+> 
+> Daniel Drake (1):
+>       zd1211rw: Add ID for ZyXEL AG-225H v2
+> 
+> Geert Uytterhoeven (1):
+>       mac80211: include <linux/delay.h> instead of <asm/delay.h>
+> 
+> Ivo van Doorn (1):
+>       Add 93cx6 eeprom library
+> 
+> John W. Linville (1):
+>       libertas: fix for wireless Kconfig changes
+> 
+> Larry Finger (3):
+>       ieee80211: add ieee80211_channel_to_freq
+>       ieee80211: include frequency in scan results
+>       bcm43xx: Remove dead configuration variable CONFIG_947XX
+> 
+> Matthew Davidson (1):
+>       zd1211rw: Add ID for Sitecom WL-117
+> 
+> Michael Wu (1):
+>       Add rtl8187 wireless driver
+> 
+> Ulrich Kunitz (1):
+>       zd1211rw: Added new USB id for Planex GW-US54ZGL
 
-More memory is needed, something like max 600 KB for 2 Ethernet ports.
-
-> And talking about network performance, what numbers are we talking
-> about (LE vs BE; 30% performance hit on LE, more, or less)?
-
-Haven't checked yet but I'd expect something like that.
 -- 
-Krzysztof Halasa
+John W. Linville
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
