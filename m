@@ -1,30 +1,30 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 2/2] skge: allow WOL except for known broken chips
-Date: Tue, 08 May 2007 01:16:52 -0400
-Message-ID: <464007C4.3050007@pobox.com>
-References: <20070507110155.2063c74d@freekitty>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] DM9000: fix use of kfree() on net device
+Date: Tue, 08 May 2007 01:17:00 -0400
+Message-ID: <464007CC.1080203@garzik.org>
+References: <20070507111325.GA32546@fluff.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stable@kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: netdev@vger.kernel.org
+To: Ben Dooks <ben-linux@fluff.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:54306 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:54315 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S967876AbXEHFQz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 May 2007 01:16:55 -0400
-In-Reply-To: <20070507110155.2063c74d@freekitty>
+	id S967897AbXEHFRC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 May 2007 01:17:02 -0400
+In-Reply-To: <20070507111325.GA32546@fluff.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> Wake On Lan works correctly on Yukon-FE and other variants.
+Ben Dooks wrote:
+> The DM9000 network driver is calling kfree() on an netdev
+> causing the system to oops if the probe fails. The right
+> thing to do is call free_netdev().
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>a
+> Thanks to Russell King for spotting this.
 > 
-> ---
->  drivers/net/skge.c |    9 ++++++---
->  1 file changed, 6 insertions(+), 3 deletions(-)
+> Signed-off-by: Ben Dooks <ben-linux@fluff.org>
 
 applied
 
