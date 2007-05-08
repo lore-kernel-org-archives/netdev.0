@@ -1,32 +1,59 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: 2.6.21-git8+ BUG: NMI Watchdog detected LOCKUP on CPU1
-Date: Tue, 08 May 2007 12:19:48 +0200
-Message-ID: <46404EC4.4010303@trash.net>
-References: <46403642.7020501@googlemail.com> <20070508030701.d21dc40b.akpm@linux-foundation.org>
+From: "Denys" <denys@visp.net.lb>
+Subject: Re: strange TCP behaviour
+Date: Tue, 8 May 2007 13:31:32 +0300
+Message-ID: <20070508103049.M75995@visp.net.lb>
+References: <20070508094330.M22276@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain;
+	charset=koi8-r
+To: "Denys" <denys@visp.net.lb>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:47214 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934633AbXEHKVq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 May 2007 06:21:46 -0400
-In-Reply-To: <20070508030701.d21dc40b.akpm@linux-foundation.org>
+Received: from usermail.globalproof.net ([194.146.153.18]:44472 "EHLO
+	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S966365AbXEHKbo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 May 2007 06:31:44 -0400
+In-Reply-To: <20070508094330.M22276@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton wrote:
-> Whatever happens, that printk should be toned down, shouldn't it?  We
-> prefer to not let unprivileged apps spam the logs.
+I forgot to mention, latest tested kernel (for now)
+2.6.21-rc5
+It's just not easy to upgrade, is there any changes after rc5 related to that?
+
+On Tue, 8 May 2007 12:49:36 +0300, Denys wrote
+> Dear All
+> 
+> I have application, thats accept redirected requests from squid 
+> (over iptables .... -j REDIRECT), getting ip over 
+> getsockopt/SO_ORIGINAL_DST and throwing data in to the tunnel.
+> 
+> And i have strange behaviour, when i do
+> sysctl net.ipv4.tcp_frto=0
+> 
+> And i try any website with attachments (means a lot of data going to 
+> be sent to redirect), i am getting after 3-10 seconds message "Read 
+> error: Connection timed out". Thats a bit strange, possible it is 
+> related to application, but i guess kernel must not give error to 
+> recv/read (i dont know what squid is using). It is a bit difficult 
+> to reproduce the problem, but i can give a remote access to PC where 
+> all things installed. But i have no idea, who of TCP(?) maintainers 
+> can help me with this. I think there is no app problem, tcpdump 
+> looks normal, there is no reset(and message will be different in 
+> case of reset).
+> 
+> --
+> Denys Fedoryshchenko
+> Technical Manager
+> Virtual ISP S.A.L.
+> 
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
 
-Only priviledged apps can send these packets. I've never seen it in
-practice except for one case that was a bug in the network stack, so
-I'd prefer to keep it. The original intention was to give the user
-a hint why these packets are not affected by iptables rules, so a
-more descriptive message would make sense. I'll queue a patch for
-this.
+--
+Denys Fedoryshchenko
+Technical Manager
+Virtual ISP S.A.L.
 
