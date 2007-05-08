@@ -1,67 +1,150 @@
 From: Olof Johansson <olof@lixom.net>
-Subject: [PATCH v4 5/9] pasemi_mac: Minor cleanup / define fixes
-Date: Tue, 8 May 2007 00:47:41 -0500
-Message-ID: <20070508054741.GF14321@lixom.net>
+Subject: [PATCH v4 1/9] pasemi_mac: Move the IRQ mapping from the PCI layer to the driver
+Date: Tue, 8 May 2007 00:47:21 -0500
+Message-ID: <20070508054721.GB14321@lixom.net>
 References: <20070508053500.358169000@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
 To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lixom.net ([66.141.50.11]:32950 "EHLO mail.lixom.net"
+Received: from lixom.net ([66.141.50.11]:32952 "EHLO mail.lixom.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754641AbXEHGIn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754384AbXEHGIn (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 8 May 2007 02:08:43 -0400
-Content-Disposition: inline; filename=n-6
+Content-Disposition: inline; filename=n-2
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Remove some unused defines
-* Fix a couple of wrong chip register defines, and add a few more fields
-  that might be used in the near future.
+Fixes for ethernet IRQ mapping, to be done in the driver instead of in
+the platform setup code.
 
 Signed-off-by: Olof Johansson <olof@lixom.net>
 
+
+Index: netdev-2.6/arch/powerpc/platforms/pasemi/pci.c
+===================================================================
+--- netdev-2.6.orig/arch/powerpc/platforms/pasemi/pci.c
++++ netdev-2.6/arch/powerpc/platforms/pasemi/pci.c
+@@ -173,19 +173,6 @@ static void __init pas_fixup_phb_resourc
+ }
+ 
+ 
+-void __devinit pas_pci_irq_fixup(struct pci_dev *dev)
+-{
+-	/* DMA is special, 84 interrupts (128 -> 211), all but 128
+-	 * need to be mapped by hand here.
+-	 */
+-	if (dev->vendor == 0x1959 && dev->device == 0xa007) {
+-		int i;
+-		for (i = 129; i < 212; i++)
+-			irq_create_mapping(NULL, i);
+-	}
+-}
+-
+-
+ void __init pas_pci_init(void)
+ {
+ 	struct device_node *np, *root;
+Index: netdev-2.6/arch/powerpc/platforms/pasemi/setup.c
+===================================================================
+--- netdev-2.6.orig/arch/powerpc/platforms/pasemi/setup.c
++++ netdev-2.6/arch/powerpc/platforms/pasemi/setup.c
+@@ -248,5 +248,4 @@ define_machine(pas) {
+ 	.calibrate_decr		= generic_calibrate_decr,
+ 	.progress		= pas_progress,
+ 	.machine_check_exception = pas_machine_check_handler,
+-	.pci_irq_fixup		= pas_pci_irq_fixup,
+ };
 Index: netdev-2.6/drivers/net/pasemi_mac.c
 ===================================================================
 --- netdev-2.6.orig/drivers/net/pasemi_mac.c
 +++ netdev-2.6/drivers/net/pasemi_mac.c
-@@ -61,12 +61,6 @@
+@@ -33,6 +33,8 @@
+ #include <linux/tcp.h>
+ #include <net/checksum.h>
  
- #define BUF_SIZE 1646 /* 1500 MTU + ETH_HLEN + VLAN_HLEN + 2 64B cachelines */
++#include <asm/irq.h>
++
+ #include "pasemi_mac.h"
  
--/* XXXOJN these should come out of the device tree some day */
--#define PAS_DMA_CAP_BASE   0xe00d0040
--#define PAS_DMA_CAP_SIZE   0x100
--#define PAS_DMA_COM_BASE   0xe00d0100
--#define PAS_DMA_COM_SIZE   0x100
--
- static struct pasdma_status *dma_status;
  
- static int pasemi_get_mac_addr(struct pasemi_mac *mac)
+@@ -531,6 +533,7 @@ static irqreturn_t pasemi_mac_tx_intr(in
+ static int pasemi_mac_open(struct net_device *dev)
+ {
+ 	struct pasemi_mac *mac = netdev_priv(dev);
++	int base_irq;
+ 	unsigned int flags;
+ 	int ret;
+ 
+@@ -594,28 +597,37 @@ static int pasemi_mac_open(struct net_de
+ 	netif_start_queue(dev);
+ 	netif_poll_enable(dev);
+ 
+-	ret = request_irq(mac->dma_pdev->irq + mac->dma_txch,
+-			  &pasemi_mac_tx_intr, IRQF_DISABLED,
++	/* Interrupts are a bit different for our DMA controller: While
++	 * it's got one a regular PCI device header, the interrupt there
++	 * is really the base of the range it's using. Each tx and rx
++	 * channel has it's own interrupt source.
++	 */
++
++	base_irq = virq_to_hw(mac->dma_pdev->irq);
++
++	mac->tx_irq = irq_create_mapping(NULL, base_irq + mac->dma_txch);
++	mac->rx_irq = irq_create_mapping(NULL, base_irq + 20 + mac->dma_txch);
++
++	ret = request_irq(mac->tx_irq, &pasemi_mac_tx_intr, IRQF_DISABLED,
+ 			  mac->tx->irq_name, dev);
+ 	if (ret) {
+ 		dev_err(&mac->pdev->dev, "request_irq of irq %d failed: %d\n",
+-		       mac->dma_pdev->irq + mac->dma_txch, ret);
++			base_irq + mac->dma_txch, ret);
+ 		goto out_tx_int;
+ 	}
+ 
+-	ret = request_irq(mac->dma_pdev->irq + 20 + mac->dma_rxch,
+-			  &pasemi_mac_rx_intr, IRQF_DISABLED,
++	ret = request_irq(mac->rx_irq, &pasemi_mac_rx_intr, IRQF_DISABLED,
+ 			  mac->rx->irq_name, dev);
+ 	if (ret) {
+ 		dev_err(&mac->pdev->dev, "request_irq of irq %d failed: %d\n",
+-		       mac->dma_pdev->irq + 20 + mac->dma_rxch, ret);
++			base_irq + 20 + mac->dma_rxch, ret);
+ 		goto out_rx_int;
+ 	}
+ 
+ 	return 0;
+ 
+ out_rx_int:
+-	free_irq(mac->dma_pdev->irq + mac->dma_txch, dev);
++	free_irq(mac->tx_irq, dev);
+ out_tx_int:
+ 	netif_poll_disable(dev);
+ 	netif_stop_queue(dev);
+@@ -699,8 +711,8 @@ static int pasemi_mac_close(struct net_d
+ 	pci_write_config_dword(mac->dma_pdev,
+ 			       PAS_DMA_RXINT_RCMDSTA(mac->dma_if), 0);
+ 
+-	free_irq(mac->dma_pdev->irq + mac->dma_txch, dev);
+-	free_irq(mac->dma_pdev->irq + 20 + mac->dma_rxch, dev);
++	free_irq(mac->tx_irq, dev);
++	free_irq(mac->rx_irq, dev);
+ 
+ 	/* Free resources */
+ 	pasemi_mac_free_rx_resources(dev);
 Index: netdev-2.6/drivers/net/pasemi_mac.h
 ===================================================================
 --- netdev-2.6.orig/drivers/net/pasemi_mac.h
 +++ netdev-2.6/drivers/net/pasemi_mac.h
-@@ -195,11 +195,15 @@ enum {
- #define PAS_DMA_RXINT_RCMDSTA(i)	(0x200+(i)*_PAS_DMA_RXINT_STRIDE)
- #define    PAS_DMA_RXINT_RCMDSTA_EN	0x00000001
- #define    PAS_DMA_RXINT_RCMDSTA_ST	0x00000002
--#define    PAS_DMA_RXINT_RCMDSTA_OO	0x00000100
--#define    PAS_DMA_RXINT_RCMDSTA_BP	0x00000200
--#define    PAS_DMA_RXINT_RCMDSTA_DR	0x00000400
-+#define    PAS_DMA_RXINT_RCMDSTA_MBT	0x00000008
-+#define    PAS_DMA_RXINT_RCMDSTA_MDR	0x00000010
-+#define    PAS_DMA_RXINT_RCMDSTA_MOO	0x00000020
-+#define    PAS_DMA_RXINT_RCMDSTA_MBP	0x00000040
- #define    PAS_DMA_RXINT_RCMDSTA_BT	0x00000800
--#define    PAS_DMA_RXINT_RCMDSTA_TB	0x00001000
-+#define    PAS_DMA_RXINT_RCMDSTA_DR	0x00001000
-+#define    PAS_DMA_RXINT_RCMDSTA_OO	0x00002000
-+#define    PAS_DMA_RXINT_RCMDSTA_BP	0x00004000
-+#define    PAS_DMA_RXINT_RCMDSTA_TB	0x00008000
- #define    PAS_DMA_RXINT_RCMDSTA_ACT	0x00010000
- #define    PAS_DMA_RXINT_RCMDSTA_DROPS_M	0xfffe0000
- #define    PAS_DMA_RXINT_RCMDSTA_DROPS_S	17
+@@ -73,6 +73,8 @@ struct pasemi_mac {
+ 
+ 	struct pasemi_mac_txring *tx;
+ 	struct pasemi_mac_rxring *rx;
++	unsigned long	tx_irq;
++	unsigned long	rx_irq;
+ };
+ 
+ /* Software status descriptor (desc_info) */
 
 --
