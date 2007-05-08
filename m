@@ -1,193 +1,170 @@
 From: Kim Phillips <kim.phillips@freescale.com>
-Subject: [PATCH 2/6] phylib: add the ICPlus IP175C PHY driver
-Date: Tue, 8 May 2007 17:50:10 -0500
-Message-ID: <20070508175010.4c024666.kim.phillips@freescale.com>
+Subject: [PATCH 4/6] ucc_geth: eliminate max-speed, change interface-type to
+ phy-connection-type
+Date: Tue, 8 May 2007 17:50:29 -0500
+Message-ID: <20070508175029.23c1b103.kim.phillips@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from de01egw02.freescale.net ([192.88.165.103]:33773 "EHLO
-	de01egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S968697AbXEHWuW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 May 2007 18:50:22 -0400
+Received: from de01egw01.freescale.net ([192.88.165.102]:40438 "EHLO
+	de01egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S968846AbXEHWuf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 May 2007 18:50:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The ICPlus IP175C sports a 100Mbit/s 4-port switch in addition
-to a dedicated 100Mbit/s WAN port.
+It was agreed that phy-connection-type was a better name for
+the interface-type property, so this patch renames it.
 
-Signed-off-by: Michael Barkowski <michael.barkowski@freescale.com>
+Also, the max-speed property name was determined too generic,
+and is therefore eliminated in favour of phy-connection-type
+derivation logic.
+
+includes corrections to copyright text.
+
 Signed-off-by: Kim Phillips <kim.phillips@freescale.com>
 ---
- drivers/net/phy/Kconfig  |    6 ++
- drivers/net/phy/Makefile |    1 +
- drivers/net/phy/icplus.c |  128 ++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 135 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/phy/icplus.c
+ drivers/net/ucc_geth.c     |   40 ++++++++++++++++------------------------
+ drivers/net/ucc_geth_mii.c |    9 +++++----
+ drivers/net/ucc_geth_mii.h |   10 +++++-----
+ 3 files changed, 26 insertions(+), 33 deletions(-)
 
-diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-index f994f12..91cf33e 100644
---- a/drivers/net/phy/Kconfig
-+++ b/drivers/net/phy/Kconfig
-@@ -62,6 +62,12 @@ config BROADCOM_PHY
- 	---help---
- 	  Currently supports the BCM5411, BCM5421 and BCM5461 PHYs.
+diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
+index d7aff81..361eca0 100644
+--- a/drivers/net/ucc_geth.c
++++ b/drivers/net/ucc_geth.c
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (C) Freescale Semicondutor, Inc. 2006. All rights reserved.
++ * Copyright (C) 2006-2007 Freescale Semicondutor, Inc. All rights reserved.
+  *
+  * Author: Shlomi Gridish <gridish@freescale.com>
+  *	   Li Yang <leoli@freescale.com>
+@@ -3737,21 +3737,21 @@ static int ucc_geth_close(struct net_device *dev)
  
-+config ICPLUS_PHY
-+	tristate "Drivers for ICPlus PHYs"
-+	depends on PHYLIB
-+	---help---
-+	  Currently supports the IP175C PHY.
-+
- config FIXED_PHY
- 	tristate "Drivers for PHY emulation on fixed speed/link"
- 	depends on PHYLIB
-diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
-index bcd1efb..8885650 100644
---- a/drivers/net/phy/Makefile
-+++ b/drivers/net/phy/Makefile
-@@ -11,4 +11,5 @@ obj-$(CONFIG_QSEMI_PHY)		+= qsemi.o
- obj-$(CONFIG_SMSC_PHY)		+= smsc.o
- obj-$(CONFIG_VITESSE_PHY)	+= vitesse.o
- obj-$(CONFIG_BROADCOM_PHY)	+= broadcom.o
-+obj-$(CONFIG_ICPLUS_PHY)	+= icplus.o
- obj-$(CONFIG_FIXED_PHY)		+= fixed.o
-diff --git a/drivers/net/phy/icplus.c b/drivers/net/phy/icplus.c
-new file mode 100644
-index 0000000..babdb2e
---- /dev/null
-+++ b/drivers/net/phy/icplus.c
-@@ -0,0 +1,128 @@
-+/*
-+ * Driver for ICPlus PHYs
-+ *
-+ * Copyright (c) 2007 Freescale Semiconductor, Inc.
-+ *
-+ * This program is free software; you can redistribute  it and/or modify it
-+ * under  the terms of  the GNU General  Public License as published by the
-+ * Free Software Foundation;  either version 2 of the  License, or (at your
-+ * option) any later version.
-+ *
-+ */
-+#include <linux/kernel.h>
-+#include <linux/string.h>
-+#include <linux/errno.h>
-+#include <linux/unistd.h>
-+#include <linux/slab.h>
-+#include <linux/interrupt.h>
-+#include <linux/init.h>
-+#include <linux/delay.h>
-+#include <linux/netdevice.h>
-+#include <linux/etherdevice.h>
-+#include <linux/skbuff.h>
-+#include <linux/spinlock.h>
-+#include <linux/mm.h>
-+#include <linux/module.h>
-+#include <linux/mii.h>
-+#include <linux/ethtool.h>
-+#include <linux/phy.h>
-+
-+#include <asm/io.h>
-+#include <asm/irq.h>
-+#include <asm/uaccess.h>
-+
-+MODULE_DESCRIPTION("ICPlus IP175C PHY driver");
-+MODULE_AUTHOR("Michael Barkowski");
-+MODULE_LICENSE("GPL");
-+
-+static int ip175c_config_init(struct phy_device *phydev)
-+{
-+	int err, i;
-+	static int full_reset_performed = 0;
-+
-+	if (full_reset_performed == 0) {
-+
-+		/* master reset */
-+		err = phydev->bus->write(phydev->bus, 30, 0, 0x175c);
-+		if (err < 0)
-+			return err;
-+
-+		/* data sheet specifies reset period is 2 msec */
-+		udelay(3000);
-+
-+		/* enable IP175C mode */
-+		err = phydev->bus->write(phydev->bus, 29, 31, 0x175c);
-+		if (err < 0)
-+			return err;
-+
-+		/* Set MII0 speed and duplex (in PHY mode) */
-+		err = phydev->bus->write(phydev->bus, 29, 22, 0x420);
-+		if (err < 0)
-+			return err;
-+
-+		for (i=0; i<5; i++) {
-+			err = phydev->bus->write(phydev->bus, i, MII_BMCR, BMCR_RESET);
-+		}
-+		udelay(3000);
-+
-+		full_reset_performed = 1;
-+	}
-+
-+	if (phydev->addr != 4) {
-+		phydev->state = PHY_RUNNING;
-+		phydev->speed = SPEED_100;
-+		phydev->duplex = DUPLEX_FULL;
-+		phydev->link = 1;
-+		netif_carrier_on(phydev->attached_dev);
-+	}
-+
-+	return 0;
-+}
-+
-+static int ip175c_read_status(struct phy_device *phydev)
-+{
-+	if (phydev->addr == 4) { /* if WAN port */
-+		genphy_read_status(phydev);
-+	} else {
-+		/* Don't need to read status for switch ports */
-+		phydev->irq = PHY_IGNORE_INTERRUPT;
-+	}
-+
-+	return 0;
-+}
-+
-+
-+static int ip175c_config_aneg(struct phy_device *phydev)
-+{
-+	if (phydev->addr == 4) { /* if WAN port */
-+		genphy_config_aneg(phydev);
-+	}
-+
-+	return 0;
-+}
-+
-+
-+static struct phy_driver ip175c_driver = {
-+	.phy_id		= 0x02430d80,
-+	.name		= "ICPlus IP175C",
-+	.phy_id_mask	= 0x0ffffff0,
-+	.features	= PHY_BASIC_FEATURES,
-+	.config_init	= &ip175c_config_init,
-+	.config_aneg	= &ip175c_config_aneg,
-+	.read_status	= &ip175c_read_status,
-+	.driver		= { .owner = THIS_MODULE,},
-+};
-+
-+static int __init ip175c_init(void)
-+{
-+	return phy_driver_register(&ip175c_driver);
-+}
-+
-+static void __exit ip175c_exit(void)
-+{
-+	phy_driver_unregister(&ip175c_driver);
-+}
-+
-+module_init(ip175c_init);
-+module_exit(ip175c_exit);
-+
+ const struct ethtool_ops ucc_geth_ethtool_ops = { };
+ 
+-static phy_interface_t to_phy_interface(const char *interface_type)
++static phy_interface_t to_phy_interface(const char *phy_connection_type)
+ {
+-	if (strcasecmp(interface_type, "mii") == 0)
++	if (strcasecmp(phy_connection_type, "mii") == 0)
+ 		return PHY_INTERFACE_MODE_MII;
+-	if (strcasecmp(interface_type, "gmii") == 0)
++	if (strcasecmp(phy_connection_type, "gmii") == 0)
+ 		return PHY_INTERFACE_MODE_GMII;
+-	if (strcasecmp(interface_type, "tbi") == 0)
++	if (strcasecmp(phy_connection_type, "tbi") == 0)
+ 		return PHY_INTERFACE_MODE_TBI;
+-	if (strcasecmp(interface_type, "rmii") == 0)
++	if (strcasecmp(phy_connection_type, "rmii") == 0)
+ 		return PHY_INTERFACE_MODE_RMII;
+-	if (strcasecmp(interface_type, "rgmii") == 0)
++	if (strcasecmp(phy_connection_type, "rgmii") == 0)
+ 		return PHY_INTERFACE_MODE_RGMII;
+-	if (strcasecmp(interface_type, "rgmii-id") == 0)
++	if (strcasecmp(phy_connection_type, "rgmii-id") == 0)
+ 		return PHY_INTERFACE_MODE_RGMII_ID;
+-	if (strcasecmp(interface_type, "rtbi") == 0)
++	if (strcasecmp(phy_connection_type, "rtbi") == 0)
+ 		return PHY_INTERFACE_MODE_RTBI;
+ 
+ 	return PHY_INTERFACE_MODE_MII;
+@@ -3819,29 +3819,21 @@ static int ucc_geth_probe(struct of_device* ofdev, const struct of_device_id *ma
+ 	ug_info->phy_address = *prop;
+ 
+ 	/* get the phy interface type, or default to MII */
+-	prop = of_get_property(np, "interface-type", NULL);
++	prop = of_get_property(np, "phy-connection-type", NULL);
+ 	if (!prop) {
+ 		/* handle interface property present in old trees */
+ 		prop = of_get_property(phy, "interface", NULL);
+-		if (prop != NULL)
++		if (prop != NULL) {
+ 			phy_interface = enet_to_phy_interface[*prop];
+-		else
++			max_speed = enet_to_speed[*prop];
++		} else
+ 			phy_interface = PHY_INTERFACE_MODE_MII;
+ 	} else {
+ 		phy_interface = to_phy_interface((const char *)prop);
+ 	}
+ 
+-	/* get speed, or derive from interface */
+-	prop = of_get_property(np, "max-speed", NULL);
+-	if (!prop) {
+-		/* handle interface property present in old trees */
+-		prop = of_get_property(phy, "interface", NULL);
+-		if (prop != NULL)
+-			max_speed = enet_to_speed[*prop];
+-	} else {
+-		max_speed = *prop;
+-	}
+-	if (!max_speed) {
++	/* get speed, or derive from PHY interface */
++	if (max_speed == 0)
+ 		switch (phy_interface) {
+ 		case PHY_INTERFACE_MODE_GMII:
+ 		case PHY_INTERFACE_MODE_RGMII:
+@@ -3854,9 +3846,9 @@ static int ucc_geth_probe(struct of_device* ofdev, const struct of_device_id *ma
+ 			max_speed = SPEED_100;
+ 			break;
+ 		}
+-	}
+ 
+ 	if (max_speed == SPEED_1000) {
++		/* configure muram FIFOs for gigabit operation */
+ 		ug_info->uf_info.urfs = UCC_GETH_URFS_GIGA_INIT;
+ 		ug_info->uf_info.urfet = UCC_GETH_URFET_GIGA_INIT;
+ 		ug_info->uf_info.urfset = UCC_GETH_URFSET_GIGA_INIT;
+diff --git a/drivers/net/ucc_geth_mii.c b/drivers/net/ucc_geth_mii.c
+index 27a1ef3..f96966d 100644
+--- a/drivers/net/ucc_geth_mii.c
++++ b/drivers/net/ucc_geth_mii.c
+@@ -1,12 +1,13 @@
+ /*
+  * drivers/net/ucc_geth_mii.c
+  *
+- * Gianfar Ethernet Driver -- MIIM bus implementation
+- * Provides Bus interface for MIIM regs
++ * QE UCC Gigabit Ethernet Driver -- MII Management Bus Implementation
++ * Provides Bus interface for MII Management regs in the UCC register space
+  *
+- * Author: Li Yang
++ * Copyright (C) 2007 Freescale Semiconductor, Inc.
+  *
+- * Copyright (c) 2002-2004 Freescale Semiconductor, Inc.
++ * Authors: Li Yang <leoli@freescale.com>
++ *	    Kim Phillips <kim.phillips@freescale.com>
+  *
+  * This program is free software; you can redistribute  it and/or modify it
+  * under  the terms of  the GNU General  Public License as published by the
+diff --git a/drivers/net/ucc_geth_mii.h b/drivers/net/ucc_geth_mii.h
+index 98430fe..d834370 100644
+--- a/drivers/net/ucc_geth_mii.h
++++ b/drivers/net/ucc_geth_mii.h
+@@ -1,13 +1,13 @@
+ /*
+  * drivers/net/ucc_geth_mii.h
+  *
+- * Gianfar Ethernet Driver -- MII Management Bus Implementation
+- * Driver for the MDIO bus controller in the Gianfar register space
++ * QE UCC Gigabit Ethernet Driver -- MII Management Bus Implementation
++ * Provides Bus interface for MII Management regs in the UCC register space
+  *
+- * Author: Andy Fleming
+- * Maintainer: Kumar Gala
++ * Copyright (C) 2007 Freescale Semiconductor, Inc.
+  *
+- * Copyright (c) 2002-2004 Freescale Semiconductor, Inc.
++ * Authors: Li Yang <leoli@freescale.com>
++ *	    Kim Phillips <kim.phillips@freescale.com>
+  *
+  * This program is free software; you can redistribute  it and/or modify it
+  * under  the terms of  the GNU General  Public License as published by the
 -- 
 1.5.0.3
 
