@@ -1,22 +1,22 @@
 From: Olof Johansson <olof@lixom.net>
-Subject: [PATCH v4 4/9] pasemi_mac: Add SKB reuse / copy-break
-Date: Tue, 8 May 2007 00:47:37 -0500
-Message-ID: <20070508054737.GE14321@lixom.net>
+Subject: [PATCH v4 6/9] pasemi_mac: Logic cleanup / rx performance improvements
+Date: Tue, 8 May 2007 00:47:45 -0500
+Message-ID: <20070508054745.GG14321@lixom.net>
 References: <20070508053500.358169000@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
 To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lixom.net ([66.141.50.11]:32951 "EHLO mail.lixom.net"
+Received: from lixom.net ([66.141.50.11]:32949 "EHLO mail.lixom.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754181AbXEHGIn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754114AbXEHGIn (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 8 May 2007 02:08:43 -0400
-Content-Disposition: inline; filename=n-5
+Content-Disposition: inline; filename=n-7
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add a copy-break and recycle the SKB in the driver for small packets.
+Logic cleanup and some performance enhancements to the RX path.
 
 Signed-off-by: Olof Johansson <olof@lixom.net>
 
@@ -24,65 +24,186 @@ Index: netdev-2.6/drivers/net/pasemi_mac.c
 ===================================================================
 --- netdev-2.6.orig/drivers/net/pasemi_mac.c
 +++ netdev-2.6/drivers/net/pasemi_mac.c
-@@ -279,8 +279,8 @@ static void pasemi_mac_free_rx_resources
- 	for (i = 0; i < RX_RING_SIZE; i++) {
- 		info = &RX_DESC_INFO(mac, i);
- 		dp = &RX_DESC(mac, i);
--		if (info->dma) {
--			if (info->skb) {
-+		if (info->skb) {
-+			if (info->dma) {
- 				pci_unmap_single(mac->dma_pdev,
- 						 info->dma,
- 						 info->skb->len,
-@@ -329,12 +329,14 @@ static void pasemi_mac_replenish_rx_ring
+@@ -305,19 +305,20 @@ static void pasemi_mac_replenish_rx_ring
+ 	struct pasemi_mac *mac = netdev_priv(dev);
+ 	unsigned int i;
+ 	int start = mac->rx->next_to_fill;
+-	unsigned int count;
++	unsigned int limit, count;
+ 
+-	count = (mac->rx->next_to_clean + RX_RING_SIZE -
++	limit = (mac->rx->next_to_clean + RX_RING_SIZE -
+ 		 mac->rx->next_to_fill) & (RX_RING_SIZE - 1);
+ 
+ 	/* Check to see if we're doing first-time setup */
+ 	if (unlikely(mac->rx->next_to_clean == 0 && mac->rx->next_to_fill == 0))
+-		count = RX_RING_SIZE;
++		limit = RX_RING_SIZE;
+ 
+-	if (count <= 0)
++	if (limit <= 0)
+ 		return;
+ 
+-	for (i = start; i < start + count; i++) {
++	i = start;
++	for (count = limit; count; count--) {
+ 		struct pasemi_mac_buffer *info = &RX_DESC_INFO(mac, i);
+ 		u64 *buff = &RX_BUFF(mac, i);
  		struct sk_buff *skb;
- 		dma_addr_t dma;
- 
--		skb = dev_alloc_skb(BUF_SIZE);
-+		/* skb might still be in there for recycle on short receives */
-+		if (info->skb)
-+			skb = info->skb;
-+		else
-+			skb = dev_alloc_skb(BUF_SIZE);
- 
--		if (!skb) {
--			count = i - start;
-+		if (unlikely(!skb))
- 			break;
--		}
- 
+@@ -335,27 +336,27 @@ static void pasemi_mac_replenish_rx_ring
  		dma = pci_map_single(mac->dma_pdev, skb->data, skb->len,
  				     PCI_DMA_FROMDEVICE);
-@@ -442,13 +444,28 @@ static int pasemi_mac_clean_rx(struct pa
  
- 		BUG_ON(!info);
- 		BUG_ON(info->dma != dma);
-+		skb = info->skb;
+-		if (dma_mapping_error(dma)) {
++		if (unlikely(dma_mapping_error(dma))) {
+ 			dev_kfree_skb_irq(info->skb);
+-			count = i - start;
+ 			break;
+ 		}
  
- 		pci_unmap_single(mac->dma_pdev, info->dma, info->skb->len,
- 				 PCI_DMA_FROMDEVICE);
+ 		info->skb = skb;
+ 		info->dma = dma;
+ 		*buff = XCT_RXB_LEN(BUF_SIZE) | XCT_RXB_ADDR(dma);
++		i++;
+ 	}
+ 
+ 	wmb();
+ 
+ 	pci_write_config_dword(mac->dma_pdev,
+ 			       PAS_DMA_RXCHAN_INCR(mac->dma_rxch),
+-			       count);
++			       limit - count);
+ 	pci_write_config_dword(mac->dma_pdev,
+ 			       PAS_DMA_RXINT_INCR(mac->dma_if),
+-			       count);
++			       limit - count);
+ 
+-	mac->rx->next_to_fill += count;
++	mac->rx->next_to_fill += limit - count;
+ }
+ 
+ static void pasemi_mac_restart_rx_intr(struct pasemi_mac *mac)
+@@ -393,32 +394,31 @@ static void pasemi_mac_restart_tx_intr(s
+ }
+ 
+ 
+-
+ static int pasemi_mac_clean_rx(struct pasemi_mac *mac, int limit)
+ {
+-	unsigned int i;
+-	int start, count;
++	unsigned int n;
++	int count;
++	struct pas_dma_xct_descr *dp;
++	struct pasemi_mac_buffer *info;
++	struct sk_buff *skb;
++	unsigned int i, len;
++	u64 macrx;
++	dma_addr_t dma;
+ 
+ 	spin_lock(&mac->rx->lock);
+ 
+-	start = mac->rx->next_to_clean;
+-	count = 0;
++	n = mac->rx->next_to_clean;
+ 
+-	for (i = start; i < (start + RX_RING_SIZE) && count < limit; i++) {
+-		struct pas_dma_xct_descr *dp;
+-		struct pasemi_mac_buffer *info;
+-		struct sk_buff *skb;
+-		unsigned int j, len;
+-		dma_addr_t dma;
++	for (count = limit; count; count--) {
+ 
+ 		rmb();
+ 
+-		dp = &RX_DESC(mac, i);
++		dp = &RX_DESC(mac, n);
++		macrx = dp->macrx;
+ 
+-		if (!(dp->macrx & XCT_MACRX_O))
++		if (!(macrx & XCT_MACRX_O))
+ 			break;
+ 
+-		count++;
+ 
+ 		info = NULL;
+ 
+@@ -430,22 +430,20 @@ static int pasemi_mac_clean_rx(struct pa
+ 		 */
+ 
+ 		dma = (dp->ptr & XCT_PTR_ADDR_M);
+-		for (j = start; j < (start + RX_RING_SIZE); j++) {
+-			info = &RX_DESC_INFO(mac, j);
++		for (i = n; i < (n + RX_RING_SIZE); i++) {
++			info = &RX_DESC_INFO(mac, i);
+ 			if (info->dma == dma)
+ 				break;
+ 		}
+ 
+-		BUG_ON(!info);
+-		BUG_ON(info->dma != dma);
+ 		skb = info->skb;
 +		info->dma = 0;
  
--		skb = info->skb;
+-		pci_unmap_single(mac->dma_pdev, info->dma, info->skb->len,
++		pci_unmap_single(mac->dma_pdev, dma, skb->len,
+ 				 PCI_DMA_FROMDEVICE);
+-		info->dma = 0;
  
- 		len = (dp->macrx & XCT_MACRX_LLEN_M) >> XCT_MACRX_LLEN_S;
-+		if (len < 256) {
-+			struct sk_buff *new_skb =
-+			    netdev_alloc_skb(mac->netdev, len + NET_IP_ALIGN);
-+			if (new_skb) {
-+				skb_reserve(new_skb, NET_IP_ALIGN);
-+				memcpy(new_skb->data - NET_IP_ALIGN,
-+					skb->data - NET_IP_ALIGN,
-+					len + NET_IP_ALIGN);
-+				/* save the skb in buffer_info as good */
-+				skb = new_skb;
-+			}
-+			/* else just continue with the old one */
-+		} else
-+			info->skb = NULL;
++		len = (macrx & XCT_MACRX_LLEN_M) >> XCT_MACRX_LLEN_S;
  
- 		skb_put(skb, len);
+-		len = (dp->macrx & XCT_MACRX_LLEN_M) >> XCT_MACRX_LLEN_S;
+ 		if (len < 256) {
+ 			struct sk_buff *new_skb =
+ 			    netdev_alloc_skb(mac->netdev, len + NET_IP_ALIGN);
+@@ -465,9 +463,9 @@ static int pasemi_mac_clean_rx(struct pa
  
+ 		skb->protocol = eth_type_trans(skb, mac->netdev);
+ 
+-		if ((dp->macrx & XCT_MACRX_HTY_M) == XCT_MACRX_HTY_IPV4_OK) {
++		if ((macrx & XCT_MACRX_HTY_M) == XCT_MACRX_HTY_IPV4_OK) {
+ 			skb->ip_summed = CHECKSUM_COMPLETE;
+-			skb->csum = (dp->macrx & XCT_MACRX_CSUM_M) >>
++			skb->csum = (macrx & XCT_MACRX_CSUM_M) >>
+ 					   XCT_MACRX_CSUM_S;
+ 		} else
+ 			skb->ip_summed = CHECKSUM_NONE;
+@@ -477,13 +475,13 @@ static int pasemi_mac_clean_rx(struct pa
+ 
+ 		netif_receive_skb(skb);
+ 
+-		info->dma = 0;
+-		info->skb = NULL;
+ 		dp->ptr = 0;
+ 		dp->macrx = 0;
++
++		n++;
+ 	}
+ 
+-	mac->rx->next_to_clean += count;
++	mac->rx->next_to_clean += limit - count;
+ 	pasemi_mac_replenish_rx_ring(mac->netdev);
+ 
+ 	spin_unlock(&mac->rx->lock);
+@@ -899,6 +897,9 @@ static int pasemi_mac_poll(struct net_de
+ 
+ 	pkts = pasemi_mac_clean_rx(mac, limit);
+ 
++	dev->quota -= pkts;
++	*budget -= pkts;
++
+ 	if (pkts < limit) {
+ 		/* all done, no more packets present */
+ 		netif_rx_complete(dev);
+@@ -907,8 +908,6 @@ static int pasemi_mac_poll(struct net_de
+ 		return 0;
+ 	} else {
+ 		/* used up our quantum, so reschedule */
+-		dev->quota -= pkts;
+-		*budget -= pkts;
+ 		return 1;
+ 	}
+ }
 
 --
