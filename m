@@ -1,32 +1,55 @@
-From: Mike Christie <michaelc@cs.wisc.edu>
-Subject: Re: SG_IO with >4k buffer size to iscsi sg device causes "Bad page"
- panic
-Date: Tue, 08 May 2007 14:30:16 -0500
-Message-ID: <4640CFC8.9020004@cs.wisc.edu>
-References: <0F08E10B769EAF4EA2C43A573B8CC87FB106C0@NAMAIL3.ad.lsil.com>
+From: Kim Phillips <kim.phillips@freescale.com>
+Subject: Re: Kconfig warnings on latest GIT
+Date: Tue, 8 May 2007 14:31:27 -0500
+Message-ID: <20070508143127.38fafa3c.kim.phillips@freescale.com>
+References: <200705080004.14570.ismail@pardus.org.tr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
-	linux-iscsi-devel@lists.sourceforge.net,
-	"Qi, Yanling" <Yanling.Qi@lsi.com>, dougg@torque.net,
-	James Bottomley <James.Bottomley@SteelEye.com>
-To: open-iscsi@googlegroups.com
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <0F08E10B769EAF4EA2C43A573B8CC87FB106C0@NAMAIL3.ad.lsil.com>
-Sender: linux-scsi-owner@vger.kernel.org
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Timur Tabi <timur@freescale.com>,
+	Kumar Gala <galak@kernel.crashing.org>
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Ismail =?ISO-8859-1?Q?D=F6nmez?= <ismail@pardus.org.tr>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from de01egw02.freescale.net ([192.88.165.103]:35098 "EHLO
+	de01egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S967821AbXEHTb5 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 May 2007 15:31:57 -0400
+In-Reply-To: <200705080004.14570.ismail@pardus.org.tr>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Qi, Yanling wrote:
-> Hi All,
-> 
-> This panic is related to the interactions between scsi/sg.c, iscsi
-> initiator and tcp on the RHEL 2.6.9-42 kernel. But we may also have the
-> similar problem with open-iscsi initiator. I will explain why we see the
+On Tue, 8 May 2007 00:04:14 +0300
+Ismail D=F6nmez <ismail@pardus.org.tr> wrote:
 
-Yeah, this problem should occur in the upstream open-iscsi iscsi code.
-open-iscsi works very similar to linux-scsi where it just sends pages
-around with sock->ops-sendpage, and it looks like sg uses
-__get_free_pages in RHEL's kernel and upstream it uses alloc_pages so
-unless there was a change in those functions or the network layer then
-we should have a similar problem.
+>=20
+> drivers/net/Kconfig:2279:warning: 'select' used by config symbol 'UCC=
+_GETH'=20
+> refers to undefined symbol 'UCC_FAST'
+
+looks like this introduces the error:
+
+commit 7d776cb596994219584257eb5956b87628e5deaf
+Author: Timur Tabi <timur@freescale.com>
+Date:   Mon Mar 12 15:40:27 2007 -0500
+
+    [POWERPC] QE: automatically select QE options
+
+    Change the Kconfig files so that the Freescale QE options are autom=
+atically
+    selected if a QE device is selected.  Previously, you'd need to man=
+ually
+    select UCC_FAST if you want any "fast" UCC devices, such as Gigabit=
+ Ethernet
+    Now, the QE Gigabit Ethernet option is always available if the devi=
+ce has a
+    QE, and UCC_FAST is automatically enabled.  A side-effect is that t=
+he
+    "QE Options" menu no longer exists.
+
+    Signed-off-by: Timur Tabi <timur@freescale.com>
+    Signed-off-by: Kumar Gala <galak@kernel.crashing.org>
+
+cc:ing authors, fti.
+
+Kim
