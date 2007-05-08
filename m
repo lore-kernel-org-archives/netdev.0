@@ -1,34 +1,85 @@
 From: Jiri Kosina <jikos@jikos.cz>
-Subject: Re: 2.6.21-git8+ BUG: NMI Watchdog detected LOCKUP on CPU1
-Date: Tue, 8 May 2007 18:09:42 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0705081807100.16923@twin.jikos.cz>
-References: <46403642.7020501@googlemail.com> <20070508030701.d21dc40b.akpm@linux-foundation.org>
+Subject: Re: Getting make net/built-in.o Error with 2.6.21.1
+	Build
+Date: Tue, 8 May 2007 18:23:57 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0705081815130.16923@twin.jikos.cz>
+References: <463FB6B0.3070005@pcburn.com>
+	<a781481a0705071725i1d802dfejbcdaca4ab0a1ff55@mail.gmail.com>
+	<Pine.LNX.4.64.0705081740550.16923@twin.jikos.cz>
+	<a781481a0705080905l609dc925s93357e6eb0d4c318@mail.gmail.com>
+Reply-To: BlueZ development <bluez-devel@lists.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	Patrick McHardy <kaber@trash.net>
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from twin.jikos.cz ([213.151.79.26]:54511 "EHLO twin.jikos.cz"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934567AbXEHQJx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 May 2007 12:09:53 -0400
-In-Reply-To: <20070508030701.d21dc40b.akpm@linux-foundation.org>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, chris@pcburn.com,
+	bluez-devel@lists.sourceforge.net, linux-kernel@vger.kernel.org
+To: Satyam Sharma <satyam.sharma@gmail.com>,
+	Marcel Holtmann <marcel@holtmann.org>
+Return-path: <bluez-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <a781481a0705080905l609dc925s93357e6eb0d4c318@mail.gmail.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
+	<mailto:bluez-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=bluez-devel>
+List-Post: <mailto:bluez-devel@lists.sourceforge.net>
+List-Help: <mailto:bluez-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
+	<mailto:bluez-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: bluez-devel-bounces@lists.sourceforge.net
+Errors-To: bluez-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Tue, 8 May 2007, Andrew Morton wrote:
+On Tue, 8 May 2007, Satyam Sharma wrote:
 
->   happens when a local process sends packets with invalid IP headers
->   through raw sockets.
-[...]
-> Whatever happens, that printk should be toned down, shouldn't it?  We
-> prefer to not let unprivileged apps spam the logs.
+> Sure, my aim here was to only solve the _build breakage_ by fixing the 
+> Kconfig for this module (that used code from another kernel module 
+> without listing it in its dependencies). If, as you say, the real 
+> solution is that we should actually be taking out the offending call to 
+> the other module itself, then please go ahead -- I don't know much about 
+> the Bluetooth / HIDP subsytem anyway.
 
-Isn't "unprivileged app sending packet through raw socket" an oxymoron? As 
-Patrick pointed out, the message is there for a reason, I'd suggest using 
-printk_ratelimit() in this case.
+Converting the hid-ff drivers to be also transport-independent is on my 
+TODO list, but it didn't happen yet.
 
--- 
-Jiri Kosina
+Marcel - are you aware of any devices currently supported by USB HID 
+force-feedback code, which have a bluetooth version, please? 
+
+I'd propose the patch below, until I make the usbhid force-feedback code 
+transport independent. Thanks.
+
+
+
+From: Jiri Kosina <jkosina@suse.cz>
+
+[Bluetooth] HIDP - don't initialize force feedback
+
+The current implementation of force feedback for HID devices is 
+USB-transport only and therefore calling hid_ff_init() from hidp code is 
+not going to work (plus it creates unwanted dependency of hidp on usbhid). 
+Remove the hid_ff_init() until either the hid-ff is made 
+transport-independent, or at least support for bluetooth transport is 
+added.
+
+Signed-off-by: Jiri Kosina <jkosina@suse.cz>
+
+diff --git a/net/bluetooth/hidp/core.c b/net/bluetooth/hidp/core.c
+index d342e89..3e77e81 100644
+--- a/net/bluetooth/hidp/core.c
++++ b/net/bluetooth/hidp/core.c
+@@ -737,10 +737,8 @@ static inline void hidp_setup_hid(struct
+ 	list_for_each_entry(report, &hid->report_enum[HID_FEATURE_REPORT].report_list, list)
+ 		hidp_send_report(session, report);
+ 
+-	if (hidinput_connect(hid) == 0) {
++	if (hidinput_connect(hid) == 0)
+ 		hid->claimed |= HID_CLAIMED_INPUT;
+-		hid_ff_init(hid);
+-	}
+ }
+ 
+ int hidp_add_connection(struct hidp_connadd_req *req, struct socket *ctrl_sock, struct socket *intr_sock)
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by DB2 Express
+Download DB2 Express C - the FREE version of DB2 express and take
+control of your XML. No limits. Just data. Click to get it now.
+http://sourceforge.net/powerbar/db2/
