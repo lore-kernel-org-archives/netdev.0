@@ -1,43 +1,37 @@
-From: Olof Johansson <olof@lixom.net>
-Subject: [PATCH v4 0/9] pasemi_mac: fixes and enhancements
-Date: Tue, 8 May 2007 00:47:15 -0500
-Message-ID: <20070508054715.GA14321@lixom.net>
+From: olof@lixom.net (Olof Johansson)
+Subject: Re: [PATCH v3] [2/10] [REAL 2/10] pasemi_mac: Move the IRQ mapping from the PCI layer to the driver
+Date: Tue, 8 May 2007 00:32:36 -0500
+Message-ID: <20070508053236.GA14152@lixom.net>
+References: <20070428203624.GA4331@lixom.net> <20070428203650.GC4331@lixom.net> <20070428205726.GB4811@lixom.net> <4640046A.4060004@garzik.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: jgarzik@pobox.com
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lixom.net ([66.141.50.11]:32962 "EHLO mail.lixom.net"
+Received: from lixom.net ([66.141.50.11]:32960 "EHLO mail.lixom.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754713AbXEHGIo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754675AbXEHGIo (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 8 May 2007 02:08:44 -0400
 Content-Disposition: inline
+In-Reply-To: <4640046A.4060004@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Tue, May 08, 2007 at 01:02:34AM -0400, Jeff Garzik wrote:
+> Olof Johansson wrote:
+> >Fixes for ethernet IRQ mapping, to be done in the driver instead of in
+> >the platform setup code.
+> >
+> >Signed-off-by: Olof Johansson <olof@lixom.net>
+> 
+> patch failed to apply, so I stopped here
+> 
+> ACK patches 2-7
 
-The nine following patches contain a number of fixes and improvements of
-the pasemi_mac driver:
-
-[PATCH v4 1/9] pasemi_mac: Move the IRQ mapping from the PCI layer to the driver
-[PATCH v4 2/9] pasemi_mac: Abstract and fix up interrupt restart routines
-[PATCH v4 3/9] pasemi_mac: Timer and interrupt fixes
-[PATCH v4 4/9] pasemi_mac: Add SKB reuse / copy-break
-[PATCH v4 5/9] pasemi_mac: Minor cleanup / define fixes
-[PATCH v4 6/9] pasemi_mac: Logic cleanup / rx performance improvements
-[PATCH v4 7/9] pasemi_mac: Add msglevel support and "pasemi_mac_debug" module param
-[PATCH v4 8/9] pasemi_mac: PHY support
-[PATCH v4 9/9] pasemi_mac: Use local-mac-address instead of mac-address if available
-
-Changes since last:
-
-Dropped 1/10 since it's already applied
-1/9: refresh due to changes in the arch code
-7/9: netif_msg_init() and rename module parameter to "debug".
+Looks like it had some fuzz due to OF changes on powerpc, I've refreshed
+and will repost all but 1/10.
 
 
 Thanks,
-
 
 -Olof
