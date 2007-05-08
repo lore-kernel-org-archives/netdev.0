@@ -1,75 +1,154 @@
 From: Kim Phillips <kim.phillips@freescale.com>
-Subject: [PATCH 0/6] RESEND of missed ucc_geth phylib and SGMII patches
-Date: Tue, 8 May 2007 17:50:04 -0500
-Message-ID: <20070508175004.6b1ffee7.kim.phillips@freescale.com>
+Subject: [PATCH 3/6] phylib: enable RGMII-ID on the Marvell m88e1111 PHY
+Date: Tue, 8 May 2007 17:50:19 -0500
+Message-ID: <20070508175019.6b10eff0.kim.phillips@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from de01egw02.freescale.net ([192.88.165.103]:33762 "EHLO
+Received: from de01egw02.freescale.net ([192.88.165.103]:33775 "EHLO
 	de01egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S968802AbXEHWuQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 May 2007 18:50:16 -0400
+	with ESMTP id S968773AbXEHWuY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 May 2007 18:50:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This series is a re-send of the 6 patches that were missed:
+Support for configuring RGMII-ID (RGMII with internal delay) mode on the
+88e1111 and 88e1145.
 
-submitted 10 apr 2007:
+Also renamed 88e1111s -> 88e1111 (no references to an 88e1111s part were
+found), and fixed some whitespace.
 
-[PATCH] Add support for the Davicom DM9161A PHY
- - http://marc.info/?l=linux-netdev&m=117624199831581&w=2
-
-submitted 13 apr 2007:
-
-[PATCH v2] phylib: add the ICPlus IP175C PHY driver
- - http://marc.info/?l=linux-netdev&m=117648832616294&w=2
-
-[PATCH v2] phylib: enable RGMII-ID on the Marvell m88e1111 PHY
- - http://marc.info/?l=linux-netdev&m=117648831716153&w=2
-
-submitted 02 may 2007:
-
-[PATCH] ucc_geth: eliminate max-speed, change interface
- - http://marc.info/?l=linux-netdev&m=117813384403311&w=2
-
-submitted 03 may 2007:
-
-[PATCH] gianfar: add support for SGMII
- - http://marc.info/?l=linux-netdev&m=117822321305231&w=2
-
-[PATCH] phylib: m88e1111: enable SGMII mode
- - http://marc.info/?l=linux-netdev&m=117822321202167&w=2
-
-Jeff, please apply; boards with ucc_geth are currently broken.
-
-Thanks,
-
-Kim
-
+Signed-off-by: Kim Phillips <kim.phillips@freescale.com>
 ---
-Kapil Juneja (2):
-      gianfar: add support for SGMII
-      phylib: m88e1111: enable SGMII mode
+ drivers/net/phy/marvell.c |   62 +++++++++++++++++++++++++++++++++++++++------
+ 1 files changed, 54 insertions(+), 8 deletions(-)
 
-Kim Phillips (4):
-      Add support for the Davicom DM9161A PHY
-      phylib: add the ICPlus IP175C PHY driver
-      phylib: enable RGMII-ID on the Marvell m88e1111 PHY
-      ucc_geth: eliminate max-speed, change interface-type to phy-connection-type
+diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
+index 22aec5c..b87f8d2 100644
+--- a/drivers/net/phy/marvell.c
++++ b/drivers/net/phy/marvell.c
+@@ -54,6 +54,12 @@
+ #define MII_M1111_PHY_LED_CONTROL	0x18
+ #define MII_M1111_PHY_LED_DIRECT	0x4100
+ #define MII_M1111_PHY_LED_COMBINE	0x411c
++#define MII_M1111_PHY_EXT_CR		0x14
++#define MII_M1111_RX_DELAY		0x80
++#define MII_M1111_TX_DELAY		0x2
++#define MII_M1111_PHY_EXT_SR		0x1b
++#define MII_M1111_HWCFG_MODE_MASK	0xf
++#define MII_M1111_HWCFG_MODE_RGMII	0xb
  
- drivers/net/gianfar.c      |   27 +++++++++
- drivers/net/gianfar.h      |    6 ++
- drivers/net/gianfar_mii.c  |   55 +++++++++++++++----
- drivers/net/phy/Kconfig    |    6 ++
- drivers/net/phy/Makefile   |    1 +
- drivers/net/phy/davicom.c  |   34 +++++++++---
- drivers/net/phy/icplus.c   |  128 ++++++++++++++++++++++++++++++++++++++++++++
- drivers/net/phy/marvell.c  |   78 ++++++++++++++++++++++++---
- drivers/net/ucc_geth.c     |   40 ++++++--------
- drivers/net/ucc_geth_mii.c |    9 ++--
- drivers/net/ucc_geth_mii.h |   10 ++--
- 11 files changed, 334 insertions(+), 60 deletions(-)
- create mode 100644 drivers/net/phy/icplus.c
+ MODULE_DESCRIPTION("Marvell PHY driver");
+ MODULE_AUTHOR("Andy Fleming");
+@@ -131,6 +137,45 @@ static int marvell_config_aneg(struct phy_device *phydev)
+ 	return err;
+ }
+ 
++static int m88e1111_config_init(struct phy_device *phydev)
++{
++	int err;
++
++	if ((phydev->interface == PHY_INTERFACE_MODE_RGMII) ||
++	    (phydev->interface == PHY_INTERFACE_MODE_RGMII_ID)) {
++		int temp;
++
++		if (phydev->interface == PHY_INTERFACE_MODE_RGMII_ID) {
++			temp = phy_read(phydev, MII_M1111_PHY_EXT_CR);
++			if (temp < 0)
++				return temp;
++
++			temp |= (MII_M1111_RX_DELAY | MII_M1111_TX_DELAY);
++
++			err = phy_write(phydev, MII_M1111_PHY_EXT_CR, temp);
++			if (err < 0)
++				return err;
++		}
++
++		temp = phy_read(phydev, MII_M1111_PHY_EXT_SR);
++		if (temp < 0)
++			return temp;
++
++		temp &= ~(MII_M1111_HWCFG_MODE_MASK);
++		temp |= MII_M1111_HWCFG_MODE_RGMII;
++
++		err = phy_write(phydev, MII_M1111_PHY_EXT_SR, temp);
++		if (err < 0)
++			return err;
++	}
++
++	err = phy_write(phydev, MII_BMCR, BMCR_RESET);
++	if (err < 0)
++		return err;
++
++	return 0;
++}
++
+ static int m88e1145_config_init(struct phy_device *phydev)
+ {
+ 	int err;
+@@ -152,7 +197,7 @@ static int m88e1145_config_init(struct phy_device *phydev)
+ 	if (err < 0)
+ 		return err;
+ 
+-	if (phydev->interface == PHY_INTERFACE_MODE_RGMII) {
++	if (phydev->interface == PHY_INTERFACE_MODE_RGMII_ID) {
+ 		int temp = phy_read(phydev, MII_M1145_PHY_EXT_CR);
+ 		if (temp < 0)
+ 			return temp;
+@@ -206,7 +251,7 @@ static struct phy_driver m88e1101_driver = {
+ 	.driver = {.owner = THIS_MODULE,},
+ };
+ 
+-static struct phy_driver m88e1111s_driver = {
++static struct phy_driver m88e1111_driver = {
+ 	.phy_id = 0x01410cc0,
+ 	.phy_id_mask = 0xfffffff0,
+ 	.name = "Marvell 88E1111",
+@@ -216,6 +261,7 @@ static struct phy_driver m88e1111s_driver = {
+ 	.read_status = &genphy_read_status,
+ 	.ack_interrupt = &marvell_ack_interrupt,
+ 	.config_intr = &marvell_config_intr,
++	.config_init = &m88e1111_config_init,
+ 	.driver = {.owner = THIS_MODULE,},
+ };
+ 
+@@ -241,9 +287,9 @@ static int __init marvell_init(void)
+ 	if (ret)
+ 		return ret;
+ 
+-	ret = phy_driver_register(&m88e1111s_driver);
++	ret = phy_driver_register(&m88e1111_driver);
+ 	if (ret)
+-		goto err1111s;
++		goto err1111;
+ 
+ 	ret = phy_driver_register(&m88e1145_driver);
+ 	if (ret)
+@@ -251,9 +297,9 @@ static int __init marvell_init(void)
+ 
+ 	return 0;
+ 
+-      err1145:
+-	phy_driver_unregister(&m88e1111s_driver);
+-      err1111s:
++err1145:
++	phy_driver_unregister(&m88e1111_driver);
++err1111:
+ 	phy_driver_unregister(&m88e1101_driver);
+ 	return ret;
+ }
+@@ -261,7 +307,7 @@ static int __init marvell_init(void)
+ static void __exit marvell_exit(void)
+ {
+ 	phy_driver_unregister(&m88e1101_driver);
+-	phy_driver_unregister(&m88e1111s_driver);
++	phy_driver_unregister(&m88e1111_driver);
+ 	phy_driver_unregister(&m88e1145_driver);
+ }
+ 
+-- 
+1.5.0.3
+
