@@ -1,59 +1,63 @@
-From: Jiri Kosina <jikos@jikos.cz>
-Subject: Re: Getting make net/built-in.o Error with 2.6.21.1
-	Build
-Date: Tue, 8 May 2007 17:49:00 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0705081740550.16923@twin.jikos.cz>
-References: <463FB6B0.3070005@pcburn.com>
-	<a781481a0705071725i1d802dfejbcdaca4ab0a1ff55@mail.gmail.com>
-Reply-To: BlueZ development <bluez-devel@lists.sourceforge.net>
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: RE: [PATCH] IPROUTE: Modify tc for new PRIO multiqueue behavior
+Date: Tue, 8 May 2007 08:35:19 -0700
+Message-ID: <D5C1322C3E673F459512FB59E0DDC32902CDF558@orsmsx414.amr.corp.intel.com>
+References: <1178630917.4078.46.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: bluez-devel@lists.sourceforge.net, chris@pcburn.com,
-	Marcel Holtmann <marcel@holtmann.org>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Satyam Sharma <satyam.sharma@gmail.com>
-Return-path: <bluez-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <a781481a0705071725i1d802dfejbcdaca4ab0a1ff55@mail.gmail.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
-	<mailto:bluez-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=bluez-devel>
-List-Post: <mailto:bluez-devel@lists.sourceforge.net>
-List-Help: <mailto:bluez-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
-	<mailto:bluez-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: bluez-devel-bounces@lists.sourceforge.net
-Errors-To: bluez-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Zhu, Yi" <yi.zhu@intel.com>,
+	"Stephen Hemminger" <shemminger@linux-foundation.org>,
+	"Patrick McHardy" <kaber@trash.net>, <netdev@vger.kernel.org>,
+	<jgarzik@pobox.com>, "cramerj" <cramerj@intel.com>,
+	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
+	"Leech, Christopher" <christopher.leech@intel.com>,
+	<davem@davemloft.net>
+To: <hadi@cyberus.ca>, "Johannes Berg" <johannes@sipsolutions.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:34614 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755477AbXEHPfc convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 May 2007 11:35:32 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <1178630917.4078.46.camel@localhost>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 8 May 2007, Satyam Sharma wrote:
+> As a summary, I am not against the concept of addressing 
+> per-ring flow control. 
+> Having said that, i fully understand where DaveM and Stephen 
+> are coming from. Making such huge changes to a critical 
+> region to support uncommon hardware doesnt abide to the 
+> "optimize for the common" paradigm. 
 
-> >   CC      init/version.o
-> >   LD      init/built-in.o
-> >   LD      .tmp_vmlinux1
-> > net/built-in.o: In function `hidp_add_connection':
-> > (.text+0x8bb08): undefined reference to `hid_ff_init'
-> > make: *** [.tmp_vmlinux1] Error 1
-> You've got CONFIG_BT_HIDP=y there but CONFIG_USB_HID=m. The trivial 
-> patch below solves it. To test, you can just "make oldconfig" on the 
-> same .config that broke above and then proceed to make bzImage.
+But the point is that although the DCE spec inspired the development of
+these patches, that is *not* the goal of these patches.  As Yi stated in
+a previous reply to this thread, the ability for any hardware to control
+its queues at the stack level in the kernel is something that is missing
+in the kernel.  If the hardware doesn't want to support it, then the
+patches as-is will not require anything to change in drivers to continue
+working as they do today.
 
-I'd say we need a different fix here. First, the question is whether there 
-are any force-feedback devices, supported by USBHID force-feedback layer, 
-which have a bluetooth version?
+Bottom line: these patches are not for a specific technology.  I
+presented that spec to show a possible use case for these patches.  Yi
+presented a use case he can use in the wireless world.  I will be
+posting another use case shortly using ATA over Ethernet.
 
-If there are none of them, we could just drop the FF initialization 
-completely for now. 
+> I dont believe wireless needs anything other than the simple 
+> approach i described. The fact that there an occasional low 
+> prio packet may endup going out first before a high prio due 
+> to the contention is non-affecting to the overall results.
 
-On the other hand if there are such devices, just calling hid_ff_init() is 
-presently not enough anyway, as the force feedback drivers for HID devices 
-are currently USB-transport specific.
+I don't see how we can agree that having any type of
+head-of-line-blocking of a flow is or is not a problem.  You believe it
+isn't an issue, but this is a gap that I see existing in the stack
+today.  As networking is used for more advanced features (such as ndb or
+VoIP), having the ability to separate flows from each other all the way
+to the wire I see is a huge advantage to ensure true QoS.
 
--- 
-Jiri Kosina
+It's a shift in thinking.
 
--------------------------------------------------------------------------
-This SF.net email is sponsored by DB2 Express
-Download DB2 Express C - the FREE version of DB2 express and take
-control of your XML. No limits. Just data. Click to get it now.
-http://sourceforge.net/powerbar/db2/
+Thanks,
+-PJ
