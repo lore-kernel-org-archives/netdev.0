@@ -1,8 +1,8 @@
 From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: [PATCH] Intel IXP4xx network drivers v.3 - QMGR
-Date: Tue, 8 May 2007 16:40:01 +0200
-Message-ID: <20070508144001.GC387@xi.wantstofly.org>
-References: <m3abwhcy74.fsf@maximus.localdomain> <m3vef5biob.fsf@maximus.localdomain> <5BB7E1AB-5CE1-43C8-8CE3-E0DE0236BD09@cam.ac.uk> <m3hcqoa772.fsf@maximus.localdomain> <86D26EBE-5899-468F-9C79-23E83E0DE04B@cam.ac.uk> <m33b289zku.fsf@maximus.localdomain> <m31whs5ehn.fsf_-_@maximus.localdomain> <20070508113232.GA32055@xi.wantstofly.org> <m3k5vj76bi.fsf@maximus.localdomain>
+Subject: Re: [PATCH] Intel IXP4xx network drivers v.2 - Ethernet and HSS
+Date: Tue, 8 May 2007 16:53:40 +0200
+Message-ID: <20070508145340.GD387@xi.wantstofly.org>
+References: <m3abwhcy74.fsf@maximus.localdomain> <m3vef5biob.fsf@maximus.localdomain> <5BB7E1AB-5CE1-43C8-8CE3-E0DE0236BD09@cam.ac.uk> <m3hcqoa772.fsf@maximus.localdomain> <86D26EBE-5899-468F-9C79-23E83E0DE04B@cam.ac.uk> <m33b289zku.fsf@maximus.localdomain> <m3zm4g3yed.fsf_-_@maximus.localdomain> <20070508113735.GB32055@xi.wantstofly.org> <m3fy6775fz.fsf@maximus.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Michael-Luke Jones <mlj28@cam.ac.uk>,
@@ -12,124 +12,85 @@ Cc: Michael-Luke Jones <mlj28@cam.ac.uk>,
 	ARM Linux Mailing List
 	<linux-arm-kernel@lists.arm.linux.org.uk>
 To: Krzysztof Halasa <khc@pm.waw.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from alephnull.demon.nl ([83.160.184.112]:50208 "EHLO
-	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S967391AbXEHOkE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 May 2007 10:40:04 -0400
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S968330AbXEHOxp@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <m3k5vj76bi.fsf@maximus.localdomain>
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <m3fy6775fz.fsf@maximus.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, May 08, 2007 at 04:12:17PM +0200, Krzysztof Halasa wrote:
+On Tue, May 08, 2007 at 04:31:12PM +0200, Krzysztof Halasa wrote:
 
-> > The queue manager interrupts should probably be implemented as an
-> > irqchip, in the same way that GPIO interrupts are implemented.  (I.e.
-> > allocate 'real' interrupt numbers for them, and use the interrupt
-> > cascade mechanism.)  You probably want to have separate irqchips for
-> > the upper and lower halves, too.  This way, drivers can just use
-> > request_irq() instead of having to bother with platform-specific
-> > qmgr_set_irq() methods.
+> >> +/* Built-in 10/100 Ethernet MAC interfaces */
+> >> +static struct mac_plat_info ixdp425_plat_mac[] = {
+> >> +	{
+> >> +		.phy		= 0,
+> >> +		.rxq		= 3,
+> >> +	}, {
+> >> +		.phy		= 1,
+> >> +		.rxq		= 4,
+> >> +	}
+> >> +};
+> >
+> > As with Christian's driver (I'm feeling like a bit of a broken record
+> > here :-), putting knowledge of which queue to use (which is firmware-
+> > specific) in the _board_ support file is almost certainly wrong.
+> >
+> > I would just put the port number in there, and let the ethernet
+> > driver map the port number to the hardware queue number.  After all,
+> > the ethernet driver knows which queues the firmware uses, while the
+> > board support code doesn't.
 > 
-> Is there a sample somewhere?
+> No, quite the opposite. The board code knows its set of hardware
+> interfaces etc. and can let Ethernet driver use, say, HSS queues.
+> The driver can't know that.
 
-See for example arch/arm/mach-ep93xx/core.c, handling of the A/B/F
-port GPIO interrupts.
+You are attacking a point that I did not make.
 
-In a nutshell, it goes like this.
+The board support code knows such things as that the "front ethernet
+port" on the board is connected to the CPU's MII port number #2, but
+the board support code does _not_ know that MII port number #2
+corresponds to "ixp4xx hardware queue #5."
 
-1) Allocate a set of IRQ numbers.  E.g. in include/asm-arm/arch-ixp4xx/irqs.h:
+If Intel puts out a firmware update next month, and your ethernet
+driver is modified to take advantage of the new features in that
+firmware and starts depending on the newer version of that firmware,
+we will have to modify every ixp4xx board support file in case the
+firmware update modifies the ixp4xx queue numbers in use.  The
+mapping from hardware ports (MII port #0, MII port #6, HSS port
+#42, whatever) to ixp4xx hardware queue numbers (0-63) should _not_
+be put in every single ixp4xx board support file.
 
-	#define IRQ_IXP4XX_QUEUE_0	64
-	#define IRQ_IXP4XX_QUEUE_1	65
-	[...]
+Even if you only change the
 
-   Adjust NR_IRQS, too.
+	(in board support file)
+	.rxq		= 4,
 
-2) Implement interrupt chip functions:
+line to something like this instead:
 
-	static void ixp4xx_queue_low_irq_mask_ack(unsigned int irq)
-	{
-		[...]
-	}
+	(in some ixp4xx-specific or driver-specific header file)
+	#define IXP4XX_MII_PORT_1_RX_QUEUE		4
 
-	static void ixp4xx_queue_low_irq_mask(unsigned int irq)
-	{
-		[...]
-	}
+	(in board support file)
+	.rxq		= IXP4XX_MII_PORT_1_RX_QUEUE,
 
-	static void ixp4xx_queue_low_irq_unmask(unsigned int irq)
-	{
-		[...]
-	}
-
-	static void ixp4xx_queue_low_irq_set_type(unsigned int irq)
-	{
-		[...]
-	}
-
-	static struct irq_chip ixp4xx_queue_low_irq_chip = {
-		.name		= "QMGR low",
-		.ack		= ixp4xx_queue_low_irq_mask_ack,
-		.mask		= ixp4xx_queue_low_irq_mask,
-		.unmask		= ixp4xx_queue_low_irq_unmask,
-		.set_type	= ixp4xx_queue_low_irq_set_type,
-	};
-
-3) Hook up the queue interrupts:
-
-	for (i = IRQ_IXP4XX_QUEUE_0; i <= IRQ_IXP4XX_QUEUE_31; i++) {
-		set_irq_chip(i, &ixp4xx_queue_low_irq_chip);
-		set_irq_handler(i, handle_level_irq);
-		set_irq_flags(i, IRQF_VALID);
-	}
-
-4) Implement an interrupt handler for the parent interrupt:
-
-	static void ixp4xx_qmgr_low_irq_handler(unsigned int irq, struct irq_des c *desc)
-	{
-		u32 status;
-		int i;
-
-		status = __raw_readl(IXP4XX_WHATEVER_QMGR_LOW_STATUS_REGISTER);
-		for (i = 0; i < 32; i++) {
-			if (status & (1 << i)) {
-				desc = irq_desc + IRQ_IXP4XX_QUEUE_0 + i;
-				desc_handle_irq(IRQ_IXP4XX_QUEUE_0 + i, desc);
-			}
-		}
-	}
-
-5) Hook up the parent interrupt:
-
-	set_irq_chained_handler(IRQ_IXP4XX_QM1, ixp4xx_qmgr_low_irq_handler);
+then you have remved this dependency, and then you only have to update
+one place if you move to a newer firmware version.
 
 
-Or something like that.
-
-
-> > As with Christian's driver, I don't know whether an SRAM allocator
-> > makes much sense.  We can just set up a static allocation map for the
-> > in-tree drivers and leave out the allocator altogether.  I.e. I don't
-> > think it's worth the complexity (and just because the butt-ugly Intel
-> > code has an allocator isn't a very good reason. :-)
+> > I generally discourage the use of such wrappers, as it often makes
+> > people forget that the set and clear operations are not atomic, and
+> > it ignores the fact that some of the other bits in the register you
+> > are modifying might have side-effects.
 > 
-> It's a very simple allocator. I don't whink we have enough SRAM
-> without it. For now it would work but it's probably too small
-> for all potential users at a time.
-> 
-> There may be up to 6 Ethernet ports (not sure about hardware
-> status, not yet supported even by Intel) - 7 queues * 128 entries
-> each = ~ 3.5 KB. Add 2 long queues (RX) for HSS and something
-> for TX, and then crypto, and maybe other things.
+> Without them the code in question is hardly readable,
 
-You're unlikely to be using all of those at the same time, though.
+You can read Polish, how can you complain about code readability. :-))
 
-And what do you do if the user does compile all of these features into
-his kernel and then tries to use them all at the same time?  Return
--ENOMEM?
+*runs*
 
-Shouldn't we make sure that at least the features that are compiled in
-can be used at the same time?  If you want that guarantee, then you
-might as well determine the SRAM map at compile time.
+
+> I pick the need to remember about non-atomicity and possible side
+> effects instead :-)
+
+Sure, point taken, it's just that the person after you might not
+remember..
