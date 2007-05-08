@@ -1,71 +1,71 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: Please pull 'upstream' branch of wireless-2.6
-Date: Mon, 7 May 2007 19:38:11 -0400
-Message-ID: <20070507233811.GB4245@tuxdriver.com>
-References: <20070507175121.GF5125@tuxdriver.com> <463FB1A0.3070608@garzik.org>
+From: Michael Wu <flamingice-R9e9/4HEdknk1uMJSBkQmQ@public.gmane.org>
+Subject: Re: [PATCH v2] Add rtl8187 wireless driver
+Date: Mon, 7 May 2007 20:03:24 -0400
+Message-ID: <200705072003.29448.flamingice@sourmilk.net>
+References: <200705071022.11711.flamingice@sourmilk.net> <200705071917.25414.flamingice@sourmilk.net> <20070507.162518.35013789.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:4689 "EHLO ra.tuxdriver.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S967313AbXEHAC1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 May 2007 20:02:27 -0400
-Content-Disposition: inline
-In-Reply-To: <463FB1A0.3070608@garzik.org>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: multipart/signed;
+  boundary="nextPart1562274.oebPpi6ZBI";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
+	andrea.merello-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20070507.162518.35013789.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, May 07, 2007 at 07:09:20PM -0400, Jeff Garzik wrote:
-> John W. Linville wrote:
+--nextPart1562274.oebPpi6ZBI
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-> >Ivo van Doorn (1):
-> >      Add 93cx6 eeprom library
+On Monday 07 May 2007 19:25, David Miller wrote:
+> I know this sounds trite, but when merging and researching up to 450
+> patches at a time like I have to, this stuff starts to matter.
+>
+> Please put things as high in the directory hierachy as possible and
+> when you can put the entire driver into a single source file do so.
+>
+Sure. I generally prefer that too, but all the drivers I put in wireless-de=
+v=20
+were put in separate directories because I didn't want to break the pattern.
 
-> >Michael Wu (1):
-> >      Add rtl8187 wireless driver
+> The only significant argument you present is the code sharing one for
+> the radio stuff, but that isn't realized yet and you can certainly
+> split the code out once you make that sharing a reality.
+Having different modules for different radio chips really isn't the point o=
+f=20
+keeping it in a separate file. (in fact, rtl8187_rtl8225.c actually contain=
+s=20
+support for two versions of the rtl8225 radio) It's just that=20
+rtl8187_rtl8225.c is basically a bunch of numbers with a bit of glue code t=
+o=20
+send them to the hardware. Not much is missed if you decide not to look at=
+=20
+how the radio tuning works, and I like to avoid looking at that code if I=20
+can. It's also consistent with how the (unreleased) rtl8180 driver works,=20
+which really does have support for different radios in different files.
 
-I presume these are the two parts you question.  (Just checking...)
+But of course, we can just make an exception for rtl8187. Would merging the=
+=20
+files together make that much of a difference for you?
 
-> The normal development process is:
-> 
-> * commit new code to your repository
-> * that goes into -mm for public testing and review
-> * merge window opens
-> * the code that has seen public testing and review goes upstream
-> 
-> The general idea is everything you want in 2.6.22 should be prepared and 
-> in -mm BEFORE 2.6.21 is released, and the 2.6.22 merge window opens.
-> 
-> It's quite normal for fixes and minor changes to trickle in after the 
-> push that follows the merge window opening.  But new drivers that have 
-> not been through this process do not fall under "fixes and minor changes."
- 
-I agree whole-heartedly.
+=2DMichael Wu
 
-The whole mac80211 driver package (including rtl8187) has been in -mm
-(and rawhide) for most of the 2.6.21 development cycle.  The rtl8187
-driver in particular has been relatively stable for the past couple
-of months ("3 files changed, 13 insertions(+), 4 deletions(-)" since
-7 March 2007), and it seems to work well.
+--nextPart1562274.oebPpi6ZBI
+Content-Type: application/pgp-signature
 
-> I also did not see any response to my "better as a single file driver" 
-> suggestion.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.5 (GNU/Linux)
 
-Yes, I see that now.  Do you consider this a merge requirement?
+iD8DBQBGP75RT3Oqt9AH4aERArWhAKDIrPlqESQGRu1liJUy71aLRXlsfQCguNLG
+gCDrRTO/dxU5G92aSk5dAiA=
+=/gYw
+-----END PGP SIGNATURE-----
 
-My main concern pre-merge would be accidentally destabilizing the code
-while stitching the files together.  Other than that, the suggestion
-seems worthwhile.  However, I think Michael plans to expand the driver
-to support rtl8180 and rtl8185.  This may factor into why he chose
-to organize the code the way he has.
-
-> So, I'll pull if you remove the two late additions.
-
-Any chance that you find the comments above persuasive? :-)
-
-John
--- 
-John W. Linville
-linville@tuxdriver.com
+--nextPart1562274.oebPpi6ZBI--
