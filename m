@@ -1,28 +1,59 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: [PATCH] Intel IXP4xx network drivers v.2 - Ethernet and HSS
-Date: Tue, 08 May 2007 17:28:21 +0200
-Message-ID: <m3bqgv72sq.fsf@maximus.localdomain>
-References: <464034CF.20700@wpkg.org>
-	<f19298770705080148u70638ac2ue87241382681088@mail.gmail.com>
+From: Jiri Kosina <jikos@jikos.cz>
+Subject: Re: Getting make net/built-in.o Error with 2.6.21.1
+	Build
+Date: Tue, 8 May 2007 17:49:00 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0705081740550.16923@twin.jikos.cz>
+References: <463FB6B0.3070005@pcburn.com>
+	<a781481a0705071725i1d802dfejbcdaca4ab0a1ff55@mail.gmail.com>
+Reply-To: BlueZ development <bluez-devel@lists.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Tomasz Chmielewski" <mangoo@wpkg.org>,
-	linux-kernel@vger.kernel.org,
-	linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org,
-	"Michael Jones" <mlj28@cam.ac.uk>
-To: "Alexey Zaytsev" <alexey.zaytsev@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755570AbXEHPpk@vger.kernel.org>
-In-Reply-To: <f19298770705080148u70638ac2ue87241382681088@mail.gmail.com> (Alexey Zaytsev's message of "Tue, 8 May 2007 12:48:51 +0400")
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: bluez-devel@lists.sourceforge.net, chris@pcburn.com,
+	Marcel Holtmann <marcel@holtmann.org>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Satyam Sharma <satyam.sharma@gmail.com>
+Return-path: <bluez-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <a781481a0705071725i1d802dfejbcdaca4ab0a1ff55@mail.gmail.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
+	<mailto:bluez-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=bluez-devel>
+List-Post: <mailto:bluez-devel@lists.sourceforge.net>
+List-Help: <mailto:bluez-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
+	<mailto:bluez-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: bluez-devel-bounces@lists.sourceforge.net
+Errors-To: bluez-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-"Alexey Zaytsev" <alexey.zaytsev@gmail.com> writes:
+On Tue, 8 May 2007, Satyam Sharma wrote:
 
-> I was always curious, why do people want to run ixp4xx in LE mode? What
-> are the benefits that overweight the obvious performance degradation?
+> >   CC      init/version.o
+> >   LD      init/built-in.o
+> >   LD      .tmp_vmlinux1
+> > net/built-in.o: In function `hidp_add_connection':
+> > (.text+0x8bb08): undefined reference to `hid_ff_init'
+> > make: *** [.tmp_vmlinux1] Error 1
+> You've got CONFIG_BT_HIDP=y there but CONFIG_USB_HID=m. The trivial 
+> patch below solves it. To test, you can just "make oldconfig" on the 
+> same .config that broke above and then proceed to make bzImage.
 
-Debian is indeed a valid reason.
-I wonder if it would be much work to create BE Debian as well.
-Simple automated process it seems, for most part at least.
+I'd say we need a different fix here. First, the question is whether there 
+are any force-feedback devices, supported by USBHID force-feedback layer, 
+which have a bluetooth version?
+
+If there are none of them, we could just drop the FF initialization 
+completely for now. 
+
+On the other hand if there are such devices, just calling hid_ff_init() is 
+presently not enough anyway, as the force feedback drivers for HID devices 
+are currently USB-transport specific.
+
 -- 
-Krzysztof Halasa
+Jiri Kosina
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by DB2 Express
+Download DB2 Express C - the FREE version of DB2 express and take
+control of your XML. No limits. Just data. Click to get it now.
+http://sourceforge.net/powerbar/db2/
