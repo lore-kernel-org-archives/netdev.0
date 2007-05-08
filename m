@@ -1,150 +1,235 @@
 From: Olof Johansson <olof@lixom.net>
-Subject: [PATCH v4 1/9] pasemi_mac: Move the IRQ mapping from the PCI layer to the driver
-Date: Tue, 8 May 2007 00:47:21 -0500
-Message-ID: <20070508054721.GB14321@lixom.net>
+Subject: [PATCH v4 8/9] pasemi_mac: PHY support
+Date: Tue, 8 May 2007 00:47:54 -0500
+Message-ID: <20070508054754.GI14321@lixom.net>
 References: <20070508053500.358169000@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
 To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lixom.net ([66.141.50.11]:32952 "EHLO mail.lixom.net"
+Received: from lixom.net ([66.141.50.11]:32953 "EHLO mail.lixom.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754384AbXEHGIn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754654AbXEHGIn (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 8 May 2007 02:08:43 -0400
-Content-Disposition: inline; filename=n-2
+Content-Disposition: inline; filename=n-9
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fixes for ethernet IRQ mapping, to be done in the driver instead of in
-the platform setup code.
+PHY support for pasemi_mac.
 
 Signed-off-by: Olof Johansson <olof@lixom.net>
 
 
-Index: netdev-2.6/arch/powerpc/platforms/pasemi/pci.c
-===================================================================
---- netdev-2.6.orig/arch/powerpc/platforms/pasemi/pci.c
-+++ netdev-2.6/arch/powerpc/platforms/pasemi/pci.c
-@@ -173,19 +173,6 @@ static void __init pas_fixup_phb_resourc
- }
- 
- 
--void __devinit pas_pci_irq_fixup(struct pci_dev *dev)
--{
--	/* DMA is special, 84 interrupts (128 -> 211), all but 128
--	 * need to be mapped by hand here.
--	 */
--	if (dev->vendor == 0x1959 && dev->device == 0xa007) {
--		int i;
--		for (i = 129; i < 212; i++)
--			irq_create_mapping(NULL, i);
--	}
--}
--
--
- void __init pas_pci_init(void)
- {
- 	struct device_node *np, *root;
-Index: netdev-2.6/arch/powerpc/platforms/pasemi/setup.c
-===================================================================
---- netdev-2.6.orig/arch/powerpc/platforms/pasemi/setup.c
-+++ netdev-2.6/arch/powerpc/platforms/pasemi/setup.c
-@@ -248,5 +248,4 @@ define_machine(pas) {
- 	.calibrate_decr		= generic_calibrate_decr,
- 	.progress		= pas_progress,
- 	.machine_check_exception = pas_machine_check_handler,
--	.pci_irq_fixup		= pas_pci_irq_fixup,
- };
 Index: netdev-2.6/drivers/net/pasemi_mac.c
 ===================================================================
 --- netdev-2.6.orig/drivers/net/pasemi_mac.c
 +++ netdev-2.6/drivers/net/pasemi_mac.c
-@@ -33,6 +33,8 @@
- #include <linux/tcp.h>
- #include <net/checksum.h>
+@@ -606,6 +606,114 @@ static irqreturn_t pasemi_mac_tx_intr(in
+ 	return IRQ_HANDLED;
+ }
  
-+#include <asm/irq.h>
++static void pasemi_adjust_link(struct net_device *dev)
++{
++	struct pasemi_mac *mac = netdev_priv(dev);
++	int msg;
++	unsigned int flags;
++	unsigned int new_flags;
 +
- #include "pasemi_mac.h"
- 
- 
-@@ -531,6 +533,7 @@ static irqreturn_t pasemi_mac_tx_intr(in
++	if (!mac->phydev->link) {
++		/* If no link, MAC speed settings don't matter. Just report
++		 * link down and return.
++		 */
++		if (mac->link && netif_msg_link(mac))
++			printk(KERN_INFO "%s: Link is down.\n", dev->name);
++
++		netif_carrier_off(dev);
++		mac->link = 0;
++
++		return;
++	} else
++		netif_carrier_on(dev);
++
++	pci_read_config_dword(mac->pdev, PAS_MAC_CFG_PCFG, &flags);
++	new_flags = flags & ~(PAS_MAC_CFG_PCFG_HD | PAS_MAC_CFG_PCFG_SPD_M |
++			      PAS_MAC_CFG_PCFG_TSR_M);
++
++	if (!mac->phydev->duplex)
++		new_flags |= PAS_MAC_CFG_PCFG_HD;
++
++	switch (mac->phydev->speed) {
++	case 1000:
++		new_flags |= PAS_MAC_CFG_PCFG_SPD_1G |
++			     PAS_MAC_CFG_PCFG_TSR_1G;
++		break;
++	case 100:
++		new_flags |= PAS_MAC_CFG_PCFG_SPD_100M |
++			     PAS_MAC_CFG_PCFG_TSR_100M;
++		break;
++	case 10:
++		new_flags |= PAS_MAC_CFG_PCFG_SPD_10M |
++			     PAS_MAC_CFG_PCFG_TSR_10M;
++		break;
++	default:
++		printk("Unsupported speed %d\n", mac->phydev->speed);
++	}
++
++	/* Print on link or speed/duplex change */
++	msg = mac->link != mac->phydev->link || flags != new_flags;
++
++	mac->duplex = mac->phydev->duplex;
++	mac->speed = mac->phydev->speed;
++	mac->link = mac->phydev->link;
++
++	if (new_flags != flags)
++		pci_write_config_dword(mac->pdev, PAS_MAC_CFG_PCFG, new_flags);
++
++	if (msg && netif_msg_link(mac))
++		printk(KERN_INFO "%s: Link is up at %d Mbps, %s duplex.\n",
++		       dev->name, mac->speed, mac->duplex ? "full" : "half");
++}
++
++static int pasemi_mac_phy_init(struct net_device *dev)
++{
++	struct pasemi_mac *mac = netdev_priv(dev);
++	struct device_node *dn, *phy_dn;
++	struct phy_device *phydev;
++	unsigned int phy_id;
++	const phandle *ph;
++	const unsigned int *prop;
++	struct resource r;
++	int ret;
++
++	dn = pci_device_to_OF_node(mac->pdev);
++	ph = get_property(dn, "phy-handle", NULL);
++	if (!ph)
++		return -ENODEV;
++	phy_dn = of_find_node_by_phandle(*ph);
++
++	prop = get_property(phy_dn, "reg", NULL);
++	ret = of_address_to_resource(phy_dn->parent, 0, &r);
++	if (ret)
++		goto err;
++
++	phy_id = *prop;
++	snprintf(mac->phy_id, BUS_ID_SIZE, PHY_ID_FMT, (int)r.start, phy_id);
++
++	of_node_put(phy_dn);
++
++	mac->link = 0;
++	mac->speed = 0;
++	mac->duplex = -1;
++
++	phydev = phy_connect(dev, mac->phy_id, &pasemi_adjust_link, 0, PHY_INTERFACE_MODE_SGMII);
++
++	if (IS_ERR(phydev)) {
++		printk(KERN_ERR "%s: Could not attach to phy\n", dev->name);
++		return PTR_ERR(phydev);
++	}
++
++	mac->phydev = phydev;
++
++	return 0;
++
++err:
++	of_node_put(phy_dn);
++	return -ENODEV;
++}
++
++
  static int pasemi_mac_open(struct net_device *dev)
  {
  	struct pasemi_mac *mac = netdev_priv(dev);
-+	int base_irq;
- 	unsigned int flags;
- 	int ret;
+@@ -678,6 +786,13 @@ static int pasemi_mac_open(struct net_de
  
-@@ -594,28 +597,37 @@ static int pasemi_mac_open(struct net_de
+ 	pasemi_mac_replenish_rx_ring(dev);
+ 
++	ret = pasemi_mac_phy_init(dev);
++	/* Some configs don't have PHYs (XAUI etc), so don't complain about
++	 * failed init due to -ENODEV.
++	 */
++	if (ret && ret != -ENODEV)
++		dev_warn(&mac->pdev->dev, "phy init failed: %d\n", ret);
++
  	netif_start_queue(dev);
  	netif_poll_enable(dev);
  
--	ret = request_irq(mac->dma_pdev->irq + mac->dma_txch,
--			  &pasemi_mac_tx_intr, IRQF_DISABLED,
-+	/* Interrupts are a bit different for our DMA controller: While
-+	 * it's got one a regular PCI device header, the interrupt there
-+	 * is really the base of the range it's using. Each tx and rx
-+	 * channel has it's own interrupt source.
-+	 */
-+
-+	base_irq = virq_to_hw(mac->dma_pdev->irq);
-+
-+	mac->tx_irq = irq_create_mapping(NULL, base_irq + mac->dma_txch);
-+	mac->rx_irq = irq_create_mapping(NULL, base_irq + 20 + mac->dma_txch);
-+
-+	ret = request_irq(mac->tx_irq, &pasemi_mac_tx_intr, IRQF_DISABLED,
- 			  mac->tx->irq_name, dev);
- 	if (ret) {
- 		dev_err(&mac->pdev->dev, "request_irq of irq %d failed: %d\n",
--		       mac->dma_pdev->irq + mac->dma_txch, ret);
-+			base_irq + mac->dma_txch, ret);
- 		goto out_tx_int;
- 	}
- 
--	ret = request_irq(mac->dma_pdev->irq + 20 + mac->dma_rxch,
--			  &pasemi_mac_rx_intr, IRQF_DISABLED,
-+	ret = request_irq(mac->rx_irq, &pasemi_mac_rx_intr, IRQF_DISABLED,
- 			  mac->rx->irq_name, dev);
- 	if (ret) {
- 		dev_err(&mac->pdev->dev, "request_irq of irq %d failed: %d\n",
--		       mac->dma_pdev->irq + 20 + mac->dma_rxch, ret);
-+			base_irq + 20 + mac->dma_rxch, ret);
+@@ -708,6 +823,9 @@ static int pasemi_mac_open(struct net_de
  		goto out_rx_int;
  	}
  
++	if (mac->phydev)
++		phy_start(mac->phydev);
++
  	return 0;
  
  out_rx_int:
--	free_irq(mac->dma_pdev->irq + mac->dma_txch, dev);
-+	free_irq(mac->tx_irq, dev);
- out_tx_int:
- 	netif_poll_disable(dev);
+@@ -731,6 +849,11 @@ static int pasemi_mac_close(struct net_d
+ 	unsigned int stat;
+ 	int retries;
+ 
++	if (mac->phydev) {
++		phy_stop(mac->phydev);
++		phy_disconnect(mac->phydev);
++	}
++
  	netif_stop_queue(dev);
-@@ -699,8 +711,8 @@ static int pasemi_mac_close(struct net_d
- 	pci_write_config_dword(mac->dma_pdev,
- 			       PAS_DMA_RXINT_RCMDSTA(mac->dma_if), 0);
  
--	free_irq(mac->dma_pdev->irq + mac->dma_txch, dev);
--	free_irq(mac->dma_pdev->irq + 20 + mac->dma_rxch, dev);
-+	free_irq(mac->tx_irq, dev);
-+	free_irq(mac->rx_irq, dev);
+ 	/* Clean out any pending buffers */
+@@ -1032,6 +1155,9 @@ pasemi_mac_probe(struct pci_dev *pdev, c
+ 	else
+ 		mac->msg_enable = pasemi_mac_debug;
  
- 	/* Free resources */
- 	pasemi_mac_free_rx_resources(dev);
++	/* Enable most messages by default */
++	mac->msg_enable = (NETIF_MSG_IFUP << 1 ) - 1;
++
+ 	err = register_netdev(dev);
+ 
+ 	if (err) {
 Index: netdev-2.6/drivers/net/pasemi_mac.h
 ===================================================================
 --- netdev-2.6.orig/drivers/net/pasemi_mac.h
 +++ netdev-2.6/drivers/net/pasemi_mac.h
-@@ -73,6 +73,8 @@ struct pasemi_mac {
+@@ -24,6 +24,7 @@
+ #include <linux/ethtool.h>
+ #include <linux/netdevice.h>
+ #include <linux/spinlock.h>
++#include <linux/phy.h>
  
- 	struct pasemi_mac_txring *tx;
+ struct pasemi_mac_txring {
+ 	spinlock_t	 lock;
+@@ -54,6 +55,7 @@ struct pasemi_mac {
+ 	struct pci_dev *pdev;
+ 	struct pci_dev *dma_pdev;
+ 	struct pci_dev *iob_pdev;
++	struct phy_device *phydev;
+ 	struct net_device_stats stats;
+ 
+ 	/* Pointer to the cacheable per-channel status registers */
+@@ -75,8 +77,12 @@ struct pasemi_mac {
  	struct pasemi_mac_rxring *rx;
-+	unsigned long	tx_irq;
-+	unsigned long	rx_irq;
+ 	unsigned long	tx_irq;
+ 	unsigned long	rx_irq;
++	int	link;
++	int	speed;
++	int	duplex;
+ 
+ 	unsigned int	msg_enable;
++	char	phy_id[BUS_ID_SIZE];
  };
  
  /* Software status descriptor (desc_info) */
+Index: netdev-2.6/drivers/net/Kconfig
+===================================================================
+--- netdev-2.6.orig/drivers/net/Kconfig
++++ netdev-2.6/drivers/net/Kconfig
+@@ -2488,6 +2488,7 @@ config NETXEN_NIC
+ config PASEMI_MAC
+ 	tristate "PA Semi 1/10Gbit MAC"
+ 	depends on PPC64 && PCI
++	select PHYLIB
+ 	help
+ 	  This driver supports the on-chip 1/10Gbit Ethernet controller on
+ 	  PA Semi's PWRficient line of chips.
 
 --
