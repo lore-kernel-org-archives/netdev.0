@@ -1,8 +1,8 @@
 From: Michael-Luke Jones <mlj28@cam.ac.uk>
-Subject: Re: [PATCH] Intel IXP4xx network drivers v.2 - NPE
-Date: Tue, 8 May 2007 08:02:15 +0100
-Message-ID: <8CA5FD65-BEE1-4769-B1DF-81CA82210F61@cam.ac.uk>
-References: <m3abwhcy74.fsf@maximus.localdomain> <m3vef5biob.fsf@maximus.localdomain> <5BB7E1AB-5CE1-43C8-8CE3-E0DE0236BD09@cam.ac.uk> <m3hcqoa772.fsf@maximus.localdomain> <86D26EBE-5899-468F-9C79-23E83E0DE04B@cam.ac.uk> <m33b289zku.fsf@maximus.localdomain> <m33b285exl.fsf_-_@maximus.localdomain>
+Subject: Re: [PATCH] Intel IXP4xx network drivers v.3 - QMGR
+Date: Tue, 8 May 2007 08:05:02 +0100
+Message-ID: <E209283D-35CB-48E7-A23D-D3CEABEFAAE4@cam.ac.uk>
+References: <m3abwhcy74.fsf@maximus.localdomain> <m3vef5biob.fsf@maximus.localdomain> <5BB7E1AB-5CE1-43C8-8CE3-E0DE0236BD09@cam.ac.uk> <m3hcqoa772.fsf@maximus.localdomain> <86D26EBE-5899-468F-9C79-23E83E0DE04B@cam.ac.uk> <m33b289zku.fsf@maximus.localdomain> <m31whs5ehn.fsf_-_@maximus.localdomain>
 Mime-Version: 1.0 (Apple Message framework v752.2)
 Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -13,36 +13,34 @@ Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
 	<linux-arm-kernel@lists.arm.linux.org.uk>
 To: Krzysztof Halasa <khc@pm.waw.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ppsw-2.csi.cam.ac.uk ([131.111.8.132]:58501 "EHLO
+Received: from ppsw-2.csi.cam.ac.uk ([131.111.8.132]:59107 "EHLO
 	ppsw-2.csi.cam.ac.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755456AbXEHHCy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 May 2007 03:02:54 -0400
-In-Reply-To: <m33b285exl.fsf_-_@maximus.localdomain>
+	with ESMTP id S1755324AbXEHHFm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 May 2007 03:05:42 -0400
+In-Reply-To: <m31whs5ehn.fsf_-_@maximus.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On 8 May 2007, at 01:46, Krzysztof Halasa wrote:
 
-On 8 May 2007, at 01:36, Krzysztof Halasa wrote:
-
-> Adds a driver for built-in IXP4xx Network Processor Engines.
-> This patch requires IXP4xx Queue Manager driver and the "fuses" patch.
+> Adds a driver for built-in IXP4xx hardware Queue Manager.
 >
 > Signed-off-by: Krzysztof Halasa <khc@pm.waw.pl>
 
 [snip]
 
-> diff --git a/arch/arm/mach-ixp4xx/ixp4xx_npe.c b/arch/arm/mach- 
-> ixp4xx/ixp4xx_npe.c
+> diff --git a/arch/arm/mach-ixp4xx/ixp4xx_qmgr.c b/arch/arm/mach- 
+> ixp4xx/ixp4xx_qmgr.c
 > new file mode 100644
-> index 0000000..4c77d8a
+> index 0000000..b9e9bd6
 > --- /dev/null
-> +++ b/arch/arm/mach-ixp4xx/ixp4xx_npe.c
+> +++ b/arch/arm/mach-ixp4xx/ixp4xx_qmgr.c
 
-Already in mach-ixp4xx, so can just be called npe.c
+Already in mach-ixp4xx, so can just be called qmgr.c
 
-> @@ -0,0 +1,737 @@
+> @@ -0,0 +1,273 @@
 > +/*
-> + * Intel IXP4xx Network Processor Engine driver for Linux
+> + * Intel IXP4xx Queue Manager driver for Linux
 > + *
 > + * Copyright (C) 2007 Krzysztof Halasa <khc@pm.waw.pl>
 > + *
@@ -50,254 +48,412 @@ Already in mach-ixp4xx, so can just be called npe.c
 > modify it
 > + * under the terms of version 2 of the GNU General Public License
 > + * as published by the Free Software Foundation.
-> + *
-> + * The code is based on publicly available information:
-> + * - Intel IXP4xx Developer's Manual and other e-papers
-> + * - Intel IXP400 Access Library Software (BSD license)
-> + * - previous works by Christian Hohnstaedt  
-> <chohnstaedt@innominate.com>
-> + *   Thanks, Christian.
 > + */
-
-[snip]
-
-> +int npe_load_firmware(struct npe *npe, const char *name, struct  
-> device *dev)
+> +
+> +#include <linux/interrupt.h>
+> +#include <linux/kernel.h>
+> +#include <asm/io.h>
+> +#include <asm/arch/qmgr.h>
+> +
+> +#define DEBUG		0
+> +
+> +struct qmgr_regs __iomem *qmgr_regs;
+> +static struct resource *mem_res;
+> +static spinlock_t qmgr_lock;
+> +static u32 used_sram_bitmap[4]; /* 128 16-dword pages */
+> +static void (*irq_handlers[HALF_QUEUES])(void *pdev);
+> +static void *irq_pdevs[HALF_QUEUES];
+> +
+> +void qmgr_set_irq(unsigned int queue, int src,
+> +		  void (*handler)(void *pdev), void *pdev)
 > +{
-> +	const struct firmware *fw_entry;
+> +	u32 __iomem *reg = &qmgr_regs->irqsrc[queue / 8]; /* 8 queues /  
+> u32 */
+> +	int bit = (queue % 8) * 4; /* 3 bits + 1 reserved bit per queue */
+> +	unsigned long flags;
 > +
-> +	struct dl_block {
-> +		u32 type;
-> +		u32 offset;
-> +	} *blk;
+> +	src &= 7;
+> +	spin_lock_irqsave(&qmgr_lock, flags);
+> +	__raw_writel((__raw_readl(reg) & ~(7 << bit)) | (src << bit), reg);
+> +	irq_handlers[queue] = handler;
+> +	irq_pdevs[queue] = pdev;
+> +	spin_unlock_irqrestore(&qmgr_lock, flags);
+> +}
 > +
-> +	struct dl_image {
-> +		u32 magic;
-> +		u32 id;
-> +		u32 size;
-> +		union {
-> +			u32 data[0];
-> +			struct dl_block blocks[0];
-> +		};
-> +	} *image;
 > +
-> +	struct dl_codeblock {
-> +		u32 npe_addr;
-> +		u32 size;
-> +		u32 data[0];
-> +	} *cb;
+> +static irqreturn_t qmgr_irq1(int irq, void *pdev)
+> +{
+> +	int i;
+> +	u32 val = __raw_readl(&qmgr_regs->irqstat[0]);
+> +	__raw_writel(val, &qmgr_regs->irqstat[0]); /* ACK */
 > +
-> +	int i, j, err, data_size, instr_size, blocks, table_end;
-> +	u32 cmd;
+> +	for (i = 0; i < HALF_QUEUES; i++)
+> +		if (val & (1 << i))
+> +			irq_handlers[i](irq_pdevs[i]);
 > +
-> +	if ((err = request_firmware(&fw_entry, name, dev)) != 0)
-> +		return err;
+> +	return val ? IRQ_HANDLED : 0;
+> +}
 > +
-> +	err = -EINVAL;
-> +	if (fw_entry->size < sizeof(struct dl_image)) {
-> +		print_npe(KERN_ERR, npe, "incomplete firmware file\n");
-> +		goto err;
+> +
+> +void qmgr_enable_irq(unsigned int queue)
+> +{
+> +	unsigned long flags;
+> +
+> +	spin_lock_irqsave(&qmgr_lock, flags);
+> +	__raw_writel(__raw_readl(&qmgr_regs->irqen[0]) | (1 << queue),
+> +		     &qmgr_regs->irqen[0]);
+> +	spin_unlock_irqrestore(&qmgr_lock, flags);
+> +}
+> +
+> +void qmgr_disable_irq(unsigned int queue)
+> +{
+> +	unsigned long flags;
+> +
+> +	spin_lock_irqsave(&qmgr_lock, flags);
+> +	__raw_writel(__raw_readl(&qmgr_regs->irqen[0]) & ~(1 << queue),
+> +		     &qmgr_regs->irqen[0]);
+> +	spin_unlock_irqrestore(&qmgr_lock, flags);
+> +}
+> +
+> +static inline void shift_mask(u32 *mask)
+> +{
+> +	mask[3] = mask[3] << 1 | mask[2] >> 31;
+> +	mask[2] = mask[2] << 1 | mask[1] >> 31;
+> +	mask[1] = mask[1] << 1 | mask[0] >> 31;
+> +	mask[0] <<= 1;
+> +}
+> +
+> +int qmgr_request_queue(unsigned int queue, unsigned int len /*  
+> dwords */,
+> +		       unsigned int nearly_empty_watermark,
+> +		       unsigned int nearly_full_watermark)
+> +{
+> +	u32 cfg, addr = 0, mask[4]; /* in 16-dwords */
+> +	int err;
+> +
+> +	if (queue >= HALF_QUEUES)
+> +		return -ERANGE;
+> +
+> +	if ((nearly_empty_watermark | nearly_full_watermark) & ~7)
+> +		return -EINVAL;
+> +
+> +	switch (len) {
+> +	case  16:
+> +		cfg = 0 << 24;
+> +		mask[0] = 0x1;
+> +		break;
+> +	case  32:
+> +		cfg = 1 << 24;
+> +		mask[0] = 0x3;
+> +		break;
+> +	case  64:
+> +		cfg = 2 << 24;
+> +		mask[0] = 0xF;
+> +		break;
+> +	case 128:
+> +		cfg = 3 << 24;
+> +		mask[0] = 0xFF;
+> +		break;
+> +	default:
+> +		return -EINVAL;
 > +	}
-> +	image = (struct dl_image*)fw_entry->data;
 > +
-> +#if DEBUG_FW
-> +	print_npe(KERN_DEBUG, npe, "firmware: %08X %08X %08X (0x%X bytes) 
-> \n",
-> +		  image->magic, image->id, image->size, image->size * 4);
-> +#endif
+> +	cfg |= nearly_empty_watermark << 26;
+> +	cfg |= nearly_full_watermark << 29;
+> +	len /= 16;		/* in 16-dwords: 1, 2, 4 or 8 */
+> +	mask[1] = mask[2] = mask[3] = 0;
 > +
-> +	if (image->magic == swab32(FW_MAGIC)) { /* swapped file */
-> +		image->id = swab32(image->id);
-> +		image->size = swab32(image->size);
-> +	} else if (image->magic != FW_MAGIC) {
-> +		print_npe(KERN_ERR, npe, "bad firmware file magic: 0x%X\n",
-> +			  image->magic);
-> +		goto err;
-> +	}
-> +	if ((image->size * 4 + sizeof(struct dl_image)) != fw_entry->size) {
-> +		print_npe(KERN_ERR, npe,
-> +			  "inconsistent size of firmware file\n");
-> +		goto err;
-> +	}
-> +	if (((image->id >> 24) & 0xF /* NPE ID */) != npe->id) {
-> +		print_npe(KERN_ERR, npe, "firmware file NPE ID mismatch\n");
-> +		goto err;
-> +	}
-> +	if (image->magic == swab32(FW_MAGIC))
-> +		for (i = 0; i < image->size; i++)
-> +			image->data[i] = swab32(image->data[i]);
+> +	if (!try_module_get(THIS_MODULE))
+> +		return -ENODEV;
 > +
-> +	if (!cpu_is_ixp46x() && ((image->id >> 28) & 0xF /* device ID */)) {
-> +		print_npe(KERN_INFO, npe, "IXP46x firmware ignored on "
-> +			  "IXP42x\n");
-> +		goto err;
-> +	}
-> +
-> +	if (npe_running(npe)) {
-> +		print_npe(KERN_INFO, npe, "unable to load firmware, NPE is "
-> +			  "already running\n");
+> +	spin_lock_irq(&qmgr_lock);
+> +	if (__raw_readl(&qmgr_regs->sram[queue])) {
 > +		err = -EBUSY;
 > +		goto err;
 > +	}
-> +#if 0
-> +	npe_stop(npe);
-> +	npe_reset(npe);
+> +
+> +	while (1) {
+> +		if (!(used_sram_bitmap[0] & mask[0]) &&
+> +		    !(used_sram_bitmap[1] & mask[1]) &&
+> +		    !(used_sram_bitmap[2] & mask[2]) &&
+> +		    !(used_sram_bitmap[3] & mask[3]))
+> +			break; /* found free space */
+> +
+> +		addr++;
+> +		shift_mask(mask);
+> +		if (addr + len > ARRAY_SIZE(qmgr_regs->sram)) {
+> +			printk(KERN_ERR "qmgr: no free SRAM space for"
+> +			       " queue %i\n", queue);
+> +			err = -ENOMEM;
+> +			goto err;
+> +		}
+> +	}
+> +
+> +	used_sram_bitmap[0] |= mask[0];
+> +	used_sram_bitmap[1] |= mask[1];
+> +	used_sram_bitmap[2] |= mask[2];
+> +	used_sram_bitmap[3] |= mask[3];
+> +	__raw_writel(cfg | (addr << 14), &qmgr_regs->sram[queue]);
+> +	spin_unlock_irq(&qmgr_lock);
+> +
+> +#if DEBUG
+> +	printk(KERN_DEBUG "qmgr: requested queue %i, addr = 0x%02X\n",
+> +	       queue, addr);
 > +#endif
-
-Debugging code? Can this go?
-
-> +	print_npe(KERN_INFO, npe, "firmware functionality 0x%X, "
-> +		  "revision 0x%X:%X\n", (image->id >> 16) & 0xFF,
-> +		  (image->id >> 8) & 0xFF, image->id & 0xFF);
-> +
-> +	if (!cpu_is_ixp46x()) {
-> +		if (!npe->id)
-> +			instr_size = NPE_A_42X_INSTR_SIZE;
-> +		else
-> +			instr_size = NPE_B_AND_C_42X_INSTR_SIZE;
-> +		data_size = NPE_42X_DATA_SIZE;
-> +	} else {
-> +		instr_size = NPE_46X_INSTR_SIZE;
-> +		data_size = NPE_46X_DATA_SIZE;
-> +	}
-> +
-> +	for (blocks = 0; blocks * sizeof(struct dl_block) / 4 < image->size;
-> +	     blocks++)
-> +		if (image->blocks[blocks].type == FW_BLOCK_TYPE_EOF)
-> +			break;
-> +	if (blocks * sizeof(struct dl_block) / 4 >= image->size) {
-> +		print_npe(KERN_INFO, npe, "firmware EOF block marker not "
-> +			  "found\n");
-> +		goto err;
-> +	}
-> +
-> +#if DEBUG_FW
-> +	print_npe(KERN_DEBUG, npe, "%i firmware blocks found\n", blocks);
-> +#endif
-> +
-> +	table_end = blocks * sizeof(struct dl_block) / 4 + 1 /* EOF  
-> marker */;
-> +	for (i = 0, blk = image->blocks; i < blocks; i++, blk++) {
-> +		if (blk->offset > image->size - sizeof(struct dl_codeblock) / 4
-> +		    || blk->offset < table_end) {
-> +			print_npe(KERN_INFO, npe, "invalid offset 0x%X of "
-> +				  "firmware block #%i\n", blk->offset, i);
-> +			goto err;
-> +		}
-> +
-> +		cb = (struct dl_codeblock*)&image->data[blk->offset];
-> +		if (blk->type == FW_BLOCK_TYPE_INSTR) {
-> +			if (cb->npe_addr + cb->size > instr_size)
-> +				goto too_big;
-> +			cmd = CMD_WR_INS_MEM;
-> +		} else if (blk->type == FW_BLOCK_TYPE_DATA) {
-> +			if (cb->npe_addr + cb->size > data_size)
-> +				goto too_big;
-> +			cmd = CMD_WR_DATA_MEM;
-> +		} else {
-> +			print_npe(KERN_INFO, npe, "invalid firmware block #%i "
-> +				  "type 0x%X\n", i, blk->type);
-> +			goto err;
-> +		}
-> +		if (blk->offset + sizeof(*cb) / 4 + cb->size > image->size) {
-> +			print_npe(KERN_INFO, npe, "firmware block #%i doesn't "
-> +				  "fit in firmware image: type %c, start 0x%X,"
-> +				  " length 0x%X\n", i,
-> +				  blk->type == FW_BLOCK_TYPE_INSTR ? 'I' : 'D',
-> +				  cb->npe_addr, cb->size);
-> +			goto err;
-> +		}
-> +
-> +		for (j = 0; j < cb->size; j++)
-> +			npe_cmd_write(npe, cb->npe_addr + j, cmd, cb->data[j]);
-> +	}
-> +
-> +	npe_start(npe);
-> +	if (!npe_running(npe))
-> +		print_npe(KERN_ERR, npe, "unable to start\n");
-> +	release_firmware(fw_entry);
 > +	return 0;
 > +
-> +too_big:
-> +	print_npe(KERN_INFO, npe, "firmware block #%i doesn't fit in NPE "
-> +		  "memory: type %c, start 0x%X, length 0x%X\n", i,
-> +		  blk->type == FW_BLOCK_TYPE_INSTR ? 'I' : 'D',
-> +		  cb->npe_addr, cb->size);
 > +err:
-> +	release_firmware(fw_entry);
+> +	spin_unlock_irq(&qmgr_lock);
+> +	module_put(THIS_MODULE);
 > +	return err;
 > +}
-
-[snip]
-
-> +module_init(npe_init_module);
-> +module_exit(npe_cleanup_module);
 > +
-> +MODULE_AUTHOR("Krzysztof Halasa");
+> +void qmgr_release_queue(unsigned int queue)
+> +{
+> +	u32 cfg, addr, mask[4];
+> +
+> +	BUG_ON(queue >= HALF_QUEUES); /* not in valid range */
+> +
+> +	spin_lock_irq(&qmgr_lock);
+> +	cfg = __raw_readl(&qmgr_regs->sram[queue]);
+> +	addr = (cfg >> 14) & 0xFF;
+> +
+> +	BUG_ON(!addr);		/* not requested */
+> +
+> +	switch ((cfg >> 24) & 3) {
+> +	case 0: mask[0] = 0x1; break;
+> +	case 1: mask[0] = 0x3; break;
+> +	case 2: mask[0] = 0xF; break;
+> +	case 3: mask[0] = 0xFF; break;
+> +	}
+> +
+> +	while (addr--)
+> +		shift_mask(mask);
+> +
+> +	__raw_writel(0, &qmgr_regs->sram[queue]);
+> +
+> +	used_sram_bitmap[0] &= ~mask[0];
+> +	used_sram_bitmap[1] &= ~mask[1];
+> +	used_sram_bitmap[2] &= ~mask[2];
+> +	used_sram_bitmap[3] &= ~mask[3];
+> +	irq_handlers[queue] = NULL; /* catch IRQ bugs */
+> +	spin_unlock_irq(&qmgr_lock);
+> +
+> +	module_put(THIS_MODULE);
+> +#if DEBUG
+> +	printk(KERN_DEBUG "qmgr: released queue %i\n", queue);
+> +#endif
+> +}
+> +
+> +static int qmgr_init(void)
+> +{
+> +	int i, err;
+> +	mem_res = request_mem_region(IXP4XX_QMGR_BASE_PHYS,
+> +				     IXP4XX_QMGR_REGION_SIZE,
+> +				     "IXP4xx Queue Manager");
+> +	if (mem_res == NULL)
+> +		return -EBUSY;
+> +
+> +	qmgr_regs = ioremap(IXP4XX_QMGR_BASE_PHYS, IXP4XX_QMGR_REGION_SIZE);
+> +	if (qmgr_regs == NULL) {
+> +		err = -ENOMEM;
+> +		goto error_map;
+> +	}
+> +
+> +	/* reset qmgr registers */
+> +	for (i = 0; i < 4; i++) {
+> +		__raw_writel(0x33333333, &qmgr_regs->stat1[i]);
+> +		__raw_writel(0, &qmgr_regs->irqsrc[i]);
+> +	}
+> +	for (i = 0; i < 2; i++) {
+> +		__raw_writel(0, &qmgr_regs->stat2[i]);
+> +		__raw_writel(0xFFFFFFFF, &qmgr_regs->irqstat[i]); /* clear */
+> +		__raw_writel(0, &qmgr_regs->irqen[i]);
+> +	}
+> +
+> +	for (i = 0; i < QUEUES; i++)
+> +		__raw_writel(0, &qmgr_regs->sram[i]);
+> +
+> +	err = request_irq(IRQ_IXP4XX_QM1, qmgr_irq1, 0,
+> +			  "IXP4xx Queue Manager", NULL);
+> +	if (err) {
+> +		printk(KERN_ERR "qmgr: failed to request IRQ%i\n",
+> +		       IRQ_IXP4XX_QM1);
+> +		goto error_irq;
+> +	}
+> +
+> +	used_sram_bitmap[0] = 0xF; /* 4 first pages reserved for config */
+> +	spin_lock_init(&qmgr_lock);
+> +
+> +	printk(KERN_INFO "IXP4xx Queue Manager initialized.\n");
+> +	return 0;
+> +
+> +error_irq:
+> +	iounmap(qmgr_regs);
+> +error_map:
+> +	release_resource(mem_res);
+> +	return err;
+> +}
+> +
+> +static void qmgr_remove(void)
+> +{
+> +	free_irq(IRQ_IXP4XX_QM1, NULL);
+> +	synchronize_irq(IRQ_IXP4XX_QM1);
+> +	iounmap(qmgr_regs);
+> +	release_resource(mem_res);
+> +}
+> +
+> +module_init(qmgr_init);
+> +module_exit(qmgr_remove);
+> +
 > +MODULE_LICENSE("GPL v2");
+> +MODULE_AUTHOR("Krzysztof Halasa");
 > +
-> +EXPORT_SYMBOL(npe_names);
-> +EXPORT_SYMBOL(npe_running);
-> +EXPORT_SYMBOL(npe_request);
-> +EXPORT_SYMBOL(npe_release);
-> +EXPORT_SYMBOL(npe_load_firmware);
-> +EXPORT_SYMBOL(npe_send_message);
-> +EXPORT_SYMBOL(npe_recv_message);
-> +EXPORT_SYMBOL(npe_send_recv_message);
-> diff --git a/include/asm-arm/arch-ixp4xx/npe.h b/include/asm-arm/ 
-> arch-ixp4xx/npe.h
+> +EXPORT_SYMBOL(qmgr_regs);
+> +EXPORT_SYMBOL(qmgr_set_irq);
+> +EXPORT_SYMBOL(qmgr_enable_irq);
+> +EXPORT_SYMBOL(qmgr_disable_irq);
+> +EXPORT_SYMBOL(qmgr_request_queue);
+> +EXPORT_SYMBOL(qmgr_release_queue);
+> diff --git a/include/asm-arm/arch-ixp4xx/qmgr.h b/include/asm-arm/ 
+> arch-ixp4xx/qmgr.h
 > new file mode 100644
-> index 0000000..fd20bf5
+> index 0000000..d03464a
 > --- /dev/null
-> +++ b/include/asm-arm/arch-ixp4xx/npe.h
-> @@ -0,0 +1,41 @@
-> +#ifndef __IXP4XX_NPE_H
-> +#define __IXP4XX_NPE_H
+> +++ b/include/asm-arm/arch-ixp4xx/qmgr.h
+> @@ -0,0 +1,124 @@
+> +/*
+> + * Copyright (C) 2007 Krzysztof Halasa <khc@pm.waw.pl>
+> + *
+> + * This program is free software; you can redistribute it and/or  
+> modify it
+> + * under the terms of version 2 of the GNU General Public License
+> + * as published by the Free Software Foundation.
+> + */
 > +
-> +#include <linux/etherdevice.h>
+> +#ifndef IXP4XX_QMGR_H
+> +#define IXP4XX_QMGR_H
+> +
 > +#include <linux/kernel.h>
 > +#include <asm/io.h>
 > +
-> +extern const char *npe_names[];
+> +#define HALF_QUEUES	32
+> +#define QUEUES		64	/* only 32 lower queues currently supported */
+> +#define MAX_QUEUE_LENGTH 4	/* in dwords */
 > +
-> +struct npe_regs {
-> +	u32 exec_addr, exec_data, exec_status_cmd, exec_count;
-> +	u32 action_points[4];
-> +	u32 watchpoint_fifo, watch_count;
-> +	u32 profile_count;
-> +	u32 messaging_status, messaging_control;
-> +	u32 mailbox_status, /*messaging_*/ in_out_fifo;
+> +#define QUEUE_STAT1_EMPTY		1 /* queue status bits */
+> +#define QUEUE_STAT1_NEARLY_EMPTY	2
+> +#define QUEUE_STAT1_NEARLY_FULL		4
+> +#define QUEUE_STAT1_FULL		8
+> +#define QUEUE_STAT2_UNDERFLOW		1
+> +#define QUEUE_STAT2_OVERFLOW		2
+> +
+> +#define QUEUE_WATERMARK_0_ENTRIES	0
+> +#define QUEUE_WATERMARK_1_ENTRY		1
+> +#define QUEUE_WATERMARK_2_ENTRIES	2
+> +#define QUEUE_WATERMARK_4_ENTRIES	3
+> +#define QUEUE_WATERMARK_8_ENTRIES	4
+> +#define QUEUE_WATERMARK_16_ENTRIES	5
+> +#define QUEUE_WATERMARK_32_ENTRIES	6
+> +#define QUEUE_WATERMARK_64_ENTRIES	7
+> +
+> +/* queue interrupt request conditions */
+> +#define QUEUE_IRQ_SRC_EMPTY		0
+> +#define QUEUE_IRQ_SRC_NEARLY_EMPTY	1
+> +#define QUEUE_IRQ_SRC_NEARLY_FULL	2
+> +#define QUEUE_IRQ_SRC_FULL		3
+> +#define QUEUE_IRQ_SRC_NOT_EMPTY		4
+> +#define QUEUE_IRQ_SRC_NOT_NEARLY_EMPTY	5
+> +#define QUEUE_IRQ_SRC_NOT_NEARLY_FULL	6
+> +#define QUEUE_IRQ_SRC_NOT_FULL		7
+
+Here, unlike ixp4xx_npe.c defines are in qmgr.h - that seems a bit  
+more natural.
+
+> +struct qmgr_regs {
+> +	u32 acc[QUEUES][MAX_QUEUE_LENGTH]; /* 0x000 - 0x3FF */
+> +	u32 stat1[4];		/* 0x400 - 0x40F */
+> +	u32 stat2[2];		/* 0x410 - 0x417 */
+> +	u32 statne_h;		/* 0x418 - queue nearly empty */
+> +	u32 statf_h;		/* 0x41C - queue full */
+> +	u32 irqsrc[4];		/* 0x420 - 0x42F IRC source */
+> +	u32 irqen[2];		/* 0x430 - 0x437 IRQ enabled */
+> +	u32 irqstat[2];		/* 0x438 - 0x43F - IRQ access only */
+> +	u32 reserved[1776];
+> +	u32 sram[2048];		/* 0x2000 - 0x3FFF - config and buffer */
 > +};
 > +
-> +struct npe {
-> +	struct resource *mem_res;
-> +	struct npe_regs __iomem *regs;
-> +	u32 regs_phys;
-> +	int id;
-> +	int valid;
-> +};
+> +extern struct qmgr_regs __iomem *qmgr_regs;
+> +
+> +void qmgr_set_irq(unsigned int queue, int src,
+> +		  void (*handler)(void *pdev), void *pdev);
+> +void qmgr_enable_irq(unsigned int queue);
+> +void qmgr_disable_irq(unsigned int queue);
+> +
+> +/* request_ and release_queue() must be called from non-IRQ  
+> context */
+> +int qmgr_request_queue(unsigned int queue, unsigned int len /*  
+> dwords */,
+> +		       unsigned int nearly_empty_watermark,
+> +		       unsigned int nearly_full_watermark);
+> +void qmgr_release_queue(unsigned int queue);
 > +
 > +
-> +static inline const char *npe_name(struct npe *npe)
+> +static inline void qmgr_put_entry(unsigned int queue, u32 val)
 > +{
-> +	return npe_names[npe->id];
+> +	__raw_writel(val, &qmgr_regs->acc[queue][0]);
 > +}
 > +
-> +int npe_running(struct npe *npe);
-> +int npe_send_message(struct npe *npe, const void *msg, const char  
-> *what);
-> +int npe_recv_message(struct npe *npe, void *msg, const char *what);
-> +int npe_send_recv_message(struct npe *npe, void *msg, const char  
-> *what);
-> +int npe_load_firmware(struct npe *npe, const char *name, struct  
-> device *dev);
-> +struct npe *npe_request(int id);
-> +void npe_release(struct npe *npe);
+> +static inline u32 qmgr_get_entry(unsigned int queue)
+> +{
+> +	return __raw_readl(&qmgr_regs->acc[queue][0]);
+> +}
 > +
-> +#endif /* __IXP4XX_NPE_H */
+> +static inline int qmgr_get_stat1(unsigned int queue)
+> +{
+> +	return (__raw_readl(&qmgr_regs->stat1[queue >> 3])
+> +		>> ((queue & 7) << 2)) & 0xF;
+> +}
+> +
+> +static inline int qmgr_get_stat2(unsigned int queue)
+> +{
+> +	return (__raw_readl(&qmgr_regs->stat2[queue >> 4])
+> +		>> ((queue & 0xF) << 1)) & 0x3;
+> +}
+> +
+> +static inline int qmgr_stat_empty(unsigned int queue)
+> +{
+> +	return !!(qmgr_get_stat1(queue) & QUEUE_STAT1_EMPTY);
+> +}
+> +
+> +static inline int qmgr_stat_nearly_empty(unsigned int queue)
+> +{
+> +	return !!(qmgr_get_stat1(queue) & QUEUE_STAT1_NEARLY_EMPTY);
+> +}
+> +
+> +static inline int qmgr_stat_nearly_full(unsigned int queue)
+> +{
+> +	return !!(qmgr_get_stat1(queue) & QUEUE_STAT1_NEARLY_FULL);
+> +}
+> +
+> +static inline int qmgr_stat_full(unsigned int queue)
+> +{
+> +	return !!(qmgr_get_stat1(queue) & QUEUE_STAT1_FULL);
+> +}
+> +
+> +static inline int qmgr_stat_underflow(unsigned int queue)
+> +{
+> +	return !!(qmgr_get_stat2(queue) & QUEUE_STAT2_UNDERFLOW);
+> +}
+> +
+> +static inline int qmgr_stat_overflow(unsigned int queue)
+> +{
+> +	return !!(qmgr_get_stat2(queue) & QUEUE_STAT2_OVERFLOW);
+> +}
+> +
+> +#endif
 
-It may be a matter of taste, but could some of the many definitions  
-at the top of ixp4xx_npe.c go in the header file here?
+Great work,
 
 Michael-Luke
 
