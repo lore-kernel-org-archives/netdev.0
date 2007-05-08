@@ -1,44 +1,47 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: Please pull 'upstream' branch of wireless-2.6
-Date: Tue, 08 May 2007 10:49:07 +0200
-Message-ID: <1178614147.18162.30.camel@johannes.berg>
-References: <20070507175121.GF5125@tuxdriver.com>
-	 <1178572550.11805.7.camel@localhost.localdomain>
+From: "Alexey Zaytsev" <alexey.zaytsev@gmail.com>
+Subject: Re: [PATCH] Intel IXP4xx network drivers v.2 - Ethernet and HSS
+Date: Tue, 8 May 2007 12:48:51 +0400
+Message-ID: <f19298770705080148u70638ac2ue87241382681088@mail.gmail.com>
+References: <464034CF.20700@wpkg.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-tPa19ckNh83blEZ4tVmV"
-Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1178572550.11805.7.camel-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org,
+	"Michael Jones" <mlj28@cam.ac.uk>,
+	"Krzysztof Halasa" <khc@pm.waw.pl>
+To: "Tomasz Chmielewski" <mangoo@wpkg.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wr-out-0506.google.com ([64.233.184.228]:5067 "EHLO
+	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934714AbXEHIsx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 May 2007 04:48:53 -0400
+Received: by wr-out-0506.google.com with SMTP id 76so1891506wra
+        for <netdev@vger.kernel.org>; Tue, 08 May 2007 01:48:53 -0700 (PDT)
+In-Reply-To: <464034CF.20700@wpkg.org>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On 5/8/07, Tomasz Chmielewski <mangoo@wpkg.org> wrote:
+> Michael Jones wrote:
+>
+> >> +#ifndef __ARMEB__
+> >> +#warning Little endian mode not supported
+> >> +#endif
+> >
+> > Personally I'm less fussed about WAN / LE support. Anyone with any
+> > sense will run ixp4xx boards doing such a specialised network
+> > operation as BE. Also, NSLU2-Linux can't test this functionality with
+> > our LE setup as we don't have this hardware on-board. You may just
+> > want to declare a depends on ARMEB in Kconfig (with or without OR
+> > (ARM || BROKEN) ) and have done with it - it's up to you.
+>
+> Christian Hohnstaedt's work did support LE though.
+>
+> Not all ixp4xx boards are by definition "doing such a specialised
+> network operation".
+>
 
---=-tPa19ckNh83blEZ4tVmV
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
-
-On Mon, 2007-05-07 at 17:15 -0400, Dan Williams wrote:
-
-> So the kconfig changes with s/NET_RADIO/NET_80211 (or whatever it was)
-> are in for 2.6.22?  Or is that for 2.6.23?
-
-http://git.kernel.org/?p=3Dlinux/kernel/git/torvalds/linux-2.6.git;a=3Dcomm=
-it;h=3D2a5e1c0eb9efe26eed1dd072fe08de5797a7efd5
-
-johannes
-
---=-tPa19ckNh83blEZ4tVmV
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iD8DBQBGQDmC/ETPhpq3jKURAtFfAJ9E6qSxe7L8uSdEtZFJApdnJ5GuEgCgmXlm
-R0k6sEMZky8AxkLCSk0vkp4=
-=9Vfh
------END PGP SIGNATURE-----
-
---=-tPa19ckNh83blEZ4tVmV--
+I was always curious, why do people want to run ixp4xx in LE mode? What
+are the benefits that overweight the obvious performance degradation?
