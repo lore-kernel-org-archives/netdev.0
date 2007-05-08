@@ -1,98 +1,73 @@
 From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 8450] New: ip6sic causes bug during interrupt
- handling
-Date: Tue, 8 May 2007 02:55:27 -0700
-Message-ID: <20070508025527.f94b3ae2.akpm@linux-foundation.org>
-References: <200705080947.l489lkG3007380@fire-2.osdl.org>
+Subject: Re: 2.6.21-git8+ BUG: NMI Watchdog detected LOCKUP on CPU1
+Date: Tue, 8 May 2007 03:07:01 -0700
+Message-ID: <20070508030701.d21dc40b.akpm@linux-foundation.org>
+References: <46403642.7020501@googlemail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, snakebyte@gmx.de,
-	"bugme-daemon@kernel-bugs.osdl.org"
-	<bugme-daemon@bugzilla.kernel.org>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([65.172.181.25]:50110 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S934778AbXEHJ4e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 May 2007 05:56:34 -0400
-In-Reply-To: <200705080947.l489lkG3007380@fire-2.osdl.org>
-Sender: netdev-owner@vger.kernel.org
+Cc: LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	Patrick McHardy <kaber@trash.net>
+To: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S934841AbXEHKHQ@vger.kernel.org>
+In-Reply-To: <46403642.7020501@googlemail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 8 May 2007 02:47:46 -0700 bugme-daemon@bugzilla.kernel.org wrote:
+On Tue, 08 May 2007 10:35:14 +0200 Michal Piotrowski <michal.k.k.piotrowski@gmail.com> wrote:
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=8450
+> Hi,
 > 
->            Summary: ip6sic causes bug during interrupt handling
->     Kernel Version: 2.6.21-ga989705c and earlier
->             Status: NEW
->           Severity: normal
->              Owner: yoshfuji@linux-ipv6.org
->          Submitter: snakebyte@gmx.de
+> / filesystem was full
 > 
+> [39525.460000] BUG: NMI Watchdog detected LOCKUP on CPU1, eip 08056990, registers:
+> [39525.468000] Modules linked in: loop ipt_MASQUERADE iptable_nat nf_nat autofs4 af_packet nf_conntrack_netbios_ns ipt_REJECT nf_conntrack_ipv4 xt_state nf_conntrack nfnetlink iptable_filter ip_tables ip6t_REJECT xt_tcpudp ip6table_filter ip6_tables x_tables ipv6 binfmt_misc thermal processor fan container nvram snd_intel8x0 snd_ac97_codec ac97_bus snd_seq_dummy snd_seq_oss snd_seq_midi_event snd_seq snd_seq_device snd_pcm_oss snd_mixer_oss evdev snd_pcm intel_agp snd_timer snd agpgart soundcore i2c_i801 snd_page_alloc ide_cd cdrom rtc unix
+> [39525.518000] CPU:    1
+> [39525.518000] EIP:    0073:[<08056990>]    Not tainted VLI
+> [39525.518000] EFLAGS: 00000202   (2.6.21-ga989705c #187)
+> [39525.529000] EIP is at 0x8056990
+> [39525.529000] eax: 6e560d60   ebx: 0000000b   ecx: 00000000   edx: 000dd15e
+> [39525.541000] esi: 00000000   edi: 6e560220   ebp: bfeb0a58   esp: bfeb0990
+> [39525.547000] ds: 007b   es: 007b   fs: 0000  gs: 0033  ss: 007b
+> [39525.553000] Process line (pid: 4277, ti=cf200000 task=f6f560b0 task.ti=cf200000)
+> [39525.560000] Kernel panic - not syncing: Aiee, killing interrupt handler!
 > 
-> Most recent kernel where this bug did *NOT* occur: had this since 2.6.20, didnt
-> test earlier versions
-> Distribution: gentoo
-> Hardware Environment: p3
-> Software Environment: gcc 4.1.2
-> Problem Description:
+> http://www.stardust.webpages.pl/files/tbf/bitis-gabonica/2.6.21-git8/git-console.log
+> http://www.stardust.webpages.pl/files/tbf/bitis-gabonica/2.6.21-git8/git-config
 > 
-> running ip6sic with the following seed
-> 
-> ip6sic -i lo -d ::1 -p 2000 -r 32321
-> 
-> causes this oops
-> 
-> [   69.293000] Oops: 0000 [#1]
-> [   69.293000] PREEMPT 
-> [   69.293000] Modules linked in:
-> [   69.293000] CPU:    0
-> [   69.293000] EIP:    0060:[<c0548b76>]    Not tainted VLI
-> [   69.293000] EFLAGS: 00010282   (2.6.21-ga989705c #7)
-> [   69.293000] EIP is at ipv6_hop_jumbo+0x26/0x180
-> [   69.293000] eax: 00000000   ebx: ce61bc08   ecx: 00000001   edx: 00000103
-> [   69.293000] esi: ce750166   edi: 000000fd   ebp: c0773ed8   esp: c0773ec0
-> [   69.293000] ds: 007b   es: 007b   fs: 0000  gs: 0033  ss: 0068
-> [   69.293000] Process ip6sic (pid: 4607, ti=c0773000 task=cf332070
-> task.ti=cf002000)
-> [   69.293000] Stack: c06c4ccc 000000fb c0773ef8 00000246 c071ae9c 0000002a
-> c0773f08 c054837f 
-> [   69.293000]        ce61bc08 c055a39d c0773f38 c071ae94 ce61bc08 ce75013c
-> 00000306 ce61bc08 
-> [   69.293000]        c0773f38 ce61bc44 c0773f18 c0548ed1 00000000 cf8bdd84
-> c0773f48 c052807e 
-> [   69.293000] Call Trace:
-> [   69.293000]  [<c010485a>] show_trace_log_lvl+0x1a/0x30
-> [   69.293000]  [<c0104919>] show_stack_log_lvl+0xa9/0xd0
-> [   69.293000]  [<c0104b5b>] show_registers+0x21b/0x3a0
-> [   69.293000]  [<c0104de3>] die+0x103/0x260
-> [   69.293000]  [<c01162c2>] do_page_fault+0x2d2/0x610
-> [   69.293000]  [<c05a5732>] error_code+0x6a/0x70
-> [   69.293000]  [<c054837f>] ip6_parse_tlv+0xef/0x130
-> [   69.293000]  [<c0548ed1>] ipv6_parse_hopopts+0x41/0xb0
-> [   69.293000]  [<c052807e>] ipv6_rcv+0x1be/0x370
-> [   69.293000]  [<c04b32fb>] netif_receive_skb+0x21b/0x2b0
-> [   69.293000]  [<c04b52d2>] process_backlog+0x82/0xf0
-> [   69.293000]  [<c04b558b>] net_rx_action+0xab/0x1c0
-> [   69.293000]  [<c0120cd2>] __do_softirq+0x72/0xe0
-> [   69.293000]  [<c010627a>] do_softirq+0x8a/0xf0
-> [   69.293000]  [<c0120fd5>] local_bh_enable+0xa5/0x160
-> [   69.293000]  [<c04b5738>] dev_queue_xmit+0x98/0x330
-> [   69.293000]  [<c055a678>] packet_sendmsg+0x208/0x260
-> [   69.293000]  [<c04a8594>] sock_sendmsg+0xc4/0xf0
-> [   69.293000]  [<c04a889f>] sys_sendto+0xbf/0xe0
-> [   69.293000]  [<c04a97c7>] sys_socketcall+0x187/0x260
-> [   69.293000]  [<c0104132>] sysenter_past_esp+0x5f/0x99
-> [   69.293000]  =======================
-> [   69.293000] Code: 90 8d 74 26 00 55 89 e5 56 53 83 ec 10 8b 18 8b 4b 78 8d
-> 34 11 80 7e 01 04 74 3b a1 10 3c 72 c0 85 c0 0f 85 7d 00 00 00 8b 43 1c <8b>
-> 80 8c 00 00 00 85 c0 74 09 8b 80 38 01 00 00 ff 40 08 a1 e4 
-> [   69.293000] EIP: [<c0548b76>] ipv6_hop_jumbo+0x26/0x180 SS:ESP
-> 0068:c0773ec0
-> [   69.305000] Kernel panic - not syncing: Fatal exception in interrupt
-> 
-> 
-> 
-> Steps to reproduce:
+
+I don't know what caused the CPU to jump into hyperspace like that, but Patrick
+tells me that this:
+
+> [38773.921000] printk: 15909 messages suppressed.
+> [38773.926000] ipt_hook: happy cracking.
+> [38778.921000] printk: 16332 messages suppressed.
+> [38778.925000] ipt_hook: happy cracking.
+> [38783.921000] printk: 16175 messages suppressed.
+> [38783.926000] ipt_hook: happy cracking.
+> [38788.921000] printk: 16390 messages suppressed.
+> [38788.925000] ipt_hook: happy cracking.
+> [38793.921000] printk: 16289 messages suppressed.
+> [38793.925000] ipt_hook: happy cracking.
+> [38798.921000] printk: 16172 messages suppressed.
+> [38798.926000] ipt_hook: happy cracking.
+> [38803.921000] printk: 15738 messages suppressed.
+> [38803.925000] ipt_hook: happy cracking.
+> [38808.921000] printk: 14731 messages suppressed.
+
+  happens when a local process sends packets with invalid IP headers
+  through raw sockets.
+
+  [ 5225.195000] UDP: short packet: From 37.126.206.54:46544 39671/1182
+  to 127.0.0.1:40761
+
+  This seems to indicate something on the local machine (packets are not
+  routed to 127.0.0.1) is sending invalid packets, probably with
+  incorrectly set up skb pointers.
+
+  I'd suggest to add a WARN_ON(1) in ipt_local_hook().
+
+So can you please add the appropriate WARN_ON?
+
+Whatever happens, that printk should be toned down, shouldn't it?  We
+prefer to not let unprivileged apps spam the logs.
