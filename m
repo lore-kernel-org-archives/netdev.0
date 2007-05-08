@@ -1,31 +1,32 @@
-From: "Gordon Farquharson" <gordonfarquharson@gmail.com>
-Subject: Re: [PATCH] Intel IXP4xx network drivers v.2 - Ethernet and HSS
-Date: Tue, 8 May 2007 07:44:23 -0600
-Message-ID: <97a0a9ac0705080644j664381daj20c64d070eaccc28@mail.gmail.com>
-References: <464034CF.20700@wpkg.org>
-	 <f19298770705080148u70638ac2ue87241382681088@mail.gmail.com>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: [PATCH 3/3] Intel IXP4xx network drivers
+Date: Tue, 08 May 2007 15:47:49 +0200
+Message-ID: <m3wszj77ga.fsf@maximus.localdomain>
+References: <m3abwhcy74.fsf@maximus.localdomain>
+	<m3vef5biob.fsf@maximus.localdomain>
+	<5BB7E1AB-5CE1-43C8-8CE3-E0DE0236BD09@cam.ac.uk>
+	<m3hcqoa772.fsf@maximus.localdomain> <20070507175213.GU23611@tweety>
+	<m3y7k08kvf.fsf@maximus.localdomain>
+	<20070508114811.GB32146@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Tomasz Chmielewski" <mangoo@wpkg.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, "Krzysztof Halasa" <khc@pm.waw.pl>,
-	linux-arm-kernel@lists.arm.linux.org.uk
-To: "Alexey Zaytsev" <alexey.zaytsev@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S967453AbXEHNo0@vger.kernel.org>
-In-Reply-To: <f19298770705080148u70638ac2ue87241382681088@mail.gmail.com>
-Content-Disposition: inline
+Content-Type: text/plain; charset=us-ascii
+Cc: Christian Hohnstaedt <chohnstaedt@innominate.com>,
+	Michael-Luke Jones <mlj28@cam.ac.uk>, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.arm.linux.org.uk,
+	Russell King <rmk@arm.linux.org.uk>,
+	Jeff Garzik <jeff@garzik.org>,
+	lkml <linux-kernel@vger.kernel.org>
+To: Lennert Buytenhek <buytenh@wantstofly.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S967637AbXEHNrw@vger.kernel.org>
+In-Reply-To: <20070508114811.GB32146@xi.wantstofly.org> (Lennert Buytenhek's message of "Tue, 8 May 2007 13:48:11 +0200")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 5/8/07, Alexey Zaytsev <alexey.zaytsev@gmail.com> wrote:
-> I was always curious, why do people want to run ixp4xx in LE mode? What
-> are the benefits that overweight the obvious performance degradation?
+Lennert Buytenhek <buytenh@wantstofly.org> writes:
 
-Debian on the NSLU2 runs in LE, and it is pretty popular.
+> I have a couple of ixp23xx boards at home, but I'm not sure whether I
+> can give them away.  I can give you remote access to them, though.
 
-http://www.linuxdevices.com/news/NS3535328630.html
-
-Gordon
-
+Hmm, may be interesting some day.
 -- 
-Gordon Farquharson
+Krzysztof Halasa
