@@ -1,42 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [IrDA] KingSun/DonShine USB IrDA dongle support
-Date: Wed, 09 May 2007 16:18:34 -0700 (PDT)
-Message-ID: <20070509.161834.97294601.davem@davemloft.net>
-References: <20070509224027.GA4458@sortiz.org>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 1/2] skge: default WOL should be magic only (rev2)
+Date: Wed, 09 May 2007 19:25:44 -0400
+Message-ID: <46425878.9060102@garzik.org>
+References: <20070507110036.050e7b5b@freekitty> <4640055A.5000502@garzik.org> <20070508133620.0a7c6d12@localhost>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp-2
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, irda-users@lists.sourceforge.net,
-	a_villacis@palosanto.com
-To: samuel@sortiz.org
+Cc: netdev@vger.kernel.org, stable@kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60040
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754891AbXEIXSg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 May 2007 19:18:36 -0400
-In-Reply-To: <20070509224027.GA4458@sortiz.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:50092 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759094AbXEIXZr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 May 2007 19:25:47 -0400
+In-Reply-To: <20070508133620.0a7c6d12@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Samuel Ortiz <samuel@sortiz.org>
-Date: Thu, 10 May 2007 01:40:27 +0300
+Stephen Hemminger wrote:
+> By default, the skge driver now enables wake on magic and wake on PHY.
+> This is a bad default (bug), wake on PHY means machine will never shutdown 
+> if connected to a switch.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>a
+> 
+> ---
+>  drivers/net/skge.c |    4 +++-
+>  1 file changed, 3 insertions(+), 1 deletion(-)
+> 
+> --- sky2-2.6.21.orig/drivers/net/skge.c	2007-05-08 10:06:39.000000000 -0700
+> +++ sky2-2.6.21/drivers/net/skge.c	2007-05-08 10:21:51.000000000 -0700
+> @@ -3594,7 +3594,9 @@ static struct net_device *skge_devinit(s
+>  	skge->duplex = -1;
+>  	skge->speed = -1;
+>  	skge->advertising = skge_supported_modes(hw);
+> -	skge->wol = pci_wake_enabled(hw->pdev) ? wol_supported(hw) : 0;
+> +
+> +	if (pci_wake_enabled(hw->pdev))
+> +		skge->wol = wol_supported(hw) & WAKE_MAGIC;
 
-> From: Alex Villac$,3u=(Bs Lasso <a_villacis@palosanto.com>
-> 
-> This dongle does not follow the usb-irda specification, so it needs its
-> own special driver. In addition, it uses interrupt endpoints instead of
-> bulk ones as the rest of USB IrDA dongles supported by Linux (just to be
-> different?) and data reads need to be parsed to extract the valid bytes
-> before being unwrapped (details in the comment at the start of the
-> source). No speed commands have been discovered for this dongle, and I
-> suspect it does not have any at all.
-> 
-> On plugin, this dongle reports vendor and device IDs: 0x07c0:0x4200 .
-> 
-> The Windows driver that is used normally to control this dongle has a
-> filename of DSIR620.SYS .
-> 
-> Signed-off-by: Alex Villac$,3u=(Bs Lasso <a_villacis@palosanto.com>
-> Signed-off-by: Samuel Ortiz <samuel@sortiz.org>
+thanks for the revision, applied
 
-Applied, thanks a lot.
+
