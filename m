@@ -1,34 +1,42 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 3/6] phylib: enable RGMII-ID on the Marvell m88e1111 PHY
-Date: Wed, 09 May 2007 19:37:20 -0400
-Message-ID: <46425B30.7050005@garzik.org>
-References: <20070508175019.6b10eff0.kim.phillips@freescale.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Kim Phillips <kim.phillips@freescale.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: SG_IO with >4k buffer size to iscsi sg device causes "Bad page" panic
+Date: Thu, 10 May 2007 09:38:53 +1000
+Message-ID: <E1HlvkD-0004zY-00@gondolin.me.apana.org.au>
+References: <0F08E10B769EAF4EA2C43A573B8CC87FB106C0@NAMAIL3.ad.lsil.com>
+Cc: netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
+	open-iscsi@googlegroups.com,
+	linux-iscsi-devel@lists.sourceforge.net, Yanling.Qi@lsi.com,
+	michaelc@cs.wisc.edu, dougg@torque.net,
+	James.Bottomley@steeleye.com
+To: Yanling.Qi@lsi.com (Qi, Yanling)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:50180 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756687AbXEIXhW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 May 2007 19:37:22 -0400
-In-Reply-To: <20070508175019.6b10eff0.kim.phillips@freescale.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:2764 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756894AbXEIXjd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 May 2007 19:39:33 -0400
+In-Reply-To: <0F08E10B769EAF4EA2C43A573B8CC87FB106C0@NAMAIL3.ad.lsil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Kim Phillips wrote:
-> Support for configuring RGMII-ID (RGMII with internal delay) mode on the
-> 88e1111 and 88e1145.
-> 
-> Also renamed 88e1111s -> 88e1111 (no references to an 88e1111s part were
-> found), and fixed some whitespace.
-> 
-> Signed-off-by: Kim Phillips <kim.phillips@freescale.com>
-> ---
->  drivers/net/phy/marvell.c |   62 +++++++++++++++++++++++++++++++++++++++------
->  1 files changed, 54 insertions(+), 8 deletions(-)
+Qi, Yanling <Yanling.Qi@lsi.com> wrote:
+> @@ -2571,6 +2572,13 @@ sg_page_malloc(int rqSz, int lowDma, int
+>                resp = (char *) __get_free_pages(page_mask, order);
+> /* try half */
+>                resSz = a_size;
+>        }
+> +       tmppage = virt_to_page(resp);
+> +       for( m = PAGE_SIZE; m < resSz; m += PAGE_SIZE )
+> +       {
+> +               tmppage++;
+> +               SetPageReserved(tmppage);
+> +       }
+> +
 
-ACK 3-6
+Why not just increase the page use count?
 
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
