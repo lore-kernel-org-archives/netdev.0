@@ -1,66 +1,84 @@
 From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: [PATCH 3/3] [SCTP] Do not include ABORT chunk header in the notification.
-Date: Wed,  9 May 2007 15:43:50 -0400
-Message-ID: <11787398302050-git-send-email-vladislav.yasevich@hp.com>
+Subject: [PATCH 2/3] [SCTP] Correctly copy addresses in sctp_copy_laddrs
+Date: Wed,  9 May 2007 15:43:49 -0400
+Message-ID: <11787398301224-git-send-email-vladislav.yasevich@hp.com>
 References: <11787398302375-git-send-email-vladislav.yasevich@hp.com>
 Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net,
 	Vlad Yasevich <vladislav.yasevich@hp.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel8.hp.com ([156.153.255.206]:58266 "EHLO atlrel8.hp.com"
+Received: from atlrel9.hp.com ([156.153.255.214]:58505 "EHLO atlrel9.hp.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754123AbXEITnv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 May 2007 15:43:51 -0400
+	id S1754394AbXEITnw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 May 2007 15:43:52 -0400
 In-Reply-To: <11787398302375-git-send-email-vladislav.yasevich@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The socket API draft is unclear about whether to include the
-chunk header or not.  Recent discussion on the sctp implementors
-mailing list clarified that the chunk header shouldn't be included,
-but the error parameter header still needs to be there.
+I broke the  non-wildcard case recently.  This is to fixes it.
+Now, explictitly bound addresses can ge retrieved using the API.
 
 Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
 ---
- net/sctp/ulpevent.c |   11 ++---------
- 1 files changed, 2 insertions(+), 9 deletions(-)
+ net/sctp/socket.c |   12 ++++++++----
+ 1 files changed, 8 insertions(+), 4 deletions(-)
 
-diff --git a/net/sctp/ulpevent.c b/net/sctp/ulpevent.c
-index 661ea2d..bfecb35 100644
---- a/net/sctp/ulpevent.c
-+++ b/net/sctp/ulpevent.c
-@@ -141,11 +141,6 @@ struct sctp_ulpevent  *sctp_ulpevent_make_assoc_change(
- 	 * an ABORT, so we need to include it in the sac_info.
- 	 */
- 	if (chunk) {
--		/* sctp_inqu_pop() has allready pulled off the chunk
--		 * header.  We need to put it back temporarily
--		 */
--		skb_push(chunk->skb, sizeof(sctp_chunkhdr_t));
--
- 		/* Copy the chunk data to a new skb and reserve enough
- 		 * head room to use as notification.
- 		 */
-@@ -155,9 +150,6 @@ struct sctp_ulpevent  *sctp_ulpevent_make_assoc_change(
- 		if (!skb)
- 			goto fail;
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index cc2ed54..ef03bc4 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -4164,6 +4164,7 @@ static int sctp_getsockopt_local_addrs_old(struct sock *sk, int len,
+ 	rwlock_t *addr_lock;
+ 	int err = 0;
+ 	void *addrs;
++	void *buf;
+ 	int bytes_copied = 0;
  
--		/* put back the chunk header now that we have a copy */
--		skb_pull(chunk->skb, sizeof(sctp_chunkhdr_t));
--
- 		/* Embed the event fields inside the cloned skb.  */
- 		event = sctp_skb2event(skb);
- 		sctp_ulpevent_init(event, MSG_NOTIFICATION, skb->truesize);
-@@ -168,7 +160,8 @@ struct sctp_ulpevent  *sctp_ulpevent_make_assoc_change(
+ 	if (len != sizeof(struct sctp_getaddrs_old))
+@@ -4217,13 +4218,14 @@ static int sctp_getsockopt_local_addrs_old(struct sock *sk, int len,
+ 		}
+ 	}
  
- 		/* Trim the buffer to the right length.  */
- 		skb_trim(skb, sizeof(struct sctp_assoc_change) +
--			 ntohs(chunk->chunk_hdr->length));
-+			 ntohs(chunk->chunk_hdr->length) -
-+			 sizeof(sctp_chunkhdr_t));
- 	} else {
- 		event = sctp_ulpevent_new(sizeof(struct sctp_assoc_change),
- 				  MSG_NOTIFICATION, gfp);
++	buf = addrs;
+ 	list_for_each(pos, &bp->address_list) {
+ 		addr = list_entry(pos, struct sctp_sockaddr_entry, list);
+ 		memcpy(&temp, &addr->a, sizeof(temp));
+ 		sctp_get_pf_specific(sk->sk_family)->addr_v4map(sp, &temp);
+ 		addrlen = sctp_get_af_specific(temp.sa.sa_family)->sockaddr_len;
+-		memcpy(addrs, &temp, addrlen);
+-		to += addrlen;
++		memcpy(buf, &temp, addrlen);
++		buf += addrlen;
+ 		bytes_copied += addrlen;
+ 		cnt ++;
+ 		if (cnt >= getaddrs.addr_num) break;
+@@ -4266,6 +4268,7 @@ static int sctp_getsockopt_local_addrs(struct sock *sk, int len,
+ 	size_t space_left;
+ 	int bytes_copied = 0;
+ 	void *addrs;
++	void *buf;
+ 
+ 	if (len <= sizeof(struct sctp_getaddrs))
+ 		return -EINVAL;
+@@ -4316,6 +4319,7 @@ static int sctp_getsockopt_local_addrs(struct sock *sk, int len,
+ 		}
+ 	}
+ 
++	buf = addrs;
+ 	list_for_each(pos, &bp->address_list) {
+ 		addr = list_entry(pos, struct sctp_sockaddr_entry, list);
+ 		memcpy(&temp, &addr->a, sizeof(temp));
+@@ -4325,8 +4329,8 @@ static int sctp_getsockopt_local_addrs(struct sock *sk, int len,
+ 			err =  -ENOMEM; /*fixme: right error?*/
+ 			goto error;
+ 		}
+-		memcpy(addrs, &temp, addrlen);
+-		to += addrlen;
++		memcpy(buf, &temp, addrlen);
++		buf += addrlen;
+ 		bytes_copied += addrlen;
+ 		cnt ++;
+ 		space_left -= addrlen;
 -- 
 1.5.0.3.438.gc49b2
 
