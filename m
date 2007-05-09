@@ -1,45 +1,52 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: a wrinkle to consider when benchmarking with LRO
-Date: Wed, 09 May 2007 15:22:46 -0700
-Message-ID: <464249B6.6050506@hp.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH 06/17] sky2: advanced error reporting
+Date: Wed, 9 May 2007 15:35:32 -0700
+Message-ID: <20070509153532.68adcb46@localhost>
+References: <20070509034949.624934448@linux-foundation.org>
+	<20070509035028.970057572@linux-foundation.org>
+	<20070509170551.GW4452@austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: Linux Network Development list <netdev@vger.kernel.org>
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
+	Greg KH <greg@kroah.com>, linux-pci@atrey.karlin.mff.cuni.cz
+To: linas@austin.ibm.com (Linas Vepstas)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel10.hp.com ([156.153.255.245]:38173 "EHLO palrel10.hp.com"
+Received: from smtp.osdl.org ([65.172.181.24]:53851 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754782AbXEIWWs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 May 2007 18:22:48 -0400
-Received: from tardy.cup.hp.com (tardy.cup.hp.com [15.244.56.217])
-	by palrel10.hp.com (Postfix) with ESMTP id 5CC333487A
-	for <netdev@vger.kernel.org>; Wed,  9 May 2007 15:22:47 -0700 (PDT)
-Received: from [127.0.0.1] (localhost [127.0.0.1])
-	by tardy.cup.hp.com (8.9.3 (PHNE_28810)/8.9.3 SMKit7.02) with ESMTP id PAA26687
-	for <netdev@vger.kernel.org>; Wed, 9 May 2007 15:22:46 -0700 (PDT)
+	id S1759395AbXEIWfw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 May 2007 18:35:52 -0400
+In-Reply-To: <20070509170551.GW4452@austin.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-At the risk of pointing-out the known/obvious...
+On Wed, 9 May 2007 12:05:51 -0500
+linas@austin.ibm.com (Linas Vepstas) wrote:
 
-I have been evaluating a system and its ability to source data across a 10G 
-link.  My number of 10G sink's is a triffle minimal.  To maximize the sinks' 
-ability to sink data I enabled large receive offload.  The kernel on the sinks 
-was 2.6.21.1.  The kernel on the source was "another OS."
+> On Tue, May 08, 2007 at 08:49:55PM -0700, Stephen Hemminger wrote:
+> > Use the kernel interfaces for advanced error reporting.
+> > This should be cleaner and clear up errors on boot.
+> 
+> Hmm. I thought that the AER functions would eventually 
+> be handled by the struct pci_error_handlers callbacks,
+> so that dev drivers wouldn't actually have code such as
 
-While TSO doesn't especially change what is seen on the wire, LRO can.  When the 
-NIC/driver combines the segments, the receiving TCP sends fewer ACKs.  In short, 
-LRO is an implicit/backdoor ACK avoidance heuristic.
+No, it doesn't seem to work that way. Those callback seems to
+be for bus reported errors, not device reported errors.
 
-So, the sending TCP will receive fewer ACKs and will have a correspondingly 
-lower CPU overhead and so will be able to source data faster than if it were 
-sending to a system without LRO enabled.
 
-I'm not trying to say this is a bad thing - in fact, I have gone on record a 
-number of times supporting good ACK avoidance heuristics - I just wanted to make 
-sure this behaviour I was seeing was on the record somewhere as it may not be 
-obvious to everyone.
+> > +		pci_read_config_dword(pdev, pos + PCI_ERR_UNCOR_STATUS, &status);
+> > +		pci_read_config_dword(pdev, pos + PCI_ERR_UNCOR_SEVER, &mask);
+> 
+> in them. But perhaps I haven't studed what this drivr is trying to 
+> do; nor have I really kept track of the aer code.
+> 
 
-happy benchmarking,
+On boot up it clears errors because power on seems to leave a bogus
+error report.
 
-rick jones
+When error is detected, it gets an IRQ and than has to decode it as PCI
+error.
+
+Earlier versions of the driver (pre AER) were doing the same thing but
+with only minimal handling of errors. Now at least it uses common code.
