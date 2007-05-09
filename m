@@ -1,43 +1,26 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH 3/3] AFS: Implement basic file write support
-Date: Wed, 9 May 2007 09:28:53 -0700
-Message-ID: <20070509092853.65619a35.akpm@linux-foundation.org>
-References: <20070509034135.853ae84c.akpm@linux-foundation.org>
-	<20070508170051.eb4751ce.akpm@linux-foundation.org>
-	<20070508194358.27477.74888.stgit@warthog.cambridge.redhat.com>
-	<20070508194411.27477.7552.stgit@warthog.cambridge.redhat.com>
-	<997.1178706347@redhat.com>
-	<4815.1178708859@redhat.com>
+From: Paul Walmsley <paul@booyaka.com>
+Subject: Re: [PATCH 1/1] Fix hang on IBM Token Ring PCMCIA card ejection
+Date: Wed, 9 May 2007 10:51:35 -0600 (MDT)
+Message-ID: <Pine.LNX.4.64.0705091050490.25295@utopia.booyaka.com>
+References: <Pine.LNX.4.64.0703272255460.21789@utopia.booyaka.com>
+ <46400863.7010003@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org
-To: David Howells <dhowells@redhat.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: mikep@linuxtr.net, netdev@vger.kernel.org, linux-tr@linuxtr.net
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([65.172.181.25]:53286 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756037AbXEIQ3D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 May 2007 12:29:03 -0400
-In-Reply-To: <4815.1178708859@redhat.com>
+Received: from utopia.booyaka.com ([72.9.107.138]:58052 "EHLO
+	utopia.booyaka.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754327AbXEIQvg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 May 2007 12:51:36 -0400
+In-Reply-To: <46400863.7010003@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 09 May 2007 12:07:39 +0100 David Howells <dhowells@redhat.com> wrote:
+On Tue, 8 May 2007, Jeff Garzik wrote:
 
-> Andrew Morton <akpm@linux-foundation.org> wrote:
-> 
-> > set_page_dirty() will set I_DIRTY_PAGES only.  ie: the inode has dirty
-> > pagecache data.
-> > 
-> > To tell the VFS that the inode itself is dirty one needs to run
-> > mark_inode_dirty().
-> 
-> But what's the difference in this case?  I don't need to write the inode back
-> per se, and the inode attributes can be updated by the mechanism of data
-> storage.
-> 
+> ACK but does not apply
 
-Ah.  Well if you don't need to write the inode back then sure, there
-shouldn't be a need to mark it dirty.  That's what I was asking ;)
+Thanks.  Some mailer trouble I guess - will resend via quilt.
 
+- Paul
