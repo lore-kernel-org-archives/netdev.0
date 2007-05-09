@@ -1,107 +1,68 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: [PATCH (take 2)] vlan: lockdep class for ppp _xmit_lock Re: ppp_generic: fix lockdep warning
-Date: Wed, 9 May 2007 15:13:38 +0200
-Message-ID: <20070509131337.GA3177@ff.dom.local>
-References: <20070426.013911.69219176.davem@davemloft.net> <20070426104950.GA3145@ff.dom.local> <20070509093536.GA2436@ff.dom.local> <20070509.023224.31601789.davem@davemloft.net>
+From: David Howells <dhowells@redhat.com>
+Subject: [PATCH] AFS: Further write support fixes
+Date: Wed, 09 May 2007 14:43:41 +0100
+Message-ID: <20070509134341.18106.44110.stgit@warthog.cambridge.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jura@netams.com, akpm@linux-foundation.org, netdev@vger.kernel.org,
-	paulus@samba.org, greearb@candelatech.com, mostrows@speakeasy.net
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx10.go2.pl ([193.17.41.74]:54603 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755568AbXEINHS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 May 2007 09:07:18 -0400
-Content-Disposition: inline
-In-Reply-To: <20070509.023224.31601789.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	dhowells@redhat.com
+To: akpm@osdl.org, netdev@vger.kernel.org
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, May 09, 2007 at 02:32:24AM -0700, David Miller wrote:
-> From: Jarek Poplawski <jarkao2@o2.pl>
-> Date: Wed, 9 May 2007 11:35:37 +0200
-> 
-> > After rethinking there is the 3-rd way (as usual):
-> > 
-> > c) vlan should use different lockdep lock subclasses or
-> > classes for different types of devices, used at the same
-> > time.
-> 
-> Perhaps we should just bite the bullet and use a seperate
-> unique lock class for ->_xmit_lock of each device type.
-> 
-> We are going to find more cases like this one, for sure.
-> 
+Further fixes for AFS write support:
 
-Theoretically subclasses are intended for this, and there
-are 6 free places still. Practically lockdep treats subclasses
-differently sometimes (e.g., now, it seems, it cannot see a real
-recursion error inside a subclass). So, it's mainly a problem
-of some static memory wasting or saving (unless it should be
-subclassed yet - then no question).
+ (1) The afs_send_pages() outer loop must do an extra iteration if it ends
+     with 'first == last' because 'last' is inclusive in the page set
+     otherwise it fails to send the last page and complete the RxRPC op under
+     some circumstances.
 
-Here is "your way" alternative, preferred version - I hope Yuriy
-isn't bored with this testing yet!
+ (2) Similarly, the outer loop in afs_pages_written_back() must also do an
+     extra iteration if it ends with 'first == last', otherwise it fails to
+     clear PG_writeback on the last page under some circumstances.
 
-Of course, I see nothing against you or somebody else doing
-or re-doing this all as needed.
-
-Regards,
-Jarek P.
----> (take 2)
-
-This patch's aim is to let lockdep see ppp devs as different
-from others (default), and it's OK to take: _xmit_lock of vlan
-and _xmit_lock of ppp with reverse order provided vlan _xmit_locks
-are bound to different devs (ppp and e.g. eth).
-
-> =======================================================
-> [ INFO: possible circular locking dependency detected ]
-> 2.6.21-rc6-mm1 #4
-> -------------------------------------------------------
-> pppd/14305 is trying to acquire lock:
->  (&vlan_netdev_xmit_lock_key){-...}, at: [<ffffffff8022f90b>]
-> dev_queue_xmit+0x26b/0x300
->
-> but task is already holding lock:
->  (&pch->downl#2){-+..}, at: [<ffffffff80388d3c>] ppp_push+0x5f/0xa7
->
-> which lock already depends on the new lock.
-
-The final idea to use separate classes by David Miller.
-
-Reported & tested by: "Yuriy N. Shkandybin" <jura@netams.com>
-Cc: Ben Greear <greearb@candelatech.com>
-Cc: Paul Mackerras <paulus@samba.org>
-Cc: Michal Ostrowski <mostrows@speakeasy.net>
-Signed-off-by: Jarek Poplawski <jarkao2@o2.pl>
-
+Signed-off-by: David Howells <dhowells@redhat.com>
 ---
 
-diff -Nurp 2.6.21-git7-/net/8021q/vlan.c 2.6.21/net/8021q/vlan.c
---- 2.6.21-git7-/net/8021q/vlan.c	2007-05-01 12:43:39.000000000 +0200
-+++ 2.6.21/net/8021q/vlan.c	2007-05-09 14:46:12.000000000 +0200
-@@ -376,6 +376,8 @@ static void vlan_transfer_operstate(cons
-  */
- static struct lock_class_key vlan_netdev_xmit_lock_key;
+ fs/afs/rxrpc.c |    2 +-
+ fs/afs/write.c |    4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/fs/afs/rxrpc.c b/fs/afs/rxrpc.c
+index 04189c4..1b36f45 100644
+--- a/fs/afs/rxrpc.c
++++ b/fs/afs/rxrpc.c
+@@ -294,7 +294,7 @@ int afs_send_pages(struct afs_call *call, struct msghdr *msg, struct kvec *iov)
+ 			put_page(pages[loop]);
+ 		if (ret < 0)
+ 			break;
+-	} while (first < last);
++	} while (first <= last);
  
-+/* pppoe uses two different kinds of _xmit_lock for ppp & eth */
-+static struct lock_class_key vlan_ppp_xmit_lock_key;
+ 	_leave(" = %d", ret);
+ 	return ret;
+diff --git a/fs/afs/write.c b/fs/afs/write.c
+index aa03d43..67ae4db 100644
+--- a/fs/afs/write.c
++++ b/fs/afs/write.c
+@@ -669,7 +669,7 @@ void afs_pages_written_back(struct afs_vnode *vnode, struct afs_call *call)
+ 	pagevec_init(&pv, 0);
  
- /*  Attach a VLAN device to a mac address (ie Ethernet Card).
-  *  Returns the device that was created, or NULL if there was
-@@ -535,7 +537,12 @@ static struct net_device *register_vlan_
- 	if (register_netdevice(new_dev))
- 		goto out_free_newdev;
+ 	do {
+-		_debug("attach %lx-%lx", first, last);
++		_debug("done %lx-%lx", first, last);
  
--	lockdep_set_class(&new_dev->_xmit_lock, &vlan_netdev_xmit_lock_key);
-+	if (unlikely(real_dev->type == ARPHRD_PPP))
-+		lockdep_set_class(&new_dev->_xmit_lock,
-+				  &vlan_ppp_xmit_lock_key);
-+	else
-+		lockdep_set_class(&new_dev->_xmit_lock,
-+				  &vlan_netdev_xmit_lock_key);
+ 		count = last - first + 1;
+ 		if (count > PAGEVEC_SIZE)
+@@ -701,7 +701,7 @@ void afs_pages_written_back(struct afs_vnode *vnode, struct afs_call *call)
+ 		}
  
- 	new_dev->iflink = real_dev->ifindex;
- 	vlan_transfer_operstate(real_dev, new_dev);
+ 		__pagevec_release(&pv);
+-	} while (first < last);
++	} while (first <= last);
+ 
+ 	_leave("");
+ }
+
