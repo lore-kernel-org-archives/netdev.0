@@ -1,95 +1,280 @@
-From: jamal <hadi@cyberus.ca>
-Subject: RE: [PATCH] IPROUTE: Modify tc for new PRIO multiqueue behavior
-Date: Tue, 08 May 2007 19:28:22 -0400
-Message-ID: <1178666902.4055.28.camel@localhost>
-References: <D5C1322C3E673F459512FB59E0DDC32902CDF558@orsmsx414.amr.corp.intel.com>
-Reply-To: hadi@cyberus.ca
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH 3/3] AFS: Implement basic file write support
+Date: Tue, 8 May 2007 17:00:51 -0700
+Message-ID: <20070508170051.eb4751ce.akpm@linux-foundation.org>
+References: <20070508194358.27477.74888.stgit@warthog.cambridge.redhat.com>
+	<20070508194411.27477.7552.stgit@warthog.cambridge.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	"Zhu, Yi" <yi.zhu@intel.com>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	jgarzik@pobox.com, cramerj <cramerj@intel.com>,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
-	"Leech, Christopher" <christopher.leech@intel.com>,
-	davem@davemloft.net
-To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.231]:9225 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S967800AbXEHX22 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 May 2007 19:28:28 -0400
-Received: by wx-out-0506.google.com with SMTP id h31so7032wxd
-        for <netdev@vger.kernel.org>; Tue, 08 May 2007 16:28:28 -0700 (PDT)
-In-Reply-To: <D5C1322C3E673F459512FB59E0DDC32902CDF558@orsmsx414.amr.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org
+To: David Howells <dhowells@redhat.com>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <20070508194411.27477.7552.stgit@warthog.cambridge.redhat.com>
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2007-08-05 at 08:35 -0700, Waskiewicz Jr, Peter P wrote:
+On Tue, 08 May 2007 20:44:11 +0100
+David Howells <dhowells@redhat.com> wrote:
 
-> But the point is that although the DCE spec inspired the development of
-> these patches, that is *not* the goal of these patches.  As Yi stated in
-> a previous reply to this thread, the ability for any hardware to control
-> its queues at the stack level in the kernel is something that is missing
-> in the kernel.  If the hardware doesn't want to support it, then the
-> patches as-is will not require anything to change in drivers to continue
-> working as they do today.
-
-Wireless offers a strict priority scheduler with statistical transmit
-(as opposed to deterministic offered by the linux strict prio qdisc);
-so wireless is not in the same boat as DCE.
-
-> Bottom line: these patches are not for a specific technology.  I
-> presented that spec to show a possible use case for these patches.  Yi
-> presented a use case he can use in the wireless world.  I will be
-> posting another use case shortly using ATA over Ethernet.
+> Implement support for writing to regular AFS files, including:
 > 
-
-Once you run the ATA over ethernet with your approach, please repeat the
-test with a single ring in hardware and an equivalent qdisc in linux.
-I dont believe you will see any difference - Linux is that good.
-This is not to say i am against your patches, I am just for optimizing
-for the common.
-
-> > I dont believe wireless needs anything other than the simple 
-> > approach i described. The fact that there an occasional low 
-> > prio packet may endup going out first before a high prio due 
-> > to the contention is non-affecting to the overall results.
+>  (1) write
 > 
-> I don't see how we can agree that having any type of
-> head-of-line-blocking of a flow is or is not a problem.  
-
-But where is this head-of-line blocking coming from?
-Please correct me if am wrong:
-If i had 4 hardware rings/queues in a wireless NIC with 4 different
-WMM priorities all filled up (I would say impposible to achieve but for
-the sake of discussion assume possible), then 
-there is still a probability that a low prio packet will be sent first
-before a high prio one. It all depends on the probabilistic nature of
-the channel availability as well as the tx opportunity and backoff
-timings.
-
-> You believe it
-> isn't an issue, but this is a gap that I see existing in the stack
-> today.  As networking is used for more advanced features (such as ndb or
-> VoIP), having the ability to separate flows from each other all the way
-> to the wire I see is a huge advantage to ensure true QoS.
+>  (2) truncate
 > 
+>  (3) fsync, fdatasync
+> 
+>  (4) chmod, chown, chgrp, utime.
+> 
+> AFS writeback attempts to batch writes into as chunks as large as it can manage
+> up to the point that it writes back 65535 pages in one chunk or it meets a
+> locked page.
+> 
+> Furthermore, if a page has been written to using a particular key, then should
+> another write to that page use some other key, the first write will be flushed
+> before the second is allowed to take place.  If the first write fails due to a
+> security error, then the page will be scrapped and reread before the second
+> write takes place.
+> 
+> If a page is dirty and the callback on it is broken by the server, then the
+> dirty data is not discarded (same behaviour as NFS).
+> 
+> Shared-writable mappings are not supported by this patch.
 
-You dont believe Linux has actually been doing QoS all these years
-before DCE? It has. And we have been separating flows all those years
-too. 
-Wireless with CSMA/CA is a slightly different beast due to the shared
-channels; its worse but not very different in nature than the case where
-you have a shared ethernet hub (CSMA/CD) and you keep adding hosts to it
-- we dont ask the qdiscs to backoff because we have a collision.
-Where i find wireless intriguing is in the case where its available
-bandwidth adjusts given the signal strength - but you are talking about
-HOLs not that specific phenomena.
 
-cheers,
-jamal
+The below isn't a review - it's some random cherrypickling.
+
+> ...
+>
+> +int afs_fs_store_data(struct afs_server *server, struct afs_writeback *wb,
+> +		      pgoff_t first, pgoff_t last,
+> +		      unsigned offset, unsigned to,
+> +		      const struct afs_wait_mode *wait_mode)
+> +{
+> +	struct afs_vnode *vnode = wb->vnode;
+> +	struct afs_call *call;
+> +	loff_t size, pos, i_size;
+> +	__be32 *bp;
+> +
+> +	_enter(",%x,{%x:%u},,",
+> +	       key_serial(wb->key), vnode->fid.vid, vnode->fid.vnode);
+> +
+> +	size = to - offset;
+> +	if (first != last)
+> +		size += (loff_t)(last - first) << PAGE_SHIFT;
+> +	pos = (loff_t)first << PAGE_SHIFT;
+> +	pos += offset;
+> +
+> +	i_size = i_size_read(&vnode->vfs_inode);
+> +	if (pos + size > i_size)
+> +		i_size = size + pos;
+> +
+> +	_debug("size %llx, at %llx, i_size %llx",
+> +	       (unsigned long long) size, (unsigned long long) pos,
+> +	       (unsigned long long) i_size);
+> +
+> +	BUG_ON(i_size > 0xffffffff); // TODO: use 64-bit store
+
+You're sure this isn't user-triggerable?
+
+> +static int afs_prepare_page(struct afs_vnode *vnode, struct page *page,
+> +			    struct key *key, unsigned offset, unsigned to)
+> +{
+> +	unsigned eof, tail, start, stop, len;
+> +	loff_t i_size, pos;
+> +	void *p;
+> +	int ret;
+> +
+> +	_enter("");
+> +
+> +	if (offset == 0 && to == PAGE_SIZE)
+> +		return 0;
+> +
+> +	p = kmap(page);
+> +
+> +	i_size = i_size_read(&vnode->vfs_inode);
+> +	pos = (loff_t) page->index << PAGE_SHIFT;
+> +	if (pos >= i_size) {
+> +		/* partial write, page beyond EOF */
+> +		_debug("beyond");
+> +		if (offset > 0)
+> +			memset(p, 0, offset);
+> +		if (to < PAGE_SIZE)
+> +			memset(p + to, 0, PAGE_SIZE - to);
+> +		kunmap(page);
+> +		return 0;
+> +	}
+> +
+> +	if (i_size - pos >= PAGE_SIZE) {
+> +		/* partial write, page entirely before EOF */
+> +		_debug("before");
+> +		tail = eof = PAGE_SIZE;
+> +	} else {
+> +		/* partial write, page overlaps EOF */
+> +		eof = i_size - pos;
+> +		_debug("overlap %u", eof);
+> +		tail = max(eof, to);
+> +		if (tail < PAGE_SIZE)
+> +			memset(p + tail, 0, PAGE_SIZE - tail);
+> +		if (offset > eof)
+> +			memset(p + eof, 0, PAGE_SIZE - eof);
+> +	}
+> +
+> +	kunmap(p);
+
+kmap_atomic() could be used here and is better.
+
+We have this zero_user_page() thing heading in which could perhaps be used
+here also.
+
+
+> +	ret = 0;
+> +	if (offset > 0 || eof > to) {
+> +		/* need to fill one or two bits that aren't going to be written
+> +		 * (cover both fillers in one read if there are two) */
+> +		start = (offset > 0) ? 0 : to;
+> +		stop = (eof > to) ? eof : offset;
+> +		len = stop - start;
+> +		_debug("wr=%u-%u av=0-%u rd=%u@%u",
+> +		       offset, to, eof, start, len);
+> +		ret = afs_fill_page(vnode, key, start, len, page);
+> +	}
+> +
+> +	_leave(" = %d", ret);
+> +	return ret;
+> +}
+> +
+> 
+> ...
+
+> +	ASSERTRANGE(wb->first, <=, index, <=, wb->last);
+
+wow.
+
+> +}
+> +
+> +/*
+> + * finalise part of a write to a page
+> + */
+> +int afs_commit_write(struct file *file, struct page *page,
+> +		     unsigned offset, unsigned to)
+> +{
+> +	struct afs_vnode *vnode = AFS_FS_I(file->f_dentry->d_inode);
+> +	loff_t i_size, maybe_i_size;
+> +
+> +	_enter("{%x:%u},{%lx},%u,%u",
+> +	       vnode->fid.vid, vnode->fid.vnode, page->index, offset, to);
+> +
+> +	maybe_i_size = (loff_t) page->index << PAGE_SHIFT;
+> +	maybe_i_size += to;
+> +
+> +	i_size = i_size_read(&vnode->vfs_inode);
+> +	if (maybe_i_size > i_size) {
+> +		spin_lock(&vnode->writeback_lock);
+> +		i_size = i_size_read(&vnode->vfs_inode);
+> +		if (maybe_i_size > i_size)
+> +			i_size_write(&vnode->vfs_inode, maybe_i_size);
+> +		spin_unlock(&vnode->writeback_lock);
+> +	}
+> +
+> +	set_page_dirty(page);
+> +
+> +	if (PageDirty(page))
+> +		_debug("dirtied");
+> +
+> +	return 0;
+> +}
+
+One would normally run mark_inode_dirty() after any i_size_write()?
+
+> +/*
+> + * kill all the pages in the given range
+> + */
+
+We can invalidate pages and we can truncate them and we can clean them. 
+But here we have a new operation, "killing".  I wonder what that is.
+
+> +static void afs_kill_pages(struct afs_vnode *vnode, bool error,
+> +			   pgoff_t first, pgoff_t last)
+> +{
+> +	struct pagevec pv;
+> +	unsigned count, loop;
+> +
+> +	_enter("{%x:%u},%lx-%lx",
+> +	       vnode->fid.vid, vnode->fid.vnode, first, last);
+> +
+> +	pagevec_init(&pv, 0);
+> +
+> +	do {
+> +		_debug("kill %lx-%lx", first, last);
+> +
+> +		count = last - first + 1;
+> +		if (count > PAGEVEC_SIZE)
+> +			count = PAGEVEC_SIZE;
+> +		pv.nr = find_get_pages_contig(vnode->vfs_inode.i_mapping,
+> +					      first, count, pv.pages);
+> +		ASSERTCMP(pv.nr, ==, count);
+> +
+> +		for (loop = 0; loop < count; loop++) {
+> +			ClearPageUptodate(pv.pages[loop]);
+> +			if (error)
+> +				SetPageError(pv.pages[loop]);
+> +			end_page_writeback(pv.pages[loop]);
+> +		}
+> +
+> +		__pagevec_release(&pv);
+> +	} while (first < last);
+> +
+> +	_leave("");
+> +}
+> +
+> +/*
+> + * write a page back to the server
+> + * - the caller locked the page for us
+> + */
+> +int afs_writepage(struct page *page, struct writeback_control *wbc)
+> +{
+> +	struct backing_dev_info *bdi = page->mapping->backing_dev_info;
+> +	struct afs_writeback *wb;
+> +	int ret;
+> +
+> +	_enter("{%lx},", page->index);
+> +
+> +	if (wbc->sync_mode != WB_SYNC_NONE)
+> +		wait_on_page_writeback(page);
+
+Didn't the VFS already do that?
+
+> +	if (PageWriteback(page) || !PageDirty(page)) {
+> +		unlock_page(page);
+> +		return 0;
+> +	}
+
+And some of that?
+
+> +	wb = (struct afs_writeback *) page_private(page);
+> +	ASSERT(wb != NULL);
+> +
+> +	ret = afs_write_back_from_locked_page(wb, page);
+> +	unlock_page(page);
+> +	if (ret < 0) {
+> +		_leave(" = %d", ret);
+> +		return 0;
+> +	}
+> +
+> +	wbc->nr_to_write -= ret;
+> +	if (wbc->nonblocking && bdi_write_congested(bdi))
+> +		wbc->encountered_congestion = 1;
+> +
+> +	_leave(" = 0");
+> +	return 0;
+> +}
+
+I have this vague prehistoric memory that something can go wrong at the VFS
+level if the address_space writes back more pages than it was asked to. 
+But I forget what the issue was and it would be silly to have an issue
+with that anyway.  Something to keep an eye out for.
 
 
