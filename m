@@ -1,32 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/3] [SCTP] Do not include ABORT chunk header in the
- notification.
-Date: Wed, 09 May 2007 13:52:57 -0700 (PDT)
-Message-ID: <20070509.135257.14991605.davem@davemloft.net>
-References: <11787398302375-git-send-email-vladislav.yasevich@hp.com>
-	<11787398302050-git-send-email-vladislav.yasevich@hp.com>
+Subject: Re: [IPV6] send ICMPv6 error on scope violations
+Date: Wed, 09 May 2007 13:54:35 -0700 (PDT)
+Message-ID: <20070509.135435.32719359.davem@davemloft.net>
+References: <OFA075DC7D.6AB1CB33-ON882572D6.006CBBA4-882572D6.006D635E@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
-To: vladislav.yasevich@hp.com
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
+To: dlstevens@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37255
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37260
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756544AbXEIUw4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 May 2007 16:52:56 -0400
-In-Reply-To: <11787398302050-git-send-email-vladislav.yasevich@hp.com>
+	by vger.kernel.org with ESMTP id S1751690AbXEIUye (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 May 2007 16:54:34 -0400
+In-Reply-To: <OFA075DC7D.6AB1CB33-ON882572D6.006CBBA4-882572D6.006D635E@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Date: Wed,  9 May 2007 15:43:50 -0400
+From: David Stevens <dlstevens@us.ibm.com>
+Date: Wed, 9 May 2007 13:55:15 -0600
 
-> The socket API draft is unclear about whether to include the
-> chunk header or not.  Recent discussion on the sctp implementors
-> mailing list clarified that the chunk header shouldn't be included,
-> but the error parameter header still needs to be there.
+> When an IPv6 router is forwarding a packet with a link-local scope source
+> address off-link, RFC 4007 requires it to send an ICMPv6 destination
+> unreachable with code 2 ("not neighbor"), but Linux doesn't. Fix below.
 > 
-> Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+> Signed-off-by: David L Stevens <dlstevens@us.ibm.com>
 
-Applied.
+Applied, thanks David.
