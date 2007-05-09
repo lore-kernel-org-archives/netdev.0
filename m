@@ -1,49 +1,45 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 00/17] sky2 update for 2.6.22
-Date: Wed, 09 May 2007 00:16:48 -0400
-Message-ID: <46414B30.6050603@garzik.org>
-References: <20070509034949.624934448@linux-foundation.org>
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Subject: Re: [PATCH] core: Call net_tx_action only if work pending
+Date: Wed, 9 May 2007 09:54:56 +0530
+Message-ID: <OFCF7BF07C.6144A4C9-ON652572D6.00183AD5-652572D6.00184189@in.ibm.com>
+References: <20070508.185952.115910331.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Greg KH <greg@kroah.com>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:40390 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S967460AbXEIEQv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 May 2007 00:16:51 -0400
-In-Reply-To: <20070509034949.624934448@linux-foundation.org>
+Received: from ausmtp06.au.ibm.com ([202.81.18.155]:32910 "EHLO
+	ausmtp06.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932117AbXEIEZ6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 May 2007 00:25:58 -0400
+Received: from sd0109e.au.ibm.com (d23rh905.au.ibm.com [202.81.18.225])
+	by ausmtp06.au.ibm.com (8.13.8/8.13.8) with ESMTP id l494RTAQ8437830
+	for <netdev@vger.kernel.org>; Wed, 9 May 2007 14:27:29 +1000
+Received: from d23av03.au.ibm.com (d23av03.au.ibm.com [9.190.250.244])
+	by sd0109e.au.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l494TQn5133282
+	for <netdev@vger.kernel.org>; Wed, 9 May 2007 14:29:26 +1000
+Received: from d23av03.au.ibm.com (loopback [127.0.0.1])
+	by d23av03.au.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l494Psbj005008
+	for <netdev@vger.kernel.org>; Wed, 9 May 2007 14:25:54 +1000
+In-Reply-To: <20070508.185952.115910331.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> Patches are against netdev-2.6 upstream code branch.
-> 
-> This includes a several bug fixes, and code cleanup to use standard
-> functions. There are a couple of PCI changes. One bug fix, and moving
-> common code in PCI base.
+Agreed :)
 
-The standard development process is:
+- KK
 
-	* new code gets pushed to me during 2.6.X-rc
-	* that code is auto-propagated to akpm's -mm tree for
-	  additional exposure
-	* merge window opens
-	* I push upstream
+David Miller <davem@davemloft.net> wrote on 05/09/2007 07:29:52 AM:
 
-That ensures code gets at least /some/ additional review, testing, 
-"settling" time.
-
-This is a late date to be expecting stuff to be pushed straight into 2.6.22.
-
-Additionally, the rule for creating patches is:  diff against latest 
-vanilla linux-2.6.git tree, unless dependencies exist in netdev.  After 
-the merge window opens, #upstream is often empty or even a bit behind 
-upstream, since Linus pulls that.
-
-	Jeff
-
-
+> From: Krishna Kumar <krkumar2@in.ibm.com>
+> Date: Tue, 08 May 2007 13:01:30 +0530
+>
+> > Optimize call to net_tx_action only if work is pending.
+> >
+> > Patch against net-2.6.22.git
+> >
+> > Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
+>
+> I don't think downing a cpu is done so often as to justify this
+> microscopic optimization, do you?
 
