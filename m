@@ -1,44 +1,41 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/2] skge: default WOL should be magic only (rev2)
-Date: Wed, 09 May 2007 19:25:44 -0400
-Message-ID: <46425878.9060102@garzik.org>
-References: <20070507110036.050e7b5b@freekitty> <4640055A.5000502@garzik.org> <20070508133620.0a7c6d12@localhost>
+Subject: Re: [PATCH] Fix hang on IBM Token Ring PCMCIA card ejection
+Date: Wed, 09 May 2007 19:25:33 -0400
+Message-ID: <4642586D.4070300@garzik.org>
+References: <20070509164715.430844867@booyaka.com> <20070509164803.557732761@booyaka.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stable@kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: mikep@linuxtr.net, netdev@vger.kernel.org, linux-tr@linuxtr.net
+To: Paul Walmsley <paul@booyaka.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:50092 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:50085 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759094AbXEIXZr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 May 2007 19:25:47 -0400
-In-Reply-To: <20070508133620.0a7c6d12@localhost>
+	id S1759177AbXEIXZg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 May 2007 19:25:36 -0400
+In-Reply-To: <20070509164803.557732761@booyaka.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> By default, the skge driver now enables wake on magic and wake on PHY.
-> This is a bad default (bug), wake on PHY means machine will never shutdown 
-> if connected to a switch.
+Paul Walmsley wrote:
+> Ejecting a PCMCIA IBM Token Ring card that has not had its dev->open()
+> called will reliably trigger an uninitialized spinlock oops when
+> spinlock debugging is enabled. The system then hangs, occasionally
+> softlockup oopsing.  Apparently ibmtr.c:tok_interrupt() doesn't expect
+> to be called before tok_open(), but tok_interrupt() gets called anyway
+> when the card is ejected.  So, set an already-existing flag which
+> causes tok_interrupt() to bail out early upon card ejection. Tested by
+> inserting and removing the PCMCIA card several times.
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>a
+> Patch against 2.6.21-rc6.
+> 
+> 
+> Signed-off-by: Paul Walmsley <paul@booyaka.com>
 > 
 > ---
->  drivers/net/skge.c |    4 +++-
->  1 file changed, 3 insertions(+), 1 deletion(-)
-> 
-> --- sky2-2.6.21.orig/drivers/net/skge.c	2007-05-08 10:06:39.000000000 -0700
-> +++ sky2-2.6.21/drivers/net/skge.c	2007-05-08 10:21:51.000000000 -0700
-> @@ -3594,7 +3594,9 @@ static struct net_device *skge_devinit(s
->  	skge->duplex = -1;
->  	skge->speed = -1;
->  	skge->advertising = skge_supported_modes(hw);
-> -	skge->wol = pci_wake_enabled(hw->pdev) ? wol_supported(hw) : 0;
-> +
-> +	if (pci_wake_enabled(hw->pdev))
-> +		skge->wol = wol_supported(hw) & WAKE_MAGIC;
+>  ibmtr_cs.c |   14 +++++++++-----
+>  1 file changed, 9 insertions(+), 5 deletions(-)
 
-thanks for the revision, applied
+applied
 
 
