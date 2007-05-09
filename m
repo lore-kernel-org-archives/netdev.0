@@ -1,86 +1,61 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: [PATCH] Intel IXP4xx network drivers v.3 - QMGR
-Date: Wed, 9 May 2007 12:21:36 +0200
-Message-ID: <20070509102136.GG6976@xi.wantstofly.org>
-References: <m3vef5biob.fsf@maximus.localdomain> <5BB7E1AB-5CE1-43C8-8CE3-E0DE0236BD09@cam.ac.uk> <m3hcqoa772.fsf@maximus.localdomain> <86D26EBE-5899-468F-9C79-23E83E0DE04B@cam.ac.uk> <m33b289zku.fsf@maximus.localdomain> <m31whs5ehn.fsf_-_@maximus.localdomain> <20070508113232.GA32055@xi.wantstofly.org> <m3k5vj76bi.fsf@maximus.localdomain> <20070508144001.GC387@xi.wantstofly.org> <m3ps5b5k07.fsf@maximus.localdomain>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [1/1 take 2] Unified socket storage. (with small bench).
+Date: Wed, 9 May 2007 14:22:53 +0400
+Message-ID: <20070509102253.GC10028@2ka.mipt.ru>
+References: <20070509093443.GA10028@2ka.mipt.ru> <20070509.024445.71552569.davem@davemloft.net> <20070509095740.GB10028@2ka.mipt.ru> <20070509.030200.123972145.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Michael-Luke Jones <mlj28@cam.ac.uk>,
-	Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
-	lkml <linux-kernel@vger.kernel.org>,
-	Russell King <rmk@arm.linux.org.uk>,
-	ARM Linux Mailing List
-	<linux-arm-kernel@lists.arm.linux.org.uk>
-To: Krzysztof Halasa <khc@pm.waw.pl>
+Content-Type: text/plain; charset=koi8-r
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alephnull.demon.nl ([83.160.184.112]:51677 "EHLO
-	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751187AbXEIKVj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 May 2007 06:21:39 -0400
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:40337 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755111AbXEIKXS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 May 2007 06:23:18 -0400
 Content-Disposition: inline
-In-Reply-To: <m3ps5b5k07.fsf@maximus.localdomain>
+In-Reply-To: <20070509.030200.123972145.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, May 08, 2007 at 06:59:36PM +0200, Krzysztof Halasa wrote:
-
-> >> There may be up to 6 Ethernet ports (not sure about hardware
-> >> status, not yet supported even by Intel) - 7 queues * 128 entries
-> >> each = ~ 3.5 KB. Add 2 long queues (RX) for HSS and something
-> >> for TX, and then crypto, and maybe other things.
-> >
-> > You're unlikely to be using all of those at the same time, though.
+On Wed, May 09, 2007 at 03:02:00AM -0700, David Miller (davem@davemloft.net) wrote:
+> From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+> Date: Wed, 9 May 2007 13:57:40 +0400
 > 
-> That's the point.
+> > That is only because we have very different way of working with udp.
+> > In udp hash table we can have multiple sockets bound to different ip
+> > addresses, but with the same port, so it will be placed into the same
+> > hash chain. With trie each socket will have differnet key, since
+> > addresses are different (or bound device number), so it automatically
+> > fixes problem with broken hash for udp (which is a bit fixed with
+> > extended hashing).
 > 
-> > And what do you do if the user does compile all of these features into
-> > his kernel and then tries to use them all at the same time?  Return
-> > -ENOMEM?
+> Yes it is power of trie.
 > 
-> If he is able to do so, yes - there is nothing we can do. But
-> I suspect a single machine would not have all possible hardware.
-> The problem is, we don't know what would it have, so it must be
-> dynamic.
+> So connection rates are interesting, but what about raw lookup
+> performance?  Last time this topic came up you went into some
+> cave when you looked at the trie lookup assembly and compared
+> it to hash. :)
 
-Well, you _would_ like to have a way to make sure that all the
-capabilities on the board can be used.  If you have a future ixp4xx
-based board with 16 ethernet ports, you don't want 'ifconfig eth7 up'
-to give you -ENOMEM just because we ran out of SRAM.
+Sky was bluer and grass was greener that days...
+We discussed raw trie with completely different lookup algo (32 bits
+keys only, 32 checks per lookup), current implementation (and that one
+in previous patchset) is a serious step further.
 
-The way I see it, that means that you do want to scale back your
-other SRAM allocations if you know that you're going to need a lot
-of SRAM (say, for ethernet RX/TX queues.)
+> It does make more memory references than hash by definition, and we
+> need to figure out whether that matters enough or not.
 
-Either you can do this with an ugly hack a la:
+Due to algorithm changes, on each new level we get upto 256 nodes which 
+can store a pointer to data, so usual number of lookups should be 3 
+(max 4) for the current key organization.
+One of the worst cases is when the same source and destination address 
+are used, but with different ports (like in shown example), in that case
+upto 8 lookups can be performed.
+We can even tune key organization to put fields known to be different
+first (admin can setup some kind of a policy on bootup/runtime) or
+perform non-destructive hashing (exchange bits in the key according to
+some law, like change first bit and the last one), which will speedup 
+lookup, but that looks more like a ugly mental exercises and should not
+be considered in tests for now.
 
-	/*
-	 * The FOO board has many ethernet ports, and runs out of
-	 * SRAM prematurely if we use the default TX/RX ring sizes.
-	 */
-	#ifdef CONFIG_MACH_IXP483_FOO_BOARD
-	#define IXP4XX_ETH_RXTX_QUEUE_SIZE	32
-	#else
-	#define IXP4XX_ETH_RXTX_QUEUE_SIZE	256
-	#endif
-
-Or you can put this knowledge in the board support code (cleaner, IMHO.)
-
-E.g. let arch/arm/mach-ixp4xx/nslu2.c decide, at platform device
-instantiation time, which region of queue SRAM can be used by which
-queue, and take static allocations for things like the crypto unit
-into account.  (This is just one form of that idea, there are many
-different variations.)
-
-That way, you can _guarantee_ that you'll always have enough SRAM
-to be able to use the functionality that is exposed on the board you
-are running on (which is a desirable property, IMHO), which is
-something that you can't achieve with an allocator, as far as I can
-see.
-
-I'm not per se against the allocator, I just think that there are
-problems (running out of SRAM, fragmentation) that can't be solved
-by the allocator alone (SRAM users have to be aware which other SRAM
-users there are in the system, while the idea of the allocator is to
-insulate these users from each other), and any solution that solves
-those two problems IMHO also automatically solves the problem that
-the allocator is trying to solve.
+-- 
+	Evgeniy Polyakov
