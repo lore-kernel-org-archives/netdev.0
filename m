@@ -1,52 +1,62 @@
-From: Marcus Better <marcus@better.se>
-Subject: Re: [PATCH] Intel IXP4xx network drivers v.2 - Ethernet and HSS
-Date: Wed, 9 May 2007 11:35:03 +0200
-Message-ID: <200705091135.06405.marcus@better.se>
-References: <464034CF.20700@wpkg.org> <f1s2eu$26p$1@sea.gmane.org> <20070509092132.GB6976@xi.wantstofly.org>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [1/1 take 2] Unified socket storage. (with small bench).
+Date: Wed, 9 May 2007 13:34:43 +0400
+Message-ID: <20070509093443.GA10028@2ka.mipt.ru>
+References: <20070508174331.GA13591@2ka.mipt.ru> <20070508.234828.95506666.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart2673490.JFVo1fev5x";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Lennert Buytenhek <buytenh@wantstofly.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755715AbXEIJfa@vger.kernel.org>
-In-Reply-To: <20070509092132.GB6976@xi.wantstofly.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=koi8-r
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:36771 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751208AbXEIJgY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 May 2007 05:36:24 -0400
+Content-Disposition: inline
+In-Reply-To: <20070508.234828.95506666.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart2673490.JFVo1fev5x
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+On Tue, May 08, 2007 at 11:48:28PM -0700, David Miller (davem@davemloft.net) wrote:
+> From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+> Date: Tue, 8 May 2007 21:43:32 +0400
+> 
+> > This is second patch which implements unified cache of sockets for
+> > network instead of old hash tables. It stores all types of sockets
+> > (although I only implemented af_inet, unix, netlink and raw ones for now)
+> > in single object structure called multidimensional trie (which is
+> > similar to judy array in some way).
+> 
+> Thanks for doing this work it is very interesting. :)
 
-Lennert Buytenhek wrote:
-> Does that mean that the Debian ARM people have their heads so far
-> up their collective asses that they think that every form of change
-> is bad and are unable to accept that some forms of change might be
-> for the better?
+:) it is interesting indeed.
 
-Well, I am not one of the Debian ARM people, just a user... and I do hope t=
-he=20
-EABI port becomes supported in the future! But in the meatime there is a=20
-crowd of users running Debian on consumer devices like the NSLU2, and they=
-=20
-need a LE network driver.
+> > So, this is dynamic structure which can host any kind of network sockets
+> > (actually any structure pointer which can be addressed with 160 bits).
+> > Structure can be extended to support ipv6 (needs to increase key
+> > length) with essentially any number of elements in it.
+> > 
+> > Code is in development stage, but I would like to rise a discussion
+> > about needs to continue this development before next steps.
+> 
+> One thing that will need to be adjust for current tree is the UDP
+> hashing mechanism.  But as far as I can tell your code should be able
+> to handle the new scheme (we now hash UDP by saddr+port when
+> possible, and this reminds me that IPV6 is broken and needs some
+> repairs).
 
-Marcus
+Yes, udp with multicast can be a problem, but it can be solved exactly
+the same way I implemented netlink broadcast (simple solution) -
+multicast sockets are placed into own list/hash table/trie with special
+bit in key/whatever and accessed when needed.
 
---nextPart2673490.JFVo1fev5x
-Content-Type: application/pgp-signature
+> What exactly does the 'stages' arg mean?  Is this a method to handle
+> partially bound sockets?
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.6 (GNU/Linux)
+It is a fallback to select a listening socket, which has remote
+addr/port as zero, so when socket it selected from tree, lookup wants to
+first get established socket with given remote identity and if this
+fails, it tries to select a wildcard one.
 
-iD8DBQBGQZXKXjXn6TzcAQkRAk4GAJ9+GT649/F0LihDlmA44wkC8H+pvQCfeULG
-v49XfAJSpJU0ZiNPRXjZ9G4=
-=1kK6
------END PGP SIGNATURE-----
-
---nextPart2673490.JFVo1fev5x--
+-- 
+	Evgeniy Polyakov
