@@ -1,73 +1,63 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] sched: Optimize return value of qdisc_restart
-Date: Wed, 09 May 2007 11:52:44 -0400
-Message-ID: <1178725965.4058.75.camel@localhost>
-References: <OFBBEFE969.8AD5C0AA-ON652572D6.004FC535-652572D6.00513837@in.ibm.com>
-Reply-To: hadi@cyberus.ca
+From: "Qi, Yanling" <Yanling.Qi@lsi.com>
+Subject: RE: SG_IO with >4k buffer size to iscsi sg device causes "Bad page" panic
+Date: Wed, 9 May 2007 10:13:18 -0600
+Message-ID: <0F08E10B769EAF4EA2C43A573B8CC87FB5703A@NAMAIL3.ad.lsil.com>
+References: <4640CFC8.9020004@cs.wisc.edu>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: Krishna Kumar2 <krkumar2@in.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.224]:38460 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755807AbXEIPwv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 May 2007 11:52:51 -0400
-Received: by wx-out-0506.google.com with SMTP id h31so227961wxd
-        for <netdev@vger.kernel.org>; Wed, 09 May 2007 08:52:50 -0700 (PDT)
-In-Reply-To: <OFBBEFE969.8AD5C0AA-ON652572D6.004FC535-652572D6.00513837@in.ibm.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, <linux-scsi@vger.kernel.org>,
+	<linux-iscsi-devel@lists.sourceforge.net>, <dougg@torque.net>,
+	"James Bottomley" <James.Bottomley@SteelEye.com>
+To: "Mike Christie" <michaelc@cs.wisc.edu>,
+	<open-iscsi@googlegroups.com>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <4640CFC8.9020004@cs.wisc.edu>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Krishna,
 
-On Wed, 2007-09-05 at 20:17 +0530, Krishna Kumar2 wrote:
+> -----Original Message-----
+> From: Mike Christie [mailto:michaelc@cs.wisc.edu]
+> Qi, Yanling wrote:
+> Yeah, this problem should occur in the upstream open-iscsi iscsi code.
+> open-iscsi works very similar to linux-scsi where it just sends pages
+> around with sock->ops-sendpage, and it looks like sg uses
+> __get_free_pages in RHEL's kernel and upstream it uses alloc_pages so
+> unless there was a change in those functions or the network layer then
+> we should have a similar problem.
+[Qi, Yanling] 
+Mike,
 
-> Concurrently is not possible, since everyone needs the queue_lock
-> to add/delete. Did I misunderstand your comment ?
-> 
+I tried the same test on a SLES10SP1 with open-iscsi driver (lk
+2.6.16.37-0.23). It works fine.
+What happens is that both "alloc_pages()" and "__get_free_pages()" will
+set page_count to 1 for base page and sub-pages. Because page_count =1,
+the subpages will not be recycled.
 
-I think so, more below where you explain it:
+It seems the mm code has changed alloc_pages and __get_free_pages()'s
+behavior along the way from 2.6.9 to 2.6.16.
 
-> The dev->queue_lock is held by both enqueue'r and dequeue'r (though
-> the dequeue'r drops it before calling xmit). But once the dequeue'r
-> re-gets the lock, it is guaranteed that no one else has the lock
-> Other CPU's trying to add will block on the lock, or if they have
-> already added by getting the lock for a short time while my CPU was
-                
-That is how concurency is achieved on the queue. If you have N CPUs, N-1
-could be queueing.
-Important to note, only one - that owns the QDISC_RUNNING can dequeue.
-                       
-> doing the xmit, then their qdisc_run returns doing nothing as RUNNING
-> is true.
-> 
+Therefore, we don't have an issue in the upstream kernel and RHEL5.
 
-lack of ownership of QDISC_RUNNING is what makes them enqueuers. The CPU
-that owns it is the dequeuer. 
+0 page:ffff81007f8da240 flags:0x0100000000004000
+mapping:0000000000000000 mapcount:0 count:1
+1 page:ffff81007f8da278 flags:0x0100000000004000
+mapping:0000000000000000 mapcount:0 count:1
+2 page:ffff81007f8da2b0 flags:0x0100000000004000
+mapping:0000000000000000 mapcount:0 count:1
+3 page:ffff81007f8da2e8 flags:0x0100000000004000
+mapping:0000000000000000 mapcount:0 count:1
+4 page:ffff81007f8da320 flags:0x0100000000004000
+mapping:0000000000000000 mapcount:0 count:1
+5 page:ffff81007f8da358 flags:0x0100000000004000
+mapping:0000000000000000 mapcount:0 count:1
+6 page:ffff81007f8da390 flags:0x0100000000004000
+mapping:0000000000000000 mapcount:0 count:1
+7 page:ffff81007f8da3c8 flags:0x0100000000004000
+mapping:0000000000000000 mapcount:0 count:1
 
-> Since I am holding a lock in these two changed areas till I return
-> back to __qdisc_run (which clears the RUNNING bit) and then drop the
-> lock, there is no way packets can be on the queue while I falsely
-> return 0, or no packets on the queue while I falsely return -1.
-> 
-
-If you relinquish yourself from being a dequeuer by letting go of
-RUNNING then it is possible during that short window one of the other
-N-1 CPUs could have been enqueueing; that packet will never be dequeued
-unless a new packet shows up some X amount of time later.
-
-> I hope my explanation was not confusing.
-> 
-
-I hope what i described above helps. Off for about a day. CCing Herbert
-who last made changes to that area incase i missed something ..
-
-cheers,
-jamal
-
-PS:- Please dont use my temporary gmail account to respond; a reply-to
-will pick the right address (@cyberus.ca).
-
+Thanks,
+Yanling
