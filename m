@@ -1,32 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [IPV6] ROUTE: Assign rt6i_idev for
- ip6_{prohibit,blk_hole}_entry.
-Date: Wed, 09 May 2007 01:45:30 -0700 (PDT)
-Message-ID: <20070509.014530.88343895.davem@davemloft.net>
-References: <20070509.170550.81965404.yoshfuji@linux-ipv6.org>
-	<20070509.011333.122833121.davem@davemloft.net>
-	<20070509.174228.18186896.yoshfuji@linux-ipv6.org>
+From: Sascha Hauer <s.hauer@pengutronix.de>
+Subject: bus id in PHY Abstraction Layer
+Date: Wed, 9 May 2007 10:45:56 +0200
+Message-ID: <20070509084556.GA5967@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: snakebyte@gmx.de, netdev@vger.kernel.org
-To: yoshfuji@linux-ipv6.org
+Content-Type: text/plain; charset=us-ascii
+Cc: afleming@freescale.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53993
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755916AbXEIIpa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 May 2007 04:45:30 -0400
-In-Reply-To: <20070509.174228.18186896.yoshfuji@linux-ipv6.org>
+Received: from metis.extern.pengutronix.de ([83.236.181.26]:47061 "EHLO
+	metis.extern.pengutronix.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754607AbXEIIqA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 May 2007 04:46:00 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
-Date: Wed, 09 May 2007 17:42:28 +0900 (JST)
+Hi,
 
-> Wait for a moment, please.
-> I thought it should fix the issue, but
-> I must say, the fix does not seem sufficient...
-> 
-> I'm now analysing further.
+I made a quick shot to port the at91 network driver to the phy
+abstraction layer. While doing so I stumbled upon the
+(struct mii_bus)->id field. Currently the network driver registering the
+bus has to set this field. au1000_eth.c for example uses 0 or 1. mii-fec.c
+uses the id field of the corresponding platform device, which will start
+from 0, too. So if a second ethernet driver comes around the id fields
+will clash. I think the PAL has to assign the id field instead of the
+network driver. Maybe a id convention like "mii_fec.x:yy" where x is a
+running number and yy is the phy address would do it. Any opinions about
+that?
 
-Ok, I'll tell -stable to hold on this patch.
+Sascha
+
+-- 
+Pengutronix - Linux Solutions for Science and Industry
+Entwicklungszentrum Nord     http://www.pengutronix.de
