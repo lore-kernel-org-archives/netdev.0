@@ -1,41 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sched: Optimize return value of qdisc_restart
-Date: Tue, 08 May 2007 19:05:06 -0700 (PDT)
-Message-ID: <20070508.190506.85687854.davem@davemloft.net>
-References: <20070508073132.17547.68502.sendpatchset@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: [PATCH 01/17] sky2: fix oops on shutdown
+Date: Tue, 08 May 2007 20:49:50 -0700
+Message-ID: <20070509035027.805096061@linux-foundation.org>
+References: <20070509034949.624934448@linux-foundation.org>
 Cc: netdev@vger.kernel.org
-To: krkumar2@in.ibm.com
+To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54841
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S967364AbXEICFF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 May 2007 22:05:05 -0400
-In-Reply-To: <20070508073132.17547.68502.sendpatchset@localhost.localdomain>
+Received: from smtp1.linux-foundation.org ([65.172.181.25]:54770 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1032258AbXEIEDZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 May 2007 00:03:25 -0400
+Cc: stable@vger.kernel.org
+Content-Disposition: inline; filename=sky2-shutdown.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Krishna Kumar <krkumar2@in.ibm.com>
-Date: Tue, 08 May 2007 13:01:32 +0530
+If device is not fails during module startup (like unsupported chip
+version) then driver would crash dereferencing a null pointer.
 
-> Optimize return value of qdisc_restart so that it is not called an
-> extra time if there are no more packets on the queue to be sent out.
-> It is also not required to check for gso_skb (though the lock is
-> dropped) since another cpu which added this would have done a
-> netif_schedule.
-> 
-> Patch against net-2.6.22.git
-> 
-> Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
+Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
-<0 return value here means that the queue is not empty, and the device
-is throttled.  If you want to do this, just branch down to the end of
-the function which asserts that q->q.qlen is not negative, and returns
-it.
+---
+ drivers/net/sky2.c |    4 ++++
+ 1 file changed, 4 insertions(+)
 
-That will achieve the right effect.
+--- sky2-2.6.21.orig/drivers/net/sky2.c	2007-05-08 15:14:45.000000000 -0700
++++ sky2-2.6.21/drivers/net/sky2.c	2007-05-08 15:16:12.000000000 -0700
+@@ -3732,6 +3732,7 @@ err_out_free_regions:
+ err_out_disable:
+ 	pci_disable_device(pdev);
+ err_out:
++	pci_set_drvdata(pdev, NULL);
+ 	return err;
+ }
+ 
+@@ -3861,6 +3862,9 @@ static void sky2_shutdown(struct pci_dev
+ 	struct sky2_hw *hw = pci_get_drvdata(pdev);
+ 	int i, wol = 0;
+ 
++	if (!hw)
++		return;
++
+ 	del_timer_sync(&hw->idle_timer);
+ 	netif_poll_disable(hw->dev[0]);
+ 
 
-But I'm not so sure about this idea, I have this strange feeling that
-we do things this way for a reason... Hmmm...
+--
+
