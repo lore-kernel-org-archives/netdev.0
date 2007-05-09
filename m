@@ -1,41 +1,79 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [1/1 take 2] Unified socket storage. (with small bench).
-Date: Wed, 09 May 2007 03:02:00 -0700 (PDT)
-Message-ID: <20070509.030200.123972145.davem@davemloft.net>
-References: <20070509093443.GA10028@2ka.mipt.ru>
-	<20070509.024445.71552569.davem@davemloft.net>
-	<20070509095740.GB10028@2ka.mipt.ru>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: [PATCH] [IPV6]: Do no rely on skb->dst before it is assigned.
+Date: Wed, 09 May 2007 19:18:35 +0900 (JST)
+Message-ID: <20070509.191835.125516836.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: johnpol@2ka.mipt.ru
+Cc: yoshfuji@linux-ipv6.org, snakebyte@gmx.de, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43769
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754963AbXEIKB7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 May 2007 06:01:59 -0400
-In-Reply-To: <20070509095740.GB10028@2ka.mipt.ru>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:37426 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755453AbXEIKSV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 May 2007 06:18:21 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Date: Wed, 9 May 2007 13:57:40 +0400
+Because skb->dst is assigned in ip6_route_input(), it is really
+bad to use it in hop-by-hop option handler(s).
 
-> That is only because we have very different way of working with udp.
-> In udp hash table we can have multiple sockets bound to different ip
-> addresses, but with the same port, so it will be placed into the same
-> hash chain. With trie each socket will have differnet key, since
-> addresses are different (or bound device number), so it automatically
-> fixes problem with broken hash for udp (which is a bit fixed with
-> extended hashing).
+This fix is also needed for -stable.
 
-Yes it is power of trie.
+Closes: Bug #8450 (Eric Sesterhenn <snakebyte@gmx.de>)
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
-So connection rates are interesting, but what about raw lookup
-performance?  Last time this topic came up you went into some
-cave when you looked at the trie lookup assembly and compared
-it to hash. :)
+diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
+index fb39604..1e6e67e 100644
+--- a/net/ipv6/exthdrs.c
++++ b/net/ipv6/exthdrs.c
+@@ -651,6 +651,14 @@ EXPORT_SYMBOL_GPL(ipv6_invert_rthdr);
+   Hop-by-hop options.
+  **********************************/
+ 
++/*
++ * Note: we cannot rely on skb->dst before we assign it in ip6_route_input(). 
++ */
++static inline struct inet6_dev *ipv6_skb_idev(struct sk_buff *skb)
++{
++	return skb->dst ? ip6_dst_idev(skb->dst) : __in6_dev_get(skb->dev);
++}
++
+ /* Router Alert as of RFC 2711 */
+ 
+ static int ipv6_hop_ra(struct sk_buff **skbp, int optoff)
+@@ -677,25 +685,25 @@ static int ipv6_hop_jumbo(struct sk_buff **skbp, int optoff)
+ 	if (skb->nh.raw[optoff+1] != 4 || (optoff&3) != 2) {
+ 		LIMIT_NETDEBUG(KERN_DEBUG "ipv6_hop_jumbo: wrong jumbo opt length/alignment %d\n",
+ 			       skb->nh.raw[optoff+1]);
+-		IP6_INC_STATS_BH(ip6_dst_idev(skb->dst),
++		IP6_INC_STATS_BH(ipv6_skb_idev(skb),
+ 				 IPSTATS_MIB_INHDRERRORS);
+ 		goto drop;
+ 	}
+ 
+ 	pkt_len = ntohl(*(__be32*)(skb->nh.raw+optoff+2));
+ 	if (pkt_len <= IPV6_MAXPLEN) {
+-		IP6_INC_STATS_BH(ip6_dst_idev(skb->dst), IPSTATS_MIB_INHDRERRORS);
++		IP6_INC_STATS_BH(ipv6_skb_idev(skb), IPSTATS_MIB_INHDRERRORS);
+ 		icmpv6_param_prob(skb, ICMPV6_HDR_FIELD, optoff+2);
+ 		return 0;
+ 	}
+ 	if (skb->nh.ipv6h->payload_len) {
+-		IP6_INC_STATS_BH(ip6_dst_idev(skb->dst), IPSTATS_MIB_INHDRERRORS);
++		IP6_INC_STATS_BH(ipv6_skb_idev(skb), IPSTATS_MIB_INHDRERRORS);
+ 		icmpv6_param_prob(skb, ICMPV6_HDR_FIELD, optoff);
+ 		return 0;
+ 	}
+ 
+ 	if (pkt_len > skb->len - sizeof(struct ipv6hdr)) {
+-		IP6_INC_STATS_BH(ip6_dst_idev(skb->dst), IPSTATS_MIB_INTRUNCATEDPKTS);
++		IP6_INC_STATS_BH(ipv6_skb_idev(skb), IPSTATS_MIB_INTRUNCATEDPKTS);
+ 		goto drop;
+ 	}
+ 
 
-It does make more memory references than hash by definition, and we
-need to figure out whether that matters enough or not.
+-- 
+YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
+GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
