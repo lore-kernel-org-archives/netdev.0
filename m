@@ -1,204 +1,212 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [PATCH 16/17] sky2: make sure high DMA bits set
-Date: Tue, 08 May 2007 20:50:05 -0700
-Message-ID: <20070509035031.155434136@linux-foundation.org>
+Subject: [PATCH 06/17] sky2: advanced error reporting
+Date: Tue, 08 May 2007 20:49:55 -0700
+Message-ID: <20070509035028.970057572@linux-foundation.org>
 References: <20070509034949.624934448@linux-foundation.org>
 Cc: netdev@vger.kernel.org
 To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([65.172.181.25]:47089 "EHLO
+Received: from smtp1.linux-foundation.org ([65.172.181.25]:59641 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755633AbXEIEJt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 May 2007 00:09:49 -0400
+	by vger.kernel.org with ESMTP id S969669AbXEIEKQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 May 2007 00:10:16 -0400
 Cc: Greg KH <greg@kroah.com>
-Content-Disposition: inline; filename=sky2-force64.patch
+Cc: linux-pci@atrey.karlin.mff.cuni.cz
+Content-Disposition: inline; filename=sky2-recoverable.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Be more frugal on memory on 32bit platforms (less rx elements are needed),
-and make sure high DMA bits are set on 64bit platforms.
+Use the kernel interfaces for advanced error reporting.
+This should be cleaner and clear up errors on boot.
+
+Note: for those systems with busted BIOS's that don't correctly 
+support mmconfig, advanced error reporting will be disabled.
+The PCI registers for advanced error reporting start at 0x100 which
+is too large to be accessed by legacy functions.
 
 Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
 ---
- drivers/net/sky2.c |   62 ++++++++++++++++++++++++++++++++++++-----------------
- drivers/net/sky2.h |    2 -
- 2 files changed, 43 insertions(+), 21 deletions(-)
+ drivers/net/sky2.c |   50 ++++++++++++++++++++++++++++++--------------------
+ drivers/net/sky2.h |   41 -----------------------------------------
+ 2 files changed, 30 insertions(+), 61 deletions(-)
 
---- sky2-2.6.21.orig/drivers/net/sky2.c	2007-05-08 16:09:03.000000000 -0700
-+++ sky2-2.6.21/drivers/net/sky2.c	2007-05-08 16:10:41.000000000 -0700
-@@ -61,9 +61,11 @@
-  * similar to Tigon3.
-  */
+--- sky2-2.6.21.orig/drivers/net/sky2.c	2007-05-08 10:28:58.000000000 -0700
++++ sky2-2.6.21/drivers/net/sky2.c	2007-05-08 10:29:01.000000000 -0700
+@@ -31,6 +31,7 @@
+ #include <linux/etherdevice.h>
+ #include <linux/ethtool.h>
+ #include <linux/pci.h>
++#include <linux/aer.h>
+ #include <linux/ip.h>
+ #include <net/ip.h>
+ #include <linux/tcp.h>
+@@ -2270,7 +2271,11 @@ static void sky2_hw_error(struct sky2_hw
  
--#define RX_LE_SIZE		1024
--#define RX_LE_BYTES		(RX_LE_SIZE*sizeof(struct sky2_rx_le))
--#define RX_MAX_PENDING		(RX_LE_SIZE/6 - 2)
-+#define NDMA_LE			(sizeof(dma_addr_t)/sizeof(u32))
-+
-+#define RX_LE_SIZE	    	(512 * NDMA_LE)
-+#define RX_LE_BYTES		(RX_LE_SIZE * sizeof(struct sky2_rx_le))
-+#define RX_MAX_PENDING		500
- #define RX_DEF_PENDING		RX_MAX_PENDING
- #define RX_SKB_ALIGN		8
- #define RX_BUF_WRITE		16
-@@ -71,7 +73,7 @@
- #define TX_RING_SIZE		512
- #define TX_DEF_PENDING		(TX_RING_SIZE - 1)
- #define TX_MIN_PENDING		64
--#define MAX_SKB_TX_LE		(4 + (sizeof(dma_addr_t)/sizeof(u32))*MAX_SKB_FRAGS)
-+#define MAX_SKB_TX_LE		(2 + (NDMA_LE * (MAX_SKB_FRAGS + 1)))
- 
- #define STATUS_RING_SIZE	2048	/* 2 ports * (TX + 2*RX) */
- #define STATUS_LE_BYTES		(STATUS_RING_SIZE*sizeof(struct sky2_status_le))
-@@ -826,7 +828,6 @@ static inline struct sky2_tx_le *get_tx_
- 	struct sky2_tx_le *le = sky2->tx_le + sky2->tx_prod;
- 
- 	sky2->tx_prod = RING_NEXT(sky2->tx_prod, TX_RING_SIZE);
--	le->ctrl = 0;
- 	return le;
- }
- 
-@@ -866,13 +867,14 @@ static void sky2_rx_add(struct sky2_port
- 			dma_addr_t map, unsigned len)
+ static void sky2_hw_intr(struct sky2_hw *hw)
  {
- 	struct sky2_rx_le *le;
--	u32 hi = high32(map);
- 
--	if (sky2->rx_addr64 != hi) {
-+	if (sizeof(map) > sizeof(u32)) {
-+		u32 hi = high32(map);
++	struct pci_dev *pdev = hw->pdev;
+ 	u32 status = sky2_read32(hw, B0_HWE_ISRC);
++	u32 hwmsk = sky2_read32(hw, B0_HWE_IMSK);
 +
- 		le = sky2_next_rx(sky2);
- 		le->addr = cpu_to_le32(hi);
-+		le->ctrl = 0;
- 		le->opcode = OP_ADDR64 | HW_OWNER;
--		sky2->rx_addr64 = high32(map + len);
++	status &= hwmsk;
+ 
+ 	if (status & Y2_IS_TIST_OV)
+ 		sky2_write8(hw, GMAC_TI_ST_CTRL, GMT_ST_CLR_IRQ);
+@@ -2280,32 +2285,34 @@ static void sky2_hw_intr(struct sky2_hw 
+ 
+ 		pci_err = sky2_pci_read16(hw, PCI_STATUS);
+ 		if (net_ratelimit())
+-			dev_err(&hw->pdev->dev, "PCI hardware error (0x%x)\n",
++			dev_err(&pdev->dev, "PCI hardware error (0x%x)\n",
+ 			        pci_err);
+ 
+ 		sky2_pci_write16(hw, PCI_STATUS,
+ 				 pci_err | PCI_STATUS_ERROR_BITS);
  	}
  
- 	le = sky2_next_rx(sky2);
-@@ -1168,6 +1170,14 @@ static int sky2_rx_start(struct sky2_por
++	/* PCI-Express error occurred */
+ 	if (status & Y2_IS_PCI_EXP) {
+-		/* PCI-Express uncorrectable Error occurred */
+-		u32 pex_err;
++		int pos = pci_find_aer_capability(hw->pdev);
++		u32 status, mask;
++
++		/* should never happen since found capability during reset */
++		BUG_ON(!pos);
+ 
+-		pex_err = sky2_pci_read32(hw, PEX_UNC_ERR_STAT);
++		pci_read_config_dword(pdev, pos + PCI_ERR_UNCOR_STATUS, &status);
++		pci_read_config_dword(pdev, pos + PCI_ERR_UNCOR_SEVER, &mask);
+ 
+ 		if (net_ratelimit())
+-			dev_err(&hw->pdev->dev, "PCI Express error (0x%x)\n",
+-				pex_err);
++			dev_err(&pdev->dev, "PCI Express error (0x%x)\n",
++				status);
+ 
+-		/* clear the interrupt */
+-		sky2_pci_write32(hw, PEX_UNC_ERR_STAT,
+-				       0xffffffffUL);
+-
+-		if (pex_err & PEX_FATAL_ERRORS) {
+-			u32 hwmsk = sky2_read32(hw, B0_HWE_IMSK);
+-			hwmsk &= ~Y2_IS_PCI_EXP;
+-			sky2_write32(hw, B0_HWE_IMSK, hwmsk);
+-		}
++		if (pdev->error_state == pci_channel_io_normal)
++			status &= ~mask; /* Clear corresponding nonfatal bits */
++		else
++			status &= mask; /* Clear corresponding fatal bits */
++
++		pci_write_config_dword(pdev, pos + PCI_ERR_UNCOR_STATUS, status);
  	}
- 	sky2->rx_data_size = size;
  
-+	/* On 32bit platforms high bits always zero */
-+	if (sizeof(dma_addr_t) == sizeof(u32)) {
-+		struct sky2_rx_le *le = sky2_next_rx(sky2);
-+		le->addr = 0;
-+		le->ctrl = 0;
-+		le->opcode = OP_ADDR64 | HW_OWNER;
-+	}
-+
- 	/* Fill Rx ring */
- 	for (i = 0; i < sky2->rx_pending; i++) {
- 		re = sky2->rx_ring + i;
-@@ -1287,6 +1297,14 @@ static int sky2_up(struct net_device *de
- 	    && hw->chip_rev == CHIP_REV_YU_EC_U_A0)
- 		sky2_write16(hw, Q_ADDR(txqaddr[port], Q_AL), ECU_TXFF_LEV);
- 
-+	/* Initial high bits to zero */
-+	if (sizeof(dma_addr_t) == sizeof(u32)) {
-+		struct sky2_tx_le *le = get_tx_le(sky2);
-+		le->addr = 0;
-+		le->ctrl = 0;
-+		le->opcode = OP_ADDR64 | HW_OWNER;
-+	}
-+
- 	sky2_prefetch_init(hw, txqaddr[port], sky2->tx_le_map,
- 			   TX_RING_SIZE - 1);
- 
-@@ -1336,13 +1354,16 @@ static inline int tx_avail(const struct 
- /* Estimate of number of transmit list elements required */
- static unsigned tx_le_req(const struct sk_buff *skb)
+ 	if (status & Y2_HWE_L1_MASK)
+@@ -2533,6 +2540,7 @@ static void sky2_reset(struct sky2_hw *h
  {
--	unsigned count;
-+	unsigned count = NDMA_LE;	/* OP_PACKET */
+ 	u16 status;
+ 	int i;
++	u32 hwe_mask = Y2_HWE_ALL_MASK;
  
--	count = sizeof(dma_addr_t) / sizeof(u32);
--	count += skb_shinfo(skb)->nr_frags * count;
-+	count += skb_shinfo(skb)->nr_frags * NDMA_LE;	/* OP_BUFFER */
+ 	/* disable ASF */
+ 	if (hw->chip_id == CHIP_ID_YUKON_EX) {
+@@ -2550,16 +2558,18 @@ static void sky2_reset(struct sky2_hw *h
  
- 	if (skb_is_gso(skb))
- 		++count;
-+#ifdef SKY2_VLAN_TAG_USED
-+	else if (vlan_tx_tag_present(skb))
-+		++count;
-+#endif
+ 	/* clear PCI errors, if any */
+ 	status = sky2_pci_read16(hw, PCI_STATUS);
+-
+ 	sky2_pci_write16(hw, PCI_STATUS, status | PCI_STATUS_ERROR_BITS);
  
- 	if (skb->ip_summed == CHECKSUM_PARTIAL)
- 		++count;
-@@ -1379,12 +1400,11 @@ static int sky2_xmit_frame(struct sk_buf
- 	mapping = pci_map_single(hw->pdev, skb->data, len, PCI_DMA_TODEVICE);
- 	addr64 = high32(mapping);
  
--	/* Send high bits if changed or crosses boundary */
--	if (addr64 != sky2->tx_addr64 || high32(mapping + len) != sky2->tx_addr64) {
-+	if (sizeof(mapping) > sizeof(u32)) {
- 		le = get_tx_le(sky2);
- 		le->addr = cpu_to_le32(addr64);
-+		le->ctrl = 0;
- 		le->opcode = OP_ADDR64 | HW_OWNER;
--		sky2->tx_addr64 = high32(mapping + len);
+ 	sky2_write8(hw, B0_CTST, CS_MRST_CLR);
+ 
+-	/* clear any PEX errors */
+-	if (pci_find_capability(hw->pdev, PCI_CAP_ID_EXP))
+-		sky2_pci_write32(hw, PEX_UNC_ERR_STAT, 0xffffffffUL);
++	/* Check for advanced error reporting */
++	if (pci_find_aer_capability(hw->pdev)) {
++		hwe_mask |= Y2_IS_PCI_EXP;
+ 
++		pci_cleanup_aer_uncorrect_error_status(hw->pdev);
++		pci_enable_pcie_error_reporting(hw->pdev);
++	}
+ 
+ 	sky2_power_on(hw);
+ 
+@@ -2606,7 +2616,7 @@ static void sky2_reset(struct sky2_hw *h
+ 		sky2_write8(hw, RAM_BUFFER(i, B3_RI_RTO_XS2), SK_RI_TO_53);
  	}
  
- 	/* Check for TCP Segmentation Offload */
-@@ -1398,6 +1418,7 @@ static int sky2_xmit_frame(struct sk_buf
- 			le = get_tx_le(sky2);
- 			le->addr = cpu_to_le32(mss);
- 			le->opcode = OP_LRGLEN | HW_OWNER;
-+			le->ctrl = 0;
- 			sky2->tx_last_mss = mss;
- 		}
- 	}
-@@ -1410,6 +1431,7 @@ static int sky2_xmit_frame(struct sk_buf
- 			le = get_tx_le(sky2);
- 			le->addr = 0;
- 			le->opcode = OP_VLAN | HW_OWNER;
-+			le->ctrl = 0;
- 		} else
- 			le->opcode |= OP_VLAN;
- 		le->length = cpu_to_be16(vlan_tx_tag_get(skb));
-@@ -1453,16 +1475,18 @@ static int sky2_xmit_frame(struct sk_buf
+-	sky2_write32(hw, B0_HWE_IMSK, Y2_HWE_ALL_MASK);
++	sky2_write32(hw, B0_HWE_IMSK, hwe_mask);
  
- 	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
- 		const skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
-+		u32 hi;
+ 	for (i = 0; i < hw->ports; i++)
+ 		sky2_gmac_reset(hw, i);
+--- sky2-2.6.21.orig/drivers/net/sky2.h	2007-05-08 09:57:31.000000000 -0700
++++ sky2-2.6.21/drivers/net/sky2.h	2007-05-08 10:29:01.000000000 -0700
+@@ -16,14 +16,6 @@ enum {
+ 	PCI_DEV_REG5    = 0x88,
+ };
  
- 		mapping = pci_map_page(hw->pdev, frag->page, frag->page_offset,
- 				       frag->size, PCI_DMA_TODEVICE);
--		addr64 = high32(mapping);
--		if (addr64 != sky2->tx_addr64) {
-+		hi = high32(mapping);
-+
-+		if (addr64 != hi) {
- 			le = get_tx_le(sky2);
--			le->addr = cpu_to_le32(addr64);
--			le->ctrl = 0;
-+			le->addr = cpu_to_le32(hi);
- 			le->opcode = OP_ADDR64 | HW_OWNER;
--			sky2->tx_addr64 = addr64;
-+			le->ctrl = 0;
-+			addr64 = hi;
- 		}
+-enum {
+-	PEX_DEV_CAP	= 0xe4,
+-	PEX_DEV_CTRL	= 0xe8,
+-	PEX_DEV_STA	= 0xea,
+-	PEX_LNK_STAT	= 0xf2,
+-	PEX_UNC_ERR_STAT= 0x104,
+-};
+-
+ /* Yukon-2 */
+ enum pci_dev_reg_1 {
+ 	PCI_Y2_PIG_ENA	 = 1<<31, /* Enable Plug-in-Go (YUKON-2) */
+@@ -74,38 +66,6 @@ enum pci_dev_reg_4 {
+ 			       PCI_STATUS_REC_TARGET_ABORT | \
+ 			       PCI_STATUS_PARITY)
  
- 		le = get_tx_le(sky2);
---- sky2-2.6.21.orig/drivers/net/sky2.h	2007-05-08 16:10:50.000000000 -0700
-+++ sky2-2.6.21/drivers/net/sky2.h	2007-05-08 16:10:58.000000000 -0700
-@@ -1717,14 +1717,12 @@ struct sky2_port {
- 	struct sky2_tx_le    *tx_le;
- 	u16		     tx_cons;		/* next le to check */
- 	u16		     tx_prod;		/* next le to use */
--	u32		     tx_addr64;
- 	u16		     tx_pending;
- 	u16		     tx_last_mss;
- 	u32		     tx_tcpsum;
+-enum pex_dev_ctrl {
+-	PEX_DC_MAX_RRS_MSK	= 7<<12, /* Bit 14..12:	Max. Read Request Size */
+-	PEX_DC_EN_NO_SNOOP	= 1<<11,/* Enable No Snoop */
+-	PEX_DC_EN_AUX_POW	= 1<<10,/* Enable AUX Power */
+-	PEX_DC_EN_PHANTOM	= 1<<9,	/* Enable Phantom Functions */
+-	PEX_DC_EN_EXT_TAG	= 1<<8,	/* Enable Extended Tag Field */
+-	PEX_DC_MAX_PLS_MSK	= 7<<5,	/* Bit  7.. 5:	Max. Payload Size Mask */
+-	PEX_DC_EN_REL_ORD	= 1<<4,	/* Enable Relaxed Ordering */
+-	PEX_DC_EN_UNS_RQ_RP	= 1<<3,	/* Enable Unsupported Request Reporting */
+-	PEX_DC_EN_FAT_ER_RP	= 1<<2,	/* Enable Fatal Error Reporting */
+-	PEX_DC_EN_NFA_ER_RP	= 1<<1,	/* Enable Non-Fatal Error Reporting */
+-	PEX_DC_EN_COR_ER_RP	= 1<<0,	/* Enable Correctable Error Reporting */
+-};
+-#define  PEX_DC_MAX_RD_RQ_SIZE(x) (((x)<<12) & PEX_DC_MAX_RRS_MSK)
+-
+-/* PEX_UNC_ERR_STAT	 PEX Uncorrectable Errors Status Register (Yukon-2) */
+-enum pex_err {
+-	PEX_UNSUP_REQ 	= 1<<20, /* Unsupported Request Error */
+-
+-	PEX_MALFOR_TLP	= 1<<18, /* Malformed TLP */
+-
+-	PEX_UNEXP_COMP	= 1<<16, /* Unexpected Completion */
+-
+-	PEX_COMP_TO	= 1<<14, /* Completion Timeout */
+-	PEX_FLOW_CTRL_P	= 1<<13, /* Flow Control Protocol Error */
+-	PEX_POIS_TLP	= 1<<12, /* Poisoned TLP */
+-
+-	PEX_DATA_LINK_P = 1<<4,	/* Data Link Protocol Error */
+-	PEX_FATAL_ERRORS= (PEX_MALFOR_TLP | PEX_FLOW_CTRL_P | PEX_DATA_LINK_P),
+-};
+-
+-
+ enum csr_regs {
+ 	B0_RAP		= 0x0000,
+ 	B0_CTST		= 0x0004,
+@@ -342,7 +302,6 @@ enum {
+ 			  Y2_IS_PAR_RX2 | Y2_IS_TCP_TXS2| Y2_IS_TCP_TXA2,
  
- 	struct rx_ring_info  *rx_ring ____cacheline_aligned_in_smp;
- 	struct sky2_rx_le    *rx_le;
--	u32		     rx_addr64;
- 	u16		     rx_next;		/* next re to check */
- 	u16		     rx_put;		/* next le index to use */
- 	u16		     rx_pending;
+ 	Y2_HWE_ALL_MASK	= Y2_IS_TIST_OV | Y2_IS_MST_ERR | Y2_IS_IRQ_STAT |
+-			  Y2_IS_PCI_EXP |
+ 			  Y2_HWE_L1_MASK | Y2_HWE_L2_MASK,
+ };
+ 
 
 --
 
