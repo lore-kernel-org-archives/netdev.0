@@ -1,135 +1,66 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: Kconfig warnings on latest GIT
-Date: Thu, 10 May 2007 14:10:42 +0900
-Message-ID: <20070510051042.GA16812@verge.net.au>
-References: <200705080004.14570.ismail@pardus.org.tr> <20070508143127.38fafa3c.kim.phillips@freescale.com> <4640D988.1040504@freescale.com>
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Subject: Re: [PATCH] sched: Optimize return value of qdisc_restart
+Date: Thu, 10 May 2007 10:42:59 +0530
+Message-ID: <OFF9085DDC.F5960247-ON652572D7.001B794E-652572D7.001CA7E2@in.ibm.com>
+References: <1178725965.4058.75.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Kim Phillips <kim.phillips@freescale.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Ismail =?iso-8859-1?Q?D=F6nmez?= <ismail@pardus.org.tr>,
-	Kumar Gala <galak@kernel.crashing.org>,
-	Michael Schmitz <schmitz@debian.org>,
-	Roman Zippel <zippel@linux-m68k.org>,
-	Geert Uytterhoeven <geert@linux-m68k.org>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Paul Mackerras <paulus@samba.org>
-To: Timur Tabi <timur@freescale.com>
+Content-Type: text/plain; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	netdev@vger.kernel.org
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from koto.vergenet.net ([210.128.90.7]:43303 "EHLO koto.vergenet.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755507AbXEJFKq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 May 2007 01:10:46 -0400
-Content-Disposition: inline
-In-Reply-To: <4640D988.1040504@freescale.com>
+Received: from ausmtp06.au.ibm.com ([202.81.18.155]:41188 "EHLO
+	ausmtp06.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757187AbXEJFNx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2007 01:13:53 -0400
+Received: from sd0109e.au.ibm.com (d23rh905.au.ibm.com [202.81.18.225])
+	by ausmtp06.au.ibm.com (8.13.8/8.13.8) with ESMTP id l4A5FKhk8474628
+	for <netdev@vger.kernel.org>; Thu, 10 May 2007 15:15:20 +1000
+Received: from d23av04.au.ibm.com (d23av04.au.ibm.com [9.190.250.237])
+	by sd0109e.au.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l4A5HFGo031232
+	for <netdev@vger.kernel.org>; Thu, 10 May 2007 15:17:17 +1000
+Received: from d23av04.au.ibm.com (loopback [127.0.0.1])
+	by d23av04.au.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l4A5Dfnn023306
+	for <netdev@vger.kernel.org>; Thu, 10 May 2007 15:13:42 +1000
+In-Reply-To: <1178725965.4058.75.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, May 08, 2007 at 03:11:52PM -0500, Timur Tabi wrote:
-> Kim Phillips wrote:
-> >On Tue, 8 May 2007 00:04:14 +0300
-> >Ismail D=F6nmez <ismail@pardus.org.tr> wrote:
-> >>drivers/net/Kconfig:2279:warning: 'select' used by config symbol 'U=
-CC_GETH'=20
-> >>refers to undefined symbol 'UCC_FAST'
-> >looks like this introduces the error:
-> >commit 7d776cb596994219584257eb5956b87628e5deaf
-> >Author: Timur Tabi <timur@freescale.com>
-> >Date:   Mon Mar 12 15:40:27 2007 -0500
-> >    [POWERPC] QE: automatically select QE options
->=20
-> I have a dilemma, so I need help fixing this bug.
->=20
-> This particular patch is necessary because without it, selecting supp=
-ort for=20
-> the QE is too complicated.
->=20
-> Background: The QUICC Engine (QE) is a microcontroller on some Freesc=
-ale CPUs=20
-> that can mimic a wide variety of devices.  It has multiple controller=
-s (called=20
-> UCCs), and each one can be an ethernet device, or a UART, or an HDLC =
-thingy,=20
-> etc.  There's a QE library and a bunch of other support code in the=20
-> arch/powerpc directory, so the QE is a powerpc-specific device.  Howe=
-ver, all=20
-> of the drivers that use it are located in drivers/xxx.
->=20
-> This isn't a new problem.  The common solution is to define some inte=
-rmediate=20
-> Kconfig option, like UCC_FAST_TEMP in the driver's Kconfig.  Selectin=
-g UCC_FAST=20
-> will then also set UCC_FAST_TEMP.  The device driver then depends on=20
-> UCC_FAST_TEMP.
->=20
-> There's also a UCC_SLOW option with the same problem.
->=20
-> The dillema is that there is no single device driver class that depen=
-ds on=20
-> UCC_FAST. Currently, there's only one that uses UCC_FAST: the ucc_get=
-h driver. =20
-> But I'm also working on a UART driver.
->=20
-> So my question is: in which Kconfig do I define "UCC_FAST_TEMP" and=20
-> "UCC_SLOW_TEMP"?  At first I thought, just put it in drivers/Kconfig,=
- but that=20
-> Kconfig does nothing but including other Kconfigs.  I believe that if=
- I submit=20
-> a patch that adds "UCC_FAST_TEMP" and "UCC_SLOW_TEMP" to drivers/Kcon=
-fig, it=20
-> will be rejected.  Either that, or I'll spend six weeks trying to per=
-suade=20
-> everyone that it's a good idea.
->=20
-> Does anyone have any suggestions on how I can fix this?
+Hi Jamal,
 
-That does seem like a reasonable suggestion, and one that
-would probably work well with the other similar problems
-that have been introduced sice 2.6.21.
+J Hadi Salim <j.hadi123@gmail.com> wrote on 05/09/2007 09:22:44 PM:
 
-drivers/input/keyboard/Kconfig:170:warning: 'select' used by config sym=
-bol 'KEYBOARD_ATARI' refer to undefined symbol 'ATARI_KBD_CORE'
-drivers/input/mouse/Kconfig:102:warning: 'select' used by config symbol=
- 'MOUSE_ATARI' refer to undefined symbol 'ATARI_KBD_CORE'
+> > Since I am holding a lock in these two changed areas till I return
+> > back to __qdisc_run (which clears the RUNNING bit) and then drop the
+> > lock, there is no way packets can be on the queue while I falsely
+> > return 0, or no packets on the queue while I falsely return -1.
+>
+> If you relinquish yourself from being a dequeuer by letting go of
+> RUNNING then it is possible during that short window one of the other
+> N-1 CPUs could have been enqueueing; that packet will never be dequeued
+> unless a new packet shows up some X amount of time later.
 
-Which seem to be introduced by:
+But RUNNING is never relinquished till all the way back out to
+__qdisc_run. Only the lock is dropped before calling xmit and
+re-got after xmit is finished (all the while holding RUNNING).
+After xmit both queue_lock and RUNNING are held. If some other
+cpu enqueue'd during this release window (and they would have
+returned after dropping the lock as they are pure enqueuer's),
+qdisc_restart will find those skbs. Similarly if no skbs were
+added, qdisc_restart will return 0.
 
-commit c04cb856e20a8bf68762d60737b84328c1ab5900
-Author: Michael Schmitz <schmitz@opal.biophys.uni-duesseldorf.de>
-Date:   Tue May 1 22:32:38 2007 +0200
+Thanks,
 
-    m68k: Atari keyboard and mouse support.
-   =20
-    Atari keyboard and mouse support.
-    (reformating and Kconfig fixes by Roman Zippel)
-   =20
-    Signed-off-by: Michael Schmitz <schmitz@debian.org>
-    Signed-off-by: Roman Zippel <zippel@linux-m68k.org>
-    Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
-    Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+- KK
 
-drivers/macintosh/Kconfig:112:warning: 'select' used by config symbol '=
-PMAC_APM_EMU' refer to undefined symbol 'SYS_SUPPORTS_APM_EMULATION'
-
-Which seems to have been introduced by:
-
-commit b302887854d6f0c6f9fc3f1080535e7c1bd53134
-Author: Johannes Berg <johannes@sipsolutions.net>
-Date:   Tue Mar 20 05:18:02 2007 +1100
-
-    [POWERPC] apm_emu: Use generic apm-emulation
-   =20
-    This patch removes a huge amount of code that is now in common code
-    in drivers/char/apm-emulation.c
-   =20
-    Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
-    Acked-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-    Signed-off-by: Paul Mackerras <paulus@samba.org>
-
---=20
-Horms
-  H: http://www.vergenet.net/~horms/
-  W: http://www.valinux.co.jp/en/
+> I hope what i described above helps. Off for about a day. CCing Herbert
+> who last made changes to that area incase i missed something ..
+>
+> cheers,
+> jamal
+>
+> PS:- Please dont use my temporary gmail account to respond; a reply-to
+> will pick the right address (@cyberus.ca).
+>
 
