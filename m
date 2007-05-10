@@ -1,92 +1,55 @@
-From: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
-Subject: 2.6.21-gitX: known regressions
-Date: Thu, 10 May 2007 14:04:13 +0200
-Message-ID: <46430A3D.4030004@googlemail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] sched: Optimize return value of qdisc_restart
+Date: Thu, 10 May 2007 22:10:10 +1000
+Message-ID: <20070510121010.GA25264@gondor.apana.org.au>
+References: <1178725965.4058.75.camel@localhost> <OFF9085DDC.F5960247-ON652572D7.001B794E-652572D7.001CA7E2@in.ibm.com> <20070510115039.GA24439@gondor.apana.org.au> <20070510.045534.90119358.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
-Content-Transfer-Encoding: 7bit
-To: LKML <linux-kernel@vger.kernel.org>, Jeff Garzik <jeff@garzik.org>,
-	Jeremy Fitzhardinge <jeremy@goop.org>,
-	David Chinner <dgc@sgi.com>, pavel@suse.cz,
-	linux-pm@lists.linux-foundation.org,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	Alexey Dobriyan <adobriyan@sw.ru>, netdev@vger.kernel.org,
-	Auke Kok <auke-jan.h.kok@intel.com>,
-	Doug Chapman <doug.chapman@hp.com>,
-	Jeb Cramer <cramerj@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	e1000-devel@lists.sourceforge.net,
-	Thomas Gleixner <tglx@linutronix.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: krkumar2@in.ibm.com, hadi@cyberus.ca, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ik-out-1112.google.com ([66.249.90.183]:62075 "EHLO
-	ik-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753979AbXEJMEW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2007 08:04:22 -0400
-Received: by ik-out-1112.google.com with SMTP id b35so357388ika
-        for <netdev@vger.kernel.org>; Thu, 10 May 2007 05:04:20 -0700 (PDT)
+Received: from rhun.apana.org.au ([64.62.148.172]:2847 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752490AbXEJMK1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2007 08:10:27 -0400
+Content-Disposition: inline
+In-Reply-To: <20070510.045534.90119358.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+On Thu, May 10, 2007 at 04:55:34AM -0700, David Miller wrote:
+>
+> > [NET_SCHED]: Rationalise return value of qdisc_restart
+> 
+> Fair enough, patch applied :-)
 
-Here is a list of some known regressions in 2.6.21-gitX.
+Sorry, reading Thomas's patch made me realise that I've just added
+that bug all over again.
 
-Feel free to add new regressions/remove fixed etc.
-http://kernelnewbies.org/known_regressions
+[NET_SCHED]: Reread dev->qdisc for NETDEV_TX_OK
 
+Now that we return the queue length after NETDEV_TX_OK we better
+make sure that we have the right queue.  Otherwise we can cause a
+stall after a really quick dev_deactive/dev_activate.
 
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Unclassified:
-
-Subject    : 2.6.21-git10/11: files getting truncated on xfs (after suspend/resume?)
-References : http://lkml.org/lkml/2007/5/9/410
-Submitter  : Jeremy Fitzhardinge <jeremy@goop.org>
-Handled-By : David Chinner <dgc@sgi.com>
-Status     : problem is being debugged
-
-Subject    : Current -git kernel kills X
-References : http://lkml.org/lkml/2007/5/8/667
-Submitter  : Jeff Garzik <jeff@garzik.org>
-Status     : Unknown
-
-
-
-Block devices:
-
-Subject    : BUG in loop.ko
-References : http://lkml.org/lkml/2007/5/9/510
-Submitter  : Jeremy Fitzhardinge <jeremy@goop.org>
-Status     : Unknown
-
-
-
-Networking:
-
-Subject    : panic with e1000 driver on HP Integrity servers
-References : http://bugzilla.kernel.org/show_bug.cgi?id=8455
-Submitter  : Doug Chapman <doug.chapman@hp.com>
-Caused-By  : Auke Kok <auke-jan.h.kok@intel.com>
-             commit e0aac5a289b1dacbc94bd9ae8c449bcdf9ab508c
-Status     : Unknown
-
-
-
-Timers/NOHZ:
-
-Subject    : 2.6.21-git4 BUG: soft lockup detected on CPU#1! 
-References : http://lkml.org/lkml/2007/5/2/511
-Submitter  : Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
-Handled-By : Thomas Gleixner <tglx@linutronix.de>
-Status     : problem is being debugged
-
-
-
-Regards,
-Michal
-
+Chers,
 -- 
-Michal K. K. Piotrowski
-Kernel Monkeys
-(http://kernel.wikidot.com/start)
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index 3480e81..5f04b06 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -132,6 +132,7 @@ static inline int qdisc_restart(struct net_device *dev)
+ 						netif_tx_unlock(dev);
+ 					}
+ 					spin_lock(&dev->queue_lock);
++					q = dev->qdisc;
+ 					goto out;
+ 				}
+ 				if (ret == NETDEV_TX_LOCKED && nolock) {
