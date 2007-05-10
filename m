@@ -1,78 +1,203 @@
-From: jamal <hadi@cyberus.ca>
-Subject: RE: [PATCH] IPROUTE: Modify tc for new PRIO multiqueue behavior
-Date: Thu, 10 May 2007 16:00:53 -0400
-Message-ID: <1178827253.4062.78.camel@localhost>
-References: <D5C1322C3E673F459512FB59E0DDC32902D10DA3@orsmsx414.amr.corp.intel.com>
-Reply-To: hadi@cyberus.ca
+From: Florian Fainelli <florian.fainelli@telecomint.eu>
+Subject: Re: Network activity LED trigger
+Date: Thu, 10 May 2007 21:21:05 +0200
+Message-ID: <200705102121.07962.florian.fainelli@telecomint.eu>
+References: <200703012241.49165.florian.fainelli@int-evry.fr> <1172844668.4864.46.camel@localhost> <200703021516.06638.florian.fainelli@int-evry.fr>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: multipart/signed;
+  boundary="nextPart3981064.2QastBrlsh";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	"Zhu, Yi" <yi.zhu@intel.com>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	jgarzik@pobox.com, cramerj <cramerj@intel.com>,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
-	"Leech, Christopher" <christopher.leech@intel.com>,
-	davem@davemloft.net
-To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Cc: netdev@vger.kernel.org, Richard Purdie <rpurdie@rpsys.net>
+To: hadi@cyberus.ca, Mark Brown <broonie@sirena.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.228]:12993 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760314AbXEJUA4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2007 16:00:56 -0400
-Received: by wx-out-0506.google.com with SMTP id h31so657737wxd
-        for <netdev@vger.kernel.org>; Thu, 10 May 2007 13:00:56 -0700 (PDT)
-In-Reply-To: <D5C1322C3E673F459512FB59E0DDC32902D10DA3@orsmsx414.amr.corp.intel.com>
+Received: from smtp-ext.int-evry.fr ([157.159.11.17]:37548 "EHLO
+	smtp-ext.int-evry.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760935AbXEJUBm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2007 16:01:42 -0400
+In-Reply-To: <200703021516.06638.florian.fainelli@int-evry.fr>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2007-10-05 at 11:22 -0700, Waskiewicz Jr, Peter P wrote:
-> > Wireless offers a strict priority scheduler with statistical 
-> > transmit (as opposed to deterministic offered by the linux 
-> > strict prio qdisc); so wireless is not in the same boat as DCE.
-> 
-> Again, you're comparing these patches with DCE, which is not the intent.
-> It's something I presented that can use these patches, not as a
-> justification for them.
+--nextPart3981064.2QastBrlsh
+Content-Type: multipart/mixed;
+  boundary="Boundary-01=_hC3QGl84ZEe6Mov"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-I was making the claim that wireless _does not_ need you sawing off then
-on the core code. It will work just fine with a prio qdisc. And the more
-i think about it, the less i think DCE needs it ...
+--Boundary-01=_hC3QGl84ZEe6Mov
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-> I ran some tests on a 1gig network (isolated) using 2 hardware queues,
-> streaming video on one and having everything else on the other queue.
-> After the buffered video is sent and the request for more video is made,
-> I see a slowdown with a single queue.  
+Hi all,
 
-What does this mean?
+Here comes a basic patch that adds a network led activity. It is not=20
+configurable yet, but is enough to make a LED configured with=20
+the "network-activity" trigger to blink on network activity.
 
-> I see a difference using these patches to mitigate the impact to the different flows; 
+Netdev people can probably comment on the place of ledtrig_network_activity=
+(),=20
+which is probably not adequate. Also the ledtrig_network_activity can be=20
+network device specific for instance.
 
-Thats is an extremely strong statement to be making. We need your
-patches to get effective qos?
+Signed-off-by: Florian Fainelli <florian.fainelli@telecomint.eu>
+=2D-
 
-> Linux may be good
-> at scheduling, but that doesn't help when hardware is being pushed to
-> its limit - this was running full line-rate constantly (uncompressed mpg
-> for video and standard iperf settings for LAN traffic).
+--Boundary-01=_hC3QGl84ZEe6Mov
+Content-Type: text/plain;
+  charset="iso-8859-1";
+  name="ledtrig_network.patch"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: attachment;
+	filename="ledtrig_network.patch"
 
-What qdisc did you use on the single hardware queue? What was the
-classifier you used to separate the video from the rest?
-Why do i get the feeling that you did not configure Linux to give you
-the separation needed?  If you want to do it proper i can help. 
-I will chop off the rest of the text below because imo you need to
-compare apples to apples and we are not getting anywhere.
+diff --git a/drivers/leds/Kconfig b/drivers/leds/Kconfig
+index 80acd08..25d2b58 100644
+=2D-- a/drivers/leds/Kconfig
++++ b/drivers/leds/Kconfig
+@@ -127,5 +127,12 @@ config LEDS_TRIGGER_HEARTBEAT
+ 	  load average.
+ 	  If unsure, say Y.
+=20
++config LEDS_TRIGGER_NETWORK_ACT
++	tristate "LED Network Activity Trigger"
++	depends on LEDS_TRIGGER && NET
++	help
++	  This allow LEDs to be controlled by network activity at layer-3 network=
+ing.
++	  If unsure, say Y.
++
+ endmenu
+=20
+diff --git a/drivers/leds/Makefile b/drivers/leds/Makefile
+index aa2c18e..bc899d3 100644
+=2D-- a/drivers/leds/Makefile
++++ b/drivers/leds/Makefile
+@@ -21,3 +21,4 @@ obj-$(CONFIG_LEDS_COBALT)		+=3D leds-cobalt.o
+ obj-$(CONFIG_LEDS_TRIGGER_TIMER)	+=3D ledtrig-timer.o
+ obj-$(CONFIG_LEDS_TRIGGER_IDE_DISK)	+=3D ledtrig-ide-disk.o
+ obj-$(CONFIG_LEDS_TRIGGER_HEARTBEAT)	+=3D ledtrig-heartbeat.o
++obj-$(CONFIG_LEDS_TRIGGER_NETWORK_ACT)  +=3D ledtrig-network-activity.o
+diff --git a/drivers/leds/ledtrig-network-activity.c b/drivers/leds/ledtrig=
+=2Dnetwork-activity.c
+new file mode 100644
+index 0000000..88d17bb
+=2D-- /dev/null
++++ b/drivers/leds/ledtrig-network-activity.c
+@@ -0,0 +1,61 @@
++/*
++ * LED Network Activity Trigger
++ * based on ledtrig-ide-disk by Richard Purdie
++ *=20
++ * Copyright 2007 Florian Fainelli <florian@openwrt.org>
++ *=20
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ *=20
++ */
++
++#include <linux/module.h>
++#include <linux/jiffies.h>
++#include <linux/kernel.h>
++#include <linux/init.h>
++#include <linux/timer.h>
++#include <linux/leds.h>
++
++static void ledtrig_network_timerfunc(unsigned long data);
++
++DEFINE_LED_TRIGGER(ledtrig_network);
++static DEFINE_TIMER(ledtrig_network_timer, ledtrig_network_timerfunc, 0, 0=
+);
++static int network_activity, network_lastactivity;
++
++void ledtrig_network_activity(void)
++{
++	network_activity++;
++	if (!timer_pending(&ledtrig_network_timer))
++		mod_timer(&ledtrig_network_timer, jiffies + msecs_to_jiffies(10));
++}
++EXPORT_SYMBOL(ledtrig_network_activity);
++
++static void ledtrig_network_timerfunc(unsigned long data)
++{
++	if (network_lastactivity !=3D network_activity) {
++		network_lastactivity =3D network_activity;
++		led_trigger_event(ledtrig_network, LED_FULL);
++		mod_timer(&ledtrig_network_timer, jiffies + msecs_to_jiffies(10));
++	} else {
++		led_trigger_event(ledtrig_network, LED_OFF);
++	}
++}
++
++static int __init ledtrig_network_init(void)
++{
++	led_trigger_register_simple("network-activity", &ledtrig_network);
++	return 0;
++}
++
++static void __exit ledtrig_network_exit(void)
++{
++	led_trigger_unregister_simple(ledtrig_network);
++}
++
++module_init(ledtrig_network_init);
++module_exit(ledtrig_network_exit);
++
++MODULE_AUTHOR("Florian Fainelli <florian@openwrt.org>");
++MODULE_DESCRIPTION("LED Network Activity trigger");
++MODULE_LICENSE("GPL");
+diff --git a/include/linux/leds.h b/include/linux/leds.h
+index 88afcef..ed3774e 100644
+=2D-- a/include/linux/leds.h
++++ b/include/linux/leds.h
+@@ -110,4 +110,10 @@ extern void ledtrig_ide_activity(void);
+ #define ledtrig_ide_activity() do {} while(0)
+ #endif
+=20
++#ifdef CONFIG_LEDS_TRIGGER_NETWORK_ACT
++extern void ledtrig_network_activity(void);
++#else
++#define ledtrig_network_activity() do {} while(0)
++#endif
++
+ #endif		/* __LINUX_LEDS_H_INCLUDED */
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 4317c1b..9423b26 100644
+=2D-- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -116,6 +116,7 @@
+ #include <linux/dmaengine.h>
+ #include <linux/err.h>
+ #include <linux/ctype.h>
++#include <linux/leds.h>
+=20
+ /*
+  *	The list of packet types we will receive (as opposed to discard)
+@@ -1451,6 +1452,8 @@ int dev_queue_xmit(struct sk_buff *skb)
+ gso:
+ 	spin_lock_prefetch(&dev->queue_lock);
+=20
++	ledtrig_network_activity();
++
+ 	/* Disable soft irqs for various locks below. Also
+ 	 * stops preemption for RCU.
+ 	 */
 
-Ok, how do we make progress forward? It seems to me we are back to
-square one where i dont see a meeting in the middle.
+--Boundary-01=_hC3QGl84ZEe6Mov--
 
-I wanted to help, but you are so persistent on selling your patches that
-we are loosing track of the discussion.
-I strongly disagree with your approach and you strongly agree with your
-patches. Maybe i should drop off this conversation and you can go
-convince Dave? 
+--nextPart3981064.2QastBrlsh
+Content-Type: application/pgp-signature
 
-cheers,
-jamal
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.3 (GNU/Linux)
 
+iD8DBQBGQ3Cjmx9n1G/316sRAl39AJ9I2ZlAShS4HkkC/Ac9phWF5y4PpQCfQzXg
+VXnQpFBoZ7YkSrnwjuLqr+s=
+=eEb/
+-----END PGP SIGNATURE-----
+
+--nextPart3981064.2QastBrlsh--
