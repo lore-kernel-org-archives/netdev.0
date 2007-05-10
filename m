@@ -1,1143 +1,605 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [Bonding-devel] [PROBLEM] Bonding driver in linux-2.6.21-rc6-mm1
-Date: Thu, 10 May 2007 12:57:19 -0700
-Message-ID: <26826.1178827039@death>
-References: <200704262058.33087.ve@vetienne.net> <46310B19.8@redhat.com> <1791.1177620299@death> <200705092047.11753.ve@vetienne.net>
-Cc: Chris Snook <csnook@redhat.com>, netdev@vger.kernel.org,
-	bonding-devel@lists.sourceforge.net
-To: Vincent ETIENNE <ve@vetienne.net>
+From: James Lingard <jchl@arastra.com>
+Subject: Re: unregister_netdevice of tap interface blocks for up to 30 secs
+ when ipv6 module loaded
+Date: Thu, 10 May 2007 13:00:24 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0705101247240.12758@obsidian.arastra.com>
+References: <Pine.LNX.4.64.0705090007510.4299@obsidian.arastra.com>
+Mime-Version: 1.0
+Content-Type: MULTIPART/MIXED; BOUNDARY="296486914-1018641858-1178827224=:12758"
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e31.co.us.ibm.com ([32.97.110.149]:60481 "EHLO
-	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751580AbXEJT5i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2007 15:57:38 -0400
-Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
-	by e31.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l4AJvX40028209
-	for <netdev@vger.kernel.org>; Thu, 10 May 2007 15:57:33 -0400
-Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
-	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l4AJvXRF176042
-	for <netdev@vger.kernel.org>; Thu, 10 May 2007 13:57:33 -0600
-Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l4AJvWFV023536
-	for <netdev@vger.kernel.org>; Thu, 10 May 2007 13:57:33 -0600
-In-reply-to: <200705092047.11753.ve@vetienne.net> 
+Received: from zimbra.mindcentric.com ([216.98.159.230]:58322 "EHLO
+	zimbra1.mindcentric.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754584AbXEJUAn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2007 16:00:43 -0400
+Received: from localhost (localhost.localdomain [127.0.0.1])
+	by zimbra1.mindcentric.com (Postfix) with ESMTP id 13C33317C09D
+	for <netdev@vger.kernel.org>; Thu, 10 May 2007 13:03:28 -0700 (PDT)
+Received: from zimbra1.mindcentric.com ([127.0.0.1])
+	by localhost (zimbra1.mindcentric.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id fYubRhdWgjtd for <netdev@vger.kernel.org>;
+	Thu, 10 May 2007 13:03:13 -0700 (PDT)
+Received: from obsidian.arastra.com (gateway.arastra.com [68.166.32.218])
+	by zimbra1.mindcentric.com (Postfix) with ESMTP id CEB59317C1C9
+	for <netdev@vger.kernel.org>; Thu, 10 May 2007 13:03:12 -0700 (PDT)
+In-Reply-To: <Pine.LNX.4.64.0705090007510.4299@obsidian.arastra.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Vincent ETIENNE <ve@vetienne.net> wrote:
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
->Any news and/or patch concerning this problem ?. Not intended to stress you 
->but time goes on... Do you think a solution could be found in a relatively 
->short timeframe (and i will delay a bit final installation) or is it better 
->to go without bonding and do an upgrade later ?.
+--296486914-1018641858-1178827224=:12758
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
 
-	Our working patch is appended; I'm getting a bunch of warnings
-from the lockdep stuff that I'm sorting through.  I'm not sure if
-they're real concerns or just misconfiguration of lockdep itself.  This
-doesn't fix everything (e.g., enslaving a VLAN device), but covers most
-of the usual trouble cases.
+On Wed, 9 May 2007, James Lingard wrote:
 
-	-J
+> If the ipv6 module is loaded, then destroying a tap interface that has 
+> recently been disabled will cause close to block (in unregister_netdevice) 
+> until precisely 30 seconds have elapsed since the interface was disabled.
 
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+I patched netdevice.h to dump a stack trace on calls to dev_hold and 
+dev_put, and it appears that this bug is related to IPv6 neighbour 
+discovery.  The three references to the interface are finally released 
+during a call to ndisc_dst_gc, at the following locations:
 
-diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-index 7e03f41..c8394a0 100644
---- a/drivers/net/bonding/bond_3ad.c
-+++ b/drivers/net/bonding/bond_3ad.c
-@@ -2097,8 +2097,10 @@ void bond_3ad_unbind_slave(struct slave *slave)
-  * times out, and it selects an aggregator for the ports that are yet not
-  * related to any aggregator, and selects the active aggregator for a bond.
-  */
--void bond_3ad_state_machine_handler(struct bonding *bond)
-+void bond_3ad_state_machine_handler(struct work_struct *work)
- {
-+	struct bonding *bond = container_of(work, struct bonding,
-+					    ad_work.work);
- 	struct port *port;
- 	struct aggregator *aggregator;
- 
-@@ -2149,7 +2151,7 @@ void bond_3ad_state_machine_handler(struct bonding *bond)
- 	}
- 
- re_arm:
--	mod_timer(&(BOND_AD_INFO(bond).ad_timer), jiffies + ad_delta_in_ticks);
-+	queue_delayed_work(bond->wq, &bond->ad_work, ad_delta_in_ticks);
- out:
- 	read_unlock(&bond->lock);
- }
-diff --git a/drivers/net/bonding/bond_3ad.h b/drivers/net/bonding/bond_3ad.h
-index 6ad5ad6..cf5142d 100644
---- a/drivers/net/bonding/bond_3ad.h
-+++ b/drivers/net/bonding/bond_3ad.h
-@@ -276,7 +276,7 @@ struct ad_slave_info {
- void bond_3ad_initialize(struct bonding *bond, u16 tick_resolution, int lacp_fast);
- int  bond_3ad_bind_slave(struct slave *slave);
- void bond_3ad_unbind_slave(struct slave *slave);
--void bond_3ad_state_machine_handler(struct bonding *bond);
-+void bond_3ad_state_machine_handler(struct work_struct *);
- void bond_3ad_adapter_speed_changed(struct slave *slave);
- void bond_3ad_adapter_duplex_changed(struct slave *slave);
- void bond_3ad_handle_link_change(struct slave *slave, char link);
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index 92c3b6f..4cdea61 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -42,7 +42,6 @@
- #include "bonding.h"
- #include "bond_alb.h"
- 
--
- #define ALB_TIMER_TICKS_PER_SEC	    10	/* should be a divisor of HZ */
- #define BOND_TLB_REBALANCE_INTERVAL 10	/* In seconds, periodic re-balancing.
- 					 * Used for division - never set
-@@ -469,13 +468,13 @@ static void rlb_clear_slave(struct bonding *bond, struct slave *slave)
- 
- 	_unlock_rx_hashtbl(bond);
- 
--	write_lock(&bond->curr_slave_lock);
-+	write_lock_bh(&bond->curr_slave_lock);
- 
- 	if (slave != bond->curr_active_slave) {
- 		rlb_teach_disabled_mac_on_primary(bond, slave->dev->dev_addr);
- 	}
- 
--	write_unlock(&bond->curr_slave_lock);
-+	write_unlock_bh(&bond->curr_slave_lock);
- }
- 
- static void rlb_update_client(struct rlb_client_info *client_info)
-@@ -956,19 +955,33 @@ static int alb_set_slave_mac_addr(struct slave *slave, u8 addr[], int hw)
- 	return 0;
- }
- 
--/* Caller must hold bond lock for write or curr_slave_lock for write*/
-+/*
-+ * Swap MAC addresses between two slaves.
-+ *
-+ * Called with RTNL held, and no other locks.
-+ */
-+
- static void alb_swap_mac_addr(struct bonding *bond, struct slave *slave1, struct slave *slave2)
- {
--	struct slave *disabled_slave = NULL;
- 	u8 tmp_mac_addr[ETH_ALEN];
--	int slaves_state_differ;
--
--	slaves_state_differ = (SLAVE_IS_OK(slave1) != SLAVE_IS_OK(slave2));
- 
- 	memcpy(tmp_mac_addr, slave1->dev->dev_addr, ETH_ALEN);
- 	alb_set_slave_mac_addr(slave1, slave2->dev->dev_addr, bond->alb_info.rlb_enabled);
- 	alb_set_slave_mac_addr(slave2, tmp_mac_addr, bond->alb_info.rlb_enabled);
- 
-+}
-+
-+/*
-+ * Send learning packets after MAC address swap.
-+ *
-+ * Called with RTNL and bond->lock held for read.
-+ */
-+static void alb_fasten_mac_swap(struct bonding *bond, struct slave *slave1,
-+				struct slave *slave2)
-+{
-+	int slaves_state_differ = (SLAVE_IS_OK(slave1) != SLAVE_IS_OK(slave2));
-+	struct slave *disabled_slave = NULL;
-+
- 	/* fasten the change in the switch */
- 	if (SLAVE_IS_OK(slave1)) {
- 		alb_send_learning_packets(slave1, slave1->dev->dev_addr);
-@@ -1041,7 +1054,9 @@ static void alb_change_hw_addr_on_detach(struct bonding *bond, struct slave *sla
- 		}
- 
- 		if (found) {
-+			/* XXX locking: needs RTNL and nothing else */
- 			alb_swap_mac_addr(bond, slave, tmp_slave);
-+			alb_fasten_mac_swap(bond, slave, tmp_slave);
- 		}
- 	}
- }
-@@ -1373,8 +1388,10 @@ out:
- 	return 0;
- }
- 
--void bond_alb_monitor(struct bonding *bond)
-+void bond_alb_monitor(struct work_struct *work)
- {
-+	struct bonding *bond = container_of(work, struct bonding,
-+					    alb_work.work);
- 	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
- 	struct slave *slave;
- 	int i;
-@@ -1477,7 +1494,7 @@ void bond_alb_monitor(struct bonding *bond)
- 	}
- 
- re_arm:
--	mod_timer(&(bond_info->alb_timer), jiffies + alb_delta_in_ticks);
-+	queue_delayed_work(bond->wq, &bond->alb_work, alb_delta_in_ticks);
- out:
- 	read_unlock(&bond->lock);
- }
-@@ -1498,11 +1515,11 @@ int bond_alb_init_slave(struct bonding *bond, struct slave *slave)
- 	/* caller must hold the bond lock for write since the mac addresses
- 	 * are compared and may be swapped.
- 	 */
--	write_lock_bh(&bond->lock);
-+	read_lock(&bond->lock);
- 
- 	res = alb_handle_addr_collision_on_attach(bond, slave);
- 
--	write_unlock_bh(&bond->lock);
-+	read_unlock(&bond->lock);
- 
- 	if (res) {
- 		return res;
-@@ -1567,7 +1584,12 @@ void bond_alb_handle_link_change(struct bonding *bond, struct slave *slave, char
-  * Set the bond->curr_active_slave to @new_slave and handle
-  * mac address swapping and promiscuity changes as needed.
-  *
-- * Caller must hold bond curr_slave_lock for write (or bond lock for write)
-+ * If new_slave is NULL, caller must hold curr_slave_lock or
-+ * bond->lock for write.
-+ *
-+ * If new_slave is not NULL, caller must hold RTNL, bond->lock for
-+ * read and curr_slave_lock for write_bh.  Processing here may sleep, so
-+ * no other locks may be held.
-  */
- void bond_alb_handle_active_change(struct bonding *bond, struct slave *new_slave)
- {
-@@ -1606,19 +1628,30 @@ void bond_alb_handle_active_change(struct bonding *bond, struct slave *new_slave
- 		}
- 	}
- 
-+	write_unlock_bh(&bond->curr_slave_lock);
-+	read_unlock(&bond->lock);
-+
- 	/* curr_active_slave must be set before calling alb_swap_mac_addr */
--	if (swap_slave) {
--		/* swap mac address */
-+	if (swap_slave)
- 		alb_swap_mac_addr(bond, swap_slave, new_slave);
--	} else {
-+	else
- 		/* set the new_slave to the bond mac address */
- 		alb_set_slave_mac_addr(new_slave, bond->dev->dev_addr,
- 				       bond->alb_info.rlb_enabled);
-+
-+	read_lock(&bond->lock);
-+	write_lock_bh(&bond->curr_slave_lock);
-+
-+	if (swap_slave)
-+		alb_fasten_mac_swap(bond, swap_slave, new_slave);
-+	else
- 		/* fasten bond mac on new current slave */
- 		alb_send_learning_packets(new_slave, bond->dev->dev_addr);
--	}
- }
- 
-+/*
-+ * Called with RTNL
-+ */
- int bond_alb_set_mac_address(struct net_device *bond_dev, void *addr)
- {
- 	struct bonding *bond = bond_dev->priv;
-@@ -1655,8 +1688,12 @@ int bond_alb_set_mac_address(struct net_device *bond_dev, void *addr)
- 		}
- 	}
- 
-+	write_unlock_bh(&bond->curr_slave_lock);
-+	read_unlock(&bond->lock);
-+
- 	if (swap_slave) {
- 		alb_swap_mac_addr(bond, swap_slave, bond->curr_active_slave);
-+		alb_fasten_mac_swap(bond, swap_slave, bond->curr_active_slave);
- 	} else {
- 		alb_set_slave_mac_addr(bond->curr_active_slave, bond_dev->dev_addr,
- 				       bond->alb_info.rlb_enabled);
-@@ -1668,6 +1705,9 @@ int bond_alb_set_mac_address(struct net_device *bond_dev, void *addr)
- 		}
- 	}
- 
-+	read_lock(&bond->lock);
-+	write_lock_bh(&bond->curr_slave_lock);
-+
- 	return 0;
- }
- 
-diff --git a/drivers/net/bonding/bond_alb.h b/drivers/net/bonding/bond_alb.h
-index 28f2a2f..5a37e43 100644
---- a/drivers/net/bonding/bond_alb.h
-+++ b/drivers/net/bonding/bond_alb.h
-@@ -125,7 +125,7 @@ void bond_alb_deinit_slave(struct bonding *bond, struct slave *slave);
- void bond_alb_handle_link_change(struct bonding *bond, struct slave *slave, char link);
- void bond_alb_handle_active_change(struct bonding *bond, struct slave *new_slave);
- int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev);
--void bond_alb_monitor(struct bonding *bond);
-+void bond_alb_monitor(struct work_struct *);
- int bond_alb_set_mac_address(struct net_device *bond_dev, void *addr);
- void bond_alb_clear_vlan(struct bonding *bond, unsigned short vlan_id);
- #endif /* __BOND_ALB_H__ */
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 724bce5..7c003fc 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1,4 +1,4 @@
--/*
-+ /*
-  * originally based on the dummy device.
-  *
-  * Copyright 1999, Thomas Davis, tadavis@lbl.gov.
-@@ -1567,7 +1567,15 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
- 			/* first slave or no active slave yet, and this link
- 			 * is OK, so make this interface the active one
- 			 */
-+			write_unlock_bh(&bond->lock);
-+			read_lock(&bond->lock);
-+			write_lock_bh(&bond->curr_slave_lock);
-+
- 			bond_change_active_slave(bond, new_slave);
-+
-+			write_unlock_bh(&bond->curr_slave_lock);
-+			read_unlock(&bond->lock);
-+			write_lock_bh(&bond->lock);
- 		} else {
- 			bond_set_slave_inactive_flags(new_slave);
- 		}
-@@ -1729,9 +1737,23 @@ int bond_release(struct net_device *bond_dev, struct net_device *slave_dev)
- 		bond_alb_deinit_slave(bond, slave);
- 	}
- 
--	if (oldcurrent == slave)
-+	if (oldcurrent == slave) {
-+		/*
-+		 * Note that we hold RTNL over this sequence, so there
-+		 * is no concern that another slave add/remove event
-+		 * will interfere.
-+		 */
-+		write_unlock_bh(&bond->lock);
-+		read_lock(&bond->lock);
-+		write_lock_bh(&bond->curr_slave_lock);
-+
- 		bond_select_active_slave(bond);
- 
-+		write_unlock_bh(&bond->curr_slave_lock);
-+		read_unlock(&bond->lock);
-+		write_lock_bh(&bond->lock);
-+	}
-+
- 	if (bond->slave_cnt == 0) {
- 		bond_set_carrier(bond);
- 
-@@ -1954,16 +1976,19 @@ static int bond_ioctl_change_active(struct net_device *bond_dev, struct net_devi
- 		return -EINVAL;
- 	}
- 
--	write_lock_bh(&bond->lock);
-+	read_lock(&bond->lock);
- 
-+	read_lock(&bond->curr_slave_lock);
- 	old_active = bond->curr_active_slave;
-+	read_unlock(&bond->curr_slave_lock);
-+
- 	new_active = bond_get_slave_by_dev(bond, slave_dev);
- 
- 	/*
- 	 * Changing to the current active: do nothing; return success.
- 	 */
- 	if (new_active && (new_active == old_active)) {
--		write_unlock_bh(&bond->lock);
-+		read_unlock(&bond->lock);
- 		return 0;
- 	}
- 
-@@ -1971,12 +1996,14 @@ static int bond_ioctl_change_active(struct net_device *bond_dev, struct net_devi
- 	    (old_active) &&
- 	    (new_active->link == BOND_LINK_UP) &&
- 	    IS_UP(new_active->dev)) {
-+		write_lock_bh(&bond->curr_slave_lock);
- 		bond_change_active_slave(bond, new_active);
-+		write_unlock_bh(&bond->curr_slave_lock);
- 	} else {
- 		res = -EINVAL;
- 	}
- 
--	write_unlock_bh(&bond->lock);
-+	read_unlock(&bond->lock);
- 
- 	return res;
- }
-@@ -1988,9 +2015,9 @@ static int bond_info_query(struct net_device *bond_dev, struct ifbond *info)
- 	info->bond_mode = bond->params.mode;
- 	info->miimon = bond->params.miimon;
- 
--	read_lock_bh(&bond->lock);
-+	read_lock(&bond->lock);
- 	info->num_slaves = bond->slave_cnt;
--	read_unlock_bh(&bond->lock);
-+	read_unlock(&bond->lock);
- 
- 	return 0;
- }
-@@ -2005,7 +2032,7 @@ static int bond_slave_info_query(struct net_device *bond_dev, struct ifslave *in
- 		return -ENODEV;
- 	}
- 
--	read_lock_bh(&bond->lock);
-+	read_lock(&bond->lock);
- 
- 	bond_for_each_slave(bond, slave, i) {
- 		if (i == (int)info->slave_id) {
-@@ -2014,7 +2041,7 @@ static int bond_slave_info_query(struct net_device *bond_dev, struct ifslave *in
- 		}
- 	}
- 
--	read_unlock_bh(&bond->lock);
-+	read_unlock(&bond->lock);
- 
- 	if (found) {
- 		strcpy(info->slave_name, slave->dev->name);
-@@ -2028,28 +2055,52 @@ static int bond_slave_info_query(struct net_device *bond_dev, struct ifslave *in
- 	return 0;
- }
- 
-+
-+/*-------------------------------- Workqueues -------------------------------*/
-+
-+void bond_work_cancel_all(struct bonding *bond)
-+{
-+	write_lock_bh(&bond->lock);
-+	bond->kill_timers = 1;
-+	write_unlock_bh(&bond->lock);
-+
-+	if (bond->params.miimon && delayed_work_pending(&bond->mii_work))
-+		cancel_delayed_work(&bond->mii_work);
-+
-+	if (bond->params.arp_interval && delayed_work_pending(&bond->arp_work))
-+		cancel_delayed_work(&bond->arp_work);
-+
-+	if (bond->params.mode == BOND_MODE_ALB &&
-+	    delayed_work_pending(&bond->alb_work))
-+		cancel_delayed_work(&bond->alb_work);
-+
-+	if (bond->params.mode == BOND_MODE_8023AD &&
-+	    delayed_work_pending(&bond->ad_work))
-+		cancel_delayed_work(&bond->ad_work);
-+}
-+
- /*-------------------------------- Monitoring -------------------------------*/
- 
--/* this function is called regularly to monitor each slave's link. */
--void bond_mii_monitor(struct net_device *bond_dev)
-+/*
-+ * if !have_locks, return nonzero if a failover is necessary.
-+ * if have_locks, do whatever failover activities are needed.
-+ *
-+ * This is to separate the inspection and failover steps for locking
-+ * purposes; failover requires rtnl, but acquiring it for every
-+ * inspection is undesirable, so an initial call does inspection, and
-+ * the wrapper acquires the necessary locks and calls again to perform
-+ * failover if needed.  Since all locks are dropped, a complete
-+ * restart is needed between calls.
-+ */
-+static int __bond_mii_monitor(struct bonding *bond, int have_locks)
- {
--	struct bonding *bond = bond_dev->priv;
-+	struct net_device *bond_dev = bond->dev;
- 	struct slave *slave, *oldcurrent;
- 	int do_failover = 0;
--	int delta_in_ticks;
- 	int i;
- 
--	read_lock(&bond->lock);
--
--	delta_in_ticks = (bond->params.miimon * HZ) / 1000;
--
--	if (bond->kill_timers) {
-+	if (bond->slave_cnt == 0)
- 		goto out;
--	}
--
--	if (bond->slave_cnt == 0) {
--		goto re_arm;
--	}
- 
- 	/* we will try to read the link status of each of our slaves, and
- 	 * set their IFF_RUNNING flag appropriately. For each slave not
-@@ -2105,6 +2156,9 @@ void bond_mii_monitor(struct net_device *bond_dev)
- 			if (link_state != BMSR_LSTATUS) {
- 				/* link stays down */
- 				if (slave->delay <= 0) {
-+					if (!have_locks)
-+						return 1;
-+
- 					/* link down for too long time */
- 					slave->link = BOND_LINK_DOWN;
- 
-@@ -2188,6 +2242,9 @@ void bond_mii_monitor(struct net_device *bond_dev)
- 			} else {
- 				/* link stays up */
- 				if (slave->delay == 0) {
-+					if (!have_locks)
-+						return 1;
-+
- 					/* now the link has been up for long time enough */
- 					slave->link = BOND_LINK_UP;
- 					slave->jiffies = jiffies;
-@@ -2253,22 +2310,39 @@ void bond_mii_monitor(struct net_device *bond_dev)
- 	} /* end of for */
- 
- 	if (do_failover) {
--		write_lock(&bond->curr_slave_lock);
--
-+		write_lock_bh(&bond->curr_slave_lock);
- 		bond_select_active_slave(bond);
--
--		write_unlock(&bond->curr_slave_lock);
-+		write_unlock_bh(&bond->curr_slave_lock);
- 	} else
- 		bond_set_carrier(bond);
- 
--re_arm:
--	if (bond->params.miimon) {
--		mod_timer(&bond->mii_timer, jiffies + delta_in_ticks);
--	}
- out:
--	read_unlock(&bond->lock);
-+	return 0;
- }
- 
-+void bond_mii_monitor(struct work_struct *work)
-+{
-+	struct bonding *bond = container_of(work, struct bonding,
-+					    mii_work.work);
-+	unsigned long delay;
-+
-+	read_lock(&bond->lock);
-+	if (bond->kill_timers) {
-+		read_unlock(&bond->lock);
-+		return;
-+	}
-+	if (__bond_mii_monitor(bond, 0)) {
-+		read_unlock(&bond->lock);
-+		rtnl_lock();
-+		read_lock(&bond->lock);
-+		__bond_mii_monitor(bond, 1);
-+		rtnl_unlock();
-+	}
-+
-+	delay = ((bond->params.miimon * HZ) / 1000) ? : 1;
-+	read_unlock(&bond->lock);
-+	queue_delayed_work(bond->wq, &bond->mii_work, delay);
-+}
- 
- static u32 bond_glean_dev_ip(struct net_device *dev)
- {
-@@ -2564,9 +2638,11 @@ out:
-  * arp is transmitted to generate traffic. see activebackup_arp_monitor for
-  * arp monitoring in active backup mode.
-  */
--void bond_loadbalance_arp_mon(struct net_device *bond_dev)
-+void bond_loadbalance_arp_mon(struct work_struct *work)
- {
--	struct bonding *bond = bond_dev->priv;
-+	struct bonding *bond = container_of(work, struct bonding,
-+					    arp_work.work);
-+	struct net_device *bond_dev = bond->dev;
- 	struct slave *slave, *oldcurrent;
- 	int do_failover = 0;
- 	int delta_in_ticks;
-@@ -2665,17 +2741,16 @@ void bond_loadbalance_arp_mon(struct net_device *bond_dev)
- 	}
- 
- 	if (do_failover) {
--		write_lock(&bond->curr_slave_lock);
-+		write_lock_bh(&bond->curr_slave_lock);
- 
- 		bond_select_active_slave(bond);
- 
--		write_unlock(&bond->curr_slave_lock);
-+		write_unlock_bh(&bond->curr_slave_lock);
- 	}
- 
- re_arm:
--	if (bond->params.arp_interval) {
--		mod_timer(&bond->arp_timer, jiffies + delta_in_ticks);
--	}
-+	if (bond->params.arp_interval)
-+		queue_delayed_work(bond->wq, &bond->arp_work, delta_in_ticks);
- out:
- 	read_unlock(&bond->lock);
- }
-@@ -2695,9 +2770,11 @@ out:
-  * may have received.
-  * see loadbalance_arp_monitor for arp monitoring in load balancing mode
-  */
--void bond_activebackup_arp_mon(struct net_device *bond_dev)
-+void bond_activebackup_arp_mon(struct work_struct *work)
- {
--	struct bonding *bond = bond_dev->priv;
-+	struct bonding *bond = container_of(work, struct bonding,
-+					    arp_work.work);
-+	struct net_device *bond_dev = bond->dev;
- 	struct slave *slave;
- 	int delta_in_ticks;
- 	int i;
-@@ -2726,7 +2803,7 @@ void bond_activebackup_arp_mon(struct net_device *bond_dev)
- 
- 				slave->link = BOND_LINK_UP;
- 
--				write_lock(&bond->curr_slave_lock);
-+				write_lock_bh(&bond->curr_slave_lock);
- 
- 				if ((!bond->curr_active_slave) &&
- 				    ((jiffies - slave->dev->trans_start) <= delta_in_ticks)) {
-@@ -2760,7 +2837,7 @@ void bond_activebackup_arp_mon(struct net_device *bond_dev)
- 					       slave->dev->name);
- 				}
- 
--				write_unlock(&bond->curr_slave_lock);
-+				write_unlock_bh(&bond->curr_slave_lock);
- 			}
- 		} else {
- 			read_lock(&bond->curr_slave_lock);
-@@ -2830,12 +2907,12 @@ void bond_activebackup_arp_mon(struct net_device *bond_dev)
- 			       bond_dev->name,
- 			       slave->dev->name);
- 
--			write_lock(&bond->curr_slave_lock);
-+			write_lock_bh(&bond->curr_slave_lock);
- 
- 			bond_select_active_slave(bond);
- 			slave = bond->curr_active_slave;
- 
--			write_unlock(&bond->curr_slave_lock);
-+			write_unlock_bh(&bond->curr_slave_lock);
- 
- 			bond->current_arp_slave = slave;
- 
-@@ -2854,9 +2931,9 @@ void bond_activebackup_arp_mon(struct net_device *bond_dev)
- 			       bond->primary_slave->dev->name);
- 
- 			/* primary is up so switch to it */
--			write_lock(&bond->curr_slave_lock);
-+			write_lock_bh(&bond->curr_slave_lock);
- 			bond_change_active_slave(bond, bond->primary_slave);
--			write_unlock(&bond->curr_slave_lock);
-+			write_unlock_bh(&bond->curr_slave_lock);
- 
- 			slave = bond->primary_slave;
- 			slave->jiffies = jiffies;
-@@ -2921,9 +2998,8 @@ void bond_activebackup_arp_mon(struct net_device *bond_dev)
- 	}
- 
- re_arm:
--	if (bond->params.arp_interval) {
--		mod_timer(&bond->arp_timer, jiffies + delta_in_ticks);
--	}
-+	if (bond->params.arp_interval)
-+		queue_delayed_work(bond->wq, &bond->arp_work, delta_in_ticks);
- out:
- 	read_unlock(&bond->lock);
- }
-@@ -2943,7 +3019,7 @@ static void *bond_info_seq_start(struct seq_file *seq, loff_t *pos)
- 
- 	/* make sure the bond won't be taken away */
- 	read_lock(&dev_base_lock);
--	read_lock_bh(&bond->lock);
-+	read_lock(&bond->lock);
- 
- 	if (*pos == 0) {
- 		return SEQ_START_TOKEN;
-@@ -2977,7 +3053,7 @@ static void bond_info_seq_stop(struct seq_file *seq, void *v)
- {
- 	struct bonding *bond = seq->private;
- 
--	read_unlock_bh(&bond->lock);
-+	read_unlock(&bond->lock);
- 	read_unlock(&dev_base_lock);
- }
- 
-@@ -3503,14 +3579,11 @@ static int bond_xmit_hash_policy_l2(struct sk_buff *skb,
- static int bond_open(struct net_device *bond_dev)
- {
- 	struct bonding *bond = bond_dev->priv;
--	struct timer_list *mii_timer = &bond->mii_timer;
--	struct timer_list *arp_timer = &bond->arp_timer;
- 
- 	bond->kill_timers = 0;
- 
- 	if ((bond->params.mode == BOND_MODE_TLB) ||
- 	    (bond->params.mode == BOND_MODE_ALB)) {
--		struct timer_list *alb_timer = &(BOND_ALB_INFO(bond).alb_timer);
- 
- 		/* bond_alb_initialize must be called before the timer
- 		 * is started.
-@@ -3520,44 +3593,33 @@ static int bond_open(struct net_device *bond_dev)
- 			return -1;
- 		}
- 
--		init_timer(alb_timer);
--		alb_timer->expires  = jiffies + 1;
--		alb_timer->data     = (unsigned long)bond;
--		alb_timer->function = (void *)&bond_alb_monitor;
--		add_timer(alb_timer);
-+		INIT_DELAYED_WORK(&bond->alb_work, bond_alb_monitor);
-+		queue_delayed_work(bond->wq, &bond->alb_work, 0);
- 	}
- 
- 	if (bond->params.miimon) {  /* link check interval, in milliseconds. */
--		init_timer(mii_timer);
--		mii_timer->expires  = jiffies + 1;
--		mii_timer->data     = (unsigned long)bond_dev;
--		mii_timer->function = (void *)&bond_mii_monitor;
--		add_timer(mii_timer);
-+		INIT_DELAYED_WORK(&bond->mii_work, bond_mii_monitor);
-+		queue_delayed_work(bond->wq, &bond->mii_work, 0);
- 	}
- 
- 	if (bond->params.arp_interval) {  /* arp interval, in milliseconds. */
--		init_timer(arp_timer);
--		arp_timer->expires  = jiffies + 1;
--		arp_timer->data     = (unsigned long)bond_dev;
--		if (bond->params.mode == BOND_MODE_ACTIVEBACKUP) {
--			arp_timer->function = (void *)&bond_activebackup_arp_mon;
--		} else {
--			arp_timer->function = (void *)&bond_loadbalance_arp_mon;
--		}
-+
-+		if (bond->params.mode == BOND_MODE_ACTIVEBACKUP)
-+			INIT_DELAYED_WORK(&bond->arp_work,
-+					  bond_activebackup_arp_mon);
-+		else
-+			INIT_DELAYED_WORK(&bond->arp_work,
-+					  bond_loadbalance_arp_mon);
-+
-+		queue_delayed_work(bond->wq, &bond->arp_work, 0);
- 		if (bond->params.arp_validate)
- 			bond_register_arp(bond);
--
--		add_timer(arp_timer);
- 	}
- 
- 	if (bond->params.mode == BOND_MODE_8023AD) {
--		struct timer_list *ad_timer = &(BOND_AD_INFO(bond).ad_timer);
--		init_timer(ad_timer);
--		ad_timer->expires  = jiffies + 1;
--		ad_timer->data     = (unsigned long)bond;
--		ad_timer->function = (void *)&bond_3ad_state_machine_handler;
--		add_timer(ad_timer);
--
-+		INIT_DELAYED_WORK(&bond->ad_work,
-+				  bond_3ad_state_machine_handler);
-+		queue_delayed_work(bond->wq, &bond->ad_work, 0);
- 		/* register to receive LACPDUs */
- 		bond_register_lacpdu(bond);
- 	}
-@@ -3579,36 +3641,36 @@ static int bond_close(struct net_device *bond_dev)
- 
- 	write_lock_bh(&bond->lock);
- 
--
- 	/* signal timers not to re-arm */
- 	bond->kill_timers = 1;
- 
- 	write_unlock_bh(&bond->lock);
- 
--	/* del_timer_sync must run without holding the bond->lock
--	 * because a running timer might be trying to hold it too
-+	/*
-+	 * Release the lock here since cancel_delayed_work will take
-+	 * it again and releasing it will give scheduled work a chance
-+	 * to run.
- 	 */
- 
--	if (bond->params.miimon) {  /* link check interval, in milliseconds. */
--		del_timer_sync(&bond->mii_timer);
--	}
-+	if (bond->params.miimon && delayed_work_pending(&bond->mii_work))
-+		cancel_delayed_work(&bond->mii_work);
- 
--	if (bond->params.arp_interval) {  /* arp interval, in milliseconds. */
--		del_timer_sync(&bond->arp_timer);
--	}
-+	if (bond->params.arp_interval && delayed_work_pending(&bond->arp_work))
-+		cancel_delayed_work(&bond->arp_work);
- 
- 	switch (bond->params.mode) {
- 	case BOND_MODE_8023AD:
--		del_timer_sync(&(BOND_AD_INFO(bond).ad_timer));
-+		if (delayed_work_pending(&bond->ad_work))
-+			cancel_delayed_work(&bond->ad_work);
- 		break;
- 	case BOND_MODE_TLB:
- 	case BOND_MODE_ALB:
--		del_timer_sync(&(BOND_ALB_INFO(bond).alb_timer));
-+		if (delayed_work_pending(&bond->alb_work))
-+			cancel_delayed_work(&bond->alb_work);
- 		break;
- 	default:
- 		break;
--	}
--
-+        }
- 
- 	if ((bond->params.mode == BOND_MODE_TLB) ||
- 	    (bond->params.mode == BOND_MODE_ALB)) {
-@@ -3630,7 +3692,7 @@ static struct net_device_stats *bond_get_stats(struct net_device *bond_dev)
- 
- 	memset(stats, 0, sizeof(struct net_device_stats));
- 
--	read_lock_bh(&bond->lock);
-+	read_lock(&bond->lock);
- 
- 	bond_for_each_slave(bond, slave, i) {
- 		sstats = slave->dev->get_stats(slave->dev);
-@@ -3661,7 +3723,7 @@ static struct net_device_stats *bond_get_stats(struct net_device *bond_dev)
- 		stats->tx_window_errors += sstats->tx_window_errors;
- 	}
- 
--	read_unlock_bh(&bond->lock);
-+	read_unlock(&bond->lock);
- 
- 	return stats;
- }
-@@ -3700,13 +3762,13 @@ static int bond_do_ioctl(struct net_device *bond_dev, struct ifreq *ifr, int cmd
- 		if (mii->reg_num == 1) {
- 			struct bonding *bond = bond_dev->priv;
- 			mii->val_out = 0;
--			read_lock_bh(&bond->lock);
-+			read_lock(&bond->lock);
- 			read_lock(&bond->curr_slave_lock);
- 			if (netif_carrier_ok(bond->dev)) {
- 				mii->val_out = BMSR_LSTATUS;
- 			}
- 			read_unlock(&bond->curr_slave_lock);
--			read_unlock_bh(&bond->lock);
-+			read_unlock(&bond->lock);
- 		}
- 
- 		return 0;
-@@ -3991,7 +4053,7 @@ static int bond_xmit_roundrobin(struct sk_buff *skb, struct net_device *bond_dev
- {
- 	struct bonding *bond = bond_dev->priv;
- 	struct slave *slave, *start_at;
--	int i;
-+	int i, slave_no;
- 	int res = 1;
- 
- 	read_lock(&bond->lock);
-@@ -4000,29 +4062,30 @@ static int bond_xmit_roundrobin(struct sk_buff *skb, struct net_device *bond_dev
- 		goto out;
- 	}
- 
--	read_lock(&bond->curr_slave_lock);
--	slave = start_at = bond->curr_active_slave;
--	read_unlock(&bond->curr_slave_lock);
-+	/*
-+	 * Concurrent TX may collide on rr_tx_counter; we accept that
-+	 * as being rare enough to not justify using an atomic op here
-+	 */
-+	slave_no = bond->rr_tx_counter++ % bond->slave_cnt;
- 
--	if (!slave) {
--		goto out;
-+	bond_for_each_slave(bond, slave, i) {
-+		slave_no--;
-+		if (slave_no < 0) {
-+			break;
-+		}
- 	}
- 
-+	start_at = slave;
-+
- 	bond_for_each_slave_from(bond, slave, i, start_at) {
- 		if (IS_UP(slave->dev) &&
- 		    (slave->link == BOND_LINK_UP) &&
- 		    (slave->state == BOND_STATE_ACTIVE)) {
- 			res = bond_dev_queue_xmit(bond, skb, slave->dev);
--
--			write_lock(&bond->curr_slave_lock);
--			bond->curr_active_slave = slave->next;
--			write_unlock(&bond->curr_slave_lock);
--
- 			break;
- 		}
- 	}
- 
--
- out:
- 	if (res) {
- 		/* no suitable interface, frame not sent */
-@@ -4258,6 +4321,12 @@ static int bond_init(struct net_device *bond_dev, struct bond_params *params)
- 
- 	bond->params = *params; /* copy params struct */
- 
-+	/* initialize individual workqueue */
-+        bond->wq = create_singlethread_workqueue(bond_dev->name);
-+
-+        if (!bond->wq)
-+		return -ENOMEM;
-+
- 	/* Initialize pointers */
- 	bond->first_slave = NULL;
- 	bond->curr_active_slave = NULL;
-@@ -4743,6 +4812,7 @@ static int __init bonding_init(void)
- {
- 	int i;
- 	int res;
-+	struct bonding *bond, *nxt;
- 
- 	printk(KERN_INFO "%s", version);
- 
-@@ -4769,10 +4839,16 @@ static int __init bonding_init(void)
- 
- 	goto out;
- err:
-+	list_for_each_entry_safe(bond, nxt, &bond_dev_list, bond_list) {
-+		bond_work_cancel_all(bond);
-+		destroy_workqueue(bond->wq);
-+	}
-+
- 	rtnl_lock();
- 	bond_free_all();
- 	bond_destroy_sysfs();
- 	rtnl_unlock();
-+
- out:
- 	return res;
- 
-@@ -4780,9 +4856,18 @@ out:
- 
- static void __exit bonding_exit(void)
- {
-+	struct bonding *bond, *nxt;
-+
- 	unregister_netdevice_notifier(&bond_netdev_notifier);
- 	unregister_inetaddr_notifier(&bond_inetaddr_notifier);
- 
-+	list_for_each_entry_safe(bond, nxt, &bond_dev_list, bond_list) {
-+		if (bond && bond->dev) {
-+			bond_work_cancel_all(bond);
-+			destroy_workqueue(bond->wq);
-+		}
-+	}
-+
- 	rtnl_lock();
- 	bond_free_all();
- 	bond_destroy_sysfs();
-diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
-index a122baa..ee17fd4 100644
---- a/drivers/net/bonding/bond_sysfs.c
-+++ b/drivers/net/bonding/bond_sysfs.c
-@@ -231,7 +231,7 @@ static ssize_t bonding_show_slaves(struct device *d,
- 	int i, res = 0;
- 	struct bonding *bond = to_bond(d);
- 
--	read_lock_bh(&bond->lock);
-+	read_lock(&bond->lock);
- 	bond_for_each_slave(bond, slave, i) {
- 		if (res > (PAGE_SIZE - IFNAMSIZ)) {
- 			/* not enough space for another interface name */
-@@ -242,7 +242,7 @@ static ssize_t bonding_show_slaves(struct device *d,
- 		}
- 		res += sprintf(buf + res, "%s ", slave->dev->name);
- 	}
--	read_unlock_bh(&bond->lock);
-+	read_unlock(&bond->lock);
- 	res += sprintf(buf + res, "\n");
- 	res++;
- 	return res;
-@@ -285,18 +285,18 @@ static ssize_t bonding_store_slaves(struct device *d,
- 
- 		/* Got a slave name in ifname.  Is it already in the list? */
- 		found = 0;
--		read_lock_bh(&bond->lock);
-+		read_lock(&bond->lock);
- 		bond_for_each_slave(bond, slave, i)
- 			if (strnicmp(slave->dev->name, ifname, IFNAMSIZ) == 0) {
- 				printk(KERN_ERR DRV_NAME
- 				       ": %s: Interface %s is already enslaved!\n",
- 				       bond->dev->name, ifname);
- 				ret = -EPERM;
--				read_unlock_bh(&bond->lock);
-+				read_unlock(&bond->lock);
- 				goto out;
- 			}
- 
--		read_unlock_bh(&bond->lock);
-+		read_unlock(&bond->lock);
- 		printk(KERN_INFO DRV_NAME ": %s: Adding slave %s.\n",
- 		       bond->dev->name, ifname);
- 		dev = dev_get_by_name(ifname);
-@@ -610,11 +610,9 @@ static ssize_t bonding_store_arp_interval(struct device *d,
- 		       bond->dev->name, bond->dev->name);
- 		bond->params.miimon = 0;
- 		/* Kill MII timer, else it brings bond's link down */
--		if (bond->arp_timer.function) {
--			printk(KERN_INFO DRV_NAME
--			": %s: Kill MII timer, else it brings bond's link down...\n",
--		       bond->dev->name);
--			del_timer_sync(&bond->mii_timer);
-+		if (delayed_work_pending(&bond->mii_work)) {
-+			cancel_delayed_work(&bond->mii_work);
-+			flush_workqueue(bond->wq);
- 		}
- 	}
- 	if (!bond->params.arp_targets[0]) {
-@@ -629,25 +627,15 @@ static ssize_t bonding_store_arp_interval(struct device *d,
- 		 * timer will get fired off when the open function
- 		 * is called.
- 		 */
--		if (bond->arp_timer.function) {
--			/* The timer's already set up, so fire it off */
--			mod_timer(&bond->arp_timer, jiffies + 1);
--		} else {
--			/* Set up the timer. */
--			init_timer(&bond->arp_timer);
--			bond->arp_timer.expires = jiffies + 1;
--			bond->arp_timer.data =
--				(unsigned long) bond->dev;
--			if (bond->params.mode == BOND_MODE_ACTIVEBACKUP) {
--				bond->arp_timer.function =
--					(void *)
--					&bond_activebackup_arp_mon;
--			} else {
--				bond->arp_timer.function =
--					(void *)
--					&bond_loadbalance_arp_mon;
--			}
--			add_timer(&bond->arp_timer);
-+		if (!delayed_work_pending(&bond->arp_work)) {
-+			if (bond->params.mode == BOND_MODE_ACTIVEBACKUP)
-+				INIT_DELAYED_WORK(&bond->arp_work,
-+						  bond_activebackup_arp_mon);
-+			else
-+				INIT_DELAYED_WORK(&bond->arp_work,
-+						  bond_loadbalance_arp_mon);
-+
-+			queue_delayed_work(bond->wq, &bond->arp_work, 0);
- 		}
- 	}
- 
-@@ -1004,11 +992,12 @@ static ssize_t bonding_store_miimon(struct device *d,
- 					BOND_ARP_VALIDATE_NONE;
- 			}
- 			/* Kill ARP timer, else it brings bond's link down */
--			if (bond->mii_timer.function) {
-+			if (delayed_work_pending(&bond->arp_work)) {
- 				printk(KERN_INFO DRV_NAME
- 				": %s: Kill ARP timer, else it brings bond's link down...\n",
- 			       bond->dev->name);
--				del_timer_sync(&bond->arp_timer);
-+				cancel_delayed_work(&bond->arp_work);
-+				flush_workqueue(bond->wq);
- 			}
- 		}
- 
-@@ -1018,18 +1007,11 @@ static ssize_t bonding_store_miimon(struct device *d,
- 			 * timer will get fired off when the open function
- 			 * is called.
- 			 */
--			if (bond->mii_timer.function) {
--				/* The timer's already set up, so fire it off */
--				mod_timer(&bond->mii_timer, jiffies + 1);
--			} else {
--				/* Set up the timer. */
--				init_timer(&bond->mii_timer);
--				bond->mii_timer.expires = jiffies + 1;
--				bond->mii_timer.data =
--					(unsigned long) bond->dev;
--				bond->mii_timer.function =
--					(void *) &bond_mii_monitor;
--				add_timer(&bond->mii_timer);
-+			if (!delayed_work_pending(&bond->mii_work)) {
-+				INIT_DELAYED_WORK(&bond->mii_work,
-+						  bond_mii_monitor);
-+				queue_delayed_work(bond->wq,
-+						   &bond->mii_work, 0);
- 			}
- 		}
- 	}
-@@ -1068,6 +1050,7 @@ static ssize_t bonding_store_primary(struct device *d,
- 	struct slave *slave;
- 	struct bonding *bond = to_bond(d);
- 
-+	rtnl_lock();
- 	write_lock_bh(&bond->lock);
- 	if (!USES_PRIMARY(bond->params.mode)) {
- 		printk(KERN_INFO DRV_NAME
-@@ -1103,6 +1086,8 @@ static ssize_t bonding_store_primary(struct device *d,
- 	}
- out:
- 	write_unlock_bh(&bond->lock);
-+	rtnl_unlock();
-+
- 	return count;
- }
- static DEVICE_ATTR(primary, S_IRUGO | S_IWUSR, bonding_show_primary, bonding_store_primary);
-@@ -1182,6 +1167,7 @@ static ssize_t bonding_store_active_slave(struct device *d,
-         struct slave *new_active = NULL;
- 	struct bonding *bond = to_bond(d);
- 
-+	rtnl_lock();
- 	write_lock_bh(&bond->lock);
- 	if (!USES_PRIMARY(bond->params.mode)) {
- 		printk(KERN_INFO DRV_NAME
-@@ -1239,6 +1225,8 @@ static ssize_t bonding_store_active_slave(struct device *d,
- 	}
- out:
- 	write_unlock_bh(&bond->lock);
-+	rtnl_unlock();
-+
- 	return count;
- 
- }
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index 41aa78b..d8a23b0 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -182,9 +182,8 @@ struct bonding {
- 	s32      slave_cnt; /* never change this value outside the attach/detach wrappers */
- 	rwlock_t lock;
- 	rwlock_t curr_slave_lock;
--	struct   timer_list mii_timer;
--	struct   timer_list arp_timer;
- 	s8       kill_timers;
-+	u16	 rr_tx_counter;
- 	struct   net_device_stats stats;
- #ifdef CONFIG_PROC_FS
- 	struct   proc_dir_entry *proc_entry;
-@@ -201,6 +200,11 @@ struct bonding {
- 	struct   list_head vlan_list;
- 	struct   vlan_group *vlgrp;
- 	struct   packet_type arp_mon_pt;
-+	struct   workqueue_struct *wq;
-+	struct   delayed_work mii_work;
-+	struct   delayed_work arp_work;
-+	struct   delayed_work alb_work;
-+	struct   delayed_work ad_work;
- };
- 
- /**
-@@ -302,9 +306,9 @@ void bond_destroy_slave_symlinks(struct net_device *master, struct net_device *s
- int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev);
- int bond_release(struct net_device *bond_dev, struct net_device *slave_dev);
- int bond_sethwaddr(struct net_device *bond_dev, struct net_device *slave_dev);
--void bond_mii_monitor(struct net_device *bond_dev);
--void bond_loadbalance_arp_mon(struct net_device *bond_dev);
--void bond_activebackup_arp_mon(struct net_device *bond_dev);
-+void bond_mii_monitor(struct work_struct *);
-+void bond_loadbalance_arp_mon(struct work_struct *);
-+void bond_activebackup_arp_mon(struct work_struct *);
- void bond_set_mode_ops(struct bonding *bond, int mode);
- int bond_parse_parm(char *mode_arg, struct bond_parm_tbl *tbl);
- const char *bond_mode_name(int mode);
-@@ -312,6 +316,8 @@ void bond_select_active_slave(struct bonding *bond);
- void bond_change_active_slave(struct bonding *bond, struct slave *new_active);
- void bond_register_arp(struct bonding *);
- void bond_unregister_arp(struct bonding *);
-+void bond_wq_destroy(struct net_device *bond_dev);
-+
- 
- #endif /* _LINUX_BONDING_H */
- 
+   neigh_destroy+0x145/0x183
+   dst_destroy+0x56/0xf5
+   ndisc_dst_gc+0x39/0x67 [ipv6]
+   fib6_run_gc+0x6b/0xbb [ipv6]
+   run_timer_softirq+0x102/0x166
+   __do_softirq+0x5e/0xca
+   do_softirq+0x5f/0xb6
+
+   in6_dev_finish_destroy+0x9f/0xd9 [ipv6]
+   ip6_dst_destroy+0x29/0x2b [ipv6]
+   dst_destroy+0x6d/0xf5
+   ndisc_dst_gc+0x39/0x67 [ipv6]
+   fib6_run_gc+0x6b/0xbb [ipv6]
+   run_timer_softirq+0x102/0x166
+   __do_softirq+0x5e/0xca
+   do_softirq+0x5f/0xb6
+
+   dst_destroy+0xb2/0xf5
+   ndisc_dst_gc+0x39/0x67 [ipv6]
+   fib6_run_gc+0x6b/0xbb [ipv6]
+   run_timer_softirq+0x102/0x166
+   __do_softirq+0x5e/0xca
+   do_softirq+0x5f/0xb6
+
+The complete relevant excerpt from /var/log/messages, showing the times 
+and locations of all calls to dev_hold, dev_put and unregister_netdevice 
+for this interface (corresponding to the execution of the Python script I 
+attached in my previous email), is attached.
+
+James.
+--296486914-1018641858-1178827224=:12758
+Content-Type: TEXT/PLAIN; charset=US-ASCII; name=messages
+Content-Transfer-Encoding: BASE64
+Content-ID: <Pine.LNX.4.64.0705101300241.12758@obsidian.arastra.com>
+Content-Description: 
+Content-Disposition: attachment; filename=messages
+
+TWF5IDEwIDEyOjMzOjMxIGxvY2FsaG9zdCBrZXJuZWw6IHRlc3QxOiBkZXZf
+aG9sZCAtIHJlZmNvdW50PTENCk1heSAxMCAxMjozMzozMSBsb2NhbGhvc3Qg
+a2VybmVsOiAgWzxjMDEwNDUyOT5dIHNob3dfdHJhY2VfbG9nX2x2bCsweDFh
+LzB4MmYNCk1heSAxMCAxMjozMzozMSBsb2NhbGhvc3Qga2VybmVsOiAgWzxj
+MDEwNGJkZD5dIHNob3dfdHJhY2UrMHgxMi8weDE0DQpNYXkgMTAgMTI6MzM6
+MzEgbG9jYWxob3N0IGtlcm5lbDogIFs8YzAxMDRjOGY+XSBkdW1wX3N0YWNr
+KzB4MTYvMHgxOA0KTWF5IDEwIDEyOjMzOjMxIGxvY2FsaG9zdCBrZXJuZWw6
+ICBbPGMwMjMyMjA2Pl0gcmVnaXN0ZXJfbmV0ZGV2aWNlKzB4MzE4LzB4MzNl
+DQpNYXkgMTAgMTI6MzM6MzEgbG9jYWxob3N0IGtlcm5lbDogIFs8ZTA4Mjk0
+Nzg+XSB0dW5fY2hyX2lvY3RsKzB4Mjc3LzB4NGVkIFt0dW5dDQpNYXkgMTAg
+MTI6MzM6MzEgbG9jYWxob3N0IGtlcm5lbDogIFs8YzAxNThhZTk+XSBkb19p
+b2N0bCsweDUxLzB4NjgNCk1heSAxMCAxMjozMzozMSBsb2NhbGhvc3Qga2Vy
+bmVsOiAgWzxjMDE1OGQ0Mz5dIHZmc19pb2N0bCsweDI0My8weDI1Ng0KTWF5
+IDEwIDEyOjMzOjMxIGxvY2FsaG9zdCBrZXJuZWw6ICBbPGMwMTU4ZDg3Pl0g
+c3lzX2lvY3RsKzB4MzEvMHg0YQ0KTWF5IDEwIDEyOjMzOjMxIGxvY2FsaG9z
+dCBrZXJuZWw6ICBbPGMwMTAyZjc2Pl0gc3lzZW50ZXJfcGFzdF9lc3ArMHg1
+Zi8weDg5DQpNYXkgMTAgMTI6MzM6MzEgbG9jYWxob3N0IGtlcm5lbDogID09
+PT09PT09PT09PT09PT09PT09PT09DQpNYXkgMTAgMTI6MzM6MzEgbG9jYWxo
+b3N0IGtlcm5lbDogdGVzdDE6IGRldl9ob2xkIC0gcmVmY291bnQ9Mg0KTWF5
+IDEwIDEyOjMzOjMxIGxvY2FsaG9zdCBrZXJuZWw6ICBbPGMwMTA0NTI5Pl0g
+c2hvd190cmFjZV9sb2dfbHZsKzB4MWEvMHgyZg0KTWF5IDEwIDEyOjMzOjMx
+IGxvY2FsaG9zdCBrZXJuZWw6ICBbPGMwMTA0YmRkPl0gc2hvd190cmFjZSsw
+eDEyLzB4MTQNCk1heSAxMCAxMjozMzozMSBsb2NhbGhvc3Qga2VybmVsOiAg
+WzxjMDEwNGM4Zj5dIGR1bXBfc3RhY2srMHgxNi8weDE4DQpNYXkgMTAgMTI6
+MzM6MzEgbG9jYWxob3N0IGtlcm5lbDogIFs8YzAyM2U0YjM+XSBxZGlzY19h
+bGxvYysweGNjLzB4ZWMNCk1heSAxMCAxMjozMzozMSBsb2NhbGhvc3Qga2Vy
+bmVsOiAgWzxjMDIzZTRlMj5dIHFkaXNjX2NyZWF0ZV9kZmx0KzB4Zi8weDNh
+DQpNYXkgMTAgMTI6MzM6MzEgbG9jYWxob3N0IGtlcm5lbDogIFs8YzAyM2U1
+M2U+XSBkZXZfYWN0aXZhdGUrMHgzMS8weGQ3DQpNYXkgMTAgMTI6MzM6MzEg
+bG9jYWxob3N0IGtlcm5lbDogIFs8YzAyMzNjMTQ+XSBkZXZfb3BlbisweDRl
+LzB4NjYNCk1heSAxMCAxMjozMzozMSBsb2NhbGhvc3Qga2VybmVsOiAgWzxj
+MDIzMjNlMz5dIGRldl9jaGFuZ2VfZmxhZ3MrMHg1MC8weGYwDQpNYXkgMTAg
+MTI6MzM6MzEgbG9jYWxob3N0IGtlcm5lbDogIFs8YzAyNmNkMTc+XSBkZXZp
+bmV0X2lvY3RsKzB4MjM1LzB4NTQyDQpNYXkgMTAgMTI6MzM6MzEgbG9jYWxo
+b3N0IGtlcm5lbDogIFs8YzAyNmQ2NjQ+XSBpbmV0X2lvY3RsKzB4NzMvMHg5
+MQ0KTWF5IDEwIDEyOjMzOjMxIGxvY2FsaG9zdCBrZXJuZWw6ICBbPGMwMjI5
+ODg1Pl0gc29ja19pb2N0bCsweDE5Yi8weDFiOA0KTWF5IDEwIDEyOjMzOjMx
+IGxvY2FsaG9zdCBrZXJuZWw6ICBbPGMwMTU4YWJhPl0gZG9faW9jdGwrMHgy
+Mi8weDY4DQpNYXkgMTAgMTI6MzM6MzEgbG9jYWxob3N0IGtlcm5lbDogIFs8
+YzAxNThkNDM+XSB2ZnNfaW9jdGwrMHgyNDMvMHgyNTYNCk1heSAxMCAxMjoz
+MzozMSBsb2NhbGhvc3Qga2VybmVsOiAgWzxjMDE1OGQ4Nz5dIHN5c19pb2N0
+bCsweDMxLzB4NGENCk1heSAxMCAxMjozMzozMSBsb2NhbGhvc3Qga2VybmVs
+OiAgWzxjMDEwMmY3Nj5dIHN5c2VudGVyX3Bhc3RfZXNwKzB4NWYvMHg4OQ0K
+TWF5IDEwIDEyOjMzOjMxIGxvY2FsaG9zdCBrZXJuZWw6ICA9PT09PT09PT09
+PT09PT09PT09PT09PQ0KTWF5IDEwIDEyOjMzOjMxIGxvY2FsaG9zdCBrZXJu
+ZWw6IHRlc3QxOiBkZXZfaG9sZCAtIHJlZmNvdW50PTMNCk1heSAxMCAxMjoz
+MzozMSBsb2NhbGhvc3Qga2VybmVsOiAgWzxjMDEwNDUyOT5dIHNob3dfdHJh
+Y2VfbG9nX2x2bCsweDFhLzB4MmYNCk1heSAxMCAxMjozMzozMSBsb2NhbGhv
+c3Qga2VybmVsOiAgWzxjMDEwNGJkZD5dIHNob3dfdHJhY2UrMHgxMi8weDE0
+DQpNYXkgMTAgMTI6MzM6MzEgbG9jYWxob3N0IGtlcm5lbDogIFs8YzAxMDRj
+OGY+XSBkdW1wX3N0YWNrKzB4MTYvMHgxOA0KTWF5IDEwIDEyOjMzOjMxIGxv
+Y2FsaG9zdCBrZXJuZWw6ICBbPGMwMjM3NTVkPl0gbmVpZ2hfcGFybXNfYWxs
+b2MrMHhjNS8weDEwOA0KTWF5IDEwIDEyOjMzOjMxIGxvY2FsaG9zdCBrZXJu
+ZWw6ICBbPGUwYzNiYTlkPl0gaXB2Nl9hZGRfZGV2KzB4YjMvMHgxZWIgW2lw
+djZdDQpNYXkgMTAgMTI6MzM6MzEgbG9jYWxob3N0IGtlcm5lbDogIFs8ZTBj
+M2JjMjE+XSBpcHY2X2ZpbmRfaWRldisweDRjLzB4NjggW2lwdjZdDQpNYXkg
+MTAgMTI6MzM6MzEgbG9jYWxob3N0IGtlcm5lbDogIFs8ZTBjM2JjN2Q+XSBh
+ZGRyY29uZl9hZGRfZGV2KzB4NDAvMHg1ZCBbaXB2Nl0NCk1heSAxMCAxMjoz
+MzozMSBsb2NhbGhvc3Qga2VybmVsOiAgWzxlMGMzYzY3ZT5dIGFkZHJjb25m
+X25vdGlmeSsweDU5NS8weDc3ZCBbaXB2Nl0NCk1heSAxMCAxMjozMzozMSBs
+b2NhbGhvc3Qga2VybmVsOiAgWzxjMDEyNGRjYj5dIG5vdGlmaWVyX2NhbGxf
+Y2hhaW4rMHgyMC8weDMxDQpNYXkgMTAgMTI6MzM6MzEgbG9jYWxob3N0IGtl
+cm5lbDogIFs8YzAxMjRkZjg+XSByYXdfbm90aWZpZXJfY2FsbF9jaGFpbisw
+eDgvMHhhDQpNYXkgMTAgMTI6MzM6MzEgbG9jYWxob3N0IGtlcm5lbDogIFs8
+YzAyMzNjMjU+XSBkZXZfb3BlbisweDVmLzB4NjYNCk1heSAxMCAxMjozMzoz
+MSBsb2NhbGhvc3Qga2VybmVsOiAgWzxjMDIzMjNlMz5dIGRldl9jaGFuZ2Vf
+ZmxhZ3MrMHg1MC8weGYwDQpNYXkgMTAgMTI6MzM6MzEgbG9jYWxob3N0IGtl
+cm5lbDogIFs8YzAyNmNkMTc+XSBkZXZpbmV0X2lvY3RsKzB4MjM1LzB4NTQy
+DQpNYXkgMTAgMTI6MzM6MzEgbG9jYWxob3N0IGtlcm5lbDogIFs8YzAyNmQ2
+NjQ+XSBpbmV0X2lvY3RsKzB4NzMvMHg5MQ0KTWF5IDEwIDEyOjMzOjMxIGxv
+Y2FsaG9zdCBrZXJuZWw6ICBbPGMwMjI5ODg1Pl0gc29ja19pb2N0bCsweDE5
+Yi8weDFiOA0KTWF5IDEwIDEyOjMzOjMxIGxvY2FsaG9zdCBrZXJuZWw6ICBb
+PGMwMTU4YWJhPl0gZG9faW9jdGwrMHgyMi8weDY4DQpNYXkgMTAgMTI6MzM6
+MzEgbG9jYWxob3N0IGtlcm5lbDogIFs8YzAxNThkNDM+XSB2ZnNfaW9jdGwr
+MHgyNDMvMHgyNTYNCk1heSAxMCAxMjozMzozMSBsb2NhbGhvc3Qga2VybmVs
+OiAgWzxjMDE1OGQ4Nz5dIHN5c19pb2N0bCsweDMxLzB4NGENCk1heSAxMCAx
+MjozMzozMSBsb2NhbGhvc3Qga2VybmVsOiAgWzxjMDEwMmY3Nj5dIHN5c2Vu
+dGVyX3Bhc3RfZXNwKzB4NWYvMHg4OQ0KTWF5IDEwIDEyOjMzOjMxIGxvY2Fs
+aG9zdCBrZXJuZWw6ICA9PT09PT09PT09PT09PT09PT09PT09PQ0KTWF5IDEw
+IDEyOjMzOjMxIGxvY2FsaG9zdCBrZXJuZWw6IHRlc3QxOiBkZXZfaG9sZCAt
+IHJlZmNvdW50PTQNCk1heSAxMCAxMjozMzozMSBsb2NhbGhvc3Qga2VybmVs
+OiAgWzxjMDEwNDUyOT5dIHNob3dfdHJhY2VfbG9nX2x2bCsweDFhLzB4MmYN
+Ck1heSAxMCAxMjozMzozMSBsb2NhbGhvc3Qga2VybmVsOiAgWzxjMDEwNGJk
+ZD5dIHNob3dfdHJhY2UrMHgxMi8weDE0DQpNYXkgMTAgMTI6MzM6MzEgbG9j
+YWxob3N0IGtlcm5lbDogIFs8YzAxMDRjOGY+XSBkdW1wX3N0YWNrKzB4MTYv
+MHgxOA0KTWF5IDEwIDEyOjMzOjMxIGxvY2FsaG9zdCBrZXJuZWw6ICBbPGUw
+YzNiYWY5Pl0gaXB2Nl9hZGRfZGV2KzB4MTBmLzB4MWViIFtpcHY2XQ0KTWF5
+IDEwIDEyOjMzOjMxIGxvY2FsaG9zdCBrZXJuZWw6ICBbPGUwYzNiYzIxPl0g
+aXB2Nl9maW5kX2lkZXYrMHg0Yy8weDY4IFtpcHY2XQ0KTWF5IDEwIDEyOjMz
+OjMxIGxvY2FsaG9zdCBrZXJuZWw6ICBbPGUwYzNiYzdkPl0gYWRkcmNvbmZf
+YWRkX2RldisweDQwLzB4NWQgW2lwdjZdDQpNYXkgMTAgMTI6MzM6MzEgbG9j
+YWxob3N0IGtlcm5lbDogIFs8ZTBjM2M2N2U+XSBhZGRyY29uZl9ub3RpZnkr
+MHg1OTUvMHg3N2QgW2lwdjZdDQpNYXkgMTAgMTI6MzM6MzEgbG9jYWxob3N0
+IGtlcm5lbDogIFs8YzAxMjRkY2I+XSBub3RpZmllcl9jYWxsX2NoYWluKzB4
+MjAvMHgzMQ0KTWF5IDEwIDEyOjMzOjMxIGxvY2FsaG9zdCBrZXJuZWw6ICBb
+PGMwMTI0ZGY4Pl0gcmF3X25vdGlmaWVyX2NhbGxfY2hhaW4rMHg4LzB4YQ0K
+TWF5IDEwIDEyOjMzOjMxIGxvY2FsaG9zdCBrZXJuZWw6ICBbPGMwMjMzYzI1
+Pl0gZGV2X29wZW4rMHg1Zi8weDY2DQpNYXkgMTAgMTI6MzM6MzEgbG9jYWxo
+b3N0IGtlcm5lbDogIFs8YzAyMzIzZTM+XSBkZXZfY2hhbmdlX2ZsYWdzKzB4
+NTAvMHhmMA0KTWF5IDEwIDEyOjMzOjMxIGxvY2FsaG9zdCBrZXJuZWw6ICBb
+PGMwMjZjZDE3Pl0gZGV2aW5ldF9pb2N0bCsweDIzNS8weDU0Mg0KTWF5IDEw
+IDEyOjMzOjMxIGxvY2FsaG9zdCBrZXJuZWw6ICBbPGMwMjZkNjY0Pl0gaW5l
+dF9pb2N0bCsweDczLzB4OTENCk1heSAxMCAxMjozMzozMSBsb2NhbGhvc3Qg
+a2VybmVsOiAgWzxjMDIyOTg4NT5dIHNvY2tfaW9jdGwrMHgxOWIvMHgxYjgN
+Ck1heSAxMCAxMjozMzozMSBsb2NhbGhvc3Qga2VybmVsOiAgWzxjMDE1OGFi
+YT5dIGRvX2lvY3RsKzB4MjIvMHg2OA0KTWF5IDEwIDEyOjMzOjMxIGxvY2Fs
+aG9zdCBrZXJuZWw6ICBbPGMwMTU4ZDQzPl0gdmZzX2lvY3RsKzB4MjQzLzB4
+MjU2DQpNYXkgMTAgMTI6MzM6MzEgbG9jYWxob3N0IGtlcm5lbDogIFs8YzAx
+NThkODc+XSBzeXNfaW9jdGwrMHgzMS8weDRhDQpNYXkgMTAgMTI6MzM6MzEg
+bG9jYWxob3N0IGtlcm5lbDogIFs8YzAxMDJmNzY+XSBzeXNlbnRlcl9wYXN0
+X2VzcCsweDVmLzB4ODkNCk1heSAxMCAxMjozMzozMSBsb2NhbGhvc3Qga2Vy
+bmVsOiAgPT09PT09PT09PT09PT09PT09PT09PT0NCk1heSAxMCAxMjozMzoz
+MSBsb2NhbGhvc3Qga2VybmVsOiB0ZXN0MTogZGV2X2hvbGQgLSByZWZjb3Vu
+dD01DQpNYXkgMTAgMTI6MzM6MzEgbG9jYWxob3N0IGtlcm5lbDogIFs8YzAx
+MDQ1Mjk+XSBzaG93X3RyYWNlX2xvZ19sdmwrMHgxYS8weDJmDQpNYXkgMTAg
+MTI6MzM6MzEgbG9jYWxob3N0IGtlcm5lbDogIFs8YzAxMDRiZGQ+XSBzaG93
+X3RyYWNlKzB4MTIvMHgxNA0KTWF5IDEwIDEyOjMzOjMxIGxvY2FsaG9zdCBr
+ZXJuZWw6ICBbPGMwMTA0YzhmPl0gZHVtcF9zdGFjaysweDE2LzB4MTgNCk1h
+eSAxMCAxMjozMzozMSBsb2NhbGhvc3Qga2VybmVsOiAgWzxjMDIzNDVhNz5d
+IGRldl9nZXRfYnlfaW5kZXgrMHg2NC8weDc3DQpNYXkgMTAgMTI6MzM6MzEg
+bG9jYWxob3N0IGtlcm5lbDogIFs8ZTBjM2UzOWY+XSBpcDZfcm91dGVfYWRk
+KzB4NGIvMHg3MDQgW2lwdjZdDQpNYXkgMTAgMTI6MzM6MzEgbG9jYWxob3N0
+IGtlcm5lbDogIFs8ZTBjMzk2NzU+XSBhZGRyY29uZl9hZGRfbXJvdXRlKzB4
+NjAvMHg2NyBbaXB2Nl0NCk1heSAxMCAxMjozMzozMSBsb2NhbGhvc3Qga2Vy
+bmVsOiAgWzxlMGMzYmM4YT5dIGFkZHJjb25mX2FkZF9kZXYrMHg0ZC8weDVk
+IFtpcHY2XQ0KTWF5IDEwIDEyOjMzOjMxIGxvY2FsaG9zdCBrZXJuZWw6ICBb
+PGUwYzNjNjdlPl0gYWRkcmNvbmZfbm90aWZ5KzB4NTk1LzB4NzdkIFtpcHY2
+XQ0KTWF5IDEwIDEyOjMzOjMxIGxvY2FsaG9zdCBrZXJuZWw6ICBbPGMwMTI0
+ZGNiPl0gbm90aWZpZXJfY2FsbF9jaGFpbisweDIwLzB4MzENCk1heSAxMCAx
+MjozMzozMSBsb2NhbGhvc3Qga2VybmVsOiAgWzxjMDEyNGRmOD5dIHJhd19u
+b3RpZmllcl9jYWxsX2NoYWluKzB4OC8weGENCk1heSAxMCAxMjozMzozMSBs
+b2NhbGhvc3Qga2VybmVsOiAgWzxjMDIzM2MyNT5dIGRldl9vcGVuKzB4NWYv
+MHg2Ng0KTWF5IDEwIDEyOjMzOjMxIGxvY2FsaG9zdCBrZXJuZWw6ICBbPGMw
+MjMyM2UzPl0gZGV2X2NoYW5nZV9mbGFncysweDUwLzB4ZjANCk1heSAxMCAx
+MjozMzozMSBsb2NhbGhvc3Qga2VybmVsOiAgWzxjMDI2Y2QxNz5dIGRldmlu
+ZXRfaW9jdGwrMHgyMzUvMHg1NDINCk1heSAxMCAxMjozMzozMSBsb2NhbGhv
+c3Qga2VybmVsOiAgWzxjMDI2ZDY2ND5dIGluZXRfaW9jdGwrMHg3My8weDkx
+DQpNYXkgMTAgMTI6MzM6MzEgbG9jYWxob3N0IGtlcm5lbDogIFs8YzAyMjk4
+ODU+XSBzb2NrX2lvY3RsKzB4MTliLzB4MWI4DQpNYXkgMTAgMTI6MzM6MzEg
+bG9jYWxob3N0IGtlcm5lbDogIFs8YzAxNThhYmE+XSBkb19pb2N0bCsweDIy
+LzB4NjgNCk1heSAxMCAxMjozMzozMSBsb2NhbGhvc3Qga2VybmVsOiAgWzxj
+MDE1OGQ0Mz5dIHZmc19pb2N0bCsweDI0My8weDI1Ng0KTWF5IDEwIDEyOjMz
+OjMxIGxvY2FsaG9zdCBrZXJuZWw6ICBbPGMwMTU4ZDg3Pl0gc3lzX2lvY3Rs
+KzB4MzEvMHg0YQ0KTWF5IDEwIDEyOjMzOjMxIGxvY2FsaG9zdCBrZXJuZWw6
+ICBbPGMwMTAyZjc2Pl0gc3lzZW50ZXJfcGFzdF9lc3ArMHg1Zi8weDg5DQpN
+YXkgMTAgMTI6MzM6MzEgbG9jYWxob3N0IGtlcm5lbDogID09PT09PT09PT09
+PT09PT09PT09PT09DQpNYXkgMTAgMTI6MzM6MzEgbG9jYWxob3N0IGtlcm5l
+bDogdGVzdDE6IGRldl9ob2xkIC0gcmVmY291bnQ9Ng0KTWF5IDEwIDEyOjMz
+OjMxIGxvY2FsaG9zdCBrZXJuZWw6ICBbPGMwMTA0NTI5Pl0gc2hvd190cmFj
+ZV9sb2dfbHZsKzB4MWEvMHgyZg0KTWF5IDEwIDEyOjMzOjMxIGxvY2FsaG9z
+dCBrZXJuZWw6ICBbPGMwMTA0YmRkPl0gc2hvd190cmFjZSsweDEyLzB4MTQN
+Ck1heSAxMCAxMjozMzozMSBsb2NhbGhvc3Qga2VybmVsOiAgWzxjMDEwNGM4
+Zj5dIGR1bXBfc3RhY2srMHgxNi8weDE4DQpNYXkgMTAgMTI6MzM6MzEgbG9j
+YWxob3N0IGtlcm5lbDogIFs8YzAyMzQ1YTc+XSBkZXZfZ2V0X2J5X2luZGV4
+KzB4NjQvMHg3Nw0KTWF5IDEwIDEyOjMzOjMxIGxvY2FsaG9zdCBrZXJuZWw6
+ICBbPGUwYzNlMzlmPl0gaXA2X3JvdXRlX2FkZCsweDRiLzB4NzA0IFtpcHY2
+XQ0KTWF5IDEwIDEyOjMzOjMxIGxvY2FsaG9zdCBrZXJuZWw6ICBbPGUwYzM5
+NmU4Pl0gYWRkcmNvbmZfcHJlZml4X3JvdXRlKzB4NmMvMHg3NCBbaXB2Nl0N
+Ck1heSAxMCAxMjozMzozMSBsb2NhbGhvc3Qga2VybmVsOiAgWzxlMGMzOTcz
+MD5dIGFkZHJjb25mX2FkZF9scm91dGUrMHg0MC8weDQyIFtpcHY2XQ0KTWF5
+IDEwIDEyOjMzOjMxIGxvY2FsaG9zdCBrZXJuZWw6ICBbPGUwYzNiYzkxPl0g
+YWRkcmNvbmZfYWRkX2RldisweDU0LzB4NWQgW2lwdjZdDQpNYXkgMTAgMTI6
+MzM6MzEgbG9jYWxob3N0IGtlcm5lbDogIFs8ZTBjM2M2N2U+XSBhZGRyY29u
+Zl9ub3RpZnkrMHg1OTUvMHg3N2QgW2lwdjZdDQpNYXkgMTAgMTI6MzM6MzEg
+bG9jYWxob3N0IGtlcm5lbDogIFs8YzAxMjRkY2I+XSBub3RpZmllcl9jYWxs
+X2NoYWluKzB4MjAvMHgzMQ0KTWF5IDEwIDEyOjMzOjMxIGxvY2FsaG9zdCBr
+ZXJuZWw6ICBbPGMwMTI0ZGY4Pl0gcmF3X25vdGlmaWVyX2NhbGxfY2hhaW4r
+MHg4LzB4YQ0KTWF5IDEwIDEyOjMzOjMxIGxvY2FsaG9zdCBrZXJuZWw6ICBb
+PGMwMjMzYzI1Pl0gZGV2X29wZW4rMHg1Zi8weDY2DQpNYXkgMTAgMTI6MzM6
+MzEgbG9jYWxob3N0IGtlcm5lbDogIFs8YzAyMzIzZTM+XSBkZXZfY2hhbmdl
+X2ZsYWdzKzB4NTAvMHhmMA0KTWF5IDEwIDEyOjMzOjMxIGxvY2FsaG9zdCBr
+ZXJuZWw6ICBbPGMwMjZjZDE3Pl0gZGV2aW5ldF9pb2N0bCsweDIzNS8weDU0
+Mg0KTWF5IDEwIDEyOjMzOjMxIGxvY2FsaG9zdCBrZXJuZWw6ICBbPGMwMjZk
+NjY0Pl0gaW5ldF9pb2N0bCsweDczLzB4OTENCk1heSAxMCAxMjozMzozMSBs
+b2NhbGhvc3Qga2VybmVsOiAgWzxjMDIyOTg4NT5dIHNvY2tfaW9jdGwrMHgx
+OWIvMHgxYjgNCk1heSAxMCAxMjozMzozMSBsb2NhbGhvc3Qga2VybmVsOiAg
+WzxjMDE1OGFiYT5dIGRvX2lvY3RsKzB4MjIvMHg2OA0KTWF5IDEwIDEyOjMz
+OjMxIGxvY2FsaG9zdCBrZXJuZWw6ICBbPGMwMTU4ZDQzPl0gdmZzX2lvY3Rs
+KzB4MjQzLzB4MjU2DQpNYXkgMTAgMTI6MzM6MzEgbG9jYWxob3N0IGtlcm5l
+bDogIFs8YzAxNThkODc+XSBzeXNfaW9jdGwrMHgzMS8weDRhDQpNYXkgMTAg
+MTI6MzM6MzEgbG9jYWxob3N0IGtlcm5lbDogIFs8YzAxMDJmNzY+XSBzeXNl
+bnRlcl9wYXN0X2VzcCsweDVmLzB4ODkNCk1heSAxMCAxMjozMzozMSBsb2Nh
+bGhvc3Qga2VybmVsOiAgPT09PT09PT09PT09PT09PT09PT09PT0NCk1heSAx
+MCAxMjozMzozMSBsb2NhbGhvc3Qga2VybmVsOiB0ZXN0MTogZGV2X2hvbGQg
+LSByZWZjb3VudD03DQpNYXkgMTAgMTI6MzM6MzEgbG9jYWxob3N0IGtlcm5l
+bDogIFs8YzAxMDQ1Mjk+XSBzaG93X3RyYWNlX2xvZ19sdmwrMHgxYS8weDJm
+DQpNYXkgMTAgMTI6MzM6MzEgbG9jYWxob3N0IGtlcm5lbDogIFs8YzAxMDRi
+ZGQ+XSBzaG93X3RyYWNlKzB4MTIvMHgxNA0KTWF5IDEwIDEyOjMzOjMxIGxv
+Y2FsaG9zdCBrZXJuZWw6ICBbPGMwMTA0YzhmPl0gZHVtcF9zdGFjaysweDE2
+LzB4MTgNCk1heSAxMCAxMjozMzozMSBsb2NhbGhvc3Qga2VybmVsOiAgWzxj
+MDIzNDVhNz5dIGRldl9nZXRfYnlfaW5kZXgrMHg2NC8weDc3DQpNYXkgMTAg
+MTI6MzM6MzEgbG9jYWxob3N0IGtlcm5lbDogIFs8ZTBjM2UzOWY+XSBpcDZf
+cm91dGVfYWRkKzB4NGIvMHg3MDQgW2lwdjZdDQpNYXkgMTAgMTI6MzM6MzEg
+bG9jYWxob3N0IGtlcm5lbDogIFs8ZTBjMzk2ZTg+XSBhZGRyY29uZl9wcmVm
+aXhfcm91dGUrMHg2Yy8weDc0IFtpcHY2XQ0KTWF5IDEwIDEyOjMzOjMxIGxv
+Y2FsaG9zdCBrZXJuZWw6ICBbPGUwYzNiN2QzPl0gYWRkcmNvbmZfZGFkX3N0
+YXJ0KzB4NDUvMHhkYiBbaXB2Nl0NCk1heSAxMCAxMjozMzozMSBsb2NhbGhv
+c3Qga2VybmVsOiAgWzxlMGMzYjg5OT5dIGFkZHJjb25mX2FkZF9saW5rbG9j
+YWwrMHgzMC8weDQ3IFtpcHY2XQ0KTWF5IDEwIDEyOjMzOjMxIGxvY2FsaG9z
+dCBrZXJuZWw6ICBbPGUwYzNjNmI0Pl0gYWRkcmNvbmZfbm90aWZ5KzB4NWNi
+LzB4NzdkIFtpcHY2XQ0KTWF5IDEwIDEyOjMzOjMxIGxvY2FsaG9zdCBrZXJu
+ZWw6ICBbPGMwMTI0ZGNiPl0gbm90aWZpZXJfY2FsbF9jaGFpbisweDIwLzB4
+MzENCk1heSAxMCAxMjozMzozMSBsb2NhbGhvc3Qga2VybmVsOiAgWzxjMDEy
+NGRmOD5dIHJhd19ub3RpZmllcl9jYWxsX2NoYWluKzB4OC8weGENCk1heSAx
+MCAxMjozMzozMSBsb2NhbGhvc3Qga2VybmVsOiAgWzxjMDIzM2MyNT5dIGRl
+dl9vcGVuKzB4NWYvMHg2Ng0KTWF5IDEwIDEyOjMzOjMxIGxvY2FsaG9zdCBr
+ZXJuZWw6ICBbPGMwMjMyM2UzPl0gZGV2X2NoYW5nZV9mbGFncysweDUwLzB4
+ZjANCk1heSAxMCAxMjozMzozMSBsb2NhbGhvc3Qga2VybmVsOiAgWzxjMDI2
+Y2QxNz5dIGRldmluZXRfaW9jdGwrMHgyMzUvMHg1NDINCk1heSAxMCAxMjoz
+MzozMSBsb2NhbGhvc3Qga2VybmVsOiAgWzxjMDI2ZDY2ND5dIGluZXRfaW9j
+dGwrMHg3My8weDkxDQpNYXkgMTAgMTI6MzM6MzEgbG9jYWxob3N0IGtlcm5l
+bDogIFs8YzAyMjk4ODU+XSBzb2NrX2lvY3RsKzB4MTliLzB4MWI4DQpNYXkg
+MTAgMTI6MzM6MzEgbG9jYWxob3N0IGtlcm5lbDogIFs8YzAxNThhYmE+XSBk
+b19pb2N0bCsweDIyLzB4NjgNCk1heSAxMCAxMjozMzozMSBsb2NhbGhvc3Qg
+a2VybmVsOiAgWzxjMDE1OGQ0Mz5dIHZmc19pb2N0bCsweDI0My8weDI1Ng0K
+TWF5IDEwIDEyOjMzOjMxIGxvY2FsaG9zdCBrZXJuZWw6ICBbPGMwMTU4ZDg3
+Pl0gc3lzX2lvY3RsKzB4MzEvMHg0YQ0KTWF5IDEwIDEyOjMzOjMxIGxvY2Fs
+aG9zdCBrZXJuZWw6ICBbPGMwMTAyZjc2Pl0gc3lzZW50ZXJfcGFzdF9lc3Ar
+MHg1Zi8weDg5DQpNYXkgMTAgMTI6MzM6MzEgbG9jYWxob3N0IGtlcm5lbDog
+ID09PT09PT09PT09PT09PT09PT09PT09DQpNYXkgMTAgMTI6MzM6MzEgbG9j
+YWxob3N0IGtlcm5lbDogdGVzdDE6IGRldl9wdXQgLSByZWZjb3VudD02DQpN
+YXkgMTAgMTI6MzM6MzEgbG9jYWxob3N0IGtlcm5lbDogIFs8YzAxMDQ1Mjk+
+XSBzaG93X3RyYWNlX2xvZ19sdmwrMHgxYS8weDJmDQpNYXkgMTAgMTI6MzM6
+MzEgbG9jYWxob3N0IGtlcm5lbDogIFs8YzAxMDRiZGQ+XSBzaG93X3RyYWNl
+KzB4MTIvMHgxNA0KTWF5IDEwIDEyOjMzOjMxIGxvY2FsaG9zdCBrZXJuZWw6
+ICBbPGMwMTA0YzhmPl0gZHVtcF9zdGFjaysweDE2LzB4MTgNCk1heSAxMCAx
+MjozMzozMSBsb2NhbGhvc3Qga2VybmVsOiAgWzxjMDIzNjA2Zj5dIGRzdF9k
+ZXN0cm95KzB4YjIvMHhmNQ0KTWF5IDEwIDEyOjMzOjMxIGxvY2FsaG9zdCBr
+ZXJuZWw6ICBbPGUwYzQxMDE1Pl0gZmliNl9hZGQrMHg0YmQvMHg0ZjIgW2lw
+djZdDQpNYXkgMTAgMTI6MzM6MzEgbG9jYWxob3N0IGtlcm5lbDogIFs8ZTBj
+M2UzNDM+XSBfX2lwNl9pbnNfcnQrMHgyYi8weDNjIFtpcHY2XQ0KTWF5IDEw
+IDEyOjMzOjMxIGxvY2FsaG9zdCBrZXJuZWw6ICBbPGUwYzNlOWExPl0gaXA2
+X3JvdXRlX2FkZCsweDY0ZC8weDcwNCBbaXB2Nl0NCk1heSAxMCAxMjozMzoz
+MSBsb2NhbGhvc3Qga2VybmVsOiAgWzxlMGMzOTZlOD5dIGFkZHJjb25mX3By
+ZWZpeF9yb3V0ZSsweDZjLzB4NzQgW2lwdjZdDQpNYXkgMTAgMTI6MzM6MzEg
+bG9jYWxob3N0IGtlcm5lbDogIFs8ZTBjM2I3ZDM+XSBhZGRyY29uZl9kYWRf
+c3RhcnQrMHg0NS8weGRiIFtpcHY2XQ0KTWF5IDEwIDEyOjMzOjMxIGxvY2Fs
+aG9zdCBrZXJuZWw6ICBbPGUwYzNiODk5Pl0gYWRkcmNvbmZfYWRkX2xpbmts
+b2NhbCsweDMwLzB4NDcgW2lwdjZdDQpNYXkgMTAgMTI6MzM6MzEgbG9jYWxo
+b3N0IGtlcm5lbDogIFs8ZTBjM2M2YjQ+XSBhZGRyY29uZl9ub3RpZnkrMHg1
+Y2IvMHg3N2QgW2lwdjZdDQpNYXkgMTAgMTI6MzM6MzEgbG9jYWxob3N0IGtl
+cm5lbDogIFs8YzAxMjRkY2I+XSBub3RpZmllcl9jYWxsX2NoYWluKzB4MjAv
+MHgzMQ0KTWF5IDEwIDEyOjMzOjMxIGxvY2FsaG9zdCBrZXJuZWw6ICBbPGMw
+MTI0ZGY4Pl0gcmF3X25vdGlmaWVyX2NhbGxfY2hhaW4rMHg4LzB4YQ0KTWF5
+IDEwIDEyOjMzOjMxIGxvY2FsaG9zdCBrZXJuZWw6ICBbPGMwMjMzYzI1Pl0g
+ZGV2X29wZW4rMHg1Zi8weDY2DQpNYXkgMTAgMTI6MzM6MzEgbG9jYWxob3N0
+IGtlcm5lbDogIFs8YzAyMzIzZTM+XSBkZXZfY2hhbmdlX2ZsYWdzKzB4NTAv
+MHhmMA0KTWF5IDEwIDEyOjMzOjMxIGxvY2FsaG9zdCBrZXJuZWw6ICBbPGMw
+MjZjZDE3Pl0gZGV2aW5ldF9pb2N0bCsweDIzNS8weDU0Mg0KTWF5IDEwIDEy
+OjMzOjMxIGxvY2FsaG9zdCBrZXJuZWw6ICBbPGMwMjZkNjY0Pl0gaW5ldF9p
+b2N0bCsweDczLzB4OTENCk1heSAxMCAxMjozMzozMSBsb2NhbGhvc3Qga2Vy
+bmVsOiAgWzxjMDIyOTg4NT5dIHNvY2tfaW9jdGwrMHgxOWIvMHgxYjgNCk1h
+eSAxMCAxMjozMzozMSBsb2NhbGhvc3Qga2VybmVsOiAgWzxjMDE1OGFiYT5d
+IGRvX2lvY3RsKzB4MjIvMHg2OA0KTWF5IDEwIDEyOjMzOjMxIGxvY2FsaG9z
+dCBrZXJuZWw6ICBbPGMwMTU4ZDQzPl0gdmZzX2lvY3RsKzB4MjQzLzB4MjU2
+DQpNYXkgMTAgMTI6MzM6MzEgbG9jYWxob3N0IGtlcm5lbDogIFs8YzAxNThk
+ODc+XSBzeXNfaW9jdGwrMHgzMS8weDRhDQpNYXkgMTAgMTI6MzM6MzEgbG9j
+YWxob3N0IGtlcm5lbDogIFs8YzAxMDJmNzY+XSBzeXNlbnRlcl9wYXN0X2Vz
+cCsweDVmLzB4ODkNCk1heSAxMCAxMjozMzozMSBsb2NhbGhvc3Qga2VybmVs
+OiAgPT09PT09PT09PT09PT09PT09PT09PT0NCk1heSAxMCAxMjozMzozMiBs
+b2NhbGhvc3Qga2VybmVsOiB0ZXN0MTogZGV2X2hvbGQgLSByZWZjb3VudD03
+DQpNYXkgMTAgMTI6MzM6MzIgbG9jYWxob3N0IGtlcm5lbDogIFs8YzAxMDQ1
+Mjk+XSBzaG93X3RyYWNlX2xvZ19sdmwrMHgxYS8weDJmDQpNYXkgMTAgMTI6
+MzM6MzIgbG9jYWxob3N0IGtlcm5lbDogIFs8YzAxMDRiZGQ+XSBzaG93X3Ry
+YWNlKzB4MTIvMHgxNA0KTWF5IDEwIDEyOjMzOjMyIGxvY2FsaG9zdCBrZXJu
+ZWw6ICBbPGMwMTA0YzhmPl0gZHVtcF9zdGFjaysweDE2LzB4MTgNCk1heSAx
+MCAxMjozMzozMiBsb2NhbGhvc3Qga2VybmVsOiAgWzxlMGM0MDAzYz5dIG5k
+aXNjX2RzdF9hbGxvYysweGM2LzB4MTkzIFtpcHY2XQ0KTWF5IDEwIDEyOjMz
+OjMyIGxvY2FsaG9zdCBrZXJuZWw6ICBbPGUwYzQ0Mjk1Pl0gbmRpc2Nfc2Vu
+ZF9ucysweDkzLzB4NGE5IFtpcHY2XQ0KTWF5IDEwIDEyOjMzOjMyIGxvY2Fs
+aG9zdCBrZXJuZWw6ICBbPGUwYzNjY2NmPl0gYWRkcmNvbmZfZGFkX3RpbWVy
+KzB4YzYvMHhlMCBbaXB2Nl0NCk1heSAxMCAxMjozMzozMiBsb2NhbGhvc3Qg
+a2VybmVsOiAgWzxjMDEyMTJmYz5dIHJ1bl90aW1lcl9zb2Z0aXJxKzB4MTAy
+LzB4MTY2DQpNYXkgMTAgMTI6MzM6MzIgbG9jYWxob3N0IGtlcm5lbDogIFs8
+YzAxMWUwMGQ+XSBfX2RvX3NvZnRpcnErMHg1ZS8weGNhDQpNYXkgMTAgMTI6
+MzM6MzIgbG9jYWxob3N0IGtlcm5lbDogIFs8YzAxMDVkNjA+XSBkb19zb2Z0
+aXJxKzB4NWYvMHhiNg0KTWF5IDEwIDEyOjMzOjMyIGxvY2FsaG9zdCBrZXJu
+ZWw6ICA9PT09PT09PT09PT09PT09PT09PT09PQ0KTWF5IDEwIDEyOjMzOjMy
+IGxvY2FsaG9zdCBrZXJuZWw6IHRlc3QxOiBkZXZfaG9sZCAtIHJlZmNvdW50
+PTgNCk1heSAxMCAxMjozMzozMiBsb2NhbGhvc3Qga2VybmVsOiAgWzxjMDEw
+NDUyOT5dIHNob3dfdHJhY2VfbG9nX2x2bCsweDFhLzB4MmYNCk1heSAxMCAx
+MjozMzozMiBsb2NhbGhvc3Qga2VybmVsOiAgWzxjMDEwNGJkZD5dIHNob3df
+dHJhY2UrMHgxMi8weDE0DQpNYXkgMTAgMTI6MzM6MzIgbG9jYWxob3N0IGtl
+cm5lbDogIFs8YzAxMDRjOGY+XSBkdW1wX3N0YWNrKzB4MTYvMHgxOA0KTWF5
+IDEwIDEyOjMzOjMyIGxvY2FsaG9zdCBrZXJuZWw6ICBbPGMwMjM4MzFhPl0g
+bmVpZ2hfY3JlYXRlKzB4MmZkLzB4NTE2DQpNYXkgMTAgMTI6MzM6MzIgbG9j
+YWxob3N0IGtlcm5lbDogIFs8ZTBjNDAwNzA+XSBuZGlzY19kc3RfYWxsb2Mr
+MHhmYS8weDE5MyBbaXB2Nl0NCk1heSAxMCAxMjozMzozMiBsb2NhbGhvc3Qg
+a2VybmVsOiAgWzxlMGM0NDI5NT5dIG5kaXNjX3NlbmRfbnMrMHg5My8weDRh
+OSBbaXB2Nl0NCk1heSAxMCAxMjozMzozMiBsb2NhbGhvc3Qga2VybmVsOiAg
+WzxlMGMzY2NjZj5dIGFkZHJjb25mX2RhZF90aW1lcisweGM2LzB4ZTAgW2lw
+djZdDQpNYXkgMTAgMTI6MzM6MzIgbG9jYWxob3N0IGtlcm5lbDogIFs8YzAx
+MjEyZmM+XSBydW5fdGltZXJfc29mdGlycSsweDEwMi8weDE2Ng0KTWF5IDEw
+IDEyOjMzOjMyIGxvY2FsaG9zdCBrZXJuZWw6ICBbPGMwMTFlMDBkPl0gX19k
+b19zb2Z0aXJxKzB4NWUvMHhjYQ0KTWF5IDEwIDEyOjMzOjMyIGxvY2FsaG9z
+dCBrZXJuZWw6ICBbPGMwMTA1ZDYwPl0gZG9fc29mdGlycSsweDVmLzB4YjYN
+Ck1heSAxMCAxMjozMzozMiBsb2NhbGhvc3Qga2VybmVsOiAgPT09PT09PT09
+PT09PT09PT09PT09PT0NCk1heSAxMCAxMjozMzozMiBsb2NhbGhvc3Qga2Vy
+bmVsOiB0ZXN0MTogZGV2X3B1dCAtIHJlZmNvdW50PTcNCk1heSAxMCAxMjoz
+MzozMiBsb2NhbGhvc3Qga2VybmVsOiAgWzxjMDEwNDUyOT5dIHNob3dfdHJh
+Y2VfbG9nX2x2bCsweDFhLzB4MmYNCk1heSAxMCAxMjozMzozMiBsb2NhbGhv
+c3Qga2VybmVsOiAgWzxjMDEwNGJkZD5dIHNob3dfdHJhY2UrMHgxMi8weDE0
+DQpNYXkgMTAgMTI6MzM6MzIgbG9jYWxob3N0IGtlcm5lbDogIFs8YzAxMDRj
+OGY+XSBkdW1wX3N0YWNrKzB4MTYvMHgxOA0KTWF5IDEwIDEyOjMzOjMyIGxv
+Y2FsaG9zdCBrZXJuZWw6ICBbPGMwMjM2MDZmPl0gZHN0X2Rlc3Ryb3krMHhi
+Mi8weGY1DQpNYXkgMTAgMTI6MzM6MzIgbG9jYWxob3N0IGtlcm5lbDogIFs8
+ZTBjNDA4ZmM+XSBmaWI2X2RlbCsweDNjNy8weDQwMyBbaXB2Nl0NCk1heSAx
+MCAxMjozMzozMiBsb2NhbGhvc3Qga2VybmVsOiAgWzxlMGM0MDk2MD5dIGZp
+YjZfY2xlYW5fbm9kZSsweDI4LzB4ODMgW2lwdjZdDQpNYXkgMTAgMTI6MzM6
+MzIgbG9jYWxob3N0IGtlcm5lbDogIFs8ZTBjNDAyZTk+XSBmaWI2X3dhbGtf
+Y29udGludWUrMHg3ZS8weGU1IFtpcHY2XQ0KTWF5IDEwIDEyOjMzOjMyIGxv
+Y2FsaG9zdCBrZXJuZWw6ICBbPGUwYzQwMzkxPl0gZmliNl93YWxrKzB4NDEv
+MHg3MiBbaXB2Nl0NCk1heSAxMCAxMjozMzozMiBsb2NhbGhvc3Qga2VybmVs
+OiAgWzxlMGM0MDNlNj5dIGZpYjZfY2xlYW5fdHJlZSsweDI0LzB4MjYgW2lw
+djZdDQpNYXkgMTAgMTI6MzM6MzIgbG9jYWxob3N0IGtlcm5lbDogIFs8ZTBj
+NDA0NDg+XSBmaWI2X2NsZWFuX2FsbCsweDQ2LzB4NzggW2lwdjZdDQpNYXkg
+MTAgMTI6MzM6MzIgbG9jYWxob3N0IGtlcm5lbDogIFs8ZTBjM2Q4N2I+XSBy
+dDZfaWZkb3duKzB4MTEvMHgxMyBbaXB2Nl0NCk1heSAxMCAxMjozMzozMiBs
+b2NhbGhvc3Qga2VybmVsOiAgWzxlMGMzYWE2MD5dIGFkZHJjb25mX2lmZG93
+bisweDVjLzB4MjA5IFtpcHY2XQ0KTWF5IDEwIDEyOjMzOjMyIGxvY2FsaG9z
+dCBrZXJuZWw6ICBbPGUwYzNjN2Q1Pl0gYWRkcmNvbmZfbm90aWZ5KzB4NmVj
+LzB4NzdkIFtpcHY2XQ0KTWF5IDEwIDEyOjMzOjMyIGxvY2FsaG9zdCBrZXJu
+ZWw6ICBbPGMwMTI0ZGNiPl0gbm90aWZpZXJfY2FsbF9jaGFpbisweDIwLzB4
+MzENCk1heSAxMCAxMjozMzozMiBsb2NhbGhvc3Qga2VybmVsOiAgWzxjMDEy
+NGRmOD5dIHJhd19ub3RpZmllcl9jYWxsX2NoYWluKzB4OC8weGENCk1heSAx
+MCAxMjozMzozMiBsb2NhbGhvc3Qga2VybmVsOiAgWzxjMDIzMzBiOD5dIGRl
+dl9jbG9zZSsweDYwLzB4NjUNCk1heSAxMCAxMjozMzozMiBsb2NhbGhvc3Qg
+a2VybmVsOiAgWzxjMDIzMjNlMz5dIGRldl9jaGFuZ2VfZmxhZ3MrMHg1MC8w
+eGYwDQpNYXkgMTAgMTI6MzM6MzIgbG9jYWxob3N0IGtlcm5lbDogIFs8YzAy
+NmNkMTc+XSBkZXZpbmV0X2lvY3RsKzB4MjM1LzB4NTQyDQpNYXkgMTAgMTI6
+MzM6MzIgbG9jYWxob3N0IGtlcm5lbDogIFs8YzAyNmQ2NjQ+XSBpbmV0X2lv
+Y3RsKzB4NzMvMHg5MQ0KTWF5IDEwIDEyOjMzOjMyIGxvY2FsaG9zdCBrZXJu
+ZWw6ICBbPGMwMjI5ODg1Pl0gc29ja19pb2N0bCsweDE5Yi8weDFiOA0KTWF5
+IDEwIDEyOjMzOjMyIGxvY2FsaG9zdCBrZXJuZWw6ICBbPGMwMTU4YWJhPl0g
+ZG9faW9jdGwrMHgyMi8weDY4DQpNYXkgMTAgMTI6MzM6MzIgbG9jYWxob3N0
+IGtlcm5lbDogIFs8YzAxNThkNDM+XSB2ZnNfaW9jdGwrMHgyNDMvMHgyNTYN
+Ck1heSAxMCAxMjozMzozMiBsb2NhbGhvc3Qga2VybmVsOiAgWzxjMDE1OGQ4
+Nz5dIHN5c19pb2N0bCsweDMxLzB4NGENCk1heSAxMCAxMjozMzozMiBsb2Nh
+bGhvc3Qga2VybmVsOiAgWzxjMDEwMmY3Nj5dIHN5c2VudGVyX3Bhc3RfZXNw
+KzB4NWYvMHg4OQ0KTWF5IDEwIDEyOjMzOjMyIGxvY2FsaG9zdCBrZXJuZWw6
+ICA9PT09PT09PT09PT09PT09PT09PT09PQ0KTWF5IDEwIDEyOjMzOjMyIGxv
+Y2FsaG9zdCBrZXJuZWw6IHRlc3QxOiBkZXZfcHV0IC0gcmVmY291bnQ9Ng0K
+TWF5IDEwIDEyOjMzOjMyIGxvY2FsaG9zdCBrZXJuZWw6ICBbPGMwMTA0NTI5
+Pl0gc2hvd190cmFjZV9sb2dfbHZsKzB4MWEvMHgyZg0KTWF5IDEwIDEyOjMz
+OjMyIGxvY2FsaG9zdCBrZXJuZWw6ICBbPGMwMTA0YmRkPl0gc2hvd190cmFj
+ZSsweDEyLzB4MTQNCk1heSAxMCAxMjozMzozMiBsb2NhbGhvc3Qga2VybmVs
+OiAgWzxjMDEwNGM4Zj5dIGR1bXBfc3RhY2srMHgxNi8weDE4DQpNYXkgMTAg
+MTI6MzM6MzIgbG9jYWxob3N0IGtlcm5lbDogIFs8YzAyMzYwNmY+XSBkc3Rf
+ZGVzdHJveSsweGIyLzB4ZjUNCk1heSAxMCAxMjozMzozMiBsb2NhbGhvc3Qg
+a2VybmVsOiAgWzxlMGM0MDhmYz5dIGZpYjZfZGVsKzB4M2M3LzB4NDAzIFtp
+cHY2XQ0KTWF5IDEwIDEyOjMzOjMyIGxvY2FsaG9zdCBrZXJuZWw6ICBbPGUw
+YzQwOTYwPl0gZmliNl9jbGVhbl9ub2RlKzB4MjgvMHg4MyBbaXB2Nl0NCk1h
+eSAxMCAxMjozMzozMiBsb2NhbGhvc3Qga2VybmVsOiAgWzxlMGM0MDJlOT5d
+IGZpYjZfd2Fsa19jb250aW51ZSsweDdlLzB4ZTUgW2lwdjZdDQpNYXkgMTAg
+MTI6MzM6MzIgbG9jYWxob3N0IGtlcm5lbDogIFs8ZTBjNDAzOTE+XSBmaWI2
+X3dhbGsrMHg0MS8weDcyIFtpcHY2XQ0KTWF5IDEwIDEyOjMzOjMyIGxvY2Fs
+aG9zdCBrZXJuZWw6ICBbPGUwYzQwM2U2Pl0gZmliNl9jbGVhbl90cmVlKzB4
+MjQvMHgyNiBbaXB2Nl0NCk1heSAxMCAxMjozMzozMiBsb2NhbGhvc3Qga2Vy
+bmVsOiAgWzxlMGM0MDQ0OD5dIGZpYjZfY2xlYW5fYWxsKzB4NDYvMHg3OCBb
+aXB2Nl0NCk1heSAxMCAxMjozMzozMiBsb2NhbGhvc3Qga2VybmVsOiAgWzxl
+MGMzZDg3Yj5dIHJ0Nl9pZmRvd24rMHgxMS8weDEzIFtpcHY2XQ0KTWF5IDEw
+IDEyOjMzOjMyIGxvY2FsaG9zdCBrZXJuZWw6ICBbPGUwYzNhYTYwPl0gYWRk
+cmNvbmZfaWZkb3duKzB4NWMvMHgyMDkgW2lwdjZdDQpNYXkgMTAgMTI6MzM6
+MzIgbG9jYWxob3N0IGtlcm5lbDogIFs8ZTBjM2M3ZDU+XSBhZGRyY29uZl9u
+b3RpZnkrMHg2ZWMvMHg3N2QgW2lwdjZdDQpNYXkgMTAgMTI6MzM6MzIgbG9j
+YWxob3N0IGtlcm5lbDogIFs8YzAxMjRkY2I+XSBub3RpZmllcl9jYWxsX2No
+YWluKzB4MjAvMHgzMQ0KTWF5IDEwIDEyOjMzOjMyIGxvY2FsaG9zdCBrZXJu
+ZWw6ICBbPGMwMTI0ZGY4Pl0gcmF3X25vdGlmaWVyX2NhbGxfY2hhaW4rMHg4
+LzB4YQ0KTWF5IDEwIDEyOjMzOjMyIGxvY2FsaG9zdCBrZXJuZWw6ICBbPGMw
+MjMzMGI4Pl0gZGV2X2Nsb3NlKzB4NjAvMHg2NQ0KTWF5IDEwIDEyOjMzOjMy
+IGxvY2FsaG9zdCBrZXJuZWw6ICBbPGMwMjMyM2UzPl0gZGV2X2NoYW5nZV9m
+bGFncysweDUwLzB4ZjANCk1heSAxMCAxMjozMzozMiBsb2NhbGhvc3Qga2Vy
+bmVsOiAgWzxjMDI2Y2QxNz5dIGRldmluZXRfaW9jdGwrMHgyMzUvMHg1NDIN
+Ck1heSAxMCAxMjozMzozMiBsb2NhbGhvc3Qga2VybmVsOiAgWzxjMDI2ZDY2
+ND5dIGluZXRfaW9jdGwrMHg3My8weDkxDQpNYXkgMTAgMTI6MzM6MzIgbG9j
+YWxob3N0IGtlcm5lbDogIFs8YzAyMjk4ODU+XSBzb2NrX2lvY3RsKzB4MTli
+LzB4MWI4DQpNYXkgMTAgMTI6MzM6MzIgbG9jYWxob3N0IGtlcm5lbDogIFs8
+YzAxNThhYmE+XSBkb19pb2N0bCsweDIyLzB4NjgNCk1heSAxMCAxMjozMzoz
+MiBsb2NhbGhvc3Qga2VybmVsOiAgWzxjMDE1OGQ0Mz5dIHZmc19pb2N0bCsw
+eDI0My8weDI1Ng0KTWF5IDEwIDEyOjMzOjMyIGxvY2FsaG9zdCBrZXJuZWw6
+ICBbPGMwMTU4ZDg3Pl0gc3lzX2lvY3RsKzB4MzEvMHg0YQ0KTWF5IDEwIDEy
+OjMzOjMyIGxvY2FsaG9zdCBrZXJuZWw6ICBbPGMwMTAyZjc2Pl0gc3lzZW50
+ZXJfcGFzdF9lc3ArMHg1Zi8weDg5DQpNYXkgMTAgMTI6MzM6MzIgbG9jYWxo
+b3N0IGtlcm5lbDogID09PT09PT09PT09PT09PT09PT09PT09DQpNYXkgMTAg
+MTI6MzM6NDkgbG9jYWxob3N0IGtlcm5lbDogdGVzdDE6IGRldl9wdXQgLSBy
+ZWZjb3VudD01DQpNYXkgMTAgMTI6MzM6NDkgbG9jYWxob3N0IGtlcm5lbDog
+IFs8YzAxMDQ1Mjk+XSBzaG93X3RyYWNlX2xvZ19sdmwrMHgxYS8weDJmDQpN
+YXkgMTAgMTI6MzM6NDkgbG9jYWxob3N0IGtlcm5lbDogIFs8YzAxMDRiZGQ+
+XSBzaG93X3RyYWNlKzB4MTIvMHgxNA0KTWF5IDEwIDEyOjMzOjQ5IGxvY2Fs
+aG9zdCBrZXJuZWw6ICBbPGMwMTA0YzhmPl0gZHVtcF9zdGFjaysweDE2LzB4
+MTgNCk1heSAxMCAxMjozMzo0OSBsb2NhbGhvc3Qga2VybmVsOiAgWzxjMDIz
+ZTM1Yz5dIHFkaXNjX2Rlc3Ryb3krMHhhZC8weGMxDQpNYXkgMTAgMTI6MzM6
+NDkgbG9jYWxob3N0IGtlcm5lbDogIFs8YzAyM2UzOWQ+XSBkZXZfc2h1dGRv
+d24rMHgyZC8weDY3DQpNYXkgMTAgMTI6MzM6NDkgbG9jYWxob3N0IGtlcm5l
+bDogIFs8YzAyMzMxZDU+XSB1bnJlZ2lzdGVyX25ldGRldmljZSsweDExOC8w
+eDIxNw0KTWF5IDEwIDEyOjMzOjQ5IGxvY2FsaG9zdCBrZXJuZWw6ICBbPGUw
+ODI5MWM0Pl0gdHVuX2Nocl9jbG9zZSsweDVlLzB4NjkgW3R1bl0NCk1heSAx
+MCAxMjozMzo0OSBsb2NhbGhvc3Qga2VybmVsOiAgWzxjMDE0ZmJmZj5dIF9f
+ZnB1dCsweGJkLzB4MTYwDQpNYXkgMTAgMTI6MzM6NDkgbG9jYWxob3N0IGtl
+cm5lbDogIFs8YzAxNGZjYjk+XSBmcHV0KzB4MTcvMHgxOQ0KTWF5IDEwIDEy
+OjMzOjQ5IGxvY2FsaG9zdCBrZXJuZWw6ICBbPGMwMTRkNjgwPl0gZmlscF9j
+bG9zZSsweDU0LzB4NWMNCk1heSAxMCAxMjozMzo0OSBsb2NhbGhvc3Qga2Vy
+bmVsOiAgWzxjMDE0ZTY5YT5dIHN5c19jbG9zZSsweDc4LzB4YjANCk1heSAx
+MCAxMjozMzo0OSBsb2NhbGhvc3Qga2VybmVsOiAgWzxjMDEwMmY3Nj5dIHN5
+c2VudGVyX3Bhc3RfZXNwKzB4NWYvMHg4OQ0KTWF5IDEwIDEyOjMzOjQ5IGxv
+Y2FsaG9zdCBrZXJuZWw6ICA9PT09PT09PT09PT09PT09PT09PT09PQ0KTWF5
+IDEwIDEyOjMzOjQ5IGxvY2FsaG9zdCBrZXJuZWw6IHRlc3QxOiBkZXZfcHV0
+IC0gcmVmY291bnQ9NA0KTWF5IDEwIDEyOjMzOjQ5IGxvY2FsaG9zdCBrZXJu
+ZWw6ICBbPGMwMTA0NTI5Pl0gc2hvd190cmFjZV9sb2dfbHZsKzB4MWEvMHgy
+Zg0KTWF5IDEwIDEyOjMzOjQ5IGxvY2FsaG9zdCBrZXJuZWw6ICBbPGMwMTA0
+YmRkPl0gc2hvd190cmFjZSsweDEyLzB4MTQNCk1heSAxMCAxMjozMzo0OSBs
+b2NhbGhvc3Qga2VybmVsOiAgWzxjMDEwNGM4Zj5dIGR1bXBfc3RhY2srMHgx
+Ni8weDE4DQpNYXkgMTAgMTI6MzM6NDkgbG9jYWxob3N0IGtlcm5lbDogIFs8
+YzAyMzk0OTY+XSBuZWlnaF9wYXJtc19yZWxlYXNlKzB4OGQvMHhiZg0KTWF5
+IDEwIDEyOjMzOjQ5IGxvY2FsaG9zdCBrZXJuZWw6ICBbPGUwYzNhYmJlPl0g
+YWRkcmNvbmZfaWZkb3duKzB4MWJhLzB4MjA5IFtpcHY2XQ0KTWF5IDEwIDEy
+OjMzOjQ5IGxvY2FsaG9zdCBrZXJuZWw6ICBbPGUwYzNjN2Q1Pl0gYWRkcmNv
+bmZfbm90aWZ5KzB4NmVjLzB4NzdkIFtpcHY2XQ0KTWF5IDEwIDEyOjMzOjQ5
+IGxvY2FsaG9zdCBrZXJuZWw6ICBbPGMwMTI0ZGNiPl0gbm90aWZpZXJfY2Fs
+bF9jaGFpbisweDIwLzB4MzENCk1heSAxMCAxMjozMzo0OSBsb2NhbGhvc3Qg
+a2VybmVsOiAgWzxjMDEyNGRmOD5dIHJhd19ub3RpZmllcl9jYWxsX2NoYWlu
+KzB4OC8weGENCk1heSAxMCAxMjozMzo0OSBsb2NhbGhvc3Qga2VybmVsOiAg
+WzxjMDIzMzFlNj5dIHVucmVnaXN0ZXJfbmV0ZGV2aWNlKzB4MTI5LzB4MjE3
+DQpNYXkgMTAgMTI6MzM6NDkgbG9jYWxob3N0IGtlcm5lbDogIFs8ZTA4Mjkx
+YzQ+XSB0dW5fY2hyX2Nsb3NlKzB4NWUvMHg2OSBbdHVuXQ0KTWF5IDEwIDEy
+OjMzOjQ5IGxvY2FsaG9zdCBrZXJuZWw6ICBbPGMwMTRmYmZmPl0gX19mcHV0
+KzB4YmQvMHgxNjANCk1heSAxMCAxMjozMzo0OSBsb2NhbGhvc3Qga2VybmVs
+OiAgWzxjMDE0ZmNiOT5dIGZwdXQrMHgxNy8weDE5DQpNYXkgMTAgMTI6MzM6
+NDkgbG9jYWxob3N0IGtlcm5lbDogIFs8YzAxNGQ2ODA+XSBmaWxwX2Nsb3Nl
+KzB4NTQvMHg1Yw0KTWF5IDEwIDEyOjMzOjQ5IGxvY2FsaG9zdCBrZXJuZWw6
+ICBbPGMwMTRlNjlhPl0gc3lzX2Nsb3NlKzB4NzgvMHhiMA0KTWF5IDEwIDEy
+OjMzOjQ5IGxvY2FsaG9zdCBrZXJuZWw6ICBbPGMwMTAyZjc2Pl0gc3lzZW50
+ZXJfcGFzdF9lc3ArMHg1Zi8weDg5DQpNYXkgMTAgMTI6MzM6NDkgbG9jYWxo
+b3N0IGtlcm5lbDogID09PT09PT09PT09PT09PT09PT09PT09DQpNYXkgMTAg
+MTI6MzM6NDkgbG9jYWxob3N0IGtlcm5lbDogdGVzdDE6IGRldl9wdXQgLSBy
+ZWZjb3VudD0zDQpNYXkgMTAgMTI6MzM6NDkgbG9jYWxob3N0IGtlcm5lbDog
+IFs8YzAxMDQ1Mjk+XSBzaG93X3RyYWNlX2xvZ19sdmwrMHgxYS8weDJmDQpN
+YXkgMTAgMTI6MzM6NDkgbG9jYWxob3N0IGtlcm5lbDogIFs8YzAxMDRiZGQ+
+XSBzaG93X3RyYWNlKzB4MTIvMHgxNA0KTWF5IDEwIDEyOjMzOjQ5IGxvY2Fs
+aG9zdCBrZXJuZWw6ICBbPGMwMTA0YzhmPl0gZHVtcF9zdGFjaysweDE2LzB4
+MTgNCk1heSAxMCAxMjozMzo0OSBsb2NhbGhvc3Qga2VybmVsOiAgWzxjMDIz
+MzJiMj5dIHVucmVnaXN0ZXJfbmV0ZGV2aWNlKzB4MWY1LzB4MjE3DQpNYXkg
+MTAgMTI6MzM6NDkgbG9jYWxob3N0IGtlcm5lbDogIFs8ZTA4MjkxYzQ+XSB0
+dW5fY2hyX2Nsb3NlKzB4NWUvMHg2OSBbdHVuXQ0KTWF5IDEwIDEyOjMzOjQ5
+IGxvY2FsaG9zdCBrZXJuZWw6ICBbPGMwMTRmYmZmPl0gX19mcHV0KzB4YmQv
+MHgxNjANCk1heSAxMCAxMjozMzo0OSBsb2NhbGhvc3Qga2VybmVsOiAgWzxj
+MDE0ZmNiOT5dIGZwdXQrMHgxNy8weDE5DQpNYXkgMTAgMTI6MzM6NDkgbG9j
+YWxob3N0IGtlcm5lbDogIFs8YzAxNGQ2ODA+XSBmaWxwX2Nsb3NlKzB4NTQv
+MHg1Yw0KTWF5IDEwIDEyOjMzOjQ5IGxvY2FsaG9zdCBrZXJuZWw6ICBbPGMw
+MTRlNjlhPl0gc3lzX2Nsb3NlKzB4NzgvMHhiMA0KTWF5IDEwIDEyOjMzOjQ5
+IGxvY2FsaG9zdCBrZXJuZWw6ICBbPGMwMTAyZjc2Pl0gc3lzZW50ZXJfcGFz
+dF9lc3ArMHg1Zi8weDg5DQpNYXkgMTAgMTI6MzM6NDkgbG9jYWxob3N0IGtl
+cm5lbDogID09PT09PT09PT09PT09PT09PT09PT09DQpNYXkgMTAgMTI6MzM6
+NDkgbG9jYWxob3N0IGtlcm5lbDogdGVzdDE6IG5ldGRldl93YWl0X2FsbHJl
+ZnMgLSByZWZjb3VudD0zDQpNYXkgMTAgMTI6MzM6NTkgbG9jYWxob3N0IGxh
+c3QgbWVzc2FnZSByZXBlYXRlZCAzNyB0aW1lcw0KTWF5IDEwIDEyOjM0OjAw
+IGxvY2FsaG9zdCBrZXJuZWw6IHVucmVnaXN0ZXJfbmV0ZGV2aWNlOiB3YWl0
+aW5nIGZvciB0ZXN0MSB0byBiZWNvbWUgZnJlZS4gVXNhZ2UgY291bnQgPSAz
+DQpNYXkgMTAgMTI6MzQ6MDAgbG9jYWxob3N0IGtlcm5lbDogdGVzdDE6IG5l
+dGRldl93YWl0X2FsbHJlZnMgLSByZWZjb3VudD0zDQpNYXkgMTAgMTI6MzQ6
+MDIgbG9jYWxob3N0IGxhc3QgbWVzc2FnZSByZXBlYXRlZCA5IHRpbWVzDQpN
+YXkgMTAgMTI6MzQ6MDIgbG9jYWxob3N0IGtlcm5lbDogdGVzdDE6IGRldl9w
+dXQgLSByZWZjb3VudD0yDQpNYXkgMTAgMTI6MzQ6MDIgbG9jYWxob3N0IGtl
+cm5lbDogIFs8YzAxMDQ1Mjk+XSBzaG93X3RyYWNlX2xvZ19sdmwrMHgxYS8w
+eDJmDQpNYXkgMTAgMTI6MzQ6MDIgbG9jYWxob3N0IGtlcm5lbDogIFs8YzAx
+MDRiZGQ+XSBzaG93X3RyYWNlKzB4MTIvMHgxNA0KTWF5IDEwIDEyOjM0OjAy
+IGxvY2FsaG9zdCBrZXJuZWw6ICBbPGMwMTA0YzhmPl0gZHVtcF9zdGFjaysw
+eDE2LzB4MTgNCk1heSAxMCAxMjozNDowMiBsb2NhbGhvc3Qga2VybmVsOiAg
+WzxjMDIzNzhkMz5dIG5laWdoX2Rlc3Ryb3krMHgxNDUvMHgxODMNCk1heSAx
+MCAxMjozNDowMiBsb2NhbGhvc3Qga2VybmVsOiAgWzxjMDIzNjAxMz5dIGRz
+dF9kZXN0cm95KzB4NTYvMHhmNQ0KTWF5IDEwIDEyOjM0OjAyIGxvY2FsaG9z
+dCBrZXJuZWw6ICBbPGUwYzQwMTQyPl0gbmRpc2NfZHN0X2djKzB4MzkvMHg2
+NyBbaXB2Nl0NCk1heSAxMCAxMjozNDowMiBsb2NhbGhvc3Qga2VybmVsOiAg
+WzxlMGM0MDRlNT5dIGZpYjZfcnVuX2djKzB4NmIvMHhiYiBbaXB2Nl0NCk1h
+eSAxMCAxMjozNDowMiBsb2NhbGhvc3Qga2VybmVsOiAgWzxjMDEyMTJmYz5d
+IHJ1bl90aW1lcl9zb2Z0aXJxKzB4MTAyLzB4MTY2DQpNYXkgMTAgMTI6MzQ6
+MDIgbG9jYWxob3N0IGtlcm5lbDogIFs8YzAxMWUwMGQ+XSBfX2RvX3NvZnRp
+cnErMHg1ZS8weGNhDQpNYXkgMTAgMTI6MzQ6MDIgbG9jYWxob3N0IGtlcm5l
+bDogIFs8YzAxMDVkNjA+XSBkb19zb2Z0aXJxKzB4NWYvMHhiNg0KTWF5IDEw
+IDEyOjM0OjAyIGxvY2FsaG9zdCBrZXJuZWw6ICA9PT09PT09PT09PT09PT09
+PT09PT09PQ0KTWF5IDEwIDEyOjM0OjAyIGxvY2FsaG9zdCBrZXJuZWw6IHRl
+c3QxOiBkZXZfcHV0IC0gcmVmY291bnQ9MQ0KTWF5IDEwIDEyOjM0OjAyIGxv
+Y2FsaG9zdCBrZXJuZWw6ICBbPGMwMTA0NTI5Pl0gc2hvd190cmFjZV9sb2df
+bHZsKzB4MWEvMHgyZg0KTWF5IDEwIDEyOjM0OjAyIGxvY2FsaG9zdCBrZXJu
+ZWw6ICBbPGMwMTA0YmRkPl0gc2hvd190cmFjZSsweDEyLzB4MTQNCk1heSAx
+MCAxMjozNDowMiBsb2NhbGhvc3Qga2VybmVsOiAgWzxjMDEwNGM4Zj5dIGR1
+bXBfc3RhY2srMHgxNi8weDE4DQpNYXkgMTAgMTI6MzQ6MDIgbG9jYWxob3N0
+IGtlcm5lbDogIFs8ZTBjM2E0MDI+XSBpbjZfZGV2X2ZpbmlzaF9kZXN0cm95
+KzB4OWYvMHhkOSBbaXB2Nl0NCk1heSAxMCAxMjozNDowMiBsb2NhbGhvc3Qg
+a2VybmVsOiAgWzxlMGMzZmVjMD5dIGlwNl9kc3RfZGVzdHJveSsweDI5LzB4
+MmIgW2lwdjZdDQpNYXkgMTAgMTI6MzQ6MDIgbG9jYWxob3N0IGtlcm5lbDog
+IFs8YzAyMzYwMmE+XSBkc3RfZGVzdHJveSsweDZkLzB4ZjUNCk1heSAxMCAx
+MjozNDowMiBsb2NhbGhvc3Qga2VybmVsOiAgWzxlMGM0MDE0Mj5dIG5kaXNj
+X2RzdF9nYysweDM5LzB4NjcgW2lwdjZdDQpNYXkgMTAgMTI6MzQ6MDIgbG9j
+YWxob3N0IGtlcm5lbDogIFs8ZTBjNDA0ZTU+XSBmaWI2X3J1bl9nYysweDZi
+LzB4YmIgW2lwdjZdDQpNYXkgMTAgMTI6MzQ6MDIgbG9jYWxob3N0IGtlcm5l
+bDogIFs8YzAxMjEyZmM+XSBydW5fdGltZXJfc29mdGlycSsweDEwMi8weDE2
+Ng0KTWF5IDEwIDEyOjM0OjAyIGxvY2FsaG9zdCBrZXJuZWw6ICBbPGMwMTFl
+MDBkPl0gX19kb19zb2Z0aXJxKzB4NWUvMHhjYQ0KTWF5IDEwIDEyOjM0OjAy
+IGxvY2FsaG9zdCBrZXJuZWw6ICBbPGMwMTA1ZDYwPl0gZG9fc29mdGlycSsw
+eDVmLzB4YjYNCk1heSAxMCAxMjozNDowMiBsb2NhbGhvc3Qga2VybmVsOiAg
+PT09PT09PT09PT09PT09PT09PT09PT0NCk1heSAxMCAxMjozNDowMiBsb2Nh
+bGhvc3Qga2VybmVsOiB0ZXN0MTogZGV2X3B1dCAtIHJlZmNvdW50PTANCk1h
+eSAxMCAxMjozNDowMiBsb2NhbGhvc3Qga2VybmVsOiAgWzxjMDEwNDUyOT5d
+IHNob3dfdHJhY2VfbG9nX2x2bCsweDFhLzB4MmYNCk1heSAxMCAxMjozNDow
+MiBsb2NhbGhvc3Qga2VybmVsOiAgWzxjMDEwNGJkZD5dIHNob3dfdHJhY2Ur
+MHgxMi8weDE0DQpNYXkgMTAgMTI6MzQ6MDIgbG9jYWxob3N0IGtlcm5lbDog
+IFs8YzAxMDRjOGY+XSBkdW1wX3N0YWNrKzB4MTYvMHgxOA0KTWF5IDEwIDEy
+OjM0OjAyIGxvY2FsaG9zdCBrZXJuZWw6ICBbPGMwMjM2MDZmPl0gZHN0X2Rl
+c3Ryb3krMHhiMi8weGY1DQpNYXkgMTAgMTI6MzQ6MDIgbG9jYWxob3N0IGtl
+cm5lbDogIFs8ZTBjNDAxNDI+XSBuZGlzY19kc3RfZ2MrMHgzOS8weDY3IFtp
+cHY2XQ0KTWF5IDEwIDEyOjM0OjAyIGxvY2FsaG9zdCBrZXJuZWw6ICBbPGUw
+YzQwNGU1Pl0gZmliNl9ydW5fZ2MrMHg2Yi8weGJiIFtpcHY2XQ0KTWF5IDEw
+IDEyOjM0OjAyIGxvY2FsaG9zdCBrZXJuZWw6ICBbPGMwMTIxMmZjPl0gcnVu
+X3RpbWVyX3NvZnRpcnErMHgxMDIvMHgxNjYNCk1heSAxMCAxMjozNDowMiBs
+b2NhbGhvc3Qga2VybmVsOiAgWzxjMDExZTAwZD5dIF9fZG9fc29mdGlycSsw
+eDVlLzB4Y2ENCk1heSAxMCAxMjozNDowMiBsb2NhbGhvc3Qga2VybmVsOiAg
+WzxjMDEwNWQ2MD5dIGRvX3NvZnRpcnErMHg1Zi8weGI2DQpNYXkgMTAgMTI6
+MzQ6MDIgbG9jYWxob3N0IGtlcm5lbDogID09PT09PT09PT09PT09PT09PT09
+PT09DQpNYXkgMTAgMTI6MzQ6MDIgbG9jYWxob3N0IGtlcm5lbDogdGVzdDE6
+IG5ldGRldl93YWl0X2FsbHJlZnMgZG9uZQ0K
+
+--296486914-1018641858-1178827224=:12758--
