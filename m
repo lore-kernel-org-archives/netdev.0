@@ -1,70 +1,55 @@
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: Re: [RFC] New driver API to speed up small packets xmits
-Date: Thu, 10 May 2007 20:52:12 +0530
-Message-ID: <OF305F038C.A48D4C37-ON652572D7.00538ECA-652572D7.00546E39@in.ibm.com>
-References: <20070510150833.GB24898@2ka.mipt.ru>
+From: David Howells <dhowells@redhat.com>
+Subject: [PATCH 1/2] AFS: Fix interminable loop in
+	afs_write_back_from_locked_page()
+Date: Thu, 10 May 2007 15:33:34 +0100
+Message-ID: <20070510143334.19485.26042.stgit@warthog.cambridge.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	dhowells@redhat.com
+To: akpm@osdl.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ausmtp04.au.ibm.com ([202.81.18.152]:49629 "EHLO
-	ausmtp04.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751739AbXEJPWg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2007 11:22:36 -0400
-Received: from sd0109e.au.ibm.com (d23rh905.au.ibm.com [202.81.18.225])
-	by ausmtp04.au.ibm.com (8.13.8/8.13.8) with ESMTP id l4AFgICr318352
-	for <netdev@vger.kernel.org>; Fri, 11 May 2007 01:42:18 +1000
-Received: from d23av04.au.ibm.com (d23av04.au.ibm.com [9.190.250.237])
-	by sd0109e.au.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l4AFQ46u176150
-	for <netdev@vger.kernel.org>; Fri, 11 May 2007 01:26:04 +1000
-Received: from d23av04.au.ibm.com (loopback [127.0.0.1])
-	by d23av04.au.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l4AFMW4G029623
-	for <netdev@vger.kernel.org>; Fri, 11 May 2007 01:22:33 +1000
-In-Reply-To: <20070510150833.GB24898@2ka.mipt.ru>
+Received: from mx1.redhat.com ([66.187.233.31]:52589 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755092AbXEJPXU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 May 2007 11:23:20 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Evgeniy,
+=46ollowing bug was uncovered by compiling with '-W' flag:
 
-Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote on 05/10/2007 08:38:33 PM:
+  CC [M]  fs/afs/write.o
+fs/afs/write.c: In function =E2=80=98afs_write_back_from_locked_page=E2=
+=80=99:
+fs/afs/write.c:398: warning: comparison of unsigned expression >=3D 0 i=
+s always true
 
-> On Thu, May 10, 2007 at 08:23:51PM +0530, Krishna Kumar
-(krkumar2@in.ibm.com) wrote:
-> > The reason to implement the same was to speed up IPoIB driver. But
-> > before doing that, a proof of concept for E1000/AMSO drivers was
-> > considered (as most of the code is generic) before implementing for
-> > IPoIB. I do not have test results at this time but I am working on it.
-> >
-> > Please let me know if this approach is acceptable, or any suggestions.
->
-> Doesn't it looks exactly like GSO/TSO/LRO stuff implemented already?
+Loop variable 'n' is unsigned, so wraps around happily as far as I can
+see. Trival fix attached (compile tested only).
 
-It is the reverse - GSO will segment one super-packet just before calling
-the driver so that the stack is traversed only once. In my case, I am
-trying to send out multiple skbs, possibly small packets, in one shot.
-GSO will not help for small packets.
+Signed-Off-By: Mika Kukkonen <mikukkon@iki.fi>
+Signed-off-by: David Howells <dhowells@redhat.com>
+---
 
-> Btw, main CPU limiting factor here is syscall overhead (userspace
-protocol
-> processing with 1500 MTU allows to reduce CPU usage and increase
-> performance for 128 bytes packets sending/receiving total of 10 times).
+ fs/afs/write.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
 
-I will test this also. But I was curious to see if without any changes to
-applications, I can get better performance by linking packets and sending
-it once to the driver.
-
-What is your opinion ?
-
-thanks,
-
-- KK
-
->
-> > Thanks,
-> >
-> > - KK
->
-> --
->    Evgeniy Polyakov
+diff --git a/fs/afs/write.c b/fs/afs/write.c
+index 67ae4db..28f3751 100644
+--- a/fs/afs/write.c
++++ b/fs/afs/write.c
+@@ -395,8 +395,9 @@ static int afs_write_back_from_locked_page(struct a=
+fs_writeback *wb,
+ 		if (n =3D=3D 0)
+ 			goto no_more;
+ 		if (pages[0]->index !=3D start) {
+-			for (n--; n >=3D 0; n--)
+-				put_page(pages[n]);
++			do {
++				put_page(pages[--n]);
++			} while (n > 0);
+ 			goto no_more;
+ 		}
+=20
 
