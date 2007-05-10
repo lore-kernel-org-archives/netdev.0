@@ -1,52 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tbf scheduler: TSO support
-Date: Thu, 10 May 2007 14:13:44 -0700 (PDT)
-Message-ID: <20070510.141344.127196214.davem@davemloft.net>
-References: <20070510.210556.05145104.taka@valinux.co.jp>
-	<46431687.7060600@trash.net>
+From: Gagan Arneja <gaagaan@gmail.com>
+Subject: Re: [RFC] New driver API to speed up small packets xmits
+Date: Thu, 10 May 2007 14:14:05 -0700
+Message-ID: <46438B1D.1050802@gmail.com>
+References: <464370BA.3020907@hp.com>	<20070510.133216.95506791.davem@davemloft.net>	<46438568.1020403@hp.com> <20070510.140251.02302242.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: taka@valinux.co.jp, linux-net@vger.kernel.org,
+Cc: rick.jones2@hp.com, vladislav.yasevich@hp.com,
+	ian.mcdonald@jandi.co.nz, krkumar2@in.ibm.com, johnpol@2ka.mipt.ru,
 	netdev@vger.kernel.org
-To: kaber@trash.net
-Return-path: <linux-net-owner@vger.kernel.org>
-In-Reply-To: <46431687.7060600@trash.net>
-Sender: linux-net-owner@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-outbound-1.vmware.com ([65.113.40.141]:34371 "EHLO
+	smtp-outbound-1.vmware.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1762281AbXEJVOG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2007 17:14:06 -0400
+In-Reply-To: <20070510.140251.02302242.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Thu, 10 May 2007 14:56:39 +0200
-
-> Hirokazu Takahashi wrote:
-> > TBF --- Simple Token Bucket Filter --- packet scheduler doesn't
-> > work correctly with TSO on that it slows down to send out packets.
-> > TSO packets will be discarded since the size can be larger than
-> > the scheduler expects. But it won't cause serious problems
-> > because the retransmitted packets can be passed.
-> > 
-> > So I made the scheduler allow to pass TSO packets:
-> > 
-> >  - tbf_enqueue() accepts packets with any size if the netdevice
-> >    has TSO ability.
-> > 
-> >  - tbf_dequeue() can handle the packets whose size is larger than
-> >    the bucket, which keeps tokens.
-> >    Any packet, which may be TSO packet, can be sent if the bucket is
-> >    full of tokens. this may lead that the number of tokens in
-> >    the bucket turns into negative value, which means kind of debt.
-> >    But we don't have to mind it because this will be filled up
-> >    with tokens in a short time and it will turns into positive value
-> >    again.
-> > 
-> > I'm not sure if this approach is the best. I appreciate any comments.
+David Miller wrote:
+> From: Rick Jones <rick.jones2@hp.com>
+> Date: Thu, 10 May 2007 13:49:44 -0700
 > 
+>> I'd think one would only do this in those situations/places where a
+>> natural "out of driver" queue develops in the first place wouldn't
+>> one?
 > 
-> I don't see why this is needed, the correct way to use TBF with TSO
-> is to specify a larger MTU value, in which case it won't drop TSO
-> packets.
+> Indeed.
 
-Why should a user have to know anything in the world about TSO in
-order to configure TBF properly?  I don't think they should have
-to at all.
+And one builds in qdisc because your device sink is slow. There's 
+nothing inherently there in the kernel encouraging Qdisc->q to grow. 
+It's precisely these broken devices that can take advantage of cluster 
+transmits.
 
+--
+Gagan
