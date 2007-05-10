@@ -1,40 +1,35 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [NET]: Fix dev->qdisc race for NETDEV_TX_LOCKED case
-Date: Thu, 10 May 2007 11:42:28 +0200
-Message-ID: <20070510094228.GG521@postel.suug.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+From: David Howells <dhowells@redhat.com>
+Subject: Re: [PATCH 3/3] AFS: Implement basic file write support
+Date: Thu, 10 May 2007 10:56:32 +0100
+Message-ID: <27482.1178790992@warthog.cambridge.redhat.com>
+References: <46425C55.6050000@yahoo.com.au> <20070508194358.27477.74888.stgit@warthog.cambridge.redhat.com> <20070508194411.27477.7552.stgit@warthog.cambridge.redhat.com>
+Cc: David Howells <dhowells@redhat.com>, akpm@osdl.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org
+To: Nick Piggin <nickpiggin@yahoo.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:49102 "EHLO postel.suug.ch"
+Received: from mx1.redhat.com ([66.187.233.31]:51979 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753669AbXEJJmI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 May 2007 05:42:08 -0400
-Content-Disposition: inline
+	id S1755147AbXEJJ4t (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 May 2007 05:56:49 -0400
+In-Reply-To: <46425C55.6050000@yahoo.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When transmit fails with NETDEV_TX_LOCKED the skb is requeued
-to dev->qdisc again. The dev->qdisc pointer is protected by
-the queue lock which needs to be dropped when attempting to
-transmit and acquired again before requeing. The problem is
-that qdisc_restart() fetches the dev->qdisc pointer once and
-stores it in the `q' variable which is invalidated when
-dropping the queue_lock, therefore the variable needs to be
-refreshed before requeueing.
+Nick Piggin <nickpiggin@yahoo.com.au> wrote:
 
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> Why do you call SetPageUptodate when the page is not up to date?
+> That leaks uninitialised data, AFAIKS.
 
-Index: net-2.6/net/sched/sch_generic.c
-===================================================================
---- net-2.6.orig/net/sched/sch_generic.c	2007-05-10 11:32:18.000000000 +0200
-+++ net-2.6/net/sched/sch_generic.c	2007-05-10 11:34:37.000000000 +0200
-@@ -139,6 +139,7 @@ static inline int qdisc_restart(struct n
- 				}
- 				if (ret == NETDEV_TX_LOCKED && nolock) {
- 					spin_lock(&dev->queue_lock);
-+					q = dev->qdisc;
- 					goto collision;
- 				}
- 			}
+It only seems that way.  If afs_prepare_write() is called, but doesn't return
+an error, then afs_commit_write() will be called, and it seems that the copy
+in of the data will be guaranteed not to fail by the caller.
+
+Furthermore, afs_prepare_page() will have filled in the missing bits.
+
+And whilst all that is going on, the page lock will be help by the caller, so
+that no-one else can access the partially complete page.
+
+I suppose I could call SetPageUptodate() in afs_commit_write() instead.
+
+David
