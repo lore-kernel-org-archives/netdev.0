@@ -1,300 +1,119 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH] PCI legacy I/O port free driver - Making Intel e1000
- driver legacy I/O port free
-Date: Thu, 10 May 2007 07:47:44 -0700
-Message-ID: <46433090.8050205@intel.com>
-References: <4642EDED.7020109@jp.fujitsu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: cramerj@intel.com, john.ronciak@intel.com,
-	jesse.brandeburg@intel.com, jeffrey.t.kirsher@intel.com,
-	gregkh@suse.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Tomohiro Kusumi <kusumi.tomohiro@jp.fujitsu.com>
+From: Krishna Kumar <krkumar2@in.ibm.com>
+Subject: [RFC] New driver API to speed up small packets xmits
+Date: Thu, 10 May 2007 20:23:51 +0530
+Message-ID: <20070510145351.1390.77066.sendpatchset@K50wks273871wss.in.ibm.com>
+Cc: krkumar2@in.ibm.com, Krishna Kumar <krkumar2@in.ibm.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:40290 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752880AbXEJOrt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 May 2007 10:47:49 -0400
-In-Reply-To: <4642EDED.7020109@jp.fujitsu.com>
+Received: from ausmtp05.au.ibm.com ([202.81.18.154]:59236 "EHLO
+	ausmtp05.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754285AbXEJOyq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2007 10:54:46 -0400
+Received: from sd0109e.au.ibm.com (d23rh905.au.ibm.com [202.81.18.225])
+	by ausmtp05.au.ibm.com (8.13.8/8.13.8) with ESMTP id l4AEuISx7192760
+	for <netdev@vger.kernel.org>; Fri, 11 May 2007 00:56:20 +1000
+Received: from d23av04.au.ibm.com (d23av04.au.ibm.com [9.190.250.237])
+	by sd0109e.au.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l4AEvf7V150318
+	for <netdev@vger.kernel.org>; Fri, 11 May 2007 00:57:42 +1000
+Received: from d23av04.au.ibm.com (loopback [127.0.0.1])
+	by d23av04.au.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l4AEsAdL015583
+	for <netdev@vger.kernel.org>; Fri, 11 May 2007 00:54:10 +1000
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Tomohiro Kusumi wrote:
-> Hi
-> 
-> As you can see in the "10. pci_enable_device_bars() and Legacy I/O
-> Port space" of the Documentation/pci.txt, the latest kernel has
-> interfaces for PCI device drivers to tell the kernel which resource
-> the driver want to use, ex. I/O port or MMIO.
-> 
-> I've made a patch which makes Intel e1000 driver legacy I/O port
-> free by using the PCI core changes I mentioned above. The Intel
-> e1000 driver can handle some of its devices without using I/O port.
-> So this patch changes the driver not to enable/request I/O port
-> region depending on the device id.
-> 
-> As a result, the driver can handle its device even when there are
-> huge number of PCI devices being used on the system and no I/O
-> port region assigned to the device.
+Hi all,
 
-Tomohiro,
+While looking at common packet sizes on xmits, I found that most of
+the packets are small. On my personal system, the statistics of
+packets after using (browsing, mail, ftp'ing two linux kernels from
+www.kernel.org) for about 6 hours is :
 
-I'm ok with the bottom part of the patch, but I do not like the modification of 
-the pci device ID table in this way. As Arjan van der Ven previously commented 
-as well, this makes it hard for future device ID's to be bound to the driver.
+-----------------------------------------------------------
+	Packet Size	#packets (Total:60720)	Percentage
+-----------------------------------------------------------
+	32 		0 			0
+	64 		7716 			12.70
+	80 		40193 			66.19
+sub-total:		47909			78.90 %
 
-On top of that, there is no logical correlation between the mapping and 
-chipsets, so a lot of information is lost in that table. It really does not show 
-which _chipsets_ support this functionality.
+	96 		2007 			3.30
+	128 		1917 			3.15
+sub-total:		3924			6.46 %
 
-I think if we want to work with this, we need some way of mapping the device 
-ID's back to chipsets, and enable the feature on that basis.
+	256 		1822 			3.00
+	384 		863 			1.42
+	512 		459 			.75
+sub-total:		3144			5.18 %
 
-Auke
+	640 		763 			1.25
+	768 		2329 			3.83
+	1024 		1700 			2.79
+	1500 		461 			.75
+sub-total:		5253			8.65 %
 
-> 
-> Tomohiro Kusumi
-> 
-> Signed-off-by: Tomohiro Kusumi <kusumi.tomohiro@jp.fujitsu.com>
-> 
-> ---
->  e1000.h      |    6 +-
->  e1000_main.c |  152 +++++++++++++++++++++++++++++++----------------------------
->  2 files changed, 86 insertions(+), 72 deletions(-)
-> 
-> diff -uprN linux-2.6.21.orig/drivers/net/e1000/e1000.h linux-2.6.21/drivers/net/e1000/e1000.h
-> --- linux-2.6.21.orig/drivers/net/e1000/e1000.h	2007-05-09 18:02:26.000000000 +0900
-> +++ linux-2.6.21/drivers/net/e1000/e1000.h	2007-05-09 18:02:59.000000000 +0900
-> @@ -74,8 +74,9 @@
->  #define BAR_1		1
->  #define BAR_5		5
-> 
-> -#define INTEL_E1000_ETHERNET_DEVICE(device_id) {\
-> -	PCI_DEVICE(PCI_VENDOR_ID_INTEL, device_id)}
-> +#define E1000_USE_IOPORT       (1 << 0)
-> +#define INTEL_E1000_ETHERNET_DEVICE(device_id, flags) {\
-> +       PCI_DEVICE(PCI_VENDOR_ID_INTEL, device_id), .driver_data = flags}
-> 
->  struct e1000_adapter;
-> 
-> @@ -347,6 +348,7 @@ struct e1000_adapter {
->  	boolean_t quad_port_a;
->  	unsigned long flags;
->  	uint32_t eeprom_wol;
-> +	int bars;               /* BARs to be enabled */
->  };
-> 
->  enum e1000_state_t {
-> diff -uprN linux-2.6.21.orig/drivers/net/e1000/e1000_main.c linux-2.6.21/drivers/net/e1000/e1000_main.c
-> --- linux-2.6.21.orig/drivers/net/e1000/e1000_main.c	2007-05-09 18:02:27.000000000 +0900
-> +++ linux-2.6.21/drivers/net/e1000/e1000_main.c	2007-05-09 18:03:00.000000000 +0900
-> @@ -48,65 +48,65 @@ static char e1000_copyright[] = "Copyrig
->   *   {PCI_DEVICE(PCI_VENDOR_ID_INTEL, device_id)}
->   */
->  static struct pci_device_id e1000_pci_tbl[] = {
-> -	INTEL_E1000_ETHERNET_DEVICE(0x1000),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x1001),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x1004),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x1008),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x1009),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x100C),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x100D),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x100E),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x100F),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x1010),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x1011),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x1012),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x1013),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x1014),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x1015),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x1016),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x1017),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x1018),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x1019),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x101A),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x101D),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x101E),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x1026),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x1027),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x1028),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x1049),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x104A),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x104B),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x104C),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x104D),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x105E),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x105F),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x1060),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x1075),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x1076),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x1077),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x1078),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x1079),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x107A),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x107B),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x107C),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x107D),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x107E),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x107F),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x108A),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x108B),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x108C),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x1096),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x1098),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x1099),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x109A),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x10A4),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x10B5),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x10B9),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x10BA),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x10BB),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x10BC),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x10C4),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x10C5),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x1000, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x1001, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x1004, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x1008, E1000_USE_IOPORT),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x1009, E1000_USE_IOPORT),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x100C, E1000_USE_IOPORT),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x100D, E1000_USE_IOPORT),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x100E, E1000_USE_IOPORT),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x100F, E1000_USE_IOPORT),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x1010, E1000_USE_IOPORT),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x1011, E1000_USE_IOPORT),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x1012, E1000_USE_IOPORT),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x1013, E1000_USE_IOPORT),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x1014, E1000_USE_IOPORT),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x1015, E1000_USE_IOPORT),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x1016, E1000_USE_IOPORT),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x1017, E1000_USE_IOPORT),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x1018, E1000_USE_IOPORT),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x1019, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x101A, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x101D, E1000_USE_IOPORT),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x101E, E1000_USE_IOPORT),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x1026, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x1027, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x1028, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x1049, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x104A, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x104B, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x104C, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x104D, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x105E, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x105F, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x1060, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x1075, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x1076, E1000_USE_IOPORT),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x1077, E1000_USE_IOPORT),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x1078, E1000_USE_IOPORT),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x1079, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x107A, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x107B, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x107C, E1000_USE_IOPORT),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x107D, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x107E, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x107F, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x108A, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x108B, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x108C, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x1096, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x1098, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x1099, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x109A, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x10A4, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x10B5, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x10B9, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x10BA, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x10BB, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x10BC, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x10C4, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x10C5, 0),
->  	/* required last entry */
->  	{0,}
->  };
-> @@ -879,7 +879,14 @@ e1000_probe(struct pci_dev *pdev,
->  	int i, err, pci_using_dac;
->  	uint16_t eeprom_data = 0;
->  	uint16_t eeprom_apme_mask = E1000_EEPROM_APME;
-> -	if ((err = pci_enable_device(pdev)))
-> +	int bars;
-> +
-> +	if (ent->driver_data & E1000_USE_IOPORT)
-> +		bars = pci_select_bars(pdev, IORESOURCE_MEM | IORESOURCE_IO);
-> +	else
-> +		bars = pci_select_bars(pdev, IORESOURCE_MEM);
-> +
-> +	if ((err = pci_enable_device_bars(pdev, bars)))
->  		return err;
-> 
->  	if (!(err = pci_set_dma_mask(pdev, DMA_64BIT_MASK)) &&
-> @@ -894,7 +901,8 @@ e1000_probe(struct pci_dev *pdev,
->  		pci_using_dac = 0;
->  	}
-> 
-> -	if ((err = pci_request_regions(pdev, e1000_driver_name)))
-> +	err = pci_request_selected_regions(pdev, bars, e1000_driver_name);
-> +	if (err)
->  		goto err_pci_reg;
-> 
->  	pci_set_master(pdev);
-> @@ -913,6 +921,7 @@ e1000_probe(struct pci_dev *pdev,
->  	adapter->pdev = pdev;
->  	adapter->hw.back = adapter;
->  	adapter->msg_enable = (1 << debug) - 1;
-> +	adapter->bars = bars;
-> 
->  	mmio_start = pci_resource_start(pdev, BAR_0);
->  	mmio_len = pci_resource_len(pdev, BAR_0);
-> @@ -922,12 +931,15 @@ e1000_probe(struct pci_dev *pdev,
->  	if (!adapter->hw.hw_addr)
->  		goto err_ioremap;
-> 
-> -	for (i = BAR_1; i <= BAR_5; i++) {
-> -		if (pci_resource_len(pdev, i) == 0)
-> -			continue;
-> -		if (pci_resource_flags(pdev, i) & IORESOURCE_IO) {
-> -			adapter->hw.io_base = pci_resource_start(pdev, i);
-> -			break;
-> +	if (ent->driver_data & E1000_USE_IOPORT) {
-> +		for (i = BAR_1; i <= BAR_5; i++) {
-> +			if (pci_resource_len(pdev, i) == 0)
-> +				continue;
-> +			if (pci_resource_flags(pdev, i) & IORESOURCE_IO) {
-> +				adapter->hw.io_base =
-> +					pci_resource_start(pdev, i);
-> +				break;
-> +			}
->  		}
->  	}
-> 
-> @@ -1190,7 +1202,7 @@ err_sw_init:
->  err_ioremap:
->  	free_netdev(netdev);
->  err_alloc_etherdev:
-> -	pci_release_regions(pdev);
-> +	pci_release_selected_regions(pdev, bars);
->  err_pci_reg:
->  err_dma:
->  	pci_disable_device(pdev);
-> @@ -1242,7 +1254,7 @@ e1000_remove(struct pci_dev *pdev)
->  	iounmap(adapter->hw.hw_addr);
->  	if (adapter->hw.flash_address)
->  		iounmap(adapter->hw.flash_address);
-> -	pci_release_regions(pdev);
-> +	pci_release_selected_regions(pdev, adapter->bars);
-> 
->  	free_netdev(netdev);
-> 
-> @@ -5172,7 +5184,7 @@ e1000_resume(struct pci_dev *pdev)
-> 
->  	pci_set_power_state(pdev, PCI_D0);
->  	pci_restore_state(pdev);
-> -	if ((err = pci_enable_device(pdev))) {
-> +	if ((err = pci_enable_device_bars(pdev, adapter->bars))) {
->  		printk(KERN_ERR "e1000: Cannot enable PCI device from suspend\n");
->  		return err;
->  	}
+	2048 		312 			.51
+	4096 		53 			.08
+	8192 		84 			.13
+	16384 		41 			.06
+	32768+ 		0 			0
+sub-total:		490			0.81 %
+-----------------------------------------------------------
+
+Doing some measurements, I found that for small packets like 128 bytes,
+the bandwidth is approximately 60% of the line speed. To possibly speed
+up performance of small packet xmits, a method of "linking" skbs was
+thought of - where two pointers (skb_flink/blink) is added to the skb.
+It is felt (no data yet) that drivers will get better results when more
+number of "linked" skbs are sent to it in one shot, rather than sending
+each skb independently (where for each skb, extra call to driver is
+made and also the driver needs to get/drop lock, etc). The method is to
+send as many packets as possible from qdisc (eg multiple packets can
+accumulate if the driver is stopped or trylock failed) if the device
+supports the new API. Steps for enabling API for a driver is :
+
+	- driver needs to set NETIF_F_LINKED_SKB before netdev_register
+	- register_netdev sets a new tx_link_skbs tunable parameter in
+	  dev to 1, indicating that the driver supports linked skbs.
+	- driver implements the new API - hard_start_xmit_link to
+	  handle linked skbs, which is mostly a simple task. Eg,
+	  support for e1000 driver can be added, avoiding duplicating
+	  existing code as :
+
+	e1000_xmit_frame_link()
+	{
+	top:
+		next_skb = skb->linked
+		(original driver code here)
+		skb = next_skb;
+		if (skb)
+			goto top;
+		...
+	}
+
+	e1000_xmit_frame()
+	{
+		return e1000_xmit_frame_link(skb, NULL, dev);
+	}
+
+	Drivers can take other approaches, eg, get lock at the top and
+	handle all the packets in one shot, or get/drop locks for each
+	skb; but those are internal to the driver. In any case, driver
+	changes to support (optional) this API is minimal.
+
+The main change is in core/sched code. Qdisc links packets if the
+device supports it and multiple skbs are present, and calls
+dev_hard_start_xmit, which calls one of the two API's depending on
+whether the passed skb is linked or not. A sys interface can set or
+reset the tx_link_skbs parameter for the device to use the old or the
+new driver API.
+
+The reason to implement the same was to speed up IPoIB driver. But
+before doing that, a proof of concept for E1000/AMSO drivers was
+considered (as most of the code is generic) before implementing for
+IPoIB. I do not have test results at this time but I am working on it.
+
+Please let me know if this approach is acceptable, or any suggestions.
+
+Thanks,
+
+- KK
