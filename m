@@ -1,46 +1,36 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+From: "Jouni Malinen" <jkm-r/za7OOdgF0ztatW0fm/fQ@public.gmane.org>
 Subject: Re: support for bridging ethernet and 802.11
-Date: Thu, 10 May 2007 19:06:21 +0200
-Message-ID: <1178816781.3806.31.camel@johannes.berg>
-References: <CCA1D7C0-D44A-450D-A76E-DAE792E0CB37@kernel.crashing.org>
+Date: Thu, 10 May 2007 10:12:13 -0700
+Message-ID: <20070510171213.GD24712@devicescape.com>
+References: <CCA1D7C0-D44A-450D-A76E-DAE792E0CB37@kernel.crashing.org> <1178816781.3806.31.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-/+vkCqKKoBzGwJSRtpku"
-Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Kumar Gala <galak-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
 	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Kumar Gala <galak-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
 Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CCA1D7C0-D44A-450D-A76E-DAE792E0CB37-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1178816781.3806.31.camel-YfaajirXv214zXjbi5bjpg@public.gmane.org>
 Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+On Thu, May 10, 2007 at 07:06:21PM +0200, Johannes Berg wrote:
 
---=-/+vkCqKKoBzGwJSRtpku
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+> On Thu, 2007-05-10 at 11:18 -0500, Kumar Gala wrote:
+> > I'm wondering how to tell if a given driver/device in the kernel  
+> > supports the ability to bridge between ethernet and 802.11.  From  
+> > searching the web it looks like only the prism driver/device supports  
+> > this.
 
-[adding linux-wireless]
+> Normally wireless drivers do 802.3 framing as the 802.11 standard more
+> or less requires, so it should "just work". Am I missing something?
 
-On Thu, 2007-05-10 at 11:18 -0500, Kumar Gala wrote:
-> I'm wondering how to tell if a given driver/device in the kernel =20
-> supports the ability to bridge between ethernet and 802.11.  From =20
-> searching the web it looks like only the prism driver/device supports =20
-> this.
+IEEE 802.11 allows only the own MAC address to be used as the source
+address (addr2) when operating as a non-AP STA in BSS (client in Managed
+mode). In other words, layer 2 bridging does not work properly. AP mode
+and WDS links can be used for bridging without problems, but this will
+of course require the driver to support these.
 
-Normally wireless drivers do 802.3 framing as the 802.11 standard more
-or less requires, so it should "just work". Am I missing something?
-
-johannes
-
---=-/+vkCqKKoBzGwJSRtpku
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iD8DBQBGQ1EN/ETPhpq3jKURAtqGAJ9iAYgHtJeWKEiPsz/7F5gpHpqlhQCdEtLp
-E6ksXe33JxxG+rne2UzRPiI=
-=oCG2
------END PGP SIGNATURE-----
-
---=-/+vkCqKKoBzGwJSRtpku--
+-- 
+Jouni Malinen                                            PGP id EFC895FA
