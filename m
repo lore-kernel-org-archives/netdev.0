@@ -1,35 +1,51 @@
-From: Gagan Arneja <gagan@vmware.com>
-Subject: Re: [RFC] New driver API to speed up small packets xmits
-Date: Thu, 10 May 2007 13:25:19 -0700
-Message-ID: <46437FAF.50004@vmware.com>
-References: <OF305F038C.A48D4C37-ON652572D7.00538ECA-652572D7.00546E39@in.ibm.com> <46435412.50800@hp.com> <1178820423.17393.3.camel@w-sridhar2.beaverton.ibm.com> <464375F9.1050600@gmail.com> <1178827887.4062.90.camel@localhost> <46437D53.7000209@gmail.com> <1178828480.4062.98.camel@localhost>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: Network activity LED trigger
+Date: Thu, 10 May 2007 16:27:28 -0400
+Message-ID: <1178828848.4062.104.camel@localhost>
+References: <200703012241.49165.florian.fainelli@int-evry.fr>
+	 <1172844668.4864.46.camel@localhost>
+	 <200703021516.06638.florian.fainelli@int-evry.fr>
+	 <200705102121.07962.florian.fainelli@telecomint.eu>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Gagan Arneja <gaagaan@gmail.com>,
-	Sridhar Samudrala <sri@us.ibm.com>,
-	Rick Jones <rick.jones2@hp.com>,
-	Krishna Kumar2 <krkumar2@in.ibm.com>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org
-To: hadi@cyberus.ca
+Cc: Mark Brown <broonie@sirena.org.uk>, netdev@vger.kernel.org,
+	Richard Purdie <rpurdie@rpsys.net>
+To: Florian Fainelli <florian.fainelli@telecomint.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-outbound-1.vmware.com ([65.113.40.141]:35623 "EHLO
-	smtp-outbound-1.vmware.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755383AbXEJUZU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2007 16:25:20 -0400
-In-Reply-To: <1178828480.4062.98.camel@localhost>
+Received: from wx-out-0506.google.com ([66.249.82.232]:29606 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754130AbXEJU1b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2007 16:27:31 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so665238wxd
+        for <netdev@vger.kernel.org>; Thu, 10 May 2007 13:27:30 -0700 (PDT)
+In-Reply-To: <200705102121.07962.florian.fainelli@telecomint.eu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-> For example:
-> my biggest challenge with the e1000 was just hacking up the DMA setup
-> path - i seem to get better numbers if i dont kick the DMA until i stash
-> all the packets on the ring first etc. It seemed counter-intuitive.
+On Thu, 2007-10-05 at 21:21 +0200, Florian Fainelli wrote:
 
-That seems to make sense. The rings are(?) in system memory and you can 
-write to them faster. Kicking the DMA needs a transaction on the PCI 
-bus, which can be painfully slow...
+> Netdev people can probably comment on the place of ledtrig_network_activity(), 
+> which is probably not adequate. Also the ledtrig_network_activity can be 
+> network device specific for instance.
 
---
-Gagan
+Thanks for CCing me Florian.
+Yes, ledtrig_network_activity() should be device specific - given the
+spot you have it at. Just pass dev->name for example and filter on
+whether the user wanted that specific device.
+
+Additionaly is there a way to sort of light different colors depending
+whether it is an incoming packet or outgoing?
+Then you can pass a hook number OUT in the case where you have
+ledtrig_network_activity() at the moment. This way we can add
+multiple hooks within the network stack.
+I dont remember the original patches you posted, but could you have 
+multiple LEDs as well?
+
+cheers,
+jamal
+
+
+
