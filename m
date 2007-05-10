@@ -1,38 +1,38 @@
-From: Gagan Arneja <gaagaan@gmail.com>
-Subject: Re: [RFC] New driver API to speed up small packets xmits
-Date: Thu, 10 May 2007 14:14:05 -0700
-Message-ID: <46438B1D.1050802@gmail.com>
-References: <464370BA.3020907@hp.com>	<20070510.133216.95506791.davem@davemloft.net>	<46438568.1020403@hp.com> <20070510.140251.02302242.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Kernel BUG: NULL pointer dereference , reference to sys_recvmsg
+Date: Thu, 10 May 2007 14:21:38 -0700 (PDT)
+Message-ID: <20070510.142138.54188362.davem@davemloft.net>
+References: <547a31ab0705100712w740e8fbuece5013d05a449b9@mail.gmail.com>
+	<464389A2.6080606@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: rick.jones2@hp.com, vladislav.yasevich@hp.com,
-	ian.mcdonald@jandi.co.nz, krkumar2@in.ibm.com, johnpol@2ka.mipt.ru,
+Cc: croulder@gmail.com, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: cebbert@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-outbound-1.vmware.com ([65.113.40.141]:34371 "EHLO
-	smtp-outbound-1.vmware.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1762281AbXEJVOG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2007 17:14:06 -0400
-In-Reply-To: <20070510.140251.02302242.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56451
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1755616AbXEJVVf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2007 17:21:35 -0400
+In-Reply-To: <464389A2.6080606@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Rick Jones <rick.jones2@hp.com>
-> Date: Thu, 10 May 2007 13:49:44 -0700
-> 
->> I'd think one would only do this in those situations/places where a
->> natural "out of driver" queue develops in the first place wouldn't
->> one?
-> 
-> Indeed.
+From: Chuck Ebbert <cebbert@redhat.com>
+Date: Thu, 10 May 2007 17:07:46 -0400
 
-And one builds in qdisc because your device sink is slow. There's 
-nothing inherently there in the kernel encouraging Qdisc->q to grow. 
-It's precisely these broken devices that can take advantage of cluster 
-transmits.
+> Here in sys_recvmsg() line 1911:
+> 
+> ==>     if (sock->file->f_flags & O_NONBLOCK)
+>                 flags |= MSG_DONTWAIT;
+>         err = sock_recvmsg(sock, &msg_sys, total_len, flags);
+> 
+> sock == -1, apparently because that's what sockfd_lookup_light() 
+> returned earlier in the function. (It doesn't check err, just
+> that the returned sock is nonzero.)
 
---
-Gagan
+sockfd_lookup_light() returns NULL in all cases where 'err'
+is set non-zero.
+
+I suspect file->private_data has been corrupted somehow.
