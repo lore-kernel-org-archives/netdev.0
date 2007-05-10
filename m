@@ -1,51 +1,34 @@
-From: jamal <hadi@cyberus.ca>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [PATCH] sched: Optimize return value of qdisc_restart
-Date: Thu, 10 May 2007 09:18:04 -0400
-Message-ID: <1178803084.4074.48.camel@localhost>
-References: <E1Hm8Ey-0006oe-00@gondolin.me.apana.org.au>
-Reply-To: hadi@cyberus.ca
+Date: Thu, 10 May 2007 23:52:20 +1000
+Message-ID: <20070510135220.GA26655@gondor.apana.org.au>
+References: <E1Hm8Ey-0006oe-00@gondolin.me.apana.org.au> <1178803084.4074.48.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: davem@davemloft.net, krkumar2@in.ibm.com, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+To: jamal <hadi@cyberus.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.231]:61865 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755226AbXEJNSK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2007 09:18:10 -0400
-Received: by wx-out-0506.google.com with SMTP id h31so531989wxd
-        for <netdev@vger.kernel.org>; Thu, 10 May 2007 06:18:09 -0700 (PDT)
-In-Reply-To: <E1Hm8Ey-0006oe-00@gondolin.me.apana.org.au>
+Received: from rhun.apana.org.au ([64.62.148.172]:3602 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754453AbXEJNxH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2007 09:53:07 -0400
+Content-Disposition: inline
+In-Reply-To: <1178803084.4074.48.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2007-10-05 at 22:59 +1000, Herbert Xu wrote:
-> jamal <hadi@cyberus.ca> wrote:
+On Thu, May 10, 2007 at 09:18:04AM -0400, jamal wrote:
+> 
+> I wonder how much performance improvement this give now that the extra
+> incursion into qdisc_restart is avoided.
 
-> 			This release qlock isn't in our source code :)
+Probably very little since the only way it can make a difference is if
+there is lots of contention.  But if there is lots of contention we
+should stay in the function anyway.
 
-This is why i defered this to you ;-> 
-For completion sake, this is how it looks like:
- 
- CPU0                 CPU1
-  | wait qlock         |
-  |                    |
-  |                    + find that return code is 0
-  |                    + release qdisc running
-  |                    + release qlock
-  + grab qlock         + ==> outta here
-  | enq pktx           |
-  | call qdisc_run     |
-  +  grab running
-  |  deq etc
-  +  release running
-  + release qlock
-  + ==> outta here    
-
-I wonder how much performance improvement this give now that the extra
-incursion into qdisc_restart is avoided.
-
-cheers,
-jamal
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
