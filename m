@@ -1,50 +1,75 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [RFC] New driver API to speed up small packets xmits
-Date: Thu, 10 May 2007 12:08:11 -0400
-Message-ID: <1178813291.4062.32.camel@localhost>
-References: <20070510150833.GB24898@2ka.mipt.ru>
-	 <OF305F038C.A48D4C37-ON652572D7.00538ECA-652572D7.00546E39@in.ibm.com>
-	 <20070510154804.GA17474@2ka.mipt.ru>
-Reply-To: hadi@cyberus.ca
+From: Koon Wah Yick <kyick@alcatel-lucent.com>
+Subject: Re: Enable netem in my Linux box
+Date: Thu, 10 May 2007 12:09:46 -0400
+Message-ID: <464343CA.6090500@lucent.com>
+References: <4641E945.3070902@lucent.com> <20070510084232.147e1d8f@freepuppy>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Krishna Kumar2 <krkumar2@in.ibm.com>, netdev@vger.kernel.org
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Cc: Koon Wah Yick <kyick@alcatel-lucent.com>, netdev@vger.kernel.org,
+	"Yick, Koon Wah (Koon)" <kyick@homail.ho.lucent.com>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.238]:50894 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754866AbXEJQIP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2007 12:08:15 -0400
-Received: by wx-out-0506.google.com with SMTP id h31so588950wxd
-        for <netdev@vger.kernel.org>; Thu, 10 May 2007 09:08:14 -0700 (PDT)
-In-Reply-To: <20070510154804.GA17474@2ka.mipt.ru>
+Received: from hoemail1.lucent.com ([192.11.226.161]:35557 "EHLO
+	hoemail1.lucent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756120AbXEJQJw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2007 12:09:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2007-10-05 at 19:48 +0400, Evgeniy Polyakov wrote:
+Stephen:
 
-> IMHO if you do not see in profile anything related to driver's xmit
-> function, it does not require to be fixed. 
+Thank you for your response, I type in modinfo sch_netem
 
-True, but i think there may be value in amortizing the cost towards
-the driver. 
-i.e If you grab a lock and send X packets vs a single packet, depending
-on the cost of the lock you may observe a reduction in CPU.
+Here is what I got:
 
-I have tried similar experiments in the past and observed zero
-improvements in sane machines, but huge improvements on insane machines.
-Slides on my work here (just jump to about slide 93):
-http://vger.kernel.org/jamal_netconf2006.sxi
+filename: /lib/modules/2.6.11-1.1369_FC4/kernel/net/sched/sch_netem.ko
+license: GPL
+vermagic: 2.6.11-1.l369_FC 686 REGPARM 4KSTACKS gcc-4.0
+depends:
+srcversion: BD4563861423428FF0D5918
 
-One thought i had at the time was perhaps the e1000 DMA setup/teardown
-was very inefficient.
+when I try the following "tc" command with netem
 
-As the slides indicate i was trying to get throughput improvements but
-failed to seen any on sane machines.
-A suggestion made to me was to look at CPU utilization as a metric.
-Unfortunately i havent had any chance yet.
+> tc qdisc change dev eth0 root netem loss 0.1%
 
-cheers,
-jamal
+I got the error message
+RTNETLINK answers: No such file or directory.
+
+I downloaded the ipRoute2 packet, build and re-install.  Nothing change, same
+problem.  I do "make xconfig" on my current kernel, see component netem is not
+enable.  I enable it and re-build the kernel that does not work for me as well,
+the new kenerl does not boot (there may be other problem in building it).  Is
+there an easier way to enable NETEM?
+
+Koon-Wah.
+
+
+On 5/10/2007 11:42 AM, Stephen Hemminger wrote:
+> On Wed, 09 May 2007 11:31:17 -0400
+> Koon Wah Yick <kyick@alcatel-lucent.com> wrote:
+> 
+> 
+>>Hi:
+>>
+>>My Linux box has CentOS5 installed.  But I could not run tc command with any
+>>netem parameters in command line. as shown in web site
+>>http://linux-net.osdl.org/index.php/Netem.  I suspect, Netem was either not part
+>>of the installed OS or has not been enabled.  Can you tell how to verified?
+>>When I type in "rpm -qa" I see only iproute-2.6.18-4.el5, do I need iproute2?
+>>Can you tell me how to update my Linux kernel to include netem functionality.
+>>Thanks,
+>>
+>>Koon-Wah.
+>>
+>>
+>>-
+>>To unsubscribe from this list: send the line "unsubscribe netdev" in
+>>the body of a message to majordomo@vger.kernel.org
+>>More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> 
+> modinfo sch_netem
+> 
+
 
