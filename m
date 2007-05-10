@@ -1,74 +1,135 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH 00/17] sky2 update for 2.6.22
-Date: Wed, 9 May 2007 22:08:20 -0700
-Message-ID: <20070509220820.337bedb8@freepuppy>
-References: <20070509034949.624934448@linux-foundation.org>
-	<46414B30.6050603@garzik.org>
-	<20070509074811.23ba0bb9@freekitty>
-	<464258D5.5040402@garzik.org>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: Kconfig warnings on latest GIT
+Date: Thu, 10 May 2007 14:10:42 +0900
+Message-ID: <20070510051042.GA16812@verge.net.au>
+References: <200705080004.14570.ismail@pardus.org.tr> <20070508143127.38fafa3c.kim.phillips@freescale.com> <4640D988.1040504@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Greg KH <greg@kroah.com>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Kim Phillips <kim.phillips@freescale.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Ismail =?iso-8859-1?Q?D=F6nmez?= <ismail@pardus.org.tr>,
+	Kumar Gala <galak@kernel.crashing.org>,
+	Michael Schmitz <schmitz@debian.org>,
+	Roman Zippel <zippel@linux-m68k.org>,
+	Geert Uytterhoeven <geert@linux-m68k.org>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Paul Mackerras <paulus@samba.org>
+To: Timur Tabi <timur@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:57841 "EHLO smtp.osdl.org"
+Received: from koto.vergenet.net ([210.128.90.7]:43303 "EHLO koto.vergenet.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754585AbXEJFI2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 May 2007 01:08:28 -0400
-In-Reply-To: <464258D5.5040402@garzik.org>
+	id S1755507AbXEJFKq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 May 2007 01:10:46 -0400
+Content-Disposition: inline
+In-Reply-To: <4640D988.1040504@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 09 May 2007 19:27:17 -0400
-Jeff Garzik <jeff@garzik.org> wrote:
+On Tue, May 08, 2007 at 03:11:52PM -0500, Timur Tabi wrote:
+> Kim Phillips wrote:
+> >On Tue, 8 May 2007 00:04:14 +0300
+> >Ismail D=F6nmez <ismail@pardus.org.tr> wrote:
+> >>drivers/net/Kconfig:2279:warning: 'select' used by config symbol 'U=
+CC_GETH'=20
+> >>refers to undefined symbol 'UCC_FAST'
+> >looks like this introduces the error:
+> >commit 7d776cb596994219584257eb5956b87628e5deaf
+> >Author: Timur Tabi <timur@freescale.com>
+> >Date:   Mon Mar 12 15:40:27 2007 -0500
+> >    [POWERPC] QE: automatically select QE options
+>=20
+> I have a dilemma, so I need help fixing this bug.
+>=20
+> This particular patch is necessary because without it, selecting supp=
+ort for=20
+> the QE is too complicated.
+>=20
+> Background: The QUICC Engine (QE) is a microcontroller on some Freesc=
+ale CPUs=20
+> that can mimic a wide variety of devices.  It has multiple controller=
+s (called=20
+> UCCs), and each one can be an ethernet device, or a UART, or an HDLC =
+thingy,=20
+> etc.  There's a QE library and a bunch of other support code in the=20
+> arch/powerpc directory, so the QE is a powerpc-specific device.  Howe=
+ver, all=20
+> of the drivers that use it are located in drivers/xxx.
+>=20
+> This isn't a new problem.  The common solution is to define some inte=
+rmediate=20
+> Kconfig option, like UCC_FAST_TEMP in the driver's Kconfig.  Selectin=
+g UCC_FAST=20
+> will then also set UCC_FAST_TEMP.  The device driver then depends on=20
+> UCC_FAST_TEMP.
+>=20
+> There's also a UCC_SLOW option with the same problem.
+>=20
+> The dillema is that there is no single device driver class that depen=
+ds on=20
+> UCC_FAST. Currently, there's only one that uses UCC_FAST: the ucc_get=
+h driver. =20
+> But I'm also working on a UART driver.
+>=20
+> So my question is: in which Kconfig do I define "UCC_FAST_TEMP" and=20
+> "UCC_SLOW_TEMP"?  At first I thought, just put it in drivers/Kconfig,=
+ but that=20
+> Kconfig does nothing but including other Kconfigs.  I believe that if=
+ I submit=20
+> a patch that adds "UCC_FAST_TEMP" and "UCC_SLOW_TEMP" to drivers/Kcon=
+fig, it=20
+> will be rejected.  Either that, or I'll spend six weeks trying to per=
+suade=20
+> everyone that it's a good idea.
+>=20
+> Does anyone have any suggestions on how I can fix this?
 
-> Stephen Hemminger wrote:
-> > On Wed, 09 May 2007 00:16:48 -0400
-> > Jeff Garzik <jeff@garzik.org> wrote:
-> > 
-> >> Stephen Hemminger wrote:
-> >>> Patches are against netdev-2.6 upstream code branch.
-> >>>
-> >>> This includes a several bug fixes, and code cleanup to use standard
-> >>> functions. There are a couple of PCI changes. One bug fix, and moving
-> >>> common code in PCI base.
-> >> The standard development process is:
-> >>
-> >> 	* new code gets pushed to me during 2.6.X-rc
-> >> 	* that code is auto-propagated to akpm's -mm tree for
-> >> 	  additional exposure
-> >> 	* merge window opens
-> >> 	* I push upstream
-> >>
-> >> That ensures code gets at least /some/ additional review, testing, 
-> >> "settling" time.
-> > 
-> > Sorry for the late merge, but between the closing of OSDL office and
-> > the fixing of critical bugs the other stuff got pushed into the "next release"
-> > bin and wasn't really ready until now.
-> > 
-> >> This is a late date to be expecting stuff to be pushed straight into 2.6.22.
-> > 
-> > Then hold it for 2.6.23.
-> 
-> You sure you don't want to split off the bug fixes, and submit those for 
-> 2.6.22?
-> 
-> An oops fix is certainly 2.6.22 material...
-> 
+That does seem like a reasonable suggestion, and one that
+would probably work well with the other similar problems
+that have been introduced sice 2.6.21.
 
-I'll split into groups and let you decide where the cut off is:
+drivers/input/keyboard/Kconfig:170:warning: 'select' used by config sym=
+bol 'KEYBOARD_ATARI' refer to undefined symbol 'ATARI_KBD_CORE'
+drivers/input/mouse/Kconfig:102:warning: 'select' used by config symbol=
+ 'MOUSE_ATARI' refer to undefined symbol 'ATARI_KBD_CORE'
 
-1) crashes for stable and 2.6.22
-2) stuff that should be fixed in 2.6.22 but isn't stable material
-3) newer stuff for -mm or later release
+Which seem to be introduced by:
 
-Also, I just got loaner versions of the just release 88e807X hardware
-so it maybe possible to get that working before 2.6.22 final.
+commit c04cb856e20a8bf68762d60737b84328c1ab5900
+Author: Michael Schmitz <schmitz@opal.biophys.uni-duesseldorf.de>
+Date:   Tue May 1 22:32:38 2007 +0200
 
+    m68k: Atari keyboard and mouse support.
+   =20
+    Atari keyboard and mouse support.
+    (reformating and Kconfig fixes by Roman Zippel)
+   =20
+    Signed-off-by: Michael Schmitz <schmitz@debian.org>
+    Signed-off-by: Roman Zippel <zippel@linux-m68k.org>
+    Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+    Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
 
+drivers/macintosh/Kconfig:112:warning: 'select' used by config symbol '=
+PMAC_APM_EMU' refer to undefined symbol 'SYS_SUPPORTS_APM_EMULATION'
 
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+Which seems to have been introduced by:
+
+commit b302887854d6f0c6f9fc3f1080535e7c1bd53134
+Author: Johannes Berg <johannes@sipsolutions.net>
+Date:   Tue Mar 20 05:18:02 2007 +1100
+
+    [POWERPC] apm_emu: Use generic apm-emulation
+   =20
+    This patch removes a huge amount of code that is now in common code
+    in drivers/char/apm-emulation.c
+   =20
+    Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
+    Acked-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+    Signed-off-by: Paul Mackerras <paulus@samba.org>
+
+--=20
+Horms
+  H: http://www.vergenet.net/~horms/
+  W: http://www.valinux.co.jp/en/
+
