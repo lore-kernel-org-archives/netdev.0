@@ -1,36 +1,34 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [RFC] New driver API to speed up small packets xmits
-Date: Thu, 10 May 2007 14:13:42 -0400
-Message-ID: <464360D6.4080402@hp.com>
-References: <OF305F038C.A48D4C37-ON652572D7.00538ECA-652572D7.00546E39@in.ibm.com> <46435412.50800@hp.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] phylib: phy_ethtool_{sset,gset} -- check phydev for NULL
+Date: Thu, 10 May 2007 14:19:01 -0400
+Message-ID: <46436215.7030503@garzik.org>
+References: <8496f91a0705101029g794ee4a7t1c6a34ad13444c49@mail.gmail.com> <20070510105613.f564e083.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Krishna Kumar2 <krkumar2@in.ibm.com>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org
-To: Rick Jones <rick.jones2@hp.com>
+Cc: matvejchikov@gmail.com, netdev@vger.kernel.org
+To: Randy Dunlap <randy.dunlap@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel8.hp.com ([156.153.255.206]:50126 "EHLO atlrel8.hp.com"
+Received: from srv5.dvmed.net ([207.36.208.214]:58526 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752696AbXEJSNq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 May 2007 14:13:46 -0400
-In-Reply-To: <46435412.50800@hp.com>
+	id S1753144AbXEJSTE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 May 2007 14:19:04 -0400
+In-Reply-To: <20070510105613.f564e083.randy.dunlap@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Rick Jones wrote:
->> It is the reverse - GSO will segment one super-packet just before calling
->> the driver so that the stack is traversed only once. In my case, I am
->> trying to send out multiple skbs, possibly small packets, in one shot.
->> GSO will not help for small packets.
+Randy Dunlap wrote:
+> and I hope that Jeff prefers (as some others do):
 > 
-> If there are small packets that implies small sends, which suggests that
-> they would be coalesced either implicitly by the Nagle algorithm or
-> explicitly with TCP_CORK no?
+> 	if (unlikely(phydev == NULL))
 > 
-> rick jones
-> -
+> or even
+> 
+> 	if (unlikely(!phydev))
 
-May be for TCP?  What about other protocols?
 
--vlad
+That is indeed my preference :)
+
+	Jeff
+
+
