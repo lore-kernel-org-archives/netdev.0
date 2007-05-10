@@ -1,69 +1,45 @@
-From: "Injong Rhee" <rhee@eos.ncsu.edu>
-Subject: Re: 2.6.20.7 TCP cubic (and bic) initial slow start way too slow?
-Date: Thu, 10 May 2007 16:57:04 -0400
-Message-ID: <002301c79345$c45ffd00$4a580e98@ncsu2cc0c3fa00>
-References: <20070509023131.70e2cc45.billfink@mindspring.com><20070510113215.f5ff2d34.billfink@mindspring.com><2994.152.14.88.74.1178822365.squirrel@webmail.ncsu.edu><20070510.133522.99205764.davem@davemloft.net> <20070510134547.7ec30308@freepuppy>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [NET_SCHED]: Avoid requeue warning on dev_deactivate
+Date: Thu, 10 May 2007 14:13:10 -0700 (PDT)
+Message-ID: <20070510.141310.09953417.davem@davemloft.net>
+References: <20070510125304.GA26090@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	format=flowed;
-	charset="ISO-8859-1";
-	reply-type=original
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <rhee@ncsu.edu>, <billfink@mindspring.com>, <sangtae.ha@gmail.com>,
-	<netdev@vger.kernel.org>
-To: "Stephen Hemminger" <shemminger@linux-foundation.org>,
-	"David Miller" <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from uni12mr.unity.ncsu.edu ([152.1.1.171]:55324 "EHLO
-	uni12mr.unity.ncsu.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757046AbXEJVMa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2007 17:12:30 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58995
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1756135AbXEJVNH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2007 17:13:07 -0400
+In-Reply-To: <20070510125304.GA26090@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Oops. I thought Bill was using 2.6.20 instead of 2.6.22 which should contain 
-our latest update.
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Thu, 10 May 2007 22:53:04 +1000
 
-Regarding slow start behavior, the latest version should not change though. 
-I think it would be ok to change the slow start of bic and cubic to the 
-default slow start. But what we observed is that when BDP is large, 
-increasing cwnd by two times is really an overkill. consider increasing from 
-1024 into 2048 packets..maybe the target is somewhere between them. We have 
-potentially a large number of packets flushed into the network. That was the 
-original motivation to change slow start from the default into a more gentle 
-version. But I see the point that Bill is raising. We are working on 
-improving this behavior in our lab. We will get back to this topic in a 
-couple of weeks after we finish our testing and produce a patch.
-
-
------ Original Message ----- 
-From: "Stephen Hemminger" <shemminger@linux-foundation.org>
-To: "David Miller" <davem@davemloft.net>
-Cc: <rhee@ncsu.edu>; <billfink@mindspring.com>; <sangtae.ha@gmail.com>; 
-<netdev@vger.kernel.org>
-Sent: Thursday, May 10, 2007 4:45 PM
-Subject: Re: 2.6.20.7 TCP cubic (and bic) initial slow start way too slow?
-
-
-> On Thu, 10 May 2007 13:35:22 -0700 (PDT)
-> David Miller <davem@davemloft.net> wrote:
->
->> From: rhee@ncsu.edu
->> Date: Thu, 10 May 2007 14:39:25 -0400 (EDT)
->>
->> >
->> > Bill,
->> > Could you test with the lastest version of CUBIC? this is not the 
->> > latest
->> > version of it you tested.
->>
->> Rhee-sangsang-nim, it might be a lot easier for people if you provide
->> a patch against the current tree for users to test instead of
->> constantly pointing them to your web site.
->> -
->
-> The 2.6.22 version should have the latest version, that I know of.
-> There was small patch from 2.6.21 that went in.
+> [NET_SCHED]: Avoid requeue warning on dev_deactivate
 > 
+> When we relinquish queue_lock in qdisc_restart and then retake it for
+> requeueing, we might race against dev_deactivate and end up requeueing
+> onto noop_qdisc.  This causes a warning to be printed.
+> 
+> This patch fixes this by checking this before we requeue.  As an added
+> bonus, we can remove the same check in __qdisc_run which was added to
+> prevent dev->gso_skb from being requeued when we're shutting down.
+> 
+> Even though we've had to add a new conditional in its place, it's better
+> because it only happens on requeues rather than every single time that
+> qdisc_run is called.
+> 
+> For this to work we also need to move the clearing of gso_skb up in
+> dev_deactivate as now qdisc_restart can occur even after we wait for
+> __LINK_STATE_QDISC_RUNNING to clear (but it won't do anything as long
+> as the queue and gso_skb is already clear).
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
 
+Looks good, applied.
