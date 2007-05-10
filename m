@@ -1,203 +1,67 @@
-From: Florian Fainelli <florian.fainelli@telecomint.eu>
-Subject: Re: Network activity LED trigger
-Date: Thu, 10 May 2007 21:21:05 +0200
-Message-ID: <200705102121.07962.florian.fainelli@telecomint.eu>
-References: <200703012241.49165.florian.fainelli@int-evry.fr> <1172844668.4864.46.camel@localhost> <200703021516.06638.florian.fainelli@int-evry.fr>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [RFC] New driver API to speed up small packets xmits
+Date: Thu, 10 May 2007 16:11:27 -0400
+Message-ID: <1178827887.4062.90.camel@localhost>
+References: <OF305F038C.A48D4C37-ON652572D7.00538ECA-652572D7.00546E39@in.ibm.com>
+	 <46435412.50800@hp.com>
+	 <1178820423.17393.3.camel@w-sridhar2.beaverton.ibm.com>
+	 <464375F9.1050600@gmail.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart3981064.2QastBrlsh";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Richard Purdie <rpurdie@rpsys.net>
-To: hadi@cyberus.ca, Mark Brown <broonie@sirena.org.uk>
+Cc: Sridhar Samudrala <sri@us.ibm.com>,
+	Rick Jones <rick.jones2@hp.com>,
+	Krishna Kumar2 <krkumar2@in.ibm.com>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org
+To: Gagan Arneja <gaagaan@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-ext.int-evry.fr ([157.159.11.17]:37548 "EHLO
-	smtp-ext.int-evry.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760935AbXEJUBm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2007 16:01:42 -0400
-In-Reply-To: <200703021516.06638.florian.fainelli@int-evry.fr>
+Received: from wx-out-0506.google.com ([66.249.82.237]:19485 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754996AbXEJULa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2007 16:11:30 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so660614wxd
+        for <netdev@vger.kernel.org>; Thu, 10 May 2007 13:11:30 -0700 (PDT)
+In-Reply-To: <464375F9.1050600@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart3981064.2QastBrlsh
-Content-Type: multipart/mixed;
-  boundary="Boundary-01=_hC3QGl84ZEe6Mov"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
 
---Boundary-01=_hC3QGl84ZEe6Mov
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+The discussion seems to have steered into protocol coalescing.
+My tests for example were related to forwarding and not specific
+to any protocol.
 
-Hi all,
+On Thu, 2007-10-05 at 12:43 -0700, Gagan Arneja wrote:
 
-Here comes a basic patch that adds a network led activity. It is not=20
-configurable yet, but is enough to make a LED configured with=20
-the "network-activity" trigger to blink on network activity.
+> It's not just small packets. The cost of calling hard_start_xmit/byte 
+> was rather high on your particular device. I've seen  PCI read 
+> transaction in hard_start_xmit taking ~10,000 cycles on one particular 
+> device. Count the cycles your brand of NIC is taking in it's 
+> xmit_routine. The worse it is, the stronger your case for cluster 
+> transmits.
 
-Netdev people can probably comment on the place of ledtrig_network_activity=
-(),=20
-which is probably not adequate. Also the ledtrig_network_activity can be=20
-network device specific for instance.
+You would need to almost re-write the driver to make sure it does IO
+which is taking advantage of the batching. 
 
-Signed-off-by: Florian Fainelli <florian.fainelli@telecomint.eu>
-=2D-
+> Also, I think, you don't have to chain skbs, they're already chained in 
+>   Qdisc->q. 
+> All you have to do is take the whole q and try to shove it 
+> at the device hoping for better results. 
 
---Boundary-01=_hC3QGl84ZEe6Mov
-Content-Type: text/plain;
-  charset="iso-8859-1";
-  name="ledtrig_network.patch"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: attachment;
-	filename="ledtrig_network.patch"
+You are onto something with desire to use the qdisc; however, note you
+need to leave the qdisc above so other CPUs can continue enqueueing.
+In my approach i used the qdisc to populate a list that is attached to
+the dev.
 
-diff --git a/drivers/leds/Kconfig b/drivers/leds/Kconfig
-index 80acd08..25d2b58 100644
-=2D-- a/drivers/leds/Kconfig
-+++ b/drivers/leds/Kconfig
-@@ -127,5 +127,12 @@ config LEDS_TRIGGER_HEARTBEAT
- 	  load average.
- 	  If unsure, say Y.
-=20
-+config LEDS_TRIGGER_NETWORK_ACT
-+	tristate "LED Network Activity Trigger"
-+	depends on LEDS_TRIGGER && NET
-+	help
-+	  This allow LEDs to be controlled by network activity at layer-3 network=
-ing.
-+	  If unsure, say Y.
-+
- endmenu
-=20
-diff --git a/drivers/leds/Makefile b/drivers/leds/Makefile
-index aa2c18e..bc899d3 100644
-=2D-- a/drivers/leds/Makefile
-+++ b/drivers/leds/Makefile
-@@ -21,3 +21,4 @@ obj-$(CONFIG_LEDS_COBALT)		+=3D leds-cobalt.o
- obj-$(CONFIG_LEDS_TRIGGER_TIMER)	+=3D ledtrig-timer.o
- obj-$(CONFIG_LEDS_TRIGGER_IDE_DISK)	+=3D ledtrig-ide-disk.o
- obj-$(CONFIG_LEDS_TRIGGER_HEARTBEAT)	+=3D ledtrig-heartbeat.o
-+obj-$(CONFIG_LEDS_TRIGGER_NETWORK_ACT)  +=3D ledtrig-network-activity.o
-diff --git a/drivers/leds/ledtrig-network-activity.c b/drivers/leds/ledtrig=
-=2Dnetwork-activity.c
-new file mode 100644
-index 0000000..88d17bb
-=2D-- /dev/null
-+++ b/drivers/leds/ledtrig-network-activity.c
-@@ -0,0 +1,61 @@
-+/*
-+ * LED Network Activity Trigger
-+ * based on ledtrig-ide-disk by Richard Purdie
-+ *=20
-+ * Copyright 2007 Florian Fainelli <florian@openwrt.org>
-+ *=20
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
-+ *=20
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/jiffies.h>
-+#include <linux/kernel.h>
-+#include <linux/init.h>
-+#include <linux/timer.h>
-+#include <linux/leds.h>
-+
-+static void ledtrig_network_timerfunc(unsigned long data);
-+
-+DEFINE_LED_TRIGGER(ledtrig_network);
-+static DEFINE_TIMER(ledtrig_network_timer, ledtrig_network_timerfunc, 0, 0=
-);
-+static int network_activity, network_lastactivity;
-+
-+void ledtrig_network_activity(void)
-+{
-+	network_activity++;
-+	if (!timer_pending(&ledtrig_network_timer))
-+		mod_timer(&ledtrig_network_timer, jiffies + msecs_to_jiffies(10));
-+}
-+EXPORT_SYMBOL(ledtrig_network_activity);
-+
-+static void ledtrig_network_timerfunc(unsigned long data)
-+{
-+	if (network_lastactivity !=3D network_activity) {
-+		network_lastactivity =3D network_activity;
-+		led_trigger_event(ledtrig_network, LED_FULL);
-+		mod_timer(&ledtrig_network_timer, jiffies + msecs_to_jiffies(10));
-+	} else {
-+		led_trigger_event(ledtrig_network, LED_OFF);
-+	}
-+}
-+
-+static int __init ledtrig_network_init(void)
-+{
-+	led_trigger_register_simple("network-activity", &ledtrig_network);
-+	return 0;
-+}
-+
-+static void __exit ledtrig_network_exit(void)
-+{
-+	led_trigger_unregister_simple(ledtrig_network);
-+}
-+
-+module_init(ledtrig_network_init);
-+module_exit(ledtrig_network_exit);
-+
-+MODULE_AUTHOR("Florian Fainelli <florian@openwrt.org>");
-+MODULE_DESCRIPTION("LED Network Activity trigger");
-+MODULE_LICENSE("GPL");
-diff --git a/include/linux/leds.h b/include/linux/leds.h
-index 88afcef..ed3774e 100644
-=2D-- a/include/linux/leds.h
-+++ b/include/linux/leds.h
-@@ -110,4 +110,10 @@ extern void ledtrig_ide_activity(void);
- #define ledtrig_ide_activity() do {} while(0)
- #endif
-=20
-+#ifdef CONFIG_LEDS_TRIGGER_NETWORK_ACT
-+extern void ledtrig_network_activity(void);
-+#else
-+#define ledtrig_network_activity() do {} while(0)
-+#endif
-+
- #endif		/* __LINUX_LEDS_H_INCLUDED */
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 4317c1b..9423b26 100644
-=2D-- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -116,6 +116,7 @@
- #include <linux/dmaengine.h>
- #include <linux/err.h>
- #include <linux/ctype.h>
-+#include <linux/leds.h>
-=20
- /*
-  *	The list of packet types we will receive (as opposed to discard)
-@@ -1451,6 +1452,8 @@ int dev_queue_xmit(struct sk_buff *skb)
- gso:
- 	spin_lock_prefetch(&dev->queue_lock);
-=20
-+	ledtrig_network_activity();
-+
- 	/* Disable soft irqs for various locks below. Also
- 	 * stops preemption for RCU.
- 	 */
+> But then, if you have rather 
+> big backlog, you run the risk of reordering packets if you have to requeue.
 
---Boundary-01=_hC3QGl84ZEe6Mov--
+You could avoid totaly requeueing by asking the driver how much space it
+has. Once you shove down to it a number of packets, you are then
+guaranteed they will never be requeued (refer to the slides i pointed to
+earlier).
 
---nextPart3981064.2QastBrlsh
-Content-Type: application/pgp-signature
+cheers,
+jamal
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.3 (GNU/Linux)
 
-iD8DBQBGQ3Cjmx9n1G/316sRAl39AJ9I2ZlAShS4HkkC/Ac9phWF5y4PpQCfQzXg
-VXnQpFBoZ7YkSrnwjuLqr+s=
-=eEb/
------END PGP SIGNATURE-----
-
---nextPart3981064.2QastBrlsh--
