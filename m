@@ -1,51 +1,35 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: Network activity LED trigger
-Date: Thu, 10 May 2007 16:27:28 -0400
-Message-ID: <1178828848.4062.104.camel@localhost>
-References: <200703012241.49165.florian.fainelli@int-evry.fr>
-	 <1172844668.4864.46.camel@localhost>
-	 <200703021516.06638.florian.fainelli@int-evry.fr>
-	 <200705102121.07962.florian.fainelli@telecomint.eu>
-Reply-To: hadi@cyberus.ca
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC] New driver API to speed up small packets xmits
+Date: Thu, 10 May 2007 13:32:16 -0700 (PDT)
+Message-ID: <20070510.133216.95506791.davem@davemloft.net>
+References: <4643654F.5060207@hp.com>
+	<5640c7e00705101159w68750a47xc06495e4395de583@mail.gmail.com>
+	<464370BA.3020907@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Mark Brown <broonie@sirena.org.uk>, netdev@vger.kernel.org,
-	Richard Purdie <rpurdie@rpsys.net>
-To: Florian Fainelli <florian.fainelli@telecomint.eu>
+Cc: ian.mcdonald@jandi.co.nz, rick.jones2@hp.com, krkumar2@in.ibm.com,
+	johnpol@2ka.mipt.ru, netdev@vger.kernel.org
+To: vladislav.yasevich@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.232]:29606 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754130AbXEJU1b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2007 16:27:31 -0400
-Received: by wx-out-0506.google.com with SMTP id h31so665238wxd
-        for <netdev@vger.kernel.org>; Thu, 10 May 2007 13:27:30 -0700 (PDT)
-In-Reply-To: <200705102121.07962.florian.fainelli@telecomint.eu>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39111
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1755016AbXEJUcN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2007 16:32:13 -0400
+In-Reply-To: <464370BA.3020907@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Date: Thu, 10 May 2007 15:21:30 -0400
 
-On Thu, 2007-10-05 at 21:21 +0200, Florian Fainelli wrote:
+> The win might be biggest on a system were a lot of applications send
+> a lot of small packets.  Some number will aggregate in the prio
+> queue and then get shoved into a driver in one go.
+>
+> But...  this is all conjecture until we see the code.
 
-> Netdev people can probably comment on the place of ledtrig_network_activity(), 
-> which is probably not adequate. Also the ledtrig_network_activity can be 
-> network device specific for instance.
+Also, whatever you gain in cpu usage you'll lose in latency.
 
-Thanks for CCing me Florian.
-Yes, ledtrig_network_activity() should be device specific - given the
-spot you have it at. Just pass dev->name for example and filter on
-whether the user wanted that specific device.
-
-Additionaly is there a way to sort of light different colors depending
-whether it is an incoming packet or outgoing?
-Then you can pass a hook number OUT in the case where you have
-ledtrig_network_activity() at the moment. This way we can add
-multiple hooks within the network stack.
-I dont remember the original patches you posted, but could you have 
-multiple LEDs as well?
-
-cheers,
-jamal
-
-
-
+And things sending tiny frames are exactly the ones that care about
+latency.
