@@ -1,203 +1,48 @@
-From: Kim Phillips <kim.phillips@freescale.com>
-Subject: [PATCH 2/6 v2] phylib: add the ICPlus IP175C PHY driver
-Date: Thu, 10 May 2007 15:16:11 -0500
-Message-ID: <20070510151611.1a8a0af8.kim.phillips@freescale.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [RFC] New driver API to speed up small packets xmits
+Date: Thu, 10 May 2007 16:21:20 -0400
+Message-ID: <1178828480.4062.98.camel@localhost>
+References: <OF305F038C.A48D4C37-ON652572D7.00538ECA-652572D7.00546E39@in.ibm.com>
+	 <46435412.50800@hp.com>
+	 <1178820423.17393.3.camel@w-sridhar2.beaverton.ibm.com>
+	 <464375F9.1050600@gmail.com> <1178827887.4062.90.camel@localhost>
+	 <46437D53.7000209@gmail.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-To: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org
+Cc: Sridhar Samudrala <sri@us.ibm.com>,
+	Rick Jones <rick.jones2@hp.com>,
+	Krishna Kumar2 <krkumar2@in.ibm.com>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org
+To: Gagan Arneja <gaagaan@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from de01egw01.freescale.net ([192.88.165.102]:51050 "EHLO
-	de01egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756509AbXEJUQT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2007 16:16:19 -0400
+Received: from wx-out-0506.google.com ([66.249.82.224]:26077 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755115AbXEJUVY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2007 16:21:24 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so663527wxd
+        for <netdev@vger.kernel.org>; Thu, 10 May 2007 13:21:23 -0700 (PDT)
+In-Reply-To: <46437D53.7000209@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Michael Barkowski <michael.barkowski@freescale.com>
+On Thu, 2007-10-05 at 13:15 -0700, Gagan Arneja wrote:
 
-The ICPlus IP175C sports a 100Mbit/s 4-port switch in addition
-to a dedicated 100Mbit/s WAN port.
+> Really! It's just the transmit routine. How radical can that be?
+> 
 
-Signed-off-by: Michael Barkowski <michael.barkowski@freescale.com>
-Signed-off-by: Kim Phillips <kim.phillips@freescale.com>
---- 
-v2: adjusted to read PHY reset register before performing prescribed delay,
-to account for bus delays; udelay -> mdelay; plus fixed codingstyle issues.
+Ok, you have a point there, but it could be challenging with many
+tunables:
+For example:
+my biggest challenge with the e1000 was just hacking up the DMA setup
+path - i seem to get better numbers if i dont kick the DMA until i stash
+all the packets on the ring first etc. It seemed counter-intuitive.
 
- drivers/net/phy/Kconfig  |    6 ++
- drivers/net/phy/Makefile |    1 +
- drivers/net/phy/icplus.c |  134 ++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 141 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/phy/icplus.c
+Now if you can ammortize PCI operations as well (the 10K cycles you
+pointed out), i think thats where you get the best bang for the buck.
 
-diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-index f994f12..91cf33e 100644
---- a/drivers/net/phy/Kconfig
-+++ b/drivers/net/phy/Kconfig
-@@ -62,6 +62,12 @@ config BROADCOM_PHY
- 	---help---
- 	  Currently supports the BCM5411, BCM5421 and BCM5461 PHYs.
- 
-+config ICPLUS_PHY
-+	tristate "Drivers for ICPlus PHYs"
-+	depends on PHYLIB
-+	---help---
-+	  Currently supports the IP175C PHY.
-+
- config FIXED_PHY
- 	tristate "Drivers for PHY emulation on fixed speed/link"
- 	depends on PHYLIB
-diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
-index bcd1efb..8885650 100644
---- a/drivers/net/phy/Makefile
-+++ b/drivers/net/phy/Makefile
-@@ -11,4 +11,5 @@ obj-$(CONFIG_QSEMI_PHY)		+= qsemi.o
- obj-$(CONFIG_SMSC_PHY)		+= smsc.o
- obj-$(CONFIG_VITESSE_PHY)	+= vitesse.o
- obj-$(CONFIG_BROADCOM_PHY)	+= broadcom.o
-+obj-$(CONFIG_ICPLUS_PHY)	+= icplus.o
- obj-$(CONFIG_FIXED_PHY)		+= fixed.o
-diff --git a/drivers/net/phy/icplus.c b/drivers/net/phy/icplus.c
-new file mode 100644
-index 0000000..af3f1f2
---- /dev/null
-+++ b/drivers/net/phy/icplus.c
-@@ -0,0 +1,134 @@
-+/*
-+ * Driver for ICPlus PHYs
-+ *
-+ * Copyright (c) 2007 Freescale Semiconductor, Inc.
-+ *
-+ * This program is free software; you can redistribute  it and/or modify it
-+ * under  the terms of  the GNU General  Public License as published by the
-+ * Free Software Foundation;  either version 2 of the  License, or (at your
-+ * option) any later version.
-+ *
-+ */
-+#include <linux/kernel.h>
-+#include <linux/string.h>
-+#include <linux/errno.h>
-+#include <linux/unistd.h>
-+#include <linux/slab.h>
-+#include <linux/interrupt.h>
-+#include <linux/init.h>
-+#include <linux/delay.h>
-+#include <linux/netdevice.h>
-+#include <linux/etherdevice.h>
-+#include <linux/skbuff.h>
-+#include <linux/spinlock.h>
-+#include <linux/mm.h>
-+#include <linux/module.h>
-+#include <linux/mii.h>
-+#include <linux/ethtool.h>
-+#include <linux/phy.h>
-+
-+#include <asm/io.h>
-+#include <asm/irq.h>
-+#include <asm/uaccess.h>
-+
-+MODULE_DESCRIPTION("ICPlus IP175C PHY driver");
-+MODULE_AUTHOR("Michael Barkowski");
-+MODULE_LICENSE("GPL");
-+
-+static int ip175c_config_init(struct phy_device *phydev)
-+{
-+	int err, i;
-+	static int full_reset_performed = 0;
-+
-+	if (full_reset_performed == 0) {
-+
-+		/* master reset */
-+		err = phydev->bus->write(phydev->bus, 30, 0, 0x175c);
-+		if (err < 0)
-+			return err;
-+
-+		/* ensure no bus delays overlap reset period */
-+		err = phydev->bus->read(phydev->bus, 30, 0);
-+
-+		/* data sheet specifies reset period is 2 msec */
-+		mdelay(2);
-+
-+		/* enable IP175C mode */
-+		err = phydev->bus->write(phydev->bus, 29, 31, 0x175c);
-+		if (err < 0)
-+			return err;
-+
-+		/* Set MII0 speed and duplex (in PHY mode) */
-+		err = phydev->bus->write(phydev->bus, 29, 22, 0x420);
-+		if (err < 0)
-+			return err;
-+
-+		/* reset switch ports */
-+		for (i = 0; i < 5; i++) {
-+			err = phydev->bus->write(phydev->bus, i,
-+						 MII_BMCR, BMCR_RESET);
-+			if (err < 0)
-+				return err;
-+		}
-+
-+		for (i = 0; i < 5; i++)
-+			err = phydev->bus->read(phydev->bus, i, MII_BMCR);
-+
-+		mdelay(2);
-+
-+		full_reset_performed = 1;
-+	}
-+
-+	if (phydev->addr != 4) {
-+		phydev->state = PHY_RUNNING;
-+		phydev->speed = SPEED_100;
-+		phydev->duplex = DUPLEX_FULL;
-+		phydev->link = 1;
-+		netif_carrier_on(phydev->attached_dev);
-+	}
-+
-+	return 0;
-+}
-+
-+static int ip175c_read_status(struct phy_device *phydev)
-+{
-+	if (phydev->addr == 4) /* WAN port */
-+		genphy_read_status(phydev);
-+	else
-+		/* Don't need to read status for switch ports */
-+		phydev->irq = PHY_IGNORE_INTERRUPT;
-+
-+	return 0;
-+}
-+
-+static int ip175c_config_aneg(struct phy_device *phydev)
-+{
-+	if (phydev->addr == 4) /* WAN port */
-+		genphy_config_aneg(phydev);
-+
-+	return 0;
-+}
-+
-+static struct phy_driver ip175c_driver = {
-+	.phy_id		= 0x02430d80,
-+	.name		= "ICPlus IP175C",
-+	.phy_id_mask	= 0x0ffffff0,
-+	.features	= PHY_BASIC_FEATURES,
-+	.config_init	= &ip175c_config_init,
-+	.config_aneg	= &ip175c_config_aneg,
-+	.read_status	= &ip175c_read_status,
-+	.driver		= { .owner = THIS_MODULE,},
-+};
-+
-+static int __init ip175c_init(void)
-+{
-+	return phy_driver_register(&ip175c_driver);
-+}
-+
-+static void __exit ip175c_exit(void)
-+{
-+	phy_driver_unregister(&ip175c_driver);
-+}
-+
-+module_init(ip175c_init);
-+module_exit(ip175c_exit);
--- 
-1.5.0.3
+cheers,
+jamal
+
 
