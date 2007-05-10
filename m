@@ -1,52 +1,56 @@
-From: Kumar Gala <galak@kernel.crashing.org>
-Subject: Re: support for bridging ethernet and 802.11
-Date: Thu, 10 May 2007 13:25:05 -0500
-Message-ID: <04037A3C-17A3-46BB-BCE9-4BC880BF4FDF@kernel.crashing.org>
-References: <CCA1D7C0-D44A-450D-A76E-DAE792E0CB37@kernel.crashing.org> <1178816781.3806.31.camel@johannes.berg> <20070510171213.GD24712@devicescape.com> <1178817575.3806.36.camel@johannes.berg> <20070510172510.GE24712@devicescape.com>
-Mime-Version: 1.0 (Apple Message framework v752.2)
-Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	netdev <netdev@vger.kernel.org>,
-	linux-wireless <linux-wireless@vger.kernel.org>
-To: Jouni Malinen <jkm@devicescape.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nommos.sslcatacombnetworking.com ([67.18.224.114]:12150 "EHLO
-	nommos.sslcatacombnetworking.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751044AbXEJSZy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2007 14:25:54 -0400
-In-Reply-To: <20070510172510.GE24712@devicescape.com>
-Sender: netdev-owner@vger.kernel.org
+From: "Qi, Yanling" <Yanling.Qi@lsi.com>
+Subject: RE: SG_IO with >4k buffer size to iscsi sg device causes "Bad page" panic
+Date: Thu, 10 May 2007 12:31:18 -0600
+Message-ID: <0F08E10B769EAF4EA2C43A573B8CC87FB572B9@NAMAIL3.ad.lsil.com>
+References: <E1HlvkD-0004zY-00@gondolin.me.apana.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, <linux-scsi@vger.kernel.org>,
+	<linux-iscsi-devel@lists.sourceforge.net>, <michaelc@cs.wisc.edu>,
+	<dougg@torque.net>, <James.Bottomley@steeleye.com>
+To: <open-iscsi@googlegroups.com>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <E1HlvkD-0004zY-00@gondolin.me.apana.org.au>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-On May 10, 2007, at 12:25 PM, Jouni Malinen wrote:
 
-> On Thu, May 10, 2007 at 07:19:35PM +0200, Johannes Berg wrote:
->
->> Ah forgot about that, I had only thought about AP/wired bridging. How
->> would the prism driver actually do bridging in STA mode though?
->
-> If that is referring to Host AP driver, there is support for using WDS
-> in client mode. If the AP understands this, the client could use
-> standard frames for its own packets (i.e., SA=own MAC addr) and WDS
-> frames for frames from all other addresses. There are some  
-> experimental
-> modes in Host AP driver that (if I remember correctly ;-) may allow  
-> this
-> to be used on a single netdev (i.e., no additional netdev needed  
-> for the
-> WDS link) and as such, this would look like working layer 2 bridging
-> between wlan0 and eth0 even in managed mode.
+> -----Original Message-----
+> From: open-iscsi@googlegroups.com [mailto:open-iscsi@googlegroups.com]
+On
+> Behalf Of Herbert Xu
+> Sent: Wednesday, May 09, 2007 6:39 PM
+> To: Qi, Yanling
+> Cc: netdev@vger.kernel.org; linux-scsi@vger.kernel.org; open-
+> iscsi@googlegroups.com; linux-iscsi-devel@lists.sourceforge.net; Qi,
+> Yanling; michaelc@cs.wisc.edu; dougg@torque.net;
+> James.Bottomley@steeleye.com
+> Subject: Re: SG_IO with >4k buffer size to iscsi sg device causes "Bad
+> page" panic
+> 
+> 
+> Qi, Yanling <Yanling.Qi@lsi.com> wrote:
+> > @@ -2571,6 +2572,13 @@ sg_page_malloc(int rqSz, int lowDma, int
+> >                resp = (char *) __get_free_pages(page_mask, order);
+> > /* try half */
+> >                resSz = a_size;
+> >        }
+> > +       tmppage = virt_to_page(resp);
+> > +       for( m = PAGE_SIZE; m < resSz; m += PAGE_SIZE )
+> > +       {
+> > +               tmppage++;
+> > +               SetPageReserved(tmppage);
+> > +       }
+> > +
+> 
+[Qi, Yanling]
+If I do a get_page() at sg_page_malloc() time and then do a put_page()
+at sg_page_free() time, I worry about a race condition that the page
+gets re-used before calling free_pages().
 
-I'm a little confused.  It seems from the thread that there are  
-several forums of bridging.
-
-What I'm trying to accomplish is to take all traffic from eth0 to  
-wlan0 (and the other way around).  I'm happy to configure and  
-associate wlan0 with an AP.
-
-I believe the current USB adapter I've got is using the SOFTMAC code  
-right now.
-
-- k
+Thanks,
+Yanling
