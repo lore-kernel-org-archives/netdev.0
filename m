@@ -1,33 +1,36 @@
-From: Chuck Ebbert <cebbert@redhat.com>
-Subject: Re: 2.6.20 and multipath routing
-Date: Thu, 10 May 2007 18:42:00 -0400
-Message-ID: <46439FB8.8000502@redhat.com>
-References: <003d01c79349$60da1870$228e4950$@biz>
+From: Jeremy Fitzhardinge <jeremy@goop.org>
+Subject: Re: [1/2] [NET] link_watch: Move link watch list into net_device
+Date: Thu, 10 May 2007 15:45:42 -0700
+Message-ID: <4643A096.7000909@goop.org>
+References: <464395E5.2090500@goop.org>	<20070510151426.d808384f.akpm@linux-foundation.org>	<46439B19.7010706@goop.org> <20070510.152552.117703057.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Giampaolo Tomassoni <Giampaolo@Tomassoni.biz>
+Cc: akpm@linux-foundation.org, herbert@gondor.apana.org.au,
+	hch@infradead.org, ak@suse.de, virtualization@lists.osdl.org,
+	linux-kernel@vger.kernel.org, chrisw@sous-sol.org,
+	ian.pratt@xensource.com, Christian.Limpach@cl.cam.ac.uk,
+	netdev@vger.kernel.org, jeff@garzik.org,
+	shemminger@linux-foundation.org, rusty@rustcorp.com.au,
+	Valdis.Kletnieks@vt.edu
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:48988 "EHLO mx1.redhat.com"
+Received: from gw.goop.org ([64.81.55.164]:51150 "EHLO mail.goop.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756904AbXEJWmF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 May 2007 18:42:05 -0400
-In-Reply-To: <003d01c79349$60da1870$228e4950$@biz>
+	id S1755956AbXEJWpp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 May 2007 18:45:45 -0400
+In-Reply-To: <20070510.152552.117703057.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Giampaolo Tomassoni wrote:
-> 
-> 		default  src 1.2.1.6
-> 		        nexthop via 1.2.2.254  dev atm0 weight 1
-> 		        nexthop via 1.1.2.254  dev atm1 weight 1
-> 
+David Miller wrote:
+> I'm not so certain now that we know it's the jiffies wrap point :-)
+>
+> The fixes in question are attached below and they were posted and
+> discussed on netdev:
+>   
 
-When I tried this I found that weight 1 didn't work -- all traffic
-went out one interface until I changed both weights to 50.
+Yep, this patch gets rid of my spinning thread.  I can't find this patch
+or any discussion on marc.info; is there a better netdev list archive?
 
-And on ethernet, I had to have static ARP entries or the kernel
-would ARP on one interface, and if it didn't get a reply in less
-than one microsecond it would immediately go to the second
-interface.
+    J
