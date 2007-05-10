@@ -1,45 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [NET_SCHED]: Avoid requeue warning on dev_deactivate
-Date: Thu, 10 May 2007 14:13:10 -0700 (PDT)
-Message-ID: <20070510.141310.09953417.davem@davemloft.net>
-References: <20070510125304.GA26090@gondor.apana.org.au>
+Subject: Re: [PATCH] tbf scheduler: TSO support
+Date: Thu, 10 May 2007 14:13:44 -0700 (PDT)
+Message-ID: <20070510.141344.127196214.davem@davemloft.net>
+References: <20070510.210556.05145104.taka@valinux.co.jp>
+	<46431687.7060600@trash.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58995
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756135AbXEJVNH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2007 17:13:07 -0400
-In-Reply-To: <20070510125304.GA26090@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
+Cc: taka@valinux.co.jp, linux-net@vger.kernel.org,
+	netdev@vger.kernel.org
+To: kaber@trash.net
+Return-path: <linux-net-owner@vger.kernel.org>
+In-Reply-To: <46431687.7060600@trash.net>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Thu, 10 May 2007 22:53:04 +1000
+From: Patrick McHardy <kaber@trash.net>
+Date: Thu, 10 May 2007 14:56:39 +0200
 
-> [NET_SCHED]: Avoid requeue warning on dev_deactivate
+> Hirokazu Takahashi wrote:
+> > TBF --- Simple Token Bucket Filter --- packet scheduler doesn't
+> > work correctly with TSO on that it slows down to send out packets.
+> > TSO packets will be discarded since the size can be larger than
+> > the scheduler expects. But it won't cause serious problems
+> > because the retransmitted packets can be passed.
+> > 
+> > So I made the scheduler allow to pass TSO packets:
+> > 
+> >  - tbf_enqueue() accepts packets with any size if the netdevice
+> >    has TSO ability.
+> > 
+> >  - tbf_dequeue() can handle the packets whose size is larger than
+> >    the bucket, which keeps tokens.
+> >    Any packet, which may be TSO packet, can be sent if the bucket is
+> >    full of tokens. this may lead that the number of tokens in
+> >    the bucket turns into negative value, which means kind of debt.
+> >    But we don't have to mind it because this will be filled up
+> >    with tokens in a short time and it will turns into positive value
+> >    again.
+> > 
+> > I'm not sure if this approach is the best. I appreciate any comments.
 > 
-> When we relinquish queue_lock in qdisc_restart and then retake it for
-> requeueing, we might race against dev_deactivate and end up requeueing
-> onto noop_qdisc.  This causes a warning to be printed.
 > 
-> This patch fixes this by checking this before we requeue.  As an added
-> bonus, we can remove the same check in __qdisc_run which was added to
-> prevent dev->gso_skb from being requeued when we're shutting down.
-> 
-> Even though we've had to add a new conditional in its place, it's better
-> because it only happens on requeues rather than every single time that
-> qdisc_run is called.
-> 
-> For this to work we also need to move the clearing of gso_skb up in
-> dev_deactivate as now qdisc_restart can occur even after we wait for
-> __LINK_STATE_QDISC_RUNNING to clear (but it won't do anything as long
-> as the queue and gso_skb is already clear).
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> I don't see why this is needed, the correct way to use TBF with TSO
+> is to specify a larger MTU value, in which case it won't drop TSO
+> packets.
 
+Why should a user have to know anything in the world about TSO in
+order to configure TBF properly?  I don't think they should have
+to at all.
 
-Looks good, applied.
