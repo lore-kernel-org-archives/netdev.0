@@ -1,54 +1,47 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [RFC] New driver API to speed up small packets xmits
-Date: Thu, 10 May 2007 14:32:47 -0400
-Message-ID: <4643654F.5060207@hp.com>
-References: <OF305F038C.A48D4C37-ON652572D7.00538ECA-652572D7.00546E39@in.ibm.com>	<46435412.50800@hp.com> <464360D6.4080402@hp.com> <46436274.4060804@hp.com>
+From: Koon Wah Yick <kyick@alcatel-lucent.com>
+Subject: Re: Enable netem in my Linux box
+Date: Thu, 10 May 2007 14:36:24 -0400
+Message-ID: <46436628.6090405@lucent.com>
+References: <4641E945.3070902@lucent.com>	<20070510084232.147e1d8f@freepuppy>	<464343CA.6090500@lucent.com>	<20070510095738.563a23bf@localhost>	<46435DC8.6000807@lucent.com> <20070510112302.770237f1@freepuppy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Krishna Kumar2 <krkumar2@in.ibm.com>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org
-To: Rick Jones <rick.jones2@hp.com>
+Cc: Koon Wah Yick <kyick@alcatel-lucent.com>, netdev@vger.kernel.org,
+	"Yick, Koon Wah (Koon)" <kyick@homail.ho.lucent.com>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel6.hp.com ([156.153.255.205]:36792 "EHLO atlrel6.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753569AbXEJSct (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 May 2007 14:32:49 -0400
-In-Reply-To: <46436274.4060804@hp.com>
+Received: from hoemail2.lucent.com ([192.11.226.163]:44537 "EHLO
+	hoemail2.lucent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754744AbXEJSga (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2007 14:36:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Rick Jones wrote:
-> Vlad Yasevich wrote:
->> Rick Jones wrote:
->>
->>>> It is the reverse - GSO will segment one super-packet just before
->>>> calling
->>>> the driver so that the stack is traversed only once. In my case, I am
->>>> trying to send out multiple skbs, possibly small packets, in one shot.
->>>> GSO will not help for small packets.
->>>
->>> If there are small packets that implies small sends, which suggests that
->>> they would be coalesced either implicitly by the Nagle algorithm or
->>> explicitly with TCP_CORK no?
->>>
->>> rick jones
->>> -
->>
->>
->> May be for TCP?  What about other protocols?
+Stephen:
+
+Thank you.  I am happy that when I issue the tc command to drop packets, I do
+see the effect.  Is there a command I can use to show all packet count?  packet
+send, packet received and packet drop etc...  I don't seems to be able to see
+them by command "ifconfig".
+
+Koon-Wah.
+
+On 5/10/2007 2:23 PM, Stephen Hemminger wrote:
+> On Thu, 10 May 2007 14:00:40 -0400
+> Koon Wah Yick <kyick@alcatel-lucent.com> wrote:
 > 
-> There are other protocols?-)  True, UDP, and I suppose certain modes of
-> SCTP might be sending streams of small packets, as might TCP with
-> TCP_NODELAY set.
 > 
-> Do they often queue-up outside the driver?
+>>Stephen:
+>>
+>>Thank you, I got it.  I try the same command again with "add" and "change" they
+>>all work.(no error)  But when I start my Network Emulator, how can I stop it.
+>>Do I have to delete any file I create when doing "add"?  If yes, where is it?
+> 
+> 
+> You probably just want to do: 
+> tc qdisc del dev eth0 root
+> 
+> That restores the default qdisc (prio-fast)
+> 
 
-Not sure if DCCP might fall into this category as well...
 
-I think the idea of this patch is gather some number of these small packets and
-shove them at the driver in one go instead of each small packet at a time.
-
-I might be helpful, but reserve judgment till I see more numbers.
-
--vlad
