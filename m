@@ -1,55 +1,75 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
+From: jamal <hadi@cyberus.ca>
 Subject: Re: [PATCH] sched: Optimize return value of qdisc_restart
-Date: Thu, 10 May 2007 22:10:10 +1000
-Message-ID: <20070510121010.GA25264@gondor.apana.org.au>
-References: <1178725965.4058.75.camel@localhost> <OFF9085DDC.F5960247-ON652572D7.001B794E-652572D7.001CA7E2@in.ibm.com> <20070510115039.GA24439@gondor.apana.org.au> <20070510.045534.90119358.davem@davemloft.net>
+Date: Thu, 10 May 2007 08:21:01 -0400
+Message-ID: <1178799661.4074.20.camel@localhost>
+References: <1178725965.4058.75.camel@localhost>
+	 <OFF9085DDC.F5960247-ON652572D7.001B794E-652572D7.001CA7E2@in.ibm.com>
+	 <20070510115039.GA24439@gondor.apana.org.au>
+	 <20070510.045534.90119358.davem@davemloft.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: krkumar2@in.ibm.com, hadi@cyberus.ca, netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, krkumar2@in.ibm.com,
+	netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:2847 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752490AbXEJMK1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2007 08:10:27 -0400
-Content-Disposition: inline
+Received: from wx-out-0506.google.com ([66.249.82.239]:27373 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754933AbXEJMVF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2007 08:21:05 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so514962wxd
+        for <netdev@vger.kernel.org>; Thu, 10 May 2007 05:21:04 -0700 (PDT)
 In-Reply-To: <20070510.045534.90119358.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, May 10, 2007 at 04:55:34AM -0700, David Miller wrote:
->
-> > [NET_SCHED]: Rationalise return value of qdisc_restart
+On Thu, 2007-10-05 at 04:55 -0700, David Miller wrote:
+> From: Herbert Xu <herbert@gondor.apana.org.au>
+> Date: Thu, 10 May 2007 21:50:39 +1000
+> 
+
+> T_SCHED]: Rationalise return value of qdisc_restart
+> > 
+> > The current return value scheme and associated comment was invented
+> > back in the 20th century when we still had that tbusy flag.  Things
+> > have changed quite a bit since then (even Tony Blair is moving on
+> > now, not to mention the new French president).
+> > 
+> > All we need to indicate now is whether the caller should continue
+> > processing the queue.  Therefore it's sufficient if we return 0 if
+> > we want to stop and non-zero otherwise.
+> > 
+> > This is based on a patch by Krishna Kumar.
+> > 
+> > Signed-off-by: <herbert@gondor.apana.org.au>
 > 
 > Fair enough, patch applied :-)
 
-Sorry, reading Thomas's patch made me realise that I've just added
-that bug all over again.
+Ok, see if this makes sense:
 
-[NET_SCHED]: Reread dev->qdisc for NETDEV_TX_OK
+CPU0                 CPU1 (holding qdisc running)
+  .                    |
+  .                    |
+  .                    + grab qlock
+  .                    |
+  .                    | deq pkt
+  .                    + release qlock
+  .                    + grab txlock
+  .                    |  send pkt
+  .                    + release txlock
+  .                    + grab qlock
+   has pktX            | (NEW: qlen = 0); return 0 instead of -1
+   waiting for qlock   + release qlock
+  + grab qlock         |
+  |                    + find that return code is 0
+  | enq pkt X          + release qdisc running
+  |                    |
+  + release qlock      | ==> outta here
 
-Now that we return the queue length after NETDEV_TX_OK we better
-make sure that we have the right queue.  Otherwise we can cause a
-stall after a really quick dev_deactive/dev_activate.
+pkt X is stuck unless some event happens such as a new pkt arrival. 
+In other words it sits there for an indeterminate period.
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+cheers,
+jamal
 
-Chers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
---
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index 3480e81..5f04b06 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -132,6 +132,7 @@ static inline int qdisc_restart(struct net_device *dev)
- 						netif_tx_unlock(dev);
- 					}
- 					spin_lock(&dev->queue_lock);
-+					q = dev->qdisc;
- 					goto out;
- 				}
- 				if (ret == NETDEV_TX_LOCKED && nolock) {
