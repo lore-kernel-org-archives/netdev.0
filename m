@@ -1,56 +1,53 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: [PATCH] Intel IXP4xx network drivers v.3 - QMGR
-Date: Thu, 10 May 2007 16:08:35 +0200
-Message-ID: <m38xbwydng.fsf@maximus.localdomain>
-References: <m3vef5biob.fsf@maximus.localdomain>
-	<5BB7E1AB-5CE1-43C8-8CE3-E0DE0236BD09@cam.ac.uk>
-	<m3hcqoa772.fsf@maximus.localdomain>
-	<86D26EBE-5899-468F-9C79-23E83E0DE04B@cam.ac.uk>
-	<m33b289zku.fsf@maximus.localdomain>
-	<m31whs5ehn.fsf_-_@maximus.localdomain>
-	<20070508113232.GA32055@xi.wantstofly.org>
-	<m3k5vj76bi.fsf@maximus.localdomain>
-	<20070508144001.GC387@xi.wantstofly.org>
-	<m3ps5b5k07.fsf@maximus.localdomain>
-	<20070509102136.GG6976@xi.wantstofly.org>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH] sched: Optimize return value of qdisc_restart
+Date: Thu, 10 May 2007 10:12:55 -0400
+Message-ID: <1178806376.4074.90.camel@localhost>
+References: <E1Hm8Ey-0006oe-00@gondolin.me.apana.org.au>
+	 <1178803084.4074.48.camel@localhost>
+	 <20070510135220.GA26655@gondor.apana.org.au>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Michael-Luke Jones <mlj28@cam.ac.uk>,
-	Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
-	lkml <linux-kernel@vger.kernel.org>,
-	Russell King <rmk@arm.linux.org.uk>,
-	ARM Linux Mailing List
-	<linux-arm-kernel@lists.arm.linux.org.uk>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, krkumar2@in.ibm.com, netdev@vger.kernel.org,
+	Thomas Graf <tgraf@suug.ch>, Roberto Nibali <ratz@drugphish.ch>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:45653 "EHLO khc.piap.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751908AbXEJOIj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 May 2007 10:08:39 -0400
-In-Reply-To: <20070509102136.GG6976@xi.wantstofly.org> (Lennert Buytenhek's message of "Wed, 9 May 2007 12:21:36 +0200")
+Received: from wx-out-0506.google.com ([66.249.82.225]:34218 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753508AbXEJONA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2007 10:13:00 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so550272wxd
+        for <netdev@vger.kernel.org>; Thu, 10 May 2007 07:13:00 -0700 (PDT)
+In-Reply-To: <20070510135220.GA26655@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Lennert Buytenhek <buytenh@wantstofly.org> writes:
+On Thu, 2007-10-05 at 23:52 +1000, Herbert Xu wrote:
+> On Thu, May 10, 2007 at 09:18:04AM -0400, jamal wrote:
+> > 
+> > I wonder how much performance improvement this give now that the extra
+> > incursion into qdisc_restart is avoided.
+> 
+> Probably very little since the only way it can make a difference is if
+> there is lots of contention.  But if there is lots of contention we
+> should stay in the function anyway.
 
-> The way I see it, that means that you do want to scale back your
-> other SRAM allocations if you know that you're going to need a lot
-> of SRAM (say, for ethernet RX/TX queues.)
+Less to do with CPU contention and more with Krishna's change which
+avoids entering that region all together which is useful even in the
+absence of contention. In the past (based on some measurement i did)
+upto 50% of the executions of qdisc restart were on an empty queue
+depending on traffic rates.
 
-Yep, I will then add "queue_size" parameter to the platform data.
-Or something like that.
+BTW, given that i couldnt recall the layout of the locks on qdisc
+restart; I think i will come back with the old patch i had to clean up
+the readability of qdisc restart so it is easy to tell just by quick
+inspection.
 
-> Or you can put this knowledge in the board support code (cleaner, IMHO.)
+Since Canada seems to be comfortably taking revenge on the Swiss (my
+condolonces to Thomas and Ratz) - i think it is time for me to head
+out ;-> ttl.
 
-Sure.
+cheers,
+jamal 
 
-> That way, you can _guarantee_ that you'll always have enough SRAM
-> to be able to use the functionality that is exposed on the board you
-> are running on (which is a desirable property, IMHO), which is
-> something that you can't achieve with an allocator, as far as I can
-> see.
-
-I'd have to put SRAM address in the board code instead. Certainly
-not required at this point, and perhaps it will be never needed.
--- 
-Krzysztof Halasa
