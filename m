@@ -1,59 +1,108 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH 05/17] pci: advanced error reporting stub return values
-Date: Thu, 10 May 2007 08:48:25 -0700
-Message-ID: <20070510084825.2a8d3add@freepuppy>
-References: <20070509034949.624934448@linux-foundation.org>
-	<20070509035028.751938921@linux-foundation.org>
+From: Hirokazu Takahashi <taka@valinux.co.jp>
+Subject: [PATCH] tbf scheduler: TSO support
+Date: Fri, 11 May 2007 01:00:30 +0900 (JST)
+Message-ID: <20070511.010030.06784245.taka@valinux.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
-	Tom Long Nguyen <tom.l.nguyen@intel.com>,
-	Zhang Yanmin <yanmin.zhang@intel.com>,
-	linux-pci@atrey.karlin.mff.cuni.cz
-To: Greg KH <greg@kroah.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:36121 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754639AbXEJPsb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 May 2007 11:48:31 -0400
-In-Reply-To: <20070509035028.751938921@linux-foundation.org>
+Received: from fms-01.valinux.co.jp ([210.128.90.1]:41287 "EHLO
+	mail.valinux.co.jp" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753043AbXEJQAc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2007 12:00:32 -0400
+Received: from localhost (vagw.valinux.co.jp [210.128.90.14])
+	by mail.valinux.co.jp (Postfix) with ESMTP id C39182DC82E
+	for <netdev@vger.kernel.org>; Fri, 11 May 2007 01:00:30 +0900 (JST)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 08 May 2007 20:49:54 -0700
-Stephen Hemminger <shemminger@linux-foundation.org> wrote:
+Hi,
 
-> The stubs for advanced PCI error reporting are wrong. They don't
-> match the function return values. This breaks compilation for any
-> driver that tries to use these functions (that's the next sky2 patch).
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
-> 
-> --- sky2.orig/include/linux/aer.h	2007-05-08 20:36:21.000000000 -0700
-> +++ sky2/include/linux/aer.h	2007-05-08 20:38:04.000000000 -0700
-> @@ -14,10 +14,10 @@
->  extern int pci_disable_pcie_error_reporting(struct pci_dev *dev);
->  extern int pci_cleanup_aer_uncorrect_error_status(struct pci_dev *dev);
->  #else
-> -#define pci_enable_pcie_error_reporting(dev)		do { } while (0)
-> -#define pci_find_aer_capability(dev)			do { } while (0)
-> -#define pci_disable_pcie_error_reporting(dev)		do { } while (0)
-> -#define pci_cleanup_aer_uncorrect_error_status(dev)	do { } while (0)
-> +#define pci_enable_pcie_error_reporting(dev)		(-EINVAL)
-> +#define pci_find_aer_capability(dev)			(0)
-> +#define pci_disable_pcie_error_reporting(dev)		(-EINVAL)
-> +#define pci_cleanup_aer_uncorrect_error_status(dev)	(-EINVAL)
->  #endif
->  
->  #endif //_AER_H_
-> 
-> --
+TBF --- Simple Token Bucket Filter --- packet scheduler doesn't
+work correctly with TSO on that it slows down to send out packets.
+TSO packets will be discarded since the size can be larger than
+the scheduler expects. But it won't cause serious problems
+because the retransmitted packets can be passed.
 
-Greg could you put this in as a bug fix now.
-I don't think I'll put in the usage of aer funcs until 2.6.22 -mm, but
-hopefully this will be fixed by then.
+So I made the scheduler allow to pass TSO packets:
+
+ - tbf_enqueue() accepts packets with any size if the netdevice
+   has TSO ability.
+
+ - tbf_dequeue() can handle the packets whose size is larger than
+   the bucket, which keeps tokens.
+   Any packet, which may be TSO packet, can be sent if the bucket is
+   full of tokens. this may lead that the number of tokens in
+   the bucket turns into negative value, which means kind of debt.
+   But we don't have to mind it because this will be filled up
+   with tokens in a short time and it will turns into positive value
+   again.
+
+I'm not sure if this approach is the best. I appreciate any comments.
+Thank you.
 
 
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+Signed-off-by: Hirokazu Takahashi <taka@valinux.co.jp>
+
+--- linux-2.6.21/net/sched/sch_tbf.c.ORG	2007-05-08 20:59:28.000000000 +0900
++++ linux-2.6.21/net/sched/sch_tbf.c	2007-05-10 16:12:54.000000000 +0900
+@@ -139,7 +139,7 @@ static int tbf_enqueue(struct sk_buff *s
+ 	struct tbf_sched_data *q = qdisc_priv(sch);
+ 	int ret;
+ 
+-	if (skb->len > q->max_size) {
++	if (skb->len > q->max_size && !(sch->dev->features & NETIF_F_GSO_MASK)) {
+ 		sch->qstats.drops++;
+ #ifdef CONFIG_NET_CLS_POLICE
+ 		if (sch->reshape_fail == NULL || sch->reshape_fail(skb, sch))
+@@ -197,6 +197,7 @@ static struct sk_buff *tbf_dequeue(struc
+ {
+ 	struct tbf_sched_data *q = qdisc_priv(sch);
+ 	struct sk_buff *skb;
++	int full = 0;
+ 
+ 	skb = q->qdisc->dequeue(q->qdisc);
+ 
+@@ -204,7 +205,8 @@ static struct sk_buff *tbf_dequeue(struc
+ 		psched_time_t now;
+ 		long toks, delay;
+ 		long ptoks = 0;
+-		unsigned int len = skb->len;
++		unsigned int len;
++		int n;
+ 
+ 		PSCHED_GET_TIME(now);
+ 
+@@ -212,16 +214,26 @@ static struct sk_buff *tbf_dequeue(struc
+ 
+ 		if (q->P_tab) {
+ 			ptoks = toks + q->ptokens;
+-			if (ptoks > (long)q->mtu)
++			if (ptoks >= (long)q->mtu) {
+ 				ptoks = q->mtu;
+-			ptoks -= L2T_P(q, len);
++				full = 1;
++			}
++			for (len = skb->len; len > 0; len -= n) {
++				n = min(q->max_size, len);
++				ptoks -= L2T_P(q, n);
++			}
+ 		}
+ 		toks += q->tokens;
+-		if (toks > (long)q->buffer)
++		if (toks >= (long)q->buffer) {
+ 			toks = q->buffer;
+-		toks -= L2T(q, len);
++			full = 1;
++		}
++		for (len = skb->len; len > 0; len -= n) {
++			n = min(q->max_size, len);
++			toks -= L2T(q, n);
++		}
+ 
+-		if ((toks|ptoks) >= 0) {
++		if ((toks|ptoks) >= 0 || full) {
+ 			q->t_c = now;
+ 			q->tokens = toks;
+ 			q->ptokens = ptoks;
