@@ -1,95 +1,59 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: Re: [PATCH] phylib: phy_ethtool_{sset,gset} -- check phydev for
- NULL
-Date: Thu, 10 May 2007 10:56:13 -0700
-Message-ID: <20070510105613.f564e083.randy.dunlap@oracle.com>
-References: <8496f91a0705101029g794ee4a7t1c6a34ad13444c49@mail.gmail.com>
+From: Koon Wah Yick <kyick@alcatel-lucent.com>
+Subject: Re: Enable netem in my Linux box
+Date: Thu, 10 May 2007 14:00:40 -0400
+Message-ID: <46435DC8.6000807@lucent.com>
+References: <4641E945.3070902@lucent.com>	<20070510084232.147e1d8f@freepuppy>	<464343CA.6090500@lucent.com> <20070510095738.563a23bf@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeff@garzik.org
-To: matvejchikov@gmail.com
+Cc: Koon Wah Yick <kyick@alcatel-lucent.com>, netdev@vger.kernel.org,
+	"Yick, Koon Wah (Koon)" <kyick@homail.ho.lucent.com>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from agminet01.oracle.com ([141.146.126.228]:61244 "EHLO
-	agminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754524AbXEJRvm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2007 13:51:42 -0400
-In-Reply-To: <8496f91a0705101029g794ee4a7t1c6a34ad13444c49@mail.gmail.com>
+Received: from hoemail2.lucent.com ([192.11.226.163]:56815 "EHLO
+	hoemail2.lucent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750755AbXEJSBQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2007 14:01:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 10 May 2007 21:29:51 +0400 Matvejchikov Ilya wrote:
+Stephen:
 
-> Good Day!
+Thank you, I got it.  I try the same command again with "add" and "change" they
+all work.(no error)  But when I start my Network Emulator, how can I stop it.
+Do I have to delete any file I create when doing "add"?  If yes, where is it?
+
+Koon-Wah.
+
+On 5/10/2007 12:57 PM, Stephen Hemminger wrote:
+> On Thu, 10 May 2007 12:09:46 -0400
+> Koon Wah Yick <kyick@alcatel-lucent.com> wrote:
 > 
-> The command 'brctl addbr br0 eth0' brings the kernel oops if the eth0
-> has PHY, but the phydev is NULL (for ex., ifconfig eth0 0.0.0.0 was
-> not issued firstly)
 > 
-> Call Trace:
-> [C02CFBD0] [7FFFFFFF] 0x7fffffff (unreliable)
-> [C02CFBE0] [C0109634] dev_ethtool+0x1b0/0xfac
-> [C02CFCD0] [C0155EF0] port_cost+0x5c/0x130
-> [C02CFD40] [C01561FC] br_add_if+0x17c/0x308
-> [C02CFD70] [C01569E0] add_del_if+0x70/0xa0
-> [C02CFD90] [C0156A58] br_dev_ioctl+0x48/0x9fc
-> [C02CFE10] [C0106FCC] dev_ifsioc+0x144/0x3ac
-> [C02CFE30] [C01080D8] dev_ioctl+0x3b8/0x4c8
-> [C02CFEB0] [C00F9BC0] sock_ioctl+0x78/0x260
-> [C02CFED0] [C006889C] do_ioctl+0x38/0x84
-> [C02CFEE0] [C006896C] vfs_ioctl+0x84/0x3d8
-> [C02CFF10] [C0068D00] sys_ioctl+0x40/0x74
-> [C02CFF40] [C000EF48] ret_from_syscall+0x0/0x38
+>>Stephen:
+>>
+>>Thank you for your response, I type in modinfo sch_netem
+>>
+>>Here is what I got:
+>>
+>>filename: /lib/modules/2.6.11-1.1369_FC4/kernel/net/sched/sch_netem.ko
+>>license: GPL
+>>vermagic: 2.6.11-1.l369_FC 686 REGPARM 4KSTACKS gcc-4.0
+>>depends:
+>>srcversion: BD4563861423428FF0D5918
+>>
+>>when I try the following "tc" command with netem
+>>
+>>
+>>>tc qdisc change dev eth0 root netem loss 0.1%
+>>
+>>I got the error message
+>>RTNETLINK answers: No such file or directory.
+>>
 > 
-> The following patch fixes the problem.
 > 
-> Signed-off-by: Matvejchikov Ilya <matvejchikov <at> gmail.com>
-
-Don't obfuscate the email address.
-
-> ---
-> 
-> diff -purN linux-2.6.21-clean/drivers/net/phy/phy.c
-> linux-2.6.21/drivers/net/phy/phy.c
-> --- linux-2.6.21-clean/drivers/net/phy/phy.c    2007-04-26
-> 07:08:32.000000000 +0400
-> +++ linux-2.6.21/drivers/net/phy/phy.c  2007-05-04 08:22:01.000000000 +0400
-> @@ -245,6 +245,9 @@ EXPORT_SYMBOL(phy_sanitize_settings);
->  */
->  int phy_ethtool_sset(struct phy_device *phydev, struct ethtool_cmd *cmd)
->  {
-> +       if (unlikely(NULL == phydev))
-> +               return -EINVAL;
-
-Use tabs instead of spaces for indentation.
-
-and I hope that Jeff prefers (as some others do):
-
-	if (unlikely(phydev == NULL))
-
-or even
-
-	if (unlikely(!phydev))
+> You want to use 'add' not 'change'.
+> The examples on the linux-net page are sequential, so the first one uses 'add'.
+> Later examples, then use change to alter parameters
 
 
-> +
->        if (cmd->phy_address != phydev->addr)
->                return -EINVAL;
-> 
-> @@ -289,6 +292,9 @@ EXPORT_SYMBOL(phy_ethtool_sset);
-> 
->  int phy_ethtool_gset(struct phy_device *phydev, struct ethtool_cmd *cmd)
->  {
-> +       if (unlikely(NULL == phydev))
-> +               return -EINVAL;
-> +
->        cmd->supported = phydev->supported;
-> 
->        cmd->advertising = phydev->advertising;
-> -
-
-
-
----
-~Randy
-*** Remember to use Documentation/SubmitChecklist when testing your code ***
