@@ -1,66 +1,41 @@
-From: "Simon Arlott" <simon@fire.lp0.eu>
-Subject: RE: Accessing certain web sites broken from 2.6.19+
-Date: Fri, 11 May 2007 12:27:40 +0100
-Message-ID: <29891.simon.1178882860@5ec7c279.invalid>
-References: <4643efc2.7cb1b0b0.2a08.4658@mx.google.com>
-    <7e63f56c0705102138q5a623fadm520473df49e49963@mail.gmail.com>
-    <4643fc1e.095ef753.14ef.ffffb9a8@mx.google.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [RFC] New driver API to speed up small packets xmits
+Date: Fri, 11 May 2007 07:30:02 -0400
+Message-ID: <1178883002.4093.26.camel@localhost>
+References: <20070511093202.GB24695@2ka.mipt.ru>
+	 <OF6C27DF4E.9060BDB4-ON652572D8.0035C627-652572D8.00363827@in.ibm.com>
+	 <20070511095602.GA5762@2ka.mipt.ru>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "'Robert Iakobashvili'" <coroberti@gmail.com>,
-	netdev@vger.kernel.org
-To: "Andrew Hall" <andrew.a.hall@gmail.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Krishna Kumar2 <krkumar2@in.ibm.com>,
+	Ian McDonald <ian.mcdonald@jandi.co.nz>,
+	netdev@vger.kernel.org, Rick Jones <rick.jones2@hp.com>,
+	Vlad Yasevich <vladislav.yasevich@hp.com>
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from proxima.lp0.eu ([85.158.45.36]:41759 "EHLO proxima.lp0.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755927AbXEKL1n (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 May 2007 07:27:43 -0400
-In-Reply-To: <4643fc1e.095ef753.14ef.ffffb9a8@mx.google.com>
+Received: from wx-out-0506.google.com ([66.249.82.224]:56299 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756147AbXEKLaG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2007 07:30:06 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so838208wxd
+        for <netdev@vger.kernel.org>; Fri, 11 May 2007 04:30:05 -0700 (PDT)
+In-Reply-To: <20070511095602.GA5762@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Fri, 2007-11-05 at 13:56 +0400, Evgeniy Polyakov wrote:
 
-On Fri, May 11, 2007 06:16, Andrew Hall wrote:
->> -----Original Message-----
->> From: Robert Iakobashvili [mailto:coroberti@gmail.com]
->> Sent: Friday, 11 May 2007 2:38 PM
->> To: Andrew Hall
->> Cc: netdev@vger.kernel.org
->> Subject: Re: Accessing certain web sites broken from 2.6.19+
->>
->> On 5/11/07, Andrew Hall <andrew.a.hall@gmail.com> wrote:
->> > When accessing certain web sites when using any kernel above 2.6.19,
->> TCP
->> > seems to break. Connection to the site is established but never
->> completes.
->> > One particular site is www.dcita.gov.au. Is there a known issue
->> pertaining
->> > to this? Using any kernel below 2.6.19 (for example: 2.6.12 or
->> 2.6.15) works
->> > fine.
->>
->> Including 2.6.21?
->>
->> Which browser/s have you tried?
->>
->> --
->> Sincerely,
->> Robert Iakobashvili,
->> coroberti %x40 gmail %x2e com
->> ...........................................................
->> http://curl-loader.sourceforge.net
->> A web testing and traffic generation tool.
->
-> I have not yet tried 2.6.21.. only tried to 2.6.20.9. The issue isn't
-> browser dependent ,as a wget directly from the OS will also fail during the
-> connection. Interestingly requests made from hosts behind the 2.6.20 gateway
-> that make the same request work fine, it seems it's only requests made from
-> the localhost itself.
->
+> I meant no locks during processing of the packets (pci read/write, dma
+> setup and so on), of course it is needed to dequeue a packet, but only
+> for that operation.
 
-Use tcptraceroute with and without -E to check this isn't a problem with ECN.
+I dont think you can avoid the lock Evgeniy. You need to protect against
+the tx ring having some other things happening to it from the napi poll
+or netdev interupts (most of the drivers touch the tx ring on the napi
+poll).
 
+cheers,
+jamal
 
--- 
-Simon Arlott
