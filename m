@@ -1,129 +1,198 @@
 From: akpm@linux-foundation.org
-Subject: [patch 8/8] networking: fix sending netlink message when replace route
-Date: Thu, 10 May 2007 22:53:50 -0700
-Message-ID: <200705110553.l4B5rotf007872@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, milon@wq.cz,
-	kaber@trash.net
+Subject: [patch 3/8] Use menuconfig objects: IPVS
+Date: Thu, 10 May 2007 22:53:45 -0700
+Message-ID: <200705110553.l4B5rjvw007854@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
+	jengelh@linux01.gwdg.de, horms@verge.net.au, jengelh@gmx.de
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([65.172.181.25]:43048 "EHLO
+Received: from smtp1.linux-foundation.org ([65.172.181.25]:48040 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754568AbXEKFyX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2007 01:54:23 -0400
+	by vger.kernel.org with ESMTP id S1758267AbXEKFy1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2007 01:54:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Milan Kocian <milon@wq.cz>
+From: Jan Engelhardt <jengelh@linux01.gwdg.de>
 
-When you replace route via ip r r command the netlink multicast message is
-not send.  This patch corrects it.  NL message is sent with NLM_F_REPLACE
-flag.  Addresses http://bugzilla.kernel.org/show_bug.cgi?id=8320
+Use menuconfigs instead of menus, so the whole menu can be disabled at once
+instead of going through all options.
 
-Signed-off-by: Milan Kocian <milon@wq.cz>
-Cc: Patrick McHardy <kaber@trash.net>
-Cc: David Miller <davem@davemloft.net>
+Signed-off-by: Jan Engelhardt <jengelh@gmx.de>
+Acked-by: Simon Horman <horms@verge.net.au>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- net/ipv4/fib_hash.c      |    6 ++++--
- net/ipv4/fib_lookup.h    |    3 ++-
- net/ipv4/fib_semantics.c |    5 +++--
- net/ipv4/fib_trie.c      |    6 ++++--
- 4 files changed, 13 insertions(+), 7 deletions(-)
+ net/ipv4/ipvs/Kconfig |   30 +++++-------------------------
+ 1 file changed, 5 insertions(+), 25 deletions(-)
 
-diff -puN net/ipv4/fib_hash.c~networking-fix-sending-netlink-message-when-replace-route net/ipv4/fib_hash.c
---- a/net/ipv4/fib_hash.c~networking-fix-sending-netlink-message-when-replace-route
-+++ a/net/ipv4/fib_hash.c
-@@ -456,6 +456,8 @@ static int fn_hash_insert(struct fib_tab
- 			fib_release_info(fi_drop);
- 			if (state & FA_S_ACCESSED)
- 				rt_cache_flush(-1);
-+			rtmsg_fib(RTM_NEWROUTE, key, fa, cfg->fc_dst_len, tb->tb_id,
-+				  &cfg->fc_nlinfo, NLM_F_REPLACE);
- 			return 0;
- 		}
+diff -puN net/ipv4/ipvs/Kconfig~use-menuconfig-objects-ipvs net/ipv4/ipvs/Kconfig
+--- a/net/ipv4/ipvs/Kconfig~use-menuconfig-objects-ipvs
++++ a/net/ipv4/ipvs/Kconfig
+@@ -1,10 +1,7 @@
+ #
+ # IP Virtual Server configuration
+ #
+-menu	"IP: Virtual Server Configuration"
+-	depends on NETFILTER
+-
+-config	IP_VS
++menuconfig IP_VS
+ 	tristate "IP virtual server support (EXPERIMENTAL)"
+ 	depends on NETFILTER
+ 	---help---
+@@ -25,9 +22,10 @@ config	IP_VS
+ 	  If you want to compile it in kernel, say Y. To compile it as a
+ 	  module, choose M here. If unsure, say N.
  
-@@ -523,7 +525,7 @@ static int fn_hash_insert(struct fib_tab
- 	rt_cache_flush(-1);
++if IP_VS
++
+ config	IP_VS_DEBUG
+ 	bool "IP virtual server debugging"
+-	depends on IP_VS
+ 	---help---
+ 	  Say Y here if you want to get additional messages useful in
+ 	  debugging the IP virtual server code. You can change the debug
+@@ -35,7 +33,6 @@ config	IP_VS_DEBUG
  
- 	rtmsg_fib(RTM_NEWROUTE, key, new_fa, cfg->fc_dst_len, tb->tb_id,
--		  &cfg->fc_nlinfo);
-+		  &cfg->fc_nlinfo, 0);
- 	return 0;
+ config	IP_VS_TAB_BITS
+ 	int "IPVS connection table size (the Nth power of 2)"
+-	depends on IP_VS 
+ 	default "12" 
+ 	---help---
+ 	  The IPVS connection hash table uses the chaining scheme to handle
+@@ -61,42 +58,35 @@ config	IP_VS_TAB_BITS
+ 	  needed for your box.
  
- out_free_new_fa:
-@@ -589,7 +591,7 @@ static int fn_hash_delete(struct fib_tab
+ comment "IPVS transport protocol load balancing support"
+-        depends on IP_VS
  
- 		fa = fa_to_delete;
- 		rtmsg_fib(RTM_DELROUTE, key, fa, cfg->fc_dst_len,
--			  tb->tb_id, &cfg->fc_nlinfo);
-+			  tb->tb_id, &cfg->fc_nlinfo, 0);
+ config	IP_VS_PROTO_TCP
+ 	bool "TCP load balancing support"
+-	depends on IP_VS
+ 	---help---
+ 	  This option enables support for load balancing TCP transport
+ 	  protocol. Say Y if unsure.
  
- 		kill_fn = 0;
- 		write_lock_bh(&fib_hash_lock);
-diff -puN net/ipv4/fib_lookup.h~networking-fix-sending-netlink-message-when-replace-route net/ipv4/fib_lookup.h
---- a/net/ipv4/fib_lookup.h~networking-fix-sending-netlink-message-when-replace-route
-+++ a/net/ipv4/fib_lookup.h
-@@ -30,7 +30,8 @@ extern int fib_dump_info(struct sk_buff 
- 			 int dst_len, u8 tos, struct fib_info *fi,
- 			 unsigned int);
- extern void rtmsg_fib(int event, __be32 key, struct fib_alias *fa,
--		      int dst_len, u32 tb_id, struct nl_info *info);
-+		      int dst_len, u32 tb_id, struct nl_info *info,
-+		      unsigned int nlm_flags);
- extern struct fib_alias *fib_find_alias(struct list_head *fah,
- 					u8 tos, u32 prio);
- extern int fib_detect_death(struct fib_info *fi, int order,
-diff -puN net/ipv4/fib_semantics.c~networking-fix-sending-netlink-message-when-replace-route net/ipv4/fib_semantics.c
---- a/net/ipv4/fib_semantics.c~networking-fix-sending-netlink-message-when-replace-route
-+++ a/net/ipv4/fib_semantics.c
-@@ -301,7 +301,8 @@ static inline size_t fib_nlmsg_size(stru
- }
+ config	IP_VS_PROTO_UDP
+ 	bool "UDP load balancing support"
+-	depends on IP_VS
+ 	---help---
+ 	  This option enables support for load balancing UDP transport
+ 	  protocol. Say Y if unsure.
  
- void rtmsg_fib(int event, __be32 key, struct fib_alias *fa,
--	       int dst_len, u32 tb_id, struct nl_info *info)
-+	       int dst_len, u32 tb_id, struct nl_info *info,
-+	       unsigned int nlm_flags)
- {
- 	struct sk_buff *skb;
- 	u32 seq = info->nlh ? info->nlh->nlmsg_seq : 0;
-@@ -313,7 +314,7 @@ void rtmsg_fib(int event, __be32 key, st
+ config	IP_VS_PROTO_ESP
+ 	bool "ESP load balancing support"
+-	depends on IP_VS
+ 	---help---
+ 	  This option enables support for load balancing ESP (Encapsulation
+ 	  Security Payload) transport protocol. Say Y if unsure.
  
- 	err = fib_dump_info(skb, info->pid, seq, event, tb_id,
- 			    fa->fa_type, fa->fa_scope, key, dst_len,
--			    fa->fa_tos, fa->fa_info, 0);
-+			    fa->fa_tos, fa->fa_info, nlm_flags);
- 	if (err < 0) {
- 		/* -EMSGSIZE implies BUG in fib_nlmsg_size() */
- 		WARN_ON(err == -EMSGSIZE);
-diff -puN net/ipv4/fib_trie.c~networking-fix-sending-netlink-message-when-replace-route net/ipv4/fib_trie.c
---- a/net/ipv4/fib_trie.c~networking-fix-sending-netlink-message-when-replace-route
-+++ a/net/ipv4/fib_trie.c
-@@ -1226,6 +1226,8 @@ static int fn_trie_insert(struct fib_tab
- 			fib_release_info(fi_drop);
- 			if (state & FA_S_ACCESSED)
- 				rt_cache_flush(-1);
-+			rtmsg_fib(RTM_NEWROUTE, htonl(key), new_fa, plen,
-+				tb->tb_id, &cfg->fc_nlinfo, NLM_F_REPLACE);
+ config	IP_VS_PROTO_AH
+ 	bool "AH load balancing support"
+-	depends on IP_VS
+ 	---help---
+ 	  This option enables support for load balancing AH (Authentication
+ 	  Header) transport protocol. Say Y if unsure.
  
- 			goto succeeded;
- 		}
-@@ -1278,7 +1280,7 @@ static int fn_trie_insert(struct fib_tab
+ comment "IPVS scheduler"
+-        depends on IP_VS
  
- 	rt_cache_flush(-1);
- 	rtmsg_fib(RTM_NEWROUTE, htonl(key), new_fa, plen, tb->tb_id,
--		  &cfg->fc_nlinfo);
-+		  &cfg->fc_nlinfo, 0);
- succeeded:
- 	return 0;
+ config	IP_VS_RR
+ 	tristate "round-robin scheduling"
+-	depends on IP_VS
+ 	---help---
+ 	  The robin-robin scheduling algorithm simply directs network
+ 	  connections to different real servers in a round-robin manner.
+@@ -106,7 +96,6 @@ config	IP_VS_RR
+  
+ config	IP_VS_WRR
+         tristate "weighted round-robin scheduling" 
+-	depends on IP_VS
+ 	---help---
+ 	  The weighted robin-robin scheduling algorithm directs network
+ 	  connections to different real servers based on server weights
+@@ -120,7 +109,6 @@ config	IP_VS_WRR
  
-@@ -1624,7 +1626,7 @@ static int fn_trie_delete(struct fib_tab
+ config	IP_VS_LC
+         tristate "least-connection scheduling"
+-        depends on IP_VS
+ 	---help---
+ 	  The least-connection scheduling algorithm directs network
+ 	  connections to the server with the least number of active 
+@@ -131,7 +119,6 @@ config	IP_VS_LC
  
- 	fa = fa_to_delete;
- 	rtmsg_fib(RTM_DELROUTE, htonl(key), fa, plen, tb->tb_id,
--		  &cfg->fc_nlinfo);
-+		  &cfg->fc_nlinfo, 0);
+ config	IP_VS_WLC
+         tristate "weighted least-connection scheduling"
+-        depends on IP_VS
+ 	---help---
+ 	  The weighted least-connection scheduling algorithm directs network
+ 	  connections to the server with the least active connections
+@@ -142,7 +129,6 @@ config	IP_VS_WLC
  
- 	l = fib_find_node(t, key);
- 	li = find_leaf_info(l, plen);
+ config	IP_VS_LBLC
+ 	tristate "locality-based least-connection scheduling"
+-        depends on IP_VS
+ 	---help---
+ 	  The locality-based least-connection scheduling algorithm is for
+ 	  destination IP load balancing. It is usually used in cache cluster.
+@@ -157,7 +143,6 @@ config	IP_VS_LBLC
+ 
+ config  IP_VS_LBLCR
+ 	tristate "locality-based least-connection with replication scheduling"
+-        depends on IP_VS
+ 	---help---
+ 	  The locality-based least-connection with replication scheduling
+ 	  algorithm is also for destination IP load balancing. It is 
+@@ -176,7 +161,6 @@ config  IP_VS_LBLCR
+ 
+ config	IP_VS_DH
+ 	tristate "destination hashing scheduling"
+-        depends on IP_VS
+ 	---help---
+ 	  The destination hashing scheduling algorithm assigns network
+ 	  connections to the servers through looking up a statically assigned
+@@ -187,7 +171,6 @@ config	IP_VS_DH
+ 
+ config	IP_VS_SH
+ 	tristate "source hashing scheduling"
+-        depends on IP_VS
+ 	---help---
+ 	  The source hashing scheduling algorithm assigns network
+ 	  connections to the servers through looking up a statically assigned
+@@ -198,7 +181,6 @@ config	IP_VS_SH
+ 
+ config	IP_VS_SED
+ 	tristate "shortest expected delay scheduling"
+-        depends on IP_VS
+ 	---help---
+ 	  The shortest expected delay scheduling algorithm assigns network
+ 	  connections to the server with the shortest expected delay. The 
+@@ -212,7 +194,6 @@ config	IP_VS_SED
+ 
+ config	IP_VS_NQ
+ 	tristate "never queue scheduling"
+-        depends on IP_VS
+ 	---help---
+ 	  The never queue scheduling algorithm adopts a two-speed model.
+ 	  When there is an idle server available, the job will be sent to
+@@ -225,11 +206,10 @@ config	IP_VS_NQ
+ 	  module, choose M here. If unsure, say N.
+ 
+ comment 'IPVS application helper'
+-	depends on IP_VS
+ 
+ config	IP_VS_FTP
+   	tristate "FTP protocol helper"
+-        depends on IP_VS && IP_VS_PROTO_TCP
++        depends on IP_VS_PROTO_TCP
+ 	---help---
+ 	  FTP is a protocol that transfers IP address and/or port number in
+ 	  the payload. In the virtual server via Network Address Translation,
+@@ -241,4 +221,4 @@ config	IP_VS_FTP
+ 	  If you want to compile it in kernel, say Y. To compile it as a
+ 	  module, choose M here. If unsure, say N.
+ 
+-endmenu
++endif # IP_VS
 _
