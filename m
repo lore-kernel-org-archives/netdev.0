@@ -1,70 +1,57 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [-mm patch] make csum_and_copy_from_user arch independent (was
- Re: 2.6.21-mm2)
-Date: Fri, 11 May 2007 01:33:17 -0700
-Message-ID: <20070511013317.3c6441f3.akpm@linux-foundation.org>
-References: <20070509012322.199f292b.akpm@linux-foundation.org>
-	<20070511082738.GA23560@slug>
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Subject: Re: [RFC] New driver API to speed up small packets xmits
+Date: Fri, 11 May 2007 14:02:55 +0530
+Message-ID: <OFAF0AE4C2.388D2428-ON652572D8.002E0FFF-652572D8.002EF597@in.ibm.com>
+References: <p73wszfenni.fsf@bingen.suse.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, jorge@laser.satlink.net,
-	agulbra@nvg.unit.no, netdev@vger.kernel.org,
-	David Howells <dhowells@redhat.com>
-To: Frederik Deweerdt <deweerdt@free.fr>
+Cc: ak@suse.de, netdev@vger.kernel.org
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([65.172.181.25]:52374 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751602AbXEKIdd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2007 04:33:33 -0400
-In-Reply-To: <20070511082738.GA23560@slug>
+Received: from ausmtp04.au.ibm.com ([202.81.18.152]:52888 "EHLO
+	ausmtp04.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752652AbXEKIeQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2007 04:34:16 -0400
+Received: from sd0109e.au.ibm.com (d23rh905.au.ibm.com [202.81.18.225])
+	by ausmtp04.au.ibm.com (8.13.8/8.13.8) with ESMTP id l4B8riu8259308
+	for <netdev@vger.kernel.org>; Fri, 11 May 2007 18:53:45 +1000
+Received: from d23av03.au.ibm.com (d23av03.au.ibm.com [9.190.250.244])
+	by sd0109e.au.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l4B8bPF7147246
+	for <netdev@vger.kernel.org>; Fri, 11 May 2007 18:37:27 +1000
+Received: from d23av03.au.ibm.com (loopback [127.0.0.1])
+	by d23av03.au.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l4B8XpUd013647
+	for <netdev@vger.kernel.org>; Fri, 11 May 2007 18:33:52 +1000
+In-Reply-To: <p73wszfenni.fsf@bingen.suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 11 May 2007 10:27:38 +0200 Frederik Deweerdt <deweerdt@free.fr> wrote:
+Hi Andy,
 
-> On Wed, May 09, 2007 at 01:23:22AM -0700, Andrew Morton wrote:
-> > 
-> > ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.21/2.6.21-mm2/
-> > 
-> 
-> ERROR: "csum_partial_copy_from_user" [net/rxrpc/af-rxrpc.ko] undefined!
-> 
-> Linking on ARM fails because albeit a generic csum_and_copy_from_user()
-> function is provided in the case ! _HAVE_ARCH_COPY_AND_CSUM_FROM_USER, the
-> generic function uses csum_partial_copy_from_user() which is i386 only.
-> 
-> The following patch uses copy_from_user() followed by csum_partial()
-> to make the function platform independent.
-> 
-> Regards,
-> Frederik
-> 
-> Signed-off-by: Frederik Deweerdt <frederik.deweerdt@gmail.com>
-> 
-> diff --git a/include/net/checksum.h b/include/net/checksum.h
-> index 1242461..2eebb95 100644
-> --- a/include/net/checksum.h
-> +++ b/include/net/checksum.h
-> @@ -30,13 +30,16 @@ static inline
->  __wsum csum_and_copy_from_user (const void __user *src, void *dst,
->  				      int len, __wsum sum, int *err_ptr)
->  {
-> -	if (access_ok(VERIFY_READ, src, len))
-> -		return csum_partial_copy_from_user(src, dst, len, sum, err_ptr);
-> +	if (access_ok(VERIFY_READ, src, len)) {
-> +		if (copy_from_user(dst, src, len))
-> +			return -EFAULT;
-> +		return csum_partial(dst, len, sum);
-> +	}
->  
->  	if (len)
->  		*err_ptr = -EFAULT;
->  
-> -	return sum;
-> +	return (__force __wsum)-1; /* invalid checksum */
->  }
->  #endif
->  
+ak@suse.de wrote on 05/11/2007 02:35:05 PM:
 
-hm.  Please cc netdev on net patches.
+> You don't need that. You can just use the normal next/prev pointers.
+> In general it's a good idea to lower lock overhead etc., the VM has
+> used similar tricks very successfully in the past.
+
+Does this mean each skb should be for the same connection if next/prev
+is used ?
+
+> Another problem is that this setup typically requires the aggregate
+> packets to be from the same connection. Otherwise you will only
+> safe a short trip into the stack until the linked packet would need
+> to be split again to pass to multiple sockets. With that the scheme
+> probably helps much less.
+
+I guess you meant this for receives only. On the send side, packets
+for different sockets can be linked and sent together, right ?
+
+> Or you could do this only if multiple packets belong to the same
+> single connection (basically with a one hit cache); but then it would
+
+But for sends, why does same or different connection matter ? There is
+no aggregating of skbs.
+
+Thanks,
+
+- KK
+
