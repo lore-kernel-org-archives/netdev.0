@@ -1,36 +1,37 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 6/6] [IPV4] SNMP: Display new statistics at
- /proc/net/snmp
-Date: Sat, 12 May 2007 01:19:49 +0900 (JST)
-Message-ID: <20070512.011949.88797969.yoshfuji@linux-ipv6.org>
-References: <20070503.031546.83595703.davem@davemloft.net>
-	<20070507202905.e101d8cc.mitch@linux.vnet.ibm.com>
-	<20070512011004.e2e3fc7b.mitch@linux.vnet.ibm.com>
+From: Chris Wright <chrisw@sous-sol.org>
+Subject: Re: [stable] [PATCH 2.6.21-stable] [IPV6]: Restore semantics of
+	Routing Header processing.
+Date: Fri, 11 May 2007 09:22:43 -0700
+Message-ID: <20070511162243.GC3516@sequoia.sous-sol.org>
+References: <20070512.011728.16743460.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: mitch@linux.vnet.ibm.com, davem@davemloft.net
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org, stable@kernel.org
+To: YOSHIFUJI Hideaki / =?utf-8?B?5ZCJ6Jek6Iux5piO?=
+	<yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:37585 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762352AbXEKQTe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2007 12:19:34 -0400
-In-Reply-To: <20070512011004.e2e3fc7b.mitch@linux.vnet.ibm.com>
+Received: from 216-99-217-87.dsl.aracnet.com ([216.99.217.87]:54060 "EHLO
+	sous-sol.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759284AbXEKQYL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 May 2007 12:24:11 -0400
+Content-Disposition: inline
+In-Reply-To: <20070512.011728.16743460.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In article <20070512011004.e2e3fc7b.mitch@linux.vnet.ibm.com> (at Sat, 12 May 2007 01:10:04 +0900), Mitsuru Chinen <mitch@linux.vnet.ibm.com> says:
+* YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E (yoshfuji@li=
+nux-ipv6.org) wrote:
+> The "fix" for emerging security threats was overkill and it broke
+> basic semantic of IPv6 routing header processing.  We should assume
+> RT0 (or even RT2, depends on configuration) as "unknown" RH type so
+> that we
+> - silently ignore the routing header if segleft =3D=3D 0
+> - or, send ICMPv6 Parameter Problem message back to the sender,
+>   otherwise.
 
-> [IPV4] SNMP: Display new statistics at /proc/net/netstat
-> 
-> This displays the statistics specified in the updated IP-MIB RFC
-> (RFC4293) in /proc/net/netstat. The reason why these are not displayed
-> in /proc/net/snmp is that some existing utilities are developed under
-> the assumption which ipstat items in /proc/net/snmp is unchanged.
-> 
-> Signed-off-by: Mitsuru Chinen <mitch@linux.vnet.ibm.com>
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Does that mean this one has received testing and is good for -stable
+now, or does it need some bake time?
 
---yoshfuji
+thanks,
+-chris
