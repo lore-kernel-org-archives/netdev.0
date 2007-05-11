@@ -1,83 +1,78 @@
-From: "Matvejchikov Ilya" <matvejchikov@gmail.com>
-Subject: Re: [PATCH] phylib: phy_ethtool_{sset,gset} -- check phydev for NULL
-Date: Fri, 11 May 2007 17:49:19 +0400
-Message-ID: <8496f91a0705110649w2f42c26fi65db0d92fb8bdfd8@mail.gmail.com>
-References: <8496f91a0705101029g794ee4a7t1c6a34ad13444c49@mail.gmail.com>
-	 <20070510105613.f564e083.randy.dunlap@oracle.com>
-	 <46436215.7030503@garzik.org>
-	 <8496f91a0705110358v2e6d9b7el19856eadd55ac596@mail.gmail.com>
-	 <0DF2860D-0764-4AD1-B8B9-205827FF28E3@kernel.crashing.org>
-Reply-To: matvejchikov@gmail.com
+From: Joakim Koskela <joakim.koskela@hiit.fi>
+Subject: Problem with xfrm (ipsec) as state/spi selected solely on outer ip addresses
+Date: Fri, 11 May 2007 16:22:24 +0300
+Message-ID: <200705111622.24680.joakim.koskela@hiit.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: "Jeff Garzik" <jeff@garzik.org>,
-	"Randy Dunlap" <randy.dunlap@oracle.com>, netdev@vger.kernel.org
-To: "Kumar Gala" <galak@kernel.crashing.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nz-out-0506.google.com ([64.233.162.224]:50787 "EHLO
-	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754835AbXEKNtU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2007 09:49:20 -0400
-Received: by nz-out-0506.google.com with SMTP id o1so997311nzf
-        for <netdev@vger.kernel.org>; Fri, 11 May 2007 06:49:19 -0700 (PDT)
-In-Reply-To: <0DF2860D-0764-4AD1-B8B9-205827FF28E3@kernel.crashing.org>
+Received: from creon.otaverkko.fi ([212.68.0.5]:46025 "EHLO creon.otaverkko.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756147AbXEKNv6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 May 2007 09:51:58 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by creon.otaverkko.fi (Postfix) with ESMTP id 6B79221AF64
+	for <netdev@vger.kernel.org>; Fri, 11 May 2007 16:22:25 +0300 (EEST)
+Received: from argo.otaverkko.fi (argo.otaverkko.fi [212.68.0.2])
+	by creon.otaverkko.fi (Postfix) with ESMTP id 40B8C21AF59
+	for <netdev@vger.kernel.org>; Fri, 11 May 2007 16:22:24 +0300 (EEST)
+Received: from vetar.pc.hiit.fi (vetar.pc.hiit.fi [128.214.113.230])
+	by argo.otaverkko.fi (Postfix) with ESMTP id 3C7E425ED06
+	for <netdev@vger.kernel.org>; Fri, 11 May 2007 16:22:24 +0300 (EEST)
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-2007/5/11, Kumar Gala <galak@kernel.crashing.org>:
->
-> On May 11, 2007, at 5:58 AM, Matvejchikov Ilya wrote:
->
-> > Signed-off-by: Matvejchikov Ilya <matvejchikov@gmail.com>
-> > ---
-> >
-> > diff -purN linux-2.6.21-clean/drivers/net/phy/phy.c
-> > linux-2.6.21/drivers/net/phy/phy.c
-> > --- linux-2.6.21-clean/drivers/net/phy/phy.c  2007-04-26
-> > 07:08:32.000000000 +0400
-> > +++ linux-2.6.21/drivers/net/phy/phy.c        2007-05-04
-> > 08:22:01.000000000 +0400
-> > @@ -245,6 +245,9 @@ EXPORT_SYMBOL(phy_sanitize_settings);
-> >  */
-> > int phy_ethtool_sset(struct phy_device *phydev, struct ethtool_cmd
-> > *cmd)
-> > {
-> > +     if (unlikely(!phydev))
-> > +             return -EINVAL;
->
-> Should this be -ENODEV?
+Hi all, 
 
-If we get the ENODEV error, we are suppose that there is no device at
-all. PHY device may not be connected to the NET device. But if it
-exists we can't say that there is NODEV...
+I'm running a system where there might be multiple simultenously
+active ipsec states between two hosts (ipv6, but guess it applies to
+v4 as well) where the outer ip is the same for all states, but the
+inner differ (using beet mode).
 
-I think it should be -EINVAL.
+The problem is that after establishing these states, it seems that the
+one associated with outgoing traffic is selected solely by the outer
+address (the first state matching the outer ip-pairs is used), which
+usually results in the wrong spi and the packet being dropped at the
+receiver.
 
-> > +
-> >       if (cmd->phy_address != phydev->addr)
-> >               return -EINVAL;
-> >
-> > @@ -289,6 +292,9 @@ EXPORT_SYMBOL(phy_ethtool_sset);
-> >
-> > int phy_ethtool_gset(struct phy_device *phydev, struct ethtool_cmd
-> > *cmd)
-> > {
-> > +     if (unlikely(!phydev))
-> > +             return -EINVAL;
->
-> same question.
+I've circumvented the problem by modifying the state selection
+algorithm in xfrm_state_find() [xfrm_state.c] to prefer, if possible,
+states which also match by the inner addresses. Is this really a
+problem of the selection algorithm, or might I be doing something 
+wrong elsewhere?
 
-The same answer :)
+Here's the changes I've done to make it work for me.  As said, it
+prefers states with matching inner-address, but if none is found it
+works as before:
 
-> > +
-> >       cmd->supported = phydev->supported;
-> >
-> >       cmd->advertising = phydev->advertising;
-> > -
-> > To unsubscribe from this list: send the line "unsubscribe netdev" in
-> > the body of a message to majordomo@vger.kernel.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
->
+
+diff -urN  a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+--- a/net/xfrm/xfrm_state.c 2007-05-11 15:37:35.000000000 +0300
++++ b/net/xfrm/xfrm_state.c 2007-05-11 15:37:35.000000000 +0300
+@@ -374,6 +374,17 @@
+                                    (best->km.dying == x->km.dying &&
+                                     best->curlft.add_time < x->curlft.add_time))
+                                        best = x;
++                               else if (pol->selector.family == x->sel.family &&
++                                        (pol->selector.family == AF_INET6 &&
++                                         !ipv6_addr_cmp((struct in6_addr *)&pol->selector.daddr,
++                                                        (struct in6_addr *)&x->sel.daddr) &&
++                                         !ipv6_addr_cmp((struct in6_addr *)&pol->selector.saddr,
++                                                        (struct in6_addr *)&x->sel.saddr)) ||
++                                        (pol->selector.family == AF_INET &&
++                                         pol->selector.daddr.a4 == x->sel.daddr.a4 &&
++                                         pol->selector.saddr.a4 == x->sel.saddr.a4))
++                                       best = x;
++
+                        } else if (x->km.state == XFRM_STATE_ACQ) {
+                                acquire_in_progress = 1;
+                        } else if (x->km.state == XFRM_STATE_ERROR ||
+
+br, j
+
+--
+Joakim Koskela
+Helsinki Institute for Information Technology, http://www.hiit.fi
