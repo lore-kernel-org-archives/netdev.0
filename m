@@ -1,71 +1,63 @@
 From: akpm@linux-foundation.org
-Subject: [patch 01/13] 8139too: force media setting cleanup
-Date: Thu, 10 May 2007 22:52:42 -0700
-Message-ID: <200705110552.l4B5qg8l007789@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, leewkb@yahoo.com
+Subject: [patch 03/13] forcedeth: improve NAPI logic
+Date: Thu, 10 May 2007 22:52:47 -0700
+Message-ID: <200705110552.l4B5qlHx007795@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, mingo@elte.hu,
+	aabdulla@nvidia.com
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([65.172.181.25]:55213 "EHLO
+Received: from smtp1.linux-foundation.org ([65.172.181.25]:41198 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754864AbXEKFxP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2007 01:53:15 -0400
+	by vger.kernel.org with ESMTP id S1759700AbXEKFxY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2007 01:53:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Bernard Lee <leewkb@yahoo.com>
+From: Ingo Molnar <mingo@elte.hu>
 
-Setting bit 4 & 5 alone in 8139too module media option does not really
-force 100Mbps full-duplex mode.  When media option bit 0-3 is cleared,
-8139too module does not force media setting.  Therefore, bit 0-3 requires
-to be set for bit 4 & 5 to take effect.  The hidden bit 0-3 setting is not
-stated in module description.
+Another forcedeth.c thing: i noticed that its NAPI handler does not do
+tx-ring processing.  The patch below implements this - tested on DESC_VER_2
+hardware, with CONFIG_FORCEDETH_NAPI=y.
 
-It can be fixed by changing rtl8139_private structure default_port bitfield
-from 4-bit to 6-bit.
 
-Besides, module media bit 9 is a duplicate of bit 4 (full-duplex).  It is
-suggested that bit 9 is freed.  A remark is added to module description
-that bit 0 can be used to force setting.  It helps to clarify 10Mbps
-half-duplex mode.
+Signed-off-by: Ingo Molnar <mingo@elte.hu>
+Cc: Ayaz Abdulla <aabdulla@nvidia.com>
+---
+Auke said:
 
-Signed-off-by: Bernard Lee <leewkb@yahoo.com>
-Cc: Jeff Garzik <jeff@garzik.org>
+the patch needs to be improved.
+
+The following needs to be done when NAPI is enabled:
+- remove the tx handling within the ISRs
+- mask off the tx interrupts within the ISRs that handle tx processing
+- re-enable tx interrupts within the NAPI handler
+- add tx handling within the NAPI handler (this patch covers it)
+
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/net/8139too.c |    8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/forcedeth.c |    8 ++++++++
+ 1 file changed, 8 insertions(+)
 
-diff -puN drivers/net/8139too.c~8139too-force-media-setting-fix drivers/net/8139too.c
---- a/drivers/net/8139too.c~8139too-force-media-setting-fix
-+++ a/drivers/net/8139too.c
-@@ -586,7 +586,7 @@ struct rtl8139_private {
- 	signed char phys[4];		/* MII device addresses. */
- 	char twistie, twist_row, twist_col;	/* Twister tune state. */
- 	unsigned int watchdog_fired : 1;
--	unsigned int default_port : 4;	/* Last dev->if_port value. */
-+	unsigned int default_port : 6;	/* Last dev->if_port value. */
- 	unsigned int have_thread : 1;
- 	spinlock_t lock;
- 	spinlock_t rx_lock;
-@@ -612,7 +612,7 @@ module_param_array(full_duplex, int, NUL
- module_param(debug, int, 0);
- MODULE_PARM_DESC (debug, "8139too bitmapped message enable number");
- MODULE_PARM_DESC (multicast_filter_limit, "8139too maximum number of filtered multicast addresses");
--MODULE_PARM_DESC (media, "8139too: Bits 4+9: force full duplex, bit 5: 100Mbps");
-+MODULE_PARM_DESC (media, "8139too: bit 0: force setting, bit 4: full duplex, bit 5: 100Mbps");
- MODULE_PARM_DESC (full_duplex, "8139too: Force full duplex for board(s) (1)");
+diff -puN drivers/net/forcedeth.c~forcedeth-improve-napi-logic drivers/net/forcedeth.c
+--- a/drivers/net/forcedeth.c~forcedeth-improve-napi-logic
++++ a/drivers/net/forcedeth.c
+@@ -3111,9 +3111,17 @@ static int nv_napi_poll(struct net_devic
+ 	int retcode;
  
- static int read_eeprom (void __iomem *ioaddr, int location, int addr_len);
-@@ -1068,8 +1068,8 @@ static int __devinit rtl8139_init_one (s
- 	/* The lower four bits are the media type. */
- 	option = (board_idx >= MAX_UNITS) ? 0 : media[board_idx];
- 	if (option > 0) {
--		tp->mii.full_duplex = (option & 0x210) ? 1 : 0;
--		tp->default_port = option & 0xFF;
-+		tp->mii.full_duplex = (option & 0x10) ? 1 : 0;
-+		tp->default_port = option & 0x3F;
- 		if (tp->default_port)
- 			tp->mii.force_media = 1;
+ 	if (np->desc_ver == DESC_VER_1 || np->desc_ver == DESC_VER_2) {
++		spin_lock_irqsave(&np->lock, flags);
++		nv_tx_done(dev);
++		spin_unlock_irqrestore(&np->lock, flags);
++
+ 		pkts = nv_rx_process(dev, limit);
+ 		retcode = nv_alloc_rx(dev);
+ 	} else {
++		spin_lock_irqsave(&np->lock, flags);
++		nv_tx_done_optimized(dev, np->tx_ring_size);
++		spin_unlock_irqrestore(&np->lock, flags);
++
+ 		pkts = nv_rx_process_optimized(dev, limit);
+ 		retcode = nv_alloc_rx_optimized(dev);
  	}
 _
