@@ -1,74 +1,57 @@
-From: Andi Kleen <ak@suse.de>
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
 Subject: Re: [RFC] New driver API to speed up small packets xmits
-Date: Fri, 11 May 2007 11:37:14 +0200
-Message-ID: <20070511093714.GR2012@bingen.suse.de>
-References: <p73wszfenni.fsf@bingen.suse.de> <OFAF0AE4C2.388D2428-ON652572D8.002E0FFF-652572D8.002EF597@in.ibm.com>
+Date: Fri, 11 May 2007 14:20:26 +0530
+Message-ID: <OFD1E1285F.980A7DEF-ON652572D8.002FD5E4-652572D8.0030903D@in.ibm.com>
+References: <20070511093714.GR2012@bingen.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <andi@firstfloor.org>, ak@suse.de,
+Content-Type: text/plain; charset=US-ASCII
+Cc: ak@suse.de, Andi Kleen <andi@firstfloor.org>,
 	netdev@vger.kernel.org
-To: Krishna Kumar2 <krkumar2@in.ibm.com>
+To: Andi Kleen <ak@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.suse.de ([195.135.220.15]:48366 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751555AbXEKIkE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 May 2007 04:40:04 -0400
-Content-Disposition: inline
-In-Reply-To: <OFAF0AE4C2.388D2428-ON652572D8.002E0FFF-652572D8.002EF597@in.ibm.com>
+Received: from ausmtp06.au.ibm.com ([202.81.18.155]:64864 "EHLO
+	ausmtp06.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760293AbXEKIvM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2007 04:51:12 -0400
+Received: from sd0109e.au.ibm.com (d23rh905.au.ibm.com [202.81.18.225])
+	by ausmtp06.au.ibm.com (8.13.8/8.13.8) with ESMTP id l4B8qgkX2056396
+	for <netdev@vger.kernel.org>; Fri, 11 May 2007 18:52:42 +1000
+Received: from d23av03.au.ibm.com (d23av03.au.ibm.com [9.190.250.244])
+	by sd0109e.au.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l4B8sfjx128292
+	for <netdev@vger.kernel.org>; Fri, 11 May 2007 18:54:41 +1000
+Received: from d23av03.au.ibm.com (loopback [127.0.0.1])
+	by d23av03.au.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l4B8p9Ko011382
+	for <netdev@vger.kernel.org>; Fri, 11 May 2007 18:51:09 +1000
+In-Reply-To: <20070511093714.GR2012@bingen.suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, May 11, 2007 at 02:02:55PM +0530, Krishna Kumar2 wrote:
-> Hi Andy,
-> 
-> ak@suse.de wrote on 05/11/2007 02:35:05 PM:
-> 
-> > You don't need that. You can just use the normal next/prev pointers.
-> > In general it's a good idea to lower lock overhead etc., the VM has
-> > used similar tricks very successfully in the past.
-> 
-> Does this mean each skb should be for the same connection if next/prev
-> is used ?
+Hi Andy,
 
-No; but see next paragraph.
+Andi Kleen <ak@suse.de> wrote on 05/11/2007 03:07:14 PM:
 
-But without it aggregation  on RX is much less useful because the packets
-cannot be kept together after socket demux which happens relatively early
-in the packet processing path.
+> But without it aggregation  on RX is much less useful because the packets
+> cannot be kept together after socket demux which happens relatively early
+> in the packet processing path.
 
-> 
-> > Another problem is that this setup typically requires the aggregate
-> > packets to be from the same connection. Otherwise you will only
-> > safe a short trip into the stack until the linked packet would need
-> > to be split again to pass to multiple sockets. With that the scheme
-> > probably helps much less.
-> 
-> I guess you meant this for receives only. On the send side, packets
+Then I misunderstood you, my proposal is only for TX. GSO will not help as
+it is for large packets to get segmented at the latest point in time to
+avoid going through the stack multiple times. My proposal is to link
+multiple
+packets to send to the device in one shot rather than calling qdisc_restart
+multiple times.
 
-Yes.
+> > But for sends, why does same or different connection matter ? There is
+> > no aggregating of skbs.
+>
+> I wasn't talking about sending.
+>
+> But there actually is :- TSO/GSO.
 
-> for different sockets can be linked and sent together, right ?
+Sorry to mis-write what I meant : in my proposal there is no aggregating
+of skbs so single/multiple connections should not matter.
 
-Not implemented and as DaveM pointed out such batching
-has some problems.  There is just TSO/GSO for single sockets
+Thanks,
 
-> 
-> > Or you could do this only if multiple packets belong to the same
-> > single connection (basically with a one hit cache); but then it would
-> 
-> But for sends, why does same or different connection matter ? There is
-> no aggregating of skbs.
+- KK
 
-I wasn't talking about sending.
-
-
-But there actually is :- TSO/GSO.
-
-
--Andi
-
-> 
-> Thanks,
-> 
-> - KK
-> 
