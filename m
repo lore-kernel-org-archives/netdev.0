@@ -1,58 +1,45 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [patch 03/13] forcedeth: improve NAPI logic
-Date: Fri, 11 May 2007 03:11:04 -0400
-Message-ID: <46441708.7020605@garzik.org>
-References: <200705110552.l4B5qlHx007795@shell0.pdx.osdl.net>
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Subject: Re: [RFC] New driver API to speed up small packets xmits
+Date: Fri, 11 May 2007 12:44:58 +0530
+Message-ID: <OFD5FAC857.54E87E8A-ON652572D8.0027B47D-652572D8.0027D2D9@in.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mingo@elte.hu, aabdulla@nvidia.com
-To: akpm@linux-foundation.org
+Content-Type: text/plain; charset=US-ASCII
+Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	Krishna Kumar2 <krkumar2@in.ibm.com>, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org, Rick Jones <rick.jones2@hp.com>
+To: David Stevens <dlstevens@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:36234 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751856AbXEKHLK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 May 2007 03:11:10 -0400
-In-Reply-To: <200705110552.l4B5qlHx007795@shell0.pdx.osdl.net>
+Received: from ausmtp05.au.ibm.com ([202.81.18.154]:51619 "EHLO
+	ausmtp05.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754183AbXEKHYq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2007 03:24:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-akpm@linux-foundation.org wrote:
-> From: Ingo Molnar <mingo@elte.hu>
-> 
-> Another forcedeth.c thing: i noticed that its NAPI handler does not do
-> tx-ring processing.  The patch below implements this - tested on DESC_VER_2
-> hardware, with CONFIG_FORCEDETH_NAPI=y.
-> 
-> 
-> Signed-off-by: Ingo Molnar <mingo@elte.hu>
-> Cc: Ayaz Abdulla <aabdulla@nvidia.com>
-> ---
-> Auke said:
-> 
-> the patch needs to be improved.
-> 
-> The following needs to be done when NAPI is enabled:
-> - remove the tx handling within the ISRs
-> - mask off the tx interrupts within the ISRs that handle tx processing
-> - re-enable tx interrupts within the NAPI handler
-> - add tx handling within the NAPI handler (this patch covers it)
-> 
-> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-> ---
-> 
->  drivers/net/forcedeth.c |    8 ++++++++
->  1 file changed, 8 insertions(+)
 
-This was NAK'd at least twice?
+(Mistaken didn't reply-all previous time)
 
-It's a half-finished project.  You need to do more, if moving TX from 
-irq handler to NAPI.
+Hi Dave,
 
-I'm definitely not applying it, and as its incomplete, it definitely 
-isn't suitable for upstream.
+David Stevens <dlstevens@us.ibm.com> wrote on 05/11/2007 02:57:56 AM:
 
-	Jeff
+> The word "small" is coming up a lot in this discussion, and
+> I think packet size really has nothing to do with it. Multiple
+> streams generating packets of any size would benefit; the
+> key ingredient is a queue length greater than 1.
 
+Correct. Re-thinking about this - for larger packets the bandwidth
+may not improve as it reaches line-speed, but I guess CPU util could
+reduce (which could reduce in small packet case too). Using "small"
+was not covering this case.
+
+Thanks,
+
+- KK
+
+> I think the intent is to remove queue lock cycles by taking
+> the whole list (at least up to the count of free ring buffers)
+> when the queue is greater than one packet, thus effectively
+> removing the lock expense for n-1 packets.
 
 
