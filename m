@@ -1,51 +1,35 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [RFC] New driver API to speed up small packets xmits
-Date: Fri, 11 May 2007 08:15:09 -0400
-Message-ID: <1178885709.4093.32.camel@localhost>
-References: <20070511093202.GB24695@2ka.mipt.ru>
-	 <OF6C27DF4E.9060BDB4-ON652572D8.0035C627-652572D8.00363827@in.ibm.com>
-	 <20070511095602.GA5762@2ka.mipt.ru> <1178883002.4093.26.camel@localhost>
-	 <20070511115352.GA6508@2ka.mipt.ru>
-Reply-To: hadi@cyberus.ca
+From: Timur Tabi <timur@freescale.com>
+Subject: Re: Kconfig warnings on latest GIT
+Date: Fri, 11 May 2007 07:38:56 -0500
+Message-ID: <464463E0.1020602@freescale.com>
+References: <200705080004.14570.ismail@pardus.org.tr> <20070508143127.38fafa3c.kim.phillips@freescale.com> <4640D988.1040504@freescale.com> <20070510051042.GA16812@verge.net.au> <46434ED0.6030808@freescale.com> <20070511012529.GC10715@verge.net.au> <Pine.LNX.4.64.0705102046400.10555@gate.crashing.org> <20070511074337.GA3048@flint.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Krishna Kumar2 <krkumar2@in.ibm.com>,
-	Ian McDonald <ian.mcdonald@jandi.co.nz>,
-	netdev@vger.kernel.org, Rick Jones <rick.jones2@hp.com>,
-	Vlad Yasevich <vladislav.yasevich@hp.com>
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+To: Kumar Gala <galak@kernel.crashing.org>,
+	Simon Horman <horms@verge.net.au>,
+	Timur Tabi <timur@freescale.com>,
+	Kim Phillips <kim.phillips@freescale.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	=?ISO-8859-1?Q?Ismail_D=F6nmez?= <ismail@pardus.org.tr>,
+	Michael Schmitz <schmitz@debian.org>,
+	Roman Zippel <zippel@linux-m68k.org>,
+	Geert Uytterhoeven <geert@linux-m68k.org>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Paul Mackerras <paulus@samba.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.237]:14642 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755114AbXEKMPS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2007 08:15:18 -0400
-Received: by wx-out-0506.google.com with SMTP id h31so848793wxd
-        for <netdev@vger.kernel.org>; Fri, 11 May 2007 05:15:17 -0700 (PDT)
-In-Reply-To: <20070511115352.GA6508@2ka.mipt.ru>
+Received: from az33egw01.freescale.net ([192.88.158.102]:48694 "EHLO
+	az33egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756799AbXEKMjb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2007 08:39:31 -0400
+In-Reply-To: <20070511074337.GA3048@flint.arm.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2007-11-05 at 15:53 +0400, Evgeniy Polyakov wrote:
+Russell King wrote:
 
-> As I said there might be another lock, if interrupt handler is shared,
-> or registers are accessed, but it is privite driver's business, which
-> has nothing in common with stack itself. 
+> You might also want to fix the other stupidity with this.  See my message
+> on this very subject ("select is evil: another reason" from May 9th on lkml.)
 
-Ok, we are saying the same thing then. eg in e1000 that would be
-tx_ring->lock or something along those lines.
-
-> Stack just queues an skb,
-> which, after detached from the tx queue by driver, just does not exist
-> for stack anymore. It can be dequeed with rcu protection even.
-
-in my case i had a dev->blist where the stack queued. You really want to
-avoid requeueing altogether.
-The trick i used is to have the driver tell you how many packets you can
-pull off the qdisc.
-
-cheers,
-jamal
-
-
-
+I submitted a patch yesterday which includes both fixes.  Apparently, it's already in the -mm tree.
