@@ -1,40 +1,70 @@
-From: Roland Dreier <rdreier@cisco.com>
+From: jamal <hadi@cyberus.ca>
 Subject: Re: [RFC] New driver API to speed up small packets xmits
-Date: Fri, 11 May 2007 04:21:30 -0700
-Message-ID: <ada8xbvzjut.fsf@cisco.com>
-References: <OFA0B8100C.1A34288C-ON652572D8.002808B3-652572D8.002945CB@in.ibm.com>
+Date: Fri, 11 May 2007 07:27:07 -0400
+Message-ID: <1178882827.4093.22.camel@localhost>
+References: <OF5A173A00.C4FD79C5-ON652572D8.001C203E-652572D8.001D8134@in.ibm.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Gagan Arneja <gaagaan@gmail.com>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org,
+	Rick Jones <rick.jones2@hp.com>,
+	Sridhar Samudrala <sri@US.IBM.COM>
 To: Krishna Kumar2 <krkumar2@in.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-2-in.cisco.com ([171.71.176.71]:62719 "EHLO
-	sj-iport-2.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755759AbXEKLVb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2007 07:21:31 -0400
-In-Reply-To: <OFA0B8100C.1A34288C-ON652572D8.002808B3-652572D8.002945CB@in.ibm.com> (Krishna Kumar2's message of "Fri, 11 May 2007 13:00:48 +0530")
+Received: from wx-out-0506.google.com ([66.249.82.229]:54800 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757414AbXEKL1L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2007 07:27:11 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so837626wxd
+        for <netdev@vger.kernel.org>; Fri, 11 May 2007 04:27:10 -0700 (PDT)
+In-Reply-To: <OF5A173A00.C4FD79C5-ON652572D8.001C203E-652572D8.001D8134@in.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- > Sounds a good idea. I had a question on error handling. What happens if
- > the driver asynchronously returns an error for this WR (single WR
- > containing multiple skbs) ? Does it mean all the skbs failed to be sent ?
- > Requeuing all of them is a bad idea since it leads to infinitely doing the
- > same thing, so should every skb be free'd ? Isn't that harsh (if first skb
- > is bad and others are fine) and how do we avoid that ? Infact we don't
- > know which skb was transmitted and which failed. If we requeue skbs,
- > there will also be out-of-order skbs as the callback is asynchronous.
+On Fri, 2007-11-05 at 10:52 +0530, Krishna Kumar2 wrote:
 
-Each packet will still get a separate work request.  However if one
-work request fails, then the QP will transition to the error state and
-all later work requests will fail too.
+> I didn't try to optimize the driver to take any real advantage, I coded it
+> as simply as :
+> 
+> top:
+>       next = skb->skb_flink;
+>       Original driver code here, or another option is to remove the locking
+>             and put it before the "top:" above, no other changes.
+>       skb = next;
+>       if (skb)
+>             goto top;
+> This way, the diffs are minimal. However, driver experts might know of some
+> tricks to optimize this, since most drivers have a hundred checks before
+> sending one skb, and whether some optimization to avoid that for each skb
+> is possible.
+> 
 
-But the completion handling doesn't change at all -- IPoIB already
-queues work requests with the hardware and then collects completions
-asynchronously.  If we get a failed completion then we free the skb
-and bump tx errors -- there's nothing else really sensible to do.
+You will need to at some point, no big deal in order to get things in
+place first- the simple example of DMA i talked about yesterday is a
+simple example. i.e you avoid kicking the DMA until you have queued all
+in the ring (as Gagan pointed out, kicking the DMA is a PCI IO write)
+I am sure there are gazillion others.
+ 
 
-However errors on UD QPs can never really happen except for driver
-bugs or hardware failures, and for connected QPs (used in connected
-mode), errors probably mean that a connection broke, so dropping
-packets is quite sensible.
+> This is a good idea, I will look at your slides to see what this exactly
+> is.
+
+I will try to post my patches updated to the latest net-2.6 kernel
+before you come back on monday.
+
+> However, even with this check, drivers will return error, eg trylock failed
+> or, like the e1000 has - fifo_workaround failures. But I still think it
+> will significantly reduce the failures. 
+
+Yes, this is what i refered to as the "many tunables" and led to the
+claim that you may have to re-write the whole tx path in my posting.
+
+> Right now, I get a lot of requeue's.
+
+requeues are a good sign ;->
+
+cheers,
+jamal
+
