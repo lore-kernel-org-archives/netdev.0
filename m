@@ -1,27 +1,42 @@
-From: David Howells <dhowells@redhat.com>
-Subject: Re: [PATCH 1/2] AFS: Fix interminable loop in afs_write_back_from_locked_page()
-Date: Fri, 11 May 2007 10:57:53 +0100
-Message-ID: <10145.1178877473@redhat.com>
-References: <20070510161946.96ff0784.akpm@linux-foundation.org> <20070510143334.19485.26042.stgit@warthog.cambridge.redhat.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH 1/2] AFS: Fix interminable loop in
+ afs_write_back_from_locked_page()
+Date: Fri, 11 May 2007 02:58:22 -0700
+Message-ID: <20070511025822.a5aa5240.akpm@linux-foundation.org>
+References: <20070510161946.96ff0784.akpm@linux-foundation.org>
+	<20070510143334.19485.26042.stgit@warthog.cambridge.redhat.com>
+	<8792.1178876963@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	linux-fsdevel@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <20070510161946.96ff0784.akpm@linux-foundation.org>
-Sender: linux-fsdevel-owner@vger.kernel.org
+To: David Howells <dhowells@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.linux-foundation.org ([65.172.181.25]:48067 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756348AbXEKJ6c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2007 05:58:32 -0400
+In-Reply-To: <8792.1178876963@redhat.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton <akpm@linux-foundation.org> wrote:
+On Fri, 11 May 2007 10:49:23 +0100 David Howells <dhowells@redhat.com> wrote:
 
-> More than one would expect, given that it is recommended in
-> Documentation/SubmitChecklist, which everyone reads ;)
+> Andrew Morton <akpm@linux-foundation.org> wrote:
+> 
+> > > Following bug was uncovered by compiling with '-W' flag:
+> > 
+> > gcc -W finds a number of fairly scary bugs.
+> 
+> Do you mean in my code specifically?  Or in the kernel in general?
 
-Which states incorrectly:
+In general.
 
-| 22: Newly-added code has been compiled with `gcc -W'.  This will generate
-|     lots of noise, but is good for finding bugs like "warning: comparison
-|     between signed and unsigned".
+>  As far as
+> I can tell -W only finds an eye-glazingly large quantity of 'unused parameter'
+> warnings in AFS and AF_RXRPC.
 
--W does not imply -Wsign-compare, at least not on my gcc.
+Yes, it's a shame that there doesn't seem to be a fine-grained way of
+turning on -W's useful bits.
 
-David
