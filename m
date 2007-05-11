@@ -1,37 +1,67 @@
-From: Gagan Arneja <gaagaan@gmail.com>
-Subject: Re: [RFC] New driver API to speed up small packets xmits
-Date: Thu, 10 May 2007 22:57:54 -0700
-Message-ID: <464405E2.5020409@gmail.com>
-References: A<OF3528B24A.B797EFB6-ON652572D8.001F4AB0-652572D8.001F6B22@in.ibm.com>
+From: "Robert Iakobashvili" <coroberti@gmail.com>
+Subject: Re: Accessing certain web sites broken from 2.6.19+
+Date: Fri, 11 May 2007 07:57:57 +0200
+Message-ID: <7e63f56c0705102257r51e80d45s844cb14ebb6abb9b@mail.gmail.com>
+References: <4643efc2.7cb1b0b0.2a08.4658@mx.google.com>
+	 <7e63f56c0705102138q5a623fadm520473df49e49963@mail.gmail.com>
+	 <4643fc1e.095ef753.14ef.ffffb9a8@mx.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org,
-	Rick Jones <rick.jones2@hp.com>,
-	Sridhar Samudrala <sri@us.ibm.com>
-To: Krishna Kumar2 <krkumar2@in.ibm.com>
+Cc: netdev@vger.kernel.org
+To: "Andrew Hall" <andrew.a.hall@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sceptre.pobox.com ([207.106.133.20]:37742 "EHLO
-	sceptre.pobox.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758714AbXEKF5o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2007 01:57:44 -0400
-In-Reply-To: <OF3528B24A.B797EFB6-ON652572D8.001F4AB0-652572D8.001F6B22@in.ibm.com>
+Received: from wx-out-0506.google.com ([66.249.82.228]:30098 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760317AbXEKF56 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2007 01:57:58 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so771669wxd
+        for <netdev@vger.kernel.org>; Thu, 10 May 2007 22:57:58 -0700 (PDT)
+In-Reply-To: <4643fc1e.095ef753.14ef.ffffb9a8@mx.google.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> 
-> Right, but I am the sole dequeue'r, and on failure, I requeue those packets
-> to
-> the beginning of the queue (just as it would happen in the regular case of
-> one
-> packet xmit/failure/requeue).
+Andrew,
 
-What about a race between trying to reacquire queue_lock and another 
-failed transmit?
+On 5/11/07, Andrew Hall <andrew.a.hall@gmail.com> wrote:
+> > > When accessing certain web sites when using any kernel above 2.6.19,
+> > TCP seems to break. Connection to the site is established but never
+> > completes.
 
---
-Gagan
+Is it happening with a single connection, or when trying tens, hundreds,
+thousands? Is it stalled?
+Could you send a packet capture for such connection? Thank you.
 
-> 
-> - KK
-> 
+> > > One particular site is www.dcita.gov.au. Is there a known issue
+> > pertaining to this? Using any kernel below 2.6.19 (for example: 2.6.12 or
+> > 2.6.15) works fine.
+
+> I have not yet tried 2.6.21.. only tried to 2.6.20.9.
+
+Please, try it with the most close configuration by using the
+same config-file and running make oldconfig. There are some
+issues fixed since that.
+
+> The issue isn't browser dependent ,as a wget directly from the OS will also fail during the
+> connection. Interestingly requests made from hosts behind the 2.6.20 gateway
+> that make the same request work fine, it seems it's only requests made from
+> the localhost itself.
+
+To be in position to assist you, the people of the list may wish more
+details, like:
+1. wireshark or tcpdump capture of the broken/stalled sessions;
+2. iptables ruleset dump and running modules list;
+3. more knowledge about your kernel configuration (config file);
+4. more details about your HW, particular networking and their drivers
+(is not it a HW/card/driver specific issue?)
+
+Y may wish to look at how other people are submitting issues/bugs with
+more details.
+-- 
+Sincerely,
+Robert Iakobashvili,
+coroberti %x40 gmail %x2e com
+...........................................................
+http://curl-loader.sourceforge.net
+A web testing and traffic generation tool.
