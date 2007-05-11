@@ -1,40 +1,70 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: Kconfig warnings on latest GIT
-Date: Fri, 11 May 2007 11:05:45 +0900
-Message-ID: <20070511020545.GG10715@verge.net.au>
-References: <200705080004.14570.ismail@pardus.org.tr> <20070508143127.38fafa3c.kim.phillips@freescale.com> <4640D988.1040504@freescale.com> <20070510051042.GA16812@verge.net.au> <46434ED0.6030808@freescale.com> <20070511012529.GC10715@verge.net.au> <Pine.LNX.4.64.0705102046400.10555@gate.crashing.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Timur Tabi <timur@freescale.com>,
-	Kim Phillips <kim.phillips@freescale.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Ismail =?iso-8859-1?Q?D=F6nmez?= <ismail@pardus.org.tr>,
-	Michael Schmitz <schmitz@debian.org>,
-	Roman Zippel <zippel@linux-m68k.org>,
-	Geert Uytterhoeven <geert@linux-m68k.org>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Paul Mackerras <paulus@samba.org>
-To: Kumar Gala <galak@kernel.crashing.org>
+From: Timur Tabi <timur@freescale.com>
+Subject: [PATCH] powerpc: fix Kconfig 'select' warning with UCC_FAST
+Date: Thu, 10 May 2007 21:09:31 -0500
+Message-ID: <11788493712639-git-send-email-timur@freescale.com>
+Cc: Timur Tabi <timur@freescale.com>
+To: kim.phillips@freescale.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, ismail@pardus.org.tr, schmitz@debian.org,
+	zippel@linux-m68k.org, geert@linux-m68k.org,
+	johannes@sipsolutions.net, benh@kernel.crashing.org,
+	paulus@samba.org, galak@kernel.crashing.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from koto.vergenet.net ([210.128.90.7]:45388 "EHLO koto.vergenet.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752274AbXEKCFr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 May 2007 22:05:47 -0400
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0705102046400.10555@gate.crashing.org>
+Received: from de01egw02.freescale.net ([192.88.165.103]:53760 "EHLO
+	de01egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751570AbXEKCL2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2007 22:11:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, May 10, 2007 at 08:47:05PM -0500, Kumar Gala wrote:
-> Try this patch:
+The UCC_GETH Kconfig option in drivers/net/Kconfig had a line to select
+the UCC_FAST option is arch/powerpc/sysdev/qe_lib/Kconfig, which is only used
+on PowerPC builds.  On other architectures, this would generated a warning.
+The fix is to have UCC_FAST depend on UCC_GETH.
 
-That certainly resolves the problem for me.
-I'll see about doing something like that for the similar
-Kconfig problems that I see.
+Signed-off-by: Timur Tabi <timur@freescale.com>
+---
 
+The reason I used 'select' in the first place was because I didn't want to
+have to update the definitions of UCC_FAST or UCC_SLOW every time we added
+a new UCC device driver, but I guess that's unavoidable.
+
+ arch/powerpc/sysdev/qe_lib/Kconfig |    4 +---
+ drivers/net/Kconfig                |    1 -
+ 2 files changed, 1 insertions(+), 4 deletions(-)
+
+diff --git a/arch/powerpc/sysdev/qe_lib/Kconfig b/arch/powerpc/sysdev/qe_lib/Kconfig
+index 887739f..f611d34 100644
+--- a/arch/powerpc/sysdev/qe_lib/Kconfig
++++ b/arch/powerpc/sysdev/qe_lib/Kconfig
+@@ -5,15 +5,13 @@
+ config UCC_SLOW
+ 	bool
+ 	default n
+-	select UCC
+ 	help
+ 	  This option provides qe_lib support to UCC slow
+ 	  protocols: UART, BISYNC, QMC
+ 
+ config UCC_FAST
+ 	bool
+-	default n
+-	select UCC
++	default y if UCC_GETH
+ 	help
+ 	  This option provides qe_lib support to UCC fast
+ 	  protocols: HDLC, Ethernet, ATM, transparent
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index b86ccd2..5a5c026 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -2276,7 +2276,6 @@ config GFAR_NAPI
+ config UCC_GETH
+ 	tristate "Freescale QE Gigabit Ethernet"
+ 	depends on QUICC_ENGINE
+-	select UCC_FAST
+ 	help
+ 	  This driver supports the Gigabit Ethernet mode of the QUICC Engine,
+ 	  which is available on some Freescale SOCs.
 -- 
-Horms
-  H: http://www.vergenet.net/~horms/
-  W: http://www.valinux.co.jp/en/
+1.5.0.2.260.g2eb065
 
