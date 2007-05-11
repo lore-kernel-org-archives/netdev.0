@@ -1,74 +1,73 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+From: jamal <hadi@cyberus.ca>
 Subject: RE: take 2 WAS (RE: [RFC] make qdisc_restart more readable
-Date: Fri, 11 May 2007 15:01:20 -0700
-Message-ID: <D5C1322C3E673F459512FB59E0DDC32902D4280E@orsmsx414.amr.corp.intel.com>
-References: <1178911773.4126.26.camel@localhost>
+Date: Fri, 11 May 2007 18:43:12 -0400
+Message-ID: <1178923392.4089.4.camel@localhost>
+References: <D5C1322C3E673F459512FB59E0DDC32902D4280E@orsmsx414.amr.corp.intel.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Herbert Xu" <herbert@gondor.apana.org.au>,
-	"David Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: <hadi@cyberus.ca>, "Thomas Graf" <tgraf@suug.ch>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Graf <tgraf@suug.ch>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:26708 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759057AbXEKWBY convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2007 18:01:24 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <1178911773.4126.26.camel@localhost>
+Received: from wx-out-0506.google.com ([66.249.82.236]:45981 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751821AbXEKWnQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2007 18:43:16 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so1014141wxd
+        for <netdev@vger.kernel.org>; Fri, 11 May 2007 15:43:15 -0700 (PDT)
+In-Reply-To: <D5C1322C3E673F459512FB59E0DDC32902D4280E@orsmsx414.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> Ok, booting fine to me;
-> if you receive this email, it must have worked. OTOH, if you
-> didnt receive this it probably failed ;-> (as the presenter
-> said "if you cant hear me in the far corner please raise your hand").
->
-> clip away ...
+On Fri, 2007-11-05 at 15:01 -0700, Waskiewicz Jr, Peter P wrote:
 
-+static inline int
-+handle_dev_requeue(struct sk_buff *skb, struct net_device *dev, struct
-Qdisc *q)
-+{
-+
-+	if (unlikely(q == &noop_qdisc))
-+		kfree_skb(skb);
-+	else if (skb->next)
-+		dev->gso_skb = skb;
-+	else
-+		q->ops->requeue(skb, q);
-+	/* XXX: Could netif_schedule fail? Or is that fact we are
-+	 * requeueing imply the hardware path is closed
-+	 * and even if we fail, some interupt will wake us
-+	*/
-+	netif_schedule(dev);
-+	return 0;
-+}
+> The current requeue calls in qdisc_restart() returns a value of 1 to the
+> upper layer. 
 
-The current requeue calls in qdisc_restart() returns a value of 1 to the
-upper layer.  If you return 0, the __qdisc_run() won't break from the
-while() it seems if you have to successfully requeue a packet.
+Which was not meaningful ;->
+i.e qdisc run would break as a result.
+Note, this is still in conformance with net-2.6 based on a change in the
+last few days made by Herbert - I was following his lead.
+I put that comment there just as something to remember and
+maybe revisit later.
 
+>  If you return 0, the __qdisc_run() won't break from the
+> while() it seems if you have to successfully requeue a packet.
+> 
 
--static inline int qdisc_restart(struct net_device *dev)
-+int
-+qdisc_restart(struct net_device *dev)
- {
+It wont; the check is for < 0
 
-Why is this no longer defined static?
+> 
+> -static inline int qdisc_restart(struct net_device *dev)
+> +int
+> +qdisc_restart(struct net_device *dev)
+>  {
+> 
+> Why is this no longer defined static?
+> 
 
+Good catch - i will restore it to what it was originally.
 
-+	/* we need to refresh q because it may be invalid since we
-droped 
+> 
+> +	/* we need to refresh q because it may be invalid since we
+> droped 
+> 
+> <nitpick>
+> droped = dropped
+> </nitpick>
+> 
 
-<nitpick>
-droped = dropped
-</nitpick>
+Ok, better to fix it now before the spelling police show up ;->
 
-That's all I have for now.  I'll try applying it for kicks and see what
-happens.
+> That's all I have for now.  I'll try applying it for kicks and see what
+> happens.
 
-Thanks,
+Just make those two fixes in your version; also note, you need Davems
+net-2.6 tree.
 
--PJ Waskiewicz
+cheers,
+jamal
+
