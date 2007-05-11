@@ -1,105 +1,44 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: 2.6.21-gitX: known regressions
-Date: Thu, 10 May 2007 18:10:44 -0700
-Message-ID: <20070510181044.d0f24e51.akpm@linux-foundation.org>
-References: <46430A3D.4030004@googlemail.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: Kconfig warnings on latest GIT
+Date: Fri, 11 May 2007 10:22:18 +0900
+Message-ID: <20070511012216.GB10715@verge.net.au>
+References: <200705080004.14570.ismail@pardus.org.tr> <20070508143127.38fafa3c.kim.phillips@freescale.com> <4640D988.1040504@freescale.com> <20070510051042.GA16812@verge.net.au> <1178811570.3806.18.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Jeremy Fitzhardinge <jeremy@goop.org>,
-	Auke Kok <auke-jan.h.kok@intel.com>, Jeff Garzik <jeff@garzik.org>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	Thomas@sc8-sf-spam2.sourceforge.net, David Chinner <dgc@sgi.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Doug Chapman <doug.chapman@hp.com>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>, Alexey Dobriyan <adobriyan@sw.ru>,
-	pavel@suse.cz, John Ronciak <john.ronciak@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	linux-pm@lists.linux-foundation.org, Gleixner <tglx@linutronix.de>,
-	Jeb Cramer <cramerj@intel.com>
-To: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <46430A3D.4030004@googlemail.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=us-ascii
+Cc: Timur Tabi <timur@freescale.com>,
+	Kim Phillips <kim.phillips@freescale.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Ismail =?iso-8859-1?Q?D=F6nmez?= <ismail@pardus.org.tr>,
+	Kumar Gala <galak@kernel.crashing.org>,
+	Michael Schmitz <schmitz@debian.org>,
+	Roman Zippel <zippel@linux-m68k.org>,
+	Geert Uytterhoeven <geert@linux-m68k.org>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Paul Mackerras <paulus@samba.org>
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from koto.vergenet.net ([210.128.90.7]:45283 "EHLO koto.vergenet.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754866AbXEKBWV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 May 2007 21:22:21 -0400
+Content-Disposition: inline
+In-Reply-To: <1178811570.3806.18.camel@johannes.berg>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 10 May 2007 14:04:13 +0200
-Michal Piotrowski <michal.k.k.piotrowski@gmail.com> wrote:
+On Thu, May 10, 2007 at 05:39:29PM +0200, Johannes Berg wrote:
+> On Thu, 2007-05-10 at 14:10 +0900, Simon Horman wrote:
+> 
+> > drivers/macintosh/Kconfig:112:warning: 'select' used by config symbol 'PMAC_APM_EMU' refer to undefined symbol 'SYS_SUPPORTS_APM_EMULATION'
+> 
+> Argh. Is that with ARCH=ppc? I keep forgetting that it still exists,
+> sorry.
 
-> Hi all,
-> 
-> Here is a list of some known regressions in 2.6.21-gitX.
-> 
-> Feel free to add new regressions/remove fixed etc.
-> http://kernelnewbies.org/known_regressions
-> 
-> 
-> 
-> Unclassified:
-> 
-> Subject    : 2.6.21-git10/11: files getting truncated on xfs (after suspend/resume?)
-> References : http://lkml.org/lkml/2007/5/9/410
-> Submitter  : Jeremy Fitzhardinge <jeremy@goop.org>
-> Handled-By : David Chinner <dgc@sgi.com>
-> Status     : problem is being debugged
-> 
-> Subject    : Current -git kernel kills X
-> References : http://lkml.org/lkml/2007/5/8/667
-> Submitter  : Jeff Garzik <jeff@garzik.org>
-> Status     : Unknown
-> 
-> 
-> 
-> Block devices:
-> 
-> Subject    : BUG in loop.ko
-> References : http://lkml.org/lkml/2007/5/9/510
-> Submitter  : Jeremy Fitzhardinge <jeremy@goop.org>
-> Status     : Unknown
-> 
-> 
-> 
-> Networking:
-> 
-> Subject    : panic with e1000 driver on HP Integrity servers
-> References : http://bugzilla.kernel.org/show_bug.cgi?id=8455
-> Submitter  : Doug Chapman <doug.chapman@hp.com>
-> Caused-By  : Auke Kok <auke-jan.h.kok@intel.com>
->              commit e0aac5a289b1dacbc94bd9ae8c449bcdf9ab508c
-> Status     : Unknown
-> 
-> 
-> 
-> Timers/NOHZ:
-> 
-> Subject    : 2.6.21-git4 BUG: soft lockup detected on CPU#1! 
-> References : http://lkml.org/lkml/2007/5/2/511
-> Submitter  : Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
-> Handled-By : Thomas Gleixner <tglx@linutronix.de>
-> Status     : problem is being debugged
-> 
+Actually, it was with ARCH=ia64. I have a feeling that you can get
+it to show up quite easily with anything other than ARCH=powerpc.
 
-Please also consider:
+-- 
+Horms
+  H: http://www.vergenet.net/~horms/
+  W: http://www.valinux.co.jp/en/
 
-Subject: libata reset-seq merge broke sata_sil on sh
-Subject: [Bugme-new] [Bug 8462] New: applications under wine freezes
-
-But we have many many more regressions which are in 2.6.21.x, only nobody's
-tracking those.  Nobody seems to be fixing them either.  Probably
-everyone's busy on the 2.6.14 regressions.
-
-
--------------------------------------------------------------------------
-This SF.net email is sponsored by DB2 Express
-Download DB2 Express C - the FREE version of DB2 express and take
-control of your XML. No limits. Just data. Click to get it now.
-http://sourceforge.net/powerbar/db2/
