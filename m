@@ -1,62 +1,51 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [PATCH 2/4] skge: crash on shutdown/suspend
-Date: Fri, 11 May 2007 11:21:45 -0700
-Message-ID: <20070511182251.370243367@linux-foundation.org>
-References: <20070511182143.872814956@linux-foundation.org>
-Cc: netdev@vger.kernel.org
-To: Jeff Garzik <jgarzik@pobox.com>
+From: jamal <hadi@cyberus.ca>
+Subject: RE: [RFC] make qdisc_restart more readable
+Date: Fri, 11 May 2007 14:35:59 -0400
+Message-ID: <1178908559.4126.19.camel@localhost>
+References: <D5C1322C3E673F459512FB59E0DDC32902D424F4@orsmsx414.amr.corp.intel.com>
+Reply-To: hadi@cyberus.ca
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([65.172.181.25]:39284 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1760613AbXEKSZj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2007 14:25:39 -0400
-Content-Disposition: inline; filename=skge-shutdown.patch
+Received: from wx-out-0506.google.com ([66.249.82.233]:48124 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758519AbXEKSgC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2007 14:36:02 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so959955wxd
+        for <netdev@vger.kernel.org>; Fri, 11 May 2007 11:36:01 -0700 (PDT)
+In-Reply-To: <D5C1322C3E673F459512FB59E0DDC32902D424F4@orsmsx414.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-If device is not fails during module startup (like unsupported chip
-version) then driver would crash dereferencing a null pointer, on shutdown
-or suspend/resume.
+On Fri, 2007-11-05 at 11:13 -0700, Waskiewicz Jr, Peter P wrote:
 
-Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+> After thinking about this a bit more: even if the queue is stopped,
+> you'd end up requeueing anyways.  Plus, you'd need to re-acquire
+> dev->queue_lock (which is what happens today).  I think the best way
+> overall would be to check the queue state before you physically dequeue
+> (whether it's in qdisc_restart() or in the qdisc's ->dequeue()).
 
----
- drivers/net/skge.c |    9 +++++++++
- 1 file changed, 9 insertions(+)
+For lockless drivers, I think it could be moved up; only thing is
+nothing is stopping it from changing again at transmit time.
+For drivers that are not lockless, i am wondering if its even useful
+to have that check given we have already grabbed the tx lock.
 
---- sky2-2.6.21.orig/drivers/net/skge.c	2007-05-10 10:44:29.000000000 -0700
-+++ sky2-2.6.21/drivers/net/skge.c	2007-05-10 10:45:57.000000000 -0700
-@@ -3802,6 +3802,9 @@ static int skge_suspend(struct pci_dev *
- 	struct skge_hw *hw  = pci_get_drvdata(pdev);
- 	int i, err, wol = 0;
- 
-+	if (!hw)
-+		return 0;
-+
- 	err = pci_save_state(pdev);
- 	if (err)
- 		return err;
-@@ -3830,6 +3833,9 @@ static int skge_resume(struct pci_dev *p
- 	struct skge_hw *hw  = pci_get_drvdata(pdev);
- 	int i, err;
- 
-+	if (!hw)
-+		return 0;
-+
- 	err = pci_set_power_state(pdev, PCI_D0);
- 	if (err)
- 		goto out;
-@@ -3868,6 +3874,9 @@ static void skge_shutdown(struct pci_dev
- 	struct skge_hw *hw  = pci_get_drvdata(pdev);
- 	int i, wol = 0;
- 
-+	if (!hw)
-+		return;
-+
- 	for (i = 0; i < hw->ports; i++) {
- 		struct net_device *dev = hw->dev[i];
- 		struct skge_port *skge = netdev_priv(dev);
+>   That
+> way you still hold dev->queue_lock in case the queue is stopped, and
+> haven't yet pulled an skb causing a requeue event.
 
---
-Stephen Hemminger <shemminger@linux-foundation.org>
+It certainly sounds like a useful optimization. Defer that thought - for
+now i just want to make sure its doing what the previous code did.
+
+I will repost the fixed patch later today after some testing; if you
+have time i will appreciate some eyeballing. That piece of code is
+hairy. Hopefully we can make it bald.
+
+cheers,
+jamal
+
 
