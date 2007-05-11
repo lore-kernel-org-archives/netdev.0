@@ -1,16 +1,15 @@
 From: akpm@linux-foundation.org
-Subject: [patch 5/8] Use menuconfig objects: TIPC
-Date: Thu, 10 May 2007 22:53:47 -0700
-Message-ID: <200705110553.l4B5rlYj007861@shell0.pdx.osdl.net>
+Subject: [patch 6/8] Use menuconfig objects: ARCNET
+Date: Thu, 10 May 2007 22:53:48 -0700
+Message-ID: <200705110553.l4B5rmC9007864@shell0.pdx.osdl.net>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	jengelh@linux01.gwdg.de, allan.stephens@windriver.com,
-	jengelh@gmx.de, jon.maloy@ericsson.com, per.liden@ericsson.com
+	jengelh@linux01.gwdg.de, jengelh@gmx.de
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([65.172.181.25]:58919 "EHLO
+Received: from smtp1.linux-foundation.org ([65.172.181.25]:58358 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756931AbXEKFy3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2007 01:54:29 -0400
+	by vger.kernel.org with ESMTP id S1758249AbXEKFyZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2007 01:54:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
@@ -20,110 +19,100 @@ Use menuconfigs instead of menus, so the whole menu can be disabled at once
 instead of going through all options.
 
 Signed-off-by: Jan Engelhardt <jengelh@gmx.de>
-Cc: Per Liden <per.liden@ericsson.com>
-Cc: Jon Maloy <jon.maloy@ericsson.com>
-Cc: Allan Stephens <allan.stephens@windriver.com>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- net/tipc/Kconfig |   24 +++++++++++-------------
- 1 file changed, 11 insertions(+), 13 deletions(-)
+ drivers/net/arcnet/Kconfig |   17 ++++-------------
+ 1 file changed, 4 insertions(+), 13 deletions(-)
 
-diff -puN net/tipc/Kconfig~use-menuconfig-objects-tipc net/tipc/Kconfig
---- a/net/tipc/Kconfig~use-menuconfig-objects-tipc
-+++ a/net/tipc/Kconfig
-@@ -2,11 +2,9 @@
- # TIPC configuration
+diff -puN drivers/net/arcnet/Kconfig~use-menuconfig-objects-arcnet drivers/net/arcnet/Kconfig
+--- a/drivers/net/arcnet/Kconfig~use-menuconfig-objects-arcnet
++++ a/drivers/net/arcnet/Kconfig
+@@ -2,10 +2,8 @@
+ # Arcnet configuration
  #
  
--menu "TIPC Configuration (EXPERIMENTAL)"
--	depends on INET && EXPERIMENTAL
+-menu "ARCnet devices"
++menuconfig ARCNET
+ 	depends on NETDEVICES && (ISA || PCI)
 -
--config TIPC
-+menuconfig TIPC
- 	tristate "The TIPC Protocol (EXPERIMENTAL)"
-+	depends on INET && EXPERIMENTAL
+-config ARCNET
+ 	tristate "ARCnet support"
  	---help---
- 	  The Transparent Inter Process Communication (TIPC) protocol is
- 	  specially designed for intra cluster communication. This protocol
-@@ -22,9 +20,10 @@ config TIPC
+ 	  If you have a network card of this type, say Y and check out the
+@@ -25,9 +23,10 @@ config ARCNET
+ 	  <file:Documentation/networking/net-modules.txt>.  The module will
+ 	  be called arcnet.
  
- 	  If in doubt, say N.
- 
-+if TIPC
++if ARCNET
 +
- config TIPC_ADVANCED
- 	bool "TIPC: Advanced configuration"
--	depends on TIPC
- 	default n
+ config ARCNET_1201
+ 	tristate "Enable standard ARCNet packet format (RFC 1201)"
+-	depends on ARCNET
  	help
- 	  Saying Y here will open some advanced configuration
-@@ -33,7 +32,7 @@ config TIPC_ADVANCED
+ 	  This allows you to use RFC1201 with your ARCnet card via the virtual
+ 	  arc0 device.  You need to say Y here to communicate with
+@@ -38,7 +37,6 @@ config ARCNET_1201
  
- config TIPC_ZONES
- 	int "Maximum number of zones in network"
--	depends on TIPC && TIPC_ADVANCED
-+	depends on TIPC_ADVANCED
- 	default "3"
- 	help
- 	 Max number of zones inside TIPC network. Max supported value 
-@@ -44,7 +43,7 @@ config TIPC_ZONES
+ config ARCNET_1051
+ 	tristate "Enable old ARCNet packet format (RFC 1051)"
+-	depends on ARCNET
+ 	---help---
+ 	  This allows you to use RFC1051 with your ARCnet card via the virtual
+ 	  arc0s device. You only need arc0s if you want to talk to ARCnet
+@@ -53,7 +51,6 @@ config ARCNET_1051
  
- config TIPC_CLUSTERS
- 	int "Maximum number of clusters in a zone"
--	depends on TIPC && TIPC_ADVANCED
-+	depends on TIPC_ADVANCED
- 	default "1"
+ config ARCNET_RAW
+ 	tristate "Enable raw mode packet interface"
+-	depends on ARCNET
  	help
-           ***Only 1 (one cluster in a zone) is supported by current code.
-@@ -59,7 +58,7 @@ config TIPC_CLUSTERS
+ 	  ARCnet "raw mode" packet encapsulation, no soft headers.  Unlikely
+ 	  to work unless talking to a copy of the same Linux arcnet driver,
+@@ -61,7 +58,6 @@ config ARCNET_RAW
  
- config TIPC_NODES
- 	int "Maximum number of nodes in cluster"
--	depends on TIPC && TIPC_ADVANCED
-+	depends on TIPC_ADVANCED
- 	default "255"
+ config ARCNET_CAP
+ 	tristate "Enable CAP mode packet interface"
+-	depends on ARCNET
  	help
- 	  Maximum number of nodes inside a TIPC cluster. Maximum 
-@@ -70,7 +69,7 @@ config TIPC_NODES
+ 	  ARCnet "cap mode" packet encapsulation. Used to get the hardware
+           acknowledge back to userspace. After the initial protocol byte every
+@@ -80,7 +76,6 @@ config ARCNET_CAP
  
- config TIPC_SLAVE_NODES
- 	int "Maximum number of slave nodes in cluster"
--	depends on TIPC && TIPC_ADVANCED
-+	depends on TIPC_ADVANCED
- 	default "0"
+ config ARCNET_COM90xx
+ 	tristate "ARCnet COM90xx (normal) chipset driver"
+-	depends on ARCNET
  	help
-           ***This capability is not supported by current code.***
-@@ -83,7 +82,7 @@ config TIPC_SLAVE_NODES
+ 	  This is the chipset driver for the standard COM90xx cards. If you
+ 	  have always used the old ARCnet driver without knowing what type of
+@@ -92,7 +87,6 @@ config ARCNET_COM90xx
  
- config TIPC_PORTS
- 	int "Maximum number of ports in a node"
--	depends on TIPC && TIPC_ADVANCED
-+	depends on TIPC_ADVANCED
- 	default "8191"
- 	help
- 	  Maximum number of ports within a node. Maximum 
-@@ -94,7 +93,7 @@ config TIPC_PORTS
+ config ARCNET_COM90xxIO
+ 	tristate "ARCnet COM90xx (IO mapped) chipset driver"
+-	depends on ARCNET
+ 	---help---
+ 	  This is the chipset driver for the COM90xx cards, using them in
+ 	  IO-mapped mode instead of memory-mapped mode. This is slower than
+@@ -105,7 +99,6 @@ config ARCNET_COM90xxIO
  
- config TIPC_LOG
- 	int "Size of log buffer"
--	depends on TIPC && TIPC_ADVANCED
-+	depends on TIPC_ADVANCED
- 	default 0
- 	help
-  	  Size (in bytes) of TIPC's internal log buffer, which records the
-@@ -106,7 +105,6 @@ config TIPC_LOG
+ config ARCNET_RIM_I
+ 	tristate "ARCnet COM90xx (RIM I) chipset driver"
+-	depends on ARCNET
+ 	---help---
+ 	  This is yet another chipset driver for the COM90xx cards, but this
+ 	  time only using memory-mapped mode, and no IO ports at all. This
+@@ -118,7 +111,6 @@ config ARCNET_RIM_I
  
- config TIPC_DEBUG
- 	bool "Enable debugging support"
--	depends on TIPC
- 	default n
+ config ARCNET_COM20020
+ 	tristate "ARCnet COM20020 chipset driver"
+-	depends on ARCNET
  	help
-  	  This will enable debugging of TIPC.
-@@ -114,4 +112,4 @@ config TIPC_DEBUG
- 	  Only say Y here if you are having trouble with TIPC.  It will
- 	  enable the display of detailed information about what is going on.
+ 	  This is the driver for the new COM20020 chipset. It supports such
+ 	  things as promiscuous mode, so packet sniffing is possible, and
+@@ -136,5 +128,4 @@ config ARCNET_COM20020_PCI
+ 	tristate "Support for COM20020 on PCI"
+ 	depends on ARCNET_COM20020 && PCI
  
 -endmenu
-+endif # TIPC
+-
++endif # ARCNET
 _
