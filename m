@@ -1,49 +1,58 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [patch 4/8] Use menuconfig objects: SCTP
-Date: Fri, 11 May 2007 10:12:59 -0400
-Message-ID: <464479EB.5070002@hp.com>
-References: <200705110553.l4B5rkFq007858@shell0.pdx.osdl.net> <4644736C.4000808@hp.com>
+From: "Marc A. Pelletier" <marc@abovesecurity.com>
+Subject: [PATCH 2.6.20] Corrects small word-size dependency in exposed kernel
+ structure
+Date: Fri, 11 May 2007 06:01:03 -0400
+Message-ID: <46443EDF.1080108@abovesecurity.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, davem@davemloft.net,
-	netdev@vger.kernel.org, jengelh@linux01.gwdg.de, jengelh@gmx.de,
-	sri@us.ibm.com
-To: Brian Haley <brian.haley@hp.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel6.hp.com ([156.153.255.205]:60186 "EHLO atlrel6.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752403AbXEKONH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 May 2007 10:13:07 -0400
-In-Reply-To: <4644736C.4000808@hp.com>
+Received: from [207.253.121.237] ([207.253.121.237]:43488 "EHLO
+	nagios.prod.abovesecurity.com" rhost-flags-FAIL-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754699AbXEKO1f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2007 10:27:35 -0400
+Received: from [10.2.4.10] (marc.ops.abovesecurity.com [10.2.4.10])
+	by nagios.prod.abovesecurity.com (Postfix) with ESMTP id A9D8E6F966
+	for <netdev@vger.kernel.org>; Fri, 11 May 2007 09:58:45 -0400 (EDT)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Brian Haley wrote:
-> akpm@linux-foundation.org wrote:
->> diff -puN net/sctp/Kconfig~use-menuconfig-objects-sctp net/sctp/Kconfig
->> --- a/net/sctp/Kconfig~use-menuconfig-objects-sctp
->> +++ a/net/sctp/Kconfig
->> @@ -2,11 +2,9 @@
->>  # SCTP configuration
->>  #
->>  
->> -menu "SCTP Configuration (EXPERIMENTAL)"
->> -    depends on INET && EXPERIMENTAL
->> -
->> -config IP_SCTP
->> +menuconfig IP_SCTP
->>      tristate "The SCTP Protocol (EXPERIMENTAL)"
->> +    depends on NET && EXPERIMENTAL
->>      depends on IPV6 || IPV6=n
->>      select CRYPTO if SCTP_HMAC_SHA1 || SCTP_HMAC_MD5
->>      select CRYPTO_HMAC if SCTP_HMAC_SHA1 || SCTP_HMAC_MD5
-> 
-> This just changed "INET && EXPERIMENTAL" to "NET && EXPERIMENTAL", don't
-> know if that was intended.
-> 
-> -Brian
+Corrects a small word-size dependency in an exposed kernel structure
+so that mmaped packet sockets will work correctly from 32-bit userspace
+on a 64-bit kernel.
 
-Thanks Brian.   This is a bug.  This should use INET.
+Signed-off-by: Marc A. Pelletier <marc@abovesecurity.com>
+---
 
--vlad
+As an aside, I've considered changing the setsockopt() for that feature
+so that it returns critical values back to userspace (stride between
+frames, actual offsets of substructures) rather than needing userspace
+to guess them, but that can't be done without
+
+(a) breaking current users of PACKET_RX_RING; or
+(b) adding a new setsockopt.
+
+Which is best?
+
+Also, I have a couple of sanity fixes for the ring packet implementation
+I'd like to discuss.  Anyone specific maintaining that bit of code?
+
+-- Marc A. Pelletier
+
+--- orig/include/linux/if_packet.h      2007-05-10 14:27:49 -0400
++++ new/include/linux/if_packet.h   2007-05-10 14:27:50 -0400
+@@ -50,7 +50,7 @@
+
+ struct tpacket_hdr
+ {
+-       unsigned long   tp_status;
++       unsigned int    tp_status;
+ #define TP_STATUS_KERNEL       0
+ #define TP_STATUS_USER         1
+ #define TP_STATUS_COPY         2
+
+
+
+
+
