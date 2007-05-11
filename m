@@ -1,25 +1,28 @@
-From: Jeff Garzik <jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>
-Subject: Re: Please pull 'libertas' branch of wireless-2.6
-Date: Fri, 11 May 2007 16:59:32 -0400
-Message-ID: <4644D934.7050001@garzik.org>
-References: <20070511192604.GC3474@tuxdriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch 04/13] ppp_generic: fix lockdep warning
+Date: Fri, 11 May 2007 14:03:09 -0700 (PDT)
+Message-ID: <20070511.140309.59656886.davem@davemloft.net>
+References: <200705110552.l4B5qnwC007799@shell0.pdx.osdl.net>
+	<4644D8AF.7060403@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20070511192604.GC3474-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org, jarkao2@o2.pl,
+	jura@netams.com, paulus@samba.org
+To: jeff@garzik.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45847
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1030773AbXEKVDF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2007 17:03:05 -0400
+In-Reply-To: <4644D8AF.7060403@garzik.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-John W. Linville wrote:
-> The following changes since commit 1f8a6b658a943b4f04a1fc7b3a420360202c86cd:
->   Linus Torvalds (1):
->         Merge git://git.kernel.org/.../bunk/trivial
-> 
-> are found in the git repository at:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git libertas
+From: Jeff Garzik <jeff@garzik.org>
+Date: Fri, 11 May 2007 16:57:19 -0400
 
-pulled
+> applied
+
+I was under the impression that this patch didn't actually fix the
+problem yet?  I might be thinking about something else...
