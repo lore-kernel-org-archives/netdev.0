@@ -1,356 +1,93 @@
-From: jamal <j.hadi123@gmail.com>
-Subject: [RFC] make qdisc_restart more readable
-Date: Thu, 10 May 2007 20:13:20 -0400
-Message-ID: <1178842400.5008.17.camel@localhost>
-Reply-To: hadi@cyberus.ca
+From: Mark Huth <mhuth@mvista.com>
+Subject: [PATCH][af_key]pfkey_add: Optimize SA adds and algorithm probes
+Date: Thu, 10 May 2007 17:59:46 -0700
+Message-ID: <4643C002.5010508@mvista.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-4yTvfcGhtu0s3bz08VQ7"
-Cc: netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>
+Content-Type: multipart/mixed;
+ boundary="------------030502060807070701070404"
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.229]:16769 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755615AbXEKAN1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2007 20:13:27 -0400
-Received: by wx-out-0506.google.com with SMTP id h31so714770wxd
-        for <netdev@vger.kernel.org>; Thu, 10 May 2007 17:13:27 -0700 (PDT)
+Received: from gateway-1237.mvista.com ([63.81.120.158]:27563 "EHLO
+	gateway-1237.mvista.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758314AbXEKA7w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2007 20:59:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
---=-4yTvfcGhtu0s3bz08VQ7
-Content-Type: text/plain
+This is a multi-part message in MIME format.
+--------------030502060807070701070404
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 
 
-This compiles and passes some basic tests - no serious testing.
-Against net-2.6.
 
-The patch is ugly looking, so i have at the end the re-written qdisc;
-you can easily tell the rest from the patch.
-
-Please flush out any fluff - I would like to submit this (almost lost
-it, thanks to an early posting, found it).
-
-
-cheers,
-jamal
-
---=-4yTvfcGhtu0s3bz08VQ7
-Content-Disposition: attachment; filename=rfc-qrestart
-Content-Type: text/x-patch; name=rfc-qrestart; charset=us-ascii
+--------------030502060807070701070404
+Content-Type: text/x-patch;
+ name="common_SA_addition_performance_optimization.patch"
 Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="common_SA_addition_performance_optimization.patch"
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index f671cd2..718d6fd 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -83,6 +83,9 @@ struct wireless_dev;
- #define NETDEV_TX_OK 0		/* driver took care of packet */
- #define NETDEV_TX_BUSY 1	/* driver tx path was busy*/
- #define NETDEV_TX_LOCKED -1	/* driver tx lock was already taken */
-+#define NETDEV_TX_DROP -2	/* request caller to drop packet */
-+#define NETDEV_TX_QUEUE -3	/* request caller to requeue packet */
-+
- 
- /*
-  *	Compute the worst case header length according to the protocols
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index f28bb2d..b821040 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -59,7 +59,79 @@ void qdisc_unlock_tree(struct net_device *dev)
- 	spin_unlock_bh(&dev->queue_lock);
- }
- 
--/*
-+static inline int qqlen(struct Qdisc *q)
-+{
-+	BUG_ON((int) q->q.qlen < 0);
-+	return q->q.qlen;
-+}
-+
-+static inline int handle_dev_cpu_collision(struct net_device *dev)
-+{
-+	if (dev->xmit_lock_owner == smp_processor_id()) {
-+		if (net_ratelimit())
-+			printk(KERN_DEBUG
-+			       "Dead loop on netdevice %s, fix it urgently!\n",
-+			       dev->name);
-+		return NETDEV_TX_DROP;
-+	}
-+	/* XXX: This maintains original code, but i think we should
-+	 * update cpu_collision always
-+	*/
-+	__get_cpu_var(netdev_rx_stat).cpu_collision++;
-+	return NETDEV_TX_QUEUE;
-+}
-+
-+static inline int
-+handle_dev_requeue(struct sk_buff *skb, struct net_device *dev, struct Qdisc *q)
-+{
-+
-+	if (unlikely(q == &noop_qdisc))
-+		kfree_skb(skb);
-+
-+	if (skb->next)
-+		dev->gso_skb = skb;
-+	else
-+		q->ops->requeue(skb, q);
-+	/* XXX: Could netif_schedule fail? Or is that fact we are
-+	 * requeueing imply the hardware path is closed
-+	 * and even if we fail, some interupt will wake us
-+	*/
-+	netif_schedule(dev);
-+	return 0;
-+}
-+
-+static inline int
-+try_get_tx_pkt(struct sk_buff **skb, struct net_device *dev, struct Qdisc *q)
-+{
-+	if (((*skb = dev->gso_skb)) || ((*skb = q->dequeue(q)))) {
-+
-+		dev->gso_skb = NULL;
-+		return -1;
-+	}
-+
-+	return 0;
-+}
-+
-+static inline int
-+handle_tx_locked(struct sk_buff *skb, struct net_device *dev, struct Qdisc *q)
-+{
-+	int ret = handle_dev_cpu_collision(dev);
-+
-+	if (ret == NETDEV_TX_DROP) {
-+		kfree_skb(skb);
-+		return qqlen(q);
-+	}
-+
-+	return handle_dev_requeue(skb, dev, q);
-+}
-+
-+
-+/* 
-+   NOTE: Called under dev->queue_lock with locally disabled BH.
-+
-+   __LINK_STATE_QDISC_RUNNING guarantees only one CPU
-+   can enter this region at a time.
-+
-    dev->queue_lock serializes queue accesses for this device
-    AND dev->qdisc pointer itself.
- 
-@@ -67,114 +139,63 @@ void qdisc_unlock_tree(struct net_device *dev)
- 
-    dev->queue_lock and netif_tx_lock are mutually exclusive,
-    if one is grabbed, another must be free.
-- */
- 
-+   Multiple CPUs may contend for the two locks.
- 
--/* Kick device.
-+   Note, that this procedure can be called by a watchdog timer, so that
-+   we do not check dev->tbusy flag here.
- 
-+   Returns to the caller:  
-    Returns:  0  - queue is empty or throttled.
- 	    >0  - queue is not empty.
--
--   NOTE: Called under dev->queue_lock with locally disabled BH.
- */
- 
--static inline int qdisc_restart(struct net_device *dev)
-+int 
-+qdisc_restart(struct net_device *dev)
+This patch provides a performance optimization in the pfkey_add path.
+Prior versions have a serious performance problem when adding a large
+number of SAs to a node.  For example, if a backup node needs to be
+loaded with the SAs previously held by a failed active node, thousands
+of SAs may need to be added as rapidly as possible.  Tests show that
+without this patch, such additions may take several minutes.  The
+cause is that the available algorithm modules are probed each time
+instead of only when needed.  This patch changes the unconditional 
+call to xfrm_probe_algs() to only be done when it may be needed.
+
+An example that loads 2000 SAs gives the following results:
+
+Without patch
+
+real	0m42.643s
+user	0m0.120s
+sys	0m0.800s
+
+With patch
+
+real	0m0.537s
+user	0m0.076s
+sys	0m0.276s
+
+Signed-Off-By: Mark Huth <mhuth@mvista.com>
+===============================================
+diff --git a/net/key/af_key.c b/net/key/af_key.c
+index a994441..c970d5e 100644
+--- a/net/key/af_key.c
++++ b/net/key/af_key.c
+@@ -1445,16 +1445,15 @@ static int key_notify_sa(struct xfrm_state *x, struct km_event *c)
+ static int pfkey_add(struct sock *sk, struct sk_buff *skb, struct sadb_msg *hdr, void **ext_hdrs)
  {
- 	struct Qdisc *q = dev->qdisc;
--	struct sk_buff *skb;
+ 	struct xfrm_state *x;
+-	int err;
++	int err, probe_done = 0;
+ 	struct km_event c;
+ 
+-	xfrm_probe_algs();
 -
--	/* Dequeue packet */
--	if (((skb = dev->gso_skb)) || ((skb = q->dequeue(q)))) {
--		unsigned nolock = (dev->features & NETIF_F_LLTX);
-+	unsigned lockless = (dev->features & NETIF_F_LLTX);
-+	struct sk_buff *skb = NULL;
-+	int ret;
-+
-+	ret = try_get_tx_pkt(&skb, dev, q);
-+	if (ret == 0)
-+		return qqlen(q);
-+
-+	/* we have a packet to send */
-+	if (!lockless) {
-+		if (!netif_tx_trylock(dev))
-+			return handle_tx_locked(skb, dev, q);
-+	}
-+		
-+	/* all clear .. */
-+	spin_unlock(&dev->queue_lock);
+ 	x = pfkey_msg2xfrm_state(hdr, ext_hdrs);
+ 	if (IS_ERR(x))
+ 		return PTR_ERR(x);
  
--		dev->gso_skb = NULL;
-+	/* churn baby churn .. */
-+	ret = dev_hard_start_xmit(skb, dev);
+ 	xfrm_state_hold(x);
++try_again:
+ 	if (hdr->sadb_msg_type == SADB_ADD)
+ 		err = xfrm_state_add(x);
+ 	else
+@@ -1464,6 +1463,11 @@ static int pfkey_add(struct sock *sk, struct sk_buff *skb, struct sadb_msg *hdr,
+ 		       AUDIT_MAC_IPSEC_ADDSA, err ? 0 : 1, NULL, x);
  
--		/*
--		 * When the driver has LLTX set it does its own locking
--		 * in start_xmit. No need to add additional overhead by
--		 * locking again. These checks are worth it because
--		 * even uncongested locks can be quite expensive.
--		 * The driver can do trylock like here too, in case
--		 * of lock congestion it should return -1 and the packet
--		 * will be requeued.
--		 */
--		if (!nolock) {
--			if (!netif_tx_trylock(dev)) {
--			collision:
--				/* So, someone grabbed the driver. */
--
--				/* It may be transient configuration error,
--				   when hard_start_xmit() recurses. We detect
--				   it by checking xmit owner and drop the
--				   packet when deadloop is detected.
--				*/
--				if (dev->xmit_lock_owner == smp_processor_id()) {
--					kfree_skb(skb);
--					if (net_ratelimit())
--						printk(KERN_DEBUG "Dead loop on netdevice %s, fix it urgently!\n", dev->name);
--					goto out;
--				}
--				__get_cpu_var(netdev_rx_stat).cpu_collision++;
--				goto requeue;
--			}
--		}
-+	if (!lockless)  
-+		netif_tx_unlock(dev);
- 
--		{
--			/* And release queue */
--			spin_unlock(&dev->queue_lock);
--
--			if (!netif_queue_stopped(dev)) {
--				int ret;
--
--				ret = dev_hard_start_xmit(skb, dev);
--				if (ret == NETDEV_TX_OK) {
--					if (!nolock) {
--						netif_tx_unlock(dev);
--					}
--					spin_lock(&dev->queue_lock);
--					q = dev->qdisc;
--					goto out;
--				}
--				if (ret == NETDEV_TX_LOCKED && nolock) {
--					spin_lock(&dev->queue_lock);
--					q = dev->qdisc;
--					goto collision;
--				}
--			}
-+	spin_lock(&dev->queue_lock);
- 
--			/* NETDEV_TX_BUSY - we need to requeue */
--			/* Release the driver */
--			if (!nolock) {
--				netif_tx_unlock(dev);
--			}
--			spin_lock(&dev->queue_lock);
--			q = dev->qdisc;
--		}
-+	q = dev->qdisc;
-+	/* most likely result, packet went ok */
-+	if (ret == NETDEV_TX_OK)
-+		return qqlen(q);
-+	/* only for lockless drivers .. */
-+	if (ret == NETDEV_TX_LOCKED && lockless) {
-+		return handle_tx_locked(skb, dev, q);
-+	}
- 
--		/* Device kicked us out :(
--		   This is possible in three cases:
--
--		   0. driver is locked
--		   1. fastroute is enabled
--		   2. device cannot determine busy state
--		      before start of transmission (f.e. dialout)
--		   3. device is buggy (ppp)
--		 */
--
--requeue:
--		if (unlikely(q == &noop_qdisc))
--			kfree_skb(skb);
--		else if (skb->next)
--			dev->gso_skb = skb;
--		else
--			q->ops->requeue(skb, q);
--		netif_schedule(dev);
--		return 0;
-+	if (unlikely (ret != NETDEV_TX_BUSY)) { 
-+		/* XXX: Do we need a ratelimit? or put a 
-+		 * BUG_ON((int) ret != NETDEV_TX_BUSY) ?
-+		 **/
-+		printk("BUG %s code %d qlen %d\n",dev->name, ret, q->q.qlen);
- 	}
- 
--out:
--	BUG_ON((int) q->q.qlen < 0);
--	return q->q.qlen;
-+	return handle_dev_requeue(skb, dev, q);
- }
- 
- void __qdisc_run(struct net_device *dev)
+ 	if (err < 0) {
++		if (!probe_done) {
++			xfrm_probe_algs();
++			probe_done = 1;
++			goto try_again;
++		}
+ 		x->km.state = XFRM_STATE_DEAD;
+ 		__xfrm_state_put(x);
+ 		goto out;
 
---=-4yTvfcGhtu0s3bz08VQ7
-Content-Disposition: attachment; filename=sch_generic.c
-Content-Type: text/x-csrc; name=sch_generic.c; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-
-int 
-qdisc_restart(struct net_device *dev)
-{
-	struct Qdisc *q = dev->qdisc;
-	unsigned lockless = (dev->features & NETIF_F_LLTX);
-	struct sk_buff *skb = NULL;
-	int ret;
-
-	ret = try_get_tx_pkt(&skb, dev, q);
-	if (ret == 0)
-		return qqlen(q);
-
-	/* we have a packet to send */
-	if (!lockless) {
-		if (!netif_tx_trylock(dev))
-			return handle_tx_locked(skb, dev, q);
-	}
-		
-	/* all clear .. */
-	spin_unlock(&dev->queue_lock);
-
-	/* churn baby churn .. */
-	ret = dev_hard_start_xmit(skb, dev);
-
-	if (!lockless)  
-		netif_tx_unlock(dev);
-
-	spin_lock(&dev->queue_lock);
-
-	q = dev->qdisc;
-	/* most likely result, packet went ok */
-	if (ret == NETDEV_TX_OK)
-		return qqlen(q);
-	/* only for lockless drivers .. */
-	if (ret == NETDEV_TX_LOCKED && lockless) {
-		return handle_tx_locked(skb, dev, q);
-	}
-
-	if (unlikely (ret != NETDEV_TX_BUSY)) { 
-		/* XXX: Do we need a ratelimit? or put a 
-		 * BUG_ON((int) ret != NETDEV_TX_BUSY) ?
-		 **/
-		printk("BUG %s code %d qlen %d\n",dev->name, ret, q->q.qlen);
-	}
-
-	return handle_dev_requeue(skb, dev, q);
-}
-
-
---=-4yTvfcGhtu0s3bz08VQ7--
-
+--------------030502060807070701070404--
