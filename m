@@ -1,49 +1,36 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [RFC] New driver API to speed up small packets xmits
-Date: Thu, 10 May 2007 19:28:14 -0700
-Message-ID: <20070510192814.5b71d01c@freepuppy>
-References: <464370BA.3020907@hp.com>
-	<20070510.133216.95506791.davem@davemloft.net>
-	<46438568.1020403@hp.com>
-	<20070510.140251.02302242.davem@davemloft.net>
-	<46438B1D.1050802@gmail.com>
+From: Timur Tabi <timur@freescale.com>
+Subject: Re: Kconfig warnings on latest GIT
+Date: Thu, 10 May 2007 21:32:24 -0500
+Message-ID: <4643D5B8.8050106@freescale.com>
+References: <200705080004.14570.ismail@pardus.org.tr> <20070508143127.38fafa3c.kim.phillips@freescale.com> <4640D988.1040504@freescale.com> <20070510051042.GA16812@verge.net.au> <46434ED0.6030808@freescale.com> <20070511012529.GC10715@verge.net.au> <Pine.LNX.4.64.0705102046400.10555@gate.crashing.org> <20070511020545.GG10715@verge.net.au> <Pine.LNX.4.64.0705102111570.11348@gate.crashing.org> <20070511022721.GI10715@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, rick.jones2@hp.com,
-	vladislav.yasevich@hp.com, ian.mcdonald@jandi.co.nz,
-	krkumar2@in.ibm.com, johnpol@2ka.mipt.ru, netdev@vger.kernel.org
-To: Gagan Arneja <gaagaan@gmail.com>
+Cc: Kumar Gala <galak@kernel.crashing.org>, sam@ravnborg.org,
+	Kim Phillips <kim.phillips@freescale.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	=?ISO-8859-1?Q?Ismail_D=F6nmez?= <ismail@pardus.org.tr>,
+	Michael Schmitz <schmitz@debian.org>,
+	Roman Zippel <zippel@linux-m68k.org>,
+	Geert Uytterhoeven <geert@linux-m68k.org>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Paul Mackerras <paulus@samba.org>
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:43691 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756996AbXEKC2y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 May 2007 22:28:54 -0400
-In-Reply-To: <46438B1D.1050802@gmail.com>
+Received: from az33egw02.freescale.net ([192.88.158.103]:47443 "EHLO
+	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757489AbXEKCc5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2007 22:32:57 -0400
+In-Reply-To: <20070511022721.GI10715@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 10 May 2007 14:14:05 -0700
-Gagan Arneja <gaagaan@gmail.com> wrote:
+Simon Horman wrote:
 
-> David Miller wrote:
-> > From: Rick Jones <rick.jones2@hp.com>
-> > Date: Thu, 10 May 2007 13:49:44 -0700
-> > 
-> >> I'd think one would only do this in those situations/places where a
-> >> natural "out of driver" queue develops in the first place wouldn't
-> >> one?
-> > 
-> > Indeed.
-> 
-> And one builds in qdisc because your device sink is slow. There's 
-> nothing inherently there in the kernel encouraging Qdisc->q to grow. 
-> It's precisely these broken devices that can take advantage of cluster 
-> transmits.
+> I agree. I had thought a little about a kconfig fix. Though I'm
+> wondering if removing the warning will lead to oodles of dangling
+> symbols and invalid checks over time.
 
-If you have braindead slow hardware, 
-there is nothing that says your start_xmit routine can't do its own
-coalescing.  The cost of calling the transmit routine is the responsibility
-of the driver, not the core network code.
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+I'm pretty sure it will.  Perhaps we need to have a lint for Kconfig?
+
