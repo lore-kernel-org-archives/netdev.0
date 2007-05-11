@@ -1,70 +1,66 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [RFC] New driver API to speed up small packets xmits
-Date: Fri, 11 May 2007 07:27:07 -0400
-Message-ID: <1178882827.4093.22.camel@localhost>
-References: <OF5A173A00.C4FD79C5-ON652572D8.001C203E-652572D8.001D8134@in.ibm.com>
-Reply-To: hadi@cyberus.ca
+From: "Simon Arlott" <simon@fire.lp0.eu>
+Subject: RE: Accessing certain web sites broken from 2.6.19+
+Date: Fri, 11 May 2007 12:27:40 +0100
+Message-ID: <29891.simon.1178882860@5ec7c279.invalid>
+References: <4643efc2.7cb1b0b0.2a08.4658@mx.google.com>
+    <7e63f56c0705102138q5a623fadm520473df49e49963@mail.gmail.com>
+    <4643fc1e.095ef753.14ef.ffffb9a8@mx.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Gagan Arneja <gaagaan@gmail.com>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org,
-	Rick Jones <rick.jones2@hp.com>,
-	Sridhar Samudrala <sri@US.IBM.COM>
-To: Krishna Kumar2 <krkumar2@in.ibm.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "'Robert Iakobashvili'" <coroberti@gmail.com>,
+	netdev@vger.kernel.org
+To: "Andrew Hall" <andrew.a.hall@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.229]:54800 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757414AbXEKL1L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2007 07:27:11 -0400
-Received: by wx-out-0506.google.com with SMTP id h31so837626wxd
-        for <netdev@vger.kernel.org>; Fri, 11 May 2007 04:27:10 -0700 (PDT)
-In-Reply-To: <OF5A173A00.C4FD79C5-ON652572D8.001C203E-652572D8.001D8134@in.ibm.com>
+Received: from proxima.lp0.eu ([85.158.45.36]:41759 "EHLO proxima.lp0.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755927AbXEKL1n (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 May 2007 07:27:43 -0400
+In-Reply-To: <4643fc1e.095ef753.14ef.ffffb9a8@mx.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2007-11-05 at 10:52 +0530, Krishna Kumar2 wrote:
 
-> I didn't try to optimize the driver to take any real advantage, I coded it
-> as simply as :
-> 
-> top:
->       next = skb->skb_flink;
->       Original driver code here, or another option is to remove the locking
->             and put it before the "top:" above, no other changes.
->       skb = next;
->       if (skb)
->             goto top;
-> This way, the diffs are minimal. However, driver experts might know of some
-> tricks to optimize this, since most drivers have a hundred checks before
-> sending one skb, and whether some optimization to avoid that for each skb
-> is possible.
-> 
+On Fri, May 11, 2007 06:16, Andrew Hall wrote:
+>> -----Original Message-----
+>> From: Robert Iakobashvili [mailto:coroberti@gmail.com]
+>> Sent: Friday, 11 May 2007 2:38 PM
+>> To: Andrew Hall
+>> Cc: netdev@vger.kernel.org
+>> Subject: Re: Accessing certain web sites broken from 2.6.19+
+>>
+>> On 5/11/07, Andrew Hall <andrew.a.hall@gmail.com> wrote:
+>> > When accessing certain web sites when using any kernel above 2.6.19,
+>> TCP
+>> > seems to break. Connection to the site is established but never
+>> completes.
+>> > One particular site is www.dcita.gov.au. Is there a known issue
+>> pertaining
+>> > to this? Using any kernel below 2.6.19 (for example: 2.6.12 or
+>> 2.6.15) works
+>> > fine.
+>>
+>> Including 2.6.21?
+>>
+>> Which browser/s have you tried?
+>>
+>> --
+>> Sincerely,
+>> Robert Iakobashvili,
+>> coroberti %x40 gmail %x2e com
+>> ...........................................................
+>> http://curl-loader.sourceforge.net
+>> A web testing and traffic generation tool.
+>
+> I have not yet tried 2.6.21.. only tried to 2.6.20.9. The issue isn't
+> browser dependent ,as a wget directly from the OS will also fail during the
+> connection. Interestingly requests made from hosts behind the 2.6.20 gateway
+> that make the same request work fine, it seems it's only requests made from
+> the localhost itself.
+>
 
-You will need to at some point, no big deal in order to get things in
-place first- the simple example of DMA i talked about yesterday is a
-simple example. i.e you avoid kicking the DMA until you have queued all
-in the ring (as Gagan pointed out, kicking the DMA is a PCI IO write)
-I am sure there are gazillion others.
- 
+Use tcptraceroute with and without -E to check this isn't a problem with ECN.
 
-> This is a good idea, I will look at your slides to see what this exactly
-> is.
 
-I will try to post my patches updated to the latest net-2.6 kernel
-before you come back on monday.
-
-> However, even with this check, drivers will return error, eg trylock failed
-> or, like the e1000 has - fifo_workaround failures. But I still think it
-> will significantly reduce the failures. 
-
-Yes, this is what i refered to as the "many tunables" and led to the
-claim that you may have to re-write the whole tx path in my posting.
-
-> Right now, I get a lot of requeue's.
-
-requeues are a good sign ;->
-
-cheers,
-jamal
-
+-- 
+Simon Arlott
