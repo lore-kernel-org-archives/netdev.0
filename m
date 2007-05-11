@@ -1,63 +1,115 @@
 From: akpm@linux-foundation.org
-Subject: [patch 03/13] forcedeth: improve NAPI logic
-Date: Thu, 10 May 2007 22:52:47 -0700
-Message-ID: <200705110552.l4B5qlHx007795@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, mingo@elte.hu,
-	aabdulla@nvidia.com
+Subject: [patch 06/13] Use menuconfig objects: PHY
+Date: Thu, 10 May 2007 22:52:55 -0700
+Message-ID: <200705110552.l4B5qt1l007807@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
+	jengelh@linux01.gwdg.de, jengelh@gmx.de
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([65.172.181.25]:41198 "EHLO
+Received: from smtp1.linux-foundation.org ([65.172.181.25]:48203 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759700AbXEKFxY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2007 01:53:24 -0400
+	by vger.kernel.org with ESMTP id S1759847AbXEKFxb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2007 01:53:31 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ingo Molnar <mingo@elte.hu>
+From: Jan Engelhardt <jengelh@linux01.gwdg.de>
 
-Another forcedeth.c thing: i noticed that its NAPI handler does not do
-tx-ring processing.  The patch below implements this - tested on DESC_VER_2
-hardware, with CONFIG_FORCEDETH_NAPI=y.
+Use menuconfigs instead of menus, so the whole menu can be disabled at once
+instead of going through all options.
 
-
-Signed-off-by: Ingo Molnar <mingo@elte.hu>
-Cc: Ayaz Abdulla <aabdulla@nvidia.com>
----
-Auke said:
-
-the patch needs to be improved.
-
-The following needs to be done when NAPI is enabled:
-- remove the tx handling within the ISRs
-- mask off the tx interrupts within the ISRs that handle tx processing
-- re-enable tx interrupts within the NAPI handler
-- add tx handling within the NAPI handler (this patch covers it)
-
+Signed-off-by: Jan Engelhardt <jengelh@gmx.de>
+Cc: Jeff Garzik <jeff@garzik.org>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/net/forcedeth.c |    8 ++++++++
- 1 file changed, 8 insertions(+)
+ drivers/net/phy/Kconfig |   22 ++++++----------------
+ 1 file changed, 6 insertions(+), 16 deletions(-)
 
-diff -puN drivers/net/forcedeth.c~forcedeth-improve-napi-logic drivers/net/forcedeth.c
---- a/drivers/net/forcedeth.c~forcedeth-improve-napi-logic
-+++ a/drivers/net/forcedeth.c
-@@ -3111,9 +3111,17 @@ static int nv_napi_poll(struct net_devic
- 	int retcode;
+diff -puN drivers/net/phy/Kconfig~use-menuconfig-objects-phy drivers/net/phy/Kconfig
+--- a/drivers/net/phy/Kconfig~use-menuconfig-objects-phy
++++ a/drivers/net/phy/Kconfig
+@@ -2,70 +2,61 @@
+ # PHY Layer Configuration
+ #
  
- 	if (np->desc_ver == DESC_VER_1 || np->desc_ver == DESC_VER_2) {
-+		spin_lock_irqsave(&np->lock, flags);
-+		nv_tx_done(dev);
-+		spin_unlock_irqrestore(&np->lock, flags);
+-menu "PHY device support"
+-	depends on !S390
+-
+-config PHYLIB
++menuconfig PHYLIB
+ 	tristate "PHY Device support and infrastructure"
++	depends on !S390
+ 	depends on NET_ETHERNET && (BROKEN || !S390)
+ 	help
+ 	  Ethernet controllers are usually attached to PHY
+ 	  devices.  This option provides infrastructure for
+ 	  managing PHY devices.
+ 
++if PHYLIB
 +
- 		pkts = nv_rx_process(dev, limit);
- 		retcode = nv_alloc_rx(dev);
- 	} else {
-+		spin_lock_irqsave(&np->lock, flags);
-+		nv_tx_done_optimized(dev, np->tx_ring_size);
-+		spin_unlock_irqrestore(&np->lock, flags);
+ comment "MII PHY device drivers"
+-	depends on PHYLIB
+ 
+ config MARVELL_PHY
+ 	tristate "Drivers for Marvell PHYs"
+-	depends on PHYLIB
+ 	---help---
+ 	  Currently has a driver for the 88E1011S
+ 	
+ config DAVICOM_PHY
+ 	tristate "Drivers for Davicom PHYs"
+-	depends on PHYLIB
+ 	---help---
+ 	  Currently supports dm9161e and dm9131
+ 
+ config QSEMI_PHY
+ 	tristate "Drivers for Quality Semiconductor PHYs"
+-	depends on PHYLIB
+ 	---help---
+ 	  Currently supports the qs6612
+ 
+ config LXT_PHY
+ 	tristate "Drivers for the Intel LXT PHYs"
+-	depends on PHYLIB
+ 	---help---
+ 	  Currently supports the lxt970, lxt971
+ 
+ config CICADA_PHY
+ 	tristate "Drivers for the Cicada PHYs"
+-	depends on PHYLIB
+ 	---help---
+ 	  Currently supports the cis8204
 +
- 		pkts = nv_rx_process_optimized(dev, limit);
- 		retcode = nv_alloc_rx_optimized(dev);
- 	}
+ config VITESSE_PHY
+         tristate "Drivers for the Vitesse PHYs"
+-        depends on PHYLIB
+         ---help---
+           Currently supports the vsc8244
+ 
+ config SMSC_PHY
+ 	tristate "Drivers for SMSC PHYs"
+-	depends on PHYLIB
+ 	---help---
+ 	  Currently supports the LAN83C185 PHY
+ 
+ config BROADCOM_PHY
+ 	tristate "Drivers for Broadcom PHYs"
+-	depends on PHYLIB
+ 	---help---
+ 	  Currently supports the BCM5411, BCM5421 and BCM5461 PHYs.
+ 
+ config FIXED_PHY
+ 	tristate "Drivers for PHY emulation on fixed speed/link"
+-	depends on PHYLIB
+ 	---help---
+ 	  Adds the driver to PHY layer to cover the boards that do not have any PHY bound,
+ 	  but with the ability to manipulate the speed/link in software. The relevant MII
+@@ -80,5 +71,4 @@ config FIXED_MII_100_FDX
+ 	bool "Emulation for 100M Fdx fixed PHY behavior"
+ 	depends on FIXED_PHY
+ 
+-endmenu
+-
++endif # PHYLIB
 _
