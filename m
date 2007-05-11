@@ -1,61 +1,81 @@
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: Re: [RFC] New driver API to speed up small packets xmits
-Date: Fri, 11 May 2007 13:00:48 +0530
-Message-ID: <OFA0B8100C.1A34288C-ON652572D8.002808B3-652572D8.002945CB@in.ibm.com>
-References: <adazm4czaxt.fsf@cisco.com>
+From: Russell King <rmk+lkml@arm.linux.org.uk>
+Subject: Re: Kconfig warnings on latest GIT
+Date: Fri, 11 May 2007 08:43:38 +0100
+Message-ID: <20070511074337.GA3048@flint.arm.linux.org.uk>
+References: <200705080004.14570.ismail@pardus.org.tr> <20070508143127.38fafa3c.kim.phillips@freescale.com> <4640D988.1040504@freescale.com> <20070510051042.GA16812@verge.net.au> <46434ED0.6030808@freescale.com> <20070511012529.GC10715@verge.net.au> <Pine.LNX.4.64.0705102046400.10555@gate.crashing.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: Roland Dreier <rdreier@cisco.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Simon Horman <horms@verge.net.au>,
+	Timur Tabi <timur@freescale.com>,
+	Kim Phillips <kim.phillips@freescale.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Ismail =?iso-8859-1?Q?D=F6nmez?= <ismail@pardus.org.tr>,
+	Michael Schmitz <schmitz@debian.org>,
+	Roman Zippel <zippel@linux-m68k.org>,
+	Geert Uytterhoeven <geert@linux-m68k.org>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Paul Mackerras <paulus@samba.org>
+To: Kumar Gala <galak@kernel.crashing.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ausmtp05.au.ibm.com ([202.81.18.154]:56804 "EHLO
-	ausmtp05.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755143AbXEKHb5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2007 03:31:57 -0400
-Received: from sd0109e.au.ibm.com (d23rh905.au.ibm.com [202.81.18.225])
-	by ausmtp05.au.ibm.com (8.13.8/8.13.8) with ESMTP id l4B7Xdgr7925766
-	for <netdev@vger.kernel.org>; Fri, 11 May 2007 17:33:39 +1000
-Received: from d23av03.au.ibm.com (d23av03.au.ibm.com [9.190.250.244])
-	by sd0109e.au.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l4B7ZMqR016392
-	for <netdev@vger.kernel.org>; Fri, 11 May 2007 17:35:24 +1000
-Received: from d23av03.au.ibm.com (loopback [127.0.0.1])
-	by d23av03.au.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l4B7Vpk2008290
-	for <netdev@vger.kernel.org>; Fri, 11 May 2007 17:31:51 +1000
-In-Reply-To: <adazm4czaxt.fsf@cisco.com>
+Received: from caramon.arm.linux.org.uk ([217.147.92.249]:4625 "EHLO
+	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754891AbXEKHn6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2007 03:43:58 -0400
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0705102046400.10555@gate.crashing.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Roland,
+On Thu, May 10, 2007 at 08:47:05PM -0500, Kumar Gala wrote:
+> On Fri, 11 May 2007, Simon Horman wrote:
+> 
+> > On Thu, May 10, 2007 at 11:56:48AM -0500, Timur Tabi wrote:
+> > > Simon Horman wrote:
+> > >
+> > > >>So my question is: in which Kconfig do I define "UCC_FAST_TEMP" and
+> > > >>"UCC_SLOW_TEMP"?  At first I thought, just put it in drivers/Kconfig, but
+> > > >>that Kconfig does nothing but including other Kconfigs.  I believe that if I
+> > > >>submit a patch that adds "UCC_FAST_TEMP" and "UCC_SLOW_TEMP" to
+> > > >>drivers/Kconfig, it will be rejected.  Either that, or I'll spend six weeks
+> > > >>trying to persuade everyone that it's a good idea.
+> > > >>
+> > > >>Does anyone have any suggestions on how I can fix this?
+> > > >That does seem like a reasonable suggestion, and one that
+> > > >would probably work well with the other similar problems
+> > > >that have been introduced sice 2.6.21.
+> > >
+> > > Looks like the fix is simpler than I thought.  Instead of having
+> > >
+> > > UCC_GETH
+> > > 	select UCC_FAST
+> > >
+> > > I need to do
+> > >
+> > > UCC_FAST
+> > > 	default y if UCC_GETH
+> >
+> > I pondered something like that, but I couldn't get it quite right :(
+> >
+> > > I'll have a patch that fixes this out later today.
+> > >
+> > > I chose the first method because I wanted each individual UCC device
+> > > driver to select UCC_FAST or UCC_SLOW as appropriate, so that I
+> > > wouldn't have to update arch/powerpc/sysdev/qe_lib/Kconfig every time
+> > > we add a new UCC driver.  Oh well.
+> >
+> > --
+> > Horms
+> >   H: http://www.vergenet.net/~horms/
+> >   W: http://www.valinux.co.jp/en/
+> >
+> 
+> Try this patch:
 
-Roland Dreier <rdreier@cisco.com> wrote on 05/11/2007 01:51:50 AM:
+You might also want to fix the other stupidity with this.  See my message
+on this very subject ("select is evil: another reason" from May 9th on lkml.)
 
-> This is pretty interesting to me for IP-over-InfiniBand, for a couple
-> of reasons.  First of all, I can push multiple send requests to the
-> underlying adapter in one go, which saves taking and dropping the same
-> lock and also probably allows fewer MMIO writes for doorbells.
->
-> However the second reason this is useful is actually more
-> interesting.  Right now we request a send completion interrupt for
-> every packet we send because most current IB adapters don't really
-> have very good interrupt mitigation features.  If we don't signal a
-> send completion for every packet, then we might run into a situation
-> where we don't get a completion for the last packet that gets sent and
-> end up stalling the interface because the stack never gives us another
-> packet to send.  However, if I have a whole queue of packets passed to
-> my xmit routine, then I only have to request a completion for the last
-> packet in the list, which could potentially cut down on interrupts and
-> completion processing a lot.
-
-Sounds a good idea. I had a question on error handling. What happens if
-the driver asynchronously returns an error for this WR (single WR
-containing multiple skbs) ? Does it mean all the skbs failed to be sent ?
-Requeuing all of them is a bad idea since it leads to infinitely doing the
-same thing, so should every skb be free'd ? Isn't that harsh (if first skb
-is bad and others are fine) and how do we avoid that ? Infact we don't
-know which skb was transmitted and which failed. If we requeue skbs,
-there will also be out-of-order skbs as the callback is asynchronous.
-
-Thanks,
-
-- KK
-
+-- 
+Russell King
+ Linux kernel    2.6 ARM Linux   - http://www.arm.linux.org.uk/
+ maintainer of:
