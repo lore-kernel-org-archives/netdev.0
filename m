@@ -1,107 +1,51 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [RFC] make qdisc_restart more readable
-Date: Fri, 11 May 2007 14:11:44 -0400
-Message-ID: <1178907104.4126.10.camel@localhost>
-References: <1178842400.5008.17.camel@localhost>
-	 <20070511170126.GH521@postel.suug.ch>
-Reply-To: hadi@cyberus.ca
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: RE: [RFC] make qdisc_restart more readable
+Date: Fri, 11 May 2007 11:13:06 -0700
+Message-ID: <D5C1322C3E673F459512FB59E0DDC32902D424F4@orsmsx414.amr.corp.intel.com>
+References: <1178906671.4126.2.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Herbert Xu" <herbert@gondor.apana.org.au>,
+	"David Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: <hadi@cyberus.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.237]:34016 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754173AbXEKSLq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2007 14:11:46 -0400
-Received: by wx-out-0506.google.com with SMTP id h31so952576wxd
-        for <netdev@vger.kernel.org>; Fri, 11 May 2007 11:11:46 -0700 (PDT)
-In-Reply-To: <20070511170126.GH521@postel.suug.ch>
+Received: from mga02.intel.com ([134.134.136.20]:4986 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1761192AbXEKSNJ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2007 14:13:09 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <1178906671.4126.2.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2007-11-05 at 19:01 +0200, Thomas Graf wrote:
-> * jamal <j.hadi123@gmail.com> 2007-05-10 20:13
-
-> >   *	Compute the worst case header length according to the protocols
-> > diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-> > index f28bb2d..b821040 100644
-> > --- a/net/sched/sch_generic.c
-> > +++ b/net/sched/sch_generic.c
-> > @@ -59,7 +59,79 @@ void qdisc_unlock_tree(struct net_device *dev)
-> >  	spin_unlock_bh(&dev->queue_lock);
-> >  }
-> >  
-> > -/*
-> > +static inline int qqlen(struct Qdisc *q)
-> > +{
-> > +	BUG_ON((int) q->q.qlen < 0);
-> > +	return q->q.qlen;
-> > +}
+> On Fri, 2007-11-05 at 08:56 -0700, Waskiewicz Jr, Peter P wrote:
 > 
-> Nitpicking but qdisc_qlen() sounds a lot better to me.
+> > In qdisc_restart(), you removed any check for if
+> > (!netif_queue_stopped(dev)) before calling 
+> dev_hard_start_xmit().  If 
+> > the underlying queue is stopped and you send the skb, 
+> you'll generate 
+> > a requeue.  Is there a reason it was removed?
+> > 
 > 
-
-I thought nitpicking was my department ;->
-qdisc_qlen is more descriptive; i will change it.
-
-
-> > +static inline int
-> > +handle_dev_requeue(struct sk_buff *skb, struct net_device *dev, struct Qdisc *q)
-> > +{
-> > +
-> > +	if (unlikely(q == &noop_qdisc))
-> > +		kfree_skb(skb);
-> > +
-> > +	if (skb->next)
+> No - its a bug ;->
+> Thanks for staring at this Peter. I will fix it.
 > 
-> Oops, missing else here, this will crash.
-> 
+> cheers,
+> jamal
 
-tabarnaq. I will fix - thanks.
+After thinking about this a bit more: even if the queue is stopped,
+you'd end up requeueing anyways.  Plus, you'd need to re-acquire
+dev->queue_lock (which is what happens today).  I think the best way
+overall would be to check the queue state before you physically dequeue
+(whether it's in qdisc_restart() or in the qdisc's ->dequeue()).  That
+way you still hold dev->queue_lock in case the queue is stopped, and
+haven't yet pulled an skb causing a requeue event.
 
-> Seems simpler to just return the skb or NULL instead
-> 
+Just $0.02 on Friday.
 
-sure.
+Thx,
 
-> > +	/* churn baby churn .. */
-> > +	ret = dev_hard_start_xmit(skb, dev);
-> 
-> Check whether queue is stopped got lost here
-> 
-
-Also caught by Peter - will fix.
-
-
-
-
-> > +	q = dev->qdisc;
-> 
-> Maybe comment why q needs to be refreshed so nobody removes
-> it by accident.
-
-Makes sense ..
-
-> > +	/* most likely result, packet went ok */
-> > +	if (ret == NETDEV_TX_OK)
-> > +		return qqlen(q);
-> > +	/* only for lockless drivers .. */
-> > +	if (ret == NETDEV_TX_LOCKED && lockless) {
-> > +		return handle_tx_locked(skb, dev, q);
-> > +	}
-> 
-> Your style of placing parentheses seems to vary randomly :-)
-
-There may have been a debug in there that i removed. Frankly
-i dont mind having braces even for a one liner, but i know that is not
-popular with many folks.
-Any other spot you noticed?
-
-Thanks a lot Thomas.
-
-cheers,
-jamal
-
+-PJ Waskiewicz
