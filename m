@@ -1,42 +1,35 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [patch 09/13] Use menuconfig objects II - netdev/atm
-Date: Fri, 11 May 2007 16:51:41 -0400
-Message-ID: <4644D75D.1090407@garzik.org>
-References: <200705110552.l4B5qvFr007816@shell0.pdx.osdl.net>
+Subject: Re: [PATCH 2.6.21 1/3]S2IO: getringparam ethtool option
+Date: Fri, 11 May 2007 16:55:21 -0400
+Message-ID: <4644D839.4070706@garzik.org>
+References: <Pine.GSO.4.10.10705100351060.23138-100000@guinness>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jengelh@linux01.gwdg.de, jengelh@gmx.de
-To: akpm@linux-foundation.org
+Cc: netdev@vger.kernel.org, Alicia.Pena@neterion.com,
+	Leonid.Grossman@neterion.com, ramkrishna.vep@neterion.com,
+	santosh.rastapur@neterion.com, Sivakumar.Subramani@neterion.com
+To: Sreenivasa Honnur <Sreenivasa.Honnur@neterion.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:42256 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:42302 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757310AbXEKUvo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 May 2007 16:51:44 -0400
-In-Reply-To: <200705110552.l4B5qvFr007816@shell0.pdx.osdl.net>
+	id S1760034AbXEKUzZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 May 2007 16:55:25 -0400
+In-Reply-To: <Pine.GSO.4.10.10705100351060.23138-100000@guinness>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-akpm@linux-foundation.org wrote:
-> From: Jan Engelhardt <jengelh@linux01.gwdg.de>
+Sreenivasa Honnur wrote:
+> Adding get_ringparam ethtool option.
 > 
-> Make a "menuconfig" out of the Kconfig objects "menu, ..., endmenu",
-> so that the user can disable all the options in that menu at once
-> instead of having to disable each option separately.
-> 
-> Signed-off-by: Jan Engelhardt <jengelh@gmx.de>
-> Cc: Jeff Garzik <jeff@garzik.org>
-> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-> ---
-> 
->  drivers/atm/Kconfig |   32 +++++++++++++++++---------------
->  1 file changed, 17 insertions(+), 15 deletions(-)
+> Signed-off-by: Sreenivasa Honnur <sreenivasa.honnur@neterion.com>
 
-Pattern match correction:
+applied 1-3
 
-drivers/atm/* goes through DaveM.
+Please send follow-up patch that removes braces around single C statements:
 
-	Jeff
-
+> +	for (i = 0 ; i < sp->config.tx_fifo_num ; i++) {
+> +		tx_desc_count += sp->config.tx_cfg[i].fifo_len;
+> +	}
 
 
