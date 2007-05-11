@@ -1,46 +1,41 @@
-From: Nick Piggin <nickpiggin@yahoo.com.au>
-Subject: Re: [PATCH 3/3] AFS: Implement basic file write support
-Date: Fri, 11 May 2007 16:14:39 +1000
-Message-ID: <464409CF.4090203@yahoo.com.au>
-References: <46425C55.6050000@yahoo.com.au> <20070508194358.27477.74888.stgit@warthog.cambridge.redhat.com> <20070508194411.27477.7552.stgit@warthog.cambridge.redhat.com> <27482.1178790992@warthog.cambridge.redhat.com>
+From: Gagan Arneja <gaagaan@gmail.com>
+Subject: Re: [RFC] New driver API to speed up small packets xmits
+Date: Thu, 10 May 2007 23:29:13 -0700
+Message-ID: <46440D39.8060207@gmail.com>
+References: <OF04243E77.B5369513-ON652572D8.00213C30-652572D8.00218BE4@in.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org
-To: David Howells <dhowells@redhat.com>
+Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org,
+	Rick Jones <rick.jones2@hp.com>,
+	Sridhar Samudrala <sri@us.ibm.com>
+To: Krishna Kumar2 <krkumar2@in.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp108.mail.mud.yahoo.com ([209.191.85.218]:40401 "HELO
-	smtp108.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1755100AbXEKGOx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2007 02:14:53 -0400
-In-Reply-To: <27482.1178790992@warthog.cambridge.redhat.com>
+Received: from sceptre.pobox.com ([207.106.133.20]:32820 "EHLO
+	sceptre.pobox.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759451AbXEKG3D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2007 02:29:03 -0400
+In-Reply-To: <OF04243E77.B5369513-ON652572D8.00213C30-652572D8.00218BE4@in.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Howells wrote:
-> Nick Piggin <nickpiggin@yahoo.com.au> wrote:
+Krishna Kumar2 wrote:
+>> What about a race between trying to reacquire queue_lock and another
+>> failed transmit?
 > 
+> That is not possible too. I hold the QDISC_RUNNING bit in dev->state and
+> am the only sender for this device, so there is no other failed transmit.
+> Also, on failure of dev_hard_start_xmit, qdisc_restart will spin for the
+> queue lock (which could be held quickly by enqueuer's), and q->requeue()
+> skbs to the head of the list.
+
+I have to claim incomplete familiarity for the code. But still, if 
+you're out there running with no locks for a period, there's no 
+assumption you can make. The "lock could be held quickly" assertion is a 
+fallacy.
+
 > 
->>Why do you call SetPageUptodate when the page is not up to date?
->>That leaks uninitialised data, AFAIKS.
+> Thanks,
 > 
+> - KK
 > 
-> It only seems that way.  If afs_prepare_write() is called, but doesn't return
-> an error, then afs_commit_write() will be called, and it seems that the copy
-> in of the data will be guaranteed not to fail by the caller.
-
-Not only does it seem that way, it is that way :) PG_uptodate is being set
-when the page is not uptodate, isn't it?
-
-
-> Furthermore, afs_prepare_page() will have filled in the missing bits.
-> 
-> And whilst all that is going on, the page lock will be help by the caller, so
-> that no-one else can access the partially complete page.
-
-When a page is uptodate in pagecache, the generic read and nopage functions
-do not take the page lock. So how are you excluding those?
-
--- 
-SUSE Labs, Novell Inc.
