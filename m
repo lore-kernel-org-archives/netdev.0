@@ -1,73 +1,201 @@
-From: jamal <hadi@cyberus.ca>
-Subject: RE: take 2 WAS (RE: [RFC] make qdisc_restart more readable
-Date: Fri, 11 May 2007 18:43:12 -0400
-Message-ID: <1178923392.4089.4.camel@localhost>
-References: <D5C1322C3E673F459512FB59E0DDC32902D4280E@orsmsx414.amr.corp.intel.com>
-Reply-To: hadi@cyberus.ca
+From: Kim Phillips <kim.phillips@freescale.com>
+Subject: [PATCH 1/5] phylib: add the ICPlus IP175C PHY driver
+Date: Fri, 11 May 2007 18:24:51 -0500
+Message-ID: <20070511182451.1d699c31.kim.phillips@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf@suug.ch>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+To: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.236]:45981 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751821AbXEKWnQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2007 18:43:16 -0400
-Received: by wx-out-0506.google.com with SMTP id h31so1014141wxd
-        for <netdev@vger.kernel.org>; Fri, 11 May 2007 15:43:15 -0700 (PDT)
-In-Reply-To: <D5C1322C3E673F459512FB59E0DDC32902D4280E@orsmsx414.amr.corp.intel.com>
+Received: from de01egw01.freescale.net ([192.88.165.102]:63813 "EHLO
+	de01egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755556AbXEKXZA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2007 19:25:00 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2007-11-05 at 15:01 -0700, Waskiewicz Jr, Peter P wrote:
+From: Michael Barkowski <michael.barkowski@freescale.com>
 
-> The current requeue calls in qdisc_restart() returns a value of 1 to the
-> upper layer. 
+The ICPlus IP175C sports a 100Mbit/s 4-port switch in addition
+to a dedicated 100Mbit/s WAN port.
 
-Which was not meaningful ;->
-i.e qdisc run would break as a result.
-Note, this is still in conformance with net-2.6 based on a change in the
-last few days made by Herbert - I was following his lead.
-I put that comment there just as something to remember and
-maybe revisit later.
+Signed-off-by: Michael Barkowski <michael.barkowski@freescale.com>
+Signed-off-by: Kim Phillips <kim.phillips@freescale.com>
+---
+RESEND of missed from last series submitted, this should now apply cleanly.
 
->  If you return 0, the __qdisc_run() won't break from the
-> while() it seems if you have to successfully requeue a packet.
-> 
+ drivers/net/phy/Kconfig  |    5 ++
+ drivers/net/phy/Makefile |    1 +
+ drivers/net/phy/icplus.c |  134 ++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 140 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/phy/icplus.c
 
-It wont; the check is for < 0
-
-> 
-> -static inline int qdisc_restart(struct net_device *dev)
-> +int
-> +qdisc_restart(struct net_device *dev)
->  {
-> 
-> Why is this no longer defined static?
-> 
-
-Good catch - i will restore it to what it was originally.
-
-> 
-> +	/* we need to refresh q because it may be invalid since we
-> droped 
-> 
-> <nitpick>
-> droped = dropped
-> </nitpick>
-> 
-
-Ok, better to fix it now before the spelling police show up ;->
-
-> That's all I have for now.  I'll try applying it for kicks and see what
-> happens.
-
-Just make those two fixes in your version; also note, you need Davems
-net-2.6 tree.
-
-cheers,
-jamal
+diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+index 09b6f25..dd09011 100644
+--- a/drivers/net/phy/Kconfig
++++ b/drivers/net/phy/Kconfig
+@@ -55,6 +55,11 @@ config BROADCOM_PHY
+ 	---help---
+ 	  Currently supports the BCM5411, BCM5421 and BCM5461 PHYs.
+ 
++config ICPLUS_PHY
++	tristate "Drivers for ICPlus PHYs"
++	---help---
++	  Currently supports the IP175C PHY.
++
+ config FIXED_PHY
+ 	tristate "Drivers for PHY emulation on fixed speed/link"
+ 	---help---
+diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
+index bcd1efb..8885650 100644
+--- a/drivers/net/phy/Makefile
++++ b/drivers/net/phy/Makefile
+@@ -11,4 +11,5 @@ obj-$(CONFIG_QSEMI_PHY)		+= qsemi.o
+ obj-$(CONFIG_SMSC_PHY)		+= smsc.o
+ obj-$(CONFIG_VITESSE_PHY)	+= vitesse.o
+ obj-$(CONFIG_BROADCOM_PHY)	+= broadcom.o
++obj-$(CONFIG_ICPLUS_PHY)	+= icplus.o
+ obj-$(CONFIG_FIXED_PHY)		+= fixed.o
+diff --git a/drivers/net/phy/icplus.c b/drivers/net/phy/icplus.c
+new file mode 100644
+index 0000000..af3f1f2
+--- /dev/null
++++ b/drivers/net/phy/icplus.c
+@@ -0,0 +1,134 @@
++/*
++ * Driver for ICPlus PHYs
++ *
++ * Copyright (c) 2007 Freescale Semiconductor, Inc.
++ *
++ * This program is free software; you can redistribute  it and/or modify it
++ * under  the terms of  the GNU General  Public License as published by the
++ * Free Software Foundation;  either version 2 of the  License, or (at your
++ * option) any later version.
++ *
++ */
++#include <linux/kernel.h>
++#include <linux/string.h>
++#include <linux/errno.h>
++#include <linux/unistd.h>
++#include <linux/slab.h>
++#include <linux/interrupt.h>
++#include <linux/init.h>
++#include <linux/delay.h>
++#include <linux/netdevice.h>
++#include <linux/etherdevice.h>
++#include <linux/skbuff.h>
++#include <linux/spinlock.h>
++#include <linux/mm.h>
++#include <linux/module.h>
++#include <linux/mii.h>
++#include <linux/ethtool.h>
++#include <linux/phy.h>
++
++#include <asm/io.h>
++#include <asm/irq.h>
++#include <asm/uaccess.h>
++
++MODULE_DESCRIPTION("ICPlus IP175C PHY driver");
++MODULE_AUTHOR("Michael Barkowski");
++MODULE_LICENSE("GPL");
++
++static int ip175c_config_init(struct phy_device *phydev)
++{
++	int err, i;
++	static int full_reset_performed = 0;
++
++	if (full_reset_performed == 0) {
++
++		/* master reset */
++		err = phydev->bus->write(phydev->bus, 30, 0, 0x175c);
++		if (err < 0)
++			return err;
++
++		/* ensure no bus delays overlap reset period */
++		err = phydev->bus->read(phydev->bus, 30, 0);
++
++		/* data sheet specifies reset period is 2 msec */
++		mdelay(2);
++
++		/* enable IP175C mode */
++		err = phydev->bus->write(phydev->bus, 29, 31, 0x175c);
++		if (err < 0)
++			return err;
++
++		/* Set MII0 speed and duplex (in PHY mode) */
++		err = phydev->bus->write(phydev->bus, 29, 22, 0x420);
++		if (err < 0)
++			return err;
++
++		/* reset switch ports */
++		for (i = 0; i < 5; i++) {
++			err = phydev->bus->write(phydev->bus, i,
++						 MII_BMCR, BMCR_RESET);
++			if (err < 0)
++				return err;
++		}
++
++		for (i = 0; i < 5; i++)
++			err = phydev->bus->read(phydev->bus, i, MII_BMCR);
++
++		mdelay(2);
++
++		full_reset_performed = 1;
++	}
++
++	if (phydev->addr != 4) {
++		phydev->state = PHY_RUNNING;
++		phydev->speed = SPEED_100;
++		phydev->duplex = DUPLEX_FULL;
++		phydev->link = 1;
++		netif_carrier_on(phydev->attached_dev);
++	}
++
++	return 0;
++}
++
++static int ip175c_read_status(struct phy_device *phydev)
++{
++	if (phydev->addr == 4) /* WAN port */
++		genphy_read_status(phydev);
++	else
++		/* Don't need to read status for switch ports */
++		phydev->irq = PHY_IGNORE_INTERRUPT;
++
++	return 0;
++}
++
++static int ip175c_config_aneg(struct phy_device *phydev)
++{
++	if (phydev->addr == 4) /* WAN port */
++		genphy_config_aneg(phydev);
++
++	return 0;
++}
++
++static struct phy_driver ip175c_driver = {
++	.phy_id		= 0x02430d80,
++	.name		= "ICPlus IP175C",
++	.phy_id_mask	= 0x0ffffff0,
++	.features	= PHY_BASIC_FEATURES,
++	.config_init	= &ip175c_config_init,
++	.config_aneg	= &ip175c_config_aneg,
++	.read_status	= &ip175c_read_status,
++	.driver		= { .owner = THIS_MODULE,},
++};
++
++static int __init ip175c_init(void)
++{
++	return phy_driver_register(&ip175c_driver);
++}
++
++static void __exit ip175c_exit(void)
++{
++	phy_driver_unregister(&ip175c_driver);
++}
++
++module_init(ip175c_init);
++module_exit(ip175c_exit);
+-- 
+1.5.0.3
 
