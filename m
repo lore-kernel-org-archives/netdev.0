@@ -1,41 +1,78 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [RFC] New driver API to speed up small packets xmits
-Date: Fri, 11 May 2007 07:30:02 -0400
-Message-ID: <1178883002.4093.26.camel@localhost>
-References: <20070511093202.GB24695@2ka.mipt.ru>
-	 <OF6C27DF4E.9060BDB4-ON652572D8.0035C627-652572D8.00363827@in.ibm.com>
-	 <20070511095602.GA5762@2ka.mipt.ru>
-Reply-To: hadi@cyberus.ca
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: Kconfig warnings on latest GIT
+Date: Fri, 11 May 2007 13:45:37 +0200
+Message-ID: <1178883937.8896.11.camel@johannes.berg>
+References: <200705080004.14570.ismail@pardus.org.tr>
+	 <20070508143127.38fafa3c.kim.phillips@freescale.com>
+	 <4640D988.1040504@freescale.com> <20070510051042.GA16812@verge.net.au>
+	 <1178811570.3806.18.camel@johannes.berg>
+	 <20070511012216.GB10715@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Krishna Kumar2 <krkumar2@in.ibm.com>,
-	Ian McDonald <ian.mcdonald@jandi.co.nz>,
-	netdev@vger.kernel.org, Rick Jones <rick.jones2@hp.com>,
-	Vlad Yasevich <vladislav.yasevich@hp.com>
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-PdvKfbZgsucLWOxdr9MV"
+Cc: Timur Tabi <timur@freescale.com>,
+	Kim Phillips <kim.phillips@freescale.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Ismail =?ISO-8859-1?Q?D=F6nmez?= <ismail@pardus.org.tr>,
+	Kumar Gala <galak@kernel.crashing.org>,
+	Michael Schmitz <schmitz@debian.org>,
+	Roman Zippel <zippel@linux-m68k.org>,
+	Geert Uytterhoeven <geert@linux-m68k.org>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Paul Mackerras <paulus@samba.org>,
+	Ralf Baechle <ralf@linux-mips.org>
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.224]:56299 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756147AbXEKLaG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2007 07:30:06 -0400
-Received: by wx-out-0506.google.com with SMTP id h31so838208wxd
-        for <netdev@vger.kernel.org>; Fri, 11 May 2007 04:30:05 -0700 (PDT)
-In-Reply-To: <20070511095602.GA5762@2ka.mipt.ru>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:44202 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755877AbXEKLnQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2007 07:43:16 -0400
+In-Reply-To: <20070511012216.GB10715@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2007-11-05 at 13:56 +0400, Evgeniy Polyakov wrote:
 
-> I meant no locks during processing of the packets (pci read/write, dma
-> setup and so on), of course it is needed to dequeue a packet, but only
-> for that operation.
+--=-PdvKfbZgsucLWOxdr9MV
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-I dont think you can avoid the lock Evgeniy. You need to protect against
-the tx ring having some other things happening to it from the napi poll
-or netdev interupts (most of the drivers touch the tx ring on the napi
-poll).
+On Fri, 2007-05-11 at 10:22 +0900, Simon Horman wrote:
 
-cheers,
-jamal
+> Actually, it was with ARCH=3Dia64. I have a feeling that you can get
+> it to show up quite easily with anything other than ARCH=3Dpowerpc.
+
+Ick, I didn't know that drivers/macintosh was now included for all
+arches! Hmm. That's a bit of a problem.
+
+I could do
+
+config PMAC_APM_EMU
+        tristate "APM emulation"
+        depends on SYS_SUPPORTS_APM_EMULATION
+        select APM_EMULATION
+        depends on ADB_PMU && PM
+
+and then
+
+config SYS_SUPPORTS_APM_EMULATION
+	bool
+	default y
+	depends on PPC_PMAC
+
+I'll have to run test that.
+
+johannes
+
+--=-PdvKfbZgsucLWOxdr9MV
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iD8DBQBGRFdh/ETPhpq3jKURAgDVAJ46WmVLjJ59f9KSP65cVxnFFFFnqgCaAkmG
+UbBUeoejP0SBnGF0DhTIwX4=
+=KVJL
+-----END PGP SIGNATURE-----
+
+--=-PdvKfbZgsucLWOxdr9MV--
 
