@@ -1,57 +1,70 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [RFC] New driver API to speed up small packets xmits
-Date: 11 May 2007 11:05:05 +0200
-Message-ID: <p73wszfenni.fsf@bingen.suse.de>
-References: <20070510145351.1390.77066.sendpatchset@K50wks273871wss.in.ibm.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [-mm patch] make csum_and_copy_from_user arch independent (was
+ Re: 2.6.21-mm2)
+Date: Fri, 11 May 2007 01:33:17 -0700
+Message-ID: <20070511013317.3c6441f3.akpm@linux-foundation.org>
+References: <20070509012322.199f292b.akpm@linux-foundation.org>
+	<20070511082738.GA23560@slug>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Krishna Kumar <krkumar2@in.ibm.com>
-To: Krishna Kumar <krkumar2@in.ibm.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, jorge@laser.satlink.net,
+	agulbra@nvg.unit.no, netdev@vger.kernel.org,
+	David Howells <dhowells@redhat.com>
+To: Frederik Deweerdt <deweerdt@free.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor.suse.de ([195.135.220.2]:43912 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751090AbXEKIHp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 May 2007 04:07:45 -0400
-In-Reply-To: <20070510145351.1390.77066.sendpatchset@K50wks273871wss.in.ibm.com>
+Received: from smtp1.linux-foundation.org ([65.172.181.25]:52374 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751602AbXEKIdd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2007 04:33:33 -0400
+In-Reply-To: <20070511082738.GA23560@slug>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Krishna Kumar <krkumar2@in.ibm.com> writes:
+On Fri, 11 May 2007 10:27:38 +0200 Frederik Deweerdt <deweerdt@free.fr> wrote:
 
-> Doing some measurements, I found that for small packets like 128 bytes,
-> the bandwidth is approximately 60% of the line speed. To possibly speed
-> up performance of small packet xmits, a method of "linking" skbs was
-> thought of - where two pointers (skb_flink/blink) is added to the skb.
+> On Wed, May 09, 2007 at 01:23:22AM -0700, Andrew Morton wrote:
+> > 
+> > ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.21/2.6.21-mm2/
+> > 
+> 
+> ERROR: "csum_partial_copy_from_user" [net/rxrpc/af-rxrpc.ko] undefined!
+> 
+> Linking on ARM fails because albeit a generic csum_and_copy_from_user()
+> function is provided in the case ! _HAVE_ARCH_COPY_AND_CSUM_FROM_USER, the
+> generic function uses csum_partial_copy_from_user() which is i386 only.
+> 
+> The following patch uses copy_from_user() followed by csum_partial()
+> to make the function platform independent.
+> 
+> Regards,
+> Frederik
+> 
+> Signed-off-by: Frederik Deweerdt <frederik.deweerdt@gmail.com>
+> 
+> diff --git a/include/net/checksum.h b/include/net/checksum.h
+> index 1242461..2eebb95 100644
+> --- a/include/net/checksum.h
+> +++ b/include/net/checksum.h
+> @@ -30,13 +30,16 @@ static inline
+>  __wsum csum_and_copy_from_user (const void __user *src, void *dst,
+>  				      int len, __wsum sum, int *err_ptr)
+>  {
+> -	if (access_ok(VERIFY_READ, src, len))
+> -		return csum_partial_copy_from_user(src, dst, len, sum, err_ptr);
+> +	if (access_ok(VERIFY_READ, src, len)) {
+> +		if (copy_from_user(dst, src, len))
+> +			return -EFAULT;
+> +		return csum_partial(dst, len, sum);
+> +	}
+>  
+>  	if (len)
+>  		*err_ptr = -EFAULT;
+>  
+> -	return sum;
+> +	return (__force __wsum)-1; /* invalid checksum */
+>  }
+>  #endif
+>  
 
-You don't need that. You can just use the normal next/prev pointers.
-In general it's a good idea to lower lock overhead etc., the VM has
-used similar tricks very successfully in the past.
-
-There were some thoughts about this earlier, but in highend
-NICs the direction instead seems to go towards LRO (large receive offloading). 
- 
-LRO is basically like TSO, just for receiving. The NIC aggregates
-multiple packets into a single larger one that is then processed by
-the stack as one skb. This typically doesn't use linked lists, but an
-array of pages.
-
-Your scheme would help old NICs that don't have this optimization.
-Might be a worth goal, although people often seem to be more interested
-in modern hardware.
-
-Another problem is that this setup typically requires the aggregate
-packets to be from the same connection. Otherwise you will only
-safe a short trip into the stack until the linked packet would need
-to be split again to pass to multiple sockets. With that the scheme
-probably helps much less.
-
-The hardware schemes typically use at least some kind of hash to
-aggregiate connections You might need to implement something similar
-too if it doesn't save enough time.  Don't know if it would be very
-efficient in software.
-
-Or you could do this only if multiple packets belong to the same
-single connection (basically with a one hit cache); but then it would
-smell a bit like a benchmark hack.
-
--Andi
+hm.  Please cc netdev on net patches.
