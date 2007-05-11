@@ -1,40 +1,43 @@
-From: "Robert Iakobashvili" <coroberti@gmail.com>
-Subject: Re: Accessing certain web sites broken from 2.6.19+
-Date: Fri, 11 May 2007 06:38:11 +0200
-Message-ID: <7e63f56c0705102138q5a623fadm520473df49e49963@mail.gmail.com>
-References: <4643efc2.7cb1b0b0.2a08.4658@mx.google.com>
+From: Gagan Arneja <gaagaan@gmail.com>
+Subject: Re: [RFC] New driver API to speed up small packets xmits
+Date: Thu, 10 May 2007 22:01:37 -0700
+Message-ID: <4643F8B1.5030803@gmail.com>
+References: <464370BA.3020907@hp.com> <20070510.133216.95506791.davem@davemloft.net> <46438568.1020403@hp.com> <20070510.140251.02302242.davem@davemloft.net> <46438B1D.1050802@gmail.com> <20070510192814.5b71d01c@freepuppy>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "Andrew Hall" <andrew.a.hall@gmail.com>
+Cc: Gagan Arneja <gaagaan@gmail.com>,
+	David Miller <davem@davemloft.net>, rick.jones2@hp.com,
+	vladislav.yasevich@hp.com, ian.mcdonald@jandi.co.nz,
+	krkumar2@in.ibm.com, johnpol@2ka.mipt.ru, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.238]:62877 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754247AbXEKEiL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2007 00:38:11 -0400
-Received: by wx-out-0506.google.com with SMTP id h31so760051wxd
-        for <netdev@vger.kernel.org>; Thu, 10 May 2007 21:38:11 -0700 (PDT)
-In-Reply-To: <4643efc2.7cb1b0b0.2a08.4658@mx.google.com>
-Content-Disposition: inline
+Received: from gretel.pobox.com ([208.58.1.197]:50270 "EHLO gretel.pobox.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753395AbXEKFDz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 May 2007 01:03:55 -0400
+Received: from sceptre.pobox.com (sceptre.pobox.com [207.106.133.20])
+	by gretel.pobox.com (Postfix) with ESMTP id 2A26A60F2685
+	for <netdev@vger.kernel.org>; Fri, 11 May 2007 01:03:02 -0400 (EDT)
+In-Reply-To: <20070510192814.5b71d01c@freepuppy>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 5/11/07, Andrew Hall <andrew.a.hall@gmail.com> wrote:
-> When accessing certain web sites when using any kernel above 2.6.19, TCP
-> seems to break. Connection to the site is established but never completes.
-> One particular site is www.dcita.gov.au. Is there a known issue pertaining
-> to this? Using any kernel below 2.6.19 (for example: 2.6.12 or 2.6.15) works
-> fine.
+ > If you have braindead slow hardware,
+ > there is nothing that says your start_xmit routine can't do its own
+ > coalescing.  The cost of calling the transmit routine is the 
+responsibility
+ > of the driver, not the core network code.
 
-Including 2.6.21?
+Yes, except you very likely run the risk of the driver introducing 
+latency. The problem is prevalent enough that one can argue for a fix (a 
+better one at that) higher up. And it's not all that high up that we 
+need to get completely paranoid about it.
 
-Which browser/s have you tried?
+ > --
+ > Stephen Hemminger <shemminger@linux-foundation.org>
+ >
 
--- 
-Sincerely,
-Robert Iakobashvili,
-coroberti %x40 gmail %x2e com
-...........................................................
-http://curl-loader.sourceforge.net
-A web testing and traffic generation tool.
+--
+Gagan
+
