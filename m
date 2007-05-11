@@ -1,78 +1,49 @@
-From: Joakim Koskela <joakim.koskela@hiit.fi>
-Subject: Problem with xfrm (ipsec) as state/spi selected solely on outer ip addresses
-Date: Fri, 11 May 2007 16:22:24 +0300
-Message-ID: <200705111622.24680.joakim.koskela@hiit.fi>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [patch 4/8] Use menuconfig objects: SCTP
+Date: Fri, 11 May 2007 10:12:59 -0400
+Message-ID: <464479EB.5070002@hp.com>
+References: <200705110553.l4B5rkFq007858@shell0.pdx.osdl.net> <4644736C.4000808@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: akpm@linux-foundation.org, davem@davemloft.net,
+	netdev@vger.kernel.org, jengelh@linux01.gwdg.de, jengelh@gmx.de,
+	sri@us.ibm.com
+To: Brian Haley <brian.haley@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from creon.otaverkko.fi ([212.68.0.5]:46025 "EHLO creon.otaverkko.fi"
+Received: from atlrel6.hp.com ([156.153.255.205]:60186 "EHLO atlrel6.hp.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756147AbXEKNv6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 May 2007 09:51:58 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by creon.otaverkko.fi (Postfix) with ESMTP id 6B79221AF64
-	for <netdev@vger.kernel.org>; Fri, 11 May 2007 16:22:25 +0300 (EEST)
-Received: from argo.otaverkko.fi (argo.otaverkko.fi [212.68.0.2])
-	by creon.otaverkko.fi (Postfix) with ESMTP id 40B8C21AF59
-	for <netdev@vger.kernel.org>; Fri, 11 May 2007 16:22:24 +0300 (EEST)
-Received: from vetar.pc.hiit.fi (vetar.pc.hiit.fi [128.214.113.230])
-	by argo.otaverkko.fi (Postfix) with ESMTP id 3C7E425ED06
-	for <netdev@vger.kernel.org>; Fri, 11 May 2007 16:22:24 +0300 (EEST)
-Content-Disposition: inline
+	id S1752403AbXEKONH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 May 2007 10:13:07 -0400
+In-Reply-To: <4644736C.4000808@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all, 
+Brian Haley wrote:
+> akpm@linux-foundation.org wrote:
+>> diff -puN net/sctp/Kconfig~use-menuconfig-objects-sctp net/sctp/Kconfig
+>> --- a/net/sctp/Kconfig~use-menuconfig-objects-sctp
+>> +++ a/net/sctp/Kconfig
+>> @@ -2,11 +2,9 @@
+>>  # SCTP configuration
+>>  #
+>>  
+>> -menu "SCTP Configuration (EXPERIMENTAL)"
+>> -    depends on INET && EXPERIMENTAL
+>> -
+>> -config IP_SCTP
+>> +menuconfig IP_SCTP
+>>      tristate "The SCTP Protocol (EXPERIMENTAL)"
+>> +    depends on NET && EXPERIMENTAL
+>>      depends on IPV6 || IPV6=n
+>>      select CRYPTO if SCTP_HMAC_SHA1 || SCTP_HMAC_MD5
+>>      select CRYPTO_HMAC if SCTP_HMAC_SHA1 || SCTP_HMAC_MD5
+> 
+> This just changed "INET && EXPERIMENTAL" to "NET && EXPERIMENTAL", don't
+> know if that was intended.
+> 
+> -Brian
 
-I'm running a system where there might be multiple simultenously
-active ipsec states between two hosts (ipv6, but guess it applies to
-v4 as well) where the outer ip is the same for all states, but the
-inner differ (using beet mode).
+Thanks Brian.   This is a bug.  This should use INET.
 
-The problem is that after establishing these states, it seems that the
-one associated with outgoing traffic is selected solely by the outer
-address (the first state matching the outer ip-pairs is used), which
-usually results in the wrong spi and the packet being dropped at the
-receiver.
-
-I've circumvented the problem by modifying the state selection
-algorithm in xfrm_state_find() [xfrm_state.c] to prefer, if possible,
-states which also match by the inner addresses. Is this really a
-problem of the selection algorithm, or might I be doing something 
-wrong elsewhere?
-
-Here's the changes I've done to make it work for me.  As said, it
-prefers states with matching inner-address, but if none is found it
-works as before:
-
-
-diff -urN  a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
---- a/net/xfrm/xfrm_state.c 2007-05-11 15:37:35.000000000 +0300
-+++ b/net/xfrm/xfrm_state.c 2007-05-11 15:37:35.000000000 +0300
-@@ -374,6 +374,17 @@
-                                    (best->km.dying == x->km.dying &&
-                                     best->curlft.add_time < x->curlft.add_time))
-                                        best = x;
-+                               else if (pol->selector.family == x->sel.family &&
-+                                        (pol->selector.family == AF_INET6 &&
-+                                         !ipv6_addr_cmp((struct in6_addr *)&pol->selector.daddr,
-+                                                        (struct in6_addr *)&x->sel.daddr) &&
-+                                         !ipv6_addr_cmp((struct in6_addr *)&pol->selector.saddr,
-+                                                        (struct in6_addr *)&x->sel.saddr)) ||
-+                                        (pol->selector.family == AF_INET &&
-+                                         pol->selector.daddr.a4 == x->sel.daddr.a4 &&
-+                                         pol->selector.saddr.a4 == x->sel.saddr.a4))
-+                                       best = x;
-+
-                        } else if (x->km.state == XFRM_STATE_ACQ) {
-                                acquire_in_progress = 1;
-                        } else if (x->km.state == XFRM_STATE_ERROR ||
-
-br, j
-
---
-Joakim Koskela
-Helsinki Institute for Information Technology, http://www.hiit.fi
+-vlad
