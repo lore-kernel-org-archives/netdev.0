@@ -1,60 +1,49 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: Kconfig warnings on latest GIT
-Date: Fri, 11 May 2007 11:27:22 +0900
-Message-ID: <20070511022721.GI10715@verge.net.au>
-References: <200705080004.14570.ismail@pardus.org.tr> <20070508143127.38fafa3c.kim.phillips@freescale.com> <4640D988.1040504@freescale.com> <20070510051042.GA16812@verge.net.au> <46434ED0.6030808@freescale.com> <20070511012529.GC10715@verge.net.au> <Pine.LNX.4.64.0705102046400.10555@gate.crashing.org> <20070511020545.GG10715@verge.net.au> <Pine.LNX.4.64.0705102111570.11348@gate.crashing.org>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [RFC] New driver API to speed up small packets xmits
+Date: Thu, 10 May 2007 19:28:14 -0700
+Message-ID: <20070510192814.5b71d01c@freepuppy>
+References: <464370BA.3020907@hp.com>
+	<20070510.133216.95506791.davem@davemloft.net>
+	<46438568.1020403@hp.com>
+	<20070510.140251.02302242.davem@davemloft.net>
+	<46438B1D.1050802@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: sam@ravnborg.org, Timur Tabi <timur@freescale.com>,
-	Kim Phillips <kim.phillips@freescale.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Ismail =?iso-8859-1?Q?D=F6nmez?= <ismail@pardus.org.tr>,
-	Michael Schmitz <schmitz@debian.org>,
-	Roman Zippel <zippel@linux-m68k.org>,
-	Geert Uytterhoeven <geert@linux-m68k.org>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Paul Mackerras <paulus@samba.org>
-To: Kumar Gala <galak@kernel.crashing.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, rick.jones2@hp.com,
+	vladislav.yasevich@hp.com, ian.mcdonald@jandi.co.nz,
+	krkumar2@in.ibm.com, johnpol@2ka.mipt.ru, netdev@vger.kernel.org
+To: Gagan Arneja <gaagaan@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from koto.vergenet.net ([210.128.90.7]:45420 "EHLO koto.vergenet.net"
+Received: from smtp.osdl.org ([65.172.181.24]:43691 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756756AbXEKC1Z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 May 2007 22:27:25 -0400
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0705102111570.11348@gate.crashing.org>
+	id S1756996AbXEKC2y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 May 2007 22:28:54 -0400
+In-Reply-To: <46438B1D.1050802@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, May 10, 2007 at 09:13:34PM -0500, Kumar Gala wrote:
-> On Fri, 11 May 2007, Simon Horman wrote:
-> 
-> > On Thu, May 10, 2007 at 08:47:05PM -0500, Kumar Gala wrote:
-> > > Try this patch:
-> >
-> > That certainly resolves the problem for me.
-> > I'll see about doing something like that for the similar
-> > Kconfig problems that I see.
-> 
-> I've got a similar fix for SYS_SUPPORTS_APM_EMULATION already.  I'll push
-> both of these to Paul.  If you can put something in place for the
-> Atari/68k and send it to Geert that would be good (feeling a little lazy
-> right now :)
-> 
-> I'm still not happy about this fix.  I'd like to get Sam's feeling on if
-> we can fixup kconfig not to warn if the dependency isn't meet.  I think
-> the select is valid, and would prefer to fix this properly before we paper
-> tape over it.
+On Thu, 10 May 2007 14:14:05 -0700
+Gagan Arneja <gaagaan@gmail.com> wrote:
 
-I agree. I had thought a little about a kconfig fix. Though I'm
-wondering if removing the warning will lead to oodles of dangling
-symbols and invalid checks over time.
+> David Miller wrote:
+> > From: Rick Jones <rick.jones2@hp.com>
+> > Date: Thu, 10 May 2007 13:49:44 -0700
+> > 
+> >> I'd think one would only do this in those situations/places where a
+> >> natural "out of driver" queue develops in the first place wouldn't
+> >> one?
+> > 
+> > Indeed.
+> 
+> And one builds in qdisc because your device sink is slow. There's 
+> nothing inherently there in the kernel encouraging Qdisc->q to grow. 
+> It's precisely these broken devices that can take advantage of cluster 
+> transmits.
 
-In any case, I'll look into the Atari problem. At least that way
-there will be some patches to add to the discussion.
-
+If you have braindead slow hardware, 
+there is nothing that says your start_xmit routine can't do its own
+coalescing.  The cost of calling the transmit routine is the responsibility
+of the driver, not the core network code.
 -- 
-Horms
-  H: http://www.vergenet.net/~horms/
-  W: http://www.valinux.co.jp/en/
-
+Stephen Hemminger <shemminger@linux-foundation.org>
