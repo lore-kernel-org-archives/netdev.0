@@ -1,29 +1,42 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] ethtool: Add 2.5G support
-Date: Fri, 11 May 2007 16:46:18 -0400
-Message-ID: <4644D61A.5@garzik.org>
-References: <1178068303.4820.35.camel@dell> <1178177230.4909.63.camel@dell>
+Subject: Re: [patch 09/13] Use menuconfig objects II - netdev/atm
+Date: Fri, 11 May 2007 16:51:41 -0400
+Message-ID: <4644D75D.1090407@garzik.org>
+References: <200705110552.l4B5qvFr007816@shell0.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Michael Chan <mchan@broadcom.com>
+Cc: netdev@vger.kernel.org, jengelh@linux01.gwdg.de, jengelh@gmx.de
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:42176 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:42256 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756942AbXEKUqW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 May 2007 16:46:22 -0400
-In-Reply-To: <1178177230.4909.63.camel@dell>
+	id S1757310AbXEKUvo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 May 2007 16:51:44 -0400
+In-Reply-To: <200705110552.l4B5qvFr007816@shell0.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michael Chan wrote:
-> Add 2.5G Serdes support to ethtool user program and ethtool.8 man
-> page.  The missing pause bits are also added to keep ethtool-copy.h
-> in sync with the kernel's version.
+akpm@linux-foundation.org wrote:
+> From: Jan Engelhardt <jengelh@linux01.gwdg.de>
 > 
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
+> Make a "menuconfig" out of the Kconfig objects "menu, ..., endmenu",
+> so that the user can disable all the options in that menu at once
+> instead of having to disable each option separately.
+> 
+> Signed-off-by: Jan Engelhardt <jengelh@gmx.de>
+> Cc: Jeff Garzik <jeff@garzik.org>
+> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+> ---
+> 
+>  drivers/atm/Kconfig |   32 +++++++++++++++++---------------
+>  1 file changed, 17 insertions(+), 15 deletions(-)
 
-applied
+Pattern match correction:
+
+drivers/atm/* goes through DaveM.
+
+	Jeff
+
 
 
