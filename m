@@ -1,169 +1,193 @@
 From: Kim Phillips <kim.phillips@freescale.com>
-Subject: [PATCH 3/5] ucc_geth: eliminate max-speed, change interface-type to
- phy-connection-type
-Date: Fri, 11 May 2007 18:25:07 -0500
-Message-ID: <20070511182507.7642926e.kim.phillips@freescale.com>
+Subject: [PATCH 4/5] gianfar: add support for SGMII
+Date: Fri, 11 May 2007 18:25:11 -0500
+Message-ID: <20070511182511.526fcf6d.kim.phillips@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 To: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from de01egw02.freescale.net ([192.88.165.103]:53316 "EHLO
+Received: from de01egw02.freescale.net ([192.88.165.103]:53333 "EHLO
 	de01egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759325AbXEKXZQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2007 19:25:16 -0400
+	with ESMTP id S1760660AbXEKXZR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2007 19:25:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-It was agreed that phy-connection-type was a better name for
-the interface-type property, so this patch renames it.
+From: Kapil Juneja <Kapil.Juneja@freescale.com>
 
-Also, the max-speed property name was determined too generic,
-and is therefore eliminated in favour of phy-connection-type
-derivation logic.
+Add code for initialising and configuring TBI interface and
+programming it for connecting to on-chip SERDES (Lynx PHY)
+in case of SGMII mode selected through HRCW at reset.
 
-includes corrections to copyright text.
+also add defines for TBI register configuration. TBI
+interface is programmed towards the SERDES.
 
+refactored mdio read/write functions to differentiate
+programming local interface MII regs (e.g., for TBI) from
+always programming the mdio master (TSEC1, for programming
+the PHYs).
+
+Signed-off-by: Kapil Juneja <Kapil.Juneja@freescale.com>
+Signed-off-by: Andy Fleming <afleming@freescale.com>
 Signed-off-by: Kim Phillips <kim.phillips@freescale.com>
 ---
- drivers/net/ucc_geth.c     |   40 ++++++++++++++++------------------------
- drivers/net/ucc_geth_mii.c |    9 +++++----
- drivers/net/ucc_geth_mii.h |   10 +++++-----
- 3 files changed, 26 insertions(+), 33 deletions(-)
+ drivers/net/gianfar.c     |   27 ++++++++++++++++++++++
+ drivers/net/gianfar.h     |    6 +++++
+ drivers/net/gianfar_mii.c |   55 ++++++++++++++++++++++++++++++++++++---------
+ 3 files changed, 77 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
-index 0f66765..c2ccbd0 100644
---- a/drivers/net/ucc_geth.c
-+++ b/drivers/net/ucc_geth.c
-@@ -1,5 +1,5 @@
- /*
-- * Copyright (C) Freescale Semicondutor, Inc. 2006. All rights reserved.
-+ * Copyright (C) 2006-2007 Freescale Semicondutor, Inc. All rights reserved.
-  *
-  * Author: Shlomi Gridish <gridish@freescale.com>
-  *	   Li Yang <leoli@freescale.com>
-@@ -3737,21 +3737,21 @@ static int ucc_geth_close(struct net_device *dev)
+diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
+index b666a0c..8e266bb 100644
+--- a/drivers/net/gianfar.c
++++ b/drivers/net/gianfar.c
+@@ -130,6 +130,9 @@ static int gfar_remove(struct platform_device *pdev);
+ static void free_skb_resources(struct gfar_private *priv);
+ static void gfar_set_multi(struct net_device *dev);
+ static void gfar_set_hash_for_addr(struct net_device *dev, u8 *addr);
++static void gfar_configure_serdes(struct net_device *dev);
++extern int gfar_local_mdio_write(struct gfar_mii *regs, int mii_id, int regnum, u16 value);
++extern int gfar_local_mdio_read(struct gfar_mii *regs, int mii_id, int regnum);
+ #ifdef CONFIG_GFAR_NAPI
+ static int gfar_poll(struct net_device *dev, int *budget);
+ #endif
+@@ -453,6 +456,9 @@ static int init_phy(struct net_device *dev)
  
- const struct ethtool_ops ucc_geth_ethtool_ops = { };
+ 	phydev = phy_connect(dev, phy_id, &adjust_link, 0, interface);
  
--static phy_interface_t to_phy_interface(const char *interface_type)
-+static phy_interface_t to_phy_interface(const char *phy_connection_type)
++	if (interface == PHY_INTERFACE_MODE_SGMII)
++		gfar_configure_serdes(dev);
++
+ 	if (IS_ERR(phydev)) {
+ 		printk(KERN_ERR "%s: Could not attach to PHY\n", dev->name);
+ 		return PTR_ERR(phydev);
+@@ -467,6 +473,27 @@ static int init_phy(struct net_device *dev)
+ 	return 0;
+ }
+ 
++static void gfar_configure_serdes(struct net_device *dev)
++{
++	struct gfar_private *priv = netdev_priv(dev);
++	struct gfar_mii __iomem *regs =
++			(void __iomem *)&priv->regs->gfar_mii_regs;
++
++	/* Initialise TBI i/f to communicate with serdes (lynx phy) */
++
++	/* Single clk mode, mii mode off(for aerdes communication) */
++	gfar_local_mdio_write(regs, TBIPA_VALUE, MII_TBICON, TBICON_CLK_SELECT);
++
++	/* Supported pause and full-duplex, no half-duplex */
++	gfar_local_mdio_write(regs, TBIPA_VALUE, MII_ADVERTISE,
++			ADVERTISE_1000XFULL | ADVERTISE_1000XPAUSE |
++			ADVERTISE_1000XPSE_ASYM);
++
++	/* ANEG enable, restart ANEG, full duplex mode, speed[1] set */
++	gfar_local_mdio_write(regs, TBIPA_VALUE, MII_BMCR, BMCR_ANENABLE |
++			BMCR_ANRESTART | BMCR_FULLDPLX | BMCR_SPEED1000);
++}
++
+ static void init_registers(struct net_device *dev)
  {
--	if (strcasecmp(interface_type, "mii") == 0)
-+	if (strcasecmp(phy_connection_type, "mii") == 0)
- 		return PHY_INTERFACE_MODE_MII;
--	if (strcasecmp(interface_type, "gmii") == 0)
-+	if (strcasecmp(phy_connection_type, "gmii") == 0)
- 		return PHY_INTERFACE_MODE_GMII;
--	if (strcasecmp(interface_type, "tbi") == 0)
-+	if (strcasecmp(phy_connection_type, "tbi") == 0)
- 		return PHY_INTERFACE_MODE_TBI;
--	if (strcasecmp(interface_type, "rmii") == 0)
-+	if (strcasecmp(phy_connection_type, "rmii") == 0)
- 		return PHY_INTERFACE_MODE_RMII;
--	if (strcasecmp(interface_type, "rgmii") == 0)
-+	if (strcasecmp(phy_connection_type, "rgmii") == 0)
- 		return PHY_INTERFACE_MODE_RGMII;
--	if (strcasecmp(interface_type, "rgmii-id") == 0)
-+	if (strcasecmp(phy_connection_type, "rgmii-id") == 0)
- 		return PHY_INTERFACE_MODE_RGMII_ID;
--	if (strcasecmp(interface_type, "rtbi") == 0)
-+	if (strcasecmp(phy_connection_type, "rtbi") == 0)
- 		return PHY_INTERFACE_MODE_RTBI;
+ 	struct gfar_private *priv = netdev_priv(dev);
+diff --git a/drivers/net/gianfar.h b/drivers/net/gianfar.h
+index 39e9e32..d8e779c 100644
+--- a/drivers/net/gianfar.h
++++ b/drivers/net/gianfar.h
+@@ -136,6 +136,12 @@ extern const char gfar_driver_version[];
+ #define MIIMCFG_RESET           0x80000000
+ #define MIIMIND_BUSY            0x00000001
  
- 	return PHY_INTERFACE_MODE_MII;
-@@ -3819,29 +3819,21 @@ static int ucc_geth_probe(struct of_device* ofdev, const struct of_device_id *ma
- 	ug_info->phy_address = *prop;
++/* TBI register addresses */
++#define MII_TBICON		0x11
++
++/* TBICON register bit fields */
++#define TBICON_CLK_SELECT	0x0020
++
+ /* MAC register bits */
+ #define MACCFG1_SOFT_RESET	0x80000000
+ #define MACCFG1_RESET_RX_MC	0x00080000
+diff --git a/drivers/net/gianfar_mii.c b/drivers/net/gianfar_mii.c
+index bcc6b82..5dd34a1 100644
+--- a/drivers/net/gianfar_mii.c
++++ b/drivers/net/gianfar_mii.c
+@@ -43,13 +43,18 @@
+ #include "gianfar.h"
+ #include "gianfar_mii.h"
  
- 	/* get the phy interface type, or default to MII */
--	prop = of_get_property(np, "interface-type", NULL);
-+	prop = of_get_property(np, "phy-connection-type", NULL);
- 	if (!prop) {
- 		/* handle interface property present in old trees */
- 		prop = of_get_property(phy, "interface", NULL);
--		if (prop != NULL)
-+		if (prop != NULL) {
- 			phy_interface = enet_to_phy_interface[*prop];
--		else
-+			max_speed = enet_to_speed[*prop];
-+		} else
- 			phy_interface = PHY_INTERFACE_MODE_MII;
- 	} else {
- 		phy_interface = to_phy_interface((const char *)prop);
- 	}
+-/* Write value to the PHY at mii_id at register regnum,
+- * on the bus, waiting until the write is done before returning.
+- * All PHY configuration is done through the TSEC1 MIIM regs */
+-int gfar_mdio_write(struct mii_bus *bus, int mii_id, int regnum, u16 value)
++/*
++ * Write value to the PHY at mii_id at register regnum,
++ * on the bus attached to the local interface, which may be different from the
++ * generic mdio bus (tied to a single interface), waiting until the write is
++ * done before returning. This is helpful in programming interfaces like
++ * the TBI which control interfaces like onchip SERDES and are always tied to
++ * the local mdio pins, which may not be the same as system mdio bus, used for
++ * controlling the external PHYs, for example.
++ */
++int gfar_local_mdio_write(struct gfar_mii *regs, int mii_id,
++			  int regnum, u16 value)
+ {
+-	struct gfar_mii __iomem *regs = (void __iomem *)bus->priv;
+-
+ 	/* Set the PHY address and the register address we want to write */
+ 	gfar_write(&regs->miimadd, (mii_id << 8) | regnum);
  
--	/* get speed, or derive from interface */
--	prop = of_get_property(np, "max-speed", NULL);
--	if (!prop) {
--		/* handle interface property present in old trees */
--		prop = of_get_property(phy, "interface", NULL);
--		if (prop != NULL)
--			max_speed = enet_to_speed[*prop];
--	} else {
--		max_speed = *prop;
--	}
--	if (!max_speed) {
-+	/* get speed, or derive from PHY interface */
-+	if (max_speed == 0)
- 		switch (phy_interface) {
- 		case PHY_INTERFACE_MODE_GMII:
- 		case PHY_INTERFACE_MODE_RGMII:
-@@ -3854,9 +3846,9 @@ static int ucc_geth_probe(struct of_device* ofdev, const struct of_device_id *ma
- 			max_speed = SPEED_100;
- 			break;
- 		}
--	}
+@@ -63,12 +68,19 @@ int gfar_mdio_write(struct mii_bus *bus, int mii_id, int regnum, u16 value)
+ 	return 0;
+ }
  
- 	if (max_speed == SPEED_1000) {
-+		/* configure muram FIFOs for gigabit operation */
- 		ug_info->uf_info.urfs = UCC_GETH_URFS_GIGA_INIT;
- 		ug_info->uf_info.urfet = UCC_GETH_URFET_GIGA_INIT;
- 		ug_info->uf_info.urfset = UCC_GETH_URFSET_GIGA_INIT;
-diff --git a/drivers/net/ucc_geth_mii.c b/drivers/net/ucc_geth_mii.c
-index 27a1ef3..f96966d 100644
---- a/drivers/net/ucc_geth_mii.c
-+++ b/drivers/net/ucc_geth_mii.c
-@@ -1,12 +1,13 @@
- /*
-  * drivers/net/ucc_geth_mii.c
-  *
-- * Gianfar Ethernet Driver -- MIIM bus implementation
-- * Provides Bus interface for MIIM regs
-+ * QE UCC Gigabit Ethernet Driver -- MII Management Bus Implementation
-+ * Provides Bus interface for MII Management regs in the UCC register space
-  *
-- * Author: Li Yang
-+ * Copyright (C) 2007 Freescale Semiconductor, Inc.
-  *
-- * Copyright (c) 2002-2004 Freescale Semiconductor, Inc.
-+ * Authors: Li Yang <leoli@freescale.com>
-+ *	    Kim Phillips <kim.phillips@freescale.com>
-  *
-  * This program is free software; you can redistribute  it and/or modify it
-  * under  the terms of  the GNU General  Public License as published by the
-diff --git a/drivers/net/ucc_geth_mii.h b/drivers/net/ucc_geth_mii.h
-index 98430fe..d834370 100644
---- a/drivers/net/ucc_geth_mii.h
-+++ b/drivers/net/ucc_geth_mii.h
-@@ -1,13 +1,13 @@
- /*
-  * drivers/net/ucc_geth_mii.h
-  *
-- * Gianfar Ethernet Driver -- MII Management Bus Implementation
-- * Driver for the MDIO bus controller in the Gianfar register space
-+ * QE UCC Gigabit Ethernet Driver -- MII Management Bus Implementation
-+ * Provides Bus interface for MII Management regs in the UCC register space
-  *
-- * Author: Andy Fleming
-- * Maintainer: Kumar Gala
-+ * Copyright (C) 2007 Freescale Semiconductor, Inc.
-  *
-- * Copyright (c) 2002-2004 Freescale Semiconductor, Inc.
-+ * Authors: Li Yang <leoli@freescale.com>
-+ *	    Kim Phillips <kim.phillips@freescale.com>
-  *
-  * This program is free software; you can redistribute  it and/or modify it
-  * under  the terms of  the GNU General  Public License as published by the
+-/* Read the bus for PHY at addr mii_id, register regnum, and
+- * return the value.  Clears miimcom first.  All PHY
+- * configuration has to be done through the TSEC1 MIIM regs */
+-int gfar_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
++/*
++ * Read the bus for PHY at addr mii_id, register regnum, and
++ * return the value.  Clears miimcom first.  All PHY operation
++ * done on the bus attached to the local interface,
++ * which may be different from the generic mdio bus
++ * This is helpful in programming interfaces like
++ * the TBI which, inturn, control interfaces like onchip SERDES
++ * and are always tied to the local mdio pins, which may not be the
++ * same as system mdio bus, used for controlling the external PHYs, for eg.
++ */
++int gfar_local_mdio_read(struct gfar_mii *regs, int mii_id, int regnum)
++
+ {
+-	struct gfar_mii __iomem *regs = (void __iomem *)bus->priv;
+ 	u16 value;
+ 
+ 	/* Set the PHY address and the register address we want to read */
+@@ -88,6 +100,27 @@ int gfar_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
+ 	return value;
+ }
+ 
++/* Write value to the PHY at mii_id at register regnum,
++ * on the bus, waiting until the write is done before returning.
++ * All PHY configuration is done through the TSEC1 MIIM regs */
++int gfar_mdio_write(struct mii_bus *bus, int mii_id, int regnum, u16 value)
++{
++	struct gfar_mii __iomem *regs = (void __iomem *)bus->priv;
++
++	/* Write to the local MII regs */
++	return(gfar_local_mdio_write(regs, mii_id, regnum, value));
++}
++
++/* Read the bus for PHY at addr mii_id, register regnum, and
++ * return the value.  Clears miimcom first.  All PHY
++ * configuration has to be done through the TSEC1 MIIM regs */
++int gfar_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
++{
++	struct gfar_mii __iomem *regs = (void __iomem *)bus->priv;
++
++	/* Read the local MII regs */
++	return(gfar_local_mdio_read(regs, mii_id, regnum));
++}
+ 
+ /* Reset the MIIM registers, and wait for the bus to free */
+ int gfar_mdio_reset(struct mii_bus *bus)
 -- 
 1.5.0.3
 
