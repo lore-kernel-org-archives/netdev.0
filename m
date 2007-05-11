@@ -1,93 +1,40 @@
-From: Mark Huth <mhuth@mvista.com>
-Subject: [PATCH][af_key]pfkey_add: Optimize SA adds and algorithm probes
-Date: Thu, 10 May 2007 17:59:46 -0700
-Message-ID: <4643C002.5010508@mvista.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] tbf scheduler: TSO support
+Date: Fri, 11 May 2007 03:04:21 +0200
+Message-ID: <4643C115.3020802@trash.net>
+References: <20070510.210556.05145104.taka@valinux.co.jp>	<46431687.7060600@trash.net> <20070510.141344.127196214.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------030502060807070701070404"
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gateway-1237.mvista.com ([63.81.120.158]:27563 "EHLO
-	gateway-1237.mvista.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758314AbXEKA7w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2007 20:59:52 -0400
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: taka@valinux.co.jp, linux-net@vger.kernel.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-net-owner@vger.kernel.org>
+In-Reply-To: <20070510.141344.127196214.davem@davemloft.net>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------030502060807070701070404
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+David Miller wrote:
+> From: Patrick McHardy <kaber@trash.net>
+> Date: Thu, 10 May 2007 14:56:39 +0200
+> 
+>>I don't see why this is needed, the correct way to use TBF with TSO
+>>is to specify a larger MTU value, in which case it won't drop TSO
+>>packets.
+> 
+> 
+> Why should a user have to know anything in the world about TSO in
+> order to configure TBF properly?  I don't think they should have
+> to at all.
 
 
-
---------------030502060807070701070404
-Content-Type: text/x-patch;
- name="common_SA_addition_performance_optimization.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="common_SA_addition_performance_optimization.patch"
-
-This patch provides a performance optimization in the pfkey_add path.
-Prior versions have a serious performance problem when adding a large
-number of SAs to a node.  For example, if a backup node needs to be
-loaded with the SAs previously held by a failed active node, thousands
-of SAs may need to be added as rapidly as possible.  Tests show that
-without this patch, such additions may take several minutes.  The
-cause is that the available algorithm modules are probed each time
-instead of only when needed.  This patch changes the unconditional 
-call to xfrm_probe_algs() to only be done when it may be needed.
-
-An example that loads 2000 SAs gives the following results:
-
-Without patch
-
-real	0m42.643s
-user	0m0.120s
-sys	0m0.800s
-
-With patch
-
-real	0m0.537s
-user	0m0.076s
-sys	0m0.276s
-
-Signed-Off-By: Mark Huth <mhuth@mvista.com>
-===============================================
-diff --git a/net/key/af_key.c b/net/key/af_key.c
-index a994441..c970d5e 100644
---- a/net/key/af_key.c
-+++ b/net/key/af_key.c
-@@ -1445,16 +1445,15 @@ static int key_notify_sa(struct xfrm_state *x, struct km_event *c)
- static int pfkey_add(struct sock *sk, struct sk_buff *skb, struct sadb_msg *hdr, void **ext_hdrs)
- {
- 	struct xfrm_state *x;
--	int err;
-+	int err, probe_done = 0;
- 	struct km_event c;
- 
--	xfrm_probe_algs();
--
- 	x = pfkey_msg2xfrm_state(hdr, ext_hdrs);
- 	if (IS_ERR(x))
- 		return PTR_ERR(x);
- 
- 	xfrm_state_hold(x);
-+try_again:
- 	if (hdr->sadb_msg_type == SADB_ADD)
- 		err = xfrm_state_add(x);
- 	else
-@@ -1464,6 +1463,11 @@ static int pfkey_add(struct sock *sk, struct sk_buff *skb, struct sadb_msg *hdr,
- 		       AUDIT_MAC_IPSEC_ADDSA, err ? 0 : 1, NULL, x);
- 
- 	if (err < 0) {
-+		if (!probe_done) {
-+			xfrm_probe_algs();
-+			probe_done = 1;
-+			goto try_again;
-+		}
- 		x->km.state = XFRM_STATE_DEAD;
- 		__xfrm_state_put(x);
- 		goto out;
-
---------------030502060807070701070404--
+The user shouldn't necessarily, but userspace should.
+The way I see it the MTU is a fundamental parameter for TBF
+(the peakrate bucket size) and just because userspace picks
+a bad default (2000) this is no reason to change the
+implementation to something that is not really TBF anymore
+and even affects non-TSO packets _and_ TSO packets even
+when the MTU is chosen large enough (granted, the first
+point is an implementation detail). The much better solution
+would be to let userspace pick an appropriate default value
+and still let the user override it.
