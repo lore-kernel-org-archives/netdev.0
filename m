@@ -1,62 +1,60 @@
-From: jamal <hadi@cyberus.ca>
-Subject: RE: [PATCH] IPROUTE: Modify tc for new PRIO multiqueue behavior
-Date: Thu, 10 May 2007 22:23:35 -0400
-Message-ID: <1178850215.4074.6.camel@localhost>
-References: <D5C1322C3E673F459512FB59E0DDC32902CDF558@orsmsx414.amr.corp.intel.com>
-	 <1178666902.4055.28.camel@localhost>
-	 <1178766140.3045.24.camel@debian.sh.intel.com>
-	 <1178800551.4074.34.camel@localhost>
-	 <1178848682.3045.82.camel@debian.sh.intel.com>
-Reply-To: hadi@cyberus.ca
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: Kconfig warnings on latest GIT
+Date: Fri, 11 May 2007 11:27:22 +0900
+Message-ID: <20070511022721.GI10715@verge.net.au>
+References: <200705080004.14570.ismail@pardus.org.tr> <20070508143127.38fafa3c.kim.phillips@freescale.com> <4640D988.1040504@freescale.com> <20070510051042.GA16812@verge.net.au> <46434ED0.6030808@freescale.com> <20070511012529.GC10715@verge.net.au> <Pine.LNX.4.64.0705102046400.10555@gate.crashing.org> <20070511020545.GG10715@verge.net.au> <Pine.LNX.4.64.0705102111570.11348@gate.crashing.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+Content-Type: text/plain; charset=us-ascii
+Cc: sam@ravnborg.org, Timur Tabi <timur@freescale.com>,
+	Kim Phillips <kim.phillips@freescale.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Ismail =?iso-8859-1?Q?D=F6nmez?= <ismail@pardus.org.tr>,
+	Michael Schmitz <schmitz@debian.org>,
+	Roman Zippel <zippel@linux-m68k.org>,
+	Geert Uytterhoeven <geert@linux-m68k.org>,
 	Johannes Berg <johannes@sipsolutions.net>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	jgarzik@pobox.com, cramerj <cramerj@intel.com>,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
-	"Leech, Christopher" <christopher.leech@intel.com>,
-	davem@davemloft.net
-To: Zhu Yi <yi.zhu@intel.com>
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Paul Mackerras <paulus@samba.org>
+To: Kumar Gala <galak@kernel.crashing.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.236]:7575 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754326AbXEKCXk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2007 22:23:40 -0400
-Received: by wx-out-0506.google.com with SMTP id h31so737750wxd
-        for <netdev@vger.kernel.org>; Thu, 10 May 2007 19:23:39 -0700 (PDT)
-In-Reply-To: <1178848682.3045.82.camel@debian.sh.intel.com>
+Received: from koto.vergenet.net ([210.128.90.7]:45420 "EHLO koto.vergenet.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756756AbXEKC1Z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 May 2007 22:27:25 -0400
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0705102111570.11348@gate.crashing.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2007-11-05 at 09:58 +0800, Zhu Yi wrote:
-
+On Thu, May 10, 2007 at 09:13:34PM -0500, Kumar Gala wrote:
+> On Fri, 11 May 2007, Simon Horman wrote:
 > 
-> Good, we agree on this. 
-
-Good start.
-
-> Now let's solve the problem.
+> > On Thu, May 10, 2007 at 08:47:05PM -0500, Kumar Gala wrote:
+> > > Try this patch:
+> >
+> > That certainly resolves the problem for me.
+> > I'll see about doing something like that for the similar
+> > Kconfig problems that I see.
 > 
+> I've got a similar fix for SYS_SUPPORTS_APM_EMULATION already.  I'll push
+> both of these to Paul.  If you can put something in place for the
+> Atari/68k and send it to Geert that would be good (feeling a little lazy
+> right now :)
+> 
+> I'm still not happy about this fix.  I'd like to get Sam's feeling on if
+> we can fixup kconfig not to warn if the dependency isn't meet.  I think
+> the select is valid, and would prefer to fix this properly before we paper
+> tape over it.
 
-Lets take it slowly, because i think i wasnt getting anywhere with
-Peter. See if you make sense of what i am saying maybe we can make
-progress.
+I agree. I had thought a little about a kconfig fix. Though I'm
+wondering if removing the warning will lead to oodles of dangling
+symbols and invalid checks over time.
 
-> When the low priority ring buffer is full in the hardware, will you
-> suppose the driver call netif_stop_queue() or not? 
+In any case, I'll look into the Atari problem. At least that way
+there will be some patches to add to the discussion.
 
-Yes, I will. 
-With a note: This is precisely what i have been saying all along
-in my posting. I explained my reasoning; if you missed the why I think i
-should write it up.
-So in order to make progress - i am going to not respond to the rest of
-the email; tell me if you dont understand me and i will do a write up
-hopefully tommorow or over the weekend.
-Or tell me you understand me and disagree because of ....
-
-cheers,
-jamal
+-- 
+Horms
+  H: http://www.vergenet.net/~horms/
+  W: http://www.valinux.co.jp/en/
 
