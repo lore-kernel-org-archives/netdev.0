@@ -1,47 +1,73 @@
 From: Krishna Kumar2 <krkumar2@in.ibm.com>
 Subject: Re: [RFC] New driver API to speed up small packets xmits
-Date: Fri, 11 May 2007 10:50:28 +0530
-Message-ID: <OF1EF00AE2.9C32EBA0-ON652572D8.001D18D7-652572D8.001D56F1@in.ibm.com>
-References: <464375F9.1050600@gmail.com>
+Date: Fri, 11 May 2007 10:52:16 +0530
+Message-ID: <OF5A173A00.C4FD79C5-ON652572D8.001C203E-652572D8.001D8134@in.ibm.com>
+References: <1178827887.4062.90.camel@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org,
+Cc: Gagan Arneja <gaagaan@gmail.com>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org,
 	Rick Jones <rick.jones2@hp.com>,
-	Sridhar Samudrala <sri@us.ibm.com>
-To: Gagan Arneja <gaagaan@gmail.com>
+	Sridhar Samudrala <sri@US.IBM.COM>
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ausmtp04.au.ibm.com ([202.81.18.152]:38846 "EHLO
+Received: from ausmtp04.au.ibm.com ([202.81.18.152]:39089 "EHLO
 	ausmtp04.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754612AbXEKFVs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2007 01:21:48 -0400
+	with ESMTP id S1754308AbXEKFXA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2007 01:23:00 -0400
 Received: from sd0109e.au.ibm.com (d23rh905.au.ibm.com [202.81.18.225])
-	by ausmtp04.au.ibm.com (8.13.8/8.13.8) with ESMTP id l4B5fXsA120820
-	for <netdev@vger.kernel.org>; Fri, 11 May 2007 15:41:33 +1000
-Received: from d23av01.au.ibm.com (d23av01.au.ibm.com [9.190.250.242])
-	by sd0109e.au.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l4B5PGtb130670
-	for <netdev@vger.kernel.org>; Fri, 11 May 2007 15:25:16 +1000
-Received: from d23av01.au.ibm.com (loopback [127.0.0.1])
-	by d23av01.au.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l4B5Li8u019909
-	for <netdev@vger.kernel.org>; Fri, 11 May 2007 15:21:44 +1000
-In-Reply-To: <464375F9.1050600@gmail.com>
+	by ausmtp04.au.ibm.com (8.13.8/8.13.8) with ESMTP id l4B5gg2i037956
+	for <netdev@vger.kernel.org>; Fri, 11 May 2007 15:42:42 +1000
+Received: from d23av04.au.ibm.com (d23av04.au.ibm.com [9.190.250.237])
+	by sd0109e.au.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l4B5QNR7058012
+	for <netdev@vger.kernel.org>; Fri, 11 May 2007 15:26:25 +1000
+Received: from d23av04.au.ibm.com (loopback [127.0.0.1])
+	by d23av04.au.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l4B5MnJ7031332
+	for <netdev@vger.kernel.org>; Fri, 11 May 2007 15:22:50 +1000
+In-Reply-To: <1178827887.4062.90.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Gagan Arneja <gaagaan@gmail.com> wrote on 05/11/2007 01:13:53 AM:
+J Hadi Salim <j.hadi123@gmail.com> wrote on 05/11/2007 01:41:27 AM:
 
-> Also, I think, you don't have to chain skbs, they're already chained in
->   Qdisc->q. All you have to do is take the whole q and try to shove it
-> at the device hoping for better results. But then, if you have rather
-> big backlog, you run the risk of reordering packets if you have to
-requeue.
+> > It's not just small packets. The cost of calling hard_start_xmit/byte
+> > was rather high on your particular device. I've seen  PCI read
+> > transaction in hard_start_xmit taking ~10,000 cycles on one particular
+> > device. Count the cycles your brand of NIC is taking in it's
+> > xmit_routine. The worse it is, the stronger your case for cluster
+> > transmits.
+>
+> You would need to almost re-write the driver to make sure it does IO
+> which is taking advantage of the batching.
 
-I haven't seen reordering packets (I did once when I was having a bug in
-the requeue code, some TCP messages on receiver indicating packets out of
-order). When a send fails, the packet are requeued in reverse (go to end of
-the failed skb and traverse back to the failed skb and requeue each skb).
-Since new inserts go to the end, the queue is guaranteed to be in order.
+I didn't try to optimize the driver to take any real advantage, I coded it
+as simply as :
 
-Thanks,
+top:
+      next = skb->skb_flink;
+      Original driver code here, or another option is to remove the locking
+            and put it before the "top:" above, no other changes.
+      skb = next;
+      if (skb)
+            goto top;
+This way, the diffs are minimal. However, driver experts might know of some
+tricks to optimize this, since most drivers have a hundred checks before
+sending one skb, and whether some optimization to avoid that for each skb
+is possible.
+
+> You could avoid totaly requeueing by asking the driver how much space it
+> has. Once you shove down to it a number of packets, you are then
+> guaranteed they will never be requeued (refer to the slides i pointed to
+> earlier).
+
+This is a good idea, I will look at your slides to see what this exactly
+is.
+However, even with this check, drivers will return error, eg trylock failed
+or, like the e1000 has - fifo_workaround failures. But I still think it
+will
+significantly reduce the failures. Right now, I get a lot of requeue's.
+
+thanks,
 
 - KK
 
