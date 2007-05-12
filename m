@@ -1,308 +1,84 @@
-From: jamal <hadi@cyberus.ca>
-Subject: take 3 [RFC] make qdisc_restart more readable
-Date: Sat, 12 May 2007 08:18:00 -0400
-Message-ID: <1178972280.4061.7.camel@localhost>
-References: <D5C1322C3E673F459512FB59E0DDC32902D42586@orsmsx414.amr.corp.intel.com>
-	 <1178911773.4126.26.camel@localhost>
-Reply-To: hadi@cyberus.ca
+From: Jay Cliburn <jacliburn@bellsouth.net>
+Subject: Re: APIC error on 32-bit kernel
+Date: Sat, 12 May 2007 09:24:13 -0500
+Message-ID: <20070512092413.4911f71b@osprey.hogchain.net>
+References: <20070323200817.1f3e39b9@osprey.hogchain.net>
+	<20070408133822.3868e6ff@osprey.hogchain.net>
+	<200705112328.58927.lenb@kernel.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-uQ2i273sMNTe9K6382ft"
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Len Brown <lenb@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.231]:16186 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756112AbXELMSG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 May 2007 08:18:06 -0400
-Received: by wx-out-0506.google.com with SMTP id h31so1139798wxd
-        for <netdev@vger.kernel.org>; Sat, 12 May 2007 05:18:05 -0700 (PDT)
-In-Reply-To: <1178911773.4126.26.camel@localhost>
+Received: from imf22aec.mail.bellsouth.net ([205.152.59.70]:33657 "EHLO
+	imf22aec.mail.bellsouth.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754285AbXELOYQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 May 2007 10:24:16 -0400
+In-Reply-To: <200705112328.58927.lenb@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
---=-uQ2i273sMNTe9K6382ft
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Thank you very much for looking at this, Len.
 
 
-Ok, heres the next iteration based on feedback from Thomas and Peter.
-It seems this is good form in matching what the original code does.
-I have a few doubts in labelled as XXX in there. Thomas, if you have
-time, do you mind looking at those?
+On Fri, 11 May 2007 23:28:58 -0400
+Len Brown <lenb@kernel.org> wrote:
 
-The usual testing happened i.e "if you can see this email, it must
-have worked";->
+> > > [   94.754852] APIC error on CPU0: 08(40)
+> > > [   94.806045] APIC error on CPU0: 40(08)
+> 
+>         /* Here is what the APIC error bits mean:
+>            0: Send CS error
+>            1: Receive CS error
+>            2: Send accept error
+>            3: Receive accept error
+>            4: Reserved
+>            5: Send illegal vector
+>            6: Received illegal vector
+>            7: Illegal register address
+>         */
+> 
+> So the 40 means the APIC got an illegal vector.
+> Certainly this is consistent with the fact that
+> the errors start when a specific device is being
+> used.  I assume that device is using MSI?
 
-cheers,
-jamal
+Yes, the device is using MSI.
+
+> Curious that it is different in 32-bit and 64-bit mode.
+
+Agreed, although I had one user back in March report APIC errors on the
+Asus M2V board while running Debian x86_64.  I personally have never
+encountered the problem under a 64-bit kernel, but I admit that just
+might be random luck.
 
 
---=-uQ2i273sMNTe9K6382ft
-Content-Disposition: attachment; filename=rfc-qrestart-take3
-Content-Type: text/x-patch; name=rfc-qrestart-take3; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+> > > We also do not see this problem on Intel-based motherboards, with
+> > > either 32- or 64-bit kernels.
+> > 
+> > A full raft of documentation -- including acpidump and
+> > linux-firmware-kit output, console capture, kernel config, lspci
+> > -vvxxx (with apic=debug boot option), dmesg, and /proc/interrupts
+> > -- is available at http://www.hogchain.net/m2v/apic-problem/
+> 
+> 
+> [06Dh 109  2]      Boot Architecture Flags : 0003
+> 
+> for what it is worth, the bit in ACPI that is used to
+> disable MSI support is not set -- so as  far as the BIOS
+> is concerned, this system should support MSI.
+> 
+> Is it an add-in card, or lan-on-motherboard?
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index f671cd2..718d6fd 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -83,6 +83,9 @@ struct wireless_dev;
- #define NETDEV_TX_OK 0		/* driver took care of packet */
- #define NETDEV_TX_BUSY 1	/* driver tx path was busy*/
- #define NETDEV_TX_LOCKED -1	/* driver tx lock was already taken */
-+#define NETDEV_TX_DROP -2	/* request caller to drop packet */
-+#define NETDEV_TX_QUEUE -3	/* request caller to requeue packet */
-+
- 
- /*
-  *	Compute the worst case header length according to the protocols
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index f28bb2d..91cfcd5 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -59,7 +59,79 @@ void qdisc_unlock_tree(struct net_device *dev)
- 	spin_unlock_bh(&dev->queue_lock);
- }
- 
-+static inline int qdisc_qlen(struct Qdisc *q)
-+{
-+	BUG_ON((int) q->q.qlen < 0);
-+	return q->q.qlen;
-+}
-+
-+static inline int handle_dev_cpu_collision(struct net_device *dev)
-+{
-+	if (dev->xmit_lock_owner == smp_processor_id()) {
-+		if (net_ratelimit())
-+			printk(KERN_DEBUG
-+			       "Dead loop on netdevice %s, fix it urgently!\n",
-+			       dev->name);
-+		return NETDEV_TX_DROP;
-+	}
-+	/* XXX: This maintains original code, but i think we should
-+	 * update cpu_collision always
-+	*/
-+	__get_cpu_var(netdev_rx_stat).cpu_collision++;
-+	return NETDEV_TX_QUEUE;
-+}
-+
-+static inline int
-+handle_dev_requeue(struct sk_buff *skb, struct net_device *dev, struct Qdisc *q)
-+{
-+
-+	if (unlikely(q == &noop_qdisc))
-+		kfree_skb(skb);
-+	else if (skb->next)
-+		dev->gso_skb = skb;
-+	else
-+		q->ops->requeue(skb, q);
-+	/* XXX: Could netif_schedule fail? Or is that fact we are
-+	 * requeueing imply the hardware path is closed
-+	 * and even if we fail, some interupt will wake us
-+	*/
-+	netif_schedule(dev);
-+	return 0;
-+}
-+
-+static inline struct sk_buff *
-+try_get_tx_pkt(struct net_device *dev, struct Qdisc *q)
-+{
-+	struct sk_buff *skb = dev->gso_skb;
-+
-+	if (skb)
-+		dev->gso_skb = NULL;
-+	else
-+		skb = q->dequeue(q);
-+
-+	return skb;
-+}
-+
-+static inline int
-+handle_tx_locked(struct sk_buff *skb, struct net_device *dev, struct Qdisc *q)
-+{
-+	int ret = handle_dev_cpu_collision(dev);
-+
-+	if (ret == NETDEV_TX_DROP) {
-+		kfree_skb(skb);
-+		return qdisc_qlen(q);
-+	}
-+
-+	return handle_dev_requeue(skb, dev, q);
-+}
-+
-+
- /*
-+   NOTE: Called under dev->queue_lock with locally disabled BH.
-+
-+   __LINK_STATE_QDISC_RUNNING guarantees only one CPU
-+   can enter this region at a time.
-+
-    dev->queue_lock serializes queue accesses for this device
-    AND dev->qdisc pointer itself.
- 
-@@ -67,114 +139,66 @@ void qdisc_unlock_tree(struct net_device *dev)
- 
-    dev->queue_lock and netif_tx_lock are mutually exclusive,
-    if one is grabbed, another must be free.
-- */
- 
-+   Multiple CPUs may contend for the two locks.
- 
--/* Kick device.
-+   Note, that this procedure can be called by a watchdog timer
- 
-+   Returns to the caller: 
-    Returns:  0  - queue is empty or throttled.
- 	    >0  - queue is not empty.
--
--   NOTE: Called under dev->queue_lock with locally disabled BH.
- */
- 
- static inline int qdisc_restart(struct net_device *dev)
- {
- 	struct Qdisc *q = dev->qdisc;
-+	unsigned lockless = (dev->features & NETIF_F_LLTX);
- 	struct sk_buff *skb;
-+	int ret;
- 
--	/* Dequeue packet */
--	if (((skb = dev->gso_skb)) || ((skb = q->dequeue(q)))) {
--		unsigned nolock = (dev->features & NETIF_F_LLTX);
--
--		dev->gso_skb = NULL;
-+	skb = try_get_tx_pkt(dev, q);
-+	if (skb == NULL)
-+		return qdisc_qlen(q);
- 
--		/*
--		 * When the driver has LLTX set it does its own locking
--		 * in start_xmit. No need to add additional overhead by
--		 * locking again. These checks are worth it because
--		 * even uncongested locks can be quite expensive.
--		 * The driver can do trylock like here too, in case
--		 * of lock congestion it should return -1 and the packet
--		 * will be requeued.
--		 */
--		if (!nolock) {
--			if (!netif_tx_trylock(dev)) {
--			collision:
--				/* So, someone grabbed the driver. */
--
--				/* It may be transient configuration error,
--				   when hard_start_xmit() recurses. We detect
--				   it by checking xmit owner and drop the
--				   packet when deadloop is detected.
--				*/
--				if (dev->xmit_lock_owner == smp_processor_id()) {
--					kfree_skb(skb);
--					if (net_ratelimit())
--						printk(KERN_DEBUG "Dead loop on netdevice %s, fix it urgently!\n", dev->name);
--					goto out;
--				}
--				__get_cpu_var(netdev_rx_stat).cpu_collision++;
--				goto requeue;
--			}
--		}
--
--		{
--			/* And release queue */
--			spin_unlock(&dev->queue_lock);
--
--			if (!netif_queue_stopped(dev)) {
--				int ret;
--
--				ret = dev_hard_start_xmit(skb, dev);
--				if (ret == NETDEV_TX_OK) {
--					if (!nolock) {
--						netif_tx_unlock(dev);
--					}
--					spin_lock(&dev->queue_lock);
--					q = dev->qdisc;
--					goto out;
--				}
--				if (ret == NETDEV_TX_LOCKED && nolock) {
--					spin_lock(&dev->queue_lock);
--					q = dev->qdisc;
--					goto collision;
--				}
--			}
--
--			/* NETDEV_TX_BUSY - we need to requeue */
--			/* Release the driver */
--			if (!nolock) {
--				netif_tx_unlock(dev);
--			}
--			spin_lock(&dev->queue_lock);
--			q = dev->qdisc;
--		}
--
--		/* Device kicked us out :(
--		   This is possible in three cases:
--
--		   0. driver is locked
--		   1. fastroute is enabled
--		   2. device cannot determine busy state
--		      before start of transmission (f.e. dialout)
--		   3. device is buggy (ppp)
--		 */
--
--requeue:
--		if (unlikely(q == &noop_qdisc))
--			kfree_skb(skb);
--		else if (skb->next)
--			dev->gso_skb = skb;
--		else
--			q->ops->requeue(skb, q);
--		netif_schedule(dev);
--		return 0;
-+	/* we have a packet to send */
-+	if (!lockless) {
-+		if (!netif_tx_trylock(dev))
-+			return handle_tx_locked(skb, dev, q);
-+	}
-+		
-+	/* all clear .. */
-+	spin_unlock(&dev->queue_lock);
-+
-+	ret = NETDEV_TX_BUSY;
-+	if (!netif_queue_stopped(dev))
-+		/* churn baby churn .. */
-+		ret = dev_hard_start_xmit(skb, dev);
-+
-+	if (!lockless)  
-+		netif_tx_unlock(dev);
-+
-+	spin_lock(&dev->queue_lock);
-+
-+	/* we need to refresh q because it may be invalid since we 
-+	 * dropped  dev->queue_lock earlier ...
-+	 * So dont try to be clever grasshopper
-+	*/
-+	q = dev->qdisc;
-+	/* most likely result, packet went ok */
-+	if (ret == NETDEV_TX_OK)
-+		return qdisc_qlen(q);
-+	/* only for lockless drivers .. */
-+	if (ret == NETDEV_TX_LOCKED && lockless)
-+		return handle_tx_locked(skb, dev, q);
-+
-+	if (unlikely (ret != NETDEV_TX_BUSY)) {
-+		/* XXX: Do we need a ratelimit? or put a
-+		 * BUG_ON((int) ret != NETDEV_TX_BUSY) ?
-+		 **/
-+		printk("BUG %s code %d qlen %d\n",dev->name, ret, q->q.qlen);
- 	}
- 
--out:
--	BUG_ON((int) q->q.qlen < 0);
--	return q->q.qlen;
-+	return handle_dev_requeue(skb, dev, q);
- }
- 
- void __qdisc_run(struct net_device *dev)
+This is a PCIe LAN-on-motherboard.
 
---=-uQ2i273sMNTe9K6382ft--
+My goal is to understand whether this is a problem in the atl1 driver,
+or a problem on the motherboard.  If it's the former, obviously I want
+to fix it.  If it's the latter, then I want to disable MSI in the driver
+when we discover we're running on this motherboard.
 
+Thanks again for taking time to look at this.  Any advice or hints you
+provide will be greatly appreciated.
+
+Jay
