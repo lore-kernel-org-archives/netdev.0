@@ -1,43 +1,119 @@
-From: James Bottomley <James.Bottomley@SteelEye.com>
-Subject: Re: default y idiocy
-Date: Sat, 12 May 2007 15:56:12 -0500
-Message-ID: <1179003373.3723.34.camel@mulgrave.il.steeleye.com>
-References: <20070512182343.GO4629@kernel.dk>
-	 <46461C77.5040404@simon.arlott.org.uk>
+From: olof@lixom.net (Olof Johansson)
+Subject: [patch 2/4] [v2] pasemi_mac: Interrupt ack fixes
+Date: Sat, 12 May 2007 18:01:09 -0500
+Message-ID: <20070512230109.GA16254@lixom.net>
+References: <20070512193929.193104000@localhost.localdomain> <20070512195732.GC15137@lixom.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Jens Axboe <jens.axboe@oracle.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-scsi@vger.kernel.org
-To: Simon Arlott <simon@fire.lp0.eu>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hancock.steeleye.com ([71.30.118.248]:58406 "EHLO
-	hancock.sc.steeleye.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752892AbXELU4e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 May 2007 16:56:34 -0400
-In-Reply-To: <46461C77.5040404@simon.arlott.org.uk>
+Received: from lixom.net ([66.141.50.11]:48084 "EHLO mail.lixom.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754834AbXELW6Z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 May 2007 18:58:25 -0400
+Content-Disposition: inline
+In-Reply-To: <20070512195732.GC15137@lixom.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2007-05-12 at 20:58 +0100, Simon Arlott wrote:
-> On 12/05/07 19:23, Jens Axboe wrote:
-> > Hi,
-> > 
-> > This has bothered me for a long time, and it just seems to be getting
-> > worse. Can people please STOP defaulting non-essential stuff to 'y'?
-> > Grrr.
-> 
-> Is there a reason why various 10/100/1000Mbit network cards are 'y' too?
-> There's even a default SCSI 'm' that seems to be completely hidden from 
-> the menu too (CONFIG_SCSI_WAIT_SCAN). It depends on SCSI but I can't 
-> disable SCSI...
+Interrupt ack fixes
 
-That might not necessarily be our fault ... there's no default 'm' for
-SCSI in drivers/scsi/Kconfig.  On the other hand, the select directive
-can also be the cause of these problems, for instance
-drivers/ata/Kconfig has a select SCSI at the top, so if you selected
-modular ATA, you'll be forced to have modular SCSI.
-
-James
+Fix the packet count resets at interrupt time, using the cacheable
+packet count status to set number of processed/received packets, since
+the ack count is the cumulative number of packets processed, and not
+incremental.
 
 
+Signed-off-by: Olof Johansson <olof@lixom.net>
+
+---
+
+On Sat, May 12, 2007 at 02:57:32PM -0500, olof@lixom.net wrote:
+
+>  static void pasemi_mac_restart_tx_intr(struct pasemi_mac *mac)
+[..]
+> +	pcnt = *mac->rx_status & PAS_STATUS_PCNT_M;
+		     ^^
+Stupid copy-and-paste error. Fixed.
+
+
+Index: netdev-2.6/drivers/net/pasemi_mac.c
+===================================================================
+--- netdev-2.6.orig/drivers/net/pasemi_mac.c
++++ netdev-2.6/drivers/net/pasemi_mac.c
+@@ -384,17 +384,14 @@ static void pasemi_mac_replenish_rx_ring
+ 
+ static void pasemi_mac_restart_rx_intr(struct pasemi_mac *mac)
+ {
+-	unsigned int reg, stat;
++	unsigned int reg, pcnt;
+ 	/* Re-enable packet count interrupts: finally
+ 	 * ack the packet count interrupt we got in rx_intr.
+ 	 */
+ 
+-	pci_read_config_dword(mac->iob_pdev,
+-			      PAS_IOB_DMA_RXCH_STAT(mac->dma_rxch),
+-			      &stat);
++	pcnt = *mac->rx_status & PAS_STATUS_PCNT_M;
+ 
+-	reg = PAS_IOB_DMA_RXCH_RESET_PCNT(stat & PAS_IOB_DMA_RXCH_STAT_CNTDEL_M)
+-		| PAS_IOB_DMA_RXCH_RESET_PINTC;
++	reg = PAS_IOB_DMA_RXCH_RESET_PCNT(pcnt) | PAS_IOB_DMA_RXCH_RESET_PINTC;
+ 
+ 	pci_write_config_dword(mac->iob_pdev,
+ 			       PAS_IOB_DMA_RXCH_RESET(mac->dma_rxch),
+@@ -403,14 +400,12 @@ static void pasemi_mac_restart_rx_intr(s
+ 
+ static void pasemi_mac_restart_tx_intr(struct pasemi_mac *mac)
+ {
+-	unsigned int reg, stat;
++	unsigned int reg, pcnt;
+ 
+ 	/* Re-enable packet count interrupts */
+-	pci_read_config_dword(mac->iob_pdev,
+-			      PAS_IOB_DMA_TXCH_STAT(mac->dma_txch), &stat);
++	pcnt = *mac->tx_status & PAS_STATUS_PCNT_M;
+ 
+-	reg = PAS_IOB_DMA_TXCH_RESET_PCNT(stat & PAS_IOB_DMA_TXCH_STAT_CNTDEL_M)
+-		| PAS_IOB_DMA_TXCH_RESET_PINTC;
++	reg = PAS_IOB_DMA_TXCH_RESET_PCNT(pcnt) | PAS_IOB_DMA_TXCH_RESET_PINTC;
+ 
+ 	pci_write_config_dword(mac->iob_pdev,
+ 			       PAS_IOB_DMA_TXCH_RESET(mac->dma_txch), reg);
+@@ -591,21 +588,24 @@ static irqreturn_t pasemi_mac_tx_intr(in
+ {
+ 	struct net_device *dev = data;
+ 	struct pasemi_mac *mac = netdev_priv(dev);
+-	unsigned int reg;
++	unsigned int reg, pcnt;
+ 
+ 	if (!(*mac->tx_status & PAS_STATUS_CAUSE_M))
+ 		return IRQ_NONE;
+ 
+ 	pasemi_mac_clean_tx(mac);
+ 
+-	reg = PAS_IOB_DMA_TXCH_RESET_PINTC;
++	pcnt = *mac->tx_status & PAS_STATUS_PCNT_M;
++
++	reg = PAS_IOB_DMA_TXCH_RESET_PCNT(pcnt) | PAS_IOB_DMA_TXCH_RESET_PINTC;
+ 
+ 	if (*mac->tx_status & PAS_STATUS_SOFT)
+ 		reg |= PAS_IOB_DMA_TXCH_RESET_SINTC;
+ 	if (*mac->tx_status & PAS_STATUS_ERROR)
+ 		reg |= PAS_IOB_DMA_TXCH_RESET_DINTC;
+ 
+-	pci_write_config_dword(mac->iob_pdev, PAS_IOB_DMA_TXCH_RESET(mac->dma_txch),
++	pci_write_config_dword(mac->iob_pdev,
++			       PAS_IOB_DMA_TXCH_RESET(mac->dma_txch),
+ 			       reg);
+ 
+ 	return IRQ_HANDLED;
+@@ -974,6 +974,7 @@ static int pasemi_mac_start_tx(struct sk
+ 	if (txring->next_to_clean - txring->next_to_use == TX_RING_SIZE) {
+ 		spin_unlock_irqrestore(&txring->lock, flags);
+ 		pasemi_mac_clean_tx(mac);
++		pasemi_mac_restart_tx_intr(mac);
+ 		spin_lock_irqsave(&txring->lock, flags);
+ 
+ 		if (txring->next_to_clean - txring->next_to_use ==
