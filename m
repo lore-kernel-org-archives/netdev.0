@@ -1,48 +1,75 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Pull request for 'r8169-for-jeff' branch
-Date: Sat, 12 May 2007 10:24:44 +0200
-Message-ID: <20070512082444.GA16774@electric-eye.fr.zoreil.com>
-References: <20070508110354.GA16917@electric-eye.fr.zoreil.com>
+From: Hirokazu Takahashi <taka@valinux.co.jp>
+Subject: Re: [PATCH] tbf scheduler: TSO support
+Date: Sat, 12 May 2007 17:49:30 +0900 (JST)
+Message-ID: <20070512.174930.80276554.taka@valinux.co.jp>
+References: <4643C115.3020802@trash.net>
+	<20070511.130142.16832866.taka@valinux.co.jp>
+	<4644B259.5060400@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	edward_hsu@realtek.com.tw
-To: Jeff Garzik <jeff@garzik.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:39401 "EHLO
-	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754877AbXELI05 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 May 2007 04:26:57 -0400
-Content-Disposition: inline
-In-Reply-To: <20070508110354.GA16917@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, linux-net@vger.kernel.org,
+	netdev@vger.kernel.org
+To: kaber@trash.net
+Return-path: <linux-net-owner@vger.kernel.org>
+In-Reply-To: <4644B259.5060400@trash.net>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Francois Romieu <romieu@fr.zoreil.com> :
-> Please pull from branch 'r8169-for-jeff' in repository
-> 
-> git://electric-eye.fr.zoreil.com/home/romieu/linux/linux-2.6-out r8169-for-jeff
-[...]
-> Shortlog
-> --------
-> 
-> Francois Romieu (10):
->       r8169: add per-device hw_start handler (1/2)
->       r8169: add per-device hw_start handler (2/2)
->       r8169: merge with version 6.001.00 of Realtek's r8169 driver
->       r8169: merge with version 8.001.00 of Realtek's r8168 driver
->       r8169: confusion between hardware and IP header alignment
->       r8169: small 8101 comment
->       r8169: remove the media option
->       r8169: cleanup
->       r8169: add bit description for the TxPoll register
->       r8169: align the IP header when there is no DMA constraint
-> 
-> I removed the MSI stuff and the MAC address change support from the
-> previous serie. They will be submitted again after updating and testing.
+Hi,
 
-Do you schedule to include any r8169 change in 2.6.22 and should I rebase
-against latest linus/upstream ?
+> > I think the concept of TBF is quit good but the userspace tools have
+> > become old that it doesn't fit to Gb ethernet environment.
+> > The tools should be updated to care about much faster network and
+> > GbE jumbo frames. I agree with you at this point.
+> > 
+> > On the other hand, handling TSO packet should be a kernel issue.
+> > A TSO packet is logically just a multiple segmented packet
+> > including several ordinary packets. This feature should be kept
+> > invisible from userspace.
+> 
+> 
+> Putting aside this question, this cannot work properly without userspace
+> since the rate table is only built for the given MTU. Your patch tries
+> to work around that by summing up the result of L2T in q->max_size
+> steps, which gives incorrect results with MPU or overhead settings.
 
--- 
-Ueimor
+You have a point. sch->dev->mtu should be used instead of q->max_size,
+which gives precisely correct results. Every TSO packet will be split
+into several packets with sch->dev->mtu length, which administrators
+specify. The splitting is automatically done by TSO supporting controllers.
+
+To minimize the overhead of the calculation I'd re-implement it like:
+
+   segs = skb->len/sch->dev->mtu;
+   rest = skb->len - sch->dev->mtu*segs;
+   toks -= L2T(q, sch->dev->mtu) * segs;
+   if (rest)
+        toks -= L2T(q, rest);
+
+I think the problem is that sch->dev->mtu might not be set correctly,
+so some error checking is needed.
+
+> I think we can only do two things without userspace support:
+> 
+> - disable TSO (not a good idea)
+
+This is just what I'm doing now as a workaround.
+
+> - split the skb into q->max_size chunks on dequeue
+
+It sure is difficult because the splitting deeply depends on the
+protocol stack which made the skb and it will make some overhead,
+which is why TSO and other offloading features are introduced.
+
+I'm now thinking I can make it just hold a TSO packet until p->tokens
+reaches the size of the packet. I think it is straightforward
+implementation. I'll try this.
+
+> The later would allow people to take full advantage of TSO with properly
+> configured TBF, but it would still at least work with a too small mtu
+> value.
+
+Thanks,
+Hirokazu Takahashi.
+
