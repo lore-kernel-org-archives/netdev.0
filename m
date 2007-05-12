@@ -1,84 +1,112 @@
-From: Jay Cliburn <jacliburn@bellsouth.net>
-Subject: Re: APIC error on 32-bit kernel
-Date: Sat, 12 May 2007 09:24:13 -0500
-Message-ID: <20070512092413.4911f71b@osprey.hogchain.net>
-References: <20070323200817.1f3e39b9@osprey.hogchain.net>
-	<20070408133822.3868e6ff@osprey.hogchain.net>
-	<200705112328.58927.lenb@kernel.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: kernel oops after unloading nf_conntrack_netbios_ns_module
+Date: Sat, 12 May 2007 17:05:51 +0200
+Message-ID: <4645D7CF.20707@trash.net>
+References: <20070510090603.GA13059@odin.sis.hu> <20070510033411.6cf042ad.akpm@linux-foundation.org> <20070510110117.GE13059@odin.sis.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Len Brown <lenb@kernel.org>
+Content-Type: multipart/mixed;
+ boundary="------------090002080406070905080306"
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Gabor Burjan <buga@buvoshetes.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from imf22aec.mail.bellsouth.net ([205.152.59.70]:33657 "EHLO
-	imf22aec.mail.bellsouth.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754285AbXELOYQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 May 2007 10:24:16 -0400
-In-Reply-To: <200705112328.58927.lenb@kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:56011 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755365AbXELPH0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 May 2007 11:07:26 -0400
+In-Reply-To: <20070510110117.GE13059@odin.sis.hu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thank you very much for looking at this, Len.
+This is a multi-part message in MIME format.
+--------------090002080406070905080306
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+
+Gabor Burjan wrote:
+> EIP is at destroy_conntrack+0x52/0x127 [nf_conntrack]
+>
+>>>nmblookup <existing_netbios_name>
+>>>cat /proc/net/ip_conntrack
+>>>
+>>>sleep 3
+>>>
+>>>rmmod nf_conntrack_netbios_ns
 
 
-On Fri, 11 May 2007 23:28:58 -0400
-Len Brown <lenb@kernel.org> wrote:
+Thanks for the report and good testcase, the crash can only happen with
+a sleep of >= 3s after the last nmblookup packet was sent.
 
-> > > [   94.754852] APIC error on CPU0: 08(40)
-> > > [   94.806045] APIC error on CPU0: 40(08)
-> 
->         /* Here is what the APIC error bits mean:
->            0: Send CS error
->            1: Receive CS error
->            2: Send accept error
->            3: Receive accept error
->            4: Reserved
->            5: Send illegal vector
->            6: Received illegal vector
->            7: Illegal register address
->         */
-> 
-> So the 40 means the APIC got an illegal vector.
-> Certainly this is consistent with the fact that
-> the errors start when a specific device is being
-> used.  I assume that device is using MSI?
-
-Yes, the device is using MSI.
-
-> Curious that it is different in 32-bit and 64-bit mode.
-
-Agreed, although I had one user back in March report APIC errors on the
-Asus M2V board while running Debian x86_64.  I personally have never
-encountered the problem under a 64-bit kernel, but I admit that just
-might be random luck.
+Can you try if this patch fixes it please?
 
 
-> > > We also do not see this problem on Intel-based motherboards, with
-> > > either 32- or 64-bit kernels.
-> > 
-> > A full raft of documentation -- including acpidump and
-> > linux-firmware-kit output, console capture, kernel config, lspci
-> > -vvxxx (with apic=debug boot option), dmesg, and /proc/interrupts
-> > -- is available at http://www.hogchain.net/m2v/apic-problem/
-> 
-> 
-> [06Dh 109  2]      Boot Architecture Flags : 0003
-> 
-> for what it is worth, the bit in ACPI that is used to
-> disable MSI support is not set -- so as  far as the BIOS
-> is concerned, this system should support MSI.
-> 
-> Is it an add-in card, or lan-on-motherboard?
+--------------090002080406070905080306
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
 
-This is a PCIe LAN-on-motherboard.
+[NETFILTER]: nf_conntrack: fix use-after-free in helper destroy callback
 
-My goal is to understand whether this is a problem in the atl1 driver,
-or a problem on the motherboard.  If it's the former, obviously I want
-to fix it.  If it's the latter, then I want to disable MSI in the driver
-when we discover we're running on this motherboard.
+When the helper module is removed for a master connection that has a
+fulfilled expectation, but has already timed out and got removed from
+the hash tables, nf_conntrack_helper_unregister can't find the master
+connection to unset the helper, causing a use-after-free when the
+expected connection is destroyed and releases the last reference to
+the master.
 
-Thanks again for taking time to look at this.  Any advice or hints you
-provide will be greatly appreciated.
+The helper destroy callback was introduced for the PPtP helper to clean
+up expectations and expected connections when the master connection
+times out, but doing this from the destroy_conntrack only works for
+unfulfilled expectations since expected connections hold a reference
+to the master and it is not destroyed. Move the destroy callback to
+the timeout function, which fixes both problems.
 
-Jay
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+---
+commit 50d2ab6c1353c32b994e6171b231fc771d0a2b73
+tree 9b2cd5659dad0b452e59fff4869f7d9db780fd02
+parent 6b99a1744ab187073bca84a9fd3ccbf091865ca6
+author Patrick McHardy <kaber@trash.net> Sat, 12 May 2007 16:59:07 +0200
+committer Patrick McHardy <kaber@trash.net> Sat, 12 May 2007 17:00:18 +0200
+
+ net/netfilter/nf_conntrack_core.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index cb29ba7..0975fee 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -315,7 +315,6 @@ static void
+ destroy_conntrack(struct nf_conntrack *nfct)
+ {
+ 	struct nf_conn *ct = (struct nf_conn *)nfct;
+-	struct nf_conn_help *help = nfct_help(ct);
+ 	struct nf_conntrack_l3proto *l3proto;
+ 	struct nf_conntrack_l4proto *l4proto;
+ 
+@@ -326,9 +325,6 @@ destroy_conntrack(struct nf_conntrack *nfct)
+ 	nf_conntrack_event(IPCT_DESTROY, ct);
+ 	set_bit(IPS_DYING_BIT, &ct->status);
+ 
+-	if (help && help->helper && help->helper->destroy)
+-		help->helper->destroy(ct);
+-
+ 	/* To make sure we don't get any weird locking issues here:
+ 	 * destroy_conntrack() MUST NOT be called with a write lock
+ 	 * to nf_conntrack_lock!!! -HW */
+@@ -369,6 +365,10 @@ destroy_conntrack(struct nf_conntrack *nfct)
+ static void death_by_timeout(unsigned long ul_conntrack)
+ {
+ 	struct nf_conn *ct = (void *)ul_conntrack;
++	struct nf_conn_help *help = nfct_help(ct);
++
++	if (help && help->helper && help->helper->destroy)
++		help->helper->destroy(ct);
+ 
+ 	write_lock_bh(&nf_conntrack_lock);
+ 	/* Inside lock so preempt is disabled on module removal path.
+
+--------------090002080406070905080306--
