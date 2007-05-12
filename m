@@ -1,119 +1,46 @@
-From: olof@lixom.net (Olof Johansson)
-Subject: [patch 2/4] [v2] pasemi_mac: Interrupt ack fixes
-Date: Sat, 12 May 2007 18:01:09 -0500
-Message-ID: <20070512230109.GA16254@lixom.net>
-References: <20070512193929.193104000@localhost.localdomain> <20070512195732.GC15137@lixom.net>
+From: Corey Mutter <crm-netdev@the-machine.mutternet.com>
+Subject: [PATCH 1/1] Reverse sense of promisc tests in ip6_mc_input
+Date: Sat, 12 May 2007 18:51:35 -0400
+Message-ID: <20070512225135.GA1143@nc.rr.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: jgarzik@pobox.com
+To: yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lixom.net ([66.141.50.11]:48084 "EHLO mail.lixom.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754834AbXELW6Z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 May 2007 18:58:25 -0400
+Received: from outbound.mailhop.org ([63.208.196.171]:1046 "EHLO
+	outbound.mailhop.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751998AbXELXOJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 May 2007 19:14:09 -0400
 Content-Disposition: inline
-In-Reply-To: <20070512195732.GC15137@lixom.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Interrupt ack fixes
+From: Corey Mutter <crm-netdev@mutternet.com>
 
-Fix the packet count resets at interrupt time, using the cacheable
-packet count status to set number of processed/received packets, since
-the ack count is the cumulative number of packets processed, and not
-incremental.
+Reverse the sense of the promiscuous-mode tests in ip6_mc_input(). 
 
-
-Signed-off-by: Olof Johansson <olof@lixom.net>
+Signed-off-by: Corey Mutter <crm-netdev@mutternet.com>
 
 ---
 
-On Sat, May 12, 2007 at 02:57:32PM -0500, olof@lixom.net wrote:
+I had been suspicious of this code for a while, but just assumed I must 
+have been missing something. However, I did some tests and, sure enough, 
+I can open a socket and it will see IPv6 multicast packets come in, then 
+the packets will stop coming in when I turn on IFF_ALLMULTI on the 
+interface. 
 
->  static void pasemi_mac_restart_tx_intr(struct pasemi_mac *mac)
-[..]
-> +	pcnt = *mac->rx_status & PAS_STATUS_PCNT_M;
-		     ^^
-Stupid copy-and-paste error. Fixed.
+In my tests, this change works more like I'd expect; I can open a 
+socket, and it doesn't see any multicast packets (unless I join a group 
+or something) until after I turn on IFF_ALLMULTI. 
 
-
-Index: netdev-2.6/drivers/net/pasemi_mac.c
-===================================================================
---- netdev-2.6.orig/drivers/net/pasemi_mac.c
-+++ netdev-2.6/drivers/net/pasemi_mac.c
-@@ -384,17 +384,14 @@ static void pasemi_mac_replenish_rx_ring
+--- linux-2.6.21.1/net/ipv6/ip6_input.c	2007-04-27 17:49:26.000000000 -0400
++++ linux/net/ipv6/ip6_input.c	2007-05-12 18:19:09.597750000 -0400
+@@ -235,7 +235,7 @@ int ip6_mc_input(struct sk_buff *skb)
+ 	IP6_INC_STATS_BH(ip6_dst_idev(skb->dst), IPSTATS_MIB_INMCASTPKTS);
  
- static void pasemi_mac_restart_rx_intr(struct pasemi_mac *mac)
- {
--	unsigned int reg, stat;
-+	unsigned int reg, pcnt;
- 	/* Re-enable packet count interrupts: finally
- 	 * ack the packet count interrupt we got in rx_intr.
- 	 */
+ 	hdr = skb->nh.ipv6h;
+-	deliver = likely(!(skb->dev->flags & (IFF_PROMISC|IFF_ALLMULTI))) ||
++	deliver = unlikely(skb->dev->flags & (IFF_PROMISC|IFF_ALLMULTI)) ||
+ 	    ipv6_chk_mcast_addr(skb->dev, &hdr->daddr, NULL);
  
--	pci_read_config_dword(mac->iob_pdev,
--			      PAS_IOB_DMA_RXCH_STAT(mac->dma_rxch),
--			      &stat);
-+	pcnt = *mac->rx_status & PAS_STATUS_PCNT_M;
- 
--	reg = PAS_IOB_DMA_RXCH_RESET_PCNT(stat & PAS_IOB_DMA_RXCH_STAT_CNTDEL_M)
--		| PAS_IOB_DMA_RXCH_RESET_PINTC;
-+	reg = PAS_IOB_DMA_RXCH_RESET_PCNT(pcnt) | PAS_IOB_DMA_RXCH_RESET_PINTC;
- 
- 	pci_write_config_dword(mac->iob_pdev,
- 			       PAS_IOB_DMA_RXCH_RESET(mac->dma_rxch),
-@@ -403,14 +400,12 @@ static void pasemi_mac_restart_rx_intr(s
- 
- static void pasemi_mac_restart_tx_intr(struct pasemi_mac *mac)
- {
--	unsigned int reg, stat;
-+	unsigned int reg, pcnt;
- 
- 	/* Re-enable packet count interrupts */
--	pci_read_config_dword(mac->iob_pdev,
--			      PAS_IOB_DMA_TXCH_STAT(mac->dma_txch), &stat);
-+	pcnt = *mac->tx_status & PAS_STATUS_PCNT_M;
- 
--	reg = PAS_IOB_DMA_TXCH_RESET_PCNT(stat & PAS_IOB_DMA_TXCH_STAT_CNTDEL_M)
--		| PAS_IOB_DMA_TXCH_RESET_PINTC;
-+	reg = PAS_IOB_DMA_TXCH_RESET_PCNT(pcnt) | PAS_IOB_DMA_TXCH_RESET_PINTC;
- 
- 	pci_write_config_dword(mac->iob_pdev,
- 			       PAS_IOB_DMA_TXCH_RESET(mac->dma_txch), reg);
-@@ -591,21 +588,24 @@ static irqreturn_t pasemi_mac_tx_intr(in
- {
- 	struct net_device *dev = data;
- 	struct pasemi_mac *mac = netdev_priv(dev);
--	unsigned int reg;
-+	unsigned int reg, pcnt;
- 
- 	if (!(*mac->tx_status & PAS_STATUS_CAUSE_M))
- 		return IRQ_NONE;
- 
- 	pasemi_mac_clean_tx(mac);
- 
--	reg = PAS_IOB_DMA_TXCH_RESET_PINTC;
-+	pcnt = *mac->tx_status & PAS_STATUS_PCNT_M;
-+
-+	reg = PAS_IOB_DMA_TXCH_RESET_PCNT(pcnt) | PAS_IOB_DMA_TXCH_RESET_PINTC;
- 
- 	if (*mac->tx_status & PAS_STATUS_SOFT)
- 		reg |= PAS_IOB_DMA_TXCH_RESET_SINTC;
- 	if (*mac->tx_status & PAS_STATUS_ERROR)
- 		reg |= PAS_IOB_DMA_TXCH_RESET_DINTC;
- 
--	pci_write_config_dword(mac->iob_pdev, PAS_IOB_DMA_TXCH_RESET(mac->dma_txch),
-+	pci_write_config_dword(mac->iob_pdev,
-+			       PAS_IOB_DMA_TXCH_RESET(mac->dma_txch),
- 			       reg);
- 
- 	return IRQ_HANDLED;
-@@ -974,6 +974,7 @@ static int pasemi_mac_start_tx(struct sk
- 	if (txring->next_to_clean - txring->next_to_use == TX_RING_SIZE) {
- 		spin_unlock_irqrestore(&txring->lock, flags);
- 		pasemi_mac_clean_tx(mac);
-+		pasemi_mac_restart_tx_intr(mac);
- 		spin_lock_irqsave(&txring->lock, flags);
- 
- 		if (txring->next_to_clean - txring->next_to_use ==
+ 	/*
