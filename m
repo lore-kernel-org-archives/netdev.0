@@ -1,90 +1,137 @@
-From: Dave Johnson <djohnson+linux-kernel@sw.starentnetworks.com>
-Subject: [PATCH] improved locking performance in rt_run_flush()
-Date: Sat, 12 May 2007 12:36:47 -0400
-Message-ID: <17989.60703.575698.491592@zeus.sw.starentnetworks.com>
+From: "SANGTAE HA" <sangtae.ha@gmail.com>
+Subject: Re: 2.6.20.7 TCP cubic (and bic) initial slow start way too slow?
+Date: Sat, 12 May 2007 12:45:53 -0400
+Message-ID: <649aecc70705120945q58ae79c9r8ff2dc5557658d1e@mail.gmail.com>
+References: <20070509023131.70e2cc45.billfink@mindspring.com>
+	 <20070510113215.f5ff2d34.billfink@mindspring.com>
+	 <2994.152.14.88.74.1178822365.squirrel@webmail.ncsu.edu>
+	 <20070510.133522.99205764.davem@davemloft.net>
+	 <20070510134547.7ec30308@freepuppy>
+	 <002301c79345$c45ffd00$4a580e98@ncsu2cc0c3fa00>
+	 <20070512120739.371ada4f.billfink@mindspring.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759861AbXELQhC@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/mixed;
+	boundary="----=_Part_162132_26405071.1178988353382"
+Cc: "Injong Rhee" <rhee@eos.ncsu.edu>,
+	"Stephen Hemminger" <shemminger@linux-foundation.org>,
+	"David Miller" <davem@davemloft.net>, rhee@ncsu.edu,
+	netdev@vger.kernel.org
+To: "Bill Fink" <billfink@mindspring.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nz-out-0506.google.com ([64.233.162.225]:24866 "EHLO
+	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751580AbXELQpy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 May 2007 12:45:54 -0400
+Received: by nz-out-0506.google.com with SMTP id o1so1342410nzf
+        for <netdev@vger.kernel.org>; Sat, 12 May 2007 09:45:53 -0700 (PDT)
+In-Reply-To: <20070512120739.371ada4f.billfink@mindspring.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+------=_Part_162132_26405071.1178988353382
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-While testing adding/deleting large numbers of interfaces, I found
-rt_run_flush() was the #1 cpu user in a kernel profile by far.
+Hi Bill,
 
-The below patch changes rt_run_flush() to only take each spinlock
-protecting the rt_hash_table once instead of taking a spinlock for
-every hash table bucket (and ending up taking the same small set 
-of locks over and over).
+This is the small patch that has been applied to 2.6.22.
+Also, there is "limited slow start", which is an experimental RFC
+(RFC3742), to surmount this large increase during slow start.
+But, your kernel might not have this. Please check there is a sysctl
+variable "tcp_max_ssthresh".
 
-Deleting 256 interfaces on a 4-way SMP system with 16K buckets reduced
-overall cpu-time more than 50% and reduced wall-time about 33%.  I
-suspect systems with large amounts of memory (and more buckets) will
-see an even greater benefit.
+Thanks,
+Sangtae
 
-Note there is a small change in that rt_free() is called while the
-lock is held where before it was called without the lock held.  I
-don't think this should be an issue.
 
-Signed-off-by: Dave Johnson <djohnson+linux-kernel@sw.starentnetworks.com>
+On 5/12/07, Bill Fink <billfink@mindspring.com> wrote:
+> On Thu, 10 May 2007, Injong Rhee wrote:
+>
+> > Oops. I thought Bill was using 2.6.20 instead of 2.6.22 which should contain
+> > our latest update.
+>
+> I am using 2.6.20.7.
+>
+> > Regarding slow start behavior, the latest version should not change though.
+> > I think it would be ok to change the slow start of bic and cubic to the
+> > default slow start. But what we observed is that when BDP is large,
+> > increasing cwnd by two times is really an overkill. consider increasing from
+> > 1024 into 2048 packets..maybe the target is somewhere between them. We have
+> > potentially a large number of packets flushed into the network. That was the
+> > original motivation to change slow start from the default into a more gentle
+> > version. But I see the point that Bill is raising. We are working on
+> > improving this behavior in our lab. We will get back to this topic in a
+> > couple of weeks after we finish our testing and produce a patch.
+>
+> Is it feasible to replace the version of cubic in 2.6.20.7 with the
+> new 2.1 version of cubic without changing the rest of the kernel, or
+> are there kernel changes/dependencies that would prevent that?
+>
+> I've tried building and running a 2.6.21-git13 kernel, but am having
+> some difficulties.  I will be away the rest of the weekend so won't be
+> able to get back to this until Monday.
+>
+>                                                 -Bill
+>
+> P.S.  When getting into the the 10 Gbps range, I'm not sure there's
+>       any way to avoid the types of large increases during "slow start"
+>       that you mention, if you want to achieve those kinds of data
+>       rates.
+>
+>
+>
+> > ----- Original Message -----
+> > From: "Stephen Hemminger" <shemminger@linux-foundation.org>
+> > To: "David Miller" <davem@davemloft.net>
+> > Cc: <rhee@ncsu.edu>; <billfink@mindspring.com>; <sangtae.ha@gmail.com>;
+> > <netdev@vger.kernel.org>
+> > Sent: Thursday, May 10, 2007 4:45 PM
+> > Subject: Re: 2.6.20.7 TCP cubic (and bic) initial slow start way too slow?
+> >
+> >
+> > > On Thu, 10 May 2007 13:35:22 -0700 (PDT)
+> > > David Miller <davem@davemloft.net> wrote:
+> > >
+> > >> From: rhee@ncsu.edu
+> > >> Date: Thu, 10 May 2007 14:39:25 -0400 (EDT)
+> > >>
+> > >> >
+> > >> > Bill,
+> > >> > Could you test with the lastest version of CUBIC? this is not the
+> > >> > latest
+> > >> > version of it you tested.
+> > >>
+> > >> Rhee-sangsang-nim, it might be a lot easier for people if you provide
+> > >> a patch against the current tree for users to test instead of
+> > >> constantly pointing them to your web site.
+> > >> -
+> > >
+> > > The 2.6.22 version should have the latest version, that I know of.
+> > > There was small patch from 2.6.21 that went in.
+>
 
-===== net/ipv4/route.c 1.162 vs edited =====
---- 1.162/net/ipv4/route.c	2007-02-14 11:09:54 -05:00
-+++ edited/net/ipv4/route.c	2007-05-04 17:53:33 -04:00
-@@ -237,9 +237,17 @@
- 		for (i = 0; i < RT_HASH_LOCK_SZ; i++) \
- 			spin_lock_init(&rt_hash_locks[i]); \
- 		}
-+# define rt_hash_lock_for_each(lockaddr) \
-+	for (lockaddr = rt_hash_lock_addr(RT_HASH_LOCK_SZ-1); lockaddr >= rt_hash_locks; lockaddr--)
-+# define rt_hash_lock_for_each_item(locknum, slot) \
-+	for (slot = locknum-rt_hash_locks; slot <= rt_hash_mask; slot += RT_HASH_LOCK_SZ)
- #else
- # define rt_hash_lock_addr(slot) NULL
- # define rt_hash_lock_init()
-+# define rt_hash_lock_for_each(lockaddr) \
-+	lockaddr = NULL;
-+# define rt_hash_lock_for_each_item(locknum, slot) \
-+	for (slot = rt_hash_mask; slot >= 0; slot--)
- #endif
- 
- static struct rt_hash_bucket 	*rt_hash_table;
-@@ -691,23 +699,26 @@
- static void rt_run_flush(unsigned long dummy)
- {
- 	int i;
-+	spinlock_t *lockaddr;
- 	struct rtable *rth, *next;
- 
- 	rt_deadline = 0;
- 
- 	get_random_bytes(&rt_hash_rnd, 4);
- 
--	for (i = rt_hash_mask; i >= 0; i--) {
--		spin_lock_bh(rt_hash_lock_addr(i));
--		rth = rt_hash_table[i].chain;
--		if (rth)
--			rt_hash_table[i].chain = NULL;
--		spin_unlock_bh(rt_hash_lock_addr(i));
--
--		for (; rth; rth = next) {
--			next = rth->u.dst.rt_next;
--			rt_free(rth);
-+	rt_hash_lock_for_each(lockaddr) {
-+		spin_lock_bh(lockaddr);
-+		rt_hash_lock_for_each_item(lockaddr, i) {
-+			rth = rt_hash_table[i].chain;
-+			if (rth) {
-+				rt_hash_table[i].chain = NULL;
-+				for (; rth; rth = next) {
-+					next = rth->u.dst.rt_next;
-+					rt_free(rth);
-+				}
-+			}
- 		}
-+		spin_unlock_bh(lockaddr);
- 	}
- }
- 
+------=_Part_162132_26405071.1178988353382
+Content-Type: application/octet-stream; name=tcp_cubic-2.6.20.3.patch
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_f1m22f1u
+Content-Disposition: attachment; filename="tcp_cubic-2.6.20.3.patch"
+
+LS0tIG5ldC9pcHY0L3RjcF9jdWJpYy5jLm9sZAkyMDA3LTAzLTIyIDE0OjA4OjU2LjAwMDAwMDAw
+MCAtMDQwMAorKysgbmV0L2lwdjQvdGNwX2N1YmljLmMJMjAwNy0wMy0yMiAyMzo0NTo0MS4wMDAw
+MDAwMDAgLTA0MDAKQEAgLTEsNSArMSw1IEBACiAvKgotICogVENQIENVQklDOiBCaW5hcnkgSW5j
+cmVhc2UgQ29uZ2VzdGlvbiBjb250cm9sIGZvciBUQ1AgdjIuMAorICogVENQIENVQklDOiBCaW5h
+cnkgSW5jcmVhc2UgQ29uZ2VzdGlvbiBjb250cm9sIGZvciBUQ1AgdjIuMQogICoKICAqIFRoaXMg
+aXMgZnJvbSB0aGUgaW1wbGVtZW50YXRpb24gb2YgQ1VCSUMgVENQIGluCiAgKiBJbmpvbmcgUmhl
+ZSwgTGlzb25nIFh1LgpAQCAtMjE1LDcgKzIxNSw5IEBAIHN0YXRpYyBpbmxpbmUgdm9pZCBiaWN0
+Y3BfdXBkYXRlKHN0cnVjdCAKIAlpZiAoY2EtPmRlbGF5X21pbiA+IDApIHsKIAkJLyogbWF4IGlu
+Y3JlbWVudCA9IFNtYXggKiBydHQgLyAwLjEgICovCiAJCW1pbl9jbnQgPSAoY3duZCAqIEhaICog
+OCkvKDEwICogbWF4X2luY3JlbWVudCAqIGNhLT5kZWxheV9taW4pOwotCQlpZiAoY2EtPmNudCA8
+IG1pbl9jbnQpCisKKwkJLyogdXNlIGNvbmNhdmUgZ3Jvd3RoIHdoZW4gdGhlIHRhcmdldCBpcyBh
+Ym92ZSB0aGUgb3JpZ2luICovCisJCWlmIChjYS0+Y250IDwgbWluX2NudCAmJiB0ID49IGNhLT5i
+aWNfSykKIAkJCWNhLT5jbnQgPSBtaW5fY250OwogCX0KIApAQCAtNDAxLDQgKzQwMyw0IEBAIG1v
+ZHVsZV9leGl0KGN1YmljdGNwX3VucmVnaXN0ZXIpOwogTU9EVUxFX0FVVEhPUigiU2FuZ3RhZSBI
+YSwgU3RlcGhlbiBIZW1taW5nZXIiKTsKIE1PRFVMRV9MSUNFTlNFKCJHUEwiKTsKIE1PRFVMRV9E
+RVNDUklQVElPTigiQ1VCSUMgVENQIik7Ci1NT0RVTEVfVkVSU0lPTigiMi4wIik7CitNT0RVTEVf
+VkVSU0lPTigiMi4xIik7
+------=_Part_162132_26405071.1178988353382--
