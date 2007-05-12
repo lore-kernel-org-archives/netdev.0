@@ -1,137 +1,109 @@
-From: "SANGTAE HA" <sangtae.ha@gmail.com>
-Subject: Re: 2.6.20.7 TCP cubic (and bic) initial slow start way too slow?
-Date: Sat, 12 May 2007 12:45:53 -0400
-Message-ID: <649aecc70705120945q58ae79c9r8ff2dc5557658d1e@mail.gmail.com>
-References: <20070509023131.70e2cc45.billfink@mindspring.com>
-	 <20070510113215.f5ff2d34.billfink@mindspring.com>
-	 <2994.152.14.88.74.1178822365.squirrel@webmail.ncsu.edu>
-	 <20070510.133522.99205764.davem@davemloft.net>
-	 <20070510134547.7ec30308@freepuppy>
-	 <002301c79345$c45ffd00$4a580e98@ncsu2cc0c3fa00>
-	 <20070512120739.371ada4f.billfink@mindspring.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: take 3 [RFC] make qdisc_restart more readable
+Date: Sat, 12 May 2007 19:02:29 +0200
+Message-ID: <4645F325.3060607@trash.net>
+References: <D5C1322C3E673F459512FB59E0DDC32902D42586@orsmsx414.amr.corp.intel.com>	 <1178911773.4126.26.camel@localhost> <1178972280.4061.7.camel@localhost>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----=_Part_162132_26405071.1178988353382"
-Cc: "Injong Rhee" <rhee@eos.ncsu.edu>,
-	"Stephen Hemminger" <shemminger@linux-foundation.org>,
-	"David Miller" <davem@davemloft.net>, rhee@ncsu.edu,
-	netdev@vger.kernel.org
-To: "Bill Fink" <billfink@mindspring.com>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	Thomas Graf <tgraf@suug.ch>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nz-out-0506.google.com ([64.233.162.225]:24866 "EHLO
-	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751580AbXELQpy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 May 2007 12:45:54 -0400
-Received: by nz-out-0506.google.com with SMTP id o1so1342410nzf
-        for <netdev@vger.kernel.org>; Sat, 12 May 2007 09:45:53 -0700 (PDT)
-In-Reply-To: <20070512120739.371ada4f.billfink@mindspring.com>
+Received: from stinky.trash.net ([213.144.137.162]:58379 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755767AbXELREG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 May 2007 13:04:06 -0400
+In-Reply-To: <1178972280.4061.7.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-------=_Part_162132_26405071.1178988353382
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+jamal wrote:
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index f671cd2..718d6fd 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -83,6 +83,9 @@ struct wireless_dev;
+>  #define NETDEV_TX_OK 0		/* driver took care of packet */
+>  #define NETDEV_TX_BUSY 1	/* driver tx path was busy*/
+>  #define NETDEV_TX_LOCKED -1	/* driver tx lock was already taken */
+> +#define NETDEV_TX_DROP -2	/* request caller to drop packet */
 
-Hi Bill,
+This shouldn't be a NETDEV_TX code since its only handled correctly
+internally for handle_dev_cpu_collision().
 
-This is the small patch that has been applied to 2.6.22.
-Also, there is "limited slow start", which is an experimental RFC
-(RFC3742), to surmount this large increase during slow start.
-But, your kernel might not have this. Please check there is a sysctl
-variable "tcp_max_ssthresh".
+> +#define NETDEV_TX_QUEUE -3	/* request caller to requeue packet */
 
-Thanks,
-Sangtae
+How will this be used? The driver can simply stop the queue if
+it doesn't want to receive more packets.
 
+> +static inline int handle_dev_cpu_collision(struct net_device *dev)
+> +{
+> +	if (dev->xmit_lock_owner == smp_processor_id()) {
 
-On 5/12/07, Bill Fink <billfink@mindspring.com> wrote:
-> On Thu, 10 May 2007, Injong Rhee wrote:
->
-> > Oops. I thought Bill was using 2.6.20 instead of 2.6.22 which should contain
-> > our latest update.
->
-> I am using 2.6.20.7.
->
-> > Regarding slow start behavior, the latest version should not change though.
-> > I think it would be ok to change the slow start of bic and cubic to the
-> > default slow start. But what we observed is that when BDP is large,
-> > increasing cwnd by two times is really an overkill. consider increasing from
-> > 1024 into 2048 packets..maybe the target is somewhere between them. We have
-> > potentially a large number of packets flushed into the network. That was the
-> > original motivation to change slow start from the default into a more gentle
-> > version. But I see the point that Bill is raising. We are working on
-> > improving this behavior in our lab. We will get back to this topic in a
-> > couple of weeks after we finish our testing and produce a patch.
->
-> Is it feasible to replace the version of cubic in 2.6.20.7 with the
-> new 2.1 version of cubic without changing the rest of the kernel, or
-> are there kernel changes/dependencies that would prevent that?
->
-> I've tried building and running a 2.6.21-git13 kernel, but am having
-> some difficulties.  I will be away the rest of the weekend so won't be
-> able to get back to this until Monday.
->
->                                                 -Bill
->
-> P.S.  When getting into the the 10 Gbps range, I'm not sure there's
->       any way to avoid the types of large increases during "slow start"
->       that you mention, if you want to achieve those kinds of data
->       rates.
->
->
->
-> > ----- Original Message -----
-> > From: "Stephen Hemminger" <shemminger@linux-foundation.org>
-> > To: "David Miller" <davem@davemloft.net>
-> > Cc: <rhee@ncsu.edu>; <billfink@mindspring.com>; <sangtae.ha@gmail.com>;
-> > <netdev@vger.kernel.org>
-> > Sent: Thursday, May 10, 2007 4:45 PM
-> > Subject: Re: 2.6.20.7 TCP cubic (and bic) initial slow start way too slow?
-> >
-> >
-> > > On Thu, 10 May 2007 13:35:22 -0700 (PDT)
-> > > David Miller <davem@davemloft.net> wrote:
-> > >
-> > >> From: rhee@ncsu.edu
-> > >> Date: Thu, 10 May 2007 14:39:25 -0400 (EDT)
-> > >>
-> > >> >
-> > >> > Bill,
-> > >> > Could you test with the lastest version of CUBIC? this is not the
-> > >> > latest
-> > >> > version of it you tested.
-> > >>
-> > >> Rhee-sangsang-nim, it might be a lot easier for people if you provide
-> > >> a patch against the current tree for users to test instead of
-> > >> constantly pointing them to your web site.
-> > >> -
-> > >
-> > > The 2.6.22 version should have the latest version, that I know of.
-> > > There was small patch from 2.6.21 that went in.
->
+unlikely would make sense here.
 
-------=_Part_162132_26405071.1178988353382
-Content-Type: application/octet-stream; name=tcp_cubic-2.6.20.3.patch
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_f1m22f1u
-Content-Disposition: attachment; filename="tcp_cubic-2.6.20.3.patch"
+> +static inline int
+> +handle_dev_requeue(struct sk_buff *skb, struct net_device *dev, struct Qdisc *q)
+> +{
+> +
+> +	if (unlikely(q == &noop_qdisc))
+> +		kfree_skb(skb);
 
-LS0tIG5ldC9pcHY0L3RjcF9jdWJpYy5jLm9sZAkyMDA3LTAzLTIyIDE0OjA4OjU2LjAwMDAwMDAw
-MCAtMDQwMAorKysgbmV0L2lwdjQvdGNwX2N1YmljLmMJMjAwNy0wMy0yMiAyMzo0NTo0MS4wMDAw
-MDAwMDAgLTA0MDAKQEAgLTEsNSArMSw1IEBACiAvKgotICogVENQIENVQklDOiBCaW5hcnkgSW5j
-cmVhc2UgQ29uZ2VzdGlvbiBjb250cm9sIGZvciBUQ1AgdjIuMAorICogVENQIENVQklDOiBCaW5h
-cnkgSW5jcmVhc2UgQ29uZ2VzdGlvbiBjb250cm9sIGZvciBUQ1AgdjIuMQogICoKICAqIFRoaXMg
-aXMgZnJvbSB0aGUgaW1wbGVtZW50YXRpb24gb2YgQ1VCSUMgVENQIGluCiAgKiBJbmpvbmcgUmhl
-ZSwgTGlzb25nIFh1LgpAQCAtMjE1LDcgKzIxNSw5IEBAIHN0YXRpYyBpbmxpbmUgdm9pZCBiaWN0
-Y3BfdXBkYXRlKHN0cnVjdCAKIAlpZiAoY2EtPmRlbGF5X21pbiA+IDApIHsKIAkJLyogbWF4IGlu
-Y3JlbWVudCA9IFNtYXggKiBydHQgLyAwLjEgICovCiAJCW1pbl9jbnQgPSAoY3duZCAqIEhaICog
-OCkvKDEwICogbWF4X2luY3JlbWVudCAqIGNhLT5kZWxheV9taW4pOwotCQlpZiAoY2EtPmNudCA8
-IG1pbl9jbnQpCisKKwkJLyogdXNlIGNvbmNhdmUgZ3Jvd3RoIHdoZW4gdGhlIHRhcmdldCBpcyBh
-Ym92ZSB0aGUgb3JpZ2luICovCisJCWlmIChjYS0+Y250IDwgbWluX2NudCAmJiB0ID49IGNhLT5i
-aWNfSykKIAkJCWNhLT5jbnQgPSBtaW5fY250OwogCX0KIApAQCAtNDAxLDQgKzQwMyw0IEBAIG1v
-ZHVsZV9leGl0KGN1YmljdGNwX3VucmVnaXN0ZXIpOwogTU9EVUxFX0FVVEhPUigiU2FuZ3RhZSBI
-YSwgU3RlcGhlbiBIZW1taW5nZXIiKTsKIE1PRFVMRV9MSUNFTlNFKCJHUEwiKTsKIE1PRFVMRV9E
-RVNDUklQVElPTigiQ1VCSUMgVENQIik7Ci1NT0RVTEVfVkVSU0lPTigiMi4wIik7CitNT0RVTEVf
-VkVSU0lPTigiMi4xIik7
-------=_Part_162132_26405071.1178988353382--
+Why is this special-casing needed? __qdisc_run already checks for
+noop_qdisc and noop has a proper requeue function.
+
+> +	else if (skb->next)
+> +		dev->gso_skb = skb;
+
+The gso_skb cases could probably also be marked unlikely.
+
+> +	else
+> +		q->ops->requeue(skb, q);
+> +	/* XXX: Could netif_schedule fail? Or is that fact we are
+> +	 * requeueing imply the hardware path is closed
+> +	 * and even if we fail, some interupt will wake us
+> +	*/
+> +	netif_schedule(dev);
+> +	return 0;
+> +}
+> +
+> +static inline struct sk_buff *
+> +try_get_tx_pkt(struct net_device *dev, struct Qdisc *q)
+> +{
+> +	struct sk_buff *skb = dev->gso_skb;
+> +
+> +	if (skb)
+> +		dev->gso_skb = NULL;
+> +	else
+> +		skb = q->dequeue(q);
+> +
+> +	return skb;
+> +}
+> +
+> +static inline int
+> +handle_tx_locked(struct sk_buff *skb, struct net_device *dev, struct Qdisc *q)
+
+handle_.* sounds a bit like "I couldn't think of a better name" :)
+How about dev_tx_locked()?
+
+> +{
+> +	int ret =  (dev);
+> +
+> +	if (ret == NETDEV_TX_DROP) {
+> +		kfree_skb(skb);
+> +		return qdisc_qlen(q);
+> +	}
+> +
+> +	return handle_dev_requeue(skb, dev, q);
+> +}
+
+> +	if (unlikely (ret != NETDEV_TX_BUSY)) {
+> +		/* XXX: Do we need a ratelimit? or put a
+> +		 * BUG_ON((int) ret != NETDEV_TX_BUSY) ?
+> +		 **/
+> +		printk("BUG %s code %d qlen %d\n",dev->name, ret, q->q.qlen);
+
+BUG_ON sounds a bit extreme, net_ratelimit() makes sense.
