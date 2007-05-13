@@ -1,73 +1,39 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [PATCH 1/1] Reverse sense of promisc tests in ip6_mc_input
-Date: Sat, 12 May 2007 17:21:10 -0700
-Message-ID: <OFFD46637C.90C02CF8-ON882572DA.0001BA3C-882572DA.0001E6DB@us.ibm.com>
-References: <20070512225135.GA1143@nc.rr.com>
+From: Andi Kleen <ak@suse.de>
+Subject: Re: [RFC] New driver API to speed up small packets xmits
+Date: Sun, 13 May 2007 08:00:44 +0200
+Message-ID: <200705130800.44595.ak@suse.de>
+References: <p73wszfenni.fsf@bingen.suse.de> <20070511093714.GR2012@bingen.suse.de> <adad517zk2r.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	yoshfuji@linux-ipv6.org
-To: Corey Mutter <crm-netdev@the-machine.mutternet.com>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Krishna Kumar2 <krkumar2@in.ibm.com>, netdev@vger.kernel.org
+To: Roland Dreier <rdreier@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e35.co.us.ibm.com ([32.97.110.153]:59179 "EHLO
-	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755877AbXEMAVd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 May 2007 20:21:33 -0400
-Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
-	by e35.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l4D0LNZ8014820
-	for <netdev@vger.kernel.org>; Sat, 12 May 2007 20:21:23 -0400
-Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
-	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l4D0LHfZ242020
-	for <netdev@vger.kernel.org>; Sat, 12 May 2007 18:21:22 -0600
-Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l4D0LHoj009342
-	for <netdev@vger.kernel.org>; Sat, 12 May 2007 18:21:17 -0600
-In-Reply-To: <20070512225135.GA1143@nc.rr.com>
+Received: from mail.suse.de ([195.135.220.2]:49717 "EHLO mx1.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756507AbXEMGAs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 May 2007 02:00:48 -0400
+In-Reply-To: <adad517zk2r.fsf@cisco.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Your patch looks correct to me.
+On Friday 11 May 2007 13:16:44 Roland Dreier wrote:
+>  > I wasn't talking about sending.
+>  > 
+>  > But there actually is :- TSO/GSO.
+> 
+> As I said before, getting multiple packets in one call to xmit would
+> be nice for amortizing per-xmit overhead in IPoIB.  So it would be
+> nice if the cases where the stack does GSO ended up passing all the
+> segments into the driver in one go.
 
-                        +-DLS
+Well TCP does upto 64k -- that is what GSO is about.
 
-Signed-off-by: David L Stevens <dlstevens@us.ibm.com>
+If you want it for unrelated connections I'm not sure it would actually
+work because if you have a deep TX queue already it is unlikely 
+the qdisc will buffer that much. Most packet injection should
+come from the individual sockets which is obviously only a single connection.
 
-netdev-owner@vger.kernel.org wrote on 05/12/2007 03:51:35 PM:
-
-> From: Corey Mutter <crm-netdev@mutternet.com>
-> 
-> Reverse the sense of the promiscuous-mode tests in ip6_mc_input(). 
-> 
-> Signed-off-by: Corey Mutter <crm-netdev@mutternet.com>
-> 
-> ---
-> 
-> I had been suspicious of this code for a while, but just assumed I must 
-> have been missing something. However, I did some tests and, sure enough, 
-
-> I can open a socket and it will see IPv6 multicast packets come in, then 
-
-> the packets will stop coming in when I turn on IFF_ALLMULTI on the 
-> interface. 
-> 
-> In my tests, this change works more like I'd expect; I can open a 
-> socket, and it doesn't see any multicast packets (unless I join a group 
-> or something) until after I turn on IFF_ALLMULTI. 
-> 
-> --- linux-2.6.21.1/net/ipv6/ip6_input.c   2007-04-27 17:49:26.000000000 
--0400
-> +++ linux/net/ipv6/ip6_input.c   2007-05-12 18:19:09.597750000 -0400
-> @@ -235,7 +235,7 @@ int ip6_mc_input(struct sk_buff *skb)
->     IP6_INC_STATS_BH(ip6_dst_idev(skb->dst), IPSTATS_MIB_INMCASTPKTS);
-> 
->     hdr = skb->nh.ipv6h;
-> -   deliver = likely(!(skb->dev->flags & (IFF_PROMISC|IFF_ALLMULTI))) ||
-> +   deliver = unlikely(skb->dev->flags & (IFF_PROMISC|IFF_ALLMULTI)) ||
->         ipv6_chk_mcast_addr(skb->dev, &hdr->daddr, NULL);
-> 
->     /*
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
+-Andi
