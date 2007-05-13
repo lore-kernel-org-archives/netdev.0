@@ -1,39 +1,102 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: [RFC] New driver API to speed up small packets xmits
-Date: Sun, 13 May 2007 08:00:44 +0200
-Message-ID: <200705130800.44595.ak@suse.de>
-References: <p73wszfenni.fsf@bingen.suse.de> <20070511093714.GR2012@bingen.suse.de> <adad517zk2r.fsf@cisco.com>
+From: Hirokazu Takahashi <taka@valinux.co.jp>
+Subject: [PATCH] tbf scheduler: TSO support (updated)
+Date: Sun, 13 May 2007 21:42:36 +0900 (JST)
+Message-ID: <20070513.214236.130588832.taka@valinux.co.jp>
+References: <20070511.130142.16832866.taka@valinux.co.jp>
+	<4644B259.5060400@trash.net>
+	<20070512.174930.80276554.taka@valinux.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Krishna Kumar2 <krkumar2@in.ibm.com>, netdev@vger.kernel.org
-To: Roland Dreier <rdreier@cisco.com>
+Cc: kaber@trash.net, davem@davemloft.net, linux-net@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.suse.de ([195.135.220.2]:49717 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756507AbXEMGAs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 May 2007 02:00:48 -0400
-In-Reply-To: <adad517zk2r.fsf@cisco.com>
-Content-Disposition: inline
+Received: from fms-01.valinux.co.jp ([210.128.90.1]:38183 "EHLO
+	mail.valinux.co.jp" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1757026AbXEMMml (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 May 2007 08:42:41 -0400
+In-Reply-To: <20070512.174930.80276554.taka@valinux.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Friday 11 May 2007 13:16:44 Roland Dreier wrote:
->  > I wasn't talking about sending.
->  > 
->  > But there actually is :- TSO/GSO.
-> 
-> As I said before, getting multiple packets in one call to xmit would
-> be nice for amortizing per-xmit overhead in IPoIB.  So it would be
-> nice if the cases where the stack does GSO ended up passing all the
-> segments into the driver in one go.
+Hi,
 
-Well TCP does upto 64k -- that is what GSO is about.
+> I'm now thinking I can make it just hold a TSO packet until p->tokens
+> reaches the size of the packet. I think it is straightforward
+> implementation. I'll try this.
 
-If you want it for unrelated connections I'm not sure it would actually
-work because if you have a deep TX queue already it is unlikely 
-the qdisc will buffer that much. Most packet injection should
-come from the individual sockets which is obviously only a single connection.
+I re-implemented the patch, which is simpler than the previous one.
 
--Andi
+sch->dev->mtu is used to determine how many segments are included
+in a TSO packet. The point is that the value of sch->dev->mtu has to
+be treated possibly broken because it is set by administrators.
+
+Thanks,
+Hirokazu Takahashi.
+
+
+Signed-off-by: Hirokazu Takahashi <taka@valinux.co.jp>
+
+--- linux-2.6.21/net/sched/sch_tbf.c.ORG	2007-05-08 20:59:28.000000000 +0900
++++ linux-2.6.21/net/sched/sch_tbf.c	2007-05-13 14:22:39.000000000 +0900
+@@ -9,7 +9,8 @@
+  * Authors:	Alexey Kuznetsov, <kuznet@ms2.inr.ac.ru>
+  *		Dmitry Torokhov <dtor@mail.ru> - allow attaching inner qdiscs -
+  *						 original idea by Martin Devera
+- *
++ * Fixes:
++ * 		Hirokazu Takahashi <taka@valinux.co.jp> : TSO support
+  */
+ 
+ #include <linux/module.h>
+@@ -139,7 +140,7 @@ static int tbf_enqueue(struct sk_buff *s
+ 	struct tbf_sched_data *q = qdisc_priv(sch);
+ 	int ret;
+ 
+-	if (skb->len > q->max_size) {
++	if (skb->len > q->max_size && !(sch->dev->features & NETIF_F_GSO_MASK)) {
+ 		sch->qstats.drops++;
+ #ifdef CONFIG_NET_CLS_POLICE
+ 		if (sch->reshape_fail == NULL || sch->reshape_fail(skb, sch))
+@@ -205,6 +206,16 @@ static struct sk_buff *tbf_dequeue(struc
+ 		long toks, delay;
+ 		long ptoks = 0;
+ 		unsigned int len = skb->len;
++		/*
++		 * Note: TSO packets will be larger than its actual mtu.
++		 * These packets should be treated as packets including
++		 * several ordinary ones. In this case, tokens should
++		 * be held until it reaches the length of them.
++		 */
++		long max_toks = max(len, q->buffer);
++		unsigned int rmtu = sch->dev->mtu? min(q->max_size, sch->dev->mtu) : q->max_size;
++		unsigned int segs = len/rmtu;
++		unsigned int rest = len - rmtu*segs;
+ 
+ 		PSCHED_GET_TIME(now);
+ 
+@@ -212,14 +223,18 @@ static struct sk_buff *tbf_dequeue(struc
+ 
+ 		if (q->P_tab) {
+ 			ptoks = toks + q->ptokens;
+-			if (ptoks > (long)q->mtu)
+-				ptoks = q->mtu;
+-			ptoks -= L2T_P(q, len);
++			if (ptoks > (long)(q->mtu * (segs + !!rest)))
++				ptoks = q->mtu * (segs + !!rest);
++			ptoks -= L2T_P(q, rmtu) * segs;
++			if (rest)
++				ptoks -= L2T_P(q, rest);
+ 		}
+ 		toks += q->tokens;
+-		if (toks > (long)q->buffer)
+-			toks = q->buffer;
+-		toks -= L2T(q, len);
++		if (toks > max_toks)
++			toks = max_toks;
++		toks -= L2T(q, rmtu) * segs;
++		if (rest)
++			toks -= L2T(q, rest);
+ 
+ 		if ((toks|ptoks) >= 0) {
+ 			q->t_c = now;
