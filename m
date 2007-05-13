@@ -1,44 +1,31 @@
-From: Hirokazu Takahashi <taka@valinux.co.jp>
-Subject: Re: [PATCH] tbf scheduler: TSO support (updated)
-Date: Mon, 14 May 2007 01:21:25 +0900 (JST)
-Message-ID: <20070514.012125.105712952.taka@valinux.co.jp>
-References: <20070512.174930.80276554.taka@valinux.co.jp>
-	<20070513.214236.130588832.taka@valinux.co.jp>
-	<20070513085248.283bf060@mini>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: default y idiocy
+Date: Sun, 13 May 2007 18:46:03 +0200
+Message-ID: <m3tzug7juc.fsf@maximus.localdomain>
+References: <20070512182343.GO4629@kernel.dk>
+	<46461C77.5040404@simon.arlott.org.uk>
+	<1179003373.3723.34.camel@mulgrave.il.steeleye.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kaber@trash.net, davem@davemloft.net,
-	linux-net@vger.kernel.org
-To: shemminger@linux-foundation.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Simon Arlott <simon@fire.lp0.eu>,
+	Jens Axboe <jens.axboe@oracle.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-scsi@vger.kernel.org
+To: James Bottomley <James.Bottomley@SteelEye.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fms-01.valinux.co.jp ([210.128.90.1]:39969 "EHLO
-	mail.valinux.co.jp" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S934272AbXEMQV2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 May 2007 12:21:28 -0400
-In-Reply-To: <20070513085248.283bf060@mini>
+Received: from khc.piap.pl ([195.187.100.11]:56191 "EHLO khc.piap.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759294AbXEMQqE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 May 2007 12:46:04 -0400
+In-Reply-To: <1179003373.3723.34.camel@mulgrave.il.steeleye.com> (James Bottomley's message of "Sat, 12 May 2007 15:56:12 -0500")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+James Bottomley <James.Bottomley@SteelEye.com> writes:
 
-> > > I'm now thinking I can make it just hold a TSO packet until
-> > > p->tokens reaches the size of the packet. I think it is
-> > > straightforward implementation. I'll try this.
-> > 
-> > I re-implemented the patch, which is simpler than the previous one.
-> > 
-> > sch->dev->mtu is used to determine how many segments are included
-> > in a TSO packet. The point is that the value of sch->dev->mtu has to
-> > be treated possibly broken because it is set by administrators.
-> >
-> 
-> There are cases where the TSO packet will be divided into chunks
-> smaller than the MTU. If path MTU discovery is being used, the chunk
-> size of the TSO skb will be smaller. To be accurate you need to look
-> at mss (gso_size) and compute actual packet size based on protocol
-> (IPV4/IPV6 and UDP/TCP).
+> drivers/ata/Kconfig has a select SCSI at the top, so if you selected
+> modular ATA, you'll be forced to have modular SCSI.
 
-Uhh, you are right.
-skb_shinfo(skb)->gso_segs and skb_shinfo(skb)->gso_size should be used.
-Thanks.
+Or built-in.
+-- 
+Krzysztof Halasa
