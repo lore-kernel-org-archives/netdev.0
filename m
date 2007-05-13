@@ -1,46 +1,44 @@
-From: Daniel Drake <dsd@gentoo.org>
-Subject: Re: [PATCH] sky2: re-enable 88E8056 for most motherboards
-Date: Sun, 13 May 2007 11:55:29 -0400
-Message-ID: <464734F1.2020103@gentoo.org>
-References: <20070430142349.79754c1b@freekitty>	<46374784.7010401@gentoo.org> <20070510090010.4c6b8589@freepuppy>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH] tbf scheduler: TSO support (updated)
+Date: Sun, 13 May 2007 08:52:48 -0700
+Message-ID: <20070513085248.283bf060@mini>
+References: <20070511.130142.16832866.taka@valinux.co.jp>
+	<4644B259.5060400@trash.net>
+	<20070512.174930.80276554.taka@valinux.co.jp>
+	<20070513.214236.130588832.taka@valinux.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
-	stable@kernel.org, Francois SIMOND <curio@free.fr>
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: netdev@vger.kernel.org, kaber@trash.net, davem@davemloft.net,
+	linux-net@vger.kernel.org
+To: Hirokazu Takahashi <taka@valinux.co.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp151.iad.emailsrvr.com ([207.97.245.151]:59878 "EHLO
-	smtp151.iad.emailsrvr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757745AbXEMP4a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 May 2007 11:56:30 -0400
-In-Reply-To: <20070510090010.4c6b8589@freepuppy>
+Received: from smtp.linux-foundation.org ([207.189.120.12]:43961 "EHLO
+	smtp.osdl.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757745AbXEMQDL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 May 2007 12:03:11 -0400
+In-Reply-To: <20070513.214236.130588832.taka@valinux.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> I can use DMI to narrow down to one motherboard. 
-> Or just let everything through and let user's discover what's unstable, it fails
-> relatively quickly.
+On Sun, 13 May 2007 21:42:36 +0900 (JST)
+Hirokazu Takahashi <taka@valinux.co.jp> wrote:
+
+> Hi,
 > 
-> Could you please get full PCI info lspci -vvxxx for working/non-working 88e8056 (Yukon EC-U)
-> systems? It might be some PCI Express setup by the BIOS, but so far haven't
-> found any difference that mattered.
+> > I'm now thinking I can make it just hold a TSO packet until
+> > p->tokens reaches the size of the packet. I think it is
+> > straightforward implementation. I'll try this.
+> 
+> I re-implemented the patch, which is simpler than the previous one.
+> 
+> sch->dev->mtu is used to determine how many segments are included
+> in a TSO packet. The point is that the value of sch->dev->mtu has to
+> be treated possibly broken because it is set by administrators.
+>
 
-I haven't seen any reports of systems affected by the corruption issue 
-so I can't provide any data there.
-
-Here is the full lspci output for a few systems with 88E8056 devices 
-that work fine:
-
-Gigabyte P965-S3
-http://bugs.gentoo.org/attachment.cgi?id=118827&action=view
-
-Gigabyte P965-S3 (from another user)
-http://bugs.gentoo.org/attachment.cgi?id=118848&action=view
-
-Asus P5B deluxe
-http://bugs.gentoo.org/attachment.cgi?id=119038&action=view
-
-
-Daniel
+There are cases where the TSO packet will be divided into chunks
+smaller than the MTU. If path MTU discovery is being used, the chunk
+size of the TSO skb will be smaller. To be accurate you need to look
+at mss (gso_size) and compute actual packet size based on protocol
+(IPV4/IPV6 and UDP/TCP).
