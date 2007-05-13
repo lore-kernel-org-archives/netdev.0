@@ -1,59 +1,46 @@
-From: Vitaly Wool <vitalywool@gmail.com>
-Subject: [patch/resend] smc911x: fix compilation breakage
-Date: Sun, 13 May 2007 18:42:08 +0400
-Message-ID: <464723C0.70409@gmail.com>
+From: Daniel Drake <dsd@gentoo.org>
+Subject: Re: [PATCH] sky2: re-enable 88E8056 for most motherboards
+Date: Sun, 13 May 2007 11:55:29 -0400
+Message-ID: <464734F1.2020103@gentoo.org>
+References: <20070430142349.79754c1b@freekitty>	<46374784.7010401@gentoo.org> <20070510090010.4c6b8589@freepuppy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rmk@arm.linux.org.uk
-To: jgarzik@pobox.com
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
+	stable@kernel.org, Francois SIMOND <curio@free.fr>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.171]:25286 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932263AbXEMOmf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 May 2007 10:42:35 -0400
-Received: by ug-out-1314.google.com with SMTP id 44so1163178uga
-        for <netdev@vger.kernel.org>; Sun, 13 May 2007 07:42:34 -0700 (PDT)
+Received: from smtp151.iad.emailsrvr.com ([207.97.245.151]:59878 "EHLO
+	smtp151.iad.emailsrvr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757745AbXEMP4a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 May 2007 11:56:30 -0400
+In-Reply-To: <20070510090010.4c6b8589@freepuppy>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Looks like the new version of this patch has been overlooked,
-so I'm resending it.
+Stephen Hemminger wrote:
+> I can use DMI to narrow down to one motherboard. 
+> Or just let everything through and let user's discover what's unstable, it fails
+> relatively quickly.
+> 
+> Could you please get full PCI info lspci -vvxxx for working/non-working 88e8056 (Yukon EC-U)
+> systems? It might be some PCI Express setup by the BIOS, but so far haven't
+> found any difference that mattered.
 
-It just adapts the driver to the new IRQ API
-according to what Russell has pointed out.
+I haven't seen any reports of systems affected by the corruption issue 
+so I can't provide any data there.
 
- drivers/net/smc911x.c |    6 ++----
- 1 files changed, 2 insertions(+), 4 deletions(-)
+Here is the full lspci output for a few systems with 88E8056 devices 
+that work fine:
 
-Signed-off-by: Vitaly Wool <vitalywool@gmail.com>
+Gigabyte P965-S3
+http://bugs.gentoo.org/attachment.cgi?id=118827&action=view
 
-diff --git a/drivers/net/smc911x.c b/drivers/net/smc911x.c
-index c956141..4b9bdad 100644
---- a/drivers/net/smc911x.c
-+++ b/drivers/net/smc911x.c
-@@ -77,7 +77,6 @@ static const char version[] =
- #include <linux/skbuff.h>
- 
- #include <asm/io.h>
--#include <asm/irq.h>
- 
- #include "smc911x.h"
- 
-@@ -2086,12 +2085,11 @@ static int __init smc911x_probe(struct n
- 	lp->ctl_rspeed = 100;
- 
- 	/* Grab the IRQ */
--	retval = request_irq(dev->irq, &smc911x_interrupt, IRQF_SHARED, dev->name, dev);
-+	retval = request_irq(dev->irq, &smc911x_interrupt,
-+			IRQF_SHARED | IRQF_TRIGGER_FALLING, dev->name, dev);
- 	if (retval)
- 		goto err_out;
- 
--	set_irq_type(dev->irq, IRQT_FALLING);
--
- #ifdef SMC_USE_DMA
- 	lp->rxdma = SMC_DMA_REQUEST(dev, smc911x_rx_dma_irq);
- 	lp->txdma = SMC_DMA_REQUEST(dev, smc911x_tx_dma_irq);
+Gigabyte P965-S3 (from another user)
+http://bugs.gentoo.org/attachment.cgi?id=118848&action=view
+
+Asus P5B deluxe
+http://bugs.gentoo.org/attachment.cgi?id=119038&action=view
 
 
+Daniel
