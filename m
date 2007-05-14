@@ -1,73 +1,105 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: oops in net/ipv4/icmp.c:icmp_send() with icmp_errors_use_inbound_ifaddr
- (fwd)
-Date: Mon, 14 May 2007 21:19:50 +0200
-Message-ID: <4648B656.6030800@trash.net>
-References: <Line.LNX.4.64.0705141430120.8521@d.namei> <4648AE85.6020608@trash.net>
+From: "Matvejchikov Ilya" <matvejchikov@gmail.com>
+Subject: Re: [PATCH] phylib: phy_ethtool_{sset,gset} -- check phydev for NULL
+Date: Mon, 14 May 2007 23:32:40 +0400
+Message-ID: <8496f91a0705141232y6f8e7929va350702bd5ea0df1@mail.gmail.com>
+References: <8496f91a0705101029g794ee4a7t1c6a34ad13444c49@mail.gmail.com>
+	 <20070510105613.f564e083.randy.dunlap@oracle.com>
+	 <46436215.7030503@garzik.org>
+	 <8496f91a0705110358v2e6d9b7el19856eadd55ac596@mail.gmail.com>
+	 <0DF2860D-0764-4AD1-B8B9-205827FF28E3@kernel.crashing.org>
+	 <8496f91a0705110649w2f42c26fi65db0d92fb8bdfd8@mail.gmail.com>
+	 <83E62581-EB88-4FC1-9DF9-8F725577F825@kernel.crashing.org>
+Reply-To: matvejchikov@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: James Morris <jmorris@namei.org>, Curtis Doty <Curtis@GreenKey.net>
-To: netdev@vger.kernel.org
+Cc: "Jeff Garzik" <jeff@garzik.org>,
+	"Randy Dunlap" <randy.dunlap@oracle.com>, netdev@vger.kernel.org
+To: "Kumar Gala" <galak@kernel.crashing.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:47450 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754339AbXENTUm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 May 2007 15:20:42 -0400
-In-Reply-To: <4648AE85.6020608@trash.net>
+Received: from py-out-1112.google.com ([64.233.166.177]:29018 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754611AbXENTcl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 May 2007 15:32:41 -0400
+Received: by py-out-1112.google.com with SMTP id a29so1616911pyi
+        for <netdev@vger.kernel.org>; Mon, 14 May 2007 12:32:41 -0700 (PDT)
+In-Reply-To: <83E62581-EB88-4FC1-9DF9-8F725577F825@kernel.crashing.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy wrote:
-> James Morris wrote:
-> 
->>---------- Forwarded message ----------
->>Date: Mon, 14 May 2007 08:15:50 -0700 (PDT)
->>From: Curtis Doty <Curtis@GreenKey.net>
->>To: Linux Kernel <linux-kernel@vger.kernel.org>
->>Subject: oops in net/ipv4/icmp.c:icmp_send() with icmp_errors_use_inbound_ifaddr
->>
->>BUG: unable to handle kernel NULL pointer dereference at virtual address
->>000000a8
->>[...]
->>EIP is at inet_select_addr+0x4/0x9f
->>eax: 00000000   ebx: f8b97046   ecx: 000000fd   edx: 00000000
->>esi: 000000fd   edi: 00000001   ebp: f71cd0ac   esp: c078bc9c
->>ds: 007b   es: 007b   ss: 0068
->>Process swapper (pid: 0, ti=c078b000 task=c06fc480 task.ti=c0746000)
->>Stack: f8b97046 f601b130 c05fd0b6 f728b980 f728b980 f8b5adbb c05bcb6e c078bd74
->>       00000003 00000003 00000246 00000246 00000000 f887e014 f8a611a6 f7c1ea80
->>       f728b9a8 00000000 f727d220 f887e000 00000001 00000072 f7383800 f728b980
->>Call Trace:
->> [<f8b97046>] reject+0x0/0x4ae [ipt_REJECT]
->> [<c05fd0b6>] icmp_send+0x14d/0x39b
-> 
-> 
-> 
-> A REJECT target in the output chain will trigger this in combination
-> with icmp_errors_use_inbound_ifaddr because skb->dev is still NULL
-> at this point and its passed to inet_select_addr.
-> 
-> I'll look into this.
+2007/5/11, Kumar Gala <galak@kernel.crashing.org>:
+>
+> On May 11, 2007, at 8:49 AM, Matvejchikov Ilya wrote:
+>
+> > 2007/5/11, Kumar Gala <galak@kernel.crashing.org>:
+> >>
+> >> On May 11, 2007, at 5:58 AM, Matvejchikov Ilya wrote:
+> >>
+> >> > Signed-off-by: Matvejchikov Ilya <matvejchikov@gmail.com>
+> >> > ---
+> >> >
+> >> > diff -purN linux-2.6.21-clean/drivers/net/phy/phy.c
+> >> > linux-2.6.21/drivers/net/phy/phy.c
+> >> > --- linux-2.6.21-clean/drivers/net/phy/phy.c  2007-04-26
+> >> > 07:08:32.000000000 +0400
+> >> > +++ linux-2.6.21/drivers/net/phy/phy.c        2007-05-04
+> >> > 08:22:01.000000000 +0400
+> >> > @@ -245,6 +245,9 @@ EXPORT_SYMBOL(phy_sanitize_settings);
+> >> >  */
+> >> > int phy_ethtool_sset(struct phy_device *phydev, struct ethtool_cmd
+> >> > *cmd)
+> >> > {
+> >> > +     if (unlikely(!phydev))
+> >> > +             return -EINVAL;
+> >>
+> >> Should this be -ENODEV?
+> >
+> > If we get the ENODEV error, we are suppose that there is no device at
+> > all. PHY device may not be connected to the NET device. But if it
+> > exists we can't say that there is NODEV...
+> >
+> > I think it should be -EINVAL.
+>
+> Hmm, if the phy isn't connected to the NET device doesn't that mean
+> we don't have a PHY device (from the point of view of the netdevice),
+> thus NODEV?
 
+It will hardly be understandable for the user...
 
-saddr = iph->daddr;
-if (!(rt->rt_flags & RTCF_LOCAL)) {
-        if (sysctl_icmp_errors_use_inbound_ifaddr)
+>
+> Whatever we should cleanup the current users of phy_ethtool_sset/
+> phy_ethtool_gset.
+>
 
+Right you are.
 
-                saddr = inet_select_addr(skb_in->dev, 0, RT_SCOPE_LINK);
-        else
-                saddr = 0;
-}
-
-Fixing the crash is easy, the right thing to do when skb->dev
-is not set is to let routing choose the address because the
-packet was locally generated and icmp_errors_use_inbound_ifaddr
-shouldn't apply (the crash can also happen with IPsec tunnels
-by the way).
-
-This leaves the question what to do in the path after ip_output,
-when skb->dev points to the output device. We don't know the
-input device anymore, so there doesn't seem to be a way to make
-it do what the sysctl promises.
+> >> > +
+> >> >       if (cmd->phy_address != phydev->addr)
+> >> >               return -EINVAL;
+> >> >
+> >> > @@ -289,6 +292,9 @@ EXPORT_SYMBOL(phy_ethtool_sset);
+> >> >
+> >> > int phy_ethtool_gset(struct phy_device *phydev, struct ethtool_cmd
+> >> > *cmd)
+> >> > {
+> >> > +     if (unlikely(!phydev))
+> >> > +             return -EINVAL;
+> >>
+> >> same question.
+> >
+> > The same answer :)
+> >
+> >> > +
+> >> >       cmd->supported = phydev->supported;
+> >> >
+> >> >       cmd->advertising = phydev->advertising;
+> >> > -
+> >> > To unsubscribe from this list: send the line "unsubscribe
+> >> netdev" in
+> >> > the body of a message to majordomo@vger.kernel.org
+> >> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> >>
+> >>
+>
+>
