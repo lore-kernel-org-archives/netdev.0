@@ -1,61 +1,51 @@
-From: Joakim Koskela <joakim.koskela@hiit.fi>
-Subject: Re: Problem with xfrm (ipsec) as state/spi selected solely on outer ip addresses
-Date: Mon, 14 May 2007 11:00:21 +0300
-Message-ID: <200705141100.21424.joakim.koskela@hiit.fi>
-References: <200705111622.24680.joakim.koskela@hiit.fi> <46449635.3050206@trash.net>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: [patch 04/13] ppp_generic: fix lockdep warning
+Date: Mon, 14 May 2007 10:08:29 +0200
+Message-ID: <20070514080829.GB2081@ff.dom.local>
+References: <20070511.140309.59656886.davem@davemloft.net> <20070511141225.cf7a6909.akpm@linux-foundation.org> <20070514060700.GA1000@ff.dom.local> <20070513.233937.99203647.davem@davemloft.net> <20070514072845.GA2081@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: akpm@linux-foundation.org, jeff@garzik.org, netdev@vger.kernel.org,
+	jura@netams.com, paulus@samba.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from creon.otaverkko.fi ([212.68.0.5]:59336 "EHLO creon.otaverkko.fi"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753075AbXENIAJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 May 2007 04:00:09 -0400
-In-Reply-To: <46449635.3050206@trash.net>
+Received: from mx10.go2.pl ([193.17.41.74]:38541 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753575AbXENIB6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 May 2007 04:01:58 -0400
 Content-Disposition: inline
+In-Reply-To: <20070514072845.GA2081@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Friday 11 May 2007 19:13:41 Patrick McHardy wrote:
-> Joakim Koskela wrote:
-> > I'm running a system where there might be multiple simultenously
-> > active ipsec states between two hosts (ipv6, but guess it applies to
-> > v4 as well) where the outer ip is the same for all states, but the
-> > inner differ (using beet mode).
-> >
-> > The problem is that after establishing these states, it seems that the
-> > one associated with outgoing traffic is selected solely by the outer
-> > address (the first state matching the outer ip-pairs is used), which
-> > usually results in the wrong spi and the packet being dropped at the
-> > receiver.
->
-> This should only pick states matching the flow:
->
-> if (x->km.state == XFRM_STATE_VALID) {
->
->
->         if (!xfrm_selector_match(&x->sel, fl, family) ||
->             !security_xfrm_state_pol_flow_match(x, pol, fl))
->                 continue;
-> ...
->
-> I'm probably misunderstanding your configuration, could you post the
-> SA selectors and addresses that result in an incorrect state being
-> picked?
->
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On Mon, May 14, 2007 at 09:28:45AM +0200, Jarek Poplawski wrote:
+> On Sun, May 13, 2007 at 11:39:37PM -0700, David Miller wrote:
+...
+> > For each unique netdev type, use a different locking class.
+> > 
+> > That will fix this forever, anything else is a situation specific
+> > band-aid (but then again isn't that what every lockdep annotation is
+> > :-).
 
-Oh, your right. I wasn't setting the netmask correctly (zero) for the 
-selectors, making them match anything. Sorry for the waste of time!
+Band-aid isn't probably too fair with lockdep. I think, it's very
+similar as declaring types of variables for a compiler, it really
+can't know until we tell this. And current locks' complexity is
+probably beyond possibility of brain analyzing, anyway. (Probably
+lockdep could be wiser too - at the cost of memory and speed -
+if each lock were treated individually).
 
-br, j
+> 
+> Yes, this is very good idea, and I wonder, why you didn't try
+> this yourself (after my "ignore"). I thought a little about
+> this, but was afraid of it's wide range. Some things - like
+> in vlans - should be removed then, for this to work. I'll try
+> to send something like this soon (but I'm not so optimistic
+> it will cure all or forever...).
 
--- 
-Joakim Koskela
-Helsinki Institute for Information Technology (HIIT)
+So, because of this next planned patch (I hope not later than
+tomorrow), my two last patches for vlan and ppp_generic shouldn't 
+be applied - their functionality will be moved to register_netdevice.
+(But I think this current: "nesting" patch for ppp_generic does
+something different and IMHO could be useful too.)
+
+Jarek P.
