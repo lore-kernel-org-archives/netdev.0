@@ -1,43 +1,46 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: [patch 04/13] ppp_generic: fix lockdep warning
-Date: Mon, 14 May 2007 12:09:07 +0200
-Message-ID: <20070514100907.GA2780@ff.dom.local>
-References: <20070514060700.GA1000@ff.dom.local> <20070513.233937.99203647.davem@davemloft.net> <20070514072845.GA2081@ff.dom.local> <20070514.021831.68041288.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] improved locking performance in rt_run_flush()
+Date: Mon, 14 May 2007 03:04:12 -0700 (PDT)
+Message-ID: <20070514.030412.104035740.davem@davemloft.net>
+References: <17989.60703.575698.491592@zeus.sw.starentnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: akpm@linux-foundation.org, jeff@garzik.org, netdev@vger.kernel.org,
-	jura@netams.com, paulus@samba.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: djohnson+linux-kernel@sw.starentnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx10.go2.pl ([193.17.41.74]:49407 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1760095AbXENKCh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 May 2007 06:02:37 -0400
-Content-Disposition: inline
-In-Reply-To: <20070514.021831.68041288.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41955
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1755952AbXENKEH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 May 2007 06:04:07 -0400
+In-Reply-To: <17989.60703.575698.491592@zeus.sw.starentnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, May 14, 2007 at 02:18:31AM -0700, David Miller wrote:
-> From: Jarek Poplawski <jarkao2@o2.pl>
-> Date: Mon, 14 May 2007 09:28:45 +0200
+From: Dave Johnson <djohnson+linux-kernel@sw.starentnetworks.com>
+Date: Sat, 12 May 2007 12:36:47 -0400
+
 > 
-> > Yes, this is very good idea, and I wonder, why you didn't try
-> > this yourself (after my "ignore").
+> While testing adding/deleting large numbers of interfaces, I found
+> rt_run_flush() was the #1 cpu user in a kernel profile by far.
 > 
-> Because you are a skilled programmer and you might find some
-> flaw in my suggestion :-)
+> The below patch changes rt_run_flush() to only take each spinlock
+> protecting the rt_hash_table once instead of taking a spinlock for
+> every hash table bucket (and ending up taking the same small set 
+> of locks over and over).
 > 
+> Deleting 256 interfaces on a 4-way SMP system with 16K buckets reduced
+> overall cpu-time more than 50% and reduced wall-time about 33%.  I
+> suspect systems with large amounts of memory (and more buckets) will
+> see an even greater benefit.
+> 
+> Note there is a small change in that rt_free() is called while the
+> lock is held where before it was called without the lock held.  I
+> don't think this should be an issue.
+> 
+> Signed-off-by: Dave Johnson <djohnson+linux-kernel@sw.starentnetworks.com>
 
-Yes, here are some flaws:
+Thanks for this patch.
 
-if (Dave_M_was_ignored)
-	goto not_skilled_programmer;
-
-if (Jarek_P_finds_some_flow)
-	goto message_sent;
-else
-	goto message_sent; /* probably the same */
-
-Cheers,
-Jarek P.
+I'm not ignoring it I'm just trying to brainstorm whether there
+is a better way to resolve this inefficiency. :-)
