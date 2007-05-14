@@ -1,60 +1,62 @@
-From: Frederik Deweerdt <deweerdt@free.fr>
-Subject: Re: [Oops] unix_dgram_connect locking problem?
-Date: Mon, 14 May 2007 20:49:08 +0200
-Message-ID: <20070514184908.GB3938@slug>
-References: <20070511150014.GF23638@slug> <20070514.032054.95058880.davem@davemloft.net>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH] sky2: re-enable 88E8056 for most motherboards
+Date: Mon, 14 May 2007 12:02:06 -0700
+Message-ID: <20070514120206.5181839e@freepuppy>
+References: <20070430142349.79754c1b@freekitty>
+	<46374784.7010401@gentoo.org>
+	<20070510090010.4c6b8589@freepuppy>
+	<464734F1.2020103@gentoo.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
+	stable@kernel.org, Francois SIMOND <curio@free.fr>
+To: Daniel Drake <dsd@gentoo.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mu-out-0910.google.com ([209.85.134.190]:57937 "EHLO
-	mu-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754726AbXENSu3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 May 2007 14:50:29 -0400
-Received: by mu-out-0910.google.com with SMTP id w1so1194182mue
-        for <netdev@vger.kernel.org>; Mon, 14 May 2007 11:50:27 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20070514.032054.95058880.davem@davemloft.net>
+Received: from smtp.linux-foundation.org ([207.189.120.12]:35186 "EHLO
+	smtp.osdl.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754883AbXENTEf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 May 2007 15:04:35 -0400
+In-Reply-To: <464734F1.2020103@gentoo.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi David,
+On Sun, 13 May 2007 11:55:29 -0400
+Daniel Drake <dsd@gentoo.org> wrote:
 
-On Mon, May 14, 2007 at 03:20:54AM -0700, David Miller wrote:
-> From: Frederik Deweerdt <deweerdt@free.fr>
-> Date: Fri, 11 May 2007 17:00:14 +0200
+> Stephen Hemminger wrote:
+> > I can use DMI to narrow down to one motherboard. 
+> > Or just let everything through and let user's discover what's unstable, it fails
+> > relatively quickly.
+> > 
+> > Could you please get full PCI info lspci -vvxxx for working/non-working 88e8056 (Yukon EC-U)
+> > systems? It might be some PCI Express setup by the BIOS, but so far haven't
+> > found any difference that mattered.
 > 
-> > I think that not unix_state_rlock'ing "other" in
-> > unix_dgram_connect may cause it to become NULL while passing it to
-> > selinux_socket_unix_may_send. With the following patch applied, I've
-> > seen no oops so far (1-2 hours as opposed to a few minutes before applying
-> > the patch). Any thoughts?
+> I haven't seen any reports of systems affected by the corruption issue 
+> so I can't provide any data there.
 > 
-> Thanks for this report and patch, similar code in UNIX stream connect
-> has the following comment:
+> Here is the full lspci output for a few systems with 88E8056 devices 
+> that work fine:
 > 
-> 	/* Latch our state.
+> Gigabyte P965-S3
+> http://bugs.gentoo.org/attachment.cgi?id=118827&action=view
 > 
-> 	   It is tricky place. We need to grab write lock and cannot
-> 	   drop lock on peer. It is dangerous because deadlock is
-> 	   possible. Connect to self case and simultaneous
-> 	   attempt to connect are eliminated by checking socket
-> 	   state. other is TCP_LISTEN, if sk is TCP_LISTEN we
-> 	   check this before attempt to grab lock.
+> Gigabyte P965-S3 (from another user)
+> http://bugs.gentoo.org/attachment.cgi?id=118848&action=view
 > 
-> 	   Well, and we have to recheck the state after socket locked.
-> 	 */
->  ...
-> 	unix_state_wlock_nested(sk);
+> Asus P5B deluxe
+> http://bugs.gentoo.org/attachment.cgi?id=119038&action=view
 > 
-> So I think we need to be careful about deadlocks wrt. holding
-> both wlock on sk and rlock on other at the same time in
-> the dgram case too.
-Thanks for your answer. I'll write and test a patch taking this into
-account. I'm thinking to check if sk == other, in which case we don't
-need to rlock. This is sufficient to avoid the deadlock case, isn't
-it?. If yes, I wonder why the stream case has to resort to the sk_state?
+> 
+> Daniel
 
-Thanks,
-Frederik
+It looks like these users aren't using MSI?
+
+Also, there maybe some correlation of the problem with IDE AHCI mode.
+I am using WD Raptor 10K driver with AHCI, that does Native Command Queuing,
+could be some weird IDE interaction. If I turn off AHCI, it works better
+(still fails but differently).  
+
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
