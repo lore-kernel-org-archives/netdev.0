@@ -1,58 +1,65 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: skge vs sk98lin
-Date: Mon, 14 May 2007 09:01:30 -0700
-Message-ID: <20070514090130.1e3bb3f7@freepuppy>
-References: <20070508120034.GB1785@mathom.us>
-	<20070508101518.288d202a@freekitty>
-	<20070514142024.GF1785@mathom.us>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: Kconfig warnings on latest GIT
+Date: Mon, 14 May 2007 18:25:51 +0200
+Message-ID: <1179159951.2647.49.camel@johannes.berg>
+References: <200705080004.14570.ismail@pardus.org.tr>
+	 <20070508143127.38fafa3c.kim.phillips@freescale.com>
+	 <4640D988.1040504@freescale.com> <20070510051042.GA16812@verge.net.au>
+	 <1178811570.3806.18.camel@johannes.berg>
+	 <20070511012216.GB10715@verge.net.au>
+	 <1178883937.8896.11.camel@johannes.berg>
+	 <20070514013230.GJ3588@verge.net.au>
+	 <1179147311.2647.47.camel@johannes.berg>
+	 <Pine.LNX.4.64.0705140923470.24559@gate.crashing.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Michael Stone <mstone@mathom.us>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-nqe95cB3a/6AyUcVdvCa"
+Cc: Simon Horman <horms@verge.net.au>,
+	Timur Tabi <timur@freescale.com>,
+	Kim Phillips <kim.phillips@freescale.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Ismail =?ISO-8859-1?Q?D=F6nmez?= <ismail@pardus.org.tr>,
+	Michael Schmitz <schmitz@debian.org>,
+	Roman Zippel <zippel@linux-m68k.org>,
+	Geert Uytterhoeven <geert@linux-m68k.org>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Paul Mackerras <paulus@samba.org>,
+	Ralf Baechle <ralf@linux-mips.org>
+To: Kumar Gala <galak@kernel.crashing.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.linux-foundation.org ([207.189.120.12]:58238 "EHLO
-	smtp.osdl.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757270AbXENQBt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 May 2007 12:01:49 -0400
-In-Reply-To: <20070514142024.GF1785@mathom.us>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:60845 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754308AbXENQZ4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 May 2007 12:25:56 -0400
+In-Reply-To: <Pine.LNX.4.64.0705140923470.24559@gate.crashing.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 14 May 2007 10:20:26 -0400
-Michael Stone <mstone@mathom.us> wrote:
 
-> On Tue, May 08, 2007 at 10:15:18AM -0700, Stephen Hemminger wrote:
-> >On Tue, 08 May 2007 08:00:36 -0400
-> >Michael Stone <mstone@mathom.us> wrote:
-> >> 2.6.21 seems to have fixed the stability issues I was seeing when using 
-> >> the skge driver with the older sk98xx dual port fiber cards. There is 
-> >> still one more lingering oddness: if I have *two* dual port cards in a 
-> >> system, say eth2-5, I see traffic on eth2, eth3, and eth5, but nothing 
-> >> on eth4. This seems to be consistent accross a couple of systems I've 
-> >> tested; only the first card's second interface sees packets (e.g., with 
-> >> tcpdump). If I reboot with the sk98lin driver on the same kernel I see 
-> >> all traffic, as expected.
-> >
-> >Are the statistics changing? ie. ethtool -S eth4 and ifconfig eth4
-> 
-> Ok, I ran this for a lot longer and it seems less consistent than it did 
-> at first. It now appears that there is no correlation between a NIC not 
-> working and its order. In some cases the NICs both come up ok, and see 
-> traffic for a while. I left one example running over the weekend, and 
-> neither interface on one card was seeing traffic, and the interface 
-> counters weren't increasing. In another case, one interface on one NIC 
-> worked for a short period of time, then stopped. The interface counters 
-> would increase by a few packets every 30 seconds or so. Any kind of 
-> ethtool operation (e.g., ethtool -A eth4 autoneg off rx off tx off) 
-> would cause the interface to start seeing traffic again, then eventually 
-> go back to seeing only a few packets every few seconds.
-> 
-> Mike Stone
+--=-nqe95cB3a/6AyUcVdvCa
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-Sounds like a missed interrupt getting the driver stuck. skge uses
-NAPI and therefore needs level triggered irq's.  What is the
-contents of /proc/interrupts?
+On Mon, 2007-05-14 at 09:24 -0500, Kumar Gala wrote:
 
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+> this was my fix which looks pretty much the same.
+
+[...]
+
+Great, thanks.
+
+johannes
+
+--=-nqe95cB3a/6AyUcVdvCa
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iD8DBQBGSI2P/ETPhpq3jKURAgujAJ44eq+k2hYonjsWcA8I5Y/TCPyNBQCfax9w
+SSH37O29Kojlb8+kMnoM3UI=
+=SXsI
+-----END PGP SIGNATURE-----
+
+--=-nqe95cB3a/6AyUcVdvCa--
+
