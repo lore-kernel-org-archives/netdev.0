@@ -1,182 +1,167 @@
-From: David Acker <dacker@roinet.com>
-Subject: [PATCH] fix e100 rx path on ARM (was [PATCH] e100 rx: or s and el
- bits)
-Date: Mon, 14 May 2007 14:26:39 -0400
-Message-ID: <4648A9DF.6030001@roinet.com>
-References: <200705011124.l41BOEG4007662@sullivan.realtime.net> <46375664.8030701@roinet.com> <4638F2B2.2000103@roinet.com> <463BA906.30205@roinet.com> <85f07fc58d5ed2147d5214d0f0b4fe32@bga.com>
+From: James Morris <jmorris@namei.org>
+Subject: oops in net/ipv4/icmp.c:icmp_send() with icmp_errors_use_inbound_ifaddr
+ (fwd)
+Date: Mon, 14 May 2007 14:30:17 -0400 (EDT)
+Message-ID: <Line.LNX.4.64.0705141430120.8521@d.namei>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Auke Kok <auke-jan.h.kok@intel.com>,
-	e1000-devel@lists.sourceforge.net,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Scott Feldman <sfeldma@pobox.com>, netdev@vger.kernel.org
-To: Milton Miller <miltonm@bga.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-72-92-88-10.phlapa.fios.verizon.net ([72.92.88.10]:39180
-	"EHLO smtp.roinet.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757122AbXENS0O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 May 2007 14:26:14 -0400
-In-Reply-To: <85f07fc58d5ed2147d5214d0f0b4fe32@bga.com>
+Received: from mail1.sea5.speakeasy.net ([69.17.117.3]:44390 "EHLO
+	mail1.sea5.speakeasy.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757110AbXENSaU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 May 2007 14:30:20 -0400
+Received: from dsl092-066-197.bos1.dsl.speakeasy.net (HELO d.namei) ([66.92.66.197])
+          (envelope-sender <jmorris@namei.org>)
+          by mail1.sea5.speakeasy.net (qmail-ldap-1.03) with AES256-SHA encrypted SMTP
+          for <netdev@vger.kernel.org>; 14 May 2007 18:30:19 -0000
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Milton Miller wrote:
-> In fact 6.4.3.4 says 82557 will start dropping frames immediately.
-> 
-> Looking at the descriptions around page 101:
-> (1) The link pointer, S, and EL is read when hw starts recieving the frame.
-> (2) Its pretty clear EL overrides S from the order of the descriptions 
-> in the text.
-> (3) 6.4.3.3.1 #4 looks intresting -- That is a RFD with size 0 skips 
-> frame fill and goes to the next packet.
-> 
-> How about putting a zero length descriptor in consistent memory to 
-> suspend the rx unit before the last real frame?   In other words  fr0 -> 
-> fr1 ... frN-2 -> frN-1 -> WaitHere0 -> FrN.   We could then have 2 such 
-> frames, and when we refill modify FrN to the new chain, with the 
-> WaitHere1 as its next-to-last, do the syncs, then clear the S bit on 
-> WaitHere0.   When the rx passes WaitHere0 we can reclaim it for the next 
-> use (might want a slightly larger pool, basically need RxRingSize / 
-> RxRingFillBatch such frames.
-> 
+---------- Forwarded message ----------
+Date: Mon, 14 May 2007 08:15:50 -0700 (PDT)
+From: Curtis Doty <Curtis@GreenKey.net>
+To: Linux Kernel <linux-kernel@vger.kernel.org>
+Subject: oops in net/ipv4/icmp.c:icmp_send() with icmp_errors_use_inbound_ifaddr
 
-I managed to code up something similar to what Milton described here.  Below
-is a patch against 2.6.21.1, before the S-bit patch.  I ran it through two
-12 hour UDP tests with 20 megabits per second in each direction for data
-going from an ethernet client to an 802.11g client.  I had the receive pool
-sized at 16 buffers.
+Summary: On a multi-homed box, after turning on
+/proc/sys/net/ipv4/icmp_errors_use_inbound_ifaddr, it now periodically oopses
+when trying to lookup the source address to use for sending an ICMP in response
+to a jump ipt_REJECT.
 
----
+I'm still trying to figure out what makes this test case unique. It spuriously
+occurs with many fedora builds of 2.6.{18,19,20} all of which don't appear to
+have any patches in this area of the kernel. Just _maybe_ it's because of a
+combination of dogleg routing and overloading one vlan with multiple subnets:
 
-On the ARM, their is a race condition between software allocating a new receive
-buffer and hardware writing into a buffer.  The two race on touching the last
-Receive Frame Descriptor (RFD).  It has its el-bit set and its next link equal
-to 0.  When hardware encounters this buffer it attempts to write data to it
-and then update Status Word bits and Actual Count in the RFD.  At the same time
-software may try to clear the el-bit and set the link address to a new buffer.
-Since the entire RFD is once cache-line, the two write operations can
-collide.  This can lead to the receive unit stalling or freed receive buffers
-getting written to.
+# ip route list table main proto kernel scope link
+10.10.36.208/28 dev eth0.1  src 10.10.36.210
+10.10.36.224/27 dev eth0.1  src 10.10.36.226
+10.10.1.0/24 dev eth0.5  src 10.10.1.48
+10.10.2.0/24 dev eth0.9  src 10.10.2.27
+10.10.10.0/24 dev eth0.8  src 10.10.10.1
 
-The fix is to set the el-bit on and the size to 0 on the next to last buffer
-in the chain.  When the hardware encounters this buffer it stops and does
-not write to it at all.  The hardware issues an RNR interrupt with the
-receive unit in the No Resources state.  When software allocates buffers,
-it can update the tail of the list because it knows the hardware will stop
-at the buffer before it.  Once it has a new next to last buffer prepared,
-it can clear the el-bit and set the size on the previous one.  The race on
-this buffer is safe since the link already points to a valid next buffer.
-If the hardware sees the el-bit cleared without the size set, it will
-move on to the next buffer and complete that one in error.  If it sees
-the size set but the el-bit still set, it will complete that buffer
-and then RNR interrupt and wait.
+Policy routing has been disabled and the problem still occurs. Only one route
+remains. It is gw:
 
+# ip route list table main proto boot
+default via 10.10.36.209 dev eth0.1
 
-Signed-off-by: David Acker <dacker@roinet.com>
+Am I on the right track here or is this a distro/build/config issue? Here's the
+oops:
 
----
+BUG: unable to handle kernel NULL pointer dereference at virtual address
+000000a8
+ printing eip:
+c05fe72b
+*pde = 3d429067
+Oops: 0000 [#1]
+SMP
+last sysfs file: /devices/platform/i2c-9191/name
+Modules linked in: it87 hwmon_vid hwmon i2c_isa eeprom 8021q nf_nat_ftp
+nf_conntrack_ftp ipt_REJECT ipt_owner ipt_ULOG xt_limit xt_state xt_multiport
+iptable_filter xt_tcpudp iptable_nat nf_nat nf_conntrack_ipv4 nf_conntrack
+nfnetlink ip_tables x_tables video sbs i2c_ec dock button battery asus_acpi
+backlight ac parport_pc lp parport 8139too 8139cp mii pcspkr i2c_i801 i2c_i810
+iTCO_wdt i2c_algo_bit i2c_core iTCO_vendor_support dm_snapshot dm_zero dm_mirror
+dm_mod ata_piix libata sd_mod scsi_mod ext3 jbd ehci_hcd ohci_hcd uhci_hcd
+CPU:    0
+EIP:    0060:[<c05fe72b>]    Not tainted VLI
+EFLAGS: 00010246   (2.6.20-1.2948.fc6 #1)
+EIP is at inet_select_addr+0x4/0x9f
+eax: 00000000   ebx: f8b97046   ecx: 000000fd   edx: 00000000
+esi: 000000fd   edi: 00000001   ebp: f71cd0ac   esp: c078bc9c
+ds: 007b   es: 007b   ss: 0068
+Process swapper (pid: 0, ti=c078b000 task=c06fc480 task.ti=c0746000)
+Stack: f8b97046 f601b130 c05fd0b6 f728b980 f728b980 f8b5adbb c05bcb6e c078bd74
+       00000003 00000003 00000246 00000246 00000000 f887e014 f8a611a6 f7c1ea80
+       f728b9a8 00000000 f727d220 f887e000 00000001 00000072 f7383800 f728b980
+Call Trace:
+ [<f8b97046>] reject+0x0/0x4ae [ipt_REJECT]
+ [<c05fd0b6>] icmp_send+0x14d/0x39b
+ [<f8b5adbb>] nf_conntrack_free+0x18/0x20 [nf_conntrack]
+ [<c05bcb6e>] __kfree_skb+0xc5/0x10d
+ [<f8a611a6>] rtl8139_start_xmit+0xe2/0x112 [8139too]
+ [<c05c12fc>] dev_hard_start_xmit+0x1bc/0x21b
+ [<c060e141>] xfrm_decode_session+0x44/0x4b
+ [<c0620667>] _spin_lock_irqsave+0x9/0xd
+ [<c042edc9>] lock_timer_base+0x15/0x2f
+ [<c042eed5>] __mod_timer+0x94/0x9e
+ [<f8b90406>] ipt_ulog_packet+0x2f0/0x3ba [ipt_ULOG]
+ [<f8b97046>] reject+0x0/0x4ae [ipt_REJECT]
+ [<f8b9709c>] reject+0x56/0x4ae [ipt_REJECT]
+ [<c06205bd>] _spin_unlock_bh+0x5/0xd
+ [<f8b904f6>] ipt_ulog_target+0x26/0x2e [ipt_ULOG]
+ [<f8b97046>] reject+0x0/0x4ae [ipt_REJECT]
+ [<f8b3d454>] ipt_do_table+0x28c/0x2e8 [ip_tables]
+ [<c05d7550>] nf_iterate+0x38/0x6a
+ [<c05d7681>] nf_hook_slow+0x4d/0xb5
+ [<c05dec14>] dst_output+0x0/0x7
+ [<c05e0f14>] ip_queue_xmit+0x3a3/0x3f4
+ [<c05dec14>] dst_output+0x0/0x7
+ [<c0422645>] try_to_wake_up+0x3aa/0x3b4
+ [<c05f47f1>] tcp_v4_send_check+0x74/0xaa
+ [<c05ef1c3>] tcp_transmit_skb+0x6d5/0x703
+ [<c05eff49>] tcp_retransmit_skb+0x4b1/0x592
+ [<c05e8db7>] tcp_enter_loss+0x1a8/0x205
+ [<c05f258b>] tcp_write_timer+0x43f/0x638
+ [<c0620655>] _spin_unlock_irq+0x5/0x7
+ [<c0439d17>] hrtimer_run_queues+0x127/0x141
+ [<c0422add>] run_rebalance_domains+0x116/0x33e
+ [<c05f214c>] tcp_write_timer+0x0/0x638
+ [<c042e51b>] run_timer_softirq+0x101/0x164
+ [<c042b7b0>] __do_softirq+0x5d/0xba
+ [<c040615b>] do_softirq+0x59/0xb1
+ [<c0419d4e>] smp_apic_timer_interrupt+0x76/0x80
+ [<c04049b0>] apic_timer_interrupt+0x28/0x30
+ [<c0402d52>] default_idle+0x0/0x3e
+ [<c061007b>] __xfrm_policy_check+0x4c5/0x592
+ [<c0402d7e>] default_idle+0x2c/0x3e
+ [<c04023d0>] cpu_idle+0x9e/0xb7
+ [<c074b812>] start_kernel+0x3b6/0x3be
+ [<c074b25a>] unknown_bootoption+0x0/0x202
+ =======================
+Code: eb 10 39 72 18 75 09 89 f8 33 42 14 85 c6 74 0e 8b 12 85 d2 74 08 f6 42 25
+01 74 e6 31 d2 83 c4 0c 89 d0 5b 5e 5f c3 56 89 ce 53 <8b> 80 a8 00 00 00 85 c0
+74 39 8b 48 0c 31 db eb 24 0f b6 41 24
+EIP: [<c05fe72b>] inet_select_addr+0x4/0x9f SS:ESP 0068:c078bc9c
+ <0>Kernel panic - not syncing: Fatal exception in interrupt
+ <0>Rebooting in 60 seconds..
 
---- linux-2.6.21.1/drivers/net/e100.c.orig	2007-05-11 11:27:11.000000000 -0400
-+++ linux-2.6.21.1/drivers/net/e100.c	2007-05-11 11:39:06.000000000 -0400
-@@ -1781,13 +1781,12 @@ static int e100_rx_alloc_skb(struct nic
-  	}
+And a few relevant details:
 
-  	/* Link the RFD to end of RFA by linking previous RFD to
--	 * this one, and clearing EL bit of previous.  */
-+	 * this one.  We are safe to touch the previous RFD because
-+	 * it is protected the before last buffer's el bit being set  */
-  	if(rx->prev->skb) {
-  		struct rfd *prev_rfd = (struct rfd *)rx->prev->skb->data;
-  		put_unaligned(cpu_to_le32(rx->dma_addr),
-  			(u32 *)&prev_rfd->link);
--		wmb();
--		prev_rfd->command &= ~cpu_to_le16(cb_el);
-  		pci_dma_sync_single_for_device(nic->pdev, rx->prev->dma_addr,
-  			sizeof(struct rfd), PCI_DMA_TODEVICE);
-  	}
-@@ -1861,6 +1860,8 @@ static void e100_rx_clean(struct nic *ni
-  	struct rx *rx;
-  	int restart_required = 0;
-  	struct rx *rx_to_start = NULL;
-+	struct rx *old_before_last_rx, *new_before_last_rx;
-+	struct rfd *old_before_last_rfd, *new_before_last_rfd;
+# uname -a
+Linux host 2.6.20-1.2948.fc6 #1 SMP Fri Apr 27 19:48:40 EDT 2007 i686 i686 i386
+GNU/Linux
 
-  	/* are we already rnr? then pay attention!!! this ensures that
-  	 * the state machine progression never allows a start with a
-@@ -1885,12 +1886,43 @@ static void e100_rx_clean(struct nic *ni
-  	if(restart_required)
-  		rx_to_start = nic->rx_to_clean;
+# lspci -tv
+-[0000:00]-+-00.0  Intel Corporation 82845G/GL[Brookdale-G]/GE/PE DRAM
+Controller/Host-Hub Interface
+           +-02.0  Intel Corporation 82845G/GL[Brookdale-G]/GE Chipset
+Integrated Graphics Device
+           +-1d.0  Intel Corporation 82801DB/DBL/DBM (ICH4/ICH4-L/ICH4-M) USB
+UHCI Controller #1
+           +-1d.1  Intel Corporation 82801DB/DBL/DBM (ICH4/ICH4-L/ICH4-M) USB
+UHCI Controller #2
+           +-1d.2  Intel Corporation 82801DB/DBL/DBM (ICH4/ICH4-L/ICH4-M) USB
+UHCI Controller #3
+           +-1d.7  Intel Corporation 82801DB/DBM (ICH4/ICH4-M) USB2 EHCI
+Controller
+           +-1e.0-[0000:01]----05.0  Realtek Semiconductor Co., Ltd.
+RTL-8139/8139C/8139C+
+           +-1f.0  Intel Corporation 82801DB/DBL (ICH4/ICH4-L) LPC Interface
+Bridge
+           +-1f.1  Intel Corporation 82801DB (ICH4) IDE Controller
+           \-1f.3  Intel Corporation 82801DB/DBL/DBM (ICH4/ICH4-L/ICH4-M) SMBus
+Controller
 
-+	old_before_last_rx = nic->rx_to_use->prev->prev;
-+	old_before_last_rfd = (struct rfd *)old_before_last_rx->skb->data;
-+
-  	/* Alloc new skbs to refill list */
-  	for(rx = nic->rx_to_use; !rx->skb; rx = nic->rx_to_use = rx->next) {
-  		if(unlikely(e100_rx_alloc_skb(nic, rx)))
-  			break; /* Better luck next time (see watchdog) */
-  	}
+Rather than turn off ipt_REJECT or icmp_errors_use_inbound_ifaddr, I've removed
+the system from production to try and capture the error. It's still live and on
+the wire, and the oopses occur every few days/weeks. Unfortunately, I cannot
+reproduce at will. :-(
 
-+	new_before_last_rx = nic->rx_to_use->prev->prev;
-+	if (new_before_last_rx != old_before_last_rx) {
-+		/* Set the el-bit on the buffer that is before the last buffer.
-+		 * This lets us update the next pointer on the last buffer without
-+		 * worrying about hardware touching it.
-+		 * We set the size to 0 to prevent hardware from touching this buffer.
-+		 * When the hardware hits the before last buffer with el-bit and size
-+		 * of 0, it will RNR interrupt, the RUS will go into the No Resources
-+		 * state.  It will not complete nor write to this buffer. */
-+		new_before_last_rfd = (struct rfd *)new_before_last_rx->skb->data;
-+		new_before_last_rfd->size = 0;
-+		new_before_last_rfd->command |= cpu_to_le16(cb_el);
-+		pci_dma_sync_single_for_device(nic->pdev, new_before_last_rx->dma_addr,
-+			sizeof(struct rfd), PCI_DMA_TODEVICE);
-+
-+		/* Now that we have a new stopping point, we can clear the old
-+		 * stopping point.
-+		 * Note: There appears to be a race here where the hardware
-+		 * can complete this buffer with the el-bit set but with the
-+		 * size also set.  The hardware RNR interrupts, the RUS
-+		 * goes into the No Resources state. */
-+		old_before_last_rfd->command &= ~cpu_to_le16(cb_el);
-+		wmb();
-+		old_before_last_rfd->size = cpu_to_le16(VLAN_ETH_FRAME_LEN);
-+		pci_dma_sync_single_for_device(nic->pdev, old_before_last_rx->dma_addr,
-+			sizeof(struct rfd), PCI_DMA_TODEVICE);
-+	}
-+
-  	if(restart_required) {
-  		// ack the rnr?
-  		writeb(stat_ack_rnr, &nic->csr->scb.stat_ack);
-@@ -1926,6 +1958,7 @@ static int e100_rx_alloc_list(struct nic
-  {
-  	struct rx *rx;
-  	unsigned int i, count = nic->params.rfds.count;
-+	struct rfd *before_last;
-
-  	nic->rx_to_use = nic->rx_to_clean = NULL;
-  	nic->ru_running = RU_UNINITIALIZED;
-@@ -1942,6 +1975,20 @@ static int e100_rx_alloc_list(struct nic
-  		}
-  	}
-
-+	/* Set the el-bit on the buffer that is before the last buffer.
-+	 * This lets us update the next pointer on the last buffer without
-+	 * worrying about hardware touching it.
-+	 * We set the size to 0 to prevent hardware from touching this buffer.
-+	 * When the hardware hits the before last buffer with el-bit and size
-+	 * of 0, it will RNR interrupt, the RUS will go into the No Resources
-+	 * state.  It will not complete nor write to this buffer. */
-+	rx = nic->rxs->prev->prev;
-+	before_last = (struct rfd *)rx->skb->data;
-+	before_last->command |= cpu_to_le16(cb_el);
-+	before_last->size = 0;
-+	pci_dma_sync_single_for_device(nic->pdev, rx->dma_addr,
-+		sizeof(struct rfd), PCI_DMA_TODEVICE);
-+
-  	nic->rx_to_use = nic->rx_to_clean = nic->rxs;
-  	nic->ru_running = RU_SUSPENDED;
-
-
+-
+To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Please read the FAQ at  http://www.tux.org/lkml/
