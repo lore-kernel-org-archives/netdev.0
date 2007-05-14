@@ -1,64 +1,33 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH 15/17] sky2: only disable 88e8056 on some boards
-Date: Mon, 14 May 2007 12:55:38 -0700
-Message-ID: <20070514125538.5fb3ba51@freepuppy>
-References: <4647EB56.6080800@gmail.com>
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: RE: [PATCH] [NET_SCHED]make qdisc_restart more readable
+Date: Mon, 14 May 2007 13:09:44 -0700
+Message-ID: <D5C1322C3E673F459512FB59E0DDC32902D7E2FD@orsmsx414.amr.corp.intel.com>
+References: <1179149418.15622.79.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Florin Malita <fmalita@gmail.com>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Patrick McHardy" <kaber@trash.net>, "Thomas Graf" <tgraf@suug.ch>,
+	"Herbert Xu" <herbert@gondor.apana.org.au>,
+	<netdev@vger.kernel.org>
+To: <hadi@cyberus.ca>, "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.linux-foundation.org ([207.189.120.12]:35740 "EHLO
-	smtp.osdl.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753278AbXENTzu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 May 2007 15:55:50 -0400
-In-Reply-To: <4647EB56.6080800@gmail.com>
+Received: from mga09.intel.com ([134.134.136.24]:56706 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757508AbXENUJq convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 May 2007 16:09:46 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <1179149418.15622.79.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 14 May 2007 00:53:42 -0400
-Florin Malita <fmalita@gmail.com> wrote:
+> Incoporating last comments from Patrick.
+> Dave, I think this is ready to apply - against net-2.6 from 
+> this morning. 
 
-> Hi Stephen,
-> 
-> Stephen Hemminger wrote:
-> > Use DMI to add a blacklist of broken board. For now only one is known
-> > bad. Gentoo users report driver works on other motherboards (strange). 
-> [snip]
-> > +               .ident = "Gigabyte 965P-S3",
-> > +               .matches = {
-> > +                       DMI_MATCH(DMI_SYS_VENDOR, "Gigabyte Technology Co., 
-> > Ltd."),
-> > +                       DMI_MATCH(DMI_PRODUCT_NAME, "965P-S3"),
-> 
-> Actually, I've been using sky2 with a 965P-S3 for a couple of months 
-> (x86_64 kernel) and as far as I can tell it works like a charm. Recently 
-> I had to hack around the blacklisting but other than that I haven't 
-> noticed anything strange.
-> 
-> What failures are you trying to prevent? Would a warning (instead of 
-> blacklisting) be acceptable?
-> 
-> Thanks,
-> Florin
+Aside from the whitespace changes, I've run this patch over the weekend
+with no issue under moderate stress.  Looks fine to me.
 
-What happens on my system is that the chip is accessing some unknown
-memory location when it reads the descriptors. This leads to:
-  * Transmit descriptor errors because the transmit descriptor doesn't
-    have the "Owner" bit set. The list is fine, and all the barriers
-    are there it seems like the chip read of memory is getting crap.
-  * TSO errors (probably same problem as before)
-  * Receive packets with no data. The stack ends up ignoring the 
-    garbage; but since we reuse the memory the DMA can/will happen
-    later and cause random memory corruption.
+Thx,
 
-Overall it looks like a PCI synchronization problem. Possible differences
-between working/non-working are:
-  * BIOS, tried up to the latest beta version with no change
-  * Memory, switched to name brand DDR2 800 (2G)
-  * MSI
-  * AHCI/SATA, I am using Raptor with AHCI when booted with i386 on old
-    IDE drive saw no problems
- 
-
+-PJ Waskiewicz
