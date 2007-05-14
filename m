@@ -1,57 +1,81 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: [patch 04/13] ppp_generic: fix lockdep warning
-Date: Mon, 14 May 2007 14:51:18 +0200
-Message-ID: <20070514125118.GA3382@ff.dom.local>
-References: <20070511.140309.59656886.davem@davemloft.net> <20070511141225.cf7a6909.akpm@linux-foundation.org> <20070514060700.GA1000@ff.dom.local> <20070513.233937.99203647.davem@davemloft.net> <20070514072845.GA2081@ff.dom.local> <20070514080829.GB2081@ff.dom.local>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: Kconfig warnings on latest GIT
+Date: Mon, 14 May 2007 14:55:11 +0200
+Message-ID: <1179147311.2647.47.camel@johannes.berg>
+References: <200705080004.14570.ismail@pardus.org.tr>
+	 <20070508143127.38fafa3c.kim.phillips@freescale.com>
+	 <4640D988.1040504@freescale.com> <20070510051042.GA16812@verge.net.au>
+	 <1178811570.3806.18.camel@johannes.berg>
+	 <20070511012216.GB10715@verge.net.au>
+	 <1178883937.8896.11.camel@johannes.berg>
+	 <20070514013230.GJ3588@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: akpm@linux-foundation.org, jeff@garzik.org, netdev@vger.kernel.org,
-	jura@netams.com, paulus@samba.org
-To: David Miller <davem@davemloft.net>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-5P+EYyVURQ7J7npE4dYy"
+Cc: Timur Tabi <timur@freescale.com>,
+	Kim Phillips <kim.phillips@freescale.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Ismail =?ISO-8859-1?Q?D=F6nmez?= <ismail@pardus.org.tr>,
+	Kumar Gala <galak@kernel.crashing.org>,
+	Michael Schmitz <schmitz@debian.org>,
+	Roman Zippel <zippel@linux-m68k.org>,
+	Geert Uytterhoeven <geert@linux-m68k.org>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Paul Mackerras <paulus@samba.org>,
+	Ralf Baechle <ralf@linux-mips.org>
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.go2.pl ([193.17.41.42]:38166 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752203AbXENMor (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 May 2007 08:44:47 -0400
-Content-Disposition: inline
-In-Reply-To: <20070514080829.GB2081@ff.dom.local>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:40192 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751722AbXENMzM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 May 2007 08:55:12 -0400
+In-Reply-To: <20070514013230.GJ3588@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, May 14, 2007 at 10:08:29AM +0200, Jarek Poplawski wrote:
-> On Mon, May 14, 2007 at 09:28:45AM +0200, Jarek Poplawski wrote:
-> > On Sun, May 13, 2007 at 11:39:37PM -0700, David Miller wrote:
-> ...
-> > > For each unique netdev type, use a different locking class.
-> > > 
-> > > That will fix this forever, anything else is a situation specific
-> > > band-aid (but then again isn't that what every lockdep annotation is
-> > > :-).
-...
-> > Yes, this is very good idea, and I wonder, why you didn't try
-> > this yourself (after my "ignore"). I thought a little about
-> > this, but was afraid of it's wide range. Some things - like
-> > in vlans - should be removed then, for this to work. I'll try
-> > to send something like this soon (but I'm not so optimistic
-> > it will cure all or forever...).
-> 
-> So, because of this next planned patch (I hope not later than
-> tomorrow), my two last patches for vlan and ppp_generic shouldn't 
-> be applied - their functionality will be moved to register_netdevice.
 
-...or maybe not so easy... Here is the first problem: vlan does
-register_netdevice(new_dev) with new_dev->type == real_dev->type,
-so it still couldn't be recognized as something different from
-the real ppp or eth. We need some trick... Probably we could
-also think about using dev->name (or both), but there always would
-be a problem with the size of a static table reserved for this.
+--=-5P+EYyVURQ7J7npE4dYy
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-So, now it seems something like my patch with lockdep class for ppp
-could be settled with this, but more complex situations like vlan
-still need special treatment.
+Simon,
 
-Maybe we should also care not to go too far with this: I didn't read
-other such reports recently, but here the problems seem to be made
-mainly by some virtual devices without queues...
+> I don't think that this is quite right, or at least it isn't quite the
+> same as before.
 
-Jarek P.
+Yeah, I think you're right.
+
+>  I think that was is below will toggle
+> SYS_SUPPORTS_APM_EMULATION when PMAC_APM_EMU is selected,
+> which I think is what you want. Is it also neccessary to
+> add a dependancy on PPC_PMAC to PMAC_APM_EMU ?
+
+No, it depends on ADB_PMU which depends on PPC_PMAC.
+
+> config PMAC_APM_EMU
+> 	tristate "APM emulation"
+> 	select APM_EMULATION
+> 	depends on ADB_PMU && PM
+>=20
+> config SYS_SUPPORTS_APM_EMULATION
+> 	bool
+> 	default y if PMAC_APM_EMU
+
+I still have to try it, I haven't been yet seen Kumar's fix that he said
+he'd done.
+
+johannes
+
+--=-5P+EYyVURQ7J7npE4dYy
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iD8DBQBGSFwv/ETPhpq3jKURAqXLAJ98DinaxgHifKcKt2xKl2yvicMmAACggf/Q
+CrKZ4jnkCezTufQlGoUQ49E=
+=BdyT
+-----END PGP SIGNATURE-----
+
+--=-5P+EYyVURQ7J7npE4dYy--
+
