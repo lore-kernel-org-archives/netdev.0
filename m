@@ -1,79 +1,57 @@
-From: Curtis Doty <Curtis@GreenKey.net>
-Subject: Re: oops in net/ipv4/icmp.c:icmp_send() with icmp_errors_use_inbound_ifaddr
- (fwd)
-Date: Mon, 14 May 2007 13:24:45 -0700 (PDT)
-Message-ID: <20070514202446.242C36F0C1@alopias.GreenKey.net>
-References: <Line.LNX.4.64.0705141430120.8521@d.namei> <4648AE85.6020608@trash.net>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: kernel oops after unloading nf_conntrack_netbios_ns_module
+Date: Mon, 14 May 2007 15:14:34 -0700
+Message-ID: <20070514151434.a48fa153.akpm@linux-foundation.org>
+References: <20070510090603.GA13059@odin.sis.hu>
+	<20070510033411.6cf042ad.akpm@linux-foundation.org>
+	<20070510110117.GE13059@odin.sis.hu>
+	<4645D7CF.20707@trash.net>
+	<20070514071611.GA8864@odin.sis.hu>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: James Morris <jmorris@namei.org>, netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Patrick McHardy <kaber@trash.net>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Gabor Burjan <buga@buvoshetes.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alopias.GreenKey.net ([209.209.60.60]:56108 "EHLO
-	alopias.GreenKey.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754450AbXENUb3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 May 2007 16:31:29 -0400
-In-Reply-To: <4648AE85.6020608@trash.net>
+Received: from smtp1.linux-foundation.org ([65.172.181.25]:33931 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1760038AbXENWPP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 May 2007 18:15:15 -0400
+In-Reply-To: <20070514071611.GA8864@odin.sis.hu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-8:46pm Patrick McHardy said:
+On Mon, 14 May 2007 09:16:11 +0200
+Gabor Burjan <buga@buvoshetes.hu> wrote:
 
-> James Morris wrote:
->> ---------- Forwarded message ----------
->> Date: Mon, 14 May 2007 08:15:50 -0700 (PDT)
->> From: Curtis Doty <Curtis@GreenKey.net>
->> To: Linux Kernel <linux-kernel@vger.kernel.org>
->> Subject: oops in net/ipv4/icmp.c:icmp_send() with icmp_errors_use_inbound_ifaddr
->>
->> Summary: On a multi-homed box, after turning on
->> /proc/sys/net/ipv4/icmp_errors_use_inbound_ifaddr, it now periodically oopses
->> when trying to lookup the source address to use for sending an ICMP in response
->> to a jump ipt_REJECT.
->>
->> I'm still trying to figure out what makes this test case unique. It spuriously
->> occurs with many fedora builds of 2.6.{18,19,20} all of which don't appear to
->> have any patches in this area of the kernel. Just _maybe_ it's because of a
->> combination of dogleg routing and overloading one vlan with multiple subnets:
->>
->> [..]
->>
->> BUG: unable to handle kernel NULL pointer dereference at virtual address
->> 000000a8
->> [...]
->> EIP is at inet_select_addr+0x4/0x9f
->> eax: 00000000   ebx: f8b97046   ecx: 000000fd   edx: 00000000
->> esi: 000000fd   edi: 00000001   ebp: f71cd0ac   esp: c078bc9c
->> ds: 007b   es: 007b   ss: 0068
->> Process swapper (pid: 0, ti=c078b000 task=c06fc480 task.ti=c0746000)
->> Stack: f8b97046 f601b130 c05fd0b6 f728b980 f728b980 f8b5adbb c05bcb6e c078bd74
->>        00000003 00000003 00000246 00000246 00000000 f887e014 f8a611a6 f7c1ea80
->>        f728b9a8 00000000 f727d220 f887e000 00000001 00000072 f7383800 f728b980
->> Call Trace:
->>  [<f8b97046>] reject+0x0/0x4ae [ipt_REJECT]
->>  [<c05fd0b6>] icmp_send+0x14d/0x39b
->
->
-> A REJECT target in the output chain will trigger this in combination
-> with icmp_errors_use_inbound_ifaddr because skb->dev is still NULL
-> at this point and its passed to inet_select_addr.
->
+> On Sat, May 12, 2007 at 05:05:51PM +0200, Patrick McHardy wrote:
+> > Gabor Burjan wrote:
+> > > EIP is at destroy_conntrack+0x52/0x127 [nf_conntrack]
+> > >
+> > >>>nmblookup <existing_netbios_name>
+> > >>>cat /proc/net/ip_conntrack
+> > >>>
+> > >>>sleep 3
+> > >>>
+> > >>>rmmod nf_conntrack_netbios_ns
+> > 
+> > Thanks for the report and good testcase, the crash can only happen with
+> > a sleep of >= 3s after the last nmblookup packet was sent.
+> > 
+> > Can you try if this patch fixes it please?
+> 
+> Yes, it fixes the problem.
 
-Indeed, thanks!
+Just speaking generally, rather than about this particualr patch...
 
-curtis@host~$ nc kernel.org 42
-BUG: unable to handle kernel NULL pointer dereference at virtual address 000000a8
-  printing eip:
-c05fe72b
-*pde = 00000000
-Oops: 0000 [#1]
-...
+Gabor did quite an amount of valuable work here: tested a 2.6.20.x kernel,
+developed a test case for reproducing the bug, reported it all quite
+exhaustively, tested the resulting patch.
 
-And for now, the easy userland workaround is to add '-i ! eth+ -j DROP' 
-just before any jumps to REJECT. This now causes delays/timeouts for any 
-forbidden outbound traffic. But it's better than an oops.
+The least we can do in return is to put a big fat "thanks" in the changelog
+when the fix gets merged.
 
-Now I'm off to figure out what daemon is trying to make these odd 
-connections...or if netfilter/conntrack is periodically scrambling its 
-brains.
+> Thank you,
 
+No - thank _you_.
