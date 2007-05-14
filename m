@@ -1,94 +1,58 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [PATCH] Fix race condition about network device name allocation
-Date: Mon, 14 May 2007 08:58:40 -0700
-Message-ID: <20070514085840.17a343f7@freepuppy>
-References: <1178862045.3979.33.camel@kane-linux>
-	<20070511092519.1f34ab34@freepuppy>
-	<1179130660.3881.23.camel@kane-linux>
+Subject: Re: skge vs sk98lin
+Date: Mon, 14 May 2007 09:01:30 -0700
+Message-ID: <20070514090130.1e3bb3f7@freepuppy>
+References: <20070508120034.GB1785@mathom.us>
+	<20070508101518.288d202a@freekitty>
+	<20070514142024.GF1785@mathom.us>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>,
-	"David S. Miller" <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: Michael Stone <mstone@mathom.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.linux-foundation.org ([207.189.120.12]:58099 "EHLO
+Received: from smtp.linux-foundation.org ([207.189.120.12]:58238 "EHLO
 	smtp.osdl.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754286AbXENP7A (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 May 2007 11:59:00 -0400
-In-Reply-To: <1179130660.3881.23.camel@kane-linux>
+	id S1757270AbXENQBt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 May 2007 12:01:49 -0400
+In-Reply-To: <20070514142024.GF1785@mathom.us>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Kenji Kaneshige found this race between device removal and
-registration.  On unregister it is possible for the old device to
-exist, because sysfs file is still open.  A new device with 'eth%d'
-will select the same name, but sysfs kobject register will fial.
+On Mon, 14 May 2007 10:20:26 -0400
+Michael Stone <mstone@mathom.us> wrote:
 
-The following changes the shutdown order slightly. It hold a removes the sysfs
-entries earlier (on unregister_netdevice), but holds a kobject reference.
-Then when todo runs the actual last put free happens.
+> On Tue, May 08, 2007 at 10:15:18AM -0700, Stephen Hemminger wrote:
+> >On Tue, 08 May 2007 08:00:36 -0400
+> >Michael Stone <mstone@mathom.us> wrote:
+> >> 2.6.21 seems to have fixed the stability issues I was seeing when using 
+> >> the skge driver with the older sk98xx dual port fiber cards. There is 
+> >> still one more lingering oddness: if I have *two* dual port cards in a 
+> >> system, say eth2-5, I see traffic on eth2, eth3, and eth5, but nothing 
+> >> on eth4. This seems to be consistent accross a couple of systems I've 
+> >> tested; only the first card's second interface sees packets (e.g., with 
+> >> tcpdump). If I reboot with the sk98lin driver on the same kernel I see 
+> >> all traffic, as expected.
+> >
+> >Are the statistics changing? ie. ethtool -S eth4 and ifconfig eth4
+> 
+> Ok, I ran this for a lot longer and it seems less consistent than it did 
+> at first. It now appears that there is no correlation between a NIC not 
+> working and its order. In some cases the NICs both come up ok, and see 
+> traffic for a while. I left one example running over the weekend, and 
+> neither interface on one card was seeing traffic, and the interface 
+> counters weren't increasing. In another case, one interface on one NIC 
+> worked for a short period of time, then stopped. The interface counters 
+> would increase by a few packets every 30 seconds or so. Any kind of 
+> ethtool operation (e.g., ethtool -A eth4 autoneg off rx off tx off) 
+> would cause the interface to start seeing traffic again, then eventually 
+> go back to seeing only a few packets every few seconds.
+> 
+> Mike Stone
 
-Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+Sounds like a missed interrupt getting the driver stuck. skge uses
+NAPI and therefore needs level triggered irq's.  What is the
+contents of /proc/interrupts?
 
----
- net/core/dev.c       |   10 ++++++----
- net/core/net-sysfs.c |    8 +++++++-
- 2 files changed, 13 insertions(+), 5 deletions(-)
-
---- 2.6.21-rc1.orig/net/core/dev.c	2007-05-11 11:02:55.000000000 -0700
-+++ 2.6.21-rc1/net/core/dev.c	2007-05-14 08:44:52.000000000 -0700
-@@ -3245,7 +3245,6 @@ void netdev_run_todo(void)
- 			continue;
- 		}
- 
--		netdev_unregister_sysfs(dev);
- 		dev->reg_state = NETREG_UNREGISTERED;
- 
- 		netdev_wait_allrefs(dev);
-@@ -3256,11 +3255,11 @@ void netdev_run_todo(void)
- 		BUG_TRAP(!dev->ip6_ptr);
- 		BUG_TRAP(!dev->dn_ptr);
- 
--		/* It must be the very last action,
--		 * after this 'dev' may point to freed up memory.
--		 */
- 		if (dev->destructor)
- 			dev->destructor(dev);
-+
-+		/* Free network device */
-+		kobject_put(&dev->dev.kobj);
- 	}
- 
- out:
-@@ -3411,6 +3410,9 @@ void unregister_netdevice(struct net_dev
- 	/* Notifier chain MUST detach us from master device. */
- 	BUG_TRAP(!dev->master);
- 
-+	/* Remove entries from sysfs */
-+	netdev_unregister_sysfs(dev);
-+
- 	/* Finish processing unregister after unlock */
- 	net_set_todo(dev);
- 
---- 2.6.21-rc1.orig/net/core/net-sysfs.c	2007-05-11 11:02:55.000000000 -0700
-+++ 2.6.21-rc1/net/core/net-sysfs.c	2007-05-14 08:44:52.000000000 -0700
-@@ -456,9 +456,15 @@ static struct class net_class = {
- #endif
- };
- 
-+/* Delete sysfs entries but hold kobject reference until after all
-+ * netdev references are gone.
-+ */
- void netdev_unregister_sysfs(struct net_device * net)
- {
--	device_del(&(net->dev));
-+	struct device *dev = &(net->dev);
-+
-+	kobject_get(&dev->kobj);
-+	device_del(dev);
- }
- 
- /* Create sysfs entries for network device. */
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
