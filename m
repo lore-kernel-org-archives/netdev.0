@@ -1,39 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [IPV4] LVS: Allow to send ICMP unreachable responses when
- real-servers are removed
-Date: Mon, 14 May 2007 03:35:04 -0700 (PDT)
-Message-ID: <20070514.033504.48528120.davem@davemloft.net>
-References: <200704271705.l3RH5Brw026873@hera.kernel.org>
-	<4648382E.8030009@trash.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [LAST CALL] [PATCH] [NET_SCHED]make qdisc_restart more readable
+Date: Mon, 14 May 2007 12:40:12 +0200
+Message-ID: <46483C8C.5040403@trash.net>
+References: <D5C1322C3E673F459512FB59E0DDC32902D42586@orsmsx414.amr.corp.intel.com>	 <1178911773.4126.26.camel@localhost> <1178972280.4061.7.camel@localhost>	 <4645F325.3060607@trash.net>  <1178999773.15622.44.camel@localhost> <1179066518.15622.60.camel@localhost>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: horms@verge.net.au, netdev@vger.kernel.org, jkrzyszt@tis.icnet.pl
-To: kaber@trash.net
+Cc: David Miller <davem@davemloft.net>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	Thomas Graf <tgraf@suug.ch>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	netdev@vger.kernel.org
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38206
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754907AbXENKe7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 May 2007 06:34:59 -0400
-In-Reply-To: <4648382E.8030009@trash.net>
+Received: from stinky.trash.net ([213.144.137.162]:35060 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755596AbXENKmd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 May 2007 06:42:33 -0400
+In-Reply-To: <1179066518.15622.60.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Mon, 14 May 2007 12:21:34 +0200
+jamal wrote:
+> Ok, I am upgrading this to last call after taking in Patricks feedback.
+> Speak now - or send patches against it later. 
+> Dave, just let it simmer down for a day or two, then if no complaints,
+> go ahead and apply it. It is against net-2.6
+> Many thanks to Thomas, Peter and Patrick for their reviews.
 
-> This allows any user to send spoofed packets when ip_nonlocal_bind
-> is set, which is a quite big change in behaviour of this option.
-> The TPROXY patches include a similar change, but use a flag in
-> struct flowi that requires CAP_NET_ADMIN to be set, which seems like
-> a better idea. Alternatively you could just use input routing for
-> non-local source addresses like ip_route_me_harder does.
 
-Good point.
+Two final suggestions, sorry for not mentioning this earlier.
 
-> BTW, there doesn't even seem to be a spot where IPVS calls
-> ip_route_output with the source address set. What exactly is this
-> needed for?
+> +			printk(KERN_DEBUG
+> +			       "Dead loop on netdevice %s, fix it urgently!\n",
+> +			       dev->name);
 
-I suppose he has a patch to make use of it, but was waiting
-for this route.c change to go in first.
+> +	if (unlikely (ret != NETDEV_TX_BUSY && net_ratelimit()))
+> +		printk(KERN_DEBUG " BUG %s code %d qlen %d\n",dev->name, ret, q->q.qlen);
+
+
+For both of these KERN_WARNING or above seems to make sense so
+the messages don't end up in some debug log. Please also fix
+whitespace and line length for the second printk if you're
+going to change this :)
