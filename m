@@ -1,51 +1,59 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: tg3 does not want to go up (config space problems).
-Date: Mon, 14 May 2007 19:26:25 +0400
-Message-ID: <20070514152625.GA31306@2ka.mipt.ru>
-References: <20070514145419.GA19679@2ka.mipt.ru>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [BUG][PATCH] Fix race condition about network device name
+ allocation
+Date: Mon, 14 May 2007 08:41:57 -0700
+Message-ID: <20070514084157.749ad4e7@freepuppy>
+References: <1178862045.3979.33.camel@kane-linux>
+	<20070511092519.1f34ab34@freepuppy>
+	<1179106381.3881.16.camel@kane-linux>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:59727 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754344AbXENP03 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 May 2007 11:26:29 -0400
-Received: from 2ka.mipt.ru (localhost [127.0.0.1])
-	by 2ka.mipt.ru (8.13.8/8.13.8) with ESMTP id l4EFQPAv003976
-	for <netdev@vger.kernel.org>; Mon, 14 May 2007 19:26:27 +0400
-Received: (from johnpol@localhost)
-	by 2ka.mipt.ru (8.13.8/8.12.1/Submit) id l4EFQPkm003974
-	for netdev@vger.kernel.org; Mon, 14 May 2007 19:26:25 +0400
-Content-Disposition: inline
-In-Reply-To: <20070514145419.GA19679@2ka.mipt.ru>
+Received: from smtp.linux-foundation.org ([207.189.120.12]:57630 "EHLO
+	smtp.osdl.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751709AbXENPmH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 May 2007 11:42:07 -0400
+In-Reply-To: <1179106381.3881.16.camel@kane-linux>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, May 14, 2007 at 06:54:20PM +0400, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
-> Hi.
+On Mon, 14 May 2007 10:33:01 +0900
+Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com> wrote:
+
+> Hi Stephen,
 > 
-> I've cought a problem with my laptop and tg3 driver.
-> Suddenly (it was turned off quite for a while) tg3 driver does not start
-> up.
-> PM: writing back config space on device /* tg3 device pcix id*/ at
-> offset b (was 165d14e4, writing 890103c)
-> offset 3 (was 0, writing 4010)
-> offset 2 (was 2000000, writing 2000003)
-> offset 1 (was 2b00000, writing 2b00006)
-> offset 0 (was 165d14e4, writing 165e14e4)
+> Thank you for comments. I'll try your patch.
+> 
+> I have one concern about your patch, though I don't know very much 
+> about netdev codes.
+> 
+> @@ -3411,6 +3410,9 @@ void unregister_netdevice(struct net_dev
+> >  	/* Notifier chain MUST detach us from master device. */
+> >  	BUG_TRAP(!dev->master);
+> >  
+> > +	/* Remove entries from sysfs */
+> > +	netdev_unregister_sysfs(dev);
+> > +
+> >  	/* Finish processing unregister after unlock */
+> >  	net_set_todo(dev);
+> >  
+> 
+> With your patch, the netdev_unregister_sysfs() will be called
+> earlier than now. Does it have no side effect? I'm worrying 
+> about if there are somebody that depend on sysfs entry until
+> net_run_todo() is called.
 
-This happens in tg3_chip_reset() callback in pci_restore_state().
 
-Bits of lspci:
-02:0e.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5705M_2 Gigabit Ethernet (rev 03)
-Subsystem: Hewlett-Packard Company NC6000 laptop
-Flags: bus master, 66Mhz, medium devsel, latency 64, IRQ 11
-Memory at 90000000 (64-bit, non-prefetchable) [size=64K]
-Expansion ROM at <unassigned> [disabled] [size=64K]
-Capabilities: [48] Power Management version 2
-Capabilities: [50] Vital Product Data
-Capabilities: [58] Message Signalled Interrupts: 64bit+ Queue=0/3 Enable-
+The unregister_sysfs() removes the entry in /sys/class/net and then
+decrements the reference count. When ref count goes to zero, the kobject_release
+callback gets called and which does kfree(). 
 
--- 
-	Evgeniy Polyakov
+Changing the shutdown order makes the /sys/class/net entry disappear
+sooner. In order to prevent the free from happening until after all the dev_put()
+calls have happened, the reference count for the kobject needs to be increased.
+
