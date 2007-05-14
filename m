@@ -1,65 +1,63 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: Kconfig warnings on latest GIT
-Date: Mon, 14 May 2007 18:25:51 +0200
-Message-ID: <1179159951.2647.49.camel@johannes.berg>
-References: <200705080004.14570.ismail@pardus.org.tr>
-	 <20070508143127.38fafa3c.kim.phillips@freescale.com>
-	 <4640D988.1040504@freescale.com> <20070510051042.GA16812@verge.net.au>
-	 <1178811570.3806.18.camel@johannes.berg>
-	 <20070511012216.GB10715@verge.net.au>
-	 <1178883937.8896.11.camel@johannes.berg>
-	 <20070514013230.GJ3588@verge.net.au>
-	 <1179147311.2647.47.camel@johannes.berg>
-	 <Pine.LNX.4.64.0705140923470.24559@gate.crashing.org>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: tg3 does not want to go up (config space problems).
+Date: Mon, 14 May 2007 10:15:23 -0700
+Message-ID: <1179162923.25622.22.camel@dell>
+References: <20070514145419.GA19679@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-nqe95cB3a/6AyUcVdvCa"
-Cc: Simon Horman <horms@verge.net.au>,
-	Timur Tabi <timur@freescale.com>,
-	Kim Phillips <kim.phillips@freescale.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Ismail =?ISO-8859-1?Q?D=F6nmez?= <ismail@pardus.org.tr>,
-	Michael Schmitz <schmitz@debian.org>,
-	Roman Zippel <zippel@linux-m68k.org>,
-	Geert Uytterhoeven <geert@linux-m68k.org>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Paul Mackerras <paulus@samba.org>,
-	Ralf Baechle <ralf@linux-mips.org>
-To: Kumar Gala <galak@kernel.crashing.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "netdev" <netdev@vger.kernel.org>
+To: "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:60845 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754308AbXENQZ4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 May 2007 12:25:56 -0400
-In-Reply-To: <Pine.LNX.4.64.0705140923470.24559@gate.crashing.org>
+Received: from mms3.broadcom.com ([216.31.210.19]:4985 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754519AbXENQ1S (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 May 2007 12:27:18 -0400
+In-Reply-To: <20070514145419.GA19679@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Mon, 2007-05-14 at 18:54 +0400, Evgeniy Polyakov wrote:
 
---=-nqe95cB3a/6AyUcVdvCa
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+> I've cought a problem with my laptop and tg3 driver.
+> Suddenly (it was turned off quite for a while) tg3 driver does not start
+> up.
+> 
+> Here is dmesg messages (copied by hand, some bits are ommitted):
+> acpi: ... // device enbaled in couple of words
+> 
+> eth0: Tigon3 [partno(BMC5705mA3) rev 3003 PHY(5705)] pci:33/32, 10/100
+> 
+> eth0: rxcsum[1] linkchgreg[0] miirq[0] asf[0] split[0] wirespeed[0]
+> tsocap[1]
+> eth0: dma_rwctrl[763f0000] dma_mask[64 bit]
+> 
+> PM: writing back config space on device /* tg3 device pcix id*/ at
+> offset b (was 165d14e4, writing 890103c)
+> offset 3 (was 0, writing 4010)
+> offset 2 (was 2000000, writing 2000003)
+> offset 1 (was 2b00000, writing 2b00006)
+> offset 0 (was 165d14e4, writing 165e14e4)
 
-On Mon, 2007-05-14 at 09:24 -0500, Kumar Gala wrote:
+These messages are harmless.  The way the driver saves and restores the
+pci state cause these benign messages to appear.
 
-> this was my fix which looks pretty much the same.
+> 
+> ADDRCONF(NETDEV_UP): eth0 link is not ready
+> 
+> This problem never happend before, but suddenly appeared after quite
+> long suspend to disk (several month I think).
+> Nothing was changed in hardware.
+> Both 2.6.18 and 2.6.21-rc3 have the same issue.
+> No interrupts reported in /proc/interrupts.
 
-[...]
+I'll look into this.  Thanks.
 
-Great, thanks.
-
-johannes
-
---=-nqe95cB3a/6AyUcVdvCa
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iD8DBQBGSI2P/ETPhpq3jKURAgujAJ44eq+k2hYonjsWcA8I5Y/TCPyNBQCfax9w
-SSH37O29Kojlb8+kMnoM3UI=
-=SXsI
------END PGP SIGNATURE-----
-
---=-nqe95cB3a/6AyUcVdvCa--
+> 
+> I have 2.6.21-rc3 source tree in laptop, so can apply patches by hand
+> reading them from main desktop, but can not (easily) install additional 
+> software.
+> 
+> Thanks.
+> 
 
