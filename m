@@ -1,51 +1,53 @@
-From: Michael Stone <mstone@mathom.us>
-Subject: Re: skge vs sk98lin
-Date: Mon, 14 May 2007 10:20:26 -0400
-Message-ID: <20070514142024.GF1785@mathom.us>
-References: <20070508120034.GB1785@mathom.us>
- <20070508101518.288d202a@freekitty>
+From: Janusz Krzysztofik <jkrzyszt@tis.icnet.pl>
+Subject: Re: [IPV4] LVS: Allow to send ICMP unreachable responses when real-servers
+ are removed
+Date: Mon, 14 May 2007 16:25:18 +0200
+Message-ID: <4648714E.9050200@tis.icnet.pl>
+References: <200704271705.l3RH5Brw026873@hera.kernel.org>	<4648382E.8030009@trash.net> <20070514.033504.48528120.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: kaber@trash.net, horms@verge.net.au, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vms042pub.verizon.net ([206.46.252.42]:58295 "EHLO
-	vms042pub.verizon.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754113AbXENOUw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 May 2007 10:20:52 -0400
-Received: from osgiliath.mathom.us ([72.66.113.156])
- by vms042.mailsrvcs.net (Sun Java System Messaging Server 6.2-6.01 (built Apr
- 3 2006)) with ESMTPA id <0JI100FT6BU9RAB3@vms042.mailsrvcs.net> for
- netdev@vger.kernel.org; Mon, 14 May 2007 09:20:34 -0500 (CDT)
-In-reply-to: <20070508101518.288d202a@freekitty>
-Content-disposition: inline
+Received: from d1.icnet.pl ([212.160.220.21]:48815 "EHLO d1.icnet.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754540AbXENOZ1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 May 2007 10:25:27 -0400
+In-Reply-To: <20070514.033504.48528120.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, May 08, 2007 at 10:15:18AM -0700, Stephen Hemminger wrote:
->On Tue, 08 May 2007 08:00:36 -0400
->Michael Stone <mstone@mathom.us> wrote:
->> 2.6.21 seems to have fixed the stability issues I was seeing when using 
->> the skge driver with the older sk98xx dual port fiber cards. There is 
->> still one more lingering oddness: if I have *two* dual port cards in a 
->> system, say eth2-5, I see traffic on eth2, eth3, and eth5, but nothing 
->> on eth4. This seems to be consistent accross a couple of systems I've 
->> tested; only the first card's second interface sees packets (e.g., with 
->> tcpdump). If I reboot with the sk98lin driver on the same kernel I see 
->> all traffic, as expected.
->
->Are the statistics changing? ie. ethtool -S eth4 and ifconfig eth4
+David Miller wrote:
+> From: Patrick McHardy <kaber@trash.net>
+> Date: Mon, 14 May 2007 12:21:34 +0200
+> 
+>> This allows any user to send spoofed packets when ip_nonlocal_bind
+>> is set, which is a quite big change in behaviour of this option.
+>> The TPROXY patches include a similar change, but use a flag in
+>> struct flowi that requires CAP_NET_ADMIN to be set, which seems like
+>> a better idea. Alternatively you could just use input routing for
+>> non-local source addresses like ip_route_me_harder does.
+> 
+> Good point.
+> 
+>> BTW, there doesn't even seem to be a spot where IPVS calls
+>> ip_route_output with the source address set. What exactly is this
+>> needed for?
+> 
+> I suppose he has a patch to make use of it, but was waiting
+> for this route.c change to go in first.
 
-Ok, I ran this for a lot longer and it seems less consistent than it did 
-at first. It now appears that there is no correlation between a NIC not 
-working and its order. In some cases the NICs both come up ok, and see 
-traffic for a while. I left one example running over the weekend, and 
-neither interface on one card was seeing traffic, and the interface 
-counters weren't increasing. In another case, one interface on one NIC 
-worked for a short period of time, then stopped. The interface counters 
-would increase by a few packets every 30 seconds or so. Any kind of 
-ethtool operation (e.g., ethtool -A eth4 autoneg off rx off tx off) 
-would cause the interface to start seeing traffic again, then eventually 
-go back to seeing only a few packets every few seconds.
+If you mean me, the answer is no, I do not have any patch making use of 
+the change in question. What I have is rather a complicated method of 
+notifying udp clients on communication problems before they are 
+redirected to a new real server. My method needs some IPVS related 
+patches, but ICMP port unreachable messages are not generated inside 
+IPVS code, they are just sent, with help of the patch in question, from 
+udp_input() or netfilter REJECT.
 
-Mike Stone
+It was my first intention to patch IPVS to send these messages, but I 
+found no simple way to implement this in the current IPVS code.
+
+Janusz
+
