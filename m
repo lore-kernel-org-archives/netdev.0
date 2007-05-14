@@ -1,62 +1,64 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [PATCH 2/6] sky2: PHY register settings
-Date: Mon, 14 May 2007 12:38:11 -0700
-Message-ID: <20070514193945.599249746@linux-foundation.org>
-References: <20070514193809.867470364@linux-foundation.org>
+Subject: Re: [PATCH 15/17] sky2: only disable 88e8056 on some boards
+Date: Mon, 14 May 2007 12:55:38 -0700
+Message-ID: <20070514125538.5fb3ba51@freepuppy>
+References: <4647EB56.6080800@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Jeff Garzik <jgarzik@pobox.com>
+To: Florin Malita <fmalita@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([65.172.181.25]:43864 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754537AbXENTnc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 May 2007 15:43:32 -0400
-Content-Disposition: inline; filename=sky2-downshift.patch
+Received: from smtp.linux-foundation.org ([207.189.120.12]:35740 "EHLO
+	smtp.osdl.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753278AbXENTzu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 May 2007 15:55:50 -0400
+In-Reply-To: <4647EB56.6080800@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Align the PHY setup of the sky2 driver with the vendor sk98lin (10.0.4.3)
-driver. The PHY register settings are mostly black magic, even with access
-to the documentation it isn't clear what the right values are. The changes
-are mostly comments, the code change only affects the Yukon FE (100 mbit only)
-version.
+On Mon, 14 May 2007 00:53:42 -0400
+Florin Malita <fmalita@gmail.com> wrote:
 
-Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+> Hi Stephen,
+> 
+> Stephen Hemminger wrote:
+> > Use DMI to add a blacklist of broken board. For now only one is known
+> > bad. Gentoo users report driver works on other motherboards (strange). 
+> [snip]
+> > +               .ident = "Gigabyte 965P-S3",
+> > +               .matches = {
+> > +                       DMI_MATCH(DMI_SYS_VENDOR, "Gigabyte Technology Co., 
+> > Ltd."),
+> > +                       DMI_MATCH(DMI_PRODUCT_NAME, "965P-S3"),
+> 
+> Actually, I've been using sky2 with a 965P-S3 for a couple of months 
+> (x86_64 kernel) and as far as I can tell it works like a charm. Recently 
+> I had to hack around the blacklisting but other than that I haven't 
+> noticed anything strange.
+> 
+> What failures are you trying to prevent? Would a warning (instead of 
+> blacklisting) be acceptable?
+> 
+> Thanks,
+> Florin
 
----
- drivers/net/sky2.c |    7 ++++++-
- 1 file changed, 6 insertions(+), 1 deletion(-)
+What happens on my system is that the chip is accessing some unknown
+memory location when it reads the descriptors. This leads to:
+  * Transmit descriptor errors because the transmit descriptor doesn't
+    have the "Owner" bit set. The list is fine, and all the barriers
+    are there it seems like the chip read of memory is getting crap.
+  * TSO errors (probably same problem as before)
+  * Receive packets with no data. The stack ends up ignoring the 
+    garbage; but since we reuse the memory the DMA can/will happen
+    later and cause random memory corruption.
 
---- 2.6.21-rc1.orig/drivers/net/sky2.c	2007-05-14 12:06:25.000000000 -0700
-+++ 2.6.21-rc1/drivers/net/sky2.c	2007-05-14 12:10:13.000000000 -0700
-@@ -304,10 +304,13 @@ static void sky2_phy_init(struct sky2_hw
- 			   PHY_M_EC_MAC_S_MSK);
- 		ectrl |= PHY_M_EC_MAC_S(MAC_TX_CLK_25_MHZ);
+Overall it looks like a PCI synchronization problem. Possible differences
+between working/non-working are:
+  * BIOS, tried up to the latest beta version with no change
+  * Memory, switched to name brand DDR2 800 (2G)
+  * MSI
+  * AHCI/SATA, I am using Raptor with AHCI when booted with i386 on old
+    IDE drive saw no problems
  
-+		/* on PHY 88E1040 Rev.D0 (and newer) downshift control changed */
- 		if (hw->chip_id == CHIP_ID_YUKON_EC)
-+			/* set downshift counter to 3x and enable downshift */
- 			ectrl |= PHY_M_EC_DSC_2(2) | PHY_M_EC_DOWN_S_ENA;
- 		else
--			ectrl |= PHY_M_EC_M_DSC(2) | PHY_M_EC_S_DSC(3);
-+			/* set master & slave downshift counter to 1x */
-+			ectrl |= PHY_M_EC_M_DSC(0) | PHY_M_EC_S_DSC(1);
- 
- 		gm_phy_write(hw, port, PHY_MARV_EXT_CTRL, ectrl);
- 	}
-@@ -324,10 +327,12 @@ static void sky2_phy_init(struct sky2_hw
- 			/* enable automatic crossover */
- 			ctrl |= PHY_M_PC_MDI_XMODE(PHY_M_PC_ENA_AUTO);
- 
-+			/* downshift on PHY 88E1112 and 88E1149 is changed */
- 			if (sky2->autoneg == AUTONEG_ENABLE
- 			    && (hw->chip_id == CHIP_ID_YUKON_XL
- 				|| hw->chip_id == CHIP_ID_YUKON_EC_U
- 				|| hw->chip_id == CHIP_ID_YUKON_EX)) {
-+				/* set downshift counter to 3x and enable downshift */
- 				ctrl &= ~PHY_M_PC_DSC_MSK;
- 				ctrl |= PHY_M_PC_DSC(2) | PHY_M_PC_DOWN_S_ENA;
- 			}
-
---
-Stephen Hemminger <shemminger@linux-foundation.org>
 
