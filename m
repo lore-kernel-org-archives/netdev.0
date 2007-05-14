@@ -1,65 +1,61 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [IPSEC]: Don't warn if high-order hash resize fails
-Date: Mon, 14 May 2007 17:39:41 +1000
-Message-ID: <20070514073941.GA24722@gondor.apana.org.au>
-References: <20070514054837.GA18879@gondor.apana.org.au> <20070513.233635.28398106.davem@davemloft.net> <20070514070733.GA23173@gondor.apana.org.au> <20070514072657.GA24412@gondor.apana.org.au> <20070514072755.GB24412@gondor.apana.org.au>
+From: Joakim Koskela <joakim.koskela@hiit.fi>
+Subject: Re: Problem with xfrm (ipsec) as state/spi selected solely on outer ip addresses
+Date: Mon, 14 May 2007 11:00:21 +0300
+Message-ID: <200705141100.21424.joakim.koskela@hiit.fi>
+References: <200705111622.24680.joakim.koskela@hiit.fi> <46449635.3050206@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:1514 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756490AbXENHjq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 May 2007 03:39:46 -0400
+Received: from creon.otaverkko.fi ([212.68.0.5]:59336 "EHLO creon.otaverkko.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753075AbXENIAJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 May 2007 04:00:09 -0400
+In-Reply-To: <46449635.3050206@trash.net>
 Content-Disposition: inline
-In-Reply-To: <20070514072755.GB24412@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, May 14, 2007 at 05:27:55PM +1000, Herbert Xu wrote:
-> 
-> In fact that's a clue.  If you add them all up they come out at the
-> same value.  So we're getting the directions mixed up...
+On Friday 11 May 2007 19:13:41 Patrick McHardy wrote:
+> Joakim Koskela wrote:
+> > I'm running a system where there might be multiple simultenously
+> > active ipsec states between two hosts (ipv6, but guess it applies to
+> > v4 as well) where the outer ip is the same for all states, but the
+> > inner differ (using beet mode).
+> >
+> > The problem is that after establishing these states, it seems that the
+> > one associated with outgoing traffic is selected solely by the outer
+> > address (the first state matching the outer ip-pairs is used), which
+> > usually results in the wrong spi and the packet being dropped at the
+> > receiver.
+>
+> This should only pick states matching the flow:
+>
+> if (x->km.state == XFRM_STATE_VALID) {
+>
+>
+>         if (!xfrm_selector_match(&x->sel, fl, family) ||
+>             !security_xfrm_state_pol_flow_match(x, pol, fl))
+>                 continue;
+> ...
+>
+> I'm probably misunderstanding your configuration, could you post the
+> SA selectors and addresses that result in an incorrect state being
+> picked?
+>
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-Found the problem.  It was my own fault in a way :)
+Oh, your right. I wasn't setting the netmask correctly (zero) for the 
+selectors, making them match anything. Sorry for the waste of time!
 
-[IPSEC]: Check validity of direction in xfrm_policy_byid
+br, j
 
-The function xfrm_policy_byid takes a dir argument but finds the policy
-using the index instead.  We only use the dir argument to update the
-policy count for that direction.  Since the user can supply any value
-for dir, this can corrupt our policy count.
-
-I know this is the problem because a few days ago I was deleting
-policies by hand using indicies and accidentally typed in the wrong
-direction.  It still deleted the policy and at the time I thought
-that was cool.  In retrospect it isn't such a good idea :)
-
-I decided against letting it delete the policy anyway just in case
-we ever remove the connection between indicies and direction.
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-Cheers,
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
---
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 95271e8..d0882e5 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -796,6 +796,10 @@ struct xfrm_policy *xfrm_policy_byid(u8 type, int dir, u32 id, int delete,
- 	struct hlist_head *chain;
- 	struct hlist_node *entry;
- 
-+	*err = -ENOENT;
-+	if (xfrm_policy_id2dir(id) != dir)
-+		return NULL;
-+
- 	*err = 0;
- 	write_lock_bh(&xfrm_policy_lock);
- 	chain = xfrm_policy_byidx + idx_hash(id);
+Joakim Koskela
+Helsinki Institute for Information Technology (HIIT)
