@@ -1,57 +1,34 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: [patch 04/13] ppp_generic: fix lockdep warning
-Date: Mon, 14 May 2007 09:28:45 +0200
-Message-ID: <20070514072845.GA2081@ff.dom.local>
-References: <20070511.140309.59656886.davem@davemloft.net> <20070511141225.cf7a6909.akpm@linux-foundation.org> <20070514060700.GA1000@ff.dom.local> <20070513.233937.99203647.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [IPSEC]: Don't warn if high-order hash resize fails
+Date: Mon, 14 May 2007 17:26:57 +1000
+Message-ID: <20070514072657.GA24412@gondor.apana.org.au>
+References: <20070514054837.GA18879@gondor.apana.org.au> <20070513.233635.28398106.davem@davemloft.net> <20070514070733.GA23173@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: akpm@linux-foundation.org, jeff@garzik.org, netdev@vger.kernel.org,
-	jura@netams.com, paulus@samba.org
+Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx10.go2.pl ([193.17.41.74]:54711 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752820AbXENHWN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 May 2007 03:22:13 -0400
+Received: from rhun.apana.org.au ([64.62.148.172]:1452 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751661AbXENH07 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 May 2007 03:26:59 -0400
 Content-Disposition: inline
-In-Reply-To: <20070513.233937.99203647.davem@davemloft.net>
+In-Reply-To: <20070514070733.GA23173@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, May 13, 2007 at 11:39:37PM -0700, David Miller wrote:
-> From: Jarek Poplawski <jarkao2@o2.pl>
-> Date: Mon, 14 May 2007 08:07:00 +0200
+On Mon, May 14, 2007 at 05:07:33PM +1000, Herbert Xu wrote:
 > 
-> > After sending this patch I was a little confused, when next
-> > lockdep warning report appeared, and I thought - since this is 
-> > not enough, this patch could be dumped. But now I changed my
-> > mind: there are really many possibilities of strange connections
-> > between locks taken from vlans, ppp (with pppoe), multicasts etc.
-> > - that every one possibility less is a gain here.
->  ...
-> > Of course, later, if somebody will find better solution, they could
-> > be removed,
-> 
-> I already suggested a better fix, you ignored it.
+> Good point.  A bit of dd-ing shows that I've got a negative value
+> in xfrm_policy_count[0] (0xfffffff6).
 
-No, I couldn't have ignored any of your suggestions (I would've
-written about any doubts, anyway). I simply misunderstood! I
-thought you mean different classes for netdevs used in vlan,
-and I prepared such a patch... Sorry!
+In fact the other two directions are bogus too, OUT says 10 and FWD
+says 5.  The actual values are IN == 2, OUT == 2, FWD == 1.  The
+socket policy counts are correct though.
 
-> 
-> For each unique netdev type, use a different locking class.
-> 
-> That will fix this forever, anything else is a situation specific
-> band-aid (but then again isn't that what every lockdep annotation is
-> :-).
-
-Yes, this is very good idea, and I wonder, why you didn't try
-this yourself (after my "ignore"). I thought a little about
-this, but was afraid of it's wide range. Some things - like
-in vlans - should be removed then, for this to work. I'll try
-to send something like this soon (but I'm not so optimistic
-it will cure all or forever...).
-
-Regards,
-Jarek P.
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
