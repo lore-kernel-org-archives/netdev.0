@@ -1,35 +1,28 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH 15/17] sky2: only disable 88e8056 on some boards
-Date: Tue, 15 May 2007 14:41:41 -0700
-Message-ID: <20070515144141.4016df30@localhost>
-References: <4647EB56.6080800@gmail.com>
-	<20070514125538.5fb3ba51@freepuppy>
-	<20070515154339.A20067@zeppo.hm.uc.edu>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [patch 1/4] pasemi_mac: Fix register defines
+Date: Tue, 15 May 2007 17:44:53 -0400
+Message-ID: <464A29D5.2080305@garzik.org>
+References: <20070512193929.193104000@localhost.localdomain> <20070512195727.GB15137@lixom.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Rob Ogden <kernel@zeppo.hm.uc.edu>
+To: olof@lixom.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([207.189.120.12]:52636 "EHLO smtp.osdl.org"
+Received: from srv5.dvmed.net ([207.36.208.214]:50828 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751669AbXEOVlt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 May 2007 17:41:49 -0400
-In-Reply-To: <20070515154339.A20067@zeppo.hm.uc.edu>
+	id S1751743AbXEOVo5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 May 2007 17:44:57 -0400
+In-Reply-To: <20070512195727.GB15137@lixom.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 15 May 2007 15:43:39 -0400
-kernel@zeppo.hm.uc.edu wrote:
+olof@lixom.net wrote:
+> Some shift values were obviously wrong. Fix them to correspond with
+> the masks.
+> 
+> Signed-off-by: Olof Johansson <olof@lixom.net>
 
-> Hello, Stephen,
-> 
-> > RE: sky2 88e8056 Gigabyte GA-965GM-S2 uATX motherboard
-> 
-> A couple days ago I posted my observations that this was a hardware problem. My boards are now working!
-> 
-> I used the GIGABYTE MOTHERBOARD webpage for SUPPORT. They replied with a EEPROM program for the Marvell Yukon ethernet chip.
-> Once the EEPROM was reprogrammed the diskless system on my bench started working and has for the past 24 hours taken a beating on the NFS mount as well as receiving a ping flood from another node.
->
+applied 1-4 to #upstream-fixes
 
-Any chance of sending me the stuff to verify if it fixes my system.
+
