@@ -1,79 +1,41 @@
-From: Andrew Morton <akpm@linux-foundation.org>
+From: Christoph Lameter <clameter@sgi.com>
 Subject: Re: select(0, ..) is valid ?
-Date: Tue, 15 May 2007 11:30:33 -0700
-Message-ID: <20070515113033.75d7bff6.akpm@linux-foundation.org>
+Date: Tue, 15 May 2007 11:36:43 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0705151136150.31972@schroedinger.engr.sgi.com>
 References: <1179250159.2836.117.camel@dyn9047017100.beaverton.ibm.com>
-	<20070515104453.f901e91f.akpm@linux-foundation.org>
-	<Pine.LNX.4.64.0705151109021.31972@schroedinger.engr.sgi.com>
+ <20070515104453.f901e91f.akpm@linux-foundation.org>
+ <Pine.LNX.4.64.0705151109021.31972@schroedinger.engr.sgi.com>
+ <20070515113033.75d7bff6.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: Badari Pulavarty <pbadari@us.ibm.com>, netdev@vger.kernel.org,
 	lkml <linux-kernel@vger.kernel.org>
-To: Christoph Lameter <clameter@sgi.com>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:38670 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754114AbXEOSan (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 May 2007 14:30:43 -0400
-In-Reply-To: <Pine.LNX.4.64.0705151109021.31972@schroedinger.engr.sgi.com>
+Received: from netops-testserver-4-out.sgi.com ([192.48.171.29]:50918 "EHLO
+	relay.sgi.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756615AbXEOSgo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 May 2007 14:36:44 -0400
+In-Reply-To: <20070515113033.75d7bff6.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 15 May 2007 11:10:22 -0700 (PDT)
-Christoph Lameter <clameter@sgi.com> wrote:
+On Tue, 15 May 2007, Andrew Morton wrote:
 
-> On Tue, 15 May 2007, Andrew Morton wrote:
-> 
-> > I _think_ we can just do
-> > 
-> > --- a/fs/compat.c~a
-> > +++ a/fs/compat.c
-> > @@ -1566,9 +1566,13 @@ int compat_core_sys_select(int n, compat
-> >  	 */
-> >  	ret = -ENOMEM;
-> >  	size = FDS_BYTES(n);
-> > -	bits = kmalloc(6 * size, GFP_KERNEL);
-> > -	if (!bits)
-> > -		goto out_nofds;
-> > +	if (likely(size)) {
-> > +		bits = kmalloc(6 * size, GFP_KERNEL);
-> > +		if (!bits)
-> > +			goto out_nofds;
-> > +	} else {
-> > +		bits = NULL;
-> > +	}
-> >  	fds.in      = (unsigned long *)  bits;
-> >  	fds.out     = (unsigned long *) (bits +   size);
-> >  	fds.ex      = (unsigned long *) (bits + 2*size);
-> > _
-> > 
-> > I mean, if that oopses then I'd be very interested in finding out why.
-> > 
-> > But I'm starting to suspect that it would be better to permit kmalloc(0) in
-> > slub.  It depends on how many more of these things need fixing.
-> > 
-> > otoh, a kmalloc(0) could be a sign of some buggy/inefficient/weird code, so
-> > there's some value in forcing us to go look at all the callsites.
->  
-> Hmmm... We could have kmalloc(0) return a pointer to the zero page? That 
-> would catch any writers?
+> Perhaps putting a size=0 detector into slab also would speed this
+> process up.
 
-Returning NULL would have the same effect..
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
 
-But the problem is that we won't get 100% coverage of all codepaths
-for ages, so any oopses we added won't get found.
-
-otoh, any code which does dereference that pointer is buggy anwyay.
-
-The problem here is that code which does
-
-	kmalloc(some-expression-which-returns-0)
-
-will go and assume that the kmalloc(0) got an ENOMEM and it'll take the
-error path.
-
-Oh well, let's persist with things as they now are.
-
-Perhaps putting a size=0 detector into slab also would speed this
-process up.
+Index: linux-2.6/mm/slab.c
+===================================================================
+--- linux-2.6.orig/mm/slab.c	2007-05-15 11:32:25.000000000 -0700
++++ linux-2.6/mm/slab.c	2007-05-15 11:35:55.000000000 -0700
+@@ -792,6 +792,7 @@ static inline struct kmem_cache *__find_
+ 	 */
+ 	BUG_ON(malloc_sizes[INDEX_AC].cs_cachep == NULL);
+ #endif
++	WARN_ON_ONCE(size == 0);
+ 	while (size > csizep->cs_size)
+ 		csizep++;
+ 
