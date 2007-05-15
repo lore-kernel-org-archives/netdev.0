@@ -1,43 +1,63 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [PATCH 2/6] skge: default WOL should be magic only
-Date: Tue, 15 May 2007 15:08:23 -0700
-Message-ID: <20070515220903.522640228@linux-foundation.org>
-References: <20070515220821.676720721@linux-foundation.org>
+From: Kim Phillips <kim.phillips@freescale.com>
+Subject: Re: [PATCH 3/5] ucc_geth: eliminate max-speed, change
+ interface-type to phy-connection-type
+Date: Tue, 15 May 2007 17:26:29 -0500
+Message-ID: <20070515172629.61c1b4c2.kim.phillips@freescale.com>
+References: <20070511182507.7642926e.kim.phillips@freescale.com>
+	<464A29EF.7080405@garzik.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: stable@kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:54941 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756626AbXEOWT3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 May 2007 18:19:29 -0400
-Content-Disposition: inline; filename=skge-wol-magic
+Received: from de01egw01.freescale.net ([192.88.165.102]:56542 "EHLO
+	de01egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756566AbXEOW0k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 May 2007 18:26:40 -0400
+In-Reply-To: <464A29EF.7080405@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-By default, the skge driver now enables wake on magic and wake on PHY.
-This is a bad default (bug), wake on PHY means machine will never shutdown 
-if connected to a switch.
+On Tue, 15 May 2007 17:45:19 -0400
+Jeff Garzik <jeff@garzik.org> wrote:
 
-Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>a
+> Kim Phillips wrote:
+> > It was agreed that phy-connection-type was a better name for
+> > the interface-type property, so this patch renames it.
+> > 
+> > Also, the max-speed property name was determined too generic,
+> > and is therefore eliminated in favour of phy-connection-type
+> > derivation logic.
+> > 
+> > includes corrections to copyright text.
+> > 
+> > Signed-off-by: Kim Phillips <kim.phillips@freescale.com>
+> > ---
+> >  drivers/net/ucc_geth.c     |   40 ++++++++++++++++------------------------
+> >  drivers/net/ucc_geth_mii.c |    9 +++++----
+> >  drivers/net/ucc_geth_mii.h |   10 +++++-----
+> >  3 files changed, 26 insertions(+), 33 deletions(-)
+> 
+> applied to #upstream
+> 
+just to be clear; only the mpc8323e-mds board works on your current #upstream-{fixes,linus}.
 
----
- drivers/net/skge.c |    4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+The mpc8323e-rdb and mpc8360e-mds require
 
---- linux-2.6.21.y.orig/drivers/net/skge.c	2007-05-10 13:26:26.000000000 -0700
-+++ linux-2.6.21.y/drivers/net/skge.c	2007-05-10 13:26:31.000000000 -0700
-@@ -3586,7 +3586,9 @@ static struct net_device *skge_devinit(s
- 	skge->duplex = -1;
- 	skge->speed = -1;
- 	skge->advertising = skge_supported_modes(hw);
--	skge->wol = pci_wake_enabled(hw->pdev) ? wol_supported(hw) : 0;
-+
-+	if (pci_wake_enabled(hw->pdev))
-+		skge->wol = wol_supported(hw) & WAKE_MAGIC;
- 
- 	hw->dev[port] = dev;
- 
+phylib: add the ICPlus IP175C PHY driver
 
---
-Stephen Hemminger <shemminger@linux-foundation.org>
+and 
 
+phylib: enable RGMII-ID on the Marvell m88e1111 PHY
+
+respectively in order to work.
+
+I'm ok with the SGMII patches:
+
+phylib: m88e1111: enable SGMII mode
+gianfar: add support for SGMII
+
+staying on #upstream, but 2 out of 3 boards are currently broken for #upstream-{fixes,linus}.
+
+Kim
