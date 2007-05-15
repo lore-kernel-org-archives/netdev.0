@@ -1,49 +1,71 @@
-From: Badari Pulavarty <pbadari@us.ibm.com>
-Subject: select(0, ..) is valid ?
-Date: Tue, 15 May 2007 10:29:18 -0700
-Message-ID: <1179250159.2836.117.camel@dyn9047017100.beaverton.ibm.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: Panic in ieee_80211_ibss_add_sta when trying to join ad-hoc network (rt2500pci)
+Date: Tue, 15 May 2007 13:12:02 -0400
+Message-ID: <20070515171202.GD15105@tuxdriver.com>
+References: <20070515152842.GA26481@charon.n2.diac24.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Christoph Lameter <clameter@sgi.com>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: netdev@vger.kernel.org, lkml <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: David LAMPARTER <lists@diac24.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e36.co.us.ibm.com ([32.97.110.154]:43544 "EHLO
-	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755657AbXEOR2h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 May 2007 13:28:37 -0400
+Received: from ra.tuxdriver.com ([70.61.120.52]:2398 "EHLO ra.tuxdriver.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757272AbXEORds (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 May 2007 13:33:48 -0400
+Content-Disposition: inline
+In-Reply-To: <20070515152842.GA26481@charon.n2.diac24.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Tue, May 15, 2007 at 05:28:42PM +0200, David LAMPARTER wrote:
 
-Is select(0, ..) is a valid operation ?
+> BUG: unable to handle kernel NULL pointer derference at virtual address 00000218
+> [...]
+> EIP is at ieee80211_ibss_add_sta+0xae/0x130
+> [...]
+> EIP: [<c05773fe>] ieee_80211_ibss_add_sta+0xae/0x130 SS:ESP 0068:f641dc38
+> Kernel panic - not syncing: Fatal exception in interrupt
+> 
+> The bug seems to be triggered as soon as the stack tries to
+> join my router's ad-hoc; it happen either directly when
+> doing "ip l s wlan0 up" as well as when doing
+> "iwconfig wlan0 essid equinox" (when it did not immediately
+> find the network).
 
-I see that there is no check to prevent this or return
-success early, without doing any work. Do we need one ?
+Probably because of this:
 
-slub code is complaining that we are doing kmalloc(0).
+	struct ieee80211_sub_if_data *sdata = NULL;
+...
+	sta->supp_rates = sdata->u.sta.supp_rates_bits;
 
-Thanks,
-Badari
+Patch below...does this work better?  Looks like upstream needs
+it too...
 
-------------[ cut here ]------------
-Badness at include/linux/slub_def.h:88
-Call Trace:
-[c0000001e4eb7640] [c00000000000e650] .show_stack+0x68/0x1b0
-(unreliable)
-[c0000001e4eb76e0] [c00000000029b854] .report_bug+0x94/0xe8
-[c0000001e4eb7770] [c0000000000219f0] .program_check_exception
-+0x12c/0x568
-[c0000001e4eb77f0] [c000000000004a84] program_check_common+0x104/0x180
---- Exception: 700 at .get_slab+0x4c/0x234
-    LR = .__kmalloc+0x24/0xc4
-[c0000001e4eb7ae0] [c0000001e4eb7b80] 0xc0000001e4eb7b80 (unreliable)
-[c0000001e4eb7b80] [c0000000000a7ff0] .__kmalloc+0x24/0xc4
-[c0000001e4eb7c10] [c0000000000ea720] .compat_core_sys_select+0x90/0x240
-[c0000001e4eb7d00] [c0000000000ec3a4] .compat_sys_select+0xb0/0x190
-[c0000001e4eb7dc0] [c000000000014944] .ppc32_select+0x14/0x28
-[c0000001e4eb7e30] [c00000000000872c] syscall_exit+0x0/0x40
+John
 
+---
+Avoid sdata null pointer dereference in ieee80211_ibss_add_sta.
 
+Signed-off-by: John W. Linville <linville@tuxdriver.com>
+---
+
+ net/mac80211/ieee80211_sta.c |    3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/net/mac80211/ieee80211_sta.c b/net/mac80211/ieee80211_sta.c
+index a36c6f3..dd36cc6 100644
+--- a/net/mac80211/ieee80211_sta.c
++++ b/net/mac80211/ieee80211_sta.c
+@@ -3154,7 +3154,7 @@ struct sta_info * ieee80211_ibss_add_sta(struct net_device *dev,
+ {
+ 	struct ieee80211_local *local = wdev_priv(dev->ieee80211_ptr);
+ 	struct sta_info *sta;
+-	struct ieee80211_sub_if_data *sdata = NULL;
++	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
+ 
+ 	/* TODO: Could consider removing the least recently used entry and
+ 	 * allow new one to be added. */
+
+-- 
+John W. Linville
+linville@tuxdriver.com
