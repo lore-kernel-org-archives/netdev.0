@@ -1,51 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] don't put multicasts with mc_ttl=0 on the wire
-Date: Tue, 15 May 2007 13:45:40 -0700 (PDT)
-Message-ID: <20070515.134540.45873471.davem@davemloft.net>
-References: <20070515195602.GK19036@sgi.com>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [RFC] New driver API to speed up small packets xmits
+Date: Tue, 15 May 2007 13:52:34 -0700
+Message-ID: <adatzudq06l.fsf@cisco.com>
+References: <adad517zk2r.fsf@cisco.com> <200705130800.44595.ak@suse.de>
+	<adatzuerr47.fsf@cisco.com>
+	<20070515.131840.52167955.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, arenaud@sgi.com
-To: akepner@sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: ak@suse.de, krkumar2@in.ibm.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35576
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751153AbXEOUpe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 May 2007 16:45:34 -0400
-In-Reply-To: <20070515195602.GK19036@sgi.com>
+Received: from sj-iport-6.cisco.com ([171.71.176.117]:27192 "EHLO
+	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753089AbXEOUxD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 May 2007 16:53:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: akepner@sgi.com
-Date: Tue, 15 May 2007 12:56:02 -0700
+ > > I'll have to think about implementing that for IPoIB.  One issue I see
+ > > is if I have, say, 4 free entries in my send queue and skb_gso_segment()
+ > > gives me back 5 packets to send.  It's not clear I can recover at that
+ > > point -- I guess I have to check against gso_segs in the xmit routine
+ > > before actually doing the segmentation.
+ > 
+ > I'd suggest adding a fudge factor to your free TX space, which
+ > is advisable anyways so that when TX is woken up, more of
+ > the transfer from queue to device can happen in a batch-like
+ > fashion.
 
-> A colleague of mine found that multicasts with a ttl of 0
-> can be sent on the wire. This happens if the sender doesn't
-> belong to the destination multicast group.
-> 
-> With the following the multicast ttl is respected whether
-> or not the sender belongs to the destination multicast group.
-> 
-> Signed-off-by: Arthur Kepner <akepner@sgi.com>
+Well, IPoIB doesn't do netif_wake_queue() until half the device's TX
+queue is free, so we should get batching.  However, I'm not sure that
+I can count on a fudge factor ensuring that there's enough space to
+handle everything skb_gso_segment() gives me -- is there any reliable
+way to get an upper bound on how many segments a given gso skb will
+use when it's segmented?
 
-This is actually used by some things if I remember correctly.
-See this command and code in net/ipv4/route.c:
-
-			/* Special hack: user can direct multicasts
-			   and limited broadcast via necessary interface
-			   without fiddling with IP_MULTICAST_IF or IP_PKTINFO.
-			   This hack is not just for fun, it allows
-			   vic,vat and friends to work.
-			   They bind socket to loopback, set ttl to zero
-			   and expect that it will work.
-			   From the viewpoint of routing cache they are broken,
-			   because we are not allowed to build multicast path
-			   with loopback source addr (look, routing cache
-			   cannot know, that ttl is zero, so that packet
-			   will not leave this host and route is valid).
-			   Luckily, this hack is good workaround.
-			 */
-
-			fl.oif = dev_out->ifindex;
-			goto make_route;
+ - R.
