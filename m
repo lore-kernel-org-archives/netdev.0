@@ -1,75 +1,35 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [PATCH] don't put multicasts with mc_ttl=0 on the wire
-Date: Tue, 15 May 2007 14:40:55 -0700
-Message-ID: <OF4C423F38.96094E7A-ON882572DC.00711F94-882572DC.00770F97@us.ibm.com>
-References: <20070515195602.GK19036@sgi.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH 15/17] sky2: only disable 88e8056 on some boards
+Date: Tue, 15 May 2007 14:41:41 -0700
+Message-ID: <20070515144141.4016df30@localhost>
+References: <4647EB56.6080800@gmail.com>
+	<20070514125538.5fb3ba51@freepuppy>
+	<20070515154339.A20067@zeppo.hm.uc.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: arenaud@sgi.com, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org
-To: akepner@sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Rob Ogden <kernel@zeppo.hm.uc.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e34.co.us.ibm.com ([32.97.110.152]:45427 "EHLO
-	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755286AbXEOVk6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 May 2007 17:40:58 -0400
-In-Reply-To: <20070515195602.GK19036@sgi.com>
+Received: from smtp.osdl.org ([207.189.120.12]:52636 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751669AbXEOVlt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 May 2007 17:41:49 -0400
+In-Reply-To: <20070515154339.A20067@zeppo.hm.uc.edu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Arthur,
-        I assume you're making use of the hack mentioned in route.c:
+On Tue, 15 May 2007 15:43:39 -0400
+kernel@zeppo.hm.uc.edu wrote:
 
- "... This hack is not just for fun, it allows vic, vat and friends to 
-work.
-They bind socket to loopback, set ttl to zero and expect that it will 
-work."
-        I don't know the details of the intent for this hack, but did you
-test that it won't break them?
-        A multicast application that relies on the (unicast) routing table
-at all is broken IMHO, as is an app that sets the TTL to 0, but shouldn't
-all ttl 0 packets about to be sent to the wire be dropped? Wouldn't that
-be a better way to handle this case?
+> Hello, Stephen,
+> 
+> > RE: sky2 88e8056 Gigabyte GA-965GM-S2 uATX motherboard
+> 
+> A couple days ago I posted my observations that this was a hardware problem. My boards are now working!
+> 
+> I used the GIGABYTE MOTHERBOARD webpage for SUPPORT. They replied with a EEPROM program for the Marvell Yukon ethernet chip.
+> Once the EEPROM was reprogrammed the diskless system on my bench started working and has for the past 24 hours taken a beating on the NFS mount as well as receiving a ping flood from another node.
+>
 
-                                                +-DLS
-
-netdev-owner@vger.kernel.org wrote on 05/15/2007 12:56:02 PM:
-
-> A colleague of mine found that multicasts with a ttl of 0
-> can be sent on the wire. This happens if the sender doesn't
-> belong to the destination multicast group.
-> 
-> With the following the multicast ttl is respected whether
-> or not the sender belongs to the destination multicast group.
-> 
-> Signed-off-by: Arthur Kepner <akepner@sgi.com>
-> 
-> ---
-> 
->  net/ipv4/route.c |    3 +--
->  1 files changed, 1 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-> index cb76e3c..bf25cf5 100644
-> --- a/net/ipv4/route.c
-> +++ b/net/ipv4/route.c
-> @@ -2249,8 +2249,7 @@ static inline int __mkroute_output(struct rtable 
-**result,
->     }
->     if (flags & (RTCF_BROADCAST | RTCF_MULTICAST)) {
->        rth->rt_spec_dst = fl->fl4_src;
-> -      if (flags & RTCF_LOCAL &&
-> -          !(dev_out->flags & IFF_LOOPBACK)) {
-> +      if (!(dev_out->flags & IFF_LOOPBACK)) {
->           rth->u.dst.output = ip_mc_output;
->           RT_CACHE_STAT_INC(out_slow_mc);
->        }
-> 
-> -- 
-> Arthur
-> 
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
+Any chance of sending me the stuff to verify if it fixes my system.
