@@ -1,39 +1,51 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: [PATCH] mac80211: avoid null ptr deref in ieee80211_ibss_add_sta
-Date: Tue, 15 May 2007 16:14:40 -0400
-Message-ID: <20070515201439.GE15105@tuxdriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] don't put multicasts with mc_ttl=0 on the wire
+Date: Tue, 15 May 2007 13:45:40 -0700 (PDT)
+Message-ID: <20070515.134540.45873471.davem@davemloft.net>
+References: <20070515195602.GK19036@sgi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, arenaud@sgi.com
+To: akepner@sgi.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35576
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751153AbXEOUpe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 May 2007 16:45:34 -0400
+In-Reply-To: <20070515195602.GK19036@sgi.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-avoid sdata null pointer dereference in ieee80211_ibss_add_sta.
+From: akepner@sgi.com
+Date: Tue, 15 May 2007 12:56:02 -0700
 
-Signed-off-by: John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
----
- net/mac80211/ieee80211_sta.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+> A colleague of mine found that multicasts with a ttl of 0
+> can be sent on the wire. This happens if the sender doesn't
+> belong to the destination multicast group.
+> 
+> With the following the multicast ttl is respected whether
+> or not the sender belongs to the destination multicast group.
+> 
+> Signed-off-by: Arthur Kepner <akepner@sgi.com>
 
-diff --git a/net/mac80211/ieee80211_sta.c b/net/mac80211/ieee80211_sta.c
-index a36c6f3..dd36cc6 100644
---- a/net/mac80211/ieee80211_sta.c
-+++ b/net/mac80211/ieee80211_sta.c
-@@ -3154,7 +3154,7 @@ struct sta_info * ieee80211_ibss_add_sta(struct net_device *dev,
- {
- 	struct ieee80211_local *local = wdev_priv(dev->ieee80211_ptr);
- 	struct sta_info *sta;
--	struct ieee80211_sub_if_data *sdata = NULL;
-+	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
- 
- 	/* TODO: Could consider removing the least recently used entry and
- 	 * allow new one to be added. */
--- 
-1.5.0.6
+This is actually used by some things if I remember correctly.
+See this command and code in net/ipv4/route.c:
 
--- 
-John W. Linville
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+			/* Special hack: user can direct multicasts
+			   and limited broadcast via necessary interface
+			   without fiddling with IP_MULTICAST_IF or IP_PKTINFO.
+			   This hack is not just for fun, it allows
+			   vic,vat and friends to work.
+			   They bind socket to loopback, set ttl to zero
+			   and expect that it will work.
+			   From the viewpoint of routing cache they are broken,
+			   because we are not allowed to build multicast path
+			   with loopback source addr (look, routing cache
+			   cannot know, that ttl is zero, so that packet
+			   will not leave this host and route is valid).
+			   Luckily, this hack is good workaround.
+			 */
+
+			fl.oif = dev_out->ifindex;
+			goto make_route;
