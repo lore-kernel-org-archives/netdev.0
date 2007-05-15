@@ -1,7 +1,7 @@
 From: "Yuriy N. Shkandybin" <jura@netams.com>
 Subject: Re: [PATCH] netdev: lockdep classes in register_netdevice Re: [patch 04/13] ppp_generic: fix lockdep warning
-Date: Tue, 15 May 2007 12:49:47 +0400
-Message-ID: <025c01c796cd$fe9ccee0$0202fea9@Jura>
+Date: Tue, 15 May 2007 12:50:27 +0400
+Message-ID: <025d01c796ce$161e6ab0$0202fea9@Jura>
 References: <20070511.140309.59656886.davem@davemloft.net> <20070511141225.cf7a6909.akpm@linux-foundation.org> <20070514060700.GA1000@ff.dom.local> <20070513.233937.99203647.davem@davemloft.net> <20070515053101.GA990@ff.dom.local>
 Mime-Version: 1.0
 Content-Type: text/plain;
@@ -14,10 +14,10 @@ Cc: <akpm@linux-foundation.org>, <jeff@garzik.org>,
 To: "Jarek Poplawski" <jarkao2@o2.pl>,
 	"David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.netams.com ([212.192.245.10]:44367 "EHLO mail.netams.com"
+Received: from www.netams.com ([212.192.245.10]:44898 "EHLO mail.netams.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759480AbXEOIuG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 May 2007 04:50:06 -0400
+	id S1759647AbXEOIun (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 May 2007 04:50:43 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
