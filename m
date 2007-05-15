@@ -1,38 +1,41 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [RFC] New driver API to speed up small packets xmits
-Date: Tue, 15 May 2007 14:17:06 -0700
-Message-ID: <adahcqdpz1p.fsf@cisco.com>
-References: <OF0CAD6D87.DBE62968-ON872572DC.0073646A-882572DC.0073BEC2@us.ibm.com>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: [PATCH] Intel IXP4xx network drivers v.2 - Ethernet and HSS
+Date: Tue, 15 May 2007 23:20:54 +0200
+Message-ID: <20070515212054.GH13958@xi.wantstofly.org>
+References: <464034CF.20700@wpkg.org> <f1s2eu$26p$1@sea.gmane.org> <20070509092132.GB6976@xi.wantstofly.org> <200705091135.06405.marcus@better.se> <20070509110415.GA7513@xi.wantstofly.org> <4641D920.2020508@roinet.com> <47B3C8DF-D72E-45D4-8381-D77FDCD89DB8@cam.ac.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, ak@suse.de,
-	krkumar2@in.ibm.com, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org
-To: Shirley Ma <xma@us.ibm.com>
+Cc: David Acker <dacker@roinet.com>, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.arm.linux.org.uk,
+	Marcus Better <marcus@better.se>
+To: Michael-Luke Jones <mlj28@cam.ac.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-2-in.cisco.com ([171.71.176.71]:29447 "EHLO
-	sj-iport-2.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754750AbXEOVRP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 May 2007 17:17:15 -0400
-In-Reply-To: <OF0CAD6D87.DBE62968-ON872572DC.0073646A-882572DC.0073BEC2@us.ibm.com> (Shirley Ma's message of "Tue, 15 May 2007 14:04:41 -0700")
+Received: from alephnull.demon.nl ([83.160.184.112]:60876 "EHLO
+	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753729AbXEOVU6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 May 2007 17:20:58 -0400
+Content-Disposition: inline
+In-Reply-To: <47B3C8DF-D72E-45D4-8381-D77FDCD89DB8@cam.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- >       I thought to enable GSO, device driver actually does nothing rather
- > than enabling the flag. GSO moved TCP offloading to interface layer before
- > device xmit. It's a different idea with multiple packets per xmit. GSO
- > still queue the packet one bye one in QDISC and xmit one bye one. The
- > multiple packets per xmit will xmit N packets when N packets in QDISC
- > queue. Please corrent me if wrong.
+On Wed, May 09, 2007 at 03:45:53PM +0100, Michael-Luke Jones wrote:
 
-Current use of GSO does segmentation just above the netdevice driver.
-However there's nothing that prevents it from being used to push
-segmentation into the driver -- as I described, just set NETIF_F_GSO_SOFTWARE
-and do skb_gso_segment() within the driver.
+> No-one is saying that this driver should not be mainlined before it  
+> has LE support. All that I said was:
+> 
+> > Personally I'd like LE ethernet tested and working before we push.
+> 
+> The alternative would be to explicitly state in Kconfig that LE arm  
+> is broken with this driver, so that this could be fixed later.
 
-As Michael Chan pointed out, tg3.c already does this to work around a
-rare bug in the HW TSO implementation.  For IPoIB we could do it all
-the time to get multiple send work requests from one call to the xmit
-method.
+The driver does bomb out during compile if __ARMEB__ isn't defined,
+but that apparently wasn't good enough.
 
- - R.
+
+> Please can we not blow this out of proportion, it really isn't that  
+> big a deal. The irony is that fixing Krzysztof's driver to work on LE  
+> will probably be quite easy, given that we already have a working LE  
+> driver from Christian.
+
+I'm looking forward to your patch.
