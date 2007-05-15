@@ -1,60 +1,131 @@
-From: David Lamparter <lists@diac24.net>
-Subject: mac80211 ad-hoc: carrier not set up [was: Panic in ieee_80211_ibss_add_sta]
-Date: Tue, 15 May 2007 21:33:09 +0200
-Message-ID: <20070515193309.GA29184@charon.n2.diac24.net>
-References: <20070515152842.GA26481@charon.n2.diac24.net> <20070515171202.GD15105@tuxdriver.com>
+From: kernel@zeppo.hm.uc.edu
+Subject: Re: [PATCH 15/17] sky2: only disable 88e8056 on some boards
+Date: Tue, 15 May 2007 15:43:39 -0400
+Message-ID: <20070515154339.A20067@zeppo.hm.uc.edu>
+References: <4647EB56.6080800@gmail.com> <20070514125538.5fb3ba51@freepuppy>
+Reply-To: Rob Ogden <kernel@zeppo.hm.uc.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: "John W. Linville" <linville@tuxdriver.com>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 91-65-240-14-dynip.superkabel.de ([91.65.240.14]:43498 "EHLO
-	charon.n2.diac24.net" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1756541AbXEOTdN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 May 2007 15:33:13 -0400
+Received: from zeppo.hm.uc.edu ([129.137.4.89]:1978 "EHLO zeppo.hm.uc.edu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752965AbXEOToU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 May 2007 15:44:20 -0400
 Content-Disposition: inline
-In-Reply-To: <20070515171202.GD15105@tuxdriver.com>
+In-Reply-To: <20070514125538.5fb3ba51@freepuppy>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, May 15, 2007 at 01:12:02PM -0400, John W. Linville wrote:
-> Patch below...does this work better?  Looks like upstream needs
-> it too...
+Hello, Stephen,
 
-Yup, this fixes it. Thanks for the quick fix.
+> RE: sky2 88e8056 Gigabyte GA-965GM-S2 uATX motherboard
 
-However, ad-hoc still does not work, since the network device's
-carrier status does not seem to be properly set. (It remains
-in NO-CARRIER even after "wlan0: Selected IBSS BSSID
-92:68:a2:db:de:45 based on configured SSID". I dirtily hacked
-around that with the following two-liner:
+A couple days ago I posted my observations that this was a hardware problem. My boards are now working!
 
---- wireless-dev/net/mac80211/ieee80211_sta.c.orig	2007-05-15 20:19:55.000000000 +0200
-+++ wireless-dev/net/mac80211/ieee80211_sta.c	2007-05-15 21:19:38.362587215 +0200
-@@ -2448,6 +2448,7 @@
- 	mod_timer(&ifsta->timer, jiffies + IEEE80211_IBSS_MERGE_INTERVAL);
- 
- 	ieee80211_rx_bss_put(dev, bss);
-+	netif_carrier_on(dev);
- 
- 	return res;
- }
-@@ -2648,6 +2649,7 @@
- 
- 	ifsta->ssid_set = len ? 1 : 0;
- 	if (sdata->type == IEEE80211_IF_TYPE_IBSS && !ifsta->bssid_set) {
-+		netif_carrier_off(dev);
- 		ifsta->ibss_join_req = jiffies;
- 		ifsta->state = IEEE80211_IBSS_SEARCH;
- 		return ieee80211_sta_find_ibss(dev, ifsta);
+I used the GIGABYTE MOTHERBOARD webpage for SUPPORT. They replied with a EEPROM program for the Marvell Yukon ethernet chip.
+Once the EEPROM was reprogrammed the diskless system on my bench started working and has for the past 24 hours taken a beating on the NFS mount as well as receiving a ping flood from another node.
+
+I am not using the sky2 driver, rather the sk98lin from Marvell's website. It was a last grasp before buying PCI ethernet cards. Marvell's sk98lin was no better than sky2 before the EEPROM reprogramming. My observation is that sky2/v1.10 still does not work after the reprogramming.
+I will grab your latest sky2 patches and report results.
+
+Here are the details:
+---------------------
+Suse 10.0 
+2.6.21 i386
+sk98lin: Network Device Driver v10.0.5.3
+(download from Marvell's webpage)
+
+Marvell Yukon chip 88E8056 reprogrammed with files provided by GIGABYTE MOTHERBOARD manufacturer:
+    1024 Feb  9 08:51 GBT5614n.raw
+      24 May 16 00:23 VPD.BAT
+      93 Mar  2 13:08 eep.bat
+  155729 Oct 19  2006 mac.exe
+  224533 Oct 31  2006 yukonvpd.exe
+
+Contents of the eep.bat file:
+-----------------------------
+@echo off
+@del vpd.bat
+mac
+yukonvpd -P GBT5614n.raw 
+yukonvpd -u 1458E000
+call vpd.bat
+
+Contents of the VPD.BAT file:
+-----------------------------
+YUKONVPD -M 0016E6FFFFFF
+(I replace the full MAC with FF FF FF)
+
+More as it happens,
+-Rob
 
 
-However, I have NO CLUE WHAT I'M DOING THERE! Make a proper fix!
-(Especially, I think it needs more netif_carrier_off calls in
-different places.)
+
+> RE: sky2 88e8056 Gigabyte GA-965GM-S2 uATX motherboard
+
+> I have now too many of these Gigabyte mobos, GA-965GM-S2 with the Marvell 88e8056
+> www.gigabyte.com.tw / Products / Motherboard / Products_Overview.aspx?ProductID=2388
+> 
+> Observations.
+> -------------
+> The problem may not be sky2 specific. I have diskless nodes where too many can NOT 
+> 1) reliably DHCP an IP number from the server 
+> 2) and if the pxelinux.cfg/default loads, it is not certain if the kernel or the initrd would tftp transfer.
+> 
+> There are two of 12 diskless nodes that work, ... always work.
+> All mobos are the same, all CMOS is set identically
+> 
 
 
-Anyway, thanks for my now-working wireless,
 
-David Lamparter
-
+On Mon, May 14, 2007 at 12:55:38PM -0700, Stephen Hemminger wrote:
+> On Mon, 14 May 2007 00:53:42 -0400
+> Florin Malita <fmalita@gmail.com> wrote:
+> 
+> > Hi Stephen,
+> > 
+> > Stephen Hemminger wrote:
+> > > Use DMI to add a blacklist of broken board. For now only one is known
+> > > bad. Gentoo users report driver works on other motherboards (strange). 
+> > [snip]
+> > > +               .ident = "Gigabyte 965P-S3",
+> > > +               .matches = {
+> > > +                       DMI_MATCH(DMI_SYS_VENDOR, "Gigabyte Technology Co., 
+> > > Ltd."),
+> > > +                       DMI_MATCH(DMI_PRODUCT_NAME, "965P-S3"),
+> > 
+> > Actually, I've been using sky2 with a 965P-S3 for a couple of months 
+> > (x86_64 kernel) and as far as I can tell it works like a charm. Recently 
+> > I had to hack around the blacklisting but other than that I haven't 
+> > noticed anything strange.
+> > 
+> > What failures are you trying to prevent? Would a warning (instead of 
+> > blacklisting) be acceptable?
+> > 
+> > Thanks,
+> > Florin
+> 
+> What happens on my system is that the chip is accessing some unknown
+> memory location when it reads the descriptors. This leads to:
+>   * Transmit descriptor errors because the transmit descriptor doesn't
+>     have the "Owner" bit set. The list is fine, and all the barriers
+>     are there it seems like the chip read of memory is getting crap.
+>   * TSO errors (probably same problem as before)
+>   * Receive packets with no data. The stack ends up ignoring the 
+>     garbage; but since we reuse the memory the DMA can/will happen
+>     later and cause random memory corruption.
+> 
+> Overall it looks like a PCI synchronization problem. Possible differences
+> between working/non-working are:
+>   * BIOS, tried up to the latest beta version with no change
+>   * Memory, switched to name brand DDR2 800 (2G)
+>   * MSI
+>   * AHCI/SATA, I am using Raptor with AHCI when booted with i386 on old
+>     IDE drive saw no problems
+>  
+> 
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
