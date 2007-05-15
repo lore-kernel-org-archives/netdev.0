@@ -1,63 +1,39 @@
-From: Kim Phillips <kim.phillips@freescale.com>
-Subject: Re: [PATCH 3/5] ucc_geth: eliminate max-speed, change
- interface-type to phy-connection-type
-Date: Tue, 15 May 2007 17:26:29 -0500
-Message-ID: <20070515172629.61c1b4c2.kim.phillips@freescale.com>
-References: <20070511182507.7642926e.kim.phillips@freescale.com>
-	<464A29EF.7080405@garzik.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: [PATCH] [NET] Add constant for FCS/CRC length (frame check sequence)
+Date: Tue, 15 May 2007 15:29:16 -0700
+Message-ID: <20070515222916.9404.51955.stgit@localhost.localdomain>
+Content-Type: text/plain; charset=utf-8; format=fixed
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, jeff@garzik.org, auke@foo-projects.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from de01egw01.freescale.net ([192.88.165.102]:56542 "EHLO
-	de01egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756566AbXEOW0k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 May 2007 18:26:40 -0400
-In-Reply-To: <464A29EF.7080405@garzik.org>
+Received: from mga09.intel.com ([134.134.136.24]:50610 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757855AbXEOW3S (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 May 2007 18:29:18 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 15 May 2007 17:45:19 -0400
-Jeff Garzik <jeff@garzik.org> wrote:
+From: Auke Kok <auke-jan.h.kok@intel.com>
 
-> Kim Phillips wrote:
-> > It was agreed that phy-connection-type was a better name for
-> > the interface-type property, so this patch renames it.
-> > 
-> > Also, the max-speed property name was determined too generic,
-> > and is therefore eliminated in favour of phy-connection-type
-> > derivation logic.
-> > 
-> > includes corrections to copyright text.
-> > 
-> > Signed-off-by: Kim Phillips <kim.phillips@freescale.com>
-> > ---
-> >  drivers/net/ucc_geth.c     |   40 ++++++++++++++++------------------------
-> >  drivers/net/ucc_geth_mii.c |    9 +++++----
-> >  drivers/net/ucc_geth_mii.h |   10 +++++-----
-> >  3 files changed, 26 insertions(+), 33 deletions(-)
-> 
-> applied to #upstream
-> 
-just to be clear; only the mpc8323e-mds board works on your current #upstream-{fixes,linus}.
+About a dozen drivers that have some form of crc checksumming or offloading
+use this constant, warranting a global define for it.
 
-The mpc8323e-rdb and mpc8360e-mds require
+Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+---
 
-phylib: add the ICPlus IP175C PHY driver
+ include/linux/if_ether.h |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-and 
-
-phylib: enable RGMII-ID on the Marvell m88e1111 PHY
-
-respectively in order to work.
-
-I'm ok with the SGMII patches:
-
-phylib: m88e1111: enable SGMII mode
-gianfar: add support for SGMII
-
-staying on #upstream, but 2 out of 3 boards are currently broken for #upstream-{fixes,linus}.
-
-Kim
+diff --git a/include/linux/if_ether.h b/include/linux/if_ether.h
+index 1db774c..3213f6f 100644
+--- a/include/linux/if_ether.h
++++ b/include/linux/if_ether.h
+@@ -33,6 +33,7 @@
+ #define ETH_ZLEN	60		/* Min. octets in frame sans FCS */
+ #define ETH_DATA_LEN	1500		/* Max. octets in payload	 */
+ #define ETH_FRAME_LEN	1514		/* Max. octets in frame sans FCS */
++#define ETH_FCS_LEN	4		/* Octets in the FCS		 */
+ 
+ /*
+  *	These are the defined Ethernet Protocol ID's.
