@@ -1,34 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] New driver API to speed up small packets xmits
-Date: Tue, 15 May 2007 13:18:40 -0700 (PDT)
-Message-ID: <20070515.131840.52167955.davem@davemloft.net>
-References: <adad517zk2r.fsf@cisco.com>
-	<200705130800.44595.ak@suse.de>
-	<adatzuerr47.fsf@cisco.com>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: [PATCH] mac80211: avoid null ptr deref in ieee80211_ibss_add_sta
+Date: Tue, 15 May 2007 16:14:40 -0400
+Message-ID: <20070515201439.GE15105@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ak@suse.de, krkumar2@in.ibm.com, netdev@vger.kernel.org
-To: rdreier@cisco.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49435
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754957AbXEOUSe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 May 2007 16:18:34 -0400
-In-Reply-To: <adatzuerr47.fsf@cisco.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Roland Dreier <rdreier@cisco.com>
-Date: Tue, 15 May 2007 09:25:28 -0700
+avoid sdata null pointer dereference in ieee80211_ibss_add_sta.
 
-> I'll have to think about implementing that for IPoIB.  One issue I see
-> is if I have, say, 4 free entries in my send queue and skb_gso_segment()
-> gives me back 5 packets to send.  It's not clear I can recover at that
-> point -- I guess I have to check against gso_segs in the xmit routine
-> before actually doing the segmentation.
+Signed-off-by: John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+---
+ net/mac80211/ieee80211_sta.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-I'd suggest adding a fudge factor to your free TX space, which
-is advisable anyways so that when TX is woken up, more of
-the transfer from queue to device can happen in a batch-like
-fashion.
+diff --git a/net/mac80211/ieee80211_sta.c b/net/mac80211/ieee80211_sta.c
+index a36c6f3..dd36cc6 100644
+--- a/net/mac80211/ieee80211_sta.c
++++ b/net/mac80211/ieee80211_sta.c
+@@ -3154,7 +3154,7 @@ struct sta_info * ieee80211_ibss_add_sta(struct net_device *dev,
+ {
+ 	struct ieee80211_local *local = wdev_priv(dev->ieee80211_ptr);
+ 	struct sta_info *sta;
+-	struct ieee80211_sub_if_data *sdata = NULL;
++	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
+ 
+ 	/* TODO: Could consider removing the least recently used entry and
+ 	 * allow new one to be added. */
+-- 
+1.5.0.6
+
+-- 
+John W. Linville
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
