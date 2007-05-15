@@ -1,73 +1,79 @@
-From: Mark Glines <mark@glines.org>
-Subject: [PATCH] use default 32768-61000 outgoing port range in all cases
-Date: Tue, 15 May 2007 15:50:54 -0700
-Message-ID: <20070515155054.394f4032@chirp>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: smp_affinity, MSI-X and 2.6.21.1
+Date: Tue, 15 May 2007 15:52:49 -0700
+Message-ID: <464A39C1.5000807@hp.com>
+References: <463F91D3.3010000@hp.com> <p733b26waha.fsf@bingen.suse.de>	<20070509.024614.48396047.davem@davemloft.net> <20070509115040.GC15029@one.firstfloor.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>
-To: netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	tglx@linutronix.de, mingo@elte.hu
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from squawk.glines.org ([72.36.206.66]:37922 "EHLO squawk.glines.org"
+Received: from palrel13.hp.com ([156.153.255.238]:56646 "EHLO palrel13.hp.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758223AbXEOWu7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 May 2007 18:50:59 -0400
+	id S1756748AbXEOWwz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 May 2007 18:52:55 -0400
+In-Reply-To: <20070509115040.GC15029@one.firstfloor.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Andi Kleen wrote:
+>>That's true, but we are talking about software state so in some sense
+>>it might be better that the affinity-to-be is reported to the user in
+>>this case.
+>>
+>>Delayed register updates are an implementation detail the user does
+>>not need to know about here.
+> 
+> 
+> This patch should fix it.
 
-I noticed I had chopped off a whole comment, when I meant to only remove
-part of it.  So I've fixed that.
+And it seems to when I apply it against the 2.6.21.1 kernel I'm messing about with:
 
-This is a reissued use-high-ports-for-local-stuff.diff, with a comment
-fix.  Does anyone have a problem with this patch in its current form?
-Any chance of applying it?
+hpcpc106:~/s2io-2.0.19-8893# cat /proc/irq/69/smp_affinity
+ffffffff,ffffffff
+hpcpc106:~/s2io-2.0.19-8893# echo "4" >> /proc/irq/69/smp_affinity
+hpcpc106:~/s2io-2.0.19-8893# cat /proc/irq/69/smp_affinity
+00000000,00000004
+hpcpc106:~/s2io-2.0.19-8893# cat /proc/interrupts | grep 69
+  69:          0          0          0          0         PCI-MSI  eth2:MSI-X-6-RX
 
-This diff changes the default port range used for outgoing connections,
-from "use 32768-61000 in most cases, but use N-4999 on small boxes
-(where N is a multiple of 1024, depending on just *how* small the box
-is)" to just "use 32768-61000 in all cases".
+It would be nice if this could find its way into the kernel at some point - 
+2.6.23 or 2.6.24 perhaps?
 
-I don't believe there are any drawbacks to this change, and it keeps
-outgoing connection ports farther away from the mess of IANA-registered
-ports.
+rick jones
 
-Thanks,
+> -Andi
+> 
+> Report the pending irq if available in smp_affinity
+> 
+> Otherwise smp_affinity would only update after the next interrupt
+> on x86 systems.
+> 
+> Cc: tglx@linutronix.de
+> Cc: mingo@elte.hu
+> 
+> Signed-off-by: Andi Kleen <ak@suse.de>
+> 
+> Index: linux/kernel/irq/proc.c
+> ===================================================================
+> --- linux.orig/kernel/irq/proc.c
+> +++ linux/kernel/irq/proc.c
+> @@ -19,7 +19,14 @@ static struct proc_dir_entry *root_irq_d
+>  static int irq_affinity_read_proc(char *page, char **start, off_t off,
+>  				  int count, int *eof, void *data)
+>  {
+> -	int len = cpumask_scnprintf(page, count, irq_desc[(long)data].affinity);
+> +	struct irq_desc *desc = irq_desc + (long)data;
+> +	cpumask_t *mask = &desc->affinity;
+> +	int len;
+> +#ifdef CONFIG_GENERIC_PENDING_IRQ
+> +	if (desc->status & IRQ_MOVE_PENDING)
+> +		mask = &desc->pending_mask;
+> +#endif
+> +	len = cpumask_scnprintf(page, count, *mask);
+>  
+>  	if (count - len < 2)
+>  		return -EINVAL;
 
-Signed-off-by: Mark Glines <mark@glines.org>
-
-diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
-index 43fb160..fbe7714 100644
---- a/net/ipv4/inet_connection_sock.c
-+++ b/net/ipv4/inet_connection_sock.c
-@@ -31,10 +31,8 @@ EXPORT_SYMBOL(inet_csk_timer_bug_msg);
- 
- /*
-  * This array holds the first and last local port number.
-- * For high-usage systems, use sysctl to change this to
-- * 32768-61000
-  */
--int sysctl_local_port_range[2] = { 1024, 4999 };
-+int sysctl_local_port_range[2] = { 32768, 61000 };
- 
- int inet_csk_bind_conflict(const struct sock *sk,
- 			   const struct inet_bind_bucket *tb)
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index bd4c295..33ef0e7 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -2465,13 +2465,10 @@ void __init tcp_init(void)
- 			order++)
- 		;
- 	if (order >= 4) {
--		sysctl_local_port_range[0] = 32768;
--		sysctl_local_port_range[1] = 61000;
- 		tcp_death_row.sysctl_max_tw_buckets = 180000;
- 		sysctl_tcp_max_orphans = 4096 << (order - 4);
- 		sysctl_max_syn_backlog = 1024;
- 	} else if (order < 3) {
--		sysctl_local_port_range[0] = 1024 * (3 - order);
- 		tcp_death_row.sysctl_max_tw_buckets >>= (3 - order);
- 		sysctl_tcp_max_orphans >>= (3 - order);
- 		sysctl_max_syn_backlog = 128;
