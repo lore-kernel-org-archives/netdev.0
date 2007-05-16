@@ -1,30 +1,44 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH] e1000: Fix msi enable leak on error, don't print error
- message,	cleanup
-Date: Wed, 16 May 2007 11:41:15 -0700
-Message-ID: <464B504B.5090007@hp.com>
-References: <20070516083120.23311.3272.stgit@localhost.localdomain> <464B2426.9060502@garzik.org>
+From: Stefan Roese <sr@denx.de>
+Subject: Re: [PATCH] ibm_emac: Correctly detect old link speed
+Date: Wed, 16 May 2007 20:44:47 +0200
+Message-ID: <200705162044.47776.sr@denx.de>
+References: <200705161300.08521.sr@denx.de> <20070516173002.GA22331@gate.ebshome.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Auke Kok <auke-jan.h.kok@intel.com>, netdev@vger.kernel.org,
-	e1000-devel@lists.sourceforge.net, hpa@zytor.com
-To: Jeff Garzik <jeff@garzik.org>
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
+To: Eugene Surovegin <ebs@ebshome.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel13.hp.com ([156.153.255.238]:42504 "EHLO palrel13.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754394AbXEPSlV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 May 2007 14:41:21 -0400
-In-Reply-To: <464B2426.9060502@garzik.org>
+Received: from mo-p07-ob.rzone.de ([81.169.146.188]:23899 "EHLO
+	mo-p07-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1762529AbXEPSoD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 May 2007 14:44:03 -0400
+In-Reply-To: <20070516173002.GA22331@gate.ebshome.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Some more of my paranoid questions :)
+On Wednesday 16 May 2007, Eugene Surovegin wrote:
+> On Wed, May 16, 2007 at 01:00:08PM +0200, Stefan Roese wrote:
+> > This patch fixes a bug where the link speed change was not
+> > detected correctly. This occured on a 440SPe (EMAC4) system
+> > where the old link speed was 100Mbps and the new link speed
+> > is 1000Mbps.
+>
+> Good catch, Stefan. Unfortunately, I have to NACK your patch - you
+> broke non EMAC4 builds.
 
-So, if a driver tries to enable MSI and that is unsuccessful (I'll try to avoid 
-using the possibly loaded term "fails") shouldn't that show-up _somewhere_? 
-Just how "normal" is an attempt to enable MSI not succeding going to remain over 
-time and aren't there times when it does indeed mean that someone should be 
-looking into it?
+Yes, you're right of course.
 
-rick jones
+> Correct fix is just to remove EMAC_MR1_MF_1000GPCS from the first
+> if condition.
+
+Yep.
+
+> I'll send correct fix shortly along with other queued patches.
+
+Thanks.
+
+Best regards,
+Stefan
