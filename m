@@ -1,50 +1,74 @@
-From: Rod Whitby <rod@whitby.id.au>
-Subject: Re: [PATCH] Intel IXP4xx network drivers v.2 - Ethernet and HSS
-Date: Wed, 16 May 2007 21:05:18 +0930
-Message-ID: <464AEC76.7090000@whitby.id.au>
-References: <464034CF.20700@wpkg.org> <20070516071300.GB14222@infradead.org> <20070516094100.GB16262@xi.wantstofly.org> <464AE10E.7090606@whitby.id.au> <20070516105626.GC16262@xi.wantstofly.org>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: 2.6.21-rc7: BUG: sleeping function called from
+	invalid context	at net/core/sock.c:1523
+Date: Wed, 16 May 2007 13:45:04 +0200
+Message-ID: <1179315904.10069.67.camel@violet>
+References: <462D1B09.9050005@goop.org>
+	<Pine.LNX.4.64.0704232257090.20657@twin.jikos.cz>
+	<Pine.LNX.4.64.0704261625410.20657@twin.jikos.cz>
+	<a781481a0705110629n7c7130c1x3a89fa958b271f20@mail.gmail.com>
+	<Pine.LNX.4.64.0705161124030.25986@twin.jikos.cz>
+	<a781481a0705160436s3564022aybd9b318ec0947d94@mail.gmail.com>
+Reply-To: BlueZ development <bluez-devel@lists.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Christoph Hellwig <hch@infradead.org>,
-	Tomasz Chmielewski <mangoo@wpkg.org>,
-	linux-kernel@vger.kernel.org,
-	linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org,
-	Michael Jones <mlj28@cam.ac.uk>,
-	Krzysztof Halasa <khc@pm.waw.pl>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1.smtp.messagingengine.com ([66.111.4.25]:52851 "EHLO
-	out1.smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1761015AbXEPLhB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 May 2007 07:37:01 -0400
-In-Reply-To: <20070516105626.GC16262@xi.wantstofly.org>
-Sender: netdev-owner@vger.kernel.org
+Cc: Jeremy Fitzhardinge <jeremy@goop.org>, netdev@vger.kernel.org,
+	Greg KH <gregkh@suse.de>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Jiri Kosina <jikos@jikos.cz>, Cedric Le Goater <clg@fr.ibm.com>,
+	bluez-devel@lists.sourceforge.net, maxk@qualcomm.com
+To: Satyam Sharma <satyam.sharma@gmail.com>
+Return-path: <bluez-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <a781481a0705160436s3564022aybd9b318ec0947d94@mail.gmail.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
+	<mailto:bluez-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=bluez-devel>
+List-Post: <mailto:bluez-devel@lists.sourceforge.net>
+List-Help: <mailto:bluez-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
+	<mailto:bluez-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: bluez-devel-bounces@lists.sourceforge.net
+Errors-To: bluez-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Lennert Buytenhek wrote:
-> On Wed, May 16, 2007 at 08:16:38PM +0930, Rod Whitby wrote:
->> So, if the author of these patches wishes to concentrate on big-endian
->> support first, then we will not say (and have not said) anything which
->> will block inclusion of a big-endian only version of this driver.
+Hi Satayam,
+
+> > > (later)
+> > > I Googled a bit to see if this problem was faced elsewhere in the kernel
+> > > too. Saw the following commit by Ingo Molnar
+> > > (9883a13c72dbf8c518814b6091019643cdb34429):
+> > > -     lock_sock(sock->sk);
+> > > +     local_bh_disable();
+> > > +     bh_lock_sock_nested(sock->sk);
+> > >       rc = selinux_netlbl_socket_setsid(sock, sksec->sid);
+> > > -     release_sock(sock->sk);
+> > > +     bh_unlock_sock(sock->sk);
+> > > +     local_bh_enable();
+> > > Is it _really_ *this* simple?
+> > [...]
+> > actually this *seems* to be proper solution also for our case, thanks for
+> > pointing this out. I will think about it once again, do some more tests
+> > with this locking scheme, and will let you know.
 > 
-> The NSLU2 people are the ones here that are saying that the driver
-> should really support LE (because that is what they happen to be
-> using, the rest of the world runs the ixp4xx in BE)
+> Yes, I can almost confirm that this (open-coding of spin_lock_bh,
+> effectively) is the proper solution (Rusty's unreliable guide to
+> kernel-locking needs to be next to every developer's keyboard :-)
+> I also came across this idiom in other places in the networking code
+> so it seems to be pretty much the standard way. I wish I owned
+> bluetooth hardware, could've tested this for you myself.
 
-I'll repeat again.  NSLU2-Linux supports both BE and LE.  We have about
-5,000 users running BE and about 5,000 users running LE.  Perhaps you're
-confusing the NSLU2-Linux project (which official supports both endians
-equally) with the Debian project (which official supports only LE, and
-has an unofficial BE port).
+does this mean we should revert previous changes to the locking or only
+apply this on top of it?
 
-One NSLU2-Linux person said they would prefer the driver to support LE,
-but would be happy for it to be marked BE only in the Kconfig as an
-alternative.  That is consistent with what I wrote in my message.
+Regards
 
-> Please just write the patch and let's get this over with.
+Marcel
 
-Please let's just stop arguing about it.  If a patch appears before it
-gets merged, then great.  If it doesn't then it will appear at a later date.
 
--- Rod
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by DB2 Express
+Download DB2 Express C - the FREE version of DB2 express and take
+control of your XML. No limits. Just data. Click to get it now.
+http://sourceforge.net/powerbar/db2/
