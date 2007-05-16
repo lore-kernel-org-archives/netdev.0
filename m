@@ -1,37 +1,65 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: [PATCH] Intel IXP4xx network drivers v.2 - Ethernet and HSS
-Date: Wed, 16 May 2007 12:56:26 +0200
-Message-ID: <20070516105626.GC16262@xi.wantstofly.org>
-References: <464034CF.20700@wpkg.org> <20070516071300.GB14222@infradead.org> <20070516094100.GB16262@xi.wantstofly.org> <464AE10E.7090606@whitby.id.au>
+From: Stefan Roese <sr@denx.de>
+Subject: [PATCH] ibm_emac: Correctly detect old link speed
+Date: Wed, 16 May 2007 13:00:08 +0200
+Message-ID: <200705161300.08521.sr@denx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Christoph Hellwig <hch@infradead.org>,
-	Tomasz Chmielewski <mangoo@wpkg.org>,
-	linux-kernel@vger.kernel.org,
-	linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org,
-	Michael Jones <mlj28@cam.ac.uk>,
-	Krzysztof Halasa <khc@pm.waw.pl>
-To: Rod Whitby <rod@whitby.id.au>
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: ebs@ebshome.net
+To: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alephnull.demon.nl ([83.160.184.112]:33553 "EHLO
-	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756477AbXEPK4a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 May 2007 06:56:30 -0400
+Received: from mo-p07-ob.rzone.de ([81.169.146.190]:32699 "EHLO
+	mo-p07-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757408AbXEPK7z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 May 2007 06:59:55 -0400
 Content-Disposition: inline
-In-Reply-To: <464AE10E.7090606@whitby.id.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, May 16, 2007 at 08:16:38PM +0930, Rod Whitby wrote:
+This patch fixes a bug where the link speed change was not
+detected correctly. This occured on a 440SPe (EMAC4) system
+where the old link speed was 100Mbps and the new link speed
+is 1000Mbps.
 
-> So, if the author of these patches wishes to concentrate on big-endian
-> support first, then we will not say (and have not said) anything which
-> will block inclusion of a big-endian only version of this driver.
+Signed-off-by: Stefan Roese <sr@denx.de>
 
-The NSLU2 people are the ones here that are saying that the driver
-should really support LE (because that is what they happen to be
-using, the rest of the world runs the ixp4xx in BE), and they keep
-saying that it would be so easy to make a patch to add LE support,
-but so far they haven't produced such a patch.
+---
+commit 1e2a6085bbb6bd384e0812b6e9c62d18d14e1c0f
+tree f441a914c9d66fb00fcde1e4bd7e02effba20dc7
+parent 7b104bcb8e460e45a1aebe3da9b86aacdb4cab12
+author Stefan Roese <sr@denx.de> Wed, 16 May 2007 12:54:40 +0200
+committer Stefan Roese <sr@denx.de> Wed, 16 May 2007 12:54:40 +0200
 
-Please just write the patch and let's get this over with.
+ drivers/net/ibm_emac/ibm_emac_core.c |   18 ++++++++++++------
+ 1 files changed, 12 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/ibm_emac/ibm_emac_core.c b/drivers/net/ibm_emac/ibm_emac_core.c
+index 50035eb..ab38727 100644
+--- a/drivers/net/ibm_emac/ibm_emac_core.c
++++ b/drivers/net/ibm_emac/ibm_emac_core.c
+@@ -926,12 +926,18 @@ static int emac_link_differs(struct ocp_enet_private *dev)
+ 	int duplex = r & EMAC_MR1_FDE ? DUPLEX_FULL : DUPLEX_HALF;
+ 	int speed, pause, asym_pause;
+ 
+-	if (r & (EMAC_MR1_MF_1000 | EMAC_MR1_MF_1000GPCS))
+-		speed = SPEED_1000;
+-	else if (r & EMAC_MR1_MF_100)
+-		speed = SPEED_100;
+-	else
+-		speed = SPEED_10;
++	switch (r & EMAC_MR1_MF_MASK) {
++	case EMAC_MR1_MF_1000:
++	case EMAC_MR1_MF_1000GPCS:
++		speed = 1000;
++		break;
++	case EMAC_MR1_MF_10:
++		speed = 10;
++		break;
++	case EMAC_MR1_MF_100:
++	default:
++		speed = 100;
++	}
+ 
+ 	switch (r & (EMAC_MR1_EIFC | EMAC_MR1_APP)) {
+ 	case (EMAC_MR1_EIFC | EMAC_MR1_APP):
