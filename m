@@ -1,39 +1,35 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH] e1000: Fix msi enable leak on error, don't print error
- message,	cleanup
-Date: Wed, 16 May 2007 12:10:44 -0700
-Message-ID: <464B5734.2070904@hp.com>
-References: <20070516083120.23311.3272.stgit@localhost.localdomain>	<464B2426.9060502@garzik.org> <464B504B.5090007@hp.com> <464B55E1.8040501@zytor.com>
+From: Urs Thuermann <urs@isnogud.escape.de>
+Subject: Re: [patch 2/7] CAN: Add PF_CAN core module
+Date: 16 May 2007 21:14:20 +0200
+Message-ID: <ygfsl9wfunn.fsf@janus.isnogud.escape.de>
+References: <20070516145100.29877.0@janus.isnogud.escape.de>
+	<20070516145121.29877.2@janus.isnogud.escape.de>
+	<39e6f6c70705160935q66109a3ci414374544d99c78f@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, Auke Kok <auke-jan.h.kok@intel.com>,
-	netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
-To: "H. Peter Anvin" <hpa@zytor.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "Thomas Gleixner" <tglx@linutronix.de>,
+	"Oliver Hartkopp" <oliver.hartkopp@volkswagen.de>
+To: "Arnaldo Carvalho de Melo" <acme@ghostprotocols.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel10.hp.com ([156.153.255.245]:46422 "EHLO palrel10.hp.com"
+Received: from oker.escape.de ([194.120.234.254]:38542 "EHLO oker.escape.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758455AbXEPTKs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 May 2007 15:10:48 -0400
-In-Reply-To: <464B55E1.8040501@zytor.com>
+	id S1755753AbXEPTQF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 May 2007 15:16:05 -0400
+In-Reply-To: <39e6f6c70705160935q66109a3ci414374544d99c78f@mail.gmail.com>; from "Arnaldo Carvalho de Melo" on Wed, 16 May 2007 13:35:45 -0300
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-H. Peter Anvin wrote:
-> Rick Jones wrote:
-> 
->>Some more of my paranoid questions :)
->>
->>So, if a driver tries to enable MSI and that is unsuccessful (I'll try
->>to avoid using the possibly loaded term "fails") shouldn't that show-up
->>_somewhere_?
-> 
-> 
-> It already does -- in /proc/interrupts.
+"Arnaldo Carvalho de Melo" <acme@ghostprotocols.net> writes:
 
-But that is rather incidental isn't it?  Would some sort of system health 
-monitor be likely to be checking that for interrupt flavors?  And just looking 
-at /proc/interrupts, while it tells you what sort of interrupt is being used, it 
-doesn't (IIRC) say anything about what sort of interrupt the driver _tried_ to use.
+> Can can_ifindex be turned into a unsigned short? That way we would
+> have it nicely packed, avoiding this hole:
 
-rick jones
+Since dev->ifindex is int and we have many assignments between
+can_ifindex and dev->ifindex it would not make sense to define
+can_ifindex as a short int.  Also in user space, ifindex is int,
+e.g. in struct ifreq.  This would cause implicit truncating type casts
+from int to short int (some compilers warn about this, haven't tried
+GCC for a long time) or require many explicit type casts.
+
+
+urs
