@@ -1,68 +1,79 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH] e1000: Fix msi enable leak on error,
- don't print error message, cleanup
-Date: Wed, 16 May 2007 12:57:44 -0700
-Message-ID: <464B6238.70102@hp.com>
-References: <20070516083120.23311.3272.stgit@localhost.localdomain>	<464B2426.9060502@garzik.org>	<464B504B.5090007@hp.com>
-	<464B55E1.8040501@zytor.com>	<464B5734.2070904@hp.com>
-	<464B587A.70804@garzik.org>
+From: Scott Wood <scottwood@freescale.com>
+Subject: [PATCH] gianfar: Add I/O barriers when touching buffer descriptor
+	ownership.
+Date: Wed, 16 May 2007 15:06:59 -0500
+Message-ID: <20070516200659.GA23548@ld0162-tx32.am.freescale.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	Auke Kok <auke-jan.h.kok@intel.com>, "H. Peter Anvin" <hpa@zytor.com>
-To: Jeff Garzik <jeff@garzik.org>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <464B587A.70804@garzik.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
+To: jgarzik@pobox.com
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
-> Rick Jones wrote:
-> 
->> But that is rather incidental isn't it?  Would some sort of system 
->> health monitor be likely to be checking that for interrupt flavors?  And 
-> 
-> 
-> Well, that's where the information is exported in a standard way.  I 
-> hope you're not suggesting that a system health monitor should be 
-> parsing random, driver-specific printk messages to obtain the same 
-> information?
+The hardware must not see that is given ownership of a buffer until it is
+completely written, and when the driver receives ownership of a buffer,
+it must ensure that any other reads to the buffer reflect its final
+state.  Thus, I/O barriers are added where required.
 
-No, I wouldn't.  The only "system health monitor" I would expect to be parsing 
-that sort of thing would be a human.   Perhaps I'm just backing-into the meta 
-question via the specifics of this driver patch.
+Without this patch, I have observed GCC reordering the setting of
+bdp->length and bdp->status in gfar_new_skb.  Hardware reordering
+was also theoretically possible.
 
->> just looking at /proc/interrupts, while it tells you what sort of 
->> interrupt is being used, it doesn't (IIRC) say anything about what 
->> sort of interrupt the driver _tried_ to use.
-> 
-> 
-> True.
-> 
-> In the context of this thread, it could be any number of reasons:  MSI 
-> isn't compiled in.  MSI was disabled at runtime via kernel command line. 
->  MSI was disabled by BIOS quirk.  MSI enable was attempted, but failed 
-> for some reason.
-> 
-> None of those reasons are really driver-specific, or need 
-> driver-specific complaint messages.
+Signed-off-by: Scott Wood <scottwood@freescale.com>
+---
+I've added the requested comments to the source code about
+the use of eieio().  Jeff, please consider for 2.6.22, as it
+fixes a bug that has been observed.
 
-Agreed.  But is the PCI (?) subsystem doing something in that regard or is this 
-a hole?
+ drivers/net/gianfar.c |   11 +++++++++++
+ 1 files changed, 11 insertions(+), 0 deletions(-)
 
-rick jones
-
--------------------------------------------------------------------------
-This SF.net email is sponsored by DB2 Express
-Download DB2 Express C - the FREE version of DB2 express and take
-control of your XML. No limits. Just data. Click to get it now.
-http://sourceforge.net/powerbar/db2/
+diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
+index b666a0c..f5b3cba 100644
+--- a/drivers/net/gianfar.c
++++ b/drivers/net/gianfar.c
+@@ -1025,6 +1025,15 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	dev->trans_start = jiffies;
+ 
++	/* The powerpc-specific eieio() is used, as wmb() has too strong
++	 * semantics (it requires synchronization between cacheable and
++	 * uncacheable mappings, which eieio doesn't provide and which we
++	 * don't need), thus requiring a more expensive sync instruction.  At
++	 * some point, the set of architecture-independent barrier functions
++	 * should be expanded to include weaker barriers.
++	 */
++
++	eieio();
+ 	txbdp->status = status;
+ 
+ 	/* If this was the last BD in the ring, the next one */
+@@ -1301,6 +1310,7 @@ struct sk_buff * gfar_new_skb(struct net_device *dev, struct rxbd8 *bdp)
+ 	bdp->length = 0;
+ 
+ 	/* Mark the buffer empty */
++	eieio();
+ 	bdp->status |= (RXBD_EMPTY | RXBD_INTERRUPT);
+ 
+ 	return skb;
+@@ -1484,6 +1494,7 @@ int gfar_clean_rx_ring(struct net_device *dev, int rx_work_limit)
+ 	bdp = priv->cur_rx;
+ 
+ 	while (!((bdp->status & RXBD_EMPTY) || (--rx_work_limit < 0))) {
++		rmb();
+ 		skb = priv->rx_skbuff[priv->skb_currx];
+ 
+ 		if (!(bdp->status &
+-- 
+1.5.0.3
