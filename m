@@ -1,57 +1,84 @@
-From: linas@austin.ibm.com (Linas Vepstas)
-Subject: [PATCH 1/10] spidernet: node-aware skbuff allocation
-Date: Wed, 16 May 2007 16:58:00 -0500
-Message-ID: <20070516215800.GA4997@austin.ibm.com>
-References: <20070516215605.GA4325@austin.ibm.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: [PATCH] TCP slow start: comments and cleanup
+Date: Wed, 16 May 2007 14:57:00 -0700
+Message-ID: <20070516145700.7f524114@freepuppy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: cbe-oss-dev@ozlabs.org, netdev@vger.kernel.org,
-	Christoph Hellwig <hch@lst.de>
-To: Jeff Garzik <jgarzik@pobox.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e5.ny.us.ibm.com ([32.97.182.145]:43394 "EHLO e5.ny.us.ibm.com"
+Received: from smtp.osdl.org ([207.189.120.12]:48668 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755359AbXEPV6F (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 May 2007 17:58:05 -0400
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e5.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l4GLw2Gs024313
-	for <netdev@vger.kernel.org>; Wed, 16 May 2007 17:58:02 -0400
-Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l4GLw2as525178
-	for <netdev@vger.kernel.org>; Wed, 16 May 2007 17:58:02 -0400
-Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
-	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l4GLw1gW005780
-	for <netdev@vger.kernel.org>; Wed, 16 May 2007 17:58:01 -0400
-Content-Disposition: inline
-In-Reply-To: <20070516215605.GA4325@austin.ibm.com>
+	id S1760059AbXEPV6L (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 May 2007 17:58:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Add more comments to describe our version of tcp_slow_start().
 
-From: Christoph Hellwig <hch@lst.de>
+Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+---
+ net/ipv4/tcp_cong.c |   40 ++++++++++++++++++++++------------------
+ 1 files changed, 22 insertions(+), 18 deletions(-)
 
-Spidernet was the driver I original did all the node-aware netdevice
-allocation for, but after a year it still hasn't hit mainline.
+diff --git a/net/ipv4/tcp_cong.c b/net/ipv4/tcp_cong.c
+index 86b2653..bd74e43 100644
+--- a/net/ipv4/tcp_cong.c
++++ b/net/ipv4/tcp_cong.c
+@@ -276,30 +276,34 @@ int tcp_set_congestion_control(struct sock *sk, const char *name)
+ 
+ 
+ /*
+- * Slow start (exponential increase) with
+- * RFC3742 Limited Slow Start (fast linear increase) support.
++ * Slow start is used when congestion window is less than slow start
++ * threshold. This version implements the basic RFC2581 version
++ * and optionally supports: 
++ * 	RFC3742 Limited Slow Start  	  - growth limited to max_ssthresh
++ *	RFC3465 Appropriate Byte Counting - growth limited by bytes acknowledged
+  */
+ void tcp_slow_start(struct tcp_sock *tp)
+ {
+-	int cnt = 0;
+-
+-	if (sysctl_tcp_abc) {
+-		/* RFC3465: Slow Start
+-		 * TCP sender SHOULD increase cwnd by the number of
+-		 * previously unacknowledged bytes ACKed by each incoming
+-		 * acknowledgment, provided the increase is not more than L
+-		 */
+-		if (tp->bytes_acked < tp->mss_cache)
+-			return;
+-	}
++	int cnt; /* increase in packets */
++
++	/* RFC3465: ABC Slow start
++	 * Increase only after a full MSS of bytes is acked
++	 *
++	 * TCP sender SHOULD increase cwnd by the number of
++	 * previously unacknowledged bytes ACKed by each incoming
++	 * acknowledgment, provided the increase is not more than L
++	 */
++	if (sysctl_tcp_abc && tp->bytes_acked < tp->mss_cache)
++		return;
+ 
+-	if (sysctl_tcp_max_ssthresh > 0 &&
+-	    tp->snd_cwnd > sysctl_tcp_max_ssthresh)
+-		cnt += sysctl_tcp_max_ssthresh>>1;
++	if (sysctl_tcp_max_ssthresh > 0 && tp->snd_cwnd > sysctl_tcp_max_ssthresh)
++		cnt = sysctl_tcp_max_ssthresh >> 1;	/* limited slow start */
+ 	else
+-		cnt += tp->snd_cwnd;
++		cnt = tp->snd_cwnd;			/* exponential increase */
+ 
+-	/* RFC3465: We MAY increase by 2 if discovered delayed ack */
++	/* RFC3465: ABC
++	 * We MAY increase by 2 if discovered delayed ack 
++	 */
+ 	if (sysctl_tcp_abc > 1 && tp->bytes_acked >= 2*tp->mss_cache)
+ 		cnt <<= 1;
+ 	tp->bytes_acked = 0;
+-- 
+1.4.4.2
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
-Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
-
-----
-
- drivers/net/spider_net.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-Index: linux-2.6.22-rc1/drivers/net/spider_net.c
-===================================================================
---- linux-2.6.22-rc1.orig/drivers/net/spider_net.c	2007-05-16 11:58:41.000000000 -0500
-+++ linux-2.6.22-rc1/drivers/net/spider_net.c	2007-05-16 12:00:25.000000000 -0500
-@@ -430,7 +430,8 @@ spider_net_prepare_rx_descr(struct spide
- 	/* and we need to have it 128 byte aligned, therefore we allocate a
- 	 * bit more */
- 	/* allocate an skb */
--	descr->skb = dev_alloc_skb(bufsize + SPIDER_NET_RXBUF_ALIGN - 1);
-+	descr->skb = netdev_alloc_skb(card->netdev,
-+				      bufsize + SPIDER_NET_RXBUF_ALIGN - 1);
- 	if (!descr->skb) {
- 		if (netif_msg_rx_err(card) && net_ratelimit())
- 			pr_err("Not enough memory to allocate rx buffer\n");
