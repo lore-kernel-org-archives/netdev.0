@@ -1,35 +1,49 @@
-From: Urs Thuermann <urs@isnogud.escape.de>
-Subject: Re: [patch 2/7] CAN: Add PF_CAN core module
-Date: 16 May 2007 21:14:20 +0200
-Message-ID: <ygfsl9wfunn.fsf@janus.isnogud.escape.de>
-References: <20070516145100.29877.0@janus.isnogud.escape.de>
-	<20070516145121.29877.2@janus.isnogud.escape.de>
-	<39e6f6c70705160935q66109a3ci414374544d99c78f@mail.gmail.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] e1000: Fix msi enable leak on error, don't print error
+ message,	cleanup
+Date: Wed, 16 May 2007 15:16:10 -0400
+Message-ID: <464B587A.70804@garzik.org>
+References: <20070516083120.23311.3272.stgit@localhost.localdomain>	<464B2426.9060502@garzik.org> <464B504B.5090007@hp.com> <464B55E1.8040501@zytor.com> <464B5734.2070904@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "Thomas Gleixner" <tglx@linutronix.de>,
-	"Oliver Hartkopp" <oliver.hartkopp@volkswagen.de>
-To: "Arnaldo Carvalho de Melo" <acme@ghostprotocols.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "H. Peter Anvin" <hpa@zytor.com>,
+	Auke Kok <auke-jan.h.kok@intel.com>, netdev@vger.kernel.org,
+	e1000-devel@lists.sourceforge.net
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from oker.escape.de ([194.120.234.254]:38542 "EHLO oker.escape.de"
+Received: from srv5.dvmed.net ([207.36.208.214]:59658 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755753AbXEPTQF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 May 2007 15:16:05 -0400
-In-Reply-To: <39e6f6c70705160935q66109a3ci414374544d99c78f@mail.gmail.com>; from "Arnaldo Carvalho de Melo" on Wed, 16 May 2007 13:35:45 -0300
+	id S1753152AbXEPTQR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 May 2007 15:16:17 -0400
+In-Reply-To: <464B5734.2070904@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-"Arnaldo Carvalho de Melo" <acme@ghostprotocols.net> writes:
+Rick Jones wrote:
+> But that is rather incidental isn't it?  Would some sort of system 
+> health monitor be likely to be checking that for interrupt flavors?  And 
 
-> Can can_ifindex be turned into a unsigned short? That way we would
-> have it nicely packed, avoiding this hole:
-
-Since dev->ifindex is int and we have many assignments between
-can_ifindex and dev->ifindex it would not make sense to define
-can_ifindex as a short int.  Also in user space, ifindex is int,
-e.g. in struct ifreq.  This would cause implicit truncating type casts
-from int to short int (some compilers warn about this, haven't tried
-GCC for a long time) or require many explicit type casts.
+Well, that's where the information is exported in a standard way.  I 
+hope you're not suggesting that a system health monitor should be 
+parsing random, driver-specific printk messages to obtain the same 
+information?
 
 
-urs
+> just looking at /proc/interrupts, while it tells you what sort of 
+> interrupt is being used, it doesn't (IIRC) say anything about what sort 
+> of interrupt the driver _tried_ to use.
+
+True.
+
+In the context of this thread, it could be any number of reasons:  MSI 
+isn't compiled in.  MSI was disabled at runtime via kernel command line. 
+  MSI was disabled by BIOS quirk.  MSI enable was attempted, but failed 
+for some reason.
+
+None of those reasons are really driver-specific, or need 
+driver-specific complaint messages.
+
+	Jeff
+
+
