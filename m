@@ -1,52 +1,62 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [stable] PROBLEM: SIS900 Driver change in Linux Kernel 2.6.21
-	causes kernel panic.
-Date: Wed, 16 May 2007 16:12:32 -0700
-Message-ID: <20070516231232.GA9047@kroah.com>
-References: <577536.90963.qm@web84207.mail.re3.yahoo.com> <20070516221704.GC16810@redhat.com>
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: Re: [PATCH] [NET_SCHED]make qdisc_restart more readable
+Date: Wed, 16 May 2007 16:15:51 -0700
+Message-ID: <1179357351.10414.18.camel@w-sridhar2.beaverton.ibm.com>
+References: <D5C1322C3E673F459512FB59E0DDC32902D42586@orsmsx414.amr.corp.intel.com>
+	 <1178911773.4126.26.camel@localhost> <1178972280.4061.7.camel@localhost>
+	 <4645F325.3060607@trash.net>  <1178999773.15622.44.camel@localhost>
+	 <1179066518.15622.60.camel@localhost> <1179149418.15622.79.camel@localhost>
+	 <1179356104.4084.23.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: - <kd6lvw@yahoo.com>, Neil Horman <nhorman@tuxdriver.com>,
-	Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
-	Daniele Venzano <venza@brownhat.org>,
-	Andrew Morton <akpm@linux-foundation.org>, stable@kernel.org
-To: Dave Jones <davej@redhat.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	Thomas Graf <tgraf@suug.ch>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	netdev@vger.kernel.org
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:46472 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755023AbXEPXOd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 May 2007 19:14:33 -0400
-Content-Disposition: inline
-In-Reply-To: <20070516221704.GC16810@redhat.com>
+Received: from e1.ny.us.ibm.com ([32.97.182.141]:59505 "EHLO e1.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755753AbXEPXPz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 May 2007 19:15:55 -0400
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e1.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l4GNFs30028113
+	for <netdev@vger.kernel.org>; Wed, 16 May 2007 19:15:54 -0400
+Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
+	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l4GNFsRV490056
+	for <netdev@vger.kernel.org>; Wed, 16 May 2007 19:15:54 -0400
+Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
+	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l4GNFq6C030057
+	for <netdev@vger.kernel.org>; Wed, 16 May 2007 19:15:54 -0400
+In-Reply-To: <1179356104.4084.23.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, May 16, 2007 at 06:17:04PM -0400, Dave Jones wrote:
-> On Wed, May 16, 2007 at 02:33:18PM -0700, - wrote:
->  > Kernel version 2.6.20.4 works.  What I'm experiencing is a kernel panic as
->  > soon as the first received packet comes in via the sis900 ethernet
->  > interface.  The machine is locked up and part of the kernel panic message
->  > is lost as it has scrolled off the screen and the virtual terminal has
->  > crashed as well (the kernel appears to have done a permanent halt - the
->  > keyboard LEDs are flashing).  The only way I could get the machine to boot
->  > without this problem was to unplug the ethernet cable - but it would
->  > appear as soon as the the first packet was received after plugging the
->  > cable back in.  That's not good since the machine in question is a server
->  > in a co-location facility (I can't print the screen either).  The kernel
->  > panic was repeatable without fail.  As this usually happens before "init"
->  > is called, the only "program" running is the kernel itself.  I don't have
->  > any syslog/dmesg message recorded to disk for the event.  I've rolled back
->  > to version 2.6.20.4 in the meantime.
+On Wed, 2007-05-16 at 18:55 -0400, jamal wrote:
+> On Mon, 2007-14-05 at 09:30 -0400, jamal wrote:
+> > Incoporating last comments from Patrick.
+> > Dave, I think this is ready to apply - against net-2.6 from this
+> > morning. 
 > 
-> You need this..
+> Dave - hold onto this patch - Sridhar Samudrala <sri@us.ibm.com> caught
+> a bug i need to fix (GSO wont work).
+
+I think your qdisc_restart() cleanup patch is OK. There you are
+still calling dev_hard_start_xmit() and GSO should work fine.
+
+But the batch xmit patch has some issues.
+
+Thanks
+Sridhar
+
+> The game starting in a few holds priority for now. I will send a patch
+> either tonight or tommorow morning.
+> Otoh, if you have applied it - it is a simple incremental patch.
 > 
-> http://git.kernel.org/?p=linux%2Fkernel%2Fgit%2Ftorvalds%2Flinux-2.6.git;a=commitdiff_plain;h=dc5a144991ba803bc8afded105c9db1dea0e57ab
-> 
-> Which is queued for -stable afaik, but no sign of 2.6.21.2 yet. Greg/Chris?
+> cheers,
+> jamal
 
-I have a large queue backing up, will try to flush it out by tomorrow
-and get a review cycle started.
 
-thanks,
-
-greg "i'm starting to hate travelling" k-h
