@@ -1,138 +1,87 @@
-From: Wen Xiong <wenxiong@us.ibm.com>
-Subject: Re: [PATCH] e1000: Work around 82571 completion
-	timout on Pseries HW
-Date: Wed, 16 May 2007 17:11:21 -0500
-Message-ID: <OFF304A49A.2C1F7634-ON872572DD.0079C647-862572DD.0079EE19@us.ibm.com>
-References: <464B2AB9.4050706@garzik.org>
+From: linas@austin.ibm.com (Linas Vepstas)
+Subject: [PATCH 6/10] spidernet: Don't terminate the RX ring
+Date: Wed, 16 May 2007 17:15:05 -0500
+Message-ID: <20070516221505.GF4997@austin.ibm.com>
+References: <20070516215605.GA4325@austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============0368508050=="
-Cc: e1000-devel@lists.sourceforge.net,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Auke Kok <auke-jan.h.kok@intel.com>, netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <464B2AB9.4050706@garzik.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=us-ascii
+Cc: cbe-oss-dev@ozlabs.org, netdev@vger.kernel.org
+To: Jeff Garzik <jgarzik@pobox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e1.ny.us.ibm.com ([32.97.182.141]:49042 "EHLO e1.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760714AbXEPWPG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 May 2007 18:15:06 -0400
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by e1.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l4GMF60u018137
+	for <netdev@vger.kernel.org>; Wed, 16 May 2007 18:15:06 -0400
+Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
+	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l4GMF646557254
+	for <netdev@vger.kernel.org>; Wed, 16 May 2007 18:15:06 -0400
+Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
+	by d01av02.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l4GMF5NV007731
+	for <netdev@vger.kernel.org>; Wed, 16 May 2007 18:15:05 -0400
+Content-Disposition: inline
+In-Reply-To: <20070516215605.GA4325@austin.ibm.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multipart message in MIME format.
---===============0368508050==
-Content-Type: multipart/alternative;
-	boundary="=_alternative 0079EE18862572DD_="
 
-This is a multipart message in MIME format.
---=_alternative 0079EE18862572DD_=
-Content-Type: text/plain; charset="US-ASCII"
+There is no real reason to terminate the RX ring; it
+doesn't make the operation any smooother, and it does
+require an extra sync. So don't do it.
 
-Hi Jeff,
+Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
 
- little history, on PCI-X adapters we did not time dma reads being 
-returned to the adapter. On PCIe unfortunately the spec says that adapters 
-need to time the dma reads the spec is not specific on the range but the 
-timers can range from worst case 50 usecs to 10 ms with some adapters 
-supporting upto 50ms. The PCIe spec has approved an ECR to the PCIe 1.0a 
-spec that will support the ability to disable the timer.  To work aroung 
-the adapter doesn't support ECR.  We need the driver to disable the timer.
+----
+ drivers/net/spider_net.c |   18 +++++++++---------
+ 1 file changed, 9 insertions(+), 9 deletions(-)
 
-Thanks,
-wendy 
-
-
-
-Jeff Garzik <jeff@garzik.org> 
-05/16/2007 11:00 AM
-
-To
-Auke Kok <auke-jan.h.kok@intel.com>
-cc
-Wen Xiong/Austin/IBM@IBMUS, e1000-devel@lists.sourceforge.net, 
-netdev@vger.kernel.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject
-Re: [PATCH] e1000: Work around 82571 completion timout on Pseries HW
-
-
-
-
-
-
-Auke Kok wrote:
-> Our 82571 (first PCI-E hardware) causes P-Series hardware to throw
-> issues. Disabling PCI-E completion timeouts in our NIC resolves
-> the issue.
-> 
-> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
-> Cc: Wen Xiong <wenxiong@us.ibm.com>
-> ---
-> 
->  drivers/net/e1000/e1000_main.c |   10 ++++++++++
->  1 files changed, 10 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/net/e1000/e1000_main.c 
-b/drivers/net/e1000/e1000_main.c
-> index 49be393..830d851 100644
-> --- a/drivers/net/e1000/e1000_main.c
-> +++ b/drivers/net/e1000/e1000_main.c
-> @@ -819,6 +819,16 @@ e1000_reset(struct e1000_adapter *adapter)
->                                E1000_WRITE_REG(&adapter->hw, CTRL, 
-ctrl);
->                }
-> 
-> +#if defined(CONFIG_PPC64) || defined(CONFIG_PPC)
-> +#define E1000_GCR_DISABLE_TIMEOUT_MECHANISM 0x80000000
-> +              if (adapter->hw.mac.type == e1000_82571) {
-> +                              /* work around pSeries hardware by 
-disabling timeouts */
-> +                              u32 gcr = E1000_READ_REG(&adapter->hw, 
-E1000_GCR);
-> +                              gcr |= 
-E1000_GCR_DISABLE_TIMEOUT_MECHANISM;
-> +                              E1000_WRITE_REG(&adapter->hw, E1000_GCR, 
-gcr);
-
-Why is this needed?
-
-Is pSeries PCI-E implementation problematic?  Or is this a e1000 PCI-E 
-hardware bug?  If the former, I wonder if this is the best way to work 
-around the issue, especially since it might crop up in other PCI-E 
-boards besides e1000.  If the latter, it seems like we should disable 
-the feature on all platforms.
-
-                 Jeff
-
-
-
-
---=_alternative 0079EE18862572DD_=--
-
-
---===============0368508050==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
--------------------------------------------------------------------------
-This SF.net email is sponsored by DB2 Express
-Download DB2 Express C - the FREE version of DB2 express and take
-control of your XML. No limits. Just data. Click to get it now.
-http://sourceforge.net/powerbar/db2/
---===============0368508050==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-
---===============0368508050==--
+Index: linux-2.6.22-rc1/drivers/net/spider_net.c
+===================================================================
+--- linux-2.6.22-rc1.orig/drivers/net/spider_net.c	2007-05-15 13:31:16.000000000 -0500
++++ linux-2.6.22-rc1/drivers/net/spider_net.c	2007-05-15 13:51:39.000000000 -0500
+@@ -461,13 +461,9 @@ spider_net_prepare_rx_descr(struct spide
+ 		hwdescr->dmac_cmd_status = SPIDER_NET_DESCR_NOT_IN_USE;
+ 	} else {
+ 		hwdescr->buf_addr = buf;
+-		hwdescr->next_descr_addr = 0;
+ 		wmb();
+ 		hwdescr->dmac_cmd_status = SPIDER_NET_DESCR_CARDOWNED |
+ 					 SPIDER_NET_DMAC_NOINTR_COMPLETE;
+-
+-		wmb();
+-		descr->prev->hwdescr->next_descr_addr = descr->bus_addr;
+ 	}
+ 
+ 	return 0;
+@@ -556,12 +552,16 @@ spider_net_refill_rx_chain(struct spider
+ static int
+ spider_net_alloc_rx_skbs(struct spider_net_card *card)
+ {
+-	int result;
+-	struct spider_net_descr_chain *chain;
++	struct spider_net_descr_chain *chain = &card->rx_chain;
++	struct spider_net_descr *start= chain->tail;
++	struct spider_net_descr *descr = start;
+ 
+-	result = -ENOMEM;
++	/* Link up the hardware chain pointers */
++	do {
++		descr->prev->hwdescr->next_descr_addr = descr->bus_addr;
++		descr = descr->next;
++	} while (descr != start);
+ 
+-	chain = &card->rx_chain;
+ 	/* Put at least one buffer into the chain. if this fails,
+ 	 * we've got a problem. If not, spider_net_refill_rx_chain
+ 	 * will do the rest at the end of this function. */
+@@ -578,7 +578,7 @@ spider_net_alloc_rx_skbs(struct spider_n
+ 
+ error:
+ 	spider_net_free_rx_chain_contents(card);
+-	return result;
++	return -ENOMEM;
+ }
+ 
+ /**
