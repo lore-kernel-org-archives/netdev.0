@@ -1,63 +1,68 @@
-From: Jiri Kosina <jikos@jikos.cz>
-Subject: Re: 2.6.21-rc7: BUG: sleeping function called from
- invalid context at net/core/sock.c:1523
-Date: Wed, 16 May 2007 11:29:45 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0705161124030.25986@twin.jikos.cz>
-References: <462D1B09.9050005@goop.org>
-	<Pine.LNX.4.64.0704232257090.20657@twin.jikos.cz>
-	<Pine.LNX.4.64.0704261625410.20657@twin.jikos.cz>
-	<a781481a0705110629n7c7130c1x3a89fa958b271f20@mail.gmail.com>
-Reply-To: BlueZ development <bluez-devel@lists.sourceforge.net>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: [PATCH] Intel IXP4xx network drivers v.2 - Ethernet and HSS
+Date: Wed, 16 May 2007 11:41:00 +0200
+Message-ID: <20070516094100.GB16262@xi.wantstofly.org>
+References: <464034CF.20700@wpkg.org> <20070516071300.GB14222@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Jeremy Fitzhardinge <jeremy@goop.org>, netdev@vger.kernel.org,
-	Marcel Holtmann <marcel@holtmann.org>, Greg KH <gregkh@suse.de>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Cedric Le Goater <clg@fr.ibm.com>, bluez-devel@lists.sourceforge.net,
-	maxk@qualcomm.com
-To: Satyam Sharma <satyam.sharma@gmail.com>
-Return-path: <bluez-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <a781481a0705110629n7c7130c1x3a89fa958b271f20@mail.gmail.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
-	<mailto:bluez-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=bluez-devel>
-List-Post: <mailto:bluez-devel@lists.sourceforge.net>
-List-Help: <mailto:bluez-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
-	<mailto:bluez-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: bluez-devel-bounces@lists.sourceforge.net
-Errors-To: bluez-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=us-ascii
+To: Christoph Hellwig <hch@infradead.org>,
+	Tomasz Chmielewski <mangoo@wpkg.org>,
+	linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org,
+	Michael Jones <mlj28@cam.ac.uk>,
+	Krzysztof Halasa <khc@pm.waw.pl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from alephnull.demon.nl ([83.160.184.112]:33465 "EHLO
+	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753981AbXEPJlH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 May 2007 05:41:07 -0400
+Content-Disposition: inline
+In-Reply-To: <20070516071300.GB14222@infradead.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 11 May 2007, Satyam Sharma wrote:
+On Wed, May 16, 2007 at 08:13:01AM +0100, Christoph Hellwig wrote:
 
-> (later)
-> I Googled a bit to see if this problem was faced elsewhere in the kernel
-> too. Saw the following commit by Ingo Molnar
-> (9883a13c72dbf8c518814b6091019643cdb34429):
-> -	lock_sock(sock->sk);
-> +	local_bh_disable();
-> +	bh_lock_sock_nested(sock->sk);
-> 	rc = selinux_netlbl_socket_setsid(sock, sksec->sid);
-> -	release_sock(sock->sk);
-> +	bh_unlock_sock(sock->sk);
-> +	local_bh_enable();
-> Is it _really_ *this* simple?
+> > >>+#ifndef __ARMEB__
+> > >>+#warning Little endian mode not supported
+> > >>+#endif
+> > >
+> > >Personally I'm less fussed about WAN / LE support. Anyone with any  
+> > >sense will run ixp4xx boards doing such a specialised network  
+> > >operation as BE. Also, NSLU2-Linux can't test this functionality with  
+> > >our LE setup as we don't have this hardware on-board. You may just  
+> > >want to declare a depends on ARMEB in Kconfig (with or without OR  
+> > >(ARM || BROKEN) ) and have done with it - it's up to you.
+> > 
+> > Christian Hohnstaedt's work did support LE though.
+> > 
+> > Not all ixp4xx boards are by definition "doing such a specialised 
+> > network operation".
+> > 
+> > Krzysztof, why is LE not supported?
+> > 
+> > Do you need access to ixp4xx that starts in LE mode?
+> 
+> Not even trying to support LE is a clear merge blocker.  Maybe
+> Krzysztof can't actually test it himself, which is fine - but
+> not even pretending to be endian clean is not what proper Linux
+> drivers do.
 
-Hi Satyam,
+The issue is not that the driver is not 'endian clean'.
 
-actually this *seems* to be proper solution also for our case, thanks for 
-pointing this out. I will think about it once again, do some more tests 
-with this locking scheme, and will let you know.
+This is a driver for an on-chip ethernet MAC on an ARM CPU.  I.e. the
+ethernet MAC is on the CPU itself, it's not some kind of PCI device or
+something like that.  The ARM CPU in question can be run in either
+little endian or big endian mode.  Making a driver work in both modes
+of operation is generally not just an issue of adding a couple of
+be32_to_cpu()s in the right places.
 
-Thanks,
+For example, intel IXP2000 and IXP23xx CPU support in arch/arm only
+supports big-endian mode of operation, and none of the associated
+drivers support little-endian mode.
 
--- 
-Jiri Kosina
-
--------------------------------------------------------------------------
-This SF.net email is sponsored by DB2 Express
-Download DB2 Express C - the FREE version of DB2 express and take
-control of your XML. No limits. Just data. Click to get it now.
-http://sourceforge.net/powerbar/db2/
+Most of the other CPU support in arch/arm only supports
+little-endian mode, and none of the associated drivers support
+big-endian mode.  According to your criterion, that would mean that
+most of the ARM drivers (alsa, usb, framebuffer, networking, etc.)
+should never have been accepted in the kernel tree in the first place.
