@@ -1,45 +1,35 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH] e1000: Fix msi enable leak on error, don't print error
- message,	cleanup
-Date: Wed, 16 May 2007 08:35:31 -0700
-Message-ID: <464B24C3.10302@intel.com>
-References: <20070516083120.23311.3272.stgit@localhost.localdomain> <464B2426.9060502@garzik.org>
+From: Anton Blanchard <anton@samba.org>
+Subject: Re: select(0, ..) is valid ?
+Date: Wed, 16 May 2007 10:37:03 -0500
+Message-ID: <20070516153703.GA26912@kryten>
+References: <1179250159.2836.117.camel@dyn9047017100.beaverton.ibm.com> <20070515104453.f901e91f.akpm@linux-foundation.org> <Pine.LNX.4.64.0705151109021.31972@schroedinger.engr.sgi.com> <Pine.LNX.4.64.0705151927360.28895@blonde.wat.veritas.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
-	hpa@zytor.com
-To: Jeff Garzik <jeff@garzik.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:31685 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757637AbXEPPfh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 May 2007 11:35:37 -0400
-In-Reply-To: <464B2426.9060502@garzik.org>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Christoph Lameter <clameter@sgi.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Badari Pulavarty <pbadari@us.ibm.com>, netdev@vger.kernel.org,
+	lkml <linux-kernel@vger.kernel.org>, sfr@canb.auug.org.au,
+	ak@suse.de
+To: Hugh Dickins <hugh@veritas.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1762322AbXEPPjy@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0705151927360.28895@blonde.wat.veritas.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
-> Auke Kok wrote:
->> pci_enable_msi failure is a normal event so we should not print any error.
->> Going over the code I spotted a missing pci_disable_msi() leak when irq
->> allocation fails. The whole code also needed a cleanup, so I combined the
->> two different calls to pci_request_irq into a single call making this
->> look a lot better.
->>
->> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
->> Cc: H. Peter Anvin <hpa@zytor.com>
-> 
-> Looks OK, but compounds (and highlights) another problem:  you shouldn't 
-> be adding CONFIG_PCI_MSI ifdefs to the code.  MSI support is properly 
-> set up in the headers to enable working code even if CONFIG_PCI_MSI is 
-> disabled.
-> 
-> Revise your patch to remove CONFIG_PCI_MSI tests, and I'll include it 
-> straightaway.
 
-OK, on its way.
+Hi Hugh,
 
-Thanks.
+> It's interesting that compat_core_sys_select() shows this kmalloc(0)
+> failure but core_sys_select() does not.  That's because core_sys_select()
+> avoids kmalloc by using a buffer on the stack for small allocations (and
+> 0 sure is small).  Shouldn't compat_core_sys_select() do just the same?
+> Or is SLUB going to be so efficient that doing so is a waste of time?
 
-Auke
+Nice catch, the original optimisation from Andi is:
+
+http://git.kernel.org/git-new/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=70674f95c0a2ea694d5c39f4e514f538a09be36f
+
+And I think it makes sense for the compat code to do it too.
+
+Anton
