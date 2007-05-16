@@ -1,66 +1,52 @@
-From: Jiri Kosina <jikos@jikos.cz>
-Subject: Re: 2.6.21-rc7: BUG: sleeping function called from
- invalid context at net/core/sock.c:1523
-Date: Thu, 17 May 2007 01:03:55 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0705170102290.13706@twin.jikos.cz>
-References: <462D1B09.9050005@goop.org>
-	<Pine.LNX.4.64.0704232257090.20657@twin.jikos.cz>
-	<Pine.LNX.4.64.0704261625410.20657@twin.jikos.cz>
-	<a781481a0705110629n7c7130c1x3a89fa958b271f20@mail.gmail.com>
-	<Pine.LNX.4.64.0705161124030.25986@twin.jikos.cz>
-	<a781481a0705160436s3564022aybd9b318ec0947d94@mail.gmail.com>
-	<1179315904.10069.67.camel@violet>
-	<a781481a0705160456q778cfb4dk67d754317d57e9bb@mail.gmail.com>
-	<a781481a0705160459p2d538d7fu8096bd594d6df2f9@mail.gmail.com>
-	<1179317775.10069.77.camel@violet>
-	<Pine.LNX.4.64.0705161418250.25986@twin.jikos.cz>
-Reply-To: BlueZ development <bluez-devel@lists.sourceforge.net>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [stable] PROBLEM: SIS900 Driver change in Linux Kernel 2.6.21
+	causes kernel panic.
+Date: Wed, 16 May 2007 16:12:32 -0700
+Message-ID: <20070516231232.GA9047@kroah.com>
+References: <577536.90963.qm@web84207.mail.re3.yahoo.com> <20070516221704.GC16810@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Jeremy Fitzhardinge <jeremy@goop.org>, netdev@vger.kernel.org,
-	Marcel Holtmann <marcel@holtmann.org>, Greg KH <gregkh@suse.de>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Cedric Le Goater <clg@fr.ibm.com>, bluez-devel@lists.sourceforge.net,
-	maxk@qualcomm.com
-To: Satyam Sharma <satyam.sharma@gmail.com>
-Return-path: <bluez-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <Pine.LNX.4.64.0705161418250.25986@twin.jikos.cz>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
-	<mailto:bluez-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=bluez-devel>
-List-Post: <mailto:bluez-devel@lists.sourceforge.net>
-List-Help: <mailto:bluez-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
-	<mailto:bluez-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: bluez-devel-bounces@lists.sourceforge.net
-Errors-To: bluez-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=us-ascii
+Cc: - <kd6lvw@yahoo.com>, Neil Horman <nhorman@tuxdriver.com>,
+	Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
+	Daniele Venzano <venza@brownhat.org>,
+	Andrew Morton <akpm@linux-foundation.org>, stable@kernel.org
+To: Dave Jones <davej@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from pentafluge.infradead.org ([213.146.154.40]:46472 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755023AbXEPXOd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 May 2007 19:14:33 -0400
+Content-Disposition: inline
+In-Reply-To: <20070516221704.GC16810@redhat.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 16 May 2007, Jiri Kosina wrote:
+On Wed, May 16, 2007 at 06:17:04PM -0400, Dave Jones wrote:
+> On Wed, May 16, 2007 at 02:33:18PM -0700, - wrote:
+>  > Kernel version 2.6.20.4 works.  What I'm experiencing is a kernel panic as
+>  > soon as the first received packet comes in via the sis900 ethernet
+>  > interface.  The machine is locked up and part of the kernel panic message
+>  > is lost as it has scrolled off the screen and the virtual terminal has
+>  > crashed as well (the kernel appears to have done a permanent halt - the
+>  > keyboard LEDs are flashing).  The only way I could get the machine to boot
+>  > without this problem was to unplug the ethernet cable - but it would
+>  > appear as soon as the the first packet was received after plugging the
+>  > cable back in.  That's not good since the machine in question is a server
+>  > in a co-location facility (I can't print the screen either).  The kernel
+>  > panic was repeatable without fail.  As this usually happens before "init"
+>  > is called, the only "program" running is the kernel itself.  I don't have
+>  > any syslog/dmesg message recorded to disk for the event.  I've rolled back
+>  > to version 2.6.20.4 in the meantime.
+> 
+> You need this..
+> 
+> http://git.kernel.org/?p=linux%2Fkernel%2Fgit%2Ftorvalds%2Flinux-2.6.git;a=commitdiff_plain;h=dc5a144991ba803bc8afded105c9db1dea0e57ab
+> 
+> Which is queued for -stable afaik, but no sign of 2.6.21.2 yet. Greg/Chris?
 
-> > since Jiri has a good test case for it, I leave it to him for testing.
-> > If he confirms that this fixes the locking issues, then this is
-> > Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
-> I will verify later this evening and will let you know. I am however 
-> pretty convinced now that this is the right fix.
+I have a large queue backing up, will try to flush it out by tomorrow
+and get a review cycle started.
 
-Satyam,
+thanks,
 
-I have just verified that this locking scheme is indeed correct. So you 
-can add
-
-	Signed-off-by: Jiri Kosina <jkosina@suse.cz>
-
-if you wish to, and submit the patch to Andrew.
-
-Thanks,
-
--- 
-Jiri Kosina
-
--------------------------------------------------------------------------
-This SF.net email is sponsored by DB2 Express
-Download DB2 Express C - the FREE version of DB2 express and take
-control of your XML. No limits. Just data. Click to get it now.
-http://sourceforge.net/powerbar/db2/
+greg "i'm starting to hate travelling" k-h
