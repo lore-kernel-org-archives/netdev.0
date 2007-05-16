@@ -1,59 +1,62 @@
-From: Rolf Eike Beer <eike-kernel@sf-tec.de>
-Subject: [PATCH][R8169] Add endianess annotations to [RT]xDesc
-Date: Wed, 16 May 2007 13:10:57 +0200
-Message-ID: <200705161310.58575.eike-kernel@sf-tec.de>
+From: "Satyam Sharma" <satyam.sharma@gmail.com>
+Subject: Re: 2.6.21-rc7: BUG: sleeping function called from invalid context at net/core/sock.c:1523
+Date: Wed, 16 May 2007 17:06:46 +0530
+Message-ID: <a781481a0705160436s3564022aybd9b318ec0947d94@mail.gmail.com>
+References: <462D1B09.9050005@goop.org>
+	 <Pine.LNX.4.64.0704232257090.20657@twin.jikos.cz>
+	 <Pine.LNX.4.64.0704261625410.20657@twin.jikos.cz>
+	 <a781481a0705110629n7c7130c1x3a89fa958b271f20@mail.gmail.com>
+	 <Pine.LNX.4.64.0705161124030.25986@twin.jikos.cz>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+Cc: "Marcel Holtmann" <marcel@holtmann.org>,
+	"Greg KH" <gregkh@suse.de>,
+	"Jeremy Fitzhardinge" <jeremy@goop.org>, maxk@qualcomm.com,
+	bluez-devel@lists.sourceforge.net,
+	"Cedric Le Goater" <clg@fr.ibm.com>,
+	"Linux Kernel Mailing List" <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: "Jiri Kosina" <jikos@jikos.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.sf-mail.de ([62.27.20.61]:42669 "EHLO mail.sf-mail.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759854AbXEPLRo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 May 2007 07:17:44 -0400
+Received: from py-out-1112.google.com ([64.233.166.180]:65122 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756570AbXEPLgr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 May 2007 07:36:47 -0400
+Received: by py-out-1112.google.com with SMTP id a29so457440pyi
+        for <netdev@vger.kernel.org>; Wed, 16 May 2007 04:36:47 -0700 (PDT)
+In-Reply-To: <Pine.LNX.4.64.0705161124030.25986@twin.jikos.cz>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[R8169] Add endianess annotations to [RT]xDesc
+Hi Jiri,
 
-Signed-off-by: Rolf Eike Beer <eike-kernel@sf-tec.de>
+On 5/16/07, Jiri Kosina <jikos@jikos.cz> wrote:
+> On Fri, 11 May 2007, Satyam Sharma wrote:
+> > (later)
+> > I Googled a bit to see if this problem was faced elsewhere in the kernel
+> > too. Saw the following commit by Ingo Molnar
+> > (9883a13c72dbf8c518814b6091019643cdb34429):
+> > -     lock_sock(sock->sk);
+> > +     local_bh_disable();
+> > +     bh_lock_sock_nested(sock->sk);
+> >       rc = selinux_netlbl_socket_setsid(sock, sksec->sid);
+> > -     release_sock(sock->sk);
+> > +     bh_unlock_sock(sock->sk);
+> > +     local_bh_enable();
+> > Is it _really_ *this* simple?
+> [...]
+> actually this *seems* to be proper solution also for our case, thanks for
+> pointing this out. I will think about it once again, do some more tests
+> with this locking scheme, and will let you know.
 
----
-commit 8b36037f072047e61557506ee917dcc25680bd69
-tree faafe5e664affabef85ff4dcab280338fd528fae
-parent b26c4a9f50ccfade25e3699f616ce97590dc2cb7
-author Rolf Eike Beer <eike-kernel@sf-tec.de> Wed, 16 May 2007 08:23:39 +0200
-committer Rolf Eike Beer <eike-kernel@sf-tec.de> Wed, 16 May 2007 08:23:39 +0200
+Yes, I can almost confirm that this (open-coding of spin_lock_bh,
+effectively) is the proper solution (Rusty's unreliable guide to
+kernel-locking needs to be next to every developer's keyboard :-)
+I also came across this idiom in other places in the networking code
+so it seems to be pretty much the standard way. I wish I owned
+bluetooth hardware, could've tested this for you myself.
 
- drivers/net/r8169.c |   12 ++++++------
- 1 files changed, 6 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index 45876a8..2261835 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -405,15 +405,15 @@ enum _DescStatusBit {
- #define RsvdMask	0x3fffc000
- 
- struct TxDesc {
--	u32 opts1;
--	u32 opts2;
--	u64 addr;
-+	__le32 opts1;
-+	__le32 opts2;
-+	__le64 addr;
- };
- 
- struct RxDesc {
--	u32 opts1;
--	u32 opts2;
--	u64 addr;
-+	__le32 opts1;
-+	__le32 opts2;
-+	__le64 addr;
- };
- 
- struct ring_info {
+Thanks,
+Satyam
