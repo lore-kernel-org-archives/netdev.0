@@ -1,42 +1,76 @@
-From: "Arnaldo Carvalho de Melo" <acme@ghostprotocols.net>
-Subject: Re: [patch 2/7] CAN: Add PF_CAN core module
-Date: Wed, 16 May 2007 17:51:01 -0300
-Message-ID: <39e6f6c70705161351i249715ud7a4cc317d9677bc@mail.gmail.com>
-References: <20070516145100.29877.0@janus.isnogud.escape.de>
-	 <20070516145121.29877.2@janus.isnogud.escape.de>
-	 <39e6f6c70705160935q66109a3ci414374544d99c78f@mail.gmail.com>
-	 <ygfsl9wfunn.fsf@janus.isnogud.escape.de>
+From: Florin Malita <fmalita@gmail.com>
+Subject: [PATCH] libertas: skb dereferenced after netif_rx
+Date: Wed, 16 May 2007 17:01:27 -0400
+Message-ID: <464B7127.5080502@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "Thomas Gleixner" <tglx@linutronix.de>,
-	"Oliver Hartkopp" <oliver.hartkopp@volkswagen.de>
-To: "Urs Thuermann" <urs@isnogud.escape.de>
+Cc: netdev@vger.kernel.org
+To: marcelo@kvack.org, linville@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.234]:45126 "EHLO
-	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758990AbXEPUvD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 May 2007 16:51:03 -0400
-Received: by wr-out-0506.google.com with SMTP id 76so372027wra
-        for <netdev@vger.kernel.org>; Wed, 16 May 2007 13:51:02 -0700 (PDT)
-In-Reply-To: <ygfsl9wfunn.fsf@janus.isnogud.escape.de>
-Content-Disposition: inline
+Received: from an-out-0708.google.com ([209.85.132.251]:14390 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965570AbXEPVBq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 May 2007 17:01:46 -0400
+Received: by an-out-0708.google.com with SMTP id d18so75779and
+        for <netdev@vger.kernel.org>; Wed, 16 May 2007 14:01:45 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 16 May 2007 21:14:20 +0200, Urs Thuermann <urs@isnogud.escape.de> wrote:
-> "Arnaldo Carvalho de Melo" <acme@ghostprotocols.net> writes:
->
-> > Can can_ifindex be turned into a unsigned short? That way we would
-> > have it nicely packed, avoiding this hole:
->
-> Since dev->ifindex is int and we have many assignments between
-> can_ifindex and dev->ifindex it would not make sense to define
-> can_ifindex as a short int.  Also in user space, ifindex is int,
-> e.g. in struct ifreq.  This would cause implicit truncating type casts
-> from int to short int (some compilers warn about this, haven't tried
-> GCC for a long time) or require many explicit type casts.
+In libertas_process_rxed_packet() and process_rxed_802_11_packet() the 
+skb is dereferenced after being passed to netif_rx (called from 
+libertas_upload_rx_packet). Spotted by Coverity (1658, 1659).
 
-Quick answer, thank you.
+Also, libertas_upload_rx_packet() unconditionally returns 0 so the error 
+check is dead code - might as well take it out.
 
-- Arnaldo
+
+Signed-off-by: Florin Malita <fmalita@gmail.com>
+---
+
+ rx.c |   18 ++++--------------
+ 1 file changed, 4 insertions(+), 14 deletions(-)
+
+diff --git a/drivers/net/wireless/libertas/rx.c b/drivers/net/wireless/libertas/rx.c
+index d17924f..5e98055 100644
+--- a/drivers/net/wireless/libertas/rx.c
++++ b/drivers/net/wireless/libertas/rx.c
+@@ -269,15 +269,11 @@ int libertas_process_rxed_packet(wlan_private * priv, struct sk_buff *skb)
+ 	wlan_compute_rssi(priv, p_rx_pd);
+ 
+ 	lbs_pr_debug(1, "RX Data: size of actual packet = %d\n", skb->len);
+-	if (libertas_upload_rx_packet(priv, skb)) {
+-		lbs_pr_debug(1, "RX error: libertas_upload_rx_packet"
+-		       " returns failure\n");
+-		ret = -1;
+-		goto done;
+-	}
+ 	priv->stats.rx_bytes += skb->len;
+ 	priv->stats.rx_packets++;
+ 
++	libertas_upload_rx_packet(priv, skb);
++
+ 	ret = 0;
+ done:
+ 	LEAVE();
+@@ -438,17 +434,11 @@ static int process_rxed_802_11_packet(wlan_private * priv, struct sk_buff *skb)
+ 	wlan_compute_rssi(priv, prxpd);
+ 
+ 	lbs_pr_debug(1, "RX Data: size of actual packet = %d\n", skb->len);
+-
+-	if (libertas_upload_rx_packet(priv, skb)) {
+-		lbs_pr_debug(1, "RX error: libertas_upload_rx_packet "
+-			"returns failure\n");
+-		ret = -1;
+-		goto done;
+-	}
+-
+ 	priv->stats.rx_bytes += skb->len;
+ 	priv->stats.rx_packets++;
+ 
++	libertas_upload_rx_packet(priv, skb);
++
+ 	ret = 0;
+ done:
+ 	LEAVE();
+
