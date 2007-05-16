@@ -1,71 +1,135 @@
-From: linas@austin.ibm.com (Linas Vepstas)
-Subject: [PATCH 4/10] spidernet: zero out a pointer.
-Date: Wed, 16 May 2007 17:09:28 -0500
-Message-ID: <20070516220928.GD4997@austin.ibm.com>
-References: <20070516215605.GA4325@austin.ibm.com>
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: Re: [WIP] [PATCH] WAS Re: [RFC] New driver API to speed up small
+	packets xmits
+Date: Wed, 16 May 2007 15:12:03 -0700
+Message-ID: <1179353523.10414.12.camel@w-sridhar2.beaverton.ibm.com>
+References: <adahcqdpz1p.fsf@cisco.com>
+	 <OFF5654BB8.74EC8DCB-ON872572DC.00752079-882572DC.00756B23@us.ibm.com>
+	 <20070515.143207.80029051.davem@davemloft.net>
+	 <1179267467.4080.33.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: cbe-oss-dev@ozlabs.org, netdev@vger.kernel.org
-To: Jeff Garzik <jgarzik@pobox.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, xma@us.ibm.com,
+	rdreier@cisco.com, ak@suse.de, krkumar2@in.ibm.com,
+	netdev@vger.kernel.org, netdev-owner@vger.kernel.org,
+	ashwin.chaugule@celunite.com,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	Gagan Arneja <gagan@vmware.com>
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e1.ny.us.ibm.com ([32.97.182.141]:36474 "EHLO e1.ny.us.ibm.com"
+Received: from e3.ny.us.ibm.com ([32.97.182.143]:40150 "EHLO e3.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755039AbXEPWJa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 May 2007 18:09:30 -0400
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e1.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l4GM9TGG003797
-	for <netdev@vger.kernel.org>; Wed, 16 May 2007 18:09:29 -0400
-Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l4GM9Twk501332
-	for <netdev@vger.kernel.org>; Wed, 16 May 2007 18:09:29 -0400
-Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
-	by d01av01.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l4GM9TrA013429
-	for <netdev@vger.kernel.org>; Wed, 16 May 2007 18:09:29 -0400
-Content-Disposition: inline
-In-Reply-To: <20070516215605.GA4325@austin.ibm.com>
+	id S1755359AbXEPWMJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 May 2007 18:12:09 -0400
+In-Reply-To: <1179267467.4080.33.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Jamal,
 
-Invalidate a pointer as its pci_unmap'ed; this is a bit of 
-paranoia to make sure hardware doesn't continue trying to 
-DMA to it.
+Here are some comments i have on your patch.
+See them inline.
 
-Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
+Thanks
+Sridhar
 
-----
- drivers/net/spider_net.c |    7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
++static int try_get_tx_pkts(struct net_device *dev, struct Qdisc *q, int count)
++{
++       struct sk_buff *skb;
++       struct sk_buff_head *skbs = &dev->blist;
++       int tdq = count;
++
++       /* 
++        * very unlikely, but who knows ..
++        * If this happens we dont try to grab more pkts
++        */
++       if (!skb_queue_empty(&dev->blist))
++               return skb_queue_len(&dev->blist);
++
++       if (dev->gso_skb) {
++               count--;
++               __skb_queue_head(skbs, dev->gso_skb);
++               dev->gso_skb = NULL;
++       }
 
-Index: linux-2.6.22-rc1/drivers/net/spider_net.c
-===================================================================
---- linux-2.6.22-rc1.orig/drivers/net/spider_net.c	2007-05-15 13:31:11.000000000 -0500
-+++ linux-2.6.22-rc1/drivers/net/spider_net.c	2007-05-15 13:31:16.000000000 -0500
-@@ -1068,6 +1068,7 @@ spider_net_decode_one_descr(struct spide
- 	struct spider_net_descr_chain *chain = &card->rx_chain;
- 	struct spider_net_descr *descr = chain->tail;
- 	struct spider_net_hw_descr *hwdescr = descr->hwdescr;
-+	u32 hw_buf_addr;
- 	int status;
- 
- 	status = spider_net_get_descr_status(hwdescr);
-@@ -1081,7 +1082,9 @@ spider_net_decode_one_descr(struct spide
- 	chain->tail = descr->next;
- 
- 	/* unmap descriptor */
--	pci_unmap_single(card->pdev, hwdescr->buf_addr,
-+	hw_buf_addr = hwdescr->buf_addr;
-+	hwdescr->buf_addr = 0x0;
-+	pci_unmap_single(card->pdev, hw_buf_addr,
- 			SPIDER_NET_MAX_FRAME, PCI_DMA_FROMDEVICE);
- 
- 	if ( (status == SPIDER_NET_DESCR_RESPONSE_ERROR) ||
-@@ -1117,7 +1120,7 @@ spider_net_decode_one_descr(struct spide
- 		pr_err("%s: bad status, cmd_status=x%08x\n",
- 			       card->netdev->name,
- 			       hwdescr->dmac_cmd_status);
--		pr_err("buf_addr=x%08x\n", hwdescr->buf_addr);
-+		pr_err("buf_addr=x%08x\n", hw_buf_addr);
- 		pr_err("buf_size=x%08x\n", hwdescr->buf_size);
- 		pr_err("next_descr_addr=x%08x\n", hwdescr->next_descr_addr);
- 		pr_err("result_size=x%08x\n", hwdescr->result_size);
+AFAIK, gso_skb can be a list of skb's. Can we add a list
+to another list using __skb_queue_head()?
+Also, if gso_skb is a list of multiple skb's, i think the
+count needs to be decremented by the number of segments in
+gso_skb.
+
++
++       while (count) {
++               skb = q->dequeue(q);
++               if (!skb)
++                       break;
++               count--;
++               __skb_queue_head(skbs, skb);
++       }
++
++       return tdq - count;
++}
++
++static inline int try_tx_pkts(struct net_device *dev)
++{
++
++       return dev->hard_batch_xmit(&dev->blist, dev);
++
++}
++
++/* same comments as in qdisc_restart apply;
++ * at some point use shared code with qdisc_restart*/
++int batch_qdisc_restart(struct net_device *dev)
++{
++       struct Qdisc *q = dev->qdisc;
++       unsigned lockless = (dev->features & NETIF_F_LLTX);
++       int count = dev->xmit_win;
++       int ret = 0;
++
++       ret = try_get_tx_pkts(dev, q, count);
++
++       if (ret == 0)
++               return qdisc_qlen(q);
++
++       /* we have packets to send! */
++       if (!lockless) {
++               if (!netif_tx_trylock(dev))
++                       return tx_islocked(NULL, dev, q);
++       }
++
++       /* all clear .. */
++       spin_unlock(&dev->queue_lock);
++
++       ret = NETDEV_TX_BUSY;
++       if (!netif_queue_stopped(dev))
++               ret = try_tx_pkts(dev);
+
+try_tx_pkts() is directly calling the device's batch xmit routine.
+Don't we need to call dev_hard_start_xmit() to handle dev_queue_xmit_nit
+and GSO segmentation?
+
++
++       if (!lockless)
++               netif_tx_unlock(dev);
++
++       spin_lock(&dev->queue_lock);
++
++       q = dev->qdisc;
++
++       /* most likely result, packet went ok */
++       if (ret == NETDEV_TX_OK)
++               return qdisc_qlen(q);
++       /* only for lockless drivers .. */
++       if (ret == NETDEV_TX_LOCKED && lockless)
++               return tx_islocked(NULL, dev, q);
++
++       if (unlikely(ret != NETDEV_TX_BUSY && net_ratelimit()))
++               printk(KERN_WARNING " BUG %s code %d qlen %d\n",
++                      dev->name, ret, q->q.qlen);
++
++       return do_dev_requeue(NULL, dev, q);
++}
+
+
+
