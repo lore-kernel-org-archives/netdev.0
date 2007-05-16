@@ -1,60 +1,46 @@
-From: linas@austin.ibm.com (Linas Vepstas)
-Subject: [PATCH 10/10] spidernet: increase the NAPI weight
-Date: Wed, 16 May 2007 17:23:57 -0500
-Message-ID: <20070516222357.GJ4997@austin.ibm.com>
-References: <20070516215605.GA4325@austin.ibm.com>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH] e1000: Work around 82571 completion
+	timout on Pseries	HW
+Date: Thu, 17 May 2007 08:31:36 +1000
+Message-ID: <1179354696.32247.231.camel@localhost.localdomain>
+References: <OFF304A49A.2C1F7634-ON872572DD.0079C647-862572DD.0079EE19@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: cbe-oss-dev@ozlabs.org, netdev@vger.kernel.org
-To: Jeff Garzik <jgarzik@pobox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e36.co.us.ibm.com ([32.97.110.154]:33389 "EHLO
-	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754836AbXEPWYA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 May 2007 18:24:00 -0400
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e36.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l4GMNwBp027639
-	for <netdev@vger.kernel.org>; Wed, 16 May 2007 18:23:58 -0400
-Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
-	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l4GMNvmZ210180
-	for <netdev@vger.kernel.org>; Wed, 16 May 2007 16:23:57 -0600
-Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l4GMNvbY028223
-	for <netdev@vger.kernel.org>; Wed, 16 May 2007 16:23:57 -0600
-Content-Disposition: inline
-In-Reply-To: <20070516215605.GA4325@austin.ibm.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	Auke Kok <auke-jan.h.kok@intel.com>, Jeff Garzik <jeff@garzik.org>
+To: Wen Xiong <wenxiong@us.ibm.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <OFF304A49A.2C1F7634-ON872572DD.0079C647-862572DD.0079EE19@us.ibm.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
+On Wed, 2007-05-16 at 17:11 -0500, Wen Xiong wrote:
+>  little history, on PCI-X adapters we did not time dma reads being
+> returned to the adapter. On PCIe unfortunately the spec says that
+> adapters need to time the dma reads the spec is not specific on the
+> range but the timers can range from worst case 50 usecs to 10 ms with
+> some adapters supporting upto 50ms. The PCIe spec has approved an ECR
+> to the PCIe 1.0a spec that will support the ability to disable the
+> timer.  To work aroung the adapter doesn't support ECR.  We need the
+> driver to disable the timer. 
 
-Another way of minimizing the likelyhood of RX ram from overflowing
-is to empty out the entire rx ring every chance we get. Change
-the crazy watchdog timeout from 50 seconds to 3 seconds, while
-we're here.
+You do get more than 10ms delay for DMA replies on pSeries ? Ouch...
 
-Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
+Ben.
 
-----
- drivers/net/spider_net.h |    9 +++++++--
- 1 file changed, 7 insertions(+), 2 deletions(-)
 
-Index: linux-2.6.22-rc1/drivers/net/spider_net.h
-===================================================================
---- linux-2.6.22-rc1.orig/drivers/net/spider_net.h	2007-05-16 12:00:35.000000000 -0500
-+++ linux-2.6.22-rc1/drivers/net/spider_net.h	2007-05-16 12:00:35.000000000 -0500
-@@ -56,8 +56,13 @@ extern char spider_net_driver_name[];
- 
- #define SPIDER_NET_RX_CSUM_DEFAULT		1
- 
--#define SPIDER_NET_WATCHDOG_TIMEOUT		50*HZ
--#define SPIDER_NET_NAPI_WEIGHT			64
-+#define SPIDER_NET_WATCHDOG_TIMEOUT		3*HZ
-+
-+/* We really really want to empty the ring buffer every time,
-+ * so as to avoid the RX ram full bug. So set te napi wieght
-+ * to the ring size 
-+ */
-+#define SPIDER_NET_NAPI_WEIGHT			SPIDER_NET_RX_DESCRIPTORS_DEFAULT
- 
- #define SPIDER_NET_FIRMWARE_SEQS	6
- #define SPIDER_NET_FIRMWARE_SEQWORDS	1024
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by DB2 Express
+Download DB2 Express C - the FREE version of DB2 express and take
+control of your XML. No limits. Just data. Click to get it now.
+http://sourceforge.net/powerbar/db2/
