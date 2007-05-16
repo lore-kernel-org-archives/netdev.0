@@ -1,28 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] [TIPC]: Fixed erroneous introduction of
- for_each_netdev
-Date: Tue, 15 May 2007 17:25:03 -0700 (PDT)
-Message-ID: <20070515.172503.90531300.davem@davemloft.net>
-References: <1>
-	<11792748743802-git-send-email-jon.maloy@ericsson.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] [e1000] Lower the MSI unavailable message
+	to INFO priority
+Date: Tue, 15 May 2007 20:32:44 -0400
+Message-ID: <464A512C.9080104@garzik.org>
+References: <200705152359.l4FNxPcS018779@tazenda.hos.anvin.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jon.maloy@ericsson.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43625
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1760835AbXEPAY6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 May 2007 20:24:58 -0400
-In-Reply-To: <11792748743802-git-send-email-jon.maloy@ericsson.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: auke-jan.h.kok@intel.com, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, jesse.brandeburg@intel.com,
+	john.ronciak@intel.com, jeffrey.t.kirsher@intel.com
+To: "H. Peter Anvin" <hpa@zytor.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <200705152359.l4FNxPcS018779@tazenda.hos.anvin.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-From: Jon Paul Maloy <jon.maloy@ericsson.com>
-Date: Tue, 15 May 2007 20:21:14 -0400
+H. Peter Anvin wrote:
+> diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+> index 637ae8f..089ae3f 100644
+> --- a/drivers/net/e1000/e1000_main.c
+> +++ b/drivers/net/e1000/e1000_main.c
+> @@ -307,7 +307,7 @@ static int e1000_request_irq(struct e1000_adapter *adapter)
+>  	if (adapter->hw.mac_type >= e1000_82571) {
+>  		adapter->have_msi = TRUE;
+>  		if ((err = pci_enable_msi(adapter->pdev))) {
+> -			DPRINTK(PROBE, ERR,
+> +			DPRINTK(PROBE, INFO,
+>  			 "Unable to allocate MSI interrupt Error: %d\n", err);
+>  			adapter->have_msi = FALSE;
 
-> 
-> Signed-off-by: Jon Paul Maloy <jon.maloy@ericsson.com>
 
-Sorry about that Jon, I thought the new code was correct :-/
+Actually, it should not print any message at all.
+
+pci_enable_msi() failure is a normal event (as you point out).  Even at 
+KERN_INFO level, the message is still misleading.
+
+	Jeff
+
+
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by DB2 Express
+Download DB2 Express C - the FREE version of DB2 express and take
+control of your XML. No limits. Just data. Click to get it now.
+http://sourceforge.net/powerbar/db2/
