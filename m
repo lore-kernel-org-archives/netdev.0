@@ -1,41 +1,38 @@
-From: Michael-Luke Jones <mlj28@cam.ac.uk>
-Subject: Re: [PATCH] Intel IXP4xx network drivers v.2 - Ethernet and HSS
-Date: Wed, 16 May 2007 11:20:10 +0100
-Message-ID: <D85F3D39-A8C9-4A1A-B88F-9500355B4747@cam.ac.uk>
-References: <464034CF.20700@wpkg.org> <20070516071300.GB14222@infradead.org> <20070516094100.GB16262@xi.wantstofly.org>
-Mime-Version: 1.0 (Apple Message framework v752.2)
-Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Christoph Hellwig <hch@infradead.org>,
-	Tomasz Chmielewski <mangoo@wpkg.org>,
-	linux-kernel@vger.kernel.org,
-	linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org,
-	Krzysztof Halasa <khc@pm.waw.pl>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
+From: lepton <ytht.net@gmail.com>
+Subject: why we use skb->rt->rt_src as dest address when replying packet?
+Date: Wed, 16 May 2007 18:29:35 +0800
+Message-ID: <20070516102934.GA26934@router.lepton.home>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ppsw-4.csi.cam.ac.uk ([131.111.8.134]:39925 "EHLO
-	ppsw-4.csi.cam.ac.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757714AbXEPKUM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 May 2007 06:20:12 -0400
-In-Reply-To: <20070516094100.GB16262@xi.wantstofly.org>
+Received: from py-out-1112.google.com ([64.233.166.177]:10360 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754775AbXEPK3w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 May 2007 06:29:52 -0400
+Received: by py-out-1112.google.com with SMTP id a29so440400pyi
+        for <netdev@vger.kernel.org>; Wed, 16 May 2007 03:29:51 -0700 (PDT)
+Received: from lepton by router.lepton.home with local (Exim 4.50)
+	id 1HoGlD-0000S1-14
+	for netdev@vger.kernel.org; Wed, 16 May 2007 18:29:35 +0800
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 16 May 2007, at 10:41, Lennert Buytenhek wrote:
-> Making a driver work in both modes
-> of operation is generally not just an issue of adding a couple of
-> be32_to_cpu()s in the right places.
+I found in function [ip_send_reply] and [icmp_reply], we
+use such code to get the destination address of our
+packet:
 
-While this comment is technically correct, Christian's driver  
-achieves endian agnostic operation with only 10 additional lines of  
-code [1].
+struct rtable *rt = (struct rtable *)skb->dst;
+......
+daddr = ipc.addr = rt->rt_src;
 
-Thus, there is no reason to assume that gaining LE support will be a  
-major issue.
+I have a question here:
+Is there any special reason for using rt->rt_src as destination address?
+Can I use codes like these?
 
-Michael-Luke
+struct iph * ip = skb->nh.iph;
+......
+daddr = ipc.addr = ip->saddr;
 
-[1] http://www.hohnstaedt.de/ixp_npe/0.3.1/ixp4xx_npe_driver-0.3.1.diff
-Search in this file for "swap the payload of the SKB" (it's in  
-mac_driver.c)
-
+I found in some case, rt->rt_src is not equal to ip->saddr. Thanks.
