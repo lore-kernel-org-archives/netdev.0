@@ -1,48 +1,74 @@
-From: Dave Jones <davej@redhat.com>
-Subject: Re: PROBLEM: SIS900 Driver change in Linux Kernel 2.6.21 causes kernel panic.
-Date: Wed, 16 May 2007 18:17:04 -0400
-Message-ID: <20070516221704.GC16810@redhat.com>
-References: <577536.90963.qm@web84207.mail.re3.yahoo.com>
+From: linas@austin.ibm.com (Linas Vepstas)
+Subject: [PATCH 8/10] spidernet: reset the card when an rxramfull is seen
+Date: Wed, 16 May 2007 17:19:46 -0500
+Message-ID: <20070516221946.GH4997@austin.ibm.com>
+References: <20070516215605.GA4325@austin.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Daniele Venzano <venza@brownhat.org>, netdev@vger.kernel.org,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Jeff Garzik <jeff@garzik.org>,
-	Andrew Morton <akpm@linux-foundation.org>, stable@kernel.org
-To: - <kd6lvw@yahoo.com>
+Cc: cbe-oss-dev@ozlabs.org, netdev@vger.kernel.org
+To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:55722 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755456AbXEPWTi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 May 2007 18:19:38 -0400
+Received: from e34.co.us.ibm.com ([32.97.110.152]:56300 "EHLO
+	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755456AbXEPWTw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 May 2007 18:19:52 -0400
+Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
+	by e34.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l4GMJl1A024114
+	for <netdev@vger.kernel.org>; Wed, 16 May 2007 18:19:47 -0400
+Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
+	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l4GMJlnB269930
+	for <netdev@vger.kernel.org>; Wed, 16 May 2007 16:19:47 -0600
+Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l4GMJkXm018741
+	for <netdev@vger.kernel.org>; Wed, 16 May 2007 16:19:46 -0600
 Content-Disposition: inline
-In-Reply-To: <577536.90963.qm@web84207.mail.re3.yahoo.com>
+In-Reply-To: <20070516215605.GA4325@austin.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, May 16, 2007 at 02:33:18PM -0700, - wrote:
- > Kernel version 2.6.20.4 works.  What I'm experiencing is a kernel panic as
- > soon as the first received packet comes in via the sis900 ethernet
- > interface.  The machine is locked up and part of the kernel panic message
- > is lost as it has scrolled off the screen and the virtual terminal has
- > crashed as well (the kernel appears to have done a permanent halt - the
- > keyboard LEDs are flashing).  The only way I could get the machine to boot
- > without this problem was to unplug the ethernet cable - but it would
- > appear as soon as the the first packet was received after plugging the
- > cable back in.  That's not good since the machine in question is a server
- > in a co-location facility (I can't print the screen either).  The kernel
- > panic was repeatable without fail.  As this usually happens before "init"
- > is called, the only "program" running is the kernel itself.  I don't have
- > any syslog/dmesg message recorded to disk for the event.  I've rolled back
- > to version 2.6.20.4 in the meantime.
 
-You need this..
+Some versions of the spider have a firmware bug, where the
+RX ring sequencer goes crazy when the RX RAM on the device
+fills up. Appearently the only viable wrkaround is a soft
+reset of the card.
 
-http://git.kernel.org/?p=linux%2Fkernel%2Fgit%2Ftorvalds%2Flinux-2.6.git;a=commitdiff_plain;h=dc5a144991ba803bc8afded105c9db1dea0e57ab
+Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
 
-Which is queued for -stable afaik, but no sign of 2.6.21.2 yet. Greg/Chris?
+----
+ drivers/net/spider_net.c |   14 +++++++++++---
+ 1 file changed, 11 insertions(+), 3 deletions(-)
 
-	Dave
-
--- 
-http://www.codemonkey.org.uk
+Index: linux-2.6.22-rc1/drivers/net/spider_net.c
+===================================================================
+--- linux-2.6.22-rc1.orig/drivers/net/spider_net.c	2007-05-15 14:48:06.000000000 -0500
++++ linux-2.6.22-rc1/drivers/net/spider_net.c	2007-05-15 16:34:46.000000000 -0500
+@@ -1505,11 +1505,17 @@ spider_net_handle_error_irq(struct spide
+ 	case SPIDER_NET_GRFBFLLINT: /* fallthrough */
+ 	case SPIDER_NET_GRFAFLLINT: /* fallthrough */
+ 	case SPIDER_NET_GRMFLLINT:
+-		if (netif_msg_intr(card) && net_ratelimit())
+-			pr_err("%s: Spider RX RAM full, incoming packets "
+-			       "might be discarded!\n", card->netdev->name);
++		if (netif_msg_intr(card) && net_ratelimit()) {
++			pr_err("%s: Spider RX RAM full, reseting device.\n",
++			       card->netdev->name);
++			show_rx_chain(card);
++		}
+ 		spider_net_rx_irq_off(card);
+ 		netif_rx_schedule(card->netdev);
++
++		/* If the card is spewing rxramfulls, then reset */
++		atomic_inc(&card->tx_timeout_task_counter);
++		schedule_work(&card->tx_timeout_task);
+ 		show_error = 0;
+ 		break;
+ 
+@@ -2086,6 +2092,8 @@ spider_net_workaround_rxramfull(struct s
+ {
+ 	int i, sequencer = 0;
+ 
++	printk(KERN_INFO "%s: calling rxramfull workaround\n", card->netdev->name);
++
+ 	/* cancel reset */
+ 	spider_net_write_reg(card, SPIDER_NET_CKRCTRL,
+ 			     SPIDER_NET_CKRCTRL_RUN_VALUE);
