@@ -1,37 +1,53 @@
-From: Chuck Ebbert <cebbert@redhat.com>
-Subject: Oops in netxen driver, kernel 2.6.20.10
-Date: Wed, 16 May 2007 16:39:46 -0400
-Message-ID: <464B6C12.2090706@redhat.com>
+From: Christoph Lameter <clameter@sgi.com>
+Subject: Re: [PATCH 02/40] mm: slab allocation fairness
+Date: Wed, 16 May 2007 13:41:32 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0705161338040.11168@schroedinger.engr.sgi.com>
+References: <20070504102651.923946304@chello.nl> <20070504103155.813939525@chello.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>
-To: Mithlesh Thukral <mithlesh@netxen.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+	netdev@vger.kernel.org,
+	Trond Myklebust <trond.myklebust@fys.uio.no>,
+	Thomas Graf <tgraf@suug.ch>,
+	David Miller <davem@davemloft.net>,
+	James Bottomley <James.Bottomley@SteelEye.com>,
+	Mike Christie <michaelc@cs.wisc.edu>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Daniel Phillips <phillips@google.com>
+To: Peter Zijlstra <a.p.zijlstra@chello.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:60258 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758331AbXEPUjt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 May 2007 16:39:49 -0400
+Received: from netops-testserver-3-out.sgi.com ([192.48.171.28]:54348 "EHLO
+	relay.sgi.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S934140AbXEPUlf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 May 2007 16:41:35 -0400
+In-Reply-To: <20070504103155.813939525@chello.nl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=240190
+On Fri, 4 May 2007, Peter Zijlstra wrote:
 
-drivers/net/netxen/netxen_nic_init.c:
+> Page allocation rank is a scalar quantity connecting ALLOC_ and gfp flags which
+> represents how deep we had to reach into our reserves when allocating a page. 
+> Rank 0 is the deepest we can reach (ALLOC_NO_WATERMARK) and 16 is the most 
+> shallow allocation possible (ALLOC_WMARK_HIGH).
+> 
+> When the slab space is grown the rank of the page allocation is stored. For
+> each slab allocation we test the given gfp flags against this rank. Thereby
+> asking the question: would these flags have allowed the slab to grow.
+> 
+> If not so, we need to test the current situation. This is done by forcing the
+> growth of the slab space. (Just testing the free page limits will not work due
+> to direct reclaim) Failing this we need to fail the slab allocation.
 
-                        if (ADDR_IN_WINDOW1(off)) {
-                                writel(buf[i].data,
-                                       NETXEN_CRB_NORMALIZE(adapter, off));
-                        } else {
-                                netxen_nic_pci_change_crbwindow(adapter, 0);
-Line 566 ==>                    writel(buf[i].data,
-                                       pci_base_offset(adapter, off));
+This implies that an allocation at time t2 must be aware of the result of 
+an allocation at time t1. It assumes a linear ordering of allocations that 
+is not possible on large systems. Ordering of events is a very expensive 
+endeavor in particular on NUMA systems given the potentially large 
+latencies between various portions of the system.
 
-                                netxen_nic_pci_change_crbwindow(adapter, 1);
-                        }
+Maybe you need to restrict the ordering per cpu or per node? Per zone? 
 
-pci_base_offset() returned NULL and the result was not checked, causing NULL
-dereference.
+Then we would need to store the ranks somewhere which raises scalability 
+issues if these are global.
 
-offset is in RBX (== 0x0000000105ffffff) and is out of the expected range.
 
