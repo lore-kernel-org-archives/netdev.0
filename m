@@ -1,40 +1,34 @@
-From: Daniel Schaffrath <daniel.schaffrath@mac.com>
-Subject: Purpose of bit shifts in tcp_get_info
-Date: Wed, 16 May 2007 15:26:53 +0200
-Message-ID: <21FCA9FF-08FB-4C6F-B2C5-669E36A7748C@mac.com>
-Mime-Version: 1.0 (Apple Message framework v752.3)
-Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Linux NetDev <netdev@vger.kernel.org>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: [PATCH] Intel IXP4xx network drivers v.2 - Ethernet and HSS
+Date: Wed, 16 May 2007 16:44:25 +0200
+Message-ID: <m3vees96ba.fsf@maximus.localdomain>
+References: <464034CF.20700@wpkg.org> <20070516071300.GB14222@infradead.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Tomasz Chmielewski <mangoo@wpkg.org>, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org,
+	Michael Jones <mlj28@cam.ac.uk>
+To: Christoph Hellwig <hch@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpout.mac.com ([17.250.248.171]:55370 "EHLO smtpout.mac.com"
+Received: from khc.piap.pl ([195.187.100.11]:36038 "EHLO khc.piap.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753188AbXEPNoP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 May 2007 09:44:15 -0400
-Received: from mac.com (smtpin08-en2 [10.13.10.153])
-	by smtpout.mac.com (Xserve/smtpout01/MantshX 4.0) with ESMTP id l4GDR2ns011135
-	for <netdev@vger.kernel.org>; Wed, 16 May 2007 06:27:02 -0700 (PDT)
-Received: from [192.168.178.24] (p57a4a480.dip0.t-ipconnect.de [87.164.164.128])
-	(authenticated bits=0)
-	by mac.com (Xserve/smtpin08/MantshX 4.0) with ESMTP id l4GDQwJG001777
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NO)
-	for <netdev@vger.kernel.org>; Wed, 16 May 2007 06:27:00 -0700 (PDT)
+	id S1756984AbXEPOo2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 May 2007 10:44:28 -0400
+In-Reply-To: <20070516071300.GB14222@infradead.org> (Christoph Hellwig's message of "Wed, 16 May 2007 08:13:01 +0100")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dear Community,
+Christoph Hellwig <hch@infradead.org> writes:
 
-I was wondering what the purpose of the bit shifts in tcp_get_info  
-right after the jiffies conversion might be. What's the time unit  
-after that shift?
+> Not even trying to support LE is a clear merge blocker.  Maybe Krzysztof
+> can't actually test it himself, which is fine - but not even pretending
+> to be endian clean is not what proper Linux drivers do.
 
-         info->tcpi_rtt = jiffies_to_usecs(tp->srtt)>>3;
-         info->tcpi_rttvar = jiffies_to_usecs(tp->mdev)>>2;
-[...]
-         info->tcpi_rcv_rtt = jiffies_to_usecs(tp->rcv_rtt_est.rtt)>>3;
+The drivers can only work with IXP4xx CPU and that's not the typical
+endianess problem cross-platform drivers sometimes have.
 
-Maybe somebody has a hint for me?
-
-Thanks a lot!
-Daniel
-  
+There is different functionality required with LE mode, unless some
+other arch changes are implemented (which I'm now researching, if
+I have some time of course).
+-- 
+Krzysztof Halasa
