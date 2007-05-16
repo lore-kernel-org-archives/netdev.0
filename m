@@ -1,39 +1,40 @@
-From: Christoph Hellwig <hch@lst.de>
-Subject: [PATCH] spidernet: node-aware skbuff allocation
-Date: Wed, 16 May 2007 15:01:42 +0200
-Message-ID: <20070516130142.GA1437@lst.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: linas@austin.ibm.com
+From: Daniel Schaffrath <daniel.schaffrath@mac.com>
+Subject: Purpose of bit shifts in tcp_get_info
+Date: Wed, 16 May 2007 15:26:53 +0200
+Message-ID: <21FCA9FF-08FB-4C6F-B2C5-669E36A7748C@mac.com>
+Mime-Version: 1.0 (Apple Message framework v752.3)
+Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Linux NetDev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from verein.lst.de ([213.95.11.210]:43146 "EHLO mail.lst.de"
+Received: from smtpout.mac.com ([17.250.248.171]:55370 "EHLO smtpout.mac.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751581AbXEPNB4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 May 2007 09:01:56 -0400
-Content-Disposition: inline
+	id S1753188AbXEPNoP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 May 2007 09:44:15 -0400
+Received: from mac.com (smtpin08-en2 [10.13.10.153])
+	by smtpout.mac.com (Xserve/smtpout01/MantshX 4.0) with ESMTP id l4GDR2ns011135
+	for <netdev@vger.kernel.org>; Wed, 16 May 2007 06:27:02 -0700 (PDT)
+Received: from [192.168.178.24] (p57a4a480.dip0.t-ipconnect.de [87.164.164.128])
+	(authenticated bits=0)
+	by mac.com (Xserve/smtpin08/MantshX 4.0) with ESMTP id l4GDQwJG001777
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NO)
+	for <netdev@vger.kernel.org>; Wed, 16 May 2007 06:27:00 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Spidernet was the driver I original did all the node-aware netdevice
-allocation for, but after a year it still hasn't hit mainline.
+Dear Community,
 
-So here's the patch again:
+I was wondering what the purpose of the bit shifts in tcp_get_info  
+right after the jiffies conversion might be. What's the time unit  
+after that shift?
 
+         info->tcpi_rtt = jiffies_to_usecs(tp->srtt)>>3;
+         info->tcpi_rttvar = jiffies_to_usecs(tp->mdev)>>2;
+[...]
+         info->tcpi_rcv_rtt = jiffies_to_usecs(tp->rcv_rtt_est.rtt)>>3;
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
+Maybe somebody has a hint for me?
 
-Index: linux-2.6/drivers/net/spider_net.c
-===================================================================
---- linux-2.6.orig/drivers/net/spider_net.c	2006-10-23 17:20:14.000000000 +0200
-+++ linux-2.6/drivers/net/spider_net.c	2006-10-30 13:27:48.000000000 +0100
-@@ -395,7 +395,8 @@
- 	/* and we need to have it 128 byte aligned, therefore we allocate a
- 	 * bit more */
- 	/* allocate an skb */
--	descr->skb = dev_alloc_skb(bufsize + SPIDER_NET_RXBUF_ALIGN - 1);
-+	descr->skb = netdev_alloc_skb(card->netdev,
-+				      bufsize + SPIDER_NET_RXBUF_ALIGN - 1);
- 	if (!descr->skb) {
- 		if (netif_msg_rx_err(card) && net_ratelimit())
- 			pr_err("Not enough memory to allocate rx buffer\n");
+Thanks a lot!
+Daniel
+  
