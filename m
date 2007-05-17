@@ -1,65 +1,33 @@
-From: Kumar Gala <galak@kernel.crashing.org>
-Subject: Re: [PATCH] e1000: Work around 82571 completion timout on Pseries HW
-Date: Wed, 16 May 2007 19:43:27 -0500
-Message-ID: <495A2DE1-775D-4DFC-9C1C-4644AA5A040B@kernel.crashing.org>
-References: <20070516085329.29131.120.stgit@localhost.localdomain>
-Mime-Version: 1.0 (Apple Message framework v752.2)
-Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: Resending: RT patches expose netdev race [was Re: [RFC] [patch
+	2/2] powerpc 2.6.21-rt1: fix kernel hang and/or panic
+Date: Thu, 17 May 2007 10:49:45 +1000
+Message-ID: <1179362985.32247.252.camel@localhost.localdomain>
+References: <20070517002751.GC4325@austin.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, wenxiong@us.ibm.com,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Auke Kok <auke-jan.h.kok@intel.com>
+Cc: Tsutomu OWA <tsutomu.owa@toshiba.co.jp>, linuxppc-dev@ozlabs.org,
+	mingo@elte.hu, tglx@linutronix.de, cbe-oss-dev@ozlabs.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Linas Vepstas <linas@austin.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nommos.sslcatacombnetworking.com ([67.18.224.114]:56100 "EHLO
-	nommos.sslcatacombnetworking.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755714AbXEQApP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 May 2007 20:45:15 -0400
-In-Reply-To: <20070516085329.29131.120.stgit@localhost.localdomain>
+Received: from gate.crashing.org ([63.228.1.57]:49691 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756359AbXEQAur (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 May 2007 20:50:47 -0400
+In-Reply-To: <20070517002751.GC4325@austin.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-On May 16, 2007, at 3:53 AM, Auke Kok wrote:
+> I do not know why sk_buff->head would be null, or
+> would be set in a racy kind of way, or why the rt patches
+> would cause this. But the evidence implicates that.
 
-> Our 82571 (first PCI-E hardware) causes P-Series hardware to throw
-> issues. Disabling PCI-E completion timeouts in our NIC resolves
-> the issue.
->
-> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
-> Cc: Wen Xiong <wenxiong@us.ibm.com>
-> ---
->
->  drivers/net/e1000/e1000_main.c |   10 ++++++++++
->  1 files changed, 10 insertions(+), 0 deletions(-)
->
-> diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/ 
-> e1000_main.c
-> index 49be393..830d851 100644
-> --- a/drivers/net/e1000/e1000_main.c
-> +++ b/drivers/net/e1000/e1000_main.c
-> @@ -819,6 +819,16 @@ e1000_reset(struct e1000_adapter *adapter)
->  		E1000_WRITE_REG(&adapter->hw, CTRL, ctrl);
->  	}
->
-> +#if defined(CONFIG_PPC64) || defined(CONFIG_PPC)
+Would it be possible that a locking bug in spidernet would cause it
+under some circumstances to get a stale skb pointer ?
 
-If this is really on need on pseries HW this should be #ifdef  
-CONFIG_PPC_PSERIES.  No reason to force this on all PPC.
+Ben.
 
-> +#define E1000_GCR_DISABLE_TIMEOUT_MECHANISM 0x80000000
-> +	if (adapter->hw.mac.type == e1000_82571) {
-> +		/* work around pSeries hardware by disabling timeouts */
-> +		u32 gcr = E1000_READ_REG(&adapter->hw, E1000_GCR);
-> +		gcr |= E1000_GCR_DISABLE_TIMEOUT_MECHANISM;
-> +		E1000_WRITE_REG(&adapter->hw, E1000_GCR, gcr);
-> +	}
-> +#endif
-> +
->  	/* Enable h/w to recognize an 802.1Q VLAN Ethernet packet */
->  	E1000_WRITE_REG(&adapter->hw, VET, ETHERNET_IEEE_VLAN_TYPE);
->
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
