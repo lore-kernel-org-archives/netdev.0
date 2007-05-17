@@ -1,42 +1,47 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: [PATCH] Fix incorrect prototype for ipxrtr_route_packet()
-Date: Thu, 17 May 2007 18:48:12 +0800
-Message-ID: <1179398893.2859.479.camel@shinybook.infradead.org>
+From: Janusz Krzysztofik <jkrzyszt@tis.icnet.pl>
+Subject: Re: [IPV4] LVS: Allow to send ICMP unreachable responses when real-servers
+ are removed
+Date: Thu, 17 May 2007 13:25:53 +0200
+Message-ID: <464C3BC1.8090908@tis.icnet.pl>
+References: <200704271705.l3RH5Brw026873@hera.kernel.org> <4648382E.8030009@trash.net> <20070514.033504.48528120.davem@davemloft.net> <4648714E.9050200@tis.icnet.pl> <464872E2.2030502@trash.net> <464884EE.3030606@tis.icnet.pl> <46489F5C.4000801@trash.net> <20070515052608.GG13708@verge.net.au> <4649DBB7.3070608@trash.net> <Pine.LNX.4.58.0705160012470.2626@u.domain.uli>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: acme@ghostprotocols.net, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: torvalds@osdl.org, akpm@osdl.org
+Cc: Patrick McHardy <kaber@trash.net>,
+	Simon Horman <horms@verge.net.au>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Julian Anastasov <ja@ssi.bg>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:59005 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754983AbXEQKsd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 May 2007 06:48:33 -0400
+Received: from d1.icnet.pl ([212.160.220.21]:33053 "EHLO d1.icnet.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755024AbXEQL0H (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 May 2007 07:26:07 -0400
+In-Reply-To: <Pine.LNX.4.58.0705160012470.2626@u.domain.uli>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The function ipxrtr_route_packet() takes a 'len' argument of type
-size_t. However, its prototype in af_ipx.c incorrectly suggests that the
-corresponding argument is of type 'int' instead.
+Julian Anastasov wrote:
+> If icmp_send is changed to use inet_addr_type() then ICMP will leave
+> with saddr != VIP and that is not nice.
+> ...
+>> I'm not familiar with the IPVS terms, but as far as I understand,
+>> it is _not_ going to return RTN_LOCAL, so we get the desired
+>> behaviour of selecting a local address as source.
+> 
+> 	But what is preferred is to use VIP in ICMP.
+> 
+> ip route add local VIP dev lo table user_defined
+> 
+> 	returns RTCF_LOCAL but inet_addr_type() does not return RTN_LOCAL,
+> we fix one thing but break another :)
 
-Discovered by building with --combine and letting the compiler see it
-all at once.
+Well, I have promissed you to give some feedback after I test the patch 
+proposed by Patrick, but after Julian's post I can only confirm that it 
+works exactly as Julian said, what is not what I would expect.
 
-Signed-off-by: David Woodhouse <dwmw2@infradead.org>
+Julian, thank you for your detailed explanation of the issue, I have 
+nothing more to add.
 
---- a/net/ipx/af_ipx.c
-+++ b/net/ipx/af_ipx.c
-@@ -87,7 +87,7 @@ extern int ipxrtr_add_route(__be32 network, struct ipx_interface *intrfc,
- 			    unsigned char *node);
- extern void ipxrtr_del_routes(struct ipx_interface *intrfc);
- extern int ipxrtr_route_packet(struct sock *sk, struct sockaddr_ipx *usipx,
--			       struct iovec *iov, int len, int noblock);
-+			       struct iovec *iov, size_t len, int noblock);
- extern int ipxrtr_route_skb(struct sk_buff *skb);
- extern struct ipx_route *ipxrtr_lookup(__be32 net);
- extern int ipxrtr_ioctl(unsigned int cmd, void __user *arg);
+Janusz
 
--- 
-dwmw2
 
