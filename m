@@ -1,53 +1,52 @@
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: Re: [WIP] [PATCH] WAS Re: [RFC] New driver API to speed up small packets
- xmits
-Date: Thu, 17 May 2007 10:31:56 +0530
-Message-ID: <OFD4E8C537.53B7FE22-ON652572DE.001ABA41-652572DE.001BA4ED@in.ibm.com>
-References: <464B7B49.4070003@us.ibm.com>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: 2.6.21-rc7: BUG: sleeping function called from invalid context
+	at net/core/sock.c:1523
+Date: Thu, 17 May 2007 08:04:29 +0200
+Message-ID: <1179381869.10069.112.camel@violet>
+References: <1179317775.10069.77.camel@violet>
+	 <Pine.LNX.4.64.0705161418250.25986@twin.jikos.cz>
+	 <Pine.LNX.4.64.0705170102290.13706@twin.jikos.cz>
+	 <20070516.161609.108116976.davem@davemloft.net>
+	 <Pine.LNX.4.64.0705170116260.13706@twin.jikos.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: ak@suse.de, ashwin.chaugule@celunite.com,
-	David Miller <davem@davemloft.net>,
-	Gagan Arneja <gagan@vmware.com>, hadi@cyberus.ca,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org, rdreier@cisco.com, xma@us.ibm.com
-To: Sridhar Samudrala <sri@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ausmtp06.au.ibm.com ([202.81.18.155]:45119 "EHLO
-	ausmtp06.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755531AbXEQFCx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 May 2007 01:02:53 -0400
-In-Reply-To: <464B7B49.4070003@us.ibm.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, satyam.sharma@gmail.com,
+	Greg KH <gregkh@suse.de>, jeremy@goop.org, maxk@qualcomm.com,
+	bluez-devel@lists.sourceforge.net, clg@fr.ibm.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Jiri Kosina <jikos@jikos.cz>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760861AbXEQGEu@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.64.0705170116260.13706@twin.jikos.cz>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Sridhar Samudrala <sri@us.ibm.com> wrote on 05/17/2007 03:14:41 AM:
+Hi Jiri,
 
-> Krishna Kumar2 wrote:
-> > Hi Sridhar,
-> >
-> > Sridhar Samudrala <sri@us.ibm.com> wrote on 05/17/2007 03:42:03 AM:
-> >
-> >> AFAIK, gso_skb can be a list of skb's. Can we add a list
-> >> to another list using __skb_queue_head()?
-> >> Also, if gso_skb is a list of multiple skb's, i think the
-> >> count needs to be decremented by the number of segments in
-> >> gso_skb.
-> >
-> > gso_skb is the last GSO skb that failed to be sent. This already
-> > segmented skb is kept "cached" and whenever the next xmit happens,
-> > this skb is first sent before any packets from the queue are taken
-> > out (otherwise out-of-order packets). So there can atmost be one
-> > gso_skb per device.
->
-> Yes. There can be only one gso_skb per device. But it can have more
-> than one segments linked together via skb->next.
+> > > I have just verified that this locking scheme is indeed correct. So you 
+> > > can add
+> > > 
+> > > 	Signed-off-by: Jiri Kosina <jkosina@suse.cz>
+> > > 
+> > > if you wish to, and submit the patch to Andrew.
+> > I guess I don't get sent networking patches any more?
+> > :-)
+> 
+> Well, this is bluetooth-specific, but it seemed to me that Marcel wasn't 
+> going to send pull requests to Linus any time soon, therefore I thought 
+> going through akpm is a thing to do.
 
-It will definitely have more than 1 segments (criterea to be on the
-gso_skb). But I think you are right, the segmented skb will "lose"
-it's 1-n segments (newsk->next = next) when it is added to the list.
+actually everything net/ related goes to Dave first. No exception. This
+includes the Bluetooth subsystem. I even send drivers/bluetooth/ through
+Dave before they go to Linus.
 
-Thanks,
+> Honestly, I really don't care through which tree this goes in, so sorry if 
+> any offence was caused here :)
 
-- KK
+Having these small ones passed through Andrew is only a convenience
+since he is really good in picking them up and make sure that they get
+merged by Linus.
 
+Regards
+
+Marcel
