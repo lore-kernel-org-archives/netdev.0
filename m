@@ -1,50 +1,32 @@
-From: Chris Wright <chrisw@sous-sol.org>
-Subject: Re: [stable] [PATCH 2.6.21-stable] [IPV6]: Restore semantics of
-	Routing Header processing.
-Date: Wed, 16 May 2007 18:46:00 -0700
-Message-ID: <20070517014600.GE3429@sequoia.sous-sol.org>
-References: <20070512.011728.16743460.yoshfuji@linux-ipv6.org> <20070511162243.GC3516@sequoia.sous-sol.org> <20070512.012820.126195303.yoshfuji@linux-ipv6.org>
+From: Daniel Drake <dsd@gentoo.org>
+Subject: Re: [PATCH] sky2: re-enable 88E8056 for most motherboards
+Date: Wed, 16 May 2007 22:09:16 -0400
+Message-ID: <464BB94C.1020103@gentoo.org>
+References: <20070430142349.79754c1b@freekitty>	<46374784.7010401@gentoo.org>	<20070510090010.4c6b8589@freepuppy>	<464734F1.2020103@gentoo.org> <20070514120206.5181839e@freepuppy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: chrisw@sous-sol.org, davem@davemloft.net, netdev@vger.kernel.org,
-	stable@kernel.org
-To: YOSHIFUJI Hideaki / =?utf-8?B?5ZCJ6Jek6Iux5piO?=
-	<yoshfuji@linux-ipv6.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
+	stable@kernel.org, Francois SIMOND <curio@free.fr>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 216-99-217-87.dsl.aracnet.com ([216.99.217.87]:39487 "EHLO
-	sous-sol.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757576AbXEQBrb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 May 2007 21:47:31 -0400
-Content-Disposition: inline
-In-Reply-To: <20070512.012820.126195303.yoshfuji@linux-ipv6.org>
+Received: from smtp151.iad.emailsrvr.com ([207.97.245.151]:33394 "EHLO
+	smtp151.iad.emailsrvr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754880AbXEQCKV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 May 2007 22:10:21 -0400
+In-Reply-To: <20070514120206.5181839e@freepuppy>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E (yoshfuji@li=
-nux-ipv6.org) wrote:
-> In article <20070511162243.GC3516@sequoia.sous-sol.org> (at Fri, 11 M=
-ay 2007 09:22:43 -0700), Chris Wright <chrisw@sous-sol.org> says:
-> > * YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E (yoshfuj=
-i@linux-ipv6.org) wrote:
-> > > The "fix" for emerging security threats was overkill and it broke
-> > > basic semantic of IPv6 routing header processing.  We should assu=
-me
-> > > RT0 (or even RT2, depends on configuration) as "unknown" RH type =
-so
-> > > that we
-> > > - silently ignore the routing header if segleft =3D=3D 0
-> > > - or, send ICMPv6 Parameter Problem message back to the sender,
-> > >   otherwise.
-> >=20
-> > Does that mean this one has received testing and is good for -stabl=
-e
-> > now, or does it need some bake time?
->=20
-> Chris, I think it is okay, but
-> please wait for Dave's approval.
+Stephen Hemminger wrote:
+> It looks like these users aren't using MSI?
 
-Any update on this one?
+Possible. Want me to find out?
 
-thanks,
--chris
+I just ask as I note yesterday's -stable patch where you remove the 
+#ifdef completely. Is that going to go upstream into 2.6.22 or do you 
+want to continue pursuing the DMI matching path?
+
+Thanks,
+Daniel
+
