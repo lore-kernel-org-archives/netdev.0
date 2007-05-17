@@ -1,74 +1,47 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [FIX][PATCH] ipv6 addrconf.c : wrong handling of non-ipv6 hardware
- since 2.6.21
-Date: Thu, 17 May 2007 22:41:42 +0200
-Message-ID: <464CBE06.30204@hartkopp.net>
-References: <464C886F.50703@hartkopp.net> <20070518.024940.120305926.yoshfuji@linux-ipv6.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: linux-2.6.22-rc1-gb2cd6415 build #257 failed in
+ ./net/rxrpc/ar-peer.c
+Date: Thu, 17 May 2007 13:42:12 -0700 (PDT)
+Message-ID: <20070517.134212.115909674.davem@davemloft.net>
+References: <200705172106.27574.toralf.foerster@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
+Content-Type: Text/Plain; charset=iso-8859-15
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: =?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kgLyDlkInol6Toi7HmmI4=?=
-	<yoshfuji@linux-ipv6.org>
+Cc: netdev@vger.kernel.org
+To: toralf.foerster@gmx.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.162]:54350 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754993AbXEQUmG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 May 2007 16:42:06 -0400
-In-Reply-To: <20070518.024940.120305926.yoshfuji@linux-ipv6.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55105
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754972AbXEQUmK convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 May 2007 16:42:10 -0400
+In-Reply-To: <200705172106.27574.toralf.foerster@gmx.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E schrieb:
-> In article <464C886F.50703@hartkopp.net> (at Thu, 17 May 2007 18:53:0=
-3 +0200), Oliver Hartkopp <socketcan@hartkopp.net> says:
->
->  =20
->> +static int ipv6_hwtype(struct net_device *dev)
->> +{
->> +    if ((dev->type =3D=3D ARPHRD_ETHER) ||
->> +        (dev->type =3D=3D ARPHRD_LOOPBACK) ||
->> +#if defined(CONFIG_IPV6_SIT) || defined(CONFIG_IPV6_SIT_MODULE)
->> +        (dev->type =3D=3D ARPHRD_SIT) ||
->> +#endif
->> +        (dev->type =3D=3D ARPHRD_TUNNEL6) ||
->> +        (dev->type =3D=3D ARPHRD_FDDI) ||
->> +        (dev->type =3D=3D ARPHRD_IEEE802_TR) ||
->> +        (dev->type =3D=3D ARPHRD_ARCNET) ||
->> +        (dev->type =3D=3D ARPHRD_INFINIBAND))
->> +        return 1;
->> +
->> +    return 0;
->> +}
->> +
->>    =20
->
-> Please remove #if, or please provide for other
-> dependencies as well (e.g., CONFIG_IPV6_TUNNEL etc.)
->
-> Otherwise, I would agree.
->
->  =20
-Hello Hideaki,
+=46rom: Toralf F=F6rster <toralf.foerster@gmx.de>
+Date: Thu, 17 May 2007 21:06:24 +0200
 
-thanks for your (positive) feedback.
-Indeed ARPHRD_SIT is the only hardware type that's explicitely #if 'ed=20
-in the addrconf.c code. Any other ARPHRD_* is not conditional to any=20
-CONFIGs. E.g. there is no #ifdef CONFIG_IPV6_TUNNEL arround the other=20
-ARPHRD_TUNNEL6 stuff in addrconf.c.
+>=20
+> Hello,
+>=20
+> the build with the attached .config failed, make ends with:
+> ...
+>   AS      arch/i386/lib/semaphore.o
+>   CC      arch/i386/lib/strstr.o
+>   CC      arch/i386/lib/usercopy.o
+>   AR      arch/i386/lib/lib.a
+>   GEN     .version
+>   CHK     include/linux/compile.h
+>   UPD     include/linux/compile.h
+>   CC      init/version.o
+>   LD      init/built-in.o
+>   LD      .tmp_vmlinux1
+> net/built-in.o: In function `rxrpc_assess_MTU_size':
+> ar-peer.c:(.text+0x63fb8): undefined reference to `ip_route_output_ke=
+y'
+> make: *** [.tmp_vmlinux1] Error 1
 
-So the current patch meets the exact functional extension to the other=20
-code, where only ARPHRD_SIT is in #if 's.
-Of course it is no problem to remove the #if defined(CONFIG_IPV6_SIT) =20
-=2E.. but this would be the only place in the code then.
+I thought we made RXRPC depend upon IPV4, hmmm.
 
-Are you sure, that you really want have a divergent codestyle only here=
-=20
-in ipv6_hwtype()?
-
-If so i can post it of course.
-
-Best Regards,
-Oliver
-
+Nope, we didn't, I'll fix that, thanks for the report.
