@@ -1,57 +1,34 @@
-From: wendy xiong <wendyx@us.ibm.com>
-Subject: Re: [PATCH] e1000: Work around 82571 completion timout on Pseries
-	HW
-Date: Thu, 17 May 2007 16:44:05 -0500
-Message-ID: <1179438245.25390.8.camel@wendyx.austin.ibm.com>
-References: <OFDD90D73E.30B0DB27-ON872572DE.004ED0BE-862572DE.005242EA@us.ibm.com>
-	 <464CC378.5070409@garzik.org>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] [e1000] Lower the MSI unavailable message to INFO priority
+Date: Thu, 17 May 2007 17:45:59 -0400
+Message-ID: <464CCD17.4000908@garzik.org>
+References: <200705152359.l4FNxPcS018779@tazenda.hos.anvin.org> <464A512C.9080104@garzik.org> <464B229B.7060702@intel.com> <464CC5EC.4020202@redhat.com> <464CC92B.9080800@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Wen Xiong <wenxiong@us.ibm.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Auke Kok <auke-jan.h.kok@intel.com>,
-	e1000-devel@lists.sourceforge.net,
-	Kumar Gala <galak@kernel.crashing.org>, netdev@vger.kernel.org,
-	wendyx@linux.vnet.ibm.com
-To: Jeff Garzik <jeff@garzik.org>
+Cc: Chuck Ebbert <cebbert@redhat.com>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	e1000-devel@lists.sourceforge.net, john.ronciak@intel.com,
+	jesse.brandeburg@intel.com, jeffrey.t.kirsher@intel.com,
+	netdev@vger.kernel.org
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e2.ny.us.ibm.com ([32.97.182.142]:37326 "EHLO e2.ny.us.ibm.com"
+Received: from srv5.dvmed.net ([207.36.208.214]:42363 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754892AbXEQVoI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 May 2007 17:44:08 -0400
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e2.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l4HLi738019917
-	for <netdev@vger.kernel.org>; Thu, 17 May 2007 17:44:07 -0400
-Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
-	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l4HLi7mN511720
-	for <netdev@vger.kernel.org>; Thu, 17 May 2007 17:44:07 -0400
-Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
-	by d01av02.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l4HLi60N024399
-	for <netdev@vger.kernel.org>; Thu, 17 May 2007 17:44:07 -0400
-In-Reply-To: <464CC378.5070409@garzik.org>
+	id S1754972AbXEQVqH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 May 2007 17:46:07 -0400
+In-Reply-To: <464CC92B.9080800@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2007-05-17 at 17:04 -0400, Jeff Garzik wrote:
-> Wen Xiong wrote:
-> > Here there are not hardware issue on both Intel or PPC.  The patch is to 
-> > work around a loop hold on early version of PCI SGI spec.  
-> > The later PCI Sgi have spec have corrected it.  We can just implement it 
-> > for PPC only.  Other vendor may have the same issue.
-> 
-> 
-> If it is not a PPC-specific issue, then we should not limit it to PPC.
-> 
-> 	Jeff
-> 
-> 
+Kok, Auke wrote:
+> for now. If MSI is breaking with a 10gig adapter I think people 
+> appreciate the error.
 
-Hi Jeff,
 
-We have tested the patch on PowerPC CEC and IO drawers. We really want
-to fix this for PPC. If you can accept for vendors, we are ok.
+No, that is same invalid reasoning discussed earlier in this thread. 
+ixgb needs patching for this problem too.
 
-Thanks for your help!
-wendy
+	Jeff
+
 
