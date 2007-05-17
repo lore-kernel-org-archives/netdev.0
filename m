@@ -1,117 +1,64 @@
-From: Wen Xiong <wenxiong@us.ibm.com>
-Subject: Re: [PATCH] e1000: Work around 82571 completion
-	timout on Pseries HW
-Date: Thu, 17 May 2007 09:58:03 -0500
-Message-ID: <OFDD90D73E.30B0DB27-ON872572DE.004ED0BE-862572DE.005242EA@us.ibm.com>
-References: <20070517090119.GA27145@infradead.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [IPV4] LVS: Allow to send ICMP unreachable responses when real-servers
+ are removed
+Date: Thu, 17 May 2007 18:40:28 +0200
+Message-ID: <464C857C.9070406@trash.net>
+References: <200704271705.l3RH5Brw026873@hera.kernel.org> <4648382E.8030009@trash.net> <20070514.033504.48528120.davem@davemloft.net> <4648714E.9050200@tis.icnet.pl> <464872E2.2030502@trash.net> <464884EE.3030606@tis.icnet.pl> <46489F5C.4000801@trash.net> <20070515052608.GG13708@verge.net.au> <4649DBB7.3070608@trash.net> <Pine.LNX.4.58.0705160012470.2626@u.domain.uli>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============1069050782=="
-Cc: wendyx@linux.vnet.ibm.com, Auke Kok <auke-jan.h.kok@intel.com>,
-	jeff@garzik.org, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, Kumar Gala <galak@kernel.crashing.org>
-To: Christoph Hellwig <hch@infradead.org>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20070517090119.GA27145@infradead.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Simon Horman <horms@verge.net.au>,
+	Janusz Krzysztofik <jkrzyszt@tis.icnet.pl>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Julian Anastasov <ja@ssi.bg>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:33449 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755263AbXEQQlJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 May 2007 12:41:09 -0400
+In-Reply-To: <Pine.LNX.4.58.0705160012470.2626@u.domain.uli>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multipart message in MIME format.
---===============1069050782==
-Content-Type: multipart/alternative;
-	boundary="=_alternative 005242E8862572DE_="
-
-This is a multipart message in MIME format.
---=_alternative 005242E8862572DE_=
-Content-Type: text/plain; charset="US-ASCII"
-
->>It really shouldn't be there at all because something in either the 
-intel
->>or pseries hardware is totally buggy and we should disable features in
->>the buggy one completely.
-
-Hi,
-
-Here there are not hardware issue on both Intel or PPC.  The patch is to 
-work around a loop hold on early version of PCI SGI spec. 
-The later PCI Sgi have spec have corrected it.  We can just implement it 
-for PPC only.  Other vendor may have the same issue.
-
-Thanks,
-wendy
+Julian Anastasov wrote:
+> 	 To summarize, what can help is a flag (eg. RT_ANYSRC) to
+> ip_route_output* that all special users can provide to skip the
+> check, for example:
+> 	- RTCF_LOCAL packets in icmp_send() can avoid the check
+> 	- NAT can avoid the check (ip_route_me_harder can be simplified?)
 
 
+We want to be able to use iif in rules, so ip_route_me_harder still
+needs to use ip_route_input().
 
 
-Christoph Hellwig <hch@infradead.org> 
-05/17/2007 04:01 AM
-
-To
-Kumar Gala <galak@kernel.crashing.org>
-cc
-Auke Kok <auke-jan.h.kok@intel.com>, jeff@garzik.org, Wen 
-Xiong/Austin/IBM@IBMUS, e1000-devel@lists.sourceforge.net, 
-netdev@vger.kernel.org
-Subject
-Re: [PATCH] e1000: Work around 82571 completion timout on Pseries HW
-
-
-
-
-
-
-On Wed, May 16, 2007 at 07:43:27PM -0500, Kumar Gala wrote:
-> >index 49be393..830d851 100644
-> >--- a/drivers/net/e1000/e1000_main.c
-> >+++ b/drivers/net/e1000/e1000_main.c
-> >@@ -819,6 +819,16 @@ e1000_reset(struct e1000_adapter *adapter)
-> >                              E1000_WRITE_REG(&adapter->hw, CTRL, 
-ctrl);
-> >              }
-> >
-> >+#if defined(CONFIG_PPC64) || defined(CONFIG_PPC)
+> 	 Currently, all callers use the check, so may be the goal can be
+> to start with small set of callers that can set the new flag. It looks
+> like we can save some CPU cycles too, ip_route_me_harder looks too
+> overloaded.
 > 
-> If this is really on need on pseries HW this should be #ifdef 
-> CONFIG_PPC_PSERIES.  No reason to force this on all PPC.
+> 
+>>>I think that your patch looks good, assuming that inet_addr_type(VIP)
+>>>is going to return RTN_LOCAL (except in the unlikely case that VIP is
+>>>multicast or something silly like that.
+>>
+>>I'm not familiar with the IPVS terms, but as far as I understand,
+>>it is _not_ going to return RTN_LOCAL, so we get the desired
+>>behaviour of selecting a local address as source.
+> 
+> 
+> 	But what is preferred is to use VIP in ICMP.
+> 
+> ip route add local VIP dev lo table user_defined
+> 
+> 	returns RTCF_LOCAL but inet_addr_type() does not return RTN_LOCAL,
+> we fix one thing but break another :)
 
-No, it shouldn't.  powerpc kernels are multi-platform.
 
-It really shouldn't be there at all because something in either the intel
-or pseries hardware is totally buggy and we should disable features in
-the buggy one completely.
+Actually thats exactly the case that my patch handles. Why does it
+matter which source address the ICMP packet uses, as long as its
+routed properly?
 
-
-
---=_alternative 005242E8862572DE_=--
-
-
---===============1069050782==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
--------------------------------------------------------------------------
-This SF.net email is sponsored by DB2 Express
-Download DB2 Express C - the FREE version of DB2 express and take
-control of your XML. No limits. Just data. Click to get it now.
-http://sourceforge.net/powerbar/db2/
---===============1069050782==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-
---===============1069050782==--
+In any case some better solution than the current one needs to be
+found, allowing users to send spoofed packets is far worse than
+using a non-desired source address for ICMP packets.
