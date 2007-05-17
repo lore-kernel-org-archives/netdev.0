@@ -1,46 +1,50 @@
-From: linas@austin.ibm.com (Linas Vepstas)
-Subject: Re: Resending: RT patches expose netdev race [was Re: [RFC] [patch 2/2] powerpc 2.6.21-rt1: fix kernel hang and/or panic
-Date: Thu, 17 May 2007 12:38:46 -0500
-Message-ID: <20070517173846.GF4325@austin.ibm.com>
-References: <20070517002751.GC4325@austin.ibm.com> <1179362985.32247.252.camel@localhost.localdomain>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [FIX][PATCH] ipv6 addrconf.c : wrong handling of non-ipv6
+ hardware since 2.6.21
+Date: Fri, 18 May 2007 02:49:40 +0900 (JST)
+Message-ID: <20070518.024940.120305926.yoshfuji@linux-ipv6.org>
+References: <464C886F.50703@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Tsutomu OWA <tsutomu.owa@toshiba.co.jp>, linuxppc-dev@ozlabs.org,
-	mingo@elte.hu, tglx@linutronix.de, cbe-oss-dev@ozlabs.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	yoshfuji@linux-ipv6.org
+To: socketcan@hartkopp.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e1.ny.us.ibm.com ([32.97.182.141]:48779 "EHLO e1.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756545AbXEQRiv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 May 2007 13:38:51 -0400
-Content-Disposition: inline
-In-Reply-To: <1179362985.32247.252.camel@localhost.localdomain>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:37751 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756111AbXEQRtV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 May 2007 13:49:21 -0400
+In-Reply-To: <464C886F.50703@hartkopp.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, May 17, 2007 at 10:49:45AM +1000, Benjamin Herrenschmidt wrote:
-> 
-> > I do not know why sk_buff->head would be null, or
-> > would be set in a racy kind of way, or why the rt patches
-> > would cause this. But the evidence implicates that.
-> 
-> Would it be possible that a locking bug in spidernet would cause it
-> under some circumstances to get a stale skb pointer ?
+In article <464C886F.50703@hartkopp.net> (at Thu, 17 May 2007 18:53:03 +0200), Oliver Hartkopp <socketcan@hartkopp.net> says:
 
-The skb pointer should be brand-spanking new/fresh. 
-It is passed to spidernet by the netdev->hard_start_xmit
-callback:
+> +static int ipv6_hwtype(struct net_device *dev)
+> +{
+> +    if ((dev->type == ARPHRD_ETHER) ||
+> +        (dev->type == ARPHRD_LOOPBACK) ||
+> +#if defined(CONFIG_IPV6_SIT) || defined(CONFIG_IPV6_SIT_MODULE)
+> +        (dev->type == ARPHRD_SIT) ||
+> +#endif
+> +        (dev->type == ARPHRD_TUNNEL6) ||
+> +        (dev->type == ARPHRD_FDDI) ||
+> +        (dev->type == ARPHRD_IEEE802_TR) ||
+> +        (dev->type == ARPHRD_ARCNET) ||
+> +        (dev->type == ARPHRD_INFINIBAND))
+> +        return 1;
+> +
+> +    return 0;
+> +}
+> +
 
-    netdev->hard_start_xmit = &spider_net_xmit;
+Please remove #if, or please provide for other
+dependencies as well (e.g., CONFIG_IPV6_TUNNEL etc.)
 
-I'd expect that anything that hard_start_xmit() passed to 
-a device driver should have a fully valid skb.  Locking
-problems in spidernet could cause it to work with the wrong 
-skb; however, in this case, the skb pointer is passed 
-unmodified, directly to the spot where it fails.
+Otherwise, I would agree.
 
-Maybe there is some "make ip header fresh and clean on skb" call
-that should have been made; if so, I don't know what it is. 
-
---linas
+-- 
+YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
+GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
