@@ -1,32 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [IPV4] LVS: Allow to send ICMP unreachable responses when
- real-servers are removed
-Date: Thu, 17 May 2007 13:51:22 -0700 (PDT)
-Message-ID: <20070517.135122.88477511.davem@davemloft.net>
-References: <4649DBB7.3070608@trash.net>
-	<Pine.LNX.4.58.0705160012470.2626@u.domain.uli>
-	<464C857C.9070406@trash.net>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] e1000: Work around 82571 completion timout on Pseries
+ HW
+Date: Thu, 17 May 2007 17:04:56 -0400
+Message-ID: <464CC378.5070409@garzik.org>
+References: <OFDD90D73E.30B0DB27-ON872572DE.004ED0BE-862572DE.005242EA@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: ja@ssi.bg, horms@verge.net.au, jkrzyszt@tis.icnet.pl,
-	netdev@vger.kernel.org
-To: kaber@trash.net
+Cc: Christoph Hellwig <hch@infradead.org>,
+	Auke Kok <auke-jan.h.kok@intel.com>,
+	e1000-devel@lists.sourceforge.net,
+	Kumar Gala <galak@kernel.crashing.org>, netdev@vger.kernel.org,
+	wendyx@linux.vnet.ibm.com
+To: Wen Xiong <wenxiong@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46450
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755149AbXEQUvV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 May 2007 16:51:21 -0400
-In-Reply-To: <464C857C.9070406@trash.net>
+Received: from srv5.dvmed.net ([207.36.208.214]:41986 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754629AbXEQVFM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 May 2007 17:05:12 -0400
+In-Reply-To: <OFDD90D73E.30B0DB27-ON872572DE.004ED0BE-862572DE.005242EA@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Thu, 17 May 2007 18:40:28 +0200
+Wen Xiong wrote:
+> Here there are not hardware issue on both Intel or PPC.  The patch is to 
+> work around a loop hold on early version of PCI SGI spec.  
+> The later PCI Sgi have spec have corrected it.  We can just implement it 
+> for PPC only.  Other vendor may have the same issue.
 
-> In any case some better solution than the current one needs to be
-> found, allowing users to send spoofed packets is far worse than
-> using a non-desired source address for ICMP packets.
 
-Agreed, but it only occurs if the nonlocal bind sysctl is
-enabled and almost nobody turns that thing on :-)
+If it is not a PPC-specific issue, then we should not limit it to PPC.
+
+	Jeff
+
+
