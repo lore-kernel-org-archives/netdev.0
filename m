@@ -1,26 +1,38 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH][R8169] Add endianess annotations to [RT]xDesc
-Date: Fri, 18 May 2007 00:09:00 +0200
-Message-ID: <20070517220900.GB24616@electric-eye.fr.zoreil.com>
-References: <200705161310.58575.eike-kernel@sf-tec.de>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: [PATCH] [e1000] Lower the MSI unavailable message to INFO priority
+Date: Thu, 17 May 2007 15:13:24 -0700
+Message-ID: <464CD384.5030202@intel.com>
+References: <200705152359.l4FNxPcS018779@tazenda.hos.anvin.org> <464A512C.9080104@garzik.org> <464B229B.7060702@intel.com> <464CC5EC.4020202@redhat.com> <464CC92B.9080800@intel.com> <464CCD17.4000908@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jeff@garzik.org, netdev@vger.kernel.org
-To: Rolf Eike Beer <eike-kernel@sf-tec.de>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Chuck Ebbert <cebbert@redhat.com>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	e1000-devel@lists.sourceforge.net, john.ronciak@intel.com,
+	jesse.brandeburg@intel.com, jeffrey.t.kirsher@intel.com,
+	netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:41919 "EHLO
-	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754892AbXEQWLO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 May 2007 18:11:14 -0400
-Content-Disposition: inline
-In-Reply-To: <200705161310.58575.eike-kernel@sf-tec.de>
+Received: from mga02.intel.com ([134.134.136.20]:62129 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755413AbXEQWN1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 May 2007 18:13:27 -0400
+In-Reply-To: <464CCD17.4000908@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Rolf Eike Beer <eike-kernel@sf-tec.de> :
-> [R8169] Add endianess annotations to [RT]xDesc
+Jeff Garzik wrote:
+> Kok, Auke wrote:
+>> for now. If MSI is breaking with a 10gig adapter I think people 
+>> appreciate the error.
+> 
+> 
+> No, that is same invalid reasoning discussed earlier in this thread. 
+> ixgb needs patching for this problem too.
 
-Thanks, I queue it.
+OK then... A patch that does the exact same for ixgb as I did for e1000 is 
+underway (remove #ifdef CONFIG_PCI_MSI, fix pci_disable_msi leak...).
 
--- 
-Ueimor
+Cheers,
+
+Auke
