@@ -1,48 +1,126 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [IPV4] LVS: Allow to send ICMP unreachable responses when real-servers
- are removed
-Date: Thu, 17 May 2007 18:41:42 +0200
-Message-ID: <464C85C6.1090903@trash.net>
-References: <200704271705.l3RH5Brw026873@hera.kernel.org> <4648382E.8030009@trash.net> <20070514.033504.48528120.davem@davemloft.net> <4648714E.9050200@tis.icnet.pl> <464872E2.2030502@trash.net> <464884EE.3030606@tis.icnet.pl> <46489F5C.4000801@trash.net> <20070515052608.GG13708@verge.net.au> <4649DBB7.3070608@trash.net> <Pine.LNX.4.58.0705160012470.2626@u.domain.uli> <464C3BC1.8090908@tis.icnet.pl>
+Subject: Re: oops in net/ipv4/icmp.c:icmp_send() with icmp_errors_use_inbound_ifaddr
+ (fwd)
+Date: Thu, 17 May 2007 18:52:29 +0200
+Message-ID: <464C884D.4010100@trash.net>
+References: <Line.LNX.4.64.0705141430120.8521@d.namei> <4648AE85.6020608@trash.net> <4648B656.6030800@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Julian Anastasov <ja@ssi.bg>, Simon Horman <horms@verge.net.au>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Janusz Krzysztofik <jkrzyszt@tis.icnet.pl>
+Content-Type: multipart/mixed;
+ boundary="------------080500000404090109080108"
+Cc: netdev@vger.kernel.org, James Morris <jmorris@namei.org>,
+	Curtis Doty <Curtis@GreenKey.net>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:33478 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:33708 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755822AbXEQQmV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 May 2007 12:42:21 -0400
-In-Reply-To: <464C3BC1.8090908@tis.icnet.pl>
+	with ESMTP id S1755850AbXEQQxK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 May 2007 12:53:10 -0400
+In-Reply-To: <4648B656.6030800@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Janusz Krzysztofik wrote:
-> Julian Anastasov wrote:
+This is a multi-part message in MIME format.
+--------------080500000404090109080108
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+
+Patrick McHardy wrote:
+>>>BUG: unable to handle kernel NULL pointer dereference at virtual address
+>>>000000a8
+>>>[...]
+>>>EIP is at inet_select_addr+0x4/0x9f
+>>>Call Trace:
+>>>[<f8b97046>] reject+0x0/0x4ae [ipt_REJECT]
+>>>[<c05fd0b6>] icmp_send+0x14d/0x39b
+>>
+>>
+>>A REJECT target in the output chain will trigger this in combination
+>>with icmp_errors_use_inbound_ifaddr because skb->dev is still NULL
+>>at this point and its passed to inet_select_addr.
+>>
+>>I'll look into this.
 > 
->> If icmp_send is changed to use inet_addr_type() then ICMP will leave
->> with saddr != VIP and that is not nice.
->> ...
->>
->>> I'm not familiar with the IPVS terms, but as far as I understand,
->>> it is _not_ going to return RTN_LOCAL, so we get the desired
->>> behaviour of selecting a local address as source.
->>
->>
->>     But what is preferred is to use VIP in ICMP.
->>
->> ip route add local VIP dev lo table user_defined
->>
->>     returns RTCF_LOCAL but inet_addr_type() does not return RTN_LOCAL,
->> we fix one thing but break another :)
 > 
 > 
-> Well, I have promissed you to give some feedback after I test the patch
-> proposed by Patrick, but after Julian's post I can only confirm that it
-> works exactly as Julian said, what is not what I would expect.
+> saddr = iph->daddr;
+> if (!(rt->rt_flags & RTCF_LOCAL)) {
+>         if (sysctl_icmp_errors_use_inbound_ifaddr)
+> 
+> 
+>                 saddr = inet_select_addr(skb_in->dev, 0, RT_SCOPE_LINK);
+>         else
+>                 saddr = 0;
+> }
+> 
+> Fixing the crash is easy, the right thing to do when skb->dev
+> is not set is to let routing choose the address because the
+> packet was locally generated and icmp_errors_use_inbound_ifaddr
+> shouldn't apply (the crash can also happen with IPsec tunnels
+> by the way).
+> 
+> This leaves the question what to do in the path after ip_output,
+> when skb->dev points to the output device. We don't know the
+> input device anymore, so there doesn't seem to be a way to make
+> it do what the sysctl promises.
 
 
-It will pick a local source address and use that. I don't see why
-it matters whether its the VIP address or some other.
+The last problem seems to be unfixable, so this patch fixes the crash
+and adds a comment about the brokeness of this option.
+
+
+--------------080500000404090109080108
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
+
+[IPV4]: icmp: fix crash with sysctl_icmp_errors_use_inbound_ifaddr
+
+When icmp_send is called on the local output path before the
+packet hits ip_output, skb->dev is not set, causing a crash
+when sysctl_icmp_errors_use_inbound_ifaddr is set. This can
+happen with the netfilter REJECT target or IPsec tunnels.
+
+Let routing decide the ICMP source address in that case, since the
+packet is locally generated there is no inbound interface and
+the sysctl should not apply.
+
+The option actually seems to be unfixable broken, on the path
+after ip_output() skb->dev points to the outgoing device and
+we don't know the incoming device anymore, so its going to do
+the absolute wrong thing and pick the address of the outgoing
+interface. Add a comment about this.
+
+Reported by Curtis Doty <Curtis@GreenKey.net>.
+
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+---
+commit 637fc540b0ad22bf7971929e906e704236af06cd
+tree 0c32138983e1bd7cc9ac96e7c62085e9b74b6217
+parent 52ade9b3b97fd3bea42842a056fe0786c28d0555
+author Patrick McHardy <kaber@trash.net> Thu, 17 May 2007 18:50:13 +0200
+committer Patrick McHardy <kaber@trash.net> Thu, 17 May 2007 18:50:13 +0200
+
+ net/ipv4/icmp.c |    5 ++++-
+ 1 files changed, 4 insertions(+), 1 deletions(-)
+
+diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
+index d38cbba..e238b17 100644
+--- a/net/ipv4/icmp.c
++++ b/net/ipv4/icmp.c
+@@ -514,7 +514,10 @@ void icmp_send(struct sk_buff *skb_in, int type, int code, __be32 info)
+ 
+ 	saddr = iph->daddr;
+ 	if (!(rt->rt_flags & RTCF_LOCAL)) {
+-		if (sysctl_icmp_errors_use_inbound_ifaddr)
++		/* This is broken, skb_in->dev points to the outgoing device
++		 * after the packet passes through ip_output().
++		 */
++		if (skb_in->dev && sysctl_icmp_errors_use_inbound_ifaddr)
+ 			saddr = inet_select_addr(skb_in->dev, 0, RT_SCOPE_LINK);
+ 		else
+ 			saddr = 0;
+
+--------------080500000404090109080108--
