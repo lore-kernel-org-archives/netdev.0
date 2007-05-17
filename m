@@ -1,71 +1,50 @@
-From: "Matvejchikov Ilya" <matvejchikov@gmail.com>
-Subject: [PATCH] fs_enet and multicasting
-Date: Thu, 17 May 2007 16:15:53 +0400
-Message-ID: <8496f91a0705170515i1ac47671u83f8f4e602dc10b0@mail.gmail.com>
-Reply-To: matvejchikov@gmail.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+From: Kumar Gala <galak@kernel.crashing.org>
+Subject: Re: [PATCH] e1000: Work around 82571 completion timout on Pseries HW
+Date: Thu, 17 May 2007 08:10:41 -0500
+Message-ID: <AB70342E-4617-428C-81D1-78EF74982B3C@kernel.crashing.org>
+References: <20070516085329.29131.120.stgit@localhost.localdomain> <495A2DE1-775D-4DFC-9C1C-4644AA5A040B@kernel.crashing.org> <20070517090119.GA27145@infradead.org>
+Mime-Version: 1.0 (Apple Message framework v752.2)
+Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: Auke Kok <auke-jan.h.kok@intel.com>, jeff@garzik.org,
+	wenxiong@us.ibm.com, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org
+To: Christoph Hellwig <hch@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nz-out-0506.google.com ([64.233.162.229]:19483 "EHLO
-	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753078AbXEQMP5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 May 2007 08:15:57 -0400
-Received: by nz-out-0506.google.com with SMTP id r28so926315nza
-        for <netdev@vger.kernel.org>; Thu, 17 May 2007 05:15:53 -0700 (PDT)
-Content-Disposition: inline
+Received: from nommos.sslcatacombnetworking.com ([67.18.224.114]:3860 "EHLO
+	nommos.sslcatacombnetworking.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755412AbXEQNM2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 May 2007 09:12:28 -0400
+In-Reply-To: <20070517090119.GA27145@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Good Day!
 
-There is a problem in fs_enet driver. When restart function is called
-the multicast settings do not restore. This patch fixes this bug.
+On May 17, 2007, at 4:01 AM, Christoph Hellwig wrote:
 
-Signed-off-by: Matvejchikov Ilya <matvejchikov@gmail.com>
----
+> On Wed, May 16, 2007 at 07:43:27PM -0500, Kumar Gala wrote:
+>>> index 49be393..830d851 100644
+>>> --- a/drivers/net/e1000/e1000_main.c
+>>> +++ b/drivers/net/e1000/e1000_main.c
+>>> @@ -819,6 +819,16 @@ e1000_reset(struct e1000_adapter *adapter)
+>>> 		E1000_WRITE_REG(&adapter->hw, CTRL, ctrl);
+>>> 	}
+>>>
+>>> +#if defined(CONFIG_PPC64) || defined(CONFIG_PPC)
+>>
+>> If this is really on need on pseries HW this should be #ifdef
+>> CONFIG_PPC_PSERIES.  No reason to force this on all PPC.
+>
+> No, it shouldn't.  powerpc kernels are multi-platform.
 
-diff -purN linux-2.6.21-clean/drivers/net/fs_enet/mac-fcc.c
-linux-2.6.21/drivers/net/fs_enet/mac-fcc.c
---- linux-2.6.21-clean/drivers/net/fs_enet/mac-fcc.c	2007-04-26
-07:08:32.000000000 +0400
-+++ linux-2.6.21/drivers/net/fs_enet/mac-fcc.c	2007-05-17
-12:43:02.000000000 +0400
-@@ -433,6 +433,8 @@ static void restart(struct net_device *d
- 	else
-  		C32(fccp, fcc_fpsmr, FCC_PSMR_FDE | FCC_PSMR_LPB);
+Right, but if you build a multi-platform kernel with pseries support  
+you'll get CONFIG_PPC_PSERIES set.
 
-+	set_multicast_list(dev);
-+
-  	S32(fccp, fcc_gfmr, FCC_GFMR_ENR | FCC_GFMR_ENT);
- }
-diff -purN linux-2.6.21-clean/drivers/net/fs_enet/mac-fec.c
-linux-2.6.21/drivers/net/fs_enet/mac-fec.c
---- linux-2.6.21-clean/drivers/net/fs_enet/mac-fec.c	2007-04-26
-07:08:32.000000000 +0400
-+++ linux-2.6.21/drivers/net/fs_enet/mac-fec.c	2007-05-17
-12:35:59.000000000 +0400
-@@ -366,6 +366,8 @@ static void restart(struct net_device *d
-  		FC(fecp, x_cntrl, FEC_TCNTRL_FDEN);	/* FD disable */
- 	}
+> It really shouldn't be there at all because something in either the  
+> intel
+> or pseries hardware is totally buggy and we should disable features in
+> the buggy one completely.
 
-+	set_multicast_list(dev);
-+
- 	/*
- 	 * Enable interrupts we wish to service.
- 	 */
-diff -purN linux-2.6.21-clean/drivers/net/fs_enet/mac-scc.c
-linux-2.6.21/drivers/net/fs_enet/mac-scc.c
---- linux-2.6.21-clean/drivers/net/fs_enet/mac-scc.c	2007-04-26
-07:08:32.000000000 +0400
-+++ linux-2.6.21/drivers/net/fs_enet/mac-scc.c	2007-05-17
-12:36:11.000000000 +0400
-@@ -371,6 +371,8 @@ static void restart(struct net_device *d
-  	if (fep->phydev->duplex)
-  		S16(sccp, scc_psmr, SCC_PSMR_LPB | SCC_PSMR_FDE);
+Agreed.
 
-+	set_multicast_list(dev);
-+
-  	S32(sccp, scc_gsmrl, SCC_GSMRL_ENR | SCC_GSMRL_ENT);
- }
+- k
