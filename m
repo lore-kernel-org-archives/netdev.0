@@ -1,44 +1,42 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: [patch] mac80211: fix memory leak when defraging packets
-Date: Thu, 17 May 2007 13:23:56 -0400
-Message-ID: <20070517172356.GC7720@tuxdriver.com>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: [PATCH] mac80211: fail back to use associate from reassociate failure
+Date: Thu, 17 May 2007 13:16:59 -0400
+Message-ID: <20070517171659.GB7720@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:4348 "EHLO ra.tuxdriver.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757102AbXEQRcy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 May 2007 13:32:54 -0400
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Hong Liu <hong.liu@intel.com>
+From: Zhu Yi <yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 
-We forget to free all the fragments when defraging them into one packet.
+Some APs have strict checking between associate and reassociate. In
+a case when an AP is restarted during a connection, it denies the
+mac80211 reassoc request since this is a new association for the AP.
+To fix this problem, we need to check the status code against
+WLAN_STATUS_REASSOC_NO_ASSOC and clear ifsta->prev_bssid_set in
+handling the association failure response.
 
-Signed-off-by: Hong Liu <hong.liu@intel.com>
-Signed-off-by: John W. Linville <linville@tuxdriver.com>
+Signed-off-by: Zhu Yi <yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Signed-off-by: John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
 ---
 
- net/mac80211/ieee80211.c |    4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ net/mac80211/ieee80211_sta.c |    2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/net/mac80211/ieee80211.c b/net/mac80211/ieee80211.c
-index 873ccb0..ed86804 100644
---- a/net/mac80211/ieee80211.c
-+++ b/net/mac80211/ieee80211.c
-@@ -3412,8 +3412,10 @@ ieee80211_rx_h_defragment(struct ieee80211_txrx_data *rx)
- 			return TXRX_DROP;
- 		}
+diff --git a/net/mac80211/ieee80211_sta.c b/net/mac80211/ieee80211_sta.c
+index b003912..dacd2d3 100644
+--- a/net/mac80211/ieee80211_sta.c
++++ b/net/mac80211/ieee80211_sta.c
+@@ -1182,6 +1182,8 @@ static void ieee80211_rx_mgmt_assoc_resp(struct net_device *dev,
+ 	if (status_code != WLAN_STATUS_SUCCESS) {
+ 		printk(KERN_DEBUG "%s: AP denied association (code=%d)\n",
+ 		       dev->name, status_code);
++		if (status_code == WLAN_STATUS_REASSOC_NO_ASSOC)
++			ifsta->prev_bssid_set = 0;
+ 		return;
  	}
--	while ((skb = __skb_dequeue(&entry->skb_list)))
-+	while ((skb = __skb_dequeue(&entry->skb_list))) {
- 		memcpy(skb_put(rx->skb, skb->len), skb->data, skb->len);
-+		dev_kfree_skb(skb);
-+	}
  
- 	/* Complete frame has been reassembled - process it now */
- 	rx->fragmented = 1;
