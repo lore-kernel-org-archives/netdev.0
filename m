@@ -1,78 +1,47 @@
-From: Mark Huth <mhuth@mvista.com>
-Subject: Re: [PATCH][af_key]pfkey_add: Optimize SA adds and algorithm probes
-Date: Fri, 18 May 2007 10:16:59 -0700
-Message-ID: <464DDF8B.6090402@mvista.com>
-References: <E1HouAO-0003i5-00@gondolin.me.apana.org.au>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: [PATCH] fix e100 rx path on ARM (was [PATCH] e100 rx: or s and
+ el bits)
+Date: Fri, 18 May 2007 10:47:44 -0700
+Message-ID: <464DE6C0.7050505@intel.com>
+References: <200705011124.l41BOEG4007662@sullivan.realtime.net> <46375664.8030701@roinet.com> <4638F2B2.2000103@roinet.com> <463BA906.30205@roinet.com> <85f07fc58d5ed2147d5214d0f0b4fe32@bga.com> <4648A9DF.6030001@roinet.com> <464D074F.20400@pobox.com> <464D21B6.2000208@intel.com> <464DB336.2030003@roinet.com> <464DB619.3070900@roinet.com> <464DC676.90504@intel.com> <464DCA97.3070405@roinet.com> <464DCD5E.50003@intel.com> <464DDE3E.9010400@roinet.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: Jeff Garzik <jgarzik@pobox.com>, e1000-devel@lists.sourceforge.net,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Scott Feldman <sfeldma@pobox.com>, netdev@vger.kernel.org
+To: David Acker <dacker@roinet.com>, Milton Miller <miltonm@bga.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from h155.mvista.com ([63.81.120.158]:49032 "EHLO
-	gateway-1237.mvista.com" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1756342AbXERRRL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 May 2007 13:17:11 -0400
-In-Reply-To: <E1HouAO-0003i5-00@gondolin.me.apana.org.au>
+Received: from mga02.intel.com ([134.134.136.20]:50448 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753152AbXERRsK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 May 2007 13:48:10 -0400
+In-Reply-To: <464DDE3E.9010400@roinet.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
-> Mark Huth <mhuth@mvista.com> wrote:
->   
->> This patch provides a performance optimization in the pfkey_add path.
->> Prior versions have a serious performance problem when adding a large
->> number of SAs to a node.  For example, if a backup node needs to be
->> loaded with the SAs previously held by a failed active node, thousands
->> of SAs may need to be added as rapidly as possible.  Tests show that
->> without this patch, such additions may take several minutes.  The
->> cause is that the available algorithm modules are probed each time
->> instead of only when needed.  This patch changes the unconditional
->> call to xfrm_probe_algs() to only be done when it may be needed.
->>     
->
-> Thanks for the patch!
->  
->   
->>  static int pfkey_add(struct sock *sk, struct sk_buff *skb, struct 
->> sadb_msg *hdr, void **ext_hdrs)
->>  {
->>        struct xfrm_state *x;
->> -       int err;
->> +       int err, probe_done = 0;
->>        struct km_event c;
+David Acker wrote:
+> Kok, Auke wrote:
+>> First impression just came in: It seems RX performance is dropped to 
+>> 10mbit. TX is unaffected and runs at 94mbit/tcp, but RX the new code 
+>> seems to misbehave and  fluctuate, dropping below 10mbit after a few 
+>> netperf runs and staying there...
 >>
->> -       xfrm_probe_algs();
->> -
->>        x = pfkey_msg2xfrm_state(hdr, ext_hdrs);
->>        if (IS_ERR(x))
->>                return PTR_ERR(x);
->>     
->
-> I don't think it works when then algorithm isn't loaded though :)
-> If the algorithm isn't present pfkey_msg2xfrm_state will return
-> -ENOSYS so we need to do the probe here.
->   
-Okay.  I tested with the algorithms not loaded, and they were all loaded 
-after the test, but I'm sure you understand this much better than I do.
-> Actually, I think we should just probe for the specific algorithm
-> requested rather than everything.  See patch below.
->
-> [IPSEC] pfkey: Load specific algorithm in pfkey_add rather than all
->
-> This is a natural extension of the changeset
->
->     [XFRM]: Probe selected algorithm only.
->
-> which only removed the probe call for xfrm_user.  This patch does exactly
-> the same thing for af_key.  In other words, we load the algorithm requested
-> by the user rather than everything when adding xfrm states in af_key.
->
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
->
-> Cheers,
->   
-Thanks for the patch.  I'll try it later today and confirm that it fixes 
-our problem.
+>> ideas?
+> 
+> I found the problem.  Another casualty of working with two different kernels at once...arg.
+> The blank rfd needs to have its el-bit clear now.  Here is the new and improved patch.
 
-Mark Huth
+
+> -	nic->blank_rfd.command = cpu_to_le16(cb_el & cb_s);
+> +	nic->blank_rfd.command = 0;
+
+OK, that fixed it and it's getting 94mbit/tcp rx now without issues. Milton, can 
+you look at this patch? I'd like some more feedback. Meanwhile I will try to get 
+this tested on a variety of e100 NICs, which will take a few days.
+
+Thanks,
+
+Auke
