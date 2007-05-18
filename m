@@ -1,177 +1,242 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [patch 2/7] CAN: Add PF_CAN core module
-Date: Fri, 18 May 2007 23:06:18 +0200
-Message-ID: <464E154A.7020605@hartkopp.net>
-References: <20070516145100.29877.0@janus.isnogud.escape.de> <20070516145121.29877.2@janus.isnogud.escape.de> <20070518005948.GA11737@linux.vnet.ibm.com> <464D6F85.9090202@hartkopp.net> <20070518143359.GA8876@linux.vnet.ibm.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH][af_key]pfkey_add: Optimize SA adds and algorithm probes
+Date: Sat, 19 May 2007 07:21:48 +1000
+Message-ID: <20070518212148.GA25363@gondor.apana.org.au>
+References: <4643CD64.4090000@mvista.com> <E1HouAO-0003i5-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Urs Thuermann <urs@isnogud.escape.de>, netdev@vger.kernel.org,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
-	Urs Thuermann <urs.thuermann@volkswagen.de>
-To: paulmck@linux.vnet.ibm.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Mark Huth <mhuth@mvista.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.160]:35602 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754612AbXERVGy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 May 2007 17:06:54 -0400
-In-Reply-To: <20070518143359.GA8876@linux.vnet.ibm.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:4611 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754457AbXERVWQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 May 2007 17:22:16 -0400
+Content-Disposition: inline
+In-Reply-To: <E1HouAO-0003i5-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello Paul,
+On Fri, May 18, 2007 at 02:34:12PM +1000, Herbert Xu wrote:
+> 
+> Actually, I think we should just probe for the specific algorithm
+> requested rather than everything.  See patch below.
 
-as you may see in the attached SVN-log i changed some code according 
-your suggestions.
-I additionally made some clarifications of function names.
+Doh, forgot to actually remove the probe call :)
 
-If you would like to see the af_can.c completely please visit:
-http://svn.berlios.de/svnroot/repos/socketcan/trunk/kernel/2.6/net/can/af_can.c
+[IPSEC] pfkey: Load specific algorithm in pfkey_add rather than all
 
-But this code in the projekt SVN is working for several kernel versions 
-(which is removed by some scripts when creating a LKML netdev patch) - 
-just for your information.
+This is a natural extension of the changeset
 
-Best regards,
-Oliver
+    [XFRM]: Probe selected algorithm only.
 
--------- Original-Nachricht --------
-Betreff: 	r311 - trunk/kernel/2.6/net/can
-Datum: 	Fri, 18 May 2007 21:47:15 +0200
-Von: 	hartkopp@mail.berlios.de
-An: 	socketcan-commit@lists.berlios.de
+which only removed the probe call for xfrm_user.  This patch does exactly
+the same thing for af_key.  In other words, we load the algorithm requested
+by the user rather than everything when adding xfrm states in af_key.
 
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-
-Author: hartkopp
-Date: 2007-05-18 21:47:14 +0200 (Fri, 18 May 2007)
-New Revision: 311
-
-Modified:
-   trunk/kernel/2.6/net/can/af_can.c
-Log:
-Updated RCU removal of dev_rcv_lists structures in the case of CAN-interfaces
-going down (in can_notifier). Thanks to Paul E. McKenny (IBM) who gave this
-hint on netdev kernel mailinglist.
-
-
-Modified: trunk/kernel/2.6/net/can/af_can.c
-===================================================================
---- trunk/kernel/2.6/net/can/af_can.c	2007-05-16 09:03:21 UTC (rev 310)
-+++ trunk/kernel/2.6/net/can/af_can.c	2007-05-18 19:47:14 UTC (rev 311)
-@@ -454,31 +454,48 @@
- }
- EXPORT_SYMBOL(can_rx_register);
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+diff --git a/net/key/af_key.c b/net/key/af_key.c
+index a994441..d302dda 100644
+--- a/net/key/af_key.c
++++ b/net/key/af_key.c
+@@ -1448,8 +1448,6 @@ static int pfkey_add(struct sock *sk, struct sk_buff *skb, struct sadb_msg *hdr,
+ 	int err;
+ 	struct km_event c;
  
--static void can_rcv_lists_delete(struct rcu_head *rp)
-+static void can_rx_delete_list(struct hlist_head *rl)
+-	xfrm_probe_algs();
+-
+ 	x = pfkey_msg2xfrm_state(hdr, ext_hdrs);
+ 	if (IS_ERR(x))
+ 		return PTR_ERR(x);
+diff --git a/net/xfrm/xfrm_algo.c b/net/xfrm/xfrm_algo.c
+index 6249a94..8a72def 100644
+--- a/net/xfrm/xfrm_algo.c
++++ b/net/xfrm/xfrm_algo.c
+@@ -347,67 +347,44 @@ static inline int calg_entries(void)
+ 	return ARRAY_SIZE(calg_list);
+ }
+ 
+-/* Todo: generic iterators */
+-struct xfrm_algo_desc *xfrm_aalg_get_byid(int alg_id)
+-{
+-	int i;
+-
+-	for (i = 0; i < aalg_entries(); i++) {
+-		if (aalg_list[i].desc.sadb_alg_id == alg_id) {
+-			if (aalg_list[i].available)
+-				return &aalg_list[i];
+-			else
+-				break;
+-		}
+-	}
+-	return NULL;
+-}
+-EXPORT_SYMBOL_GPL(xfrm_aalg_get_byid);
+-
+-struct xfrm_algo_desc *xfrm_ealg_get_byid(int alg_id)
+-{
+-	int i;
++struct xfrm_algo_list {
++	struct xfrm_algo_desc *algs;
++	int entries;
++	u32 type;
++	u32 mask;
++};
+ 
+-	for (i = 0; i < ealg_entries(); i++) {
+-		if (ealg_list[i].desc.sadb_alg_id == alg_id) {
+-			if (ealg_list[i].available)
+-				return &ealg_list[i];
+-			else
+-				break;
+-		}
+-	}
+-	return NULL;
+-}
+-EXPORT_SYMBOL_GPL(xfrm_ealg_get_byid);
++static const struct xfrm_algo_list xfrm_aalg_list = {
++	.algs = aalg_list,
++	.entries = ARRAY_SIZE(aalg_list),
++	.type = CRYPTO_ALG_TYPE_HASH,
++	.mask = CRYPTO_ALG_TYPE_HASH_MASK | CRYPTO_ALG_ASYNC,
++};
+ 
+-struct xfrm_algo_desc *xfrm_calg_get_byid(int alg_id)
+-{
+-	int i;
++static const struct xfrm_algo_list xfrm_ealg_list = {
++	.algs = ealg_list,
++	.entries = ARRAY_SIZE(ealg_list),
++	.type = CRYPTO_ALG_TYPE_BLKCIPHER,
++	.mask = CRYPTO_ALG_TYPE_MASK | CRYPTO_ALG_ASYNC,
++};
+ 
+-	for (i = 0; i < calg_entries(); i++) {
+-		if (calg_list[i].desc.sadb_alg_id == alg_id) {
+-			if (calg_list[i].available)
+-				return &calg_list[i];
+-			else
+-				break;
+-		}
+-	}
+-	return NULL;
+-}
+-EXPORT_SYMBOL_GPL(xfrm_calg_get_byid);
++static const struct xfrm_algo_list xfrm_calg_list = {
++	.algs = calg_list,
++	.entries = ARRAY_SIZE(calg_list),
++	.type = CRYPTO_ALG_TYPE_COMPRESS,
++	.mask = CRYPTO_ALG_TYPE_MASK | CRYPTO_ALG_ASYNC,
++};
+ 
+-static struct xfrm_algo_desc *xfrm_get_byname(struct xfrm_algo_desc *list,
+-					      int entries, u32 type, u32 mask,
+-					      char *name, int probe)
++static struct xfrm_algo_desc *xfrm_find_algo(
++	const struct xfrm_algo_list *algo_list,
++	int match(const struct xfrm_algo_desc *entry, const void *data),
++	const void *data, int probe)
  {
-+	struct receiver *r;
-+	struct hlist_node *n;
-+
-+	hlist_for_each_entry_rcu(r, n, rl, list) {
-+		hlist_del_rcu(&r->list);
-+		kmem_cache_free(rcv_cache, r);
-+	}
++	struct xfrm_algo_desc *list = algo_list->algs;
+ 	int i, status;
+ 
+-	if (!name)
+-		return NULL;
+-
+-	for (i = 0; i < entries; i++) {
+-		if (strcmp(name, list[i].name) &&
+-		    (!list[i].compat || strcmp(name, list[i].compat)))
++	for (i = 0; i < algo_list->entries; i++) {
++		if (!match(list + i, data))
+ 			continue;
+ 
+ 		if (list[i].available)
+@@ -416,8 +393,8 @@ static struct xfrm_algo_desc *xfrm_get_byname(struct xfrm_algo_desc *list,
+ 		if (!probe)
+ 			break;
+ 
+-		status = crypto_has_alg(list[i].name, type,
+-					mask | CRYPTO_ALG_ASYNC);
++		status = crypto_has_alg(list[i].name, algo_list->type,
++					algo_list->mask);
+ 		if (!status)
+ 			break;
+ 
+@@ -427,27 +404,60 @@ static struct xfrm_algo_desc *xfrm_get_byname(struct xfrm_algo_desc *list,
+ 	return NULL;
+ }
+ 
++static int xfrm_alg_id_match(const struct xfrm_algo_desc *entry,
++			     const void *data)
++{
++	return entry->desc.sadb_alg_id == (int)data;
 +}
 +
-+/*
-+ * can_rx_delete_device - rcu callback for dev_rcv_lists structure removal
-+ */
-+static void can_rx_delete_device(struct rcu_head *rp)
++struct xfrm_algo_desc *xfrm_aalg_get_byid(int alg_id)
 +{
- 	struct dev_rcv_lists *d = container_of(rp, struct dev_rcv_lists, rcu);
-+	int i;
- 
-+	/* remove all receivers hooked at this netdevice */
-+	can_rx_delete_list(&d->rx_err);
-+	can_rx_delete_list(&d->rx_all);
-+	can_rx_delete_list(&d->rx_fil);
-+	can_rx_delete_list(&d->rx_inv);
-+	can_rx_delete_list(&d->rx_eff);
++	return xfrm_find_algo(&xfrm_aalg_list, xfrm_alg_id_match,
++			      (void *)alg_id, 1);
++}
++EXPORT_SYMBOL_GPL(xfrm_aalg_get_byid);
 +
-+	for (i = 0; i < 2048; i++)
-+		can_rx_delete_list(&d->rx_sff[i]);
++struct xfrm_algo_desc *xfrm_ealg_get_byid(int alg_id)
++{
++	return xfrm_find_algo(&xfrm_ealg_list, xfrm_alg_id_match,
++			      (void *)alg_id, 1);
++}
++EXPORT_SYMBOL_GPL(xfrm_ealg_get_byid);
 +
- 	kfree(d);
- }
- 
--static void can_rx_delete(struct rcu_head *rp)
-+/*
-+ * can_rx_delete_receiver - rcu callback for single receiver entry removal
-+ */
-+static void can_rx_delete_receiver(struct rcu_head *rp)
++struct xfrm_algo_desc *xfrm_calg_get_byid(int alg_id)
++{
++	return xfrm_find_algo(&xfrm_calg_list, xfrm_alg_id_match,
++			      (void *)alg_id, 1);
++}
++EXPORT_SYMBOL_GPL(xfrm_calg_get_byid);
++
++static int xfrm_alg_name_match(const struct xfrm_algo_desc *entry,
++			       const void *data)
++{
++	const char *name = data;
++
++	return name && (!strcmp(name, entry->name) ||
++			(entry->compat && !strcmp(name, entry->compat)));
++}
++
+ struct xfrm_algo_desc *xfrm_aalg_get_byname(char *name, int probe)
  {
- 	struct receiver *r = container_of(rp, struct receiver, rcu);
- 
- 	kmem_cache_free(rcv_cache, r);
+-	return xfrm_get_byname(aalg_list, aalg_entries(),
+-			       CRYPTO_ALG_TYPE_HASH, CRYPTO_ALG_TYPE_HASH_MASK,
+-			       name, probe);
++	return xfrm_find_algo(&xfrm_aalg_list, xfrm_alg_name_match, name,
++			      probe);
  }
+ EXPORT_SYMBOL_GPL(xfrm_aalg_get_byname);
  
--static void can_rx_delete_all(struct hlist_head *rl)
--{
--	struct receiver *r;
--	struct hlist_node *n;
--
--	hlist_for_each_entry_rcu(r, n, rl, list) {
--		hlist_del_rcu(&r->list);
--		call_rcu(&r->rcu, can_rx_delete);
--	}
--}
--
- /**
-  * can_rx_unregister - unsubscribe CAN frames from a specific interface
-  * @dev: pointer to netdevice (NULL => unsubcribe from 'all' CAN devices list)
-@@ -556,7 +573,7 @@
- 
- 	/* schedule the receiver item for deletion */
- 	if (r)
--		call_rcu(&r->rcu, can_rx_delete);
-+		call_rcu(&r->rcu, can_rx_delete_receiver);
- 
- 	return ret;
+ struct xfrm_algo_desc *xfrm_ealg_get_byname(char *name, int probe)
+ {
+-	return xfrm_get_byname(ealg_list, ealg_entries(),
+-			       CRYPTO_ALG_TYPE_BLKCIPHER, CRYPTO_ALG_TYPE_MASK,
+-			       name, probe);
++	return xfrm_find_algo(&xfrm_ealg_list, xfrm_alg_name_match, name,
++			      probe);
  }
-@@ -945,7 +962,6 @@
- 	struct net_device *dev = (struct net_device *)data;
- 	struct notifier *n;
- 	struct dev_rcv_lists *d;
--	int i;
+ EXPORT_SYMBOL_GPL(xfrm_ealg_get_byname);
  
- 	DBG("called for %s, msg = %lu\n", dev->name, msg);
+ struct xfrm_algo_desc *xfrm_calg_get_byname(char *name, int probe)
+ {
+-	return xfrm_get_byname(calg_list, calg_entries(),
+-			       CRYPTO_ALG_TYPE_COMPRESS, CRYPTO_ALG_TYPE_MASK,
+-			       name, probe);
++	return xfrm_find_algo(&xfrm_calg_list, xfrm_alg_name_match, name,
++			      probe);
+ }
+ EXPORT_SYMBOL_GPL(xfrm_calg_get_byname);
  
-@@ -986,25 +1002,16 @@
- 		spin_lock_bh(&rcv_lists_lock);
- 
- 		d = find_dev_rcv_lists(dev);
--		if (d) {
-+		if (d)
- 			hlist_del_rcu(&d->list);
--
--			/* remove all receivers hooked at this netdevice */
--			can_rx_delete_all(&d->rx_err);
--			can_rx_delete_all(&d->rx_all);
--			can_rx_delete_all(&d->rx_fil);
--			can_rx_delete_all(&d->rx_inv);
--			can_rx_delete_all(&d->rx_eff);
--			for (i = 0; i < 2048; i++)
--				can_rx_delete_all(&d->rx_sff[i]);
--		} else
-+		else
- 			printk(KERN_ERR "can: notifier: receive list not "
- 			       "found for dev %s\n", dev->name);
- 
- 		spin_unlock_bh(&rcv_lists_lock);
- 
- 		if (d)
--			call_rcu(&d->rcu, can_rcv_lists_delete);
-+			call_rcu(&d->rcu, can_rx_delete_device);
- 
- 		break;
- 	}
-
-_______________________________________________
-Socketcan-commit mailing list
-Socketcan-commit@lists.berlios.de
-https://lists.berlios.de/mailman/listinfo/socketcan-commit
-
-
