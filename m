@@ -1,36 +1,33 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/10] spidernet: node-aware skbuff allocation
-Date: Thu, 17 May 2007 20:46:00 -0400
-Message-ID: <464CF748.4090101@garzik.org>
-References: <20070516215605.GA4325@austin.ibm.com> <20070516215800.GA4997@austin.ibm.com>
+Subject: Re: [PATCH 1/2] NetXen: Fix NetXen driver ping on system-p
+Date: Thu, 17 May 2007 20:46:10 -0400
+Message-ID: <464CF752.5070403@garzik.org>
+References: <200705171352.l4HDqPL9023075@dut39.unminc.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: cbe-oss-dev@ozlabs.org, netdev@vger.kernel.org,
-	Christoph Hellwig <hch@lst.de>
-To: Linas Vepstas <linas@austin.ibm.com>
+Cc: netdev@vger.kernel.org, amitkale@netxen.com,
+	netxenproj@linsyssoft.com, rob@netxen.com
+To: Mithlesh Thukral <mithlesh@netxen.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:43561 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:43566 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756315AbXERAqH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 May 2007 20:46:07 -0400
-In-Reply-To: <20070516215800.GA4997@austin.ibm.com>
+	id S1756812AbXERAqM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 May 2007 20:46:12 -0400
+In-Reply-To: <200705171352.l4HDqPL9023075@dut39.unminc.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Linas Vepstas wrote:
-> From: Christoph Hellwig <hch@lst.de>
+Mithlesh Thukral wrote:
+> NetXen: Fix for driver on System-p
+> This patch will fix a ping issue on system-p
 > 
-> Spidernet was the driver I original did all the node-aware netdevice
-> allocation for, but after a year it still hasn't hit mainline.
-> 
-> Signed-off-by: Christoph Hellwig <hch@lst.de>
-> Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
-> 
-> ----
-> 
->  drivers/net/spider_net.c |    3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
+> Signed-off by: Milan Bag <mbag@netxen.com>
+> Signed-off by: Adhiraj Joshi <adhiraj@netxen.com>
+> Signed-by: Mithlesh Thukral <mithlesh@netxen.com>
+> ---
+>  drivers/net/netxen/netxen_nic_init.c |    2 +-
+>  1 files changed, 1 insertion(+), 1 deletion(-)
 
 applied
 
