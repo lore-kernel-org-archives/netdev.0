@@ -1,66 +1,31 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 3/5] ucc_geth: eliminate max-speed, change interface-type
- to phy-connection-type
-Date: Thu, 17 May 2007 21:53:37 -0400
-Message-ID: <464D0721.4030600@garzik.org>
-References: <20070511182507.7642926e.kim.phillips@freescale.com>	<464A29EF.7080405@garzik.org> <20070515172629.61c1b4c2.kim.phillips@freescale.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] fix e100 rx path on ARM (was [PATCH] e100 rx: or s and
+ el bits)
+Date: Thu, 17 May 2007 21:54:23 -0400
+Message-ID: <464D074F.20400@pobox.com>
+References: <200705011124.l41BOEG4007662@sullivan.realtime.net> <46375664.8030701@roinet.com> <4638F2B2.2000103@roinet.com> <463BA906.30205@roinet.com> <85f07fc58d5ed2147d5214d0f0b4fe32@bga.com> <4648A9DF.6030001@roinet.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Kim Phillips <kim.phillips@freescale.com>
+Cc: Milton Miller <miltonm@bga.com>, e1000-devel@lists.sourceforge.net,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Scott Feldman <sfeldma@pobox.com>, netdev@vger.kernel.org
+To: David Acker <dacker@roinet.com>,
+	Auke Kok <auke-jan.h.kok@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:44079 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:44104 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755799AbXERBxj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 May 2007 21:53:39 -0400
-In-Reply-To: <20070515172629.61c1b4c2.kim.phillips@freescale.com>
+	id S1755362AbXERByu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 May 2007 21:54:50 -0400
+In-Reply-To: <4648A9DF.6030001@roinet.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Kim Phillips wrote:
-> On Tue, 15 May 2007 17:45:19 -0400
-> Jeff Garzik <jeff@garzik.org> wrote:
-> 
->> Kim Phillips wrote:
->>> It was agreed that phy-connection-type was a better name for
->>> the interface-type property, so this patch renames it.
->>>
->>> Also, the max-speed property name was determined too generic,
->>> and is therefore eliminated in favour of phy-connection-type
->>> derivation logic.
->>>
->>> includes corrections to copyright text.
->>>
->>> Signed-off-by: Kim Phillips <kim.phillips@freescale.com>
->>> ---
->>>  drivers/net/ucc_geth.c     |   40 ++++++++++++++++------------------------
->>>  drivers/net/ucc_geth_mii.c |    9 +++++----
->>>  drivers/net/ucc_geth_mii.h |   10 +++++-----
->>>  3 files changed, 26 insertions(+), 33 deletions(-)
->> applied to #upstream
->>
-> just to be clear; only the mpc8323e-mds board works on your current #upstream-{fixes,linus}.
-> 
-> The mpc8323e-rdb and mpc8360e-mds require
-> 
-> phylib: add the ICPlus IP175C PHY driver
-> 
-> and 
-> 
-> phylib: enable RGMII-ID on the Marvell m88e1111 PHY
-> 
-> respectively in order to work.
-> 
-> I'm ok with the SGMII patches:
-> 
-> phylib: m88e1111: enable SGMII mode
-> gianfar: add support for SGMII
-> 
-> staying on #upstream, but 2 out of 3 boards are currently broken for #upstream-{fixes,linus}.
+Can you resend against the latest kernel (2.6.22-rc1)?
 
-New hardware support is always "broken" until merged.  Nonetheless it is 
-still new and outside the merge window.
+And what does Intel think?
 
 	Jeff
 
