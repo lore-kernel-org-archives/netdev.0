@@ -1,328 +1,124 @@
-From: David Acker <dacker@roinet.com>
-Subject: Re: [PATCH] fix e100 rx path on ARM (was [PATCH] e100 rx: or s and
- el bits)
-Date: Fri, 18 May 2007 10:20:09 -0400
-Message-ID: <464DB619.3070900@roinet.com>
-References: <200705011124.l41BOEG4007662@sullivan.realtime.net> <46375664.8030701@roinet.com> <4638F2B2.2000103@roinet.com> <463BA906.30205@roinet.com> <85f07fc58d5ed2147d5214d0f0b4fe32@bga.com> <4648A9DF.6030001@roinet.com> <464D074F.20400@pobox.com> <464D21B6.2000208@intel.com> <464DB336.2030003@roinet.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [patch 2/7] CAN: Add PF_CAN core module
+Date: Fri, 18 May 2007 07:33:59 -0700
+Message-ID: <20070518143359.GA8876@linux.vnet.ibm.com>
+References: <20070516145100.29877.0@janus.isnogud.escape.de> <20070516145121.29877.2@janus.isnogud.escape.de> <20070518005948.GA11737@linux.vnet.ibm.com> <464D6F85.9090202@hartkopp.net>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Kok, Auke" <auke-jan.h.kok@intel.com>,
-	Jeff Garzik <jgarzik@pobox.com>,
-	Milton Miller <miltonm@bga.com>,
-	e1000-devel@lists.sourceforge.net,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Scott Feldman <sfeldma@pobox.com>, netdev@vger.kernel.org
-To: David Acker <dacker@roinet.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Urs Thuermann <urs@isnogud.escape.de>, netdev@vger.kernel.org,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
+	Urs Thuermann <urs.thuermann@volkswagen.de>
+To: Oliver Hartkopp <socketcan@hartkopp.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-72-92-88-10.phlapa.fios.verizon.net ([72.92.88.10]:59908
-	"EHLO smtp.roinet.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752992AbXEROT2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 May 2007 10:19:28 -0400
-In-Reply-To: <464DB336.2030003@roinet.com>
+Received: from e2.ny.us.ibm.com ([32.97.182.142]:38046 "EHLO e2.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752992AbXEROeB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 May 2007 10:34:01 -0400
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e2.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l4IEY1gm018021
+	for <netdev@vger.kernel.org>; Fri, 18 May 2007 10:34:01 -0400
+Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
+	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l4IEY14x529048
+	for <netdev@vger.kernel.org>; Fri, 18 May 2007 10:34:01 -0400
+Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
+	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l4IEY0QL014877
+	for <netdev@vger.kernel.org>; Fri, 18 May 2007 10:34:01 -0400
+Content-Disposition: inline
+In-Reply-To: <464D6F85.9090202@hartkopp.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Acker wrote:
-> Kok, Auke wrote:
->> Jeff Garzik wrote:
->>> Can you resend against the latest kernel (2.6.22-rc1)?
->>>
->>> And what does Intel think?
->>
->> I'm expecting at least a reply from Milton as the patch was sent to 
->> him. I haven't yet tested it but will certainly do so. At first glance 
->> it looks OK, and I'll try to put it under my colleague's noses who 
->> know e100 best.
->>
->> A resend against 2.6.22-rc1 would be nice.
->>
+On Fri, May 18, 2007 at 11:19:01AM +0200, Oliver Hartkopp wrote:
+> Hi Urs, Hello Paul,
 > 
-> Done.  Below is a patch against 2.6.22-rc1.  It combines removing the 
-> s-bit patch and applying the patch I previously sent.
+> i assume Paul refers to the can_rx_delete_all() function that adds each 
+> receive list entry for rcu removal using the can_rx_delete RCU callback, 
+> right?
+> 
+> So the idea would be to create a second RCU callback - e.g. 
+> can_rx_delete_list() - that removes the complete list inside the RCU 
+> callback?!?
+> The list removal would therefore be processed inside this new 
+> can_rx_delete_list() in RCU context and not inside can_rx_delete_all().
+> 
+> @Paul: Was this your intention?
 
-Oops.  I missed one state in that patch.  Since the el-bit buffer will normally not 
-complete due to a zero size, we need to check if the buffer with no data has the el-bit 
-set.  Without this, you have to wait for the interrupt.  Sorry about that...this was in 
-the code I tested on my embedded system but got lost in the regular kernel patch.
+My intention was that the list-removing be placed into can_rcv_lists_delete(),
+perhaps as follows:
 
-On the ARM, their is a race condition between software allocating a new receive
-buffer and hardware writing into a buffer.  The two race on touching the last
-Receive Frame Descriptor (RFD).  It has its el-bit set and its next link equal
-to 0.  When hardware encounters this buffer it attempts to write data to it
-and then update Status Word bits and Actual Count in the RFD.  At the same time
-software may try to clear the el-bit and set the link address to a new buffer.
-Since the entire RFD is once cache-line, the two write operations can
-collide.  This can lead to the receive unit stalling or freed receive buffers
-getting written to.
+static void can_rx_delete_all(struct hlist_head *rl)
+{
+	struct receiver *r;
+	struct hlist_node *n;
 
-The fix is to set the el-bit on and the size to 0 on the next to last buffer
-in the chain.  When the hardware encounters this buffer it stops and does
-not write to it at all.  The hardware issues an RNR interrupt with the
-receive unit in the No Resources state.  When software allocates buffers,
-it can update the tail of the list because it knows the hardware will stop
-at the buffer before it.  Once it has a new next to last buffer prepared,
-it can clear the el-bit and set the size on the previous one.  The race on
-this buffer is safe since the link already points to a valid next buffer.
-If the hardware sees the el-bit cleared without the size set, it will
-move on to the next buffer and complete that one in error.  If it sees
-the size set but the el-bit still set, it will complete that buffer
-and then RNR interrupt and wait.
+	hlist_for_each_entry(r, n, rl, list) {
+		hlist_del(&r->list);
+		kmem_cache_free(rcv_cache, r);
+	}
+}
 
+static void can_rcv_lists_delete(struct rcu_head *rp)
+{
+	struct dev_rcv_lists *d = container_of(rp, struct dev_rcv_lists, rcu);
 
-Signed-off-by: David Acker <dacker@roinet.com>
+	/* remove all receivers hooked at this netdevice */
+	can_rx_delete_all(&d->rx_err);
+	can_rx_delete_all(&d->rx_all);
+	can_rx_delete_all(&d->rx_fil);
+	can_rx_delete_all(&d->rx_inv);
+	can_rx_delete_all(&d->rx_eff);
+	for (i = 0; i < 2048; i++)
+		can_rx_delete_all(&d->rx_sff[i]);
+	kfree(d);
+}
 
----
+Then the code in can_notifier() can reduce to the following:
 
+	if (d) {
+		hlist_del_rcu(&d->list);
 
---- linux-2.6.22-rc1/drivers/net/e100.c.orig	2007-05-18 10:16:03.000000000 -0400
-+++ linux-2.6.22-rc1/drivers/net/e100.c	2007-05-18 10:15:53.000000000 -0400
-@@ -285,6 +285,12 @@ enum scb_status {
-  	rus_mask         = 0x3C,
-  };
+		/* used to be a string of can_rx_delete_all(). */
+	} else
+		printk(KERN_ERR "can: notifier: receive list not "
+		       "found for dev %s\n", dev->name);
 
-+enum ru_state  {
-+	RU_SUSPENDED = 0,
-+	RU_RUNNING	 = 1,
-+	RU_UNINITIALIZED = -1,
-+};
-+
-  enum scb_stat_ack {
-  	stat_ack_not_ours    = 0x00,
-  	stat_ack_sw_gen      = 0x04,
-@@ -526,6 +532,7 @@ struct nic {
-  	struct rx *rx_to_use;
-  	struct rx *rx_to_clean;
-  	struct rfd blank_rfd;
-+	enum ru_state ru_running;
+	spin_lock_bh(&rcv_lists_lock);
 
-  	spinlock_t cb_lock			____cacheline_aligned;
-  	spinlock_t cmd_lock;
-@@ -947,7 +954,7 @@ static void e100_get_defaults(struct nic
-  		((nic->mac >= mac_82558_D101_A4) ? cb_cid : cb_i));
+	if (d) {
+		call_rcu(&d->rcu, can_rcv_lists_delete);
+	}
 
-  	/* Template for a freshly allocated RFD */
--	nic->blank_rfd.command = cpu_to_le16(cb_el & cb_s);
-+	nic->blank_rfd.command = cpu_to_le16(cb_el);
-  	nic->blank_rfd.rbd = 0xFFFFFFFF;
-  	nic->blank_rfd.size = cpu_to_le16(VLAN_ETH_FRAME_LEN);
+This moves the traversal work into the callback function.  This is not
+a problem for CONFIG_PREEMPT_RT and non-CONFIG_PREEMPT, but not sure
+about CONFIG_PREEMPT.
 
-@@ -1742,11 +1749,19 @@ static int e100_alloc_cbs(struct nic *ni
-  	return 0;
-  }
+But it sure has the potential to cut down on a bunch of call_rcu()
+work...
 
--static inline void e100_start_receiver(struct nic *nic)
-+static inline void e100_start_receiver(struct nic *nic, struct rx *rx)
-  {
--	/* Start if RFA is non-NULL */
--	if(nic->rx_to_clean->skb)
--		e100_exec_cmd(nic, ruc_start, nic->rx_to_clean->dma_addr);
-+	if(!nic->rxs) return;
-+	if(RU_SUSPENDED != nic->ru_running) return;
-+
-+	/* handle init time starts */
-+	if(!rx) rx = nic->rxs;
-+
-+	/* (Re)start RU if suspended or idle and RFA is non-NULL */
-+	if(rx->skb) {
-+		e100_exec_cmd(nic, ruc_start, rx->dma_addr);
-+		nic->ru_running = RU_RUNNING;
-+	}
-  }
+						Thanx, Paul
 
-  #define RFD_BUF_LEN (sizeof(struct rfd) + VLAN_ETH_FRAME_LEN)
-@@ -1769,13 +1784,12 @@ static int e100_rx_alloc_skb(struct nic
-  	}
-
-  	/* Link the RFD to end of RFA by linking previous RFD to
--	 * this one, and clearing EL bit of previous.  */
-+	 * this one.  We are safe to touch the previous RFD because
-+	 * it is protected the before last buffer's el bit being set  */
-  	if(rx->prev->skb) {
-  		struct rfd *prev_rfd = (struct rfd *)rx->prev->skb->data;
-  		put_unaligned(cpu_to_le32(rx->dma_addr),
-  			(u32 *)&prev_rfd->link);
--		wmb();
--		prev_rfd->command &= ~cpu_to_le16(cb_el & cb_s);
-  		pci_dma_sync_single_for_device(nic->pdev, rx->prev->dma_addr,
-  			sizeof(struct rfd), PCI_DMA_TODEVICE);
-  	}
-@@ -1801,8 +1815,12 @@ static int e100_rx_indicate(struct nic *
-  	DPRINTK(RX_STATUS, DEBUG, "status=0x%04X\n", rfd_status);
-
-  	/* If data isn't ready, nothing to indicate */
--	if(unlikely(!(rfd_status & cb_complete)))
-+	if(unlikely(!(rfd_status & cb_complete))) {
-+		/* this allows for a fast restart without re-enabling interrupts */
-+		if(le16_to_cpu(rfd->command) & cb_el)
-+			nic->ru_running = RU_SUSPENDED;
-  		return -ENODATA;
-+	}
-
-  	/* Get actual data size */
-  	actual_size = le16_to_cpu(rfd->actual_size) & 0x3FFF;
-@@ -1813,6 +1831,10 @@ static int e100_rx_indicate(struct nic *
-  	pci_unmap_single(nic->pdev, rx->dma_addr,
-  		RFD_BUF_LEN, PCI_DMA_FROMDEVICE);
-
-+	/* this allows for a fast restart without re-enabling interrupts */
-+	if(le16_to_cpu(rfd->command) & cb_el)
-+		nic->ru_running = RU_SUSPENDED;
-+
-  	/* Pull off the RFD and put the actual data (minus eth hdr) */
-  	skb_reserve(skb, sizeof(struct rfd));
-  	skb_put(skb, actual_size);
-@@ -1843,18 +1865,78 @@ static void e100_rx_clean(struct nic *ni
-  	unsigned int work_to_do)
-  {
-  	struct rx *rx;
-+	int restart_required = 0;
-+	struct rx *rx_to_start = NULL;
-+	struct rx *old_before_last_rx, *new_before_last_rx;
-+	struct rfd *old_before_last_rfd, *new_before_last_rfd;
-+
-+	/* are we already rnr? then pay attention!!! this ensures that
-+	 * the state machine progression never allows a start with a
-+	 * partially cleaned list, avoiding a race between hardware
-+	 * and rx_to_clean when in NAPI mode */
-+	if(RU_SUSPENDED == nic->ru_running)
-+		restart_required = 1;
-
-  	/* Indicate newly arrived packets */
-  	for(rx = nic->rx_to_clean; rx->skb; rx = nic->rx_to_clean = rx->next) {
--		if(e100_rx_indicate(nic, rx, work_done, work_to_do))
-+		int err = e100_rx_indicate(nic, rx, work_done, work_to_do);
-+		if(-EAGAIN == err) {
-+			/* hit quota so have more work to do, restart once
-+			 * cleanup is complete */
-+			restart_required = 0;
-+			break;
-+		} else if(-ENODATA == err)
-  			break; /* No more to clean */
-  	}
-
-+	/* save our starting point as the place we'll restart the receiver */
-+	if(restart_required)
-+		rx_to_start = nic->rx_to_clean;
-+
-+	old_before_last_rx = nic->rx_to_use->prev->prev;
-+	old_before_last_rfd = (struct rfd *)old_before_last_rx->skb->data;
-+
-  	/* Alloc new skbs to refill list */
-  	for(rx = nic->rx_to_use; !rx->skb; rx = nic->rx_to_use = rx->next) {
-  		if(unlikely(e100_rx_alloc_skb(nic, rx)))
-  			break; /* Better luck next time (see watchdog) */
-  	}
-+
-+	new_before_last_rx = nic->rx_to_use->prev->prev;
-+	if (new_before_last_rx != old_before_last_rx) {
-+		/* Set the el-bit on the buffer that is before the last buffer.
-+		 * This lets us update the next pointer on the last buffer without
-+		 * worrying about hardware touching it.
-+		 * We set the size to 0 to prevent hardware from touching this buffer.
-+		 * When the hardware hits the before last buffer with el-bit and size
-+		 * of 0, it will RNR interrupt, the RUS will go into the No Resources
-+		 * state.  It will not complete nor write to this buffer. */
-+		new_before_last_rfd = (struct rfd *)new_before_last_rx->skb->data;
-+		new_before_last_rfd->size = 0;
-+		new_before_last_rfd->command |= cpu_to_le16(cb_el);
-+		pci_dma_sync_single_for_device(nic->pdev, new_before_last_rx->dma_addr,
-+			sizeof(struct rfd), PCI_DMA_TODEVICE);
-+
-+		/* Now that we have a new stopping point, we can clear the old
-+		 * stopping point.
-+		 * Note: There appears to be a race here where the hardware
-+		 * can complete this buffer with the el-bit set but with the
-+		 * size also set.  The hardware RNR interrupts, the RUS
-+		 * goes into the No Resources state. */
-+		old_before_last_rfd->command &= ~cpu_to_le16(cb_el);
-+		wmb();
-+		old_before_last_rfd->size = cpu_to_le16(VLAN_ETH_FRAME_LEN);
-+		pci_dma_sync_single_for_device(nic->pdev, old_before_last_rx->dma_addr,
-+			sizeof(struct rfd), PCI_DMA_TODEVICE);
-+	}
-+
-+	if(restart_required) {
-+		// ack the rnr?
-+		writeb(stat_ack_rnr, &nic->csr->scb.stat_ack);
-+		e100_start_receiver(nic, rx_to_start);
-+		if(work_done)
-+			(*work_done)++;
-+	}
-  }
-
-  static void e100_rx_clean_list(struct nic *nic)
-@@ -1862,6 +1944,8 @@ static void e100_rx_clean_list(struct ni
-  	struct rx *rx;
-  	unsigned int i, count = nic->params.rfds.count;
-
-+	nic->ru_running = RU_UNINITIALIZED;
-+
-  	if(nic->rxs) {
-  		for(rx = nic->rxs, i = 0; i < count; rx++, i++) {
-  			if(rx->skb) {
-@@ -1881,8 +1965,10 @@ static int e100_rx_alloc_list(struct nic
-  {
-  	struct rx *rx;
-  	unsigned int i, count = nic->params.rfds.count;
-+	struct rfd *before_last;
-
-  	nic->rx_to_use = nic->rx_to_clean = NULL;
-+	nic->ru_running = RU_UNINITIALIZED;
-
-  	if(!(nic->rxs = kcalloc(count, sizeof(struct rx), GFP_ATOMIC)))
-  		return -ENOMEM;
-@@ -1896,7 +1982,22 @@ static int e100_rx_alloc_list(struct nic
-  		}
-  	}
-
-+	/* Set the el-bit on the buffer that is before the last buffer.
-+	 * This lets us update the next pointer on the last buffer without
-+	 * worrying about hardware touching it.
-+	 * We set the size to 0 to prevent hardware from touching this buffer.
-+	 * When the hardware hits the before last buffer with el-bit and size
-+	 * of 0, it will RNR interrupt, the RUS will go into the No Resources
-+	 * state.  It will not complete nor write to this buffer. */
-+	rx = nic->rxs->prev->prev;
-+	before_last = (struct rfd *)rx->skb->data;
-+	before_last->command |= cpu_to_le16(cb_el);
-+	before_last->size = 0;
-+	pci_dma_sync_single_for_device(nic->pdev, rx->dma_addr,
-+		sizeof(struct rfd), PCI_DMA_TODEVICE);
-+
-  	nic->rx_to_use = nic->rx_to_clean = nic->rxs;
-+	nic->ru_running = RU_SUSPENDED;
-
-  	return 0;
-  }
-@@ -1916,6 +2017,10 @@ static irqreturn_t e100_intr(int irq, vo
-  	/* Ack interrupt(s) */
-  	iowrite8(stat_ack, &nic->csr->scb.stat_ack);
-
-+	/* We hit Receive No Resource (RNR); restart RU after cleaning */
-+	if(stat_ack & stat_ack_rnr)
-+		nic->ru_running = RU_SUSPENDED;
-+
-  	if(likely(netif_rx_schedule_prep(netdev))) {
-  		e100_disable_irq(nic);
-  		__netif_rx_schedule(netdev);
-@@ -2007,7 +2112,7 @@ static int e100_up(struct nic *nic)
-  	if((err = e100_hw_init(nic)))
-  		goto err_clean_cbs;
-  	e100_set_multicast_list(nic->netdev);
--	e100_start_receiver(nic);
-+	e100_start_receiver(nic, NULL);
-  	mod_timer(&nic->watchdog, jiffies);
-  	if((err = request_irq(nic->pdev->irq, e100_intr, IRQF_SHARED,
-  		nic->netdev->name, nic->netdev)))
-@@ -2088,7 +2193,7 @@ static int e100_loopback_test(struct nic
-  		mdio_write(nic->netdev, nic->mii.phy_id, MII_BMCR,
-  			BMCR_LOOPBACK);
-
--	e100_start_receiver(nic);
-+	e100_start_receiver(nic, NULL);
-
-  	if(!(skb = netdev_alloc_skb(nic->netdev, ETH_DATA_LEN))) {
-  		err = -ENOMEM;
+> Best regards,
+> Oliver
+> 
+> Paul E. McKenney wrote:
+> >On Wed, May 16, 2007 at 04:51:02PM +0200, Urs Thuermann wrote:
+> >  
+> >>This patch adds the CAN core functionality but no protocols or drivers.
+> >>No protocol implementations are included here.  They come as separate
+> >>patches.  Protocol numbers are already in include/linux/can.h.
+> >>    
+> >
+> >Interesting!  One question called out below -- why do call_rcu() on each
+> >piece of the struct dev_rcv_lists, instead of doing call_rcu() on the
+> >whole thing and having the RCU callback free up the pieces?  Given that
+> >all the pieces are call_rcu()ed separately, there had better not be
+> >persistent pointers to the pieces, right?
+> >
+> >Doing it in one chunk would make the code a bit simpler and also reduce
+> >the RCU overhead a bit.
+> >
+> >Or am I missing something subtle here?
+> >
+> >						Thanx, Paul
