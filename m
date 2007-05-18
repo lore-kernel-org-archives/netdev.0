@@ -1,80 +1,48 @@
-From: Kim Phillips <kim.phillips@freescale.com>
-Subject: Re: [PATCH 3/5] ucc_geth: eliminate max-speed, change
- interface-type to phy-connection-type
-Date: Fri, 18 May 2007 10:33:02 -0500
-Message-ID: <20070518103302.476b0f04.kim.phillips@freescale.com>
-References: <20070511182507.7642926e.kim.phillips@freescale.com>
-	<464A29EF.7080405@garzik.org>
-	<20070515172629.61c1b4c2.kim.phillips@freescale.com>
-	<464D0721.4030600@garzik.org>
-	<24CEBCE5-8E12-4D08-A657-24BA8688EE5D@kernel.crashing.org>
+From: David Acker <dacker@roinet.com>
+Subject: Re: [PATCH] fix e100 rx path on ARM (was [PATCH] e100 rx: or s and
+ el bits)
+Date: Fri, 18 May 2007 11:47:35 -0400
+Message-ID: <464DCA97.3070405@roinet.com>
+References: <200705011124.l41BOEG4007662@sullivan.realtime.net> <46375664.8030701@roinet.com> <4638F2B2.2000103@roinet.com> <463BA906.30205@roinet.com> <85f07fc58d5ed2147d5214d0f0b4fe32@bga.com> <4648A9DF.6030001@roinet.com> <464D074F.20400@pobox.com> <464D21B6.2000208@intel.com> <464DB336.2030003@roinet.com> <464DB619.3070900@roinet.com> <464DC676.90504@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org
-To: Kumar Gala <galak@kernel.crashing.org>
+Cc: Jeff Garzik <jgarzik@pobox.com>, Milton Miller <miltonm@bga.com>,
+	e1000-devel@lists.sourceforge.net,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Scott Feldman <sfeldma@pobox.com>, netdev@vger.kernel.org
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from de01egw01.freescale.net ([192.88.165.102]:44553 "EHLO
-	de01egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756127AbXERPdM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 May 2007 11:33:12 -0400
-In-Reply-To: <24CEBCE5-8E12-4D08-A657-24BA8688EE5D@kernel.crashing.org>
+Received: from static-72-92-88-10.phlapa.fios.verizon.net ([72.92.88.10]:36328
+	"EHLO smtp.roinet.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754504AbXERPqx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 May 2007 11:46:53 -0400
+In-Reply-To: <464DC676.90504@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 18 May 2007 09:07:42 -0500
-Kumar Gala <galak@kernel.crashing.org> wrote:
-
+Kok, Auke wrote:
+> David Acker wrote:
+>> David Acker wrote:
+>>> Done.  Below is a patch against 2.6.22-rc1.  It combines removing the 
+>>> s-bit patch and applying the patch I previously sent.
+>>
+>> Oops.  I missed one state in that patch.  Since the el-bit buffer will 
+>> normally not complete due to a zero size, we need to check if the 
+>> buffer with no data has the el-bit set.  Without this, you have to 
+>> wait for the interrupt.  Sorry about that...this was in the code I 
+>> tested on my embedded system but got lost in the regular kernel patch.
 > 
-> On May 17, 2007, at 8:53 PM, Jeff Garzik wrote:
+> OK. Thanks.
 > 
-> > Kim Phillips wrote:
-> >> On Tue, 15 May 2007 17:45:19 -0400
-> >> Jeff Garzik <jeff@garzik.org> wrote:
-> >>> Kim Phillips wrote:
-> >>>> It was agreed that phy-connection-type was a better name for
-> >>>> the interface-type property, so this patch renames it.
-> >>>>
-> >>>> Also, the max-speed property name was determined too generic,
-> >>>> and is therefore eliminated in favour of phy-connection-type
-> >>>> derivation logic.
-> >>>>
-> >>>> includes corrections to copyright text.
-> >>>>
-> >>>> Signed-off-by: Kim Phillips <kim.phillips@freescale.com>
-> >>>> ---
-> >>>>  drivers/net/ucc_geth.c     |   40 +++++++++++++++ 
-> >>>> +------------------------
-> >>>>  drivers/net/ucc_geth_mii.c |    9 +++++----
-> >>>>  drivers/net/ucc_geth_mii.h |   10 +++++-----
-> >>>>  3 files changed, 26 insertions(+), 33 deletions(-)
-> >>> applied to #upstream
-> >>>
-> >> just to be clear; only the mpc8323e-mds board works on your  
-> >> current #upstream-{fixes,linus}.
-> >> The mpc8323e-rdb and mpc8360e-mds require
-> >> phylib: add the ICPlus IP175C PHY driver
-> >> and phylib: enable RGMII-ID on the Marvell m88e1111 PHY
-> >> respectively in order to work.
-> >> I'm ok with the SGMII patches:
-> >> phylib: m88e1111: enable SGMII mode
-> >> gianfar: add support for SGMII
-> >> staying on #upstream, but 2 out of 3 boards are currently broken  
-> >> for #upstream-{fixes,linus}.
-> >
-> > New hardware support is always "broken" until merged.  Nonetheless  
-> > it is still new and outside the merge window.
-> 
-> I think new is a little relative here.  The MPC8232-RDB & MPC8360E- 
-> MDS boards worked with 2.6.21 and the UCC. They had support for the  
-> PHYs that Kim's listed built directly into the ucc driver and not as  
-> part of the phy lib.  Since we've moved to using the phy lib in  
-> 2.6.22 we've broken these boards since their PHY drivers aren't  
-> currently in linus's tree.
-> 
-> Kim, correct me if I'm wrong.
+> If you don't mind I'm going to have some testing on this patch done for 
+> a bit now (mostly x86 hardware of course) to see if there's no pitfalls 
+> in it. It'll be a few days because of the weekend before I get back on it.
 > 
 
-thanks for clarifying that - it is indeed the case.
+Cool.  I will see if I can get some more tests running over the weekend on our PXA255 
+platform.
 
-Kim
+-Ack
