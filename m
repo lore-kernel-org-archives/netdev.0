@@ -1,45 +1,51 @@
-From: Mithlesh Thukral <mithlesh@netxen.com>
-Subject: Re: [PATCH 2/2] NetXen: Updates for register access routines
-Date: Fri, 18 May 2007 17:00:45 +0530
-Message-ID: <200705181700.45421.mithlesh@netxen.com>
-References: <200705171353.l4HDr9eb023094@dut39.unminc.com> <464CF7A0.2090604@garzik.org>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [WIP] [PATCH] WAS Re: [RFC] New driver API to speed up small
+	packets xmits
+Date: Fri, 18 May 2007 08:07:20 -0400
+Message-ID: <1179490040.4060.15.camel@localhost>
+References: <adahcqdpz1p.fsf@cisco.com>
+	 <OFF5654BB8.74EC8DCB-ON872572DC.00752079-882572DC.00756B23@us.ibm.com>
+	 <20070515.143207.80029051.davem@davemloft.net>
+	 <1179267467.4080.33.camel@localhost>
+	 <1179353523.10414.12.camel@w-sridhar2.beaverton.ibm.com>
+	 <1179355932.4084.19.camel@localhost>  <1179372347.4084.39.camel@localhost>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, amitkale@netxen.com,
-	netxenproj@linsyssoft.com, rob@netxen.com
-To: Jeff Garzik <jeff@garzik.org>
+Cc: David Miller <davem@davemloft.net>, xma@us.ibm.com,
+	rdreier@cisco.com, ak@suse.de, krkumar2@in.ibm.com,
+	netdev@vger.kernel.org, ashwin.chaugule@celunite.com,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	Auke <auke-jan.h.kok@intel.com>, Gagan Arneja <gagan@vmware.com>
+To: Sridhar Samudrala <sri@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from svr68.ehostpros.com ([67.15.48.48]:51867 "EHLO
-	svr68.ehostpros.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752306AbXERLik (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 May 2007 07:38:40 -0400
-In-Reply-To: <464CF7A0.2090604@garzik.org>
-Content-Disposition: inline
+Received: from wx-out-0506.google.com ([66.249.82.233]:35765 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757081AbXERMH1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 May 2007 08:07:27 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so870108wxd
+        for <netdev@vger.kernel.org>; Fri, 18 May 2007 05:07:24 -0700 (PDT)
+In-Reply-To: <1179372347.4084.39.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Friday 18 May 2007 06:17, Jeff Garzik wrote:
-> Mithlesh Thukral wrote:
-> > NetXen: Changes related to registers and their access routines
-> > This patch updates the various access routines to access different
-> > control and status settings present in different register locations.
-> > This will fix problems related to working of different ports in
-> > multi Port card.
-> >
-> > Signed-off by: Milan Bag <mbag@netxen.com>
-> > Signed-off by: Adhiraj Joshi <adhiraj@netxen.com>
-> > Acked-by: Mithlesh Thukral <mithlesh@netxen.com>
-> > ---
-> >  drivers/net/netxen/netxen_nic.h      |   96 ++++++++++---------------
-> >  drivers/net/netxen/netxen_nic_hw.h   |   65 +++-------------
-> >  drivers/net/netxen/netxen_nic_init.c |   17 ++--
-> >  3 files changed, 65 insertions(+), 113 deletions(-)
->
-> not applied.  This patch removes a bunch of endianness changes.
-Ok. I will take care of these changes in the next patchset that i submit.
-Thanks for applying the first patch.
+On Wed, 2007-16-05 at 23:25 -0400, jamal wrote:
 
---
-Mithlesh Thukral
+> 
+> This patch now includes two changed drivers (tun and e1000). I have
+> tested tun with this patch. I tested e1000 earlier and i couldnt find
+> any issues - although as the tittle says its a WIP.
+> 
+> As before you need net-2.6. You also need the qdisc restart cleanup
+> patch.
+> 
+
+I have found a bug on e1000 which manifests under a lot of pounding with
+traffic.
+I am not gonna be posting the patch anymore - but will continue to fix
+and add things. If you want the patches email me privately.
+
+cheers,
+jamal
+
