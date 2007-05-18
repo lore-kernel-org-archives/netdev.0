@@ -1,36 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [IPV4] LVS: Allow to send ICMP unreachable responses when
- real-servers are removed
-Date: Fri, 18 May 2007 02:05:25 -0700 (PDT)
-Message-ID: <20070518.020525.28394540.davem@davemloft.net>
-References: <Pine.LNX.4.58.0705160012470.2626@u.domain.uli>
-	<464C857C.9070406@trash.net>
-	<Pine.LNX.4.58.0705181043390.2665@u.domain.uli>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: [PATCH RESEND net-2.6] [TCP] FRTO: Add missing ECN CWR sending to
+ one of the responses
+Date: Fri, 18 May 2007 12:15:21 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0705181213360.28356@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, horms@verge.net.au, jkrzyszt@tis.icnet.pl,
-	netdev@vger.kernel.org
-To: ja@ssi.bg
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-416220508-1179479721=:28356"
+Cc: Netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34542
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754548AbXERJFX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 May 2007 05:05:23 -0400
-In-Reply-To: <Pine.LNX.4.58.0705181043390.2665@u.domain.uli>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:60026 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754788AbXERJPW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 May 2007 05:15:22 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Julian Anastasov <ja@ssi.bg>
-Date: Fri, 18 May 2007 11:40:54 +0300 (EEST)
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-> On Thu, 17 May 2007, Patrick McHardy wrote:
-> 
-> > In any case some better solution than the current one needs to be
-> > found, allowing users to send spoofed packets is far worse than
-> > using a non-desired source address for ICMP packets.
-> 
-> 	yes, I would prefer the sysctl_ip_nonlocal_bind change to be
-> removed until such solution is found.
+---696243703-416220508-1179479721=:28356
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
 
-Ok, I'll revert it.
+The conservative spurious RTO response did not queue CWR even
+though the sending rate was lowered. Whenever reduction happens
+regardless of reason, CWR should be sent (forgetting to send it
+is not very fatal though).
+
+A better approach would be to queue CWR when one of the sending
+rate reducing responses (rate-halving one or this conservative
+response) is used already at RTO. Doing that would allow CWR to
+be sent along with the two new data segments that are sent
+during FRTO. However, it's a bit "racy" because userland could
+tune the response sysctl to a more aggressive one in between.
+
+Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+---
+ net/ipv4/tcp_input.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 7641b27..7ecdc89 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -2608,6 +2608,7 @@ static void tcp_conservative_spur_to_response(struct tcp_sock *tp)
+ {
+ 	tp->snd_cwnd = min(tp->snd_cwnd, tp->snd_ssthresh);
+ 	tp->snd_cwnd_cnt = 0;
++	TCP_ECN_queue_cwr(tp);
+ 	tcp_moderate_cwnd(tp);
+ }
+ 
+-- 
+1.5.0.6
+
+---696243703-416220508-1179479721=:28356--
