@@ -1,242 +1,40 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH][af_key]pfkey_add: Optimize SA adds and algorithm probes
-Date: Sat, 19 May 2007 07:21:48 +1000
-Message-ID: <20070518212148.GA25363@gondor.apana.org.au>
-References: <4643CD64.4090000@mvista.com> <E1HouAO-0003i5-00@gondolin.me.apana.org.au>
+From: Mariusz =?iso-8859-2?q?Koz=B3owski?= <m.kozlowski@tuxland.pl>
+Subject: Re: [git patches] net driver updates
+Date: Fri, 18 May 2007 23:46:21 +0200
+Message-ID: <200705182346.21835.m.kozlowski@tuxland.pl>
+References: <20070508063337.GA12474@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Mark Huth <mhuth@mvista.com>, davem@davemloft.net
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:4611 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754457AbXERVWQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 May 2007 17:22:16 -0400
+Received: from xdsl-664.zgora.dialog.net.pl ([81.168.226.152]:1462 "EHLO
+	tuxland.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754078AbXERVxU convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 May 2007 17:53:20 -0400
+In-Reply-To: <20070508063337.GA12474@havoc.gtf.org>
 Content-Disposition: inline
-In-Reply-To: <E1HouAO-0003i5-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, May 18, 2007 at 02:34:12PM +1000, Herbert Xu wrote:
-> 
-> Actually, I think we should just probe for the specific algorithm
-> requested rather than everything.  See patch below.
+Hello,=20
 
-Doh, forgot to actually remove the probe call :)
+> diff --git a/drivers/net/smc91x.h b/drivers/net/smc91x.h
+> index 7053026..111f23d 100644
+> --- a/drivers/net/smc91x.h
+> +++ b/drivers/net/smc91x.h
+> @@ -279,6 +279,40 @@ SMC_outw(u16 val, void __iomem *ioaddr, int reg)
 
-[IPSEC] pfkey: Load specific algorithm in pfkey_add rather than all
+=2E..
 
-This is a natural extension of the changeset
+> +#define SMC_outb(v, a, r) =A0 =A0 =A0outw(((inw((a)+((r)&~1))*(0xff<=
+<8*(r%2)))) | ((v)<<(8*(r&2)))), (a) + ((r)&~1))
 
-    [XFRM]: Probe selected algorithm only.
+This one has unbalanced parenthesis.
 
-which only removed the probe call for xfrm_user.  This patch does exactly
-the same thing for af_key.  In other words, we load the algorithm requested
-by the user rather than everything when adding xfrm states in af_key.
+Regards,
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
---
-diff --git a/net/key/af_key.c b/net/key/af_key.c
-index a994441..d302dda 100644
---- a/net/key/af_key.c
-+++ b/net/key/af_key.c
-@@ -1448,8 +1448,6 @@ static int pfkey_add(struct sock *sk, struct sk_buff *skb, struct sadb_msg *hdr,
- 	int err;
- 	struct km_event c;
- 
--	xfrm_probe_algs();
--
- 	x = pfkey_msg2xfrm_state(hdr, ext_hdrs);
- 	if (IS_ERR(x))
- 		return PTR_ERR(x);
-diff --git a/net/xfrm/xfrm_algo.c b/net/xfrm/xfrm_algo.c
-index 6249a94..8a72def 100644
---- a/net/xfrm/xfrm_algo.c
-+++ b/net/xfrm/xfrm_algo.c
-@@ -347,67 +347,44 @@ static inline int calg_entries(void)
- 	return ARRAY_SIZE(calg_list);
- }
- 
--/* Todo: generic iterators */
--struct xfrm_algo_desc *xfrm_aalg_get_byid(int alg_id)
--{
--	int i;
--
--	for (i = 0; i < aalg_entries(); i++) {
--		if (aalg_list[i].desc.sadb_alg_id == alg_id) {
--			if (aalg_list[i].available)
--				return &aalg_list[i];
--			else
--				break;
--		}
--	}
--	return NULL;
--}
--EXPORT_SYMBOL_GPL(xfrm_aalg_get_byid);
--
--struct xfrm_algo_desc *xfrm_ealg_get_byid(int alg_id)
--{
--	int i;
-+struct xfrm_algo_list {
-+	struct xfrm_algo_desc *algs;
-+	int entries;
-+	u32 type;
-+	u32 mask;
-+};
- 
--	for (i = 0; i < ealg_entries(); i++) {
--		if (ealg_list[i].desc.sadb_alg_id == alg_id) {
--			if (ealg_list[i].available)
--				return &ealg_list[i];
--			else
--				break;
--		}
--	}
--	return NULL;
--}
--EXPORT_SYMBOL_GPL(xfrm_ealg_get_byid);
-+static const struct xfrm_algo_list xfrm_aalg_list = {
-+	.algs = aalg_list,
-+	.entries = ARRAY_SIZE(aalg_list),
-+	.type = CRYPTO_ALG_TYPE_HASH,
-+	.mask = CRYPTO_ALG_TYPE_HASH_MASK | CRYPTO_ALG_ASYNC,
-+};
- 
--struct xfrm_algo_desc *xfrm_calg_get_byid(int alg_id)
--{
--	int i;
-+static const struct xfrm_algo_list xfrm_ealg_list = {
-+	.algs = ealg_list,
-+	.entries = ARRAY_SIZE(ealg_list),
-+	.type = CRYPTO_ALG_TYPE_BLKCIPHER,
-+	.mask = CRYPTO_ALG_TYPE_MASK | CRYPTO_ALG_ASYNC,
-+};
- 
--	for (i = 0; i < calg_entries(); i++) {
--		if (calg_list[i].desc.sadb_alg_id == alg_id) {
--			if (calg_list[i].available)
--				return &calg_list[i];
--			else
--				break;
--		}
--	}
--	return NULL;
--}
--EXPORT_SYMBOL_GPL(xfrm_calg_get_byid);
-+static const struct xfrm_algo_list xfrm_calg_list = {
-+	.algs = calg_list,
-+	.entries = ARRAY_SIZE(calg_list),
-+	.type = CRYPTO_ALG_TYPE_COMPRESS,
-+	.mask = CRYPTO_ALG_TYPE_MASK | CRYPTO_ALG_ASYNC,
-+};
- 
--static struct xfrm_algo_desc *xfrm_get_byname(struct xfrm_algo_desc *list,
--					      int entries, u32 type, u32 mask,
--					      char *name, int probe)
-+static struct xfrm_algo_desc *xfrm_find_algo(
-+	const struct xfrm_algo_list *algo_list,
-+	int match(const struct xfrm_algo_desc *entry, const void *data),
-+	const void *data, int probe)
- {
-+	struct xfrm_algo_desc *list = algo_list->algs;
- 	int i, status;
- 
--	if (!name)
--		return NULL;
--
--	for (i = 0; i < entries; i++) {
--		if (strcmp(name, list[i].name) &&
--		    (!list[i].compat || strcmp(name, list[i].compat)))
-+	for (i = 0; i < algo_list->entries; i++) {
-+		if (!match(list + i, data))
- 			continue;
- 
- 		if (list[i].available)
-@@ -416,8 +393,8 @@ static struct xfrm_algo_desc *xfrm_get_byname(struct xfrm_algo_desc *list,
- 		if (!probe)
- 			break;
- 
--		status = crypto_has_alg(list[i].name, type,
--					mask | CRYPTO_ALG_ASYNC);
-+		status = crypto_has_alg(list[i].name, algo_list->type,
-+					algo_list->mask);
- 		if (!status)
- 			break;
- 
-@@ -427,27 +404,60 @@ static struct xfrm_algo_desc *xfrm_get_byname(struct xfrm_algo_desc *list,
- 	return NULL;
- }
- 
-+static int xfrm_alg_id_match(const struct xfrm_algo_desc *entry,
-+			     const void *data)
-+{
-+	return entry->desc.sadb_alg_id == (int)data;
-+}
-+
-+struct xfrm_algo_desc *xfrm_aalg_get_byid(int alg_id)
-+{
-+	return xfrm_find_algo(&xfrm_aalg_list, xfrm_alg_id_match,
-+			      (void *)alg_id, 1);
-+}
-+EXPORT_SYMBOL_GPL(xfrm_aalg_get_byid);
-+
-+struct xfrm_algo_desc *xfrm_ealg_get_byid(int alg_id)
-+{
-+	return xfrm_find_algo(&xfrm_ealg_list, xfrm_alg_id_match,
-+			      (void *)alg_id, 1);
-+}
-+EXPORT_SYMBOL_GPL(xfrm_ealg_get_byid);
-+
-+struct xfrm_algo_desc *xfrm_calg_get_byid(int alg_id)
-+{
-+	return xfrm_find_algo(&xfrm_calg_list, xfrm_alg_id_match,
-+			      (void *)alg_id, 1);
-+}
-+EXPORT_SYMBOL_GPL(xfrm_calg_get_byid);
-+
-+static int xfrm_alg_name_match(const struct xfrm_algo_desc *entry,
-+			       const void *data)
-+{
-+	const char *name = data;
-+
-+	return name && (!strcmp(name, entry->name) ||
-+			(entry->compat && !strcmp(name, entry->compat)));
-+}
-+
- struct xfrm_algo_desc *xfrm_aalg_get_byname(char *name, int probe)
- {
--	return xfrm_get_byname(aalg_list, aalg_entries(),
--			       CRYPTO_ALG_TYPE_HASH, CRYPTO_ALG_TYPE_HASH_MASK,
--			       name, probe);
-+	return xfrm_find_algo(&xfrm_aalg_list, xfrm_alg_name_match, name,
-+			      probe);
- }
- EXPORT_SYMBOL_GPL(xfrm_aalg_get_byname);
- 
- struct xfrm_algo_desc *xfrm_ealg_get_byname(char *name, int probe)
- {
--	return xfrm_get_byname(ealg_list, ealg_entries(),
--			       CRYPTO_ALG_TYPE_BLKCIPHER, CRYPTO_ALG_TYPE_MASK,
--			       name, probe);
-+	return xfrm_find_algo(&xfrm_ealg_list, xfrm_alg_name_match, name,
-+			      probe);
- }
- EXPORT_SYMBOL_GPL(xfrm_ealg_get_byname);
- 
- struct xfrm_algo_desc *xfrm_calg_get_byname(char *name, int probe)
- {
--	return xfrm_get_byname(calg_list, calg_entries(),
--			       CRYPTO_ALG_TYPE_COMPRESS, CRYPTO_ALG_TYPE_MASK,
--			       name, probe);
-+	return xfrm_find_algo(&xfrm_calg_list, xfrm_alg_name_match, name,
-+			      probe);
- }
- EXPORT_SYMBOL_GPL(xfrm_calg_get_byname);
- 
+	Mariusz
