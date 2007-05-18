@@ -1,33 +1,45 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] fix e100 rx path on ARM (was [PATCH] e100 rx: or s and
- el bits)
-Date: Thu, 17 May 2007 21:54:23 -0400
-Message-ID: <464D074F.20400@pobox.com>
-References: <200705011124.l41BOEG4007662@sullivan.realtime.net> <46375664.8030701@roinet.com> <4638F2B2.2000103@roinet.com> <463BA906.30205@roinet.com> <85f07fc58d5ed2147d5214d0f0b4fe32@bga.com> <4648A9DF.6030001@roinet.com>
+From: Hirokazu Takahashi <taka@valinux.co.jp>
+Subject: Re: [PATCH 2/2] tbf scheduler: TSO support (update 2)
+Date: Fri, 18 May 2007 11:35:07 +0900 (JST)
+Message-ID: <20070518.113507.41839122.taka@valinux.co.jp>
+References: <20070515.203953.03891900.taka@valinux.co.jp>
+	<20070515.204148.114469367.taka@valinux.co.jp>
+	<20070517135530.GA4381@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Milton Miller <miltonm@bga.com>, e1000-devel@lists.sourceforge.net,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Scott Feldman <sfeldma@pobox.com>, netdev@vger.kernel.org
-To: David Acker <dacker@roinet.com>,
-	Auke Kok <auke-jan.h.kok@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:44104 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755362AbXERByu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 May 2007 21:54:50 -0400
-In-Reply-To: <4648A9DF.6030001@roinet.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org,
+	kaber@trash.net, davem@davemloft.net, linux-net@vger.kernel.org
+To: herbert@gondor.apana.org.au
+Return-path: <linux-net-owner@vger.kernel.org>
+In-Reply-To: <20070517135530.GA4381@gondor.apana.org.au>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Can you resend against the latest kernel (2.6.22-rc1)?
+Hi,
 
-And what does Intel think?
+> > @@ -924,7 +926,9 @@ cbq_dequeue_prio(struct Qdisc *sch, int 
+> >  				cl->xstats.borrows += skb->len;
+> >  #endif
+> >  			}
+> > -			q->tx_len = skb->len;
+> > +			q->tx_segs = skb_shinfo(skb)->gso_segs ? :
+> > +			  skb_shinfo(skb)->gso_size ? skb->len/skb_shinfo(skb)->gso_size + 1 : 1;
+> > +			q->tx_len = (skb->len - 1)/q->tx_segs + 1;
+> 
+> This isn't safe for Xen (and potentially other virtualisation
+> environments) since qdisc code runs before dev_hard_start_xmit
+> which is where we verify the sanity of gso_segs.  So you could
+> be using some arbitrary value from an untrusted source.
+> 
+> If you really want to use it, you should test for SKB_GSO_DODGY
+> on the packet which will be set if gso_segs can't be trusted.
 
-	Jeff
+Yep, you have a point that some sanity check should be added.
+I think a simple check would be enough not to crash CBQ
+as the accurate checking will be done in dev_hard_start_xmit or
+device drivers.
 
-
+Thanks,
+Hirokazu Takahashi.
 
