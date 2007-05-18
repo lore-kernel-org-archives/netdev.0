@@ -1,53 +1,57 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH] fix e100 rx path on ARM (was [PATCH] e100 rx: or s and
- el bits)
-Date: Fri, 18 May 2007 08:59:26 -0700
-Message-ID: <464DCD5E.50003@intel.com>
-References: <200705011124.l41BOEG4007662@sullivan.realtime.net> <46375664.8030701@roinet.com> <4638F2B2.2000103@roinet.com> <463BA906.30205@roinet.com> <85f07fc58d5ed2147d5214d0f0b4fe32@bga.com> <4648A9DF.6030001@roinet.com> <464D074F.20400@pobox.com> <464D21B6.2000208@intel.com> <464DB336.2030003@roinet.com> <464DB619.3070900@roinet.com> <464DC676.90504@intel.com> <464DCA97.3070405@roinet.com>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: [PATCH] [TCP] Sysctl: document tcp_max_ssthresh (Limited Slow-Start)
+Date: Fri, 18 May 2007 19:27:41 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0705181926570.22402@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>, Milton Miller <miltonm@bga.com>,
-	e1000-devel@lists.sourceforge.net,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Scott Feldman <sfeldma@pobox.com>, netdev@vger.kernel.org
-To: David Acker <dacker@roinet.com>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-74673123-1179505661=:22402"
+Cc: Netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:12955 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752992AbXERP73 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 May 2007 11:59:29 -0400
-In-Reply-To: <464DCA97.3070405@roinet.com>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:47172 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755524AbXERQ1n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 May 2007 12:27:43 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Acker wrote:
-> Kok, Auke wrote:
->> David Acker wrote:
->>> David Acker wrote:
->>>> Done.  Below is a patch against 2.6.22-rc1.  It combines removing the 
->>>> s-bit patch and applying the patch I previously sent.
->>> Oops.  I missed one state in that patch.  Since the el-bit buffer will 
->>> normally not complete due to a zero size, we need to check if the 
->>> buffer with no data has the el-bit set.  Without this, you have to 
->>> wait for the interrupt.  Sorry about that...this was in the code I 
->>> tested on my embedded system but got lost in the regular kernel patch.
->> OK. Thanks.
->>
->> If you don't mind I'm going to have some testing on this patch done for 
->> a bit now (mostly x86 hardware of course) to see if there's no pitfalls 
->> in it. It'll be a few days because of the weekend before I get back on it.
->>
-> 
-> Cool.  I will see if I can get some more tests running over the weekend on our PXA255 
-> platform.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-First impression just came in: It seems RX performance is dropped to 10mbit. TX 
-is unaffected and runs at 94mbit/tcp, but RX the new code seems to misbehave and 
-  fluctuate, dropping below 10mbit after a few netperf runs and staying there...
+---696243703-74673123-1179505661=:22402
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
 
-ideas?
 
-Auke
+Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+---
+ Documentation/networking/ip-sysctl.txt |   13 +++++++++++++
+ 1 files changed, 13 insertions(+), 0 deletions(-)
+
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index ce16e6a..44ba8d4 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -239,6 +239,19 @@ tcp_max_orphans - INTEGER
+ 	more aggressively. Let me to remind again: each orphan eats
+ 	up to ~64K of unswappable memory.
+ 
++tcp_max_ssthresh - INTEGER
++	Limited Slow-Start for TCP with Large Congestion Windows defined in
++	RFC3742. Limited slow-start is a mechanism to limit grow of the
++	congestion window on the region where congestion window is larger than
++	tcp_max_ssthresh. A TCP connection with a large congestion window could
++	have its congestion window increased by thousand (or even more)
++	segments per RTT by the traditional slow-start procedure which might be
++	counter-productive to TCP performance when packet losses start to
++	occur. With limited slow-start TCP increments congestion window at
++	most tcp_max_ssthresh/2 segments per RTT when the congestion window is
++	above tcp_max_ssthresh.
++	Default: 0 (off)
++
+ tcp_max_syn_backlog - INTEGER
+ 	Maximal number of remembered connection requests, which are
+ 	still did not receive an acknowledgment from connecting client.
+-- 
+1.5.0.6
+
+---696243703-74673123-1179505661=:22402--
