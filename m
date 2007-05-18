@@ -1,39 +1,177 @@
-From: John Heffner <jheffner@psc.edu>
-Subject: Re: [PATCH] [TCP] Sysctl: document tcp_max_ssthresh (Limited	Slow-Start)
-Date: Fri, 18 May 2007 16:49:08 -0400
-Message-ID: <464E1144.4010806@psc.edu>
-References: <Pine.LNX.4.64.0705181926570.22402@kivilampi-30.cs.helsinki.fi> <464DE584.7030008@ev-en.org> <464E00E5.5050801@hp.com>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [patch 2/7] CAN: Add PF_CAN core module
+Date: Fri, 18 May 2007 23:06:18 +0200
+Message-ID: <464E154A.7020605@hartkopp.net>
+References: <20070516145100.29877.0@janus.isnogud.escape.de> <20070516145121.29877.2@janus.isnogud.escape.de> <20070518005948.GA11737@linux.vnet.ibm.com> <464D6F85.9090202@hartkopp.net> <20070518143359.GA8876@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Baruch Even <baruch@ev-en.org>,
-	=?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
-	David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>
-To: Rick Jones <rick.jones2@hp.com>
+Cc: Urs Thuermann <urs@isnogud.escape.de>, netdev@vger.kernel.org,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
+	Urs Thuermann <urs.thuermann@volkswagen.de>
+To: paulmck@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailer1.psc.edu ([128.182.58.100]:58785 "EHLO mailer1.psc.edu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752203AbXERUtn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 May 2007 16:49:43 -0400
-In-Reply-To: <464E00E5.5050801@hp.com>
+Received: from mo-p00-ob.rzone.de ([81.169.146.160]:35602 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754612AbXERVGy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 May 2007 17:06:54 -0400
+In-Reply-To: <20070518143359.GA8876@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Rick Jones wrote:
-> as an asside, "tcp_max_ssthresh" sounds like the maximum value ssthresh 
-> can take-on.  is that correct, or is this more of a "once ssthresh is 
-> above this, behave in this new way?"  If that is the case, while the 
+Hello Paul,
 
-I don't like it either, but you'll have to talk to Sally Floyd about 
-that one.. ;)
+as you may see in the attached SVN-log i changed some code according 
+your suggestions.
+I additionally made some clarifications of function names.
 
-In general, I would like the documentation to emphasize more how to set 
-the parameter than describe the algorithm.  The max_ssthresh parameter 
-should ideally be set to the bottleneck queue size, or more 
-realistically a conservative value that's likely to be smaller than the 
-bottleneck queue size.  When max_ssthresh is smaller than the bottleneck 
-queue, (limited) slow start will not overflow it until cwnd has fully 
-ramped up to the appropriate size.
+If you would like to see the af_can.c completely please visit:
+http://svn.berlios.de/svnroot/repos/socketcan/trunk/kernel/2.6/net/can/af_can.c
 
-   -John
+But this code in the projekt SVN is working for several kernel versions 
+(which is removed by some scripts when creating a LKML netdev patch) - 
+just for your information.
+
+Best regards,
+Oliver
+
+-------- Original-Nachricht --------
+Betreff: 	r311 - trunk/kernel/2.6/net/can
+Datum: 	Fri, 18 May 2007 21:47:15 +0200
+Von: 	hartkopp@mail.berlios.de
+An: 	socketcan-commit@lists.berlios.de
+
+
+
+Author: hartkopp
+Date: 2007-05-18 21:47:14 +0200 (Fri, 18 May 2007)
+New Revision: 311
+
+Modified:
+   trunk/kernel/2.6/net/can/af_can.c
+Log:
+Updated RCU removal of dev_rcv_lists structures in the case of CAN-interfaces
+going down (in can_notifier). Thanks to Paul E. McKenny (IBM) who gave this
+hint on netdev kernel mailinglist.
+
+
+Modified: trunk/kernel/2.6/net/can/af_can.c
+===================================================================
+--- trunk/kernel/2.6/net/can/af_can.c	2007-05-16 09:03:21 UTC (rev 310)
++++ trunk/kernel/2.6/net/can/af_can.c	2007-05-18 19:47:14 UTC (rev 311)
+@@ -454,31 +454,48 @@
+ }
+ EXPORT_SYMBOL(can_rx_register);
+ 
+-static void can_rcv_lists_delete(struct rcu_head *rp)
++static void can_rx_delete_list(struct hlist_head *rl)
+ {
++	struct receiver *r;
++	struct hlist_node *n;
++
++	hlist_for_each_entry_rcu(r, n, rl, list) {
++		hlist_del_rcu(&r->list);
++		kmem_cache_free(rcv_cache, r);
++	}
++}
++
++/*
++ * can_rx_delete_device - rcu callback for dev_rcv_lists structure removal
++ */
++static void can_rx_delete_device(struct rcu_head *rp)
++{
+ 	struct dev_rcv_lists *d = container_of(rp, struct dev_rcv_lists, rcu);
++	int i;
+ 
++	/* remove all receivers hooked at this netdevice */
++	can_rx_delete_list(&d->rx_err);
++	can_rx_delete_list(&d->rx_all);
++	can_rx_delete_list(&d->rx_fil);
++	can_rx_delete_list(&d->rx_inv);
++	can_rx_delete_list(&d->rx_eff);
++
++	for (i = 0; i < 2048; i++)
++		can_rx_delete_list(&d->rx_sff[i]);
++
+ 	kfree(d);
+ }
+ 
+-static void can_rx_delete(struct rcu_head *rp)
++/*
++ * can_rx_delete_receiver - rcu callback for single receiver entry removal
++ */
++static void can_rx_delete_receiver(struct rcu_head *rp)
+ {
+ 	struct receiver *r = container_of(rp, struct receiver, rcu);
+ 
+ 	kmem_cache_free(rcv_cache, r);
+ }
+ 
+-static void can_rx_delete_all(struct hlist_head *rl)
+-{
+-	struct receiver *r;
+-	struct hlist_node *n;
+-
+-	hlist_for_each_entry_rcu(r, n, rl, list) {
+-		hlist_del_rcu(&r->list);
+-		call_rcu(&r->rcu, can_rx_delete);
+-	}
+-}
+-
+ /**
+  * can_rx_unregister - unsubscribe CAN frames from a specific interface
+  * @dev: pointer to netdevice (NULL => unsubcribe from 'all' CAN devices list)
+@@ -556,7 +573,7 @@
+ 
+ 	/* schedule the receiver item for deletion */
+ 	if (r)
+-		call_rcu(&r->rcu, can_rx_delete);
++		call_rcu(&r->rcu, can_rx_delete_receiver);
+ 
+ 	return ret;
+ }
+@@ -945,7 +962,6 @@
+ 	struct net_device *dev = (struct net_device *)data;
+ 	struct notifier *n;
+ 	struct dev_rcv_lists *d;
+-	int i;
+ 
+ 	DBG("called for %s, msg = %lu\n", dev->name, msg);
+ 
+@@ -986,25 +1002,16 @@
+ 		spin_lock_bh(&rcv_lists_lock);
+ 
+ 		d = find_dev_rcv_lists(dev);
+-		if (d) {
++		if (d)
+ 			hlist_del_rcu(&d->list);
+-
+-			/* remove all receivers hooked at this netdevice */
+-			can_rx_delete_all(&d->rx_err);
+-			can_rx_delete_all(&d->rx_all);
+-			can_rx_delete_all(&d->rx_fil);
+-			can_rx_delete_all(&d->rx_inv);
+-			can_rx_delete_all(&d->rx_eff);
+-			for (i = 0; i < 2048; i++)
+-				can_rx_delete_all(&d->rx_sff[i]);
+-		} else
++		else
+ 			printk(KERN_ERR "can: notifier: receive list not "
+ 			       "found for dev %s\n", dev->name);
+ 
+ 		spin_unlock_bh(&rcv_lists_lock);
+ 
+ 		if (d)
+-			call_rcu(&d->rcu, can_rcv_lists_delete);
++			call_rcu(&d->rcu, can_rx_delete_device);
+ 
+ 		break;
+ 	}
+
+_______________________________________________
+Socketcan-commit mailing list
+Socketcan-commit@lists.berlios.de
+https://lists.berlios.de/mailman/listinfo/socketcan-commit
+
+
