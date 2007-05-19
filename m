@@ -1,7 +1,7 @@
 From: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
 Subject: Re: [5/5] 2.6.22-rc2: known regressions
 Date: Sun, 20 May 2007 00:06:33 +0200
-Message-ID: <464F74E9.8080102__42927.2539135583$1179612442$gmane$org@googlemail.com>
+Message-ID: <464F74E9.8080102__3247.60016887939$1179612488$gmane$org@googlemail.com>
 References: <464F6DC9.80805@googlemail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-2
@@ -17,15 +17,9 @@ Cc: Andrew Morton <akpm@linux-foundation.org>,
 	e1000-devel@lists.sourceforge.net,
 	Ben Collins <bcollins@ubuntu.com>, yoshfuji@linux-ipv6.org
 To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hu-out-0506.google.com ([72.14.214.225]:7488 "EHLO
-	hu-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1764791AbXESWHD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 May 2007 18:07:03 -0400
-Received: by hu-out-0506.google.com with SMTP id 36so945755hui
-        for <netdev@vger.kernel.org>; Sat, 19 May 2007 15:07:00 -0700 (PDT)
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1764943AbXESWH7@vger.kernel.org>
 In-Reply-To: <464F6DC9.80805@googlemail.com>
-Sender: netdev-owner@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Hi all,
