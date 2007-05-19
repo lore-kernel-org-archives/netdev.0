@@ -1,44 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][af_key]pfkey_add: Optimize SA adds and algorithm probes
-Date: Sat, 19 May 2007 14:21:40 -0700 (PDT)
-Message-ID: <20070519.142140.115640764.davem@davemloft.net>
-References: <4643CD64.4090000@mvista.com>
-	<E1HouAO-0003i5-00@gondolin.me.apana.org.au>
-	<20070518212148.GA25363@gondor.apana.org.au>
+Subject: Re: oops in net/ipv4/icmp.c:icmp_send() with
+ icmp_errors_use_inbound_ifaddr (fwd)
+Date: Sat, 19 May 2007 14:50:42 -0700 (PDT)
+Message-ID: <20070519.145042.105428414.davem@davemloft.net>
+References: <4648AE85.6020608@trash.net>
+	<4648B656.6030800@trash.net>
+	<464C884D.4010100@trash.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mhuth@mvista.com, netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Cc: netdev@vger.kernel.org, jmorris@namei.org, Curtis@GreenKey.net
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57169
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50576
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755791AbXESVVi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 May 2007 17:21:38 -0400
-In-Reply-To: <20070518212148.GA25363@gondor.apana.org.au>
+	by vger.kernel.org with ESMTP id S1758288AbXESVuk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 May 2007 17:50:40 -0400
+In-Reply-To: <464C884D.4010100@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Sat, 19 May 2007 07:21:48 +1000
+From: Patrick McHardy <kaber@trash.net>
+Date: Thu, 17 May 2007 18:52:29 +0200
 
-> On Fri, May 18, 2007 at 02:34:12PM +1000, Herbert Xu wrote:
-> > 
-> > Actually, I think we should just probe for the specific algorithm
-> > requested rather than everything.  See patch below.
+> [IPV4]: icmp: fix crash with sysctl_icmp_errors_use_inbound_ifaddr
 > 
-> Doh, forgot to actually remove the probe call :)
+> When icmp_send is called on the local output path before the
+> packet hits ip_output, skb->dev is not set, causing a crash
+> when sysctl_icmp_errors_use_inbound_ifaddr is set. This can
+> happen with the netfilter REJECT target or IPsec tunnels.
 > 
-> [IPSEC] pfkey: Load specific algorithm in pfkey_add rather than all
+> Let routing decide the ICMP source address in that case, since the
+> packet is locally generated there is no inbound interface and
+> the sysctl should not apply.
 > 
-> This is a natural extension of the changeset
+> The option actually seems to be unfixable broken, on the path
+> after ip_output() skb->dev points to the outgoing device and
+> we don't know the incoming device anymore, so its going to do
+> the absolute wrong thing and pick the address of the outgoing
+> interface. Add a comment about this.
 > 
->     [XFRM]: Probe selected algorithm only.
+> Reported by Curtis Doty <Curtis@GreenKey.net>.
 > 
-> which only removed the probe call for xfrm_user.  This patch does exactly
-> the same thing for af_key.  In other words, we load the algorithm requested
-> by the user rather than everything when adding xfrm states in af_key.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-Applied, thanks Herbert.
+Applied, thanks for the fix Patrick.
+
+The post ip_output() case is very unfortunate.  Perhaps we
+can tag the call sites, or if that doesn't work we can
+find some way to perhaps tag the dst as an input vs. output
+route in order to avoid this problem.
