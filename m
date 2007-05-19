@@ -1,24 +1,43 @@
-From: Jeff Garzik <jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH] libertas: skb dereferenced after netif_rx
-Date: Sat, 19 May 2007 01:37:00 -0400
-Message-ID: <464E8CFC.8070801@garzik.org>
-References: <464B7127.5080502@gmail.com>	<20070518180903.GC3492@tuxdriver.com> <20070518222308.11c2b34d@localhost>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Florin Malita <fmalita-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, marcelo-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org,
-	linville-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Stephen Hemminger <shemminger-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20070518222308.11c2b34d@localhost>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [2.6 patch] net/llc/llc_conn.c: fix possible NULL dereference
+Date: Sat, 19 May 2007 15:43:37 +1000
+Message-ID: <E1HpHj7-0001M4-00@gondolin.me.apana.org.au>
+References: <464E8763.3010609@redhat.com>
+Cc: linux-kernel@vger.kernel.org, acme@redhat.com,
+	netdev@vger.kernel.org
+To: eteo@redhat.com (Eugene Teo)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:2463 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755525AbXESFnk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 May 2007 01:43:40 -0400
+In-Reply-To: <464E8763.3010609@redhat.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> netif_rx() used to return a value in older kernels.
+Eugene Teo <eteo@redhat.com> wrote:
+>
+> diff --git a/net/llc/llc_conn.c b/net/llc/llc_conn.c
+> index 3b8cfbe..28a3994 100644
+> --- a/net/llc/llc_conn.c
+> +++ b/net/llc/llc_conn.c
+> @@ -323,7 +323,8 @@ int llc_conn_remove_acked_pdus(struct sock *sk, u8 nr, u16
+> *how_many_unacked)
+> 
+>        if (!q_len)
+>                goto out;
+> -       skb = skb_peek(&llc->pdu_unack_q);
+> +       if (! (skb = skb_peek(&llc->pdu_unack_q)))
+> +               goto out;
 
-netif_rx() returns a value in current kernels.
+Actually we just checked that the queue length is non-zero so there
+must be a packet there unless someone's just removed it.  If it were
+possible for someone else to remove it in parallel, then we've got
+bigger problems to worry about :)
 
-	Jeff
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
