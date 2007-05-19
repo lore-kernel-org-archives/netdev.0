@@ -1,56 +1,48 @@
-From: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [5/5] 2.6.22-rc2: known regressions
-Date: Sun, 20 May 2007 00:06:33 +0200
-Message-ID: <464F74E9.8080102__3247.60016887939$1179612488$gmane$org@googlemail.com>
-References: <464F6DC9.80805@googlemail.com>
+Date: Sat, 19 May 2007 15:38:29 -0700 (PDT)
+Message-ID: <20070519.153829.112852602.davem@davemloft.net>
+References: <464F6DC9.80805@googlemail.com> <464F74E9.8080102@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	Auke Kok <auke-jan.h.kok@intel.com>,
-	Doug Chapman <doug.chapman@hp.com>,
-	Jeb Cramer <cramerj@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	e1000-devel@lists.sourceforge.net,
-	Ben Collins <bcollins@ubuntu.com>, yoshfuji@linux-ipv6.org
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1764943AbXESWH7@vger.kernel.org>
-In-Reply-To: <464F6DC9.80805@googlemail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: auke-jan.h.kok@intel.com, bcollins@ubuntu.com,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, doug.chapman@hp.com,
+	jesse.brandeburg@intel.com, john.ronciak@intel.com,
+	jeffrey.t.kirsher@intel.com, akpm@linux-foundation.org,
+	yoshfuji@linux-ipv6.org, torvalds@linux-foundation.org,
+	cramerj@intel.com
+To: michal.k.k.piotrowski@gmail.com
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <464F74E9.8080102@googlemail.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+From: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
+Date: Sun, 20 May 2007 00:06:33 +0200
 
-Here is a list of some known regressions in 2.6.22-rc2.
+> Subject    : OOPS triggered by ip(8) deconfiguring a network interface
+> References : http://bugzilla.kernel.org/show_bug.cgi?id=8491
+> Submitter  : Ben Collins <bcollins@ubuntu.com>
+> Status     : Unknown
 
-Feel free to add new regressions/remove fixed etc.
-http://kernelnewbies.org/known_regressions
+Might be fixed by:
 
+	http://marc.info/?l=linux-netdev&m=117915849224816&w=2
 
+I'll merge that patch in and we'll see what happens.
 
-Networking
-
-Subject    : OOPS triggered by ip(8) deconfiguring a network interface
-References : http://bugzilla.kernel.org/show_bug.cgi?id=8491
-Submitter  : Ben Collins <bcollins@ubuntu.com>
-Status     : Unknown
-
-Subject    : panic with e1000 driver on HP Integrity servers
-References : http://bugzilla.kernel.org/show_bug.cgi?id=8455
-Submitter  : Doug Chapman <doug.chapman@hp.com>
-Caused-By  : Auke Kok <auke-jan.h.kok@intel.com>
-             commit e0aac5a289b1dacbc94bd9ae8c449bcdf9ab508c
-Status     : problem is being debugged
-
-
-
-Regards,
-Michal
-
---
-Michal K. K. Piotrowski
-Kernel Monkeys
-(http://kernel.wikidot.com/start)
+-------------------------------------------------------------------------
+This SF.net email is sponsored by DB2 Express
+Download DB2 Express C - the FREE version of DB2 express and take
+control of your XML. No limits. Just data. Click to get it now.
+http://sourceforge.net/powerbar/db2/
