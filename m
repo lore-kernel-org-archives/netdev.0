@@ -1,52 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: oops in net/ipv4/icmp.c:icmp_send() with
- icmp_errors_use_inbound_ifaddr (fwd)
-Date: Sat, 19 May 2007 14:50:42 -0700 (PDT)
-Message-ID: <20070519.145042.105428414.davem@davemloft.net>
-References: <4648AE85.6020608@trash.net>
-	<4648B656.6030800@trash.net>
-	<464C884D.4010100@trash.net>
+From: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
+Subject: Re: [5/5] 2.6.22-rc2: known regressions
+Date: Sun, 20 May 2007 00:06:33 +0200
+Message-ID: <464F74E9.8080102__42927.2539135583$1179612442$gmane$org@googlemail.com>
+References: <464F6DC9.80805@googlemail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-2
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jmorris@namei.org, Curtis@GreenKey.net
-To: kaber@trash.net
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	Auke Kok <auke-jan.h.kok@intel.com>,
+	Doug Chapman <doug.chapman@hp.com>,
+	Jeb Cramer <cramerj@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	e1000-devel@lists.sourceforge.net,
+	Ben Collins <bcollins@ubuntu.com>, yoshfuji@linux-ipv6.org
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50576
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1758288AbXESVuk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 May 2007 17:50:40 -0400
-In-Reply-To: <464C884D.4010100@trash.net>
+Received: from hu-out-0506.google.com ([72.14.214.225]:7488 "EHLO
+	hu-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1764791AbXESWHD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 May 2007 18:07:03 -0400
+Received: by hu-out-0506.google.com with SMTP id 36so945755hui
+        for <netdev@vger.kernel.org>; Sat, 19 May 2007 15:07:00 -0700 (PDT)
+In-Reply-To: <464F6DC9.80805@googlemail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Thu, 17 May 2007 18:52:29 +0200
+Hi all,
 
-> [IPV4]: icmp: fix crash with sysctl_icmp_errors_use_inbound_ifaddr
-> 
-> When icmp_send is called on the local output path before the
-> packet hits ip_output, skb->dev is not set, causing a crash
-> when sysctl_icmp_errors_use_inbound_ifaddr is set. This can
-> happen with the netfilter REJECT target or IPsec tunnels.
-> 
-> Let routing decide the ICMP source address in that case, since the
-> packet is locally generated there is no inbound interface and
-> the sysctl should not apply.
-> 
-> The option actually seems to be unfixable broken, on the path
-> after ip_output() skb->dev points to the outgoing device and
-> we don't know the incoming device anymore, so its going to do
-> the absolute wrong thing and pick the address of the outgoing
-> interface. Add a comment about this.
-> 
-> Reported by Curtis Doty <Curtis@GreenKey.net>.
-> 
-> Signed-off-by: Patrick McHardy <kaber@trash.net>
+Here is a list of some known regressions in 2.6.22-rc2.
 
-Applied, thanks for the fix Patrick.
+Feel free to add new regressions/remove fixed etc.
+http://kernelnewbies.org/known_regressions
 
-The post ip_output() case is very unfortunate.  Perhaps we
-can tag the call sites, or if that doesn't work we can
-find some way to perhaps tag the dst as an input vs. output
-route in order to avoid this problem.
+
+
+Networking
+
+Subject    : OOPS triggered by ip(8) deconfiguring a network interface
+References : http://bugzilla.kernel.org/show_bug.cgi?id=8491
+Submitter  : Ben Collins <bcollins@ubuntu.com>
+Status     : Unknown
+
+Subject    : panic with e1000 driver on HP Integrity servers
+References : http://bugzilla.kernel.org/show_bug.cgi?id=8455
+Submitter  : Doug Chapman <doug.chapman@hp.com>
+Caused-By  : Auke Kok <auke-jan.h.kok@intel.com>
+             commit e0aac5a289b1dacbc94bd9ae8c449bcdf9ab508c
+Status     : problem is being debugged
+
+
+
+Regards,
+Michal
+
+--
+Michal K. K. Piotrowski
+Kernel Monkeys
+(http://kernel.wikidot.com/start)
