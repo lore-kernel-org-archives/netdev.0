@@ -1,48 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [5/5] 2.6.22-rc2: known regressions
-Date: Sat, 19 May 2007 15:38:29 -0700 (PDT)
-Message-ID: <20070519.153829.112852602.davem@davemloft.net>
-References: <464F6DC9.80805@googlemail.com> <464F74E9.8080102@googlemail.com>
+From: Baruch Even <baruch@ev-en.org>
+Subject: [PATCH] Reduce frequency of cleanup timer in bridge
+Date: Sun, 20 May 2007 01:46:05 +0300
+Message-ID: <20070519224605.GG14235@galon.ev-en.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: auke-jan.h.kok@intel.com, bcollins@ubuntu.com,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, doug.chapman@hp.com,
-	jesse.brandeburg@intel.com, john.ronciak@intel.com,
-	jeffrey.t.kirsher@intel.com, akpm@linux-foundation.org,
-	yoshfuji@linux-ipv6.org, torvalds@linux-foundation.org,
-	cramerj@intel.com
-To: michal.k.k.piotrowski@gmail.com
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <464F74E9.8080102@googlemail.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, power@bughost.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rrcs-24-123-59-149.central.biz.rr.com ([24.123.59.149]:53681
+	"EHLO galon.ev-en.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757541AbXESWqH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 May 2007 18:46:07 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
-Date: Sun, 20 May 2007 00:06:33 +0200
+The bridge cleanup timer is fired 10 times a second for timers that are
+at least 15 seconds ahead in time and that are not critical to be
+cleaned asap.
 
-> Subject    : OOPS triggered by ip(8) deconfiguring a network interface
-> References : http://bugzilla.kernel.org/show_bug.cgi?id=8491
-> Submitter  : Ben Collins <bcollins@ubuntu.com>
-> Status     : Unknown
+This patch calculates the next time to run the timer as the minimum of
+all timers or a minimum based on the current state.
 
-Might be fixed by:
+Signed-Off-By: Baruch Even <baruch@ev-en.org>
 
-	http://marc.info/?l=linux-netdev&m=117915849224816&w=2
+--- 2.6.22-rc2/net/bridge/br_fdb.c	2007-05-20 00:51:11.000000000 +0300
++++ 2.6-rc2/net/bridge/br_fdb.c	2007-05-20 00:50:31.000000000 +0300
+@@ -121,6 +121,7 @@
+ {
+ 	struct net_bridge *br = (struct net_bridge *)_data;
+ 	unsigned long delay = hold_time(br);
++	unsigned long next_timer = jiffies + br->forward_delay;
+ 	int i;
+ 
+ 	spin_lock_bh(&br->hash_lock);
+@@ -129,14 +130,21 @@
+ 		struct hlist_node *h, *n;
+ 
+ 		hlist_for_each_entry_safe(f, h, n, &br->hash[i], hlist) {
++			unsigned long this_timer;
++			if (f->is_static)
++				continue;
++			this_timer = f->ageing_timer + delay;
++			if (time_before_eq(this_timer, jiffies))
+-			if (!f->is_static &&
+-			    time_before_eq(f->ageing_timer + delay, jiffies))
+ 				fdb_delete(f);
++			else if (this_timer < next_timer)
++				next_timer = this_timer;
+ 		}
+ 	}
+ 	spin_unlock_bh(&br->hash_lock);
+ 
++	/* Add HZ/4 to ensure we round the jiffies upwards to be after the next
++	 * timer, otherwise we might round down and will have no-op run. */
++	mod_timer(&br->gc_timer, round_jiffies(next_timer + HZ/4));
+-	mod_timer(&br->gc_timer, jiffies + HZ/10);
+ }
+ 
+ /* Completely flush all dynamic entries in forwarding database.*/
 
-I'll merge that patch in and we'll see what happens.
-
--------------------------------------------------------------------------
-This SF.net email is sponsored by DB2 Express
-Download DB2 Express C - the FREE version of DB2 express and take
-control of your XML. No limits. Just data. Click to get it now.
-http://sourceforge.net/powerbar/db2/
