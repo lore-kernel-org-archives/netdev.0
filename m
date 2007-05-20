@@ -1,57 +1,68 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [5/5] 2.6.22-rc2: known regressions
-Date: Sun, 20 May 2007 21:15:22 +1000
-Message-ID: <E1HpjNi-0006oH-00@gondolin.me.apana.org.au>
-References: <20070519215737.5a98a070@freepuppy>
-Cc: davem@davemloft.net, michal.k.k.piotrowski@gmail.com,
-	torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	auke-jan.h.kok@intel.com, doug.chapman@hp.com, cramerj@intel.com,
-	john.ronciak@intel.com, jesse.brandeburg@intel.com,
-	jeffrey.t.kirsher@intel.com, e1000-devel@lists.sourceforge.net,
-	bcollins@ubuntu.com, yoshfuji@linux-ipv6.org
-To: shemminger@linux-foundation.org (Stephen Hemminger)
+From: Vitaly Bordug <vbordug@ru.mvista.com>
+Subject: Re: STRANGE ERROR
+Date: Sun, 20 May 2007 20:51:24 +0400
+Message-ID: <20070520165124.GA12025@server.dev.rtsoft.ru>
+References: <dcf706c60705191530x5a78f9aewbb520a97ad516f6d@mail.gmail.com> <20070519163402.b087b9d7.akpm@linux-foundation.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=koi8-r
+Cc: Sasa Ostrouska <casaxa@gmail.com>, linux-kernel@vger.kernel.org,
+	Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:1254 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754783AbXETLP4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 May 2007 07:15:56 -0400
-In-Reply-To: <20070519215737.5a98a070@freepuppy>
+Received: from rtsoft2.corbina.net ([85.21.88.2]:56797 "HELO
+	mail.dev.rtsoft.ru" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with SMTP id S1758669AbXETQv3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 May 2007 12:51:29 -0400
+Content-Disposition: inline
+In-Reply-To: <20070519163402.b087b9d7.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger <shemminger@linux-foundation.org> wrote:
+On Sat, May 19, 2007 at 16:34 -0700, Andrew Morton wrote:
+> On Sun, 20 May 2007 00:30:55 +0200 "Sasa Ostrouska" <casaxa@gmail.com> wrote:
 > 
-> Looks more like the IPV6 SNMP6 OOPS, I saw and fixed with:
+> > Hi everybody,
+> > 
+> > I tried today to upgrade the kernel to 2.6.21.1 and i got the same
+> > error during the boot time.
+> > Here is the dmesg of the 2.6.20.2, can somebody tell me what this is ?
+> > 
+> > ...
+> >
+> > Marvell 88E1101: Registered new driver
+> > Fixed PHY: Registered new driver
+> > driver_bound: device fixed@100:1 already bound
 > 
-> commit 5632c5152aa621885d87ea0b8fdd5a6bb9f69c6f
-> Author: Stephen Hemminger <shemminger@linux-foundation.org>
-> Date:   Sat Apr 28 21:16:39 2007 -0700
+> I don't know what caused that one.
+>
+
+this is because of issue in fixed phy driver initialisation
+- have a patch but need to test it a bit more.
+ 
+> > Device 'fixed@100:1' does not have a release() function, it is broken
+> > and must be fixed.
+> > BUG: at drivers/base/core.c:104 device_release()
+> > 
+> > Call Trace:
+> >  [<ffffffff802ec380>] kobject_cleanup+0x53/0x7e
+> >  [<ffffffff802ec3ab>] kobject_release+0x0/0x9
+> >  [<ffffffff802ecf3f>] kref_put+0x74/0x81
+> >  [<ffffffff8035493b>] fixed_mdio_register_device+0x230/0x265
+> >  [<ffffffff80564d31>] fixed_init+0x1f/0x35
+> >  [<ffffffff802071a4>] init+0x147/0x2fb
+> >  [<ffffffff80223b6e>] schedule_tail+0x36/0x92
+> >  [<ffffffff8020a678>] child_rip+0xa/0x12
+> >  [<ffffffff80311714>] acpi_ds_init_one_object+0x0/0x83
+> >  [<ffffffff8020705d>] init+0x0/0x2fb
+> >  [<ffffffff8020a66e>] child_rip+0x0/0x12
 > 
->    [IPV6]: Track device renames in snmp6.
->    
->    When network device's are renamed, the IPV6 snmp6 code
->    gets confused. It doesn't track name changes so it will OOPS
->    when network device's are removed.
->    
->    The fix is trivial, just unregister/re-register in notify handler.
->    
->    Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
->    Signed-off-by: David S. Miller <davem@davemloft.net>
+> This appears to have happened because fixed_mdio_register_device() (or
+> phy_device_create) didn't suitably initialise phy_device.dev.
+> 
+> But I don't immediately see why this doesn't affect all phy drivers. 
+> Presumably it's the fixed driver which is at fault.  Jeff, how is this
+> supposed to work?
+> 
+the fixed phy used to have "specific" bus bound stuff 
+but I've reworked this point.
 
-It's quite possible that this fixes it, especially since the version
-in Ubuntu's bug report came out the day before your fix went in :)
-
-However, I don't really get why it's crashing in the first place.
-Without your patch, if the device is renamed the proc entry just
-keeps the original name.  When it goes down it should still get
-removed correctly.
-
-Could you explain this in a bit more detail?
-
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
