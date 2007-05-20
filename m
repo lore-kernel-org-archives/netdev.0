@@ -1,48 +1,77 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] libertas: skb dereferenced after netif_rx
-Date: Sat, 19 May 2007 21:47:00 -0400
-Message-ID: <464FA894.8090008@garzik.org>
-References: <464B7127.5080502@gmail.com>	 <20070518180903.GC3492@tuxdriver.com> <1179622601.9453.4.camel@xo-28-0B-88.localdomain>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [5/5] 2.6.22-rc2: known regressions
+Date: Sat, 19 May 2007 21:57:37 -0700
+Message-ID: <20070519215737.5a98a070@freepuppy>
+References: <464F6DC9.80805@googlemail.com> <464F74E9.8080102@googlemail.com>
+	<20070519.153829.112852602.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	Florin Malita <fmalita@gmail.com>, marcelo@kvack.org,
-	linville@redhat.com, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org
-To: Dan Williams <dcbw@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:59246 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756757AbXETBrL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 19 May 2007 21:47:11 -0400
-In-Reply-To: <1179622601.9453.4.camel@xo-28-0B-88.localdomain>
-Sender: netdev-owner@vger.kernel.org
+Cc: auke-jan.h.kok@intel.com, bcollins@ubuntu.com,
+	michal.k.k.piotrowski@gmail.com, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	doug.chapman@hp.com, jesse.brandeburg@intel.com,
+	john.ronciak@intel.com, jeffrey.t.kirsher@intel.com,
+	akpm@linux-foundation.org, yoshfuji@linux-ipv6.org,
+	torvalds@linux-foundation.org, cramerj@intel.com
+To: David Miller <davem@davemloft.net>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20070519.153829.112852602.davem@davemloft.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Dan Williams wrote:
-> On Fri, 2007-05-18 at 14:09 -0400, John W. Linville wrote:
->> On Wed, May 16, 2007 at 05:01:27PM -0400, Florin Malita wrote:
->>> In libertas_process_rxed_packet() and process_rxed_802_11_packet() the 
->>> skb is dereferenced after being passed to netif_rx (called from 
->>> libertas_upload_rx_packet). Spotted by Coverity (1658, 1659).
->>  
->> Relocating the libertas_upload_rx_packet call is fine, but...
->>
->>> Also, libertas_upload_rx_packet() unconditionally returns 0 so the error 
->>> check is dead code - might as well take it out.
->> Is this merely an implementation detail?  Or an absolute fact?
->> If the former is true, then we should preserve the error
->> checking.  If the latter, then we should change the signature of
->> libertas_upload_rx_packet to return void.
+On Sat, 19 May 2007 15:38:29 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
+
+> From: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
+> Date: Sun, 20 May 2007 00:06:33 +0200
 > 
-> According to the comments, netif_rx always succeeds.  I think we should
-> just change the return type to void since there's nothing else in that
-> function that can fail.
+> > Subject    : OOPS triggered by ip(8) deconfiguring a network interface
+> > References : http://bugzilla.kernel.org/show_bug.cgi?id=8491
+> > Submitter  : Ben Collins <bcollins@ubuntu.com>
+> > Status     : Unknown
+> 
+> Might be fixed by:
+> 
+> 	http://marc.info/?l=linux-netdev&m=117915849224816&w=2
+> 
+> I'll merge that patch in and we'll see what happens.
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-According to the implementation, netif_rx() can fail.
+Looks more like the IPV6 SNMP6 OOPS, I saw and fixed with:
 
-	Jeff
+commit 5632c5152aa621885d87ea0b8fdd5a6bb9f69c6f
+Author: Stephen Hemminger <shemminger@linux-foundation.org>
+Date:   Sat Apr 28 21:16:39 2007 -0700
+
+    [IPV6]: Track device renames in snmp6.
+    
+    When network device's are renamed, the IPV6 snmp6 code
+    gets confused. It doesn't track name changes so it will OOPS
+    when network device's are removed.
+    
+    The fix is trivial, just unregister/re-register in notify handler.
+    
+    Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
 
 
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
 
+-------------------------------------------------------------------------
+This SF.net email is sponsored by DB2 Express
+Download DB2 Express C - the FREE version of DB2 express and take
+control of your XML. No limits. Just data. Click to get it now.
+http://sourceforge.net/powerbar/db2/
