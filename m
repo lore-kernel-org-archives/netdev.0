@@ -1,46 +1,37 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] libertas: skb dereferenced after netif_rx
-Date: Sun, 20 May 2007 00:38:32 -0700 (PDT)
-Message-ID: <20070520.003832.59470116.davem@davemloft.net>
-References: <20070518180903.GC3492@tuxdriver.com>
-	<1179622601.9453.4.camel@xo-28-0B-88.localdomain>
-	<464FA894.8090008@garzik.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, fmalita-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	marcelo-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, linville-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <464FA894.8090008-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [Bugme-new] [Bug 8491] New: OOPS triggered by ip(8) deconfiguring a network interface
+Date: Sun, 20 May 2007 20:26:26 +1000
+Message-ID: <E1HpicM-0006eE-00@gondolin.me.apana.org.au>
+References: <20070517101608.57466a59.akpm@linux-foundation.org>
+Cc: netdev@vger.kernel.org, bcollins@ubuntu.com,
+	bugme-daemon@bugzilla.kernel.org
+To: akpm@linux-foundation.org (Andrew Morton)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:1062 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755568AbXETK0j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 May 2007 06:26:39 -0400
+In-Reply-To: <20070517101608.57466a59.akpm@linux-foundation.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jeff Garzik <jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>
-Date: Sat, 19 May 2007 21:47:00 -0400
+Andrew Morton <akpm@linux-foundation.org> wrote:
+>
+> [43092.388000] Stack: e30f433c cab60000 c028608e 00000000 e2e8ae40 00000000 e2e8a5c0 dfe0aa58 
+> [43092.388000]        c826ca00 c826ca00 f10a72ff f1088989 00a33d71 000080fe 00000000 00000001 
+> [43092.388000]        cab60000 e2e8a5c0 dfe0aa58 00000000 c826ca00 f1089594 c826ca54 00000040 
+> [43092.388000] Call Trace:
+> [43092.388000]  [<c028608e>] pneigh_queue_purge+0x1e/0x30
+> [43092.388000]  [<f10a72ff>] snmp6_unregister_dev+0x2f/0x40 [ipv6]
 
-> Dan Williams wrote:
-> > On Fri, 2007-05-18 at 14:09 -0400, John W. Linville wrote:
-> >> On Wed, May 16, 2007 at 05:01:27PM -0400, Florin Malita wrote:
-> >>> In libertas_process_rxed_packet() and process_rxed_802_11_packet() the 
-> >>> skb is dereferenced after being passed to netif_rx (called from 
-> >>> libertas_upload_rx_packet). Spotted by Coverity (1658, 1659).
-> >>  
-> >> Relocating the libertas_upload_rx_packet call is fine, but...
-> >>
-> >>> Also, libertas_upload_rx_packet() unconditionally returns 0 so the error 
-> >>> check is dead code - might as well take it out.
-> >> Is this merely an implementation detail?  Or an absolute fact?
-> >> If the former is true, then we should preserve the error
-> >> checking.  If the latter, then we should change the signature of
-> >> libertas_upload_rx_packet to return void.
-> > 
-> > According to the comments, netif_rx always succeeds.  I think we should
-> > just change the return type to void since there's nothing else in that
-> > function that can fail.
-> 
-> According to the implementation, netif_rx() can fail.
+Looks like a problem with your resume.  The second argument to
+remove_proc_entry, parent, has the value 00a33d71 which is clearly
+bogus.  That value in turn comes from proc_net_devsnmp6.  So somehow
+during the suspend/resume that pointer has been corrupted.
 
-It doesn't exactly "fail", but it does give return values
-which indicate RX congestion.
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
