@@ -1,62 +1,75 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: STRANGE ERROR
-Date: Sat, 19 May 2007 16:34:02 -0700
-Message-ID: <20070519163402.b087b9d7.akpm@linux-foundation.org>
-References: <dcf706c60705191530x5a78f9aewbb520a97ad516f6d@mail.gmail.com>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [PATCH] libertas: skb dereferenced after netif_rx
+Date: Sat, 19 May 2007 20:56:41 -0400
+Message-ID: <1179622601.9453.4.camel@xo-28-0B-88.localdomain>
+References: <464B7127.5080502@gmail.com>
+	 <20070518180903.GC3492@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
-	netdev@vger.kernel.org, Vitaly Bordug <vbordug@ru.mvista.com>
-To: "Sasa Ostrouska" <casaxa@gmail.com>
+Cc: Florin Malita <fmalita@gmail.com>, marcelo@kvack.org,
+	linville@redhat.com, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org
+To: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:42688 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1760133AbXESXhM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 May 2007 19:37:12 -0400
-In-Reply-To: <dcf706c60705191530x5a78f9aewbb520a97ad516f6d@mail.gmail.com>
+Received: from mx1.redhat.com ([66.187.233.31]:40031 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756099AbXETAyO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 19 May 2007 20:54:14 -0400
+In-Reply-To: <20070518180903.GC3492@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 20 May 2007 00:30:55 +0200 "Sasa Ostrouska" <casaxa@gmail.com> wrote:
-
-> Hi everybody,
+On Fri, 2007-05-18 at 14:09 -0400, John W. Linville wrote:
+> On Wed, May 16, 2007 at 05:01:27PM -0400, Florin Malita wrote:
+> > In libertas_process_rxed_packet() and process_rxed_802_11_packet() the 
+> > skb is dereferenced after being passed to netif_rx (called from 
+> > libertas_upload_rx_packet). Spotted by Coverity (1658, 1659).
+>  
+> Relocating the libertas_upload_rx_packet call is fine, but...
 > 
-> I tried today to upgrade the kernel to 2.6.21.1 and i got the same
-> error during the boot time.
-> Here is the dmesg of the 2.6.20.2, can somebody tell me what this is ?
+> > Also, libertas_upload_rx_packet() unconditionally returns 0 so the error 
+> > check is dead code - might as well take it out.
 > 
-> ...
->
-> Marvell 88E1101: Registered new driver
-> Fixed PHY: Registered new driver
-> driver_bound: device fixed@100:1 already bound
+> Is this merely an implementation detail?  Or an absolute fact?
+> If the former is true, then we should preserve the error
+> checking.  If the latter, then we should change the signature of
+> libertas_upload_rx_packet to return void.
 
-I don't know what caused that one.
+According to the comments, netif_rx always succeeds.  I think we should
+just change the return type to void since there's nothing else in that
+function that can fail.
 
-> Device 'fixed@100:1' does not have a release() function, it is broken
-> and must be fixed.
-> BUG: at drivers/base/core.c:104 device_release()
+Dan
+
+
+> > Signed-off-by: Florin Malita <fmalita@gmail.com>
 > 
-> Call Trace:
->  [<ffffffff802ec380>] kobject_cleanup+0x53/0x7e
->  [<ffffffff802ec3ab>] kobject_release+0x0/0x9
->  [<ffffffff802ecf3f>] kref_put+0x74/0x81
->  [<ffffffff8035493b>] fixed_mdio_register_device+0x230/0x265
->  [<ffffffff80564d31>] fixed_init+0x1f/0x35
->  [<ffffffff802071a4>] init+0x147/0x2fb
->  [<ffffffff80223b6e>] schedule_tail+0x36/0x92
->  [<ffffffff8020a678>] child_rip+0xa/0x12
->  [<ffffffff80311714>] acpi_ds_init_one_object+0x0/0x83
->  [<ffffffff8020705d>] init+0x0/0x2fb
->  [<ffffffff8020a66e>] child_rip+0x0/0x12
-
-This appears to have happened because fixed_mdio_register_device() (or
-phy_device_create) didn't suitably initialise phy_device.dev.
-
-But I don't immediately see why this doesn't affect all phy drivers. 
-Presumably it's the fixed driver which is at fault.  Jeff, how is this
-supposed to work?
-
-Thanks.
+> > 	lbs_pr_debug(1, "RX Data: size of actual packet = %d\n", skb->len);
+> > -	if (libertas_upload_rx_packet(priv, skb)) {
+> > -		lbs_pr_debug(1, "RX error: libertas_upload_rx_packet"
+> > -		       " returns failure\n");
+> > -		ret = -1;
+> > -		goto done;
+> > -	}
+> > 	priv->stats.rx_bytes += skb->len;
+> > 	priv->stats.rx_packets++;
+> > 
+> > +	libertas_upload_rx_packet(priv, skb);
+> > +
+> > 	ret = 0;
+> > done:
+> > 	LEAVE();
+> 
+> Another potential patch is to remove the "ret = 0" line before the
+> "done" label, since ret is initialized at the head of the function.
+> Come to think of it, you can probably remove the "= 0" part of ret's
+> declaration as well (in both functions).
+> 
+> Hth!
+> 
+> John
+> 
+> P.S.  Also, please make sure to send wireless patches to
+> linux-wireless@vger.kernel.org and CC me.
 
