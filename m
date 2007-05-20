@@ -1,34 +1,32 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: oops in net/ipv4/icmp.c:icmp_send() with icmp_errors_use_inbound_ifaddr (fwd)
-Date: Sun, 20 May 2007 15:26:27 +1000
-Message-ID: <E1Hpdw3-0006CY-00@gondolin.me.apana.org.au>
-References: <4648B656.6030800@trash.net>
-Cc: netdev@vger.kernel.org, jmorris@namei.org, Curtis@greenkey.net,
-	davem@davemloft.net
-To: kaber@trash.net (Patrick McHardy)
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] libertas: skb dereferenced after netif_rx
+Date: Sun, 20 May 2007 02:36:11 -0400
+Message-ID: <464FEC5B.1060708@garzik.org>
+References: <464B7127.5080502@gmail.com>	<20070518180903.GC3492@tuxdriver.com>	<1179622601.9453.4.camel@xo-28-0B-88.localdomain>	<464FA894.8090008@garzik.org> <20070519222014.45f11138@freepuppy>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Dan Williams <dcbw@redhat.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Florin Malita <fmalita@gmail.com>, marcelo@kvack.org,
+	linville@redhat.com, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:4038 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1758601AbXETF0r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 May 2007 01:26:47 -0400
-In-Reply-To: <4648B656.6030800@trash.net>
+Received: from srv5.dvmed.net ([207.36.208.214]:60295 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756888AbXETGhQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 20 May 2007 02:37:16 -0400
+In-Reply-To: <20070519222014.45f11138@freepuppy>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy <kaber@trash.net> wrote:
-> 
-> This leaves the question what to do in the path after ip_output,
-> when skb->dev points to the output device. We don't know the
-> input device anymore, so there doesn't seem to be a way to make
-> it do what the sysctl promises.
+Stephen Hemminger wrote:
+> The skb is always consumed so the the return value is informational only.
 
-Perhaps we could change things so that the setting of skb->dev is
-delayed until the packet has completely left the IP stack?  It'd
-require a massive audit though of the IP stack though.
+Yes, this is true.  Handing off an skb to netif_rx() relieves the driver 
+of further responsibility for it.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+	Jeff
+
+
