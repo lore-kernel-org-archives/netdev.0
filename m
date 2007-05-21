@@ -1,60 +1,39 @@
-From: Florin Malita <fmalita-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] libertas: skb dereferenced after netif_rx
-Date: Mon, 21 May 2007 10:51:38 -0400
-Message-ID: <4651B1FA.3010201@gmail.com>
-References: <20070518180903.GC3492@tuxdriver.com>	<1179622601.9453.4.camel@xo-28-0B-88.localdomain>	<464FA894.8090008@garzik.org> <20070520.003832.59470116.davem@davemloft.net>
+From: "Primiano Tucci" <mail@primianotucci.com>
+Subject: Ethernet frames filtering/relaying. Help needed
+Date: Mon, 21 May 2007 16:49:56 +0200
+Message-ID: <000201c79bb7$4c97b680$0201a8c0@airforce1>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org, dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
-	marcelo-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, linville-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20070520.003832.59470116.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from joe.tiscali.it ([213.205.33.54]:52721 "EHLO joe.tiscali.it"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756142AbXEUOzv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 May 2007 10:55:51 -0400
+Received: from airforce1 (84.222.248.98) by joe.tiscali.it (7.2.079)
+        id 462DD29A00413D5F for netdev@vger.kernel.org; Mon, 21 May 2007 16:49:57 +0200
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Jeff Garzik <jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>
-> Date: Sat, 19 May 2007 21:47:00 -0400
->   
->> According to the implementation, netif_rx() can fail.
->>     
->
-> It doesn't exactly "fail", but it does give return values
-> which indicate RX congestion.
->   
+Hi all, I'm new to this Mailing list
+Some days ago I started development of a new 2.6 network driver (formerly it
+should be a decentered Network Load Balancing driver).
+I'm not too much familiar with kernel networking, so I'm asking you what's
+the best approach to do something like this:
+- Allocate a new tun interface... let's say tun0 (no problems with this
+step)
+- Monitor layer2 traffic on an existing device(let's say eth0).
+-Catch all Ethernet frames arrived on eth0 with an arbitrary destination MAC
+address.... let's say catch all the frames that has 01:00:02:03:04:05 as
+destination MAC addr.
+-Extrapolate the IP datagram contained in the frames and push it in tun0
 
-Assuming you're referring to NET_RX_CN_*, this doesn't seem to be the 
-case anymore: it appears netif_rx can only return NET_RX_SUCCESS or 
-NET_RX_DROP.
+I need some suggestions about the best approach to catch and relay Ethernet
+frames on eth0. Should I use netfilter? Should I not?
+Any help will be appreciated. Thanks
 
-The congestion level constants are hardly used at all - if they are 
-left-overs, would it make sense ripping them out completely?
-
-Either way I believe the following should be OK:
+Primiano Tucci
 
 
-Remove inaccurate netif_rx() return value comments.
-
-Signed-off-by: Florin Malita <fmalita-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
----
-
- dev.c |    3 ---
- 1 file changed, 3 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index f2b6111..79f5d90 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1628,9 +1628,6 @@ DEFINE_PER_CPU(struct netif_rx_stats, netdev_rx_stat) = { 0, };
-  *
-  *	return values:
-  *	NET_RX_SUCCESS	(no congestion)
-- *	NET_RX_CN_LOW   (low congestion)
-- *	NET_RX_CN_MOD   (moderate congestion)
-- *	NET_RX_CN_HIGH  (high congestion)
-  *	NET_RX_DROP     (packet was dropped)
-  *
-  */
