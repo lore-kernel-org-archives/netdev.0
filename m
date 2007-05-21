@@ -1,49 +1,78 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: Sending ipv6 packets from a kernel module
-Date: Mon, 21 May 2007 12:58:32 -0400
-Message-ID: <4651CFB8.5090401@hp.com>
-References: <46512159.8080501@dsto.defence.gov.au> <20070521135016.GA452@hmsreliant.homelinux.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: oops in net/ipv4/icmp.c:icmp_send() with icmp_errors_use_inbound_ifaddr
+ (fwd)
+Date: Mon, 21 May 2007 19:03:24 +0200
+Message-ID: <4651D0DC.6050203@trash.net>
+References: <4648AE85.6020608@trash.net>	<4648B656.6030800@trash.net>	<464C884D.4010100@trash.net> <20070519.145042.105428414.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Anton <Anton.Uzunov@dsto.defence.gov.au>, netdev@vger.kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>
+Content-Type: multipart/mixed;
+ boundary="------------070305000007060101090808"
+Cc: netdev@vger.kernel.org, jmorris@namei.org, Curtis@GreenKey.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel6.hp.com ([156.153.255.205]:39958 "EHLO atlrel6.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755131AbXEUQ6k (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 May 2007 12:58:40 -0400
-In-Reply-To: <20070521135016.GA452@hmsreliant.homelinux.net>
+Received: from stinky.trash.net ([213.144.137.162]:59480 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756883AbXEURFm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 May 2007 13:05:42 -0400
+In-Reply-To: <20070519.145042.105428414.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Neil Horman wrote:
-> On Mon, May 21, 2007 at 02:04:33PM +0930, Anton wrote:
->> Hi all,
->>
->> Please excuse me if the following question has already been asked on the 
->> mailing list, I am a little new to this.
->>
->> I am trying to send IPv6 packets from a kernel module. As far as I 
->> understand, I would have to use the ip6_output() function, and this 
->> function is certainly present in the net/ipv6/ip6_output.c file (on my
->> 2.6.18 kernel). Unfortunately, the function is not exported from the
->> IPv6 module and so my kernel module is unable to use it. Has anyone 
->> encountered such a problem before, and if not, does anyone know what is 
->> required for me to push a sk_buff into the IP stack for transmission 
->> (from a kernel module)?
->> Any ideas would be appreciated!
->>
->> Regards,
->> Anton
->>
-> No, you'll probably want to use something like kernel_sendmsg to send what you
-> want, passing in a socket created with something like sock_create_kern.
-> 
-> Regards
-> Neil
-> 
+This is a multi-part message in MIME format.
+--------------070305000007060101090808
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
 
-You can also use ip6_xmit assuming the module has performed the necessary route lookups.
+David Miller wrote:
+> The post ip_output() case is very unfortunate.  Perhaps we
+> can tag the call sites, or if that doesn't work we can
+> find some way to perhaps tag the dst as an input vs. output
+> route in order to avoid this problem.
 
--vlad
+
+Tagging call-sites should make sure we don't use an address from the
+outgoing device, but we would still not always use an address from
+the incoming device.
+
+Thinking again, we can simply perform a lookup on rt->fl.iif, that
+should always do the right thing.
+
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+
+
+--------------070305000007060101090808
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
+
+diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
+index e238b17..02a899b 100644
+--- a/net/ipv4/icmp.c
++++ b/net/ipv4/icmp.c
+@@ -514,12 +514,15 @@ void icmp_send(struct sk_buff *skb_in, int type, int code, __be32 info)
+ 
+ 	saddr = iph->daddr;
+ 	if (!(rt->rt_flags & RTCF_LOCAL)) {
+-		/* This is broken, skb_in->dev points to the outgoing device
+-		 * after the packet passes through ip_output().
+-		 */
+-		if (skb_in->dev && sysctl_icmp_errors_use_inbound_ifaddr)
+-			saddr = inet_select_addr(skb_in->dev, 0, RT_SCOPE_LINK);
+-		else
++		struct net_device *dev = NULL;
++
++		if (rt->fl.iif && sysctl_icmp_errors_use_inbound_ifaddr)
++			dev = dev_get_by_index(rt->fl.iif);
++
++		if (dev) {
++			saddr = inet_select_addr(dev, 0, RT_SCOPE_LINK);
++			dev_put(dev);
++		} else
+ 			saddr = 0;
+ 	}
+ 
+
+--------------070305000007060101090808--
