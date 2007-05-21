@@ -1,32 +1,50 @@
-From: Fernando Luis =?ISO-8859-1?Q?V=E1zquez?= Cao
-	<fernando@oss.ntt.co.jp>
-Subject: [IPv6] UDP Encapsulation of IPsec ESP Packets
-Date: Mon, 21 May 2007 19:56:39 +0900
-Message-ID: <1179744999.12746.88.camel@sebastian.intellilink.co.jp>
+From: Guennadi Liakhovetski <gl@dsa-ac.de>
+Subject: socket tx_queue grows and communication stops
+Date: Mon, 21 May 2007 13:21:29 +0200 (CEST)
+Message-ID: <Pine.LNX.4.63.0705211249190.8578@pcgl.dsa-ac.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: irda-users@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from serv1.oss.ntt.co.jp ([222.151.198.98]:46126 "EHLO
-	serv1.oss.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755951AbXEULPZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 May 2007 07:15:25 -0400
+Received: from mail.dsa-ac.de ([62.112.80.99]:58832 "EHLO mail.dsa-ac.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754914AbXEULVe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 May 2007 07:21:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I noticed that IPv4-over-IPv6 made into 2.6.21 (thank you!) and that
-prompted to check the progress with the implementation of rfc3948 (UDP
-Encapsulation of IPsec ESP Packets) in Linux. For IPv4 the code is
-already there, but that does not seem to be the case for IPv6. I have
-checked the usagi kernels and Dave S. Miller's net git tree and could
-not find anything.
+Hi all,
 
-Is anyone working on this? I would appreciate any information on the
-status of this work.
+writing to both netdev and IrDA since I don't know where the problem 
+occurs. More likely in IrDA, but maybe someone from netdev will have 
+debugging ideas.
 
-Thank you in advance.
+System: PXA270 ARM CPU
 
-Fernando
+Kernel: 2.6.20.1-rt8 (realtime preemption)
 
+Test case: small UDP-packet request-response test over ppp on irnet.
+
+Problem: after some time the tx_queue value in /proc/net/udp for this 
+socket on the active (request) side becomes large and the communication 
+stops. Whereas background (ppp) IrDA communication runs further, new 
+connections are possible. Moreover, the frozen communication can be 
+thawed, e.g., if I dump task states per sysrq-t IrDA first reports "no 
+activity", but the communication afterwards runs further. Without such a 
+kick it hangs indefinitely (days). I think, also just starting a parallel 
+ping thaws the socket too. It is hard to reproduce - occurs only after 
+several hours of testing (once a day).
+
+So, does anyone have an idea what the reason can be or at least how can I 
+debug it? Does it look like a leak again? Nothing suspicious in slabinfo. 
+The number in tx_queue doesn't grow gradually - most of the time it's 0.
+
+Thanks
+Guennadi
+---------------------------------
+Guennadi Liakhovetski, Ph.D.
+DSA Daten- und Systemtechnik GmbH
+Pascalstr. 28
+D-52076 Aachen
+Germany
