@@ -1,40 +1,51 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: [IPV6] ADDRCONF: Fix conflicts in DEVCONF_xxx constant.
-Date: Mon, 21 May 2007 12:33:37 +0900 (JST)
-Message-ID: <20070521.123337.36076825.yoshfuji@linux-ipv6.org>
+From: Anton <Anton.Uzunov@dsto.defence.gov.au>
+Subject: Sending ipv6 packets from a kernel module
+Date: Mon, 21 May 2007 14:04:33 +0930
+Message-ID: <46512159.8080501@dsto.defence.gov.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
-To: davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:37789 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752864AbXEUDdV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 May 2007 23:33:21 -0400
+Received: from digger1.defence.gov.au ([203.5.217.4]:57501 "EHLO
+	digger1.defence.gov.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754338AbXEUEeq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 May 2007 00:34:46 -0400
+Received: from ednmsw510.dsto.defence.gov.au (ednmsw510.dsto.defence.gov.au [131.185.68.11])
+	by digger1.defence.gov.au (8.13.8/8.13.8) with ESMTP id l4L4P84V027764
+	for <netdev@vger.kernel.org>; Mon, 21 May 2007 13:55:08 +0930 (CST)
+Received: from ednex510.dsto.defence.gov.au (ednex510.dsto.defence.gov.au) by
+    ednmsw510.dsto.defence.gov.au (Clearswift SMTPRS 5.2.5) with ESMTP id
+    <T7fbb5d0b0a83b9440b15bc@ednmsw510.dsto.defence.gov.au> for
+    <netdev@vger.kernel.org>; Mon, 21 May 2007 14:04:43 +0930
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Hi all,
 
---
-diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-index 09ea01a..648bd1f 100644
---- a/include/linux/ipv6.h
-+++ b/include/linux/ipv6.h
-@@ -209,9 +209,8 @@ enum {
- 	DEVCONF_RTR_PROBE_INTERVAL,
- 	DEVCONF_ACCEPT_RA_RT_INFO_MAX_PLEN,
- 	DEVCONF_PROXY_NDP,
--	__DEVCONF_OPTIMISTIC_DAD,
--	DEVCONF_ACCEPT_SOURCE_ROUTE,
- 	DEVCONF_OPTIMISTIC_DAD,
-+	DEVCONF_ACCEPT_SOURCE_ROUTE,
- 	DEVCONF_MAX
- };
- 
+Please excuse me if the following question has already been asked on the 
+mailing list, I am a little new to this.
 
--- 
-YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
-GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+I am trying to send IPv6 packets from a kernel module. As far as I 
+understand, I would have to use the ip6_output() function, and this 
+function is certainly present in the net/ipv6/ip6_output.c file (on my
+2.6.18 kernel). Unfortunately, the function is not exported from the
+IPv6 module and so my kernel module is unable to use it. Has anyone 
+encountered such a problem before, and if not, does anyone know what is 
+required for me to push a sk_buff into the IP stack for transmission 
+(from a kernel module)?
+Any ideas would be appreciated!
+
+Regards,
+Anton
+
+
+
+----------
+
+IMPORTANT: This email remains the property of the Australian Defence 
+Organisation and is subject to the jurisdiction of section 70 of the 
+CRIMES ACT 1914.  If you have received this email in error, you are 
+requested to contact the sender and delete the email.
+
+
