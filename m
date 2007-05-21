@@ -1,39 +1,50 @@
-From: "Primiano Tucci" <mail@primianotucci.com>
-Subject: Ethernet frames filtering/relaying. Help needed
-Date: Mon, 21 May 2007 16:49:56 +0200
-Message-ID: <000201c79bb7$4c97b680$0201a8c0@airforce1>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: [PATCH] e1000: Don't enable polling in open() (was: e1000: assertion
+	hit in e1000_clean(), kernel 2.6.21.1)
+Date: Mon, 21 May 2007 08:32:41 -0700
+Message-ID: <20070521153240.5535.31658.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org, jesse.brandeburg@intel.com,
+	auke-jan.h.kok@intel.com
+To: herbert@gondor.apana.org.au, cebbert@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from joe.tiscali.it ([213.205.33.54]:52721 "EHLO joe.tiscali.it"
+Received: from mga01.intel.com ([192.55.52.88]:5472 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756142AbXEUOzv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 May 2007 10:55:51 -0400
-Received: from airforce1 (84.222.248.98) by joe.tiscali.it (7.2.079)
-        id 462DD29A00413D5F for netdev@vger.kernel.org; Mon, 21 May 2007 16:49:57 +0200
+	id S1752449AbXEUPco (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 May 2007 11:32:44 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all, I'm new to this Mailing list
-Some days ago I started development of a new 2.6 network driver (formerly it
-should be a decentered Network Load Balancing driver).
-I'm not too much familiar with kernel networking, so I'm asking you what's
-the best approach to do something like this:
-- Allocate a new tun interface... let's say tun0 (no problems with this
-step)
-- Monitor layer2 traffic on an existing device(let's say eth0).
--Catch all Ethernet frames arrived on eth0 with an arbitrary destination MAC
-address.... let's say catch all the frames that has 01:00:02:03:04:05 as
-destination MAC addr.
--Extrapolate the IP datagram contained in the frames and push it in tun0
+Herbert Xy wrote:
+"netif_poll_enable can only be called if you've previously called
+netif_poll_disable.  Otherwise a poll might already be in action
+and you may get a crash like this."
 
-I need some suggestions about the best approach to catch and relay Ethernet
-frames on eth0. Should I use netfilter? Should I not?
-Any help will be appreciated. Thanks
+Removing the call to netif_poll_enable in e1000_open should fix this issue,
+the only other call to netif_poll_enable is in e1000_up() which is only
+reached after a device reset or resume.
 
-Primiano Tucci
+Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>
+---
 
+ drivers/net/e1000/e1000_main.c |    4 ----
+ 1 files changed, 0 insertions(+), 4 deletions(-)
 
+diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+index 49be393..cbc7feb 100644
+--- a/drivers/net/e1000/e1000_main.c
++++ b/drivers/net/e1000/e1000_main.c
+@@ -1431,10 +1431,6 @@ e1000_open(struct net_device *netdev)
+ 	/* From here on the code is the same as e1000_up() */
+ 	clear_bit(__E1000_DOWN, &adapter->flags);
+ 
+-#ifdef CONFIG_E1000_NAPI
+-	netif_poll_enable(netdev);
+-#endif
+-
+ 	e1000_irq_enable(adapter);
+ 
+ 	/* fire a link status change interrupt to start the watchdog */
