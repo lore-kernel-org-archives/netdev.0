@@ -1,51 +1,50 @@
-From: Anton <Anton.Uzunov@dsto.defence.gov.au>
-Subject: Sending ipv6 packets from a kernel module
-Date: Mon, 21 May 2007 14:04:33 +0930
-Message-ID: <46512159.8080501@dsto.defence.gov.au>
+From: David Gibson <david@gibson.dropbear.id.au>
+Subject: Re: [PATCH] ibm_emac: Correctly detect old link speed
+Date: Mon, 21 May 2007 15:13:11 +1000
+Message-ID: <20070521051311.GB7778@localhost.localdomain>
+References: <200705161300.08521.sr@denx.de> <20070516173002.GA22331@gate.ebshome.net> <200705162044.47776.sr@denx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Eugene Surovegin <ebs@ebshome.net>, netdev@vger.kernel.org,
+	linuxppc-dev@ozlabs.org
+To: Stefan Roese <sr@denx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from digger1.defence.gov.au ([203.5.217.4]:57501 "EHLO
-	digger1.defence.gov.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754338AbXEUEeq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 May 2007 00:34:46 -0400
-Received: from ednmsw510.dsto.defence.gov.au (ednmsw510.dsto.defence.gov.au [131.185.68.11])
-	by digger1.defence.gov.au (8.13.8/8.13.8) with ESMTP id l4L4P84V027764
-	for <netdev@vger.kernel.org>; Mon, 21 May 2007 13:55:08 +0930 (CST)
-Received: from ednex510.dsto.defence.gov.au (ednex510.dsto.defence.gov.au) by
-    ednmsw510.dsto.defence.gov.au (Clearswift SMTPRS 5.2.5) with ESMTP id
-    <T7fbb5d0b0a83b9440b15bc@ednmsw510.dsto.defence.gov.au> for
-    <netdev@vger.kernel.org>; Mon, 21 May 2007 14:04:43 +0930
+Received: from ozlabs.org ([203.10.76.45]:52214 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752864AbXEUFNP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 May 2007 01:13:15 -0400
+Content-Disposition: inline
+In-Reply-To: <200705162044.47776.sr@denx.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+On Wed, May 16, 2007 at 08:44:47PM +0200, Stefan Roese wrote:
+> On Wednesday 16 May 2007, Eugene Surovegin wrote:
+> > On Wed, May 16, 2007 at 01:00:08PM +0200, Stefan Roese wrote:
+> > > This patch fixes a bug where the link speed change was not
+> > > detected correctly. This occured on a 440SPe (EMAC4) system
+> > > where the old link speed was 100Mbps and the new link speed
+> > > is 1000Mbps.
+> >
+> > Good catch, Stefan. Unfortunately, I have to NACK your patch - you
+> > broke non EMAC4 builds.
+> 
+> Yes, you're right of course.
+> 
+> > Correct fix is just to remove EMAC_MR1_MF_1000GPCS from the first
+> > if condition.
+> 
+> Yep.
+> 
+> > I'll send correct fix shortly along with other queued patches.
+> 
+> Thanks.
 
-Please excuse me if the following question has already been asked on the 
-mailing list, I am a little new to this.
+I've merged essentially the same fix into the device tree aware
+"new_emac" driver.
 
-I am trying to send IPv6 packets from a kernel module. As far as I 
-understand, I would have to use the ip6_output() function, and this 
-function is certainly present in the net/ipv6/ip6_output.c file (on my
-2.6.18 kernel). Unfortunately, the function is not exported from the
-IPv6 module and so my kernel module is unable to use it. Has anyone 
-encountered such a problem before, and if not, does anyone know what is 
-required for me to push a sk_buff into the IP stack for transmission 
-(from a kernel module)?
-Any ideas would be appreciated!
-
-Regards,
-Anton
-
-
-
-----------
-
-IMPORTANT: This email remains the property of the Australian Defence 
-Organisation and is subject to the jurisdiction of section 70 of the 
-CRIMES ACT 1914.  If you have received this email in error, you are 
-requested to contact the sender and delete the email.
-
-
+-- 
+David Gibson			| I'll have my music baroque, and my code
+david AT gibson.dropbear.id.au	| minimalist, thank you.  NOT _the_ _other_
+				| _way_ _around_!
+http://www.ozlabs.org/~dgibson
