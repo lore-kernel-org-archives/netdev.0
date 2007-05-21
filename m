@@ -1,39 +1,40 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH] tcp_probe: use GCC printf attribute
-Date: Mon, 21 May 2007 09:02:51 -0700
-Message-ID: <20070521090251.55ebd595@freepuppy>
-References: <11797335421143-git-send-email-sangtae.ha@gmail.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: oops in net/ipv4/icmp.c:icmp_send() with icmp_errors_use_inbound_ifaddr
+ (fwd)
+Date: Mon, 21 May 2007 18:36:57 +0200
+Message-ID: <4651CAA9.4050908@trash.net>
+References: <E1Hpdw3-0006CY-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Sangtae Ha <sangtae.ha@gmail.com>
-To: Sangtae Ha <sangtae.ha@gmail.com>, davem@davemloft.net
+Cc: netdev@vger.kernel.org, jmorris@namei.org, Curtis@greenkey.net,
+	davem@davemloft.net
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([207.189.120.12]:55333 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756561AbXEUQHz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 May 2007 12:07:55 -0400
-In-Reply-To: <11797335421143-git-send-email-sangtae.ha@gmail.com>
+Received: from stinky.trash.net ([213.144.137.162]:59041 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755821AbXEUQjO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 May 2007 12:39:14 -0400
+In-Reply-To: <E1Hpdw3-0006CY-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The function in tcp_probe is printf like, use GCC to check the args.
+Herbert Xu wrote:
+> Patrick McHardy <kaber@trash.net> wrote:
+> 
+>>This leaves the question what to do in the path after ip_output,
+>>when skb->dev points to the output device. We don't know the
+>>input device anymore, so there doesn't seem to be a way to make
+>>it do what the sysctl promises.
+> 
+> 
+> Perhaps we could change things so that the setting of skb->dev is
+> delayed until the packet has completely left the IP stack?  It'd
+> require a massive audit though of the IP stack though.
 
-Sighed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
----
- net/ipv4/tcp_probe.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+The IP stack shouldn't be too hard, we currently set skb->dev in
+ip_output, after that we only have the POST_ROUTING hook and ip_fragment
+which care. It wouldn't help with ipip/ip_gre though, at that point
+skb->dev must point to the tunnel device.
 
---- a/net/ipv4/tcp_probe.c	2007-05-21 08:48:29.000000000 -0700
-+++ b/net/ipv4/tcp_probe.c	2007-05-21 08:50:32.000000000 -0700
-@@ -80,7 +80,8 @@ static void printl(const char *fmt, ...)
- 
- 	kfifo_put(tcpw.fifo, tbuf, len);
- 	wake_up(&tcpw.wait);
--}
-+} __attribute__ ((format (printf, 1, 2)));
-+
- 
- /*
-  * Hook inserted to be called before each receive packet.
