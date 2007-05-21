@@ -1,7 +1,7 @@
 From: Chris Wright <chrisw@sous-sol.org>
-Subject: [patch 61/69] skge: crash on shutdown/suspend
-Date: Mon, 21 May 2007 12:17:13 -0700
-Message-ID: <20070521191753.807353000@sous-sol.org>
+Subject: [patch 59/69] sky2: allow 88E8056
+Date: Mon, 21 May 2007 12:17:11 -0700
+Message-ID: <20070521191752.897413000@sous-sol.org>
 References: <20070521191612.800400000@sous-sol.org>
 Cc: Justin Forbes <jmforbes@linuxtx.org>,
 	Zwane Mwaikambo <zwane@arm.linux.org.uk>,
@@ -18,11 +18,11 @@ Cc: Justin Forbes <jmforbes@linuxtx.org>,
 	netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org, stable@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 216-99-217-87.dsl.aracnet.com ([216.99.217.87]:46481 "EHLO
+Received: from 216-99-217-87.dsl.aracnet.com ([216.99.217.87]:46478 "EHLO
 	sous-sol.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1765475AbXEUTWH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 May 2007 15:22:07 -0400
-Content-Disposition: inline; filename=skge-shutdown.patch
+	id S1765507AbXEUTWG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 May 2007 15:22:06 -0400
+Content-Disposition: inline; filename=sky2-88e8056-allow.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
@@ -31,48 +31,28 @@ List-Id: netdev.vger.kernel.org
 
 From: Stephen Hemminger <shemminger@linux-foundation.org>
 
-If device fails during module startup for some reason (like unsupported chip
-version) then driver would crash dereferencing a null pointer, on shutdown
-or suspend/resume.
+It looks like the problems of Gigabyte 88E8056 are unique to that chip
+motherboard and maybe fixable by EEPROM update.
 
 Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 Signed-off-by: Chris Wright <chrisw@sous-sol.org>
 
 ---
- drivers/net/skge.c |    9 +++++++++
- 1 file changed, 9 insertions(+)
+ drivers/net/sky2.c |    3 ---
+ 1 file changed, 3 deletions(-)
 
---- linux-2.6.21.1.orig/drivers/net/skge.c
-+++ linux-2.6.21.1/drivers/net/skge.c
-@@ -3794,6 +3794,9 @@ static int skge_suspend(struct pci_dev *
- 	struct skge_hw *hw  = pci_get_drvdata(pdev);
- 	int i, err, wol = 0;
- 
-+	if (!hw)
-+		return 0;
-+
- 	err = pci_save_state(pdev);
- 	if (err)
- 		return err;
-@@ -3822,6 +3825,9 @@ static int skge_resume(struct pci_dev *p
- 	struct skge_hw *hw  = pci_get_drvdata(pdev);
- 	int i, err;
- 
-+	if (!hw)
-+		return 0;
-+
- 	err = pci_set_power_state(pdev, PCI_D0);
- 	if (err)
- 		goto out;
-@@ -3860,6 +3866,9 @@ static void skge_shutdown(struct pci_dev
- 	struct skge_hw *hw  = pci_get_drvdata(pdev);
- 	int i, wol = 0;
- 
-+	if (!hw)
-+		return;
-+
- 	for (i = 0; i < hw->ports; i++) {
- 		struct net_device *dev = hw->dev[i];
- 		struct skge_port *skge = netdev_priv(dev);
+--- linux-2.6.21.1.orig/drivers/net/sky2.c
++++ linux-2.6.21.1/drivers/net/sky2.c
+@@ -123,10 +123,7 @@ static const struct pci_device_id sky2_i
+ 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4361) }, /* 88E8050 */
+ 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4362) }, /* 88E8053 */
+ 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4363) }, /* 88E8055 */
+-#ifdef broken
+-	/* This device causes data corruption problems that are not resolved */
+ 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4364) }, /* 88E8056 */
+-#endif
+ 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4366) }, /* 88EC036 */
+ 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4367) }, /* 88EC032 */
+ 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4368) }, /* 88EC034 */
 
 -- 
