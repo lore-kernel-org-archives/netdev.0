@@ -1,56 +1,50 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: [PATCH] e1000: Don't enable polling in open() (was: e1000: assertion
-	hit in e1000_clean(), kernel 2.6.21.1)
-Date: Mon, 21 May 2007 14:51:35 -0700
-Message-ID: <20070521215134.14885.84952.stgit@localhost.localdomain>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH 1/2 v4] s2io: add PCI error recovery support
+Date: Mon, 21 May 2007 14:48:47 -0700
+Message-ID: <20070521144847.439103c4.akpm@linux-foundation.org>
+References: <20070521185853.GD5921@austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	auke-jan.h.kok@intel.com, davej@redhat.com,
-	herbert@gondor.apana.org.au
-To: jeff@garzik.org, stable@vger.kernel.org, greg@suse.de
+Cc: Jeff Garzik <jgarzik@pobox.com>,
+	Ramkrishna Vepa <Ramkrishna.Vepa@neterion.com>,
+	Sivakumar Subramani <sivakumar.subramani@neterion.com>,
+	Sreenivasa Honnur <sreenivasa.honnur@neterion.com>,
+	Rastapur Santosh <santosh.rastapur@neterion.com>,
+	Wen Xiong <wenxiong@us.ibm.com>,
+	linux-pci@atrey.karlin.mff.cuni.cz, netdev@vger.kernel.org
+To: linas@austin.ibm.com (Linas Vepstas)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:51263 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754992AbXEUVvo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 May 2007 17:51:44 -0400
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:52075 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758069AbXEUVy3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 May 2007 17:54:29 -0400
+In-Reply-To: <20070521185853.GD5921@austin.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
-"netif_poll_enable can only be called if you've previously called
-netif_poll_disable.  Otherwise a poll might already be in action
-and you may get a crash like this."
+On Mon, 21 May 2007 13:58:53 -0500
+linas@austin.ibm.com (Linas Vepstas) wrote:
 
-Removing the call to netif_poll_enable in e1000_open should fix this issue,
-the only other call to netif_poll_enable is in e1000_up() which is only
-reached after a device reset or resume.
+> This patch adds PCI error recovery support to the 
+> s2io 10-Gigabit ethernet device driver. Fourth revision,
+> blocks MSI interrupts, and statistics gathering, as well.
+> 
+> Tested, seems to work well.
+> 
+> Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
+> Acked-by: Ramkrishna Vepa <Ramkrishna.Vepa@neterion.com>
+> Cc: Sivakumar Subramani <sivakumar.subramani@neterion.com>
+> Cc: Sreenivasa Honnur <sreenivasa.honnur@neterion.com>
+> Cc: Rastapur Santosh <santosh.rastapur@neterion.com>
+> Cc: Wen Xiong <wenxiong@us.ibm.com>
+> 
+> ----
+> Please apply. This has been submitted for 2.6.19, 2.6.20 and 2.6.21
+> with no major criticisms made, although with minor polish & fixups.
+> I think its ready.
 
-Bugzilla: http://bugzilla.kernel.org/show_bug.cgi?id=8455
-https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=240339
+This is already in Jeff's development tree.  Your new patch neither
+applies nor unapplies, so if you've changed it, Jeff is now sitting
+on an old version.  I assume he'd like an incremental update patch.
 
-Tested by Doug Chapman <doug.chapman@hp.com>
-
-Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
-Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
----
-
- drivers/net/e1000/e1000_main.c |    4 ----
- 1 files changed, 0 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-index 49be393..cbc7feb 100644
---- a/drivers/net/e1000/e1000_main.c
-+++ b/drivers/net/e1000/e1000_main.c
-@@ -1431,10 +1431,6 @@ e1000_open(struct net_device *netdev)
- 	/* From here on the code is the same as e1000_up() */
- 	clear_bit(__E1000_DOWN, &adapter->flags);
- 
--#ifdef CONFIG_E1000_NAPI
--	netif_poll_enable(netdev);
--#endif
--
- 	e1000_irq_enable(adapter);
- 
- 	/* fire a link status change interrupt to start the watchdog */
