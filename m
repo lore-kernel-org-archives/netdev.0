@@ -1,47 +1,77 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] New driver API to speed up small packets xmits
-Date: Tue, 22 May 2007 15:36:36 -0700 (PDT)
-Message-ID: <20070522.153636.115911096.davem@davemloft.net>
-References: <E1Hq2kM-0000ID-00@gondolin.me.apana.org.au>
-	<OF9ABCD08D.2CD1B193-ON872572E3.007A6FC1-882572E3.007ACE1A@us.ibm.com>
+From: John Miller <forall@mail15.com>
+Subject: Re: UDP packet loss when running lsof
+Date: Wed, 23 May 2007 02:42:47 +0400
+Message-ID: <20070523024247.34nh5ck1j4ooc0o8@www.pochta.ru>
+References: <loom.20070521T090409-252@post.gmane.org>
+	<20070521113503.6bb70ae4.dada1@cosmosbay.com>
+	<20070522021259.95ukifwz8kc4gccg@www.pochta.ru>
+	<46528973.50809@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, ak@suse.de, krkumar2@in.ibm.com,
-	netdev@vger.kernel.org, netdev-owner@vger.kernel.org,
-	rdreier@cisco.com
-To: xma@us.ibm.com
+Content-Type: text/plain;
+	charset=Windows-1251;
+	DelSp="Yes";
+	format="flowed"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45107
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1758737AbXEVWgf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 May 2007 18:36:35 -0400
-In-Reply-To: <OF9ABCD08D.2CD1B193-ON872572E3.007A6FC1-882572E3.007ACE1A@us.ibm.com>
+Received: from web6.pochta.ru ([81.211.64.26]:40430 "EHLO web6.pochta.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758018AbXEVWmu convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 May 2007 18:42:50 -0400
+In-Reply-To: <46528973.50809@cosmosbay.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Shirley Ma <xma@us.ibm.com>
-Date: Tue, 22 May 2007 15:22:35 -0700
 
-> > Yep, for any NIC that supports SG but not TSO then software GSO will
-> > be a big win.  When the NIC doesn't support SG then the win is mostly
-> > offset by the need to copy the packet again.
-> >
-> > Cheers,
-> > --
-> 
->       We could avoid packet copy by allocating number of 64K/MTU skb
-> buffers instead of one big 64K buffer size. Is it a possible approach?
+Hi Eric,
 
-I think you misunderstand the problem.
+> > It's a HP system with two dual core CPUs at 3GHz, the
 
-If the device does not support scatter gather, it is impossible to
-avoid the copy.
+> Then you might try to bind network IRQ to one CPU
+> (echo 1 >/proc/irq/XX/smp_affinity)
 
-SKB's from TSO are composed of discontiguous page chunks represented
-by the skb_shared_info() array.  These can come either from sendmsg()
-user data (which the kernel fills into a per-socket data page which is
-reallocated once filled), or from sendfile() page cache pages.
+> XX being your NIC interrupt (cat /proc/interrupts to catch it)
 
-Therefore, there has to be a copy somewhere to be able to give
-that packet to a non-scatter-gather device.
+> and bind your user program to another cpu(s)
+
+the NIC was already fixed at CPU0 and the irq_balancer switched
+the timer interrupt between all CPUs and the storage HBA between
+CPU1 and CPU4. Stopping the balancer and leaving NIC alone on CPU0
+and the other interrupts and my program on CPU2-4 did not improve
+the situation.
+At least I could not see an improvement over just adding
+thash_entries=2048.
+
+> You might hit a cond_resched_softirq() bug that Ingo and others
+> are sorting out right now. Using separate CPU for softirq
+> handling and your programs should help a lot here.
+
+Shouldn't I get some syslog messages if this bug is triggered?
+
+Nevertheless I also opened a call on Novell about this issue,
+as the current cond_resched_softirq() does look completely
+different than in 2.6.18
+
+> > This did help a lot, I tried thash_entries=10 and now only a
+> > while loop around the "cat ...tcp" triggers packet loss. Tests
+
+> I dont understand here : using a small thash_entries makes
+> the bug always appear ?
+
+No. thash_entries=10 improves the situation. Without the param
+nearly every look at /proc/net/tcp leads to packet loss, with
+thash_entries=10 (or 2048, does not matter) I have to start a
+"while true; do cat /prc/net/tcp ; done" to get packet loss
+every minute.
+
+But even with thash_entries=10 and if I leave my program alone
+  on he system I get packet loss every few hours.
+
+Regards,
+John
+
+
+
+
