@@ -1,201 +1,185 @@
 From: Ayaz Abdulla <aabdulla@nvidia.com>
-Subject: [PATCH 2/4] forcedeth: fix power management support
-Date: Mon, 21 May 2007 20:23:04 -0400
-Message-ID: <465237E8.1060005@nvidia.com>
+Subject: [PATCH 1/4] forcedeth: add vitesse phy
+Date: Mon, 21 May 2007 20:22:45 -0400
+Message-ID: <465237D5.4050809@nvidia.com>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------020706060506080500020609"
+ boundary="------------070402090800060803060900"
 To: Jeff Garzik <jgarzik@pobox.com>,
 	Manfred Spraul <manfred@colorfullife.com>,
 	Andrew Morton <akpm@osdl.org>, nedev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hqemgate02.nvidia.com ([216.228.112.143]:15450 "EHLO
+Received: from hqemgate02.nvidia.com ([216.228.112.143]:15608 "EHLO
 	HQEMGATE02.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755512AbXEVDIO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 May 2007 23:08:14 -0400
+	with ESMTP id S1757901AbXEVDIY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 May 2007 23:08:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------020706060506080500020609
+--------------070402090800060803060900
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 
-This patch fixes the power management functions. It includes lowering 
-the phy speed to conserve power.
+This patch adds errata support for the vitesse phy.
 
 Signed-off-by: Ayaz Abdulla <aabdulla@nvidia.com>
 
 
---------------020706060506080500020609
+--------------070402090800060803060900
 Content-Type: text/plain;
- name="patch-forcedeth-pm"
+ name="patch-forcedeth-vitesse"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="patch-forcedeth-pm"
+ filename="patch-forcedeth-vitesse"
 
---- old/drivers/net/forcedeth.c	2007-05-01 15:32:03.000000000 -0400
-+++ new/drivers/net/forcedeth.c	2007-05-21 19:54:39.000000000 -0400
-@@ -812,6 +812,10 @@
+--- old/drivers/net/forcedeth.c	2007-05-01 15:30:53.000000000 -0400
++++ new/drivers/net/forcedeth.c	2007-05-01 15:30:57.000000000 -0400
+@@ -550,6 +550,7 @@
+ /* PHY defines */
+ #define PHY_OUI_MARVELL	0x5043
+ #define PHY_OUI_CICADA	0x03f1
++#define PHY_OUI_VITESSE	0x01c1
+ #define PHYID1_OUI_MASK	0x03ff
+ #define PHYID1_OUI_SHFT	6
+ #define PHYID2_OUI_MASK	0xfc00
+@@ -557,12 +558,29 @@
+ #define PHYID2_MODEL_MASK		0x03f0
+ #define PHY_MODEL_MARVELL_E3016		0x220
+ #define PHY_MARVELL_E3016_INITMASK	0x0300
+-#define PHY_INIT1	0x0f000
+-#define PHY_INIT2	0x0e00
+-#define PHY_INIT3	0x01000
+-#define PHY_INIT4	0x0200
+-#define PHY_INIT5	0x0004
+-#define PHY_INIT6	0x02000
++#define PHY_CICADA_INIT1	0x0f000
++#define PHY_CICADA_INIT2	0x0e00
++#define PHY_CICADA_INIT3	0x01000
++#define PHY_CICADA_INIT4	0x0200
++#define PHY_CICADA_INIT5	0x0004
++#define PHY_CICADA_INIT6	0x02000
++#define PHY_VITESSE_INIT_REG1	0x1f
++#define PHY_VITESSE_INIT_REG2	0x10
++#define PHY_VITESSE_INIT_REG3	0x11
++#define PHY_VITESSE_INIT_REG4	0x12
++#define PHY_VITESSE_INIT_MSK1	0xc
++#define PHY_VITESSE_INIT_MSK2	0x0180
++#define PHY_VITESSE_INIT1	0x52b5
++#define PHY_VITESSE_INIT2	0xaf8a
++#define PHY_VITESSE_INIT3	0x8
++#define PHY_VITESSE_INIT4	0x8f8a
++#define PHY_VITESSE_INIT5	0xaf86
++#define PHY_VITESSE_INIT6	0x8f86
++#define PHY_VITESSE_INIT7	0xaf82
++#define PHY_VITESSE_INIT8	0x0100
++#define PHY_VITESSE_INIT9	0x8f82
++#define PHY_VITESSE_INIT10	0x0
++
+ #define PHY_GIGABIT	0x0100
  
- 	/* flow control */
- 	u32 pause_flags;
-+
-+	/* power saved state */
-+	u32 saved_config_space[64];
-+	u32 saved_phyinterface;
- };
- 
- /*
-@@ -5344,42 +5348,137 @@
- }
- 
- #ifdef CONFIG_PM
-+static void nv_set_low_speed(struct net_device *dev)
-+{
-+	struct fe_priv *np = netdev_priv(dev);
-+	int adv = 0;
-+	int lpa = 0;
-+	int adv_lpa, bmcr, tries = 0;
-+	int mii_status;
-+	u32 control_1000;
-+
-+	/* lower the speed if we are in 1000Mbps autoneg */
-+	if (np->autoneg == 0 || ((np->linkspeed & 0xFFF) != NVREG_LINKSPEED_1000))
-+		return;
-+
-+	adv = mii_rw(dev, np->phyaddr, MII_ADVERTISE, MII_READ);
-+	lpa = mii_rw(dev, np->phyaddr, MII_LPA, MII_READ);
-+	control_1000 = mii_rw(dev, np->phyaddr, MII_CTRL1000, MII_READ);
-+
-+	adv_lpa = lpa & adv;
-+
-+	/* lower the speed if partner has advertised other speeds */
-+	if ((adv_lpa & LPA_10FULL) || (adv_lpa & LPA_10HALF)) {
-+		adv &= ~(ADVERTISE_100BASE4 | ADVERTISE_100FULL | ADVERTISE_100HALF);
-+		control_1000 &= ~ADVERTISE_1000FULL;
-+	} else if ((adv_lpa & LPA_100FULL) || (adv_lpa & LPA_100HALF)) {
-+		control_1000 &= ~ADVERTISE_1000FULL;
-+	} else
-+		return;
-+
-+	/* set new advertisements */
-+	mii_rw(dev, np->phyaddr, MII_ADVERTISE, adv);
-+	mii_rw(dev, np->phyaddr, MII_CTRL1000, control_1000);
-+
-+	bmcr = mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ);
-+	if (np->phy_model == PHY_MODEL_MARVELL_E3016) {
-+		bmcr |= BMCR_ANENABLE;
-+		/* reset the phy in order for settings to stick,
-+		 * and cause autoneg to start */
-+		if (phy_reset(dev, bmcr)) {
-+			printk(KERN_INFO "%s: phy reset failed\n", dev->name);
-+			return;
+ #define PHY_TIMEOUT	0x1
+@@ -1141,14 +1159,14 @@
+ 	/* phy vendor specific configuration */
+ 	if ((np->phy_oui == PHY_OUI_CICADA) && (phyinterface & PHY_RGMII) ) {
+ 		phy_reserved = mii_rw(dev, np->phyaddr, MII_RESV1, MII_READ);
+-		phy_reserved &= ~(PHY_INIT1 | PHY_INIT2);
+-		phy_reserved |= (PHY_INIT3 | PHY_INIT4);
++		phy_reserved &= ~(PHY_CICADA_INIT1 | PHY_CICADA_INIT2);
++		phy_reserved |= (PHY_CICADA_INIT3 | PHY_CICADA_INIT4);
+ 		if (mii_rw(dev, np->phyaddr, MII_RESV1, phy_reserved)) {
+ 			printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
+ 			return PHY_ERROR;
+ 		}
+ 		phy_reserved = mii_rw(dev, np->phyaddr, MII_NCONFIG, MII_READ);
+-		phy_reserved |= PHY_INIT5;
++		phy_reserved |= PHY_CICADA_INIT5;
+ 		if (mii_rw(dev, np->phyaddr, MII_NCONFIG, phy_reserved)) {
+ 			printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
+ 			return PHY_ERROR;
+@@ -1156,12 +1174,82 @@
+ 	}
+ 	if (np->phy_oui == PHY_OUI_CICADA) {
+ 		phy_reserved = mii_rw(dev, np->phyaddr, MII_SREVISION, MII_READ);
+-		phy_reserved |= PHY_INIT6;
++		phy_reserved |= PHY_CICADA_INIT6;
+ 		if (mii_rw(dev, np->phyaddr, MII_SREVISION, phy_reserved)) {
+ 			printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
+ 			return PHY_ERROR;
+ 		}
+ 	}
++	if (np->phy_oui == PHY_OUI_VITESSE) {
++		if (mii_rw(dev, np->phyaddr, PHY_VITESSE_INIT_REG1, PHY_VITESSE_INIT1)) {
++			printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
++			return PHY_ERROR;
 +		}
-+	} else {
-+		bmcr |= (BMCR_ANENABLE | BMCR_ANRESTART);
-+		mii_rw(dev, np->phyaddr, MII_BMCR, bmcr);
++		if (mii_rw(dev, np->phyaddr, PHY_VITESSE_INIT_REG2, PHY_VITESSE_INIT2)) {
++			printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
++			return PHY_ERROR;
++		}
++		phy_reserved = mii_rw(dev, np->phyaddr, PHY_VITESSE_INIT_REG4, MII_READ);
++		if (mii_rw(dev, np->phyaddr, PHY_VITESSE_INIT_REG4, phy_reserved)) {
++			printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
++			return PHY_ERROR;
++		}
++		phy_reserved = mii_rw(dev, np->phyaddr, PHY_VITESSE_INIT_REG3, MII_READ);
++		phy_reserved &= ~PHY_VITESSE_INIT_MSK1;
++		phy_reserved |= PHY_VITESSE_INIT3;
++		if (mii_rw(dev, np->phyaddr, PHY_VITESSE_INIT_REG3, phy_reserved)) {
++			printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
++			return PHY_ERROR;
++		}
++		if (mii_rw(dev, np->phyaddr, PHY_VITESSE_INIT_REG2, PHY_VITESSE_INIT4)) {
++			printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
++			return PHY_ERROR;
++		}
++		if (mii_rw(dev, np->phyaddr, PHY_VITESSE_INIT_REG2, PHY_VITESSE_INIT5)) {
++			printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
++			return PHY_ERROR;
++		}
++		phy_reserved = mii_rw(dev, np->phyaddr, PHY_VITESSE_INIT_REG4, MII_READ);
++		phy_reserved &= ~PHY_VITESSE_INIT_MSK1;
++		phy_reserved |= PHY_VITESSE_INIT3;
++		if (mii_rw(dev, np->phyaddr, PHY_VITESSE_INIT_REG4, phy_reserved)) {
++			printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
++			return PHY_ERROR;
++		}
++		phy_reserved = mii_rw(dev, np->phyaddr, PHY_VITESSE_INIT_REG3, MII_READ);
++		if (mii_rw(dev, np->phyaddr, PHY_VITESSE_INIT_REG3, phy_reserved)) {
++			printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
++			return PHY_ERROR;
++		}
++		if (mii_rw(dev, np->phyaddr, PHY_VITESSE_INIT_REG2, PHY_VITESSE_INIT6)) {
++			printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
++			return PHY_ERROR;
++		}
++		if (mii_rw(dev, np->phyaddr, PHY_VITESSE_INIT_REG2, PHY_VITESSE_INIT7)) {
++			printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
++			return PHY_ERROR;
++		}
++		phy_reserved = mii_rw(dev, np->phyaddr, PHY_VITESSE_INIT_REG4, MII_READ);
++		if (mii_rw(dev, np->phyaddr, PHY_VITESSE_INIT_REG4, phy_reserved)) {
++			printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
++			return PHY_ERROR;
++		}
++		phy_reserved = mii_rw(dev, np->phyaddr, PHY_VITESSE_INIT_REG3, MII_READ);
++		phy_reserved &= ~PHY_VITESSE_INIT_MSK2;
++		phy_reserved |= PHY_VITESSE_INIT8;
++		if (mii_rw(dev, np->phyaddr, PHY_VITESSE_INIT_REG3, phy_reserved)) {
++			printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
++			return PHY_ERROR;
++		}
++		if (mii_rw(dev, np->phyaddr, PHY_VITESSE_INIT_REG2, PHY_VITESSE_INIT9)) {
++			printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
++			return PHY_ERROR;
++		}
++		if (mii_rw(dev, np->phyaddr, PHY_VITESSE_INIT_REG1, PHY_VITESSE_INIT10)) {
++			printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
++			return PHY_ERROR;
++		}
 +	}
-+	mii_rw(dev, np->phyaddr, MII_BMSR, MII_READ);
-+	mii_status = mii_rw(dev, np->phyaddr, MII_BMSR, MII_READ);
-+	while (!(mii_status & BMSR_ANEGCOMPLETE)) {
-+		msleep(100);
-+		mii_status = mii_rw(dev, np->phyaddr, MII_BMSR, MII_READ);
-+		if (tries++ > 50)
-+			break;
-+	}
-+
-+	nv_update_linkspeed(dev);
-+
-+	return;
-+}
-+
- static int nv_suspend(struct pci_dev *pdev, pm_message_t state)
- {
- 	struct net_device *dev = pci_get_drvdata(pdev);
- 	struct fe_priv *np = netdev_priv(dev);
-+	u8 __iomem *base = get_hwbase(dev);
-+	int i;
+ 	/* some phys clear out pause advertisment on reset, set it back */
+ 	mii_rw(dev, np->phyaddr, MII_ADVERTISE, reg);
  
--	if (!netif_running(dev))
--		goto out;
-+	dprintk(KERN_DEBUG "forcedeth: nv_suspend\n");
-+
-+	if (netif_running(dev)) {
-+		netif_device_detach(dev);
- 
--	netif_device_detach(dev);
-+		/* bring down the adapter */
-+		nv_close(dev);
-+	}
- 
--	// Gross.
--	nv_close(dev);
-+	/* set phy to a lower speed to conserve power */
-+	if (!np->mac_in_use)
-+		nv_set_low_speed(dev);
- 
- 	pci_save_state(pdev);
-+
-+	/* save any device state */
-+	np->saved_phyinterface = readl(base + NvRegPhyInterface);
-+	for (i = 0; i < 64; i++) {
-+		pci_read_config_dword(pdev, i*4, &np->saved_config_space[i]);
-+	}
-+
- 	pci_enable_wake(pdev, pci_choose_state(pdev, state), np->wolenabled);
- 	pci_set_power_state(pdev, pci_choose_state(pdev, state));
--out:
-+
- 	return 0;
- }
- 
- static int nv_resume(struct pci_dev *pdev)
- {
- 	struct net_device *dev = pci_get_drvdata(pdev);
-+	struct fe_priv *np = netdev_priv(dev);
-+	u8 __iomem *base = get_hwbase(dev);
- 	int rc = 0;
-+	int i;
-+	u32 txreg;
- 
--	if (!netif_running(dev))
--		goto out;
--
--	netif_device_attach(dev);
-+	dprintk(KERN_DEBUG "forcedeth: nv_resume\n");
- 
- 	pci_set_power_state(pdev, PCI_D0);
- 	pci_restore_state(pdev);
-+
-+	/* restore saved config space */
-+	for (i = 0; i < 64; i++) {
-+		pci_write_config_dword(pdev, i*4, np->saved_config_space[i]);
-+	}
-+
- 	pci_enable_wake(pdev, PCI_D0, 0);
- 
--	rc = nv_open(dev);
--out:
-+	/* restore saved driver state */
-+	txreg = readl(base + NvRegTransmitPoll);
-+	txreg |= NVREG_TRANSMITPOLL_MAC_ADDR_REV;
-+	writel(txreg, base + NvRegTransmitPoll);
-+	writel(np->saved_phyinterface, base + NvRegPhyInterface);
-+	writel(np->orig_mac[0], base + NvRegMacAddrA);
-+	writel(np->orig_mac[1], base + NvRegMacAddrB);
-+
-+	/* re-initialize the phy */
-+	phy_init(dev);
-+
-+	if (netif_running(dev)) {
-+		netif_device_attach(dev);
-+
-+		/* bring up the adapter */
-+		rc = nv_open(dev);
-+	}
- 	return rc;
- }
- #else
 
---------------020706060506080500020609--
+--------------070402090800060803060900--
