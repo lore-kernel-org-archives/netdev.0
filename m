@@ -1,78 +1,64 @@
-From: Dave Jones <davej@redhat.com>
-Subject: Re: [PATCH] e1000: Don't enable polling in open()
-	(was: e1000: assertion hit in e1000_clean(), kernel 2.6.21.1)
-Date: Mon, 21 May 2007 21:22:27 -0400
-Message-ID: <20070522012227.GD11401@redhat.com>
-References: <20070521215134.14885.84952.stgit@localhost.localdomain>
-	<20070521221635.GA16888@redhat.com>
-	<20070522004921.GA8130@gondor.apana.org.au>
-	<46524033.4030901@intel.com>
+From: Ayaz Abdulla <aabdulla@nvidia.com>
+Subject: [PATCH 4/4] forcedeth: version bump
+Date: Mon, 21 May 2007 20:23:17 -0400
+Message-ID: <465237F5.2010208@nvidia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, e1000-devel@lists.sourceforge.net,
-	Herbert Xu <herbert.xu@redhat.com>, greg@suse.de,
-	stable@vger.kernel.org, netdev@vger.kernel.org
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-Content-Disposition: inline
-In-Reply-To: <46524033.4030901@intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: multipart/mixed;
+ boundary="------------090808070408040401020603"
+To: Jeff Garzik <jgarzik@pobox.com>,
+	Manfred Spraul <manfred@colorfullife.com>,
+	Andrew Morton <akpm@osdl.org>, nedev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hqemgate02.nvidia.com ([216.228.112.143]:14888 "EHLO
+	HQEMGATE02.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760408AbXEVDHu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 May 2007 23:07:50 -0400
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, May 21, 2007 at 05:58:27PM -0700, Kok, Auke wrote:
- > >> This probably doesn't solve the latter bug.
- > >> The code you reference isn't there in the kernel tested in that bug
- > >> (2.6.21)   In 2.6.21, netif_poll_enable is only called from
- > >> e1000_up(), not e1000_open()
- > > 
- > > Yes we need a different fix for 2.6.21.  There e1000_open calls
- > > e1000_up which is why we still get the netif_poll_enable.
- > 
- > yes, basically they need the patch that introduced(exposed) the problem as well, 
- > but that is a rather significant change and kind of moves the whole 
- > netstack-init code in e1000 around. The size was the reason why that patch 
- > didn't go into 2.6.21 in the first place, but perhaps they can pull both patches 
- > into the FC tree.
- > 
- > For reference, this is the commit:
- > 
- > commit e0aac5a289b1dacbc94bd9ae8c449bcdf9ab508c
- > Author: Auke Kok <auke-jan.h.kok@intel.com>
- > Date:   Tue Mar 6 08:57:21 2007 -0800
- > 
- >      e1000: FIX: be ready for incoming irq at pci_request_irq
- > 
- >      DEBUG_SHIRQ code exposed that e1000 was not ready for incoming interrupts
- >      after having called pci_request_irq. This obviously requires us to finish
- >      our software setup which assigns the irq handler before we request the
- >      irq.
- > 
- >      Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
- >      Signed-off-by: Jeff Garzik <jeff@garzik.org>
- > 
- > Dave, would that be an option for you?
+This is a multi-part message in MIME format.
+--------------090808070408040401020603
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Sounds like a plan.  I'll do a test-build with this and the other
-patch, and throw it at the people seeing the problem tomorrow.
+This patch bumps up the version.
 
-Thanks,
+Signed-off-by: Ayaz Abdulla <aabdulla@nvidia.com>
 
-	Dave
 
--- 
-http://www.codemonkey.org.uk
+--------------090808070408040401020603
+Content-Type: text/plain;
+ name="patch-forcedeth-version"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="patch-forcedeth-version"
 
--------------------------------------------------------------------------
-This SF.net email is sponsored by DB2 Express
-Download DB2 Express C - the FREE version of DB2 express and take
-control of your XML. No limits. Just data. Click to get it now.
-http://sourceforge.net/powerbar/db2/
+--- old/drivers/net/forcedeth.c	2007-05-21 20:09:03.000000000 -0400
++++ new/drivers/net/forcedeth.c	2007-05-21 20:10:32.000000000 -0400
+@@ -112,6 +112,7 @@
+  *	0.58: 30 Oct 2006: Added support for sideband management unit.
+  *	0.59: 30 Oct 2006: Added support for recoverable error.
+  *	0.60: 20 Jan 2007: Code optimizations for rings, rx & tx data paths, and stats.
++ *	0.61: 21 May 2007: Fix power management code, cpu mask, and added vitesse phy.
+  *
+  * Known bugs:
+  * We suspect that on some hardware no TX done interrupts are generated.
+@@ -128,7 +129,7 @@
+ #else
+ #define DRIVERNAPI
+ #endif
+-#define FORCEDETH_VERSION		"0.60"
++#define FORCEDETH_VERSION		"0.61"
+ #define DRV_NAME			"forcedeth"
+ 
+ #include <linux/module.h>
+@@ -5634,6 +5635,7 @@
+ MODULE_AUTHOR("Manfred Spraul <manfred@colorfullife.com>");
+ MODULE_DESCRIPTION("Reverse Engineered nForce ethernet driver");
+ MODULE_LICENSE("GPL");
++MODULE_VERSION(FORCEDETH_VERSION);
+ 
+ MODULE_DEVICE_TABLE(pci, pci_tbl);
+ 
+
+--------------090808070408040401020603--
