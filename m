@@ -1,47 +1,46 @@
-From: Li Yang <leoli@freescale.com>
-Subject: [PATCH 2/2] ucc_geth:trivial fix
-Date: Tue, 22 May 2007 20:34:14 +0800
-Message-ID: <4652E346.4080900@freescale.com>
+From: Kieran Mansley <kmansley@solarflare.com>
+Subject: Re: [Xen-devel] Re: [PATCH 3/4] [Net] Support Xen accelerated
+	network plugin modules
+Date: Tue, 22 May 2007 13:44:28 +0100
+Message-ID: <1179837868.28562.22.camel@moonstone.uk.level5networks.com>
+References: <C2785EC4.F4E3%keir@xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jeff@garzik.org
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	muli@il.ibm.com, netdev@vger.kernel.org,
+	xen-devel@lists.xensource.com, herbert@gondor.apana.org.au
+To: Keir Fraser <keir@xensource.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw01.freescale.net ([192.88.158.102]:46912 "EHLO
-	az33egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756142AbXEVMcc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 May 2007 08:32:32 -0400
-Received: from az33smr02.freescale.net (az33smr02.freescale.net [10.64.34.200])
-	by az33egw01.freescale.net (8.12.11/az33egw01) with ESMTP id l4MCWTZB007018
-	for <netdev@vger.kernel.org>; Tue, 22 May 2007 05:32:30 -0700 (MST)
-Received: from zch01exm20.fsl.freescale.net (zch01exm20.ap.freescale.net [10.192.129.204])
-	by az33smr02.freescale.net (8.13.1/8.13.0) with ESMTP id l4MCWSZv027151
-	for <netdev@vger.kernel.org>; Tue, 22 May 2007 07:32:29 -0500 (CDT)
+Received: from 216-237-3-220.orange.nextweb.net ([216.237.3.220]:11974 "EHLO
+	OCEX01.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1756203AbXEVMoc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 May 2007 08:44:32 -0400
+In-Reply-To: <C2785EC4.F4E3%keir@xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Remove redundant includes.
+On Tue, 2007-05-22 at 08:48 +0100, Keir Fraser wrote:
+> 
+> 
+> On 22/5/07 08:28, "Kieran Mansley" <kmansley@solarflare.com> wrote:
+> 
+> > On Tue, 2007-05-22 at 08:15 +0100, Kieran Mansley wrote:
+> >> RCU on its own wouldn't
+> >> prevent the accelerated plugin being unloaded while netfront was using
+> >> one of the hooks.
+> > 
+> > Hmm, actually I think it could be used to do that.  I'll take a look.
+> 
+> Eagerly zap the function pointers, then wait one RCU period so every CPU
+> goes through a quiescent point before unloading the module?
+> 
+>  -- Keir
 
-Signed-off-by: Li Yang <leoli@freescale.com>
----
- drivers/net/ucc_geth.c |    3 ---
- 1 files changed, 0 insertions(+), 3 deletions(-)
+Am I right in thinking that if one of the functions that was protected
+by RCU was to block, that would be a bad thing?  Clearly the data path
+hooks can't/don't block, but I'm not sure it's so obvious for things
+like probing a new device. 
 
-diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
-index 864b1aa..3b27b6d 100644
---- a/drivers/net/ucc_geth.c
-+++ b/drivers/net/ucc_geth.c
-@@ -23,11 +23,8 @@
- #include <linux/skbuff.h>
- #include <linux/spinlock.h>
- #include <linux/mm.h>
--#include <linux/ethtool.h>
--#include <linux/delay.h>
- #include <linux/dma-mapping.h>
- #include <linux/fsl_devices.h>
--#include <linux/ethtool.h>
- #include <linux/mii.h>
- #include <linux/phy.h>
- #include <linux/workqueue.h>
+Kieran
 
