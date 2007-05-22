@@ -1,55 +1,34 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: UDP packet loss when running lsof
-Date: Tue, 22 May 2007 08:47:40 +0200
-Message-ID: <4652920C.8020608@cosmosbay.com>
-References: <loom.20070521T090409-252@post.gmane.org>	<20070521113503.6bb70ae4.dada1@cosmosbay.com> <20070522021259.95ukifwz8kc4gccg@www.pochta.ru> <46528973.50809@cosmosbay.com>
+From: Kieran Mansley <kmansley@solarflare.com>
+Subject: Re: [PATCH 3/4] [Net] Support Xen accelerated network plugin
+	modules
+Date: Tue, 22 May 2007 08:00:28 +0100
+Message-ID: <1179817228.4145.2.camel@moonstone.uk.level5networks.com>
+References: <1179494208.14376.10.camel@moonstone.uk.level5networks.com>
+	 <20070521105003.7fceb584@freepuppy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: John Miller <forall@mail15.com>, netdev@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: xen-devel@lists.xensource.com, netdev@vger.kernel.org,
+	muli@il.ibm.com, herbert@gondor.apana.org.au
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([86.65.150.130]:43527 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757628AbXEVGrt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 May 2007 02:47:49 -0400
-In-Reply-To: <46528973.50809@cosmosbay.com>
+Received: from 216-237-3-220.orange.nextweb.net ([216.237.3.220]:6793 "EHLO
+	OCEX01.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1759044AbXEVHAf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 May 2007 03:00:35 -0400
+In-Reply-To: <20070521105003.7fceb584@freepuppy>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Eric Dumazet a =C3=A9crit :
-> John Miller a =C3=A9crit :
->> Hi Eric,
->>
->>> I CCed netdev since this stuff is about network and not
->>> lkml.
->>
->> Ok, dropped the CC...
->>
->>> What kind of machine do you have ? SMP or not ?
->>
->> It's a HP system with two dual core CPUs at 3GHz, the
->> storage system is connected through QLogic FC-HBA. It should
->> really be fast enough to handle a data stream of 50 MB/s...
->=20
-> Then you might try to bind network IRQ to one CPU
-> (echo 1 >/proc/irq/XX/smp_affinity)
->=20
-> XX being your NIC interrupt (cat /proc/interrupts to catch it)
->=20
-> and bind your user program to another cpu(s)
->=20
-> You might hit a cond_resched_softirq() bug that Ingo and others are=20
-> sorting out right now. Using separate CPU for softirq handling and yo=
-ur=20
-> programs should help a lot here.
+On Mon, 2007-05-21 at 10:50 -0700, Stephen Hemminger wrote:
 
-You might try this patch, now that Ingo "Signed-off-by" it.
+> Your mailer is word wrapping the patch so it won't apply as is.
 
-http://marc.info/?l=3Dlinux-kernel&m=3D117981607429875&w=3D2
+Apologies - I'll make sure it doesn't for the next revision.  There
+should also have been a copy attached to the email that I would not
+expect to be wrapped.
 
+Thanks
 
-I guess that with a correct softirq resched, no need to play with IRQ=20
-affinities, unless you really want to push performance.
+Kieran
 
