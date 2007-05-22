@@ -1,46 +1,47 @@
-From: Kieran Mansley <kmansley@solarflare.com>
+From: Keir Fraser <keir@xensource.com>
 Subject: Re: [Xen-devel] Re: [PATCH 3/4] [Net] Support Xen accelerated
-	network plugin modules
-Date: Tue, 22 May 2007 13:44:28 +0100
-Message-ID: <1179837868.28562.22.camel@moonstone.uk.level5networks.com>
-References: <C2785EC4.F4E3%keir@xensource.com>
+ network plugin modules
+Date: Tue, 22 May 2007 15:07:09 +0100
+Message-ID: <C278B79D.F53F%keir@xensource.com>
+References: <1179837868.28562.22.camel@moonstone.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+	charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	muli@il.ibm.com, netdev@vger.kernel.org,
-	xen-devel@lists.xensource.com, herbert@gondor.apana.org.au
-To: Keir Fraser <keir@xensource.com>
+Cc: <muli@il.ibm.com>, <netdev@vger.kernel.org>,
+	<xen-devel@lists.xensource.com>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	<herbert@gondor.apana.org.au>
+To: Kieran Mansley <kmansley@solarflare.com>,
+	Keir Fraser <keir@xensource.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 216-237-3-220.orange.nextweb.net ([216.237.3.220]:11974 "EHLO
-	OCEX01.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1756203AbXEVMoc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 May 2007 08:44:32 -0400
-In-Reply-To: <C2785EC4.F4E3%keir@xensource.com>
+Received: from 207.47.60.4.static.nextweb.net ([207.47.60.4]:53729 "EHLO
+	rpc.xensource.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1757609AbXEVOHW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 May 2007 10:07:22 -0400
+In-Reply-To: <1179837868.28562.22.camel@moonstone.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2007-05-22 at 08:48 +0100, Keir Fraser wrote:
-> 
-> 
-> On 22/5/07 08:28, "Kieran Mansley" <kmansley@solarflare.com> wrote:
-> 
-> > On Tue, 2007-05-22 at 08:15 +0100, Kieran Mansley wrote:
-> >> RCU on its own wouldn't
-> >> prevent the accelerated plugin being unloaded while netfront was using
-> >> one of the hooks.
-> > 
-> > Hmm, actually I think it could be used to do that.  I'll take a look.
-> 
-> Eagerly zap the function pointers, then wait one RCU period so every CPU
-> goes through a quiescent point before unloading the module?
-> 
->  -- Keir
+On 22/5/07 13:44, "Kieran Mansley" <kmansley@solarflare.com> wrote:
 
-Am I right in thinking that if one of the functions that was protected
-by RCU was to block, that would be a bad thing?  Clearly the data path
-hooks can't/don't block, but I'm not sure it's so obvious for things
-like probing a new device. 
+>> Eagerly zap the function pointers, then wait one RCU period so every CPU
+>> goes through a quiescent point before unloading the module?
+>> 
+>>  -- Keir
+> 
+> Am I right in thinking that if one of the functions that was protected
+> by RCU was to block, that would be a bad thing?  Clearly the data path
+> hooks can't/don't block, but I'm not sure it's so obvious for things
+> like probing a new device.
 
-Kieran
+Are there still module reference counts? If so, functions which may block
+can manipulate their module's reference count.
+
+Or if not, I guess the accelerator module can have a private reference count
+checked by whatever unload function gets called from the RCU subsystem. So
+that unload becomes deferred until *both* an RCU phase has passed *and* a
+reference count has fallen to zero.
+
+ -- Keir
 
