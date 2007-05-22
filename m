@@ -1,39 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] New driver API to speed up small packets xmits
-Date: Tue, 22 May 2007 16:04:37 -0700 (PDT)
-Message-ID: <20070522.160437.48528737.davem@davemloft.net>
-References: <20070522.153636.115911096.davem@davemloft.net>
-	<OFCF3EB7F8.9740C0C7-ON872572E3.007DADF6-882572E3.007E0E7B@us.ibm.com>
+From: linas@austin.ibm.com (Linas Vepstas)
+Subject: [PATCH 1/10] spidernet: skb used after netif_receive_skb
+Date: Tue, 22 May 2007 18:09:42 -0500
+Message-ID: <20070522230942.GT5921@austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ak@suse.de, herbert@gondor.apana.org.au, krkumar2@in.ibm.com,
-	netdev@vger.kernel.org, netdev-owner@vger.kernel.org,
-	rdreier@cisco.com
-To: xma@us.ibm.com
+Content-Type: text/plain; charset=us-ascii
+Cc: cbe-oss-dev@ozlabs.org, netdev@vger.kernel.org,
+	linuxppc-dev@ozlabs.org, Florin Malita <fmalita@gmail.com>
+To: Jeff Garzik <jgarzik@pobox.com>, Andrew Morton <akpm@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47661
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756173AbXEVXEf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 May 2007 19:04:35 -0400
-In-Reply-To: <OFCF3EB7F8.9740C0C7-ON872572E3.007DADF6-882572E3.007E0E7B@us.ibm.com>
+Received: from e31.co.us.ibm.com ([32.97.110.149]:53646 "EHLO
+	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756166AbXEVXJr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 May 2007 19:09:47 -0400
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e31.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l4MN9kgd029233
+	for <netdev@vger.kernel.org>; Tue, 22 May 2007 19:09:46 -0400
+Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
+	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l4MN9kk6216114
+	for <netdev@vger.kernel.org>; Tue, 22 May 2007 17:09:46 -0600
+Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l4MN9jBu016365
+	for <netdev@vger.kernel.org>; Tue, 22 May 2007 17:09:45 -0600
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Shirley Ma <xma@us.ibm.com>
-Date: Tue, 22 May 2007 15:58:05 -0700
+From: Florin Malita <fmalita@gmail.com>
 
-> Sorry for the confusion. I am thinking to avoid copy in skb_segment() for
-> GSO. The way could be in tcp_sendmsg() to allocate small discontiguous
-> buffers (equal = MTU) instead of allocating pages.
+The stats update code in spider_net_pass_skb_up() is touching the skb 
+after it's been passed up to the stack. To avoid that, just update the 
+stats first.
 
-The SKB splitting algorithm in TCP's transmit engine depends upon the
-skb_shared_info() array being splittable at arbitrary points with only
-page counts to manage.  This is the only way I found to make SKB
-splitting at transmit time extremely inexpensive.
+Signed-off-by: Florin Malita <fmalita@gmail.com>
+Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
+----
 
-SACK block processing needs to perform these kinds of splits
-at well, so it really really has to be cheap.
+ drivers/net/spider_net.c |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-The invariant is that every TCP TSO packet must have it's header
-at skb->data and all of it's data in the paged skb_shared_info().
+diff --git a/drivers/net/spider_net.c b/drivers/net/spider_net.c
+index 108adbf..1df2f0b 100644
+Index: netdev-2.6/drivers/net/spider_net.c
+===================================================================
+--- netdev-2.6.orig/drivers/net/spider_net.c	2007-05-21 17:40:49.000000000 -0500
++++ netdev-2.6/drivers/net/spider_net.c	2007-05-22 18:03:16.000000000 -0500
+@@ -1014,12 +1014,12 @@ spider_net_pass_skb_up(struct spider_net
+ 		 */
+ 	}
+ 
+-	/* pass skb up to stack */
+-	netif_receive_skb(skb);
+-
+ 	/* update netdevice statistics */
+ 	card->netdev_stats.rx_packets++;
+ 	card->netdev_stats.rx_bytes += skb->len;
++
++	/* pass skb up to stack */
++	netif_receive_skb(skb);
+ }
+ 
+ #ifdef DEBUG
