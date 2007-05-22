@@ -1,56 +1,57 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH] e1000: Don't enable polling in open()
- (was: e1000: assertion hit in e1000_clean(), kernel 2.6.21.1)
-Date: Tue, 22 May 2007 10:02:53 -0700
-Message-ID: <4653223D.2010108@intel.com>
-References: <20070521215134.14885.84952.stgit@localhost.localdomain>
-	<46522E6F.9060600@garzik.org>
-	<20070522010137.GC8130@gondor.apana.org.au>
-	<465320A6.80706@redhat.com>
+From: Steve Fox <drfickle@linux.vnet.ibm.com>
+Subject: Re: select(0, ..) is valid ?
+Date: Tue, 22 May 2007 12:49:21 -0500
+Message-ID: <1179856161.3124.110.camel@drfickle.rchland.ibm.com>
+References: <1179250159.2836.117.camel@dyn9047017100.beaverton.ibm.com>
+	 <20070515104453.f901e91f.akpm@linux-foundation.org>
+	 <Pine.LNX.4.64.0705151109021.31972@schroedinger.engr.sgi.com>
+	 <Pine.LNX.4.64.0705151927360.28895@blonde.wat.veritas.com>
+	 <20070516153703.GA26912@kryten>
+	 <1179363553.16195.10.camel@dyn9047017100.beaverton.ibm.com>
+	 <1179843397.3124.109.camel@drfickle.rchland.ibm.com>
+	 <20070522143432.GA1938@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, e1000-devel@lists.sourceforge.net,
-	Herbert Xu <herbert.xu@redhat.com>, Greg KH <greg@kroah.com>,
-	netdev@vger.kernel.org, davej@redhat.com, stable@kernel.org
-To: Chuck Ebbert <cebbert@redhat.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <465320A6.80706@redhat.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Cc: Badari Pulavarty <pbadari@us.ibm.com>,
+	Anton Blanchard <anton@samba.org>,
+	Hugh Dickins <hugh@veritas.com>,
+	Christoph Lameter <clameter@sgi.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, lkml <linux-kernel@vger.kernel.org>,
+	sfr@canb.auug.org.au, ak@suse.de, Andy Whitcroft <andyw@uk.ibm.com>
+To: Nishanth Aravamudan <nacc@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e36.co.us.ibm.com ([32.97.110.154]:54600 "EHLO
+	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758711AbXEVRt1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 May 2007 13:49:27 -0400
+In-Reply-To: <20070522143432.GA1938@us.ibm.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Chuck Ebbert wrote:
-> Herbert Xu wrote:
->> On Mon, May 21, 2007 at 07:42:39PM -0400, Jeff Garzik wrote:
->>> applied, though as a poster (DaveJ?) noted, I'm not sure it completely 
->>> fixes the bug
->> It should fix the problem completely in 2.6.22.  For 2.6.21, we need
->> a different fix because e1000_open is directly calling e1000_up.
->>
+On Tue, 2007-05-22 at 07:34 -0700, Nishanth Aravamudan wrote:
+> On 22.05.2007 [09:16:37 -0500], Steve Fox wrote:
+> > 
+> > Andy put this through a couple machines on test.kernel.org and elm3b6
+> > was fixed, however elm3b239 still had a boot error.
+> > 
+> > BUG: at mm/slab.c:777 __find_general_cachep()
+> > 
+> > Call Trace:
+> >  [<ffffffff802729c6>] __kmalloc+0xa6/0xe0
+> >  [<ffffffff8021d21b>] cache_k8_northbridges+0x9b/0x120
 > 
-> Is there going to be a 2.6.21-stable fix for this?
+> I believe this is fixed by:
 > 
-> Fedora is going to backport a big patchset but that won't work
-> for -stable.
+> http://lkml.org/lkml/2007/5/18/19
+> 
+> Care to stack it on top and retest?
 
-I've posted that before and it's up to the stable team. I think that it's a 
-seriously toolarge change unless Herbert posts his short version of the fix for 
-2.6.21.1. I would be OK with that.
+Looks good. See the "2.6.22-rc2-git1 +1 +1" row on tko. Thanks.
 
-BTW this bug is present in most recent kernels, certainly before 2.6.20...
+-- 
 
-Auke
+Steve Fox
+IBM Linux Technology Center
 
--------------------------------------------------------------------------
-This SF.net email is sponsored by DB2 Express
-Download DB2 Express C - the FREE version of DB2 express and take
-control of your XML. No limits. Just data. Click to get it now.
-http://sourceforge.net/powerbar/db2/
