@@ -1,85 +1,35 @@
-From: linas@austin.ibm.com (Linas Vepstas)
-Subject: [PATCH 3/10] spidernet: move a block of code around
-Date: Tue, 22 May 2007 18:21:15 -0500
-Message-ID: <20070522232115.GB2147@austin.ibm.com>
-References: <20070522230942.GT5921@austin.ibm.com>
+From: =?UTF-8?B?IlRob21hcyBCLiBSw7xja2VyIg==?= <dm8tbr@openpma.org>
+Subject: Re: UDP checksum broken since 2.6.18?
+Date: Tue, 22 May 2007 23:33:30 +0000
+Message-ID: <46537DCA.7060603@openpma.org>
+References: <465364EA.3020100@openpma.org> <20070522161217.20875c39@freepuppy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: cbe-oss-dev@ozlabs.org, netdev@vger.kernel.org,
-	linuxppc-dev@ozlabs.org, Florin Malita <fmalita@gmail.com>
-To: Jeff Garzik <jgarzik@pobox.com>, Andrew Morton <akpm@osdl.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+To: Stephen Hemminger <shemminger@linux-foundation.org>,
+	=?UTF-8?B?UGhpbGk=?= =?UTF-8?B?cHAgR8O8aHJpbmc=?=
+	<pg@futureware.at>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e3.ny.us.ibm.com ([32.97.182.143]:57019 "EHLO e3.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760892AbXEVXVT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 May 2007 19:21:19 -0400
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e3.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l4MMJDGA000324
-	for <netdev@vger.kernel.org>; Tue, 22 May 2007 18:19:13 -0400
-Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l4MNLGsg531268
-	for <netdev@vger.kernel.org>; Tue, 22 May 2007 19:21:16 -0400
-Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
-	by d01av02.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l4MNLGQP027273
-	for <netdev@vger.kernel.org>; Tue, 22 May 2007 19:21:16 -0400
-Content-Disposition: inline
-In-Reply-To: <20070522230942.GT5921@austin.ibm.com>
+Received: from vpn-da.werderstrasse.de ([217.195.43.101]:57007 "EHLO
+	dk0td.afthd.tu-darmstadt.de" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1756104AbXEVXdc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 May 2007 19:33:32 -0400
+In-Reply-To: <20070522161217.20875c39@freepuppy>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Stephen Hemminger wrote:
+> The packet passed to packet capture programs may not have a valid checksum
+> if you have checksum offload configured on the device.  What kind of hardware
+> do you have on sender and receiver? 
+The c-snippet uses 127.x.x.x --> loopback
+I think Philipp tested this on real NICs too.
 
-Put the enable and disable routines next to one-another, 
-as this makes verifying thier symmetry that much easier.
+I just proxied this information to this list because I don't have the
+indepth knowledge about IP, UDP and the kernel. I had a Chat with Ralf
+Baechle and he recommended sending a report to netdev@. Maybe Philipp
+can give some more information. He discovered this.
 
-Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
+Cheers
 
-----
- drivers/net/spider_net.c |   28 ++++++++++++++--------------
- 1 file changed, 14 insertions(+), 14 deletions(-)
-
-Index: netdev-2.6/drivers/net/spider_net.c
-===================================================================
---- netdev-2.6.orig/drivers/net/spider_net.c	2007-05-22 18:03:24.000000000 -0500
-+++ netdev-2.6/drivers/net/spider_net.c	2007-05-22 18:03:30.000000000 -0500
-@@ -506,6 +506,20 @@ spider_net_enable_rxdmac(struct spider_n
- }
- 
- /**
-+ * spider_net_disable_rxdmac - disables the receive DMA controller
-+ * @card: card structure
-+ *
-+ * spider_net_disable_rxdmac terminates processing on the DMA controller
-+ * by turing off the DMA controller, with the force-end flag set.
-+ */
-+static inline void
-+spider_net_disable_rxdmac(struct spider_net_card *card)
-+{
-+	spider_net_write_reg(card, SPIDER_NET_GDADMACCNTR,
-+			     SPIDER_NET_DMA_RX_FEND_VALUE);
-+}
-+
-+/**
-  * spider_net_refill_rx_chain - refills descriptors/skbs in the rx chains
-  * @card: card structure
-  *
-@@ -657,20 +671,6 @@ write_hash:
- }
- 
- /**
-- * spider_net_disable_rxdmac - disables the receive DMA controller
-- * @card: card structure
-- *
-- * spider_net_disable_rxdmac terminates processing on the DMA controller by
-- * turing off DMA and issueing a force end
-- */
--static void
--spider_net_disable_rxdmac(struct spider_net_card *card)
--{
--	spider_net_write_reg(card, SPIDER_NET_GDADMACCNTR,
--			     SPIDER_NET_DMA_RX_FEND_VALUE);
--}
--
--/**
-  * spider_net_prepare_tx_descr - fill tx descriptor with skb data
-  * @card: card structure
-  * @descr: descriptor structure to fill out
+Thomas
