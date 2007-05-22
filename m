@@ -1,54 +1,78 @@
-From: "Nish Aravamudan" <nish.aravamudan@gmail.com>
-Subject: Re: select(0, ..) is valid ?
-Date: Mon, 21 May 2007 18:21:18 -0700
-Message-ID: <29495f1d0705211821r4200a1fft2b5c07a62b0620b1@mail.gmail.com>
-References: <1179250159.2836.117.camel@dyn9047017100.beaverton.ibm.com>
-	 <Pine.LNX.4.64.0705151927360.28895@blonde.wat.veritas.com>
-	 <20070516153703.GA26912@kryten> <200705181521.34339.ak@suse.de>
+From: Dave Jones <davej@redhat.com>
+Subject: Re: [PATCH] e1000: Don't enable polling in open()
+	(was: e1000: assertion hit in e1000_clean(), kernel 2.6.21.1)
+Date: Mon, 21 May 2007 21:22:27 -0400
+Message-ID: <20070522012227.GD11401@redhat.com>
+References: <20070521215134.14885.84952.stgit@localhost.localdomain>
+	<20070521221635.GA16888@redhat.com>
+	<20070522004921.GA8130@gondor.apana.org.au>
+	<46524033.4030901@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "Anton Blanchard" <anton@samba.org>,
-	"Hugh Dickins" <hugh@veritas.com>,
-	"Christoph Lameter" <clameter@sgi.com>,
-	"Andrew Morton" <akpm@linux-foundation.org>,
-	"Badari Pulavarty" <pbadari@us.ibm.com>, netdev@vger.kernel.org,
-	lkml <linux-kernel@vger.kernel.org>, sfr@canb.auug.org.au
-To: "Andi Kleen" <ak@suse.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.171]:31280 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756187AbXEVBVT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 May 2007 21:21:19 -0400
-Received: by ug-out-1314.google.com with SMTP id 44so111085uga
-        for <netdev@vger.kernel.org>; Mon, 21 May 2007 18:21:18 -0700 (PDT)
-In-Reply-To: <200705181521.34339.ak@suse.de>
+Cc: jeff@garzik.org, e1000-devel@lists.sourceforge.net,
+	Herbert Xu <herbert.xu@redhat.com>, greg@suse.de,
+	stable@vger.kernel.org, netdev@vger.kernel.org
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <46524033.4030901@intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On 5/18/07, Andi Kleen <ak@suse.de> wrote:
-> On Wednesday 16 May 2007 17:37, Anton Blanchard wrote:
-> > Hi Hugh,
-> >
-> > > It's interesting that compat_core_sys_select() shows this kmalloc(0)
-> > > failure but core_sys_select() does not.  That's because core_sys_select()
-> > > avoids kmalloc by using a buffer on the stack for small allocations (and
-> > > 0 sure is small).  Shouldn't compat_core_sys_select() do just the same?
-> > > Or is SLUB going to be so efficient that doing so is a waste of time?
-> >
-> > Nice catch, the original optimisation from Andi is:
-> >
-> > http://git.kernel.org/git-new/?p=linux/kernel/git/torvalds/linux-2.6.git;a=
-> >commit;h=70674f95c0a2ea694d5c39f4e514f538a09be36f
-> >
-> > And I think it makes sense for the compat code to do it too.
->
-> Yes agreed. I just forgot the copy'n'pasted code when doing the original
-> change.
+On Mon, May 21, 2007 at 05:58:27PM -0700, Kok, Auke wrote:
+ > >> This probably doesn't solve the latter bug.
+ > >> The code you reference isn't there in the kernel tested in that bug
+ > >> (2.6.21)   In 2.6.21, netif_poll_enable is only called from
+ > >> e1000_up(), not e1000_open()
+ > > 
+ > > Yes we need a different fix for 2.6.21.  There e1000_open calls
+ > > e1000_up which is why we still get the netif_poll_enable.
+ > 
+ > yes, basically they need the patch that introduced(exposed) the problem as well, 
+ > but that is a rather significant change and kind of moves the whole 
+ > netstack-init code in e1000 around. The size was the reason why that patch 
+ > didn't go into 2.6.21 in the first place, but perhaps they can pull both patches 
+ > into the FC tree.
+ > 
+ > For reference, this is the commit:
+ > 
+ > commit e0aac5a289b1dacbc94bd9ae8c449bcdf9ab508c
+ > Author: Auke Kok <auke-jan.h.kok@intel.com>
+ > Date:   Tue Mar 6 08:57:21 2007 -0800
+ > 
+ >      e1000: FIX: be ready for incoming irq at pci_request_irq
+ > 
+ >      DEBUG_SHIRQ code exposed that e1000 was not ready for incoming interrupts
+ >      after having called pci_request_irq. This obviously requires us to finish
+ >      our software setup which assigns the irq handler before we request the
+ >      irq.
+ > 
+ >      Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+ >      Signed-off-by: Jeff Garzik <jeff@garzik.org>
+ > 
+ > Dave, would that be an option for you?
 
-Is this headed upstream? It's causing some noise on test.kernel.org
-now that SLAB is also warning about kmalloc(0).
+Sounds like a plan.  I'll do a test-build with this and the other
+patch, and throw it at the people seeing the problem tomorrow.
 
 Thanks,
-Nish
+
+	Dave
+
+-- 
+http://www.codemonkey.org.uk
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by DB2 Express
+Download DB2 Express C - the FREE version of DB2 express and take
+control of your XML. No limits. Just data. Click to get it now.
+http://sourceforge.net/powerbar/db2/
