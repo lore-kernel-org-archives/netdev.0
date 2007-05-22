@@ -1,55 +1,38 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [RTNETLINK]: Remove remains of wireless extensions over
-	rtnetlink
-Date: Tue, 22 May 2007 11:27:46 +0200
-Message-ID: <1179826067.5004.4.camel@johannes.berg>
-References: <4652117D.7060000@trash.net>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: TCP_MD5 and Intel e1000
+Date: Tue, 22 May 2007 18:36:47 +0900 (JST)
+Message-ID: <20070522.183647.75785266.yoshfuji@linux-ipv6.org>
+References: <C2786969.24B46%webmaster@poweraudio.de>
+	<20070522105738.f03cb83b.dada1@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-nZqbhB/E2cfqS1N+jdws"
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Kernel Netdev Mailing List <netdev@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: webmaster@poweraudio.de, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: dada1@cosmosbay.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:37820 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756606AbXEVJ0f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 May 2007 05:26:35 -0400
-In-Reply-To: <4652117D.7060000@trash.net>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:32771 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755827AbXEVJgt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 May 2007 05:36:49 -0400
+In-Reply-To: <20070522105738.f03cb83b.dada1@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+In article <20070522105738.f03cb83b.dada1@cosmosbay.com> (at Tue, 22 May 2007 10:57:38 +0200), Eric Dumazet <dada1@cosmosbay.com> says:
 
---=-nZqbhB/E2cfqS1N+jdws
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+> > I have tried to set up quagga with tcp-md5 support from kernel. All seems ok
+> > with a intel e100 NIC, but as i testetd with a intel e1000 NIC the tcp
+> > packets have an invalid md5 digest.
+> > If i run tcpdump on the mashine the packets are generated, it shows on the
+> > outgoing interface invalid md5 digests.
+> > Are there known issues about tcp-md5 and e1000 NICs?
+:
+> You could try "ethtool -K tx off", and/or other ethtool -K settings
 
+Disabling offloading should help; currently tcp-md5 stack
+blindly copy md5-signature from the first segment
+which is not appropriate for rest of segments.
 
-> [RTNETLINK]: Remove remains of wireless extensions over rtnetlink
->=20
-> Remove some unused variables and function arguments related to the recent=
-ly
-> removed wireless extensions over rtnetlink.
-
-Still more! Sorry about that and thanks!
-
-> Signed-off-by: Patrick McHardy <kaber@trash.net>
-
-Since I did the removal in the first place,
-Acked-by: Johannes Berg <johannes@sipsolutions.net>
-
-johannes
-
---=-nZqbhB/E2cfqS1N+jdws
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iD8DBQBGUreS/ETPhpq3jKURAm9LAJwJxKCnj3RlbRSOqAuJ5pvjFhTU1QCglpqq
-QyfWpm3tP3ij7CVH6t6Wgbg=
-=SI83
------END PGP SIGNATURE-----
-
---=-nZqbhB/E2cfqS1N+jdws--
-
+--yoshfuji
