@@ -1,41 +1,49 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: intermittant petabyte usage reported with broadcom nic
-Date: Mon, 21 May 2007 18:15:04 -0700
-Message-ID: <1179796504.1661.152.camel@dell>
-References: <20070402014319.GA8345@zip.com.au>
- <20070402001300.3b66007d.akpm@linux-foundation.org>
- <20070402074108.GB8345@zip.com.au> <1176596401.5847.7.camel@dell>
+From: Herbert Xu <herbert.xu@redhat.com>
+Subject: Re: [PATCH] e1000: Don't enable polling in open() (was: e1000: assertion hit in e1000_clean(), kernel 2.6.21.1)
+Date: Tue, 22 May 2007 10:49:21 +1000
+Message-ID: <20070522004921.GA8130@gondor.apana.org.au>
+References: <20070521215134.14885.84952.stgit@localhost.localdomain> <20070521221635.GA16888@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "Andrew Morton" <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, "netdev" <netdev@vger.kernel.org>
-To: "CaT" <cat@zip.com.au>, jd@disjunkt.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Auke Kok <auke-jan.h.kok@intel.com>, jeff@garzik.org,
+	stable@vger.kernel.org, greg@suse.de,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: Dave Jones <davej@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4789 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754958AbXEVA00 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 May 2007 20:26:26 -0400
-In-Reply-To: <1176596401.5847.7.camel@dell>
+Received: from rhun.apana.org.au ([64.62.148.172]:1787 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756034AbXEVAtp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 May 2007 20:49:45 -0400
+Content-Disposition: inline
+In-Reply-To: <20070521221635.GA16888@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2 Apr 2007 11:43:19 +1000 CaT <cat@zip.com.au> wrote:
->  
-> I take minute by minute snapshots of network traffic by sampling
-> /proc/net/dev and most of the time everything works fine. Occasionally
-> though I get petabyte byte traffic and corresponding packet traffic.
+On Mon, May 21, 2007 at 06:16:35PM -0400, Dave Jones wrote:
+> On Mon, May 21, 2007 at 02:51:35PM -0700, Auke Kok wrote:
+>  > Herbert Xu wrote:
+>  > "netif_poll_enable can only be called if you've previously called
+>  > netif_poll_disable.  Otherwise a poll might already be in action
+>  > and you may get a crash like this."
+>  > 
+>  > Removing the call to netif_poll_enable in e1000_open should fix this issue,
+>  > the only other call to netif_poll_enable is in e1000_up() which is only
+>  > reached after a device reset or resume.
+>  > 
+>  > Bugzilla: http://bugzilla.kernel.org/show_bug.cgi?id=8455
+>  > https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=240339
+> 
+> This probably doesn't solve the latter bug.
+> The code you reference isn't there in the kernel tested in that bug
+> (2.6.21)   In 2.6.21, netif_poll_enable is only called from
+> e1000_up(), not e1000_open()
 
-We were able to reproduce the problem and confirmed that it was a DMA
-problem of the statistics block.  About once an hour on average, wrong
-counter values will be DMA'ed to host memory.  Luckily, the DMA write
-stays within the intended address range so it will not corrupt other
-parts of memory.  Other types of DMA including traffic and buffer
-descriptors are not affected.
+Yes we need a different fix for 2.6.21.  There e1000_open calls
+e1000_up which is why we still get the netif_poll_enable.
 
-If you happen to be reading /proc/net/dev within a second after the DMA
-corruption, you'll see bogus counters.  One second later and until the
-next bad DMA, the counters will be normal again.
-
-We are considering ways to workaround the problem.  Thanks.
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
