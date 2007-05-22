@@ -1,106 +1,68 @@
-From: Daniel Drake <dsd@gentoo.org>
-Subject: [PATCH] zd1211rw-mac80211: Make CCK gain patching conditional on RF type
-Date: Tue, 22 May 2007 01:03:54 +0100 (BST)
-Message-ID: <20070522000355.469E07B409F@zog.reactivated.net>
-Cc: linux-wireless@vger.kernel.org
-To: linville@tuxdriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtaout02-winn.ispmail.ntl.com ([81.103.221.48]:33930 "EHLO
-	mtaout02-winn.ispmail.ntl.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756542AbXEVADv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 May 2007 20:03:51 -0400
-Cc: netdev@vger.kernel.org
-Cc: kune@deine-taler.de
-Sender: netdev-owner@vger.kernel.org
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: [PATCH] e1000: Don't enable polling in open()
+ (was: e1000: assertion hit in e1000_clean(), kernel 2.6.21.1)
+Date: Mon, 21 May 2007 17:04:53 -0700
+Message-ID: <465233A5.4060102@intel.com>
+References: <20070521215134.14885.84952.stgit@localhost.localdomain>
+	<46522E6F.9060600@garzik.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, e1000-devel@lists.sourceforge.net,
+	Greg KH <greg@kroah.com>, netdev@vger.kernel.org, davej@redhat.com,
+	stable@kernel.org
+To: Jeff Garzik <jeff@garzik.org>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <46522E6F.9060600@garzik.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-The vendor driver code suggests that CR47 patching happens on every channel
-change for every RF (depending on bit 8 in POD).
+Jeff Garzik wrote:
+> Auke Kok wrote:
+>> Herbert Xu wrote:
+>> "netif_poll_enable can only be called if you've previously called
+>> netif_poll_disable.  Otherwise a poll might already be in action
+>> and you may get a crash like this."
+>>
+>> Removing the call to netif_poll_enable in e1000_open should fix this issue,
+>> the only other call to netif_poll_enable is in e1000_up() which is only
+>> reached after a device reset or resume.
+>>
+>> Bugzilla: http://bugzilla.kernel.org/show_bug.cgi?id=8455
+>> https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=240339
+>>
+>> Tested by Doug Chapman <doug.chapman@hp.com>
+>>
+>> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+>> Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+>> ---
+>>
+>>  drivers/net/e1000/e1000_main.c |    4 ----
+>>  1 files changed, 0 insertions(+), 4 deletions(-)
+> 
+> applied, though as a poster (DaveJ?) noted, I'm not sure it completely 
+> fixes the bug
 
-Due to a bug in their driver (upper bits of RF_Mode get zeroed out, then
-are examined for 1s when setting some other flags), this isn't actually
-what happens, and their generic CCK patching routine never takes effect.
+It fixes the HP IA64 issue reported by Doug Chapman, but indeed does not even 
+apply to the FC bugzilla. I was mistaken due to the fact that I sent the code 
+that introduced the bug a while ago, but it's not in 2.6.21 (it was in the 
+e1000-fixes tree you had and merged after 2.6.21).
 
-Some of their RF configurations do include explicit (duplicated) code
-for CR47 patching though. This patch makes zd1211rw match that
-behaviour.
+So, this patch doesn't apply for -stable.
 
-Signed-off-by: Daniel Drake <dsd@gentoo.org>
----
- drivers/net/wireless/mac80211/zd1211rw/zd_chip.c   |    2 +-
- drivers/net/wireless/mac80211/zd1211rw/zd_rf.h     |   14 ++++++++++++++
- .../net/wireless/mac80211/zd1211rw/zd_rf_al2230.c  |    1 +
- .../net/wireless/mac80211/zd1211rw/zd_rf_al7230b.c |    1 +
- 4 files changed, 17 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/wireless/mac80211/zd1211rw/zd_chip.c b/drivers/net/wireless/mac80211/zd1211rw/zd_chip.c
-index 4078fbe..fcf78ab 100644
---- a/drivers/net/wireless/mac80211/zd1211rw/zd_chip.c
-+++ b/drivers/net/wireless/mac80211/zd1211rw/zd_chip.c
-@@ -1261,7 +1261,7 @@ static int patch_cck_gain(struct zd_chip *chip)
- 	int r;
- 	u32 value;
- 
--	if (!chip->patch_cck_gain)
-+	if (!chip->patch_cck_gain || !zd_rf_should_patch_cck_gain(&chip->rf))
- 		return 0;
- 
- 	ZD_ASSERT(mutex_is_locked(&chip->mutex));
-diff --git a/drivers/net/wireless/mac80211/zd1211rw/zd_rf.h b/drivers/net/wireless/mac80211/zd1211rw/zd_rf.h
-index 6dced2a..44c46e2 100644
---- a/drivers/net/wireless/mac80211/zd1211rw/zd_rf.h
-+++ b/drivers/net/wireless/mac80211/zd1211rw/zd_rf.h
-@@ -52,6 +52,12 @@ struct zd_rf {
- 	 * defaults to 1 (yes) */
- 	u8 update_channel_int:1;
- 
-+	/* whether CR47 should be patched from the EEPROM, if the appropriate
-+	 * flag is set in the POD. The vendor driver suggests that this should
-+	 * be done for all RF's, but a bug in their code prevents but their 
-+	 * HW_OverWritePhyRegFromE2P() routine from ever taking effect. */
-+	u8 patch_cck_gain:1;
-+
- 	/* private RF driver data */
- 	void *priv;
- 
-@@ -84,6 +90,14 @@ static inline int zd_rf_should_update_pwr_int(struct zd_rf *rf)
- 	return rf->update_channel_int;
- }
- 
-+static inline int zd_rf_should_patch_cck_gain(struct zd_rf *rf)
-+{
-+	return rf->patch_cck_gain;
-+}
-+
-+int zd_rf_patch_6m_band_edge(struct zd_rf *rf, u8 channel);
-+int zd_rf_generic_patch_6m(struct zd_rf *rf, u8 channel);
-+
- /* Functions for individual RF chips */
- 
- int zd_rf_init_rf2959(struct zd_rf *rf);
-diff --git a/drivers/net/wireless/mac80211/zd1211rw/zd_rf_al2230.c b/drivers/net/wireless/mac80211/zd1211rw/zd_rf_al2230.c
-index 511392a..e7a4ecf 100644
---- a/drivers/net/wireless/mac80211/zd1211rw/zd_rf_al2230.c
-+++ b/drivers/net/wireless/mac80211/zd1211rw/zd_rf_al2230.c
-@@ -432,5 +432,6 @@ int zd_rf_init_al2230(struct zd_rf *rf)
- 		rf->switch_radio_on = zd1211_al2230_switch_radio_on;
- 	}
- 	rf->patch_6m_band_edge = zd_rf_generic_patch_6m;
-+	rf->patch_cck_gain = 1;
- 	return 0;
- }
-diff --git a/drivers/net/wireless/mac80211/zd1211rw/zd_rf_al7230b.c b/drivers/net/wireless/mac80211/zd1211rw/zd_rf_al7230b.c
-index 5e5e9dd..f4e8b6a 100644
---- a/drivers/net/wireless/mac80211/zd1211rw/zd_rf_al7230b.c
-+++ b/drivers/net/wireless/mac80211/zd1211rw/zd_rf_al7230b.c
-@@ -483,6 +483,7 @@ int zd_rf_init_al7230b(struct zd_rf *rf)
- 		rf->switch_radio_on = zd1211_al7230b_switch_radio_on;
- 		rf->set_channel = zd1211_al7230b_set_channel;
- 		rf->patch_6m_band_edge = zd_rf_generic_patch_6m;
-+		rf->patch_cck_gain = 1;
- 	}
- 
- 	rf->switch_radio_off = al7230b_switch_radio_off;
--- 
-1.5.2
+Auke
 
+-------------------------------------------------------------------------
+This SF.net email is sponsored by DB2 Express
+Download DB2 Express C - the FREE version of DB2 express and take
+control of your XML. No limits. Just data. Click to get it now.
+http://sourceforge.net/powerbar/db2/
