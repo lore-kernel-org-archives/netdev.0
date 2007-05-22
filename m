@@ -1,71 +1,97 @@
-From: Kieran Mansley <kmansley@solarflare.com>
-Subject: Re: Re: [PATCH 3/4] [Net] Support Xen accelerated
-	network plugin modules
-Date: Tue, 22 May 2007 17:06:11 +0100
-Message-ID: <1179849971.28562.85.camel@moonstone.uk.level5networks.com>
-References: <C2785EC4.F4E3%keir@xensource.com>
-	<1179837868.28562.22.camel@moonstone.uk.level5networks.com>
-	<20070522080512.6c9528a1@freepuppy>
-Mime-Version: 1.0
-Content-Type: text/plain
+From: Milton Miller <miltonm@bga.com>
+Subject: Re: [PATCH] fix e100 rx path on ARM (was [PATCH] e100 rx: or s and el bits)
+Date: Tue, 22 May 2007 11:51:23 -0500
+Message-ID: <53c44b6f03973eb1b28f221859d3002c@bga.com>
+References: <200705011124.l41BOEG4007662@sullivan.realtime.net> <46375664.8030701@roinet.com> <4638F2B2.2000103@roinet.com> <463BA906.30205@roinet.com> <85f07fc58d5ed2147d5214d0f0b4fe32@bga.com> <4648A9DF.6030001@roinet.com> <464D074F.20400@pobox.com> <464D21B6.2000208@intel.com> <464DB336.2030003@roinet.com> <464DB619.3070900@roinet.com> <464DC676.90504@intel.com> <464DCA97.3070405@roinet.com> <464DCD5E.50003@intel.com> <464DDE3E.9010400@roinet.com> <e3819b7a866b1117fd5a69e6a85e0784@bga.com> <4651DAC1.7050604@intel.com>
+Mime-Version: 1.0 (Apple Message framework v624)
+Content-Type: text/plain; charset=US-ASCII; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: muli@il.ibm.com, netdev@vger.kernel.org, xen-devel@lists.xensource.com,
-	Keir Fraser <keir@xensource.com>, herbert@gondor.apana.org.au
-To: Stephen Hemminger <shemminger@linux-foundation.org>
-Return-path: <xen-devel-bounces@lists.xensource.com>
-In-Reply-To: <20070522080512.6c9528a1@freepuppy>
-List-Unsubscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xensource.com?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xensource.com>
-List-Help: <mailto:xen-devel-request@lists.xensource.com?subject=help>
-List-Subscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xensource.com?subject=subscribe>
-Sender: xen-devel-bounces@lists.xensource.com
-Errors-To: xen-devel-bounces@lists.xensource.com
+Cc: Jeff Garzik <jgarzik@pobox.com>, Scott Feldman <sfeldma@pobox.com>,
+	e1000-devel@lists.sourceforge.net,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org, David Acker <dacker@roinet.com>
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mercury.realtime.net ([205.238.132.86]:44867 "EHLO
+	ruth.realtime.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755571AbXEVQwU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 May 2007 12:52:20 -0400
+In-Reply-To: <4651DAC1.7050604@intel.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2007-05-22 at 08:05 -0700, Stephen Hemminger wrote:
 
-> The same thing is already done to handle network protocols already.
-> RCU is used for the object handle (including function pointers).
-> You need to use:
->   * put rcu structure in accelerator list member
->     and initialize it to the callback
->   * on addition increase refcount
-> on deletion
->   * call list_del_rcu() on removal
->   * in rcu callback you do last step
-> 	like drop module refcount and free.
+On May 21, 2007, at 12:45 PM, Kok, Auke wrote:
 
-Apologies for coming back to this, but I want to make sure this is going
-to work before I write the code.
+> Milton Miller wrote:
+>> On May 18, 2007, at 12:11 PM, David Acker wrote:
+>>> Kok, Auke wrote:
+>>>> First impression just came in: It seems RX performance is dropped 
+>>>> to 10mbit. TX is unaffected and runs at 94mbit/tcp, but RX the new 
+>>>> code seems to misbehave and  fluctuate, dropping below 10mbit after 
+>>>> a few netperf runs and staying there...
+>>>> ideas?
+>>> I found the problem.  Another casualty of working with two different 
+>>> kernels at once...arg.
+>>> The blank rfd needs to have its el-bit clear now.  Here is the new 
+>>> and improved patch.
+...
+>> Proceeding with the review:
+>> Coding style:
+>> (1) if body on seperate line.
+>> (2) space after if before (
+>> (3) The other enums in this driver are not ALL_CAPS
+>> (4) This driver doesn't do CONSTANT != value but value != enum
+>>      (see nic->mac for examples)
+>
+> I sent Milton my copy of this patch which has these style issues 
+> corrected and
+> applies cleanly to a recent git tree. If anyone else specifically 
+> wants a copy
+> let me know.
+>
+> Auke
 
-The current scheme uses a spin lock to protect the list and a reference
-count for each item on that list.  This reference count is initialised
-to 1 when the accelerator module is loaded, incremented before each call
-into the accelerator, decremented after it, and decremented when the
-module's exit function is called as a result of rmmod being called on
-the module.  rmmod is then blocked.  When the ref count reaches zero the
-function pointers are set to NULL, resulting in no more calls into the
-accelerator module, and the rmmod is unblocked.  The accelerator now
-exits safely.
+It addressed 1 and 2, and applies, but did not address 3 and 4.
 
-The critical bits I don't understand about your suggested scheme are:
- i) how deletion/list_del_rcu() is triggered (see below);
- ii) how it prevents the accelerated module being unloaded in the middle
-of call into that module. 
 
-I assume you're suggesting using the module use count to solve (ii), but
-this essentially causes (i):  if we increase the module use count for
-each interface using the accelerator we can never unload the module
-because there's no mechanism to request that an interface stop being
-accelerated (and so decrease the ref count).
+But the bigger point is it didn't address the holes I identified.
 
-If you're suggesting using RCU to protect against the hooks being
-modified during a call into them, that's only allowed if the protected
-region doesn't block, and I'm not convinced that the protected regions
-here (the calls into the accelerator module) will never block.
+I think we need to change the logic to reclaim the size from 0
+only if we are restarting, and make rx_indicate look ahead to
+rx->next if it encounters a !EL size 0 buffer.  Without this we
+are doing a "prohibited" rx_start to a running machine.  The
+device can still see this size 0 !EL state.  Also we will get
+stuck when the device finds the window between the two writes.
 
-Apologies again if I've misinterpreted your suggestion,
+We can remove some register pressure by finding old_before_last_rfd
+when we are ready to use it, just comparing old_before_last_rx
+to new.
 
-Kieran
+Also, as I pointed out, the rx_to_start change to start_reciever
+is compicated and unnecessary, as rx_to_clean can always be used
+and it was the starting point before the changes.
+
+As far as the RU_SUSPENDED, I don't think we need it, instead
+we should poll the device.
+
+Here is my proposal:
+rx_indicate can stop when it hits the packet with EL.  If it
+hits a packet with size 0, look ahead to rx->next to see if
+it is complete, if so complete this one otherwise leave it
+as next to clean.  After the rx_indicate loop, try to allocate
+more skbs.  If we are successful, then fixup the before-next
+as we do now.  Then check the device status for RNR, and if
+its stopped then set rx_to_clean rfd size back to ETH_LEN
+and restart the reciever.
+
+This does have a small hole: if we only add one packet at
+a time we will end up with all size 0 descriptors in the
+lopp.   We can detect that and not remove EL from the old
+before-next unless we are restarting.  That would imply
+moving the status poll before we allocate the list.
+
+milton
+
