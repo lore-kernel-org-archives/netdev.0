@@ -1,57 +1,81 @@
-From: Steve Fox <drfickle@linux.vnet.ibm.com>
-Subject: Re: select(0, ..) is valid ?
-Date: Tue, 22 May 2007 12:49:21 -0500
-Message-ID: <1179856161.3124.110.camel@drfickle.rchland.ibm.com>
-References: <1179250159.2836.117.camel@dyn9047017100.beaverton.ibm.com>
-	 <20070515104453.f901e91f.akpm@linux-foundation.org>
-	 <Pine.LNX.4.64.0705151109021.31972@schroedinger.engr.sgi.com>
-	 <Pine.LNX.4.64.0705151927360.28895@blonde.wat.veritas.com>
-	 <20070516153703.GA26912@kryten>
-	 <1179363553.16195.10.camel@dyn9047017100.beaverton.ibm.com>
-	 <1179843397.3124.109.camel@drfickle.rchland.ibm.com>
-	 <20070522143432.GA1938@us.ibm.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: r8169: hard freezes on TX
+Date: Tue, 22 May 2007 22:29:34 +0200
+Message-ID: <20070522202934.GA21991@electric-eye.fr.zoreil.com>
+References: <200705201520.36672.eike-kernel@sf-tec.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Badari Pulavarty <pbadari@us.ibm.com>,
-	Anton Blanchard <anton@samba.org>,
-	Hugh Dickins <hugh@veritas.com>,
-	Christoph Lameter <clameter@sgi.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, lkml <linux-kernel@vger.kernel.org>,
-	sfr@canb.auug.org.au, ak@suse.de, Andy Whitcroft <andyw@uk.ibm.com>
-To: Nishanth Aravamudan <nacc@us.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Rolf Eike Beer <eike-kernel@sf-tec.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e36.co.us.ibm.com ([32.97.110.154]:54600 "EHLO
-	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758711AbXEVRt1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 May 2007 13:49:27 -0400
-In-Reply-To: <20070522143432.GA1938@us.ibm.com>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:56259 "EHLO
+	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754343AbXEVUbb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 May 2007 16:31:31 -0400
+Content-Disposition: inline
+In-Reply-To: <200705201520.36672.eike-kernel@sf-tec.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2007-05-22 at 07:34 -0700, Nishanth Aravamudan wrote:
-> On 22.05.2007 [09:16:37 -0500], Steve Fox wrote:
-> > 
-> > Andy put this through a couple machines on test.kernel.org and elm3b6
-> > was fixed, however elm3b239 still had a boot error.
-> > 
-> > BUG: at mm/slab.c:777 __find_general_cachep()
-> > 
-> > Call Trace:
-> >  [<ffffffff802729c6>] __kmalloc+0xa6/0xe0
-> >  [<ffffffff8021d21b>] cache_k8_northbridges+0x9b/0x120
-> 
-> I believe this is fixed by:
-> 
-> http://lkml.org/lkml/2007/5/18/19
-> 
-> Care to stack it on top and retest?
+Rolf Eike Beer <eike-kernel@sf-tec.de> :
+[...]
+> I often see freezes when I do much outgoing transfer. I have never seen this 
+> happening on incoming transfers. When this happens the system locks up hard, 
+> I don't see anything in the log. Since this is my laptop I have trouble 
+> debugging it: there is no serial console and debugging this via netconsole 
+> doesn't look like a good idea.
 
-Looks good. See the "2.6.22-rc2-git1 +1 +1" row on tko. Thanks.
+Keyboard leds are dead afterwards I guess, right ?
+
+If you are experiencing bugs related to networking, I suggest to stay
+away from netconsole. It is not funny to analyze several bugs at the same
+time.
+
+> When I say "much outgoing transfer" this means "several megabytes". If I copy 
+> out 30 MB I almost everytime get this. I usually copy that much only at home 
+> when I feed my gentoo server. That host only has a 10 MBit connection. 
+> Nevertheless I've also seen that on different hosts using different files on 
+> different protocols (ftp, scp, smb).
+
+:o/
+
+So it can be reproduced with a simple ftp put of several megabytes of
+data completely cached in memory (no disk access) ?
+
+[...]
+> This is the output of lspci for my NIC:
+> 
+> 05:00.0 Ethernet controller: Realtek Semiconductor Co., Ltd. RTL8101E PCI 
+> Express Fast Ethernet controller (rev 01)
+
+I have not seen a lot of reports for this one. Either it is perfect or
+it is barely used.
+
+[...]
+> Hm, is there a reason why we don't use MSI here?
+
+A request for testers was posted (netdev + lk) on 16/03/2007 which contained
+MSI code for the 8168. I did not enable it for the 8101 because it had only
+received (positive) reports from 8168 users.
+
+Afair, the RFT got no feedback.
+
+> Ah, one thing is missing: I've not tested it with current kernel, latest I 
+> tested was 2.6.21-rc7. But I've seen this on many previous version, although 
+> I thought it became better some versions ago. I wont bet on it, it might just 
+> have been luck.
+
+You can/should try:
+http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.22-rc2 (patch-kit)
+or:
+http://www.fr.zoreil.com/people/francois/misc/20070522-2.6.22-rc2-r8169.patch
+
+If you are fluent with git and you do not mind rebasing, you can try
+git://electric-eye.fr.zoreil.com/home/romieu/linux/linux-2.6-out r8169
+
+(don't do the initial clone from here, thanks)
+
+As an option, akpm includes the git branch for you in -mm.
 
 -- 
-
-Steve Fox
-IBM Linux Technology Center
-
+Ueimor
