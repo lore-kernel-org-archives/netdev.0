@@ -1,353 +1,71 @@
-From: Pasakorn Tiwatthanont <pasakorn.tiwatthanont@nectec.or.th>
-Subject: Re: Re: rstp for 2.4 kernel: port state keeps changing
-Date: Tue, 22 May 2007 08:05:35 +0700
-Message-ID: <465241DF.4090009@nectec.or.th>
-References: <OF2B235CAE.4C560998-ON8525729F.005E1121-8525729F.005E4D58@smsc.com>
-Reply-To: pasakorn.tiwatthanont@nectec.or.th
+From: Kieran Mansley <kmansley@solarflare.com>
+Subject: Re: Re: [PATCH 3/4] [Net] Support Xen accelerated
+	network plugin modules
+Date: Tue, 22 May 2007 17:06:11 +0100
+Message-ID: <1179849971.28562.85.camel@moonstone.uk.level5networks.com>
+References: <C2785EC4.F4E3%keir@xensource.com>
+	<1179837868.28562.22.camel@moonstone.uk.level5networks.com>
+	<20070522080512.6c9528a1@freepuppy>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============6795288697692551623=="
-Cc: bridge-bounces@lists.osdl.org, bridge@linux-foundation.org,
-        netdev@vger.kernel.org
-To: Marc.Obbad@smsc.com
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <OF2B235CAE.4C560998-ON8525729F.005E1121-8525729F.005E4D58@smsc.com>
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/bridge>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Mime-version: 1.0
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: muli@il.ibm.com, netdev@vger.kernel.org, xen-devel@lists.xensource.com,
+	Keir Fraser <keir@xensource.com>, herbert@gondor.apana.org.au
+To: Stephen Hemminger <shemminger@linux-foundation.org>
+Return-path: <xen-devel-bounces@lists.xensource.com>
+In-Reply-To: <20070522080512.6c9528a1@freepuppy>
+List-Unsubscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xensource.com?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xensource.com>
+List-Help: <mailto:xen-devel-request@lists.xensource.com?subject=help>
+List-Subscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xensource.com?subject=subscribe>
+Sender: xen-devel-bounces@lists.xensource.com
+Errors-To: xen-devel-bounces@lists.xensource.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---===============6795288697692551623==
-Content-Type: multipart/alternative;
-	boundary="------------060702030204070500010505"
+On Tue, 2007-05-22 at 08:05 -0700, Stephen Hemminger wrote:
 
-This is a multi-part message in MIME format.
---------------060702030204070500010505
-Content-Type: text/plain; charset=TIS-620
-Content-Transfer-Encoding: 7bit
+> The same thing is already done to handle network protocols already.
+> RCU is used for the object handle (including function pointers).
+> You need to use:
+>   * put rcu structure in accelerator list member
+>     and initialize it to the callback
+>   * on addition increase refcount
+> on deletion
+>   * call list_del_rcu() on removal
+>   * in rcu callback you do last step
+> 	like drop module refcount and free.
 
-Dear,
-    Could I use this patch with main stream, Linux x86 for PC ?
+Apologies for coming back to this, but I want to make sure this is going
+to work before I write the code.
 
-Best regards,
-Pasakorn
+The current scheme uses a spin lock to protect the list and a reference
+count for each item on that list.  This reference count is initialised
+to 1 when the accelerator module is loaded, incremented before each call
+into the accelerator, decremented after it, and decremented when the
+module's exit function is called as a result of rmmod being called on
+the module.  rmmod is then blocked.  When the ref count reaches zero the
+function pointers are set to NULL, resulting in no more calls into the
+accelerator module, and the rmmod is unblocked.  The accelerator now
+exits safely.
 
-Marc.Obbad@smsc.com wrote:
-> For me, I ma building for Embedded platform.
-> Go to Directory where the Makefile is and do this:
->
->
-> make -C  $LINUX_DIR  SUBDIRS=WD  modules
-> LINUX_DIR should point to LINUX directory
->
-> LINUX_DIR=ome/swdev/PPC/linux/   as example
->
-> -Marc.
->
->
->
->                                                                                                                         
->              Pasakorn Tiwatthanont                                                                                      
->              <ptiwatthanont@gmail.com>                                                                                  
->              Sent by:                                                                                                To 
->              bridge-bounces@lists.osdl.org               Marc Obbad/SMSC@SMSC                                           
->                                                                                                                      cc 
->                                                          bridge-bounces@lists.osdl.org, bridge@linux-foundation.org,    
->              03/15/2007 01:56 AM                         netdev@vger.kernel.org                                         
->                                                                                                                 Subject 
->                                                          Re: [Bridge] rstp for 2.4 kernel: port state keeps changing    
->                       Please respond to                                                                                 
->                    ptiwatthanont@gmail.com                                                                              
->                                                                                                                         
->                                                                                                                         
->                                                                                                                         
->                                                                                                                         
->
->
->
->
-> Dear,    I tried to patch rstp-2.4.zip but I can not compile it.
-> If don't take your time too much, please explain me how to use
-> this patch files.
->
-> Thank you very much
-> iPAS
->
-> Marc.Obbad@smsc.com wrote:
->       I have downloaded RSTP from this site:
->
->
->             http://developer.osdl.org/shemminger/prototypes/rstp-2.4.zip
->
->
->       -Marc
->
->
->
->
->
->
->                    Stephen Hemminger
->
->                    <shemminger@linux-foundation.org>
->
->                    Sent by:
->       To
->                    bridge-bounces@lists.osdl.org               Marc Obbad/SMSC@SMSC
->
->       cc
->                                                                netdev@vger.kernel.org, bridge@linux-foundation.org
->
->                    03/09/2007 01:55 PM
->       Subject
->                                                                Re: [Bridge] rstp for 2.4 kernel: port state keeps
->       changing
->
->
->
->
->
->
->
->
->
->
->       On Fri, 9 Mar 2007 12:24:40 -0500
->       Marc.Obbad@smsc.com wrote:
->
->
->             Hi,
->
->             I am using RSTP for 2.4 kernel.
->
->
->       RSTP is not in the mainline kernel tree. Please post the patch or a where the
->       source can be downloaded.
->
->       --
->       Stephen Hemminger <shemminger@linux-foundation.org>
->       _______________________________________________
->       Bridge mailing list
->       Bridge@lists.osdl.org
->       https://lists.osdl.org/mailman/listinfo/bridge
->
->
->       _______________________________________________
->       Bridge mailing list
->       Bridge@lists.osdl.org
->       https://lists.osdl.org/mailman/listinfo/bridge
->
->         _______________________________________________
->       Bridge mailing list
->       Bridge@lists.osdl.org
->       https://lists.osdl.org/mailman/listinfo/bridge
->
->
->
->   
+The critical bits I don't understand about your suggested scheme are:
+ i) how deletion/list_del_rcu() is triggered (see below);
+ ii) how it prevents the accelerated module being unloaded in the middle
+of call into that module. 
 
---------------060702030204070500010505
-Content-Type: text/html; charset=TIS-620
-Content-Transfer-Encoding: quoted-printable
-X-MIME-Autoconverted: from 8bit to quoted-printable by smtp2.linux-foundation.org id l4MFCLWE019720
+I assume you're suggesting using the module use count to solve (ii), but
+this essentially causes (i):  if we increase the module use count for
+each interface using the accelerator we can never unload the module
+because there's no mechanism to request that an interface stop being
+accelerated (and so decrease the ref count).
 
-<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
-<html>
-<head>
-  <meta content=3D"text/html;charset=3DTIS-620" http-equiv=3D"Content-Typ=
-e">
-</head>
-<body bgcolor=3D"#ffffff" text=3D"#000000">
-<font size=3D"-1">Dear,<br>
-=A0=A0=A0 Could I use this patch with main stream, Linux x86 for PC ?<br>
-<br>
-Best regards,<br>
-Pasakorn<br>
-</font><br>
-<a class=3D"moz-txt-link-abbreviated" href=3D"mailto:Marc.Obbad@smsc.com"=
->Marc.Obbad@smsc.com</a> wrote:
-<blockquote
- cite=3D"mid:%3COF2B235CAE.4C560998-ON8525729F.005E1121-8525729F.005E4D58=
-@smsc.com%3E"
- type=3D"cite">
-  <pre wrap=3D"">For me, I ma building for Embedded platform.
-Go to Directory where the Makefile is and do this:
+If you're suggesting using RCU to protect against the hooks being
+modified during a call into them, that's only allowed if the protected
+region doesn't block, and I'm not convinced that the protected regions
+here (the calls into the accelerator module) will never block.
 
+Apologies again if I've misinterpreted your suggestion,
 
-make -C  $LINUX_DIR  SUBDIRS=3DWD  modules
-LINUX_DIR should point to LINUX directory
-
-LINUX_DIR=3Dome/swdev/PPC/linux/   as example
-
--Marc.
-
-
-
-                                                                         =
-                                              =20
-             Pasakorn Tiwatthanont                                       =
-                                              =20
-             <a class=3D"moz-txt-link-rfc2396E" href=3D"mailto:ptiwatthan=
-ont@gmail.com">&lt;ptiwatthanont@gmail.com&gt;</a>                       =
-                                                          =20
-             Sent by:                                                    =
-                                            To=20
-             <a class=3D"moz-txt-link-abbreviated" href=3D"mailto:bridge-=
-bounces@lists.osdl.org">bridge-bounces@lists.osdl.org</a>               M=
-arc Obbad/SMSC@SMSC                                          =20
-                                                                         =
-                                            cc=20
-                                                         <a class=3D"moz-=
-txt-link-abbreviated" href=3D"mailto:bridge-bounces@lists.osdl.org">bridg=
-e-bounces@lists.osdl.org</a>, <a class=3D"moz-txt-link-abbreviated" href=3D=
-"mailto:bridge@linux-foundation.org">bridge@linux-foundation.org</a>,   =20
-             03/15/2007 01:56 AM                         <a class=3D"moz-=
-txt-link-abbreviated" href=3D"mailto:netdev@vger.kernel.org">netdev@vger.=
-kernel.org</a>                                        =20
-                                                                         =
-                                       Subject=20
-                                                         Re: [Bridge] rst=
-p for 2.4 kernel: port state keeps changing   =20
-                      Please respond to                                  =
-                                              =20
-                   <a class=3D"moz-txt-link-abbreviated" href=3D"mailto:p=
-tiwatthanont@gmail.com">ptiwatthanont@gmail.com</a>                      =
-                                                       =20
-                                                                         =
-                                              =20
-                                                                         =
-                                              =20
-                                                                         =
-                                              =20
-                                                                         =
-                                              =20
-
-
-
-
-Dear,=A0=A0=A0 I tried to patch rstp-2.4.zip but I can not compile it.
-If don't take your time too much, please explain me how to use
-this patch files.
-
-Thank you very much
-iPAS
-
-<a class=3D"moz-txt-link-abbreviated" href=3D"mailto:Marc.Obbad@smsc.com"=
->Marc.Obbad@smsc.com</a> wrote:
-      I have downloaded RSTP from this site:
-
-
-            <a class=3D"moz-txt-link-freetext" href=3D"http://developer.o=
-sdl.org/shemminger/prototypes/rstp-2.4.zip">http://developer.osdl.org/she=
-mminger/prototypes/rstp-2.4.zip</a>
-
-
-      -Marc
-
-
-
-
-
-
-                   Stephen Hemminger
-
-                   <a class=3D"moz-txt-link-rfc2396E" href=3D"mailto:shem=
-minger@linux-foundation.org">&lt;shemminger@linux-foundation.org&gt;</a>
-
-                   Sent by:
-      To
-                   <a class=3D"moz-txt-link-abbreviated" href=3D"mailto:b=
-ridge-bounces@lists.osdl.org">bridge-bounces@lists.osdl.org</a>          =
-     Marc Obbad/SMSC@SMSC
-
-      cc
-                                                               <a class=3D=
-"moz-txt-link-abbreviated" href=3D"mailto:netdev@vger.kernel.org">netdev@=
-vger.kernel.org</a>, <a class=3D"moz-txt-link-abbreviated" href=3D"mailto=
-:bridge@linux-foundation.org">bridge@linux-foundation.org</a>
-
-                   03/09/2007 01:55 PM
-      Subject
-                                                               Re: [Bridg=
-e] rstp for 2.4 kernel: port state keeps
-      changing
-
-
-
-
-
-
-
-
-
-
-      On Fri, 9 Mar 2007 12:24:40 -0500
-      <a class=3D"moz-txt-link-abbreviated" href=3D"mailto:Marc.Obbad@sms=
-c.com">Marc.Obbad@smsc.com</a> wrote:
-
-
-            Hi,
-
-            I am using RSTP for 2.4 kernel.
-
-
-      RSTP is not in the mainline kernel tree. Please post the patch or a=
- where the
-      source can be downloaded.
-
-      --
-      Stephen Hemminger <a class=3D"moz-txt-link-rfc2396E" href=3D"mailto=
-:shemminger@linux-foundation.org">&lt;shemminger@linux-foundation.org&gt;=
-</a>
-      _______________________________________________
-      Bridge mailing list
-      <a class=3D"moz-txt-link-abbreviated" href=3D"mailto:Bridge@lists.o=
-sdl.org">Bridge@lists.osdl.org</a>
-      <a class=3D"moz-txt-link-freetext" href=3D"https://lists.osdl.org/m=
-ailman/listinfo/bridge">https://lists.osdl.org/mailman/listinfo/bridge</a=
->
-
-
-      _______________________________________________
-      Bridge mailing list
-      <a class=3D"moz-txt-link-abbreviated" href=3D"mailto:Bridge@lists.o=
-sdl.org">Bridge@lists.osdl.org</a>
-      <a class=3D"moz-txt-link-freetext" href=3D"https://lists.osdl.org/m=
-ailman/listinfo/bridge">https://lists.osdl.org/mailman/listinfo/bridge</a=
->
-
-        _______________________________________________
-      Bridge mailing list
-      <a class=3D"moz-txt-link-abbreviated" href=3D"mailto:Bridge@lists.o=
-sdl.org">Bridge@lists.osdl.org</a>
-      <a class=3D"moz-txt-link-freetext" href=3D"https://lists.osdl.org/m=
-ailman/listinfo/bridge">https://lists.osdl.org/mailman/listinfo/bridge</a=
->
-
-
-
-  </pre>
-</blockquote>
-</body>
-</html>
-
---------------060702030204070500010505--
-
---===============6795288697692551623==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Disposition: inline
-Content-Transfer-Encoding: 7bit
-
-_______________________________________________
-Bridge mailing list
-Bridge@lists.linux-foundation.org
-https://lists.linux-foundation.org/mailman/listinfo/bridge
---===============6795288697692551623==--
+Kieran
