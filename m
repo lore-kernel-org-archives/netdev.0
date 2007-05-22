@@ -1,77 +1,49 @@
-From: John Miller <forall@mail15.com>
-Subject: Re: UDP packet loss when running lsof
-Date: Wed, 23 May 2007 02:42:47 +0400
-Message-ID: <20070523024247.34nh5ck1j4ooc0o8@www.pochta.ru>
-References: <loom.20070521T090409-252@post.gmane.org>
-	<20070521113503.6bb70ae4.dada1@cosmosbay.com>
-	<20070522021259.95ukifwz8kc4gccg@www.pochta.ru>
-	<46528973.50809@cosmosbay.com>
+From: linas@austin.ibm.com (Linas Vepstas)
+Subject: Re: [PATCH 1/2 v4] s2io: add PCI error recovery support
+Date: Tue, 22 May 2007 17:47:28 -0500
+Message-ID: <20070522224727.GR5921@austin.ibm.com>
+References: <20070521185853.GD5921@austin.ibm.com> <20070521144847.439103c4.akpm@linux-foundation.org> <20070521222357.GG5921@austin.ibm.com> <46522281.9040609@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=Windows-1251;
-	DelSp="Yes";
-	format="flowed"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Ramkrishna Vepa <Ramkrishna.Vepa@neterion.com>,
+	Sivakumar Subramani <sivakumar.subramani@neterion.com>,
+	Sreenivasa Honnur <sreenivasa.honnur@neterion.com>,
+	Rastapur Santosh <santosh.rastapur@neterion.com>,
+	Wen Xiong <wenxiong@us.ibm.com>,
+	linux-pci@atrey.karlin.mff.cuni.cz, netdev@vger.kernel.org
+To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web6.pochta.ru ([81.211.64.26]:40430 "EHLO web6.pochta.ru"
+Received: from e2.ny.us.ibm.com ([32.97.182.142]:37948 "EHLO e2.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758018AbXEVWmu convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 May 2007 18:42:50 -0400
-In-Reply-To: <46528973.50809@cosmosbay.com>
+	id S1755629AbXEVWrc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 May 2007 18:47:32 -0400
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e2.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l4MMlWxq025297
+	for <netdev@vger.kernel.org>; Tue, 22 May 2007 18:47:32 -0400
+Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
+	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l4MMlV14475806
+	for <netdev@vger.kernel.org>; Tue, 22 May 2007 18:47:31 -0400
+Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
+	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l4MMlVvY017120
+	for <netdev@vger.kernel.org>; Tue, 22 May 2007 18:47:31 -0400
 Content-Disposition: inline
+In-Reply-To: <46522281.9040609@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Mon, May 21, 2007 at 06:51:45PM -0400, Jeff Garzik wrote:
+> 
+> >The part that confuses me is that I'd gotten a message from Jeff
+> >back in March (well before 2.6.21 came out), saying it was in his
+> >development tree; yet, the patch its not in 2.6.22-rc; Torvalds
+> >hasn't yet pulled from it?
+> 
+> It only appeared in my tree on May 14.  I tend to drop patches that are 
+> repeatedly revised, allowing the dust to settle.
 
-Hi Eric,
+OK, a new patch is coming. I did not want to pester you until after -rc1
+came out, but perhaps that was the wrong strategy.
 
-> > It's a HP system with two dual core CPUs at 3GHz, the
-
-> Then you might try to bind network IRQ to one CPU
-> (echo 1 >/proc/irq/XX/smp_affinity)
-
-> XX being your NIC interrupt (cat /proc/interrupts to catch it)
-
-> and bind your user program to another cpu(s)
-
-the NIC was already fixed at CPU0 and the irq_balancer switched
-the timer interrupt between all CPUs and the storage HBA between
-CPU1 and CPU4. Stopping the balancer and leaving NIC alone on CPU0
-and the other interrupts and my program on CPU2-4 did not improve
-the situation.
-At least I could not see an improvement over just adding
-thash_entries=2048.
-
-> You might hit a cond_resched_softirq() bug that Ingo and others
-> are sorting out right now. Using separate CPU for softirq
-> handling and your programs should help a lot here.
-
-Shouldn't I get some syslog messages if this bug is triggered?
-
-Nevertheless I also opened a call on Novell about this issue,
-as the current cond_resched_softirq() does look completely
-different than in 2.6.18
-
-> > This did help a lot, I tried thash_entries=10 and now only a
-> > while loop around the "cat ...tcp" triggers packet loss. Tests
-
-> I dont understand here : using a small thash_entries makes
-> the bug always appear ?
-
-No. thash_entries=10 improves the situation. Without the param
-nearly every look at /proc/net/tcp leads to packet loss, with
-thash_entries=10 (or 2048, does not matter) I have to start a
-"while true; do cat /prc/net/tcp ; done" to get packet loss
-every minute.
-
-But even with thash_entries=10 and if I leave my program alone
-  on he system I get packet loss every few hours.
-
-Regards,
-John
-
-
-
+--linas
 
