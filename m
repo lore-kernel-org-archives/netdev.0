@@ -1,36 +1,42 @@
-From: Zhang Rui <rui.zhang@intel.com>
-Subject: Re: [PATCH] [-mm] ACPI: export ACPI events via netlink
-Date: Wed, 23 May 2007 09:17:31 +0800
-Message-ID: <1179883051.7707.35.camel@localhost.localdomain>
-References: <1179827251.7707.29.camel@localhost.localdomain>
-	 <1179831825.4121.30.camel@localhost>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [Cbe-oss-dev] [PATCH 4/10] spidernet: zero out a pointer.
+Date: Wed, 23 May 2007 13:23:27 +1000
+Message-ID: <1179890607.32247.896.camel@localhost.localdomain>
+References: <20070516215605.GA4325@austin.ibm.com>
+	 <20070516220928.GD4997@austin.ibm.com>
+	 <1179358376.4142.4.camel@concordia.ozlabs.ibm.com>
+	 <20070522233517.GU5921@austin.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "linux-acpi@vger" <linux-acpi@vger.kernel.org>, lenb@kernel.org,
-	netdev@vger.kernel.org
-To: hadi@cyberus.ca
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <1179831825.4121.30.camel@localhost>
-Sender: linux-acpi-owner@vger.kernel.org
+Cc: Michael Ellerman <michael@ellerman.id.au>, netdev@vger.kernel.org,
+	Jeff Garzik <jgarzik@pobox.com>, cbe-oss-dev@ozlabs.org
+To: Linas Vepstas <linas@austin.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gate.crashing.org ([63.228.1.57]:43608 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755258AbXEWDXx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 May 2007 23:23:53 -0400
+In-Reply-To: <20070522233517.GU5921@austin.ibm.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2007-05-22 at 07:03 -0400, jamal wrote:
-> Hi Zhang Rui,
-> 
-> Really cool stuff. Can you instead use genetlink?
-> http://linux-net.osdl.org/index.php/Generic_Netlink_HOWTO 
-> should help. And if you have more questions post on netdev (not lk).
-> 
-That's really helpful, thanks.
-Will post the second version soon. :)
 
-Thanks,
-Rui
+> Here's a delusional reply: I didn't see any point to it. 
+> 1) a wmb would add overhead
+> 2) the hardware is supposed to be looking at the status flag,
+>    anyway, and not misbehaving.
+> 3) there is a wmb when the descr is actually refilled in such
+>    a way as to actually mean something to the hardware.
+> 
+> All that I really acomplished here is a minor trick to 
+> aid in debug printing when looking for something bad.
 
-> On Tue, 2007-22-05 at 17:47 +0800, Zhang Rui wrote:
-> > From: Zhang Rui <rui.zhang@intel.com>
-> > 
-> > Export ACPI events via netlink.
-> > A netlink message is broadcasted when an ACPI event is generated.
-> > 
+And the whole thing is moot because 0 is actually a perfectly valid DMA
+address :-) I suspect spider will end up trying to hit some internal
+register or it's PCIe or whatever it has mapped at 0 internally and will
+blow up ... At least on spider, it's not RAM there....
+
+Ben.
+
+
