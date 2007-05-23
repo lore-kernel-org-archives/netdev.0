@@ -1,129 +1,156 @@
 From: akpm@linux-foundation.org
-Subject: [patch 8/8] networking: fix sending netlink message when replace route
+Subject: [patch 7/8] Use menuconfig objects: tokenring
 Date: Wed, 23 May 2007 14:35:57 -0700
-Message-ID: <200705232135.l4NLZwcX000676@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, milon@wq.cz,
-	kaber@trash.net
+Message-ID: <200705232135.l4NLZvBe000672@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
+	jengelh@linux01.gwdg.de, jengelh@gmx.de
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([207.189.120.13]:40177 "EHLO
+Received: from smtp1.linux-foundation.org ([207.189.120.13]:42804 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756100AbXEWVgm (ORCPT
+	by vger.kernel.org with ESMTP id S1756432AbXEWVgm (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 23 May 2007 17:36:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Milan Kocian <milon@wq.cz>
+From: Jan Engelhardt <jengelh@linux01.gwdg.de>
 
-When you replace route via ip r r command the netlink multicast message is
-not send.  This patch corrects it.  NL message is sent with NLM_F_REPLACE
-flag.  Addresses http://bugzilla.kernel.org/show_bug.cgi?id=8320
+Use menuconfigs instead of menus, so the whole menu can be disabled at once
+instead of going through all options.
 
-Signed-off-by: Milan Kocian <milon@wq.cz>
-Cc: Patrick McHardy <kaber@trash.net>
-Cc: David Miller <davem@davemloft.net>
+Signed-off-by: Jan Engelhardt <jengelh@gmx.de>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- net/ipv4/fib_hash.c      |    6 ++++--
- net/ipv4/fib_lookup.h    |    3 ++-
- net/ipv4/fib_semantics.c |    5 +++--
- net/ipv4/fib_trie.c      |    6 ++++--
- 4 files changed, 13 insertions(+), 7 deletions(-)
+ drivers/net/tokenring/Kconfig |   33 +++++++++++++++-----------------
+ 1 files changed, 16 insertions(+), 17 deletions(-)
 
-diff -puN net/ipv4/fib_hash.c~networking-fix-sending-netlink-message-when-replace-route net/ipv4/fib_hash.c
---- a/net/ipv4/fib_hash.c~networking-fix-sending-netlink-message-when-replace-route
-+++ a/net/ipv4/fib_hash.c
-@@ -456,6 +456,8 @@ static int fn_hash_insert(struct fib_tab
- 			fib_release_info(fi_drop);
- 			if (state & FA_S_ACCESSED)
- 				rt_cache_flush(-1);
-+			rtmsg_fib(RTM_NEWROUTE, key, fa, cfg->fc_dst_len, tb->tb_id,
-+				  &cfg->fc_nlinfo, NLM_F_REPLACE);
- 			return 0;
- 		}
+diff -puN drivers/net/tokenring/Kconfig~use-menuconfig-objects-toeknring drivers/net/tokenring/Kconfig
+--- a/drivers/net/tokenring/Kconfig~use-menuconfig-objects-toeknring
++++ a/drivers/net/tokenring/Kconfig
+@@ -2,12 +2,10 @@
+ # Token Ring driver configuration
+ #
  
-@@ -523,7 +525,7 @@ static int fn_hash_insert(struct fib_tab
- 	rt_cache_flush(-1);
+-menu "Token Ring devices"
+-	depends on NETDEVICES && !UML
+-
+ # So far, we only have PCI, ISA, and MCA token ring devices
+-config TR
++menuconfig TR
+ 	bool "Token Ring driver support"
++	depends on NETDEVICES && !UML
+ 	depends on (PCI || ISA || MCA || CCW)
+ 	select LLC
+ 	help
+@@ -20,9 +18,11 @@ config TR
+ 	  from <http://www.tldp.org/docs.html#howto>. Most people can
+ 	  say N here.
  
- 	rtmsg_fib(RTM_NEWROUTE, key, new_fa, cfg->fc_dst_len, tb->tb_id,
--		  &cfg->fc_nlinfo);
-+		  &cfg->fc_nlinfo, 0);
- 	return 0;
++if TR
++
+ config IBMTR
+ 	tristate "IBM Tropic chipset based adapter support"
+-	depends on TR && (ISA || MCA)
++	depends on ISA || MCA
+ 	---help---
+ 	  This is support for all IBM Token Ring cards that don't use DMA. If
+ 	  you have such a beast, say Y and read the Token-Ring mini-HOWTO,
+@@ -36,7 +36,7 @@ config IBMTR
  
- out_free_new_fa:
-@@ -589,7 +591,7 @@ static int fn_hash_delete(struct fib_tab
+ config IBMOL
+ 	tristate "IBM Olympic chipset PCI adapter support"
+-	depends on TR && PCI
++	depends on PCI
+ 	---help---
+ 	  This is support for all non-Lanstreamer IBM PCI Token Ring Cards.
+ 	  Specifically this is all IBM PCI, PCI Wake On Lan, PCI II, PCI II
+@@ -54,7 +54,7 @@ config IBMOL
  
- 		fa = fa_to_delete;
- 		rtmsg_fib(RTM_DELROUTE, key, fa, cfg->fc_dst_len,
--			  tb->tb_id, &cfg->fc_nlinfo);
-+			  tb->tb_id, &cfg->fc_nlinfo, 0);
+ config IBMLS
+ 	tristate "IBM Lanstreamer chipset PCI adapter support"
+-	depends on TR && PCI && !64BIT
++	depends on PCI && !64BIT
+ 	help
+ 	  This is support for IBM Lanstreamer PCI Token Ring Cards.
  
- 		kill_fn = 0;
- 		write_lock_bh(&fib_hash_lock);
-diff -puN net/ipv4/fib_lookup.h~networking-fix-sending-netlink-message-when-replace-route net/ipv4/fib_lookup.h
---- a/net/ipv4/fib_lookup.h~networking-fix-sending-netlink-message-when-replace-route
-+++ a/net/ipv4/fib_lookup.h
-@@ -30,7 +30,8 @@ extern int fib_dump_info(struct sk_buff 
- 			 int dst_len, u8 tos, struct fib_info *fi,
- 			 unsigned int);
- extern void rtmsg_fib(int event, __be32 key, struct fib_alias *fa,
--		      int dst_len, u32 tb_id, struct nl_info *info);
-+		      int dst_len, u32 tb_id, struct nl_info *info,
-+		      unsigned int nlm_flags);
- extern struct fib_alias *fib_find_alias(struct list_head *fah,
- 					u8 tos, u32 prio);
- extern int fib_detect_death(struct fib_info *fi, int order,
-diff -puN net/ipv4/fib_semantics.c~networking-fix-sending-netlink-message-when-replace-route net/ipv4/fib_semantics.c
---- a/net/ipv4/fib_semantics.c~networking-fix-sending-netlink-message-when-replace-route
-+++ a/net/ipv4/fib_semantics.c
-@@ -301,7 +301,8 @@ static inline size_t fib_nlmsg_size(stru
- }
+@@ -66,7 +66,7 @@ config IBMLS
  
- void rtmsg_fib(int event, __be32 key, struct fib_alias *fa,
--	       int dst_len, u32 tb_id, struct nl_info *info)
-+	       int dst_len, u32 tb_id, struct nl_info *info,
-+	       unsigned int nlm_flags)
- {
- 	struct sk_buff *skb;
- 	u32 seq = info->nlh ? info->nlh->nlmsg_seq : 0;
-@@ -313,7 +314,7 @@ void rtmsg_fib(int event, __be32 key, st
+ config 3C359
+ 	tristate "3Com 3C359 Token Link Velocity XL adapter support"
+-	depends on TR && PCI
++	depends on PCI
+ 	---help---
+ 	  This is support for the 3Com PCI Velocity XL cards, specifically
+ 	  the 3Com 3C359, please note this is not for the 3C339 cards, you
+@@ -84,7 +84,7 @@ config 3C359
  
- 	err = fib_dump_info(skb, info->pid, seq, event, tb_id,
- 			    fa->fa_type, fa->fa_scope, key, dst_len,
--			    fa->fa_tos, fa->fa_info, 0);
-+			    fa->fa_tos, fa->fa_info, nlm_flags);
- 	if (err < 0) {
- 		/* -EMSGSIZE implies BUG in fib_nlmsg_size() */
- 		WARN_ON(err == -EMSGSIZE);
-diff -puN net/ipv4/fib_trie.c~networking-fix-sending-netlink-message-when-replace-route net/ipv4/fib_trie.c
---- a/net/ipv4/fib_trie.c~networking-fix-sending-netlink-message-when-replace-route
-+++ a/net/ipv4/fib_trie.c
-@@ -1226,6 +1226,8 @@ static int fn_trie_insert(struct fib_tab
- 			fib_release_info(fi_drop);
- 			if (state & FA_S_ACCESSED)
- 				rt_cache_flush(-1);
-+			rtmsg_fib(RTM_NEWROUTE, htonl(key), new_fa, plen,
-+				tb->tb_id, &cfg->fc_nlinfo, NLM_F_REPLACE);
+ config TMS380TR
+ 	tristate "Generic TMS380 Token Ring ISA/PCI adapter support"
+-	depends on TR && (PCI || ISA && ISA_DMA_API || MCA)
++	depends on PCI || ISA && ISA_DMA_API || MCA
+ 	select FW_LOADER
+ 	---help---
+ 	  This driver provides generic support for token ring adapters
+@@ -108,7 +108,7 @@ config TMS380TR
  
- 			goto succeeded;
- 		}
-@@ -1278,7 +1280,7 @@ static int fn_trie_insert(struct fib_tab
+ config TMSPCI
+ 	tristate "Generic TMS380 PCI support"
+-	depends on TR && TMS380TR && PCI
++	depends on TMS380TR && PCI
+ 	---help---
+ 	  This tms380 module supports generic TMS380-based PCI cards.
  
- 	rt_cache_flush(-1);
- 	rtmsg_fib(RTM_NEWROUTE, htonl(key), new_fa, plen, tb->tb_id,
--		  &cfg->fc_nlinfo);
-+		  &cfg->fc_nlinfo, 0);
- succeeded:
- 	return 0;
+@@ -123,7 +123,7 @@ config TMSPCI
  
-@@ -1624,7 +1626,7 @@ static int fn_trie_delete(struct fib_tab
+ config SKISA
+ 	tristate "SysKonnect TR4/16 ISA support"
+-	depends on TR && TMS380TR && ISA
++	depends on TMS380TR && ISA
+ 	help
+ 	  This tms380 module supports SysKonnect TR4/16 ISA cards.
  
- 	fa = fa_to_delete;
- 	rtmsg_fib(RTM_DELROUTE, htonl(key), fa, plen, tb->tb_id,
--		  &cfg->fc_nlinfo);
-+		  &cfg->fc_nlinfo, 0);
+@@ -135,7 +135,7 @@ config SKISA
  
- 	l = fib_find_node(t, key);
- 	li = find_leaf_info(l, plen);
+ config PROTEON
+ 	tristate "Proteon ISA support"
+-	depends on TR && TMS380TR && ISA
++	depends on TMS380TR && ISA
+ 	help
+ 	  This tms380 module supports Proteon ISA cards.
+ 
+@@ -148,7 +148,7 @@ config PROTEON
+ 
+ config ABYSS
+ 	tristate "Madge Smart 16/4 PCI Mk2 support"
+-	depends on TR && TMS380TR && PCI
++	depends on TMS380TR && PCI
+ 	help
+ 	  This tms380 module supports the Madge Smart 16/4 PCI Mk2
+ 	  cards (51-02).
+@@ -158,7 +158,7 @@ config ABYSS
+ 
+ config MADGEMC
+ 	tristate "Madge Smart 16/4 Ringnode MicroChannel"
+-	depends on TR && TMS380TR && MCA
++	depends on TMS380TR && MCA
+ 	help
+ 	  This tms380 module supports the Madge Smart 16/4 MC16 and MC32
+ 	  MicroChannel adapters.
+@@ -168,7 +168,7 @@ config MADGEMC
+ 
+ config SMCTR
+ 	tristate "SMC ISA/MCA adapter support"
+-	depends on TR && (ISA || MCA_LEGACY) && (BROKEN || !64BIT)
++	depends on (ISA || MCA_LEGACY) && (BROKEN || !64BIT)
+ 	---help---
+ 	  This is support for the ISA and MCA SMC Token Ring cards,
+ 	  specifically SMC TokenCard Elite (8115T) and SMC TokenCard Elite/A
+@@ -182,5 +182,4 @@ config SMCTR
+ 	  To compile this driver as a module, choose M here: the module will be
+ 	  called smctr.
+ 
+-endmenu
+-
++endif # TR
 _
