@@ -1,75 +1,161 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: sky2 hangs without any messages
-Date: Wed, 23 May 2007 08:49:22 -0700
-Message-ID: <20070523084922.04dedd08@freepuppy>
-References: <20070523075431.GA15935@dose.home.local>
-	<20070523075026.3f78e306@freepuppy>
-	<20070523150118.GA25026@dose.home.local>
+From: "Ali Ozyagci" <ali.ozyagci@gmail.com>
+Subject: Help on token bucket filter queue
+Date: Wed, 23 May 2007 18:57:11 +0200
+Message-ID: <6dac5d1b0705230957q2237b51ct7c0a59b3931cf775@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Tino Keitel <tino.keitel@tikei.de>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: bert.hubert@netherlabs.nl
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([207.189.120.12]:40661 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756727AbXEWPt3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 May 2007 11:49:29 -0400
-In-Reply-To: <20070523150118.GA25026@dose.home.local>
+Received: from an-out-0708.google.com ([209.85.132.248]:2987 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756514AbXEWQ5O convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 May 2007 12:57:14 -0400
+Received: by an-out-0708.google.com with SMTP id d31so69418and
+        for <netdev@vger.kernel.org>; Wed, 23 May 2007 09:57:12 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Does this patch fix the problem? It is something I saw while doing
-review for support of newer chips.
---------------------
-Subject: sky2: don't set bogus bit in PHY register
+Hello,
 
-This code inherited from the sk98lin driver is incorrect on the Yukon2.
-The definition used for these bits is incorrect. Actual usage varies
-with chip type, and we don't need to mess with them (yet).
+I am trying to imitate the medium access behavior in HSDPA using wired
+ethernet in my research in order to see how TCP behaves under such a
+MAC. What I want to do is to send packets (if there are any in the
+queue) for the duration of about 2 milliseconds and then keep silent
+for some time, in the order of 100milliseconds.
 
-Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+I managed to modify sch_tbf.c to prevent the interface from sending
+packets if microseconds in the system clock is not between 3000 and
+5000. These particular numbers are irrelevant, I just found it easier
+to implement like this. So, for 2 milliseconds the interface can send
+packets, otherwise it is silent. What I did was to read the system
+time in tbf_dequeue funciton and return a NULL pointer if microseconds
+didn't fall in the specified interval.
+
+This is my first attempt to do any kernel programming, so I could
+really use some advice on style and approach with this. Is it sensible
+to use udelay in kernel code? Is there a more appropriate way of
+programming the device to sleep for a number of milliseconds? Should I
+try to implement this behavior in the network code rather than queuing
+disciplines?
+
+Also a I noticed that every time a packet is enqueued, tbf_dequeue is
+called immediately, but I could not track down where exactly this was
+called. Is this the expected behavior, or did I forget to set some
+flags?
+
+The modified version of tbf_dequeue function follows, only minor
+changes. Thanks in advance for any help and suggestions.
+Ali =D6zyagci
 
 
---- a/drivers/net/sky2.c	2007-05-23 08:44:09.000000000 -0700
-+++ b/drivers/net/sky2.c	2007-05-23 08:47:11.000000000 -0700
-@@ -658,7 +658,7 @@ static void sky2_mac_init(struct sky2_hw
- 	const u8 *addr = hw->dev[port]->dev_addr;
- 
- 	sky2_write32(hw, SK_REG(port, GPHY_CTRL), GPC_RST_SET);
--	sky2_write32(hw, SK_REG(port, GPHY_CTRL), GPC_RST_CLR|GPC_ENA_PAUSE);
-+	sky2_write32(hw, SK_REG(port, GPHY_CTRL), GPC_RST_CLR);
- 
- 	sky2_write8(hw, SK_REG(port, GMAC_CTRL), GMC_RST_CLR);
- 
---- a/drivers/net/sky2.h	2007-05-23 08:44:09.000000000 -0700
-+++ b/drivers/net/sky2.h	2007-05-23 08:47:11.000000000 -0700
-@@ -1732,28 +1732,6 @@ enum {
- 
- /*	GPHY_CTRL		32 bit	GPHY Control Reg (YUKON only) */
- enum {
--	GPC_SEL_BDT	= 1<<28, /* Select Bi-Dir. Transfer for MDC/MDIO */
--	GPC_INT_POL_HI	= 1<<27, /* IRQ Polarity is Active HIGH */
--	GPC_75_OHM	= 1<<26, /* Use 75 Ohm Termination instead of 50 */
--	GPC_DIS_FC	= 1<<25, /* Disable Automatic Fiber/Copper Detection */
--	GPC_DIS_SLEEP	= 1<<24, /* Disable Energy Detect */
--	GPC_HWCFG_M_3	= 1<<23, /* HWCFG_MODE[3] */
--	GPC_HWCFG_M_2	= 1<<22, /* HWCFG_MODE[2] */
--	GPC_HWCFG_M_1	= 1<<21, /* HWCFG_MODE[1] */
--	GPC_HWCFG_M_0	= 1<<20, /* HWCFG_MODE[0] */
--	GPC_ANEG_0	= 1<<19, /* ANEG[0] */
--	GPC_ENA_XC	= 1<<18, /* Enable MDI crossover */
--	GPC_DIS_125	= 1<<17, /* Disable 125 MHz clock */
--	GPC_ANEG_3	= 1<<16, /* ANEG[3] */
--	GPC_ANEG_2	= 1<<15, /* ANEG[2] */
--	GPC_ANEG_1	= 1<<14, /* ANEG[1] */
--	GPC_ENA_PAUSE	= 1<<13, /* Enable Pause (SYM_OR_REM) */
--	GPC_PHYADDR_4	= 1<<12, /* Bit 4 of Phy Addr */
--	GPC_PHYADDR_3	= 1<<11, /* Bit 3 of Phy Addr */
--	GPC_PHYADDR_2	= 1<<10, /* Bit 2 of Phy Addr */
--	GPC_PHYADDR_1	= 1<<9,	 /* Bit 1 of Phy Addr */
--	GPC_PHYADDR_0	= 1<<8,	 /* Bit 0 of Phy Addr */
--						/* Bits  7..2:	reserved */
- 	GPC_RST_CLR	= 1<<1,	/* Clear GPHY Reset */
- 	GPC_RST_SET	= 1<<0,	/* Set   GPHY Reset */
- };
+Here is the function:
+
+static struct sk_buff *tbf_dequeue(struct Qdisc* sch)
+{
+	struct tbf_sched_data *q =3D qdisc_priv(sch);
+
+/* Modifications to tbf_dequeue function to keep the queue silent (alth=
+ough
+   there are backlogged packets) until the beginning of the next timesl=
+ot.
+   The timeslot during which I can send packets is (3, 5) milliseconds =
+of each
+   100 milliseconds.
+*/
+	psched_time_t currentTime;
+	PSCHED_GET_TIME(currentTime);
+	int excess_usecs =3D currentTime.tv_usec % 100000;
+=09
+	if ( excess_usecs  > 5000) {
+	/* Missed this slot for transmission. Sleep until the beginning of
+	the next 100msec interval, so do not send the packet now (therefore
+	return NULL), but set the timer so we return to tbf_dequeue near the
+	beginning of the next 100msec timeslot. Ideally next time tbf_dequeue
+	is called, this block should not execute but the else block below shou=
+ld
+	 execute. */
+		mod_timer(&q->wd_timer, jiffies+ 101 - (int)(excess_usecs/1000));
+	/* I'm not sure if this is needed, I got to study the network code
+	more. */
+		sch->flags |=3D TCQ_F_THROTTLED;
+		return NULL;
+	}
+	else if ( excess_usecs < 3000 ){
+	/* tv_usec is less than 3000, sleep until 3000 usecs have passed into =
+this
+	   interval. I used udelay instead of programming the watchdog because=
+ I
+	   didn't want to miss some microseconds in the beginning of this time=
+slot
+	   because of timer tick jitters.*/
+		udelay(3000 - excess_usecs);
+	}
+	/* Here, 3000<tv_usec<5000 so proceed with transmission. I didn't make=
+ any
+	   further changes to the code.*/
+
+	struct sk_buff *skb;
+
+	skb =3D q->qdisc->dequeue(q->qdisc);
+
+	if (skb) {
+		psched_time_t now;
+		long toks, delay;
+		long ptoks =3D 0;
+		unsigned int len =3D skb->len;
+
+		PSCHED_GET_TIME(now);
+		toks =3D PSCHED_TDIFF_SAFE(now, q->t_c, q->buffer);
+		if (q->P_tab) {
+			ptoks =3D toks + q->ptokens;
+			if (ptoks > (long)q->mtu)
+				ptoks =3D q->mtu;
+			ptoks -=3D L2T_P(q, len);
+		}
+		toks +=3D q->tokens;
+		if (toks > (long)q->buffer)
+			toks =3D q->buffer;
+		toks -=3D L2T(q, len);
+
+		if ((toks|ptoks) >=3D 0) {
+			q->t_c =3D now;
+			q->tokens =3D toks;
+			q->ptokens =3D ptoks;
+			sch->q.qlen--;
+			sch->flags &=3D ~TCQ_F_THROTTLED;
+			return skb;
+		}
+
+		delay =3D PSCHED_US2JIFFIE(max_t(long, -toks, -ptoks));
+
+		if (delay =3D=3D 0)
+			delay =3D 1;
+
+		mod_timer(&q->wd_timer, jiffies+delay);
+
+		/* Maybe we have a shorter packet in the queue,
+		   which can be sent now. It sounds cool,
+		   but, however, this is wrong in principle.
+		   We MUST NOT reorder packets under these circumstances.
+
+		   Really, if we split the flow into independent
+		   subflows, it would be a very good solution.
+		   This is the main idea of all FQ algorithms
+		   (cf. CSZ, HPFQ, HFSC)
+		 */
+
+		if (q->qdisc->ops->requeue(skb, q->qdisc) !=3D NET_XMIT_SUCCESS) {
+			/* When requeue fails skb is dropped */
+			sch->q.qlen--;
+			sch->qstats.drops++;
+		}
+
+		sch->flags |=3D TCQ_F_THROTTLED;
+		sch->qstats.overlimits++;
+	}
+	return NULL;
+}
