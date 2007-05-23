@@ -1,83 +1,169 @@
 From: akpm@linux-foundation.org
-Subject: [patch 4/8] Use menuconfig objects: SCTP
-Date: Wed, 23 May 2007 14:35:54 -0700
-Message-ID: <200705232135.l4NLZsK9000661@shell0.pdx.osdl.net>
+Subject: [patch 1/8] use mutex instead of binary semaphore in idt77252 driver
+Date: Wed, 23 May 2007 14:35:48 -0700
+Message-ID: <200705232135.l4NLZmMh000648@shell0.pdx.osdl.net>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	jengelh@linux01.gwdg.de, jengelh@gmx.de, sri@us.ibm.com,
-	vladislav.yasevich@hp.com
+	matthias.kaehlcke@gmail.com, chas@cmf.nrl.navy.mil
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([207.189.120.13]:47751 "EHLO
+Received: from smtp1.linux-foundation.org ([207.189.120.13]:37413 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756100AbXEWVgU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 May 2007 17:36:20 -0400
+	by vger.kernel.org with ESMTP id S1756173AbXEWVgV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 May 2007 17:36:21 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jan Engelhardt <jengelh@linux01.gwdg.de>
+From: Matthias Kaehlcke <matthias.kaehlcke@gmail.com>
 
-Use menuconfigs instead of menus, so the whole menu can be disabled at once
-instead of going through all options.
+Use mutex instead of binary semaphore in idt77252 driver.
 
-Signed-off-by: Jan Engelhardt <jengelh@gmx.de>
-Cc: Vlad Yasevich <vladislav.yasevich@hp.com>
-Cc: Sridhar Samudrala <sri@us.ibm.com>
+Signed-off-by: Matthias Kaehlcke <matthias.kaehlcke@gmail.com>
+Cc: chas williams <chas@cmf.nrl.navy.mil>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- net/sctp/Kconfig |   14 ++++++--------
- 1 files changed, 6 insertions(+), 8 deletions(-)
+ drivers/atm/idt77252.c |   27 ++++++++++++++-------------
+ drivers/atm/idt77252.h |    4 ++--
+ 2 files changed, 16 insertions(+), 15 deletions(-)
 
-diff -puN net/sctp/Kconfig~use-menuconfig-objects-sctp net/sctp/Kconfig
---- a/net/sctp/Kconfig~use-menuconfig-objects-sctp
-+++ a/net/sctp/Kconfig
-@@ -2,11 +2,9 @@
- # SCTP configuration
- #
+diff -puN drivers/atm/idt77252.c~use-mutex-instead-of-binary-semaphore-in-idt77252-driver drivers/atm/idt77252.c
+--- a/drivers/atm/idt77252.c~use-mutex-instead-of-binary-semaphore-in-idt77252-driver
++++ a/drivers/atm/idt77252.c
+@@ -47,7 +47,8 @@ static char const rcsid[] =
+ #include <linux/bitops.h>
+ #include <linux/wait.h>
+ #include <linux/jiffies.h>
+-#include <asm/semaphore.h>
++#include <linux/mutex.h>
++
+ #include <asm/io.h>
+ #include <asm/uaccess.h>
+ #include <asm/atomic.h>
+@@ -2435,7 +2436,7 @@ idt77252_open(struct atm_vcc *vcc)
  
--menu "SCTP Configuration (EXPERIMENTAL)"
--	depends on INET && EXPERIMENTAL
+ 	set_bit(ATM_VF_ADDR, &vcc->flags);
+ 
+-	down(&card->mutex);
++	mutex_lock(&card->mutex);
+ 
+ 	OPRINTK("%s: opening vpi.vci: %d.%d\n", card->name, vpi, vci);
+ 
+@@ -2446,7 +2447,7 @@ idt77252_open(struct atm_vcc *vcc)
+ 		break;
+ 	default:
+ 		printk("%s: Unsupported AAL: %d\n", card->name, vcc->qos.aal);
+-		up(&card->mutex);
++		mutex_unlock(&card->mutex);
+ 		return -EPROTONOSUPPORT;
+ 	}
+ 
+@@ -2455,7 +2456,7 @@ idt77252_open(struct atm_vcc *vcc)
+ 		card->vcs[index] = kzalloc(sizeof(struct vc_map), GFP_KERNEL);
+ 		if (!card->vcs[index]) {
+ 			printk("%s: can't alloc vc in open()\n", card->name);
+-			up(&card->mutex);
++			mutex_unlock(&card->mutex);
+ 			return -ENOMEM;
+ 		}
+ 		card->vcs[index]->card = card;
+@@ -2484,14 +2485,14 @@ idt77252_open(struct atm_vcc *vcc)
+ 	if (inuse) {
+ 		printk("%s: %s vci already in use.\n", card->name,
+ 		       inuse == 1 ? "tx" : inuse == 2 ? "rx" : "tx and rx");
+-		up(&card->mutex);
++		mutex_unlock(&card->mutex);
+ 		return -EADDRINUSE;
+ 	}
+ 
+ 	if (vcc->qos.txtp.traffic_class != ATM_NONE) {
+ 		error = idt77252_init_tx(card, vc, vcc, &vcc->qos);
+ 		if (error) {
+-			up(&card->mutex);
++			mutex_unlock(&card->mutex);
+ 			return error;
+ 		}
+ 	}
+@@ -2499,14 +2500,14 @@ idt77252_open(struct atm_vcc *vcc)
+ 	if (vcc->qos.rxtp.traffic_class != ATM_NONE) {
+ 		error = idt77252_init_rx(card, vc, vcc, &vcc->qos);
+ 		if (error) {
+-			up(&card->mutex);
++			mutex_unlock(&card->mutex);
+ 			return error;
+ 		}
+ 	}
+ 
+ 	set_bit(ATM_VF_READY, &vcc->flags);
+ 
+-	up(&card->mutex);
++	mutex_unlock(&card->mutex);
+ 	return 0;
+ }
+ 
+@@ -2520,7 +2521,7 @@ idt77252_close(struct atm_vcc *vcc)
+ 	unsigned long addr;
+ 	unsigned long timeout;
+ 
+-	down(&card->mutex);
++	mutex_lock(&card->mutex);
+ 
+ 	IPRINTK("%s: idt77252_close: vc = %d (%d.%d)\n",
+ 		card->name, vc->index, vcc->vpi, vcc->vci);
+@@ -2591,7 +2592,7 @@ done:
+ 		free_scq(card, vc->scq);
+ 	}
+ 
+-	up(&card->mutex);
++	mutex_unlock(&card->mutex);
+ }
+ 
+ static int
+@@ -2602,7 +2603,7 @@ idt77252_change_qos(struct atm_vcc *vcc,
+ 	struct vc_map *vc = vcc->dev_data;
+ 	int error = 0;
+ 
+-	down(&card->mutex);
++	mutex_lock(&card->mutex);
+ 
+ 	if (qos->txtp.traffic_class != ATM_NONE) {
+ 	    	if (!test_bit(VCF_TX, &vc->flags)) {
+@@ -2648,7 +2649,7 @@ idt77252_change_qos(struct atm_vcc *vcc,
+ 	set_bit(ATM_VF_HASQOS, &vcc->flags);
+ 
+ out:
+-	up(&card->mutex);
++	mutex_unlock(&card->mutex);
+ 	return error;
+ }
+ 
+@@ -3709,7 +3710,7 @@ idt77252_init_one(struct pci_dev *pcidev
+ 	membase = pci_resource_start(pcidev, 1);
+ 	srambase = pci_resource_start(pcidev, 2);
+ 
+-	init_MUTEX(&card->mutex);
++	mutex_init(&card->mutex);
+ 	spin_lock_init(&card->cmd_lock);
+ 	spin_lock_init(&card->tst_lock);
+ 
+diff -puN drivers/atm/idt77252.h~use-mutex-instead-of-binary-semaphore-in-idt77252-driver drivers/atm/idt77252.h
+--- a/drivers/atm/idt77252.h~use-mutex-instead-of-binary-semaphore-in-idt77252-driver
++++ a/drivers/atm/idt77252.h
+@@ -37,7 +37,7 @@
+ #include <linux/ptrace.h>
+ #include <linux/skbuff.h>
+ #include <linux/workqueue.h>
 -
--config IP_SCTP
-+menuconfig IP_SCTP
- 	tristate "The SCTP Protocol (EXPERIMENTAL)"
-+	depends on INET && EXPERIMENTAL
- 	depends on IPV6 || IPV6=n
- 	select CRYPTO if SCTP_HMAC_SHA1 || SCTP_HMAC_MD5
- 	select CRYPTO_HMAC if SCTP_HMAC_SHA1 || SCTP_HMAC_MD5
-@@ -36,9 +34,10 @@ config IP_SCTP
++#include <linux/mutex.h>
  
- 	  If in doubt, say N.
+ /*****************************************************************************/
+ /*                                                                           */
+@@ -359,7 +359,7 @@ struct idt77252_dev
+ 	unsigned long		srambase;	/* SAR's sram  base address */
+ 	void __iomem		*fbq[4];	/* FBQ fill addresses */
  
-+if IP_SCTP
-+
- config SCTP_DBG_MSG
- 	bool "SCTP: Debug messages"
--	depends on IP_SCTP
- 	help
- 	  If you say Y, this will enable verbose debugging messages. 
+-	struct semaphore	mutex;
++	struct mutex		mutex;
+ 	spinlock_t		cmd_lock;	/* for r/w utility/sram */
  
-@@ -47,7 +46,6 @@ config SCTP_DBG_MSG
- 
- config SCTP_DBG_OBJCNT
- 	bool "SCTP: Debug object counts"
--	depends on IP_SCTP
- 	help
- 	  If you say Y, this will enable debugging support for counting the 
- 	  type of objects that are currently allocated.  This is useful for 
-@@ -59,7 +57,6 @@ config SCTP_DBG_OBJCNT
- 
- choice
- 	prompt "SCTP: Cookie HMAC Algorithm"
--	depends on IP_SCTP
- 	default SCTP_HMAC_MD5
- 	help
- 	  HMAC algorithm to be used during association initialization.  It
-@@ -86,4 +83,5 @@ config SCTP_HMAC_MD5
- 	  advised to use either HMAC-MD5 or HMAC-SHA1.
- 
- endchoice
--endmenu
-+
-+endif # IP_SCTP
+ 	unsigned long		softstat;
 _
