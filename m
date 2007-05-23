@@ -1,230 +1,44 @@
-From: Milton Miller <miltonm@bga.com>
-Subject: Re: [PATCH] fix e100 rx path on ARM (was [PATCH] e100 rx: or s and el bits)
-Date: Wed, 23 May 2007 09:02:06 -0500
-Message-ID: <f83441453b1233771c5bda869912aeca@bga.com>
-References: <200705011124.l41BOEG4007662@sullivan.realtime.net> <46375664.8030701@roinet.com> <4638F2B2.2000103@roinet.com> <463BA906.30205@roinet.com> <85f07fc58d5ed2147d5214d0f0b4fe32@bga.com> <4648A9DF.6030001@roinet.com> <464D074F.20400@pobox.com> <464D21B6.2000208@intel.com> <464DB336.2030003@roinet.com> <464DB619.3070900@roinet.com> <464DC676.90504@intel.com> <464DCA97.3070405@roinet.com> <464DCD5E.50003@intel.com> <464DDE3E.9010400@roinet.com> <e3819b7a866b1117fd5a69e6a85e0784@bga.com> <4651DAC1.7050604@intel.com> <53c44b6f03973eb1b28f221859d3002c@bga.com> <465369AF.8080508@roinet.com>
-Mime-Version: 1.0 (Apple Message framework v624)
-Content-Type: text/plain; charset=US-ASCII; format=flowed
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: sky2 hangs without any messages
+Date: Wed, 23 May 2007 07:50:26 -0700
+Message-ID: <20070523075026.3f78e306@freepuppy>
+References: <20070523075431.GA15935@dose.home.local>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>,
-	"Kok, Auke" <auke-jan.h.kok@intel.com>,
-	e1000-devel@lists.sourceforge.net,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org, Scott Feldman <sfeldma@pobox.com>
-To: David Acker <dacker@roinet.com>
+Cc: netdev@vger.kernel.org
+To: Tino Keitel <tino.keitel@tikei.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mercury.realtime.net ([205.238.132.86]:53802 "EHLO
-	ruth.realtime.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756706AbXEWODR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 May 2007 10:03:17 -0400
-In-Reply-To: <465369AF.8080508@roinet.com>
+Received: from smtp.osdl.org ([207.189.120.12]:39660 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755780AbXEWOue (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 May 2007 10:50:34 -0400
+In-Reply-To: <20070523075431.GA15935@dose.home.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I tried to remove anything we were in agreement with.
+On Wed, 23 May 2007 09:54:31 +0200
+Tino Keitel <tino.keitel@tikei.de> wrote:
 
-On May 22, 2007, at 5:07 PM, David Acker wrote:
-> Milton Miller wrote:
+> Hi folks,
+> 
+> in the last 2 days, I had 2 outages of the NIC of my Mac mini Core Duo.
+> I checked the kernel log but I found nothing sky2 related. After
+> reloading the module, the interface worked again.
+> 
+> Both freezes were connected to access from a remote NFS client to a
+> directory with ~4700 files in it. Both times, after reloading the
+> module and waiting some minutes until the NFS client had recovered from
+> the hanging NFS server, the same action worked.
+> 
+> The network is 100 mbit full duplex. I use NFS over TCP and kernel
+> 2.6.21 with the "disable flow control" patch, the configuration is
+> attached.
+> 
 
-> Many of the issues you bring have been in the e100 for some time.  If 
-> you ignore the s-bit patch, I basically did the the following:
-> moved the el-bit to before the last buffer so that the last buffer was 
-> protected during chaining.
-> set the el-bit buffer (next-to-last) size to 0 so that it is not 
-> written to while we are writing to it.
->
-> This seemed the only way to protect the buffers we are changing while 
-> having code to stay ahead of the hardware.
+Don't use that patch, it isn't needed and probably causes problem.
 
-I agree with this part of the approach.  I just think we need
-a bit more work on the "what to do when we are ready for
-hardware to not stop" part.
-
->> But the bigger point is it didn't address the holes I identified.
->>
->> I also see that the driver sets the size from 0 back to frame
->> size.  While there is a wmb() between the removal of EL and the
->> restore of the frame size, there is only one pci_sync for both
->> of them.  Since the size is in a separate word, depending on skb
->> alignment it may be in a different cache line and we may end up
->> with all orderings being visible to the device.
->
-> Hmmm...interesting.  The start of the data of the skb may not be 
-> aligned on a cache line.  Ok DMA experts...what happens when you sync 
-> across cache lines?  It should dump both of them, right?  I guess the 
-> orderings could vary...hence why I saw completions with size set but 
-> the el-bit still set.  So perhaps the skb alloc needs to be aligned by 
-> cache line?     This issue existed before my patches as well.
-
-The sync is required to push both cache lines, but there is no
-ordering guarantee.  This probably is why you saw size and el
-set.  Aligning the RFD to a cache line conflicts with aligning
-the payload (IP header and data) to a word boundary, and
-depending on cache line size it may be impossible to do both.
-
-And it won't fix the hole for coherent dma machines.
-
-It wasn't an issue before because we never set two fields.
-
->> This patch adds a lot of code that checks if the next RFD has
->> EL set and assumes that if it sees the next frame to clean has
->> EL set then the device will have seen it and entered the stopped
->> state.   In theory, the device might be held off on the PCI bus
->> and not have yet read the descriptor and stopped.   In addition,
->> while it anticipates the RNR interrupt and restarts the receiver
->> from the clean process, it doesn't clear the pending interrupt
->> and the cpu will still take the interrupt, although it will read
->> the status and not actually restart the RU.
->
-> So the device is just before the el-bit buffer and stops.  We get a 
-> poll call with interrupts disabled and see the el-bit buffer and 
-> decide we need to restart.  First we alloc new buffers and move the 
-> el-bit/size 0 down.  The restart occurs on the next poll (interrupts 
-> are not turned on if we did any work).  In theory, the hardware could 
-> have read the buffer that no longer has a size of 0 and tried to use 
-> it when we hit it with the start.  I am not sure how the hardware 
-> handles this.  Perhaps it is ignored and thus harmless.  We could poll 
-> the hardware to check before actually sending the start...it adds an 
-> extra pci operation but would avoid a command that is illegal in the 
-> manual.
->
-> If we ignore a buffer with the el-bit set but without the complete 
-> bit, we must wait for the hardware to RNR interrupt.  I have found 
-> that when a buffer has both the el-bit set and the size set to 0, it 
-> will not set the complete bit on that buffer.  This was part of the 
-> reason why my first patch had hardware just using the list of buffers 
-> given all the way up until the end.
-
-
-My current reading of the manual is that the C bit will not be
-set on an RFD that is size 0.  It goes on to processes EL and
-S, and decides to stop and interrupt RNR or suspend, or just
-go to the next packet.
-
->> I think we need to change the logic to reclaim the size from 0
->> only if we are restarting, and make rx_indicate look ahead to
->> rx->next if it encounters a !EL size 0 buffer.  Without this we
->> are doing a "prohibited" rx_start to a running machine.
->
-> The hardware is only restarted when we enter the RU_SUSPENDED state. 
-> This only happens when we:
-> 1) get an RNR interrupt
-> 2) get an EL-bit buffer without a completion
-> 3) get an el-bit buffer with a completion (hardware saw size set but 
-> not el-bit clear)
->
-> State 2) seems to be the problem.  Get rid of that and we wait for an 
-> interrupt to tell us it saw the buffer in most cases.  Of course, then 
-> we always wait.
-
-If we poll the device, I think it will be rare that it
-is not stopped when we see the EL bit bit it has not
-yet read the next RFD.  But it is a race and I think
-a device read is worth avoiding something prohibited
-in the manual.
-
-> If we do not reclaim the size from 0, but clear the el-bit, that 
-> buffer will always return an error.
-
-I disagree.  If the size is 0, it is a special case and no
-error will be generated, instead the RU will just process
-EL and S then proceed to the next buffer.
-
-If the size was smaller than the incoming packet but not 0
-then it would be completed in error.
-
-It does make are "did the device go past" logic harder.
-If the buffer ever was 0, then we need to see if the
-next never-zero buffer has completed, and reclaim all
-the buffers in between.
-
->> The device can still see this size 0 !EL state.  Also we will
->> get stuck when the device finds the window between the two
->> writes.
->
->> This window also means that the device may have skipped this
->> previously 0-length descriptor and gone on to the next one,
->> so we will stick waiting for the device to write to this
->> descriptor while it went on to the next one.
->
-> If the hardware sees both size 0 and EL, it RNR interrupts, does not 
-> write to the buffer at all and stops.
->
-> If the hardware sees size 0 and !EL, (which I never saw in testing but 
-> could happen) it would return the buffer with an error and continue. 
-> This is ok since we already have written a new size 0 and EL.  Our 
-> polling code would just find a packet completed in error.
-
-[A bit repetitious since we are replying to two threads]
-
-Again, I think there is no completion, error or not, and our
-clean will get stuck while the hardware goes on.
-
-> If the hardware sees size set and EL, it RNR interrupts, and does 
-> write data and status to the buffer, and then stops.  I have see this 
-> one occur and it isn't a problem.
->
-> If hardware sees size set and !EL, it writes data and continues.
->
->
->> As far as the RU_SUSPENDED, I don't think we need it, instead
->> we should poll the device.
-> RU_SUSPENDED is pretty much used as it was before all the patches. The 
-> only waste I found is that if we find the EL-bit while interrupts are 
-> disabled (say during a NAPI poll), we set RU_SUSPENDED and then have 
-> to wait for the next poll to figure out that we need to restart the 
-> receiver.
-
-I have no problem with reading the device when we think it may
-have hit EL and restarting on this poll.  I even prefer it.
-
-If we do restart, we should take the time to ack the RNR
-interrupt so we don't process it again.
-
->> Here is my proposal:
->> rx_indicate can stop when it hits the packet with EL.  If it
->> hits a packet with size 0, look ahead to rx->next to see if
->> it is complete, if so complete this one otherwise leave it
->> as next to clean.  After the rx_indicate loop, try to allocate
->> more skbs.  If we are successful, then fixup the before-next
->> as we do now.  Then check the device status for RNR, and if
->> its stopped then set rx_to_clean rfd size back to ETH_LEN
->> and restart the reciever.
->> This does have a small hole: if we only add one packet at
->> a time we will end up with all size 0 descriptors in the
->> lopp.   We can detect that and not remove EL from the old
->> before-next unless we are restarting.  That would imply
->> moving the status poll before we allocate the list.
->
-> Can you send a patch or pseudo-code?  It would help to see some main 
-> parts:
-> 1. blank_rfd setup
-> 2. single buffer alloc
-> 3. el-bit handling (when do we set it and when do we clear it)
-> 4. size handling (when do we set it and when do we clear it)
-
-I was afraid you were going to ask for code :-)   I'll try
-to find some time to write some.   I'll need to look for
-an adapter to do any testing.  They exist in some of the
-machines at work.
-
-> What if we just fixed the alignment of rfd to make sure it is cache 
-> aligned?  Then we know our syncs will be a single cache flush.
-
-That doesn't help in the coherent dma case; the device can still
-read in between, and we need to handle the !EL size 0 case.
-
-Actually, I thought about it some more after yesterdays note.
-We can set the size !0 after making sure the device sees EL
-(wmb and pci_sync_for_device), as long as we remember this
-buffer used to be size 0 when doing RX clean, and look ahead
-for another complete packet as long as the size was ever 0.
-
-My proposal was just to use "size is still 0" as that flag,
-wasting the space allocated for that skb.
-
-Another aproach is to always allocate a rfd-only packet
-at the beginning of the loop, and inserting th
-
+Please get output of 'ethtool -d eth0'; more recent versions of
+ethtool can decode the register format. Older versions just print hex.
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
