@@ -1,169 +1,118 @@
 From: akpm@linux-foundation.org
-Subject: [patch 1/8] use mutex instead of binary semaphore in idt77252 driver
-Date: Wed, 23 May 2007 14:35:48 -0700
-Message-ID: <200705232135.l4NLZmMh000648@shell0.pdx.osdl.net>
+Subject: [patch 6/8] Use menuconfig objects: ARCNET
+Date: Wed, 23 May 2007 14:35:56 -0700
+Message-ID: <200705232135.l4NLZuhl000669@shell0.pdx.osdl.net>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	matthias.kaehlcke@gmail.com, chas@cmf.nrl.navy.mil
+	jengelh@linux01.gwdg.de, jengelh@gmx.de
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([207.189.120.13]:37413 "EHLO
+Received: from smtp1.linux-foundation.org ([207.189.120.13]:50205 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756173AbXEWVgV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 May 2007 17:36:21 -0400
+	by vger.kernel.org with ESMTP id S1756363AbXEWVgm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 May 2007 17:36:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Matthias Kaehlcke <matthias.kaehlcke@gmail.com>
+From: Jan Engelhardt <jengelh@linux01.gwdg.de>
 
-Use mutex instead of binary semaphore in idt77252 driver.
+Use menuconfigs instead of menus, so the whole menu can be disabled at once
+instead of going through all options.
 
-Signed-off-by: Matthias Kaehlcke <matthias.kaehlcke@gmail.com>
-Cc: chas williams <chas@cmf.nrl.navy.mil>
+Signed-off-by: Jan Engelhardt <jengelh@gmx.de>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/atm/idt77252.c |   27 ++++++++++++++-------------
- drivers/atm/idt77252.h |    4 ++--
- 2 files changed, 16 insertions(+), 15 deletions(-)
+ drivers/net/arcnet/Kconfig |   17 ++++-------------
+ 1 files changed, 4 insertions(+), 13 deletions(-)
 
-diff -puN drivers/atm/idt77252.c~use-mutex-instead-of-binary-semaphore-in-idt77252-driver drivers/atm/idt77252.c
---- a/drivers/atm/idt77252.c~use-mutex-instead-of-binary-semaphore-in-idt77252-driver
-+++ a/drivers/atm/idt77252.c
-@@ -47,7 +47,8 @@ static char const rcsid[] =
- #include <linux/bitops.h>
- #include <linux/wait.h>
- #include <linux/jiffies.h>
--#include <asm/semaphore.h>
-+#include <linux/mutex.h>
-+
- #include <asm/io.h>
- #include <asm/uaccess.h>
- #include <asm/atomic.h>
-@@ -2435,7 +2436,7 @@ idt77252_open(struct atm_vcc *vcc)
+diff -puN drivers/net/arcnet/Kconfig~use-menuconfig-objects-arcnet drivers/net/arcnet/Kconfig
+--- a/drivers/net/arcnet/Kconfig~use-menuconfig-objects-arcnet
++++ a/drivers/net/arcnet/Kconfig
+@@ -2,10 +2,8 @@
+ # Arcnet configuration
+ #
  
- 	set_bit(ATM_VF_ADDR, &vcc->flags);
- 
--	down(&card->mutex);
-+	mutex_lock(&card->mutex);
- 
- 	OPRINTK("%s: opening vpi.vci: %d.%d\n", card->name, vpi, vci);
- 
-@@ -2446,7 +2447,7 @@ idt77252_open(struct atm_vcc *vcc)
- 		break;
- 	default:
- 		printk("%s: Unsupported AAL: %d\n", card->name, vcc->qos.aal);
--		up(&card->mutex);
-+		mutex_unlock(&card->mutex);
- 		return -EPROTONOSUPPORT;
- 	}
- 
-@@ -2455,7 +2456,7 @@ idt77252_open(struct atm_vcc *vcc)
- 		card->vcs[index] = kzalloc(sizeof(struct vc_map), GFP_KERNEL);
- 		if (!card->vcs[index]) {
- 			printk("%s: can't alloc vc in open()\n", card->name);
--			up(&card->mutex);
-+			mutex_unlock(&card->mutex);
- 			return -ENOMEM;
- 		}
- 		card->vcs[index]->card = card;
-@@ -2484,14 +2485,14 @@ idt77252_open(struct atm_vcc *vcc)
- 	if (inuse) {
- 		printk("%s: %s vci already in use.\n", card->name,
- 		       inuse == 1 ? "tx" : inuse == 2 ? "rx" : "tx and rx");
--		up(&card->mutex);
-+		mutex_unlock(&card->mutex);
- 		return -EADDRINUSE;
- 	}
- 
- 	if (vcc->qos.txtp.traffic_class != ATM_NONE) {
- 		error = idt77252_init_tx(card, vc, vcc, &vcc->qos);
- 		if (error) {
--			up(&card->mutex);
-+			mutex_unlock(&card->mutex);
- 			return error;
- 		}
- 	}
-@@ -2499,14 +2500,14 @@ idt77252_open(struct atm_vcc *vcc)
- 	if (vcc->qos.rxtp.traffic_class != ATM_NONE) {
- 		error = idt77252_init_rx(card, vc, vcc, &vcc->qos);
- 		if (error) {
--			up(&card->mutex);
-+			mutex_unlock(&card->mutex);
- 			return error;
- 		}
- 	}
- 
- 	set_bit(ATM_VF_READY, &vcc->flags);
- 
--	up(&card->mutex);
-+	mutex_unlock(&card->mutex);
- 	return 0;
- }
- 
-@@ -2520,7 +2521,7 @@ idt77252_close(struct atm_vcc *vcc)
- 	unsigned long addr;
- 	unsigned long timeout;
- 
--	down(&card->mutex);
-+	mutex_lock(&card->mutex);
- 
- 	IPRINTK("%s: idt77252_close: vc = %d (%d.%d)\n",
- 		card->name, vc->index, vcc->vpi, vcc->vci);
-@@ -2591,7 +2592,7 @@ done:
- 		free_scq(card, vc->scq);
- 	}
- 
--	up(&card->mutex);
-+	mutex_unlock(&card->mutex);
- }
- 
- static int
-@@ -2602,7 +2603,7 @@ idt77252_change_qos(struct atm_vcc *vcc,
- 	struct vc_map *vc = vcc->dev_data;
- 	int error = 0;
- 
--	down(&card->mutex);
-+	mutex_lock(&card->mutex);
- 
- 	if (qos->txtp.traffic_class != ATM_NONE) {
- 	    	if (!test_bit(VCF_TX, &vc->flags)) {
-@@ -2648,7 +2649,7 @@ idt77252_change_qos(struct atm_vcc *vcc,
- 	set_bit(ATM_VF_HASQOS, &vcc->flags);
- 
- out:
--	up(&card->mutex);
-+	mutex_unlock(&card->mutex);
- 	return error;
- }
- 
-@@ -3709,7 +3710,7 @@ idt77252_init_one(struct pci_dev *pcidev
- 	membase = pci_resource_start(pcidev, 1);
- 	srambase = pci_resource_start(pcidev, 2);
- 
--	init_MUTEX(&card->mutex);
-+	mutex_init(&card->mutex);
- 	spin_lock_init(&card->cmd_lock);
- 	spin_lock_init(&card->tst_lock);
- 
-diff -puN drivers/atm/idt77252.h~use-mutex-instead-of-binary-semaphore-in-idt77252-driver drivers/atm/idt77252.h
---- a/drivers/atm/idt77252.h~use-mutex-instead-of-binary-semaphore-in-idt77252-driver
-+++ a/drivers/atm/idt77252.h
-@@ -37,7 +37,7 @@
- #include <linux/ptrace.h>
- #include <linux/skbuff.h>
- #include <linux/workqueue.h>
+-menu "ARCnet devices"
++menuconfig ARCNET
+ 	depends on NETDEVICES && (ISA || PCI)
 -
-+#include <linux/mutex.h>
+-config ARCNET
+ 	tristate "ARCnet support"
+ 	---help---
+ 	  If you have a network card of this type, say Y and check out the
+@@ -25,9 +23,10 @@ config ARCNET
+ 	  <file:Documentation/networking/net-modules.txt>.  The module will
+ 	  be called arcnet.
  
- /*****************************************************************************/
- /*                                                                           */
-@@ -359,7 +359,7 @@ struct idt77252_dev
- 	unsigned long		srambase;	/* SAR's sram  base address */
- 	void __iomem		*fbq[4];	/* FBQ fill addresses */
++if ARCNET
++
+ config ARCNET_1201
+ 	tristate "Enable standard ARCNet packet format (RFC 1201)"
+-	depends on ARCNET
+ 	help
+ 	  This allows you to use RFC1201 with your ARCnet card via the virtual
+ 	  arc0 device.  You need to say Y here to communicate with
+@@ -38,7 +37,6 @@ config ARCNET_1201
  
--	struct semaphore	mutex;
-+	struct mutex		mutex;
- 	spinlock_t		cmd_lock;	/* for r/w utility/sram */
+ config ARCNET_1051
+ 	tristate "Enable old ARCNet packet format (RFC 1051)"
+-	depends on ARCNET
+ 	---help---
+ 	  This allows you to use RFC1051 with your ARCnet card via the virtual
+ 	  arc0s device. You only need arc0s if you want to talk to ARCnet
+@@ -53,7 +51,6 @@ config ARCNET_1051
  
- 	unsigned long		softstat;
+ config ARCNET_RAW
+ 	tristate "Enable raw mode packet interface"
+-	depends on ARCNET
+ 	help
+ 	  ARCnet "raw mode" packet encapsulation, no soft headers.  Unlikely
+ 	  to work unless talking to a copy of the same Linux arcnet driver,
+@@ -61,7 +58,6 @@ config ARCNET_RAW
+ 
+ config ARCNET_CAP
+ 	tristate "Enable CAP mode packet interface"
+-	depends on ARCNET
+ 	help
+ 	  ARCnet "cap mode" packet encapsulation. Used to get the hardware
+           acknowledge back to userspace. After the initial protocol byte every
+@@ -80,7 +76,6 @@ config ARCNET_CAP
+ 
+ config ARCNET_COM90xx
+ 	tristate "ARCnet COM90xx (normal) chipset driver"
+-	depends on ARCNET
+ 	help
+ 	  This is the chipset driver for the standard COM90xx cards. If you
+ 	  have always used the old ARCnet driver without knowing what type of
+@@ -92,7 +87,6 @@ config ARCNET_COM90xx
+ 
+ config ARCNET_COM90xxIO
+ 	tristate "ARCnet COM90xx (IO mapped) chipset driver"
+-	depends on ARCNET
+ 	---help---
+ 	  This is the chipset driver for the COM90xx cards, using them in
+ 	  IO-mapped mode instead of memory-mapped mode. This is slower than
+@@ -105,7 +99,6 @@ config ARCNET_COM90xxIO
+ 
+ config ARCNET_RIM_I
+ 	tristate "ARCnet COM90xx (RIM I) chipset driver"
+-	depends on ARCNET
+ 	---help---
+ 	  This is yet another chipset driver for the COM90xx cards, but this
+ 	  time only using memory-mapped mode, and no IO ports at all. This
+@@ -118,7 +111,6 @@ config ARCNET_RIM_I
+ 
+ config ARCNET_COM20020
+ 	tristate "ARCnet COM20020 chipset driver"
+-	depends on ARCNET
+ 	help
+ 	  This is the driver for the new COM20020 chipset. It supports such
+ 	  things as promiscuous mode, so packet sniffing is possible, and
+@@ -136,5 +128,4 @@ config ARCNET_COM20020_PCI
+ 	tristate "Support for COM20020 on PCI"
+ 	depends on ARCNET_COM20020 && PCI
+ 
+-endmenu
+-
++endif # ARCNET
 _
