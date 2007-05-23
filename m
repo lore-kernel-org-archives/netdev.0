@@ -1,31 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] [TIPC]: Fixed erroneous introduction of
- for_each_netdev
-Date: Wed, 23 May 2007 15:12:02 -0700 (PDT)
-Message-ID: <20070523.151202.95506681.davem@davemloft.net>
-References: <1>
-	<11792748743802-git-send-email-jon.maloy@ericsson.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: Network activity LED trigger
+Date: Wed, 23 May 2007 18:12:28 -0400
+Message-ID: <1179958348.4082.30.camel@localhost>
+References: <200705232302.43669.florian.fainelli@int-evry.fr>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jon.maloy@ericsson.com
+Cc: Mark Brown <broonie@sirena.org.uk>, netdev@vger.kernel.org,
+	Richard Purdie <rpurdie@rpsys.net>
+To: Florian Fainelli <florian.fainelli@int-evry.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47610
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756283AbXEWWMA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 May 2007 18:12:00 -0400
-In-Reply-To: <11792748743802-git-send-email-jon.maloy@ericsson.com>
+Received: from py-out-1112.google.com ([64.233.166.177]:47813 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756699AbXEWWMc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 May 2007 18:12:32 -0400
+Received: by py-out-1112.google.com with SMTP id a73so555921pye
+        for <netdev@vger.kernel.org>; Wed, 23 May 2007 15:12:32 -0700 (PDT)
+In-Reply-To: <200705232302.43669.florian.fainelli@int-evry.fr>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jon Paul Maloy <jon.maloy@ericsson.com>
-Date: Tue, 15 May 2007 20:21:14 -0400
 
+You know that you posted this exact message last time? ;->
+And i responded here:
+http://marc.info/?l=linux-netdev&m=117882888105536&w=2
+
+cheers,
+jamal
+
+On Wed, 2007-23-05 at 23:02 +0200, Florian Fainelli wrote:
+> Here comes a basic patch that adds a network led activity. It is not 
+> configurable yet, but is enough to make a LED configured with 
+> the "network-activity" trigger to blink on network activity.
 > 
-> Signed-off-by: Jon Paul Maloy <jon.maloy@ericsson.com>
+> Netdev people can probably comment on the place of ledtrig_network_activity(), 
+> which is probably not adequate. Also the ledtrig_network_activity can be 
+> network device specific for instance.
+> 
+> Signed-off-by: Florian Fainelli <florian.fainelli@int-evry.fr>
 
-Patch applied, thanks Jon.
-
-I specifically had the developer of that change audit for this exact
-kind of bug, my apologies that this one case still slipped through :-/
