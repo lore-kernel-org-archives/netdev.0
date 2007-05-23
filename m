@@ -1,22 +1,36 @@
-From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: (unknown)
-Date: Tue, 22 May 2007 17:32:24 -0700
-Message-ID: <200705221732.24479.inaky@linux.intel.com>
+From: Zhang Rui <rui.zhang@intel.com>
+Subject: Re: [PATCH] [-mm] ACPI: export ACPI events via netlink
+Date: Wed, 23 May 2007 09:17:31 +0800
+Message-ID: <1179883051.7707.35.camel@localhost.localdomain>
+References: <1179827251.7707.29.camel@localhost.localdomain>
+	 <1179831825.4121.30.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga05.intel.com ([192.55.52.89]:31363 "EHLO
-	fmsmga101.fm.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1757937AbXEWAcZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 May 2007 20:32:25 -0400
-Received: from inaky by sodium.jf.intel.com with local (Exim 3.36 #1 (Debian))
-	id 1Hqem8-0002wI-00
-	for <netdev@vger.kernel.org>; Tue, 22 May 2007 17:32:24 -0700
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Cc: "linux-acpi@vger" <linux-acpi@vger.kernel.org>, lenb@kernel.org,
+	netdev@vger.kernel.org
+To: hadi@cyberus.ca
+Return-path: <linux-acpi-owner@vger.kernel.org>
+In-Reply-To: <1179831825.4121.30.camel@localhost>
+Sender: linux-acpi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-subscribe inaky@linux.intel.com
+On Tue, 2007-05-22 at 07:03 -0400, jamal wrote:
+> Hi Zhang Rui,
+> 
+> Really cool stuff. Can you instead use genetlink?
+> http://linux-net.osdl.org/index.php/Generic_Netlink_HOWTO 
+> should help. And if you have more questions post on netdev (not lk).
+> 
+That's really helpful, thanks.
+Will post the second version soon. :)
+
+Thanks,
+Rui
+
+> On Tue, 2007-22-05 at 17:47 +0800, Zhang Rui wrote:
+> > From: Zhang Rui <rui.zhang@intel.com>
+> > 
+> > Export ACPI events via netlink.
+> > A netlink message is broadcasted when an ACPI event is generated.
+> > 
