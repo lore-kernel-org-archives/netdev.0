@@ -1,49 +1,67 @@
-From: Ingo Molnar <mingo@elte.hu>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: bad networking related lag in v2.6.22-rc2
-Date: Wed, 23 May 2007 13:05:56 +0200
-Message-ID: <20070523110556.GA8653@elte.hu>
+Date: Wed, 23 May 2007 21:25:59 +1000
+Message-ID: <20070523112559.GA24604@gondor.apana.org.au>
 References: <20070517174533.GA538@elte.hu> <200705221147.56571.kernel@prachanda.hub> <20070522062233.GA20002@elte.hu> <200705231110.44526.kernel@prachanda.hub> <20070523063052.GB26814@elte.hu> <46541DC4.4090501@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Anant Nitya <kernel@prachanda.info>, linux-kernel@vger.kernel.org,
+Cc: Ingo Molnar <mingo@elte.hu>, Anant Nitya <kernel@prachanda.info>,
+	linux-kernel@vger.kernel.org,
 	Linus Torvalds <torvalds@linux-foundation.org>,
 	Andrew Morton <akpm@linux-foundation.org>,
 	Thomas Gleixner <tglx@linutronix.de>,
 	"David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>
+	Linux Netdev List <netdev@vger.kernel.org>
 To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.mail.elte.hu ([157.181.1.138]:56080 "EHLO mx3.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758730AbXEWLGd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 May 2007 07:06:33 -0400
+Received: from rhun.apana.org.au ([64.62.148.172]:3464 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755885AbXEWL1U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 May 2007 07:27:20 -0400
 Content-Disposition: inline
 In-Reply-To: <46541DC4.4090501@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Wed, May 23, 2007 at 12:56:04PM +0200, Patrick McHardy wrote:
+> 
+> Looking at the recent changes to __qdisc_run, this indeed seems
+> to be the case, when the qdisc is throttled and has packets queued
+> we return a value != 0, causing __qdisc_run to loop until all
+> packets have been sent, which may be a long time.
 
-* Patrick McHardy <kaber@trash.net> wrote:
+Good catch! I was obviously half awake at the time :)
 
-> How is this trace to be understood? Is it simply a call trace in 
-> execution-order? [...]
+We could also fix it this way:
 
-yeah. There's a help section at the top of the trace which explains the 
-other fields too:
+[NET_SCHED]: Fix qdisc_restart return value when dequeue is empty
 
-                 _------=> CPU#
-                / _-----=> irqs-off
-               | / _----=> need-resched
-               || / _---=> hardirq/softirq
-               ||| / _--=> preempt-depth
-               |||| /
-               |||||     delay
-   cmd     pid ||||| time  |   caller
-      \   /    |||||   \   |   /
- privoxy-12926 1.Ns1    0us : ktime_get_ts (ktime_get)
+My previous patch that changed the return value of qdisc_restart
+incorrectly made the case where dequeue returns empty continue
+processing packets.
 
-the function name in braces is the parent function. So in this case the 
-trace entry means we called ktime_get_ts() from ktime_get().
+This patch is based on diagnosis and fix by Patrick McHardy.
 
-	Ingo
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index f28bb2d..cbefe22 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -169,8 +169,8 @@ requeue:
+ 		else
+ 			q->ops->requeue(skb, q);
+ 		netif_schedule(dev);
+-		return 0;
+ 	}
++	return 0;
+ 
+ out:
+ 	BUG_ON((int) q->q.qlen < 0);
