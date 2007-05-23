@@ -1,35 +1,40 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: Re: [NET] meth driver renovation
-Date: Wed, 23 May 2007 09:44:24 +0100
-Message-ID: <20070523084424.GA5083@linux-mips.org>
-References: <20070523084330.GA4966@linux-mips.org>
+From: Bryan Wu <bryan.wu@analog.com>
+Subject: Re: [patch 089/181] Blackfin: on-chip ethernet MAC
+	controller	driver
+Date: Wed, 23 May 2007 17:16:11 +0800
+Message-ID: <1179911772.10328.19.camel@roc-desktop>
+References: <200705062150.l46LoVWQ024648@shell0.pdx.osdl.net>
+	 <1179909013.10328.9.camel@roc-desktop>  <465405A1.5030409@garzik.org>
+Reply-To: bryan.wu@analog.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-mips@linux-mips.org
-To: Andrew Morton <akpm@linux-foundation.org>,
-	Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	torvalds@linux-foundation.org, akpm@linux-foundation.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ftp.linux-mips.org ([194.74.144.162]:43986 "EHLO
-	ftp.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756751AbXEWIoi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 May 2007 04:44:38 -0400
-Received: from localhost.localdomain ([127.0.0.1]:41416 "EHLO
-	dl5rb.ham-radio-op.net") by ftp.linux-mips.org with ESMTP
-	id S20021510AbXEWIoh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 May 2007 09:44:37 +0100
-Content-Disposition: inline
-In-Reply-To: <20070523084330.GA4966@linux-mips.org>
+Received: from nwd2mail11.analog.com ([137.71.25.57]:47074 "EHLO
+	nwd2mail11.analog.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756385AbXEWJPW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 May 2007 05:15:22 -0400
+In-Reply-To: <465405A1.5030409@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, May 23, 2007 at 09:43:30AM +0100, Ralf Baechle wrote:
+On Wed, 2007-05-23 at 05:13 -0400, Jeff Garzik wrote:
+> Bryan Wu wrote:
+> > Hi Jeff:
+> > 
+> > Could you please review this patch? Sorry for miss sending the patch to
+> > you for review at beginning.
+> 
+> can you resend as a patch rather than a quoted patch?
+> 
+> 	Jeff
+> 
+> 
 
-> The meth ethernet driver for the SGI IP32 aka O2 is so far still an old
-> style driver which does not use the device driver model.  This is now
-> causing issues with some udev based gadgetry in debian-stable.  Fixed by
-> converting the meth driver to a platform device.
+Oh, sorry, I forgot this. It will be sent ASAP.
 
-Since this seems to cause some real world problems I'd like to get this
-patch into 2.6.22.
-
-  Ralf
+Thanks Jeff,
+-Bryan
