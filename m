@@ -1,118 +1,129 @@
 From: akpm@linux-foundation.org
-Subject: [patch 6/8] Use menuconfig objects: ARCNET
-Date: Wed, 23 May 2007 14:35:56 -0700
-Message-ID: <200705232135.l4NLZuhl000669@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	jengelh@linux01.gwdg.de, jengelh@gmx.de
+Subject: [patch 8/8] networking: fix sending netlink message when replace route
+Date: Wed, 23 May 2007 14:35:57 -0700
+Message-ID: <200705232135.l4NLZwcX000676@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, milon@wq.cz,
+	kaber@trash.net
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([207.189.120.13]:50205 "EHLO
+Received: from smtp1.linux-foundation.org ([207.189.120.13]:40177 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756363AbXEWVgm (ORCPT
+	by vger.kernel.org with ESMTP id S1756100AbXEWVgm (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 23 May 2007 17:36:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jan Engelhardt <jengelh@linux01.gwdg.de>
+From: Milan Kocian <milon@wq.cz>
 
-Use menuconfigs instead of menus, so the whole menu can be disabled at once
-instead of going through all options.
+When you replace route via ip r r command the netlink multicast message is
+not send.  This patch corrects it.  NL message is sent with NLM_F_REPLACE
+flag.  Addresses http://bugzilla.kernel.org/show_bug.cgi?id=8320
 
-Signed-off-by: Jan Engelhardt <jengelh@gmx.de>
+Signed-off-by: Milan Kocian <milon@wq.cz>
+Cc: Patrick McHardy <kaber@trash.net>
+Cc: David Miller <davem@davemloft.net>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/net/arcnet/Kconfig |   17 ++++-------------
- 1 files changed, 4 insertions(+), 13 deletions(-)
+ net/ipv4/fib_hash.c      |    6 ++++--
+ net/ipv4/fib_lookup.h    |    3 ++-
+ net/ipv4/fib_semantics.c |    5 +++--
+ net/ipv4/fib_trie.c      |    6 ++++--
+ 4 files changed, 13 insertions(+), 7 deletions(-)
 
-diff -puN drivers/net/arcnet/Kconfig~use-menuconfig-objects-arcnet drivers/net/arcnet/Kconfig
---- a/drivers/net/arcnet/Kconfig~use-menuconfig-objects-arcnet
-+++ a/drivers/net/arcnet/Kconfig
-@@ -2,10 +2,8 @@
- # Arcnet configuration
- #
+diff -puN net/ipv4/fib_hash.c~networking-fix-sending-netlink-message-when-replace-route net/ipv4/fib_hash.c
+--- a/net/ipv4/fib_hash.c~networking-fix-sending-netlink-message-when-replace-route
++++ a/net/ipv4/fib_hash.c
+@@ -456,6 +456,8 @@ static int fn_hash_insert(struct fib_tab
+ 			fib_release_info(fi_drop);
+ 			if (state & FA_S_ACCESSED)
+ 				rt_cache_flush(-1);
++			rtmsg_fib(RTM_NEWROUTE, key, fa, cfg->fc_dst_len, tb->tb_id,
++				  &cfg->fc_nlinfo, NLM_F_REPLACE);
+ 			return 0;
+ 		}
  
--menu "ARCnet devices"
-+menuconfig ARCNET
- 	depends on NETDEVICES && (ISA || PCI)
--
--config ARCNET
- 	tristate "ARCnet support"
- 	---help---
- 	  If you have a network card of this type, say Y and check out the
-@@ -25,9 +23,10 @@ config ARCNET
- 	  <file:Documentation/networking/net-modules.txt>.  The module will
- 	  be called arcnet.
+@@ -523,7 +525,7 @@ static int fn_hash_insert(struct fib_tab
+ 	rt_cache_flush(-1);
  
-+if ARCNET
-+
- config ARCNET_1201
- 	tristate "Enable standard ARCNet packet format (RFC 1201)"
--	depends on ARCNET
- 	help
- 	  This allows you to use RFC1201 with your ARCnet card via the virtual
- 	  arc0 device.  You need to say Y here to communicate with
-@@ -38,7 +37,6 @@ config ARCNET_1201
+ 	rtmsg_fib(RTM_NEWROUTE, key, new_fa, cfg->fc_dst_len, tb->tb_id,
+-		  &cfg->fc_nlinfo);
++		  &cfg->fc_nlinfo, 0);
+ 	return 0;
  
- config ARCNET_1051
- 	tristate "Enable old ARCNet packet format (RFC 1051)"
--	depends on ARCNET
- 	---help---
- 	  This allows you to use RFC1051 with your ARCnet card via the virtual
- 	  arc0s device. You only need arc0s if you want to talk to ARCnet
-@@ -53,7 +51,6 @@ config ARCNET_1051
+ out_free_new_fa:
+@@ -589,7 +591,7 @@ static int fn_hash_delete(struct fib_tab
  
- config ARCNET_RAW
- 	tristate "Enable raw mode packet interface"
--	depends on ARCNET
- 	help
- 	  ARCnet "raw mode" packet encapsulation, no soft headers.  Unlikely
- 	  to work unless talking to a copy of the same Linux arcnet driver,
-@@ -61,7 +58,6 @@ config ARCNET_RAW
+ 		fa = fa_to_delete;
+ 		rtmsg_fib(RTM_DELROUTE, key, fa, cfg->fc_dst_len,
+-			  tb->tb_id, &cfg->fc_nlinfo);
++			  tb->tb_id, &cfg->fc_nlinfo, 0);
  
- config ARCNET_CAP
- 	tristate "Enable CAP mode packet interface"
--	depends on ARCNET
- 	help
- 	  ARCnet "cap mode" packet encapsulation. Used to get the hardware
-           acknowledge back to userspace. After the initial protocol byte every
-@@ -80,7 +76,6 @@ config ARCNET_CAP
+ 		kill_fn = 0;
+ 		write_lock_bh(&fib_hash_lock);
+diff -puN net/ipv4/fib_lookup.h~networking-fix-sending-netlink-message-when-replace-route net/ipv4/fib_lookup.h
+--- a/net/ipv4/fib_lookup.h~networking-fix-sending-netlink-message-when-replace-route
++++ a/net/ipv4/fib_lookup.h
+@@ -30,7 +30,8 @@ extern int fib_dump_info(struct sk_buff 
+ 			 int dst_len, u8 tos, struct fib_info *fi,
+ 			 unsigned int);
+ extern void rtmsg_fib(int event, __be32 key, struct fib_alias *fa,
+-		      int dst_len, u32 tb_id, struct nl_info *info);
++		      int dst_len, u32 tb_id, struct nl_info *info,
++		      unsigned int nlm_flags);
+ extern struct fib_alias *fib_find_alias(struct list_head *fah,
+ 					u8 tos, u32 prio);
+ extern int fib_detect_death(struct fib_info *fi, int order,
+diff -puN net/ipv4/fib_semantics.c~networking-fix-sending-netlink-message-when-replace-route net/ipv4/fib_semantics.c
+--- a/net/ipv4/fib_semantics.c~networking-fix-sending-netlink-message-when-replace-route
++++ a/net/ipv4/fib_semantics.c
+@@ -301,7 +301,8 @@ static inline size_t fib_nlmsg_size(stru
+ }
  
- config ARCNET_COM90xx
- 	tristate "ARCnet COM90xx (normal) chipset driver"
--	depends on ARCNET
- 	help
- 	  This is the chipset driver for the standard COM90xx cards. If you
- 	  have always used the old ARCnet driver without knowing what type of
-@@ -92,7 +87,6 @@ config ARCNET_COM90xx
+ void rtmsg_fib(int event, __be32 key, struct fib_alias *fa,
+-	       int dst_len, u32 tb_id, struct nl_info *info)
++	       int dst_len, u32 tb_id, struct nl_info *info,
++	       unsigned int nlm_flags)
+ {
+ 	struct sk_buff *skb;
+ 	u32 seq = info->nlh ? info->nlh->nlmsg_seq : 0;
+@@ -313,7 +314,7 @@ void rtmsg_fib(int event, __be32 key, st
  
- config ARCNET_COM90xxIO
- 	tristate "ARCnet COM90xx (IO mapped) chipset driver"
--	depends on ARCNET
- 	---help---
- 	  This is the chipset driver for the COM90xx cards, using them in
- 	  IO-mapped mode instead of memory-mapped mode. This is slower than
-@@ -105,7 +99,6 @@ config ARCNET_COM90xxIO
+ 	err = fib_dump_info(skb, info->pid, seq, event, tb_id,
+ 			    fa->fa_type, fa->fa_scope, key, dst_len,
+-			    fa->fa_tos, fa->fa_info, 0);
++			    fa->fa_tos, fa->fa_info, nlm_flags);
+ 	if (err < 0) {
+ 		/* -EMSGSIZE implies BUG in fib_nlmsg_size() */
+ 		WARN_ON(err == -EMSGSIZE);
+diff -puN net/ipv4/fib_trie.c~networking-fix-sending-netlink-message-when-replace-route net/ipv4/fib_trie.c
+--- a/net/ipv4/fib_trie.c~networking-fix-sending-netlink-message-when-replace-route
++++ a/net/ipv4/fib_trie.c
+@@ -1226,6 +1226,8 @@ static int fn_trie_insert(struct fib_tab
+ 			fib_release_info(fi_drop);
+ 			if (state & FA_S_ACCESSED)
+ 				rt_cache_flush(-1);
++			rtmsg_fib(RTM_NEWROUTE, htonl(key), new_fa, plen,
++				tb->tb_id, &cfg->fc_nlinfo, NLM_F_REPLACE);
  
- config ARCNET_RIM_I
- 	tristate "ARCnet COM90xx (RIM I) chipset driver"
--	depends on ARCNET
- 	---help---
- 	  This is yet another chipset driver for the COM90xx cards, but this
- 	  time only using memory-mapped mode, and no IO ports at all. This
-@@ -118,7 +111,6 @@ config ARCNET_RIM_I
+ 			goto succeeded;
+ 		}
+@@ -1278,7 +1280,7 @@ static int fn_trie_insert(struct fib_tab
  
- config ARCNET_COM20020
- 	tristate "ARCnet COM20020 chipset driver"
--	depends on ARCNET
- 	help
- 	  This is the driver for the new COM20020 chipset. It supports such
- 	  things as promiscuous mode, so packet sniffing is possible, and
-@@ -136,5 +128,4 @@ config ARCNET_COM20020_PCI
- 	tristate "Support for COM20020 on PCI"
- 	depends on ARCNET_COM20020 && PCI
+ 	rt_cache_flush(-1);
+ 	rtmsg_fib(RTM_NEWROUTE, htonl(key), new_fa, plen, tb->tb_id,
+-		  &cfg->fc_nlinfo);
++		  &cfg->fc_nlinfo, 0);
+ succeeded:
+ 	return 0;
  
--endmenu
--
-+endif # ARCNET
+@@ -1624,7 +1626,7 @@ static int fn_trie_delete(struct fib_tab
+ 
+ 	fa = fa_to_delete;
+ 	rtmsg_fib(RTM_DELROUTE, htonl(key), fa, plen, tb->tb_id,
+-		  &cfg->fc_nlinfo);
++		  &cfg->fc_nlinfo, 0);
+ 
+ 	l = fib_find_node(t, key);
+ 	li = find_leaf_info(l, plen);
 _
