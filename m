@@ -1,57 +1,44 @@
-From: David Hollis <dhollis@davehollis.com>
-Subject: [PATCH] asix.c - Add Belkin F5D5055 ids
-Date: Wed, 23 May 2007 07:33:17 -0400
-Message-ID: <1179919997.6962.15.camel@dhollis-lnx.sunera.com>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: bad networking related lag in v2.6.22-rc2
+Date: Wed, 23 May 2007 13:40:21 +0200
+Message-ID: <20070523114021.GA21880@elte.hu>
+References: <20070517174533.GA538@elte.hu> <200705221147.56571.kernel@prachanda.hub> <20070522062233.GA20002@elte.hu> <200705231110.44526.kernel@prachanda.hub> <20070523063052.GB26814@elte.hu> <46541DC4.4090501@trash.net> <20070523112559.GA24604@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-0gyypkK/CnrgJtGO3pyw"
-To: Jeff Garzik <jgarzik@pobox.com>, netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vms042pub.verizon.net ([206.46.252.42]:44495 "EHLO
-	vms042pub.verizon.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758879AbXEWLi4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 May 2007 07:38:56 -0400
-Received: from smtp.davehollis.com ([72.64.146.98])
- by vms042.mailsrvcs.net (Sun Java System Messaging Server 6.2-6.01 (built Apr
- 3 2006)) with ESMTPA id <0JIH00KNNSCPTCV6@vms042.mailsrvcs.net> for
- netdev@vger.kernel.org; Wed, 23 May 2007 06:38:49 -0500 (CDT)
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>,
+	Anant Nitya <kernel@prachanda.info>,
+	linux-kernel@vger.kernel.org,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1764612AbXEWLmS@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20070523112559.GA24604@gondor.apana.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---=-0gyypkK/CnrgJtGO3pyw
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+* Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-(Originally sent to linux-usb-devel)
+> [NET_SCHED]: Fix qdisc_restart return value when dequeue is empty
+> 
+> My previous patch that changed the return value of qdisc_restart 
+> incorrectly made the case where dequeue returns empty continue 
+> processing packets.
+> 
+> This patch is based on diagnosis and fix by Patrick McHardy.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-The attached patch adds the device IDs for the Belkin F5D5055 device.
- 
-Reported by Andy Juniper <ajuniper@freeuk.com>
- 
-Signed-off-by: David Hollis <dhollis@davehollis.com>
+also:
 
--- 
-David Hollis <dhollis@davehollis.com>
+  Reported-and-debugged-by: Anant Nitya <kernel@prachanda.info>
 
---=-0gyypkK/CnrgJtGO3pyw
-Content-Description: 
-Content-Disposition: inline; filename=asix.c-add-belkin-f5d5055.patch
-Content-Type: text/x-patch; charset=UTF-8
-Content-Transfer-Encoding: 7bit
+...
 
---- a/drivers/net/usb/asix.c	2007-05-11 08:18:35.000000000 -0400
-+++ b/drivers/net/usb/asix.c	2007-05-23 03:27:29.000000000 -0400
-@@ -1458,6 +1458,10 @@
- 	// IO-DATA ETG-US2
- 	USB_DEVICE (0x04bb, 0x0930),
- 	.driver_info = (unsigned long) &ax88178_info,
-+}, {
-+	// Belkin F5D5055
-+	USB_DEVICE(0x050d, 0x5055),
-+	.driver_info = (unsigned long) &ax88178_info,
- },
- 	{ },		// END
- };
+i gave your patch a quick test-boot and networking still works fine.
 
---=-0gyypkK/CnrgJtGO3pyw--
-
+	Ingo
