@@ -1,73 +1,199 @@
-From: David Acker <dacker@roinet.com>
-Subject: Re: [PATCH] fix e100 rx path on ARM (was [PATCH] e100 rx: or s and
- el bits)
-Date: Wed, 23 May 2007 17:32:20 -0400
-Message-ID: <4654B2E4.9010308@roinet.com>
-References: <200705011124.l41BOEG4007662@sullivan.realtime.net> <46375664.8030701@roinet.com> <4638F2B2.2000103@roinet.com> <463BA906.30205@roinet.com> <85f07fc58d5ed2147d5214d0f0b4fe32@bga.com> <4648A9DF.6030001@roinet.com> <464D074F.20400@pobox.com> <464D21B6.2000208@intel.com> <464DB336.2030003@roinet.com> <464DB619.3070900@roinet.com> <464DC676.90504@intel.com> <464DCA97.3070405@roinet.com> <464DCD5E.50003@intel.com> <464DDE3E.9010400@roinet.com> <e3819b7a866b1117fd5a69e6a85e0784@bga.com> <4651DAC1.7050604@intel.com> <53c44b6f03973eb1b28f221859d3002c@bga.com> <465369AF.8080508@roinet.com> <f83441453b1233771c5bda869912aeca@bga.com>
+From: Florian Fainelli <florian.fainelli@int-evry.fr>
+Subject: Network activity LED trigger
+Date: Wed, 23 May 2007 23:02:39 +0200
+Message-ID: <200705232302.43669.florian.fainelli@int-evry.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII; format=flowed
+Content-Type: multipart/signed;
+  boundary="nextPart59008958.oDRnUM5WpU";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>,
-	"Kok, Auke" <auke-jan.h.kok@intel.com>,
-	e1000-devel@lists.sourceforge.net,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org, Scott Feldman <sfeldma@pobox.com>
-To: Milton Miller <miltonm@bga.com>
+To: hadi@cyberus.ca, Mark Brown <broonie@sirena.org.uk>,
+	netdev@vger.kernel.org, Richard Purdie <rpurdie@rpsys.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-72-92-88-10.phlapa.fios.verizon.net ([72.92.88.10]:39489
-	"EHLO smtp.roinet.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755088AbXEWVbQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 May 2007 17:31:16 -0400
-In-Reply-To: <f83441453b1233771c5bda869912aeca@bga.com>
+Received: from smtp-ext.int-evry.fr ([157.159.11.17]:53585 "EHLO
+	smtp-ext.int-evry.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754812AbXEWVcV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 May 2007 17:32:21 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Milton Miller wrote:
-> I agree with this part of the approach.  I just think we need
-> a bit more work on the "what to do when we are ready for
-> hardware to not stop" part.
-Agreed.
+--nextPart59008958.oDRnUM5WpU
+Content-Type: multipart/mixed;
+  boundary="Boundary-01=_vvKVGN1WeUupekw"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
->
-> The sync is required to push both cache lines, but there is no
-> ordering guarantee.  This probably is why you saw size and el
-> set.  Aligning the RFD to a cache line conflicts with aligning
-> the payload (IP header and data) to a word boundary, and
-> depending on cache line size it may be impossible to do both.
-> 
-> And it won't fix the hole for coherent dma machines.
-Yep.
+--Boundary-01=_vvKVGN1WeUupekw
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-> It wasn't an issue before because we never set two fields.
-Before the driver was setting link and clearing the el-bit on the last 
-buffer.  This resulted in badness when hardware saw the el-bit cleared 
-but link set to 0.
+Here comes a basic patch that adds a network led activity. It is not=20
+configurable yet, but is enough to make a LED configured with=20
+the "network-activity" trigger to blink on network activity.
 
-> My current reading of the manual is that the C bit will not be
-> set on an RFD that is size 0.  It goes on to processes EL and
-> S, and decides to stop and interrupt RNR or suspend, or just
-> go to the next packet.
-I double checked this with a quick experiment and it appears you are 
-correct.
+Netdev people can probably comment on the place of ledtrig_network_activity=
+(),=20
+which is probably not adequate. Also the ledtrig_network_activity can be=20
+network device specific for instance.
 
-What about if we always did the following:
-set the size:
-sync();
-clear el-bit
-sync()
+Signed-off-by: Florian Fainelli <florian.fainelli@int-evry.fr>
+=2D-=20
 
-Then if the hardware sees just the size set, the packet completes but 
-with the el-bit and we know we need to restart since it completed.
-If it sees the size == 0, and the el bit set, it stops and RNR interrupts.
+--Boundary-01=_vvKVGN1WeUupekw
+Content-Type: text/plain;
+  charset="us-ascii";
+  name="ledtrig_network.patch"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: attachment;
+	filename="ledtrig_network.patch"
 
-When we find a buffer that is not completed but has the el-bit set, we 
-read the status byte of the status control block to see if the RU is in 
-the no resources state.  If it isn't, it means that we found that buffer 
-  before the hardware did and thus need to wait for it.  We will either 
-find it on the next poll or enable interrupts and get told about it by 
-hardware.
+diff --git a/drivers/leds/Kconfig b/drivers/leds/Kconfig
+index 80acd08..25d2b58 100644
+=2D-- a/drivers/leds/Kconfig
++++ b/drivers/leds/Kconfig
+@@ -127,5 +127,12 @@ config LEDS_TRIGGER_HEARTBEAT
+ 	  load average.
+ 	  If unsure, say Y.
+=20
++config LEDS_TRIGGER_NETWORK_ACT
++	tristate "LED Network Activity Trigger"
++	depends on LEDS_TRIGGER && NET
++	help
++	  This allow LEDs to be controlled by network activity at layer-3 network=
+ing.
++	  If unsure, say Y.
++
+ endmenu
+=20
+diff --git a/drivers/leds/Makefile b/drivers/leds/Makefile
+index aa2c18e..bc899d3 100644
+=2D-- a/drivers/leds/Makefile
++++ b/drivers/leds/Makefile
+@@ -21,3 +21,4 @@ obj-$(CONFIG_LEDS_COBALT)		+=3D leds-cobalt.o
+ obj-$(CONFIG_LEDS_TRIGGER_TIMER)	+=3D ledtrig-timer.o
+ obj-$(CONFIG_LEDS_TRIGGER_IDE_DISK)	+=3D ledtrig-ide-disk.o
+ obj-$(CONFIG_LEDS_TRIGGER_HEARTBEAT)	+=3D ledtrig-heartbeat.o
++obj-$(CONFIG_LEDS_TRIGGER_NETWORK_ACT)  +=3D ledtrig-network-activity.o
+diff --git a/drivers/leds/ledtrig-network-activity.c b/drivers/leds/ledtrig=
+=2Dnetwork-activity.c
+new file mode 100644
+index 0000000..88d17bb
+=2D-- /dev/null
++++ b/drivers/leds/ledtrig-network-activity.c
+@@ -0,0 +1,61 @@
++/*
++ * LED Network Activity Trigger
++ * based on ledtrig-ide-disk by Richard Purdie
++ *=20
++ * Copyright 2007 Florian Fainelli <florian@openwrt.org>
++ *=20
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ *=20
++ */
++
++#include <linux/module.h>
++#include <linux/jiffies.h>
++#include <linux/kernel.h>
++#include <linux/init.h>
++#include <linux/timer.h>
++#include <linux/leds.h>
++
++static void ledtrig_network_timerfunc(unsigned long data);
++
++DEFINE_LED_TRIGGER(ledtrig_network);
++static DEFINE_TIMER(ledtrig_network_timer, ledtrig_network_timerfunc, 0, 0=
+);
++static int network_activity, network_lastactivity;
++
++void ledtrig_network_activity(void)
++{
++	network_activity++;
++	if (!timer_pending(&ledtrig_network_timer))
++		mod_timer(&ledtrig_network_timer, jiffies + msecs_to_jiffies(10));
++}
++EXPORT_SYMBOL(ledtrig_network_activity);
++
++static void ledtrig_network_timerfunc(unsigned long data)
++{
++	if (network_lastactivity !=3D network_activity) {
++		network_lastactivity =3D network_activity;
++		led_trigger_event(ledtrig_network, LED_FULL);
++		mod_timer(&ledtrig_network_timer, jiffies + msecs_to_jiffies(10));
++	} else {
++		led_trigger_event(ledtrig_network, LED_OFF);
++	}
++}
++
++static int __init ledtrig_network_init(void)
++{
++	led_trigger_register_simple("network-activity", &ledtrig_network);
++	return 0;
++}
++
++static void __exit ledtrig_network_exit(void)
++{
++	led_trigger_unregister_simple(ledtrig_network);
++}
++
++module_init(ledtrig_network_init);
++module_exit(ledtrig_network_exit);
++
++MODULE_AUTHOR("Florian Fainelli <florian@openwrt.org>");
++MODULE_DESCRIPTION("LED Network Activity trigger");
++MODULE_LICENSE("GPL");
+diff --git a/include/linux/leds.h b/include/linux/leds.h
+index 88afcef..ed3774e 100644
+=2D-- a/include/linux/leds.h
++++ b/include/linux/leds.h
+@@ -110,4 +110,10 @@ extern void ledtrig_ide_activity(void);
+ #define ledtrig_ide_activity() do {} while(0)
+ #endif
+=20
++#ifdef CONFIG_LEDS_TRIGGER_NETWORK_ACT
++extern void ledtrig_network_activity(void);
++#else
++#define ledtrig_network_activity() do {} while(0)
++#endif
++
+ #endif		/* __LINUX_LEDS_H_INCLUDED */
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 4317c1b..9423b26 100644
+=2D-- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -116,6 +116,7 @@
+ #include <linux/dmaengine.h>
+ #include <linux/err.h>
+ #include <linux/ctype.h>
++#include <linux/leds.h>
+=20
+ /*
+  *	The list of packet types we will receive (as opposed to discard)
+@@ -1451,6 +1452,8 @@ int dev_queue_xmit(struct sk_buff *skb)
+ gso:
+ 	spin_lock_prefetch(&dev->queue_lock);
+=20
++	ledtrig_network_activity();
++
+ 	/* Disable soft irqs for various locks below. Also
+ 	 * stops preemption for RCU.
+ 	 */
 
-What do you think?
--Ack
+--Boundary-01=_vvKVGN1WeUupekw--
+
+--nextPart59008958.oDRnUM5WpU
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.4 (GNU/Linux)
+
+iD8DBQBGVKvzkwOXMtq9F3IRAieHAKC21OYEBfQxVraeewsN034TFfkhJACffwHv
+zgiogiiYJe6QUXZhT+64yIc=
+=T/Km
+-----END PGP SIGNATURE-----
+
+--nextPart59008958.oDRnUM5WpU--
