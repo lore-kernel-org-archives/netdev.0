@@ -1,15 +1,15 @@
 From: akpm@linux-foundation.org
-Subject: [patch 7/8] Use menuconfig objects: tokenring
-Date: Wed, 23 May 2007 14:35:57 -0700
-Message-ID: <200705232135.l4NLZvBe000672@shell0.pdx.osdl.net>
+Subject: [patch 3/8] Use menuconfig objects: IPVS
+Date: Wed, 23 May 2007 14:35:51 -0700
+Message-ID: <200705232135.l4NLZpDY000656@shell0.pdx.osdl.net>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	jengelh@linux01.gwdg.de, jengelh@gmx.de
+	jengelh@linux01.gwdg.de, horms@verge.net.au, jengelh@gmx.de
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([207.189.120.13]:42804 "EHLO
+Received: from smtp1.linux-foundation.org ([207.189.120.13]:45604 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756432AbXEWVgm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 May 2007 17:36:42 -0400
+	by vger.kernel.org with ESMTP id S1756529AbXEWVgo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 May 2007 17:36:44 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
@@ -19,138 +19,180 @@ Use menuconfigs instead of menus, so the whole menu can be disabled at once
 instead of going through all options.
 
 Signed-off-by: Jan Engelhardt <jengelh@gmx.de>
+Acked-by: Simon Horman <horms@verge.net.au>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/net/tokenring/Kconfig |   33 +++++++++++++++-----------------
- 1 files changed, 16 insertions(+), 17 deletions(-)
+ net/ipv4/ipvs/Kconfig |   30 +++++-------------------------
+ 1 files changed, 5 insertions(+), 25 deletions(-)
 
-diff -puN drivers/net/tokenring/Kconfig~use-menuconfig-objects-toeknring drivers/net/tokenring/Kconfig
---- a/drivers/net/tokenring/Kconfig~use-menuconfig-objects-toeknring
-+++ a/drivers/net/tokenring/Kconfig
-@@ -2,12 +2,10 @@
- # Token Ring driver configuration
+diff -puN net/ipv4/ipvs/Kconfig~use-menuconfig-objects-ipvs net/ipv4/ipvs/Kconfig
+--- a/net/ipv4/ipvs/Kconfig~use-menuconfig-objects-ipvs
++++ a/net/ipv4/ipvs/Kconfig
+@@ -1,10 +1,7 @@
  #
- 
--menu "Token Ring devices"
--	depends on NETDEVICES && !UML
+ # IP Virtual Server configuration
+ #
+-menu	"IP: Virtual Server Configuration"
+-	depends on NETFILTER
 -
- # So far, we only have PCI, ISA, and MCA token ring devices
--config TR
-+menuconfig TR
- 	bool "Token Ring driver support"
-+	depends on NETDEVICES && !UML
- 	depends on (PCI || ISA || MCA || CCW)
- 	select LLC
- 	help
-@@ -20,9 +18,11 @@ config TR
- 	  from <http://www.tldp.org/docs.html#howto>. Most people can
- 	  say N here.
+-config	IP_VS
++menuconfig IP_VS
+ 	tristate "IP virtual server support (EXPERIMENTAL)"
+ 	depends on NETFILTER
+ 	---help---
+@@ -25,9 +22,10 @@ config	IP_VS
+ 	  If you want to compile it in kernel, say Y. To compile it as a
+ 	  module, choose M here. If unsure, say N.
  
-+if TR
++if IP_VS
 +
- config IBMTR
- 	tristate "IBM Tropic chipset based adapter support"
--	depends on TR && (ISA || MCA)
-+	depends on ISA || MCA
+ config	IP_VS_DEBUG
+ 	bool "IP virtual server debugging"
+-	depends on IP_VS
  	---help---
- 	  This is support for all IBM Token Ring cards that don't use DMA. If
- 	  you have such a beast, say Y and read the Token-Ring mini-HOWTO,
-@@ -36,7 +36,7 @@ config IBMTR
+ 	  Say Y here if you want to get additional messages useful in
+ 	  debugging the IP virtual server code. You can change the debug
+@@ -35,7 +33,6 @@ config	IP_VS_DEBUG
  
- config IBMOL
- 	tristate "IBM Olympic chipset PCI adapter support"
--	depends on TR && PCI
-+	depends on PCI
+ config	IP_VS_TAB_BITS
+ 	int "IPVS connection table size (the Nth power of 2)"
+-	depends on IP_VS 
+ 	default "12" 
  	---help---
- 	  This is support for all non-Lanstreamer IBM PCI Token Ring Cards.
- 	  Specifically this is all IBM PCI, PCI Wake On Lan, PCI II, PCI II
-@@ -54,7 +54,7 @@ config IBMOL
+ 	  The IPVS connection hash table uses the chaining scheme to handle
+@@ -61,42 +58,35 @@ config	IP_VS_TAB_BITS
+ 	  needed for your box.
  
- config IBMLS
- 	tristate "IBM Lanstreamer chipset PCI adapter support"
--	depends on TR && PCI && !64BIT
-+	depends on PCI && !64BIT
- 	help
- 	  This is support for IBM Lanstreamer PCI Token Ring Cards.
+ comment "IPVS transport protocol load balancing support"
+-        depends on IP_VS
  
-@@ -66,7 +66,7 @@ config IBMLS
- 
- config 3C359
- 	tristate "3Com 3C359 Token Link Velocity XL adapter support"
--	depends on TR && PCI
-+	depends on PCI
+ config	IP_VS_PROTO_TCP
+ 	bool "TCP load balancing support"
+-	depends on IP_VS
  	---help---
- 	  This is support for the 3Com PCI Velocity XL cards, specifically
- 	  the 3Com 3C359, please note this is not for the 3C339 cards, you
-@@ -84,7 +84,7 @@ config 3C359
+ 	  This option enables support for load balancing TCP transport
+ 	  protocol. Say Y if unsure.
  
- config TMS380TR
- 	tristate "Generic TMS380 Token Ring ISA/PCI adapter support"
--	depends on TR && (PCI || ISA && ISA_DMA_API || MCA)
-+	depends on PCI || ISA && ISA_DMA_API || MCA
- 	select FW_LOADER
+ config	IP_VS_PROTO_UDP
+ 	bool "UDP load balancing support"
+-	depends on IP_VS
  	---help---
- 	  This driver provides generic support for token ring adapters
-@@ -108,7 +108,7 @@ config TMS380TR
+ 	  This option enables support for load balancing UDP transport
+ 	  protocol. Say Y if unsure.
  
- config TMSPCI
- 	tristate "Generic TMS380 PCI support"
--	depends on TR && TMS380TR && PCI
-+	depends on TMS380TR && PCI
+ config	IP_VS_PROTO_ESP
+ 	bool "ESP load balancing support"
+-	depends on IP_VS
  	---help---
- 	  This tms380 module supports generic TMS380-based PCI cards.
+ 	  This option enables support for load balancing ESP (Encapsulation
+ 	  Security Payload) transport protocol. Say Y if unsure.
  
-@@ -123,7 +123,7 @@ config TMSPCI
- 
- config SKISA
- 	tristate "SysKonnect TR4/16 ISA support"
--	depends on TR && TMS380TR && ISA
-+	depends on TMS380TR && ISA
- 	help
- 	  This tms380 module supports SysKonnect TR4/16 ISA cards.
- 
-@@ -135,7 +135,7 @@ config SKISA
- 
- config PROTEON
- 	tristate "Proteon ISA support"
--	depends on TR && TMS380TR && ISA
-+	depends on TMS380TR && ISA
- 	help
- 	  This tms380 module supports Proteon ISA cards.
- 
-@@ -148,7 +148,7 @@ config PROTEON
- 
- config ABYSS
- 	tristate "Madge Smart 16/4 PCI Mk2 support"
--	depends on TR && TMS380TR && PCI
-+	depends on TMS380TR && PCI
- 	help
- 	  This tms380 module supports the Madge Smart 16/4 PCI Mk2
- 	  cards (51-02).
-@@ -158,7 +158,7 @@ config ABYSS
- 
- config MADGEMC
- 	tristate "Madge Smart 16/4 Ringnode MicroChannel"
--	depends on TR && TMS380TR && MCA
-+	depends on TMS380TR && MCA
- 	help
- 	  This tms380 module supports the Madge Smart 16/4 MC16 and MC32
- 	  MicroChannel adapters.
-@@ -168,7 +168,7 @@ config MADGEMC
- 
- config SMCTR
- 	tristate "SMC ISA/MCA adapter support"
--	depends on TR && (ISA || MCA_LEGACY) && (BROKEN || !64BIT)
-+	depends on (ISA || MCA_LEGACY) && (BROKEN || !64BIT)
+ config	IP_VS_PROTO_AH
+ 	bool "AH load balancing support"
+-	depends on IP_VS
  	---help---
- 	  This is support for the ISA and MCA SMC Token Ring cards,
- 	  specifically SMC TokenCard Elite (8115T) and SMC TokenCard Elite/A
-@@ -182,5 +182,4 @@ config SMCTR
- 	  To compile this driver as a module, choose M here: the module will be
- 	  called smctr.
+ 	  This option enables support for load balancing AH (Authentication
+ 	  Header) transport protocol. Say Y if unsure.
+ 
+ comment "IPVS scheduler"
+-        depends on IP_VS
+ 
+ config	IP_VS_RR
+ 	tristate "round-robin scheduling"
+-	depends on IP_VS
+ 	---help---
+ 	  The robin-robin scheduling algorithm simply directs network
+ 	  connections to different real servers in a round-robin manner.
+@@ -106,7 +96,6 @@ config	IP_VS_RR
+  
+ config	IP_VS_WRR
+         tristate "weighted round-robin scheduling" 
+-	depends on IP_VS
+ 	---help---
+ 	  The weighted robin-robin scheduling algorithm directs network
+ 	  connections to different real servers based on server weights
+@@ -120,7 +109,6 @@ config	IP_VS_WRR
+ 
+ config	IP_VS_LC
+         tristate "least-connection scheduling"
+-        depends on IP_VS
+ 	---help---
+ 	  The least-connection scheduling algorithm directs network
+ 	  connections to the server with the least number of active 
+@@ -131,7 +119,6 @@ config	IP_VS_LC
+ 
+ config	IP_VS_WLC
+         tristate "weighted least-connection scheduling"
+-        depends on IP_VS
+ 	---help---
+ 	  The weighted least-connection scheduling algorithm directs network
+ 	  connections to the server with the least active connections
+@@ -142,7 +129,6 @@ config	IP_VS_WLC
+ 
+ config	IP_VS_LBLC
+ 	tristate "locality-based least-connection scheduling"
+-        depends on IP_VS
+ 	---help---
+ 	  The locality-based least-connection scheduling algorithm is for
+ 	  destination IP load balancing. It is usually used in cache cluster.
+@@ -157,7 +143,6 @@ config	IP_VS_LBLC
+ 
+ config  IP_VS_LBLCR
+ 	tristate "locality-based least-connection with replication scheduling"
+-        depends on IP_VS
+ 	---help---
+ 	  The locality-based least-connection with replication scheduling
+ 	  algorithm is also for destination IP load balancing. It is 
+@@ -176,7 +161,6 @@ config  IP_VS_LBLCR
+ 
+ config	IP_VS_DH
+ 	tristate "destination hashing scheduling"
+-        depends on IP_VS
+ 	---help---
+ 	  The destination hashing scheduling algorithm assigns network
+ 	  connections to the servers through looking up a statically assigned
+@@ -187,7 +171,6 @@ config	IP_VS_DH
+ 
+ config	IP_VS_SH
+ 	tristate "source hashing scheduling"
+-        depends on IP_VS
+ 	---help---
+ 	  The source hashing scheduling algorithm assigns network
+ 	  connections to the servers through looking up a statically assigned
+@@ -198,7 +181,6 @@ config	IP_VS_SH
+ 
+ config	IP_VS_SED
+ 	tristate "shortest expected delay scheduling"
+-        depends on IP_VS
+ 	---help---
+ 	  The shortest expected delay scheduling algorithm assigns network
+ 	  connections to the server with the shortest expected delay. The 
+@@ -212,7 +194,6 @@ config	IP_VS_SED
+ 
+ config	IP_VS_NQ
+ 	tristate "never queue scheduling"
+-        depends on IP_VS
+ 	---help---
+ 	  The never queue scheduling algorithm adopts a two-speed model.
+ 	  When there is an idle server available, the job will be sent to
+@@ -225,11 +206,10 @@ config	IP_VS_NQ
+ 	  module, choose M here. If unsure, say N.
+ 
+ comment 'IPVS application helper'
+-	depends on IP_VS
+ 
+ config	IP_VS_FTP
+   	tristate "FTP protocol helper"
+-        depends on IP_VS && IP_VS_PROTO_TCP
++        depends on IP_VS_PROTO_TCP
+ 	---help---
+ 	  FTP is a protocol that transfers IP address and/or port number in
+ 	  the payload. In the virtual server via Network Address Translation,
+@@ -241,4 +221,4 @@ config	IP_VS_FTP
+ 	  If you want to compile it in kernel, say Y. To compile it as a
+ 	  module, choose M here. If unsure, say N.
  
 -endmenu
--
-+endif # TR
++endif # IP_VS
 _
