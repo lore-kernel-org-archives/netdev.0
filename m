@@ -1,40 +1,57 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: bad networking related lag in v2.6.22-rc2
-Date: Wed, 23 May 2007 13:33:48 +0200
-Message-ID: <4654269C.4040809@trash.net>
-References: <20070517174533.GA538@elte.hu> <200705221147.56571.kernel@prachanda.hub> <20070522062233.GA20002@elte.hu> <200705231110.44526.kernel@prachanda.hub> <20070523063052.GB26814@elte.hu> <46541DC4.4090501@trash.net> <20070523112559.GA24604@gondor.apana.org.au>
+From: David Hollis <dhollis@davehollis.com>
+Subject: [PATCH] asix.c - Add Belkin F5D5055 ids
+Date: Wed, 23 May 2007 07:33:17 -0400
+Message-ID: <1179919997.6962.15.camel@dhollis-lnx.sunera.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@elte.hu>, Anant Nitya <kernel@prachanda.info>,
-	linux-kernel@vger.kernel.org,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: multipart/mixed; boundary="=-0gyypkK/CnrgJtGO3pyw"
+To: Jeff Garzik <jgarzik@pobox.com>, netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:39738 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756260AbXEWLgt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 May 2007 07:36:49 -0400
-In-Reply-To: <20070523112559.GA24604@gondor.apana.org.au>
+Received: from vms042pub.verizon.net ([206.46.252.42]:44495 "EHLO
+	vms042pub.verizon.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758879AbXEWLi4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 May 2007 07:38:56 -0400
+Received: from smtp.davehollis.com ([72.64.146.98])
+ by vms042.mailsrvcs.net (Sun Java System Messaging Server 6.2-6.01 (built Apr
+ 3 2006)) with ESMTPA id <0JIH00KNNSCPTCV6@vms042.mailsrvcs.net> for
+ netdev@vger.kernel.org; Wed, 23 May 2007 06:38:49 -0500 (CDT)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
-> On Wed, May 23, 2007 at 12:56:04PM +0200, Patrick McHardy wrote:
-> 
->>Looking at the recent changes to __qdisc_run, this indeed seems
->>to be the case, when the qdisc is throttled and has packets queued
->>we return a value != 0, causing __qdisc_run to loop until all
->>packets have been sent, which may be a long time.
-> 
-> 
-> Good catch! I was obviously half awake at the time :)
-> 
-> We could also fix it this way:
 
+--=-0gyypkK/CnrgJtGO3pyw
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
-Yes, that looks better, thanks.
+(Originally sent to linux-usb-devel)
+
+The attached patch adds the device IDs for the Belkin F5D5055 device.
+ 
+Reported by Andy Juniper <ajuniper@freeuk.com>
+ 
+Signed-off-by: David Hollis <dhollis@davehollis.com>
+
+-- 
+David Hollis <dhollis@davehollis.com>
+
+--=-0gyypkK/CnrgJtGO3pyw
+Content-Description: 
+Content-Disposition: inline; filename=asix.c-add-belkin-f5d5055.patch
+Content-Type: text/x-patch; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+
+--- a/drivers/net/usb/asix.c	2007-05-11 08:18:35.000000000 -0400
++++ b/drivers/net/usb/asix.c	2007-05-23 03:27:29.000000000 -0400
+@@ -1458,6 +1458,10 @@
+ 	// IO-DATA ETG-US2
+ 	USB_DEVICE (0x04bb, 0x0930),
+ 	.driver_info = (unsigned long) &ax88178_info,
++}, {
++	// Belkin F5D5055
++	USB_DEVICE(0x050d, 0x5055),
++	.driver_info = (unsigned long) &ax88178_info,
+ },
+ 	{ },		// END
+ };
+
+--=-0gyypkK/CnrgJtGO3pyw--
+
