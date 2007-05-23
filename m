@@ -1,38 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RTNETLINK]: Remove remains of wireless extensions over
- rtnetlink
-Date: Tue, 22 May 2007 17:00:56 -0700 (PDT)
-Message-ID: <20070522.170056.44097199.davem@davemloft.net>
-References: <4652117D.7060000@trash.net>
-	<1179826067.5004.4.camel@johannes.berg>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: IFF_PROMISC again
+Date: Tue, 22 May 2007 17:08:18 -0700
+Message-ID: <465385F2.7080309@candelatech.com>
+References: <1178044568.7116.14.camel@abraxas.dyn-o-saur.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org
-To: johannes@sipsolutions.net
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: =?UTF-8?B?TWFydMOtbiBGZXJyYXJp?= <martin.ferrari@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57226
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1757547AbXEWAAy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 May 2007 20:00:54 -0400
-In-Reply-To: <1179826067.5004.4.camel@johannes.berg>
+Received: from ns2.lanforge.com ([66.165.47.211]:52972 "EHLO ns2.lanforge.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756741AbXEWAIZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 May 2007 20:08:25 -0400
+In-Reply-To: <1178044568.7116.14.camel@abraxas.dyn-o-saur.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Johannes Berg <johannes@sipsolutions.net>
-Date: Tue, 22 May 2007 11:27:46 +0200
+Mart=C3=ADn Ferrari wrote:
+> Hi, for the nth time I send this email, hoping that majordomo won't e=
+at
+> it again.
+>=20
+>=20
+> I know this has been extensibly discussed circa 2001, but I found tha=
+t
+> there's still problems: in debian (at least) neither ifconfig nor ip
+> can tell that the interface is in promiscuous mode.
+>=20
+> I know about the deprecation of IFF_PROMISC, but I couldn't find out
+> which is the current way of knowing the real state of the interface. =
+I
+> want to fix ifconfig, so this is not an issue of
+> PACKET_(ADD|REMOVE)_MEMBERSHIP, I need to query the real device state=
+=2E
 
-> 
-> > [RTNETLINK]: Remove remains of wireless extensions over rtnetlink
-> > 
-> > Remove some unused variables and function arguments related to the recently
-> > removed wireless extensions over rtnetlink.
-> 
-> Still more! Sorry about that and thanks!
-> 
-> > Signed-off-by: Patrick McHardy <kaber@trash.net>
-> 
-> Since I did the removal in the first place,
-> Acked-by: Johannes Berg <johannes@sipsolutions.net>
+I have the same problem.  I think you can tell by looking at bit 0x100
+in /sys/class/net/[ethX]/flags
 
-Applied, thanks everyone.
+Not exactly fun to use, but it seems to work.
+
+Anyone know the reasoning for masking out the PROMISC flag
+in dev_get_flags() ?
+
+Ben
+
+--=20
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
+
