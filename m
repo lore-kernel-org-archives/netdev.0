@@ -1,54 +1,40 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: IFF_PROMISC again
-Date: Tue, 22 May 2007 17:22:54 -0700
-Message-ID: <4653895E.9000801@candelatech.com>
-References: <1178044568.7116.14.camel@abraxas.dyn-o-saur.com>	<465385F2.7080309@candelatech.com> <20070522.171225.70219741.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+From: Segher Boessenkool <segher@kernel.crashing.org>
+Subject: Re: [Cbe-oss-dev] [PATCH 4/10] spidernet: zero out a pointer.
+Date: Wed, 23 May 2007 02:29:52 +0200
+Message-ID: <de086868a64685afb768ecd78423a14f@kernel.crashing.org>
+References: <20070516215605.GA4325@austin.ibm.com> <20070516220928.GD4997@austin.ibm.com> <1179358376.4142.4.camel@concordia.ozlabs.ibm.com> <20070522233517.GU5921@austin.ibm.com>
+Mime-Version: 1.0 (Apple Message framework v623)
+Content-Type: text/plain; charset=US-ASCII; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: martin.ferrari@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: Jeff Garzik <jgarzik@pobox.com>, cbe-oss-dev@ozlabs.org,
+	Michael Ellerman <michael@ellerman.id.au>,
+	netdev@vger.kernel.org
+To: linas@austin.ibm.com (Linas Vepstas)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:36949 "EHLO ns2.lanforge.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756919AbXEWAXB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 May 2007 20:23:01 -0400
-In-Reply-To: <20070522.171225.70219741.davem@davemloft.net>
+Received: from mail-in-04.arcor-online.net ([151.189.21.44]:58158 "EHLO
+	mail-in-04.arcor-online.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1762032AbXEWA35 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 May 2007 20:29:57 -0400
+In-Reply-To: <20070522233517.GU5921@austin.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Ben Greear <greearb@candelatech.com>
-> Date: Tue, 22 May 2007 17:08:18 -0700
-> 
->> Anyone know the reasoning for masking out the PROMISC flag
->> in dev_get_flags() ?
-> 
-> Because promiscuous status is a counter, not a binary
-> on-off state.
-> 
-> You can't expect to just clear it and expect all the
-> other promiscuous users to just "go away" and be ok
-> with the device leaving promiscuous mode.
+>> If you're going to be paranoid, shouldn't you do something here to 
+>> make
+>> sure the value's hit the device?
+>
+> I thought the whole point of paranoia is that its inexplicable.
+>
+> Here's a delusional reply: I didn't see any point to it.
+> 1) a wmb would add overhead
 
-Yes, I understand why you wouldn't let a user set promisc in this
-manner.
+A wmb() doesn't guarantee the write has reached the device.
 
-> Since you can't sanely "set" it, we don't provide it
-> either.
+> 2) the hardware is supposed to be looking at the status flag,
+>    anyway, and not misbehaving.
 
-What harm is there letting the user know if their hardware is PROMISC
-or not, regardless of how it got that way?
-
-Also, it seems you *can* at least turn it on with ifconfig, and
-you can decrement at least once with ifconfig as well.  If nothing
-else has promiscuity set, then this will indeed toggle the state, right?
-
-Thanks,
-Ben
+But you're paranoid, right?  Can't trust that device! :-)
 
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Segher
 
