@@ -1,30 +1,31 @@
-From: "Tony Petz" <agoston.petz@gmail.com>
-Subject: Running multiple concurrent TCP stacks
-Date: Wed, 23 May 2007 16:59:02 -0500
-Message-ID: <103513710705231459l49add2a6xa9c4609d11e478a2@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/1] [TIPC]: Fixed erroneous introduction of
+ for_each_netdev
+Date: Wed, 23 May 2007 15:12:02 -0700 (PDT)
+Message-ID: <20070523.151202.95506681.davem@davemloft.net>
+References: <1>
+	<11792748743802-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: jon.maloy@ericsson.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.245]:16971 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756245AbXEWV7H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 May 2007 17:59:07 -0400
-Received: by an-out-0708.google.com with SMTP id d31so102618and
-        for <netdev@vger.kernel.org>; Wed, 23 May 2007 14:59:03 -0700 (PDT)
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47610
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1756283AbXEWWMA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 May 2007 18:12:00 -0400
+In-Reply-To: <11792748743802-git-send-email-jon.maloy@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I'm working on a research project that requires two simultaneously
-running but independent TCP implementations.  Searching the archives I
-was only able to come up with this:
-http://www.spinics.net/lists/linux-net/msg09064.html
+From: Jon Paul Maloy <jon.maloy@ericsson.com>
+Date: Tue, 15 May 2007 20:21:14 -0400
 
-I was wondering if anyone had any insight into the problem, or knew of
-a good place to start looking at how to load two copies of TCP stack,
-probably bound to two different interfaces for simplicity.
+> 
+> Signed-off-by: Jon Paul Maloy <jon.maloy@ericsson.com>
 
-Any advice appreciated...
--tony
+Patch applied, thanks Jon.
+
+I specifically had the developer of that change audit for this exact
+kind of bug, my apologies that this one case still slipped through :-/
