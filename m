@@ -1,54 +1,55 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] e1000: Don't enable polling in open()
-	(was: e1000:	assertion hit in e1000_clean(), kernel 2.6.21.1)
-Date: Thu, 24 May 2007 11:29:58 +1000
-Message-ID: <20070524012958.GB2943@gondor.apana.org.au>
-References: <20070521215134.14885.84952.stgit@localhost.localdomain>
-	<46522E6F.9060600@garzik.org>
-	<20070522010137.GC8130@gondor.apana.org.au>
-	<465320A6.80706@redhat.com> <4653223D.2010108@intel.com>
-	<20070523104711.GA24332@gondor.apana.org.au>
-	<20070523233418.GA3391@sequoia.sous-sol.org>
-	<4654D06C.9030600@intel.com>
+From: Masahide NAKAMURA <nakam@linux-ipv6.org>
+Subject: Re: [PATCH 2/2] [IPV6] MIP6: Loadable module support for MIPv6.
+Date: Thu, 24 May 2007 10:48:27 +0900
+Message-ID: <4654EEEB.1030603@linux-ipv6.org>
+References: <11799066192758-git-send-email-nakam@linux-ipv6.org> <200705231154.33208.netdev@axxeo.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, e1000-devel@lists.sourceforge.net,
-	Greg KH <greg@kroah.com>, Chris Wright <chrisw@sous-sol.org>,
-	Chuck Ebbert <cebbert@redhat.com>, netdev@vger.kernel.org,
-	davej@redhat.com, stable@kernel.org
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-Content-Disposition: inline
-In-Reply-To: <4654D06C.9030600@intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	herbert@gondor.apana.org.au
+To: Ingo Oeser <netdev@axxeo.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [203.178.140.9] ([203.178.140.9]:39242 "EHLO mail.gomagoma.org"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1757099AbXEXBs0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 May 2007 21:48:26 -0400
+In-Reply-To: <200705231154.33208.netdev@axxeo.de>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, May 23, 2007 at 04:38:20PM -0700, Kok, Auke wrote:
->
-> With that, please add my Acked-By...
+Ingo Oeser wrote:
+> nakam@linux-ipv6.org schrieb:
+>> From: Masahide NAKAMURA <nakam@linux-ipv6.org>
+>>
+>> This patch makes MIPv6 loadable module named "mip6".
+>>
+>> Here is a modprobe.conf(5) example to load it automatically
+>> when user application uses XFRM state for MIPv6:
+>>
+>> alias xfrm-type-10-43 mip6
+>> alias xfrm-type-10-60 mip6
+> 
+> What about  MODULE_ALIAS("xfrm-type-10-60") 
+> and MODULE_ALIAS("xfrm-type-10-43") in mip6.c ?
+> 
+> The aliases in modprobe.conf(5) should not be necessary then.
+> 
+> If you are really ambitious you can even define a 
+> MODULE_ALIAS_XFRM_TYPE macro in include/net/xfrm.h
+> simliar to to MODULE_ALIAS_XFRM_MODE.
 
-Sorry, I only read yours after Chris's message :)
+I prefer to use new macro like XFRM mode to unify XFRM
+protocols i.e. esp[46].c, ah[46].c, ipcomp[46].c, and mip6.c
+if we care about it. Can I add it as extensional patch
+if nobody has a plan to do this yet?
 
-Chris, please add that Acked-By by Auke.
 
-Cheers,
+ > Please be sure to discuss CC Herbert Xu then.
+
+# CC-ed.
+
+Regards,
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-
--------------------------------------------------------------------------
-This SF.net email is sponsored by DB2 Express
-Download DB2 Express C - the FREE version of DB2 express and take
-control of your XML. No limits. Just data. Click to get it now.
-http://sourceforge.net/powerbar/db2/
+Masahide NAKAMURA
