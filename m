@@ -1,69 +1,39 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 8536] New: Kernel drops UDP packets silently
- when reading from certain proc file entries
-Date: Thu, 24 May 2007 12:59:26 -0700
-Message-ID: <20070524125926.f91d64a2.akpm@linux-foundation.org>
-References: <200705241948.l4OJmTAe031670@fire-2.osdl.org>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH] ethtool: new ID to decode the registers of the 8168 (realtek)
+Date: Thu, 24 May 2007 22:02:42 +0200
+Message-ID: <20070524200242.GA17722@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "bugme-daemon@kernel-bugs.osdl.org"
-	<bugme-daemon@bugzilla.kernel.org>, andsve@gmail.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([207.189.120.13]:36029 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750864AbXEXT7a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 May 2007 15:59:30 -0400
-In-Reply-To: <200705241948.l4OJmTAe031670@fire-2.osdl.org>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:58589 "EHLO
+	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750906AbXEXUE1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 May 2007 16:04:27 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 24 May 2007 12:48:29 -0700
-bugme-daemon@bugzilla.kernel.org wrote:
+Tested with an Asrock 945G-DVI (LOM).
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=8536
-> 
->            Summary: Kernel drops UDP packets silently when reading from
->                     certain proc file entries
->     Kernel Version: 2.6.x
->             Status: NEW
->           Severity: high
->              Owner: acme@ghostprotocols.net
->          Submitter: andsve@gmail.com
-> 
-> 
-> Most recent kernel where this bug did *NOT* occur:
-> I do not know, but I now that it exists in RHEL4 2.6.9.x kernels
-> Distribution:
-> All
-> Hardware Environment:
-> Multi core SMP
-> Software Environment:
-> All
-> Problem Description:
-> It is possible to introduce UDP packet losses by reading
-> the proc file entry /proc/net/tcp. The really strange thing is that
-> the error counters for packet drops are not increased. 
-> This means that the kernel introduce "silent" packet drops by just reading a
-> proc statistics entry which is Not a good thing! I can most probably be used for
-> denial of service attacks from no root users.
-> 
-> When looking at the network code it does not seem possible that silent packet
-> drops can ocurr so it is probably a quite nasty kernel bug.
-> 
-> 
-> Steps to reproduce:
-> 
-> * Send high speed RTP/UDP multicast traffic towards the system, 50Mbit/s. 
-> 
-> * Receive the RTP packets and check/validate the RTP counters and print out when
-> the counter is not continous.
-> 
-> * Do a while loop cat:ing from the /proc/net/tcp and see the packets beeing
-> dropped but not accounted for in the counter statistics.
-> 
-> I have reproduced this behavior on all our systems ranging from dual to quad
-> core Xeon and Opteron and also on different OS releases, RHEL4, RHEL5, Fedora
-> Core 5 and 6
-> 
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+---
+ realtek.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/realtek.c b/realtek.c
+index 64ab7f8..8daba69 100644
+--- a/realtek.c
++++ b/realtek.c
+@@ -45,6 +45,7 @@ static struct chip_info {
+ 	{ "RTL-8100B/8139D",	HW_REVID(1, 1, 1, 0, 1, 0, 1) },
+ 	{ "RTL-8139C+",		HW_REVID(1, 1, 1, 0, 1, 1, 0) },
+ 	{ "RTL-8101",		HW_REVID(1, 1, 1, 0, 1, 1, 1) },
++	{ "RTL-8168B/8111B",	HW_REVID(0, 1, 1, 1, 0, 0, 0) },
+ 	{ "RTL-8169",		HW_REVID(0, 0, 0, 0, 0, 0, 0) },
+ 	{ "RTL-8169s",		HW_REVID(0, 0, 0, 0, 1, 0, 0) },
+ 	{ "RTL-8110",		HW_REVID(0, 0, 1, 0, 0, 0, 0) },
+-- 
+1.5.2
+
