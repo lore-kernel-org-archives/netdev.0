@@ -1,36 +1,54 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [PATCH 3/7] sky2: program proper register for fiber PHY
-Date: Thu, 24 May 2007 15:22:45 -0700
-Message-ID: <20070524222538.550481686@linux-foundation.org>
-References: <20070524222242.555399884@linux-foundation.org>
-Cc: netdev@vger.kernel.org
-To: Jeff Garzik <jgarzik@pobox.com>
+From: Marc St-Jean <Marc_St-Jean@pmc-sierra.com>
+Subject: Re: [PATCH 10/12] drivers: PMC MSP71xx ethernet driver
+Date: Thu, 24 May 2007 15:49:11 -0700
+Message-ID: <46561667.1070105@pmc-sierra.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Cc: Marc St-Jean <stjeanma@pmc-sierra.com>, akpm@linux-foundation.org,
+	linux-mips@linux-mips.org, netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([207.189.120.13]:52528 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752233AbXEXWcD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 May 2007 18:32:03 -0400
-Content-Disposition: inline; filename=sky2-fiber-reg.patch
+Received: from father.pmc-sierra.com ([216.241.224.13]:33401 "HELO
+	father.pmc-sierra.bc.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1750741AbXEXWtV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 May 2007 18:49:21 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Driver was reading value from one register, setting bit and then
-writing the wrong register.
 
-Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+Jeff Garzik wrote:
+> Marc St-Jean wrote:
+>  > I asked if the remaining section (above) was acceptable so we could 
+> retain our
+>  > buffer recycling which enhances throughput. I never received a rely 
+> so it was
+>  > left in my last patch.
+>  >
+>  > The above comment now answers my part of my initial question. Are you 
+> aware of
+>  > a better way to implement this or must we lose all our recycling 
+> enhancements?
+> 
+> 
+> You can poke around on netdev and ask about skb recycling in a new
+> thread, and propose something.
+> 
+> I just know that having your own custom skb initialization is a
+> non-starter.  Any updates the main skb init code receives will
+> inevitably -not- be propagate to your code, rapidly leading to an
+> unmaintainable disconnect.
+> 
+> skb recycling in general is an interesting area to explore, and others
+> have poked around that area before.  I bet googling for skb recycling
+> would turn up some useful thoughts and past efforts.
+> 
+>         Jeff
+> 
 
---- a/drivers/net/sky2.c	2007-05-22 10:43:12.000000000 -0700
-+++ b/drivers/net/sky2.c	2007-05-22 10:44:32.000000000 -0700
-@@ -364,7 +364,7 @@ static void sky2_phy_init(struct sky2_hw
- 			/* for SFP-module set SIGDET polarity to low */
- 			ctrl = gm_phy_read(hw, port, PHY_MARV_PHY_CTRL);
- 			ctrl |= PHY_M_FIB_SIGD_POL;
--			gm_phy_write(hw, port, PHY_MARV_CTRL, ctrl);
-+			gm_phy_write(hw, port, PHY_MARV_PHY_CTRL, ctrl);
- 		}
- 
- 		gm_phy_write(hw, port, PHY_MARV_EXT_ADR, pg);
+I will resend the driver without the skb recycling shortly. We will need
+to see if we can allocate resources to contribute to recycling at the
+stack level later.
 
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
-
+Thanks,
+Marc
