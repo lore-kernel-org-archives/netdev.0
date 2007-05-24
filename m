@@ -1,39 +1,43 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH] ethtool: new ID to decode the registers of the 8168 (realtek)
-Date: Thu, 24 May 2007 22:02:42 +0200
-Message-ID: <20070524200242.GA17722@electric-eye.fr.zoreil.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] s2io: don't run MSI handlers if device is offline.
+Date: Thu, 24 May 2007 17:20:24 -0400
+Message-ID: <46560198.9080204@pobox.com>
+References: <20070522225029.GS5921@austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: jgarzik@pobox.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@osdl.org>, linux-pci@atrey.karlin.mff.cuni.cz,
+	netdev@vger.kernel.org,
+	Ramkrishna Vepa <Ramkrishna.Vepa@neterion.com>,
+	Sivakumar Subramani <sivakumar.subramani@neterion.com>,
+	Sreenivasa Honnur <sreenivasa.honnur@neterion.com>,
+	Rastapur Santosh <santosh.rastapur@neterion.com>,
+	Wen Xiong <wenxiong@us.ibm.com>
+To: Linas Vepstas <linas@austin.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:58589 "EHLO
-	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750906AbXEXUE1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 May 2007 16:04:27 -0400
-Content-Disposition: inline
+Received: from srv5.dvmed.net ([207.36.208.214]:47994 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750811AbXEXVUo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 May 2007 17:20:44 -0400
+In-Reply-To: <20070522225029.GS5921@austin.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Tested with an Asrock 945G-DVI (LOM).
+Linas Vepstas wrote:
+> Don't run any of the MSI handlers if the channel is off;
+> also don't gather device statatistics. Also, netif_wake 
+> not needed, per suggestions from
+> Sivakumar Subramani <sivakumar.subramani@neterion.com>.
+> 
+> Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
+> Cc: Ramkrishna Vepa <Ramkrishna.Vepa@neterion.com>
+> Cc: Sivakumar Subramani <sivakumar.subramani@neterion.com>
+> Cc: Sreenivasa Honnur <sreenivasa.honnur@neterion.com>
+> Cc: Rastapur Santosh <santosh.rastapur@neterion.com>
+> Cc: Wen Xiong <wenxiong@us.ibm.com>
 
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
----
- realtek.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+Why are the interrupt handlers being called at all, then?
 
-diff --git a/realtek.c b/realtek.c
-index 64ab7f8..8daba69 100644
---- a/realtek.c
-+++ b/realtek.c
-@@ -45,6 +45,7 @@ static struct chip_info {
- 	{ "RTL-8100B/8139D",	HW_REVID(1, 1, 1, 0, 1, 0, 1) },
- 	{ "RTL-8139C+",		HW_REVID(1, 1, 1, 0, 1, 1, 0) },
- 	{ "RTL-8101",		HW_REVID(1, 1, 1, 0, 1, 1, 1) },
-+	{ "RTL-8168B/8111B",	HW_REVID(0, 1, 1, 1, 0, 0, 0) },
- 	{ "RTL-8169",		HW_REVID(0, 0, 0, 0, 0, 0, 0) },
- 	{ "RTL-8169s",		HW_REVID(0, 0, 0, 0, 1, 0, 0) },
- 	{ "RTL-8110",		HW_REVID(0, 0, 1, 0, 0, 0, 0) },
--- 
-1.5.2
+This seems to be papering over another bug.
+
 
