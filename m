@@ -1,53 +1,51 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 10/12] drivers: PMC MSP71xx ethernet driver
-Date: Thu, 24 May 2007 17:46:05 -0400
-Message-ID: <4656079D.6010109@garzik.org>
-References: <200705101839.l4AIdHB9030885@pasqua.pmc-sierra.bc.ca>
+Subject: Re: [PATCH] Add select PHYLIB to the UCC_GETH Kconfig option
+Date: Thu, 24 May 2007 17:47:59 -0400
+Message-ID: <4656080F.4080006@garzik.org>
+References: <1179926613.3839.47.camel@bender>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, linux-mips@linux-mips.org,
+Cc: kim.phillips@freescale.com, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
-To: Marc St-Jean <stjeanma@pmc-sierra.com>
+To: Jan Altenberg <jan.altenberg@linutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:48371 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:48384 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750955AbXEXVq4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 May 2007 17:46:56 -0400
-In-Reply-To: <200705101839.l4AIdHB9030885@pasqua.pmc-sierra.bc.ca>
+	id S1751144AbXEXVsG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 May 2007 17:48:06 -0400
+In-Reply-To: <1179926613.3839.47.camel@bender>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Marc St-Jean wrote:
-> +inline static void
-> +mspeth_skb_headerinit(struct sk_buff *skb)
-> +{
-> +	/* these are essential before init */
-> +	dst_release(skb->dst);
-> +#ifdef CONFIG_XFRM
-> +	secpath_put(skb->sp);
-> +#endif
-> +#ifdef CONFIG_NETFILTER
-> +	nf_conntrack_put(skb->nfct);
-> +#if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
-> +	nf_conntrack_put_reasm(skb->nfct_reasm);
-> +#endif
-> +#ifdef CONFIG_BRIDGE_NETFILTER
-> +	nf_bridge_put(skb->nf_bridge);
-> +#endif
-> +#endif /* CONFIG_NETFILTER */
-> +
-> +	/*
-> +	 * Now initialise the skb...
-> +	 * Clear the members till skb->truesize.
-> +	 */
-> +	memset(skb, 0, offsetof(struct sk_buff, truesize));
-> +}
-> +#endif /* CONFIG_MSPETH_SKB_RECYCLE */
+Jan Altenberg wrote:
+> ucc_geth has been migrated to use the common phylib code. So lets add a
+> 'select PHYLIB' to the UCC_GETH Kconfig entry.
+> 
+> Signed-off-by: Jan Altenberg <jan.altenberg@linutronix.de>
+> 
+> ---
+>  drivers/net/Kconfig |    1 +
+>  1 file changed, 1 insertion(+)
+> 
+> Index: linux-2.6/drivers/net/Kconfig
+> ===================================================================
+> --- linux-2.6.orig/drivers/net/Kconfig
+> +++ linux-2.6/drivers/net/Kconfig
+> @@ -2280,6 +2280,7 @@ config GFAR_NAPI
+>  config UCC_GETH
+>  	tristate "Freescale QE Gigabit Ethernet"
+>  	depends on QUICC_ENGINE
+> +	select PHYLIB
+>  	select UCC_FAST
 
-Did you ever resend this driver addition, with the above unmaintainable 
-skb init hacks removed?
+Please fix the Kconfig warnings first.
+
+Also, I ask again:  WHO IS THE MAINTAINER OF THIS DRIVER?
+
+I am tired of five independent people patching the same driver.
 
 	Jeff
+
 
 
