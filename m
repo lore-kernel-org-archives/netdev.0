@@ -1,39 +1,55 @@
-From: David Miller <davem@davemloft.net>
+From: Anant Nitya <kernel@prachanda.info>
 Subject: Re: bad networking related lag in v2.6.22-rc2
-Date: Wed, 23 May 2007 23:40:14 -0700 (PDT)
-Message-ID: <20070523.234014.130216922.davem@davemloft.net>
-References: <20070523114021.GA21880@elte.hu>
-	<20070523.143056.115914753.davem@davemloft.net>
-	<4655256C.1030208@trash.net>
+Date: Thu, 24 May 2007 12:42:29 +0530
+Message-ID: <200705241242.32125.kernel@prachanda.hub>
+References: <46541DC4.4090501@trash.net> <20070523114021.GA21880@elte.hu> <20070523.143056.115914753.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: mingo@elte.hu, herbert@gondor.apana.org.au, kernel@prachanda.info,
-	linux-kernel@vger.kernel.org, torvalds@linux-foundation.org,
-	akpm@linux-foundation.org, tglx@linutronix.de,
-	netdev@vger.kernel.org
-To: kaber@trash.net
+Cc: David Miller <davem@davemloft.net>, mingo@elte.hu,
+	herbert@gondor.apana.org.au, kaber@trash.net,
+	torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	tglx@linutronix.de, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52909
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754497AbXEXGkM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 May 2007 02:40:12 -0400
-In-Reply-To: <4655256C.1030208@trash.net>
+Received: from [208.97.132.5] ([208.97.132.5]:40399 "EHLO
+	spaceymail-a2.g.dreamhost.com" rhost-flags-FAIL-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1755048AbXEXHOo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 May 2007 03:14:44 -0400
+In-Reply-To: <20070523.143056.115914753.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Thu, 24 May 2007 07:41:00 +0200
-
-> David Miller wrote:
-> >>* Herbert Xu <herbert@gondor.apana.org.au> wrote:
-> >>
-> >>>[NET_SCHED]: Fix qdisc_restart return value when dequeue is empty
+On Thursday 24 May 2007 03:00:56 David Miller wrote:
+> From: Ingo Molnar <mingo@elte.hu>
+> Date: Wed, 23 May 2007 13:40:21 +0200
+>
+> > * Herbert Xu <herbert@gondor.apana.org.au> wrote:
+> > > [NET_SCHED]: Fix qdisc_restart return value when dequeue is empty
+> > >
+> > > My previous patch that changed the return value of qdisc_restart
+> > > incorrectly made the case where dequeue returns empty continue
+> > > processing packets.
+> > >
+> > > This patch is based on diagnosis and fix by Patrick McHardy.
+> > >
+> > > Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 > >
-> > Applied, thanks everyone.
-> 
-> 
-> Even though it didn't fix this problem, this patch I sent earlier is
-> also needed.
+> > also:
+> >
+> >   Reported-and-debugged-by: Anant Nitya <kernel@prachanda.info>
+>
+> Applied, thanks everyone.
 
-Thanks a lot for reminding me about this patch Patrick, applied.
+Networking lag I been seeing since 2.6.22-rc1, disappeared after applying this 
+patch. Thanks to everyone who helped me run my system sane again. :)
+
+Reagards
+Ananitya
+
+-- 
+Out of many thousands, one may endeavor for perfection, and of
+those who have achieved perfection, hardly one knows Me in truth.
+				-- Gita Sutra Of Mysticism
