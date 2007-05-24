@@ -1,36 +1,34 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] ethtool: new ID to decode the registers of the 8168 (realtek)
-Date: Fri, 25 May 2007 00:57:50 +0200
-Message-ID: <20070524225750.GB17090@electric-eye.fr.zoreil.com>
-References: <20070524200242.GA17722@electric-eye.fr.zoreil.com> <4656088A.6030006@pobox.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Bluetooth fixes for 2.6.22-rc2
+Date: Thu, 24 May 2007 16:54:55 -0700 (PDT)
+Message-ID: <20070524.165455.66076224.davem@davemloft.net>
+References: <1180025244.21432.16.camel@aeonflux.holtmann.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Jeff Garzik <jgarzik@pobox.com>
+To: marcel@holtmann.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:41142 "EHLO
-	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753312AbXEXXAE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 May 2007 19:00:04 -0400
-Content-Disposition: inline
-In-Reply-To: <4656088A.6030006@pobox.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60521
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750701AbXEXXyw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 May 2007 19:54:52 -0400
+In-Reply-To: <1180025244.21432.16.camel@aeonflux.holtmann.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik <jgarzik@pobox.com> :
-[...]
-> Would you be kind enough to resend ?
+From: Marcel Holtmann <marcel@holtmann.org>
+Date: Thu, 24 May 2007 18:47:24 +0200
 
-Of course.
+> Hi Dave,
+> 
+> here are two more bug fixes that should go into 2.6.22 before its final
+> release. The USB driver change is minor and the L2CAP change has been
+> verified with Bluetooth compliance tester and also the L2CAP robustness
+> testing.
+ ..
+> Please pull from
+> 
+>         git://git.kernel.org/pub/scm/linux/kernel/git/holtmann/bluetooth-2.6.git
 
-> If there are important bug fixes that need to go into 2.6.22, that are
-> safe enough to put in at this late date, please split those off from
-> other improvements.
-
-It's safer and simpler to wait for the next cycle.
-
-Most complaints come from unhappy 8168/Asus (P5B) users who still need
-a fix (somewhere along the VPD probably).
-
--- 
-Ueimor
+Pulled, thanks a lot!
