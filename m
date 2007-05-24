@@ -1,49 +1,38 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] Add select PHYLIB to the UCC_GETH Kconfig option
-Date: Thu, 24 May 2007 17:47:59 -0400
-Message-ID: <4656080F.4080006@garzik.org>
-References: <1179926613.3839.47.camel@bender>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] ethtool: new ID to decode the registers of the 8168 (realtek)
+Date: Thu, 24 May 2007 17:50:02 -0400
+Message-ID: <4656088A.6030006@pobox.com>
+References: <20070524200242.GA17722@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: kim.phillips@freescale.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Jan Altenberg <jan.altenberg@linutronix.de>
+Cc: netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:48384 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:48405 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751144AbXEXVsG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 May 2007 17:48:06 -0400
-In-Reply-To: <1179926613.3839.47.camel@bender>
+	id S1752239AbXEXVuF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 May 2007 17:50:05 -0400
+In-Reply-To: <20070524200242.GA17722@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jan Altenberg wrote:
-> ucc_geth has been migrated to use the common phylib code. So lets add a
-> 'select PHYLIB' to the UCC_GETH Kconfig entry.
+Francois Romieu wrote:
+> Tested with an Asrock 945G-DVI (LOM).
 > 
-> Signed-off-by: Jan Altenberg <jan.altenberg@linutronix.de>
-> 
+> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 > ---
->  drivers/net/Kconfig |    1 +
->  1 file changed, 1 insertion(+)
-> 
-> Index: linux-2.6/drivers/net/Kconfig
-> ===================================================================
-> --- linux-2.6.orig/drivers/net/Kconfig
-> +++ linux-2.6/drivers/net/Kconfig
-> @@ -2280,6 +2280,7 @@ config GFAR_NAPI
->  config UCC_GETH
->  	tristate "Freescale QE Gigabit Ethernet"
->  	depends on QUICC_ENGINE
-> +	select PHYLIB
->  	select UCC_FAST
+>  realtek.c |    1 +
+>  1 files changed, 1 insertions(+), 0 deletions(-)
 
-Please fix the Kconfig warnings first.
+applied
 
-Also, I ask again:  WHO IS THE MAINTAINER OF THIS DRIVER?
+Also, I have really fallen off the ball when it comes to the r8169 
+kernel driver.  My apologies.
 
-I am tired of five independent people patching the same driver.
+Would you be kind enough to resend?  If there are important bug fixes 
+that need to go into 2.6.22, that are safe enough to put in at this late 
+date, please split those off from other improvements.
 
 	Jeff
 
