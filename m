@@ -1,8 +1,8 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 2/4] forcedeth: fix power management support
-Date: Thu, 24 May 2007 18:00:11 -0400
-Message-ID: <46560AEB.8040402@garzik.org>
-References: <465237E8.1060005@nvidia.com>
+Subject: Re: [PATCH 4/4] forcedeth: version bump
+Date: Thu, 24 May 2007 18:03:05 -0400
+Message-ID: <46560B99.9020406@garzik.org>
+References: <465237F5.2010208@nvidia.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -10,46 +10,57 @@ Cc: Manfred Spraul <manfred@colorfullife.com>,
 	Andrew Morton <akpm@osdl.org>, nedev <netdev@vger.kernel.org>
 To: Ayaz Abdulla <aabdulla@nvidia.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:48514 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:48549 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752081AbXEXWAS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 May 2007 18:00:18 -0400
-In-Reply-To: <465237E8.1060005@nvidia.com>
+	id S1751151AbXEXWDJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 May 2007 18:03:09 -0400
+In-Reply-To: <465237F5.2010208@nvidia.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Ayaz Abdulla wrote:
-> This patch fixes the power management functions. It includes lowering 
-> the phy speed to conserve power.
+> This patch bumps up the version.
 > 
 > Signed-off-by: Ayaz Abdulla <aabdulla@nvidia.com>
+> 
+> 
+> ------------------------------------------------------------------------
+> 
+> --- old/drivers/net/forcedeth.c	2007-05-21 20:09:03.000000000 -0400
+> +++ new/drivers/net/forcedeth.c	2007-05-21 20:10:32.000000000 -0400
+> @@ -112,6 +112,7 @@
+>   *	0.58: 30 Oct 2006: Added support for sideband management unit.
+>   *	0.59: 30 Oct 2006: Added support for recoverable error.
+>   *	0.60: 20 Jan 2007: Code optimizations for rings, rx & tx data paths, and stats.
+> + *	0.61: 21 May 2007: Fix power management code, cpu mask, and added vitesse phy.
+>   *
+>   * Known bugs:
+>   * We suspect that on some hardware no TX done interrupts are generated.
 
-Several issues here:
+The standard for kernel drivers these days is to rely on the 
+permanent-for-eternity kernel changelog stored in git.
 
-1) Your patch description needs to explain the problems in the power 
-management code.  It is self-evident from the patch what functions are 
-being changed, and that you feel these changes constitute a fix.  But 
-beyond that... no information is given.
-
-2) Lowering the phy speed to conserve power is not an appropriate change 
-for a "bug fix only" 2.6.22-rc cycle AFAICS.  Unless there is a 
-compelling argument otherwise, I feel this change should be in a 
-separate patch, submitted for 2.6.23 (netdev-2.6.git#upstream).
-
-3) You left in debugging printk's, which is sloppy:
-
-+	dprintk(KERN_DEBUG "forcedeth: nv_suspend\n");
-
-4) You save PCI config space twice:
-
-  	pci_save_state(pdev);
-+
-+	/* save any device state */
-+	np->saved_phyinterface = readl(base + NvRegPhyInterface);
-+	for (i = 0; i < 64; i++) {
-+		pci_read_config_dword(pdev, i*4, &np->saved_config_space[i]);
+So please just remove the entire history from the C source code.  It's 
+just patch noise...
 
 
+> @@ -128,7 +129,7 @@
+>  #else
+>  #define DRIVERNAPI
+>  #endif
+> -#define FORCEDETH_VERSION		"0.60"
+> +#define FORCEDETH_VERSION		"0.61"
+>  #define DRV_NAME			"forcedeth"
 
-So, this needs work.
+obviously the rest of this patch is OK.  But due to earlier patch 
+rejections, I will not apply it, and will assume it will reappear when 
+you resend other patches.
+
+Finally, I would suggest keeping up with the kernel's "bug fix" 
+2.6.X-rcY release candidate cycles.  These changes ARE bug fixes, I 
+agree, but they still should not be appearing at the last minute.  That 
+gives us little time to ensure the fixes do not cause regressions.
+
+	Jeff
+
 
