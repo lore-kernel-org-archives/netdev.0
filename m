@@ -1,64 +1,53 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [Kgdb-bugreport] [PATCH] 8139too: harden against TX ring overflow
-Date: Thu, 24 May 2007 17:44:11 -0400
-Message-ID: <4656072B.40801@garzik.org>
-References: <200704052350.59464.sshtylyov@ru.mvista.com> <465603B9.90401@ru.mvista.com> <4656060A.6000102@garzik.org> <4656073E.1030804@ru.mvista.com>
+Subject: Re: [PATCH 10/12] drivers: PMC MSP71xx ethernet driver
+Date: Thu, 24 May 2007 17:46:05 -0400
+Message-ID: <4656079D.6010109@garzik.org>
+References: <200705101839.l4AIdHB9030885@pasqua.pmc-sierra.bc.ca>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mhuth@mvista.com,
-	kgdb-bugreport@lists.sourceforge.net
-To: Sergei Shtylyov <sshtylyov@ru.mvista.com>
+Cc: akpm@linux-foundation.org, linux-mips@linux-mips.org,
+	netdev@vger.kernel.org
+To: Marc St-Jean <stjeanma@pmc-sierra.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:48342 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:48371 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751027AbXEXVoN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 May 2007 17:44:13 -0400
-In-Reply-To: <4656073E.1030804@ru.mvista.com>
+	id S1750955AbXEXVq4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 May 2007 17:46:56 -0400
+In-Reply-To: <200705101839.l4AIdHB9030885@pasqua.pmc-sierra.bc.ca>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Sergei Shtylyov wrote:
-> Jeff Garzik wrote:
-> 
->>>> This driver's 4-packet deep TX queue is too sensible to the 
->>>> "careless" callers
->>>> ignoring its state (like netpoll in trapped mode), so add "queue 
->>>> full" check at
->>>> the start of the hard_start_xmit() method (only under #ifndef 
->>>> RTL8139_NDEBUG,
->>>> otherwise the queue will get stuck once dirty pointer gets out of 
->>>> sync); switch
->>>> to using appropriate mnemonics for the return values while at it.
->>>> Also, the out-of-sync dirty pointer check is misplaced in 
->>>> rtl8139_tx_interrupt()
->>>> which causes TX descriptors to be inspected more than once in case 
->>>> the pointer
->>>> really gets out-of-sync (and incrementing the dirty pointer always 
->>>> by 4 is just
->>>> not enough, e.g. KGDBoE managed to stuff 20+ extra buffers into the 
->>>> queue) --
->>>> place it before the loop and limit the loop to only look through 4 
->>>> descriptors
->>>> at most, so that already overwritten descriptors are just not counted.
-> 
->>>> Signed-off-by: Sergei Shtylyov <sshtylyov@ru.mvista.com>
-> 
->>>    Jeff, do you have any opinion on this patch?
-> 
->> The out-of-sync dirty pointer check is leftover boilerplate, and not 
->> really indicative of anything except for some code to be removed.
-> 
->> As for the other stuff, I would say "fix the caller".  We don't need 
->> to hack every driver for cases where netpoll is being dumb.
-> 
->    Caller's been fixed now. So, I read that as reject. :-)
+Marc St-Jean wrote:
+> +inline static void
+> +mspeth_skb_headerinit(struct sk_buff *skb)
+> +{
+> +	/* these are essential before init */
+> +	dst_release(skb->dst);
+> +#ifdef CONFIG_XFRM
+> +	secpath_put(skb->sp);
+> +#endif
+> +#ifdef CONFIG_NETFILTER
+> +	nf_conntrack_put(skb->nfct);
+> +#if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
+> +	nf_conntrack_put_reasm(skb->nfct_reasm);
+> +#endif
+> +#ifdef CONFIG_BRIDGE_NETFILTER
+> +	nf_bridge_put(skb->nf_bridge);
+> +#endif
+> +#endif /* CONFIG_NETFILTER */
+> +
+> +	/*
+> +	 * Now initialise the skb...
+> +	 * Clear the members till skb->truesize.
+> +	 */
+> +	memset(skb, 0, offsetof(struct sk_buff, truesize));
+> +}
+> +#endif /* CONFIG_MSPETH_SKB_RECYCLE */
 
-Mostly.  You're still welcome to remove the silly boilerplate checks...
-
-And ->hard_start_xmit() return value update(s) were sane.
+Did you ever resend this driver addition, with the above unmaintainable 
+skb init hacks removed?
 
 	Jeff
-
 
 
