@@ -1,31 +1,31 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/2] ucc_geth: Fix MODULE_DEVICE_TABLE() duplication
-Date: Thu, 24 May 2007 17:20:59 -0400
-Message-ID: <465601BB.9070107@garzik.org>
-References: <4652E105.70806@freescale.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] asix.c - Add Belkin F5D5055 ids
+Date: Thu, 24 May 2007 17:21:08 -0400
+Message-ID: <465601C4.80705@pobox.com>
+References: <1179919997.6962.15.camel@dhollis-lnx.sunera.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Li Yang <leoli@freescale.com>
+Cc: netdev <netdev@vger.kernel.org>
+To: David Hollis <dhollis@davehollis.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:48001 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:48013 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751367AbXEXVVB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 May 2007 17:21:01 -0400
-In-Reply-To: <4652E105.70806@freescale.com>
+	id S1751755AbXEXVVK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 May 2007 17:21:10 -0400
+In-Reply-To: <1179919997.6962.15.camel@dhollis-lnx.sunera.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Li Yang wrote:
-> Fix MODULE_DEVICE_TABLE() duplication in ucc_geth.c and ucc_geth_mii.c
-> for ucc_geth to be compiled as module.
+David Hollis wrote:
+> (Originally sent to linux-usb-devel)
 > 
-> Signed-off-by: Li Yang <leoli@freescale.com>
-> ---
-> drivers/net/ucc_geth_mii.c |    2 --
-> 1 files changed, 0 insertions(+), 2 deletions(-)
+> The attached patch adds the device IDs for the Belkin F5D5055 device.
+>  
+> Reported by Andy Juniper <ajuniper@freeuk.com>
+>  
+> Signed-off-by: David Hollis <dhollis@davehollis.com>
 
-applied 1-2
+applied
 
 
