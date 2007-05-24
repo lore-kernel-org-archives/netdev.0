@@ -1,52 +1,68 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [RESEND][PATCH] [NET_SCHED]make qdisc_restart more readable
-Date: Thu, 24 May 2007 18:13:54 +0200
-Message-ID: <4655B9C2.4050200@trash.net>
-References: <D5C1322C3E673F459512FB59E0DDC32902E7C23A@orsmsx414.amr.corp.intel.com>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Bluetooth fixes for 2.6.22-rc2
+Date: Thu, 24 May 2007 18:47:24 +0200
+Message-ID: <1180025244.21432.16.camel@aeonflux.holtmann.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, David Miller <davem@davemloft.net>,
-	Thomas Graf <tgraf@suug.ch>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev@vger.kernel.org, Sridhar Samudrala <sri@us.ibm.com>,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
-	Krishna Kumar2 <krkumar2@in.ibm.com>, xma@us.ibm.com
-To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:36853 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750735AbXEXQOH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 May 2007 12:14:07 -0400
-In-Reply-To: <D5C1322C3E673F459512FB59E0DDC32902E7C23A@orsmsx414.amr.corp.intel.com>
+Received: from coyote.holtmann.net ([217.160.111.169]:37264 "EHLO
+	mail.holtmann.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750733AbXEXQsE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 May 2007 12:48:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Waskiewicz Jr, Peter P wrote:
->>sigh. 
->>I wont be able to do this change until tonight or tommorow 
->>morning. I think the process i am using to re-generate 
->>patches maybe too consuming?
->>Maybe you could offer some advice. Heres what i do:
->>1. clone Daves latest tree localy
->>2. clone another tree from that
->>3. create patch on second clone
->>4. compile; test;compile;test until looks reasonable 5. 
->>commit with the comments 6. submit 7. build other patches on 
->>top (example batching in this case) 8. feedback on patch 
->>comes back 9. Re-do steps #2-#6
->>
->>My steps #2-#6 are expensive; is there a way to optimize that process?
-> 
-> 
-> [..]
-> 
-> One tree, multiple branches, very quick to move between them, low
-> overhead.  If this works for you, also look at stacked GIT (stg) for
-> pushing and popping patches from your tree - very handy.
+Hi Dave,
+
+here are two more bug fixes that should go into 2.6.22 before its final
+release. The USB driver change is minor and the L2CAP change has been
+verified with Bluetooth compliance tester and also the L2CAP robustness
+testing.
+
+Regards
+
+Marcel
 
 
-I have also found that stgit is a huge time saver, especially for
-making changes to patches or when dealing with many patches with
-interdependencies.
+Please pull from
+
+        git://git.kernel.org/pub/scm/linux/kernel/git/holtmann/bluetooth-2.6.git
+
+This will update the following files:
+
+ drivers/bluetooth/hci_usb.c   |   16 ++--
+ include/net/bluetooth/l2cap.h |    8 +-
+ net/bluetooth/l2cap.c         |  144 +++++++++++++++++++++++-------------------
+ 3 files changed, 94 insertions(+), 74 deletions(-)
+
+through these ChangeSets:
+
+Commit: 8e6b1e14d817ae7c43c51b8707a22bdc123157fb 
+Author: Marcel Holtmann <marcel@holtmann.org> Thu, 24 May 2007 13:58:55 +0200 
+
+    [Bluetooth] Fix L2CAP configuration parameter handling
+    
+    The L2CAP configuration parameter handling was missing the support
+    for rejecting unknown options. The capability to reject unknown
+    options is mandatory since the Bluetooth 1.2 specification. This
+    patch implements its and also simplifies the parameter parsing.
+    
+    Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
+
+Commit: 82cff022f83fd4c979d3b51c8c40e0e9650bc244 
+Author: Marcel Holtmann <marcel@holtmann.org> Thu, 24 May 2007 13:43:29 +0200 
+
+    [Bluetooth] Always send HCI_Reset for Broadcom devices
+    
+    In case of Broadcom based Bluetooth devices, it is safe to always
+    send HCI_Reset as first command. This gives the advantage that
+    all HID Proxy versions will automatically work and don't need any
+    additional quirks anymore.
+    
+    Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
+
+
 
