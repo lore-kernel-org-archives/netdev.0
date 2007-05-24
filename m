@@ -1,57 +1,134 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: [RESEND][PATCH] [NET_SCHED]make qdisc_restart more readable
-Date: Thu, 24 May 2007 09:38:33 -0400
-Message-ID: <1180013913.4092.7.camel@localhost>
-References: <1179972902.4082.63.camel@localhost>
-	 <46550965.5000400@trash.net>
+Subject: Re: Generic netlink interface help
+Date: Thu, 24 May 2007 09:51:45 -0400
+Message-ID: <1180014705.4092.18.camel@localhost>
+References: <20070524095654.GA21180@enneenne.com>
+	 <31YAj80s.1180001048.5677350.samuel@sortiz.org>
+	 <20070524112144.GB21180@enneenne.com>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Peter P <peter.p.waskiewicz.jr@intel.com>,
-	Thomas Graf <tgraf@suug.ch>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev@vger.kernel.org, Sridhar Samudrala <sri@us.ibm.com>,
-	Auke <auke-jan.h.kok@intel.com>,
-	Krishna Kumar2 <krkumar2@in.ibm.com>, xma@us.ibm.com
-To: Patrick McHardy <kaber@trash.net>
+Cc: Samuel Ortiz <samuel@sortiz.org>, netdev@vger.kernel.org
+To: Rodolfo Giometti <giometti@enneenne.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.234]:47592 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750695AbXEXNih (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 May 2007 09:38:37 -0400
-Received: by wx-out-0506.google.com with SMTP id t15so351568wxc
-        for <netdev@vger.kernel.org>; Thu, 24 May 2007 06:38:36 -0700 (PDT)
-In-Reply-To: <46550965.5000400@trash.net>
+Received: from wr-out-0506.google.com ([64.233.184.227]:29483 "EHLO
+	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750700AbXEXNvs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 May 2007 09:51:48 -0400
+Received: by wr-out-0506.google.com with SMTP id 76so127454wra
+        for <netdev@vger.kernel.org>; Thu, 24 May 2007 06:51:47 -0700 (PDT)
+In-Reply-To: <20070524112144.GB21180@enneenne.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2007-24-05 at 05:41 +0200, Patrick McHardy wrote:
-> jamal wrote:
-> > +	if (unlikely (ret != NETDEV_TX_BUSY && net_ratelimit()))
-> > +		printk(KERN_DEBUG " BUG %s code %d qlen %d\n",dev->name, ret, q->q.qlen);
+On Thu, 2007-24-05 at 13:21 +0200, Rodolfo Giometti wrote:
+> On Thu, May 24, 2007 at 10:04:08AM -0000, Samuel Ortiz wrote:
+> > 
+> > Yes it's possible, even though it could be more tedious and painful.
 > 
+> I know that. Have you some links to suggest to me in order to have
+> some programming examples?
 > 
-> This seems to be based on an old version, your latest patch
-> changed this to KERN_WARNING.
 
-sigh. 
-I wont be able to do this change until tonight or tommorow morning. I
-think the process i am using to re-generate patches maybe too consuming?
-Maybe you could offer some advice. Heres what i do:
-1. clone Daves latest tree localy
-2. clone another tree from that
-3. create patch on second clone
-4. compile; test;compile;test until looks reasonable
-5. commit with the comments
-6. submit
-7. build other patches on top (example batching in this case)
-8. feedback on patch comes back
-9. Re-do steps #2-#6
+For debugging or writting some simple apps you could also use
+iproute2/genl
+example on my laptop to discover loaded users:
 
-My steps #2-#6 are expensive; is there a way to optimize that process?
- 
+---------------
+hadi@lilsol:~$ genl ctrl ls
+
+Name: nlctrl
+        ID: 0x10  Version: 0x2  header size: 0  max attribs: 6
+        commands supported:
+                #1:  ID-0x3  flags-0xe
+
+
+Name: nl80211
+        ID: 0x11  Version: 0x1  header size: 0  max attribs: 22
+        commands supported:
+                #1:  ID-0x1  flags-0xa
+                #2:  ID-0x6  flags-0xa
+                #3:  ID-0x8  flags-0xa
+                #4:  ID-0x3  flags-0xb
+                #5:  ID-0x4  flags-0xb
+                #6:  ID-0x5  flags-0xb
+                #7:  ID-0xa  flags-0xb
+                #8:  ID-0xb  flags-0xa
+                #9:  ID-0xf  flags-0xb
+                #10:  ID-0x10  flags-0xa
+                #11:  ID-0x12  flags-0xb
+                #12:  ID-0x13  flags-0xa
+                #13:  ID-0x15  flags-0xa
+                #14:  ID-0x19  flags-0xb
+                #15:  ID-0x17  flags-0xb
+                #16:  ID-0x18  flags-0xb
+                #17:  ID-0x1a  flags-0xb
+                #18:  ID-0x1b  flags-0xa
+                #19:  ID-0xd  flags-0xb
+
+
+Name: TASKSTATS
+        ID: 0x12  Version: 0x1  header size: 0  max attribs: 4
+        commands supported:
+                #1:  ID-0x1  flags-0xa
+---------------------------
+
+Load tipc and repeat...
+
+-----------
+
+hadi@lilsol:~$ sudo modprobe tipc
+Name: nlctrl
+        ID: 0x10  Version: 0x2  header size: 0  max attribs: 6
+        commands supported:
+                #1:  ID-0x3  flags-0xe
+
+
+Name: nl80211
+        ID: 0x11  Version: 0x1  header size: 0  max attribs: 22
+        commands supported:
+                #1:  ID-0x1  flags-0xa
+                #2:  ID-0x6  flags-0xa
+                #3:  ID-0x8  flags-0xa
+                #4:  ID-0x3  flags-0xb
+                #5:  ID-0x4  flags-0xb
+                #6:  ID-0x5  flags-0xb
+                #7:  ID-0xa  flags-0xb
+                #8:  ID-0xb  flags-0xa
+                #9:  ID-0xf  flags-0xb
+                #10:  ID-0x10  flags-0xa
+                #11:  ID-0x12  flags-0xb
+                #12:  ID-0x13  flags-0xa
+                #13:  ID-0x15  flags-0xa
+                #14:  ID-0x19  flags-0xb
+                #15:  ID-0x17  flags-0xb
+                #16:  ID-0x18  flags-0xb
+                #17:  ID-0x1a  flags-0xb
+                #18:  ID-0x1b  flags-0xa
+                #19:  ID-0xd  flags-0xb
+
+
+Name: TASKSTATS
+        ID: 0x12  Version: 0x1  header size: 0  max attribs: 4
+        commands supported:
+                #1:  ID-0x1  flags-0xa
+
+
+Name: TIPC
+        ID: 0x13  Version: 0x1  header size: 8  max attribs: 0
+        commands supported:
+                #1:  ID-0x1  flags-0x2
+
+===============
+
+You essentially write a little .so in user space that knows how to
+access/intepret your kernel module
+I know you are avoiding to use external libraries etc; but this may be a
+good way to get started.
+I can dig up some simple kernel/user code i have and if you bug Thomas
+long enough he may give you another sample code he has.
+
 cheers,
 jamal
 
