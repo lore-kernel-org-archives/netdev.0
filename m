@@ -1,35 +1,49 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 2/2] [IPV6] MIP6: Loadable module support for MIPv6.
-Date: Thu, 24 May 2007 18:36:27 +1000
-Message-ID: <20070524083627.GA8008@gondor.apana.org.au>
-References: <11799066192758-git-send-email-nakam@linux-ipv6.org> <200705231154.33208.netdev@axxeo.de> <4654EEEB.1030603@linux-ipv6.org>
+From: Fernando Luis =?ISO-8859-1?Q?V=E1zquez?= Cao
+	<fernando@oss.ntt.co.jp>
+Subject: Re: [IPv6] UDP Encapsulation of IPsec ESP Packets
+Date: Thu, 24 May 2007 18:03:30 +0900
+Message-ID: <1179997410.20254.29.camel@sebastian.intellilink.co.jp>
+References: <E1Hr8mJ-00024X-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ingo Oeser <netdev@axxeo.de>, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Masahide NAKAMURA <nakam@linux-ipv6.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:4420 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756132AbXEXIgp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 May 2007 04:36:45 -0400
-Content-Disposition: inline
-In-Reply-To: <4654EEEB.1030603@linux-ipv6.org>
+Received: from ns.oss.ntt.co.jp ([222.151.198.98]:50449 "EHLO
+	serv1.oss.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755263AbXEXJDx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 May 2007 05:03:53 -0400
+In-Reply-To: <E1Hr8mJ-00024X-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, May 24, 2007 at 10:48:27AM +0900, Masahide NAKAMURA wrote:
+On Thu, 2007-05-24 at 18:34 +1000, Herbert Xu wrote:
+> Fernando Luis V??zquez Cao <fernando@oss.ntt.co.jp> wrote:
+> > I noticed that IPv4-over-IPv6 made into 2.6.21 (thank you!) and that
+> > prompted to check the progress with the implementation of rfc3948 (UDP
+> > Encapsulation of IPsec ESP Packets) in Linux. For IPv4 the code is
+> > already there, but that does not seem to be the case for IPv6. I have
+> > checked the usagi kernels and Dave S. Miller's net git tree and could
+> > not find anything.
+> > 
+> > Is anyone working on this? I would appreciate any information on the
+> > status of this work.
 > 
-> I prefer to use new macro like XFRM mode to unify XFRM
-> protocols i.e. esp[46].c, ah[46].c, ipcomp[46].c, and mip6.c
-> if we care about it. Can I add it as extensional patch
-> if nobody has a plan to do this yet?
+> If we don't have NAT on IPv6 why would you need UDP encapsulation?
+Hi Herbert,
 
-You're most welcome :)
+Thank you for your feedback.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Depending on the filtering rules it is possible that a gateway/firewall
+does not accept incoming ESP packets. When the filter rules of the
+firewall cannot be changed (because one is not the administrator) the
+only way of traversing the firewall is using some sort of encapsulation,
+such as UDP encapsulation.
+
+Is there any other way to circumvent this issue?
+
+(By the way, the premise is that network is a pure ipv6 environment)
+
+ - Fernando
+
