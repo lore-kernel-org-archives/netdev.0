@@ -1,64 +1,57 @@
-From: Masahide NAKAMURA <nakam@linux-ipv6.org>
-Subject: Re: [PATCH 2/2] [IPV6] MIP6: Loadable module support for MIPv6.
-Date: Thu, 24 May 2007 22:23:51 +0900
-Message-ID: <20070524222026.F55B.NAKAM@linux-ipv6.org>
-References: <11799066192758-git-send-email-nakam@linux-ipv6.org> <200705231154.33208.netdev@axxeo.de> <4654EEEB.1030603@linux-ipv6.org> <200705241036.09076.netdev@axxeo.de>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [RESEND][PATCH] [NET_SCHED]make qdisc_restart more readable
+Date: Thu, 24 May 2007 09:38:33 -0400
+Message-ID: <1180013913.4092.7.camel@localhost>
+References: <1179972902.4082.63.camel@localhost>
+	 <46550965.5000400@trash.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	herbert@gondor.apana.org.au
-To: Ingo Oeser <netdev@axxeo.de>
+Cc: David Miller <davem@davemloft.net>,
+	Peter P <peter.p.waskiewicz.jr@intel.com>,
+	Thomas Graf <tgraf@suug.ch>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	netdev@vger.kernel.org, Sridhar Samudrala <sri@us.ibm.com>,
+	Auke <auke-jan.h.kok@intel.com>,
+	Krishna Kumar2 <krkumar2@in.ibm.com>, xma@us.ibm.com
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [203.178.140.9] ([203.178.140.9]:41742 "EHLO mail.gomagoma.org"
-	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1757272AbXEXNWo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 May 2007 09:22:44 -0400
-In-Reply-To: <200705241036.09076.netdev@axxeo.de>
+Received: from wx-out-0506.google.com ([66.249.82.234]:47592 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750695AbXEXNih (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 May 2007 09:38:37 -0400
+Received: by wx-out-0506.google.com with SMTP id t15so351568wxc
+        for <netdev@vger.kernel.org>; Thu, 24 May 2007 06:38:36 -0700 (PDT)
+In-Reply-To: <46550965.5000400@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Ingo,
+On Thu, 2007-24-05 at 05:41 +0200, Patrick McHardy wrote:
+> jamal wrote:
+> > +	if (unlikely (ret != NETDEV_TX_BUSY && net_ratelimit()))
+> > +		printk(KERN_DEBUG " BUG %s code %d qlen %d\n",dev->name, ret, q->q.qlen);
+> 
+> 
+> This seems to be based on an old version, your latest patch
+> changed this to KERN_WARNING.
 
-Ingo Oeser wrote:
-> Masahide NAKAMURA schrieb:
->> Ingo Oeser wrote:
->>> What about  MODULE_ALIAS("xfrm-type-10-60") 
->>> and MODULE_ALIAS("xfrm-type-10-43") in mip6.c ?
-> 
-> Just replace your second patch ("Loadable module support")
-> with one, which additionally adds these two lines to mip6.c ...
-> 
->>> The aliases in modprobe.conf(5) should not be necessary then.
->>>
->>> If you are really ambitious you can even define a 
->>> MODULE_ALIAS_XFRM_TYPE macro in include/net/xfrm.h
->>> simliar to to MODULE_ALIAS_XFRM_MODE.
->> I prefer to use new macro like XFRM mode to unify XFRM
->> protocols i.e. esp[46].c, ah[46].c, ipcomp[46].c, and mip6.c
->> if we care about it. Can I add it as extensional patch
->> if nobody has a plan to do this yet?
-> 
-> 
-> ... and provide a third patch to implement this cleanup.
-> 
-> That way there are no administrative changes required due to 
-> any of your patches and we can defer the global cleanup, if it causes
-> problems or conflicts with other patches in that area.
-> 
-> Does this sound like a plan?
-> 
+sigh. 
+I wont be able to do this change until tonight or tommorow morning. I
+think the process i am using to re-generate patches maybe too consuming?
+Maybe you could offer some advice. Heres what i do:
+1. clone Daves latest tree localy
+2. clone another tree from that
+3. create patch on second clone
+4. compile; test;compile;test until looks reasonable
+5. commit with the comments
+6. submit
+7. build other patches on top (example batching in this case)
+8. feedback on patch comes back
+9. Re-do steps #2-#6
 
-Thank you for the detailed instruction.
-
-I intended to  ask the list is just in order
-to avoid duplicated work; whether such work is
-already queued by anyone's TODO to support module
-aliases for each IPsec protocol or not.
-
-Anyway, I'll provide the third patch for review,
-which will be almost what you described.
-
--- 
-Masahide NAKAMURA
+My steps #2-#6 are expensive; is there a way to optimize that process?
+ 
+cheers,
+jamal
 
