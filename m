@@ -1,54 +1,36 @@
-From: Marc St-Jean <Marc_St-Jean@pmc-sierra.com>
-Subject: Re: [PATCH 10/12] drivers: PMC MSP71xx ethernet driver
-Date: Thu, 24 May 2007 15:49:11 -0700
-Message-ID: <46561667.1070105@pmc-sierra.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] ethtool: new ID to decode the registers of the 8168 (realtek)
+Date: Fri, 25 May 2007 00:57:50 +0200
+Message-ID: <20070524225750.GB17090@electric-eye.fr.zoreil.com>
+References: <20070524200242.GA17722@electric-eye.fr.zoreil.com> <4656088A.6030006@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Cc: Marc St-Jean <stjeanma@pmc-sierra.com>, akpm@linux-foundation.org,
-	linux-mips@linux-mips.org, netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from father.pmc-sierra.com ([216.241.224.13]:33401 "HELO
-	father.pmc-sierra.bc.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1750741AbXEXWtV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 May 2007 18:49:21 -0400
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:41142 "EHLO
+	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753312AbXEXXAE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 May 2007 19:00:04 -0400
+Content-Disposition: inline
+In-Reply-To: <4656088A.6030006@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Jeff Garzik <jgarzik@pobox.com> :
+[...]
+> Would you be kind enough to resend ?
 
-Jeff Garzik wrote:
-> Marc St-Jean wrote:
->  > I asked if the remaining section (above) was acceptable so we could 
-> retain our
->  > buffer recycling which enhances throughput. I never received a rely 
-> so it was
->  > left in my last patch.
->  >
->  > The above comment now answers my part of my initial question. Are you 
-> aware of
->  > a better way to implement this or must we lose all our recycling 
-> enhancements?
-> 
-> 
-> You can poke around on netdev and ask about skb recycling in a new
-> thread, and propose something.
-> 
-> I just know that having your own custom skb initialization is a
-> non-starter.  Any updates the main skb init code receives will
-> inevitably -not- be propagate to your code, rapidly leading to an
-> unmaintainable disconnect.
-> 
-> skb recycling in general is an interesting area to explore, and others
-> have poked around that area before.  I bet googling for skb recycling
-> would turn up some useful thoughts and past efforts.
-> 
->         Jeff
-> 
+Of course.
 
-I will resend the driver without the skb recycling shortly. We will need
-to see if we can allocate resources to contribute to recycling at the
-stack level later.
+> If there are important bug fixes that need to go into 2.6.22, that are
+> safe enough to put in at this late date, please split those off from
+> other improvements.
 
-Thanks,
-Marc
+It's safer and simpler to wait for the next cycle.
+
+Most complaints come from unhappy 8168/Asus (P5B) users who still need
+a fix (somewhere along the VPD probably).
+
+-- 
+Ueimor
