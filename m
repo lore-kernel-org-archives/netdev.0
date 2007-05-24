@@ -1,204 +1,86 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: [NET] meth driver renovation
-Date: Thu, 24 May 2007 12:54:04 +0100
-Message-ID: <20070524115404.GC27073@linux-mips.org>
+From: David Acker <dacker@roinet.com>
+Subject: Re: [PATCH] fix e100 rx path on ARM (was [PATCH] e100 rx: or s and
+ el bits)
+Date: Thu, 24 May 2007 08:44:06 -0400
+Message-ID: <46558896.9070505@roinet.com>
+References: <200705011124.l41BOEG4007662@sullivan.realtime.net> <46375664.8030701@roinet.com> <4638F2B2.2000103@roinet.com> <463BA906.30205@roinet.com> <85f07fc58d5ed2147d5214d0f0b4fe32@bga.com> <4648A9DF.6030001@roinet.com> <464D074F.20400@pobox.com> <464D21B6.2000208@intel.com> <464DB336.2030003@roinet.com> <464DB619.3070900@roinet.com> <464DC676.90504@intel.com> <464DCA97.3070405@roinet.com> <464DCD5E.50003@intel.com> <464DDE3E.9010400@roinet.com> <e3819b7a866b1117fd5a69e6a85e0784@bga.com> <4651DAC1.7050604@intel.com> <53c44b6f03973eb1b28f221859d3002c@bga.com> <465369AF.8080508@roinet.com> <f83441453b1233771c5bda869912aeca@bga.com> <4654B2E4.9010308@roinet.com> <039d8ee49a8dfcbff8695b19d0a1a5c4@bga.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Andrew Morton <akpm@linux-foundation.org>,
-	Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
-	linux-mips@linux-mips.org,
-	Shane McDonald <Shane_McDonald@pmc-sierra.com>
+Content-Type: text/plain; charset=US-ASCII; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
+	e1000-devel@lists.sourceforge.net,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Scott Feldman <sfeldma@pobox.com>,
+	"Kok, Auke" <auke-jan.h.kok@intel.com>
+To: Milton Miller <miltonm@bga.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ftp.linux-mips.org ([194.74.144.162]:35457 "EHLO
-	ftp.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756025AbXEXLyX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 May 2007 07:54:23 -0400
-Received: from localhost.localdomain ([127.0.0.1]:58074 "EHLO
-	dl5rb.ham-radio-op.net") by ftp.linux-mips.org with ESMTP
-	id S20021945AbXEXLyW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 May 2007 12:54:22 +0100
-Content-Disposition: inline
+Received: from static-72-92-88-10.phlapa.fios.verizon.net ([72.92.88.10]:40235
+	"EHLO smtp.roinet.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756065AbXEXMm7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 May 2007 08:42:59 -0400
+In-Reply-To: <039d8ee49a8dfcbff8695b19d0a1a5c4@bga.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The meth ethernet driver for the SGI IP32 aka O2 is so far still an old
-style driver which does not use the device driver model.  This is now
-causing issues with some udev based gadgetry in debian-stable.  Fixed by
-converting the meth driver to a platform device.
+Milton Miller wrote:
+> On May 23, 2007, at 4:32 PM, David Acker wrote:
+>> Milton Miller wrote:
+>>> My current reading of the manual is that the C bit will not be
+>>> set on an RFD that is size 0.  It goes on to processes EL and
+>>> S, and decides to stop and interrupt RNR or suspend, or just
+>>> go to the next packet.
+>> I double checked this with a quick experiment and it appears you are 
+>> correct.
+>>
+>> What about if we always did the following:
+>> set the size:
+>> sync();
+>> clear el-bit
+>> sync()
+>>
+>> Then if the hardware sees just the size set, the packet completes but 
+>> with the el-bit and we know we need to restart since it completed.
+>> If it sees the size == 0, and the el bit set, it stops and RNR 
+>> interrupts.
+> 
+> I think this is exposed to a hole and a race:  we don't know if the 
+> hardware
+> read the RFD before we set the size or after, just that it was before 
+> the EL
+> bit was cleared.  If it read it before the size was set, then it will not
+> set the C bit.  If it reads it after the size is set, it will complete it.
+Yep...I too got sidetracked!  My test time got lost to two 2 month old 
+twins needing to be fed or else! :-)
 
-Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+> 
+> For coherent DMA we can always observe the C bit.  But for the 
+> incoherent DMA
+> case, our store to clear the EL bit may overwrite the dma from the 
+> device to
+> the beginning of the packet, or the write to EOF, F, and size, and/or the
+> write to C, OK, and status bits to tell us its done.  In the worst case, we
+> would overwrite the beginning of the data but catch the C bit and even the
+> actual size, and therefore would receive corrupted data.
+> 
+> We can only detect the hardware went RNR when it does so or decide we 
+> won the
+> race when it receives and completes the next frame.
+Yes, I agree.
 
---
-Fixes since previous patch:
+>> When we find a buffer that is not completed but has the el-bit set, we 
+>> read the status byte of the status control block to see if the RU is 
+>> in the no resources state.  If it isn't, it means that we found that 
+>> buffer  before the hardware did and thus need to wait for it.  We will 
+>> either find it on the next poll or enable interrupts and get told 
+>> about it by hardware.
+>>
+>> What do you think?
+> 
+> I think the second part is good ...
+Cool.  That part seemed to work well in my tests.
 
-  o Fixed typo in meth_exit_module()
-
-diff --git a/arch/mips/sgi-ip32/Makefile b/arch/mips/sgi-ip32/Makefile
-index 7e14167..60f0227 100644
---- a/arch/mips/sgi-ip32/Makefile
-+++ b/arch/mips/sgi-ip32/Makefile
-@@ -3,5 +3,5 @@
- # under Linux.
- #
- 
--obj-y	+= ip32-berr.o ip32-irq.o ip32-setup.o ip32-reset.o \
-+obj-y	+= ip32-berr.o ip32-irq.o ip32-platform.o ip32-setup.o ip32-reset.o \
- 	   crime.o ip32-memory.o
-diff --git a/arch/mips/sgi-ip32/ip32-platform.c b/arch/mips/sgi-ip32/ip32-platform.c
-new file mode 100644
-index 0000000..120b159
---- /dev/null
-+++ b/arch/mips/sgi-ip32/ip32-platform.c
-@@ -0,0 +1,20 @@
-+#include <linux/init.h>
-+#include <linux/platform_device.h>
-+
-+static __init int meth_devinit(void)
-+{
-+	struct platform_device *pd;
-+	int ret;
-+
-+	pd = platform_device_alloc("meth", -1);
-+	if (!pd)
-+		return -ENOMEM;
-+
-+	ret = platform_device_add(pd);
-+	if (ret)
-+		platform_device_put(pd);
-+
-+	return ret;
-+}
-+
-+device_initcall(meth_devinit);
-diff --git a/drivers/net/meth.c b/drivers/net/meth.c
-index 0343ea1..92b403b 100644
---- a/drivers/net/meth.c
-+++ b/drivers/net/meth.c
-@@ -8,15 +8,16 @@
-  *	as published by the Free Software Foundation; either version
-  *	2 of the License, or (at your option) any later version.
-  */
--#include <linux/module.h>
--#include <linux/init.h>
--
--#include <linux/kernel.h> /* printk() */
- #include <linux/delay.h>
-+#include <linux/dma-mapping.h>
-+#include <linux/init.h>
-+#include <linux/kernel.h>
-+#include <linux/module.h>
-+#include <linux/platform_device.h>
- #include <linux/slab.h>
--#include <linux/errno.h>  /* error codes */
--#include <linux/types.h>  /* size_t */
--#include <linux/interrupt.h> /* mark_bh */
-+#include <linux/errno.h>
-+#include <linux/types.h>
-+#include <linux/interrupt.h>
- 
- #include <linux/in.h>
- #include <linux/in6.h>
-@@ -33,7 +34,6 @@
- 
- #include <asm/io.h>
- #include <asm/scatterlist.h>
--#include <linux/dma-mapping.h>
- 
- #include "meth.h"
- 
-@@ -51,8 +51,6 @@
- 
- 
- static const char *meth_str="SGI O2 Fast Ethernet";
--MODULE_AUTHOR("Ilya Volynets <ilya@theIlya.com>");
--MODULE_DESCRIPTION("SGI O2 Builtin Fast Ethernet driver");
- 
- #define HAVE_TX_TIMEOUT
- /* The maximum time waited (in jiffies) before assuming a Tx failed. (400ms) */
-@@ -784,15 +782,15 @@ static struct net_device_stats *meth_stats(struct net_device *dev)
- /*
-  * The init function.
-  */
--static struct net_device *meth_init(void)
-+static int __init meth_probe(struct platform_device *pdev)
- {
- 	struct net_device *dev;
- 	struct meth_private *priv;
--	int ret;
-+	int err;
- 
- 	dev = alloc_etherdev(sizeof(struct meth_private));
- 	if (!dev)
--		return ERR_PTR(-ENOMEM);
-+		return -ENOMEM;
- 
- 	dev->open            = meth_open;
- 	dev->stop            = meth_release;
-@@ -808,11 +806,12 @@ static struct net_device *meth_init(void)
- 
- 	priv = netdev_priv(dev);
- 	spin_lock_init(&priv->meth_lock);
-+	SET_NETDEV_DEV(dev, &pdev->dev);
- 
--	ret = register_netdev(dev);
--	if (ret) {
-+	err = register_netdev(dev);
-+	if (err) {
- 		free_netdev(dev);
--		return ERR_PTR(ret);
-+		return err;
- 	}
- 
- 	printk(KERN_INFO "%s: SGI MACE Ethernet rev. %d\n",
-@@ -820,21 +819,44 @@ static struct net_device *meth_init(void)
- 	return 0;
- }
- 
--static struct net_device *meth_dev;
-+static int __exit meth_remove(struct platform_device *pdev)
-+{
-+	struct net_device *dev = platform_get_drvdata(pdev);
-+
-+	unregister_netdev(dev);
-+	free_netdev(dev);
-+	platform_set_drvdata(pdev, NULL);
-+
-+	return 0;
-+}
-+
-+static struct platform_driver meth_driver = {
-+	.probe	= meth_probe,
-+	.remove	= __devexit_p(meth_remove),
-+	.driver = {
-+		.name	= "meth",
-+	}
-+};
- 
- static int __init meth_init_module(void)
- {
--	meth_dev = meth_init();
--	if (IS_ERR(meth_dev))
--		return PTR_ERR(meth_dev);
--	return 0;
-+	int err;
-+
-+	err = platform_driver_register(&meth_driver);
-+	if (err)
-+		printk(KERN_ERR "Driver registration failed\n");
-+
-+	return err;
- }
- 
- static void __exit meth_exit_module(void)
- {
--	unregister_netdev(meth_dev);
--	free_netdev(meth_dev);
-+	platform_driver_unregister(&meth_driver);
- }
- 
- module_init(meth_init_module);
- module_exit(meth_exit_module);
-+
-+MODULE_AUTHOR("Ilya Volynets <ilya@theIlya.com>");
-+MODULE_DESCRIPTION("SGI O2 Builtin Fast Ethernet driver");
-+MODULE_LICENSE("GPL");
+I will reply to your next mail to discuss your plan so that I get it all 
+in one message.
+-Ack
