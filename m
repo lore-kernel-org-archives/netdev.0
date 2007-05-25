@@ -1,168 +1,128 @@
-From: =?iso-8859-1?b?RW1tYW51ZWwgRnVzdOk=?= <emmanuel.fuste@laposte.net>
-Subject: Re: [AIC7xxx] tree things to report
-Date: Fri, 25 May 2007 11:06:29 +0200
-Message-ID: <JILAMT$6007FAE08113F3B8F9C4C1653EE14701@laposte.net>
+From: "Sebastien Estienne" <sebastien.estienne@gmail.com>
+Subject: Re: [ipvs] BUG: soft lockup detected on CPU#3!
+Date: Fri, 25 May 2007 09:30:52 +0000
+Message-ID: <446f47c20705250230n6d43b6eu4b163a170fdc6007@mail.gmail.com>
+References: <446f47c20705221019j34de745fj9aad8633a6edfd54@mail.gmail.com>
+	 <20070525084645.GA14817@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: "netdev" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: wensong@linux-vs.org, ja@ssi.bg, nedev <netdev@vger.kernel.org>
+To: Horms <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.laposte.net ([81.255.54.16]:11713 "EHLO mx.laposte.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751267AbXEYJZD convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 May 2007 05:25:03 -0400
-Received: from smtp.laposte.net (10.150.9.33) by mx.laposte.net (7.2.060.1)
-        id 45FFE58C020E47F4 for netdev@vger.kernel.org; Fri, 25 May 2007 11:04:07 +0200
-Received: from smtpin.laposte.net (10.150.9.72) by smtp.laposte.net (7.3.118.3)
-        id 462F99F403494360 for netdev@vger.kernel.org; Fri, 25 May 2007 11:04:07 +0200
-Received: from laposte.net (10.150.9.81) by smtpin.laposte.net (7.2.060.1)
-        id 45FA4DCC0061569C for netdev@vger.kernel.org; Fri, 25 May 2007 11:04:07 +0200
+Received: from wa-out-1112.google.com ([209.85.146.180]:48623 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751338AbXEYJaz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 May 2007 05:30:55 -0400
+Received: by wa-out-1112.google.com with SMTP id j4so307132wah
+        for <netdev@vger.kernel.org>; Fri, 25 May 2007 02:30:52 -0700 (PDT)
+In-Reply-To: <20070525084645.GA14817@verge.net.au>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Hello,
-While trying to obtain scsi log to debug a driver problem, I
-tried to use netconsole on an old smp system with a 10Mbits
-pcnet32 ethernet device.
-But few seconds after enabling netconsole, before launching my
-scsi test, but after a few console activity the computer
-freeze hard.
-Is it a know or expected problem ? (2.6.21 kernel, pcnet32:
-PCnet/PCI 79C970) Have you some solutions or patch to try ?
-Will get back my soldering iron to do a serial cable for now.
 
-Thanks,
-Emmanuel.
-
-> Hi Emmanuel,
->=20
-> Emmanuel Fust=E9 wrote:
+On 5/25/07, Horms <horms@verge.net.au> wrote:
+> [Adding netdev CC]
+>
+> On Tue, May 22, 2007 at 07:19:44PM +0200, Sebastien Estienne wrote:
 > > Hello,
-> >=20
-> > After one year of rest, I resurrect my old computer, install a
-> > 2.6.21 kernel and updated my Debian distro.
-> >=20
-> > Tree things to repport:
-> >=20
-> > First, a cosmetic thing: I have two scsi sync devices and two
-> > async devices. For the first ones, domain validation return
-> > the negociated speed and mode. For the second ones, domain
-> > validation return nothing. I expect it is just a 'missing
-> > feature' but that all went ok. I am right ?
-> >=20
-> > scsi0 : Adaptec AIC7XXX EISA/VLB/PCI SCSI HBA DRIVER, Rev 7.0
-> >         <Adaptec 2940 Ultra2 SCSI adapter>
-> >         aic7890/91: Ultra2 Wide Channel A, SCSI Id=3D7,
-32/253 SCBs
-> >=20
-> > scsi 0:0:0:0: Direct-Access     IBM      DMVS18V         02B0
-> > PQ: 0 ANSI: 3
-> > scsi0:A:0:0: Tagged Queuing enabled.  Depth 8=20
-> >  target0:0:0: Beginning Domain Validation
-> >  target0:0:0: wide asynchronous
-> >  target0:0:0: FAST-40 WIDE SCSI 80.0 MB/s ST (25ns, offset 31)
-> >  target0:0:0: Domain Validation skipping write tests
-> >  target0:0:0: Ending Domain Validation
-> > scsi 0:0:3:0: CD-ROM            YAMAHA   CRW6416S         1.0d
-> > PQ: 0 ANSI: 2
-> >  target0:0:3: Beginning Domain Validation
-> >  target0:0:3: FAST-10 SCSI 10.0 MB/s ST (100 ns,offset 15)
-> >  target0:0:3: Domain Validation skipping write tests
-> >  target0:0:3: Ending Domain Validation
-> > scsi 0:0:4:0: CD-ROM            TOSHIBA  CD-ROM XM-3501TA 1875
-> > PQ: 0 ANSI: 2
-> >  target0:0:4: Beginning Domain Validation
-> >  target0:0:4: Domain Validation skipping write tests
-> >  target0:0:4: Ending Domain Validation
-> > scsi 0:0:6:0: Sequential-Access WANGTEK  5525ES SCSI REV7 0W=20
-> >  PQ: 0 ANSI: 1
-> >  target0:0:6: Beginning Domain Validation
-> >  target0:0:6: Ending Domain Validation
-> >=20
-> Hmm. Have to have a look at it. It should at least report
-the result ...
->=20
-> > Secondly, It seems that something is doing weird things with
-> > my old CD-ROM reader (XM-3501TA). At some point in time (not
-> > really regular), I get this in my logs:
-> > May 23 00:45:44 rafale kernel: (scsi0:A:4:0): No or incomplete
-> > CDB sent to device.
-> > May 23 00:45:44 rafale kernel: (scsi0:A:4:0): Protocol
-> > violation in Message-in phase.  Attempting to abort.
-> > May 23 00:45:44 rafale kernel: (scsi0:A:4:0): Abort
-Message Sent
-> > May 23 00:45:44 rafale kernel: (scsi0:A:4:0): SCB 11 - Abort
-> > Completed.
-> > And sometimes (but seem related to problems with my cable):
-> > May 23 04:32:49 rafale kernel: (scsi0:A:4:0): parity error
-> > detected in Status phase. SEQADDR(0xad) SCSIRATE(0x0)
-> > May 23 05:13:03 rafale kernel: (scsi0:A:4:0): parity error
-> > detected in Status phase. SEQADDR(0xac) SCSIRATE(0x0)
-> >=20
-> Yes, this looks like a cable probrlem.
->=20
-> > There is no scsi bus freeze, and the device work perfectly
-> > without generating other errors. DV problem ? Bad hal daemon
-> > interaction ? Defect in the driver trigged by bad hal daemon
-> > behavior ?=20
-> >=20
-> Ach, yes, it could at least be triggered by hal. Not all
-devices like to
-> be polled by hal, especially if they're in a middle of an
-operation.
-> CD-RW eg. Kay claimed to have it solved, but I still end up
-disabling
-> hal :-)
->=20
-> > Last thing, a now two years problem:
-> > cdrwtools -d /dev/sr0 -q still instantly crash the
-> > scsibus/cdwriter and the driver never recover.
-> > I did not have a new log because of the complete bus crash.
-> > Have you new ideas about this problem ??
-> No, not yet. But it looks as if I finally got some time to
-look deeper
-> in this problem.
-> Bugzilla's still assigned to me, to it's a constant
-remainder that
-> something's amiss ...
->=20
-> > I will try:
-> > - to get a log on a usb key
-> > - to port patch from Bugzilla Bug 5921 to current kernel. With
-> > the previous ones, the driver recover. (but i was experiencing
-> > FS corruption but it seems it was not related).
-> > - to identify exactly what cdrwtools send to the kernel/driver
-> > which cause the crash.
-> What you should do here is:
->=20
-> - hook up a serial cable and re-route console messages to that
-> - Switch off syslog (as this might block if the SCSI bus frozen)
-> - Enable scsi debugging (Error, Timeout, Scan, and Midlayer is
-> sufficient) and start cdrwtools.
-> - Send me the log from the serial console.
->=20
-> This will give me at least a starting point what's going wrong.
->=20
-> Thanks for your patience.
->=20
-> Cheers,
->=20
-> Hannes
-> --=20
-> Dr. Hannes Reinecke		      zSeries & Storage
-> hare@suse.de			      +49 911 74053 688
-> SUSE LINUX Products GmbH, Maxfeldstr. 5, 90409 N=FCrnberg
-> GF: Markus Rex, HRB 16746 (AG N=FCrnberg)
->=20
+> >
+> > I have the following bug (stacktrace in the attachment) and i think
+> > it's related to ipvs, i reproduced it many time.
+> >
+> > kernel is from ubuntu: "2.6.20-15-server SMP x86_64"
+> > on dell poweredge sc1425
+> >
+> > i can trigger this bug when i adjust the weight of the real server
+> > every 500ms using ipvsadm -R and piping the modifications
+> >
+> > there is 4 virtual server with 55 realserver each
+> >
+> > any idea?
+>
+> Not off hand. Though it does look some what unplesant :(
+> I'll try my hand at trying to reproduce the problem.
+>
+> Is there any chance that you could try a vanilla (2.6.21) kernel
+> to see if the problem exists there too?
 
----
+I didn't try 2.6.21 yet, but using ubuntu dapper kernel (2.6.15) i
+can't reproduce the bug.
+When i was using feisty kernel (2.6.20), i can reproduce in less than 5 minutes.
 
-Cr=E9ez votre adresse =E9lectronique prenom.nom@laposte.net=20
-1 Go d'espace de stockage, anti-spam et anti-virus int=E9gr=E9s.
+I'm using lvs to loadbalance some mysql servers, i wrote a deamon that
+check the synchro of the mysql replication on each slave and adjust
+the wieght on the lvs every 500ms
+
+> >
+> > regards,
+> > --
+> > Sebastien Estienne
+>
+> > BUG: soft lockup detected on CPU#3!
+> >
+> > Call Trace:
+> >  <IRQ>  [softlockup_tick+249/288] softlockup_tick+0xf9/0x120
+> >  [update_process_times+87/144] update_process_times+0x57/0x90
+> >  [smp_local_timer_interrupt+52/96] smp_local_timer_interrupt+0x34/0x60
+> >  [smp_apic_timer_interrupt+89/128] smp_apic_timer_interrupt+0x59/0x80
+> >  [apic_timer_interrupt+102/112] apic_timer_interrupt+0x66/0x70
+> >  <EOI>  [_end+130125309/2130038908] :ip_vs:do_ip_vs_set_ctl+0xad1/0xbf0
+> >  [_end+130125305/2130038908] :ip_vs:do_ip_vs_set_ctl+0xacd/0xbf0
+> >  [nf_sockopt+233/304] nf_sockopt+0xe9/0x130
+> >  [nf_setsockopt+22/32] nf_setsockopt+0x16/0x20
+> >  [ip_setsockopt+118/160] ip_setsockopt+0x76/0xa0
+> >  [sys_setsockopt+166/240] sys_setsockopt+0xa6/0xf0
+> >  [system_call+126/131] system_call+0x7e/0x83
+> >
+> > BUG: soft lockup detected on CPU#0!
+> >
+> > Call Trace:
+> >  <IRQ>  [softlockup_tick+249/288] softlockup_tick+0xf9/0x120
+> >  [update_process_times+87/144] update_process_times+0x57/0x90
+> >  [smp_local_timer_interrupt+52/96] smp_local_timer_interrupt+0x34/0x60
+> >  [smp_apic_timer_interrupt+89/128] smp_apic_timer_interrupt+0x59/0x80
+> >  [_end+130330509/2130038908] :nf_conntrack:nf_ct_invert_tuple+0x51/0xa0
+> >  [apic_timer_interrupt+102/112] apic_timer_interrupt+0x66/0x70
+> >  [__read_lock_failed+5/32] __read_lock_failed+0x5/0x20
+> >  [_read_lock+11/16] _read_lock+0xb/0x10
+> >  [_end+130122092/2130038908] :ip_vs:ip_vs_service_get+0x20/0x1e0
+> >  [_end+130144732/2130038908] :ip_vs:tcp_conn_schedule+0xa0/0x150
+> >  [_end+130144313/2130038908] :ip_vs:tcp_conn_in_get+0x7d/0xc0
+> >  [_end+130111414/2130038908] :ip_vs:ip_vs_in+0xca/0x270
+> >  [nf_iterate+92/160] nf_iterate+0x5c/0xa0
+> >  [ip_local_deliver_finish+0/528] ip_local_deliver_finish+0x0/0x210
+> >  [nf_hook_slow+113/240] nf_hook_slow+0x71/0xf0
+> >  [ip_local_deliver_finish+0/528] ip_local_deliver_finish+0x0/0x210
+> >  [ip_local_deliver+111/656] ip_local_deliver+0x6f/0x290
+> >  [ip_rcv+1246/1360] ip_rcv+0x4de/0x550
+> >  [netif_receive_skb+623/800] netif_receive_skb+0x26f/0x320
+> >  [_end+129188049/2130038908] :e1000:e1000_clean_rx_irq+0x445/0x520
+> >  [_end+129183152/2130038908] :e1000:e1000_clean+0x84/0x2b0
+> >  [net_rx_action+186/512] net_rx_action+0xba/0x200
+> >  [__do_softirq+95/208] __do_softirq+0x5f/0xd0
+> >  [call_softirq+28/40] call_softirq+0x1c/0x28
+> >  [do_softirq+44/144] do_softirq+0x2c/0x90
+> >  [do_IRQ+217/256] do_IRQ+0xd9/0x100
+> >  [mwait_idle+0/80] mwait_idle+0x0/0x50
+> >  [ret_from_intr+0/10] ret_from_intr+0x0/0xa
+> >  <EOI>  [tcp_poll+0/336] tcp_poll+0x0/0x150
+> >  [mwait_idle+66/80] mwait_idle+0x42/0x50
+> >  [cpu_idle+155/208] cpu_idle+0x9b/0xd0
+> >  [start_kernel+586/608] start_kernel+0x24a/0x260
+> >  [x86_64_start_kernel+358/368] _sinittext+0x166/0x170
+> >
+>
+>
+> --
+> Horms
+>   H: http://www.vergenet.net/~horms/
+>   W: http://www.valinux.co.jp/en/
+>
+>
 
 
----
-
-Cr=E9ez votre adresse =E9lectronique prenom.nom@laposte.net=20
-1 Go d'espace de stockage, anti-spam et anti-virus int=E9gr=E9s.
-
+-- 
+Sebastien Estienne
