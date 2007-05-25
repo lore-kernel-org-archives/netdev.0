@@ -1,50 +1,48 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH]: Make XFRM_ACQ_EXPIRES tweakable
-Date: Fri, 25 May 2007 07:17:40 +0200
-Message-ID: <46567174.5020509@cosmosbay.com>
-References: <20070524.221304.36926453.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] [XFRM]: Add module alias for transformation type. (Re: [PATCH 2/2] [IPV6] MIP6: Loadable module support for MIPv6.)
+Date: Fri, 25 May 2007 15:32:20 +1000
+Message-ID: <20070525053220.GA24362@gondor.apana.org.au>
+References: <1180067003902-git-send-email-nakam@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@axxeo.de, davem@davemloft.net, netdev@vger.kernel.org,
+	jmorris@namei.org, kazunori@miyazawa.org, mk@linux-ipv6.org
+To: nakam@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([86.65.150.130]:43069 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751336AbXEYFRu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 May 2007 01:17:50 -0400
-In-Reply-To: <20070524.221304.36926453.davem@davemloft.net>
+Received: from rhun.apana.org.au ([64.62.148.172]:2303 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751177AbXEYFcu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 May 2007 01:32:50 -0400
+Content-Disposition: inline
+In-Reply-To: <1180067003902-git-send-email-nakam@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller a =E9crit :
-> I've had several requests for the capability to change this
-> timeout, which I think is perfectly reasonable.
->=20
-> So I intend to merge the following upstream unless I hear
-> some objections :-)
->=20
-> commit 7191f131aff4797f2a906495c7b285d8adf47da2
-> Author: David S. Miller <davem@sunset.davemloft.net>
-> Date:   Thu May 24 21:28:00 2007 -0700
->=20
->     [XFRM]: Allow XFRM_ACQ_EXPIRES to be tunable via sysctl.
->    =20
->     Signed-off-by: David S. Miller <davem@davemloft.net>
+On Fri, May 25, 2007 at 01:23:23PM +0900, nakam@linux-ipv6.org wrote:
+> 
+> diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+> index 1e53520..c9f895f 100644
+> --- a/include/net/xfrm.h
+> +++ b/include/net/xfrm.h
+> @@ -19,9 +19,19 @@
+>  #include <net/ipv6.h>
+>  #include <net/ip6_fib.h>
+>  
+> +#define XFRM_PROTO_ESP		50
+> +#define XFRM_PROTO_AH		51
+> +#define XFRM_PROTO_COMP		108
+> +#define XFRM_PROTO_IPIP		4
+> +#define XFRM_PROTO_IPV6		41
+> +#define XFRM_PROTO_ROUTING	IPPROTO_ROUTING
+> +#define XFRM_PROTO_DSTOPTS	IPPROTO_DSTOPTS
 
-well :)
+Could we use the existing IPPROTO_* values for all of these?
 
->=20
-> --- a/net/xfrm/xfrm_state.c
-> +++ b/net/xfrm/xfrm_state.c
-> @@ -33,6 +33,8 @@ EXPORT_SYMBOL(sysctl_xfrm_aevent_etime);
->  u32 sysctl_xfrm_aevent_rseqth =3D XFRM_AE_SEQT_SIZE;
->  EXPORT_SYMBOL(sysctl_xfrm_aevent_rseqth);
-> =20
-> +u32 sysctl_xfrm_acq_expires =3D 30;
-> +
+Otherwise this looks pretty good.
 
-You already knows what is my objection :)
-
-
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
