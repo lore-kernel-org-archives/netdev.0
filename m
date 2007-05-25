@@ -1,42 +1,81 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH netdev] "wrong timeout value" in sk_wait_data() v2
-Date: Thu, 24 May 2007 16:59:47 -0700 (PDT)
-Message-ID: <20070524.165947.09931811.davem@davemloft.net>
-References: <465512EB.4000808@sw.ru>
-	<46551635.30809@cosmosbay.com>
-	<46552142.4090801@sw.ru>
+From: Mark Huth <mhuth@mvista.com>
+Subject: Re: [PATCH][af_key]pfkey_add: Optimize SA adds and algorithm probes
+Date: Thu, 24 May 2007 17:15:30 -0700
+Message-ID: <46562AA2.8030102@mvista.com>
+References: <4643CD64.4090000@mvista.com> <E1HouAO-0003i5-00@gondolin.me.apana.org.au> <20070518212148.GA25363@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: dada1@cosmosbay.com, netdev@vger.kernel.org, akpm@osdl.org,
-	linux-kernel@vger.kernel.org, devel@openvz.org
-To: vvs@sw.ru
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37640
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750709AbXEXX7o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 May 2007 19:59:44 -0400
-In-Reply-To: <46552142.4090801@sw.ru>
+Received: from gateway-1237.mvista.com ([63.81.120.158]:20537 "EHLO
+	gateway-1237.mvista.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750957AbXEYAPd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 May 2007 20:15:33 -0400
+In-Reply-To: <20070518212148.GA25363@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Vasily Averin <vvs@sw.ru>
-Date: Thu, 24 May 2007 09:23:14 +0400
 
-> sys_setsockopt() do not check properly timeout values for
-> SO_RCVTIMEO/SO_SNDTIMEO, for example it's possible to set negative timeout
-> values. POSIX do not defines behaviour for sys_setsockopt in case negative
-> timeouts, but requires that setsockopt() shall fail with -EDOM if the send and
-> receive timeout values are too big to fit into the timeout fields in the socket
-> structure.
-> In current implementation negative timeout can lead to error messages like
-> "schedule_timeout: wrong timeout value".
-> 
-> Proposed patch:
-> - checks tv_usec and returns -EDOM if it is wrong
-> - do not allows to set negative timeout values (sets 0 instead) and outputs
-> ratelimited information message about such attempts.
-> 
-> Signed-Off-By:	Vasily Averin <vvs@sw.ru>
 
-Thank you for this bug fix, patch applied.
+
+Herbert Xu wrote:
+> On Fri, May 18, 2007 at 02:34:12PM +1000, Herbert Xu wrote:
+>> Actually, I think we should just probe for the specific algorithm
+>> requested rather than everything.  See patch below.
+> 
+> Doh, forgot to actually remove the probe call :)
+> 
+> [IPSEC] pfkey: Load specific algorithm in pfkey_add rather than all
+> 
+> This is a natural extension of the changeset
+> 
+>     [XFRM]: Probe selected algorithm only.
+> 
+> which only removed the probe call for xfrm_user.  This patch does exactly
+> the same thing for af_key.  In other words, we load the algorithm requested
+> by the user rather than everything when adding xfrm states in af_key.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> 
+> Cheers,
+
+[... snip]
+
+Herbert,
+
+I can verify that this works.  The test adds 2000 instances of SAs using
+hmac-md5 for authentication and rijndael-cbc for encryption.
+Test output is:
+
+root@192.168.150.94:~# lsmod
+Module                  Size  Used by
+root@192.168.150.94:~#time setkey -f SA_test.txt
+
+real    0m1.072s
+user    0m0.048s
+sys     0m0.632s
+root@192.168.150.94:~#lsmod
+Module                  Size  Used by
+twofish                10112  0
+twofish_common         40192  1 twofish
+camellia               32768  0
+serpent                25216  0
+blowfish                9984  0
+ecb                     3712  0
+aes                    28864  2000
+xcbc                    5768  0
+sha256                 12416  0
+crypto_null             3456  0
+
+root@192.168.150.94:~#
+
+Prior to the patch time was over 42 seconds (possibly longer on 2.6.21).
+
+I'm a bit curious why all of the crypto modules got loaded, but it 
+doesn't matter.
+
+Thanks for the patch.
+
+Mark Huth
