@@ -1,35 +1,36 @@
-From: David Miller <davem@davemloft.net>
+From: jamal <hadi@cyberus.ca>
 Subject: Re: [RESEND][PATCH] [NET_SCHED]make qdisc_restart more readable
-Date: Thu, 24 May 2007 19:03:21 -0700 (PDT)
-Message-ID: <20070524.190321.104645132.davem@davemloft.net>
-References: <4655B9C2.4050200@trash.net>
-	<1180057935.4069.5.camel@localhost>
-	<1180058280.4069.9.camel@localhost>
+Date: Thu, 24 May 2007 22:10:54 -0400
+Message-ID: <1180059054.4069.11.camel@localhost>
+References: <4655B9C2.4050200@trash.net> <1180057935.4069.5.camel@localhost>
+	 <1180058280.4069.9.camel@localhost>
+	 <20070524.190321.104645132.davem@davemloft.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: kaber@trash.net, peter.p.waskiewicz.jr@intel.com, tgraf@suug.ch,
 	herbert@gondor.apana.org.au, netdev@vger.kernel.org,
 	sri@us.ibm.com, auke-jan.h.kok@intel.com, krkumar2@in.ibm.com,
 	xma@us.ibm.com
-To: hadi@cyberus.ca
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39582
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751088AbXEYCDR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 May 2007 22:03:17 -0400
-In-Reply-To: <1180058280.4069.9.camel@localhost>
+Received: from wx-out-0506.google.com ([66.249.82.235]:45981 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752719AbXEYCK6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 May 2007 22:10:58 -0400
+Received: by wx-out-0506.google.com with SMTP id t15so489772wxc
+        for <netdev@vger.kernel.org>; Thu, 24 May 2007 19:10:57 -0700 (PDT)
+In-Reply-To: <20070524.190321.104645132.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: jamal <hadi@cyberus.ca>
-Date: Thu, 24 May 2007 21:58:00 -0400
+On Thu, 2007-24-05 at 19:03 -0700, David Miller wrote:
 
-> Dave please apply this patch; against latest net-2.6 
+> I'll queue this up for sure when I open up the 2.6.23 tree.
 
-Jamal, as much as I love your patch, it's a cleanup and doesn't
-fix any bugs and we're outside of the merge window for 2.6.22
+Thats good enough - thanks. 
 
-I'll queue this up for sure when I open up the 2.6.23 tree.
+cheers,
+jamal
 
-Thanks.
