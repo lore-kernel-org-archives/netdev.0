@@ -1,37 +1,44 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] [XFRM]: Add module alias for transformation type.
-Date: Fri, 25 May 2007 15:37:54 +1000
-Message-ID: <20070525053754.GA24475@gondor.apana.org.au>
-References: <1180067003902-git-send-email-nakam@linux-ipv6.org> <20070525053220.GA24362@gondor.apana.org.au> <20070525.143434.108171372.yoshfuji@linux-ipv6.org>
+From: Li Yang <leoli@freescale.com>
+Subject: [PATCH] NET: add MAINTAINERS entry for ucc_geth driver
+Date: Fri, 25 May 2007 13:54:02 +0800
+Message-ID: <465679FA.8010702@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: nakam@linux-ipv6.org, netdev@axxeo.de, davem@davemloft.net,
-	netdev@vger.kernel.org, jmorris@namei.org, kazunori@miyazawa.org,
-	mk@linux-ipv6.org
-To: YOSHIFUJI Hideaki / =?utf-8?B?5ZCJ6Jek6Iux5piO?=
-	<yoshfuji@linux-ipv6.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:2325 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752084AbXEYFiA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 May 2007 01:38:00 -0400
-Content-Disposition: inline
-In-Reply-To: <20070525.143434.108171372.yoshfuji@linux-ipv6.org>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linuxppc-embedded@ozlabs.org
+To: jeff@garzik.org
+Return-path: <linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
+	<mailto:linuxppc-embedded-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-embedded>
+List-Post: <mailto:linuxppc-embedded@ozlabs.org>
+List-Help: <mailto:linuxppc-embedded-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
+	<mailto:linuxppc-embedded-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, May 25, 2007 at 02:34:34PM +0900, YOSHIFUJI Hideaki / =E5=90=89=
-=E8=97=A4=E8=8B=B1=E6=98=8E wrote:
-> > Could we use the existing IPPROTO_* values for all of these?
->=20
-> No, because they are of enums.
+Signed-off-by: Li Yang <leoli@freescale.com>
+---
+ MAINTAINERS |    7 +++++++
+ 1 files changed, 7 insertions(+), 0 deletions(-)
 
-Good point.  I've forgotten about these module alias hacks :)
-
-Cheers,
---=20
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 4c3277c..3faed72 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -1463,6 +1463,13 @@ L:	linux-usb-devel@lists.sourceforge.net
+ L:	linuxppc-embedded@ozlabs.org
+ S:	Maintained
+ 
++FREESCALE QUICC ENGINE UCC ETHERNET DRIVER
++P:	Li Yang
++M:	leoli@freescale.com
++L:	netdev@vger.kernel.org
++L:	linuxppc-embedded@ozlabs.org
++S:	Maintained
++
+ FILE LOCKING (flock() and fcntl()/lockf())
+ P:	Matthew Wilcox
+ M:	matthew@wil.cx
