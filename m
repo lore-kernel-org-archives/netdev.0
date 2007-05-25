@@ -1,44 +1,33 @@
-From: Li Yang <leoli@freescale.com>
-Subject: [PATCH] NET: add MAINTAINERS entry for ucc_geth driver
-Date: Fri, 25 May 2007 13:54:02 +0800
-Message-ID: <465679FA.8010702@freescale.com>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH 3/4] [Net] Support Xen accelerated network plugin modules
+Date: 25 May 2007 08:53:12 +0200
+Message-ID: <p73k5uxcs2v.fsf@bingen.suse.de>
+References: <1179494208.14376.10.camel@moonstone.uk.level5networks.com>
+	<20070521105258.7988fd6e@freepuppy>
+	<1179818108.4145.18.camel@moonstone.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-embedded@ozlabs.org
-To: jeff@garzik.org
-Return-path: <linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
-	<mailto:linuxppc-embedded-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-embedded>
-List-Post: <mailto:linuxppc-embedded@ozlabs.org>
-List-Help: <mailto:linuxppc-embedded-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
-	<mailto:linuxppc-embedded-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	xen-devel@lists.xensource.com, netdev@vger.kernel.org,
+	muli@il.ibm.com, herbert@gondor.apana.org.au
+To: Kieran Mansley <kmansley@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.suse.de ([195.135.220.15]:52114 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754487AbXEYF4f (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 May 2007 01:56:35 -0400
+In-Reply-To: <1179818108.4145.18.camel@moonstone.uk.level5networks.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Li Yang <leoli@freescale.com>
----
- MAINTAINERS |    7 +++++++
- 1 files changed, 7 insertions(+), 0 deletions(-)
+Kieran Mansley <kmansley@solarflare.com> writes:
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 4c3277c..3faed72 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -1463,6 +1463,13 @@ L:	linux-usb-devel@lists.sourceforge.net
- L:	linuxppc-embedded@ozlabs.org
- S:	Maintained
- 
-+FREESCALE QUICC ENGINE UCC ETHERNET DRIVER
-+P:	Li Yang
-+M:	leoli@freescale.com
-+L:	netdev@vger.kernel.org
-+L:	linuxppc-embedded@ozlabs.org
-+S:	Maintained
-+
- FILE LOCKING (flock() and fcntl()/lockf())
- P:	Matthew Wilcox
- M:	matthew@wil.cx
+> RCU on its own wouldn't
+> prevent the accelerated plugin being unloaded while netfront was using
+> one of the hooks. 
+
+Note that module unload does always does a stop_machine() which is much 
+stronger than normal RCU. As long as you don't sleep and cannot be preemptable
+it should be always safe.
+
+-Andi
