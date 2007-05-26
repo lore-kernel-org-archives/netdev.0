@@ -1,44 +1,38 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: Generic netlink interface help
-Date: Sat, 26 May 2007 00:18:02 +0200
-Message-ID: <20070525221802.GO521@postel.suug.ch>
-References: <84po8XY4.1179999810.5490870.samuel@sortiz.org> <1180024477.18003.11.camel@johannes.berg>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: b44: regression in 2.6.22
+Date: Fri, 25 May 2007 17:24:31 -0700
+Message-ID: <20070525172431.60affaca@freepuppy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: Samuel Ortiz <samuel@sortiz.org>, giometti@enneenne.com,
-	netdev@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	Jeff Garzik <jgarzik@pobox.com>,
+	Gary Zambrano <zambrano@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:50352 "EHLO postel.suug.ch"
+Received: from smtp.osdl.org ([207.189.120.12]:51249 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753146AbXEYWRm convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 May 2007 18:17:42 -0400
-Content-Disposition: inline
-In-Reply-To: <1180024477.18003.11.camel@johannes.berg>
+	id S1753365AbXEZA3G (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 May 2007 20:29:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Johannes Berg <johannes@sipsolutions.net> 2007-05-24 18:34
-> On Thu, 2007-05-24 at 09:43 +0000, Samuel Ortiz wrote:
-> 
-> > You probably want to use the libnl library. The latest SVN code has
-> > support for generic netlink:
-> > http://people.suug.ch/~tgr/libnl/
-> 
-> Huh. I just looked at it and I don't understand anything. What's the
-> point with genl_register/genl_unregister and having a table of commands
-> etc? Thomas, can you explain how I should use libnl for nl80211 now? I
-> mean, I can see what I can do with just sending/receiving messages but
-> it feels like I'm missing something with all that other infrastructure
-> in libnl.
+Something is broken with the b44 driver in 2.6.22-rc1 or later. Now bisecting.
+The performance (with iperf) for receiving is normally 94Mbits or more.
+But something happened that dropped performance to less than 1Mbit,
+probably corrupted packets.
 
-This area is still work in progress but the basic idea is that
-like in kernel context, the application defines its set of
-commands and assigns message parsers for each command. For now,
-the message parser is linked into the cache operations which
-means that you have to "update" a cache in order to use this
-feature. This is obviously not optimal so what I might end up
-is to allow changing the "valid message" callback to be set to
-a parser function which takes the list of operations and does
-the demuxing.
+There is nothing obvious in the commit log for drivers/net/b44.c, so it
+probably is something more general.
+
+
+Looking at the code in b44_rx(), I see a couple unrelated of bugs:
+1. In the small packet case it recycles the skb before copying data out... 
+   Not good if new data arrives overwriting existing data.
+
+2. Macros like RX_PKT_BUF_SZ that depend on local variables are evil!!
+
+
+
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
