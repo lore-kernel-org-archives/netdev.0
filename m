@@ -1,199 +1,43 @@
 From: James Chapman <jchapman@katalix.com>
-Subject: resend [PATCH 5/5 2.6.21] L2TP: Add PPPoL2TP in-kernel documentation
+Subject: resend [PATCH 4/5 2.6.21] L2TP: Add PPPoL2TP maintainer
 Date: Sat, 26 May 2007 18:47:24 +0100
-Message-ID: <200705261747.l4QHlOkY001732@quickie.katalix.com>
+Message-ID: <200705261747.l4QHlOSB001725@quickie.katalix.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s36.avahost.net ([74.53.95.194]:34478 "EHLO s36.avahost.net"
+Received: from s36.avahost.net ([74.53.95.194]:34481 "EHLO s36.avahost.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756371AbXEZRsI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 26 May 2007 13:48:08 -0400
+	id S1757396AbXEZRsJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 26 May 2007 13:48:09 -0400
 Received: from jchapman.plus.com ([84.92.108.75] helo=quickie.katalix.com)
 	by s36.avahost.net with esmtps (TLSv1:AES256-SHA:256)
 	(Exim 4.63)
 	(envelope-from <jchapman@katalix.com>)
-	id 1Hs0LD-0001mH-1o
+	id 1Hs0LD-0001mG-3n
 	for netdev@vger.kernel.org; Sat, 26 May 2007 12:46:12 -0500
 Received: from quickie.katalix.com (quickie.katalix.com [127.0.0.1])
-	by quickie.katalix.com (8.13.5/8.13.5) with ESMTP id l4QHlOUa001738
-	for <netdev@vger.kernel.org>; Sat, 26 May 2007 18:47:25 +0100
+	by quickie.katalix.com (8.13.5/8.13.5) with ESMTP id l4QHlOT3001735
+	for <netdev@vger.kernel.org>; Sat, 26 May 2007 18:47:24 +0100
 Received: (from james@localhost)
-	by quickie.katalix.com (8.13.5/8.13.5/Submit) id l4QHlOkY001732
+	by quickie.katalix.com (8.13.5/8.13.5/Submit) id l4QHlOSB001725
 	for netdev@vger.kernel.org; Sat, 26 May 2007 18:47:24 +0100
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Signed-off-by: James Chapman <jchapman@katalix.com>
 
-Index: linux-2.6.21/Documentation/networking/l2tp.txt
+Index: linux-2.6.21/MAINTAINERS
 ===================================================================
---- /dev/null
-+++ linux-2.6.21/Documentation/networking/l2tp.txt
-@@ -0,0 +1,167 @@
-+This brief document describes how to use the kernel's PPPoL2TP driver
-+to provide L2TP functionality. L2TP is a protocol that tunnels one or
-+more PPP sessions over a UDP tunnel. It is commonly used for VPNs
-+(L2TP/IPSec) and by ISPs to tunnel subscriber PPP sessions over an IP
-+network infrastructure.
+--- linux-2.6.21.orig/MAINTAINERS
++++ linux-2.6.21/MAINTAINERS
+@@ -2700,6 +2700,11 @@ P:	Michal Ostrowski
+ M:	mostrows@speakeasy.net
+ S:	Maintained
+ 
++PPP OVER L2TP
++P:	James Chapman
++M:	jchapman@katalix.com
++S:	Maintained
 +
-+Design
-+======
-+
-+The PPPoL2TP driver, drivers/net/pppol2tp.c, provides a mechanism by
-+which PPP frames carried through an L2TP session are passed through
-+the kernel's PPP subsystem. The standard PPP daemon, pppd, handles all
-+PPP interaction with the peer. PPP network interfaces are created for
-+each local PPP endpoint.
-+
-+The L2TP protocol http://www.faqs.org/rfcs/rfc2661.html defines L2TP
-+control and data frames. L2TP control frames carry messages between
-+L2TP clients/servers and are used to setup / teardown tunnels and
-+sessions. An L2TP client or server is implemented in userspace and
-+will use a regular UDP socket per tunnel. L2TP data frames carry PPP
-+frames, which may be PPP control or PPP data. The kernel's PPP
-+subsystem arranges for PPP control frames to be delivered to pppd,
-+while data frames are forwarded as usual.
-+
-+Each tunnel and session within a tunnel is assigned a unique tunnel_id
-+and session_id. These ids are carried in the L2TP header of every
-+control and data packet. The pppol2tp driver uses them to lookup
-+internal tunnel and/or session contexts. Zero tunnel / session ids are
-+treated specially - zero ids are never assigned to tunnels or sessions
-+in the network. In the driver, the tunnel context keeps a pointer to
-+the tunnel UDP socket. The session context keeps a pointer to the
-+PPPoL2TP socket, as well as other data that lets the driver interface
-+to the kernel PPP subsystem.
-+
-+Note that the pppol2tp kernel driver handles only L2TP data frames;
-+L2TP control frames are simply passed up to userspace in the UDP
-+tunnel socket. The kernel handles all datapath aspects of the
-+protocol, including data packet resequencing (if enabled).
-+
-+There are a number of requirements on the userspace L2TP daemon in
-+order to use the pppol2tp driver.
-+
-+1. Use a UDP socket per tunnel.
-+
-+2. Create a single PPPoL2TP socket per tunnel. This is used only for
-+   for communicating with the driver but must remain open while the
-+   tunnel is active. The driver marks the tunnel socket as an L2TP UDP
-+   encapsulation socket, which hooks up the UDP receive path via
-+   usp_encap_rcv() in net/ipv4/udp.c. PPP data frames are never passed
-+   in this special PPPoX socket.
-+
-+3. Create a PPPoL2TP socket per L2TP session. This is typically done
-+   by starting pppd with the pppol2tp plugin and appropriate
-+   arguments. A PPPoL2TP tunnel management socket (Step 2) must be
-+   created before the first PPPoL2TP session socket is created.
-+
-+When creating PPPoL2TP sockets, the application provides information
-+to the driver about the socket in a socket connect() call. Source and
-+destination tunnel and session ids are provided, as well as the file
-+descriptor of a UDP socket. See struct pppol2tp_addr in
-+include/linux/if_ppp.h. Note that zero tunnel / session ids are
-+treated specially. When creating the per-tunnel PPPoL2TP management
-+socket in Step 2 above, zero source and destination session ids are
-+specified, which tells the driver to prepare the supplied UDP file
-+descriptor for use as an L2TP tunnel socket.
-+
-+Userspace may control behavior of the tunnel or session using
-+setsockopt and ioctl on the PPPoX socket. The following socket
-+options are supported:-
-+
-+DEBUG     - bitmask of debug message categories. See below.
-+SENDSEQ   - 0 => don't send packets with sequence numbers
-+            1 => send packets with sequence numbers
-+RECVSEQ   - 0 => receive packet sequence numbers are optional
-+            1 => drop receive packets without sequence numbers
-+LNSMODE   - 0 => act as LAC.
-+            1 => act as LNS.
-+REORDERTO - reorder timeout (in millisecs). If 0, don't try to reorder.
-+
-+Only the DEBUG option is supported by the special tunnel management
-+PPPoX socket.
-+
-+In addition to the standard PPP ioctls, a PPPIOCGL2TPSTATS is provided
-+to retrieve tunnel and session statistics from the kernel using the
-+PPPoX socket of the required tunnel or session.
-+
-+Debugging
-+=========
-+
-+The driver supports a flexible debug scheme where kernel trace
-+messages may be optionally enabled per tunnel and per session. Care is
-+needed when debugging a live system since the messages are not
-+rate-limited and a busy system could be swamped. Userspace uses
-+setsockopt on the PPPoX socket to set a debug mask.
-+
-+The following debug mask bits are available:
-+
-+PPPOL2TP_MSG_DEBUG    verbose debug (if compiled in)
-+PPPOL2TP_MSG_CONTROL  userspace - kernel interface
-+PPPOL2TP_MSG_SEQ      sequence numbers handling
-+PPPOL2TP_MSG_DATA     data packets
-+
-+Sample Userspace Code
-+=====================
-+
-+1. Create tunnel management PPPoX socket
-+
-+        kernel_fd = socket(AF_PPPOX, SOCK_DGRAM, PX_PROTO_OL2TP);
-+        if (kernel_fd >= 0) {
-+                struct sockaddr_pppol2tp sax;
-+                struct sockaddr_in const *peer_addr;
-+
-+                peer_addr = l2tp_tunnel_get_peer_addr(tunnel);
-+                memset(&sax, 0, sizeof(sax));
-+                sax.sa_family = AF_PPPOX;
-+                sax.sa_protocol = PX_PROTO_OL2TP;
-+                sax.pppol2tp.fd = udp_fd;       /* fd of tunnel UDP socket */
-+                sax.pppol2tp.addr.sin_addr.s_addr = peer_addr->sin_addr.s_addr;
-+                sax.pppol2tp.addr.sin_port = peer_addr->sin_port;
-+                sax.pppol2tp.addr.sin_family = AF_INET;
-+                sax.pppol2tp.s_tunnel = tunnel_id;
-+                sax.pppol2tp.s_session = 0;     /* special case: mgmt socket */
-+                sax.pppol2tp.d_tunnel = 0;
-+                sax.pppol2tp.d_session = 0;     /* special case: mgmt socket */
-+
-+                if(connect(kernel_fd, (struct sockaddr *)&sax, sizeof(sax) ) < 0 ) {
-+                        perror("connect failed");
-+                        result = -errno;
-+                        goto err;
-+                }
-+        }
-+
-+2. Create session PPPoX data socket
-+
-+        struct sockaddr_pppol2tp sax;
-+        int fd;
-+
-+        /* Note, the target socket must be bound already, else it will not be ready */
-+        sax.sa_family = AF_PPPOX;
-+        sax.sa_protocol = PX_PROTO_OL2TP;
-+        sax.pppol2tp.fd = tunnel_fd;
-+        sax.pppol2tp.addr.sin_addr.s_addr = addr->sin_addr.s_addr;
-+        sax.pppol2tp.addr.sin_port = addr->sin_port;
-+        sax.pppol2tp.addr.sin_family = AF_INET;
-+        sax.pppol2tp.s_tunnel  = tunnel_id;
-+        sax.pppol2tp.s_session = session_id;
-+        sax.pppol2tp.d_tunnel  = peer_tunnel_id;
-+        sax.pppol2tp.d_session = peer_session_id;
-+
-+        /* session_fd is the fd of the session's PPPoL2TP socket.
-+         * tunnel_fd is the fd of the tunnel UDP socket.
-+         */
-+        fd = connect(session_fd, (struct sockaddr *)&sax, sizeof(sax));
-+        if (fd < 0 )    {
-+                return -errno;
-+        }
-+        return 0;
-+
-+Miscellanous
-+============
-+
-+The PPPoL2TP driver was developed as part of the OpenL2TP project by
-+Katalix Systems Ltd. OpenL2TP is a full-featured L2TP client / server,
-+designed from the ground up to have the L2TP datapath in the
-+kernel. The project also implemented the pppol2tp plugin for pppd
-+which allows pppd to use the kernel driver. Details can be found at
-+http://openl2tp.sourceforge.net.
+ PREEMPTIBLE KERNEL
+ P:	Robert Love
+ M:	rml@tech9.net
