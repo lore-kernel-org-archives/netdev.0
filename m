@@ -1,49 +1,67 @@
 From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: b44: regression in 2.6.22
-Date: Sat, 26 May 2007 19:01:17 +0200
-Message-ID: <200705261901.18110.mb@bu3sch.de>
-References: <20070525172431.60affaca@freepuppy>
+Subject: Re: [PATCH] Avoid switch on long long in s2io driver
+Date: Sat, 26 May 2007 19:04:08 +0200
+Message-ID: <200705261904.09028.mb@bu3sch.de>
+References: <jebqg8kllk.fsf@sykes.suse.de>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-	Jeff Garzik <jgarzik@pobox.com>,
-	Gary Zambrano <zambrano@broadcom.com>, netdev@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Uwe Bugla <uwe.bugla@gmx.de>,
-	Maximilian Engelhardt <maxi@daemonizer.de>
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: netdev@vger.kernel.org
+To: Andreas Schwab <schwab@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:48183
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:48589
 	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752783AbXEZRB2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 May 2007 13:01:28 -0400
-In-Reply-To: <20070525172431.60affaca@freepuppy>
+	with ESMTP id S1754050AbXEZREM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 May 2007 13:04:12 -0400
+In-Reply-To: <jebqg8kllk.fsf@sykes.suse.de>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Saturday 26 May 2007 02:24:31 Stephen Hemminger wrote:
-> Something is broken with the b44 driver in 2.6.22-rc1 or later. Now bisecting.
-> The performance (with iperf) for receiving is normally 94Mbits or more.
-> But something happened that dropped performance to less than 1Mbit,
-> probably corrupted packets.
+On Saturday 26 May 2007 10:58:15 Andreas Schwab wrote:
+> A switch on long long causes gcc to generate a reference to __ucmpdi2 on
+> ppc32.  Avoid that by casting to int, since the value is only a small
+> integer anyway.
 > 
-> There is nothing obvious in the commit log for drivers/net/b44.c, so it
-> probably is something more general.
+> Signed-off-by: Andreas Schwab <schwab@suse.de>
 > 
+> ---
+>  drivers/net/s2io.c |    4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
 > 
-> Looking at the code in b44_rx(), I see a couple unrelated of bugs:
-> 1. In the small packet case it recycles the skb before copying data out... 
->    Not good if new data arrives overwriting existing data.
-> 
-> 2. Macros like RX_PKT_BUF_SZ that depend on local variables are evil!!
+> Index: linux-2.6.22-rc1/drivers/net/s2io.c
+> ===================================================================
+> --- linux-2.6.22-rc1.orig/drivers/net/s2io.c	2007-05-13 11:03:28.000000000 +0200
+> +++ linux-2.6.22-rc1/drivers/net/s2io.c	2007-05-13 12:52:49.000000000 +0200
+> @@ -2898,7 +2898,7 @@ static void tx_intr_handler(struct fifo_
+>  
+>  			/* update t_code statistics */
+>  			err >>= 48;
+> -			switch(err) {
+> +			switch((int)err) {
 
-Very interesting!
-2.6.22 doesn't include ssb, does it?
+Hm, maybe add a comment, too?
+This cast looks redundant at the first look and someone
+who doesn't understand it might submit a patch to remove it again.
 
-Adding CCs to make reporters of another bugreport aware of this.
+>  				case 2:
+>  					nic->mac_control.stats_info->sw_stat.
+>  							tx_buf_abort_cnt++;
+> @@ -6825,7 +6825,7 @@ static int rx_osm_handler(struct ring_in
+>  			sp->mac_control.stats_info->sw_stat.parity_err_cnt++;
+>  		}
+>  		err >>= 48;
+> -		switch(err) {
+> +		switch((int)err) {
+>  			case 1:
+>  				sp->mac_control.stats_info->sw_stat.
+>  				rx_parity_err_cnt++;
+> 
+> Andreas.
+> 
+
+
 
 -- 
 Greetings Michael.
