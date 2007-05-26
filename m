@@ -1,123 +1,100 @@
 From: James Chapman <jchapman@katalix.com>
-Subject: resend [PATCH 2/5 2.6.21] L2TP: Changes to existing ppp and socket kernel headers for L2TP
-Date: Sat, 26 May 2007 18:47:24 +0100
-Message-ID: <200705261747.l4QHlOf8001718@quickie.katalix.com>
+Subject: resend [PATCH 0/5 2.6.21] L2TP: Introduce PPP-over-L2TP driver
+Date: Sat, 26 May 2007 18:46:24 +0100
+Message-ID: <200705261746.l4QHkO3x001704@quickie.katalix.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s36.avahost.net ([74.53.95.194]:34476 "EHLO s36.avahost.net"
+Received: from s36.avahost.net ([74.53.95.194]:34356 "EHLO s36.avahost.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756175AbXEZRsI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 26 May 2007 13:48:08 -0400
+	id S1752783AbXEZRrI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 26 May 2007 13:47:08 -0400
 Received: from jchapman.plus.com ([84.92.108.75] helo=quickie.katalix.com)
 	by s36.avahost.net with esmtps (TLSv1:AES256-SHA:256)
 	(Exim 4.63)
 	(envelope-from <jchapman@katalix.com>)
-	id 1Hs0LC-0001mC-Um
-	for netdev@vger.kernel.org; Sat, 26 May 2007 12:46:12 -0500
+	id 1Hs0KE-0001RM-KH
+	for netdev@vger.kernel.org; Sat, 26 May 2007 12:45:10 -0500
 Received: from quickie.katalix.com (quickie.katalix.com [127.0.0.1])
-	by quickie.katalix.com (8.13.5/8.13.5) with ESMTP id l4QHlOlY001726
-	for <netdev@vger.kernel.org>; Sat, 26 May 2007 18:47:24 +0100
+	by quickie.katalix.com (8.13.5/8.13.5) with ESMTP id l4QHkOlr001706
+	for <netdev@vger.kernel.org>; Sat, 26 May 2007 18:46:24 +0100
 Received: (from james@localhost)
-	by quickie.katalix.com (8.13.5/8.13.5/Submit) id l4QHlOf8001718
-	for netdev@vger.kernel.org; Sat, 26 May 2007 18:47:24 +0100
+	by quickie.katalix.com (8.13.5/8.13.5/Submit) id l4QHkO3x001704
+	for netdev@vger.kernel.org; Sat, 26 May 2007 18:46:24 +0100
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add struct sockaddr_pppol2tp to carry L2TP-specific address
-information for the PPPoX (PPPoL2TP) socket. Unfortunately we can't
-use the union inside struct sockaddr_pppox because the L2TP-specific
-data is larger than the current size of the union and we must preserve
-the size of struct sockaddr_pppox for binary compatibility.
+On Patrick's request, I'm resending this patch set. There are no
+changes since they were posted 3 weeks ago. Please review. Thanks.
 
-Also add a PPPIOCGL2TPSTATS ioctl to allow userspace to obtain
-L2TP counters and state from the kernel.
 
-Signed-off-by: James Chapman <jchapman@katalix.com>
+This patch set adds a driver for PPP over L2TP. Patches to follow.
 
-Index: linux-2.6.21/include/linux/if_ppp.h
-===================================================================
---- linux-2.6.21.orig/include/linux/if_ppp.h
-+++ linux-2.6.21/include/linux/if_ppp.h
-@@ -110,6 +110,21 @@ struct ifpppcstatsreq {
- 	struct ppp_comp_stats stats;
- };
- 
-+/* For PPPIOCGL2TPSTATS */
-+struct pppol2tp_ioc_stats {
-+	__u16	tunnel_id;	/* redundant */
-+	__u16	session_id;	/* if zero, get tunnel stats */
-+	__u32	using_ipsec:1;	/* valid only for session_id == 0 */
-+	__u64	tx_packets;
-+	__u64	tx_bytes;
-+	__u64	tx_errors;
-+	__u64	rx_packets;
-+	__u64	rx_bytes;
-+	__u64	rx_seq_discards;
-+	__u64	rx_oos_packets;
-+	__u64	rx_errors;
-+};
-+
- #define ifr__name       b.ifr_ifrn.ifrn_name
- #define stats_ptr       b.ifr_ifru.ifru_data
- 
-@@ -146,6 +161,7 @@ struct ifpppcstatsreq {
- #define PPPIOCDISCONN	_IO('t', 57)		/* disconnect channel */
- #define PPPIOCATTCHAN	_IOW('t', 56, int)	/* attach to ppp channel */
- #define PPPIOCGCHAN	_IOR('t', 55, int)	/* get ppp channel number */
-+#define PPPIOCGL2TPSTATS _IOR('t', 54, struct pppol2tp_ioc_stats)
- 
- #define SIOCGPPPSTATS   (SIOCDEVPRIVATE + 0)
- #define SIOCGPPPVER     (SIOCDEVPRIVATE + 1)	/* NEVER change this!! */
-Index: linux-2.6.21/include/linux/if_pppox.h
-===================================================================
---- linux-2.6.21.orig/include/linux/if_pppox.h
-+++ linux-2.6.21/include/linux/if_pppox.h
-@@ -27,6 +27,7 @@
- #include <asm/semaphore.h>
- #include <linux/ppp_channel.h>
- #endif /* __KERNEL__ */
-+#include <linux/if_pppol2tp.h>
- 
- /* For user-space programs to pick up these definitions
-  * which they wouldn't get otherwise without defining __KERNEL__
-@@ -50,8 +51,9 @@ struct pppoe_addr{ 
-  * Protocols supported by AF_PPPOX 
-  */ 
- #define PX_PROTO_OE    0 /* Currently just PPPoE */
--#define PX_MAX_PROTO   1	
-- 
-+#define PX_PROTO_OL2TP 1 /* Now L2TP also */
-+#define PX_MAX_PROTO   2
-+
- struct sockaddr_pppox { 
-        sa_family_t     sa_family;            /* address family, AF_PPPOX */ 
-        unsigned int    sa_protocol;          /* protocol identifier */ 
-@@ -60,6 +62,16 @@ struct sockaddr_pppox { 
-        }sa_addr; 
- }__attribute__ ((packed)); 
- 
-+/* The use of the above union isn't viable because the size of this
-+ * struct must stay fixed over time -- applications use sizeof(struct
-+ * sockaddr_pppox) to fill it. We use a protocol specific sockaddr
-+ * type instead.
-+ */
-+struct sockaddr_pppol2tp {
-+	sa_family_t     sa_family;      /* address family, AF_PPPOX */
-+	unsigned int    sa_protocol;    /* protocol identifier */
-+	struct pppol2tp_addr pppol2tp;
-+}__attribute__ ((packed));
- 
- /*********************************************************************
-  *
-Index: linux-2.6.21/include/linux/socket.h
-===================================================================
---- linux-2.6.21.orig/include/linux/socket.h
-+++ linux-2.6.21/include/linux/socket.h
-@@ -284,6 +284,7 @@ struct ucred {
- #define SOL_DCCP	269
- #define SOL_NETLINK	270
- #define SOL_TIPC	271
-+#define SOL_PPPOL2TP	272
- 
- /* IPX options */
- #define IPX_TYPE	1
+The following changes have been made since the previous version
+submitted 23-APR-07.
+
+- Hold list lock while processing reorder queue in
+  pppol2tp_recv_dequeue().
+
+- Fix more __be type annotations.
+
+- Add a new UDP encapsulation socket type for L2TP (new patch). Modify
+  driver receive path so that it hooks on udp_encap_rcv() rather than
+  overload the socket's sk_data_ready() for skb reception.
+
+- Remove pppol2tp_fget() and friends. Previous code needed to find the
+  tunnel fd from a context other than the one that created the
+  socket. I now use the PPPoX management socket creation (which is
+  done by the same process that creates the UDP socket, i.e. l2tpd) to
+  derive the socket of the UDP tunnel using sockfd_lookup().
+
+- Reorder some functions in proc file handling code to avoid needing
+  function prototypes.
+
+- Remove code that sorted entries which are output in
+  /proc/net/pppol2tp. Output now shows tunnels and sessions unordered.
+
+- Remove stupid userland conditional includes from the if_pppox.h
+  changes.
+
+- Remove skb_queue_walk_safe and pppox-autoload patches from the
+  series since they have now been applied.
+
+- Add in-kernel documentation (new patch).
+
+- Rebased to 2.6.21.
+
+The code still uses sk->sk_destruct() on the tunnel socket to cleanup
+internal contexts if the tunnel UDP socket is destroyed.
+
+
+About this patch series:
+
+The implementation uses the existing PPPoX subsystem that is currently
+used only by PPPoE. A userspace daemon handles all L2TP control
+protocol messages, while a PPPoX socket carries user data. The system
+architecture is similar to PPPoE, where a pppd plugin uses the PPPoX
+socket to send/receive PPP frames over an L2TP tunnel. PPP control
+frames are delivered to pppd while data frames are handled entirely by
+the kernel.
+
+There are 5 patches in the series:-
+
+1 - Introduce new UDP encapsulation type for L2TP.
+
+2 - API changes for L2TP. Adds definitions for L2TP in existing headers.
+
+3 - pppol2tp driver core. New code. Requires patches 1, 2, and the 
+    recently applied skb_queue_walk_safe patch.
+
+4 - Add an entry to MAINTAINERS file for this driver.
+
+5 - Add in-kernel documentation.
+
+The driver is being used on x86, ia64, ppc, arm, mips32 and possibly
+other architectures. It is also known to work on multi-core SMP boxes.
+
+--
+James Chapman
+Katalix Systems Ltd
+http://www.katalix.com
+Catalysts for your Embedded Linux software development
