@@ -1,67 +1,163 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: [PATCH] Avoid switch on long long in s2io driver
-Date: Sat, 26 May 2007 19:04:08 +0200
-Message-ID: <200705261904.09028.mb@bu3sch.de>
-References: <jebqg8kllk.fsf@sykes.suse.de>
-Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Andreas Schwab <schwab@suse.de>
+From: James Chapman <jchapman@katalix.com>
+Subject: resend [PATCH 1/5 2.6.21] UDP: Introduce UDP encapsulation type for L2TP
+Date: Sat, 26 May 2007 18:47:24 +0100
+Message-ID: <200705261747.l4QHlOWO001715@quickie.katalix.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:48589
-	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754050AbXEZREM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 May 2007 13:04:12 -0400
-In-Reply-To: <jebqg8kllk.fsf@sykes.suse.de>
-Content-Disposition: inline
+Received: from s36.avahost.net ([74.53.95.194]:34479 "EHLO s36.avahost.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756883AbXEZRsI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 26 May 2007 13:48:08 -0400
+Received: from jchapman.plus.com ([84.92.108.75] helo=quickie.katalix.com)
+	by s36.avahost.net with esmtps (TLSv1:AES256-SHA:256)
+	(Exim 4.63)
+	(envelope-from <jchapman@katalix.com>)
+	id 1Hs0LC-0001lz-Rt
+	for netdev@vger.kernel.org; Sat, 26 May 2007 12:46:12 -0500
+Received: from quickie.katalix.com (quickie.katalix.com [127.0.0.1])
+	by quickie.katalix.com (8.13.5/8.13.5) with ESMTP id l4QHlOFv001721
+	for <netdev@vger.kernel.org>; Sat, 26 May 2007 18:47:24 +0100
+Received: (from james@localhost)
+	by quickie.katalix.com (8.13.5/8.13.5/Submit) id l4QHlOWO001715
+	for netdev@vger.kernel.org; Sat, 26 May 2007 18:47:24 +0100
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Saturday 26 May 2007 10:58:15 Andreas Schwab wrote:
-> A switch on long long causes gcc to generate a reference to __ucmpdi2 on
-> ppc32.  Avoid that by casting to int, since the value is only a small
-> integer anyway.
-> 
-> Signed-off-by: Andreas Schwab <schwab@suse.de>
-> 
-> ---
->  drivers/net/s2io.c |    4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> Index: linux-2.6.22-rc1/drivers/net/s2io.c
-> ===================================================================
-> --- linux-2.6.22-rc1.orig/drivers/net/s2io.c	2007-05-13 11:03:28.000000000 +0200
-> +++ linux-2.6.22-rc1/drivers/net/s2io.c	2007-05-13 12:52:49.000000000 +0200
-> @@ -2898,7 +2898,7 @@ static void tx_intr_handler(struct fifo_
->  
->  			/* update t_code statistics */
->  			err >>= 48;
-> -			switch(err) {
-> +			switch((int)err) {
+This patch adds a new UDP_ENCAP_L2TPINUDP encapsulation type for UDP
+sockets. When a UDP socket's encap_type is UDP_ENCAP_L2TPINUDP, the
+skb is delivered to a function pointed to by udp_encap_l2tp_rcv. If
+the skb isn't wanted by L2TP, it returns >0, which causes it to be
+passed through to UDP. A funcptr is used for udp_encap_l2tp_rcv to 
+allow L2TP to be implemented as a kernel module.
 
-Hm, maybe add a comment, too?
-This cast looks redundant at the first look and someone
-who doesn't understand it might submit a patch to remove it again.
+Previously, the only user of UDP encap sockets was ESP, so when
+CONFIG_XFRM was not defined, some of the encap code was compiled 
+out. This patch changes that. As a result, udp_encap_rcv() will
+now do a little more work when CONFIG_XFRM is not defined. 
 
->  				case 2:
->  					nic->mac_control.stats_info->sw_stat.
->  							tx_buf_abort_cnt++;
-> @@ -6825,7 +6825,7 @@ static int rx_osm_handler(struct ring_in
->  			sp->mac_control.stats_info->sw_stat.parity_err_cnt++;
->  		}
->  		err >>= 48;
-> -		switch(err) {
-> +		switch((int)err) {
->  			case 1:
->  				sp->mac_control.stats_info->sw_stat.
->  				rx_parity_err_cnt++;
-> 
-> Andreas.
-> 
+Signed-off-by: James Chapman <jchapman@katalix.com>
 
+---
+There are some magic numbers returned by udp_encap_rcv() that
+should perhaps now be made #defines. I chose not to do so in
+this patch.
 
-
--- 
-Greetings Michael.
+Index: linux-2.6.21/include/linux/udp.h
+===================================================================
+--- linux-2.6.21.orig/include/linux/udp.h
++++ linux-2.6.21/include/linux/udp.h
+@@ -33,6 +33,7 @@ struct udphdr {
+ /* UDP encapsulation types */
+ #define UDP_ENCAP_ESPINUDP_NON_IKE	1 /* draft-ietf-ipsec-nat-t-ike-00/01 */
+ #define UDP_ENCAP_ESPINUDP	2 /* draft-ietf-ipsec-udp-encaps-06 */
++#define UDP_ENCAP_L2TPINUDP	3 /* rfc2661 */
+ 
+ #ifdef __KERNEL__
+ #include <linux/types.h>
+@@ -69,6 +70,8 @@ static inline struct udp_sock *udp_sk(co
+ }
+ #define IS_UDPLITE(__sk) (udp_sk(__sk)->pcflag)
+ 
++extern int (*udp_encap_l2tp_rcv)(struct sock *sk, struct sk_buff *skb);
++
+ #endif
+ 
+ #endif	/* _LINUX_UDP_H */
+Index: linux-2.6.21/net/ipv4/udp.c
+===================================================================
+--- linux-2.6.21.orig/net/ipv4/udp.c
++++ linux-2.6.21/net/ipv4/udp.c
+@@ -70,6 +70,7 @@
+  *	Alexey Kuznetsov:		allow both IPv4 and IPv6 sockets to bind
+  *					a single port at the same time.
+  *	Derek Atkins <derek@ihtfp.com>: Add Encapulation Support
++ *	James Chapman		:	Add L2TP encapsulation type.
+  *
+  *
+  *		This program is free software; you can redistribute it and/or
+@@ -112,6 +113,12 @@ DEFINE_SNMP_STAT(struct udp_mib, udp_sta
+ struct hlist_head udp_hash[UDP_HTABLE_SIZE];
+ DEFINE_RWLOCK(udp_hash_lock);
+ 
++/* For use by L2TP protocol code (encap_type==UDP_ENCAP_L2TPINUDP).
++ * Using function pointers allows L2TP to be implemented as a
++ * module.
++ */
++int (*udp_encap_l2tp_rcv)(struct sock *sk, struct sk_buff *skb);
++
+ static int udp_port_rover;
+ 
+ static inline int __udp_lib_lport_inuse(__u16 num, struct hlist_head udptable[])
+@@ -919,12 +926,10 @@ int udp_disconnect(struct sock *sk, int 
+  * 	1  if the the UDP system should process it
+  *	0  if we should drop this packet
+  * 	-1 if it should get processed by xfrm4_rcv_encap
++ *	-2 if it should get processed by l2tp
+  */
+ static int udp_encap_rcv(struct sock * sk, struct sk_buff *skb)
+ {
+-#ifndef CONFIG_XFRM
+-	return 1;
+-#else
+ 	struct udp_sock *up = udp_sk(sk);
+ 	struct udphdr *uh;
+ 	struct iphdr *iph;
+@@ -979,8 +984,14 @@ static int udp_encap_rcv(struct sock * s
+ 			/* Must be an IKE packet.. pass it through */
+ 			return 1;
+ 		break;
++	case UDP_ENCAP_L2TPINUDP:
++		/* Let caller know to send this to l2tp */
++		return -2;
+ 	}
+ 
++#ifndef CONFIG_XFRM
++	return 1;
++#else
+ 	/* At this point we are sure that this is an ESPinUDP packet,
+ 	 * so we need to remove 'len' bytes from the packet (the UDP
+ 	 * header and optional ESP marker bytes) and then modify the
+@@ -1050,12 +1061,25 @@ int udp_queue_rcv_skb(struct sock * sk, 
+ 			kfree_skb(skb);
+ 			return 0;
+ 		}
+-		if (ret < 0) {
++		if (ret == -1) {
+ 			/* process the ESP packet */
+ 			ret = xfrm4_rcv_encap(skb, up->encap_type);
+ 			UDP_INC_STATS_BH(UDP_MIB_INDATAGRAMS, up->pcflag);
+ 			return -ret;
+ 		}
++		if (ret == -2) {
++			/* process the L2TP packet */
++			if (udp_encap_l2tp_rcv != NULL) {
++				ret = (*udp_encap_l2tp_rcv)(sk, skb);
++				if (ret <= 0) {
++					UDP_INC_STATS_BH(UDP_MIB_INDATAGRAMS, up->pcflag);
++					return ret;
++				}
++
++				/* FALLTHROUGH -- pass up as UDP packet */
++			}
++		}
++
+ 		/* FALLTHROUGH -- it's a UDP Packet */
+ 	}
+ 
+@@ -1336,6 +1360,7 @@ int udp_lib_setsockopt(struct sock *sk, 
+ 		case 0:
+ 		case UDP_ENCAP_ESPINUDP:
+ 		case UDP_ENCAP_ESPINUDP_NON_IKE:
++		case UDP_ENCAP_L2TPINUDP:
+ 			up->encap_type = val;
+ 			break;
+ 		default:
+@@ -1729,6 +1754,8 @@ EXPORT_SYMBOL(udp_lib_getsockopt);
+ EXPORT_SYMBOL(udp_lib_setsockopt);
+ EXPORT_SYMBOL(udp_poll);
+ 
++EXPORT_SYMBOL(udp_encap_l2tp_rcv);
++
+ #ifdef CONFIG_PROC_FS
+ EXPORT_SYMBOL(udp_proc_register);
+ EXPORT_SYMBOL(udp_proc_unregister);
