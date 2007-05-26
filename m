@@ -1,36 +1,45 @@
-From: "Gary Zambrano" <zambrano@broadcom.com>
-Subject: Re: b44: regression in 2.6.22
-Date: Fri, 25 May 2007 20:51:09 -0700
-Message-ID: <1180151469.3136.6.camel@dhcp-10-12-136-115.broadcom.com>
-References: <20070525172431.60affaca@freepuppy>
+From: "=?ISO-8859-1?Q?Mart=EDn_Ferrari?=" <martin.ferrari@gmail.com>
+Subject: Re: IFF_PROMISC again
+Date: Sat, 26 May 2007 03:28:27 -0300
+Message-ID: <b9800b70705252328x6318c85es922e81662ce41762@mail.gmail.com>
+References: <1178044568.7116.14.camel@abraxas.dyn-o-saur.com>
+	 <465385F2.7080309@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "Arnaldo Carvalho de Melo" <acme@ghostprotocols.net>,
-	"Jeff Garzik" <jgarzik@pobox.com>, netdev@vger.kernel.org
-To: "Stephen Hemminger" <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: "Ben Greear" <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3330 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751008AbXEZFNo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 26 May 2007 01:13:44 -0400
-In-Reply-To: <20070525172431.60affaca@freepuppy>
+Received: from wa-out-1112.google.com ([209.85.146.181]:47433 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751008AbXEZG23 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 May 2007 02:28:29 -0400
+Received: by wa-out-1112.google.com with SMTP id j4so430642wah
+        for <netdev@vger.kernel.org>; Fri, 25 May 2007 23:28:28 -0700 (PDT)
+In-Reply-To: <465385F2.7080309@candelatech.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2007-05-25 at 17:24 -0700, Stephen Hemminger wrote:
-> Something is broken with the b44 driver in 2.6.22-rc1 or later. Now bisecting.
-> The performance (with iperf) for receiving is normally 94Mbits or more.
-> But something happened that dropped performance to less than 1Mbit,
-> probably corrupted packets.
-> 
-> There is nothing obvious in the commit log for drivers/net/b44.c, so it
-> probably is something more general.
+Hi Ben,
 
-netperf in 2.6.22-rc2 seems ok. I'll give iperf a try to see if I can
-repro the problem.
+On 5/22/07, Ben Greear <greearb@candelatech.com> wrote:
 
-Thanks,
-Gary
+> > PACKET_(ADD|REMOVE)_MEMBERSHIP, I need to query the real device sta=
+te.
 
+> I have the same problem.  I think you can tell by looking at bit 0x10=
+0
+> in /sys/class/net/[ethX]/flags
+>
+> Not exactly fun to use, but it seems to work.
 
+Wow, I searched for this a lot! It could be all I need, although it
+doesn't seem very robust to look at the bitmap driectly, is it?
+
+Maybe it would be cleaner to add an "promiscuity" file to that structur=
+e?
+
+--=20
+Mart=EDn Ferrari
