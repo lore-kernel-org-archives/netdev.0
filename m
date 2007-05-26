@@ -1,57 +1,69 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PCNET32] Lock solid with netconsole
-Date: Sun, 27 May 2007 00:41:20 +0200
-Message-ID: <20070526224120.GA4476@electric-eye.fr.zoreil.com>
-References: <JIO5LO$C60EE63CB5A48D2316D385244D1DAE4C@laposte.net>
+From: divy@chelsio.com
+Subject: [PATCH 3/7] cxgb3 - Fix direct XAUI support
+Date: Sat, 26 May 2007 15:59:58 -0700
+Message-ID: <20070526225958.12133.84586.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: tsbogend <tsbogend@alpha.franken.de>,
-	pcnet32 <pcnet32@verizon.net>, netdev <netdev@vger.kernel.org>
-To: Emmanuel =?iso-8859-1?Q?Fust=E9?= <emmanuel.fuste@laposte.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	swise@opengridcomputing.com
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:49914 "EHLO
-	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750800AbXEZWnq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 26 May 2007 18:43:46 -0400
-Content-Disposition: inline
-In-Reply-To: <JIO5LO$C60EE63CB5A48D2316D385244D1DAE4C@laposte.net>
+Received: from stargate.chelsio.com ([12.22.49.110]:28453 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753547AbXEZXAA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 May 2007 19:00:00 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Emmanuel Fust=E9 <emmanuel.fuste@laposte.net> :
-[...]
-> Just to let you know that I swap my pcnet32 with a via-rhine
-> and I no longer experienced hard machine lock after loading
-> netconsole.
+From: Divy Le Ray <divy@chelsio.com>
 
-Any difference if you disable the debug messages in the pcnet32
-driver and you apply the patch below ?
+Check all lanes for link status on direct XAUI cards.
+Don't assume that direct XAUI always uses XGMAC 1.
 
-diff --git a/drivers/net/pcnet32.c b/drivers/net/pcnet32.c
-index 9c171a7..be4513f 100644
---- a/drivers/net/pcnet32.c
-+++ b/drivers/net/pcnet32.c
-@@ -2556,11 +2556,12 @@ pcnet32_interrupt(int irq, void *dev_id)
- 	unsigned long ioaddr;
- 	u16 csr0;
- 	int boguscnt =3D max_interrupt_work;
-+	unsigned long flags;
-=20
- 	ioaddr =3D dev->base_addr;
- 	lp =3D netdev_priv(dev);
-=20
--	spin_lock(&lp->lock);
-+	spin_lock_irqsave(&lp->lock, flags);
-=20
- 	csr0 =3D lp->a.read_csr(ioaddr, CSR0);
- 	while ((csr0 & 0x8f00) && --boguscnt >=3D 0) {
-@@ -2632,7 +2633,7 @@ pcnet32_interrupt(int irq, void *dev_id)
- 		printk(KERN_DEBUG "%s: exiting interrupt, csr0=3D%#4.4x.\n",
- 		       dev->name, lp->a.read_csr(ioaddr, CSR0));
-=20
--	spin_unlock(&lp->lock);
-+	spin_unlock_irqrestore(&lp->lock, flags);
-=20
- 	return IRQ_HANDLED;
+Signed-off-by: Divy Le Ray <divy@chelsio.com>
+---
+
+ drivers/net/cxgb3/ael1002.c |   10 ++++++++--
+ drivers/net/cxgb3/regs.h    |    2 ++
+ 2 files changed, 10 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/cxgb3/ael1002.c b/drivers/net/cxgb3/ael1002.c
+index 73a41e6..ee140e6 100644
+--- a/drivers/net/cxgb3/ael1002.c
++++ b/drivers/net/cxgb3/ael1002.c
+@@ -219,7 +219,13 @@ static int xaui_direct_get_link_status(s
+ 		unsigned int status;
+ 
+ 		status = t3_read_reg(phy->adapter,
+-				     XGM_REG(A_XGM_SERDES_STAT0, phy->addr));
++				     XGM_REG(A_XGM_SERDES_STAT0, phy->addr)) |
++		    t3_read_reg(phy->adapter,
++				XGM_REG(A_XGM_SERDES_STAT1, phy->addr)) |
++		    t3_read_reg(phy->adapter,
++				XGM_REG(A_XGM_SERDES_STAT2, phy->addr)) |
++		    t3_read_reg(phy->adapter,
++				XGM_REG(A_XGM_SERDES_STAT3, phy->addr));
+ 		*link_ok = !(status & F_LOWSIG0);
+ 	}
+ 	if (speed)
+@@ -247,5 +253,5 @@ static struct cphy_ops xaui_direct_ops =
+ void t3_xaui_direct_phy_prep(struct cphy *phy, struct adapter *adapter,
+ 			     int phy_addr, const struct mdio_ops *mdio_ops)
+ {
+-	cphy_init(phy, adapter, 1, &xaui_direct_ops, mdio_ops);
++	cphy_init(phy, adapter, phy_addr, &xaui_direct_ops, mdio_ops);
  }
+diff --git a/drivers/net/cxgb3/regs.h b/drivers/net/cxgb3/regs.h
+index e5a5534..bf9d6be 100644
+--- a/drivers/net/cxgb3/regs.h
++++ b/drivers/net/cxgb3/regs.h
+@@ -2128,6 +2128,8 @@
+ #define F_RESETPLL01    V_RESETPLL01(1U)
+ 
+ #define A_XGM_SERDES_STAT0 0x8f0
++#define A_XGM_SERDES_STAT1 0x8f4
++#define A_XGM_SERDES_STAT2 0x8f8
+ 
+ #define S_LOWSIG0    0
+ #define V_LOWSIG0(x) ((x) << S_LOWSIG0)
