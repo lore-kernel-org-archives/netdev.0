@@ -1,7 +1,7 @@
 From: divy@chelsio.com
-Subject: [PATCH 5/7] cxgb3 - Stop mac RX when changing MTU
-Date: Sat, 26 May 2007 16:00:10 -0700
-Message-ID: <20070526230009.12174.93130.stgit@localhost.localdomain>
+Subject: [PATCH 4/7] cxgb3 - Update FW to 4.1
+Date: Sat, 26 May 2007 16:00:04 -0700
+Message-ID: <20070526230003.12156.10521.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -9,150 +9,162 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	swise@opengridcomputing.com
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.22.49.110]:7966 "EHLO
+Received: from stargate.chelsio.com ([12.22.49.110]:11866 "EHLO
 	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755605AbXEZXAM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 May 2007 19:00:12 -0400
+	with ESMTP id S1755375AbXEZXAH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 May 2007 19:00:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Divy Le Ray <divy@chelsio.com>
 
-Rx traffic needs to be halted when the MTU is changed
-to avoid a potential chip hang.
-Reset/restore MAC filters around a MTU change.
-Also fix the pause frames high materwark setting.
+Bump FW version to 4.1.
+Modify chip tuning in consequence.
 
 Signed-off-by: Divy Le Ray <divy@chelsio.com>
 ---
 
- drivers/net/cxgb3/regs.h  |    4 +++
- drivers/net/cxgb3/xgmac.c |   67 ++++++++++++++++++++++++++++++++++++++++++++-
- 2 files changed, 70 insertions(+), 1 deletions(-)
+ drivers/net/cxgb3/regs.h    |    4 ++++
+ drivers/net/cxgb3/t3_hw.c   |   42 +++++++++++++++++++++++-------------------
+ drivers/net/cxgb3/version.h |    2 +-
+ 3 files changed, 28 insertions(+), 20 deletions(-)
 
 diff --git a/drivers/net/cxgb3/regs.h b/drivers/net/cxgb3/regs.h
-index 2c47d4a..02f8731 100644
+index bf9d6be..2c47d4a 100644
 --- a/drivers/net/cxgb3/regs.h
 +++ b/drivers/net/cxgb3/regs.h
-@@ -1886,6 +1886,10 @@
- #define V_COPYALLFRAMES(x) ((x) << S_COPYALLFRAMES)
- #define F_COPYALLFRAMES    V_COPYALLFRAMES(1U)
+@@ -1160,6 +1160,8 @@
  
-+#define S_DISBCAST    1
-+#define V_DISBCAST(x) ((x) << S_DISBCAST)
-+#define F_DISBCAST    V_DISBCAST(1U)
-+
- #define A_XGM_RX_HASH_LOW 0x814
+ #define A_TP_MOD_CHANNEL_WEIGHT 0x434
  
- #define A_XGM_RX_HASH_HIGH 0x818
-diff --git a/drivers/net/cxgb3/xgmac.c b/drivers/net/cxgb3/xgmac.c
-index a506792..16cadba 100644
---- a/drivers/net/cxgb3/xgmac.c
-+++ b/drivers/net/cxgb3/xgmac.c
-@@ -231,6 +231,28 @@ int t3_mac_set_num_ucast(struct cmac *ma
- 	return 0;
- }
++#define A_TP_MOD_RATE_LIMIT 0x438
++
+ #define A_TP_PIO_ADDR 0x440
  
-+static void disable_exact_filters(struct cmac *mac)
-+{
-+	unsigned int i, reg = mac->offset + A_XGM_RX_EXACT_MATCH_LOW_1;
-+
-+	for (i = 0; i < EXACT_ADDR_FILTERS; i++, reg += 8) {
-+		u32 v = t3_read_reg(mac->adapter, reg);
-+		t3_write_reg(mac->adapter, reg, v);
-+	}
-+	t3_read_reg(mac->adapter, A_XGM_RX_EXACT_MATCH_LOW_1);	/* flush */
-+}
-+
-+static void enable_exact_filters(struct cmac *mac)
-+{
-+	unsigned int i, reg = mac->offset + A_XGM_RX_EXACT_MATCH_HIGH_1;
-+
-+	for (i = 0; i < EXACT_ADDR_FILTERS; i++, reg += 8) {
-+		u32 v = t3_read_reg(mac->adapter, reg);
-+		t3_write_reg(mac->adapter, reg, v);
-+	}
-+	t3_read_reg(mac->adapter, A_XGM_RX_EXACT_MATCH_LOW_1);	/* flush */
-+}
-+
- /* Calculate the RX hash filter index of an Ethernet address */
- static int hash_hw_addr(const u8 * addr)
- {
-@@ -281,6 +303,14 @@ int t3_mac_set_rx_mode(struct cmac *mac,
- 	return 0;
- }
+ #define A_TP_PIO_DATA 0x444
+@@ -1214,6 +1216,8 @@
+ #define G_TXDROPCNTCH0RCVD(x) (((x) >> S_TXDROPCNTCH0RCVD) & \
+ 			       M_TXDROPCNTCH0RCVD)
  
-+static int rx_fifo_hwm(int mtu)
-+{
-+	int hwm;
++#define A_TP_PROXY_FLOW_CNTL 0x4b0
 +
-+	hwm = max(MAC_RXFIFO_SIZE - 3 * mtu, (MAC_RXFIFO_SIZE * 38) / 100);
-+	return min(hwm, MAC_RXFIFO_SIZE - 8192);
-+}
-+
- int t3_mac_set_mtu(struct cmac *mac, unsigned int mtu)
- {
- 	int hwm, lwm;
-@@ -306,11 +336,38 @@ int t3_mac_set_mtu(struct cmac *mac, uns
- 	lwm = min(3 * (int)mtu, MAC_RXFIFO_SIZE / 4);
+ #define A_ULPRX_CTL 0x500
  
- 	v = t3_read_reg(adap, A_XGM_RXFIFO_CFG + mac->offset);
-+	if (adap->params.rev == T3_REV_B2 &&
-+	    (t3_read_reg(adap, A_XGM_RX_CTRL + mac->offset) & F_RXEN)) {
-+		disable_exact_filters(mac);
-+		t3_set_reg_field(adap, A_XGM_RXFIFO_CFG + mac->offset,
-+				 F_ENHASHMCAST | F_COPYALLFRAMES, F_DISBCAST);
-+
-+		/* drain rx FIFO */
-+		if (t3_wait_op_done(adap,
-+				    A_XGM_RX_MAX_PKT_SIZE_ERR_CNT +
-+				    mac->offset,
-+				    1 << 31, 1, 20, 5)) {
-+			t3_write_reg(adap, A_XGM_RXFIFO_CFG + mac->offset, v);
-+			enable_exact_filters(mac);
-+			return -EIO;
-+		}
-+		t3_write_reg(adap, A_XGM_RX_MAX_PKT_SIZE + mac->offset, mtu);
-+		enable_exact_filters(mac);
-+	} else
-+		t3_write_reg(adap, A_XGM_RX_MAX_PKT_SIZE + mac->offset, mtu);
-+
-+	/*
-+	 * Adjust the PAUSE frame watermarks.  We always set the LWM, and the
-+	 * HWM only if flow-control is enabled.
-+	 */
-+	hwm = rx_fifo_hwm(mtu);
-+	lwm = min(3 * (int)mtu, MAC_RXFIFO_SIZE / 4);
- 	v &= ~V_RXFIFOPAUSELWM(M_RXFIFOPAUSELWM);
- 	v |= V_RXFIFOPAUSELWM(lwm / 8);
- 	if (G_RXFIFOPAUSEHWM(v))
- 		v = (v & ~V_RXFIFOPAUSEHWM(M_RXFIFOPAUSEHWM)) |
- 		    V_RXFIFOPAUSEHWM(hwm / 8);
-+
- 	t3_write_reg(adap, A_XGM_RXFIFO_CFG + mac->offset, v);
+ #define S_ROUND_ROBIN    4
+diff --git a/drivers/net/cxgb3/t3_hw.c b/drivers/net/cxgb3/t3_hw.c
+index fb485d0..9e3591d 100644
+--- a/drivers/net/cxgb3/t3_hw.c
++++ b/drivers/net/cxgb3/t3_hw.c
+@@ -921,7 +921,7 @@ static int t3_flash_erase_sectors(struct
+ /*
+  *	t3_load_fw - download firmware
+  *	@adapter: the adapter
+- *	@fw_data: the firrware image to write
++ *	@fw_data: the firmware image to write
+  *	@size: image size
+  *
+  *	Write the supplied firmware image to the card's serial flash.
+@@ -2362,7 +2362,7 @@ static void tp_config(struct adapter *ad
+ 		     F_TCPCHECKSUMOFFLOAD | V_IPTTL(64));
+ 	t3_write_reg(adap, A_TP_TCP_OPTIONS, V_MTUDEFAULT(576) |
+ 		     F_MTUENABLE | V_WINDOWSCALEMODE(1) |
+-		     V_TIMESTAMPSMODE(1) | V_SACKMODE(1) | V_SACKRX(1));
++		     V_TIMESTAMPSMODE(0) | V_SACKMODE(1) | V_SACKRX(1));
+ 	t3_write_reg(adap, A_TP_DACK_CONFIG, V_AUTOSTATE3(1) |
+ 		     V_AUTOSTATE2(1) | V_AUTOSTATE1(0) |
+ 		     V_BYTETHRESHOLD(16384) | V_MSSTHRESHOLD(2) |
+@@ -2371,16 +2371,18 @@ static void tp_config(struct adapter *ad
+ 			 F_IPV6ENABLE | F_NICMODE);
+ 	t3_write_reg(adap, A_TP_TX_RESOURCE_LIMIT, 0x18141814);
+ 	t3_write_reg(adap, A_TP_PARA_REG4, 0x5050105);
+-	t3_set_reg_field(adap, A_TP_PARA_REG6,
+-			 adap->params.rev > 0 ? F_ENABLEESND : F_T3A_ENABLEESND,
+-			 0);
++	t3_set_reg_field(adap, A_TP_PARA_REG6, 0,
++			 adap->params.rev > 0 ? F_ENABLEESND :
++			 F_T3A_ENABLEESND);
  
- 	/* Adjust the TX FIFO threshold based on the MTU */
-@@ -329,7 +386,6 @@ int t3_mac_set_mtu(struct cmac *mac, uns
- 			     (hwm - lwm) * 4 / 8);
- 	t3_write_reg(adap, A_XGM_TX_PAUSE_QUANTA + mac->offset,
- 		     MAC_RXFIFO_SIZE * 4 * 8 / 512);
+ 	t3_set_reg_field(adap, A_TP_PC_CONFIG,
+-			 F_ENABLEEPCMDAFULL | F_ENABLEOCSPIFULL,
+-			 F_TXDEFERENABLE | F_HEARBEATDACK | F_TXCONGESTIONMODE |
+-			 F_RXCONGESTIONMODE);
++			 F_ENABLEEPCMDAFULL,
++			 F_ENABLEOCSPIFULL |F_TXDEFERENABLE | F_HEARBEATDACK |
++			 F_TXCONGESTIONMODE | F_RXCONGESTIONMODE);
+ 	t3_set_reg_field(adap, A_TP_PC_CONFIG2, F_CHDRAFULL, 0);
 -
- 	return 0;
++	t3_write_reg(adap, A_TP_PROXY_FLOW_CNTL, 1080);
++	t3_write_reg(adap, A_TP_PROXY_FLOW_CNTL, 1000);
++	
+ 	if (adap->params.rev > 0) {
+ 		tp_wr_indirect(adap, A_TP_EGRESS_CONFIG, F_REWRITEFORCETOSIZE);
+ 		t3_set_reg_field(adap, A_TP_PARA_REG3, F_TXPACEAUTO,
+@@ -2390,9 +2392,10 @@ static void tp_config(struct adapter *ad
+ 	} else
+ 		t3_set_reg_field(adap, A_TP_PARA_REG3, 0, F_TXPACEFIXED);
+ 
+-	t3_write_reg(adap, A_TP_TX_MOD_QUEUE_WEIGHT1, 0x12121212);
+-	t3_write_reg(adap, A_TP_TX_MOD_QUEUE_WEIGHT0, 0x12121212);
+-	t3_write_reg(adap, A_TP_MOD_CHANNEL_WEIGHT, 0x1212);
++	t3_write_reg(adap, A_TP_TX_MOD_QUEUE_WEIGHT1, 0);
++	t3_write_reg(adap, A_TP_TX_MOD_QUEUE_WEIGHT0, 0);
++	t3_write_reg(adap, A_TP_MOD_CHANNEL_WEIGHT, 0);
++	t3_write_reg(adap, A_TP_MOD_RATE_LIMIT, 0xf2200000);
  }
  
-@@ -357,6 +413,15 @@ int t3_mac_set_speed_duplex_fc(struct cm
- 				 V_PORTSPEED(M_PORTSPEED), val);
+ /* Desired TP timer resolution in usec */
+@@ -2468,6 +2471,7 @@ int t3_tp_set_coalescing_size(struct ada
+ 		val |= F_RXCOALESCEENABLE;
+ 		if (psh)
+ 			val |= F_RXCOALESCEPSHEN;
++		size = min(MAX_RX_COALESCING_LEN, size);
+ 		t3_write_reg(adap, A_TP_PARA_REG2, V_RXCOALESCESIZE(size) |
+ 			     V_MAXRXDATA(MAX_RX_COALESCING_LEN));
  	}
+@@ -2496,11 +2500,11 @@ static void __devinit init_mtus(unsigned
+ 	 * it can accomodate max size TCP/IP headers when SACK and timestamps
+ 	 * are enabled and still have at least 8 bytes of payload.
+ 	 */
+-	mtus[0] = 88;
+-	mtus[1] = 256;
+-	mtus[2] = 512;
+-	mtus[3] = 576;
+-	mtus[4] = 808;
++	mtus[1] = 88;
++	mtus[1] = 88;
++	mtus[2] = 256;
++	mtus[3] = 512;
++	mtus[4] = 576;
+ 	mtus[5] = 1024;
+ 	mtus[6] = 1280;
+ 	mtus[7] = 1492;
+@@ -2802,7 +2806,7 @@ static void init_hw_for_avail_ports(stru
+ 		t3_set_reg_field(adap, A_ULPTX_CONFIG, F_CFG_RR_ARB, 0);
+ 		t3_write_reg(adap, A_MPS_CFG, F_TPRXPORTEN | F_TPTXPORT0EN |
+ 			     F_PORT0ACTIVE | F_ENFORCEPKT);
+-		t3_write_reg(adap, A_PM1_TX_CFG, 0xc000c000);
++		t3_write_reg(adap, A_PM1_TX_CFG, 0xffffffff);
+ 	} else {
+ 		t3_set_reg_field(adap, A_ULPRX_CTL, 0, F_ROUND_ROBIN);
+ 		t3_set_reg_field(adap, A_ULPTX_CONFIG, 0, F_CFG_RR_ARB);
+@@ -3097,7 +3101,7 @@ int t3_init_hw(struct adapter *adapter,
+ 	else
+ 		t3_set_reg_field(adapter, A_PCIX_CFG, 0, F_CLIDECEN);
  
-+	val = t3_read_reg(adap, A_XGM_RXFIFO_CFG + oft);
-+	val &= ~V_RXFIFOPAUSEHWM(M_RXFIFOPAUSEHWM);
-+	if (fc & PAUSE_TX)
-+		val |= V_RXFIFOPAUSEHWM(rx_fifo_hwm(
-+						t3_read_reg(adap,
-+						A_XGM_RX_MAX_PKT_SIZE
-+						+ oft)) / 8);
-+	t3_write_reg(adap, A_XGM_RXFIFO_CFG + oft, val);
-+
- 	t3_set_reg_field(adap, A_XGM_TX_CFG + oft, F_TXPAUSEEN,
- 			 (fc & PAUSE_RX) ? F_TXPAUSEEN : 0);
- 	return 0;
+-	t3_write_reg(adapter, A_PM1_RX_CFG, 0xf000f000);
++	t3_write_reg(adapter, A_PM1_RX_CFG, 0xffffffff);
+ 	init_hw_for_avail_ports(adapter, adapter->params.nports);
+ 	t3_sge_init(adapter, &adapter->params.sge);
+ 
+diff --git a/drivers/net/cxgb3/version.h b/drivers/net/cxgb3/version.h
+index b112317..8eddd23 100644
+--- a/drivers/net/cxgb3/version.h
++++ b/drivers/net/cxgb3/version.h
+@@ -39,6 +39,6 @@
+ 
+ /* Firmware version */
+ #define FW_VERSION_MAJOR 4
+-#define FW_VERSION_MINOR 0
++#define FW_VERSION_MINOR 1
+ #define FW_VERSION_MICRO 0
+ #endif				/* __CHELSIO_VERSION_H */
