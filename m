@@ -1,8 +1,8 @@
 From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
 Subject: Re: b44: regression in 2.6.22 (resend)
-Date: Sun, 27 May 2007 22:46:16 +0200
-Message-ID: <200705272246.16960.mb@bu3sch.de>
-References: <20070525172431.60affaca@freepuppy> <200705272145.00796.mb@bu3sch.de> <200705272236.42628.maxi@daemonizer.de>
+Date: Sun, 27 May 2007 23:13:32 +0200
+Message-ID: <200705272313.33129.mb@bu3sch.de>
+References: <20070525172431.60affaca@freepuppy> <200705261901.18110.mb@bu3sch.de> <200705272125.25506.maxi@daemonizer.de>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="iso-8859-15"
@@ -16,38 +16,57 @@ Cc: "linux-kernel" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
 	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
 To: Maximilian Engelhardt <maxi-OwNUvPV92VfddJNmlsFzeA@public.gmane.org>
 Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <200705272236.42628.maxi-OwNUvPV92VfddJNmlsFzeA@public.gmane.org>
+In-Reply-To: <200705272125.25506.maxi-OwNUvPV92VfddJNmlsFzeA@public.gmane.org>
 Content-Disposition: inline
 Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Sunday 27 May 2007 22:36:39 Maximilian Engelhardt wrote:
-> When I ran 2.6.21.1 or 2.6.22-rc3 without any debugging tools just in normal 
-> use I didn't notice any problems. It did work fine as I would expect it.
-> I think the wget and ping tests here are as they should be.
-> 
-> With 2.6.22-rc2-mm1 I noticed that connections seem to be slower. The ping 
-> test does confirm this, because here response times are very high. As far as 
-> I can remember the wget download rate was a bit slower than 2.6.21.1 or 
-> 2.6.22-rc3 till it stalled.
-> I would expect it to be someting like the other two kernels. The two problems 
-> I see are the high ping times and the fact that the card stopped working.
-> 
-> I don't know why the iperf results are so different from my personal 
-> experience. I guess the fact that I get so bad results with 2.6.21.1 and 
-> 2.6.22-rc3 is that iperf does something that causes the system to be 
-> extremely slow and thus degrading performance. This could be a bug somewhere 
-> in the b44 driver of 2.6.21.1 and 2.6.22-RC3 that has unintended been fixed 
-> by the ssb switch, but that's only a roughly guess.
+On Sunday 27 May 2007 21:25:17 Maximilian Engelhardt wrote:
+> 2.6.21.1:
+> [  5] local 192.168.1.2 port 58414 connected with 192.168.1.1 port 5001
+> [  5]  0.0-60.6 sec  1.13 MBytes    157 Kbits/sec
+> [  4] local 192.168.1.2 port 5001 connected with 192.168.1.1 port 57837
+> [  4]  0.0-63.1 sec  2.82 MBytes    375 Kbits/sec
 
-Ok. I guess (Yes I do :D) that there is an IRQ storm or something like that,
-because you say that your system is becoming very slow and unresponsive.
-It sounds like an IRQ is not ACKed correctly and so keeps triggering and
-stalling the system. I'll take a look at a few diffs...
-Do you see significant differences in the "hi" and/or "si" times in top?
-Do you see a significant difference in the /proc/interrupts count. For
-example that the kernel that works worse generates 10 times the IRQ count
-for the same amount of data.
+> 2.6.22-rc3:
+> [  5] local 192.168.1.2 port 46557 connected with 192.168.1.1 port 5001
+> [  5]  0.0-60.4 sec  58.9 MBytes  8.18 Mbits/sec
+> [  4] local 192.168.1.2 port 5001 connected with 192.168.1.1 port 51633
+> [  4]  0.0-63.1 sec  7.27 MBytes    967 Kbits/sec
+
+This is the diff between these two kernels.
+I'm not sure why you see a much better TX throughput here.
+
+Can you re-check to make sure it's not just some test-jitter?
+
+
+--- linux-2.6.21.1/drivers/net/b44.c    2007-05-27 22:58:01.000000000 +0200
++++ linux-2.6.22-rc3/drivers/net/b44.c  2007-05-27 23:01:44.000000000 +0200
+@@ -825,12 +825,11 @@
+                        if (copy_skb == NULL)
+                                goto drop_it_no_recycle;
+ 
+-                       copy_skb->dev = bp->dev;
+                        skb_reserve(copy_skb, 2);
+                        skb_put(copy_skb, len);
+                        /* DMA sync done above, copy just the actual packet */
+-                       memcpy(copy_skb->data, skb->data+bp->rx_offset, len);
+-
++                       skb_copy_from_linear_data_offset(skb, bp->rx_offset,
++                                                        copy_skb->data, len);
+                        skb = copy_skb;
+                }
+                skb->ip_summed = CHECKSUM_NONE;
+@@ -1007,7 +1006,8 @@
+                        goto err_out;
+                }
+ 
+-               memcpy(skb_put(bounce_skb, len), skb->data, skb->len);
++               skb_copy_from_linear_data(skb, skb_put(bounce_skb, len),
++                                         skb->len);
+                dev_kfree_skb_any(skb);
+                skb = bounce_skb;
+        }
 
 -- 
 Greetings Michael.
