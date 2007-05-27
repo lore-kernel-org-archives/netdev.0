@@ -1,92 +1,58 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: b44-ssb: Be more verbose in help texts
-Date: Sun, 27 May 2007 17:12:20 +0200
-Message-ID: <200705271712.21165.mb@bu3sch.de>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH 0/9]: tcp-2.6 patchset
+Date: Sun, 27 May 2007 19:56:02 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0705271933440.2832@kivilampi-30.cs.helsinki.fi>
+References: <11801685622325-git-send-email-ilpo.jarvinen@helsinki.fi>
+ <20070526.164418.115928217.davem@davemloft.net>
+ <Pine.LNX.4.64.0705271039060.2532@kivilampi-30.cs.helsinki.fi>
+ <20070527.021104.74747736.davem@davemloft.net>
+ <Pine.LNX.4.64.0705271319310.2663@kivilampi-30.cs.helsinki.fi>
+ <20070527140430.GA30299@galon.ev-en.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Gary Zambrano <zambrano@broadcom.com>, netdev@vger.kernel.org
-To: John Linville <linville@tuxdriver.com>
+Cc: David Miller <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Netdev <netdev@vger.kernel.org>
+To: Baruch Even <baruch@ev-en.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:56774
-	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754257AbXE0PR5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 May 2007 11:17:57 -0400
-Content-Disposition: inline
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:52820 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755396AbXE0Q4H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 May 2007 12:56:07 -0400
+In-Reply-To: <20070527140430.GA30299@galon.ev-en.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Some people have difficulties in understanding that the
-option "Broadcom 440x PCI device support" is for PCI devices,
-so they disable it and complain that it doesn't work anymore.
-Try to prevent that with this patch.
+On Sun, 27 May 2007, Baruch Even wrote:
 
-Signed-off-by: Michael Buesch <mb@bu3sch.de>
+> * Ilpo J?rvinen <ilpo.jarvinen@helsinki.fi> [070527 14:16]:
+> > 
+> > Thus, my original question basically culminates in this: should cc
+> > modules be passed number of packets acked or number of skbs acked?
+> > ...The latter makes no sense to me unless the value is intented to
+> > be interpreted as number of timestamps acked or something along those 
+> > lines. ...I briefly tried looking up for documentation for cc module 
+> > interface but didn't find anything useful about this, and thus asked in 
+> > the first place...
+> 
+> At least the htcp module that I wrote assumes that the number is actual
+> number of tcp packets so GSO should be considered.
 
-Index: bu3sch-wireless-dev/MAINTAINERS
-===================================================================
---- bu3sch-wireless-dev.orig/MAINTAINERS	2007-05-27 16:53:29.000000000 +0200
-+++ bu3sch-wireless-dev/MAINTAINERS	2007-05-27 16:54:57.000000000 +0200
-@@ -921,6 +921,12 @@
- L:	netdev@vger.kernel.org
- S:	Supported
- 
-+BROADCOM B44 - SONICS SILICON BACKPLANE (SSB) BITS
-+P:	Michael Buesch
-+M:	mb@bu3sch.de
-+L:	netdev@vger.kernel.org
-+S:	Maintained
-+
- BROADCOM BNX2 GIGABIT ETHERNET DRIVER
- P:	Michael Chan
- M:	mchan@broadcom.com
-Index: bu3sch-wireless-dev/drivers/net/Kconfig
-===================================================================
---- bu3sch-wireless-dev.orig/drivers/net/Kconfig	2007-05-27 16:44:39.000000000 +0200
-+++ bu3sch-wireless-dev/drivers/net/Kconfig	2007-05-27 16:57:45.000000000 +0200
-@@ -1387,28 +1387,35 @@
- 	  called apricot.
- 
- config B44
--	tristate "Broadcom 4400 ethernet support"
-+	tristate "Broadcom 440x/47xx ethernet support"
- 	select SSB
- 	select MII
- 	help
--	  If you have a network (Ethernet) controller of this type, say Y and
--	  read the Ethernet-HOWTO, available from
-+	  If you have a network (Ethernet) controller of this type, say Y
-+	  or M and read the Ethernet-HOWTO, available from
- 	  <http://www.tldp.org/docs.html#howto>.
- 
-+	  If you have a Broadcom 440x PCI device (and if you don't
-+	  know, you _do_ have one) you must also select the options
-+	  "EISA, VLB, PCI and on board controllers" above and
-+	  "Broadcom 440x PCI device support" below.
-+
- 	  To compile this driver as a module, choose M here and read
- 	  <file:Documentation/networking/net-modules.txt>.  The module will be
- 	  called b44.
- 
- config B44_PCI
--	bool "Broadcom 4400 PCI device support"
-+	bool "Broadcom 440x PCI device support"
- 	depends on B44 && NET_PCI
- 	select SSB_PCIHOST
- 	select SSB_DRIVER_PCICORE
- 	default y
- 	help
--	  Support for b44 PCI devices.
-+	  Support for Broadcom 440x PCI devices.
- 
--	  Say Y
-+	  Say Y, unless you know what you are doing.
-+	  If you say N here I will _not_ listen to your
-+	  bugreports!
- 
- config FORCEDETH
- 	tristate "nForce Ethernet support"
+Thanks for the info! It is what I suspected... ...I'll write a patch for 
+it tomorrow against net-2.6... Dave, beware that it will partially 
+overlap with the changes made in the patch 8, so you might choose to put 
+the patch 8 on hold until this issue is first resolved...
+
+> The consequences of this bug are not too large but it does make all
+> congestion control algorithms a lot less aggressive. On my machines GSO
+> is disabled by default (e1000 at 100mbps & Tigon3 @ 1Gbps).
+
+Agreed, that's my impression too. However, some algorithms do things
+like > 0 checks for it, so it might disturb their dynamics even more
+than in the "too small value" cases...
+
 
 -- 
-Greetings Michael.
+ i.
