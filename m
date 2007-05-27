@@ -1,53 +1,75 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Link always down
-Date: Mon, 28 May 2007 00:20:24 +0200
-Message-ID: <20070527222024.GA15066@electric-eye.fr.zoreil.com>
-References: <46557430.5060501@tugraz.at> <20070524120644.GA7224@electric-eye.fr.zoreil.com> <46569CF4.2030108@tugraz.at>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: b44-ssb: Fix an invalid pointer casting
+Date: Mon, 28 May 2007 00:32:07 +0200
+Message-ID: <200705280032.07365.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Clemens Brunner <clemens.brunner@tugraz.at>
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Maximilian Engelhardt <maxi@daemonizer.de>,
+	Gary Zambrano <zambrano@broadcom.com>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: John Linville <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:33419 "EHLO
-	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753326AbXE0WXv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 27 May 2007 18:23:51 -0400
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:46769
+	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753326AbXE0Wee (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 May 2007 18:34:34 -0400
 Content-Disposition: inline
-In-Reply-To: <46569CF4.2030108@tugraz.at>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Clemens Brunner <clemens.brunner@tugraz.at> :
-[...]
-> I've compiled and installed the latest kernel 2.6.22-rc2, but I wasn't able 
-> to apply your patch (using bzip2 -dc /usr/src/r8169-20070522.tar.bz2 | 
-> patch p1 --dry-run yielded the message "Reversed (or previously applied) 
-> patch detected!", so I guess this patch was already included in the latest 
-> kernel source).
+This fixes a bug introduced by me with the ssb porting.
+A u32 integer is casted to a u16* pointer, which
+is gonna break, obviously.
 
-The patch is not included in the latest kernel source.
+Signed-off-by: Michael Buesch <mb@bu3sch.de>
 
-Actually, you are not supposed to use the patch-kit this way. If you do
-a 'tar jxvf r8169-20070522.tar.bz2', you should notice that the archive
-file is extracted into a nice directory which contains a serie of patches.
-You should follow the numbering of the patches and apply them to a clean
-2.6.22-rc2 tree (i.e. apply 0001-foo, 0002-bar, 0003-frob, usw).
+Index: bu3sch-wireless-dev/drivers/net/b44.c
+===================================================================
+--- bu3sch-wireless-dev.orig/drivers/net/b44.c	2007-05-28 00:30:00.000000000 +0200
++++ bu3sch-wireless-dev/drivers/net/b44.c	2007-05-28 00:31:32.000000000 +0200
+@@ -1568,6 +1568,22 @@ static void b44_setup_pseudo_magicp(stru
+ 
+ }
+ 
++#ifdef CONFIG_B44_PCI
++static void b44_setup_wol_pci(struct b44 *bp)
++{
++	u16 val;
++
++	if (bp->sdev->bus->bustype != SSB_BUSTYPE_SSB) {
++		val = br32(bp, SSB_TMSLOW);
++		bw32(bp, SSB_TMSLOW, val | SSB_TMSLOW_PE);
++		pci_read_config_word(bp->sdev->bus->host_pci, SSB_PMCSR, &val);
++		pci_write_config_word(bp->sdev->bus->host_pci, SSB_PMCSR, val | SSB_PE);
++	}
++}
++#else
++static inline void b44_setup_wol_pci(struct b44 *bp) { }
++#endif /* CONFIG_B44_PCI */
++
+ static void b44_setup_wol(struct b44 *bp)
+ {
+ 	u32 val;
+@@ -1594,15 +1610,7 @@ static void b44_setup_wol(struct b44 *bp
+  	} else {
+  		b44_setup_pseudo_magicp(bp);
+  	}
+-
+-#ifdef CONFIG_B44_PCI
+-	if (bp->sdev->bus->bustype != SSB_BUSTYPE_SSB) {
+-		val = br32(bp, SSB_TMSLOW);
+-		bw32(bp, SSB_TMSLOW, val | SSB_TMSLOW_PE);
+-	}
+-	pci_read_config_word(bp->sdev->bus->host_pci, SSB_PMCSR, (u16 *)(&val));
+-	pci_write_config_word(bp->sdev->bus->host_pci, SSB_PMCSR, val | SSB_PE);
+-#endif /* CONFIG_B44_PCI */
++	b44_setup_wol_pci(bp);
+ }
+ 
+ static int b44_close(struct net_device *dev)
 
-As an option you can retrieve the url below which contains all the patches
-above in a single patch-file:
-http://www.fr.zoreil.com/people/francois/misc/20070522-2.6.22-rc2-r8169.patch
-
-The patch-kit allows to peel the onion more easily when somthing goes
-wrong.
-
-Btw, I have just updated everything for 2.6.22-rc3, you should try any of
-http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.22-rc3
-http://www.fr.zoreil.com/people/francois/misc/20070527-2.6.22-rc3-r8169.patch
-
-If you use 'make oldconfig' to update your config, you will be prompted
-for 'EEPROM 93CX6 support' as the relevant bits have been extracted from
-the wireless-dev git tree to access the EEPROM connected to the 816x.
-Don't disable it.
 
 -- 
-Ueimor
+Greetings Michael.
