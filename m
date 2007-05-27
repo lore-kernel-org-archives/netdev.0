@@ -1,39 +1,46 @@
-From: Peter Rasmussen <plr@udgaard.com>
-Subject: IC Plus Corp IC Plus IP1000
-Date: Sun, 27 May 2007 17:11:53 +0200
-Message-ID: <46599FB9.602@udgaard.com>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: b44-ssb: Remove redundant device reset
+Date: Sun, 27 May 2007 17:14:48 +0200
+Message-ID: <200705271714.48272.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-10; format=flowed
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: Gary Zambrano <zambrano@broadcom.com>, netdev@vger.kernel.org
+To: John Linville <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 213.237.80.42.adsl.he.worldonline.dk ([213.237.80.42]:18416
-	"EHLO kultorvet.udgaard.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753613AbXE0PKt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 May 2007 11:10:49 -0400
-Received: from [127.0.0.1] (localhost [127.0.0.1])
-	by kultorvet.udgaard.com (8.13.6/8.13.6) with ESMTP id l4RFBrlu006385
-	for <netdev@vger.kernel.org>; Sun, 27 May 2007 17:11:54 +0200
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:56765
+	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754001AbXE0PRy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 May 2007 11:17:54 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I am not on this list, but found this address on:   
-http://linux-net.osdl.org/index.php/Mailing_Lists.
+This reset wasn't there in the old b44 driver
+and I don't think it's needed for the 47xx either.
+If it later turns out that this is really needed for
+some weird 47xx, we can re-add it with a special case
+branch for that particular device.
 
-My question is regarding the ethernet controller (from lspci):
+Signed-off-by: Michael Buesch <mb@bu3sch.de>
 
-Sundance Technology Inc / IC Plus Corp IC Plus IP1000 Family Gigabit 
-Ethernet (rev 41)
+Index: bu3sch-wireless-dev/drivers/net/b44.c
+===================================================================
+--- bu3sch-wireless-dev.orig/drivers/net/b44.c	2007-05-27 16:59:22.000000000 +0200
++++ bu3sch-wireless-dev/drivers/net/b44.c	2007-05-27 17:03:32.000000000 +0200
+@@ -2201,11 +2201,6 @@
+ 		printk("%2.2x%c", dev->dev_addr[i],
+ 		       i == 5 ? '\n' : ':');
+ 
+-	/* Initialize phy */
+-	spin_lock_irq(&bp->lock);
+-	b44_chip_reset(bp);
+-	spin_unlock_irq(&bp->lock);
+-
+ 	return 0;
+ 
+ err_out_free_dev:
 
-that seems to have a driver for it published on:
-
-http://www.icplus.com.tw/driver-pp-IP1000A.html
-
-Unfortunately I am not able to build it as described.
-
-I wonder if it at some time will be included in the standard Linux kernel?
-I am of course interested because my main board has it built in, so I 
-would be willing to test it.
-
-Thanks,
-Peter
+-- 
+Greetings Michael.
