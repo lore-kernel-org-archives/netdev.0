@@ -1,61 +1,158 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: Generic netlink interface help
-Date: Sun, 27 May 2007 15:24:56 +0200
-Message-ID: <1180272296.3604.64.camel@johannes.berg>
-References: <84po8XY4.1179999810.5490870.samuel@sortiz.org>
-	 <1180024477.18003.11.camel@johannes.berg>
-	 <20070525221802.GO521@postel.suug.ch>
+From: jamal <hadi@cyberus.ca>
+Subject: Fwd: [PATCH] [-mm] ACPI: export ACPI events via netlink
+Date: Sun, 27 May 2007 09:34:27 -0400
+Message-ID: <4466a10705270634j3560c9a3j9c3630ddc20a24aa@mail.gmail.com>
+References: <1179827251.7707.29.camel@localhost.localdomain>
+	 <1179831825.4121.30.camel@localhost>
+	 <1180258853.7707.53.camel@localhost.localdomain>
+	 <4466a10705270629h31977813hd2fc8330bcd87f78@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-wgfsj2vv07MYHxKYri0B"
-Cc: Samuel Ortiz <samuel@sortiz.org>, giometti@enneenne.com,
-	netdev@vger.kernel.org
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, linux-acpi@vger.kernel.org,
+	"Zhang Rui" <rui.zhang@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:59296 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752515AbXE0N1Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 May 2007 09:27:25 -0400
-In-Reply-To: <20070525221802.GO521@postel.suug.ch>
+Received: from nz-out-0506.google.com ([64.233.162.227]:32023 "EHLO
+	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751869AbXE0Ne2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 May 2007 09:34:28 -0400
+Received: by nz-out-0506.google.com with SMTP id n1so669737nzf
+        for <netdev@vger.kernel.org>; Sun, 27 May 2007 06:34:27 -0700 (PDT)
+In-Reply-To: <4466a10705270629h31977813hd2fc8330bcd87f78@mail.gmail.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+I can never get these web-browser email clients to work well.
+Sorry for sending fscking html earlier.
 
---=-wgfsj2vv07MYHxKYri0B
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+cheers,
+jamal
 
-On Sat, 2007-05-26 at 00:18 +0200, Thomas Graf wrote:
+---------- Forwarded message ----------
+From: jamal <hadi@cyberus.ca>
+Date: May 27, 2007 9:29 AM
+Subject: Re: [PATCH] [-mm] ACPI: export ACPI events via netlink
+To: Zhang Rui <rui.zhang@intel.com>
+Cc: linux-acpi@vger.kernel.org, netdev@vger.kernel.org
 
-> This area is still work in progress but the basic idea is that
-> like in kernel context, the application defines its set of
-> commands and assigns message parsers for each command.=20
 
-Ok, but why? For when we get asynchronous events from the kernel?
 
-> For now,
-> the message parser is linked into the cache operations which
-> means that you have to "update" a cache in order to use this
-> feature.=20
 
-What's the cache good for to start with?
+On 5/27/07, Zhang Rui <rui.zhang@intel.com> wrote:
+>
+> I need to write a user application to test my patch.
+> Netlink messages can be sent/received using the standard socket API.
 
-My current userland tool just send a message and expects back a
-response. Obviously that's broken once we have events too, is that when
-the message parsers come in?
+sure.
 
-johannes
+> But how to receive Genetlink messages from specified genetlink family?
+> There is no socket ACPI with such a parameter, right?
 
---=-wgfsj2vv07MYHxKYri0B
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
+Each module has a unique identifier that it receives dynamically on
+ insertion at the kernel.
 
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
+> Do I have to receive all the genetlink messages first?
 
-iD8DBQBGWYan/ETPhpq3jKURAk3iAJ9q9xyOh39T7JjBAB7TkdDHmi5iXACgiW+I
-CzN14IVjLuWNq2RGY5Vz85M=
-=Z/3E
------END PGP SIGNATURE-----
+ No, just the ones for your dynamic id. Try what i described first for
+ kernel side on the earlier email. I will repeat it here for clarity.
+Then look at genl code and if you have questions i can
+ help.
+Note: You need to discover your dynamic id (the iproute2/genl code has a stub
+example code)
+ As i told you in the earlier email, in your development:
+ - start first by just writting your kernel side.
+ - Then use the genl utility - which is part of iproute2 to see if the
+ kernel side is "discoverable".
 
---=-wgfsj2vv07MYHxKYri0B--
+ E.g if i wanted to "discover" currently loaded modules on my laptop, i
+ would do this:
 
+ ---------------
+ hadi@lilsol:~$ genl ctrl ls
+
+ Name: nlctrl
+         ID: 0x10  Version: 0x2  header size: 0  max attribs: 6
+         commands supported:
+                 #1:  ID-0x3  flags-0xe
+
+
+ Name: nl80211
+         ID: 0x11  Version: 0x1  header size: 0  max attribs: 22
+         commands supported:
+                 #1:  ID-0x1  flags-0xa
+                 #2:  ID-0x6  flags-0xa
+                 #3:  ID-0x8  flags-0xa
+                 #4:  ID-0x3  flags-0xb
+                 #5:  ID-0x4  flags-0xb
+                 #6:  ID-0x5  flags-0xb
+                 #7:  ID-0xa  flags-0xb
+                 #8:  ID-0xb  flags-0xa
+                 #9:  ID-0xf  flags-0xb
+                 #10:  ID-0x10  flags-0xa
+                 #11:  ID-0x12  flags-0xb
+                 #12:  ID-0x13  flags-0xa
+                 #13:  ID-0x15  flags-0xa
+                 #14:  ID-0x19  flags-0xb
+                 #15:  ID-0x17  flags-0xb
+                 #16:  ID-0x18  flags-0xb
+                 #17:  ID-0x1a  flags-0xb
+                 #18:  ID-0x1b  flags-0xa
+                 #19:  ID-0xd  flags-0xb
+
+
+ Name: TASKSTATS
+         ID: 0x12  Version: 0x1  header size: 0  max attribs: 4
+         commands supported:
+                 #1:  ID-0x1  flags-0xa
+ ---------------------------
+
+ As you can see, i can see from user space the name of the kernel end
+ point, its numeric id, what version it is running (so i can make sure
+ user space is compatible), what extra header it may have, what the
+ maximum number of attributes it can take. The last thing that gets
+ listed is the commands, and flags for those commands.
+
+ Lets load tipc kernel module and repeat...
+
+ -----------
+
+ hadi@lilsol:~$ sudo modprobe tipc
+ Name: nlctrl
+         ID: 0x10  Version: 0x2  header size: 0  max attribs: 6
+         commands supported:
+                 #1:  ID-0x3  flags-0xe
+
+ ....
+ [same as before]
+ ....
+
+ Name: TIPC
+         ID: 0x13  Version: 0x1  header size: 8  max attribs: 0
+         commands supported:
+                 #1:  ID-0x1  flags-0x2
+
+ ===============
+
+> It would be great if there are any examples on user space communication.
+
+
+
+Bug Thomas - he has written some simple example. I also have some but i
+ changed laptops and i have to go and dig it up for you.
+ I do have plans for making this easier for people - but havent had time.
+ If there is persistence - or someone out there wants to be a hero email
+ me privately and i will explain it.
+
+> Or should I use libnl library instead?
+
+Why am i answering all these questions if you are fine with using libnl?
+Last time you said you couldnt use a library, no?
+
+cheers,
+jamal
+
+
+> Thanks,
+> Rui.
+>
