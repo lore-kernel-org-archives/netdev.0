@@ -1,38 +1,50 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PCNET32] Lock solid with netconsole
-Date: Tue, 29 May 2007 00:00:21 +0200
-Message-ID: <20070528220021.GB4927@electric-eye.fr.zoreil.com>
-References: <JIRC73$62E39331D73FCF49870995034400C560@laposte.net> <20070528183148.GA10009@csclub.uwaterloo.ca> <20070528205144.GB26309@alpha.franken.de>
+From: "=?ISO-8859-1?Q?Mart=EDn_Ferrari?=" <martin.ferrari@gmail.com>
+Subject: Re: IFF_PROMISC again
+Date: Mon, 28 May 2007 19:07:43 -0300
+Message-ID: <b9800b70705281507r593ca9a3m18cbd3e6ac446587@mail.gmail.com>
+References: <1178044568.7116.14.camel@abraxas.dyn-o-saur.com>
+	 <465385F2.7080309@candelatech.com>
+	 <b9800b70705252328x6318c85es922e81662ce41762@mail.gmail.com>
+	 <20070527094923.3b4705b6@freepuppy>
+	 <b9800b70705271805h4613ad14u33b754d12b80af34@mail.gmail.com>
+	 <20070527235819.3695a2a1@freepuppy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>,
-	Emmanuel Fust? <emmanuel.fuste@laposte.net>,
-	pcnet32 <pcnet32@verizon.net>, netdev <netdev@vger.kernel.org>
-To: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Ben Greear" <greearb@candelatech.com>, netdev@vger.kernel.org
+To: "Stephen Hemminger" <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:47808 "EHLO
-	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752154AbXE1WDy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 May 2007 18:03:54 -0400
+Received: from nz-out-0506.google.com ([64.233.162.238]:44759 "EHLO
+	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752154AbXE1WHp convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 May 2007 18:07:45 -0400
+Received: by nz-out-0506.google.com with SMTP id n1so1015231nzf
+        for <netdev@vger.kernel.org>; Mon, 28 May 2007 15:07:44 -0700 (PDT)
+In-Reply-To: <20070527235819.3695a2a1@freepuppy>
 Content-Disposition: inline
-In-Reply-To: <20070528205144.GB26309@alpha.franken.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thomas Bogendoerfer <tsbogend@alpha.franken.de> :
-[...]
-> for normal interrupt delivery it doesn't matter, because there shouldn't
-> be any more interrupts coming in at that point. But netconsole uses
-> pcnet32_interrupt for polling the chip. So if during service of a
-> a real interrupt a polled pcnet32_interrupt call is done, the machine
-> will deadlock.
+Stephen,
 
-Even if the driver-agnostic part of the irq processing can be interrupted
-locally, the irq handlers are run sequentially on a given cpu. It does not
-leave a lot of room for a deadlock-prone printk().
+On 5/28/07, Stephen Hemminger <shemminger@linux-foundation.org> wrote:
 
-It _can_ happen but I'd prefer to pinpoint a specific candidate path
-where it would have happened.
+> > Great that you point it out. Then, we're back to the initial
+> > situation, there is no reliable way of polling promisc state, and I=
+ am
+> > looking for a way to do that. Ways I think it could be done:
+>
+> Back to the original question. Why should an application care?
 
--- 
-Ueimor
+Not an application, but the sysadmin do cares about it. And most
+rootkit detectors don't have any other way of checking if a
+tcpdump-like tool is running.
+
+I don't see the usefulness of keeping the current toggle via gflags,
+which is confusing for users. But I see a benefit in exporting
+promiscuity as a read-only value, and I think it's pretty trivial to
+provide it.
+
+--=20
+Mart=EDn Ferrari
