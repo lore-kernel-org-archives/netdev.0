@@ -1,57 +1,32 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: b44: regression in 2.6.22 (resend)
-Date: Mon, 28 May 2007 12:49:55 +0200
-Message-ID: <200705281249.56106.mb@bu3sch.de>
-References: <20070525172431.60affaca@freepuppy> <200705280224.40506.mb@bu3sch.de> <200705280240.17910.maxi@daemonizer.de>
+From: Ben Dooks <ben-linux@fluff.org>
+Subject: Feedback on AX88796 driver
+Date: Mon, 28 May 2007 11:07:14 +0000
+Message-ID: <20070528110714.GA14086@fluff.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: "linux-kernel" <linux-kernel@vger.kernel.org>,
-	"linux-wireless" <linux-wireless@vger.kernel.org>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-	Jeff Garzik <jgarzik@pobox.com>,
-	Gary Zambrano <zambrano@broadcom.com>, netdev@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Maximilian Engelhardt <maxi@daemonizer.de>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:55569
-	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750699AbXE1Kvb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 May 2007 06:51:31 -0400
-In-Reply-To: <200705280240.17910.maxi@daemonizer.de>
+Received: from 87-194-8-8.bethere.co.uk ([87.194.8.8]:56728 "EHLO
+	aeryn.fluff.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750724AbXE1LHQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 May 2007 07:07:16 -0400
+Received: from ben by aeryn.fluff.org.uk with local (Exim 4.63)
+	(envelope-from <ben@fluff.org.uk>)
+	id 1Hsd4E-0003fx-UC
+	for netdev@vger.kernel.org; Mon, 28 May 2007 11:07:14 +0000
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Can you also test the following patch?
-I think there's a bug in b44 that is doesn't properly discard
-shared IRQs, so it might possibly generate a NAPI storm, dunno.
-Worth a try.
+I posted [1] an driver for the Asix AX88796 network controller
+a while back, and have had no feedback. Is this driver suitable
+for submission for the next kernel window, or is there anything
+that needs to be done for it?
 
-Index: linux-2.6.22-rc3/drivers/net/b44.c
-===================================================================
---- linux-2.6.22-rc3.orig/drivers/net/b44.c	2007-05-27 23:01:44.000000000 +0200
-+++ linux-2.6.22-rc3/drivers/net/b44.c	2007-05-28 12:48:27.000000000 +0200
-@@ -911,6 +911,8 @@ static irqreturn_t b44_interrupt(int irq
- 	spin_lock(&bp->lock);
- 
- 	istat = br32(bp, B44_ISTAT);
-+	if (istat == 0xFFFFFFFF)
-+		goto out; /* Shared IRQ not for us */
- 	imask = br32(bp, B44_IMASK);
- 
- 	/* The interrupt mask register controls which interrupt bits
-@@ -942,6 +944,7 @@ irq_ack:
- 		bw32(bp, B44_ISTAT, istat);
- 		br32(bp, B44_ISTAT);
- 	}
-+out:
- 	spin_unlock(&bp->lock);
- 	return IRQ_RETVAL(handled);
- }
+If it is, then is jgarzik the right person to send this patch
+to, or is there somewhere else to submit?
 
+[1] http://lwn.net/Articles/234308/
 
 -- 
-Greetings Michael.
+Ben
