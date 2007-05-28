@@ -1,34 +1,45 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: r8169 in 2.6.18 silently corrupting data, 2.6.22-rc3 link not detected at all
-Date: Mon, 28 May 2007 23:34:25 +0200
-Message-ID: <20070528213425.GB4494@electric-eye.fr.zoreil.com>
-References: <76366b180705281110j472671a1h6ff5ed5fa711c45e@mail.gmail.com> <20070528195422.GA4927@electric-eye.fr.zoreil.com> <76366b180705281406j69d08bbeu77ff18991f161df8@mail.gmail.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [SKY2]: Fix VLAN unregistration
+Date: Mon, 28 May 2007 14:42:36 -0700
+Message-ID: <465B4CCC.7020002@candelatech.com>
+References: <4659D174.70301@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Andrew Paprocki <andrew@ishiboo.com>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@osdl.org>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:58708 "EHLO
-	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761533AbXE1Vfx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 May 2007 17:35:53 -0400
-Content-Disposition: inline
-In-Reply-To: <76366b180705281406j69d08bbeu77ff18991f161df8@mail.gmail.com>
+Received: from ns2.lanforge.com ([66.165.47.211]:35902 "EHLO ns2.lanforge.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750963AbXE1Vmm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 May 2007 17:42:42 -0400
+In-Reply-To: <4659D174.70301@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrew Paprocki <andrew@ishiboo.com> :
-[...]
-> The align errors in ethtool show up even in the "working" 2.6.18.
-> Could this be related to the fact that other hosts on this gigabit
-> network run with a 9000 MTU ? I saw that this chipset has a hardware
-> limitation and the drivers caps off at 7200..
+Patrick McHardy wrote:
+> Fix sky2 disabling VLAN completely when the first vid is unregistered.
+>
+> For some reason the VLAN code insists on the driver providing a
+> vlan_rx_kill_vid function even if only NETIF_F_HW_VLAN_RX and not
+> NETIF_F_HW_VLAN_FILTER is set, so this patch keeps an empty
+> function. This seems to be a bug though, vlan_rx_add_vid is only
+> required with NETIF_F_HW_VLAN_FILTER. Ben?
+>   
+I believe DaveM did most of the vlan hw-accel work.  It would be easy 
+enough to check
+for a null function before calling the vlan_rx_kill_vid function and 
+relax the checks
+based on the flags, but there may be valid reasons to keep this as is.  
+Perhaps
+DaveM will comment...
 
-Assuming you use a real level 2 ethernet switch, the MTU MUST be the same
-for each device in the LAN: cap everybody at 7200 bytes.
-
-I raised the issue with an engineer from Realtek once and he did
-not seem to worry too much.
+Thanks,
+Ben
 
 -- 
-Ueimor
+Ben Greear <greearb@candelatech.com> 
+Candela Technologies Inc  http://www.candelatech.com
+
+
