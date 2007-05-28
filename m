@@ -1,75 +1,101 @@
-From: tsbogend@alpha.franken.de (Thomas Bogendoerfer)
-Subject: Re: [PCNET32] Lock solid with netconsole
-Date: Mon, 28 May 2007 22:51:44 +0200
-Message-ID: <20070528205144.GB26309@alpha.franken.de>
-References: <JIRC73$62E39331D73FCF49870995034400C560@laposte.net> <20070528183148.GA10009@csclub.uwaterloo.ca>
+From: Maximilian Engelhardt <maxi@daemonizer.de>
+Subject: Re: b44: regression in 2.6.22 (resend)
+Date: Mon, 28 May 2007 22:55:46 +0200
+Message-ID: <200705282255.56490.maxi@daemonizer.de>
+References: <20070525172431.60affaca@freepuppy> <200705281944.05030.maxi@daemonizer.de> <1180380230.3657.3.camel@chaos>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Emmanuel Fust? <emmanuel.fuste@laposte.net>,
-	romieu <romieu@fr.zoreil.com>, pcnet32 <pcnet32@verizon.net>,
-	netdev <netdev@vger.kernel.org>
-To: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
+Content-Type: multipart/signed;
+  boundary="nextPart1755595.g61BcoufYt";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: Michael Buesch <mb@bu3sch.de>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	Jeff Garzik <jgarzik@pobox.com>,
+	Gary Zambrano <zambrano@broadcom.com>, netdev@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Thomas Gleixner <tglx@linutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elvis.franken.de ([193.175.24.41]:40990 "EHLO elvis.franken.de"
+Received: from daemonizer.de ([87.230.16.230]:39808 "EHLO daemonizer.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752206AbXE1Uws (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 May 2007 16:52:48 -0400
-Content-Disposition: inline
-In-Reply-To: <20070528183148.GA10009@csclub.uwaterloo.ca>
+	id S1751490AbXE1U4o (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 May 2007 16:56:44 -0400
+In-Reply-To: <1180380230.3657.3.camel@chaos>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, May 28, 2007 at 02:31:48PM -0400, Lennart Sorensen wrote:
-> On Mon, May 28, 2007 at 05:25:51PM +0200, Emmanuel Fust? wrote:
-> > > Any difference if you disable the debug messages in the pcnet32
-> > > driver and you apply the patch below ?
-> > > 
-> > > diff --git a/drivers/net/pcnet32.c b/drivers/net/pcnet32.c
-> > > index 9c171a7..be4513f 100644
-> > > --- a/drivers/net/pcnet32.c
-> > > +++ b/drivers/net/pcnet32.c
-> > > @@ -2556,11 +2556,12 @@ pcnet32_interrupt(int irq, void *dev_id)
-> > >  	unsigned long ioaddr;
-> > >  	u16 csr0;
-> > >  	int boguscnt = max_interrupt_work;
-> > > +	unsigned long flags;
-> > >  
-> > >  	ioaddr = dev->base_addr;
-> > >  	lp = netdev_priv(dev);
-> > >  
-> > > -	spin_lock(&lp->lock);
-> > > +	spin_lock_irqsave(&lp->lock, flags);
-> > >  
-> > >  	csr0 = lp->a.read_csr(ioaddr, CSR0);
-> > >  	while ((csr0 & 0x8f00) && --boguscnt >= 0) {
-> > > @@ -2632,7 +2633,7 @@ pcnet32_interrupt(int irq, void *dev_id)
-> > >  		printk(KERN_DEBUG "%s: exiting interrupt, csr0=%#4.4x.\n",
-> > >  		       dev->name, lp->a.read_csr(ioaddr, CSR0));
-> > >  
-> > > -	spin_unlock(&lp->lock);
-> > > +	spin_unlock_irqrestore(&lp->lock, flags);
-> > >  
-> > >  	return IRQ_HANDLED;
-> > >  }
-> > > 
-> > Hi,
-> > Tested under very high console activity and it no longer freeze.
-> 
-> Hmm, I have been seeing lockups too and asked about doing something
-> almost exactly the same as this recently, but was told that it shouldn't
-> need irqs disabled at this point.  Well if it makes netconsole more
+--nextPart1755595.g61BcoufYt
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-for normal interrupt delivery it doesn't matter, because there shouldn't
-be any more interrupts coming in at that point. But netconsole uses
-pcnet32_interrupt for polling the chip. So if during service of a
-a real interrupt a polled pcnet32_interrupt call is done, the machine
-will deadlock.
+On Monday 28 May 2007, Thomas Gleixner wrote:
+> On Mon, 2007-05-28 at 19:44 +0200, Maximilian Engelhardt wrote:
+> > > Can you please keep CONFIG_HIGH_RES_TIMERS and CONFIG_NOHZ and try the
+> > > following combinations on the kernel command line:
+> > >
+> > > 1) highres=3Doff nohz=3Doff (should be the same as your working confi=
+g)
+> > > 2) highres=3Doff
+> > > 3) nohz=3Doff
+> >
+> > I tested this with my 2.6.22-rc3 kernel, here are the results:
+> >
+> > without any special boot parameters: problem does appear
+> > highres=3Doff nohz=3Doff: problem does not appear
+> > highres=3Doff: problem does not appear
+> > nohz=3Doff: problem does appear
+>
+> Is there any other strange behavior of the high res enabled kernel than
+> the b44 problem ?
 
-Using spin_lock_irqsave() is probably the only race free solution,
-when using NET_POLL.
+I didn't notice anything.
 
-Thomas.
+>
+> > I additionally built my 2.6.22-rc2-mm1 kernel without High Resolution
+> > Timer, but the high ping problem is still there.
+>
+> Hmm, that's mysterious. Wild guess is that highres exposes the hidden
+> "feature" in a different way than rc2-mm1 does.
 
--- 
-Crap can work. Given enough thrust pigs will fly, but it's not necessary a
-good idea.                                                [ RFC1925, 2.3 ]
+I think the bug in 2.6.21/22-rc3 is a different one that the one in=20
+2.6.22-rc2-mm1, but that's also only a wild guess :)
+
+I'll explain this a bit:
+In 2.6.21/22-rc3 is the same b44 driver that has been in the stock kernels =
+for=20
+some time. With this driver and High Resolution Timer turned on I get=20
+problems using iperf. The problems are that the systems becomes really slow=
+=20
+and unresponsive.  Michael Buesch thought this could be an IRQ storm which=
+=20
+sounds logical to me. This bug did never happen to me before I startet the=
+=20
+iperf test.
+
+The other issue happens only with 2.6.22-rc2-mm1 which includes the b44 ssb=
+=20
+spilt. It's independed wether High Resolution Timer is turned on or off I=20
+always get very varying and high ping times. The iperf-test doesn't show th=
+e=20
+problems from 2.6.21/22-rc3.
+
+Maxi
+
+--nextPart1755595.g61BcoufYt
+Content-Type: application/pgp-signature; name=signature.asc 
+Content-Description: This is a digitally signed message part.
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.6 (GNU/Linux)
+
+iD8DBQBGW0HcOimwv528XGERAjPfAJ9EUNLUXjxAFnid3vcXhWQj8dTVnQCeJIQ9
+uISFyuLmxhfgJnmcR71RtAI=
+=exhi
+-----END PGP SIGNATURE-----
+
+--nextPart1755595.g61BcoufYt--
