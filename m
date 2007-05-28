@@ -1,347 +1,64 @@
-From: "Sebastien Estienne" <sebastien.estienne@gmail.com>
-Subject: Re: [ipvs] BUG: soft lockup detected on CPU#3!
-Date: Mon, 28 May 2007 16:20:32 +0200
-Message-ID: <446f47c20705280720t3719a484iccbe6ae52f9d0aff@mail.gmail.com>
-References: <446f47c20705221019j34de745fj9aad8633a6edfd54@mail.gmail.com>
-	 <20070525084645.GA14817@verge.net.au>
-	 <446f47c20705250230n6d43b6eu4b163a170fdc6007@mail.gmail.com>
-	 <20070526022239.GD4169@verge.net.au>
-	 <20070528093645.GA30207@verge.net.au>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: b44: regression in 2.6.22 (resend)
+Date: Mon, 28 May 2007 16:55:14 +0200
+Message-ID: <200705281655.15105.mb@bu3sch.de>
+References: <20070525172431.60affaca@freepuppy> <200705281249.56106.mb@bu3sch.de> <200705281612.15649.maxi@daemonizer.de>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----=_Part_186262_14809863.1180362032332"
-Cc: wensong@linux-vs.org, ja@ssi.bg, nedev <netdev@vger.kernel.org>
-To: Horms <horms@verge.net.au>
+Content-Type: text/plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: "linux-kernel" <linux-kernel@vger.kernel.org>,
+	"linux-wireless" <linux-wireless@vger.kernel.org>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Maximilian Engelhardt <maxi@daemonizer.de>,
+	Gary Zambrano <zambrano@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.245]:39461 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752962AbXE1OUf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 May 2007 10:20:35 -0400
-Received: by an-out-0708.google.com with SMTP id d31so407648and
-        for <netdev@vger.kernel.org>; Mon, 28 May 2007 07:20:33 -0700 (PDT)
-In-Reply-To: <20070528093645.GA30207@verge.net.au>
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:35987
+	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751519AbXE1O4N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 May 2007 10:56:13 -0400
+In-Reply-To: <200705281612.15649.maxi@daemonizer.de>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-------=_Part_186262_14809863.1180362032332
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-On 5/28/07, Horms <horms@verge.net.au> wrote:
-> On Sat, May 26, 2007 at 11:22:40AM +0900, Horms wrote:
-> > On Fri, May 25, 2007 at 09:30:52AM +0000, Sebastien Estienne wrote:
-> > >
-> > > I didn't try 2.6.21 yet, but using ubuntu dapper kernel (2.6.15) i
-> > > can't reproduce the bug.
-> > > When i was using feisty kernel (2.6.20), i can reproduce in less than 5
-> > > minutes.
-> > >
-> > > I'm using lvs to loadbalance some mysql servers, i wrote a deamon that
-> > > check the synchro of the mysql replication on each slave and adjust
-> > > the wieght on the lvs every 500ms
+On Monday 28 May 2007 16:12:12 Maximilian Engelhardt wrote:
+> On Monday 28 May 2007, Michael Buesch wrote:
+> > Can you also test the following patch?
+> > I think there's a bug in b44 that is doesn't properly discard
+> > shared IRQs, so it might possibly generate a NAPI storm, dunno.
+> > Worth a try.
 > >
-> > It does look a lot like there is some sort of locking problem in there.
-> > Would it be possible to send your kernel config, as the locking
-> > deatails to change a little with different configs.
->
+> > Index: linux-2.6.22-rc3/drivers/net/b44.c
+> > ===================================================================
+> > --- linux-2.6.22-rc3.orig/drivers/net/b44.c	2007-05-27 23:01:44.000000000
+> > +0200 +++ linux-2.6.22-rc3/drivers/net/b44.c	2007-05-28 12:48:27.000000000
+> > +0200 @@ -911,6 +911,8 @@ static irqreturn_t b44_interrupt(int irq
+> >  	spin_lock(&bp->lock);
+> >
+> >  	istat = br32(bp, B44_ISTAT);
+> > +	if (istat == 0xFFFFFFFF)
+> > +		goto out; /* Shared IRQ not for us */
+> >  	imask = br32(bp, B44_IMASK);
+> >
+> >  	/* The interrupt mask register controls which interrupt bits
+> > @@ -942,6 +944,7 @@ irq_ack:
+> >  		bw32(bp, B44_ISTAT, istat);
+> >  		br32(bp, B44_ISTAT);
+> >  	}
+> > +out:
+> >  	spin_unlock(&bp->lock);
+> >  	return IRQ_RETVAL(handled);
+> >  }
+> 
+> I did try this patch on a affected kernel, but I didn't notice any big 
+> difference. Perhaps the kernel is a bit less slow during the test, but It's 
+> hard to tell.
 
-About the kernel .config, i'm using the vanilla kernel "-server" from
-ubuntu feisty
-
-> If you also have some details of you ipvs configuration,
-> that might help narrow down which code-paths to investigate.
->
-
-i attached the output of ipvsadm-save
-
-i'm adjusting the weight every 500ms by generating lines like this:
--e -t 10.33.1.231:3306 -r 10.33.1.1 -w 100
-
-and piping all the needed changes in ipvadm -R
-
-it can represent something like 20 to 40 updates in one time.
-
-i also noticed that sometimes when i execute "ipvsadm" the display get
-locked in the middle for a second and then finish.
-
-> I spent some time this afternoon looking into this probem,
-> and what I think is happening is:
->
->   1. Due to your weight-update operations, one processor
->      is sitting in ip_vs_edit_dest() called by do_ip_vs_set_ctl(),
->      holding write_lock_bh(&__ip_vs_svc_lock) and waiting
->      for svc->usecnt to go down to 1.
->
->   2. Another process is trying to grab
->      read_lock(&__ip_vs_svc_lock) in ip_vs_service_get(),
->      called from tcp_conn_schedule() and in turn ip_vs_in().
->
->   I guess that for some reason svc->usecnt isn't going down to 0.
->   Though I haven't been able to isolate anything particularly
->   interesting.
->
-> That said, the locking isn't that simple, IMHO, so there seems
-> to be quite a lot of scope for errors.
->
->
-> Some things that are of minor insterst are:
->
-> I.
-> ip_vs_edit_dest() loops with the following construct:
->
->   while (atomic_read(&svc->usecnt) > 1) {};
->
-> whereas similar code in the same file uses
->
->   IP_VS_WAIT_WHILE(atomic_read(&svc->usecnt) > 1);
->
-> which expands to
->
->   while (atomic_read(&svc->usecnt) > 1) { cpu_relax(); }
->
-> But I dount this is a problem, except for burning the cpu a bit harder
-> than it needs to.
->
-> II.
->
-> ip_vs_set_ctl() does seem to leak svc->usecnt in one corner case,
-> but I doubt that is what you are seeing - if it was your ipvsadm
-> command(s) would hang. The problem is a bit wordy to describe,
-> but this fix should illustrate the problem.
->
-> --- linux-2.6.orig/net/ipv4/ipvs/ip_vs_ctl.c
-> +++ linux-2.6/net/ipv4/ipvs/ip_vs_ctl.c
-> @@ -2000,7 +2000,7 @@ do_ip_vs_set_ctl(struct sock *sk, int cm
->         if (cmd != IP_VS_SO_SET_ADD
->             && (svc == NULL || svc->protocol != usvc->protocol)) {
->                 ret = -ESRCH;
-> -               goto out_unlock;
-> +               goto out_svc;
->         }
->
->         switch (cmd) {
-> @@ -2034,9 +2034,9 @@ do_ip_vs_set_ctl(struct sock *sk, int cm
->                 ret = -EINVAL;
->         }
->
-> +  out_svc:
->         if (svc)
->                 ip_vs_service_put(svc);
-> -
->    out_unlock:
->         mutex_unlock(&__ip_vs_mutex);
->    out_dec:
->
-> III.
->
-> Perhaps if you are calling ipvsadm a lot then there is a remote
-> possibility that write_lock_bh() could starve read_lock(). This
-> seems ludicrous, but I'm just mentioning it as it crossed my mind.
->
-> --
-> Horms
->   H: http://www.vergenet.net/~horms/
->   W: http://www.valinux.co.jp/en/
->
->
-
+Ok, but anyway. I think this is a bug and needs to be fixed this way. Gary?
 
 -- 
-Sebastien Estienne
-
-------=_Part_186262_14809863.1180362032332
-Content-Type: text/plain; name=ipvsadm-save.txt; charset=ANSI_X3.4-1968
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_f290xdv4
-Content-Disposition: attachment; filename="ipvsadm-save.txt"
-
-LUEgLXQgMTAuMzMuMS4yMzE6MzMwNiAtcyB3bGMNCi1hIC10IDEwLjMzLjEuMjMxOjMzMDYgLXIg
-MTAuMzMuMS41OTozMzA2IC1nIC13IDANCi1hIC10IDEwLjMzLjEuMjMxOjMzMDYgLXIgMTAuMzMu
-MS41ODozMzA2IC1nIC13IDANCi1hIC10IDEwLjMzLjEuMjMxOjMzMDYgLXIgMTAuMzMuMS41Nzoz
-MzA2IC1nIC13IDEwMA0KLWEgLXQgMTAuMzMuMS4yMzE6MzMwNiAtciAxMC4zMy4xLjU2OjMzMDYg
-LWcgLXcgMA0KLWEgLXQgMTAuMzMuMS4yMzE6MzMwNiAtciAxMC4zMy4xLjU1OjMzMDYgLWcgLXcg
-MA0KLWEgLXQgMTAuMzMuMS4yMzE6MzMwNiAtciAxMC4zMy4xLjU0OjMzMDYgLWcgLXcgMA0KLWEg
-LXQgMTAuMzMuMS4yMzE6MzMwNiAtciAxMC4zMy4xLjUzOjMzMDYgLWcgLXcgMA0KLWEgLXQgMTAu
-MzMuMS4yMzE6MzMwNiAtciAxMC4zMy4xLjUyOjMzMDYgLWcgLXcgMA0KLWEgLXQgMTAuMzMuMS4y
-MzE6MzMwNiAtciAxMC4zMy4xLjUxOjMzMDYgLWcgLXcgMA0KLWEgLXQgMTAuMzMuMS4yMzE6MzMw
-NiAtciAxMC4zMy4xLjUwOjMzMDYgLWcgLXcgMA0KLWEgLXQgMTAuMzMuMS4yMzE6MzMwNiAtciAx
-MC4zMy4xLjQ5OjMzMDYgLWcgLXcgMA0KLWEgLXQgMTAuMzMuMS4yMzE6MzMwNiAtciAxMC4zMy4x
-LjQ4OjMzMDYgLWcgLXcgMA0KLWEgLXQgMTAuMzMuMS4yMzE6MzMwNiAtciAxMC4zMy4xLjQ3OjMz
-MDYgLWcgLXcgMA0KLWEgLXQgMTAuMzMuMS4yMzE6MzMwNiAtciAxMC4zMy4xLjQ2OjMzMDYgLWcg
-LXcgMA0KLWEgLXQgMTAuMzMuMS4yMzE6MzMwNiAtciAxMC4zMy4xLjQ1OjMzMDYgLWcgLXcgMA0K
-LWEgLXQgMTAuMzMuMS4yMzE6MzMwNiAtciAxMC4zMy4xLjQ0OjMzMDYgLWcgLXcgMA0KLWEgLXQg
-MTAuMzMuMS4yMzE6MzMwNiAtciAxMC4zMy4xLjQzOjMzMDYgLWcgLXcgMA0KLWEgLXQgMTAuMzMu
-MS4yMzE6MzMwNiAtciAxMC4zMy4xLjQyOjMzMDYgLWcgLXcgMA0KLWEgLXQgMTAuMzMuMS4yMzE6
-MzMwNiAtciAxMC4zMy4xLjQxOjMzMDYgLWcgLXcgMA0KLWEgLXQgMTAuMzMuMS4yMzE6MzMwNiAt
-ciAxMC4zMy4xLjQwOjMzMDYgLWcgLXcgMA0KLWEgLXQgMTAuMzMuMS4yMzE6MzMwNiAtciAxMC4z
-My4xLjM5OjMzMDYgLWcgLXcgMA0KLWEgLXQgMTAuMzMuMS4yMzE6MzMwNiAtciAxMC4zMy4xLjM4
-OjMzMDYgLWcgLXcgMA0KLWEgLXQgMTAuMzMuMS4yMzE6MzMwNiAtciAxMC4zMy4xLjM3OjMzMDYg
-LWcgLXcgMA0KLWEgLXQgMTAuMzMuMS4yMzE6MzMwNiAtciAxMC4zMy4xLjM2OjMzMDYgLWcgLXcg
-MA0KLWEgLXQgMTAuMzMuMS4yMzE6MzMwNiAtciAxMC4zMy4xLjM0OjMzMDYgLWcgLXcgMA0KLWEg
-LXQgMTAuMzMuMS4yMzE6MzMwNiAtciAxMC4zMy4xLjMzOjMzMDYgLWcgLXcgMA0KLWEgLXQgMTAu
-MzMuMS4yMzE6MzMwNiAtciAxMC4zMy4xLjMyOjMzMDYgLWcgLXcgMA0KLWEgLXQgMTAuMzMuMS4y
-MzE6MzMwNiAtciAxMC4zMy4xLjMxOjMzMDYgLWcgLXcgMA0KLWEgLXQgMTAuMzMuMS4yMzE6MzMw
-NiAtciAxMC4zMy4xLjMwOjMzMDYgLWcgLXcgMA0KLWEgLXQgMTAuMzMuMS4yMzE6MzMwNiAtciAx
-MC4zMy4xLjI5OjMzMDYgLWcgLXcgMA0KLWEgLXQgMTAuMzMuMS4yMzE6MzMwNiAtciAxMC4zMy4x
-LjI4OjMzMDYgLWcgLXcgMA0KLWEgLXQgMTAuMzMuMS4yMzE6MzMwNiAtciAxMC4zMy4xLjI3OjMz
-MDYgLWcgLXcgMA0KLWEgLXQgMTAuMzMuMS4yMzE6MzMwNiAtciAxMC4zMy4xLjI2OjMzMDYgLWcg
-LXcgMA0KLWEgLXQgMTAuMzMuMS4yMzE6MzMwNiAtciAxMC4zMy4xLjI1OjMzMDYgLWcgLXcgMA0K
-LWEgLXQgMTAuMzMuMS4yMzE6MzMwNiAtciAxMC4zMy4xLjI0OjMzMDYgLWcgLXcgMA0KLWEgLXQg
-MTAuMzMuMS4yMzE6MzMwNiAtciAxMC4zMy4xLjIzOjMzMDYgLWcgLXcgMA0KLWEgLXQgMTAuMzMu
-MS4yMzE6MzMwNiAtciAxMC4zMy4xLjIyOjMzMDYgLWcgLXcgMA0KLWEgLXQgMTAuMzMuMS4yMzE6
-MzMwNiAtciAxMC4zMy4xLjIxOjMzMDYgLWcgLXcgMA0KLWEgLXQgMTAuMzMuMS4yMzE6MzMwNiAt
-ciAxMC4zMy4xLjIwOjMzMDYgLWcgLXcgMA0KLWEgLXQgMTAuMzMuMS4yMzE6MzMwNiAtciAxMC4z
-My4xLjE5OjMzMDYgLWcgLXcgMA0KLWEgLXQgMTAuMzMuMS4yMzE6MzMwNiAtciAxMC4zMy4xLjE4
-OjMzMDYgLWcgLXcgMA0KLWEgLXQgMTAuMzMuMS4yMzE6MzMwNiAtciAxMC4zMy4xLjE3OjMzMDYg
-LWcgLXcgMA0KLWEgLXQgMTAuMzMuMS4yMzE6MzMwNiAtciAxMC4zMy4xLjE2OjMzMDYgLWcgLXcg
-MA0KLWEgLXQgMTAuMzMuMS4yMzE6MzMwNiAtciAxMC4zMy4xLjE0OjMzMDYgLWcgLXcgMA0KLWEg
-LXQgMTAuMzMuMS4yMzE6MzMwNiAtciAxMC4zMy4xLjEzOjMzMDYgLWcgLXcgMA0KLWEgLXQgMTAu
-MzMuMS4yMzE6MzMwNiAtciAxMC4zMy4xLjEyOjMzMDYgLWcgLXcgMA0KLWEgLXQgMTAuMzMuMS4y
-MzE6MzMwNiAtciAxMC4zMy4xLjk6MzMwNiAtZyAtdyAwDQotYSAtdCAxMC4zMy4xLjIzMTozMzA2
-IC1yIDEwLjMzLjEuNDozMzA2IC1nIC13IDANCi1hIC10IDEwLjMzLjEuMjMxOjMzMDYgLXIgMTAu
-MzMuMS4zOjMzMDYgLWcgLXcgMA0KLWEgLXQgMTAuMzMuMS4yMzE6MzMwNiAtciAxMC4zMy4xLjI6
-MzMwNiAtZyAtdyAwDQotYSAtdCAxMC4zMy4xLjIzMTozMzA2IC1yIDEwLjMzLjEuMTozMzA2IC1n
-IC13IDANCi1BIC10IDEwLjMzLjEuMjMyOjMzMDYgLXMgd2xjDQotYSAtdCAxMC4zMy4xLjIzMjoz
-MzA2IC1yIDEwLjMzLjEuNTk6MzMwNiAtZyAtdyAwDQotYSAtdCAxMC4zMy4xLjIzMjozMzA2IC1y
-IDEwLjMzLjEuNTg6MzMwNiAtZyAtdyAwDQotYSAtdCAxMC4zMy4xLjIzMjozMzA2IC1yIDEwLjMz
-LjEuNTc6MzMwNiAtZyAtdyAxMDANCi1hIC10IDEwLjMzLjEuMjMyOjMzMDYgLXIgMTAuMzMuMS41
-NjozMzA2IC1nIC13IDANCi1hIC10IDEwLjMzLjEuMjMyOjMzMDYgLXIgMTAuMzMuMS41NTozMzA2
-IC1nIC13IDANCi1hIC10IDEwLjMzLjEuMjMyOjMzMDYgLXIgMTAuMzMuMS41NDozMzA2IC1nIC13
-IDANCi1hIC10IDEwLjMzLjEuMjMyOjMzMDYgLXIgMTAuMzMuMS41MzozMzA2IC1nIC13IDANCi1h
-IC10IDEwLjMzLjEuMjMyOjMzMDYgLXIgMTAuMzMuMS41MjozMzA2IC1nIC13IDANCi1hIC10IDEw
-LjMzLjEuMjMyOjMzMDYgLXIgMTAuMzMuMS41MTozMzA2IC1nIC13IDANCi1hIC10IDEwLjMzLjEu
-MjMyOjMzMDYgLXIgMTAuMzMuMS41MDozMzA2IC1nIC13IDANCi1hIC10IDEwLjMzLjEuMjMyOjMz
-MDYgLXIgMTAuMzMuMS40OTozMzA2IC1nIC13IDANCi1hIC10IDEwLjMzLjEuMjMyOjMzMDYgLXIg
-MTAuMzMuMS40ODozMzA2IC1nIC13IDANCi1hIC10IDEwLjMzLjEuMjMyOjMzMDYgLXIgMTAuMzMu
-MS40NzozMzA2IC1nIC13IDANCi1hIC10IDEwLjMzLjEuMjMyOjMzMDYgLXIgMTAuMzMuMS40Njoz
-MzA2IC1nIC13IDANCi1hIC10IDEwLjMzLjEuMjMyOjMzMDYgLXIgMTAuMzMuMS40NTozMzA2IC1n
-IC13IDANCi1hIC10IDEwLjMzLjEuMjMyOjMzMDYgLXIgMTAuMzMuMS40NDozMzA2IC1nIC13IDAN
-Ci1hIC10IDEwLjMzLjEuMjMyOjMzMDYgLXIgMTAuMzMuMS40MzozMzA2IC1nIC13IDANCi1hIC10
-IDEwLjMzLjEuMjMyOjMzMDYgLXIgMTAuMzMuMS40MjozMzA2IC1nIC13IDANCi1hIC10IDEwLjMz
-LjEuMjMyOjMzMDYgLXIgMTAuMzMuMS40MTozMzA2IC1nIC13IDANCi1hIC10IDEwLjMzLjEuMjMy
-OjMzMDYgLXIgMTAuMzMuMS40MDozMzA2IC1nIC13IDANCi1hIC10IDEwLjMzLjEuMjMyOjMzMDYg
-LXIgMTAuMzMuMS4zOTozMzA2IC1nIC13IDANCi1hIC10IDEwLjMzLjEuMjMyOjMzMDYgLXIgMTAu
-MzMuMS4zODozMzA2IC1nIC13IDANCi1hIC10IDEwLjMzLjEuMjMyOjMzMDYgLXIgMTAuMzMuMS4z
-NzozMzA2IC1nIC13IDANCi1hIC10IDEwLjMzLjEuMjMyOjMzMDYgLXIgMTAuMzMuMS4zNjozMzA2
-IC1nIC13IDANCi1hIC10IDEwLjMzLjEuMjMyOjMzMDYgLXIgMTAuMzMuMS4zNDozMzA2IC1nIC13
-IDANCi1hIC10IDEwLjMzLjEuMjMyOjMzMDYgLXIgMTAuMzMuMS4zMzozMzA2IC1nIC13IDANCi1h
-IC10IDEwLjMzLjEuMjMyOjMzMDYgLXIgMTAuMzMuMS4zMjozMzA2IC1nIC13IDANCi1hIC10IDEw
-LjMzLjEuMjMyOjMzMDYgLXIgMTAuMzMuMS4zMTozMzA2IC1nIC13IDANCi1hIC10IDEwLjMzLjEu
-MjMyOjMzMDYgLXIgMTAuMzMuMS4zMDozMzA2IC1nIC13IDANCi1hIC10IDEwLjMzLjEuMjMyOjMz
-MDYgLXIgMTAuMzMuMS4yOTozMzA2IC1nIC13IDANCi1hIC10IDEwLjMzLjEuMjMyOjMzMDYgLXIg
-MTAuMzMuMS4yODozMzA2IC1nIC13IDANCi1hIC10IDEwLjMzLjEuMjMyOjMzMDYgLXIgMTAuMzMu
-MS4yNzozMzA2IC1nIC13IDANCi1hIC10IDEwLjMzLjEuMjMyOjMzMDYgLXIgMTAuMzMuMS4yNjoz
-MzA2IC1nIC13IDANCi1hIC10IDEwLjMzLjEuMjMyOjMzMDYgLXIgMTAuMzMuMS4yNTozMzA2IC1n
-IC13IDANCi1hIC10IDEwLjMzLjEuMjMyOjMzMDYgLXIgMTAuMzMuMS4yNDozMzA2IC1nIC13IDAN
-Ci1hIC10IDEwLjMzLjEuMjMyOjMzMDYgLXIgMTAuMzMuMS4yMzozMzA2IC1nIC13IDANCi1hIC10
-IDEwLjMzLjEuMjMyOjMzMDYgLXIgMTAuMzMuMS4yMjozMzA2IC1nIC13IDANCi1hIC10IDEwLjMz
-LjEuMjMyOjMzMDYgLXIgMTAuMzMuMS4yMTozMzA2IC1nIC13IDANCi1hIC10IDEwLjMzLjEuMjMy
-OjMzMDYgLXIgMTAuMzMuMS4yMDozMzA2IC1nIC13IDANCi1hIC10IDEwLjMzLjEuMjMyOjMzMDYg
-LXIgMTAuMzMuMS4xOTozMzA2IC1nIC13IDANCi1hIC10IDEwLjMzLjEuMjMyOjMzMDYgLXIgMTAu
-MzMuMS4xODozMzA2IC1nIC13IDANCi1hIC10IDEwLjMzLjEuMjMyOjMzMDYgLXIgMTAuMzMuMS4x
-NzozMzA2IC1nIC13IDANCi1hIC10IDEwLjMzLjEuMjMyOjMzMDYgLXIgMTAuMzMuMS4xNjozMzA2
-IC1nIC13IDANCi1hIC10IDEwLjMzLjEuMjMyOjMzMDYgLXIgMTAuMzMuMS4xNDozMzA2IC1nIC13
-IDANCi1hIC10IDEwLjMzLjEuMjMyOjMzMDYgLXIgMTAuMzMuMS4xMzozMzA2IC1nIC13IDANCi1h
-IC10IDEwLjMzLjEuMjMyOjMzMDYgLXIgMTAuMzMuMS4xMjozMzA2IC1nIC13IDANCi1hIC10IDEw
-LjMzLjEuMjMyOjMzMDYgLXIgMTAuMzMuMS45OjMzMDYgLWcgLXcgMA0KLWEgLXQgMTAuMzMuMS4y
-MzI6MzMwNiAtciAxMC4zMy4xLjQ6MzMwNiAtZyAtdyAwDQotYSAtdCAxMC4zMy4xLjIzMjozMzA2
-IC1yIDEwLjMzLjEuMzozMzA2IC1nIC13IDANCi1hIC10IDEwLjMzLjEuMjMyOjMzMDYgLXIgMTAu
-MzMuMS4yOjMzMDYgLWcgLXcgMA0KLWEgLXQgMTAuMzMuMS4yMzI6MzMwNiAtciAxMC4zMy4xLjE6
-MzMwNiAtZyAtdyAwDQotQSAtdCAxMC4zMy4xLjIyMTozMzA2IC1zIHdsYw0KLWEgLXQgMTAuMzMu
-MS4yMjE6MzMwNiAtciAxMC4zMy4xLjU5OjMzMDYgLWcgLXcgMTAwDQotYSAtdCAxMC4zMy4xLjIy
-MTozMzA2IC1yIDEwLjMzLjEuNTg6MzMwNiAtZyAtdyAxMDANCi1hIC10IDEwLjMzLjEuMjIxOjMz
-MDYgLXIgMTAuMzMuMS41NzozMzA2IC1nIC13IDEwMA0KLWEgLXQgMTAuMzMuMS4yMjE6MzMwNiAt
-ciAxMC4zMy4xLjU2OjMzMDYgLWcgLXcgMTAwDQotYSAtdCAxMC4zMy4xLjIyMTozMzA2IC1yIDEw
-LjMzLjEuNTU6MzMwNiAtZyAtdyAxMDANCi1hIC10IDEwLjMzLjEuMjIxOjMzMDYgLXIgMTAuMzMu
-MS41NDozMzA2IC1nIC13IDEwMA0KLWEgLXQgMTAuMzMuMS4yMjE6MzMwNiAtciAxMC4zMy4xLjUz
-OjMzMDYgLWcgLXcgMTAwDQotYSAtdCAxMC4zMy4xLjIyMTozMzA2IC1yIDEwLjMzLjEuNTI6MzMw
-NiAtZyAtdyAxMDANCi1hIC10IDEwLjMzLjEuMjIxOjMzMDYgLXIgMTAuMzMuMS41MTozMzA2IC1n
-IC13IDEwMA0KLWEgLXQgMTAuMzMuMS4yMjE6MzMwNiAtciAxMC4zMy4xLjUwOjMzMDYgLWcgLXcg
-MTAwDQotYSAtdCAxMC4zMy4xLjIyMTozMzA2IC1yIDEwLjMzLjEuNDk6MzMwNiAtZyAtdyAxMDAN
-Ci1hIC10IDEwLjMzLjEuMjIxOjMzMDYgLXIgMTAuMzMuMS40ODozMzA2IC1nIC13IDEwMA0KLWEg
-LXQgMTAuMzMuMS4yMjE6MzMwNiAtciAxMC4zMy4xLjQ3OjMzMDYgLWcgLXcgMTAwDQotYSAtdCAx
-MC4zMy4xLjIyMTozMzA2IC1yIDEwLjMzLjEuNDY6MzMwNiAtZyAtdyAxMDANCi1hIC10IDEwLjMz
-LjEuMjIxOjMzMDYgLXIgMTAuMzMuMS40NTozMzA2IC1nIC13IDEwMA0KLWEgLXQgMTAuMzMuMS4y
-MjE6MzMwNiAtciAxMC4zMy4xLjQ0OjMzMDYgLWcgLXcgMTAwDQotYSAtdCAxMC4zMy4xLjIyMToz
-MzA2IC1yIDEwLjMzLjEuNDM6MzMwNiAtZyAtdyAxMDANCi1hIC10IDEwLjMzLjEuMjIxOjMzMDYg
-LXIgMTAuMzMuMS40MjozMzA2IC1nIC13IDEwMA0KLWEgLXQgMTAuMzMuMS4yMjE6MzMwNiAtciAx
-MC4zMy4xLjQxOjMzMDYgLWcgLXcgMTAwDQotYSAtdCAxMC4zMy4xLjIyMTozMzA2IC1yIDEwLjMz
-LjEuNDA6MzMwNiAtZyAtdyAxMDANCi1hIC10IDEwLjMzLjEuMjIxOjMzMDYgLXIgMTAuMzMuMS4z
-OTozMzA2IC1nIC13IDEwMA0KLWEgLXQgMTAuMzMuMS4yMjE6MzMwNiAtciAxMC4zMy4xLjM4OjMz
-MDYgLWcgLXcgMTAwDQotYSAtdCAxMC4zMy4xLjIyMTozMzA2IC1yIDEwLjMzLjEuMzc6MzMwNiAt
-ZyAtdyAwDQotYSAtdCAxMC4zMy4xLjIyMTozMzA2IC1yIDEwLjMzLjEuMzY6MzMwNiAtZyAtdyAx
-MDANCi1hIC10IDEwLjMzLjEuMjIxOjMzMDYgLXIgMTAuMzMuMS4zNDozMzA2IC1nIC13IDEwMA0K
-LWEgLXQgMTAuMzMuMS4yMjE6MzMwNiAtciAxMC4zMy4xLjMzOjMzMDYgLWcgLXcgMTAwDQotYSAt
-dCAxMC4zMy4xLjIyMTozMzA2IC1yIDEwLjMzLjEuMzI6MzMwNiAtZyAtdyAxMDANCi1hIC10IDEw
-LjMzLjEuMjIxOjMzMDYgLXIgMTAuMzMuMS4zMTozMzA2IC1nIC13IDEwMA0KLWEgLXQgMTAuMzMu
-MS4yMjE6MzMwNiAtciAxMC4zMy4xLjMwOjMzMDYgLWcgLXcgMTAwDQotYSAtdCAxMC4zMy4xLjIy
-MTozMzA2IC1yIDEwLjMzLjEuMjk6MzMwNiAtZyAtdyAxMDANCi1hIC10IDEwLjMzLjEuMjIxOjMz
-MDYgLXIgMTAuMzMuMS4yODozMzA2IC1nIC13IDEwMA0KLWEgLXQgMTAuMzMuMS4yMjE6MzMwNiAt
-ciAxMC4zMy4xLjI3OjMzMDYgLWcgLXcgMTAwDQotYSAtdCAxMC4zMy4xLjIyMTozMzA2IC1yIDEw
-LjMzLjEuMjY6MzMwNiAtZyAtdyAxMDANCi1hIC10IDEwLjMzLjEuMjIxOjMzMDYgLXIgMTAuMzMu
-MS4yNTozMzA2IC1nIC13IDEwMA0KLWEgLXQgMTAuMzMuMS4yMjE6MzMwNiAtciAxMC4zMy4xLjI0
-OjMzMDYgLWcgLXcgMTAwDQotYSAtdCAxMC4zMy4xLjIyMTozMzA2IC1yIDEwLjMzLjEuMjM6MzMw
-NiAtZyAtdyAxMDANCi1hIC10IDEwLjMzLjEuMjIxOjMzMDYgLXIgMTAuMzMuMS4yMjozMzA2IC1n
-IC13IDEwMA0KLWEgLXQgMTAuMzMuMS4yMjE6MzMwNiAtciAxMC4zMy4xLjIxOjMzMDYgLWcgLXcg
-MTAwDQotYSAtdCAxMC4zMy4xLjIyMTozMzA2IC1yIDEwLjMzLjEuMjA6MzMwNiAtZyAtdyAxMDAN
-Ci1hIC10IDEwLjMzLjEuMjIxOjMzMDYgLXIgMTAuMzMuMS4xOTozMzA2IC1nIC13IDEwMA0KLWEg
-LXQgMTAuMzMuMS4yMjE6MzMwNiAtciAxMC4zMy4xLjE4OjMzMDYgLWcgLXcgMTAwDQotYSAtdCAx
-MC4zMy4xLjIyMTozMzA2IC1yIDEwLjMzLjEuMTc6MzMwNiAtZyAtdyAxMDANCi1hIC10IDEwLjMz
-LjEuMjIxOjMzMDYgLXIgMTAuMzMuMS4xNjozMzA2IC1nIC13IDEwMA0KLWEgLXQgMTAuMzMuMS4y
-MjE6MzMwNiAtciAxMC4zMy4xLjE0OjMzMDYgLWcgLXcgMTAwDQotYSAtdCAxMC4zMy4xLjIyMToz
-MzA2IC1yIDEwLjMzLjEuMTM6MzMwNiAtZyAtdyAxMDANCi1hIC10IDEwLjMzLjEuMjIxOjMzMDYg
-LXIgMTAuMzMuMS4xMjozMzA2IC1nIC13IDEwMA0KLWEgLXQgMTAuMzMuMS4yMjE6MzMwNiAtciAx
-MC4zMy4xLjk6MzMwNiAtZyAtdyAxMDANCi1hIC10IDEwLjMzLjEuMjIxOjMzMDYgLXIgMTAuMzMu
-MS40OjMzMDYgLWcgLXcgMTAwDQotYSAtdCAxMC4zMy4xLjIyMTozMzA2IC1yIDEwLjMzLjEuMzoz
-MzA2IC1nIC13IDEwMA0KLWEgLXQgMTAuMzMuMS4yMjE6MzMwNiAtciAxMC4zMy4xLjI6MzMwNiAt
-ZyAtdyAxMDANCi1hIC10IDEwLjMzLjEuMjIxOjMzMDYgLXIgMTAuMzMuMS4xOjMzMDYgLWcgLXcg
-MTAwDQotQSAtdCAxMC4zMy4xLjIyMjozMzA2IC1zIHdsYw0KLWEgLXQgMTAuMzMuMS4yMjI6MzMw
-NiAtciAxMC4zMy4xLjU5OjMzMDYgLWcgLXcgMTAwDQotYSAtdCAxMC4zMy4xLjIyMjozMzA2IC1y
-IDEwLjMzLjEuNTg6MzMwNiAtZyAtdyAxMDANCi1hIC10IDEwLjMzLjEuMjIyOjMzMDYgLXIgMTAu
-MzMuMS41NzozMzA2IC1nIC13IDEwMA0KLWEgLXQgMTAuMzMuMS4yMjI6MzMwNiAtciAxMC4zMy4x
-LjU2OjMzMDYgLWcgLXcgMTAwDQotYSAtdCAxMC4zMy4xLjIyMjozMzA2IC1yIDEwLjMzLjEuNTU6
-MzMwNiAtZyAtdyAxMDANCi1hIC10IDEwLjMzLjEuMjIyOjMzMDYgLXIgMTAuMzMuMS41NDozMzA2
-IC1nIC13IDEwMA0KLWEgLXQgMTAuMzMuMS4yMjI6MzMwNiAtciAxMC4zMy4xLjUzOjMzMDYgLWcg
-LXcgMTAwDQotYSAtdCAxMC4zMy4xLjIyMjozMzA2IC1yIDEwLjMzLjEuNTI6MzMwNiAtZyAtdyAx
-MDANCi1hIC10IDEwLjMzLjEuMjIyOjMzMDYgLXIgMTAuMzMuMS41MTozMzA2IC1nIC13IDEwMA0K
-LWEgLXQgMTAuMzMuMS4yMjI6MzMwNiAtciAxMC4zMy4xLjUwOjMzMDYgLWcgLXcgMTAwDQotYSAt
-dCAxMC4zMy4xLjIyMjozMzA2IC1yIDEwLjMzLjEuNDk6MzMwNiAtZyAtdyAxMDANCi1hIC10IDEw
-LjMzLjEuMjIyOjMzMDYgLXIgMTAuMzMuMS40ODozMzA2IC1nIC13IDEwMA0KLWEgLXQgMTAuMzMu
-MS4yMjI6MzMwNiAtciAxMC4zMy4xLjQ3OjMzMDYgLWcgLXcgMTAwDQotYSAtdCAxMC4zMy4xLjIy
-MjozMzA2IC1yIDEwLjMzLjEuNDY6MzMwNiAtZyAtdyAxMDANCi1hIC10IDEwLjMzLjEuMjIyOjMz
-MDYgLXIgMTAuMzMuMS40NTozMzA2IC1nIC13IDEwMA0KLWEgLXQgMTAuMzMuMS4yMjI6MzMwNiAt
-ciAxMC4zMy4xLjQ0OjMzMDYgLWcgLXcgMTAwDQotYSAtdCAxMC4zMy4xLjIyMjozMzA2IC1yIDEw
-LjMzLjEuNDM6MzMwNiAtZyAtdyAxMDANCi1hIC10IDEwLjMzLjEuMjIyOjMzMDYgLXIgMTAuMzMu
-MS40MjozMzA2IC1nIC13IDEwMA0KLWEgLXQgMTAuMzMuMS4yMjI6MzMwNiAtciAxMC4zMy4xLjQx
-OjMzMDYgLWcgLXcgMTAwDQotYSAtdCAxMC4zMy4xLjIyMjozMzA2IC1yIDEwLjMzLjEuNDA6MzMw
-NiAtZyAtdyAxMDANCi1hIC10IDEwLjMzLjEuMjIyOjMzMDYgLXIgMTAuMzMuMS4zOTozMzA2IC1n
-IC13IDEwMA0KLWEgLXQgMTAuMzMuMS4yMjI6MzMwNiAtciAxMC4zMy4xLjM4OjMzMDYgLWcgLXcg
-MTAwDQotYSAtdCAxMC4zMy4xLjIyMjozMzA2IC1yIDEwLjMzLjEuMzc6MzMwNiAtZyAtdyAwDQot
-YSAtdCAxMC4zMy4xLjIyMjozMzA2IC1yIDEwLjMzLjEuMzY6MzMwNiAtZyAtdyAxMDANCi1hIC10
-IDEwLjMzLjEuMjIyOjMzMDYgLXIgMTAuMzMuMS4zNDozMzA2IC1nIC13IDEwMA0KLWEgLXQgMTAu
-MzMuMS4yMjI6MzMwNiAtciAxMC4zMy4xLjMzOjMzMDYgLWcgLXcgMTAwDQotYSAtdCAxMC4zMy4x
-LjIyMjozMzA2IC1yIDEwLjMzLjEuMzI6MzMwNiAtZyAtdyAxMDANCi1hIC10IDEwLjMzLjEuMjIy
-OjMzMDYgLXIgMTAuMzMuMS4zMTozMzA2IC1nIC13IDEwMA0KLWEgLXQgMTAuMzMuMS4yMjI6MzMw
-NiAtciAxMC4zMy4xLjMwOjMzMDYgLWcgLXcgMTAwDQotYSAtdCAxMC4zMy4xLjIyMjozMzA2IC1y
-IDEwLjMzLjEuMjk6MzMwNiAtZyAtdyAxMDANCi1hIC10IDEwLjMzLjEuMjIyOjMzMDYgLXIgMTAu
-MzMuMS4yODozMzA2IC1nIC13IDEwMA0KLWEgLXQgMTAuMzMuMS4yMjI6MzMwNiAtciAxMC4zMy4x
-LjI3OjMzMDYgLWcgLXcgMTAwDQotYSAtdCAxMC4zMy4xLjIyMjozMzA2IC1yIDEwLjMzLjEuMjY6
-MzMwNiAtZyAtdyAxMDANCi1hIC10IDEwLjMzLjEuMjIyOjMzMDYgLXIgMTAuMzMuMS4yNTozMzA2
-IC1nIC13IDEwMA0KLWEgLXQgMTAuMzMuMS4yMjI6MzMwNiAtciAxMC4zMy4xLjI0OjMzMDYgLWcg
-LXcgMTAwDQotYSAtdCAxMC4zMy4xLjIyMjozMzA2IC1yIDEwLjMzLjEuMjM6MzMwNiAtZyAtdyAx
-MDANCi1hIC10IDEwLjMzLjEuMjIyOjMzMDYgLXIgMTAuMzMuMS4yMjozMzA2IC1nIC13IDEwMA0K
-LWEgLXQgMTAuMzMuMS4yMjI6MzMwNiAtciAxMC4zMy4xLjIxOjMzMDYgLWcgLXcgMTAwDQotYSAt
-dCAxMC4zMy4xLjIyMjozMzA2IC1yIDEwLjMzLjEuMjA6MzMwNiAtZyAtdyAxMDANCi1hIC10IDEw
-LjMzLjEuMjIyOjMzMDYgLXIgMTAuMzMuMS4xOTozMzA2IC1nIC13IDEwMA0KLWEgLXQgMTAuMzMu
-MS4yMjI6MzMwNiAtciAxMC4zMy4xLjE4OjMzMDYgLWcgLXcgMTAwDQotYSAtdCAxMC4zMy4xLjIy
-MjozMzA2IC1yIDEwLjMzLjEuMTc6MzMwNiAtZyAtdyAxMDANCi1hIC10IDEwLjMzLjEuMjIyOjMz
-MDYgLXIgMTAuMzMuMS4xNjozMzA2IC1nIC13IDEwMA0KLWEgLXQgMTAuMzMuMS4yMjI6MzMwNiAt
-ciAxMC4zMy4xLjE0OjMzMDYgLWcgLXcgMTAwDQotYSAtdCAxMC4zMy4xLjIyMjozMzA2IC1yIDEw
-LjMzLjEuMTM6MzMwNiAtZyAtdyAxMDANCi1hIC10IDEwLjMzLjEuMjIyOjMzMDYgLXIgMTAuMzMu
-MS4xMjozMzA2IC1nIC13IDEwMA0KLWEgLXQgMTAuMzMuMS4yMjI6MzMwNiAtciAxMC4zMy4xLjk6
-MzMwNiAtZyAtdyAxMDANCi1hIC10IDEwLjMzLjEuMjIyOjMzMDYgLXIgMTAuMzMuMS40OjMzMDYg
-LWcgLXcgMTAwDQotYSAtdCAxMC4zMy4xLjIyMjozMzA2IC1yIDEwLjMzLjEuMzozMzA2IC1nIC13
-IDEwMA0KLWEgLXQgMTAuMzMuMS4yMjI6MzMwNiAtciAxMC4zMy4xLjI6MzMwNiAtZyAtdyAxMDAN
-Ci1hIC10IDEwLjMzLjEuMjIyOjMzMDYgLXIgMTAuMzMuMS4xOjMzMDYgLWcgLXcgMTAwDQo=
-------=_Part_186262_14809863.1180362032332--
+Greetings Michael.
