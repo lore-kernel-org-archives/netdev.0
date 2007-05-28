@@ -1,117 +1,60 @@
-From: Horms <horms@verge.net.au>
-Subject: Re: [ipvs] BUG: soft lockup detected on CPU#3!
-Date: Mon, 28 May 2007 18:36:47 +0900
-Message-ID: <20070528093645.GA30207@verge.net.au>
-References: <446f47c20705221019j34de745fj9aad8633a6edfd54@mail.gmail.com> <20070525084645.GA14817@verge.net.au> <446f47c20705250230n6d43b6eu4b163a170fdc6007@mail.gmail.com> <20070526022239.GD4169@verge.net.au>
+From: Jan Engelhardt <jengelh@linux01.gwdg.de>
+Subject: Re: [PATCH] merge dst_discard in & out into one, this decrements
+ the vmlinux image by 21 bytes under i386 arch.
+Date: Mon, 28 May 2007 11:50:32 +0200 (MEST)
+Message-ID: <Pine.LNX.4.61.0705281150010.11140@yvahk01.tjqt.qr>
+References: <91b13c310705271941n48e266b9vc202b862ad4fabba@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: wensong@linux-vs.org, ja@ssi.bg, nedev <netdev@vger.kernel.org>
-To: Sebastien Estienne <sebastien.estienne@gmail.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Networking Team <netdev@vger.kernel.org>,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	Adrian Bunk <trivial@kernel.org>
+To: rae l <crquan@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from koto.vergenet.net ([210.128.90.7]:38669 "EHLO koto.vergenet.net"
+Received: from mailer.gwdg.de ([134.76.10.26]:60977 "EHLO mailer.gwdg.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752769AbXE1Jgv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 May 2007 05:36:51 -0400
-Content-Disposition: inline
-In-Reply-To: <20070526022239.GD4169@verge.net.au>
+	id S1751978AbXE1JxH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 May 2007 05:53:07 -0400
+In-Reply-To: <91b13c310705271941n48e266b9vc202b862ad4fabba@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, May 26, 2007 at 11:22:40AM +0900, Horms wrote:
-> On Fri, May 25, 2007 at 09:30:52AM +0000, Sebastien Estienne wrote:
-> > 
-> > I didn't try 2.6.21 yet, but using ubuntu dapper kernel (2.6.15) i
-> > can't reproduce the bug.
-> > When i was using feisty kernel (2.6.20), i can reproduce in less than 5 
-> > minutes.
-> > 
-> > I'm using lvs to loadbalance some mysql servers, i wrote a deamon that
-> > check the synchro of the mysql replication on each slave and adjust
-> > the wieght on the lvs every 500ms
-> 
-> It does look a lot like there is some sort of locking problem in there.
-> Would it be possible to send your kernel config, as the locking
-> deatails to change a little with different configs.
 
-If you also have some details of you ipvs configuration,
-that might help narrow down which code-paths to investigate.
+On May 28 2007 10:41, rae l wrote:
+>
+> diff --git a/net/core/dst.c b/net/core/dst.c
+> index 764bccb..daa0439 100644
+> --- a/net/core/dst.c
+> +++ b/net/core/dst.c
+> @@ -111,17 +111,14 @@ out:
+>      spin_unlock(&dst_lock);
+> }
+>
+> -static int dst_discard_in(struct sk_buff *skb)
+> +static int dst_discard(struct sk_buff *skb)
+> {
+> kfree_skb(skb);
+> return 0;
+> }
+>
+> -static int dst_discard_out(struct sk_buff *skb)
+> -{
+> -       kfree_skb(skb);
+> -       return 0;
+> -}
+> +#define dst_discard_in dst_discard
+> +#define dst_discard_out        dst_discard
 
-I spent some time this afternoon looking into this probem,
-and what I think is happening is:
-
-  1. Due to your weight-update operations, one processor
-     is sitting in ip_vs_edit_dest() called by do_ip_vs_set_ctl(),
-     holding write_lock_bh(&__ip_vs_svc_lock) and waiting
-     for svc->usecnt to go down to 1.
-
-  2. Another process is trying to grab
-     read_lock(&__ip_vs_svc_lock) in ip_vs_service_get(),
-     called from tcp_conn_schedule() and in turn ip_vs_in().
-
-  I guess that for some reason svc->usecnt isn't going down to 0.
-  Though I haven't been able to isolate anything particularly
-  interesting.
-
-That said, the locking isn't that simple, IMHO, so there seems
-to be quite a lot of scope for errors.
+Uhm, just replace every invocation of dst_discard_in/_out() directly
+by dst_discard ... don't add macros for that.
 
 
-Some things that are of minor insterst are:
+>
+> void * dst_alloc(struct dst_ops * ops)
+> {
+>
+>
 
-I.
-ip_vs_edit_dest() loops with the following construct:
-
-  while (atomic_read(&svc->usecnt) > 1) {};
-
-whereas similar code in the same file uses
-
-  IP_VS_WAIT_WHILE(atomic_read(&svc->usecnt) > 1);
-
-which expands to
-
-  while (atomic_read(&svc->usecnt) > 1) { cpu_relax(); }
-
-But I dount this is a problem, except for burning the cpu a bit harder
-than it needs to.
-
-II.
-
-ip_vs_set_ctl() does seem to leak svc->usecnt in one corner case,
-but I doubt that is what you are seeing - if it was your ipvsadm
-command(s) would hang. The problem is a bit wordy to describe,
-but this fix should illustrate the problem.
-
---- linux-2.6.orig/net/ipv4/ipvs/ip_vs_ctl.c
-+++ linux-2.6/net/ipv4/ipvs/ip_vs_ctl.c
-@@ -2000,7 +2000,7 @@ do_ip_vs_set_ctl(struct sock *sk, int cm
- 	if (cmd != IP_VS_SO_SET_ADD
- 	    && (svc == NULL || svc->protocol != usvc->protocol)) {
- 		ret = -ESRCH;
--		goto out_unlock;
-+		goto out_svc;
- 	}
- 
- 	switch (cmd) {
-@@ -2034,9 +2034,9 @@ do_ip_vs_set_ctl(struct sock *sk, int cm
- 		ret = -EINVAL;
- 	}
- 
-+  out_svc:
- 	if (svc)
- 		ip_vs_service_put(svc);
--
-   out_unlock:
- 	mutex_unlock(&__ip_vs_mutex);
-   out_dec:
-
-III.
-
-Perhaps if you are calling ipvsadm a lot then there is a remote
-possibility that write_lock_bh() could starve read_lock(). This
-seems ludicrous, but I'm just mentioning it as it crossed my mind.
-
+	Jan
 -- 
-Horms
-  H: http://www.vergenet.net/~horms/
-  W: http://www.valinux.co.jp/en/
-
