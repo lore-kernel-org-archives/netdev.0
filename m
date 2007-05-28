@@ -1,65 +1,88 @@
-From: "=?ISO-8859-1?Q?Mart=EDn_Ferrari?=" <martin.ferrari@gmail.com>
-Subject: Re: IFF_PROMISC again
-Date: Sun, 27 May 2007 22:05:01 -0300
-Message-ID: <b9800b70705271805h4613ad14u33b754d12b80af34@mail.gmail.com>
-References: <1178044568.7116.14.camel@abraxas.dyn-o-saur.com>
-	 <465385F2.7080309@candelatech.com>
-	 <b9800b70705252328x6318c85es922e81662ce41762@mail.gmail.com>
-	 <20070527094923.3b4705b6@freepuppy>
+From: Samuel Ortiz <samuel@sortiz.org>
+Subject: Re: Generic netlink interface help
+Date: Mon, 28 May 2007 04:42:47 +0300
+Message-ID: <20070528014247.GC4264@sortiz.org>
+References: <20070524085956.GP7089@enneenne.com> <84po8XY4.1179999810.5490870.samuel@sortiz.org> <20070527173959.GU21180@enneenne.com>
+Reply-To: Samuel Ortiz <samuel@sortiz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Ben Greear" <greearb@candelatech.com>, netdev@vger.kernel.org
-To: "Stephen Hemminger" <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Rodolfo Giometti <giometti@enneenne.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nz-out-0506.google.com ([64.233.162.237]:16728 "EHLO
-	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752887AbXE1BFC convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 May 2007 21:05:02 -0400
-Received: by nz-out-0506.google.com with SMTP id n1so761723nzf
-        for <netdev@vger.kernel.org>; Sun, 27 May 2007 18:05:01 -0700 (PDT)
-In-Reply-To: <20070527094923.3b4705b6@freepuppy>
+Received: from 30.mail-out.ovh.net ([213.186.62.213]:42755 "HELO
+	30.mail-out.ovh.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1753718AbXE1Bte (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 May 2007 21:49:34 -0400
 Content-Disposition: inline
+In-Reply-To: <20070527173959.GU21180@enneenne.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen, I think your mail didn't make it to netdev. Majordomo seems
-to be working badly with special charsets (my mails used to be totally
-ignored because of charset and/or encoding issues).
+Hi Rodolfo,
 
-On 5/27/07, Stephen Hemminger <shemminger@linux-foundation.org> wrote:
+On Sun, May 27, 2007 at 07:39:59PM +0200, Rodolfo Giometti wrote:
+> On Thu, May 24, 2007 at 09:43:30AM -0000, Samuel Ortiz wrote:
+> 
+> > You could look at Johannes Berg 802.11 generic netlink implementation for
+> > a good example (net/wireless/nl80211.c in John Linville's tree):
+> > http://git.kernel.org/?p=linux/kernel/git/linville/wireless-dev.git;a=blob;f=net/wireless/nl80211.c;h=d6a44a386c2b86b81514b08d3c9b324dd2c7d229;hb=HEAD
+> 
+> Looking at that code I suppose that if I want send/receive "struct
+> pps_netlink_msg" to/from the kernel I have to define:
+> 
+> static struct genl_family pps_gnl_family = {
+>         .id      = GENL_ID_GENERATE,    /* don't bother with a hardcoded ID */
+>         .name    = "PPS",
+>         .hdrsize = 0,                   /* no private header */
+>         .version = PPS_FAMILY_VER,
+>         .maxattr = 1,
+> };
+> 
+> static struct nla_policy pps_genl_policy[1] = {
+>         [0] = {
+>                 .type = NLA_BINARY,
+>                 .len = sizeof(struct pps_netlink_msg),
+>         },
+> };
+> 
+> static struct genl_ops pps_gnl_ops = {
+>         .cmd     = 0x1,
+>         .policy  = pps_genl_policy,
+>         .doit    = pps_genl_data_ready,
+> };
+> 
+> Then the pps_genl_data_ready() should do:
+> 
+> static int pps_genl_data_ready(struct sk_buff *skb, struct genl_info *info)
+> {
+>         struct pps_netlink_msg *msg = nla_data(info->attrs[0]);
+>         int cmd, source;
+>         unsigned long timeout;
+>         int ret;
+> 
+>         if (!msg)
+>                 return -EINVAL;
+> 
+> 	/* Do the job and put the answer into
+> 	   msg struct itself... */
+> 
+> 	genlmsg_unicast(skb, info->snd_pid);
+> 
+>         return 0;
+> }
+> 
+> Is that right?
+At first glance, this could work yes.
+However, it seems you're trying to encapsulate your pps_netlink_msg into
+a generic netlink message which itself is already encapsulated into a
+netlink message, and then multiplex all your PPS commands on
+ppl_genl_data_ready(). IMHO, you should have your different PPS commands
+declared as a genl_ops array, and then have a specific doit routine per PPS
+command. This would make your code cleaner and more secure (see the
+"Operation Granularity" section at
+http://linux-net.osdl.org/index.php/Generic_Netlink_HOWTO).
 
-> > Wow, I searched for this a lot! It could be all I need, although it
-> > doesn't seem very robust to look at the bitmap driectly, is it?
-> >
-> > Maybe it would be cleaner to add an "promiscuity" file to that stru=
-cture?
+Cheers,
+Samuel.
 
-> /sys/class/net/ethX/flags was an interface mistake. Don't depend on i=
-t.
->
-> I added it back when sysfs was first starting. Most of the files in /=
-sys/class/net/ethX
-> are really meant only for debugging. There was no debugfs at the time=
-=2E
->
-> The problem is it exports bit values as ABI that shouldn't be nailed =
-down.
 
-Great that you point it out. Then, we're back to the initial
-situation, there is no reliable way of polling promisc state, and I am
-looking for a way to do that. Ways I think it could be done:
-
-- Exporting /sys/class/net/ethX/promiscuity as a counter (I have a
-working patch for this)
-- Exporting /sys/class/net/ethX/promisc as a binary value, from dev->fl=
-ags.
-- ORing the two IFF_PROMISC flags in dev_get_flags() (the patch I sent)
-- Dropping gflags altogether, as there doesn't seem to be any real use
-case for it, and keep using dev_get_flags().
-
-Any suggestion?
-
---=20
-Mart=EDn Ferrari
