@@ -1,59 +1,55 @@
-From: =?iso-8859-1?b?RW1tYW51ZWwgRnVzdOk=?= <emmanuel.fuste@laposte.net>
-Subject: Re: [PCNET32] Lock solid with netconsole
-Date: Mon, 28 May 2007 17:25:51 +0200
-Message-ID: <JIRC73$62E39331D73FCF49870995034400C560@laposte.net>
+From: Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
+Subject: Re: b44: regression in 2.6.22 (resend)
+Date: Mon, 28 May 2007 17:32:51 +0200
+Message-ID: <1180366371.4952.5.camel@chaos>
+References: <20070525172431.60affaca@freepuppy>
+	 <200705281216.51690.mb@bu3sch.de> <200705281609.49859.maxi@daemonizer.de>
+	 <200705281714.25841.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "tsbogend" <tsbogend@alpha.franken.de>,
-	"pcnet32" <pcnet32@verizon.net>, "netdev" <netdev@vger.kernel.org>
-To: "romieu" <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.laposte.net ([81.255.54.16]:49397 "EHLO mx.laposte.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750826AbXE1P0I convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 May 2007 11:26:08 -0400
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Maximilian Engelhardt <maxi-OwNUvPV92VfddJNmlsFzeA@public.gmane.org>,
+	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Stephen Hemminger <shemminger-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Arnaldo Carvalho de Melo <acme-f8uhVLnGfZaxAyOMLChx1axOck334EZe@public.gmane.org>,
+	Jeff Garzik <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>,
+	Gary Zambrano <zambrano-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+To: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <200705281714.25841.mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-> Any difference if you disable the debug messages in the pcnet32
-> driver and you apply the patch below ?
->=20
-> diff --git a/drivers/net/pcnet32.c b/drivers/net/pcnet32.c
-> index 9c171a7..be4513f 100644
-> --- a/drivers/net/pcnet32.c
-> +++ b/drivers/net/pcnet32.c
-> @@ -2556,11 +2556,12 @@ pcnet32_interrupt(int irq, void *dev_id)
->  	unsigned long ioaddr;
->  	u16 csr0;
->  	int boguscnt =3D max_interrupt_work;
-> +	unsigned long flags;
-> =20
->  	ioaddr =3D dev->base_addr;
->  	lp =3D netdev_priv(dev);
-> =20
-> -	spin_lock(&lp->lock);
-> +	spin_lock_irqsave(&lp->lock, flags);
-> =20
->  	csr0 =3D lp->a.read_csr(ioaddr, CSR0);
->  	while ((csr0 & 0x8f00) && --boguscnt >=3D 0) {
-> @@ -2632,7 +2633,7 @@ pcnet32_interrupt(int irq, void *dev_id)
->  		printk(KERN_DEBUG "%s: exiting interrupt, csr0=3D%#4.4x.\n",
->  		       dev->name, lp->a.read_csr(ioaddr, CSR0));
-> =20
-> -	spin_unlock(&lp->lock);
-> +	spin_unlock_irqrestore(&lp->lock, flags);
-> =20
->  	return IRQ_HANDLED;
->  }
->=20
-Hi,
-Tested under very high console activity and it no longer freeze.
+On Mon, 2007-05-28 at 17:14 +0200, Michael Buesch wrote:
+> > The -oldconfig1 is the kernel that had no problems and the other shows the b44 
+> > problem. So if High Resolution Timer Support is disabled everything works 
+> > fine and if I enable it the problems do appear again.
+> > 
+> > I didn't test this on my 2.6.22-rc3 kernel yet, but I guess disabling High 
+> > Resolution Timer Support will also solve the problem there.
+> > 
+> > The older kernels I tried also work perfectly fine and they didn't have the 
+> > High Resolution Timer Support yet.
+> 
+> So, that's interesting, indeed.
+> Any idea what's going on, someone? Thomas?
+
+Not off the top of my head.
+
+Maximilian, does the kernel work otherwise (I mean aside of the b44
+driver) ? 
+
+Can you please keep CONFIG_HIGH_RES_TIMERS and CONFIG_NOHZ and try the
+following combinations on the kernel command line:
+
+1) highres=off nohz=off (should be the same as your working config)
+2) highres=off
+3) nohz=off
+
+Michael, is anything in the b44 driver timer driven ?
+
 Thanks,
-Best regards,
-Emmanuel.
----
 
-Cr=E9ez votre adresse =E9lectronique prenom.nom@laposte.net=20
-1 Go d'espace de stockage, anti-spam et anti-virus int=E9gr=E9s.
-
+	tglx
