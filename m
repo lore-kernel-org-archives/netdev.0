@@ -1,50 +1,36 @@
-From: "=?ISO-8859-1?Q?Mart=EDn_Ferrari?=" <martin.ferrari@gmail.com>
-Subject: Re: IFF_PROMISC again
-Date: Mon, 28 May 2007 19:07:43 -0300
-Message-ID: <b9800b70705281507r593ca9a3m18cbd3e6ac446587@mail.gmail.com>
-References: <1178044568.7116.14.camel@abraxas.dyn-o-saur.com>
-	 <465385F2.7080309@candelatech.com>
-	 <b9800b70705252328x6318c85es922e81662ce41762@mail.gmail.com>
-	 <20070527094923.3b4705b6@freepuppy>
-	 <b9800b70705271805h4613ad14u33b754d12b80af34@mail.gmail.com>
-	 <20070527235819.3695a2a1@freepuppy>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 1/7] cxgb3 - Fix SGE page management
+Date: Mon, 28 May 2007 18:34:06 -0400
+Message-ID: <465B58DE.1010308@garzik.org>
+References: <20070526225947.12097.82363.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Ben Greear" <greearb@candelatech.com>, netdev@vger.kernel.org
-To: "Stephen Hemminger" <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	swise@opengridcomputing.com
+To: divy@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nz-out-0506.google.com ([64.233.162.238]:44759 "EHLO
-	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752154AbXE1WHp convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 May 2007 18:07:45 -0400
-Received: by nz-out-0506.google.com with SMTP id n1so1015231nzf
-        for <netdev@vger.kernel.org>; Mon, 28 May 2007 15:07:44 -0700 (PDT)
-In-Reply-To: <20070527235819.3695a2a1@freepuppy>
-Content-Disposition: inline
+Received: from srv5.dvmed.net ([207.36.208.214]:48848 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750707AbXE1WeJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 May 2007 18:34:09 -0400
+In-Reply-To: <20070526225947.12097.82363.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen,
+divy@chelsio.com wrote:
+> From: Divy Le Ray <divy@chelsio.com>
+> 
+> Streamline page management on RX.
+> Fix dma mappings.
+> 
+> Signed-off-by: Divy Le Ray <divy@chelsio.com>
 
-On 5/28/07, Stephen Hemminger <shemminger@linux-foundation.org> wrote:
+NAK #1:  "streamline" is not a bug-fixes-only change, which is the only 
+type of change appropriate for 2.6.22-rc.
 
-> > Great that you point it out. Then, we're back to the initial
-> > situation, there is no reliable way of polling promisc state, and I=
- am
-> > looking for a way to do that. Ways I think it could be done:
->
-> Back to the original question. Why should an application care?
+NAK #2:  You should use the page_address(page) accessor rather than 
+creating a struct member in the same struct as your page, solely to 
+contain the virtual address.
 
-Not an application, but the sysadmin do cares about it. And most
-rootkit detectors don't have any other way of checking if a
-tcpdump-like tool is running.
 
-I don't see the usefulness of keeping the current toggle via gflags,
-which is confusing for users. But I see a benefit in exporting
-promiscuity as a read-only value, and I think it's pretty trivial to
-provide it.
-
---=20
-Mart=EDn Ferrari
