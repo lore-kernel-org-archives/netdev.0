@@ -1,51 +1,65 @@
-From: Maximilian Engelhardt <maxi-OwNUvPV92VfddJNmlsFzeA@public.gmane.org>
-Subject: Re: b44: regression in 2.6.22 (resend)
-Date: Mon, 28 May 2007 02:40:11 +0200
-Message-ID: <200705280240.17910.maxi@daemonizer.de>
-References: <20070525172431.60affaca@freepuppy> <200705280016.02776.maxi@daemonizer.de> <200705280224.40506.mb@bu3sch.de>
+From: "=?ISO-8859-1?Q?Mart=EDn_Ferrari?=" <martin.ferrari@gmail.com>
+Subject: Re: IFF_PROMISC again
+Date: Sun, 27 May 2007 22:05:01 -0300
+Message-ID: <b9800b70705271805h4613ad14u33b754d12b80af34@mail.gmail.com>
+References: <1178044568.7116.14.camel@abraxas.dyn-o-saur.com>
+	 <465385F2.7080309@candelatech.com>
+	 <b9800b70705252328x6318c85es922e81662ce41762@mail.gmail.com>
+	 <20070527094923.3b4705b6@freepuppy>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart6684804.BsDE7AEg01";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: "linux-kernel" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-wireless" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Stephen Hemminger <shemminger-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Arnaldo Carvalho de Melo <acme-f8uhVLnGfZaxAyOMLChx1axOck334EZe@public.gmane.org>,
-	Jeff Garzik <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>,
-	Gary Zambrano <zambrano-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-To: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <200705280224.40506.mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Ben Greear" <greearb@candelatech.com>, netdev@vger.kernel.org
+To: "Stephen Hemminger" <shemminger@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nz-out-0506.google.com ([64.233.162.237]:16728 "EHLO
+	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752887AbXE1BFC convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 May 2007 21:05:02 -0400
+Received: by nz-out-0506.google.com with SMTP id n1so761723nzf
+        for <netdev@vger.kernel.org>; Sun, 27 May 2007 18:05:01 -0700 (PDT)
+In-Reply-To: <20070527094923.3b4705b6@freepuppy>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart6684804.BsDE7AEg01
-Content-Type: text/plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Stephen, I think your mail didn't make it to netdev. Majordomo seems
+to be working badly with special charsets (my mails used to be totally
+ignored because of charset and/or encoding issues).
 
-On Monday 28 May 2007, Michael Buesch wrote:
-> Ok, another question: On which CPU architecture are you?
+On 5/27/07, Stephen Hemminger <shemminger@linux-foundation.org> wrote:
 
-maxi@koala:~$ uname -m
-i686
+> > Wow, I searched for this a lot! It could be all I need, although it
+> > doesn't seem very robust to look at the bitmap driectly, is it?
+> >
+> > Maybe it would be cleaner to add an "promiscuity" file to that stru=
+cture?
 
-Maxi
+> /sys/class/net/ethX/flags was an interface mistake. Don't depend on i=
+t.
+>
+> I added it back when sysfs was first starting. Most of the files in /=
+sys/class/net/ethX
+> are really meant only for debugging. There was no debugfs at the time=
+=2E
+>
+> The problem is it exports bit values as ABI that shouldn't be nailed =
+down.
 
---nextPart6684804.BsDE7AEg01
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
+Great that you point it out. Then, we're back to the initial
+situation, there is no reliable way of polling promisc state, and I am
+looking for a way to do that. Ways I think it could be done:
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.6 (GNU/Linux)
+- Exporting /sys/class/net/ethX/promiscuity as a counter (I have a
+working patch for this)
+- Exporting /sys/class/net/ethX/promisc as a binary value, from dev->fl=
+ags.
+- ORing the two IFF_PROMISC flags in dev_get_flags() (the patch I sent)
+- Dropping gflags altogether, as there doesn't seem to be any real use
+case for it, and keep using dev_get_flags().
 
-iD8DBQBGWiTxOimwv528XGERAvPhAJ9oPMPnshRNvGWpaAqHSA0P64lmlACgrNel
-rGF3jBGRM8rRU0Ui/fNUmKA=
-=i7rZ
------END PGP SIGNATURE-----
+Any suggestion?
 
---nextPart6684804.BsDE7AEg01--
+--=20
+Mart=EDn Ferrari
