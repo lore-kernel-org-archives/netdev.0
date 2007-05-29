@@ -1,87 +1,266 @@
-From: Maximilian Engelhardt <maxi-OwNUvPV92VfddJNmlsFzeA@public.gmane.org>
-Subject: Re: b44: regression in 2.6.22 (resend)
-Date: Tue, 29 May 2007 20:28:19 +0200
-Message-ID: <200705292028.23386.maxi@daemonizer.de>
-References: <20070525172431.60affaca@freepuppy> <200705282255.56490.maxi@daemonizer.de> <1180388752.3657.13.camel@chaos>
+From: "Ranjit Manomohan" <ranjitm@google.com>
+Subject: Re: [PATCH][NET_SCHED] Update htb rate when stats are polled.
+Date: Tue, 29 May 2007 11:39:26 -0700
+Message-ID: <166fe7950705291139j7a9be295n8e3ec79ff6215555@mail.gmail.com>
+References: <Pine.LNX.4.63.0705250923210.27351@ranjit.corp.google.com>
+	 <4657E8AC.4080505@trash.net> <46582E4F.5090306@trash.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart2108277.LgnDDiMWG5";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>,
-	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Stephen Hemminger <shemminger-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Arnaldo Carvalho de Melo <acme-f8uhVLnGfZaxAyOMLChx1axOck334EZe@public.gmane.org>,
-	Jeff Garzik <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>,
-	Gary Zambrano <zambrano-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-To: Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1180388752.3657.13.camel@chaos>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev@vger.kernel.org
+To: "Patrick McHardy" <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out.google.com ([216.239.45.13]:59917 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1764689AbXE2Sjo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 May 2007 14:39:44 -0400
+Received: from zps75.corp.google.com (zps75.corp.google.com [172.25.146.75])
+	by smtp-out.google.com with ESMTP id l4TIdYb9006067
+	for <netdev@vger.kernel.org>; Tue, 29 May 2007 11:39:35 -0700
+Received: from an-out-0708.google.com (anac38.prod.google.com [10.100.54.38])
+	by zps75.corp.google.com with ESMTP id l4TIdCoq000588
+	for <netdev@vger.kernel.org>; Tue, 29 May 2007 11:39:27 -0700
+Received: by an-out-0708.google.com with SMTP id c38so754446ana
+        for <netdev@vger.kernel.org>; Tue, 29 May 2007 11:39:27 -0700 (PDT)
+In-Reply-To: <46582E4F.5090306@trash.net>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart2108277.LgnDDiMWG5
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
-
-On Monday 28 May 2007, Thomas Gleixner wrote:
-> On Mon, 2007-05-28 at 22:55 +0200, Maximilian Engelhardt wrote:
-> > > > I additionally built my 2.6.22-rc2-mm1 kernel without High Resoluti=
-on
-> > > > Timer, but the high ping problem is still there.
-> > >
-> > > Hmm, that's mysterious. Wild guess is that highres exposes the hidden
-> > > "feature" in a different way than rc2-mm1 does.
+On 5/26/07, Patrick McHardy <kaber@trash.net> wrote:
+> Patrick McHardy wrote:
+> > Ranjit Manomohan wrote:
 > >
-> > I think the bug in 2.6.21/22-rc3 is a different one that the one in
-> > 2.6.22-rc2-mm1, but that's also only a wild guess :)
+> >>Currently the HTB rate for a class is update very slowly (once
+> >>every 16 seconds). This patch updates the rate whenever the stats
+> >>are requested from user space. This enables more accurate rate
+> >>monitoring.
+> >>
+> >>+/* Update packet/byte rate for a class. */
+> >>[..]
 > >
-> > I'll explain this a bit:
-> > In 2.6.21/22-rc3 is the same b44 driver that has been in the stock
-> > kernels for some time. With this driver and High Resolution Timer turned
-> > on I get problems using iperf. The problems are that the systems becomes
-> > really slow and unresponsive.  Michael Buesch thought this could be an
-> > IRQ storm which sounds logical to me. This bug did never happen to me
-> > before I startet the iperf test.
+> > We have a generic rate estimator, I think we should convert HTB over
+> > to use it and then maybe add this feature to the generic estimator.
 >
-> Can you please apply
 >
-> http://www.tglx.de/projects/hrtimers/2.6.22-rc3/patch-2.6.22-rc3-hrt1.pat=
-ch
+> You can use this patch as a base. It needs a bit more work
+> (for example the CONFIG_NET_SCHED_ESTIMATOR ifdefs are
+> unnecessary, but I've added them to remind me to clean this
+> up in all schedulers), but it works well enough for testing.
 >
-> on top of rc3 and check, whether it has any effect on your problem.
+> Actually .. do you still need your changes with this patch?
+> You can now replace the default estimator by one with a
+> shorter interval.
 >
-The patch didn't change anything.
-
-> > The other issue happens only with 2.6.22-rc2-mm1 which includes the b44
-> > ssb spilt. It's independed wether High Resolution Timer is turned on or
-> > off I always get very varying and high ping times. The iperf-test doesn=
-'t
-> > show the problems from 2.6.21/22-rc3.
 >
-> Neither with nor without highres ?
 
-Yes, it doesn't matter if highres is turned on or off. iperf never showed t=
-he=20
-problem from 2.6.21/22-rc3.
+I applied the patch and tried this out and it works fine with short
+intervals. My changes are no longer necessary. Thanks!
 
-Maxi
+-Ranjit
 
---nextPart2108277.LgnDDiMWG5
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.6 (GNU/Linux)
-
-iD8DBQBGXHDHOimwv528XGERAvpZAKDu3pqAnjMzHV5odcOiR2TmhWn8bQCg2hQ/
-2ZkoY2na1eNflA4m/XLM1AA=
-=hbMa
------END PGP SIGNATURE-----
-
---nextPart2108277.LgnDDiMWG5--
+> [NET_SCHED]: sch_htb: use generic estimator
+>
+> Remove the internal rate estimator and use the generic one.
+>
+> Signed-off-by: Patrick McHardy <kaber@trash.net>
+>
+> ---
+> commit add81ec9b23f1fbe973093d5999a3d70e9d4c48b
+> tree d5d119cceed54f14c39cbe6bc75c270a3e89f316
+> parent b208cb31ea86bc6296e5b08e53bc765c81306286
+> author Patrick McHardy <kaber@trash.net> Sat, 26 May 2007 14:52:02 +0200
+> committer Patrick McHardy <kaber@trash.net> Sat, 26 May 2007 14:52:02 +0200
+>
+>  net/sched/sch_htb.c |   91 +++++++++++++++++----------------------------------
+>  1 files changed, 30 insertions(+), 61 deletions(-)
+>
+> diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
+> index 035788c..b29ff8f 100644
+> --- a/net/sched/sch_htb.c
+> +++ b/net/sched/sch_htb.c
+> @@ -69,8 +69,6 @@
+>  */
+>
+>  #define HTB_HSIZE 16           /* classid hash size */
+> -#define HTB_EWMAC 2            /* rate average over HTB_EWMAC*HTB_HSIZE sec */
+> -#define HTB_RATECM 1           /* whether to use rate computer */
+>  #define HTB_HYSTERESIS 1       /* whether to use mode hysteresis for speedup */
+>  #define HTB_VER 0x30011                /* major must be matched with number suplied by TC as version */
+>
+> @@ -95,12 +93,6 @@ struct htb_class {
+>         struct tc_htb_xstats xstats;    /* our special stats */
+>         int refcnt;             /* usage count of this class */
+>
+> -#ifdef HTB_RATECM
+> -       /* rate measurement counters */
+> -       unsigned long rate_bytes, sum_bytes;
+> -       unsigned long rate_packets, sum_packets;
+> -#endif
+> -
+>         /* topology */
+>         int level;              /* our level (see above) */
+>         struct htb_class *parent;       /* parent class */
+> @@ -194,10 +186,6 @@ struct htb_sched {
+>         int rate2quantum;       /* quant = rate / rate2quantum */
+>         psched_time_t now;      /* cached dequeue time */
+>         struct qdisc_watchdog watchdog;
+> -#ifdef HTB_RATECM
+> -       struct timer_list rttim;        /* rate computer timer */
+> -       int recmp_bucket;       /* which hash bucket to recompute next */
+> -#endif
+>
+>         /* non shaped skbs; let them go directly thru */
+>         struct sk_buff_head direct_queue;
+> @@ -677,34 +665,6 @@ static int htb_requeue(struct sk_buff *skb, struct Qdisc *sch)
+>         return NET_XMIT_SUCCESS;
+>  }
+>
+> -#ifdef HTB_RATECM
+> -#define RT_GEN(D,R) R+=D-(R/HTB_EWMAC);D=0
+> -static void htb_rate_timer(unsigned long arg)
+> -{
+> -       struct Qdisc *sch = (struct Qdisc *)arg;
+> -       struct htb_sched *q = qdisc_priv(sch);
+> -       struct hlist_node *p;
+> -       struct htb_class *cl;
+> -
+> -
+> -       /* lock queue so that we can muck with it */
+> -       spin_lock_bh(&sch->dev->queue_lock);
+> -
+> -       q->rttim.expires = jiffies + HZ;
+> -       add_timer(&q->rttim);
+> -
+> -       /* scan and recompute one bucket at time */
+> -       if (++q->recmp_bucket >= HTB_HSIZE)
+> -               q->recmp_bucket = 0;
+> -
+> -       hlist_for_each_entry(cl,p, q->hash + q->recmp_bucket, hlist) {
+> -               RT_GEN(cl->sum_bytes, cl->rate_bytes);
+> -               RT_GEN(cl->sum_packets, cl->rate_packets);
+> -       }
+> -       spin_unlock_bh(&sch->dev->queue_lock);
+> -}
+> -#endif
+> -
+>  /**
+>   * htb_charge_class - charges amount "bytes" to leaf and ancestors
+>   *
+> @@ -750,11 +710,6 @@ static void htb_charge_class(struct htb_sched *q, struct htb_class *cl,
+>                         if (cl->cmode != HTB_CAN_SEND)
+>                                 htb_add_to_wait_tree(q, cl, diff);
+>                 }
+> -#ifdef HTB_RATECM
+> -               /* update rate counters */
+> -               cl->sum_bytes += bytes;
+> -               cl->sum_packets++;
+> -#endif
+>
+>                 /* update byte stats except for leaves which are already updated */
+>                 if (cl->level) {
+> @@ -1095,13 +1050,6 @@ static int htb_init(struct Qdisc *sch, struct rtattr *opt)
+>         if (q->direct_qlen < 2) /* some devices have zero tx_queue_len */
+>                 q->direct_qlen = 2;
+>
+> -#ifdef HTB_RATECM
+> -       init_timer(&q->rttim);
+> -       q->rttim.function = htb_rate_timer;
+> -       q->rttim.data = (unsigned long)sch;
+> -       q->rttim.expires = jiffies + HZ;
+> -       add_timer(&q->rttim);
+> -#endif
+>         if ((q->rate2quantum = gopt->rate2quantum) < 1)
+>                 q->rate2quantum = 1;
+>         q->defcls = gopt->defcls;
+> @@ -1175,18 +1123,15 @@ htb_dump_class_stats(struct Qdisc *sch, unsigned long arg, struct gnet_dump *d)
+>  {
+>         struct htb_class *cl = (struct htb_class *)arg;
+>
+> -#ifdef HTB_RATECM
+> -       cl->rate_est.bps = cl->rate_bytes / (HTB_EWMAC * HTB_HSIZE);
+> -       cl->rate_est.pps = cl->rate_packets / (HTB_EWMAC * HTB_HSIZE);
+> -#endif
+> -
+>         if (!cl->level && cl->un.leaf.q)
+>                 cl->qstats.qlen = cl->un.leaf.q->q.qlen;
+>         cl->xstats.tokens = cl->tokens;
+>         cl->xstats.ctokens = cl->ctokens;
+>
+>         if (gnet_stats_copy_basic(d, &cl->bstats) < 0 ||
+> +#ifdef CONFIG_NET_ESTIMATOR
+>             gnet_stats_copy_rate_est(d, &cl->rate_est) < 0 ||
+> +#endif
+>             gnet_stats_copy_queue(d, &cl->qstats) < 0)
+>                 return -1;
+>
+> @@ -1277,6 +1222,9 @@ static void htb_destroy_class(struct Qdisc *sch, struct htb_class *cl)
+>                 BUG_TRAP(cl->un.leaf.q);
+>                 qdisc_destroy(cl->un.leaf.q);
+>         }
+> +#ifdef CONFIG_NET_ESTIMATOR
+> +       gen_kill_estimator(&cl->bstats, &cl->rate_est);
+> +#endif
+>         qdisc_put_rtab(cl->rate);
+>         qdisc_put_rtab(cl->ceil);
+>
+> @@ -1305,9 +1253,6 @@ static void htb_destroy(struct Qdisc *sch)
+>         struct htb_sched *q = qdisc_priv(sch);
+>
+>         qdisc_watchdog_cancel(&q->watchdog);
+> -#ifdef HTB_RATECM
+> -       del_timer_sync(&q->rttim);
+> -#endif
+>         /* This line used to be after htb_destroy_class call below
+>            and surprisingly it worked in 2.4. But it must precede it
+>            because filter need its target class alive to be able to call
+> @@ -1403,6 +1348,19 @@ static int htb_change_class(struct Qdisc *sch, u32 classid,
+>         if (!cl) {              /* new class */
+>                 struct Qdisc *new_q;
+>                 int prio;
+> +               struct {
+> +                       struct rtattr           rta;
+> +                       struct gnet_estimator   opt;
+> +               } est __maybe_unused = {
+> +                       .rta = {
+> +                               .rta_len        = RTA_LENGTH(sizeof(est.opt)),
+> +                               .rta_type       = TCA_RATE,
+> +                       },
+> +                       .opt = {
+> +                               .interval       = 2,
+> +                               .ewma_log       = 2,
+> +                       },
+> +               };
+>
+>                 /* check for valid classid */
+>                 if (!classid || TC_H_MAJ(classid ^ sch->handle)
+> @@ -1418,6 +1376,10 @@ static int htb_change_class(struct Qdisc *sch, u32 classid,
+>                 if ((cl = kzalloc(sizeof(*cl), GFP_KERNEL)) == NULL)
+>                         goto failure;
+>
+> +#ifdef CONFIG_NET_ESTIMATOR
+> +               gen_new_estimator(&cl->bstats, &cl->rate_est,
+> +                                 &sch->dev->queue_lock, &est.rta);
+> +#endif
+>                 cl->refcnt = 1;
+>                 INIT_LIST_HEAD(&cl->sibling);
+>                 INIT_HLIST_NODE(&cl->hlist);
+> @@ -1469,8 +1431,15 @@ static int htb_change_class(struct Qdisc *sch, u32 classid,
+>                 hlist_add_head(&cl->hlist, q->hash + htb_hash(classid));
+>                 list_add_tail(&cl->sibling,
+>                               parent ? &parent->children : &q->root);
+> -       } else
+> +       } else {
+> +#ifdef CONFIG_NET_ESTIMATOR
+> +               if (tca[TCA_RATE-1])
+> +                       gen_replace_estimator(&cl->bstats, &cl->rate_est,
+> +                                             &sch->dev->queue_lock,
+> +                                             tca[TCA_RATE-1]);
+> +#endif
+>                 sch_tree_lock(sch);
+> +       }
+>
+>         /* it used to be a nasty bug here, we have to check that node
+>            is really leaf before changing cl->un.leaf ! */
+>
+>
