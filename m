@@ -1,74 +1,32 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: forcedeth: Reside in 100Mbit Kconfig but also supports 1000Mbit cards
-Date: Mon, 28 May 2007 22:02:56 +0200
-Message-ID: <m3ejl0u367.fsf@maximus.localdomain>
-References: <20070526230750.GA9566@datenfreihafen.org>
-	<20070526172929.755b8d98.randy.dunlap@oracle.com>
-	<20070527005609.GB9566@datenfreihafen.org>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH 2/4] forcedeth: fix power management support
+Date: 29 May 2007 11:31:18 +0200
+Message-ID: <p734plwf02h.fsf@bingen.suse.de>
+References: <465237E8.1060005@nvidia.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Randy Dunlap <randy.dunlap@oracle.com>, aabdulla@nvidia.com,
-	netdev@vger.kernel.org
-To: Stefan Schmidt <stefan@datenfreihafen.org>
+Cc: Jeff Garzik <jgarzik@pobox.com>,
+	Manfred Spraul <manfred@colorfullife.com>,
+	Andrew Morton <akpm@osdl.org>, nedev <netdev@vger.kernel.org>
+To: Ayaz Abdulla <aabdulla@nvidia.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:33034 "EHLO khc.piap.pl"
+Received: from ns1.suse.de ([195.135.220.2]:38062 "EHLO mx1.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755020AbXE2DiO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 May 2007 23:38:14 -0400
-In-Reply-To: <20070527005609.GB9566@datenfreihafen.org> (Stefan Schmidt's message of "Sun, 27 May 2007 02:56:09 +0200")
+	id S1750968AbXE2Ien (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 May 2007 04:34:43 -0400
+In-Reply-To: <465237E8.1060005@nvidia.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stefan Schmidt <stefan@datenfreihafen.org> writes:
+Ayaz Abdulla <aabdulla@nvidia.com> writes:
 
-> I still like the partition by speed.
+> This patch fixes the power management functions. It includes lowering
+> the phy speed to conserve power.
 
-Me 2
+Shouldn't there be some way to disable this? AFAIK a few old switches
+have trouble with this. I assume a new ethtool option would be appropiate
+since we expect other drivers to gain this capability too.
+Could some of this code be put into the generic MII layer?
 
-> It makes it a lot easier to find
-> the right driver in the bunch of available ones.
+-Andi
 
-Sure. Unless you have a 100 Mb/s card and you don't know the same
-driver works with newer 1000 Mb/s models.
-
-IOW - questionable.
-
-> A solution like a
-> Kconfig entry symlink for driver which needs to support cards in two
-> or more categories would be my favorite.
-
-It would be a total mess.
-
-
-However, some clever conditionals could make it better.
-One menu for both 100 and 1000 Mb/s, and something like:
-
-tristate 100Mbps (Y/N/M)
-tristate 1000Mbps (Y/N/M)
-
-...
-if 100Mbps
-	Realtek 8139
-	Intel E100
-fi
-
-if 100Mbps || 1000Mbps
-	forcedeath
-	some_SIS_driver
-	etc.
-fi
-
-if 1000Mbps
-	E1000
-	...
-
-Probably 10 Mbps drivers could lead the list. You could check for PCI,
-ISA and what not.
-This way each driver has only one entry, but if you know you have,
-say, 1 Gb/s Ethernet card only you can select 1 Gb/s and don't
-worry about 100-Mbps NVidias.
-
-I'd include that Tulip thing, too - no need for a separate menu
-(the directory is a different thing).
--- 
-Krzysztof Halasa
