@@ -1,31 +1,63 @@
-From: Clemens Brunner <clemens.brunner@tugraz.at>
-Subject: Re: r8169: Link always down
-Date: Tue, 29 May 2007 10:46:50 +0200
-Message-ID: <465BE87A.3050809@tugraz.at>
-References: <46557430.5060501@tugraz.at> <20070524120644.GA7224@electric-eye.fr.zoreil.com> <46569CF4.2030108@tugraz.at> <20070527222024.GA15066@electric-eye.fr.zoreil.com>
+From: "Lior Dotan" <liodot@gmail.com>
+Subject: [PATCH-2.4] Fix divide by 0 in vegas_cong_avoid()
+Date: Tue, 29 May 2007 12:18:19 +0300
+Message-ID: <a5bf86a80705290218t5e8605d3m9750d9dae6d96112@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailrelay.tu-graz.ac.at ([129.27.2.202]:58099 "EHLO
-	mailrelay.tugraz.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751330AbXE2IrD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 May 2007 04:47:03 -0400
-In-Reply-To: <20070527222024.GA15066@electric-eye.fr.zoreil.com>
+Received: from wa-out-1112.google.com ([209.85.146.177]:64316 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752566AbXE2JSU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 May 2007 05:18:20 -0400
+Received: by wa-out-1112.google.com with SMTP id j4so850645wah
+        for <netdev@vger.kernel.org>; Tue, 29 May 2007 02:18:19 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Francois Romieu wrote:
-> [...]
- > As an option you can retrieve the url below which contains all the patches
-> above in a single patch-file:
-> http://www.fr.zoreil.com/people/francois/misc/20070522-2.6.22-rc2-r8169.patch
+Hi,
 
-Thanks for providing the single patch file. I was able to compile the patched 
-kernel (version 2.6.22-rc3) with the EEPROM option enabled. However, the NIC 
-still does not work (r8169: eth0: link down). Please let me know what else I 
-could do to help you.
+I had a divide by zero on kernel 2.4.33 running with Vegas enabled.
+The KDB back trace is:
+kdb> bt
+Stack traceback for pid 0
+0x403a6000        0        0  1    0   R  0x403a6370 *swapper
+EBP        EIP        Function (args)
+0x403a7d48 0x4026ae51 vegas_cong_avoid+0x111 (0x5f3bb638, 0x73c92cbb, 0xffffffff
+, 0x73c92cbb, 0xf28d0275)
+                               kernel .text 0x40100000 0x4026ad40 0x4026aef0
+0x403a7d8c 0x4026bb67 tcp_ack+0x307 (0x5f3bb560, 0x581985c0, 0x18e, 0x4023e765,
+0x5c369044)
+                               kernel .text 0x40100000 0x4026b860 0x4026be20
+0x403a7ddc 0x4026e771 tcp_rcv_established+0x461 (0x5f3bb560, 0x581985c0, 0x5c369
+044, 0x2c, 0x5f3bb638)
+                               kernel .text 0x40100000 0x4026e310 0x4026ed80
+0x403a7e00 0x40277c2f tcp_v4_do_rcv+0x14f (0x5f3bb560, 0x581985c0, 0x0, 0x403a7e
+50, 0x4024bb42)
+                               kernel .text 0x40100000 0x40277ae0 0x40277c40
+<Rest was cut for readability>
+What happens is that vegas_rtt_calc() gets rtt as -1, so when it adds
+1 the rtt is set to zero.
+It seems that the -1 came from tcp_clean_rtx_queue() so I made this
+small patch to fix the problem. I think it is also relevant to 2.6.
 
-Clemens
+
+Don't perform congestion avoidance on packets that we didn't calculate
+there RTT, as this may result in a divide by zero later on.
+
+Signed-off-by: Lior Dotan <liodot@gmail.com>
+---
+
+diff -up net/ipv4/tcp_input.c.orig net/ipv4/tcp_input.c
+--- net/ipv4/tcp_input.c.orig   2007-05-29 11:43:37.000000000 +0300
++++ net/ipv4/tcp_input.c        2007-05-29 11:20:21.000000000 +0300
+@@ -2425,6 +2424,7 @@ static int tcp_clean_rtx_queue(struct so
+                                        tp->retrans_out--;
+                                acked |= FLAG_RETRANS_DATA_ACKED;
+                                seq_rtt = -1;
++                               acked &= ~FLAG_DATA_ACKED;
+                        } else if (seq_rtt < 0)
+                                seq_rtt = now - scb->when;
+                        if(sacked & TCPCB_SACKED_ACKED)
