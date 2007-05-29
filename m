@@ -1,60 +1,87 @@
-From: "Lior Dotan" <liodot@gmail.com>
-Subject: Re: [PATCH-2.4] Fix divide by 0 in vegas_cong_avoid()
-Date: Tue, 29 May 2007 20:23:45 +0200
-Message-ID: <a5bf86a80705291123r7aa753besbcb1de3f13dc1b3c@mail.gmail.com>
-References: <a5bf86a80705290218t5e8605d3m9750d9dae6d96112@mail.gmail.com>
-	 <20070529080534.5692bad8@freepuppy>
+From: Maximilian Engelhardt <maxi-OwNUvPV92VfddJNmlsFzeA@public.gmane.org>
+Subject: Re: b44: regression in 2.6.22 (resend)
+Date: Tue, 29 May 2007 20:28:19 +0200
+Message-ID: <200705292028.23386.maxi@daemonizer.de>
+References: <20070525172431.60affaca@freepuppy> <200705282255.56490.maxi@daemonizer.de> <1180388752.3657.13.camel@chaos>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: multipart/signed;
+  boundary="nextPart2108277.LgnDDiMWG5";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "Stephen Hemminger" <shemminger@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.182]:40724 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757521AbXE2SXq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 May 2007 14:23:46 -0400
-Received: by wa-out-1112.google.com with SMTP id j4so923037wah
-        for <netdev@vger.kernel.org>; Tue, 29 May 2007 11:23:46 -0700 (PDT)
-In-Reply-To: <20070529080534.5692bad8@freepuppy>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Cc: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>,
+	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Stephen Hemminger <shemminger-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Arnaldo Carvalho de Melo <acme-f8uhVLnGfZaxAyOMLChx1axOck334EZe@public.gmane.org>,
+	Jeff Garzik <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>,
+	Gary Zambrano <zambrano-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+To: Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1180388752.3657.13.camel@chaos>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-NTP was not running. I'm not sure what do you mean by fixing the -1.
-The trace shows that vegas_cong_avoid() is called with -1, and the
-only way it can happen is from tcp_clean_rtx_queue() and the patch
-should eliminate this. Another way of solving this is by checking
-vegas_rtt_calc() and see if it gets -1 and handle it there.
-Another thing that I don't understand is that some places like
-tcp_ack() declare seq_rtt as signed and some vegas_cong_avoid()
-declare it as unsigned. Shouldn't it be declared always as signed?
+--nextPart2108277.LgnDDiMWG5
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-On 5/29/07, Stephen Hemminger <shemminger@linux-foundation.org> wrote:
-> On Tue, 29 May 2007 12:18:19 +0300
-> "Lior Dotan" <liodot@gmail.com> wrote:
->
-> > Hi,
+On Monday 28 May 2007, Thomas Gleixner wrote:
+> On Mon, 2007-05-28 at 22:55 +0200, Maximilian Engelhardt wrote:
+> > > > I additionally built my 2.6.22-rc2-mm1 kernel without High Resoluti=
+on
+> > > > Timer, but the high ping problem is still there.
+> > >
+> > > Hmm, that's mysterious. Wild guess is that highres exposes the hidden
+> > > "feature" in a different way than rc2-mm1 does.
 > >
-> > I had a divide by zero on kernel 2.4.33 running with Vegas enabled.
-> > The KDB back trace is:
-> > kdb> bt
-> > Stack traceback for pid 0
-> > 0x403a6000        0        0  1    0   R  0x403a6370 *swapper
-> > EBP        EIP        Function (args)
-> > 0x403a7d48 0x4026ae51 vegas_cong_avoid+0x111 (0x5f3bb638, 0x73c92cbb, 0xffffffff
-> > , 0x73c92cbb, 0xf28d0275)
-> >                                kernel .text 0x40100000 0x4026ad40 0x4026aef0
-> > 0x403a7d8c 0x4026bb67 tcp_ack+0x307 (0x5f3bb560, 0x581985c0, 0x18e, 0x4023e765,
-> > 0x5c369044)
-> >                                kernel .text 0x40100000 0x4026b860 0x4026be20
+> > I think the bug in 2.6.21/22-rc3 is a different one that the one in
+> > 2.6.22-rc2-mm1, but that's also only a wild guess :)
+> >
+> > I'll explain this a bit:
+> > In 2.6.21/22-rc3 is the same b44 driver that has been in the stock
+> > kernels for some time. With this driver and High Resolution Timer turned
+> > on I get problems using iperf. The problems are that the systems becomes
+> > really slow and unresponsive.  Michael Buesch thought this could be an
+> > IRQ storm which sounds logical to me. This bug did never happen to me
+> > before I startet the iperf test.
 >
+> Can you please apply
 >
-> Seems like fixing the -1 would be better.  Perhaps NTP reset
-> the clock?
+> http://www.tglx.de/projects/hrtimers/2.6.22-rc3/patch-2.6.22-rc3-hrt1.pat=
+ch
 >
+> on top of rc3 and check, whether it has any effect on your problem.
 >
+The patch didn't change anything.
+
+> > The other issue happens only with 2.6.22-rc2-mm1 which includes the b44
+> > ssb spilt. It's independed wether High Resolution Timer is turned on or
+> > off I always get very varying and high ping times. The iperf-test doesn=
+'t
+> > show the problems from 2.6.21/22-rc3.
 >
-> --
-> Stephen Hemminger <shemminger@linux-foundation.org>
->
+> Neither with nor without highres ?
+
+Yes, it doesn't matter if highres is turned on or off. iperf never showed t=
+he=20
+problem from 2.6.21/22-rc3.
+
+Maxi
+
+--nextPart2108277.LgnDDiMWG5
+Content-Type: application/pgp-signature; name=signature.asc 
+Content-Description: This is a digitally signed message part.
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.6 (GNU/Linux)
+
+iD8DBQBGXHDHOimwv528XGERAvpZAKDu3pqAnjMzHV5odcOiR2TmhWn8bQCg2hQ/
+2ZkoY2na1eNflA4m/XLM1AA=
+=hbMa
+-----END PGP SIGNATURE-----
+
+--nextPart2108277.LgnDDiMWG5--
