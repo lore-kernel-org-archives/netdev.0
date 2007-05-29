@@ -1,86 +1,75 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH 0/9]: tcp-2.6 patchset
-Date: Tue, 29 May 2007 13:19:51 -0700
-Message-ID: <20070529131951.1d9a5b84@freepuppy>
-References: <11801685622325-git-send-email-ilpo.jarvinen@helsinki.fi>
-	<20070526.164418.115928217.davem@davemloft.net>
-	<Pine.LNX.4.64.0705271039060.2532@kivilampi-30.cs.helsinki.fi>
-	<20070527.021104.74747736.davem@davemloft.net>
-	<Pine.LNX.4.64.0705271319310.2663@kivilampi-30.cs.helsinki.fi>
-	<20070527140430.GA30299@galon.ev-en.org>
-	<Pine.LNX.4.64.0705271933440.2832@kivilampi-30.cs.helsinki.fi>
-	<Pine.LNX.4.64.0705281253340.14736@kivilampi-30.cs.helsinki.fi>
-	<20070529091415.03a14216@freepuppy>
-	<Pine.LNX.4.64.0705292150390.23565@kivilampi-30.cs.helsinki.fi>
+Subject: Re: [PATCH-2.4] Fix divide by 0 in vegas_cong_avoid()
+Date: Tue, 29 May 2007 13:22:57 -0700
+Message-ID: <20070529132257.0ccfa856@freepuppy>
+References: <a5bf86a80705290218t5e8605d3m9750d9dae6d96112@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Baruch Even <baruch@ev-en.org>, David Miller <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Netdev <netdev@vger.kernel.org>
-To: "Ilpo =?UTF-8?B?SsOkcnZpbmVuIg==?= <ilpo.jarvinen@helsinki.fi>"@smtp.osdl.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: "Lior Dotan" <liodot@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([207.189.120.12]:41384 "EHLO smtp.osdl.org"
+Received: from smtp.osdl.org ([207.189.120.12]:41402 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758244AbXE2U2g convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 May 2007 16:28:36 -0400
-In-Reply-To: <Pine.LNX.4.64.0705292150390.23565@kivilampi-30.cs.helsinki.fi>
+	id S1757642AbXE2UbF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 May 2007 16:31:05 -0400
+In-Reply-To: <a5bf86a80705290218t5e8605d3m9750d9dae6d96112@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 29 May 2007 23:07:00 +0300 (EEST)
-"Ilpo J=C3=A4rvinen" <ilpo.jarvinen@helsinki.fi> wrote:
+On Tue, 29 May 2007 12:18:19 +0300
+"Lior Dotan" <liodot@gmail.com> wrote:
 
-> On Tue, 29 May 2007, Stephen Hemminger wrote:
->=20
-> > On Mon, 28 May 2007 13:27:03 +0300 (EEST)
-> > "Ilpo J=C3=A4rvinen" <ilpo.jarvinen@helsinki.fi> wrote:
-> >=20
-> > > On Sun, 27 May 2007, Ilpo J=C3=A4rvinen wrote:
-> > >=20
-> > > [PATCH] [TCP]: Fix GSO ignorance of pkts_acked arg (cong.cntrl mo=
-dules)
-> >=20
-> > Yes, thanks for fixing this. Wonder how it affects measurements.
->=20
-> ...It's a bit hard to tell since dynamics change so dramatically=20
-> in > 0 check cases, the resulting behavior in too small value cases
-> may be easier to predict... It's possible that this could explain som=
-e=20
-> anomalities you've been seeing in your measurements.
->=20
-> > > It is not very clear how SYN segments should be handled, so I
-> > > choose to follow the previous implementation in this respect.
-> >=20
-> > Since we don't invoke congestion control modules until after the SY=
-N
-> > handshake this is not a problem.
->=20
-> Just curious, do you mean that cc modules cannot measure, e.g., initi=
-al
-> RTT through this mechanism (though they could do that in init() cb th=
-en
-> I suppose)... Or do you mean that they are called already for the ACK
-> that completes the SYN handshake and therefore its skb is being clean=
-ed=20
-> from the queue right now (this is the case I above refer to)?=20
-> In the first case the decrementer code is NOP. If the latter, then it
-> is just interface specification question, i.e., if SYNs are treated a=
-s=20
-> zero or one in num_acked for the pkts_acked callback (I have no opini=
-on
-> on this but was just trying to make sure cc modules get what they
-> expect :-)).=20
+> Hi,
+> 
+> I had a divide by zero on kernel 2.4.33 running with Vegas enabled.
+> The KDB back trace is:
+> kdb> bt
+> Stack traceback for pid 0
+> 0x403a6000        0        0  1    0   R  0x403a6370 *swapper
+> EBP        EIP        Function (args)
+> 0x403a7d48 0x4026ae51 vegas_cong_avoid+0x111 (0x5f3bb638, 0x73c92cbb, 0xffffffff
+> , 0x73c92cbb, 0xf28d0275)
+>                                kernel .text 0x40100000 0x4026ad40 0x4026aef0
+> 0x403a7d8c 0x4026bb67 tcp_ack+0x307 (0x5f3bb560, 0x581985c0, 0x18e, 0x4023e765,
+> 0x5c369044)
+>                                kernel .text 0x40100000 0x4026b860 0x4026be20
+> 0x403a7ddc 0x4026e771 tcp_rcv_established+0x461 (0x5f3bb560, 0x581985c0, 0x5c369
+> 044, 0x2c, 0x5f3bb638)
+>                                kernel .text 0x40100000 0x4026e310 0x4026ed80
+> 0x403a7e00 0x40277c2f tcp_v4_do_rcv+0x14f (0x5f3bb560, 0x581985c0, 0x0, 0x403a7e
+> 50, 0x4024bb42)
+>                                kernel .text 0x40100000 0x40277ae0 0x40277c40
+> <Rest was cut for readability>
+> What happens is that vegas_rtt_calc() gets rtt as -1, so when it adds
+> 1 the rtt is set to zero.
+> It seems that the -1 came from tcp_clean_rtx_queue() so I made this
+> small patch to fix the problem. I think it is also relevant to 2.6.
+> 
+> 
+> Don't perform congestion avoidance on packets that we didn't calculate
+> there RTT, as this may result in a divide by zero later on.
+> 
+> Signed-off-by: Lior Dotan <liodot@gmail.com>
+> ---
+> 
+> diff -up net/ipv4/tcp_input.c.orig net/ipv4/tcp_input.c
+> --- net/ipv4/tcp_input.c.orig   2007-05-29 11:43:37.000000000 +0300
+> +++ net/ipv4/tcp_input.c        2007-05-29 11:20:21.000000000 +0300
+> @@ -2425,6 +2424,7 @@ static int tcp_clean_rtx_queue(struct so
+>                                         tp->retrans_out--;
+>                                 acked |= FLAG_RETRANS_DATA_ACKED;
+>                                 seq_rtt = -1;
+> +                               acked &= ~FLAG_DATA_ACKED;
+>                         } else if (seq_rtt < 0)
+>                                 seq_rtt = now - scb->when;
+>                         if(sacked & TCPCB_SACKED_ACKED)
+> -
 
-We don't switch a socket out of Reno until after the initial handshake.
-It evolved that way, and has a couple of advantages:
- * uncomplete connections don't up module refcount so it is easier to
-   debug
- * in future, we can choose congestion control to use based on route
-   metric.
-=20
-As an interface, it makes sense to keep the API with the SYN counting
-as a packet.
+The proposed fix for TSO and packets acked callback will fix this as well.
+Your fix makes sense for kernels < 2.6.22, but with 2.6.22 this would
+fix it:
+	http://article.gmane.org/gmane.linux.network/63101
 
---=20
+-- 
 Stephen Hemminger <shemminger@linux-foundation.org>
