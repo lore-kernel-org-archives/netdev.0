@@ -1,55 +1,48 @@
-From: Divy Le Ray <divy@chelsio.com>
-Subject: Re: [PATCH 4/7 RESEND] cxgb3 - Update FW to 4.1
-Date: Tue, 29 May 2007 15:38:21 -0700
-Message-ID: <465CAB5D.7060405@chelsio.com>
-References: <20070526231748.12319.20729.stgit@localhost.localdomain> <465B5A8B.7000701@garzik.org>
+From: Jeff Garzik <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>
+Subject: Re: b44: regression in 2.6.22 (resend)
+Date: Tue, 29 May 2007 18:39:31 -0400
+Message-ID: <465CABA3.10003@pobox.com>
+References: <20070525172431.60affaca@freepuppy> <200705281655.15105.mb@bu3sch.de> <1180448075.17146.12.camel@dhcp-10-12-136-115.broadcom.com> <200705292245.22940.mb@bu3sch.de> <1180472741.17711.19.camel@dhcp-10-12-136-115.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	swise@opengridcomputing.com
-To: Jeff Garzik <jeff@garzik.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751766AbXE2Wit@vger.kernel.org>
-In-Reply-To: <465B5A8B.7000701@garzik.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>,
+	Maximilian Engelhardt <maxi-OwNUvPV92VfddJNmlsFzeA@public.gmane.org>,
+	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Stephen Hemminger <shemminger-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Arnaldo Carvalho de Melo <acme-f8uhVLnGfZaxAyOMLChx1axOck334EZe@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+To: Gary Zambrano <zambrano-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1180472741.17711.19.camel-opBMJL+S1+nCw/J+WP9nZ0NK2P1VvzQgpWgKQ6/u3Fg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
-> divy@chelsio.com wrote:
->> From: Divy Le Ray <divy@chelsio.com>
->>
->> Bump FW version to 4.1.
->> Modify chip tuning in consequence.
->>
->> Signed-off-by: Divy Le Ray <divy@chelsio.com>
->> ---
->>
->>  drivers/net/cxgb3/regs.h    |    4 ++++
->>  drivers/net/cxgb3/t3_hw.c   |   40 
->> ++++++++++++++++++++++------------------
->>  drivers/net/cxgb3/version.h |    2 +-
->>  3 files changed, 27 insertions(+), 19 deletions(-)
->
-> You think requiring a FIRMWARE UPGRADE is something that should be 
-> done in the middle of a kernel bugfix series?  What Q/A planet are you 
-> from?
+Gary Zambrano wrote:
+> The b44 interrupt status reg returns a value of 0 if no interrupts are
+> pending. The b44 uses a mask to determine which bits (events) can
+> generate device interrupts on the system. If the masked interrupt status
+> register bits are not asserted, then the b44 will return to the system
+> with handled = 0. 
+> So, I think the way the b44 interrupt code is written should be ok and
+> not a bug. 
 
-I made a bad jugdement.
-I'll repost a patch series for 2.6.22 fixes against Linus'tree, and a 
-patch series for driver improvements against netdev-2.6#upstream, if it 
-is acceptable.
 
->
-> This is a completely ridiculous burden you are placing on the 
-> individual user.  A good driver knows that firmware NOT SHIPPED WITH 
-> THE KERNEL does not necessarily move in lock-step with the kernel driver.
+This is normal.
 
-We're actively working on RDMA improvements, leading to these FW updates.
-Some of the changes are unfortunately not backward compatible, hence the 
-exact matching the driver enforces.
-The bundle driver/FW is getting finalized. New adapters will be shipped 
-with the right image once it is available.
-In the mean time, this is indeed a burden for the current users to get 
-the corresponding FW.
+We check for 0xffffffff because that is often how a fault is indicated, 
+when the memory location is read during or immediately after hotplug (or 
+if the PCI bus is truly faulty).  So for most hardware, you see
 
-Divy
+tmp = read(irq status)
+if (!tmp)
+	return irq-none		/* no irq events raised */
+if (tmp == 0xffffffff)
+	return irq-none		/* hot unplug or h/w fault */
+
+and the method that determines no interrupt handling is needed.
+
+Regards,
+
+	Jeff
