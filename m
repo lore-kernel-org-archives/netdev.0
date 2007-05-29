@@ -1,266 +1,129 @@
-From: "Ranjit Manomohan" <ranjitm@google.com>
-Subject: Re: [PATCH][NET_SCHED] Update htb rate when stats are polled.
-Date: Tue, 29 May 2007 11:39:26 -0700
-Message-ID: <166fe7950705291139j7a9be295n8e3ec79ff6215555@mail.gmail.com>
-References: <Pine.LNX.4.63.0705250923210.27351@ranjit.corp.google.com>
-	 <4657E8AC.4080505@trash.net> <46582E4F.5090306@trash.net>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Please pull 'upstream-fixes' branch of wireless-2.6
+Date: Tue, 29 May 2007 14:30:37 -0400
+Message-ID: <20070529183037.GB3496@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "Patrick McHardy" <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.45.13]:59917 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1764689AbXE2Sjo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 May 2007 14:39:44 -0400
-Received: from zps75.corp.google.com (zps75.corp.google.com [172.25.146.75])
-	by smtp-out.google.com with ESMTP id l4TIdYb9006067
-	for <netdev@vger.kernel.org>; Tue, 29 May 2007 11:39:35 -0700
-Received: from an-out-0708.google.com (anac38.prod.google.com [10.100.54.38])
-	by zps75.corp.google.com with ESMTP id l4TIdCoq000588
-	for <netdev@vger.kernel.org>; Tue, 29 May 2007 11:39:27 -0700
-Received: by an-out-0708.google.com with SMTP id c38so754446ana
-        for <netdev@vger.kernel.org>; Tue, 29 May 2007 11:39:27 -0700 (PDT)
-In-Reply-To: <46582E4F.5090306@trash.net>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 5/26/07, Patrick McHardy <kaber@trash.net> wrote:
-> Patrick McHardy wrote:
-> > Ranjit Manomohan wrote:
-> >
-> >>Currently the HTB rate for a class is update very slowly (once
-> >>every 16 seconds). This patch updates the rate whenever the stats
-> >>are requested from user space. This enables more accurate rate
-> >>monitoring.
-> >>
-> >>+/* Update packet/byte rate for a class. */
-> >>[..]
-> >
-> > We have a generic rate estimator, I think we should convert HTB over
-> > to use it and then maybe add this feature to the generic estimator.
->
->
-> You can use this patch as a base. It needs a bit more work
-> (for example the CONFIG_NET_SCHED_ESTIMATOR ifdefs are
-> unnecessary, but I've added them to remind me to clean this
-> up in all schedulers), but it works well enough for testing.
->
-> Actually .. do you still need your changes with this patch?
-> You can now replace the default estimator by one with a
-> shorter interval.
->
->
+The following changes since commit c420bc9f09a0926b708c3edb27eacba434a4=
+f4ba:
+  Linus Torvalds (1):
+        Linux 2.6.22-rc3
 
-I applied the patch and tried this out and it works fine with short
-intervals. My changes are no longer necessary. Thanks!
+are found in the git repository at:
 
--Ranjit
+  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.g=
+it upstream-fixes
 
-> [NET_SCHED]: sch_htb: use generic estimator
->
-> Remove the internal rate estimator and use the generic one.
->
-> Signed-off-by: Patrick McHardy <kaber@trash.net>
->
-> ---
-> commit add81ec9b23f1fbe973093d5999a3d70e9d4c48b
-> tree d5d119cceed54f14c39cbe6bc75c270a3e89f316
-> parent b208cb31ea86bc6296e5b08e53bc765c81306286
-> author Patrick McHardy <kaber@trash.net> Sat, 26 May 2007 14:52:02 +0200
-> committer Patrick McHardy <kaber@trash.net> Sat, 26 May 2007 14:52:02 +0200
->
->  net/sched/sch_htb.c |   91 +++++++++++++++++----------------------------------
->  1 files changed, 30 insertions(+), 61 deletions(-)
->
-> diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-> index 035788c..b29ff8f 100644
-> --- a/net/sched/sch_htb.c
-> +++ b/net/sched/sch_htb.c
-> @@ -69,8 +69,6 @@
->  */
->
->  #define HTB_HSIZE 16           /* classid hash size */
-> -#define HTB_EWMAC 2            /* rate average over HTB_EWMAC*HTB_HSIZE sec */
-> -#define HTB_RATECM 1           /* whether to use rate computer */
->  #define HTB_HYSTERESIS 1       /* whether to use mode hysteresis for speedup */
->  #define HTB_VER 0x30011                /* major must be matched with number suplied by TC as version */
->
-> @@ -95,12 +93,6 @@ struct htb_class {
->         struct tc_htb_xstats xstats;    /* our special stats */
->         int refcnt;             /* usage count of this class */
->
-> -#ifdef HTB_RATECM
-> -       /* rate measurement counters */
-> -       unsigned long rate_bytes, sum_bytes;
-> -       unsigned long rate_packets, sum_packets;
-> -#endif
-> -
->         /* topology */
->         int level;              /* our level (see above) */
->         struct htb_class *parent;       /* parent class */
-> @@ -194,10 +186,6 @@ struct htb_sched {
->         int rate2quantum;       /* quant = rate / rate2quantum */
->         psched_time_t now;      /* cached dequeue time */
->         struct qdisc_watchdog watchdog;
-> -#ifdef HTB_RATECM
-> -       struct timer_list rttim;        /* rate computer timer */
-> -       int recmp_bucket;       /* which hash bucket to recompute next */
-> -#endif
->
->         /* non shaped skbs; let them go directly thru */
->         struct sk_buff_head direct_queue;
-> @@ -677,34 +665,6 @@ static int htb_requeue(struct sk_buff *skb, struct Qdisc *sch)
->         return NET_XMIT_SUCCESS;
->  }
->
-> -#ifdef HTB_RATECM
-> -#define RT_GEN(D,R) R+=D-(R/HTB_EWMAC);D=0
-> -static void htb_rate_timer(unsigned long arg)
-> -{
-> -       struct Qdisc *sch = (struct Qdisc *)arg;
-> -       struct htb_sched *q = qdisc_priv(sch);
-> -       struct hlist_node *p;
-> -       struct htb_class *cl;
-> -
-> -
-> -       /* lock queue so that we can muck with it */
-> -       spin_lock_bh(&sch->dev->queue_lock);
-> -
-> -       q->rttim.expires = jiffies + HZ;
-> -       add_timer(&q->rttim);
-> -
-> -       /* scan and recompute one bucket at time */
-> -       if (++q->recmp_bucket >= HTB_HSIZE)
-> -               q->recmp_bucket = 0;
-> -
-> -       hlist_for_each_entry(cl,p, q->hash + q->recmp_bucket, hlist) {
-> -               RT_GEN(cl->sum_bytes, cl->rate_bytes);
-> -               RT_GEN(cl->sum_packets, cl->rate_packets);
-> -       }
-> -       spin_unlock_bh(&sch->dev->queue_lock);
-> -}
-> -#endif
-> -
->  /**
->   * htb_charge_class - charges amount "bytes" to leaf and ancestors
->   *
-> @@ -750,11 +710,6 @@ static void htb_charge_class(struct htb_sched *q, struct htb_class *cl,
->                         if (cl->cmode != HTB_CAN_SEND)
->                                 htb_add_to_wait_tree(q, cl, diff);
->                 }
-> -#ifdef HTB_RATECM
-> -               /* update rate counters */
-> -               cl->sum_bytes += bytes;
-> -               cl->sum_packets++;
-> -#endif
->
->                 /* update byte stats except for leaves which are already updated */
->                 if (cl->level) {
-> @@ -1095,13 +1050,6 @@ static int htb_init(struct Qdisc *sch, struct rtattr *opt)
->         if (q->direct_qlen < 2) /* some devices have zero tx_queue_len */
->                 q->direct_qlen = 2;
->
-> -#ifdef HTB_RATECM
-> -       init_timer(&q->rttim);
-> -       q->rttim.function = htb_rate_timer;
-> -       q->rttim.data = (unsigned long)sch;
-> -       q->rttim.expires = jiffies + HZ;
-> -       add_timer(&q->rttim);
-> -#endif
->         if ((q->rate2quantum = gopt->rate2quantum) < 1)
->                 q->rate2quantum = 1;
->         q->defcls = gopt->defcls;
-> @@ -1175,18 +1123,15 @@ htb_dump_class_stats(struct Qdisc *sch, unsigned long arg, struct gnet_dump *d)
->  {
->         struct htb_class *cl = (struct htb_class *)arg;
->
-> -#ifdef HTB_RATECM
-> -       cl->rate_est.bps = cl->rate_bytes / (HTB_EWMAC * HTB_HSIZE);
-> -       cl->rate_est.pps = cl->rate_packets / (HTB_EWMAC * HTB_HSIZE);
-> -#endif
-> -
->         if (!cl->level && cl->un.leaf.q)
->                 cl->qstats.qlen = cl->un.leaf.q->q.qlen;
->         cl->xstats.tokens = cl->tokens;
->         cl->xstats.ctokens = cl->ctokens;
->
->         if (gnet_stats_copy_basic(d, &cl->bstats) < 0 ||
-> +#ifdef CONFIG_NET_ESTIMATOR
->             gnet_stats_copy_rate_est(d, &cl->rate_est) < 0 ||
-> +#endif
->             gnet_stats_copy_queue(d, &cl->qstats) < 0)
->                 return -1;
->
-> @@ -1277,6 +1222,9 @@ static void htb_destroy_class(struct Qdisc *sch, struct htb_class *cl)
->                 BUG_TRAP(cl->un.leaf.q);
->                 qdisc_destroy(cl->un.leaf.q);
->         }
-> +#ifdef CONFIG_NET_ESTIMATOR
-> +       gen_kill_estimator(&cl->bstats, &cl->rate_est);
-> +#endif
->         qdisc_put_rtab(cl->rate);
->         qdisc_put_rtab(cl->ceil);
->
-> @@ -1305,9 +1253,6 @@ static void htb_destroy(struct Qdisc *sch)
->         struct htb_sched *q = qdisc_priv(sch);
->
->         qdisc_watchdog_cancel(&q->watchdog);
-> -#ifdef HTB_RATECM
-> -       del_timer_sync(&q->rttim);
-> -#endif
->         /* This line used to be after htb_destroy_class call below
->            and surprisingly it worked in 2.4. But it must precede it
->            because filter need its target class alive to be able to call
-> @@ -1403,6 +1348,19 @@ static int htb_change_class(struct Qdisc *sch, u32 classid,
->         if (!cl) {              /* new class */
->                 struct Qdisc *new_q;
->                 int prio;
-> +               struct {
-> +                       struct rtattr           rta;
-> +                       struct gnet_estimator   opt;
-> +               } est __maybe_unused = {
-> +                       .rta = {
-> +                               .rta_len        = RTA_LENGTH(sizeof(est.opt)),
-> +                               .rta_type       = TCA_RATE,
-> +                       },
-> +                       .opt = {
-> +                               .interval       = 2,
-> +                               .ewma_log       = 2,
-> +                       },
-> +               };
->
->                 /* check for valid classid */
->                 if (!classid || TC_H_MAJ(classid ^ sch->handle)
-> @@ -1418,6 +1376,10 @@ static int htb_change_class(struct Qdisc *sch, u32 classid,
->                 if ((cl = kzalloc(sizeof(*cl), GFP_KERNEL)) == NULL)
->                         goto failure;
->
-> +#ifdef CONFIG_NET_ESTIMATOR
-> +               gen_new_estimator(&cl->bstats, &cl->rate_est,
-> +                                 &sch->dev->queue_lock, &est.rta);
-> +#endif
->                 cl->refcnt = 1;
->                 INIT_LIST_HEAD(&cl->sibling);
->                 INIT_HLIST_NODE(&cl->hlist);
-> @@ -1469,8 +1431,15 @@ static int htb_change_class(struct Qdisc *sch, u32 classid,
->                 hlist_add_head(&cl->hlist, q->hash + htb_hash(classid));
->                 list_add_tail(&cl->sibling,
->                               parent ? &parent->children : &q->root);
-> -       } else
-> +       } else {
-> +#ifdef CONFIG_NET_ESTIMATOR
-> +               if (tca[TCA_RATE-1])
-> +                       gen_replace_estimator(&cl->bstats, &cl->rate_est,
-> +                                             &sch->dev->queue_lock,
-> +                                             tca[TCA_RATE-1]);
-> +#endif
->                 sch_tree_lock(sch);
-> +       }
->
->         /* it used to be a nasty bug here, we have to check that node
->            is really leaf before changing cl->un.leaf ! */
->
->
+Akinobu Mita (2):
+      ieee80211: fix incomplete error message
+      softmac: alloc_ieee80211() NULL check
+
+Bj=F6rn Steinbrink (1):
+      prism54: fix monitor mode oops
+
+Brandon Craig Rhodes (1):
+      hostap: Allocate enough tailroom for TKIP
+
+ drivers/net/wireless/hostap/hostap_80211_tx.c   |   13 ++++++++-----
+ drivers/net/wireless/prism54/islpci_eth.c       |    5 +++--
+ net/ieee80211/ieee80211_module.c                |    2 +-
+ net/ieee80211/softmac/ieee80211softmac_module.c |    5 ++++-
+ 4 files changed, 16 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/net/wireless/hostap/hostap_80211_tx.c b/drivers/ne=
+t/wireless/hostap/hostap_80211_tx.c
+index 246fac0..3df3c60 100644
+--- a/drivers/net/wireless/hostap/hostap_80211_tx.c
++++ b/drivers/net/wireless/hostap/hostap_80211_tx.c
+@@ -311,7 +311,7 @@ static struct sk_buff * hostap_tx_encrypt(struct sk=
+_buff *skb,
+ 	local_info_t *local;
+ 	struct ieee80211_hdr_4addr *hdr;
+ 	u16 fc;
+-	int hdr_len, res;
++	int prefix_len, postfix_len, hdr_len, res;
+=20
+ 	iface =3D netdev_priv(skb->dev);
+ 	local =3D iface->local;
+@@ -337,10 +337,13 @@ static struct sk_buff * hostap_tx_encrypt(struct =
+sk_buff *skb,
+ 	if (skb =3D=3D NULL)
+ 		return NULL;
+=20
+-	if ((skb_headroom(skb) < crypt->ops->extra_mpdu_prefix_len ||
+-	     skb_tailroom(skb) < crypt->ops->extra_mpdu_postfix_len) &&
+-	    pskb_expand_head(skb, crypt->ops->extra_mpdu_prefix_len,
+-			     crypt->ops->extra_mpdu_postfix_len, GFP_ATOMIC)) {
++	prefix_len =3D crypt->ops->extra_mpdu_prefix_len +
++		crypt->ops->extra_msdu_prefix_len;
++	postfix_len =3D crypt->ops->extra_mpdu_postfix_len +
++		crypt->ops->extra_msdu_postfix_len;
++	if ((skb_headroom(skb) < prefix_len ||
++	     skb_tailroom(skb) < postfix_len) &&
++	    pskb_expand_head(skb, prefix_len, postfix_len, GFP_ATOMIC)) {
+ 		kfree_skb(skb);
+ 		return NULL;
+ 	}
+diff --git a/drivers/net/wireless/prism54/islpci_eth.c b/drivers/net/wi=
+reless/prism54/islpci_eth.c
+index dd070cc..f49eb06 100644
+--- a/drivers/net/wireless/prism54/islpci_eth.c
++++ b/drivers/net/wireless/prism54/islpci_eth.c
+@@ -378,9 +378,10 @@ islpci_eth_receive(islpci_private *priv)
+ 	display_buffer((char *) skb->data, skb->len);
+ #endif
+ 	/* take care of monitor mode and spy monitoring. */
+-	if (unlikely(priv->iw_mode =3D=3D IW_MODE_MONITOR))
++	if (unlikely(priv->iw_mode =3D=3D IW_MODE_MONITOR)) {
++		skb->dev =3D ndev;
+ 		discard =3D islpci_monitor_rx(priv, &skb);
+-	else {
++	} else {
+ 		if (unlikely(skb->data[2 * ETH_ALEN] =3D=3D 0)) {
+ 			/* The packet has a rx_annex. Read it for spy monitoring, Then
+ 			 * remove it, while keeping the 2 leading MAC addr.
+diff --git a/net/ieee80211/ieee80211_module.c b/net/ieee80211/ieee80211=
+_module.c
+index 7ec6610..17ad278 100644
+--- a/net/ieee80211/ieee80211_module.c
++++ b/net/ieee80211/ieee80211_module.c
+@@ -140,7 +140,7 @@ struct net_device *alloc_ieee80211(int sizeof_priv)
+=20
+ 	dev =3D alloc_etherdev(sizeof(struct ieee80211_device) + sizeof_priv)=
+;
+ 	if (!dev) {
+-		IEEE80211_ERROR("Unable to network device.\n");
++		IEEE80211_ERROR("Unable to allocate network device.\n");
+ 		goto failed;
+ 	}
+ 	ieee =3D netdev_priv(dev);
+diff --git a/net/ieee80211/softmac/ieee80211softmac_module.c b/net/ieee=
+80211/softmac/ieee80211softmac_module.c
+index e9cdc66..c308756 100644
+--- a/net/ieee80211/softmac/ieee80211softmac_module.c
++++ b/net/ieee80211/softmac/ieee80211softmac_module.c
+@@ -33,7 +33,10 @@ struct net_device *alloc_ieee80211softmac(int sizeof=
+_priv)
+ 	struct ieee80211softmac_device *softmac;
+ 	struct net_device *dev;
+=20
+-	dev =3D alloc_ieee80211(sizeof(struct ieee80211softmac_device) + size=
+of_priv);
++	dev =3D alloc_ieee80211(sizeof(*softmac) + sizeof_priv);
++	if (!dev)
++		return NULL;
++
+ 	softmac =3D ieee80211_priv(dev);
+ 	softmac->dev =3D dev;
+ 	softmac->ieee =3D netdev_priv(dev);
+--=20
+John W. Linville
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
