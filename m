@@ -1,41 +1,64 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Definition and usage of NETIF_F_HW_SUM?
-Date: Tue, 29 May 2007 13:58:13 -0700
-Message-ID: <20070529135813.63303693@freepuppy>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH] b44: netpoll locking fix
+Date: Tue, 29 May 2007 23:14:58 +0200
+Message-ID: <20070529211458.GA31200@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: jgarzik@pobox.com, akpm@linux-foundation.org,
+	netdev@vger.kernel.org
+To: Gary Zambrano <zambrano@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([207.189.120.12]:41713 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759646AbXE2VHX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 May 2007 17:07:23 -0400
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:39481 "EHLO
+	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750912AbXE2VQF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 May 2007 17:16:05 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The flag NETIF_F_HW_SUM is being misused. The definition says that the device
-is capable of checksumming any packet. When in fact from usage it seems to
-imply that the device is capable of doing IPV6 as well as IPV4.
+The irq handling thread (b44_interrupt) uses the same lock as the NAPI
+thread. This change should prevent a deadlock if something interrupts
+the b44 NAPI thread and tries to printk through netconsole.
 
-Some devices like 8139too do "fake checksum offloading" because they always have to copy
-the packet.
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+---
+ drivers/net/b44.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
 
-Some devices like via-rhine, don't really checksum but if they see CHECKSUM_PARTIAL then they
-copy. This is bogus, they should just let higher layer do checksum/copy.
-
-Devices like e1000, and bnx2 are broken because they assume only TCP/UDP and IPV4/IPV6. 
-The definition of the flag says other protocols should work, but they probably send the
-hardware into a state of confusion.
-
-A few devices take a offset, starting point, and insertion point. This looks like
-the correct model. But no upper layer protocols other than IPV4/IPV6 can do checksum
-offload at present, so it seems moot.
-
-IMHO the correct solution would be to get rid if NETIF_F_HW_SUM and make a new flag
-NETIF_F_IPV6_SUM. Devices that can checksum both could do NETIF_F_IPV4_SUM|NETI_F_IPV6_SUM.
-
-
+diff --git a/drivers/net/b44.c b/drivers/net/b44.c
+index 879a2ff..64d75e4 100644
+--- a/drivers/net/b44.c
++++ b/drivers/net/b44.c
+@@ -853,16 +853,18 @@ static int b44_rx(struct b44 *bp, int budget)
+ static int b44_poll(struct net_device *netdev, int *budget)
+ {
+ 	struct b44 *bp = netdev_priv(netdev);
++	unsigned long flags;
+ 	int done;
+ 
+-	spin_lock_irq(&bp->lock);
++	spin_lock_irqsave(&bp->lock, flags);
+ 
+ 	if (bp->istat & (ISTAT_TX | ISTAT_TO)) {
+ 		/* spin_lock(&bp->tx_lock); */
+ 		b44_tx(bp);
+ 		/* spin_unlock(&bp->tx_lock); */
+ 	}
+-	spin_unlock_irq(&bp->lock);
++
++	spin_unlock_irqrestore(&bp->lock, flags);
+ 
+ 	done = 1;
+ 	if (bp->istat & ISTAT_RX) {
+@@ -882,8 +884,6 @@ static int b44_poll(struct net_device *netdev, int *budget)
+ 	}
+ 
+ 	if (bp->istat & ISTAT_ERRORS) {
+-		unsigned long flags;
+-
+ 		spin_lock_irqsave(&bp->lock, flags);
+ 		b44_halt(bp);
+ 		b44_init_rings(bp);
 -- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+1.5.2
+
