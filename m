@@ -1,77 +1,125 @@
-From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Subject: Re: b44: regression in 2.6.22 (resend)
-Date: Tue, 29 May 2007 22:45:22 +0200
-Message-ID: <200705292245.22940.mb@bu3sch.de>
-References: <20070525172431.60affaca@freepuppy> <200705281655.15105.mb@bu3sch.de> <1180448075.17146.12.camel@dhcp-10-12-136-115.broadcom.com>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH 0/9]: tcp-2.6 patchset
+Date: Tue, 29 May 2007 23:58:39 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0705292335080.23565@kivilampi-30.cs.helsinki.fi>
+References: <11801685622325-git-send-email-ilpo.jarvinen@helsinki.fi>
+ <20070526.164418.115928217.davem@davemloft.net>
+ <Pine.LNX.4.64.0705271039060.2532@kivilampi-30.cs.helsinki.fi>
+ <20070527.021104.74747736.davem@davemloft.net>
+ <Pine.LNX.4.64.0705271319310.2663@kivilampi-30.cs.helsinki.fi>
+ <20070527140430.GA30299@galon.ev-en.org> <Pine.LNX.4.64.0705271933440.2832@kivilampi-30.cs.helsinki.fi>
+ <Pine.LNX.4.64.0705281253340.14736@kivilampi-30.cs.helsinki.fi>
+ <20070529091415.03a14216@freepuppy> <Pine.LNX.4.64.0705292150390.23565@kivilampi-30.cs.helsinki.fi>
+ <20070529131951.1d9a5b84@freepuppy>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: "Maximilian Engelhardt" <maxi-OwNUvPV92VfddJNmlsFzeA@public.gmane.org>,
-	"linux-kernel" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-wireless" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"Stephen Hemminger" <shemminger-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	"Arnaldo Carvalho de Melo" <acme-f8uhVLnGfZaxAyOMLChx1axOck334EZe@public.gmane.org>,
-	"Jeff Garzik" <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"Andrew Morton" <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-To: "Gary Zambrano" <zambrano-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1180448075.17146.12.camel-opBMJL+S1+nCw/J+WP9nZ0NK2P1VvzQgpWgKQ6/u3Fg@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-2106044594-1180472319=:23565"
+Cc: Baruch Even <baruch@ev-en.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Netdev <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@linux-foundation.org>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:33962 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759048AbXE2U6n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 May 2007 16:58:43 -0400
+In-Reply-To: <20070529131951.1d9a5b84@freepuppy>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 29 May 2007 16:14:35 Gary Zambrano wrote:
-> On Mon, 2007-05-28 at 16:55 +0200, Michael Buesch wrote:
-> > On Monday 28 May 2007 16:12:12 Maximilian Engelhardt wrote:
-> > > On Monday 28 May 2007, Michael Buesch wrote:
-> > > > Can you also test the following patch?
-> > > > I think there's a bug in b44 that is doesn't properly discard
-> > > > shared IRQs, so it might possibly generate a NAPI storm, dunno.
-> > > > Worth a try.
-> > > >
-> > > > Index: linux-2.6.22-rc3/drivers/net/b44.c
-> > > > ===================================================================
-> > > > --- linux-2.6.22-rc3.orig/drivers/net/b44.c	2007-05-27 23:01:44.000000000
-> > > > +0200 +++ linux-2.6.22-rc3/drivers/net/b44.c	2007-05-28 12:48:27.000000000
-> > > > +0200 @@ -911,6 +911,8 @@ static irqreturn_t b44_interrupt(int irq
-> > > >  	spin_lock(&bp->lock);
-> > > >
-> > > >  	istat = br32(bp, B44_ISTAT);
-> > > > +	if (istat == 0xFFFFFFFF)
-> > > > +		goto out; /* Shared IRQ not for us */
-> > > >  	imask = br32(bp, B44_IMASK);
-> > > >
-> > > >  	/* The interrupt mask register controls which interrupt bits
-> > > > @@ -942,6 +944,7 @@ irq_ack:
-> > > >  		bw32(bp, B44_ISTAT, istat);
-> > > >  		br32(bp, B44_ISTAT);
-> > > >  	}
-> > > > +out:
-> > > >  	spin_unlock(&bp->lock);
-> > > >  	return IRQ_RETVAL(handled);
-> > > >  }
-> > > 
-> > > I did try this patch on a affected kernel, but I didn't notice any big 
-> > > difference. Perhaps the kernel is a bit less slow during the test, but It's 
-> > > hard to tell.
-> > 
-> > Ok, but anyway. I think this is a bug and needs to be fixed this way. Gary?
-> > 
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+
+---696243703-2106044594-1180472319=:23565
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
+
+On Tue, 29 May 2007, Stephen Hemminger wrote:
+
+> On Tue, 29 May 2007 23:07:00 +0300 (EEST)
+> "Ilpo Järvinen" <ilpo.jarvinen@helsinki.fi> wrote:
 > 
-> Thanks Michael.
-> No, I don't think this is a bug and it does not need to be fixed.
+> > On Tue, 29 May 2007, Stephen Hemminger wrote:
+> > 
+> > > Since we don't invoke congestion control modules until after the SYN
+> > > handshake this is not a problem.
+> > 
+> > Just curious, do you mean that cc modules cannot measure, e.g., initial
+> > RTT through this mechanism (though they could do that in init() cb then
+> > I suppose)... Or do you mean that they are called already for the ACK
+> > that completes the SYN handshake and therefore its skb is being cleaned 
+> > from the queue right now (this is the case I above refer to)? 
+> > In the first case the decrementer code is NOP. If the latter, then it
+> > is just interface specification question, i.e., if SYNs are treated as 
+> > zero or one in num_acked for the pkts_acked callback (I have no opinion
+> > on this but was just trying to make sure cc modules get what they
+> > expect :-)). 
+> 
+> We don't switch a socket out of Reno until after the initial handshake.
 
-Are you sure? I'm not so sure, because
-1) On bcm43xx the reverse engineers told us that the card
-   returns 0xFFFFFFFF for no-irq-pending. Since b44 and bcm43xx
-   are very similiar in IRQ and DMA I just thought it would
-   be the case there, too. Just guessing.
-2) PCMCIA cards usually return all-ones if you try to read a
-   register of a card that's been removed. So it's good
-   practice to check for this and bail out early in the IRQ
-   path. Do PCMCIA cards (PC-card, not neccessarily a real
-   16bit PCMCIA card) for b44 exist?
+...It's still not very clear to me what exactly your "after" means (both 
+here and in your earlier description), i.e., whether clean_rtx_queue call 
+that cleans SYN skb from the queue happens before or after the switch out 
+of reno or not... If I understand the code correctly, this specific 
+clean_rtx_queue call happens after "your after" but I could be 
+misunderstanding the current 3-way handshake code. :-)
 
+> As an interface, it makes sense to keep the API with the SYN counting
+> as a packet.
+
+Ok, this one answers the remaining question concerning the patch, here
+is it without the decrementer for SYN case (which IMHO wasn't very 
+beautiful looking anyway :-)).
+
+Dave, please consider this to net-2.6. It could be a stable candidate 
+as well, haven't tested yet if it applies cleanly to stable:
+
+
+[PATCH] [TCP]: Fix GSO ignorance of pkts_acked arg (cong.cntrl modules)
+
+The code used to ignore GSO completely, passing either way too
+small or zero pkts_acked when GSO skb or part of it got ACKed.
+In addition, there is no need to calculate the value in the loop
+but simple arithmetics after the loop is sufficient. Pkts_acked
+callback of congestion control modules include SYN as a packet
+for now on.
+
+Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+---
+ net/ipv4/tcp_input.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 38cb25b..74683d8 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -2407,8 +2407,8 @@ static int tcp_clean_rtx_queue(struct sock *sk, __s32 *seq_rtt_p)
+ 	struct sk_buff *skb;
+ 	__u32 now = tcp_time_stamp;
+ 	int acked = 0;
++	int prior_packets = tp->packets_out;
+ 	__s32 seq_rtt = -1;
+-	u32 pkts_acked = 0;
+ 	ktime_t last_ackt = ktime_set(0,0);
+ 
+ 	while ((skb = tcp_write_queue_head(sk)) &&
+@@ -2437,7 +2437,6 @@ static int tcp_clean_rtx_queue(struct sock *sk, __s32 *seq_rtt_p)
+ 		 */
+ 		if (!(scb->flags & TCPCB_FLAG_SYN)) {
+ 			acked |= FLAG_DATA_ACKED;
+-			++pkts_acked;
+ 		} else {
+ 			acked |= FLAG_SYN_ACKED;
+ 			tp->retrans_stamp = 0;
+@@ -2481,6 +2480,7 @@ static int tcp_clean_rtx_queue(struct sock *sk, __s32 *seq_rtt_p)
+ 	}
+ 
+ 	if (acked&FLAG_ACKED) {
++		u32 pkts_acked = prior_packets - tp->packets_out;
+ 		const struct tcp_congestion_ops *ca_ops
+ 			= inet_csk(sk)->icsk_ca_ops;
+ 
 -- 
-Greetings Michael.
+1.5.0.6
+
+---696243703-2106044594-1180472319=:23565--
