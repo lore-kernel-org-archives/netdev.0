@@ -1,32 +1,31 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [PATCH 2/4] forcedeth: fix power management support
-Date: 29 May 2007 11:31:18 +0200
-Message-ID: <p734plwf02h.fsf@bingen.suse.de>
-References: <465237E8.1060005@nvidia.com>
+From: Clemens Brunner <clemens.brunner@tugraz.at>
+Subject: Re: r8169: Link always down
+Date: Tue, 29 May 2007 10:46:50 +0200
+Message-ID: <465BE87A.3050809@tugraz.at>
+References: <46557430.5060501@tugraz.at> <20070524120644.GA7224@electric-eye.fr.zoreil.com> <46569CF4.2030108@tugraz.at> <20070527222024.GA15066@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>,
-	Manfred Spraul <manfred@colorfullife.com>,
-	Andrew Morton <akpm@osdl.org>, nedev <netdev@vger.kernel.org>
-To: Ayaz Abdulla <aabdulla@nvidia.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns1.suse.de ([195.135.220.2]:38062 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750968AbXE2Ien (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 May 2007 04:34:43 -0400
-In-Reply-To: <465237E8.1060005@nvidia.com>
+Received: from mailrelay.tu-graz.ac.at ([129.27.2.202]:58099 "EHLO
+	mailrelay.tugraz.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751330AbXE2IrD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 May 2007 04:47:03 -0400
+In-Reply-To: <20070527222024.GA15066@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ayaz Abdulla <aabdulla@nvidia.com> writes:
+Francois Romieu wrote:
+> [...]
+ > As an option you can retrieve the url below which contains all the patches
+> above in a single patch-file:
+> http://www.fr.zoreil.com/people/francois/misc/20070522-2.6.22-rc2-r8169.patch
 
-> This patch fixes the power management functions. It includes lowering
-> the phy speed to conserve power.
+Thanks for providing the single patch file. I was able to compile the patched 
+kernel (version 2.6.22-rc3) with the EEPROM option enabled. However, the NIC 
+still does not work (r8169: eth0: link down). Please let me know what else I 
+could do to help you.
 
-Shouldn't there be some way to disable this? AFAIK a few old switches
-have trouble with this. I assume a new ethtool option would be appropiate
-since we expect other drivers to gain this capability too.
-Could some of this code be put into the generic MII layer?
-
--Andi
-
+Clemens
