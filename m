@@ -1,7 +1,7 @@
 From: divy@chelsio.com
-Subject: [PATCH 2/5] cxgb3 - fix netpoll hanlder
-Date: Wed, 30 May 2007 10:01:34 -0700
-Message-ID: <20070530170134.22807.94226.stgit@localhost.localdomain>
+Subject: [PATCH 3/5] cxgb3 - Fix direct XAUI support
+Date: Wed, 30 May 2007 10:01:39 -0700
+Message-ID: <20070530170139.22825.65387.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -9,61 +9,61 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	swise@opengridcomputing.com
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.22.49.110]:4879 "EHLO
+Received: from stargate.chelsio.com ([12.22.49.110]:8924 "EHLO
 	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755250AbXE3RBg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 May 2007 13:01:36 -0400
+	with ESMTP id S1756543AbXE3RBm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 May 2007 13:01:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Divy Le Ray <divy@chelsio.com>
 
-Fix netpoll handler to work with line interrupt, msi and msi-x.
+Check all lanes for link status on direct XAUI cards.
+Don't assume that direct XAUI always uses XGMAC 1.
 
 Signed-off-by: Divy Le Ray <divy@chelsio.com>
 ---
 
- drivers/net/cxgb3/cxgb3_main.c |   16 +++++++++++++---
- drivers/net/cxgb3/sge.c        |    1 -
- 2 files changed, 13 insertions(+), 4 deletions(-)
+ drivers/net/cxgb3/ael1002.c |   10 ++++++++--
+ drivers/net/cxgb3/regs.h    |    2 ++
+ 2 files changed, 10 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/cxgb3/cxgb3_main.c b/drivers/net/cxgb3/cxgb3_main.c
-index 67b4b21..dd3710f 100644
---- a/drivers/net/cxgb3/cxgb3_main.c
-+++ b/drivers/net/cxgb3/cxgb3_main.c
-@@ -2076,10 +2076,20 @@ static void vlan_rx_kill_vid(struct net_
- static void cxgb_netpoll(struct net_device *dev)
+diff --git a/drivers/net/cxgb3/ael1002.c b/drivers/net/cxgb3/ael1002.c
+index 73a41e6..ee140e6 100644
+--- a/drivers/net/cxgb3/ael1002.c
++++ b/drivers/net/cxgb3/ael1002.c
+@@ -219,7 +219,13 @@ static int xaui_direct_get_link_status(s
+ 		unsigned int status;
+ 
+ 		status = t3_read_reg(phy->adapter,
+-				     XGM_REG(A_XGM_SERDES_STAT0, phy->addr));
++				     XGM_REG(A_XGM_SERDES_STAT0, phy->addr)) |
++		    t3_read_reg(phy->adapter,
++				XGM_REG(A_XGM_SERDES_STAT1, phy->addr)) |
++		    t3_read_reg(phy->adapter,
++				XGM_REG(A_XGM_SERDES_STAT2, phy->addr)) |
++		    t3_read_reg(phy->adapter,
++				XGM_REG(A_XGM_SERDES_STAT3, phy->addr));
+ 		*link_ok = !(status & F_LOWSIG0);
+ 	}
+ 	if (speed)
+@@ -247,5 +253,5 @@ static struct cphy_ops xaui_direct_ops =
+ void t3_xaui_direct_phy_prep(struct cphy *phy, struct adapter *adapter,
+ 			     int phy_addr, const struct mdio_ops *mdio_ops)
  {
- 	struct adapter *adapter = dev->priv;
--	struct sge_qset *qs = dev2qset(dev);
-+	struct port_info *pi = netdev_priv(dev);
-+	int qidx;
- 
--	t3_intr_handler(adapter, qs->rspq.polling) (adapter->pdev->irq,
--						    adapter);
-+	for (qidx = pi->first_qset; qidx < pi->first_qset + pi->nqsets; qidx++) {
-+		struct sge_qset *qs = &adapter->sge.qs[qidx];
-+		void *source;
-+		
-+		if (adapter->flags & USING_MSIX)
-+			source = qs;
-+		else
-+			source = adapter;
-+
-+		t3_intr_handler(adapter, qs->rspq.polling) (0, source);
-+	}
+-	cphy_init(phy, adapter, 1, &xaui_direct_ops, mdio_ops);
++	cphy_init(phy, adapter, phy_addr, &xaui_direct_ops, mdio_ops);
  }
- #endif
+diff --git a/drivers/net/cxgb3/regs.h b/drivers/net/cxgb3/regs.h
+index e5a5534..bf9d6be 100644
+--- a/drivers/net/cxgb3/regs.h
++++ b/drivers/net/cxgb3/regs.h
+@@ -2128,6 +2128,8 @@
+ #define F_RESETPLL01    V_RESETPLL01(1U)
  
-diff --git a/drivers/net/cxgb3/sge.c b/drivers/net/cxgb3/sge.c
-index eaa7dac..a60ec4d 100644
---- a/drivers/net/cxgb3/sge.c
-+++ b/drivers/net/cxgb3/sge.c
-@@ -2217,7 +2217,6 @@ irqreturn_t t3_sge_intr_msix_napi(int ir
- 	struct sge_rspq *q = &qs->rspq;
+ #define A_XGM_SERDES_STAT0 0x8f0
++#define A_XGM_SERDES_STAT1 0x8f4
++#define A_XGM_SERDES_STAT2 0x8f8
  
- 	spin_lock(&q->lock);
--	BUG_ON(napi_is_scheduled(qs->netdev));
- 
- 	if (handle_responses(adap, q) < 0)
- 		q->unhandled_irqs++;
+ #define S_LOWSIG0    0
+ #define V_LOWSIG0(x) ((x) << S_LOWSIG0)
