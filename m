@@ -1,47 +1,29 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: [PATCH 4/4] mac80211: avoid null ptr deref in ieee80211_ibss_add_sta
-Date: Wed, 30 May 2007 14:30:33 -0400
-Message-ID: <20070530183033.GG3610@tuxdriver.com>
-References: <20070530182538.GB3610@tuxdriver.com> <20070530182807.GD3610@tuxdriver.com> <20070530182858.GE3610@tuxdriver.com> <20070530182946.GF3610@tuxdriver.com>
+From: Brice Goglin <brice@myri.com>
+Subject: [PATCH 0/3] myri10ge updates for 2.6.22
+Date: Wed, 30 May 2007 21:12:52 +0200
+Message-ID: <465DCCB4.5040404@myri.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:3780 "EHLO ra.tuxdriver.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755164AbXE3TBU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 May 2007 15:01:20 -0400
-Content-Disposition: inline
-In-Reply-To: <20070530182946.GF3610@tuxdriver.com>
+Received: from dsl.myri.com ([64.172.73.26]:1991 "EHLO myri.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752782AbXE3TMl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 May 2007 15:12:41 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: John W. Linville <linville@tuxdriver.com>
+Hi Jeff,
 
-avoid sdata null pointer dereference in ieee80211_ibss_add_sta.
+Here's a small patchset for myri10ge in 2.6.22:
+1) report link up/down in standard ethtool way
+2) limit the number of recoveries
+3) update driver version
 
-Signed-off-by: John W. Linville <linville@tuxdriver.com>
----
- net/mac80211/ieee80211_sta.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Please apply.
 
-diff --git a/net/mac80211/ieee80211_sta.c b/net/mac80211/ieee80211_sta.c
-index dbac858..9f30ae4 100644
---- a/net/mac80211/ieee80211_sta.c
-+++ b/net/mac80211/ieee80211_sta.c
-@@ -2997,7 +2997,7 @@ struct sta_info * ieee80211_ibss_add_sta(struct net_device *dev,
- {
- 	struct ieee80211_local *local = wdev_priv(dev->ieee80211_ptr);
- 	struct sta_info *sta;
--	struct ieee80211_sub_if_data *sdata = NULL;
-+	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
- 
- 	/* TODO: Could consider removing the least recently used entry and
- 	 * allow new one to be added. */
--- 
-1.5.0.6
+Thanks!
+Brice
 
--- 
-John W. Linville
-linville@tuxdriver.com
