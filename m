@@ -1,66 +1,82 @@
-From: Doug Chapman <doug.chapman@hp.com>
-Subject: REGRESSION: panic on e1000 driver
-Date: Wed, 30 May 2007 17:22:30 -0400
-Message-ID: <1180560150.29081.35.camel@deimos.americas.hpqcorp.net>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-To: doug.chapman@hp.com, herbert@gondor.apana.org.au,
-	auke-jan.h.kok@intel.com, netdev@vger.kernel.org,
-	e1000-devel@lists.sourceforge.net
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: [PATCH 2/3] qla3xxx: cleanup checksum offload code
+Date: Wed, 30 May 2007 14:23:18 -0700
+Message-ID: <20070530212512.178720251@linux-foundation.org>
+References: <20070530212316.407169588@linux-foundation.org>
+Cc: netdev@vger.kernel.org
+To: Jeff Garzik <jgarzik@pobox.com>, linux-driver@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel7.hp.com ([156.153.255.213]:41113 "EHLO atlrel7.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755136AbXE3VWd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 May 2007 17:22:33 -0400
+Received: from smtp1.linux-foundation.org ([207.189.120.13]:50808 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758719AbXE3ViI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 May 2007 17:38:08 -0400
+Content-Disposition: inline; filename=qla-csum.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-All,
+The code for checksum is more complex than needed when dealing with VLAN's;
+the higher layers already pass down the location of the IP header.
 
-I reported this a few weeks ago and it was fixed but it appears the
-offending code was again re-submitted.  This causes a panic on HP
-Integrity servers and from what I hear many other platforms using e1000
-as well.
+Compile tested only, no hardware available.
 
-My original report was via kernel.org BZ:
-http://bugzilla.kernel.org/show_bug.cgi?id=8455
+Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
-I am seeing the same panic with a kernel built from today's git pull.
+---
+ drivers/net/qla3xxx.c |   37 +++++++++++--------------------------
+ 1 file changed, 11 insertions(+), 26 deletions(-)
 
+--- a/drivers/net/qla3xxx.c	2007-05-30 14:09:25.000000000 -0700
++++ b/drivers/net/qla3xxx.c	2007-05-30 14:09:31.000000000 -0700
+@@ -2433,37 +2433,22 @@ static int ql_get_seg_count(struct ql3_a
+ 	return -1;
+ }
+ 
+-static void ql_hw_csum_setup(struct sk_buff *skb,
++static void ql_hw_csum_setup(const struct sk_buff *skb,
+ 			     struct ob_mac_iocb_req *mac_iocb_ptr)
+ {
+-	struct ethhdr *eth;
+-	struct iphdr *ip = NULL;
+-	u8 offset = ETH_HLEN;
+-
+-	eth = (struct ethhdr *)(skb->data);
+-
+-	if (eth->h_proto == __constant_htons(ETH_P_IP)) {
+-		ip = (struct iphdr *)&skb->data[ETH_HLEN];
+-	} else if (eth->h_proto == htons(ETH_P_8021Q) &&
+-		   ((struct vlan_ethhdr *)skb->data)->
+-		   h_vlan_encapsulated_proto == __constant_htons(ETH_P_IP)) {
+-		ip = (struct iphdr *)&skb->data[VLAN_ETH_HLEN];
+-		offset = VLAN_ETH_HLEN;
+-	}
+-
+-	if (ip) {
+-		if (ip->protocol == IPPROTO_TCP) {
+-			mac_iocb_ptr->flags1 |= OB_3032MAC_IOCB_REQ_TC | 
++	const struct iphdr *ip = ip_hdr(skb);
++
++	mac_iocb_ptr->ip_hdr_off = skb_network_offset(skb);
++	mac_iocb_ptr->ip_hdr_len = ip->ihl;
++
++	if (ip->protocol == IPPROTO_TCP) {
++		mac_iocb_ptr->flags1 |= OB_3032MAC_IOCB_REQ_TC |
+ 			OB_3032MAC_IOCB_REQ_IC;
+-			mac_iocb_ptr->ip_hdr_off = offset;
+-			mac_iocb_ptr->ip_hdr_len = ip->ihl;
+-		} else if (ip->protocol == IPPROTO_UDP) {
+-			mac_iocb_ptr->flags1 |= OB_3032MAC_IOCB_REQ_UC | 
++	} else {
++		mac_iocb_ptr->flags1 |= OB_3032MAC_IOCB_REQ_UC |
+ 			OB_3032MAC_IOCB_REQ_IC;
+-			mac_iocb_ptr->ip_hdr_off = offset;
+-			mac_iocb_ptr->ip_hdr_len = ip->ihl;
+-		}
+ 	}
++
+ }
+ 
+ /*
 
-It was fixed by this commit:
-3e1657c8ef53e1cd541cc1e420f3230dc075949b
-
-
-but once again broken just yesterday by the following commit.  I have
-backed just this commit out and verified I no longer panic.
-
-
-commit 47313054352b879a2bc65379d55b05f48a0af7ec
-Author: Herbert Xu <herbert@gondor.apana.org.au>
-Date:   Tue May 29 15:07:31 2007 -0700
-
-    e1000: restore netif_poll_enable call but make sure IRQs are off
-
-    This restores the previously removed netif_poll_enable call in e1000_open.
-    It's needed on all but the first call to e1000_open for a NIC as
-    e1000_close always calls netif_poll_disable.
-
-    netif_poll_enable can only be called safely if no polls have been
-    scheduled.  This should be the case as long as we don't enter our IRQ
-    handler.
-
-    In order to guarantee this we explicitly disable IRQs as early as possible
-    when we're probing the NIC.
-
-    Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-    Cc: "Kok, Auke" <auke-jan.h.kok@intel.com>
-    Cc: Jeff Garzik <jeff@garzik.org>
-    Cc: Andrew Morton <akpm@linux-foundation.org>
-    Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-    Signed-off-by: Jeff Garzik <jeff@garzik.org>
-
-
-
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
 
