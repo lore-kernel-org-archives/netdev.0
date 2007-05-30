@@ -1,93 +1,56 @@
-From: "Laurent Chavey" <chavey@google.com>
-Subject: Re: bond_compute_features() does not handle devices with different CSUM
-Date: Wed, 30 May 2007 08:18:56 -0700
-Message-ID: <97949e3e0705300818p45dac2deo1c85055d89711848@mail.gmail.com>
-References: <97949e3e0705291741t4c485d38ud48b06e6d07e31bc@mail.gmail.com>
-	 <97949e3e0705291947j7fa5cd3fy5afe7f5eb898252c@mail.gmail.com>
-	 <200705301303.25119.mb@bu3sch.de>
-	 <97949e3e0705300816v782b20edsf366bbe5de6a6d36@mail.gmail.com>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: Please pull 'libertas' branch of wireless-2.6
+Date: Wed, 30 May 2007 11:28:48 -0400
+Message-ID: <1180538928.17163.10.camel@xo-28-0B-88.localdomain>
+References: <20070529183347.GD3496@tuxdriver.com>
+	 <465D8538.8070507@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "Michael Buesch" <mb@bu3sch.de>
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.45.13]:37750 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754115AbXE3PTD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 May 2007 11:19:03 -0400
-Received: from zps76.corp.google.com (zps76.corp.google.com [172.25.146.76])
-	by smtp-out.google.com with ESMTP id l4UFJ1gD020633
-	for <netdev@vger.kernel.org>; Wed, 30 May 2007 08:19:01 -0700
-Received: from ug-out-1314.google.com (ugb70.prod.google.com [10.66.2.70])
-	by zps76.corp.google.com with ESMTP id l4UFIdJ3009555
-	for <netdev@vger.kernel.org>; Wed, 30 May 2007 08:18:57 -0700
-Received: by ug-out-1314.google.com with SMTP id 70so223671ugb
-        for <netdev@vger.kernel.org>; Wed, 30 May 2007 08:18:57 -0700 (PDT)
-In-Reply-To: <97949e3e0705300816v782b20edsf366bbe5de6a6d36@mail.gmail.com>
-Content-Disposition: inline
+Received: from mx1.redhat.com ([66.187.233.31]:60077 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753794AbXE3PZD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 May 2007 11:25:03 -0400
+In-Reply-To: <465D8538.8070507@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-corrected diff.
+On Wed, 2007-05-30 at 10:07 -0400, Jeff Garzik wrote:
+> John W. Linville wrote:
+> > Lots of stuff here...probably best for 2.6.23...
+> 
+> Is this best for Linux users... or just easy for developers?
+> 
+> Won't putting off all these fixes until 2.6.23 leave the driver released 
+> in 2.6.22 in shoddy shape?
 
---- 2.6.20/drivers/net/bonding/bond_main.c      2007-05-29
-19:43:39.010565000 -0700
-+++ 2.6.20.fix/drivers/net/bonding/bond_main.c  2007-05-30
-08:18:24.018322000 -0700
-@@ -1227,7 +1227,14 @@
-        int i;
+Not really; it more or less works there.  What's gone on since then is
+general driver cleanup (Christoph's comments and more), splitting the
+driver so that other bus types can use it (SDIO for example once
+Pierre's SDIO patches get upstream), wireless extensions fixes, etc.
 
-        bond_for_each_slave(bond, slave, i) {
--               features &= (slave->dev->features & BOND_INTERSECT_FEATURES);
-+               /* NETIF_F_HW_CSUM includes support for NET_IF_IP_CSUM
-+                * as such when looking for the intersection we need to
-+                * add it to the device supported features
-+                */
-+               unsigned long dev_features = slave->dev->features;
-+               if (slave->dev->features & NETIF_F_HW_CSUM)
-+                       dev_features |= NETIF_F_IP_CSUM;
-+               features &= (dev_features & BOND_INTERSECT_FEATURES);
-                if (slave->dev->hard_header_len > max_hard_header_len)
-                        max_hard_header_len = slave->dev->hard_header_len;
-        }
+> libertas is upstream now, so we cannot pretend that the driver is 
+> completely independent from upstream release cycles and maintenance.
 
-On 5/30/07, Laurent Chavey <chavey@google.com> wrote:
-> features = features & (dev_features & BOND_INTERSECT_FEATURES);
->
-> On 5/30/07, Michael Buesch <mb@bu3sch.de> wrote:
-> > On Wednesday 30 May 2007 04:47:09 Laurent Chavey wrote:
-> > > proposed change.
-> > >
-> > > --- 2.6.20/drivers/net/bonding/bond_main.c      2007-05-29
-> > > 19:43:39.010565000 -0700
-> > > +++ 2.6.20.fix/drivers/net/bonding/bond_main.c  2007-05-29
-> > > 19:46:12.376980000 -0700
-> > > @@ -1227,7 +1227,14 @@
-> > >         int i;
-> > >
-> > >         bond_for_each_slave(bond, slave, i) {
-> > > -               features &= (slave->dev->features & BOND_INTERSECT_FEATURES);
-> > > +               /* NETIF_F_HW_CSUM includes support for NET_IF_IP_CSUM
-> > > +                * as such when looking for the intersection we need to
-> > > +                * add it to the device supported features
-> > > +                */
-> > > +               unsigned long dev_features = slave->dev->features;
-> > > +               if (slave->dev->features & NETIF_F_HW_CSUM)
-> > > +                       dev_features |= NETIF_F_IP_CSUM;
-> >
-> >
-> > > +               features &= (features & BOND_INTERSECT_FEATURES);
-> >
-> > Is this statement correct?
-> > It's the same as
-> >         features = features & (features & BOND_INTERSECT_FEATURES);
-> > which looks strange to me.
-> > Did you mean something like
-> >         features |= (dev_features & BOND_INTERSECT_FEATURES);
-> > ?
-> >
-> > --
-> > Greetings Michael.
-> >
->
+True, but some of the stuff in here I didn't think would be suitable
+during an -rc cycle, for example the driver splitting and the cleanups
+that don't impact function at all, but are good to do nonetheless.
+
+> libertas fixes should go upstream immediately, since we are in a bugfix 
+> cycle, and since libertas (from upstream perspective) is about to make 
+> its big debut on the world stage.
+
+If you think all the bits from this should just go to 2.6.22, that's
+fine with me.  But I don't feel comfortable making that call given what
+I thought were the constraints on pushing changes through during an rc
+cycle.  When the merge window was open, we backported critical bug fixes
+and necessary merge-requirement cleanups to the code in linville's tree,
+but avoided changes that didn't impact function.
+
+Dan
+
+
