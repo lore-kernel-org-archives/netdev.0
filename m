@@ -1,67 +1,44 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [PATCH 1/2] bridge: reduce frequency of forwarding cleanup timer in
- bridge
-Date: Wed, 30 May 2007 12:12:52 -0700
-Message-ID: <20070530121252.1248f506@freepuppy>
-References: <20070519224605.GG14235@galon.ev-en.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 3/4] Make net watchdog timers 1 sec jiffy aligned
+Date: Wed, 30 May 2007 21:32:18 +0200
+Message-ID: <465DD142.6040409@trash.net>
+References: <20070529180112.GC5411@linux-os.sc.intel.com> <20070530105936.6c988da5.akpm@linux-foundation.org> <20070530112056.0aeb9498@freepuppy> <465DC598.5060407@trash.net> <20070530191533.GB3216@linux-os.sc.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: Baruch Even <baruch@ev-en.org>, netdev@vger.kernel.org,
-	power@bughost.org, bridge@linux-foundation.org
-To: "David S. Miller" <davem@davemloft.net>
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Venki Pallipadi <venkatesh.pallipadi@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([207.189.120.12]:60035 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752892AbXE3T00 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 May 2007 15:26:26 -0400
-In-Reply-To: <20070519224605.GG14235@galon.ev-en.org>
+Received: from stinky.trash.net ([213.144.137.162]:46618 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751777AbXE3TdG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 May 2007 15:33:06 -0400
+In-Reply-To: <20070530191533.GB3216@linux-os.sc.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The bridge cleanup timer is fired 10 times a second for timers that are
-at least 15 seconds ahead in time and that are not critical to be
-cleaned asap.
+Venki Pallipadi wrote:
+> On Wed, May 30, 2007 at 08:42:32PM +0200, Patrick McHardy wrote:
+> 
+>>
+>>It seems wasteful to add per-packet overhead for tx timeouts, which
+>>should be an exception. Do drivers really care about the exact
+>>timeout value? Compared to a packet transmission time its incredibly
+>>long anyways ..
+> 
+> 
+> I agree. Doing a mod_timer or hrtimer_forward to push forward may add to the
+> complexity depending on how often TX happens.
+> 
+> Are the drivers really worried about exact timeouts here?
 
-This patch calculates the next time to run the timer as the minimum of
-all timers or a minimum based on the current state.
 
-Signed-off-by: Baruch Even <baruch@ev-en.org>
-Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+Just guessing, but I don't think they are, after all timers can be late.
 
---- 2.6.22-rc2/net/bridge/br_fdb.c	2007-05-20 00:51:11.000000000 +0300
-+++ 2.6-rc2/net/bridge/br_fdb.c	2007-05-20 00:50:31.000000000 +0300
-@@ -121,6 +121,7 @@
- {
- 	struct net_bridge *br = (struct net_bridge *)_data;
- 	unsigned long delay = hold_time(br);
-+	unsigned long next_timer = jiffies + br->forward_delay;
- 	int i;
- 
- 	spin_lock_bh(&br->hash_lock);
-@@ -129,14 +130,21 @@
- 		struct hlist_node *h, *n;
- 
- 		hlist_for_each_entry_safe(f, h, n, &br->hash[i], hlist) {
-+			unsigned long this_timer;
-+			if (f->is_static)
-+				continue;
-+			this_timer = f->ageing_timer + delay;
-+			if (time_before_eq(this_timer, jiffies))
--			if (!f->is_static &&
--			    time_before_eq(f->ageing_timer + delay, jiffies))
- 				fdb_delete(f);
-+			else if (this_timer < next_timer)
-+				next_timer = this_timer;
- 		}
- 	}
- 	spin_unlock_bh(&br->hash_lock);
- 
-+	/* Add HZ/4 to ensure we round the jiffies upwards to be after the next
-+	 * timer, otherwise we might round down and will have no-op run. */
-+	mod_timer(&br->gc_timer, round_jiffies(next_timer + HZ/4));
--	mod_timer(&br->gc_timer, jiffies + HZ/10);
- }
- 
- /* Completely flush all dynamic entries in forwarding database.*/
+> Can we use rounding for the timers that are more than a second, at least?
 
+
+Also sounds reasonable.
