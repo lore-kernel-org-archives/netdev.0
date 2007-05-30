@@ -1,53 +1,76 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: Problem with atl1 and msi in kernel 2.6.22-rc3
-Date: Wed, 30 May 2007 15:07:39 -0700
-Message-ID: <20070530220739.GA26408@kroah.com>
-References: <200705300200.25412.jareguero@telefonica.net> <20070530064711.570162f1@osprey.hogchain.net>
+From: Matt Mackall <mpm@selenic.com>
+Subject: Re: [PATCH 3/4] Make net watchdog timers 1 sec jiffy aligned
+Date: Wed, 30 May 2007 17:10:39 -0500
+Message-ID: <20070530221039.GJ11166@waste.org>
+References: <20070530105936.6c988da5.akpm@linux-foundation.org> <20070530112056.0aeb9498@freepuppy> <465DC598.5060407@trash.net> <20070530.125551.41636333.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jose Alberto Reguero <jareguero@telefonica.net>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Jay Cliburn <jacliburn@bellsouth.net>
+Cc: kaber@trash.net, shemminger@linux-foundation.org,
+	akpm@linux-foundation.org, venkatesh.pallipadi@intel.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canuck.infradead.org ([209.217.80.40]:54617 "EHLO
-	canuck.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759298AbXE3WGb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 May 2007 18:06:31 -0400
+Received: from waste.org ([66.93.16.53]:41489 "EHLO waste.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754968AbXE3WLL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 May 2007 18:11:11 -0400
 Content-Disposition: inline
-In-Reply-To: <20070530064711.570162f1@osprey.hogchain.net>
+In-Reply-To: <20070530.125551.41636333.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, May 30, 2007 at 06:47:11AM -0500, Jay Cliburn wrote:
-> On Wed, 30 May 2007 02:00:25 +0200
-> Jose Alberto Reguero <jareguero@telefonica.net> wrote:
+On Wed, May 30, 2007 at 12:55:51PM -0700, David Miller wrote:
+> From: Patrick McHardy <kaber@trash.net>
+> Date: Wed, 30 May 2007 20:42:32 +0200
 > 
-> > I have problems with a M2V motherboard and atl1 driver with msi and
-> > kernel 2.6.22-rc3. With kernel 2.6.21 I had no problems.
-> > I must add in drivers/pci/quirks.c (line 1723):
+> > Stephen Hemminger wrote:
+> > >>>Index: linux-2.6.22-rc-mm/net/sched/sch_generic.c
+> > >>>===================================================================
+> > >>>--- linux-2.6.22-rc-mm.orig/net/sched/sch_generic.c	2007-05-24 11:16:03.000000000 -0700
+> > >>>+++ linux-2.6.22-rc-mm/net/sched/sch_generic.c	2007-05-25 15:10:02.000000000 -0700
+> > >>>@@ -224,7 +224,8 @@
+> > >>> 	if (dev->tx_timeout) {
+> > >>> 		if (dev->watchdog_timeo <= 0)
+> > >>> 			dev->watchdog_timeo = 5*HZ;
+> > >>>-		if (!mod_timer(&dev->watchdog_timer, jiffies + dev->watchdog_timeo))
+> > >>>+		if (!mod_timer(&dev->watchdog_timer,
+> > >>>+			       round_jiffies(jiffies + dev->watchdog_timeo)))
+> > >>> 			dev_hold(dev);
+> > >>> 	}
+> > >>> }
+> > >>
+> > >>Please cc netdev on net patches.
+> > >>
+> > >>Again, I worry that if people set the watchdog timeout to, say, 0.1 seconds
+> > >>then they will get one second, which is grossly different.
+> > >>
+> > >>And if they were to set it to 1.5 seconds, they'd get 2.0 which is pretty
+> > >>significant, too.
+> > > 
+> > > 
+> > > Alternatively, we could change to a timer that is pushed forward after each
+> > > TX, maybe using hrtimer and hrtimer_forward().  That way the timer would
+> > > never run in normal case.
 > > 
-> >  DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_ATI, PCI_DEVICE_ID_ATI_RS480, 
-> > quirk_disable_msi);
-> > +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_VIA, 0xe238,
-> > quirk_disable_msi);
 > > 
-> > to disable msi in the atl1.
+> > It seems wasteful to add per-packet overhead for tx timeouts, which
+> > should be an exception. Do drivers really care about the exact
+> > timeout value? Compared to a packet transmission time its incredibly
+> > long anyways ..
 > 
-> See http://bugzilla.kernel.org/show_bug.cgi?id=8472.
-> 
-> A more general solution is to disable MSI for the VIA VT3351 (used by
-> the Asus M2V).  I attempted to do this in the -stable tree with
-> http://lkml.org/lkml/2007/5/26/167, but it was shot down because the
-> patch isn't upstream yet.
-> 
-> Unfortunately, I can't submit it upstream because the enabling
-> patch hasn't yet been applied upstream by the PCI maintainer. My
-> request for info on the status of the patch went unanswered.
-> http://lkml.org/lkml/2007/5/19/74
+> I agree, this change is absolutely rediculious and is just a blind
+> cookie-cutter change made without consideration of what the code is
+> doing and what it's requirements are.
 
-Sorry, I'm catching up on PCI stuff right now (am traveling in Tokyo
-right now, gotta love jet lag...)
+What are you agreeing with, Dave?
 
-thanks for your patience.
+Are you agreeing that "it seems wasteful to add per-packet overhead"?
+This patch is not doing that.
 
-greg k-h
+A quick grep shows that most things are using multi-second timeouts
+here. Of the ones that aren't, a number are using .4s, and many more
+aren't even in units of HZ. Makes me wonder if the various boards
+using 50ms are being overzealous.
+
+-- 
+Mathematics is the supreme nostalgia of our time.
