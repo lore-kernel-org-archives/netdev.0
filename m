@@ -1,46 +1,51 @@
-From: "Gary Zambrano" <zambrano-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Subject: Re: b44: regression in 2.6.22 (resend)
-Date: Tue, 29 May 2007 14:36:51 -0700
-Message-ID: <1180474611.17711.26.camel@dhcp-10-12-136-115.broadcom.com>
-References: <20070525172431.60affaca@freepuppy>
- <200705281655.15105.mb@bu3sch.de>
- <1180448075.17146.12.camel@dhcp-10-12-136-115.broadcom.com>
- <200705292245.22940.mb@bu3sch.de>
- <1180472741.17711.19.camel@dhcp-10-12-136-115.broadcom.com>
- <465CABA3.10003@pobox.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: Definition and usage of NETIF_F_HW_SUM?
+Date: Tue, 29 May 2007 17:10:52 -0700
+Message-ID: <1180483852.9711.28.camel@dell>
+References: <20070529135813.63303693@freepuppy>
+ <20070529213618.GA9360@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Michael Buesch" <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>,
-	"Maximilian Engelhardt" <maxi-OwNUvPV92VfddJNmlsFzeA@public.gmane.org>,
-	"linux-kernel" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-wireless" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"Stephen Hemminger" <shemminger-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	"Arnaldo Carvalho de Melo" <acme-f8uhVLnGfZaxAyOMLChx1axOck334EZe@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "Andrew Morton" <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-To: "Jeff Garzik" <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <465CABA3.10003-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: "Stephen Hemminger" <shemminger@linux-foundation.org>,
+	"netdev" <netdev@vger.kernel.org>
+To: "Herbert Xu" <herbert.xu@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms3.broadcom.com ([216.31.210.19]:3438 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751415AbXE2XV3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 May 2007 19:21:29 -0400
+In-Reply-To: <20070529213618.GA9360@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2007-05-29 at 18:39 -0400, Jeff Garzik wrote:
+On Wed, 2007-05-30 at 07:36 +1000, Herbert Xu wrote:
 
-> We check for 0xffffffff because that is often how a fault is indicated, 
-> when the memory location is read during or immediately after hotplug (or 
-> if the PCI bus is truly faulty).  So for most hardware, you see
 > 
-> tmp = read(irq status)
-> if (!tmp)
-> 	return irq-none		/* no irq events raised */
-> if (tmp == 0xffffffff)
-> 	return irq-none		/* hot unplug or h/w fault */
+> I just checked e1000 and it's correct as it does use the csum_offset
+> when doing TX offload.  However, you're definitely right that bnx2
+> seems to be broken.
 > 
-> and the method that determines no interrupt handling is needed.
+> > A few devices take a offset, starting point, and insertion point. This looks like
+> > the correct model. But no upper layer protocols other than IPV4/IPV6 can do checksum
+> > offload at present, so it seems moot.
+> 
+> I could easily whip up a patch to get GRE to use it for a start :)
+> 
+> > IMHO the correct solution would be to get rid if NETIF_F_HW_SUM and make a new flag
+> > NETIF_F_IPV6_SUM. Devices that can checksum both could do NETIF_F_IPV4_SUM|NETI_F_IPV6_SUM.
+> 
+> We should definitely keep NETIF_F_HW_SUM for sane hardware such as the
+> e1000.  Unfortunately we may just have to invent IPV6_SUM for the broken
+> ones.
+> 
+> Ccing Michael to see if the bnx2 chip can actually do offset-based
+> checksum offload.
 > 
 
-I guess you are right, but then shouldn't the driver be checking for
-faults in other parts of the code too? What if a fault/hotplug occurs
-immediately after an interrupt, but before a tx?
-Thanks,
-Gary
+bnx2 and tg3 cannot do offset-based checksumming because the hardware
+doesn't have room in the buffer descriptors to specify the offsets.  So
+regrettably, the NETIF_F_HW_SUM flag has been misused in these drivers.
+A new NETIF_F_IPV6_SUM flag will be very useful for us.
+
+
