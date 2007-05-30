@@ -1,64 +1,70 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [PATCH] netpoll: tx lock deadlock fix
-Date: Tue, 29 May 2007 17:32:21 -0700
-Message-ID: <20070529173221.5c2dd261@freepuppy>
+From: "Laurent Chavey" <chavey@google.com>
+Subject: Re: bond_compute_features() does not handle devices with different CSUM
+Date: Tue, 29 May 2007 19:47:09 -0700
+Message-ID: <97949e3e0705291947j7fa5cd3fy5afe7f5eb898252c@mail.gmail.com>
+References: <97949e3e0705291741t4c485d38ud48b06e6d07e31bc@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>
-To: "David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([207.189.120.12]:46716 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750924AbXE3Anp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 May 2007 20:43:45 -0400
+Received: from smtp-out.google.com ([216.239.33.17]:34733 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750744AbXE3CrO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 May 2007 22:47:14 -0400
+Received: from spaceape11.eur.corp.google.com (spaceape11.eur.corp.google.com [172.28.16.145])
+	by smtp-out.google.com with ESMTP id l4U2lCWm032081
+	for <netdev@vger.kernel.org>; Wed, 30 May 2007 03:47:12 +0100
+Received: from ug-out-1314.google.com (ugcm2.prod.google.com [10.66.114.2])
+	by spaceape11.eur.corp.google.com with ESMTP id l4U2lAkR029686
+	for <netdev@vger.kernel.org>; Wed, 30 May 2007 03:47:10 +0100
+Received: by ug-out-1314.google.com with SMTP id m2so86536ugc
+        for <netdev@vger.kernel.org>; Tue, 29 May 2007 19:47:10 -0700 (PDT)
+In-Reply-To: <97949e3e0705291741t4c485d38ud48b06e6d07e31bc@mail.gmail.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-If sky2 device poll routine is called from netpoll_send_skb, it
-would deadlock. The netpoll_send_skb held the netif_tx_lock, and the
-poll routine could acquire it to clean up skb's. Other drivers
-might use same locking model.
+proposed change.
 
-The driver is correct, netpoll should not introduce more locking problems
-than it causes already. So change the code to drop lock before calling
-poll handler.
+--- 2.6.20/drivers/net/bonding/bond_main.c      2007-05-29
+19:43:39.010565000 -0700
++++ 2.6.20.fix/drivers/net/bonding/bond_main.c  2007-05-29
+19:46:12.376980000 -0700
+@@ -1227,7 +1227,14 @@
+        int i;
 
-Signed-off-by: Stephen Hemminger <shemminger@linux.foundation.org>
+        bond_for_each_slave(bond, slave, i) {
+-               features &= (slave->dev->features & BOND_INTERSECT_FEATURES);
++               /* NETIF_F_HW_CSUM includes support for NET_IF_IP_CSUM
++                * as such when looking for the intersection we need to
++                * add it to the device supported features
++                */
++               unsigned long dev_features = slave->dev->features;
++               if (slave->dev->features & NETIF_F_HW_CSUM)
++                       dev_features |= NETIF_F_IP_CSUM;
++               features &= (features & BOND_INTERSECT_FEATURES);
+                if (slave->dev->hard_header_len > max_hard_header_len)
+                        max_hard_header_len = slave->dev->hard_header_len;
+        }
 
 
---- a/net/core/netpoll.c	2007-05-08 14:19:32.000000000 -0700
-+++ b/net/core/netpoll.c	2007-05-29 15:28:22.000000000 -0700
-@@ -250,22 +250,23 @@ static void netpoll_send_skb(struct netp
- 		unsigned long flags;
- 
- 		local_irq_save(flags);
--		if (netif_tx_trylock(dev)) {
--			/* try until next clock tick */
--			for (tries = jiffies_to_usecs(1)/USEC_PER_POLL;
--					tries > 0; --tries) {
-+		/* try until next clock tick */
-+		for (tries = jiffies_to_usecs(1)/USEC_PER_POLL;
-+		     tries > 0; --tries) {
-+			if (netif_tx_trylock(dev)) {
- 				if (!netif_queue_stopped(dev))
- 					status = dev->hard_start_xmit(skb, dev);
-+				netif_tx_unlock(dev);
- 
- 				if (status == NETDEV_TX_OK)
- 					break;
- 
--				/* tickle device maybe there is some cleanup */
--				netpoll_poll(np);
--
--				udelay(USEC_PER_POLL);
- 			}
--			netif_tx_unlock(dev);
-+
-+			/* tickle device maybe there is some cleanup */
-+			netpoll_poll(np);
-+
-+			udelay(USEC_PER_POLL);
- 		}
- 		local_irq_restore(flags);
- 	}
+
+On 5/29/07, Laurent Chavey <chavey@google.com> wrote:
+> kernel version <= 2.6.20.1
+> file drivers/net/bonding/bonding_main.c
+> function bond_compute_features()
+>
+> -----------
+>   Given a system with two different NIC. One driver sets
+>         dev->features |=  NETIF_F_HW_CSUM
+>   the other driver sets
+>         dev->features |=  NETIF_F_IP_CSUM
+>
+>   when enslaving the 2 device above, bond_compute_features()
+>   does not set the intersection of the 2 CSUM
+>   features (should be NETIF_F_IP_CSUM)
+> -----------
+>
+>    should the bond features in the case above include NETIF_F_IP_CSUM
+>
