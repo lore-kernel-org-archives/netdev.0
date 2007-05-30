@@ -1,72 +1,66 @@
-From: Venki Pallipadi <venkatesh.pallipadi@intel.com>
-Subject: Re: [PATCH 3/4] Make net watchdog timers 1 sec jiffy aligned
-Date: Wed, 30 May 2007 14:10:10 -0700
-Message-ID: <20070530211010.GA12616@linux-os.sc.intel.com>
-References: <20070530105936.6c988da5.akpm@linux-foundation.org> <20070530112056.0aeb9498@freepuppy> <465DC598.5060407@trash.net> <20070530.125551.41636333.davem@davemloft.net>
+From: Doug Chapman <doug.chapman@hp.com>
+Subject: REGRESSION: panic on e1000 driver
+Date: Wed, 30 May 2007 17:22:30 -0400
+Message-ID: <1180560150.29081.35.camel@deimos.americas.hpqcorp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kaber@trash.net, shemminger@linux-foundation.org,
-	akpm@linux-foundation.org, venkatesh.pallipadi@intel.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+To: doug.chapman@hp.com, herbert@gondor.apana.org.au,
+	auke-jan.h.kok@intel.com, netdev@vger.kernel.org,
+	e1000-devel@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:52833 "EHLO mga03.intel.com"
+Received: from atlrel7.hp.com ([156.153.255.213]:41113 "EHLO atlrel7.hp.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754971AbXE3VNm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 May 2007 17:13:42 -0400
-Content-Disposition: inline
-In-Reply-To: <20070530.125551.41636333.davem@davemloft.net>
+	id S1755136AbXE3VWd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 May 2007 17:22:33 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, May 30, 2007 at 12:55:51PM -0700, David Miller wrote:
-> From: Patrick McHardy <kaber@trash.net>
-> Date: Wed, 30 May 2007 20:42:32 +0200
-> 
-> > Stephen Hemminger wrote:
-> > >>>Index: linux-2.6.22-rc-mm/net/sched/sch_generic.c
-> > >>>===================================================================
-> > >>>--- linux-2.6.22-rc-mm.orig/net/sched/sch_generic.c	2007-05-24 11:16:03.000000000 -0700
-> > >>>+++ linux-2.6.22-rc-mm/net/sched/sch_generic.c	2007-05-25 15:10:02.000000000 -0700
-> > >>>@@ -224,7 +224,8 @@
-> > >>> 	if (dev->tx_timeout) {
-> > >>> 		if (dev->watchdog_timeo <= 0)
-> > >>> 			dev->watchdog_timeo = 5*HZ;
-> > >>>-		if (!mod_timer(&dev->watchdog_timer, jiffies + dev->watchdog_timeo))
-> > >>>+		if (!mod_timer(&dev->watchdog_timer,
-> > >>>+			       round_jiffies(jiffies + dev->watchdog_timeo)))
-> > >>> 			dev_hold(dev);
-> > >>> 	}
-> > >>> }
-> > >>
-> > >>Please cc netdev on net patches.
-> > >>
-> > >>Again, I worry that if people set the watchdog timeout to, say, 0.1 seconds
-> > >>then they will get one second, which is grossly different.
-> > >>
-> > >>And if they were to set it to 1.5 seconds, they'd get 2.0 which is pretty
-> > >>significant, too.
-> > > 
-> > > 
-> > > Alternatively, we could change to a timer that is pushed forward after each
-> > > TX, maybe using hrtimer and hrtimer_forward().  That way the timer would
-> > > never run in normal case.
-> > 
-> > 
-> > It seems wasteful to add per-packet overhead for tx timeouts, which
-> > should be an exception. Do drivers really care about the exact
-> > timeout value? Compared to a packet transmission time its incredibly
-> > long anyways ..
-> 
-> I agree, this change is absolutely rediculious and is just a blind
-> cookie-cutter change made without consideration of what the code is
-> doing and what it's requirements are.
+All,
 
-I hope I could atleast highlight the issue here despite the cookie-cutter
-patch..
-On a totally idle system I have something like 85 wakeups for every 5 seconds
-which I am trying to reduce (to reduce the power consumption and increase
-battery life. And 1 interrupt out of 85 happens to be netdev watchdog timer.
+I reported this a few weeks ago and it was fixed but it appears the
+offending code was again re-submitted.  This causes a panic on HP
+Integrity servers and from what I hear many other platforms using e1000
+as well.
 
-Thanks,
-Venki
+My original report was via kernel.org BZ:
+http://bugzilla.kernel.org/show_bug.cgi?id=8455
+
+I am seeing the same panic with a kernel built from today's git pull.
+
+
+It was fixed by this commit:
+3e1657c8ef53e1cd541cc1e420f3230dc075949b
+
+
+but once again broken just yesterday by the following commit.  I have
+backed just this commit out and verified I no longer panic.
+
+
+commit 47313054352b879a2bc65379d55b05f48a0af7ec
+Author: Herbert Xu <herbert@gondor.apana.org.au>
+Date:   Tue May 29 15:07:31 2007 -0700
+
+    e1000: restore netif_poll_enable call but make sure IRQs are off
+
+    This restores the previously removed netif_poll_enable call in e1000_open.
+    It's needed on all but the first call to e1000_open for a NIC as
+    e1000_close always calls netif_poll_disable.
+
+    netif_poll_enable can only be called safely if no polls have been
+    scheduled.  This should be the case as long as we don't enter our IRQ
+    handler.
+
+    In order to guarantee this we explicitly disable IRQs as early as possible
+    when we're probing the NIC.
+
+    Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+    Cc: "Kok, Auke" <auke-jan.h.kok@intel.com>
+    Cc: Jeff Garzik <jeff@garzik.org>
+    Cc: Andrew Morton <akpm@linux-foundation.org>
+    Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+    Signed-off-by: Jeff Garzik <jeff@garzik.org>
+
+
+
+
