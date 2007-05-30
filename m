@@ -1,36 +1,43 @@
-From: Divy Le Ray <divy@chelsio.com>
-Subject: [PATCH 2.6.22 0/5]
-Date: Wed, 30 May 2007 09:59:57 -0700
-Message-ID: <465DAD8D.9030600@chelsio.com>
+From: divy@chelsio.com
+Subject: [PATCH 1/5] cxgb3 - fix skb->dev dereference
+Date: Wed, 30 May 2007 10:01:29 -0700
+Message-ID: <20070530170128.22789.3485.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	Steve Wise <swise@opengridcomputing.com>
-To: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	swise@opengridcomputing.com
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.22.49.110]:3492 "EHLO
+Received: from stargate.chelsio.com ([12.22.49.110]:8868 "EHLO
 	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753257AbXE3RAF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 May 2007 13:00:05 -0400
+	with ESMTP id S1751974AbXE3RBb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 May 2007 13:01:31 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Jeff,
+From: Divy Le Ray <divy@chelsio.com>
 
-I'm submitting a set of bug fixes for inclusion in 2.6.22.
-The patches are built against Linus'git tree.
+eth_type_trans() now sets skb->dev. 
+References to skb->dev should happen after it is called.
 
-Here is a brief description:
-- Fix skb->dev dereference in,
-- Fix netpoll handler,
-- Fix link status detection for direct XAUI adapters,
-- Work around potential hang on MTU change,
-- Fix MAC watchdog.
+Signed-off-by: Divy Le Ray <divy@chelsio.com>
+---
 
-You have already ACK'ed the link status detection fix.
-I'm not sure however where it stands in your queue, so I'm resubmitting it.
-Please ignore if you already processed it.
+ drivers/net/cxgb3/sge.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Cheers,
-Divy
+diff --git a/drivers/net/cxgb3/sge.c b/drivers/net/cxgb3/sge.c
+index 3666586..eaa7dac 100644
+--- a/drivers/net/cxgb3/sge.c
++++ b/drivers/net/cxgb3/sge.c
+@@ -1690,8 +1690,8 @@ static void rx_eth(struct adapter *adap,
+ 	struct port_info *pi;
+ 
+ 	skb_pull(skb, sizeof(*p) + pad);
+-	skb->dev->last_rx = jiffies;
+ 	skb->protocol = eth_type_trans(skb, adap->port[p->iff]);
++	skb->dev->last_rx = jiffies;
+ 	pi = netdev_priv(skb->dev);
+ 	if (pi->rx_csum_offload && p->csum_valid && p->csum == 0xffff &&
+ 	    !p->fragment) {
