@@ -1,103 +1,96 @@
-From: Rankle_ <crquan@gmail.com>
-Subject: [PATCH] merge dst_discard in & out into one, removed a duplicate
- function
-Date: Wed, 30 May 2007 16:39:40 +0800
-Message-ID: <465D384C.4060006@gmail.com>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: [PATCH] [TCP]: Fix GSO ignorance of pkts_acked arg (cong.cntrl
+ modules)
+Date: Wed, 30 May 2007 12:10:06 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0705301206130.14736@kivilampi-30.cs.helsinki.fi>
+References: <11801685622325-git-send-email-ilpo.jarvinen@helsinki.fi>
+ <20070526.164418.115928217.davem@davemloft.net>
+ <Pine.LNX.4.64.0705271039060.2532@kivilampi-30.cs.helsinki.fi>
+ <20070527.021104.74747736.davem@davemloft.net>
+ <Pine.LNX.4.64.0705271319310.2663@kivilampi-30.cs.helsinki.fi>
+ <20070527140430.GA30299@galon.ev-en.org> <Pine.LNX.4.64.0705271933440.2832@kivilampi-30.cs.helsinki.fi>
+ <Pine.LNX.4.64.0705281253340.14736@kivilampi-30.cs.helsinki.fi>
+ <20070529091415.03a14216@freepuppy> <Pine.LNX.4.64.0705292150390.23565@kivilampi-30.cs.helsinki.fi>
+ <20070529131951.1d9a5b84@freepuppy> <Pine.LNX.4.64.0705292335080.23565@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	trivial@kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-305175560-1180516206=:14736"
+Cc: Netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.179]:41743 "EHLO
-	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750748AbXE3Ij6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 May 2007 04:39:58 -0400
-Received: by py-out-1112.google.com with SMTP id a29so1323548pyi
-        for <netdev@vger.kernel.org>; Wed, 30 May 2007 01:39:58 -0700 (PDT)
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:52290 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751379AbXE3JKJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 May 2007 05:10:09 -0400
+In-Reply-To: <Pine.LNX.4.64.0705292335080.23565@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 5/28/07, Jan Engelhardt <jengelh@linux01.gwdg.de 
-<mailto:jengelh@linux01.gwdg.de>> wrote:
- > Uhm, just replace every invocation of dst_discard_in/_out() directly
- > by dst_discard ... don't add macros for that.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-merge dst_discard in & out into one, this removed a duplicate function.
+---696243703-305175560-1180516206=:14736
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
 
-Signed-off-by: Denis Cheng <crquan@gmail.com <mailto:crquan@gmail.com>>
+On Tue, 29 May 2007, Ilpo Järvinen wrote:
 
+> [PATCH] [TCP]: Fix GSO ignorance of pkts_acked arg (cong.cntrl modules)
+> 
+> The code used to ignore GSO completely, passing either way too
+> small or zero pkts_acked when GSO skb or part of it got ACKed.
+> In addition, there is no need to calculate the value in the loop
+> but simple arithmetics after the loop is sufficient. Pkts_acked
+> callback of congestion control modules include SYN as a packet
+> for now on.
+
+Based on feedback from Stephen, I changed the commit msg bit
+clearer, the patch remains the same.
+
+[PATCH] [TCP]: Fix GSO ignorance of pkts_acked arg (cong.cntrl modules)
+
+The code used to ignore GSO completely, passing either way too
+small or zero pkts_acked when GSO skb or part of it got ACKed.
+In addition, there is no need to calculate the value in the loop
+but simple arithmetics after the loop is sufficient. There is
+no need to handle SYN case specially because congestion control
+modules are not yet initialized when FLAG_SYN_ACKED is set.
+
+Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
 ---
+ net/ipv4/tcp_input.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-Is there anybody also found this duplicate? I found this duplcate had
-existed from linux-2.2 linux-2.4 to the latest kernel tree, you could
-check it in the lxr site conveniently:
-http://lxr.linux.no/source/net/core/dst.c?v=2.2.26 
-<http://lxr.linux.no/source/net/core/dst.c?v=2.2.26>
-http://lxr.linux.no/source/net/core/dst.c?v=2.4.18 
-<http://lxr.linux.no/source/net/core/dst.c?v=2.4.18>
-http://lxr.linux.no/source/net/core/dst.c 
-<http://lxr.linux.no/source/net/core/dst.c>
-With little difference, the 2.2 and 2.4 version use two different
-function name: dst_discard and dst_blackhole, but the definition of
-them are the same, so they are  same substantially. Additionally, the
-two same function are two local(static) functions in a single file
-dst.c, I don't know why there should exist two same functions. I
-wonder what the consideration of this design is, because I'm just a
-kernel newbie; this problem has been confusing me for many days, so if
-you know why, please drop me some directions.
-
---- net/core/dst.c      2007-05-30 16:33:45.000000000 +0800
-+++ net/core/dst.c.new  2007-05-28 18:22:36.000000000 +0800
-@@ -111,13 +111,7 @@ out:
-        spin_unlock(&dst_lock);
- }
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 38cb25b..74683d8 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -2407,8 +2407,8 @@ static int tcp_clean_rtx_queue(struct sock *sk, __s32 *seq_rtt_p)
+ 	struct sk_buff *skb;
+ 	__u32 now = tcp_time_stamp;
+ 	int acked = 0;
++	int prior_packets = tp->packets_out;
+ 	__s32 seq_rtt = -1;
+-	u32 pkts_acked = 0;
+ 	ktime_t last_ackt = ktime_set(0,0);
  
--static int dst_discard_in(struct sk_buff *skb)
--{
--       kfree_skb(skb);
--       return 0;
--}
--
--static int dst_discard_out(struct sk_buff *skb)
-+static int dst_discard(struct sk_buff *skb)
- {
-        kfree_skb(skb);
-        return 0;
-@@ -138,8 +132,7 @@ void * dst_alloc(struct dst_ops * ops)
-        dst->ops = ops;
-        dst->lastuse = jiffies;
-        dst->path = dst;
--       dst->input = dst_discard_in;
--       dst->output = dst_discard_out;
-+       dst->input = dst->output = dst_discard;
- #if RT_CACHE_DEBUG >= 2
-        atomic_inc(&dst_total);
- #endif
-@@ -153,8 +146,7 @@ static void ___dst_free(struct dst_entry
-           protocol module is unloaded.
-         */
-        if (dst->dev == NULL || !(dst->dev->flags&IFF_UP)) {
--               dst->input = dst_discard_in;
--               dst->output = dst_discard_out;
-+               dst->input = dst->output = dst_discard;
-        }
-        dst->obsolete = 2;
- }
-@@ -242,8 +234,7 @@ static inline void dst_ifdown(struct dst
-                return;
+ 	while ((skb = tcp_write_queue_head(sk)) &&
+@@ -2437,7 +2437,6 @@ static int tcp_clean_rtx_queue(struct sock *sk, __s32 *seq_rtt_p)
+ 		 */
+ 		if (!(scb->flags & TCPCB_FLAG_SYN)) {
+ 			acked |= FLAG_DATA_ACKED;
+-			++pkts_acked;
+ 		} else {
+ 			acked |= FLAG_SYN_ACKED;
+ 			tp->retrans_stamp = 0;
+@@ -2481,6 +2480,7 @@ static int tcp_clean_rtx_queue(struct sock *sk, __s32 *seq_rtt_p)
+ 	}
  
-        if (!unregister) {
--               dst->input = dst_discard_in;
--               dst->output = dst_discard_out;
-+               dst->input = dst->output = dst_discard;
-        } else {
-                dst->dev = &loopback_dev;
-                dev_hold(&loopback_dev);
+ 	if (acked&FLAG_ACKED) {
++		u32 pkts_acked = prior_packets - tp->packets_out;
+ 		const struct tcp_congestion_ops *ca_ops
+ 			= inet_csk(sk)->icsk_ca_ops;
+ 
+-- 
+1.5.0.6
 
-
---
-Denis Cheng
-Linux Application Developer
-
+---696243703-305175560-1180516206=:14736--
