@@ -1,37 +1,64 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 2/7] cxgb3 - fix netpoll hanlder
-Date: Tue, 29 May 2007 20:42:24 -0400
-Message-ID: <465CC870.7050407@garzik.org>
-References: <20070526225952.12115.30971.stgit@localhost.localdomain> <465B591B.1010507@garzik.org> <465CBE4B.9070009@goop.org>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: [PATCH] netpoll: tx lock deadlock fix
+Date: Tue, 29 May 2007 17:32:21 -0700
+Message-ID: <20070529173221.5c2dd261@freepuppy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: divy@chelsio.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, swise@opengridcomputing.com
-To: Jeremy Fitzhardinge <jeremy@goop.org>
+Cc: netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:58114 "EHLO mail.dvmed.net"
+Received: from smtp.osdl.org ([207.189.120.12]:46716 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750866AbXE3Am3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 May 2007 20:42:29 -0400
-In-Reply-To: <465CBE4B.9070009@goop.org>
+	id S1750924AbXE3Anp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 May 2007 20:43:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeremy Fitzhardinge wrote:
-> Jeff Garzik wrote:
->>> +        t3_intr_handler(adapter, qs->rspq.polling) (0,
->>> +                    (adapter->flags & USING_MSIX) ?
->>> +                    (void *)qs : (void *)adapter);
->> Remove needless casts to void*
-> The two branches of ?: need to have the same type; without the casts
-> they'd be "struct sge_qset" and "struct adapter".  Seems a bit cruddy to
-> have two types passed to one function depending on the MSI state, but
-> maybe that's OK.
+If sky2 device poll routine is called from netpoll_send_skb, it
+would deadlock. The netpoll_send_skb held the netif_tx_lock, and the
+poll routine could acquire it to clean up skb's. Other drivers
+might use same locking model.
 
-Look at the function argument...
+The driver is correct, netpoll should not introduce more locking problems
+than it causes already. So change the code to drop lock before calling
+poll handler.
 
-	Jeff
+Signed-off-by: Stephen Hemminger <shemminger@linux.foundation.org>
 
 
-
+--- a/net/core/netpoll.c	2007-05-08 14:19:32.000000000 -0700
++++ b/net/core/netpoll.c	2007-05-29 15:28:22.000000000 -0700
+@@ -250,22 +250,23 @@ static void netpoll_send_skb(struct netp
+ 		unsigned long flags;
+ 
+ 		local_irq_save(flags);
+-		if (netif_tx_trylock(dev)) {
+-			/* try until next clock tick */
+-			for (tries = jiffies_to_usecs(1)/USEC_PER_POLL;
+-					tries > 0; --tries) {
++		/* try until next clock tick */
++		for (tries = jiffies_to_usecs(1)/USEC_PER_POLL;
++		     tries > 0; --tries) {
++			if (netif_tx_trylock(dev)) {
+ 				if (!netif_queue_stopped(dev))
+ 					status = dev->hard_start_xmit(skb, dev);
++				netif_tx_unlock(dev);
+ 
+ 				if (status == NETDEV_TX_OK)
+ 					break;
+ 
+-				/* tickle device maybe there is some cleanup */
+-				netpoll_poll(np);
+-
+-				udelay(USEC_PER_POLL);
+ 			}
+-			netif_tx_unlock(dev);
++
++			/* tickle device maybe there is some cleanup */
++			netpoll_poll(np);
++
++			udelay(USEC_PER_POLL);
+ 		}
+ 		local_irq_restore(flags);
+ 	}
