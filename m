@@ -1,71 +1,57 @@
-From: Oliver Hartkopp <oliver@hartkopp.net>
-Subject: Re: [patch 5/7] CAN: Add virtual CAN netdevice driver
-Date: Wed, 30 May 2007 20:39:09 +0200
-Message-ID: <465DC4CD.9080801@hartkopp.net>
-References: <20070530131123.10843.0@janus.isnogud.escape.de> <20070530131204.10843.5@janus.isnogud.escape.de> <465DB0B6.109@trash.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 3/4] Make net watchdog timers 1 sec jiffy aligned
+Date: Wed, 30 May 2007 20:42:32 +0200
+Message-ID: <465DC598.5060407@trash.net>
+References: <20070529180112.GC5411@linux-os.sc.intel.com>	<20070530105936.6c988da5.akpm@linux-foundation.org> <20070530112056.0aeb9498@freepuppy>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: Urs Thuermann <urs@isnogud.escape.de>,
-	David Miller <davem@davemloft.net>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
-	Urs Thuermann <urs.thuermann@volkswagen.de>,
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Venki Pallipadi <venkatesh.pallipadi@intel.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
 	netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cg-p07-fb.rzone.de ([81.169.146.215]:11880 "EHLO
-	cg-p07-fb.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751733AbXE3Smj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 May 2007 14:42:39 -0400
-In-Reply-To: <465DB0B6.109@trash.net>
+Received: from stinky.trash.net ([213.144.137.162]:45720 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753959AbXE3SnT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 May 2007 14:43:19 -0400
+In-Reply-To: <20070530112056.0aeb9498@freepuppy>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy wrote:
-> I have a set of patches coming up that introduce a rtnetlink API
-> for adding/modifying/deleting software network devices. I would
-> prefer if you could switch this driver over instead of doing the
-> "create N devices during loading" that many current drivers do,
-> leaving you with 20 unused devices after boot.
->   
+Stephen Hemminger wrote:
+>>>Index: linux-2.6.22-rc-mm/net/sched/sch_generic.c
+>>>===================================================================
+>>>--- linux-2.6.22-rc-mm.orig/net/sched/sch_generic.c	2007-05-24 11:16:03.000000000 -0700
+>>>+++ linux-2.6.22-rc-mm/net/sched/sch_generic.c	2007-05-25 15:10:02.000000000 -0700
+>>>@@ -224,7 +224,8 @@
+>>> 	if (dev->tx_timeout) {
+>>> 		if (dev->watchdog_timeo <= 0)
+>>> 			dev->watchdog_timeo = 5*HZ;
+>>>-		if (!mod_timer(&dev->watchdog_timer, jiffies + dev->watchdog_timeo))
+>>>+		if (!mod_timer(&dev->watchdog_timer,
+>>>+			       round_jiffies(jiffies + dev->watchdog_timeo)))
+>>> 			dev_hold(dev);
+>>> 	}
+>>> }
+>>
+>>Please cc netdev on net patches.
+>>
+>>Again, I worry that if people set the watchdog timeout to, say, 0.1 seconds
+>>then they will get one second, which is grossly different.
+>>
+>>And if they were to set it to 1.5 seconds, they'd get 2.0 which is pretty
+>>significant, too.
+> 
+> 
+> Alternatively, we could change to a timer that is pushed forward after each
+> TX, maybe using hrtimer and hrtimer_forward().  That way the timer would
+> never run in normal case.
 
-Hi Patrick,
 
-next Friday? Too late ;-)
-
-Ok, your approach is indeed an interesting idea and we would look on it,
-as we also not interested in creating unused devices and do any double
-work.
-
-> And it allows you have both loopback and non-loopback devices
-> in case that would be useful.
->
-> (..)
-> Qdiscs might change skb->cb. Maybe use skb->sk?
->
->
->   
-
-The loopback functionality in CAN is a bit tricky (maybe you can take a
-look into the Documentation patch [7/7] at chapter 3.2 and 4.1.4).
-
-The problem is, that we need a per socket(!) option that enables the
-loopback for the sent CAN-Frames or not, so the information about
-loopback a skb content or not is contained inside the skb sent down to
-the CAN netdevice. If the CAN networkdevice is not capable to perform a
-loopback itself (see dev->flags, chapter 6) the CAN core has to do the
-loopback as a fallback.
-
-The use of skb->cb is also needed in the receive path to recognize and
-trash loopback'ed CAN-frames inside the *originating* socket (see
-chapter 4.1.4).
-
-Please consider the referenced documentation and give me a feedback, if
-you have a better idea how to deal with variable loopbacks on driver
-level (with is vital for CAN).
-
-Thanks for your feedback,
-Oliver
-
+It seems wasteful to add per-packet overhead for tx timeouts, which
+should be an exception. Do drivers really care about the exact
+timeout value? Compared to a packet transmission time its incredibly
+long anyways ..
 
