@@ -1,76 +1,68 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH 6/7] sky2: enable clocks before probe
-Date: Wed, 30 May 2007 07:43:44 -0700
-Message-ID: <465D8DA0.3050307@linux-foundation.org>
-References: <20070524222242.555399884@linux-foundation.org> <20070524222538.812999691@linux-foundation.org> <465D8282.8090701@pobox.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [RFC NET_SCHED 00/02]: Flexible SFQ flow classification
+Date: Wed, 30 May 2007 10:56:27 -0400
+Message-ID: <1180536987.4109.19.camel@localhost>
+References: <20070530094020.24073.84277.sendpatchset@localhost.localdomain>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Jeff Garzik <jgarzik@pobox.com>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([207.189.120.12]:55748 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752416AbXE3On6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 May 2007 10:43:58 -0400
-In-Reply-To: <465D8282.8090701@pobox.com>
+Received: from wx-out-0506.google.com ([66.249.82.225]:3890 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751995AbXE3O43 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 May 2007 10:56:29 -0400
+Received: by wx-out-0506.google.com with SMTP id t15so1794114wxc
+        for <netdev@vger.kernel.org>; Wed, 30 May 2007 07:56:29 -0700 (PDT)
+In-Reply-To: <20070530094020.24073.84277.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
-> Stephen Hemminger wrote:
->> Some chips need to have internal clocks enabled (via PCI config)
->> before the PCI space is readable.
->>
->> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
->>
->> ---
->>  drivers/net/sky2.c |  102 
->> ++++++++++++++++++++++++++++++++++++++---------------
->>  drivers/net/sky2.h |   19 +++++++++
->>  2 files changed, 92 insertions(+), 29 deletions(-)
->>
->> --- a/drivers/net/sky2.c    2007-05-24 15:22:14.000000000 -0700
->> +++ b/drivers/net/sky2.c    2007-05-24 15:22:33.000000000 -0700
->> @@ -2524,10 +2524,6 @@ static int __devinit sky2_init(struct sk
->>          dev_warn(&hw->pdev->dev, "this driver not yet tested on this 
->> chip type\n"
->>               "Please report success or failure to 
->> <netdev@vger.kernel.org>\n");
->>  
->> -    /* Make sure and enable all clocks */
->> -    if (hw->chip_id == CHIP_ID_YUKON_EX || hw->chip_id == 
->> CHIP_ID_YUKON_EC_U)
->> -        sky2_pci_write32(hw, PCI_DEV_REG3, 0);
->> -
->>      hw->chip_rev = (sky2_read8(hw, B2_MAC_CFG) & CFG_CHIP_R_MSK) >> 4;
->>  
->>      /* This rev is really old, and requires untested workarounds */
->> @@ -3638,6 +3634,9 @@ static int __devinit sky2_probe(struct p
->>      if (!hw->st_le)
->>          goto err_out_iounmap;
->>  
->> +    /* On Yukon EC-U and EX need to force enabling all clocks */
->> +    pci_write_config_dword(pdev, PCI_DEV_REG3, 0);
->> +
->>      err = sky2_init(hw);
->>      if (err)
->>          goto err_out_iounmap;
->> @@ -3822,8 +3821,7 @@ static int sky2_resume(struct pci_dev *p
->>      pci_enable_wake(pdev, PCI_D0, 0);
->>  
->>      /* Re-enable all clocks */
->> -    if (hw->chip_id == CHIP_ID_YUKON_EX || hw->chip_id == 
->> CHIP_ID_YUKON_EC_U)
->> -        sky2_pci_write32(hw, PCI_DEV_REG3, 0);
->> +    pci_write_config_dword(pdev, PCI_DEV_REG3, 0);
->
->
-> No explanation as to why the chip identity tests went away.  And in 
-> one of your code comments, it seems to imply that the chip tests are 
-> still present.
->
-Because you can't read chip idenity on 88e8071 when clocks are disabled 
-(catch-22), and clearing
-registers on other chips is no problem.
+
+On Wed, 2007-30-05 at 11:40 +0200, Patrick McHardy wrote:
+> One good thing about ESFQ is the more flexible flow classification, but
+> I don't like the concept of having a set of selectable hash functions
+> very much.
+> 
+
+In the spirit of SFQ it is probably ok to do that; 
+i.e iirc,  the idea for justification behind sfq was to provide a
+"computationaly feasible/reasonable" way to provide fair queueing with a
+gazillion queues. 
+Classification was considered damn expensive in those days (when MC68K
+was sort of state of the art); it still is but maybe a much much lesser
+issue now for what "gazillion" was in those days. So a simple hash on a
+few fields with pertubation (the part that makes allows the "stochastic"
+part in the name) was deemed the way to go and in order to provide
+fairness (while avoiding packet reordering).
+So if you want to keep that spirit it is ok to do what ESFQ does;
+I think the assumptions will still be valid if you have a gazillion
+queues in todays terms. A number like say 128K may make sense.
+(Hey Paul M is still around, just too focused on the wrong things like
+RCU;-> so we can ask his opinion)
+
+> These patches change SFQ to allow attaching external classifiers and add
+> a new "flow" classifier that allows to classify flows based on an arbitary
+> combination of pre-defined keys. Its probably not the fastest classifier
+> when used with multiple keys, but frankly, I don't think speed is very
+> important in most situations where the current SFQ implementation is used.
+
+The only one thing i noticed that changes the behavior is the use of
+skb->prio as a selector. I think if you removed that it should be fine.
+Another alternative is to create a brand new FQ qdisc and leave the
+classification to the classifiers.
+
+> It currently does not support perturbation, I didn't want to move this into
+> the classifier, so I need to think about a way to handle it within SFQ.
+
+It is kind of hard to put it back into the current approach because the
+basic assumptions of ensuring no re-ordering and a "fast" classifier are
+gone.
+
+I am almost tempted to say go back and write a qdisc called FQ.
+
+cheers,
+jamal
 
