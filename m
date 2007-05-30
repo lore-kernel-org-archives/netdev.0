@@ -1,30 +1,30 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/7] sky2: dont set bogus bit in PHY register
-Date: Wed, 30 May 2007 09:53:01 -0400
-Message-ID: <465D81BD.5090505@garzik.org>
-References: <20070524222242.555399884@linux-foundation.org> <20070524222538.375321658@linux-foundation.org>
+Subject: Re: [PATCH] defxx: Fix the handling of ioremap() failures
+Date: Wed, 30 May 2007 09:53:23 -0400
+Message-ID: <465D81D3.7040609@garzik.org>
+References: <Pine.LNX.4.64N.0705291508300.14456@blysk.ds.pg.gda.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Maciej W. Rozycki" <macro@linux-mips.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:33818 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:33841 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752485AbXE3NxG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 May 2007 09:53:06 -0400
-In-Reply-To: <20070524222538.375321658@linux-foundation.org>
+	id S1751974AbXE3Nx1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 May 2007 09:53:27 -0400
+In-Reply-To: <Pine.LNX.4.64N.0705291508300.14456@blysk.ds.pg.gda.pl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> This code inherited from the sk98lin driver is incorrect on the Yukon2.
-> The GPHY_CTRL register values are specific to the internal PHY of the chip
-> and the values used were leftovers.
-> Driver was setting bit 13 which is now the INT polarity for the PHY!
+Maciej W. Rozycki wrote:
+>  If ioremap_nocache() is unfortunate enough to fail, the error code is not 
+> set correctly leading to a false success from dfx_register().  This change 
+> fixes the problem.
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+> Signed-off-by: Maciej W. Rozycki <macro@linux-mips.org>
 
-applied 1-3
+applied
 
 
