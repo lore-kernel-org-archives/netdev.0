@@ -1,65 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/4] Make net watchdog timers 1 sec jiffy aligned
-Date: Wed, 30 May 2007 12:55:51 -0700 (PDT)
-Message-ID: <20070530.125551.41636333.davem@davemloft.net>
-References: <20070530105936.6c988da5.akpm@linux-foundation.org>
-	<20070530112056.0aeb9498@freepuppy>
-	<465DC598.5060407@trash.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [patch 5/7] CAN: Add virtual CAN netdevice driver
+Date: Wed, 30 May 2007 21:58:13 +0200
+Message-ID: <465DD755.4070702@trash.net>
+References: <20070530131123.10843.0@janus.isnogud.escape.de> <20070530131204.10843.5@janus.isnogud.escape.de> <465DB0B6.109@trash.net> <465DC4CD.9080801@hartkopp.net> <465DCD90.9070103@trash.net> <465DD506.4000503@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@linux-foundation.org, akpm@linux-foundation.org,
-	venkatesh.pallipadi@intel.com, linux-kernel@vger.kernel.org,
+Cc: Urs Thuermann <urs@isnogud.escape.de>,
+	David Miller <davem@davemloft.net>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
+	Urs Thuermann <urs.thuermann@volkswagen.de>,
 	netdev@vger.kernel.org
-To: kaber@trash.net
+To: Oliver Hartkopp <oliver@hartkopp.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55534
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751733AbXE3Tzi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 May 2007 15:55:38 -0400
-In-Reply-To: <465DC598.5060407@trash.net>
+Received: from stinky.trash.net ([213.144.137.162]:47038 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758815AbXE3T6T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 May 2007 15:58:19 -0400
+In-Reply-To: <465DD506.4000503@hartkopp.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Wed, 30 May 2007 20:42:32 +0200
-
-> Stephen Hemminger wrote:
-> >>>Index: linux-2.6.22-rc-mm/net/sched/sch_generic.c
-> >>>===================================================================
-> >>>--- linux-2.6.22-rc-mm.orig/net/sched/sch_generic.c	2007-05-24 11:16:03.000000000 -0700
-> >>>+++ linux-2.6.22-rc-mm/net/sched/sch_generic.c	2007-05-25 15:10:02.000000000 -0700
-> >>>@@ -224,7 +224,8 @@
-> >>> 	if (dev->tx_timeout) {
-> >>> 		if (dev->watchdog_timeo <= 0)
-> >>> 			dev->watchdog_timeo = 5*HZ;
-> >>>-		if (!mod_timer(&dev->watchdog_timer, jiffies + dev->watchdog_timeo))
-> >>>+		if (!mod_timer(&dev->watchdog_timer,
-> >>>+			       round_jiffies(jiffies + dev->watchdog_timeo)))
-> >>> 			dev_hold(dev);
-> >>> 	}
-> >>> }
-> >>
-> >>Please cc netdev on net patches.
-> >>
-> >>Again, I worry that if people set the watchdog timeout to, say, 0.1 seconds
-> >>then they will get one second, which is grossly different.
-> >>
-> >>And if they were to set it to 1.5 seconds, they'd get 2.0 which is pretty
-> >>significant, too.
-> > 
-> > 
-> > Alternatively, we could change to a timer that is pushed forward after each
-> > TX, maybe using hrtimer and hrtimer_forward().  That way the timer would
-> > never run in normal case.
+Oliver Hartkopp wrote:
+> Patrick McHardy wrote:
+> 
+>>skb->sk should work here as well since you detect these frames
+>>before queueing to the receiving socket.
+>>  
 > 
 > 
-> It seems wasteful to add per-packet overhead for tx timeouts, which
-> should be an exception. Do drivers really care about the exact
-> timeout value? Compared to a packet transmission time its incredibly
-> long anyways ..
+> Hm - this would indeed be much nicer than using skb->cb.
+> 
+> I think we just had some concerns to use skb->sk for our own
+> functionality, as it might be used and dereferenced by other layers
+> between the socket and the network driver ... so setting skb->sk to NULL
+> (to indicate 'no loopback') smells bad if you don't really know who ever
+> dereferences skb->sk.
 
-I agree, this change is absolutely rediculious and is just a blind
-cookie-cutter change made without consideration of what the code is
-doing and what it's requirements are.
 
+Indeed, that will break things.
+
+> Btw. it's really worth to look at it again. I just had the idea to
+> access the loopback flag via skb->sk->opt->loopback (argpfl!) on the TX
+> path and skb->sk on the RX path. This would avoid skb->sk to be set to
+> NULL but need to have this loopback flag to be implemented in each CAN
+> socket opt.
+
+
+Yes, thats what I wanted to suggest. You should even be able
+to use skb->sk->opt->loopback on the receive path before you
+queue the packet to the socket.
