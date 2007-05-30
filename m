@@ -1,32 +1,49 @@
 From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: [PATCH 0/4] mac80211 fixes for 2.6.22
-Date: Wed, 30 May 2007 14:25:38 -0400
-Message-ID: <20070530182538.GB3610@tuxdriver.com>
+Subject: [PATCH 1/4] mac80211: fail back to use associate from reassociate
+Date: Wed, 30 May 2007 14:28:07 -0400
+Message-ID: <20070530182807.GD3610@tuxdriver.com>
+References: <20070530182538.GB3610@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
 Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
+In-Reply-To: <20070530182538.GB3610-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
 Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Some bug fixes that should be applied to 2.6.22:
+From: Zhu Yi <yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 
-      mac80211: fail back to use associate from reassociate
-      mac80211: fix memory leak when defrag fragments
-      mac80211: always set carrier status on open
-      mac80211: avoid null ptr deref in ieee80211_ibss_add_sta
+Some APs have strict checking between associate and reassociate. In
+a case when an AP is restarted during a connection, it denies the
+mac80211 reassoc request since this is a new association for the AP.
+To fix this problem, we need to check the status code against
+WLAN_STATUS_REASSOC_NO_ASSOC and clear ifsta->prev_bssid_set in
+handling the association failure response.
 
-These are also available in the wireless-2.6 git tree:
+Signed-off-by: Zhu Yi <yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Signed-off-by: John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+---
+ net/mac80211/ieee80211_sta.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-	git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git mac80211
+diff --git a/net/mac80211/ieee80211_sta.c b/net/mac80211/ieee80211_sta.c
+index 3e07e9d..dbac858 100644
+--- a/net/mac80211/ieee80211_sta.c
++++ b/net/mac80211/ieee80211_sta.c
+@@ -1155,6 +1155,8 @@ static void ieee80211_rx_mgmt_assoc_resp(struct net_device *dev,
+ 	if (status_code != WLAN_STATUS_SUCCESS) {
+ 		printk(KERN_DEBUG "%s: AP denied association (code=%d)\n",
+ 		       dev->name, status_code);
++		if (status_code == WLAN_STATUS_REASSOC_NO_ASSOC)
++			ifsta->prev_bssid_set = 0;
+ 		return;
+ 	}
+ 
+-- 
+1.5.0.6
 
-Please apply at your earliest convenience!
-
-Thanks,
-
-John
 -- 
 John W. Linville
 linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
