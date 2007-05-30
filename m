@@ -1,83 +1,40 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: REGRESSION: panic on e1000 driver
-Date: Wed, 30 May 2007 15:57:13 -0700
-Message-ID: <465E0149.6030307@intel.com>
-References: <1180560150.29081.35.camel@deimos.americas.hpqcorp.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 3/4] Make net watchdog timers 1 sec jiffy aligned
+Date: Wed, 30 May 2007 16:02:02 -0700 (PDT)
+Message-ID: <20070530.160202.48808347.davem@davemloft.net>
+References: <20070530221039.GJ11166@waste.org>
+	<20070530.152939.21591222.davem@davemloft.net>
+	<20070530223612.GR11115@waste.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	auke-jan.h.kok@intel.com
-To: Doug Chapman <doug.chapman@hp.com>, herbert@gondor.apana.org.au
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1180560150.29081.35.camel@deimos.americas.hpqcorp.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Cc: kaber@trash.net, shemminger@linux-foundation.org,
+	akpm@linux-foundation.org, venkatesh.pallipadi@intel.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: mpm@selenic.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56067
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751676AbXE3XBt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 May 2007 19:01:49 -0400
+In-Reply-To: <20070530223612.GR11115@waste.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Doug Chapman wrote:
-> All,
-> 
-> I reported this a few weeks ago and it was fixed but it appears the
-> offending code was again re-submitted.  This causes a panic on HP
-> Integrity servers and from what I hear many other platforms using e1000
-> as well.
-> 
-> My original report was via kernel.org BZ:
-> http://bugzilla.kernel.org/show_bug.cgi?id=8455
-> 
-> I am seeing the same panic with a kernel built from today's git pull.
-> 
-> 
-> It was fixed by this commit:
-> 3e1657c8ef53e1cd541cc1e420f3230dc075949b
-> 
-> 
-> but once again broken just yesterday by the following commit.  I have
-> backed just this commit out and verified I no longer panic.
-> 
-> 
-> commit 47313054352b879a2bc65379d55b05f48a0af7ec
-> Author: Herbert Xu <herbert@gondor.apana.org.au>
-> Date:   Tue May 29 15:07:31 2007 -0700
-> 
->     e1000: restore netif_poll_enable call but make sure IRQs are off
+From: Matt Mackall <mpm@selenic.com>
+Date: Wed, 30 May 2007 17:36:12 -0500
 
-Hmm, we're making a mess of it.
+> On Wed, May 30, 2007 at 03:29:39PM -0700, David Miller wrote:
+> > From: Matt Mackall <mpm@selenic.com>
+> > Date: Wed, 30 May 2007 17:10:39 -0500
+> > 
+> > > Are you agreeing that "it seems wasteful to add per-packet overhead"?
+> > > This patch is not doing that.
+> > 
+> > Yes, and I know that :-)
+> 
+> Is there a real reason for watchdog_timeo to be all over the map?
 
-Herbert, wouldn't it just have been a lot easier to do just add a 
-netif_poll_disable in e1000_probe, so that any and all other poll 
-enable/disables are symmetric ? Something like this?
+In theory it's a hardware implementation and link speed specific value,
+in reality nearly everyone just copies values from other drivers.
 
-Auke
-
-
-PS: apologies for the whitespace damage... it's a cut'n'paste
----
-
-Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
-
-diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-index 49be393..a8a3c5f 100644
---- a/drivers/net/e1000/e1000_main.c
-+++ b/drivers/net/e1000/e1000_main.c
-@@ -1149,6 +1149,7 @@ e1000_probe(struct pci_dev *pdev,
-         /* tell the stack to leave us alone until e1000_open() is called */
-         netif_carrier_off(netdev);
-         netif_stop_queue(netdev);
-+       netif_poll_disable(netdev);
-
-         DPRINTK(PROBE, INFO, "Intel(R) PRO/1000 Network Connection\n");
-
--------------------------------------------------------------------------
-This SF.net email is sponsored by DB2 Express
-Download DB2 Express C - the FREE version of DB2 express and take
-control of your XML. No limits. Just data. Click to get it now.
-http://sourceforge.net/powerbar/db2/
