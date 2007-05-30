@@ -1,54 +1,39 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: bond_compute_features() does not handle devices with different CSUM
-Date: Wed, 30 May 2007 13:03:24 +0200
-Message-ID: <200705301303.25119.mb@bu3sch.de>
-References: <97949e3e0705291741t4c485d38ud48b06e6d07e31bc@mail.gmail.com> <97949e3e0705291947j7fa5cd3fy5afe7f5eb898252c@mail.gmail.com>
+From: Andy Furniss <lists@andyfurniss.entadsl.com>
+Subject: Re: [RFC NET_SCHED 00/02]: Flexible SFQ flow classification
+Date: Wed, 30 May 2007 12:18:18 +0100
+Message-ID: <465D5D7A.8090200@andyfurniss.entadsl.com>
+References: <20070530094020.24073.84277.sendpatchset@localhost.localdomain>
+Reply-To: lists@andyfurniss.entadsl.com
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "Laurent Chavey" <chavey@google.com>
+Cc: netdev@vger.kernel.org, hadi@cyberus.ca
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:50778
-	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752612AbXE3LD7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 May 2007 07:03:59 -0400
-In-Reply-To: <97949e3e0705291947j7fa5cd3fy5afe7f5eb898252c@mail.gmail.com>
-Content-Disposition: inline
+Received: from s2.ukfsn.org ([217.158.120.143]:48385 "EHLO mail.ukfsn.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751506AbXE3LSF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 May 2007 07:18:05 -0400
+In-Reply-To: <20070530094020.24073.84277.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 30 May 2007 04:47:09 Laurent Chavey wrote:
-> proposed change.
+Patrick McHardy wrote:
+> One good thing about ESFQ is the more flexible flow classification, but
+> I don't like the concept of having a set of selectable hash functions
+> very much.
 > 
-> --- 2.6.20/drivers/net/bonding/bond_main.c      2007-05-29
-> 19:43:39.010565000 -0700
-> +++ 2.6.20.fix/drivers/net/bonding/bond_main.c  2007-05-29
-> 19:46:12.376980000 -0700
-> @@ -1227,7 +1227,14 @@
->         int i;
+> These patches change SFQ to allow attaching external classifiers and add
+> a new "flow" classifier that allows to classify flows based on an arbitary
+> combination of pre-defined keys. Its probably not the fastest classifier
+> when used with multiple keys, but frankly, I don't think speed is very
+> important in most situations where the current SFQ implementation is used.
 > 
->         bond_for_each_slave(bond, slave, i) {
-> -               features &= (slave->dev->features & BOND_INTERSECT_FEATURES);
-> +               /* NETIF_F_HW_CSUM includes support for NET_IF_IP_CSUM
-> +                * as such when looking for the intersection we need to
-> +                * add it to the device supported features
-> +                */
-> +               unsigned long dev_features = slave->dev->features;
-> +               if (slave->dev->features & NETIF_F_HW_CSUM)
-> +                       dev_features |= NETIF_F_IP_CSUM;
+> It currently does not support perturbation, I didn't want to move this into
+> the classifier, so I need to think about a way to handle it within SFQ.
+>
 
+Cool, but isn't this going to show the same collision problems that the
+pre jhash esfq saw?
 
-> +               features &= (features & BOND_INTERSECT_FEATURES);
-
-Is this statement correct?
-It's the same as
-	features = features & (features & BOND_INTERSECT_FEATURES);
-which looks strange to me.
-Did you mean something like
-	features |= (dev_features & BOND_INTERSECT_FEATURES);
-?
-
--- 
-Greetings Michael.
+Andy.
