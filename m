@@ -1,40 +1,40 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [patch 5/7] CAN: Add virtual CAN netdevice driver
-Date: Wed, 30 May 2007 12:01:12 -0700
-Message-ID: <20070530120112.63aac6cd@freepuppy>
-References: <20070530131123.10843.0@janus.isnogud.escape.de>
-	<20070530131204.10843.5@janus.isnogud.escape.de>
-	<20070530102810.1689119b@freepuppy>
-	<465DC91D.1030104@hartkopp.net>
+From: Brice Goglin <brice@myri.com>
+Subject: [PATCH 1/3] myri10ge: report link up/down in standard ethtool way
+Date: Wed, 30 May 2007 21:13:59 +0200
+Message-ID: <465DCCF7.9050408@myri.com>
+References: <465DCCB4.5040404@myri.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Urs Thuermann <urs@isnogud.escape.de>,
-	David Miller <davem@davemloft.net>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
-	Urs Thuermann <urs.thuermann@volkswagen.de>,
-	netdev@vger.kernel.org
-To: Oliver Hartkopp <oliver@hartkopp.net>
+Cc: netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([207.189.120.12]:59835 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752120AbXE3TNT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 May 2007 15:13:19 -0400
-In-Reply-To: <465DC91D.1030104@hartkopp.net>
+Received: from dsl.myri.com ([64.172.73.26]:2022 "EHLO myri.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751733AbXE3TNq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 May 2007 15:13:46 -0400
+In-Reply-To: <465DCCB4.5040404@myri.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 30 May 2007 20:57:33 +0200
-Oliver Hartkopp <oliver@hartkopp.net> wrote:
+Report link up/down in standard ethtool way
 
->
-> 
-> Does 'unneeded' belong to always the last line of the quoted code snippet?
-> 
+Signed-off-by: Brice Goglin <brice@myri.com>
+---
+ drivers/net/myri10ge/myri10ge.c |    1 +
+ 1 file changed, 1 insertion(+)
 
-They are all places where you assign zero (or NULL) to something that is
-already initialized to zero by alloc_netdev.
+Index: linux-rc/drivers/net/myri10ge/myri10ge.c
+===================================================================
+--- linux-rc.orig/drivers/net/myri10ge/myri10ge.c	2007-05-26 11:18:09.000000000 +0200
++++ linux-rc/drivers/net/myri10ge/myri10ge.c	2007-05-30 20:58:22.000000000 +0200
+@@ -1472,6 +1472,7 @@
+ 	.set_sg = ethtool_op_set_sg,
+ 	.get_tso = ethtool_op_get_tso,
+ 	.set_tso = ethtool_op_set_tso,
++	.get_link = ethtool_op_get_link,
+ 	.get_strings = myri10ge_get_strings,
+ 	.get_stats_count = myri10ge_get_stats_count,
+ 	.get_ethtool_stats = myri10ge_get_ethtool_stats,
 
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+
