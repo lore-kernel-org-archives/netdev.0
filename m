@@ -1,39 +1,36 @@
-From: Andy Furniss <lists@andyfurniss.entadsl.com>
-Subject: Re: [RFC NET_SCHED 00/02]: Flexible SFQ flow classification
-Date: Wed, 30 May 2007 12:18:18 +0100
-Message-ID: <465D5D7A.8090200@andyfurniss.entadsl.com>
-References: <20070530094020.24073.84277.sendpatchset@localhost.localdomain>
-Reply-To: lists@andyfurniss.entadsl.com
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PCNET32] Lock solid with netconsole
+Date: Wed, 30 May 2007 13:41:50 +0200
+Message-ID: <20070530114150.GA17818@electric-eye.fr.zoreil.com>
+References: <JIUG4Z$FE429A5F18B9052E8E0CF6906B6CB68A@laposte.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hadi@cyberus.ca
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: tsbogend <tsbogend@alpha.franken.de>,
+	lsorense <lsorense@csclub.uwaterloo.ca>,
+	pcnet32 <pcnet32@verizon.net>, netdev <netdev@vger.kernel.org>
+To: Emmanuel =?iso-8859-1?Q?Fust=E9?= <emmanuel.fuste@laposte.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s2.ukfsn.org ([217.158.120.143]:48385 "EHLO mail.ukfsn.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751506AbXE3LSF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 May 2007 07:18:05 -0400
-In-Reply-To: <20070530094020.24073.84277.sendpatchset@localhost.localdomain>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:44106 "EHLO
+	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750897AbXE3LoF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 May 2007 07:44:05 -0400
+Content-Disposition: inline
+In-Reply-To: <JIUG4Z$FE429A5F18B9052E8E0CF6906B6CB68A@laposte.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy wrote:
-> One good thing about ESFQ is the more flexible flow classification, but
-> I don't like the concept of having a set of selectable hash functions
-> very much.
-> 
-> These patches change SFQ to allow attaching external classifiers and add
-> a new "flow" classifier that allows to classify flows based on an arbitary
-> combination of pre-defined keys. Its probably not the fastest classifier
-> when used with multiple keys, but frankly, I don't think speed is very
-> important in most situations where the current SFQ implementation is used.
-> 
-> It currently does not support perturbation, I didn't want to move this into
-> the classifier, so I need to think about a way to handle it within SFQ.
->
+Emmanuel Fust=E9 <emmanuel.fuste@laposte.net> :
+[..]
+> Could this bug fix from Stephen Hemminger be another track to follow =
+?
+> http://marc.info/?l=3Dlinux-netdev&m=3D118048588011069&w=3D2
+> If you think so, I could give it a try whitout applying the "spin_loc=
+k_irqsave" patch.
 
-Cool, but isn't this going to show the same collision problems that the
-pre jhash esfq saw?
+You can apply it too but Stephen's patch addresses a different issue an=
+d
+pcnet32 does not use netif_tx_locking (it could/should though).
 
-Andy.
+--=20
+Ueimor
