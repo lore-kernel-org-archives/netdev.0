@@ -1,48 +1,53 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: Generic netlink interface help
-Date: Wed, 30 May 2007 23:45:08 +0200
-Message-ID: <20070530214508.GT521@postel.suug.ch>
-References: <84po8XY4.1179999810.5490870.samuel@sortiz.org> <1180024477.18003.11.camel@johannes.berg> <20070525221802.GO521@postel.suug.ch> <1180272296.3604.64.camel@johannes.berg>
+From: Greg KH <greg@kroah.com>
+Subject: Re: Problem with atl1 and msi in kernel 2.6.22-rc3
+Date: Wed, 30 May 2007 15:07:39 -0700
+Message-ID: <20070530220739.GA26408@kroah.com>
+References: <200705300200.25412.jareguero@telefonica.net> <20070530064711.570162f1@osprey.hogchain.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: Samuel Ortiz <samuel@sortiz.org>, giometti@enneenne.com,
-	netdev@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>
+Cc: Jose Alberto Reguero <jareguero@telefonica.net>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jay Cliburn <jacliburn@bellsouth.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:37631 "EHLO postel.suug.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755765AbXE3Vor convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 May 2007 17:44:47 -0400
+Received: from canuck.infradead.org ([209.217.80.40]:54617 "EHLO
+	canuck.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759298AbXE3WGb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 May 2007 18:06:31 -0400
 Content-Disposition: inline
-In-Reply-To: <1180272296.3604.64.camel@johannes.berg>
+In-Reply-To: <20070530064711.570162f1@osprey.hogchain.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Johannes Berg <johannes@sipsolutions.net> 2007-05-27 15:24
-> On Sat, 2007-05-26 at 00:18 +0200, Thomas Graf wrote:
+On Wed, May 30, 2007 at 06:47:11AM -0500, Jay Cliburn wrote:
+> On Wed, 30 May 2007 02:00:25 +0200
+> Jose Alberto Reguero <jareguero@telefonica.net> wrote:
 > 
-> > This area is still work in progress but the basic idea is that
-> > like in kernel context, the application defines its set of
-> > commands and assigns message parsers for each command. 
+> > I have problems with a M2V motherboard and atl1 driver with msi and
+> > kernel 2.6.22-rc3. With kernel 2.6.21 I had no problems.
+> > I must add in drivers/pci/quirks.c (line 1723):
+> > 
+> >  DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_ATI, PCI_DEVICE_ID_ATI_RS480, 
+> > quirk_disable_msi);
+> > +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_VIA, 0xe238,
+> > quirk_disable_msi);
+> > 
+> > to disable msi in the atl1.
 > 
-> Ok, but why? For when we get asynchronous events from the kernel?
+> See http://bugzilla.kernel.org/show_bug.cgi?id=8472.
+> 
+> A more general solution is to disable MSI for the VIA VT3351 (used by
+> the Asus M2V).  I attempted to do this in the -stable tree with
+> http://lkml.org/lkml/2007/5/26/167, but it was shot down because the
+> patch isn't upstream yet.
+> 
+> Unfortunately, I can't submit it upstream because the enabling
+> patch hasn't yet been applied upstream by the PCI maintainer. My
+> request for info on the status of the patch went unanswered.
+> http://lkml.org/lkml/2007/5/19/74
 
-I don't want to enforce a separate socket for every generic
-netlink family.
+Sorry, I'm catching up on PCI stuff right now (am traveling in Tokyo
+right now, gotta love jet lag...)
 
-> > For now,
-> > the message parser is linked into the cache operations which
-> > means that you have to "update" a cache in order to use this
-> > feature. 
-> 
-> What's the cache good for to start with?
-> 
-> My current userland tool just send a message and expects back a
-> response. Obviously that's broken once we have events too, is that when
-> the message parsers come in?
+thanks for your patience.
 
-See the documentation, a cache is basically a collection of
-objects. For events, you'd probably want to have each event
-added to a cache and then iterate over the cache to handle
-the events in the right order.
+greg k-h
