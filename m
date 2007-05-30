@@ -1,38 +1,30 @@
-From: Jeff Garzik <jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>
-Subject: Re: Please pull 'upstream-fixes' branch of wireless-2.6
-Date: Wed, 30 May 2007 09:46:27 -0400
-Message-ID: <465D8033.9020204@garzik.org>
-References: <20070529183037.GB3496@tuxdriver.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 1/7] sky2: dont set bogus bit in PHY register
+Date: Wed, 30 May 2007 09:53:01 -0400
+Message-ID: <465D81BD.5090505@garzik.org>
+References: <20070524222242.555399884@linux-foundation.org> <20070524222538.375321658@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20070529183037.GB3496-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:33818 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752485AbXE3NxG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 May 2007 09:53:06 -0400
+In-Reply-To: <20070524222538.375321658@linux-foundation.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-John W. Linville wrote:
-> The following changes since commit c420bc9f09a0926b708c3edb27eacba434=
-a4f4ba:
->   Linus Torvalds (1):
->         Linux 2.6.22-rc3
->=20
-> are found in the git repository at:
->=20
->   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6=
-=2Egit upstream-fixes
->=20
-> Akinobu Mita (2):
->       ieee80211: fix incomplete error message
->       softmac: alloc_ieee80211() NULL check
->=20
-> Bj=F6rn Steinbrink (1):
->       prism54: fix monitor mode oops
->=20
-> Brandon Craig Rhodes (1):
->       hostap: Allocate enough tailroom for TKIP
+Stephen Hemminger wrote:
+> This code inherited from the sk98lin driver is incorrect on the Yukon2.
+> The GPHY_CTRL register values are specific to the internal PHY of the chip
+> and the values used were leftovers.
+> Driver was setting bit 13 which is now the INT polarity for the PHY!
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
-pulled
+applied 1-3
+
+
