@@ -1,84 +1,160 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [8139CP]: Fix VLAN unregistration
-Date: Wed, 30 May 2007 09:52:55 +0200
-Message-ID: <465D2D57.2080900@trash.net>
+From: Bill Nottingham <notting@redhat.com>
+Subject: [PATCH] net: fix comparisons of unsigned < 0
+Date: Wed, 30 May 2007 03:56:13 -0400
+Message-ID: <20070530075613.GA29081@nostromo.devel.redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------030508060601050705020802"
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: Jeff Garzik <jgarzik@pobox.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:64244 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1749667AbXE3Hxb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 May 2007 03:53:31 -0400
+Received: from mx1.redhat.com ([66.187.233.31]:37971 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750803AbXE3H56 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 May 2007 03:57:58 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------030508060601050705020802
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
+Recent gcc versions emit warnings when unsigned variables are compared < 0 or >= 0.
 
-Fix 8139cp disabling VLAN completely once the first vid is unregistered.
-Compile-tested only since I don't own one of these cards.
-
-
---------------030508060601050705020802
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
-
-[8139CP]: Fix VLAN unregistration
-
-8139cp disables VLAN completely when the first VID is unregistered. It
-should instead disable VLAN when the group is unregistered by calling
-cp_vlan_rx_register with grp = NULL.
-
-Signed-off-by: Patrick McHardy <kaber@trash.net>
+Signed-off-by: Bill Nottingham <notting@redhat.com>
 
 ---
-commit b91a2ac4f5a148bfa9778f2bf0e9a46ed3a4aca9
-tree bdf13171526857e7a15fdb31db8b58706a10b34f
-parent 62d7f463e185a0b65915110d25d8c4c732e67c0a
-author Patrick McHardy <kaber@trash.net> Wed, 30 May 2007 09:49:20 +0200
-committer Patrick McHardy <kaber@trash.net> Wed, 30 May 2007 09:49:20 +0200
 
- drivers/net/8139cp.c |   14 +++++---------
- 1 files changed, 5 insertions(+), 9 deletions(-)
+ 8021q/vlan.c                               |    3 +--
+ dccp/probe.c                               |    2 +-
+ ipv6/netfilter/nf_conntrack_l3proto_ipv6.c |    3 +--
+ ipv6/netfilter/nf_conntrack_proto_icmpv6.c |    3 +--
+ sched/act_pedit.c                          |    3 +--
+ sctp/debug.c                               |    8 --------
+ sctp/sm_statetable.c                       |    2 +-
+ wanrouter/wanmain.c                        |    2 +-
+ 8 files changed, 7 insertions(+), 19 deletions(-)
 
-diff --git a/drivers/net/8139cp.c b/drivers/net/8139cp.c
-index e8c9f27..5cc961e 100644
---- a/drivers/net/8139cp.c
-+++ b/drivers/net/8139cp.c
-@@ -435,21 +435,17 @@ static void cp_vlan_rx_register(struct net_device *dev, struct vlan_group *grp)
+diff -ru linux-2.6.21-old/net/8021q/vlan.c linux-2.6.21/net/8021q/vlan.c
+--- linux-2.6.21-old/net/8021q/vlan.c	2007-05-30 02:53:04.000000000 -0400
++++ linux-2.6.21/net/8021q/vlan.c	2007-05-30 02:35:47.000000000 -0400
+@@ -740,8 +740,7 @@
+ 	case SET_VLAN_NAME_TYPE_CMD:
+ 		if (!capable(CAP_NET_ADMIN))
+ 			return -EPERM;
+-		if ((args.u.name_type >= 0) &&
+-		    (args.u.name_type < VLAN_NAME_TYPE_HIGHEST)) {
++		if (args.u.name_type < VLAN_NAME_TYPE_HIGHEST) {
+ 			vlan_name_type = args.u.name_type;
+ 			err = 0;
+ 		} else {
+diff -ru linux-2.6.21-old/net/dccp/probe.c linux-2.6.21/net/dccp/probe.c
+--- linux-2.6.21-old/net/dccp/probe.c	2007-05-30 02:53:04.000000000 -0400
++++ linux-2.6.21/net/dccp/probe.c	2007-05-30 02:36:09.000000000 -0400
+@@ -128,7 +128,7 @@
+ 	int error = 0, cnt = 0;
+ 	unsigned char *tbuf;
  
- 	spin_lock_irqsave(&cp->lock, flags);
- 	cp->vlgrp = grp;
--	cp->cpcmd |= RxVlanOn;
-+	if (grp)
-+		cp->cpcmd |= RxVlanOn;
-+	else
-+		cp->cpcmd &= ~RxVlanOn;
- 	cpw16(CpCmd, cp->cpcmd);
- 	spin_unlock_irqrestore(&cp->lock, flags);
- }
+-	if (!buf || len < 0)
++	if (!buf)
+ 		return -EINVAL;
  
- static void cp_vlan_rx_kill_vid(struct net_device *dev, unsigned short vid)
+ 	if (len == 0)
+diff -ru linux-2.6.21-old/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c linux-2.6.21/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
+--- linux-2.6.21-old/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c	2007-05-30 02:53:04.000000000 -0400
++++ linux-2.6.21/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c	2007-05-30 02:36:44.000000000 -0400
+@@ -177,8 +177,7 @@
+ 
+ 	protoff = nf_ct_ipv6_skip_exthdr(*pskb, extoff, &pnum,
+ 					 (*pskb)->len - extoff);
+-	if (protoff < 0 || protoff > (*pskb)->len ||
+-	    pnum == NEXTHDR_FRAGMENT) {
++	if (protoff > (*pskb)->len || pnum == NEXTHDR_FRAGMENT) {
+ 		DEBUGP("proto header not found\n");
+ 		return NF_ACCEPT;
+ 	}
+diff -ru linux-2.6.21-old/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c linux-2.6.21/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
+--- linux-2.6.21-old/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c	2007-05-30 02:53:04.000000000 -0400
++++ linux-2.6.21/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c	2007-05-30 02:37:04.000000000 -0400
+@@ -168,8 +168,7 @@
+ 					   skb->len - inip6off
+ 						    - sizeof(struct ipv6hdr));
+ 
+-	if ((inprotoff < 0) || (inprotoff > skb->len) ||
+-	    (inprotonum == NEXTHDR_FRAGMENT)) {
++	if ((inprotoff > skb->len) || (inprotonum == NEXTHDR_FRAGMENT)) {
+ 		DEBUGP("icmpv6_error: Can't get protocol header in ICMPv6 payload.\n");
+ 		return -NF_ACCEPT;
+ 	}
+diff -ru linux-2.6.21-old/net/sched/act_pedit.c linux-2.6.21/net/sched/act_pedit.c
+--- linux-2.6.21-old/net/sched/act_pedit.c	2007-05-30 02:53:04.000000000 -0400
++++ linux-2.6.21/net/sched/act_pedit.c	2007-05-30 02:38:19.000000000 -0400
+@@ -164,8 +164,7 @@
+ 				printk("offset must be on 32 bit boundaries\n");
+ 				goto bad;
+ 			}
+-			if (skb->len < 0 ||
+-			    (offset > 0 && offset > skb->len)) {
++			if (offset > 0 && offset > skb->len) {
+ 				printk("offset %d cant exceed pkt length %d\n",
+ 				       offset, skb->len);
+ 				goto bad;
+diff -ru linux-2.6.21-old/net/sctp/debug.c linux-2.6.21/net/sctp/debug.c
+--- linux-2.6.21-old/net/sctp/debug.c	2007-05-30 02:53:04.000000000 -0400
++++ linux-2.6.21/net/sctp/debug.c	2007-05-30 02:39:29.000000000 -0400
+@@ -77,8 +77,6 @@
+ /* Lookup "chunk type" debug name. */
+ const char *sctp_cname(const sctp_subtype_t cid)
  {
--	struct cp_private *cp = netdev_priv(dev);
--	unsigned long flags;
--
--	spin_lock_irqsave(&cp->lock, flags);
--	cp->cpcmd &= ~RxVlanOn;
--	cpw16(CpCmd, cp->cpcmd);
--	vlan_group_set_device(cp->vlgrp, vid, NULL);
--	spin_unlock_irqrestore(&cp->lock, flags);
-+	return;
- }
- #endif /* CP_VLAN_TAG_USED */
+-	if (cid.chunk < 0)
+-		return "illegal chunk id";
+ 	if (cid.chunk <= SCTP_CID_BASE_MAX)
+ 		return sctp_cid_tbl[cid.chunk];
  
-
---------------030508060601050705020802--
+@@ -146,8 +144,6 @@
+ /* Lookup primitive debug name. */
+ const char *sctp_pname(const sctp_subtype_t id)
+ {
+-	if (id.primitive < 0)
+-		return "illegal primitive";
+ 	if (id.primitive <= SCTP_EVENT_PRIMITIVE_MAX)
+ 		return sctp_primitive_tbl[id.primitive];
+ 	return "unknown_primitive";
+@@ -161,8 +157,6 @@
+ /* Lookup "other" debug name. */
+ const char *sctp_oname(const sctp_subtype_t id)
+ {
+-	if (id.other < 0)
+-		return "illegal 'other' event";
+ 	if (id.other <= SCTP_EVENT_OTHER_MAX)
+ 		return sctp_other_tbl[id.other];
+ 	return "unknown 'other' event";
+@@ -184,8 +178,6 @@
+ /* Lookup timer debug name. */
+ const char *sctp_tname(const sctp_subtype_t id)
+ {
+-	if (id.timeout < 0)
+-		return "illegal 'timer' event";
+ 	if (id.timeout <= SCTP_EVENT_TIMEOUT_MAX)
+ 		return sctp_timer_tbl[id.timeout];
+ 	return "unknown_timer";
+diff -ru linux-2.6.21-old/net/sctp/sm_statetable.c linux-2.6.21/net/sctp/sm_statetable.c
+--- linux-2.6.21-old/net/sctp/sm_statetable.c	2007-05-30 02:53:04.000000000 -0400
++++ linux-2.6.21/net/sctp/sm_statetable.c	2007-05-30 02:38:51.000000000 -0400
+@@ -960,7 +960,7 @@
+ 	if (state > SCTP_STATE_MAX)
+ 		return &bug;
+ 
+-	if (cid >= 0 && cid <= SCTP_CID_BASE_MAX)
++	if (cid <= SCTP_CID_BASE_MAX)
+ 		return &chunk_event_table[cid][state];
+ 
+ 	if (sctp_prsctp_enable) {
+diff -ru linux-2.6.21-old/net/wanrouter/wanmain.c linux-2.6.21/net/wanrouter/wanmain.c
+--- linux-2.6.21-old/net/wanrouter/wanmain.c	2007-05-30 02:53:04.000000000 -0400
++++ linux-2.6.21/net/wanrouter/wanmain.c	2007-05-30 02:40:23.000000000 -0400
+@@ -454,7 +454,7 @@
+ 	}
+ 
+ 	if (conf->data_size && conf->data) {
+-		if (conf->data_size > 128000 || conf->data_size < 0) {
++		if (conf->data_size > 128000) {
+ 			printk(KERN_INFO
+ 			    "%s: ERROR, Invalid firmware data size %i !\n",
+ 					wandev->name, conf->data_size);
