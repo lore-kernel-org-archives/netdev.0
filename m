@@ -1,29 +1,27 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] defxx: Fix the handling of ioremap() failures
-Date: Wed, 30 May 2007 09:53:23 -0400
-Message-ID: <465D81D3.7040609@garzik.org>
-References: <Pine.LNX.4.64N.0705291508300.14456@blysk.ds.pg.gda.pl>
+Subject: Re: [PATCH 5/7] sky2: enable IRQ on duplex renegotiation
+Date: Wed, 30 May 2007 09:54:44 -0400
+Message-ID: <465D8224.9040905@garzik.org>
+References: <20070524222242.555399884@linux-foundation.org> <20070524222538.725354382@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Maciej W. Rozycki" <macro@linux-mips.org>
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:33841 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:33860 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751974AbXE3Nx1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 May 2007 09:53:27 -0400
-In-Reply-To: <Pine.LNX.4.64N.0705291508300.14456@blysk.ds.pg.gda.pl>
+	id S1751974AbXE3Nyq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 May 2007 09:54:46 -0400
+In-Reply-To: <20070524222538.725354382@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Maciej W. Rozycki wrote:
->  If ioremap_nocache() is unfortunate enough to fail, the error code is not 
-> set correctly leading to a false success from dfx_register().  This change 
-> fixes the problem.
+Stephen Hemminger wrote:
+> Don't want IRQ on FIFO error because there is nothing useful to do with it.
+> But do want IRQ on duplex change.
 > 
-> Signed-off-by: Maciej W. Rozycki <macro@linux-mips.org>
+> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
 applied
 
