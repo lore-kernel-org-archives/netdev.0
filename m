@@ -1,92 +1,65 @@
-From: "Ramkrishna Vepa" <Ramkrishna.Vepa@neterion.com>
-Subject: RE: [PATCH] Avoid switch on long long in s2io driver
-Date: Wed, 30 May 2007 15:37:14 -0400
-Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD7701A70427@nekter>
-References: <200705261904.09028.mb@bu3sch.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 3/4] Make net watchdog timers 1 sec jiffy aligned
+Date: Wed, 30 May 2007 12:55:51 -0700 (PDT)
+Message-ID: <20070530.125551.41636333.davem@davemloft.net>
+References: <20070530105936.6c988da5.akpm@linux-foundation.org>
+	<20070530112056.0aeb9498@freepuppy>
+	<465DC598.5060407@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
-To: "Michael Buesch" <mb@bu3sch.de>, "Andreas Schwab" <schwab@suse.de>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@linux-foundation.org, akpm@linux-foundation.org,
+	venkatesh.pallipadi@intel.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.neterion.com ([72.1.205.142]:34768 "EHLO owa.neterion.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758639AbXE3TxY convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 May 2007 15:53:24 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <200705261904.09028.mb@bu3sch.de>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55534
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751733AbXE3Tzi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 May 2007 15:55:38 -0400
+In-Reply-To: <465DC598.5060407@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patch looks good. Yes, please add a comment as to reason for cast.
+From: Patrick McHardy <kaber@trash.net>
+Date: Wed, 30 May 2007 20:42:32 +0200
 
-Ram
+> Stephen Hemminger wrote:
+> >>>Index: linux-2.6.22-rc-mm/net/sched/sch_generic.c
+> >>>===================================================================
+> >>>--- linux-2.6.22-rc-mm.orig/net/sched/sch_generic.c	2007-05-24 11:16:03.000000000 -0700
+> >>>+++ linux-2.6.22-rc-mm/net/sched/sch_generic.c	2007-05-25 15:10:02.000000000 -0700
+> >>>@@ -224,7 +224,8 @@
+> >>> 	if (dev->tx_timeout) {
+> >>> 		if (dev->watchdog_timeo <= 0)
+> >>> 			dev->watchdog_timeo = 5*HZ;
+> >>>-		if (!mod_timer(&dev->watchdog_timer, jiffies + dev->watchdog_timeo))
+> >>>+		if (!mod_timer(&dev->watchdog_timer,
+> >>>+			       round_jiffies(jiffies + dev->watchdog_timeo)))
+> >>> 			dev_hold(dev);
+> >>> 	}
+> >>> }
+> >>
+> >>Please cc netdev on net patches.
+> >>
+> >>Again, I worry that if people set the watchdog timeout to, say, 0.1 seconds
+> >>then they will get one second, which is grossly different.
+> >>
+> >>And if they were to set it to 1.5 seconds, they'd get 2.0 which is pretty
+> >>significant, too.
+> > 
+> > 
+> > Alternatively, we could change to a timer that is pushed forward after each
+> > TX, maybe using hrtimer and hrtimer_forward().  That way the timer would
+> > never run in normal case.
+> 
+> 
+> It seems wasteful to add per-packet overhead for tx timeouts, which
+> should be an exception. Do drivers really care about the exact
+> timeout value? Compared to a packet transmission time its incredibly
+> long anyways ..
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org
-[mailto:netdev-owner@vger.kernel.org]
-> On Behalf Of Michael Buesch
-> Sent: Saturday, May 26, 2007 10:04 AM
-> To: Andreas Schwab
-> Cc: netdev@vger.kernel.org
-> Subject: Re: [PATCH] Avoid switch on long long in s2io driver
-> 
-> On Saturday 26 May 2007 10:58:15 Andreas Schwab wrote:
-> > A switch on long long causes gcc to generate a reference to
-__ucmpdi2 on
-> > ppc32.  Avoid that by casting to int, since the value is only a
-small
-> > integer anyway.
-> >
-> > Signed-off-by: Andreas Schwab <schwab@suse.de>
-> >
-> > ---
-> >  drivers/net/s2io.c |    4 ++--
-> >  1 file changed, 2 insertions(+), 2 deletions(-)
-> >
-> > Index: linux-2.6.22-rc1/drivers/net/s2io.c
-> > ===================================================================
-> > --- linux-2.6.22-rc1.orig/drivers/net/s2io.c	2007-05-13
-> 11:03:28.000000000 +0200
-> > +++ linux-2.6.22-rc1/drivers/net/s2io.c	2007-05-13
-12:52:49.000000000
-> +0200
-> > @@ -2898,7 +2898,7 @@ static void tx_intr_handler(struct fifo_
-> >
-> >  			/* update t_code statistics */
-> >  			err >>= 48;
-> > -			switch(err) {
-> > +			switch((int)err) {
-> 
-> Hm, maybe add a comment, too?
-> This cast looks redundant at the first look and someone
-> who doesn't understand it might submit a patch to remove it again.
-> 
-> >  				case 2:
-> >
-nic->mac_control.stats_info->sw_stat.
-> >
-tx_buf_abort_cnt++;
-> > @@ -6825,7 +6825,7 @@ static int rx_osm_handler(struct ring_in
-> >
-sp->mac_control.stats_info->sw_stat.parity_err_cnt++;
-> >  		}
-> >  		err >>= 48;
-> > -		switch(err) {
-> > +		switch((int)err) {
-> >  			case 1:
-> >  				sp->mac_control.stats_info->sw_stat.
-> >  				rx_parity_err_cnt++;
-> >
-> > Andreas.
-> >
-> 
-> 
-> 
-> --
-> Greetings Michael.
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I agree, this change is absolutely rediculious and is just a blind
+cookie-cutter change made without consideration of what the code is
+doing and what it's requirements are.
+
