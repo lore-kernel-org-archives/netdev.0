@@ -1,95 +1,54 @@
-From: Doug Chapman <doug.chapman@hp.com>
-Subject: Re: REGRESSION: panic on e1000 driver
-Date: Wed, 30 May 2007 19:31:31 -0400
-Message-ID: <1180567891.23536.1.camel@athlon>
-References: <1180560150.29081.35.camel@deimos.americas.hpqcorp.net>
-	<465E0149.6030307@intel.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [IPV4] LVS: Allow to send ICMP unreachable responses when
+ real-servers are removed
+Date: Thu, 31 May 2007 03:21:40 +0300 (EEST)
+Message-ID: <Pine.LNX.4.58.0705310239240.3745@u.domain.uli>
+References: <Pine.LNX.4.58.0705160012470.2626@u.domain.uli>
+ <Pine.LNX.4.58.0705181043390.2665@u.domain.uli> <20070518.020525.28394540.davem@davemloft.net>
+ <200705301138.29582@nienna>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	herbert@gondor.apana.org.au, doug.chapman@hp.com
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <465E0149.6030307@intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>, kaber@trash.net,
+	horms@verge.net.au, jkrzyszt@tis.icnet.pl, netdev@vger.kernel.org
+To: KOVACS Krisztian <hidden@balabit.hu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ja.ssi.bg ([217.79.71.194]:4772 "EHLO u.domain.uli"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751238AbXEaAWa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 May 2007 20:22:30 -0400
+In-Reply-To: <200705301138.29582@nienna>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2007-05-30 at 15:57 -0700, Kok, Auke wrote:
-> Doug Chapman wrote:
-> > All,
-> > 
-> > I reported this a few weeks ago and it was fixed but it appears the
-> > offending code was again re-submitted.  This causes a panic on HP
-> > Integrity servers and from what I hear many other platforms using e1000
-> > as well.
-> > 
-> > My original report was via kernel.org BZ:
-> > http://bugzilla.kernel.org/show_bug.cgi?id=8455
-> > 
-> > I am seeing the same panic with a kernel built from today's git pull.
-> > 
-> > 
-> > It was fixed by this commit:
-> > 3e1657c8ef53e1cd541cc1e420f3230dc075949b
-> > 
-> > 
-> > but once again broken just yesterday by the following commit.  I have
-> > backed just this commit out and verified I no longer panic.
-> > 
-> > 
-> > commit 47313054352b879a2bc65379d55b05f48a0af7ec
-> > Author: Herbert Xu <herbert@gondor.apana.org.au>
-> > Date:   Tue May 29 15:07:31 2007 -0700
-> > 
-> >     e1000: restore netif_poll_enable call but make sure IRQs are off
-> 
-> Hmm, we're making a mess of it.
-> 
-> Herbert, wouldn't it just have been a lot easier to do just add a 
-> netif_poll_disable in e1000_probe, so that any and all other poll 
-> enable/disables are symmetric ? Something like this?
-> 
-> Auke
-> 
-> 
-> PS: apologies for the whitespace damage... it's a cut'n'paste
-> ---
-> 
-> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
-> 
-> diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-> index 49be393..a8a3c5f 100644
-> --- a/drivers/net/e1000/e1000_main.c
-> +++ b/drivers/net/e1000/e1000_main.c
-> @@ -1149,6 +1149,7 @@ e1000_probe(struct pci_dev *pdev,
->          /* tell the stack to leave us alone until e1000_open() is called */
->          netif_carrier_off(netdev);
->          netif_stop_queue(netdev);
-> +       netif_poll_disable(netdev);
-> 
->          DPRINTK(PROBE, INFO, "Intel(R) PRO/1000 Network Connection\n");
 
-Auke,
+	Hello,
 
-I tested this and it does indeed fix the panic on my systems.  I will
-leave the decision as to if it is the "right" thing to do to those who
-are more knowledgeable with the code.
+On Wed, 30 May 2007, KOVACS Krisztian wrote:
 
-- Doug
+>   I'm just about to publish the next round of tproxy patches (with the 
+> routing code modifications completely removed), but this issue is still 
+> present.
+> 
+>   I've posted a few patches making omitting this check possible 
+> selectively back in March. Do those changes look acceptable?
+> 
+>   http://marc.info/?l=linux-netdev&m=117310979823297&w=3
 
+	Just a small note for now:
 
+	The code
+	'if (dev_out == NULL && !(oldflp->flags & FLOWI_FLAG_TRANSPARENT))'
+can lead to problem in 'fl.oif = dev_out->ifindex;' if fl4_src is not
+present.
 
--------------------------------------------------------------------------
-This SF.net email is sponsored by DB2 Express
-Download DB2 Express C - the FREE version of DB2 express and take
-control of your XML. No limits. Just data. Click to get it now.
-http://sourceforge.net/powerbar/db2/
+	Also, i'm not sure if FLOWI_FLAG_TRANSPARENT should cause
+different values for flags to be cached many times. Users without this
+flag get EINVAL when fl4_src is not configured, other failures are not 
+cached too. And as fl4_src is considered in both cases (both kinds of 
+callers get same path on success) we don't need changes except in 
+ip_route_output_slow()? By this way I hope we can avoid any possible 
+forking of cache entries just by different flags.
+
+	Then we can use some more generic name, only for the flowi flag,
+eg. FLOWI_FLAG_ANYSRC or something better?
+
