@@ -1,32 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] bridge: round off STP perodic timers
-Date: Thu, 31 May 2007 01:21:52 -0700 (PDT)
-Message-ID: <20070531.012152.11957542.davem@davemloft.net>
-References: <20070519224605.GG14235@galon.ev-en.org>
-	<20070530121252.1248f506@freepuppy>
-	<20070530121422.0cdd90eb@freepuppy>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 0/4] mac80211 fixes for 2.6.22
+Date: Thu, 31 May 2007 01:25:08 -0700 (PDT)
+Message-ID: <20070531.012508.18299215.davem@davemloft.net>
+References: <20070530182538.GB3610@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: baruch@ev-en.org, netdev@vger.kernel.org, power@bughost.org,
-	bridge@linux-foundation.org
-To: shemminger@linux-foundation.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44531
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752884AbXEaIVj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 May 2007 04:21:39 -0400
-In-Reply-To: <20070530121422.0cdd90eb@freepuppy>
-Sender: netdev-owner@vger.kernel.org
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20070530182538.GB3610-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Date: Wed, 30 May 2007 12:14:22 -0700
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Wed, 30 May 2007 14:25:38 -0400
 
-> Peroidic STP timers don't have to be exact.
-> The hold timer runs at 1HZ, and the hello timer normally runs
-> at 2HZ; save power by aligning it them to next second.
+> Some bug fixes that should be applied to 2.6.22:
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+>       mac80211: fail back to use associate from reassociate
+>       mac80211: fix memory leak when defrag fragments
+>       mac80211: always set carrier status on open
+>       mac80211: avoid null ptr deref in ieee80211_ibss_add_sta
+> 
+> These are also available in the wireless-2.6 git tree:
+> 
+> 	git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git mac80211
+> 
+> Please apply at your earliest convenience!
 
-Applied, thanks Stephen.
+Looks good, pulled, thanks a lot John.
