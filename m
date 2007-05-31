@@ -1,38 +1,66 @@
-From: Ingo Oeser <netdev@axxeo.de>
-Subject: Re: [PATCH] [XFRM]: Add module alias for transformation type. (Re: [PATCH 2/2] [IPV6] MIP6: Loadable module support for MIPv6.)
-Date: Thu, 31 May 2007 17:10:16 +0200
-Message-ID: <200705311710.17664.netdev@axxeo.de>
-References: <1180067003902-git-send-email-nakam@linux-ipv6.org>
+From: Doug Chapman <doug.chapman@hp.com>
+Subject: Re: REGRESSION: panic on e1000 driver
+Date: Thu, 31 May 2007 11:16:09 -0400
+Message-ID: <1180624569.23536.7.camel@athlon>
+References: <1180560150.29081.35.camel@deimos.americas.hpqcorp.net>
+	<20070531010814.GA30709@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	herbert@gondor.apana.org.au, jmorris@namei.org,
-	kazunori@miyazawa.org, mk@linux-ipv6.org
-To: nakam@linux-ipv6.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.axxeo.de ([82.100.226.146]:43002 "EHLO mail.axxeo.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756803AbXEaPKh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 May 2007 11:10:37 -0400
-In-Reply-To: <1180067003902-git-send-email-nakam@linux-ipv6.org>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	auke-jan.h.kok@intel.com, doug.chapman@hp.com
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20070531010814.GA30709@gondor.apana.org.au>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Dear Nakamura-san,
+On Thu, 2007-05-31 at 11:08 +1000, Herbert Xu wrote:
+> On Wed, May 30, 2007 at 05:22:30PM -0400, Doug Chapman wrote:
+> > 
+> > but once again broken just yesterday by the following commit.  I have
+> > backed just this commit out and verified I no longer panic.
+> 
+> Hmm, the only way I can see this happening is if the hardware signals
+> an interrupt even though we've explicitly shut it off.  Does this patch
+> help? If it does help, does it produce the warning in dmesg?
+> 
+> Thanks,
 
-nakam@linux-ipv6.org schrieb:
-> This is the third one of MIPv6 module patch. It can be applied
-> after two patches which are already sent to the list.
-> Could you review it?
 
-They look good. Thanks for taking the time to clean this up!
-
-Acked-by: Ingo Oeser <netdev@axxeo.de>
+The patch does fix the panic.  Here are all the e1000 messages from
+dmesg after a bootup.  Note that only eth0 is actually configured and
+connected:
 
 
-Best Regards
+# dmesg | grep e1000
+e1000: 0000:01:02.0: e1000_probe: (PCI-X:66MHz:64-bit) 00:15:60:04:d7:f8
+e1000: eth0: e1000_probe: Intel(R) PRO/1000 Network Connection
+e1000: 0000:01:02.1: e1000_probe: (PCI-X:66MHz:64-bit) 00:15:60:04:d7:f9
+e1000: eth1: e1000_probe: Intel(R) PRO/1000 Network Connection
+e1000: 0000:15:02.0: e1000_probe: (PCI-X:66MHz:64-bit) 00:12:79:9e:b7:c4
+e1000: eth2: e1000_probe: Intel(R) PRO/1000 Network Connection
+e1000: 0000:15:02.1: e1000_probe: (PCI-X:66MHz:64-bit) 00:12:79:9e:b7:c5
+e1000: eth3: e1000_probe: Intel(R) PRO/1000 Network Connection
+e1000: Unexpected interrupt icr=0x4
+e1000: eth0: e1000_watchdog: NIC Link is Up 1000 Mbps Full Duplex, Flow
+Control: RX
 
-Ingo Oeser
+
+- Doug
+
+
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by DB2 Express
+Download DB2 Express C - the FREE version of DB2 express and take
+control of your XML. No limits. Just data. Click to get it now.
+http://sourceforge.net/powerbar/db2/
