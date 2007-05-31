@@ -1,53 +1,96 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: [E1000-devel] REGRESSION: panic on e1000 driver
-Date: Thu, 31 May 2007 08:23:24 -0700
-Message-ID: <465EE86C.6080301@intel.com>
-References: <1180560150.29081.35.camel@deimos.americas.hpqcorp.net>	<20070531010814.GA30709@gondor.apana.org.au> <1180624569.23536.7.camel@athlon>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH 3/9] [TCP]: Tighten tcp_sock's belt, drop left_out
+Date: Thu, 31 May 2007 19:31:21 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0705311846390.14736@kivilampi-30.cs.helsinki.fi>
+References: <11801685621267-git-send-email-ilpo.jarvinen@helsinki.fi>
+ <11801685626-git-send-email-ilpo.jarvinen@helsinki.fi>
+ <11801685623173-git-send-email-ilpo.jarvinen@helsinki.fi>
+ <20070531.014241.28790645.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Doug Chapman <doug.chapman@hp.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: MULTIPART/MIXED; boundary="-696243703-699144447-1180628570=:14736"
+Cc: Netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:12958 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752813AbXEaPXb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 May 2007 11:23:31 -0400
-In-Reply-To: <1180624569.23536.7.camel@athlon>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:39382 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753155AbXEaQbY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 May 2007 12:31:24 -0400
+In-Reply-To: <20070531.014241.28790645.davem@davemloft.net>
+Content-ID: <Pine.LNX.4.64.0705311923180.14736@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Doug Chapman wrote:
-> On Thu, 2007-05-31 at 11:08 +1000, Herbert Xu wrote:
->> On Wed, May 30, 2007 at 05:22:30PM -0400, Doug Chapman wrote:
->>> but once again broken just yesterday by the following commit.  I have
->>> backed just this commit out and verified I no longer panic.
->> Hmm, the only way I can see this happening is if the hardware signals
->> an interrupt even though we've explicitly shut it off.  Does this patch
->> help? If it does help, does it produce the warning in dmesg?
->>
->> Thanks,
-> 
-> 
-> The patch does fix the panic.  Here are all the e1000 messages from
-> dmesg after a bootup.  Note that only eth0 is actually configured and
-> connected:
-> 
-> 
-> # dmesg | grep e1000
-> e1000: 0000:01:02.0: e1000_probe: (PCI-X:66MHz:64-bit) 00:15:60:04:d7:f8
-> e1000: eth0: e1000_probe: Intel(R) PRO/1000 Network Connection
-> e1000: 0000:01:02.1: e1000_probe: (PCI-X:66MHz:64-bit) 00:15:60:04:d7:f9
-> e1000: eth1: e1000_probe: Intel(R) PRO/1000 Network Connection
-> e1000: 0000:15:02.0: e1000_probe: (PCI-X:66MHz:64-bit) 00:12:79:9e:b7:c4
-> e1000: eth2: e1000_probe: Intel(R) PRO/1000 Network Connection
-> e1000: 0000:15:02.1: e1000_probe: (PCI-X:66MHz:64-bit) 00:12:79:9e:b7:c5
-> e1000: eth3: e1000_probe: Intel(R) PRO/1000 Network Connection
-> e1000: Unexpected interrupt icr=0x4
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-that's indeed the link status change we fire manually to trigger the watchdog run:
+---696243703-699144447-1180628570=:14736
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
+Content-ID: <Pine.LNX.4.64.0705311923181.14736@kivilampi-30.cs.helsinki.fi>
 
-#define E1000_ICR_LSC           0x00000004 /* Link Status Change */
+Thanks for you comments...
 
-Auke
+On Thu, 31 May 2007, David Miller wrote:
+
+> From: "Ilpo_Järvinen" <ilpo.jarvinen@helsinki.fi>
+> Date: Sat, 26 May 2007 11:35:56 +0300
+> 
+> > It is easily calculable when needed and user are not that many
+> > after all.
+>
+> This looks good, but are you absolutely sure we never used
+> a stale value of tp->left_out on purpose?
+> 
+> I tried to audit this but there are so many cases :-)
+
+Yes I know... So often complexity in these kind of things really
+perplexes me too, in a way this is somewhat similar to the case with FRTO 
+and no SACKed bits touched (which just looked very obvious and safe) but 
+would have caused the dreaded S+L situation unless special handling for 
+IsReno(tp) case would have been added.
+
+> What I mean here is, was there a case where we updated
+> sacked_out or lost_out, but then used left_out before
+> it was updated, and we were doing this on purpose?
+
+I understand what you mean even though I think that such approach would be 
+very fragile if being done (and should be fixed). I was actually wondering 
+earlier that could it be the only reason for the separate variable in the 
+first place. Though so far I don't know any cases... ...but the code ain't 
+always that trivial like you say :-), however, this after proven safe, 
+will make it cleaner and will save next one to come from the same
+wondering... ;-)
+
+Anyway, I'll be try to do some grep tricks in order to reduce the number 
+of cases that need an expensive manual audit to a smaller set where 
+tcp_sync_left_out is not right after the adjustment. As plenty of 
+functions end to tcp_sync_left_out without returning in between, it could 
+help a lot, of course the calls within that function could have issues too 
+but they're relatively easy to check then (common pattern is a trivial 
+loop + sync as you know)... Usually only when the "stale state" leaks from 
+a function, we're in troubles with the number of possible paths. ...I'll 
+come back to this later on after verifying it and perhaps provide the 
+same shortened list for you too so that you can see if I overlooked 
+something... 
+
+It might actually end up being easier to audit all tcp_packets_in_flight 
+callers instead to see if there's always sync_left_out before them.
+
+
+Another thing, I was thinking of renaming tcp_sync_left_out to 
+tcp_verify_left_out now that it does only BUG traps... Do you have a hunch 
+about this (from patch 8 msg): I wonder if we could get that BUG_ON place 
+pinpointed more exactly in oops because now inlining makes it lose its 
+original context as they always seem to be in tcp_ack, #define helps?
+(i.e, how does it show up in oops if tcp_verify_left_out looks like this):
+
+#define tcp_verify_left_out(tp) BUG_ON(...)
+
+...does it still point to the tcp.h line xxxx then or to the
+tcp_sync_left_out(tp) @ line yyyy in tcp_input.c? ...I'll test that
+later on by myself in case you don't know the answer.
+
+
+-- 
+ i.
+---696243703-699144447-1180628570=:14736--
