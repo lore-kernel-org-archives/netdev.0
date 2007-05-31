@@ -1,214 +1,85 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [IPV4] LVS: Allow to send ICMP unreachable responses when
- real-servers are removed
-Date: Fri, 1 Jun 2007 02:18:28 +0300 (EEST)
-Message-ID: <Pine.LNX.4.58.0706010123020.2683@u.domain.uli>
-References: <Pine.LNX.4.58.0705160012470.2626@u.domain.uli> <200705301138.29582@nienna>
- <Pine.LNX.4.58.0705310239240.3745@u.domain.uli> <200705311450.36492@nienna>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] improved locking performance in rt_run_flush()
+Date: Thu, 31 May 2007 16:26:26 -0700 (PDT)
+Message-ID: <20070531.162626.91312503.davem@davemloft.net>
+References: <20070514.030412.104035740.davem@davemloft.net>
+	<E1Hpdhs-00069a-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, kaber@trash.net,
-	horms@verge.net.au, jkrzyszt@tis.icnet.pl, netdev@vger.kernel.org
-To: KOVACS Krisztian <hidden@balabit.hu>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: djohnson+linux-kernel@sw.starentnetworks.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([217.79.71.194]:4928 "EHLO u.domain.uli"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750822AbXEaXTL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 May 2007 19:19:11 -0400
-In-Reply-To: <200705311450.36492@nienna>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60302
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750853AbXEaX0N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 May 2007 19:26:13 -0400
+In-Reply-To: <E1Hpdhs-00069a-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Sun, 20 May 2007 15:11:48 +1000
 
-	Hello,
-
-On Thu, 31 May 2007, KOVACS Krisztian wrote:
-
->   So what about this one?
-
-	May be we can try with better coding style. Also, this version
-adds undefined behavior for using FLOWI_FLAG_ANYSRC with multicast
-oldflp->fl4_dst
-
-> Loosen source address check on IPv4 output
+> David Miller <davem@davemloft.net> wrote:
+> > From: Dave Johnson <djohnson+linux-kernel@sw.starentnetworks.com>
+> >> 
+> >> The below patch changes rt_run_flush() to only take each spinlock
+> >> protecting the rt_hash_table once instead of taking a spinlock for
+> >> every hash table bucket (and ending up taking the same small set 
+> >> of locks over and over).
 > 
-> From: KOVACS Krisztian <hidden@balabit.hu>
+> ...
 > 
-> ip_route_output() contains a check to make sure that no flows with
-> non-local source IP addresses are routed. This obviously makes using
-> such addresses impossible.
+> > I'm not ignoring it I'm just trying to brainstorm whether there
+> > is a better way to resolve this inefficiency. :-)
 > 
-> This patch introduces a flowi flag which makes omitting this check
-> possible. The new flag provides a way of handling transparent and
-> non-transparent connections differently.
+> The main problem I see with this is having to walk and free each
+> chain with the lock held.  We could avoid this if we had a pointer
+> in struct rtable to chain them up for freeing later.
 > 
-> Signed-off-by: KOVACS Krisztian <hidden@balabit.hu>
-> ---
-> 
->  include/net/flow.h |    1 +
->  net/ipv4/route.c   |   47 +++++++++++++++++++++++++----------------------
->  2 files changed, 26 insertions(+), 22 deletions(-)
-> 
-> diff --git a/include/net/flow.h b/include/net/flow.h
-> index f3cc1f8..1bfc0dc 100644
-> --- a/include/net/flow.h
-> +++ b/include/net/flow.h
-> @@ -49,6 +49,7 @@ struct flowi {
->  	__u8	proto;
->  	__u8	flags;
->  #define FLOWI_FLAG_MULTIPATHOLDROUTE 0x01
-> +#define FLOWI_FLAG_ANYSRC 0x02
->  	union {
->  		struct {
->  			__be16	sport;
-> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-> index 8603cfb..88d0a79 100644
-> --- a/net/ipv4/route.c
-> +++ b/net/ipv4/route.c
-> @@ -2396,7 +2396,7 @@ static int ip_route_output_slow(struct rtable **rp, const struct flowi *oldflp)
->  
->  		/* It is equivalent to inet_addr_type(saddr) == RTN_LOCAL */
->  		dev_out = ip_dev_find(oldflp->fl4_src);
-> -		if (dev_out == NULL)
-> +		if (dev_out == NULL && !(oldflp->flags & FLOWI_FLAG_ANYSRC))
->  			goto out;
->  
->  		/* I removed check for oif == dev_out->oif here.
-> @@ -2407,29 +2407,32 @@ static int ip_route_output_slow(struct rtable **rp, const struct flowi *oldflp)
->  		      of another iface. --ANK
->  		 */
->  
-> -		if (oldflp->oif == 0
-> -		    && (MULTICAST(oldflp->fl4_dst) || oldflp->fl4_dst == htonl(0xFFFFFFFF))) {
-> -			/* Special hack: user can direct multicasts
-> -			   and limited broadcast via necessary interface
-> -			   without fiddling with IP_MULTICAST_IF or IP_PKTINFO.
-> -			   This hack is not just for fun, it allows
-> -			   vic,vat and friends to work.
-> -			   They bind socket to loopback, set ttl to zero
-> -			   and expect that it will work.
-> -			   From the viewpoint of routing cache they are broken,
-> -			   because we are not allowed to build multicast path
-> -			   with loopback source addr (look, routing cache
-> -			   cannot know, that ttl is zero, so that packet
-> -			   will not leave this host and route is valid).
-> -			   Luckily, this hack is good workaround.
-> -			 */
-> +		if (dev_out) {
-> +			if (oldflp->oif == 0
-> +			    && (MULTICAST(oldflp->fl4_dst)
-> +				|| oldflp->fl4_dst == htonl(0xFFFFFFFF))) {
-> +				/* Special hack: user can direct multicasts
-> +				   and limited broadcast via necessary interface
-> +				   without fiddling with IP_MULTICAST_IF or IP_PKTINFO.
-> +				   This hack is not just for fun, it allows
-> +				   vic,vat and friends to work.
-> +				   They bind socket to loopback, set ttl to zero
-> +				   and expect that it will work.
-> +				   From the viewpoint of routing cache they are broken,
-> +				   because we are not allowed to build multicast path
-> +				   with loopback source addr (look, routing cache
-> +				   cannot know, that ttl is zero, so that packet
-> +				   will not leave this host and route is valid).
-> +				   Luckily, this hack is good workaround.
-> +				*/
-> +
-> +				fl.oif = dev_out->ifindex;
-> +				goto make_route;
-> +			}
->  
-> -			fl.oif = dev_out->ifindex;
-> -			goto make_route;
-> -		}
-> -		if (dev_out)
->  			dev_put(dev_out);
-> -		dev_out = NULL;
-> +			dev_out = NULL;
-> +		}
->  	}
+> I just checked and struct rtable is 236 bytes long on 32-bit but
+> the slab cache pads it to 256 bytes so we've got some free space.
+> I suspect 64-bit should be similar.
 
-	What about something like this, it even reduces checks
-in the fast path. You can post new version if the following change
-looks good to you and to other developers. If additional sign line is 
-needed here it is:
+SLUB I believe packs more aggressively and won't pad things out like
+that.  Therefore adding a member to rtable is much less attractive.
 
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
+I've been considering various alternative ways to deal with this.
 
-@@ -2396,8 +2396,6 @@ static int ip_route_output_slow(struct r
- 
- 		/* It is equivalent to inet_addr_type(saddr) == RTN_LOCAL */
- 		dev_out = ip_dev_find(oldflp->fl4_src);
--		if (dev_out == NULL)
--			goto out;
- 
- 		/* I removed check for oif == dev_out->oif here.
- 		   It was wrong for two reasons:
-@@ -2409,6 +2407,8 @@ static int ip_route_output_slow(struct r
- 
- 		if (oldflp->oif == 0
- 		    && (MULTICAST(oldflp->fl4_dst) || oldflp->fl4_dst == htonl(0xFFFFFFFF))) {
-+			if (dev_out == NULL)
-+				goto out;
- 			/* Special hack: user can direct multicasts
- 			   and limited broadcast via necessary interface
- 			   without fiddling with IP_MULTICAST_IF or IP_PKTINFO.
-@@ -2427,9 +2427,11 @@ static int ip_route_output_slow(struct r
- 			fl.oif = dev_out->ifindex;
- 			goto make_route;
- 		}
--		if (dev_out)
-+		if (dev_out) {
- 			dev_put(dev_out);
--		dev_out = NULL;
-+			dev_out = NULL;
-+		} else if (!(oldflp->flags & FLOWI_FLAG_ANYSRC))
-+			goto out;
- 	}
- 
- 
+For 2.6.22 and -stable's sake we could allocate an array of pointers
+of size N where N is the number of rtable hash slots per spinlock.
+A big lock wraps around rt_run_flush() to protect these slots, and
+then the loop is:
 
-	Or we can go further and to avoid ip_dev_find? For me, this
-second variant is preferred because calling ip_dev_find() is useless for
-FLOWI_FLAG_ANYSRC.
+	grap_lock();
+	for_each_hash_chain_for_lock(i) {
+		rth = rt_hash_table[i].chain;
+		if (rth) {
+			rt_hash_table[i].chain = NULL;
+			flush_chain[i % N] = rt;
+		}
+	}
+	drop_lock();
 
-@@ -2394,11 +2394,6 @@ static int ip_route_output_slow(struct r
- 		    ZERONET(oldflp->fl4_src))
- 			goto out;
- 
--		/* It is equivalent to inet_addr_type(saddr) == RTN_LOCAL */
--		dev_out = ip_dev_find(oldflp->fl4_src);
--		if (dev_out == NULL)
--			goto out;
--
- 		/* I removed check for oif == dev_out->oif here.
- 		   It was wrong for two reasons:
- 		   1. ip_dev_find(saddr) can return wrong iface, if saddr is
-@@ -2409,6 +2404,11 @@ static int ip_route_output_slow(struct r
- 
- 		if (oldflp->oif == 0
- 		    && (MULTICAST(oldflp->fl4_dst) || oldflp->fl4_dst == htonl(0xFFFFFFFF))) {
-+			/* It is equivalent to inet_addr_type(saddr) == RTN_LOCAL */
-+			dev_out = ip_dev_find(oldflp->fl4_src);
-+			if (dev_out == NULL)
-+				goto out;
-+
- 			/* Special hack: user can direct multicasts
- 			   and limited broadcast via necessary interface
- 			   without fiddling with IP_MULTICAST_IF or IP_PKTINFO.
-@@ -2427,9 +2427,14 @@ static int ip_route_output_slow(struct r
- 			fl.oif = dev_out->ifindex;
- 			goto make_route;
- 		}
--		if (dev_out)
-+		if (!(oldflp->flags & FLOWI_FLAG_ANYSRC)) {
-+			/* It is equivalent to inet_addr_type(saddr) == RTN_LOCAL */
-+			dev_out = ip_dev_find(oldflp->fl4_src);
-+			if (dev_out == NULL)
-+				goto out;
- 			dev_put(dev_out);
--		dev_out = NULL;
-+			dev_out = NULL;
-+		}
- 	}
- 
- 
+	for (i = 0; i < N; i++) {
+		struct rtable *rth = flush_chain[i];
+		flush_chain[i] = NULL;
+		while (rth) {
+			struct rtable *next = rth->u.dst.rt_next;
+			rt_free(rth);
+			rth = next;
+		}
+	}
+
+Holding a lock across the entire hash plucking has it's not nice
+properties, but it's better than taking the same lock N times in
+a row.
+
+In the longer term, if I resurrect my dynamically sized rtable hash
+patches (which I do intend to do), that code protected a lot of this
+stuff with a seqlock and it might be possible to use that seqlock
+solely to flush the lists in rt_run_flush().
+
+Any better ideas?
