@@ -1,52 +1,59 @@
-From: Sam Ravnborg <sam@ravnborg.org>
-Subject: [PATCH] net/hp100: fix section mismatch warning
-Date: Thu, 31 May 2007 22:08:40 +0200
-Message-ID: <20070531200840.GB27305@uranus.ravnborg.org>
-References: <617E1C2C70743745A92448908E030B2A01929DD3@scsmsx411.amr.corp.intel.com> <Pine.LNX.4.64.0705302019040.5583@schroedinger.engr.sgi.com> <465EE7BB.4050605@redhat.com> <20070531200446.GA27305@uranus.ravnborg.org>
+From: Oliver Hartkopp <oliver@hartkopp.net>
+Subject: Re: [patch 5/7] CAN: Add virtual CAN netdevice driver
+Date: Thu, 31 May 2007 22:25:04 +0200
+Message-ID: <465F2F20.6090700@hartkopp.net>
+References: <20070530131123.10843.0@janus.isnogud.escape.de> <20070530131204.10843.5@janus.isnogud.escape.de> <465DB0B6.109@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Christoph Lameter <clameter@sgi.com>,
-	"Luck, Tony" <tony.luck@intel.com>,
-	Randy Dunlap <randy.dunlap@oracle.com>,
-	David Chinner <dgc@sgi.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	lkml <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org
-To: Prarit Bhargava <prarit@redhat.com>,
-	netdev <netdev@vger.kernel.org>
-Return-path: <linux-ia64-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20070531200446.GA27305@uranus.ravnborg.org>
-Sender: linux-ia64-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Urs Thuermann <urs@isnogud.escape.de>,
+	David Miller <davem@davemloft.net>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
+	Urs Thuermann <urs.thuermann@volkswagen.de>,
+	netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mo-p00-ob.rzone.de ([81.169.146.162]:64748 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751182AbXEaUZY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 May 2007 16:25:24 -0400
+In-Reply-To: <465DB0B6.109@trash.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fix following section mismatch warning in hp100:
+Patrick McHardy wrote:
+> Urs Thuermann wrote:
+>   
+>> +	/* tx socket reference pointer: Loopback required if not NULL */
+>> +	loop = *(struct sock **)skb->cb != NULL;
+>>     
+>
+>
+> Qdiscs might change skb->cb. Maybe use skb->sk?
+>
+>   
 
-WARNING: drivers/net/hp100.o(.init.text+0x26a): Section mismatch: reference to .exit.text: (after 'init_module')
+Hi Patrick,
 
-The warning says that we use a function marked __exit from a 
-function marked __init.
-This is not good on architectures where we discard __exit section
-for drivers that are built-in.
+due to current projects Urs and me had only a short time today to
+discuss the use of other skbuff-elements to implement the needed
+loopback functionality. Urs remembered that the value of skb->sk was not
+'stable' in the whole loopback and therefore the use of skb->cb was a
+reasonable approach - and it was indeed working. Btw. triggered by your
+remark, we're looking for alternatives.
 
-Signed-off-by: Sam Ravnborg <sam@ravnborg.org>
----
-Comple tested only.
+Another thing is, that i would like to know, if Qdiscs would ever touch
+skb's containing CAN-frames?!?
+The MTU is 16 bytes (sizeof(struct can_frame)) and each skb contains
+exact one CAN-frame.
+What would a packet scheduler do with these skb's? IMO there is nothing
+that could be optimized and linked together like in IPv4 / IPv6 data.
 
-Note: This warning does not appear with modpost in upstream kernel
-      but I would like to submit patches for the obvious bugs ASAP
+Would therefore skb->cb left unchanged in my skb's? Or is there any flag
+that can be set in the skb to keep the packet scheduler's hands off?
 
-	Sam
+Best regards,
+Oliver
 
-diff --git a/drivers/net/hp100.c b/drivers/net/hp100.c
-index 8118a67..8caa591 100644
---- a/drivers/net/hp100.c
-+++ b/drivers/net/hp100.c
-@@ -3005,7 +3005,7 @@ static int __init hp100_isa_init(void)
- 	return cards > 0 ? 0 : -ENODEV;
- }
- 
--static void __exit hp100_isa_cleanup(void)
-+static void hp100_isa_cleanup(void)
- {
- 	int i;
- 
+
