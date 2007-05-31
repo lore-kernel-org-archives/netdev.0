@@ -1,106 +1,96 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: REGRESSION: panic on e1000 driver
-Date: Thu, 31 May 2007 11:08:15 +1000
-Message-ID: <20070531010814.GA30709@gondor.apana.org.au>
-References: <1180560150.29081.35.camel@deimos.americas.hpqcorp.net>
+From: Wei Dong <weidong@cn.fujitsu.com>
+Subject: Re: Fix "ipOutNoRoutes" counter error for TCP and UDP
+Date: Thu, 31 May 2007 09:16:50 +0800
+Message-ID: <465E2202.3000607@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: auke-jan.h.kok@intel.com, netdev@vger.kernel.org,
-	e1000-devel@lists.sourceforge.net
-To: Doug Chapman <doug.chapman@hp.com>
+Content-Type: text/plain; charset=Shift_JIS
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:4010 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1759042AbXEaBIW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 May 2007 21:08:22 -0400
-Content-Disposition: inline
-In-Reply-To: <1180560150.29081.35.camel@deimos.americas.hpqcorp.net>
+Received: from [222.73.24.84] ([222.73.24.84]:55644 "EHLO song.cn.fujitsu.com"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1750825AbXEaBT2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 May 2007 21:19:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, May 30, 2007 at 05:22:30PM -0400, Doug Chapman wrote:
-> 
-> but once again broken just yesterday by the following commit.  I have
-> backed just this commit out and verified I no longer panic.
+Hi Mr. David
+  I have modified my patch according to you advice. I think -
+EHOSTUNREACH is only for "input path". In "output" path, we can just
+simply check-ENETUNREACH  (^_^), the patch is shown in the end of this mail.
 
-Hmm, the only way I can see this happening is if the hardware signals
-an interrupt even though we've explicitly shut it off.  Does this patch
-help? If it does help, does it produce the warning in dmesg?
+ I send this patch to you several weeks ago, but you have not replied to me.
+This patch is not correctly?
 
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
---
-diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-index 9ec35b7..c6cf82f 100644
---- a/drivers/net/e1000/e1000_main.c
-+++ b/drivers/net/e1000/e1000_main.c
-@@ -625,15 +625,15 @@ e1000_down(struct e1000_adapter *adapter)
- {
- 	struct net_device *netdev = adapter->netdev;
- 
--	/* signal that we're down so the interrupt handler does not
--	 * reschedule our watchdog timer */
--	set_bit(__E1000_DOWN, &adapter->flags);
--
- #ifdef CONFIG_E1000_NAPI
- 	netif_poll_disable(netdev);
- #endif
- 	e1000_irq_disable(adapter);
- 
-+	/* signal that we're down so the interrupt handler does not
-+	 * reschedule our watchdog timer */
-+	set_bit(__E1000_DOWN, &adapter->flags);
+
+>>>> >> >> Function need to fix:
+>>>> >> >> tcp_v4_connect(); ip4_datagram_connect(); udp_sendmsg();
+>> >>
+
+>> > > I think we need to make these checks more carefully.
+>> > >
+>> > > Route lookup can fail for several reasons other than
+>> > > no route being available.  Two examples are:
+>> > >
+>> > > 1) Out of memory error while creating route
+>> > > 2) IPSEC disallows communication to that flow ID
+>> > >
+>> > > As a result, we'll probably best limiting the counter
+>> > > increment when the error is either -EHOSTUNREACH or
+>> > > -ENETUNREACH.
+> >
+
+signed-off-by: Wei Dong <weidong@cn.fujitsu.com>
+
+
+diff -ruNp a/net/ipv4/datagram.c b/net/ipv4/datagram.c
+--- a/net/ipv4/datagram.c    2007-04-25 15:20:19.000000000 +0800
++++ b/net/ipv4/datagram.c    2007-04-25 15:21:42.000000000 +0800
+@@ -50,8 +50,12 @@ int ip4_datagram_connect(struct sock *sk
+                    RT_CONN_FLAGS(sk), oif,
+                    sk->sk_protocol,
+                    inet->sport, usin->sin_port, sk);
+-    if (err)
++    if (err) {
++        if (err == -ENETUNREACH)
++            IP_INC_STATS_BH(IPSTATS_MIB_OUTNOROUTES);
+         return err;
++    }
 +
- 	del_timer_sync(&adapter->tx_fifo_stall_timer);
- 	del_timer_sync(&adapter->watchdog_timer);
- 	del_timer_sync(&adapter->phy_info_timer);
-@@ -1427,6 +1427,10 @@ e1000_open(struct net_device *netdev)
- 	 * clean_rx handler before we do so.  */
- 	e1000_configure(adapter);
- 
-+#ifdef CONFIG_E1000_NAPI
-+	netif_poll_enable(netdev);
-+#endif
-+
- 	err = e1000_request_irq(adapter);
- 	if (err)
- 		goto err_req_irq;
-@@ -1434,10 +1438,6 @@ e1000_open(struct net_device *netdev)
- 	/* From here on the code is the same as e1000_up() */
- 	clear_bit(__E1000_DOWN, &adapter->flags);
- 
--#ifdef CONFIG_E1000_NAPI
--	netif_poll_enable(netdev);
--#endif
--
- 	e1000_irq_enable(adapter);
- 
- 	/* fire a link status change interrupt to start the watchdog */
-@@ -3756,6 +3756,11 @@ e1000_intr_msi(int irq, void *data)
- #endif
- 	uint32_t icr = E1000_READ_REG(hw, ICR);
- 
-+	if (unlikely(test_bit(__E1000_DOWN, &adapter->flags) &&
-+		     atomic_read(&adapter->irq_sem)))
-+		printk(KERN_WARNING "e1000: Unexpected MSI icr=0x%x\n",
-+		       icr);
-+
- #ifdef CONFIG_E1000_NAPI
- 	/* read ICR disables interrupts using IAM, so keep up with our
- 	 * enable/disable accounting */
-@@ -3823,6 +3828,11 @@ e1000_intr(int irq, void *data)
- 	if (unlikely(!icr))
- 		return IRQ_NONE;  /* Not our interrupt */
- 
-+	if (unlikely(test_bit(__E1000_DOWN, &adapter->flags) &&
-+		     atomic_read(&adapter->irq_sem)))
-+		printk(KERN_WARNING "e1000: Unexpected interrupt icr=0x%x\n",
-+		       icr);
-+
- #ifdef CONFIG_E1000_NAPI
- 	/* IMS will not auto-mask if INT_ASSERTED is not set, and if it is
- 	 * not set, then the adapter didn't send an interrupt */
+     if ((rt->rt_flags & RTCF_BROADCAST) && !sock_flag(sk, SOCK_BROADCAST)) {
+         ip_rt_put(rt);
+         return -EACCES;
+diff -ruNp a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+--- a/net/ipv4/tcp_ipv4.c    2007-04-25 15:20:19.000000000 +0800
++++ b/net/ipv4/tcp_ipv4.c    2007-04-25 15:21:42.000000000 +0800
+@@ -192,8 +192,11 @@ int tcp_v4_connect(struct sock *sk, stru
+                    RT_CONN_FLAGS(sk), sk->sk_bound_dev_if,
+                    IPPROTO_TCP,
+                    inet->sport, usin->sin_port, sk);
+-    if (tmp < 0)
++    if (tmp < 0) {
++        if (tmp == -ENETUNREACH)
++            IP_INC_STATS_BH(IPSTATS_MIB_OUTNOROUTES);
+         return tmp;
++    }
+
+     if (rt->rt_flags & (RTCF_MULTICAST | RTCF_BROADCAST)) {
+         ip_rt_put(rt);
+diff -ruNp a/net/ipv4/udp.c b/net/ipv4/udp.c
+--- a/net/ipv4/udp.c    2007-04-25 15:20:19.000000000 +0800
++++ b/net/ipv4/udp.c    2007-04-25 15:21:42.000000000 +0800
+@@ -630,8 +630,11 @@ int udp_sendmsg(struct kiocb *iocb, stru
+                          .dport = dport } } };
+         security_sk_classify_flow(sk, &fl);
+         err = ip_route_output_flow(&rt, &fl, sk,
+!(msg->msg_flags&MSG_DONTWAIT));
+-        if (err)
++        if (err) {
++            if (err == -ENETUNREACH)
++                IP_INC_STATS_BH(IPSTATS_MIB_OUTNOROUTES);
+             goto out;
++        }
+
+         err = -EACCES;
+         if ((rt->rt_flags & RTCF_BROADCAST) &&
