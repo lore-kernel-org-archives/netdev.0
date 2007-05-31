@@ -1,64 +1,59 @@
-From: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: Please pull 'libertas' branch of wireless-2.6
-Date: Thu, 31 May 2007 17:13:17 -0400
-Message-ID: <1180645997.18078.8.camel@xo-28-0B-88.localdomain>
-References: <20070529183347.GD3496@tuxdriver.com>
-	 <465D8538.8070507@garzik.org>
-	 <1180538928.17163.10.camel@xo-28-0B-88.localdomain>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [TG3]: Fix link problem on Dell's onboard 5906.
+Date: Thu, 31 May 2007 15:03:39 -0700
+Message-ID: <1180649019.20882.3.camel@dell>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Jeff Garzik <jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1180538928.17163.10.camel-Hs+VJEcF3DojzQS9c19i8iZi+YwRKgec@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:3607 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753289AbXEaVOM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 May 2007 17:14:12 -0400
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2007-05-30 at 11:28 -0400, Dan Williams wrote:
-> On Wed, 2007-05-30 at 10:07 -0400, Jeff Garzik wrote:
-> > John W. Linville wrote:
-> > > Lots of stuff here...probably best for 2.6.23...
-> > 
-> > Is this best for Linux users... or just easy for developers?
-> > 
-> > Won't putting off all these fixes until 2.6.23 leave the driver released 
-> > in 2.6.22 in shoddy shape?
-> 
-> Not really; it more or less works there.  What's gone on since then is
-> general driver cleanup (Christoph's comments and more), splitting the
-> driver so that other bus types can use it (SDIO for example once
-> Pierre's SDIO patches get upstream), wireless extensions fixes, etc.
-> 
-> > libertas is upstream now, so we cannot pretend that the driver is 
-> > completely independent from upstream release cycles and maintenance.
-> 
-> True, but some of the stuff in here I didn't think would be suitable
-> during an -rc cycle, for example the driver splitting and the cleanups
-> that don't impact function at all, but are good to do nonetheless.
-> 
-> > libertas fixes should go upstream immediately, since we are in a bugfix 
-> > cycle, and since libertas (from upstream perspective) is about to make 
-> > its big debut on the world stage.
-> 
-> If you think all the bits from this should just go to 2.6.22, that's
-> fine with me.  But I don't feel comfortable making that call given what
-> I thought were the constraints on pushing changes through during an rc
-> cycle.  When the merge window was open, we backported critical bug fixes
-> and necessary merge-requirement cleanups to the code in linville's tree,
-> but avoided changes that didn't impact function.
+[TG3]: Fix link problem on Dell's onboard 5906.
 
-Any response on these points yet?  I've got yet more cleanups and a few
-other things queued in libertas-2.6 but I'd like to see where this
-discussion goes before sending a pull request for the new bits.
+The bug is caused by code that always set
+(TG3_FLAG_USE_MI_INTERRUPT | TG3_FLAG_USE_LINKCHG_REG) on all Dell's
+onboard devices.  With these 2 flags set, the link status is polled
+by tg3_timer() and will only work when the PHY is set up to interrupt
+the MAC on link changes.  This breaks 5906 because the 5906 PHY does
+not support TG3_FLAG_USE_MI_INTERRUPT the same as other PHYs.
 
-Dan
+For correctness, only Dell's onboard 5701 needs these 2 flags to be
+set.  This change will fix the 5906 problem and will change other
+Dell devices except 5700 and 5701 to use the more efficient
+interrupt-driven link changes.
 
-> Dan
-> 
-> 
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Update version to 3.77.
+
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+
+diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+index 923b9c7..a16954c 100644
+--- a/drivers/net/tg3.c
++++ b/drivers/net/tg3.c
+@@ -64,8 +64,8 @@
+ 
+ #define DRV_MODULE_NAME		"tg3"
+ #define PFX DRV_MODULE_NAME	": "
+-#define DRV_MODULE_VERSION	"3.76"
+-#define DRV_MODULE_RELDATE	"May 5, 2007"
++#define DRV_MODULE_VERSION	"3.77"
++#define DRV_MODULE_RELDATE	"May 31, 2007"
+ 
+ #define TG3_DEF_MAC_MODE	0
+ #define TG3_DEF_RX_MODE		0
+@@ -10976,6 +10976,7 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
+ 	 * upon subsystem IDs.
+ 	 */
+ 	if (tp->pdev->subsystem_vendor == PCI_VENDOR_ID_DELL &&
++	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5701 &&
+ 	    !(tp->tg3_flags2 & TG3_FLG2_PHY_SERDES)) {
+ 		tp->tg3_flags |= (TG3_FLAG_USE_MI_INTERRUPT |
+ 				  TG3_FLAG_USE_LINKCHG_REG);
+
+
