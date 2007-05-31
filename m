@@ -1,54 +1,75 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH]: sky2: Fix VLAN unregistration
-Date: Thu, 31 May 2007 11:21:17 -0700
-Message-ID: <20070531112117.584141d6@freepuppy>
-References: <4659D174.70301@trash.net>
-	<20070531101945.2b19faa7@freepuppy>
-	<465F07C3.2090503@trash.net>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: [PATCH 2.6.23] mac80211: Add support for SIOCGIWRATE ioctl
+Date: Thu, 31 May 2007 14:12:10 -0400
+Message-ID: <20070531181210.GC3706@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Ben Greear <greearb@candelatech.com>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([207.189.120.12]:46671 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761586AbXEaScn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 May 2007 14:32:43 -0400
-In-Reply-To: <465F07C3.2090503@trash.net>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 31 May 2007 19:37:07 +0200
-Patrick McHardy <kaber@trash.net> wrote:
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
 
-> Stephen Hemminger wrote:
-> > On Sun, 27 May 2007 20:44:04 +0200
-> > Patrick McHardy <kaber@trash.net> wrote:
-> > 
-> > 
-> >>Fix sky2 disabling VLAN completely when the first vid is unregistered.
-> >>
-> >>For some reason the VLAN code insists on the driver providing a
-> >>vlan_rx_kill_vid function even if only NETIF_F_HW_VLAN_RX and not
-> >>NETIF_F_HW_VLAN_FILTER is set, so this patch keeps an empty
-> >>function. This seems to be a bug though, vlan_rx_add_vid is only
-> >>required with NETIF_F_HW_VLAN_FILTER. Ben?
-> >>
-> > 
-> > 
-> > Reading other drivers, it looks like a better patch would be to
-> > handle mode change in both set and kill.
-> 
-> 
-> The VLAN code tracks registered VIDs and will always call
-> vlan_rx_register(NULL) when the last VID is unregistered,
-> so this is not necessary.
-> 
+At present, transmission rate information for mac80211 is available only
+if verbose debugging is turned on, and then only in the logs. This patch
+implements the SIOCGIWRATE ioctl, which adds the current transmission rate to
+the output of iwconfig.
 
-Then should others be fixed...
-	tg3, bnx2, r8169, gianfar, s2io, 8139cp, acenic, ...
+Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Signed-off-by: John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+---
+ net/mac80211/ieee80211_ioctl.c |   25 ++++++++++++++++++++++++-
+ 1 files changed, 24 insertions(+), 1 deletions(-)
+
+diff --git a/net/mac80211/ieee80211_ioctl.c b/net/mac80211/ieee80211_ioctl.c
+index 352f03b..66e8a97 100644
+--- a/net/mac80211/ieee80211_ioctl.c
++++ b/net/mac80211/ieee80211_ioctl.c
+@@ -838,6 +838,29 @@ static int ieee80211_ioctl_giwscan(struct net_device *dev,
+ }
+ 
+ 
++static int ieee80211_ioctl_giwrate(struct net_device *dev,
++				  struct iw_request_info *info,
++				  struct iw_param *rate, char *extra)
++{
++	struct ieee80211_local *local = wdev_priv(dev->ieee80211_ptr);
++	struct sta_info *sta;
++	struct ieee80211_sub_if_data *sdata;
++
++	sdata = IEEE80211_DEV_TO_SUB_IF(dev);
++	if (sdata->type == IEEE80211_IF_TYPE_STA)
++		sta = sta_info_get(local, sdata->u.sta.bssid);
++	else
++		return -EOPNOTSUPP;
++	if (!sta)
++		return -ENODEV;
++	if (sta->txrate < local->oper_hw_mode->num_rates)
++		rate->value = local->oper_hw_mode->rates[sta->txrate].rate * 100000;
++	else
++		rate->value = 0;
++	sta_info_put(sta);
++	return 0;
++}
++
+ static int ieee80211_ioctl_siwrts(struct net_device *dev,
+ 				  struct iw_request_info *info,
+ 				  struct iw_param *rts, char *extra)
+@@ -1779,7 +1802,7 @@ static const iw_handler ieee80211_handler[] =
+ 	(iw_handler) NULL,				/* -- hole -- */
+ 	(iw_handler) NULL,				/* -- hole -- */
+ 	(iw_handler) NULL,				/* SIOCSIWRATE */
+-	(iw_handler) NULL,				/* SIOCGIWRATE */
++	(iw_handler) ieee80211_ioctl_giwrate,		/* SIOCGIWRATE */
+ 	(iw_handler) ieee80211_ioctl_siwrts,		/* SIOCSIWRTS */
+ 	(iw_handler) ieee80211_ioctl_giwrts,		/* SIOCGIWRTS */
+ 	(iw_handler) ieee80211_ioctl_siwfrag,		/* SIOCSIWFRAG */
+-- 
+1.5.0.6
 
 -- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+John W. Linville
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
