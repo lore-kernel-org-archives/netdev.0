@@ -1,166 +1,266 @@
 From: Divy Le Ray <divy@chelsio.com>
-Subject: [PATCH 2/3] cxgb3 - Firmware update
-Date: Wed, 30 May 2007 21:10:52 -0700
-Message-ID: <20070531041052.6135.91683.stgit@localhost.localdomain>
+Subject: [PATCH 3/3] cxgb3 - TP SRAM update
+Date: Wed, 30 May 2007 21:10:58 -0700
+Message-ID: <20070531041057.6153.12032.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	swise@opengridcomputing.com
 To: jeff@garzik.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760391AbXEaELh@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760588AbXEaELu@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Divy Le Ray <divy@chelsio.com>
 
-Update FW to 4.1. 
-Proceed to subsequent HW tuning to improve RDMA perfs..
+The chip executes microcode present in internal RAM, 
+whose content is loaded from EEPROM on power cycle. 
+This patch allows an update of the microcode through PIO
+without forcing a power cycle.
 
 Signed-off-by: Divy Le Ray <divy@chelsio.com>
 ---
 
- drivers/net/cxgb3/regs.h    |    4 ++++
- drivers/net/cxgb3/t3_hw.c   |   42 +++++++++++++++++++++++-------------------
- drivers/net/cxgb3/version.h |    2 +-
- 3 files changed, 28 insertions(+), 20 deletions(-)
+ drivers/net/cxgb3/common.h     |   28 +++++++++++++
+ drivers/net/cxgb3/cxgb3_main.c |   43 ++++++++++++++++++++
+ drivers/net/cxgb3/regs.h       |    7 +++
+ drivers/net/cxgb3/t3_hw.c      |   86 ++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 164 insertions(+), 0 deletions(-)
 
+diff --git a/drivers/net/cxgb3/common.h b/drivers/net/cxgb3/common.h
+index 8d13796..1637800 100644
+--- a/drivers/net/cxgb3/common.h
++++ b/drivers/net/cxgb3/common.h
+@@ -101,6 +101,7 @@ enum {
+ 	TCB_SIZE = 128,		/* TCB size */
+ 	NMTUS = 16,		/* size of MTU table */
+ 	NCCTRL_WIN = 32,	/* # of congestion control windows */
++	PROTO_SRAM_LINES = 128, /* size of TP sram */
+ };
+ 
+ #define MAX_RX_COALESCING_LEN 16224U
+@@ -124,6 +125,30 @@ enum {				/* adapter interrupt-maintaine
+ };
+ 
+ enum {
++	TP_VERSION_MAJOR	= 1,
++	TP_VERSION_MINOR	= 0,
++	TP_VERSION_MICRO	= 44
++};
++
++#define S_TP_VERSION_MAJOR		16
++#define M_TP_VERSION_MAJOR		0xFF
++#define V_TP_VERSION_MAJOR(x)		((x) << S_TP_VERSION_MAJOR)
++#define G_TP_VERSION_MAJOR(x)		\
++	    (((x) >> S_TP_VERSION_MAJOR) & M_TP_VERSION_MAJOR)
++
++#define S_TP_VERSION_MINOR		8
++#define M_TP_VERSION_MINOR		0xFF
++#define V_TP_VERSION_MINOR(x)		((x) << S_TP_VERSION_MINOR)
++#define G_TP_VERSION_MINOR(x)		\
++	    (((x) >> S_TP_VERSION_MINOR) & M_TP_VERSION_MINOR)
++
++#define S_TP_VERSION_MICRO		0
++#define M_TP_VERSION_MICRO		0xFF
++#define V_TP_VERSION_MICRO(x)		((x) << S_TP_VERSION_MICRO)
++#define G_TP_VERSION_MICRO(x)		\
++	    (((x) >> S_TP_VERSION_MICRO) & M_TP_VERSION_MICRO)
++
++enum {
+ 	SGE_QSETS = 8,		/* # of SGE Tx/Rx/RspQ sets */
+ 	SGE_RXQ_PER_SET = 2,	/* # of Rx queues per set */
+ 	SGE_TXQ_PER_SET = 3	/* # of Tx queues per set */
+@@ -654,6 +679,9 @@ const struct adapter_info *t3_get_adapte
+ int t3_seeprom_read(struct adapter *adapter, u32 addr, u32 *data);
+ int t3_seeprom_write(struct adapter *adapter, u32 addr, u32 data);
+ int t3_seeprom_wp(struct adapter *adapter, int enable);
++int t3_check_tpsram_version(struct adapter *adapter);
++int t3_check_tpsram(struct adapter *adapter, u8 *tp_ram, unsigned int size);
++int t3_set_proto_sram(struct adapter *adap, u8 *data);
+ int t3_read_flash(struct adapter *adapter, unsigned int addr,
+ 		  unsigned int nwords, u32 *data, int byte_oriented);
+ int t3_load_fw(struct adapter *adapter, const u8 * fw_data, unsigned int size);
+diff --git a/drivers/net/cxgb3/cxgb3_main.c b/drivers/net/cxgb3/cxgb3_main.c
+index 67b4b21..5b80a2a 100644
+--- a/drivers/net/cxgb3/cxgb3_main.c
++++ b/drivers/net/cxgb3/cxgb3_main.c
+@@ -2083,6 +2083,42 @@ static void cxgb_netpoll(struct net_devi
+ }
+ #endif
+ 
++#define TPSRAM_NAME "t3%c_protocol_sram-%d.%d.%d.bin"
++int update_tpsram(struct adapter *adap)
++{
++	const struct firmware *tpsram;
++	char buf[64];
++	struct device *dev = &adap->pdev->dev;
++	int ret;
++	char rev;
++	
++	rev = adap->params.rev == T3_REV_B2 ? 'b' : 'a';
++
++	snprintf(buf, sizeof(buf), TPSRAM_NAME, rev,
++		 TP_VERSION_MAJOR, TP_VERSION_MINOR, TP_VERSION_MICRO);
++
++	ret = request_firmware(&tpsram, buf, dev);
++	if (ret < 0) {
++		dev_err(dev, "could not load TP SRAM: unable to load %s\n",
++			buf);
++		return ret;
++	}
++	
++	ret = t3_check_tpsram(adap, tpsram->data, tpsram->size);
++	if (ret)
++		goto release_tpsram;	
++
++	ret = t3_set_proto_sram(adap, tpsram->data);
++	if (ret)
++		dev_err(dev, "loading protocol SRAM failed\n");
++
++release_tpsram:
++	release_firmware(tpsram);
++	
++	return ret;
++}
++
++
+ /*
+  * Periodic accumulation of MAC statistics.
+  */
+@@ -2433,6 +2469,13 @@ static int __devinit init_one(struct pci
+ 		goto out_free_dev;
+ 	}
+ 
++	err = t3_check_tpsram_version(adapter);
++	if (err == -EINVAL)
++		err = update_tpsram(adapter);
++
++	if (err)
++		goto out_free_dev;
++		
+ 	/*
+ 	 * The card is now ready to go.  If any errors occur during device
+ 	 * registration we do not fail the whole card but rather proceed only
 diff --git a/drivers/net/cxgb3/regs.h b/drivers/net/cxgb3/regs.h
-index e5a5534..29839ba 100644
+index 29839ba..e9d3a79 100644
 --- a/drivers/net/cxgb3/regs.h
 +++ b/drivers/net/cxgb3/regs.h
-@@ -1160,6 +1160,8 @@
+@@ -1218,6 +1218,13 @@
  
- #define A_TP_MOD_CHANNEL_WEIGHT 0x434
+ #define A_TP_PROXY_FLOW_CNTL 0x4b0
  
-+#define A_TP_MOD_RATE_LIMIT 0x438
-+
- #define A_TP_PIO_ADDR 0x440
- 
- #define A_TP_PIO_DATA 0x444
-@@ -1214,6 +1216,8 @@
- #define G_TXDROPCNTCH0RCVD(x) (((x) >> S_TXDROPCNTCH0RCVD) & \
- 			       M_TXDROPCNTCH0RCVD)
- 
-+#define A_TP_PROXY_FLOW_CNTL 0x4b0
++#define A_TP_EMBED_OP_FIELD0 0x4e8
++#define A_TP_EMBED_OP_FIELD1 0x4ec
++#define A_TP_EMBED_OP_FIELD2 0x4f0
++#define A_TP_EMBED_OP_FIELD3 0x4f4
++#define A_TP_EMBED_OP_FIELD4 0x4f8
++#define A_TP_EMBED_OP_FIELD5 0x4fc
 +
  #define A_ULPRX_CTL 0x500
  
  #define S_ROUND_ROBIN    4
 diff --git a/drivers/net/cxgb3/t3_hw.c b/drivers/net/cxgb3/t3_hw.c
-index fb485d0..9e3591d 100644
+index 9e3591d..dd3149d 100644
 --- a/drivers/net/cxgb3/t3_hw.c
 +++ b/drivers/net/cxgb3/t3_hw.c
-@@ -921,7 +921,7 @@ static int t3_flash_erase_sectors(struct
- /*
-  *	t3_load_fw - download firmware
-  *	@adapter: the adapter
-- *	@fw_data: the firrware image to write
-+ *	@fw_data: the firmware image to write
-  *	@size: image size
-  *
-  *	Write the supplied firmware image to the card's serial flash.
-@@ -2362,7 +2362,7 @@ static void tp_config(struct adapter *ad
- 		     F_TCPCHECKSUMOFFLOAD | V_IPTTL(64));
- 	t3_write_reg(adap, A_TP_TCP_OPTIONS, V_MTUDEFAULT(576) |
- 		     F_MTUENABLE | V_WINDOWSCALEMODE(1) |
--		     V_TIMESTAMPSMODE(1) | V_SACKMODE(1) | V_SACKRX(1));
-+		     V_TIMESTAMPSMODE(0) | V_SACKMODE(1) | V_SACKRX(1));
- 	t3_write_reg(adap, A_TP_DACK_CONFIG, V_AUTOSTATE3(1) |
- 		     V_AUTOSTATE2(1) | V_AUTOSTATE1(0) |
- 		     V_BYTETHRESHOLD(16384) | V_MSSTHRESHOLD(2) |
-@@ -2371,16 +2371,18 @@ static void tp_config(struct adapter *ad
- 			 F_IPV6ENABLE | F_NICMODE);
- 	t3_write_reg(adap, A_TP_TX_RESOURCE_LIMIT, 0x18141814);
- 	t3_write_reg(adap, A_TP_PARA_REG4, 0x5050105);
--	t3_set_reg_field(adap, A_TP_PARA_REG6,
--			 adap->params.rev > 0 ? F_ENABLEESND : F_T3A_ENABLEESND,
--			 0);
-+	t3_set_reg_field(adap, A_TP_PARA_REG6, 0,
-+			 adap->params.rev > 0 ? F_ENABLEESND :
-+			 F_T3A_ENABLEESND);
- 
- 	t3_set_reg_field(adap, A_TP_PC_CONFIG,
--			 F_ENABLEEPCMDAFULL | F_ENABLEOCSPIFULL,
--			 F_TXDEFERENABLE | F_HEARBEATDACK | F_TXCONGESTIONMODE |
--			 F_RXCONGESTIONMODE);
-+			 F_ENABLEEPCMDAFULL,
-+			 F_ENABLEOCSPIFULL |F_TXDEFERENABLE | F_HEARBEATDACK |
-+			 F_TXCONGESTIONMODE | F_RXCONGESTIONMODE);
- 	t3_set_reg_field(adap, A_TP_PC_CONFIG2, F_CHDRAFULL, 0);
--
-+	t3_write_reg(adap, A_TP_PROXY_FLOW_CNTL, 1080);
-+	t3_write_reg(adap, A_TP_PROXY_FLOW_CNTL, 1000);
-+	
- 	if (adap->params.rev > 0) {
- 		tp_wr_indirect(adap, A_TP_EGRESS_CONFIG, F_REWRITEFORCETOSIZE);
- 		t3_set_reg_field(adap, A_TP_PARA_REG3, F_TXPACEAUTO,
-@@ -2390,9 +2392,10 @@ static void tp_config(struct adapter *ad
- 	} else
- 		t3_set_reg_field(adap, A_TP_PARA_REG3, 0, F_TXPACEFIXED);
- 
--	t3_write_reg(adap, A_TP_TX_MOD_QUEUE_WEIGHT1, 0x12121212);
--	t3_write_reg(adap, A_TP_TX_MOD_QUEUE_WEIGHT0, 0x12121212);
--	t3_write_reg(adap, A_TP_MOD_CHANNEL_WEIGHT, 0x1212);
-+	t3_write_reg(adap, A_TP_TX_MOD_QUEUE_WEIGHT1, 0);
-+	t3_write_reg(adap, A_TP_TX_MOD_QUEUE_WEIGHT0, 0);
-+	t3_write_reg(adap, A_TP_MOD_CHANNEL_WEIGHT, 0);
-+	t3_write_reg(adap, A_TP_MOD_RATE_LIMIT, 0xf2200000);
+@@ -847,6 +847,64 @@ static int t3_write_flash(struct adapter
+ 	return 0;
  }
  
- /* Desired TP timer resolution in usec */
-@@ -2468,6 +2471,7 @@ int t3_tp_set_coalescing_size(struct ada
- 		val |= F_RXCOALESCEENABLE;
- 		if (psh)
- 			val |= F_RXCOALESCEPSHEN;
-+		size = min(MAX_RX_COALESCING_LEN, size);
- 		t3_write_reg(adap, A_TP_PARA_REG2, V_RXCOALESCESIZE(size) |
- 			     V_MAXRXDATA(MAX_RX_COALESCING_LEN));
- 	}
-@@ -2496,11 +2500,11 @@ static void __devinit init_mtus(unsigned
- 	 * it can accomodate max size TCP/IP headers when SACK and timestamps
- 	 * are enabled and still have at least 8 bytes of payload.
- 	 */
--	mtus[0] = 88;
--	mtus[1] = 256;
--	mtus[2] = 512;
--	mtus[3] = 576;
--	mtus[4] = 808;
-+	mtus[1] = 88;
-+	mtus[1] = 88;
-+	mtus[2] = 256;
-+	mtus[3] = 512;
-+	mtus[4] = 576;
- 	mtus[5] = 1024;
- 	mtus[6] = 1280;
- 	mtus[7] = 1492;
-@@ -2802,7 +2806,7 @@ static void init_hw_for_avail_ports(stru
- 		t3_set_reg_field(adap, A_ULPTX_CONFIG, F_CFG_RR_ARB, 0);
- 		t3_write_reg(adap, A_MPS_CFG, F_TPRXPORTEN | F_TPTXPORT0EN |
- 			     F_PORT0ACTIVE | F_ENFORCEPKT);
--		t3_write_reg(adap, A_PM1_TX_CFG, 0xc000c000);
-+		t3_write_reg(adap, A_PM1_TX_CFG, 0xffffffff);
- 	} else {
- 		t3_set_reg_field(adap, A_ULPRX_CTL, 0, F_ROUND_ROBIN);
- 		t3_set_reg_field(adap, A_ULPTX_CONFIG, 0, F_CFG_RR_ARB);
-@@ -3097,7 +3101,7 @@ int t3_init_hw(struct adapter *adapter,
- 	else
- 		t3_set_reg_field(adapter, A_PCIX_CFG, 0, F_CLIDECEN);
++/**
++ *	t3_check_tpsram_version - read the tp sram version
++ *	@adapter: the adapter
++ *
++ *	Reads the protocol sram version from serial eeprom.
++ */
++int t3_check_tpsram_version(struct adapter *adapter)
++{
++	int ret;
++	u32 vers;
++	unsigned int major, minor;
++
++	/* Get version loaded in SRAM */
++	t3_write_reg(adapter, A_TP_EMBED_OP_FIELD0, 0);
++	ret = t3_wait_op_done(adapter, A_TP_EMBED_OP_FIELD0,
++			      1, 1, 5, 1);
++	if (ret)
++		return ret;
++	
++	vers = t3_read_reg(adapter, A_TP_EMBED_OP_FIELD1);
++
++	major = G_TP_VERSION_MAJOR(vers);
++	minor = G_TP_VERSION_MINOR(vers);
++
++	if (major == TP_VERSION_MAJOR && minor == TP_VERSION_MINOR) 
++		return 0;
++
++	return -EINVAL;
++}
++
++/**
++ *	t3_check_tpsram - check if provided protocol SRAM 
++ *			  is compatible with this driver
++ *	@adapter: the adapter
++ *	@tp_sram: the firmware image to write
++ *	@size: image size
++ *
++ *	Checks if an adapter's tp sram is compatible with the driver.
++ *	Returns 0 if the versions are compatible, a negative error otherwise.
++ */
++int t3_check_tpsram(struct adapter *adapter, u8 *tp_sram, unsigned int size)
++{
++	u32 csum;
++	unsigned int i;
++	const u32 *p = (const u32 *)tp_sram;
++
++	/* Verify checksum */
++	for (csum = 0, i = 0; i < size / sizeof(csum); i++)
++		csum += ntohl(p[i]);
++	if (csum != 0xffffffff) {
++		CH_ERR(adapter, "corrupted protocol SRAM image, checksum %u\n",
++		       csum);
++		return -EINVAL;
++	}
++
++	return 0;
++}
++
+ enum fw_version_type {
+ 	FW_VERSION_N3,
+ 	FW_VERSION_T3
+@@ -2686,6 +2744,34 @@ static void ulp_config(struct adapter *a
+ 	t3_write_reg(adap, A_ULPRX_TDDP_TAGMASK, 0xffffffff);
+ }
  
--	t3_write_reg(adapter, A_PM1_RX_CFG, 0xf000f000);
-+	t3_write_reg(adapter, A_PM1_RX_CFG, 0xffffffff);
- 	init_hw_for_avail_ports(adapter, adapter->params.nports);
- 	t3_sge_init(adapter, &adapter->params.sge);
- 
-diff --git a/drivers/net/cxgb3/version.h b/drivers/net/cxgb3/version.h
-index b112317..8eddd23 100644
---- a/drivers/net/cxgb3/version.h
-+++ b/drivers/net/cxgb3/version.h
-@@ -39,6 +39,6 @@
- 
- /* Firmware version */
- #define FW_VERSION_MAJOR 4
--#define FW_VERSION_MINOR 0
-+#define FW_VERSION_MINOR 1
- #define FW_VERSION_MICRO 0
- #endif				/* __CHELSIO_VERSION_H */
++/**
++ *	t3_set_proto_sram - set the contents of the protocol sram
++ *	@adapter: the adapter
++ *	@data: the protocol image
++ *
++ *	Write the contents of the protocol SRAM.
++ */
++int t3_set_proto_sram(struct adapter *adap, u8 *data)
++{
++	int i;
++	u32 *buf = (u32 *)data;
++
++	for (i = 0; i < PROTO_SRAM_LINES; i++) {
++		t3_write_reg(adap, A_TP_EMBED_OP_FIELD5, cpu_to_be32(*buf++));
++		t3_write_reg(adap, A_TP_EMBED_OP_FIELD4, cpu_to_be32(*buf++));
++		t3_write_reg(adap, A_TP_EMBED_OP_FIELD3, cpu_to_be32(*buf++));
++		t3_write_reg(adap, A_TP_EMBED_OP_FIELD2, cpu_to_be32(*buf++));
++		t3_write_reg(adap, A_TP_EMBED_OP_FIELD1, cpu_to_be32(*buf++));
++		
++		t3_write_reg(adap, A_TP_EMBED_OP_FIELD0, i << 1 | 1 << 31);
++		if (t3_wait_op_done(adap, A_TP_EMBED_OP_FIELD0, 1, 1, 5, 1))
++			return -EIO;
++	}
++	t3_write_reg(adap, A_TP_EMBED_OP_FIELD0, 0);
++
++	return 0;
++}
++
+ void t3_config_trace_filter(struct adapter *adapter,
+ 			    const struct trace_params *tp, int filter_index,
+ 			    int invert, int enable)
