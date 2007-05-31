@@ -1,46 +1,36 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: e100 resume failure
-Date: Wed, 30 May 2007 20:37:38 -0700
-Message-ID: <20070530203738.819a1623.akpm@linux-foundation.org>
+From: Divy Le Ray <divy@chelsio.com>
+Subject: Re: [PATCH 4/5] cxgb3 - Stop mac RX when changing MTU
+Date: Wed, 30 May 2007 20:47:29 -0700
+Message-ID: <465E4551.8050504@chelsio.com>
+References: <20070530170144.22843.74669.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Auke Kok <auke-jan.h.kok@intel.com>
+Cc: jeff@garzik.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, swise@opengridcomputing.com
+To: divy@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([207.189.120.13]:40362 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756340AbXEaDhk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 May 2007 23:37:40 -0400
+Received: from stargate.chelsio.com ([12.22.49.110]:25606 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755601AbXEaDri (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 May 2007 23:47:38 -0400
+In-Reply-To: <20070530170144.22843.74669.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+divy@chelsio.com wrote:
+> From: Divy Le Ray <divy@chelsio.com>
+>
+> Rx traffic needs to be halted when the MTU is changed
+> to avoid a potential chip hang.
+> Reset/restore MAC filters around a MTU change.
+> Also fix the pause frames high materwark setting.
+>
+> Signed-off-by: Divy Le Ray <divy@chelsio.com>
+>   
 
-I was doing some suspend-to-ram testing on the Vaio with the 2.6.22-rc3-mm1
-lineup.  After 10 or 15 cycles a resume failed:
+This patch has a flaw. The register used to stop broadcast/multicast 
+traffic is wrong.
+Please ignore this instance. I'm resending it.
 
-[  357.119436] Suspending device full
-[  357.120450] Suspending device zero
-[  358.084978] Suspending device port
-[  358.085664] Suspending device null
-[  358.086432] Suspending device kmem
-[  358.087200] Suspending device mem
-[  358.087975] Suspending device 00:09
-[  358.088764] Suspending device 00:08
-[  358.089546] Suspending device 00:07
-[  358.090343] Suspending device 00:06
-[  358.091125] Suspending device 00:05
-[  358.091912] Suspending device 00:04
-[  358.092702] Suspending device 00:03
-[  358.093486] Suspending device 00:02
-[  358.094272] Suspending device 00:01
-[  358.095074] Suspending device 00:00
-[  358.095863] Suspending device pnp0
-[  358.096672] Suspending device 0000:06
-[  358.097482] Suspending device 0000:07
-[  358.098275] Suspending device 0000:06:0b.0
-[  358.101644] Suspending device 0000:06:08.0
-[18014750.543703] ATA: abnormal status 0x7F on port 0x000118af
-[18014750.555105] e100: eth0: e100_exec_cb_wait: ucode load failed
-
-and the machine hung.
+Divy
