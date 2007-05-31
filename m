@@ -1,47 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Suspicious fackets_out handling
-Date: Thu, 31 May 2007 12:59:29 -0700 (PDT)
-Message-ID: <20070531.125929.77054675.davem@davemloft.net>
-References: <Pine.LNX.4.64.0704231218440.28337@kivilampi-30.cs.helsinki.fi>
+From: Sam Ravnborg <sam@ravnborg.org>
+Subject: [PATCH] net/hp100: fix section mismatch warning
+Date: Thu, 31 May 2007 22:08:40 +0200
+Message-ID: <20070531200840.GB27305@uranus.ravnborg.org>
+References: <617E1C2C70743745A92448908E030B2A01929DD3@scsmsx411.amr.corp.intel.com> <Pine.LNX.4.64.0705302019040.5583@schroedinger.engr.sgi.com> <465EE7BB.4050605@redhat.com> <20070531200446.GA27305@uranus.ravnborg.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: ilpo.jarvinen@helsinki.fi
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50036
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1758962AbXEaT7P convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 May 2007 15:59:15 -0400
-In-Reply-To: <Pine.LNX.4.64.0704231218440.28337@kivilampi-30.cs.helsinki.fi>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Christoph Lameter <clameter@sgi.com>,
+	"Luck, Tony" <tony.luck@intel.com>,
+	Randy Dunlap <randy.dunlap@oracle.com>,
+	David Chinner <dgc@sgi.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	lkml <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org
+To: Prarit Bhargava <prarit@redhat.com>,
+	netdev <netdev@vger.kernel.org>
+Return-path: <linux-ia64-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20070531200446.GA27305@uranus.ravnborg.org>
+Sender: linux-ia64-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-Date: Mon, 23 Apr 2007 14:28:21 +0300 (EEST)
+Fix following section mismatch warning in hp100:
 
-> There are IMHO two problems in it. First of all, nothing ensures that=
- the=20
-> skb TCP is fragmenting is actually below the forwardmost sack block (=
-and=20
-> thus is included to the fackets_out)...
+WARNING: drivers/net/hp100.o(.init.text+0x26a): Section mismatch: reference to .exit.text: (after 'init_module')
 
-Good catch, I agree with your analysis completely.
+The warning says that we use a function marked __exit from a 
+function marked __init.
+This is not good on architectures where we discard __exit section
+for drivers that are built-in.
 
-> What I'm not sure of though, is how to fix this in net-2.6(.22), it
-> is due to the fact that there is no pointer/seq which can be used in
-> testing for it like in tcp-2.6 which has the highest_sack.
+Signed-off-by: Sam Ravnborg <sam@ravnborg.org>
+---
+Comple tested only.
 
-We can add highest_sack to 2.6.22 in order to fix a bug like this,
-if necessary.
+Note: This warning does not appear with modpost in upstream kernel
+      but I would like to submit patches for the obvious bugs ASAP
 
-> Second problem is even more obvious: if adjustment here is being
-> done and the sacktag code then uses fastpath at the arrival of the
-> next ACK, the sacktag code will use a stale value from
-> fastpath_cnt_hint and fails to notice all that math TCP did here
-> unless we start clearing fastpath_skb_hint.
+	Sam
 
-Let's try not to clear fastpath_skb_hint here if possible :-)
-
-Is it possible to update fastpath_cnt_hint properly perhaps?
+diff --git a/drivers/net/hp100.c b/drivers/net/hp100.c
+index 8118a67..8caa591 100644
+--- a/drivers/net/hp100.c
++++ b/drivers/net/hp100.c
+@@ -3005,7 +3005,7 @@ static int __init hp100_isa_init(void)
+ 	return cards > 0 ? 0 : -ENODEV;
+ }
+ 
+-static void __exit hp100_isa_cleanup(void)
++static void hp100_isa_cleanup(void)
+ {
+ 	int i;
+ 
