@@ -1,59 +1,49 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: [TG3]: Fix link problem on Dell's onboard 5906.
-Date: Thu, 31 May 2007 15:03:39 -0700
-Message-ID: <1180649019.20882.3.camel@dell>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [E1000-devel] REGRESSION: panic on e1000 driver
+Date: Fri, 1 Jun 2007 07:48:12 +1000
+Message-ID: <20070531214812.GA9309@gondor.apana.org.au>
+References: <1180560150.29081.35.camel@deimos.americas.hpqcorp.net> <20070531010814.GA30709@gondor.apana.org.au> <1180624569.23536.7.camel@athlon> <465EE86C.6080301@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-To: davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Doug Chapman <doug.chapman@hp.com>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:3607 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753289AbXEaVOM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 May 2007 17:14:12 -0400
+Received: from rhun.apana.org.au ([64.62.148.172]:2007 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751537AbXEaVs4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 May 2007 17:48:56 -0400
+Content-Disposition: inline
+In-Reply-To: <465EE86C.6080301@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[TG3]: Fix link problem on Dell's onboard 5906.
+On Thu, May 31, 2007 at 08:23:24AM -0700, Kok, Auke wrote:
+>
+> >e1000: 0000:01:02.0: e1000_probe: (PCI-X:66MHz:64-bit) 00:15:60:04:d7:f8
+> >e1000: eth0: e1000_probe: Intel(R) PRO/1000 Network Connection
+> >e1000: 0000:01:02.1: e1000_probe: (PCI-X:66MHz:64-bit) 00:15:60:04:d7:f9
+> >e1000: eth1: e1000_probe: Intel(R) PRO/1000 Network Connection
+> >e1000: 0000:15:02.0: e1000_probe: (PCI-X:66MHz:64-bit) 00:12:79:9e:b7:c4
+> >e1000: eth2: e1000_probe: Intel(R) PRO/1000 Network Connection
+> >e1000: 0000:15:02.1: e1000_probe: (PCI-X:66MHz:64-bit) 00:12:79:9e:b7:c5
+> >e1000: eth3: e1000_probe: Intel(R) PRO/1000 Network Connection
+> >e1000: Unexpected interrupt icr=0x4
+> 
+> that's indeed the link status change we fire manually to trigger the 
+> watchdog run:
+> 
+> #define E1000_ICR_LSC           0x00000004 /* Link Status Change */
 
-The bug is caused by code that always set
-(TG3_FLAG_USE_MI_INTERRUPT | TG3_FLAG_USE_LINKCHG_REG) on all Dell's
-onboard devices.  With these 2 flags set, the link status is polled
-by tg3_timer() and will only work when the PHY is set up to interrupt
-the MAC on link changes.  This breaks 5906 because the 5906 PHY does
-not support TG3_FLAG_USE_MI_INTERRUPT the same as other PHYs.
+This still makes no sense.  The only triggers I can find for this occur
+after e1000_irq_enable.  So unless we've got a problem with memory
+barriers we shouldn't get the above printk.
 
-For correctness, only Dell's onboard 5701 needs these 2 flags to be
-set.  This change will fix the 5906 problem and will change other
-Dell devices except 5700 and 5701 to use the more efficient
-interrupt-driven link changes.
+Is there another trigger that happens earlier?
 
-Update version to 3.77.
-
-Signed-off-by: Michael Chan <mchan@broadcom.com>
-
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 923b9c7..a16954c 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -64,8 +64,8 @@
- 
- #define DRV_MODULE_NAME		"tg3"
- #define PFX DRV_MODULE_NAME	": "
--#define DRV_MODULE_VERSION	"3.76"
--#define DRV_MODULE_RELDATE	"May 5, 2007"
-+#define DRV_MODULE_VERSION	"3.77"
-+#define DRV_MODULE_RELDATE	"May 31, 2007"
- 
- #define TG3_DEF_MAC_MODE	0
- #define TG3_DEF_RX_MODE		0
-@@ -10976,6 +10976,7 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
- 	 * upon subsystem IDs.
- 	 */
- 	if (tp->pdev->subsystem_vendor == PCI_VENDOR_ID_DELL &&
-+	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5701 &&
- 	    !(tp->tg3_flags2 & TG3_FLG2_PHY_SERDES)) {
- 		tp->tg3_flags |= (TG3_FLAG_USE_MI_INTERRUPT |
- 				  TG3_FLAG_USE_LINKCHG_REG);
-
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
