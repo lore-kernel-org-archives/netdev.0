@@ -1,42 +1,43 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: REGRESSION: panic on e1000 driver
-Date: Fri, 1 Jun 2007 07:49:47 +1000
-Message-ID: <20070531214947.GA9428@gondor.apana.org.au>
-References: <1180560150.29081.35.camel@deimos.americas.hpqcorp.net> <465E0149.6030307@intel.com> <20070531005147.GA30628@gondor.apana.org.au> <465E5442.7010503@intel.com> <20070531050616.GA32391@gondor.apana.org.au> <465EE1A7.6050901@intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [TG3]: Fix link problem on Dell's onboard 5906.
+Date: Thu, 31 May 2007 14:50:24 -0700 (PDT)
+Message-ID: <20070531.145024.52169518.davem@davemloft.net>
+References: <1180649019.20882.3.camel@dell>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Doug Chapman <doug.chapman@hp.com>, netdev@vger.kernel.org,
-	e1000-devel@lists.sourceforge.net
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: mchan@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:2013 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751148AbXEaVtw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 May 2007 17:49:52 -0400
-Content-Disposition: inline
-In-Reply-To: <465EE1A7.6050901@intel.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34056
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751970AbXEaVuL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 May 2007 17:50:11 -0400
+In-Reply-To: <1180649019.20882.3.camel@dell>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, May 31, 2007 at 07:54:31AM -0700, Kok, Auke wrote:
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Thu, 31 May 2007 15:03:39 -0700
+
+> [TG3]: Fix link problem on Dell's onboard 5906.
 > 
-> so how about calling netif_poll_disable() before we register the net_device?
+> The bug is caused by code that always set
+> (TG3_FLAG_USE_MI_INTERRUPT | TG3_FLAG_USE_LINKCHG_REG) on all Dell's
+> onboard devices.  With these 2 flags set, the link status is polled
+> by tg3_timer() and will only work when the PHY is set up to interrupt
+> the MAC on link changes.  This breaks 5906 because the 5906 PHY does
+> not support TG3_FLAG_USE_MI_INTERRUPT the same as other PHYs.
+> 
+> For correctness, only Dell's onboard 5701 needs these 2 flags to be
+> set.  This change will fix the 5906 problem and will change other
+> Dell devices except 5700 and 5701 to use the more efficient
+> interrupt-driven link changes.
+> 
+> Update version to 3.77.
+> 
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
 
-Yes that should work.  Let's move the other two netif_ calls while we're
-at it.
- 
-> well no, if we make the watchdog (this is something I've already 
-> implemented locally and -mm has it for instance) run as delayed work we can 
-> just schedule a watchdog run instead of firing an interrupt.
+Patch applied, thanks for fixing this bug Michael.
 
-OK.  The only thing I'm worried about is if we're uncovering some
-underlying problem with the platform with respect to memory barriers
-then we should get to the bottom of it first before making this problem
-disappear.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+That Dell onboard chip logic is definitely my fault :)
