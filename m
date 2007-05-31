@@ -1,41 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [git patch] since the definition of dst_discard_in and
- dst_discard_out are the same,,they should merged into one
-Date: Thu, 31 May 2007 01:37:21 -0700 (PDT)
-Message-ID: <20070531.013721.85688951.davem@davemloft.net>
-References: <465E78BE.6010807@gmail.com>
+Subject: Re: [PATCH 1/9] [TCP]: Move Reno SACKed_out counter functions
+ earlier
+Date: Thu, 31 May 2007 01:39:28 -0700 (PDT)
+Message-ID: <20070531.013928.75434614.davem@davemloft.net>
+References: <11801685622325-git-send-email-ilpo.jarvinen@helsinki.fi>
+	<11801685621267-git-send-email-ilpo.jarvinen@helsinki.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: crquan@gmail.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58617
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58620
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753366AbXEaIhI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 May 2007 04:37:08 -0400
-In-Reply-To: <465E78BE.6010807@gmail.com>
+	by vger.kernel.org with ESMTP id S1754144AbXEaIjO convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 May 2007 04:39:14 -0400
+In-Reply-To: <11801685621267-git-send-email-ilpo.jarvinen@helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Rankle_ <crquan@gmail.com>
-Date: Thu, 31 May 2007 15:26:54 +0800
+=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Sat, 26 May 2007 11:35:54 +0300
 
->  From 30d6996860f7e5589d1bce10404bbcfd6592c9de Mon Sep 17 00:00:00 2001
-> From: Denis Cheng <crquan@gmail.com>
-> Date: Thu, 31 May 2007 15:21:58 +0800
-> Subject: [PATCH] since the definition of dst_discard_in and 
-> dst_discard_out are the same,
-> they should merged into one
-> 
-> Signed-off-by: Denis Cheng <crquan@gmail.com>
+> From: =3D?ISO-8859-1?q?Ilpo_J=3DE4rvinen?=3D <ilpo.jarvinen@helsinki.=
+fi>
+>=20
+> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
 
-Your email client has changed all of the tab characters into spaces,
-corrupting the patch.
-
-Please configure your email client to not perform any text formatting.
-
-Please test this, by emailing the patch to yourself and trying to
-apply it, before resending.
-
-Thank you.
+This is of course trivial and fine, applied.
