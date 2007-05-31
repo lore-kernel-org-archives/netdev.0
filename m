@@ -1,46 +1,49 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: REGRESSION: panic on e1000 driver
-Date: Thu, 31 May 2007 15:06:16 +1000
-Message-ID: <20070531050616.GA32391@gondor.apana.org.au>
-References: <1180560150.29081.35.camel@deimos.americas.hpqcorp.net> <465E0149.6030307@intel.com> <20070531005147.GA30628@gondor.apana.org.au> <465E5442.7010503@intel.com>
+From: Oliver Hartkopp <oliver@hartkopp.net>
+Subject: Re: [patch 5/7] CAN: Add virtual CAN netdevice driver
+Date: Thu, 31 May 2007 07:13:14 +0200
+Message-ID: <465E596A.3010400@hartkopp.net>
+References: <20070530131123.10843.0@janus.isnogud.escape.de> <20070530131204.10843.5@janus.isnogud.escape.de> <465DB0B6.109@trash.net> <465DC4CD.9080801@hartkopp.net> <465DCD90.9070103@trash.net> <465DD506.4000503@hartkopp.net> <465DD755.4070702@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Doug Chapman <doug.chapman@hp.com>, netdev@vger.kernel.org,
-	e1000-devel@lists.sourceforge.net
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Urs Thuermann <urs@isnogud.escape.de>,
+	David Miller <davem@davemloft.net>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
+	Urs Thuermann <urs.thuermann@volkswagen.de>,
+	netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:4828 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753366AbXEaFGX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 May 2007 01:06:23 -0400
-Content-Disposition: inline
-In-Reply-To: <465E5442.7010503@intel.com>
+Received: from mo-p00-ob.rzone.de ([81.169.146.160]:26101 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756447AbXEaFNc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 May 2007 01:13:32 -0400
+In-Reply-To: <465DD755.4070702@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, May 30, 2007 at 09:51:14PM -0700, Kok, Auke wrote:
-> 
-> this has been an age-old confusion that I never grasped either, so I 
-> perfectly understand why you added the explicit e1000_disable_irq call in 
-> the other patch (and think thats a great idea). But really, there should be 
-> a way for a driver to tell the stack that it should really keep it's hands 
-> off :)
+Patrick McHardy wrote:
+> Oliver Hartkopp wrote:
+>   
+>> Btw. it's really worth to look at it again. I just had the idea to
+>> access the loopback flag via skb->sk->opt->loopback (argpfl!) on the TX
+>> path and skb->sk on the RX path. This would avoid skb->sk to be set to
+>> NULL but need to have this loopback flag to be implemented in each CAN
+>> socket opt.
+>>     
+>
+>
+> Yes, thats what I wanted to suggest. You should even be able
+> to use skb->sk->opt->loopback on the receive path before you
+> queue the packet to the socket.
+>   
 
-Well yes, you can get the stack to keep away by not registering your
-device :)
+Using skb->sk->opt->loopback on the receive path is not possible as you
+also have to deal with 'real' data received from a 'real' netdevice,
+where no sk is bound to the skb. The idea is to check on the rx path ,
+if sbk->sk is 'me' and then trash the packet according to my sockopt
+settings.
 
-> BTW e1000 currently triggers a single irq manually in the watchdog as link 
-> goes up, so that might be the one that is giving problems now. In any case 
-> I can't reproduce any of it - perhaps my hardware is too fast. Time to whip 
-> out the pIII :o
+Regards,
+Oliver
 
-Hmm, if it's triggered by the watchdog then that means the watchdog has
-been scheduled.  However, it seems that the only way to schedule it is
-through an interrupt?
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
