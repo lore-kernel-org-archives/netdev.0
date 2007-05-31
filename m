@@ -1,49 +1,79 @@
-From: Oliver Hartkopp <oliver@hartkopp.net>
-Subject: Re: [patch 5/7] CAN: Add virtual CAN netdevice driver
-Date: Thu, 31 May 2007 07:13:14 +0200
-Message-ID: <465E596A.3010400@hartkopp.net>
-References: <20070530131123.10843.0@janus.isnogud.escape.de> <20070530131204.10843.5@janus.isnogud.escape.de> <465DB0B6.109@trash.net> <465DC4CD.9080801@hartkopp.net> <465DCD90.9070103@trash.net> <465DD506.4000503@hartkopp.net> <465DD755.4070702@trash.net>
+From: Rankle_ <crquan@gmail.com>
+Subject: [git patch] since the definition of dst_discard_in and dst_discard_out
+ are the same,,they should merged into one
+Date: Thu, 31 May 2007 15:26:54 +0800
+Message-ID: <465E78BE.6010807@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Urs Thuermann <urs@isnogud.escape.de>,
-	David Miller <davem@davemloft.net>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
-	Urs Thuermann <urs.thuermann@volkswagen.de>,
-	netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Cc: linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.160]:26101 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756447AbXEaFNc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 May 2007 01:13:32 -0400
-In-Reply-To: <465DD755.4070702@trash.net>
+Received: from nz-out-0506.google.com ([64.233.162.230]:1430 "EHLO
+	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756665AbXEaH1B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 May 2007 03:27:01 -0400
+Received: by nz-out-0506.google.com with SMTP id n1so75850nzf
+        for <netdev@vger.kernel.org>; Thu, 31 May 2007 00:27:00 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy wrote:
-> Oliver Hartkopp wrote:
->   
->> Btw. it's really worth to look at it again. I just had the idea to
->> access the loopback flag via skb->sk->opt->loopback (argpfl!) on the TX
->> path and skb->sk on the RX path. This would avoid skb->sk to be set to
->> NULL but need to have this loopback flag to be implemented in each CAN
->> socket opt.
->>     
->
->
-> Yes, thats what I wanted to suggest. You should even be able
-> to use skb->sk->opt->loopback on the receive path before you
-> queue the packet to the socket.
->   
+ From 30d6996860f7e5589d1bce10404bbcfd6592c9de Mon Sep 17 00:00:00 2001
+From: Denis Cheng <crquan@gmail.com>
+Date: Thu, 31 May 2007 15:21:58 +0800
+Subject: [PATCH] since the definition of dst_discard_in and 
+dst_discard_out are the same,
+they should merged into one
 
-Using skb->sk->opt->loopback on the receive path is not possible as you
-also have to deal with 'real' data received from a 'real' netdevice,
-where no sk is bound to the skb. The idea is to check on the rx path ,
-if sbk->sk is 'me' and then trash the packet according to my sockopt
-settings.
+Signed-off-by: Denis Cheng <crquan@gmail.com>
 
-Regards,
-Oliver
-
+diff --git a/net/core/dst.c b/net/core/dst.c
+index 764bccb..c6a0587 100644
+--- a/net/core/dst.c
++++ b/net/core/dst.c
+@@ -111,13 +111,7 @@ out:
+     spin_unlock(&dst_lock);
+ }
+ 
+-static int dst_discard_in(struct sk_buff *skb)
+-{
+-    kfree_skb(skb);
+-    return 0;
+-}
+-
+-static int dst_discard_out(struct sk_buff *skb)
++static int dst_discard(struct sk_buff *skb)
+ {
+     kfree_skb(skb);
+     return 0;
+@@ -138,8 +132,7 @@ void * dst_alloc(struct dst_ops * ops)
+     dst->ops = ops;
+     dst->lastuse = jiffies;
+     dst->path = dst;
+-    dst->input = dst_discard_in;
+-    dst->output = dst_discard_out;
++    dst->input = dst->output = dst_discard;
+ #if RT_CACHE_DEBUG >= 2
+     atomic_inc(&dst_total);
+ #endif
+@@ -153,8 +146,7 @@ static void ___dst_free(struct dst_entry * dst)
+        protocol module is unloaded.
+      */
+     if (dst->dev == NULL || !(dst->dev->flags&IFF_UP)) {
+-        dst->input = dst_discard_in;
+-        dst->output = dst_discard_out;
++        dst->input = dst->output = dst_discard;
+     }
+     dst->obsolete = 2;
+ }
+@@ -242,8 +234,7 @@ static inline void dst_ifdown(struct dst_entry *dst, 
+struct net_device *dev,
+         return;
+ 
+     if (!unregister) {
+-        dst->input = dst_discard_in;
+-        dst->output = dst_discard_out;
++        dst->input = dst->output = dst_discard;
+     } else {
+         dst->dev = &loopback_dev;
+         dev_hold(&loopback_dev);
