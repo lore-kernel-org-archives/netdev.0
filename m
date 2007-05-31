@@ -1,41 +1,36 @@
-From: "rae l" <crquan@gmail.com>
-Subject: Re: [git patch] since the definition of dst_discard_in and dst_discard_out are the same,,they should merged into one
-Date: Thu, 31 May 2007 17:27:01 +0800
-Message-ID: <91b13c310705310227h3939831xb0a597a02d4f88fd@mail.gmail.com>
-References: <465E78BE.6010807@gmail.com>
-	 <20070531.013721.85688951.davem@davemloft.net>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH 3/4] Make net watchdog timers 1 sec jiffy aligned
+Date: 31 May 2007 12:36:26 +0200
+Message-ID: <p73ejkxe0ut.fsf@bingen.suse.de>
+References: <20070530105936.6c988da5.akpm@linux-foundation.org>
+	<20070530112056.0aeb9498@freepuppy> <465DC598.5060407@trash.net>
+	<20070530.125551.41636333.davem@davemloft.net>
+	<20070530133039.7feb2064@freepuppy>
+	<20070530213541.GA13953@linux-os.sc.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "David Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	David Miller <davem@davemloft.net>, kaber@trash.net,
+	akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Venki Pallipadi <venkatesh.pallipadi@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.231]:23881 "EHLO
-	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755089AbXEaJ1C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 May 2007 05:27:02 -0400
-Received: by wr-out-0506.google.com with SMTP id 76so97544wra
-        for <netdev@vger.kernel.org>; Thu, 31 May 2007 02:27:02 -0700 (PDT)
-In-Reply-To: <20070531.013721.85688951.davem@davemloft.net>
-Content-Disposition: inline
+Received: from ns2.suse.de ([195.135.220.15]:43968 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756020AbXEaJj5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 May 2007 05:39:57 -0400
+In-Reply-To: <20070530213541.GA13953@linux-os.sc.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 5/31/07, David Miller <davem@davemloft.net> wrote:
->
-> Your email client has changed all of the tab characters into spaces,
-> corrupting the patch.
->
-> Please configure your email client to not perform any text formatting.
->
-> Please test this, by emailing the patch to yourself and trying to
-> apply it, before resending.
->
-> Thank you.
-Oh, as this, I'll try. A lot of thanks.
+Venki Pallipadi <venkatesh.pallipadi@intel.com> writes:
+> 
+> If this does not work:
+> Another option is to use 'deferrable timer' here which will be called at
+> same as before time when CPU is busy and on idle CPU it will be delayed until
+> CPU comes out of idle due to any other events.
 
->
+That would sound like a good idea here and at least power wise 
+it should be nearly free
 
-
--- 
-Denis Cheng
+-Andi
