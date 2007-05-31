@@ -1,54 +1,44 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [IPV4] LVS: Allow to send ICMP unreachable responses when
- real-servers are removed
-Date: Thu, 31 May 2007 03:21:40 +0300 (EEST)
-Message-ID: <Pine.LNX.4.58.0705310239240.3745@u.domain.uli>
-References: <Pine.LNX.4.58.0705160012470.2626@u.domain.uli>
- <Pine.LNX.4.58.0705181043390.2665@u.domain.uli> <20070518.020525.28394540.davem@davemloft.net>
- <200705301138.29582@nienna>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: REGRESSION: panic on e1000 driver
+Date: Thu, 31 May 2007 10:51:47 +1000
+Message-ID: <20070531005147.GA30628@gondor.apana.org.au>
+References: <1180560150.29081.35.camel@deimos.americas.hpqcorp.net> <465E0149.6030307@intel.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, kaber@trash.net,
-	horms@verge.net.au, jkrzyszt@tis.icnet.pl, netdev@vger.kernel.org
-To: KOVACS Krisztian <hidden@balabit.hu>
+Content-Type: text/plain; charset=us-ascii
+Cc: Doug Chapman <doug.chapman@hp.com>, netdev@vger.kernel.org,
+	e1000-devel@lists.sourceforge.net
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([217.79.71.194]:4772 "EHLO u.domain.uli"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751238AbXEaAWa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 May 2007 20:22:30 -0400
-In-Reply-To: <200705301138.29582@nienna>
+Received: from rhun.apana.org.au ([64.62.148.172]:3953 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752522AbXEaAwD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 May 2007 20:52:03 -0400
+Content-Disposition: inline
+In-Reply-To: <465E0149.6030307@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-	Hello,
-
-On Wed, 30 May 2007, KOVACS Krisztian wrote:
-
->   I'm just about to publish the next round of tproxy patches (with the 
-> routing code modifications completely removed), but this issue is still 
-> present.
+On Wed, May 30, 2007 at 03:57:13PM -0700, Kok, Auke wrote:
 > 
->   I've posted a few patches making omitting this check possible 
-> selectively back in March. Do those changes look acceptable?
-> 
->   http://marc.info/?l=linux-netdev&m=117310979823297&w=3
+> Hmm, we're making a mess of it.
 
-	Just a small note for now:
+Indeed :)
 
-	The code
-	'if (dev_out == NULL && !(oldflp->flags & FLOWI_FLAG_TRANSPARENT))'
-can lead to problem in 'fl.oif = dev_out->ifindex;' if fl4_src is not
-present.
+> Herbert, wouldn't it just have been a lot easier to do just add a 
+> netif_poll_disable in e1000_probe, so that any and all other poll 
+> enable/disables are symmetric ? Something like this?
 
-	Also, i'm not sure if FLOWI_FLAG_TRANSPARENT should cause
-different values for flags to be cached many times. Users without this
-flag get EINVAL when fl4_src is not configured, other failures are not 
-cached too. And as fl4_src is considered in both cases (both kinds of 
-callers get same path on success) we don't need changes except in 
-ip_route_output_slow()? By this way I hope we can avoid any possible 
-forking of cache entries just by different flags.
+I wish if it were as simple as that.  As soon as register_netdev
+returns somebody else can invoke e1000_open so disabling poll
+here can be undesirable.  In fact the existing netif_stop_queue
+and netif_carrier_off calls are also bad for the same reason.
 
-	Then we can use some more generic name, only for the flowi flag,
-eg. FLOWI_FLAG_ANYSRC or something better?
+I'll keep looking to see if there's some other problem that we
+haven't uncovered yet.
 
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
