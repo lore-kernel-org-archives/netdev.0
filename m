@@ -1,85 +1,100 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] improved locking performance in rt_run_flush()
-Date: Thu, 31 May 2007 16:26:26 -0700 (PDT)
-Message-ID: <20070531.162626.91312503.davem@davemloft.net>
-References: <20070514.030412.104035740.davem@davemloft.net>
-	<E1Hpdhs-00069a-00@gondolin.me.apana.org.au>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: REGRESSION: panic on e1000 driver
+Date: Fri, 1 Jun 2007 10:34:10 +1000
+Message-ID: <20070601003410.GA10330@gondor.apana.org.au>
+References: <1180560150.29081.35.camel@deimos.americas.hpqcorp.net>
+	<20070531010814.GA30709@gondor.apana.org.au>
+	<1180624569.23536.7.camel@athlon>
+	<20070531221036.GA9644@gondor.apana.org.au>
+	<1180651108.23536.35.camel@athlon>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: djohnson+linux-kernel@sw.starentnetworks.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60302
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750853AbXEaX0N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 May 2007 19:26:13 -0400
-In-Reply-To: <E1Hpdhs-00069a-00@gondolin.me.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	auke-jan.h.kok@intel.com
+To: Doug Chapman <doug.chapman@hp.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Content-Disposition: inline
+In-Reply-To: <1180651108.23536.35.camel@athlon>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Sun, 20 May 2007 15:11:48 +1000
-
-> David Miller <davem@davemloft.net> wrote:
-> > From: Dave Johnson <djohnson+linux-kernel@sw.starentnetworks.com>
-> >> 
-> >> The below patch changes rt_run_flush() to only take each spinlock
-> >> protecting the rt_hash_table once instead of taking a spinlock for
-> >> every hash table bucket (and ending up taking the same small set 
-> >> of locks over and over).
+On Thu, May 31, 2007 at 06:38:28PM -0400, Doug Chapman wrote:
 > 
-> ...
+> I get a backtrace as it probes each e1000 device and I also still get
+> the unexpected interrupt message.
 > 
-> > I'm not ignoring it I'm just trying to brainstorm whether there
-> > is a better way to resolve this inefficiency. :-)
 > 
-> The main problem I see with this is having to walk and free each
-> chain with the lock held.  We could avoid this if we had a pointer
-> in struct rtable to chain them up for freeing later.
-> 
-> I just checked and struct rtable is 236 bytes long on 32-bit but
-> the slab cache pads it to 256 bytes so we've got some free space.
-> I suspect 64-bit should be similar.
+> WARNING: at drivers/net/e1000/e1000_main.c:1331 e1000_sw_init()
 
-SLUB I believe packs more aggressively and won't pad things out like
-that.  Therefore adding a member to rtable is much less attractive.
+Thanks for testing!
 
-I've been considering various alternative ways to deal with this.
+Although I still don't know what caused the interrupt in your case,
+it is clear that we need to be able to deal with interrupts as soon
+as the handler is registered since the cause register is not affected
+by e1000_irq_disable and a shared interrupt can easily be mistaken as
+our own.
 
-For 2.6.22 and -stable's sake we could allocate an array of pointers
-of size N where N is the number of rtable hash slots per spinlock.
-A big lock wraps around rt_run_flush() to protect these slots, and
-then the loop is:
+So Auke's solution of doing netif_poll_disable should fix this problem.
 
-	grap_lock();
-	for_each_hash_chain_for_lock(i) {
-		rth = rt_hash_table[i].chain;
-		if (rth) {
-			rt_hash_table[i].chain = NULL;
-			flush_chain[i % N] = rt;
-		}
-	}
-	drop_lock();
+In looking at this I've found a couple of other problems:
 
-	for (i = 0; i < N; i++) {
-		struct rtable *rth = flush_chain[i];
-		flush_chain[i] = NULL;
-		while (rth) {
-			struct rtable *next = rth->u.dst.rt_next;
-			rt_free(rth);
-			rth = next;
-		}
-	}
+1) Race between IRQ handler and e1000_open:
 
-Holding a lock across the entire hash plucking has it's not nice
-properties, but it's better than taking the same lock N times in
-a row.
+A shared/spurious interrupt can cause this:
 
-In the longer term, if I resurrect my dynamically sized rtable hash
-patches (which I do intend to do), that code protected a lot of this
-stuff with a seqlock and it might be possible to use that seqlock
-solely to flush the lists in rt_run_flush().
+CPU0				CPU1
+e1000_open
+	request_irq
+				spurious/shared IRQ
+				e1000_interrupt
+	e1000_irq_enable
+		atomic_dec_*
+					atomic_inc
+					IMC <- ~0
+		IMS <- MASK
 
-Any better ideas?
+So we end up with IRQs enabled when they shouldn't be.
+
+2) Race between IRQ handler and e1000_clean (and other mgmt functions):
+
+Again shared/spurious interrupts may cause problems:
+
+CPU0				CPU1
+e1000_clean
+	do work
+				spurious/shared IRQ
+				e1000_interrupt
+					clear ICR
+					netif_rx_schedule_prep fails
+					e1000_irq_enable
+	netif_rx_complete
+	e1000_irq_enable
+
+At this point IRQs are on but we've lost an interrupt.
+
+We can fix this by
+
+1) Ignoring IRQs when irq_sem > 0.
+2) Always generate an IRQ after e1000_irq_enable.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by DB2 Express
+Download DB2 Express C - the FREE version of DB2 express and take
+control of your XML. No limits. Just data. Click to get it now.
+http://sourceforge.net/powerbar/db2/
