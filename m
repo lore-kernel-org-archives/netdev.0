@@ -1,70 +1,119 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [patch 5/7] CAN: Add virtual CAN netdevice driver
-Date: Fri, 01 Jun 2007 16:54:56 +0200
-Message-ID: <46603340.2050309@trash.net>
-References: <20070530131123.10843.0@janus.isnogud.escape.de> <20070530131204.10843.5@janus.isnogud.escape.de> <465DB0B6.109@trash.net> <465F2F20.6090700@hartkopp.net>
+From: jamal <hadi@cyberus.ca>
+Subject: [RFC] [XFRM] SAD only lookup
+Date: Fri, 01 Jun 2007 11:00:25 -0400
+Message-ID: <1180710026.4097.27.camel@localhost>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Urs Thuermann <urs@isnogud.escape.de>,
-	David Miller <davem@davemloft.net>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
-	Urs Thuermann <urs.thuermann@volkswagen.de>,
-	netdev@vger.kernel.org
-To: Oliver Hartkopp <oliver@hartkopp.net>
+Content-Type: multipart/mixed; boundary="=-DozyQjDb7oIF0O7cE3v+"
+Cc: netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au, James Morris <jmorris@namei.org>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:33736 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760252AbXFAO43 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jun 2007 10:56:29 -0400
-In-Reply-To: <465F2F20.6090700@hartkopp.net>
+Received: from wr-out-0506.google.com ([64.233.184.237]:62969 "EHLO
+	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758694AbXFAPAa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jun 2007 11:00:30 -0400
+Received: by wr-out-0506.google.com with SMTP id i21so521267wra
+        for <netdev@vger.kernel.org>; Fri, 01 Jun 2007 08:00:29 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Oliver Hartkopp wrote:
-> Patrick McHardy wrote:
-> 
->>Urs Thuermann wrote:
->>  
->>
->>>+	/* tx socket reference pointer: Loopback required if not NULL */
->>>+	loop = *(struct sock **)skb->cb != NULL;
->>>    
->>
->>
->>Qdiscs might change skb->cb. Maybe use skb->sk?
->>
->>  
-> 
-> due to current projects Urs and me had only a short time today to
-> discuss the use of other skbuff-elements to implement the needed
-> loopback functionality. Urs remembered that the value of skb->sk was not
-> 'stable' in the whole loopback and therefore the use of skb->cb was a
-> reasonable approach - and it was indeed working. Btw. triggered by your
-> remark, we're looking for alternatives.
+
+--=-DozyQjDb7oIF0O7cE3v+
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+
+Folks, 
+shit happened and my old hard-drive was whipped containing my old
+ipsec pktgen patches. I am now trying to recover them.
+Luckily, this one patch i sent on email - so it was an easy recovery.
+
+I know James and Herbert had both commented in the past on this patch.
+Please look at it again and see if i am missing something we agreed on.
+Herbert, I cant see any easier way to do the SAD lookup. If you have
+suggestions please shoot. I am shooting for this to go in when 2.6.23
+opens up.
 
 
-Yes, its working, but only in certain combinations and you're breaking
-the rules for skb->cb, making it impossible for other layers to use.
-skb->sk is "stable" at the output path, the regular loopback device
-orphans the skb in hard_start_xmit. So you can at least use it there.
-
-> Another thing is, that i would like to know, if Qdiscs would ever touch
-> skb's containing CAN-frames?!?
-> The MTU is 16 bytes (sizeof(struct can_frame)) and each skb contains
-> exact one CAN-frame.
-> What would a packet scheduler do with these skb's? IMO there is nothing
-> that could be optimized and linked together like in IPv4 / IPv6 data.
+cheers,
+jamal
 
 
-Qdiscs don't care about the content. If a user attaches one to your
-device, it will get used.
+--=-DozyQjDb7oIF0O7cE3v+
+Content-Disposition: attachment; filename=pg-xfrm
+Content-Type: text/plain; name=pg-xfrm; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 
-> Would therefore skb->cb left unchanged in my skb's? Or is there any flag
-> that can be set in the skb to keep the packet scheduler's hands off?
+commit 707411e190af516cefdc3315183d023fde54d53e
+Author: Jamal Hadi Salim <hadi@cyberus.ca>
+Date:   Fri Jun 1 10:49:43 2007 -0400
 
+    [XFRM] Introduce standalone SAD lookup
+    This allows other in-kernel functions to do SAD lookups.
+    The only known user at the moment is pktgen.
+    
+    Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
 
-No, and I don't think we want a flag to signal that something is
-violating the rules for skb->cb, there are other users of this
-besides qdiscs.
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index 39ef925..e89cf7e 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -921,6 +921,10 @@ extern struct xfrm_state *xfrm_state_find(xfrm_address_t *daddr, xfrm_address_t
+ 					  struct flowi *fl, struct xfrm_tmpl *tmpl,
+ 					  struct xfrm_policy *pol, int *err,
+ 					  unsigned short family);
++extern struct xfrm_state * xfrm_stateonly_find(xfrm_address_t *daddr,
++					       xfrm_address_t *saddr,
++					       unsigned short family,
++					       u8 mode, u8 proto, u32 reqid);
+ extern int xfrm_state_check_expire(struct xfrm_state *x);
+ extern void xfrm_state_insert(struct xfrm_state *x);
+ extern int xfrm_state_add(struct xfrm_state *x);
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index 9955ff4..a2d8f64 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -643,6 +643,40 @@ out:
+ 	return x;
+ }
+ 
++struct xfrm_state *
++xfrm_stateonly_find(xfrm_address_t *daddr, xfrm_address_t *saddr,
++		    unsigned short family, u8 mode, u8 proto, u32 reqid)
++{
++	unsigned int h = xfrm_dst_hash(daddr, saddr, reqid, family);
++	struct xfrm_state *rx = NULL, *x = NULL;
++	struct hlist_node *entry;
++	
++	spin_lock(&xfrm_state_lock);
++	hlist_for_each_entry(x, entry, xfrm_state_bydst+h, bydst) {
++		if (x->props.family == family &&
++		    x->props.reqid == reqid &&
++		    !(x->props.flags & XFRM_STATE_WILDRECV) &&
++		    xfrm_state_addr_check(x, daddr, saddr, family) &&
++		    mode == x->props.mode &&
++		    proto == x->id.proto)  { 
++
++			if (x->km.state != XFRM_STATE_VALID) 
++					continue;
++			else {
++				rx = x;
++				break;
++			}
++		}
++	}
++	spin_unlock(&xfrm_state_lock);
++
++	if (rx)
++		xfrm_state_hold(rx);
++
++	return rx;
++}
++EXPORT_SYMBOL(xfrm_stateonly_find);
++
+ static void __xfrm_state_insert(struct xfrm_state *x)
+ {
+ 	unsigned int h;
+
+--=-DozyQjDb7oIF0O7cE3v+--
+
