@@ -1,51 +1,49 @@
-From: "Laurent Chavey" <chavey@google.com>
-Subject: bond_3ad.c: why does bond_3ad_set_carrier() check if the mac partnet mac is set.
-Date: Thu, 31 May 2007 18:46:42 -0700
-Message-ID: <97949e3e0705311846x65ba3eacjb11e68ba38e1ed38@mail.gmail.com>
+From: Wei Yongjun <yjwei@cn.fujitsu.com>
+Subject: [PATCH] Fix bug of update IPv4 PMTU when received ICMP Fragmentation
+ Needed message
+Date: Fri, 01 Jun 2007 11:51:43 +0800
+Message-ID: <465F97CF.1060508@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.45.13]:5263 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754134AbXFABqq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 May 2007 21:46:46 -0400
-Received: from zps36.corp.google.com (zps36.corp.google.com [172.25.146.36])
-	by smtp-out.google.com with ESMTP id l511kil4027200
-	for <netdev@vger.kernel.org>; Thu, 31 May 2007 18:46:44 -0700
-Received: from wr-out-0506.google.com (wrai23.prod.google.com [10.54.60.23])
-	by zps36.corp.google.com with ESMTP id l511kf7C008334
-	for <netdev@vger.kernel.org>; Thu, 31 May 2007 18:46:43 -0700
-Received: by wr-out-0506.google.com with SMTP id i23so450628wra
-        for <netdev@vger.kernel.org>; Thu, 31 May 2007 18:46:43 -0700 (PDT)
-Content-Disposition: inline
+Received: from [222.73.24.84] ([222.73.24.84]:50571 "EHLO song.cn.fujitsu.com"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1753402AbXFAD5y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 May 2007 23:57:54 -0400
+Received: from tang.cn.fujitsu.com (tang.cn.fujitsu.com [10.167.250.3])
+	by song.cn.fujitsu.com (Postfix) with ESMTP id E03841700BF
+	for <netdev@vger.kernel.org>; Fri,  1 Jun 2007 11:57:30 +0800 (CST)
+Received: from fnst.cn.fujitsu.com (localhost.localdomain [127.0.0.1])
+	by tang.cn.fujitsu.com (8.13.1/8.13.1) with ESMTP id l513vTTr001180
+	for <netdev@vger.kernel.org>; Fri, 1 Jun 2007 11:57:30 +0800
+Received: from [10.167.141.203] (unknown [10.167.141.203])
+	by fnst.cn.fujitsu.com (Postfix) with ESMTP id 00FBAD4004
+	for <netdev@vger.kernel.org>; Fri,  1 Jun 2007 12:07:38 +0800 (CST)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-if a host configured with 802.3ad bond mode is connected to a switch
-that does not support 802.3ad,  then an aggregator is selected as the
-active aggregator (first link that has carrier in the slave list).
-This is perfectly fine, since it lets at least one of the link become active.
-(this was the behavior prior to 2.6.18)
+When received ICMP Fragmentation Needed message, PATH MTU is always set 
+to the 576 even if MTU in ICMP message is lager then 576. This is 
+because of error condition in function ip_rt_frag_needed(), now if 
+packet size of that ICMP message is less then new MTU, packet size will 
+be used ,but RFC says ICMP error message return as much as we can 
+without exceeding 576 bytes.
 
-In 2.6.18 and above, a new check for the partner mac address was added
-before an aggregator's carrier is set on. If a host is  configured as
-previously
-described,  then no links will become active.
+This patch has Fixed this BUG.
 
-is that the intended behavior ?
+Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
 
+--- net/ipv4/route.c.orig	2007-05-25 05:22:47.000000000 +0800
++++ net/ipv4/route.c	2007-06-01 11:42:55.000000000 +0800
+@@ -1424,7 +1424,7 @@ unsigned short ip_rt_frag_needed(struct 
+ 			    !(dst_metric_locked(&rth->u.dst, RTAX_MTU))) {
+ 				unsigned short mtu = new_mtu;
+ 
+-				if (new_mtu < 68 || new_mtu >= old_mtu) {
++				if (new_mtu < 68) {
+ 
+ 					/* BSD 4.2 compatibility hack :-( */
+ 					if (mtu == 0 &&
 
------
-in the scenario described here, the partner mac address is always set to NULL.
-so the statement is always false.
-
-	if (agg && MAC_ADDRESS_COMPARE(&agg->partner_system, &null_mac_addr)) {
-		if (!netif_carrier_ok(bond->dev)) {
-			netif_carrier_on(bond->dev);
-			return 1;
-		}
-		return 0;
-	}
-----
