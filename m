@@ -1,27 +1,23 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [PATCH 0/2] RFC: PS3 network driver
-Date: Fri, 1 Jun 2007 10:12:59 +0100
-Message-ID: <20070601091259.GA2334@infradead.org>
-References: <20070601142140.2C28.MOKUNO@sm.sony.co.jp>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, cbe-oss-dev@ozlabs.org
-To: MOKUNO Masakazu <mokuno@sm.sony.co.jp>
+From: Mithlesh Thukral <mithlesh@netxen.com>
+Subject: [PATCH 0/5] NetXen: Bug fixes and updates
+Date: Fri, 1 Jun 2007 04:11:25 -0700
+Message-ID: <200706011111.l51BBPj9004617@dut39.unminc.com>
+Cc: amitkale@netxen.com, jeff@garzik.org, mithlesh@netxen.com,
+	netxenproj@linsyssoft.com, rob@netxen.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:35467 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755124AbXFAJNJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jun 2007 05:13:09 -0400
-Content-Disposition: inline
-In-Reply-To: <20070601142140.2C28.MOKUNO@sm.sony.co.jp>
+Received: from 66-126-254-34.unm.net ([66.126.254.34]:19490 "EHLO
+	nxmail.netxen.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1758444AbXFALLm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jun 2007 07:11:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 01, 2007 at 02:31:54PM +0900, MOKUNO Masakazu wrote:
-> Hi
-> 
-> This is the first submission of the PS3 network driver
->  [1] ps3: gigabit ethernet driver for PS3
+Hi All,
 
-What happened to the idea of incorporating support into spidernet?
+I will be sending bug fixes and updates to NetXen's 1/10G Ethernet
+driver in subsequent mails.
+These patches are wrt netdev#master.
 
+Regards,
+Mithlesh Thukral
