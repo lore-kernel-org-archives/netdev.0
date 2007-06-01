@@ -1,57 +1,82 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: [PATCH] e1000: disable polling before registering netdevice
-Date: Fri, 01 Jun 2007 10:22:39 -0700
-Message-ID: <20070601172239.12639.92139.stgit@localhost.localdomain>
+From: Patrick McHardy <kaber@trash.net>
+Subject: [ICMP]: Fix icmp_errors_use_inbound_ifaddr sysctl
+Date: Fri, 01 Jun 2007 19:24:18 +0200
+Message-ID: <46605642.7060803@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, doug.chapman@hp.com,
-	netdev@vger.kernel.org, auke-jan.h.kok@intel.com
-To: jeff@garzik.org
+Content-Type: multipart/mixed;
+ boundary="------------040709040207000504020601"
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:62954 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759605AbXFARWn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Jun 2007 13:22:43 -0400
+Received: from stinky.trash.net ([213.144.137.162]:36778 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759055AbXFARZw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jun 2007 13:25:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-To assure the symmetry of poll enable/disable in up/down, we should
-initialize the netdevice to be poll_disabled at load time. Doing
-this after register_netdevice leaves us open to another race, so
-lets move all the netif_* calls above register_netdevice so the
-stack starts out how we expect it to be.
+This is a multi-part message in MIME format.
+--------------040709040207000504020601
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
 
-Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
-Cc: Herbert Xu <herbert@gondor.apana.org.au>
-Cc: Doug Chapman <doug.chapman@hp.com>
+It seems like you missed this patch in the previous thread discussing
+the problem, so here's a resend.
+
+
+--------------040709040207000504020601
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
+
+[ICMP]: Fix icmp_errors_use_inbound_ifaddr sysctl
+
+Currently when icmp_errors_use_inbound_ifaddr is set and an ICMP error is
+sent after the packet passed through ip_output(), an address from the
+outgoing interface is chosen as ICMP source address since skb->dev doesn't
+point to the incoming interface anymore.
+
+Fix this by doing an interface lookup on rt->dst.iif and using that device.
+
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+
 ---
+commit f680f41a1c6b2c358a4725e763132b3c61c1685a
+tree 81f9cd86744aca6e7c2bc647639f7868d7ceb1d3
+parent 19b6cbad06d246d48168fc6c493a7c3d9db58e1f
+author Patrick McHardy <kaber@trash.net> Fri, 01 Jun 2007 19:22:21 +0200
+committer Patrick McHardy <kaber@trash.net> Fri, 01 Jun 2007 19:22:21 +0200
 
- drivers/net/e1000/e1000_main.c |   11 +++++++----
- 1 files changed, 7 insertions(+), 4 deletions(-)
+ net/ipv4/icmp.c |   15 +++++++++------
+ 1 files changed, 9 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-index 9ec35b7..cf8af92 100644
---- a/drivers/net/e1000/e1000_main.c
-+++ b/drivers/net/e1000/e1000_main.c
-@@ -1142,13 +1142,16 @@ e1000_probe(struct pci_dev *pdev,
- 	    !e1000_check_mng_mode(&adapter->hw))
- 		e1000_get_hw_control(adapter);
+diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
+index e238b17..02a899b 100644
+--- a/net/ipv4/icmp.c
++++ b/net/ipv4/icmp.c
+@@ -514,12 +514,15 @@ void icmp_send(struct sk_buff *skb_in, int type, int code, __be32 info)
  
--	strcpy(netdev->name, "eth%d");
--	if ((err = register_netdev(netdev)))
--		goto err_register;
--
- 	/* tell the stack to leave us alone until e1000_open() is called */
- 	netif_carrier_off(netdev);
- 	netif_stop_queue(netdev);
-+#ifdef CONFIG_E1000_NAPI
-+	netif_poll_disable(netdev);
-+#endif
+ 	saddr = iph->daddr;
+ 	if (!(rt->rt_flags & RTCF_LOCAL)) {
+-		/* This is broken, skb_in->dev points to the outgoing device
+-		 * after the packet passes through ip_output().
+-		 */
+-		if (skb_in->dev && sysctl_icmp_errors_use_inbound_ifaddr)
+-			saddr = inet_select_addr(skb_in->dev, 0, RT_SCOPE_LINK);
+-		else
++		struct net_device *dev = NULL;
 +
-+	strcpy(netdev->name, "eth%d");
-+	if ((err = register_netdev(netdev)))
-+		goto err_register;
++		if (rt->fl.iif && sysctl_icmp_errors_use_inbound_ifaddr)
++			dev = dev_get_by_index(rt->fl.iif);
++
++		if (dev) {
++			saddr = inet_select_addr(dev, 0, RT_SCOPE_LINK);
++			dev_put(dev);
++		} else
+ 			saddr = 0;
+ 	}
  
- 	DPRINTK(PROBE, INFO, "Intel(R) PRO/1000 Network Connection\n");
- 
+
+--------------040709040207000504020601--
