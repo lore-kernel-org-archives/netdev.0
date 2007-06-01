@@ -1,119 +1,72 @@
-From: jamal <hadi@cyberus.ca>
-Subject: [RFC] [XFRM] SAD only lookup
-Date: Fri, 01 Jun 2007 11:00:25 -0400
-Message-ID: <1180710026.4097.27.camel@localhost>
-Reply-To: hadi@cyberus.ca
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH]: sky2: Fix VLAN unregistration
+Date: Fri, 01 Jun 2007 17:16:24 +0200
+Message-ID: <46603848.5000604@trash.net>
+References: <4659D174.70301@trash.net>	<20070531101945.2b19faa7@freepuppy>	<465F07C3.2090503@trash.net> <20070531112117.584141d6@freepuppy>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-DozyQjDb7oIF0O7cE3v+"
-Cc: netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au, James Morris <jmorris@namei.org>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Ben Greear <greearb@candelatech.com>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.237]:62969 "EHLO
-	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758694AbXFAPAa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jun 2007 11:00:30 -0400
-Received: by wr-out-0506.google.com with SMTP id i21so521267wra
-        for <netdev@vger.kernel.org>; Fri, 01 Jun 2007 08:00:29 -0700 (PDT)
+Received: from stinky.trash.net ([213.144.137.162]:34184 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757066AbXFAPR4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jun 2007 11:17:56 -0400
+In-Reply-To: <20070531112117.584141d6@freepuppy>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Stephen Hemminger wrote:
+> On Thu, 31 May 2007 19:37:07 +0200
+> Patrick McHardy <kaber@trash.net> wrote:
+> 
+> 
+>>Stephen Hemminger wrote:
+>>
+>>>On Sun, 27 May 2007 20:44:04 +0200
+>>>Patrick McHardy <kaber@trash.net> wrote:
+>>>
+>>>
+>>>
+>>>>Fix sky2 disabling VLAN completely when the first vid is unregistered.
+>>>>
+>>>>For some reason the VLAN code insists on the driver providing a
+>>>>vlan_rx_kill_vid function even if only NETIF_F_HW_VLAN_RX and not
+>>>>NETIF_F_HW_VLAN_FILTER is set, so this patch keeps an empty
+>>>>function. This seems to be a bug though, vlan_rx_add_vid is only
+>>>>required with NETIF_F_HW_VLAN_FILTER. Ben?
+>>>>
+>>>
+>>>
+>>>Reading other drivers, it looks like a better patch would be to
+>>>handle mode change in both set and kill.
+>>
+>>
+>>The VLAN code tracks registered VIDs and will always call
+>>vlan_rx_register(NULL) when the last VID is unregistered,
+>>so this is not necessary.
+>>
+> 
+> 
+> Then should others be fixed...
+> 	tg3, bnx2, r8169, gianfar, s2io, 8139cp, acenic, ...
 
---=-DozyQjDb7oIF0O7cE3v+
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
 
-Folks, 
-shit happened and my old hard-drive was whipped containing my old
-ipsec pktgen patches. I am now trying to recover them.
-Luckily, this one patch i sent on email - so it was an easy recovery.
+tg3 and r8169 both look fine, they only unregister a single VID
+within kill_vid and rely on VLAN to call rx_register(NULL) when
+the group is unregistered (haven't looked at the others).
 
-I know James and Herbert had both commented in the past on this patch.
-Please look at it again and see if i am missing something we agreed on.
-Herbert, I cant see any easier way to do the SAD lookup. If you have
-suggestions please shoot. I am shooting for this to go in when 2.6.23
-opens up.
+As I wrote in my previous mails, they do have a part that looks
+unnecessary
 
+        tg3_full_lock(tp, 0);
+        vlan_group_set_device(tp->vlgrp, vid, NULL);
 
-cheers,
-jamal
+        tg3_full_unlock(tp);
 
-
---=-DozyQjDb7oIF0O7cE3v+
-Content-Disposition: attachment; filename=pg-xfrm
-Content-Type: text/plain; name=pg-xfrm; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-
-commit 707411e190af516cefdc3315183d023fde54d53e
-Author: Jamal Hadi Salim <hadi@cyberus.ca>
-Date:   Fri Jun 1 10:49:43 2007 -0400
-
-    [XFRM] Introduce standalone SAD lookup
-    This allows other in-kernel functions to do SAD lookups.
-    The only known user at the moment is pktgen.
-    
-    Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
-
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 39ef925..e89cf7e 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -921,6 +921,10 @@ extern struct xfrm_state *xfrm_state_find(xfrm_address_t *daddr, xfrm_address_t
- 					  struct flowi *fl, struct xfrm_tmpl *tmpl,
- 					  struct xfrm_policy *pol, int *err,
- 					  unsigned short family);
-+extern struct xfrm_state * xfrm_stateonly_find(xfrm_address_t *daddr,
-+					       xfrm_address_t *saddr,
-+					       unsigned short family,
-+					       u8 mode, u8 proto, u32 reqid);
- extern int xfrm_state_check_expire(struct xfrm_state *x);
- extern void xfrm_state_insert(struct xfrm_state *x);
- extern int xfrm_state_add(struct xfrm_state *x);
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index 9955ff4..a2d8f64 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -643,6 +643,40 @@ out:
- 	return x;
- }
- 
-+struct xfrm_state *
-+xfrm_stateonly_find(xfrm_address_t *daddr, xfrm_address_t *saddr,
-+		    unsigned short family, u8 mode, u8 proto, u32 reqid)
-+{
-+	unsigned int h = xfrm_dst_hash(daddr, saddr, reqid, family);
-+	struct xfrm_state *rx = NULL, *x = NULL;
-+	struct hlist_node *entry;
-+	
-+	spin_lock(&xfrm_state_lock);
-+	hlist_for_each_entry(x, entry, xfrm_state_bydst+h, bydst) {
-+		if (x->props.family == family &&
-+		    x->props.reqid == reqid &&
-+		    !(x->props.flags & XFRM_STATE_WILDRECV) &&
-+		    xfrm_state_addr_check(x, daddr, saddr, family) &&
-+		    mode == x->props.mode &&
-+		    proto == x->id.proto)  { 
-+
-+			if (x->km.state != XFRM_STATE_VALID) 
-+					continue;
-+			else {
-+				rx = x;
-+				break;
-+			}
-+		}
-+	}
-+	spin_unlock(&xfrm_state_lock);
-+
-+	if (rx)
-+		xfrm_state_hold(rx);
-+
-+	return rx;
-+}
-+EXPORT_SYMBOL(xfrm_stateonly_find);
-+
- static void __xfrm_state_insert(struct xfrm_state *x)
- {
- 	unsigned int h;
-
---=-DozyQjDb7oIF0O7cE3v+--
+since the vid is also removed by the VLAN code itself and locking
+doesn't seem to be necessary because the VLAN hwaccel rx helper
+deals with removal races itself.
 
