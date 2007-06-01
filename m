@@ -1,49 +1,81 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 7/7] cxgb3 - Add SW LRO support
-Date: Fri, 01 Jun 2007 16:37:57 -0400
-Message-ID: <466083A5.2080404@garzik.org>
-References: <20070225004423.20903.17036.stgit@localhost.localdomain>	 <20070226051304.GA13626@infradead.org>	 <1172585835.11870.13.camel@stevo-desktop>  <45E445D2.2090900@garzik.org> <1172588246.11870.24.camel@stevo-desktop> <45E45C6E.3000504@myri.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Christoph Hellwig <hch@infradead.org>,
-	Steve Wise <swise@opengridcomputing.com>, divy@chelsio.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Brice Goglin <brice@myri.com>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH 2.6.21.3] bonding: Fix 802.3ad no carrier on "no partner found" instance
+Date: Fri, 01 Jun 2007 13:38:57 -0700
+Message-ID: <23687.1180730337@death>
+References: <97949e3e0706011316n5d90bb04kf3a2c556af3fbe9d@mail.gmail.com>
+Cc: netdev@vger.kernel.org, Jeff Garzik <jgarzik@pobox.com>
+To: "Laurent Chavey" <chavey@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:55709 "EHLO mail.dvmed.net"
+Received: from e3.ny.us.ibm.com ([32.97.182.143]:35258 "EHLO e3.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1762365AbXFAUiD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Jun 2007 16:38:03 -0400
-In-Reply-To: <45E45C6E.3000504@myri.com>
+	id S1764261AbXFAUjB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Jun 2007 16:39:01 -0400
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e3.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l51JaZpo024931
+	for <netdev@vger.kernel.org>; Fri, 1 Jun 2007 15:36:35 -0400
+Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
+	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l51Kd0ox507754
+	for <netdev@vger.kernel.org>; Fri, 1 Jun 2007 16:39:00 -0400
+Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
+	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l51Kcxg5023284
+	for <netdev@vger.kernel.org>; Fri, 1 Jun 2007 16:39:00 -0400
+In-reply-to: <97949e3e0706011316n5d90bb04kf3a2c556af3fbe9d@mail.gmail.com> 
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Brice Goglin wrote:
-> Steve Wise wrote:
->> You're right.  But cxgb3 has it now in the driver (tested and working).
->> Shouldn't it be pulled in?  When the network stack design gets done
->> (which could take a few releases to finalize), all the drivers can be
->> updated to use it.  It doesn't seem reasonable to allow some drivers to
->> support LRO and others to not support it...
->>   
-> 
-> I have to agree with Steve here. We have been requesting the inclusion
-> of myri10ge LRO for 5 months now (before 2.6.19). I could understand
-> that duplicating LRO code between s2io and myri10ge was not a good idea
-> at this point. But, I now see that Netxen got merged way later (in
-> 2.6.20) but it got its LRO merged immediately. I guess the LRO is
-> already duplicated between s2io and netxen then. It does not look fair
-> to me at all.
 
-It was an error on my part, that should not be compounded.  Three wrongs 
-don't make a right, etc., etc.
+	Jeff, please apply wherever seems appropriate.  It is a bug fix,
+but for a pretty obscure bit of standards compliance.
 
-The normal way this stuff works in Linux is that people work together to 
-create common code that everybody uses.  I would gladly accept patches 
-to rip out the code from NetXen.
+Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
 
-	Jeff
+	-J
 
 
+Laurent Chavey <chavey@google.com> wrote:
 
+>Remove the requirement to have at least one configured partner to
+>enable the operation of links. The later is necessary to have the code
+>in compliance with section 43.3.9 of IEEE 802.3,
+>
+>Signed-off-by: Laurent Chavey <chavey@google.com>
+>--
+>
+>diff -ru linux-2.6.21.3/drivers/net/bonding/bond_3ad.c
+>linux-2.6.21.3.new/drivers/net/bonding/bond_3ad.c
+>--- linux-2.6.21.3/drivers/net/bonding/bond_3ad.c       2007-05-24
+>14:22:47.000000000 -0700
+>+++ linux-2.6.21.3.new/drivers/net/bonding/bond_3ad.c   2007-06-01
+>12:41:57.000000000 -0700
+>@@ -2303,19 +2303,17 @@
+>}
+>
+>/*
+>- * set link state for bonding master: if we have an active partnered
+>+ * set link state for bonding master: if we have an active
+> * aggregator, we're up, if not, we're down.  Presumes that we cannot
+> * have an active aggregator if there are no slaves with link up.
+>+ * Code is implementing compliance with section 43.3.9 of IEEE 802.3.
+> *
+> * Called by bond_set_carrier(). Return zero if carrier state does not
+> * change, nonzero if it does.
+> */
+>int bond_3ad_set_carrier(struct bonding *bond)
+>{
+>-       struct aggregator *agg;
+>-
+>-       agg = __get_active_agg(&(SLAVE_AD_INFO(bond->first_slave).aggregator));
+>-       if (agg && MAC_ADDRESS_COMPARE(&agg->partner_system, &null_mac_addr)) {
+>+       if (__get_active_agg(&(SLAVE_AD_INFO(bond->first_slave).aggregator))) {
+>               if (!netif_carrier_ok(bond->dev)) {
+>                       netif_carrier_on(bond->dev);
+>                       return 1;
+>@@ -2468,4 +2466,3 @@
+>
+>       return ret;
+>}
+>-
+>-
+>To unsubscribe from this list: send the line "unsubscribe netdev" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
