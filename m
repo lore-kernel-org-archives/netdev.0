@@ -1,86 +1,94 @@
-From: "Laurent Chavey" <chavey@google.com>
-Subject: Re: [PATCH]: bonding: Fix 802.3ad no carrier on "no partner found" instance
-Date: Fri, 1 Jun 2007 10:56:46 -0700
-Message-ID: <97949e3e0706011056u4fcf9b88k7d1476a85daf3630@mail.gmail.com>
-References: <97949e3e0706010933h6921ca72p9858daa229bcfce6@mail.gmail.com>
-	 <9575.1180719013@death>
+From: Chris Snook <csnook@redhat.com>
+Subject: Re: [PATCH 4/5] atl1: eliminate unneeded kill_vid code
+Date: Fri, 01 Jun 2007 14:04:20 -0400
+Message-ID: <46605FA4.6000107@redhat.com>
+References: <20070601164356.673375550@linux-foundation.org> <20070601164705.586224195@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "Jay Vosburgh" <fubar@us.ibm.com>
+Cc: David Miller <davem@davemloft.net>, Jeff Garzk <jgarzik@pobox.com>,
+	Patrick McHardy <kaber@trash.net>,
+	Ben Greear <greearb@candelatech.com>,
+	Jay Cliburn <jcliburn@gmail.com>, netdev@vger.kernel.org,
+	atl1-devel@lists.sourceforge.net
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.33.17]:15890 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760823AbXFAR5D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jun 2007 13:57:03 -0400
-Received: from spaceape13.eur.corp.google.com (spaceape13.eur.corp.google.com [172.28.16.147])
-	by smtp-out.google.com with ESMTP id l51Huw9T031257
-	for <netdev@vger.kernel.org>; Fri, 1 Jun 2007 18:56:58 +0100
-Received: from wr-out-0506.google.com (wrai4.prod.google.com [10.54.60.4])
-	by spaceape13.eur.corp.google.com with ESMTP id l51HudCD003634
-	for <netdev@vger.kernel.org>; Fri, 1 Jun 2007 18:56:48 +0100
-Received: by wr-out-0506.google.com with SMTP id i4so605639wra
-        for <netdev@vger.kernel.org>; Fri, 01 Jun 2007 10:56:47 -0700 (PDT)
-In-Reply-To: <9575.1180719013@death>
-Content-Disposition: inline
+Received: from mx1.redhat.com ([66.187.233.31]:60050 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1762860AbXFASF0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Jun 2007 14:05:26 -0400
+In-Reply-To: <20070601164705.586224195@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 6/1/07, Jay Vosburgh <fubar@us.ibm.com> wrote:
-> Laurent Chavey <chavey@google.com> wrote:
->
-> >On 5/31/07, Laurent Chavey <chavey@google.com> wrote:
-> >> if a host configured with 802.3ad bond mode is connected to a switch
-> >> that does not support 802.3ad,  then an aggregator is selected as the
-> >> active aggregator (first link that has carrier in the slave list).
-> >> This is perfectly fine, since it lets at least one of the link become active.
-> >> (this was the behavior prior to 2.6.18)
-> >>
-> >> In 2.6.18 and above, a new check for the partner mac address was added
-> >> before an aggregator's carrier is set on. If a host is  configured as
-> >> previously
-> >> described,  then no links will become active.
-> >>
-> >> is that the intended behavior ?
->
->         Prior to the change in question, the carrier state of the master
-> device was always on, regardless of the state of the slaves (so even if
-> things didn't work, bonding would claim to be up).
-
-looking at the code, this will only work if there is an actual active
-aggregator. If that is not the case, and as you mention there could
-be an active aggregator before completing all LACP pahses (on all the slaves)
-then we would need to add a check (not for the mac) but for the churned state.
-(I added a churned state machine that could be use there, I did not submit
-the patch yet)
-
->
->         My concern specifically was more with failures in negotiation
-> with 802.3ad capable peers, not for interoperability with non-802.3ad
-> devices (since bonding can always be run in a non-802.3ad mode).
-agree. This re-inforces that we should use the churned state
-
->
->         This behavior (don't pass traffic if no 802.3ad setup occurs)
-> also parallels the behavior of the Cisco switches I use to test bonding
-> (they will not pass traffic across ports of a lacp channel-group if the
-> 802.3ad negotation does not occur), so it seemed appropriate.
-yop, but the switch has to be configured with LACP support.
->
->         I'm checking the standard to see what it says, but I'm also
-> curious if this has some real-world impact, or is just something you
-> happened across?
-this is the case when a switch is not configured with LACP support, and
-a host is attached to it. this is something that happens in a pre release
-environment where a host is tested  (using a switch that has no LACP support).
-The host is then moved to its "real" rack (where the switch has LACP). The host
-is not re-configured between the 2 steps (bonding is always enabled with
-802.3ad mode)
-
->
->         -J
->
+Stephen Hemminger wrote:
+> This driver has unneeded stubs for VLAN filtering.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+> 
 > ---
->         -Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
->
+>  drivers/net/atl1/atl1_main.c   |   25 +------------------------
+> 
+> ---
+>  drivers/net/atl1/atl1_main.c |   33 +--------------------------------
+>  1 file changed, 1 insertion(+), 32 deletions(-)
+> 
+> --- a/drivers/net/atl1/atl1_main.c	2007-06-01 09:21:53.000000000 -0700
+> +++ b/drivers/net/atl1/atl1_main.c	2007-06-01 09:27:53.000000000 -0700
+> @@ -1229,39 +1229,9 @@ static void atl1_vlan_rx_register(struct
+>  	spin_unlock_irqrestore(&adapter->lock, flags);
+>  }
+>  
+> -/* FIXME: justify or remove -- CHS */
+> -static void atl1_vlan_rx_add_vid(struct net_device *netdev, u16 vid)
+> -{
+> -	/* We don't do Vlan filtering */
+> -	return;
+> -}
+> -
+> -/* FIXME: this looks wrong too -- CHS */
+> -static void atl1_vlan_rx_kill_vid(struct net_device *netdev, u16 vid)
+> -{
+> -	struct atl1_adapter *adapter = netdev_priv(netdev);
+> -	unsigned long flags;
+> -
+> -	spin_lock_irqsave(&adapter->lock, flags);
+> -	/* atl1_irq_disable(adapter); */
+> -	vlan_group_set_device(adapter->vlgrp, vid, NULL);
+> -	/* atl1_irq_enable(adapter); */
+> -	spin_unlock_irqrestore(&adapter->lock, flags);
+> -	/* We don't do Vlan filtering */
+> -	return;
+> -}
+> -
+>  static void atl1_restore_vlan(struct atl1_adapter *adapter)
+>  {
+>  	atl1_vlan_rx_register(adapter->netdev, adapter->vlgrp);
+> -	if (adapter->vlgrp) {
+> -		u16 vid;
+> -		for (vid = 0; vid < VLAN_GROUP_ARRAY_LEN; vid++) {
+> -			if (!vlan_group_get_device(adapter->vlgrp, vid))
+> -				continue;
+> -			atl1_vlan_rx_add_vid(adapter->netdev, vid);
+> -		}
+> -	}
+>  }
+>  
+>  static u16 tpd_avail(struct atl1_tpd_ring *tpd_ring)
+> @@ -2203,8 +2173,7 @@ static int __devinit atl1_probe(struct p
+>  	netdev->poll_controller = atl1_poll_controller;
+>  #endif
+>  	netdev->vlan_rx_register = atl1_vlan_rx_register;
+> -	netdev->vlan_rx_add_vid = atl1_vlan_rx_add_vid;
+> -	netdev->vlan_rx_kill_vid = atl1_vlan_rx_kill_vid;
+> +
+>  	netdev->ethtool_ops = &atl1_ethtool_ops;
+>  	adapter->bd_number = cards_found;
+>  	adapter->pci_using_64 = pci_using_64;
+> 
+
+As the comments indicate, I was going to get around to doing this in my 
+Copious Free Time anyway, so:
+
+Acked-By: Chris Snook <csnook@redhat.com>
+
