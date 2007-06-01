@@ -1,124 +1,125 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: Suspicious fackets_out handling
-Date: Fri, 1 Jun 2007 15:17:00 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0706011417430.28601@kivilampi-30.cs.helsinki.fi>
-References: <Pine.LNX.4.64.0704231218440.28337@kivilampi-30.cs.helsinki.fi>
- <20070531.125929.77054675.davem@davemloft.net>
+From: KOVACS Krisztian <hidden@balabit.hu>
+Subject: Re: [IPV4] LVS: Allow to send ICMP unreachable responses when real-servers are removed
+Date: Fri, 1 Jun 2007 14:55:30 +0200
+Message-ID: <200706011455.31220@nienna>
+References: <Pine.LNX.4.58.0705160012470.2626@u.domain.uli> <200705311450.36492@nienna> <Pine.LNX.4.58.0706010123020.2683@u.domain.uli>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; boundary="-696243703-1304717728-1180696801=:28601"
-Cc: Netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, kaber@trash.net,
+	horms@verge.net.au, jkrzyszt@tis.icnet.pl, hidden@sch.bme.hu,
+	netdev@vger.kernel.org
+To: Julian Anastasov <ja@ssi.bg>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:39988 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754799AbXFAMRE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jun 2007 08:17:04 -0400
-In-Reply-To: <20070531.125929.77054675.davem@davemloft.net>
-Content-ID: <Pine.LNX.4.64.0706011424260.28601@kivilampi-30.cs.helsinki.fi>
+Received: from www.balabit.hu ([212.92.18.33]:1717 "EHLO lists.balabit.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754673AbXFAMzg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Jun 2007 08:55:36 -0400
+Received: from balabit.hu (unknown [10.80.0.254])
+	by lists.balabit.hu (Postfix) with ESMTP id AB49CC00E1
+	for <netdev@vger.kernel.org>; Fri,  1 Jun 2007 14:55:33 +0200 (CEST)
+In-Reply-To: <Pine.LNX.4.58.0706010123020.2683@u.domain.uli>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
 
----696243703-1304717728-1180696801=:28601
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
-Content-ID: <Pine.LNX.4.64.0706011424261.28601@kivilampi-30.cs.helsinki.fi>
+  Hi,
 
-On Thu, 31 May 2007, David Miller wrote:
+On Friday 01 June 2007 01:18, Julian Anastasov wrote:
+> 	What about something like this, it even reduces checks
+> in the fast path. You can post new version if the following change
+> looks good to you and to other developers. If additional sign line is
+> needed here it is:
+>
+> Signed-off-by: Julian Anastasov <ja@ssi.bg>
+>
+>[...]
+> 	Or we can go further and to avoid ip_dev_find? For me, this
+> second variant is preferred because calling ip_dev_find() is useless
+> for FLOWI_FLAG_ANYSRC.
 
-> From: "Ilpo_Järvinen" <ilpo.jarvinen@helsinki.fi>
-> Date: Mon, 23 Apr 2007 14:28:21 +0300 (EEST)
-> 
-> > There are IMHO two problems in it. First of all, nothing ensures that the 
-> > skb TCP is fragmenting is actually below the forwardmost sack block (and 
-> > thus is included to the fackets_out)...
+  You're right. Although I don't really like duplicating the ip_dev_find()
+call, it's still better than the previous patch.
 
-...this is so old thing already that I had to refresh my memory, 
-haven't been expecting any answer for ages... :-)
+-- 
+ Regards,
+  Krisztian Kovacs
 
-> Good catch, I agree with your analysis completely.
 
-...I later on understood (from a comment I found elsewhere) that 
-fackets_out is occasionally estimated, rather than exact value (which 
-could be completely fixed in tcp-2.6 due to presence of highest_sack but 
-I'm also considering complete removal of it too, like you probably 
-noticed).
+Loosen source address check on IPv4 output
 
-> > What I'm not sure of though, is how to fix this in net-2.6(.22), it
-> > is due to the fact that there is no pointer/seq which can be used in
-> > testing for it like in tcp-2.6 which has the highest_sack.
-> 
-> We can add highest_sack to 2.6.22 in order to fix a bug like this,
-> if necessary.
+ip_route_output() contains a check to make sure that no flows with
+non-local source IP addresses are routed. This obviously makes using
+such addresses impossible.
 
-...I think we can leave it as estimate for now, it has been like that
-for years and nobody has complained... :-) This problem covers really 
-marginal number of cases anyway I think (isn't the diff usually
-negative: old - new after fragment should be negative unless mss_now 
-bites).
+This patch introduces a flowi flag which makes omitting this check
+possible.
 
-After I found the comments and analyzed some sacked_out code with NewReno, 
-I think that usually these estimates are indicated in the code with 
-tcp_dec_pcount_approx(...) but it wasn't used in this specific case 
-because it inputs skb instead of int, I'll add clarification of this into 
-my tcp-2.6 todo list... 
-
-> > Second problem is even more obvious: if adjustment here is being
-> > done and the sacktag code then uses fastpath at the arrival of the
-> > next ACK, the sacktag code will use a stale value from
-> > fastpath_cnt_hint and fails to notice all that math TCP did here
-> > unless we start clearing fastpath_skb_hint.
-> 
-> Let's try not to clear fastpath_skb_hint here if possible :-)
-
-Np, however, whatever we do, it wouldn't really execute that
-often... :-)
-
-> Is it possible to update fastpath_cnt_hint properly perhaps?
-
-I think that would be valid and even accurate as it can checks skb's
-seq against fastpath_skb_hint->seq. I'm in a hurry and will be a week
-out of reach of internet connectivity but here's quick attempt to deal
-with this cleanly. Compile tested (be extra careful with this one, it's 
-done i a hurry :-)), consider to net-2.6. Considering the marginality of 
-this issue, stable might really be an overkill for this one, only a
-remotely valid concern comes to my mind in this case: possibility
-of fackets_out > packet_out might not be dealt that cleanly everywhere 
-(but I'm sure that you can come to a good decicion about it):
-
-[PATCH] [TCP]: SACK fastpath did override adjusted fackets_out
-
-Do same adjustment to SACK fastpath counters provided that
-they're valid.
-
-Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+Signed-off-by: KOVACS Krisztian <hidden@balabit.hu>
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
 ---
- net/ipv4/tcp_output.c |    9 +++++++++
- 1 files changed, 9 insertions(+), 0 deletions(-)
 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 53232dd..f24dd36 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -699,6 +699,15 @@ int tcp_fragment(struct sock *sk, struct sk_buff *skb, u32 len, unsigned int mss
- 			tp->fackets_out -= diff;
- 			if ((int)tp->fackets_out < 0)
- 				tp->fackets_out = 0;
-+			/* SACK fastpath might overwrite it unless dealt with */
-+			if (tp->fastpath_skb_hint != NULL &&
-+			    after(TCP_SKB_CB(tp->fastpath_skb_hint)->seq,
-+				  TCP_SKB_CB(skb)->seq)) {
-+				tp->fastpath_cnt_hint -= diff;
-+				if ((int)tp->fastpath_cnt_hint < 0)
-+					tp->fastpath_cnt_hint = 0;
-+				  
-+			}
+ include/net/flow.h |    1 +
+ net/ipv4/route.c   |   20 +++++++++++++-------
+ 2 files changed, 14 insertions(+), 7 deletions(-)
+
+diff --git a/include/net/flow.h b/include/net/flow.h
+index f3cc1f8..1bfc0dc 100644
+--- a/include/net/flow.h
++++ b/include/net/flow.h
+@@ -49,6 +49,7 @@ struct flowi {
+ 	__u8	proto;
+ 	__u8	flags;
+ #define FLOWI_FLAG_MULTIPATHOLDROUTE 0x01
++#define FLOWI_FLAG_ANYSRC 0x02
+ 	union {
+ 		struct {
+ 			__be16	sport;
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 8603cfb..4acd3de 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -2394,11 +2394,6 @@ static int ip_route_output_slow(struct rtable **rp, const struct flowi *oldflp)
+ 		    ZERONET(oldflp->fl4_src))
+ 			goto out;
+ 
+-		/* It is equivalent to inet_addr_type(saddr) == RTN_LOCAL */
+-		dev_out = ip_dev_find(oldflp->fl4_src);
+-		if (dev_out == NULL)
+-			goto out;
+-
+ 		/* I removed check for oif == dev_out->oif here.
+ 		   It was wrong for two reasons:
+ 		   1. ip_dev_find(saddr) can return wrong iface, if saddr is
+@@ -2409,6 +2404,11 @@ static int ip_route_output_slow(struct rtable **rp, const struct flowi *oldflp)
+ 
+ 		if (oldflp->oif == 0
+ 		    && (MULTICAST(oldflp->fl4_dst) || oldflp->fl4_dst == htonl(0xFFFFFFFF))) {
++			/* It is equivalent to inet_addr_type(saddr) == RTN_LOCAL */
++			dev_out = ip_dev_find(oldflp->fl4_src);
++			if (dev_out == NULL)
++				goto out;
++
+ 			/* Special hack: user can direct multicasts
+ 			   and limited broadcast via necessary interface
+ 			   without fiddling with IP_MULTICAST_IF or IP_PKTINFO.
+@@ -2427,9 +2427,15 @@ static int ip_route_output_slow(struct rtable **rp, const struct flowi *oldflp)
+ 			fl.oif = dev_out->ifindex;
+ 			goto make_route;
  		}
+-		if (dev_out)
++
++		if (!(oldflp->flags & FLOWI_FLAG_ANYSRC)) {
++			/* It is equivalent to inet_addr_type(saddr) == RTN_LOCAL */
++			dev_out = ip_dev_find(oldflp->fl4_src);
++			if (dev_out == NULL)
++				goto out;
+ 			dev_put(dev_out);
+-		dev_out = NULL;
++			dev_out = NULL;
++		}
  	}
  
--- 
-1.5.0.6
-
----696243703-1304717728-1180696801=:28601--
+ 
