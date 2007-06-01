@@ -1,44 +1,58 @@
-From: =?iso-8859-1?b?RW1tYW51ZWwgRnVzdOk=?= <emmanuel.fuste@laposte.net>
-Subject: Re: [PCNET32] Lock solid with netconsole
-Date: Fri,  1 Jun 2007 13:21:36 +0200
-Message-ID: <JIYFK0$B8CAA66FE1370ED3888684BC888C4946@laposte.net>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH] [TCP]: Fix GSO ignorance of pkts_acked arg (cong.cntrl
+ modules)
+Date: Fri, 1 Jun 2007 14:22:55 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0706011414490.28601@kivilampi-30.cs.helsinki.fi>
+References: <20070529131951.1d9a5b84@freepuppy>
+ <Pine.LNX.4.64.0705292335080.23565@kivilampi-30.cs.helsinki.fi>
+ <Pine.LNX.4.64.0705301206130.14736@kivilampi-30.cs.helsinki.fi>
+ <20070531.213834.80026176.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "tsbogend" <tsbogend@alpha.franken.de>,
-	"lsorense" <lsorense@csclub.uwaterloo.ca>,
-	"pcnet32" <pcnet32@verizon.net>, "netdev" <netdev@vger.kernel.org>
-To: "romieu" <romieu@fr.zoreil.com>
+Content-Type: MULTIPART/MIXED; boundary="-696243703-1301103987-1180696626=:28601"
+Cc: Netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.laposte.net ([81.255.54.16]:14450 "EHLO mx.laposte.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750719AbXFALWC convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jun 2007 07:22:02 -0400
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:52140 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753226AbXFALW5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jun 2007 07:22:57 -0400
+In-Reply-To: <20070531.213834.80026176.davem@davemloft.net>
+Content-ID: <Pine.LNX.4.64.0706011420540.28601@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+
+---696243703-1301103987-1180696626=:28601
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
+Content-ID: <Pine.LNX.4.64.0706011420541.28601@kivilampi-30.cs.helsinki.fi>
+
+On Thu, 31 May 2007, David Miller wrote:
+
+> From: "Ilpo_Järvinen" <ilpo.jarvinen@helsinki.fi>
+> Date: Wed, 30 May 2007 12:10:06 +0300 (EEST)
+> 
+> > [PATCH] [TCP]: Fix GSO ignorance of pkts_acked arg (cong.cntrl modules)
+> > 
+> > The code used to ignore GSO completely, passing either way too
+> > small or zero pkts_acked when GSO skb or part of it got ACKed.
+> > In addition, there is no need to calculate the value in the loop
+> > but simple arithmetics after the loop is sufficient. There is
+> > no need to handle SYN case specially because congestion control
+> > modules are not yet initialized when FLAG_SYN_ACKED is set.
+> > 
+> > Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+> 
+> Patch applied, thanks a lot!
+
+...It's good to be on the alert with this one because it might uncover
+some hidden bugs from congestion control module code (it changes some 
+behavior so radically), which obviously will have to be then fixed
+too...
 
 
-> Emmanuel Fust=E9 <emmanuel.fuste@laposte.net> :
-> [..]
-> > Could this bug fix from Stephen Hemminger be another track to follo=
-w ?
-> > http://marc.info/?l=3Dlinux-netdev&m=3D118048588011069&w=3D2
-> > If you think so, I could give it a try whitout applying the "spin_l=
-ock_irqsave" patch.
->=20
-> You can apply it too but Stephen's patch addresses a different issue =
-and
-> pcnet32 does not use netif_tx_locking (it could/should though).
-
-Hello,
-Did you plan to submit the "spin_lock_irqsave" patch to mainline ? or w=
-e have to wait for a "real" fix ?
-
-Thanks,
-Emmanuel.
----
-
-Cr=E9ez votre adresse =E9lectronique prenom.nom@laposte.net=20
-1 Go d'espace de stockage, anti-spam et anti-virus int=E9gr=E9s.
-
+-- 
+ i.
+---696243703-1301103987-1180696626=:28601--
