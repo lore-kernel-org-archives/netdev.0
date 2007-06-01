@@ -1,66 +1,49 @@
-From: "Laurent Chavey" <chavey@google.com>
-Subject: [PATCH 2.6.21.3] bonding: Fix 802.3ad no carrier on "no partner found" instance
-Date: Fri, 1 Jun 2007 13:16:02 -0700
-Message-ID: <97949e3e0706011316n5d90bb04kf3a2c556af3fbe9d@mail.gmail.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 7/7] cxgb3 - Add SW LRO support
+Date: Fri, 01 Jun 2007 16:37:57 -0400
+Message-ID: <466083A5.2080404@garzik.org>
+References: <20070225004423.20903.17036.stgit@localhost.localdomain>	 <20070226051304.GA13626@infradead.org>	 <1172585835.11870.13.camel@stevo-desktop>  <45E445D2.2090900@garzik.org> <1172588246.11870.24.camel@stevo-desktop> <45E45C6E.3000504@myri.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: Christoph Hellwig <hch@infradead.org>,
+	Steve Wise <swise@opengridcomputing.com>, divy@chelsio.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Brice Goglin <brice@myri.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.45.13]:33066 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1763279AbXFAUQP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jun 2007 16:16:15 -0400
-Received: from zps35.corp.google.com (zps35.corp.google.com [172.25.146.35])
-	by smtp-out.google.com with ESMTP id l51KGBuS031337
-	for <netdev@vger.kernel.org>; Fri, 1 Jun 2007 13:16:11 -0700
-Received: from ik-out-1112.google.com (ikab32.prod.google.com [10.68.53.32])
-	by zps35.corp.google.com with ESMTP id l51KFaYG020933
-	for <netdev@vger.kernel.org>; Fri, 1 Jun 2007 13:16:02 -0700
-Received: by ik-out-1112.google.com with SMTP id b32so623285ika
-        for <netdev@vger.kernel.org>; Fri, 01 Jun 2007 13:16:02 -0700 (PDT)
-Content-Disposition: inline
+Received: from srv5.dvmed.net ([207.36.208.214]:55709 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1762365AbXFAUiD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Jun 2007 16:38:03 -0400
+In-Reply-To: <45E45C6E.3000504@myri.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Remove the requirement to have at least one configured partner to
-enable the operation of links. The later is necessary to have the code
-in compliance with section 43.3.9 of IEEE 802.3,
+Brice Goglin wrote:
+> Steve Wise wrote:
+>> You're right.  But cxgb3 has it now in the driver (tested and working).
+>> Shouldn't it be pulled in?  When the network stack design gets done
+>> (which could take a few releases to finalize), all the drivers can be
+>> updated to use it.  It doesn't seem reasonable to allow some drivers to
+>> support LRO and others to not support it...
+>>   
+> 
+> I have to agree with Steve here. We have been requesting the inclusion
+> of myri10ge LRO for 5 months now (before 2.6.19). I could understand
+> that duplicating LRO code between s2io and myri10ge was not a good idea
+> at this point. But, I now see that Netxen got merged way later (in
+> 2.6.20) but it got its LRO merged immediately. I guess the LRO is
+> already duplicated between s2io and netxen then. It does not look fair
+> to me at all.
 
-Signed-off-by: Laurent Chavey <chavey@google.com>
---
+It was an error on my part, that should not be compounded.  Three wrongs 
+don't make a right, etc., etc.
 
-diff -ru linux-2.6.21.3/drivers/net/bonding/bond_3ad.c
-linux-2.6.21.3.new/drivers/net/bonding/bond_3ad.c
---- linux-2.6.21.3/drivers/net/bonding/bond_3ad.c       2007-05-24
-14:22:47.000000000 -0700
-+++ linux-2.6.21.3.new/drivers/net/bonding/bond_3ad.c   2007-06-01
-12:41:57.000000000 -0700
-@@ -2303,19 +2303,17 @@
- }
+The normal way this stuff works in Linux is that people work together to 
+create common code that everybody uses.  I would gladly accept patches 
+to rip out the code from NetXen.
 
- /*
-- * set link state for bonding master: if we have an active partnered
-+ * set link state for bonding master: if we have an active
-  * aggregator, we're up, if not, we're down.  Presumes that we cannot
-  * have an active aggregator if there are no slaves with link up.
-+ * Code is implementing compliance with section 43.3.9 of IEEE 802.3.
-  *
-  * Called by bond_set_carrier(). Return zero if carrier state does not
-  * change, nonzero if it does.
-  */
- int bond_3ad_set_carrier(struct bonding *bond)
- {
--       struct aggregator *agg;
--
--       agg = __get_active_agg(&(SLAVE_AD_INFO(bond->first_slave).aggregator));
--       if (agg && MAC_ADDRESS_COMPARE(&agg->partner_system, &null_mac_addr)) {
-+       if (__get_active_agg(&(SLAVE_AD_INFO(bond->first_slave).aggregator))) {
-                if (!netif_carrier_ok(bond->dev)) {
-                        netif_carrier_on(bond->dev);
-                        return 1;
-@@ -2468,4 +2466,3 @@
+	Jeff
 
-        return ret;
- }
--
+
+
