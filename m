@@ -1,563 +1,124 @@
-From: Frederik Deweerdt <deweerdt@free.fr>
-Subject: Re: [Oops] unix_dgram_connect locking problem?
-Date: Fri, 1 Jun 2007 13:34:30 +0200
-Message-ID: <20070601113429.GA22809@slug>
-References: <20070511150014.GF23638@slug> <20070531.152227.53338417.davem@davemloft.net>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: Suspicious fackets_out handling
+Date: Fri, 1 Jun 2007 15:17:00 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0706011417430.28601@kivilampi-30.cs.helsinki.fi>
+References: <Pine.LNX.4.64.0704231218440.28337@kivilampi-30.cs.helsinki.fi>
+ <20070531.125929.77054675.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, eparis@redhat.com
+Content-Type: MULTIPART/MIXED; boundary="-696243703-1304717728-1180696801=:28601"
+Cc: Netdev <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qb-out-0506.google.com ([72.14.204.229]:26473 "EHLO
-	qb-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755700AbXFALgX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jun 2007 07:36:23 -0400
-Received: by qb-out-0506.google.com with SMTP id z8so256982qbc
-        for <netdev@vger.kernel.org>; Fri, 01 Jun 2007 04:36:21 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20070531.152227.53338417.davem@davemloft.net>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:39988 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754799AbXFAMRE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jun 2007 08:17:04 -0400
+In-Reply-To: <20070531.125929.77054675.davem@davemloft.net>
+Content-ID: <Pine.LNX.4.64.0706011424260.28601@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, May 31, 2007 at 03:22:27PM -0700, David Miller wrote:
-> From: Frederik Deweerdt <deweerdt@free.fr>
-> Date: Fri, 11 May 2007 17:00:14 +0200
-> 
-> > I'm seeing an Oops[1] with a 2.6.19.2 kernel:
-> 
-> Frederik, I finally was able to spend some quality time on
-> this issue today.  Sorry for taking so long.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Thank you for handling this David. I going to be offline for two weeks,
-but I'll be able to report tests results after that.
+---696243703-1304717728-1180696801=:28601
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
+Content-ID: <Pine.LNX.4.64.0706011424261.28601@kivilampi-30.cs.helsinki.fi>
 
-Regards,
-Frederik
+On Thu, 31 May 2007, David Miller wrote:
 
-> I came up with a series of two patches, the first one makes
-> the locking easier to understand by fixing the unix_sock_*()
-> lock macro names.
+> From: "Ilpo_Järvinen" <ilpo.jarvinen@helsinki.fi>
+> Date: Mon, 23 Apr 2007 14:28:21 +0300 (EEST)
 > 
-> The second patch fixes this race conditon by properly holding
-> both socket locks, being careful to avoid deadlocks, and
-> checking for possible SOCK_DEAD state.
+> > There are IMHO two problems in it. First of all, nothing ensures that the 
+> > skb TCP is fragmenting is actually below the forwardmost sack block (and 
+> > thus is included to the fackets_out)...
+
+...this is so old thing already that I had to refresh my memory, 
+haven't been expecting any answer for ages... :-)
+
+> Good catch, I agree with your analysis completely.
+
+...I later on understood (from a comment I found elsewhere) that 
+fackets_out is occasionally estimated, rather than exact value (which 
+could be completely fixed in tcp-2.6 due to presence of highest_sack but 
+I'm also considering complete removal of it too, like you probably 
+noticed).
+
+> > What I'm not sure of though, is how to fix this in net-2.6(.22), it
+> > is due to the fact that there is no pointer/seq which can be used in
+> > testing for it like in tcp-2.6 which has the highest_sack.
 > 
-> --------------------
-> commit d410b81b4eef2e4409f9c38ef201253fbbcc7d94
-> Author: David S. Miller <davem@sunset.davemloft.net>
-> Date:   Thu May 31 13:24:26 2007 -0700
+> We can add highest_sack to 2.6.22 in order to fix a bug like this,
+> if necessary.
+
+...I think we can leave it as estimate for now, it has been like that
+for years and nobody has complained... :-) This problem covers really 
+marginal number of cases anyway I think (isn't the diff usually
+negative: old - new after fragment should be negative unless mss_now 
+bites).
+
+After I found the comments and analyzed some sacked_out code with NewReno, 
+I think that usually these estimates are indicated in the code with 
+tcp_dec_pcount_approx(...) but it wasn't used in this specific case 
+because it inputs skb instead of int, I'll add clarification of this into 
+my tcp-2.6 todo list... 
+
+> > Second problem is even more obvious: if adjustment here is being
+> > done and the sacktag code then uses fastpath at the arrival of the
+> > next ACK, the sacktag code will use a stale value from
+> > fastpath_cnt_hint and fails to notice all that math TCP did here
+> > unless we start clearing fastpath_skb_hint.
 > 
->     [AF_UNIX]: Make socket locking much less confusing.
->     
->     The unix_state_*() locking macros imply that there is some
->     rwlock kind of thing going on, but the implementation is
->     actually a spinlock which makes the code more confusing than
->     it needs to be.
->     
->     So use plain unix_state_lock and unix_state_unlock.
->     
->     Signed-off-by: David S. Miller <davem@davemloft.net>
-> 
-> diff --git a/include/net/af_unix.h b/include/net/af_unix.h
-> index c0398f5..65f49fd 100644
-> --- a/include/net/af_unix.h
-> +++ b/include/net/af_unix.h
-> @@ -62,13 +62,11 @@ struct unix_skb_parms {
->  #define UNIXCREDS(skb)	(&UNIXCB((skb)).creds)
->  #define UNIXSID(skb)	(&UNIXCB((skb)).secid)
->  
-> -#define unix_state_rlock(s)	spin_lock(&unix_sk(s)->lock)
-> -#define unix_state_runlock(s)	spin_unlock(&unix_sk(s)->lock)
-> -#define unix_state_wlock(s)	spin_lock(&unix_sk(s)->lock)
-> -#define unix_state_wlock_nested(s) \
-> +#define unix_state_lock(s)	spin_lock(&unix_sk(s)->lock)
-> +#define unix_state_unlock(s)	spin_unlock(&unix_sk(s)->lock)
-> +#define unix_state_lock_nested(s) \
->  				spin_lock_nested(&unix_sk(s)->lock, \
->  				SINGLE_DEPTH_NESTING)
-> -#define unix_state_wunlock(s)	spin_unlock(&unix_sk(s)->lock)
->  
->  #ifdef __KERNEL__
->  /* The AF_UNIX socket */
-> diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-> index fc12ba5..453ede8 100644
-> --- a/net/unix/af_unix.c
-> +++ b/net/unix/af_unix.c
-> @@ -174,11 +174,11 @@ static struct sock *unix_peer_get(struct sock *s)
->  {
->  	struct sock *peer;
->  
-> -	unix_state_rlock(s);
-> +	unix_state_lock(s);
->  	peer = unix_peer(s);
->  	if (peer)
->  		sock_hold(peer);
-> -	unix_state_runlock(s);
-> +	unix_state_unlock(s);
->  	return peer;
->  }
->  
-> @@ -369,7 +369,7 @@ static int unix_release_sock (struct sock *sk, int embrion)
->  	unix_remove_socket(sk);
->  
->  	/* Clear state */
-> -	unix_state_wlock(sk);
-> +	unix_state_lock(sk);
->  	sock_orphan(sk);
->  	sk->sk_shutdown = SHUTDOWN_MASK;
->  	dentry	     = u->dentry;
-> @@ -378,7 +378,7 @@ static int unix_release_sock (struct sock *sk, int embrion)
->  	u->mnt	     = NULL;
->  	state = sk->sk_state;
->  	sk->sk_state = TCP_CLOSE;
-> -	unix_state_wunlock(sk);
-> +	unix_state_unlock(sk);
->  
->  	wake_up_interruptible_all(&u->peer_wait);
->  
-> @@ -386,12 +386,12 @@ static int unix_release_sock (struct sock *sk, int embrion)
->  
->  	if (skpair!=NULL) {
->  		if (sk->sk_type == SOCK_STREAM || sk->sk_type == SOCK_SEQPACKET) {
-> -			unix_state_wlock(skpair);
-> +			unix_state_lock(skpair);
->  			/* No more writes */
->  			skpair->sk_shutdown = SHUTDOWN_MASK;
->  			if (!skb_queue_empty(&sk->sk_receive_queue) || embrion)
->  				skpair->sk_err = ECONNRESET;
-> -			unix_state_wunlock(skpair);
-> +			unix_state_unlock(skpair);
->  			skpair->sk_state_change(skpair);
->  			read_lock(&skpair->sk_callback_lock);
->  			sk_wake_async(skpair,1,POLL_HUP);
-> @@ -448,7 +448,7 @@ static int unix_listen(struct socket *sock, int backlog)
->  	err = -EINVAL;
->  	if (!u->addr)
->  		goto out;			/* No listens on an unbound socket */
-> -	unix_state_wlock(sk);
-> +	unix_state_lock(sk);
->  	if (sk->sk_state != TCP_CLOSE && sk->sk_state != TCP_LISTEN)
->  		goto out_unlock;
->  	if (backlog > sk->sk_max_ack_backlog)
-> @@ -462,7 +462,7 @@ static int unix_listen(struct socket *sock, int backlog)
->  	err = 0;
->  
->  out_unlock:
-> -	unix_state_wunlock(sk);
-> +	unix_state_unlock(sk);
->  out:
->  	return err;
->  }
-> @@ -881,7 +881,7 @@ static int unix_dgram_connect(struct socket *sock, struct sockaddr *addr,
->  		if (!other)
->  			goto out;
->  
-> -		unix_state_wlock(sk);
-> +		unix_state_lock(sk);
->  
->  		err = -EPERM;
->  		if (!unix_may_send(sk, other))
-> @@ -896,7 +896,7 @@ static int unix_dgram_connect(struct socket *sock, struct sockaddr *addr,
->  		 *	1003.1g breaking connected state with AF_UNSPEC
->  		 */
->  		other = NULL;
-> -		unix_state_wlock(sk);
-> +		unix_state_lock(sk);
->  	}
->  
->  	/*
-> @@ -905,19 +905,19 @@ static int unix_dgram_connect(struct socket *sock, struct sockaddr *addr,
->  	if (unix_peer(sk)) {
->  		struct sock *old_peer = unix_peer(sk);
->  		unix_peer(sk)=other;
-> -		unix_state_wunlock(sk);
-> +		unix_state_unlock(sk);
->  
->  		if (other != old_peer)
->  			unix_dgram_disconnected(sk, old_peer);
->  		sock_put(old_peer);
->  	} else {
->  		unix_peer(sk)=other;
-> -		unix_state_wunlock(sk);
-> +		unix_state_unlock(sk);
->  	}
->  	return 0;
->  
->  out_unlock:
-> -	unix_state_wunlock(sk);
-> +	unix_state_unlock(sk);
->  	sock_put(other);
->  out:
->  	return err;
-> @@ -936,7 +936,7 @@ static long unix_wait_for_peer(struct sock *other, long timeo)
->  		(skb_queue_len(&other->sk_receive_queue) >
->  		 other->sk_max_ack_backlog);
->  
-> -	unix_state_runlock(other);
-> +	unix_state_unlock(other);
->  
->  	if (sched)
->  		timeo = schedule_timeout(timeo);
-> @@ -994,11 +994,11 @@ restart:
->  		goto out;
->  
->  	/* Latch state of peer */
-> -	unix_state_rlock(other);
-> +	unix_state_lock(other);
->  
->  	/* Apparently VFS overslept socket death. Retry. */
->  	if (sock_flag(other, SOCK_DEAD)) {
-> -		unix_state_runlock(other);
-> +		unix_state_unlock(other);
->  		sock_put(other);
->  		goto restart;
->  	}
-> @@ -1048,18 +1048,18 @@ restart:
->  		goto out_unlock;
->  	}
->  
-> -	unix_state_wlock_nested(sk);
-> +	unix_state_lock_nested(sk);
->  
->  	if (sk->sk_state != st) {
-> -		unix_state_wunlock(sk);
-> -		unix_state_runlock(other);
-> +		unix_state_unlock(sk);
-> +		unix_state_unlock(other);
->  		sock_put(other);
->  		goto restart;
->  	}
->  
->  	err = security_unix_stream_connect(sock, other->sk_socket, newsk);
->  	if (err) {
-> -		unix_state_wunlock(sk);
-> +		unix_state_unlock(sk);
->  		goto out_unlock;
->  	}
->  
-> @@ -1096,7 +1096,7 @@ restart:
->  	smp_mb__after_atomic_inc();	/* sock_hold() does an atomic_inc() */
->  	unix_peer(sk)	= newsk;
->  
-> -	unix_state_wunlock(sk);
-> +	unix_state_unlock(sk);
->  
->  	/* take ten and and send info to listening sock */
->  	spin_lock(&other->sk_receive_queue.lock);
-> @@ -1105,14 +1105,14 @@ restart:
->  	 * is installed to listening socket. */
->  	atomic_inc(&newu->inflight);
->  	spin_unlock(&other->sk_receive_queue.lock);
-> -	unix_state_runlock(other);
-> +	unix_state_unlock(other);
->  	other->sk_data_ready(other, 0);
->  	sock_put(other);
->  	return 0;
->  
->  out_unlock:
->  	if (other)
-> -		unix_state_runlock(other);
-> +		unix_state_unlock(other);
->  
->  out:
->  	if (skb)
-> @@ -1178,10 +1178,10 @@ static int unix_accept(struct socket *sock, struct socket *newsock, int flags)
->  	wake_up_interruptible(&unix_sk(sk)->peer_wait);
->  
->  	/* attach accepted sock to socket */
-> -	unix_state_wlock(tsk);
-> +	unix_state_lock(tsk);
->  	newsock->state = SS_CONNECTED;
->  	sock_graft(tsk, newsock);
-> -	unix_state_wunlock(tsk);
-> +	unix_state_unlock(tsk);
->  	return 0;
->  
->  out:
-> @@ -1208,7 +1208,7 @@ static int unix_getname(struct socket *sock, struct sockaddr *uaddr, int *uaddr_
->  	}
->  
->  	u = unix_sk(sk);
-> -	unix_state_rlock(sk);
-> +	unix_state_lock(sk);
->  	if (!u->addr) {
->  		sunaddr->sun_family = AF_UNIX;
->  		sunaddr->sun_path[0] = 0;
-> @@ -1219,7 +1219,7 @@ static int unix_getname(struct socket *sock, struct sockaddr *uaddr, int *uaddr_
->  		*uaddr_len = addr->len;
->  		memcpy(sunaddr, addr->name, *uaddr_len);
->  	}
-> -	unix_state_runlock(sk);
-> +	unix_state_unlock(sk);
->  	sock_put(sk);
->  out:
->  	return err;
-> @@ -1337,7 +1337,7 @@ restart:
->  			goto out_free;
->  	}
->  
-> -	unix_state_rlock(other);
-> +	unix_state_lock(other);
->  	err = -EPERM;
->  	if (!unix_may_send(sk, other))
->  		goto out_unlock;
-> @@ -1347,20 +1347,20 @@ restart:
->  		 *	Check with 1003.1g - what should
->  		 *	datagram error
->  		 */
-> -		unix_state_runlock(other);
-> +		unix_state_unlock(other);
->  		sock_put(other);
->  
->  		err = 0;
-> -		unix_state_wlock(sk);
-> +		unix_state_lock(sk);
->  		if (unix_peer(sk) == other) {
->  			unix_peer(sk)=NULL;
-> -			unix_state_wunlock(sk);
-> +			unix_state_unlock(sk);
->  
->  			unix_dgram_disconnected(sk, other);
->  			sock_put(other);
->  			err = -ECONNREFUSED;
->  		} else {
-> -			unix_state_wunlock(sk);
-> +			unix_state_unlock(sk);
->  		}
->  
->  		other = NULL;
-> @@ -1397,14 +1397,14 @@ restart:
->  	}
->  
->  	skb_queue_tail(&other->sk_receive_queue, skb);
-> -	unix_state_runlock(other);
-> +	unix_state_unlock(other);
->  	other->sk_data_ready(other, len);
->  	sock_put(other);
->  	scm_destroy(siocb->scm);
->  	return len;
->  
->  out_unlock:
-> -	unix_state_runlock(other);
-> +	unix_state_unlock(other);
->  out_free:
->  	kfree_skb(skb);
->  out:
-> @@ -1494,14 +1494,14 @@ static int unix_stream_sendmsg(struct kiocb *kiocb, struct socket *sock,
->  			goto out_err;
->  		}
->  
-> -		unix_state_rlock(other);
-> +		unix_state_lock(other);
->  
->  		if (sock_flag(other, SOCK_DEAD) ||
->  		    (other->sk_shutdown & RCV_SHUTDOWN))
->  			goto pipe_err_free;
->  
->  		skb_queue_tail(&other->sk_receive_queue, skb);
-> -		unix_state_runlock(other);
-> +		unix_state_unlock(other);
->  		other->sk_data_ready(other, size);
->  		sent+=size;
->  	}
-> @@ -1512,7 +1512,7 @@ static int unix_stream_sendmsg(struct kiocb *kiocb, struct socket *sock,
->  	return sent;
->  
->  pipe_err_free:
-> -	unix_state_runlock(other);
-> +	unix_state_unlock(other);
->  	kfree_skb(skb);
->  pipe_err:
->  	if (sent==0 && !(msg->msg_flags&MSG_NOSIGNAL))
-> @@ -1641,7 +1641,7 @@ static long unix_stream_data_wait(struct sock * sk, long timeo)
->  {
->  	DEFINE_WAIT(wait);
->  
-> -	unix_state_rlock(sk);
-> +	unix_state_lock(sk);
->  
->  	for (;;) {
->  		prepare_to_wait(sk->sk_sleep, &wait, TASK_INTERRUPTIBLE);
-> @@ -1654,14 +1654,14 @@ static long unix_stream_data_wait(struct sock * sk, long timeo)
->  			break;
->  
->  		set_bit(SOCK_ASYNC_WAITDATA, &sk->sk_socket->flags);
-> -		unix_state_runlock(sk);
-> +		unix_state_unlock(sk);
->  		timeo = schedule_timeout(timeo);
-> -		unix_state_rlock(sk);
-> +		unix_state_lock(sk);
->  		clear_bit(SOCK_ASYNC_WAITDATA, &sk->sk_socket->flags);
->  	}
->  
->  	finish_wait(sk->sk_sleep, &wait);
-> -	unix_state_runlock(sk);
-> +	unix_state_unlock(sk);
->  	return timeo;
->  }
->  
-> @@ -1816,12 +1816,12 @@ static int unix_shutdown(struct socket *sock, int mode)
->  	mode = (mode+1)&(RCV_SHUTDOWN|SEND_SHUTDOWN);
->  
->  	if (mode) {
-> -		unix_state_wlock(sk);
-> +		unix_state_lock(sk);
->  		sk->sk_shutdown |= mode;
->  		other=unix_peer(sk);
->  		if (other)
->  			sock_hold(other);
-> -		unix_state_wunlock(sk);
-> +		unix_state_unlock(sk);
->  		sk->sk_state_change(sk);
->  
->  		if (other &&
-> @@ -1833,9 +1833,9 @@ static int unix_shutdown(struct socket *sock, int mode)
->  				peer_mode |= SEND_SHUTDOWN;
->  			if (mode&SEND_SHUTDOWN)
->  				peer_mode |= RCV_SHUTDOWN;
-> -			unix_state_wlock(other);
-> +			unix_state_lock(other);
->  			other->sk_shutdown |= peer_mode;
-> -			unix_state_wunlock(other);
-> +			unix_state_unlock(other);
->  			other->sk_state_change(other);
->  			read_lock(&other->sk_callback_lock);
->  			if (peer_mode == SHUTDOWN_MASK)
-> @@ -1973,7 +1973,7 @@ static int unix_seq_show(struct seq_file *seq, void *v)
->  	else {
->  		struct sock *s = v;
->  		struct unix_sock *u = unix_sk(s);
-> -		unix_state_rlock(s);
-> +		unix_state_lock(s);
->  
->  		seq_printf(seq, "%p: %08X %08X %08X %04X %02X %5lu",
->  			s,
-> @@ -2001,7 +2001,7 @@ static int unix_seq_show(struct seq_file *seq, void *v)
->  			for ( ; i < len; i++)
->  				seq_putc(seq, u->addr->name->sun_path[i]);
->  		}
-> -		unix_state_runlock(s);
-> +		unix_state_unlock(s);
->  		seq_putc(seq, '\n');
->  	}
->  
-> --------------------
-> commit 19fec3e807a487415e77113cb9dbdaa2da739836
-> Author: David S. Miller <davem@sunset.davemloft.net>
-> Date:   Thu May 31 15:19:20 2007 -0700
-> 
->     [AF_UNIX]: Fix datagram connect race causing an OOPS.
->     
->     Based upon an excellent bug report and initial patch by
->     Frederik Deweerdt.
->     
->     The UNIX datagram connect code blindly dereferences other->sk_socket
->     via the call down to the security_unix_may_send() function.
->     
->     Without locking 'other' that pointer can go NULL via unix_release_sock()
->     which does sock_orphan() which also marks the socket SOCK_DEAD.
->     
->     So we have to lock both 'sk' and 'other' yet avoid all kinds of
->     potential deadlocks (connect to self is OK for datagram sockets and it
->     is possible for two datagram sockets to perform a simultaneous connect
->     to each other).  So what we do is have a "double lock" function similar
->     to how we handle this situation in other areas of the kernel.  We take
->     the lock of the socket pointer with the smallest address first in
->     order to avoid ABBA style deadlocks.
->     
->     Once we have them both locked, we check to see if SOCK_DEAD is set
->     for 'other' and if so, drop everything and retry the lookup.
->     
->     Signed-off-by: David S. Miller <davem@davemloft.net>
-> 
-> diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-> index 453ede8..87c794d 100644
-> --- a/net/unix/af_unix.c
-> +++ b/net/unix/af_unix.c
-> @@ -858,6 +858,31 @@ out_mknod_parent:
->  	goto out_up;
->  }
->  
-> +static void unix_state_double_lock(struct sock *sk1, struct sock *sk2)
-> +{
-> +	if (unlikely(sk1 == sk2) || !sk2) {
-> +		unix_state_lock(sk1);
-> +		return;
-> +	}
-> +	if (sk1 < sk2) {
-> +		unix_state_lock(sk1);
-> +		unix_state_lock_nested(sk2);
-> +	} else {
-> +		unix_state_lock(sk2);
-> +		unix_state_lock_nested(sk1);
-> +	}
-> +}
-> +
-> +static void unix_state_double_unlock(struct sock *sk1, struct sock *sk2)
-> +{
-> +	if (unlikely(sk1 == sk2) || !sk2) {
-> +		unix_state_unlock(sk1);
-> +		return;
-> +	}
-> +	unix_state_unlock(sk1);
-> +	unix_state_unlock(sk2);
-> +}
-> +
->  static int unix_dgram_connect(struct socket *sock, struct sockaddr *addr,
->  			      int alen, int flags)
->  {
-> @@ -877,11 +902,19 @@ static int unix_dgram_connect(struct socket *sock, struct sockaddr *addr,
->  		    !unix_sk(sk)->addr && (err = unix_autobind(sock)) != 0)
->  			goto out;
->  
-> +restart:
->  		other=unix_find_other(sunaddr, alen, sock->type, hash, &err);
->  		if (!other)
->  			goto out;
->  
-> -		unix_state_lock(sk);
-> +		unix_state_double_lock(sk, other);
-> +
-> +		/* Apparently VFS overslept socket death. Retry. */
-> +		if (sock_flag(other, SOCK_DEAD)) {
-> +			unix_state_double_unlock(sk, other);
-> +			sock_put(other);
-> +			goto restart;
-> +		}
->  
->  		err = -EPERM;
->  		if (!unix_may_send(sk, other))
-> @@ -896,7 +929,7 @@ static int unix_dgram_connect(struct socket *sock, struct sockaddr *addr,
->  		 *	1003.1g breaking connected state with AF_UNSPEC
->  		 */
->  		other = NULL;
-> -		unix_state_lock(sk);
-> +		unix_state_double_lock(sk, other);
->  	}
->  
->  	/*
-> @@ -905,19 +938,19 @@ static int unix_dgram_connect(struct socket *sock, struct sockaddr *addr,
->  	if (unix_peer(sk)) {
->  		struct sock *old_peer = unix_peer(sk);
->  		unix_peer(sk)=other;
-> -		unix_state_unlock(sk);
-> +		unix_state_double_unlock(sk, other);
->  
->  		if (other != old_peer)
->  			unix_dgram_disconnected(sk, old_peer);
->  		sock_put(old_peer);
->  	} else {
->  		unix_peer(sk)=other;
-> -		unix_state_unlock(sk);
-> +		unix_state_double_unlock(sk, other);
->  	}
->  	return 0;
->  
->  out_unlock:
-> -	unix_state_unlock(sk);
-> +	unix_state_double_unlock(sk, other);
->  	sock_put(other);
->  out:
->  	return err;
-> --------------------
-> 
+> Let's try not to clear fastpath_skb_hint here if possible :-)
+
+Np, however, whatever we do, it wouldn't really execute that
+often... :-)
+
+> Is it possible to update fastpath_cnt_hint properly perhaps?
+
+I think that would be valid and even accurate as it can checks skb's
+seq against fastpath_skb_hint->seq. I'm in a hurry and will be a week
+out of reach of internet connectivity but here's quick attempt to deal
+with this cleanly. Compile tested (be extra careful with this one, it's 
+done i a hurry :-)), consider to net-2.6. Considering the marginality of 
+this issue, stable might really be an overkill for this one, only a
+remotely valid concern comes to my mind in this case: possibility
+of fackets_out > packet_out might not be dealt that cleanly everywhere 
+(but I'm sure that you can come to a good decicion about it):
+
+[PATCH] [TCP]: SACK fastpath did override adjusted fackets_out
+
+Do same adjustment to SACK fastpath counters provided that
+they're valid.
+
+Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+---
+ net/ipv4/tcp_output.c |    9 +++++++++
+ 1 files changed, 9 insertions(+), 0 deletions(-)
+
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 53232dd..f24dd36 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -699,6 +699,15 @@ int tcp_fragment(struct sock *sk, struct sk_buff *skb, u32 len, unsigned int mss
+ 			tp->fackets_out -= diff;
+ 			if ((int)tp->fackets_out < 0)
+ 				tp->fackets_out = 0;
++			/* SACK fastpath might overwrite it unless dealt with */
++			if (tp->fastpath_skb_hint != NULL &&
++			    after(TCP_SKB_CB(tp->fastpath_skb_hint)->seq,
++				  TCP_SKB_CB(skb)->seq)) {
++				tp->fastpath_cnt_hint -= diff;
++				if ((int)tp->fastpath_cnt_hint < 0)
++					tp->fastpath_cnt_hint = 0;
++				  
++			}
+ 		}
+ 	}
+ 
+-- 
+1.5.0.6
+
+---696243703-1304717728-1180696801=:28601--
