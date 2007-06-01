@@ -1,42 +1,36 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [2/4] [IPV4]: Convert IPv4 devconf to an array
-Date: Sat, 02 Jun 2007 07:47:50 -0400
-Message-ID: <1180784870.4080.14.camel@localhost>
-References: <20070602100132.GA9129@gondor.apana.org.au>
-	 <20070602100252.GB9247@gondor.apana.org.au>
-Reply-To: hadi@cyberus.ca
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [Cbe-oss-dev] [PATCH 0/2] RFC: PS3 network driver
+Date: Fri, 1 Jun 2007 23:05:42 +0200
+Message-ID: <200706012305.43233.arnd@arndb.de>
+References: <20070601142140.2C28.MOKUNO@sm.sony.co.jp> <20070601091259.GA2334@infradead.org> <46604544.4060503@am.sony.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: Geoff Levand <geoffrey.levand@am.sony.com>,
+	Christoph Hellwig <hch@infradead.org>, netdev@vger.kernel.org
+To: cbe-oss-dev@ozlabs.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.235]:30225 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752166AbXFBLry (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jun 2007 07:47:54 -0400
-Received: by wx-out-0506.google.com with SMTP id t15so744443wxc
-        for <netdev@vger.kernel.org>; Sat, 02 Jun 2007 04:47:52 -0700 (PDT)
-In-Reply-To: <20070602100252.GB9247@gondor.apana.org.au>
+Received: from moutng.kundenserver.de ([212.227.126.187]:56959 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752166AbXFBMAt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jun 2007 08:00:49 -0400
+In-Reply-To: <46604544.4060503@am.sony.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2007-02-06 at 20:02 +1000, Herbert Xu wrote:
-> [IPV4]: Convert IPv4 devconf to an array
+On Friday 01 June 2007, Geoff Levand wrote:
 > 
-> This patch converts the ipv4_devconf config members (everything except
-> sysctl) to an array.  This allows easier manipulation which will be
-> needed later on to provide better management of default config values.
+> > What happened to the idea of incorporating support into spidernet?
 > 
+> That is still our goal, but as a first step we want to at least get
+> some Ethernet support included for end users.
 
-Nice.
-What be even nicer (wink, wink) is to be able to generate events when
-these values change. Thomas and I once had long discussions on that
-topic. It could be as primitive as a select()/poll() kicking in
-when /proc/sys/net/ipv4/conf/default changes.
-BTW, the fact select() doesnt kick at all (been a while since i last
-tried) is something that seems to be a bug.
+Right, I agree that having two drivers is a better medium-term solution,
+since the two have diverged significantly already, and getting all
+the PS3 code back into spidernet would probably cause it to
+become less stable and will take much longer than I'd want to
+wait fo having PS3 fully supported.
 
-cheers,
-jamal
-
+	Arnd <><
