@@ -1,82 +1,62 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [ICMP]: Fix icmp_errors_use_inbound_ifaddr sysctl
-Date: Fri, 01 Jun 2007 19:24:18 +0200
-Message-ID: <46605642.7060803@trash.net>
-Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------040709040207000504020601"
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH]: bonding: Fix 802.3ad no carrier on "no partner found" instance
+Date: Fri, 01 Jun 2007 10:30:13 -0700
+Message-ID: <9575.1180719013@death>
+References: <97949e3e0706010933h6921ca72p9858daa229bcfce6@mail.gmail.com>
+Cc: netdev@vger.kernel.org
+To: "Laurent Chavey" <chavey@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:36778 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759055AbXFARZw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jun 2007 13:25:52 -0400
+Received: from e3.ny.us.ibm.com ([32.97.182.143]:42111 "EHLO e3.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760889AbXFARaU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Jun 2007 13:30:20 -0400
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by e3.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l51GRqjE007132
+	for <netdev@vger.kernel.org>; Fri, 1 Jun 2007 12:27:52 -0400
+Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
+	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l51HUGAq519690
+	for <netdev@vger.kernel.org>; Fri, 1 Jun 2007 13:30:16 -0400
+Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
+	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l51HUGWw015764
+	for <netdev@vger.kernel.org>; Fri, 1 Jun 2007 13:30:16 -0400
+In-reply-to: <97949e3e0706010933h6921ca72p9858daa229bcfce6@mail.gmail.com> 
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------040709040207000504020601
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
+Laurent Chavey <chavey@google.com> wrote:
 
-It seems like you missed this patch in the previous thread discussing
-the problem, so here's a resend.
+>On 5/31/07, Laurent Chavey <chavey@google.com> wrote:
+>> if a host configured with 802.3ad bond mode is connected to a switch
+>> that does not support 802.3ad,  then an aggregator is selected as the
+>> active aggregator (first link that has carrier in the slave list).
+>> This is perfectly fine, since it lets at least one of the link become active.
+>> (this was the behavior prior to 2.6.18)
+>>
+>> In 2.6.18 and above, a new check for the partner mac address was added
+>> before an aggregator's carrier is set on. If a host is  configured as
+>> previously
+>> described,  then no links will become active.
+>>
+>> is that the intended behavior ?
 
+	Prior to the change in question, the carrier state of the master
+device was always on, regardless of the state of the slaves (so even if
+things didn't work, bonding would claim to be up).
 
---------------040709040207000504020601
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
+	My concern specifically was more with failures in negotiation
+with 802.3ad capable peers, not for interoperability with non-802.3ad
+devices (since bonding can always be run in a non-802.3ad mode).
 
-[ICMP]: Fix icmp_errors_use_inbound_ifaddr sysctl
+	This behavior (don't pass traffic if no 802.3ad setup occurs)
+also parallels the behavior of the Cisco switches I use to test bonding
+(they will not pass traffic across ports of a lacp channel-group if the
+802.3ad negotation does not occur), so it seemed appropriate.
 
-Currently when icmp_errors_use_inbound_ifaddr is set and an ICMP error is
-sent after the packet passed through ip_output(), an address from the
-outgoing interface is chosen as ICMP source address since skb->dev doesn't
-point to the incoming interface anymore.
+	I'm checking the standard to see what it says, but I'm also
+curious if this has some real-world impact, or is just something you
+happened across?
 
-Fix this by doing an interface lookup on rt->dst.iif and using that device.
-
-Signed-off-by: Patrick McHardy <kaber@trash.net>
+	-J
 
 ---
-commit f680f41a1c6b2c358a4725e763132b3c61c1685a
-tree 81f9cd86744aca6e7c2bc647639f7868d7ceb1d3
-parent 19b6cbad06d246d48168fc6c493a7c3d9db58e1f
-author Patrick McHardy <kaber@trash.net> Fri, 01 Jun 2007 19:22:21 +0200
-committer Patrick McHardy <kaber@trash.net> Fri, 01 Jun 2007 19:22:21 +0200
-
- net/ipv4/icmp.c |   15 +++++++++------
- 1 files changed, 9 insertions(+), 6 deletions(-)
-
-diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
-index e238b17..02a899b 100644
---- a/net/ipv4/icmp.c
-+++ b/net/ipv4/icmp.c
-@@ -514,12 +514,15 @@ void icmp_send(struct sk_buff *skb_in, int type, int code, __be32 info)
- 
- 	saddr = iph->daddr;
- 	if (!(rt->rt_flags & RTCF_LOCAL)) {
--		/* This is broken, skb_in->dev points to the outgoing device
--		 * after the packet passes through ip_output().
--		 */
--		if (skb_in->dev && sysctl_icmp_errors_use_inbound_ifaddr)
--			saddr = inet_select_addr(skb_in->dev, 0, RT_SCOPE_LINK);
--		else
-+		struct net_device *dev = NULL;
-+
-+		if (rt->fl.iif && sysctl_icmp_errors_use_inbound_ifaddr)
-+			dev = dev_get_by_index(rt->fl.iif);
-+
-+		if (dev) {
-+			saddr = inet_select_addr(dev, 0, RT_SCOPE_LINK);
-+			dev_put(dev);
-+		} else
- 			saddr = 0;
- 	}
- 
-
---------------040709040207000504020601--
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
