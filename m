@@ -1,193 +1,563 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: [PATCH 2/5] NetXen: Multicast filter for NetXen driver
-Date: Fri, 1 Jun 2007 13:24:57 +0200
-Message-ID: <200706011324.57678.mb@bu3sch.de>
-References: <200706011114.l51BEZTx004682@dut39.unminc.com>
+From: Frederik Deweerdt <deweerdt@free.fr>
+Subject: Re: [Oops] unix_dgram_connect locking problem?
+Date: Fri, 1 Jun 2007 13:34:30 +0200
+Message-ID: <20070601113429.GA22809@slug>
+References: <20070511150014.GF23638@slug> <20070531.152227.53338417.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, amitkale@netxen.com, jeff@garzik.org,
-	netxenproj@linsyssoft.com, rob@netxen.com
-To: Mithlesh Thukral <mithlesh@netxen.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, eparis@redhat.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:39117
-	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756429AbXFALZZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jun 2007 07:25:25 -0400
-In-Reply-To: <200706011114.l51BEZTx004682@dut39.unminc.com>
+Received: from qb-out-0506.google.com ([72.14.204.229]:26473 "EHLO
+	qb-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755700AbXFALgX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jun 2007 07:36:23 -0400
+Received: by qb-out-0506.google.com with SMTP id z8so256982qbc
+        for <netdev@vger.kernel.org>; Fri, 01 Jun 2007 04:36:21 -0700 (PDT)
 Content-Disposition: inline
+In-Reply-To: <20070531.152227.53338417.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Friday 01 June 2007 13:14:35 Mithlesh Thukral wrote:
-> NetXen: Add multicast filter code
-> This patch will add manage the multicast filter from driver.
-> It will add capability to write multicast addresses to hardware.
+On Thu, May 31, 2007 at 03:22:27PM -0700, David Miller wrote:
+> From: Frederik Deweerdt <deweerdt@free.fr>
+> Date: Fri, 11 May 2007 17:00:14 +0200
 > 
-> Signed-by: Mithlesh Thukral <mithlesh@netxen.com>
-> ---
+> > I'm seeing an Oops[1] with a 2.6.19.2 kernel:
 > 
->  drivers/net/netxen/netxen_nic.h     |   24 +++++
->  drivers/net/netxen/netxen_nic_hdr.h |    3 
->  drivers/net/netxen/netxen_nic_hw.c  |  115 +++++++++++++++++++++++++-
->  3 files changed, 139 insertions(+), 3 deletions(-)
+> Frederik, I finally was able to spend some quality time on
+> this issue today.  Sorry for taking so long.
+
+Thank you for handling this David. I going to be offline for two weeks,
+but I'll be able to report tests results after that.
+
+Regards,
+Frederik
+
+> I came up with a series of two patches, the first one makes
+> the locking easier to understand by fixing the unix_sock_*()
+> lock macro names.
 > 
-> diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/netxen/netxen_nic.h
-> index ad6688e..c74402f 100644
-> --- a/drivers/net/netxen/netxen_nic.h
-> +++ b/drivers/net/netxen/netxen_nic.h
-> @@ -261,6 +261,27 @@ #define netxen_set_msg_ctxid(config_word
->  #define netxen_set_msg_opcode(config_word, val)	\
->  	((config_word) &= ~(0xf<<28), (config_word) |= (val & 0xf) << 28)
+> The second patch fixes this race conditon by properly holding
+> both socket locks, being careful to avoid deadlocks, and
+> checking for possible SOCK_DEAD state.
+> 
+> --------------------
+> commit d410b81b4eef2e4409f9c38ef201253fbbcc7d94
+> Author: David S. Miller <davem@sunset.davemloft.net>
+> Date:   Thu May 31 13:24:26 2007 -0700
+> 
+>     [AF_UNIX]: Make socket locking much less confusing.
+>     
+>     The unix_state_*() locking macros imply that there is some
+>     rwlock kind of thing going on, but the implementation is
+>     actually a spinlock which makes the code more confusing than
+>     it needs to be.
+>     
+>     So use plain unix_state_lock and unix_state_unlock.
+>     
+>     Signed-off-by: David S. Miller <davem@davemloft.net>
+> 
+> diff --git a/include/net/af_unix.h b/include/net/af_unix.h
+> index c0398f5..65f49fd 100644
+> --- a/include/net/af_unix.h
+> +++ b/include/net/af_unix.h
+> @@ -62,13 +62,11 @@ struct unix_skb_parms {
+>  #define UNIXCREDS(skb)	(&UNIXCB((skb)).creds)
+>  #define UNIXSID(skb)	(&UNIXCB((skb)).secid)
 >  
-> +#define netxen_set_addr_ctl_id_pool0(config_word, val)	\
-> +	((config_word) &= ~3, (config_word) |= val & 0x3)
-> +#define netxen_set_addr_ctl_enable_xtnd_0(config_word)	\
-> +	((config_word) |= 1 << 2)
-> +#define netxen_set_addr_ctl_id_pool1(config_word, val)	\
-> +	((config_word) &= ~(0x3<<4), (config_word) |= (val & 0x3) << 4)
-> +#define netxen_set_addr_ctl_enable_xtnd_1(config_word)	\
-> +	((config_word) |= 1 << 6)
-> +#define netxen_set_addr_ctl_id_pool2(config_word, val)	\
-> +	((config_word) &= ~(0x3<<8), (config_word) |= (val & 0x3) << 8)
-> +#define netxen_set_addr_ctl_enable_xtnd_2(config_word)	\
-> +	((config_word) |= 1 << 10)
-> +#define netxen_set_addr_ctl_id_pool3(config_word, val)	\
-> +	((config_word) &= ~(0x3<<12), (config_word) |= (val & 0x3) << 12)
-> +#define netxen_set_addr_ctl_enable_xtnd_3(config_word)	\
-> +	((config_word) |= 1 << 14)
-> +#define netxen_set_addr_ctl_mode(config_word, val)	\
-> +	((config_word) &= ~(0x3<<26), (config_word) |= (val & 0x3) << 26)
-> +#define netxen_set_addr_ctl_enable_poll(config_word, val)	\
-> +	((config_word) &= ~(0xf<<30), (config_word) |= (val & 0xf) << 30)
-> +
->  struct netxen_rcv_context {
->  	__le64 rcv_ring_addr;
->  	__le32 rcv_ring_size;
-> @@ -883,6 +904,9 @@ struct netxen_adapter {
->  	unsigned char mac_addr[ETH_ALEN];
->  	int mtu;
->  	int portnum;
-> +	u8 promisc;
-> +	u8 mc_enabled;
-> +	u8 max_mc_count;
+> -#define unix_state_rlock(s)	spin_lock(&unix_sk(s)->lock)
+> -#define unix_state_runlock(s)	spin_unlock(&unix_sk(s)->lock)
+> -#define unix_state_wlock(s)	spin_lock(&unix_sk(s)->lock)
+> -#define unix_state_wlock_nested(s) \
+> +#define unix_state_lock(s)	spin_lock(&unix_sk(s)->lock)
+> +#define unix_state_unlock(s)	spin_unlock(&unix_sk(s)->lock)
+> +#define unix_state_lock_nested(s) \
+>  				spin_lock_nested(&unix_sk(s)->lock, \
+>  				SINGLE_DEPTH_NESTING)
+> -#define unix_state_wunlock(s)	spin_unlock(&unix_sk(s)->lock)
 >  
->  	spinlock_t tx_lock;
->  	spinlock_t lock;
-> diff --git a/drivers/net/netxen/netxen_nic_hdr.h b/drivers/net/netxen/netxen_nic_hdr.h
-> index 608e37b..2bfecbc 100644
-> --- a/drivers/net/netxen/netxen_nic_hdr.h
-> +++ b/drivers/net/netxen/netxen_nic_hdr.h
-> @@ -545,6 +545,9 @@ #define NETXEN_MULTICAST_ADDR_HI_1	(NETX
->  #define NETXEN_MULTICAST_ADDR_HI_2	(NETXEN_CRB_NIU + 0x1018)
->  #define NETXEN_MULTICAST_ADDR_HI_3	(NETXEN_CRB_NIU + 0x101c)
+>  #ifdef __KERNEL__
+>  /* The AF_UNIX socket */
+> diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+> index fc12ba5..453ede8 100644
+> --- a/net/unix/af_unix.c
+> +++ b/net/unix/af_unix.c
+> @@ -174,11 +174,11 @@ static struct sock *unix_peer_get(struct sock *s)
+>  {
+>  	struct sock *peer;
 >  
-> +#define NETXEN_UNICAST_ADDR_BASE	(NETXEN_CRB_NIU + 0x1080)
-> +#define NETXEN_MULTICAST_ADDR_BASE	(NETXEN_CRB_NIU + 0x1100)
-> +
->  #define	NETXEN_NIU_GB_MAC_CONFIG_0(I)		\
->  	(NETXEN_CRB_NIU + 0x30000 + (I)*0x10000)
->  #define	NETXEN_NIU_GB_MAC_CONFIG_1(I)		\
-> diff --git a/drivers/net/netxen/netxen_nic_hw.c b/drivers/net/netxen/netxen_nic_hw.c
-> index baff17a..fff3844 100644
-> --- a/drivers/net/netxen/netxen_nic_hw.c
-> +++ b/drivers/net/netxen/netxen_nic_hw.c
-> @@ -303,6 +303,93 @@ int netxen_nic_set_mac(struct net_device
->  	return 0;
+> -	unix_state_rlock(s);
+> +	unix_state_lock(s);
+>  	peer = unix_peer(s);
+>  	if (peer)
+>  		sock_hold(peer);
+> -	unix_state_runlock(s);
+> +	unix_state_unlock(s);
+>  	return peer;
 >  }
 >  
-> +#define NETXEN_UNICAST_ADDR(port, index)	\
-> +	(NETXEN_UNICAST_ADDR_BASE+(port*32)+(index*8))
-> +
-> +int netxen_nic_enable_mcast_filter(struct netxen_adapter *adapter)
+> @@ -369,7 +369,7 @@ static int unix_release_sock (struct sock *sk, int embrion)
+>  	unix_remove_socket(sk);
+>  
+>  	/* Clear state */
+> -	unix_state_wlock(sk);
+> +	unix_state_lock(sk);
+>  	sock_orphan(sk);
+>  	sk->sk_shutdown = SHUTDOWN_MASK;
+>  	dentry	     = u->dentry;
+> @@ -378,7 +378,7 @@ static int unix_release_sock (struct sock *sk, int embrion)
+>  	u->mnt	     = NULL;
+>  	state = sk->sk_state;
+>  	sk->sk_state = TCP_CLOSE;
+> -	unix_state_wunlock(sk);
+> +	unix_state_unlock(sk);
+>  
+>  	wake_up_interruptible_all(&u->peer_wait);
+>  
+> @@ -386,12 +386,12 @@ static int unix_release_sock (struct sock *sk, int embrion)
+>  
+>  	if (skpair!=NULL) {
+>  		if (sk->sk_type == SOCK_STREAM || sk->sk_type == SOCK_SEQPACKET) {
+> -			unix_state_wlock(skpair);
+> +			unix_state_lock(skpair);
+>  			/* No more writes */
+>  			skpair->sk_shutdown = SHUTDOWN_MASK;
+>  			if (!skb_queue_empty(&sk->sk_receive_queue) || embrion)
+>  				skpair->sk_err = ECONNRESET;
+> -			unix_state_wunlock(skpair);
+> +			unix_state_unlock(skpair);
+>  			skpair->sk_state_change(skpair);
+>  			read_lock(&skpair->sk_callback_lock);
+>  			sk_wake_async(skpair,1,POLL_HUP);
+> @@ -448,7 +448,7 @@ static int unix_listen(struct socket *sock, int backlog)
+>  	err = -EINVAL;
+>  	if (!u->addr)
+>  		goto out;			/* No listens on an unbound socket */
+> -	unix_state_wlock(sk);
+> +	unix_state_lock(sk);
+>  	if (sk->sk_state != TCP_CLOSE && sk->sk_state != TCP_LISTEN)
+>  		goto out_unlock;
+>  	if (backlog > sk->sk_max_ack_backlog)
+> @@ -462,7 +462,7 @@ static int unix_listen(struct socket *sock, int backlog)
+>  	err = 0;
+>  
+>  out_unlock:
+> -	unix_state_wunlock(sk);
+> +	unix_state_unlock(sk);
+>  out:
+>  	return err;
+>  }
+> @@ -881,7 +881,7 @@ static int unix_dgram_connect(struct socket *sock, struct sockaddr *addr,
+>  		if (!other)
+>  			goto out;
+>  
+> -		unix_state_wlock(sk);
+> +		unix_state_lock(sk);
+>  
+>  		err = -EPERM;
+>  		if (!unix_may_send(sk, other))
+> @@ -896,7 +896,7 @@ static int unix_dgram_connect(struct socket *sock, struct sockaddr *addr,
+>  		 *	1003.1g breaking connected state with AF_UNSPEC
+>  		 */
+>  		other = NULL;
+> -		unix_state_wlock(sk);
+> +		unix_state_lock(sk);
+>  	}
+>  
+>  	/*
+> @@ -905,19 +905,19 @@ static int unix_dgram_connect(struct socket *sock, struct sockaddr *addr,
+>  	if (unix_peer(sk)) {
+>  		struct sock *old_peer = unix_peer(sk);
+>  		unix_peer(sk)=other;
+> -		unix_state_wunlock(sk);
+> +		unix_state_unlock(sk);
+>  
+>  		if (other != old_peer)
+>  			unix_dgram_disconnected(sk, old_peer);
+>  		sock_put(old_peer);
+>  	} else {
+>  		unix_peer(sk)=other;
+> -		unix_state_wunlock(sk);
+> +		unix_state_unlock(sk);
+>  	}
+>  	return 0;
+>  
+>  out_unlock:
+> -	unix_state_wunlock(sk);
+> +	unix_state_unlock(sk);
+>  	sock_put(other);
+>  out:
+>  	return err;
+> @@ -936,7 +936,7 @@ static long unix_wait_for_peer(struct sock *other, long timeo)
+>  		(skb_queue_len(&other->sk_receive_queue) >
+>  		 other->sk_max_ack_backlog);
+>  
+> -	unix_state_runlock(other);
+> +	unix_state_unlock(other);
+>  
+>  	if (sched)
+>  		timeo = schedule_timeout(timeo);
+> @@ -994,11 +994,11 @@ restart:
+>  		goto out;
+>  
+>  	/* Latch state of peer */
+> -	unix_state_rlock(other);
+> +	unix_state_lock(other);
+>  
+>  	/* Apparently VFS overslept socket death. Retry. */
+>  	if (sock_flag(other, SOCK_DEAD)) {
+> -		unix_state_runlock(other);
+> +		unix_state_unlock(other);
+>  		sock_put(other);
+>  		goto restart;
+>  	}
+> @@ -1048,18 +1048,18 @@ restart:
+>  		goto out_unlock;
+>  	}
+>  
+> -	unix_state_wlock_nested(sk);
+> +	unix_state_lock_nested(sk);
+>  
+>  	if (sk->sk_state != st) {
+> -		unix_state_wunlock(sk);
+> -		unix_state_runlock(other);
+> +		unix_state_unlock(sk);
+> +		unix_state_unlock(other);
+>  		sock_put(other);
+>  		goto restart;
+>  	}
+>  
+>  	err = security_unix_stream_connect(sock, other->sk_socket, newsk);
+>  	if (err) {
+> -		unix_state_wunlock(sk);
+> +		unix_state_unlock(sk);
+>  		goto out_unlock;
+>  	}
+>  
+> @@ -1096,7 +1096,7 @@ restart:
+>  	smp_mb__after_atomic_inc();	/* sock_hold() does an atomic_inc() */
+>  	unix_peer(sk)	= newsk;
+>  
+> -	unix_state_wunlock(sk);
+> +	unix_state_unlock(sk);
+>  
+>  	/* take ten and and send info to listening sock */
+>  	spin_lock(&other->sk_receive_queue.lock);
+> @@ -1105,14 +1105,14 @@ restart:
+>  	 * is installed to listening socket. */
+>  	atomic_inc(&newu->inflight);
+>  	spin_unlock(&other->sk_receive_queue.lock);
+> -	unix_state_runlock(other);
+> +	unix_state_unlock(other);
+>  	other->sk_data_ready(other, 0);
+>  	sock_put(other);
+>  	return 0;
+>  
+>  out_unlock:
+>  	if (other)
+> -		unix_state_runlock(other);
+> +		unix_state_unlock(other);
+>  
+>  out:
+>  	if (skb)
+> @@ -1178,10 +1178,10 @@ static int unix_accept(struct socket *sock, struct socket *newsock, int flags)
+>  	wake_up_interruptible(&unix_sk(sk)->peer_wait);
+>  
+>  	/* attach accepted sock to socket */
+> -	unix_state_wlock(tsk);
+> +	unix_state_lock(tsk);
+>  	newsock->state = SS_CONNECTED;
+>  	sock_graft(tsk, newsock);
+> -	unix_state_wunlock(tsk);
+> +	unix_state_unlock(tsk);
+>  	return 0;
+>  
+>  out:
+> @@ -1208,7 +1208,7 @@ static int unix_getname(struct socket *sock, struct sockaddr *uaddr, int *uaddr_
+>  	}
+>  
+>  	u = unix_sk(sk);
+> -	unix_state_rlock(sk);
+> +	unix_state_lock(sk);
+>  	if (!u->addr) {
+>  		sunaddr->sun_family = AF_UNIX;
+>  		sunaddr->sun_path[0] = 0;
+> @@ -1219,7 +1219,7 @@ static int unix_getname(struct socket *sock, struct sockaddr *uaddr, int *uaddr_
+>  		*uaddr_len = addr->len;
+>  		memcpy(sunaddr, addr->name, *uaddr_len);
+>  	}
+> -	unix_state_runlock(sk);
+> +	unix_state_unlock(sk);
+>  	sock_put(sk);
+>  out:
+>  	return err;
+> @@ -1337,7 +1337,7 @@ restart:
+>  			goto out_free;
+>  	}
+>  
+> -	unix_state_rlock(other);
+> +	unix_state_lock(other);
+>  	err = -EPERM;
+>  	if (!unix_may_send(sk, other))
+>  		goto out_unlock;
+> @@ -1347,20 +1347,20 @@ restart:
+>  		 *	Check with 1003.1g - what should
+>  		 *	datagram error
+>  		 */
+> -		unix_state_runlock(other);
+> +		unix_state_unlock(other);
+>  		sock_put(other);
+>  
+>  		err = 0;
+> -		unix_state_wlock(sk);
+> +		unix_state_lock(sk);
+>  		if (unix_peer(sk) == other) {
+>  			unix_peer(sk)=NULL;
+> -			unix_state_wunlock(sk);
+> +			unix_state_unlock(sk);
+>  
+>  			unix_dgram_disconnected(sk, other);
+>  			sock_put(other);
+>  			err = -ECONNREFUSED;
+>  		} else {
+> -			unix_state_wunlock(sk);
+> +			unix_state_unlock(sk);
+>  		}
+>  
+>  		other = NULL;
+> @@ -1397,14 +1397,14 @@ restart:
+>  	}
+>  
+>  	skb_queue_tail(&other->sk_receive_queue, skb);
+> -	unix_state_runlock(other);
+> +	unix_state_unlock(other);
+>  	other->sk_data_ready(other, len);
+>  	sock_put(other);
+>  	scm_destroy(siocb->scm);
+>  	return len;
+>  
+>  out_unlock:
+> -	unix_state_runlock(other);
+> +	unix_state_unlock(other);
+>  out_free:
+>  	kfree_skb(skb);
+>  out:
+> @@ -1494,14 +1494,14 @@ static int unix_stream_sendmsg(struct kiocb *kiocb, struct socket *sock,
+>  			goto out_err;
+>  		}
+>  
+> -		unix_state_rlock(other);
+> +		unix_state_lock(other);
+>  
+>  		if (sock_flag(other, SOCK_DEAD) ||
+>  		    (other->sk_shutdown & RCV_SHUTDOWN))
+>  			goto pipe_err_free;
+>  
+>  		skb_queue_tail(&other->sk_receive_queue, skb);
+> -		unix_state_runlock(other);
+> +		unix_state_unlock(other);
+>  		other->sk_data_ready(other, size);
+>  		sent+=size;
+>  	}
+> @@ -1512,7 +1512,7 @@ static int unix_stream_sendmsg(struct kiocb *kiocb, struct socket *sock,
+>  	return sent;
+>  
+>  pipe_err_free:
+> -	unix_state_runlock(other);
+> +	unix_state_unlock(other);
+>  	kfree_skb(skb);
+>  pipe_err:
+>  	if (sent==0 && !(msg->msg_flags&MSG_NOSIGNAL))
+> @@ -1641,7 +1641,7 @@ static long unix_stream_data_wait(struct sock * sk, long timeo)
+>  {
+>  	DEFINE_WAIT(wait);
+>  
+> -	unix_state_rlock(sk);
+> +	unix_state_lock(sk);
+>  
+>  	for (;;) {
+>  		prepare_to_wait(sk->sk_sleep, &wait, TASK_INTERRUPTIBLE);
+> @@ -1654,14 +1654,14 @@ static long unix_stream_data_wait(struct sock * sk, long timeo)
+>  			break;
+>  
+>  		set_bit(SOCK_ASYNC_WAITDATA, &sk->sk_socket->flags);
+> -		unix_state_runlock(sk);
+> +		unix_state_unlock(sk);
+>  		timeo = schedule_timeout(timeo);
+> -		unix_state_rlock(sk);
+> +		unix_state_lock(sk);
+>  		clear_bit(SOCK_ASYNC_WAITDATA, &sk->sk_socket->flags);
+>  	}
+>  
+>  	finish_wait(sk->sk_sleep, &wait);
+> -	unix_state_runlock(sk);
+> +	unix_state_unlock(sk);
+>  	return timeo;
+>  }
+>  
+> @@ -1816,12 +1816,12 @@ static int unix_shutdown(struct socket *sock, int mode)
+>  	mode = (mode+1)&(RCV_SHUTDOWN|SEND_SHUTDOWN);
+>  
+>  	if (mode) {
+> -		unix_state_wlock(sk);
+> +		unix_state_lock(sk);
+>  		sk->sk_shutdown |= mode;
+>  		other=unix_peer(sk);
+>  		if (other)
+>  			sock_hold(other);
+> -		unix_state_wunlock(sk);
+> +		unix_state_unlock(sk);
+>  		sk->sk_state_change(sk);
+>  
+>  		if (other &&
+> @@ -1833,9 +1833,9 @@ static int unix_shutdown(struct socket *sock, int mode)
+>  				peer_mode |= SEND_SHUTDOWN;
+>  			if (mode&SEND_SHUTDOWN)
+>  				peer_mode |= RCV_SHUTDOWN;
+> -			unix_state_wlock(other);
+> +			unix_state_lock(other);
+>  			other->sk_shutdown |= peer_mode;
+> -			unix_state_wunlock(other);
+> +			unix_state_unlock(other);
+>  			other->sk_state_change(other);
+>  			read_lock(&other->sk_callback_lock);
+>  			if (peer_mode == SHUTDOWN_MASK)
+> @@ -1973,7 +1973,7 @@ static int unix_seq_show(struct seq_file *seq, void *v)
+>  	else {
+>  		struct sock *s = v;
+>  		struct unix_sock *u = unix_sk(s);
+> -		unix_state_rlock(s);
+> +		unix_state_lock(s);
+>  
+>  		seq_printf(seq, "%p: %08X %08X %08X %04X %02X %5lu",
+>  			s,
+> @@ -2001,7 +2001,7 @@ static int unix_seq_show(struct seq_file *seq, void *v)
+>  			for ( ; i < len; i++)
+>  				seq_putc(seq, u->addr->name->sun_path[i]);
+>  		}
+> -		unix_state_runlock(s);
+> +		unix_state_unlock(s);
+>  		seq_putc(seq, '\n');
+>  	}
+>  
+> --------------------
+> commit 19fec3e807a487415e77113cb9dbdaa2da739836
+> Author: David S. Miller <davem@sunset.davemloft.net>
+> Date:   Thu May 31 15:19:20 2007 -0700
+> 
+>     [AF_UNIX]: Fix datagram connect race causing an OOPS.
+>     
+>     Based upon an excellent bug report and initial patch by
+>     Frederik Deweerdt.
+>     
+>     The UNIX datagram connect code blindly dereferences other->sk_socket
+>     via the call down to the security_unix_may_send() function.
+>     
+>     Without locking 'other' that pointer can go NULL via unix_release_sock()
+>     which does sock_orphan() which also marks the socket SOCK_DEAD.
+>     
+>     So we have to lock both 'sk' and 'other' yet avoid all kinds of
+>     potential deadlocks (connect to self is OK for datagram sockets and it
+>     is possible for two datagram sockets to perform a simultaneous connect
+>     to each other).  So what we do is have a "double lock" function similar
+>     to how we handle this situation in other areas of the kernel.  We take
+>     the lock of the socket pointer with the smallest address first in
+>     order to avoid ABBA style deadlocks.
+>     
+>     Once we have them both locked, we check to see if SOCK_DEAD is set
+>     for 'other' and if so, drop everything and retry the lookup.
+>     
+>     Signed-off-by: David S. Miller <davem@davemloft.net>
+> 
+> diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+> index 453ede8..87c794d 100644
+> --- a/net/unix/af_unix.c
+> +++ b/net/unix/af_unix.c
+> @@ -858,6 +858,31 @@ out_mknod_parent:
+>  	goto out_up;
+>  }
+>  
+> +static void unix_state_double_lock(struct sock *sk1, struct sock *sk2)
 > +{
-> +	u32 val = 0;
-> +	u16 port = physical_port[adapter->portnum];
-> +
-> +	if (adapter->mc_enabled)
-> +		return 0;
-> +	
-> +	netxen_set_addr_ctl_enable_poll(val, 0xf);
-> +
-> +	if (adapter->ahw.board_type == NETXEN_NIC_XGBE)
-> +		netxen_set_addr_ctl_mode(val, 0x3);
-> +	else
-> +		netxen_set_addr_ctl_mode(val, 0x0);
-> +
-> +	netxen_set_addr_ctl_id_pool0(val, 0x0);
-> +	netxen_set_addr_ctl_id_pool1(val, 0x1);
-> +	netxen_set_addr_ctl_id_pool2(val, 0x2);
-> +	netxen_set_addr_ctl_id_pool3(val, 0x3);
-> +
-> +	netxen_set_addr_ctl_enable_xtnd_0(val);
-> +	netxen_set_addr_ctl_enable_xtnd_1(val);
-> +	netxen_set_addr_ctl_enable_xtnd_2(val);
-> +	netxen_set_addr_ctl_enable_xtnd_3(val);
-> +	
-> +	netxen_crb_writelit_adapter(adapter, NETXEN_MAC_ADDR_CNTL_REG, val);
-> +	
-> +	val = 0xffffff;
-> +
-> +	netxen_crb_writelit_adapter(adapter, NETXEN_UNICAST_ADDR(port,0), val);
-> +	netxen_crb_writelit_adapter(adapter, NETXEN_UNICAST_ADDR(port,0)+4, 
-> +					val);
-> +	
-> +	memcpy(&val, adapter->mac_addr, 3);
-> +	netxen_crb_writelit_adapter(adapter, NETXEN_UNICAST_ADDR(port,1), val);
-> +
-> +	memcpy(&val, adapter->mac_addr+3, 3);
-> +	netxen_crb_writelit_adapter(adapter, NETXEN_UNICAST_ADDR(port,1) + 4,
-> +					val);
-> +
-> +	adapter->mc_enabled = 1;
-> +	return 0;
+> +	if (unlikely(sk1 == sk2) || !sk2) {
+> +		unix_state_lock(sk1);
+> +		return;
+> +	}
+> +	if (sk1 < sk2) {
+> +		unix_state_lock(sk1);
+> +		unix_state_lock_nested(sk2);
+> +	} else {
+> +		unix_state_lock(sk2);
+> +		unix_state_lock_nested(sk1);
+> +	}
 > +}
 > +
-> +int netxen_nic_disable_mcast_filter(struct netxen_adapter *adapter)
+> +static void unix_state_double_unlock(struct sock *sk1, struct sock *sk2)
 > +{
-> +	u32 val =  0;
-> +	u16 port = physical_port[adapter->portnum];
-> +
-> +	if(!adapter->mc_enabled)
-> +		return 0;
-> +
-> +	netxen_crb_writelit_adapter(adapter, NETXEN_MAC_ADDR_CNTL_REG, val);
-> +
-> +	memcpy(&val, adapter->mac_addr, 3);
-> +	netxen_crb_writelit_adapter(adapter, NETXEN_UNICAST_ADDR(port,0), val);
-> +
-> +	memcpy(&val, adapter->mac_addr+3, 3);
-> +	netxen_crb_writelit_adapter(adapter, NETXEN_UNICAST_ADDR(port,0) + 4,
-> +					val);
-> +
-> +	adapter->mc_enabled = 0;
-> +	return 0;
+> +	if (unlikely(sk1 == sk2) || !sk2) {
+> +		unix_state_unlock(sk1);
+> +		return;
+> +	}
+> +	unix_state_unlock(sk1);
+> +	unix_state_unlock(sk2);
 > +}
 > +
-> +#define NETXEN_MCAST_ADDR(port, index)	\
-> +	(NETXEN_MULTICAST_ADDR_BASE+(port*0x80)+(index*8))
+>  static int unix_dgram_connect(struct socket *sock, struct sockaddr *addr,
+>  			      int alen, int flags)
+>  {
+> @@ -877,11 +902,19 @@ static int unix_dgram_connect(struct socket *sock, struct sockaddr *addr,
+>  		    !unix_sk(sk)->addr && (err = unix_autobind(sock)) != 0)
+>  			goto out;
+>  
+> +restart:
+>  		other=unix_find_other(sunaddr, alen, sock->type, hash, &err);
+>  		if (!other)
+>  			goto out;
+>  
+> -		unix_state_lock(sk);
+> +		unix_state_double_lock(sk, other);
 > +
-> +int netxen_nic_set_mcast_addr(struct netxen_adapter *adapter, int index, 
-> +				u8 *addr)
-> +{
-> +	u32 hi = 0;
-> +	u32 lo = 0;
-> +	u16 port = physical_port[adapter->portnum];
-> +
-> +	memcpy(&hi, addr, 3);
-> +	memcpy(&lo, addr+3, 3);
-> +
-> +	netxen_crb_writelit_adapter(adapter, NETXEN_MCAST_ADDR(port,index), hi);
-> +	netxen_crb_writelit_adapter(adapter, NETXEN_MCAST_ADDR(port,index) + 4,
-> +					hi);
-> +	return 0;
-> +}
-> +
-
-Uhm, is that copying of a u8 array (which is little endian) to
-an arch-endian u32. I'd say this will break on bigendian architectures.
-Your code just works on little endian architectures.
-
--- 
-Greetings Michael.
+> +		/* Apparently VFS overslept socket death. Retry. */
+> +		if (sock_flag(other, SOCK_DEAD)) {
+> +			unix_state_double_unlock(sk, other);
+> +			sock_put(other);
+> +			goto restart;
+> +		}
+>  
+>  		err = -EPERM;
+>  		if (!unix_may_send(sk, other))
+> @@ -896,7 +929,7 @@ static int unix_dgram_connect(struct socket *sock, struct sockaddr *addr,
+>  		 *	1003.1g breaking connected state with AF_UNSPEC
+>  		 */
+>  		other = NULL;
+> -		unix_state_lock(sk);
+> +		unix_state_double_lock(sk, other);
+>  	}
+>  
+>  	/*
+> @@ -905,19 +938,19 @@ static int unix_dgram_connect(struct socket *sock, struct sockaddr *addr,
+>  	if (unix_peer(sk)) {
+>  		struct sock *old_peer = unix_peer(sk);
+>  		unix_peer(sk)=other;
+> -		unix_state_unlock(sk);
+> +		unix_state_double_unlock(sk, other);
+>  
+>  		if (other != old_peer)
+>  			unix_dgram_disconnected(sk, old_peer);
+>  		sock_put(old_peer);
+>  	} else {
+>  		unix_peer(sk)=other;
+> -		unix_state_unlock(sk);
+> +		unix_state_double_unlock(sk, other);
+>  	}
+>  	return 0;
+>  
+>  out_unlock:
+> -	unix_state_unlock(sk);
+> +	unix_state_double_unlock(sk, other);
+>  	sock_put(other);
+>  out:
+>  	return err;
+> --------------------
+> 
