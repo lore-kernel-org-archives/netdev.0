@@ -1,58 +1,61 @@
-From: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: Please pull 'libertas' branch of wireless-2.6
-Date: Fri, 01 Jun 2007 17:48:18 -0400
-Message-ID: <1180734498.30974.1.camel@xo-28-0B-88.localdomain>
-References: <20070529183347.GD3496@tuxdriver.com>
-	 <465D8538.8070507@garzik.org>
-	 <1180538928.17163.10.camel@xo-28-0B-88.localdomain>
-	 <1180645997.18078.8.camel@xo-28-0B-88.localdomain>
-	 <20070531211605.GA30161@tuxdriver.com>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: [PATCH] fix e100 rx path on ARM (was [PATCH] e100 rx: or s and
+ el bits)
+Date: Fri, 01 Jun 2007 15:13:41 -0700
+Message-ID: <46609A15.4000805@intel.com>
+References: <200705011124.l41BOEG4007662@sullivan.realtime.net> <46375664.8030701@roinet.com> <4638F2B2.2000103@roinet.com> <463BA906.30205@roinet.com> <85f07fc58d5ed2147d5214d0f0b4fe32@bga.com> <4648A9DF.6030001@roinet.com> <464D074F.20400@pobox.com> <464D21B6.2000208@intel.com> <464DB336.2030003@roinet.com> <464DB619.3070900@roinet.com> <464DC676.90504@intel.com> <464DCA97.3070405@roinet.com> <464DCD5E.50003@intel.com> <464DDE3E.9010400@roinet.com> <e3819b7a866b1117fd5a69e6a85e0784@bga.com> <4651DAC1.7050604@intel.com> <53c44b6f03973eb1b28f221859d3002c@bga.com> <465369AF.8080508@roinet.com> <f83441453b1233771c5bda869912aeca@bga.com> <4654B2E4.9010308@roinet.com> <039d8ee49a8dfcbff8695b19d0a1a5c4@bga.com> <a4fae96e1c8c7b594207bf77fcb6b38f@bga.com> <465C4DBE.6000205@roinet.com> <94c8ff9069a77568513a9a1d1e60012d@bga.com> <4660856E.80403@roinet.com> <46608BFE.7000905@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20070531211605.GA30161-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: David Acker <dacker@roinet.com>, Milton Miller <miltonm@bga.com>,
+	"Kok, Auke" <auke-jan.h.kok@intel.com>,
+	e1000-devel@lists.sourceforge.net,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Scott Feldman <sfeldma@pobox.com>, netdev@vger.kernel.org
+To: Jeff Garzik <jgarzik@pobox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:33143 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751710AbXFAWNu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Jun 2007 18:13:50 -0400
+In-Reply-To: <46608BFE.7000905@pobox.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2007-05-31 at 17:16 -0400, John W. Linville wrote:
-> On Thu, May 31, 2007 at 05:13:17PM -0400, Dan Williams wrote:
-> > On Wed, 2007-05-30 at 11:28 -0400, Dan Williams wrote:
-> > > On Wed, 2007-05-30 at 10:07 -0400, Jeff Garzik wrote:
-> > > > John W. Linville wrote:
-> > > > > Lots of stuff here...probably best for 2.6.23...
-> > > > 
-> > > > Is this best for Linux users... or just easy for developers?
-> > > > 
-> > > > Won't putting off all these fixes until 2.6.23 leave the driver released 
-> > > > in 2.6.22 in shoddy shape?
-> 
-> > > If you think all the bits from this should just go to 2.6.22, that's
-> > > fine with me.  But I don't feel comfortable making that call given what
-> > > I thought were the constraints on pushing changes through during an rc
-> > > cycle.  When the merge window was open, we backported critical bug fixes
-> > > and necessary merge-requirement cleanups to the code in linville's tree,
-> > > but avoided changes that didn't impact function.
-> > 
-> > Any response on these points yet?  I've got yet more cleanups and a few
-> > other things queued in libertas-2.6 but I'd like to see where this
-> > discussion goes before sending a pull request for the new bits.
-> 
-> As for me, I have no great problem w/ the whole batch going to 2.6.22.
-> The driver is still new and most acknowledge it still has significant
-> defficiencies.  Most (but probably not all) of the patches would seem
-> to fit some definition of bug fix anyway.  I was just trying to err
-> on the side of caution and follow the normal "bugfixes in -rc" process.
-> 
-> Jeff, the branch in question is based off a vanilla 2.6.22-rc3.
-> So it is safe to pull (from a "won't mess-up my tree" perspective)
-> if you are so inclined.
+Jeff Garzik wrote:
+> David Acker wrote:
+>> Milton Miller wrote:
 
-Ok; if Jeff is so inclined, we'll push further libertas
-cleanups/bugfixes/etc to you, and then you upstream to Jeff, targetted
-for inclusion in 2.6.22.
+<snip>
 
-Dan
+>> the el flag but we leave the size was 0 bit set.  This was we can find
+>> this buffer again later.
+>>
+>> If the hardware sees the el-bit cleared without the size set, it will
+>> move on to the next buffer and skip this one.  If it sees
+>> the size set but the el-bit still set, it will complete that buffer
+>> and then RNR interrupt and wait.
+>>
+>>
+>> Signed-off-by: David Acker <dacker@roinet.com>
+> 
+> That seems to vaguely match my memory of what eepro100 was doing (or 
+> trying to do).
+> 
+> I _really_ appreciate you working on this problem.  Getting e100 driver 
+> stable for the long term, and ditching eepro100, is a big hurdle to 
+> cross.  Getting this right is really one of the last steps.
+
+yes, absolutely agreed. I'm very pleased with the attention and hope that is 
+clear to everyone.
+
+> The patch looks OK at quick glance.
+
+Besides copying the style errors, it looks OK as well. I will attempt to 
+allocate some testing time again early next week on a small library of e100 nics 
+over here. Mostly x86, but still useful to spot obvious mistakes.
+
+
+Auke
