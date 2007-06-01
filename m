@@ -1,41 +1,34 @@
-From: David Miller <davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [NET] gso: Fix GSO feature mask in sk_setup_caps
-Date: Thu, 31 May 2007 22:16:22 -0700 (PDT)
-Message-ID: <20070531.221622.62660702.davem@davemloft.net>
-References: <20070601051349.GA13244@gondor.apana.org.au>
+Date: Fri, 1 Jun 2007 15:19:23 +1000
+Message-ID: <20070601051923.GA13325@gondor.apana.org.au>
+References: <20070601051349.GA13244@gondor.apana.org.au> <20070531.221622.62660702.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47386
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753357AbXFAFQJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jun 2007 01:16:09 -0400
-In-Reply-To: <20070601051349.GA13244@gondor.apana.org.au>
+Received: from rhun.apana.org.au ([64.62.148.172]:3693 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753560AbXFAFT0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jun 2007 01:19:26 -0400
+Content-Disposition: inline
+In-Reply-To: <20070531.221622.62660702.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Fri, 1 Jun 2007 15:13:49 +1000
+On Thu, May 31, 2007 at 10:16:22PM -0700, David Miller wrote:
+> 
+> I don't think it's worth bothering -stable with this one,
+> agreed?
 
-> [NET] gso: Fix GSO feature mask in sk_setup_caps
-> 
-> This isn't a bug just yet as only TCP uses sk_setup_caps for GSO.
-> However, if and when UDP or something else starts using it this is
-> likely to cause a problem if we forget to add software emulation
-> for it at the same time.
-> 
-> The problem is that right now we translate GSO emulation to the
-> bitmask NETIF_F_GSO_MASK, which includes every protocol, even
-> ones that we cannot emulate.
-> 
-> This patch makes it provide only the ones that we can emulate.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Not unless we're planning on making UFO use sk_setup_caps :)
 
-Good catch, applied, thanks Herbert.
+Agreed!
 
-I don't think it's worth bothering -stable with this one,
-agreed?
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
