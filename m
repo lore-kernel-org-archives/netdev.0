@@ -1,224 +1,107 @@
 From: Mithlesh Thukral <mithlesh@netxen.com>
-Subject: [PATCH 2/5] NetXen: Multicast filter for NetXen driver
-Date: Fri, 1 Jun 2007 04:14:35 -0700
-Message-ID: <200706011114.l51BEZTx004682@dut39.unminc.com>
+Subject: [PATCH 3/5] NetXen: Add NETXEN prefix to macros
+Date: Fri, 1 Jun 2007 04:15:36 -0700
+Message-ID: <200706011115.l51BFahX004752@dut39.unminc.com>
 Cc: amitkale@netxen.com, jeff@garzik.org, mithlesh@netxen.com,
 	netxenproj@linsyssoft.com, rob@netxen.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 66-126-254-34.unm.net ([66.126.254.34]:6294 "EHLO
+Received: from 66-126-254-34.unm.net ([66.126.254.34]:20218 "EHLO
 	nxmail.netxen.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1758197AbXFALOg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jun 2007 07:14:36 -0400
+	with ESMTP id S1755681AbXFALPh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jun 2007 07:15:37 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-NetXen: Add multicast filter code
-This patch will add manage the multicast filter from driver.
-It will add capability to write multicast addresses to hardware.
+NetXen: Add NETXEN prefix to a macro
+This patch will add the "NETXEN" prefix to "USER_START" macro.
 
-Signed-by: Mithlesh Thukral <mithlesh@netxen.com>
+Signed-off by: Wen Xiong <wenxiong@us.ibm.com>
+Signed-off by: Mithlesh Thukral <mithlesh@netxen.com>
 ---
 
- drivers/net/netxen/netxen_nic.h     |   24 +++++
- drivers/net/netxen/netxen_nic_hdr.h |    3 
- drivers/net/netxen/netxen_nic_hw.c  |  115 +++++++++++++++++++++++++-
- 3 files changed, 139 insertions(+), 3 deletions(-)
+ drivers/net/netxen/netxen_nic.h         |    4 ++--
+ drivers/net/netxen/netxen_nic_ethtool.c |    2 +-
+ drivers/net/netxen/netxen_nic_hw.c      |    4 ++--
+ drivers/net/netxen/netxen_nic_init.c    |    4 ++--
+ 4 files changed, 7 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/netxen/netxen_nic.h
-index ad6688e..c74402f 100644
+index c74402f..6ce6e99 100644
 --- a/drivers/net/netxen/netxen_nic.h
 +++ b/drivers/net/netxen/netxen_nic.h
-@@ -261,6 +261,27 @@ #define netxen_set_msg_ctxid(config_word
- #define netxen_set_msg_opcode(config_word, val)	\
- 	((config_word) &= ~(0xf<<28), (config_word) |= (val & 0xf) << 28)
+@@ -705,7 +705,7 @@ typedef enum {
+ 	IMAGE_START = 0x43000,	/* compressed image */
+ 	SECONDARY_START = 0x200000,	/* backup images */
+ 	PXE_START = 0x3E0000,	/* user defined region */
+-	USER_START = 0x3E8000,	/* User defined region for new boards */
++	NETXEN_USER_START = 0x3E8000,	/* User defined region for new boards */
+ 	FIXED_START = 0x3F0000	/* backup of crbinit */
+ } netxen_flash_map_t;
  
-+#define netxen_set_addr_ctl_id_pool0(config_word, val)	\
-+	((config_word) &= ~3, (config_word) |= val & 0x3)
-+#define netxen_set_addr_ctl_enable_xtnd_0(config_word)	\
-+	((config_word) |= 1 << 2)
-+#define netxen_set_addr_ctl_id_pool1(config_word, val)	\
-+	((config_word) &= ~(0x3<<4), (config_word) |= (val & 0x3) << 4)
-+#define netxen_set_addr_ctl_enable_xtnd_1(config_word)	\
-+	((config_word) |= 1 << 6)
-+#define netxen_set_addr_ctl_id_pool2(config_word, val)	\
-+	((config_word) &= ~(0x3<<8), (config_word) |= (val & 0x3) << 8)
-+#define netxen_set_addr_ctl_enable_xtnd_2(config_word)	\
-+	((config_word) |= 1 << 10)
-+#define netxen_set_addr_ctl_id_pool3(config_word, val)	\
-+	((config_word) &= ~(0x3<<12), (config_word) |= (val & 0x3) << 12)
-+#define netxen_set_addr_ctl_enable_xtnd_3(config_word)	\
-+	((config_word) |= 1 << 14)
-+#define netxen_set_addr_ctl_mode(config_word, val)	\
-+	((config_word) &= ~(0x3<<26), (config_word) |= (val & 0x3) << 26)
-+#define netxen_set_addr_ctl_enable_poll(config_word, val)	\
-+	((config_word) &= ~(0xf<<30), (config_word) |= (val & 0xf) << 30)
-+
- struct netxen_rcv_context {
- 	__le64 rcv_ring_addr;
- 	__le32 rcv_ring_size;
-@@ -883,6 +904,9 @@ struct netxen_adapter {
- 	unsigned char mac_addr[ETH_ALEN];
- 	int mtu;
- 	int portnum;
-+	u8 promisc;
-+	u8 mc_enabled;
-+	u8 max_mc_count;
+@@ -717,7 +717,7 @@ #define PRIMARY_START 		(BOOTLD_START)
+ #define FLASH_CRBINIT_SIZE 	(0x4000)
+ #define FLASH_BRDCFG_SIZE 	(sizeof(struct netxen_board_info))
+ #define FLASH_USER_SIZE		(sizeof(struct netxen_user_info)/sizeof(u32))
+-#define FLASH_SECONDARY_SIZE 	(USER_START-SECONDARY_START)
++#define FLASH_SECONDARY_SIZE 	(NETXEN_USER_START-SECONDARY_START)
+ #define NUM_PRIMARY_SECTORS	(0x20)
+ #define NUM_CONFIG_SECTORS 	(1)
+ #define PFX "NetXen: "
+diff --git a/drivers/net/netxen/netxen_nic_ethtool.c b/drivers/net/netxen/netxen_nic_ethtool.c
+index 16fabb3..f7ddcd0 100644
+--- a/drivers/net/netxen/netxen_nic_ethtool.c
++++ b/drivers/net/netxen/netxen_nic_ethtool.c
+@@ -478,7 +478,7 @@ netxen_nic_set_eeprom(struct net_device 
+ 			return ret;
+ 		}
  
- 	spinlock_t tx_lock;
- 	spinlock_t lock;
-diff --git a/drivers/net/netxen/netxen_nic_hdr.h b/drivers/net/netxen/netxen_nic_hdr.h
-index 608e37b..2bfecbc 100644
---- a/drivers/net/netxen/netxen_nic_hdr.h
-+++ b/drivers/net/netxen/netxen_nic_hdr.h
-@@ -545,6 +545,9 @@ #define NETXEN_MULTICAST_ADDR_HI_1	(NETX
- #define NETXEN_MULTICAST_ADDR_HI_2	(NETXEN_CRB_NIU + 0x1018)
- #define NETXEN_MULTICAST_ADDR_HI_3	(NETXEN_CRB_NIU + 0x101c)
- 
-+#define NETXEN_UNICAST_ADDR_BASE	(NETXEN_CRB_NIU + 0x1080)
-+#define NETXEN_MULTICAST_ADDR_BASE	(NETXEN_CRB_NIU + 0x1100)
-+
- #define	NETXEN_NIU_GB_MAC_CONFIG_0(I)		\
- 	(NETXEN_CRB_NIU + 0x30000 + (I)*0x10000)
- #define	NETXEN_NIU_GB_MAC_CONFIG_1(I)		\
+-		ret = netxen_rom_se(adapter, USER_START);
++		ret = netxen_rom_se(adapter, NETXEN_USER_START);
+ 		if (ret != FLASH_SUCCESS)
+ 			return ret;
+ 		ret = netxen_rom_se(adapter, FIXED_START);
 diff --git a/drivers/net/netxen/netxen_nic_hw.c b/drivers/net/netxen/netxen_nic_hw.c
-index baff17a..fff3844 100644
+index fff3844..ef964b4 100644
 --- a/drivers/net/netxen/netxen_nic_hw.c
 +++ b/drivers/net/netxen/netxen_nic_hw.c
-@@ -303,6 +303,93 @@ int netxen_nic_set_mac(struct net_device
- 	return 0;
- }
+@@ -720,7 +720,7 @@ int netxen_get_flash_mac_addr(struct net
+ 	u32 *pmac = (u32 *) & mac[0];
  
-+#define NETXEN_UNICAST_ADDR(port, index)	\
-+	(NETXEN_UNICAST_ADDR_BASE+(port*32)+(index*8))
-+
-+int netxen_nic_enable_mcast_filter(struct netxen_adapter *adapter)
-+{
-+	u32 val = 0;
-+	u16 port = physical_port[adapter->portnum];
-+
-+	if (adapter->mc_enabled)
-+		return 0;
-+	
-+	netxen_set_addr_ctl_enable_poll(val, 0xf);
-+
-+	if (adapter->ahw.board_type == NETXEN_NIC_XGBE)
-+		netxen_set_addr_ctl_mode(val, 0x3);
-+	else
-+		netxen_set_addr_ctl_mode(val, 0x0);
-+
-+	netxen_set_addr_ctl_id_pool0(val, 0x0);
-+	netxen_set_addr_ctl_id_pool1(val, 0x1);
-+	netxen_set_addr_ctl_id_pool2(val, 0x2);
-+	netxen_set_addr_ctl_id_pool3(val, 0x3);
-+
-+	netxen_set_addr_ctl_enable_xtnd_0(val);
-+	netxen_set_addr_ctl_enable_xtnd_1(val);
-+	netxen_set_addr_ctl_enable_xtnd_2(val);
-+	netxen_set_addr_ctl_enable_xtnd_3(val);
-+	
-+	netxen_crb_writelit_adapter(adapter, NETXEN_MAC_ADDR_CNTL_REG, val);
-+	
-+	val = 0xffffff;
-+
-+	netxen_crb_writelit_adapter(adapter, NETXEN_UNICAST_ADDR(port,0), val);
-+	netxen_crb_writelit_adapter(adapter, NETXEN_UNICAST_ADDR(port,0)+4, 
-+					val);
-+	
-+	memcpy(&val, adapter->mac_addr, 3);
-+	netxen_crb_writelit_adapter(adapter, NETXEN_UNICAST_ADDR(port,1), val);
-+
-+	memcpy(&val, adapter->mac_addr+3, 3);
-+	netxen_crb_writelit_adapter(adapter, NETXEN_UNICAST_ADDR(port,1) + 4,
-+					val);
-+
-+	adapter->mc_enabled = 1;
-+	return 0;
-+}
-+
-+int netxen_nic_disable_mcast_filter(struct netxen_adapter *adapter)
-+{
-+	u32 val =  0;
-+	u16 port = physical_port[adapter->portnum];
-+
-+	if(!adapter->mc_enabled)
-+		return 0;
-+
-+	netxen_crb_writelit_adapter(adapter, NETXEN_MAC_ADDR_CNTL_REG, val);
-+
-+	memcpy(&val, adapter->mac_addr, 3);
-+	netxen_crb_writelit_adapter(adapter, NETXEN_UNICAST_ADDR(port,0), val);
-+
-+	memcpy(&val, adapter->mac_addr+3, 3);
-+	netxen_crb_writelit_adapter(adapter, NETXEN_UNICAST_ADDR(port,0) + 4,
-+					val);
-+
-+	adapter->mc_enabled = 0;
-+	return 0;
-+}
-+
-+#define NETXEN_MCAST_ADDR(port, index)	\
-+	(NETXEN_MULTICAST_ADDR_BASE+(port*0x80)+(index*8))
-+
-+int netxen_nic_set_mcast_addr(struct netxen_adapter *adapter, int index, 
-+				u8 *addr)
-+{
-+	u32 hi = 0;
-+	u32 lo = 0;
-+	u16 port = physical_port[adapter->portnum];
-+
-+	memcpy(&hi, addr, 3);
-+	memcpy(&lo, addr+3, 3);
-+
-+	netxen_crb_writelit_adapter(adapter, NETXEN_MCAST_ADDR(port,index), hi);
-+	netxen_crb_writelit_adapter(adapter, NETXEN_MCAST_ADDR(port,index) + 4,
-+					hi);
-+	return 0;
-+}
-+
- /*
-  * netxen_nic_set_multi - Multicast
-  */
-@@ -310,17 +397,39 @@ void netxen_nic_set_multi(struct net_dev
- {
- 	struct netxen_adapter *adapter = netdev_priv(netdev);
- 	struct dev_mc_list *mc_ptr;
-+	u8 null_addr[] = {0, 0, 0, 0, 0, 0};
-+	int index = 0;
+ 	if (netxen_get_flash_block(adapter,
+-				   USER_START +
++				   NETXEN_USER_START +
+ 				   offsetof(struct netxen_new_user_info,
+ 					    mac_addr),
+ 				   FLASH_NUM_PORTS * sizeof(u64), pmac) == -1) {
+@@ -1224,7 +1224,7 @@ void netxen_nic_flash_print(struct netxe
+ 	u32 fw_build = 0;
+ 	char brd_name[NETXEN_MAX_SHORT_NAME];
+ 	struct netxen_new_user_info user_info;
+-	int i, addr = USER_START;
++	int i, addr = NETXEN_USER_START;
+ 	__le32 *ptr32;
  
- 	mc_ptr = netdev->mc_list;
--	if (netdev->flags & IFF_PROMISC) {
--		if (adapter->set_promisc)
-+	if ((netdev->flags & IFF_PROMISC) || (netdev->mc_count >
-+						adapter->max_mc_count)) {
-+		if (adapter->set_promisc) {
- 			adapter->set_promisc(adapter,
- 					     NETXEN_NIU_PROMISC_MODE);
-+			netxen_nic_disable_mcast_filter(adapter);
-+			return;
-+		}
- 	} else {
--		if (adapter->unset_promisc)
-+		if ((netdev->mc_count == 0) && (adapter->unset_promisc)) {
- 			adapter->unset_promisc(adapter,
- 					       NETXEN_NIU_NON_PROMISC_MODE);
-+			netxen_nic_disable_mcast_filter(adapter);
-+			return;
-+		}
- 	}
-+	adapter->set_promisc(adapter, NETXEN_NIU_PROMISC_MODE);
-+	netxen_nic_enable_mcast_filter(adapter);
-+
-+	for (mc_ptr = netdev->mc_list; mc_ptr; mc_ptr = mc_ptr->next, index++)
-+		netxen_nic_set_mcast_addr(adapter, index, mc_ptr->dmi_addr);
-+
-+	if (index != netdev->mc_count)
-+		printk(KERN_ERR"%s: %s multicast address count mismatch\n",
-+				netxen_nic_driver_name, netdev->name);
-+
-+	/* Clear out the remaining addresses	*/
-+	for (; index < adapter->max_mc_count; index++)
-+		netxen_nic_set_mcast_addr(adapter, index, null_addr);
- }
+ 	struct netxen_board_info *board_info = &(adapter->ahw.boardcfg);
+diff --git a/drivers/net/netxen/netxen_nic_init.c b/drivers/net/netxen/netxen_nic_init.c
+index a368924..ac93987 100644
+--- a/drivers/net/netxen/netxen_nic_init.c
++++ b/drivers/net/netxen/netxen_nic_init.c
+@@ -654,7 +654,7 @@ void check_erased_flash(struct netxen_ad
+ 	int count = 0, erased_errors = 0;
+ 	int range;
  
- /*
+-	range = (addr == USER_START) ? FIXED_START : addr + FLASH_SECTOR_SIZE;
++	range = (addr == NETXEN_USER_START) ? FIXED_START : addr + FLASH_SECTOR_SIZE;
+ 	
+ 	for (i = addr; i < range; i += 4) {
+ 		netxen_rom_fast_read(adapter, i, &val);
+@@ -707,7 +707,7 @@ netxen_flash_erase_secondary(struct netx
+ 	int start, end;
+ 
+ 	start = SECONDARY_START / FLASH_SECTOR_SIZE;
+-	end   = USER_START / FLASH_SECTOR_SIZE;
++	end   = NETXEN_USER_START / FLASH_SECTOR_SIZE;
+ 	ret = netxen_flash_erase_sections(adapter, start, end);
+ 
+ 	return ret;
