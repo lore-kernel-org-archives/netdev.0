@@ -1,94 +1,43 @@
-From: Chris Snook <csnook@redhat.com>
-Subject: Re: [PATCH 4/5] atl1: eliminate unneeded kill_vid code
-Date: Fri, 01 Jun 2007 14:04:20 -0400
-Message-ID: <46605FA4.6000107@redhat.com>
-References: <20070601164356.673375550@linux-foundation.org> <20070601164705.586224195@linux-foundation.org>
+From: Vernon Mauery <vernux@us.ibm.com>
+Subject: Re: [PATCH 0/5] NetXen: Bug fixes and updates
+Date: Fri, 1 Jun 2007 11:21:43 -0700
+Message-ID: <200706011121.44368.vernux@us.ibm.com>
+References: <200706011111.l51BBPj9004617@dut39.unminc.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, Jeff Garzk <jgarzik@pobox.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Ben Greear <greearb@candelatech.com>,
-	Jay Cliburn <jcliburn@gmail.com>, netdev@vger.kernel.org,
-	atl1-devel@lists.sourceforge.net
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: netdev@vger.kernel.org, amitkale@netxen.com, jeff@garzik.org,
+	netxenproj@linsyssoft.com, rob@netxen.com
+To: Mithlesh Thukral <mithlesh@netxen.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:60050 "EHLO mx1.redhat.com"
+Received: from e4.ny.us.ibm.com ([32.97.182.144]:50962 "EHLO e4.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1762860AbXFASF0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Jun 2007 14:05:26 -0400
-In-Reply-To: <20070601164705.586224195@linux-foundation.org>
+	id S1762136AbXFASVq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Jun 2007 14:21:46 -0400
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by e4.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l51ILkT7007338
+	for <netdev@vger.kernel.org>; Fri, 1 Jun 2007 14:21:46 -0400
+Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
+	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l51ILjGX493396
+	for <netdev@vger.kernel.org>; Fri, 1 Jun 2007 14:21:45 -0400
+Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
+	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l51ILj8x001034
+	for <netdev@vger.kernel.org>; Fri, 1 Jun 2007 14:21:45 -0400
+In-Reply-To: <200706011111.l51BBPj9004617@dut39.unminc.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> This driver has unneeded stubs for VLAN filtering.
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
-> 
-> ---
->  drivers/net/atl1/atl1_main.c   |   25 +------------------------
-> 
-> ---
->  drivers/net/atl1/atl1_main.c |   33 +--------------------------------
->  1 file changed, 1 insertion(+), 32 deletions(-)
-> 
-> --- a/drivers/net/atl1/atl1_main.c	2007-06-01 09:21:53.000000000 -0700
-> +++ b/drivers/net/atl1/atl1_main.c	2007-06-01 09:27:53.000000000 -0700
-> @@ -1229,39 +1229,9 @@ static void atl1_vlan_rx_register(struct
->  	spin_unlock_irqrestore(&adapter->lock, flags);
->  }
->  
-> -/* FIXME: justify or remove -- CHS */
-> -static void atl1_vlan_rx_add_vid(struct net_device *netdev, u16 vid)
-> -{
-> -	/* We don't do Vlan filtering */
-> -	return;
-> -}
-> -
-> -/* FIXME: this looks wrong too -- CHS */
-> -static void atl1_vlan_rx_kill_vid(struct net_device *netdev, u16 vid)
-> -{
-> -	struct atl1_adapter *adapter = netdev_priv(netdev);
-> -	unsigned long flags;
-> -
-> -	spin_lock_irqsave(&adapter->lock, flags);
-> -	/* atl1_irq_disable(adapter); */
-> -	vlan_group_set_device(adapter->vlgrp, vid, NULL);
-> -	/* atl1_irq_enable(adapter); */
-> -	spin_unlock_irqrestore(&adapter->lock, flags);
-> -	/* We don't do Vlan filtering */
-> -	return;
-> -}
-> -
->  static void atl1_restore_vlan(struct atl1_adapter *adapter)
->  {
->  	atl1_vlan_rx_register(adapter->netdev, adapter->vlgrp);
-> -	if (adapter->vlgrp) {
-> -		u16 vid;
-> -		for (vid = 0; vid < VLAN_GROUP_ARRAY_LEN; vid++) {
-> -			if (!vlan_group_get_device(adapter->vlgrp, vid))
-> -				continue;
-> -			atl1_vlan_rx_add_vid(adapter->netdev, vid);
-> -		}
-> -	}
->  }
->  
->  static u16 tpd_avail(struct atl1_tpd_ring *tpd_ring)
-> @@ -2203,8 +2173,7 @@ static int __devinit atl1_probe(struct p
->  	netdev->poll_controller = atl1_poll_controller;
->  #endif
->  	netdev->vlan_rx_register = atl1_vlan_rx_register;
-> -	netdev->vlan_rx_add_vid = atl1_vlan_rx_add_vid;
-> -	netdev->vlan_rx_kill_vid = atl1_vlan_rx_kill_vid;
-> +
->  	netdev->ethtool_ops = &atl1_ethtool_ops;
->  	adapter->bd_number = cards_found;
->  	adapter->pci_using_64 = pci_using_64;
-> 
+On Friday 01 June 2007 4:11:25 am Mithlesh Thukral wrote:
+> Hi All,
+>
+> I will be sending bug fixes and updates to NetXen's 1/10G Ethernet
+> driver in subsequent mails.
+> These patches are wrt netdev#master.
 
-As the comments indicate, I was going to get around to doing this in my 
-Copious Free Time anyway, so:
+These patches seem to work for me on my i386 machine with a dual port card.  
 
-Acked-By: Chris Snook <csnook@redhat.com>
+Acked-by: Vernon Mauery <vernux@us.ibm.com>
 
+--Vernon
