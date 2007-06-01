@@ -1,58 +1,193 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH] [TCP]: Fix GSO ignorance of pkts_acked arg (cong.cntrl
- modules)
-Date: Fri, 1 Jun 2007 14:22:55 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0706011414490.28601@kivilampi-30.cs.helsinki.fi>
-References: <20070529131951.1d9a5b84@freepuppy>
- <Pine.LNX.4.64.0705292335080.23565@kivilampi-30.cs.helsinki.fi>
- <Pine.LNX.4.64.0705301206130.14736@kivilampi-30.cs.helsinki.fi>
- <20070531.213834.80026176.davem@davemloft.net>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: [PATCH 2/5] NetXen: Multicast filter for NetXen driver
+Date: Fri, 1 Jun 2007 13:24:57 +0200
+Message-ID: <200706011324.57678.mb@bu3sch.de>
+References: <200706011114.l51BEZTx004682@dut39.unminc.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; boundary="-696243703-1301103987-1180696626=:28601"
-Cc: Netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, amitkale@netxen.com, jeff@garzik.org,
+	netxenproj@linsyssoft.com, rob@netxen.com
+To: Mithlesh Thukral <mithlesh@netxen.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:52140 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753226AbXFALW5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jun 2007 07:22:57 -0400
-In-Reply-To: <20070531.213834.80026176.davem@davemloft.net>
-Content-ID: <Pine.LNX.4.64.0706011420540.28601@kivilampi-30.cs.helsinki.fi>
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:39117
+	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756429AbXFALZZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jun 2007 07:25:25 -0400
+In-Reply-To: <200706011114.l51BEZTx004682@dut39.unminc.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-
----696243703-1301103987-1180696626=:28601
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
-Content-ID: <Pine.LNX.4.64.0706011420541.28601@kivilampi-30.cs.helsinki.fi>
-
-On Thu, 31 May 2007, David Miller wrote:
-
-> From: "Ilpo_Järvinen" <ilpo.jarvinen@helsinki.fi>
-> Date: Wed, 30 May 2007 12:10:06 +0300 (EEST)
+On Friday 01 June 2007 13:14:35 Mithlesh Thukral wrote:
+> NetXen: Add multicast filter code
+> This patch will add manage the multicast filter from driver.
+> It will add capability to write multicast addresses to hardware.
 > 
-> > [PATCH] [TCP]: Fix GSO ignorance of pkts_acked arg (cong.cntrl modules)
-> > 
-> > The code used to ignore GSO completely, passing either way too
-> > small or zero pkts_acked when GSO skb or part of it got ACKed.
-> > In addition, there is no need to calculate the value in the loop
-> > but simple arithmetics after the loop is sufficient. There is
-> > no need to handle SYN case specially because congestion control
-> > modules are not yet initialized when FLAG_SYN_ACKED is set.
-> > 
-> > Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+> Signed-by: Mithlesh Thukral <mithlesh@netxen.com>
+> ---
 > 
-> Patch applied, thanks a lot!
+>  drivers/net/netxen/netxen_nic.h     |   24 +++++
+>  drivers/net/netxen/netxen_nic_hdr.h |    3 
+>  drivers/net/netxen/netxen_nic_hw.c  |  115 +++++++++++++++++++++++++-
+>  3 files changed, 139 insertions(+), 3 deletions(-)
+> 
+> diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/netxen/netxen_nic.h
+> index ad6688e..c74402f 100644
+> --- a/drivers/net/netxen/netxen_nic.h
+> +++ b/drivers/net/netxen/netxen_nic.h
+> @@ -261,6 +261,27 @@ #define netxen_set_msg_ctxid(config_word
+>  #define netxen_set_msg_opcode(config_word, val)	\
+>  	((config_word) &= ~(0xf<<28), (config_word) |= (val & 0xf) << 28)
+>  
+> +#define netxen_set_addr_ctl_id_pool0(config_word, val)	\
+> +	((config_word) &= ~3, (config_word) |= val & 0x3)
+> +#define netxen_set_addr_ctl_enable_xtnd_0(config_word)	\
+> +	((config_word) |= 1 << 2)
+> +#define netxen_set_addr_ctl_id_pool1(config_word, val)	\
+> +	((config_word) &= ~(0x3<<4), (config_word) |= (val & 0x3) << 4)
+> +#define netxen_set_addr_ctl_enable_xtnd_1(config_word)	\
+> +	((config_word) |= 1 << 6)
+> +#define netxen_set_addr_ctl_id_pool2(config_word, val)	\
+> +	((config_word) &= ~(0x3<<8), (config_word) |= (val & 0x3) << 8)
+> +#define netxen_set_addr_ctl_enable_xtnd_2(config_word)	\
+> +	((config_word) |= 1 << 10)
+> +#define netxen_set_addr_ctl_id_pool3(config_word, val)	\
+> +	((config_word) &= ~(0x3<<12), (config_word) |= (val & 0x3) << 12)
+> +#define netxen_set_addr_ctl_enable_xtnd_3(config_word)	\
+> +	((config_word) |= 1 << 14)
+> +#define netxen_set_addr_ctl_mode(config_word, val)	\
+> +	((config_word) &= ~(0x3<<26), (config_word) |= (val & 0x3) << 26)
+> +#define netxen_set_addr_ctl_enable_poll(config_word, val)	\
+> +	((config_word) &= ~(0xf<<30), (config_word) |= (val & 0xf) << 30)
+> +
+>  struct netxen_rcv_context {
+>  	__le64 rcv_ring_addr;
+>  	__le32 rcv_ring_size;
+> @@ -883,6 +904,9 @@ struct netxen_adapter {
+>  	unsigned char mac_addr[ETH_ALEN];
+>  	int mtu;
+>  	int portnum;
+> +	u8 promisc;
+> +	u8 mc_enabled;
+> +	u8 max_mc_count;
+>  
+>  	spinlock_t tx_lock;
+>  	spinlock_t lock;
+> diff --git a/drivers/net/netxen/netxen_nic_hdr.h b/drivers/net/netxen/netxen_nic_hdr.h
+> index 608e37b..2bfecbc 100644
+> --- a/drivers/net/netxen/netxen_nic_hdr.h
+> +++ b/drivers/net/netxen/netxen_nic_hdr.h
+> @@ -545,6 +545,9 @@ #define NETXEN_MULTICAST_ADDR_HI_1	(NETX
+>  #define NETXEN_MULTICAST_ADDR_HI_2	(NETXEN_CRB_NIU + 0x1018)
+>  #define NETXEN_MULTICAST_ADDR_HI_3	(NETXEN_CRB_NIU + 0x101c)
+>  
+> +#define NETXEN_UNICAST_ADDR_BASE	(NETXEN_CRB_NIU + 0x1080)
+> +#define NETXEN_MULTICAST_ADDR_BASE	(NETXEN_CRB_NIU + 0x1100)
+> +
+>  #define	NETXEN_NIU_GB_MAC_CONFIG_0(I)		\
+>  	(NETXEN_CRB_NIU + 0x30000 + (I)*0x10000)
+>  #define	NETXEN_NIU_GB_MAC_CONFIG_1(I)		\
+> diff --git a/drivers/net/netxen/netxen_nic_hw.c b/drivers/net/netxen/netxen_nic_hw.c
+> index baff17a..fff3844 100644
+> --- a/drivers/net/netxen/netxen_nic_hw.c
+> +++ b/drivers/net/netxen/netxen_nic_hw.c
+> @@ -303,6 +303,93 @@ int netxen_nic_set_mac(struct net_device
+>  	return 0;
+>  }
+>  
+> +#define NETXEN_UNICAST_ADDR(port, index)	\
+> +	(NETXEN_UNICAST_ADDR_BASE+(port*32)+(index*8))
+> +
+> +int netxen_nic_enable_mcast_filter(struct netxen_adapter *adapter)
+> +{
+> +	u32 val = 0;
+> +	u16 port = physical_port[adapter->portnum];
+> +
+> +	if (adapter->mc_enabled)
+> +		return 0;
+> +	
+> +	netxen_set_addr_ctl_enable_poll(val, 0xf);
+> +
+> +	if (adapter->ahw.board_type == NETXEN_NIC_XGBE)
+> +		netxen_set_addr_ctl_mode(val, 0x3);
+> +	else
+> +		netxen_set_addr_ctl_mode(val, 0x0);
+> +
+> +	netxen_set_addr_ctl_id_pool0(val, 0x0);
+> +	netxen_set_addr_ctl_id_pool1(val, 0x1);
+> +	netxen_set_addr_ctl_id_pool2(val, 0x2);
+> +	netxen_set_addr_ctl_id_pool3(val, 0x3);
+> +
+> +	netxen_set_addr_ctl_enable_xtnd_0(val);
+> +	netxen_set_addr_ctl_enable_xtnd_1(val);
+> +	netxen_set_addr_ctl_enable_xtnd_2(val);
+> +	netxen_set_addr_ctl_enable_xtnd_3(val);
+> +	
+> +	netxen_crb_writelit_adapter(adapter, NETXEN_MAC_ADDR_CNTL_REG, val);
+> +	
+> +	val = 0xffffff;
+> +
+> +	netxen_crb_writelit_adapter(adapter, NETXEN_UNICAST_ADDR(port,0), val);
+> +	netxen_crb_writelit_adapter(adapter, NETXEN_UNICAST_ADDR(port,0)+4, 
+> +					val);
+> +	
+> +	memcpy(&val, adapter->mac_addr, 3);
+> +	netxen_crb_writelit_adapter(adapter, NETXEN_UNICAST_ADDR(port,1), val);
+> +
+> +	memcpy(&val, adapter->mac_addr+3, 3);
+> +	netxen_crb_writelit_adapter(adapter, NETXEN_UNICAST_ADDR(port,1) + 4,
+> +					val);
+> +
+> +	adapter->mc_enabled = 1;
+> +	return 0;
+> +}
+> +
+> +int netxen_nic_disable_mcast_filter(struct netxen_adapter *adapter)
+> +{
+> +	u32 val =  0;
+> +	u16 port = physical_port[adapter->portnum];
+> +
+> +	if(!adapter->mc_enabled)
+> +		return 0;
+> +
+> +	netxen_crb_writelit_adapter(adapter, NETXEN_MAC_ADDR_CNTL_REG, val);
+> +
+> +	memcpy(&val, adapter->mac_addr, 3);
+> +	netxen_crb_writelit_adapter(adapter, NETXEN_UNICAST_ADDR(port,0), val);
+> +
+> +	memcpy(&val, adapter->mac_addr+3, 3);
+> +	netxen_crb_writelit_adapter(adapter, NETXEN_UNICAST_ADDR(port,0) + 4,
+> +					val);
+> +
+> +	adapter->mc_enabled = 0;
+> +	return 0;
+> +}
+> +
+> +#define NETXEN_MCAST_ADDR(port, index)	\
+> +	(NETXEN_MULTICAST_ADDR_BASE+(port*0x80)+(index*8))
+> +
+> +int netxen_nic_set_mcast_addr(struct netxen_adapter *adapter, int index, 
+> +				u8 *addr)
+> +{
+> +	u32 hi = 0;
+> +	u32 lo = 0;
+> +	u16 port = physical_port[adapter->portnum];
+> +
+> +	memcpy(&hi, addr, 3);
+> +	memcpy(&lo, addr+3, 3);
+> +
+> +	netxen_crb_writelit_adapter(adapter, NETXEN_MCAST_ADDR(port,index), hi);
+> +	netxen_crb_writelit_adapter(adapter, NETXEN_MCAST_ADDR(port,index) + 4,
+> +					hi);
+> +	return 0;
+> +}
+> +
 
-...It's good to be on the alert with this one because it might uncover
-some hidden bugs from congestion control module code (it changes some 
-behavior so radically), which obviously will have to be then fixed
-too...
-
+Uhm, is that copying of a u8 array (which is little endian) to
+an arch-endian u32. I'd say this will break on bigendian architectures.
+Your code just works on little endian architectures.
 
 -- 
- i.
----696243703-1301103987-1180696626=:28601--
+Greetings Michael.
