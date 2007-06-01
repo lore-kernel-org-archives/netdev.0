@@ -1,42 +1,26 @@
-From: Ivo van Doorn <ivdoorn@gmail.com>
-Subject: [PATCH] rfkill: Make rfkill->name const
-Date: Fri, 1 Jun 2007 20:20:43 +0200
-Message-ID: <200706012020.44112.IvDoorn@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [ICMP]: Fix icmp_errors_use_inbound_ifaddr sysctl
+Date: Fri, 01 Jun 2007 11:45:22 -0700 (PDT)
+Message-ID: <20070601.114522.106766735.davem@davemloft.net>
+References: <46605642.7060803@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Dmitry Torokhov <dtor@insightbb.com>, netdev@vger.kernel.org
-To: davem@davemloft.net
+Cc: netdev@vger.kernel.org
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ik-out-1112.google.com ([66.249.90.183]:50549 "EHLO
-	ik-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760333AbXFASXm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jun 2007 14:23:42 -0400
-Received: by ik-out-1112.google.com with SMTP id b32so595747ika
-        for <netdev@vger.kernel.org>; Fri, 01 Jun 2007 11:23:40 -0700 (PDT)
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36387
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1761787AbXFASpJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jun 2007 14:45:09 -0400
+In-Reply-To: <46605642.7060803@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The rfkill name can be made const safely,
-this makes the compiler happy when drivers make
-it point to some const string used elsewhere.
+From: Patrick McHardy <kaber@trash.net>
+Date: Fri, 01 Jun 2007 19:24:18 +0200
 
-Signed-off-by: Ivo van Doorn <IvDoorn@gmail.com>
+> It seems like you missed this patch in the previous thread discussing
+> the problem, so here's a resend.
 
----
-
-diff --git a/include/linux/rfkill.h b/include/linux/rfkill.h
-index 7c1ffba..a8a6ea8 100644
---- a/include/linux/rfkill.h
-+++ b/include/linux/rfkill.h
-@@ -63,7 +63,7 @@ enum rfkill_state {
-  * This structure represents a RF switch located on a network device.
-  */
- struct rfkill {
--	char *name;
-+	const char *name;
- 	enum rfkill_type type;
- 
- 	enum rfkill_state state;
+Thanks for resending, applied, thanks Patrick.
