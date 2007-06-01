@@ -1,25 +1,31 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH]: sky2: Fix VLAN unregistration
-Date: Fri, 1 Jun 2007 09:16:16 -0700
-Message-ID: <20070601091616.12d0bf09@freepuppy>
-References: <4659D174.70301@trash.net>
-	<20070531101945.2b19faa7@freepuppy>
-	<465F07C3.2090503@trash.net>
-	<20070531112117.584141d6@freepuppy>
-	<46603848.5000604@trash.net>
+From: Kim Phillips <kim.phillips@freescale.com>
+Subject: Re: [PATCH] NET: add MAINTAINERS entry for ucc_geth driver
+Date: Fri, 1 Jun 2007 11:27:10 -0500
+Message-ID: <20070601112710.064f526e.kim.phillips@freescale.com>
+References: <465679FA.8010702@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Ben Greear <greearb@candelatech.com>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([207.189.120.12]:60430 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755514AbXFAQ1u (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Jun 2007 12:27:50 -0400
-In-Reply-To: <46603848.5000604@trash.net>
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, jeff@garzik.org, linuxppc-embedded@ozlabs.org
+To: Li Yang <leoli@freescale.com>
+Return-path: <linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
+In-Reply-To: <465679FA.8010702@freescale.com>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
+	<mailto:linuxppc-embedded-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-embedded>
+List-Post: <mailto:linuxppc-embedded@ozlabs.org>
+List-Help: <mailto:linuxppc-embedded-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
+	<mailto:linuxppc-embedded-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-I am working on a multi-driver cleanup patch right now...
+On Fri, 25 May 2007 13:54:02 +0800
+Li Yang <leoli@freescale.com> wrote:
+
+> Signed-off-by: Li Yang <leoli@freescale.com>
+
+Acked-by: Kim Phillips <kim.phillips@freescale.com>
+
+Kim
