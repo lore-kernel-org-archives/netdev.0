@@ -1,39 +1,27 @@
-From: MOKUNO Masakazu <mokuno@sm.sony.co.jp>
-Subject: [PATCH 0/2] RFC: PS3 network driver
-Date: Fri, 01 Jun 2007 14:31:54 +0900
-Message-ID: <20070601142140.2C28.MOKUNO@sm.sony.co.jp>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: [PATCH 0/2] RFC: PS3 network driver
+Date: Fri, 1 Jun 2007 10:12:59 +0100
+Message-ID: <20070601091259.GA2334@infradead.org>
+References: <20070601142140.2C28.MOKUNO@sm.sony.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-To: mokuno@sm.sony.co.jp
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, cbe-oss-dev@ozlabs.org
+To: MOKUNO Masakazu <mokuno@sm.sony.co.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from NS4.Sony.CO.JP ([137.153.0.44]:53375 "EHLO ns4.sony.co.jp"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753445AbXFAHnV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Jun 2007 03:43:21 -0400
-Received: from mail5.sony.co.jp (localhost [127.0.0.1])
-	by mail5.sony.co.jp (R8/Sony) with ESMTP id l515xmKl015112
-	for <netdev@vger.kernel.org>; Fri, 1 Jun 2007 14:59:48 +0900 (JST)
-Received: from smail1.sm.sony.co.jp (smail1.sm.sony.co.jp [43.11.253.1])
-	by mail5.sony.co.jp (R8/Sony) with ESMTP id l515xm0x015097
-	for <netdev@vger.kernel.org>; Fri, 1 Jun 2007 14:59:48 +0900 (JST)
+Received: from pentafluge.infradead.org ([213.146.154.40]:35467 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755124AbXFAJNJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jun 2007 05:13:09 -0400
+Content-Disposition: inline
+In-Reply-To: <20070601142140.2C28.MOKUNO@sm.sony.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi
+On Fri, Jun 01, 2007 at 02:31:54PM +0900, MOKUNO Masakazu wrote:
+> Hi
+> 
+> This is the first submission of the PS3 network driver
+>  [1] ps3: gigabit ethernet driver for PS3
 
-This is the first submission of the PS3 network driver
- [1] ps3: gigabit ethernet driver for PS3
- [2] ps3: add wireless LAN support for PS3
-
-They are submitted for review since some of the underlying
-infrastructure code hasn't been submitted yet.
-For reference, you can take a look at Geoff's git tree
-(git://git.kernel.org/pub/scm/linux/kernel/git/geoff/ps3-linux.git).
-
-I appreciate your comments.
-
---
-Masakazu MOKUNO
-
+What happened to the idea of incorporating support into spidernet?
 
