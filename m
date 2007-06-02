@@ -1,36 +1,55 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [Cbe-oss-dev] [PATCH 0/2] RFC: PS3 network driver
-Date: Fri, 1 Jun 2007 23:05:42 +0200
-Message-ID: <200706012305.43233.arnd@arndb.de>
-References: <20070601142140.2C28.MOKUNO@sm.sony.co.jp> <20070601091259.GA2334@infradead.org> <46604544.4060503@am.sony.com>
+From: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
+Subject: Re: kernel Error
+Date: Sat, 02 Jun 2007 18:04:45 +0200
+Message-ID: <4661951D.4010904@googlemail.com>
+References: <2658.63.219.2.2.1180776292.squirrel@mail.websurfer.com.np>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Geoff Levand <geoffrey.levand@am.sony.com>,
-	Christoph Hellwig <hch@infradead.org>, netdev@vger.kernel.org
-To: cbe-oss-dev@ozlabs.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, Netdev <netdev@vger.kernel.org>
+To: umesh@websurfer.com.np
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.187]:56959 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752166AbXFBMAt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jun 2007 08:00:49 -0400
-In-Reply-To: <46604544.4060503@am.sony.com>
-Content-Disposition: inline
+Received: from ug-out-1314.google.com ([66.249.92.171]:51795 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756149AbXFBQFB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jun 2007 12:05:01 -0400
+Received: by ug-out-1314.google.com with SMTP id j3so429588ugf
+        for <netdev@vger.kernel.org>; Sat, 02 Jun 2007 09:04:59 -0700 (PDT)
+In-Reply-To: <2658.63.219.2.2.1180776292.squirrel@mail.websurfer.com.np>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Friday 01 June 2007, Geoff Levand wrote:
-> 
-> > What happened to the idea of incorporating support into spidernet?
-> 
-> That is still our goal, but as a first step we want to at least get
-> some Ethernet support included for end users.
+Hi,
 
-Right, I agree that having two drivers is a better medium-term solution,
-since the two have diverged significantly already, and getting all
-the PS3 code back into spidernet would probably cause it to
-become less stable and will take much longer than I'd want to
-wait fo having PS3 fully supported.
+[netdev added to CC]
 
-	Arnd <><
+umesh@websurfer.com.np pisze:
+> I got following error message when I try to upload file to remote ser=
+ver.
+> The log generated in remote server is as per below.
+>=20
+> KERNEL: assertion (flags & MSG_PEEK) failed at net/ipv4/tcp.c (1284)
+> recvmsg bug: copied BC00D548 seq BC00DAFC
+> KERNEL: assertion (tp->copied_seq =3D=3D tp->rcv_nxt || (flags & (MSG=
+_PEEK |
+> MSG_TRUNC))) failed at net/ipv4/tcp.c (1348)
+> KERNEL: assertion (flags & MSG_PEEK) failed at net/ipv4/tcp.c (1284)
+> recvmsg bug: copied BC00D548 seq BC00DAFC
+> KERNEL: assertion (tp->copied_seq =3D=3D tp->rcv_nxt || (flags & (MSG=
+_PEEK |
+> MSG_TRUNC))) failed at net/ipv4/tcp.c (1348)
+> KERNEL: assertion (flags & MSG_PEEK) failed at net/ipv4/tcp.c (1284)
+>=20
+> Umesh
+>=20
+
+Please read REPORTING-BUGS and send more details
+
+Regards,
+Michal
+
+--=20
+"Najbardziej brakowa=C5=82o mi twojego milczenia."
+-- Andrzej Sapkowski "Co=C5=9B wi=C4=99cej"
+
