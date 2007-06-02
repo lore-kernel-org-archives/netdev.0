@@ -1,37 +1,33 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [3/4] [IPV4]: Add default config support after inetdev_init
-Date: Sat, 2 Jun 2007 20:03:15 +1000
-Message-ID: <20070602100315.GC9247@gondor.apana.org.au>
+Subject: [4/4] [IPV4]: Restore old behaviour of default config values
+Date: Sat, 2 Jun 2007 20:03:59 +1000
+Message-ID: <20070602100359.GD9247@gondor.apana.org.au>
 References: <20070602100132.GA9129@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:4471 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:4483 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755194AbXFBKDR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jun 2007 06:03:17 -0400
+	with ESMTP id S1754694AbXFBKEB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jun 2007 06:04:01 -0400
 Content-Disposition: inline
 In-Reply-To: <20070602100132.GA9129@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[IPV4]: Add default config support after inetdev_init
+[IPV4]: Restore old behaviour of default config values
 
-Previously once inetdev_init has been called on a device any changes made
-to ipv4_devconf_dflt would have no effect on that device's configuration.
+Previously inet devices were only constructed when addresses are added
+(or rarely in ipmr).  Therefore the default config values they get are
+the ones at the time of these operations.
 
-This creates a problem since we have moved the point where inetdev_init
-is called from when an address is added to where the device is registered.
+Now that we're creating inet devices earlier, this changes the behaviour
+of default config values in an incompatible way (see bug #8519).
 
-This patch is the first half of a set that tries to mimic the old behaviour
-while still calling inetdev_init.
-
-It propagates any changes to ipv4_devconf_dflt to those devices that have
-not had the corresponding attribute set.
-
-The next patch will forcibly set all values at the point where inetdev_init
-was previously called.
+This patch creates a compromise by setting the default values at the
+same point as before but only for those that have not been explicitly
+set by the user since the inet device's creation.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
@@ -45,205 +41,104 @@ PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 diff --git a/include/linux/inetdevice.h b/include/linux/inetdevice.h
 --- a/include/linux/inetdevice.h
 +++ b/include/linux/inetdevice.h
-@@ -3,6 +3,7 @@
- 
- #ifdef __KERNEL__
- 
-+#include <linux/bitmap.h>
- #include <linux/if.h>
- #include <linux/netdevice.h>
- #include <linux/rcupdate.h>
-@@ -12,6 +13,7 @@ struct ipv4_devconf
- {
- 	void	*sysctl;
- 	int	data[__NET_IPV4_CONF_MAX - 1];
-+	DECLARE_BITMAP(state, __NET_IPV4_CONF_MAX - 1);
- };
- 
- extern struct ipv4_devconf ipv4_devconf;
-@@ -53,6 +55,7 @@ static inline void ipv4_devconf_set(stru
- 				    int val)
- {
- 	index--;
-+	set_bit(index, in_dev->cnf.state);
+@@ -59,6 +59,11 @@ static inline void ipv4_devconf_set(stru
  	in_dev->cnf.data[index] = val;
  }
  
++static inline void ipv4_devconf_setall(struct in_device *in_dev)
++{
++	bitmap_fill(in_dev->cnf.state, __NET_IPV4_CONF_MAX - 1);
++}
++
+ #define IN_DEV_CONF_GET(in_dev, attr) \
+ 	ipv4_devconf_get((in_dev), NET_IPV4_CONF_ ## attr)
+ #define IN_DEV_CONF_SET(in_dev, attr, val) \
+@@ -125,7 +130,6 @@ extern struct net_device 	*ip_dev_find(_
+ extern int		inet_addr_onlink(struct in_device *in_dev, __be32 a, __be32 b);
+ extern int		devinet_ioctl(unsigned int cmd, void __user *);
+ extern void		devinet_init(void);
+-extern struct in_device *inetdev_init(struct net_device *dev);
+ extern struct in_device	*inetdev_by_index(int);
+ extern __be32		inet_select_addr(const struct net_device *dev, __be32 dst, int scope);
+ extern __be32		inet_confirm_addr(const struct net_device *dev, __be32 dst, __be32 local, int scope);
 diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
 --- a/net/ipv4/devinet.c
 +++ b/net/ipv4/devinet.c
-@@ -1244,6 +1244,91 @@ errout:
- 
- #ifdef CONFIG_SYSCTL
- 
-+static void devinet_copy_dflt_conf(int i)
-+{
-+	struct net_device *dev;
-+
-+	read_lock(&dev_base_lock);
-+	for_each_netdev(dev) {
-+		struct in_device *in_dev;
-+		rcu_read_lock();
-+		in_dev = __in_dev_get_rcu(dev);
-+		if (in_dev && !test_bit(i, in_dev->cnf.state))
-+			in_dev->cnf.data[i] = ipv4_devconf_dflt.data[i];
-+		rcu_read_unlock();
-+	}
-+	read_unlock(&dev_base_lock);
-+}
-+
-+static int devinet_conf_proc(ctl_table *ctl, int write,
-+			     struct file* filp, void __user *buffer,
-+			     size_t *lenp, loff_t *ppos)
-+{
-+	int ret = proc_dointvec(ctl, write, filp, buffer, lenp, ppos);
-+
-+	if (write) {
-+		struct ipv4_devconf *cnf = ctl->extra1;
-+		int i = (int *)ctl->data - cnf->data;
-+
-+		set_bit(i, cnf->state);
-+
-+		if (cnf == &ipv4_devconf_dflt)
-+			devinet_copy_dflt_conf(i);
-+	}
-+
-+	return ret;
-+}
-+
-+static int devinet_conf_sysctl(ctl_table *table, int __user *name, int nlen,
-+			       void __user *oldval, size_t __user *oldlenp,
-+			       void __user *newval, size_t newlen)
-+{
-+	struct ipv4_devconf *cnf;
-+	int *valp = table->data;
-+	int new;
-+	int i;
-+
-+	if (!newval || !newlen)
-+		return 0;
-+
-+	if (newlen != sizeof(int))
-+		return -EINVAL;
-+
-+	if (get_user(new, (int __user *)newval))
-+		return -EFAULT;
-+
-+	if (new == *valp)
-+		return 0;
-+
-+	if (oldval && oldlenp) {
-+		size_t len;
-+
-+		if (get_user(len, oldlenp))
-+			return -EFAULT;
-+
-+		if (len) {
-+			if (len > table->maxlen)
-+				len = table->maxlen;
-+			if (copy_to_user(oldval, valp, len))
-+				return -EFAULT;
-+			if (put_user(len, oldlenp))
-+				return -EFAULT;
-+		}
-+	}
-+
-+	*valp = new;
-+
-+	cnf = table->extra1;
-+	i = (int *)table->data - cnf->data;
-+
-+	set_bit(i, cnf->state);
-+
-+	if (cnf == &ipv4_devconf_dflt)
-+		devinet_copy_dflt_conf(i);
-+
-+	return 1;
-+}
-+
- void inet_forward_change(void)
- {
- 	struct net_device *dev;
-@@ -1302,40 +1387,13 @@ int ipv4_doint_and_flush_strategy(ctl_ta
- 				  void __user *oldval, size_t __user *oldlenp,
- 				  void __user *newval, size_t newlen)
- {
--	int *valp = table->data;
--	int new;
--
--	if (!newval || !newlen)
--		return 0;
--
--	if (newlen != sizeof(int))
--		return -EINVAL;
-+	int ret = devinet_conf_sysctl(table, name, nlen, oldval, oldlenp,
-+				      newval, newlen);
- 
--	if (get_user(new, (int __user *)newval))
--		return -EFAULT;
--
--	if (new == *valp)
--		return 0;
--
--	if (oldval && oldlenp) {
--		size_t len;
--
--		if (get_user(len, oldlenp))
--			return -EFAULT;
--
--		if (len) {
--			if (len > table->maxlen)
--				len = table->maxlen;
--			if (copy_to_user(oldval, valp, len))
--				return -EFAULT;
--			if (put_user(len, oldlenp))
--				return -EFAULT;
--		}
--	}
-+	if (ret == 1)
-+		rt_cache_flush(0);
- 
--	*valp = new;
--	rt_cache_flush(0);
--	return 1;
-+	return ret;
+@@ -147,7 +147,7 @@ void in_dev_finish_destroy(struct in_dev
+ 	}
  }
  
+-struct in_device *inetdev_init(struct net_device *dev)
++static struct in_device *inetdev_init(struct net_device *dev)
+ {
+ 	struct in_device *in_dev;
  
-@@ -1349,13 +1407,16 @@ int ipv4_doint_and_flush_strategy(ctl_ta
- 		.mode		= mval, \
- 		.proc_handler	= proc, \
- 		.strategy	= sysctl, \
-+		.extra1		= &ipv4_devconf, \
+@@ -405,12 +405,10 @@ static int inet_set_ifa(struct net_devic
+ 	ASSERT_RTNL();
+ 
+ 	if (!in_dev) {
+-		in_dev = inetdev_init(dev);
+-		if (!in_dev) {
+-			inet_free_ifa(ifa);
+-			return -ENOBUFS;
+-		}
++		inet_free_ifa(ifa);
++		return -ENOBUFS;
+ 	}
++	ipv4_devconf_setall(in_dev);
+ 	if (ifa->ifa_dev != in_dev) {
+ 		BUG_TRAP(!ifa->ifa_dev);
+ 		in_dev_hold(in_dev);
+@@ -520,13 +518,12 @@ static struct in_ifaddr *rtm_to_ifaddr(s
+ 
+ 	in_dev = __in_dev_get_rtnl(dev);
+ 	if (in_dev == NULL) {
+-		in_dev = inetdev_init(dev);
+-		if (in_dev == NULL) {
+-			err = -ENOBUFS;
+-			goto errout;
+-		}
++		err = -ENOBUFS;
++		goto errout;
  	}
  
- #define DEVINET_SYSCTL_RW_ENTRY(attr, name) \
--	DEVINET_SYSCTL_ENTRY(attr, name, 0644, &proc_dointvec, NULL)
-+	DEVINET_SYSCTL_ENTRY(attr, name, 0644, devinet_conf_proc, \
-+			     devinet_conf_sysctl)
++	ipv4_devconf_setall(in_dev);
++
+ 	ifa = inet_alloc_ifa();
+ 	if (ifa == NULL) {
+ 		/*
+diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+--- a/net/ipv4/ipmr.c
++++ b/net/ipv4/ipmr.c
+@@ -152,9 +152,11 @@ struct net_device *ipmr_new_tunnel(struc
+ 			dev->flags |= IFF_MULTICAST;
  
- #define DEVINET_SYSCTL_RO_ENTRY(attr, name) \
--	DEVINET_SYSCTL_ENTRY(attr, name, 0444, &proc_dointvec, NULL)
-+	DEVINET_SYSCTL_ENTRY(attr, name, 0444, devinet_conf_proc, \
-+			     devinet_conf_sysctl)
+ 			in_dev = __in_dev_get_rtnl(dev);
+-			if (in_dev == NULL && (in_dev = inetdev_init(dev)) == NULL)
++			if (in_dev == NULL)
+ 				goto failure;
+-			IN_DEV_CONF_SET(in_dev, RP_FILTER, 0);
++
++			ipv4_devconf_setall(in_dev);
++			IPV4_DEVCONF(in_dev->cnf, RP_FILTER) = 0;
  
- #define DEVINET_SYSCTL_COMPLEX_ENTRY(attr, name, proc, sysctl) \
- 	DEVINET_SYSCTL_ENTRY(attr, name, 0644, proc, sysctl)
-@@ -1374,7 +1435,8 @@ static struct devinet_sysctl_table {
- } devinet_sysctl = {
- 	.devinet_vars = {
- 		DEVINET_SYSCTL_COMPLEX_ENTRY(FORWARDING, "forwarding",
--					     devinet_sysctl_forward, NULL),
-+					     devinet_sysctl_forward,
-+					     devinet_conf_sysctl),
- 		DEVINET_SYSCTL_RO_ENTRY(MC_FORWARDING, "mc_forwarding"),
- 
- 		DEVINET_SYSCTL_RW_ENTRY(ACCEPT_REDIRECTS, "accept_redirects"),
-@@ -1448,6 +1510,7 @@ static void devinet_sysctl_register(stru
- 		return;
- 	for (i = 0; i < ARRAY_SIZE(t->devinet_vars) - 1; i++) {
- 		t->devinet_vars[i].data += (char *)p - (char *)&ipv4_devconf;
-+		t->devinet_vars[i].extra1 = p;
+ 			if (dev_open(dev))
+ 				goto failure;
+@@ -218,10 +220,15 @@ static struct net_device *ipmr_reg_vif(v
  	}
+ 	dev->iflink = 0;
  
- 	if (dev) {
+-	if ((in_dev = inetdev_init(dev)) == NULL)
++	rcu_read_lock();
++	if ((in_dev = __in_dev_get_rcu(dev)) == NULL) {
++		rcu_read_unlock();
+ 		goto failure;
++	}
+ 
+-	IN_DEV_CONF_SET(in_dev, RP_FILTER, 0);
++	ipv4_devconf_setall(in_dev);
++	IPV4_DEVCONF(in_dev->cnf, RP_FILTER) = 0;
++	rcu_read_unlock();
+ 
+ 	if (dev_open(dev))
+ 		goto failure;
