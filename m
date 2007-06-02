@@ -1,64 +1,56 @@
-From: "Arnaldo Carvalho de Melo" <acme@ghostprotocols.net>
-Subject: Re: [PATCH] fix race in AF_UNIX
-Date: Sat, 2 Jun 2007 19:11:48 -0300
-Message-ID: <39e6f6c70706021511i42a70099lf5415adf51215b27@mail.gmail.com>
-References: <E1HubUt-0004Hb-00@dorka.pomaz.szeredi.hu>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: [PATCH] V2: O_CLOEXEC for SCM_RIGHTS
+Date: Sun, 3 Jun 2007 00:14:50 +0200
+Message-ID: <200706030014.50305.mb@bu3sch.de>
+References: <200706022148.l52LmVRx023291@devserv.devel.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Miklos Szeredi" <miklos@szeredi.hu>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, torvalds@linux-foundation.org
+To: Ulrich Drepper <drepper@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.171]:23517 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759659AbXFBWLu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jun 2007 18:11:50 -0400
-Received: by ug-out-1314.google.com with SMTP id j3so469377ugf
-        for <netdev@vger.kernel.org>; Sat, 02 Jun 2007 15:11:49 -0700 (PDT)
-In-Reply-To: <E1HubUt-0004Hb-00@dorka.pomaz.szeredi.hu>
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:50844
+	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759659AbXFBWPN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jun 2007 18:15:13 -0400
+In-Reply-To: <200706022148.l52LmVRx023291@devserv.devel.redhat.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 6/2/07, Miklos Szeredi <miklos@szeredi.hu> wrote:
-> From: Miklos Szeredi <mszeredi@suse.cz>
->
-> A recv() on an AF_UNIX, SOCK_STREAM socket can race with a
-> send()+close() on the peer, causing recv() to return zero, even though
-> the sent data should be received.
->
-> This happens if the send() and the close() is performed between
-> skb_dequeue() and checking sk->sk_shutdown in unix_stream_recvmsg():
->
-> process A  skb_dequeue() returns NULL, there's no data in the socket queue
-> process B  new data is inserted onto the queue by unix_stream_sendmsg()
-> process B  sk->sk_shutdown is set to SHUTDOWN_MASK by unix_release_sock()
-> process A  sk->sk_shutdown is checked, unix_release_sock() returns zero
->
-> I'm surprised nobody noticed this, it's not hard to trigger.  Maybe
-> it's just (un)luck with the timing.
->
-> It's possible to work around this bug in userspace, by retrying the
-> recv() once in case of a zero return value.
->
-> Signed-off-by: Miklos Szeredi <mszeredi@suse.cz>
-> ---
->
-> Index: linux-2.6.22-rc2/net/unix/af_unix.c
-> ===================================================================
-> --- linux-2.6.22-rc2.orig/net/unix/af_unix.c    2007-06-02 23:45:47.000000000 +0200
-> +++ linux-2.6.22-rc2/net/unix/af_unix.c 2007-06-02 23:45:49.000000000 +0200
-> @@ -1711,20 +1711,23 @@ static int unix_stream_recvmsg(struct ki
->                 int chunk;
->                 struct sk_buff *skb;
->
-> +               unix_state_rlock(sk);
+On Saturday 02 June 2007 23:48:31 Ulrich Drepper wrote:
+> Take two: I forgot to change the compat code.  This has now happened.  Only one
+> additional line changed.
+> 
+> Everything else from the first patch remains the same.  I try to avoid clogging
+> the list unnecessarily by not resending the test program.
+> 
+> 
+> Signed-off-by: Ulrich Drepper <drepper@redhat.com>
+> 
+> --- a/fs/open.c
+> +++ b/fs/open.c
+> @@ -855,7 +855,7 @@
+>  /*
+>   * Find an empty file descriptor entry, and mark it busy.
+>   */
+> -static int get_unused_fd_flags(int flags)
+> +int get_unused_fd_flags(int flags)
+>  {
+>  	struct files_struct * files = current->files;
+>  	int fd, error;
+> --- a/include/linux/file.h
+> +++ b/include/linux/file.h
+> @@ -73,6 +73,7 @@ extern struct file * FASTCALL(fget_light(unsigned int fd, int *fput_needed));
+>  extern void FASTCALL(set_close_on_exec(unsigned int fd, int flag));
+>  extern void put_filp(struct file *);
+>  extern int get_unused_fd(void);
+> +extern int FASTCALL(get_unused_fd_flags(int flags));
 
-this function doesn't exist anymore, see:
+If you use FASTCALL macro here, you must use fastcall macro at
+the definition above, too.
 
-http://git.kernel.org/?p=linux/kernel/git/davem/net-2.6.git;a=commitdiff;h=e97b6936b03dd0a62991f361c048cca38ac00198
-
-There is also another AF_UNIX patch, also related to a race.
-
-- Arnaldo
+-- 
+Greetings Michael.
