@@ -1,57 +1,216 @@
-From: Tim Mann <mann@vmware.com>
-Subject: small forcedeth WoL fix
-Date: Fri, 1 Jun 2007 17:22:17 -0700
-Message-ID: <20070601172217.686a0d5e@mann-lx.eng.vmware.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: Mixing tagged and untagged vlans using via-velocity driver
+Date: Fri, 1 Jun 2007 17:19:28 -0700
+Message-ID: <20070601171928.5b3bc129@freepuppy>
+References: <200705250737.l4P7bBbB015322@ns2.lanforge.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="MP_nqA/M=NWxLZiJanMTSuSY7Q"
-Cc: mann@vmware.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: vlan@candelatech.com, netdev@vger.kernel.org
+To: "Linux 802.1Q VLAN" <vlan@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-outbound-1.vmware.com ([65.113.40.141]:47448 "EHLO
-	smtp-outbound-1.vmware.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755607AbXFBAWS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jun 2007 20:22:18 -0400
-Received: from mailhost3.vmware.com (mailhost3.vmware.com [10.16.68.131])
-	by smtp-outbound-1.vmware.com (Postfix) with ESMTP id 192D9664E
-	for <netdev@vger.kernel.org>; Fri,  1 Jun 2007 17:22:18 -0700 (PDT)
+Received: from smtp.osdl.org ([207.189.120.12]:39677 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751933AbXFBAbC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Jun 2007 20:31:02 -0400
+In-Reply-To: <200705250737.l4P7bBbB015322@ns2.lanforge.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---MP_nqA/M=NWxLZiJanMTSuSY7Q
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+On Fri, 25 May 2007 09:37:09 +0200
+"Nicklas Bondesson" <nicklas.bondesson@pakompetens.se> wrote:
 
-I happened to notice that a system with an NVidia NIC using the
-forcedeth driver won't wake-on-LAN if the interface was in promiscuous
-mode when you power off.  By experiment, it looks like
-the hardware needs to have NvRegPacketFilterFlags set to
-NVREG_PFF_ALWAYS|NVREG_PFF_MYADDR (i.e., receive unicast packets to my
-address) in order for WoL to work.  At any rate, the attached patch
-fixes the problem for me.
+> I am trying to setup two vlans (one tagged and one untagged) using the
+> native via-velocity driver in kernel 2.6.21.1 on a single nic.
+> 
+> I can set it up tagged or untagged without any problems, but not both at the
+> same time. Is this even possible with this driver?
+> 
+> To enable vlan5 tagging on the nic I have tried the following:
+> 
+> alias eth1 via_velocity
+> options eth1 enable_tagging=1 VID_setting=5
+> 
+> At this point I can communicate with vlan5. When I try to bring up a virtual
+> interface using vconfig it seems to inherit the vlan5 tagging, thus making
+> it impossible to communicate with an untagged vlan.
+> 
+> I have also tried the other way arround. If I skip "enable_tagging=1
+> VID_setting=5", I can communicate with a non tagged vlan. If I bring up a
+> new virtual interface (tagged vlan5) using vconfig it does not work.
+> 
+> I'm stuck. If anyone could shed some light on this it would be greatly
+> appreciated.
+> 
 
--- 
-Tim Mann  work: mann@vmware.com  home: tim@tim-mann.org
-          http://www.vmware.com  http://tim-mann.org
+The via-velocity is using a non-standard VLAN interface and ought
+to be fixed...
 
---MP_nqA/M=NWxLZiJanMTSuSY7Q
-Content-Type: text/x-patch; name=wol-fix.patch
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment; filename=wol-fix.patch
+Could someone give this a try?
 
---- forcedeth-git-netdev.c	2007-06-01 16:43:19.971507000 -0700
-+++ forcedeth-git-netdev-fixed.c	2007-06-01 16:46:53.389713000 -0700
-@@ -4830,8 +4830,10 @@
+---
+ drivers/net/via-velocity.c |   71 +++++++++++++++++++++++++++------------------
+ drivers/net/via-velocity.h |    3 +
+ 2 files changed, 45 insertions(+), 29 deletions(-)
+
+--- a/drivers/net/via-velocity.c	2007-06-01 08:18:22.000000000 -0700
++++ b/drivers/net/via-velocity.c	2007-06-01 17:18:14.000000000 -0700
+@@ -72,6 +72,7 @@
+ #include <linux/mii.h>
+ #include <linux/in.h>
+ #include <linux/if_arp.h>
++#include <linux/if_vlan.h>
+ #include <linux/ip.h>
+ #include <linux/tcp.h>
+ #include <linux/udp.h>
+@@ -111,15 +112,6 @@ VELOCITY_PARAM(RxDescriptors, "Number of
+ #define TX_DESC_DEF     64
+ VELOCITY_PARAM(TxDescriptors, "Number of transmit descriptors");
  
- 	drain_ring(dev);
+-#define VLAN_ID_MIN     0
+-#define VLAN_ID_MAX     4095
+-#define VLAN_ID_DEF     0
+-/* VID_setting[] is used for setting the VID of NIC.
+-   0: default VID.
+-   1-4094: other VIDs.
+-*/
+-VELOCITY_PARAM(VID_setting, "802.1Q VLAN ID");
+-
+ #define RX_THRESH_MIN   0
+ #define RX_THRESH_MAX   3
+ #define RX_THRESH_DEF   0
+@@ -147,13 +139,6 @@ VELOCITY_PARAM(rx_thresh, "Receive fifo 
+ */
+ VELOCITY_PARAM(DMA_length, "DMA length");
  
--	if (np->wolenabled)
-+	if (np->wolenabled) {
-+		writel(NVREG_PFF_ALWAYS|NVREG_PFF_MYADDR, base + NvRegPacketFilterFlags);
- 		nv_start_rx(dev);
-+	}
+-#define TAGGING_DEF     0
+-/* enable_tagging[] is used for enabling 802.1Q VID tagging.
+-   0: disable VID seeting(default).
+-   1: enable VID setting.
+-*/
+-VELOCITY_PARAM(enable_tagging, "Enable 802.1Q tagging");
+-
+ #define IP_ALIG_DEF     0
+ /* IP_byte_align[] is used for IP header DWORD byte aligned
+    0: indicate the IP header won't be DWORD byte aligned.(Default) .
+@@ -442,8 +427,7 @@ static void __devinit velocity_get_optio
+ 	velocity_set_int_opt(&opts->DMA_length, DMA_length[index], DMA_LENGTH_MIN, DMA_LENGTH_MAX, DMA_LENGTH_DEF, "DMA_length", devname);
+ 	velocity_set_int_opt(&opts->numrx, RxDescriptors[index], RX_DESC_MIN, RX_DESC_MAX, RX_DESC_DEF, "RxDescriptors", devname);
+ 	velocity_set_int_opt(&opts->numtx, TxDescriptors[index], TX_DESC_MIN, TX_DESC_MAX, TX_DESC_DEF, "TxDescriptors", devname);
+-	velocity_set_int_opt(&opts->vid, VID_setting[index], VLAN_ID_MIN, VLAN_ID_MAX, VLAN_ID_DEF, "VID_setting", devname);
+-	velocity_set_bool_opt(&opts->flags, enable_tagging[index], TAGGING_DEF, VELOCITY_FLAGS_TAGGING, "enable_tagging", devname);
++
+ 	velocity_set_bool_opt(&opts->flags, txcsum_offload[index], TX_CSUM_DEF, VELOCITY_FLAGS_TX_CSUM, "txcsum_offload", devname);
+ 	velocity_set_int_opt(&opts->flow_cntl, flow_control[index], FLOW_CNTL_MIN, FLOW_CNTL_MAX, FLOW_CNTL_DEF, "flow_control", devname);
+ 	velocity_set_bool_opt(&opts->flags, IP_byte_align[index], IP_ALIG_DEF, VELOCITY_FLAGS_IP_ALIGN, "IP_byte_align", devname);
+@@ -465,6 +449,7 @@ static void __devinit velocity_get_optio
+ static void velocity_init_cam_filter(struct velocity_info *vptr)
+ {
+ 	struct mac_regs __iomem * regs = vptr->mac_regs;
++	unsigned short vid;
  
- 	/* FIXME: power down nic */
+ 	/* Turn on MCFG_PQEN, turn off MCFG_RTGOPT */
+ 	WORD_REG_BITS_SET(MCFG_PQEN, MCFG_RTGOPT, &regs->MCFG);
+@@ -477,13 +462,19 @@ static void velocity_init_cam_filter(str
+ 	mac_set_cam_mask(regs, vptr->mCAMmask, VELOCITY_MULTICAST_CAM);
  
-
---MP_nqA/M=NWxLZiJanMTSuSY7Q--
+ 	/* Enable first VCAM */
+-	if (vptr->flags & VELOCITY_FLAGS_TAGGING) {
+-		/* If Tagging option is enabled and VLAN ID is not zero, then
+-		   turn on MCFG_RTGOPT also */
+-		if (vptr->options.vid != 0)
+-			WORD_REG_BITS_ON(MCFG_RTGOPT, &regs->MCFG);
++	if (vptr->vlgrp) {
++		for (vid = 0; vid < VLAN_VID_MASK; vid++) {
++			if (vlan_group_get_device(vptr->vlgrp, vid)) {
++				/* If Tagging option is enabled and
++				   VLAN ID is not zero, then
++				   turn on MCFG_RTGOPT also */
++				if (vid != 0)
++					WORD_REG_BITS_ON(MCFG_RTGOPT, &regs->MCFG);
+ 
+-		mac_set_cam(regs, 0, (u8 *) & (vptr->options.vid), VELOCITY_VLAN_ID_CAM);
++				mac_set_cam(regs, 0, (u8 *) &vid,
++					    VELOCITY_VLAN_ID_CAM);
++			}
++		}
+ 		vptr->vCAMmask[0] |= 1;
+ 		mac_set_cam_mask(regs, vptr->vCAMmask, VELOCITY_VLAN_ID_CAM);
+ 	} else {
+@@ -494,6 +485,26 @@ static void velocity_init_cam_filter(str
+ 	}
+ }
+ 
++static void velocity_vlan_rx_add_vid(struct net_device *dev, unsigned short vid)
++{
++	struct velocity_info *vptr = netdev_priv(dev);
++
++        spin_lock_irq(&vptr->lock);
++	velocity_init_cam_filter(vptr);
++        spin_unlock_irq(&vptr->lock);
++}
++
++static void velocity_vlan_rx_kill_vid(struct net_device *dev, unsigned short vid)
++{
++	struct velocity_info *vptr = netdev_priv(dev);
++
++        spin_lock_irq(&vptr->lock);
++	vlan_group_set_device(vptr->vlgrp, vid, NULL);
++	velocity_init_cam_filter(vptr);
++        spin_unlock_irq(&vptr->lock);
++}
++
++
+ /**
+  *	velocity_rx_reset	-	handle a receive reset
+  *	@vptr: velocity we are resetting
+@@ -791,13 +802,17 @@ static int __devinit velocity_found1(str
+ 	dev->do_ioctl = velocity_ioctl;
+ 	dev->ethtool_ops = &velocity_ethtool_ops;
+ 	dev->change_mtu = velocity_change_mtu;
++
++	dev->vlan_rx_add_vid = velocity_vlan_rx_add_vid;
++	dev->vlan_rx_kill_vid = velocity_vlan_rx_kill_vid;
++
+ #ifdef  VELOCITY_ZERO_COPY_SUPPORT
+ 	dev->features |= NETIF_F_SG;
+ #endif
++	dev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_FILTER;
+ 
+-	if (vptr->flags & VELOCITY_FLAGS_TX_CSUM) {
++	if (vptr->flags & VELOCITY_FLAGS_TX_CSUM)
+ 		dev->features |= NETIF_F_IP_CSUM;
+-	}
+ 
+ 	ret = register_netdev(dev);
+ 	if (ret < 0)
+@@ -1995,8 +2010,8 @@ static int velocity_xmit(struct sk_buff 
+ 		td_ptr->tdesc1.CMDZ = 2;
+ 	}
+ 
+-	if (vptr->flags & VELOCITY_FLAGS_TAGGING) {
+-		td_ptr->tdesc1.pqinf.VID = (vptr->options.vid & 0xfff);
++	if (vptr->vlgrp && vlan_tx_tag_present(skb)) {
++		td_ptr->tdesc1.pqinf.VID = vlan_tx_tag_get(skb);
+ 		td_ptr->tdesc1.pqinf.priority = 0;
+ 		td_ptr->tdesc1.pqinf.CFI = 0;
+ 		td_ptr->tdesc1.TCR |= TCR0_VETAG;
+--- a/drivers/net/via-velocity.h	2007-06-01 08:18:22.000000000 -0700
++++ b/drivers/net/via-velocity.h	2007-06-01 17:09:54.000000000 -0700
+@@ -1701,7 +1701,7 @@ struct velocity_opt {
+ 	int numrx;			/* Number of RX descriptors */
+ 	int numtx;			/* Number of TX descriptors */
+ 	enum speed_opt spd_dpx;		/* Media link mode */
+-	int vid;			/* vlan id */
++
+ 	int DMA_length;			/* DMA length */
+ 	int rx_thresh;			/* RX_THRESH */
+ 	int flow_cntl;
+@@ -1727,6 +1727,7 @@ struct velocity_info {
+ 	dma_addr_t tx_bufs_dma;
+ 	u8 *tx_bufs;
+ 
++	struct vlan_group    *vlgrp;
+ 	u8 ip_addr[4];
+ 	enum chip_type chip_id;
+ 
