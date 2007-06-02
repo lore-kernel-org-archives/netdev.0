@@ -1,44 +1,34 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] Fix bug of update IPv4 PMTU when received ICMP Fragmentation Needed message
-Date: Sat, 02 Jun 2007 20:49:19 +1000
-Message-ID: <E1HuRAd-0002Wl-00@gondolin.me.apana.org.au>
-References: <465F97CF.1060508@cn.fujitsu.com>
+Subject: Re: raw sockets ignore IP_HDRINCL data
+Date: Sat, 02 Jun 2007 21:07:17 +1000
+Message-ID: <E1HuRS1-0002aE-00@gondolin.me.apana.org.au>
+References: <1180676187.5956.52.camel@localhost>
 Cc: netdev@vger.kernel.org
-To: yjwei@cn.fujitsu.com (Wei Yongjun)
+To: mick_mccreath@au.securecomputing.com (Mick McCreath)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:4667 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:4771 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751570AbXFBKt1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jun 2007 06:49:27 -0400
-In-Reply-To: <465F97CF.1060508@cn.fujitsu.com>
+	with ESMTP id S1755241AbXFBLHZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jun 2007 07:07:25 -0400
+In-Reply-To: <1180676187.5956.52.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Wei Yongjun <yjwei@cn.fujitsu.com> wrote:
-> When received ICMP Fragmentation Needed message, PATH MTU is always set 
-> to the 576 even if MTU in ICMP message is lager then 576. This is 
-> because of error condition in function ip_rt_frag_needed(), now if 
-> packet size of that ICMP message is less then new MTU, packet size will 
-> be used ,but RFC says ICMP error message return as much as we can 
-> without exceeding 576 bytes.
+Mick McCreath <mick_mccreath@au.securecomputing.com> wrote:
 > 
-> This patch has Fixed this BUG.
+> When I run traceroute -i eth1 5.4.3.2, the UDP packets are routed out
+> eth2.
 > 
-> Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
-> 
-> --- net/ipv4/route.c.orig       2007-05-25 05:22:47.000000000 +0800
-> +++ net/ipv4/route.c    2007-06-01 11:42:55.000000000 +0800
-> @@ -1424,7 +1424,7 @@ unsigned short ip_rt_frag_needed(struct 
->                            !(dst_metric_locked(&rth->u.dst, RTAX_MTU))) {
->                                unsigned short mtu = new_mtu;
-> 
-> -                               if (new_mtu < 68 || new_mtu >= old_mtu) {
-> +                               if (new_mtu < 68) {
-> 
->                                        /* BSD 4.2 compatibility hack :-( */
+> Has anybody seen this behaviour with traceroute??
 
-Huh? The test new_mtu >= old_mtu should only hold if the sending router
-is buggy which is what the hack is for.
+Well the version of traceroute here actually does a BINDTODEVICE so it
+will go out of the right interface.  It also binds the socket so that
+it gets the right source address.
+
+I can see your point of view that it would be nice if the kernel read
+the IP headers in making its routing decision.  However, the current
+behaviour has been there forever and it's unclear what we might break
+by changing it.
 
 Cheers,
 -- 
