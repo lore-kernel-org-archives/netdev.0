@@ -1,38 +1,42 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: raw sockets ignore IP_HDRINCL data
-Date: Sat, 02 Jun 2007 21:07:17 +1000
-Message-ID: <E1HuRS1-0002aE-00@gondolin.me.apana.org.au>
-References: <1180676187.5956.52.camel@localhost>
-Cc: netdev@vger.kernel.org
-To: mick_mccreath@au.securecomputing.com (Mick McCreath)
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [2/4] [IPV4]: Convert IPv4 devconf to an array
+Date: Sat, 02 Jun 2007 07:47:50 -0400
+Message-ID: <1180784870.4080.14.camel@localhost>
+References: <20070602100132.GA9129@gondor.apana.org.au>
+	 <20070602100252.GB9247@gondor.apana.org.au>
+Reply-To: hadi@cyberus.ca
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:4771 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755241AbXFBLHZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jun 2007 07:07:25 -0400
-In-Reply-To: <1180676187.5956.52.camel@localhost>
+Received: from wx-out-0506.google.com ([66.249.82.235]:30225 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752166AbXFBLry (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jun 2007 07:47:54 -0400
+Received: by wx-out-0506.google.com with SMTP id t15so744443wxc
+        for <netdev@vger.kernel.org>; Sat, 02 Jun 2007 04:47:52 -0700 (PDT)
+In-Reply-To: <20070602100252.GB9247@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Mick McCreath <mick_mccreath@au.securecomputing.com> wrote:
+On Sat, 2007-02-06 at 20:02 +1000, Herbert Xu wrote:
+> [IPV4]: Convert IPv4 devconf to an array
 > 
-> When I run traceroute -i eth1 5.4.3.2, the UDP packets are routed out
-> eth2.
+> This patch converts the ipv4_devconf config members (everything except
+> sysctl) to an array.  This allows easier manipulation which will be
+> needed later on to provide better management of default config values.
 > 
-> Has anybody seen this behaviour with traceroute??
 
-Well the version of traceroute here actually does a BINDTODEVICE so it
-will go out of the right interface.  It also binds the socket so that
-it gets the right source address.
+Nice.
+What be even nicer (wink, wink) is to be able to generate events when
+these values change. Thomas and I once had long discussions on that
+topic. It could be as primitive as a select()/poll() kicking in
+when /proc/sys/net/ipv4/conf/default changes.
+BTW, the fact select() doesnt kick at all (been a while since i last
+tried) is something that seems to be a bug.
 
-I can see your point of view that it would be nice if the kernel read
-the IP headers in making its routing decision.  However, the current
-behaviour has been there forever and it's unclear what we might break
-by changing it.
+cheers,
+jamal
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
