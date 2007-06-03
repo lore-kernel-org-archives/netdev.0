@@ -1,37 +1,33 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] e1000: disable polling before registering netdevice
-Date: Sun, 03 Jun 2007 11:47:46 -0400
-Message-ID: <4662E2A2.6050005@garzik.org>
-References: <20070601172239.12639.92139.stgit@localhost.localdomain>
+Subject: Re: [PATCH 1/5] NetXen: Removal of extra free_irq call
+Date: Sun, 03 Jun 2007 11:48:17 -0400
+Message-ID: <4662E2C1.8080804@garzik.org>
+References: <200706011113.l51BD8HW004651@dut39.unminc.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, doug.chapman@hp.com,
-	netdev@vger.kernel.org
-To: Auke Kok <auke-jan.h.kok@intel.com>
+Cc: netdev@vger.kernel.org, amitkale@netxen.com,
+	netxenproj@linsyssoft.com, rob@netxen.com
+To: Mithlesh Thukral <mithlesh@netxen.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:38297 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:38318 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752383AbXFCPrz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 3 Jun 2007 11:47:55 -0400
-In-Reply-To: <20070601172239.12639.92139.stgit@localhost.localdomain>
+	id S1753790AbXFCPsT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 3 Jun 2007 11:48:19 -0400
+In-Reply-To: <200706011113.l51BD8HW004651@dut39.unminc.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Auke Kok wrote:
-> To assure the symmetry of poll enable/disable in up/down, we should
-> initialize the netdevice to be poll_disabled at load time. Doing
-> this after register_netdevice leaves us open to another race, so
-> lets move all the netif_* calls above register_netdevice so the
-> stack starts out how we expect it to be.
+Mithlesh Thukral wrote:
+> NetXen: Removal of redundant free_irq
+> This patch removes a redundant free_irq() call from remove() routine.
+> This will also eliminate a warning during unload of driver.
 > 
-> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
-> Cc: Herbert Xu <herbert@gondor.apana.org.au>
-> Cc: Doug Chapman <doug.chapman@hp.com>
+> Signed-by: Mithlesh Thukral <mithlesh@netxen.com>
 > ---
 > 
->  drivers/net/e1000/e1000_main.c |   11 +++++++----
->  1 files changed, 7 insertions(+), 4 deletions(-)
+>  drivers/net/netxen/netxen_nic_main.c |    2 --
+>  1 files changed, 2 deletions(-)
 
 applied to #upstream-fixes
 
