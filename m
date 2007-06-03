@@ -1,97 +1,122 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: OOPS iproute2/tc/u32_destroy in 2.6.22-rc3-git6
-Date: Sun, 03 Jun 2007 18:36:34 +0200
-Message-ID: <4662EE12.1080400@trash.net>
-References: <20070603161814.q5x2jsq8dck4gcgw@bigboss.aws-it.at> <4662D881.5080600@googlemail.com>
+From: James Chapman <jchapman@katalix.com>
+Subject: L2TP driver review
+Date: Sun, 03 Jun 2007 18:17:03 +0100
+Message-ID: <4662F78F.1080004@katalix.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------020307050403080008000008"
-Cc: Strobl Anton <a.strobl@aws-it.at>, linux-kernel@vger.kernel.org,
-	Netdev <netdev@vger.kernel.org>
-To: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:47973 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751896AbXFCQi5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Jun 2007 12:38:57 -0400
-In-Reply-To: <4662D881.5080600@googlemail.com>
+Received: from s36.avahost.net ([74.53.95.194]:51104 "EHLO s36.avahost.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753605AbXFCRRI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 3 Jun 2007 13:17:08 -0400
+Received: from jchapman.plus.com ([84.92.108.75] helo=[192.168.1.10])
+	by s36.avahost.net with esmtpa (Exim 4.63)
+	(envelope-from <jchapman@katalix.com>)
+	id 1Hutdq-0004ae-ES
+	for netdev@vger.kernel.org; Sun, 03 Jun 2007 12:13:22 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------020307050403080008000008
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
+I've had no comments on the latest version of my L2TP driver which I 
+posted a month ago. Can someone review it or accept/reject it, please? I 
+have a pppd plugin that uses this driver and I'm eager to push it 
+upstream for inclusion in the pppd distribution as soon as possible. But 
+first, this L2TP driver needs to be accepted...
 
-Michal Piotrowski wrote:
-> Strobl Anton pisze:
-> 
->> While trying to stop qdisc/cbq with command
->>
->>    tc qdisc del dev eth1 root
->>
->> EIP is at u32_destroy+0x52/0xd8 [cls_u32]
+Thanks
+
+-- 
+James Chapman
+Katalix Systems Ltd
+http://www.katalix.com
+Catalysts for your Embedded Linux software development
+
+-------- Original Message --------
+Subject: resend [PATCH 0/5 2.6.21] L2TP: Introduce PPP-over-L2TP driver
+Date: Sat, 26 May 2007 18:46:24 +0100
+From: James Chapman <jchapman@katalix.com>
+To: netdev@vger.kernel.org
+
+On Patrick's request, I'm resending this patch set. There are no
+changes since they were posted 3 weeks ago. Please review. Thanks.
 
 
-Please try this patch.
+This patch set adds a driver for PPP over L2TP. Patches to follow.
+
+The following changes have been made since the previous version
+submitted 23-APR-07.
+
+- Hold list lock while processing reorder queue in
+   pppol2tp_recv_dequeue().
+
+- Fix more __be type annotations.
+
+- Add a new UDP encapsulation socket type for L2TP (new patch). Modify
+   driver receive path so that it hooks on udp_encap_rcv() rather than
+   overload the socket's sk_data_ready() for skb reception.
+
+- Remove pppol2tp_fget() and friends. Previous code needed to find the
+   tunnel fd from a context other than the one that created the
+   socket. I now use the PPPoX management socket creation (which is
+   done by the same process that creates the UDP socket, i.e. l2tpd) to
+   derive the socket of the UDP tunnel using sockfd_lookup().
+
+- Reorder some functions in proc file handling code to avoid needing
+   function prototypes.
+
+- Remove code that sorted entries which are output in
+   /proc/net/pppol2tp. Output now shows tunnels and sessions unordered.
+
+- Remove stupid userland conditional includes from the if_pppox.h
+   changes.
+
+- Remove skb_queue_walk_safe and pppox-autoload patches from the
+   series since they have now been applied.
+
+- Add in-kernel documentation (new patch).
+
+- Rebased to 2.6.21.
+
+The code still uses sk->sk_destruct() on the tunnel socket to cleanup
+internal contexts if the tunnel UDP socket is destroyed.
 
 
---------------020307050403080008000008
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
+About this patch series:
 
-[NET_SCHED]: Fix filter double free
+The implementation uses the existing PPPoX subsystem that is currently
+used only by PPPoE. A userspace daemon handles all L2TP control
+protocol messages, while a PPPoX socket carries user data. The system
+architecture is similar to PPPoE, where a pppd plugin uses the PPPoX
+socket to send/receive PPP frames over an L2TP tunnel. PPP control
+frames are delivered to pppd while data frames are handled entirely by
+the kernel.
 
-cbq and atm destroy their filters twice when destroying inner classes
-during qdisc destruction.
+There are 5 patches in the series:-
 
-Signed-off-by: Patrick McHardy <kaber@trash.net>
+1 - Introduce new UDP encapsulation type for L2TP.
 
----
-commit a2b6772f1b9524b8d3c67bee3b92956d44555b22
-tree a4b8b9f3675606ff935d2422e26b24adf6c1ad3c
-parent 1df4e603136d09c0aee78102a05fb960be3764bb
-author Patrick McHardy <kaber@trash.net> Sun, 03 Jun 2007 18:35:09 +0200
-committer Patrick McHardy <kaber@trash.net> Sun, 03 Jun 2007 18:35:09 +0200
+2 - API changes for L2TP. Adds definitions for L2TP in existing headers.
 
- net/sched/sch_atm.c |    1 +
- net/sched/sch_cbq.c |    8 +++++---
- 2 files changed, 6 insertions(+), 3 deletions(-)
+3 - pppol2tp driver core. New code. Requires patches 1, 2, and the
+     recently applied skb_queue_walk_safe patch.
 
-diff --git a/net/sched/sch_atm.c b/net/sched/sch_atm.c
-index be7d299..d1c383f 100644
---- a/net/sched/sch_atm.c
-+++ b/net/sched/sch_atm.c
-@@ -599,6 +599,7 @@ static void atm_tc_destroy(struct Qdisc *sch)
- 	/* races ? */
- 	while ((flow = p->flows)) {
- 		tcf_destroy_chain(flow->filter_list);
-+		flow->filter_list = NULL;
- 		if (flow->ref > 1)
- 			printk(KERN_ERR "atm_destroy: %p->ref = %d\n",flow,
- 			    flow->ref);
-diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
-index a294542..ee2d596 100644
---- a/net/sched/sch_cbq.c
-+++ b/net/sched/sch_cbq.c
-@@ -1748,10 +1748,12 @@ cbq_destroy(struct Qdisc* sch)
- 	 * classes from root to leafs which means that filters can still
- 	 * be bound to classes which have been destroyed already. --TGR '04
- 	 */
--	for (h = 0; h < 16; h++)
--		for (cl = q->classes[h]; cl; cl = cl->next)
-+	for (h = 0; h < 16; h++) {
-+		for (cl = q->classes[h]; cl; cl = cl->next) {
- 			tcf_destroy_chain(cl->filter_list);
+4 - Add an entry to MAINTAINERS file for this driver.
+
+5 - Add in-kernel documentation.
+
+The driver is being used on x86, ia64, ppc, arm, mips32 and possibly
+other architectures. It is also known to work on multi-core SMP boxes.
+
+--
+James Chapman
+Katalix Systems Ltd
+http://www.katalix.com
+Catalysts for your Embedded Linux software development
 -
-+			cl->filter_list = NULL;
-+		}
-+	}
- 	for (h = 0; h < 16; h++) {
- 		struct cbq_class *next;
- 
+To unsubscribe from this list: send the line "unsubscribe netdev" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
---------------020307050403080008000008--
+
