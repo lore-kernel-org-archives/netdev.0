@@ -1,32 +1,28 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/3] myri10ge: report link up/down in standard ethtool
- way
-Date: Sun, 03 Jun 2007 11:48:28 -0400
-Message-ID: <4662E2CC.5060709@garzik.org>
-References: <465DCCB4.5040404@myri.com> <465DCCF7.9050408@myri.com>
+Subject: Re: [PATCH] NET: add MAINTAINERS entry for ucc_geth driver
+Date: Sun, 03 Jun 2007 11:48:45 -0400
+Message-ID: <4662E2DD.3000803@garzik.org>
+References: <465679FA.8010702@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Brice Goglin <brice@myri.com>
+Cc: netdev@vger.kernel.org, linuxppc-embedded@ozlabs.org
+To: Li Yang <leoli@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:38331 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:38334 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755203AbXFCPsb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 3 Jun 2007 11:48:31 -0400
-In-Reply-To: <465DCCF7.9050408@myri.com>
+	id S1752423AbXFCPss (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 3 Jun 2007 11:48:48 -0400
+In-Reply-To: <465679FA.8010702@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Brice Goglin wrote:
-> Report link up/down in standard ethtool way
-> 
-> Signed-off-by: Brice Goglin <brice@myri.com>
+Li Yang wrote:
+> Signed-off-by: Li Yang <leoli@freescale.com>
 > ---
->  drivers/net/myri10ge/myri10ge.c |    1 +
->  1 file changed, 1 insertion(+)
+> MAINTAINERS |    7 +++++++
+> 1 files changed, 7 insertions(+), 0 deletions(-)
 
-applied to #upstream-fixes
-
+applied, w/ Kim's ack
 
 
