@@ -1,37 +1,57 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 5/5] NetXen: Fix link status messages
-Date: Sun, 03 Jun 2007 11:51:44 -0400
-Message-ID: <4662E390.6050904@garzik.org>
-References: <200706011117.l51BHGYG004794@dut39.unminc.com>
+Subject: Re: [PATCH 2/3] myri10ge: limit the number of recoveries
+Date: Sun, 03 Jun 2007 11:55:45 -0400
+Message-ID: <4662E481.4030508@garzik.org>
+References: <465DCCB4.5040404@myri.com> <465DCD16.8050907@myri.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, amitkale@netxen.com,
-	netxenproj@linsyssoft.com, rob@netxen.com
-To: Mithlesh Thukral <mithlesh@netxen.com>
+Cc: netdev@vger.kernel.org
+To: Brice Goglin <brice@myri.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:38401 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:38418 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752476AbXFCPvq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 3 Jun 2007 11:51:46 -0400
-In-Reply-To: <200706011117.l51BHGYG004794@dut39.unminc.com>
+	id S1752414AbXFCPzr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 3 Jun 2007 11:55:47 -0400
+In-Reply-To: <465DCD16.8050907@myri.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Mithlesh Thukral wrote:
-> NetXen: Correct link status messages.
-> This patch will fix the problem of wrong link status messages
-> that were reported. 
+Brice Goglin wrote:
+> Limit the number of recoveries from a NIC hw watchdog reset to 1 by default.
+> It enables detection of defective NICs immediately since these memory parity
+> errors are expected to happen very rarely (less than once per century*NIC).
+> However, a defective NIC (very rare, fortunately) can see such an error
+> quite often, ie. every few minutes under high load.
 > 
-> Signed-off by: Wen Xiong <wenxiong@us.ibm.com>
-> Signed-off by: Mithlesh Thukral <mithlesh@netxen.com>
+> Make the limit tunable to allow people with mission critical installations
+> to crank up the tunable and recover an INTMAX number of times while waiting
+> for a downtime window to replace the NIC. The performance won't be optimal,
+> but at least, it will still work.
+> 
+> Signed-off-by: Brice Goglin <brice@myri.com>
 > ---
-> 
->  drivers/net/netxen/netxen_nic.h      |    1 +
->  drivers/net/netxen/netxen_nic_init.c |   21 +++++++++++++--------
->  drivers/net/netxen/netxen_nic_isr.c  |   23 +++++++++++++++++++++++
->  3 files changed, 37 insertions(+), 8 deletions(-)
+>  drivers/net/myri10ge/myri10ge.c |   15 +++++++++++++--
+>  1 file changed, 13 insertions(+), 2 deletions(-)
 
-dropped due to previous patches being dropped
+NAK.  Random broken (unrelated to silicon errata) can happen in any 
+field installation, and manifest itself in any number of ways.
+
+If defective NICs are truly rare, it does not sound worth adding this 
+workaround to the driver.
+
+If I had to guess, this is a meaningless gesture (from a technical 
+standpoint) for a Big Customer(tm) who is currently throwing a 
+temper-tantrum... :)
+
+By definition if you can give them a patch, and they can wait for the 
+driver patch going upstream, then it is not a "mission critical" 
+situation, otherwise they would already have the patch direct from you. 
+  Also, "mission critical" tends to imply that you cannot remove the 
+driver from operation either, which is counter to the logic of patching 
+a driver for the problem.
+
+	Jeff
+
 
 
