@@ -1,34 +1,32 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/5] NetXen: Removal of extra free_irq call
-Date: Sun, 03 Jun 2007 11:48:17 -0400
-Message-ID: <4662E2C1.8080804@garzik.org>
-References: <200706011113.l51BD8HW004651@dut39.unminc.com>
+Subject: Re: [PATCH 1/3] myri10ge: report link up/down in standard ethtool
+ way
+Date: Sun, 03 Jun 2007 11:48:28 -0400
+Message-ID: <4662E2CC.5060709@garzik.org>
+References: <465DCCB4.5040404@myri.com> <465DCCF7.9050408@myri.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, amitkale@netxen.com,
-	netxenproj@linsyssoft.com, rob@netxen.com
-To: Mithlesh Thukral <mithlesh@netxen.com>
+Cc: netdev@vger.kernel.org
+To: Brice Goglin <brice@myri.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:38318 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:38331 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753790AbXFCPsT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 3 Jun 2007 11:48:19 -0400
-In-Reply-To: <200706011113.l51BD8HW004651@dut39.unminc.com>
+	id S1755203AbXFCPsb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 3 Jun 2007 11:48:31 -0400
+In-Reply-To: <465DCCF7.9050408@myri.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Mithlesh Thukral wrote:
-> NetXen: Removal of redundant free_irq
-> This patch removes a redundant free_irq() call from remove() routine.
-> This will also eliminate a warning during unload of driver.
+Brice Goglin wrote:
+> Report link up/down in standard ethtool way
 > 
-> Signed-by: Mithlesh Thukral <mithlesh@netxen.com>
+> Signed-off-by: Brice Goglin <brice@myri.com>
 > ---
-> 
->  drivers/net/netxen/netxen_nic_main.c |    2 --
->  1 files changed, 2 deletions(-)
+>  drivers/net/myri10ge/myri10ge.c |    1 +
+>  1 file changed, 1 insertion(+)
 
 applied to #upstream-fixes
+
 
 
