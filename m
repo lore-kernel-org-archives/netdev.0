@@ -1,84 +1,97 @@
-From: Maximilian Engelhardt <maxi@daemonizer.de>
-Subject: Re: b44: regression in 2.6.22 (resend)
-Date: Sun, 3 Jun 2007 18:26:02 +0200
-Message-ID: <200706031826.06891.maxi@daemonizer.de>
-References: <20070525172431.60affaca@freepuppy> <200705281944.05030.maxi@daemonizer.de> <1180380230.3657.3.camel@chaos>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: OOPS iproute2/tc/u32_destroy in 2.6.22-rc3-git6
+Date: Sun, 03 Jun 2007 18:36:34 +0200
+Message-ID: <4662EE12.1080400@trash.net>
+References: <20070603161814.q5x2jsq8dck4gcgw@bigboss.aws-it.at> <4662D881.5080600@googlemail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart2176219.MicN8hRCvA";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: Michael Buesch <mb@bu3sch.de>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-	Jeff Garzik <jgarzik@pobox.com>,
-	Gary Zambrano <zambrano@broadcom.com>, netdev@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Thomas Gleixner <tglx@linutronix.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755532AbXFCQ1b@vger.kernel.org>
-In-Reply-To: <1180380230.3657.3.camel@chaos>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------020307050403080008000008"
+Cc: Strobl Anton <a.strobl@aws-it.at>, linux-kernel@vger.kernel.org,
+	Netdev <netdev@vger.kernel.org>
+To: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:47973 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751896AbXFCQi5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Jun 2007 12:38:57 -0400
+In-Reply-To: <4662D881.5080600@googlemail.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart2176219.MicN8hRCvA
+This is a multi-part message in MIME format.
+--------------020307050403080008000008
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+
+Michal Piotrowski wrote:
+> Strobl Anton pisze:
+> 
+>> While trying to stop qdisc/cbq with command
+>>
+>>    tc qdisc del dev eth1 root
+>>
+>> EIP is at u32_destroy+0x52/0xd8 [cls_u32]
+
+
+Please try this patch.
+
+
+--------------020307050403080008000008
 Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
 
-On Monday 28 May 2007, Thomas Gleixner wrote:
-> On Mon, 2007-05-28 at 19:44 +0200, Maximilian Engelhardt wrote:
-> > > Can you please keep CONFIG_HIGH_RES_TIMERS and CONFIG_NOHZ and try the
-> > > following combinations on the kernel command line:
-> > >
-> > > 1) highres=3Doff nohz=3Doff (should be the same as your working confi=
-g)
-> > > 2) highres=3Doff
-> > > 3) nohz=3Doff
-> >
-> > I tested this with my 2.6.22-rc3 kernel, here are the results:
-> >
-> > without any special boot parameters: problem does appear
-> > highres=3Doff nohz=3Doff: problem does not appear
-> > highres=3Doff: problem does not appear
-> > nohz=3Doff: problem does appear
->
-> Is there any other strange behavior of the high res enabled kernel than
-> the b44 problem ?
+[NET_SCHED]: Fix filter double free
 
-I didn't notice anything in the past (as I wrote). But today I did some tes=
-ts=20
-for an updated version of the p54 mac80211 wlan driver and I noticed exactl=
-y=20
-the same problem:
+cbq and atm destroy their filters twice when destroying inner classes
+during qdisc destruction.
 
-when booting with highres=3Doff everything is fine.
-But when I boot an highres enabled kernel and I do the iperf-test with the =
-p54=20
-driver, my systems becomes unresponsive during the test. It seems to be=20
-exactly the same problem I have with the b44 driver.
-So this might not be a bug in the b44 code but a bug somewhere in the linux=
-=20
-networking code.
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-I did the test with an 2.6.22-rc3-git4 kernel and the p54 driver built=20
-external as module.=20
+---
+commit a2b6772f1b9524b8d3c67bee3b92956d44555b22
+tree a4b8b9f3675606ff935d2422e26b24adf6c1ad3c
+parent 1df4e603136d09c0aee78102a05fb960be3764bb
+author Patrick McHardy <kaber@trash.net> Sun, 03 Jun 2007 18:35:09 +0200
+committer Patrick McHardy <kaber@trash.net> Sun, 03 Jun 2007 18:35:09 +0200
 
-Maxi
+ net/sched/sch_atm.c |    1 +
+ net/sched/sch_cbq.c |    8 +++++---
+ 2 files changed, 6 insertions(+), 3 deletions(-)
 
---nextPart2176219.MicN8hRCvA
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
+diff --git a/net/sched/sch_atm.c b/net/sched/sch_atm.c
+index be7d299..d1c383f 100644
+--- a/net/sched/sch_atm.c
++++ b/net/sched/sch_atm.c
+@@ -599,6 +599,7 @@ static void atm_tc_destroy(struct Qdisc *sch)
+ 	/* races ? */
+ 	while ((flow = p->flows)) {
+ 		tcf_destroy_chain(flow->filter_list);
++		flow->filter_list = NULL;
+ 		if (flow->ref > 1)
+ 			printk(KERN_ERR "atm_destroy: %p->ref = %d\n",flow,
+ 			    flow->ref);
+diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
+index a294542..ee2d596 100644
+--- a/net/sched/sch_cbq.c
++++ b/net/sched/sch_cbq.c
+@@ -1748,10 +1748,12 @@ cbq_destroy(struct Qdisc* sch)
+ 	 * classes from root to leafs which means that filters can still
+ 	 * be bound to classes which have been destroyed already. --TGR '04
+ 	 */
+-	for (h = 0; h < 16; h++)
+-		for (cl = q->classes[h]; cl; cl = cl->next)
++	for (h = 0; h < 16; h++) {
++		for (cl = q->classes[h]; cl; cl = cl->next) {
+ 			tcf_destroy_chain(cl->filter_list);
+-
++			cl->filter_list = NULL;
++		}
++	}
+ 	for (h = 0; h < 16; h++) {
+ 		struct cbq_class *next;
+ 
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.6 (GNU/Linux)
-
-iD8DBQBGYuueOimwv528XGERAqZNAJ9jz78DPqrgzhMYyeFI7FAKmsx96QCfULJ3
-CWJqCY3C3RIgMcsYRSgz5Q0=
-=Fr+1
------END PGP SIGNATURE-----
-
---nextPart2176219.MicN8hRCvA--
+--------------020307050403080008000008--
