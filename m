@@ -1,93 +1,92 @@
-From: Ulrich Drepper <drepper@redhat.com>
-Subject: [PATCH] V3: O_CLOEXEC for SCM_RIGHTS
-Date: Sat, 2 Jun 2007 19:57:05 -0400
-Message-ID: <200706022357.l52Nv56Y028615@devserv.devel.redhat.com>
-Cc: akpm@linux-foundation.org, torvalds@linux-foundation.org
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+From: "rae l" <crquan@gmail.com>
+Subject: Re: [PATCH] since the definition of dst_discard_in and dst_discard_out are the same,
+Date: Sun, 3 Jun 2007 11:11:46 +0800
+Message-ID: <91b13c310706022011tb3fd221x53e47c92fa69fb62@mail.gmail.com>
+References: <4660d133.4d65d79b.64d5.72fc@mx.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	trivial@kernel.org
+To: "Andrew Morton" <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:59371 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760616AbXFBX5g (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 2 Jun 2007 19:57:36 -0400
+Received: from ug-out-1314.google.com ([66.249.92.171]:35239 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1763065AbXFCDLs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jun 2007 23:11:48 -0400
+Received: by ug-out-1314.google.com with SMTP id j3so491850ugf
+        for <netdev@vger.kernel.org>; Sat, 02 Jun 2007 20:11:46 -0700 (PDT)
+In-Reply-To: <4660d133.4d65d79b.64d5.72fc@mx.google.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Take two: I forgot to change the compat code.  This has now happened.  Only one
-additional line changed.
+On 6/2/07, Denis Cheng <crquan@gmail.com> wrote:
+> they should merged into one
+this patch I have checked, it's not corrupted, I wonder someone can
+give some comment on this?
 
-Everything else from the first patch remains the same.  I try to avoid clogging
-the list unnecessarily by not resending the test program.
+>
+> Signed-off-by: Denis Cheng <crquan@gmail.com>
+> ---
+>  net/core/dst.c |   17 ++++-------------
+>  1 files changed, 4 insertions(+), 13 deletions(-)
+>
+> diff --git a/net/core/dst.c b/net/core/dst.c
+> index 764bccb..c6a0587 100644
+> --- a/net/core/dst.c
+> +++ b/net/core/dst.c
+> @@ -111,13 +111,7 @@ out:
+>         spin_unlock(&dst_lock);
+>  }
+>
+> -static int dst_discard_in(struct sk_buff *skb)
+> -{
+> -       kfree_skb(skb);
+> -       return 0;
+> -}
+> -
+> -static int dst_discard_out(struct sk_buff *skb)
+> +static int dst_discard(struct sk_buff *skb)
+>  {
+>         kfree_skb(skb);
+>         return 0;
+> @@ -138,8 +132,7 @@ void * dst_alloc(struct dst_ops * ops)
+>         dst->ops = ops;
+>         dst->lastuse = jiffies;
+>         dst->path = dst;
+> -       dst->input = dst_discard_in;
+> -       dst->output = dst_discard_out;
+> +       dst->input = dst->output = dst_discard;
+>  #if RT_CACHE_DEBUG >= 2
+>         atomic_inc(&dst_total);
+>  #endif
+> @@ -153,8 +146,7 @@ static void ___dst_free(struct dst_entry * dst)
+>            protocol module is unloaded.
+>          */
+>         if (dst->dev == NULL || !(dst->dev->flags&IFF_UP)) {
+> -               dst->input = dst_discard_in;
+> -               dst->output = dst_discard_out;
+> +               dst->input = dst->output = dst_discard;
+>         }
+>         dst->obsolete = 2;
+>  }
+> @@ -242,8 +234,7 @@ static inline void dst_ifdown(struct dst_entry *dst, struct net_device *dev,
+>                 return;
+>
+>         if (!unregister) {
+> -               dst->input = dst_discard_in;
+> -               dst->output = dst_discard_out;
+> +               dst->input = dst->output = dst_discard;
+>         } else {
+>                 dst->dev = &loopback_dev;
+>                 dev_hold(&loopback_dev);
+> --
+> 1.4.4.2
+>
+>
 
 
-Signed-off-by: Ulrich Drepper <drepper@redhat.com>
-
---- a/fs/open.c
-+++ b/fs/open.c
-@@ -855,7 +855,7 @@
- /*
-  * Find an empty file descriptor entry, and mark it busy.
-  */
--static int get_unused_fd_flags(int flags)
-+int get_unused_fd_flags(int flags)
- {
- 	struct files_struct * files = current->files;
- 	int fd, error;
---- a/include/linux/file.h
-+++ b/include/linux/file.h
-@@ -73,6 +73,7 @@ extern struct file * FASTCALL(fget_light(unsigned int fd, int *fput_needed));
- extern void FASTCALL(set_close_on_exec(unsigned int fd, int flag));
- extern void put_filp(struct file *);
- extern int get_unused_fd(void);
-+extern int FASTCALL(get_unused_fd_flags(int flags));
- extern void FASTCALL(put_unused_fd(unsigned int fd));
- struct kmem_cache;
- 
---- a/include/linux/socket.h
-+++ b/include/linux/socket.h
-@@ -253,6 +253,9 @@ struct ucred {
- 
- #define MSG_EOF         MSG_FIN
- 
-+#define MSG_CMSG_CLOEXEC 0x40000000	/* Set close_on_exit for file
-+					   descriptor received through
-+					   SCM_RIGHTS */
- #if defined(CONFIG_COMPAT)
- #define MSG_CMSG_COMPAT	0x80000000	/* This message needs 32 bit fixups */
- #else
---- a/net/compat.c
-+++ b/net/compat.c
-@@ -276,7 +276,8 @@ void scm_detach_fds_compat(struct msghdr *kmsg, struct scm_cookie *scm)
- 		err = security_file_receive(fp[i]);
- 		if (err)
- 			break;
--		err = get_unused_fd();
-+		err = get_unused_fd_flags(MSG_CMSG_CLOEXEC & msg->msg_flags
-+					  ? O_CLOEXEC : 0);
- 		if (err < 0)
- 			break;
- 		new_fd = err;
---- a/net/core/scm.c
-+++ b/net/core/scm.c
-@@ -228,7 +228,8 @@ void scm_detach_fds(struct msghdr *msg, struct scm_cookie *scm)
- 		err = security_file_receive(fp[i]);
- 		if (err)
- 			break;
--		err = get_unused_fd();
-+		err = get_unused_fd_flags(MSG_CMSG_CLOEXEC & msg->msg_flags
-+					  ? O_CLOEXEC : 0);
- 		if (err < 0)
- 			break;
- 		new_fd = err;
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -1939,9 +1939,7 @@ asmlinkage long sys_recvmsg(int fd, struct msghdr __user *msg,
- 	total_len = err;
- 
- 	cmsg_ptr = (unsigned long)msg_sys.msg_control;
--	msg_sys.msg_flags = 0;
--	if (MSG_CMSG_COMPAT & flags)
--		msg_sys.msg_flags = MSG_CMSG_COMPAT;
-+	msg_sys.msg_flags = flags & (MSG_CMSG_CLOEXEC|MSG_CMSG_COMPAT);
- 
- 	if (sock->file->f_flags & O_NONBLOCK)
- 		flags |= MSG_DONTWAIT;
+-- 
+Denis Cheng
+Linux Application Developer
