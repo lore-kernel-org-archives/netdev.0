@@ -1,105 +1,188 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: iperf: performance regression (was b44 driver problem?)
-Date: Mon, 4 Jun 2007 10:51:58 -0700
-Message-ID: <20070604105158.31ede1f5@freepuppy>
-References: <20070525172431.60affaca@freepuppy>
-	<200705281944.05030.maxi@daemonizer.de>
-	<1180380230.3657.3.camel@chaos>
-	<200706031826.06891.maxi@daemonizer.de>
-	<1180939188.4404.5.camel@chaos>
-	<20070604090918.42386fbb@freepuppy>
-	<1180974958.4404.24.camel@chaos>
-	<20070604095924.651d91c8@freepuppy>
-	<1180978368.4404.29.camel@chaos>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [patch 5/7] CAN: Add virtual CAN netdevice driver
+Date: Mon, 04 Jun 2007 20:26:53 +0200
+Message-ID: <4664596D.1030800@hartkopp.net>
+References: <20070530131123.10843.0@janus.isnogud.escape.de>	<20070530131204.10843.5@janus.isnogud.escape.de>	<465DB0B6.109@trash.net> <465F2F20.6090700@hartkopp.net>	<46603340.2050309@trash.net> <46613DBE.3010602@hartkopp.net>	<4661CBE7.7040901@hartkopp.net> <46631396.8030004@hartkopp.net> <ygfejkrrk16.fsf@janus.isnogud.escape.de> <46643EB2.2060204@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Ulrich Drepper <drepper@gmail.com>,
-	Maximilian Engelhardt <maxi@daemonizer.de>,
-	Michael Buesch <mb@bu3sch.de>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-	Jeff Garzik <jgarzik@pobox.com>,
-	Gary Zambrano <zambrano@broadcom.com>, netdev@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Ingo Molnar <mingo@elte.hu>
-To: Thomas Gleixner <tglx@linutronix.de>
+Cc: David Miller <davem@davemloft.net>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
+	netdev@vger.kernel.org
+To: Urs Thuermann <urs@isnogud.escape.de>,
+	Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:42689 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757893AbXFDSGU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jun 2007 14:06:20 -0400
-In-Reply-To: <1180978368.4404.29.camel@chaos>
+Received: from mo-p00-ob.rzone.de ([81.169.146.162]:60465 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756327AbXFDS1J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jun 2007 14:27:09 -0400
+In-Reply-To: <46643EB2.2060204@hartkopp.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 04 Jun 2007 19:32:48 +0200
-Thomas Gleixner <tglx@linutronix.de> wrote:
+Oliver Hartkopp wrote:
+> I think, it goes into the right direction to use skb->pkt_type. The flag
+> should really be somewhere inside the skb as all back references into
+> the sk would become sticky in the implementation.
+>
+> But regarding the use of skb->pkt_type i would suggest to take a closer
+> look on the definitions in include/linux/if_packet.h and how the
+> pkt_type is to be used inside the kernel. In my opinion we should use ...
+>
+> * TX-Path:
+> PACKET_OTHERHOST: send the CAN frame without loopback
+> PACKET_BROADCAST : send the CAN frame with loopback (aka local broadcast)
+>
+> See an example of this approach in drivers/net/arcnet/rfc1051.c :
+> http://www.linux-m32r.org/lxr/http/source/drivers/net/arcnet/rfc1051.c?a=i386#L99
+>
+> * RX-Path:
+> PACKET_HOST : just an incoming CAN frame for this host
+>
+> Any comments? ACKs?
+>
+> Best regards,
+> Oliver
+>
+>
+>   
 
-> On Mon, 2007-06-04 at 09:59 -0700, Stephen Hemminger wrote:
-> > > > gettimeofday({1180973726, 982754}, NULL) = 0
-> > > > recv(4, "\0\0\0\0\0\0\0\1\0\0\23\211\0\0\0\0\0\0\0\0\377\377\364"..., 8192, 0) = 8192
-> > > > gettimeofday({1180973726, 983790}, NULL) = 0
-> > > 
-> > > Well, gettimeofday() is not affected by the highres code, but
-> > > 
-> > > > nanosleep({0, 0}, NULL) = 0
-> > > > nanosleep({0, 0}, NULL) = 0
-> > > 
-> > > is. The nanosleep call with a relative timeout of 0 returns immediately
-> > > with highres enabled, while it sleeps at least until the next tick
-> > > arrives when highres is off. Are there more of those stupid sleeps in
-> > > the code ?
-> > 
-> > GLIBC pthread_mutex does it, YES it is a problem!
-> > Looks like the old behavior is required for ABI compatibility.
-> >
-> > iperf server has several threads. One thread is using pthread_mutex_lock
-> > to wait for the other thread.  It looks like pthread_mutex_lock is using
-> > nanosleep as yield().
-> 
-> I doubt that. This is in the iperf code itself.
-> 
-> void thread_rest ( void ) {
-> #if defined( HAVE_THREAD )
-> #if defined( HAVE_POSIX_THREAD )
->     // TODO add checks for sched_yield or pthread_yield and call that
->     // if available
->     usleep( 0 );
-> 
-> ----------^^^^
-> 
-> It results in a nanosleep({0,0}, NULL)
-> 
-> 	tglx
-> 
+The updated changes would look like this. Of course it has been tested
+and is working fine :-)
 
-Yes, the following patch makes iperf work better than ever.
-But are other broken applications going to have same problem.
-Sounds like the old "who runs first" fork() problems.
+Regards,
+Oliver
 
---- iperf-2.0.2/compat/Thread.c.orig	2005-05-03 08:15:51.000000000 -0700
-+++ iperf-2.0.2/compat/Thread.c	2007-06-04 10:54:21.000000000 -0700
-@@ -405,9 +405,13 @@
- void thread_rest ( void ) {
- #if defined( HAVE_THREAD )
- #if defined( HAVE_POSIX_THREAD )
--    // TODO add checks for sched_yield or pthread_yield and call that
--    // if available
+Index: net/can/af_can.c
+===================================================================
+--- net/can/af_can.c    (revision 325)
++++ net/can/af_can.c    (working copy)
+@@ -257,7 +257,6 @@
+  */
+ int can_send(struct sk_buff *skb, int loop)
+ {
+-    struct sock **tx_sk = (struct sock **)skb->cb;
+     int err;
+ 
+     if (skb->dev->type != ARPHRD_CAN) {
+@@ -265,30 +264,43 @@
+         return -EPERM;
+     }
+ 
++    skb->protocol = htons(ETH_P_CAN);
 +
-+#if defined( _POSIX_PRIORITY_SCHEDULING )
-+    sched_yield();
-+#else
-     usleep( 0 );
-+#endif
+     if (loop) {
+         /* local loopback of sent CAN frames (default) */
+ 
+-        /* indication for the CAN driver: do loopback */
+-        *tx_sk = skb->sk;
++        /*
++         * This packet is not only sent on the CAN bus but
++         * also broadcasted to local subscribers on this host.
++         */
++        skb->pkt_type = PACKET_BROADCAST;
+ 
+         /*
+-         * The reference to the originating sock may be also required
++         * The reference to the originating sock may be required
+          * by the receiving socket to indicate (and ignore) his own
+-         * sent data. Example: can_raw sockopt CAN_RAW_RECV_OWN_MSGS
++         * sent data. Example: can_raw sockopt CAN_RAW_RECV_OWN_MSGS.
++         * Therefore we have to ensure that skb->sk remains the
++         * reference to the originating sock by restoring skb->sk
++         * after each skb_clone() or skb_orphan() usage.
++         * skb->sk is usually unused and unset in the rx path.
+          */
+ 
+         /* interface not capabable to do the loopback itself? */
+         if (!(skb->dev->flags & IFF_LOOPBACK)) {
++            struct sock *srcsk = skb->sk;
+             struct sk_buff *newskb = skb_clone(skb, GFP_ATOMIC);
+ 
+             /* perform the local loopback here */
+-            newskb->protocol  = htons(ETH_P_CAN);
+             newskb->ip_summed = CHECKSUM_UNNECESSARY;
++            newskb->sk = srcsk;
+             netif_rx(newskb);
+         }
+     } else {
+-        /* indication for the CAN driver: no loopback required */
+-        *tx_sk = NULL;
++        /*
++         * Indication for the CAN driver: No loopback required!
++         * This packet is only transmitted to the CAN bus.
++         */
++        skb->pkt_type = PACKET_OTHERHOST;
+     }
+ 
+     if (!(skb->dev->flags & IFF_UP))
+@@ -581,10 +593,12 @@
+ 
+ static inline void deliver(struct sk_buff *skb, struct receiver *r)
+ {
++    struct sock *srcsk = skb->sk;
+     struct sk_buff *clone = skb_clone(skb, GFP_ATOMIC);
+ 
+     DBG("skbuff %p cloned to %p\n", skb, clone);
+     if (clone) {
++        clone->sk = srcsk;
+         r->func(clone, r->data);
+         r->matches++;
+     }
+Index: net/can/raw.c
+===================================================================
+--- net/can/raw.c    (revision 325)
++++ net/can/raw.c    (working copy)
+@@ -154,7 +154,7 @@
+ 
+     if (!ro->recv_own_msgs) {
+         /* check the received tx sock reference */
+-        if (*(struct sock **)skb->cb == sk) {
++        if (skb->sk == sk) {
+             DBG("trashed own tx msg\n");
+             kfree_skb(skb);
+             return;
+Index: drivers/net/can/vcan.c
+===================================================================
+--- drivers/net/can/vcan.c    (revision 325)
++++ drivers/net/can/vcan.c    (working copy)
+@@ -133,6 +133,7 @@
+     skb->protocol  = htons(ETH_P_CAN);
+     skb->dev       = dev;
+     skb->ip_summed = CHECKSUM_UNNECESSARY;
++    skb->pkt_type  = PACKET_HOST;
+ 
+     DBG("received skbuff on interface %d\n", dev->ifindex);
+ 
+@@ -149,8 +150,8 @@
+     stats->tx_packets++;
+     stats->tx_bytes += skb->len;
+ 
+-    /* tx socket reference pointer: Loopback required if not NULL */
+-    loop = *(struct sock **)skb->cb != NULL;
++    /* indication for CAN netdevice drivers that loopback is required */
++    loop = (skb->pkt_type == PACKET_BROADCAST);
+ 
+     if (!loopback) {
+         /* no loopback handling available inside this driver */
+@@ -170,6 +171,8 @@
+     /* perform standard loopback handling for CAN network interfaces */
+ 
+     if (loop) {
++        struct sock *srcsk = skb->sk;
 +
- #else // Win32
-     SwitchToThread( );
- #endif
+         if (atomic_read(&skb->users) != 1) {
+             struct sk_buff *old_skb = skb;
+ 
+@@ -183,6 +186,8 @@
+         } else
+             skb_orphan(skb);
+ 
++        skb->sk = srcsk;
++
+         /* receive with packet counting */
+         vcan_rx(skb, dev);
+     } else {
 
 
-
-
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
