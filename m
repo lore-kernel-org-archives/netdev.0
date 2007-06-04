@@ -1,64 +1,100 @@
-From: Urs Thuermann <urs@isnogud.escape.de>
-Subject: Re: [patch 5/7] CAN: Add virtual CAN netdevice driver
-Date: 04 Jun 2007 14:44:40 +0200
-Message-ID: <ygfabvfrirr.fsf@janus.isnogud.escape.de>
-References: <20070530131123.10843.0@janus.isnogud.escape.de>
-	<20070530131204.10843.5@janus.isnogud.escape.de>
-	<465DB0B6.109@trash.net> <465F2F20.6090700@hartkopp.net>
-	<46603340.2050309@trash.net> <46613DBE.3010602@hartkopp.net>
-	<4661CBE7.7040901@hartkopp.net> <46631396.8030004@hartkopp.net>
-	<4663FD57.3020601@trash.net>
+From: noboru.obata.ar@hitachi.com
+Subject: =?ISO-8859-1?B?W1JGQ10gRmFpbG92ZXItZnJpZW5kbHkgVENQIHJldHJhbnM=?=
+	=?ISO-8859-1?B?bWlzc2lvbg==?=
+Date: Mon, 4 Jun 2007 21:55:55 +0900
+Message-ID: <XNM1$2$0$3$$2$8$4$A$2004314U46640bd2@hitachi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Oliver Hartkopp <socketcan@hartkopp.net>,
-	David Miller <davem@davemloft.net>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
-	netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: multipart/mixed; boundary="GMAILSMTPBOUND01070604215600"
+Content-Transfer-Encoding: 7bit
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from oker.escape.de ([194.120.234.254]:52399 "EHLO oker.escape.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751404AbXFDMui (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Jun 2007 08:50:38 -0400
-In-Reply-To: <4663FD57.3020601@trash.net>; from Patrick McHardy on Mon, 04 Jun 2007 13:53:59 +0200
+Received: from mailx.hitachi.co.jp ([133.145.228.49]:53542 "EHLO
+	mailx.hitachi.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752786AbXFDNAO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jun 2007 09:00:14 -0400
+Received: from mlsv13.hitachi.co.jp (unknown [133.144.234.166])
+	by mail9.hitachi.co.jp (Postfix) with ESMTP id 137BC37C86
+	for <netdev@vger.kernel.org>; Mon,  4 Jun 2007 21:56:10 +0900 (JST)
+Received: from vshuts4.hitachi.co.jp (unverified) by mfilter-s2.hitachi.co.jp
+ (Content Technologies SMTPRS 4.3.17) with SMTP id <T800525acea0ac906abf48@mfilter-s2.hitachi.co.jp> for <netdev@vger.kernel.org>;
+ Mon, 4 Jun 2007 21:56:09 +0900
+Received: from gmml01.itg.hitachi.co.jp ([158.213.165.31])
+ by vshuts4.hitachi.co.jp with SMTP id M2007060421560806047
+ for <netdev@vger.kernel.org>; Mon, 04 Jun 2007 21:56:08 +0900
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy <kaber@trash.net> writes:
 
-> I was thinking about this, don't CAN frames include the identity
-> of the sender? That would be the easiest way to determine whether
-> the frame needs to be delivered.
+--GMAILSMTPBOUND01070604215600
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: base64
 
-No, CAN is quite a broken networking technology (at least in my view,
-coming from tcp/ip).  There is no station addresses and therefore no
-sender or receiver addresses.  Everything is broadcast.
+SGkgYWxsLA0KDQpJIHdvdWxkIGxpa2UgdG8gaGVhciBjb21tZW50cyBvbiBob3cgVENQIHJl
+dHJhbnNtaXNzaW9uIGNhbiBiZQ0KZG9uZSBiZXR0ZXIgb24gZmFpbG92ZXItY2FwYWJsZSBu
+ZXR3b3JrIGRldmljZXMsIHN1Y2ggYXMgYW4NCmFjdGl2ZS1iYWNrdXAgYm9uZGluZyBkZXZp
+Y2UuDQoNCg0KUHJlbWlzZQ0KPT09PT09PQ0KDQpQbGVhc2Ugbm90ZSBmaXJzdCB0aGF0IEkg
+d2FudCB0byBhZGRyZXNzIHBoeXNpY2FsIGZhaWx1cmVzIGJ5DQp0aGUgZmFpbG92ZXItY2Fw
+YWJsZSBuZXR3b3JrIGRldmljZXMsIHdoaWNoIGFyZSBpbmNyZWFzaW5nbHkNCmJlY29taW5n
+IGltcG9ydGFudCBhcyBYZW4tYmFzZWQgVk0gc3lzdGVtcyBhcmUgZ2V0dGluZyBwb3B1bGFy
+Lg0KUmVkdWNpbmcgYSBzaW5nbGUtcG9pbnQtb2YtZmFpbHVyZSAocGh5c2ljYWwgZGV2aWNl
+KSBpcyB2aXRhbCBvbg0Kc3VjaCBWTSBzeXN0ZW1zLg0KDQpBbmQgdGhlIGZhaWxvdmVyIGhl
+cmUgaXMgbm90IGdvaW5nIHRvIGFkZHJlc3Mgb3ZlcmxvYWRlZCBvcg0KY29uZ2VzdGVkIG5l
+dHdvcmtzIGhlcmUsIHdoaWNoIHNob3VsZCBiZSBzb2x2ZWQgc2VwYXJhdGVseS4NCg0KDQpC
+YWNrZ3JvdW5kDQo9PT09PT09PT09DQoNCldoZW4gZGVzaWduaW5nIGEgVENQL0lQIGJhc2Vk
+IG5ldHdvcmsgc3lzdGVtIG9uIGZhaWxvdmVyLWNhcGFibGUNCm5ldHdvcmsgZGV2aWNlcywg
+cGVvcGxlIHdhbnQgdG8gc2V0IHRpbWVvdXRzIGhpZXJhcmNoaWNhbGx5IGluDQp0aHJlZSBs
+YXllcnMsIG5ldHdvcmsgZGV2aWNlIGxheWVyLCBUQ1AgbGF5ZXIsIGFuZCBhcHBsaWNhdGlv
+bg0KbGF5ZXIgKGJvdHRvbS11cCBvcmRlciksIHN1Y2ggdGhhdDoNCg0KMS4gTmV0d29yayBk
+ZXZpY2UgbGF5ZXIgZGV0ZWN0cyBhIGZhaWx1cmUgZmlyc3QgYW5kIHN3aXRjaCB0byBhDQog
+ICBiYWNrdXAgZGV2aWNlIChzYXksIGluIDIwc2VjKS4NCg0KMi4gVENQIGxheWVyIHRpbWVv
+dXQgJiByZXRyYW5zbWlzc2lvbiBjb21lcyBuZXh0LCBfaG9wZWZ1bGx5Xw0KICAgYmVmb3Jl
+IHRoZSBhcHBsaWNhdGlvbiBsYXllciB0aW1lb3V0Lg0KDQozLiBBcHBsaWNhdGlvbiBsYXll
+ciBkZXRlY3RzIGEgbmV0d29yayBmYWlsdXJlIGxhc3QgKGJ5LCBzYXksDQogICAzMHNlYyB0
+aW1lb3V0KSBhbmQgbWF5IHRyaWdnZXIgYSBzeXN0ZW0tbGV2ZWwgZmFpbG92ZXIuDQoNCkl0
+IHNob3VsZCBiZSBub3RlZCB0aGF0IHRoZSB0aW1lb3V0cyBmb3IgIzEgYW5kICMyIGFyZSBo
+YW5kbGVkDQppbmRlcGVuZGVudGx5IGFuZCB0aGVyZSBpcyBubyByZWxhdGlvbnNoaXAgYmV0
+d2VlbiB0aGVtLg0KDQpBbHNvIG5vdGUgdGhhdCB0aGUgYWN0dWFsIHRpbWVvdXQgc2V0dGlu
+Z3MgKDIwc2VjIG9yIDMwc2VjIGluDQp0aGlzIGV4YW1wbGUpIGFyZSBvZnRlbiBkZXRlcm1p
+bmVkIGJ5IHN5c3RlbXMgcmVxdWlyZW1lbnQgYW5kIHNvDQpzZXR0aW5nIHRoZW0gdG8gY2Vy
+dGFpbiAic2FmZSB2YWx1ZXMiIChpZiBhbnkpIGFyZSB1c3VhbGx5IG5vdA0KcG9zc2libGUu
+DQoNCg0KUHJvYmxlbQ0KPT09PT09PQ0KDQpJZiBUQ1AgcmV0cmFuc21pc3Npb24gbWlzc2Vz
+IHRoZSB0aW1lIGZyYW1lIGJldHdlZW4gZXZlbnQgIzEgYW5kDQojMyBpbiBCYWNrZ3JvdW5k
+IGFib3ZlIChiZXR3ZWVuIDIwIGFuZCAzMHNlYyBzaW5jZSBuZXR3b3JrDQpmYWlsdXJlKSwg
+YSBmYWlsdXJlIGNhdXNlcyB0aGUgc3lzdGVtLWxldmVsIGZhaWxvdmVyIHdoZXJlIHRoZQ0K
+bmV0d29yay1kZXZpY2UtbGV2ZWwgZmFpbG92ZXIgc2hvdWxkIGJlIGVub3VnaC4NCg0KVGhl
+IHByb2JsZW0gaW4gdGhpcyBoaWVyYXJjaGljYWwgdGltZW91dCBzY2hlbWUgaXMgdGhhdCBU
+Q1ANCmxheWVyIGRvZXMgbm90IGd1YXJhbnRlZSB0aGUgbmV4dCByZXRyYW5zbWlzc2lvbiB0
+byBvY2N1ciBpbg0KY2VydGFpbiBwZXJpb2Qgb2YgdGltZS4gIEluIHRoZSBhYm92ZSBleGFt
+cGxlLCBwZW9wbGUgZXhwZWN0IFRDUA0KdG8gcmV0cmFuc21pdCBhIHBhY2tldCBiZXR3ZWVu
+IDIwIGFuZCAzMHNlYyBzaW5jZSBuZXR3b3JrDQpmYWlsdXJlLCBidXQgaXQgbWF5IG5vdCBo
+YXBwZW4uDQoNClN0YXJ0aW5nIGZyb20gUlRPPTAuNXNlYyBmb3IgZXhhbXBsZSwgcmV0cmFu
+c21pc3Npb24gd2lsbCBvY2N1cg0KYXQgdGltZSAwLjUsIDEuNSwgMy41LCA3LjUsIDE1LjUs
+IGFuZCAzMS41IGFzIGluZGljYXRlZCBieSAnbycNCmluIHRoZSBmb2xsb3dpbmcgZGlhZ3Jh
+bSwgYnV0IG1pc3MgdGhlIHRpbWUgZnJhbWUgYmV0d2VlbiB0aW1lDQoyMCBhbmQgMzAuDQoN
+CiAgICAgICB0aW1lOiAwICAgICAgICAgMTAgICAgICAgIDIwICAgICAgICAzMHNlYw0KICAg
+ICAgICAgICAgIHwgICAgICAgICB8ICAgICAgICAgfCAgICAgICAgIHwNCiAgQXBwLiBsYXll
+ciB8LS0tLS0tLS0tKy0tLS0tLS0tLSstLS0tLS0tLS1YICA9PT4gc3lzdGVtIGZhaWxvdmVy
+DQogICBUQ1AgbGF5ZXIgb28tby0tLW8tLSstLS0tby0tLS0rLS0tLS0tLS0tK28gPD09IGV4
+cGVjdHMgcmV0cmFucy4gYi93IDIwfjMwDQpOZXRkZXYgbGF5ZXIgfC0tLS0tLS0tLSstLS0t
+LS0tLS1YICAgICAgICAgICAgPT0+IG5ldHdvcmsgZmFpbG92ZXINCg0KDQpTb2x1dGlvbg0K
+PT09PT09PT0NCg0KSXQgc2VlbXMgcmVhc29uYWJsZSBmb3IgbWUgdG8gc29sdmUgdGhpcyBw
+cm9ibGVtIGJ5IGNhcHBpbmcNClRDUF9SVE9fTUFYLCBpLmUuLCBtYWtpbmcgVENQX1JUT19N
+QVggYSBzeXNjdGwgdmFyaWFibGUgYW5kIHNldA0KaXQgdG8gYSBzbWFsbCBudW1iZXIuDQoN
+CkluIHRoaXMgZXhhbXBsZSwgc2V0dGluZyB0byAoMTAgLSBSVFQpW3NlY10gYXQgbW9zdCBz
+aG91bGQgd29yaw0KYmVjYXVzZSByZXRyYW5zbWlzc2lvbiB3aWxsIHRha2UgcGxhY2UgYmV0
+d2VlbiB0aW1lIDIwIGFuZCAzMC4NCg0KTXkgcmF0aW9uYWxlIGZvbGxvd3MuDQoNCiogVGhp
+cyBzb2x1dGlvbiBpcyBzaW1wbGUgYW5kIHNvIGxlc3MgZXJyb3ItcHJvbmUuDQoNCiogVGhl
+IHNvbHV0aW9uIGRvZXMgbm90IHZpb2xhdGUgUkZDIDI5ODggaW4gbWF4aW11bSBSVE8gdmFs
+dWUsDQogIGJlY2F1c2UgUkZDIDI5ODgncyByZXF1aXJlbWVudCBpbiBtYXhpbXVtIFJUTyB2
+YWx1ZSwgImF0IGxlYXN0DQogIDYwIHNlY29uZHMgKGluICgyLjUpKSwiIGlzIE9QVElPTkFM
+Lg0KDQoqIFRoZSBzb2x1dGlvbiBhZGRzIGEgc3lzdGVtLXdpZGUgc2V0dGluZywgd2hpY2gg
+aXMgcHJlZmVyYWJsZQ0KICB0byBwZXItc29ja2V0IHNldHRpbmcgKGJ5LCBzYXksIHNldHNv
+Y2tvcHQgb3Igc29tZXRoaW5nKSwNCiAgYmVjYXVzZSBhbGwgYXBwbGljYXRpb24gYmVuZWZp
+dHMgZnJvbSB0aGUgc29sdXRpb24uDQoNCg0KQmVmb3JlIHBvc3RpbmcgcGF0Y2hlcywgSSB3
+b3VsZCBsaWtlIHRvIGhlYXIgY29tbWVudHMgaGVyZS4NCkFueSBjb21tZW50cyBvciBzdWdn
+ZXN0aW9ucywgdG8gbWFrZSBUQ1AgcmV0cmFuc21pc3Npb24gd29yaw0KYmV0dGVyIG9uIGZh
+aWxvdmVyLWNhcGFibGUgbmV0d29yayBkZXZpY2VzLCBhcmUgd2VsY29tZS4NCg0KUmVnYXJk
+cywNCg0KLS0gDQpPQkFUQSBOb2JvcnUgKG5vYm9ydS5vYmF0YS5hckBoaXRhY2hpLmNvbSkN
+Cg==
 
-> Actually its not unused, it needs to be set on TX frames once the
-> packet leaves the protocol specific code.
-
-Oops, yes, this is something still missing in our code.  Needs to be
-fixed.
-
-> I don't get why you can't directly check the socket option on the
-> TX path.
-
-We have several types of sockets in the PF_CAN family, two of which
-are GPL'ed and which are in the patch series.  These are CAN_RAW and
-CAN_BCM.  The protocol implementations use can_send() in af_can.c to
-send a CAN frame and indicate to can_send() in an int argument,
-whether this frame should be looped back.  Only the raw protocol has a
-socket option (setsockopt(2)) in struct raw_sock for this, bcm always
-sets this to 1 to have the frame looped back.  There is no option in
-struct bcm_sock for this.  In can_send() and in the driver we don't
-know what type of socket skb->sk points to and can't check that
-option.  Changing this would mean we have to add such an option in the
-same position in all CAN socket types and set it to fixed values in
-some of them (e.g. to 1 for bcm).  While it's doable, I wouldn't like
-that very much.
-
-Is there anything that prevents can_send() from using skb->pkt_type to
-pass the loopback flag down to the driver?
-
-urs
+--GMAILSMTPBOUND01070604215600--
