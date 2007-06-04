@@ -1,91 +1,63 @@
-From: "Ron Mercer" <ron.mercer@qlogic.com>
-Subject: RE: Definition and usage of NETIF_F_HW_SUM?
-Date: Mon, 4 Jun 2007 08:35:08 -0700
-Message-ID: <0BB3E5E7462EEA4295BC02D49691DC07BC8CA1@AVEXCH1.qlogic.org>
-References: <20070529164542.2a38e2f8@freepuppy>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: Re: [PATCH] sundance: PHY address form 0, only for device ID 0x0200
+ (IP100A)
+Date: Mon, 4 Jun 2007 09:01:19 -0700
+Message-ID: <20070604090119.488a2588.randy.dunlap@oracle.com>
+References: <1180991079.15274.1.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev" <netdev@vger.kernel.org>
-To: "Stephen Hemminger" <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	akpm@osdl.org, jgarzik@pobox.com, jeff@garzik.org
+To: Jesse Huang <jesse@icplus.com.tw>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from avexch1.qlogic.com ([198.70.193.115]:55924 "EHLO
-	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751288AbXFDPfp convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jun 2007 11:35:45 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20070529164542.2a38e2f8@freepuppy>
+Received: from agminet01.oracle.com ([141.146.126.228]:45513 "EHLO
+	agminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755017AbXFDQCJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jun 2007 12:02:09 -0400
+In-Reply-To: <1180991079.15274.1.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I was out of town last week and did not have a chance to respond.  Yes,
-qla3xxx is (before Stephen's fix) broken on IPV6.  I will review the
-changes and post a patch if necessary. 
+On Mon, 04 Jun 2007 17:04:39 -0400 Jesse Huang wrote:
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org 
-> [mailto:netdev-owner@vger.kernel.org] On Behalf Of Stephen Hemminger
-> Sent: Tuesday, May 29, 2007 4:46 PM
-> To: Michael Chan
-> Cc: Herbert Xu; netdev
-> Subject: Re: Definition and usage of NETIF_F_HW_SUM?
+> From: Jesse Huang <jesse@icplus.com.tw>
 > 
-> On Tue, 29 May 2007 17:10:52 -0700
-> "Michael Chan" <mchan@broadcom.com> wrote:
+> Change Logs:
+> Search PHY address form 0, only for device ID 0x0200 (IP100A). Other device are from PHY address 1.
 > 
-> > On Wed, 2007-05-30 at 07:36 +1000, Herbert Xu wrote:
-> > 
-> > > 
-> > > I just checked e1000 and it's correct as it does use the 
-> csum_offset
-> > > when doing TX offload.  However, you're definitely right that bnx2
-> > > seems to be broken.
-> > > 
-> > > > A few devices take a offset, starting point, and 
-> insertion point. This looks like
-> > > > the correct model. But no upper layer protocols other 
-> than IPV4/IPV6 can do checksum
-> > > > offload at present, so it seems moot.
-> > > 
-> > > I could easily whip up a patch to get GRE to use it for a start :)
-> > > 
-> > > > IMHO the correct solution would be to get rid if 
-> NETIF_F_HW_SUM and make a new flag
-> > > > NETIF_F_IPV6_SUM. Devices that can checksum both could 
-> do NETIF_F_IPV4_SUM|NETI_F_IPV6_SUM.
-> > > 
-> > > We should definitely keep NETIF_F_HW_SUM for sane 
-> hardware such as the
-> > > e1000.  Unfortunately we may just have to invent IPV6_SUM 
-> for the broken
-> > > ones.
-> > > 
-> > > Ccing Michael to see if the bnx2 chip can actually do offset-based
-> > > checksum offload.
-> > > 
-> > 
-> > bnx2 and tg3 cannot do offset-based checksumming because 
-> the hardware
-> > doesn't have room in the buffer descriptors to specify the 
-> offsets.  So
-> > regrettably, the NETIF_F_HW_SUM flag has been misused in 
-> these drivers.
-> > A new NETIF_F_IPV6_SUM flag will be very useful for us.
+> Signed-off-by: Jesse Huang <jesse@icplus.com.tw>
+> ---
 > 
-> Look furthur many drivers are just plain broken and use F_HW_SUM
-> and can't even do IPV6 properly.  I'll fix
+>  drivers/net/sundance.c |    4 +++-
+>  1 files changed, 3 insertions(+), 1 deletions(-)
 > 
-> The worst code award goes to: qla3xxx.c
-> which is broken on IPV6 and goes to trouble of computing all the
-> offsets and they are already there in skb...
-> 
-> 
-> 
+> 5724a72722dfc9cafbb8f273cb82dbf577bd9ad0
+> diff --git a/drivers/net/sundance.c b/drivers/net/sundance.c
+> index e1f912d..914ab29 100644
+> --- a/drivers/net/sundance.c
+> +++ b/drivers/net/sundance.c
+> @@ -562,7 +562,9 @@ #endif
+>  	 * It seems some phys doesn't deal well with address 0 being accessed
+>  	 * first, so leave address zero to the end of the loop (32 & 31).
+>  	 */
+> -	for (phy = 1; phy <= 32 && phy_idx < MII_CNT; phy++) {
+> +	if(sundance_pci_tbl[np->chip_id].device == 0x0200) phy = 0;
+
+kernel style:
+	if (sundance_pci_tbl[np->chip_id].device == 0x0200)
+		phy = 0;
+	else
+		phy = 1;
+
+> +	else phy = 1;
+> +	for (; phy <= 32 && phy_idx < MII_CNT; phy++) {
+>  		int phyx = phy & 0x1f;
+>  		int mii_status = mdio_read(dev, phyx, MII_BMSR);
+>  		if (mii_status != 0xffff  &&  mii_status != 0x0000) {
 > -- 
-> Stephen Hemminger <shemminger@linux-foundation.org>
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+
+
+---
+~Randy
+*** Remember to use Documentation/SubmitChecklist when testing your code ***
