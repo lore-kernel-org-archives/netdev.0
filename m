@@ -1,38 +1,37 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: doubt about qla3xxx checksum "fix"
-Date: Sun, 3 Jun 2007 18:50:59 -0700
-Message-ID: <20070603185059.7f1e76cd@freepuppy>
-References: <20070603.180051.89019554.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] Fix bug of update IPv4 PMTU when received ICMP Fragmentation Needed message
+Date: Mon, 4 Jun 2007 12:55:28 +1000
+Message-ID: <20070604025528.GA27750@gondor.apana.org.au>
+References: <E1HuRAd-0002Wl-00@gondolin.me.apana.org.au> <46635F39.2090009@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeff@garzik.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Wei Yongjun <yjwei@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:58892 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750892AbXFDCCq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Jun 2007 22:02:46 -0400
-In-Reply-To: <20070603.180051.89019554.davem@davemloft.net>
+Received: from rhun.apana.org.au ([64.62.148.172]:2799 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751179AbXFDCza (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Jun 2007 22:55:30 -0400
+Content-Disposition: inline
+In-Reply-To: <46635F39.2090009@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 03 Jun 2007 18:00:51 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
+On Mon, Jun 04, 2007 at 08:39:21AM +0800, Wei Yongjun wrote:
+>
+> >Huh? The test new_mtu >= old_mtu should only hold if the sending router
+> >is buggy which is what the hack is for.
+>
+> Note here old_mtu is not the real old mtu, is the received message's size:
+>  unsigned short old_mtu = ntohs(iph->tot_len);
+> So maybe the patch would like following.
 
-> 
-> I don't think it's %100 right, I'm referring specifically to
-> 
-> e68a8c10c4c5daf363e946d10c1a5cba77d7f92c
-> 
-> Sure, qla3xxx is only handling ipv4 in that ql_hw_csum_setup()
-> function, but if you check the call site it really wants
-> CHECKSUM_PARTIAL skb's to work on.  And CHECKSUM_PARTIAL skbs are only
-> setup for paths that advertise the NETIF_F_HW_CSUM capability.
+The size of the packet that caused the ICMP is what we want here.  That's
+why the router must be buggy.
 
-CHECKSUM_PARTIAL is used on xmit for both NETIF_F_HWCSUM and NETIF_F_IPCSUM 
-See acenic, 3c59x, ...
-
-
+Cheers,
 -- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
