@@ -1,200 +1,108 @@
-From: Miklos Szeredi <miklos@szeredi.hu>
-Subject: Re: [PATCH] fix race in AF_UNIX
-Date: Mon, 04 Jun 2007 11:53:13 +0200
-Message-ID: <E1Hv9FR-0006hM-00@dorka.pomaz.szeredi.hu>
-References: <E1HubUt-0004Hb-00@dorka.pomaz.szeredi.hu>
-Cc: akpm@linux-foundation.org, linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: [RFC][PATCH] Add suspend and resume support to uli526x
+Date: Mon, 4 Jun 2007 13:11:12 +0200
+Message-ID: <20070604111112.GP4363@elf.ucw.cz>
+References: <200706031237.36773.rjw@sisk.pl>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-pm <linux-pm@lists.osdl.org>, netdev@vger.kernel.org,
+	Valerie Henson <val@nmt.edu>,
+	Nigel Cunningham <nigel@nigel.suspend2.net>,
+	Peer Chen <peer.chen@uli.com.tw>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw3.sa.ew.hu ([212.108.200.82]:41053 "EHLO
-	mail-gw3.sa.ew.hu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751194AbXFDJxb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jun 2007 05:53:31 -0400
-In-reply-to: <E1HubUt-0004Hb-00@dorka.pomaz.szeredi.hu> (message from Miklos
-	Szeredi on Sat, 02 Jun 2007 23:50:55 +0200)
+Received: from gprs189-60.eurotel.cz ([160.218.189.60]:41585 "EHLO amd.ucw.cz"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752972AbXFDLLS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Jun 2007 07:11:18 -0400
+Content-Disposition: inline
+In-Reply-To: <200706031237.36773.rjw@sisk.pl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-(resend, sorry, fscked up the address list)
+Hi!
 
-> A recv() on an AF_UNIX, SOCK_STREAM socket can race with a
-> send()+close() on the peer, causing recv() to return zero, even though
-> the sent data should be received.
+> From: Rafael J. Wysocki <rjw@sisk.pl>
 > 
-> This happens if the send() and the close() is performed between
-> skb_dequeue() and checking sk->sk_shutdown in unix_stream_recvmsg():
+> Add suspend/resume support to the uli526x network driver (tested on x86_64,
+> with 'Ethernet controller: ALi Corporation M5263 Ethernet Controller, rev 40').
 > 
-> process A  skb_dequeue() returns NULL, there's no data in the socket queue
-> process B  new data is inserted onto the queue by unix_stream_sendmsg()
-> process B  sk->sk_shutdown is set to SHUTDOWN_MASK by unix_release_sock()
-> process A  sk->sk_shutdown is checked, unix_release_sock() returns zero
+> Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
 
-This is only part of the story.  It turns out, there are other races
-involving the garbage collector, that can throw away perfectly good
-packets with AF_UNIX sockets in them.
+Looks ok to me.
 
-The problems arise when a socket goes from installed to in-flight or
-vica versa during garbage collection.  Since gc is done with a
-spinlock held, this only shows up on SMP.
+> +#ifdef CONFIG_PM
+> +
+> +/*
+> + *	Suspend the interface.
+> + */
+> +
+> +static int uli526x_suspend(struct pci_dev *pdev, pm_message_t state)
+> +{
+> +	struct net_device *dev = pci_get_drvdata(pdev);
+> +
+> +	ULI526X_DBUG(0, "uli526x_suspend", 0);
+> +
+> +	if (dev && netdev_priv(dev)) {
+> +		if (netif_running(dev)) {
+> +			netif_device_detach(dev);
+> +			uli526x_down(dev);
+> +		}
+> +		pci_save_state(pdev);
+> +		pci_enable_wake(pdev, pci_choose_state(pdev, state), 0);
+> +		pci_disable_device(pdev);
+> +		pci_set_power_state(pdev, pci_choose_state(pdev, state));
+> +	}
+> +	return 0;
+> +}
+> +
+> +/*
+> + *	Resume the interface.
+> + */
+> +
+> +static int uli526x_resume(struct pci_dev *pdev)
+> +{
+> +	struct net_device *dev = pci_get_drvdata(pdev);
+> +	struct uli526x_board_info *db = netdev_priv(dev);
+> +	int err;
+> +
+> +	ULI526X_DBUG(0, "uli526x_resume", 0);
+> +
+> +	if (dev && db) {
+> +		pci_set_power_state(pdev, PCI_D0);
+> +		err = pci_enable_device(pdev);
+> +		if (err) {
+> +			printk(KERN_WARNING "%s: Could not enable device \n",
+> +				dev->name);
+> +			return err;
+> +		}
+> +		pci_restore_state(pdev);
+> +		pci_set_master(pdev);
+> +		if (netif_running(dev)) {
+> +			uli526x_up(dev);
+> +			netif_device_attach(dev);
+> +		}
+> +	}
+> +	return 0;
+> +}
+> +
+#else 
+#define *_resume NULL
+#define *_suspend NULL
 
-The following patch fixes it for me, but it's possibly the wrong
-approach.
+> +#endif /* CONFIG_PM */
 
-Signed-off-by: Miklos Szeredi <mszeredi@suse.cz>
----
+> @@ -1689,6 +1775,10 @@ static struct pci_driver uli526x_driver 
+>  	.id_table	= uli526x_pci_tbl,
+>  	.probe		= uli526x_init_one,
+>  	.remove		= __devexit_p(uli526x_remove_one),
+> +#ifdef CONFIG_PM
+> +	.suspend	= uli526x_suspend,
+> +	.resume		= uli526x_resume,
+> +#endif
 
-Index: linux-2.6.22-rc2/net/unix/garbage.c
-===================================================================
---- linux-2.6.22-rc2.orig/net/unix/garbage.c	2007-06-03 23:58:11.000000000 +0200
-+++ linux-2.6.22-rc2/net/unix/garbage.c	2007-06-04 11:39:42.000000000 +0200
-@@ -90,6 +90,7 @@
- static struct sock *gc_current = GC_HEAD; /* stack of objects to mark */
- 
- atomic_t unix_tot_inflight = ATOMIC_INIT(0);
-+DECLARE_RWSEM(unix_gc_sem);
- 
- 
- static struct sock *unix_get_socket(struct file *filp)
-@@ -169,7 +170,7 @@ static void maybe_unmark_and_push(struct
- 
- void unix_gc(void)
- {
--	static DEFINE_MUTEX(unix_gc_sem);
-+	static DEFINE_MUTEX(unix_gc_local_lock);
- 	int i;
- 	struct sock *s;
- 	struct sk_buff_head hitlist;
-@@ -179,9 +180,22 @@ void unix_gc(void)
- 	 *	Avoid a recursive GC.
- 	 */
- 
--	if (!mutex_trylock(&unix_gc_sem))
-+	if (!mutex_trylock(&unix_gc_local_lock))
- 		return;
- 
-+
-+	/*
-+	 * unix_gc_sem protects against sockets going from in-flight to
-+	 * installed
-+	 *
-+	 * Can't sleep on this, because skb_recv_datagram could be
-+	 * waiting for a packet that is to be sent by the thread which
-+	 * invoked the gc
-+	 */
-+	if (!down_write_trylock(&unix_gc_sem)) {
-+		mutex_unlock(&unix_gc_local_lock);
-+		return;
-+	}
- 	spin_lock(&unix_table_lock);
- 
- 	forall_unix_sockets(i, s)
-@@ -207,8 +221,6 @@ void unix_gc(void)
- 
- 	forall_unix_sockets(i, s)
- 	{
--		int open_count = 0;
--
- 		/*
- 		 *	If all instances of the descriptor are not
- 		 *	in flight we are in use.
-@@ -218,10 +230,20 @@ void unix_gc(void)
- 		 *	In this case (see unix_create1()) we set artificial
- 		 *	negative inflight counter to close race window.
- 		 *	It is trick of course and dirty one.
-+		 *
-+		 *	Get the inflight counter first, then the open
-+		 *	counter.  This avoids problems if racing with
-+		 *	sendmsg
-+		 *
-+		 *	If just created socket is not yet attached to
-+		 *	a file descriptor, assume open_count of 1
- 		 */
-+		int inflight_count = atomic_read(&unix_sk(s)->inflight);
-+		int open_count = 1;
-+
- 		if (s->sk_socket && s->sk_socket->file)
- 			open_count = file_count(s->sk_socket->file);
--		if (open_count > atomic_read(&unix_sk(s)->inflight))
-+		if (open_count > inflight_count)
- 			maybe_unmark_and_push(s);
- 	}
- 
-@@ -302,11 +324,12 @@ void unix_gc(void)
- 		u->gc_tree = GC_ORPHAN;
- 	}
- 	spin_unlock(&unix_table_lock);
-+	up_write(&unix_gc_sem);
- 
- 	/*
- 	 *	Here we are. Hitlist is filled. Die.
- 	 */
- 
- 	__skb_queue_purge(&hitlist);
--	mutex_unlock(&unix_gc_sem);
-+	mutex_unlock(&unix_gc_local_lock);
- }
-Index: linux-2.6.22-rc2/include/net/af_unix.h
-===================================================================
---- linux-2.6.22-rc2.orig/include/net/af_unix.h	2007-04-26 05:08:32.000000000 +0200
-+++ linux-2.6.22-rc2/include/net/af_unix.h	2007-06-04 09:13:56.000000000 +0200
-@@ -14,6 +14,7 @@ extern void unix_gc(void);
- 
- extern struct hlist_head unix_socket_table[UNIX_HASH_SIZE + 1];
- extern spinlock_t unix_table_lock;
-+extern struct rw_semaphore unix_gc_sem;
- 
- extern atomic_t unix_tot_inflight;
- 
-Index: linux-2.6.22-rc2/net/unix/af_unix.c
-===================================================================
---- linux-2.6.22-rc2.orig/net/unix/af_unix.c	2007-06-03 23:58:11.000000000 +0200
-+++ linux-2.6.22-rc2/net/unix/af_unix.c	2007-06-04 11:04:15.000000000 +0200
-@@ -1572,6 +1572,7 @@ static int unix_dgram_recvmsg(struct kio
- 
- 	msg->msg_namelen = 0;
- 
-+	down_read(&unix_gc_sem);
- 	mutex_lock(&u->readlock);
- 
- 	skb = skb_recv_datagram(sk, flags, noblock, &err);
-@@ -1629,6 +1630,7 @@ out_free:
- 	skb_free_datagram(sk,skb);
- out_unlock:
- 	mutex_unlock(&u->readlock);
-+	up_read(&unix_gc_sem);
- out:
- 	return err;
- }
-@@ -1704,6 +1706,7 @@ static int unix_stream_recvmsg(struct ki
- 		memset(&tmp_scm, 0, sizeof(tmp_scm));
- 	}
- 
-+	down_read(&unix_gc_sem);
- 	mutex_lock(&u->readlock);
- 
- 	do
-@@ -1732,6 +1735,7 @@ static int unix_stream_recvmsg(struct ki
- 			if (!timeo)
- 				break;
- 			mutex_unlock(&u->readlock);
-+			up_read(&unix_gc_sem);
- 
- 			timeo = unix_stream_data_wait(sk, timeo);
- 
-@@ -1739,6 +1743,7 @@ static int unix_stream_recvmsg(struct ki
- 				err = sock_intr_errno(timeo);
- 				goto out;
- 			}
-+			down_read(&unix_gc_sem);
- 			mutex_lock(&u->readlock);
- 			continue;
-  unlock:
-@@ -1810,6 +1815,7 @@ static int unix_stream_recvmsg(struct ki
- 	} while (size);
- 
- 	mutex_unlock(&u->readlock);
-+	up_read(&unix_gc_sem);
- 	scm_recv(sock, msg, siocb->scm, flags);
- out:
- 	return copied ? : err;
-
+...so that this ifdef is not needed?
+								Pavel
+-- 
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
