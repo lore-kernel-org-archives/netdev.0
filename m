@@ -1,51 +1,34 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [2/5][BNX2]: Add missing wait in bnx2_init_5709_context().
-Date: Mon, 4 Jun 2007 19:39:40 -0400
-Message-ID: <20070604233940.GB31462@havoc.gtf.org>
-References: <1181001635.5275.13.camel@dell>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH]: Add security check before flushing SAD/SPD
+Date: Mon, 04 Jun 2007 16:55:29 -0700 (PDT)
+Message-ID: <20070604.165529.102446900.davem@davemloft.net>
+References: <1180983953.3950.37.camel@localhost.localdomain>
+	<Line.LNX.4.64.0706041544230.13341@d.namei>
+	<Line.LNX.4.64.0706041911480.15240@d.namei>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, andy@greyhouse.net, netdev@vger.kernel.org
-To: Michael Chan <mchan@broadcom.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eparis@redhat.com, netdev@vger.kernel.org, selinux@tycho.nsa.gov,
+	latten@austin.ibm.com
+To: jmorris@namei.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from havoc.gtf.org ([69.61.125.42]:38549 "EHLO havoc.gtf.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754120AbXFDXjk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Jun 2007 19:39:40 -0400
-Content-Disposition: inline
-In-Reply-To: <1181001635.5275.13.camel@dell>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38750
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1759026AbXFDXzQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jun 2007 19:55:16 -0400
+In-Reply-To: <Line.LNX.4.64.0706041911480.15240@d.namei>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 04, 2007 at 05:00:35PM -0700, Michael Chan wrote:
-> [BNX2]: Add missing wait in bnx2_init_5709_context().
+From: James Morris <jmorris@namei.org>
+Date: Mon, 4 Jun 2007 19:13:10 -0400 (EDT)
+
+> I've applied this patch to 
 > 
-> For correctness, we need to wait for the MEM_INIT bit to be cleared
-> in the BNX2_CTX_COMMAND register before proceeding.
+> git://git.kernel.org/pub/scm/linux/kernel/git/jmorris/selinux-2.6.git#for-davem
 > 
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
 > 
-> diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-> index 5d69e5b..daa62d9 100644
-> --- a/drivers/net/bnx2.c
-> +++ b/drivers/net/bnx2.c
-> @@ -1778,6 +1778,12 @@ bnx2_init_5709_context(struct bnx2 *bp)
->  	val = BNX2_CTX_COMMAND_ENABLED | BNX2_CTX_COMMAND_MEM_INIT | (1 << 12);
->  	val |= (BCM_PAGE_BITS - 8) << 16;
->  	REG_WR(bp, BNX2_CTX_COMMAND, val);
-> +	for (i = 0; i < 10; i++) {
-> +		val = REG_RD(bp, BNX2_CTX_COMMAND);
-> +		if (!(val & BNX2_CTX_COMMAND_MEM_INIT))
-> +			break;
-> +		udelay(2);
-> +	}
->  	for (i = 0; i < bp->ctx_pages; i++) {
->  		int j;
+> Dave, feel free to pull from that branch.
 
-If the bit does not clear after 10 loops, it seems to me you should
-complain or somehow otherwise make note of the failure.
-
-	Jeff
-
-
-
+Thanks James, I'll pull that in for my next round of
+networking fixes.
