@@ -1,57 +1,55 @@
-From: Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
-Subject: Re: b44: regression in 2.6.22 (resend)
-Date: Mon, 04 Jun 2007 18:35:58 +0200
-Message-ID: <1180974958.4404.24.camel@chaos>
-References: <20070525172431.60affaca@freepuppy>
-	 <200705281944.05030.maxi@daemonizer.de> <1180380230.3657.3.camel@chaos>
-	 <200706031826.06891.maxi@daemonizer.de> <1180939188.4404.5.camel@chaos>
-	 <20070604090918.42386fbb@freepuppy>
+From: Brice Goglin <brice@myri.com>
+Subject: [PATCH 0/1] myri10ge: limit the number of recoveries
+Date: Mon, 04 Jun 2007 19:07:04 +0200
+Message-ID: <466446B8.4000800@myri.com>
+References: <465DCCB4.5040404@myri.com> <465DCD16.8050907@myri.com> <4662E481.4030508@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Maximilian Engelhardt <maxi-OwNUvPV92VfddJNmlsFzeA@public.gmane.org>,
-	Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>,
-	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Arnaldo Carvalho de Melo <acme-f8uhVLnGfZaxAyOMLChx1axOck334EZe@public.gmane.org>,
-	Jeff Garzik <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>,
-	Gary Zambrano <zambrano-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-To: Stephen Hemminger <shemminger-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20070604090918.42386fbb@freepuppy>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Jeff Garzik <jeff@garzik.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dsl.myri.com ([64.172.73.26]:1837 "EHLO myri.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1756119AbXFDRHG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Jun 2007 13:07:06 -0400
+Received: from [172.31.134.203] (brice-ovpn.sw.myri.com [172.31.134.203])
+	by myri.com (8.13.7+Sun/8.13.7) with ESMTP id l54H749Q001005
+	for <netdev@vger.kernel.org>; Mon, 4 Jun 2007 10:07:04 -0700 (PDT)
+In-Reply-To: <4662E481.4030508@garzik.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2007-06-04 at 09:09 -0700, Stephen Hemminger wrote:
-> > > I did the test with an 2.6.22-rc3-git4 kernel and the p54 driver built 
-> > > external as module. 
-> > 
-> > Can you look at iperf to figure out, whether it does some weird timer
-> > stuff (high frequency interval timer or such) ? Either check the code or
-> > strace it.
+Jeff Garzik wrote:
+> Brice Goglin wrote:
+>> Limit the number of recoveries from a NIC hw watchdog reset to 1 by
+>> default.
+>> It enables detection of defective NICs immediately since these memory
+>> parity
+>> errors are expected to happen very rarely (less than once per
+>> century*NIC).
+>> However, a defective NIC (very rare, fortunately) can see such an error
+>> quite often, ie. every few minutes under high load.
+>>
+>> Make the limit tunable to allow people with mission critical
+>> installations
+>> to crank up the tunable and recover an INTMAX number of times while
+>> waiting
+>> for a downtime window to replace the NIC. The performance won't be
+>> optimal,
+>> but at least, it will still work.
+>>
+>> Signed-off-by: Brice Goglin <brice@myri.com>
+>> ---
+>>  drivers/net/myri10ge/myri10ge.c |   15 +++++++++++++--
+>>  1 file changed, 13 insertions(+), 2 deletions(-)
 >
-> It is the receiver doing a tight loop doing gettimeofday/recv calls.
-> 
-> 
-> sendto(-1227715616, 0xc, 3085438964, 0, {...}, 3067249832) = 0
-> gettimeofday({1180973726, 981615}, NULL) = 0
-> gettimeofday({1180973726, 981751}, NULL) = 0
-> futex(0x8055c64, 0x5 /* FUTEX_??? */, 1) = 1
-> futex(0x8055c90, FUTEX_WAKE, 1) = 0
-> recv(4, "\0\0\0\0\0\0\0\1\0\0\23\211\0\0\0\0\0\0\0\0\377\377\364"..., 8192, 0) = 8192
-> gettimeofday({1180973726, 982754}, NULL) = 0
-> recv(4, "\0\0\0\0\0\0\0\1\0\0\23\211\0\0\0\0\0\0\0\0\377\377\364"..., 8192, 0) = 8192
-> gettimeofday({1180973726, 983790}, NULL) = 0
+> NAK.
 
-Well, gettimeofday() is not affected by the highres code, but
+Ok...
+Then please apply the following patch which limits the number of
+recovery to 1 without making it tunable. It will at least enable
+detection of bad NICs.
 
-> nanosleep({0, 0}, NULL) = 0
-> nanosleep({0, 0}, NULL) = 0
+Brice
 
-is. The nanosleep call with a relative timeout of 0 returns immediately
-with highres enabled, while it sleeps at least until the next tick
-arrives when highres is off. Are there more of those stupid sleeps in
-the code ?
 
-	tglx
