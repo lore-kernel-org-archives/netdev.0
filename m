@@ -1,51 +1,90 @@
-From: Urs Thuermann <urs@isnogud.escape.de>
-Subject: Re: [patch 5/7] CAN: Add virtual CAN netdevice driver
-Date: 04 Jun 2007 14:17:25 +0200
-Message-ID: <ygfejkrrk16.fsf@janus.isnogud.escape.de>
-References: <20070530131123.10843.0@janus.isnogud.escape.de>
-	<20070530131204.10843.5@janus.isnogud.escape.de>
-	<465DB0B6.109@trash.net> <465F2F20.6090700@hartkopp.net>
-	<46603340.2050309@trash.net> <46613DBE.3010602@hartkopp.net>
-	<4661CBE7.7040901@hartkopp.net> <46631396.8030004@hartkopp.net>
+From: MOKUNO Masakazu <mokuno@sm.sony.co.jp>
+Subject: Re: [PATCH 2/2] ps3: add wireless LAN support
+Date: Mon, 04 Jun 2007 21:41:47 +0900
+Message-ID: <20070604151850.2C58.MOKUNO@sm.sony.co.jp>
+References: <20070601150802.2C3D.MOKUNO@sm.sony.co.jp> <1180715749.28128.59.camel@xo-28-0B-88.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>,
-	David Miller <davem@davemloft.net>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
-	netdev@vger.kernel.org
-To: Oliver Hartkopp <socketcan@hartkopp.net>
+Content-Type: text/plain; charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Geoff Levand <geoffrey.levand@am.sony.com>,
+	Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>
+To: Dan Williams <dcbw@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from oker.escape.de ([194.120.234.254]:44299 "EHLO oker.escape.de"
+Received: from MGW3.Sony.CO.JP ([137.153.0.15]:52791 "EHLO mgw3.sony.co.jp"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752052AbXFDMZm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Jun 2007 08:25:42 -0400
-In-Reply-To: <46631396.8030004@hartkopp.net>; from Oliver Hartkopp on Sun, 03 Jun 2007 21:16:38 +0200
+	id S1751217AbXFDMl4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Jun 2007 08:41:56 -0400
+In-Reply-To: <1180715749.28128.59.camel@xo-28-0B-88.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Oliver Hartkopp <socketcan@hartkopp.net> writes:
+Hi
 
-> 2. The loopback indication is done by using the unused skb->protocol in
-> the tx path.
+Thank you for your comments!
 
-I don't think we should (mis-)use skb->protocol as a loopback flag.
-As the name says, it's the protocol number and not a flag whether
-loopback is to be done by the driver.  Even if it's not used otherwise
-in tx path (haven't checked this), in my experience it is asking for
-future trouble to use variables other than for it's intended purpose.
+It seems to be pretty preferable we make the driver wpa_supplicant
+compatible, I'll plan to rework and resubmit the patch (to
+linux-wireless)
 
-IMO it would be better to skb->pkt_type.  This is used to indicate
-packet type to rcv functions registered by dev_add_pack().  It is set
-by netdevice drivers to PACKET_{MULTICAST,BROADCAST,HOST,OTHER} for
-received packets.  In the send path it is set to PACKET_OUTGOING on
-the copy of the skbuff that is delivered to the sockets registered on
-ptype_all (typically packet sockets from tcpdump or other sniffers).
-AFAICS, pkt_type is not used otherwise in the send path.
 
-We could set skb->pkt_type = PACKET_LOOPBACK to flag to the CAN
-netdevice driver whether to loop back the packet.
+On Fri, 01 Jun 2007 12:35:49 -0400
+Dan Williams <dcbw@redhat.com> wrote:
+> There are a few basic
+> issues, rehashed here:
+> 
+> 1) Need endian annotations and conversions.
 
-Any objections?
+OK, I'll fix. 
 
-urs
+> 2) How much WPA does the device really support?  If it only supports
+> WPA[2]-PSK, I guess that's OK, but the driver _MUST_ return the WPA and
+> RSN information elements from each BSS that provides them using the
+> IWEVGENIE tag from the get scan handler.  A hack might be to construct a
+> suitable synthetic IE depending on the contents of the 'security' field
+> the firmware passes back.  But userspace needs to know that a particular
+> BSS supports WPA in a standard manner.
+
+It supports WEP and WPA[2]-PSKs(TKIP and AES) only. 
+
+I'll consider incorporating wpa_supplicant stuff, ie to support IWEVGENIE
+parameters.
+
+> 3) Should remove the WPA passphrase bits from the encode functions,
+> these functions should operate only on raw key material.  Userspace
+> tools do the hashing.
+
+The hypervisor (firmware) has functionality of hashing WPA passphrase. 
+So the driver code just passes it to hypervisor.  With that feature, end
+users can easily set their passphase.  I thought it was convenient.
+Anyway I can remove it to delegate to user space.
+
+> 4) I'd like an explanation of the scanning behavior too, looks fishy.
+
+Well, it basically start to scan as requested.  But since scanning is
+time consuming job and it seems to block normal messages, rate control
+code you mentioned was inserted.
+Background scan is performed for roaming as you thought.
+
+> 
+> 5) Should be using a list of scanned BSSs, should be aging and culling
+> them, instead of a static array.
+
+OK.
+
+> 
+> 6) The private ioctl needs to die.
+
+These private ioctls were made so that we can setup the driver simply
+with wireless-tools, like the answer to 3) above.
+Anyway I'll try to incorporate wpa_supplicant support.
+
+> 
+> 7) Does the device work with wpa_supplicant's 'wext' driver?
+
+I don't think it works with wext of wpa_supplicant, although I didn't test
+it with wpa_supplicant well.
+
+
+--
+Masakazu MOKUNO
+
