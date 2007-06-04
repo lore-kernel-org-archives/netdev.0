@@ -1,118 +1,54 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: [RFC][PATCH] Add suspend and resume support to uli526x
-Date: Mon, 4 Jun 2007 15:49:10 +0200
-Message-ID: <200706041549.11277.rjw@sisk.pl>
-References: <200706031237.36773.rjw@sisk.pl> <20070604111112.GP4363@elf.ucw.cz>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [RFC] Failover-friendly TCP retransmission
+Date: 04 Jun 2007 16:55:13 +0200
+Message-ID: <p738xazbwha.fsf@bingen.suse.de>
+References: <XNM1$2$0$3$$2$8$4$A$2004314U46640bd2@hitachi.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: linux-pm <linux-pm@lists.osdl.org>, netdev@vger.kernel.org,
-	Valerie Henson <val@nmt.edu>,
-	Nigel Cunningham <nigel@nigel.suspend2.net>,
-	Peer Chen <peer.chen@uli.com.tw>
-To: Pavel Machek <pavel@ucw.cz>
+Content-Type: text/plain; charset=us-ascii
+Cc: <netdev@vger.kernel.org>
+To: noboru.obata.ar@hitachi.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:39077 "EHLO ogre.sisk.pl"
+Received: from mx1.suse.de ([195.135.220.2]:48694 "EHLO mx1.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751044AbXFDNne (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Jun 2007 09:43:34 -0400
-In-Reply-To: <20070604111112.GP4363@elf.ucw.cz>
-Content-Disposition: inline
+	id S1752778AbXFDN6m (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Jun 2007 09:58:42 -0400
+In-Reply-To: <XNM1$2$0$3$$2$8$4$A$2004314U46640bd2@hitachi.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+noboru.obata.ar@hitachi.com writes:
 
-On Monday, 4 June 2007 13:11, Pavel Machek wrote:
-> Hi!
+> Please note first that I want to address physical failures by
+> the failover-capable network devices, which are increasingly
+> becoming important as Xen-based VM systems are getting popular.
+> Reducing a single-point-of-failure (physical device) is vital on
+> such VM systems.
+
+Just you typically still have lots of other single points of failures in 
+a single system, some of them quite less reliable than your typical
+NIC. But at least it gives impressive demos when pulling ethernet cables @)
+
+> 1. Network device layer detects a failure first and switch to a
+>    backup device (say, in 20sec).
 > 
-> > From: Rafael J. Wysocki <rjw@sisk.pl>
-> > 
-> > Add suspend/resume support to the uli526x network driver (tested on x86_64,
-> > with 'Ethernet controller: ALi Corporation M5263 Ethernet Controller, rev 40').
-> > 
-> > Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
+> 2. TCP layer timeout & retransmission comes next, _hopefully_
+>    before the application layer timeout.
 > 
-> Looks ok to me.
+> 3. Application layer detects a network failure last (by, say,
+>    30sec timeout) and may trigger a system-level failover.
 > 
-> > +#ifdef CONFIG_PM
-> > +
-> > +/*
-> > + *	Suspend the interface.
-> > + */
-> > +
-> > +static int uli526x_suspend(struct pci_dev *pdev, pm_message_t state)
-> > +{
-> > +	struct net_device *dev = pci_get_drvdata(pdev);
-> > +
-> > +	ULI526X_DBUG(0, "uli526x_suspend", 0);
-> > +
-> > +	if (dev && netdev_priv(dev)) {
-> > +		if (netif_running(dev)) {
-> > +			netif_device_detach(dev);
-> > +			uli526x_down(dev);
-> > +		}
-> > +		pci_save_state(pdev);
-> > +		pci_enable_wake(pdev, pci_choose_state(pdev, state), 0);
-> > +		pci_disable_device(pdev);
-> > +		pci_set_power_state(pdev, pci_choose_state(pdev, state));
-> > +	}
-> > +	return 0;
-> > +}
-> > +
-> > +/*
-> > + *	Resume the interface.
-> > + */
-> > +
-> > +static int uli526x_resume(struct pci_dev *pdev)
-> > +{
-> > +	struct net_device *dev = pci_get_drvdata(pdev);
-> > +	struct uli526x_board_info *db = netdev_priv(dev);
-> > +	int err;
-> > +
-> > +	ULI526X_DBUG(0, "uli526x_resume", 0);
-> > +
-> > +	if (dev && db) {
-> > +		pci_set_power_state(pdev, PCI_D0);
-> > +		err = pci_enable_device(pdev);
-> > +		if (err) {
-> > +			printk(KERN_WARNING "%s: Could not enable device \n",
-> > +				dev->name);
-> > +			return err;
-> > +		}
-> > +		pci_restore_state(pdev);
-> > +		pci_set_master(pdev);
-> > +		if (netif_running(dev)) {
-> > +			uli526x_up(dev);
-> > +			netif_device_attach(dev);
-> > +		}
-> > +	}
-> > +	return 0;
-> > +}
-> > +
-> #else 
-> #define *_resume NULL
-> #define *_suspend NULL
+> It should be noted that the timeouts for #1 and #2 are handled
+> independently and there is no relationship between them.
 
-> > +#endif /* CONFIG_PM */
-> 
-> > @@ -1689,6 +1775,10 @@ static struct pci_driver uli526x_driver 
-> >  	.id_table	= uli526x_pci_tbl,
-> >  	.probe		= uli526x_init_one,
-> >  	.remove		= __devexit_p(uli526x_remove_one),
-> > +#ifdef CONFIG_PM
-> > +	.suspend	= uli526x_suspend,
-> > +	.resume		= uli526x_resume,
-> > +#endif
-> 
-> ...so that this ifdef is not needed?
+> If TCP retransmission misses the time frame between event #1 and
+> #3 in Background above (between 20 and 30sec since network
+> failure), a failure causes the system-level failover where the
+> network-device-level failover should be enough.
 
-OK, why not.
+You should probably make sure that the device ends up returning the
+right NET_XMIT_* code for such drops to TCP, in particular
+NET_XMIT_DROP. This might require slight driver interface
+changes. Also right now it only affects the congestion window, I think, 
+it  might be reasonable to let it affect the timer backoff too.
 
-Greetings,
-Rafael
-
-
--- 
-"Premature optimization is the root of all evil." - Donald Knuth
+-Andi
