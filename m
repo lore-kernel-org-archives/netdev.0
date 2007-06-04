@@ -1,188 +1,282 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [patch 5/7] CAN: Add virtual CAN netdevice driver
-Date: Mon, 04 Jun 2007 20:26:53 +0200
-Message-ID: <4664596D.1030800@hartkopp.net>
-References: <20070530131123.10843.0@janus.isnogud.escape.de>	<20070530131204.10843.5@janus.isnogud.escape.de>	<465DB0B6.109@trash.net> <465F2F20.6090700@hartkopp.net>	<46603340.2050309@trash.net> <46613DBE.3010602@hartkopp.net>	<4661CBE7.7040901@hartkopp.net> <46631396.8030004@hartkopp.net> <ygfejkrrk16.fsf@janus.isnogud.escape.de> <46643EB2.2060204@hartkopp.net>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [PATCH 3/5] NetXen: Add NETXEN prefix to macros
+Date: Mon, 4 Jun 2007 14:58:37 -0400
+Message-ID: <20070604185836.GC7056@gospo.rdu.redhat.com>
+References: <200706011115.l51BFahX004752@dut39.unminc.com> <4662E345.3070908@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
-	netdev@vger.kernel.org
-To: Urs Thuermann <urs@isnogud.escape.de>,
-	Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Mithlesh Thukral <mithlesh@netxen.com>, netdev@vger.kernel.org,
+	amitkale@netxen.com, netxenproj@linsyssoft.com, rob@netxen.com
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.162]:60465 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756327AbXFDS1J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jun 2007 14:27:09 -0400
-In-Reply-To: <46643EB2.2060204@hartkopp.net>
+Received: from mx1.redhat.com ([66.187.233.31]:52602 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758990AbXFDS7F (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Jun 2007 14:59:05 -0400
+Content-Disposition: inline
+In-Reply-To: <4662E345.3070908@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Oliver Hartkopp wrote:
-> I think, it goes into the right direction to use skb->pkt_type. The flag
-> should really be somewhere inside the skb as all back references into
-> the sk would become sticky in the implementation.
->
-> But regarding the use of skb->pkt_type i would suggest to take a closer
-> look on the definitions in include/linux/if_packet.h and how the
-> pkt_type is to be used inside the kernel. In my opinion we should use ...
->
-> * TX-Path:
-> PACKET_OTHERHOST: send the CAN frame without loopback
-> PACKET_BROADCAST : send the CAN frame with loopback (aka local broadcast)
->
-> See an example of this approach in drivers/net/arcnet/rfc1051.c :
-> http://www.linux-m32r.org/lxr/http/source/drivers/net/arcnet/rfc1051.c?a=i386#L99
->
-> * RX-Path:
-> PACKET_HOST : just an incoming CAN frame for this host
->
-> Any comments? ACKs?
->
-> Best regards,
-> Oliver
->
->
->   
+On Sun, Jun 03, 2007 at 11:50:29AM -0400, Jeff Garzik wrote:
+> Mithlesh Thukral wrote:
+> >NetXen: Add NETXEN prefix to a macro
+> >This patch will add the "NETXEN" prefix to "USER_START" macro.
+> >
+> >Signed-off by: Wen Xiong <wenxiong@us.ibm.com>
+> >Signed-off by: Mithlesh Thukral <mithlesh@netxen.com>
+> >---
+> >
+> > drivers/net/netxen/netxen_nic.h         |    4 ++--
+> > drivers/net/netxen/netxen_nic_ethtool.c |    2 +-
+> > drivers/net/netxen/netxen_nic_hw.c      |    4 ++--
+> > drivers/net/netxen/netxen_nic_init.c    |    4 ++--
+> > 4 files changed, 7 insertions(+), 7 deletions(-)
+> 
+> Your patch description is useless.  Clearly we know -what- it does, 
+> simply by reading the patch.
+> 
+> But it does not answer the simple question:  why?  why is this needed in 
+> a bug fix Release Candidate series?
+> 
 
-The updated changes would look like this. Of course it has been tested
-and is working fine :-)
+I can't see why this is needed in an RC branch, but the use of
+generically named macros/variables has been problematic with this driver
+on more 'obscure' arches.  
 
-Regards,
-Oliver
+I submitted a bigger cleanup patch a in March that never got taken so
+this is still a problem.  Here is that patch:
 
-Index: net/can/af_can.c
-===================================================================
---- net/can/af_can.c    (revision 325)
-+++ net/can/af_can.c    (working copy)
-@@ -257,7 +257,6 @@
-  */
- int can_send(struct sk_buff *skb, int loop)
+Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+---
+
+ netxen_nic.h         |   47 ++++++++++++++++++++++++-----------------------
+ netxen_nic_ethtool.c |    8 ++++----
+ netxen_nic_hw.c      |   10 +++++-----
+ netxen_nic_init.c    |   23 ++++++++++++-----------
+ 4 files changed, 45 insertions(+), 43 deletions(-)
+
+diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/netxen/netxen_nic.h
+index dd8ce35..d5f0c06 100644
+--- a/drivers/net/netxen/netxen_nic.h
++++ b/drivers/net/netxen/netxen_nic.h
+@@ -68,9 +68,10 @@
+ #define _NETXEN_NIC_LINUX_SUBVERSION 3
+ #define NETXEN_NIC_LINUX_VERSIONID  "3.3.3"
+ 
+-#define NUM_FLASH_SECTORS (64)
+-#define FLASH_SECTOR_SIZE (64 * 1024)
+-#define FLASH_TOTAL_SIZE  (NUM_FLASH_SECTORS * FLASH_SECTOR_SIZE)
++#define NETXEN_NUM_FLASH_SECTORS (64)
++#define NETXEN_FLASH_SECTOR_SIZE (64 * 1024)
++#define NETXEN_FLASH_TOTAL_SIZE  (NETXEN_NUM_FLASH_SECTORS \
++					* NETXEN_FLASH_SECTOR_SIZE)
+ 
+ #define PHAN_VENDOR_ID 0x4040
+ 
+@@ -671,28 +672,28 @@ struct netxen_new_user_info {
+ 
+ /* Flash memory map */
+ typedef enum {
+-	CRBINIT_START = 0,	/* Crbinit section */
+-	BRDCFG_START = 0x4000,	/* board config */
+-	INITCODE_START = 0x6000,	/* pegtune code */
+-	BOOTLD_START = 0x10000,	/* bootld */
+-	IMAGE_START = 0x43000,	/* compressed image */
+-	SECONDARY_START = 0x200000,	/* backup images */
+-	PXE_START = 0x3E0000,	/* user defined region */
+-	USER_START = 0x3E8000,	/* User defined region for new boards */
+-	FIXED_START = 0x3F0000	/* backup of crbinit */
++	NETXEN_CRBINIT_START = 0,	/* Crbinit section */
++	NETXEN_BRDCFG_START = 0x4000,	/* board config */
++	NETXEN_INITCODE_START = 0x6000,	/* pegtune code */
++	NETXEN_BOOTLD_START = 0x10000,	/* bootld */
++	NETXEN_IMAGE_START = 0x43000,	/* compressed image */
++	NETXEN_SECONDARY_START = 0x200000,	/* backup images */
++	NETXEN_PXE_START = 0x3E0000,	/* user defined region */
++	NETXEN_USER_START = 0x3E8000,	/* User defined region for new boards */
++	NETXEN_FIXED_START = 0x3F0000	/* backup of crbinit */
+ } netxen_flash_map_t;
+ 
+-#define USER_START_OLD PXE_START	/* for backward compatibility */
+-
+-#define FLASH_START		(CRBINIT_START)
+-#define INIT_SECTOR		(0)
+-#define PRIMARY_START 		(BOOTLD_START)
+-#define FLASH_CRBINIT_SIZE 	(0x4000)
+-#define FLASH_BRDCFG_SIZE 	(sizeof(struct netxen_board_info))
+-#define FLASH_USER_SIZE		(sizeof(struct netxen_user_info)/sizeof(u32))
+-#define FLASH_SECONDARY_SIZE 	(USER_START-SECONDARY_START)
+-#define NUM_PRIMARY_SECTORS	(0x20)
+-#define NUM_CONFIG_SECTORS 	(1)
++#define NETXEN_USER_START_OLD NETXEN_PXE_START	/* for backward compatibility */
++
++#define NETXEN_FLASH_START		(NETXEN_CRBINIT_START)
++#define NETXEN_INIT_SECTOR		(0)
++#define NETXEN_PRIMARY_START 		(NETXEN_BOOTLD_START)
++#define NETXEN_FLASH_CRBINIT_SIZE 	(0x4000)
++#define NETXEN_FLASH_BRDCFG_SIZE 	(sizeof(struct netxen_board_info))
++#define NETXEN_FLASH_USER_SIZE		(sizeof(struct netxen_user_info)/sizeof(u32))
++#define NETXEN_FLASH_SECONDARY_SIZE 	(NETXEN_USER_START-NETXEN_SECONDARY_START)
++#define NETXEN_NUM_PRIMARY_SECTORS	(0x20)
++#define NETXEN_NUM_CONFIG_SECTORS 	(1)
+ #define PFX "NetXen: "
+ extern char netxen_nic_driver_name[];
+ 
+diff --git a/drivers/net/netxen/netxen_nic_ethtool.c b/drivers/net/netxen/netxen_nic_ethtool.c
+index ee1b5a2..4dfa76b 100644
+--- a/drivers/net/netxen/netxen_nic_ethtool.c
++++ b/drivers/net/netxen/netxen_nic_ethtool.c
+@@ -94,7 +94,7 @@ static const char netxen_nic_gstrings_test[][ETH_GSTRING_LEN] = {
+ 
+ static int netxen_nic_get_eeprom_len(struct net_device *dev)
  {
--    struct sock **tx_sk = (struct sock **)skb->cb;
-     int err;
+-	return FLASH_TOTAL_SIZE;
++	return NETXEN_FLASH_TOTAL_SIZE;
+ }
  
-     if (skb->dev->type != ARPHRD_CAN) {
-@@ -265,30 +264,43 @@
-         return -EPERM;
-     }
+ static void
+@@ -475,7 +475,7 @@ netxen_nic_set_eeprom(struct net_device *dev, struct ethtool_eeprom *eeprom,
+ 		return 0;
+ 	}
  
-+    skb->protocol = htons(ETH_P_CAN);
-+
-     if (loop) {
-         /* local loopback of sent CAN frames (default) */
+-	if (offset == BOOTLD_START) {
++	if (offset == NETXEN_BOOTLD_START) {
+ 		ret = netxen_flash_erase_primary(adapter);
+ 		if (ret != FLASH_SUCCESS) {
+ 			printk(KERN_ERR "%s: Flash erase failed.\n", 
+@@ -483,10 +483,10 @@ netxen_nic_set_eeprom(struct net_device *dev, struct ethtool_eeprom *eeprom,
+ 			return ret;
+ 		}
  
--        /* indication for the CAN driver: do loopback */
--        *tx_sk = skb->sk;
-+        /*
-+         * This packet is not only sent on the CAN bus but
-+         * also broadcasted to local subscribers on this host.
-+         */
-+        skb->pkt_type = PACKET_BROADCAST;
+-		ret = netxen_rom_se(adapter, USER_START);
++		ret = netxen_rom_se(adapter, NETXEN_USER_START);
+ 		if (ret != FLASH_SUCCESS)
+ 			return ret;
+-		ret = netxen_rom_se(adapter, FIXED_START);
++		ret = netxen_rom_se(adapter, NETXEN_FIXED_START);
+ 		if (ret != FLASH_SUCCESS)
+ 			return ret;
  
-         /*
--         * The reference to the originating sock may be also required
-+         * The reference to the originating sock may be required
-          * by the receiving socket to indicate (and ignore) his own
--         * sent data. Example: can_raw sockopt CAN_RAW_RECV_OWN_MSGS
-+         * sent data. Example: can_raw sockopt CAN_RAW_RECV_OWN_MSGS.
-+         * Therefore we have to ensure that skb->sk remains the
-+         * reference to the originating sock by restoring skb->sk
-+         * after each skb_clone() or skb_orphan() usage.
-+         * skb->sk is usually unused and unset in the rx path.
-          */
+diff --git a/drivers/net/netxen/netxen_nic_hw.c b/drivers/net/netxen/netxen_nic_hw.c
+index 6537574..2fe7a3f 100644
+--- a/drivers/net/netxen/netxen_nic_hw.c
++++ b/drivers/net/netxen/netxen_nic_hw.c
+@@ -40,7 +40,7 @@
+ #define ADDR_IN_RANGE(addr, low, high)	\
+ 	(((addr) <= (high)) && ((addr) >= (low)))
  
-         /* interface not capabable to do the loopback itself? */
-         if (!(skb->dev->flags & IFF_LOOPBACK)) {
-+            struct sock *srcsk = skb->sk;
-             struct sk_buff *newskb = skb_clone(skb, GFP_ATOMIC);
+-#define NETXEN_FLASH_BASE	(BOOTLD_START)
++#define NETXEN_FLASH_BASE	(NETXEN_BOOTLD_START)
+ #define NETXEN_PHANTOM_MEM_BASE	(NETXEN_FLASH_BASE)
+ #define NETXEN_MAX_MTU		8000 + NETXEN_ENET_HEADER_SIZE + NETXEN_ETH_FCS_SIZE
+ #define NETXEN_MIN_MTU		64
+@@ -443,7 +443,7 @@ int netxen_get_flash_mac_addr(struct netxen_adapter *adapter, u64 mac[])
+ 	u32 *pmac = (u32 *) & mac[0];
  
-             /* perform the local loopback here */
--            newskb->protocol  = htons(ETH_P_CAN);
-             newskb->ip_summed = CHECKSUM_UNNECESSARY;
-+            newskb->sk = srcsk;
-             netif_rx(newskb);
-         }
-     } else {
--        /* indication for the CAN driver: no loopback required */
--        *tx_sk = NULL;
-+        /*
-+         * Indication for the CAN driver: No loopback required!
-+         * This packet is only transmitted to the CAN bus.
-+         */
-+        skb->pkt_type = PACKET_OTHERHOST;
-     }
- 
-     if (!(skb->dev->flags & IFF_UP))
-@@ -581,10 +593,12 @@
- 
- static inline void deliver(struct sk_buff *skb, struct receiver *r)
+ 	if (netxen_get_flash_block(adapter,
+-				   USER_START +
++				   NETXEN_USER_START +
+ 				   offsetof(struct netxen_new_user_info,
+ 					    mac_addr),
+ 				   FLASH_NUM_PORTS * sizeof(u64), pmac) == -1) {
+@@ -451,7 +451,7 @@ int netxen_get_flash_mac_addr(struct netxen_adapter *adapter, u64 mac[])
+ 	}
+ 	if (*mac == ~0ULL) {
+ 		if (netxen_get_flash_block(adapter,
+-					   USER_START_OLD +
++					   NETXEN_USER_START_OLD +
+ 					   offsetof(struct netxen_user_old_info,
+ 						    mac_addr),
+ 					   FLASH_NUM_PORTS * sizeof(u64),
+@@ -751,7 +751,7 @@ netxen_nic_pci_set_window(struct netxen_adapter *adapter,
+ int netxen_nic_get_board_info(struct netxen_adapter *adapter)
  {
-+    struct sock *srcsk = skb->sk;
-     struct sk_buff *clone = skb_clone(skb, GFP_ATOMIC);
+ 	int rv = 0;
+-	int addr = BRDCFG_START;
++	int addr = NETXEN_BRDCFG_START;
+ 	struct netxen_board_info *boardinfo;
+ 	int index;
+ 	u32 *ptr32;
+@@ -928,7 +928,7 @@ void netxen_nic_flash_print(struct netxen_adapter *adapter)
+ 	u32 fw_build = 0;
+ 	char brd_name[NETXEN_MAX_SHORT_NAME];
+ 	struct netxen_new_user_info user_info;
+-	int i, addr = USER_START;
++	int i, addr = NETXEN_USER_START;
+ 	u32 *ptr32;
  
-     DBG("skbuff %p cloned to %p\n", skb, clone);
-     if (clone) {
-+        clone->sk = srcsk;
-         r->func(clone, r->data);
-         r->matches++;
-     }
-Index: net/can/raw.c
-===================================================================
---- net/can/raw.c    (revision 325)
-+++ net/can/raw.c    (working copy)
-@@ -154,7 +154,7 @@
+ 	struct netxen_board_info *board_info = &(adapter->ahw.boardcfg);
+diff --git a/drivers/net/netxen/netxen_nic_init.c b/drivers/net/netxen/netxen_nic_init.c
+index 229aa1c..abdc04b 100644
+--- a/drivers/net/netxen/netxen_nic_init.c
++++ b/drivers/net/netxen/netxen_nic_init.c
+@@ -586,7 +586,7 @@ int netxen_backup_crbinit(struct netxen_adapter *adapter)
+ {
+ 	int ret = FLASH_SUCCESS;
+ 	int val;
+-	char *buffer = kmalloc(FLASH_SECTOR_SIZE, GFP_KERNEL);
++	char *buffer = kmalloc(NETXEN_FLASH_SECTOR_SIZE, GFP_KERNEL);
  
-     if (!ro->recv_own_msgs) {
-         /* check the received tx sock reference */
--        if (*(struct sock **)skb->cb == sk) {
-+        if (skb->sk == sk) {
-             DBG("trashed own tx msg\n");
-             kfree_skb(skb);
-             return;
-Index: drivers/net/can/vcan.c
-===================================================================
---- drivers/net/can/vcan.c    (revision 325)
-+++ drivers/net/can/vcan.c    (working copy)
-@@ -133,6 +133,7 @@
-     skb->protocol  = htons(ETH_P_CAN);
-     skb->dev       = dev;
-     skb->ip_summed = CHECKSUM_UNNECESSARY;
-+    skb->pkt_type  = PACKET_HOST;
+ 	if (!buffer)
+ 		return -ENOMEM;	
+@@ -602,13 +602,13 @@ int netxen_backup_crbinit(struct netxen_adapter *adapter)
+ 		goto out_kfree;
  
-     DBG("received skbuff on interface %d\n", dev->ifindex);
+ 	/* copy  sector 0 to sector 63 */
+-	ret = netxen_rom_fast_read_words(adapter, CRBINIT_START, 
+-						buffer, FLASH_SECTOR_SIZE);
++	ret = netxen_rom_fast_read_words(adapter, NETXEN_CRBINIT_START, 
++					buffer, NETXEN_FLASH_SECTOR_SIZE);
+ 	if (ret != FLASH_SUCCESS)
+ 		goto out_kfree;
  
-@@ -149,8 +150,8 @@
-     stats->tx_packets++;
-     stats->tx_bytes += skb->len;
+-	ret = netxen_rom_fast_write_words(adapter, FIXED_START, 
+-						buffer, FLASH_SECTOR_SIZE);
++	ret = netxen_rom_fast_write_words(adapter, NETXEN_FIXED_START, 
++					buffer, NETXEN_FLASH_SECTOR_SIZE);
+ 	if (ret != FLASH_SUCCESS)
+ 		goto out_kfree;
  
--    /* tx socket reference pointer: Loopback required if not NULL */
--    loop = *(struct sock **)skb->cb != NULL;
-+    /* indication for CAN netdevice drivers that loopback is required */
-+    loop = (skb->pkt_type == PACKET_BROADCAST);
+@@ -655,7 +655,8 @@ void check_erased_flash(struct netxen_adapter *adapter, int addr)
+ 	int count = 0, erased_errors = 0;
+ 	int range;
  
-     if (!loopback) {
-         /* no loopback handling available inside this driver */
-@@ -170,6 +171,8 @@
-     /* perform standard loopback handling for CAN network interfaces */
+-	range = (addr == USER_START) ? FIXED_START : addr + FLASH_SECTOR_SIZE;
++	range = (addr == NETXEN_USER_START) ? 
++		NETXEN_FIXED_START : addr + NETXEN_FLASH_SECTOR_SIZE;
+ 	
+ 	for (i = addr; i < range; i += 4) {
+ 		netxen_rom_fast_read(adapter, i, &val);
+@@ -690,7 +691,7 @@ netxen_flash_erase_sections(struct netxen_adapter *adapter, int start, int end)
+ 	int i;
  
-     if (loop) {
-+        struct sock *srcsk = skb->sk;
-+
-         if (atomic_read(&skb->users) != 1) {
-             struct sk_buff *old_skb = skb;
+ 	for (i = start; i < end; i++) {
+-		ret = netxen_rom_se(adapter, i * FLASH_SECTOR_SIZE);
++		ret = netxen_rom_se(adapter, i * NETXEN_FLASH_SECTOR_SIZE);
+ 		if (ret)
+ 			break;
+ 		ret = netxen_rom_wip_poll(adapter);
+@@ -707,8 +708,8 @@ netxen_flash_erase_secondary(struct netxen_adapter *adapter)
+ 	int ret = FLASH_SUCCESS;
+ 	int start, end;
  
-@@ -183,6 +186,8 @@
-         } else
-             skb_orphan(skb);
+-	start = SECONDARY_START / FLASH_SECTOR_SIZE;
+-	end   = USER_START / FLASH_SECTOR_SIZE;
++	start = NETXEN_SECONDARY_START / NETXEN_FLASH_SECTOR_SIZE;
++	end   = NETXEN_USER_START / NETXEN_FLASH_SECTOR_SIZE;
+ 	ret = netxen_flash_erase_sections(adapter, start, end);
  
-+        skb->sk = srcsk;
-+
-         /* receive with packet counting */
-         vcan_rx(skb, dev);
-     } else {
-
+ 	return ret;
+@@ -720,8 +721,8 @@ netxen_flash_erase_primary(struct netxen_adapter *adapter)
+ 	int ret = FLASH_SUCCESS;
+ 	int start, end;
+ 
+-	start = PRIMARY_START / FLASH_SECTOR_SIZE;
+-	end   = SECONDARY_START / FLASH_SECTOR_SIZE;
++	start = NETXEN_PRIMARY_START / NETXEN_FLASH_SECTOR_SIZE;
++	end   = NETXEN_SECONDARY_START / NETXEN_FLASH_SECTOR_SIZE;
+ 	ret = netxen_flash_erase_sections(adapter, start, end);
+ 
+ 	return ret;
 
