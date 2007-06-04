@@ -1,64 +1,116 @@
-From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
-Subject: Re: Strange soft lockup detected message (looks like spin_lock bug in pcnet32)
-Date: Mon, 4 Jun 2007 11:06:20 -0400
-Message-ID: <20070604150620.GC10008@csclub.uwaterloo.ca>
-References: <20070504151934.GA8754@csclub.uwaterloo.ca> <20070504153438.GE24769@slug> <20070504154009.GE8751@csclub.uwaterloo.ca> <20070504174456.GC8753@csclub.uwaterloo.ca> <20070504175017.GD8753@csclub.uwaterloo.ca> <20070504182433.GA11595@verizon.net> <20070504190236.GE8753@csclub.uwaterloo.ca> <20070507140807.GF8753@csclub.uwaterloo.ca> <20070507144837.GA30865@slug> <20070507174511.GL8751@csclub.uwaterloo.ca>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [TCP]: Honour sk_bound_dev_if in tcp_v4_send_ack
+Date: Mon, 04 Jun 2007 17:15:53 +0200
+Message-ID: <46642CA9.8060609@trash.net>
+References: <46604104.9080605@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Don Fry <pcnet32@verizon.net>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Frederik Deweerdt <deweerdt@free.fr>
+Content-Type: multipart/mixed;
+ boundary="------------000406090306050802020506"
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caffeine.uwaterloo.ca ([129.97.134.17]:35206 "EHLO
-	caffeine.csclub.uwaterloo.ca" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755278AbXFDPGV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jun 2007 11:06:21 -0400
-Content-Disposition: inline
-In-Reply-To: <20070507174511.GL8751@csclub.uwaterloo.ca>
+Received: from stinky.trash.net ([213.144.137.162]:39674 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754759AbXFDPSi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jun 2007 11:18:38 -0400
+In-Reply-To: <46604104.9080605@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, May 07, 2007 at 01:45:11PM -0400, Lennart Sorensen wrote:
-> Hmm, I thought I saw it on two systems already, but I should go try that
-> again.
+This is a multi-part message in MIME format.
+--------------000406090306050802020506
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
 
-Hmm, still haven't figured this out.  I just saw this one this morning:
+Patrick McHardy wrote:
+> [TCP]: Honour sk_bound_dev_if in tcp_v4_send_ack
+> 
+> A time_wait socket inherits sk_bound_dev_if from the original socket,
+> but it is not used when sending ACK packets using ip_send_reply.
+> 
+> Fix by passing the oif to ip_send_reply in struct ip_reply_arg and
+> use it for output routing.
 
-BUG: soft lockup detected on CPU#0!
- [<c0103fc4>] dump_stack+0x24/0x30
- [<c013d36e>] softlockup_tick+0x7e/0xc0
- [<c011eb23>] update_process_times+0x33/0x80
- [<c01062c9>] timer_interrupt+0x39/0x80
- [<c013d6fd>] handle_IRQ_event+0x3d/0x70
- [<c013da59>] __do_IRQ+0xa9/0x150
- [<c0104e55>] do_IRQ+0x25/0x60
- [<c010313a>] common_interrupt+0x1a/0x20
- [<c013d6d8>] handle_IRQ_event+0x18/0x70
- [<c013da59>] __do_IRQ+0xa9/0x150
- [<c0104e55>] do_IRQ+0x25/0x60
- [<c010313a>] common_interrupt+0x1a/0x20
- [<c0119cda>] __do_softirq+0x3a/0xa0
- [<c0119d6d>] do_softirq+0x2d/0x30
- [<c0119fb7>] irq_exit+0x37/0x40
- [<c0104e5a>] do_IRQ+0x2a/0x60
- [<c010313a>] common_interrupt+0x1a/0x20
- [<c013dcee>] setup_irq+0xce/0x1e0
- [<c013de97>] request_irq+0x97/0xb0
- [<d0851f9d>] pcnet32_open+0x4d/0x3d0 [pcnet32]
- [<c023a4f9>] dev_open+0x39/0x80
- [<c0238cea>] dev_change_flags+0xfa/0x130
- [<c027eb9f>] devinet_ioctl+0x4ff/0x6f0
- [<c022dab1>] sock_ioctl+0xf1/0x1f0
- [<c017413c>] do_ioctl+0x2c/0x80
- [<c01741e2>] vfs_ioctl+0x52/0x2f0
- [<c01744ef>] sys_ioctl+0x6f/0x80
- [<c0102ef7>] syscall_call+0x7/0xb
- [<b7f41d04>] 0xb7f41d04
 
-And it is happening on multiple systems.  I am starting to wonder if it
-is a bug in the soft lockup detection.  Maybe it really isn't locked up
-but just momentarily appears to be.  I will try turning off the soft
-lockup detection and see what happens.
+The patch was missing a NULL pointer check in tcp_v4_send_ack for
+a different code path where twsk == NULL. Fixed version attached.
 
---
-Len Sorensen
+
+--------------000406090306050802020506
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
+
+[TCP]: Honour sk_bound_dev_if in tcp_v4_send_ack
+
+A time_wait socket inherits sk_bound_dev_if from the original socket,
+but it is not used when sending ACK packets using ip_send_reply.
+
+Fix by passing the oif to ip_send_reply in struct ip_reply_arg and
+use it for output routing.
+
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+---
+commit 9f66116df33984809a5cc0ea66a358db684d4346
+tree a0b163d17181f1d1fafb4b7517726b5bb414b579
+parent ea1601c50bf23af25094511e2a9ce1b755ab9669
+author Patrick McHardy <kaber@trash.net> Mon, 04 Jun 2007 17:10:41 +0200
+committer Patrick McHardy <kaber@trash.net> Mon, 04 Jun 2007 17:13:17 +0200
+
+ include/net/ip.h     |    1 +
+ net/ipv4/ip_output.c |    4 +++-
+ net/ipv4/tcp_ipv4.c  |    2 ++
+ 3 files changed, 6 insertions(+), 1 deletions(-)
+
+diff --git a/include/net/ip.h b/include/net/ip.h
+index bb207db..abf2820 100644
+--- a/include/net/ip.h
++++ b/include/net/ip.h
+@@ -143,6 +143,7 @@ struct ip_reply_arg {
+ 	__wsum 	    csum;
+ 	int	    csumoffset; /* u16 offset of csum in iov[0].iov_base */
+ 				/* -1 if not needed */ 
++	int	    bound_dev_if;
+ }; 
+ 
+ void ip_send_reply(struct sock *sk, struct sk_buff *skb, struct ip_reply_arg *arg,
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index d6427d9..34ea454 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -1352,7 +1352,8 @@ void ip_send_reply(struct sock *sk, struct sk_buff *skb, struct ip_reply_arg *ar
+ 	}
+ 
+ 	{
+-		struct flowi fl = { .nl_u = { .ip4_u =
++		struct flowi fl = { .oif = arg->bound_dev_if,
++				    .nl_u = { .ip4_u =
+ 					      { .daddr = daddr,
+ 						.saddr = rt->rt_spec_dst,
+ 						.tos = RT_TOS(ip_hdr(skb)->tos) } },
+@@ -1376,6 +1377,7 @@ void ip_send_reply(struct sock *sk, struct sk_buff *skb, struct ip_reply_arg *ar
+ 	inet->tos = ip_hdr(skb)->tos;
+ 	sk->sk_priority = skb->priority;
+ 	sk->sk_protocol = ip_hdr(skb)->protocol;
++	sk->sk_bound_dev_if = arg->bound_dev_if;
+ 	ip_append_data(sk, ip_reply_glue_bits, arg->iov->iov_base, len, 0,
+ 		       &ipc, rt, MSG_DONTWAIT);
+ 	if ((skb = skb_peek(&sk->sk_write_queue)) != NULL) {
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 47c6105..97e294e 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -705,6 +705,8 @@ static void tcp_v4_send_ack(struct tcp_timewait_sock *twsk,
+ 				      ip_hdr(skb)->saddr, /* XXX */
+ 				      arg.iov[0].iov_len, IPPROTO_TCP, 0);
+ 	arg.csumoffset = offsetof(struct tcphdr, check) / 2;
++	if (twsk)
++		arg.bound_dev_if = twsk->tw_sk.tw_bound_dev_if;
+ 
+ 	ip_send_reply(tcp_socket->sk, skb, &arg, arg.iov[0].iov_len);
+ 
+
+--------------000406090306050802020506--
