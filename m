@@ -1,100 +1,55 @@
-From: noboru.obata.ar@hitachi.com
-Subject: =?ISO-8859-1?B?W1JGQ10gRmFpbG92ZXItZnJpZW5kbHkgVENQIHJldHJhbnM=?=
-	=?ISO-8859-1?B?bWlzc2lvbg==?=
-Date: Mon, 4 Jun 2007 21:55:55 +0900
-Message-ID: <XNM1$2$0$3$$2$8$4$A$2004314U46640bd2@hitachi.com>
+From: Rolf Eike Beer <eike-kernel@sf-tec.de>
+Subject: Re: r8169: hard freezes on TX
+Date: Mon, 4 Jun 2007 15:06:15 +0200
+Message-ID: <200706041506.20945.eike-kernel@sf-tec.de>
+References: <200705201520.36672.eike-kernel@sf-tec.de> <20070522202934.GA21991@electric-eye.fr.zoreil.com> <200705230848.33299.eike-kernel@sf-tec.de>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="GMAILSMTPBOUND01070604215600"
+Content-Type: multipart/signed;
+  boundary="nextPart5371482.F1XPMhcfuS";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailx.hitachi.co.jp ([133.145.228.49]:53542 "EHLO
-	mailx.hitachi.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752786AbXFDNAO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jun 2007 09:00:14 -0400
-Received: from mlsv13.hitachi.co.jp (unknown [133.144.234.166])
-	by mail9.hitachi.co.jp (Postfix) with ESMTP id 137BC37C86
-	for <netdev@vger.kernel.org>; Mon,  4 Jun 2007 21:56:10 +0900 (JST)
-Received: from vshuts4.hitachi.co.jp (unverified) by mfilter-s2.hitachi.co.jp
- (Content Technologies SMTPRS 4.3.17) with SMTP id <T800525acea0ac906abf48@mfilter-s2.hitachi.co.jp> for <netdev@vger.kernel.org>;
- Mon, 4 Jun 2007 21:56:09 +0900
-Received: from gmml01.itg.hitachi.co.jp ([158.213.165.31])
- by vshuts4.hitachi.co.jp with SMTP id M2007060421560806047
- for <netdev@vger.kernel.org>; Mon, 04 Jun 2007 21:56:08 +0900
+Received: from www.sf-tec.de ([62.27.20.187]:49758 "EHLO mail.sf-mail.de"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751795AbXFDNGW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Jun 2007 09:06:22 -0400
+In-Reply-To: <200705230848.33299.eike-kernel@sf-tec.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+--nextPart5371482.F1XPMhcfuS
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
---GMAILSMTPBOUND01070604215600
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: base64
+Rolf Eike Beer wrote:
+> Francois Romieu wrote:
+> > Rolf Eike Beer <eike-kernel@sf-tec.de> :
+> > [...]
+>
+> Ok, just tested. I used a file of 200MB and copied it to another host on
+> the LAN. If I used our 100 MBit switch nothing happened. When I put a 10
+> MBit hub in the middle it died at 77 MB.
 
-SGkgYWxsLA0KDQpJIHdvdWxkIGxpa2UgdG8gaGVhciBjb21tZW50cyBvbiBob3cgVENQIHJl
-dHJhbnNtaXNzaW9uIGNhbiBiZQ0KZG9uZSBiZXR0ZXIgb24gZmFpbG92ZXItY2FwYWJsZSBu
-ZXR3b3JrIGRldmljZXMsIHN1Y2ggYXMgYW4NCmFjdGl2ZS1iYWNrdXAgYm9uZGluZyBkZXZp
-Y2UuDQoNCg0KUHJlbWlzZQ0KPT09PT09PQ0KDQpQbGVhc2Ugbm90ZSBmaXJzdCB0aGF0IEkg
-d2FudCB0byBhZGRyZXNzIHBoeXNpY2FsIGZhaWx1cmVzIGJ5DQp0aGUgZmFpbG92ZXItY2Fw
-YWJsZSBuZXR3b3JrIGRldmljZXMsIHdoaWNoIGFyZSBpbmNyZWFzaW5nbHkNCmJlY29taW5n
-IGltcG9ydGFudCBhcyBYZW4tYmFzZWQgVk0gc3lzdGVtcyBhcmUgZ2V0dGluZyBwb3B1bGFy
-Lg0KUmVkdWNpbmcgYSBzaW5nbGUtcG9pbnQtb2YtZmFpbHVyZSAocGh5c2ljYWwgZGV2aWNl
-KSBpcyB2aXRhbCBvbg0Kc3VjaCBWTSBzeXN0ZW1zLg0KDQpBbmQgdGhlIGZhaWxvdmVyIGhl
-cmUgaXMgbm90IGdvaW5nIHRvIGFkZHJlc3Mgb3ZlcmxvYWRlZCBvcg0KY29uZ2VzdGVkIG5l
-dHdvcmtzIGhlcmUsIHdoaWNoIHNob3VsZCBiZSBzb2x2ZWQgc2VwYXJhdGVseS4NCg0KDQpC
-YWNrZ3JvdW5kDQo9PT09PT09PT09DQoNCldoZW4gZGVzaWduaW5nIGEgVENQL0lQIGJhc2Vk
-IG5ldHdvcmsgc3lzdGVtIG9uIGZhaWxvdmVyLWNhcGFibGUNCm5ldHdvcmsgZGV2aWNlcywg
-cGVvcGxlIHdhbnQgdG8gc2V0IHRpbWVvdXRzIGhpZXJhcmNoaWNhbGx5IGluDQp0aHJlZSBs
-YXllcnMsIG5ldHdvcmsgZGV2aWNlIGxheWVyLCBUQ1AgbGF5ZXIsIGFuZCBhcHBsaWNhdGlv
-bg0KbGF5ZXIgKGJvdHRvbS11cCBvcmRlciksIHN1Y2ggdGhhdDoNCg0KMS4gTmV0d29yayBk
-ZXZpY2UgbGF5ZXIgZGV0ZWN0cyBhIGZhaWx1cmUgZmlyc3QgYW5kIHN3aXRjaCB0byBhDQog
-ICBiYWNrdXAgZGV2aWNlIChzYXksIGluIDIwc2VjKS4NCg0KMi4gVENQIGxheWVyIHRpbWVv
-dXQgJiByZXRyYW5zbWlzc2lvbiBjb21lcyBuZXh0LCBfaG9wZWZ1bGx5Xw0KICAgYmVmb3Jl
-IHRoZSBhcHBsaWNhdGlvbiBsYXllciB0aW1lb3V0Lg0KDQozLiBBcHBsaWNhdGlvbiBsYXll
-ciBkZXRlY3RzIGEgbmV0d29yayBmYWlsdXJlIGxhc3QgKGJ5LCBzYXksDQogICAzMHNlYyB0
-aW1lb3V0KSBhbmQgbWF5IHRyaWdnZXIgYSBzeXN0ZW0tbGV2ZWwgZmFpbG92ZXIuDQoNCkl0
-IHNob3VsZCBiZSBub3RlZCB0aGF0IHRoZSB0aW1lb3V0cyBmb3IgIzEgYW5kICMyIGFyZSBo
-YW5kbGVkDQppbmRlcGVuZGVudGx5IGFuZCB0aGVyZSBpcyBubyByZWxhdGlvbnNoaXAgYmV0
-d2VlbiB0aGVtLg0KDQpBbHNvIG5vdGUgdGhhdCB0aGUgYWN0dWFsIHRpbWVvdXQgc2V0dGlu
-Z3MgKDIwc2VjIG9yIDMwc2VjIGluDQp0aGlzIGV4YW1wbGUpIGFyZSBvZnRlbiBkZXRlcm1p
-bmVkIGJ5IHN5c3RlbXMgcmVxdWlyZW1lbnQgYW5kIHNvDQpzZXR0aW5nIHRoZW0gdG8gY2Vy
-dGFpbiAic2FmZSB2YWx1ZXMiIChpZiBhbnkpIGFyZSB1c3VhbGx5IG5vdA0KcG9zc2libGUu
-DQoNCg0KUHJvYmxlbQ0KPT09PT09PQ0KDQpJZiBUQ1AgcmV0cmFuc21pc3Npb24gbWlzc2Vz
-IHRoZSB0aW1lIGZyYW1lIGJldHdlZW4gZXZlbnQgIzEgYW5kDQojMyBpbiBCYWNrZ3JvdW5k
-IGFib3ZlIChiZXR3ZWVuIDIwIGFuZCAzMHNlYyBzaW5jZSBuZXR3b3JrDQpmYWlsdXJlKSwg
-YSBmYWlsdXJlIGNhdXNlcyB0aGUgc3lzdGVtLWxldmVsIGZhaWxvdmVyIHdoZXJlIHRoZQ0K
-bmV0d29yay1kZXZpY2UtbGV2ZWwgZmFpbG92ZXIgc2hvdWxkIGJlIGVub3VnaC4NCg0KVGhl
-IHByb2JsZW0gaW4gdGhpcyBoaWVyYXJjaGljYWwgdGltZW91dCBzY2hlbWUgaXMgdGhhdCBU
-Q1ANCmxheWVyIGRvZXMgbm90IGd1YXJhbnRlZSB0aGUgbmV4dCByZXRyYW5zbWlzc2lvbiB0
-byBvY2N1ciBpbg0KY2VydGFpbiBwZXJpb2Qgb2YgdGltZS4gIEluIHRoZSBhYm92ZSBleGFt
-cGxlLCBwZW9wbGUgZXhwZWN0IFRDUA0KdG8gcmV0cmFuc21pdCBhIHBhY2tldCBiZXR3ZWVu
-IDIwIGFuZCAzMHNlYyBzaW5jZSBuZXR3b3JrDQpmYWlsdXJlLCBidXQgaXQgbWF5IG5vdCBo
-YXBwZW4uDQoNClN0YXJ0aW5nIGZyb20gUlRPPTAuNXNlYyBmb3IgZXhhbXBsZSwgcmV0cmFu
-c21pc3Npb24gd2lsbCBvY2N1cg0KYXQgdGltZSAwLjUsIDEuNSwgMy41LCA3LjUsIDE1LjUs
-IGFuZCAzMS41IGFzIGluZGljYXRlZCBieSAnbycNCmluIHRoZSBmb2xsb3dpbmcgZGlhZ3Jh
-bSwgYnV0IG1pc3MgdGhlIHRpbWUgZnJhbWUgYmV0d2VlbiB0aW1lDQoyMCBhbmQgMzAuDQoN
-CiAgICAgICB0aW1lOiAwICAgICAgICAgMTAgICAgICAgIDIwICAgICAgICAzMHNlYw0KICAg
-ICAgICAgICAgIHwgICAgICAgICB8ICAgICAgICAgfCAgICAgICAgIHwNCiAgQXBwLiBsYXll
-ciB8LS0tLS0tLS0tKy0tLS0tLS0tLSstLS0tLS0tLS1YICA9PT4gc3lzdGVtIGZhaWxvdmVy
-DQogICBUQ1AgbGF5ZXIgb28tby0tLW8tLSstLS0tby0tLS0rLS0tLS0tLS0tK28gPD09IGV4
-cGVjdHMgcmV0cmFucy4gYi93IDIwfjMwDQpOZXRkZXYgbGF5ZXIgfC0tLS0tLS0tLSstLS0t
-LS0tLS1YICAgICAgICAgICAgPT0+IG5ldHdvcmsgZmFpbG92ZXINCg0KDQpTb2x1dGlvbg0K
-PT09PT09PT0NCg0KSXQgc2VlbXMgcmVhc29uYWJsZSBmb3IgbWUgdG8gc29sdmUgdGhpcyBw
-cm9ibGVtIGJ5IGNhcHBpbmcNClRDUF9SVE9fTUFYLCBpLmUuLCBtYWtpbmcgVENQX1JUT19N
-QVggYSBzeXNjdGwgdmFyaWFibGUgYW5kIHNldA0KaXQgdG8gYSBzbWFsbCBudW1iZXIuDQoN
-CkluIHRoaXMgZXhhbXBsZSwgc2V0dGluZyB0byAoMTAgLSBSVFQpW3NlY10gYXQgbW9zdCBz
-aG91bGQgd29yaw0KYmVjYXVzZSByZXRyYW5zbWlzc2lvbiB3aWxsIHRha2UgcGxhY2UgYmV0
-d2VlbiB0aW1lIDIwIGFuZCAzMC4NCg0KTXkgcmF0aW9uYWxlIGZvbGxvd3MuDQoNCiogVGhp
-cyBzb2x1dGlvbiBpcyBzaW1wbGUgYW5kIHNvIGxlc3MgZXJyb3ItcHJvbmUuDQoNCiogVGhl
-IHNvbHV0aW9uIGRvZXMgbm90IHZpb2xhdGUgUkZDIDI5ODggaW4gbWF4aW11bSBSVE8gdmFs
-dWUsDQogIGJlY2F1c2UgUkZDIDI5ODgncyByZXF1aXJlbWVudCBpbiBtYXhpbXVtIFJUTyB2
-YWx1ZSwgImF0IGxlYXN0DQogIDYwIHNlY29uZHMgKGluICgyLjUpKSwiIGlzIE9QVElPTkFM
-Lg0KDQoqIFRoZSBzb2x1dGlvbiBhZGRzIGEgc3lzdGVtLXdpZGUgc2V0dGluZywgd2hpY2gg
-aXMgcHJlZmVyYWJsZQ0KICB0byBwZXItc29ja2V0IHNldHRpbmcgKGJ5LCBzYXksIHNldHNv
-Y2tvcHQgb3Igc29tZXRoaW5nKSwNCiAgYmVjYXVzZSBhbGwgYXBwbGljYXRpb24gYmVuZWZp
-dHMgZnJvbSB0aGUgc29sdXRpb24uDQoNCg0KQmVmb3JlIHBvc3RpbmcgcGF0Y2hlcywgSSB3
-b3VsZCBsaWtlIHRvIGhlYXIgY29tbWVudHMgaGVyZS4NCkFueSBjb21tZW50cyBvciBzdWdn
-ZXN0aW9ucywgdG8gbWFrZSBUQ1AgcmV0cmFuc21pc3Npb24gd29yaw0KYmV0dGVyIG9uIGZh
-aWxvdmVyLWNhcGFibGUgbmV0d29yayBkZXZpY2VzLCBhcmUgd2VsY29tZS4NCg0KUmVnYXJk
-cywNCg0KLS0gDQpPQkFUQSBOb2JvcnUgKG5vYm9ydS5vYmF0YS5hckBoaXRhY2hpLmNvbSkN
-Cg==
+I just had another freeze using your patches. After 512kB over smb it was=20
+dead.
 
---GMAILSMTPBOUND01070604215600--
+Eike
+
+--nextPart5371482.F1XPMhcfuS
+Content-Type: application/pgp-signature; name=signature.asc 
+Content-Description: This is a digitally signed message part.
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.5 (GNU/Linux)
+
+iD8DBQBGZA5MXKSJPmm5/E4RAmAIAJ9p7Ff9nhWZBczfCbn/ojUXofaZegCcC8S7
+n4+F1p2rcZBSnMNQFDBgbJ4=
+=f2iJ
+-----END PGP SIGNATURE-----
+
+--nextPart5371482.F1XPMhcfuS--
