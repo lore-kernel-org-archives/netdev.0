@@ -1,49 +1,64 @@
-From: Christoph Raisch <RAISCH@de.ibm.com>
-Subject: Re: [PATCH 2/2] ehea: Receive SKB Aggregation
-Date: Mon, 4 Jun 2007 14:09:47 +0200
-Message-ID: <OF7723C01B.9DD0E9DC-ONC12572F0.0040CA22-C12572F0.0042AC08@de.ibm.com>
-References: <20070531134118.GA30501@infradead.org>
+From: Urs Thuermann <urs@isnogud.escape.de>
+Subject: Re: [patch 5/7] CAN: Add virtual CAN netdevice driver
+Date: 04 Jun 2007 14:44:40 +0200
+Message-ID: <ygfabvfrirr.fsf@janus.isnogud.escape.de>
+References: <20070530131123.10843.0@janus.isnogud.escape.de>
+	<20070530131204.10843.5@janus.isnogud.escape.de>
+	<465DB0B6.109@trash.net> <465F2F20.6090700@hartkopp.net>
+	<46603340.2050309@trash.net> <46613DBE.3010602@hartkopp.net>
+	<4661CBE7.7040901@hartkopp.net> <46631396.8030004@hartkopp.net>
+	<4663FD57.3020601@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: Jan-Bernd Themann <themann@de.ibm.com>,
-	Jeff Garzik <jeff@garzik.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	linux-ppc <linuxppc-dev@ozlabs.org>,
-	Marcus Eder <meder@de.ibm.com>,
-	netdev <netdev@vger.kernel.org>,
-	Stefan Roscher <ossrosch@linux.vnet.ibm.com>,
-	ossthema@linux.vnet.ibm.com, Thomas Q Klein <tklein@de.ibm.com>,
-	tklein@linux.ibm.com
-To: Christoph Hellwig <hch@infradead.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Oliver Hartkopp <socketcan@hartkopp.net>,
+	David Miller <davem@davemloft.net>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
+	netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate5.de.ibm.com ([195.212.29.154]:22264 "EHLO
-	mtagate5.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754498AbXFDMnH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jun 2007 08:43:07 -0400
-In-Reply-To: <20070531134118.GA30501@infradead.org>
+Received: from oker.escape.de ([194.120.234.254]:52399 "EHLO oker.escape.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751404AbXFDMui (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Jun 2007 08:50:38 -0400
+In-Reply-To: <4663FD57.3020601@trash.net>; from Patrick McHardy on Mon, 04 Jun 2007 13:53:59 +0200
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Patrick McHardy <kaber@trash.net> writes:
 
-Christoph Hellwig wrote on 31.05.2007 15:41:18:
+> I was thinking about this, don't CAN frames include the identity
+> of the sender? That would be the easiest way to determine whether
+> the frame needs to be delivered.
 
-> I'm still very unhappy with having all this in various drivers.  There's
-> a lot of code that can be turned into generic library functions, and even
-> more code that could be made generic with some amount of refactoring.
+No, CAN is quite a broken networking technology (at least in my view,
+coming from tcp/ip).  There is no station addresses and therefore no
+sender or receiver addresses.  Everything is broadcast.
 
-Yes, we'd also prefer to use a generic function, but we first would want to
-get
-some "real world" experience how our driver behaves with LRO to be even
-able to
-define requirements for such a generic function. A lot of this is tied into
-pathlengths,
-caching, and why does that help compared to a different TCP receive side
-processing?
-In a perfect world we shouldn't see a diffference if this is enabled or
-not,
-but measurements indicate something completely different at 10gbit.
+> Actually its not unused, it needs to be set on TX frames once the
+> packet leaves the protocol specific code.
 
-Gruss / Regards
-Christoph Raisch
+Oops, yes, this is something still missing in our code.  Needs to be
+fixed.
 
+> I don't get why you can't directly check the socket option on the
+> TX path.
 
+We have several types of sockets in the PF_CAN family, two of which
+are GPL'ed and which are in the patch series.  These are CAN_RAW and
+CAN_BCM.  The protocol implementations use can_send() in af_can.c to
+send a CAN frame and indicate to can_send() in an int argument,
+whether this frame should be looped back.  Only the raw protocol has a
+socket option (setsockopt(2)) in struct raw_sock for this, bcm always
+sets this to 1 to have the frame looped back.  There is no option in
+struct bcm_sock for this.  In can_send() and in the driver we don't
+know what type of socket skb->sk points to and can't check that
+option.  Changing this would mean we have to add such an option in the
+same position in all CAN socket types and set it to fixed values in
+some of them (e.g. to 1 for bcm).  While it's doable, I wouldn't like
+that very much.
+
+Is there anything that prevents can_send() from using skb->pkt_type to
+pass the loopback flag down to the driver?
+
+urs
