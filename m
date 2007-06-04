@@ -1,51 +1,47 @@
-From: Wei Yongjun <yjwei@cn.fujitsu.com>
-Subject: Re: [PATCH] Fix bug of update IPv4 PMTU when received ICMP Fragmentation
- Needed message
-Date: Mon, 04 Jun 2007 13:38:41 +0800
-Message-ID: <4663A561.7070300@cn.fujitsu.com>
-References: <E1HuRAd-0002Wl-00@gondolin.me.apana.org.au> <46635F39.2090009@cn.fujitsu.com> <20070604025528.GA27750@gondor.apana.org.au> <46638F2D.90608@cn.fujitsu.com> <20070604041406.GA28263@gondor.apana.org.au> <466395F1.7060003@cn.fujitsu.com> <20070604045506.GA28580@gondor.apana.org.au>
+From: Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
+Subject: Re: b44: regression in 2.6.22 (resend)
+Date: Mon, 04 Jun 2007 08:39:48 +0200
+Message-ID: <1180939188.4404.5.camel@chaos>
+References: <20070525172431.60affaca@freepuppy>
+	 <200705281944.05030.maxi@daemonizer.de> <1180380230.3657.3.camel@chaos>
+	 <200706031826.06891.maxi@daemonizer.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [222.73.24.84] ([222.73.24.84]:58652 "EHLO song.cn.fujitsu.com"
-	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751824AbXFDFo5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Jun 2007 01:44:57 -0400
-In-Reply-To: <20070604045506.GA28580@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
+Cc: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>,
+	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Stephen Hemminger <shemminger-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Arnaldo Carvalho de Melo <acme-f8uhVLnGfZaxAyOMLChx1axOck334EZe@public.gmane.org>,
+	Jeff Garzik <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>,
+	Gary Zambrano <zambrano-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+To: Maximilian Engelhardt <maxi-OwNUvPV92VfddJNmlsFzeA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <200706031826.06891.maxi-OwNUvPV92VfddJNmlsFzeA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-I know, I misunderstand the iph->tot_len, the ICMP payload is not 
-contained a valid ipv4 packet.
-I do this under IPv6, it has no problem because IPv6 does not check 
-this. ^_^
+On Sun, 2007-06-03 at 18:26 +0200, Maximilian Engelhardt wrote:
+> > Is there any other strange behavior of the high res enabled kernel than
+> > the b44 problem ?
+> 
+> I didn't notice anything in the past (as I wrote). But today I did some tests 
+> for an updated version of the p54 mac80211 wlan driver and I noticed exactly 
+> the same problem:
+> 
+> when booting with highres=off everything is fine.
+> But when I boot an highres enabled kernel and I do the iperf-test with the p54 
+> driver, my systems becomes unresponsive during the test. It seems to be 
+> exactly the same problem I have with the b44 driver.
+> So this might not be a bug in the b44 code but a bug somewhere in the linux 
+> networking code.
+> 
+> I did the test with an 2.6.22-rc3-git4 kernel and the p54 driver built 
+> external as module. 
 
-Thank you very much.
-> But this is not the old_mtu field that we were talking about.  The
-> old_mtu field comes from iph->tot_len which is the length of field
-> in the *original* IP header.  We're certainly not allowed touch that
-> field.
->
-> Cheers,
->   
+Can you look at iperf to figure out, whether it does some weird timer
+stuff (high frequency interval timer or such) ? Either check the code or
+strace it.
 
-
--- 
-
-A new email address of FJWAN is launched from Apr.1 2007.
-The updated address is: yjwei@cn.fujitsu.com 
---------------------------------------------------
-Wei Yongjun
-Development Dept.I
-Nanjing Fujitsu Nanda Software Tech. Co., Ltd.(FNST)
-8/F., Civil Defense Building, No.189 Guangzhou Road,
-Nanjing, 210029, China
-TEL: +86+25-86630523-858
-COINS: 79955-858
-FAX: +86+25-83317685
-MAIL: yjwei@cn.fujitsu.com
---------------------------------------------------
-
+	tglx
