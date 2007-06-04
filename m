@@ -1,108 +1,76 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: [RFC][PATCH] Add suspend and resume support to uli526x
-Date: Mon, 4 Jun 2007 13:11:12 +0200
-Message-ID: <20070604111112.GP4363@elf.ucw.cz>
-References: <200706031237.36773.rjw@sisk.pl>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] cfg80211: fix signed macaddress in sysfs
+Date: Mon, 04 Jun 2007 13:40:55 +0200
+Message-ID: <1180957255.11026.67.camel@johannes.berg>
+References: <20070603220651.GA22070@charon.n2.diac24.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-pm <linux-pm@lists.osdl.org>, netdev@vger.kernel.org,
-	Valerie Henson <val@nmt.edu>,
-	Nigel Cunningham <nigel@nigel.suspend2.net>,
-	Peer Chen <peer.chen@uli.com.tw>
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-DgnVOIkgZl/ZSpy8FCBp"
+Cc: linux-wireless@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Michael Wu <flamingice@sourmilk.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: David Lamparter <lists@diac24.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gprs189-60.eurotel.cz ([160.218.189.60]:41585 "EHLO amd.ucw.cz"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752972AbXFDLLS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Jun 2007 07:11:18 -0400
-Content-Disposition: inline
-In-Reply-To: <200706031237.36773.rjw@sisk.pl>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:46602 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753820AbXFDLlJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jun 2007 07:41:09 -0400
+In-Reply-To: <20070603220651.GA22070@charon.n2.diac24.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi!
 
-> From: Rafael J. Wysocki <rjw@sisk.pl>
-> 
-> Add suspend/resume support to the uli526x network driver (tested on x86_64,
-> with 'Ethernet controller: ALi Corporation M5263 Ethernet Controller, rev 40').
-> 
-> Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
+--=-DgnVOIkgZl/ZSpy8FCBp
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-Looks ok to me.
+On Mon, 2007-06-04 at 00:06 +0200, David Lamparter wrote:
+> Fix signedness mixup making mac addresses show up strangely
+> (like 00:11:22:33:44:ffffffaa) in /sys/class/ieee80211/*/macaddress.
 
-> +#ifdef CONFIG_PM
-> +
-> +/*
-> + *	Suspend the interface.
-> + */
-> +
-> +static int uli526x_suspend(struct pci_dev *pdev, pm_message_t state)
-> +{
-> +	struct net_device *dev = pci_get_drvdata(pdev);
-> +
-> +	ULI526X_DBUG(0, "uli526x_suspend", 0);
-> +
-> +	if (dev && netdev_priv(dev)) {
-> +		if (netif_running(dev)) {
-> +			netif_device_detach(dev);
-> +			uli526x_down(dev);
-> +		}
-> +		pci_save_state(pdev);
-> +		pci_enable_wake(pdev, pci_choose_state(pdev, state), 0);
-> +		pci_disable_device(pdev);
-> +		pci_set_power_state(pdev, pci_choose_state(pdev, state));
-> +	}
-> +	return 0;
-> +}
-> +
-> +/*
-> + *	Resume the interface.
-> + */
-> +
-> +static int uli526x_resume(struct pci_dev *pdev)
-> +{
-> +	struct net_device *dev = pci_get_drvdata(pdev);
-> +	struct uli526x_board_info *db = netdev_priv(dev);
-> +	int err;
-> +
-> +	ULI526X_DBUG(0, "uli526x_resume", 0);
-> +
-> +	if (dev && db) {
-> +		pci_set_power_state(pdev, PCI_D0);
-> +		err = pci_enable_device(pdev);
-> +		if (err) {
-> +			printk(KERN_WARNING "%s: Could not enable device \n",
-> +				dev->name);
-> +			return err;
-> +		}
-> +		pci_restore_state(pdev);
-> +		pci_set_master(pdev);
-> +		if (netif_running(dev)) {
-> +			uli526x_up(dev);
-> +			netif_device_attach(dev);
-> +		}
-> +	}
-> +	return 0;
-> +}
-> +
-#else 
-#define *_resume NULL
-#define *_suspend NULL
+Huh, my mistake, patch looks good. Do we care for this in .22 still?
 
-> +#endif /* CONFIG_PM */
+Acked-by: Johannes Berg <johannes@sipsolutions.net>
 
-> @@ -1689,6 +1775,10 @@ static struct pci_driver uli526x_driver 
->  	.id_table	= uli526x_pci_tbl,
->  	.probe		= uli526x_init_one,
->  	.remove		= __devexit_p(uli526x_remove_one),
-> +#ifdef CONFIG_PM
-> +	.suspend	= uli526x_suspend,
-> +	.resume		= uli526x_resume,
-> +#endif
 
-...so that this ifdef is not needed?
-								Pavel
--- 
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
+> Signed-off-by: David Lamparter <equinox@diac24.net>
+> ---
+>=20
+>  net/wireless/sysfs.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+>=20
+> diff --git a/net/wireless/sysfs.c b/net/wireless/sysfs.c
+> index 7844be4..374d16d 100644
+> --- a/net/wireless/sysfs.c
+> +++ b/net/wireless/sysfs.c
+> @@ -33,7 +33,7 @@ static ssize_t _show_permaddr(struct device *dev,
+>                               struct device_attribute *attr,
+>                               char *buf)
+>  {
+> -       char *addr =3D dev_to_rdev(dev)->wiphy.perm_addr;
+> +       unsigned char *addr =3D dev_to_rdev(dev)->wiphy.perm_addr;
+> =20
+>         return sprintf(buf, "%.2x:%.2x:%.2x:%.2x:%.2x:%.2x\n",
+>                        addr[0], addr[1], addr[2], addr[3], addr[4], addr[=
+5]);
+
+This probably should also use MAC_FMT/MAC_ARG, hah. Oh well, I'll fix it
+up later.
+
+johannes
+
+--=-DgnVOIkgZl/ZSpy8FCBp
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iD8DBQBGY/pH/ETPhpq3jKURAg93AJ9wojXQKFh9zZ5GkfmAaWfgDMTUkACfSj1e
+0veaauLDU90uX8sNCAS1FnQ=
+=5fEw
+-----END PGP SIGNATURE-----
+
+--=-DgnVOIkgZl/ZSpy8FCBp--
+
