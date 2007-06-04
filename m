@@ -1,55 +1,118 @@
-From: Rolf Eike Beer <eike-kernel@sf-tec.de>
-Subject: Re: r8169: hard freezes on TX
-Date: Mon, 4 Jun 2007 15:06:15 +0200
-Message-ID: <200706041506.20945.eike-kernel@sf-tec.de>
-References: <200705201520.36672.eike-kernel@sf-tec.de> <20070522202934.GA21991@electric-eye.fr.zoreil.com> <200705230848.33299.eike-kernel@sf-tec.de>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: [RFC][PATCH] Add suspend and resume support to uli526x
+Date: Mon, 4 Jun 2007 15:49:10 +0200
+Message-ID: <200706041549.11277.rjw@sisk.pl>
+References: <200706031237.36773.rjw@sisk.pl> <20070604111112.GP4363@elf.ucw.cz>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart5371482.F1XPMhcfuS";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+Cc: linux-pm <linux-pm@lists.osdl.org>, netdev@vger.kernel.org,
+	Valerie Henson <val@nmt.edu>,
+	Nigel Cunningham <nigel@nigel.suspend2.net>,
+	Peer Chen <peer.chen@uli.com.tw>
+To: Pavel Machek <pavel@ucw.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.sf-tec.de ([62.27.20.187]:49758 "EHLO mail.sf-mail.de"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751795AbXFDNGW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Jun 2007 09:06:22 -0400
-In-Reply-To: <200705230848.33299.eike-kernel@sf-tec.de>
+Received: from ogre.sisk.pl ([217.79.144.158]:39077 "EHLO ogre.sisk.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751044AbXFDNne (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Jun 2007 09:43:34 -0400
+In-Reply-To: <20070604111112.GP4363@elf.ucw.cz>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart5371482.F1XPMhcfuS
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+Hi,
 
-Rolf Eike Beer wrote:
-> Francois Romieu wrote:
-> > Rolf Eike Beer <eike-kernel@sf-tec.de> :
-> > [...]
->
-> Ok, just tested. I used a file of 200MB and copied it to another host on
-> the LAN. If I used our 100 MBit switch nothing happened. When I put a 10
-> MBit hub in the middle it died at 77 MB.
+On Monday, 4 June 2007 13:11, Pavel Machek wrote:
+> Hi!
+> 
+> > From: Rafael J. Wysocki <rjw@sisk.pl>
+> > 
+> > Add suspend/resume support to the uli526x network driver (tested on x86_64,
+> > with 'Ethernet controller: ALi Corporation M5263 Ethernet Controller, rev 40').
+> > 
+> > Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
+> 
+> Looks ok to me.
+> 
+> > +#ifdef CONFIG_PM
+> > +
+> > +/*
+> > + *	Suspend the interface.
+> > + */
+> > +
+> > +static int uli526x_suspend(struct pci_dev *pdev, pm_message_t state)
+> > +{
+> > +	struct net_device *dev = pci_get_drvdata(pdev);
+> > +
+> > +	ULI526X_DBUG(0, "uli526x_suspend", 0);
+> > +
+> > +	if (dev && netdev_priv(dev)) {
+> > +		if (netif_running(dev)) {
+> > +			netif_device_detach(dev);
+> > +			uli526x_down(dev);
+> > +		}
+> > +		pci_save_state(pdev);
+> > +		pci_enable_wake(pdev, pci_choose_state(pdev, state), 0);
+> > +		pci_disable_device(pdev);
+> > +		pci_set_power_state(pdev, pci_choose_state(pdev, state));
+> > +	}
+> > +	return 0;
+> > +}
+> > +
+> > +/*
+> > + *	Resume the interface.
+> > + */
+> > +
+> > +static int uli526x_resume(struct pci_dev *pdev)
+> > +{
+> > +	struct net_device *dev = pci_get_drvdata(pdev);
+> > +	struct uli526x_board_info *db = netdev_priv(dev);
+> > +	int err;
+> > +
+> > +	ULI526X_DBUG(0, "uli526x_resume", 0);
+> > +
+> > +	if (dev && db) {
+> > +		pci_set_power_state(pdev, PCI_D0);
+> > +		err = pci_enable_device(pdev);
+> > +		if (err) {
+> > +			printk(KERN_WARNING "%s: Could not enable device \n",
+> > +				dev->name);
+> > +			return err;
+> > +		}
+> > +		pci_restore_state(pdev);
+> > +		pci_set_master(pdev);
+> > +		if (netif_running(dev)) {
+> > +			uli526x_up(dev);
+> > +			netif_device_attach(dev);
+> > +		}
+> > +	}
+> > +	return 0;
+> > +}
+> > +
+> #else 
+> #define *_resume NULL
+> #define *_suspend NULL
 
-I just had another freeze using your patches. After 512kB over smb it was=20
-dead.
+> > +#endif /* CONFIG_PM */
+> 
+> > @@ -1689,6 +1775,10 @@ static struct pci_driver uli526x_driver 
+> >  	.id_table	= uli526x_pci_tbl,
+> >  	.probe		= uli526x_init_one,
+> >  	.remove		= __devexit_p(uli526x_remove_one),
+> > +#ifdef CONFIG_PM
+> > +	.suspend	= uli526x_suspend,
+> > +	.resume		= uli526x_resume,
+> > +#endif
+> 
+> ...so that this ifdef is not needed?
 
-Eike
+OK, why not.
 
---nextPart5371482.F1XPMhcfuS
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
+Greetings,
+Rafael
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.5 (GNU/Linux)
 
-iD8DBQBGZA5MXKSJPmm5/E4RAmAIAJ9p7Ff9nhWZBczfCbn/ojUXofaZegCcC8S7
-n4+F1p2rcZBSnMNQFDBgbJ4=
-=f2iJ
------END PGP SIGNATURE-----
-
---nextPart5371482.F1XPMhcfuS--
+-- 
+"Premature optimization is the root of all evil." - Donald Knuth
