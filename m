@@ -1,15 +1,21 @@
 From: Miklos Szeredi <miklos@szeredi.hu>
 Subject: Re: [PATCH] fix race in AF_UNIX
-Date: Mon, 04 Jun 2007 11:45:32 +0200
-Message-ID: <E1Hv980-0006gQ-00@dorka.pomaz.szeredi.hu>
+Date: Mon, 04 Jun 2007 11:53:13 +0200
+Message-ID: <E1Hv9FR-0006hM-00@dorka.pomaz.szeredi.hu>
 References: <E1HubUt-0004Hb-00@dorka.pomaz.szeredi.hu>
-Cc: linux-kernel@vger.kernel.org
+Cc: akpm@linux-foundation.org, linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753424AbXFDJpz@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gw3.sa.ew.hu ([212.108.200.82]:41053 "EHLO
+	mail-gw3.sa.ew.hu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751194AbXFDJxb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jun 2007 05:53:31 -0400
 In-reply-to: <E1HubUt-0004Hb-00@dorka.pomaz.szeredi.hu> (message from Miklos
 	Szeredi on Sat, 02 Jun 2007 23:50:55 +0200)
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
+
+(resend, sorry, fscked up the address list)
 
 > A recv() on an AF_UNIX, SOCK_STREAM socket can race with a
 > send()+close() on the peer, causing recv() to return zero, even though
@@ -191,3 +197,4 @@ Index: linux-2.6.22-rc2/net/unix/af_unix.c
  	scm_recv(sock, msg, siocb->scm, flags);
  out:
  	return copied ? : err;
+
