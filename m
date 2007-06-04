@@ -1,126 +1,76 @@
-From: Stephen Hemminger <shemminger-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Subject: Re: b44: regression in 2.6.22 (resend)
-Date: Mon, 4 Jun 2007 09:09:18 -0700
-Message-ID: <20070604090918.42386fbb@freepuppy>
-References: <20070525172431.60affaca@freepuppy>
-	<200705281944.05030.maxi@daemonizer.de>
-	<1180380230.3657.3.camel@chaos>
-	<200706031826.06891.maxi@daemonizer.de>
-	<1180939188.4404.5.camel@chaos>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [patch 5/7] CAN: Add virtual CAN netdevice driver
+Date: Mon, 04 Jun 2007 18:32:50 +0200
+Message-ID: <46643EB2.2060204@hartkopp.net>
+References: <20070530131123.10843.0@janus.isnogud.escape.de>	<20070530131204.10843.5@janus.isnogud.escape.de>	<465DB0B6.109@trash.net> <465F2F20.6090700@hartkopp.net>	<46603340.2050309@trash.net> <46613DBE.3010602@hartkopp.net>	<4661CBE7.7040901@hartkopp.net> <46631396.8030004@hartkopp.net> <ygfejkrrk16.fsf@janus.isnogud.escape.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Maximilian Engelhardt <maxi-OwNUvPV92VfddJNmlsFzeA@public.gmane.org>,
-	Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>,
-	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Arnaldo Carvalho de Melo <acme-f8uhVLnGfZaxAyOMLChx1axOck334EZe@public.gmane.org>,
-	Jeff Garzik <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>,
-	Gary Zambrano <zambrano-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-To: Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1180939188.4404.5.camel@chaos>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Patrick McHardy <kaber@trash.net>,
+	David Miller <davem@davemloft.net>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
+	netdev@vger.kernel.org
+To: Urs Thuermann <urs@isnogud.escape.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mo-p00-ob.rzone.de ([81.169.146.162]:30407 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757157AbXFDQdE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jun 2007 12:33:04 -0400
+In-Reply-To: <ygfejkrrk16.fsf@janus.isnogud.escape.de>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 04 Jun 2007 08:39:48 +0200
-Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org> wrote:
+Urs Thuermann wrote:
+> Oliver Hartkopp <socketcan@hartkopp.net> writes:
+>
+>   
+>> 2. The loopback indication is done by using the unused skb->protocol in
+>> the tx path.
+>>     
+>
+> I don't think we should (mis-)use skb->protocol as a loopback flag.
+>   
 
-> On Sun, 2007-06-03 at 18:26 +0200, Maximilian Engelhardt wrote:
-> > > Is there any other strange behavior of the high res enabled kernel than
-> > > the b44 problem ?
-> > 
-> > I didn't notice anything in the past (as I wrote). But today I did some tests 
-> > for an updated version of the p54 mac80211 wlan driver and I noticed exactly 
-> > the same problem:
-> > 
-> > when booting with highres=off everything is fine.
-> > But when I boot an highres enabled kernel and I do the iperf-test with the p54 
-> > driver, my systems becomes unresponsive during the test. It seems to be 
-> > exactly the same problem I have with the b44 driver.
-> > So this might not be a bug in the b44 code but a bug somewhere in the linux 
-> > networking code.
-> > 
-> > I did the test with an 2.6.22-rc3-git4 kernel and the p54 driver built 
-> > external as module. 
-> 
-> Can you look at iperf to figure out, whether it does some weird timer
-> stuff (high frequency interval timer or such) ? Either check the code or
-> strace it.
-> 
-> 	tglx
-> 
-> 
+Yep! After reading the comments from Patrick and Urs i definitely agree
+to their concerns.
+
+> IMO it would be better to skb->pkt_type.  This is used to indicate
+> packet type to rcv functions registered by dev_add_pack().  It is set
+> by netdevice drivers to PACKET_{MULTICAST,BROADCAST,HOST,OTHER} for
+> received packets.  In the send path it is set to PACKET_OUTGOING on
+> the copy of the skbuff that is delivered to the sockets registered on
+> ptype_all (typically packet sockets from tcpdump or other sniffers).
+> AFAICS, pkt_type is not used otherwise in the send path.
+>
+> We could set skb->pkt_type = PACKET_LOOPBACK to flag to the CAN
+> netdevice driver whether to loop back the packet.
+>   
+
+I think, it goes into the right direction to use skb->pkt_type. The flag
+should really be somewhere inside the skb as all back references into
+the sk would become sticky in the implementation.
+
+But regarding the use of skb->pkt_type i would suggest to take a closer
+look on the definitions in include/linux/if_packet.h and how the
+pkt_type is to be used inside the kernel. In my opinion we should use ...
+
+* TX-Path:
+PACKET_OTHERHOST: send the CAN frame without loopback
+PACKET_BROADCAST : send the CAN frame with loopback (aka local broadcast)
+
+See an example of this approach in drivers/net/arcnet/rfc1051.c :
+http://www.linux-m32r.org/lxr/http/source/drivers/net/arcnet/rfc1051.c?a=i386#L99
+
+* RX-Path:
+PACKET_HOST : just an incoming CAN frame for this host
+
+Any comments? ACKs?
+
+Best regards,
+Oliver
 
 
-It is the receiver doing a tight loop doing gettimeofday/recv calls.
 
 
-sendto(-1227715616, 0xc, 3085438964, 0, {...}, 3067249832) = 0
-gettimeofday({1180973726, 981615}, NULL) = 0
-gettimeofday({1180973726, 981751}, NULL) = 0
-futex(0x8055c64, 0x5 /* FUTEX_??? */, 1) = 1
-futex(0x8055c90, FUTEX_WAKE, 1) = 0
-recv(4, "\0\0\0\0\0\0\0\1\0\0\23\211\0\0\0\0\0\0\0\0\377\377\364"..., 8192, 0) = 8192
-gettimeofday({1180973726, 982754}, NULL) = 0
-recv(4, "\0\0\0\0\0\0\0\1\0\0\23\211\0\0\0\0\0\0\0\0\377\377\364"..., 8192, 0) = 8192
-gettimeofday({1180973726, 983790}, NULL) = 0
-recv(4, "\0\0\0\0\0\0\0\1\0\0\23\211\0\0\0\0\0\0\0\0\377\377\364"..., 8192, 0) = 8192
-gettimeofday({1180973726, 984355}, NULL) = 0
-recv(4, "\0\0\0\0\0\0\0\1\0\0\23\211\0\0\0\0\0\0\0\0\377\377\364"..., 8192, 0) = 8192
-gettimeofday({1180973726, 984706}, NULL) = 0
-recv(4, "\0\0\0\0\0\0\0\1\0\0\23\211\0\0\0\0\0\0\0\0\377\377\364"..., 8192, 0) = 8192
-gettimeofday({1180973726, 985111}, NULL) = 0
-recv(4, "\0\0\0\0\0\0\0\1\0\0\23\211\0\0\0\0\0\0\0\0\377\377\364"..., 8192, 0) = 8192
-gettimeofday({1180973726, 985499}, NULL) = 0
-recv(4, "\0\0\0\0\0\0\0\1\0\0\23\211\0\0\0\0\0\0\0\0\377\377\364"..., 8192, 0) = 8192
-gettimeofday({1180973726, 986088}, NULL) = 0
-recv(4, "\0\0\0\0\0\0\0\1\0\0\23\211\0\0\0\0\0\0\0\0\377\377\364"..., 8192, 0) = 8192
-gettimeofday({1180973726, 986436}, NULL) = 0
-recv(4, "\0\0\0\0\0\0\0\1\0\0\23\211\0\0\0\0\0\0\0\0\377\377\364"..., 8192, 0) = 8192
-gettimeofday({1180973726, 986916}, NULL) = 0
-recv(4, "\0\0\0\0\0\0\0\1\0\0\23\211\0\0\0\0\0\0\0\0\377\377\364"..., 8192, 0) = 8192
-gettimeofday({1180973726, 987397}, NULL) = 0
-recv(4, "\0\0\0\0\0\0\0\1\0\0\23\211\0\0\0\0\0\0\0\0\377\377\364"..., 8192, 0) = 8192
-gettimeofday({1180973726, 987872}, NULL) = 0
-recv(4, "\0\0\0\0\0\0\0\1\0\0\23\211\0\0\0\0\0\0\0\0\377\377\364"..., 8192, 0) = 8192
-gettimeofday({1180973726, 988440}, NULL) = 0
-recv(4, "\0\0\0\0\0\0\0\1\0\0\23\211\0\0\0\0\0\0\0\0\377\377\364"..., 8192, 0) = 8192
-gettimeofday({1180973726, 988823}, NULL) = 0
-recv(4, "\0\0\0\0\0\0\0\1\0\0\23\211\0\0\0\0\0\0\0\0\377\377\364"..., 8192, 0) = 8192
-gettimeofday({1180973726, 989314}, NULL) = 0
-recv(4, "\0\0\0\0\0\0\0\1\0\0\23\211\0\0\0\0\0\0\0\0\377\377\364"..., 8192, 0) = 8192
-gettimeofday({1180973726, 990029}, NULL) = 0
-recv(4, "\0\0\0\0\0\0\0\1\0\0\23\211\0\0\0\0\0\0\0\0\377\377\364"..., 8192, 0) = 8192
-gettimeofday({1180973726, 990890}, NULL) = 0
-recv(4, "\0\0\0\0\0\0\0\1\0\0\23\211\0\0\0\0\0\0\0\0\377\377\364"..., 8192, 0) = 8192
-gettimeofday({1180973726, 991803}, NULL) = 0
-recv(4, "\0\0\0\0\0\0\0\1\0\0\23\211\0\0\0\0\0\0\0\0\377\377\364"..., 8192, 0) = 8192
-gettimeofday({1180973726, 992616}, NULL) = 0
-recv(4, "\0\0\0\0\0\0\0\1\0\0\23\211\0\0\0\0\0\0\0\0\377\377\364"..., 8192, 0) = 8192
-gettimeofday({1180973726, 993105}, NULL) = 0
-recv(4, "\0\0\0\0\0\0\0\1\0\0\23\211\0\0\0\0\0\0\0\0\377\377\364"..., 8192, 0) = 8192
-gettimeofday({1180973726, 993585}, NULL) = 0
-recv(4, "\0\0\0\0\0\0\0\1\0\0\23\211\0\0\0\0\0\0\0\0\377\377\364"..., 8192, 0) = 8192
-gettimeofday({1180973726, 994014}, NULL) = 0
-...
 
-recv(4, "45678901234567890123456789012345"..., 8192, 0) = 1448
-gettimeofday({1180973757, 172437}, NULL) = 0
-recv(4, "23456789012345678901234567890123"..., 8192, 0) = 1448
-gettimeofday({1180973757, 172576}, NULL) = 0
-recv(4, "01234567890123456789012345678901"..., 8192, 0) = 1632
-gettimeofday({1180973757, 172752}, NULL) = 0
-recv(4, "", 8192, 0)                    = 0
-gettimeofday({1180973757, 172797}, NULL) = 0
-gettimeofday({1180973757, 172817}, NULL) = 0
-nanosleep({0, 0}, NULL) = 0
-nanosleep({0, 0}, NULL)                 = 0
-close(4)                     = 0
-futex(0x8055d04, 0x5 /* FUTEX_??? */, 1) = 1
-futex(0x8055d30, FUTEX_WAKE, 1) = 0
-_exit(0)
-
--- 
-Stephen Hemminger <shemminger-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
