@@ -1,76 +1,43 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] cfg80211: fix signed macaddress in sysfs
-Date: Mon, 04 Jun 2007 13:40:55 +0200
-Message-ID: <1180957255.11026.67.camel@johannes.berg>
-References: <20070603220651.GA22070@charon.n2.diac24.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [patch 5/7] CAN: Add virtual CAN netdevice driver
+Date: Mon, 04 Jun 2007 13:53:59 +0200
+Message-ID: <4663FD57.3020601@trash.net>
+References: <20070530131123.10843.0@janus.isnogud.escape.de> <20070530131204.10843.5@janus.isnogud.escape.de> <465DB0B6.109@trash.net> <465F2F20.6090700@hartkopp.net> <46603340.2050309@trash.net> <46613DBE.3010602@hartkopp.net> <4661CBE7.7040901@hartkopp.net> <46631396.8030004@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-DgnVOIkgZl/ZSpy8FCBp"
-Cc: linux-wireless@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Michael Wu <flamingice@sourmilk.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: David Lamparter <lists@diac24.net>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Urs Thuermann <urs@isnogud.escape.de>,
+	David Miller <davem@davemloft.net>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
+	Urs Thuermann <urs.thuermann@volkswagen.de>,
+	netdev@vger.kernel.org
+To: Oliver Hartkopp <socketcan@hartkopp.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:46602 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753820AbXFDLlJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jun 2007 07:41:09 -0400
-In-Reply-To: <20070603220651.GA22070@charon.n2.diac24.net>
+Received: from stinky.trash.net ([213.144.137.162]:35495 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752689AbXFDL4k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jun 2007 07:56:40 -0400
+In-Reply-To: <46631396.8030004@hartkopp.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
---=-DgnVOIkgZl/ZSpy8FCBp
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
-
-On Mon, 2007-06-04 at 00:06 +0200, David Lamparter wrote:
-> Fix signedness mixup making mac addresses show up strangely
-> (like 00:11:22:33:44:ffffffaa) in /sys/class/ieee80211/*/macaddress.
-
-Huh, my mistake, patch looks good. Do we care for this in .22 still?
-
-Acked-by: Johannes Berg <johannes@sipsolutions.net>
+Oliver Hartkopp wrote:
+> 1. The needed skb->sk is preserved for the rx path (the way 'up').
 
 
-> Signed-off-by: David Lamparter <equinox@diac24.net>
-> ---
->=20
->  net/wireless/sysfs.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
->=20
-> diff --git a/net/wireless/sysfs.c b/net/wireless/sysfs.c
-> index 7844be4..374d16d 100644
-> --- a/net/wireless/sysfs.c
-> +++ b/net/wireless/sysfs.c
-> @@ -33,7 +33,7 @@ static ssize_t _show_permaddr(struct device *dev,
->                               struct device_attribute *attr,
->                               char *buf)
->  {
-> -       char *addr =3D dev_to_rdev(dev)->wiphy.perm_addr;
-> +       unsigned char *addr =3D dev_to_rdev(dev)->wiphy.perm_addr;
-> =20
->         return sprintf(buf, "%.2x:%.2x:%.2x:%.2x:%.2x:%.2x\n",
->                        addr[0], addr[1], addr[2], addr[3], addr[4], addr[=
-5]);
+I was thinking about this, don't CAN frames include the identity
+of the sender? That would be the easiest way to determine whether
+the frame needs to be delivered.
 
-This probably should also use MAC_FMT/MAC_ARG, hah. Oh well, I'll fix it
-up later.
+> 2. The loopback indication is done by using the unused skb->protocol in
+> the tx path.
 
-johannes
 
---=-DgnVOIkgZl/ZSpy8FCBp
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
+Actually its not unused, it needs to be set on TX frames once the
+packet leaves the protocol specific code. Its used for example by
+packet sockets (sk_run_filter), qdisc classification, neighbour
+resolution, gso segmentation, ...
 
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iD8DBQBGY/pH/ETPhpq3jKURAg93AJ9wojXQKFh9zZ5GkfmAaWfgDMTUkACfSj1e
-0veaauLDU90uX8sNCAS1FnQ=
-=5fEw
------END PGP SIGNATURE-----
-
---=-DgnVOIkgZl/ZSpy8FCBp--
-
+I don't get why you can't directly check the socket option on the
+TX path.
