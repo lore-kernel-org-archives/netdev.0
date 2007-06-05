@@ -1,56 +1,36 @@
-From: Joy Latten <latten@austin.ibm.com>
-Subject: Re: [PATCH]: Add security check before flushing SAD/SPD
-Date: Tue, 05 Jun 2007 12:56:04 -0500
-Message-ID: <1181066165.15699.37.camel@faith.austin.ibm.com>
-References: <200703262321.l2QNLZlR014240@faith.austin.ibm.com>
-	 <1180983953.3950.37.camel@localhost.localdomain>
-	 <Line.LNX.4.64.0706041544230.13341@d.namei>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [RFC VLAN 01/10]: Fix off-by-ones in VLAN ID checks
+Date: Tue, 05 Jun 2007 20:16:46 +0200
+Message-ID: <4665A88E.3040706@trash.net>
+References: <20070605143650.23717.91261.sendpatchset@localhost.localdomain> <20070605143651.23717.20253.sendpatchset@localhost.localdomain> <46658C5F.8050302@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: Eric Paris <eparis@redhat.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, selinux@tycho.nsa.gov
-To: James Morris <jmorris@namei.org>
+Cc: netdev@vger.kernel.org
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e34.co.us.ibm.com ([32.97.110.152]:51989 "EHLO
-	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751006AbXFESOe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2007 14:14:34 -0400
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e34.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l55IEXMW026037
-	for <netdev@vger.kernel.org>; Tue, 5 Jun 2007 14:14:33 -0400
-Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
-	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l55IEUSw207884
-	for <netdev@vger.kernel.org>; Tue, 5 Jun 2007 12:14:31 -0600
-Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l55IETlg030812
-	for <netdev@vger.kernel.org>; Tue, 5 Jun 2007 12:14:30 -0600
-In-Reply-To: <Line.LNX.4.64.0706041544230.13341@d.namei>
+Received: from stinky.trash.net ([213.144.137.162]:34984 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754085AbXFESQw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2007 14:16:52 -0400
+In-Reply-To: <46658C5F.8050302@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2007-06-04 at 15:44 -0400, James Morris wrote:
-> On Mon, 4 Jun 2007, Eric Paris wrote:
+Ben Greear wrote:
+> Patrick McHardy wrote:
 > 
-> > Some time ago this thread bounced back and forth and seemed to come to
-> > rest with the patch below, I cleaned up the comments and put all the
-> > ACKs it received in one place below, but so much time has passed I doubt
-> > if they should still count for free.  I also rediffed the patch against
-> > the latest miller tree.  Is the idea or patch in any way flawed or
-> > unacceptable to people at the moment?
-> > 
-> > Anyone willing to step up an re-ack the patch to get it moving into the
-> > tree?
+>> [VLAN]: Fix off-by-ones in VLAN ID checks
+>>
+>> The valid range of VLAN IDs is 0-4095, fix using ID 4095.
+>>   
 > 
-> Looks good to me.
+> Per http://standards.ieee.org/getieee802/download/802.1Q-1998.pdf
+> page 69
 > 
-> Acked-by: James Morris <jmorris@namei.org>
-> 
-> 
-
-I have also tested with 2.6.22-rc3-git7 and all appears to be working as
-expected. 
-
-Acked-by: Joy Latten <latten@austin.ibm.com>
+> 0xFFF is reserved for future use, so we should not be using VLANs with
+> that VID.
 
 
+Thanks, I just noticed id 4095 didn't work and assumed it was a bug.
+I'm going to drop that patch.
