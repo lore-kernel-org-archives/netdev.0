@@ -1,68 +1,71 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [RFC VLAN 00/10]: VLAN netlink support try 2
-Date: Tue, 05 Jun 2007 23:12:23 +0200
-Message-ID: <4665D1B7.5040902@trash.net>
-References: <20070605143650.23717.91261.sendpatchset@localhost.localdomain> <46658E84.1090301@candelatech.com> <4665AB57.7030605@trash.net> <4665C2CE.4050504@candelatech.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [RFC VLAN 10/10]: Use rtnl_link API
+Date: Tue, 05 Jun 2007 14:31:59 -0700
+Message-ID: <4665D64F.4040601@candelatech.com>
+References: <20070605143650.23717.91261.sendpatchset@localhost.localdomain> <20070605143703.23717.96479.sendpatchset@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Ben Greear <greearb@candelatech.com>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:37937 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1765478AbXFEVMc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2007 17:12:32 -0400
-In-Reply-To: <4665C2CE.4050504@candelatech.com>
+Received: from ns2.lanforge.com ([66.165.47.211]:33695 "EHLO ns2.lanforge.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932084AbXFEVcF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Jun 2007 17:32:05 -0400
+In-Reply-To: <20070605143703.23717.96479.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ben Greear wrote:
-> Patrick McHardy wrote:
+Patrick McHardy wrote:
+> [VLAN]: Use rtnl_link API
 > 
->> Ben Greear wrote:
->>
->>> Patrick McHardy wrote:
->>>
->>>> The last VLAN patchset was outdated, sorry about the mixup. These
->>>> are the
->>>> correct patches. The iproute patch I posted was correct, so no
->>>> repost of
->>>> that one.
->>>>
->>>>   
->>>
->>> Is there any significant performance penalty in creating VLANs using
->>> these patches?
->>>
->>> If you have a test station handy, could you let us know what 'time'
->>> shows for a script
->>> creating 4000 VLANs with the old vconfig/ioctl method v/s this new
->>> method?
->>
->>
->>
->> Not significantly more, for 1000 VLANs I get:
->>
->> ip link add:
->>
->> real    0m22.836s
->> user    0m0.100s
->> sys     0m5.850s
->>
->> vconfig add:
->>
->> real    0m19.739s
->> user    0m0.090s
->> sys     0m3.600s
-> 
-> 
-> Thanks for doing the tests.  That small performance drop seems
-> fine to me.
+> Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+> +static int vlan_newlink(struct net_device *dev,
+> +			struct nlattr *tb[], struct nlattr *data[])
+> +{
+> +	struct vlan_dev_info *vlan = VLAN_DEV_INFO(dev);
+> +	int err;
+> +
+> +	if (!tb[IFLA_LINK])
+> +		return -EINVAL;
+> +	if (!data[IFLA_VLAN_ID])
+> +		return -EINVAL;
+> +
+> +	vlan->vlan_id  = nla_get_u16(data[IFLA_VLAN_ID]);
+> +	vlan->real_dev = __dev_get_by_index(nla_get_u32(tb[IFLA_LINK]));
+
+It seems you are scribbling on dev->priv before you validate that
+it is OK to do so?
+
+Or, maybe I'm just confused.
+
+What is 'dev' here?
+
+> +
+> +	if (!vlan->real_dev)
+> +		return -ENODEV;
+> +	err = vlan_check_real_dev(vlan->real_dev, vlan->vlan_id);
+> +	if (err < 0)
+> +		return err;
+> +
+> +	err = vlan_changelink(dev, tb, data);
+> +	if (err < 0)
+> +		return err;
+> +
+> +	return register_vlan_dev(dev);
+> +}
 
 
-I'll try to speed it up a bit more, my initial version needed something
-like 10s for 1000 VLANs. I suspect the iproute RTM_NEWLINK probing done
-for every (non-batched) operation adds quite significantly to the
-overhead.
+Other than this, this patch and the others in this series
+look fine (except for the 4095 VID issue that we communicated
+about earlier).
+
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
 
