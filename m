@@ -1,44 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/4] [IPV4]: Add default config support after
- inetdev_init
-Date: Mon, 04 Jun 2007 23:35:47 -0700 (PDT)
-Message-ID: <20070604.233547.122619624.davem@davemloft.net>
+Subject: Re: [PATCH 4/4] [IPV4]: Restore old behaviour of default config
+ values
+Date: Mon, 04 Jun 2007 23:36:27 -0700 (PDT)
+Message-ID: <20070604.233627.45515850.davem@davemloft.net>
 References: <20070605062929.GA12024@gondor.apana.org.au>
-	<E1HvSZL-0003AB-00@gondolin.me.apana.org.au>
+	<E1HvSZM-0003AF-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36096
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36099
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1760462AbXFEGfd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2007 02:35:33 -0400
-In-Reply-To: <E1HvSZL-0003AB-00@gondolin.me.apana.org.au>
+	by vger.kernel.org with ESMTP id S1760684AbXFEGgM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2007 02:36:12 -0400
+In-Reply-To: <E1HvSZM-0003AF-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Tue, 05 Jun 2007 16:31:03 +1000
+Date: Tue, 05 Jun 2007 16:31:04 +1000
 
-> [IPV4]: Add default config support after inetdev_init
+> [IPV4]: Restore old behaviour of default config values
 > 
-> Previously once inetdev_init has been called on a device any changes made
-> to ipv4_devconf_dflt would have no effect on that device's configuration.
+> Previously inet devices were only constructed when addresses are added
+> (or rarely in ipmr).  Therefore the default config values they get are
+> the ones at the time of these operations.
 > 
-> This creates a problem since we have moved the point where inetdev_init
-> is called from when an address is added to where the device is registered.
+> Now that we're creating inet devices earlier, this changes the behaviour
+> of default config values in an incompatible way (see bug #8519).
 > 
-> This patch is the first half of a set that tries to mimic the old behaviour
-> while still calling inetdev_init.
-> 
-> It propagates any changes to ipv4_devconf_dflt to those devices that have
-> not had the corresponding attribute set.
-> 
-> The next patch will forcibly set all values at the point where inetdev_init
-> was previously called.
+> This patch creates a compromise by setting the default values at the
+> same point as before but only for those that have not been explicitly
+> set by the user since the inet device's creation.
 > 
 > Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Looks good, applied.
+Also applied, thanks a lot.
