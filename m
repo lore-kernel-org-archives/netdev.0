@@ -1,35 +1,51 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [RFC RTNETLINK 00/09]: Netlink link creation API
-Date: Tue, 05 Jun 2007 18:29:48 -0400
-Message-ID: <1181082588.4062.33.camel@localhost>
-References: <20070605141250.15650.47178.sendpatchset@localhost.localdomain>
-	 <1181080819.4062.10.camel@localhost>  <4665DEA4.3090607@trash.net>
-Reply-To: hadi@cyberus.ca
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [NET]: Avoid duplicate netlink notification when changing link state
+Date: Wed, 6 Jun 2007 00:54:53 +0200
+Message-ID: <20070605225452.GV521@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, socketcan@hartkopp.net, xemul@sw.ru,
-	ebiederm@xmission.com, tgraf@suug.ch
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.178]:45814 "EHLO
-	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1765962AbXFEW3v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2007 18:29:51 -0400
-Received: by py-out-1112.google.com with SMTP id a29so3136070pyi
-        for <netdev@vger.kernel.org>; Tue, 05 Jun 2007 15:29:50 -0700 (PDT)
-In-Reply-To: <4665DEA4.3090607@trash.net>
+Received: from postel.suug.ch ([194.88.212.233]:56652 "EHLO postel.suug.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1765749AbXFEWyc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Jun 2007 18:54:32 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2007-06-06 at 00:07 +0200, Patrick McHardy wrote:
+When changing the link state from userspace not affecting any other
+flags. Two duplicate notification are being sent, once as action
+in the NETDEV_UP/NETDEV_DOWN notification chain and a second time
+when comparing old and new device flags after the change has been
+completed. Although harmless, the duplicates should be avoided.
 
-> How about IFLA_INFO_KIND (borrowed from sch_api)? I generally don't
-> like the IFLA_INFO_ prefix very much, but so far didn't come up with
-> something better. Suggestions welcome :)
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-KIND sounds a lot more tasty ;-> Thanks.
-
-cheers,
-jamal
-
+Index: net-2.6/net/core/dev.c
+===================================================================
+--- net-2.6.orig/net/core/dev.c	2007-06-05 17:50:13.000000000 +0200
++++ net-2.6/net/core/dev.c	2007-06-06 00:48:53.000000000 +0200
+@@ -2577,7 +2577,7 @@ unsigned dev_get_flags(const struct net_
+ 
+ int dev_change_flags(struct net_device *dev, unsigned flags)
+ {
+-	int ret;
++	int ret, changes;
+ 	int old_flags = dev->flags;
+ 
+ 	/*
+@@ -2632,8 +2632,10 @@ int dev_change_flags(struct net_device *
+ 		dev_set_allmulti(dev, inc);
+ 	}
+ 
+-	if (old_flags ^ dev->flags)
+-		rtmsg_ifinfo(RTM_NEWLINK, dev, old_flags ^ dev->flags);
++	/* Exclude state transition flags, already notified */
++	changes = (old_flags ^ dev->flags) & ~(IFF_UP | IFF_RUNNING);
++	if (changes)
++		rtmsg_ifinfo(RTM_NEWLINK, dev, changes);
+ 
+ 	return ret;
+ }
