@@ -1,30 +1,42 @@
-From: Kacper Bielecki <kazjote@stud.ics.p.lodz.pl>
-Subject: Re: PROBLEM: network interface regularly stops working
-Date: Tue, 5 Jun 2007 17:58:53 +0200
-Message-ID: <200706051758.53645.kazjote@stud.ics.p.lodz.pl>
-References: <200706051208.40929.kazjote@stud.ics.p.lodz.pl> <20070605111506.GA16401@electric-eye.fr.zoreil.com>
+From: Divy Le Ray <divy@chelsio.com>
+Subject: Re: [PATCH 2.6.22 0/5] cxgb3 - bug fixes
+Date: Tue, 05 Jun 2007 09:32:47 -0700
+Message-ID: <4665902F.7050505@chelsio.com>
+References: <465DAD8D.9030600@chelsio.com> <465DDDB2.5080109@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Steve Wise <swise@opengridcomputing.com>
+To: Divy Le Ray <divy@chelsio.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stud.ics.p.lodz.pl ([212.51.220.231]:22804 "EHLO
-	stud.ics.p.lodz.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760512AbXFEQ1g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2007 12:27:36 -0400
-In-Reply-To: <20070605111506.GA16401@electric-eye.fr.zoreil.com>
-Content-Disposition: inline
+Received: from stargate.chelsio.com ([12.22.49.110]:24015 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755603AbXFEQc4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2007 12:32:56 -0400
+In-Reply-To: <465DDDB2.5080109@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> Can you try 2.6.22-rc3 (or -rc4) + patches 0000..0013 from
-> http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.22-rc3/r8169-20070527
+Divy Le Ray wrote:
+> Divy Le Ray wrote:
+>> Hi Jeff,
+>>
+>> I'm submitting a set of bug fixes for inclusion in 2.6.22.
+>> The patches are built against Linus'git tree.
+>>
+>>
+> The mail title was incomplete. sorry about that.
 >
-> Which motherboard is it ?
+> Cheers,
+> Divy
 >
-> Please Cc: netdev@vger.kernel.org
 
-The motherboadr is ASRock ConRoe945G-DVI
-I will get you know when I try new kernel.
+Hi Jeff,
+
+Did you get a chance to review the series I posted for driver fixes and 
+updates ?
+
+Cheers,
+Divy
