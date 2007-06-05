@@ -1,36 +1,39 @@
 From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [RFC VLAN 01/10]: Fix off-by-ones in VLAN ID checks
-Date: Tue, 05 Jun 2007 09:16:31 -0700
-Message-ID: <46658C5F.8050302@candelatech.com>
-References: <20070605143650.23717.91261.sendpatchset@localhost.localdomain> <20070605143651.23717.20253.sendpatchset@localhost.localdomain>
+Subject: Re: [RFC VLAN 00/10]: VLAN netlink support try 2
+Date: Tue, 05 Jun 2007 09:25:40 -0700
+Message-ID: <46658E84.1090301@candelatech.com>
+References: <20070605143650.23717.91261.sendpatchset@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:34146 "EHLO ns2.lanforge.com"
+Received: from ns2.lanforge.com ([66.165.47.211]:56772 "EHLO ns2.lanforge.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933297AbXFEQQd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Jun 2007 12:16:33 -0400
-In-Reply-To: <20070605143651.23717.20253.sendpatchset@localhost.localdomain>
+	id S1760229AbXFEQZl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Jun 2007 12:25:41 -0400
+In-Reply-To: <20070605143650.23717.91261.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Patrick McHardy wrote:
-> [VLAN]: Fix off-by-ones in VLAN ID checks
+> The last VLAN patchset was outdated, sorry about the mixup. These are the
+> correct patches. The iproute patch I posted was correct, so no repost of
+> that one.
 >
-> The valid range of VLAN IDs is 0-4095, fix using ID 4095.
 >   
-Per http://standards.ieee.org/getieee802/download/802.1Q-1998.pdf
-page 69
+Is there any significant performance penalty in creating VLANs using 
+these patches?
 
-0xFFF is reserved for future use, so we should not be using VLANs with 
-that VID.
+If you have a test station handy, could you let us know what 'time' 
+shows for a script
+creating 4000 VLANs with the old vconfig/ioctl method v/s this new method?
+
+I'll try to look through the rest of the patches in detail later today.
 
 Thanks,
 Ben
-
 
 -- 
 Ben Greear <greearb@candelatech.com> 
