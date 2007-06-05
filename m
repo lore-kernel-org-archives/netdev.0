@@ -1,49 +1,56 @@
-From: "Sam Hopkins" <s.a.hopkins@gmail.com>
-Subject: Fwd: dma_skb_copy_datagram_iovec not EXPORTed
-Date: Tue, 5 Jun 2007 10:56:58 -0400
-Message-ID: <908954150706050756x2c7fbee0o9b9df550a09bffb7@mail.gmail.com>
-References: <908954150706041006v2a429726yd267c06ab42a1107@mail.gmail.com>
+From: chris schlund <chrisschlund@gmx.de>
+Subject: Socket hangs in read() when putting interface down
+Date: Tue, 05 Jun 2007 17:11:29 +0200
+Message-ID: <46657D21.3010203@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.176]:11955 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932176AbXFEO47 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2007 10:56:59 -0400
-Received: by wa-out-1112.google.com with SMTP id v27so2260989wah
-        for <netdev@vger.kernel.org>; Tue, 05 Jun 2007 07:56:58 -0700 (PDT)
-In-Reply-To: <908954150706041006v2a429726yd267c06ab42a1107@mail.gmail.com>
-Content-Disposition: inline
+Received: from mail.gmx.net ([213.165.64.20]:37796 "HELO mail.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S932857AbXFEPA0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Jun 2007 11:00:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+Using read() on a socket(AF_INET, SOCK_STREAM) connected via any network
+interface (e.g eth0) and putting this interface down (ifconfig) while
+the socket is in read() produces a hanger (the read() will not return
+anymore).
+Even if I install sigaction signal handler I got no signal when the
+interface is removed.
 
-I'm forwarding along a message sent to kernelnewbies as I was directed
-to address my question to this list.  I am not a member of netdev, so
-please copy me on all discussion of this topic.
+This may be ok on a major interface like eth0 but it is a problem when
+using a ppp interface via GSM data or GPRS connection.
+Killing the pppd while the socket waits in read() produces the same
+behaviour. Also a broken connection looks the same.
+It is reproducable on several 2.6 kernel versions including the lastest
+stable 2.6.21.
 
-Cheers,
+On my understanding "ifconfig down" should lead into a read() error.
 
-Sam
+Unfortunately I am not very familiar with in-depth kernel programming
+and I am still wondering about the magic inside the kernel:
 
----
+ifconfig -> net/dev.c:dev_close() notifies a call chain which probably
+could/should handle this.
+But I miss the dependency to net/ipv4/tcp.c: tcp_recvmsg() function.
+This is where I think my receive is blocking.
 
-Greetings,
+Can someone give me a hint where to look?
 
-I am a developer of the kernel AoE (ATA over Ethernet) driver.  I am
-attempting to add dma offloading of data receive, following in TCP's
-footsteps via config option NET_DMA.  There is a function in
-net/core/user_dma.c, dma_skb_copy_datagram_iovec, that appears to be
-exactly what I need, but this function is not EXPORTed for use by
-external modules.
+Thanks and kind regards
+Chris
 
-Since the NET_DMA option is documented as "Network: TCP receive copy
-offload" perhaps it's just an oversight that anyone else might benefit
-from it?
 
-Cheers,
+p.s.
+This happens only, when socket is in blocking mode.
+I am using a simple example like:
+s = socket();
+connect(s);
+while(){
+  read(s)
+}
 
-Sam
+
