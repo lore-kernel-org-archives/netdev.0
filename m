@@ -1,270 +1,110 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [RFC IPROUTE]: VLAN support
-Date: Tue, 05 Jun 2007 16:26:40 +0200
-Message-ID: <466572A0.2050900@trash.net>
-References: <20070605142327.20372.18108.sendpatchset@localhost.localdomain>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [PATCH][RFC] network splice receive
+Date: Tue, 5 Jun 2007 18:31:31 +0400
+Message-ID: <20070605143130.GA31747@2ka.mipt.ru>
+References: <20070605080542.GA9909@kernel.dk>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------070908090405050508060800"
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=koi8-r
+Cc: netdev@vger.kernel.org
+To: Jens Axboe <jens.axboe@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:64219 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1764184AbXFEO0m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2007 10:26:42 -0400
-Received: from [192.168.0.100] (unknown [195.158.167.166])
-	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by stinky.trash.net (Postfix) with ESMTP id A1582948E0
-	for <netdev@vger.kernel.org>; Tue,  5 Jun 2007 16:26:41 +0200 (MEST)
-In-Reply-To: <20070605142327.20372.18108.sendpatchset@localhost.localdomain>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:34591 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1762847AbXFEObs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Jun 2007 10:31:48 -0400
+Content-Disposition: inline
+In-Reply-To: <20070605080542.GA9909@kernel.dk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------070908090405050508060800
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
+On Tue, Jun 05, 2007 at 10:05:43AM +0200, Jens Axboe (jens.axboe@oracle.com) wrote:
+> Here's an implementation of tcp network splice receive support. It's
+> originally based on the patch set that Intel posted some time ago, but
+> has been (close to) 100% reworked.
+> 
+> Now, I'm not a networking guru by any stretch of the imagination, so I'd
+> like some input on the direction of the main patch. Is the approach
+> feasible? Glaring errors? Missing bits?
 
-This patch contains the iproute changes needed for VLAN configuration.
+  263.709262] ------------[ cut here ]------------
+  [  263.713932] kernel BUG at include/linux/mm.h:285!
+  [  263.718678] invalid opcode: 0000 [1] PREEMPT SMP 
+  [  263.723561] CPU 0 
+  [  263.725665] Modules linked in: button loop snd_intel8x0
+  snd_ac97_codec ac97_bus snd_pcm snd_timer snd soundcore psmouse
+  snd_page_alloc k8temp i2c_nforcen
+  [  263.755666] Pid: 2709, comm: splice-fromnet Not tainted
+  2.6.22-rc4-splice #2
+  [  263.762759] RIP: 0010:[<ffffffff8038c60c>]  [<ffffffff8038c60c>]
+  skb_splice_bits+0xac/0x1c9
+  [  263.771212] RSP: 0018:ffff81003c79fc88  EFLAGS: 00010246
+  [  263.776564] RAX: 0000000000000000 RBX: 00000000000005a8 RCX:
+  ffff81003ff04778
+  [  263.783743] RDX: ffff81003ff04778 RSI: 0000000000000ab2 RDI:
+  000000000003d52d
+  [  263.790925] RBP: ffff81003c79fdd8 R08: 0000000000000000 R09:
+  ffff81003d927b78
+  [  263.798104] R10: ffffffff803b0181 R11: ffff81003c79fde8 R12:
+  ffff81003d52d000
+  [  263.805284] R13: 000000000000054e R14: ffff81003d927b78 R15:
+  ffff81003bbc6ea0
+  [  263.812463] FS:  00002ac4089a86d0(0000) GS:ffffffff804fb000(0000)
+  knlGS:0000000000000000
+  [  263.820611] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+  [  263.826396] CR2: 00002ac4088320e0 CR3: 000000003c987000 CR4:
+  00000000000006e0
+  [  263.833578] Process splice-fromnet (pid: 2709, threadinfo
+  ffff81003c79e000, task ffff81003755c380)
+  [  263.842591] Stack:  ffff81003ff04720 0000000000000000
+  ffff81003755c380 0000000000000046
+  [  263.850897]  00000000000000c6 0000000000000046 ffff81003b0428b8
+  ffff81003d0b5b10
+  [  263.858543]  00000000000000c6 ffff81003d0b5b10 ffff81003b0428b8
+  ffff81003d0b5b10
+  [  263.865957] Call Trace:
+  [  263.868683]  [<ffffffff803dc630>] _read_unlock_irq+0x31/0x4e
+  [  263.874393]  [<ffffffff803afb54>] tcp_splice_data_recv+0x20/0x22
+  [  263.880447]  [<ffffffff803afa2b>] tcp_read_sock+0xa2/0x1ab
+  [  263.885983]  [<ffffffff803afb34>] tcp_splice_data_recv+0x0/0x22
+  [  263.891951]  [<ffffffff803b01c1>] tcp_splice_read+0xae/0x1a3
+  [  263.897655]  [<ffffffff8038920f>] sock_def_readable+0x0/0x6f
+  [  263.903366]  [<ffffffff80384a65>] sock_splice_read+0x15/0x17
+  [  263.909072]  [<ffffffff8029e773>] do_splice_to+0x76/0x88
+  [  263.914432]  [<ffffffff8029fcc8>] sys_splice+0x1a8/0x232
+  [  263.919795]  [<ffffffff802097ce>] system_call+0x7e/0x83
+  [  263.925067] 
+  [  263.926606] 
+  [  263.926607] Code: 0f 0b eb fe 44 89 e6 81 e6 ff 0f 00 00 90 ff 42
+  08 48 63 55 
+  [  263.936418] RIP  [<ffffffff8038c60c>] skb_splice_bits+0xac/0x1c9
+  [  263.942516]  RSP <ffff81003c79fc88>
 
-Examples:
+This a vm_bug_on in get_page().
 
-Add VLAN device:
+> +static inline int spd_fill_page(struct splice_pipe_desc *spd, struct page *page,
+> +				unsigned int len, unsigned int offset)
+> +{
+> +	struct page *p;
+> +
+> +	if (unlikely(spd->nr_pages == PIPE_BUFFERS))
+> +		return 1;
+> +
+> +#ifdef NET_COPY_SPLICE
+> +	p = alloc_pages(GFP_KERNEL, 0);
+> +	if (!p)
+> +		return 1;
+> +
+> +	memcpy(page_address(p) + offset, page_address(page) + offset, len);
+> +#else
+> +	p = page;
+> +	get_page(p);
+> +#endif
 
-# ip link add dev eth0.1000 link eth0 type vlan \
-	id 1000 \
-	egress-qos-map 1:2 2:3 \
-	ingress-qos-map 2:1 3:2
+Some pages have zero reference counter here.
 
-Show new device:
+Is commented NET_COPY_SPLICE part from old implementation?
+It will be always slower than existing approach due to allocation
+overhead.
 
-# ip link list eth0.1000
-
-9: eth0.1000@eth0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop
-    link/ether 8e:bb:6f:05:29:e9 brd ff:ff:ff:ff:ff:ff
-    vlan id 1000
-      ingress-qos-map { 2:1 3:2 }
-      egress-qos-map { 1:2 2:3 }
-
-Delete device:
-
-# ip link delete eth0.1000
-
-
---------------070908090405050508060800
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
-
-[IPROUTE]: VLAN support
-
----
-commit a00ac9fcbd7b84f442c5290594afa8572cf6fd8b
-tree b60f6e564a83d40f8173c8dda62d9d46e51cb655
-parent e59a7a02053c997a2b7ff9a4436bd3deb4781bf4
-author Patrick McHardy <kaber@trash.net> Tue, 05 Jun 2007 16:20:34 +0200
-committer Patrick McHardy <kaber@trash.net> Tue, 05 Jun 2007 16:20:34 +0200
-
- include/linux/if_link.h |   25 ++++++++
- ip/Makefile             |    2 +
- ip/iplink_vlan.c        |  140 +++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 167 insertions(+), 0 deletions(-)
-
-diff --git a/include/linux/if_link.h b/include/linux/if_link.h
-index aac0df1..4ab8a07 100644
---- a/include/linux/if_link.h
-+++ b/include/linux/if_link.h
-@@ -150,4 +150,29 @@ enum
- 
- #define IFLA_INFO_MAX	(__IFLA_INFO_MAX - 1)
- 
-+enum
-+{
-+	IFLA_VLAN_UNSPEC,
-+	IFLA_VLAN_ID,
-+	IFLA_VLAN_EGRESS_QOS,
-+	IFLA_VLAN_INGRESS_QOS,
-+	__IFLA_VLAN_MAX,
-+};
-+
-+#define IFLA_VLAN_MAX	(__IFLA_VLAN_MAX - 1)
-+
-+struct ifla_vlan_qos_mapping
-+{
-+	__u32 from;
-+	__u32 to;
-+};
-+
-+enum {
-+	IFLA_VLAN_QOS_UNSPEC,
-+	IFLA_VLAN_QOS_MAPPING,
-+	__IFLA_VLAN_QOS_MAX
-+};
-+
-+#define IFLA_VLAN_QOS_MAX	(__IFLA_VLAN_QOS_MAX - 1)
-+
- #endif /* _LINUX_IF_LINK_H */
-diff --git a/ip/Makefile b/ip/Makefile
-index 9a5bfe3..b6d8693 100644
---- a/ip/Makefile
-+++ b/ip/Makefile
-@@ -3,6 +3,8 @@ IPOBJ=ip.o ipaddress.o iproute.o iprule.o \
-     ipmaddr.o ipmonitor.o ipmroute.o ipprefix.o \
-     ipxfrm.o xfrm_state.o xfrm_policy.o xfrm_monitor.o
- 
-+IPOBJ += iplink_vlan.o
-+
- RTMONOBJ=rtmon.o
- 
- ALLOBJ=$(IPOBJ) $(RTMONOBJ)
-diff --git a/ip/iplink_vlan.c b/ip/iplink_vlan.c
-new file mode 100644
-index 0000000..00fce6c
---- /dev/null
-+++ b/ip/iplink_vlan.c
-@@ -0,0 +1,140 @@
-+/*
-+ * iplink_vlan.c	VLAN device support
-+ *
-+ *              This program is free software; you can redistribute it and/or
-+ *              modify it under the terms of the GNU General Public License
-+ *              as published by the Free Software Foundation; either version
-+ *              2 of the License, or (at your option) any later version.
-+ *
-+ * Authors:     Patrick McHardy <kaber@trash.net>
-+ */
-+
-+#include <stdio.h>
-+#include <stdlib.h>
-+#include <string.h>
-+
-+#include "rt_names.h"
-+#include "utils.h"
-+#include "ip_common.h"
-+
-+static void explain(void)
-+{
-+	fprintf(stderr,
-+		"Usage: ... vlan id VLANID [ ingress-qos-map QOS-MAP ] [ egress-qos-map QOS-MAP ]\n"
-+		"\n"
-+		"VLANID := 0-4095\n"
-+		"QOS-MAP := [ QOS-MAP ] QOS-MAPPING\n"
-+		"QOS-MAPPING := FROM:TO\n"
-+	);
-+}
-+
-+static int vlan_parse_qos_map(int *argcp, char ***argvp, struct nlmsghdr *n,
-+			      int attrtype)
-+{
-+	int argc = *argcp;
-+	char **argv = *argvp;
-+	struct ifla_vlan_qos_mapping m;
-+	struct rtattr *tail;
-+
-+	tail = NLMSG_TAIL(n);
-+	addattr_l(n, 1024, attrtype, NULL, 0);
-+
-+	while (argc > 0) {
-+		char *colon = strchr(*argv, ':');
-+
-+		if (!colon)
-+			break;
-+		*colon = '\0';
-+
-+		if (get_u32(&m.from, *argv, 0))
-+			return 1;
-+		if (get_u32(&m.to, colon + 1, 0))
-+			return 1;
-+		argc--, argv++;
-+
-+		addattr_l(n, 1024, IFLA_VLAN_QOS_MAPPING, &m, sizeof(m));
-+	}
-+
-+	tail->rta_len = (void *) NLMSG_TAIL(n) - (void *)tail;
-+
-+	*argcp = argc;
-+	*argvp = argv;
-+	return 0;
-+}
-+
-+static int vlan_parse_opt(struct link_util *lu, int argc, char **argv,
-+			  struct nlmsghdr *n)
-+{
-+	__u16 id;
-+
-+	while (argc > 0) {
-+		if (matches(*argv, "id") == 0) {
-+			NEXT_ARG();
-+			if (get_u16(&id, *argv, 0))
-+				invarg("id is invalid", *argv);
-+			addattr_l(n, 1024, IFLA_VLAN_ID, &id, 2);
-+		} else if (matches(*argv, "ingress-qos-map") == 0) {
-+			NEXT_ARG();
-+			if (vlan_parse_qos_map(&argc, &argv, n,
-+					       IFLA_VLAN_INGRESS_QOS))
-+				invarg("invalid ingress-qos-map", *argv);
-+			continue;
-+		} else if (matches(*argv, "egress-qos-map") == 0) {
-+			NEXT_ARG();
-+			if (vlan_parse_qos_map(&argc, &argv, n,
-+					       IFLA_VLAN_EGRESS_QOS))
-+				invarg("invalid egress-qos-map", *argv);
-+			continue;
-+		} else if (matches(*argv, "help") == 0) {
-+			explain();
-+			return -1;
-+		} else {
-+			fprintf(stderr, "vlan: what is \"%s\"?\n", *argv);
-+			explain();
-+			return -1;
-+		}
-+		argc--, argv++;
-+	}
-+	return 0;
-+}
-+
-+static void vlan_print_map(FILE *f, char *name, struct rtattr *attr)
-+{
-+	struct ifla_vlan_qos_mapping *m;
-+	struct rtattr *i;
-+	int rem;
-+
-+	
-+	fprintf(f, "\n      %s { ", name);
-+
-+	rem = RTA_PAYLOAD(attr);
-+	for (i = RTA_DATA(attr); RTA_OK(i, rem); i = RTA_NEXT(i, rem)) {
-+		m = RTA_DATA(i);
-+		fprintf(f, "%u:%u ", m->from, m->to);
-+	}
-+	fprintf(f, "} ");
-+}
-+
-+static void vlan_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
-+{
-+	if (!tb)
-+		return;
-+
-+	if (!tb[IFLA_VLAN_ID] ||
-+	    RTA_PAYLOAD(tb[IFLA_VLAN_ID]) < sizeof(__u16))
-+		return;
-+
-+	fprintf(f, "id %u", *(__u16 *)RTA_DATA(tb[IFLA_VLAN_ID]));
-+
-+	if (tb[IFLA_VLAN_INGRESS_QOS])
-+		vlan_print_map(f, "ingress-qos-map", tb[IFLA_VLAN_INGRESS_QOS]);
-+	if (tb[IFLA_VLAN_EGRESS_QOS])
-+		vlan_print_map(f, "egress-qos-map", tb[IFLA_VLAN_EGRESS_QOS]);
-+}
-+
-+struct link_util vlan_link_util = {
-+	.id		= "vlan",
-+	.maxattr	= IFLA_VLAN_MAX,
-+	.parse_opt	= vlan_parse_opt,
-+	.print_opt	= vlan_print_opt,
-+};
-
---------------070908090405050508060800--
+-- 
+	Evgeniy Polyakov
