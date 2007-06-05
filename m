@@ -1,34 +1,32 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [RFC RTNETLINK 00/09]: Netlink link creation API
-Date: Wed, 06 Jun 2007 00:07:32 +0200
-Message-ID: <4665DEA4.3090607@trash.net>
-References: <20070605141250.15650.47178.sendpatchset@localhost.localdomain> <1181080819.4062.10.camel@localhost>
+From: James Ketrenos <jketreno-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Subject: Re: warnings in git-wireless
+Date: Tue, 05 Jun 2007 13:12:03 -0700
+Message-ID: <4665C393.2000507@linux.intel.com>
+References: <20070605020614.3f06b2ab.akpm@linux-foundation.org> <20070605115701.GA5391@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, socketcan@hartkopp.net, xemul@sw.ru,
-	ebiederm@xmission.com, tgraf@suug.ch
-To: hadi@cyberus.ca
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:38761 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1764122AbXFEWHm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2007 18:07:42 -0400
-In-Reply-To: <1181080819.4062.10.camel@localhost>
-Sender: netdev-owner@vger.kernel.org
+Cc: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20070605115701.GA5391-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> All patches looked really good. speaking for the ifb stuff, a definete
-> ACK. 
-> The only thing that threw me off for a sec was the naming convention for
-> "type" referenced via IFLA_INFO_NAME because it seems to be colliding
-> semantic with dev->type and dev->name as in IFLA_NAME and  
-> ifi_type ifinfomsg.
-> But i cant come with a better noun. 
+John W. Linville wrote:
+> On Tue, Jun 05, 2007 at 02:06:14AM -0700, Andrew Morton wrote:
+> 
+>> Please, don't anybody dare think about thinking about letting this anywhere
+>> near mainline until it has had a thorough review.  Or at least, a little bit
+>> of review.
+> 
+> Don't worry -- I assure you that everyone is aware of the issues.
+> 
+> John
 
+Yes, we certainly don't want a driver to be "near mainline" that does things that the rest of the kernel and other drivers are doing.  We should force them to stay out-of-tree until any and everything is resolved.  Heaven forbid that the code should be merged, contributed, and improved upon as a community.
 
-How about IFLA_INFO_KIND (borrowed from sch_api)? I generally don't
-like the IFLA_INFO_ prefix very much, but so far didn't come up with
-something better. Suggestions welcome :)
+You'd think these guys were trying to enable folks with a driver so they can use the hardware they bought or something.  Its almost laughable.  What idiots.
 
+James
