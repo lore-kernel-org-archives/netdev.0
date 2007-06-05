@@ -1,35 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] TCP : use LIMIT_NETDEBUG in tcp_retransmit_timer()
-Date: Tue, 05 Jun 2007 00:15:32 -0700 (PDT)
-Message-ID: <20070605.001532.21927821.davem@davemloft.net>
-References: <4663BBA4.70009@cosmosbay.com>
-	<20070605.000027.59657229.davem@davemloft.net>
-	<46650BAE.9070301@cosmosbay.com>
+From: Rolf Eike Beer <eike-kernel@sf-tec.de>
+Subject: Re: r8169: hard freezes on TX
+Date: Tue, 5 Jun 2007 09:33:27 +0200
+Message-ID: <200706050933.28046.eike-kernel@sf-tec.de>
+References: <200705201520.36672.eike-kernel@sf-tec.de> <200706041506.20945.eike-kernel@sf-tec.de> <20070604214603.GA29311@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: multipart/signed;
+  boundary="nextPart3071027.Ih6JZYPqQ1";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: dada1@cosmosbay.com
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46451
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754323AbXFEHPR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2007 03:15:17 -0400
-In-Reply-To: <46650BAE.9070301@cosmosbay.com>
+Received: from mail.sf-mail.de ([62.27.20.61]:37215 "EHLO mail.sf-mail.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1762831AbXFEHda (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Jun 2007 03:33:30 -0400
+In-Reply-To: <20070604214603.GA29311@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Tue, 05 Jun 2007 09:07:26 +0200
+--nextPart3071027.Ih6JZYPqQ1
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-> Should I try to contact 222.39.111.164 and kindly ask him not to trigger this 
-> annoying message ?
-> 
-> Is this remote peer running an old linux, or is it a bug in the current 
-> linux-2.6.22-rc4 kernel that my server runs ?
+You wrote:
+> Rolf Eike Beer <eike-kernel@sf-tec.de> :
+> [...]
+>
+> > I just had another freeze using your patches. After 512kB over smb it w=
+as
+> > dead.
+>
+> In-kernel smb/cifs ?
 
-Grrr, yeah it's their end.  And because it's in China with no reverse
-DNS your chances of getting them to fix this are between slim and
-none.
+Copying to a partition mounted via smb:// protocol in konqueror which uses=
+=20
+kio_smb (userspace io slave).
 
-I'll add your patch, thanks a lot.
+Eike
+
+--nextPart3071027.Ih6JZYPqQ1
+Content-Type: application/pgp-signature; name=signature.asc 
+Content-Description: This is a digitally signed message part.
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.5 (GNU/Linux)
+
+iD8DBQBGZRHIXKSJPmm5/E4RAjoQAKCWKVByWTDArl50ON/mAoR9Xb3rDgCfeakL
+ncC7A9UIQ5SSWGCr9DVGJYk=
+=16nE
+-----END PGP SIGNATURE-----
+
+--nextPart3071027.Ih6JZYPqQ1--
