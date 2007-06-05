@@ -1,62 +1,37 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [RFC VLAN 10/10]: Use rtnl_link API
-Date: Tue, 05 Jun 2007 23:58:46 +0200
-Message-ID: <4665DC96.8020100@trash.net>
-References: <20070605143650.23717.91261.sendpatchset@localhost.localdomain> <20070605143703.23717.96479.sendpatchset@localhost.localdomain> <4665D64F.4040601@candelatech.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [RFC RTNETLINK 00/09]: Netlink link creation API
+Date: Tue, 05 Jun 2007 18:00:19 -0400
+Message-ID: <1181080819.4062.10.camel@localhost>
+References: <20070605141250.15650.47178.sendpatchset@localhost.localdomain>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Ben Greear <greearb@candelatech.com>
+Cc: netdev@vger.kernel.org, socketcan@hartkopp.net, xemul@sw.ru,
+	ebiederm@xmission.com, tgraf@suug.ch
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:38633 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755380AbXFEV64 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2007 17:58:56 -0400
-In-Reply-To: <4665D64F.4040601@candelatech.com>
+Received: from nz-out-0506.google.com ([64.233.162.232]:2371 "EHLO
+	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759965AbXFEWAX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2007 18:00:23 -0400
+Received: by nz-out-0506.google.com with SMTP id n1so1526194nzf
+        for <netdev@vger.kernel.org>; Tue, 05 Jun 2007 15:00:23 -0700 (PDT)
+In-Reply-To: <20070605141250.15650.47178.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ben Greear wrote:
-> Patrick McHardy wrote:
-> 
->> [VLAN]: Use rtnl_link API
->>
->> Signed-off-by: Patrick McHardy <kaber@trash.net>
-> 
-> 
->> +static int vlan_newlink(struct net_device *dev,
->> +            struct nlattr *tb[], struct nlattr *data[])
->> +{
->> +    struct vlan_dev_info *vlan = VLAN_DEV_INFO(dev);
->> +    int err;
->> +
->> +    if (!tb[IFLA_LINK])
->> +        return -EINVAL;
->> +    if (!data[IFLA_VLAN_ID])
->> +        return -EINVAL;
->> +
->> +    vlan->vlan_id  = nla_get_u16(data[IFLA_VLAN_ID]);
->> +    vlan->real_dev = __dev_get_by_index(nla_get_u32(tb[IFLA_LINK]));
-> 
-> 
-> It seems you are scribbling on dev->priv before you validate that
-> it is OK to do so?
-> 
-> Or, maybe I'm just confused.
-> 
-> What is 'dev' here?
 
+All patches looked really good. speaking for the ifb stuff, a definete
+ACK. 
+The only thing that threw me off for a sec was the naming convention for
+"type" referenced via IFLA_INFO_NAME because it seems to be colliding
+semantic with dev->type and dev->name as in IFLA_NAME and  
+ifi_type ifinfomsg.
+But i cant come with a better noun. 
 
-Its a newly created device, not registered at this point. The
-vlan_dev_info structure is used to communicate the settings
-to vlan_dev_init() (also by the ioctl wrapper).
+Good stuff, nevertheless  
 
-> Other than this, this patch and the others in this series
-> look fine (except for the 4095 VID issue that we communicated
-> about earlier).
-
-
-Thanks, I'll fix that, add the remaining bits, and repost.
-I think its only REORDER_HDR support that is still missing.
+cheers,
+jamal
 
