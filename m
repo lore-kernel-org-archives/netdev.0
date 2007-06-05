@@ -1,51 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] fix race in AF_UNIX
-Date: Tue, 05 Jun 2007 13:11:51 -0700 (PDT)
-Message-ID: <20070605.131151.82049948.davem@davemloft.net>
-References: <E1Hv980-0006gQ-00@dorka.pomaz.szeredi.hu>
-	<20070605.000247.18308209.davem@davemloft.net>
-	<E1HvTgf-0000sb-00@dorka.pomaz.szeredi.hu>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [BUG] UDP : bind() checks are not complete
+Date: Tue, 05 Jun 2007 22:22:36 +0200
+Message-ID: <4665C60C.1000406@cosmosbay.com>
+References: <20070605191536.cc9a4719.dada1@cosmosbay.com> <20070605.130219.35356925.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: miklos@szeredi.hu
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56544
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1758446AbXFEULh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2007 16:11:37 -0400
-In-Reply-To: <E1HvTgf-0000sb-00@dorka.pomaz.szeredi.hu>
+Received: from gw1.cosmosbay.com ([86.65.150.130]:41360 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1764166AbXFEUWp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2007 16:22:45 -0400
+In-Reply-To: <20070605.130219.35356925.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Miklos Szeredi <miklos@szeredi.hu>
-Date: Tue, 05 Jun 2007 09:42:41 +0200
+David Miller a =E9crit :
+> From: Eric Dumazet <dada1@cosmosbay.com>
+> Date: Tue, 5 Jun 2007 19:15:36 +0200
+>=20
+>> I discovered one big problem with UDP binding in 2.6.22-rc4 :
+>=20
+> Thanks for finding this problem, the crux of the issue is
+> INADDR_ANY.
 
-> From: Miklos Szeredi <mszeredi@suse.cz>
-> 
-> A recv() on an AF_UNIX, SOCK_STREAM socket can race with a
-> send()+close() on the peer, causing recv() to return zero, even though
-> the sent data should be received.
-> 
-> This happens if the send() and the close() is performed between
-> skb_dequeue() and checking sk->sk_shutdown in unix_stream_recvmsg():
-> 
-> process A  skb_dequeue() returns NULL, there's no data in the socket queue
-> process B  new data is inserted onto the queue by unix_stream_sendmsg()
-> process B  sk->sk_shutdown is set to SHUTDOWN_MASK by unix_release_sock()
-> process A  sk->sk_shutdown is checked, unix_release_sock() returns zero
-> 
-> I'm surprised nobody noticed this, it's not hard to trigger.  Maybe
-> it's just (un)luck with the timing.
-> 
-> It's possible to work around this bug in userspace, by retrying the
-> recv() once in case of a zero return value.
-> 
-> Signed-off-by: Miklos Szeredi <mszeredi@suse.cz>
+Well, I feel guilty as I was initial patch submiter :(
 
-Looks good, applied.
+>=20
+>> We really should check no socket is bound to XXX.XXX.XXX.XXX:32769. =
+With current hashing,=20
+>> it means checking all slots in udptable[] :(
+>>
+>> Our choices are :
+>>
+>> 1) Drop all thoses patches and re-think them for 2.6.23 eventually
+>> 2) Add the extra check for ANY_ADDR sockets and perform a full scan
+>>
+>> What do you think ?
+>=20
+> Does checking for INADDR_ANY sockets really require a full scan?
+> It should just need two hash probes as far as I can tell to see
+> if there is "0.0.0.0:PORT" bound already.
 
-Another way to fix this would have been to take the u->readlock
-in unix_release() and unix_shutdown(), but that would have hurt
-unix_dgram_recvmsg() which doesn't need to handle this race.
+Well, we might have 1000 ip addresses on the machine (or not :) ), and
+
+192.168.0.1:PORT ... 192.168.0.254:PORT already bound.
+
