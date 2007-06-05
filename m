@@ -1,29 +1,40 @@
-From: Kacper Bielecki <kazjote@stud.ics.p.lodz.pl>
-Subject: Re: PROBLEM: network interface regularly stops working
-Date: Tue, 5 Jun 2007 21:47:02 +0200
-Message-ID: <200706052147.02376.kazjote@stud.ics.p.lodz.pl>
-References: <200706051208.40929.kazjote@stud.ics.p.lodz.pl> <20070605111506.GA16401@electric-eye.fr.zoreil.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [BUG] UDP : bind() checks are not complete
+Date: Tue, 05 Jun 2007 13:02:19 -0700 (PDT)
+Message-ID: <20070605.130219.35356925.davem@davemloft.net>
+References: <20070605191536.cc9a4719.dada1@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+To: dada1@cosmosbay.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stud.ics.p.lodz.pl ([212.51.220.231]:51112 "EHLO
-	stud.ics.p.lodz.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761801AbXFETrG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2007 15:47:06 -0400
-In-Reply-To: <20070605111506.GA16401@electric-eye.fr.zoreil.com>
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49986
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1763003AbXFEUCF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2007 16:02:05 -0400
+In-Reply-To: <20070605191536.cc9a4719.dada1@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Tue, 5 Jun 2007 19:15:36 +0200
 
-> Can you try 2.6.22-rc3 (or -rc4) + patches 0000..0013 from
-> http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.22-rc3/r8169-20070527
+> I discovered one big problem with UDP binding in 2.6.22-rc4 :
 
-After installing kernel 2.6.22-rc4 with patches 0001..0013 (there wasn't 0000 
-patch) the problem is not solved. I still get the same behaviour.
+Thanks for finding this problem, the crux of the issue is
+INADDR_ANY.
 
+> We really should check no socket is bound to XXX.XXX.XXX.XXX:32769. With current hashing, 
+> it means checking all slots in udptable[] :(
+> 
+> Our choices are :
+> 
+> 1) Drop all thoses patches and re-think them for 2.6.23 eventually
+> 2) Add the extra check for ANY_ADDR sockets and perform a full scan
+> 
+> What do you think ?
 
+Does checking for INADDR_ANY sockets really require a full scan?
+It should just need two hash probes as far as I can tell to see
+if there is "0.0.0.0:PORT" bound already.
