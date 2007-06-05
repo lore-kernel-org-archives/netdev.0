@@ -1,36 +1,60 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [RFC VLAN 01/10]: Fix off-by-ones in VLAN ID checks
-Date: Tue, 05 Jun 2007 20:16:46 +0200
-Message-ID: <4665A88E.3040706@trash.net>
-References: <20070605143650.23717.91261.sendpatchset@localhost.localdomain> <20070605143651.23717.20253.sendpatchset@localhost.localdomain> <46658C5F.8050302@candelatech.com>
+Subject: Re: [RFC VLAN 00/10]: VLAN netlink support try 2
+Date: Tue, 05 Jun 2007 20:28:39 +0200
+Message-ID: <4665AB57.7030605@trash.net>
+References: <20070605143650.23717.91261.sendpatchset@localhost.localdomain> <46658E84.1090301@candelatech.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:34984 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:35200 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754085AbXFESQw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2007 14:16:52 -0400
-In-Reply-To: <46658C5F.8050302@candelatech.com>
+	with ESMTP id S1753819AbXFES2q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2007 14:28:46 -0400
+In-Reply-To: <46658E84.1090301@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Ben Greear wrote:
 > Patrick McHardy wrote:
 > 
->> [VLAN]: Fix off-by-ones in VLAN ID checks
+>> The last VLAN patchset was outdated, sorry about the mixup. These are the
+>> correct patches. The iproute patch I posted was correct, so no repost of
+>> that one.
 >>
->> The valid range of VLAN IDs is 0-4095, fix using ID 4095.
 >>   
 > 
-> Per http://standards.ieee.org/getieee802/download/802.1Q-1998.pdf
-> page 69
+> Is there any significant performance penalty in creating VLANs using
+> these patches?
 > 
-> 0xFFF is reserved for future use, so we should not be using VLANs with
-> that VID.
+> If you have a test station handy, could you let us know what 'time'
+> shows for a script
+> creating 4000 VLANs with the old vconfig/ioctl method v/s this new method?
 
 
-Thanks, I just noticed id 4095 didn't work and assumed it was a bug.
-I'm going to drop that patch.
+Not significantly more, for 1000 VLANs I get:
+
+ip link add:
+
+real    0m22.836s
+user    0m0.100s
+sys     0m5.850s
+
+vconfig add:
+
+real    0m19.739s
+user    0m0.090s
+sys     0m3.600s
+
+
+ip -b (batch add):
+
+real    0m5.239s
+user    0m0.280s
+sys     0m3.480s
+
+> I'll try to look through the rest of the patches in detail later today.
+
+Thanks.
