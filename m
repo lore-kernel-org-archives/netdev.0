@@ -1,67 +1,51 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [RFC VLAN 00/10]: VLAN netlink support try 2
-Date: Tue, 05 Jun 2007 13:08:46 -0700
-Message-ID: <4665C2CE.4050504@candelatech.com>
-References: <20070605143650.23717.91261.sendpatchset@localhost.localdomain> <46658E84.1090301@candelatech.com> <4665AB57.7030605@trash.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] fix race in AF_UNIX
+Date: Tue, 05 Jun 2007 13:11:51 -0700 (PDT)
+Message-ID: <20070605.131151.82049948.davem@davemloft.net>
+References: <E1Hv980-0006gQ-00@dorka.pomaz.szeredi.hu>
+	<20070605.000247.18308209.davem@davemloft.net>
+	<E1HvTgf-0000sb-00@dorka.pomaz.szeredi.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: miklos@szeredi.hu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:57310 "EHLO ns2.lanforge.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757201AbXFEUIy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Jun 2007 16:08:54 -0400
-In-Reply-To: <4665AB57.7030605@trash.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56544
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1758446AbXFEULh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2007 16:11:37 -0400
+In-Reply-To: <E1HvTgf-0000sb-00@dorka.pomaz.szeredi.hu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy wrote:
-> Ben Greear wrote:
->> Patrick McHardy wrote:
->>
->>> The last VLAN patchset was outdated, sorry about the mixup. These are the
->>> correct patches. The iproute patch I posted was correct, so no repost of
->>> that one.
->>>
->>>   
->> Is there any significant performance penalty in creating VLANs using
->> these patches?
->>
->> If you have a test station handy, could you let us know what 'time'
->> shows for a script
->> creating 4000 VLANs with the old vconfig/ioctl method v/s this new method?
-> 
-> 
-> Not significantly more, for 1000 VLANs I get:
-> 
-> ip link add:
-> 
-> real    0m22.836s
-> user    0m0.100s
-> sys     0m5.850s
-> 
-> vconfig add:
-> 
-> real    0m19.739s
-> user    0m0.090s
-> sys     0m3.600s
+From: Miklos Szeredi <miklos@szeredi.hu>
+Date: Tue, 05 Jun 2007 09:42:41 +0200
 
-Thanks for doing the tests.  That small performance drop seems
-fine to me.
-
-> ip -b (batch add):
+> From: Miklos Szeredi <mszeredi@suse.cz>
 > 
-> real    0m5.239s
-> user    0m0.280s
-> sys     0m3.480s
+> A recv() on an AF_UNIX, SOCK_STREAM socket can race with a
+> send()+close() on the peer, causing recv() to return zero, even though
+> the sent data should be received.
+> 
+> This happens if the send() and the close() is performed between
+> skb_dequeue() and checking sk->sk_shutdown in unix_stream_recvmsg():
+> 
+> process A  skb_dequeue() returns NULL, there's no data in the socket queue
+> process B  new data is inserted onto the queue by unix_stream_sendmsg()
+> process B  sk->sk_shutdown is set to SHUTDOWN_MASK by unix_release_sock()
+> process A  sk->sk_shutdown is checked, unix_release_sock() returns zero
+> 
+> I'm surprised nobody noticed this, it's not hard to trigger.  Maybe
+> it's just (un)luck with the timing.
+> 
+> It's possible to work around this bug in userspace, by retrying the
+> recv() once in case of a zero return value.
+> 
+> Signed-off-by: Miklos Szeredi <mszeredi@suse.cz>
 
-And that looks quite interesting!
+Looks good, applied.
 
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
-
+Another way to fix this would have been to take the u->readlock
+in unix_release() and unix_shutdown(), but that would have hurt
+unix_dgram_recvmsg() which doesn't need to handle this race.
