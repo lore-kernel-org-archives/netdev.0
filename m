@@ -1,42 +1,30 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [RFC VLAN 00/10]: VLAN netlink support try 2
-Date: Tue, 05 Jun 2007 09:25:40 -0700
-Message-ID: <46658E84.1090301@candelatech.com>
-References: <20070605143650.23717.91261.sendpatchset@localhost.localdomain>
+From: Kacper Bielecki <kazjote@stud.ics.p.lodz.pl>
+Subject: Re: PROBLEM: network interface regularly stops working
+Date: Tue, 5 Jun 2007 17:58:53 +0200
+Message-ID: <200706051758.53645.kazjote@stud.ics.p.lodz.pl>
+References: <200706051208.40929.kazjote@stud.ics.p.lodz.pl> <20070605111506.GA16401@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:56772 "EHLO ns2.lanforge.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760229AbXFEQZl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Jun 2007 12:25:41 -0400
-In-Reply-To: <20070605143650.23717.91261.sendpatchset@localhost.localdomain>
+Received: from stud.ics.p.lodz.pl ([212.51.220.231]:22804 "EHLO
+	stud.ics.p.lodz.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760512AbXFEQ1g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2007 12:27:36 -0400
+In-Reply-To: <20070605111506.GA16401@electric-eye.fr.zoreil.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy wrote:
-> The last VLAN patchset was outdated, sorry about the mixup. These are the
-> correct patches. The iproute patch I posted was correct, so no repost of
-> that one.
+> Can you try 2.6.22-rc3 (or -rc4) + patches 0000..0013 from
+> http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.22-rc3/r8169-20070527
 >
->   
-Is there any significant performance penalty in creating VLANs using 
-these patches?
+> Which motherboard is it ?
+>
+> Please Cc: netdev@vger.kernel.org
 
-If you have a test station handy, could you let us know what 'time' 
-shows for a script
-creating 4000 VLANs with the old vconfig/ioctl method v/s this new method?
-
-I'll try to look through the rest of the patches in detail later today.
-
-Thanks,
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com> 
-Candela Technologies Inc  http://www.candelatech.com
-
-
+The motherboadr is ASRock ConRoe945G-DVI
+I will get you know when I try new kernel.
