@@ -1,59 +1,50 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] NET: Multiqueue network device support.
-Date: Tue, 05 Jun 2007 07:50:31 -0400
-Message-ID: <1181044231.4075.51.camel@localhost>
-References: <20070604214037.1524.58506.stgit@localhost.localdomain>
-	 <20070604214045.1524.18254.stgit@localhost.localdomain>
-Reply-To: hadi@cyberus.ca
+From: Jens Axboe <jens.axboe@oracle.com>
+Subject: Re: [PATCH][RFC] network splice receive
+Date: Tue, 5 Jun 2007 14:20:31 +0200
+Message-ID: <20070605122031.GE9909@kernel.dk>
+References: <20070605080542.GA9909@kernel.dk> <20070605114545.GC9909@kernel.dk>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, jeff@garzik.org,
-	auke-jan.h.kok@intel.com
-To: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.177]:19378 "EHLO
-	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754715AbXFELui (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2007 07:50:38 -0400
-Received: by py-out-1112.google.com with SMTP id a29so2819931pyi
-        for <netdev@vger.kernel.org>; Tue, 05 Jun 2007 04:50:38 -0700 (PDT)
-In-Reply-To: <20070604214045.1524.18254.stgit@localhost.localdomain>
+Received: from brick.kernel.dk ([80.160.20.94]:12792 "EHLO kernel.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753163AbXFEMWX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Jun 2007 08:22:23 -0400
+Received: from nelson.home.kernel.dk (nelson.home.kernel.dk [192.168.0.33])
+	by kernel.dk (Postfix) with ESMTP id D83502572B6
+	for <netdev@vger.kernel.org>; Tue,  5 Jun 2007 14:22:20 +0200 (CEST)
+Content-Disposition: inline
+In-Reply-To: <20070605114545.GC9909@kernel.dk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2007-04-06 at 14:40 -0700, PJ Waskiewicz wrote:
-> API added to support multiple hardware queues on an ethernet device.
->     Round-robin scheduler added (sch_rr) to provide a no-scheduling policy
->     qdisc for hardware with multiple queues.
+On Tue, Jun 05 2007, Jens Axboe wrote:
+> On Tue, Jun 05 2007, Jens Axboe wrote:
+> > Seems to work reasonably well for me, sometimes I do see small ranges
+> > inside the output file that are not correct, but I haven't been able to
+> > reproduce today. I think it has to do with page reuse, hence the
+> > NET_COPY_SPLICE ifdef that you can enable to just plain copy the data
+> > instead of referencing it.
 > 
+> I managed to reproduce. It's segments of 68-80 bytes beyond corrupt in
+> the middle of the out, and there might be 1-3 of such occurences in the
+> 30mb file I tested with. The first 16 bytes of the corruption are always
+> the same:
+> 
+> 0000 1800 4ff3 937f e000 6381 7275 0008
+> 
+> Perhaps that hex pattern rings a bell with someone intimate with the
+> networking. The remaining wrong bytes don't seem to have anything in
+> common.
 
->From a high level i see a good start that you at least have a separate
-qdisc. I dont see the need for making any subqueue semantics in the
-qdisc. We already have them.
-I also still dont see the need for the patching of the prio qdisc or the
-subqueue control.
-I am now uncertain that after all those discussions (and a lot other
-private ones) whether you understood me. We are still not meeting in the
-middle. 
+Ok, the source mac address is 00:18:F3:4F:7F:93 and the destination is
+00:E0:81:63:75:72 which are the middle 12 bytes of the 16.
 
-Sorry, Peter i dont mean to rain on your parade but i cant let this just
-slide by[1]. So please give me sometime and this week i will send
-patches to demonstrate my view. I didnt mean to do that, but as i see it
-i have no other choice.
+Hope that helps someone clue me in as to which network part is reusing
+the data. Do I need to 'pin' the sk_buff until the pipe data has been
+consumed?
 
-BTW, wheres the e1000 change?
-
-cheers,
-jamal
-
-[1] If for example you wrote a classifier or a qdisc (as in a recent
-discussion I had with Patrick) i would say it is your code and your
-effort and i have the choice not to use it (by virtue of there being
-other alternatives). I have no such luxury but to use the changes you
-make to that code path whenever i use multi tx rings.
-
-PS:- It is polite to CC someone who has engaged you in a conversation;
-in particular as i have told you before at times i dont read netdev for
-days but read emails addressed to me even when busyed out or travelling.
+-- 
+Jens Axboe
 
