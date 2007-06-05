@@ -1,40 +1,47 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] fix e100 rx path on ARM (was [PATCH] e100 rx: or s and el bits)
-Date: Tue, 5 Jun 2007 13:39:04 -0400
-Message-ID: <20070605173904.GP31565@havoc.gtf.org>
-References: <4654B2E4.9010308@roinet.com> <039d8ee49a8dfcbff8695b19d0a1a5c4@bga.com> <a4fae96e1c8c7b594207bf77fcb6b38f@bga.com> <465C4DBE.6000205@roinet.com> <94c8ff9069a77568513a9a1d1e60012d@bga.com> <4660856E.80403@roinet.com> <fac4512e243d821a94e8ee7304240981@bga.com> <4665664D.30906@roinet.com> <b2809ae38545c6104771af3c3a8b2250@bga.com> <46659CF7.2070003@intel.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: Socket hangs in read() when putting interface down
+Date: Tue, 05 Jun 2007 10:41:51 -0700
+Message-ID: <4665A05F.9080600@hp.com>
+References: <46657D21.3010203@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Milton Miller <miltonm@bga.com>, Jeff Garzik <jgarzik@pobox.com>,
-	David Acker <dacker@roinet.com>, netdev@vger.kernel.org,
-	e1000-devel@lists.sourceforge.net,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Scott Feldman <sfeldma@pobox.com>
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: chris schlund <chrisschlund@gmx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from havoc.gtf.org ([69.61.125.42]:43743 "EHLO havoc.gtf.org"
+Received: from palrel11.hp.com ([156.153.255.246]:40896 "EHLO palrel11.hp.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753866AbXFERjG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Jun 2007 13:39:06 -0400
-Content-Disposition: inline
-In-Reply-To: <46659CF7.2070003@intel.com>
+	id S1753873AbXFERlw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Jun 2007 13:41:52 -0400
+In-Reply-To: <46657D21.3010203@gmx.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 05, 2007 at 10:27:19AM -0700, Kok, Auke wrote:
-> We need to make sure that now that we're getting closer to 2.6.22 we don't 
-> end up killing e100 in it. Should we drop the current fixes in it to be on 
-> the safe side and aim for 2.6.23? I would hate to see an untested codepath 
-> breaking e100 on something like ppc or mips... that will be very painful
+chris schlund wrote:
+> Using read() on a socket(AF_INET, SOCK_STREAM) connected via any network
+> interface (e.g eth0) and putting this interface down (ifconfig) while
+> the socket is in read() produces a hanger (the read() will not return
+> anymore).
+> Even if I install sigaction signal handler I got no signal when the
+> interface is removed.
 
-I certainly agree with this assessment...
+I'd not think there was a direct tie-in between an application signal 
+handler and an interface being downed.
 
-I've been wondering if, based on all this recent work, we should revert
-the s-bit stuff and wait for 2.6.23.
+> This may be ok on a major interface like eth0 but it is a problem when
+> using a ppp interface via GSM data or GPRS connection.
+> Killing the pppd while the socket waits in read() produces the same
+> behaviour. Also a broken connection looks the same.
+> It is reproducable on several 2.6 kernel versions including the lastest
+> stable 2.6.21.
+> 
+> On my understanding "ifconfig down" should lead into a read() error.
 
-	Jeff
+Why?  Can't traffic for the endpoint arrive via some other interface on 
+the system?  I would think that getting out of a blocking read() 
+requires the application to either have a timer running (and so get out 
+of read() with EINTR) or to have keepalives enabled on the TCP 
+connection (I'm assuming TCP for an AF_INET, SOCK_STREAM although I 
+suppose it could be SCTP)
 
-
-
+rick jones
