@@ -1,119 +1,110 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [RFC VLAN 07/10]: Return proper error codes in register_vlan_device
-Date: Tue,  5 Jun 2007 16:37:01 +0200 (MEST)
-Message-ID: <20070605143700.23717.47942.sendpatchset@localhost.localdomain>
+Subject: [RFC VLAN 09/10]: Keep track of number of QoS mappings
+Date: Tue,  5 Jun 2007 16:37:03 +0200 (MEST)
+Message-ID: <20070605143702.23717.3633.sendpatchset@localhost.localdomain>
 References: <20070605143650.23717.91261.sendpatchset@localhost.localdomain>
 Cc: Patrick McHardy <kaber@trash.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:64438 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:64442 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932103AbXFEOhD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2007 10:37:03 -0400
+	with ESMTP id S1764748AbXFEOhE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2007 10:37:04 -0400
 In-Reply-To: <20070605143650.23717.91261.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[VLAN]: Return proper error codes in register_vlan_device
+[VLAN]: Keep track of number of QoS mappings
 
-The returned device is unused, return proper error codes instead and avoid
-having the ioctl handler guess the error.
+Keep track of the number of configured ingress/egress QoS mappings to
+avoid iteration while calculating the netlink attribute size.
 
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 
 ---
-commit f2eb0828c4cfaf4d4aed225b55ca65b052109657
-tree 967dc78c7ed8931a62bdaaa0e57304e75bfe91b9
-parent 312dc0ee04bed170ad8091f777fcc2108105ca2c
+commit e38a7f02fcf29d44a81cb1e697f7381a8764c28d
+tree 2e24e2b1421f381c2f13bafe9a10e73c97d7ef7f
+parent 3151f6fdca072a91c2184192dc1d431a4d9248b7
 author Patrick McHardy <kaber@trash.net> Tue, 05 Jun 2007 16:33:45 +0200
 committer Patrick McHardy <kaber@trash.net> Tue, 05 Jun 2007 16:33:45 +0200
 
- net/8021q/vlan.c |   32 ++++++++++++++------------------
- 1 files changed, 14 insertions(+), 18 deletions(-)
+ include/linux/if_vlan.h |    3 +++
+ net/8021q/vlan_dev.c    |   27 +++++++++++++++++++++------
+ 2 files changed, 24 insertions(+), 6 deletions(-)
 
-diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-index 0fa071d..03b67b9 100644
---- a/net/8021q/vlan.c
-+++ b/net/8021q/vlan.c
-@@ -498,14 +498,14 @@ out_free_group:
- }
+diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
+index aeddb49..b46d422 100644
+--- a/include/linux/if_vlan.h
++++ b/include/linux/if_vlan.h
+@@ -112,7 +112,10 @@ struct vlan_dev_info {
+ 	/** This will be the mapping that correlates skb->priority to
+ 	 * 3 bits of VLAN QOS tags...
+ 	 */
++	unsigned int nr_ingress_mappings;
+ 	u32 ingress_priority_map[8];
++
++	unsigned int nr_egress_mappings;
+ 	struct vlan_priority_tci_mapping *egress_priority_map[16]; /* hash table */
  
- /*  Attach a VLAN device to a mac address (ie Ethernet Card).
-- *  Returns the device that was created, or NULL if there was
-- *  an error of some kind.
-+ *  Returns 0 if the device was created or a negative error code otherwise.
-  */
--static struct net_device *register_vlan_device(struct net_device *real_dev,
--					       unsigned short VLAN_ID)
-+static int register_vlan_device(struct net_device *real_dev,
-+				unsigned short VLAN_ID)
+ 	unsigned short vlan_id;        /*  The VLAN Identifier for this interface. */
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index 0b7e03e..1644626 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -537,35 +537,50 @@ int vlan_dev_change_mtu(struct net_device *dev, int new_mtu)
+ void vlan_dev_set_ingress_priority(const struct net_device *dev,
+ 				   u32 skb_prio, short vlan_prio)
  {
- 	struct net_device *new_dev;
- 	char name[IFNAMSIZ];
-+	int err;
- 
- #ifdef VLAN_DEBUG
- 	printk(VLAN_DBG "%s: if_name -:%s:-	vid: %i\n",
-@@ -513,10 +513,11 @@ static struct net_device *register_vlan_device(struct net_device *real_dev,
- #endif
- 
- 	if (VLAN_ID > VLAN_VID_MASK)
--		goto out_ret_null;
-+		return -ERANGE;
- 
--	if (vlan_check_real_dev(real_dev, VLAN_ID) < 0)
--		goto out_ret_null;
-+	err = vlan_check_real_dev(real_dev, VLAN_ID);
-+	if (err < 0)
-+		return err;
- 
- 	/* Gotta set up the fields for the device. */
- #ifdef VLAN_DEBUG
-@@ -552,7 +553,7 @@ static struct net_device *register_vlan_device(struct net_device *real_dev,
- 			       vlan_setup);
- 
- 	if (new_dev == NULL)
--		goto out_ret_null;
-+		return -ENOBUFS;
- 
- #ifdef VLAN_DEBUG
- 	printk(VLAN_DBG "Allocated new name -:%s:-\n", new_dev->name);
-@@ -566,7 +567,8 @@ static struct net_device *register_vlan_device(struct net_device *real_dev,
- 	VLAN_DEV_INFO(new_dev)->dent = NULL;
- 	VLAN_DEV_INFO(new_dev)->flags = 1;
- 
--	if (register_vlan_dev(new_dev) < 0)
-+	err = register_vlan_dev(new_dev);
-+	if (err < 0)
- 		goto out_free_newdev;
- 
- 	/* Account for reference in struct vlan_dev_info */
-@@ -574,13 +576,11 @@ static struct net_device *register_vlan_device(struct net_device *real_dev,
- #ifdef VLAN_DEBUG
- 	printk(VLAN_DBG "Allocated new device successfully, returning.\n");
- #endif
--	return new_dev;
-+	return 0;
- 
- out_free_newdev:
- 	free_netdev(new_dev);
--
--out_ret_null:
--	return NULL;
-+	return err;
+-	VLAN_DEV_INFO(dev)->ingress_priority_map[vlan_prio & 0x7] = skb_prio;
++	struct vlan_dev_info *vlan = VLAN_DEV_INFO(dev);
++
++	if (vlan->ingress_priority_map[vlan_prio & 0x7] && !skb_prio)
++		vlan->nr_ingress_mappings--;
++	else if (!vlan->ingress_priority_map[vlan_prio & 0x7] && skb_prio)
++		vlan->nr_ingress_mappings++;
++
++	vlan->ingress_priority_map[vlan_prio & 0x7] = skb_prio;
  }
  
- static int vlan_device_event(struct notifier_block *unused, unsigned long event, void *ptr)
-@@ -753,11 +753,7 @@ static int vlan_ioctl_handler(void __user *arg)
- 		err = -EPERM;
- 		if (!capable(CAP_NET_ADMIN))
- 			break;
--		if (register_vlan_device(dev, args.u.VID)) {
--			err = 0;
--		} else {
--			err = -EINVAL;
--		}
-+		err = register_vlan_device(dev, args.u.VID);
- 		break;
+ int vlan_dev_set_egress_priority(const struct net_device *dev,
+ 				 u32 skb_prio, short vlan_prio)
+ {
++	struct vlan_dev_info *vlan = VLAN_DEV_INFO(dev);
+ 	struct vlan_priority_tci_mapping *mp = NULL;
+ 	struct vlan_priority_tci_mapping *np;
++	u32 vlan_qos = (vlan_prio << 13) & 0xE000;
  
- 	case DEL_VLAN_CMD:
+ 	/* See if a priority mapping exists.. */
+-	mp = VLAN_DEV_INFO(dev)->egress_priority_map[skb_prio & 0xF];
++	mp = vlan->egress_priority_map[skb_prio & 0xF];
+ 	while (mp) {
+ 		if (mp->priority == skb_prio) {
+-			mp->vlan_qos = ((vlan_prio << 13) & 0xE000);
++			if (mp->vlan_qos && !vlan_qos)
++				vlan->nr_egress_mappings--;
++			else if (!mp->vlan_qos && vlan_qos)
++				vlan->nr_egress_mappings++;
++			mp->vlan_qos = vlan_qos;
+ 			return 0;
+ 		}
+ 		mp = mp->next;
+ 	}
+ 
+ 	/* Create a new mapping then. */
+-	mp = VLAN_DEV_INFO(dev)->egress_priority_map[skb_prio & 0xF];
++	mp = vlan->egress_priority_map[skb_prio & 0xF];
+ 	np = kmalloc(sizeof(struct vlan_priority_tci_mapping), GFP_KERNEL);
+ 	if (!np)
+ 		return -ENOBUFS;
+ 
+ 	np->next = mp;
+ 	np->priority = skb_prio;
+-	np->vlan_qos = ((vlan_prio << 13) & 0xE000);
+-	VLAN_DEV_INFO(dev)->egress_priority_map[skb_prio & 0xF] = np;
++	np->vlan_qos = vlan_qos;
++	vlan->egress_priority_map[skb_prio & 0xF] = np;
++	if (vlan_qos)
++		vlan->nr_egress_mappings++;
+ 	return 0;
+ }
+ 
