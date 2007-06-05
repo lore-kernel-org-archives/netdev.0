@@ -1,64 +1,69 @@
-From: "Andrew Paprocki" <andrew@ishiboo.com>
-Subject: Re: r8169 in 2.6.18 silently corrupting data, 2.6.22-rc3 link not detected at all
-Date: Mon, 4 Jun 2007 20:06:30 -0400
-Message-ID: <76366b180706041706i6f35c0e3w4b882acd9dc61988@mail.gmail.com>
-References: <76366b180705281110j472671a1h6ff5ed5fa711c45e@mail.gmail.com>
-	 <20070528195422.GA4927@electric-eye.fr.zoreil.com>
-	 <76366b180705281406j69d08bbeu77ff18991f161df8@mail.gmail.com>
-	 <20070528213425.GB4494@electric-eye.fr.zoreil.com>
-	 <20070604210959.GA30864@electric-eye.fr.zoreil.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [2/5 revised][BNX2]: Add missing wait in
+ bnx2_init_5709_context().
+Date: Mon, 04 Jun 2007 17:58:49 -0700
+Message-ID: <1181005129.7230.2.camel@dell>
+References: <1181001635.5275.13.camel@dell>
+ <20070604233940.GB31462@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, brad@langhorst.com
-To: "Francois Romieu" <romieu@fr.zoreil.com>
+Cc: "David Miller" <davem@davemloft.net>, andy@greyhouse.net,
+	"netdev" <netdev@vger.kernel.org>
+To: "Jeff Garzik" <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nz-out-0506.google.com ([64.233.162.238]:12568 "EHLO
-	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760419AbXFEAGc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jun 2007 20:06:32 -0400
-Received: by nz-out-0506.google.com with SMTP id n1so1196123nzf
-        for <netdev@vger.kernel.org>; Mon, 04 Jun 2007 17:06:31 -0700 (PDT)
-In-Reply-To: <20070604210959.GA30864@electric-eye.fr.zoreil.com>
-Content-Disposition: inline
+Received: from mms3.broadcom.com ([216.31.210.19]:1235 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752201AbXFEASC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Jun 2007 20:18:02 -0400
+In-Reply-To: <20070604233940.GB31462@havoc.gtf.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Francois,
+[BNX2]: Add missing wait in bnx2_init_5709_context().
 
-Using the latest patch you provided in the previous e-mail under
-2.6.22-rc3 I still see data corruption after I dropped the entire
-network to MTU 1500. (The receive corruption is way more frequent than
-under 2.6.18.) I'll attempt to find out what caused the link detection
-to stop working. Do you have any idea about the data corruption? I can
-easily put in trace anywhere in the driver if you'd like to see any
-output. My latest build was without NAPI support, and running with or
-without it didn't seem to affect the receive corruption.
+For correctness, we need to wait for the MEM_INIT bit to be cleared
+in the BNX2_CTX_COMMAND register before proceeding.
 
-Thanks, -Andrew
+[Added return -EBUSY when the MEM_INIT bit doesn't clear, suggested
+by Jeff Garzik.]
 
-On 6/4/07, Francois Romieu <romieu@fr.zoreil.com> wrote:
-> Francois Romieu <romieu@fr.zoreil.com> :
-> [...]
->
-> Andrew, have you had any time to do some testing with an uniform 7200
-> bytes MTU through your LAN ?
->
-> You will find a backport of the r8169 driver for the 2.6.18 kernel at
-> http://www.fr.zoreil.com/people/francois/backport/r8169/20070604-00
->
-> Could you do a binary search of the patch which breaks the link detection ?
-> From a different report that I have received, the current testing branch of
-> the 8169 driver would improve things for MTU beyond 1500 bytes: nailing down
-> your broken link regression would be a welcome improvement.
->
-> If you are confortable with git, you can do a git bisect after pulling
-> the branch 'r8169-backport-test-20070604' at:
-> git://electric-eye.fr.zoreil.com/home/romieu/linux/linux-2.6-out
->
-> (please do the initial clone from elsewhere if you use git, thanks)
->
-> --
-> Ueimor
->
->
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+index 5d69e5b..0f861e2 100644
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -1778,6 +1778,15 @@ bnx2_init_5709_context(struct bnx2 *bp)
+ 	val = BNX2_CTX_COMMAND_ENABLED | BNX2_CTX_COMMAND_MEM_INIT | (1 << 12);
+ 	val |= (BCM_PAGE_BITS - 8) << 16;
+ 	REG_WR(bp, BNX2_CTX_COMMAND, val);
++	for (i = 0; i < 10; i++) {
++		val = REG_RD(bp, BNX2_CTX_COMMAND);
++		if (!(val & BNX2_CTX_COMMAND_MEM_INIT))
++			break;
++		udelay(2);
++	}
++	if (val & BNX2_CTX_COMMAND_MEM_INIT)
++		return -EBUSY;
++
+ 	for (i = 0; i < bp->ctx_pages; i++) {
+ 		int j;
+ 
+@@ -3696,9 +3705,11 @@ bnx2_init_chip(struct bnx2 *bp)
+ 
+ 	/* Initialize context mapping and zero out the quick contexts.  The
+ 	 * context block must have already been enabled. */
+-	if (CHIP_NUM(bp) == CHIP_NUM_5709)
+-		bnx2_init_5709_context(bp);
+-	else
++	if (CHIP_NUM(bp) == CHIP_NUM_5709) {
++		rc = bnx2_init_5709_context(bp);
++		if (rc)
++			return rc;
++	} else
+ 		bnx2_init_context(bp);
+ 
+ 	if ((rc = bnx2_init_cpus(bp)) != 0)
+
+
