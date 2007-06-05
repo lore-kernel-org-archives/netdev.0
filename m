@@ -1,8 +1,8 @@
 From: Milton Miller <miltonm@bga.com>
 Subject: Re: [PATCH] fix e100 rx path on ARM (was [PATCH] e100
 	rx: or s and el bits)
-Date: Tue, 5 Jun 2007 11:14:29 -0500
-Message-ID: <b2809ae38545c6104771af3c3a8b2250@bga.com>
+Date: Tue, 5 Jun 2007 11:14:15 -0500
+Message-ID: <f2baf1c4eb6d0eff237e6f252ce671c7@bga.com>
 References: <200705011124.l41BOEG4007662@sullivan.realtime.net>
 	<46375664.8030701@roinet.com> <4638F2B2.2000103@roinet.com>
 	<463BA906.30205@roinet.com>
@@ -49,107 +49,104 @@ Sender: e1000-devel-bounces@lists.sourceforge.net
 Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
+On Jun 5, 2007, at 8:34 AM, David Acker wrote:
+> Milton Miller wrote:
+>> On Jun 1, 2007, at 3:45 PM, David Acker wrote:
+>>> Ok, I took a stab at coding and testing these ideas.  Below is a 
+>>> patch against 2.6.22-rc3.
+>>> Let me know what you think.
+>> I think you got most of the ideas.   As Auke noted, your coding style 
+>> is showing again.   And your mailer again munged whitespace (fixed by 
+>> s/^<space><space>/<space>/ s/^$/<space>/).
+> Sorry about the coding style.  I instinctively followed what was there 
+> instead of kernel coding convention.  I will look into how whitespace 
+> is getting screwed up.
 
-First, a question especially to Auke and Jeff:
+I have to watch my coding style too (I like to indent the closing 
+brace).
 
-Since this patch both reverts the broken change that is currently in 
--rc and creates the fixed driver, I'm not sure I like the subject 
-stating "on ARM", although that is the feature of the rewrite, and was 
-the intent of merging the previous patch.  This is actually its a fix 
-for all systems relative to current, including those where dma is not 
-cache coherent, (unlike a simple revert).
+At least the white space damage seems to be reversable.  More than I 
+can say for this mailer.
 
-Should we just put a comment about reverting the previous patch early 
-in the change log?
+>>> Find a buffer that is complete with rx->el not set and rx->s0 set.
+>>>     It appears that hardware can read the rfd's el-bit, then 
+>>> software can clear the rfd el-bit and set the rfd size, and then 
+>>> hardware can come in and read the size.
+>> Yes, since the size is after the EL flag in the descriptor, this can 
+>> happen since the pci read is not atomic.
+>>> I am reading the status back, although I don't think that I have to 
+>>> in this instance.
+>> Actually, you are reading it when the rfd still has EL set.  Since 
+>> the cpu will never encounter that case, the if condition is never 
+>> satisfied.
+> In my tests, every time I found a completed rfd with the el-bit set, 
+> the receiver was in the out of resources state.
 
-Something like this:
+Yes, if the EL was set, it would be a real hard race to find the 
+completed packet with EL but not RNR.   I was trying to refer to where 
+you find a completed packet and then check for EL in the RFD.  That is 
+what I was claiming can not be observed by the cpu (unless the card 
+writes the EL bit back, and not just the status u16).
 
-Fix the e100 receiver handling, supporting cache incoherent DMA.
-
-Discard the concept of setting the S (suspend) bit with the EL bit 
-introduced in commit d52df4a35af569071fda3f4eb08e47cc7023f094.  In 
-addition to it not setting either bit, the hardware doesn't work that 
-way.
-
-
-Thoughts?
+If the unless ... above is true, then please put a comment that the 
+device can write RFD->EL back to 1 if we raced.
 
 
+>> How about creating a state unknown, for when we think we should check 
+>> the device if its running.
+>> If we are in this state and then encounter a received packet without 
+>> s0 set, we can set it back
+>> to running.   We set it when we rx a packet with s0 set.
+>> We then move both io_status reads to the caller.
+> I can look into that as I clean this up.
+>
+>
+>>> I am testing a version of this code patched against 2.6.18.4 on my 
+>>> PXA 255 based system.  I will let you all know how it goes.
+> The testing I did so far did well.  I will try to get some more going 
+> tonight, hopefully on a cleaned up patch.
 
-Here is the changelog portion of the latest patch (quoted), with my 
-comments thrown in:
-
-
-> On the ARM, their is a race condition between software allocating a 
-> new receive
-
-On systems that have cache incoherent DMA, including ARM,
-
-> buffer and hardware writing into a buffer.  The two race on touching 
-> the last
-> Receive Frame Descriptor (RFD).  It has its el-bit set and its next 
-> link equal
-> to 0.  When hardware encounters this buffer it attempts to write data 
-> to it
-> and then update Status Word bits and Actual Count in the RFD.  At the 
-> same time
-> software may try to clear the el-bit and set the link address to a new 
-> buffer.
-> Since the entire RFD is once cache-line, the two write operations can
-> collide.  This can lead to the receive unit stalling or freed receive 
-> buffers
-> getting written to.
-
-This can lead to the receive unit stalling or interpreting random 
-memory as its receive area.
+Good to hear our expectiations match reality.
 
 >
-> The fix is to set the el-bit on and the size to 0 on the next to last 
-> buffer
-> in the chain.  When the hardware encounters this buffer it stops and 
-> does
-> not write to it at all.  The hardware issues an RNR interrupt with the
-> receive unit in the No Resources state.  When software allocates 
-> buffers,
-> it can update the tail of the list when either it knows the hardware
-> has stopped or the previous to the new one to mark marked.
+>
+>> I'm assuming this is why the cleanup of the receiver start to always 
+>> start on rx_to_clean got dropped again. :-)
+> Yep.  I will get that in the next patch.
 
-Software can write to the tail of the list because it knows hardware 
-will stop on the previous descriptor that was marked as the end of 
-list.
+Ok.
 
-> Once it has a new next to last buffer prepared, it can clear the el-bit
-> and set the size on the previous one.  The race on this buffer is safe
-> since the link already points to a valid next buffer.
+>> Also, I would like a few sentences in the Driver Operation section IV 
+>> Receive big comment.  Something like
+>> In order to keep updates to the RFD link field from colliding with 
+>> hardware writes to mark packets complete, we use the feature that 
+>> hardware will not write to a size 0 descriptor and mark the previous 
+>> packet as end-of-list (EL).   After updating the link, we remove EL 
+>> and only then restore the size such that hardware may use the 
+>> previous-to-end RFD.
+>> at the end of the first paragraph, and insert software before "no 
+>> locking is required" in the second.
+> Sounds good to me.
+>
+> I will see if I can get into a cleaned up patch today and get it out 
+> by tomorrow.  Thanks for dealing with me...I have been around kernel 
+> code for awhile but posting official patches to linux is new to me.
+> -Ack
 
-and we can handle the race setting the size (assuming aligned 16 bit 
-writes are atomic with respect to the DMA read).
+I've just learned by watching the lists over the last several years.  
+Well, and actually writing the odd patch here and there.
 
+It occurs to me that I have been focusing on the code and not the 
+changelog.   I'll send a seperate reply on that thread shortly.
 
-This paragraph changed from third person (the software or hardware) to 
-second person (we).
+One more thing I'll state here ... as per the perfect patch guidelines, 
+it is preferred that the meta-discussion about the patch and its 
+history go after the change log, seperated from it by a line of "--- " 
+so that the patch application scripts can just extract the email 
+subject as the title and through the firsst line of --- as the commit 
+log.  (This saves some manual editing).
 
->   We keep flags
-> in our software descriptor to note if the el bit is set and if the size
-> was 0.  When we clear the RFD's el bit and set its size, we also clear
-> the el flag but we leave the size was 0 bit set.  This was we can find
-> this buffer again later.
-
-This way software can identify them when the race may have occurred 
-when cleaning the ring.  On these descriptors, it looks ahead and if 
-the next one is complete then hardware must have skipped the current 
-one.  Logic is added to prevent two packets in a row being marked while 
-the receiver is running to avoid running in lockstep with the hardware 
-and thereby limiting the required lookahead.
-
-> If the hardware sees the el-bit cleared without the size set, it will
-> move on to the next buffer and skip this one.  If it sees
-> the size set but the el-bit still set, it will complete that buffer
-> and then RNR interrupt and wait.
-
-These sentences should be moved to the mention of the race above to 
-reducing mixing descriptions of the hardware and the software.
-
+[1] http://kernelnewbies.org/UpstreamMerge
 
 milton
 
