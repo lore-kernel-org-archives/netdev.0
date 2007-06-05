@@ -1,43 +1,43 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [RFC][PATCH] Add suspend and resume support to uli526x
-Date: Mon, 4 Jun 2007 22:56:38 -0700
-Message-ID: <20070604225638.0577a06a@freepuppy>
-References: <200706031237.36773.rjw@sisk.pl>
-	<20070604111112.GP4363@elf.ucw.cz>
-	<200706041549.11277.rjw@sisk.pl>
-	<1180991794.4356.31.camel@nigel.suspend2.net>
-	<20070604224146.GE2711@elf.ucw.cz>
-	<1180997344.4356.74.camel@nigel.suspend2.net>
-	<20070604225303.GG2711@elf.ucw.cz>
-	<1180997725.4356.77.camel@nigel.suspend2.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [2/4] [IPV4]: Convert IPv4 devconf to an array
+Date: Mon, 04 Jun 2007 23:17:54 -0700 (PDT)
+Message-ID: <20070604.231754.74747974.davem@davemloft.net>
+References: <20070602100132.GA9129@gondor.apana.org.au>
+	<20070602100252.GB9247@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Pavel Machek <pavel@ucw.cz>, "Rafael J. Wysocki" <rjw@sisk.pl>,
-	linux-pm <linux-pm@lists.osdl.org>, netdev@vger.kernel.org,
-	Valerie Henson <val@nmt.edu>, Peer Chen <peer.chen@uli.com.tw>
-To: nigel@nigel.suspend2.net
+Cc: netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:49976 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752694AbXFEGIo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2007 02:08:44 -0400
-In-Reply-To: <1180997725.4356.77.camel@nigel.suspend2.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45796
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1759985AbXFEGRk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2007 02:17:40 -0400
+In-Reply-To: <20070602100252.GB9247@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I hope soon to add suspend/resume to the network device class
-and remove driver specific suspend/resume from lots of devices.
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Sat, 2 Jun 2007 20:02:52 +1000
 
-The class suspend routine would just be:
-	pci_save_state
-	dev->stop
+> @@ -64,20 +64,26 @@
+>  #include <net/rtnetlink.h>
+>  
+>  struct ipv4_devconf ipv4_devconf = {
+> -	.accept_redirects = 1,
+> -	.send_redirects =  1,
+> -	.secure_redirects = 1,
+> -	.shared_media =	  1,
+> +	.data = {
+> +		[NET_IPV4_CONF_ACCEPT_REDIRECTS] = 1,
+> +		[NET_IPV4_CONF_SEND_REDIRECTS] = 1,
+> +		[NET_IPV4_CONF_SECURE_REDIRECTS] = 1,
+> +		[NET_IPV4_CONF_SHARED_MEDIA] = 1,
+> +	},
+>  };
 
-resume is
-	pci_restore_state
-	dev->open
+These array indexes are off by one.
 
-for many devices that is all they need.
-
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+This is the danger in using this "x-1" indexing style.
+Such a mistake is way too easy to make.
