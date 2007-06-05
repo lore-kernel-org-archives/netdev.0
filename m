@@ -1,40 +1,67 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [BUG] UDP : bind() checks are not complete
-Date: Tue, 05 Jun 2007 13:02:19 -0700 (PDT)
-Message-ID: <20070605.130219.35356925.davem@davemloft.net>
-References: <20070605191536.cc9a4719.dada1@cosmosbay.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [RFC VLAN 00/10]: VLAN netlink support try 2
+Date: Tue, 05 Jun 2007 13:08:46 -0700
+Message-ID: <4665C2CE.4050504@candelatech.com>
+References: <20070605143650.23717.91261.sendpatchset@localhost.localdomain> <46658E84.1090301@candelatech.com> <4665AB57.7030605@trash.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: dada1@cosmosbay.com
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49986
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1763003AbXFEUCF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2007 16:02:05 -0400
-In-Reply-To: <20070605191536.cc9a4719.dada1@cosmosbay.com>
+Received: from ns2.lanforge.com ([66.165.47.211]:57310 "EHLO ns2.lanforge.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757201AbXFEUIy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Jun 2007 16:08:54 -0400
+In-Reply-To: <4665AB57.7030605@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Tue, 5 Jun 2007 19:15:36 +0200
-
-> I discovered one big problem with UDP binding in 2.6.22-rc4 :
-
-Thanks for finding this problem, the crux of the issue is
-INADDR_ANY.
-
-> We really should check no socket is bound to XXX.XXX.XXX.XXX:32769. With current hashing, 
-> it means checking all slots in udptable[] :(
+Patrick McHardy wrote:
+> Ben Greear wrote:
+>> Patrick McHardy wrote:
+>>
+>>> The last VLAN patchset was outdated, sorry about the mixup. These are the
+>>> correct patches. The iproute patch I posted was correct, so no repost of
+>>> that one.
+>>>
+>>>   
+>> Is there any significant performance penalty in creating VLANs using
+>> these patches?
+>>
+>> If you have a test station handy, could you let us know what 'time'
+>> shows for a script
+>> creating 4000 VLANs with the old vconfig/ioctl method v/s this new method?
 > 
-> Our choices are :
 > 
-> 1) Drop all thoses patches and re-think them for 2.6.23 eventually
-> 2) Add the extra check for ANY_ADDR sockets and perform a full scan
+> Not significantly more, for 1000 VLANs I get:
 > 
-> What do you think ?
+> ip link add:
+> 
+> real    0m22.836s
+> user    0m0.100s
+> sys     0m5.850s
+> 
+> vconfig add:
+> 
+> real    0m19.739s
+> user    0m0.090s
+> sys     0m3.600s
 
-Does checking for INADDR_ANY sockets really require a full scan?
-It should just need two hash probes as far as I can tell to see
-if there is "0.0.0.0:PORT" bound already.
+Thanks for doing the tests.  That small performance drop seems
+fine to me.
+
+> ip -b (batch add):
+> 
+> real    0m5.239s
+> user    0m0.280s
+> sys     0m3.480s
+
+And that looks quite interesting!
+
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
+
