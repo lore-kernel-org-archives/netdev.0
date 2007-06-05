@@ -1,90 +1,161 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: RE: [PATCH] NET: Multiqueue network device support.
-Date: Tue, 5 Jun 2007 08:51:26 -0700
-Message-ID: <D5C1322C3E673F459512FB59E0DDC32902F91748@orsmsx414.amr.corp.intel.com>
-References: <1181044231.4075.51.camel@localhost>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>, <jeff@garzik.org>,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>
-To: <hadi@cyberus.ca>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:27403 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932306AbXFEPv3 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2007 11:51:29 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <1181044231.4075.51.camel@localhost>
-Sender: netdev-owner@vger.kernel.org
+From: Milton Miller <miltonm@bga.com>
+Subject: Re: [PATCH] fix e100 rx path on ARM (was [PATCH] e100
+	rx: or s and el bits)
+Date: Tue, 5 Jun 2007 11:14:29 -0500
+Message-ID: <b2809ae38545c6104771af3c3a8b2250@bga.com>
+References: <200705011124.l41BOEG4007662@sullivan.realtime.net>
+	<46375664.8030701@roinet.com> <4638F2B2.2000103@roinet.com>
+	<463BA906.30205@roinet.com>
+	<85f07fc58d5ed2147d5214d0f0b4fe32@bga.com>
+	<4648A9DF.6030001@roinet.com> <464D074F.20400@pobox.com>
+	<464D21B6.2000208@intel.com> <464DB336.2030003@roinet.com>
+	<464DB619.3070900@roinet.com> <464DC676.90504@intel.com>
+	<464DCA97.3070405@roinet.com> <464DCD5E.50003@intel.com>
+	<464DDE3E.9010400@roinet.com>
+	<e3819b7a866b1117fd5a69e6a85e0784@bga.com>
+	<4651DAC1.7050604@intel.com>
+	<53c44b6f03973eb1b28f221859d3002c@bga.com>
+	<465369AF.8080508@roinet.com>
+	<f83441453b1233771c5bda869912aeca@bga.com>
+	<4654B2E4.9010308@roinet.com>
+	<039d8ee49a8dfcbff8695b19d0a1a5c4@bga.com>
+	<a4fae96e1c8c7b594207bf77fcb6b38f@bga.com>
+	<465C4DBE.6000205@roinet.com>
+	<94c8ff9069a77568513a9a1d1e60012d@bga.com>
+	<4660856E.80403@roinet.com>
+	<fac4512e243d821a94e8ee7304240981@bga.com>
+	<4665664D.30906@roinet.com>
+Mime-Version: 1.0 (Apple Message framework v624)
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "Kok, Auke" <auke-jan.h.kok@intel.com>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Scott Feldman <sfeldma@pobox.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jeff Garzik <jgarzik@pobox.com>
+To: David Acker <dacker@roinet.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <4665664D.30906@roinet.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
->From a high level i see a good start that you at least have 
-> a separate
-> qdisc. I dont see the need for making any subqueue semantics 
-> in the qdisc. We already have them.
 
-No, we don't have subqueue semantics going directly to the hardware
-subqueues.  Only in software.
+First, a question especially to Auke and Jeff:
 
-> I also still dont see the need for the patching of the prio 
-> qdisc or the subqueue control.
+Since this patch both reverts the broken change that is currently in 
+-rc and creates the fixed driver, I'm not sure I like the subject 
+stating "on ARM", although that is the feature of the rewrite, and was 
+the intent of merging the previous patch.  This is actually its a fix 
+for all systems relative to current, including those where dma is not 
+cache coherent, (unlike a simple revert).
 
-sch_rr gives a qdisc without a strict scheduling policy for people that
-either want direct control of where flows go, or hardware with a
-scheduler.  sch_prio can give people the flexibility to have a
-scheduling policy for hardware that has none (e1000 for example).
-Patrick had suggested/requested a qdisc like sch_rr before, so here it
-is.  I kept sch_prio for flexibility and choice for users.
+Should we just put a comment about reverting the previous patch early 
+in the change log?
 
-> I am now uncertain that after all those discussions (and a 
-> lot other private ones) whether you understood me. We are 
-> still not meeting in the middle. 
+Something like this:
 
-I certainly understood what you were saying, however, what I'm trying to
-solve with my patches is not what you were suggesting.  A WRR scheduler,
-and no exposure of hardware queues in the network stack is not what I'm
-trying to solve.
+Fix the e100 receiver handling, supporting cache incoherent DMA.
 
-> Sorry, Peter i dont mean to rain on your parade but i cant 
-> let this just slide by[1]. So please give me sometime and 
-> this week i will send patches to demonstrate my view. I didnt 
-> mean to do that, but as i see it i have no other choice.
-
-I don't want to seem ungrateful, but this is what I've been asking of
-you since you had objections to my patches.  Patrick, Thomas, and Yi Zhu
-all gave technical feedback on the patches, I defended and/or updated
-the patches, and they seemed fine with them then.  However, you want
-something different from what I'm doing, not a different approach for
-what it is I'm proposing.  I'd love to see the patches you're thinking
-of, and see if they really do solve what I'm trying to solve.
-
-> BTW, wheres the e1000 change?
-
-The previously posted e1000 patch for this multiqueue patchset is
-identical.  I can repost it if you want, but this is just an RFC
-patchset for the new qdisc, and I didn't want to cloud the point of the
-RFC.
-
-> [1] If for example you wrote a classifier or a qdisc (as in a 
-> recent discussion I had with Patrick) i would say it is your 
-> code and your effort and i have the choice not to use it (by 
-> virtue of there being other alternatives). I have no such 
-> luxury but to use the changes you make to that code path 
-> whenever i use multi tx rings.
-
-I disagree completely.  Have you seriously looked at the patches??  The
-driver is in control whether or not it wants to present multiple tx
-rings to the stack.  The driver has to call alloc_etherdev_mq()
-explicitly to allow the stack to see the queues; otherwise, there's only
-one queue presented.  I don't understand what you have a problem with
-here; the API allows complete control from the driver's perspective to
-use the new multiqueue codepath or not use it.  You have all the control
-in the world to decide whether to use or not use the multiqueue
-codepath.  Can you please explain what your real issue is here?
+Discard the concept of setting the S (suspend) bit with the EL bit 
+introduced in commit d52df4a35af569071fda3f4eb08e47cc7023f094.  In 
+addition to it not setting either bit, the hardware doesn't work that 
+way.
 
 
-Cheers,
+Thoughts?
 
--PJ Waskiewicz
+
+
+Here is the changelog portion of the latest patch (quoted), with my 
+comments thrown in:
+
+
+> On the ARM, their is a race condition between software allocating a 
+> new receive
+
+On systems that have cache incoherent DMA, including ARM,
+
+> buffer and hardware writing into a buffer.  The two race on touching 
+> the last
+> Receive Frame Descriptor (RFD).  It has its el-bit set and its next 
+> link equal
+> to 0.  When hardware encounters this buffer it attempts to write data 
+> to it
+> and then update Status Word bits and Actual Count in the RFD.  At the 
+> same time
+> software may try to clear the el-bit and set the link address to a new 
+> buffer.
+> Since the entire RFD is once cache-line, the two write operations can
+> collide.  This can lead to the receive unit stalling or freed receive 
+> buffers
+> getting written to.
+
+This can lead to the receive unit stalling or interpreting random 
+memory as its receive area.
+
+>
+> The fix is to set the el-bit on and the size to 0 on the next to last 
+> buffer
+> in the chain.  When the hardware encounters this buffer it stops and 
+> does
+> not write to it at all.  The hardware issues an RNR interrupt with the
+> receive unit in the No Resources state.  When software allocates 
+> buffers,
+> it can update the tail of the list when either it knows the hardware
+> has stopped or the previous to the new one to mark marked.
+
+Software can write to the tail of the list because it knows hardware 
+will stop on the previous descriptor that was marked as the end of 
+list.
+
+> Once it has a new next to last buffer prepared, it can clear the el-bit
+> and set the size on the previous one.  The race on this buffer is safe
+> since the link already points to a valid next buffer.
+
+and we can handle the race setting the size (assuming aligned 16 bit 
+writes are atomic with respect to the DMA read).
+
+
+This paragraph changed from third person (the software or hardware) to 
+second person (we).
+
+>   We keep flags
+> in our software descriptor to note if the el bit is set and if the size
+> was 0.  When we clear the RFD's el bit and set its size, we also clear
+> the el flag but we leave the size was 0 bit set.  This was we can find
+> this buffer again later.
+
+This way software can identify them when the race may have occurred 
+when cleaning the ring.  On these descriptors, it looks ahead and if 
+the next one is complete then hardware must have skipped the current 
+one.  Logic is added to prevent two packets in a row being marked while 
+the receiver is running to avoid running in lockstep with the hardware 
+and thereby limiting the required lookahead.
+
+> If the hardware sees the el-bit cleared without the size set, it will
+> move on to the next buffer and skip this one.  If it sees
+> the size set but the el-bit still set, it will complete that buffer
+> and then RNR interrupt and wait.
+
+These sentences should be moved to the mention of the race above to 
+reducing mixing descriptions of the hardware and the software.
+
+
+milton
+
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by DB2 Express
+Download DB2 Express C - the FREE version of DB2 express and take
+control of your XML. No limits. Just data. Click to get it now.
+http://sourceforge.net/powerbar/db2/
