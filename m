@@ -1,8 +1,8 @@
 From: Jesse Huang <jesse@icplus.com.tw>
 Subject: [PATCH] sundance: PHY address form 0, only for device ID 0x0200
 	(IP100A) (20070605)
-Date: Tue, 05 Jun 2007 09:50:40 -0400
-Message-ID: <1181051441.2487.1.camel@localhost.localdomain>
+Date: Tue, 05 Jun 2007 09:53:11 -0400
+Message-ID: <1181051591.2571.1.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -10,10 +10,10 @@ To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	akpm@osdl.org, jgarzik@pobox.com, jesse@icplus.com.tw,
 	jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from msr32.hinet.net ([168.95.4.132]:35879 "EHLO msr32.hinet.net"
+Received: from msr43.hinet.net ([168.95.4.143]:45607 "EHLO msr43.hinet.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754665AbXFEByo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Jun 2007 21:54:44 -0400
+	id S1753380AbXFEB4r (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Jun 2007 21:56:47 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
@@ -48,6 +48,4 @@ index e1f912d..23d049d 100644
  		if (mii_status != 0xffff  &&  mii_status != 0x0000) {
 -- 
 1.3.GIT
-
-
 
