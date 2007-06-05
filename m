@@ -1,32 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [NET]: Avoid duplicate netlink notification when changing link
- state
-Date: Tue, 05 Jun 2007 16:04:09 -0700 (PDT)
-Message-ID: <20070605.160409.25475294.davem@davemloft.net>
-References: <20070605225452.GV521@postel.suug.ch>
+Subject: Re: [1/2] 2.6.22-rc4: known regressions with patches
+Date: Tue, 05 Jun 2007 16:07:35 -0700 (PDT)
+Message-ID: <20070605.160735.71091132.davem@davemloft.net>
+References: <46657924.4010505@googlemail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: tgraf@suug.ch
+Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	linux-kernel@vger.kernel.org, viro@zeniv.linux.org.uk,
+	uwe.bugla@gmx.de, kenchen@google.com, dwmw2@infradead.org,
+	Artem.Bityutskiy@nokia.com, hskinnemoen@atmel.com,
+	clameter@sgi.com, airlied@linux.ie,
+	righiandr@users.sourceforge.net, netdev@vger.kernel.org,
+	a.strobl@aws-it.at, kaber@trash.net
+To: michal.k.k.piotrowski@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53035
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53041
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1764775AbXFEXDy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2007 19:03:54 -0400
-In-Reply-To: <20070605225452.GV521@postel.suug.ch>
+	by vger.kernel.org with ESMTP id S1765046AbXFEXHV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2007 19:07:21 -0400
+In-Reply-To: <46657924.4010505@googlemail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Thomas Graf <tgraf@suug.ch>
-Date: Wed, 6 Jun 2007 00:54:53 +0200
+From: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
+Date: Tue, 05 Jun 2007 16:54:28 +0200
 
-> When changing the link state from userspace not affecting any other
-> flags. Two duplicate notification are being sent, once as action
-> in the NETDEV_UP/NETDEV_DOWN notification chain and a second time
-> when comparing old and new device flags after the change has been
-> completed. Although harmless, the duplicates should be avoided.
+> Networking
 > 
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> Subject    : OOPS iproute2/tc/u32_destroy in 2.6.22-rc3-git6
+> References : http://lkml.org/lkml/2007/6/3/66
+> Submitter  : Strobl Anton <a.strobl@aws-it.at>
+> Handled-By : Patrick McHardy <kaber@trash.net>
+> Patch      : http://lkml.org/lkml/2007/6/3/137
+> Status     : patch available
 
-Thanks for fixing this, patch applied.
+This slipped through the cracks, I've applied Patrick's
+patch and will push upstream.
+
+Thanks!
