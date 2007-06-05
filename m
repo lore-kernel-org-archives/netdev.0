@@ -1,65 +1,96 @@
-From: noboru.obata.ar@hitachi.com
-Subject: Re: [RFC] Failover-friendly TCP retransmission
-Date: Tue, 05 Jun 2007 22:05:36 +0900 (JST)
-Message-ID: <20070605.220536.73364034.noboru.obata.ar@hitachi.com>
-References: <XNM1$2$0$3$$2$8$4$A$2004314U46640bd2@hitachi.com>
-    <p738xazbwha.fsf@bingen.suse.de>
+From: David Acker <dacker@roinet.com>
+Subject: Re: [PATCH] fix e100 rx path on ARM (was [PATCH] e100 rx: or s and
+ el bits)
+Date: Tue, 05 Jun 2007 09:34:05 -0400
+Message-ID: <4665664D.30906@roinet.com>
+References: <200705011124.l41BOEG4007662@sullivan.realtime.net> <46375664.8030701@roinet.com> <4638F2B2.2000103@roinet.com> <463BA906.30205@roinet.com> <85f07fc58d5ed2147d5214d0f0b4fe32@bga.com> <4648A9DF.6030001@roinet.com> <464D074F.20400@pobox.com> <464D21B6.2000208@intel.com> <464DB336.2030003@roinet.com> <464DB619.3070900@roinet.com> <464DC676.90504@intel.com> <464DCA97.3070405@roinet.com> <464DCD5E.50003@intel.com> <464DDE3E.9010400@roinet.com> <e3819b7a866b1117fd5a69e6a85e0784@bga.com> <4651DAC1.7050604@intel.com> <53c44b6f03973eb1b28f221859d3002c@bga.com> <465369AF.8080508@roinet.com> <f83441453b1233771c5bda869912aeca@bga.com> <4654B2E4.9010308@roinet.com> <039d8ee49a8dfcbff8695b19d0a1a5c4@bga.com> <a4fae96e1c8c7b594207bf77fcb6b38f@bga.com> <465C4DBE.6000205@roinet.com> <94c8ff9069a77568513a9a1d1e60012d@bga.com> <4660856E.80403@roinet.com> <fac4512e243d821a94e8ee7304240981@bga.co
+ m>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: andi@firstfloor.org
+Cc: Jeff Garzik <jgarzik@pobox.com>, Scott Feldman <sfeldma@pobox.com>,
+	e1000-devel@lists.sourceforge.net,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org, "Kok, Auke" <auke-jan.h.kok@intel.com>
+To: Milton Miller <miltonm@bga.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail9.hitachi.co.jp ([133.145.228.44]:35345 "EHLO
-	mail9.hitachi.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757668AbXFENGE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2007 09:06:04 -0400
-Received: from mlsv16.hitachi.co.jp (unknown [133.144.234.166])
-	by mail9.hitachi.co.jp (Postfix) with ESMTP id 87BDC37C82
-	for <netdev@vger.kernel.org>; Tue,  5 Jun 2007 22:06:01 +0900 (JST)
-In-Reply-To: <p738xazbwha.fsf@bingen.suse.de>
+Received: from static-72-92-88-10.phlapa.fios.verizon.net ([72.92.88.10]:50170
+	"EHLO smtp.roinet.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758213AbXFENeJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2007 09:34:09 -0400
+In-Reply-To: <fac4512e243d821a94e8ee7304240981@bga.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Andi,
-
-Andi Kleen <andi@firstfloor.org> writes:
-> > Please note first that I want to address physical failures by
-> > the failover-capable network devices, which are increasingly
-> > becoming important as Xen-based VM systems are getting popular.
-> > Reducing a single-point-of-failure (physical device) is vital on
-> > such VM systems.
+Milton Miller wrote:
 > 
-> Just you typically still have lots of other single points of failures in 
-> a single system, some of them quite less reliable than your typical
-> NIC. But at least it gives impressive demos when pulling ethernet cables @)
-
-Indeed :-)
-
-
-> > If TCP retransmission misses the time frame between event #1 and
-> > #3 in Background above (between 20 and 30sec since network
-> > failure), a failure causes the system-level failover where the
-> > network-device-level failover should be enough.
+> On Jun 1, 2007, at 3:45 PM, David Acker wrote:
+>> Ok, I took a stab at coding and testing these ideas.  Below is a patch 
+>> against 2.6.22-rc3.
+>> Let me know what you think.
 > 
-> You should probably make sure that the device ends up returning the
-> right NET_XMIT_* code for such drops to TCP, in particular
-> NET_XMIT_DROP. This might require slight driver interface
-> changes. Also right now it only affects the congestion window, I think, 
-> it  might be reasonable to let it affect the timer backoff too.
+> I think you got most of the ideas.   As Auke noted, your coding style is 
+> showing again.   And your mailer again munged whitespace (fixed by 
+> s/^<space><space>/<space>/ s/^$/<space>/).
+Sorry about the coding style.  I instinctively followed what was there 
+instead of kernel coding convention.  I will look into how whitespace is 
+getting screwed up.
 
-Well, I don't think it can be a help.
+>> Find a buffer that is complete with rx->el not set and rx->s0 set.
+>>     It appears that hardware can read the rfd's el-bit, then software 
+>> can clear the rfd el-bit and set the rfd size, and then hardware can 
+>> come in and read the size.
+> 
+> Yes, since the size is after the EL flag in the descriptor, this can 
+> happen since the pci read is not atomic.
+> 
+>> I am reading the status back, although I don't think that I have to in 
+>> this instance.
+> 
+> Actually, you are reading it when the rfd still has EL set.  Since the 
+> cpu will never encounter that case, the if condition is never satisfied.
+In my tests, every time I found a completed rfd with the el-bit set, the 
+receiver was in the out of resources state.
 
-Your suggestion, to utilize NET_XMIT_* code returned from an
-underlying layer, is done in tcp_transmit_skb.
 
-But my problem is that tcp_transmit_skb is not called during a
-certain period of time.  So I'm suggesting to cap RTO value so
-that tcp_transmit_skb gets called more frequently.
+> How about creating a state unknown, for when we think we should check 
+> the device if its running.
+> If we are in this state and then encounter a received packet without s0 
+> set, we can set it back
+> to running.   We set it when we rx a packet with s0 set.
+> 
+> We then move both io_status reads to the caller.
+I can look into that as I clean this up.
 
-Does it make sense, Andi?
 
-Regards,
+>> I am testing a version of this code patched against 2.6.18.4 on my PXA 
+>> 255 based system.  I will let you all know how it goes.
+The testing I did so far did well.  I will try to get some more going 
+tonight, hopefully on a cleaned up patch.
 
--- 
-OBATA Noboru (noboru.obata.ar@hitachi.com)
+
+> I'm assuming this is why the cleanup of the receiver start to always 
+> start on rx_to_clean got dropped again. :-)
+Yep.  I will get that in the next patch.
+
+
+> Also, I would like a few sentences in the Driver Operation section IV 
+> Receive big comment.  Something like
+> 
+> In order to keep updates to the RFD link field from colliding with 
+> hardware writes to mark packets complete, we use the feature that 
+> hardware will not write to a size 0 descriptor and mark the previous 
+> packet as end-of-list (EL).   After updating the link, we remove EL and 
+> only then restore the size such that hardware may use the 
+> previous-to-end RFD.
+> 
+> at the end of the first paragraph, and insert software before "no 
+> locking is required" in the second.
+Sounds good to me.
+
+I will see if I can get into a cleaned up patch today and get it out by 
+tomorrow.  Thanks for dealing with me...I have been around kernel code 
+for awhile but posting official patches to linux is new to me.
+-Ack
