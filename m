@@ -1,50 +1,65 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH][RFC] network splice receive
-Date: Tue, 05 Jun 2007 08:34:54 -0400
-Message-ID: <1181046894.5896.5.camel@localhost>
-References: <20070605080542.GA9909@kernel.dk>
-	 <20070605114545.GC9909@kernel.dk>  <20070605122031.GE9909@kernel.dk>
-Reply-To: hadi@cyberus.ca
+From: noboru.obata.ar@hitachi.com
+Subject: Re: [RFC] Failover-friendly TCP retransmission
+Date: Tue, 05 Jun 2007 22:05:36 +0900 (JST)
+Message-ID: <20070605.220536.73364034.noboru.obata.ar@hitachi.com>
+References: <XNM1$2$0$3$$2$8$4$A$2004314U46640bd2@hitachi.com>
+    <p738xazbwha.fsf@bingen.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Jens Axboe <jens.axboe@oracle.com>
+To: andi@firstfloor.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.181]:59635 "EHLO
-	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755250AbXFEMe5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2007 08:34:57 -0400
-Received: by py-out-1112.google.com with SMTP id a29so2839673pyi
-        for <netdev@vger.kernel.org>; Tue, 05 Jun 2007 05:34:57 -0700 (PDT)
-In-Reply-To: <20070605122031.GE9909@kernel.dk>
+Received: from mail9.hitachi.co.jp ([133.145.228.44]:35345 "EHLO
+	mail9.hitachi.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757668AbXFENGE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2007 09:06:04 -0400
+Received: from mlsv16.hitachi.co.jp (unknown [133.144.234.166])
+	by mail9.hitachi.co.jp (Postfix) with ESMTP id 87BDC37C82
+	for <netdev@vger.kernel.org>; Tue,  5 Jun 2007 22:06:01 +0900 (JST)
+In-Reply-To: <p738xazbwha.fsf@bingen.suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2007-05-06 at 14:20 +0200, Jens Axboe wrote:
+Hi Andi,
 
-> > 
-> > 0000 1800 4ff3 937f e000 6381 7275 0008
-> > 
-> > Perhaps that hex pattern rings a bell with someone intimate with the
-> > networking. The remaining wrong bytes don't seem to have anything in
-> > common.
+Andi Kleen <andi@firstfloor.org> writes:
+> > Please note first that I want to address physical failures by
+> > the failover-capable network devices, which are increasingly
+> > becoming important as Xen-based VM systems are getting popular.
+> > Reducing a single-point-of-failure (physical device) is vital on
+> > such VM systems.
 > 
-> Ok, the source mac address is 00:18:F3:4F:7F:93 and the destination is
-> 00:E0:81:63:75:72 which are the middle 12 bytes of the 16.
+> Just you typically still have lots of other single points of failures in 
+> a single system, some of them quite less reliable than your typical
+> NIC. But at least it gives impressive demos when pulling ethernet cables @)
+
+Indeed :-)
+
+
+> > If TCP retransmission misses the time frame between event #1 and
+> > #3 in Background above (between 20 and 30sec since network
+> > failure), a failure causes the system-level failover where the
+> > network-device-level failover should be enough.
 > 
+> You should probably make sure that the device ends up returning the
+> right NET_XMIT_* code for such drops to TCP, in particular
+> NET_XMIT_DROP. This might require slight driver interface
+> changes. Also right now it only affects the congestion window, I think, 
+> it  might be reasonable to let it affect the timer backoff too.
 
-It appears you may have endianness issues and perhaps a 16 bit
-mis-offset. the 0008 at the end looks like a swapped 0x800 which
-is the ethernet type for IPV4.
+Well, I don't think it can be a help.
 
-> Hope that helps someone clue me in as to which network part is reusing
-> the data. Do I need to 'pin' the sk_buff until the pipe data has been
-> consumed?
+Your suggestion, to utilize NET_XMIT_* code returned from an
+underlying layer, is done in tcp_transmit_skb.
 
-I would worry about the driver level first - likely thats where your
-corruption is.
+But my problem is that tcp_transmit_skb is not called during a
+certain period of time.  So I'm suggesting to cap RTO value so
+that tcp_transmit_skb gets called more frequently.
 
-cheers,
-jamal
+Does it make sense, Andi?
 
+Regards,
+
+-- 
+OBATA Noboru (noboru.obata.ar@hitachi.com)
