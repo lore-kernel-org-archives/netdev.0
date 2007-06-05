@@ -1,38 +1,68 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [RFC RTNETLINK 00/09]: Netlink link creation API
-Date: Tue, 05 Jun 2007 23:10:09 +0200
-Message-ID: <4665D131.7000607@trash.net>
-References: <20070605141250.15650.47178.sendpatchset@localhost.localdomain> <20070605.123720.26278311.davem@davemloft.net>
+Subject: Re: [RFC VLAN 00/10]: VLAN netlink support try 2
+Date: Tue, 05 Jun 2007 23:12:23 +0200
+Message-ID: <4665D1B7.5040902@trash.net>
+References: <20070605143650.23717.91261.sendpatchset@localhost.localdomain> <46658E84.1090301@candelatech.com> <4665AB57.7030605@trash.net> <4665C2CE.4050504@candelatech.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, socketcan@hartkopp.net, hadi@cyberus.ca,
-	xemul@sw.ru, ebiederm@xmission.com, tgraf@suug.ch
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:37895 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:37937 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1764848AbXFEVKT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2007 17:10:19 -0400
-In-Reply-To: <20070605.123720.26278311.davem@davemloft.net>
+	with ESMTP id S1765478AbXFEVMc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2007 17:12:32 -0400
+In-Reply-To: <4665C2CE.4050504@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Patrick McHardy <kaber@trash.net>
-> Date: Tue,  5 Jun 2007 16:12:51 +0200 (MEST)
+Ben Greear wrote:
+> Patrick McHardy wrote:
 > 
-> 
->>A few words about the API:
+>> Ben Greear wrote:
 >>
->>[..]
+>>> Patrick McHardy wrote:
+>>>
+>>>> The last VLAN patchset was outdated, sorry about the mixup. These
+>>>> are the
+>>>> correct patches. The iproute patch I posted was correct, so no
+>>>> repost of
+>>>> that one.
+>>>>
+>>>>   
+>>>
+>>> Is there any significant performance penalty in creating VLANs using
+>>> these patches?
+>>>
+>>> If you have a test station handy, could you let us know what 'time'
+>>> shows for a script
+>>> creating 4000 VLANs with the old vconfig/ioctl method v/s this new
+>>> method?
 >>
->>Not sure what else to say .. comments welcome.
+>>
+>>
+>> Not significantly more, for 1000 VLANs I get:
+>>
+>> ip link add:
+>>
+>> real    0m22.836s
+>> user    0m0.100s
+>> sys     0m5.850s
+>>
+>> vconfig add:
+>>
+>> real    0m19.739s
+>> user    0m0.090s
+>> sys     0m3.600s
 > 
 > 
-> This excellent description of the APIs (particularly the background
-> and reasoning) belongs in a file under Documentation/networking/ :-)
+> Thanks for doing the tests.  That small performance drop seems
+> fine to me.
 
 
-I'll add something like this under Documentation/, thanks.
+I'll try to speed it up a bit more, my initial version needed something
+like 10s for 1000 VLANs. I suspect the iproute RTM_NEWLINK probing done
+for every (non-batched) operation adds quite significantly to the
+overhead.
 
