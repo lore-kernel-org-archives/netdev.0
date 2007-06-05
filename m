@@ -1,50 +1,27 @@
-From: Jens Axboe <jens.axboe@oracle.com>
-Subject: Re: [PATCH][RFC] network splice receive
-Date: Tue, 5 Jun 2007 14:20:31 +0200
-Message-ID: <20070605122031.GE9909@kernel.dk>
-References: <20070605080542.GA9909@kernel.dk> <20070605114545.GC9909@kernel.dk>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: warnings in git-wireless
+Date: Tue, 5 Jun 2007 07:57:01 -0400
+Message-ID: <20070605115701.GA5391@tuxdriver.com>
+References: <20070605020614.3f06b2ab.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from brick.kernel.dk ([80.160.20.94]:12792 "EHLO kernel.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753163AbXFEMWX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Jun 2007 08:22:23 -0400
-Received: from nelson.home.kernel.dk (nelson.home.kernel.dk [192.168.0.33])
-	by kernel.dk (Postfix) with ESMTP id D83502572B6
-	for <netdev@vger.kernel.org>; Tue,  5 Jun 2007 14:22:20 +0200 (CEST)
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20070605114545.GC9909@kernel.dk>
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <20070605020614.3f06b2ab.akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 05 2007, Jens Axboe wrote:
-> On Tue, Jun 05 2007, Jens Axboe wrote:
-> > Seems to work reasonably well for me, sometimes I do see small ranges
-> > inside the output file that are not correct, but I haven't been able to
-> > reproduce today. I think it has to do with page reuse, hence the
-> > NET_COPY_SPLICE ifdef that you can enable to just plain copy the data
-> > instead of referencing it.
-> 
-> I managed to reproduce. It's segments of 68-80 bytes beyond corrupt in
-> the middle of the out, and there might be 1-3 of such occurences in the
-> 30mb file I tested with. The first 16 bytes of the corruption are always
-> the same:
-> 
-> 0000 1800 4ff3 937f e000 6381 7275 0008
-> 
-> Perhaps that hex pattern rings a bell with someone intimate with the
-> networking. The remaining wrong bytes don't seem to have anything in
-> common.
+On Tue, Jun 05, 2007 at 02:06:14AM -0700, Andrew Morton wrote:
 
-Ok, the source mac address is 00:18:F3:4F:7F:93 and the destination is
-00:E0:81:63:75:72 which are the middle 12 bytes of the 16.
+> Please, don't anybody dare think about thinking about letting this anywhere
+> near mainline until it has had a thorough review.  Or at least, a little bit
+> of review.
 
-Hope that helps someone clue me in as to which network part is reusing
-the data. Do I need to 'pin' the sk_buff until the pipe data has been
-consumed?
+Don't worry -- I assure you that everyone is aware of the issues.
 
+John
 -- 
-Jens Axboe
-
+John W. Linville
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
