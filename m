@@ -1,41 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [1/2] 2.6.22-rc4: known regressions with patches
-Date: Tue, 05 Jun 2007 16:07:35 -0700 (PDT)
-Message-ID: <20070605.160735.71091132.davem@davemloft.net>
-References: <46657924.4010505@googlemail.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [RFC RTNETLINK 04/09]: Link creation API
+Date: Wed, 06 Jun 2007 01:17:11 +0200
+Message-ID: <4665EEF7.3000306@trash.net>
+References: <20070605141250.15650.47178.sendpatchset@localhost.localdomain>	<20070605141256.15650.37514.sendpatchset@localhost.localdomain> <20070605150303.5249e0c0@freepuppy>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, viro@zeniv.linux.org.uk,
-	uwe.bugla@gmx.de, kenchen@google.com, dwmw2@infradead.org,
-	Artem.Bityutskiy@nokia.com, hskinnemoen@atmel.com,
-	clameter@sgi.com, airlied@linux.ie,
-	righiandr@users.sourceforge.net, netdev@vger.kernel.org,
-	a.strobl@aws-it.at, kaber@trash.net
-To: michal.k.k.piotrowski@gmail.com
+Cc: netdev@vger.kernel.org, socketcan@hartkopp.net, hadi@cyberus.ca,
+	xemul@sw.ru, ebiederm@xmission.com, tgraf@suug.ch
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53041
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1765046AbXFEXHV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2007 19:07:21 -0400
-In-Reply-To: <46657924.4010505@googlemail.com>
+Received: from stinky.trash.net ([213.144.137.162]:39757 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1765291AbXFEXRX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2007 19:17:23 -0400
+In-Reply-To: <20070605150303.5249e0c0@freepuppy>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
-Date: Tue, 05 Jun 2007 16:54:28 +0200
-
-> Networking
+Stephen Hemminger wrote:
+> On Tue,  5 Jun 2007 16:12:57 +0200 (MEST)
+> Patrick McHardy <kaber@trash.net> wrote:
 > 
-> Subject    : OOPS iproute2/tc/u32_destroy in 2.6.22-rc3-git6
-> References : http://lkml.org/lkml/2007/6/3/66
-> Submitter  : Strobl Anton <a.strobl@aws-it.at>
-> Handled-By : Patrick McHardy <kaber@trash.net>
-> Patch      : http://lkml.org/lkml/2007/6/3/137
-> Status     : patch available
+> 
+>>[RTNETLINK]: Link creation API
+>>
+>>Add rtnetlink API for creating, changing and deleting software devices.
+>>
+>>Signed-off-by: Patrick McHardy <kaber@trash.net>
+>>
+> 
+> If you want I'll extend existing bridge netlink to use these.
 
-This slipped through the cracks, I've applied Patrick's
-patch and will push upstream.
 
-Thanks!
+Are you talking about brige-port information or bridge device
+configuration? So far the API is not suitable for anything that
+currently uses IFLA_PROTINFO because the sender is not the driver
+which created the device and doesn't use AF_UNSPEC. For bridge
+device configuration it would certainly be nice to have, but I'm
+not sure yet how to handle enslave operations. So far my favourite
+idea is to add enslave/release operations to rtnl_link_ops and call
+them when IFLA_MASTER is set (so the netlink message would look like
+this: ifindex: eth0 master: br0 nlmsg_type: RTM_NETLINK). But I
+haven't really thought this through yet.
+
+I would also like to add support for handling "secondary device state"
+like bridge port state and others that currently use IFLA_PROTINFO
+(a lot of the code is very similar to the generic code), but all ideas
+so far turned out not to work very well.
+
+I'm leaving for a short vacation until Sunday tommorrow, so replies
+may be delayed :)
