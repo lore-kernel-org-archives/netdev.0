@@ -1,34 +1,53 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [2/5 revised][BNX2]: Add missing wait in bnx2_init_5709_context().
-Date: Mon, 4 Jun 2007 21:23:51 -0400
-Message-ID: <20070605012351.GE31462@havoc.gtf.org>
-References: <1181001635.5275.13.camel@dell> <20070604233940.GB31462@havoc.gtf.org> <1181005129.7230.2.camel@dell>
+From: Jesse Huang <jesse@icplus.com.tw>
+Subject: [PATCH] sundance: PHY address form 0, only for device ID 0x0200
+	(IP100A) (20070605)
+Date: Tue, 05 Jun 2007 09:50:40 -0400
+Message-ID: <1181051441.2487.1.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, andy@greyhouse.net,
-	netdev <netdev@vger.kernel.org>
-To: Michael Chan <mchan@broadcom.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	akpm@osdl.org, jgarzik@pobox.com, jesse@icplus.com.tw,
+	jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from havoc.gtf.org ([69.61.125.42]:39045 "EHLO havoc.gtf.org"
+Received: from msr32.hinet.net ([168.95.4.132]:35879 "EHLO msr32.hinet.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751486AbXFEBX4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Jun 2007 21:23:56 -0400
-Content-Disposition: inline
-In-Reply-To: <1181005129.7230.2.camel@dell>
+	id S1754665AbXFEByo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Jun 2007 21:54:44 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 04, 2007 at 05:58:49PM -0700, Michael Chan wrote:
-> [BNX2]: Add missing wait in bnx2_init_5709_context().
-> 
-> For correctness, we need to wait for the MEM_INIT bit to be cleared
-> in the BNX2_CTX_COMMAND register before proceeding.
-> 
-> [Added return -EBUSY when the MEM_INIT bit doesn't clear, suggested
-> by Jeff Garzik.]
-> 
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
+From: Jesse Huang <jesse@icplus.com.tw>
 
-ACK
+Change Logs:
+Search PHY address form 0, only for device ID 0x0200 (IP100A). Other device are from PHY address 1.
+
+Signed-off-by: Jesse Huang <jesse@icplus.com.tw>
+---
+
+ drivers/net/sundance.c |    6 +++++-
+ 1 files changed, 5 insertions(+), 1 deletions(-)
+
+a093fe5e3e7b9f58458171e481b5096cc1d3abfe
+diff --git a/drivers/net/sundance.c b/drivers/net/sundance.c
+index e1f912d..23d049d 100644
+--- a/drivers/net/sundance.c
++++ b/drivers/net/sundance.c
+@@ -562,7 +562,11 @@ #endif
+ 	 * It seems some phys doesn't deal well with address 0 being accessed
+ 	 * first, so leave address zero to the end of the loop (32 & 31).
+ 	 */
+-	for (phy = 1; phy <= 32 && phy_idx < MII_CNT; phy++) {
++	if(sundance_pci_tbl[np->chip_id].device == 0x0200) 
++		phy = 0;
++	else 
++		phy = 1;
++	for (; phy <= 32 && phy_idx < MII_CNT; phy++) {
+ 		int phyx = phy & 0x1f;
+ 		int mii_status = mdio_read(dev, phyx, MII_BMSR);
+ 		if (mii_status != 0xffff  &&  mii_status != 0x0000) {
+-- 
+1.3.GIT
+
 
 
