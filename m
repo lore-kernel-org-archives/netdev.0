@@ -1,77 +1,175 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [RFC VLAN 01/10]: Fix off-by-ones in VLAN ID checks
-Date: Tue,  5 Jun 2007 16:36:52 +0200 (MEST)
-Message-ID: <20070605143651.23717.20253.sendpatchset@localhost.localdomain>
+Subject: [RFC VLAN 03/10]: Move some device intialization code to dev->init callback
+Date: Tue,  5 Jun 2007 16:36:55 +0200 (MEST)
+Message-ID: <20070605143654.23717.16259.sendpatchset@localhost.localdomain>
 References: <20070605143650.23717.91261.sendpatchset@localhost.localdomain>
 Cc: Patrick McHardy <kaber@trash.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:64416 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:64422 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762779AbXFEOgy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2007 10:36:54 -0400
+	with ESMTP id S1763483AbXFEOg4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2007 10:36:56 -0400
 In-Reply-To: <20070605143650.23717.91261.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[VLAN]: Fix off-by-ones in VLAN ID checks
+[VLAN]: Move some device intialization code to dev->init callback
 
-The valid range of VLAN IDs is 0-4095, fix using ID 4095.
+Move some device initialization code to new dev->init callback to make
+it shareable with netlink. Additionally this fixes a minor bug, dev->iflink
+is set after registration, which causes an incorrect value in the initial
+netlink message.
 
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 
 ---
-commit 576d73325b7ce3d454c544dcdfea0a2e3ae6486e
-tree 2039651421302cf1863cd4b70f502d18a04bc7ac
-parent 6a0492fd68c8c5f528e4277bec20bef8047aec2e
+commit ffed416aac143a9431c7d9d6b3214288809eb89a
+tree 5c4be92ecd9fddaac6899d5a704398ba95c9bdcb
+parent 9f146bc68a86cb588f3150894b3af5646cfb4fdc
 author Patrick McHardy <kaber@trash.net> Tue, 05 Jun 2007 16:33:44 +0200
 committer Patrick McHardy <kaber@trash.net> Tue, 05 Jun 2007 16:33:44 +0200
 
- net/8021q/vlan.c |   10 +++++-----
- 1 files changed, 5 insertions(+), 5 deletions(-)
+ net/8021q/vlan.c |   98 +++++++++++++++++++++++++++---------------------------
+ 1 files changed, 49 insertions(+), 49 deletions(-)
 
 diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-index ceef57c..f3b1328 100644
+index 788324a..7da8210 100644
 --- a/net/8021q/vlan.c
 +++ b/net/8021q/vlan.c
-@@ -173,7 +173,7 @@ static struct vlan_group *__vlan_find_group(int real_dev_ifindex)
- 	return NULL;
+@@ -291,6 +291,53 @@ static int unregister_vlan_device(struct net_device *dev)
+ 	return ret;
  }
  
--/*  Find the protocol handler.  Assumes VID < VLAN_VID_MASK.
-+/*  Find the protocol handler.  Assumes VID <= VLAN_VID_MASK.
-  *
-  * Must be invoked with RCU read lock (no preempt)
-  */
-@@ -222,7 +222,7 @@ static int unregister_vlan_dev(struct net_device *real_dev,
- #endif
++/*
++ * vlan network devices have devices nesting below it, and are a special
++ * "super class" of normal network devices; split their locks off into a
++ * separate class since they always nest.
++ */
++static struct lock_class_key vlan_netdev_xmit_lock_key;
++
++static int vlan_dev_init(struct net_device *dev)
++{
++	struct net_device *real_dev = VLAN_DEV_INFO(dev)->real_dev;
++
++	/* IFF_BROADCAST|IFF_MULTICAST; ??? */
++	dev->flags  = real_dev->flags & ~IFF_UP;
++	dev->iflink = real_dev->ifindex;
++	dev->state  = (real_dev->state & ((1<<__LINK_STATE_NOCARRIER) |
++					  (1<<__LINK_STATE_DORMANT))) |
++		      (1<<__LINK_STATE_PRESENT);
++
++	/* need 4 bytes for extra VLAN header info,
++	 * hope the underlying device can handle it.
++	 */
++	dev->mtu = real_dev->mtu;
++
++	/* TODO: maybe just assign it to be ETHERNET? */
++	dev->type = real_dev->type;
++
++	memcpy(dev->broadcast, real_dev->broadcast, real_dev->addr_len);
++	memcpy(dev->dev_addr, real_dev->dev_addr, real_dev->addr_len);
++	dev->addr_len = real_dev->addr_len;
++
++	if (real_dev->features & NETIF_F_HW_VLAN_TX) {
++		dev->hard_header     = real_dev->hard_header;
++		dev->hard_header_len = real_dev->hard_header_len;
++		dev->hard_start_xmit = vlan_dev_hwaccel_hard_start_xmit;
++		dev->rebuild_header  = real_dev->rebuild_header;
++	} else {
++		dev->hard_header     = vlan_dev_hard_header;
++		dev->hard_header_len = real_dev->hard_header_len + VLAN_HLEN;
++		dev->hard_start_xmit = vlan_dev_hard_start_xmit;
++		dev->rebuild_header  = vlan_dev_rebuild_header;
++	}
++	dev->hard_header_parse = real_dev->hard_header_parse;
++
++	lockdep_set_class(&dev->_xmit_lock, &vlan_netdev_xmit_lock_key);
++	return 0;
++}
++
+ static void vlan_setup(struct net_device *new_dev)
+ {
+ 	SET_MODULE_OWNER(new_dev);
+@@ -311,6 +358,7 @@ static void vlan_setup(struct net_device *new_dev)
  
- 	/* sanity check */
--	if (vlan_id >= VLAN_VID_MASK)
-+	if (vlan_id > VLAN_VID_MASK)
- 		return -EINVAL;
+ 	/* set up method calls */
+ 	new_dev->change_mtu = vlan_dev_change_mtu;
++	new_dev->init = vlan_dev_init;
+ 	new_dev->open = vlan_dev_open;
+ 	new_dev->stop = vlan_dev_stop;
+ 	new_dev->set_mac_address = vlan_dev_set_mac_address;
+@@ -339,14 +387,6 @@ static void vlan_transfer_operstate(const struct net_device *dev, struct net_dev
+ 	}
+ }
  
- 	ASSERT_RTNL();
-@@ -256,11 +256,11 @@ static int unregister_vlan_dev(struct net_device *real_dev,
- 			/* If the group is now empty, kill off the
- 			 * group.
- 			 */
--			for (i = 0; i < VLAN_VID_MASK; i++)
-+			for (i = 0; i <= VLAN_VID_MASK; i++)
- 				if (vlan_group_get_device(grp, i))
- 					break;
+-/*
+- * vlan network devices have devices nesting below it, and are a special
+- * "super class" of normal network devices; split their locks off into a
+- * separate class since they always nest.
+- */
+-static struct lock_class_key vlan_netdev_xmit_lock_key;
+-
+-
+ /*  Attach a VLAN device to a mac address (ie Ethernet Card).
+  *  Returns the device that was created, or NULL if there was
+  *  an error of some kind.
+@@ -437,47 +477,10 @@ static struct net_device *register_vlan_device(struct net_device *real_dev,
  
--			if (i == VLAN_VID_MASK) {
-+			if (i > VLAN_VID_MASK) {
- 				if (real_dev->features & NETIF_F_HW_VLAN_RX)
- 					real_dev->vlan_rx_register(real_dev, NULL);
+ #ifdef VLAN_DEBUG
+ 	printk(VLAN_DBG "Allocated new name -:%s:-\n", new_dev->name);
+-#endif
+-	/* IFF_BROADCAST|IFF_MULTICAST; ??? */
+-	new_dev->flags = real_dev->flags;
+-	new_dev->flags &= ~IFF_UP;
+-
+-	new_dev->state = (real_dev->state & ((1<<__LINK_STATE_NOCARRIER) |
+-					     (1<<__LINK_STATE_DORMANT))) |
+-			 (1<<__LINK_STATE_PRESENT);
+-
+-	/* need 4 bytes for extra VLAN header info,
+-	 * hope the underlying device can handle it.
+-	 */
+-	new_dev->mtu = real_dev->mtu;
+-
+-	/* TODO: maybe just assign it to be ETHERNET? */
+-	new_dev->type = real_dev->type;
+-
+-	new_dev->hard_header_len = real_dev->hard_header_len;
+-	if (!(real_dev->features & NETIF_F_HW_VLAN_TX)) {
+-		/* Regular ethernet + 4 bytes (18 total). */
+-		new_dev->hard_header_len += VLAN_HLEN;
+-	}
+-
+ 	VLAN_MEM_DBG("new_dev->priv malloc, addr: %p  size: %i\n",
+ 		     new_dev->priv,
+ 		     sizeof(struct vlan_dev_info));
+-
+-	memcpy(new_dev->broadcast, real_dev->broadcast, real_dev->addr_len);
+-	memcpy(new_dev->dev_addr, real_dev->dev_addr, real_dev->addr_len);
+-	new_dev->addr_len = real_dev->addr_len;
+-
+-	if (real_dev->features & NETIF_F_HW_VLAN_TX) {
+-		new_dev->hard_header = real_dev->hard_header;
+-		new_dev->hard_start_xmit = vlan_dev_hwaccel_hard_start_xmit;
+-		new_dev->rebuild_header = real_dev->rebuild_header;
+-	} else {
+-		new_dev->hard_header = vlan_dev_hard_header;
+-		new_dev->hard_start_xmit = vlan_dev_hard_start_xmit;
+-		new_dev->rebuild_header = vlan_dev_rebuild_header;
+-	}
+-	new_dev->hard_header_parse = real_dev->hard_header_parse;
++#endif
  
-@@ -392,7 +392,7 @@ static struct net_device *register_vlan_device(const char *eth_IF_name,
- 		__FUNCTION__, eth_IF_name, VLAN_ID);
- #endif
+ 	VLAN_DEV_INFO(new_dev)->vlan_id = VLAN_ID; /* 1 through VLAN_VID_MASK */
+ 	VLAN_DEV_INFO(new_dev)->real_dev = real_dev;
+@@ -492,9 +495,6 @@ static struct net_device *register_vlan_device(struct net_device *real_dev,
+ 	if (register_netdevice(new_dev))
+ 		goto out_free_newdev;
  
--	if (VLAN_ID >= VLAN_VID_MASK)
-+	if (VLAN_ID > VLAN_VID_MASK)
- 		goto out_ret_null;
+-	lockdep_set_class(&new_dev->_xmit_lock, &vlan_netdev_xmit_lock_key);
+-
+-	new_dev->iflink = real_dev->ifindex;
+ 	vlan_transfer_operstate(real_dev, new_dev);
+ 	linkwatch_fire_event(new_dev); /* _MUST_ call rfc2863_policy() */
  
- 	/* find the device relating to eth_IF_name. */
