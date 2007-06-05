@@ -1,34 +1,29 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC DUMMY 07/09]: Use rtnl_link API
-Date: Tue, 05 Jun 2007 12:46:31 -0700 (PDT)
-Message-ID: <20070605.124631.68158119.davem@davemloft.net>
-References: <20070605141250.15650.47178.sendpatchset@localhost.localdomain>
-	<20070605141301.15650.47999.sendpatchset@localhost.localdomain>
+From: Kacper Bielecki <kazjote@stud.ics.p.lodz.pl>
+Subject: Re: PROBLEM: network interface regularly stops working
+Date: Tue, 5 Jun 2007 21:47:02 +0200
+Message-ID: <200706052147.02376.kazjote@stud.ics.p.lodz.pl>
+References: <200706051208.40929.kazjote@stud.ics.p.lodz.pl> <20070605111506.GA16401@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, socketcan@hartkopp.net, hadi@cyberus.ca,
-	xemul@sw.ru, ebiederm@xmission.com, tgraf@suug.ch
-To: kaber@trash.net
+Cc: netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47997
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756281AbXFETqR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2007 15:46:17 -0400
-In-Reply-To: <20070605141301.15650.47999.sendpatchset@localhost.localdomain>
+Received: from stud.ics.p.lodz.pl ([212.51.220.231]:51112 "EHLO
+	stud.ics.p.lodz.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761801AbXFETrG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2007 15:47:06 -0400
+In-Reply-To: <20070605111506.GA16401@electric-eye.fr.zoreil.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Tue,  5 Jun 2007 16:13:02 +0200 (MEST)
 
-> [DUMMY]: Use rtnl_link API
-> 
-> Signed-off-by: Patrick McHardy <kaber@trash.net>
+> Can you try 2.6.22-rc3 (or -rc4) + patches 0000..0013 from
+> http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.22-rc3/r8169-20070527
 
-This looks good too.
+After installing kernel 2.6.22-rc4 with patches 0001..0013 (there wasn't 0000 
+patch) the problem is not solved. I still get the same behaviour.
 
-I'll let folks like Jamal and Ben look over the IFB and
-VLAN bits.
 
-Thanks for doing this work Patrick!
