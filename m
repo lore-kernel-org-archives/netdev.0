@@ -1,77 +1,89 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [RFC VLAN 08/10]: Use 32 bit value for skb->priority mapping
-Date: Tue,  5 Jun 2007 16:37:02 +0200 (MEST)
-Message-ID: <20070605143701.23717.93656.sendpatchset@localhost.localdomain>
-References: <20070605143650.23717.91261.sendpatchset@localhost.localdomain>
-Cc: Patrick McHardy <kaber@trash.net>
-To: netdev@vger.kernel.org
+From: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
+Subject: Re: [3/5] 2.6.22-rc4: known regressions
+Date: Tue, 05 Jun 2007 16:43:55 +0200
+Message-ID: <466576AB.1090806@googlemail.com>
+References: <46657407.1000108@googlemail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-2;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>, linux-wireless@vger.kernel.org,
+	Michael Buesch <mb@bu3sch.de>,
+	Maximilian Engelhardt <maxi@daemonizer.de>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Gary Zambrano <zambrano@broadcom.com>,
+	Samuel Ortiz <samuel@sortiz.org>,
+	Andrey Borzenkov <arvidjaar@mail.ru>,
+	Paulo Pereira <pfmp.404@gmail.com>,
+	Alan Stern <stern@rowland.harvard.edu>,
+	Samuel Ortiz <samuel@sortiz.org>,
+	Bjorn Helgaas <bjorn.helgaas@hp.com>,
+	linux-pcmcia@lists.infradead.org,
+	Robert de Rooy <robert.de.rooy@gmail.com>,
+	Alan Cox <alan@redhat.com>, Tejun Heo <htejun@gmail.com>
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:64440 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1764457AbXFEOhE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2007 10:37:04 -0400
-In-Reply-To: <20070605143650.23717.91261.sendpatchset@localhost.localdomain>
+Received: from ug-out-1314.google.com ([66.249.92.171]:32217 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1764815AbXFEOoL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2007 10:44:11 -0400
+Received: by ug-out-1314.google.com with SMTP id j3so192461ugf
+        for <netdev@vger.kernel.org>; Tue, 05 Jun 2007 07:44:11 -0700 (PDT)
+In-Reply-To: <46657407.1000108@googlemail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[VLAN]: Use 32 bit value for skb->priority mapping
+Hi all,
 
-skb->priority has only 32 bits and even VLAN uses 32 bit values in its API.
+Here is a list of some known regressions in 2.6.22-rc4.
 
-Signed-off-by: Patrick McHardy <kaber@trash.net>
+=46eel free to add new regressions/remove fixed etc.
+http://kernelnewbies.org/known_regressions
 
----
-commit 3151f6fdca072a91c2184192dc1d431a4d9248b7
-tree 21f76dd1682e385f7d958d5d5ebb66c3585ed2ca
-parent f2eb0828c4cfaf4d4aed225b55ca65b052109657
-author Patrick McHardy <kaber@trash.net> Tue, 05 Jun 2007 16:33:45 +0200
-committer Patrick McHardy <kaber@trash.net> Tue, 05 Jun 2007 16:33:45 +0200
 
- include/linux/if_vlan.h |    4 ++--
- net/8021q/vlanproc.c    |    4 ++--
- 2 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
-index 81e9bc9..aeddb49 100644
---- a/include/linux/if_vlan.h
-+++ b/include/linux/if_vlan.h
-@@ -99,7 +99,7 @@ static inline void vlan_group_set_device(struct vlan_group *vg, int vlan_id,
- }
- 
- struct vlan_priority_tci_mapping {
--	unsigned long priority;
-+	u32 priority;
- 	unsigned short vlan_qos; /* This should be shifted when first set, so we only do it
- 				  * at provisioning time.
- 				  * ((skb->priority << 13) & 0xE000)
-@@ -112,7 +112,7 @@ struct vlan_dev_info {
- 	/** This will be the mapping that correlates skb->priority to
- 	 * 3 bits of VLAN QOS tags...
- 	 */
--	unsigned long ingress_priority_map[8];
-+	u32 ingress_priority_map[8];
- 	struct vlan_priority_tci_mapping *egress_priority_map[16]; /* hash table */
- 
- 	unsigned short vlan_id;        /*  The VLAN Identifier for this interface. */
-diff --git a/net/8021q/vlanproc.c b/net/8021q/vlanproc.c
-index d216a64..8693b21 100644
---- a/net/8021q/vlanproc.c
-+++ b/net/8021q/vlanproc.c
-@@ -342,7 +342,7 @@ static int vlandev_seq_show(struct seq_file *seq, void *offset)
- 	seq_printf(seq, "Device: %s", dev_info->real_dev->name);
- 	/* now show all PRIORITY mappings relating to this VLAN */
- 	seq_printf(seq,
--		       "\nINGRESS priority mappings: 0:%lu  1:%lu  2:%lu  3:%lu  4:%lu  5:%lu  6:%lu 7:%lu\n",
-+		       "\nINGRESS priority mappings: 0:%u  1:%u  2:%u  3:%u  4:%u  5:%u  6:%u 7:%u\n",
- 		       dev_info->ingress_priority_map[0],
- 		       dev_info->ingress_priority_map[1],
- 		       dev_info->ingress_priority_map[2],
-@@ -357,7 +357,7 @@ static int vlandev_seq_show(struct seq_file *seq, void *offset)
- 		const struct vlan_priority_tci_mapping *mp
- 			= dev_info->egress_priority_map[i];
- 		while (mp) {
--			seq_printf(seq, "%lu:%hu ",
-+			seq_printf(seq, "%u:%hu ",
- 				   mp->priority, ((mp->vlan_qos >> 13) & 0x7));
- 			mp = mp->next;
- 		}
+Networking
+
+Subject    : list_add corruption. prev->next should be next (f7d28794),=
+ but was f0df8ed4 (prev=3Df0df8ed4) Kernel Bug at lib/list_debug.c:33
+References : http://bugzilla.kernel.org/show_bug.cgi?id=3D8561
+Submitter  : Paulo Pereira <pfmp.404@gmail.com>
+Handled-By : Alan Stern <stern@rowland.harvard.edu>
+Status     : problem is being debugged
+
+Subject    : no irda0 interface (2.6.21 was OK), smsc does not find chi=
+p
+References : http://lkml.org/lkml/2007/6/3/16
+Submitter  : Andrey Borzenkov <arvidjaar@mail.ru>
+Handled-By : Samuel Ortiz <samuel@sortiz.org>
+             Bjorn Helgaas <bjorn.helgaas@hp.com>
+Status     : problem is being debugged
+
+Subject    : b44: regression in 2.6.22
+References : http://lkml.org/lkml/2007/5/27/108
+Submitter  : Maximilian Engelhardt <maxi@daemonizer.de>
+Handled-By : Gary Zambrano <zambrano@broadcom.com>
+             Michael Buesch <mb@bu3sch.de>
+             Thomas Gleixner <tglx@linutronix.de>
+Status     : problem is being debugged
+
+
+
+PCMCIA
+
+Subject    : libata and legacy ide pcmcia failure
+References : http://lkml.org/lkml/2007/5/17/305
+Submitter  : Robert de Rooy <robert.de.rooy@gmail.com>
+Status     : Unknown
+
+
+
+Regards,
+Michal
+
+--
+"Najbardziej brakowa=B3o mi twojego milczenia."
+-- Andrzej Sapkowski "Co=B6 wi=EAcej"
+
