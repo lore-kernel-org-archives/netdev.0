@@ -1,55 +1,185 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [RFC RTNETLINK 00/09]: Netlink link creation API
-Date: Wed, 06 Jun 2007 18:25:05 +0200
-Message-ID: <4666DFE1.4040200@trash.net>
-References: <20070605141250.15650.47178.sendpatchset@localhost.localdomain>	<m1tztlvrsp.fsf@ebiederm.dsl.xmission.com>	<46669FA0.3030405@trash.net>	<m1d509umtp.fsf@ebiederm.dsl.xmission.com>	<4666D426.2070606@trash.net> <m14plluklr.fsf@ebiederm.dsl.xmission.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH] Virtual ethernet tunnel
+Date: Wed, 6 Jun 2007 09:17:17 -0700
+Message-ID: <20070606091717.4eb0cfdf@freepuppy>
+References: <4666CEAA.8010903@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, socketcan@hartkopp.net, hadi@cyberus.ca,
-	xemul@sw.ru, tgraf@suug.ch
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: Patrick McHardy <kaber@trash.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Linux Containers <containers@lists.osdl.org>,
+	Kirill Korotaev <dev@openvz.org>
+To: Pavel Emelianov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:57380 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751648AbXFFQZf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jun 2007 12:25:35 -0400
-In-Reply-To: <m14plluklr.fsf@ebiederm.dsl.xmission.com>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:48361 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750843AbXFFQ3N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jun 2007 12:29:13 -0400
+In-Reply-To: <4666CEAA.8010903@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Eric W. Biederman wrote:
-> Patrick McHardy <kaber@trash.net> writes:
+On Wed, 06 Jun 2007 19:11:38 +0400
+Pavel Emelianov <xemul@openvz.org> wrote:
+
+> Veth stands for Virtual ETHernet. It is a simple tunnel driver
+> that works at the link layer and looks like a pair of ethernet
+> devices interconnected with each other.
 > 
+> Mainly it allows to communicate between network namespaces but
+> it can be used as is as well.
 > 
->>>I still think adding a IFLA_PARTNER or a custom attribute is cleaner
->>>in this case.  Slight semantic mismatches are the worst design bugs
->>>to correct.
->>
->>
->>Indeed, IFLA_PARTNER sounds like a better idea. I just suggested to
->>Pavel to create only a single device per newlink operation and binding
->>them later, what do you think about that?
+> Eric recently sent a similar driver called etun. This
+> implementation uses another interface - the RTM_NRELINK
+> message introduced by Patric. The patch fits today netdev
+> tree with Patrick's patches.
 > 
+> The newlink callback is organized that way to make it easy
+> to create the peer device in the separate namespace when we
+> have them in kernel.
 > 
-> I don't think it solves much because we still need a way to report the
-> partner device.
-
-I was thinking of something like this:
-
-ip link add veth0 type veth
-ip link add veth1 partner veth0 type veth
-
-ip would resolve veth0 to an ifindex and set IFLA_PARTNER. But Alexey
-just raised a few good points, so this might not work.
-
-> On the actual using side I think it makes the core of the driver much
-> more difficult to get right.  
+> The patch for an ip utility is also provided.
 > 
-> Basically if we can't count on having a partner device we have to
-> add NULL pointer checks and locking to the packet dispatch which
-> is otherwise unnecessary.
+> Eric, since ethtool interface was from your patch, I add
+> your Signed-off-by line.
+> 
+> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+> Signed-off-by: Pavel Emelianov <xemul@openvz.org>
+> 
+> ---
+> 
+> diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+> index 7d57f4a..7e144be 100644
+> --- a/drivers/net/Kconfig
+> +++ b/drivers/net/Kconfig
+> @@ -119,6 +119,12 @@ config TUN
+>  
+>  	  If you don't know what to use this for, you don't need it.
+>  
+> +config VETH
+> +	tristate "Virtual ethernet device"
+> +	---help---
+> +	  The device is an ethernet tunnel. Devices are created in pairs. When
+> +	  one end receives the packet it appears on its pair and vice versa.
+> +
+>  config NET_SB1000
+>  	tristate "General Instruments Surfboard 1000"
+>  	depends on PNP
+> diff --git a/drivers/net/Makefile b/drivers/net/Makefile
+> index a77affa..4764119 100644
+> --- a/drivers/net/Makefile
+> +++ b/drivers/net/Makefile
+> @@ -185,6 +185,7 @@ obj-$(CONFIG_MACSONIC) += macsonic.o
+>  obj-$(CONFIG_MACMACE) += macmace.o
+>  obj-$(CONFIG_MAC89x0) += mac89x0.o
+>  obj-$(CONFIG_TUN) += tun.o
+> +obj-$(CONFIG_VETH) += veth.o
+>  obj-$(CONFIG_NET_NETX) += netx-eth.o
+>  obj-$(CONFIG_DL2K) += dl2k.o
+>  obj-$(CONFIG_R8169) += r8169.o
+> diff --git a/drivers/net/veth.c b/drivers/net/veth.c
+> new file mode 100644
+> index 0000000..6746c91
+> --- /dev/null
+> +++ b/drivers/net/veth.c
+> @@ -0,0 +1,391 @@
+> +/*
+> + *  drivers/net/veth.c
+> + *
+> + *  Copyright (C) 2007 OpenVZ http://openvz.org, SWsoft Inc
+> + *
+> + */
+> +
+> +#include <linux/list.h>
+> +#include <linux/netdevice.h>
+> +#include <linux/ethtool.h>
+> +#include <linux/etherdevice.h>
+> +
+> +#include <net/dst.h>
+> +#include <net/xfrm.h>
+> +#include <net/veth.h>
+> +
+> +#define DRV_NAME	"veth"
+> +#define DRV_VERSION	"1.0"
+> +
+> +struct veth_priv {
+> +	struct net_device *peer;
+> +	struct net_device *dev;
+> +	struct list_head list;
+> +	struct net_device_stats stats;
+> +	unsigned ip_summed;
+> +};
+> +
+> +static LIST_HEAD(veth_list);
+> +
+> +/*
+> + * ethtool interface
+> + */
+> +
+> +static struct {
+> +	const char string[ETH_GSTRING_LEN];
+> +} ethtool_stats_keys[] = {
+> +	{ "peer_ifindex" },
+> +};
+
+Seems like a good usage of sysfs attributes, rather than ethtool.
+
+Then you can get rid of all the useless ethtool for what is
+basically a virtual device.
+
+> +/*
+> + * xmit
+> + */
+> +
+> +static int veth_xmit(struct sk_buff *skb, struct net_device *dev)
+> +{
+> +	struct net_device *rcv = NULL;
+> +	struct veth_priv *priv, *rcv_priv;
+> +	int length;
+> +
+> +	skb_orphan(skb);
+> +
+> +	priv = netdev_priv(dev);
+> +	rcv = priv->peer;
+> +	rcv_priv = netdev_priv(rcv);
+> +
+> +	if (!(rcv->flags & IFF_UP))
+> +		goto outf;
+> +
+> +	skb->dev = rcv;
+> +	skb->pkt_type = PACKET_HOST;
+> +	skb->protocol = eth_type_trans(skb, rcv);
+> +	if (dev->features & NETIF_F_NO_CSUM)
+> +		skb->ip_summed = rcv_priv->ip_summed;
+> +
+> +	dst_release(skb->dst);
+> +	skb->dst = NULL;
+> +
+> +	secpath_reset(skb);
+> +	nf_reset(skb);
+> +
+> +	length = skb->len;
+> +
+> +	priv->stats.tx_bytes += length;
+> +	priv->stats.tx_packets++;
+> +
+> +	rcv_priv->stats.rx_bytes += length;
+> +	rcv_priv->stats.rx_packets++;
+
+Per-cpu stats? This will cacheline thrash.
+
+> +	netif_rx(skb);
+> +	return 0;
+> +
+> +outf:
+> +	kfree_skb(skb);
+> +	priv->stats.tx_dropped++;
+> +	return 0;
+> +}
 
 
-All you'd need to do is keep the queue stopped until the device
-is bound. No changes to rx or tx path neccessary.
+
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
