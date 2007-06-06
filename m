@@ -1,67 +1,66 @@
-From: Anton <Anton.Uzunov@dsto.defence.gov.au>
-Subject: sending IPv6 packets via kern_sendmsg
-Date: Wed, 06 Jun 2007 13:53:55 +0930
-Message-ID: <466636DB.8060107@dsto.defence.gov.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+From: Miklos Szeredi <miklos@szeredi.hu>
+Subject: Re: [PATCH] fix race in AF_UNIX
+Date: Wed, 06 Jun 2007 07:26:52 +0200
+Message-ID: <E1Hvo2m-00038P-00@dorka.pomaz.szeredi.hu>
+References: <E1HubUt-0004Hb-00@dorka.pomaz.szeredi.hu>
+	<E1Hv980-0006gQ-00@dorka.pomaz.szeredi.hu>
+	<20070605.000247.18308209.davem@davemloft.net> <20070605.173120.59467114.davem@davemloft.net>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from digger1.defence.gov.au ([203.5.217.4]:35871 "EHLO
-	digger1.defence.gov.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751908AbXFFEYE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jun 2007 00:24:04 -0400
-Received: from ednmsw510.dsto.defence.gov.au (ednmsw510.dsto.defence.gov.au [131.185.68.11])
-	by digger1.defence.gov.au (8.13.8/8.13.8) with ESMTP id l564E95m008066
-	for <netdev@vger.kernel.org>; Wed, 6 Jun 2007 13:44:09 +0930 (CST)
-Received: from ednex510.dsto.defence.gov.au (ednex510.dsto.defence.gov.au) by
-    ednmsw510.dsto.defence.gov.au (Clearswift SMTPRS 5.2.9) with ESMTP id
-    <T800db8e95683b9440bb8c@ednmsw510.dsto.defence.gov.au> for
-    <netdev@vger.kernel.org>; Wed, 6 Jun 2007 13:53:56 +0930
+Received: from mail-gw3.sa.ew.hu ([212.108.200.82]:55388 "EHLO
+	mail-gw3.sa.ew.hu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757646AbXFFF22 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jun 2007 01:28:28 -0400
+In-reply-to: <20070605.173120.59467114.davem@davemloft.net> (message from
+	David Miller on Tue, 05 Jun 2007 17:31:20 -0700 (PDT))
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+> > From: Miklos Szeredi <miklos@szeredi.hu>
+> > Date: Mon, 04 Jun 2007 11:45:32 +0200
+> > 
+> > > > A recv() on an AF_UNIX, SOCK_STREAM socket can race with a
+> > > > send()+close() on the peer, causing recv() to return zero, even though
+> > > > the sent data should be received.
+> > > > 
+> > > > This happens if the send() and the close() is performed between
+> > > > skb_dequeue() and checking sk->sk_shutdown in unix_stream_recvmsg():
+> > > > 
+> > > > process A  skb_dequeue() returns NULL, there's no data in the socket queue
+> > > > process B  new data is inserted onto the queue by unix_stream_sendmsg()
+> > > > process B  sk->sk_shutdown is set to SHUTDOWN_MASK by unix_release_sock()
+> > > > process A  sk->sk_shutdown is checked, unix_release_sock() returns zero
+> > > 
+> > > This is only part of the story.  It turns out, there are other races
+> > > involving the garbage collector, that can throw away perfectly good
+> > > packets with AF_UNIX sockets in them.
+> > > 
+> > > The problems arise when a socket goes from installed to in-flight or
+> > > vica versa during garbage collection.  Since gc is done with a
+> > > spinlock held, this only shows up on SMP.
+> > > 
+> > > The following patch fixes it for me, but it's possibly the wrong
+> > > approach.
+> > > 
+> > > Signed-off-by: Miklos Szeredi <mszeredi@suse.cz>
+> 
+> Concerning this specific patch I think we need to rethink it
+> a bit.
+> 
+> Holding a global mutex over recvmsg() calls under AF_UNIX is pretty
+> much a non-starter, this will kill performance for multi-threaded
+> apps.
 
-Following on from a previous (now lost :-)) posting, I have been trying 
-to send out IPv6 packets from a kernel module using the kern_sendmsg() 
-function. Since in theory I need this function to be started in 
-interrupt context (actually, softirq context), but since this is 
-impossible because kern_sendmsg() needs to sleep, I have created a work 
-queue which calls the kern_sendmsg() function separately. The work queue 
-is scheduled from the softirq context (actually, at the moment this 
-happens from a Netfilter hook). The work queue function creates a msghdr 
-structure, fills in a sin6_addr structure, calls sock_create_kern() and 
-then uses this socket to send an IPv6 packet, which consists of a header 
-(struct ipv6hdr *iphdr) and some data following on from this. The above 
-packet is placed in the msghdr structure by setting (after the 
-appropriate initializations):
-msg.msg_iov->iov_base = (char *) ip6hdr;
-msg.msg_iov->iov_len = sizeof( struct ipv6hdr + ntohs( 
-ip6hdr->payload_len ) );
-msg.msg_iovlen = 1;
-msg.msg_name = &sin6addr;
-msg.msg_namelen = sizeof( struct sin6_addr );
-However, when trying to send this using kern_sendmsg() (or even 
-sock_sendmsg()) to perform the send operation, I get an error  (-22 - 
-EINVAL), which, according to the user-space sendmsg(), corresponds to:
-"The sum of the iov_len values overflows an ssize_t. "
-Certainly this is not the case, since the packet in question is an 
-ICMPv6 ping packet whose header size and data would rarely exceed 100 
-bytes.
-The test is being run on kernel 2.6.18.
- From what I have read on the internet, in books and in a previous 
-suggestion from the netdev mailing-list, the use of kern_sendmsg() seems 
-to be the appropriate way of sending packets from a kernel module. Am I 
-doing something incorrectly above, or should I be using some other 
-function instead of kern_sendmsg() (or sock_sendmsg())?
+That's an rwsem held for read.  It's held for write in unix_gc() only
+for a short duration, and unix_gc() should only rarely be called.  So
+I don't think there's any performance problem here.
 
-I would appreciate any ideas.
+> 
+> One possible solution is for the garbage collection code to hold the
+> u->readlock while processing a socket, but be careful about deadlocks.
 
-Regards,
-Anton
+That would have exactly the same effect.  Only the code would be more
+complicated.
 
-
-IMPORTANT: This email remains the property of the Australian Defence Organisation and is subject to the jurisdiction of section 70 of the CRIMES ACT 1914.  If you have received this email in error, you are requested to contact the sender and delete the email.
-
-
+Miklos
