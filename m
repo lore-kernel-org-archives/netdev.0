@@ -1,81 +1,57 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH] NET: Multiqueue network device support.
-Date: Wed, 06 Jun 2007 15:35:30 -0700 (PDT)
-Message-ID: <20070606.153530.48530367.davem@davemloft.net>
-References: <1181082517.4062.31.camel@localhost>
-	<4666CEB7.6030804@trash.net>
-	<1181168020.4064.46.camel@localhost>
+Date: Wed, 06 Jun 2007 15:40:41 -0700 (PDT)
+Message-ID: <20070606.154041.08321169.davem@davemloft.net>
+References: <1181168020.4064.46.camel@localhost>
+	<D5C1322C3E673F459512FB59E0DDC32902FC61BF@orsmsx414.amr.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, peter.p.waskiewicz.jr@intel.com,
-	netdev@vger.kernel.org, jeff@garzik.org, auke-jan.h.kok@intel.com
-To: hadi@cyberus.ca
+Cc: hadi@cyberus.ca, kaber@trash.net, netdev@vger.kernel.org,
+	jeff@garzik.org, auke-jan.h.kok@intel.com
+To: peter.p.waskiewicz.jr@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47402
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54475
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S936487AbXFFWfP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jun 2007 18:35:15 -0400
-In-Reply-To: <1181168020.4064.46.camel@localhost>
+	by vger.kernel.org with ESMTP id S1764852AbXFFWk0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jun 2007 18:40:26 -0400
+In-Reply-To: <D5C1322C3E673F459512FB59E0DDC32902FC61BF@orsmsx414.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: jamal <hadi@cyberus.ca>
-Date: Wed, 06 Jun 2007 18:13:40 -0400
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Date: Wed, 6 Jun 2007 15:30:39 -0700
 
-> From the above you can see they are simple. I am working on a couple of
-> things (batching and recovering pktgen ipsec patches)- I will work on
-> those patches soon after.
+> > [Which of course leads to the complexity (and not optimizing 
+> > for the common - which is single ring NICs)].
 > 
-> Iam actually not against the subqueue control - i know Peter needs it
-> for certain hardware; i am just against the mucking around of the common
-> case (single ring NIC) just to get that working. 
+> The common for 100 Mbit and older 1Gbit is single ring NICs.  Newer
+> PCI-X and PCIe NICs from 1Gbit to 10Gbit support multiple rings in the
+> hardware, and it's all headed in that direction, so it's becoming the
+> common case.
 
-There are other reasons to do interesting things in this area,
-purely for parallelization reasons.
+I totally agree.  No modern commodity 1gb and faster card is going
+to be without many queues on both TX and RX.
 
-For example, consider a chip that has N totally independant TX packet
-queues going out to the same ethernet port.  You can lock and transmit
-on them independantly, and the chip internally arbitrates using DRR or
-whatever to blast the queues out to the physical port in some fair'ish
-manner.
+> > Iam actually not against the subqueue control - i know Peter 
+> > needs it for certain hardware; i am just against the mucking 
+> > around of the common case (single ring NIC) just to get that working. 
+> 
+> Single-ring NICs see no difference here.  Please explain why using my
+> patches with pfifo_fast, sch_prio, or any other existing qdisc will
+> change the behavior for single-ring NICs?
 
-In that case you'd want to be able to do something like:
+I agree with the implication here, there is no penalty for existing
+devices.
 
-	struct mydev_tx_queue *q = &mydev->tx_q[smp_processor_id() % N];
+There are two core issues in my mind:
 
-or similar in the ->hard_start_xmit() driver.  But something generic
-to support this kind of parallelization would be great (and necessary)
-because the TX lock is unary per netdev and destroys all of the
-parallelization possible with something like the above.
+1) multi-queue on both RX and TX is going to be very pervasive very
+   soon, everyone is putting this into silicon.
 
-With the above for transmit, and having N "struct napi_struct"
-instances for MSI-X directed RX queues, we'll have no problem keeping
-a 10gbit (or even faster) port completely full with lots of cpu to
-spare on multi-core boxes.
+   The parallelization gain potential is enormous, and we have to
+   design for this.
 
-However, I have to disagree with your analysis of the multi-qdisc
-situation, and I tend to agree with Patrick.
-
-If you only have one qdisc to indicate status on, when is the queue
-full?  That is the core issue.  Indicating full status when any of
-the hardware queues are full is broken, because we should never
-block out queuing of higher priority packets just because the
-low priority queue can't take any more frames, _and_ vice versa.
-
-I really want to believe your proofs but they are something out of
-a fairy tale :-)
-
-> The only way PHL will ever shutdown the path to the hardware is when
-> there are sufficient PHL packets.
-> Corrollary,
-> The only way PSL will ever shutdown the path to the hardware is when
-> there are _NO_ PSH packets.
-
-The problem with this line of thinking is that it ignores the fact
-that it is bad to not queue to the device when there is space
-available, _even_ for lower priority packets.
-
-The more you keep all available TX queues full, the less likely
-delays in CPU processing will lead to a device with nothing to
-do.
+2) Queues are meant to be filled as much as possible, you can't do
+   that by having only one qdisc attached to the device indicating
+   unary full status, you simply can't.
