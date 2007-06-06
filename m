@@ -1,104 +1,107 @@
-From: "Ron Mercer" <ron.mercer@qlogic.com>
-Subject: RE: [PATCH 2/3] qla3xxx: cleanup checksum offload code
-Date: Wed, 6 Jun 2007 16:23:19 -0700
-Message-ID: <0BB3E5E7462EEA4295BC02D49691DC07BC8FE8@AVEXCH1.qlogic.org>
-References: <20070530212512.178720251@linux-foundation.org>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH] NET: Multiqueue network device support.
+Date: Wed, 06 Jun 2007 19:32:46 -0400
+Message-ID: <1181172766.4064.83.camel@localhost>
+References: <1181082517.4062.31.camel@localhost>
+	 <4666CEB7.6030804@trash.net> <1181168020.4064.46.camel@localhost>
+	 <20070606.153530.48530367.davem@davemloft.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
-To: "Jeff Garzik" <jgarzik@pobox.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: kaber@trash.net, peter.p.waskiewicz.jr@intel.com,
+	netdev@vger.kernel.org, jeff@garzik.org, auke-jan.h.kok@intel.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from avexch1.qlogic.com ([198.70.193.115]:42122 "EHLO
-	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755343AbXFFXYN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jun 2007 19:24:13 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20070530212512.178720251@linux-foundation.org>
+Received: from py-out-1112.google.com ([64.233.166.181]:35824 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751472AbXFFXct (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jun 2007 19:32:49 -0400
+Received: by py-out-1112.google.com with SMTP id a29so561193pyi
+        for <netdev@vger.kernel.org>; Wed, 06 Jun 2007 16:32:49 -0700 (PDT)
+In-Reply-To: <20070606.153530.48530367.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff,
-You've already appled patch 1/3 in Stephen's series.  I tested this one
-(2/3) and it looks good.  I can resubmit this if you want.
-Regards, Ron Mercer
+On Wed, 2007-06-06 at 15:35 -0700, David Miller wrote:
+> From: jamal <hadi@cyberus.ca>
+> Date: Wed, 06 Jun 2007 18:13:40 -0400
 
-> -----Original Message-----
-> From: Stephen Hemminger [mailto:shemminger@linux-foundation.org] 
-> Sent: Wednesday, May 30, 2007 2:23 PM
-> To: Jeff Garzik; Linux Driver
-> Cc: netdev@vger.kernel.org
-> Subject: [PATCH 2/3] qla3xxx: cleanup checksum offload code
+> There are other reasons to do interesting things in this area,
+> purely for parallelization reasons.
 > 
-> The code for checksum is more complex than needed when 
-> dealing with VLAN's;
-> the higher layers already pass down the location of the IP header.
+> For example, consider a chip that has N totally independant TX packet
+> queues going out to the same ethernet port.  You can lock and transmit
+> on them independantly, and the chip internally arbitrates using DRR or
+> whatever to blast the queues out to the physical port in some fair'ish
+> manner.
 > 
-> Compile tested only, no hardware available.
+> In that case you'd want to be able to do something like:
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+> 	struct mydev_tx_queue *q = &mydev->tx_q[smp_processor_id() % N];
 > 
-> ---
->  drivers/net/qla3xxx.c |   37 +++++++++++--------------------------
->  1 file changed, 11 insertions(+), 26 deletions(-)
+> or similar in the ->hard_start_xmit() driver.  But something generic
+> to support this kind of parallelization would be great (and necessary)
+> because the TX lock is unary per netdev and destroys all of the
+> parallelization possible with something like the above.
 > 
-> --- a/drivers/net/qla3xxx.c	2007-05-30 14:09:25.000000000 -0700
-> +++ b/drivers/net/qla3xxx.c	2007-05-30 14:09:31.000000000 -0700
-> @@ -2433,37 +2433,22 @@ static int ql_get_seg_count(struct ql3_a
->  	return -1;
->  }
->  
-> -static void ql_hw_csum_setup(struct sk_buff *skb,
-> +static void ql_hw_csum_setup(const struct sk_buff *skb,
->  			     struct ob_mac_iocb_req *mac_iocb_ptr)
->  {
-> -	struct ethhdr *eth;
-> -	struct iphdr *ip = NULL;
-> -	u8 offset = ETH_HLEN;
-> -
-> -	eth = (struct ethhdr *)(skb->data);
-> -
-> -	if (eth->h_proto == __constant_htons(ETH_P_IP)) {
-> -		ip = (struct iphdr *)&skb->data[ETH_HLEN];
-> -	} else if (eth->h_proto == htons(ETH_P_8021Q) &&
-> -		   ((struct vlan_ethhdr *)skb->data)->
-> -		   h_vlan_encapsulated_proto == 
-> __constant_htons(ETH_P_IP)) {
-> -		ip = (struct iphdr *)&skb->data[VLAN_ETH_HLEN];
-> -		offset = VLAN_ETH_HLEN;
-> -	}
-> -
-> -	if (ip) {
-> -		if (ip->protocol == IPPROTO_TCP) {
-> -			mac_iocb_ptr->flags1 |= 
-> OB_3032MAC_IOCB_REQ_TC | 
-> +	const struct iphdr *ip = ip_hdr(skb);
-> +
-> +	mac_iocb_ptr->ip_hdr_off = skb_network_offset(skb);
-> +	mac_iocb_ptr->ip_hdr_len = ip->ihl;
-> +
-> +	if (ip->protocol == IPPROTO_TCP) {
-> +		mac_iocb_ptr->flags1 |= OB_3032MAC_IOCB_REQ_TC |
->  			OB_3032MAC_IOCB_REQ_IC;
-> -			mac_iocb_ptr->ip_hdr_off = offset;
-> -			mac_iocb_ptr->ip_hdr_len = ip->ihl;
-> -		} else if (ip->protocol == IPPROTO_UDP) {
-> -			mac_iocb_ptr->flags1 |= 
-> OB_3032MAC_IOCB_REQ_UC | 
-> +	} else {
-> +		mac_iocb_ptr->flags1 |= OB_3032MAC_IOCB_REQ_UC |
->  			OB_3032MAC_IOCB_REQ_IC;
-> -			mac_iocb_ptr->ip_hdr_off = offset;
-> -			mac_iocb_ptr->ip_hdr_len = ip->ihl;
-> -		}
->  	}
-> +
->  }
->  
->  /*
+
+I cant think of any egress scheduler that will benefit from that
+approach. The scheduler is the decider of which packet goes out next
+on the wire.
+
+> With the above for transmit, and having N "struct napi_struct"
+> instances for MSI-X directed RX queues, we'll have no problem keeping
+> a 10gbit (or even faster) port completely full with lots of cpu to
+> spare on multi-core boxes.
 > 
-> -- 
-> Stephen Hemminger <shemminger@linux-foundation.org>
+
+RX queues - yes, I can see;  TX queues, it doesnt make sense to put
+different rings on different CPUs.
+
+> However, I have to disagree with your analysis of the multi-qdisc
+> situation, and I tend to agree with Patrick.
+> If you only have one qdisc to indicate status on, when is the queue
+> full?  That is the core issue. 
+
+I just described why it is not an issue. If you make the assumption it
+is an issue, then it becomes one. 
+
+
+>  Indicating full status when any of
+> the hardware queues are full is broken, because we should never
+> block out queuing of higher priority packets just because the
+> low priority queue can't take any more frames, _and_ vice versa.
+
+Dave, you didnt read anything i said ;-> The situation you describe is
+impossible. low prio will never block high prio.
+
+> I really want to believe your proofs but they are something out of
+> a fairy tale :-)
+
+They are a lot real than it seems. Please read again what i typed in ;->
+And i will produce patches since this seems to be complex to explain.
+
+> > The only way PHL will ever shutdown the path to the hardware is when
+> > there are sufficient PHL packets.
+> > Corrollary,
+> > The only way PSL will ever shutdown the path to the hardware is when
+> > there are _NO_ PSH packets.
 > 
-> 
+> The problem with this line of thinking is that it ignores the fact
+> that it is bad to not queue to the device when there is space
+> available, _even_ for lower priority packets.
+
+So use a different scheduler. Dont use strict prio. Strict prio will
+guarantee starvation of low prio packets as long as there are high prio
+packets. Thats the intent.
+
+> The more you keep all available TX queues full, the less likely
+> delays in CPU processing will lead to a device with nothing to
+> do.
+
+It is design intent - thats how the specific scheduler works. 
+
+cheers,
+jamal
+
