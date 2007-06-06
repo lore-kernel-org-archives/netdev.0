@@ -1,46 +1,49 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [RFC RTNETLINK 04/09]: Link creation API
-Date: Wed, 06 Jun 2007 13:42:25 +0200
-Message-ID: <46669DA1.9010706@trash.net>
-References: <20070605141250.15650.47178.sendpatchset@localhost.localdomain>	<20070605141256.15650.37514.sendpatchset@localhost.localdomain>	<20070605150303.5249e0c0@freepuppy>	<4665EEF7.3000306@trash.net> <20070605161618.2328c6c4@freepuppy>
+Subject: Re: [RFC RTNETLINK 00/09]: Netlink link creation API
+Date: Wed, 06 Jun 2007 13:50:56 +0200
+Message-ID: <46669FA0.3030405@trash.net>
+References: <20070605141250.15650.47178.sendpatchset@localhost.localdomain> <m1tztlvrsp.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, socketcan@hartkopp.net, hadi@cyberus.ca,
-	xemul@sw.ru, ebiederm@xmission.com, tgraf@suug.ch
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+	xemul@sw.ru, tgraf@suug.ch
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:51415 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:51578 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758569AbXFFLmt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jun 2007 07:42:49 -0400
-In-Reply-To: <20070605161618.2328c6c4@freepuppy>
+	with ESMTP id S1762323AbXFFLvU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jun 2007 07:51:20 -0400
+In-Reply-To: <m1tztlvrsp.fsf@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> On Wed, 06 Jun 2007 01:17:11 +0200
-> Patrick McHardy <kaber@trash.net> wrote:
+Eric W. Biederman wrote:
+> Reading through the patches they look usable to me.
 > 
->>>If you want I'll extend existing bridge netlink to use these.
->>
->>
->>Are you talking about brige-port information or bridge device
->>configuration? So far the API is not suitable for anything that
->>currently uses IFLA_PROTINFO because the sender is not the driver
->>which created the device and doesn't use AF_UNSPEC. For bridge
->>device configuration it would certainly be nice to have, but I'm
->>not sure yet how to handle enslave operations. So far my favourite
->>idea is to add enslave/release operations to rtnl_link_ops and call
->>them when IFLA_MASTER is set (so the netlink message would look like
->>this: ifindex: eth0 master: br0 nlmsg_type: RTM_NETLINK). But I
->>haven't really thought this through yet.
-> 
-> 
-> Was thinking AF_BRIDGE (we have it already so use it), and both
-> add/remove bridge, and enslave/unslave device.
+> Having to patch iproute to create the more interesting network
+> devices sucks, but that problem seems fundamental.  We might
+> be able to avoid it if we allowed fields to be reused between
+> different types of devices but that makes the error checking
+> trickier, and we aren't likely to have that many types of
+> devices so there likely isn't much value in generalizing.
 
 
-I think we should use two seperate families for bridge devices
-and bridge ports. I'll think about the enslave operation some
-more and try to add it next week.
+You don't really need to patch it, installing a new iplink_XXX.so
+file is enough. Generalizing driver specific options more than
+what we currently have doesn't look very promising. I think your
+driver was simple enough to get along with the generic device
+attributes though (IFLA_LINK or IFLA_MASTER).
+
+> I do think we should specify the IFLA_KIND (was: IFLA_NAME) values in
+> a header file.  So it is easy to get a list of all of the different
+> kinds and so we don't conflict.
+
+
+I don't think conflicts are going to be a problem (it would be
+nice if modpost would warn about duplicate aliases though).
+How is listing IFLA_KIND types in a header file going to help
+get a list? Presuming the user knows what kind of device he
+wants to set up and is not just looking for things to play
+around with I also don't see any real value in this.
+
