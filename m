@@ -1,57 +1,67 @@
-From: "Ian McDonald" <ian.mcdonald@jandi.co.nz>
-Subject: Re: [PATCH] tcp_probe: __attribute__ string location
-Date: Wed, 6 Jun 2007 15:15:30 +1200
-Message-ID: <5640c7e00706052015tda24904mea8732a79236d4b6@mail.gmail.com>
-References: <20070605180141.e4692374.randy.dunlap@oracle.com>
-	 <20070605.190518.75190350.davem@davemloft.net>
+From: Anton <Anton.Uzunov@dsto.defence.gov.au>
+Subject: sending IPv6 packets via kern_sendmsg
+Date: Wed, 06 Jun 2007 13:53:55 +0930
+Message-ID: <466636DB.8060107@dsto.defence.gov.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: randy.dunlap@oracle.com, netdev@vger.kernel.org,
-	"Arnaldo Carvalho de Melo" <acme@ghostprotocols.net>,
-	"Patrick Andrieux" <patrick.andrieux@gmail.com>
-To: "David Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nz-out-0506.google.com ([64.233.162.238]:65371 "EHLO
-	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751161AbXFFDPb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2007 23:15:31 -0400
-Received: by nz-out-0506.google.com with SMTP id n1so11168nzf
-        for <netdev@vger.kernel.org>; Tue, 05 Jun 2007 20:15:30 -0700 (PDT)
-In-Reply-To: <20070605.190518.75190350.davem@davemloft.net>
-Content-Disposition: inline
+Received: from digger1.defence.gov.au ([203.5.217.4]:35871 "EHLO
+	digger1.defence.gov.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751908AbXFFEYE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jun 2007 00:24:04 -0400
+Received: from ednmsw510.dsto.defence.gov.au (ednmsw510.dsto.defence.gov.au [131.185.68.11])
+	by digger1.defence.gov.au (8.13.8/8.13.8) with ESMTP id l564E95m008066
+	for <netdev@vger.kernel.org>; Wed, 6 Jun 2007 13:44:09 +0930 (CST)
+Received: from ednex510.dsto.defence.gov.au (ednex510.dsto.defence.gov.au) by
+    ednmsw510.dsto.defence.gov.au (Clearswift SMTPRS 5.2.9) with ESMTP id
+    <T800db8e95683b9440bb8c@ednmsw510.dsto.defence.gov.au> for
+    <netdev@vger.kernel.org>; Wed, 6 Jun 2007 13:53:56 +0930
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 6/6/07, David Miller <davem@davemloft.net> wrote:
-> From: Randy Dunlap <randy.dunlap@oracle.com>
-> Date: Tue, 5 Jun 2007 18:01:41 -0700
->
-> > From: Randy Dunlap <randy.dunlap@oracle.com>
-> >
-> > gcc doesn't like the location of the __attribute__ string here:
-> > net/ipv4/tcp_probe.c:83: warning: empty declaration
-> >
-> > so move it to before the function and all is well.
-> >
-> > Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
->
-> Yeah I noticed this one too and a similar fix is in
-> my net-2.6 GIT tree, but thanks anyways Randy.
+Hi,
 
-I'm wondering if either of you can actually load tcp_probe at present.
-We had reports on dccp mailing list that dccp_probe and tcp_probe
-can't load at present and produce a back trace. It appears related to
-the jprobe stuff according to Arnaldo.
+Following on from a previous (now lost :-)) posting, I have been trying 
+to send out IPv6 packets from a kernel module using the kern_sendmsg() 
+function. Since in theory I need this function to be started in 
+interrupt context (actually, softirq context), but since this is 
+impossible because kern_sendmsg() needs to sleep, I have created a work 
+queue which calls the kern_sendmsg() function separately. The work queue 
+is scheduled from the softirq context (actually, at the moment this 
+happens from a Netfilter hook). The work queue function creates a msghdr 
+structure, fills in a sin6_addr structure, calls sock_create_kern() and 
+then uses this socket to send an IPv6 packet, which consists of a header 
+(struct ipv6hdr *iphdr) and some data following on from this. The above 
+packet is placed in the msghdr structure by setting (after the 
+appropriate initializations):
+msg.msg_iov->iov_base = (char *) ip6hdr;
+msg.msg_iov->iov_len = sizeof( struct ipv6hdr + ntohs( 
+ip6hdr->payload_len ) );
+msg.msg_iovlen = 1;
+msg.msg_name = &sin6addr;
+msg.msg_namelen = sizeof( struct sin6_addr );
+However, when trying to send this using kern_sendmsg() (or even 
+sock_sendmsg()) to perform the send operation, I get an error  (-22 - 
+EINVAL), which, according to the user-space sendmsg(), corresponds to:
+"The sum of the iov_len values overflows an ssize_t. "
+Certainly this is not the case, since the packet in question is an 
+ICMPv6 ping packet whose header size and data would rarely exceed 100 
+bytes.
+The test is being run on kernel 2.6.18.
+ From what I have read on the internet, in books and in a previous 
+suggestion from the netdev mailing-list, the use of kern_sendmsg() seems 
+to be the appropriate way of sending packets from a kernel module. Am I 
+doing something incorrectly above, or should I be using some other 
+function instead of kern_sendmsg() (or sock_sendmsg())?
 
-If the bug reporter or Arnaldo doesn't follow up on it I'll track it
-down a little more later and post to correct place.
+I would appreciate any ideas.
 
-I'll also copy this change across to DCCP at sometime as well as
-several others that we haven't transferred across as well.
+Regards,
+Anton
 
-Ian
--- 
-Web: http://wand.net.nz/~iam4/
-Blog: http://iansblog.jandi.co.nz
-WAND Network Research Group
+
+IMPORTANT: This email remains the property of the Australian Defence Organisation and is subject to the jurisdiction of section 70 of the CRIMES ACT 1914.  If you have received this email in error, you are requested to contact the sender and delete the email.
+
+
