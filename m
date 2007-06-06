@@ -1,49 +1,55 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [RFC RTNETLINK 00/09]: Netlink link creation API
-Date: Wed, 06 Jun 2007 13:50:56 +0200
-Message-ID: <46669FA0.3030405@trash.net>
-References: <20070605141250.15650.47178.sendpatchset@localhost.localdomain> <m1tztlvrsp.fsf@ebiederm.dsl.xmission.com>
+From: chris schlund <chrisschlund@gmx.de>
+Subject: Re: Socket hangs in read() when putting interface down
+Date: Wed, 06 Jun 2007 15:55:26 +0200
+Message-ID: <4666BCCE.2020806@gmx.de>
+References: <46657D21.3010203@gmx.de> <4665A05F.9080600@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, socketcan@hartkopp.net, hadi@cyberus.ca,
-	xemul@sw.ru, tgraf@suug.ch
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: netdev@vger.kernel.org
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:51578 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762323AbXFFLvU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jun 2007 07:51:20 -0400
-In-Reply-To: <m1tztlvrsp.fsf@ebiederm.dsl.xmission.com>
+Received: from mail.gmx.net ([213.165.64.20]:43722 "HELO mail.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1760654AbXFFNoP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Jun 2007 09:44:15 -0400
+In-Reply-To: <4665A05F.9080600@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Eric W. Biederman wrote:
-> Reading through the patches they look usable to me.
+>> This may be ok on a major interface like eth0 but it is a problem when
+>> using a ppp interface via GSM data or GPRS connection.
+>> Killing the pppd while the socket waits in read() produces the same
+>> behaviour. Also a broken connection looks the same.
+>> It is reproducable on several 2.6 kernel versions including the lastest
+>> stable 2.6.21.
+>>
+>> On my understanding "ifconfig down" should lead into a read() error.
 > 
-> Having to patch iproute to create the more interesting network
-> devices sucks, but that problem seems fundamental.  We might
-> be able to avoid it if we allowed fields to be reused between
-> different types of devices but that makes the error checking
-> trickier, and we aren't likely to have that many types of
-> devices so there likely isn't much value in generalizing.
+> Why?  Can't traffic for the endpoint arrive via some other interface on
+> the system?  I would think that getting out of a blocking read()
+> requires the application to either have a timer running (and so get out
+> of read() with EINTR) or to have keepalives enabled on the TCP
+> connection (I'm assuming TCP for an AF_INET, SOCK_STREAM although I
+> suppose it could be SCTP)
+> 
+> rick jones
+
+Of course, you are right.
+I am so focused to my small embedded world, that I simply have forgotten
+how IP-traffic works in big systems (to clarify my first post: I'm using
+TCP).
+
+Your hint with the self produced signal to get out of read() was very
+helpful for me. Thats what I was missing.
+
+I also learned another think, while reading the list FAQ:
+PEBCAC (=Problem exists between chair and computer)
+Obviously, thats what best described me!
+
+Thank you very much!
+
+Chris Schlund
 
 
-You don't really need to patch it, installing a new iplink_XXX.so
-file is enough. Generalizing driver specific options more than
-what we currently have doesn't look very promising. I think your
-driver was simple enough to get along with the generic device
-attributes though (IFLA_LINK or IFLA_MASTER).
-
-> I do think we should specify the IFLA_KIND (was: IFLA_NAME) values in
-> a header file.  So it is easy to get a list of all of the different
-> kinds and so we don't conflict.
-
-
-I don't think conflicts are going to be a problem (it would be
-nice if modpost would warn about duplicate aliases though).
-How is listing IFLA_KIND types in a header file going to help
-get a list? Presuming the user knows what kind of device he
-wants to set up and is not just looking for things to play
-around with I also don't see any real value in this.
 
