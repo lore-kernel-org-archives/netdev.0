@@ -1,47 +1,47 @@
-From: Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>
-Subject: [PATCH] acenic: SET_NETDEV_DEV is always there these days
-Date: Wed, 6 Jun 2007 16:04:39 +0200 (CEST)
-Message-ID: <Pine.LNX.4.62.0706061601420.25857@pademelon.sonytel.be>
+From: jes@trained-monkey.org (Jes Sorensen)
+Subject: Re: [PATCH] acenic: SET_NETDEV_DEV is always there these days
+Date: Wed, 6 Jun 2007 10:35:38 -0400
+Message-ID: <18022.50746.294140.591576@jaguar.mkp.net>
+References: <Pine.LNX.4.62.0706061601420.25857@pademelon.sonytel.be>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, trivial@kernel.org,
-	Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>
-To: Jes Sorensen <jes@trained-monkey.org>,
-	Jeff Garzik <jgarzik@pobox.com>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
+	trivial@kernel.org
+To: Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vervifontaine.sonytel.be ([80.88.33.193]:33933 "EHLO
-	vervifontaine.sonycom.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751113AbXFFOEm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jun 2007 10:04:42 -0400
+Received: from jaguar.mkp.net ([192.139.46.146]:52871 "EHLO jaguar.mkp.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752877AbXFFPEJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Jun 2007 11:04:09 -0400
+In-Reply-To: <Pine.LNX.4.62.0706061601420.25857@pademelon.sonytel.be>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-acenic: SET_NETDEV_DEV is always there these days
+>>>>> "Geert" == Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com> writes:
 
-Signed-off-by: Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>
+Geert> acenic: SET_NETDEV_DEV is always there these days
 
----
-Disclaimer: not tested at all
+Geert> Signed-off-by: Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>
 
---- a/drivers/net/acenic.c
-+++ b/drivers/net/acenic.c
-@@ -159,10 +159,6 @@ static struct pci_device_id acenic_pci_t
- };
- MODULE_DEVICE_TABLE(pci, acenic_pci_tbl);
+Signed-off-by: Jes Sorensen <jes@sgi.com>
+
+Geert> --- Disclaimer: not tested at all
+
+Geert> --- a/drivers/net/acenic.c +++ b/drivers/net/acenic.c @@ -159,10
+Geert> +159,6 @@ static struct pci_device_id acenic_pci_t };
+Geert> MODULE_DEVICE_TABLE(pci, acenic_pci_tbl);
  
--#ifndef SET_NETDEV_DEV
--#define SET_NETDEV_DEV(net, pdev)	do{} while(0)
--#endif
--
- #define ace_sync_irq(irq)	synchronize_irq(irq)
+Geert> -#ifndef SET_NETDEV_DEV -#define SET_NETDEV_DEV(net, pdev) do{}
+Geert> while(0) -#endif - #define ace_sync_irq(irq) synchronize_irq(irq)
  
- #ifndef offset_in_page
+Geert>  #ifndef offset_in_page
 
-Gr{oetje,eeting}s,
+Geert> Gr{oetje,eeting}s,
 
-						Geert
+Geert> 						Geert
 
---
-Geert Uytterhoeven -- Sony Network and Software Technology Center Europe (NSCE)
-Geert.Uytterhoeven@sonycom.com ------- The Corporate Village, Da Vincilaan 7-D1
-Voice +32-2-7008453 Fax +32-2-7008622 ---------------- B-1935 Zaventem, Belgium
+Geert> -- Geert Uytterhoeven -- Sony Network and Software Technology
+Geert> Center Europe (NSCE) Geert.Uytterhoeven@sonycom.com ------- The
+Geert> Corporate Village, Da Vincilaan 7-D1 Voice +32-2-7008453 Fax
+Geert> +32-2-7008622 ---------------- B-1935 Zaventem, Belgium
