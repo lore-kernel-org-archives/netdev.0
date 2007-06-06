@@ -1,35 +1,48 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [RFC RTNETLINK 00/09]: Netlink link creation API
-Date: Tue, 05 Jun 2007 18:40:38 -0600
-Message-ID: <m1tztlvrsp.fsf@ebiederm.dsl.xmission.com>
-References: <20070605141250.15650.47178.sendpatchset@localhost.localdomain>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: [PATCH] tcp_probe: __attribute__ string location
+Date: Tue, 5 Jun 2007 18:01:41 -0700
+Message-ID: <20070605180141.e4692374.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, socketcan@hartkopp.net, hadi@cyberus.ca,
-	xemul@sw.ru, tgraf@suug.ch
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:39855 "EHLO
-	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934321AbXFFAtS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2007 20:49:18 -0400
-In-Reply-To: <20070605141250.15650.47178.sendpatchset@localhost.localdomain>
-	(Patrick McHardy's message of "Tue, 5 Jun 2007 16:12:51 +0200 (MEST)")
+Received: from rgminet01.oracle.com ([148.87.113.118]:33579 "EHLO
+	rgminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932152AbXFFBBq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2007 21:01:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Randy Dunlap <randy.dunlap@oracle.com>
 
-Reading through the patches they look usable to me.
+gcc doesn't like the location of the __attribute__ string here:
+net/ipv4/tcp_probe.c:83: warning: empty declaration
 
-Having to patch iproute to create the more interesting network
-devices sucks, but that problem seems fundamental.  We might
-be able to avoid it if we allowed fields to be reused between
-different types of devices but that makes the error checking
-trickier, and we aren't likely to have that many types of
-devices so there likely isn't much value in generalizing.
+so move it to before the function and all is well.
 
-I do think we should specify the IFLA_KIND (was: IFLA_NAME) values in
-a header file.  So it is easy to get a list of all of the different
-kinds and so we don't conflict.
+Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+---
+ net/ipv4/tcp_probe.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-Eric
+--- linux-2622-rc4.orig/net/ipv4/tcp_probe.c
++++ linux-2622-rc4/net/ipv4/tcp_probe.c
+@@ -62,6 +62,7 @@ struct {
+  * Print to log with timestamps.
+  * FIXME: causes an extra copy
+  */
++__attribute__ ((format (printf, 1, 2)))
+ static void printl(const char *fmt, ...)
+ {
+ 	va_list args;
+@@ -80,7 +81,7 @@ static void printl(const char *fmt, ...)
+ 
+ 	kfifo_put(tcpw.fifo, tbuf, len);
+ 	wake_up(&tcpw.wait);
+-} __attribute__ ((format (printf, 1, 2)));
++};
+ 
+ 
+ /*
