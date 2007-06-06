@@ -1,103 +1,63 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] NET: Multiqueue network device support.
-Date: Wed, 06 Jun 2007 18:13:40 -0400
-Message-ID: <1181168020.4064.46.camel@localhost>
-References: <D5C1322C3E673F459512FB59E0DDC32902F91748@orsmsx414.amr.corp.intel.com>
-	 <1181082517.4062.31.camel@localhost>  <4666CEB7.6030804@trash.net>
-Reply-To: hadi@cyberus.ca
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: RE: [PATCH] NET: Multiqueue network device support.
+Date: Wed, 6 Jun 2007 15:30:39 -0700
+Message-ID: <D5C1322C3E673F459512FB59E0DDC32902FC61BF@orsmsx414.amr.corp.intel.com>
+References: <1181168020.4064.46.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	davem@davemloft.net, netdev@vger.kernel.org, jeff@garzik.org,
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>, <jeff@garzik.org>,
 	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>
-To: Patrick McHardy <kaber@trash.net>
+To: <hadi@cyberus.ca>, "Patrick McHardy" <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.182]:40909 "EHLO
-	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757135AbXFFWNo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jun 2007 18:13:44 -0400
-Received: by py-out-1112.google.com with SMTP id a29so533494pyi
-        for <netdev@vger.kernel.org>; Wed, 06 Jun 2007 15:13:43 -0700 (PDT)
-In-Reply-To: <4666CEB7.6030804@trash.net>
+Received: from mga01.intel.com ([192.55.52.88]:51695 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S935834AbXFFWal convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jun 2007 18:30:41 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <1181168020.4064.46.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2007-06-06 at 17:11 +0200, Patrick McHardy wrote:
+> [Which of course leads to the complexity (and not optimizing 
+> for the common - which is single ring NICs)].
 
-> I haven't followed the entire discussion, but I still don't see a
-> alternative to touching the qdisc layer - multiple hardware queues
-> need multiple queue states if you want to avoid a busy hardware
-> queue stopping the qdisc entirely 
+The common for 100 Mbit and older 1Gbit is single ring NICs.  Newer
+PCI-X and PCIe NICs from 1Gbit to 10Gbit support multiple rings in the
+hardware, and it's all headed in that direction, so it's becoming the
+common case.
 
-If you start with the above premise then ...
+> Infact for the wired case i see little value (there is some) 
+> in using multiple rings. In the case of wireless (which is 
+> strict prio based) it provides more value.
 
-> and thereby preventing the qdisc
-> to continue feeding packets to other active HW queues. And to make
-> use of the multiple queue states you need multiple queues.
+There is value, hence why NIC manufacturers are building wired parts
+that support multiple rings today.  And wireless may not want strict
+prio in software, and may just want round-robin from the stack.  Either
+way, Yi Zhu has represented the wireless side in this discussion
+agreeing with these per-queue control patches.  Is wireless not a common
+case to be considered?
 
-.... you will logically lead to the above conclusion. 
+> > I would love to see your alternative patches.
+> 
+> >From the above you can see they are simple.
 
-[Which of course leads to the complexity (and not optimizing for the
-common - which is single ring NICs)].
+The description above won't provide what I'm trying to solve and what
+wireless has stated they want.
 
-The problem is the premise is _innacurate_.
-Since you havent followed the discussion, i will try to be brief (which
-is hard).
-If you want verbosity it is in my previous emails:
+> Iam actually not against the subqueue control - i know Peter 
+> needs it for certain hardware; i am just against the mucking 
+> around of the common case (single ring NIC) just to get that working. 
 
-Consider a simple example of strict prio qdisc which is mirror
-configuration of a specific hardware. 
-Then for sake of discussion, assume two prio queues in the qdisc - PSL
-and PSH and two hardware queues/rings in a NIC which does strict prio
-with queues PHL and PHH.
-The mapping is as follows:
-PSL --- maps to --- PHL
-PSH --- maps to --- PHH
+Single-ring NICs see no difference here.  Please explain why using my
+patches with pfifo_fast, sch_prio, or any other existing qdisc will
+change the behavior for single-ring NICs?  If the driver doesn't call
+alloc_etherdev_mq() explicity, or use the new sch_rr qdisc, then the Tx
+path is identical to the kernel today.  What am I mucking around with?
+And these patches are not for specific hardware; rather they're for all
+the NICs today that have multiple rings, and want to control them in the
+OS instead of the driver, which is most of wireless and a handful of
+NICs from Intel and Neterion afaik.
 
-Assume the PxH has a higher prio than PxL.
-Strict prio will always favor H over L.
-
-Two scenarios:
-a) a lot of packets for PSL arriving on the stack.
-They only get sent from PSL -> PHL if and only if there are no
-packets from PSH->PHH.
-b)a lot of packets for PSH arriving from the stack.
-They will always be favored over PSL in sending to the hardware.
-
->From the above:
-The only way PHL will ever shutdown the path to the hardware is when
-there are sufficient PHL packets.
-Corrollary,
-The only way PSL will ever shutdown the path to the hardware is when
-there are _NO_ PSH packets.
-
-So there is no need to do per queue control because the schedule will
-ensure things work out fine as long as what you have the correct qdisc;
-and it is a qdisc that will work just fine with a single ring with zero
-mods.
-What you need is a driver API to ask it to select the ring given an
-index. This is similar to the qdisc filter used to select a queue.
-
-You can extend the use case i described above to N queues. You can
-extend it to other schedulers (WRR or any non-work conserving queues)
-etc. It is consistent. Of course if you configure CBQ for a hardware
-that does strict prio - that is a misconfig etc.
-
-Infact for the wired case i see little value (there is some) in using
-multiple rings. In the case of wireless (which is strict prio based) it
-provides more value.
-
-> I would love to see your alternative patches.
-
->From the above you can see they are simple. I am working on a couple of
-things (batching and recovering pktgen ipsec patches)- I will work on
-those patches soon after.
-
-Iam actually not against the subqueue control - i know Peter needs it
-for certain hardware; i am just against the mucking around of the common
-case (single ring NIC) just to get that working. 
- 
-cheers,
-jamal
-
+-PJ Waskiewicz
