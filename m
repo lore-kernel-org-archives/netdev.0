@@ -1,111 +1,96 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] Virtual ethernet tunnel
-Date: Wed, 06 Jun 2007 17:28:22 +0200
-Message-ID: <4666D296.2000002@trash.net>
-References: <4666CEAA.8010903@openvz.org>
+Subject: Re: [RFC RTNETLINK 00/09]: Netlink link creation API
+Date: Wed, 06 Jun 2007 17:35:02 +0200
+Message-ID: <4666D426.2070606@trash.net>
+References: <20070605141250.15650.47178.sendpatchset@localhost.localdomain>	<m1tztlvrsp.fsf@ebiederm.dsl.xmission.com>	<46669FA0.3030405@trash.net> <m1d509umtp.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Linux Containers <containers@lists.osdl.org>,
-	Kirill Korotaev <dev@openvz.org>
-To: Pavel Emelianov <xemul@openvz.org>
+Cc: netdev@vger.kernel.org, socketcan@hartkopp.net, hadi@cyberus.ca,
+	xemul@sw.ru, tgraf@suug.ch
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:56206 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:56389 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756099AbXFFP2u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jun 2007 11:28:50 -0400
-In-Reply-To: <4666CEAA.8010903@openvz.org>
+	with ESMTP id S1756099AbXFFPfa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jun 2007 11:35:30 -0400
+In-Reply-To: <m1d509umtp.fsf@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Pavel Emelianov wrote:
-> Veth stands for Virtual ETHernet. It is a simple tunnel driver
-> that works at the link layer and looks like a pair of ethernet
-> devices interconnected with each other.
+Eric W. Biederman wrote:
+> Patrick McHardy <kaber@trash.net> writes:
 > 
-> Mainly it allows to communicate between network namespaces but
-> it can be used as is as well.
+>>You don't really need to patch it, installing a new iplink_XXX.so
+>>file is enough. Generalizing driver specific options more than
+>>what we currently have doesn't look very promising. I think your
+>>driver was simple enough to get along with the generic device
+>>attributes though (IFLA_LINK or IFLA_MASTER).
 > 
-> Eric recently sent a similar driver called etun. This
-> implementation uses another interface - the RTM_NRELINK
-> message introduced by Patric. The patch fits today netdev
-> tree with Patrick's patches.
 > 
-> The newlink callback is organized that way to make it easy
-> to create the peer device in the separate namespace when we
-> have them in kernel.
+> I need to know the other device in the pair of devices I am creating.
+> If ifindex was selectable IFLA_LINK or IFLA_MASTER might be
+> interesting however they are currently are not, and I'm not quite
+> certain about letting a user select the ifindex.  Although there may
+> come a point when dealing with migration when it makes sense.
+
+
+It shouldn't be very hard to implement, so far I just didn't see
+any use for it.
+
+> Hmm.  I guess if I had a reasonable default I could find out the
+> pair device by looking at the returned NEW_LINK message.
 > 
-
-> +struct veth_priv {
-> +	struct net_device *peer;
-> +	struct net_device *dev;
-> +	struct list_head list;
-> +	struct net_device_stats stats;
-
-
-You can use dev->stats instead.
-
-> +static int veth_xmit(struct sk_buff *skb, struct net_device *dev)
-> +{
-> +	struct net_device *rcv = NULL;
-> +	struct veth_priv *priv, *rcv_priv;
-> +	int length;
-> +
-> +	skb_orphan(skb);
-> +
-> +	priv = netdev_priv(dev);
-> +	rcv = priv->peer;
-> +	rcv_priv = netdev_priv(rcv);
-> +
-> +	if (!(rcv->flags & IFF_UP))
-> +		goto outf;
-> +
-> +	skb->dev = rcv;
-
-eth_type_trans already sets skb->dev.
-
-> +	skb->pkt_type = PACKET_HOST;
-> +	skb->protocol = eth_type_trans(skb, rcv);
-> +	if (dev->features & NETIF_F_NO_CSUM)
-> +		skb->ip_summed = rcv_priv->ip_summed;
-> +
-> +	dst_release(skb->dst);
-> +	skb->dst = NULL;
-> +
-> +	secpath_reset(skb);
-> +	nf_reset(skb);
+> Looking more close.  IFLA_MASTER does not work because I don't
+> have a master/slave relationship.
+> 
+> IFLA_LINK looks like it will work.  I don't precisely match the
+> semantics though which makes me nervous.  In particular my other
+> device is not something I am sending through but what I am sending
+> to.  The way the IPv6 code uses iflink to get the link local address
+> starting with the hardware address of the iflink would be completely
+> the wrong thing to do in my case.  Now my device won't have the magic
+> IPv6 tunnel arp type so that code won't trigger.  Still it is
+> a challenge.
+> 
+> I still think adding a IFLA_PARTNER or a custom attribute is cleaner
+> in this case.  Slight semantic mismatches are the worst design bugs
+> to correct.
 
 
-Is skb->mark supposed to survive communication between different
-namespaces?
+Indeed, IFLA_PARTNER sounds like a better idea. I just suggested to
+Pavel to create only a single device per newlink operation and binding
+them later, what do you think about that?
 
-> +static const struct nla_policy veth_policy[VETH_INFO_MAX] = {
-> +	[VETH_INFO_MAC]		= { .type = NLA_BINARY, .len = ETH_ALEN },
-> +	[VETH_INFO_PEER]	= { .type = NLA_STRING },
-> +	[VETH_INFO_PEER_MAC]	= { .type = NLA_BINARY, .len = ETH_ALEN },
-> +};
+>>>I do think we should specify the IFLA_KIND (was: IFLA_NAME) values in
+>>>a header file.  So it is easy to get a list of all of the different
+>>>kinds and so we don't conflict.
+>>
+>>
+>>I don't think conflicts are going to be a problem (it would be
+>>nice if modpost would warn about duplicate aliases though).
+>>How is listing IFLA_KIND types in a header file going to help
+>>get a list? Presuming the user knows what kind of device he
+>>wants to set up and is not just looking for things to play
+>>around with I also don't see any real value in this.
+> 
+> 
+> This isn't about the user this is about maintaining the ABI.
+> 
+> We have to control set of strings for IFLA_KIND.  Having them all
+> in a single header file means that we can easily look when we add
+> support for a new kind to see if some other driver has already
+> used that kind.
+> 
+> The same reason we stick the rest of the enumerations into a header
+> file.
+> 
+> Strings don't conflict as easily as small integers do, but it is still
+> possible to have a conflict, so having something like an ifla_kind.h to
+> hold them would be useful.
 
 
-The rtnl_link codes looks fine. I don't like the VETH_INFO_MAC attribute
-very much though, we already have a generic device attribute for MAC
-addresses. Of course that only allows you to supply one MAC address, so
-I'm wondering what you think of allocating only a single device per
-newlink operation and binding them in a seperate enslave operation?
-
-> +enum {
-> +	VETH_INFO_UNSPEC,
-> +	VETH_INFO_MAC,
-> +	VETH_INFO_PEER,
-> +	VETH_INFO_PEER_MAC,
-> +
-> +	VETH_INFO_MAX
-> +};
-
-Please follow the
-
-#define VETH_INFO_MAX	(__VETH_INFO_MAX - 1)
-
-convention here.
+Mhh .. we have multiple string based APIs that do just fine. I'd
+prefer having someone adding a new driver do a quick grep for
+MODULE_ALIAS_RTNL_LINK to adding unused definitions.
 
