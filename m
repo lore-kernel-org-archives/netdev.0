@@ -1,86 +1,67 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [RFC RTNETLINK 00/09]: Netlink link creation API
-Date: Wed, 06 Jun 2007 11:31:02 -0600
-Message-ID: <m1odjtt2g9.fsf@ebiederm.dsl.xmission.com>
-References: <20070605141250.15650.47178.sendpatchset@localhost.localdomain>
-	<m1tztlvrsp.fsf@ebiederm.dsl.xmission.com>
-	<46669FA0.3030405@trash.net>
-	<m1d509umtp.fsf@ebiederm.dsl.xmission.com>
-	<4666D426.2070606@trash.net> <20070606155634.GA15067@ms2.inr.ac.ru>
-	<4666E1B2.1070109@trash.net>
+From: wendy xiong <wendyx@us.ibm.com>
+Subject: Re: [PATCH 3/5] NetXen: Add NETXEN prefix to macros
+Date: Wed, 06 Jun 2007 12:52:44 -0500
+Message-ID: <1181152364.25390.36.camel@wendyx.austin.ibm.com>
+References: <200706011115.l51BFahX004752@dut39.unminc.com>
+	 <4662E345.3070908@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, netdev@vger.kernel.org,
-	socketcan@hartkopp.net, hadi@cyberus.ca, xemul@sw.ru, tgraf@suug.ch
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Mithlesh Thukral <mithlesh@netxen.com>, netdev@vger.kernel.org,
+	amitkale@netxen.com, netxenproj@linsyssoft.com, rob@netxen.com
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:42931 "EHLO
-	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756440AbXFFRdo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jun 2007 13:33:44 -0400
-In-Reply-To: <4666E1B2.1070109@trash.net> (Patrick McHardy's message of "Wed,
-	06 Jun 2007 18:32:50 +0200")
+Received: from e4.ny.us.ibm.com ([32.97.182.144]:59152 "EHLO e4.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751399AbXFFRwr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Jun 2007 13:52:47 -0400
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e4.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l56HqkOW021757
+	for <netdev@vger.kernel.org>; Wed, 6 Jun 2007 13:52:46 -0400
+Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
+	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l56HqkOq519876
+	for <netdev@vger.kernel.org>; Wed, 6 Jun 2007 13:52:46 -0400
+Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
+	by d01av02.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l56HqjK8027099
+	for <netdev@vger.kernel.org>; Wed, 6 Jun 2007 13:52:46 -0400
+In-Reply-To: <4662E345.3070908@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy <kaber@trash.net> writes:
+On Sun, 2007-06-03 at 11:50 -0400, Jeff Garzik wrote:
+> Mithlesh Thukral wrote:
+> > NetXen: Add NETXEN prefix to a macro
+> > This patch will add the "NETXEN" prefix to "USER_START" macro.
+> > 
+> > Signed-off by: Wen Xiong <wenxiong@us.ibm.com>
+> > Signed-off by: Mithlesh Thukral <mithlesh@netxen.com>
+> > ---
+> > 
+> >  drivers/net/netxen/netxen_nic.h         |    4 ++--
+> >  drivers/net/netxen/netxen_nic_ethtool.c |    2 +-
+> >  drivers/net/netxen/netxen_nic_hw.c      |    4 ++--
+> >  drivers/net/netxen/netxen_nic_init.c    |    4 ++--
+> >  4 files changed, 7 insertions(+), 7 deletions(-)
+> 
+> Your patch description is useless.  Clearly we know -what- it does, 
+> simply by reading the patch.
+> 
+> But it does not answer the simple question:  why?  why is this needed in 
+> a bug fix Release Candidate series?
 
-> Alexey Kuznetsov wrote:
->>>						 I just suggested to
->>>Pavel to create only a single device per newlink operation and binding
->>>them later,
->> 
->> 
->> I see some logical inconsistency here.
->> 
->> Look, the second end is supposed to be in another namespace.
->> It will have identity, which cannot be expressed in any way in namespace,
->> which is allowed to create the pair: name, ifindex - nothing
->> is shared between namespaces.
->
->
-> Good point, I didn't think of that. Is there a version of this patch
-> that already uses different namespaces so I can look at it?
+Hi Jeff,
 
-We have posted patches a couple of times, and veth or etun were always
-a part of it.  But except for some book keeping details we really don't
-care.
+When we backported netxen driver to 2.6.9 kernel on ppc, we saw the
+compile errors for "USER_START". Because there is another definition for
+USER_START which is used by arch/ppc64/mm/hash_utils.c and native.c.
 
-> Are network namespace completely seperated or is there some hierarchy
-> with all lower namespaces visible above or something like that?
+So we like to add NETXEN before USER_START in netxen device driver, then
+netxen driver can be compiled correctly in 2.6.9 kernel.
 
-Completely separated.  The goal is to look like two separate machines
-to user space, with respect to the network stack.
+Let me know if you any question for this patch.
 
-There is a bit of a hierarchy usage wise.  Because frequently only
-one namespace will have real hardware devices in it.  So everything
-needs to route through there.  But that detail is a usage detail
-and is easiest not to reflect in the actual implementation.
+Thanks,
+wendy Xiong
 
-> I imagined it more as a bind operation, pretty similar to enslave, so
-> it would only contain an ifindex, no parameters. But as you say that
-> doesn't work, so I guess we'd have to nest an entire ifinfomsg + the
-> attributes for the partner device under it .. not exactly pretty.
 
-In the model I'm working in, is that there is a separate operation:
-"move device to other namespace", which should work for any network device.
-
-So there should be an interval immediately after device creation
-when both devices are in the same namespace, and then one of the
-pair is moved to another namespace.
-
->> As response to this action two replies are generated: one RTM_NEWLINK
->> for one end of device with the whole desciption of partnet
->> is broadcasted inside this namespace, another RTM_NETLINK with index/name
->> of partner device is broadcasted inside the second namespace
->> (and, probably, some attributes, which must be hidden inside namespace,
->> f.e. identity of main device is suppressed). 
->
->
-> The identity of the main device has no meaning within a different
-> namespace, but are there other reasons for hiding it?
-
-Not really.  We can already recognized the type of the device.
-
-Eric
 
