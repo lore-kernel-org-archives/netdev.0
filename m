@@ -1,44 +1,46 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: warnings in git-wireless
-Date: Wed, 6 Jun 2007 08:20:16 +0100
-Message-ID: <20070606072016.GA4805@infradead.org>
-References: <20070605020614.3f06b2ab.akpm@linux-foundation.org> <20070605115701.GA5391@tuxdriver.com> <4665C393.2000507@linux.intel.com>
+From: =?ISO-8859-1?Q?Roar_Bj=F8rgum_Rotvik?= <roarbr@tihlde.org>
+Subject: Re: sending IPv6 packets via kern_sendmsg
+Date: Wed, 06 Jun 2007 08:44:10 +0200
+Message-ID: <466657BA.9080903@tihlde.org>
+References: <466636DB.8060107@dsto.defence.gov.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: James Ketrenos <jketreno@linux.intel.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Anton <Anton.Uzunov@dsto.defence.gov.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:46882 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751244AbXFFHU0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jun 2007 03:20:26 -0400
-Content-Disposition: inline
-In-Reply-To: <4665C393.2000507@linux.intel.com>
+Received: from [80.239.6.50] ([80.239.6.50]:64730 "EHLO
+	ici-lnx1.sici.thales.no" rhost-flags-FAIL-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751239AbXFFH3M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jun 2007 03:29:12 -0400
+In-Reply-To: <466636DB.8060107@dsto.defence.gov.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 05, 2007 at 01:12:03PM -0700, James Ketrenos wrote:
-> Yes, we certainly don't want a driver to be "near mainline" that does 
-> things that the rest of the kernel and other drivers are doing.  We should 
-> force them to stay out-of-tree until any and everything is resolved.  
-> Heaven forbid that the code should be merged, contributed, and improved 
-> upon as a community.
+Anton wrote:
+> Hi,
 > 
-> You'd think these guys were trying to enable folks with a driver so they 
-> can use the hardware they bought or something.  Its almost laughable.  What 
-> idiots.
+> Following on from a previous (now lost :-)) posting, I have been trying 
+> to send out IPv6 packets from a kernel module using the kern_sendmsg() 
+> function. Since in theory I need this function to be started in 
+> interrupt context (actually, softirq context), but since this is 
+> impossible because kern_sendmsg() needs to sleep, I have created a work 
+> queue which calls the kern_sendmsg() function separately. The work queue 
+> is scheduled from the softirq context (actually, at the moment this 
+> happens from a Netfilter hook). The work queue function creates a msghdr 
+> structure, fills in a sin6_addr structure, calls sock_create_kern() and 
+> then uses this socket to send an IPv6 packet, which consists of a header 
+> (struct ipv6hdr *iphdr) and some data following on from this. The above 
+> packet is placed in the msghdr structure by setting (after the 
+> appropriate initializations):
+> msg.msg_iov->iov_base = (char *) ip6hdr;
+> msg.msg_iov->iov_len = sizeof( struct ipv6hdr + ntohs( 
+> ip6hdr->payload_len ) );
 
-Maybe you should make sure your companies publishes specs or useable drivers
-earlier, and you should stop writing crap code instead of these hypocritical 
-comments.  We're a big project and we need to be up to some standards before
-we can put code in that we'll have to maintain then.
+Shouldn't this be:
+msg.msg_iov->iov_len = sizeof (struct ipv6hdr) + ntohs (ip6hdr->payload_len);
 
-> 
-> James
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
----end quoted text---
+Seems you use sizeof (nthos (...)), and that seems wrong.
+
+-- 
+Roar B. Rotvik
