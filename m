@@ -1,113 +1,66 @@
-From: Michael Ellerman <michael@ellerman.id.au>
-Subject: Re: [PATCH 2.6.22-rc4] ehea: Fixed possible kernel panic on VLAN
-	packet recv
-Date: Thu, 07 Jun 2007 10:35:00 +1000
-Message-ID: <1181176500.4166.1.camel@concordia.ozlabs.ibm.com>
-References: <200706062053.16986.osstklei@de.ibm.com>
-Reply-To: michael@ellerman.id.au
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] NET: Multiqueue network device support.
+Date: Wed, 6 Jun 2007 20:47:12 -0400
+Message-ID: <20070607004712.GE3304@havoc.gtf.org>
+References: <1181168020.4064.46.camel@localhost> <20070606.153530.48530367.davem@davemloft.net> <1181172766.4064.83.camel@localhost> <20070606.165215.38711917.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-mcXb+V+eRMmRMoHPYMoC"
-Cc: Jeff Garzik <jeff@garzik.org>, Thomas Klein <tklein@de.ibm.com>,
-	Jan-Bernd Themann <themann@de.ibm.com>,
-	netdev <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Christoph Raisch <raisch@de.ibm.com>,
-	Stefan Roscher <ossrosch@linux.vnet.ibm.com>,
-	linux-ppc <linuxppc-dev@ozlabs.org>,
-	Marcus Eder <meder@de.ibm.com>
-To: Thomas Klein <osstklei@de.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: hadi@cyberus.ca, kaber@trash.net, peter.p.waskiewicz.jr@intel.com,
+	netdev@vger.kernel.org, auke-jan.h.kok@intel.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:35821 "EHLO ozlabs.org"
+Received: from havoc.gtf.org ([69.61.125.42]:51324 "EHLO havoc.gtf.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965369AbXFGAfD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Jun 2007 20:35:03 -0400
-In-Reply-To: <200706062053.16986.osstklei@de.ibm.com>
+	id S1761426AbXFGArP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Jun 2007 20:47:15 -0400
+Content-Disposition: inline
+In-Reply-To: <20070606.165215.38711917.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Wed, Jun 06, 2007 at 04:52:15PM -0700, David Miller wrote:
+> For the locking is makes a ton of sense.
+> 
+> If you have sendmsg() calls going on N cpus, would you rather
+> they:
+> 
+> 1) All queue up to the single netdev->tx_lock
+> 
+> or
+> 
+> 2) All take local per-hw-queue locks
+> 
+> to transmit the data they are sending?
+> 
+> I thought this was obvious... guess not :-)
 
---=-mcXb+V+eRMmRMoHPYMoC
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+Agreed ++
 
-On Wed, 2007-06-06 at 20:53 +0200, Thomas Klein wrote:
-> This patch fixes a possible kernel panic due to not checking the vlan gro=
-up
-> when processing received VLAN packets and a malfunction in VLAN/hyperviso=
-r
-> registration.
->=20
->=20
-> Signed-off-by: Thomas Klein <tklein@de.ibm.com>
-> ---
->=20
->=20
-> diff -Nurp -X dontdiff linux-2.6.22-rc4/drivers/net/ehea/ehea.h patched_k=
-ernel/drivers/net/ehea/ehea.h
-> --- linux-2.6.22-rc4/drivers/net/ehea/ehea.h	2007-06-05 02:57:25.00000000=
-0 +0200
-> +++ patched_kernel/drivers/net/ehea/ehea.h	2007-06-06 12:53:58.000000000 =
-+0200
-> @@ -39,7 +39,7 @@
->  #include <asm/io.h>
-> =20
->  #define DRV_NAME	"ehea"
-> -#define DRV_VERSION	"EHEA_0061"
-> +#define DRV_VERSION	"EHEA_0064"
-> =20
->  #define EHEA_MSG_DEFAULT (NETIF_MSG_LINK | NETIF_MSG_TIMER \
->  	| NETIF_MSG_RX_ERR | NETIF_MSG_TX_ERR)
-> diff -Nurp -X dontdiff linux-2.6.22-rc4/drivers/net/ehea/ehea_main.c patc=
-hed_kernel/drivers/net/ehea/ehea_main.c
-> --- linux-2.6.22-rc4/drivers/net/ehea/ehea_main.c	2007-06-05 02:57:25.000=
-000000 +0200
-> +++ patched_kernel/drivers/net/ehea/ehea_main.c	2007-06-06 12:53:58.00000=
-0000 +0200
-> @@ -1947,7 +1945,7 @@ static void ehea_vlan_rx_add_vid(struct=20
->  	}
-> =20
->  	index =3D (vid / 64);
-> -	cb1->vlan_filter[index] |=3D ((u64)(1 << (vid & 0x3F)));
-> +	cb1->vlan_filter[index] |=3D ((u64)(0x8000000000000000 >> (vid & 0x3F))=
-);
-> =20
->  	hret =3D ehea_h_modify_ehea_port(adapter->handle, port->logical_port_id=
-,
->  				       H_PORT_CB1, H_PORT_CB1_ALL, cb1);
-> @@ -1982,7 +1980,7 @@ static void ehea_vlan_rx_kill_vid(struct
->  	}
-> =20
->  	index =3D (vid / 64);
-> -	cb1->vlan_filter[index] &=3D ~((u64)(1 << (vid & 0x3F)));
-> +	cb1->vlan_filter[index] &=3D ~((u64)(0x8000000000000000 >> (vid & 0x3F)=
-));
+For my part, I definitely want to see parallel Tx as well as parallel Rx.
+It's the only thing that makes sense for modern multi-core CPUs.
 
-These two seem ripe for splitting into some sort of helper routine.
-Which would leave only one place to get it right.
+Two warnings flags are raised in my brain though:
 
-cheers
+1) you need (a) well-designed hardware _and_ (b) a smart driver writer
+to avoid bottlenecking on internal driver locks.  As you can see we have
+both (a) and (b) for tg3 ;-)  But it's up in the air whether a
+multi-TX-queue scheme can be sanely locked internally on other hardware.
 
---=20
-Michael Ellerman
-OzLabs, IBM Australia Development Lab
+At the moment we have to hope Intel gets it right in their driver...
 
-wwweb: http://michael.ellerman.id.au
-phone: +61 2 6212 1183 (tie line 70 21183)
 
-We do not inherit the earth from our ancestors,
-we borrow it from our children. - S.M.A.R.T Person
+2) I fear that the getting-it-into-the-Tx-queue part will take some
+thought in order to make this happen, too.  Just like you have the
+SMP/SMT/Multi-core scheduler scheduling various resources, surely we
+will want some smarts so that sockets are not bouncing wildly across
+CPUs, absent other factors outside our control.
 
---=-mcXb+V+eRMmRMoHPYMoC
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
+Otherwise you will negate a lot of the value of the nifty multi-TX-lock
+driver API, by bouncing data across CPUs on each transmit anyway.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.6 (GNU/Linux)
+IOW, you will have to sanely fill each of the TX queues.
 
-iD8DBQBGZ1K0dSjSd0sB4dIRAgCPAKC0cdqLYHAJcGSH7K3tj8soQgn0VwCgsqcG
-Mpkt/9j8eZqK2t8M2IARs+g=
-=BG5i
------END PGP SIGNATURE-----
+	Jeff
 
---=-mcXb+V+eRMmRMoHPYMoC--
+
 
