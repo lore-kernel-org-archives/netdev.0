@@ -1,59 +1,113 @@
-From: James Ketrenos <jketreno-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Subject: Re: warnings in git-wireless
-Date: Wed, 06 Jun 2007 15:33:46 -0700
-Message-ID: <4667364A.4040803@linux.intel.com>
-References: <20070605020614.3f06b2ab.akpm@linux-foundation.org>	<46671E5D.9070304@linux.intel.com> <20070606163534.6a6cffb7.akpm@linux-foundation.org>
+From: Michael Ellerman <michael@ellerman.id.au>
+Subject: Re: [PATCH 2.6.22-rc4] ehea: Fixed possible kernel panic on VLAN
+	packet recv
+Date: Thu, 07 Jun 2007 10:35:00 +1000
+Message-ID: <1181176500.4166.1.camel@concordia.ozlabs.ibm.com>
+References: <200706062053.16986.osstklei@de.ibm.com>
+Reply-To: michael@ellerman.id.au
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: NetDev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20070606163534.6a6cffb7.akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-mcXb+V+eRMmRMoHPYMoC"
+Cc: Jeff Garzik <jeff@garzik.org>, Thomas Klein <tklein@de.ibm.com>,
+	Jan-Bernd Themann <themann@de.ibm.com>,
+	netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Christoph Raisch <raisch@de.ibm.com>,
+	Stefan Roscher <ossrosch@linux.vnet.ibm.com>,
+	linux-ppc <linuxppc-dev@ozlabs.org>,
+	Marcus Eder <meder@de.ibm.com>
+To: Thomas Klein <osstklei@de.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ozlabs.org ([203.10.76.45]:35821 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965369AbXFGAfD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Jun 2007 20:35:03 -0400
+In-Reply-To: <200706062053.16986.osstklei@de.ibm.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton wrote:
-> On Wed, 06 Jun 2007 13:51:41 -0700 James Ketrenos <jketreno-VuQAYsv1563Yd54FQh9/CA@public.gmane.org> wrote:
-> 
->>>>  * make C=2 CF=-Wall will complain if you use ARRAY_SIZE on global data
->>>>  */
->>>> #define GLOBAL_ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
->>> This is identical to ARRAY_SIZE.
->>>
->>> And if there's some problem with ARRAY_SIZE then fix ARRAY_SIZE!  Don't go 
->>> off and create some private thing and leave everyone else twisting in the
->>> wind.
->> The code was resolving the sparse warnings.  
-> 
-...
-> Your GLOBAL_ARRAY_SIZE() is, afaict, identical to ARRAY_SIZE().
 
->From include/linux/kernel.h
+--=-mcXb+V+eRMmRMoHPYMoC
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-#define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]) + __must_be_array(arr))
+On Wed, 2007-06-06 at 20:53 +0200, Thomas Klein wrote:
+> This patch fixes a possible kernel panic due to not checking the vlan gro=
+up
+> when processing received VLAN packets and a malfunction in VLAN/hyperviso=
+r
+> registration.
+>=20
+>=20
+> Signed-off-by: Thomas Klein <tklein@de.ibm.com>
+> ---
+>=20
+>=20
+> diff -Nurp -X dontdiff linux-2.6.22-rc4/drivers/net/ehea/ehea.h patched_k=
+ernel/drivers/net/ehea/ehea.h
+> --- linux-2.6.22-rc4/drivers/net/ehea/ehea.h	2007-06-05 02:57:25.00000000=
+0 +0200
+> +++ patched_kernel/drivers/net/ehea/ehea.h	2007-06-06 12:53:58.000000000 =
++0200
+> @@ -39,7 +39,7 @@
+>  #include <asm/io.h>
+> =20
+>  #define DRV_NAME	"ehea"
+> -#define DRV_VERSION	"EHEA_0061"
+> +#define DRV_VERSION	"EHEA_0064"
+> =20
+>  #define EHEA_MSG_DEFAULT (NETIF_MSG_LINK | NETIF_MSG_TIMER \
+>  	| NETIF_MSG_RX_ERR | NETIF_MSG_TX_ERR)
+> diff -Nurp -X dontdiff linux-2.6.22-rc4/drivers/net/ehea/ehea_main.c patc=
+hed_kernel/drivers/net/ehea/ehea_main.c
+> --- linux-2.6.22-rc4/drivers/net/ehea/ehea_main.c	2007-06-05 02:57:25.000=
+000000 +0200
+> +++ patched_kernel/drivers/net/ehea/ehea_main.c	2007-06-06 12:53:58.00000=
+0000 +0200
+> @@ -1947,7 +1945,7 @@ static void ehea_vlan_rx_add_vid(struct=20
+>  	}
+> =20
+>  	index =3D (vid / 64);
+> -	cb1->vlan_filter[index] |=3D ((u64)(1 << (vid & 0x3F)));
+> +	cb1->vlan_filter[index] |=3D ((u64)(0x8000000000000000 >> (vid & 0x3F))=
+);
+> =20
+>  	hret =3D ehea_h_modify_ehea_port(adapter->handle, port->logical_port_id=
+,
+>  				       H_PORT_CB1, H_PORT_CB1_ALL, cb1);
+> @@ -1982,7 +1980,7 @@ static void ehea_vlan_rx_kill_vid(struct
+>  	}
+> =20
+>  	index =3D (vid / 64);
+> -	cb1->vlan_filter[index] &=3D ~((u64)(1 << (vid & 0x3F)));
+> +	cb1->vlan_filter[index] &=3D ~((u64)(0x8000000000000000 >> (vid & 0x3F)=
+));
 
->From drivers/net/wireless/mac80211/iwlwifi/iwl-helpers.h
+These two seem ripe for splitting into some sort of helper routine.
+Which would leave only one place to get it right.
 
-#define GLOBAL_ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
+cheers
 
-The '+ __must_be_array(arr)' part of ARRAY_SIZE was causing sparse to complain 
-with:
+--=20
+Michael Ellerman
+OzLabs, IBM Australia Development Lab
 
-drivers/net/wireless/mac80211/iwlwifi/base.c:4646:22: error: cannot size expression
-...
+wwweb: http://michael.ellerman.id.au
+phone: +61 2 6212 1183 (tie line 70 21183)
 
-When I had run my builds, I had restricted the sparse checks to just iwlwifi 
-(vs. checking the rest of the kernel).
+We do not inherit the earth from our ancestors,
+we borrow it from our children. - S.M.A.R.T Person
 
-I just ran it C=2 CF=-Wall against the rest of the kernel and do see other code 
-with the same problem, eg:
+--=-mcXb+V+eRMmRMoHPYMoC
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
 
-sound/core/memalloc.c:521:14: error: cannot size expression
-...
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.6 (GNU/Linux)
 
-I had erroneously thought it was just a problem with iwlwifi...
+iD8DBQBGZ1K0dSjSd0sB4dIRAgCPAKC0cdqLYHAJcGSH7K3tj8soQgn0VwCgsqcG
+Mpkt/9j8eZqK2t8M2IARs+g=
+=BG5i
+-----END PGP SIGNATURE-----
 
-Thanks,
-James
+--=-mcXb+V+eRMmRMoHPYMoC--
+
