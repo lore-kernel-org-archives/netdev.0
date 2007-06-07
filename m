@@ -1,45 +1,94 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH] NET: Multiqueue network device support.
-Date: Thu, 07 Jun 2007 08:03:29 -0700
-Message-ID: <46681E41.6060700@intel.com>
-References: <1181168020.4064.46.camel@localhost>	 <20070606.153530.48530367.davem@davemloft.net>	 <1181172766.4064.83.camel@localhost>	 <20070606.165215.38711917.davem@davemloft.net>	 <20070607004712.GE3304@havoc.gtf.org> <1181219380.4064.55.camel@localhost>
+From: Pavel Emelianov <xemul@openvz.org>
+Subject: Re: [PATCH] Virtual ethernet tunnel
+Date: Thu, 07 Jun 2007 19:25:59 +0400
+Message-ID: <46682387.30007@openvz.org>
+References: <4666CEAA.8010903@openvz.org> <4666D296.2000002@trash.net> <4667BD1D.9080905@openvz.org> <4667D00E.2020605@fr.ibm.com> <4667D538.7040904@openvz.org> <466810BF.2090704@fr.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, David Miller <davem@davemloft.net>,
-	kaber@trash.net, peter.p.waskiewicz.jr@intel.com,
-	netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>
-To: hadi@cyberus.ca
+Cc: Patrick McHardy <kaber@trash.net>,
+	Linux Containers <containers@lists.osdl.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Kirill Korotaev <dev@openvz.org>
+To: Daniel Lezcano <dlezcano@fr.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:16051 "EHLO mga09.intel.com"
+Received: from mailhub.sw.ru ([195.214.233.200]:21920 "EHLO relay.sw.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758300AbXFGPDc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Jun 2007 11:03:32 -0400
-In-Reply-To: <1181219380.4064.55.camel@localhost>
+	id S1755862AbXFGPVX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Jun 2007 11:21:23 -0400
+In-Reply-To: <466810BF.2090704@fr.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> On Wed, 2007-06-06 at 20:47 -0400, Jeff Garzik wrote:
-> 
->> 1) you need (a) well-designed hardware _and_ (b) a smart driver writer
->> to avoid bottlenecking on internal driver locks.  As you can see we have
->> both (a) and (b) for tg3 ;-)  
-> 
-> How about the following patch which fixes #b for e1000 ;->
-> I think the e1000s challenges are related to the gazillion variations of
-> boards they support and a little challenge of too many intel cooks.
-> 
-> Auke, why do you need the tx ring lock?
+Daniel Lezcano wrote:
+> Pavel Emelianov wrote:
+>>>> I did this at the very first version, but Alexey showed me that this
+>>>> would be wrong. Look. When we create the second device it must be in
+>>>> the other namespace as it is useless to have them in one namespace.
+>>>> But if we have the device in the other namespace the RTNL_NEWLINK
+>>>> message from kernel would come into this namespace thus confusing ip
+>>>> utility in the init namespace. Creating the device in the init ns and
+>>>> moving it into the new one is rather a complex task.
+>>>>         
+>>> Pavel,
+>>>
+>>> moving the netdevice to another namespace is not a complex task. Eric
+>>> Biederman did it in its patchset ( cf.  http://lxc.sf.net/network )
+>>>     
+>>
+>> By saying complex I didn't mean that this is difficult to implement,
+>> but that it consists (must consist) of many stages. I.e. composite.
+>> Making the device right in the namespace is liter.
+>>
+>>  
+>>> When the pair device is created, both extremeties are into the init
+>>> namespace and you can choose to which namespace to move one extremity.
+>>>     
+>>
+>> I do not mind that.
+>>  
+>>> When the network namespace dies, the netdev is moved back to the init
+>>> namespace.
+>>> That facilitate network device management.
+>>>
+>>> Concerning netlink events, this is automatically generated when the
+>>> network device is moved through namespaces.
+>>>
+>>> IMHO, we should have the network device movement between namespaces in
+>>> order to be able to move a physical network device too (eg. you have 4
+>>> NIC and you want to create 3 containers and assign 3 NIC to each of
+>>> them)
+>>>     
+>>
+>> Agree. Moving the devices is a must-have functionality.
+>>
+>> I do not mind making the pair in the init namespace and move the second
+>> one into the desired namespace. But if we *always* will have two ends in
+>> different namespaces what to complicate things for?
+>>   
+> Just to provide a netdev sufficiently generic to be used by people who
+> don't want namespaces but just want to do some network testing, like Ben
+> Greear does. He mentioned in a previous email, he will be happy to stop
+> redirecting people to out of tree patch.
 
-To prevent against multiple entries bumping head & tail at the same time as well 
-as overwriting the same entries in the tx ring (contention for 
-next_to_watch/next_to_clean)? It may be unlikely but ripping out the tx ring 
-lock might not be a good idea, perhaps after we get rid of LLTX in e1000?
+This patch creates booth devices in the init namespace. That's what
+you want, isn't it? When we have the namespaces we will be able to
+create the pair with booth ends in the init namespace - just do not
+specify the namespace id to create the 2nd end in and the driver will
+leave it int the init one.
 
-to be honest: I'm open for ideas and I'll give it a try, but stuff like this 
-needs to go through some nasty stress testing (multiple clients, long time) 
-before I will consider it seriously, but fortunately that's something I can do.
+> https://lists.linux-foundation.org/pipermail/containers/2007-April/004420.html
+> 
+> 
+>> Thanks,
+>> Pavel
+>>
+>>   
+> 
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
 
-Auke
