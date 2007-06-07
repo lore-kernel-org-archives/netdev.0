@@ -1,42 +1,36 @@
-From: David Miller <davem@davemloft.net>
+From: jamal <hadi@cyberus.ca>
 Subject: Re: [PATCH] NET: Multiqueue network device support.
-Date: Thu, 07 Jun 2007 16:00:35 -0700 (PDT)
-Message-ID: <20070607.160035.00774597.davem@davemloft.net>
+Date: Thu, 07 Jun 2007 19:03:56 -0400
+Message-ID: <1181257436.4741.1.camel@localhost>
 References: <1181253445.4071.4.camel@localhost>
-	<20070607.154421.109060486.davem@davemloft.net>
-	<1181256848.4071.57.camel@localhost>
+	 <20070607.154421.109060486.davem@davemloft.net>
+	 <1181256848.4071.57.camel@localhost>
+	 <20070607.160035.00774597.davem@davemloft.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: auke-jan.h.kok@intel.com, jeff@garzik.org, kaber@trash.net,
 	peter.p.waskiewicz.jr@intel.com, netdev@vger.kernel.org,
 	jesse.brandeburg@intel.com
-To: hadi@cyberus.ca
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33922
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S933374AbXFGXAT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jun 2007 19:00:19 -0400
-In-Reply-To: <1181256848.4071.57.camel@localhost>
+Received: from hu-out-0506.google.com ([72.14.214.238]:55816 "EHLO
+	hu-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761257AbXFGXEB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jun 2007 19:04:01 -0400
+Received: by hu-out-0506.google.com with SMTP id 19so411727hue
+        for <netdev@vger.kernel.org>; Thu, 07 Jun 2007 16:04:00 -0700 (PDT)
+In-Reply-To: <20070607.160035.00774597.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: jamal <hadi@cyberus.ca>
-Date: Thu, 07 Jun 2007 18:54:08 -0400
+On Thu, 2007-07-06 at 16:00 -0700, David Miller wrote:
 
-> On Thu, 2007-07-06 at 15:44 -0700, David Miller wrote:
-> > From: jamal <hadi@cyberus.ca>
-> > Date: Thu, 07 Jun 2007 17:57:25 -0400
-> > 
-> > > I empathize but take a closer look; seems mostly useless.
-> > 
-> > I thought E1000 still uses LLTX, and if so then multiple cpus can most
-> > definitely get into the ->hard_start_xmit() in parallel.
-> 
-> AFAICS, only one CPU can dequeue from the qdisc i.e s/he who holds
-> __LINK_STATE_QDISC_RUNNING is the only one who can call qdisc_restart
-> and only s/he can enter ->hard_start_xmit().
-> 
-> Am i missing something?
+> That's right we fixed that the other week.
 
-That's right we fixed that the other week.
+Circa 2.6.18 to be exact - Hence "In Pursuit of Herbert Xu" ;->
+
+cheers,
+jamal
+
