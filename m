@@ -1,61 +1,31 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: 2.6.22-rc4-mm2 -- ipw2200 -- SIOCSIFADDR: No buffer space
- available
-Date: Thu, 7 Jun 2007 13:15:59 -0700
-Message-ID: <20070607131559.cd95a181.akpm@linux-foundation.org>
-References: <a44ae5cd0706071125p2079472eme52821bd134d26b0@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [2.6.22-rc4] UDP's local port assignment not working correctly.
+Date: Thu, 07 Jun 2007 13:23:39 -0700 (PDT)
+Message-ID: <20070607.132339.82695611.davem@davemloft.net>
+References: <200706072040.BEC00116.MQFFtSOVOHFOLJ@I-love.SAKURA.ne.jp>
+	<20070607151839.d8f1c164.dada1@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: "Miles Lane" <miles.lane@gmail.com>
+Cc: penguin-kernel@I-love.SAKURA.ne.jp, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: dada1@cosmosbay.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:50442 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752043AbXFGUQx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jun 2007 16:16:53 -0400
-In-Reply-To: <a44ae5cd0706071125p2079472eme52821bd134d26b0@mail.gmail.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43032
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1762479AbXFGUXY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jun 2007 16:23:24 -0400
+In-Reply-To: <20070607151839.d8f1c164.dada1@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 7 Jun 2007 11:25:30 -0700
-"Miles Lane" <miles.lane@gmail.com> wrote:
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Thu, 7 Jun 2007 15:18:39 +0200
 
-> Hi Andrew,
+> Yes, this was discovered two days ago and David reverted four commits.
 > 
-> This might be some problem with my kernel configuration.
-> I added:
-> CONFIG_BONDING=y
+> http://git.kernel.org/?p=linux/kernel/git/davem/net-2.6.git;a=commitdiff;h=82c5fde20031375cd93fa5a247cf15603ea1f152
 > 
-> # dhclient eth1
-> There is already a pid file /var/run/dhclient.pid with pid 134993416
-> Internet Systems Consortium DHCP Client V3.0.4
-> Copyright 2004-2006 Internet Systems Consortium.
-> All rights reserved.
-> For info, please visit http://www.isc.org/sw/dhcp/
-> SIOCSIFADDR: No buffer space available
-> Listening on LPF/eth1/00:12:f0:5e:db:2f
-> Sending on   LPF/eth1/00:12:f0:5e:db:2f
-> Sending on   Socket/fallback
-> DHCPDISCOVER on eth1 to 255.255.255.255 port 67 interval 6
-> DHCPOFFER from 192.168.1.1
-> DHCPREQUEST on eth1 to 255.255.255.255 port 67
-> DHCPACK from 192.168.1.1
-> SIOCSIFADDR: No buffer space available
-> SIOCSIFNETMASK: Cannot assign requested address
-> SIOCSIFBRDADDR: Cannot assign requested address
-> SIOCADDRT: Network is unreachable
-> bound to 192.168.1.2 -- renewal in 2993 seconds.
-> 
-> # ping www.yahoo.com
-> ping: unknown host www.yahoo.com
-> 
-> Any suggestions what to try now?  I'll go ahead and turn off the
-> bonding option and see if that helps.
-> 
+> So it should probably be included in Linus tree very very soon.
 
-It won't be related to bonding.
-
-It has a high probability of being very related to Herbert's changes
-to inet_set_ifa().
+Right.
