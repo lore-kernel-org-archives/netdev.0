@@ -1,36 +1,46 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH] NET: Multiqueue network device support.
-Date: Wed, 06 Jun 2007 16:58:54 -0700 (PDT)
-Message-ID: <20070606.165854.26276338.davem@davemloft.net>
-References: <20070606.153530.48530367.davem@davemloft.net>
-	<1181172766.4064.83.camel@localhost>
+Date: Wed, 06 Jun 2007 17:01:44 -0700 (PDT)
+Message-ID: <20070606.170144.68041448.davem@davemloft.net>
+References: <1181172766.4064.83.camel@localhost>
 	<466747EB.5020101@hp.com>
+	<1181174087.4064.100.camel@localhost>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, kaber@trash.net, peter.p.waskiewicz.jr@intel.com,
-	netdev@vger.kernel.org, jeff@garzik.org, auke-jan.h.kok@intel.com
-To: rick.jones2@hp.com
+Cc: rick.jones2@hp.com, kaber@trash.net,
+	peter.p.waskiewicz.jr@intel.com, netdev@vger.kernel.org,
+	jeff@garzik.org, auke-jan.h.kok@intel.com
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54148
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39220
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756331AbXFFX6i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jun 2007 19:58:38 -0400
-In-Reply-To: <466747EB.5020101@hp.com>
+	by vger.kernel.org with ESMTP id S936296AbXFGAB2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jun 2007 20:01:28 -0400
+In-Reply-To: <1181174087.4064.100.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Rick Jones <rick.jones2@hp.com>
-Date: Wed, 06 Jun 2007 16:48:59 -0700
+From: jamal <hadi@cyberus.ca>
+Date: Wed, 06 Jun 2007 19:54:47 -0400
 
->   > RX queues - yes, I can see;  TX queues, it doesnt make sense to put
-> > different rings on different CPUs.
+> On Wed, 2007-06-06 at 16:48 -0700, Rick Jones wrote:
+> >   > RX queues - yes, I can see;  TX queues, it doesnt make sense to put
+> > > different rings on different CPUs.
+> > 
+> > To what extent might that preclude some cachelines bouncing hither and 
+> > yon between the CPUs?
 > 
-> To what extent might that preclude some cachelines bouncing hither and 
-> yon between the CPUs?
+> I think the bouncing will exist a lot more with the multi CPUs. But one
+> would assume if you go that path, you would also parallelize the stack
+> on egress to reduce such an effect. I guess the point i am not seeing is
+> the value. The tx, once hitting the NIC is an IO issue not a CPU issue.
 
-I think per-TX-queue locking takes locality as another advantage.
-You only touch the TX descriptors for queue N, rather than a single
-globally shared one.
+Disagred, that single TX lock kills cpu cycles.
 
-Same goes for RX.
+If all of the TX queues are independantly programmable of one
+another, the single TX lock kills performance.
+
+> off for the night.
+
+Enjoy the game.
