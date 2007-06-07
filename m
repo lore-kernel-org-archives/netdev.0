@@ -1,50 +1,45 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [PATCH][RFC] network splice receive
-Date: Thu, 7 Jun 2007 18:58:18 +0400
-Message-ID: <20070607145818.GA26491@2ka.mipt.ru>
-References: <20070605080542.GA9909@kernel.dk> <20070605143130.GA31747@2ka.mipt.ru> <20070606071725.GE31415@kernel.dk> <20070607080954.GB11764@2ka.mipt.ru> <20070607105159.GV4735@kernel.dk>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: [PATCH] NET: Multiqueue network device support.
+Date: Thu, 07 Jun 2007 08:03:29 -0700
+Message-ID: <46681E41.6060700@intel.com>
+References: <1181168020.4064.46.camel@localhost>	 <20070606.153530.48530367.davem@davemloft.net>	 <1181172766.4064.83.camel@localhost>	 <20070606.165215.38711917.davem@davemloft.net>	 <20070607004712.GE3304@havoc.gtf.org> <1181219380.4064.55.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: netdev@vger.kernel.org
-To: Jens Axboe <jens.axboe@oracle.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jeff@garzik.org>, David Miller <davem@davemloft.net>,
+	kaber@trash.net, peter.p.waskiewicz.jr@intel.com,
+	netdev@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:57234 "EHLO 2ka.mipt.ru"
+Received: from mga09.intel.com ([134.134.136.24]:16051 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753506AbXFGO6p (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Jun 2007 10:58:45 -0400
-Content-Disposition: inline
-In-Reply-To: <20070607105159.GV4735@kernel.dk>
+	id S1758300AbXFGPDc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Jun 2007 11:03:32 -0400
+In-Reply-To: <1181219380.4064.55.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 07, 2007 at 12:51:59PM +0200, Jens Axboe (jens.axboe@oracle.com) wrote:
-> > What bout checking if page belongs to kmalloc cache (or any other cache
-> > via priviate pointers) and do not perform any kind of reference counting
-> > on them? I will play with this a bit later today.
+jamal wrote:
+> On Wed, 2007-06-06 at 20:47 -0400, Jeff Garzik wrote:
 > 
-> That might work, but sounds a little dirty... But there's probably no
-> way around. Be sure to look at the #splice-net branch if you are playing
-> with this, I've updated it a number of times and fixed some bugs in
-> there. Notably it now gets the offset right, and handles fragments and
-> fraglist as well.
+>> 1) you need (a) well-designed hardware _and_ (b) a smart driver writer
+>> to avoid bottlenecking on internal driver locks.  As you can see we have
+>> both (a) and (b) for tg3 ;-)  
+> 
+> How about the following patch which fixes #b for e1000 ;->
+> I think the e1000s challenges are related to the gazillion variations of
+> boards they support and a little challenge of too many intel cooks.
+> 
+> Auke, why do you need the tx ring lock?
 
-I've pulled splice-net, which indeed fixed some issues, but referencing
-slab pages is still is not allowed. There are at least two problems
-(although they are related):
-1. if we do not increment reference counter for slab pages, they
-eventually get refilled and slab exploses after it understood that its
-pages are in use (or user dies when page is moved out of his control in
-slab).
-2. get/put page does not work with slab pages, and simple
-increment/decrement of the reference counters is not allowed too.
+To prevent against multiple entries bumping head & tail at the same time as well 
+as overwriting the same entries in the tx ring (contention for 
+next_to_watch/next_to_clean)? It may be unlikely but ripping out the tx ring 
+lock might not be a good idea, perhaps after we get rid of LLTX in e1000?
 
-Both problems have the same root - slab does not allow anyone to 
-manipulate page's members. That should be broken/changed to allow splice
-to put its hands into network using the fastest way.
-I will think about it.
+to be honest: I'm open for ideas and I'll give it a try, but stuff like this 
+needs to go through some nasty stress testing (multiple clients, long time) 
+before I will consider it seriously, but fortunately that's something I can do.
 
-> -- 
-> Jens Axboe
-
--- 
-	Evgeniy Polyakov
+Auke
