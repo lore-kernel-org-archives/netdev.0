@@ -1,41 +1,41 @@
-From: linas@austin.ibm.com (Linas Vepstas)
-Subject: Re: [PATCH] spidernet: checksum and ethtool
-Date: Thu, 7 Jun 2007 11:45:11 -0500
-Message-ID: <20070607164511.GO28472@austin.ibm.com>
-References: <20070529172436.3cd60dcf@freepuppy>
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: RE: [PATCH] NET: Multiqueue network device support.
+Date: Thu, 7 Jun 2007 09:59:14 -0700
+Message-ID: <D5C1322C3E673F459512FB59E0DDC32902FC675E@orsmsx414.amr.corp.intel.com>
+References: <20070607090840.346f6a09@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <hadi@cyberus.ca>, <kaber@trash.net>, <netdev@vger.kernel.org>,
+	<jeff@garzik.org>, "Kok, Auke-jan H" <auke-jan.h.kok@intel.com>
+To: "Stephen Hemminger" <shemminger@linux-foundation.org>,
+	"David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e33.co.us.ibm.com ([32.97.110.151]:34780 "EHLO
-	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750961AbXFGQpM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jun 2007 12:45:12 -0400
-Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
-	by e33.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l57GjCBs006555
-	for <netdev@vger.kernel.org>; Thu, 7 Jun 2007 12:45:12 -0400
-Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
-	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l57GjCPP263640
-	for <netdev@vger.kernel.org>; Thu, 7 Jun 2007 10:45:12 -0600
-Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l57GjBPH027992
-	for <netdev@vger.kernel.org>; Thu, 7 Jun 2007 10:45:12 -0600
-Content-Disposition: inline
-In-Reply-To: <20070529172436.3cd60dcf@freepuppy>
+Received: from mga09.intel.com ([134.134.136.24]:14863 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1762449AbXFGQ7U convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jun 2007 12:59:20 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <20070607090840.346f6a09@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, May 29, 2007 at 05:24:36PM -0700, Stephen Hemminger wrote:
-> It doesn't look like spidernet hardware can really checksum all protocols,
-> the code looks like it does IPV4 only.  If so, it should use NETIF_F_IP_CSUM
-> instead of NETIF_F_HW_CSUM.
+> > If they have multiple TX queues, independantly programmable, that 
+> > single lock is stupid.
+> > 
+> > We could use per-queue TX locks for such hardware, but we can't 
+> > support that currently.
 > 
-> The driver doesn't need it's own get/set for ethtool tx csum, and it
-> should use the standard ethtool_op_get_link.
+> There could be bad packet reordering with this (like some SMP 
+> routers used to do).
 
-Can you provide a signed-off-by line, please?  I was hoping to submit
-upstream today.
+My original multiqueue patches I submitted actually had a per-queue Tx
+lock, but it was removed since the asymmetry in the stack for locking
+was something people didn't like.  Locking a queue for ->enqueue(),
+unlocking, then locking for ->dequeue(), unlocking, was something people
+didn't like very much.  Also knowing what queue to lock on ->enqueue()
+was where the original ->map_queue() idea came from, since we wanted to
+lock before calling ->enqueue().
 
---linas
-
+-PJ
