@@ -1,42 +1,120 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH] Module for ip utility to support veth device (v.2)
-Date: Thu, 7 Jun 2007 08:59:46 -0700
-Message-ID: <20070607085946.1c168792@localhost.localdomain>
-References: <4667E83E.2060405@openvz.org>
-	<4667E912.3020204@openvz.org>
+From: Pavel Emelianov <xemul@openvz.org>
+Subject: Re: [PATCH] Virtual ethernet tunnel (v.2)
+Date: Thu, 07 Jun 2007 20:04:23 +0400
+Message-ID: <46682C87.1080702@openvz.org>
+References: <4667E83E.2060405@openvz.org> <466822DD.1000601@candelatech.com> <466826C6.6000206@openvz.org> <46682976.8050904@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
 	"Eric W. Biederman" <ebiederm@xmission.com>,
 	Patrick McHardy <kaber@trash.net>,
 	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
 	Kirill Korotaev <dev@openvz.org>,
 	Linux Containers <containers@lists.osdl.org>
-To: Pavel Emelianov <xemul@openvz.org>
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:56425 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1764624AbXFGQAP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jun 2007 12:00:15 -0400
-In-Reply-To: <4667E912.3020204@openvz.org>
+Received: from mailhub.sw.ru ([195.214.233.200]:20710 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932237AbXFGQA2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Jun 2007 12:00:28 -0400
+In-Reply-To: <46682976.8050904@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 07 Jun 2007 15:16:34 +0400
-Pavel Emelianov <xemul@openvz.org> wrote:
-
-> The usage is
-> # ip link add [name] type veth [peer <name>] [mac <mac>] [peer_mac <mac>]
+Ben Greear wrote:
+> Pavel Emelianov wrote:
+>> Ben Greear wrote:
+>>  
+>>> Pavel Emelianov wrote:
+>>>    
+>>>> Veth stands for Virtual ETHernet. It is a simple tunnel driver
+>>>> that works at the link layer and looks like a pair of ethernet
+>>>> devices interconnected with each other.
+>>>>         
+>>> As Dave mentioned, there is already a driver known as 'veth'.  Maybe
+>>> borrow
+>>> the etun name as well?
+>>>     
+>>
+>> We have already seen that this driver uses ethXXX names for
+>> its devices and Dave agreed with veth one. Moreover Alexey
+>> Kuznetsov said that he would prefer the name veth for etun.
+>>   
+> Ok, fine by me.  I started reading mail from the wrong direction this
+> morning :)
+>>  
+>>> I would also like some way to identify veth from other device types,
+>>> preferably
+>>> something like a value in sysfs.   However, that should not hold up
+>>>     
+>>
+>> We can do this with ethtool. It can get and print the driver name of
+>> the device.
+>>   
+> I think I'd like something in sysfs that we could query for any
+> interface.  Possible return
+> strings could be:
+> VLAN
+> VETH
+> ETH
+> PPP
+> BRIDGE
+> AP /* wifi access point interface */
+> STA /* wifi station */
+> ....
 > 
-> This version doesn't include the fix for ip/iplink.c as Patrick
-> said that he had included it into his patches already.
+> I will cook up a patch for consideration after veth goes in.
+
+OK.
+
+>>> I think you need at least the option to zero out the time-stamp,
+>>> otherwise it will
+>>> not be re-calculated when received on the peer, and it potentially spent
+>>> significant
+>>> time since it was last calculated (think netem delay or similar).
+>>>
+>>> +        /* Zero out the time-stamp so that receiving code is forced
+>>> +         * to recalculate it.
+>>> +         */
+>>> +        skb->tstamp.off_sec = 0;
+>>> +        skb->tstamp.off_usec = 0;
+>>>
+>>>    
+>>>> +
+>>>> +    rcv_priv = netdev_priv(rcv);
+>>>> +    skb->pkt_type = PACKET_HOST;
+>>>> +    skb->protocol = eth_type_trans(skb, rcv);
+>>>> +    if (dev->features & NETIF_F_NO_CSUM)
+>>>> +        skb->ip_summed = rcv_priv->ip_summed;
+>>>> +
+>>>> +    dst_release(skb->dst);
+>>>> +    skb->dst = NULL;
+>>>> +    secpath_reset(skb);
+>>>> +    nf_reset(skb);
+>>>> +    skb->mark = 0;
+>>>> +
+>>>> +    length = skb->len;
+>>>>         
+>>> This should be done before you do the eth_type_trans, as that pulls the
+>>> header and your
+>>> byte counters will be off.
+>>>     
+>>
+>> This will be ETH_HLEN larger, do you mean this? I think this is
+>> normal as this device tries to look like an "iron" ethernet card :)
+>>   
+> For device counters, it should count the number of bytes received,
+> including all headers,
+> but excluding the ethernet FCS.   If an 'iron' card did differently, I'd
+> consider it a bug.
+
+Hmm... The loopback must be doing bad things then. It first calls
+eth_type_trans and then accounts for the new skb->len.
+
+> Thanks,
+> Ben
 > 
-> Signed-off-by: Pavel Emelianov <xemul@openvz.org>
 
-If this goes in to the mainline kernel, I'll add it to iproute2.
-Don't want to put anything in now because of possible interface changes.
-
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
