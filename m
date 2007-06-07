@@ -1,70 +1,90 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [2.6.22-rc4] UDP's local port assignment not working correctly.
-Date: Thu, 7 Jun 2007 15:18:39 +0200
-Message-ID: <20070607151839.d8f1c164.dada1@cosmosbay.com>
-References: <200706072040.BEC00116.MQFFtSOVOHFOLJ@I-love.SAKURA.ne.jp>
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
+Subject: Re: [PATCH] Virtual ethernet tunnel
+Date: Thu, 07 Jun 2007 16:05:51 +0200
+Message-ID: <466810BF.2090704@fr.ibm.com>
+References: <4666CEAA.8010903@openvz.org> <4666D296.2000002@trash.net> <4667BD1D.9080905@openvz.org> <4667D00E.2020605@fr.ibm.com> <4667D538.7040904@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Cc: Daniel Lezcano <dlezcano@fr.ibm.com>,
+	Patrick McHardy <kaber@trash.net>,
+	Linux Containers <containers@lists.osdl.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Kirill Korotaev <dev@openvz.org>
+To: Pavel Emelianov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfx2.jmh.fr ([194.153.89.55]:41366 "EHLO pfx2.jmh.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751813AbXFGNSk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Jun 2007 09:18:40 -0400
-In-Reply-To: <200706072040.BEC00116.MQFFtSOVOHFOLJ@I-love.SAKURA.ne.jp>
+Received: from mtagate7.uk.ibm.com ([195.212.29.140]:1718 "EHLO
+	mtagate7.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754352AbXFGOGl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jun 2007 10:06:41 -0400
+Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
+	by mtagate7.uk.ibm.com (8.13.8/8.13.8) with ESMTP id l57E6eNu366476
+	for <netdev@vger.kernel.org>; Thu, 7 Jun 2007 14:06:40 GMT
+Received: from d06av04.portsmouth.uk.ibm.com (d06av04.portsmouth.uk.ibm.com [9.149.37.216])
+	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l57E6eN32986230
+	for <netdev@vger.kernel.org>; Thu, 7 Jun 2007 15:06:40 +0100
+Received: from d06av04.portsmouth.uk.ibm.com (loopback [127.0.0.1])
+	by d06av04.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l57E6dmb013761
+	for <netdev@vger.kernel.org>; Thu, 7 Jun 2007 15:06:40 +0100
+In-Reply-To: <4667D538.7040904@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 7 Jun 2007 20:40:39 +0900
-Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp> wrote:
+Pavel Emelianov wrote:
+>>> I did this at the very first version, but Alexey showed me that this
+>>> would be wrong. Look. When we create the second device it must be in
+>>> the other namespace as it is useless to have them in one namespace.
+>>> But if we have the device in the other namespace the RTNL_NEWLINK
+>>> message from kernel would come into this namespace thus confusing ip
+>>> utility in the init namespace. Creating the device in the init ns and
+>>> moving it into the new one is rather a complex task.
+>>>   
+>>>       
+>> Pavel,
+>>
+>> moving the netdevice to another namespace is not a complex task. Eric
+>> Biederman did it in its patchset ( cf.  http://lxc.sf.net/network )
+>>     
+>
+> By saying complex I didn't mean that this is difficult to implement,
+> but that it consists (must consist) of many stages. I.e. composite.
+> Making the device right in the namespace is liter.
+>
+>   
+>> When the pair device is created, both extremeties are into the init
+>> namespace and you can choose to which namespace to move one extremity.
+>>     
+>
+> I do not mind that.
+>   
+>> When the network namespace dies, the netdev is moved back to the init
+>> namespace.
+>> That facilitate network device management.
+>>
+>> Concerning netlink events, this is automatically generated when the
+>> network device is moved through namespaces.
+>>
+>> IMHO, we should have the network device movement between namespaces in
+>> order to be able to move a physical network device too (eg. you have 4
+>> NIC and you want to create 3 containers and assign 3 NIC to each of them)
+>>     
+>
+> Agree. Moving the devices is a must-have functionality.
+>
+> I do not mind making the pair in the init namespace and move the second
+> one into the desired namespace. But if we *always* will have two ends in
+> different namespaces what to complicate things for?
+>   
+Just to provide a netdev sufficiently generic to be used by people who 
+don't want namespaces but just want to do some network testing, like Ben 
+Greear does. He mentioned in a previous email, he will be happy to stop 
+redirecting people to out of tree patch.
 
-> Hello.
-> 
-> Same local ports are assigned to multiple sockets.
-> The following program should print different local port number.
-> 
-> ----- Start of program -----
-> #include <stdio.h>
-> #include <unistd.h>
-> #include <sys/socket.h>
-> #include <sys/types.h>
-> #include <netinet/in.h>
-> 
-> int main(int argc, char *argv[]) {
-> 	struct sockaddr_in addr;
-> 	socklen_t size = sizeof(addr);
-> 	int server = socket(PF_INET, SOCK_DGRAM, 0), client = socket(PF_INET, SOCK_DGRAM, 0);
-> 	addr.sin_family = AF_INET;
-> 	addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-> 	addr.sin_port = htons(0);
-> 	
-> 	printf("Server: Binding UDP 127.0.0.1 0 ... ");
-> 	bind(server, (struct sockaddr *) &addr, sizeof(addr));
-> 	getsockname(server, (struct sockaddr *) &addr, &size);
-> 	printf("bound to port %d\n", ntohs(addr.sin_port));
-> 	
-> 	printf("Client: Connecting UDP 127.0.0.1 %d ... ", ntohs(addr.sin_port));
-> 	connect(client, (struct sockaddr *) &addr, sizeof(addr));
-> 	getsockname(client, (struct sockaddr *) &addr, &size);
-> 	printf("bound to port %d\n", ntohs(addr.sin_port));
-> 	
-> 	return 0;
-> }
-> ----- End of program -----
-> 
-> I told YOSHIFUJI Hideaki and he answered me that
-> this is a regression caused by changing UDP's hash search algorithm to 2-pass.
-> 
-> Thanks.
+https://lists.linux-foundation.org/pipermail/containers/2007-April/004420.html
 
-CC netdev
-
-Yes, this was discovered two days ago and David reverted four commits.
-
-http://git.kernel.org/?p=linux/kernel/git/davem/net-2.6.git;a=commitdiff;h=82c5fde20031375cd93fa5a247cf15603ea1f152
-
-So it should probably be included in Linus tree very very soon.
+> Thanks,
+> Pavel
+>
+>   
 
