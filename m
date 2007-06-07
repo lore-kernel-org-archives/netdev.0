@@ -1,74 +1,60 @@
 From: linas@austin.ibm.com (Linas Vepstas)
-Subject: [PATCH 9/18] spidernet: reset the card when an rxramfull is seen
-Date: Thu, 7 Jun 2007 14:39:46 -0500
-Message-ID: <20070607193946.GI16077@austin.ibm.com>
+Subject: [PATCH 10/18] spidernet: service TX later.
+Date: Thu, 7 Jun 2007 14:41:30 -0500
+Message-ID: <20070607194130.GJ16077@austin.ibm.com>
 References: <20070607191707.GA7904@austin.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: cbe-oss-dev@ozlabs.org, netdev@vger.kernel.org
 To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e36.co.us.ibm.com ([32.97.110.154]:40721 "EHLO
-	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760927AbXFGTjt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jun 2007 15:39:49 -0400
-Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
-	by e36.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l57Jdn9O009178
-	for <netdev@vger.kernel.org>; Thu, 7 Jun 2007 15:39:49 -0400
-Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
-	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l57JdlwP251874
-	for <netdev@vger.kernel.org>; Thu, 7 Jun 2007 13:39:47 -0600
-Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l57Jdk1h028089
-	for <netdev@vger.kernel.org>; Thu, 7 Jun 2007 13:39:46 -0600
+Received: from e6.ny.us.ibm.com ([32.97.182.146]:54936 "EHLO e6.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1762770AbXFGTlb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Jun 2007 15:41:31 -0400
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e6.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l57JgZHk032621
+	for <netdev@vger.kernel.org>; Thu, 7 Jun 2007 15:42:35 -0400
+Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
+	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l57JfVIx516114
+	for <netdev@vger.kernel.org>; Thu, 7 Jun 2007 15:41:31 -0400
+Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
+	by d01av01.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l57JfU2F002835
+	for <netdev@vger.kernel.org>; Thu, 7 Jun 2007 15:41:31 -0400
 Content-Disposition: inline
 In-Reply-To: <20070607191707.GA7904@austin.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-Some versions of the spider have a firmware bug, where the
-RX ring sequencer goes crazy when the RX RAM on the device
-fills up. Appearently the only viable wrkaround is a soft
-reset of the card.
+When entering the netdev poll routine, empty out the RX
+chain first, before cleaning up the TX chain. This should
+help avoid RX buffer overflows.
 
 Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
 
 ----
- drivers/net/spider_net.c |   15 +++++++++++----
- 1 file changed, 11 insertions(+), 4 deletions(-)
+ drivers/net/spider_net.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
 Index: linux-2.6.22-rc1/drivers/net/spider_net.c
 ===================================================================
---- linux-2.6.22-rc1.orig/drivers/net/spider_net.c	2007-06-07 11:52:12.000000000 -0500
-+++ linux-2.6.22-rc1/drivers/net/spider_net.c	2007-06-07 11:52:17.000000000 -0500
-@@ -1518,11 +1518,16 @@ spider_net_handle_error_irq(struct spide
- 	case SPIDER_NET_GRFBFLLINT: /* fallthrough */
- 	case SPIDER_NET_GRFAFLLINT: /* fallthrough */
- 	case SPIDER_NET_GRMFLLINT:
--		if (netif_msg_intr(card) && net_ratelimit())
--			dev_err(&card->netdev->dev, "Spider RX RAM full, incoming packets "
--			       "might be discarded!\n");
-+		if (netif_msg_intr(card) && net_ratelimit()) {
-+			dev_err(&card->netdev->dev, "Spider RX RAM full, "
-+			        "incoming packets might be discarded!\n");
-+			show_rx_chain(card);
-+		}
- 		spider_net_rx_irq_off(card);
--		netif_rx_schedule(card->netdev);
-+
-+		/* If the card is spewing rxramfulls, then reset */
-+		atomic_inc(&card->tx_timeout_task_counter);
-+		schedule_work(&card->tx_timeout_task);
- 		show_error = 0;
- 		break;
+--- linux-2.6.22-rc1.orig/drivers/net/spider_net.c	2007-06-07 11:52:17.000000000 -0500
++++ linux-2.6.22-rc1/drivers/net/spider_net.c	2007-06-07 11:52:20.000000000 -0500
+@@ -1224,7 +1224,6 @@ spider_net_poll(struct net_device *netde
+ 	int packets_to_do, packets_done = 0;
+ 	int no_more_packets = 0;
  
-@@ -2100,6 +2105,8 @@ spider_net_workaround_rxramfull(struct s
- {
- 	int i, sequencer = 0;
+-	spider_net_cleanup_tx_ring(card);
+ 	packets_to_do = min(*budget, netdev->quota);
  
-+	dev_info(&card->pdev->dev, "calling rxramfull workaround\n");
+ 	while (packets_to_do) {
+@@ -1243,6 +1242,8 @@ spider_net_poll(struct net_device *netde
+ 	spider_net_refill_rx_chain(card);
+ 	spider_net_enable_rxdmac(card);
+ 
++	spider_net_cleanup_tx_ring(card);
 +
- 	/* cancel reset */
- 	spider_net_write_reg(card, SPIDER_NET_CKRCTRL,
- 			     SPIDER_NET_CKRCTRL_RUN_VALUE);
+ 	/* if all packets are in the stack, enable interrupts and return 0 */
+ 	/* if not, return 1 */
+ 	if (no_more_packets) {
