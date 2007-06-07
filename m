@@ -1,70 +1,100 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: 2.6.22-rc4-mm2: Assigning IP address fails
-Date: Thu, 7 Jun 2007 15:06:53 -0700
-Message-ID: <20070607150653.b83bfc0f.akpm@linux-foundation.org>
-References: <20070606220313.8f7c1fab.akpm@linux-foundation.org>
-	<20070607214609.GB8204@nineveh.local>
+From: =?iso-8859-1?Q?Bj=F6rn?= Steinbrink <B.Steinbrink@gmx.de>
+Subject: Re: 2.6.22-rc4-mm2 -- ipw2200 -- SIOCSIFADDR: No buffer space available
+Date: Fri, 8 Jun 2007 00:20:15 +0200
+Message-ID: <20070607222015.GA14966@atjola.homenet>
+References: <a44ae5cd0706071125p2079472eme52821bd134d26b0@mail.gmail.com> <20070607131559.cd95a181.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linux-net@vger.kernel.org,
-	netdev@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>
-To: jfannin@gmail.com (Joseph Fannin)
-Return-path: <linux-net-owner@vger.kernel.org>
-In-Reply-To: <20070607214609.GB8204@nineveh.local>
-Sender: linux-net-owner@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Miles Lane <miles.lane@gmail.com>,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.gmx.net ([213.165.64.20]:49587 "HELO mail.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S937154AbXFGWUT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Jun 2007 18:20:19 -0400
+Content-Disposition: inline
+In-Reply-To: <20070607131559.cd95a181.akpm@linux-foundation.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 7 Jun 2007 17:46:09 -0400
-jfannin@gmail.com (Joseph Fannin) wrote:
+On 2007.06.07 13:15:59 -0700, Andrew Morton wrote:
+> On Thu, 7 Jun 2007 11:25:30 -0700
+> "Miles Lane" <miles.lane@gmail.com> wrote:
+>=20
+> > Hi Andrew,
+> >=20
+> > This might be some problem with my kernel configuration.
+> > I added:
+> > CONFIG_BONDING=3Dy
+> >=20
+> > # dhclient eth1
+> > There is already a pid file /var/run/dhclient.pid with pid 13499341=
+6
+> > Internet Systems Consortium DHCP Client V3.0.4
+> > Copyright 2004-2006 Internet Systems Consortium.
+> > All rights reserved.
+> > For info, please visit http://www.isc.org/sw/dhcp/
+> > SIOCSIFADDR: No buffer space available
+> > Listening on LPF/eth1/00:12:f0:5e:db:2f
+> > Sending on   LPF/eth1/00:12:f0:5e:db:2f
+> > Sending on   Socket/fallback
+> > DHCPDISCOVER on eth1 to 255.255.255.255 port 67 interval 6
+> > DHCPOFFER from 192.168.1.1
+> > DHCPREQUEST on eth1 to 255.255.255.255 port 67
+> > DHCPACK from 192.168.1.1
+> > SIOCSIFADDR: No buffer space available
+> > SIOCSIFNETMASK: Cannot assign requested address
+> > SIOCSIFBRDADDR: Cannot assign requested address
+> > SIOCADDRT: Network is unreachable
+> > bound to 192.168.1.2 -- renewal in 2993 seconds.
+> >=20
+> > # ping www.yahoo.com
+> > ping: unknown host www.yahoo.com
+> >=20
+> > Any suggestions what to try now?  I'll go ahead and turn off the
+> > bonding option and see if that helps.
+> >=20
+>=20
+> It won't be related to bonding.
+>=20
+> It has a high probability of being very related to Herbert's changes
+> to inet_set_ifa().
 
-> On Wed, Jun 06, 2007 at 10:03:13PM -0700, Andrew Morton wrote:
-> >
-> > ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.22-rc4/2.6.22-rc4-mm2/
-> 
->     I'm not able to bring an ethernet interface down and back up again
-> with this if avahi-autoipd is installed on my Ubuntu boxes.  I've seen
-> it on three different computers with different NIC hardware.
-> 
->     I've worked out an easy way to reproduce it without
-> avahi-autoipd.  Starting with eth0 up (address assigned by DHCP):
-> 
->   # ifdown eth0
->   < dhclient makes the normal noise about releasing the address >
->   # ip addr add 169.254.255.67/16 brd 169.254.255.255 label eth0:avahi scope link dev eth0
->   # ip addr del 169.154.255.67/16 brd 169.254.255.255 label eth0:avahi scope link dev eth0
->   # ifup eth0
->   SIOCSIFADDR: No buffer space available    < -- first sign of trouble HERE
->   < dhclient copyright boilerplate >
->   Listening on LPF/eth0/<MAC addr>
->   Sending on   LPF/eth0/<MAC addr>
->   Sending on   Socket/fallback
->   DHCPDISCOVER on eth0 to 255.255.255.255 port 67 interval 5
->   DHCPOFFER from < DHCP server >
->   DHCPREQUEST on eth0 to 255.255.255.255 port 67
->   DHCPACK from  < DHCP server >
->   SIOCSIFADDR: No buffer space available
->   SIOCSIFNETMASK: Cannot assign requested address
->   SIOCSIFBRDADDR: Cannot assign requested address
->   SIOCADDRTL No such process
->   bound to < IP address > -- renewal in XXXX seconds
->   #
-> 
->     At this point, the interface is up, but has no address assigned.
-> Manually assigning one with ifconfig fails:
-> 
->   # ifconfig eth0 netmask 255.255.255.0 172.16.0.1
->   SIOCSIFNETMASK: Cannot assign requested address
->   SIOCSIFADDR: No buffer space available
->   #
-> 
-> ... and a reboot is the only way I've been able to get the interface
-> to work again.
-> 
->     The last kernels I tried were 2.6.22-rc3 and *I think*
-> 2.6.22-rc1-mm1, neither of which had this problem.  I will test
-> 2.6.22-rc4 and 2.6.22-rc3-mm1 later, but I'm out of time today.
-> 
->     I've attached my .config .
+Hm, as inetdev_init() is now only called at the time the device is
+registered, it seems wrong that inetdev_destroy() is also called in
+__inet_del_ifa() when all addresses got deleted.
 
-Yep, thanks - Miles has reported the same thing.
+Miles, could you try if this patch helps?
+
+Bj=F6rn
+
+
+Stop destroying devices when all of their ifas are gone, as we no longe=
+r
+recreate them when ifas are added.
+
+Signed-off-by: Bj=F6rn Steinbrink <B.Steinbrink@gmx.de>
+--
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index fa97b96..abf6352 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -327,12 +327,8 @@ static void __inet_del_ifa(struct in_device *in_de=
+v, struct in_ifaddr **ifap,
+ 		}
+=20
+ 	}
+-	if (destroy) {
++	if (destroy)
+ 		inet_free_ifa(ifa1);
+-
+-		if (!in_dev->ifa_list)
+-			inetdev_destroy(in_dev);
+-	}
+ }
+=20
+ static void inet_del_ifa(struct in_device *in_dev, struct in_ifaddr **=
+ifap,
