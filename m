@@ -1,119 +1,67 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH] Virtual ethernet tunnel (v.2)
-Date: Thu, 07 Jun 2007 08:51:18 -0700
-Message-ID: <46682976.8050904@candelatech.com>
-References: <4667E83E.2060405@openvz.org> <466822DD.1000601@candelatech.com> <466826C6.6000206@openvz.org>
+From: Rolf Eike Beer <eike-kernel@sf-tec.de>
+Subject: Re: r8169: hard freezes on TX
+Date: Thu, 7 Jun 2007 16:13:42 +0200
+Message-ID: <200706071613.47077.eike-kernel@sf-tec.de>
+References: <200705201520.36672.eike-kernel@sf-tec.de> <20070604214603.GA29311@electric-eye.fr.zoreil.com> <200706050933.28046.eike-kernel@sf-tec.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: multipart/signed;
+  boundary="nextPart8818661.ePeCRsb54i";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	Kirill Korotaev <dev@openvz.org>,
-	Linux Containers <containers@lists.osdl.org>
-To: Pavel Emelianov <xemul@openvz.org>
+Cc: netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:55334 "EHLO ns2.lanforge.com"
+Received: from mail.sf-mail.de ([62.27.20.61]:51595 "EHLO mail.sf-mail.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1764954AbXFGPv5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Jun 2007 11:51:57 -0400
-In-Reply-To: <466826C6.6000206@openvz.org>
+	id S1765918AbXFGPw2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Jun 2007 11:52:28 -0400
+In-Reply-To: <200706050933.28046.eike-kernel@sf-tec.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Pavel Emelianov wrote:
-> Ben Greear wrote:
->   
->> Pavel Emelianov wrote:
->>     
->>> Veth stands for Virtual ETHernet. It is a simple tunnel driver
->>> that works at the link layer and looks like a pair of ethernet
->>> devices interconnected with each other.
->>>   
->>>       
->> As Dave mentioned, there is already a driver known as 'veth'.  Maybe borrow
->> the etun name as well?
->>     
+--nextPart8818661.ePeCRsb54i
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
+
+Rolf Eike Beer wrote:
+> You wrote:
+> > Rolf Eike Beer <eike-kernel@sf-tec.de> :
+> > [...]
+> >
+> > > I just had another freeze using your patches. After 512kB over smb it
+> > > was dead.
+> >
+> > In-kernel smb/cifs ?
 >
-> We have already seen that this driver uses ethXXX names for
-> its devices and Dave agreed with veth one. Moreover Alexey
-> Kuznetsov said that he would prefer the name veth for etun.
->   
-Ok, fine by me.  I started reading mail from the wrong direction this 
-morning :)
->   
->> I would also like some way to identify veth from other device types,
->> preferably
->> something like a value in sysfs.   However, that should not hold up
->>     
->
-> We can do this with ethtool. It can get and print the driver 
-> name of the device.
->   
-I think I'd like something in sysfs that we could query for any 
-interface.  Possible return
-strings could be:
-VLAN
-VETH
-ETH
-PPP
-BRIDGE
-AP /* wifi access point interface */
-STA /* wifi station */
-....
+> Copying to a partition mounted via smb:// protocol in konqueror which uses
+> kio_smb (userspace io slave).
 
-I will cook up a patch for consideration after veth goes in.
+This start to get weird. I sent a single file (~4 MB) via FTP to a host=20
+connected via a 10 MBit Hub: freeze. Now I decided to beat it and tested a=
+=20
+bit around. I copied some folders of my MP3 collection over there, all went=
+=20
+fine. Then I created a tar file of ~400 MB and sent that which also went=20
+fine. Even the next try with this file didn't produce a crash. What was=20
+different on this tests was that I used the console instead of X (don't wan=
+t=20
+to munch up too many file systems). Any ideas?
 
->> I think you need at least the option to zero out the time-stamp,
->> otherwise it will
->> not be re-calculated when received on the peer, and it potentially spent
->> significant
->> time since it was last calculated (think netem delay or similar).
->>
->> +        /* Zero out the time-stamp so that receiving code is forced
->> +         * to recalculate it.
->> +         */
->> +        skb->tstamp.off_sec = 0;
->> +        skb->tstamp.off_usec = 0;
->>
->>     
->>> +
->>> +    rcv_priv = netdev_priv(rcv);
->>> +    skb->pkt_type = PACKET_HOST;
->>> +    skb->protocol = eth_type_trans(skb, rcv);
->>> +    if (dev->features & NETIF_F_NO_CSUM)
->>> +        skb->ip_summed = rcv_priv->ip_summed;
->>> +
->>> +    dst_release(skb->dst);
->>> +    skb->dst = NULL;
->>> +    secpath_reset(skb);
->>> +    nf_reset(skb);
->>> +    skb->mark = 0;
->>> +
->>> +    length = skb->len;
->>>   
->>>       
->> This should be done before you do the eth_type_trans, as that pulls the
->> header and your
->> byte counters will be off.
->>     
->
-> This will be ETH_HLEN larger, do you mean this? I think this is
-> normal as this device tries to look like an "iron" ethernet card :)
->   
-For device counters, it should count the number of bytes received, 
-including all headers,
-but excluding the ethernet FCS.   If an 'iron' card did differently, I'd 
-consider it a bug.
+Eike
 
-Thanks,
-Ben
+--nextPart8818661.ePeCRsb54i
+Content-Type: application/pgp-signature; name=signature.asc 
+Content-Description: This is a digitally signed message part.
 
--- 
-Ben Greear <greearb@candelatech.com> 
-Candela Technologies Inc  http://www.candelatech.com
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.5 (GNU/Linux)
 
+iD8DBQBGaBKbXKSJPmm5/E4RAv26AJ47ZUvkQYXqUfAuWRwlRrPnBkWVnQCfaXeR
+SkrCncZJSQ9oScN1J2PhQUI=
+=larp
+-----END PGP SIGNATURE-----
 
+--nextPart8818661.ePeCRsb54i--
