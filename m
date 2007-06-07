@@ -1,33 +1,42 @@
-From: "kalash nainwal" <kalash.nainwal@gmail.com>
-Subject: Re: extra layer below inet layer.
-Date: Thu, 7 Jun 2007 16:03:09 +0530
-Message-ID: <416aa1ad0706070333j2c5eb9day48331ffed65614f6@mail.gmail.com>
-References: <2bd9ebfa0706062140vfddf3etfc8fd17749c9ad12@mail.gmail.com>
-	 <416aa1ad0706070330i12fe211dn25cd2d174f3a7100@mail.gmail.com>
+From: Jens Axboe <jens.axboe@oracle.com>
+Subject: Re: [PATCH][RFC] network splice receive
+Date: Thu, 7 Jun 2007 12:51:59 +0200
+Message-ID: <20070607105159.GV4735@kernel.dk>
+References: <20070605080542.GA9909@kernel.dk> <20070605143130.GA31747@2ka.mipt.ru> <20070606071725.GE31415@kernel.dk> <20070607080954.GB11764@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: "Tej Parkash" <tejparkash.d@gmail.com>
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ik-out-1112.google.com ([66.249.90.180]:15865 "EHLO
-	ik-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751202AbXFGKdK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jun 2007 06:33:10 -0400
-Received: by ik-out-1112.google.com with SMTP id b32so390666ika
-        for <netdev@vger.kernel.org>; Thu, 07 Jun 2007 03:33:09 -0700 (PDT)
-In-Reply-To: <416aa1ad0706070330i12fe211dn25cd2d174f3a7100@mail.gmail.com>
+Received: from brick.kernel.dk ([80.160.20.94]:15472 "EHLO kernel.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750930AbXFGKx0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Jun 2007 06:53:26 -0400
 Content-Disposition: inline
+In-Reply-To: <20070607080954.GB11764@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> >
-> > so is it possible to unregister tcp and register my protocol dynamically.
->
-> inet_unregister_protosw()/inet_register_protosw().
+On Thu, Jun 07 2007, Evgeniy Polyakov wrote:
+> On Wed, Jun 06, 2007 at 09:17:25AM +0200, Jens Axboe (jens.axboe@oracle.com) wrote:
+> > > Some pages have zero reference counter here.
+> > 
+> > But it's somewhat annoying to get pages with zero reference counts
+> > there, I wonder how that happens. I guess if the skb->data originated
+> > from kmalloc() then we don't really know. The main intent there was just
+> > to ensure the page wasn't going away, but clearly it's not good enough
+> > to ensure that reuse isn't taking place.
+> 
+> What bout checking if page belongs to kmalloc cache (or any other cache
+> via priviate pointers) and do not perform any kind of reference counting
+> on them? I will play with this a bit later today.
 
-oops...can't unregister tcp (permanent protocol).
+That might work, but sounds a little dirty... But there's probably no
+way around. Be sure to look at the #splice-net branch if you are playing
+with this, I've updated it a number of times and fixed some bugs in
+there. Notably it now gets the offset right, and handles fragments and
+fraglist as well.
 
->
-> -Kalash
->
+-- 
+Jens Axboe
+
