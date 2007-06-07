@@ -1,37 +1,44 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [PATCH][RFC] network splice receive
-Date: Thu, 7 Jun 2007 12:09:54 +0400
-Message-ID: <20070607080954.GB11764@2ka.mipt.ru>
-References: <20070605080542.GA9909@kernel.dk> <20070605143130.GA31747@2ka.mipt.ru> <20070606071725.GE31415@kernel.dk>
+From: Kirill Korotaev <dev@sw.ru>
+Subject: Re: [Devel] Re: [PATCH] Virtual ethernet tunnel
+Date: Thu, 07 Jun 2007 12:14:29 +0400
+Message-ID: <4667BE65.2060307@sw.ru>
+References: <4666CEAA.8010903@openvz.org> <20070606.124758.85411179.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: netdev@vger.kernel.org
-To: Jens Axboe <jens.axboe@oracle.com>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: xemul@openvz.org, containers@lists.osdl.org,
+	netdev@vger.kernel.org, kaber@trash.net, dev@openvz.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:47096 "EHLO 2ka.mipt.ru"
+Received: from mailhub.sw.ru ([195.214.233.200]:10221 "EHLO relay.sw.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756827AbXFGIKx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Jun 2007 04:10:53 -0400
-Content-Disposition: inline
-In-Reply-To: <20070606071725.GE31415@kernel.dk>
+	id S1751854AbXFGIOM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Jun 2007 04:14:12 -0400
+In-Reply-To: <20070606.124758.85411179.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 06, 2007 at 09:17:25AM +0200, Jens Axboe (jens.axboe@oracle.com) wrote:
-> > Some pages have zero reference counter here.
+David Miller wrote:
+> From: Pavel Emelianov <xemul@openvz.org>
+> Date: Wed, 06 Jun 2007 19:11:38 +0400
 > 
-> But it's somewhat annoying to get pages with zero reference counts
-> there, I wonder how that happens. I guess if the skb->data originated
-> from kmalloc() then we don't really know. The main intent there was just
-> to ensure the page wasn't going away, but clearly it's not good enough
-> to ensure that reuse isn't taking place.
+> 
+>>Veth stands for Virtual ETHernet. It is a simple tunnel driver
+>>that works at the link layer and looks like a pair of ethernet
+>>devices interconnected with each other.
+> 
+> 
+> I would suggest choosing a different name.
+> 
+> 'veth' is also the name of the virtualized ethernet device
+> found on IBM machines, driven by driver/net/ibmveth.[ch]
 
-What bout checking if page belongs to kmalloc cache (or any other cache
-via priviate pointers) and do not perform any kind of reference counting
-on them? I will play with this a bit later today.
+AFAICS, ibmveth.c registers ethX devices, while this driver registers
+vethX by default, so there is no much conflict IMHO.
 
-> -- 
-> Jens Axboe
+But if you still don't like it, I would suggest 'ethtun' and later
+we will come with iptun for IP tunneling. Is it ok for you?
 
--- 
-	Evgeniy Polyakov
+Thanks,
+Kirill
+
