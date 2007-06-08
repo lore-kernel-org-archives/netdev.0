@@ -1,40 +1,45 @@
-From: Baruch Even <baruch@ev-en.org>
-Subject: Re: Multicast and hardware checksum
-Date: Fri, 08 Jun 2007 14:33:07 +0300
-Message-ID: <46693E73.3030707@ev-en.org>
-References: <E1HwXpK-0005RC-00@gondolin.me.apana.org.au> <46693743.7090100@ev-en.org> <20070608110621.GA23842@gondor.apana.org.au> <46693A3B.70202@ev-en.org>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH] NET: Multiqueue network device support.
+Date: Fri, 08 Jun 2007 07:34:57 -0400
+Message-ID: <1181302497.4063.37.camel@localhost>
+References: <1181253445.4071.4.camel@localhost>
+	 <20070607.154421.109060486.davem@davemloft.net>
+	 <1181256848.4071.57.camel@localhost>
+	 <20070607.160035.00774597.davem@davemloft.net>
+	 <1181262703.3688.10.camel@w-sridhar2.beaverton.ibm.com>
+	 <1181266536.4741.27.camel@localhost>
+	 <20070608103925.GA23598@gondor.apana.org.au>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: Sridhar Samudrala <sri@us.ibm.com>,
+	David Miller <davem@davemloft.net>, auke-jan.h.kok@intel.com,
+	jeff@garzik.org, kaber@trash.net, peter.p.waskiewicz.jr@intel.com,
+	netdev@vger.kernel.org, jesse.brandeburg@intel.com
 To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rrcs-24-123-59-149.central.biz.rr.com ([24.123.59.149]:20142
-	"EHLO galon.ev-en.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S968933AbXFHLds (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jun 2007 07:33:48 -0400
-In-Reply-To: <46693A3B.70202@ev-en.org>
+Received: from wx-out-0506.google.com ([66.249.82.237]:60801 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S968629AbXFHLfC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jun 2007 07:35:02 -0400
+Received: by wx-out-0506.google.com with SMTP id t15so702196wxc
+        for <netdev@vger.kernel.org>; Fri, 08 Jun 2007 04:35:02 -0700 (PDT)
+In-Reply-To: <20070608103925.GA23598@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Baruch Even wrote:
-> Herbert Xu wrote:
->> On Fri, Jun 08, 2007 at 02:02:27PM +0300, Baruch Even wrote:
->>> As far as IGMP and multicast handling everything works, the packets 
->>> are even forwarded over the ppp links but they arrive to the client 
->>> with a bad checksum. I don't have the trace in front of me but I 
->>> believe it was the UDP checksum that failed.
->>
->> What kind of a ppp device is this?
->>
->> If you run a tcpdump either side of the ppp link do you see the same
->> UDP checksum value?
-> 
-> This is a pptp link. I've checked the checksum on the receive side, I 
-> don't know on the sender side and I'll only be able to try it on Sunday.
+On Fri, 2007-08-06 at 20:39 +1000, Herbert Xu wrote:
 
-For completeness, the clients are Windows XP clients and the server is a 
-  Linux machine. The tunnel is mppe encrypted so I believe that what 
-goes out on the client is the same as what got in on the server.
+> It would guard against the poll routine which would acquire this lock
+> when cleaning the TX ring.
 
-Baruch
+Ok, then i suppose we can conclude it is a bug on e1000 (holds tx_lock
+on tx side and adapter queue lock on rx). Adding that lock will
+certainly bring down the performance numbers on a send/recv profile.
+The bizare thing is things run just fine even under the heavy tx/rx
+traffic i was testing under. I guess i didnt hit hard enough.
+
+cheers,
+jamal
+
