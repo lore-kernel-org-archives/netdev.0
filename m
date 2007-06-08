@@ -1,68 +1,55 @@
-From: "Miles Lane" <miles.lane@gmail.com>
-Subject: Re: 2.6.22-rc4-mm2 -- ipw2200 -- SIOCSIFADDR: No buffer space available
-Date: Thu, 7 Jun 2007 23:35:17 -0700
-Message-ID: <a44ae5cd0706072335w6244f267x1fb0158dd536085c@mail.gmail.com>
-References: <a44ae5cd0706071125p2079472eme52821bd134d26b0@mail.gmail.com>
-	 <20070607131559.cd95a181.akpm@linux-foundation.org>
-	 <20070607222015.GA14966@atjola.homenet>
+From: Jens Axboe <jens.axboe@oracle.com>
+Subject: Re: [PATCH][RFC] network splice receive
+Date: Fri, 8 Jun 2007 09:48:24 +0200
+Message-ID: <20070608074823.GG7341@kernel.dk>
+References: <20070605080542.GA9909@kernel.dk> <20070605143130.GA31747@2ka.mipt.ru> <20070606071725.GE31415@kernel.dk> <20070607080954.GB11764@2ka.mipt.ru> <20070607105159.GV4735@kernel.dk> <20070607145818.GA26491@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: "=?ISO-8859-1?Q?Bj=F6rn_Steinbrink?=" <B.Steinbrink@gmx.de>,
-	"Andrew Morton" <akpm@linux-foundation.org>,
-	"Miles Lane" <miles.lane@gmail.com>,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	"Herbert Xu" <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.183]:21131 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756975AbXFHGfS convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jun 2007 02:35:18 -0400
-Received: by wa-out-1112.google.com with SMTP id v27so916541wah
-        for <netdev@vger.kernel.org>; Thu, 07 Jun 2007 23:35:18 -0700 (PDT)
-In-Reply-To: <20070607222015.GA14966@atjola.homenet>
+Received: from brick.kernel.dk ([80.160.20.94]:11993 "EHLO kernel.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S939203AbXFHHt7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Jun 2007 03:49:59 -0400
 Content-Disposition: inline
+In-Reply-To: <20070607145818.GA26491@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 6/7/07, Bj=F6rn Steinbrink <B.Steinbrink@gmx.de> wrote:
-[...]
-> Miles, could you try if this patch helps?
->
-> Bj=F6rn
->
->
-> Stop destroying devices when all of their ifas are gone, as we no lon=
-ger
-> recreate them when ifas are added.
->
-> Signed-off-by: Bj=F6rn Steinbrink <B.Steinbrink@gmx.de>
-> --
-> diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-> index fa97b96..abf6352 100644
-> --- a/net/ipv4/devinet.c
-> +++ b/net/ipv4/devinet.c
-> @@ -327,12 +327,8 @@ static void __inet_del_ifa(struct in_device *in_=
-dev, struct in_ifaddr **ifap,
->                 }
->
->         }
-> -       if (destroy) {
-> +       if (destroy)
->                 inet_free_ifa(ifa1);
-> -
-> -               if (!in_dev->ifa_list)
-> -                       inetdev_destroy(in_dev);
-> -       }
->  }
->
->  static void inet_del_ifa(struct in_device *in_dev, struct in_ifaddr =
-**ifap,
->
+On Thu, Jun 07 2007, Evgeniy Polyakov wrote:
+> On Thu, Jun 07, 2007 at 12:51:59PM +0200, Jens Axboe (jens.axboe@oracle.com) wrote:
+> > > What bout checking if page belongs to kmalloc cache (or any other cache
+> > > via priviate pointers) and do not perform any kind of reference counting
+> > > on them? I will play with this a bit later today.
+> > 
+> > That might work, but sounds a little dirty... But there's probably no
+> > way around. Be sure to look at the #splice-net branch if you are playing
+> > with this, I've updated it a number of times and fixed some bugs in
+> > there. Notably it now gets the offset right, and handles fragments and
+> > fraglist as well.
+> 
+> I've pulled splice-net, which indeed fixed some issues, but referencing
+> slab pages is still is not allowed. There are at least two problems
+> (although they are related):
+> 1. if we do not increment reference counter for slab pages, they
+> eventually get refilled and slab exploses after it understood that its
+> pages are in use (or user dies when page is moved out of his control in
+> slab).
+> 2. get/put page does not work with slab pages, and simple
+> increment/decrement of the reference counters is not allowed too.
+> 
+> Both problems have the same root - slab does not allow anyone to 
+> manipulate page's members. That should be broken/changed to allow splice
+> to put its hands into network using the fastest way.
+> I will think about it.
 
-Bj=F6rn,
+Perhaps it's possible to solve this at a different level - can we hang
+on to the skb until the pipe buffer has been consumed, and prevent reuse
+that way? Then we don't have to care what backing the skb has, as long
+as it (and its data) isn't being reused until we drop the reference to
+it in sock_pipe_buf_release().
 
-Thanks.  You patch worked for me.
+-- 
+Jens Axboe
 
-             Miles
