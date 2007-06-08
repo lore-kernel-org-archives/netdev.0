@@ -1,40 +1,37 @@
-From: Baruch Even <baruch@ev-en.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: Multicast and hardware checksum
-Date: Fri, 08 Jun 2007 14:02:27 +0300
-Message-ID: <46693743.7090100@ev-en.org>
-References: <E1HwXpK-0005RC-00@gondolin.me.apana.org.au>
+Date: Fri, 8 Jun 2007 21:06:21 +1000
+Message-ID: <20070608110621.GA23842@gondor.apana.org.au>
+References: <E1HwXpK-0005RC-00@gondolin.me.apana.org.au> <46693743.7090100@ev-en.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+To: Baruch Even <baruch@ev-en.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rrcs-24-123-59-149.central.biz.rr.com ([24.123.59.149]:25868
-	"EHLO galon.ev-en.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S938077AbXFHLDM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jun 2007 07:03:12 -0400
-In-Reply-To: <E1HwXpK-0005RC-00@gondolin.me.apana.org.au>
+Received: from rhun.apana.org.au ([64.62.148.172]:3647 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S938246AbXFHLGX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jun 2007 07:06:23 -0400
+Content-Disposition: inline
+In-Reply-To: <46693743.7090100@ev-en.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
-> Baruch Even <baruch@ev-en.org> wrote:
->> I have a machine on which I have an applications that sends multicast 
->> through eth interface with hardware tx checksum enabled. On the same 
->> machine I have mrouted running that routes the multicast traffic to a 
->> set of ppp interfaces. The packets that are received by the client have 
->> their checksum fixed on some number which is incorrect. If I disable tx 
->> checksum on the eth device the packets arrive with the proper checksum.
+On Fri, Jun 08, 2007 at 02:02:27PM +0300, Baruch Even wrote:
 > 
-> Where is the client? On the same machine or behind a PPP link?
+> As far as IGMP and multicast handling everything works, the packets are 
+> even forwarded over the ppp links but they arrive to the client with a 
+> bad checksum. I don't have the trace in front of me but I believe it was 
+> the UDP checksum that failed.
 
-The clients are behind the ppp links.
+What kind of a ppp device is this?
 
-As far as IGMP and multicast handling everything works, the packets are 
-even forwarded over the ppp links but they arrive to the client with a 
-bad checksum. I don't have the trace in front of me but I believe it was 
-the UDP checksum that failed.
+If you run a tcpdump either side of the ppp link do you see the same
+UDP checksum value?
 
-Baruch
-
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
