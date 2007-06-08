@@ -1,88 +1,44 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [WIP][PATCHES] Network xmit batching
-Date: Fri, 8 Jun 2007 16:09:04 +0400
-Message-ID: <20070608120904.GA19011@2ka.mipt.ru>
-References: <OFB311484E.057E34E9-ON652572F3.001D5838-652572F3.0022766D@in.ibm.com> <1181216629.4064.22.camel@localhost> <20070607161335.GA4987@2ka.mipt.ru> <1181254996.4071.27.camel@localhost> <20070608083807.GB11488@2ka.mipt.ru> <1181302267.4063.33.camel@localhost>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] NET: Multiqueue network device support.
+Date: Fri, 8 Jun 2007 22:37:35 +1000
+Message-ID: <20070608123735.GA24582@gondor.apana.org.au>
+References: <1181253445.4071.4.camel@localhost> <20070607.154421.109060486.davem@davemloft.net> <1181256848.4071.57.camel@localhost> <20070607.160035.00774597.davem@davemloft.net> <1181262703.3688.10.camel@w-sridhar2.beaverton.ibm.com> <1181266536.4741.27.camel@localhost> <20070608103925.GA23598@gondor.apana.org.au> <1181302497.4063.37.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: Krishna Kumar2 <krkumar2@in.ibm.com>,
-	Gagan Arneja <gaagaan@gmail.com>, netdev@vger.kernel.org,
-	Rick Jones <rick.jones2@hp.com>,
-	Sridhar Samudrala <sri@us.ibm.com>,
-	David Miller <davem@davemloft.net>,
-	Robert Olsson <Robert.Olsson@data.slu.se>
+Content-Type: text/plain; charset=us-ascii
+Cc: Sridhar Samudrala <sri@us.ibm.com>,
+	David Miller <davem@davemloft.net>, auke-jan.h.kok@intel.com,
+	jeff@garzik.org, kaber@trash.net, peter.p.waskiewicz.jr@intel.com,
+	netdev@vger.kernel.org, jesse.brandeburg@intel.com
 To: jamal <hadi@cyberus.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:57897 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757462AbXFHM0k (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Jun 2007 08:26:40 -0400
+Received: from rhun.apana.org.au ([64.62.148.172]:3946 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1763659AbXFHMiH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jun 2007 08:38:07 -0400
 Content-Disposition: inline
-In-Reply-To: <1181302267.4063.33.camel@localhost>
+In-Reply-To: <1181302497.4063.37.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 08, 2007 at 07:31:07AM -0400, jamal (hadi@cyberus.ca) wrote:
-> On Fri, 2007-08-06 at 12:38 +0400, Evgeniy Polyakov wrote:
-> > On Thu, Jun 07, 2007 at 06:23:16PM -0400, jamal (hadi@cyberus.ca) wrote:
+On Fri, Jun 08, 2007 at 07:34:57AM -0400, jamal wrote:
+> On Fri, 2007-08-06 at 20:39 +1000, Herbert Xu wrote:
 > 
-> > > I believe both are called with no lock. The idea is to avoid the lock
-> > > entirely when unneeded. That code may end up finding that the packet
-> [..]
-> > +	netif_tx_lock_bh(odev);
-> > +	if (!netif_queue_stopped(odev)) {
-> > +
-> > +		idle_start = getCurUs();
-> > +		pkt_dev->tx_entered++;
-> > +		ret = odev->hard_batch_xmit(&odev->blist, odev);
+> > It would guard against the poll routine which would acquire this lock
+> > when cleaning the TX ring.
 > 
-> [..]
-> > The same applies to *_gso case.
-> > 
-> 
-> You missed an important piece which is grabbing of
-> __LINK_STATE_QDISC_RUNNING
+> Ok, then i suppose we can conclude it is a bug on e1000 (holds tx_lock
+> on tx side and adapter queue lock on rx). Adding that lock will
+> certainly bring down the performance numbers on a send/recv profile.
+> The bizare thing is things run just fine even under the heavy tx/rx
+> traffic i was testing under. I guess i didnt hit hard enough.
 
-But lock is still being hold - or there was no intention to reduce lock
-usage? As far as I read Krishna's mail, lock usage was not an issue, so
-that hunk probably should be dropped from the analysis.
- 
-> > Without lock that would be wrong - it accesses hardware.
-> 
-> We are achieving the goal of only a single CPU entering that path. Are
-> you saying that is not good enough?
+Hmm I wasn't describing how it works now.  I'm talking about how it
+would work if we removed LLTX and replaced the private tx_lock with
+netif_tx_lock.
 
-Then why essentially the same code (current batch_xmit callback)
-previously was always called with disabled interrupts? Aren't there
-some watchdog/link/poll/whatever issues present?
-
-> > and i also do not know, what service demand is :)
-> 
-> From the explanation seems to be how much cpu was used while sending. Do
-> you have any suggestions for computing cpu use?
-> in pktgen i added code to count how many microsecs were used in
-> transmitting.
-
-Something, that anyone can understand :)
-For example /proc stats, although it is not very accurate, but it is
-really usable parameter from userspace point ov view.
-
-> > Result looks good, but I still do not understand how it appeared, that
-> > is why I'm not that excited about idea - I just do not know it in
-> > details.
-> 
-> To add to KKs explanation on other email:
-> Essentially the value is in amortizing the cost of barriers and IO per
-> packet. For example the queue lock is held/released only once per X
-> packets. DMA kicking which includes both a PCI IO write and mbs is done
-> only once per X packets. There are still a lot of room for improvement
-> of such IO;
-
-Btw, what is the size of the packet in pktgen in your tests? Likely it
-is small, since result is that good. That can explain alot.
-
-> cheers,
-> jamal
-
+Cheers,
 -- 
-	Evgeniy Polyakov
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
