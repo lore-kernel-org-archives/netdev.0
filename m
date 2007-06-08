@@ -1,66 +1,47 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH 1/1] make network DMA usable for non-tcp drivers
-Date: Fri, 8 Jun 2007 12:07:16 -0700
-Message-ID: <20070608120716.1e059cf3.akpm@linux-foundation.org>
-References: <20070605102427.26dd7fac.randy.dunlap@oracle.com>
-	<20070608143053.GC10489@coraid.com>
+From: Carl-Daniel Hailfinger <c-d.hailfinger.devel.2006@gmx.net>
+Subject: Re: [PATCH] Virtual ethernet tunnel (v.2)
+Date: Fri, 08 Jun 2007 21:49:17 +0200
+Message-ID: <4669B2BD.5060208@gmx.net>
+References: <4667E83E.2060405@openvz.org> <466822DD.1000601@candelatech.com>	<466826C6.6000206@openvz.org>	<46682976.8050904@candelatech.com> <46697D0A.40006@openvz.org> <46698B24.2030309@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, s.a.hopkins@gmail.com, jgarzik@pobox.com,
-	randy.dunlap@oracle.com
-To: "Ed L. Cashin" <ecashin@coraid.com>
+Cc: Pavel Emelianov <xemul@openvz.org>,
+	Kirill Korotaev <dev@openvz.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Linux Containers <containers@lists.osdl.org>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:57495 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751580AbXFHTHq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jun 2007 15:07:46 -0400
-In-Reply-To: <20070608143053.GC10489@coraid.com>
+Received: from mail.gmx.net ([213.165.64.20]:47722 "HELO mail.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1750908AbXFHTsv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Jun 2007 15:48:51 -0400
+In-Reply-To: <46698B24.2030309@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 8 Jun 2007 10:30:53 -0400
-"Ed L. Cashin" <ecashin@coraid.com> wrote:
+On 08.06.2007 19:00, Ben Greear wrote:
+> I have another sysfs patch that allows setting a default skb->mark for
+> an interface so that you can set the skb->mark
+> before it hits the connection tracking logic, but I'm been told this one
+> has very little chance
+> of getting into the kernel.  The skb->mark patch is only useful (as far
+> as I can tell) if you
+> also include a patch Patrick McHardy did for me that allowed the
+> conn-tracking logic to
+> use skb->mark as part of it's tuple.  This allows me to do NAT between
+> virtual routers
+> (routing tables) on the same machine using veth-equivalent drivers to
+> connect the
+> routers.  He thinks this will probably not ever get into the kernel either.
 
-> Here is a patch against the netdev-2.6 git tree that makes the net DMA
-> feature usable for drivers like the ATA over Ethernet block driver,
-> which can use dma_skb_copy_datagram_iovec when receiving data from the
-> network.
-> 
-> The change was suggested on kernelnewbies.
-> 
->   http://article.gmane.org/gmane.linux.kernel.kernelnewbies/21663
-> 
-> Signed-off-by: Ed L. Cashin <ecashin@coraid.com>
-> ---
->  drivers/dma/Kconfig |    2 +-
->  net/core/user_dma.c |    2 ++
->  2 files changed, 3 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/dma/Kconfig b/drivers/dma/Kconfig
-> index 72be6c6..270d23e 100644
-> --- a/drivers/dma/Kconfig
-> +++ b/drivers/dma/Kconfig
-> @@ -14,7 +14,7 @@ config DMA_ENGINE
->  comment "DMA Clients"
->  
->  config NET_DMA
-> -	bool "Network: TCP receive copy offload"
-> +	bool "Network: receive copy offload"
->  	depends on DMA_ENGINE && NET
->  	default y
->  	---help---
-> diff --git a/net/core/user_dma.c b/net/core/user_dma.c
-> index 0ad1cd5..69d0b15 100644
-> --- a/net/core/user_dma.c
-> +++ b/net/core/user_dma.c
-> @@ -130,3 +130,5 @@ end:
->  fault:
->  	return -EFAULT;
->  }
-> +
-> +EXPORT_SYMBOL(dma_skb_copy_datagram_iovec);
+Are these patches available somewhere? I'm currently doing NAT between
+virtual routers by some advanced iproute2/iptables trickery, but I have
+no way to handle the occasional tuple conflict.
 
-We wouldn't want to merge this until code which actually uses the export is
-also merged.
-
+Regards,
+Carl-Daniel
