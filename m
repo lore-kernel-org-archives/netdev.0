@@ -1,44 +1,67 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] NET: Multiqueue network device support.
-Date: Fri, 08 Jun 2007 07:34:57 -0400
-Message-ID: <1181302497.4063.37.camel@localhost>
-References: <1181253445.4071.4.camel@localhost>
-	 <20070607.154421.109060486.davem@davemloft.net>
-	 <1181256848.4071.57.camel@localhost>
-	 <20070607.160035.00774597.davem@davemloft.net>
-	 <1181262703.3688.10.camel@w-sridhar2.beaverton.ibm.com>
-	 <1181266536.4741.27.camel@localhost>
-	 <20070608103925.GA23598@gondor.apana.org.au>
+Subject: Re: [WIP][PATCHES] Network xmit batching
+Date: Fri, 08 Jun 2007 07:43:28 -0400
+Message-ID: <1181303008.4063.47.camel@localhost>
+References: <OF7E8226CB.9B6FDC92-ON652572F4.003E9F60-652572F4.003F4BE0@in.ibm.com>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Sridhar Samudrala <sri@us.ibm.com>,
-	David Miller <davem@davemloft.net>, auke-jan.h.kok@intel.com,
-	jeff@garzik.org, kaber@trash.net, peter.p.waskiewicz.jr@intel.com,
-	netdev@vger.kernel.org, jesse.brandeburg@intel.com
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: David Miller <davem@davemloft.net>,
+	Gagan Arneja <gaagaan@gmail.com>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org,
+	Rick Jones <rick.jones2@hp.com>,
+	Robert Olsson <Robert.Olsson@data.slu.se>,
+	Sridhar Samudrala <sri@us.ibm.com>
+To: Krishna Kumar2 <krkumar2@in.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.237]:60801 "EHLO
+Received: from wx-out-0506.google.com ([66.249.82.224]:2263 "EHLO
 	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S968629AbXFHLfC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jun 2007 07:35:02 -0400
-Received: by wx-out-0506.google.com with SMTP id t15so702196wxc
-        for <netdev@vger.kernel.org>; Fri, 08 Jun 2007 04:35:02 -0700 (PDT)
-In-Reply-To: <20070608103925.GA23598@gondor.apana.org.au>
+	with ESMTP id S965713AbXFHLnc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jun 2007 07:43:32 -0400
+Received: by wx-out-0506.google.com with SMTP id t15so704573wxc
+        for <netdev@vger.kernel.org>; Fri, 08 Jun 2007 04:43:31 -0700 (PDT)
+In-Reply-To: <OF7E8226CB.9B6FDC92-ON652572F4.003E9F60-652572F4.003F4BE0@in.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2007-08-06 at 20:39 +1000, Herbert Xu wrote:
+KK,
 
-> It would guard against the poll routine which would acquire this lock
-> when cleaning the TX ring.
+On Fri, 2007-08-06 at 17:01 +0530, Krishna Kumar2 wrote:
 
-Ok, then i suppose we can conclude it is a bug on e1000 (holds tx_lock
-on tx side and adapter queue lock on rx). Adding that lock will
-certainly bring down the performance numbers on a send/recv profile.
-The bizare thing is things run just fine even under the heavy tx/rx
-traffic i was testing under. I guess i didnt hit hard enough.
+
+> I thought it comes to 1.147Mpps, or did I calculate wrong
+> (70*1024*1024/8/8) ?
+
+I assumed 8B to mean data that is on top of TCP/UDP?
+If so then in the case of UDP we have 8B UDP header, 20B IP and 14B
+ethernet < 64B minimal allowed Ethernet packet; so it gets padded and
+goes out as 64B.
+There are, as you state above, 1.147(or is it 1.48?) such packets/sec in
+1Gbps.
+So (70Mbps/1000Mbps)*1.147 is the rough number i was reffering to.
+
+
+> My script was doing that earlier, I trimmed all that to make it easier
+> to understand. Will post the larger version later.
+
+That will be nice because remember we can have multiple CPU packet
+producers but only one CPU consumer.
+
+> > no problem.
+> 
+> Thanks, please let me know what you think of the patch I sent earlier.
+
+I havent seen a patch. Can you resend it?
+
+> I am running a larger 5 iteration run with buffer sizes :8,32,128,512,1
+> K,4K,16K.
+> It is going to run for around 12 hours and since I am moving house during
+> the
+> weekend, I will be able to look at the results only on Monday.
+> 
+
+sounds good.
 
 cheers,
 jamal
