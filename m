@@ -1,37 +1,62 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [WIP][PATCHES] Network xmit batching
-Date: Sat, 9 Jun 2007 01:02:33 +0400
-Message-ID: <20070608210233.GA27925@2ka.mipt.ru>
-References: <OFB311484E.057E34E9-ON652572F3.001D5838-652572F3.0022766D@in.ibm.com> <1181216629.4064.22.camel@localhost> <20070607161335.GA4987@2ka.mipt.ru> <1181254996.4071.27.camel@localhost> <20070608083807.GB11488@2ka.mipt.ru> <1181302267.4063.33.camel@localhost> <20070608120904.GA19011@2ka.mipt.ru> <1181308067.4063.120.camel@localhost>
+From: Trond Myklebust <trond.myklebust@fys.uio.no>
+Subject: Re: networking busted in current -git ???
+Date: Fri, 08 Jun 2007 17:43:27 -0400
+Message-ID: <1181339007.6675.12.camel@heimdal.trondhjem.org>
+References: <20070608205640.GI30661@iucha.net>
+	 <200706082307.45722.arekm@maven.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: Krishna Kumar2 <krkumar2@in.ibm.com>,
-	Gagan Arneja <gaagaan@gmail.com>, netdev@vger.kernel.org,
-	Rick Jones <rick.jones2@hp.com>,
-	Sridhar Samudrala <sri@us.ibm.com>,
-	David Miller <davem@davemloft.net>,
-	Robert Olsson <Robert.Olsson@data.slu.se>
-To: jamal <hadi@cyberus.ca>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Florin Iucha <florin@iucha.net>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Arkadiusz Miskiewicz <arekm@maven.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:58870 "EHLO 2ka.mipt.ru"
+Received: from pat.uio.no ([129.240.10.15]:58066 "EHLO pat.uio.no"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751079AbXFHVIJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Jun 2007 17:08:09 -0400
-Content-Disposition: inline
-In-Reply-To: <1181308067.4063.120.camel@localhost>
+	id S1750926AbXFHVnd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Jun 2007 17:43:33 -0400
+In-Reply-To: <200706082307.45722.arekm@maven.pl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 08, 2007 at 09:07:47AM -0400, jamal (hadi@cyberus.ca) wrote:
-> > Something, that anyone can understand :)
-> > For example /proc stats, although it is not very accurate, but it is
-> > really usable parameter from userspace point ov view.
+On Fri, 2007-06-08 at 23:07 +0200, Arkadiusz Miskiewicz wrote:
+> On Friday 08 of June 2007, you wrote:
+> > Hello,
+> >
+> > I am using the current git tree: 85f6038f2170e3335dda09c3dfb0f83110e87019 .
+> > Git tree from two days ago (with the same config) works fine.
+> >
+> > Attempting to acquire an IP address via DHCP fails with:
+> >
+> > SIOCSIFADDR: No buffer space available
+> > Listening on LPF/eth0/00:19:b9:0c:9a:43
+> > Sending on   LPF/eth0/00:19:b9:0c:9a:43
+> > Sending on   Socket/fallback
+> > DHCPREQUEST on eth0 to 255.255.255.255 port 67
+> > DHCPACK from xxx.xxx.xxx.xxx
+> > SIOCSIFADDR: No buffer space available
+> > SIOCSIFNETMASK: Cannot assign requested address
+> > SIOCSIFBRDADDR: Cannot assign requested address
+> > SIOCADDRT: Network is unreachable
+> > bound to xxx.xxx.xxx.xxx -- renewal in 98610 seconds.
+> >
+> > This is on a Dell 490 with tg3 network driver running Ubuntu 7.04 .
+> > .config and dmesg are appended.
+> >
+> > florin
 > 
-> which /proc stats?
+> Here it requires few retries (stop dhcpcd, start again) to get the IP. git 
+> tree from few hours ago. tg3 driver. I also saw SIOCSIFADDR: No buffer space 
+> available once.
 
-/proc/$pid/stat, for pktgen it is likely not that interesting, but for
-usual userspace applcation it is quite interesting parameter.
-At least that is what 'top' shows.
- 
--- 
-	Evgeniy Polyakov
+(added netdev to the Cc list)
+
+It is not dhcp. I'm seeing the same bug with bog-standard ifup with a
+static address on an FC-6 machine.
+
+It appears to be something in the latest dump from davem to Linus, but I
+haven't yet had time to identify what.
+
+Cheers
+  Trond
+
