@@ -1,82 +1,74 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH 1/2] [RFC] NET: Implement a standard ndev_printk family
-Date: Fri, 08 Jun 2007 16:42:31 -0700
-Message-ID: <4669E967.5030708@intel.com>
-References: <20070608220007.31573.14931.stgit@localhost.localdomain> <20070608162415.1481dfec@localhost.localdomain>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [PATCH] Virtual ethernet tunnel (v.2)
+Date: Fri, 08 Jun 2007 16:46:32 -0700
+Message-ID: <4669EA58.3000306@candelatech.com>
+References: <4667E83E.2060405@openvz.org> <466822DD.1000601@candelatech.com>	<466826C6.6000206@openvz.org>	<46682976.8050904@candelatech.com> <46697D0A.40006@openvz.org> <46698B24.2030309@candelatech.com> <4669B2BD.5060208@gmx.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeff@garzik.org, davem@davemloft.net,
-	arjan@linux.intel.com
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: Pavel Emelianov <xemul@openvz.org>,
+	Kirill Korotaev <dev@openvz.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Linux Containers <containers@lists.osdl.org>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Carl-Daniel Hailfinger <c-d.hailfinger.devel.2006@gmx.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:39750 "EHLO mga03.intel.com"
+Received: from ns2.lanforge.com ([66.165.47.211]:50049 "EHLO ns2.lanforge.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750845AbXFHXme (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Jun 2007 19:42:34 -0400
-In-Reply-To: <20070608162415.1481dfec@localhost.localdomain>
+	id S1762870AbXFHXqq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Jun 2007 19:46:46 -0400
+In-Reply-To: <4669B2BD.5060208@gmx.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
->>  
->> +#define ndev_printk(kern_level, netif_level, netdev, format, arg...) \
->> +	do { if ((netdev)->msg_enable & NETIF_MSG_##netif_level) { \
->> +		printk(kern_level "%s: " format, \
->> +		(netdev)->name, ## arg); } } while (0)
+Carl-Daniel Hailfinger wrote:
+> On 08.06.2007 19:00, Ben Greear wrote:
+>> I have another sysfs patch that allows setting a default skb->mark for
+>> an interface so that you can set the skb->mark
+>> before it hits the connection tracking logic, but I'm been told this one
+>> has very little chance
+>> of getting into the kernel.  The skb->mark patch is only useful (as far
+>> as I can tell) if you
+>> also include a patch Patrick McHardy did for me that allowed the
+>> conn-tracking logic to
+>> use skb->mark as part of it's tuple.  This allows me to do NAT between
+>> virtual routers
+>> (routing tables) on the same machine using veth-equivalent drivers to
+>> connect the
+>> routers.  He thinks this will probably not ever get into the kernel either.
 > 
-> Could you make a version that doesn't evaluate the arguments twice?
+> Are these patches available somewhere? I'm currently doing NAT between
+> virtual routers by some advanced iproute2/iptables trickery, but I have
+> no way to handle the occasional tuple conflict.
 
-hmm you lost me there a bit; Do you want me to duplicate this code for all the 
-ndev_err/ndev_info functions instead so that ndev_err doesn't direct back to 
-ndev_printk?
+A consolidated patch against 2.6.20.12 is here.  It has a lot more than
+just the patches mentioned above, but it shouldn't hurt anything to have
+the whole patch applied:
 
->> +#ifdef DEBUG
->> +#define ndev_dbg(level, netdev, format, arg...) \
->> +	ndev_printk(KERN_DEBUG, level, netdev, format, ## arg)
->> +#else
->> +#define ndev_dbg(level, netdev, format, arg...) \
->> +	do { (void)(netdev); } while (0)
->> +#endif
->> +
->> +#define ndev_err(level, netdev, format, arg...) \
->> +	ndev_printk(KERN_ERR, level, netdev, format, ## arg)
->> +#define ndev_info(level, netdev, format, arg...) \
->> +	ndev_printk(KERN_INFO, level, netdev, format, ## arg)
->> +#define ndev_warn(level, netdev, format, arg...) \
->> +	ndev_printk(KERN_WARNING, level, netdev, format, ## arg)
->> +#define ndev_notice(level, netdev, format, arg...) \
->> +	ndev_printk(KERN_NOTICE, level, netdev, format, ## arg)
->> +
->>  #define netif_msg_drv(p)	((p)->msg_enable & NETIF_MSG_DRV)
->>  #define netif_msg_probe(p)	((p)->msg_enable & NETIF_MSG_PROBE)
->>  #define netif_msg_link(p)	((p)->msg_enable & NETIF_MSG_LINK)
->> diff --git a/net/core/dev.c b/net/core/dev.c
->> index 5a7f20f..e854c09 100644
->> --- a/net/core/dev.c
->> +++ b/net/core/dev.c
->> @@ -3376,6 +3376,16 @@ struct net_device *alloc_netdev(int sizeof_priv, const char *name,
->>  		dev->priv = netdev_priv(dev);
->>  
->>  	dev->get_stats = internal_stats;
->> +	dev->msg_enable = NETIF_MSG_DRV | NETIF_MSG_PROBE | NETIF_MSG_LINK;
->> +#ifdef DEBUG
->> +	/* put these to good use: */
->> +	dev->msg_enable |= NETIF_MSG_TIMER | NETIF_MSG_IFDOWN |
->> +	                   NETIF_MSG_IFUP | NETIF_MSG_RX_ERR |
->> +	                   NETIF_MSG_TX_ERR | NETIF_MSG_TX_QUEUED |
->> +	                   NETIF_MSG_INTR | NETIF_MSG_TX_DONE |
->> +	                   NETIF_MSG_RX_STATUS | NETIF_MSG_PKTDATA |
->> +	                   NETIF_MSG_HW | NETIF_MSG_WOL;
->> +#endif
+http://www.candelatech.com/oss/candela_2.6.20.patch
+
+The original patch for using skb->mark as a tuple was
+written by Patrick McHardy, and is here:
+
+http://www.candelatech.com/oss/skb_mark_conntrack.patch
+
+His patch merged with my patch to sysfs to set skb->mark on ingress is here:
+http://www.candelatech.com/oss/conntrack_mark_with_ssyctl.patch
+
+
+Thanks,
+Ben
+
+
 > 
-> Let driver writer choose message enable bits please.
+> Regards,
+> Carl-Daniel
 
-the driver can, since these bits are set in alloc_netdev, nothing prevents a 
-driver from setting the mask immediately afterwards. Putting in a sane default 
-seems a good idea and good practice.
 
-Maybe I went a bit far by going all out on the DEBUG flags tho... perhaps those 
-can be removed or only NETIF_MSG_RX_ERR and NETIF_MSG_TX_ERR set with DEBUG.
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
 
-Auke
