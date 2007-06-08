@@ -1,81 +1,77 @@
-From: jamal <hadi@cyberus.ca>
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
 Subject: Re: [WIP][PATCHES] Network xmit batching
-Date: Fri, 08 Jun 2007 07:31:07 -0400
-Message-ID: <1181302267.4063.33.camel@localhost>
-References: <OFB311484E.057E34E9-ON652572F3.001D5838-652572F3.0022766D@in.ibm.com>
-	 <1181216629.4064.22.camel@localhost> <20070607161335.GA4987@2ka.mipt.ru>
-	 <1181254996.4071.27.camel@localhost>  <20070608083807.GB11488@2ka.mipt.ru>
-Reply-To: hadi@cyberus.ca
+Date: Fri, 8 Jun 2007 17:01:21 +0530
+Message-ID: <OF7E8226CB.9B6FDC92-ON652572F4.003E9F60-652572F4.003F4BE0@in.ibm.com>
+References: <1181301246.4063.15.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Krishna Kumar2 <krkumar2@in.ibm.com>,
-	Gagan Arneja <gaagaan@gmail.com>, netdev@vger.kernel.org,
+Content-Type: text/plain; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>,
+	Gagan Arneja <gaagaan@gmail.com>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org,
 	Rick Jones <rick.jones2@hp.com>,
-	Sridhar Samudrala <sri@us.ibm.com>,
-	David Miller <davem@davemloft.net>,
-	Robert Olsson <Robert.Olsson@data.slu.se>
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+	Robert Olsson <Robert.Olsson@data.slu.se>,
+	Sridhar Samudrala <sri@us.ibm.com>
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.226]:58760 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966955AbXFHLbM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jun 2007 07:31:12 -0400
-Received: by wx-out-0506.google.com with SMTP id t15so700931wxc
-        for <netdev@vger.kernel.org>; Fri, 08 Jun 2007 04:31:11 -0700 (PDT)
-In-Reply-To: <20070608083807.GB11488@2ka.mipt.ru>
+Received: from ausmtp06.au.ibm.com ([202.81.18.155]:57481 "EHLO
+	ausmtp06.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S968459AbXFHLcW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jun 2007 07:32:22 -0400
+Received: from sd0109e.au.ibm.com (d23rh905.au.ibm.com [202.81.18.225])
+	by ausmtp06.au.ibm.com (8.13.8/8.13.8) with ESMTP id l58BXX851355830
+	for <netdev@vger.kernel.org>; Fri, 8 Jun 2007 21:33:33 +1000
+Received: from d23av01.au.ibm.com (d23av01.au.ibm.com [9.190.250.242])
+	by sd0109e.au.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l58BZjwh175340
+	for <netdev@vger.kernel.org>; Fri, 8 Jun 2007 21:35:46 +1000
+Received: from d23av01.au.ibm.com (loopback [127.0.0.1])
+	by d23av01.au.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l58BVp4h004283
+	for <netdev@vger.kernel.org>; Fri, 8 Jun 2007 21:31:55 +1000
+In-Reply-To: <1181301246.4063.15.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2007-08-06 at 12:38 +0400, Evgeniy Polyakov wrote:
-> On Thu, Jun 07, 2007 at 06:23:16PM -0400, jamal (hadi@cyberus.ca) wrote:
+Hi Jamal,
 
-> > I believe both are called with no lock. The idea is to avoid the lock
-> > entirely when unneeded. That code may end up finding that the packet
-[..]
-> +	netif_tx_lock_bh(odev);
-> +	if (!netif_queue_stopped(odev)) {
-> +
-> +		idle_start = getCurUs();
-> +		pkt_dev->tx_entered++;
-> +		ret = odev->hard_batch_xmit(&odev->blist, odev);
+J Hadi Salim <j.hadi123@gmail.com> wrote on 06/08/2007 04:44:06 PM:
 
-[..]
-> The same applies to *_gso case.
-> 
+> That should be fine as long as the sender is running the patched
+> 2.6.22-rc4
 
-You missed an important piece which is grabbing of
-__LINK_STATE_QDISC_RUNNING
+Definitely :)
 
+> Thats interesting - it is possible there is transient burstiness which
+> fills up the ring.
+> My observation of your results (hence my comments): for example the
+> buffer size = 8B, TCP 1 process you achieve less than 70M.  That is less
+> than 100Kpps on average being sent out. Very very tiny - so it is
+> interesting that it is causing a shutdown.
 
-> Without lock that would be wrong - it accesses hardware.
+I thought it comes to 1.147Mpps, or did I calculate wrong
+(70*1024*1024/8/8) ?
 
-We are achieving the goal of only a single CPU entering that path. Are
-you saying that is not good enough?
+> Also note something else strange that it is kind of strange that
+> something like UDP which doesnt backoff will send out less
+> packets/second ;->
 
-> I only saw results Krishna posted, 
+Cannot explain that either :)
 
-Ok, sorry - i thought you saw the git log or earlier results where
-other things are captured.
+> BTW, another interesting things to do is ensure that several netperfs
+> are running on different CPUs.
 
-> and i also do not know, what service demand is :)
+My script was doing that earlier, I trimmed all that to make it easier
+to understand. Will post the larger version later.
 
->From the explanation seems to be how much cpu was used while sending. Do
-you have any suggestions for computing cpu use?
-in pktgen i added code to count how many microsecs were used in
-transmitting.
+> no problem.
 
-> Result looks good, but I still do not understand how it appeared, that
-> is why I'm not that excited about idea - I just do not know it in
-> details.
+Thanks, please let me know what you think of the patch I sent earlier.
 
-To add to KKs explanation on other email:
-Essentially the value is in amortizing the cost of barriers and IO per
-packet. For example the queue lock is held/released only once per X
-packets. DMA kicking which includes both a PCI IO write and mbs is done
-only once per X packets. There are still a lot of room for improvement
-of such IO;
+I am running a larger 5 iteration run with buffer sizes :8,32,128,512,1
+K,4K,16K.
+It is going to run for around 12 hours and since I am moving house during
+the
+weekend, I will be able to look at the results only on Monday.
 
-cheers,
-jamal
+Regards,
+
+- KK
 
