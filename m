@@ -1,51 +1,68 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: SG_IO with >4k buffer size to iscsi sg device causes "Bad page" panic
-Date: Fri, 08 Jun 2007 16:22:12 +1000
-Message-ID: <E1HwXrQ-0005Rn-00@gondolin.me.apana.org.au>
-References: <0F08E10B769EAF4EA2C43A573B8CC87FB572B9@NAMAIL3.ad.lsil.com>
-Cc: open-iscsi@googlegroups.com, netdev@vger.kernel.org,
-	linux-scsi@vger.kernel.org,
-	linux-iscsi-devel@lists.sourceforge.net, michaelc@cs.wisc.edu,
-	dougg@torque.net, James.Bottomley@steeleye.com
-To: Yanling.Qi@lsi.com (Qi, Yanling)
+From: "Miles Lane" <miles.lane@gmail.com>
+Subject: Re: 2.6.22-rc4-mm2 -- ipw2200 -- SIOCSIFADDR: No buffer space available
+Date: Thu, 7 Jun 2007 23:35:17 -0700
+Message-ID: <a44ae5cd0706072335w6244f267x1fb0158dd536085c@mail.gmail.com>
+References: <a44ae5cd0706071125p2079472eme52821bd134d26b0@mail.gmail.com>
+	 <20070607131559.cd95a181.akpm@linux-foundation.org>
+	 <20070607222015.GA14966@atjola.homenet>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: "=?ISO-8859-1?Q?Bj=F6rn_Steinbrink?=" <B.Steinbrink@gmx.de>,
+	"Andrew Morton" <akpm@linux-foundation.org>,
+	"Miles Lane" <miles.lane@gmail.com>,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	"Herbert Xu" <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:2296 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754421AbXFHGWy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jun 2007 02:22:54 -0400
-In-Reply-To: <0F08E10B769EAF4EA2C43A573B8CC87FB572B9@NAMAIL3.ad.lsil.com>
+Received: from wa-out-1112.google.com ([209.85.146.183]:21131 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756975AbXFHGfS convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jun 2007 02:35:18 -0400
+Received: by wa-out-1112.google.com with SMTP id v27so916541wah
+        for <netdev@vger.kernel.org>; Thu, 07 Jun 2007 23:35:18 -0700 (PDT)
+In-Reply-To: <20070607222015.GA14966@atjola.homenet>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Please don't drop CCs.
-
-Qi, Yanling <Yanling.Qi@lsi.com> wrote:
+On 6/7/07, Bj=F6rn Steinbrink <B.Steinbrink@gmx.de> wrote:
+[...]
+> Miles, could you try if this patch helps?
 >
->> Qi, Yanling <Yanling.Qi@lsi.com> wrote:
->> > @@ -2571,6 +2572,13 @@ sg_page_malloc(int rqSz, int lowDma, int
->> >                resp = (char *) __get_free_pages(page_mask, order);
->> > /* try half */
->> >                resSz = a_size;
->> >        }
->> > +       tmppage = virt_to_page(resp);
->> > +       for( m = PAGE_SIZE; m < resSz; m += PAGE_SIZE )
->> > +       {
->> > +               tmppage++;
->> > +               SetPageReserved(tmppage);
->> > +       }
->> > +
->> 
-> [Qi, Yanling]
-> If I do a get_page() at sg_page_malloc() time and then do a put_page()
-> at sg_page_free() time, I worry about a race condition that the page
-> gets re-used before calling free_pages().
+> Bj=F6rn
+>
+>
+> Stop destroying devices when all of their ifas are gone, as we no lon=
+ger
+> recreate them when ifas are added.
+>
+> Signed-off-by: Bj=F6rn Steinbrink <B.Steinbrink@gmx.de>
+> --
+> diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+> index fa97b96..abf6352 100644
+> --- a/net/ipv4/devinet.c
+> +++ b/net/ipv4/devinet.c
+> @@ -327,12 +327,8 @@ static void __inet_del_ifa(struct in_device *in_=
+dev, struct in_ifaddr **ifap,
+>                 }
+>
+>         }
+> -       if (destroy) {
+> +       if (destroy)
+>                 inet_free_ifa(ifa1);
+> -
+> -               if (!in_dev->ifa_list)
+> -                       inetdev_destroy(in_dev);
+> -       }
+>  }
+>
+>  static void inet_del_ifa(struct in_device *in_dev, struct in_ifaddr =
+**ifap,
+>
 
-Could you explain what is going to cause this page to be reused if it
-has a non-zero reference count?
+Bj=F6rn,
 
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Thanks.  You patch worked for me.
+
+             Miles
