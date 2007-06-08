@@ -1,40 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] fix several unaligned kernel accesses in the CIPSO
- engine
-Date: Thu, 07 Jun 2007 18:38:23 -0700 (PDT)
-Message-ID: <20070607.183823.72710741.davem@davemloft.net>
-References: <20070607153226.524778346@hp.com>
-	<20070607153610.888828690@hp.com>
-	<Line.LNX.4.64.0706072120050.10435@d.namei>
+Subject: Re: [PATCH] fix race in AF_UNIX
+Date: Thu, 07 Jun 2007 18:47:31 -0700 (PDT)
+Message-ID: <20070607.184731.10907840.davem@davemloft.net>
+References: <E1Hvo2m-00038P-00@dorka.pomaz.szeredi.hu>
+	<20070605.224128.104032917.davem@davemloft.net>
+	<E1HvqZB-0003Vc-00@dorka.pomaz.szeredi.hu>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: paul.moore@hp.com, netdev@vger.kernel.org, selinux@tycho.nsa.gov
-To: jmorris@namei.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: miklos@szeredi.hu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37826
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55197
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S935554AbXFHBiH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jun 2007 21:38:07 -0400
-In-Reply-To: <Line.LNX.4.64.0706072120050.10435@d.namei>
+	by vger.kernel.org with ESMTP id S932072AbXFHBrP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jun 2007 21:47:15 -0400
+In-Reply-To: <E1HvqZB-0003Vc-00@dorka.pomaz.szeredi.hu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: James Morris <jmorris@namei.org>
-Date: Thu, 7 Jun 2007 21:20:20 -0400 (EDT)
+From: Miklos Szeredi <miklos@szeredi.hu>
+Date: Wed, 06 Jun 2007 10:08:29 +0200
 
-> On Thu, 7 Jun 2007, Paul Moore wrote:
+> There are races involving the garbage collector, that can throw away
+> perfectly good packets with AF_UNIX sockets in them.
 > 
-> > IPv4 options are not very well aligned within the packet and the format of a
-> > CIPSO option is even worse.  The result is that the CIPSO engine in the kernel
-> > does a few unaligned accesses when parsing and validating incoming packets with
-> > CIPSO options attached which generate error messages on certain alignment
-> > sensitive platforms.  This patch fixes this by marking these unaligned accesses
-> > with the get_unaliagned() macro.
-> > 
-> > Signed-off-by: Paul Moore <paul.moore@hp.com>
+> The problems arise when a socket goes from installed to in-flight or
+> vice versa during garbage collection.  Since gc is done with a
+> spinlock held, this only shows up on SMP.
 > 
-> 
-> Acked-by: James Morris <jmorris@namei.org>
+> Signed-off-by: Miklos Szeredi <mszeredi@suse.cz>
 
-Also applied, thanks.
+I'm going to hold off on this one for now.
+
+Holding all of the read locks kind of defeats the purpose of using
+the per-socket lock.
+
+Can't you just lock purely around the receive queue operation?
