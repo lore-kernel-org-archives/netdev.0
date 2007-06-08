@@ -1,44 +1,76 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] NET: Multiqueue network device support.
-Date: Fri, 8 Jun 2007 22:37:35 +1000
-Message-ID: <20070608123735.GA24582@gondor.apana.org.au>
-References: <1181253445.4071.4.camel@localhost> <20070607.154421.109060486.davem@davemloft.net> <1181256848.4071.57.camel@localhost> <20070607.160035.00774597.davem@davemloft.net> <1181262703.3688.10.camel@w-sridhar2.beaverton.ibm.com> <1181266536.4741.27.camel@localhost> <20070608103925.GA23598@gondor.apana.org.au> <1181302497.4063.37.camel@localhost>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [WIP][PATCHES] Network xmit batching
+Date: Fri, 08 Jun 2007 09:07:47 -0400
+Message-ID: <1181308067.4063.120.camel@localhost>
+References: <OFB311484E.057E34E9-ON652572F3.001D5838-652572F3.0022766D@in.ibm.com>
+	 <1181216629.4064.22.camel@localhost> <20070607161335.GA4987@2ka.mipt.ru>
+	 <1181254996.4071.27.camel@localhost> <20070608083807.GB11488@2ka.mipt.ru>
+	 <1181302267.4063.33.camel@localhost>  <20070608120904.GA19011@2ka.mipt.ru>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Sridhar Samudrala <sri@us.ibm.com>,
-	David Miller <davem@davemloft.net>, auke-jan.h.kok@intel.com,
-	jeff@garzik.org, kaber@trash.net, peter.p.waskiewicz.jr@intel.com,
-	netdev@vger.kernel.org, jesse.brandeburg@intel.com
-To: jamal <hadi@cyberus.ca>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Krishna Kumar2 <krkumar2@in.ibm.com>,
+	Gagan Arneja <gaagaan@gmail.com>, netdev@vger.kernel.org,
+	Rick Jones <rick.jones2@hp.com>,
+	Sridhar Samudrala <sri@us.ibm.com>,
+	David Miller <davem@davemloft.net>,
+	Robert Olsson <Robert.Olsson@data.slu.se>
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:3946 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1763659AbXFHMiH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jun 2007 08:38:07 -0400
-Content-Disposition: inline
-In-Reply-To: <1181302497.4063.37.camel@localhost>
+Received: from wx-out-0506.google.com ([66.249.82.229]:43946 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S967479AbXFHNHv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jun 2007 09:07:51 -0400
+Received: by wx-out-0506.google.com with SMTP id t15so722471wxc
+        for <netdev@vger.kernel.org>; Fri, 08 Jun 2007 06:07:50 -0700 (PDT)
+In-Reply-To: <20070608120904.GA19011@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 08, 2007 at 07:34:57AM -0400, jamal wrote:
-> On Fri, 2007-08-06 at 20:39 +1000, Herbert Xu wrote:
-> 
-> > It would guard against the poll routine which would acquire this lock
-> > when cleaning the TX ring.
-> 
-> Ok, then i suppose we can conclude it is a bug on e1000 (holds tx_lock
-> on tx side and adapter queue lock on rx). Adding that lock will
-> certainly bring down the performance numbers on a send/recv profile.
-> The bizare thing is things run just fine even under the heavy tx/rx
-> traffic i was testing under. I guess i didnt hit hard enough.
+On Fri, 2007-08-06 at 16:09 +0400, Evgeniy Polyakov wrote:
+> On Fri, Jun 08, 2007 at 07:31:07AM -0400, jamal (hadi@cyberus.ca) wrote:
 
-Hmm I wasn't describing how it works now.  I'm talking about how it
-would work if we removed LLTX and replaced the private tx_lock with
-netif_tx_lock.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> But lock is still being hold - or there was no intention to reduce lock
+> usage? As far as I read Krishna's mail, lock usage was not an issue, so
+> that hunk probably should be dropped from the analysis.
+
+With post 2.6.18 that atomic bit guarantees only one CPU will enter tx
+path. The lock is only necessary to protect shared resources between tx
+and rx (which could be simultenously be entered by two CPUs) such as tx
+ring. Refer to some other thread talking about a possible bug with e1000
+in this area. So maybe e1000 is not a good example in this sense. But
+look at tg3.
+
+> > > Without lock that would be wrong - it accesses hardware.
+> > 
+> > We are achieving the goal of only a single CPU entering that path. Are
+> > you saying that is not good enough?
+> 
+> Then why essentially the same code (current batch_xmit callback)
+> previously was always called with disabled interrupts? Aren't there
+> some watchdog/link/poll/whatever issues present?
+
+not in the e1000 as it stands today.
+
+
+> Something, that anyone can understand :)
+> For example /proc stats, although it is not very accurate, but it is
+> really usable parameter from userspace point ov view.
+
+which /proc stats?
+
+
+> Btw, what is the size of the packet in pktgen in your tests? Likely it
+> is small, since result is that good. That can explain alot.
+
+There is a per-packet cost involved in that code path. So the more
+packets/second you can generate the more intensely you can test that
+path. I believe you will achieve overall better results with large
+packets.
+
+cheers,
+jamal
+
+
