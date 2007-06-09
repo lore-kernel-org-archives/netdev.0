@@ -1,33 +1,34 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] RFC: have tcp_recvmsg() check kthread_should_stop() and treat it as if it were signalled
-Date: Sat, 09 Jun 2007 11:30:04 +1000
-Message-ID: <E1HwpmG-0008LW-00@gondolin.me.apana.org.au>
-References: <20070608123527.9b4cdafe.jlayton@redhat.com>
-Cc: linux-kernel@vger.kernel.org, linux-cifs-client@lists.samba.org,
-	linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org
-To: jlayton@redhat.com (Jeff Layton)
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <20070608123527.9b4cdafe.jlayton@redhat.com>
-Sender: linux-fsdevel-owner@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: networking busted in current -git ???
+Date: Fri, 08 Jun 2007 19:06:08 -0700 (PDT)
+Message-ID: <20070608.190608.117446027.davem@davemloft.net>
+References: <20070608205640.GI30661@iucha.net>
+	<200706082307.45722.arekm@maven.pl>
+	<1181339007.6675.12.camel@heimdal.trondhjem.org>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: arekm@maven.pl, florin@iucha.net, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: trond.myklebust@fys.uio.no
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50513
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S967864AbXFICFx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jun 2007 22:05:53 -0400
+In-Reply-To: <1181339007.6675.12.camel@heimdal.trondhjem.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Please cc networking patches to netdev@vger.kernel.org.
+From: Trond Myklebust <trond.myklebust@fys.uio.no>
+Date: Fri, 08 Jun 2007 17:43:27 -0400
 
-Jeff Layton <jlayton@redhat.com> wrote:
+> It is not dhcp. I'm seeing the same bug with bog-standard ifup with a
+> static address on an FC-6 machine.
 > 
-> The following patch is a first stab at removing this need. It makes it
-> so that in tcp_recvmsg() we also check kthread_should_stop() at any
-> point where we currently check to see if the task was signalled. If
-> that returns true, then it acts as if it were signalled and returns to
-> the calling function.
+> It appears to be something in the latest dump from davem to Linus, but I
+> haven't yet had time to identify what.
 
-This just doesn't seem to fit.  Why should networking care about kthreads?
+Linus's current tree should have this fixed.
 
-Perhaps you can get kthread_stop to send a signal instead?
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Let us know if this is not the case.
