@@ -1,21 +1,21 @@
 From: Vitaly Bordug <vitb@kernel.crashing.org>
 Subject: [PATCH] PHY fixed driver: rework release path and update phy_id
 	notation
-Date: Sat, 09 Jun 2007 20:09:55 +0400
-Message-ID: <20070609160955.2550.41024.stgit@ACA800FC.ipt.aol.com>
+Date: Sat, 09 Jun 2007 20:21:18 +0400
+Message-ID: <20070609162118.2680.99019.stgit@ACA800FC.ipt.aol.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: linuxppc-devel@ozlabs.org
+Cc: linuxppc-dev@ozlabs.org
 To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtsoft2.corbina.net ([85.21.88.2]:38989 "EHLO
+Received: from rtsoft2.corbina.net ([85.21.88.2]:56211 "EHLO
 	aca800fc.ipt.aol.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751495AbXFIQKW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jun 2007 12:10:22 -0400
+	with ESMTP id S1755803AbXFIQV3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jun 2007 12:21:29 -0400
 Cc: netdev@vger.kernel.org
 Cc: linux-kernel@vger.kernel.org
-Cc: linuxppc-devel@ozlabs.org
+Cc: linuxppc-dev@ozlabs.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
@@ -49,7 +49,6 @@ gianfar and ucc_geth that define phy_id strictly as "%d:%d"
 
 Signed-off-by: Vitaly Bordug <vitb@kernel.crashing.org>
 
-Signed-off-by: Vitaly Bordug <vitb@kernel.crashing.org>                                                                                  
 ---
 
  drivers/net/phy/Kconfig |    4 ++
