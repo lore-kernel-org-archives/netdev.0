@@ -1,64 +1,53 @@
-From: jamal <hadi@cyberus.ca>
-Subject: RE: [PATCH] NET: Multiqueue network device support.
-Date: Fri, 08 Jun 2007 20:24:31 -0400
-Message-ID: <1181348671.4056.14.camel@localhost>
-References: <D5C1322C3E673F459512FB59E0DDC32902FFCE03@orsmsx414.amr.corp.intel.com>
-Reply-To: hadi@cyberus.ca
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [WIP][PATCHES] Network xmit batching
+Date: Fri, 08 Jun 2007 17:40:16 -0700
+Message-ID: <4669F6F0.9030303@hp.com>
+References: <OF4ACB16BB.A5DB2CC2-ON652572F3.002CD2F1-652572F3.002FDC45@in.ibm.com>	<1181218576.4064.40.camel@localhost>  <46699192.6010404@hp.com> <1181348253.4056.6.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: Krishna Kumar2 <krkumar2@in.ibm.com>,
+	Gagan Arneja <gaagaan@gmail.com>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org,
 	Sridhar Samudrala <sri@us.ibm.com>,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
-	David Miller <davem@davemloft.net>, jeff@garzik.org,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>, kaber@trash.net,
-	netdev@vger.kernel.org
-To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+	David Miller <davem@davemloft.net>,
+	Robert Olsson <Robert.Olsson@data.slu.se>
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qb-out-0506.google.com ([72.14.204.226]:8552 "EHLO
-	qb-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754938AbXFIAYg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jun 2007 20:24:36 -0400
-Received: by qb-out-0506.google.com with SMTP id z8so1169816qbc
-        for <netdev@vger.kernel.org>; Fri, 08 Jun 2007 17:24:35 -0700 (PDT)
-In-Reply-To: <D5C1322C3E673F459512FB59E0DDC32902FFCE03@orsmsx414.amr.corp.intel.com>
+Received: from palrel12.hp.com ([156.153.255.237]:50479 "EHLO palrel12.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1762946AbXFIAk2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Jun 2007 20:40:28 -0400
+In-Reply-To: <1181348253.4056.6.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2007-08-06 at 12:55 -0700, Waskiewicz Jr, Peter P wrote:
-> > I thought the correct use is to get this lock on clean_tx 
-> > side which can get called on a different cpu on rx (which 
-> > also cleans up slots for skbs that have finished xmit). Both 
-> > TX and clean_tx uses the same tx_ring's head/tail ptrs and 
-> > should be exclusive. But I don't find clean tx using this 
-> > lock in the code, so I am confused :-)
+jamal wrote:
+> On Fri, 2007-08-06 at 10:27 -0700, Rick Jones wrote:
 > 
-> >From e1000_main.c, e1000_clean():
+> [..]
 > 
->         /* e1000_clean is called per-cpu.  This lock protects
->          * tx_ring[0] from being cleaned by multiple cpus
->          * simultaneously.  A failure obtaining the lock means
->          * tx_ring[0] is currently being cleaned anyway. */
->         if (spin_trylock(&adapter->tx_queue_lock)) {
->                 tx_cleaned = e1000_clean_tx_irq(adapter,
->                                                 &adapter->tx_ring[0]);
->                 spin_unlock(&adapter->tx_queue_lock);
->         }
+> 
+>>you cannot take the netperf service demand directly - each netperf is 
+>>calculating assuming that it is the only thing running on the system. 
+>>It then ass-u-me-s that the CPU util it measured was all for its work. 
+>>This means the service demand figure will be quite higher than it really is.
+>>
+>>So, for aggregate tests using netperf2, one has to calculate service 
+>>demand by hand.  Sum the throughput as KB/s, convert the CPU util and 
+>>number of CPUs to a microseconds of CPU consumed per second and divide 
+>>to get microseconds per KB for the aggregate.
+> 
+> 
+> From what you are saying above seems to me that for more than one proc
+> it is safe to just run netperf4 instead of netperf2?
 
-Are you saying theres no problem because the adapter->tx_queue_lock is
-being held? 
-
-> In a multi-ring implementation of the driver, this is wrapped with for
-> (i = 0; i < adapter->num_tx_queues; i++) and &adapter->tx_ring[i].  This
-> lock also prevents the clean routine from stomping on xmit_frame() when
-> transmitting.  Also in the multi-ring implementation, the tx_lock is
-> pushed down into the individual tx_ring struct, not at the adapter
-> level.
-
-That sounds right - but the adapter lock is not related to tx_lock in
-current e1000, correct?
-
-cheers,
-jamal
+Well, it is easier to be safe on aggregates with netperf4 than netperf2 
+although at present it is more difficult to run netperf4 than netperf2
 
 
+> It also seems reasonable to set up large socket buffers on the receiver.
+
+For bulk transfers I often do.
+
+rick
