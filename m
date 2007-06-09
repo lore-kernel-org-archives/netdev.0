@@ -1,8 +1,7 @@
 From: samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org
-Subject: [PATCH 2/2] [IrDA] f-timer reloading when sending
-	rejected frames
-Date: Sat, 09 Jun 2007 04:08:17 +0300
-Message-ID: <20070609011020.439675215@sortiz.org>
+Subject: [PATCH 1/2] [IrDA] Fix Rx/Tx path race
+Date: Sat, 09 Jun 2007 04:08:16 +0300
+Message-ID: <20070609011019.937132965@sortiz.org>
 References: <20070609010815.963618030@sortiz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -11,7 +10,7 @@ Cc: irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
 	"G. Liakhovetski" <gl-o/hVf8ie6tKzQB+pC5nmwQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
 Return-path: <irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-Content-Disposition: inline; filename=final-timer-recharge.patch
+Content-Disposition: inline; filename=0010-IrDA-Fix-Rx-Tx-path-race.patch
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
 	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=irda-users>
@@ -23,51 +22,104 @@ Sender: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 Errors-To: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Jean II was right: you have to re-charge the final timer when resending 
-rejected frames. Otherwise it triggers at a wrong time and can break the 
-currently running communication. Reproducible under rt-preempt.
+From: G. Liakhovetski <gl-o/hVf8ie6tKzQB+pC5nmwQ@public.gmane.org>
 
-Signed-off-by: G. Liakhovetski <gl-o/hVf8ie6tKzQB+pC5nmwQ@public.gmane.org>
+We need to switch to NRM _before_ sending the final packet otherwise we might hit a race condition where we get the first packet from the peer while we're still in LAP_XMIT_P.
+
+Cc: G. Liakhovetski <gl-o/hVf8ie6tKzQB+pC5nmwQ@public.gmane.org>
 Signed-off-by: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
+---
+ include/net/irda/irlap.h |   17 +++++++++++++++++
+ net/irda/irlap_event.c   |   18 ------------------
+ net/irda/irlap_frame.c   |    3 +++
+ 3 files changed, 20 insertions(+), 18 deletions(-)
 
+Index: net-2.6-quilt/include/net/irda/irlap.h
+===================================================================
+--- net-2.6-quilt.orig/include/net/irda/irlap.h	2007-05-10 19:23:04.000000000 +0300
++++ net-2.6-quilt/include/net/irda/irlap.h	2007-05-10 19:24:57.000000000 +0300
+@@ -289,4 +289,21 @@
+ 	self->disconnect_pending = FALSE;
+ }
+ 
++/*
++ * Function irlap_next_state (self, state)
++ *
++ *    Switches state and provides debug information
++ *
++ */
++static inline void irlap_next_state(struct irlap_cb *self, IRLAP_STATE state)
++{
++	/*
++	if (!self || self->magic != LAP_MAGIC)
++		return;
++
++	IRDA_DEBUG(4, "next LAP state = %s\n", irlap_state[state]);
++	*/
++	self->state = state;
++}
++
+ #endif
 Index: net-2.6-quilt/net/irda/irlap_event.c
 ===================================================================
---- net-2.6-quilt.orig/net/irda/irlap_event.c	2007-05-29 09:36:09.000000000 +0300
-+++ net-2.6-quilt/net/irda/irlap_event.c	2007-05-29 09:38:19.000000000 +0300
-@@ -1418,14 +1418,14 @@
- 		 */
- 		self->remote_busy = FALSE;
+--- net-2.6-quilt.orig/net/irda/irlap_event.c	2007-05-10 19:23:04.000000000 +0300
++++ net-2.6-quilt/net/irda/irlap_event.c	2007-05-10 19:23:09.000000000 +0300
+@@ -317,23 +317,6 @@
+ }
  
-+		/* Stop final timer */
-+		del_timer(&self->final_timer);
-+
- 		/*
- 		 *  Nr as expected?
- 		 */
- 		ret = irlap_validate_nr_received(self, info->nr);
- 		if (ret == NR_EXPECTED) {
--			/* Stop final timer */
--			del_timer(&self->final_timer);
+ /*
+- * Function irlap_next_state (self, state)
+- *
+- *    Switches state and provides debug information
+- *
+- */
+-static inline void irlap_next_state(struct irlap_cb *self, IRLAP_STATE state)
+-{
+-	/*
+-	if (!self || self->magic != LAP_MAGIC)
+-		return;
 -
- 			/* Update Nr received */
- 			irlap_update_nr_received(self, info->nr);
- 
-@@ -1457,14 +1457,12 @@
- 
- 			/* Resend rejected frames */
- 			irlap_resend_rejected_frames(self, CMD_FRAME);
+-	IRDA_DEBUG(4, "next LAP state = %s\n", irlap_state[state]);
+-	*/
+-	self->state = state;
+-}
 -
--			/* Final timer ??? Jean II */
-+			irlap_start_final_timer(self, self->final_timeout * 2);
+-/*
+  * Function irlap_state_ndm (event, skb, frame)
+  *
+  *    NDM (Normal Disconnected Mode) state
+@@ -1086,7 +1069,6 @@
+ 			} else {
+ 				/* Final packet of window */
+ 				irlap_send_data_primary_poll(self, skb);
+-				irlap_next_state(self, LAP_NRM_P);
  
- 			irlap_next_state(self, LAP_NRM_P);
- 		} else if (ret == NR_INVALID) {
- 			IRDA_DEBUG(1, "%s(), Received RR with "
- 				   "invalid nr !\n", __FUNCTION__);
--			del_timer(&self->final_timer);
+ 				/*
+ 				 * Make sure state machine does not try to send
+Index: net-2.6-quilt/net/irda/irlap_frame.c
+===================================================================
+--- net-2.6-quilt.orig/net/irda/irlap_frame.c	2007-05-10 19:23:04.000000000 +0300
++++ net-2.6-quilt/net/irda/irlap_frame.c	2007-05-10 19:25:59.000000000 +0300
+@@ -798,16 +798,19 @@
+ 		self->vs = (self->vs + 1) % 8;
+ 		self->ack_required = FALSE;
  
- 			irlap_next_state(self, LAP_RESET_WAIT);
++		irlap_next_state(self, LAP_NRM_P);
+ 		irlap_send_i_frame(self, tx_skb, CMD_FRAME);
+ 	} else {
+ 		IRDA_DEBUG(4, "%s(), sending unreliable frame\n", __FUNCTION__);
  
+ 		if (self->ack_required) {
+ 			irlap_send_ui_frame(self, skb_get(skb), self->caddr, CMD_FRAME);
++			irlap_next_state(self, LAP_NRM_P);
+ 			irlap_send_rr_frame(self, CMD_FRAME);
+ 			self->ack_required = FALSE;
+ 		} else {
+ 			skb->data[1] |= PF_BIT;
++			irlap_next_state(self, LAP_NRM_P);
+ 			irlap_send_ui_frame(self, skb_get(skb), self->caddr, CMD_FRAME);
+ 		}
+ 	}
 
 -- 
 
