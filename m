@@ -1,130 +1,56 @@
-From: samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org
-Subject: [PATCH 1/2] [IrDA] Fix Rx/Tx path race
-Date: Sat, 09 Jun 2007 04:08:16 +0300
-Message-ID: <20070609011019.937132965@sortiz.org>
-References: <20070609010815.963618030@sortiz.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
-	"G. Liakhovetski" <gl-o/hVf8ie6tKzQB+pC5nmwQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-Content-Disposition: inline; filename=0010-IrDA-Fix-Rx-Tx-path-race.patch
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
-	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=irda-users>
-List-Post: <mailto:irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
-	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Sender: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-Errors-To: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: networking busted in current -git ???
+Date: Sat, 09 Jun 2007 11:16:14 +1000
+Message-ID: <E1HwpYs-0008HD-00@gondolin.me.apana.org.au>
+References: <1181339007.6675.12.camel@heimdal.trondhjem.org>
+Cc: arekm@maven.pl, florin@iucha.net, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: trond.myklebust@fys.uio.no (Trond Myklebust)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:3381 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750795AbXFIBRQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jun 2007 21:17:16 -0400
+In-Reply-To: <1181339007.6675.12.camel@heimdal.trondhjem.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: G. Liakhovetski <gl-o/hVf8ie6tKzQB+pC5nmwQ@public.gmane.org>
+Trond Myklebust <trond.myklebust@fys.uio.no> wrote:
+> 
+> It appears to be something in the latest dump from davem to Linus, but I
+> haven't yet had time to identify what.
 
-We need to switch to NRM _before_ sending the final packet otherwise we might hit a race condition where we get the first packet from the peer while we're still in LAP_XMIT_P.
+You want this patch which should hit the tree soon.
 
-Cc: G. Liakhovetski <gl-o/hVf8ie6tKzQB+pC5nmwQ@public.gmane.org>
-Signed-off-by: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
----
- include/net/irda/irlap.h |   17 +++++++++++++++++
- net/irda/irlap_event.c   |   18 ------------------
- net/irda/irlap_frame.c   |    3 +++
- 3 files changed, 20 insertions(+), 18 deletions(-)
-
-Index: net-2.6-quilt/include/net/irda/irlap.h
-===================================================================
---- net-2.6-quilt.orig/include/net/irda/irlap.h	2007-05-10 19:23:04.000000000 +0300
-+++ net-2.6-quilt/include/net/irda/irlap.h	2007-05-10 19:24:57.000000000 +0300
-@@ -289,4 +289,21 @@
- 	self->disconnect_pending = FALSE;
- }
- 
-+/*
-+ * Function irlap_next_state (self, state)
-+ *
-+ *    Switches state and provides debug information
-+ *
-+ */
-+static inline void irlap_next_state(struct irlap_cb *self, IRLAP_STATE state)
-+{
-+	/*
-+	if (!self || self->magic != LAP_MAGIC)
-+		return;
-+
-+	IRDA_DEBUG(4, "next LAP state = %s\n", irlap_state[state]);
-+	*/
-+	self->state = state;
-+}
-+
- #endif
-Index: net-2.6-quilt/net/irda/irlap_event.c
-===================================================================
---- net-2.6-quilt.orig/net/irda/irlap_event.c	2007-05-10 19:23:04.000000000 +0300
-+++ net-2.6-quilt/net/irda/irlap_event.c	2007-05-10 19:23:09.000000000 +0300
-@@ -317,23 +317,6 @@
- }
- 
- /*
-- * Function irlap_next_state (self, state)
-- *
-- *    Switches state and provides debug information
-- *
-- */
--static inline void irlap_next_state(struct irlap_cb *self, IRLAP_STATE state)
--{
--	/*
--	if (!self || self->magic != LAP_MAGIC)
--		return;
--
--	IRDA_DEBUG(4, "next LAP state = %s\n", irlap_state[state]);
--	*/
--	self->state = state;
--}
--
--/*
-  * Function irlap_state_ndm (event, skb, frame)
-  *
-  *    NDM (Normal Disconnected Mode) state
-@@ -1086,7 +1069,6 @@
- 			} else {
- 				/* Final packet of window */
- 				irlap_send_data_primary_poll(self, skb);
--				irlap_next_state(self, LAP_NRM_P);
- 
- 				/*
- 				 * Make sure state machine does not try to send
-Index: net-2.6-quilt/net/irda/irlap_frame.c
-===================================================================
---- net-2.6-quilt.orig/net/irda/irlap_frame.c	2007-05-10 19:23:04.000000000 +0300
-+++ net-2.6-quilt/net/irda/irlap_frame.c	2007-05-10 19:25:59.000000000 +0300
-@@ -798,16 +798,19 @@
- 		self->vs = (self->vs + 1) % 8;
- 		self->ack_required = FALSE;
- 
-+		irlap_next_state(self, LAP_NRM_P);
- 		irlap_send_i_frame(self, tx_skb, CMD_FRAME);
- 	} else {
- 		IRDA_DEBUG(4, "%s(), sending unreliable frame\n", __FUNCTION__);
- 
- 		if (self->ack_required) {
- 			irlap_send_ui_frame(self, skb_get(skb), self->caddr, CMD_FRAME);
-+			irlap_next_state(self, LAP_NRM_P);
- 			irlap_send_rr_frame(self, CMD_FRAME);
- 			self->ack_required = FALSE;
- 		} else {
- 			skb->data[1] |= PF_BIT;
-+			irlap_next_state(self, LAP_NRM_P);
- 			irlap_send_ui_frame(self, skb_get(skb), self->caddr, CMD_FRAME);
- 		}
- 	}
-
+Cheers,
 -- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+[IPV4]: Do not remove idev when addresses are cleared
 
--------------------------------------------------------------------------
-This SF.net email is sponsored by DB2 Express
-Download DB2 Express C - the FREE version of DB2 express and take
-control of your XML. No limits. Just data. Click to get it now.
-http://sourceforge.net/powerbar/db2/
+Now that we create idev before addresses are added, it no longer makes
+sense to remove them when addresses are all deleted.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index 354e800..0cf813f 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -327,12 +327,8 @@ static void __inet_del_ifa(struct in_device *in_dev, struct in_ifaddr **ifap,
+ 		}
+ 
+ 	}
+-	if (destroy) {
++	if (destroy)
+ 		inet_free_ifa(ifa1);
+-
+-		if (!in_dev->ifa_list)
+-			inetdev_destroy(in_dev);
+-	}
+ }
+ 
+ static void inet_del_ifa(struct in_device *in_dev, struct in_ifaddr **ifap,
