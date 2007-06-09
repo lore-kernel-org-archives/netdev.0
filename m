@@ -1,44 +1,29 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [patch 23/32] IPV4: Correct rp_filter help text.
-Date: Sat, 9 Jun 2007 11:22:08 +1000
-Message-ID: <20070609012208.GA31945@gondor.apana.org.au>
-References: <20070608071553.469107000@sous-sol.org> <E1HwpdD-0008Il-00@gondolin.me.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
-	netdev@vger.kernel.org, davej@redhat.com
-To: Chris Wright <chrisw@sous-sol.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:3401 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753196AbXFIBWM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jun 2007 21:22:12 -0400
-Content-Disposition: inline
-In-Reply-To: <E1HwpdD-0008Il-00@gondolin.me.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
+Subject: Re: [PATCH] RFC: have tcp_recvmsg() check kthread_should_stop() and treat it as if it were signalled
+Date: Sat, 09 Jun 2007 11:30:04 +1000
+Message-ID: <E1HwpmG-0008LW-00@gondolin.me.apana.org.au>
+References: <20070608123527.9b4cdafe.jlayton@redhat.com>
+Cc: linux-kernel@vger.kernel.org, linux-cifs-client@lists.samba.org,
+	linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org
+To: jlayton@redhat.com (Jeff Layton)
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <20070608123527.9b4cdafe.jlayton@redhat.com>
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Jun 09, 2007 at 11:20:43AM +1000, Herbert Xu wrote:
-> Chris Wright <chrisw@sous-sol.org> wrote:
-> > 
-> > --- linux-2.6.20.13.orig/net/ipv4/Kconfig
-> > +++ linux-2.6.20.13/net/ipv4/Kconfig
-> > @@ -43,11 +43,11 @@ config IP_ADVANCED_ROUTER
-> >          asymmetric routing (packets from you to a host take a different path
-> >          than packets from that host to you) or if you operate a non-routing
-> >          host which has several IP addresses on different interfaces. To turn
-> > -         rp_filter off use:
-> > +         rp_filter on use:
-> > 
-> > -         echo 0 > /proc/sys/net/ipv4/conf/<device>/rp_filter
-> > +         echo 1 > /proc/sys/net/ipv4/conf/<device>/rp_filter
-> >          or
-> > -         echo 0 > /proc/sys/net/ipv4/conf/all/rp_filter
-> > +         echo 1 > /proc/sys/net/ipv4/conf/all/rp_filter
-> 
-> BTW, this documentation is actually wrong.  You can't enable rp_filter
+Please cc networking patches to netdev@vger.kernel.org.
 
-So to fix the documentation, we should change the word "or" to "and".
+Jeff Layton <jlayton@redhat.com> wrote:
+> 
+> The following patch is a first stab at removing this need. It makes it
+> so that in tcp_recvmsg() we also check kthread_should_stop() at any
+> point where we currently check to see if the task was signalled. If
+> that returns true, then it acts as if it were signalled and returns to
+> the calling function.
+
+This just doesn't seem to fit.  Why should networking care about kthreads?
+
+Perhaps you can get kthread_stop to send a signal instead?
 
 Cheers,
 -- 
