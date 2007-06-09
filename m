@@ -1,109 +1,311 @@
 From: jamal <hadi@cyberus.ca>
-Subject: [XFRM] Introduce standalone SAD lookup
-Date: Sat, 09 Jun 2007 10:18:06 -0400
-Message-ID: <1181398686.4077.19.camel@localhost>
+Subject: [PKTGEN] IPSEC support
+Date: Sat, 09 Jun 2007 10:19:46 -0400
+Message-ID: <1181398786.4077.21.camel@localhost>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-GRAM++N4aawSW30kcFJD"
+Content-Type: multipart/mixed; boundary="=-m+4PGYrN/pfZ6/yXCEJL"
 Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
 	David Miller <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.180]:19900 "EHLO
+Received: from py-out-1112.google.com ([64.233.166.180]:20981 "EHLO
 	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753331AbXFIOSK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jun 2007 10:18:10 -0400
-Received: by py-out-1112.google.com with SMTP id a29so1752178pyi
-        for <netdev@vger.kernel.org>; Sat, 09 Jun 2007 07:18:09 -0700 (PDT)
+	with ESMTP id S1753929AbXFIOTu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jun 2007 10:19:50 -0400
+Received: by py-out-1112.google.com with SMTP id a29so1752650pyi
+        for <netdev@vger.kernel.org>; Sat, 09 Jun 2007 07:19:49 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---=-GRAM++N4aawSW30kcFJD
+--=-m+4PGYrN/pfZ6/yXCEJL
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 
-3 of 4.
+4 of 4
 
 cheers,
 jamal
 
---=-GRAM++N4aawSW30kcFJD
-Content-Disposition: attachment; filename=pg-xfrm
-Content-Type: text/plain; name=pg-xfrm; charset=us-ascii
+--=-m+4PGYrN/pfZ6/yXCEJL
+Content-Disposition: attachment; filename=pg-ipsec
+Content-Type: text/plain; name=pg-ipsec; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 
-commit 923d6c49f9f513da41e4bfd8188304787a5c8093
+commit d1d8ea490a517df484e6774c4f41123ccde52434
 Author: Jamal Hadi Salim <hadi@cyberus.ca>
-Date:   Sat Jun 9 09:16:12 2007 -0400
+Date:   Sat Jun 9 09:46:52 2007 -0400
 
-    [XFRM] Introduce standalone SAD lookup
-    This allows other in-kernel functions to do SAD lookups.
-    The only known user at the moment is pktgen.
+    [PKTGEN] IPSEC support
+    Added transport mode ESP support for starters.
+    I will send more of these modes and types once i have resolved
+    the tunnel mode isses.
     
     Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 311f25a..79d2c37 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -920,6 +920,10 @@ extern struct xfrm_state *xfrm_state_find(xfrm_address_t *daddr, xfrm_address_t
- 					  struct flowi *fl, struct xfrm_tmpl *tmpl,
- 					  struct xfrm_policy *pol, int *err,
- 					  unsigned short family);
-+extern struct xfrm_state * xfrm_stateonly_find(xfrm_address_t *daddr,
-+					       xfrm_address_t *saddr,
-+					       unsigned short family,
-+					       u8 mode, u8 proto, u32 reqid);
- extern int xfrm_state_check_expire(struct xfrm_state *x);
- extern void xfrm_state_insert(struct xfrm_state *x);
- extern int xfrm_state_add(struct xfrm_state *x);
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index 85f3f43..b8562e4 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -686,6 +686,41 @@ out:
- 	return x;
+diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+index 2e861d2..2ef80aa 100644
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -152,6 +152,9 @@
+ #include <net/checksum.h>
+ #include <net/ipv6.h>
+ #include <net/addrconf.h>
++#ifdef CONFIG_XFRM
++#include <net/xfrm.h>
++#endif
+ #include <asm/byteorder.h>
+ #include <linux/rcupdate.h>
+ #include <asm/bitops.h>
+@@ -182,6 +185,7 @@
+ #define F_VID_RND     (1<<9)	/* Random VLAN ID */
+ #define F_SVID_RND    (1<<10)	/* Random SVLAN ID */
+ #define F_FLOW_RND    (1<<11)	/* Random flows */
++#define F_IPSEC_ON    (1<<12) 	/* ipsec on for flows */
+ 
+ /* Thread control flag bits */
+ #define T_TERMINATE   (1<<0)
+@@ -208,6 +212,9 @@ static struct proc_dir_entry *pg_proc_dir = NULL;
+ struct flow_state {
+ 	__be32 cur_daddr;
+ 	int count;
++#ifdef CONFIG_XFRM
++	struct xfrm_state *x;
++#endif
+ 	__u32 flags;
+ };
+ 
+@@ -348,7 +355,10 @@ struct pktgen_dev {
+ 	unsigned lflow;		/* Flow length  (config) */
+ 	unsigned nflows;	/* accumulated flows (stats) */
+ 	unsigned curfl;		/* current sequenced flow (state)*/
+-
++#ifdef CONFIG_XFRM
++	__u8	ipsmode;		/* IPSEC mode (config) */
++	__u8	ipsproto;		/* IPSEC type (config) */
++#endif
+ 	char result[512];
+ };
+ 
+@@ -702,6 +712,9 @@ static int pktgen_if_show(struct seq_file *seq, void *v)
+ 	else
+ 		seq_printf(seq,  "FLOW_SEQ  "); /*in sequence flows*/
+ 
++	if (pkt_dev->flags & F_IPSEC_ON)
++		seq_printf(seq,  "IPSEC  ");
++
+ 	if (pkt_dev->flags & F_MACSRC_RND)
+ 		seq_printf(seq, "MACSRC_RND  ");
+ 
+@@ -1196,6 +1209,11 @@ static ssize_t pktgen_if_write(struct file *file,
+ 		else if (strcmp(f, "FLOW_RND") == 0)
+ 			pkt_dev->flags |= F_FLOW_RND;
+ 
++#ifdef CONFIG_XFRM
++		else if (strcmp(f, "IPSEC") == 0)
++			pkt_dev->flags |= F_IPSEC_ON;
++#endif
++
+ 		else if (strcmp(f, "!IPV6") == 0)
+ 			pkt_dev->flags &= ~F_IPV6;
+ 
+@@ -1204,7 +1222,7 @@ static ssize_t pktgen_if_write(struct file *file,
+ 				"Flag -:%s:- unknown\nAvailable flags, (prepend ! to un-set flag):\n%s",
+ 				f,
+ 				"IPSRC_RND, IPDST_RND, UDPSRC_RND, UDPDST_RND, "
+-				"MACSRC_RND, MACDST_RND, TXSIZE_RND, IPV6, MPLS_RND, VID_RND, SVID_RND, FLOW_RND\n");
++				"MACSRC_RND, MACDST_RND, TXSIZE_RND, IPV6, MPLS_RND, VID_RND, SVID_RND, FLOW_RND, IPSEC\n");
+ 			return count;
+ 		}
+ 		sprintf(pg_result, "OK: flags=0x%x", pkt_dev->flags);
+@@ -2092,6 +2110,7 @@ static void spin(struct pktgen_dev *pkt_dev, __u64 spin_until_us)
+ 
+ static inline void set_pkt_overhead(struct pktgen_dev *pkt_dev)
+ {
++	pkt_dev->pkt_overhead = 0;
+ 	pkt_dev->pkt_overhead += pkt_dev->nr_labels*sizeof(u32);
+ 	pkt_dev->pkt_overhead += VLAN_TAG_SIZE(pkt_dev);
+ 	pkt_dev->pkt_overhead += SVLAN_TAG_SIZE(pkt_dev);
+@@ -2128,6 +2147,31 @@ static inline int f_pick(struct pktgen_dev *pkt_dev)
+ 	return pkt_dev->curfl;
  }
  
-+struct xfrm_state *
-+xfrm_stateonly_find(xfrm_address_t *daddr, xfrm_address_t *saddr,
-+		    unsigned short family, u8 mode, u8 proto, u32 reqid)
++
++#ifdef CONFIG_XFRM
++/* If there was already an IPSEC SA, we keep it as is, else
++ * we go look for it ...
++*/
++inline
++void get_ipsec_sa(struct pktgen_dev *pkt_dev, int flow)
 +{
-+	unsigned int h = xfrm_dst_hash(daddr, saddr, reqid, family);
-+	struct xfrm_state *rx = NULL, *x = NULL;
-+	struct hlist_node *entry;
++	struct xfrm_state *x = pkt_dev->flows[flow].x;
++	if (!x) {
++		/*slow path: we dont already have xfrm_state*/
++		x = xfrm_stateonly_find((xfrm_address_t *)&pkt_dev->cur_daddr,
++					(xfrm_address_t *)&pkt_dev->cur_saddr,
++					AF_INET,
++					pkt_dev->ipsmode,
++					pkt_dev->ipsproto, 0);
++		if (x) {
++			pkt_dev->flows[flow].x = x;
++			set_pkt_overhead(pkt_dev);
++			pkt_dev->pkt_overhead+=x->props.header_len;
++		}
 +
-+	spin_lock(&xfrm_state_lock);
-+	hlist_for_each_entry(x, entry, xfrm_state_bydst+h, bydst) {
-+		if (x->props.family == family &&
-+		    x->props.reqid == reqid &&
-+		    !(x->props.flags & XFRM_STATE_WILDRECV) &&
-+		    xfrm_state_addr_check(x, daddr, saddr, family) &&
-+		    mode == x->props.mode &&
-+		    proto == x->id.proto)  {
++	}
++}
++#endif
+ /* Increment/randomize headers according to flags and current values
+  * for IP src/dest, UDP src/dst port, MAC-Addr src/dst
+  */
+@@ -2287,6 +2331,10 @@ static void mod_cur_headers(struct pktgen_dev *pkt_dev)
+ 				pkt_dev->flows[flow].flags |= F_INIT;
+ 				pkt_dev->flows[flow].cur_daddr =
+ 				    pkt_dev->cur_daddr;
++#ifdef CONFIG_XFRM
++				if (pkt_dev->flags & F_IPSEC_ON)
++					get_ipsec_sa(pkt_dev, flow);
++#endif
+ 				pkt_dev->nflows++;
+ 			}
+ 		}
+@@ -2327,6 +2375,94 @@ static void mod_cur_headers(struct pktgen_dev *pkt_dev)
+ 	pkt_dev->flows[flow].count++;
+ }
+ 
 +
-+			if (x->km.state != XFRM_STATE_VALID)
-+					continue;
-+			else {
-+				rx = x;
-+				break;
++#ifdef CONFIG_XFRM
++static int pktgen_output_ipsec(struct sk_buff *skb, struct pktgen_dev *pkt_dev)
++{
++	struct xfrm_state *x = pkt_dev->flows[pkt_dev->curfl].x;
++	int err = 0;
++	struct iphdr *iph;
++
++	if (!x)
++		return 0;
++	/* XXX: we dont support tunnel mode for now until
++	 * we resolve the dst issue */
++	if (x->props.mode != XFRM_MODE_TRANSPORT)
++		return 0;
++	/* error injection 
++	return -1;
++	*/ 
++	spin_lock(&x->lock);
++	iph = ip_hdr(skb);
++
++	err = x->mode->output(x, skb);
++	if (err)
++		goto error;
++	err = x->type->output(x, skb);
++	if (err)
++		goto error;
++
++	x->curlft.bytes +=skb->len;
++	x->curlft.packets++;
++	spin_unlock(&x->lock);
++
++error:
++	spin_unlock(&x->lock);
++	return err;
++}
++
++ 
++static inline void free_SAs(struct pktgen_dev *pkt_dev)
++{
++	if (pkt_dev->cflows) {
++		/* let go of the SAs if we have them */
++		int i = 0;
++		for (;  i < pkt_dev->nflows; i++){
++			struct xfrm_state *x = pkt_dev->flows[i].x;
++			if (x) {
++				xfrm_state_put(x);
++				pkt_dev->flows[i].x = NULL;
 +			}
 +		}
 +	}
-+
-+	if (rx)
-+		xfrm_state_hold(rx);
-+	spin_unlock(&xfrm_state_lock);
-+
-+
-+	return rx;
 +}
-+EXPORT_SYMBOL(xfrm_stateonly_find);
 +
- static void __xfrm_state_insert(struct xfrm_state *x)
++static inline int process_ipsec(struct pktgen_dev *pkt_dev,
++			      struct sk_buff *skb, __be16 protocol)
++{
++	if (pkt_dev->flags & F_IPSEC_ON) {
++		struct xfrm_state *x = pkt_dev->flows[pkt_dev->curfl].x;
++		int nhead = 0;
++		if (x) {
++			int ret;
++			__u8 *eth;
++			nhead = x->props.header_len - skb_headroom(skb);
++			if (nhead >0) {
++				ret = pskb_expand_head(skb, nhead, 0, GFP_ATOMIC);
++				if (ret < 0) {
++					printk("Error expanding ipsec packet %d\n",ret);
++					return 0;
++				}
++			}
++
++			/* ipsec is not expecting ll header */
++			skb_pull(skb, ETH_HLEN);
++			ret = pktgen_output_ipsec(skb, pkt_dev);
++			if (ret) {
++				printk("Error creating ipsec packet %d\n",ret);
++				kfree_skb(skb);
++				return 0;	
++			}
++		 	/* restore ll */
++			eth = (__u8 *) skb_push(skb, ETH_HLEN);
++			memcpy(eth, pkt_dev->hh, 12);
++			*(u16 *) & eth[12] = protocol;
++		}
++	}
++	return 1;
++}
++#endif
++
+ static void mpls_push(__be32 *mpls, struct pktgen_dev *pkt_dev)
  {
- 	unsigned int h;
+ 	unsigned i;
+@@ -2510,6 +2646,11 @@ static struct sk_buff *fill_packet_ipv4(struct net_device *odev,
+ 		pgh->tv_usec = htonl(timestamp.tv_usec);
+ 	}
+ 
++#ifdef CONFIG_XFRM
++	if (!process_ipsec(pkt_dev, skb, protocol))
++		return NULL;
++#endif
++
+ 	return skb;
+ }
+ 
+@@ -3491,11 +3632,18 @@ static int pktgen_add_device(struct pktgen_thread *t, const char *ifname)
+ 	}
+ 	pkt_dev->entry->proc_fops = &pktgen_if_fops;
+ 	pkt_dev->entry->data = pkt_dev;
++#ifdef CONFIG_XFRM
++	pkt_dev->mode = XFRM_MODE_TRANSPORT;
++	pkt_dev->proto = IPPROTO_ESP;
++#endif
+ 
+ 	return add_dev_to_thread(t, pkt_dev);
+ out2:
+ 	dev_put(pkt_dev->odev);
+ out1:
++#ifdef CONFIG_XFRM
++	free_SAs(pkt_dev);
++#endif
+ 	if (pkt_dev->flows)
+ 		vfree(pkt_dev->flows);
+ 	kfree(pkt_dev);
+@@ -3590,6 +3738,9 @@ static int pktgen_remove_device(struct pktgen_thread *t,
+ 	if (pkt_dev->entry)
+ 		remove_proc_entry(pkt_dev->entry->name, pg_proc_dir);
+ 
++#ifdef CONFIG_XFRM
++	free_SAs(pkt_dev);
++#endif
+ 	if (pkt_dev->flows)
+ 		vfree(pkt_dev->flows);
+ 	kfree(pkt_dev);
 
---=-GRAM++N4aawSW30kcFJD--
+--=-m+4PGYrN/pfZ6/yXCEJL--
 
