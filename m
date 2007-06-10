@@ -1,93 +1,65 @@
-From: "David Planella" <david.planella@googlemail.com>
-Subject: The future of the TI ACX wireless driver
-Date: Sun, 10 Jun 2007 16:35:23 +0200
-Message-ID: <1d9d9b240706100735k374b5800ie64370e1e9bff1ef@mail.gmail.com>
+From: "Leonid Grossman" <Leonid.Grossman@neterion.com>
+Subject: RE: [PATCH] NET: Multiqueue network device support.
+Date: Sun, 10 Jun 2007 11:27:09 -0400
+Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD7701B7D6D1@nekter>
+References: <1181168020.4064.46.camel@localhost> <D5C1322C3E673F459512FB59E0DDC32902FC61BF@orsmsx414.amr.corp.intel.com> <78C9135A3D2ECE4B8162EBDCE82CAD7701B7D69C@nekter> <1181417000.4043.34.camel@localhost> <78C9135A3D2ECE4B8162EBDCE82CAD7701B7D6BC@nekter> <1181444559.4043.91.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
-To: acx100-devel@lists.sourceforge.net
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	"Patrick McHardy" <kaber@trash.net>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>, <jeff@garzik.org>,
+	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
+	"Ramkrishna Vepa" <Ramkrishna.Vepa@neterion.com>,
+	"Alex Aizman" <aaizman@neterion.com>
+To: <hadi@cyberus.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.245]:2866 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752362AbXFJOfZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jun 2007 10:35:25 -0400
-Received: by an-out-0708.google.com with SMTP id d31so329925and
-        for <netdev@vger.kernel.org>; Sun, 10 Jun 2007 07:35:24 -0700 (PDT)
-Content-Disposition: inline
+Received: from mx.neterion.com ([72.1.205.142]:57679 "EHLO owa.neterion.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752060AbXFJP3W convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jun 2007 11:29:22 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <1181444559.4043.91.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
 
-I just wanted to mention that I have updated the ACX driver's wiki in
-order to at least keep up with the current state of things regarding
-the driver and the kernel.
 
-I've rearranged the contents and added some information to the main
-page at http://acx100.sourceforge.net/wiki/Main_Page. In case there
-are any active or inactive developers reading this, please also have a
-look at the new
-http://acx100.sourceforge.net/wiki/Main_Page#Development and
-http://acx100.sourceforge.net/wiki/History sections (the latter one
-being still pretty much under construction), and feel free to comment,
-correct or add to the information shown there.
+> -----Original Message-----
+> From: J Hadi Salim [mailto:j.hadi123@gmail.com] On Behalf Of jamal
+> Sent: Saturday, June 09, 2007 8:03 PM
+> To: Leonid Grossman
+> Cc: Waskiewicz Jr, Peter P; Patrick McHardy; davem@davemloft.net;
+> netdev@vger.kernel.org; jeff@garzik.org; Kok, Auke-jan H; Ramkrishna
+> Vepa; Alex Aizman
+> Subject: RE: [PATCH] NET: Multiqueue network device support.
+> 
+> our definition of "channel" on linux so far is a netdev
+> (not a DMA ring). A netdev is the entity that can be bound to a CPU.
+> Link layer flow control terminates (and emanates) from the netdev.
 
-Regarding the current state of the driver, from what I could gather
-from the mailing list posts scattered through netdev, acx100-devel and
-acx-users and probably other places, there are three current versions
-of the driver:
+I think we are saying the same thing. Link layer flow control frames are
+generated (and terminated) by the hardware; the hardware gets configured
+by netdev.
+And if a hw channel has enough resources, it could be configured as a
+separate netdev and handle it's flow control the same way single-channel
+NICs do now. 
+I'm not advocating flow control on per DMA ring basis. 
 
-* "Plain" driver, which uses a homegrown wireless stack and does not
-support WPA.
-The last release (0.3.36) [1] was made for this flavour of the driver,
-which is the one shipped with distributions such as Ubuntu. Andreas
-Mohr said that after this release he'd concentrate on the softmac
-version.
+> > This is not what I'm saying :-). The IEEE link you sent shows that
+> > per-link flow control is a separate effort, and it will likely to
+> take
+> > time to become a standard.
+> 
+> Ok, my impression was it was happening already or it will happen
+> tommorow morning ;->
 
-* Softmac driver, which uses the in-kernel ieee80211softmac layer for
-the common wireless functions.
-The code for this driver has been in the wireless-2.6 tree (under
-tiacx) for some time, and if I understand it correctly includes the
-changes from the 0.3.35 version of the "plain" driver but not yet
-those of the 0.3.36 version.
+the proposal you mentioned is dated 2005, but something like that will
+probably happen sooner or later in IEEE. Some non-standard options,
+including ours, are already here - but as we just discussed, in any case
+flow control is arguably a netdev property not a queue property. 
+The multi-queue patch itself though (and possibly some additional
+per-queue properties) is a good thing :-)
+ 
 
-* Mac80211 driver, which uses the seemingly
-soon-to-be-included-in-kernel mac80211 stack, available on the
-wireless-dev tree (the stack, not the driver).
-This release is only available here [2] and needs some work before
-being included in wireless-dev, since it was released at the time when
-mac80211 was still called d80211. In any case, having had a quick look
-at the code, I believe that replacing the d80211.h header reference to
-mac80211.h and maybe refactoring some functions might be all what is
-needed for an initial compilation. Note that I haven't got any
-previous driver or kernel module development experience, so I might be
-wrong here. What would also be needed is to merge all changes from the
-softmac and plain drivers.
-
-I am writing this in the hope of getting some exposure and some
-interest in the driver for an eventual kernel inclusion. As far as I
-understand, there are only two active developers at the moment, so I
-guess any help would be appreciated.
-
-I think the natural course of action should be to first get the
-mac80211 driver in shape for inclusion in the wireless-dev tree and
-then continue development from there.
-
-I (and maybe someone else) would be willing to help on this, but might
-need some 'mentoring' from the developers, since as I mentioned I've
-got no previous experience with linux modules or 80211. I have started
-looking at the acx-d80211 code, but I cannot promise anything.
-
-Any comments will be greatly appreciated.
-
-Note: I'm CC'ing netdev and linux-wireless as well. I think
-linux-wireless should be more appropriate, but previous posts
-regarding the tiacx driver were sent to netdev.
-
-Kind regards,
-David.
-
-[1] Announcement:
-http://sourceforge.net/mailarchive/forum.php?thread_name=20070101224549.GA21249%40rhlx01.hs-esslingen.de&forum_name=acx100-users
-[2] http://www.cmartin.tk/acx/acx-d80211-20060709.tar.bz2
