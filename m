@@ -1,65 +1,37 @@
-From: "Leonid Grossman" <Leonid.Grossman@neterion.com>
-Subject: RE: [PATCH] NET: Multiqueue network device support.
-Date: Sun, 10 Jun 2007 11:27:09 -0400
-Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD7701B7D6D1@nekter>
-References: <1181168020.4064.46.camel@localhost> <D5C1322C3E673F459512FB59E0DDC32902FC61BF@orsmsx414.amr.corp.intel.com> <78C9135A3D2ECE4B8162EBDCE82CAD7701B7D69C@nekter> <1181417000.4043.34.camel@localhost> <78C9135A3D2ECE4B8162EBDCE82CAD7701B7D6BC@nekter> <1181444559.4043.91.camel@localhost>
+From: Jeff Williams <angelbane-GrrYUJ3DTa8@public.gmane.org>
+Subject: Re: The future of the TI ACX wireless driver
+Date: Sun, 10 Jun 2007 10:21:32 -0500 (CDT)
+Message-ID: <Pine.LNX.4.64.0706101014520.2936@dulcinea>
+References: <1d9d9b240706100735k374b5800ie64370e1e9bff1ef@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	"Patrick McHardy" <kaber@trash.net>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>, <jeff@garzik.org>,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
-	"Ramkrishna Vepa" <Ramkrishna.Vepa@neterion.com>,
-	"Alex Aizman" <aaizman@neterion.com>
-To: <hadi@cyberus.ca>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.neterion.com ([72.1.205.142]:57679 "EHLO owa.neterion.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752060AbXFJP3W convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jun 2007 11:29:22 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <1181444559.4043.91.camel@localhost>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: acx100-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Planella <david.planella-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1d9d9b240706100735k374b5800ie64370e1e9bff1ef-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+> * Mac80211 driver, which uses the seemingly
+> soon-to-be-included-in-kernel mac80211 stack, available on the
+> wireless-dev tree (the stack, not the driver).
+> This release is only available here [2] and needs some work before
+> being included in wireless-dev, since it was released at the time when
+> mac80211 was still called d80211. In any case, having had a quick look
+> at the code, I believe that replacing the d80211.h header reference to
+> mac80211.h and maybe refactoring some functions might be all what is
+> needed for an initial compilation. Note that I haven't got any
+> previous driver or kernel module development experience, so I might be
+> wrong here. What would also be needed is to merge all changes from the
+> softmac and plain drivers.
+>
+You can find a updated-as-of-last-month mac80211 pci driver at 
+http://airgo.wdwconsulting.net/acx-mac80211-20070510.patch.bz2
+it may or may not work, it compiles, it responds with aps to iwlist sc. 
+Enabling ACX_MAC80211_USB will cause the build to fail. I'll be happy to 
+take patches and bug reports.
 
+thanks,
 
-> -----Original Message-----
-> From: J Hadi Salim [mailto:j.hadi123@gmail.com] On Behalf Of jamal
-> Sent: Saturday, June 09, 2007 8:03 PM
-> To: Leonid Grossman
-> Cc: Waskiewicz Jr, Peter P; Patrick McHardy; davem@davemloft.net;
-> netdev@vger.kernel.org; jeff@garzik.org; Kok, Auke-jan H; Ramkrishna
-> Vepa; Alex Aizman
-> Subject: RE: [PATCH] NET: Multiqueue network device support.
-> 
-> our definition of "channel" on linux so far is a netdev
-> (not a DMA ring). A netdev is the entity that can be bound to a CPU.
-> Link layer flow control terminates (and emanates) from the netdev.
-
-I think we are saying the same thing. Link layer flow control frames are
-generated (and terminated) by the hardware; the hardware gets configured
-by netdev.
-And if a hw channel has enough resources, it could be configured as a
-separate netdev and handle it's flow control the same way single-channel
-NICs do now. 
-I'm not advocating flow control on per DMA ring basis. 
-
-> > This is not what I'm saying :-). The IEEE link you sent shows that
-> > per-link flow control is a separate effort, and it will likely to
-> take
-> > time to become a standard.
-> 
-> Ok, my impression was it was happening already or it will happen
-> tommorow morning ;->
-
-the proposal you mentioned is dated 2005, but something like that will
-probably happen sooner or later in IEEE. Some non-standard options,
-including ours, are already here - but as we just discussed, in any case
-flow control is arguably a netdev property not a queue property. 
-The multi-queue patch itself though (and possibly some additional
-per-queue properties) is a good thing :-)
- 
-
+Jeff Williams
