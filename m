@@ -1,43 +1,63 @@
-From: =?UNKNOWN?B?W6RUwkmlYqrusrxdp0+30LRvpEahQafarcyo86dVsXql36dZqPqxb7ZnwuCq96FBoeO90A==?=
-	 =?UNKNOWN?B?rKKhR6V4t3O/xLjqoq+iuKK2oq+h0KKvorOitKHQorCir6KzqEi4Z7J6oUOh4w==?=
-	<sylviahsiang@yahoo.com.ar>
-Subject: =?UNKNOWN?B?p0vAo6dLq0+hQadZpWm/7KFBoeO90KyioUeleLdzv8S46qKvoriitqKvodCir6KzorSh0KKwoq+is6hIuGeyeqFDoeM=?=
-Date: Sun, 10 Jun 2007 17:13:00 +0000 (UTC)
-Message-ID: <ODBIBYRDEQGEOWWWDITXYIF@xuite.net>
+From: "David Planella" <david.planella@googlemail.com>
+Subject: Re: The future of the TI ACX wireless driver
+Date: Sun, 10 Jun 2007 19:27:21 +0200
+Message-ID: <1d9d9b240706101027m7e6aef2er25474fd6e9459e9e@mail.gmail.com>
+References: <1d9d9b240706100735k374b5800ie64370e1e9bff1ef@mail.gmail.com>
+	 <466C2F94.8050501@hauke-m.de>
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
- boundary="Boundary_(ID_ZrWyjB5kY5xOpA2RhJIk0w)"
-To: network@utechmedia.com.tw
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: acx100-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org
+To: "linux-wireless@hauke-m.de" <linux-wireless@hauke-m.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from psmtp08.wxs.nl ([195.121.247.22]:58088 "EHLO psmtp08.wxs.nl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754719AbXFJRMy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 10 Jun 2007 13:12:54 -0400
-Received: from serverwg1.domeinwg1.local ([193.173.65.49])
- by psmtp08.wxs.nl (iPlanet Messaging Server 5.2 HotFix 2.15 (built Nov 14
- 2006)) with ESMTP id <0JJF00CH1JTDKF@psmtp08.wxs.nl> for
- netdev@vger.kernel.org; Sun, 10 Jun 2007 19:12:53 +0200 (MEST)
-Date: Tue, 12 Jun 2007 10:04:04 -0700
+Received: from an-out-0708.google.com ([209.85.132.246]:50482 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755380AbXFJR1W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jun 2007 13:27:22 -0400
+Received: by an-out-0708.google.com with SMTP id d31so335951and
+        for <netdev@vger.kernel.org>; Sun, 10 Jun 2007 10:27:21 -0700 (PDT)
+In-Reply-To: <466C2F94.8050501@hauke-m.de>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hauke,
 
---Boundary_(ID_ZrWyjB5kY5xOpA2RhJIk0w)
-Content-type: text/plain
-Content-transfer-encoding: quoted-printable
+Thanks for your reply. See the inline comments:
 
-[=A4T=C2I=A5b=AA=EE=B2=BC]=A7O=B7=D0=B4o=A4F=A1A=A7=DA=AD=CC=A8=F3=A7U=B1z=
-=A5=DF=A7Y=A8=FA=B1o=B6g=C2=E0=AA=F7=A1A=A1=E3=BD=D0=AC=A2=A1G=A5x=B7s=BF=C4=
-=B8=EA=A2=AF=A2=B8=A2=B6=A2=AF=A1=D0=A2=AF=A2=B3=A2=B4=A1=D0=A2=B0=A2=AF=A2=
-=B3=A8H=B8g=B2z=A1C=A1=E3
-=A4=E4=B2=BC=BF=C4=B8=EA=BB=B4=C3P=B6U=A1A=A9=D0=AB=CE=A4G=ADL=A4=E2=C4=F2=
-=C2=B2=ABK=A1A
-=A9=F1=B4=DA=A7=D6=B3t=A1A=A4=EB=AE=A7=A8=E2=A4=C0=A1A=B6W=A7C=A7Q=A1A
-=A7K=C0=A3=A7K=ABO=A1A=A7Y=A5i=BF=EC=A1A
-=BD=D0=AC=A2=A1G=A5x=B7s=BF=C4=B8=EA=A2=AF=A2=B8=A2=B6=A2=AF=A1=D0=A2=AF=A2=
-=B3=A2=B4=A1=D0=A2=B0=A2=AF=A2=B3=A8H=B8g=B2z=A1C
-=A7K=C0=A3=A7K=ABO=A1A=A7Y=A5i=BF=EC=A1A=A1=E3=BD=D0=AC=A2=A1G=A5x=B7s=BF=C4=
-=B8=EA=A2=AF=A2=B8=A2=B6=A2=AF=A1=D0=A2=AF=A2=B3=A2=B4=A1=D0=A2=B0=A2=AF=A2=
-=B3=A8H=B8g=B2z=A1C=A1=E3
+2007/6/10, linux-wireless@hauke-m.de <linux-wireless@hauke-m.de>:
+> -----BEGIN PGP SIGNED MESSAGE-----
+> Hash: SHA1
+>
+> Hi
+>
+> Nice work David.
+>
+> I have extracted the acxsm driver out of the wireless-2.6 git tree and
+> made it compile on at least kernel 2.6.20 and 2.6.22-rc4
+> It can be found here:
+> http://www.hauke-m.de/fileadmin/acx/tiacx-20070522.tar.bz2
+>
 
---Boundary_(ID_ZrWyjB5kY5xOpA2RhJIk0w)--
+I do not think more effort should be put in the softmac version, but
+rather concentrate on the mac80211 version. I'm having a look at the
+patch Jeff Williams sent earlier on today, but as I said, cannot
+promise anything.
+
+> I also chanced some lines in the normal acx driver so it compiles with
+> kenrel 2.6.22 and later
+> http://www.hauke-m.de/fileadmin/acx/acx-20070610.tar.bz2
+>
+
+you might want to send a patch to acx100-devel or to Andreas Mohr for that.
+
+> I will write some pages into the Wiki for these versions, so everyone
+> can test them.
+>
+
+Yes, that would be good. A page with instructions on how to compile
+the latest acx-mac80211 would even be better.
+
+Regards,
+David.
