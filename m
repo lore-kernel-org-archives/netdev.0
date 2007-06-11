@@ -1,71 +1,47 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: RE: [PATCH] NET: Multiqueue network device support.
-Date: Mon, 11 Jun 2007 11:05:31 -0700
-Message-ID: <D5C1322C3E673F459512FB59E0DDC3290303AB0B@orsmsx414.amr.corp.intel.com>
-References: <466D883B.5050409@trash.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] NET: Multiqueue network device support.
+Date: Mon, 11 Jun 2007 20:05:38 +0200
+Message-ID: <466D8EF2.50203@trash.net>
+References: <D5C1322C3E673F459512FB59E0DDC3290303AAE8@orsmsx414.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>, <jeff@garzik.org>,
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org, jeff@garzik.org,
 	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>
-To: "Patrick McHardy" <kaber@trash.net>
+To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:7871 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752331AbXFKSFd convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jun 2007 14:05:33 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <466D883B.5050409@trash.net>
+Received: from stinky.trash.net ([213.144.137.162]:48473 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753272AbXFKSIL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jun 2007 14:08:11 -0400
+In-Reply-To: <D5C1322C3E673F459512FB59E0DDC3290303AAE8@orsmsx414.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> PJ Waskiewicz wrote:
-> > diff --git a/net/sched/sch_generic.c 
-> b/net/sched/sch_generic.c index 
-> > f28bb2d..b9dc2a6 100644
-> > --- a/net/sched/sch_generic.c
-> > +++ b/net/sched/sch_generic.c
-> > @@ -123,7 +123,8 @@ static inline int qdisc_restart(struct 
-> net_device *dev)
-> >  			/* And release queue */
-> >  			spin_unlock(&dev->queue_lock);
-> >  
-> > -			if (!netif_queue_stopped(dev)) {
-> > +			if (!netif_queue_stopped(dev) &&
-> > +			    !netif_subqueue_stopped(dev, 
-> skb->queue_mapping)) {
-> >  				int ret;
-> >  
-> >  				ret = dev_hard_start_xmit(skb, dev);
+Waskiewicz Jr, Peter P wrote:
+>>I think we can reuse skb->priority. Assuming only real 
+>>hardware devices use multiqueue support, there should be no user of
+>>skb->priority after egress qdisc classification. The only reason
+>>to preserve it in the qdisc layer is for software devices.
 > 
 > 
-> Your patch doesn't update any other users of netif_queue_stopped().
-> The assumption that they can pass packets to the driver when 
-> the queue is running is no longer valid since they don't know 
-> whether the subqueue the packet will end up in is active (it 
-> might be different from queue 0 if packets were redirected 
-> from a multiqueue aware qdisc through TC actions). So they 
-> need to be changed to check the subqueue state as well.
+> That would be oustanding.
+> 
+> 
+>>Grepping through drivers/net shows a few users, bot most seem 
+>>to be using it on the RX path and some use it to store internal data.
+> 
+> 
+> Thank you for hunting this down.  I will test on my little environment
+> here to see if I run into any issues.
 
-I will look at all these cases and change them accordingly.  Thanks for
-catching that.
 
-> BTW, I couldn't find anything but a single 
-> netif_wake_subqueue in your (old) e1000 patch. Why doesn't it 
-> stop subqueues?
+I think grepping will help more than testing :)
 
-A previous e1000 patch stopped subqueues.  The last e1000 patch I sent
-to the list doesn't stop them, and that's a problem with that patch; it
-was sent purely to show how the alloc_etherdev_mq() stuff worked, but I
-missed the subqueue control.  I can fix that and send an updated patch
-if you'd like.  The reason I missed it is we maintain an out-of-tree
-driver and an in-tree driver, and mixing/matching code between the two
-becomes a bit of a juggling act sometimes when doing little engineering
-snippits.
+The only issue I can see is that packets going to a multiqueue device
+that doesn't have a multiqueue aware qdisc attached will get a random
+value. So you would have to conditionally reset it before ->enqueue.
 
-Thanks for reviewing these.  I'll repost something with updates from
-your feedback.
-
-Cheers,
--PJ Waskiewicz
+Another question is what to do about other hard_start_xmit callers.
+Independant of which field is used, should the classification that
+may have happend on a different device be retained (TC actions again)?
