@@ -1,64 +1,38 @@
-From: Brice Goglin <brice@myri.com>
-Subject: [PATCH 2/3] myri10ge: report when the link partner is running in
- Myrinet mode
-Date: Mon, 11 Jun 2007 20:26:50 +0200
-Message-ID: <466D93EA.2010002@myri.com>
-References: <466D9380.7090605@myri.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] NET: Multiqueue network device support.
+Date: Mon, 11 Jun 2007 20:24:00 +0200
+Message-ID: <466D9340.6050706@trash.net>
+References: <D5C1322C3E673F459512FB59E0DDC3290303AB41@orsmsx414.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org, jeff@garzik.org,
+	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>
+To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl.myri.com ([64.172.73.26]:2031 "EHLO myri.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752308AbXFKS0X (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Jun 2007 14:26:23 -0400
-In-Reply-To: <466D9380.7090605@myri.com>
+Received: from stinky.trash.net ([213.144.137.162]:48833 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753501AbXFKS0e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jun 2007 14:26:34 -0400
+In-Reply-To: <D5C1322C3E673F459512FB59E0DDC3290303AB41@orsmsx414.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Since Myri-10G boards may also run in Myrinet mode instead of Ethernet,
-add a message when we detect that the link partner is not running in the
-right mode.
+Waskiewicz Jr, Peter P wrote:
+>>Another question is what to do about other hard_start_xmit callers.
+>>Independant of which field is used, should the classification 
+>>that may have happend on a different device be retained (TC 
+>>actions again)?
+> 
+> 
+> [...] Either way, before it gets enqueued through
+> dev_queue_xmit(), the value will get cleared, so having an artifact
+> laying around won't be possible.
 
-Signed-off-by: Brice Goglin <brice@myri.com>
----
- drivers/net/myri10ge/myri10ge.c |   15 ++++++++++-----
- 1 file changed, 10 insertions(+), 5 deletions(-)
 
-Index: linux-rc/drivers/net/myri10ge/myri10ge.c
-===================================================================
---- linux-rc.orig/drivers/net/myri10ge/myri10ge.c	2007-06-05 08:25:05.000000000 +0200
-+++ linux-rc/drivers/net/myri10ge/myri10ge.c	2007-06-11 20:04:57.000000000 +0200
-@@ -1156,9 +1156,11 @@
- 	struct mcp_irq_data *stats = mgp->fw_stats;
- 
- 	if (unlikely(stats->stats_updated)) {
--		if (mgp->link_state != stats->link_up) {
--			mgp->link_state = stats->link_up;
--			if (mgp->link_state) {
-+		unsigned link_up = ntohl(stats->link_up);
-+		if (mgp->link_state != link_up) {
-+			mgp->link_state = link_up;
-+
-+			if (mgp->link_state == MXGEFW_LINK_UP) {
- 				if (netif_msg_link(mgp))
- 					printk(KERN_INFO
- 					       "myri10ge: %s: link up\n",
-@@ -1168,8 +1170,11 @@
- 			} else {
- 				if (netif_msg_link(mgp))
- 					printk(KERN_INFO
--					       "myri10ge: %s: link down\n",
--					       mgp->dev->name);
-+					       "myri10ge: %s: link %s\n",
-+					       mgp->dev->name,
-+					       (link_up == MXGEFW_LINK_MYRINET ?
-+						"mismatch (Myrinet detected)" :
-+						"down"));
- 				netif_carrier_off(mgp->dev);
- 				mgp->link_changes++;
- 			}
-
+You're right, I was thinking of a case where a packet would
+be redirected from a multiqueue device to another one and
+then not go through dev_queue_xmit but some other path to
+hard_start_xmit that doesn't update the classification.
+But there is no case like this.
 
