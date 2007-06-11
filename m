@@ -1,72 +1,161 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] NET: Multiqueue network device support.
-Date: Mon, 11 Jun 2007 17:35:18 -0400
-Message-ID: <1181597718.4071.12.camel@localhost>
-References: <D5C1322C3E673F459512FB59E0DDC32902F91748@orsmsx414.amr.corp.intel.com>
-	 <1181082517.4062.31.camel@localhost>  <4666CEB7.6030804@trash.net>
-	 <1181168020.4064.46.camel@localhost>  <466D38CF.9060709@trash.net>
-	 <1181564611.4043.220.camel@localhost>  <466D4284.1030004@trash.net>
-	 <1181566335.4043.231.camel@localhost>  <466D480F.6090708@trash.net>
-	 <1181568598.4043.250.camel@localhost>  <466D5623.7060708@trash.net>
-	 <1181572815.4077.13.camel@localhost>  <466D6105.9050305@trash.net>
-	 <1181574306.4077.34.camel@localhost>  <466D667B.6050108@trash.net>
-	 <1181575549.4077.50.camel@localhost>  <466D6DF6.9060300@trash.net>
-Reply-To: hadi@cyberus.ca
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: [PATCH 1/2] [RFC] NET: Implement a standard ndev_printk family
+Date: Mon, 11 Jun 2007 14:37:21 -0700
+Message-ID: <20070611213721.23014.4812.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	davem@davemloft.net, netdev@vger.kernel.org, jeff@garzik.org,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>
-To: Patrick McHardy <kaber@trash.net>
+Cc: arjan@linux.intel.com, joe@perches.com,
+	shemminger@linux-foundation.org
+To: netdev@vger.kernel.org, jeff@garzik.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nz-out-0506.google.com ([64.233.162.228]:39658 "EHLO
-	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750909AbXFKVfY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jun 2007 17:35:24 -0400
-Received: by nz-out-0506.google.com with SMTP id n1so1415584nzf
-        for <netdev@vger.kernel.org>; Mon, 11 Jun 2007 14:35:21 -0700 (PDT)
-In-Reply-To: <466D6DF6.9060300@trash.net>
+Received: from mga03.intel.com ([143.182.124.21]:39492 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751905AbXFKVh3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Jun 2007 17:37:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2007-11-06 at 17:44 +0200, Patrick McHardy wrote:
-> jamal wrote:
-[..]
-> > - let the driver shutdown whenever a ring is full. Remember which ring X
-> > shut it down.
-> > - when you get a tx interupt or prun tx descriptors, if a ring <= X has
-> > transmitted a packet (or threshold of packets), then wake up the driver
-> > (i.e open up). 
-> 
-> 
-> At this point the qdisc might send new packets. What do you do when a
-> packet for a full ring arrives?
-> 
+A lot of netdevices implement their own variant of printk and use
+use variations of dev_printk, printk or others that use msg_enable,
+which has been an eyesore with countless variations across drivers.
 
-Hrm... ok, is this a trick question or i am missing the obvious?;->
-What is wrong with what any driver would do today - which is:
-netif_stop and return BUSY; core requeues the packet?
+This patch implements a standard ndev_printk and derivatives
+such as ndev_err, ndev_info, ndev_warn that allows drivers to
+transparently use both the msg_enable and a generic netdevice
+message layout. It moves the msg_enable over to the net_device
+struct and allows drivers to obsolete ethtool handling code of
+the msg_enable value.
 
-> I see three choices:
-> 
-> - drop it, even though its still within the qdiscs configured limits
-> - requeue it, which does not work because the qdisc is still active
->   and might just hand you the same packet over and over again in a
->   busy loop, until the ring has more room (which has the same worst
->   case, just that we're sitting in a busy loop now).
-> - requeue and stop the queue: we're back to where we started since
->   now higher priority packets will not get passed to the driver.
+The current code has each driver contain a copy of msg_enable and
+handle the setting/changing through ethtool that way. Since the
+netdev name is stored in the net_device struct, those two are
+not coherently available in a uniform way across all drivers (a
+single macro or function would not work since all drivers name
+their net_device members differently). This makes netdevice
+driver writes reinvent the wheel over and over again.
 
-Refer to choice #4 above. 
+It thus makes sense to move msg_enable to the net_device. This
+gives us the opportunity to (1) initialize it by default with a
+globally sane value, (2) remove msg_enable handling code w/r
+ethtool for drivers that know and use the msg_enable member
+of the net_device struct. (3) Ethtool code can just modify the
+net_device msg_enable for drivers that do not have custom
+msg_enable get/set handlers so converted drivers lose some
+code for that as well.
 
-The patches are trivial - really; as soon as Peter posts the e1000
-change for his version i should be able to cutnpaste and produce one
-that will work with what i am saying.
-I am going to try my best to do that this week - i am going to be a
-little busy and have a few outstanding items (like the pktgen thing)
-that i want to get out of the way...
+Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+---
 
-cheers,
-jamal
+ include/linux/netdevice.h |   38 ++++++++++++++++++++++++++++++++++++++
+ net/core/dev.c            |    5 +++++
+ net/core/ethtool.c        |   14 +++++++-------
+ 3 files changed, 50 insertions(+), 7 deletions(-)
 
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 3a70f55..d185f41 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -540,6 +540,8 @@ struct net_device
+ 	struct device		dev;
+ 	/* space for optional statistics and wireless sysfs groups */
+ 	struct attribute_group  *sysfs_groups[3];
++
++	int			msg_enable;
+ };
+ #define to_net_dev(d) container_of(d, struct net_device, dev)
+ 
+@@ -838,6 +840,42 @@ enum {
+ 	NETIF_MSG_WOL		= 0x4000,
+ };
+ 
++#define ndev_err(netdev, level, format, arg...) \
++	do { if ((netdev)->msg_enable & NETIF_MSG_##level) { \
++		printk(KERN_ERR "%s: %s: " format, (netdev)->name, \
++		(netdev)->dev.parent->bus_id, ## arg); } } while (0)
++
++#define ndev_warn(netdev, level, format, arg...) \
++	do { if ((netdev)->msg_enable & NETIF_MSG_##level) { \
++		printk(KERN_WARNING "%s: %s: " format, (netdev)->name, \
++		(netdev)->dev.parent->bus_id, ## arg); } } while (0)
++
++#define ndev_notice(netdev, level, format, arg...) \
++	do { if ((netdev)->msg_enable & NETIF_MSG_##level) { \
++		printk(KERN_NOTICE "%s: %s: " format, (netdev)->name, \
++		(netdev)->dev.parent->bus_id, ## arg); } } while (0)
++
++#define ndev_info(netdev, level, format, arg...) \
++	do { if ((netdev)->msg_enable & NETIF_MSG_##level) { \
++		printk(KERN_INFO "%s: %s: " format, (netdev)->name, \
++		(netdev)->dev.parent->bus_id, ## arg); } } while (0)
++
++#ifdef DEBUG
++#define ndev_debug(netdev, level, format, arg...) \
++	do { if ((netdev)->msg_enable & NETIF_MSG_##level) { \
++		printk(KERN_DEBUG "%s: %s: " format, (netdev)->name, \
++		(netdev)->dev.parent->bus_id, ## arg); } } while (0)
++#else
++/* Force type-checking on ndev_dbg() when DEBUG is not set */
++static inline int __attribute__ ((format (printf, 3, 4)))
++__ndev_dbg(struct net_device * netdev, u32 level, const char *format, ...)
++{
++	return 0;
++}
++#define ndev_dbg(netdev, level, fmt, args...) \
++	__ndev_dbg(netdev, NETIF_MSG_##level, fmt, ##args)
++#endif
++
+ #define netif_msg_drv(p)	((p)->msg_enable & NETIF_MSG_DRV)
+ #define netif_msg_probe(p)	((p)->msg_enable & NETIF_MSG_PROBE)
+ #define netif_msg_link(p)	((p)->msg_enable & NETIF_MSG_LINK)
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 2609062..316f250 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3378,6 +3378,11 @@ struct net_device *alloc_netdev(int sizeof_priv, const char *name,
+ 		dev->priv = netdev_priv(dev);
+ 
+ 	dev->get_stats = internal_stats;
++	dev->msg_enable = NETIF_MSG_DRV | NETIF_MSG_PROBE | NETIF_MSG_LINK;
++#ifdef DEBUG
++	/* put these to good use: */
++	dev->msg_enable |= NETIF_MSG_RX_ERR | NETIF_MSG_TX_ERR;
++#endif
+ 	setup(dev);
+ 	strcpy(dev->name, name);
+ 	return dev;
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 8d5e5a0..ff8d52f 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -234,9 +234,9 @@ static int ethtool_get_msglevel(struct net_device *dev, char __user *useraddr)
+ 	struct ethtool_value edata = { ETHTOOL_GMSGLVL };
+ 
+ 	if (!dev->ethtool_ops->get_msglevel)
+-		return -EOPNOTSUPP;
+-
+-	edata.data = dev->ethtool_ops->get_msglevel(dev);
++		edata.data = dev->msg_enable;
++	else
++		edata.data = dev->ethtool_ops->get_msglevel(dev);
+ 
+ 	if (copy_to_user(useraddr, &edata, sizeof(edata)))
+ 		return -EFAULT;
+@@ -247,13 +247,13 @@ static int ethtool_set_msglevel(struct net_device *dev, char __user *useraddr)
+ {
+ 	struct ethtool_value edata;
+ 
+-	if (!dev->ethtool_ops->set_msglevel)
+-		return -EOPNOTSUPP;
+-
+ 	if (copy_from_user(&edata, useraddr, sizeof(edata)))
+ 		return -EFAULT;
+ 
+-	dev->ethtool_ops->set_msglevel(dev, edata.data);
++	if (!dev->ethtool_ops->set_msglevel)
++		dev->msg_enable = edata.data;
++	else
++		dev->ethtool_ops->set_msglevel(dev, edata.data);
+ 	return 0;
+ }
+ 
