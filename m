@@ -1,65 +1,55 @@
-From: linas@austin.ibm.com (Linas Vepstas)
-Subject: [PATCH 0/15] spidernet driver bug fixes
-Date: Mon, 11 Jun 2007 13:14:29 -0500
-Message-ID: <20070611181429.GA4397@austin.ibm.com>
-References: <20070607191707.GA7904@austin.ibm.com> <1181265151.6026.1.camel@concordia.ozlabs.ibm.com> <20070608170608.GI7904@austin.ibm.com> <20070608172020.GA31089@havoc.gtf.org>
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: RE: [PATCH] NET: Multiqueue network device support.
+Date: Mon, 11 Jun 2007 11:15:32 -0700
+Message-ID: <D5C1322C3E673F459512FB59E0DDC3290303AB41@orsmsx414.amr.corp.intel.com>
+References: <466D8EF2.50203@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Michael Ellerman <michael@ellerman.id.au>,
-	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
-	cbe-oss-dev@ozlabs.org
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>, <jeff@garzik.org>,
+	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>
+To: "Patrick McHardy" <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e35.co.us.ibm.com ([32.97.110.153]:43506 "EHLO
-	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750883AbXFKSOk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jun 2007 14:14:40 -0400
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e35.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l5BIEdUF023834
-	for <netdev@vger.kernel.org>; Mon, 11 Jun 2007 14:14:39 -0400
-Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
-	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l5BIEdKS145058
-	for <netdev@vger.kernel.org>; Mon, 11 Jun 2007 12:14:39 -0600
-Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l5BIEcfb018814
-	for <netdev@vger.kernel.org>; Mon, 11 Jun 2007 12:14:38 -0600
-Content-Disposition: inline
-In-Reply-To: <20070608172020.GA31089@havoc.gtf.org>
+Received: from mga09.intel.com ([134.134.136.24]:24516 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751127AbXFKSPg convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jun 2007 14:15:36 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <466D8EF2.50203@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 08, 2007 at 01:20:20PM -0400, Jeff Garzik wrote:
-> On Fri, Jun 08, 2007 at 12:06:08PM -0500, Linas Vepstas wrote:
-> > On Fri, Jun 08, 2007 at 11:12:31AM +1000, Michael Ellerman wrote:
-> > > On Thu, 2007-06-07 at 14:17 -0500, Linas Vepstas wrote:
-> > > > 
-> > > > The major bug fixes are: 
-> > > I realise it's late, but shouldn't "major bugfixes" be going into 22 ?
-> > Yeah, I suppose, I admit I've lost track of the process. 
->
-> You need to order your bug fixes first in the queue. 
+> I think grepping will help more than testing :)
+> 
+> The only issue I can see is that packets going to a 
+> multiqueue device that doesn't have a multiqueue aware qdisc 
+> attached will get a random value. So you would have to 
+> conditionally reset it before ->enqueue.
 
-OK, here are the patches, re-ordered. There is a different number
-than last time, as I threw out one, merged one, and got cold feet
-on a third one.  They still pass the tests.
+I currently clear queue_mapping before ->enqueue().  Perhaps keeping
+queue_mapping in there might solve needing a conditional in the hotpath.
+Let me think about this one.
 
-The first five patches focus on three serious bugs, fixing crashes or
-hangs.
+> Another question is what to do about other hard_start_xmit callers.
+> Independant of which field is used, should the classification 
+> that may have happend on a different device be retained (TC 
+> actions again)?
 
--- patch 1 -- kernel crash when ifdown while receiving packets.
--- patch 2,3,4 -- device driver deadlocks on "RX ram full" mesgs.
-                  (kernel stays up, ifdown/up clear the problem).
--- patch 5 -- misconfigured TX interrupts results in 3x-4x per
-              degradation for small packets.
+The two cases I can think of here are ip forwarding and bonding.  In the
+case of bonding, things should be fine since the bonded device will only
+have one "ring."  Therefore if the underlying slave devices are
+heterogenous, there shouldn't be a problem retaining the previous TC
+classification; if the device has its own qdisc and classifiers, it can
+override it.
 
--- patch 6 -- rx stats may be mangled
--- patch 7 -- hw checksum sometimes breaks ipv6 operation
+For ip forwarding, I believe it will also be ok since ultimately the
+device doing the last transmit will have his classifiers applied and
+remap skb's if necessary.  Either way, before it gets enqueued through
+dev_queue_xmit(), the value will get cleared, so having an artifact
+laying around won't be possible.
 
--- patches 8-15 -- misc tweaks, and documentation.
+If that's not what you're referring to, please let me know.
 
-
-I re-ran my stress tests with patches 1-7 applied; they pass.
-
-I suggest that patches 1-5 or 1-7 be applied asap.
-
---linas
+Thanks,
+-PJ Waskiewicz
