@@ -1,77 +1,61 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH 1/2] [RFC] NET: Implement a standard ndev_printk family
-Date: Mon, 11 Jun 2007 15:43:14 -0700
-Message-ID: <466DD002.9070103@intel.com>
-References: <20070611213721.23014.4812.stgit@localhost.localdomain> <20070611151915.398add18@localhost.localdomain>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] NET: Multiqueue network device support.
+Date: Tue, 12 Jun 2007 01:01:21 +0200
+Message-ID: <466DD441.7020505@trash.net>
+References: <D5C1322C3E673F459512FB59E0DDC32902F91748@orsmsx414.amr.corp.intel.com>	 <1181082517.4062.31.camel@localhost>  <4666CEB7.6030804@trash.net>	 <1181168020.4064.46.camel@localhost>  <466D38CF.9060709@trash.net>	 <1181564611.4043.220.camel@localhost>  <466D4284.1030004@trash.net>	 <1181566335.4043.231.camel@localhost>  <466D480F.6090708@trash.net>	 <1181568598.4043.250.camel@localhost>  <466D5623.7060708@trash.net>	 <1181572815.4077.13.camel@localhost>  <466D6105.9050305@trash.net>	 <1181574306.4077.34.camel@localhost>  <466D667B.6050108@trash.net>	 <1181575549.4077.50.camel@localhost>  <466D6DF6.9060300@trash.net> <1181597718.4071.12.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeff@garzik.org, davem@davemloft.net,
-	arjan@linux.intel.com, joe@perches.com
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	davem@davemloft.net, netdev@vger.kernel.org, jeff@garzik.org,
+	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:9853 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751521AbXFKWnd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Jun 2007 18:43:33 -0400
-In-Reply-To: <20070611151915.398add18@localhost.localdomain>
+Received: from stinky.trash.net ([213.144.137.162]:54006 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750867AbXFKXD7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jun 2007 19:03:59 -0400
+In-Reply-To: <1181597718.4071.12.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> On Mon, 11 Jun 2007 14:37:21 -0700
-> Auke Kok <auke-jan.h.kok@intel.com> wrote:
+jamal wrote:
+> On Mon, 2007-11-06 at 17:44 +0200, Patrick McHardy wrote:
 > 
->> A lot of netdevices implement their own variant of printk and use
->> use variations of dev_printk, printk or others that use msg_enable,
->> which has been an eyesore with countless variations across drivers.
->>
->> This patch implements a standard ndev_printk and derivatives
->> such as ndev_err, ndev_info, ndev_warn that allows drivers to
->> transparently use both the msg_enable and a generic netdevice
->> message layout. It moves the msg_enable over to the net_device
->> struct and allows drivers to obsolete ethtool handling code of
->> the msg_enable value.
->>
->> The current code has each driver contain a copy of msg_enable and
->> handle the setting/changing through ethtool that way. Since the
->> netdev name is stored in the net_device struct, those two are
->> not coherently available in a uniform way across all drivers (a
->> single macro or function would not work since all drivers name
->> their net_device members differently). This makes netdevice
->> driver writes reinvent the wheel over and over again.
->>
->> It thus makes sense to move msg_enable to the net_device. This
->> gives us the opportunity to (1) initialize it by default with a
->> globally sane value, (2) remove msg_enable handling code w/r
->> ethtool for drivers that know and use the msg_enable member
->> of the net_device struct. (3) Ethtool code can just modify the
->> net_device msg_enable for drivers that do not have custom
->> msg_enable get/set handlers so converted drivers lose some
->> code for that as well.
->>
->> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
->> ---
->>
->>  include/linux/netdevice.h |   38 ++++++++++++++++++++++++++++++++++++++
->>  net/core/dev.c            |    5 +++++
->>  net/core/ethtool.c        |   14 +++++++-------
->>  3 files changed, 50 insertions(+), 7 deletions(-)
->>
->> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
->> index 3a70f55..d185f41 100644
->> --- a/include/linux/netdevice.h
->> +++ b/include/linux/netdevice.h
->> @@ -540,6 +540,8 @@ struct net_device
->>  	struct device		dev;
->>  	/* space for optional statistics and wireless sysfs groups */
->>  	struct attribute_group  *sysfs_groups[3];
->> +
->> +	int			msg_enable;
->>  };
+>>jamal wrote:
 > 
-> Since msg_enable is used as bits, it should be unsigned (probably unsigned long).
+> [..]
+> 
+>>>- let the driver shutdown whenever a ring is full. Remember which ring X
+>>>shut it down.
+>>>- when you get a tx interupt or prun tx descriptors, if a ring <= X has
+>>>transmitted a packet (or threshold of packets), then wake up the driver
+>>>(i.e open up). 
+>>
+>>
+>>At this point the qdisc might send new packets. What do you do when a
+>>packet for a full ring arrives?
+>>
+> 
+> 
+> Hrm... ok, is this a trick question or i am missing the obvious?;->
+> What is wrong with what any driver would do today - which is:
+> netif_stop and return BUSY; core requeues the packet?
 
-ack, but the long is really not needed here I think - we're only using the first 15.
 
-Auke
+That doesn't fix the problem, high priority queues may be starved
+by low priority queues if you do that.
+
+BTW, I missed something you said before:
+
+--quote--
+ i am making the case that it does not affect the overall results
+as long as you use the same parameterization on qdisc and hardware.
+--end quote--
+
+I agree that multiple queue states wouldn't be necessary if they
+would be parameterized the same, in that case we wouldn't even
+need the qdisc at all (as you're saying). But one of the
+parameters is the maximum queue length, and we want to be able
+to parameterize the qdisc differently than the hardware here.
+Which is the only reason for the possible starvation.
