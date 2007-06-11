@@ -1,64 +1,38 @@
-From: Mark Zhan <rongkai.zhan@windriver.com>
-Subject: [PATCH] MII bitbang driver should generate MII bus phy_mask
-	dynamically
-Date: Mon, 11 Jun 2007 15:53:37 +0800
-Message-ID: <1181548417.5217.13.camel@mark>
+From: Jens Axboe <jens.axboe@oracle.com>
+Subject: Re: [PATCH][RFC] network splice receive
+Date: Mon, 11 Jun 2007 10:00:53 +0200
+Message-ID: <20070611080053.GD21969@kernel.dk>
+References: <20070607145818.GA26491@2ka.mipt.ru> <20070608074823.GG7341@kernel.dk> <20070608.010629.52902577.davem@davemloft.net> <20070608083853.GH7341@kernel.dk> <20070608085620.GC11488@2ka.mipt.ru> <20070608090439.GK7341@kernel.dk> <20070608135819.GA14302@2ka.mipt.ru> <20070608141452.GR7341@kernel.dk> <20070608145724.GA14561@2ka.mipt.ru> <20070608153011.GA2375@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "linuxppc-dev@ozlabs.org" <linuxppc-dev@ozlabs.org>,
-	Vitaly Bordug <vbordug@ru.mvista.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:54077 "EHLO mail.wrs.com"
+Received: from brick.kernel.dk ([80.160.20.94]:25946 "EHLO kernel.dk"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751274AbXFKHyr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Jun 2007 03:54:47 -0400
+	id S1752404AbXFKIC7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Jun 2007 04:02:59 -0400
+Content-Disposition: inline
+In-Reply-To: <20070608153011.GA2375@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Current MII bitbang bus driver hard-codes the phy mask of mii_bus to
-~0x09, which is actually specific to the FSL boards. This patch will
-make the bitbang driver to generate MII bus phy_mask dynamically, by the
-PHY irq info provided by the platform.
+On Fri, Jun 08 2007, Evgeniy Polyakov wrote:
+> Size of the received file is bigger than file sent, file contains repeated
+> blocks of data sometimes. Cloned skb usage is likely too big overhead,
+> although for receiving fast clone is unused in most cases, so there
+> might be some gain.
 
-Signed-off-by: Mark Zhan <rongkai.zhan@windriver.com>
----
- b/drivers/net/fs_enet/mii-bitbang.c |    9 ++++++---
- 1 file changed, 6 insertions(+), 3 deletions(-)
+That was actually a new bug, here:
 
-diff --git a/drivers/net/fs_enet/mii-bitbang.c
-b/drivers/net/fs_enet/mii-bitbang.c
-index d384010..3732d69 100644
---- a/drivers/net/fs_enet/mii-bitbang.c
-+++ b/drivers/net/fs_enet/mii-bitbang.c
-@@ -315,7 +315,7 @@ static int __devinit fs_enet_mdio_probe(
- 	struct fs_mii_bb_platform_info *pdata;
- 	struct mii_bus *new_bus;
- 	struct bb_info *bitbang;
--	int err = 0;
-+	int i, err = 0;
- 
- 	if (NULL == dev)
- 		return -EINVAL;
-@@ -336,14 +336,17 @@ static int __devinit fs_enet_mdio_probe(
- 	new_bus->reset = &fs_enet_mii_bb_reset,
- 	new_bus->id = pdev->id;
- 
--	new_bus->phy_mask = ~0x9;
- 	pdata = (struct fs_mii_bb_platform_info *)pdev->dev.platform_data;
--
- 	if (NULL == pdata) {
- 		printk(KERN_ERR "gfar mdio %d: Missing platform data!\n", pdev->id);
- 		return -ENODEV;
- 	}
- 
-+	new_bus->phy_mask = 0xFFFFFFFF;
-+	for (i = 0; i < PHY_MAX_ADDR; i++)
-+		if (pdata->irq[i] != -1)
-+			new_bus->phy_mask &= ~(1 << i);
-+
- 	/*set up workspace*/
- 	fs_mii_bitbang_init(bitbang, pdata);
- 
+        plen -= *offset;
+        poff += *offset;
+
+in __skb_slice_bits(), we should only subtract the offset from plen, not
+add to poff. Then we just create some weird hole without any meaning. So
+remove those two poff additions in the two loops, and the size issue is
+resolved at least.
+
+-- 
+Jens Axboe
 
