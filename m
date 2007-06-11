@@ -1,60 +1,52 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH 1/2] [RFC] NET: Implement a standard ndev_printk family
-Date: Mon, 11 Jun 2007 10:50:18 -0700
-Message-ID: <20070611105018.1beaa396@localhost.localdomain>
-References: <20070608220007.31573.14931.stgit@localhost.localdomain>
-	<20070608162415.1481dfec@localhost.localdomain>
-	<4669E967.5030708@intel.com>
-	<20070608171040.2b4a2dd7@localhost.localdomain>
-	<466D86B2.8070504@intel.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] NET: Multiqueue network device support.
+Date: Mon, 11 Jun 2007 19:52:32 +0200
+Message-ID: <466D8BE0.5040708@trash.net>
+References: <20070604214037.1524.58506.stgit@localhost.localdomain> <20070604214045.1524.18254.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeff@garzik.org, davem@davemloft.net,
-	arjan@linux.intel.com
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org, jeff@garzik.org,
+	auke-jan.h.kok@intel.com
+To: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:54560 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751535AbXFKRue (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jun 2007 13:50:34 -0400
-In-Reply-To: <466D86B2.8070504@intel.com>
+Received: from stinky.trash.net ([213.144.137.162]:48208 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752503AbXFKRzG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jun 2007 13:55:06 -0400
+In-Reply-To: <20070604214045.1524.18254.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 11 Jun 2007 10:30:26 -0700
-"Kok, Auke" <auke-jan.h.kok@intel.com> wrote:
+PJ Waskiewicz wrote:
+> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+> index e7367c7..8bcd870 100644
+> --- a/include/linux/skbuff.h
+> +++ b/include/linux/skbuff.h
+> @@ -215,6 +215,7 @@ typedef unsigned char *sk_buff_data_t;
+>   *	@pkt_type: Packet class
+>   *	@fclone: skbuff clone status
+>   *	@ip_summed: Driver fed us an IP checksum
+> + *	@queue_mapping: Queue mapping for multiqueue devices
+>   *	@priority: Packet queueing priority
+>   *	@users: User count - see {datagram,tcp}.c
+>   *	@protocol: Packet protocol from driver
+> @@ -269,6 +270,7 @@ struct sk_buff {
+>  			__u16	csum_offset;
+>  		};
+>  	};
+> +	__u16			queue_mapping;
+>  	__u32			priority;
+>  	__u8			local_df:1,
+>  				cloned:1,
 
-> Stephen Hemminger wrote:
-> > On Fri, 08 Jun 2007 16:42:31 -0700
-> > "Kok, Auke" <auke-jan.h.kok@intel.com> wrote:
-> > 
-> >> Stephen Hemminger wrote:
-> >>>>  
-> >>>> +#define ndev_printk(kern_level, netif_level, netdev, format, arg...) \
-> >>>> +	do { if ((netdev)->msg_enable & NETIF_MSG_##netif_level) { \
-> >>>> +		printk(kern_level "%s: " format, \
-> >>>> +		(netdev)->name, ## arg); } } while (0)
-> > 
-> > My preference would be something more like dev_printk or even use that?
-> > You want to show both device name, and physical attachment in the message.
-> 
-> yes, agreed, but currently netdev->dev->bus_id is bluntly overwritten by 
-> net-sysfs.c making this not trivial:
-> 
-> +471:        strlcpy(dev->bus_id, net->name, BUS_ID_SIZE);
 
-That was because the bus_id is used as the name in /sys/class/net. The term
-bus_id is overloaded as part of the confusion about device vs pseudo-device
-that was part of the original sysfs design.
+I think we can reuse skb->priority. Assuming only real hardware
+devices use multiqueue support, there should be no user of
+skb->priority after egress qdisc classification. The only reason
+to preserve it in the qdisc layer is for software devices.
 
-> so now netdev->dev->bus_id contains eth%d as well. I vaguely remember that there 
-> is another way to get the bus_id back, so I can likely work around it, but this 
-> particular overwriting of information is a BUG imo, and should be fixed.
-> 
-> Auke
+Grepping through drivers/net shows a few users, bot most seem
+to be using it on the RX path and some use it to store internal
+data.
 
-If it is a pci_device use pci_name(pdev).
-
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
