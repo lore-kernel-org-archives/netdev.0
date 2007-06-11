@@ -1,41 +1,46 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: RFC:  Support send-to-self over external interfaces (and veths).
-Date: Mon, 11 Jun 2007 14:34:45 +0200
-Message-ID: <466D4165.2090506@trash.net>
-References: <4669ED81.8060800@candelatech.com>
+Subject: Re: [PATCH] NET: Multiqueue network device support.
+Date: Mon, 11 Jun 2007 14:39:32 +0200
+Message-ID: <466D4284.1030004@trash.net>
+References: <D5C1322C3E673F459512FB59E0DDC32902F91748@orsmsx414.amr.corp.intel.com>	 <1181082517.4062.31.camel@localhost>  <4666CEB7.6030804@trash.net>	 <1181168020.4064.46.camel@localhost>  <466D38CF.9060709@trash.net> <1181564611.4043.220.camel@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: NetDev <netdev@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>
+Cc: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	davem@davemloft.net, netdev@vger.kernel.org, jeff@garzik.org,
+	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:41456 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:41552 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750774AbXFKMhM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jun 2007 08:37:12 -0400
-In-Reply-To: <4669ED81.8060800@candelatech.com>
+	with ESMTP id S1751366AbXFKMmB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jun 2007 08:42:01 -0400
+In-Reply-To: <1181564611.4043.220.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ben Greear wrote:
-> This should also be useful with the pending 'veth' driver, as it
-> emulates two ethernet ports connected with a cross-over cable.
+jamal wrote:
+> On Mon, 2007-11-06 at 13:58 +0200, Patrick McHardy wrote:
 > 
-> To make this work, you have to enable the sysctl (look Dave,
-> no IOCTLS, there might be hope for me yet!! :)), and in your
-> application you will need to use SO_BINDTODEVICE (and probably bind to
-> the local IP as well).  Some applications such as traceroute already
-> support this binding..others such as ping do not.
 > 
-> You most likely will also have to set up routing tables using
-> source IPs as a rule to direct these connections to a particular
-> routing table.
+>>Thats not true. Assume PSL has lots of packets, PSH is empty. We
+>>fill the PHL queue until their is no room left, so the driver
+>>has to stop the queue. 
 > 
-> Comments welcome.
+> 
+> Sure. Packets stashed on the any DMA ring are considered "gone to the
+> wire". That is a very valid assumption to make.
 
 
-I would really prefer to simply make the prio 0 "lookup local"
-rule deletable so you can rules with higher priority. That
-allows to do send to self without any further code changes
-and avoids the need to bind applications to a device.
+I disagree, its obviously not true and leads to the behaviour I
+described. If it were true there would be no reason to use multiple
+HW TX queues to begin with.
 
+
+>>[...]
+> 
+> i can see your thought process building -
+> You are actually following what i am saying;->
+
+
+I am :)
