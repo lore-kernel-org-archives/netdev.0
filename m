@@ -1,7 +1,8 @@
 From: Brice Goglin <brice@myri.com>
-Subject: [PATCH 1/3] myri10ge: limit the number of recoveries
-Date: Mon, 11 Jun 2007 20:26:31 +0200
-Message-ID: <466D93D7.5060604@myri.com>
+Subject: [PATCH 2/3] myri10ge: report when the link partner is running in
+ Myrinet mode
+Date: Mon, 11 Jun 2007 20:26:50 +0200
+Message-ID: <466D93EA.2010002@myri.com>
 References: <466D9380.7090605@myri.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
@@ -9,52 +10,55 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl.myri.com ([64.172.73.26]:2003 "EHLO myri.com"
+Received: from dsl.myri.com ([64.172.73.26]:2031 "EHLO myri.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752680AbXFKS0A (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Jun 2007 14:26:00 -0400
+	id S1752308AbXFKS0X (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Jun 2007 14:26:23 -0400
 In-Reply-To: <466D9380.7090605@myri.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Limit the number of recoveries from a NIC hw watchdog reset to 1 by default.
-It enables detection of defective NICs immediately since these memory parity
-errors are expected to happen very rarely (less than once per century*NIC).
+Since Myri-10G boards may also run in Myrinet mode instead of Ethernet,
+add a message when we detect that the link partner is not running in the
+right mode.
 
 Signed-off-by: Brice Goglin <brice@myri.com>
 ---
- drivers/net/myri10ge/myri10ge.c |   12 ++++++++++--
- 1 file changed, 10 insertions(+), 2 deletions(-)
+ drivers/net/myri10ge/myri10ge.c |   15 ++++++++++-----
+ 1 file changed, 10 insertions(+), 5 deletions(-)
 
 Index: linux-rc/drivers/net/myri10ge/myri10ge.c
 ===================================================================
---- linux-rc.orig/drivers/net/myri10ge/myri10ge.c	2007-05-30 20:58:22.000000000 +0200
-+++ linux-rc/drivers/net/myri10ge/myri10ge.c	2007-06-04 19:01:54.000000000 +0200
-@@ -279,6 +279,8 @@
- module_param(myri10ge_fill_thresh, int, S_IRUGO | S_IWUSR);
- MODULE_PARM_DESC(myri10ge_fill_thresh, "Number of empty rx slots allowed\n");
+--- linux-rc.orig/drivers/net/myri10ge/myri10ge.c	2007-06-05 08:25:05.000000000 +0200
++++ linux-rc/drivers/net/myri10ge/myri10ge.c	2007-06-11 20:04:57.000000000 +0200
+@@ -1156,9 +1156,11 @@
+ 	struct mcp_irq_data *stats = mgp->fw_stats;
  
-+static int myri10ge_reset_recover = 1;
+ 	if (unlikely(stats->stats_updated)) {
+-		if (mgp->link_state != stats->link_up) {
+-			mgp->link_state = stats->link_up;
+-			if (mgp->link_state) {
++		unsigned link_up = ntohl(stats->link_up);
++		if (mgp->link_state != link_up) {
++			mgp->link_state = link_up;
 +
- static int myri10ge_wcfifo = 0;
- module_param(myri10ge_wcfifo, int, S_IRUGO);
- MODULE_PARM_DESC(myri10ge_wcfifo, "Enable WC Fifo when WC is enabled\n");
-@@ -2730,8 +2732,14 @@
- 		 * For now, just report it */
- 		reboot = myri10ge_read_reboot(mgp);
- 		printk(KERN_ERR
--		       "myri10ge: %s: NIC rebooted (0x%x), resetting\n",
--		       mgp->dev->name, reboot);
-+		       "myri10ge: %s: NIC rebooted (0x%x),%s resetting\n",
-+		       mgp->dev->name, reboot,
-+		       myri10ge_reset_recover ? " " : " not");
-+		if (myri10ge_reset_recover == 0)
-+			return;
-+
-+		myri10ge_reset_recover--;
-+
- 		/*
- 		 * A rebooted nic will come back with config space as
- 		 * it was after power was applied to PCIe bus.
++			if (mgp->link_state == MXGEFW_LINK_UP) {
+ 				if (netif_msg_link(mgp))
+ 					printk(KERN_INFO
+ 					       "myri10ge: %s: link up\n",
+@@ -1168,8 +1170,11 @@
+ 			} else {
+ 				if (netif_msg_link(mgp))
+ 					printk(KERN_INFO
+-					       "myri10ge: %s: link down\n",
+-					       mgp->dev->name);
++					       "myri10ge: %s: link %s\n",
++					       mgp->dev->name,
++					       (link_up == MXGEFW_LINK_MYRINET ?
++						"mismatch (Myrinet detected)" :
++						"down"));
+ 				netif_carrier_off(mgp->dev);
+ 				mgp->link_changes++;
+ 			}
 
 
