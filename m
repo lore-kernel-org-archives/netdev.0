@@ -1,73 +1,74 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] NET: Multiqueue network device support.
-Date: Mon, 11 Jun 2007 17:44:54 +0200
-Message-ID: <466D6DF6.9060300@trash.net>
-References: <D5C1322C3E673F459512FB59E0DDC32902F91748@orsmsx414.amr.corp.intel.com>	 <1181082517.4062.31.camel@localhost>  <4666CEB7.6030804@trash.net>	 <1181168020.4064.46.camel@localhost>  <466D38CF.9060709@trash.net>	 <1181564611.4043.220.camel@localhost>  <466D4284.1030004@trash.net>	 <1181566335.4043.231.camel@localhost>  <466D480F.6090708@trash.net>	 <1181568598.4043.250.camel@localhost>  <466D5623.7060708@trash.net>	 <1181572815.4077.13.camel@localhost>  <466D6105.9050305@trash.net>	 <1181574306.4077.34.camel@localhost>  <466D667B.6050108@trash.net> <1181575549.4077.50.camel@localhost>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: RFC:  Support send-to-self over external interfaces (and veths).
+Date: Mon, 11 Jun 2007 08:52:50 -0700
+Message-ID: <466D6FD2.1020206@candelatech.com>
+References: <4669ED81.8060800@candelatech.com> <466D4165.2090506@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	davem@davemloft.net, netdev@vger.kernel.org, jeff@garzik.org,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>
-To: hadi@cyberus.ca
+Cc: NetDev <netdev@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:45774 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754123AbXFKPrY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jun 2007 11:47:24 -0400
-In-Reply-To: <1181575549.4077.50.camel@localhost>
+Received: from ns2.lanforge.com ([66.165.47.211]:39800 "EHLO ns2.lanforge.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753001AbXFKPwx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Jun 2007 11:52:53 -0400
+In-Reply-To: <466D4165.2090506@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> On Mon, 2007-11-06 at 17:12 +0200, Patrick McHardy wrote:
-> 
->>Worst cast is (n - 2) * (m - 1) + 1 full sized packet transmission
->>times.
+Patrick McHardy wrote:
+> Ben Greear wrote:
+>   
+>> This should also be useful with the pending 'veth' driver, as it
+>> emulates two ethernet ports connected with a cross-over cable.
 >>
->>You can do the math yourself, but we're talking about potentially
->>a lot of packets.
-> 
-> 
-> I agree if you use the strategy of "a ring shutdown down" implies
-> "dont wake up until the ring that caused the shutdown opens up"
-> What i am saying below is to make a change to that strategy.
-
-
-Glad we agree on something. Now all I have to do is convince you that
-a change to this strategy is not a good idea :)
-
->>>If you throw the burden to the driver (as i am recommending in all my
->>>arguements so far), it should open up sooner based on priorities.
->>>I didnt wanna bring this earlier because it may take the discussion in
->>>the wrong direction. 
->>>So in your example if n-1 shuts down the driver, then it is upto to the
->>>driver to open it up if any higher prio packet makes it out.
+>> To make this work, you have to enable the sysctl (look Dave,
+>> no IOCTLS, there might be hope for me yet!! :)), and in your
+>> application you will need to use SO_BINDTODEVICE (and probably bind to
+>> the local IP as well).  Some applications such as traceroute already
+>> support this binding..others such as ping do not.
 >>
+>> You most likely will also have to set up routing tables using
+>> source IPs as a rule to direct these connections to a particular
+>> routing table.
 >>
->>How could it do that? n-1 is still completely full and you don't
->>know what the next packet is going to be. Are you proposing to
->>simply throw the packet away in the driver even though its within
->>the configured limits of the qdisc?
-> 
-> 
-> No no Patrick - i am just saying the following:
-> - let the driver shutdown whenever a ring is full. Remember which ring X
-> shut it down.
-> - when you get a tx interupt or prun tx descriptors, if a ring <= X has
-> transmitted a packet (or threshold of packets), then wake up the driver
-> (i.e open up). 
+>> Comments welcome.
+>>     
+>
+>
+> I would really prefer to simply make the prio 0 "lookup local"
+> rule deletable so you can rules with higher priority. That
+> allows to do send to self without any further code changes
+> and avoids the need to bind applications to a device.
+>   
+I am not against making that change as well, but it is often easier to 
+just bind-to-device
+than to set up specific host routes for every possible combination..as 
+it appears your
+method requires.  (I could have mis-understood the routing requirements, 
+but it seemed to
+if you wanted any 100 interfaces to send to any other, your method would 
+required 100 * 100
+routes.)
+
+A decent set of programs already support bind-to-device, and others are 
+easily patched
+if they need the behaviour.
+
+Thanks,
+Ben
 
 
-At this point the qdisc might send new packets. What do you do when a
-packet for a full ring arrives?
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>   
 
-I see three choices:
 
-- drop it, even though its still within the qdiscs configured limits
-- requeue it, which does not work because the qdisc is still active
-  and might just hand you the same packet over and over again in a
-  busy loop, until the ring has more room (which has the same worst
-  case, just that we're sitting in a busy loop now).
-- requeue and stop the queue: we're back to where we started since
-  now higher priority packets will not get passed to the driver.
+-- 
+Ben Greear <greearb@candelatech.com> 
+Candela Technologies Inc  http://www.candelatech.com
+
+
