@@ -1,33 +1,77 @@
-From: Joe Perches <joe@perches.com>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
 Subject: Re: [PATCH 1/2] [RFC] NET: Implement a standard ndev_printk family
-Date: Mon, 11 Jun 2007 15:24:45 -0700
-Message-ID: <1181600685.6020.20.camel@localhost>
-References: <20070611213721.23014.4812.stgit@localhost.localdomain>
-	 <1181598880.6020.8.camel@localhost>  <466DC657.2030401@intel.com>
+Date: Mon, 11 Jun 2007 15:43:14 -0700
+Message-ID: <466DD002.9070103@intel.com>
+References: <20070611213721.23014.4812.stgit@localhost.localdomain> <20070611151915.398add18@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, jeff@garzik.org, davem@davemloft.net,
-	arjan@linux.intel.com, shemminger@linux-foundation.org
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+	arjan@linux.intel.com, joe@perches.com
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from DSL022.labridge.com ([206.117.136.22]:4255 "EHLO Perches.com"
+Received: from mga03.intel.com ([143.182.124.21]:9853 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751180AbXFKWYs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Jun 2007 18:24:48 -0400
-In-Reply-To: <466DC657.2030401@intel.com>
+	id S1751521AbXFKWnd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Jun 2007 18:43:33 -0400
+In-Reply-To: <20070611151915.398add18@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2007-06-11 at 15:01 -0700, Kok, Auke wrote:
-> > msg_enable is more frequently defined in drivers/net as u32 not int.
-> yes, we're only using the bottom 15 bits anyway, but the net_device struct 
-> consistently uses 'int' style members, leaving it up to the compiler to pick an 
-> appropriate size for each arch. That was the reason I chose int here.
+Stephen Hemminger wrote:
+> On Mon, 11 Jun 2007 14:37:21 -0700
+> Auke Kok <auke-jan.h.kok@intel.com> wrote:
+> 
+>> A lot of netdevices implement their own variant of printk and use
+>> use variations of dev_printk, printk or others that use msg_enable,
+>> which has been an eyesore with countless variations across drivers.
+>>
+>> This patch implements a standard ndev_printk and derivatives
+>> such as ndev_err, ndev_info, ndev_warn that allows drivers to
+>> transparently use both the msg_enable and a generic netdevice
+>> message layout. It moves the msg_enable over to the net_device
+>> struct and allows drivers to obsolete ethtool handling code of
+>> the msg_enable value.
+>>
+>> The current code has each driver contain a copy of msg_enable and
+>> handle the setting/changing through ethtool that way. Since the
+>> netdev name is stored in the net_device struct, those two are
+>> not coherently available in a uniform way across all drivers (a
+>> single macro or function would not work since all drivers name
+>> their net_device members differently). This makes netdevice
+>> driver writes reinvent the wheel over and over again.
+>>
+>> It thus makes sense to move msg_enable to the net_device. This
+>> gives us the opportunity to (1) initialize it by default with a
+>> globally sane value, (2) remove msg_enable handling code w/r
+>> ethtool for drivers that know and use the msg_enable member
+>> of the net_device struct. (3) Ethtool code can just modify the
+>> net_device msg_enable for drivers that do not have custom
+>> msg_enable get/set handlers so converted drivers lose some
+>> code for that as well.
+>>
+>> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+>> ---
+>>
+>>  include/linux/netdevice.h |   38 ++++++++++++++++++++++++++++++++++++++
+>>  net/core/dev.c            |    5 +++++
+>>  net/core/ethtool.c        |   14 +++++++-------
+>>  3 files changed, 50 insertions(+), 7 deletions(-)
+>>
+>> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+>> index 3a70f55..d185f41 100644
+>> --- a/include/linux/netdevice.h
+>> +++ b/include/linux/netdevice.h
+>> @@ -540,6 +540,8 @@ struct net_device
+>>  	struct device		dev;
+>>  	/* space for optional statistics and wireless sysfs groups */
+>>  	struct attribute_group  *sysfs_groups[3];
+>> +
+>> +	int			msg_enable;
+>>  };
+> 
+> Since msg_enable is used as bits, it should be unsigned (probably unsigned long).
 
-I guess I'm from a "don't be larger than necessary" school.
+ack, but the long is really not needed here I think - we're only using the first 15.
 
-As it's a bitfield and not a boolean, it should be unsigned.
-Perhaps it could also be a good time to rename it to something
-like netif_enabled_msgs?
-
+Auke
