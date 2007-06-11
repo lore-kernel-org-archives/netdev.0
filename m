@@ -1,38 +1,41 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] NET: Multiqueue network device support.
-Date: Mon, 11 Jun 2007 20:24:00 +0200
-Message-ID: <466D9340.6050706@trash.net>
-References: <D5C1322C3E673F459512FB59E0DDC3290303AB41@orsmsx414.amr.corp.intel.com>
+From: Brice Goglin <brice@myri.com>
+Subject: [PATCH 3/3] myri10ge: update driver version
+Date: Mon, 11 Jun 2007 20:27:07 +0200
+Message-ID: <466D93FB.5070408@myri.com>
+References: <466D9380.7090605@myri.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, jeff@garzik.org,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>
-To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Cc: netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:48833 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753501AbXFKS0e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jun 2007 14:26:34 -0400
-In-Reply-To: <D5C1322C3E673F459512FB59E0DDC3290303AB41@orsmsx414.amr.corp.intel.com>
+Received: from dsl.myri.com ([64.172.73.26]:1795 "EHLO myri.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753410AbXFKS0g (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Jun 2007 14:26:36 -0400
+In-Reply-To: <466D9380.7090605@myri.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Waskiewicz Jr, Peter P wrote:
->>Another question is what to do about other hard_start_xmit callers.
->>Independant of which field is used, should the classification 
->>that may have happend on a different device be retained (TC 
->>actions again)?
-> 
-> 
-> [...] Either way, before it gets enqueued through
-> dev_queue_xmit(), the value will get cleared, so having an artifact
-> laying around won't be possible.
+Update myri10ge driver version to 1.3.1-1.248.
 
+Signed-off-by: Brice Goglin <brice@myri.com>
+---
+ drivers/net/myri10ge/myri10ge.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-You're right, I was thinking of a case where a packet would
-be redirected from a multiqueue device to another one and
-then not go through dev_queue_xmit but some other path to
-hard_start_xmit that doesn't update the classification.
-But there is no case like this.
+Index: linux-rc/drivers/net/myri10ge/myri10ge.c
+===================================================================
+--- linux-rc.orig/drivers/net/myri10ge/myri10ge.c	2007-06-11 20:04:57.000000000 +0200
++++ linux-rc/drivers/net/myri10ge/myri10ge.c	2007-06-11 20:05:09.000000000 +0200
+@@ -71,7 +71,7 @@
+ #include "myri10ge_mcp.h"
+ #include "myri10ge_mcp_gen_header.h"
+ 
+-#define MYRI10GE_VERSION_STR "1.3.0-1.233"
++#define MYRI10GE_VERSION_STR "1.3.1-1.248"
+ 
+ MODULE_DESCRIPTION("Myricom 10G driver (10GbE)");
+ MODULE_AUTHOR("Maintainer: help@myri.com");
+
 
