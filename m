@@ -1,82 +1,66 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] NET: Multiqueue network device support.
-Date: Mon, 11 Jun 2007 11:25:49 -0400
-Message-ID: <1181575549.4077.50.camel@localhost>
-References: <D5C1322C3E673F459512FB59E0DDC32902F91748@orsmsx414.amr.corp.intel.com>
-	 <1181082517.4062.31.camel@localhost>  <4666CEB7.6030804@trash.net>
-	 <1181168020.4064.46.camel@localhost>  <466D38CF.9060709@trash.net>
-	 <1181564611.4043.220.camel@localhost>  <466D4284.1030004@trash.net>
-	 <1181566335.4043.231.camel@localhost>  <466D480F.6090708@trash.net>
-	 <1181568598.4043.250.camel@localhost>  <466D5623.7060708@trash.net>
-	 <1181572815.4077.13.camel@localhost>  <466D6105.9050305@trash.net>
-	 <1181574306.4077.34.camel@localhost>  <466D667B.6050108@trash.net>
-Reply-To: hadi@cyberus.ca
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: RFC airo : wpa support
+Date: Mon, 11 Jun 2007 11:18:53 -0400
+Message-ID: <1181575133.4656.3.camel@xo-28-0B-88.localdomain>
+References: <463BB946.3000807@free.fr>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	davem@davemloft.net, netdev@vger.kernel.org, jeff@garzik.org,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>
-To: Patrick McHardy <kaber@trash.net>
+Cc: Linux Kernel list <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: matthieu castet <castet.matthieu@free.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.226]:41300 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753535AbXFKPZw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jun 2007 11:25:52 -0400
-Received: by wx-out-0506.google.com with SMTP id t15so1486215wxc
-        for <netdev@vger.kernel.org>; Mon, 11 Jun 2007 08:25:51 -0700 (PDT)
-In-Reply-To: <466D667B.6050108@trash.net>
+Received: from mx1.redhat.com ([66.187.233.31]:38793 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754190AbXFKPZ7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Jun 2007 11:25:59 -0400
+In-Reply-To: <463BB946.3000807@free.fr>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2007-11-06 at 17:12 +0200, Patrick McHardy wrote:
-
-
-> > Ok, so let me revert that; 0 is higher prio than n-1.
+On Sat, 2007-05-05 at 00:52 +0200, matthieu castet wrote: 
+> Hi,
+> 
+> I attach a diff against 2.6.21 for adding wpa support for airo driver.
+> In then end of 2005 I manage to make work wpa but the code was really 
+> ugly. I manage to find some time to clean it.
 > 
 > 
-> Yes.
+> To support wpa, a new interface of the firmware should be used. This 
+> interface is incompatible with the old interface and using both 
+> interface at the same time make the firmware hang.
 > 
+> Porting OPEN and WEP mode to new interface need some driver rewrite, and 
+> the old interface should be keep for the older cards (or the cards that 
+> doesn't have newer firmware).
 
-Ok, gotcha.
- 
-> > "possibly long time" is where we diverge ;->
-> 
-> Worst cast is (n - 2) * (m - 1) + 1 full sized packet transmission
-> times.
-> 
-> You can do the math yourself, but we're talking about potentially
-> a lot of packets.
+What's involved in doing this?  Do you have any pointers or sample code
+that could be used here?
 
-I agree if you use the strategy of "a ring shutdown down" implies
-"dont wake up until the ring that caused the shutdown opens up"
-What i am saying below is to make a change to that strategy.
+I'd assume that we'd just use AUTH_CIPHER_WEP/AUTH_CIPHER_NONE and
+AUTH_KEY_MGMT_NONE in ConfigRidExtra.  But where does the WEP key
+material go, does it get stuffed into the WpaKeyRid too or somewhere
+else?
 
-> > If you throw the burden to the driver (as i am recommending in all my
-> > arguements so far), it should open up sooner based on priorities.
-> > I didnt wanna bring this earlier because it may take the discussion in
-> > the wrong direction. 
-> > So in your example if n-1 shuts down the driver, then it is upto to the
-> > driver to open it up if any higher prio packet makes it out.
+Dan
+
+> That's why I didn't do it, and I added a module parameter for choosing 
+> between the old driver behavior (with no wpa support) or the driver with 
+> wpa only support.
 > 
 > 
-> How could it do that? n-1 is still completely full and you don't
-> know what the next packet is going to be. Are you proposing to
-> simply throw the packet away in the driver even though its within
-> the configured limits of the qdisc?
-
-No no Patrick - i am just saying the following:
-- let the driver shutdown whenever a ring is full. Remember which ring X
-shut it down.
-- when you get a tx interupt or prun tx descriptors, if a ring <= X has
-transmitted a packet (or threshold of packets), then wake up the driver
-(i.e open up). 
-In the meantime packets from the stack are sitting on the qdisc and will
-be sent when the driver opens up.
-
-Anyways, I have to run to work; thanks for keeping the discussion at the
-level you did.
-
-cheers,
-jamal
+> The wireless extension handlers are a bit ugly, I will be very happy, if 
+> somebody could help me to clean them.
+> 
+> Any comments are appreciated.
+> 
+> 
+> Matthieu
+> 
+> 
+> PS : the lastest version of the driver can be found in 
+> http://svn.gna.org/viewcvs/airo-wpa/branches/kernel/
+> 
+> PS2 : There is some remaining trace in the driver for debug purpose, 
+> that will be removed in the final version
 
