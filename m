@@ -1,67 +1,39 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] NET: Multiqueue network device support.
-Date: Mon, 11 Jun 2007 08:23:31 -0400
-Message-ID: <1181564611.4043.220.camel@localhost>
-References: <D5C1322C3E673F459512FB59E0DDC32902F91748@orsmsx414.amr.corp.intel.com>
-	 <1181082517.4062.31.camel@localhost>  <4666CEB7.6030804@trash.net>
-	 <1181168020.4064.46.camel@localhost>  <466D38CF.9060709@trash.net>
-Reply-To: hadi@cyberus.ca
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 3/4] [IPV4]: Add default config support after inetdev_init
+Date: Mon, 11 Jun 2007 14:26:58 +0200
+Message-ID: <466D3F92.7050803@trash.net>
+References: <20070605062929.GA12024@gondor.apana.org.au> <E1HvSZL-0003AB-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	davem@davemloft.net, netdev@vger.kernel.org, jeff@garzik.org,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>
-To: Patrick McHardy <kaber@trash.net>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.231]:61685 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750813AbXFKMXe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jun 2007 08:23:34 -0400
-Received: by wx-out-0506.google.com with SMTP id t15so1434075wxc
-        for <netdev@vger.kernel.org>; Mon, 11 Jun 2007 05:23:34 -0700 (PDT)
-In-Reply-To: <466D38CF.9060709@trash.net>
+Received: from stinky.trash.net ([213.144.137.162]:41305 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751336AbXFKM3Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jun 2007 08:29:25 -0400
+In-Reply-To: <E1HvSZL-0003AB-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2007-11-06 at 13:58 +0200, Patrick McHardy wrote:
+Herbert Xu wrote:
+> [IPV4]: Add default config support after inetdev_init
+> 
+> Previously once inetdev_init has been called on a device any changes made
+> to ipv4_devconf_dflt would have no effect on that device's configuration.
 
-> Thats not true. Assume PSL has lots of packets, PSH is empty. We
-> fill the PHL queue until their is no room left, so the driver
-> has to stop the queue. 
 
-Sure. Packets stashed on the any DMA ring are considered "gone to the
-wire". That is a very valid assumption to make.
- 
-> Now some PSH packets arrive, but the queue
-> is stopped, no packets will be sent. 
-> Now, you can argue that as
-> soon as the first PHL packet is sent there is room for more and
-> the queue will be activated again and we'll take PSH packets,
-
-_exactly_ ;->
-
-> so it doesn't matter because we can't send two packets at once
-> anyway. Fine.
-
-i can see your thought process building -
-You are actually following what i am saying;->
-
->  Take three HW queues, prio 0-2. The prio 2 queue
-> is entirely full, prio 1 has some packets queued and prio 0 is
-> empty. Now, because prio 2 is completely full, the driver has to
-> stop the queue. Before it can start it again it has to send all
-> prio 1 packets and then at least one packet of prio 2. Until
-> this happens, no packets can be queued to prio 0.
-
-The assumption is packets gone to the DMA are gone to the wire, thats
-it. 
-If you have a strict prio scheduler, contention from the stack is only
-valid if they both arrive at the same time.
-If that happens then (assuming 0 is more important than 1 which is more
-important than 2) then 0 always wins over 1 which wins over 2.
-Same thing if you queue into hardware and the priorization is the same.
-
-cheers,
-jamal
+I noticed a few more side-effects from the original change that
+seem to be undesired. Some code assumes that dev->ip_ptr != NULL
+implies existance of IP addresses on the device. For example
+fib_check_nh used to allow to add routes to devices only when a
+in_device is present. We can now add routes without having any
+IP addresses configured, which makes routing choose 0.0.0.0 as
+source and invalidates the assumption of some other code that
+the outgoing device of a packet always has an in_device present
+(like MASQUERADE). fib_sync_up used to skip a nexthop when no
+IP addresses was present on the device, now it will keep it.
+There's probably more, I guess we need to audit all in_dev_get
+calls.
 
