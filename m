@@ -1,66 +1,97 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: RFC airo : wpa support
-Date: Mon, 11 Jun 2007 11:18:53 -0400
-Message-ID: <1181575133.4656.3.camel@xo-28-0B-88.localdomain>
-References: <463BB946.3000807@free.fr>
+From: "Cohen, Guy" <guy.cohen@intel.com>
+Subject: RE: [PATCH] NET: Multiqueue network device support.
+Date: Mon, 11 Jun 2007 18:34:37 +0300
+Message-ID: <D0122E209EBF8D4CAB38EC6A8AF244E502AB2937@hasmsx412.ger.corp.intel.com>
+References: <1181573285.4077.22.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel list <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: matthieu castet <castet.matthieu@free.fr>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Patrick McHardy" <kaber@trash.net>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	<davem@davemloft.net>, <netdev@vger.kernel.org>, <jeff@garzik.org>,
+	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>
+To: <hadi@cyberus.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:38793 "EHLO mx1.redhat.com"
+Received: from mga02.intel.com ([134.134.136.20]:38980 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754190AbXFKPZ7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Jun 2007 11:25:59 -0400
-In-Reply-To: <463BB946.3000807@free.fr>
+	id S1752151AbXFKPep convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jun 2007 11:34:45 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <1181573285.4077.22.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2007-05-05 at 00:52 +0200, matthieu castet wrote: 
-> Hi,
-> 
-> I attach a diff against 2.6.21 for adding wpa support for airo driver.
-> In then end of 2005 I manage to make work wpa but the code was really 
-> ugly. I manage to find some time to clean it.
-> 
-> 
-> To support wpa, a new interface of the firmware should be used. This 
-> interface is incompatible with the old interface and using both 
-> interface at the same time make the firmware hang.
-> 
-> Porting OPEN and WEP mode to new interface need some driver rewrite, and 
-> the old interface should be keep for the older cards (or the cards that 
-> doesn't have newer firmware).
+Some more details inside regarding wireless QoS.
 
-What's involved in doing this?  Do you have any pointers or sample code
-that could be used here?
+jamal wrote:
+> On Mon, 2007-11-06 at 17:30 +0300, Cohen, Guy wrote:
+> 
+> >
+> > For WiFi devices the HW often implements the scheduling, especially
+when
+> > QoS (WMM/11e/11n) is implemented. There are few traffic queues
+defined
+> > by the specs and the selection of the next queue to transmit a
+packet
+> > from, is determined in real time, just when there is a tx
+opportunity.
+> > This cannot be predicted in advance since it depends on the medium
+usage
+> > of other stations.
+> 
+> WMM is a strict prio mechanism.
+> The parametrization very much favors the high prio packets when the
+> tx opportunity to send shows up.
 
-I'd assume that we'd just use AUTH_CIPHER_WEP/AUTH_CIPHER_NONE and
-AUTH_KEY_MGMT_NONE in ConfigRidExtra.  But where does the WEP key
-material go, does it get stuffed into the WpaKeyRid too or somewhere
-else?
+Sorry, but this not as simple as you describe it. WMM is much more
+complicated. WMM defines the HW queues as virtually multiple clients
+that compete on the medium access individually. Each implements a
+contention-based medium access. The Access Point publishes to the
+clients the medium access parameters (e.g. back off parameters) that are
+different for each access category (virtual client). There is _not_ a
+strict priority assigned to each access category. The behavior of each
+access category totally depends on the medium usage of other clients and
+is totally different for each access category. This cannot be predicated
+at the host SW.
 
-Dan
+> > Hence, to make it possible for wireless devices to use the qdisc
+> > mechanism properly, the HW queues should _ALL_ be non-empty at all
+> > times, whenever data is available in the upper layers.
+> 
+> agreed.
+> 
+> > Or in other
+> > words, the upper layers should not block a specific queue because of
+the
+> > usage of any other queue.
+> 
+> This is where we are going to disagree.
+> There is no way the stack will send the driver packets which are low
+> prio if there are some which are high prio. There is therefore, on
+> contention between low and high prio, no way for low prio packets to
+> obstruct the high prio packets;
 
-> That's why I didn't do it, and I added a module parameter for choosing 
-> between the old driver behavior (with no wpa support) or the driver with 
-> wpa only support.
-> 
-> 
-> The wireless extension handlers are a bit ugly, I will be very happy, if 
-> somebody could help me to clean them.
-> 
-> Any comments are appreciated.
-> 
-> 
-> Matthieu
-> 
-> 
-> PS : the lastest version of the driver can be found in 
-> http://svn.gna.org/viewcvs/airo-wpa/branches/kernel/
-> 
-> PS2 : There is some remaining trace in the driver for debug purpose, 
-> that will be removed in the final version
+And this is not the right behavior for a WLAN stack. QoS in WLAN doesn't
+favor strictly one access category over another, but defines some softer
+and smarter prioritization. This is implemented in the HW/Firmware. I
+just think that providing a per-queue controls (start/stop) will allow
+WLAN drivers/Firmware/HW to do that while still using qdisc (and it will
+work properly even when one queue is full and others are empty).
 
+> however, it is feasible that high prio
+> packets will obstruct low prio packets (which is fine).
+
+No this is _not_ fine. Just to emphasize again, WMM doesn't define
+priority in the way it is implemented in airplane boarding (Pilots
+first, Business passengers next, couch passengers at the end), but more
+like _distributed_ weights prioritization (between all the multiple
+queues of all the clients on the channel).
+
+As a side note, in one of the WFA WMM certification tests, the AP
+changes the medium access parameters of the access categories in a way
+that favors a lower access category. This is something very soft that
+cannot be reflected in any intuitive way in the host SW.
+
+> cheers,
+> jamal
