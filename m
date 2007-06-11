@@ -1,55 +1,55 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: RE: [PATCH] NET: Multiqueue network device support.
-Date: Mon, 11 Jun 2007 11:15:32 -0700
-Message-ID: <D5C1322C3E673F459512FB59E0DDC3290303AB41@orsmsx414.amr.corp.intel.com>
-References: <466D8EF2.50203@trash.net>
+From: linas@austin.ibm.com (Linas Vepstas)
+Subject: [PATCH 1/15] spidernet: null out skb pointer after its been used.
+Date: Mon, 11 Jun 2007 13:17:02 -0500
+Message-ID: <20070611181702.GA13741@austin.ibm.com>
+References: <20070607191707.GA7904@austin.ibm.com> <1181265151.6026.1.camel@concordia.ozlabs.ibm.com> <20070608170608.GI7904@austin.ibm.com> <20070608172020.GA31089@havoc.gtf.org> <20070611181429.GA4397@austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>, <jeff@garzik.org>,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>
-To: "Patrick McHardy" <kaber@trash.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Michael Ellerman <michael@ellerman.id.au>, netdev@vger.kernel.org,
+	cbe-oss-dev@ozlabs.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:24516 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751127AbXFKSPg convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jun 2007 14:15:36 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <466D8EF2.50203@trash.net>
+Received: from e34.co.us.ibm.com ([32.97.110.152]:41164 "EHLO
+	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751069AbXFKSRE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jun 2007 14:17:04 -0400
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e34.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l5BIH4WJ011876
+	for <netdev@vger.kernel.org>; Mon, 11 Jun 2007 14:17:04 -0400
+Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
+	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l5BIH37b126488
+	for <netdev@vger.kernel.org>; Mon, 11 Jun 2007 12:17:03 -0600
+Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l5BIH2jm002138
+	for <netdev@vger.kernel.org>; Mon, 11 Jun 2007 12:17:03 -0600
+Content-Disposition: inline
+In-Reply-To: <20070611181429.GA4397@austin.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> I think grepping will help more than testing :)
-> 
-> The only issue I can see is that packets going to a 
-> multiqueue device that doesn't have a multiqueue aware qdisc 
-> attached will get a random value. So you would have to 
-> conditionally reset it before ->enqueue.
 
-I currently clear queue_mapping before ->enqueue().  Perhaps keeping
-queue_mapping in there might solve needing a conditional in the hotpath.
-Let me think about this one.
+Avoid kernel crash in mm/slab.c due to double-free of pointer.
 
-> Another question is what to do about other hard_start_xmit callers.
-> Independant of which field is used, should the classification 
-> that may have happend on a different device be retained (TC 
-> actions again)?
+If the ethernet interface is brought down while there is still
+RX traffic in flight, the device shutdown routine can end up
+trying to double-free an skb, leading to a crash in mm/slab.c
+Avoid the double-free by nulling out the skb pointer.
 
-The two cases I can think of here are ip forwarding and bonding.  In the
-case of bonding, things should be fine since the bonded device will only
-have one "ring."  Therefore if the underlying slave devices are
-heterogenous, there shouldn't be a problem retaining the previous TC
-classification; if the device has its own qdisc and classifiers, it can
-override it.
+Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
 
-For ip forwarding, I believe it will also be ok since ultimately the
-device doing the last transmit will have his classifiers applied and
-remap skb's if necessary.  Either way, before it gets enqueued through
-dev_queue_xmit(), the value will get cleared, so having an artifact
-laying around won't be possible.
+----
+ drivers/net/spider_net.c |    1 +
+ 1 file changed, 1 insertion(+)
 
-If that's not what you're referring to, please let me know.
-
-Thanks,
--PJ Waskiewicz
+Index: linux-2.6.22-rc1/drivers/net/spider_net.c
+===================================================================
+--- linux-2.6.22-rc1.orig/drivers/net/spider_net.c	2007-06-08 15:45:33.000000000 -0500
++++ linux-2.6.22-rc1/drivers/net/spider_net.c	2007-06-08 15:48:10.000000000 -0500
+@@ -1131,6 +1131,7 @@ spider_net_decode_one_descr(struct spide
+ 
+ 	/* Ok, we've got a packet in descr */
+ 	spider_net_pass_skb_up(descr, card);
++	descr->skb = NULL;
+ 	hwdescr->dmac_cmd_status = SPIDER_NET_DESCR_NOT_IN_USE;
+ 	return 1;
+ 
