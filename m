@@ -1,72 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT]: net-2.6.23 tree available
-Date: Sun, 10 Jun 2007 18:17:04 -0700 (PDT)
-Message-ID: <20070610.181704.73383002.davem@davemloft.net>
+From: Mithlesh Thukral <mithlesh@netxen.com>
+Subject: Re: [PATCH 1/4] NetXen: Fix link status messages
+Date: Mon, 11 Jun 2007 12:07:23 +0530
+Message-ID: <200706111207.23445.mithlesh@netxen.com>
+References: <200706071130.l57BUvcO007523@dut39.unminc.com> <466B2826.2060007@garzik.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, amitkale@netxen.com,
+	netxenproj@linsyssoft.com, rob@netxen.com
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40984
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1758368AbXFKBQy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jun 2007 21:16:54 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id D5C33510001
-	for <netdev@vger.kernel.org>; Sun, 10 Jun 2007 18:17:04 -0700 (PDT)
+Received: from svr68.ehostpros.com ([67.15.48.48]:25658 "EHLO
+	svr68.ehostpros.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751785AbXFKGhh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jun 2007 02:37:37 -0400
+In-Reply-To: <466B2826.2060007@garzik.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Sunday 10 June 2007 03:52, Jeff Garzik wrote:
+> Mithlesh Thukral wrote:
+> > -	if ((netif_running(netdev)) && !netif_carrier_ok(netdev)) {
+> > -		printk(KERN_INFO "%s port %d, %s carrier is now ok\n",
+> > -		       netxen_nic_driver_name, adapter->portnum, netdev->name);
+> > +	if ((netdev->flags & IFF_UP) && !netif_carrier_ok(netdev) &&
+> > +			netxen_nic_link_ok(adapter) ) {
+> > +		printk(KERN_INFO "%s %s (port %d), Link is up\n",
+> > +			       netxen_nic_driver_name, netdev->name, adapter->portnum);
+> >  		netif_carrier_on(netdev);
+> > -	}
+> > -
+> > -	if (netif_queue_stopped(netdev))
+> >  		netif_wake_queue(netdev);
+> > +	} else if(!(netdev->flags & IFF_UP) && netif_carrier_ok(netdev)) {
+> > +		printk(KERN_ERR "%s %s Link is Down\n",
+> > +				netxen_nic_driver_name, netdev->name);
+> > +		netif_carrier_off(netdev);
+> > +		netif_stop_queue(netdev);
+>
+> Most of the patch is OK, but by substituting IFF_UP tests for
+> netif_running(), you are removing race-free, correct tests and replacing
+> them with incorrect, racy tests.
+>
+> NAK the IFF_UP changes.  the rest looks OK.
+I will rework the IFF_UP tests using netif_running(), test and resubmit the 
+patches again.
 
-Get it while it's hot:
-
-	kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.23.git
-
-We have the qdisc_restart cleanup from Jama, some TIPC work
-from Allan Stephens and co., and Patrick's rtnl_link work.
-
-Also we have the removal of that multipath cached crap, and
-eth_copy_and_sum() which hasn't summed anything in nearly
-a decade.
-
-So go fetch a double double, sit back, and enjoy.
-
-Linux Networking.  Always Fresh!
-
-Allan Stephens (3):
-      [TIPC]: Improved support for Ethernet traffic filtering
-      [TIPC]: Use standard socket "not implemented" routines
-      [TIPC]: Optimize stream send routine to avoid fragmentation
-
-David S. Miller (2):
-      [IPV4]: The scheduled removal of multipath cached routing support.
-      [NET]: Kill eth_copy_and_sum().
-
-Herbert Xu (1):
-      [TCPv4]: Improve BH latency in /proc/net/tcp
-
-Jamal Hadi Salim (1):
-      [NET_SCHED]: Cleanup readability of qdisc restart
-
-Larry Finger (1):
-      [MAC80211]: Add support for SIOCGIWRATE ioctl
-
-Patrick McHardy (17):
-      [NET]: Mark struct net_device * argument to netdev_priv const
-      [RTNETLINK]: Split up rtnl_setlink
-      [RTNETLINK]: Link creation API
-      [DUMMY]: Use dev->stats
-      [DUMMY]: Keep dummy devices on list
-      [DUMMY]: Use rtnl_link API
-      [IFB]: Keep ifb devices on list
-      [IFB]: Use rtnl_link API
-      [VLAN]: Convert name-based configuration functions to struct netdevice *
-      [VLAN]: Move some device intialization code to dev->init callback
-      [VLAN]: Move vlan_group allocation to seperate function
-      [VLAN]: Split up device checks
-      [VLAN]: Move device registation to seperate function
-      [VLAN]: Return proper error codes in register_vlan_device
-      [VLAN]: Use 32 bit value for skb->priority mapping
-      [VLAN]: Keep track of number of QoS mappings
-      [VLAN]: Use rtnl_link API
-
+Thanks,
+Mithlesh Thukral
+>
+> 	Jeff
