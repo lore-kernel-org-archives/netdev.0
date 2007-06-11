@@ -1,55 +1,91 @@
 From: linas@austin.ibm.com (Linas Vepstas)
-Subject: [PATCH 1/15] spidernet: null out skb pointer after its been used.
-Date: Mon, 11 Jun 2007 13:17:02 -0500
-Message-ID: <20070611181702.GA13741@austin.ibm.com>
-References: <20070607191707.GA7904@austin.ibm.com> <1181265151.6026.1.camel@concordia.ozlabs.ibm.com> <20070608170608.GI7904@austin.ibm.com> <20070608172020.GA31089@havoc.gtf.org> <20070611181429.GA4397@austin.ibm.com>
+Subject: [PATCH 3/15] spidernet: Don't terminate the RX ring
+Date: Mon, 11 Jun 2007 13:23:42 -0500
+Message-ID: <20070611182342.GC13741@austin.ibm.com>
+References: <20070607191707.GA7904@austin.ibm.com> <1181265151.6026.1.camel@concordia.ozlabs.ibm.com> <20070608170608.GI7904@austin.ibm.com> <20070608172020.GA31089@havoc.gtf.org> <20070611181429.GA4397@austin.ibm.com> <20070611181702.GA13741@austin.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Michael Ellerman <michael@ellerman.id.au>, netdev@vger.kernel.org,
 	cbe-oss-dev@ozlabs.org
 To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e34.co.us.ibm.com ([32.97.110.152]:41164 "EHLO
-	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751069AbXFKSRE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jun 2007 14:17:04 -0400
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e34.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l5BIH4WJ011876
-	for <netdev@vger.kernel.org>; Mon, 11 Jun 2007 14:17:04 -0400
-Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
-	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l5BIH37b126488
-	for <netdev@vger.kernel.org>; Mon, 11 Jun 2007 12:17:03 -0600
-Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l5BIH2jm002138
-	for <netdev@vger.kernel.org>; Mon, 11 Jun 2007 12:17:03 -0600
+Received: from e6.ny.us.ibm.com ([32.97.182.146]:41933 "EHLO e6.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752969AbXFKSXo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Jun 2007 14:23:44 -0400
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by e6.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l5BIOnI3025381
+	for <netdev@vger.kernel.org>; Mon, 11 Jun 2007 14:24:49 -0400
+Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
+	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l5BINhUa559446
+	for <netdev@vger.kernel.org>; Mon, 11 Jun 2007 14:23:43 -0400
+Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
+	by d01av02.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l5BINgkR018196
+	for <netdev@vger.kernel.org>; Mon, 11 Jun 2007 14:23:43 -0400
 Content-Disposition: inline
-In-Reply-To: <20070611181429.GA4397@austin.ibm.com>
+In-Reply-To: <20070611181702.GA13741@austin.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-Avoid kernel crash in mm/slab.c due to double-free of pointer.
 
-If the ethernet interface is brought down while there is still
-RX traffic in flight, the device shutdown routine can end up
-trying to double-free an skb, leading to a crash in mm/slab.c
-Avoid the double-free by nulling out the skb pointer.
+The terminated RX ring will cause trouble during the RX ram full
+conditions, leading to a hung driver, as the hardware can't find
+the next descr.  There is no real reason to terminate the RX ring; 
+it doesn't make the operation any smooother, and it does
+require an extra sync. So don't do it.
 
 Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
 
 ----
- drivers/net/spider_net.c |    1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/spider_net.c |   18 +++++++++---------
+ 1 file changed, 9 insertions(+), 9 deletions(-)
 
 Index: linux-2.6.22-rc1/drivers/net/spider_net.c
 ===================================================================
---- linux-2.6.22-rc1.orig/drivers/net/spider_net.c	2007-06-08 15:45:33.000000000 -0500
-+++ linux-2.6.22-rc1/drivers/net/spider_net.c	2007-06-08 15:48:10.000000000 -0500
-@@ -1131,6 +1131,7 @@ spider_net_decode_one_descr(struct spide
+--- linux-2.6.22-rc1.orig/drivers/net/spider_net.c	2007-06-08 17:35:33.000000000 -0500
++++ linux-2.6.22-rc1/drivers/net/spider_net.c	2007-06-08 17:36:19.000000000 -0500
+@@ -460,13 +460,9 @@ spider_net_prepare_rx_descr(struct spide
+ 		hwdescr->dmac_cmd_status = SPIDER_NET_DESCR_NOT_IN_USE;
+ 	} else {
+ 		hwdescr->buf_addr = buf;
+-		hwdescr->next_descr_addr = 0;
+ 		wmb();
+ 		hwdescr->dmac_cmd_status = SPIDER_NET_DESCR_CARDOWNED |
+ 					 SPIDER_NET_DMAC_NOINTR_COMPLETE;
+-
+-		wmb();
+-		descr->prev->hwdescr->next_descr_addr = descr->bus_addr;
+ 	}
  
- 	/* Ok, we've got a packet in descr */
- 	spider_net_pass_skb_up(descr, card);
-+	descr->skb = NULL;
- 	hwdescr->dmac_cmd_status = SPIDER_NET_DESCR_NOT_IN_USE;
- 	return 1;
+ 	return 0;
+@@ -541,12 +537,16 @@ spider_net_refill_rx_chain(struct spider
+ static int
+ spider_net_alloc_rx_skbs(struct spider_net_card *card)
+ {
+-	int result;
+-	struct spider_net_descr_chain *chain;
++	struct spider_net_descr_chain *chain = &card->rx_chain;
++	struct spider_net_descr *start = chain->tail;
++	struct spider_net_descr *descr = start;
  
+-	result = -ENOMEM;
++	/* Link up the hardware chain pointers */
++	do {
++		descr->prev->hwdescr->next_descr_addr = descr->bus_addr;
++		descr = descr->next;
++	} while (descr != start);
+ 
+-	chain = &card->rx_chain;
+ 	/* Put at least one buffer into the chain. if this fails,
+ 	 * we've got a problem. If not, spider_net_refill_rx_chain
+ 	 * will do the rest at the end of this function. */
+@@ -563,7 +563,7 @@ spider_net_alloc_rx_skbs(struct spider_n
+ 
+ error:
+ 	spider_net_free_rx_chain_contents(card);
+-	return result;
++	return -ENOMEM;
+ }
+ 
+ /**
