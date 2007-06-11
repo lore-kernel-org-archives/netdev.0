@@ -1,97 +1,73 @@
-From: "Cohen, Guy" <guy.cohen@intel.com>
-Subject: RE: [PATCH] NET: Multiqueue network device support.
-Date: Mon, 11 Jun 2007 18:34:37 +0300
-Message-ID: <D0122E209EBF8D4CAB38EC6A8AF244E502AB2937@hasmsx412.ger.corp.intel.com>
-References: <1181573285.4077.22.camel@localhost>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] NET: Multiqueue network device support.
+Date: Mon, 11 Jun 2007 17:44:54 +0200
+Message-ID: <466D6DF6.9060300@trash.net>
+References: <D5C1322C3E673F459512FB59E0DDC32902F91748@orsmsx414.amr.corp.intel.com>	 <1181082517.4062.31.camel@localhost>  <4666CEB7.6030804@trash.net>	 <1181168020.4064.46.camel@localhost>  <466D38CF.9060709@trash.net>	 <1181564611.4043.220.camel@localhost>  <466D4284.1030004@trash.net>	 <1181566335.4043.231.camel@localhost>  <466D480F.6090708@trash.net>	 <1181568598.4043.250.camel@localhost>  <466D5623.7060708@trash.net>	 <1181572815.4077.13.camel@localhost>  <466D6105.9050305@trash.net>	 <1181574306.4077.34.camel@localhost>  <466D667B.6050108@trash.net> <1181575549.4077.50.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Patrick McHardy" <kaber@trash.net>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	<davem@davemloft.net>, <netdev@vger.kernel.org>, <jeff@garzik.org>,
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	davem@davemloft.net, netdev@vger.kernel.org, jeff@garzik.org,
 	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>
-To: <hadi@cyberus.ca>
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:38980 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752151AbXFKPep convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jun 2007 11:34:45 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <1181573285.4077.22.camel@localhost>
+Received: from stinky.trash.net ([213.144.137.162]:45774 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754123AbXFKPrY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jun 2007 11:47:24 -0400
+In-Reply-To: <1181575549.4077.50.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Some more details inside regarding wireless QoS.
-
 jamal wrote:
-> On Mon, 2007-11-06 at 17:30 +0300, Cohen, Guy wrote:
+> On Mon, 2007-11-06 at 17:12 +0200, Patrick McHardy wrote:
 > 
-> >
-> > For WiFi devices the HW often implements the scheduling, especially
-when
-> > QoS (WMM/11e/11n) is implemented. There are few traffic queues
-defined
-> > by the specs and the selection of the next queue to transmit a
-packet
-> > from, is determined in real time, just when there is a tx
-opportunity.
-> > This cannot be predicted in advance since it depends on the medium
-usage
-> > of other stations.
+>>Worst cast is (n - 2) * (m - 1) + 1 full sized packet transmission
+>>times.
+>>
+>>You can do the math yourself, but we're talking about potentially
+>>a lot of packets.
 > 
-> WMM is a strict prio mechanism.
-> The parametrization very much favors the high prio packets when the
-> tx opportunity to send shows up.
-
-Sorry, but this not as simple as you describe it. WMM is much more
-complicated. WMM defines the HW queues as virtually multiple clients
-that compete on the medium access individually. Each implements a
-contention-based medium access. The Access Point publishes to the
-clients the medium access parameters (e.g. back off parameters) that are
-different for each access category (virtual client). There is _not_ a
-strict priority assigned to each access category. The behavior of each
-access category totally depends on the medium usage of other clients and
-is totally different for each access category. This cannot be predicated
-at the host SW.
-
-> > Hence, to make it possible for wireless devices to use the qdisc
-> > mechanism properly, the HW queues should _ALL_ be non-empty at all
-> > times, whenever data is available in the upper layers.
 > 
-> agreed.
+> I agree if you use the strategy of "a ring shutdown down" implies
+> "dont wake up until the ring that caused the shutdown opens up"
+> What i am saying below is to make a change to that strategy.
+
+
+Glad we agree on something. Now all I have to do is convince you that
+a change to this strategy is not a good idea :)
+
+>>>If you throw the burden to the driver (as i am recommending in all my
+>>>arguements so far), it should open up sooner based on priorities.
+>>>I didnt wanna bring this earlier because it may take the discussion in
+>>>the wrong direction. 
+>>>So in your example if n-1 shuts down the driver, then it is upto to the
+>>>driver to open it up if any higher prio packet makes it out.
+>>
+>>
+>>How could it do that? n-1 is still completely full and you don't
+>>know what the next packet is going to be. Are you proposing to
+>>simply throw the packet away in the driver even though its within
+>>the configured limits of the qdisc?
 > 
-> > Or in other
-> > words, the upper layers should not block a specific queue because of
-the
-> > usage of any other queue.
 > 
-> This is where we are going to disagree.
-> There is no way the stack will send the driver packets which are low
-> prio if there are some which are high prio. There is therefore, on
-> contention between low and high prio, no way for low prio packets to
-> obstruct the high prio packets;
+> No no Patrick - i am just saying the following:
+> - let the driver shutdown whenever a ring is full. Remember which ring X
+> shut it down.
+> - when you get a tx interupt or prun tx descriptors, if a ring <= X has
+> transmitted a packet (or threshold of packets), then wake up the driver
+> (i.e open up). 
 
-And this is not the right behavior for a WLAN stack. QoS in WLAN doesn't
-favor strictly one access category over another, but defines some softer
-and smarter prioritization. This is implemented in the HW/Firmware. I
-just think that providing a per-queue controls (start/stop) will allow
-WLAN drivers/Firmware/HW to do that while still using qdisc (and it will
-work properly even when one queue is full and others are empty).
 
-> however, it is feasible that high prio
-> packets will obstruct low prio packets (which is fine).
+At this point the qdisc might send new packets. What do you do when a
+packet for a full ring arrives?
 
-No this is _not_ fine. Just to emphasize again, WMM doesn't define
-priority in the way it is implemented in airplane boarding (Pilots
-first, Business passengers next, couch passengers at the end), but more
-like _distributed_ weights prioritization (between all the multiple
-queues of all the clients on the channel).
+I see three choices:
 
-As a side note, in one of the WFA WMM certification tests, the AP
-changes the medium access parameters of the access categories in a way
-that favors a lower access category. This is something very soft that
-cannot be reflected in any intuitive way in the host SW.
-
-> cheers,
-> jamal
+- drop it, even though its still within the qdiscs configured limits
+- requeue it, which does not work because the qdisc is still active
+  and might just hand you the same packet over and over again in a
+  busy loop, until the ring has more room (which has the same worst
+  case, just that we're sitting in a busy loop now).
+- requeue and stop the queue: we're back to where we started since
+  now higher priority packets will not get passed to the driver.
