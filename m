@@ -1,61 +1,74 @@
-From: linas@austin.ibm.com (Linas Vepstas)
-Subject: [PATCH 12/15] spidernet: increase the NAPI weight
-Date: Mon, 11 Jun 2007 14:02:36 -0500
-Message-ID: <20070611190236.GL13741@austin.ibm.com>
-References: <20070607191707.GA7904@austin.ibm.com> <1181265151.6026.1.camel@concordia.ozlabs.ibm.com> <20070608170608.GI7904@austin.ibm.com> <20070608172020.GA31089@havoc.gtf.org> <20070611181429.GA4397@austin.ibm.com> <20070611181702.GA13741@austin.ibm.com>
+From: Vitaly Bordug <vitb@gate.crashing.org>
+Subject: Re: [PATCH] MII bitbang driver should generate MII bus phy_mask dynamically
+Date: Mon, 11 Jun 2007 14:03:27 -0500
+Message-ID: <20070611190327.GB31896@gate.crashing.org>
+References: <1181548417.5217.13.camel@mark>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Michael Ellerman <michael@ellerman.id.au>, netdev@vger.kernel.org,
-	cbe-oss-dev@ozlabs.org
-To: Jeff Garzik <jeff@garzik.org>
+Cc: netdev@vger.kernel.org,
+	"linuxppc-dev@ozlabs.org" <linuxppc-dev@ozlabs.org>,
+	Vitaly Bordug <vbordug@ru.mvista.com>
+To: Mark Zhan <rongkai.zhan@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e6.ny.us.ibm.com ([32.97.182.146]:58244 "EHLO e6.ny.us.ibm.com"
+Received: from gate.crashing.org ([63.228.1.57]:45528 "EHLO gate.crashing.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755084AbXFKTCi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Jun 2007 15:02:38 -0400
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e6.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l5BJ3hRu010472
-	for <netdev@vger.kernel.org>; Mon, 11 Jun 2007 15:03:43 -0400
-Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
-	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l5BJ2brP478882
-	for <netdev@vger.kernel.org>; Mon, 11 Jun 2007 15:02:37 -0400
-Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
-	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l5BJ2bwR021894
-	for <netdev@vger.kernel.org>; Mon, 11 Jun 2007 15:02:37 -0400
+	id S1752710AbXFKTDi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Jun 2007 15:03:38 -0400
 Content-Disposition: inline
-In-Reply-To: <20070611181702.GA13741@austin.ibm.com>
+In-Reply-To: <1181548417.5217.13.camel@mark>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Mon, Jun 11, 2007 at 03:53:37PM +0800, Mark Zhan wrote:
+> Current MII bitbang bus driver hard-codes the phy mask of mii_bus to
+> ~0x09, which is actually specific to the FSL boards. This patch will
+> make the bitbang driver to generate MII bus phy_mask dynamically, by the
+> PHY irq info provided by the platform.
 
-Another way of minimizing the likelyhood of RX ram from overflowing
-is to empty out the entire rx ring every chance we get. Change
-the crazy watchdog timeout from 50 seconds to 3 seconds, while
-we're here.
-
-Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
-
-----
- drivers/net/spider_net.h |    9 +++++++--
- 1 file changed, 7 insertions(+), 2 deletions(-)
-
-Index: linux-2.6.22-rc1/drivers/net/spider_net.h
-===================================================================
---- linux-2.6.22-rc1.orig/drivers/net/spider_net.h	2007-06-11 11:50:03.000000000 -0500
-+++ linux-2.6.22-rc1/drivers/net/spider_net.h	2007-06-11 11:53:26.000000000 -0500
-@@ -56,8 +56,13 @@ extern char spider_net_driver_name[];
- 
- #define SPIDER_NET_RX_CSUM_DEFAULT		1
- 
--#define SPIDER_NET_WATCHDOG_TIMEOUT		50*HZ
--#define SPIDER_NET_NAPI_WEIGHT			64
-+#define SPIDER_NET_WATCHDOG_TIMEOUT		3*HZ
-+
-+/* We really really want to empty the ring buffer every time,
-+ * so as to avoid the RX ram full bug. So set te napi wieght
-+ * to the ring size.
-+ */
-+#define SPIDER_NET_NAPI_WEIGHT	SPIDER_NET_RX_DESCRIPTORS_DEFAULT
- 
- #define SPIDER_NET_FIRMWARE_SEQS	6
- #define SPIDER_NET_FIRMWARE_SEQWORDS	1024
+just realized that haven't mentioned that it's OK from  me,
+assuming Andy's comment taken into account...
+> 
+> Signed-off-by: Mark Zhan <rongkai.zhan@windriver.com>
+> ---
+>  b/drivers/net/fs_enet/mii-bitbang.c |    9 ++++++---
+>  1 file changed, 6 insertions(+), 3 deletions(-)
+> 
+> diff --git a/drivers/net/fs_enet/mii-bitbang.c
+> b/drivers/net/fs_enet/mii-bitbang.c
+> index d384010..3732d69 100644
+> --- a/drivers/net/fs_enet/mii-bitbang.c
+> +++ b/drivers/net/fs_enet/mii-bitbang.c
+> @@ -315,7 +315,7 @@ static int __devinit fs_enet_mdio_probe(
+>  	struct fs_mii_bb_platform_info *pdata;
+>  	struct mii_bus *new_bus;
+>  	struct bb_info *bitbang;
+> -	int err = 0;
+> +	int i, err = 0;
+>  
+>  	if (NULL == dev)
+>  		return -EINVAL;
+> @@ -336,14 +336,17 @@ static int __devinit fs_enet_mdio_probe(
+>  	new_bus->reset = &fs_enet_mii_bb_reset,
+>  	new_bus->id = pdev->id;
+>  
+> -	new_bus->phy_mask = ~0x9;
+>  	pdata = (struct fs_mii_bb_platform_info *)pdev->dev.platform_data;
+> -
+>  	if (NULL == pdata) {
+>  		printk(KERN_ERR "gfar mdio %d: Missing platform data!\n", pdev->id);
+>  		return -ENODEV;
+>  	}
+>  
+> +	new_bus->phy_mask = 0xFFFFFFFF;
+> +	for (i = 0; i < PHY_MAX_ADDR; i++)
+> +		if (pdata->irq[i] != -1)
+> +			new_bus->phy_mask &= ~(1 << i);
+> +
+>  	/*set up workspace*/
+>  	fs_mii_bitbang_init(bitbang, pdata);
+>  
+> 
+> _______________________________________________
+> Linuxppc-dev mailing list
+> Linuxppc-dev@ozlabs.org
+> https://ozlabs.org/mailman/listinfo/linuxppc-dev
