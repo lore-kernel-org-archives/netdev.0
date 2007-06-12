@@ -1,178 +1,166 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: [PATCH] [RFC -v3] NET: Implement a standard ndev_printk family
-Date: Mon, 11 Jun 2007 17:40:09 -0700
-Message-ID: <20070612004009.1545.12076.stgit@localhost.localdomain>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] NET: Multiqueue network device support.
+Date: Tue, 12 Jun 2007 02:58:05 +0200
+Message-ID: <466DEF9D.9070509@trash.net>
+References: <D5C1322C3E673F459512FB59E0DDC32902F91748@orsmsx414.amr.corp.intel.com>	 <1181082517.4062.31.camel@localhost>  <4666CEB7.6030804@trash.net>	 <1181168020.4064.46.camel@localhost>  <466D38CF.9060709@trash.net>	 <1181564611.4043.220.camel@localhost>  <466D4284.1030004@trash.net>	 <1181566335.4043.231.camel@localhost>  <466D480F.6090708@trash.net>	 <1181568598.4043.250.camel@localhost>  <466D5623.7060708@trash.net>	 <1181572815.4077.13.camel@localhost>  <466D6105.9050305@trash.net>	 <1181574306.4077.34.camel@localhost>  <466D667B.6050108@trash.net>	 <1181575549.4077.50.camel@localhost>  <466D6DF6.9060300@trash.net> <1181597718.4071.12.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: arjan@linux.intel.com, joe@perches.com,
-	shemminger@linux-foundation.org, randy.dunlap@oracle.com
-To: netdev@vger.kernel.org, jeff@garzik.org, davem@davemloft.net
+Cc: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	davem@davemloft.net, netdev@vger.kernel.org, jeff@garzik.org,
+	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:19759 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753993AbXFLAkO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Jun 2007 20:40:14 -0400
+Received: from stinky.trash.net ([213.144.137.162]:55738 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750775AbXFLBAp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jun 2007 21:00:45 -0400
+In-Reply-To: <1181597718.4071.12.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-A lot of netdevices implement their own variant of printk and use
-use variations of dev_printk, printk or others that use msg_enable,
-which has been an eyesore with countless variations across drivers.
+jamal wrote:
+> On Mon, 2007-11-06 at 17:44 +0200, Patrick McHardy wrote:
+> 
+>>At this point the qdisc might send new packets. What do you do when a
+>>packet for a full ring arrives?
+>>
+> 
+> 
+> Hrm... ok, is this a trick question or i am missing the obvious?;->
+> What is wrong with what any driver would do today - which is:
+> netif_stop and return BUSY; core requeues the packet?
+> 
+> 
+>>I see three choices:
+>>
+>>- drop it, even though its still within the qdiscs configured limits
+>>- requeue it, which does not work because the qdisc is still active
+>>  and might just hand you the same packet over and over again in a
+>>  busy loop, until the ring has more room (which has the same worst
+>>  case, just that we're sitting in a busy loop now).
+>>- requeue and stop the queue: we're back to where we started since
+>>  now higher priority packets will not get passed to the driver.
+> 
+> 
+> Refer to choice #4 above. 
 
-This patch implements a standard ndev_printk and derivatives
-such as ndev_err, ndev_info, ndev_warn that allows drivers to
-transparently use both the msg_enable and a generic netdevice
-message layout. It moves the msg_enable over to the net_device
-struct and allows drivers to obsolete ethtool handling code of
-the msg_enable value.
 
-The current code has each driver contain a copy of msg_enable and
-handle the setting/changing through ethtool that way. Since the
-netdev name is stored in the net_device struct, those two are
-not coherently available in a uniform way across all drivers (a
-single macro or function would not work since all drivers name
-their net_device members differently). This makes netdevice
-driver writes reinvent the wheel over and over again.
+Replying again so we can hopefully move forward soon. Your choice #4
+is exactly what I proposed as choice number 3.
 
-It thus makes sense to move msg_enable to the net_device. This
-gives us the opportunity to (1) initialize it by default with a
-globally sane value, (2) remove msg_enable handling code w/r
-ethtool for drivers that know and use the msg_enable member
-of the net_device struct. (3) Ethtool code can just modify the
-net_device msg_enable for drivers that do not have custom
-msg_enable get/set handlers so converted drivers lose some
-code for that as well. (4) non-modified drivers remain
-functional without additional changes needed.
+Let me repeat my example why it doesn't work (well) without multiple
+queue states (with typos etc fixed) and describe the possibilities.
+If you still disagree I hope you can just change my example to show
+how it gets fixed. As a thank you I will actually understand that
+your solution works as well :)
 
-Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
----
+We have n empty HW queues served in ascending priority order
+with a maximum length of m packets per queue:
 
- include/linux/netdevice.h |   54 +++++++++++++++++++++++++++++++++++++++++++++
- net/core/dev.c            |    5 ++++
- net/core/ethtool.c        |   14 ++++++------
- 3 files changed, 66 insertions(+), 7 deletions(-)
+[0] empty
+[1] empty
+[2] empty
+..
+[n-1] empty
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 3a70f55..a5a5fc8 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -540,6 +540,8 @@ struct net_device
- 	struct device		dev;
- 	/* space for optional statistics and wireless sysfs groups */
- 	struct attribute_group  *sysfs_groups[3];
-+
-+	unsigned int		msg_enable;
- };
- #define to_net_dev(d) container_of(d, struct net_device, dev)
- 
-@@ -838,6 +840,58 @@ enum {
- 	NETIF_MSG_WOL		= 0x4000,
- };
- 
-+#define ndev_err(netdev, level, format, arg...) \
-+	do { \
-+		struct net_device *__nd = (netdev); \
-+		if ((__nd)->msg_enable & NETIF_MSG_##level) \
-+			printk(KERN_ERR "%s: %s: " format, (__nd)->name, \
-+				(__nd)->dev.parent->bus_id, ## arg); \
-+	} while (0)
-+
-+#define ndev_warn(netdev, level, format, arg...) \
-+	do { \
-+		struct net_device *__nd = (netdev); \
-+		if ((__nd)->msg_enable & NETIF_MSG_##level) \
-+			printk(KERN_WARNING "%s: %s: " format, (__nd)->name, \
-+				(__nd)->dev.parent->bus_id, ## arg); \
-+	} while (0)
-+
-+#define ndev_info(netdev, level, format, arg...) \
-+	do { \
-+		struct net_device *__nd = (netdev); \
-+		if ((__nd)->msg_enable & NETIF_MSG_##level) \
-+			printk(KERN_INFO "%s: %s: " format, (__nd)->name, \
-+				(__nd)->dev.parent->bus_id, ## arg); \
-+	} while (0)
-+
-+#define ndev_notice(netdev, level, format, arg...) \
-+	do { \
-+		struct net_device *__nd = (netdev); \
-+		if ((__nd)->msg_enable & NETIF_MSG_##level) \
-+			printk(KERN_NOTICE "%s: %s: " format, (__nd)->name, \
-+				(__nd)->dev.parent->bus_id, ## arg); \
-+	} while (0)
-+
-+#ifdef DEBUG
-+#define ndev_dbg(netdev, level, format, arg...) \
-+	do { \
-+		struct net_device *__nd = (netdev); \
-+		if ((__nd)->msg_enable & NETIF_MSG_##level) \
-+			printk(KERN_DEBUG "%s: %s: " format, (__nd)->name, \
-+				(__nd)->dev.parent->bus_id, ## arg); \
-+	} while (0)
-+
-+#else
-+/* Force type-checking on ndev_dbg() when DEBUG is not set */
-+static inline int __attribute__ ((format (printf, 3, 4)))
-+__ndev_dbg(struct net_device * netdev, u32 level, const char *format, ...)
-+{
-+	return 0;
-+}
-+#define ndev_dbg(netdev, level, fmt, args...) \
-+	__ndev_dbg(netdev, NETIF_MSG_##level, fmt, ##args)
-+#endif
-+
- #define netif_msg_drv(p)	((p)->msg_enable & NETIF_MSG_DRV)
- #define netif_msg_probe(p)	((p)->msg_enable & NETIF_MSG_PROBE)
- #define netif_msg_link(p)	((p)->msg_enable & NETIF_MSG_LINK)
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 2609062..316f250 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3378,6 +3378,11 @@ struct net_device *alloc_netdev(int sizeof_priv, const char *name,
- 		dev->priv = netdev_priv(dev);
- 
- 	dev->get_stats = internal_stats;
-+	dev->msg_enable = NETIF_MSG_DRV | NETIF_MSG_PROBE | NETIF_MSG_LINK;
-+#ifdef DEBUG
-+	/* put these to good use: */
-+	dev->msg_enable |= NETIF_MSG_RX_ERR | NETIF_MSG_TX_ERR;
-+#endif
- 	setup(dev);
- 	strcpy(dev->name, name);
- 	return dev;
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index 8d5e5a0..ff8d52f 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -234,9 +234,9 @@ static int ethtool_get_msglevel(struct net_device *dev, char __user *useraddr)
- 	struct ethtool_value edata = { ETHTOOL_GMSGLVL };
- 
- 	if (!dev->ethtool_ops->get_msglevel)
--		return -EOPNOTSUPP;
--
--	edata.data = dev->ethtool_ops->get_msglevel(dev);
-+		edata.data = dev->msg_enable;
-+	else
-+		edata.data = dev->ethtool_ops->get_msglevel(dev);
- 
- 	if (copy_to_user(useraddr, &edata, sizeof(edata)))
- 		return -EFAULT;
-@@ -247,13 +247,13 @@ static int ethtool_set_msglevel(struct net_device *dev, char __user *useraddr)
- {
- 	struct ethtool_value edata;
- 
--	if (!dev->ethtool_ops->set_msglevel)
--		return -EOPNOTSUPP;
--
- 	if (copy_from_user(&edata, useraddr, sizeof(edata)))
- 		return -EFAULT;
- 
--	dev->ethtool_ops->set_msglevel(dev, edata.data);
-+	if (!dev->ethtool_ops->set_msglevel)
-+		dev->msg_enable = edata.data;
-+	else
-+		dev->ethtool_ops->set_msglevel(dev, edata.data);
- 	return 0;
- }
- 
+Now we receive m - 1 packets for all priorities >= 1 and < n - 1,
+so we have:
+
+[0] empty
+[1] m - 1 packets
+[2] m - 1 packets
+..
+[n-2] m - 1 packets
+[n-1] empty
+
+Since no HW queue is completely full, the queue is still active.
+Now we receive m packets of priority n - 1:
+
+[0] empty
+[1] m - 1 packets
+[2] m - 1 packets
+..
+[n-2] m - 1 packets
+[n-1] m packets
+
+At this point the queue needs to be stopped since the highest
+priority queue is entirely full. To start it again at least
+one packet of queue n - 1 needs to be sent, which requires
+that queues 1 to n - 2 are serviced first. So any prio 0 packet
+arriving during this period will sit in the qdisc and will not
+reach the device for up to the time for (n - 2) * (m - 1) + 1
+full sized packet transmissions. With multiple queue states
+we'd know that queue 0 can still take packets.
+
+You agreed that this is a problem and instead of keeping the
+queue stopped until all rings can take at least one packet
+again you proposed:
+
+> - let the driver shutdown whenever a ring is full. Remember which
+>   ring X shut it down.
+> - when you get a tx interupt or prun tx descriptors, if a
+>   ring <= X has transmitted a packet (or threshold of packets),
+>   then wake up the driver (i.e open up).
+
+At this point the queue is active, but at least one ring is already
+full and the qdisc can still pass packets for it to the driver.
+When this happens we can:
+
+- drop it. This makes qdisc configured limit meaningless since
+  the qdisc can't anticipate when the packet will make it through
+  or get dropped.
+
+- requeue it: this might result in a busy loop if the qdisc
+  decides to hand out the packet again. The loop will be
+  terminated once the ring has more room available an can
+  eat the packet, which has the same worst case behaviour
+  I described above.
+
+- requeue (return BUSY) and stop the queue: thats what you
+  proposed as option #4. The question is when to wake the
+  queue again. Your suggestion was to wake it when some
+  other queue with equal or higher priority got dequeued.
+  Correcting my previous statement, you are correct that
+  this will fix the starvation of higher priority queues
+  because the qdisc has a chance to hand out either a packet
+  of the same priority or higher priority, but at the cost of
+  at worst (n - 1) * m unnecessary dequeues+requeues in case
+  there is only a packet of lowest priority and we need to
+  fully serve all higher priority HW queues before it can
+  actually be dequeued. The other possibility would be to
+  activate the queue again once all rings can take packets
+  again, but that wouldn't fix the problem, which you can
+  easily see if you go back to my example and assume we still
+  have a low priority packet within the qdisc when the lowest
+  priority ring fills up (and the queue is stopped), and after
+  we tried to wake it and stopped it again the higher priority
+  packet arrives.
+
+Considering your proposal in combination with RR, you can see
+the same problem of unnecessary dequeues+requeues. Since there
+is no priority for waking the queue when a equal or higher
+priority ring got dequeued as in the prio case, I presume you
+would wake the queue whenever a packet was sent. For the RR
+qdisc dequeue after requeue should hand out the same packet,
+independantly of newly enqueued packets (which doesn't happen
+and is a bug in Peter's RR version), so in the worst case the
+HW has to make the entire round before a packet can get
+dequeued in case the corresponding HW queue is full. This is
+a bit better than prio, but still up to n - 1 unnecessary
+requeues+dequeues. I think it can happen more often than
+for prio though.
+
+> The patches are trivial - really; as soon as Peter posts the e1000
+> change for his version i should be able to cutnpaste and produce one
+> that will work with what i am saying.
+
+
+Forgetting about things like multiple qdisc locks and just
+looking at queueing behaviour, the question seems to come
+down to whether the unnecessary dequeues/requeues are acceptable
+(which I don't think since they are easily avoidable). OTOH
+you could turn it around and argue that the patches won't do
+much harm since ripping them out again (modulo queue mapping)
+should result in the same behaviour with just more overhead.
+
