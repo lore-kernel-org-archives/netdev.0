@@ -1,48 +1,58 @@
-From: Jens Axboe <jens.axboe@oracle.com>
-Subject: Re: [PATCH][RFC] network splice receive v2
-Date: Tue, 12 Jun 2007 20:18:06 +0200
-Message-ID: <20070612181806.GR18832@kernel.dk>
-References: <20070611115926.GB18832@kernel.dk> <20070612181717.GA1600@2ka.mipt.ru> <20070612181731.GQ18832@kernel.dk>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: [PATCH] [RFC -v3] NET: Implement a standard ndev_printk family
+Date: Tue, 12 Jun 2007 11:37:26 -0700
+Message-ID: <466EE7E6.40100@intel.com>
+References: <20070612004009.1545.12076.stgit@localhost.localdomain> <1181667121.6020.56.camel@localhost> <466ED3B3.1080300@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, olaf.kirch@oracle.com
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, arjan@linux.intel.com,
+	shemminger@linux-foundation.org, randy.dunlap@oracle.com
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from brick.kernel.dk ([80.160.20.94]:9258 "EHLO kernel.dk"
+Received: from mga09.intel.com ([134.134.136.24]:14979 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756226AbXFLSU1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Jun 2007 14:20:27 -0400
-Content-Disposition: inline
-In-Reply-To: <20070612181731.GQ18832@kernel.dk>
+	id S1755503AbXFLSh2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Jun 2007 14:37:28 -0400
+In-Reply-To: <466ED3B3.1080300@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 12 2007, Jens Axboe wrote:
-> On Tue, Jun 12 2007, Evgeniy Polyakov wrote:
-> > On Mon, Jun 11, 2007 at 01:59:26PM +0200, Jens Axboe (jens.axboe@oracle.com) wrote:
-> > > Patches are against the #splice branch of the block repo, "official" url
-> > > of that is:
-> > > 
-> > > git://git.kernel.dk/data/git/linux-2.6-block.git/
-> > > 
-> > > and it's based on Linus main tree. Let me know if I should supply netdev
-> > > branch patches instead, or even just provide a rolled up patch (or patch
-> > > series) for anyone curious to test or play with it.
-> > 
-> > Hi Jens.
-> > 
-> > I've just pulled your tree (splice-net, but splice tree looks the
-> > same, git pull says 'Already up-to-date.') on top of linus git and got
-> > following bug trace.  I will investigate it further tomorrow.
+Jeff Garzik wrote:
+> Joe Perches wrote:
+>> On Mon, 2007-06-11 at 17:40 -0700, Auke Kok wrote:
+>>> +#define ndev_err(netdev, level, format, arg...) \
+>>> +	do { \
+>>> +		struct net_device *__nd = (netdev); \
+>>> +		if ((__nd)->msg_enable & NETIF_MSG_##level) \
+>>> +			printk(KERN_ERR "%s: %s: " format, (__nd)->name, \
+>>> +				(__nd)->dev.parent->bus_id, ## arg); \
+>>> +	} while (0)
+>>> +
+>> I think it's better to remove the macro concatenation/obfuscation
+>> of the NETIF_MSG_##level argument and simply pass the appropriate
+>> NETIF_MSG_<type> directly to these ndev_<level> calls.
+>>
+>> It would also simplify the more than 300 calls in drivers/net of
+>>
+>> 	if (netif_msg_<type>(ptr))
+>> 		printk(foo)
+>>
+>> to
+>>
+>> 	ndev_<level>(netdev, NETIF_MSG_<type>, fmt, args)
 > 
-> Please tell me the contents of splice-net, it looks like you didn't
-> actually use the new code. That BUG_ON() is in get_page(), which
-> splice-net no longer uses. So the bug report cannot be valid for the
-> current code.
+> I think this is a whole lot of iteration and effort for a non-problem.
 
-Note that I rebase my branches all the time, so you most often want to
-use git pull -f to force an update of them.
+Why do you say that? What is your motivation for that statement? Can you be a 
+bit more descriptive/constructive?
 
--- 
-Jens Axboe
+I have often seen comments on drivers adding new printk's and lots of them 
+completely ignore the msg_enable bits while advertising that they do thought 
+some debug/ethtool way. tg3, sky2, r8169, etc... all advertise that they allow 
+setting/changing msg_enable yet don't actually do _anything_ with the bits.
 
+Only 3 other driver besides the ones I've patched get it right....
+
+How is that a non-problem?
