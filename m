@@ -1,44 +1,43 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH] NET: Multiqueue network device support.
-Date: Tue, 12 Jun 2007 15:40:32 -0700
-Message-ID: <466F20E0.8010901@candelatech.com>
-References: <20070612.140240.00078635.davem@davemloft.net>	<466F0C92.5080306@garzik.org>	<466F0D78.7090404@candelatech.com> <20070612.142658.45082832.davem@davemloft.net> <466F144A.3070809@candelatech.com> <466F1E6D.8070401@garzik.org>
+From: Jeff Garzik <jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>
+Subject: Re: Please pull 'libertas-fixes' branch of wireless-2.6
+Date: Tue, 12 Jun 2007 18:54:35 -0400
+Message-ID: <466F242B.1030900@garzik.org>
+References: <20070529183347.GD3496@tuxdriver.com> <20070612210544.GF310@tuxdriver.com> <20070612210658.GG310@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	kaber@trash.net, hadi@cyberus.ca, peter.p.waskiewicz.jr@intel.com,
-	auke-jan.h.kok@intel.com
-To: Jeff Garzik <jeff@garzik.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:49862 "EHLO ns2.lanforge.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752910AbXFLWk6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Jun 2007 18:40:58 -0400
-In-Reply-To: <466F1E6D.8070401@garzik.org>
-Sender: netdev-owner@vger.kernel.org
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20070612210658.GG310-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
-> Ben Greear wrote:
->> That sounds plausible for many uses, but it may also be useful to have
->> the virtual devices.  Having 802.1Q VLANs be 'real' devices has worked 
->> out
->> quite well, so I think there is a place for a 'mac-vlan' as well.
+John W. Linville wrote:
+> Fixes identified by the libertas team as important for 2.6.22...
 > 
-> Virtual devices are pretty much the only solution we have right now, 
-> both in terms of available control points, and in terms of mapping to 
-> similar existing solutions (like wireless and its multiple net devices).
+> ---
+> 
+> The following changes since commit 717c9339202a42ae7bec7d3c4b84deecdcae9f81:
+>   Dan Williams (1):
+>         libertas: reduce SSID and BSSID mixed-case abuse
+> 
+> are found in the git repository at:
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git libertas-fixes
+> 
+> Dan Williams (1):
+>       libertas: actually send mesh frames to mesh netdev
+> 
+> Luis Carlos (1):
+>       libertas: convert libertas_mpp into anycast_mask
+> 
+> Luis Carlos Cobo Rus (2):
+>       libertas: pull current channel from firmware on mesh autostart
+>       libertas: deauthenticate from AP in channel switch
 
-I believe Patrick is working on cleaning up mac-vlans and converting them
-to use the new netlink configuration API, so there should be a patch for
-these hitting the list shortly.
+Just to be clear, you intend 'libertas' and 'libertas-fixes' (in that 
+order) for 2.6.22, and 'libertas-upstream' for 2.6.23?
 
-Thanks,
-Ben
-
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
-
+	Jeff
