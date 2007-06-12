@@ -1,29 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: mac80211 fixes for 2.6.22
-Date: Tue, 12 Jun 2007 14:14:20 -0700 (PDT)
-Message-ID: <20070612.141420.10763729.davem@davemloft.net>
-References: <20070612011616.GC20422@tuxdriver.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] NET: Multiqueue network device support.
+Date: Tue, 12 Jun 2007 17:13:54 -0400
+Message-ID: <466F0C92.5080306@garzik.org>
+References: <466DEF9D.9070509@trash.net>	<1181615384.4071.121.camel@localhost>	<466E9DF2.9010505@trash.net> <20070612.140240.00078635.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: linville@tuxdriver.com
+Cc: David Miller <davem@davemloft.net>, kaber@trash.net,
+	hadi@cyberus.ca, peter.p.waskiewicz.jr@intel.com,
+	auke-jan.h.kok@intel.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45912
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751254AbXFLVOE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jun 2007 17:14:04 -0400
-In-Reply-To: <20070612011616.GC20422@tuxdriver.com>
+Received: from srv5.dvmed.net ([207.36.208.214]:58251 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751013AbXFLVN7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Jun 2007 17:13:59 -0400
+In-Reply-To: <20070612.140240.00078635.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Mon, 11 Jun 2007 21:16:16 -0400
 
-> Here are a few mac80211 patches appropriate for 2.6.22.
-> 
-> Individual patches to follow, or you can pull at your leisure...
-...
->   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git mac80211-fixes
+If hardware w/ multiple queues will the capability for different MAC 
+addresses, different RX filters, etc. does it make sense to add that 
+below the net_device level?
 
-Pulled, thanks John.
+We will have to add all the configuration machinery at the per-queue 
+level that already exists at the per-netdev level.
+
+	Jeff
+
+
+
