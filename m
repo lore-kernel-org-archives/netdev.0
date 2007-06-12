@@ -1,232 +1,178 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [WIP][DOC] Net tx batching
-Date: Mon, 11 Jun 2007 19:09:05 -0400
-Message-ID: <1181603345.4071.67.camel@localhost>
-References: <1181569965.4043.260.camel@localhost>
-Reply-To: hadi@cyberus.ca
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: [PATCH] [RFC -v3] NET: Implement a standard ndev_printk family
+Date: Mon, 11 Jun 2007 17:40:09 -0700
+Message-ID: <20070612004009.1545.12076.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-+kzKfqyRgIXMKHISJLtx"
-Cc: Krishna Kumar2 <krkumar2@in.ibm.com>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	Jeff Garzik <jeff@garzik.org>,
-	Gagan Arneja <gaagaan@gmail.com>,
-	Leonid Grossman <Leonid.Grossman@neterion.com>,
-	Sridhar Samudrala <sri@us.ibm.com>,
-	Rick Jones <rick.jones2@hp.com>,
-	Robert Olsson <Robert.Olsson@data.slu.se>,
-	David Miller <davem@davemloft.net>
-To: NetDev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: arjan@linux.intel.com, joe@perches.com,
+	shemminger@linux-foundation.org, randy.dunlap@oracle.com
+To: netdev@vger.kernel.org, jeff@garzik.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nz-out-0506.google.com ([64.233.162.235]:17723 "EHLO
-	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755970AbXFKXJL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jun 2007 19:09:11 -0400
-Received: by nz-out-0506.google.com with SMTP id n1so1436507nzf
-        for <netdev@vger.kernel.org>; Mon, 11 Jun 2007 16:09:10 -0700 (PDT)
-In-Reply-To: <1181569965.4043.260.camel@localhost>
+Received: from mga02.intel.com ([134.134.136.20]:19759 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753993AbXFLAkO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Jun 2007 20:40:14 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+A lot of netdevices implement their own variant of printk and use
+use variations of dev_printk, printk or others that use msg_enable,
+which has been an eyesore with countless variations across drivers.
 
---=-+kzKfqyRgIXMKHISJLtx
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+This patch implements a standard ndev_printk and derivatives
+such as ndev_err, ndev_info, ndev_warn that allows drivers to
+transparently use both the msg_enable and a generic netdevice
+message layout. It moves the msg_enable over to the net_device
+struct and allows drivers to obsolete ethtool handling code of
+the msg_enable value.
 
-A small update on the e1000 ....
+The current code has each driver contain a copy of msg_enable and
+handle the setting/changing through ethtool that way. Since the
+netdev name is stored in the net_device struct, those two are
+not coherently available in a uniform way across all drivers (a
+single macro or function would not work since all drivers name
+their net_device members differently). This makes netdevice
+driver writes reinvent the wheel over and over again.
 
-On Mon, 2007-11-06 at 09:52 -0400, jamal wrote:
-> I have started writting a small howto for drivers. Hoping to get a wider
-> testing with more drivers.
-> So far i have changed e1000 and tun drivers as well as modified the
-> packetgen tool to do batching.
-> 
-> I will update this document as needed if something is unclear. 
-> Please contribute by asking questions, changing a driver and wide
-> testing. I may target tg3 next and write a tool to do testing from
-> UDP level.
-> 
-> cheers,
-> jamal
-> 
+It thus makes sense to move msg_enable to the net_device. This
+gives us the opportunity to (1) initialize it by default with a
+globally sane value, (2) remove msg_enable handling code w/r
+ethtool for drivers that know and use the msg_enable member
+of the net_device struct. (3) Ethtool code can just modify the
+net_device msg_enable for drivers that do not have custom
+msg_enable get/set handlers so converted drivers lose some
+code for that as well. (4) non-modified drivers remain
+functional without additional changes needed.
 
---=-+kzKfqyRgIXMKHISJLtx
-Content-Disposition: attachment; filename=batch-driver-howto.txt
-Content-Type: text/plain; name=batch-driver-howto.txt; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-
-
-Heres the begining of a howto for driver author.
-The current working tree can be found at:
-git://git.kernel.org/pub/scm/linux/kernel/git/hadi/batch-lin26.git
-
-The intended audience for this howto is people already
-familiar with netdevices.
-
-0) Hardware Pre-requisites:
----------------------------
-
-You must have at least hardware that is capable of doing
-DMA with many descriptors; i.e having hardware with a queue
-length of 3 (as in some fscked ethernet hardware) is not
-very useful in this case.
-
-1) What is new in the driver API:
----------------------------------
-
-a) A new method called onto the driver by the net tx core to
-batch packets. This method, dev->hard_batch_xmit(dev), 
-is no different than dev->hard_start_xmit(dev) in terms of the 
-arguements it takes. You just have to handle it differently 
-(more below).
-
-b) A new method, dev->hard_prep_xmit(), called onto the driver to 
-massage the packet before it gets transmitted. 
-This method is optional i.e if you dont specify it, you will
-not be invoked(more below)
-
-c) A new variable dev->xmit_win which provides suggestions to the
-core calling into the driver a rough estimate of how many
-packets can be batched onto the driver.
-
-2) Driver pre-requisite
-------------------------
-
-The typical driver tx state machine is:
-
-----
---> +Core sends packets
-    +--> Driver puts packet onto hardware queue
-    +    if hardware queue is full, netif_stop_queue(dev)
-    +
---> +core stops sending because of netif_stop_queue(dev)
-..
-.. time passes
-..
-..
---> +---> driver has transmitted packets, opens up tx path by
-          invoking netif_wake_queue(dev)
---> +Core sends packets, and the cycle repeats.
-----
-
-The pre-requisite for batching changes is that the driver should 
-provide a low threshold to open up the tx path.
-This is a very important requirement in making batching useful.
-Drivers such as tg3 and e1000 already do this.
-So in the above annotation, as a driver author, before you
-invoke netif_wake_queue(dev) you check if there are enough
-entries left.
-
-Heres an example of how i added it to tun driver
----
-+#define NETDEV_LTT 4 /* the low threshold to open up the tx path */
-..
-..
-	u32 t = skb_queue_len(&tun->readq);
-	if (netif_queue_stopped(tun->dev) && t < NETDEV_LTT) {
-		tun->dev->xmit_win = tun->dev->tx_queue_len;
-		netif_wake_queue(tun->dev);
-	}
+Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 ---
 
-Heres how the batching e1000 driver does it (ignore the setting of
-netdev->xmit_win, more on this later):
+ include/linux/netdevice.h |   54 +++++++++++++++++++++++++++++++++++++++++++++
+ net/core/dev.c            |    5 ++++
+ net/core/ethtool.c        |   14 ++++++------
+ 3 files changed, 66 insertions(+), 7 deletions(-)
 
---
-if (unlikely(cleaned && netif_carrier_ok(netdev) &&
-     E1000_DESC_UNUSED(tx_ring) >= TX_WAKE_THRESHOLD)) {
-
-	if (netif_queue_stopped(netdev)) {
-	       int rspace =  E1000_DESC_UNUSED(tx_ring) - (MAX_SKB_FRAGS +  2);
-	       netdev->xmit_win = rspace;
-	       netif_wake_queue(netdev);
-       }
----
-
-in tg3 code looks like:
-
------
-	if (netif_queue_stopped(tp->dev) &&
-		(tg3_tx_avail(tp) > TG3_TX_WAKEUP_THRESH(tp)))
-			netif_wake_queue(tp->dev);
----
-
-3) Driver Setup:
--------------------
-
-a) On initialization (before netdev registration)
- i) set NETIF_F_BTX in  dev->features 
-  i.e dev->features |= NETIF_F_BTX
-  This makes the core do proper initialization.
-
-  ii) set dev->xmit_win to something reasonable like
-  maybe half the tx DMA ring size etc.
-  This is later used by the core to guess how much packets to send
-  in one batch. 
-
-  b) create proper pointer to the two new methods desribed above.
-
-
-4) The new methods
---------------------
-
-  a) The batching method
-  
-Heres an example of a batch tx routine that is similar
-to the one i added to tun driver
-
-----
-  static int xxx_net_bxmit(struct net_device *dev)
-  {
-  ....
-  ....
-        while (skb_queue_len(dev->blist)) {
-	        dequeue from dev->blist
-		enqueue onto hardware ring
-		if hardware ring full break
-        }
-				           
-	if (hardware ring full) {
-		  netif_stop_queue(dev);
-		  dev->xmit_win = 1;
-	}
-
-       if we queued on hardware, tell it to chew
-       .......
-       ..
-       .
-  }
-------
-
-All return codes like NETDEV_TX_OK etc still apply.
-In this method, if there are any IO operations that apply to a 
-set of packets (such as kicking DMA) leave them to the end and apply
-them once if you have successfully enqueued. For an example of this
-look e1000 driver e1000_kick_DMA() function.
-
-b) The dev->hard_prep_xmit() method
-
-Use this method to only do pre-processing of the skb passed.
-If in the current dev->hard_start_xmit() you are pre-processing
-packets before holding any locks (eg formating them to be put in
-any descriptor etc).
-Look at e1000_prep_queue_frame() for an example.
-You may use the skb->cb to store any state that you need to know
-of later when batching.
-
-5) setting the dev->xmit_win 
------------------------------
-
-As mentioned earlier this variable provides hints on how much
-data to send from the core to the driver. Some suggestions:
-a)on doing a netif_stop, set it to 1
-b)on netif_wake_queue set it to the max available space
-
-
-Appendix 1: History
--------------------
-June 11: Initial revision
-June 11: Fixed typo on e1000 netif_wake description ..
-
-
---=-+kzKfqyRgIXMKHISJLtx--
-
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 3a70f55..a5a5fc8 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -540,6 +540,8 @@ struct net_device
+ 	struct device		dev;
+ 	/* space for optional statistics and wireless sysfs groups */
+ 	struct attribute_group  *sysfs_groups[3];
++
++	unsigned int		msg_enable;
+ };
+ #define to_net_dev(d) container_of(d, struct net_device, dev)
+ 
+@@ -838,6 +840,58 @@ enum {
+ 	NETIF_MSG_WOL		= 0x4000,
+ };
+ 
++#define ndev_err(netdev, level, format, arg...) \
++	do { \
++		struct net_device *__nd = (netdev); \
++		if ((__nd)->msg_enable & NETIF_MSG_##level) \
++			printk(KERN_ERR "%s: %s: " format, (__nd)->name, \
++				(__nd)->dev.parent->bus_id, ## arg); \
++	} while (0)
++
++#define ndev_warn(netdev, level, format, arg...) \
++	do { \
++		struct net_device *__nd = (netdev); \
++		if ((__nd)->msg_enable & NETIF_MSG_##level) \
++			printk(KERN_WARNING "%s: %s: " format, (__nd)->name, \
++				(__nd)->dev.parent->bus_id, ## arg); \
++	} while (0)
++
++#define ndev_info(netdev, level, format, arg...) \
++	do { \
++		struct net_device *__nd = (netdev); \
++		if ((__nd)->msg_enable & NETIF_MSG_##level) \
++			printk(KERN_INFO "%s: %s: " format, (__nd)->name, \
++				(__nd)->dev.parent->bus_id, ## arg); \
++	} while (0)
++
++#define ndev_notice(netdev, level, format, arg...) \
++	do { \
++		struct net_device *__nd = (netdev); \
++		if ((__nd)->msg_enable & NETIF_MSG_##level) \
++			printk(KERN_NOTICE "%s: %s: " format, (__nd)->name, \
++				(__nd)->dev.parent->bus_id, ## arg); \
++	} while (0)
++
++#ifdef DEBUG
++#define ndev_dbg(netdev, level, format, arg...) \
++	do { \
++		struct net_device *__nd = (netdev); \
++		if ((__nd)->msg_enable & NETIF_MSG_##level) \
++			printk(KERN_DEBUG "%s: %s: " format, (__nd)->name, \
++				(__nd)->dev.parent->bus_id, ## arg); \
++	} while (0)
++
++#else
++/* Force type-checking on ndev_dbg() when DEBUG is not set */
++static inline int __attribute__ ((format (printf, 3, 4)))
++__ndev_dbg(struct net_device * netdev, u32 level, const char *format, ...)
++{
++	return 0;
++}
++#define ndev_dbg(netdev, level, fmt, args...) \
++	__ndev_dbg(netdev, NETIF_MSG_##level, fmt, ##args)
++#endif
++
+ #define netif_msg_drv(p)	((p)->msg_enable & NETIF_MSG_DRV)
+ #define netif_msg_probe(p)	((p)->msg_enable & NETIF_MSG_PROBE)
+ #define netif_msg_link(p)	((p)->msg_enable & NETIF_MSG_LINK)
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 2609062..316f250 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3378,6 +3378,11 @@ struct net_device *alloc_netdev(int sizeof_priv, const char *name,
+ 		dev->priv = netdev_priv(dev);
+ 
+ 	dev->get_stats = internal_stats;
++	dev->msg_enable = NETIF_MSG_DRV | NETIF_MSG_PROBE | NETIF_MSG_LINK;
++#ifdef DEBUG
++	/* put these to good use: */
++	dev->msg_enable |= NETIF_MSG_RX_ERR | NETIF_MSG_TX_ERR;
++#endif
+ 	setup(dev);
+ 	strcpy(dev->name, name);
+ 	return dev;
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 8d5e5a0..ff8d52f 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -234,9 +234,9 @@ static int ethtool_get_msglevel(struct net_device *dev, char __user *useraddr)
+ 	struct ethtool_value edata = { ETHTOOL_GMSGLVL };
+ 
+ 	if (!dev->ethtool_ops->get_msglevel)
+-		return -EOPNOTSUPP;
+-
+-	edata.data = dev->ethtool_ops->get_msglevel(dev);
++		edata.data = dev->msg_enable;
++	else
++		edata.data = dev->ethtool_ops->get_msglevel(dev);
+ 
+ 	if (copy_to_user(useraddr, &edata, sizeof(edata)))
+ 		return -EFAULT;
+@@ -247,13 +247,13 @@ static int ethtool_set_msglevel(struct net_device *dev, char __user *useraddr)
+ {
+ 	struct ethtool_value edata;
+ 
+-	if (!dev->ethtool_ops->set_msglevel)
+-		return -EOPNOTSUPP;
+-
+ 	if (copy_from_user(&edata, useraddr, sizeof(edata)))
+ 		return -EFAULT;
+ 
+-	dev->ethtool_ops->set_msglevel(dev, edata.data);
++	if (!dev->ethtool_ops->set_msglevel)
++		dev->msg_enable = edata.data;
++	else
++		dev->ethtool_ops->set_msglevel(dev, edata.data);
+ 	return 0;
+ }
+ 
