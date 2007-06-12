@@ -1,52 +1,42 @@
-From: vignesh babu <vignesh.babu@wipro.com>
-Subject: [PATCH]is_power_of_2-myri10ge/myri10ge.c
-Date: Tue, 12 Jun 2007 10:31:01 +0530
-Message-ID: <1181624462.3109.22.camel@merlin.linuxcoe.com>
-Reply-To: vignesh.babu@wipro.com
+From: Shani Moideen <shani.moideen@wipro.com>
+Subject: [KJ PATCH] Replacing alloc_pages(gfp,0) with alloc_page(gfp) in
+	net/ipv6/ip6_output.c
+Date: Tue, 12 Jun 2007 10:28:44 +0530
+Message-ID: <1181624324.2282.29.camel@shani-win>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Kernel Janitors List <kernel-janitors@lists.osdl.org>
-To: akpm <akpm@linux-foundation.org>, jgarzik@pobox.com
+Cc: netdev@vger.kernel.org, kernel-janitors@lists.osdl.org
+To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wip-cdc-wd.wipro.com ([203.91.201.26]:38899 "EHLO
+Received: from wip-cdc-wd.wipro.com ([203.91.201.26]:39099 "EHLO
 	wip-cdc-wd.wipro.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751448AbXFLFCG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jun 2007 01:02:06 -0400
+	with ESMTP id S1752831AbXFLFFw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jun 2007 01:05:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi,
+Replacing alloc_pages(gfp,0) with alloc_page(gfp) in net/ipv6/ip6_output.c
 
-Replacing (n & (n-1)) in the context of power of 2 checks
-with is_power_of_2
+Signed-off-by: Shani Moideen <shani.moideen@wipro.com>
+----
 
-Signed-off-by: vignesh babu <vignesh.babu@wipro.com>
---- 
-diff --git a/drivers/net/myri10ge/myri10ge.c b/drivers/net/myri10ge/myri10ge.c
-index b53b7ad..89da958 100644
---- a/drivers/net/myri10ge/myri10ge.c
-+++ b/drivers/net/myri10ge/myri10ge.c
-@@ -60,6 +60,7 @@
- #include <linux/crc32.h>
- #include <linux/moduleparam.h>
- #include <linux/io.h>
-+#include <linux/log2.h>
- #include <net/checksum.h>
- #include <asm/byteorder.h>
- #include <asm/io.h>
-@@ -1797,7 +1798,7 @@ static int myri10ge_open(struct net_device *dev)
- 	 */
- 	big_pow2 = dev->mtu + ETH_HLEN + VLAN_HLEN + MXGEFW_PAD;
- 	if (big_pow2 < MYRI10GE_ALLOC_SIZE / 2) {
--		while ((big_pow2 & (big_pow2 - 1)) != 0)
-+		while (!is_power_of_2(big_pow2))
- 			big_pow2++;
- 		mgp->big_bytes = dev->mtu + ETH_HLEN + VLAN_HLEN + MXGEFW_PAD;
- 	} else {
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index f508171..1d27779 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -1291,7 +1291,7 @@ alloc_new_skb:
+ 			} else if(i < MAX_SKB_FRAGS) {
+ 				if (copy > PAGE_SIZE)
+ 					copy = PAGE_SIZE;
+-				page = alloc_pages(sk->sk_allocation, 0);
++				page = alloc_page(sk->sk_allocation);
+ 				if (page == NULL) {
+ 					err = -ENOMEM;
+ 					goto error;
 
--- 
-Vignesh Babu BM 
-_____________________________________________________________ 
-"Why is it that every time I'm with you, makes me believe in magic?"
 
+Regards,
+Shani 
