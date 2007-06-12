@@ -1,42 +1,50 @@
-From: Shani Moideen <shani.moideen@wipro.com>
-Subject: [KJ PATCH] Replacing alloc_pages(gfp,0) with alloc_page(gfp) in
-	net/ipv6/ip6_output.c
-Date: Tue, 12 Jun 2007 10:28:44 +0530
-Message-ID: <1181624324.2282.29.camel@shani-win>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel-janitors@lists.osdl.org
-To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org
+From: Jens Axboe <jens.axboe@oracle.com>
+Subject: [PATCH 2/3] tcp_read_sock: alloc recv_actor() return return negative error value
+Date: Tue, 12 Jun 2007 09:03:59 +0200
+Message-ID: <11816318403161-git-send-email-jens.axboe@oracle.com>
+References: <1181631840469-git-send-email-jens.axboe@oracle.com>
+Cc: Jens Axboe <jens.axboe@oracle.com>
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wip-cdc-wd.wipro.com ([203.91.201.26]:39099 "EHLO
-	wip-cdc-wd.wipro.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752831AbXFLFFw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jun 2007 01:05:52 -0400
+Received: from brick.kernel.dk ([80.160.20.94]:17205 "EHLO kernel.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759454AbXFLHGQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Jun 2007 03:06:16 -0400
+In-Reply-To: <1181631840469-git-send-email-jens.axboe@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
-Replacing alloc_pages(gfp,0) with alloc_page(gfp) in net/ipv6/ip6_output.c
+Signed-off-by: Jens Axboe <jens.axboe@oracle.com>
+---
+ net/ipv4/tcp.c |    8 ++++++--
+ 1 files changed, 6 insertions(+), 2 deletions(-)
 
-Signed-off-by: Shani Moideen <shani.moideen@wipro.com>
-----
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index cd3c7e9..450f44b 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -1064,7 +1064,11 @@ int tcp_read_sock(struct sock *sk, read_descriptor_t *desc,
+ 					break;
+ 			}
+ 			used = recv_actor(desc, skb, offset, len);
+-			if (used <= len) {
++			if (used < 0) {
++				if (!copied)
++					copied = used;
++				break;
++			} else if (used <= len) {
+ 				seq += used;
+ 				copied += used;
+ 				offset += used;
+@@ -1086,7 +1090,7 @@ int tcp_read_sock(struct sock *sk, read_descriptor_t *desc,
+ 	tcp_rcv_space_adjust(sk);
+ 
+ 	/* Clean up data we have read: This will do ACK frames. */
+-	if (copied)
++	if (copied > 0)
+ 		tcp_cleanup_rbuf(sk, copied);
+ 	return copied;
+ }
+-- 
+1.5.2.1.174.gcd03
 
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index f508171..1d27779 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -1291,7 +1291,7 @@ alloc_new_skb:
- 			} else if(i < MAX_SKB_FRAGS) {
- 				if (copy > PAGE_SIZE)
- 					copy = PAGE_SIZE;
--				page = alloc_pages(sk->sk_allocation, 0);
-+				page = alloc_page(sk->sk_allocation);
- 				if (page == NULL) {
- 					err = -ENOMEM;
- 					goto error;
-
-
-Regards,
-Shani 
