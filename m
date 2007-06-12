@@ -1,43 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: 2.6.20.7 TCP cubic (and bic) initial slow start way too slow?
-Date: Tue, 12 Jun 2007 15:12:58 -0700 (PDT)
-Message-ID: <20070612.151258.120619253.davem@davemloft.net>
-References: <20070512120739.371ada4f.billfink@mindspring.com>
-	<649aecc70705120945q58ae79c9r8ff2dc5557658d1e@mail.gmail.com>
-	<20070516024409.53049682.billfink@mindspring.com>
+From: Jason Lunz <lunz@falooley.org>
+Subject: Re: [PATCH] NET: Multiqueue network device support.
+Date: Tue, 12 Jun 2007 18:17:57 -0400
+Message-ID: <20070612221756.GC27363@metaxa.reflex>
+References: <466F0D78.7090404@candelatech.com> <20070612.142658.45082832.davem@davemloft.net> <20070612214753.GB27363@metaxa.reflex> <20070612.145534.128867899.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: sangtae.ha@gmail.com, rhee@eos.ncsu.edu,
-	shemminger@linux-foundation.org, rhee@ncsu.edu,
-	netdev@vger.kernel.org
-To: billfink@mindspring.com
+Content-Type: text/plain; charset=us-ascii
+Cc: greearb@candelatech.com, jeff@garzik.org, netdev@vger.kernel.org,
+	kaber@trash.net, hadi@cyberus.ca, peter.p.waskiewicz.jr@intel.com,
+	auke-jan.h.kok@intel.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53514
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750798AbXFLWMm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jun 2007 18:12:42 -0400
-In-Reply-To: <20070516024409.53049682.billfink@mindspring.com>
+Received: from crown.reflexsecurity.com ([72.54.139.163]:44685 "EHLO
+	crown.reflexsecurity.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753492AbXFLWSD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jun 2007 18:18:03 -0400
+Content-Disposition: inline
+In-Reply-To: <20070612.145534.128867899.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Bill Fink <billfink@mindspring.com>
-Date: Wed, 16 May 2007 02:44:09 -0400
+On Tue, Jun 12, 2007 at 02:55:34PM -0700, David Miller wrote:
+> These chips allow this too, Microsoft defined a standard for
+> RX queue interrupt hashing by flow so everyone puts it, or
+> something like it, in hardware.
 
-> [root@lang2 ~]# netstat -s | grep -i retrans
->     25446 segments retransmited
->     20936 fast retransmits
->     4503 retransmits in slow start
->     4 sack retransmits failed
-> 
-> It then only took 2.14 seconds to transfer 1 GB of data.
-> 
-> That's all for now.
+I think you're referring to "RSS"?
 
-Thanks for all of your testing and numbers Bill.
+http://www.microsoft.com/whdc/device/network/NDIS_RSS.mspx
+http://msdn2.microsoft.com/en-us/library/ms795609.aspx
 
-Inhong et al., we have to do something about this, the issue
-has been known and sitting around for weeks if not months.
-
-How safely can we set the default initial_ssthresh to zero in
-Cubic and BIC?
+Jason
