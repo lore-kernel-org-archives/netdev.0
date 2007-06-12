@@ -1,46 +1,67 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: [PATCH] cfg80211: fix signed macaddress in sysfs
-Date: Mon, 11 Jun 2007 21:17:16 -0400
-Message-ID: <20070612011716.GD20422@tuxdriver.com>
-References: <20070612011616.GC20422@tuxdriver.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: [PATCH] mac80211: Set low initial rate in rc80211_simple
+Date: Mon, 11 Jun 2007 21:24:11 -0400
+Message-ID: <20070612012411.GI20422@tuxdriver.com>
+References: <20070610.181704.73383002.davem@davemloft.net> <20070612012228.GG20422@tuxdriver.com> <20070612012319.GH20422@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ra.tuxdriver.com ([70.61.120.52]:2820 "EHLO ra.tuxdriver.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757132AbXFLByw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Jun 2007 21:54:52 -0400
 Content-Disposition: inline
-In-Reply-To: <20070612011616.GC20422-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <20070612012319.GH20422@tuxdriver.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: David Lamparter <lists-cEeocvCgqOOsTnJN9+BGXg@public.gmane.org>
+From: Larry Finger <Larry.Finger@lwfinger.net>
 
-Fix signedness mixup making mac addresses show up strangely
-(like 00:11:22:33:44:ffffffaa) in /sys/class/ieee80211/*/macaddress.
+The initial rate for STA's using rc80211_simple is set to the last
+rate in the rate table. For situations for which the signal is weak,
+the rate may be too high for authentication and association. Although
+the rc80211_simple module will adjust the speed, the response may not
+be fast enough for a successful connection. This modification sets the
+initial rate to the lowest supported value.
 
-Signed-off-by: David Lamparter <equinox-cEeocvCgqOOsTnJN9+BGXg@public.gmane.org>
-Acked-by: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Signed-off-by: John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
+Signed-off-by: John W. Linville <linville@tuxdriver.com>
 ---
- net/wireless/sysfs.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ net/mac80211/rc80211_simple.c |   12 +++++++-----
+ 1 files changed, 7 insertions(+), 5 deletions(-)
 
-diff --git a/net/wireless/sysfs.c b/net/wireless/sysfs.c
-index 3ebae14..88aaacd 100644
---- a/net/wireless/sysfs.c
-+++ b/net/wireless/sysfs.c
-@@ -33,7 +33,7 @@ static ssize_t _show_permaddr(struct device *dev,
- 			      struct device_attribute *attr,
- 			      char *buf)
- {
--	char *addr = dev_to_rdev(dev)->wiphy.perm_addr;
-+	unsigned char *addr = dev_to_rdev(dev)->wiphy.perm_addr;
+diff --git a/net/mac80211/rc80211_simple.c b/net/mac80211/rc80211_simple.c
+index 2048cfd..5ae7fc4 100644
+--- a/net/mac80211/rc80211_simple.c
++++ b/net/mac80211/rc80211_simple.c
+@@ -283,14 +283,16 @@ static void rate_control_simple_rate_init(void *priv, void *priv_sta,
+ 	int i;
+ 	sta->txrate = 0;
+ 	mode = local->oper_hw_mode;
+-	/* TODO: what is a good starting rate for STA? About middle? Maybe not
+-	 * the lowest or the highest rate.. Could consider using RSSI from
+-	 * previous packets? Need to have IEEE 802.1X auth succeed immediately
+-	 * after assoc.. */
++	/* TODO: This routine should consider using RSSI from previous packets
++	 * as we need to have IEEE 802.1X auth succeed immediately after assoc..
++	 * Until that method is implemented, we will use the lowest supported rate
++	 * as a workaround, */
+ 	for (i = 0; i < mode->num_rates; i++) {
+ 		if ((sta->supp_rates & BIT(i)) &&
+-		    (mode->rates[i].flags & IEEE80211_RATE_SUPPORTED))
++		    (mode->rates[i].flags & IEEE80211_RATE_SUPPORTED)) {
+ 			sta->txrate = i;
++			break;
++		}
+ 	}
+ }
  
- 	return sprintf(buf, "%.2x:%.2x:%.2x:%.2x:%.2x:%.2x\n",
- 		       addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
 -- 
 1.5.0.6
 
 -- 
 John W. Linville
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+linville@tuxdriver.com
