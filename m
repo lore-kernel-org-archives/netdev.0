@@ -1,64 +1,92 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] NET: Multiqueue network device support.
-Date: Tue, 12 Jun 2007 14:26:58 -0700 (PDT)
-Message-ID: <20070612.142658.45082832.davem@davemloft.net>
-References: <20070612.140240.00078635.davem@davemloft.net>
-	<466F0C92.5080306@garzik.org>
-	<466F0D78.7090404@candelatech.com>
+Subject: Re: TCP_MD5 and Intel e1000
+Date: Tue, 12 Jun 2007 14:39:11 -0700 (PDT)
+Message-ID: <20070612.143911.124443145.davem@davemloft.net>
+References: <20070522105738.f03cb83b.dada1@cosmosbay.com>
+	<20070522.183647.75785266.yoshfuji@linux-ipv6.org>
+	<20070522.031432.08079709.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org, kaber@trash.net,
-	hadi@cyberus.ca, peter.p.waskiewicz.jr@intel.com,
-	auke-jan.h.kok@intel.com
-To: greearb@candelatech.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37795
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751966AbXFLV0n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jun 2007 17:26:43 -0400
-In-Reply-To: <466F0D78.7090404@candelatech.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: dada1@cosmosbay.com, webmaster@poweraudio.de,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: yoshfuji@linux-ipv6.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755273AbXFLVjT@vger.kernel.org>
+In-Reply-To: <20070522.031432.08079709.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ben Greear <greearb@candelatech.com>
-Date: Tue, 12 Jun 2007 14:17:44 -0700
+From: David Miller <davem@davemloft.net>
+Date: Tue, 22 May 2007 03:14:32 -0700 (PDT)
 
-> Jeff Garzik wrote:
-> > 
-> > If hardware w/ multiple queues will the capability for different MAC 
-> > addresses, different RX filters, etc. does it make sense to add that 
-> > below the net_device level?
-> > 
-> > We will have to add all the configuration machinery at the per-queue 
-> > level that already exists at the per-netdev level.
+> From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
+> Date: Tue, 22 May 2007 18:36:47 +0900 (JST)
 > 
-> Perhaps the mac-vlan patch would be a good fit.  Currently it is all
-> software based, but if the hardware can filter on MAC, it can basically
-> do mac-vlan acceleration.  The mac-vlan devices are just like 'real' ethernet
-> devices, so they can be used with whatever schemes work with regular devices.
+> > In article <20070522105738.f03cb83b.dada1@cosmosbay.com> (at Tue, 22 May 2007 10:57:38 +0200), Eric Dumazet <dada1@cosmosbay.com> says:
+> > 
+> > > > I have tried to set up quagga with tcp-md5 support from kernel. All seems ok
+> > > > with a intel e100 NIC, but as i testetd with a intel e1000 NIC the tcp
+> > > > packets have an invalid md5 digest.
+> > > > If i run tcpdump on the mashine the packets are generated, it shows on the
+> > > > outgoing interface invalid md5 digests.
+> > > > Are there known issues about tcp-md5 and e1000 NICs?
+> > :
+> > > You could try "ethtool -K tx off", and/or other ethtool -K settings
+> > 
+> > Disabling offloading should help; currently tcp-md5 stack
+> > blindly copy md5-signature from the first segment
+> > which is not appropriate for rest of segments.
+> 
+> It is clear we should disable TSO for sockets making use of TCP-MD5.
 
-Interesting.
+I'm going to fix this as follows:
 
-But to answer Jeff's question, that's not really the model being
-used to implement multiple queues.
+commit 3d7dbeac58d0669c37e35a3b91bb41c0146395ce
+Author: David S. Miller <davem@sunset.davemloft.net>
+Date:   Tue Jun 12 14:36:42 2007 -0700
 
-The MAC is still very much centralized in most designs.
+    [TCP]: Disable TSO if MD5SIG is enabled.
+    
+    Signed-off-by: David S. Miller <davem@davemloft.net>
 
-So one way they'll do it is to support assigning N MAC addresses,
-and you configure the input filters of the chip to push packets
-for each MAC to the proper receive queue.
-
-So the MAC will accept any of those in the N MAC addresses as
-it's own, then you use the filtering facilities to steer
-frames to the correct RX queue.
-
-The TX and RX queues can be so isolated as to be able to be exported
-to virtualization nodes.  You can give them full access to the DMA
-queues and assosciated mailboxes.  So instead of all of this bogus
-virtualized device overhead, you just give the guest access to the
-real device.
-
-So you can use multiple queues either for better single node SMP
-performance, or better virtualization performance.
-
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 97e294e..354721d 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -878,6 +878,7 @@ int tcp_v4_md5_do_add(struct sock *sk, __be32 addr,
+ 				kfree(newkey);
+ 				return -ENOMEM;
+ 			}
++			sk->sk_route_caps &= ~NETIF_F_GSO_MASK;
+ 		}
+ 		if (tcp_alloc_md5sig_pool() == NULL) {
+ 			kfree(newkey);
+@@ -1007,7 +1008,7 @@ static int tcp_v4_parse_md5_keys(struct sock *sk, char __user *optval,
+ 			return -EINVAL;
+ 
+ 		tp->md5sig_info = p;
+-
++		sk->sk_route_caps &= ~NETIF_F_GSO_MASK;
+ 	}
+ 
+ 	newkey = kmemdup(cmd.tcpm_key, cmd.tcpm_keylen, GFP_KERNEL);
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 4f06a51..193d9d6 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -590,6 +590,7 @@ static int tcp_v6_md5_do_add(struct sock *sk, struct in6_addr *peer,
+ 				kfree(newkey);
+ 				return -ENOMEM;
+ 			}
++			sk->sk_route_caps &= ~NETIF_F_GSO_MASK;
+ 		}
+ 		tcp_alloc_md5sig_pool();
+ 		if (tp->md5sig_info->alloced6 == tp->md5sig_info->entries6) {
+@@ -724,6 +725,7 @@ static int tcp_v6_parse_md5_keys (struct sock *sk, char __user *optval,
+ 			return -ENOMEM;
+ 
+ 		tp->md5sig_info = p;
++		sk->sk_route_caps &= ~NETIF_F_GSO_MASK;
+ 	}
+ 
+ 	newkey = kmemdup(cmd.tcpm_key, cmd.tcpm_keylen, GFP_KERNEL);
