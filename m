@@ -1,53 +1,60 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: [PATCH net-2.6 1/1] [TCP]: Fix left_out setting during FRTO
-Date: Tue, 12 Jun 2007 11:50:29 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0706121147020.22843@kivilampi-30.cs.helsinki.fi>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] NET: Multiqueue network device support.
+Date: Tue, 12 Jun 2007 11:19:57 +0200
+Message-ID: <1181639998.29767.59.camel@johannes.berg>
+References: <D5C1322C3E673F459512FB59E0DDC32902F91748@orsmsx414.amr.corp.intel.com>
+	 <1181082517.4062.31.camel@localhost>  <4666CEB7.6030804@trash.net>
+	 <1181168020.4064.46.camel@localhost>  <466D38CF.9060709@trash.net>
+	 <1181564611.4043.220.camel@localhost>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-634505766-1181638229=:22843"
-Cc: Netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-u2KMVWGaoFH5YxePNudJ"
+Cc: Patrick McHardy <kaber@trash.net>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	davem@davemloft.net, netdev@vger.kernel.org, jeff@garzik.org,
+	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:45236 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750775AbXFLIub (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jun 2007 04:50:31 -0400
+Received: from crystal.sipsolutions.net ([195.210.38.204]:49028 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751216AbXFLJTs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jun 2007 05:19:48 -0400
+In-Reply-To: <1181564611.4043.220.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
 
----696243703-634505766-1181638229=:22843
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
+--=-u2KMVWGaoFH5YxePNudJ
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-Without FRTO, the tcp_try_to_open is never called with
-lost_out > 0 (see tcp_time_to_recover). However, when FRTO is
-enabled, the !tp->lost condition is not used until end of FRTO
-because that way TCP avoids premature entry to fast recovery
-during FRTO.
+On Mon, 2007-06-11 at 08:23 -0400, jamal wrote:
+> On Mon, 2007-11-06 at 13:58 +0200, Patrick McHardy wrote:
+>=20
+> > Thats not true. Assume PSL has lots of packets, PSH is empty. We
+> > fill the PHL queue until their is no room left, so the driver
+> > has to stop the queue.=20
+>=20
+> Sure. Packets stashed on the any DMA ring are considered "gone to the
+> wire". That is a very valid assumption to make.
 
-Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
----
+Not at all! Packets could be on the DMA queue forever if you're feeding
+out more packets. Heck, on most wireless hardware packets can even be
+*expired* from the DMA queue and you get an indication that it was
+impossible to send them.
 
-This case was found during left_out drop audit (only relevant to
-net-2.6 since tcp-2.6 does a right thing after left_out drop).
+johannes
 
+--=-u2KMVWGaoFH5YxePNudJ
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 74683d8..ed4a1bd 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -2037,7 +2037,7 @@ static void tcp_try_to_open(struct sock *sk, int flag)
- {
- 	struct tcp_sock *tp = tcp_sk(sk);
- 
--	tp->left_out = tp->sacked_out;
-+	tcp_sync_left_out(tp);
- 
- 	if (tp->retrans_out == 0)
- 		tp->retrans_stamp = 0;
--- 
-1.5.0.6
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
 
----696243703-634505766-1181638229=:22843--
+iD8DBQBGbmU9/ETPhpq3jKURAkYIAJ9o0euf6Fm9zFdWUiZwYXae+OCtLACffkzk
+oP9QUkfNtjJeX75JMHQ6AtY=
+=0UcE
+-----END PGP SIGNATURE-----
+
+--=-u2KMVWGaoFH5YxePNudJ--
+
