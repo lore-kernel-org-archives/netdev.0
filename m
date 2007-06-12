@@ -1,94 +1,86 @@
-From: "Cohen, Guy" <guy.cohen@intel.com>
-Subject: RE: [PATCH] NET: Multiqueue network device support.
-Date: Tue, 12 Jun 2007 17:04:19 +0300
-Message-ID: <D0122E209EBF8D4CAB38EC6A8AF244E502AB31CF@hasmsx412.ger.corp.intel.com>
-References: <1181600536.4071.55.camel@localhost>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: cannot set IP for ethernet
+Date: Tue, 12 Jun 2007 16:06:25 +0200
+Message-ID: <466EA861.2070509@trash.net>
+References: <200706121441.13561.oliver@neukum.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Patrick McHardy" <kaber@trash.net>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	<davem@davemloft.net>, <netdev@vger.kernel.org>, <jeff@garzik.org>,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>
-To: <hadi@cyberus.ca>
+Content-Type: multipart/mixed;
+ boundary="------------020208040209090108060507"
+Cc: linux-kernel@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Oliver Neukum <oliver@neukum.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:46714 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753301AbXFLOEd convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jun 2007 10:04:33 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <1181600536.4071.55.camel@localhost>
+Received: from stinky.trash.net ([213.144.137.162]:37019 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751450AbXFLOJS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jun 2007 10:09:18 -0400
+In-Reply-To: <200706121441.13561.oliver@neukum.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+This is a multi-part message in MIME format.
+--------------020208040209090108060507
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
 
-Hi Jamal,
-
-Here is a simple scenario (nothing here is rare of extreme case):
-- Busy wireless environment
-- FTP TX on BE queue (low priority)
-- Skype TX on VO queue (high priority)
-
-The channel is busy with high priority packets hence the BE packets are
-transmitted to the air rarely so the DMA/HW queue of the BE access
-category gets full and the qdisc is stopped.
-Now periodic VO-tagged Skype packets arrive. I would expect that they
-get the priority (and pass) in all stages of the stack and reach the HW
-ASAP and compete there on the medium with the other access categories
-and the other clients on the channel.
-Now this packet will be stuck in the qdisc and wait there until a BE
-packet is transmitted, which can take a long time. This is a real
-problem.
-
-There is also a problem with the queues that will be dedicated to TX
-aggregation in 11n (currently implemented) - the packets will be
-classified to queues by the destination MAC address and not only by the
-priority class, but I don't want to get into that now. I think that
-there are enough arguments now why the patch that started this thread is
-needed...
-
-Please see below some replies to your questions.
-
-Regards,
-Guy.
+Oliver Neukum wrote:
+> with 2.6.22-rc4-git2 I am getting errors when setting IP for ethernet
+> interfaces:
+> 
+> ioctl(4, SIOCSIFADDR, 0x7fff94931600)   = -1 ENOBUFS (No buffer space available)
+> 
+> The error is independant of the interface. It happens to all interfaces.
+> There's nothing in the syslog.
+> 
+> valisk:/home/oliver # uname -a
+> Linux valisk 2.6.22-rc4-git2-default #3 SMP Tue Jun 12 13:27:54 CEST 2007 x86_64 x86_64 x86_64 GNU/Linux
 
 
-jamal wrote:
-> It could be estimated well by the host sw; but lets defer that to
-later
-> in case i am clueless on something or you misunderstood something i
-> said.
+This can happen if the initial inetdev allocation when the netdevice is
+registered fails. I think it would make sense to try to allocate again
+when adding addresses in that case, otherwise there is no way of
+recovery other than unregistering and registering the device again.
 
-It cannot be estimated well by the host SW. This is one of the main
-issues - we can't put it aside...
 
-> I understand.  Please correct me if am wrong:
-> The only reason AC_BK packet will go out instead of AC_VO when
-> contending in hardware is because of a statistical opportunity not the
-> firmware intentionaly trying to allow AC_BK out
-> i.e it is influenced by the three variables:
-> 1) The contention window 2) the backoff timer and 3)the tx opportunity
-> And if you look at the default IEEE parameters as in that url slide
-43,
-> the only time AC_BK will win is luck.
+--------------020208040209090108060507
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
 
-In most scenarios BK packets will be transmitted and will win the medium
-against VO packets (thought, in some non-favored ratio).
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index abf6352..dc77e91 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -401,8 +401,11 @@ static int inet_set_ifa(struct net_device *dev, struct in_ifaddr *ifa)
+ 	ASSERT_RTNL();
+ 
+ 	if (!in_dev) {
+-		inet_free_ifa(ifa);
+-		return -ENOBUFS;
++		in_dev = inetdev_init(dev);
++		if (!in_dev) {
++			inet_free_ifa(ifa);
++			return -ENOBUFS;
++		}
+ 	}
+ 	ipv4_devconf_setall(in_dev);
+ 	if (ifa->ifa_dev != in_dev) {
+@@ -514,8 +517,11 @@ static struct in_ifaddr *rtm_to_ifaddr(struct nlmsghdr *nlh)
+ 
+ 	in_dev = __in_dev_get_rtnl(dev);
+ 	if (in_dev == NULL) {
+-		err = -ENOBUFS;
+-		goto errout;
++		in_dev = inetdev_init(dev);
++		if (!in_dev) {
++			err = -ENOBUFS;
++			goto errout;
++		}
+ 	}
+ 
+ 	ipv4_devconf_setall(in_dev);
 
-> Heres a really dated paper before the standard was ratified:
-> http://www.mwnl.snu.ac.kr/~schoi/publication/Conferences/02-EW.pdf
-
-Sorry, I'm really overloaded - I won't be able to review the docs you
-sent (really apologize for that).
-
-> So essentially the test you mention changes priorities in real time.
-> What is the purpose of this test? Is WMM expected to change its
-> priorities in real time?
-
-The WMM parameters of the AC are set and controlled by the network/BSS
-(access point) administrator and can be used in anyway. There are the
-default parameters but they can be changed.
-
-Regards,
-Guy.
+--------------020208040209090108060507--
