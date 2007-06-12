@@ -1,52 +1,44 @@
-From: Jason Lunz <lunz@falooley.org>
+From: Ben Greear <greearb@candelatech.com>
 Subject: Re: [PATCH] NET: Multiqueue network device support.
-Date: Tue, 12 Jun 2007 17:47:53 -0400
-Message-ID: <20070612214753.GB27363@metaxa.reflex>
-References: <20070612.140240.00078635.davem@davemloft.net> <466F0C92.5080306@garzik.org> <466F0D78.7090404@candelatech.com> <20070612.142658.45082832.davem@davemloft.net>
+Date: Tue, 12 Jun 2007 15:40:32 -0700
+Message-ID: <466F20E0.8010901@candelatech.com>
+References: <20070612.140240.00078635.davem@davemloft.net>	<466F0C92.5080306@garzik.org>	<466F0D78.7090404@candelatech.com> <20070612.142658.45082832.davem@davemloft.net> <466F144A.3070809@candelatech.com> <466F1E6D.8070401@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: greearb@candelatech.com, jeff@garzik.org, netdev@vger.kernel.org,
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
 	kaber@trash.net, hadi@cyberus.ca, peter.p.waskiewicz.jr@intel.com,
 	auke-jan.h.kok@intel.com
-To: David Miller <davem@davemloft.net>
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crown.reflexsecurity.com ([72.54.139.163]:35464 "EHLO
-	crown.reflexsecurity.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750747AbXFLWgb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jun 2007 18:36:31 -0400
-Content-Disposition: inline
-In-Reply-To: <20070612.142658.45082832.davem@davemloft.net>
+Received: from ns2.lanforge.com ([66.165.47.211]:49862 "EHLO ns2.lanforge.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752910AbXFLWk6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Jun 2007 18:40:58 -0400
+In-Reply-To: <466F1E6D.8070401@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 12, 2007 at 02:26:58PM -0700, David Miller wrote:
-> The MAC is still very much centralized in most designs.
+Jeff Garzik wrote:
+> Ben Greear wrote:
+>> That sounds plausible for many uses, but it may also be useful to have
+>> the virtual devices.  Having 802.1Q VLANs be 'real' devices has worked 
+>> out
+>> quite well, so I think there is a place for a 'mac-vlan' as well.
 > 
-> So one way they'll do it is to support assigning N MAC addresses,
-> and you configure the input filters of the chip to push packets
-> for each MAC to the proper receive queue.
-> 
-> So the MAC will accept any of those in the N MAC addresses as
-> it's own, then you use the filtering facilities to steer
-> frames to the correct RX queue.
-> 
-> The TX and RX queues can be so isolated as to be able to be exported
-> to virtualization nodes.  You can give them full access to the DMA
-> queues and assosciated mailboxes.  So instead of all of this bogus
-> virtualized device overhead, you just give the guest access to the
-> real device.
-> 
-> So you can use multiple queues either for better single node SMP
-> performance, or better virtualization performance.
+> Virtual devices are pretty much the only solution we have right now, 
+> both in terms of available control points, and in terms of mapping to 
+> similar existing solutions (like wireless and its multiple net devices).
 
-Are you aware of any hardware designs that allow other ways to map
-packets onto rx queues?  I can think of several scenarios where it could
-be advantageous to map packets by IP 3- or 5-tuple to get cpu locality
-all the way up the stack on a flow-by-flow basis. But doing this would
-require some way to request this mapping from the hardware.
+I believe Patrick is working on cleaning up mac-vlans and converting them
+to use the new netlink configuration API, so there should be a patch for
+these hitting the list shortly.
 
-In the extreme case it would be cool if it were possible to push a
-bpf-like classifier down into the hardware to allow arbitrary kinds of
-flow distribution.
+Thanks,
+Ben
 
-Jason
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
+
