@@ -1,52 +1,67 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] NET: Multiqueue network device support.
-Date: Tue, 12 Jun 2007 08:17:42 -0400
-Message-ID: <1181650662.4060.72.camel@localhost>
-References: <D5C1322C3E673F459512FB59E0DDC32902F91748@orsmsx414.amr.corp.intel.com>
-	 <1181082517.4062.31.camel@localhost>  <4666CEB7.6030804@trash.net>
-	 <1181168020.4064.46.camel@localhost>  <466D38CF.9060709@trash.net>
-	 <1181564611.4043.220.camel@localhost>
-	 <1181639998.29767.59.camel@johannes.berg>
-Reply-To: hadi@cyberus.ca
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [PATCH][RFC] network splice receive
+Date: Tue, 12 Jun 2007 16:35:41 +0400
+Message-ID: <20070612123540.GB16477@2ka.mipt.ru>
+References: <20070608083853.GH7341@kernel.dk> <20070608085620.GC11488@2ka.mipt.ru> <20070608090439.GK7341@kernel.dk> <20070608135819.GA14302@2ka.mipt.ru> <20070608141452.GR7341@kernel.dk> <20070608145724.GA14561@2ka.mipt.ru> <20070608153011.GA2375@2ka.mipt.ru> <20070609063608.GX7341@kernel.dk> <20070612112950.GA16477@2ka.mipt.ru> <20070612113352.GA18832@kernel.dk>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	davem@davemloft.net, netdev@vger.kernel.org, jeff@garzik.org,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>
-To: Johannes Berg <johannes@sipsolutions.net>
+Content-Type: text/plain; charset=koi8-r
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Jens Axboe <jens.axboe@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.227]:21695 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753070AbXFLMRs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jun 2007 08:17:48 -0400
-Received: by wx-out-0506.google.com with SMTP id t15so1768826wxc
-        for <netdev@vger.kernel.org>; Tue, 12 Jun 2007 05:17:47 -0700 (PDT)
-In-Reply-To: <1181639998.29767.59.camel@johannes.berg>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:50136 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751614AbXFLMgJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Jun 2007 08:36:09 -0400
+Content-Disposition: inline
+In-Reply-To: <20070612113352.GA18832@kernel.dk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2007-12-06 at 11:19 +0200, Johannes Berg wrote:
-> On Mon, 2007-06-11 at 08:23 -0400, jamal wrote:
-
-> > Sure. Packets stashed on the any DMA ring are considered "gone to the
-> > wire". That is a very valid assumption to make.
+On Tue, Jun 12, 2007 at 01:33:54PM +0200, Jens Axboe (jens.axboe@oracle.com) wrote:
+> > I had a crashdump, where page was released via splice_to_pipe() indeed,
+> > I did not investigate if it is possible to release provided page in
+> > other places. I think if in future there will other slab usage cases
+> > except networking receiving, that might be useful, but as is it is not
+> > needed.
 > 
-> Not at all! Packets could be on the DMA queue forever if you're feeding
-> out more packets. Heck, on most wireless hardware packets can even be
-> *expired* from the DMA queue and you get an indication that it was
-> impossible to send them.
+> Read the just posted code, it has moved way beyond this :-)
 
-The spirit of the discussion you are quoting was much higher level than
-that. Yes what you describe can happen on any DMA (to hard-disk etc)
-A simpler example, if you tcpdump on an outgoing packet you see it on
-its way to the driver - it is accounted for as "gone"[1].
-In any case, read the rest of the thread.
+It is just a side result of traditional optimization technique called 
+"vim ':%s/page_cache_release/splice_page_release'" :)
 
-cheers,
-jamal
+> > > > and putting cloned skb into private field instead of 
+> > > > original on in spd_fill_page() ends up without kernel hung.
+> > > 
+> > > Why? Seems pointless to allocate a clone just to hold on to the skb, a
+> > > reference should be equally good. I would not be opposed to doing it
+> > > this way, I just don't see what a clone buys us as compared to just
+> > > holding that reference to the skb.
+> > 
+> > Receiving code does not expect shared skbs - too many fields are changed
+> > with assumptions that it is a private copy.
+> 
+> Actually the main problem is that tcp_read_sock() unconditionally frees
+> the skb, so it wouldn't help if we grabbed a reference to it. I've yet
+> to receive an explanation of why it does so, seem awkward and violates
+> the whole principle of reference counted objects. Davem??
+> 
+> So for now, skb_splice_bits() clones the incoming skb to avoid that. I'd
+> hope we can get rid of that by fixing tcp_read_sock(), though.
 
-[1] Current Linux tcpdumping is not that accurate, but i dont wanna go
-into that discussion
+It does that because it knows, that skb is not allowed to be shared
+there. Similar things are being done in udp for example - code changes
+internal mebers of skb, since it knows skb is not shared.
 
+For example generic_make_request() is not allowed to change, say, 
+bio->bi_sector or bi_destructor, since it does not own a block request, 
+not matter what bi_cnt is. From another side, ->bi_destructor() can do
+whatever it wants with bio without any check for its reference counter.
+
+According to sk_eat_skb() - it is an optimisation to remove atomic
+check.
+
+> -- 
+> Jens Axboe
+
+-- 
+	Evgeniy Polyakov
