@@ -1,11 +1,10 @@
 From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: [PATCH] pktgen IPSEC 3/4: Introduce xfrm SAD only lookup
-Date: Tue, 12 Jun 2007 15:30:15 +0200
-Message-ID: <18030.40935.850541.752953@robur.slu.se>
+Subject: [PATCH] pktgen IPSEC 1/4: Centralize pktgen packet overhead
+	management
+Date: Tue, 12 Jun 2007 15:21:41 +0200
+Message-ID: <18030.40421.282283.107921@robur.slu.se>
 References: <1181649373.4060.50.camel@localhost>
 	<1181649628.4060.54.camel@localhost>
-	<1181649715.4060.56.camel@localhost>
-	<1181649791.4060.59.camel@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -15,92 +14,126 @@ Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
 	netdev@vger.kernel.org, James Morris <jmorris@namei.org>
 To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.slu.se ([130.238.96.70]:56849 "EHLO mx1.slu.se"
+Received: from mx1.slu.se ([130.238.96.70]:56961 "EHLO mx1.slu.se"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754787AbXFLNiZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Jun 2007 09:38:25 -0400
-In-Reply-To: <1181649791.4060.59.camel@localhost>
+	id S1756061AbXFLNnI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Jun 2007 09:43:08 -0400
+In-Reply-To: <1181649628.4060.54.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
 jamal writes:
- > 3 of 4 ..
+ > Manual labor still ... 1 of 4
 
- >     [XFRM] Introduce standalone SAD lookup
- >     This allows other in-kernel functions to do SAD lookups.
- >     The only known user at the moment is pktgen.
+ >     [PKTGEN] Centralize packet overhead tracking
+ >     Track the extra packet overhead for VLAN tags, MPLS, IPSEC etc
  >     
  >     Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
- 
 
- xfrm is not my area..... 
 
- Acked-by: Robert Olsson <robert.olsson@its.uu.se>
+       Thanks, Jamal.
 
- Cheers
+       I'll guess the ipsec part is to be considered work-in-progress
+       and you're doing both the work and the progress.
+  
+       Signed-off-by: Robert Olsson <robert.olsson@its.uu.se>
+
+       Cheers
 					--ro
 
-
- > 
- > diff --git a/include/net/xfrm.h b/include/net/xfrm.h
- > index 311f25a..79d2c37 100644
- > --- a/include/net/xfrm.h
- > +++ b/include/net/xfrm.h
- > @@ -920,6 +920,10 @@ extern struct xfrm_state *xfrm_state_find(xfrm_address_t *daddr, xfrm_address_t
- >  					  struct flowi *fl, struct xfrm_tmpl *tmpl,
- >  					  struct xfrm_policy *pol, int *err,
- >  					  unsigned short family);
- > +extern struct xfrm_state * xfrm_stateonly_find(xfrm_address_t *daddr,
- > +					       xfrm_address_t *saddr,
- > +					       unsigned short family,
- > +					       u8 mode, u8 proto, u32 reqid);
- >  extern int xfrm_state_check_expire(struct xfrm_state *x);
- >  extern void xfrm_state_insert(struct xfrm_state *x);
- >  extern int xfrm_state_add(struct xfrm_state *x);
- > diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
- > index 85f3f43..b8562e4 100644
- > --- a/net/xfrm/xfrm_state.c
- > +++ b/net/xfrm/xfrm_state.c
- > @@ -686,6 +686,41 @@ out:
- >  	return x;
+ 
+ > diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+ > index 9cd3a1c..1352316 100644
+ > --- a/net/core/pktgen.c
+ > +++ b/net/core/pktgen.c
+ > @@ -228,6 +228,7 @@ struct pktgen_dev {
+ >  
+ >  	int min_pkt_size;	/* = ETH_ZLEN; */
+ >  	int max_pkt_size;	/* = ETH_ZLEN; */
+ > +	int pkt_overhead;	/* overhead for MPLS, VLANs, IPSEC etc */
+ >  	int nfrags;
+ >  	__u32 delay_us;		/* Default delay */
+ >  	__u32 delay_ns;
+ > @@ -2075,6 +2076,13 @@ static void spin(struct pktgen_dev *pkt_dev, __u64 spin_until_us)
+ >  	pkt_dev->idle_acc += now - start;
  >  }
  >  
- > +struct xfrm_state *
- > +xfrm_stateonly_find(xfrm_address_t *daddr, xfrm_address_t *saddr,
- > +		    unsigned short family, u8 mode, u8 proto, u32 reqid)
+ > +static inline void set_pkt_overhead(struct pktgen_dev *pkt_dev)
  > +{
- > +	unsigned int h = xfrm_dst_hash(daddr, saddr, reqid, family);
- > +	struct xfrm_state *rx = NULL, *x = NULL;
- > +	struct hlist_node *entry;
- > +
- > +	spin_lock(&xfrm_state_lock);
- > +	hlist_for_each_entry(x, entry, xfrm_state_bydst+h, bydst) {
- > +		if (x->props.family == family &&
- > +		    x->props.reqid == reqid &&
- > +		    !(x->props.flags & XFRM_STATE_WILDRECV) &&
- > +		    xfrm_state_addr_check(x, daddr, saddr, family) &&
- > +		    mode == x->props.mode &&
- > +		    proto == x->id.proto)  {
- > +
- > +			if (x->km.state != XFRM_STATE_VALID)
- > +					continue;
- > +			else {
- > +				rx = x;
- > +				break;
- > +			}
- > +		}
- > +	}
- > +
- > +	if (rx)
- > +		xfrm_state_hold(rx);
- > +	spin_unlock(&xfrm_state_lock);
- > +
- > +
- > +	return rx;
+ > +	pkt_dev->pkt_overhead += pkt_dev->nr_labels*sizeof(u32);
+ > +	pkt_dev->pkt_overhead += VLAN_TAG_SIZE(pkt_dev);
+ > +	pkt_dev->pkt_overhead += SVLAN_TAG_SIZE(pkt_dev);
  > +}
- > +EXPORT_SYMBOL(xfrm_stateonly_find);
  > +
- >  static void __xfrm_state_insert(struct xfrm_state *x)
- >  {
- >  	unsigned int h;
+ >  /* Increment/randomize headers according to flags and current values
+ >   * for IP src/dest, UDP src/dst port, MAC-Addr src/dst
+ >   */
+ > @@ -2323,9 +2331,7 @@ static struct sk_buff *fill_packet_ipv4(struct net_device *odev,
+ >  
+ >  	datalen = (odev->hard_header_len + 16) & ~0xf;
+ >  	skb = alloc_skb(pkt_dev->cur_pkt_size + 64 + datalen +
+ > -			pkt_dev->nr_labels*sizeof(u32) +
+ > -			VLAN_TAG_SIZE(pkt_dev) + SVLAN_TAG_SIZE(pkt_dev),
+ > -			GFP_ATOMIC);
+ > +			pkt_dev->pkt_overhead, GFP_ATOMIC);
+ >  	if (!skb) {
+ >  		sprintf(pkt_dev->result, "No memory");
+ >  		return NULL;
+ > @@ -2368,7 +2374,7 @@ static struct sk_buff *fill_packet_ipv4(struct net_device *odev,
+ >  
+ >  	/* Eth + IPh + UDPh + mpls */
+ >  	datalen = pkt_dev->cur_pkt_size - 14 - 20 - 8 -
+ > -		  pkt_dev->nr_labels*sizeof(u32) - VLAN_TAG_SIZE(pkt_dev) - SVLAN_TAG_SIZE(pkt_dev);
+ > +		  pkt_dev->pkt_overhead;
+ >  	if (datalen < sizeof(struct pktgen_hdr))
+ >  		datalen = sizeof(struct pktgen_hdr);
+ >  
+ > @@ -2391,8 +2397,7 @@ static struct sk_buff *fill_packet_ipv4(struct net_device *odev,
+ >  	iph->check = ip_fast_csum((void *)iph, iph->ihl);
+ >  	skb->protocol = protocol;
+ >  	skb->mac_header = (skb->network_header - ETH_HLEN -
+ > -			   pkt_dev->nr_labels * sizeof(u32) -
+ > -			   VLAN_TAG_SIZE(pkt_dev) - SVLAN_TAG_SIZE(pkt_dev));
+ > +			   pkt_dev->pkt_overhead);
+ >  	skb->dev = odev;
+ >  	skb->pkt_type = PACKET_HOST;
+ >  
+ > @@ -2662,9 +2667,7 @@ static struct sk_buff *fill_packet_ipv6(struct net_device *odev,
+ >  	mod_cur_headers(pkt_dev);
+ >  
+ >  	skb = alloc_skb(pkt_dev->cur_pkt_size + 64 + 16 +
+ > -			pkt_dev->nr_labels*sizeof(u32) +
+ > -			VLAN_TAG_SIZE(pkt_dev) + SVLAN_TAG_SIZE(pkt_dev),
+ > -			GFP_ATOMIC);
+ > +			pkt_dev->pkt_overhead, GFP_ATOMIC);
+ >  	if (!skb) {
+ >  		sprintf(pkt_dev->result, "No memory");
+ >  		return NULL;
+ > @@ -2708,7 +2711,7 @@ static struct sk_buff *fill_packet_ipv6(struct net_device *odev,
+ >  	/* Eth + IPh + UDPh + mpls */
+ >  	datalen = pkt_dev->cur_pkt_size - 14 -
+ >  		  sizeof(struct ipv6hdr) - sizeof(struct udphdr) -
+ > -		  pkt_dev->nr_labels*sizeof(u32) - VLAN_TAG_SIZE(pkt_dev) - SVLAN_TAG_SIZE(pkt_dev);
+ > +		  pkt_dev->pkt_overhead;
+ >  
+ >  	if (datalen < sizeof(struct pktgen_hdr)) {
+ >  		datalen = sizeof(struct pktgen_hdr);
+ > @@ -2738,8 +2741,7 @@ static struct sk_buff *fill_packet_ipv6(struct net_device *odev,
+ >  	ipv6_addr_copy(&iph->saddr, &pkt_dev->cur_in6_saddr);
+ >  
+ >  	skb->mac_header = (skb->network_header - ETH_HLEN -
+ > -			   pkt_dev->nr_labels * sizeof(u32) -
+ > -			   VLAN_TAG_SIZE(pkt_dev) - SVLAN_TAG_SIZE(pkt_dev));
+ > +			   pkt_dev->pkt_overhead);
+ >  	skb->protocol = protocol;
+ >  	skb->dev = odev;
+ >  	skb->pkt_type = PACKET_HOST;
+ > @@ -2857,6 +2859,7 @@ static void pktgen_run(struct pktgen_thread *t)
+ >  			pkt_dev->started_at = getCurUs();
+ >  			pkt_dev->next_tx_us = getCurUs();	/* Transmit immediately */
+ >  			pkt_dev->next_tx_ns = 0;
+ > +			set_pkt_overhead(pkt_dev);
+ >  
+ >  			strcpy(pkt_dev->result, "Starting");
+ >  			started++;
