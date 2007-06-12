@@ -1,78 +1,71 @@
 From: "John W. Linville" <linville@tuxdriver.com>
-Subject: [PATCH] mac80211: Add support for SIOCGIWRATE ioctl to provide rate information
-Date: Mon, 11 Jun 2007 21:23:19 -0400
-Message-ID: <20070612012319.GH20422@tuxdriver.com>
-References: <20070610.181704.73383002.davem@davemloft.net> <20070612012228.GG20422@tuxdriver.com>
+Subject: [PATCH] mac80211: Don't stop tx queue on master device while scanning.
+Date: Mon, 11 Jun 2007 21:18:43 -0400
+Message-ID: <20070612011843.GF20422@tuxdriver.com>
+References: <20070612011616.GC20422@tuxdriver.com> <20070612011716.GD20422@tuxdriver.com> <20070612011802.GE20422@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:2822 "EHLO ra.tuxdriver.com"
+Received: from ra.tuxdriver.com ([70.61.120.52]:2817 "EHLO ra.tuxdriver.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757336AbXFLBy4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Jun 2007 21:54:56 -0400
+	id S1757065AbXFLByt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Jun 2007 21:54:49 -0400
 Content-Disposition: inline
-In-Reply-To: <20070612012228.GG20422@tuxdriver.com>
+In-Reply-To: <20070612011802.GE20422@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Larry Finger <Larry.Finger@lwfinger.net>
+From: Mattias Nissler <mattias.nissler@gmx.de>
 
-At present, transmission rate information for mac80211 is available only
-if verbose debugging is turned on, and then only in the logs. This patch
-implements the SIOCGIWRATE ioctl, which adds the current transmission rate to
-the output of iwconfig.
+mac80211 stops the tx queues during scans. This is wrong with respect
+to the master deivce tx queue, since stopping it prevents any probes
+from being sent during the scan. Instead, they accumulate in the queue
+and are only sent after the scan is finished, which is obviously
+wrong.
 
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+Signed-off-by: Mattias Nissler <mattias.nissler@gmx.de>
 Signed-off-by: John W. Linville <linville@tuxdriver.com>
 ---
- net/mac80211/ieee80211_ioctl.c |   25 ++++++++++++++++++++++++-
- 1 files changed, 24 insertions(+), 1 deletions(-)
+ net/mac80211/ieee80211_sta.c |   12 ++++++++++++
+ 1 files changed, 12 insertions(+), 0 deletions(-)
 
-diff --git a/net/mac80211/ieee80211_ioctl.c b/net/mac80211/ieee80211_ioctl.c
-index 352f03b..66e8a97 100644
---- a/net/mac80211/ieee80211_ioctl.c
-+++ b/net/mac80211/ieee80211_ioctl.c
-@@ -838,6 +838,29 @@ static int ieee80211_ioctl_giwscan(struct net_device *dev,
- }
+diff --git a/net/mac80211/ieee80211_sta.c b/net/mac80211/ieee80211_sta.c
+index 9f30ae4..91b545c 100644
+--- a/net/mac80211/ieee80211_sta.c
++++ b/net/mac80211/ieee80211_sta.c
+@@ -2592,11 +2592,17 @@ void ieee80211_scan_completed(struct ieee80211_hw *hw)
  
+ 	read_lock(&local->sub_if_lock);
+ 	list_for_each_entry(sdata, &local->sub_if_list, list) {
++
++		/* No need to wake the master device. */
++		if (sdata->dev == local->mdev)
++			continue;
++
+ 		if (sdata->type == IEEE80211_IF_TYPE_STA) {
+ 			if (sdata->u.sta.associated)
+ 				ieee80211_send_nullfunc(local, sdata, 0);
+ 			ieee80211_sta_timer((unsigned long)sdata);
+ 		}
++
+ 		netif_wake_queue(sdata->dev);
+ 	}
+ 	read_unlock(&local->sub_if_lock);
+@@ -2738,6 +2744,12 @@ static int ieee80211_sta_start_scan(struct net_device *dev,
  
-+static int ieee80211_ioctl_giwrate(struct net_device *dev,
-+				  struct iw_request_info *info,
-+				  struct iw_param *rate, char *extra)
-+{
-+	struct ieee80211_local *local = wdev_priv(dev->ieee80211_ptr);
-+	struct sta_info *sta;
-+	struct ieee80211_sub_if_data *sdata;
+ 	read_lock(&local->sub_if_lock);
+ 	list_for_each_entry(sdata, &local->sub_if_list, list) {
 +
-+	sdata = IEEE80211_DEV_TO_SUB_IF(dev);
-+	if (sdata->type == IEEE80211_IF_TYPE_STA)
-+		sta = sta_info_get(local, sdata->u.sta.bssid);
-+	else
-+		return -EOPNOTSUPP;
-+	if (!sta)
-+		return -ENODEV;
-+	if (sta->txrate < local->oper_hw_mode->num_rates)
-+		rate->value = local->oper_hw_mode->rates[sta->txrate].rate * 100000;
-+	else
-+		rate->value = 0;
-+	sta_info_put(sta);
-+	return 0;
-+}
++		/* Don't stop the master interface, otherwise we can't transmit
++		 * probes! */
++		if (sdata->dev == local->mdev)
++			continue;
 +
- static int ieee80211_ioctl_siwrts(struct net_device *dev,
- 				  struct iw_request_info *info,
- 				  struct iw_param *rts, char *extra)
-@@ -1779,7 +1802,7 @@ static const iw_handler ieee80211_handler[] =
- 	(iw_handler) NULL,				/* -- hole -- */
- 	(iw_handler) NULL,				/* -- hole -- */
- 	(iw_handler) NULL,				/* SIOCSIWRATE */
--	(iw_handler) NULL,				/* SIOCGIWRATE */
-+	(iw_handler) ieee80211_ioctl_giwrate,		/* SIOCGIWRATE */
- 	(iw_handler) ieee80211_ioctl_siwrts,		/* SIOCSIWRTS */
- 	(iw_handler) ieee80211_ioctl_giwrts,		/* SIOCGIWRTS */
- 	(iw_handler) ieee80211_ioctl_siwfrag,		/* SIOCSIWFRAG */
+ 		netif_stop_queue(sdata->dev);
+ 		if (sdata->type == IEEE80211_IF_TYPE_STA &&
+ 		    sdata->u.sta.associated)
 -- 
 1.5.0.6
 
