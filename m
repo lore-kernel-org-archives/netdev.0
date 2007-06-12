@@ -1,48 +1,46 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: [PATCH] mac80211: fix debugfs tx power reduction output
-Date: Mon, 11 Jun 2007 21:18:02 -0400
-Message-ID: <20070612011802.GE20422@tuxdriver.com>
-References: <20070612011616.GC20422@tuxdriver.com> <20070612011716.GD20422@tuxdriver.com>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: [PATCH] cfg80211: fix signed macaddress in sysfs
+Date: Mon, 11 Jun 2007 21:17:16 -0400
+Message-ID: <20070612011716.GD20422@tuxdriver.com>
+References: <20070612011616.GC20422@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:4167 "EHLO ra.tuxdriver.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756839AbXFLByn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Jun 2007 21:54:43 -0400
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20070612011716.GD20422@tuxdriver.com>
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <20070612011616.GC20422-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Johannes Berg <johannes@sipsolutions.net>
+From: David Lamparter <lists-cEeocvCgqOOsTnJN9+BGXg@public.gmane.org>
 
-This patch fixes a typo in mac80211's debugfs.c.
+Fix signedness mixup making mac addresses show up strangely
+(like 00:11:22:33:44:ffffffaa) in /sys/class/ieee80211/*/macaddress.
 
-Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
-Signed-off-by: John W. Linville <linville@tuxdriver.com>
+Signed-off-by: David Lamparter <equinox-cEeocvCgqOOsTnJN9+BGXg@public.gmane.org>
+Acked-by: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Signed-off-by: John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
 ---
- net/mac80211/debugfs.c |    2 +-
+ net/wireless/sysfs.c |    2 +-
  1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/net/mac80211/debugfs.c b/net/mac80211/debugfs.c
-index bb6c0fe..476c848 100644
---- a/net/mac80211/debugfs.c
-+++ b/net/mac80211/debugfs.c
-@@ -112,7 +112,7 @@ DEBUGFS_READONLY_FILE(wep_iv, 20, "%#06x",
- 		      local->wep_iv & 0xffffff);
- DEBUGFS_READONLY_FILE(tx_power_reduction, 20, "%d.%d dBm",
- 		      local->hw.conf.tx_power_reduction / 10,
--		      local->hw.conf.tx_power_reduction & 10);
-+		      local->hw.conf.tx_power_reduction % 10);
- DEBUGFS_READONLY_FILE(rate_ctrl_alg, 100, "%s",
- 		      local->rate_ctrl ? local->rate_ctrl->ops->name : "<unset>");
+diff --git a/net/wireless/sysfs.c b/net/wireless/sysfs.c
+index 3ebae14..88aaacd 100644
+--- a/net/wireless/sysfs.c
++++ b/net/wireless/sysfs.c
+@@ -33,7 +33,7 @@ static ssize_t _show_permaddr(struct device *dev,
+ 			      struct device_attribute *attr,
+ 			      char *buf)
+ {
+-	char *addr = dev_to_rdev(dev)->wiphy.perm_addr;
++	unsigned char *addr = dev_to_rdev(dev)->wiphy.perm_addr;
  
+ 	return sprintf(buf, "%.2x:%.2x:%.2x:%.2x:%.2x:%.2x\n",
+ 		       addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
 -- 
 1.5.0.6
 
 -- 
 John W. Linville
-linville@tuxdriver.com
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
