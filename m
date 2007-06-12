@@ -1,84 +1,96 @@
-From: linas@austin.ibm.com (Linas Vepstas)
-Subject: Re: [PATCH 0/15] spidernet driver bug fixes
-Date: Tue, 12 Jun 2007 18:32:37 -0500
-Message-ID: <20070612233237.GN4397@austin.ibm.com>
-References: <20070607191707.GA7904@austin.ibm.com> <1181265151.6026.1.camel@concordia.ozlabs.ibm.com> <20070608170608.GI7904@austin.ibm.com> <20070608172020.GA31089@havoc.gtf.org> <20070611181429.GA4397@austin.ibm.com> <466F2581.2080808@garzik.org>
+From: jamal <hadi@cyberus.ca>
+Subject: RE: [PATCH] NET: Multiqueue network device support.
+Date: Tue, 12 Jun 2007 19:38:30 -0400
+Message-ID: <1181691511.4085.84.camel@localhost>
+References: <D0122E209EBF8D4CAB38EC6A8AF244E502AB31CF@hasmsx412.ger.corp.intel.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Michael Ellerman <michael@ellerman.id.au>,
-	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
-	cbe-oss-dev@ozlabs.org
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Patrick McHardy <kaber@trash.net>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	davem@davemloft.net, netdev@vger.kernel.org, jeff@garzik.org,
+	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>
+To: "Cohen, Guy" <guy.cohen@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e1.ny.us.ibm.com ([32.97.182.141]:58742 "EHLO e1.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752553AbXFLXcj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Jun 2007 19:32:39 -0400
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e1.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l5CNWc7q028637
-	for <netdev@vger.kernel.org>; Tue, 12 Jun 2007 19:32:38 -0400
-Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l5CNWc64339514
-	for <netdev@vger.kernel.org>; Tue, 12 Jun 2007 19:32:38 -0400
-Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
-	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l5CNWbSe001408
-	for <netdev@vger.kernel.org>; Tue, 12 Jun 2007 19:32:38 -0400
-Content-Disposition: inline
-In-Reply-To: <466F2581.2080808@garzik.org>
+Received: from py-out-1112.google.com ([64.233.166.179]:4859 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755226AbXFLXie (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jun 2007 19:38:34 -0400
+Received: by py-out-1112.google.com with SMTP id a29so32904pyi
+        for <netdev@vger.kernel.org>; Tue, 12 Jun 2007 16:38:34 -0700 (PDT)
+In-Reply-To: <D0122E209EBF8D4CAB38EC6A8AF244E502AB31CF@hasmsx412.ger.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 12, 2007 at 07:00:17PM -0400, Jeff Garzik wrote:
-> Linas Vepstas wrote:
-> >On Fri, Jun 08, 2007 at 01:20:20PM -0400, Jeff Garzik wrote:
-> >>On Fri, Jun 08, 2007 at 12:06:08PM -0500, Linas Vepstas wrote:
-> >>>On Fri, Jun 08, 2007 at 11:12:31AM +1000, Michael Ellerman wrote:
-> >>>>On Thu, 2007-06-07 at 14:17 -0500, Linas Vepstas wrote:
-> >>>>>The major bug fixes are: 
-> >>>>I realise it's late, but shouldn't "major bugfixes" be going into 22 ?
-> >>>Yeah, I suppose, I admit I've lost track of the process. 
-> >>You need to order your bug fixes first in the queue. 
-> >
-> >OK, here are the patches, re-ordered. There is a different number
-> >than last time, as I threw out one, merged one, and got cold feet
-> >on a third one.  They still pass the tests.
-> >
-> >The first five patches focus on three serious bugs, fixing crashes or
-> >hangs.
-> >
-> >-- patch 1 -- kernel crash when ifdown while receiving packets.
-> >-- patch 2,3,4 -- device driver deadlocks on "RX ram full" mesgs.
-> >                  (kernel stays up, ifdown/up clear the problem).
-> >-- patch 5 -- misconfigured TX interrupts results in 3x-4x per
-> >              degradation for small packets.
-> >
-> >-- patch 6 -- rx stats may be mangled
-> >-- patch 7 -- hw checksum sometimes breaks ipv6 operation
-> >
-> >-- patches 8-15 -- misc tweaks, and documentation.
-> >
-> >
-> >I re-ran my stress tests with patches 1-7 applied; they pass.
+Hi Guy,
+
+On Tue, 2007-12-06 at 17:04 +0300, Cohen, Guy wrote:
+> Hi Jamal,
 > 
-> This is a bit frustrating, because this includes many patches that you 
-> ALREADY told me to queue for 2.6.23, which I did, in 
-> netdev-2.6.git#upstream.
+> Here is a simple scenario (nothing here is rare of extreme case):
+> - Busy wireless environment
+> - FTP TX on BE queue (low priority)
+> - Skype TX on VO queue (high priority)
+> 
+> The channel is busy with high priority packets hence the BE packets are
+> transmitted to the air rarely so the DMA/HW queue of the BE access
+> category gets full and the qdisc is stopped.
+> Now periodic VO-tagged Skype packets arrive. I would expect that they
+> get the priority (and pass) in all stages of the stack and reach the HW
+> ASAP and compete there on the medium with the other access categories
+> and the other clients on the channel.
+> Now this packet will be stuck in the qdisc and wait there until a BE
+> packet is transmitted, which can take a long time. This is a real
+> problem.
 
-Sigh. I redid the series so as to avoid this problem, per the 
-previous conversation. 
+Understood.
+My take is that this is resolvable by understanding the nature of the
+beast. IOW, the strategy of when to open up on such a medium is not
+conventional as one of a wired netdev. 
+You can use signalling from the media such as an AP giving you 
+signals for different ACs to open up; example: if the AC_BE is not being
+allowed out and it is just rotting because the AP is favoring VO, then
+you need to occasionally open up the tx path for the driver etc.
 
-> Should I just drop all spidernet patches and start over?
+> There is also a problem with the queues that will be dedicated to TX
+> aggregation in 11n (currently implemented) - the packets will be
+> classified to queues by the destination MAC address and not only by the
+> priority class, but I don't want to get into that now. 
 
-No. Apply the series I just sent you, dropping the one called
-"patch 6/15", the one from Florin Malita, as it appears you'd
-previously picked this up.  The rest of the patches should apply
-cleanly; I just cheked. I just did a "git pull" of 
-git://git.kernel.org/pub/scm/linux/kernel/git/jgarzik/netdev-2.6
-and checked. The result of patching is exactly as it should be.
+We have an infrastructure at the qdisc level for selecting queues based
+on literally anything you can think of in a packet as well as metadata.
+So i think this aspect should be fine.
 
-Just in case it wasn't clear, I'd like to see patches 1-5 go
-into 2.6.22 ... as these address the most critical complaints I'd
-gotten recently.
+> I think that
+> there are enough arguments now why the patch that started this thread is
+> needed...
 
---linas
+Sorry Guy, I dont see it that way - unfortunately i dont think anybody
+else other than Patrick understood what i said  and this thread is going
+on for too long i doubt 99% of the people are following any more ;->
+
+> In most scenarios BK packets will be transmitted and will win the medium
+> against VO packets (thought, in some non-favored ratio).
+
+So if understand you correctly: over a period of time, yes BK will make
+it out but under contention it will loose; is that always? Is there some
+mathematics behind this stuff?
+
+> Sorry, I'm really overloaded - I won't be able to review the docs you
+> sent (really apologize for that).
+
+No problem. I totaly understand.
+
+> The WMM parameters of the AC are set and controlled by the network/BSS
+> (access point) administrator and can be used in anyway. There are the
+> default parameters but they can be changed.
+
+It would certainly lead to unexpected behavior if you start favoring BE
+over VO, no? Would that ever happen by adjusting the WMM parameters?
+
+cheers,
+jamal
+
+
 
