@@ -1,7 +1,7 @@
 From: vignesh babu <vignesh.babu@wipro.com>
-Subject: [PATCH]is_power_of_2-cxgb3/cxgb3_main.c
-Date: Tue, 12 Jun 2007 10:30:57 +0530
-Message-ID: <1181624457.3109.21.camel@merlin.linuxcoe.com>
+Subject: [PATCH]is_power_of_2-myri10ge/myri10ge.c
+Date: Tue, 12 Jun 2007 10:31:01 +0530
+Message-ID: <1181624462.3109.22.camel@merlin.linuxcoe.com>
 Reply-To: vignesh.babu@wipro.com
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,9 +10,9 @@ Cc: netdev@vger.kernel.org,
 	Kernel Janitors List <kernel-janitors@lists.osdl.org>
 To: akpm <akpm@linux-foundation.org>, jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wip-cdc-wd.wipro.com ([203.91.201.26]:38892 "EHLO
+Received: from wip-cdc-wd.wipro.com ([203.91.201.26]:38899 "EHLO
 	wip-cdc-wd.wipro.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751223AbXFLFCG (ORCPT
+	with ESMTP id S1751448AbXFLFCG (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jun 2007 01:02:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
@@ -23,29 +23,27 @@ with is_power_of_2
 
 Signed-off-by: vignesh babu <vignesh.babu@wipro.com>
 --- 
-diff --git a/drivers/net/cxgb3/cxgb3_main.c b/drivers/net/cxgb3/cxgb3_main.c
-index 1b20f40..a124b33 100644
---- a/drivers/net/cxgb3/cxgb3_main.c
-+++ b/drivers/net/cxgb3/cxgb3_main.c
-@@ -43,6 +43,7 @@
- #include <linux/proc_fs.h>
- #include <linux/rtnetlink.h>
- #include <linux/firmware.h>
+diff --git a/drivers/net/myri10ge/myri10ge.c b/drivers/net/myri10ge/myri10ge.c
+index b53b7ad..89da958 100644
+--- a/drivers/net/myri10ge/myri10ge.c
++++ b/drivers/net/myri10ge/myri10ge.c
+@@ -60,6 +60,7 @@
+ #include <linux/crc32.h>
+ #include <linux/moduleparam.h>
+ #include <linux/io.h>
 +#include <linux/log2.h>
- #include <asm/uaccess.h>
- 
- #include "common.h"
-@@ -1818,8 +1819,8 @@ static int cxgb_extension_ioctl(struct net_device *dev, void __user *useraddr)
- 			return -EBUSY;
- 		if (copy_from_user(&m, useraddr, sizeof(m)))
- 			return -EFAULT;
--		if (!m.rx_pg_sz || (m.rx_pg_sz & (m.rx_pg_sz - 1)) ||
--			!m.tx_pg_sz || (m.tx_pg_sz & (m.tx_pg_sz - 1)))
-+		if (!is_power_of_2(m.rx_pg_sz) ||
-+			!is_power_of_2(m.tx_pg_sz))
- 			return -EINVAL;	/* not power of 2 */
- 		if (!(m.rx_pg_sz & 0x14000))
- 			return -EINVAL;	/* not 16KB or 64KB */
+ #include <net/checksum.h>
+ #include <asm/byteorder.h>
+ #include <asm/io.h>
+@@ -1797,7 +1798,7 @@ static int myri10ge_open(struct net_device *dev)
+ 	 */
+ 	big_pow2 = dev->mtu + ETH_HLEN + VLAN_HLEN + MXGEFW_PAD;
+ 	if (big_pow2 < MYRI10GE_ALLOC_SIZE / 2) {
+-		while ((big_pow2 & (big_pow2 - 1)) != 0)
++		while (!is_power_of_2(big_pow2))
+ 			big_pow2++;
+ 		mgp->big_bytes = dev->mtu + ETH_HLEN + VLAN_HLEN + MXGEFW_PAD;
+ 	} else {
 
 -- 
 Vignesh Babu BM 
