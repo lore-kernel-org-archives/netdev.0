@@ -1,41 +1,59 @@
-From: David Miller <davem@davemloft.net>
+From: Jeff Garzik <jeff@garzik.org>
 Subject: Re: [PATCH] NET: Multiqueue network device support.
-Date: Tue, 12 Jun 2007 14:55:34 -0700 (PDT)
-Message-ID: <20070612.145534.128867899.davem@davemloft.net>
-References: <466F0D78.7090404@candelatech.com>
-	<20070612.142658.45082832.davem@davemloft.net>
-	<20070612214753.GB27363@metaxa.reflex>
+Date: Tue, 12 Jun 2007 17:59:43 -0400
+Message-ID: <466F174F.5090206@garzik.org>
+References: <20070612.140240.00078635.davem@davemloft.net>	<466F0C92.5080306@garzik.org> <466F0D78.7090404@candelatech.com>	<20070612.142658.45082832.davem@davemloft.net>	<466F142C.4040109@garzik.org> <adazm347sdw.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: greearb@candelatech.com, jeff@garzik.org, netdev@vger.kernel.org,
-	kaber@trash.net, hadi@cyberus.ca, peter.p.waskiewicz.jr@intel.com,
-	auke-jan.h.kok@intel.com
-To: lunz@falooley.org
+Cc: David Miller <davem@davemloft.net>, greearb@candelatech.com,
+	netdev@vger.kernel.org, kaber@trash.net, hadi@cyberus.ca,
+	peter.p.waskiewicz.jr@intel.com, auke-jan.h.kok@intel.com
+To: Roland Dreier <rdreier@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58465
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753681AbXFLVzS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jun 2007 17:55:18 -0400
-In-Reply-To: <20070612214753.GB27363@metaxa.reflex>
+Received: from srv5.dvmed.net ([207.36.208.214]:58731 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755548AbXFLV7t (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Jun 2007 17:59:49 -0400
+In-Reply-To: <adazm347sdw.fsf@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jason Lunz <lunz@falooley.org>
-Date: Tue, 12 Jun 2007 17:47:53 -0400
+Roland Dreier wrote:
+>  > > The MAC is still very much centralized in most designs.
+>  > > So one way they'll do it is to support assigning N MAC addresses,
+>  > > and you configure the input filters of the chip to push packets
+>  > > for each MAC to the proper receive queue.
+>  > > So the MAC will accept any of those in the N MAC addresses as
+>  > > it's own, then you use the filtering facilities to steer
+>  > > frames to the correct RX queue.
+>  > 
+>  > Not quite...  You'll have to deal with multiple Rx filters, not just
+>  > the current one-filter-for-all model present in today's NICs.  Pools
+>  > of queues will have separate configured characteristics.  The "steer"
+>  > portion you mention is a bottleneck that wants to be eliminated.
+> 
+> I think you're misunderstanding.  These NICs still have only one
+> physical port, so sending or receiving real packets onto a physical
+> wire is fundamentally serialized.  The steering of packets to receive
+> queues is done right after the packets are received from the wire --
+> in fact it can be done as soon as the NIC has parsed enough of the
+> headers to make a decision, which might be before the full packet has
+> even been received.  The steering is no more of a bottleneck than the
+> physical link is.
 
-> Are you aware of any hardware designs that allow other ways to map
-> packets onto rx queues?  I can think of several scenarios where it could
-> be advantageous to map packets by IP 3- or 5-tuple to get cpu locality
-> all the way up the stack on a flow-by-flow basis. But doing this would
-> require some way to request this mapping from the hardware.
+No, you're misreading.  People are putting in independent configurable 
+Rx filters because a single Rx filter setup for all queues was a 
+bottleneck.  Not a performance bottleneck but a configuration and 
+flexibility limitation that's being removed.
 
-These chips allow this too, Microsoft defined a standard for
-RX queue interrupt hashing by flow so everyone puts it, or
-something like it, in hardware.
+And where shall we put the configuration machinery, to support sub-queues?
+Shall we duplicate the existing configuration code for sub-queues?
+What will ifconfig/ip usage look like?
+How will it differ from configurating full net_devices, if you are 
+assigning the same types of parameters?
 
-> In the extreme case it would be cool if it were possible to push a
-> bpf-like classifier down into the hardware to allow arbitrary kinds of
-> flow distribution.
+	Jeff
 
-Maybe not a fully bpf, but many chips allow something close.
+
+
