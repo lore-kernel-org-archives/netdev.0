@@ -1,64 +1,78 @@
 From: "John W. Linville" <linville@tuxdriver.com>
-Subject: [PATCH] mac80211: Set low initial rate in rc80211_simple
-Date: Mon, 11 Jun 2007 21:24:11 -0400
-Message-ID: <20070612012411.GI20422@tuxdriver.com>
-References: <20070610.181704.73383002.davem@davemloft.net> <20070612012228.GG20422@tuxdriver.com> <20070612012319.GH20422@tuxdriver.com>
+Subject: [PATCH] mac80211: Add support for SIOCGIWRATE ioctl to provide rate information
+Date: Mon, 11 Jun 2007 21:23:19 -0400
+Message-ID: <20070612012319.GH20422@tuxdriver.com>
+References: <20070610.181704.73383002.davem@davemloft.net> <20070612012228.GG20422@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:2820 "EHLO ra.tuxdriver.com"
+Received: from ra.tuxdriver.com ([70.61.120.52]:2822 "EHLO ra.tuxdriver.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757132AbXFLByw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Jun 2007 21:54:52 -0400
+	id S1757336AbXFLBy4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Jun 2007 21:54:56 -0400
 Content-Disposition: inline
-In-Reply-To: <20070612012319.GH20422@tuxdriver.com>
+In-Reply-To: <20070612012228.GG20422@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Larry Finger <Larry.Finger@lwfinger.net>
 
-The initial rate for STA's using rc80211_simple is set to the last
-rate in the rate table. For situations for which the signal is weak,
-the rate may be too high for authentication and association. Although
-the rc80211_simple module will adjust the speed, the response may not
-be fast enough for a successful connection. This modification sets the
-initial rate to the lowest supported value.
+At present, transmission rate information for mac80211 is available only
+if verbose debugging is turned on, and then only in the logs. This patch
+implements the SIOCGIWRATE ioctl, which adds the current transmission rate to
+the output of iwconfig.
 
 Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
 Signed-off-by: John W. Linville <linville@tuxdriver.com>
 ---
- net/mac80211/rc80211_simple.c |   12 +++++++-----
- 1 files changed, 7 insertions(+), 5 deletions(-)
+ net/mac80211/ieee80211_ioctl.c |   25 ++++++++++++++++++++++++-
+ 1 files changed, 24 insertions(+), 1 deletions(-)
 
-diff --git a/net/mac80211/rc80211_simple.c b/net/mac80211/rc80211_simple.c
-index 2048cfd..5ae7fc4 100644
---- a/net/mac80211/rc80211_simple.c
-+++ b/net/mac80211/rc80211_simple.c
-@@ -283,14 +283,16 @@ static void rate_control_simple_rate_init(void *priv, void *priv_sta,
- 	int i;
- 	sta->txrate = 0;
- 	mode = local->oper_hw_mode;
--	/* TODO: what is a good starting rate for STA? About middle? Maybe not
--	 * the lowest or the highest rate.. Could consider using RSSI from
--	 * previous packets? Need to have IEEE 802.1X auth succeed immediately
--	 * after assoc.. */
-+	/* TODO: This routine should consider using RSSI from previous packets
-+	 * as we need to have IEEE 802.1X auth succeed immediately after assoc..
-+	 * Until that method is implemented, we will use the lowest supported rate
-+	 * as a workaround, */
- 	for (i = 0; i < mode->num_rates; i++) {
- 		if ((sta->supp_rates & BIT(i)) &&
--		    (mode->rates[i].flags & IEEE80211_RATE_SUPPORTED))
-+		    (mode->rates[i].flags & IEEE80211_RATE_SUPPORTED)) {
- 			sta->txrate = i;
-+			break;
-+		}
- 	}
+diff --git a/net/mac80211/ieee80211_ioctl.c b/net/mac80211/ieee80211_ioctl.c
+index 352f03b..66e8a97 100644
+--- a/net/mac80211/ieee80211_ioctl.c
++++ b/net/mac80211/ieee80211_ioctl.c
+@@ -838,6 +838,29 @@ static int ieee80211_ioctl_giwscan(struct net_device *dev,
  }
  
+ 
++static int ieee80211_ioctl_giwrate(struct net_device *dev,
++				  struct iw_request_info *info,
++				  struct iw_param *rate, char *extra)
++{
++	struct ieee80211_local *local = wdev_priv(dev->ieee80211_ptr);
++	struct sta_info *sta;
++	struct ieee80211_sub_if_data *sdata;
++
++	sdata = IEEE80211_DEV_TO_SUB_IF(dev);
++	if (sdata->type == IEEE80211_IF_TYPE_STA)
++		sta = sta_info_get(local, sdata->u.sta.bssid);
++	else
++		return -EOPNOTSUPP;
++	if (!sta)
++		return -ENODEV;
++	if (sta->txrate < local->oper_hw_mode->num_rates)
++		rate->value = local->oper_hw_mode->rates[sta->txrate].rate * 100000;
++	else
++		rate->value = 0;
++	sta_info_put(sta);
++	return 0;
++}
++
+ static int ieee80211_ioctl_siwrts(struct net_device *dev,
+ 				  struct iw_request_info *info,
+ 				  struct iw_param *rts, char *extra)
+@@ -1779,7 +1802,7 @@ static const iw_handler ieee80211_handler[] =
+ 	(iw_handler) NULL,				/* -- hole -- */
+ 	(iw_handler) NULL,				/* -- hole -- */
+ 	(iw_handler) NULL,				/* SIOCSIWRATE */
+-	(iw_handler) NULL,				/* SIOCGIWRATE */
++	(iw_handler) ieee80211_ioctl_giwrate,		/* SIOCGIWRATE */
+ 	(iw_handler) ieee80211_ioctl_siwrts,		/* SIOCSIWRTS */
+ 	(iw_handler) ieee80211_ioctl_giwrts,		/* SIOCGIWRTS */
+ 	(iw_handler) ieee80211_ioctl_siwfrag,		/* SIOCSIWFRAG */
 -- 
 1.5.0.6
 
