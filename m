@@ -1,46 +1,33 @@
-From: "Ron Mercer" <ron.mercer@qlogic.com>
-Subject: RE: [PATCH 2/3] qla3xxx: cleanup checksum offload code
-Date: Wed, 13 Jun 2007 12:55:14 -0700
-Message-ID: <0BB3E5E7462EEA4295BC02D49691DC07C82B54@AVEXCH1.qlogic.org>
-References: <467048EF.1060001@garzik.org>
+From: Jeff Garzik <jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>
+Subject: Re: Please pull 'libertas-upstream' branch of wireless-2.6
+Date: Wed, 13 Jun 2007 15:57:08 -0400
+Message-ID: <46704C14.8010907@garzik.org>
+References: <20070529183347.GD3496@tuxdriver.com> <20070612210544.GF310@tuxdriver.com> <20070612210658.GG310@tuxdriver.com> <20070612210814.GH310@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
-To: "Jeff Garzik" <jeff@garzik.org>,
-	"Stephen Hemminger" <shemminger@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from avexch1.qlogic.com ([198.70.193.115]:30984 "EHLO
-	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751414AbXFMTz5 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2007 15:55:57 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <467048EF.1060001@garzik.org>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20070612210814.GH310-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-ACK patch #2, not patch 3.  I will add patch 3 at a later date.
+John W. Linville wrote:
+> Patches identified by the libertas team as suitable for 2.6.23...
+> 
+> ---
+> 
+> The following changes since commit 82fde74b94f11eee1e9c30e43fb162f80a5e63c0:
+>   Luis Carlos (1):
+>         libertas: convert libertas_mpp into anycast_mask
+> 
+> are found in the git repository at:
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git libertas-upstream
 
-Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
-
-> -----Original Message-----
-> From: Jeff Garzik [mailto:jeff@garzik.org] 
-> Sent: Wednesday, June 13, 2007 12:44 PM
-> To: Stephen Hemminger
-> Cc: Linux Driver; netdev@vger.kernel.org
-> Subject: Re: [PATCH 2/3] qla3xxx: cleanup checksum offload code
-> 
-> Stephen Hemminger wrote:
-> > The code for checksum is more complex than needed when 
-> dealing with VLAN's;
-> > the higher layers already pass down the location of the IP header.
-> > 
-> > Compile tested only, no hardware available.
-> > 
-> > Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
-> 
-> Ron, do you ACK patch #2 and patch #3?
-> 
-> 
-> 
+since it sounds like some additional 2.6.22 (warning?) fixes will be 
+coming, I'm going to hold off pulling this.  I would rather the wireless 
+maintainer sort out the merging in this case :)  Once 2.6.22 is all 
+upstream, please do resend this push...
