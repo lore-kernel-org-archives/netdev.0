@@ -1,35 +1,34 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/2] ehea: Whitespace cleanup
-Date: Wed, 13 Jun 2007 15:47:19 -0400
-Message-ID: <467049C7.9090000@garzik.org>
-References: <200705311354.09992.osstklei@de.ibm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [NET 00/18]: Netlink link creation API + driver conversions
+Date: Wed, 13 Jun 2007 12:51:07 -0700 (PDT)
+Message-ID: <20070613.125107.74561974.davem@davemloft.net>
+References: <20070613165039.7780.15855.sendpatchset@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Thomas Klein <tklein@de.ibm.com>, Jan-Bernd Themann <themann@de.ibm.com>,
-	netdev <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Christoph Raisch <raisch@de.ibm.com>,
-	Stefan Roscher <ossrosch@linux.vnet.ibm.com>,
-	linux-ppc <linuxppc-dev@ozlabs.org>, Marcus Eder <meder@de.ibm.com>
-To: Thomas Klein <osstklei@de.ibm.com>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-In-Reply-To: <200705311354.09992.osstklei@de.ibm.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Cc: netdev@vger.kernel.org
+To: kaber@trash.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36193
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751773AbXFMTuv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2007 15:50:51 -0400
+In-Reply-To: <20070613165039.7780.15855.sendpatchset@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thomas Klein wrote:
-> This patch fixes several whitespace issues.
-> 
-> Signed-off-by: Thomas Klein <tklein@de.ibm.com>
+From: Patrick McHardy <kaber@trash.net>
+Date: Wed, 13 Jun 2007 18:50:42 +0200 (MEST)
 
-Patch is obviously OK, but needs rediffing since I had to apply fixes 
-before cleanups (standard patch ordering)
+> The patches are against net-2.6, but AFAICS the only thing in net-2.6.23
+> conflicting with them is the previous series.
+> 
+> Please apply/replace, thanks :)
+
+I've respun my tree up at:
+
+	kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.23.git
+
+with these new patches.
+
+Thanks Patrick!
