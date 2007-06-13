@@ -1,174 +1,156 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [VLAN 10/18]: Move some device intialization code to dev->init callback
-Date: Wed, 13 Jun 2007 18:50:56 +0200 (MEST)
-Message-ID: <20070613165053.7780.21208.sendpatchset@localhost.localdomain>
+Subject: [VLAN 11/18]: Move vlan_group allocation to seperate function
+Date: Wed, 13 Jun 2007 18:50:57 +0200 (MEST)
+Message-ID: <20070613165054.7780.7306.sendpatchset@localhost.localdomain>
 References: <20070613165039.7780.15855.sendpatchset@localhost.localdomain>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:35930 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:35952 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758972AbXFMQu5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2007 12:50:57 -0400
+	with ESMTP id S1758932AbXFMQu7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2007 12:50:59 -0400
 In-Reply-To: <20070613165039.7780.15855.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[VLAN]: Move some device intialization code to dev->init callback
+[VLAN]: Move vlan_group allocation to seperate function
 
-Move some device initialization code to new dev->init callback to make
-it shareable with netlink. Additionally this fixes a minor bug, dev->iflink
-is set after registration, which causes an incorrect value in the initial
-netlink message.
+Move group allocation to a seperate function to clean up the code a bit
+and allocate groups before registering the device. Device registration
+is globally visible and causes netlink events, so we shouldn't fail
+afterwards.
 
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 
 ---
-commit cdca24994aa848abede6d80566fd64be997d3a20
-tree 327daea07b09d7d4a41307a6fb31d6ae39c56a3b
-parent 3288fa26d2f10d9c6d43a5ee3180bedc2ef1edc5
-author Patrick McHardy <kaber@trash.net> Wed, 06 Jun 2007 14:46:33 +0200
+commit db130c75de212df303702758f553a7f4349ae56a
+tree cd086b8106cb58dab0d28bf276b06f8b3f1295dc
+parent cdca24994aa848abede6d80566fd64be997d3a20
+author Patrick McHardy <kaber@trash.net> Wed, 06 Jun 2007 14:46:38 +0200
 committer Patrick McHardy <kaber@trash.net> Wed, 13 Jun 2007 18:10:31 +0200
 
- net/8021q/vlan.c |   92 +++++++++++++++++++++++++++---------------------------
- 1 files changed, 46 insertions(+), 46 deletions(-)
+ net/8021q/vlan.c |   78 ++++++++++++++++++++++++++++--------------------------
+ 1 files changed, 41 insertions(+), 37 deletions(-)
 
 diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-index 3678f07..dc95f7c 100644
+index dc95f7c..1b9dc5e 100644
 --- a/net/8021q/vlan.c
 +++ b/net/8021q/vlan.c
-@@ -291,6 +291,48 @@ static int unregister_vlan_device(struct net_device *dev)
- 	return ret;
+@@ -197,6 +197,34 @@ static void vlan_group_free(struct vlan_group *grp)
+ 	kfree(grp);
  }
  
-+/*
-+ * vlan network devices have devices nesting below it, and are a special
-+ * "super class" of normal network devices; split their locks off into a
-+ * separate class since they always nest.
-+ */
-+static struct lock_class_key vlan_netdev_xmit_lock_key;
-+
-+static int vlan_dev_init(struct net_device *dev)
++static struct vlan_group *vlan_group_alloc(int ifindex)
 +{
-+	struct net_device *real_dev = VLAN_DEV_INFO(dev)->real_dev;
++	struct vlan_group *grp;
++	unsigned int size;
++	unsigned int i;
 +
-+	/* IFF_BROADCAST|IFF_MULTICAST; ??? */
-+	dev->flags  = real_dev->flags & ~IFF_UP;
-+	dev->iflink = real_dev->ifindex;
-+	dev->state  = (real_dev->state & ((1<<__LINK_STATE_NOCARRIER) |
-+					  (1<<__LINK_STATE_DORMANT))) |
-+		      (1<<__LINK_STATE_PRESENT);
++	grp = kzalloc(sizeof(struct vlan_group), GFP_KERNEL);
++	if (!grp)
++		return NULL;
 +
-+	/* TODO: maybe just assign it to be ETHERNET? */
-+	dev->type = real_dev->type;
++	size = sizeof(struct net_device *) * VLAN_GROUP_ARRAY_PART_LEN;
 +
-+	memcpy(dev->broadcast, real_dev->broadcast, real_dev->addr_len);
-+	memcpy(dev->dev_addr, real_dev->dev_addr, real_dev->addr_len);
-+	dev->addr_len = real_dev->addr_len;
-+
-+	if (real_dev->features & NETIF_F_HW_VLAN_TX) {
-+		dev->hard_header     = real_dev->hard_header;
-+		dev->hard_header_len = real_dev->hard_header_len;
-+		dev->hard_start_xmit = vlan_dev_hwaccel_hard_start_xmit;
-+		dev->rebuild_header  = real_dev->rebuild_header;
-+	} else {
-+		dev->hard_header     = vlan_dev_hard_header;
-+		dev->hard_header_len = real_dev->hard_header_len + VLAN_HLEN;
-+		dev->hard_start_xmit = vlan_dev_hard_start_xmit;
-+		dev->rebuild_header  = vlan_dev_rebuild_header;
++	for (i = 0; i < VLAN_GROUP_ARRAY_SPLIT_PARTS; i++) {
++		grp->vlan_devices_arrays[i] = kzalloc(size, GFP_KERNEL);
++		if (!grp->vlan_devices_arrays[i])
++			goto err;
 +	}
-+	dev->hard_header_parse = real_dev->hard_header_parse;
 +
-+	lockdep_set_class(&dev->_xmit_lock, &vlan_netdev_xmit_lock_key);
-+	return 0;
++	grp->real_dev_ifindex = ifindex;
++	hlist_add_head_rcu(&grp->hlist,
++			   &vlan_group_hash[vlan_grp_hashfn(ifindex)]);
++	return grp;
++
++err:
++	vlan_group_free(grp);
++	return NULL;
 +}
 +
- static void vlan_setup(struct net_device *new_dev)
+ static void vlan_rcu_free(struct rcu_head *rcu)
  {
- 	SET_MODULE_OWNER(new_dev);
-@@ -311,6 +353,7 @@ static void vlan_setup(struct net_device *new_dev)
+ 	vlan_group_free(container_of(rcu, struct vlan_group, rcu));
+@@ -389,10 +417,9 @@ static void vlan_transfer_operstate(const struct net_device *dev, struct net_dev
+ static struct net_device *register_vlan_device(struct net_device *real_dev,
+ 					       unsigned short VLAN_ID)
+ {
+-	struct vlan_group *grp;
++	struct vlan_group *grp, *ngrp = NULL;
+ 	struct net_device *new_dev;
+ 	char name[IFNAMSIZ];
+-	int i;
  
- 	/* set up method calls */
- 	new_dev->change_mtu = vlan_dev_change_mtu;
-+	new_dev->init = vlan_dev_init;
- 	new_dev->open = vlan_dev_open;
- 	new_dev->stop = vlan_dev_stop;
- 	new_dev->set_mac_address = vlan_dev_set_mac_address;
-@@ -339,14 +382,6 @@ static void vlan_transfer_operstate(const struct net_device *dev, struct net_dev
- 	}
- }
+ #ifdef VLAN_DEBUG
+ 	printk(VLAN_DBG "%s: if_name -:%s:-	vid: %i\n",
+@@ -491,9 +518,15 @@ static struct net_device *register_vlan_device(struct net_device *real_dev,
+ 	printk(VLAN_DBG "About to go find the group for idx: %i\n",
+ 	       real_dev->ifindex);
+ #endif
++	grp = __vlan_find_group(real_dev->ifindex);
++	if (!grp) {
++		ngrp = grp = vlan_group_alloc(real_dev->ifindex);
++		if (!grp)
++			goto out_free_newdev;
++	}
  
--/*
-- * vlan network devices have devices nesting below it, and are a special
-- * "super class" of normal network devices; split their locks off into a
-- * separate class since they always nest.
-- */
--static struct lock_class_key vlan_netdev_xmit_lock_key;
--
--
- /*  Attach a VLAN device to a mac address (ie Ethernet Card).
-  *  Returns the device that was created, or NULL if there was
-  *  an error of some kind.
-@@ -435,49 +470,17 @@ static struct net_device *register_vlan_device(struct net_device *real_dev,
- 	if (new_dev == NULL)
- 		goto out_ret_null;
- 
--#ifdef VLAN_DEBUG
--	printk(VLAN_DBG "Allocated new name -:%s:-\n", new_dev->name);
--#endif
--	/* IFF_BROADCAST|IFF_MULTICAST; ??? */
--	new_dev->flags = real_dev->flags;
--	new_dev->flags &= ~IFF_UP;
--
--	new_dev->state = (real_dev->state & ((1<<__LINK_STATE_NOCARRIER) |
--					     (1<<__LINK_STATE_DORMANT))) |
--			 (1<<__LINK_STATE_PRESENT);
--
- 	/* need 4 bytes for extra VLAN header info,
- 	 * hope the underlying device can handle it.
- 	 */
- 	new_dev->mtu = real_dev->mtu;
- 
--	/* TODO: maybe just assign it to be ETHERNET? */
--	new_dev->type = real_dev->type;
--
--	new_dev->hard_header_len = real_dev->hard_header_len;
--	if (!(real_dev->features & NETIF_F_HW_VLAN_TX)) {
--		/* Regular ethernet + 4 bytes (18 total). */
--		new_dev->hard_header_len += VLAN_HLEN;
--	}
--
-+#ifdef VLAN_DEBUG
-+	printk(VLAN_DBG "Allocated new name -:%s:-\n", new_dev->name);
- 	VLAN_MEM_DBG("new_dev->priv malloc, addr: %p  size: %i\n",
- 		     new_dev->priv,
- 		     sizeof(struct vlan_dev_info));
--
--	memcpy(new_dev->broadcast, real_dev->broadcast, real_dev->addr_len);
--	memcpy(new_dev->dev_addr, real_dev->dev_addr, real_dev->addr_len);
--	new_dev->addr_len = real_dev->addr_len;
--
--	if (real_dev->features & NETIF_F_HW_VLAN_TX) {
--		new_dev->hard_header = real_dev->hard_header;
--		new_dev->hard_start_xmit = vlan_dev_hwaccel_hard_start_xmit;
--		new_dev->rebuild_header = real_dev->rebuild_header;
--	} else {
--		new_dev->hard_header = vlan_dev_hard_header;
--		new_dev->hard_start_xmit = vlan_dev_hard_start_xmit;
--		new_dev->rebuild_header = vlan_dev_rebuild_header;
--	}
--	new_dev->hard_header_parse = real_dev->hard_header_parse;
-+#endif
- 
- 	VLAN_DEV_INFO(new_dev)->vlan_id = VLAN_ID; /* 1 through VLAN_VID_MASK */
- 	VLAN_DEV_INFO(new_dev)->real_dev = real_dev;
-@@ -492,9 +495,6 @@ static struct net_device *register_vlan_device(struct net_device *real_dev,
  	if (register_netdevice(new_dev))
- 		goto out_free_newdev;
+-		goto out_free_newdev;
++		goto out_free_group;
  
--	lockdep_set_class(&new_dev->_xmit_lock, &vlan_netdev_xmit_lock_key);
--
--	new_dev->iflink = real_dev->ifindex;
  	vlan_transfer_operstate(real_dev, new_dev);
  	linkwatch_fire_event(new_dev); /* _MUST_ call rfc2863_policy() */
+@@ -501,34 +534,8 @@ static struct net_device *register_vlan_device(struct net_device *real_dev,
+ 	/* So, got the sucker initialized, now lets place
+ 	 * it into our local structure.
+ 	 */
+-	grp = __vlan_find_group(real_dev->ifindex);
+-
+-	/* Note, we are running under the RTNL semaphore
+-	 * so it cannot "appear" on us.
+-	 */
+-	if (!grp) { /* need to add a new group */
+-		grp = kzalloc(sizeof(struct vlan_group), GFP_KERNEL);
+-		if (!grp)
+-			goto out_free_unregister;
+-
+-		for (i=0; i < VLAN_GROUP_ARRAY_SPLIT_PARTS; i++) {
+-			grp->vlan_devices_arrays[i] = kzalloc(
+-				sizeof(struct net_device *)*VLAN_GROUP_ARRAY_PART_LEN,
+-				GFP_KERNEL);
+-
+-			if (!grp->vlan_devices_arrays[i])
+-				goto out_free_arrays;
+-		}
+-
+-		/* printk(KERN_ALERT "VLAN REGISTER:  Allocated new group.\n"); */
+-		grp->real_dev_ifindex = real_dev->ifindex;
+-
+-		hlist_add_head_rcu(&grp->hlist,
+-				   &vlan_group_hash[vlan_grp_hashfn(real_dev->ifindex)]);
+-
+-		if (real_dev->features & NETIF_F_HW_VLAN_RX)
+-			real_dev->vlan_rx_register(real_dev, grp);
+-	}
++	if (ngrp && real_dev->features & NETIF_F_HW_VLAN_RX)
++		real_dev->vlan_rx_register(real_dev, ngrp);
  
+ 	vlan_group_set_device(grp, VLAN_ID, new_dev);
+ 
+@@ -546,12 +553,9 @@ static struct net_device *register_vlan_device(struct net_device *real_dev,
+ #endif
+ 	return new_dev;
+ 
+-out_free_arrays:
+-	vlan_group_free(grp);
+-
+-out_free_unregister:
+-	unregister_netdev(new_dev);
+-	goto out_ret_null;
++out_free_group:
++	if (ngrp)
++		vlan_group_free(ngrp);
+ 
+ out_free_newdev:
+ 	free_netdev(new_dev);
