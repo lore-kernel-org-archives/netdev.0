@@ -1,103 +1,97 @@
-From: Ranjit Manomohan <ranjitm@google.com>
-Subject: [PATCH][NET_SCHED] Make HTB scheduler work with TSO.
-Date: Tue, 12 Jun 2007 16:53:21 -0700 (PDT)
-Message-ID: <Pine.LNX.4.63.0706121647280.4120@ranjit.corp.google.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 0/15] spidernet driver bug fixes
+Date: Tue, 12 Jun 2007 20:04:18 -0400
+Message-ID: <466F3482.4050305@garzik.org>
+References: <20070607191707.GA7904@austin.ibm.com> <1181265151.6026.1.camel@concordia.ozlabs.ibm.com> <20070608170608.GI7904@austin.ibm.com> <20070608172020.GA31089@havoc.gtf.org> <20070611181429.GA4397@austin.ibm.com> <466F2581.2080808@garzik.org> <20070612233237.GN4397@austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: ranjitm@google.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Michael Ellerman <michael@ellerman.id.au>, netdev@vger.kernel.org,
+	cbe-oss-dev@ozlabs.org
+To: Linas Vepstas <linas@austin.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.45.13]:57866 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750747AbXFLXxo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jun 2007 19:53:44 -0400
-Received: from zps77.corp.google.com (zps77.corp.google.com [172.25.146.77])
-	by smtp-out.google.com with ESMTP id l5CNrcDj008833
-	for <netdev@vger.kernel.org>; Tue, 12 Jun 2007 16:53:38 -0700
+Received: from srv5.dvmed.net ([207.36.208.214]:59628 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752551AbXFMAE2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Jun 2007 20:04:28 -0400
+In-Reply-To: <20070612233237.GN4397@austin.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Currently the HTB scheduler does not correctly account for TSO packets 
-which causes large inaccuracies in the bandwidth control when using TSO.
-This patch allows the HTB scheduler to work with TSO enabled devices.
+Linas Vepstas wrote:
+> On Tue, Jun 12, 2007 at 07:00:17PM -0400, Jeff Garzik wrote:
+>> Linas Vepstas wrote:
+>>> On Fri, Jun 08, 2007 at 01:20:20PM -0400, Jeff Garzik wrote:
+>>>> On Fri, Jun 08, 2007 at 12:06:08PM -0500, Linas Vepstas wrote:
+>>>>> On Fri, Jun 08, 2007 at 11:12:31AM +1000, Michael Ellerman wrote:
+>>>>>> On Thu, 2007-06-07 at 14:17 -0500, Linas Vepstas wrote:
+>>>>>>> The major bug fixes are: 
+>>>>>> I realise it's late, but shouldn't "major bugfixes" be going into 22 ?
+>>>>> Yeah, I suppose, I admit I've lost track of the process. 
+>>>> You need to order your bug fixes first in the queue. 
+>>> OK, here are the patches, re-ordered. There is a different number
+>>> than last time, as I threw out one, merged one, and got cold feet
+>>> on a third one.  They still pass the tests.
+>>>
+>>> The first five patches focus on three serious bugs, fixing crashes or
+>>> hangs.
+>>>
+>>> -- patch 1 -- kernel crash when ifdown while receiving packets.
+>>> -- patch 2,3,4 -- device driver deadlocks on "RX ram full" mesgs.
+>>>                  (kernel stays up, ifdown/up clear the problem).
+>>> -- patch 5 -- misconfigured TX interrupts results in 3x-4x per
+>>>              degradation for small packets.
+>>>
+>>> -- patch 6 -- rx stats may be mangled
+>>> -- patch 7 -- hw checksum sometimes breaks ipv6 operation
+>>>
+>>> -- patches 8-15 -- misc tweaks, and documentation.
+>>>
+>>>
+>>> I re-ran my stress tests with patches 1-7 applied; they pass.
+>> This is a bit frustrating, because this includes many patches that you 
+>> ALREADY told me to queue for 2.6.23, which I did, in 
+>> netdev-2.6.git#upstream.
+> 
+> Sigh. I redid the series so as to avoid this problem, per the 
+> previous conversation. 
+> 
+>> Should I just drop all spidernet patches and start over?
+> 
+> No. Apply the series I just sent you, dropping the one called
+> "patch 6/15", the one from Florin Malita, as it appears you'd
+> previously picked this up.  The rest of the patches should apply
+> cleanly; I just cheked. I just did a "git pull" of 
+> git://git.kernel.org/pub/scm/linux/kernel/git/jgarzik/netdev-2.6
+> and checked. The result of patching is exactly as it should be.
+> 
+> Just in case it wasn't clear, I'd like to see patches 1-5 go
+> into 2.6.22 ... as these address the most critical complaints I'd
+> gotten recently.
+> 
+> --linas
+> 
+> 
 
-Signed-off-by: Ranjit Manomohan <ranjitm@google.com>
+As I just stated, many of the patches in the "current" patch series have 
+already been applied to netdev-2.6.git#upstream:
 
-diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-index 035788c..e872724 100644
---- a/net/sched/sch_htb.c
-+++ b/net/sched/sch_htb.c
-@@ -153,15 +153,12 @@ #endif
-  				/* of un.leaf originals should be done. */
-  };
+Linas Vepstas (11):
+       s2io: add PCI error recovery support
+       s2io: add PCI error recovery support
+       spidernet: beautify error messages
+       spidernet: move a block of code around
+       spidernet: zero out a pointer.
+       spidernet: null out skb pointer after its been used.
+       spidernet: Don't terminate the RX ring
+       spidernet: enhance the dump routine
+       spidernet: reset the card when an rxramfull is seen
+       spidernet: service TX later.
+       spidernet: increase the NAPI weight
 
--/* TODO: maybe compute rate when size is too large .. or drop ? */
-  static inline long L2T(struct htb_class *cl, struct qdisc_rate_table *rate,
-  			   int size)
-  {
-  	int slot = size >> rate->rate.cell_log;
--	if (slot > 255) {
--		cl->xstats.giants++;
--		slot = 255;
--	}
-+	if (slot > 255)
-+		return (rate->data[255]*(slot >> 8) + rate->data[slot & 0xFF]);
-  	return rate->data[slot];
-  }
+These are clearly duplicating some of the patches in your patchseries, 
+which means you are woefully out of sync with upstream.
 
-@@ -634,13 +631,14 @@ #endif
-  		cl->qstats.drops++;
-  		return NET_XMIT_DROP;
-  	} else {
--		cl->bstats.packets++;
-+		cl->bstats.packets +=
-+			skb_is_gso(skb)?skb_shinfo(skb)->gso_segs:1;
-  		cl->bstats.bytes += skb->len;
-  		htb_activate(q, cl);
-  	}
+	Jeff
 
-  	sch->q.qlen++;
--	sch->bstats.packets++;
-+	sch->bstats.packets += skb_is_gso(skb)?skb_shinfo(skb)->gso_segs:1;
-  	sch->bstats.bytes += skb->len;
-  	return NET_XMIT_SUCCESS;
-  }
-@@ -717,8 +715,9 @@ #endif
-   * In such case we remove class from event queue first.
-   */
-  static void htb_charge_class(struct htb_sched *q, struct htb_class *cl,
--			     int level, int bytes)
-+			     int level, struct sk_buff *skb)
-  {
-+	int bytes = skb->len;
-  	long toks, diff;
-  	enum htb_cmode old_mode;
-
-@@ -753,13 +752,15 @@ #define HTB_ACCNT(T,B,R) toks = diff + c
-  #ifdef HTB_RATECM
-  		/* update rate counters */
-  		cl->sum_bytes += bytes;
--		cl->sum_packets++;
-+		cl->sum_packets += skb_is_gso(skb)?
-+				skb_shinfo(skb)->gso_segs:1;
-  #endif
-
-  		/* update byte stats except for leaves which are already updated */
-  		if (cl->level) {
-  			cl->bstats.bytes += bytes;
--			cl->bstats.packets++;
-+			cl->bstats.packets += skb_is_gso(skb)?
-+					skb_shinfo(skb)->gso_segs:1;
-  		}
-  		cl = cl->parent;
-  	}
-@@ -943,7 +944,7 @@ next:
-  		   gives us slightly better performance */
-  		if (!cl->un.leaf.q->q.qlen)
-  			htb_deactivate(q, cl);
--		htb_charge_class(q, cl, level, skb->len);
-+		htb_charge_class(q, cl, level, skb);
-  	}
-  	return skb;
-  }
 
