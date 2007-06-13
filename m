@@ -1,29 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] TCP: remove initial_ssthresh from Cubic
-Date: Wed, 13 Jun 2007 11:46:21 -0700 (PDT)
-Message-ID: <20070613.114621.85409138.davem@davemloft.net>
-References: <20070613102718.61d67a36@localhost>
-	<20070613.112652.112623832.davem@davemloft.net>
-	<20070613113149.5cd1b11e@localhost>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 0/15] spidernet driver bug fixes
+Date: Wed, 13 Jun 2007 14:51:56 -0400
+Message-ID: <46703CCC.5030607@garzik.org>
+References: <20070607191707.GA7904@austin.ibm.com> <1181265151.6026.1.camel@concordia.ozlabs.ibm.com> <20070608170608.GI7904@austin.ibm.com> <20070608172020.GA31089@havoc.gtf.org> <20070611181429.GA4397@austin.ibm.com> <466F2581.2080808@garzik.org> <20070612233237.GN4397@austin.ibm.com> <466F3482.4050305@garzik.org> <20070613161414.GO4397@austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: billfink@mindspring.com, sangtae.ha@gmail.com, rhee@eos.ncsu.edu,
-	rhee@ncsu.edu, netdev@vger.kernel.org
-To: shemminger@linux-foundation.org
+Cc: Michael Ellerman <michael@ellerman.id.au>, netdev@vger.kernel.org,
+	cbe-oss-dev@ozlabs.org
+To: Linas Vepstas <linas@austin.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48135
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753065AbXFMSqF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2007 14:46:05 -0400
-In-Reply-To: <20070613113149.5cd1b11e@localhost>
+Received: from srv5.dvmed.net ([207.36.208.214]:38359 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751018AbXFMSwD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Jun 2007 14:52:03 -0400
+In-Reply-To: <20070613161414.GO4397@austin.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Date: Wed, 13 Jun 2007 11:31:49 -0700
+Linas Vepstas wrote:
+> "git branch" shows that I'm on "upstream".  So I performed a "git pull" 
+> (without any additional arguments) assuming that it would sync to your
+> "upstream" branch.  And so my email was based on this.
+> 
+> Some googling seems to show that "git pull" has a bug/feature of
+> ignoring the branch that one is working in, and pulling "master"
+> no matter what.  I have no clue why; this seems broken to me.
+> 
+> So ... let me try again ... 
+> git pull git://git.kernel.org/pub/scm/linux/kernel/git/jgarzik/netdev-2.6 upstream
+> ...
+> Automatic merge failed; fix up by hand
 
-> Maybe it is time to remove BIC?
+Unfortunately git isn't the greatest for saying "just give me what is on 
+the remote", since each repository is an independent peer.
 
-I don't see any compelling reason, the same could be said
-of the other experimental protocols we include in the tree.
+You need to:
+* grab the latest torvalds/linux-2.6.git
+* erase local netdev-2.6
+* clone to create local netdev-2.6:
+	URL=git//git.kernel.org/.../jgarzik/netdev-2.6
+	git-clone --reference linux-2.6 $URL netdev-2.6
+* that creates 'master' branch, which always equals vanilla upstream
+* now create a local upstream branch:
+	git checkout -b upstream master
+* and finally, pull remote upstream branch into local upstream branch:
+	git pull $URL upstream:upstream
+
+Occasionally the remote 'upstream' will get "rebased", which means is 
+has been completely replaced by a new linear history.  If you pull 
+'upstream' after a rebase, into a local 'upstream', git will attempt to 
+merge the same patches all over again, with disastrous results.
+
+I wish there was a git option to "just make my shit look like the 
+remote, dammit!"  The above is the "easiest" way I know how to do that.
+
+	Jeff
+
+
+
