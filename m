@@ -1,56 +1,68 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Re: [PATCH] NET: Multiqueue network device support.
-Date: Wed, 13 Jun 2007 15:12:37 +0200
-Message-ID: <18031.60741.695897.572432@robur.slu.se>
-References: <466DEF9D.9070509@trash.net>
-	<1181615384.4071.121.camel@localhost>
-	<466E9DF2.9010505@trash.net>
-	<20070612.140240.00078635.davem@davemloft.net>
-	<466F0D74.5030308@trash.net>
-	<1181714168.4758.57.camel@debian.sh.intel.com>
-	<1181737935.4050.87.camel@localhost>
+From: "Robert P. J. Day" <rpjday@mindspring.com>
+Subject: Re: [KJ] [KJ PATCH] Replacing alloc_pages(gfp, 0) with alloc_page(gfp)
+ in net/core/pktgen.c
+Date: Wed, 13 Jun 2007 09:14:55 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0706130912080.4392@localhost.localdomain>
+References: <1181702562.2282.12.camel@shani-win>
+ <a901b49a0706130312mba8a686m455b5cbf774cc159@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Zhu Yi <yi.zhu@intel.com>, Patrick McHardy <kaber@trash.net>,
-	David Miller <davem@davemloft.net>,
-	peter.p.waskiewicz.jr@intel.com, netdev@vger.kernel.org,
-	jeff@garzik.org, auke-jan.h.kok@intel.com
-To: hadi@cyberus.ca
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Shani Moideen <shani.moideen@wipro.com>, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, jgarzik@pobox.com,
+	kernel-janitors@lists.osdl.org
+To: psr <pradeep.rautela@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.slu.se ([130.238.96.70]:47667 "EHLO mx1.slu.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752726AbXFMNMr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Jun 2007 09:12:47 -0400
-In-Reply-To: <1181737935.4050.87.camel@localhost>
+Received: from nic.NetDirect.CA ([216.16.235.2]:55473 "EHLO
+	rubicon.netdirect.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752303AbXFMNRS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2007 09:17:18 -0400
+In-Reply-To: <a901b49a0706130312mba8a686m455b5cbf774cc159@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Wed, 13 Jun 2007, psr wrote:
 
-jamal writes:
+> On 6/13/07, Shani Moideen <shani.moideen@wipro.com> wrote:
+> >
+> > Replacing alloc_pages(gfp,0) with alloc_page(gfp)
+> > in net/core/pktgen.c
+> >
+> > Signed-off-by: Shani Moideen <shani.moideen@wipro.com>
+> > ----
+> >
+> > diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+> > index b92a322..2600c7f 100644
+> > --- a/net/core/pktgen.c
+> > +++ b/net/core/pktgen.c
+> > @@ -2414,7 +2414,7 @@ static struct sk_buff *fill_packet_ipv4(struct
+> > net_device *odev,
+> >
+> >                 i = 0;
+> >                 while (datalen > 0) {
+> > -                       struct page *page = alloc_pages(GFP_KERNEL, 0);
+> > +                       struct page *page = alloc_page(GFP_KERNEL);
+>
+> Does this makes any difference anyway? Both are same eventually?
+> What is the rational behind this? Can you please help me
+> understanding this?
 
- > The key arguement i make (from day one actually) is to leave the
- > majority of the work to the driver.
- > My view of wireless WMM etc is it is a different media behavior
- > (compared to wired ethernet) which means a different view of strategy
- > for when it opens the valve to allow in more packets. 802.11 media has
- > embedded signalling which is usable. Guy Cohen gave a good use case
- > which i responded to. Do you wanna look at that and respond?
+since this is one of the TO DO items i added to the list of things at
+the wiki:
 
- Hello,
+http://fsdev.net/wiki/index.php?title=Memory_allocation_cleanup
 
- Haven't got all details. IMO we need to support some "bonding-like" 
- scenario too. Where one CPU is feeding just one TX-ring. (and TX-buffers
- cleared by same CPU). We probably don't want to stall all queuing when
- when one ring is full. 
- 
- The scenario I see is to support parallelism in forwarding/firewalling etc.
- For example when RX load via HW gets split into different CPU's and for 
- cache reasons we want to process in same CPU even with TX.
+i'll just toss in my $0.02.  if a short (more convenient) form of a
+routine has been defined, it should be used.  if you have no plans to
+use it, it shouldn't have been defined in the first place.
 
- If RX HW split keeps packets from the same flow on same CPU we shouldn't
- get reordering within flows.
+in short, make a consistent decision and go with it.
 
- Cheers
-						--ro
- 
+rday
+-- 
+========================================================================
+Robert P. J. Day
+Linux Consulting, Training and Annoying Kernel Pedantry
+Waterloo, Ontario, CANADA
+
+http://fsdev.net/wiki/index.php?title=Main_Page
+========================================================================
