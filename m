@@ -1,57 +1,36 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: Please pull 'libertas-fixes' branch of wireless-2.6
-Date: Tue, 12 Jun 2007 20:03:12 -0400
-Message-ID: <20070613000312.GB4187@tuxdriver.com>
-References: <20070529183347.GD3496@tuxdriver.com> <20070612210544.GF310@tuxdriver.com> <20070612210658.GG310@tuxdriver.com> <466F242B.1030900@garzik.org>
+From: Benjamin LaHaise <bcrl@kvack.org>
+Subject: r8169 tx problem (1s pause with ping)
+Date: Tue, 12 Jun 2007 20:41:54 -0400
+Message-ID: <20070613004154.GA4187@kvack.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	Dan Williams <dcbw@redhat.com>
-To: Jeff Garzik <jeff@garzik.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:4380 "EHLO ra.tuxdriver.com"
+Received: from kanga.kvack.org ([66.96.29.28]:53328 "EHLO kanga.kvack.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752377AbXFMAYq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Jun 2007 20:24:46 -0400
+	id S1750950AbXFMAmL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Jun 2007 20:42:11 -0400
 Content-Disposition: inline
-In-Reply-To: <466F242B.1030900@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 12, 2007 at 06:54:35PM -0400, Jeff Garzik wrote:
-> John W. Linville wrote:
-> >Fixes identified by the libertas team as important for 2.6.22...
-> >
-> >---
-> >
-> >The following changes since commit 
-> >717c9339202a42ae7bec7d3c4b84deecdcae9f81:
-> >  Dan Williams (1):
-> >        libertas: reduce SSID and BSSID mixed-case abuse
-> >
-> >are found in the git repository at:
-> >
-> >  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git 
-> >  libertas-fixes
-> >
-> >Dan Williams (1):
-> >      libertas: actually send mesh frames to mesh netdev
-> >
-> >Luis Carlos (1):
-> >      libertas: convert libertas_mpp into anycast_mask
-> >
-> >Luis Carlos Cobo Rus (2):
-> >      libertas: pull current channel from firmware on mesh autostart
-> >      libertas: deauthenticate from AP in channel switch
-> 
-> Just to be clear, you intend 'libertas' and 'libertas-fixes' (in that 
-> order) for 2.6.22, and 'libertas-upstream' for 2.6.23?
+Hello folks,
 
-Yes, correct.
+I'm seeing something odd with r8169 on FC7: doing a ping -s 1600 alternates 
+between a 1s latency and sub 1ms.  Has anyone else seen anything like this?  
+The system in question is an Asus M2A-VM with an onboard RTL8111 (I think).  
+NAPI doesn't seem to make a difference.  The kernel in question is currently 
+a vanilla 2.6.21.5.  Sub-mtu sized packets behave normally.
 
-Thanks,
+02:00.0 Ethernet controller: Realtek Semiconductor Co., Ltd. RTL8111/8168B PCI Express Gigabit Ethernet controller (rev 01)
 
-John
+PING 1.2.3.4 (1.2.3.4) 1600(1628) bytes of data.
+1608 bytes from 1.2.3.4: icmp_seq=1 ttl=64 time=1000 ms
+1608 bytes from 1.2.3.4: icmp_seq=2 ttl=64 time=0.816 ms
+1608 bytes from 1.2.3.4: icmp_seq=3 ttl=64 time=1000 ms
+1608 bytes from 1.2.3.4: icmp_seq=4 ttl=64 time=0.661 ms
+
+		-ben
 -- 
-John W. Linville
-linville@tuxdriver.com
+"Time is of no importance, Mr. President, only life is important."
+Don't Email: <zyntrop@kvack.org>.
