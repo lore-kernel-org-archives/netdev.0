@@ -1,113 +1,46 @@
-From: Mark Fortescue <mark@mtfhpc.demon.co.uk>
-Subject: Re: [2/2] 2.6.22-rc4: known regressions v3
-Date: Wed, 13 Jun 2007 23:25:20 +0100 (BST)
-Message-ID: <Pine.LNX.4.61.0706132320200.26751@mtfhpc.demon.co.uk>
-References: <46704923.1010009@googlemail.com> <46704C44.8020602@googlemail.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH] Fix race condition about network device name allocation
+Date: Wed, 13 Jun 2007 15:53:35 -0700
+Message-ID: <20070613155335.47111c67@localhost>
+References: <1178862045.3979.33.camel@kane-linux>
+	<20070511092519.1f34ab34@freepuppy>
+	<1179130660.3881.23.camel@kane-linux>
+	<20070514085840.17a343f7@freepuppy>
+	<20070613094521.GA8860@localdomain>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel <linux-kernel@vger.kernel.org>,
 	Andrew Morton <akpm@linux-foundation.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>, Dan Aloni <da-x@monatomic.org>,
+	bonding-devel@lists.sourceforge.net
+To: Dan Aloni <da-x@monatomic.org>,
 	Chad Tindel <ctindel@users.sourceforge.net>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	sparclinux@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Mikael Pettersson <mikpe@it.uu.se>,
-	linux-pm@lists.linux-foundation.org,
-	"Rafael J. Wysocki" <rjw@sisk.pl>, Pavel Machek <pavel@ucw.cz>,
-	linux-usb-devel@lists.sourceforge.net,
-	Greg Kroah-Hartman <gregkh@suse.de>,
-	Alex Riesen <raa.lkml@gmail.com>, Andi Kleen <ak@suse.de>,
-	discuss@x86-64.org, Ioan Ionita <opslynx@gmail.com>
-To: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
-Return-path: <sparclinux-owner@vger.kernel.org>
-In-Reply-To: <46704C44.8020602@googlemail.com>
-Sender: sparclinux-owner@vger.kernel.org
+	Jay Vosburgh <fubar@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:36060 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753502AbXFMWye (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2007 18:54:34 -0400
+In-Reply-To: <20070613094521.GA8860@localdomain>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+Bonding refers to device after unregistering. This has always been
+a dangerous thing. The following UNTESTED should fix the problem.
 
-The random seg faults on x86_64 is interesting as I have been getting 
-random illegal instruction faults on sparc (sun4c) with 2.6.22-rc3. I have 
-not yet tried to track it down. All I know at present is that it is not a 
-problem on 2.6.20.9.
-
-Regards
- 	Mark Fortescue.
-
-On Wed, 13 Jun 2007, Michal Piotrowski wrote:
-
-> Hi all,
->
-> Here is a list of some known regressions in 2.6.22-rc4.
->
-> Feel free to add new regressions/remove fixed etc.
-> http://kernelnewbies.org/known_regressions
->
->
->
-> Networking
->
-> Subject    : commit 9093bbb2d96d0184f037cea9b4e952a44ebe7c32 broke the 
-> bonding driver
-> References : http://lkml.org/lkml/2007/6/13/65
-> Submitter  : Dan Aloni <da-x@monatomic.org>
-> Handled-By : Stephen Hemminger <shemminger@linux-foundation.org>
-> Status     : Unknown
->
->
->
-> Sparc64
->
-> Subject    : 2.6.22-rc broke X on Ultra5
-> References : http://lkml.org/lkml/2007/5/22/78
-> Submitter  : Mikael Pettersson <mikpe@it.uu.se>
-> Handled-By : David Miller <davem@davemloft.net>
-> Status     : problem is being debugged
->
->
->
-> Suspend
->
-> Subject    : hibernate(?) fails totally - regression
-> References : http://lkml.org/lkml/2007/6/1/401
-> Submitter  : David Greaves <david@dgreaves.com>
-> Handled-By : Rafael J. Wysocki <rjw@sisk.pl>
-> Caused-By  : Tejun Heo <htejun@gmail.com>
->            commit 9666f4009c22f6520ac3fb8a19c9e32ab973e828
-> Status     : problem is being debugged
->
->
->
-> TTY
->
-> Subject    : OOPS (NULL pointer dereference) in v2.6.22-rc3
-> References : http://lkml.org/lkml/2007/6/1/389
->            http://bugzilla.kernel.org/show_bug.cgi?id=8473
->            http://bugzilla.kernel.org/show_bug.cgi?id=8574
-> Submitter  : Alex Riesen <raa.lkml@gmail.com>
-> Status     : problem is being debugged
->
->
->
-> x86-64
->
-> Subject    : x86-64 2.6.22-rc2 random segfaults
-> References : http://lkml.org/lkml/2007/5/24/275
-> Submitter  : Ioan Ionita <opslynx@gmail.com>
-> Status     : Unknown
->
->
->
-> Regards,
-> Michal
->
-> -- 
-> LOG
-> http://www.stardust.webpages.pl/log/
-> -
-> To unsubscribe from this list: send the line "unsubscribe sparclinux" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+--- a/drivers/net/bonding/bond_sysfs.c	2007-06-13 15:48:37.000000000 -0700
++++ b/drivers/net/bonding/bond_sysfs.c	2007-06-13 15:49:17.000000000 -0700
+@@ -164,9 +164,10 @@ static ssize_t bonding_store_bonds(struc
+ 				printk(KERN_INFO DRV_NAME
+ 					": %s is being deleted...\n",
+ 					bond->dev->name);
+-				unregister_netdevice(bond->dev);
++
+ 				bond_deinit(bond->dev);
+ 		        	bond_destroy_sysfs_entry(bond);
++				unregister_netdevice(bond->dev);
+ 				rtnl_unlock();
+ 				goto out;
+ 			}
