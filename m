@@ -1,110 +1,229 @@
-From: "Satyam Sharma" <satyam.sharma@gmail.com>
-Subject: Re: [RFC][PATCH -mm take5 4/7] using symlink for the net_device
-Date: Wed, 13 Jun 2007 22:19:39 +0530
-Message-ID: <a781481a0706130949j7b35e33ds9cda5d8a551c9d7d@mail.gmail.com>
-References: <466FC455.5060001@bx.jp.nec.com> <466FC6ED.9060208@bx.jp.nec.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Matt Mackall" <mpm@selenic.com>,
-	"Andrew Morton" <akpm@linux-foundation.org>,
-	"David Miller" <davem@davemloft.net>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: "Keiichi KII" <k-keiichi@bx.jp.nec.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: [RTNETLINK 02/18]: Split up rtnl_setlink
+Date: Wed, 13 Jun 2007 18:50:44 +0200 (MEST)
+Message-ID: <20070613165041.7780.37938.sendpatchset@localhost.localdomain>
+References: <20070613165039.7780.15855.sendpatchset@localhost.localdomain>
+Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nz-out-0506.google.com ([64.233.162.237]:52582 "EHLO
-	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758642AbXFMQtk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2007 12:49:40 -0400
-Received: by nz-out-0506.google.com with SMTP id n1so283171nzf
-        for <netdev@vger.kernel.org>; Wed, 13 Jun 2007 09:49:39 -0700 (PDT)
-In-Reply-To: <466FC6ED.9060208@bx.jp.nec.com>
-Content-Disposition: inline
+Received: from stinky.trash.net ([213.144.137.162]:35930 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758569AbXFMQuq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2007 12:50:46 -0400
+In-Reply-To: <20070613165039.7780.15855.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+[RTNETLINK]: Split up rtnl_setlink
 
-On 6/13/07, Keiichi KII <k-keiichi@bx.jp.nec.com> wrote:
-> [...]
-> +static DECLARE_MUTEX(netdev_change_sem);
+Split up rtnl_setlink into a function performing validation and a function
+performing the actual changes. This allows to share the modifcation logic
+with rtnl_newlink, which is introduced by the next patch.
 
-The preferred style these days is to use a DEFINE_MUTEX
-(and the struct mutex primitives) for such locks that are used
-as binary semaphores.
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-BTW, a comment here to note what this lock protects is required.
-[ You don't really need to give a comment for the target_list_lock
-because it's defined just below the "target_list". It's not equally obvious
-at first glance what is protected by the netdev_change_sem, however. ]
+---
+commit 806243b51e1f1607cec07f320dc9a8c3a70a8480
+tree d5a73dce1019704e9eaca483281cb5f3e82c3a95
+parent 2c029e7d78d67b07ecccc6cc138ded377021555a
+author Patrick McHardy <kaber@trash.net> Wed, 06 Jun 2007 14:45:52 +0200
+committer Patrick McHardy <kaber@trash.net> Wed, 13 Jun 2007 18:10:29 +0200
 
-> +       down(&netdev_change_sem);
-> +       up(&netdev_change_sem);
+ net/core/rtnetlink.c |  105 +++++++++++++++++++++++++++-----------------------
+ 1 files changed, 57 insertions(+), 48 deletions(-)
 
-So these become mutex_lock and mutex_unlock.
-
-> +static int netconsole_event(struct notifier_block *this, unsigned long event,
-> +                           void *ptr)
-> +{
-> +       int error = 0;
-> +       unsigned long flags;
-> +       char *old_link_name = NULL, *new_link_name = NULL;
-> +       struct netconsole_target *nt, *tmp;
-> +       struct net_device *dev = ptr;
-> +       LIST_HEAD(modify_target_list);
-> +
-> +       if (event == NETDEV_CHANGENAME) {
-> +               spin_lock_irqsave(&target_list_lock, flags);
-> +               list_for_each_entry_safe(nt, tmp, &target_list, list)
-> +                       if (nt->np.dev == dev)
-> +                               list_move(&nt->list, &modify_target_list);
-> +               spin_unlock_irqrestore(&target_list_lock, flags);
-> +
-> +               down(&netdev_change_sem);
-> +               list_for_each_entry(nt, &modify_target_list, list) {
-> +                       new_link_name = make_netdev_class_name(dev->name);
-> +                       old_link_name = make_netdev_class_name(nt->np.dev_name);
-> +                       if (!new_link_name || !old_link_name) {
-> +                               printk(KERN_ERR "netconsole: "
-> +                                      "make_netdev_class_name() failed!\n");
-> +                               kfree(new_link_name);
-> +                               kfree(old_link_name);
-> +                               continue;
-
-Sorry, but we're not covering from the error condition fully here. Note
-that later you merge the temporary modify_target_list entirely back
-into the target_list ... which would still contain these erroneous
-nodes. A full cleanup (kobject_unregister the entry, and then list_del
-from modify_target_list) is required here, before continuing.
-
-> +                       }
-> +                       sysfs_remove_link(&nt->obj, old_link_name);
-> +                       error = sysfs_create_link(&nt->obj,
-> +                                                 &nt->np.dev->dev.kobj,
-> +                                                 new_link_name);
-> +                       if (error)
-> +                               printk(KERN_ERR "can't create link: %s\n",
-> +                                      new_link_name);
-
-Same here, a fuller cleanup is required to recover from the error
-condition here, then kfree()'s and then stick a "continue;" here, else ...
-
-> +                       strcpy(nt->np.dev_name, dev->name);
-
-... you'll have move this up.
-
-> +                       kfree(new_link_name);
-> +                       kfree(old_link_name);
-> +               }
-> +               up(&netdev_change_sem);
-> +
-> +               spin_lock_irqsave(&target_list_lock, flags);
-> +               list_for_each_entry_safe(nt, tmp, &modify_target_list, list)
-> +                       list_move(&nt->list, &target_list);
-> +               spin_unlock_irqrestore(&target_list_lock, flags);
-> +       }
-> +
-> +       return NOTIFY_DONE;
-> +}
-
-Satyam
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 02e8bf0..25ca219 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -561,44 +561,11 @@ static const struct nla_policy ifla_policy[IFLA_MAX+1] = {
+ 	[IFLA_LINKMODE]		= { .type = NLA_U8 },
+ };
+ 
+-static int rtnl_setlink(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
++static int do_setlink(struct net_device *dev, struct ifinfomsg *ifm,
++		      struct nlattr **tb, char *ifname)
+ {
+-	struct ifinfomsg *ifm;
+-	struct net_device *dev;
+-	int err, send_addr_notify = 0, modified = 0;
+-	struct nlattr *tb[IFLA_MAX+1];
+-	char ifname[IFNAMSIZ];
+-
+-	err = nlmsg_parse(nlh, sizeof(*ifm), tb, IFLA_MAX, ifla_policy);
+-	if (err < 0)
+-		goto errout;
+-
+-	if (tb[IFLA_IFNAME])
+-		nla_strlcpy(ifname, tb[IFLA_IFNAME], IFNAMSIZ);
+-	else
+-		ifname[0] = '\0';
+-
+-	err = -EINVAL;
+-	ifm = nlmsg_data(nlh);
+-	if (ifm->ifi_index > 0)
+-		dev = dev_get_by_index(ifm->ifi_index);
+-	else if (tb[IFLA_IFNAME])
+-		dev = dev_get_by_name(ifname);
+-	else
+-		goto errout;
+-
+-	if (dev == NULL) {
+-		err = -ENODEV;
+-		goto errout;
+-	}
+-
+-	if (tb[IFLA_ADDRESS] &&
+-	    nla_len(tb[IFLA_ADDRESS]) < dev->addr_len)
+-		goto errout_dev;
+-
+-	if (tb[IFLA_BROADCAST] &&
+-	    nla_len(tb[IFLA_BROADCAST]) < dev->addr_len)
+-		goto errout_dev;
++	int modified = 0, send_addr_notify = 0;
++	int err;
+ 
+ 	if (tb[IFLA_MAP]) {
+ 		struct rtnl_link_ifmap *u_map;
+@@ -606,12 +573,12 @@ static int rtnl_setlink(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+ 
+ 		if (!dev->set_config) {
+ 			err = -EOPNOTSUPP;
+-			goto errout_dev;
++			goto errout;
+ 		}
+ 
+ 		if (!netif_device_present(dev)) {
+ 			err = -ENODEV;
+-			goto errout_dev;
++			goto errout;
+ 		}
+ 
+ 		u_map = nla_data(tb[IFLA_MAP]);
+@@ -624,7 +591,7 @@ static int rtnl_setlink(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+ 
+ 		err = dev->set_config(dev, &k_map);
+ 		if (err < 0)
+-			goto errout_dev;
++			goto errout;
+ 
+ 		modified = 1;
+ 	}
+@@ -635,19 +602,19 @@ static int rtnl_setlink(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+ 
+ 		if (!dev->set_mac_address) {
+ 			err = -EOPNOTSUPP;
+-			goto errout_dev;
++			goto errout;
+ 		}
+ 
+ 		if (!netif_device_present(dev)) {
+ 			err = -ENODEV;
+-			goto errout_dev;
++			goto errout;
+ 		}
+ 
+ 		len = sizeof(sa_family_t) + dev->addr_len;
+ 		sa = kmalloc(len, GFP_KERNEL);
+ 		if (!sa) {
+ 			err = -ENOMEM;
+-			goto errout_dev;
++			goto errout;
+ 		}
+ 		sa->sa_family = dev->type;
+ 		memcpy(sa->sa_data, nla_data(tb[IFLA_ADDRESS]),
+@@ -655,7 +622,7 @@ static int rtnl_setlink(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+ 		err = dev->set_mac_address(dev, sa);
+ 		kfree(sa);
+ 		if (err)
+-			goto errout_dev;
++			goto errout;
+ 		send_addr_notify = 1;
+ 		modified = 1;
+ 	}
+@@ -663,7 +630,7 @@ static int rtnl_setlink(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+ 	if (tb[IFLA_MTU]) {
+ 		err = dev_set_mtu(dev, nla_get_u32(tb[IFLA_MTU]));
+ 		if (err < 0)
+-			goto errout_dev;
++			goto errout;
+ 		modified = 1;
+ 	}
+ 
+@@ -675,7 +642,7 @@ static int rtnl_setlink(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+ 	if (ifm->ifi_index > 0 && ifname[0]) {
+ 		err = dev_change_name(dev, ifname);
+ 		if (err < 0)
+-			goto errout_dev;
++			goto errout;
+ 		modified = 1;
+ 	}
+ 
+@@ -684,7 +651,6 @@ static int rtnl_setlink(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+ 		send_addr_notify = 1;
+ 	}
+ 
+-
+ 	if (ifm->ifi_flags || ifm->ifi_change) {
+ 		unsigned int flags = ifm->ifi_flags;
+ 
+@@ -712,7 +678,7 @@ static int rtnl_setlink(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+ 
+ 	err = 0;
+ 
+-errout_dev:
++errout:
+ 	if (err < 0 && modified && net_ratelimit())
+ 		printk(KERN_WARNING "A link change request failed with "
+ 		       "some changes comitted already. Interface %s may "
+@@ -721,7 +687,50 @@ errout_dev:
+ 
+ 	if (send_addr_notify)
+ 		call_netdevice_notifiers(NETDEV_CHANGEADDR, dev);
++	return err;
++}
+ 
++static int rtnl_setlink(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
++{
++	struct ifinfomsg *ifm;
++	struct net_device *dev;
++	int err;
++	struct nlattr *tb[IFLA_MAX+1];
++	char ifname[IFNAMSIZ];
++
++	err = nlmsg_parse(nlh, sizeof(*ifm), tb, IFLA_MAX, ifla_policy);
++	if (err < 0)
++		goto errout;
++
++	if (tb[IFLA_IFNAME])
++		nla_strlcpy(ifname, tb[IFLA_IFNAME], IFNAMSIZ);
++	else
++		ifname[0] = '\0';
++
++	err = -EINVAL;
++	ifm = nlmsg_data(nlh);
++	if (ifm->ifi_index > 0)
++		dev = dev_get_by_index(ifm->ifi_index);
++	else if (tb[IFLA_IFNAME])
++		dev = dev_get_by_name(ifname);
++	else
++		goto errout;
++
++	if (dev == NULL) {
++		err = -ENODEV;
++		goto errout;
++	}
++
++	if (tb[IFLA_ADDRESS] &&
++	    nla_len(tb[IFLA_ADDRESS]) < dev->addr_len)
++		goto errout_dev;
++
++	if (tb[IFLA_BROADCAST] &&
++	    nla_len(tb[IFLA_BROADCAST]) < dev->addr_len)
++		goto errout_dev;
++
++	err = do_setlink(dev, ifm, tb, ifname);
++errout_dev:
+ 	dev_put(dev);
+ errout:
+ 	return err;
