@@ -1,132 +1,136 @@
-From: Pavel Emelianov <xemul@openvz.org>
-Subject: Re: [PATCH] Virtual ethernet tunnel
-Date: Wed, 13 Jun 2007 13:24:55 +0400
-Message-ID: <466FB7E7.4060201@openvz.org>
-References: <4666CEAA.8010903@openvz.org> <4666D296.2000002@trash.net> <4667BD1D.9080905@openvz.org> <466D3466.10306@trash.net>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: [PATCH] Re: [2.6.21.1] soft lockup when removing netconsole module
+Date: Wed, 13 Jun 2007 11:25:37 +0200
+Message-ID: <20070613092537.GA2432@ff.dom.local>
+References: <20070526154011.GB3735@vanheusden.com> <20070529005628.f7f3abc6.akpm@linux-foundation.org> <20070612110233.GA3281@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Linux Containers <containers@lists.osdl.org>,
-	Kirill Korotaev <dev@openvz.org>
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Folkert van Heusden <folkert@vanheusden.com>,
+	linux-kernel@vger.kernel.org,
+	Jason Wessel <jason.wessel@windriver.com>,
+	Thomas Gleixner <tglx@linutronix.de>, stable@kernel.org,
+	netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.233.200]:4024 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753459AbXFMIzj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Jun 2007 04:55:39 -0400
-In-Reply-To: <466D3466.10306@trash.net>
+Received: from mx12.go2.pl ([193.17.41.142]:33841 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754088AbXFMJR7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Jun 2007 05:17:59 -0400
+Content-Disposition: inline
+In-Reply-To: <20070612110233.GA3281@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy wrote:
-> Pavel Emelianov wrote:
->> Patrick McHardy wrote:
->>
-> 
->>>> +	skb->pkt_type = PACKET_HOST;
->>>> +	skb->protocol = eth_type_trans(skb, rcv);
->>>> +	if (dev->features & NETIF_F_NO_CSUM)
->>>> +		skb->ip_summed = rcv_priv->ip_summed;
->>>> +
->>>> +	dst_release(skb->dst);
->>>> +	skb->dst = NULL;
->>>> +
->>>> +	secpath_reset(skb);
->>>> +	nf_reset(skb);
->>>
->>> Is skb->mark supposed to survive communication between different
->>> namespaces?
->>
->> I guess it must not. Thanks.
-> 
-> 
-> I guess there are a few others that should be cleared as well,
-> like the tc related members, secmark, ipvs_property, ...
+On Tue, Jun 12, 2007 at 01:02:33PM +0200, Jarek Poplawski wrote:
+...
+> Of course such a problem should preferably be fixed by somebody who
+> knows the code (alas I don't know netconsole), to be sure all needed
+> cancels are still done after this change. I hope Jason's patch is
+> right but I'm a little surprised I can't see netdev in cc (I'll try
+> to fix this).
 
-It seems like we are about to have some skb_reset_all() routine to
-make the skb look like newborn.
+So, I've had a look into netpoll and, unfortunately, I don't
+think this patch is right... 
 
->>> The rtnl_link codes looks fine. I don't like the VETH_INFO_MAC attribute
->>> very much though, we already have a generic device attribute for MAC
->>> addresses. Of course that only allows you to supply one MAC address, so
->>> I'm wondering what you think of allocating only a single device per
->>> newlink operation and binding them in a seperate enslave operation?
->>
->> I did this at the very first version, but Alexey showed me that this
->> would be wrong. Look. When we create the second device it must be in
->> the other namespace as it is useless to have them in one namespace.
->> But if we have the device in the other namespace the RTNL_NEWLINK 
->> message from kernel would come into this namespace thus confusing ip
->> utility in the init namespace. Creating the device in the init ns and
->> moving it into the new one is rather a complex task.
->>
->> But with such approach the creation looks really logical. We send a 
->> packet to the kernel and have a single response about the new device 
->> appearance. At the same time we have a RTNL_NEWLINK message arrived at 
->> the destination namespace informing that a new device has appeared 
->> there as well.
-> 
-> 
-> The question is how to proceed. I haven't read all mails yet, but it
-> seems there is some disagreement about whether to create all devices
-> in the same namespace and move them later or create them directly in
+> > From: Jason Wessel <jason.wessel@windriver.com>
+> > 
+> > Do not call cancel_rearming_delayed_work() if there is no
+> > pending work.
+> > 
+> > Signed-off-by: Jason Wessel <jason.wessel@windriver.com>
+> > Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+> > ---
+> > 
+> >  net/core/netpoll.c |    6 ++++--
+> >  1 file changed, 4 insertions(+), 2 deletions(-)
+> > 
+> > diff -puN net/core/netpoll.c~a net/core/netpoll.c
+> > --- a/net/core/netpoll.c~a
+> > +++ a/net/core/netpoll.c
+> > @@ -784,8 +784,10 @@ void netpoll_cleanup(struct netpoll *np)
+> >  			if (atomic_dec_and_test(&npinfo->refcnt)) {
+> >  				skb_queue_purge(&npinfo->arp_tx);
+> >  				skb_queue_purge(&npinfo->txq);
+> > -				cancel_rearming_delayed_work(&npinfo->tx_work);
+> > -				flush_scheduled_work();
+> > +				if (delayed_work_pending(&npinfo->tx_work)) {
+> > +					cancel_rearming_delayed_work(&npinfo->tx_work);
+> > +					flush_scheduled_work();
+> > +				}
+> >  
+> >  				kfree(npinfo);
+> >  			}
+> > _
 
-The agreement was that we can make any of the above. We can create
-booth devices in the init namespace and then move one of them into the
-desired namespace, or we can explicitly specify which namespace to create
-the pair in.
+There are such possibilities:
 
-> their target namespace. For now I guess it doesn't matter much, so
-> can everyone agree to adding a IFLA_PARTNER attribute that includes
-> a complete ifinfomsg and the attributes and you later decide how to
-> handle namespaces?
-> 
->>>> +enum {
->>>> +	VETH_INFO_UNSPEC,
->>>> +	VETH_INFO_MAC,
->>>> +	VETH_INFO_PEER,
->>>> +	VETH_INFO_PEER_MAC,
->>>> +
->>>> +	VETH_INFO_MAX
->>>> +};
->>> Please follow the
->>>
->>> #define VETH_INFO_MAX	(__VETH_INFO_MAX - 1)
->>>
->>> convention here.
->>
->> Could you please clarify this point. I saw the lines
->> enum {
->> 	...
->> 	RTNL_NEWLINK
->> #define RTNL_NEWLINK RTNL_NEWLINK
->> 	...
->> }
->> and had my brains exploded imagining what this would mean :(
-> 
-> 
-> Thats just to make the new attributes visible as preprocessor
-> symbols so userspace can use them for #ifdefs. We usually use
-> it when adding new attributes/message types, but its not necessary
-> for the initial set of attributes if you already have some other
-> preprocessor-visisble symbol (like VETH_INFO_MAX) userspace can
-> use.
-> 
-> What I was refering to is this convention:
-> 
-> enum {
-> ...
->         __IFLA_MAX
-> };
-> 
-> #define IFLA_MAX (__IFLA_MAX - 1)
-> 
-> Which is used to make sure that IFLA_MAX is really the max and
-> not max + 1 and additionally people won't forget to update it.
+1. After positive delayed_work_pending(&npinfo->tx_work) test
+some work is queued, but there is no guarantee that when running
+it'll rearm again, so cancel_rearming_delayed_work can loop again;
 
-OK thanks. This is already done in the v2.
+2. After negative delayed_work_pending(&npinfo->tx_work) test
+a work is just running, eg. waiting on netif_tx_lock, while
+kfree(npinfo) is done here (oops?!).
 
-Thanks,
-Pavel
+I've found an additional problem here with or without this patch:
+after deleting a timer in cancel_rearming_delayed_work() there could
+stay a last skb queued in npinfo->txq, and after kfree(npinfo)
+we have small memory leak. If I'm right here similar fix is needed
+in the current netpoll code: additional npinfo->txq purging only
+or maybe the whole cancel_rearming_ changed like this.
+
+I've tried to eliminate these problems in attached below patch
+proposal. I'm not sure it's all right: as I've written earlier I
+don't know netconsole enough, but it's probably a little better
+than above solution.
+
+I've some doubts yet (I didn't have time to check this all):
+
+1. I hope this other schedule_delayed_work() from netpoll_send_skb()
+is not possible when netpoll_cleanup() runs - if I'm wrong additional
+check of npinfo->refcnt should be done there;
+2. I also hope npinfo->refcnt before scheduling should be enough here
+- if not - another possibility is adding some locking eg.:
+netif_tx_lock before cancel for synchronization.
+
+Of course it would be very nice if somebody could test or verify
+this patch more.
+
+Regards,
+Jarek P.
+
+
+Signed-off-by: Jarek Poplawski <jarkao2@o2.pl>
+
+---
+
+diff -Nurp 2.6.21-/net/core/netpoll.c 2.6.21/net/core/netpoll.c
+--- 2.6.21-/net/core/netpoll.c	2007-04-26 15:08:32.000000000 +0200
++++ 2.6.21/net/core/netpoll.c	2007-06-12 21:05:23.000000000 +0200
+@@ -73,7 +73,8 @@ static void queue_process(struct work_st
+ 			netif_tx_unlock(dev);
+ 			local_irq_restore(flags);
+ 
+-			schedule_delayed_work(&npinfo->tx_work, HZ/10);
++			if (atomic_read(&npinfo->refcnt))
++				schedule_delayed_work(&npinfo->tx_work, HZ/10);
+ 			return;
+ 		}
+ 		netif_tx_unlock(dev);
+@@ -780,9 +781,15 @@ void netpoll_cleanup(struct netpoll *np)
+ 			if (atomic_dec_and_test(&npinfo->refcnt)) {
+ 				skb_queue_purge(&npinfo->arp_tx);
+ 				skb_queue_purge(&npinfo->txq);
+-				cancel_rearming_delayed_work(&npinfo->tx_work);
++				cancel_delayed_work(&npinfo->tx_work);
+ 				flush_scheduled_work();
+ 
++				/* clean after last, unfinished work */
++				if (!skb_queue_empty(&npinfo->txq)) {
++					struct sk_buff *skb;
++					skb = __skb_dequeue(&npinfo->txq);
++					kfree_skb(skb);
++				}
+ 				kfree(npinfo);
+ 			}
+ 		}
