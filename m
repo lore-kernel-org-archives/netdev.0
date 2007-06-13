@@ -1,42 +1,46 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [patch 1/6] 8139too: force media setting cleanup
-Date: Wed, 13 Jun 2007 13:09:29 -0400
-Message-ID: <467024C9.5010300@garzik.org>
-References: <200705232134.l4NLYcm2000578@shell0.pdx.osdl.net>	 <46560567.5060708@garzik.org> <1181739176.23954.23.camel@melchior>
+From: "Satyam Sharma" <satyam.sharma@gmail.com>
+Subject: Re: [RFC][PATCH -mm take5 7/7] update documentation
+Date: Wed, 13 Jun 2007 22:47:56 +0530
+Message-ID: <a781481a0706131017k368b6388n524cc2d3801be861@mail.gmail.com>
+References: <466FC455.5060001@bx.jp.nec.com> <466FC79F.7090805@bx.jp.nec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	akpm@linux-foundation.org, leewkb@yahoo.com,
-	netdev <netdev@vger.kernel.org>
-To: Kyuma Ohta <whatisthis@jcom.home.ne.jp>
+Cc: "Matt Mackall" <mpm@selenic.com>,
+	"Andrew Morton" <akpm@linux-foundation.org>,
+	"David Miller" <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: "Keiichi KII" <k-keiichi@bx.jp.nec.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:37686 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756931AbXFMRJd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Jun 2007 13:09:33 -0400
-In-Reply-To: <1181739176.23954.23.camel@melchior>
+Received: from nz-out-0506.google.com ([64.233.162.239]:5216 "EHLO
+	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758942AbXFMRR6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2007 13:17:58 -0400
+Received: by nz-out-0506.google.com with SMTP id n1so291979nzf
+        for <netdev@vger.kernel.org>; Wed, 13 Jun 2007 10:17:57 -0700 (PDT)
+In-Reply-To: <466FC79F.7090805@bx.jp.nec.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Kyuma Ohta wrote:
-> Hi,
-> I was testing 2.6.22-rc4 from yesterday,
-> but communication speed  of 8139 side is very slower 
-> than 2.6.21.* (less than 10kbytes/sec at  
-> 100MBPS,FULL-DUPLEX).
-> I was not test from 2.6.22-rc ,yesterday I started to test 2.6.22-rc.
-> 
-> So, I *must* set HALF-DUPLEX to 8139 side below:
-> ethtool -s ethx speed 100 duplex half autoneg on 
-> *x is number of 8139 assigned from udev.
-> 
-> So,Pls.apply this patch to upstream,and I test this too.
+Hi,
 
-Your use of ethtool clearly demonstrates the lack of need for this patch.
+On 6/13/07, Keiichi KII <k-keiichi@bx.jp.nec.com> wrote:
+> From: Keiichi KII <k-keiichi@bx.jp.nec.com>
+>
+> update Documentation/networking/netconsole.txt
+>  - how to use sysfs for dynamic configurability
+>  - how to use ioctl for dynamic configurability
+>
+> Signed-off-by: Keiichi KII <k-keiichi@bx.jp.nec.com>
 
-	Jeff
+Ah, so here comes the documentation :-) Actually, I've seen a lot
+of patchsets these days that prefer to submit the documentation
+patch in the beginning, so that a reader / reviewer can get ready
+about what to expect from the code.
 
+Anyway, I really liked your submission. It makes netconsole
+quite flexible and powerful, indeed.
 
-
-
+Thanks,
+Satyam
