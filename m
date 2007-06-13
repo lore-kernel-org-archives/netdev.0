@@ -1,7 +1,7 @@
 From: Keiichi KII <k-keiichi@bx.jp.nec.com>
-Subject: [RFC][PATCH -mm take5 6/7] add ioctls for adding/removing target
-Date: Wed, 13 Jun 2007 19:31:06 +0900
-Message-ID: <466FC76A.6050006@bx.jp.nec.com>
+Subject: [RFC][PATCH -mm take5 7/7] update documentation
+Date: Wed, 13 Jun 2007 19:31:59 +0900
+Message-ID: <466FC79F.7090805@bx.jp.nec.com>
 References: <466FC455.5060001@bx.jp.nec.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-2022-JP
@@ -11,418 +11,167 @@ Cc: Andrew Morton <akpm@linux-foundation.org>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 To: Matt Mackall <mpm@selenic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from TYO201.gate.nec.co.jp ([202.32.8.193]:57564 "EHLO
+Received: from TYO201.gate.nec.co.jp ([202.32.8.193]:57855 "EHLO
 	tyo201.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756454AbXFMKbb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2007 06:31:31 -0400
+	with ESMTP id S1756872AbXFMKcS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2007 06:32:18 -0400
 In-Reply-To: <466FC455.5060001@bx.jp.nec.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Keiichi KII <k-keiichi@bx.jp.nec.com>
 
-We add ioctls for adding/removing target.
-If we use NETCONSOLE_ADD_TARGET ioctl, 
-we can dynamically add netconsole target.
-If we use NETCONSOLE_REMOVE_TARGET ioctl,
-we can dynamically remoe netconsole target.
-
-We attach a sample program for ioctl.
+update Documentation/networking/netconsole.txt
+ - how to use sysfs for dynamic configurability
+ - how to use ioctl for dynamic configurability
 
 Signed-off-by: Keiichi KII <k-keiichi@bx.jp.nec.com>
-Signed-off-by: Takayoshi Kochi <t-kochi@bq.jp.nec.com>
 ---
-/*
- * This software is a sample program for ioctl of netconsole.
- * You can add/remove netconsole port by using this software.
- *
- * Copyright (C) 2007 NEC Corporation
-
- * Created by Keiichi KII <k-keiichi@bx.jp.nec.com>
-
- * This software is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 or
- *  (at your option) any later version.
- */
-
-#include <stdio.h>
-#include <unistd.h>
-#include <string.h>
-#include <stdlib.h>
-#include <stropts.h>
-#include <fcntl.h>
-#include <arpa/inet.h>
-#include <net/if.h>
-#include <linux/if_ether.h>
-#include <linux/netconsole.h>
-
-#define NETCONSOLE_DEV_NAME "/dev/netconsole"
-#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
-
-struct command {
-	char *name;
-	char *options;
-	int (*handle_command)(struct command* command, int argc, char* argv[]);
-	void (*usage)(char *msg);
-};
-
-extern char *optarg;
-extern int opterr, optind, errno;
-
-static void generic_usage(char *msg) {
-	fprintf(stderr, "Usage  : netconfig command [option] [args]\n");
-	fprintf(stderr, "command: add remove help\n");
-	exit(-1);
-}
-
-static int handle_command_add(struct command* command, int argc, char** argv)
-{
-	int i, fd, ch;
-	unsigned int address;
-	unsigned char mac[ETH_ALEN];
-	struct netconsole_request req = {
-		.netdev_name = "eth0",
-		.local_port = 6665,
-		.remote_port = 6666,
-		.remote_mac = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF},
-	};
-
-	while ((ch = getopt(argc, argv, command->options)) != -1) {
-		switch (ch) {
-		case 'p':
-			req.local_port = atoi(optarg);
-			break;
-		case 's':
-			address = inet_addr(optarg);
-			if (address == -1)
-				(*command->usage)("invlid IP address!\n");
-			req.local_ip = address;
-			break;
-		case 'h':
-		default:
-			(*command->usage)(NULL);
-		}
-	}
-	argc -= optind;
-	argv += optind;
-
-	if (argc < 3 || argc > 4)
-		(*command->usage)(NULL);
-
-	memcpy(req.netdev_name, argv[0], IFNAMSIZ);
-	address = inet_addr(argv[1]);
-	if (address == -1)
-		(*command->usage)("invlid IP address!\n");
-	req.remote_ip = address;
-	req.remote_port = atoi(argv[2]);
-	if (argc == 4) {
-		i = 0;
-		mac[i++] = strtol(argv[3], NULL, 16);
-		while ((argv[3] = strchr(argv[3], ':')) != NULL) {
-			argv[3]++;
-			mac[i++] = strtol(argv[3], NULL, 16);
-		}
-		if (i != ETH_ALEN)
-			(*command->usage)("Invalid MAC address!\n");
-		memcpy(req.remote_mac, mac, ETH_ALEN);
-	}
-
-	fd = open(NETCONSOLE_DEV_NAME, O_RDWR);
-	if (fd < 0) {
-		fprintf(stderr, "cannot open device" NETCONSOLE_DEV_NAME "\n");
-		return -1;
-	}
-
-	if(ioctl(fd, NETCON_ADD_TARGET, &req) != 0)
-		perror("add");
-	close(fd);
-
-	return 0;
-}
-
-static void usage_add(char *msg)
-{
-	if (msg != NULL)
-		fprintf(stderr, "%s", msg);
-	fprintf(stderr, "Usage  : netconfig add [-options] dev_name remote_ip "
-		"remote_port [remote_mac]\n");
-	fprintf(stderr, "options:\n");
-	fprintf(stderr, "        -p local_port     :local port number\n");
-	fprintf(stderr, "        -s local_up       :local IP address\n");
-	exit(-1);
-}
-
-static int handle_command_remove(struct command *command,
-				 int argc, char** argv)
-{
-	int fd, id, ch;
-
-	while ((ch = getopt(argc, argv, command->options)) != -1) {
-		switch (ch) {
-		case 'h':
-		default:
-			(*command->usage)(NULL);
-		}
-	}
-	argc -= optind;
-	argv += optind;
-
-	if (argc != 1)
-		(*command->usage)(NULL);
-
-	id = atoi(argv[0]);
-	fd = open(NETCONSOLE_DEV_NAME, O_RDWR);
-	if (fd < 0) {
-		fprintf(stderr, "can't open device " NETCONSOLE_DEV_NAME "\n");
-		return -1;
-	}
-	if(ioctl(fd, NETCON_REMOVE_TARGET, &id) != 0)
-		perror("remove");
-	close(fd);
-
-	return 0;
-}
-
-static void usage_remove(char *msg)
-{
-	fprintf(stderr, "Usage  : netconfig remove id\n");
-	exit(-1);
-}
-
-static int handle_command_help(struct command *command, int argc, char** argv)
-{
-	(*command->usage)(NULL);
-
-	return 0;
-}
-
-static void usage_help(char *msg)
-{
-	generic_usage(NULL);
-}
-
-static struct command s_commands[] = {
-	{"add", "hp:s:", handle_command_add, usage_add},
-	{"remove", "hp:", handle_command_remove, usage_remove},
-	{"help", NULL, handle_command_help, usage_help},
-};
-
-int main(int argc, char* argv[])
-{
-	int i;
-	struct command *command = NULL;
-
-	for(i = 0; i < ARRAY_SIZE(s_commands); i++) {
-		if (argc <= 1)
-			break;
-		if (strcmp(s_commands[i].name, argv[1]) == 0) {
-			command = &s_commands[i];
-			break;
-		}
-	}
-
-	if (command == NULL)
-		generic_usage(NULL);
-	argc--;
-	argv++;
-
-	if (command->handle_command)
-		(*command->handle_command)(command, argc, argv);
-	else {
-		fprintf(stderr, "function handle_command() isn't set.");
-		exit(-1);
-	}
-	return 0;
-}
-Index: mm/fs/compat_ioctl.c
+Index: mm/Documentation/networking/netconsole.txt
 ===================================================================
---- mm.orig/fs/compat_ioctl.c
-+++ mm/fs/compat_ioctl.c
-@@ -114,6 +114,8 @@
- #include <linux/dvb/video.h>
- #include <linux/lp.h>
+--- mm.orig/Documentation/networking/netconsole.txt
++++ mm/Documentation/networking/netconsole.txt
+@@ -4,6 +4,9 @@ started by Ingo Molnar <mingo@redhat.com
  
-+#include <linux/netconsole.h>
-+
- static int do_ioctl32_pointer(unsigned int fd, unsigned int cmd,
- 			      unsigned long arg, struct file *f)
- {
-@@ -3489,6 +3491,12 @@ HANDLE_IOCTL(LPSETTIMEOUT, lp_timeout_tr
+ Please send bug reports to Matt Mackall <mpm@selenic.com>
  
- IGNORE_IOCTL(VFAT_IOCTL_READDIR_BOTH32)
- IGNORE_IOCTL(VFAT_IOCTL_READDIR_SHORT32)
++1. Description
++--------------
 +
-+#ifdef CONFIG_NETCONSOLE_DYNCON
-+/* netconsole */
-+COMPATIBLE_IOCTL(NETCON_ADD_TARGET)
-+ULONG_IOCTL(NETCON_REMOVE_TARGET)
-+#endif
- };
+ This module logs kernel printk messages over UDP allowing debugging of
+ problem where disk logging fails and serial consoles are impractical.
  
- #define IOCTL_HASHSIZE 256
-Index: mm/include/linux/netconsole.h
-===================================================================
---- /dev/null
-+++ mm/include/linux/netconsole.h
-@@ -0,0 +1,18 @@
-+#ifndef __NETCONSOLE_H
-+#define __NETCONSOLE_H
-+
-+#include <linux/ioctl.h>
-+#include <linux/types.h>
-+
-+struct netconsole_request {
-+	__u32 id;
-+	__u8 netdev_name[IFNAMSIZ];
-+	__u8 remote_mac[ETH_ALEN];
-+	__u32 local_ip, remote_ip;
-+	__u16 local_port, remote_port;
-+};
-+
-+#define NETCON_ADD_TARGET _IOW(0xAE, 4, struct netconsole_request)
-+#define NETCON_REMOVE_TARGET _IOW(0xAE, 5, int)
-+
-+#endif /* __NETCONSOLE_H */
-Index: mm/drivers/net/netconsole.c
-===================================================================
---- mm.orig/drivers/net/netconsole.c
-+++ mm/drivers/net/netconsole.c
-@@ -47,6 +47,7 @@
- #include <linux/netpoll.h>
- #include <linux/miscdevice.h>
- #include <linux/inet.h>
-+#include <linux/netconsole.h>
+@@ -13,6 +16,21 @@ the specified interface as soon as possi
+ capture of early kernel panics, it does capture most of the boot
+ process.
  
- MODULE_AUTHOR("Maintainer: Matt Mackall <mpm@selenic.com>");
- MODULE_DESCRIPTION("Console driver for network interfaces");
-@@ -75,6 +76,8 @@ struct netconsole_target {
- 	struct netpoll np;
- };
++This module equips the runtime configurability that can changes
++values(src/tgt IP address and port, tgt MAC address) by using sysfs
++and can add/remove logging agent by using ioctls.
++
++In order to use the runtime configurability, you have to enable
++CONFIG_NETCONSOLE_DYNCON. If you don't use one, you don't have to enable
++CONFIG_NETCONSOLE_DYNCON. By disabling this option, The kernel module
++size is smaller than the module enabled CONFIG_NETCONSOLE_DYNCON.
++
++2. Configuration
++----------------
++
++2.1 Module Parameter(sender side)
++---------------------------------
++
+ It takes a string configuration parameter "netconsole" in the
+ following format:
  
-+static struct tty_driver *netconsole_tty_driver;
-+
- static LIST_HEAD(target_list);
- static DEFINE_SPINLOCK(target_list_lock);
- static DECLARE_MUTEX(netdev_change_sem);
-@@ -442,6 +445,73 @@ static int netconsole_event(struct notif
- static struct notifier_block netconsole_notifier = {
- 	.notifier_call = netconsole_event,
- };
-+
-+static int netconsole_open(struct tty_struct *tty, struct file *file)
-+{
-+	return 0;
-+}
-+
-+static int netconsole_ioctl(struct tty_struct *tty, struct file *file,
-+			    unsigned int cmd, unsigned long arg)
-+{
-+	int id, count;
-+	char config[256];
-+	char *cur;
-+	struct netconsole_request req;
-+	struct netconsole_target *nt, *tmp;
-+	void __user *argp = (void __user *)arg;
-+
-+	switch (cmd) {
-+	case NETCON_ADD_TARGET:
-+		printk(KERN_INFO "netconsole: cmd=NETCON_ADD_TARGET\n");
-+		if (copy_from_user(&req, argp, sizeof(req)))
-+			return -EFAULT;
-+		cur = config;
-+		count = sprintf(cur, "%d@", req.local_port);
-+		cur += count;
-+		if (req.local_ip)
-+			count = sprintf(cur, "%d.%d.%d.%d/",
-+					NIPQUAD(req.local_ip));
-+		else
-+			count = sprintf(cur, "/");
-+		cur += count;
-+		count = sprintf(cur, "%s,", req.netdev_name);
-+		cur += count;
-+		count = sprintf(cur, "%d@", req.remote_port);
-+		cur += count;
-+		count = sprintf(cur, "%d.%d.%d.%d/",
-+				NIPQUAD(req.remote_ip));
-+		cur += count;
-+		count = sprintf(cur, "%02x:%02x:%02x:%02x:%02x:%02x",
-+				req.remote_mac[0], req.remote_mac[1],
-+				req.remote_mac[2], req.remote_mac[3],
-+				req.remote_mac[4], req.remote_mac[5]);
-+		printk(KERN_INFO "count = %d config=[%s]\n", count, config);
-+		if (add_target(config))
-+			return -EINVAL;
-+		break;
-+	case NETCON_REMOVE_TARGET:
-+		printk(KERN_INFO "netconsole: cmd=NETCON_REMOVE_TARGET\n");
-+		if (copy_from_user(&id, argp, sizeof(int)))
-+			return -EFAULT;
-+		printk(KERN_INFO "netconsole: id=%d\n", id);
-+		list_for_each_entry_safe(nt, tmp, &target_list, list)
-+			if (nt->id == id) {
-+				kobject_unregister(&nt->obj);
-+				break;
-+			}
-+		break;
-+	default:
-+		return -ENOTTY;
-+	}
-+
-+	return 0;
-+}
-+
-+static struct tty_operations netconsole_ops = {
-+	.open = netconsole_open,
-+	.ioctl = netconsole_ioctl,
-+};
- #endif /* CONFIG_NETCONSOLE_DYNCON */
+@@ -34,12 +52,21 @@ Examples:
  
- static void write_msg(struct console *con, const char *msg, unsigned int len)
-@@ -510,6 +580,8 @@ static void cleanup_netconsole(void)
- 	unregister_netdevice_notifier(&netconsole_notifier);
- 	if (miscdev_configured)
- 		misc_deregister(&netconsole_miscdev);
-+	tty_unregister_driver(netconsole_tty_driver);
-+	put_tty_driver(netconsole_tty_driver);
- #else
- 	unregister_console(&netconsole);
- 	netpoll_cleanup(&np);
-@@ -521,6 +593,7 @@ static int __init init_netconsole(void)
- 	char *tmp = config;
- #ifdef CONFIG_NETCONSOLE_DYNCON
- 	char *p;
-+	int result;
+  insmod netconsole netconsole=@/,@10.0.0.2/
  
- 	if (misc_register(&netconsole_miscdev)) {
- 		printk(KERN_ERR
-@@ -531,6 +604,27 @@ static int __init init_netconsole(void)
- 	} else
- 		miscdev_configured = 1;
++Or it also takes a semi-colon separated configuration parameter.
++In the case, you can send kerenl messages to multiple logging agents.
++
++ netconsole=<target1>;<target2>;<target3>
++
++ each target is the above configuration parameter.
++
++Examples:
++
++ netconsole="@/,6666@10.0.0.2/;@/,6666@10.0.0.3/"
++
+ Built-in netconsole starts immediately after the TCP stack is
+ initialized and attempts to bring up the supplied dev at the supplied
+ address.
  
-+	netconsole_tty_driver = alloc_tty_driver(1);
-+	if (!netconsole_tty_driver)
-+		return -ENOMEM;
-+	netconsole_tty_driver->owner = THIS_MODULE;
-+	netconsole_tty_driver->name = "netcon";
-+	netconsole_tty_driver->driver_name = "netconsole";
-+	netconsole_tty_driver->major = 0;
-+	netconsole_tty_driver->minor_start = 0;
-+	netconsole_tty_driver->num = 1;
-+	netconsole_tty_driver->type = TTY_DRIVER_TYPE_CONSOLE;
-+	tty_set_operations(netconsole_tty_driver, &netconsole_ops);
+-The remote host can run either 'netcat -u -l -p <port>' or syslogd.
+-
+ WARNING: the default target ethernet setting uses the broadcast
+ ethernet address to send packets, which can cause increased load on
+ other systems on the same ethernet segment.
+@@ -55,3 +82,83 @@ from IRQ contexts as well, and does not 
+ sending packets. Due to these unique needs, configuration cannot
+ be more automatic, and some fundamental limitations will remain:
+ only IP networks, UDP packets and ethernet devices are supported.
 +
-+	if ((result = tty_register_driver(netconsole_tty_driver))) {
-+		printk(KERN_ERR "failed to register netconsole tty driver"
-+		       " errno=%d\n", result);
-+		put_tty_driver(netconsole_tty_driver);
-+		if (miscdev_configured)
-+			misc_deregister(&netconsole_miscdev);
-+		return result;
-+	}
++2.2 Receiver side
++-----------------
 +
- 	register_netdevice_notifier(&netconsole_notifier);
- 	register_console(&netconsole);
- 	if (!strlen(config)) {
++The remote host can run either 'netcat -u -l -p <port>' or syslogd.
++
++3 Dynamic Configurability
++-------------------------
++
++You can make use of the dynamic configurability if
++CONFIG_NETCONSOLE_DYNCON is enabled. The operations are the following.
++
++3.1 /sys/class/misc/netconsole
++
++This entry, "netconsole", has the following attributes related to
++netconsole. You can change configuration of netconsole(writable
++attributes such as IP address, port number and so on) and check
++current configuration of netconsole.
++
++-+- /sys/class/misc/
++ |-+- netconsole/
++   |-+- port1/
++   | |--- enabled      [rw-r--r--] 0:disable 1:enable
++   | |--- id           [r--r--r--] unique port id
++   | |--- local_ip     [rw-r--r--] source IP to use
++   | |--- local_mac    [r--r--r--] source MAC address
++   | |--- local_port   [rw-r--r--] source port number for UDP packets
++   | |--- net:<netdev> [r--r--r--] symlink to net_dev: eth0,eth1,...
++   | |--- remote_ip    [rw-r--r--] port number for logging agent
++   | |--- remote_mac   [rw-r--r--] MAC address for logging agent
++   | +--- remote_port  [rw-r--r--] IP address for logging agent
++   |--- port2/
++   |--- port3/
++   ...
++
++If "enabled" attribute of certain port is '1', this port is used
++and the configurations of this port are uable to change.
++
++If "enabled" attribute of certain port is '0', this port isn't used
++and the configurations of this port are able to change.
++
++3.2 ioctls
++
++1. create device file
++
++First of all, we would like you to check the entry, "/proc/devices",
++in procfs because of creating device file for netconsole.
++If you can find the entry, "netcon" and that major number, create
++the device file using mknod command.
++
++2. send commands using ioctl system call
++
++You can send the following ioctl commands to the above device file.
++
++- NETCONSOLE_ADD_TARGET ioctl adds netconsole target
++
++In the case of module parameter,
++
++  netconsole=6665@10.0.0.1/eth0,6666@10.0.0.2/12:34:56:78:9a:bc
++
++In the case of ioclt command,
++
++  struct netconsole_request req = {
++          .netdev_name = "eth0",
++          .local_ip = inet_addr("10.0.0.1"),
++          .local_port = 6665,
++          .remote_ip = inet_addr("10.0.0.2"),
++          .remote_port = 6666,
++          .remote_mac = {0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc},
++  };
++  ioctl(fd, NETCON_ADD_TARGET, &req)
++
++The above patterns mean the same thing.
++
++- NETCONSOLE_REMOVE_TARGET ioctl removes netconsole target.
++
++  ioctl(fd, NETCON_REMOVE_TARGET, &id)
++
++The above "id" is port number in /sys/class/misc/netconsole.
++For example, The "id" is 1 for /sys/class/misc/netconsole/port1.
 
 -- 
+
+
