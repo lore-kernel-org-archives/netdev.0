@@ -1,110 +1,104 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [VLAN 16/18]: Keep track of number of QoS mappings
-Date: Wed, 13 Jun 2007 18:51:04 +0200 (MEST)
-Message-ID: <20070613165101.7780.45376.sendpatchset@localhost.localdomain>
+Subject: [VLAN 17/18]: Introduce symbolic constants for flag values
+Date: Wed, 13 Jun 2007 18:51:05 +0200 (MEST)
+Message-ID: <20070613165102.7780.57723.sendpatchset@localhost.localdomain>
 References: <20070613165039.7780.15855.sendpatchset@localhost.localdomain>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:35972 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:35947 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758801AbXFMQvF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2007 12:51:05 -0400
+	with ESMTP id S1759272AbXFMQvG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2007 12:51:06 -0400
 In-Reply-To: <20070613165039.7780.15855.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[VLAN]: Keep track of number of QoS mappings
-
-Keep track of the number of configured ingress/egress QoS mappings to
-avoid iteration while calculating the netlink attribute size.
+[VLAN]: Introduce symbolic constants for flag values
 
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 
 ---
-commit fc3fa5f1275ec357ae719066eef18c51c186c2b9
-tree c1b3f59a2404aad88854e6c1e78f38737ce90534
-parent a285e1ab7cfb856fc9e503eefd507eb7958b7524
-author Patrick McHardy <kaber@trash.net> Wed, 06 Jun 2007 14:47:03 +0200
+commit 84bb1e021b6c3567bebccfc5e3dd4ab7d8f5bfae
+tree 74f71648d2821cc86765694a7d41d94b39bffce4
+parent fc3fa5f1275ec357ae719066eef18c51c186c2b9
+author Patrick McHardy <kaber@trash.net> Wed, 13 Jun 2007 18:10:33 +0200
 committer Patrick McHardy <kaber@trash.net> Wed, 13 Jun 2007 18:10:33 +0200
 
- include/linux/if_vlan.h |    3 +++
- net/8021q/vlan_dev.c    |   27 +++++++++++++++++++++------
- 2 files changed, 24 insertions(+), 6 deletions(-)
+ include/linux/if_vlan.h |    4 ++++
+ net/8021q/vlan.c        |    2 +-
+ net/8021q/vlan_dev.c    |   13 +++++++------
+ 3 files changed, 12 insertions(+), 7 deletions(-)
 
 diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
-index aeddb49..b46d422 100644
+index b46d422..c791287 100644
 --- a/include/linux/if_vlan.h
 +++ b/include/linux/if_vlan.h
-@@ -112,7 +112,10 @@ struct vlan_dev_info {
- 	/** This will be the mapping that correlates skb->priority to
- 	 * 3 bits of VLAN QOS tags...
- 	 */
-+	unsigned int nr_ingress_mappings;
- 	u32 ingress_priority_map[8];
-+
-+	unsigned int nr_egress_mappings;
- 	struct vlan_priority_tci_mapping *egress_priority_map[16]; /* hash table */
+@@ -398,6 +398,10 @@ enum vlan_ioctl_cmds {
+ 	GET_VLAN_VID_CMD /* Get the VID of this VLAN (specified by name) */
+ };
  
- 	unsigned short vlan_id;        /*  The VLAN Identifier for this interface. */
++enum vlan_flags {
++	VLAN_FLAG_REORDER_HDR	= 0x1,
++};
++
+ enum vlan_name_types {
+ 	VLAN_NAME_TYPE_PLUS_VID, /* Name will look like:  vlan0005 */
+ 	VLAN_NAME_TYPE_RAW_PLUS_VID, /* name will look like:  eth1.0005 */
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index 5801993..f12f914 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -565,7 +565,7 @@ static int register_vlan_device(struct net_device *real_dev,
+ 	VLAN_DEV_INFO(new_dev)->vlan_id = VLAN_ID; /* 1 through VLAN_VID_MASK */
+ 	VLAN_DEV_INFO(new_dev)->real_dev = real_dev;
+ 	VLAN_DEV_INFO(new_dev)->dent = NULL;
+-	VLAN_DEV_INFO(new_dev)->flags = 1;
++	VLAN_DEV_INFO(new_dev)->flags = VLAN_FLAG_REORDER_HDR;
+ 
+ 	err = register_vlan_dev(new_dev);
+ 	if (err < 0)
 diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index 05a2360..4f6ede7 100644
+index 4f6ede7..95afe38 100644
 --- a/net/8021q/vlan_dev.c
 +++ b/net/8021q/vlan_dev.c
-@@ -537,35 +537,50 @@ int vlan_dev_change_mtu(struct net_device *dev, int new_mtu)
- void vlan_dev_set_ingress_priority(const struct net_device *dev,
- 				   u32 skb_prio, short vlan_prio)
+@@ -73,7 +73,7 @@ int vlan_dev_rebuild_header(struct sk_buff *skb)
+ 
+ static inline struct sk_buff *vlan_check_reorder_header(struct sk_buff *skb)
  {
--	VLAN_DEV_INFO(dev)->ingress_priority_map[vlan_prio & 0x7] = skb_prio;
-+	struct vlan_dev_info *vlan = VLAN_DEV_INFO(dev);
-+
-+	if (vlan->ingress_priority_map[vlan_prio & 0x7] && !skb_prio)
-+		vlan->nr_ingress_mappings--;
-+	else if (!vlan->ingress_priority_map[vlan_prio & 0x7] && skb_prio)
-+		vlan->nr_ingress_mappings++;
-+
-+	vlan->ingress_priority_map[vlan_prio & 0x7] = skb_prio;
- }
+-	if (VLAN_DEV_INFO(skb->dev)->flags & 1) {
++	if (VLAN_DEV_INFO(skb->dev)->flags & VLAN_FLAG_REORDER_HDR) {
+ 		if (skb_shared(skb) || skb_cloned(skb)) {
+ 			struct sk_buff *nskb = skb_copy(skb, GFP_ATOMIC);
+ 			kfree_skb(skb);
+@@ -350,7 +350,8 @@ int vlan_dev_hard_header(struct sk_buff *skb, struct net_device *dev,
+ 	 * header shuffling in the hard_start_xmit.  Users can turn off this
+ 	 * REORDER behaviour with the vconfig tool.
+ 	 */
+-	build_vlan_header = ((VLAN_DEV_INFO(dev)->flags & 1) == 0);
++	if (!(VLAN_DEV_INFO(dev)->flags & VLAN_FLAG_REORDER_HDR))
++		build_vlan_header = 1;
  
- int vlan_dev_set_egress_priority(const struct net_device *dev,
- 				 u32 skb_prio, short vlan_prio)
- {
-+	struct vlan_dev_info *vlan = VLAN_DEV_INFO(dev);
- 	struct vlan_priority_tci_mapping *mp = NULL;
- 	struct vlan_priority_tci_mapping *np;
-+	u32 vlan_qos = (vlan_prio << 13) & 0xE000;
- 
- 	/* See if a priority mapping exists.. */
--	mp = VLAN_DEV_INFO(dev)->egress_priority_map[skb_prio & 0xF];
-+	mp = vlan->egress_priority_map[skb_prio & 0xF];
- 	while (mp) {
- 		if (mp->priority == skb_prio) {
--			mp->vlan_qos = ((vlan_prio << 13) & 0xE000);
-+			if (mp->vlan_qos && !vlan_qos)
-+				vlan->nr_egress_mappings--;
-+			else if (!mp->vlan_qos && vlan_qos)
-+				vlan->nr_egress_mappings++;
-+			mp->vlan_qos = vlan_qos;
- 			return 0;
- 		}
- 		mp = mp->next;
- 	}
- 
- 	/* Create a new mapping then. */
--	mp = VLAN_DEV_INFO(dev)->egress_priority_map[skb_prio & 0xF];
-+	mp = vlan->egress_priority_map[skb_prio & 0xF];
- 	np = kmalloc(sizeof(struct vlan_priority_tci_mapping), GFP_KERNEL);
- 	if (!np)
- 		return -ENOBUFS;
- 
- 	np->next = mp;
- 	np->priority = skb_prio;
--	np->vlan_qos = ((vlan_prio << 13) & 0xE000);
--	VLAN_DEV_INFO(dev)->egress_priority_map[skb_prio & 0xF] = np;
-+	np->vlan_qos = vlan_qos;
-+	vlan->egress_priority_map[skb_prio & 0xF] = np;
-+	if (vlan_qos)
-+		vlan->nr_egress_mappings++;
+ 	if (build_vlan_header) {
+ 		vhdr = (struct vlan_hdr *) skb_push(skb, VLAN_HLEN);
+@@ -584,16 +585,16 @@ int vlan_dev_set_egress_priority(const struct net_device *dev,
  	return 0;
  }
  
+-/* Flags are defined in the vlan_dev_info class in include/linux/if_vlan.h file. */
++/* Flags are defined in the vlan_flags enum in include/linux/if_vlan.h file. */
+ int vlan_dev_set_vlan_flag(const struct net_device *dev,
+ 			   u32 flag, short flag_val)
+ {
+ 	/* verify flag is supported */
+-	if (flag == 1) {
++	if (flag == VLAN_FLAG_REORDER_HDR) {
+ 		if (flag_val) {
+-			VLAN_DEV_INFO(dev)->flags |= 1;
++			VLAN_DEV_INFO(dev)->flags |= VLAN_FLAG_REORDER_HDR;
+ 		} else {
+-			VLAN_DEV_INFO(dev)->flags &= ~1;
++			VLAN_DEV_INFO(dev)->flags &= ~VLAN_FLAG_REORDER_HDR;
+ 		}
+ 		return 0;
+ 	}
