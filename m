@@ -1,33 +1,35 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [IPROUTE 00/02]: rtnl_link support
-Date: Wed, 13 Jun 2007 20:11:58 +0200
-Message-ID: <4670336E.3090007@trash.net>
-References: <20070613170229.8318.75488.sendpatchset@localhost.localdomain> <20070613104854.4f582711@localhost>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] NET: Multiqueue network device support.
+Date: Wed, 13 Jun 2007 11:20:17 -0700 (PDT)
+Message-ID: <20070613.112017.130846513.davem@davemloft.net>
+References: <1181737935.4050.87.camel@localhost>
+	<18031.60741.695897.572432@robur.slu.se>
+	<1181741602.4050.116.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: Robert.Olsson@data.slu.se, yi.zhu@intel.com,
+	Leonid.Grossman@neterion.com, kaber@trash.net,
+	peter.p.waskiewicz.jr@intel.com, netdev@vger.kernel.org,
+	jeff@garzik.org, auke-jan.h.kok@intel.com
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:37686 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759028AbXFMSMH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2007 14:12:07 -0400
-In-Reply-To: <20070613104854.4f582711@localhost>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58127
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1758790AbXFMSUD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2007 14:20:03 -0400
+In-Reply-To: <1181741602.4050.116.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> On Wed, 13 Jun 2007 19:02:32 +0200 (MEST)
-> Patrick McHardy <kaber@trash.net> wrote:
-> 
->>Please apply, thanks.
-> 
-> 
-> I'm putting out a new iproute2 next week. IF this is in mainline, it will
-> go in then. If not, then there will be a development branch
+From: jamal <hadi@cyberus.ca>
+Date: Wed, 13 Jun 2007 09:33:22 -0400
 
+> So in such a case (assuming 8 rings), One model is creating 4 netdev
+> devices each based on single tx/rx ring and register set and then
+> having a mother netdev (what you call the bond) that feeds these
+> children netdev based on some qos parametrization is very sensible.
 
-Thanks. The first version of these patches are already in
-the net-2.6.23 tree, Dave is going to replace them with this
-version. Unlikely to be in mainline until next week though :)
+Why all of this layering and overhead for something so
+BLOODY SIMPLE?!?!?
+
