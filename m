@@ -1,30 +1,35 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/3] cxgb3 - sge page management
-Date: Wed, 13 Jun 2007 15:46:10 -0400
-Message-ID: <46704982.5000603@garzik.org>
-References: <20070531041047.6117.53202.stgit@localhost.localdomain>
+Subject: Re: [PATCH 1/2] ehea: Whitespace cleanup
+Date: Wed, 13 Jun 2007 15:47:19 -0400
+Message-ID: <467049C7.9090000@garzik.org>
+References: <200705311354.09992.osstklei@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	swise@opengridcomputing.com
-To: Divy Le Ray <divy@chelsio.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759919AbXFMTqc@vger.kernel.org>
-In-Reply-To: <20070531041047.6117.53202.stgit@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Thomas Klein <tklein@de.ibm.com>, Jan-Bernd Themann <themann@de.ibm.com>,
+	netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Christoph Raisch <raisch@de.ibm.com>,
+	Stefan Roscher <ossrosch@linux.vnet.ibm.com>,
+	linux-ppc <linuxppc-dev@ozlabs.org>, Marcus Eder <meder@de.ibm.com>
+To: Thomas Klein <osstklei@de.ibm.com>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+In-Reply-To: <200705311354.09992.osstklei@de.ibm.com>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-Divy Le Ray wrote:
-> From: Divy Le Ray <divy@chelsio.com>
+Thomas Klein wrote:
+> This patch fixes several whitespace issues.
 > 
-> Streamline sge page management.
-> Fix dma mappings when buffers are recycled.
-> 
-> Signed-off-by: Divy Le Ray <divy@chelsio.com>
-> ---
-> 
->  drivers/net/cxgb3/adapter.h |   38 ++--
->  drivers/net/cxgb3/sge.c     |  423 ++++++++++++++++++++++---------------------
->  2 files changed, 232 insertions(+), 229 deletions(-)
+> Signed-off-by: Thomas Klein <tklein@de.ibm.com>
 
-applied 1-3 to #upstream (2.6.23)
+Patch is obviously OK, but needs rediffing since I had to apply fixes 
+before cleanups (standard patch ordering)
