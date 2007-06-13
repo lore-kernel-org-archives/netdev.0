@@ -1,60 +1,47 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [PATCH] TCP: remove initial_ssthresh from Cubic
-Date: Wed, 13 Jun 2007 10:27:18 -0700
-Message-ID: <20070613102718.61d67a36@localhost>
-References: <20070612.151258.120619253.davem@davemloft.net>
-	<20070612171603.47736395@localhost>
-	<20070612233814.4b04db2f.billfink@mindspring.com>
-	<20070613.005642.85685043.davem@davemloft.net>
+Subject: Re: [IPROUTE 00/02]: rtnl_link support
+Date: Wed, 13 Jun 2007 10:48:54 -0700
+Message-ID: <20070613104854.4f582711@localhost>
+References: <20070613170229.8318.75488.sendpatchset@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: billfink@mindspring.com, sangtae.ha@gmail.com, rhee@eos.ncsu.edu,
-	rhee@ncsu.edu, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:34505 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:49438 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758945AbXFMR1h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2007 13:27:37 -0400
-In-Reply-To: <20070613.005642.85685043.davem@davemloft.net>
+	by vger.kernel.org with ESMTP id S1758226AbXFMRtp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2007 13:49:45 -0400
+In-Reply-To: <20070613170229.8318.75488.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Remove the initial slow start override from TCP cubic.
-The old code caused Cubic to start out in slow start mode, which
-is less agressive but caused slow performance.
+On Wed, 13 Jun 2007 19:02:32 +0200 (MEST)
+Patrick McHardy <kaber@trash.net> wrote:
 
-The administrator can override initial slow start threshold on any
-TCP congestion control method via the TCP route metrics.
+> Hi Stephen,
+> 
+> these patches add support for the rtnl_link stuff and VLAN configuration
+> to iproute. Since the old link configuration was entirely ioctl based and
+> mixing the two would be really ugly, this patch keeps the old ioctl stuff
+> guarded by an ifdef (defaults to enabled) and probes for support for
+> using RTM_NEWLINK. Tested to work properly on both old and patched kernel.
+> 
+> I've added a new -d[etail] flag to ip, the driver specific things are only
+> printed when it is specified. I did this mainly because I'm not sure how
+> careful we want to be not to confuse people using sed/awk/... on iproute
+> output. I would prefer to have the information always shown, but I'll
+> leave that decision up to you.
+> 
+> Changes since the last post:
+> 
+> - Only call link argument parsing function if arguments are present
+> - Support xstats dumping
+> - Add sanitized if_vlan.h file for VLAN flag definition
+> - Support setting/changing VLAN flags
+> 
+> Please apply, thanks.
 
-Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
-
---- a/net/ipv4/tcp_cubic.c	2007-06-13 10:18:38.000000000 -0700
-+++ b/net/ipv4/tcp_cubic.c	2007-06-13 10:19:19.000000000 -0700
-@@ -29,7 +29,6 @@
- static int fast_convergence __read_mostly = 1;
- static int max_increment __read_mostly = 16;
- static int beta __read_mostly = 819;	/* = 819/1024 (BICTCP_BETA_SCALE) */
--static int initial_ssthresh __read_mostly = 100;
- static int bic_scale __read_mostly = 41;
- static int tcp_friendliness __read_mostly = 1;
- 
-@@ -44,8 +43,6 @@ module_param(max_increment, int, 0644);
- MODULE_PARM_DESC(max_increment, "Limit on increment allowed during binary search");
- module_param(beta, int, 0444);
- MODULE_PARM_DESC(beta, "beta for multiplicative increase");
--module_param(initial_ssthresh, int, 0644);
--MODULE_PARM_DESC(initial_ssthresh, "initial value of slow start threshold");
- module_param(bic_scale, int, 0444);
- MODULE_PARM_DESC(bic_scale, "scale (scaled by 1024) value for bic function (bic_scale/1024)");
- module_param(tcp_friendliness, int, 0644);
-@@ -87,8 +84,6 @@ static inline void bictcp_reset(struct b
- static void bictcp_init(struct sock *sk)
- {
- 	bictcp_reset(inet_csk_ca(sk));
--	if (initial_ssthresh)
--		tcp_sk(sk)->snd_ssthresh = initial_ssthresh;
- }
- 
- /* calculate the cubic root of x using a table lookup followed by one
+I'm putting out a new iproute2 next week. IF this is in mainline, it will
+go in then. If not, then there will be a development branch
