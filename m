@@ -1,78 +1,80 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: 2.6.20.7 TCP cubic (and bic) initial slow start way too slow?
-Date: Tue, 12 Jun 2007 23:38:14 -0400
-Message-ID: <20070612233814.4b04db2f.billfink@mindspring.com>
-References: <20070512120739.371ada4f.billfink@mindspring.com>
-	<649aecc70705120945q58ae79c9r8ff2dc5557658d1e@mail.gmail.com>
-	<20070516024409.53049682.billfink@mindspring.com>
-	<20070612.151258.120619253.davem@davemloft.net>
-	<20070612171603.47736395@localhost>
+From: "Leonid Grossman" <Leonid.Grossman@neterion.com>
+Subject: RE: [PATCH] NET: Multiqueue network device support.
+Date: Tue, 12 Jun 2007 23:41:01 -0400
+Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD7701B7DD6D@nekter>
+References: <20070612.140240.00078635.davem@davemloft.net> <466F0C92.5080306@garzik.org> <466F0D78.7090404@candelatech.com> <20070612.142658.45082832.davem@davemloft.net> <20070612214753.GB27363@metaxa.reflex>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, sangtae.ha@gmail.com,
-	rhee@eos.ncsu.edu, rhee@ncsu.edu, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <greearb@candelatech.com>, <jeff@garzik.org>,
+	<netdev@vger.kernel.org>, <kaber@trash.net>, <hadi@cyberus.ca>,
+	<peter.p.waskiewicz.jr@intel.com>, <auke-jan.h.kok@intel.com>
+To: "Jason Lunz" <lunz@falooley.org>,
+	"David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-mealy.atl.sa.earthlink.net ([209.86.89.69]:54700 "EHLO
-	elasmtp-mealy.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753172AbXFMDiX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jun 2007 23:38:23 -0400
-In-Reply-To: <20070612171603.47736395@localhost>
+Received: from mx.neterion.com ([72.1.205.142]:34998 "EHLO owa.neterion.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754194AbXFMDnu convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jun 2007 23:43:50 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <20070612214753.GB27363@metaxa.reflex>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 12 Jun 2007, Stephen Hemminger wrote:
 
-> On Tue, 12 Jun 2007 15:12:58 -0700 (PDT)
-> David Miller <davem@davemloft.net> wrote:
+
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org [mailto:netdev-
+> owner@vger.kernel.org] On Behalf Of Jason Lunz
+> Sent: Tuesday, June 12, 2007 2:48 PM
+> To: David Miller
+> Cc: greearb@candelatech.com; jeff@garzik.org; netdev@vger.kernel.org;
+> kaber@trash.net; hadi@cyberus.ca; peter.p.waskiewicz.jr@intel.com;
+> auke-jan.h.kok@intel.com
+> Subject: Re: [PATCH] NET: Multiqueue network device support.
 > 
-> > From: Bill Fink <billfink@mindspring.com>
-> > Date: Wed, 16 May 2007 02:44:09 -0400
-> > 
-> > > [root@lang2 ~]# netstat -s | grep -i retrans
-> > >     25446 segments retransmited
-> > >     20936 fast retransmits
-> > >     4503 retransmits in slow start
-> > >     4 sack retransmits failed
-> > > 
-> > > It then only took 2.14 seconds to transfer 1 GB of data.
-> > > 
-> > > That's all for now.
-> > 
-> > Thanks for all of your testing and numbers Bill.
-> > 
-> > Inhong et al., we have to do something about this, the issue
-> > has been known and sitting around for weeks if not months.
-> > 
-> > How safely can we set the default initial_ssthresh to zero in
-> > Cubic and BIC?
+> On Tue, Jun 12, 2007 at 02:26:58PM -0700, David Miller wrote:
+> > The MAC is still very much centralized in most designs.
+> >
+> > So one way they'll do it is to support assigning N MAC addresses,
+> > and you configure the input filters of the chip to push packets
+> > for each MAC to the proper receive queue.
+> >
+> > So the MAC will accept any of those in the N MAC addresses as
+> > it's own, then you use the filtering facilities to steer
+> > frames to the correct RX queue.
+> >
+> > The TX and RX queues can be so isolated as to be able to be exported
+> > to virtualization nodes.  You can give them full access to the DMA
+> > queues and assosciated mailboxes.  So instead of all of this bogus
+> > virtualized device overhead, you just give the guest access to the
+> > real device.
+> >
+> > So you can use multiple queues either for better single node SMP
+> > performance, or better virtualization performance.
 > 
-> Yes. set it to zero. The module parameter could even go, and just
-> leave the route metric as a way to set/remember it.
+> Are you aware of any hardware designs that allow other ways to map
+> packets onto rx queues?  I can think of several scenarios where it
+> could
+> be advantageous to map packets by IP 3- or 5-tuple to get cpu locality
+> all the way up the stack on a flow-by-flow basis. But doing this would
+> require some way to request this mapping from the hardware.
 
-Actually, after thinking about this some more I had some second
-thoughts about the matter.  For my scenario of an uncongested 10-GigE
-path an initial_ssthresh=0 is definitely what is desired.
+10GbE Xframe NICs do that, as well as rx steering by MAC address, VLAN,
+MS RSS, generic hashing and bunch of other criteria (there is actually a
+decent chapter on rx steering in the ASIC manual at www.neterion.com
+support page).
+The caveat is that in the current products the tuple table is limited to
+256 entries only. Next ASIC bumps this number to 64k.
 
-But perhaps on a congested link with lots of connections, the
-initial_ssthresh=100 setting might have some benefit.  I don't
-have an easy way of testing that so I was hoping Injong or someone
-else might do that and report back.  If there was a benefit, perhaps
-it would be useful to have a per-route option for setting the
-initial_ssthresh.  That would leave the question of what to make
-the default.  There was also the mystery of why cubic's slow start
-performance was so much worse than bic's.  If a real benefit could
-be demonstrated for the congested case, and if bic's slow start
-behavior could be grafted onto cubic, then bic's current slow start
-performance (with initial_ssthresh=100) might serve as an adequate
-compromise between performance and not being overly aggressive for
-the default behavior.
-
-OTOH just setting it to zero as a default should also be fine as
-that's the standard Reno behavior.  I'm leaning in that direction
-personally, but I'm possibly biased because of my environment,
-where I'm trying to get maximum performance out of 10-GigE WAN
-networks that aren't particularly congested normally.
-
-						-Bill
+> 
+> In the extreme case it would be cool if it were possible to push a
+> bpf-like classifier down into the hardware to allow arbitrary kinds of
+> flow distribution.
+> 
+> Jason
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
