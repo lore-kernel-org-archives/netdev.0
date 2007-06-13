@@ -1,67 +1,64 @@
-From: psr <pradeep.rautela@gmail.com>
-Subject: Re: [KJ] [KJ PATCH] Replacing alloc_pages(gfp, 0) with alloc_page(gfp) in net/core/pktgen.c
-Date: Wed, 13 Jun 2007 15:42:39 +0530
-Message-ID: <a901b49a0706130312mba8a686m455b5cbf774cc159@mail.gmail.com>
-References: <1181702562.2282.12.camel@shani-win>
+From: Keiichi KII <k-keiichi@bx.jp.nec.com>
+Subject: [RFC][PATCH -mm take5 0/7] proposal for dynamic configurable netconsole
+Date: Wed, 13 Jun 2007 19:17:57 +0900
+Message-ID: <466FC455.5060001@bx.jp.nec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, kernel-janitors@lists.osdl.org
-To: "Shani Moideen" <shani.moideen@wipro.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Matt Mackall <mpm@selenic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nz-out-0506.google.com ([64.233.162.237]:17153 "EHLO
-	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755491AbXFMKMk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2007 06:12:40 -0400
-Received: by nz-out-0506.google.com with SMTP id n1so155909nzf
-        for <netdev@vger.kernel.org>; Wed, 13 Jun 2007 03:12:40 -0700 (PDT)
-In-Reply-To: <1181702562.2282.12.camel@shani-win>
-Content-Disposition: inline
+Received: from TYO200.gate.nec.co.jp ([210.143.35.50]:55613 "EHLO
+	tyo200.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756882AbXFMKWj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2007 06:22:39 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 6/13/07, Shani Moideen <shani.moideen@wipro.com> wrote:
->
-> Replacing alloc_pages(gfp,0) with alloc_page(gfp)
-> in net/core/pktgen.c
->
-> Signed-off-by: Shani Moideen <shani.moideen@wipro.com>
-> ----
->
-> diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-> index b92a322..2600c7f 100644
-> --- a/net/core/pktgen.c
-> +++ b/net/core/pktgen.c
-> @@ -2414,7 +2414,7 @@ static struct sk_buff *fill_packet_ipv4(struct net_device *odev,
->
->                 i = 0;
->                 while (datalen > 0) {
-> -                       struct page *page = alloc_pages(GFP_KERNEL, 0);
-> +                       struct page *page = alloc_page(GFP_KERNEL);
+From: Keiichi KII <k-keiichi@bx.jp.nec.com>
 
-Does this makes any difference anyway? Both are same eventually?
-What is the rational behind this? Can you please help me understanding this?
+The netconsole is a very useful module for collecting kernel message under
+certain circumstances(e.g. disk logging fails, serial port is unavailable).
 
-thanks
---pradeep
->                         skb_shinfo(skb)->frags[i].page = page;
->                         skb_shinfo(skb)->frags[i].page_offset = 0;
->                         skb_shinfo(skb)->frags[i].size =
-> @@ -2762,7 +2762,7 @@ static struct sk_buff *fill_packet_ipv6(struct net_device *odev,
->
->                 i = 0;
->                 while (datalen > 0) {
-> -                       struct page *page = alloc_pages(GFP_KERNEL, 0);
-> +                       struct page *page = alloc_page(GFP_KERNEL);
->                         skb_shinfo(skb)->frags[i].page = page;
->                         skb_shinfo(skb)->frags[i].page_offset = 0;
->                         skb_shinfo(skb)->frags[i].size =
->
-> --
-> Shani
-> _______________________________________________
-> Kernel-janitors mailing list
-> Kernel-janitors@lists.linux-foundation.org
-> https://lists.linux-foundation.org/mailman/listinfo/kernel-janitors
->
+But current netconsole is not flexible. For example, if you want to change ip
+address for logging agent, in the case of built-in netconsole, you can't change
+config except for changing boot parameter and rebooting your system, or in the
+case of module netconsole, you need to remove it and reload with different
+parameters.
+
+By adopting my patches, the current netconsole becomes a little complex.
+But the kernel messages(especially panic messages) is significant information
+ to solve bugs and troubles promptly and we have been losing serial console
+port with PCs and Servers.
+
+I think that we need the environment in which we can collect kernel messages
+flexibly.
+
+So, I propose the following extended features for netconsole.
+
+1) support for multiple logging agents.
+2) add interface to access each parameter of netconsole
+   using sysfs.
+
+[changes since take4]
+-change kernel base from 2.6.21-rc6-mm1 to 2.6.22-rc4-mm2.
+-update Documentation/networking/netconsole.txt
+-fix Kconfig
+-avoid forward-declared statics
+-fix coding style
+-use spin_lock_irqsave() and _restore()
+-fix race condition(netconsole_event())
+-remove extra lock(write in sysfs)
+-change ioctl's location
+-use kasprintf()
+-error handling
+
+Your comments are very welcome.
+
+Signed-off-by: Keiichi KII <k-keiichi@bx.jp.nec.com>
+Signed-off-by: Takayoshi Kochi <t-kochi@bq.jp.nec.com>
+---
+
+
