@@ -1,32 +1,39 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 0/7] sky2 version 1.15 (88e8071) support
-Date: Wed, 13 Jun 2007 16:05:23 -0400
-Message-ID: <46704E03.8060307@garzik.org>
-References: <20070605002320.868185090@linux-foundation.org>
+Subject: Re: [PATCH 1/15] spidernet: null out skb pointer after its been used.
+Date: Wed, 13 Jun 2007 16:10:17 -0400
+Message-ID: <46704F29.8060805@garzik.org>
+References: <20070607191707.GA7904@austin.ibm.com> <1181265151.6026.1.camel@concordia.ozlabs.ibm.com> <20070608170608.GI7904@austin.ibm.com> <20070608172020.GA31089@havoc.gtf.org> <20070611181429.GA4397@austin.ibm.com> <20070611181702.GA13741@austin.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: Michael Ellerman <michael@ellerman.id.au>, netdev@vger.kernel.org,
+	cbe-oss-dev@ozlabs.org
+To: Linas Vepstas <linas@austin.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:39202 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:39240 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752979AbXFMUF0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Jun 2007 16:05:26 -0400
-In-Reply-To: <20070605002320.868185090@linux-foundation.org>
+	id S1751631AbXFMUKW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Jun 2007 16:10:22 -0400
+In-Reply-To: <20070611181702.GA13741@austin.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> These changes are to enable the Yukon Extreme (88e8071)
-> chipset. This chip is similar to earlier chip but has a different
-> set of offloading operations and some other minor quirks.
+Linas Vepstas wrote:
+> Avoid kernel crash in mm/slab.c due to double-free of pointer.
 > 
-> Marvell has given me some evaluation boards with the 88e8071
-> chip set. The chip is available now, but haven't seen a systems
-> with the hardware yet. The support fot this is exprerimental
-> at this point, but haven't encountered any new problems.
+> If the ethernet interface is brought down while there is still
+> RX traffic in flight, the device shutdown routine can end up
+> trying to double-free an skb, leading to a crash in mm/slab.c
+> Avoid the double-free by nulling out the skb pointer.
+> 
+> Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
+> 
+> ----
+>  drivers/net/spider_net.c |    1 +
+>  1 file changed, 1 insertion(+)
 
-Just to confirm... these are all for #upstream (2.6.23), correct?
+applied 1-5, 7 to #upstream-fixes (2.6.22)
+
+patch #6 was ignored, because it was already upstream
 
 
