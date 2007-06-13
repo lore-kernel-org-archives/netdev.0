@@ -1,80 +1,255 @@
-From: "Leonid Grossman" <Leonid.Grossman@neterion.com>
-Subject: RE: [PATCH] NET: Multiqueue network device support.
-Date: Tue, 12 Jun 2007 23:41:01 -0400
-Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD7701B7DD6D@nekter>
-References: <20070612.140240.00078635.davem@davemloft.net> <466F0C92.5080306@garzik.org> <466F0D78.7090404@candelatech.com> <20070612.142658.45082832.davem@davemloft.net> <20070612214753.GB27363@metaxa.reflex>
+From: Dhananjay Phadke <dhananjay.phadke@gmail.com>
+Subject: Re: [PATCH 3/4] NetXen: Add correct routines to setup multicast address
+Date: Wed, 13 Jun 2007 10:18:37 +0530
+Message-ID: <466F7725.80709@gmail.com>
+References: <200706071134.l57BYbpH007596@dut39.unminc.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <greearb@candelatech.com>, <jeff@garzik.org>,
-	<netdev@vger.kernel.org>, <kaber@trash.net>, <hadi@cyberus.ca>,
-	<peter.p.waskiewicz.jr@intel.com>, <auke-jan.h.kok@intel.com>
-To: "Jason Lunz" <lunz@falooley.org>,
-	"David Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, amitkale@netxen.com, jeff@garzik.org,
+	netxenproj@linsyssoft.com, rob@netxen.com
+To: Mithlesh Thukral <mithlesh@netxen.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.neterion.com ([72.1.205.142]:34998 "EHLO owa.neterion.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754194AbXFMDnu convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jun 2007 23:43:50 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20070612214753.GB27363@metaxa.reflex>
+Received: from nz-out-0506.google.com ([64.233.162.227]:13697 "EHLO
+	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751008AbXFMEuT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2007 00:50:19 -0400
+Received: by nz-out-0506.google.com with SMTP id n1so87169nzf
+        for <netdev@vger.kernel.org>; Tue, 12 Jun 2007 21:50:18 -0700 (PDT)
+In-Reply-To: <200706071134.l57BYbpH007596@dut39.unminc.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Mithlesh,
+
+You don't initialize max_mc_count anywhere. The multicast address pool
+can hold 16 addresses for ports {0,1} and 4 for ports {2,3}. You should
+have following line in the probe routine.
+
+> adapter->max_mc_count = (adapter->portnum > 1) ? 4 : 16;
+
+--
+Dhananjay Phadke
+NetXen Inc.
 
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-
-> owner@vger.kernel.org] On Behalf Of Jason Lunz
-> Sent: Tuesday, June 12, 2007 2:48 PM
-> To: David Miller
-> Cc: greearb@candelatech.com; jeff@garzik.org; netdev@vger.kernel.org;
-> kaber@trash.net; hadi@cyberus.ca; peter.p.waskiewicz.jr@intel.com;
-> auke-jan.h.kok@intel.com
-> Subject: Re: [PATCH] NET: Multiqueue network device support.
+Mithlesh Thukral wrote:
+> NetXen: Add multi cast filter code
+> This patch adds multi cast filter code to NetXen NIC driver.
+> It also adds capabilities to setup the multicast address in hardware
+> from the host side.
 > 
-> On Tue, Jun 12, 2007 at 02:26:58PM -0700, David Miller wrote:
-> > The MAC is still very much centralized in most designs.
-> >
-> > So one way they'll do it is to support assigning N MAC addresses,
-> > and you configure the input filters of the chip to push packets
-> > for each MAC to the proper receive queue.
-> >
-> > So the MAC will accept any of those in the N MAC addresses as
-> > it's own, then you use the filtering facilities to steer
-> > frames to the correct RX queue.
-> >
-> > The TX and RX queues can be so isolated as to be able to be exported
-> > to virtualization nodes.  You can give them full access to the DMA
-> > queues and assosciated mailboxes.  So instead of all of this bogus
-> > virtualized device overhead, you just give the guest access to the
-> > real device.
-> >
-> > So you can use multiple queues either for better single node SMP
-> > performance, or better virtualization performance.
+> Signed-off by: Mithlesh Thukral <mithlesh@netxen.com>
+> ---
 > 
-> Are you aware of any hardware designs that allow other ways to map
-> packets onto rx queues?  I can think of several scenarios where it
-> could
-> be advantageous to map packets by IP 3- or 5-tuple to get cpu locality
-> all the way up the stack on a flow-by-flow basis. But doing this would
-> require some way to request this mapping from the hardware.
-
-10GbE Xframe NICs do that, as well as rx steering by MAC address, VLAN,
-MS RSS, generic hashing and bunch of other criteria (there is actually a
-decent chapter on rx steering in the ASIC manual at www.neterion.com
-support page).
-The caveat is that in the current products the tuple table is limited to
-256 entries only. Next ASIC bumps this number to 64k.
-
+>  drivers/net/netxen/netxen_nic.h     |   24 +++++
+>  drivers/net/netxen/netxen_nic_hdr.h |    3 
+>  drivers/net/netxen/netxen_nic_hw.c  |  119 +++++++++++++++++++++++++-
+>  3 files changed, 143 insertions(+), 3 deletions(-)
 > 
-> In the extreme case it would be cool if it were possible to push a
-> bpf-like classifier down into the hardware to allow arbitrary kinds of
-> flow distribution.
-> 
-> Jason
+> diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/netxen/netxen_nic.h
+> index a0b39ee..2fddfd1 100644
+> --- a/drivers/net/netxen/netxen_nic.h
+> +++ b/drivers/net/netxen/netxen_nic.h
+> @@ -261,6 +261,27 @@ #define netxen_set_msg_ctxid(config_word
+>  #define netxen_set_msg_opcode(config_word, val)	\
+>  	((config_word) &= ~(0xf<<28), (config_word) |= (val & 0xf) << 28)
+>  
+> +#define netxen_set_addr_ctl_id_pool0(config_word, val)	\
+> +	((config_word) &= ~3, (config_word) |= val & 0x3)
+> +#define netxen_set_addr_ctl_enable_xtnd_0(config_word)	\
+> +	((config_word) |= 1 << 2)
+> +#define netxen_set_addr_ctl_id_pool1(config_word, val)	\
+> +	((config_word) &= ~(0x3<<4), (config_word) |= (val & 0x3) << 4)
+> +#define netxen_set_addr_ctl_enable_xtnd_1(config_word)	\
+> +	((config_word) |= 1 << 6)
+> +#define netxen_set_addr_ctl_id_pool2(config_word, val)	\
+> +	((config_word) &= ~(0x3<<8), (config_word) |= (val & 0x3) << 8)
+> +#define netxen_set_addr_ctl_enable_xtnd_2(config_word)	\
+> +	((config_word) |= 1 << 10)
+> +#define netxen_set_addr_ctl_id_pool3(config_word, val)	\
+> +	((config_word) &= ~(0x3<<12), (config_word) |= (val & 0x3) << 12)
+> +#define netxen_set_addr_ctl_enable_xtnd_3(config_word)	\
+> +	((config_word) |= 1 << 14)
+> +#define netxen_set_addr_ctl_mode(config_word, val)	\
+> +	((config_word) &= ~(0x3<<26), (config_word) |= (val & 0x3) << 26)
+> +#define netxen_set_addr_ctl_enable_poll(config_word, val)	\
+> +	((config_word) &= ~(0xf<<30), (config_word) |= (val & 0xf) << 30)
+> +
+>  struct netxen_rcv_context {
+>  	__le64 rcv_ring_addr;
+>  	__le32 rcv_ring_size;
+> @@ -883,6 +904,9 @@ struct netxen_adapter {
+>  	unsigned char mac_addr[ETH_ALEN];
+>  	int mtu;
+>  	int portnum;
+> +	u8 promisc;
+> +	u8 mc_enabled;
+> +	u8 max_mc_count;
+>  
+>  	spinlock_t tx_lock;
+>  	spinlock_t lock;
+> diff --git a/drivers/net/netxen/netxen_nic_hdr.h b/drivers/net/netxen/netxen_nic_hdr.h
+> index 608e37b..2bfecbc 100644
+> --- a/drivers/net/netxen/netxen_nic_hdr.h
+> +++ b/drivers/net/netxen/netxen_nic_hdr.h
+> @@ -545,6 +545,9 @@ #define NETXEN_MULTICAST_ADDR_HI_1	(NETX
+>  #define NETXEN_MULTICAST_ADDR_HI_2	(NETXEN_CRB_NIU + 0x1018)
+>  #define NETXEN_MULTICAST_ADDR_HI_3	(NETXEN_CRB_NIU + 0x101c)
+>  
+> +#define NETXEN_UNICAST_ADDR_BASE	(NETXEN_CRB_NIU + 0x1080)
+> +#define NETXEN_MULTICAST_ADDR_BASE	(NETXEN_CRB_NIU + 0x1100)
+> +
+>  #define	NETXEN_NIU_GB_MAC_CONFIG_0(I)		\
+>  	(NETXEN_CRB_NIU + 0x30000 + (I)*0x10000)
+>  #define	NETXEN_NIU_GB_MAC_CONFIG_1(I)		\
+> diff --git a/drivers/net/netxen/netxen_nic_hw.c b/drivers/net/netxen/netxen_nic_hw.c
+> index baff17a..c5d4ff9 100644
+> --- a/drivers/net/netxen/netxen_nic_hw.c
+> +++ b/drivers/net/netxen/netxen_nic_hw.c
+> @@ -303,6 +303,97 @@ int netxen_nic_set_mac(struct net_device
+>  	return 0;
+>  }
+>  
+> +#define NETXEN_UNICAST_ADDR(port, index)	\
+> +	(NETXEN_UNICAST_ADDR_BASE+(port*32)+(index*8))
+> +
+> +int netxen_nic_enable_mcast_filter(struct netxen_adapter *adapter)
+> +{
+> +	u32 val = 0;
+> +	u16 port = physical_port[adapter->portnum];
+> +
+> +	if (adapter->mc_enabled)
+> +		return 0;
+> +	
+> +	netxen_set_addr_ctl_enable_poll(val, 0xf);
+> +
+> +	if (adapter->ahw.board_type == NETXEN_NIC_XGBE)
+> +		netxen_set_addr_ctl_mode(val, 0x3);
+> +	else
+> +		netxen_set_addr_ctl_mode(val, 0x0);
+> +
+> +	netxen_set_addr_ctl_id_pool0(val, 0x0);
+> +	netxen_set_addr_ctl_id_pool1(val, 0x1);
+> +	netxen_set_addr_ctl_id_pool2(val, 0x2);
+> +	netxen_set_addr_ctl_id_pool3(val, 0x3);
+> +
+> +	netxen_set_addr_ctl_enable_xtnd_0(val);
+> +	netxen_set_addr_ctl_enable_xtnd_1(val);
+> +	netxen_set_addr_ctl_enable_xtnd_2(val);
+> +	netxen_set_addr_ctl_enable_xtnd_3(val);
+> +	
+> +	netxen_crb_writelit_adapter(adapter, NETXEN_MAC_ADDR_CNTL_REG, val);
+> +	
+> +	val = 0xffffff;
+> +
+> +	netxen_crb_writelit_adapter(adapter, NETXEN_UNICAST_ADDR(port,0), val);
+> +	netxen_crb_writelit_adapter(adapter, NETXEN_UNICAST_ADDR(port,0)+4, 
+> +					val);
+> +	
+> +	memcpy(&val, adapter->mac_addr, 3);
+> +	netxen_crb_writelit_adapter(adapter, NETXEN_UNICAST_ADDR(port,1), val);
+> +
+> +	memcpy(&val, adapter->mac_addr+3, 3);
+> +	netxen_crb_writelit_adapter(adapter, NETXEN_UNICAST_ADDR(port,1) + 4,
+> +					val);
+> +
+> +	adapter->mc_enabled = 1;
+> +	return 0;
+> +}
+> +
+> +int netxen_nic_disable_mcast_filter(struct netxen_adapter *adapter)
+> +{
+> +	u32 val =  0;
+> +	u16 port = physical_port[adapter->portnum];
+> +
+> +	if(!adapter->mc_enabled)
+> +		return 0;
+> +
+> +	netxen_crb_writelit_adapter(adapter, NETXEN_MAC_ADDR_CNTL_REG, val);
+> +
+> +	memcpy(&val, adapter->mac_addr, 3);
+> +	netxen_crb_writelit_adapter(adapter, NETXEN_UNICAST_ADDR(port,0), val);
+> +
+> +	memcpy(&val, adapter->mac_addr+3, 3);
+> +	netxen_crb_writelit_adapter(adapter, NETXEN_UNICAST_ADDR(port,0) + 4,
+> +					val);
+> +
+> +	adapter->mc_enabled = 0;
+> +	return 0;
+> +}
+> +
+> +#define NETXEN_MCAST_ADDR(port, index)	\
+> +	(NETXEN_MULTICAST_ADDR_BASE+(port*0x80)+(index*8))
+> +
+> +int netxen_nic_set_mcast_addr(struct netxen_adapter *adapter, int index, 
+> +				u8 *addr)
+> +{
+> +	u32 hi = 0;
+> +	u32 lo = 0;
+> +	u16 port = physical_port[adapter->portnum];
+> +
+> +	hi = (u32) addr[0] | 
+> +		((u32) addr[1] << 8) |
+> +		((u32) addr[2] << 16);
+> +	lo = (u32) addr[3] |
+> +		((u32) addr[4] << 8) |
+> +		((u32) addr[5] << 16);
+> +		  
+> +	netxen_crb_writelit_adapter(adapter, NETXEN_MCAST_ADDR(port,index), hi);
+> +	netxen_crb_writelit_adapter(adapter, NETXEN_MCAST_ADDR(port,index) + 4,
+> +					hi);
+> +	return 0;
+> +}
+> +
+>  /*
+>   * netxen_nic_set_multi - Multicast
+>   */
+> @@ -310,17 +401,39 @@ void netxen_nic_set_multi(struct net_dev
+>  {
+>  	struct netxen_adapter *adapter = netdev_priv(netdev);
+>  	struct dev_mc_list *mc_ptr;
+> +	u8 null_addr[] = {0, 0, 0, 0, 0, 0};
+> +	int index = 0;
+>  
+>  	mc_ptr = netdev->mc_list;
+> -	if (netdev->flags & IFF_PROMISC) {
+> -		if (adapter->set_promisc)
+> +	if ((netdev->flags & IFF_PROMISC) || (netdev->mc_count >
+> +						adapter->max_mc_count)) {
+> +		if (adapter->set_promisc) {
+>  			adapter->set_promisc(adapter,
+>  					     NETXEN_NIU_PROMISC_MODE);
+> +			netxen_nic_disable_mcast_filter(adapter);
+> +			return;
+> +		}
+>  	} else {
+> -		if (adapter->unset_promisc)
+> +		if ((netdev->mc_count == 0) && (adapter->unset_promisc)) {
+>  			adapter->unset_promisc(adapter,
+>  					       NETXEN_NIU_NON_PROMISC_MODE);
+> +			netxen_nic_disable_mcast_filter(adapter);
+> +			return;
+> +		}
+>  	}
+> +	adapter->set_promisc(adapter, NETXEN_NIU_PROMISC_MODE);
+> +	netxen_nic_enable_mcast_filter(adapter);
+> +
+> +	for (mc_ptr = netdev->mc_list; mc_ptr; mc_ptr = mc_ptr->next, index++)
+> +		netxen_nic_set_mcast_addr(adapter, index, mc_ptr->dmi_addr);
+> +
+> +	if (index != netdev->mc_count)
+> +		printk(KERN_ERR"%s: %s multicast address count mismatch\n",
+> +				netxen_nic_driver_name, netdev->name);
+> +
+> +	/* Clear out the remaining addresses	*/
+> +	for (; index < adapter->max_mc_count; index++)
+> +		netxen_nic_set_mcast_addr(adapter, index, null_addr);
+>  }
+>  
+>  /*
 > -
 > To unsubscribe from this list: send the line "unsubscribe netdev" in
 > the body of a message to majordomo@vger.kernel.org
 > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
