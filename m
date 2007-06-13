@@ -1,119 +1,77 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [VLAN 14/18]: Return proper error codes in register_vlan_device
-Date: Wed, 13 Jun 2007 18:51:01 +0200 (MEST)
-Message-ID: <20070613165058.7780.87081.sendpatchset@localhost.localdomain>
+Subject: [VLAN 15/18]: Use 32 bit value for skb->priority mapping
+Date: Wed, 13 Jun 2007 18:51:02 +0200 (MEST)
+Message-ID: <20070613165059.7780.923.sendpatchset@localhost.localdomain>
 References: <20070613165039.7780.15855.sendpatchset@localhost.localdomain>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:35966 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:35969 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759192AbXFMQvD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2007 12:51:03 -0400
+	with ESMTP id S1758825AbXFMQvE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2007 12:51:04 -0400
 In-Reply-To: <20070613165039.7780.15855.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[VLAN]: Return proper error codes in register_vlan_device
+[VLAN]: Use 32 bit value for skb->priority mapping
 
-The returned device is unused, return proper error codes instead and avoid
-having the ioctl handler guess the error.
+skb->priority has only 32 bits and even VLAN uses 32 bit values in its API.
 
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 
 ---
-commit 5924a55528b3a6897ea49f4af9fa7dcefc50fd57
-tree 5fe3152d604de9f44efd614207ada20e13ef2d3c
-parent 0bd5a42a938a42aa15a4e9ac01777d74653e7c8d
-author Patrick McHardy <kaber@trash.net> Wed, 06 Jun 2007 14:46:52 +0200
-committer Patrick McHardy <kaber@trash.net> Wed, 13 Jun 2007 18:10:32 +0200
+commit a285e1ab7cfb856fc9e503eefd507eb7958b7524
+tree 0f95eb6c73eedc66a305bb0ca5cd1ee1391b47d3
+parent 5924a55528b3a6897ea49f4af9fa7dcefc50fd57
+author Patrick McHardy <kaber@trash.net> Wed, 06 Jun 2007 14:46:57 +0200
+committer Patrick McHardy <kaber@trash.net> Wed, 13 Jun 2007 18:10:33 +0200
 
- net/8021q/vlan.c |   32 ++++++++++++++------------------
- 1 files changed, 14 insertions(+), 18 deletions(-)
+ include/linux/if_vlan.h |    4 ++--
+ net/8021q/vlanproc.c    |    4 ++--
+ 2 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-index e68b503..5801993 100644
---- a/net/8021q/vlan.c
-+++ b/net/8021q/vlan.c
-@@ -493,14 +493,14 @@ out_free_group:
+diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
+index 81e9bc9..aeddb49 100644
+--- a/include/linux/if_vlan.h
++++ b/include/linux/if_vlan.h
+@@ -99,7 +99,7 @@ static inline void vlan_group_set_device(struct vlan_group *vg, int vlan_id,
  }
  
- /*  Attach a VLAN device to a mac address (ie Ethernet Card).
-- *  Returns the device that was created, or NULL if there was
-- *  an error of some kind.
-+ *  Returns 0 if the device was created or a negative error code otherwise.
-  */
--static struct net_device *register_vlan_device(struct net_device *real_dev,
--					       unsigned short VLAN_ID)
-+static int register_vlan_device(struct net_device *real_dev,
-+				unsigned short VLAN_ID)
- {
- 	struct net_device *new_dev;
- 	char name[IFNAMSIZ];
-+	int err;
+ struct vlan_priority_tci_mapping {
+-	unsigned long priority;
++	u32 priority;
+ 	unsigned short vlan_qos; /* This should be shifted when first set, so we only do it
+ 				  * at provisioning time.
+ 				  * ((skb->priority << 13) & 0xE000)
+@@ -112,7 +112,7 @@ struct vlan_dev_info {
+ 	/** This will be the mapping that correlates skb->priority to
+ 	 * 3 bits of VLAN QOS tags...
+ 	 */
+-	unsigned long ingress_priority_map[8];
++	u32 ingress_priority_map[8];
+ 	struct vlan_priority_tci_mapping *egress_priority_map[16]; /* hash table */
  
- #ifdef VLAN_DEBUG
- 	printk(VLAN_DBG "%s: if_name -:%s:-	vid: %i\n",
-@@ -508,10 +508,11 @@ static struct net_device *register_vlan_device(struct net_device *real_dev,
- #endif
- 
- 	if (VLAN_ID >= VLAN_VID_MASK)
--		goto out_ret_null;
-+		return -ERANGE;
- 
--	if (vlan_check_real_dev(real_dev, VLAN_ID) < 0)
--		goto out_ret_null;
-+	err = vlan_check_real_dev(real_dev, VLAN_ID);
-+	if (err < 0)
-+		return err;
- 
- 	/* Gotta set up the fields for the device. */
- #ifdef VLAN_DEBUG
-@@ -547,7 +548,7 @@ static struct net_device *register_vlan_device(struct net_device *real_dev,
- 			       vlan_setup);
- 
- 	if (new_dev == NULL)
--		goto out_ret_null;
-+		return -ENOBUFS;
- 
- 	/* need 4 bytes for extra VLAN header info,
- 	 * hope the underlying device can handle it.
-@@ -566,7 +567,8 @@ static struct net_device *register_vlan_device(struct net_device *real_dev,
- 	VLAN_DEV_INFO(new_dev)->dent = NULL;
- 	VLAN_DEV_INFO(new_dev)->flags = 1;
- 
--	if (register_vlan_dev(new_dev) < 0)
-+	err = register_vlan_dev(new_dev);
-+	if (err < 0)
- 		goto out_free_newdev;
- 
- 	/* Account for reference in struct vlan_dev_info */
-@@ -574,13 +576,11 @@ static struct net_device *register_vlan_device(struct net_device *real_dev,
- #ifdef VLAN_DEBUG
- 	printk(VLAN_DBG "Allocated new device successfully, returning.\n");
- #endif
--	return new_dev;
-+	return 0;
- 
- out_free_newdev:
- 	free_netdev(new_dev);
--
--out_ret_null:
--	return NULL;
-+	return err;
- }
- 
- static int vlan_device_event(struct notifier_block *unused, unsigned long event, void *ptr)
-@@ -753,11 +753,7 @@ static int vlan_ioctl_handler(void __user *arg)
- 		err = -EPERM;
- 		if (!capable(CAP_NET_ADMIN))
- 			break;
--		if (register_vlan_device(dev, args.u.VID)) {
--			err = 0;
--		} else {
--			err = -EINVAL;
--		}
-+		err = register_vlan_device(dev, args.u.VID);
- 		break;
- 
- 	case DEL_VLAN_CMD:
+ 	unsigned short vlan_id;        /*  The VLAN Identifier for this interface. */
+diff --git a/net/8021q/vlanproc.c b/net/8021q/vlanproc.c
+index d216a64..8693b21 100644
+--- a/net/8021q/vlanproc.c
++++ b/net/8021q/vlanproc.c
+@@ -342,7 +342,7 @@ static int vlandev_seq_show(struct seq_file *seq, void *offset)
+ 	seq_printf(seq, "Device: %s", dev_info->real_dev->name);
+ 	/* now show all PRIORITY mappings relating to this VLAN */
+ 	seq_printf(seq,
+-		       "\nINGRESS priority mappings: 0:%lu  1:%lu  2:%lu  3:%lu  4:%lu  5:%lu  6:%lu 7:%lu\n",
++		       "\nINGRESS priority mappings: 0:%u  1:%u  2:%u  3:%u  4:%u  5:%u  6:%u 7:%u\n",
+ 		       dev_info->ingress_priority_map[0],
+ 		       dev_info->ingress_priority_map[1],
+ 		       dev_info->ingress_priority_map[2],
+@@ -357,7 +357,7 @@ static int vlandev_seq_show(struct seq_file *seq, void *offset)
+ 		const struct vlan_priority_tci_mapping *mp
+ 			= dev_info->egress_priority_map[i];
+ 		while (mp) {
+-			seq_printf(seq, "%lu:%hu ",
++			seq_printf(seq, "%u:%hu ",
+ 				   mp->priority, ((mp->vlan_qos >> 13) & 0x7));
+ 			mp = mp->next;
+ 		}
