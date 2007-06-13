@@ -1,28 +1,31 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] acenic: SET_NETDEV_DEV is always there these days
-Date: Wed, 13 Jun 2007 15:53:49 -0400
-Message-ID: <46704B4D.3020102@pobox.com>
-References: <Pine.LNX.4.62.0706061601420.25857@pademelon.sonytel.be>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] add return value check of request_irq()
+Date: Wed, 13 Jun 2007 15:55:05 -0400
+Message-ID: <46704B99.3090908@garzik.org>
+References: <20070605225506.72e5f8fe.yoichi_yuasa@tripeaks.co.jp>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jes Sorensen <jes@trained-monkey.org>, netdev@vger.kernel.org,
-	trivial@kernel.org
-To: Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>
+Cc: netdev@vger.kernel.org
+To: Yoichi Yuasa <yoichi_yuasa@tripeaks.co.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:39035 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:39057 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751870AbXFMTx4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Jun 2007 15:53:56 -0400
-In-Reply-To: <Pine.LNX.4.62.0706061601420.25857@pademelon.sonytel.be>
+	id S1752499AbXFMTzJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Jun 2007 15:55:09 -0400
+In-Reply-To: <20070605225506.72e5f8fe.yoichi_yuasa@tripeaks.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Geert Uytterhoeven wrote:
-> acenic: SET_NETDEV_DEV is always there these days
+Yoichi Yuasa wrote:
+> Hi,
 > 
-> Signed-off-by: Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>
+> This patch has added return value check of request_irq() to pcmcia net drivers.
+> 
+> Yoichi
+> 
+> Signed-off-by: Yoichi Yuasa <yoichi_yuasa@tripeaks.co.jp>
 
-applied to #upstream
+applied to #upstream (2.6.23)
 
 
