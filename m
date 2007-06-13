@@ -1,53 +1,121 @@
-From: "Leonid Grossman" <Leonid.Grossman@neterion.com>
-Subject: RE: [PATCH] NET: Multiqueue network device support.
-Date: Wed, 13 Jun 2007 11:01:11 -0400
-Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD7701B7DE05@nekter>
-References: <466DEF9D.9070509@trash.net> <1181615384.4071.121.camel@localhost> <466E9DF2.9010505@trash.net> <20070612.140240.00078635.davem@davemloft.net> <466F0D74.5030308@trash.net> <1181714168.4758.57.camel@debian.sh.intel.com> <1181737935.4050.87.camel@localhost> <18031.60741.695897.572432@robur.slu.se> <1181741602.4050.116.camel@localhost>
+From: "Satyam Sharma" <satyam.sharma@gmail.com>
+Subject: Re: [RFC][PATCH -mm take5 2/7] support multiple logging
+Date: Wed, 13 Jun 2007 21:00:51 +0530
+Message-ID: <a781481a0706130830i7b363eacucd5ce9530c726b4f@mail.gmail.com>
+References: <466FC455.5060001@bx.jp.nec.com> <466FC681.5060501@bx.jp.nec.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Zhu Yi" <yi.zhu@intel.com>, "Patrick McHardy" <kaber@trash.net>,
-	"David Miller" <davem@davemloft.net>,
-	<peter.p.waskiewicz.jr@intel.com>, <netdev@vger.kernel.org>,
-	<jeff@garzik.org>, <auke-jan.h.kok@intel.com>
-To: <hadi@cyberus.ca>, "Robert Olsson" <Robert.Olsson@data.slu.se>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Matt Mackall" <mpm@selenic.com>,
+	"Andrew Morton" <akpm@linux-foundation.org>,
+	"David Miller" <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: "Keiichi KII" <k-keiichi@bx.jp.nec.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.neterion.com ([72.1.205.142]:49272 "EHLO owa.neterion.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754887AbXFMPDk convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2007 11:03:40 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <1181741602.4050.116.camel@localhost>
+Received: from wr-out-0506.google.com ([64.233.184.227]:52186 "EHLO
+	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758054AbXFMPaw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2007 11:30:52 -0400
+Received: by wr-out-0506.google.com with SMTP id 76so198374wra
+        for <netdev@vger.kernel.org>; Wed, 13 Jun 2007 08:30:51 -0700 (PDT)
+In-Reply-To: <466FC681.5060501@bx.jp.nec.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi Keiichi,
 
+On 6/13/07, Keiichi KII <k-keiichi@bx.jp.nec.com> wrote:
 
-> -----Original Message-----
-> From: J Hadi Salim [mailto:j.hadi123@gmail.com] On Behalf Of jamal
+> +struct netconsole_target {
+> +       struct list_head list;
+> +       int id;
+> +       struct netpoll np;
+> +};
+> +
+> +static LIST_HEAD(target_list);
+> +static DEFINE_SPINLOCK(target_list_lock);
 
+Some description of the struct netconsole_target / target_list
+would be nice. For instance, here I tried to read from the code
+what the "int id" member is all about, but noticed that it is
+only being set during add_target(), and never read / used
+anywhere else later. You should just remove it, then.
 
-> For the Leonid-NIC (for lack of better name) it may be harder to do
-> parallelization on rcv if you use what i said above. But you could
-> use a different model on receive - such as create a single netdev and
-> with 8 rcv rings and MSI tied on rcv to 8 different CPUs
-> Anyways, it is an important discussion to have. ttl.
+> +       if (netpoll_setup(&new_target->np)) {
+> +               printk(KERN_ERR "netconsole: can't setup netpoll:%s\n",
+> +                      target_config);
+> +               kfree(new_target);
+> +               retval = -EINVAL;
 
-Call it "IOV-style NIC" :-)
-Or something like that, it's a bit too early to talk about full IOV
-compliance...
->From what I see in Intel new pci-e 10GbE driver, they have quite a few
-of the same attributes, and the category is likely to grow further.
-In IOV world, hw channel requirements are pretty brutal; in a nutshell
-each channel could be owned by a separate OS instance (and the OS
-instances do not even have to be the same type). For a non-virtualized
-OS some of these capabilities are not a "must have", but they are/will
-be there and Linux may as well take advantage of it.
-Leonid
+Please prefer something like "err = netpoll_setup(...);"
+and then "if (err) { printk(); kfree(); return err; }" here.
 
-> 
-> cheers,
-> jamal
-> 
+netpoll_setup() returns perfectly reasonable error codes,
+we must be returning the same back up.
 
+> +#ifndef MODULE
+>  static int __init option_setup(char *opt)
+>  {
+> -       configured = !netpoll_parse_options(&np, opt);
+> +       strncpy(config, opt, 256);
+
+strlcpy would be safer than strncpy here, IMHO.
+
+> -static int __init init_netconsole(void)
+> +static void cleanup_netconsole(void)
+>  {
+> -       int err;
+> +#ifdef CONFIG_NETCONSOLE_DYNCON
+> +       struct netconsole_target *nt, *tmp;
+>
+> -       if(strlen(config))
+> -               option_setup(config);
+> +       unregister_console(&netconsole);
+
+> +       list_for_each_entry_safe(nt, tmp, &target_list, list)
+> +               remove_target(nt);
+
+You should be doing the spin_lock_irqsave() and
+spin_unlock_irqrestore() around this code here,
+and lose it from the remove_target() ...
+
+> +static int __init init_netconsole(void)
+> +{
+> +       char *tmp = config;
+> +#ifdef CONFIG_NETCONSOLE_DYNCON
+> +       char *p;
+> +
+> +       register_console(&netconsole);
+
+register_console() needs to be _after_ netpoll_setup().
+
+> +       if (!strlen(config)) {
+> +               printk(KERN_ERR "netconsole: not configured\n");
+>                 return 0;
+>         }
+
+You could move this out of the #ifdef. It's applicable to both
+DYNCON and !DYNCON cases.
+
+> -       err = netpoll_setup(&np);
+> -       if (err)
+> -               return err;
+> -
+> +       while ((p = strsep(&tmp, ";")) != NULL)
+> +               if (add_target(p)) {
+> +                       printk(KERN_ERR
+> +                              "netconsole: can't add target to netconsole\n");
+> +                       cleanup_netconsole();
+> +                       return -EINVAL;
+> +               }
+> +#else
+> +       if (!strlen(config) ||
+> +           netpoll_parse_options(&np, tmp) || netpoll_setup(&np)) {
+
+Joining these 3 expressions (statements, actually) together
+is so gross :-)
+Please do them separately, like the previous code did. That way
+you could preserve the error code from netpoll_setup() too ...
+
+Satyam
