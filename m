@@ -1,113 +1,66 @@
-From: "Satyam Sharma" <satyam.sharma@gmail.com>
-Subject: Re: [RFC][PATCH -mm take5 3/7] add interface for netconsole using sysfs
-Date: Wed, 13 Jun 2007 21:19:58 +0530
-Message-ID: <a781481a0706130849u2373983eyeab365a8bc90a4dd@mail.gmail.com>
-References: <466FC455.5060001@bx.jp.nec.com> <466FC6BB.4040105@bx.jp.nec.com>
+From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
+Subject: Re: [PATCH] PHY fixed driver: rework release path and update
+	phy_id notation
+Date: Wed, 13 Jun 2007 18:06:09 +0200
+Message-ID: <1181750769.30670.304.camel@gentoo-jocke.transmode.se>
+References: <20070609162118.2680.99019.stgit@ACA800FC.ipt.aol.com>
+Reply-To: joakim.tjernlund@transmode.se
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "Matt Mackall" <mpm@selenic.com>,
-	"Andrew Morton" <akpm@linux-foundation.org>,
-	"David Miller" <davem@davemloft.net>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: "Keiichi KII" <k-keiichi@bx.jp.nec.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.237]:60857 "EHLO
-	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757968AbXFMPt7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2007 11:49:59 -0400
-Received: by wr-out-0506.google.com with SMTP id 76so204653wra
-        for <netdev@vger.kernel.org>; Wed, 13 Jun 2007 08:49:58 -0700 (PDT)
-In-Reply-To: <466FC6BB.4040105@bx.jp.nec.com>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Cc: linuxppc-dev@ozlabs.org, linux-kernel@vger.kernel.org,
+	Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org
+To: Vitaly Bordug <vitb@kernel.crashing.org>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+In-Reply-To: <20070609162118.2680.99019.stgit@ACA800FC.ipt.aol.com>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Sat, 2007-06-09 at 20:21 +0400, Vitaly Bordug wrote:
+> device_bind_driver() error code returning has been fixed. 
+> release() function has been written, so that to free resources
+> in correct way; the release path is now clean.
+> 
+> Before the rework, it used to cause
+>  Device 'fixed@100:1' does not have a release() function, it is broken
+>  and must be fixed.
+>  BUG: at drivers/base/core.c:104 device_release()
+>  
+>  Call Trace:  
+>   [<ffffffff802ec380>] kobject_cleanup+0x53/0x7e
+>   [<ffffffff802ec3ab>] kobject_release+0x0/0x9
+>   [<ffffffff802ecf3f>] kref_put+0x74/0x81
+>   [<ffffffff8035493b>] fixed_mdio_register_device+0x230/0x265
+>   [<ffffffff80564d31>] fixed_init+0x1f/0x35
+>   [<ffffffff802071a4>] init+0x147/0x2fb
+>   [<ffffffff80223b6e>] schedule_tail+0x36/0x92
+>   [<ffffffff8020a678>] child_rip+0xa/0x12
+>   [<ffffffff80311714>] acpi_ds_init_one_object+0x0/0x83
+>   [<ffffffff8020705d>] init+0x0/0x2fb
+>   [<ffffffff8020a66e>] child_rip+0x0/0x12  
+> 
+> 
+> Also changed the notation of the fixed phy definition on
+> mdio bus to the form of <speed>+<duplex> to make it able to be used by
+> gianfar and ucc_geth that define phy_id strictly as "%d:%d"
+> 
+> Signed-off-by: Vitaly Bordug <vitb@kernel.crashing.org>
 
-On 6/13/07, Keiichi KII <k-keiichi@bx.jp.nec.com> wrote:
-> From: Keiichi KII <k-keiichi@bx.jp.nec.com>
->
-> This patch contains the following changes.
->
-> create a sysfs entry for netconsole in /sys/class/misc.
-> This entry has elements related to netconsole as follows.
-> You can change configuration of netconsole(writable attributes such as IP
-> address, port number and so on) and check current configuration of netconsole.
->
-> -+- /sys/class/misc/
->  |-+- netconsole/
->    |-+- port1/
->    | |--- id          [r--r--r--]  unique port id
->    | |--- local_ip    [rw-r--r--]  source IP to use, writable
->    | |--- local_mac   [r--r--r--]  source MAC address
->    | |--- local_port  [rw-r--r--]  source port number for UDP packets, writable
->    | |--- remote_ip   [rw-r--r--]  port number for logging agent, writable
->    | |--- remote_mac  [rw-r--r--]  MAC address for logging agent, writable
->    | ---- remote_port [rw-r--r--]  IP address for logging agent, writable
->    |--- port2/
->    |--- port3/
+Hi Vitaly
 
-[...]
-> +static int miscdev_configured;
+I am about to test this but I am having trouble figuring out how to
+make ucc_geth find this PHY. Need some hints/template what to write
+in the dts or board init code.
 
-Is this really required? We just return with error if misc_register()
-fails during module init time itself, so it's not really useful ever, is it?
+Also, I need several fixed PHYs, maybe you should export
+fixed_mdio_register_device() ?
 
-> +static ssize_t show_target_attr(struct kobject *kobj,
-[...]
-> +       if (na->show)
-> +               return na->show(nt, buffer);
-> +       else
-> +               return -EIO;
-
-and
-
-> +static ssize_t store_target_attr(struct kobject *kobj,
-[...]
-> +       if (na->store)
-> +               return na->store(nt, buffer, count);
-> +       else
-> +               return -EIO;
-
-EIO isn't quite appropriate for the above two cases. EPERM?
-
-> +static int setup_target_sysfs(struct netconsole_target *nt)
-> +{
-> +       kobject_set_name(&nt->obj, "port%d", nt->id);
-
-Ah, I see, so this is where we use the ->id member.
-
-> @@ -192,7 +386,9 @@ static void cleanup_netconsole(void)
->
->         unregister_console(&netconsole);
->         list_for_each_entry_safe(nt, tmp, &target_list, list)
-> -               remove_target(nt);
-> +               kobject_unregister(&nt->obj);
-> +       if (miscdev_configured)
-> +               misc_deregister(&netconsole_miscdev);
-
-Yeah, I suspect we can do away with miscdev_configured here.
-We reach this code only if it is known to be true.
-
-> +       if (misc_register(&netconsole_miscdev)) {
-> +               printk(KERN_ERR
-> +                      "netconsole: failed to register misc device for "
-> +                      "name = %s, id = %d\n",
-> +                      netconsole_miscdev.name, netconsole_miscdev.minor);
-> +               return -EIO;
-> +       } else
-> +               miscdev_configured = 1;
-> +
-
-Please prefer:
-
-err = misc_register(...);
-if (err)
-        ...
-        return err;
-
-That way we avoid the weird EIO and maintain the error code
-returned by misc_register().
-
-Satyam
+ Jocke
