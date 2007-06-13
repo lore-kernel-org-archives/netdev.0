@@ -1,74 +1,56 @@
-From: "Marco Berizzi" <pupilla@hotmail.com>
-Subject: Re: pmtu discovery on sa esp
-Date: Wed, 13 Jun 2007 15:09:10 +0200
-Message-ID: <BAY103-DAV1214938C6821D8818D23CB2180@phx.gbl>
-References: <BAY103-DAV17DFF0DD3E0AEE8CCCB1F3B2190@phx.gbl> <466E92E4.4020008@trash.net> <BAY103-DAV16399D5C4B8A85492D8738B2180@phx.gbl> <466FE81A.80907@trash.net>
-Cc: <netdev@vger.kernel.org>
-To: "Patrick McHardy" <kaber@trash.net>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: Re: [PATCH] NET: Multiqueue network device support.
+Date: Wed, 13 Jun 2007 15:12:37 +0200
+Message-ID: <18031.60741.695897.572432@robur.slu.se>
+References: <466DEF9D.9070509@trash.net>
+	<1181615384.4071.121.camel@localhost>
+	<466E9DF2.9010505@trash.net>
+	<20070612.140240.00078635.davem@davemloft.net>
+	<466F0D74.5030308@trash.net>
+	<1181714168.4758.57.camel@debian.sh.intel.com>
+	<1181737935.4050.87.camel@localhost>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Zhu Yi <yi.zhu@intel.com>, Patrick McHardy <kaber@trash.net>,
+	David Miller <davem@davemloft.net>,
+	peter.p.waskiewicz.jr@intel.com, netdev@vger.kernel.org,
+	jeff@garzik.org, auke-jan.h.kok@intel.com
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bay0-omc1-s16.bay0.hotmail.com ([65.54.246.88]:7814 "EHLO
-	bay0-omc1-s16.bay0.hotmail.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757008AbXFMNJW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2007 09:09:22 -0400
+Received: from mx1.slu.se ([130.238.96.70]:47667 "EHLO mx1.slu.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752726AbXFMNMr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Jun 2007 09:12:47 -0400
+In-Reply-To: <1181737935.4050.87.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy wrote:
 
-> Marco Berizzi wrote:
-> > Patrick McHardy wrote:
-> >
-> >>We have some MTU opimiztations in 2.6.22-rc that might be related.
-> >>Please check with tcpdump what exactly is happening and whether
-> >>the 2.6.22-rc box is sending too large packets.
-> >
-> >
-> > I have done a tcpdump capture on the external
-> > interface but I don't see anything strange.
->
->
-> Try dumping on loopback as well.
+jamal writes:
 
-indeed: here is:
+ > The key arguement i make (from day one actually) is to leave the
+ > majority of the work to the driver.
+ > My view of wireless WMM etc is it is a different media behavior
+ > (compared to wired ethernet) which means a different view of strategy
+ > for when it opens the valve to allow in more packets. 802.11 media has
+ > embedded signalling which is usable. Guy Cohen gave a good use case
+ > which i responded to. Do you wanna look at that and respond?
 
-14:55:58.848705 IP (tos 0xc0, ttl  64, id 1440, offset 0, flags [none],
-proto: ICMP (1), length: 576) linux2.6.22 > linux2.6.22: ICMP
-linux2.6.21 unreachable - need to frag (mtu 1500), length 556
- IP (tos 0x0, ttl  64, id 0, offset 0, flags [DF], proto: ESP (50),
-length: 1512) linux2.6.22 > linux2.6.21:
-ESP(spi=0x91878312,seq=0x1553f), length 1492[|icmp]
+ Hello,
 
-> > (I can send to you the capture if you want/need)
-> > I have noticed that the mtu on the aes tunnels
-> > now is equal to 1450 byte (with 2.6.21 it was
-> > 1428). Let me explain:
-> >
-> > linux 2.6.22-rc4 ->>-AES tunnel ->>- linux 2.6.21 mtu=1450
-> > linux 2.6.21 ->>-AES tunnel ->>- linux 2.6.22-rc4 mtu=1428
-> >
-> > Now as a collateral effects all the windoze boxes
-> > aren't able to exchange large packets: I must
-> > upgrade all ipsec gateway to 2.6.22-rc4 (or
-> > downgrade this box to 2.6.21 again). Hints?
->
->
-> The question is whether 1450 is correct. Could you send me the
-> output of "ip x s" (obfuscate keys if you want) and "ip x p"?
+ Haven't got all details. IMO we need to support some "bonding-like" 
+ scenario too. Where one CPU is feeding just one TX-ring. (and TX-buffers
+ cleared by same CPU). We probably don't want to stall all queuing when
+ when one ring is full. 
+ 
+ The scenario I see is to support parallelism in forwarding/firewalling etc.
+ For example when RX load via HW gets split into different CPU's and for 
+ cache reasons we want to process in same CPU even with TX.
 
-I have sent to you (not to the list) the info you
-asked me.
+ If RX HW split keeps packets from the same flow on same CPU we shouldn't
+ get reordering within flows.
 
-> What is the MTU of the underlying device?
-
-1500 byte
-
-> Do the encapsulated
-> packets still fit?
-
-No, the will not fit (1512 > 1500)
-
-> BTW, are you just using pluto or the entire openswan patch?
-
-only pluto (no klips).
-
-
+ Cheers
+						--ro
+ 
