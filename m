@@ -1,46 +1,44 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH] Fix race condition about network device name allocation
-Date: Wed, 13 Jun 2007 15:53:35 -0700
-Message-ID: <20070613155335.47111c67@localhost>
-References: <1178862045.3979.33.camel@kane-linux>
-	<20070511092519.1f34ab34@freepuppy>
-	<1179130660.3881.23.camel@kane-linux>
-	<20070514085840.17a343f7@freepuppy>
-	<20070613094521.GA8860@localdomain>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [ANNOUNCE] new driver ixgbe for Intel(R) 10GbE PCI Express adapters.
+Date: Thu, 14 Jun 2007 01:05:13 +0200
+Message-ID: <20070613230513.GB22521@electric-eye.fr.zoreil.com>
+References: <20070612234417.5102.29147.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	bonding-devel@lists.sourceforge.net
-To: Dan Aloni <da-x@monatomic.org>,
-	Chad Tindel <ctindel@users.sourceforge.net>,
-	Jay Vosburgh <fubar@us.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, jeff@garzik.org, auke-jan.h.kok@intel.com,
+	arjan@linux.intel.com, akpm@linux-foundation.org
+To: Ayyappan.Veeraiyan@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:36060 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753502AbXFMWye (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2007 18:54:34 -0400
-In-Reply-To: <20070613094521.GA8860@localdomain>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:59905 "EHLO
+	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755709AbXFMXJs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Jun 2007 19:09:48 -0400
+Content-Disposition: inline
+In-Reply-To: <20070612234417.5102.29147.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Bonding refers to device after unregistering. This has always been
-a dangerous thing. The following UNTESTED should fix the problem.
+Ayyappan.Veeraiyan@intel.com <Ayyappan.Veeraiyan@intel.com> :
+[...]
+> Please review and provide comments.
 
---- a/drivers/net/bonding/bond_sysfs.c	2007-06-13 15:48:37.000000000 -0700
-+++ b/drivers/net/bonding/bond_sysfs.c	2007-06-13 15:49:17.000000000 -0700
-@@ -164,9 +164,10 @@ static ssize_t bonding_store_bonds(struc
- 				printk(KERN_INFO DRV_NAME
- 					": %s is being deleted...\n",
- 					bond->dev->name);
--				unregister_netdevice(bond->dev);
-+
- 				bond_deinit(bond->dev);
- 		        	bond_destroy_sysfs_entry(bond);
-+				unregister_netdevice(bond->dev);
- 				rtnl_unlock();
- 				goto out;
- 			}
+o ixgbe_call_func and the ton of wrappers which go along with it
+  should go.
+
+o boolean_t duplicates the existing 'bool'
+
+o The options below {should be/are} handled through ethtool:
+  - TxDescriptors
+  - RxDescriptors
+  - XsumRX
+
+o No __iomem annotations ?
+
+o pci_alloc_consistent() returns a zeroed area: no need for memset.
+
+o ixgbe_clean_tx_irq() is issued from the NAPI poll handler (as the
+  name suggests...). Its locking will probably cause a deadlock if
+  it is interrupted and a call to netpoll_send_skb follows.
+
+-- 
+Ueimor
