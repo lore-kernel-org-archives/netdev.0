@@ -1,77 +1,53 @@
-From: David Gundersen <gundy@iinet.net.au>
-Subject: Realtek r8168 slow outbound transfer -  potential fix/workaround
-Date: Thu, 14 Jun 2007 00:46:04 +1000
-Message-ID: <4670032C.7010803@iinet.net.au>
+From: "Leonid Grossman" <Leonid.Grossman@neterion.com>
+Subject: RE: [PATCH] NET: Multiqueue network device support.
+Date: Wed, 13 Jun 2007 11:01:11 -0400
+Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD7701B7DE05@nekter>
+References: <466DEF9D.9070509@trash.net> <1181615384.4071.121.camel@localhost> <466E9DF2.9010505@trash.net> <20070612.140240.00078635.davem@davemloft.net> <466F0D74.5030308@trash.net> <1181714168.4758.57.camel@debian.sh.intel.com> <1181737935.4050.87.camel@localhost> <18031.60741.695897.572432@robur.slu.se> <1181741602.4050.116.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Zhu Yi" <yi.zhu@intel.com>, "Patrick McHardy" <kaber@trash.net>,
+	"David Miller" <davem@davemloft.net>,
+	<peter.p.waskiewicz.jr@intel.com>, <netdev@vger.kernel.org>,
+	<jeff@garzik.org>, <auke-jan.h.kok@intel.com>
+To: <hadi@cyberus.ca>, "Robert Olsson" <Robert.Olsson@data.slu.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from customer-domains.icp-qv1-irony14.iinet.net.au ([203.59.1.169]:6611
-	"EHLO customer-domains.icp-qv1-irony14.iinet.net.au"
+Received: from mx.neterion.com ([72.1.205.142]:49272 "EHLO owa.neterion.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757614AbXFMOpw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Jun 2007 10:45:52 -0400
+	id S1754887AbXFMPDk convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2007 11:03:40 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <1181741602.4050.116.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-Hi all,
 
-I've been doing a bit of investigation work into a problem that I've 
-been experiencing with the latest available r8168 driver from realtek 
-('r8168-8.001.00') & linux kernel 2.6.21.1.
-
-I have been experiencing wierd problems with slow outbound traffic that 
-seem to go away if there's traffic coming into the device.  Googling 
-seen reports of this in a number of places on the web so I get the 
-feeling I'm not alone.
-
-I decided to spend a few hours looking into this and as best I could 
-tell it's because back-to-back outbound packets result in the 2nd packet 
-being mysteriously dropped.
-
-What I found was that line 2505:
-
-  RTL_W8(TxPoll, NPQ);
-
-in the rtl8168_start_xmit() handler is the part that's telling the NIC 
-to kick off the next transfer.
-
-I'm guessing that the signal must be edge triggered because after a few 
-checks I noticed that during times of heavy transmission, it was 
-possible for the card to still have this bit set from the previous 
-packet's transmission request, with the result being that the command to 
-kick off the next packets' transmission would be lost. The net effect of 
-this was that timeouts & retransmits were occurring further up the 
-protocol stack, and I believe that was what was responsible for the 
-terrible performance.
-
-Now, on to my workaround. Putting a spin style wait like the following 
-in front of the line above seemed to solve the problem for me:
+> -----Original Message-----
+> From: J Hadi Salim [mailto:j.hadi123@gmail.com] On Behalf Of jamal
 
 
-if (RTL_R8(TxPoll) & NPQ) {
-     for (i = 20; i > 0; i--) {
-      if (!(RTL_R8(TxPoll) & NPQ))
-       break;
-      udelay(25);
-    }
-}
+> For the Leonid-NIC (for lack of better name) it may be harder to do
+> parallelization on rcv if you use what i said above. But you could
+> use a different model on receive - such as create a single netdev and
+> with 8 rcv rings and MSI tied on rcv to 8 different CPUs
+> Anyways, it is an important discussion to have. ttl.
 
-...
+Call it "IOV-style NIC" :-)
+Or something like that, it's a bit too early to talk about full IOV
+compliance...
+>From what I see in Intel new pci-e 10GbE driver, they have quite a few
+of the same attributes, and the category is likely to grow further.
+In IOV world, hw channel requirements are pretty brutal; in a nutshell
+each channel could be owned by a separate OS instance (and the OS
+instances do not even have to be the same type). For a non-virtualized
+OS some of these capabilities are not a "must have", but they are/will
+be there and Linux may as well take advantage of it.
+Leonid
 
-RTL_W8(TxPoll, NPQ);
+> 
+> cheers,
+> jamal
+> 
 
-This waits for the card to signal that it's dealt with the previous 
-packet before telling it to process the next. YMMV.
-
-It would be interesting to hear if other people have similar success 
-with the above workaround.  Also, I'm not convinced that having a spin 
-style wait is the best solution here - if anybody else is able to offer 
-a better solution it'd be great to hear it.
-
-
-Kind Regards,
-
-Dave.
