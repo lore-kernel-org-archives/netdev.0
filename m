@@ -1,50 +1,60 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH] TCP: remove initial_ssthresh from Cubic
-Date: Wed, 13 Jun 2007 11:31:49 -0700
-Message-ID: <20070613113149.5cd1b11e@localhost>
-References: <20070612233814.4b04db2f.billfink@mindspring.com>
-	<20070613.005642.85685043.davem@davemloft.net>
-	<20070613102718.61d67a36@localhost>
-	<20070613.112652.112623832.davem@davemloft.net>
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: RE: [PATCH] NET: Multiqueue network device support.
+Date: Wed, 13 Jun 2007 11:34:55 -0700
+Message-ID: <D5C1322C3E673F459512FB59E0DDC3290306A87D@orsmsx414.amr.corp.intel.com>
+References: <466D883B.5050409@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: billfink@mindspring.com, sangtae.ha@gmail.com, rhee@eos.ncsu.edu,
-	rhee@ncsu.edu, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>, <jeff@garzik.org>,
+	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>
+To: "Patrick McHardy" <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:34415 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759312AbXFMSch (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2007 14:32:37 -0400
-In-Reply-To: <20070613.112652.112623832.davem@davemloft.net>
+Received: from mga03.intel.com ([143.182.124.21]:39433 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758742AbXFMSfF convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2007 14:35:05 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <466D883B.5050409@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 13 Jun 2007 11:26:52 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
+> PJ Waskiewicz wrote:
+> > diff --git a/net/sched/sch_generic.c 
+> b/net/sched/sch_generic.c index 
+> > f28bb2d..b9dc2a6 100644
+> > --- a/net/sched/sch_generic.c
+> > +++ b/net/sched/sch_generic.c
+> > @@ -123,7 +123,8 @@ static inline int qdisc_restart(struct 
+> net_device *dev)
+> >  			/* And release queue */
+> >  			spin_unlock(&dev->queue_lock);
+> >  
+> > -			if (!netif_queue_stopped(dev)) {
+> > +			if (!netif_queue_stopped(dev) &&
+> > +			    !netif_subqueue_stopped(dev, 
+> skb->queue_mapping)) {
+> >  				int ret;
+> >  
+> >  				ret = dev_hard_start_xmit(skb, dev);
+> 
+> 
+> Your patch doesn't update any other users of netif_queue_stopped().
+> The assumption that they can pass packets to the driver when 
+> the queue is running is no longer valid since they don't know 
+> whether the subqueue the packet will end up in is active (it 
+> might be different from queue 0 if packets were redirected 
+> from a multiqueue aware qdisc through TC actions). So they 
+> need to be changed to check the subqueue state as well.
 
-> From: Stephen Hemminger <shemminger@linux-foundation.org>
-> Date: Wed, 13 Jun 2007 10:27:18 -0700
-> 
-> Please make patches against my net-2.6 tree, I already
-> made changes in this area.
-> 
-> > Remove the initial slow start override from TCP cubic.
-> > The old code caused Cubic to start out in slow start mode, which
-> > is less agressive but caused slow performance.
-> > 
-> > The administrator can override initial slow start threshold on any
-> > TCP congestion control method via the TCP route metrics.
-> > 
-> > Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
-> 
-> I already sent a merge request to Linus that just changed
-> the default to zero.
-> 
-> No need to remove it for now so people can still play
-> with it if they want to, that's harmless.
-> 
-> You missed BIC too, which I did take care of...
+The cases I found were net/core/netpoll.c, net/core/pktgen.c, and the
+software device case in net/core/dev.c.  In all cases, the value of
+skb->queue_mapping will be zero, but they don't initialize the subqueue
+lock of the single allocated queue (hence panic when trying to use
+it...).  I also don't think it makes sense for them to care, since
+->enqueue() doesn't get called as far as I can tell, therefore the
+classification won't happen.  Did I miss something in looking at this?
 
-Maybe it is time to remove BIC?
+Thanks,
+-PJ
