@@ -1,121 +1,63 @@
-From: "Satyam Sharma" <satyam.sharma@gmail.com>
-Subject: Re: [RFC][PATCH -mm take5 2/7] support multiple logging
-Date: Wed, 13 Jun 2007 21:00:51 +0530
-Message-ID: <a781481a0706130830i7b363eacucd5ce9530c726b4f@mail.gmail.com>
-References: <466FC455.5060001@bx.jp.nec.com> <466FC681.5060501@bx.jp.nec.com>
+From: Pavel Emelianov <xemul@openvz.org>
+Subject: Re: [PATCH] Virtual ethernet tunnel
+Date: Wed, 13 Jun 2007 20:02:22 +0400
+Message-ID: <4670150E.5010309@openvz.org>
+References: <4666CEAA.8010903@openvz.org> <4666D296.2000002@trash.net> <4667BD1D.9080905@openvz.org> <466D3466.10306@trash.net> <466FB7E7.4060201@openvz.org> <466FD113.3070909@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: "Matt Mackall" <mpm@selenic.com>,
-	"Andrew Morton" <akpm@linux-foundation.org>,
-	"David Miller" <davem@davemloft.net>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: "Keiichi KII" <k-keiichi@bx.jp.nec.com>
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Linux Containers <containers@lists.osdl.org>,
+	Kirill Korotaev <dev@openvz.org>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.227]:52186 "EHLO
-	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758054AbXFMPaw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2007 11:30:52 -0400
-Received: by wr-out-0506.google.com with SMTP id 76so198374wra
-        for <netdev@vger.kernel.org>; Wed, 13 Jun 2007 08:30:51 -0700 (PDT)
-In-Reply-To: <466FC681.5060501@bx.jp.nec.com>
-Content-Disposition: inline
+Received: from mailhub.sw.ru ([195.214.233.200]:19893 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758007AbXFMPc4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Jun 2007 11:32:56 -0400
+In-Reply-To: <466FD113.3070909@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Keiichi,
+Patrick McHardy wrote:
+> Pavel Emelianov wrote:
+>> Patrick McHardy wrote:
+>>
+>>> The question is how to proceed. I haven't read all mails yet, but it
+>>> seems there is some disagreement about whether to create all devices
+>>> in the same namespace and move them later or create them directly in
+>>
+>> The agreement was that we can make any of the above. We can create
+>> booth devices in the init namespace and then move one of them into the
+>> desired namespace, or we can explicitly specify which namespace to create
+>> the pair in.
+> 
+> 
+> I'm going to push my latest patches to Dave today, the easiest way is
+> probably is you just add whatever you need to the API afterwards.
+> 
+> 
 
-On 6/13/07, Keiichi KII <k-keiichi@bx.jp.nec.com> wrote:
+OK. Dave didn't object against the driver. Hope he will accept it as well.
 
-> +struct netconsole_target {
-> +       struct list_head list;
-> +       int id;
-> +       struct netpoll np;
-> +};
-> +
-> +static LIST_HEAD(target_list);
-> +static DEFINE_SPINLOCK(target_list_lock);
+I have also found a BUG in your API. Look, when you declare the alias with
+the MODULE_ALIAS_RTNL_LINK in drivers you use strings as an argument. But 
+this macro stringifyes the argument itself which results in bad aliases.
 
-Some description of the struct netconsole_target / target_list
-would be nice. For instance, here I tried to read from the code
-what the "int id" member is all about, but noticed that it is
-only being set during add_target(), and never read / used
-anywhere else later. You should just remove it, then.
+Signed-off-by: Pavel Emelianov <xemul@openvz.org>
 
-> +       if (netpoll_setup(&new_target->np)) {
-> +               printk(KERN_ERR "netconsole: can't setup netpoll:%s\n",
-> +                      target_config);
-> +               kfree(new_target);
-> +               retval = -EINVAL;
+---
 
-Please prefer something like "err = netpoll_setup(...);"
-and then "if (err) { printk(); kfree(); return err; }" here.
-
-netpoll_setup() returns perfectly reasonable error codes,
-we must be returning the same back up.
-
-> +#ifndef MODULE
->  static int __init option_setup(char *opt)
->  {
-> -       configured = !netpoll_parse_options(&np, opt);
-> +       strncpy(config, opt, 256);
-
-strlcpy would be safer than strncpy here, IMHO.
-
-> -static int __init init_netconsole(void)
-> +static void cleanup_netconsole(void)
->  {
-> -       int err;
-> +#ifdef CONFIG_NETCONSOLE_DYNCON
-> +       struct netconsole_target *nt, *tmp;
->
-> -       if(strlen(config))
-> -               option_setup(config);
-> +       unregister_console(&netconsole);
-
-> +       list_for_each_entry_safe(nt, tmp, &target_list, list)
-> +               remove_target(nt);
-
-You should be doing the spin_lock_irqsave() and
-spin_unlock_irqrestore() around this code here,
-and lose it from the remove_target() ...
-
-> +static int __init init_netconsole(void)
-> +{
-> +       char *tmp = config;
-> +#ifdef CONFIG_NETCONSOLE_DYNCON
-> +       char *p;
-> +
-> +       register_console(&netconsole);
-
-register_console() needs to be _after_ netpoll_setup().
-
-> +       if (!strlen(config)) {
-> +               printk(KERN_ERR "netconsole: not configured\n");
->                 return 0;
->         }
-
-You could move this out of the #ifdef. It's applicable to both
-DYNCON and !DYNCON cases.
-
-> -       err = netpoll_setup(&np);
-> -       if (err)
-> -               return err;
-> -
-> +       while ((p = strsep(&tmp, ";")) != NULL)
-> +               if (add_target(p)) {
-> +                       printk(KERN_ERR
-> +                              "netconsole: can't add target to netconsole\n");
-> +                       cleanup_netconsole();
-> +                       return -EINVAL;
-> +               }
-> +#else
-> +       if (!strlen(config) ||
-> +           netpoll_parse_options(&np, tmp) || netpoll_setup(&np)) {
-
-Joining these 3 expressions (statements, actually) together
-is so gross :-)
-Please do them separately, like the previous code did. That way
-you could preserve the error code from netpoll_setup() too ...
-
-Satyam
+diff --git a/include/net/rtnetlink.h b/include/net/rtnetlink.h
+index d744198..f627e1f 100644
+--- a/include/net/rtnetlink.h
++++ b/include/net/rtnetlink.h
+@@ -77,6 +77,6 @@ extern void	__rtnl_link_unregister(struc
+ extern int	rtnl_link_register(struct rtnl_link_ops *ops);
+ extern void	rtnl_link_unregister(struct rtnl_link_ops *ops);
+ 
+-#define MODULE_ALIAS_RTNL_LINK(name) MODULE_ALIAS("rtnl-link-" #name)
++#define MODULE_ALIAS_RTNL_LINK(name) MODULE_ALIAS("rtnl-link-" name)
+ 
+ #endif
