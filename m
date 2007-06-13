@@ -1,39 +1,54 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH 0/7] sky2 version 1.15 (88e8071) support
-Date: Wed, 13 Jun 2007 13:37:16 -0700
-Message-ID: <20070613133716.39377e85@localhost>
-References: <20070605002320.868185090@linux-foundation.org>
-	<46704E03.8060307@garzik.org>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: small forcedeth WoL fix
+Date: Wed, 13 Jun 2007 16:38:42 -0400
+Message-ID: <467055D2.4010205@garzik.org>
+References: <20070601172217.686a0d5e@mann-lx.eng.vmware.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+Cc: netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>
+To: Tim Mann <mann@vmware.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:56143 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754419AbXFMUho (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2007 16:37:44 -0400
-In-Reply-To: <46704E03.8060307@garzik.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:39593 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751565AbXFMUiq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Jun 2007 16:38:46 -0400
+In-Reply-To: <20070601172217.686a0d5e@mann-lx.eng.vmware.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 13 Jun 2007 16:05:23 -0400
-Jeff Garzik <jeff@garzik.org> wrote:
+Tim Mann wrote:
+> I happened to notice that a system with an NVidia NIC using the
+> forcedeth driver won't wake-on-LAN if the interface was in promiscuous
+> mode when you power off.  By experiment, it looks like
+> the hardware needs to have NvRegPacketFilterFlags set to
+> NVREG_PFF_ALWAYS|NVREG_PFF_MYADDR (i.e., receive unicast packets to my
+> address) in order for WoL to work.  At any rate, the attached patch
+> fixes the problem for me.
+> 
+> 
+> 
+> ------------------------------------------------------------------------
+> 
+> --- forcedeth-git-netdev.c	2007-06-01 16:43:19.971507000 -0700
+> +++ forcedeth-git-netdev-fixed.c	2007-06-01 16:46:53.389713000 -0700
+> @@ -4830,8 +4830,10 @@
+>  
+>  	drain_ring(dev);
+>  
+> -	if (np->wolenabled)
+> +	if (np->wolenabled) {
+> +		writel(NVREG_PFF_ALWAYS|NVREG_PFF_MYADDR, base + NvRegPacketFilterFlags);
+>  		nv_start_rx(dev);
+> +	}
 
-> Stephen Hemminger wrote:
-> > These changes are to enable the Yukon Extreme (88e8071)
-> > chipset. This chip is similar to earlier chip but has a different
-> > set of offloading operations and some other minor quirks.
-> > 
-> > Marvell has given me some evaluation boards with the 88e8071
-> > chip set. The chip is available now, but haven't seen a systems
-> > with the hardware yet. The support fot this is exprerimental
-> > at this point, but haven't encountered any new problems.
-> 
-> Just to confirm... these are all for #upstream (2.6.23), correct?
-> 
-> 
+Please resend as a proper Linux patch[1], apply-able using "patch -sp1", 
+and including a signed-off-by line.
 
-Yes, given that the hardware is not available on common platforms yet,
-it should go into 2.6.23
+NVIDIA says the patch looks OK.
+
+	Jeff
+
+
+[1] Documentation/SubmittingPatches or 
+http://linux.yyz.us/patch-format.html
