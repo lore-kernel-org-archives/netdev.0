@@ -1,73 +1,67 @@
-From: Dan Aloni <da-x@monatomic.org>
-Subject: Re: [PATCH] Fix race condition about network device name allocation
-Date: Wed, 13 Jun 2007 12:45:21 +0300
-Message-ID: <20070613094521.GA8860@localdomain>
-References: <1178862045.3979.33.camel@kane-linux> <20070511092519.1f34ab34@freepuppy> <1179130660.3881.23.camel@kane-linux> <20070514085840.17a343f7@freepuppy>
+From: psr <pradeep.rautela@gmail.com>
+Subject: Re: [KJ] [KJ PATCH] Replacing alloc_pages(gfp, 0) with alloc_page(gfp) in net/core/pktgen.c
+Date: Wed, 13 Jun 2007 15:42:39 +0530
+Message-ID: <a901b49a0706130312mba8a686m455b5cbf774cc159@mail.gmail.com>
+References: <1181702562.2282.12.camel@shani-win>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Stephen Hemminger <shemminger@linux-foundation.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757706AbXFMJpi@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: jgarzik@pobox.com, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, kernel-janitors@lists.osdl.org
+To: "Shani Moideen" <shani.moideen@wipro.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nz-out-0506.google.com ([64.233.162.237]:17153 "EHLO
+	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755491AbXFMKMk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2007 06:12:40 -0400
+Received: by nz-out-0506.google.com with SMTP id n1so155909nzf
+        for <netdev@vger.kernel.org>; Wed, 13 Jun 2007 03:12:40 -0700 (PDT)
+In-Reply-To: <1181702562.2282.12.camel@shani-win>
 Content-Disposition: inline
-In-Reply-To: <20070514085840.17a343f7@freepuppy>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, May 14, 2007 at 08:58:40AM -0700, Stephen Hemminger wrote:
-> Kenji Kaneshige found this race between device removal and
-> registration.  On unregister it is possible for the old device to
-> exist, because sysfs file is still open.  A new device with 'eth%d'
-> will select the same name, but sysfs kobject register will fial.
-> 
-> The following changes the shutdown order slightly. It hold a removes the sysfs
-> entries earlier (on unregister_netdevice), but holds a kobject reference.
-> Then when todo runs the actual last put free happens.
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+On 6/13/07, Shani Moideen <shani.moideen@wipro.com> wrote:
+>
+> Replacing alloc_pages(gfp,0) with alloc_page(gfp)
+> in net/core/pktgen.c
+>
+> Signed-off-by: Shani Moideen <shani.moideen@wipro.com>
+> ----
+>
+> diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+> index b92a322..2600c7f 100644
+> --- a/net/core/pktgen.c
+> +++ b/net/core/pktgen.c
+> @@ -2414,7 +2414,7 @@ static struct sk_buff *fill_packet_ipv4(struct net_device *odev,
+>
+>                 i = 0;
+>                 while (datalen > 0) {
+> -                       struct page *page = alloc_pages(GFP_KERNEL, 0);
+> +                       struct page *page = alloc_page(GFP_KERNEL);
 
-That patch breaks the bonding driver. After reverting it I avoid this crash:
+Does this makes any difference anyway? Both are same eventually?
+What is the rational behind this? Can you please help me understanding this?
 
-<6>[1115260.637351] Ethernet Channel Bonding Driver: v3.1.2 (January 20, 2007)
-<6>[1115260.637358] bonding: MII link monitoring set to 100 ms
-<6>[1115260.637767] bonding: bond0 is being deleted...
-<1>[1115260.695812] Unable to handle kernel NULL pointer dereference at 0000000000000020 RIP: 
-<1>[1115260.701504]  [<ffffffff802805e2>] __lookup_hash+0x22/0x150
-<6>[1115260.709754] PGD 798bf067 PUD 798c4067 PMD 0 
-<0>[1115260.714394] Oops: 0000 [1] SMP 
-[1]kdb> 
-[1]kdb> btc
-btc: cpu status: Currently on cpu 1
-Available cpus: 0(I), 1
-Stack traceback for pid 0
-0xffffffff80585420        0        0  1    0   I  0xffffffff80585710  swapper
-rsp                rip                Function (args)
-0xffffffff8066feb0 0xffffffff8046783f thread_return+0x5e
-0xffffffff8066fec0 0xffffffff80469df9 _spin_unlock_irq+0x9
-0xffffffff8066ff28 0xffffffff80209176 mwait_idle+0x46
-0xffffffff8066ff50 0xffffffff802088e2 enter_idle+0x22
-0xffffffff8066ff60 0xffffffff802090bc cpu_idle+0x5c
-0xffffffff8066ff80 0xffffffff80207146 rest_init+0x26
-0xffffffff8066ff90 0xffffffff80678c1a start_kernel+0x2ea
-0xffffffff8066ffc0 0xffffffff8067815f _sinittext+0x15f
-Stack traceback for pid 66
-0xffff81006a411850       66        1  1    1   R  0xffff81006a411b40 *platform_node
-rsp                rip                Function (args)
-0xffff81006a46dd98 0xffffffff802805e2 __lookup_hash+0x22
-0xffff81006a46de00 0xffffffff80280cba lookup_one_len+0x9a
-0xffff81006a46de20 0xffffffff802be671 sysfs_remove_group+0x31
-0xffff81006a46de50 0xffffffff8800fe4a [bonding]bond_destroy_sysfs_entry+0x1a
-0xffff81006a46de60 0xffffffff88011974 [bonding]bonding_store_bonds+0x214
-0xffff81006a46deb0 0xffffffff8037c9d4 class_attr_store+0x24
-[1]more> 
-0xffff81006a46dec0 0xffffffff802bbe30 sysfs_write_file+0x100
-0xffff81006a46df10 0xffffffff80277d7e vfs_write+0xbe
-0xffff81006a46df40 0xffffffff80278400 sys_write+0x50
-0xffff81006a46df80 0xffffffff80209e6e system_call+0x7e
-
--- 
-Dan Aloni
-XIV LTD, http://www.xivstorage.com
-da-x (at) monatomic.org, dan (at) xiv.co.il
+thanks
+--pradeep
+>                         skb_shinfo(skb)->frags[i].page = page;
+>                         skb_shinfo(skb)->frags[i].page_offset = 0;
+>                         skb_shinfo(skb)->frags[i].size =
+> @@ -2762,7 +2762,7 @@ static struct sk_buff *fill_packet_ipv6(struct net_device *odev,
+>
+>                 i = 0;
+>                 while (datalen > 0) {
+> -                       struct page *page = alloc_pages(GFP_KERNEL, 0);
+> +                       struct page *page = alloc_page(GFP_KERNEL);
+>                         skb_shinfo(skb)->frags[i].page = page;
+>                         skb_shinfo(skb)->frags[i].page_offset = 0;
+>                         skb_shinfo(skb)->frags[i].size =
+>
+> --
+> Shani
+> _______________________________________________
+> Kernel-janitors mailing list
+> Kernel-janitors@lists.linux-foundation.org
+> https://lists.linux-foundation.org/mailman/listinfo/kernel-janitors
+>
