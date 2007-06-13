@@ -1,53 +1,113 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] Virtual ethernet tunnel
-Date: Wed, 13 Jun 2007 17:37:20 +0200
-Message-ID: <46700F30.7060808@trash.net>
-References: <4666CEAA.8010903@openvz.org> <4666D296.2000002@trash.net> <4667BD1D.9080905@openvz.org> <466D3466.10306@trash.net> <466FB7E7.4060201@openvz.org> <466FD113.3070909@trash.net> <4670150E.5010309@openvz.org>
+From: "Satyam Sharma" <satyam.sharma@gmail.com>
+Subject: Re: [RFC][PATCH -mm take5 3/7] add interface for netconsole using sysfs
+Date: Wed, 13 Jun 2007 21:19:58 +0530
+Message-ID: <a781481a0706130849u2373983eyeab365a8bc90a4dd@mail.gmail.com>
+References: <466FC455.5060001@bx.jp.nec.com> <466FC6BB.4040105@bx.jp.nec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Linux Containers <containers@lists.osdl.org>,
-	Kirill Korotaev <dev@openvz.org>
-To: Pavel Emelianov <xemul@openvz.org>
+Cc: "Matt Mackall" <mpm@selenic.com>,
+	"Andrew Morton" <akpm@linux-foundation.org>,
+	"David Miller" <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: "Keiichi KII" <k-keiichi@bx.jp.nec.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:34221 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758035AbXFMPhY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2007 11:37:24 -0400
-In-Reply-To: <4670150E.5010309@openvz.org>
+Received: from wr-out-0506.google.com ([64.233.184.237]:60857 "EHLO
+	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757968AbXFMPt7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2007 11:49:59 -0400
+Received: by wr-out-0506.google.com with SMTP id 76so204653wra
+        for <netdev@vger.kernel.org>; Wed, 13 Jun 2007 08:49:58 -0700 (PDT)
+In-Reply-To: <466FC6BB.4040105@bx.jp.nec.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Pavel Emelianov wrote:
-> Patrick McHardy wrote:
-> 
->>I'm going to push my latest patches to Dave today, the easiest way is
->>probably is you just add whatever you need to the API afterwards.
->>
-> 
-> 
-> OK. Dave didn't object against the driver. Hope he will accept it as well.
-> 
-> I have also found a BUG in your API. Look, when you declare the alias with
-> the MODULE_ALIAS_RTNL_LINK in drivers you use strings as an argument. But 
-> this macro stringifyes the argument itself which results in bad aliases.
-> 
-> Signed-off-by: Pavel Emelianov <xemul@openvz.org>
-> 
-> ---
-> 
-> diff --git a/include/net/rtnetlink.h b/include/net/rtnetlink.h
-> index d744198..f627e1f 100644
-> --- a/include/net/rtnetlink.h
-> +++ b/include/net/rtnetlink.h
-> @@ -77,6 +77,6 @@ extern void	__rtnl_link_unregister(struc
->  extern int	rtnl_link_register(struct rtnl_link_ops *ops);
->  extern void	rtnl_link_unregister(struct rtnl_link_ops *ops);
->  
-> -#define MODULE_ALIAS_RTNL_LINK(name) MODULE_ALIAS("rtnl-link-" #name)
-> +#define MODULE_ALIAS_RTNL_LINK(name) MODULE_ALIAS("rtnl-link-" name)
+Hi,
 
+On 6/13/07, Keiichi KII <k-keiichi@bx.jp.nec.com> wrote:
+> From: Keiichi KII <k-keiichi@bx.jp.nec.com>
+>
+> This patch contains the following changes.
+>
+> create a sysfs entry for netconsole in /sys/class/misc.
+> This entry has elements related to netconsole as follows.
+> You can change configuration of netconsole(writable attributes such as IP
+> address, port number and so on) and check current configuration of netconsole.
+>
+> -+- /sys/class/misc/
+>  |-+- netconsole/
+>    |-+- port1/
+>    | |--- id          [r--r--r--]  unique port id
+>    | |--- local_ip    [rw-r--r--]  source IP to use, writable
+>    | |--- local_mac   [r--r--r--]  source MAC address
+>    | |--- local_port  [rw-r--r--]  source port number for UDP packets, writable
+>    | |--- remote_ip   [rw-r--r--]  port number for logging agent, writable
+>    | |--- remote_mac  [rw-r--r--]  MAC address for logging agent, writable
+>    | ---- remote_port [rw-r--r--]  IP address for logging agent, writable
+>    |--- port2/
+>    |--- port3/
 
-Thanks, I already fixed this during final round of testing :)
+[...]
+> +static int miscdev_configured;
+
+Is this really required? We just return with error if misc_register()
+fails during module init time itself, so it's not really useful ever, is it?
+
+> +static ssize_t show_target_attr(struct kobject *kobj,
+[...]
+> +       if (na->show)
+> +               return na->show(nt, buffer);
+> +       else
+> +               return -EIO;
+
+and
+
+> +static ssize_t store_target_attr(struct kobject *kobj,
+[...]
+> +       if (na->store)
+> +               return na->store(nt, buffer, count);
+> +       else
+> +               return -EIO;
+
+EIO isn't quite appropriate for the above two cases. EPERM?
+
+> +static int setup_target_sysfs(struct netconsole_target *nt)
+> +{
+> +       kobject_set_name(&nt->obj, "port%d", nt->id);
+
+Ah, I see, so this is where we use the ->id member.
+
+> @@ -192,7 +386,9 @@ static void cleanup_netconsole(void)
+>
+>         unregister_console(&netconsole);
+>         list_for_each_entry_safe(nt, tmp, &target_list, list)
+> -               remove_target(nt);
+> +               kobject_unregister(&nt->obj);
+> +       if (miscdev_configured)
+> +               misc_deregister(&netconsole_miscdev);
+
+Yeah, I suspect we can do away with miscdev_configured here.
+We reach this code only if it is known to be true.
+
+> +       if (misc_register(&netconsole_miscdev)) {
+> +               printk(KERN_ERR
+> +                      "netconsole: failed to register misc device for "
+> +                      "name = %s, id = %d\n",
+> +                      netconsole_miscdev.name, netconsole_miscdev.minor);
+> +               return -EIO;
+> +       } else
+> +               miscdev_configured = 1;
+> +
+
+Please prefer:
+
+err = misc_register(...);
+if (err)
+        ...
+        return err;
+
+That way we avoid the weird EIO and maintain the error code
+returned by misc_register().
+
+Satyam
