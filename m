@@ -1,136 +1,73 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: [PATCH] Re: [2.6.21.1] soft lockup when removing netconsole module
-Date: Wed, 13 Jun 2007 11:25:37 +0200
-Message-ID: <20070613092537.GA2432@ff.dom.local>
-References: <20070526154011.GB3735@vanheusden.com> <20070529005628.f7f3abc6.akpm@linux-foundation.org> <20070612110233.GA3281@ff.dom.local>
+From: Dan Aloni <da-x@monatomic.org>
+Subject: Re: [PATCH] Fix race condition about network device name allocation
+Date: Wed, 13 Jun 2007 12:45:21 +0300
+Message-ID: <20070613094521.GA8860@localdomain>
+References: <1178862045.3979.33.camel@kane-linux> <20070511092519.1f34ab34@freepuppy> <1179130660.3881.23.camel@kane-linux> <20070514085840.17a343f7@freepuppy>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Folkert van Heusden <folkert@vanheusden.com>,
-	linux-kernel@vger.kernel.org,
-	Jason Wessel <jason.wessel@windriver.com>,
-	Thomas Gleixner <tglx@linutronix.de>, stable@kernel.org,
-	netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx12.go2.pl ([193.17.41.142]:33841 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754088AbXFMJR7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Jun 2007 05:17:59 -0400
+Cc: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757706AbXFMJpi@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20070612110233.GA3281@ff.dom.local>
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <20070514085840.17a343f7@freepuppy>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 12, 2007 at 01:02:33PM +0200, Jarek Poplawski wrote:
-...
-> Of course such a problem should preferably be fixed by somebody who
-> knows the code (alas I don't know netconsole), to be sure all needed
-> cancels are still done after this change. I hope Jason's patch is
-> right but I'm a little surprised I can't see netdev in cc (I'll try
-> to fix this).
+On Mon, May 14, 2007 at 08:58:40AM -0700, Stephen Hemminger wrote:
+> Kenji Kaneshige found this race between device removal and
+> registration.  On unregister it is possible for the old device to
+> exist, because sysfs file is still open.  A new device with 'eth%d'
+> will select the same name, but sysfs kobject register will fial.
+> 
+> The following changes the shutdown order slightly. It hold a removes the sysfs
+> entries earlier (on unregister_netdevice), but holds a kobject reference.
+> Then when todo runs the actual last put free happens.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
-So, I've had a look into netpoll and, unfortunately, I don't
-think this patch is right... 
+That patch breaks the bonding driver. After reverting it I avoid this crash:
 
-> > From: Jason Wessel <jason.wessel@windriver.com>
-> > 
-> > Do not call cancel_rearming_delayed_work() if there is no
-> > pending work.
-> > 
-> > Signed-off-by: Jason Wessel <jason.wessel@windriver.com>
-> > Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-> > ---
-> > 
-> >  net/core/netpoll.c |    6 ++++--
-> >  1 file changed, 4 insertions(+), 2 deletions(-)
-> > 
-> > diff -puN net/core/netpoll.c~a net/core/netpoll.c
-> > --- a/net/core/netpoll.c~a
-> > +++ a/net/core/netpoll.c
-> > @@ -784,8 +784,10 @@ void netpoll_cleanup(struct netpoll *np)
-> >  			if (atomic_dec_and_test(&npinfo->refcnt)) {
-> >  				skb_queue_purge(&npinfo->arp_tx);
-> >  				skb_queue_purge(&npinfo->txq);
-> > -				cancel_rearming_delayed_work(&npinfo->tx_work);
-> > -				flush_scheduled_work();
-> > +				if (delayed_work_pending(&npinfo->tx_work)) {
-> > +					cancel_rearming_delayed_work(&npinfo->tx_work);
-> > +					flush_scheduled_work();
-> > +				}
-> >  
-> >  				kfree(npinfo);
-> >  			}
-> > _
+<6>[1115260.637351] Ethernet Channel Bonding Driver: v3.1.2 (January 20, 2007)
+<6>[1115260.637358] bonding: MII link monitoring set to 100 ms
+<6>[1115260.637767] bonding: bond0 is being deleted...
+<1>[1115260.695812] Unable to handle kernel NULL pointer dereference at 0000000000000020 RIP: 
+<1>[1115260.701504]  [<ffffffff802805e2>] __lookup_hash+0x22/0x150
+<6>[1115260.709754] PGD 798bf067 PUD 798c4067 PMD 0 
+<0>[1115260.714394] Oops: 0000 [1] SMP 
+[1]kdb> 
+[1]kdb> btc
+btc: cpu status: Currently on cpu 1
+Available cpus: 0(I), 1
+Stack traceback for pid 0
+0xffffffff80585420        0        0  1    0   I  0xffffffff80585710  swapper
+rsp                rip                Function (args)
+0xffffffff8066feb0 0xffffffff8046783f thread_return+0x5e
+0xffffffff8066fec0 0xffffffff80469df9 _spin_unlock_irq+0x9
+0xffffffff8066ff28 0xffffffff80209176 mwait_idle+0x46
+0xffffffff8066ff50 0xffffffff802088e2 enter_idle+0x22
+0xffffffff8066ff60 0xffffffff802090bc cpu_idle+0x5c
+0xffffffff8066ff80 0xffffffff80207146 rest_init+0x26
+0xffffffff8066ff90 0xffffffff80678c1a start_kernel+0x2ea
+0xffffffff8066ffc0 0xffffffff8067815f _sinittext+0x15f
+Stack traceback for pid 66
+0xffff81006a411850       66        1  1    1   R  0xffff81006a411b40 *platform_node
+rsp                rip                Function (args)
+0xffff81006a46dd98 0xffffffff802805e2 __lookup_hash+0x22
+0xffff81006a46de00 0xffffffff80280cba lookup_one_len+0x9a
+0xffff81006a46de20 0xffffffff802be671 sysfs_remove_group+0x31
+0xffff81006a46de50 0xffffffff8800fe4a [bonding]bond_destroy_sysfs_entry+0x1a
+0xffff81006a46de60 0xffffffff88011974 [bonding]bonding_store_bonds+0x214
+0xffff81006a46deb0 0xffffffff8037c9d4 class_attr_store+0x24
+[1]more> 
+0xffff81006a46dec0 0xffffffff802bbe30 sysfs_write_file+0x100
+0xffff81006a46df10 0xffffffff80277d7e vfs_write+0xbe
+0xffff81006a46df40 0xffffffff80278400 sys_write+0x50
+0xffff81006a46df80 0xffffffff80209e6e system_call+0x7e
 
-There are such possibilities:
-
-1. After positive delayed_work_pending(&npinfo->tx_work) test
-some work is queued, but there is no guarantee that when running
-it'll rearm again, so cancel_rearming_delayed_work can loop again;
-
-2. After negative delayed_work_pending(&npinfo->tx_work) test
-a work is just running, eg. waiting on netif_tx_lock, while
-kfree(npinfo) is done here (oops?!).
-
-I've found an additional problem here with or without this patch:
-after deleting a timer in cancel_rearming_delayed_work() there could
-stay a last skb queued in npinfo->txq, and after kfree(npinfo)
-we have small memory leak. If I'm right here similar fix is needed
-in the current netpoll code: additional npinfo->txq purging only
-or maybe the whole cancel_rearming_ changed like this.
-
-I've tried to eliminate these problems in attached below patch
-proposal. I'm not sure it's all right: as I've written earlier I
-don't know netconsole enough, but it's probably a little better
-than above solution.
-
-I've some doubts yet (I didn't have time to check this all):
-
-1. I hope this other schedule_delayed_work() from netpoll_send_skb()
-is not possible when netpoll_cleanup() runs - if I'm wrong additional
-check of npinfo->refcnt should be done there;
-2. I also hope npinfo->refcnt before scheduling should be enough here
-- if not - another possibility is adding some locking eg.:
-netif_tx_lock before cancel for synchronization.
-
-Of course it would be very nice if somebody could test or verify
-this patch more.
-
-Regards,
-Jarek P.
-
-
-Signed-off-by: Jarek Poplawski <jarkao2@o2.pl>
-
----
-
-diff -Nurp 2.6.21-/net/core/netpoll.c 2.6.21/net/core/netpoll.c
---- 2.6.21-/net/core/netpoll.c	2007-04-26 15:08:32.000000000 +0200
-+++ 2.6.21/net/core/netpoll.c	2007-06-12 21:05:23.000000000 +0200
-@@ -73,7 +73,8 @@ static void queue_process(struct work_st
- 			netif_tx_unlock(dev);
- 			local_irq_restore(flags);
- 
--			schedule_delayed_work(&npinfo->tx_work, HZ/10);
-+			if (atomic_read(&npinfo->refcnt))
-+				schedule_delayed_work(&npinfo->tx_work, HZ/10);
- 			return;
- 		}
- 		netif_tx_unlock(dev);
-@@ -780,9 +781,15 @@ void netpoll_cleanup(struct netpoll *np)
- 			if (atomic_dec_and_test(&npinfo->refcnt)) {
- 				skb_queue_purge(&npinfo->arp_tx);
- 				skb_queue_purge(&npinfo->txq);
--				cancel_rearming_delayed_work(&npinfo->tx_work);
-+				cancel_delayed_work(&npinfo->tx_work);
- 				flush_scheduled_work();
- 
-+				/* clean after last, unfinished work */
-+				if (!skb_queue_empty(&npinfo->txq)) {
-+					struct sk_buff *skb;
-+					skb = __skb_dequeue(&npinfo->txq);
-+					kfree_skb(skb);
-+				}
- 				kfree(npinfo);
- 			}
- 		}
+-- 
+Dan Aloni
+XIV LTD, http://www.xivstorage.com
+da-x (at) monatomic.org, dan (at) xiv.co.il
