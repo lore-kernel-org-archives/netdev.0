@@ -1,65 +1,66 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: [ANNOUNCE] new driver ixgbe for Intel(R) 10GbE PCI Express adapters.
-Date: Wed, 13 Jun 2007 16:18:23 -0700
-Message-ID: <46707B3F.5020205@intel.com>
-References: <20070612234417.5102.29147.stgit@localhost.localdomain> <20070613230513.GB22521@electric-eye.fr.zoreil.com>
+From: Michael Ellerman <michael@ellerman.id.au>
+Subject: Re: [Cbe-oss-dev] [PATCH 0/15] spidernet driver bug fixes
+Date: Thu, 14 Jun 2007 09:55:19 +1000
+Message-ID: <1181778919.15796.1.camel@concordia.ozlabs.ibm.com>
+References: <20070607191707.GA7904@austin.ibm.com>
+	 <1181265151.6026.1.camel@concordia.ozlabs.ibm.com>
+	 <20070608170608.GI7904@austin.ibm.com>
+	 <20070608172020.GA31089@havoc.gtf.org>
+	 <20070611181429.GA4397@austin.ibm.com> <466F2581.2080808@garzik.org>
+	 <20070612233237.GN4397@austin.ibm.com> <466F3482.4050305@garzik.org>
+	 <20070613161414.GO4397@austin.ibm.com> <46703CCC.5030607@garzik.org>
+	 <1873ace6a10b1a4c022d00ebb23df5b5@kernel.crashing.org>
+Reply-To: michael@ellerman.id.au
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Ayyappan.Veeraiyan@intel.com, netdev@vger.kernel.org,
-	jeff@garzik.org, arjan@linux.intel.com, akpm@linux-foundation.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-3Qsl4y6ZiUVA8Qnh+stg"
+Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
+	Linas Vepstas <linas@austin.ibm.com>, cbe-oss-dev@ozlabs.org
+To: Segher Boessenkool <segher@kernel.crashing.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:53186 "EHLO mga01.intel.com"
+Received: from ozlabs.org ([203.10.76.45]:42597 "EHLO ozlabs.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756530AbXFMXS0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Jun 2007 19:18:26 -0400
-In-Reply-To: <20070613230513.GB22521@electric-eye.fr.zoreil.com>
+	id S1754010AbXFMXzU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Jun 2007 19:55:20 -0400
+In-Reply-To: <1873ace6a10b1a4c022d00ebb23df5b5@kernel.crashing.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Francois Romieu wrote:
-> Ayyappan.Veeraiyan@intel.com <Ayyappan.Veeraiyan@intel.com> :
-> [...]
->> Please review and provide comments.
-> 
-> o ixgbe_call_func and the ton of wrappers which go along with it
->   should go.
 
-hmmm good point, this is a bit too verbose perhaps ;)
+--=-3Qsl4y6ZiUVA8Qnh+stg
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-> o boolean_t duplicates the existing 'bool'
+On Wed, 2007-06-13 at 21:01 +0200, Segher Boessenkool wrote:
+> > I wish there was a git option to "just make my shit look like the
+> > remote, dammit!"  The above is the "easiest" way I know how to do that.
+>=20
+> git-fetch -f remote:local ?
 
-yes, that's definately on the TODO list.... did I mention that sparse really 
-doesn't like bool yet? :)
+There's always "git reset --hard <sha1>"
 
-> o The options below {should be/are} handled through ethtool:
->   - TxDescriptors
->   - RxDescriptors
->   - XsumRX
+cheers
 
-I have been putting this on the todo list as well, but we kept it in for 
-convenience reasons... not to mention that we've been keeping these options 
-around in the other drivers, is there really a pressing need to remove them? 
-I'll put it on the todo list for sure tho.
+--=20
+Michael Ellerman
+OzLabs, IBM Australia Development Lab
 
-> o No __iomem annotations ?
+wwweb: http://michael.ellerman.id.au
+phone: +61 2 6212 1183 (tie line 70 21183)
 
-Ack! that slipped through the cracks... DOH
+We do not inherit the earth from our ancestors,
+we borrow it from our children. - S.M.A.R.T Person
 
-> o pci_alloc_consistent() returns a zeroed area: no need for memset.
+--=-3Qsl4y6ZiUVA8Qnh+stg
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
 
-that is good to know, I didn't know that
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.6 (GNU/Linux)
 
-> o ixgbe_clean_tx_irq() is issued from the NAPI poll handler (as the
->   name suggests...). Its locking will probably cause a deadlock if
->   it is interrupted and a call to netpoll_send_skb follows.
+iD8DBQBGcIPndSjSd0sB4dIRAoyRAJ4jVgtnBCoM35b5SFiEvKLI//xHRgCfYKcV
+rgbQc4zWHvMDRyzN5HibarA=
+=/mW9
+-----END PGP SIGNATURE-----
 
-OK, we'll look into that. I'm not sure this is an issue tho.
+--=-3Qsl4y6ZiUVA8Qnh+stg--
 
-
-Thanks for the feedback!
-
-Auke
-
-Auke
