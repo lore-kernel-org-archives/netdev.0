@@ -1,30 +1,29 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 0/15] spidernet driver bug fixes
-Date: Wed, 13 Jun 2007 14:45:55 -0400
-Message-ID: <46703B63.6050503@garzik.org>
-References: <20070607191707.GA7904@austin.ibm.com>	 <1181265151.6026.1.camel@concordia.ozlabs.ibm.com>	 <20070608170608.GI7904@austin.ibm.com>	 <20070608172020.GA31089@havoc.gtf.org>	 <20070611181429.GA4397@austin.ibm.com>  <466F2581.2080808@garzik.org>	 <1181698396.6988.5.camel@concordia.ozlabs.ibm.com>	 <466F4E64.5070303@garzik.org> <1181742798.12693.14.camel@concordia.ozlabs.ibm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] TCP: remove initial_ssthresh from Cubic
+Date: Wed, 13 Jun 2007 11:46:21 -0700 (PDT)
+Message-ID: <20070613.114621.85409138.davem@davemloft.net>
+References: <20070613102718.61d67a36@localhost>
+	<20070613.112652.112623832.davem@davemloft.net>
+	<20070613113149.5cd1b11e@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Linas Vepstas <linas@austin.ibm.com>, netdev@vger.kernel.org,
-	cbe-oss-dev@ozlabs.org
-To: michael@ellerman.id.au
+Cc: billfink@mindspring.com, sangtae.ha@gmail.com, rhee@eos.ncsu.edu,
+	rhee@ncsu.edu, netdev@vger.kernel.org
+To: shemminger@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:38316 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753060AbXFMSqE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Jun 2007 14:46:04 -0400
-In-Reply-To: <1181742798.12693.14.camel@concordia.ozlabs.ibm.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48135
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753065AbXFMSqF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2007 14:46:05 -0400
+In-Reply-To: <20070613113149.5cd1b11e@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michael Ellerman wrote:
-> I was just
-> keen to see the "major bugfixes" get into 22, rather than waiting
-> another few months for 23.
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Date: Wed, 13 Jun 2007 11:31:49 -0700
 
-Agreed.
+> Maybe it is time to remove BIC?
 
-	Jeff
-
-
+I don't see any compelling reason, the same could be said
+of the other experimental protocols we include in the tree.
