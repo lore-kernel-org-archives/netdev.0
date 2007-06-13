@@ -1,36 +1,28 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/4] b44: timer power saving
-Date: Wed, 13 Jun 2007 15:53:38 -0400
-Message-ID: <46704B42.2040801@garzik.org>
-References: <20070604202536.503165465@linux-foundation.org> <20070604202712.223155106@linux-foundation.org>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] acenic: SET_NETDEV_DEV is always there these days
+Date: Wed, 13 Jun 2007 15:53:49 -0400
+Message-ID: <46704B4D.3020102@pobox.com>
+References: <Pine.LNX.4.62.0706061601420.25857@pademelon.sonytel.be>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Gary Zambrano <zambrano@broadcom.com>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: Jes Sorensen <jes@trained-monkey.org>, netdev@vger.kernel.org,
+	trivial@kernel.org
+To: Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:39024 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:39035 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752066AbXFMTxl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Jun 2007 15:53:41 -0400
-In-Reply-To: <20070604202712.223155106@linux-foundation.org>
+	id S1751870AbXFMTx4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Jun 2007 15:53:56 -0400
+In-Reply-To: <Pine.LNX.4.62.0706061601420.25857@pademelon.sonytel.be>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> Make the PHY and statistic timer run on one second boundary
-> for powersaving.
+Geert Uytterhoeven wrote:
+> acenic: SET_NETDEV_DEV is always there these days
 > 
-> On resume, the driver should check for link up immediately, to
-> get online faster (rather than waiting for the next second).
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
-> 
-> 
-> ---
->  drivers/net/b44.c |    9 ++++-----
->  1 file changed, 4 insertions(+), 5 deletions(-)
+> Signed-off-by: Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>
 
-applied 1-4 to #upstream
+applied to #upstream
 
 
