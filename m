@@ -1,36 +1,34 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [Cbe-oss-dev] [PATCH 0/15] spidernet driver bug fixes
-Date: Wed, 13 Jun 2007 22:52:45 +0200
-Message-ID: <200706132252.46314.arnd@arndb.de>
-References: <20070607191707.GA7904@austin.ibm.com> <1873ace6a10b1a4c022d00ebb23df5b5@kernel.crashing.org> <46703F50.2000202@garzik.org>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: r8169 tx problem (1s pause with ping)
+Date: Wed, 13 Jun 2007 23:18:59 +0200
+Message-ID: <20070613211859.GA22521@electric-eye.fr.zoreil.com>
+References: <20070613004154.GA4187@kvack.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jeff Garzik <jeff@garzik.org>,
-	Segher Boessenkool <segher@kernel.crashing.org>,
-	netdev@vger.kernel.org, Linas Vepstas <linas@austin.ibm.com>
-To: cbe-oss-dev@ozlabs.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Benjamin LaHaise <bcrl@kvack.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.187]:63200 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753422AbXFMUw5 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2007 16:52:57 -0400
-In-Reply-To: <46703F50.2000202@garzik.org>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:38888 "EHLO
+	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751264AbXFMVUz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Jun 2007 17:20:55 -0400
 Content-Disposition: inline
+In-Reply-To: <20070613004154.GA4187@kvack.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 13 June 2007, Jeff Garzik wrote:
-> Segher Boessenkool wrote:
-> >> I wish there was a git option to "just make my shit look like the
-> >> remote, dammit!" =A0The above is the "easiest" way I know how to d=
-o that.
-> >=20
-> > git-fetch -f remote:local ?
->=20
-> If that works... great :) =A0Much better than what I described.
+Benjamin LaHaise <bcrl@kvack.org> :
+[...]
+> I'm seeing something odd with r8169 on FC7: doing a ping -s 1600 alternates 
+> between a 1s latency and sub 1ms.  Has anyone else seen anything like this?  
+> The system in question is an Asus M2A-VM with an onboard RTL8111 (I think).  
+> NAPI doesn't seem to make a difference.  The kernel in question is currently 
+> a vanilla 2.6.21.5.  Sub-mtu sized packets behave normally.
 
-It works as long as you are not on branch 'local', but in that case
-you can do 'git-fetch -f remote:local2' or something.
+Same thing here for my 8168 rev 01 (asrock 945G dvi LOM) with 2.6.22-rc4
+and 2.6.22-rc3 + r816x patchkit.
 
-	Arnd <><
+Wonderful.
+
+-- 
+Ueimor
