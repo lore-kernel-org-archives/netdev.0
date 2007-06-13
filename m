@@ -1,32 +1,48 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH]is_power_of_2-myri10ge/myri10ge.c
-Date: Wed, 13 Jun 2007 16:17:20 -0400
-Message-ID: <467050D0.6090600@garzik.org>
-References: <1181624462.3109.22.camel@merlin.linuxcoe.com>
+From: =?iso-8859-1?Q?Bj=F6rn?= Steinbrink <B.Steinbrink@gmx.de>
+Subject: Re: [2/2] 2.6.22-rc4: known regressions v3
+Date: Wed, 13 Jun 2007 22:21:55 +0200
+Message-ID: <20070613202155.GA11073@atjola.homenet>
+References: <46704923.1010009@googlemail.com> <46704C44.8020602@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: akpm <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	Kernel Janitors List <kernel-janitors@lists.osdl.org>
-To: vignesh.babu@wipro.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:39355 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752334AbXFMUR0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Jun 2007 16:17:26 -0400
-In-Reply-To: <1181624462.3109.22.camel@merlin.linuxcoe.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>, Dan Aloni <da-x@monatomic.org>,
+	Chad Tindel <ctindel@users.sourceforge.net>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	sparclinux@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Mikael Pettersson <mikpe@it.uu.se>,
+	linux-pm@lists.linux-foundation.org,
+	"Rafael J. Wysocki" <rjw@sisk.pl>, Pavel Machek <pavel@ucw.cz>,
+	linux-usb-devel@lists.sourceforge.net,
+	Greg Kroah-Hartman <gregkh@suse.de>,
+	Alex Riesen <raa.lkml@gmail.com>, Andi Kleen <ak@suse.de>,
+	discuss@x86-64.org, Ioan Ionita <opslynx@gmail.com>
+To: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
+Return-path: <sparclinux-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <46704C44.8020602@googlemail.com>
+Sender: sparclinux-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-vignesh babu wrote:
-> Replacing (n & (n-1)) in the context of power of 2 checks
-> with is_power_of_2
-> 
-> Signed-off-by: vignesh babu <vignesh.babu@wipro.com>
+On 2007.06.13 21:57:56 +0200, Michal Piotrowski wrote:
+> TTY
+>=20
+> Subject    : OOPS (NULL pointer dereference) in v2.6.22-rc3
+> References : http://lkml.org/lkml/2007/6/1/389
+>             http://bugzilla.kernel.org/show_bug.cgi?id=3D8473
+>             http://bugzilla.kernel.org/show_bug.cgi?id=3D8574
+> Submitter  : Alex Riesen <raa.lkml@gmail.com>
+> Status     : problem is being debugged
 
-Patches look OK, but please
+Patch available at: http://lkml.org/lkml/2007/6/8/490
 
-* CC relevant driver maintainers, and
-* combined all drivers/net/* patches of this nature into a single patch
-
-
+Bj=F6rn
+-
+To unsubscribe from this list: send the line "unsubscribe sparclinux" i=
+n
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
