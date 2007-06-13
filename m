@@ -1,79 +1,92 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] NET: Multiqueue network device support.
-Date: Wed, 13 Jun 2007 09:33:22 -0400
-Message-ID: <1181741602.4050.116.camel@localhost>
-References: <466DEF9D.9070509@trash.net>
-	 <1181615384.4071.121.camel@localhost> <466E9DF2.9010505@trash.net>
-	 <20070612.140240.00078635.davem@davemloft.net> <466F0D74.5030308@trash.net>
-	 <1181714168.4758.57.camel@debian.sh.intel.com>
-	 <1181737935.4050.87.camel@localhost>
-	 <18031.60741.695897.572432@robur.slu.se>
-Reply-To: hadi@cyberus.ca
+From: Michael Ellerman <michael@ellerman.id.au>
+Subject: Re: [PATCH 0/15] spidernet driver bug fixes
+Date: Wed, 13 Jun 2007 23:53:18 +1000
+Message-ID: <1181742798.12693.14.camel@concordia.ozlabs.ibm.com>
+References: <20070607191707.GA7904@austin.ibm.com>
+	 <1181265151.6026.1.camel@concordia.ozlabs.ibm.com>
+	 <20070608170608.GI7904@austin.ibm.com>
+	 <20070608172020.GA31089@havoc.gtf.org>
+	 <20070611181429.GA4397@austin.ibm.com>  <466F2581.2080808@garzik.org>
+	 <1181698396.6988.5.camel@concordia.ozlabs.ibm.com>
+	 <466F4E64.5070303@garzik.org>
+Reply-To: michael@ellerman.id.au
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Zhu Yi <yi.zhu@intel.com>,
-	Leonid Grossman <Leonid.Grossman@neterion.com>,
-	Patrick McHardy <kaber@trash.net>,
-	David Miller <davem@davemloft.net>,
-	peter.p.waskiewicz.jr@intel.com, netdev@vger.kernel.org,
-	jeff@garzik.org, auke-jan.h.kok@intel.com
-To: Robert Olsson <Robert.Olsson@data.slu.se>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-lFsT4GBIi+RVWsu0VXVK"
+Cc: Linas Vepstas <linas@austin.ibm.com>, netdev@vger.kernel.org,
+	cbe-oss-dev@ozlabs.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.239]:63611 "EHLO
-	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752193AbXFMNd0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2007 09:33:26 -0400
-Received: by wr-out-0506.google.com with SMTP id 76so161691wra
-        for <netdev@vger.kernel.org>; Wed, 13 Jun 2007 06:33:26 -0700 (PDT)
-In-Reply-To: <18031.60741.695897.572432@robur.slu.se>
+Received: from ozlabs.org ([203.10.76.45]:35841 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756352AbXFMNx0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Jun 2007 09:53:26 -0400
+In-Reply-To: <466F4E64.5070303@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-Wow - Robert in the house, I cant resist i have to say something before
-i run out;->
+--=-lFsT4GBIi+RVWsu0VXVK
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-On Wed, 2007-13-06 at 15:12 +0200, Robert Olsson wrote:
+On Tue, 2007-06-12 at 21:54 -0400, Jeff Garzik wrote:
+> Michael Ellerman wrote:
+> > Linas posted the patches, I responded querying whether the bug fixes
+> > should go into 2.6.22, and then you told him "you need to order your bu=
+g
+> > fixes first in the queue". Which seemed pretty clear to me that you'd
+> > wait for the reordered series.
+>=20
+> This was presuming Linas actually knew what he himself had submitted=20
+> previously, and had been accepted...
+>=20
+> I explicitly emailed Linas on May 24, 2007 detailing each patch that had=20
+> been applied, and to which netdev-2.6.git branch it had been applied=20
+> (and thus whether it was queued for 2.6.22 or 2.6.23).  Relevant=20
+> Message-id is <4656033F.1060505@garzik.org>, and was sent not only to=20
+> Linas but also to netdev@vger.kernel.org, linuxppc-dev@ozlabs.org, and=20
+> cbe-oss-dev@ozlabs.org.
+>=20
+> These changes were subsequently made public immediately via=20
+> git://git.kernel.org/.../jgarzik/netdev-2.6.git branches=20
+> 'upstream-fixes' and 'upstream', and were followed a few days later by=20
+> akpm's public tree, starting with 2.6.22-rc3-mm1 (and all subsequent=20
+> releases).
+>=20
+> All of the above seemed pretty clear, too.
 
->  Haven't got all details. IMO we need to support some "bonding-like" 
->  scenario too. Where one CPU is feeding just one TX-ring. (and TX-buffers
->  cleared by same CPU). We probably don't want to stall all queuing when
->  when one ring is full. 
->  
+Yeah fair enuf, that's fairly clear.
 
-For newer NICs - the kind of that Leonid Grossman was talking about,
-makes a lot of sense in non-virtual environment.
-I think the one described by Leonid has not just 8 tx/rx rings but also
-a separate register set, MSI binding etc iirc. The only shared resources
-as far as i understood Leonid are the bus and the ethernet wire.
+> To move forward, it sounds like the best thing to do is drop all=20
+> spidernet patches and start over, yes?
 
-So in such a case (assuming 8 rings), 
-One model is creating 4 netdev devices each based on single tx/rx ring
-and register set and then having a mother netdev (what you call the
-bond) that feeds these children netdev based on some qos parametrization
-is very sensible. Each of the children netdevices (by virtue of how we
-do things today) could be tied to a CPU for effectiveness (because our
-per CPU work is based on netdevs).
-In virtual environments, the supervisor will be in charge of the
-bond-like parent device.
-Another model is creating a child netdev based on more than one ring
-example 2 tx and 2 rcv rings for two netdevices etc.
+Well see what Linas thinks, but that is probably easiest. I was just
+keen to see the "major bugfixes" get into 22, rather than waiting
+another few months for 23.
 
->  The scenario I see is to support parallelism in forwarding/firewalling etc.
->  For example when RX load via HW gets split into different CPU's and for 
->  cache reasons we want to process in same CPU even with TX.
-> 
->  If RX HW split keeps packets from the same flow on same CPU we shouldn't
->  get reordering within flows.
+cheers
 
-For the Leonid-NIC (for lack of better name) it may be harder to do
-parallelization on rcv if you use what i said above. But you could
-use a different model on receive - such as create a single netdev and
-with 8 rcv rings and MSI tied on rcv to 8 different CPUs 
-Anyways, it is an important discussion to have. ttl.
+--=20
+Michael Ellerman
+OzLabs, IBM Australia Development Lab
 
-cheers,
-jamal
- 
+wwweb: http://michael.ellerman.id.au
+phone: +61 2 6212 1183 (tie line 70 21183)
+
+We do not inherit the earth from our ancestors,
+we borrow it from our children. - S.M.A.R.T Person
+
+--=-lFsT4GBIi+RVWsu0VXVK
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.6 (GNU/Linux)
+
+iD8DBQBGb/bOdSjSd0sB4dIRAjDaAJ9GsFUZEwZQ28A4V4nykWZs6iRSLwCeLTtE
+qqGxD2NLE8ZAbdqslFxB/Hw=
+=iYaF
+-----END PGP SIGNATURE-----
+
+--=-lFsT4GBIi+RVWsu0VXVK--
 
