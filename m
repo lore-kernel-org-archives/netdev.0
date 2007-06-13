@@ -1,30 +1,35 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 2/3] qla3xxx: cleanup checksum offload code
-Date: Wed, 13 Jun 2007 15:43:43 -0400
-Message-ID: <467048EF.1060001@garzik.org>
-References: <20070530212316.407169588@linux-foundation.org> <20070530212512.178720251@linux-foundation.org>
+Subject: Re: [PATCH] drivers/net: fix comparisons of unsigned < 0
+Date: Wed, 13 Jun 2007 15:45:54 -0400
+Message-ID: <46704972.5020900@garzik.org>
+References: <20070530075902.GA29118@nostromo.devel.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-driver@qlogic.com, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: notting@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:38878 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:38905 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753544AbXFMTns (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Jun 2007 15:43:48 -0400
-In-Reply-To: <20070530212512.178720251@linux-foundation.org>
+	id S1752623AbXFMTp5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Jun 2007 15:45:57 -0400
+In-Reply-To: <20070530075902.GA29118@nostromo.devel.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> The code for checksum is more complex than needed when dealing with VLAN's;
-> the higher layers already pass down the location of the IP header.
+Bill Nottingham wrote:
+> Recent gcc versions emit warnings when unsigned variables are compared < 0 or >= 0.
 > 
-> Compile tested only, no hardware available.
+> Signed-off-by: Bill Nottingham <notting@redhat.com>
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+> ---
+>  mlx4/qp.c               |    3 +--
+>  netxen/netxen_nic_niu.c |    6 +++---
+>  tulip/de2104x.c         |    1 -
+>  3 files changed, 4 insertions(+), 6 deletions(-)
 
-Ron, do you ACK patch #2 and patch #3?
+applied to #upstream (2.6.23)
+
+BTW please fix your Mail-Followup-To header
 
 
