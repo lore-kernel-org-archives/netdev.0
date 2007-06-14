@@ -1,102 +1,50 @@
-From: linux@horizon.com
-Subject: Re: IC Plus Corp IC Plus IP1000
-Date: 13 Jun 2007 22:43:59 -0400
-Message-ID: <20070614024359.8016.qmail@science.horizon.com>
-Cc: linux@horizon.com, netdev@vger.kernel.org
-To: plr@udgaard.com
+From: Zhu Yi <yi.zhu@intel.com>
+Subject: Re: [PATCH] NET: Multiqueue network device support.
+Date: Thu, 14 Jun 2007 10:44:24 +0800
+Message-ID: <1181789064.4758.127.camel@debian.sh.intel.com>
+References: <466DEF9D.9070509@trash.net>
+	 <1181615384.4071.121.camel@localhost>	<466E9DF2.9010505@trash.net>
+	 <20070612.140240.00078635.davem@davemloft.net> <466F0D74.5030308@trash.net>
+	 <1181714168.4758.57.camel@debian.sh.intel.com>
+	 <1181737935.4050.87.camel@localhost>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Patrick McHardy <kaber@trash.net>,
+	David Miller <davem@davemloft.net>,
+	peter.p.waskiewicz.jr@intel.com, netdev@vger.kernel.org,
+	jeff@garzik.org, auke-jan.h.kok@intel.com
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from science.horizon.com ([192.35.100.1]:15080 "HELO
-	science.horizon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1750861AbXFNCoJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2007 22:44:09 -0400
+Received: from mga01.intel.com ([192.55.52.88]:44670 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751172AbXFNCpq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Jun 2007 22:45:46 -0400
+In-Reply-To: <1181737935.4050.87.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The following hacks to bring it up to date got the vendor-supplied
-driver working for me.  This is just fixing the things the compiler
-complained about; there may be other issues, but they don't seem to
-interfere with basic funtionality.
+On Wed, 2007-06-13 at 08:32 -0400, jamal wrote:
+> The key arguement i make (from day one actually) is to leave the
+> majority of the work to the driver.
 
+But it seems not feasible the Qdisc needs to know nothing about the
+hardware rings.
 
-diff --git a/Makefile b/Makefile
-index c91b384..31e4172 100644
---- a/Makefile
-+++ b/Makefile
-@@ -77,10 +77,10 @@ ifeq ($(kernelFlag26),kernel26x)
- EXTRA_CFLAGS+=$(MAPPING_MODE)
- 
- all:
--	$(MAKE) -C $(KernelBuildDir) SUBDIRS=$(PWD) modules 
-+	$(MAKE) -C $(KernelBuildDir) M=$(PWD)
- 	
- install:
--	install -m 644 -c ipg.$(kernelExtension) $(kernelMisc)
-+	$(MAKE) -C $(KernelBuildDir) M=$(PWD) modules_install
- 
- ipg-objs:=$(OBJS)
- obj-m+=$(TARGET)
-diff --git a/ipg.h b/ipg.h
-index 2d184d4..cefe5c8 100644
---- a/ipg.h
-+++ b/ipg.h
-@@ -98,8 +98,8 @@
-  */
- 
- 
--#include <linux/config.h>
- #include <linux/version.h>
-+#include <linux/utsrelease.h>
- #include <linux/module.h>
- 
- #if ((LINUX_VERSION_CODE < KERNEL_VERSION(2,3,0)) &&  defined(MODVERSIONS))
-diff --git a/ipg_main.c b/ipg_main.c
-index c39ff4a..3a0dfd4 100644
---- a/ipg_main.c
-+++ b/ipg_main.c
-@@ -172,9 +172,11 @@ int     ipg_io_config(IPG_DEVICE_TYPE *ipg_ethernet_device);
- #if LINUX_VERSION_CODE < KERNEL_VERSION(2,5,0)
- void    ipg_interrupt_handler(int ipg_irq, void *device_instance,
-                                 struct pt_regs *regs);
--#else
-+#elif LINUX_VERSION_CODE < KERNEL_VERSION(2,6,19)
- static  irqreturn_t  ipg_interrupt_handler(int ipg_irq, void *device_instance,
-                                 struct pt_regs *regs);
-+#else
-+static  irqreturn_t  ipg_interrupt_handler(int ipg_irq, void *device_instance);
- #endif
- 
- void    ipg_nic_txcleanup(IPG_DEVICE_TYPE *ipg_ethernet_device);
-@@ -1425,9 +1427,11 @@ int	ipg_io_config(IPG_DEVICE_TYPE *ipg_ethernet_device)
- #if LINUX_VERSION_CODE < KERNEL_VERSION(2,5,0)
- void ipg_interrupt_handler(int ipg_irq, void *device_instance,
-                                 struct pt_regs *regs)
--#else
-+#elif LINUX_VERSION_CODE < KERNEL_VERSION(2,6,19)
- static  irqreturn_t  ipg_interrupt_handler(int ipg_irq, void *device_instance,
-                                 struct pt_regs *regs)
-+#else
-+static  irqreturn_t  ipg_interrupt_handler(int ipg_irq, void *device_instance)
- #endif
- {
- 	int				error;
-@@ -1957,7 +1961,7 @@ int	ipg_nic_open(IPG_DEVICE_TYPE *ipg_ethernet_device)
- 	 */
- 	if ((error = request_irq(sp->ipg_pci_device->irq,
- 	                         &ipg_interrupt_handler,
--	                         SA_SHIRQ,
-+	                         IRQF_SHARED,
- 	                         ipg_ethernet_device->name,
- 	                         ipg_ethernet_device)) < 0)
- 	{
-@@ -4041,7 +4045,10 @@ int	init_module(void)
- #endif
- 
- 	IPG_DEBUG_MSG("init_module\n");
--#if LINUX_VERSION_CODE > KERNEL_VERSION(2,5,0)	
-+
-+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,12)	
-+	return pci_register_driver(&ipg_pci_driver);
-+#elif LINUX_VERSION_CODE > KERNEL_VERSION(2,5,0)	
- 	return pci_module_init(&ipg_pci_driver);
- #else
- 	
+> My view of wireless WMM etc is it is a different media behavior
+> (compared to wired ethernet) which means a different view of strategy
+> for when it opens the valve to allow in more packets. 802.11 media has
+> embedded signalling which is usable. Guy Cohen gave a good use case
+> which i responded to. Do you wanna look at that and respond? 
+
+The key to support multi-ring hardware for software is to put packets
+into hardware as much/early as possible. Guy gave a good VO vs. BK
+example. To achieve this in your model, you have to keep the TX ring
+running (in the case of PHL full) and requeue. But when there are only
+BK packets coming, you do want to stop the ring, right? AFAICS, the
+driver is not the best place to make the decision (it only knows the
+current and previous packets, but not the _next_), the Qdisc is the best
+place.
+
+Thanks,
+-yi
