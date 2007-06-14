@@ -1,50 +1,81 @@
-From: Zhu Yi <yi.zhu@intel.com>
-Subject: Re: [PATCH] NET: Multiqueue network device support.
-Date: Thu, 14 Jun 2007 10:44:24 +0800
-Message-ID: <1181789064.4758.127.camel@debian.sh.intel.com>
-References: <466DEF9D.9070509@trash.net>
-	 <1181615384.4071.121.camel@localhost>	<466E9DF2.9010505@trash.net>
-	 <20070612.140240.00078635.davem@davemloft.net> <466F0D74.5030308@trash.net>
-	 <1181714168.4758.57.camel@debian.sh.intel.com>
-	 <1181737935.4050.87.camel@localhost>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: cannot set IP for ethernet
+Date: Thu, 14 Jun 2007 13:53:41 +1000
+Message-ID: <20070614035341.GA21010@gondor.apana.org.au>
+References: <200706121441.13561.oliver@neukum.org> <466EA861.2070509@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	David Miller <davem@davemloft.net>,
-	peter.p.waskiewicz.jr@intel.com, netdev@vger.kernel.org,
-	jeff@garzik.org, auke-jan.h.kok@intel.com
-To: hadi@cyberus.ca
+Content-Type: text/plain; charset=us-ascii
+Cc: Oliver Neukum <oliver@neukum.org>, linux-kernel@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:44670 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751172AbXFNCpq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Jun 2007 22:45:46 -0400
-In-Reply-To: <1181737935.4050.87.camel@localhost>
+Received: from rhun.apana.org.au ([64.62.148.172]:4157 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752190AbXFNDyA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2007 23:54:00 -0400
+Content-Disposition: inline
+In-Reply-To: <466EA861.2070509@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2007-06-13 at 08:32 -0400, jamal wrote:
-> The key arguement i make (from day one actually) is to leave the
-> majority of the work to the driver.
+On Tue, Jun 12, 2007 at 04:06:25PM +0200, Patrick McHardy wrote:
+> Oliver Neukum wrote:
+> > with 2.6.22-rc4-git2 I am getting errors when setting IP for ethernet
+> > interfaces:
+> > 
+> > ioctl(4, SIOCSIFADDR, 0x7fff94931600)   = -1 ENOBUFS (No buffer space available)
+> > 
+> > The error is independant of the interface. It happens to all interfaces.
+> > There's nothing in the syslog.
+> > 
+> > valisk:/home/oliver # uname -a
+> > Linux valisk 2.6.22-rc4-git2-default #3 SMP Tue Jun 12 13:27:54 CEST 2007 x86_64 x86_64 x86_64 GNU/Linux
+> 
+> This can happen if the initial inetdev allocation when the netdevice is
+> registered fails. I think it would make sense to try to allocate again
+> when adding addresses in that case, otherwise there is no way of
+> recovery other than unregistering and registering the device again.
 
-But it seems not feasible the Qdisc needs to know nothing about the
-hardware rings.
+Actually in his case it's because 2.6.22-rc4-git2 doesn't have the
+following changeset.
 
-> My view of wireless WMM etc is it is a different media behavior
-> (compared to wired ethernet) which means a different view of strategy
-> for when it opens the valve to allow in more packets. 802.11 media has
-> embedded signalling which is usable. Guy Cohen gave a good use case
-> which i responded to. Do you wanna look at that and respond? 
-
-The key to support multi-ring hardware for software is to put packets
-into hardware as much/early as possible. Guy gave a good VO vs. BK
-example. To achieve this in your model, you have to keep the TX ring
-running (in the case of PHL full) and requeue. But when there are only
-BK packets coming, you do want to stop the ring, right? AFAICS, the
-driver is not the best place to make the decision (it only knows the
-current and previous packets, but not the _next_), the Qdisc is the best
-place.
+Let me have a think about your approach too.
 
 Thanks,
--yi
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+commit 6363097cc4d182f93788131b5d8f72aa91d950a0
+Author: Herbert Xu <herbert@gondor.apana.org.au>
+Date:   Thu Jun 7 18:35:38 2007 -0700
+
+    [IPV4]: Do not remove idev when addresses are cleared
+
+    Now that we create idev before addresses are added, it no longer makes
+    sense to remove them when addresses are all deleted.
+
+    Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+6363097cc4d182f93788131b5d8f72aa91d950a0
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index fa97b96..abf6352 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -327,12 +327,8 @@ static void __inet_del_ifa(struct in_device *in_dev, struct in_ifaddr **ifap,
+ 		}
+ 
+ 	}
+-	if (destroy) {
++	if (destroy)
+ 		inet_free_ifa(ifa1);
+-
+-		if (!in_dev->ifa_list)
+-			inetdev_destroy(in_dev);
+-	}
+ }
+ 
+ static void inet_del_ifa(struct in_device *in_dev, struct in_ifaddr **ifap,
