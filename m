@@ -1,29 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: cannot set IP for ethernet
-Date: Wed, 13 Jun 2007 20:56:34 -0700 (PDT)
-Message-ID: <20070613.205634.45179442.davem@davemloft.net>
-References: <200706121441.13561.oliver@neukum.org>
-	<466EA861.2070509@trash.net>
-	<20070614035341.GA21010@gondor.apana.org.au>
+From: Bill Fink <billfink@mindspring.com>
+Subject: Re: [PATCH] TCP: remove initial_ssthresh from Cubic
+Date: Thu, 14 Jun 2007 00:03:41 -0400
+Message-ID: <20070614000341.b9151782.billfink@mindspring.com>
+References: <20070613102718.61d67a36@localhost>
+	<20070613.112652.112623832.davem@davemloft.net>
+	<20070613113149.5cd1b11e@localhost>
+	<20070613.114621.85409138.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, oliver@neukum.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Cc: shemminger@linux-foundation.org, sangtae.ha@gmail.com,
+	rhee@eos.ncsu.edu, rhee@ncsu.edu, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59979
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752544AbXFND4R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2007 23:56:17 -0400
-In-Reply-To: <20070614035341.GA21010@gondor.apana.org.au>
+Received: from elasmtp-galgo.atl.sa.earthlink.net ([209.86.89.61]:47752 "EHLO
+	elasmtp-galgo.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751039AbXFNEED (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jun 2007 00:04:03 -0400
+In-Reply-To: <20070613.114621.85409138.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Thu, 14 Jun 2007 13:53:41 +1000
+On Wed, 13 Jun 2007, David Miller wrote:
 
-> Actually in his case it's because 2.6.22-rc4-git2 doesn't have the
-> following changeset.
+> From: Stephen Hemminger <shemminger@linux-foundation.org>
+> Date: Wed, 13 Jun 2007 11:31:49 -0700
+> 
+> > Maybe it is time to remove BIC?
+> 
+> I don't see any compelling reason, the same could be said
+> of the other experimental protocols we include in the tree.
 
-It's on the way, it just hasn't been picked up yet.
+I agree bic should be kept.  As I pointed out, if someone did want
+to set the bic/cubic initial_ssthresh to 100 globally, my tests
+showed bic's performance during the initial slow start phase was
+far superior to cubic's.  I don't know if this is a bug or a
+feature with cubic.
+
+						-Bill
