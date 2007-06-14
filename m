@@ -1,35 +1,56 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [ANNOUNCE] new driver ixgbe for Intel(R) 10GbE PCI Express adapters.
-Date: Thu, 14 Jun 2007 22:36:39 +0200
-Message-ID: <20070614203639.GA23266@electric-eye.fr.zoreil.com>
-References: <20070612234417.5102.29147.stgit@localhost.localdomain> <20070613230513.GB22521@electric-eye.fr.zoreil.com> <ae4a4a920706131706m6993e96bhdab638850b4769cf@mail.gmail.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [2/2] 2.6.22-rc4: known regressions v3
+Date: Thu, 14 Jun 2007 14:39:29 -0700
+Message-ID: <20070614143929.23cc1553@localhost>
+References: <46704923.1010009@googlemail.com> <46704C44.8020602@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jeff@garzik.org, auke-jan.h.kok@intel.com,
-	arjan@linux.intel.com, akpm@linux-foundation.org
-To: Ayyappan Veeraiyan <Ayyappan.Veeraiyan@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:59688 "EHLO
-	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751912AbXFNUhh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Jun 2007 16:37:37 -0400
-Content-Disposition: inline
-In-Reply-To: <ae4a4a920706131706m6993e96bhdab638850b4769cf@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: discuss@x86-64.org, Mikael@smtp2.linux-foundation.org,
+        Alex Riesen <raa.lkml@gmail.com>, Dan Aloni <da-x@monatomic.org>,
+        Greg Kroah-Hartman <gregkh@suse.de>, Netdev <netdev@vger.kernel.org>,
+        linux-usb-devel@lists.sourceforge.net, Jay Vosburgh <fubar@us.ibm.com>,
+        LKML <linux-kernel@vger.kernel.org>, Andi Kleen <ak@suse.de>,
+        Pettersson <mikpe@it.uu.se>, Pavel Machek <pavel@ucw.cz>,
+        linux-pm@lists.linux-foundation.org, sparclinux@vger.kernel.org,
+        Andrew Morton <akpm@linux-foundation.org>,
+        Linus Torvalds <torvalds@linux-foundation.org>,
+        David Miller <davem@davemloft.net>, Ioan Ionita <opslynx@gmail.com>,
+        Chad Tindel <ctindel@users.sourceforge.net>
+To: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
+Return-path: <linux-pm-bounces@lists.linux-foundation.org>
+In-Reply-To: <46704C44.8020602@googlemail.com>
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/linux-pm>,
+	<mailto:linux-pm-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/linux-pm>
+List-Post: <mailto:linux-pm@lists.linux-foundation.org>
+List-Help: <mailto:linux-pm-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/linux-pm>,
+	<mailto:linux-pm-request@lists.linux-foundation.org?subject=subscribe>
+Sender: linux-pm-bounces@lists.linux-foundation.org
+Errors-To: linux-pm-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Ayyappan Veeraiyan <Ayyappan.Veeraiyan@intel.com> :
-[...]
-> netpoll_send_skb should not deadlock because ixgbe_xmit_frame should
-> bail out because of this...
-> 
->      if (!spin_trylock_irqsave(&tx_ring->tx_lock, flags))
->               /* Collision - tell upper layer to requeue */
->               return NETDEV_TX_LOCKED;
-> 
-> Right?
+On Wed, 13 Jun 2007 21:57:56 +0200
+Michal Piotrowski <michal.k.k.piotrowski@gmail.com> wrote:
 
-Yes.
+> Hi all,
+> 
+> Here is a list of some known regressions in 2.6.22-rc4.
+> 
+> Feel free to add new regressions/remove fixed etc.
+> http://kernelnewbies.org/known_regressions
+> 
+> 
+> 
+> Networking
+> 
+> Subject    : commit 9093bbb2d96d0184f037cea9b4e952a44ebe7c32 broke the bonding driver
+> References : http://lkml.org/lkml/2007/6/13/65
+> Submitter  : Dan Aloni <da-x@monatomic.org>
+> Handled-By : Stephen Hemminger <shemminger@linux-foundation.org>
+> Status     : Unknown
+> 
+> 
 
--- 
-Ueimor
+Patch available (to bonding).
