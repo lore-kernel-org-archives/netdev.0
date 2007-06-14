@@ -1,77 +1,57 @@
-From: Mark Fortescue <mark@mtfhpc.demon.co.uk>
-Subject: Re: [2/2] 2.6.22-rc4: known regressions v3
-Date: Thu, 14 Jun 2007 15:57:25 +0100 (BST)
-Message-ID: <Pine.LNX.4.61.0706141539140.29274@mtfhpc.demon.co.uk>
-References: <46704923.1010009@googlemail.com> <46704C44.8020602@googlemail.com>
- <Pine.LNX.4.61.0706132320200.26751@mtfhpc.demon.co.uk>
- <20070614020055.GL15426@holomorphy.com> <Pine.LNX.4.61.0706141123160.28903@mtfhpc.demon.co.uk>
- <20070614142146.GN15426@holomorphy.com>
+From: David Gundersen <gundy@iinet.net.au>
+Subject: Re: Realtek r8168 slow outbound transfer -  potential fix/workaround
+Date: Fri, 15 Jun 2007 00:57:45 +1000
+Message-ID: <46715769.9060101@iinet.net.au>
+References: <4670032C.7010803@iinet.net.au> <20070613231124.GC22521@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>, Dan Aloni <da-x@monatomic.org>,
-	Chad Tindel <ctindel@users.sourceforge.net>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	sparclinux@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Mikael Pettersson <mikpe@it.uu.se>,
-	linux-pm@lists.linux-foundation.org,
-	"Rafael J. Wysocki" <rjw@sisk.pl>, Pavel Machek <pavel@ucw.cz>,
-	Greg Kroah-Hartman <gregkh@suse.de>,
-	Alex Riesen <raa.lkml@gmail.com>, Andi Kleen <ak@suse.de>,
-	Ioan Ionita <opslynx@gmail.com>
-To: William Lee Irwin III <wli@holomorphy.com>
-Return-path: <sparclinux-owner@vger.kernel.org>
-In-Reply-To: <20070614142146.GN15426@holomorphy.com>
-Sender: sparclinux-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from customer-domains.icp-qv1-irony14.iinet.net.au ([203.59.1.169]:27194
+	"EHLO customer-domains.icp-qv1-irony14.iinet.net.au"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751749AbXFNO5g (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Jun 2007 10:57:36 -0400
+In-Reply-To: <20070613231124.GC22521@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-Benh's ptep_set_access_flags() patch needs to be applied in order to get 
-anyware with sun4c for all kernels >= linux-2.6.15. If not applied, you 
-will be lucky to get sash running as your init and even that will have 
-very limitit capabilities before it locks up the processor (power up 
-reset required).
+> What is the value of the MTU for your 8168 device ?
 
-It has been applied to both the kernels I used for testing so this 
-problem is independent of the ptep_set_access_flags patch but that 
-does not mean that it is not a related issue.
+Hi Francois,
 
-I will try to get some testing done over the weekend to narrow down 
-when the random illegal instructions first occour.
+The MTU for the adapter is set at the default of 1500.
 
-If I start with 2.6.21 then if that is OK, then I should be able to narow 
-the issue down without too much trouble. If it is between 2.6.20 and 
-2.6.21 then it will be a right pig as there are a large number of commits 
-that don't compile for sun4c between these two. What I am hoping is that 
-it occours in the 2.6.22-rc2 as per the x86_64.
+A bit more background on how I came across this might be in order.  I 
+noticed it when performing very simple SQL queries against a postgres 
+database on my server.  I captured the traffic on an XP client machine 
+using wireshark and on the linux server with tcpdump. I noticed that 
+although the linux server claimed to have sent 2 reply packets, XP was 
+seeing only the first.
 
-I am going to have to put a 'reset' button onto my test system as power up 
-resets are bad news on this old hardware and almost all kernel failures 
-result in a processor lockup. I have even had to make BUG reports 'panic' 
-as thoes that I have during kernel fault location had are terminal to a 
-sun4c (they cause a processor lockup).
+What got me thinking was the fact that the time between the first and 
+second response packets from postgres was 0.000005 seconds (according to 
+the tcpdump timestamps).  Another 0.4 seconds after that a retry was 
+attempted and the packet managed to make it though to the windows 
+client.  I started wondering if there might be something going on with 
+tightly spaced packets and that's how I ended up checking the NPQ flag. 
+  (I also looked into increasing the default interframe gap between 
+packets, but that didn't seem to help).
 
-Regards
- 	Mark Fortescue.
+I'm happy to help with additional information including the packet 
+captures if you'd like to take a look.
 
-On Thu, 14 Jun 2007, William Lee Irwin III wrote:
+Also, I realised after I posted that first message that having a minimum 
+udelay of 25us in that delay loop was probably a bit foolish.  I guess I 
+was just so happy to have found something that worked for me that I 
+needed to get it off my chest before thinking it through fully.  The 
+udelay(25) ends up increasing the minimum inter-frame gap way beyond 
+what should be reasonable.    I haven't had a good chance to test this 
+yet, but I tried dropping the udelay(25) and using ndelay(10) instead 
+and it appeared to load the cpu less that way.
 
-> On Thu, Jun 14, 2007 at 11:30:25AM +0100, Mark Fortescue wrote:
->> They apear as soon as simpleinit starts up. Somtimes I get to a login
->> prompt before seeing any. Other times, commands in the simpleinit rc
->> script fail.
->> They do apear to be random. If a command failes, you re-run the command
->> and it is OK. Commands seen to fail are basic (depmod, rm cat ..).
->> The test I did use the same binaries with both the OK and problem kernels
->> so it is not a change to the application code, it is definatly a kernel
->> issue.
->
-> This sounds like it may be addressed by benh's ptep_set_access_flags()
-> fixes. Those fixes are still in -mm, hopefully to hit mainline by 2.6.22.
->
->
-> -- wli
->
+
+Regards,
+Dave.
