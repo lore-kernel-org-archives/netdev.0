@@ -1,42 +1,54 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 2/2] qdisc_restart - couple of optimizations.
-Date: Thu, 14 Jun 2007 21:21:11 +1000
-Message-ID: <20070614112111.GB25207@gondor.apana.org.au>
-References: <1181724049.10679.31.camel@localhost.localdomain> <D5C1322C3E673F459512FB59E0DDC3290306A777@orsmsx414.amr.corp.intel.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: Fwd: [PATCH] [-mm] ACPI: export ACPI events via netlink
+Date: Thu, 14 Jun 2007 07:28:29 -0400
+Message-ID: <1181820510.4091.9.camel@localhost>
+References: <1179827251.7707.29.camel@localhost.localdomain>
+	 <1179831825.4121.30.camel@localhost>
+	 <1180258853.7707.53.camel@localhost.localdomain>
+	 <4466a10705270629h31977813hd2fc8330bcd87f78@mail.gmail.com>
+	 <4466a10705270634j3560c9a3j9c3630ddc20a24aa@mail.gmail.com>
+	 <1181811576.5411.27.camel@localhost.localdomain>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kumarkr@linux.vnet.ibm.com, davem@davemloft.net, jamal@cyberus.ca,
-	tgraf@suug.ch, kaber@trash.net, netdev@vger.kernel.org
-To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:2467 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751379AbXFNLVe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jun 2007 07:21:34 -0400
-Content-Disposition: inline
-In-Reply-To: <D5C1322C3E673F459512FB59E0DDC3290306A777@orsmsx414.amr.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-acpi@vger.kernel.org, lenb@kernel.org
+To: Zhang Rui <rui.zhang@intel.com>
+Return-path: <linux-acpi-owner@vger.kernel.org>
+In-Reply-To: <1181811576.5411.27.camel@localhost.localdomain>
+Sender: linux-acpi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 13, 2007 at 10:51:00AM -0700, Waskiewicz Jr, Peter P wrote:
+On Thu, 2007-14-06 at 16:59 +0800, Zhang Rui wrote:
+> Hi, Jamal,
 > 
-> I somewhat disagree here.  The underlying driver can conceivably stop
-> the device queue even if the stack holds the queue lock during an
-> interrupt to clean Tx descriptors, and it finds it's out of them or
-> needs to grab the device for whatever reason.  Granted this is a corner
-> case, and the net effect would be a simple requeue of the skb, but
-> checking the status of the queue at the last possible moment before
-> entering the driver could alleviate the requeue in the time between
-> ->dequeue() from the qdisc, and hard_start_xmit() if an event like I
-> mentioned happened.
+> Now the genl utility can find the acpi event genetlink family.
+> And a simple user space demo is finished for handling acpi event.
+> I really appreciate your help. :)
 
-IMHO this scenario occurs so infrequently that the check isn't worth it
-especially since the driver has to be able to deal with us calling it
-after netif_stop_queue() anyway.
+np.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> I think the patch which exposes ACPI events via netlink is ok.
+> But I still have some problems on
+> how to listen to specified genetlink family in user space?
+> 
+> I can get the dynamic id for "acpi_event" genl family.
+> But I don't know how to use this to receive messages from
+> specified genl family.
+> It seems that "#genl ctrl monitor" has something to do with this,
+> IMO, rtnl_open_byproto(&rth, nl_mgrp(GENL_ID_CTRL), NETLINK_GENERIC) is
+> used to receive messages from the nlctrl(controller) only, but
+> unfortunately it never works for me. :(
+> 
+
+I dont have much time to look at your code given travel, but did you
+try to use your group id instead of the controller's?
+i.e:
+rtnl_open_byproto(&rth, nl_mgrp(mydiscoveredacpiid), NETLINK_GENERIC)
+
+If this doesnt work, ping me and i will take a look  - just expect some
+latency in response.
+
+cheers,
+jamal
+
