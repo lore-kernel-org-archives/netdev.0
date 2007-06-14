@@ -1,31 +1,30 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: RE: [PATCH 2/2] qdisc_restart - couple of optimizations.
-Date: Thu, 14 Jun 2007 09:49:27 -0700
-Message-ID: <D5C1322C3E673F459512FB59E0DDC329030A031E@orsmsx414.amr.corp.intel.com>
-References: <20070614112111.GB25207@gondor.apana.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] [TCP]: Add missing break to TCP option parsing code
+Date: Thu, 14 Jun 2007 13:00:55 -0700 (PDT)
+Message-ID: <20070614.130055.112852088.davem@davemloft.net>
+References: <Pine.LNX.4.64.0706141235470.15358@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <kumarkr@linux.vnet.ibm.com>, <davem@davemloft.net>,
-	<jamal@cyberus.ca>, <tgraf@suug.ch>, <kaber@trash.net>,
-	<netdev@vger.kernel.org>
-To: "Herbert Xu" <herbert@gondor.apana.org.au>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:42983 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750946AbXFNQtg convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jun 2007 12:49:36 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20070614112111.GB25207@gondor.apana.org.au>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34123
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751118AbXFNUBB convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Jun 2007 16:01:01 -0400
+In-Reply-To: <Pine.LNX.4.64.0706141235470.15358@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> IMHO this scenario occurs so infrequently that the check 
-> isn't worth it especially since the driver has to be able to 
-> deal with us calling it after netif_stop_queue() anyway.
+=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Thu, 14 Jun 2007 12:37:22 +0300 (EEST)
 
-That sounds just fine to me.  Thanks Krishna and Herbert for weighing in
-on this.
+> This flaw does not affect any behavior (currently).
+>=20
+> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
 
--PJ Waskiewicz
+Good catch, patch applied.
+
+Thanks!
