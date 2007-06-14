@@ -1,46 +1,61 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: [PATCH] [TCP]: Add missing break to TCP option parsing code
-Date: Thu, 14 Jun 2007 12:37:22 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0706141235470.15358@kivilampi-30.cs.helsinki.fi>
+From: Mark Fortescue <mark@mtfhpc.demon.co.uk>
+Subject: Re: [2/2] 2.6.22-rc4: known regressions v3
+Date: Thu, 14 Jun 2007 11:30:25 +0100 (BST)
+Message-ID: <Pine.LNX.4.61.0706141123160.28903@mtfhpc.demon.co.uk>
+References: <46704923.1010009@googlemail.com> <46704C44.8020602@googlemail.com>
+ <Pine.LNX.4.61.0706132320200.26751@mtfhpc.demon.co.uk>
+ <20070614020055.GL15426@holomorphy.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-1129429435-1181813842=:15358"
-Cc: Netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:34580 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750801AbXFNJhY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jun 2007 05:37:24 -0400
-Sender: netdev-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>, Dan Aloni <da-x@monatomic.org>,
+	Chad Tindel <ctindel@users.sourceforge.net>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	sparclinux@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Mikael Pettersson <mikpe@it.uu.se>,
+	linux-pm@lists.linux-foundation.org,
+	"Rafael J. Wysocki" <rjw@sisk.pl>, Pavel Machek <pavel@ucw.cz>,
+	linux-usb-devel@lists.sourceforge.net,
+	Greg Kroah-Hartman <gregkh@suse.de>,
+	Alex Riesen <raa.lkml@gmail.com>, Andi Kleen <ak@suse.de>,
+	discuss@x86-64.org, Ioan Ionita <opslynx@gmail.com>
+To: William Lee Irwin III <wli@holomorphy.com>
+Return-path: <sparclinux-owner@vger.kernel.org>
+In-Reply-To: <20070614020055.GL15426@holomorphy.com>
+Sender: sparclinux-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+Hi All,
 
----696243703-1129429435-1181813842=:15358
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
+They apear as soon as simpleinit starts up. Somtimes I get to a login 
+prompt before seeing any. Other times, commands in the simpleinit rc 
+script fail.
 
-This flaw does not affect any behavior (currently).
+They do apear to be random. If a command failes, you re-run the command 
+and it is OK. Commands seen to fail are basic (depmod, rm cat ..).
 
-Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
----
- net/ipv4/tcp_input.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+The test I did use the same binaries with both the OK and problem kernels 
+so it is not a change to the application code, it is definatly a kernel 
+issue.
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index d506bdc..aaf6f66 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -2936,6 +2936,7 @@ void tcp_parse_options(struct sk_buff *skb, struct tcp_options_received *opt_rx,
- 					   opt_rx->sack_ok) {
- 						TCP_SKB_CB(skb)->sacked = (ptr - 2) - (unsigned char *)th;
- 					}
-+					break;
- #ifdef CONFIG_TCP_MD5SIG
- 				case TCPOPT_MD5SIG:
- 					/*
--- 
-1.5.0.6
+Regards
+ 	Mark Fortescue.
 
----696243703-1129429435-1181813842=:15358--
+On Wed, 13 Jun 2007, William Lee Irwin III wrote:
+
+> On Wed, Jun 13, 2007 at 11:25:20PM +0100, Mark Fortescue wrote:
+>> The random seg faults on x86_64 is interesting as I have been getting
+>> random illegal instruction faults on sparc (sun4c) with 2.6.22-rc3. I have
+>> not yet tried to track it down. All I know at present is that it is not a
+>> problem on 2.6.20.9.
+>
+> Very interesting. Any hints as to how to test or how long to wait
+> before the illegal instructions happen?
+>
+>
+> -- wli
+>
