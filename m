@@ -1,52 +1,43 @@
-From: vignesh babu <vignesh.babu@wipro.com>
-Subject: [PATCH]is_power_of_2-net/core/neighbour.c
-Date: Thu, 14 Jun 2007 16:04:47 +0530
-Message-ID: <1181817288.2474.20.camel@merlin.linuxcoe.com>
-Reply-To: vignesh.babu@wipro.com
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 2/2] qdisc_restart - couple of optimizations.
+Date: Thu, 14 Jun 2007 21:19:20 +1000
+Message-ID: <20070614111920.GA25207@gondor.apana.org.au>
+References: <1181724049.10679.31.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Kernel Janitors List <kernel-janitors@lists.osdl.org>
-To: roque@di.fc.ul.pt, kuznet@ms2.inr.ac.ru
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, jamal@cyberus.ca,
+	peter.p.waskiewicz.jr@intel.com, tgraf@suug.ch, kaber@trash.net,
+	netdev@vger.kernel.org
+To: Krishna Kumar <kumarkr@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wip-cdc-wd.wipro.com ([203.91.201.26]:59730 "EHLO
-	wip-cdc-wd.wipro.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751014AbXFNKeY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jun 2007 06:34:24 -0400
+Received: from rhun.apana.org.au ([64.62.148.172]:2453 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751235AbXFNLUE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jun 2007 07:20:04 -0400
+Content-Disposition: inline
+In-Reply-To: <1181724049.10679.31.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Wed, Jun 13, 2007 at 02:10:49PM +0530, Krishna Kumar wrote:
+> 
+> - BUG_ON((int) q->q.qlen < 0) was a relic from old times when -1
+>   meant more packets are available, and __qdisc_run used to loop
+>   when qdisc_restart() returned -1. During those days, it was
+>   necessary to make sure that qlen is never less than zero, since
+>   __qdisc_run would get into an infinite loop if no packets are on
+>   the queue and this bug in qdisc was there (and worse - no more
+>   skbs could ever get queue'd as we hold the queue lock too). With
+>   Herbert's recent change to return values, this check is not
+>   required.  Hopefully Herbert can validate this change. If at all
+>   this is required, it should be added to skb_dequeue (in failure
+>   case), and not to qdisc_qlen.
 
-Replacing (n & (n-1)) in the context of power of 2 checks
-with is_power_of_2
+Yes I agree that this check is no longer critical.
 
-Signed-off-by: vignesh babu <vignesh.babu@wipro.com>
---- 
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index 6f3bb73..e663999 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -33,6 +33,7 @@
- #include <linux/rtnetlink.h>
- #include <linux/random.h>
- #include <linux/string.h>
-+#include <linux/log2.h>
- 
- #define NEIGH_DEBUG 1
- 
-@@ -311,7 +312,7 @@ static void neigh_hash_grow(struct neigh_table *tbl, unsigned long new_entries)
- 
- 	NEIGH_CACHE_STAT_INC(tbl, hash_grows);
- 
--	BUG_ON(new_entries & (new_entries - 1));
-+	BUG_ON(!is_power_of_2(new_entries));
- 	new_hash = neigh_hash_alloc(new_entries);
- 	if (!new_hash)
- 		return;
-
+Cheers,
 -- 
-Vignesh Babu BM 
-_____________________________________________________________ 
-"Why is it that every time I'm with you, makes me believe in magic?"
-
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
