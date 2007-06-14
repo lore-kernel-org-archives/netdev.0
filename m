@@ -1,48 +1,38 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: [PATCH] b44: power down PHY when interface down
-Date: Sat, 30 Jun 2007 23:53:25 +0200
-Message-ID: <200706302353.25426.mb@bu3sch.de>
-References: <4354d3270706300447ladcda4by987b1f87963112f9@mail.gmail.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: r8169 tx problem (1s pause with ping)
+Date: Fri, 15 Jun 2007 00:00:51 +0200
+Message-ID: <20070614220050.GB23266@electric-eye.fr.zoreil.com>
+References: <20070613004154.GA4187@kvack.org> <20070613211859.GA22521@electric-eye.fr.zoreil.com> <46715FBA.3070302@iinet.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: zambrano@broadcom.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, power@bughost.org
-To: "=?iso-8859-1?q?T=F6r=F6k?= Edvin" <edwintorok@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Benjamin LaHaise <bcrl@kvack.org>
+To: David Gundersen <gundy@iinet.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:39508
-	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752998AbXF3VyK convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jun 2007 17:54:10 -0400
-In-Reply-To: <4354d3270706300447ladcda4by987b1f87963112f9@mail.gmail.com>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:36977 "EHLO
+	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751048AbXFNWFG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Jun 2007 18:05:06 -0400
 Content-Disposition: inline
+In-Reply-To: <46715FBA.3070302@iinet.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Saturday 30 June 2007 13:47:35 T=F6r=F6k Edvin wrote:
-> When the interface is down (or driver removed), the BroadCom 44xx car=
-d remains
-> powered on, and both its MAC and PHY is using up power.
-> This patch makes the driver issue a MAC_CTRL_PHY_PDOWN when the inter=
-face
-> is halted, and does a partial chip reset turns off the activity LEDs =
-too.
->=20
-> Applies to 2.6.22-rc6, or current git head.
->=20
-> Tested on a Broadcom BCM4401-B0 card, it saves ~0.5W (measured using =
-powertop).
+David Gundersen <gundy@iinet.net.au> :
+[...]
+> I might do some more thorough testing on the weekend to find out what
+> the minimal changes required are to get things working.
 
-Hm, I was going to measure the real power advantage with a
-PCI-extender card. But my B44B0 card doesn't seem to work in
-that extender card. It works perfectly fine sticked directly into
-the motherboard, though, and other cards like a BCM4318 work in
-the extender, too.
-Not sure what this is.
-The extender has an application note about nonworking cards in the
-extender and a too big resistor on the board IDSEL pin being the
-cause of this.
-Maybe I can try with another machine tomorrow.
+In your patch, the first chunk of data (which is handed back to the
+nic outside of rtl8169_xmit_frags) will not have is First fragment
+bit set when nr_frags != 0. It makes me a bit nervous.
 
---=20
-Greetings Michael.
+The NPQ part of your patch actually forces the start_xmit handler to
+wait for all previously queued packets to be sent before telling the
+nic that a packet may be available. I can understand that it will fix
+the symptoms but it will implicitly shorten the TX queue a lot.
+
+A pesky fever apart, I should be able to come with a patch before
+the week end.
+
+-- 
+Ueimor
