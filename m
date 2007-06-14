@@ -1,51 +1,35 @@
-From: Tim Mann <mann@vmware.com>
-Subject: [PATCH 2.6.22-rc4-git6] forcedeth: use unicast receive mode for WoL
-Date: Thu, 14 Jun 2007 13:16:38 -0700
-Message-ID: <20070614131638.1a5cef4c@mann-lx.eng.vmware.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [ANNOUNCE] new driver ixgbe for Intel(R) 10GbE PCI Express adapters.
+Date: Thu, 14 Jun 2007 22:36:39 +0200
+Message-ID: <20070614203639.GA23266@electric-eye.fr.zoreil.com>
+References: <20070612234417.5102.29147.stgit@localhost.localdomain> <20070613230513.GB22521@electric-eye.fr.zoreil.com> <ae4a4a920706131706m6993e96bhdab638850b4769cf@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: mann@vmware.com, Andrew Morton <akpm@linux-foundation.org>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, jeff@garzik.org, auke-jan.h.kok@intel.com,
+	arjan@linux.intel.com, akpm@linux-foundation.org
+To: Ayyappan Veeraiyan <Ayyappan.Veeraiyan@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-outbound-1.vmware.com ([65.113.40.141]:55361 "EHLO
-	smtp-outbound-1.vmware.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752139AbXFNUQk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jun 2007 16:16:40 -0400
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:59688 "EHLO
+	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751912AbXFNUhh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Jun 2007 16:37:37 -0400
+Content-Disposition: inline
+In-Reply-To: <ae4a4a920706131706m6993e96bhdab638850b4769cf@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I happened to notice that a system with an NVidia NIC using the
-forcedeth driver won't wake-on-LAN if the interface was in promiscuous
-mode when you power off.  By experiment, it looks like
-the hardware needs to have NvRegPacketFilterFlags set to
-NVREG_PFF_ALWAYS|NVREG_PFF_MYADDR (i.e., receive unicast packets to my
-address) in order for WoL to work.
+Ayyappan Veeraiyan <Ayyappan.Veeraiyan@intel.com> :
+[...]
+> netpoll_send_skb should not deadlock because ixgbe_xmit_frame should
+> bail out because of this...
+> 
+>      if (!spin_trylock_irqsave(&tx_ring->tx_lock, flags))
+>               /* Collision - tell upper layer to requeue */
+>               return NETDEV_TX_LOCKED;
+> 
+> Right?
 
-Jeff Garzik writes: "NVIDIA says the patch looks OK."  I didn't venture
-to insert a signed-off-by line with his name on it, though.
-
-Signed-off-by: Tim Mann <mann@vmware.com>
-
----
-(Jeff, thanks for pointing me to the doc for the proper patch format.)
-
---- 2.6.22-rc4-git6/drivers/net/forcedeth.c	2007-06-14 12:56:47.078002000 -0700
-+++ 2.6.22-rc4-git6-fixed/drivers/net/forcedeth.c	2007-06-14 12:56:21.200146000 -0700
-@@ -4825,8 +4825,10 @@
- 
- 	drain_ring(dev);
- 
--	if (np->wolenabled)
-+	if (np->wolenabled) {
-+		writel(NVREG_PFF_ALWAYS|NVREG_PFF_MYADDR, base + NvRegPacketFilterFlags);
- 		nv_start_rx(dev);
-+	}
- 
- 	/* FIXME: power down nic */
- 
-
+Yes.
 
 -- 
-Tim Mann  work: mann@vmware.com  home: tim@tim-mann.org
-          http://www.vmware.com  http://tim-mann.org
+Ueimor
