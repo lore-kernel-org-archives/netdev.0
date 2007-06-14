@@ -1,65 +1,54 @@
-From: "C. Scott Ananian" <cscott@laptop.org>
-Subject: Handling IPv6 RDNSS in RA
-Date: Thu, 14 Jun 2007 18:27:38 -0400
-Message-ID: <c6d9bea0706141527i72c82819r95341fc7fb08c1c4@mail.gmail.com>
-References: <c6d9bea0706141307v6101719s1d8c2761ba1be392@mail.gmail.com>
+From: linas@austin.ibm.com (Linas Vepstas)
+Subject: Re: [PATCH 4/15] spidernet: silence the ramfull messages
+Date: Thu, 14 Jun 2007 17:29:43 -0500
+Message-ID: <20070614222943.GY4397@austin.ibm.com>
+References: <20070607191707.GA7904@austin.ibm.com> <1181265151.6026.1.camel@concordia.ozlabs.ibm.com> <20070608170608.GI7904@austin.ibm.com> <20070608172020.GA31089@havoc.gtf.org> <20070611181429.GA4397@austin.ibm.com> <20070611181702.GA13741@austin.ibm.com> <20070611182650.GD13741@austin.ibm.com> <46704F90.7050508@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: "David Woodhouse" <dwmw2@infradead.org>, marcelo@kvack.org,
-	dcbw@redhat.com, netdev@vger.kernel.org, yoshfuji@linux-ipv6.org,
-	jjeong@cs.umn.edu
+Content-Type: text/plain; charset=us-ascii
+Cc: Michael Ellerman <michael@ellerman.id.au>, netdev@vger.kernel.org,
+	cbe-oss-dev@ozlabs.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.249]:27116 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751191AbXFNW1j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jun 2007 18:27:39 -0400
-Received: by an-out-0708.google.com with SMTP id d31so152030and
-        for <netdev@vger.kernel.org>; Thu, 14 Jun 2007 15:27:38 -0700 (PDT)
-In-Reply-To: <c6d9bea0706141307v6101719s1d8c2761ba1be392@mail.gmail.com>
+Received: from e1.ny.us.ibm.com ([32.97.182.141]:40786 "EHLO e1.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751832AbXFNW3p (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Jun 2007 18:29:45 -0400
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by e1.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l5EMTjPn012819
+	for <netdev@vger.kernel.org>; Thu, 14 Jun 2007 18:29:45 -0400
+Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
+	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l5EMTicC531904
+	for <netdev@vger.kernel.org>; Thu, 14 Jun 2007 18:29:44 -0400
+Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
+	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l5EMTiJK008025
+	for <netdev@vger.kernel.org>; Thu, 14 Jun 2007 18:29:44 -0400
 Content-Disposition: inline
+In-Reply-To: <46704F90.7050508@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[Re-sending an earlier email, this time with a wider distribution and
-more details.]
+On Wed, Jun 13, 2007 at 04:12:00PM -0400, Jeff Garzik wrote:
+> Linas Vepstas wrote:
+> >--- linux-2.6.22-rc1.orig/drivers/net/spider_net.c	2007-06-11 
+> >10:02:34.000000000 -0500
+> >+++ linux-2.6.22-rc1/drivers/net/spider_net.c	2007-06-11 
+> >11:45:25.000000000 -0500
+> >@@ -1172,7 +1172,7 @@ spider_net_decode_one_descr(struct spide
+> > 		goto bad_desc;
+> > 	}
+> > 
+> >-	if (hwdescr->dmac_cmd_status & 0xfefe) {
+> >+	if (hwdescr->dmac_cmd_status & 0xfcf4) {
+> > 		pr_err("%s: bad status, cmd_status=x%08x\n",
+> > 			       card->netdev->name,
+> > 			       hwdescr->dmac_cmd_status);
+> 
+> 
+> A follow-up patch needs to remove the above magic numbers (==numeric 
+> constants), replacing them with named constants
 
-I'd like to get opinions on how DNS information packaged with IPv6
-Router Advertisement packages should be handled.  The OLPC project
-(laptop.org) is currently planning to use this for DNS
-autoconfiguration.  The draft RFC is at:
-    http://tools.ietf.org/html/draft-jeong-dnsop-ipv6-dns-discovery-12
-There is already code in radvd to support this.  [For reference, the
-Router Advertisement (RA) option is called RDNSS, for 'Recursive DNS
-Server'.]
+I thought laziness was a virtue ... oh, wait, wrong programming language.
 
-Two alternatives seem obvious:
-  1) Parse the RDNSS option in the kernel.  linux/net/ipv6/ndisc.c
-already parses the other RAdv options; it just need to be extended to
-parse RDNSS and export the 'last seen DNS conf' in the same way it
-does the Managed/Other flags at
-     http://lxr.linux.no/source/net/ipv6/ndisc.c?v=2.6.20.1#L1115
-[Incidentally, I suspect I can get at the Managed/Other flags via
-netlink, but would appreciate advice.]
+Patch coming shortly.
 
- 2) Parse the RDNSS information entirely in userspace.  The
-NetworkManager(1) daemon would keep a socket open to listen to all
-ICMPv6 messages, reparse the RA, and deal with RDNSS information.
-This has the disadvantage of requiring redundant tracking of RA
-lifetimes, and would require NetworkManager to send (likely redundant)
-Router Solicitation messages when/if the RDNSS information expires.
-
-Option 2 seems like duplication of work, but arguably keeps the kernel
-small.  Honestly, I'm surprised that IPv6 autoconfiguration is in the
-kernel at all.  But since it's there already, option 1's making RDNSS'
-3*(128/8) bytes available via netlink doesn't seem too terrible to me.
- But if such a patch has no hope of being accepted into the mainline
-kernel, I'd rather know now than later.
-
-Also: are there other implementations which use the RA DNS info?
-Maybe in fact someone has already written the necessary kernel patch?
-I always prefer not to reinvent the wheel.
-  --scott
-
--- 
-                         ( http://cscott.net/ )
+--linas
