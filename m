@@ -1,61 +1,61 @@
-From: Zhang Rui <rui.zhang@intel.com>
-Subject: Re: Fwd: [PATCH] [-mm] ACPI: export ACPI events via netlink
-Date: Fri, 15 Jun 2007 09:01:25 +0800
-Message-ID: <1181869285.5411.39.camel@localhost.localdomain>
-References: <1179827251.7707.29.camel@localhost.localdomain>
-	 <1179831825.4121.30.camel@localhost>
-	 <1180258853.7707.53.camel@localhost.localdomain>
-	 <4466a10705270629h31977813hd2fc8330bcd87f78@mail.gmail.com>
-	 <4466a10705270634j3560c9a3j9c3630ddc20a24aa@mail.gmail.com>
-	 <1181811576.5411.27.camel@localhost.localdomain>
-	 <1181820510.4091.9.camel@localhost>
+From: Zhu Yi <yi.zhu@intel.com>
+Subject: Re: [PATCH] NET: Multiqueue network device support.
+Date: Fri, 15 Jun 2007 09:27:06 +0800
+Message-ID: <1181870826.4092.29.camel@debian.sh.intel.com>
+References: <466DEF9D.9070509@trash.net>
+	 <1181615384.4071.121.camel@localhost>	<466E9DF2.9010505@trash.net>
+	 <20070612.140240.00078635.davem@davemloft.net> <466F0D74.5030308@trash.net>
+	 <1181714168.4758.57.camel@debian.sh.intel.com>
+	 <1181737935.4050.87.camel@localhost>
+	 <1181789064.4758.127.camel@debian.sh.intel.com>
+	 <1181821707.4091.32.camel@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"linux-acpi@vger" <linux-acpi@vger.kernel.org>, lenb@kernel.org
+Cc: Patrick McHardy <kaber@trash.net>,
+	David Miller <davem@davemloft.net>,
+	peter.p.waskiewicz.jr@intel.com, netdev@vger.kernel.org,
+	jeff@garzik.org, auke-jan.h.kok@intel.com
 To: hadi@cyberus.ca
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <1181820510.4091.9.camel@localhost>
-Sender: linux-acpi-owner@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:50308 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751773AbXFOB2f (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Jun 2007 21:28:35 -0400
+In-Reply-To: <1181821707.4091.32.camel@localhost>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2007-06-14 at 07:28 -0400, jamal wrote:
-> On Thu, 2007-14-06 at 16:59 +0800, Zhang Rui wrote:
-> > Hi, Jamal,
-> > 
-> > Now the genl utility can find the acpi event genetlink family.
-> > And a simple user space demo is finished for handling acpi event.
-> > I really appreciate your help. :)
-> 
-> np.
-> 
-> > I think the patch which exposes ACPI events via netlink is ok.
-> > But I still have some problems on
-> > how to listen to specified genetlink family in user space?
-> > 
-> > I can get the dynamic id for "acpi_event" genl family.
-> > But I don't know how to use this to receive messages from
-> > specified genl family.
-> > It seems that "#genl ctrl monitor" has something to do with this,
-> > IMO, rtnl_open_byproto(&rth, nl_mgrp(GENL_ID_CTRL), NETLINK_GENERIC) is
-> > used to receive messages from the nlctrl(controller) only, but
-> > unfortunately it never works for me. :(
-> > 
-> 
-> I dont have much time to look at your code given travel, but did you
-> try to use your group id instead of the controller's?
-> i.e:
-> rtnl_open_byproto(&rth, nl_mgrp(mydiscoveredacpiid), NETLINK_GENERIC)
-> 
-Yes. It doesn't work if I use my group id here.
-In fact, I'm using rtnl_open_byproto(&rth, 1, NETLINK_GENERIC) now.
-That's why I said that this demo receives all the broadcasted genetlink
-messages.
-> If this doesnt work, ping me and i will take a look  - just expect some
-> latency in response.
-> 
-That's great. Thanks.
+On Thu, 2007-06-14 at 07:48 -0400, jamal wrote:
+> I dont have much time to followup for sometime to come. I have left my
+> answer above. To clarify, incase i wasnt clear, I am saying:
+> a) It is better to have the driver change via some strategy of when to
+> open the tx path than trying to be generic. This shifts the burden to
+> the driver.
+> b) given the behavior of wireless media (which is very different from
+> wired ethernet media), you need a different strategy. In response to
+> Guy's question, I gave the example of being able to use management
+> frames to open up the tx path for VO (even when you dont know VO
+> packets
+> are sitting on the qdisc); alternatively you could use a timer etc.
+> Theres many ways to skin the cat (with apologies to cat
+> lovers/owners).
+> i.e you need to look at the media and be creative.
+> Peters DCE for example could also be handled by having a specific
+> strategy. 
 
-Best regards,
-Rui
+OK. You tried so much to guess the traffic flow pattern in the low level
+driver, which could be implemented straightforward in the Qdisc. The pro
+is the Qdisc API is untouched. But the cons are:
+
+1. driver becomes complicated (as it is too elaborate in the queue
+wakeup strategies design)
+2. duplicated code among drivers (otherwise you put all the queue
+management logics in a new layer?)
+3. it's not 100% accurate. there has to be some overhead, more or less
+depends on the queue wakeup strategy the driver selected.
+
+Time for voting?
+
+Thanks,
+-yi
