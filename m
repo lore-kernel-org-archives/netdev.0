@@ -1,72 +1,61 @@
-From: Michael Ellerman <michael@ellerman.id.au>
-Subject: Re: [Cbe-oss-dev] [PATCH 0/15] spidernet driver bug fixes
-Date: Fri, 15 Jun 2007 09:32:32 +1000
-Message-ID: <1181863952.12080.2.camel@concordia.ozlabs.ibm.com>
-References: <20070607191707.GA7904@austin.ibm.com>
-	 <1181265151.6026.1.camel@concordia.ozlabs.ibm.com>
-	 <20070608170608.GI7904@austin.ibm.com>
-	 <20070608172020.GA31089@havoc.gtf.org>
-	 <20070611181429.GA4397@austin.ibm.com> <466F2581.2080808@garzik.org>
-	 <20070612233237.GN4397@austin.ibm.com> <466F3482.4050305@garzik.org>
-	 <20070613161414.GO4397@austin.ibm.com>
-	 <1181858908.5211.33.camel@shinybook.infradead.org>
-	 <4671C8B6.5010000@garzik.org>
-	 <1181862191.5211.42.camel@shinybook.infradead.org>
-	 <4671C98C.3060100@garzik.org>
-	 <1181862437.5211.46.camel@shinybook.infradead.org>
-Reply-To: michael@ellerman.id.au
+From: Zhang Rui <rui.zhang@intel.com>
+Subject: Re: Fwd: [PATCH] [-mm] ACPI: export ACPI events via netlink
+Date: Fri, 15 Jun 2007 09:01:25 +0800
+Message-ID: <1181869285.5411.39.camel@localhost.localdomain>
+References: <1179827251.7707.29.camel@localhost.localdomain>
+	 <1179831825.4121.30.camel@localhost>
+	 <1180258853.7707.53.camel@localhost.localdomain>
+	 <4466a10705270629h31977813hd2fc8330bcd87f78@mail.gmail.com>
+	 <4466a10705270634j3560c9a3j9c3630ddc20a24aa@mail.gmail.com>
+	 <1181811576.5411.27.camel@localhost.localdomain>
+	 <1181820510.4091.9.camel@localhost>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-XdLuHY2wus6H7mmUvpYn"
-Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
-	Linas Vepstas <linas@austin.ibm.com>, cbe-oss-dev@ozlabs.org
-To: David Woodhouse <dwmw2@infradead.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:36956 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751564AbXFNXce (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Jun 2007 19:32:34 -0400
-In-Reply-To: <1181862437.5211.46.camel@shinybook.infradead.org>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	"linux-acpi@vger" <linux-acpi@vger.kernel.org>, lenb@kernel.org
+To: hadi@cyberus.ca
+Return-path: <linux-acpi-owner@vger.kernel.org>
+In-Reply-To: <1181820510.4091.9.camel@localhost>
+Sender: linux-acpi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Thu, 2007-06-14 at 07:28 -0400, jamal wrote:
+> On Thu, 2007-14-06 at 16:59 +0800, Zhang Rui wrote:
+> > Hi, Jamal,
+> > 
+> > Now the genl utility can find the acpi event genetlink family.
+> > And a simple user space demo is finished for handling acpi event.
+> > I really appreciate your help. :)
+> 
+> np.
+> 
+> > I think the patch which exposes ACPI events via netlink is ok.
+> > But I still have some problems on
+> > how to listen to specified genetlink family in user space?
+> > 
+> > I can get the dynamic id for "acpi_event" genl family.
+> > But I don't know how to use this to receive messages from
+> > specified genl family.
+> > It seems that "#genl ctrl monitor" has something to do with this,
+> > IMO, rtnl_open_byproto(&rth, nl_mgrp(GENL_ID_CTRL), NETLINK_GENERIC) is
+> > used to receive messages from the nlctrl(controller) only, but
+> > unfortunately it never works for me. :(
+> > 
+> 
+> I dont have much time to look at your code given travel, but did you
+> try to use your group id instead of the controller's?
+> i.e:
+> rtnl_open_byproto(&rth, nl_mgrp(mydiscoveredacpiid), NETLINK_GENERIC)
+> 
+Yes. It doesn't work if I use my group id here.
+In fact, I'm using rtnl_open_byproto(&rth, 1, NETLINK_GENERIC) now.
+That's why I said that this demo receives all the broadcasted genetlink
+messages.
+> If this doesnt work, ping me and i will take a look  - just expect some
+> latency in response.
+> 
+That's great. Thanks.
 
---=-XdLuHY2wus6H7mmUvpYn
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
-
-On Fri, 2007-06-15 at 00:07 +0100, David Woodhouse wrote:
-> On Thu, 2007-06-14 at 19:04 -0400, Jeff Garzik wrote:
-> > Think about the actual kernel tree source code, not just the
-> > metadata...
->=20
-> Disk is cheap. Waiting for the whole damn thing to rebuild after
-> switching branches and back again is less so.
-
-ccache!
-
-cheers
-
---=20
-Michael Ellerman
-OzLabs, IBM Australia Development Lab
-
-wwweb: http://michael.ellerman.id.au
-phone: +61 2 6212 1183 (tie line 70 21183)
-
-We do not inherit the earth from our ancestors,
-we borrow it from our children. - S.M.A.R.T Person
-
---=-XdLuHY2wus6H7mmUvpYn
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.6 (GNU/Linux)
-
-iD8DBQBGcdAQdSjSd0sB4dIRAgN6AJ0fmthEigwkezdUPUg8wqIxLG2sGgCfXBcw
-od0uFxaDVxaOQ8+VhwMbGa4=
-=rUWu
------END PGP SIGNATURE-----
-
---=-XdLuHY2wus6H7mmUvpYn--
-
+Best regards,
+Rui
