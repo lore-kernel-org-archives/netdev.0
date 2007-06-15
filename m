@@ -1,81 +1,47 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [RFC: 2.6 patch] net/rxrpc/ar-output.c: remove dead code
-Date: Fri, 15 Jun 2007 23:45:20 +0200
-Message-ID: <20070615214520.GM3588@stusta.de>
+From: David Greaves <david@dgreaves.com>
+Subject: 2.6.22-rc4 hibernate disables skge wol
+Date: Fri, 15 Jun 2007 22:50:48 +0100
+Message-ID: <467309B8.2060001@dgreaves.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: David Howells <dhowells@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "'linux-kernel@vger.kernel.org'" <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, linux-pm <linux-pm@lists.osdl.org>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from emailhub.stusta.mhn.de ([141.84.69.5]:36339 "EHLO
-	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755907AbXFOVpF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jun 2007 17:45:05 -0400
-Content-Disposition: inline
+Received: from s2.ukfsn.org ([217.158.120.143]:57403 "EHLO mail.ukfsn.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756870AbXFOVuw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Jun 2007 17:50:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch removes dead code spotted by the Coverity checker.
+I've started a new thread here since the old one got somewhat hijacked.
 
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
+Rafael J. Wysocki wrote:
+ > On Friday, 1 June 2007 23:23, David Greaves wrote:
+ >> Not a regression though, it does it in 2.6.21
+ >>
+ >> If I cause the system to save state to disk then whilst off it no longer
+ >> responds to g-wol.
+ >
+ > Can you please try with the hibernation and suspend patch series from
+ >
+ > http://www.sisk.pl/kernel/hibernation_and_suspend/2.6.22-rc3/patches/
+ >
+ > applied?
+ >
+ > Greetings,
+ > Rafael
+ >
+ >
+Now, IIRC, some time ago you asked me to try some patches :)
 
----
+So I applied them (and Tejun's fixes as per the old thread) to rc4 (which seems 
+to include a couple already).
 
- net/rxrpc/ar-output.c |   14 ++++----------
- 1 file changed, 4 insertions(+), 10 deletions(-)
+Hibernate/resume works but although WOL works on an init 0, it doesn't work on a 
+hibernated system :(
 
---- linux-2.6.22-rc4-mm2/net/rxrpc/ar-output.c.old	2007-06-15 21:38:02.000000000 +0200
-+++ linux-2.6.22-rc4-mm2/net/rxrpc/ar-output.c	2007-06-15 21:38:47.000000000 +0200
-@@ -530,7 +530,7 @@ static int rxrpc_send_data(struct kiocb 
- 	struct sock *sk = &rx->sk;
- 	long timeo;
- 	bool more;
--	int ret, ioc, segment, copied;
-+	int ret, ioc, segment;
- 
- 	_enter(",,,{%zu},%zu", msg->msg_iovlen, len);
- 
-@@ -552,7 +552,6 @@ static int rxrpc_send_data(struct kiocb 
- 	skb = call->tx_pending;
- 	call->tx_pending = NULL;
- 
--	copied = 0;
- 	do {
- 		int copy;
- 
-@@ -570,11 +569,11 @@ static int rxrpc_send_data(struct kiocb 
- 				       call->acks_winsz) <= 0) {
- 				ret = -EAGAIN;
- 				if (msg->msg_flags & MSG_DONTWAIT)
--					goto maybe_error;
-+					goto out;
- 				ret = rxrpc_wait_for_tx_window(rx, call,
- 							       &timeo);
- 				if (ret < 0)
--					goto maybe_error;
-+					goto out;
- 			}
- 
- 			max = call->conn->trans->peer->maxdata;
-@@ -596,7 +595,7 @@ static int rxrpc_send_data(struct kiocb 
- 			skb = sock_alloc_send_skb(
- 				sk, size, msg->msg_flags & MSG_DONTWAIT, &ret);
- 			if (!skb)
--				goto maybe_error;
-+				goto out;
- 
- 			rxrpc_new_skb(skb);
- 
-@@ -723,11 +722,6 @@ call_aborted:
- 	_leave(" = %d", ret);
- 	return ret;
- 
--maybe_error:
--	if (copied)
--		ret = copied;
--	goto out;
--
- efault:
- 	ret = -EFAULT;
- 	goto out;
+David
+
