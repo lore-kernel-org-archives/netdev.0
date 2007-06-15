@@ -1,54 +1,39 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [PATCH][RFC] network splice receive v2
-Date: Fri, 15 Jun 2007 13:44:40 +0400
-Message-ID: <20070615094440.GA26221@2ka.mipt.ru>
-References: <20070611115926.GB18832@kernel.dk> <20070612181717.GA1600@2ka.mipt.ru> <20070612181731.GQ18832@kernel.dk> <20070613080103.GA24701@2ka.mipt.ru> <20070614115720.GA14840@2ka.mipt.ru> <20070614115902.GG6149@kernel.dk> <20070615080618.GA22234@2ka.mipt.ru> <20070615084318.GP6149@kernel.dk> <20070615091445.GA27451@2ka.mipt.ru> <20070615093429.GQ6149@kernel.dk>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: Fwd: [PATCH] [-mm] ACPI: export ACPI events via netlink
+Date: Fri, 15 Jun 2007 06:26:50 -0400
+Message-ID: <1181903210.4102.7.camel@localhost>
+References: <1179827251.7707.29.camel@localhost.localdomain>
+	 <1179831825.4121.30.camel@localhost>
+	 <1180258853.7707.53.camel@localhost.localdomain>
+	 <4466a10705270629h31977813hd2fc8330bcd87f78@mail.gmail.com>
+	 <4466a10705270634j3560c9a3j9c3630ddc20a24aa@mail.gmail.com>
+	 <1181811576.5411.27.camel@localhost.localdomain>
+	 <1181820510.4091.9.camel@localhost>
+	 <1181869285.5411.39.camel@localhost.localdomain>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: netdev@vger.kernel.org, olaf.kirch@oracle.com
-To: Jens Axboe <jens.axboe@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:35492 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750930AbXFOJos (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Jun 2007 05:44:48 -0400
-Content-Disposition: inline
-In-Reply-To: <20070615093429.GQ6149@kernel.dk>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	"linux-acpi@vger" <linux-acpi@vger.kernel.org>, lenb@kernel.org
+To: Zhang Rui <rui.zhang@intel.com>
+Return-path: <linux-acpi-owner@vger.kernel.org>
+In-Reply-To: <1181869285.5411.39.camel@localhost.localdomain>
+Sender: linux-acpi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 15, 2007 at 11:34:30AM +0200, Jens Axboe (jens.axboe@oracle.com) wrote:
-> > Both spd->nr_pages and page_nr are equal to 1. When spd->nr_pages
-> > was 2 there was only 1 free slot in pipe_buffer.
-> 
-> Ah duh, indeed, it is a dumb bug indeed. This should work.
+On Fri, 2007-15-06 at 09:01 +0800, Zhang Rui wrote:
 
-Yep, this one works too.
+> > rtnl_open_byproto(&rth, nl_mgrp(mydiscoveredacpiid), NETLINK_GENERIC)
+> > 
+> Yes. It doesn't work if I use my group id here.
+> In fact, I'm using rtnl_open_byproto(&rth, 1, NETLINK_GENERIC) now.
+> That's why I said that this demo receives all the broadcasted genetlink
+> messages.
 
-> diff --git a/fs/splice.c b/fs/splice.c
-> index 89871c6..5327cbf 100644
-> --- a/fs/splice.c
-> +++ b/fs/splice.c
-> @@ -172,6 +172,7 @@ static const struct pipe_buf_operations user_page_pipe_buf_ops = {
->  ssize_t splice_to_pipe(struct pipe_inode_info *pipe,
->  		       struct splice_pipe_desc *spd)
->  {
-> +	unsigned int spd_pages = spd->nr_pages;
->  	int ret, do_wakeup, page_nr;
->  
->  	ret = 0;
-> @@ -252,7 +253,7 @@ ssize_t splice_to_pipe(struct pipe_inode_info *pipe,
->  		}
->  	}
->  
-> -	while (page_nr < spd->nr_pages)
-> +	while (page_nr < spd_pages)
->  		spd->spd_release(spd, page_nr++);
->  
->  	return ret;
-> 
-> -- 
-> Jens Axboe
+Ok, tell me how to generate these ACPI events and i will patch my laptop
+and test it. What kernel compile options do i need? 2.6.24-rc4 will do?
 
--- 
-	Evgeniy Polyakov
+cheers,
+jamal
+
