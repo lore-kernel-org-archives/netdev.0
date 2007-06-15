@@ -1,39 +1,147 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: Fwd: [PATCH] [-mm] ACPI: export ACPI events via netlink
-Date: Fri, 15 Jun 2007 06:26:50 -0400
-Message-ID: <1181903210.4102.7.camel@localhost>
-References: <1179827251.7707.29.camel@localhost.localdomain>
-	 <1179831825.4121.30.camel@localhost>
-	 <1180258853.7707.53.camel@localhost.localdomain>
-	 <4466a10705270629h31977813hd2fc8330bcd87f78@mail.gmail.com>
-	 <4466a10705270634j3560c9a3j9c3630ddc20a24aa@mail.gmail.com>
-	 <1181811576.5411.27.camel@localhost.localdomain>
-	 <1181820510.4091.9.camel@localhost>
-	 <1181869285.5411.39.camel@localhost.localdomain>
-Reply-To: hadi@cyberus.ca
+From: Kieran Mansley <kmansley@solarflare.com>
+Subject: [PATCH 1/4] [Net] Support accelerated network plugin modules
+Date: Fri, 15 Jun 2007 11:46:25 +0100
+Message-ID: <1181904385.4121.52.camel@moonstone.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"linux-acpi@vger" <linux-acpi@vger.kernel.org>, lenb@kernel.org
-To: Zhang Rui <rui.zhang@intel.com>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <1181869285.5411.39.camel@localhost.localdomain>
-Sender: linux-acpi-owner@vger.kernel.org
+Content-Type: multipart/mixed; boundary="=-6GRXeU4lBRFyK1AX4n0Z"
+Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au
+To: xen-devel@lists.xensource.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 216-237-3-220.orange.nextweb.net ([216.237.3.220]:8420 "EHLO
+	OCEX01.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751159AbXFOKq2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jun 2007 06:46:28 -0400
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2007-15-06 at 09:01 +0800, Zhang Rui wrote:
 
-> > rtnl_open_byproto(&rth, nl_mgrp(mydiscoveredacpiid), NETLINK_GENERIC)
-> > 
-> Yes. It doesn't work if I use my group id here.
-> In fact, I'm using rtnl_open_byproto(&rth, 1, NETLINK_GENERIC) now.
-> That's why I said that this demo receives all the broadcasted genetlink
-> messages.
+--=-6GRXeU4lBRFyK1AX4n0Z
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
-Ok, tell me how to generate these ACPI events and i will patch my laptop
-and test it. What kernel compile options do i need? 2.6.24-rc4 will do?
+Add xenbus_for_each_[back,front]end functions to iterate each bus
 
-cheers,
-jamal
+Signed-off-by: Kieran Mansley <kmansley@solarflare.com> 
+
+diff -r d5e0eb7dd069 drivers/xen/xenbus/xenbus_probe.c
+--- a/drivers/xen/xenbus/xenbus_probe.c	Sun Jun 10 19:50:32 2007 +0100
++++ b/drivers/xen/xenbus/xenbus_probe.c	Thu Jun 14 14:49:40 2007 +0100
+@@ -4,6 +4,7 @@
+  * Copyright (C) 2005 Rusty Russell, IBM Corporation
+  * Copyright (C) 2005 Mike Wray, Hewlett-Packard
+  * Copyright (C) 2005, 2006 XenSource Ltd
++ * Copyright (C) 2007 Solarflare Communications, Inc.
+  * 
+  * This program is free software; you can redistribute it and/or
+  * modify it under the terms of the GNU General Public License version 2
+@@ -1085,3 +1086,10 @@ static int __init boot_wait_for_devices(
+ 
+ late_initcall(boot_wait_for_devices);
+ #endif
++
++
++int xenbus_for_each_frontend(void *arg, int (*fn)(struct device *, void *))
++{
++        return bus_for_each_dev(&xenbus_frontend.bus, NULL, arg, fn);
++}
++EXPORT_SYMBOL_GPL(xenbus_for_each_frontend);
+diff -r d5e0eb7dd069 drivers/xen/xenbus/xenbus_probe_backend.c
+--- a/drivers/xen/xenbus/xenbus_probe_backend.c	Sun Jun 10 19:50:32 2007 +0100
++++ b/drivers/xen/xenbus/xenbus_probe_backend.c	Thu Jun 14 14:49:40 2007 +0100
+@@ -4,6 +4,7 @@
+  * Copyright (C) 2005 Rusty Russell, IBM Corporation
+  * Copyright (C) 2005 Mike Wray, Hewlett-Packard
+  * Copyright (C) 2005, 2006 XenSource Ltd
++ * Copyright (C) 2007 Solarflare Communications, Inc.
+  * 
+  * This program is free software; you can redistribute it and/or
+  * modify it under the terms of the GNU General Public License version 2
+@@ -285,3 +286,10 @@ void xenbus_backend_device_register(void
+ 		       xenbus_backend.error);
+ 	}
+ }
++
++int xenbus_for_each_backend(void *arg, int (*fn)(struct device *, void *))
++{
++        return bus_for_each_dev(&xenbus_backend.bus, NULL, arg, fn);
++}
++EXPORT_SYMBOL_GPL(xenbus_for_each_backend);
++
+diff -r d5e0eb7dd069 include/xen/xenbus.h
+--- a/include/xen/xenbus.h	Sun Jun 10 19:50:32 2007 +0100
++++ b/include/xen/xenbus.h	Thu Jun 14 14:49:40 2007 +0100
+@@ -299,4 +299,7 @@ int xenbus_dev_is_online(struct xenbus_d
+ int xenbus_dev_is_online(struct xenbus_device *dev);
+ int xenbus_frontend_closed(struct xenbus_device *dev);
+ 
++extern int xenbus_for_each_backend(void *arg, int (*fn)(struct device *, void *));
++extern int xenbus_for_each_frontend(void *arg, int (*fn)(struct device *, void *));
++
+ #endif /* _XEN_XENBUS_H */
+
+
+--=-6GRXeU4lBRFyK1AX4n0Z
+Content-Disposition: attachment; filename=xenbus_for_each
+Content-Type: text/plain; name=xenbus_for_each; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+
+Add xenbus_for_each_[back,front]end functions to iterate each bus
+
+diff -r d5e0eb7dd069 drivers/xen/xenbus/xenbus_probe.c
+--- a/drivers/xen/xenbus/xenbus_probe.c	Sun Jun 10 19:50:32 2007 +0100
++++ b/drivers/xen/xenbus/xenbus_probe.c	Thu Jun 14 14:49:40 2007 +0100
+@@ -4,6 +4,7 @@
+  * Copyright (C) 2005 Rusty Russell, IBM Corporation
+  * Copyright (C) 2005 Mike Wray, Hewlett-Packard
+  * Copyright (C) 2005, 2006 XenSource Ltd
++ * Copyright (C) 2007 Solarflare Communications, Inc.
+  * 
+  * This program is free software; you can redistribute it and/or
+  * modify it under the terms of the GNU General Public License version 2
+@@ -1085,3 +1086,10 @@ static int __init boot_wait_for_devices(
+ 
+ late_initcall(boot_wait_for_devices);
+ #endif
++
++
++int xenbus_for_each_frontend(void *arg, int (*fn)(struct device *, void *))
++{
++        return bus_for_each_dev(&xenbus_frontend.bus, NULL, arg, fn);
++}
++EXPORT_SYMBOL_GPL(xenbus_for_each_frontend);
+diff -r d5e0eb7dd069 drivers/xen/xenbus/xenbus_probe_backend.c
+--- a/drivers/xen/xenbus/xenbus_probe_backend.c	Sun Jun 10 19:50:32 2007 +0100
++++ b/drivers/xen/xenbus/xenbus_probe_backend.c	Thu Jun 14 14:49:40 2007 +0100
+@@ -4,6 +4,7 @@
+  * Copyright (C) 2005 Rusty Russell, IBM Corporation
+  * Copyright (C) 2005 Mike Wray, Hewlett-Packard
+  * Copyright (C) 2005, 2006 XenSource Ltd
++ * Copyright (C) 2007 Solarflare Communications, Inc.
+  * 
+  * This program is free software; you can redistribute it and/or
+  * modify it under the terms of the GNU General Public License version 2
+@@ -285,3 +286,10 @@ void xenbus_backend_device_register(void
+ 		       xenbus_backend.error);
+ 	}
+ }
++
++int xenbus_for_each_backend(void *arg, int (*fn)(struct device *, void *))
++{
++        return bus_for_each_dev(&xenbus_backend.bus, NULL, arg, fn);
++}
++EXPORT_SYMBOL_GPL(xenbus_for_each_backend);
++
+diff -r d5e0eb7dd069 include/xen/xenbus.h
+--- a/include/xen/xenbus.h	Sun Jun 10 19:50:32 2007 +0100
++++ b/include/xen/xenbus.h	Thu Jun 14 14:49:40 2007 +0100
+@@ -299,4 +299,7 @@ int xenbus_dev_is_online(struct xenbus_d
+ int xenbus_dev_is_online(struct xenbus_device *dev);
+ int xenbus_frontend_closed(struct xenbus_device *dev);
+ 
++extern int xenbus_for_each_backend(void *arg, int (*fn)(struct device *, void *));
++extern int xenbus_for_each_frontend(void *arg, int (*fn)(struct device *, void *));
++
+ #endif /* _XEN_XENBUS_H */
+
+--=-6GRXeU4lBRFyK1AX4n0Z--
 
