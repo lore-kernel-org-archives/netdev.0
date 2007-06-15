@@ -1,61 +1,41 @@
-From: Zhu Yi <yi.zhu@intel.com>
-Subject: Re: [PATCH] NET: Multiqueue network device support.
-Date: Fri, 15 Jun 2007 09:27:06 +0800
-Message-ID: <1181870826.4092.29.camel@debian.sh.intel.com>
-References: <466DEF9D.9070509@trash.net>
-	 <1181615384.4071.121.camel@localhost>	<466E9DF2.9010505@trash.net>
-	 <20070612.140240.00078635.davem@davemloft.net> <466F0D74.5030308@trash.net>
-	 <1181714168.4758.57.camel@debian.sh.intel.com>
-	 <1181737935.4050.87.camel@localhost>
-	 <1181789064.4758.127.camel@debian.sh.intel.com>
-	 <1181821707.4091.32.camel@localhost>
+From: Wolfgang Nothdurft <Wolfgang.Nothdurft@linogate.de>
+Subject: 2.4.35-pre1: new e1000 driver breaks old hardware
+Date: Fri, 15 Jun 2007 09:26:49 +0200
+Message-ID: <46723F39.1000808@linogate.de>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	David Miller <davem@davemloft.net>,
-	peter.p.waskiewicz.jr@intel.com, netdev@vger.kernel.org,
-	jeff@garzik.org, auke-jan.h.kok@intel.com
-To: hadi@cyberus.ca
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:50308 "EHLO mga01.intel.com"
+Received: from mail.linogate.de ([213.179.141.2]:2705 "EHLO mail.linogate.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751773AbXFOB2f (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Jun 2007 21:28:35 -0400
-In-Reply-To: <1181821707.4091.32.camel@localhost>
+	id S1751186AbXFOHiK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Jun 2007 03:38:10 -0400
+Received: from riab.mowin.de (support.linogate.de [213.179.141.14] (may be forged))
+	by mail.linogate.de with ESMTP id l5F7R7xt010514
+	for <netdev@vger.kernel.org>; Fri, 15 Jun 2007 09:27:07 +0200
+Received: from [192.168.0.163] ([192.168.0.163])
+	by riab.mowin.de with ESMTP id l5F7QbEW016831
+	for <netdev@vger.kernel.org>; Fri, 15 Jun 2007 09:26:41 +0200
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2007-06-14 at 07:48 -0400, jamal wrote:
-> I dont have much time to followup for sometime to come. I have left my
-> answer above. To clarify, incase i wasnt clear, I am saying:
-> a) It is better to have the driver change via some strategy of when to
-> open the tx path than trying to be generic. This shifts the burden to
-> the driver.
-> b) given the behavior of wireless media (which is very different from
-> wired ethernet media), you need a different strategy. In response to
-> Guy's question, I gave the example of being able to use management
-> frames to open up the tx path for VO (even when you dont know VO
-> packets
-> are sitting on the qdisc); alternatively you could use a timer etc.
-> Theres many ways to skin the cat (with apologies to cat
-> lovers/owners).
-> i.e you need to look at the media and be creative.
-> Peters DCE for example could also be handled by having a specific
-> strategy. 
+Hi,
 
-OK. You tried so much to guess the traffic flow pattern in the low level
-driver, which could be implemented straightforward in the Qdisc. The pro
-is the Qdisc API is untouched. But the cons are:
+with the new e1000 driver version 7.3.20 the onboard gigabit nic 82547EI
+(8086:1019) doesn't work correctly.
+After transferring about 100 megabytes over a gigabit link the transfer
+stopped and I have to reinit the link either by doing a ifconfig down/up
+or unplugging the network cable.
+The RxIntDelay is set to 0 like described in the docu. Playing with this
+Parameter only increases the amount of traffic to be send and the error
+occurs later.
+This happens also with the 7.4.35 and 7.5.5 driver from the intel side.
+The driver 5.7.6 from kernel 2.4.33.3 and the 6.1.16 from intel works
+very well on this hardware.
+Also other gigabit nics we use didn't have this problem.
+Is this issue already known?
+Is there any solution yet?
 
-1. driver becomes complicated (as it is too elaborate in the queue
-wakeup strategies design)
-2. duplicated code among drivers (otherwise you put all the queue
-management logics in a new layer?)
-3. it's not 100% accurate. there has to be some overhead, more or less
-depends on the queue wakeup strategy the driver selected.
-
-Time for voting?
-
-Thanks,
--yi
+Kind regards
+Wolfgang
