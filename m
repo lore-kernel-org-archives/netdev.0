@@ -1,107 +1,85 @@
-From: Jens Axboe <jens.axboe@oracle.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Subject: Re: [PATCH][RFC] network splice receive v2
-Date: Fri, 15 Jun 2007 10:43:18 +0200
-Message-ID: <20070615084318.GP6149@kernel.dk>
-References: <20070611115926.GB18832@kernel.dk> <20070612181717.GA1600@2ka.mipt.ru> <20070612181731.GQ18832@kernel.dk> <20070613080103.GA24701@2ka.mipt.ru> <20070614115720.GA14840@2ka.mipt.ru> <20070614115902.GG6149@kernel.dk> <20070615080618.GA22234@2ka.mipt.ru>
+Date: Fri, 15 Jun 2007 13:14:45 +0400
+Message-ID: <20070615091445.GA27451@2ka.mipt.ru>
+References: <20070611115926.GB18832@kernel.dk> <20070612181717.GA1600@2ka.mipt.ru> <20070612181731.GQ18832@kernel.dk> <20070613080103.GA24701@2ka.mipt.ru> <20070614115720.GA14840@2ka.mipt.ru> <20070614115902.GG6149@kernel.dk> <20070615080618.GA22234@2ka.mipt.ru> <20070615084318.GP6149@kernel.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=koi8-r
 Cc: netdev@vger.kernel.org, olaf.kirch@oracle.com
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+To: Jens Axboe <jens.axboe@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from brick.kernel.dk ([80.160.20.94]:26816 "EHLO kernel.dk"
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:59444 "EHLO 2ka.mipt.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752035AbXFOInI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Jun 2007 04:43:08 -0400
+	id S1751243AbXFOJOz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Jun 2007 05:14:55 -0400
 Content-Disposition: inline
-In-Reply-To: <20070615080618.GA22234@2ka.mipt.ru>
+In-Reply-To: <20070615084318.GP6149@kernel.dk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 15 2007, Evgeniy Polyakov wrote:
-> On Thu, Jun 14, 2007 at 01:59:02PM +0200, Jens Axboe (jens.axboe@oracle.com) wrote:
-> > On Thu, Jun 14 2007, Evgeniy Polyakov wrote:
-> > > On Wed, Jun 13, 2007 at 12:01:04PM +0400, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
-> > > > I will rebase my tree, likely something was not merged correctly.
-> > > 
-> > > Ok, I've just rebased a tree from recent git and pulled from brick -
-> > > things seems to be settled. I've ran several tests with different
-> > > filesizes and all files were received correctly without kernel crashes.
-> > > There is skb leak indeed, and it looks like it is in the
-> > > __splice_from_pipe() for the last page.
+On Fri, Jun 15, 2007 at 10:43:18AM +0200, Jens Axboe (jens.axboe@oracle.com) wrote:
+> > So, things turned down to be not in the __splice_from_pipe(), but
+> > splice_to_pipe(). Attached patch fixes a leak for me.
+> > It was tested with different data files and all were received correctly.
 > > 
-> > Uh, the leak, right - I had forgotten about that, was working on getting
-> > vmsplice into shape the last two days. Interesting that you mention the
-> > last page, I'll dig in now! Any more info on this (how did you notice
-> > the leak originates from there)?
+> > Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+> > 
+> > diff --git a/fs/splice.c b/fs/splice.c
+> > index bc481f1..365bfd9 100644
+> > --- a/fs/splice.c
+> > +++ b/fs/splice.c
+> > @@ -211,8 +211,6 @@ ssize_t splice_to_pipe(struct pipe_inode_info *pipe,
+> >  				break;
+> >  			if (pipe->nrbufs < PIPE_BUFFERS)
+> >  				continue;
+> > -
+> > -			break;
+> >  		}
+> >  
+> >  		if (spd->flags & SPLICE_F_NONBLOCK) {
+> > 
 > 
-> I first observed leak via slabinfo data (not a leak, but number of skbs
-> did not dropped after quite huge files were transferred), then added
-> number of allocated and freed objects in skbuff.c, they did not match
-> for big files, so I started to check splice source and found that
-> sometimes ->release callback is not called, but code breaks out of the
-> loop. I've put some printks in __splice_from_pipe() and found following
-> case, when skb is leaked:
-> when the same cloned skb was shared multiple times (no more than 2 though),
-> only one copy was freed.
+> Hmm, curious. If we hit that location, then two conditions are true:
 > 
-> Further analysis description requires some splice background (obvious
-> for you, but that clears it for me):
-> pipe_buffer only contains 16 pages.
-> There is a code, which copies pages (pointers) from spd to pipe_buffer
-> (splice_to_pipe()).
-> skb allocations happens in chunks of different size (i.e. with different
-> number of skbs/pages per call), so it is possible that number of
-> allocated skbs will be less than pipe_buffer size (16), and then the
-> rest of the pages will be put into different (or the same) pipe_buffer later.
-> Sometimes two skbs from above example happens to be on the boundary of
-> the pipe buffer, so only one of them is being copied into pipe_buffer,
-> which is then transferred over the pipe.
-> So, we have a case, when spd has (it had more, but this two are special) 
-> 2 pages (actually the same page, but two references to it), but pipe_buffer 
-> has a place only for one. In that case second page from spd will be missed.
+> - Pipe is full
+> - We transferred some data
+
+Yep.
+
+> if you remove the break, then you'll end up blocking in pipe_wait()
+> (unless you have SPLICE_F_NONBLOCK also set). And we don't want to block
+> waiting for more room, if we already transferred some data. In that case
+> we just want to return a short splice. Looking at pipe_write(), it'll
+> block as well though. Just doesn't seem optimal to me, but...
 > 
-> So, things turned down to be not in the __splice_from_pipe(), but
-> splice_to_pipe(). Attached patch fixes a leak for me.
-> It was tested with different data files and all were received correctly.
+> So the question is why would doing the break there cause a leak? I just
+> don't yet see how it can happen, I'd love to fix that condition instead.
+> For the case you describe, we should have page_nr == 1 and spd->nr_pages
+> == 2. Is the:
 > 
-> Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+>         while (page_nr < spd->nr_pages)
+>                 spd->spd_release(spd, page_nr++);
 > 
-> diff --git a/fs/splice.c b/fs/splice.c
-> index bc481f1..365bfd9 100644
-> --- a/fs/splice.c
-> +++ b/fs/splice.c
-> @@ -211,8 +211,6 @@ ssize_t splice_to_pipe(struct pipe_inode_info *pipe,
->  				break;
->  			if (pipe->nrbufs < PIPE_BUFFERS)
->  				continue;
-> -
-> -			break;
->  		}
->  
->  		if (spd->flags & SPLICE_F_NONBLOCK) {
-> 
+> not dropping the right reference?
 
-Hmm, curious. If we hit that location, then two conditions are true:
+Both spd->nr_pages and page_nr are equal to 1. When spd->nr_pages
+was 2 there was only 1 free slot in pipe_buffer.
 
-- Pipe is full
-- We transferred some data
+spd_fill_page: allocated: 89, freed: 73, data: ffff81003d606d28
+spd_fill_page: allocated: 90, freed: 73, data: ffff81003d606d28
+splice_to_pipe: priv: ffff81003d606d28, spd_nrpages: 1, pipe_nrbufs: 16, page_nr: 1.
 
-if you remove the break, then you'll end up blocking in pipe_wait()
-(unless you have SPLICE_F_NONBLOCK also set). And we don't want to block
-waiting for more room, if we already transferred some data. In that case
-we just want to return a short splice. Looking at pipe_write(), it'll
-block as well though. Just doesn't seem optimal to me, but...
+spd_fill_page: allocated: 91, freed: 73, data: fff81003d6549c8 // next data
+...
 
-So the question is why would doing the break there cause a leak? I just
-don't yet see how it can happen, I'd love to fix that condition instead.
-For the case you describe, we should have page_nr == 1 and spd->nr_pages
-== 2. Is the:
+__splice_from_pipe: process: sd_len: 0, buf_len: 0, buf_priv: ffff81003d606d28.
+__splice_from_pipe: release ffff81003d606d28.
+sock_pipe_buf_release: allocated: 91, freed: 89, ptr: ffff81003d606d28
 
-        while (page_nr < spd->nr_pages)
-                spd->spd_release(spd, page_nr++);
+splice_to_pipe: priv: ffff81003d6549c8, spd_nrpages: 0, pipe_nrbufs: 1, page_nr: 1. // next data
 
-not dropping the right reference?
+> -- 
+> Jens Axboe
 
 -- 
-Jens Axboe
-
+	Evgeniy Polyakov
