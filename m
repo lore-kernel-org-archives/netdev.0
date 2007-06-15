@@ -1,50 +1,35 @@
-From: Kieran Mansley <kmansley@solarflare.com>
-Subject: Re: [PATCH 4/4] [Net] Support accelerated network
-	plugin modules
-Date: Fri, 15 Jun 2007 17:22:43 +0100
-Message-ID: <1181924563.4121.94.camel@moonstone.uk.level5networks.com>
-References: <1181904393.4121.55.camel@moonstone.uk.level5networks.com>
-	<4e777ed10706150859r3b6e1617o3b31e5e24a30e6c9@mail.gmail.com>
+From: Keir Fraser <Keir.Fraser@cl.cam.ac.uk>
+Subject: Re: [Xen-devel] [PATCH 4/4] [Net] Support accelerated network
+ plugin modules
+Date: Fri, 15 Jun 2007 17:31:42 +0100
+Message-ID: <C2987D7E.93CF%Keir.Fraser@cl.cam.ac.uk>
+References: <1181924563.4121.94.camel@moonstone.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+	charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xen-devel@lists.xensource.com,
-	herbert@gondor.apana.org.au
-To: Zhu Han <schumi.han@gmail.com>
-Return-path: <xen-devel-bounces@lists.xensource.com>
-In-Reply-To: <4e777ed10706150859r3b6e1617o3b31e5e24a30e6c9@mail.gmail.com>
-List-Unsubscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xensource.com?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xensource.com>
-List-Help: <mailto:xen-devel-request@lists.xensource.com?subject=help>
-List-Subscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xensource.com?subject=subscribe>
-Sender: xen-devel-bounces@lists.xensource.com
-Errors-To: xen-devel-bounces@lists.xensource.com
+Cc: <netdev@vger.kernel.org>, <xen-devel@lists.xensource.com>,
+	<herbert@gondor.apana.org.au>
+To: Kieran Mansley <kmansley@solarflare.com>,
+	Zhu Han <schumi.han@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mta2.cl.cam.ac.uk ([128.232.0.14]:50866 "EHLO mta2.cl.cam.ac.uk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755351AbXFOQ3Q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Jun 2007 12:29:16 -0400
+In-Reply-To: <1181924563.4121.94.camel@moonstone.uk.level5networks.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2007-06-15 at 11:59 -0400, Zhu Han wrote:
-> Hi, Kieran,
-> 
-> I'm just wonder why you try to acquire the lock and increase the
-> hooks_usecount each time when you use the hook routine. Is there any
-> generic ways to synchronze the code path using hook routines and
-> netfront_accelerator_unloaded, considering you can synchronize the
-> tx/rx data path easily.
+On 15/6/07 17:22, "Kieran Mansley" <kmansley@solarflare.com> wrote:
 
-The lock protects the use_count variable.  The use_count variable
-prevents the plugin module unloading while it is being used.  I couldn't
-just use the lock to prevent the module unloading as the hook function
-(i) might block (and holding a spin_lock would be rather antisocial)
-(ii) might call back into netfront and try to take the lock again, which
-would deadlock.
+> The lock protects the use_count variable.
 
-The data path hooks do not block, and are already protected by locks, so
-these are also taken when trying to unload the plugin module.  For this
-reason it's not necessary to use the hooks_usecount on the data path.
+Yes, that's one thing I noticed -- can you use atomic_t for reference counts
+and hence reduce the number of times you need to lock/unlock? At least the
+open-coded lock-decrement-test-maybe-free-unlock sequences could be
+abstracted into a put_foo() function.
 
-I think that RCU would only work in this situation if the hook functions
-didn't block, and wouldn't affect the data path locking overhead as it
-wouldn't be necessary there.  
+ -- Keir
 
-Kieran
+
