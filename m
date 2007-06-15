@@ -1,166 +1,95 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: [PATCH net-2.6] [TCP]: Congestion control API RTT sampling fix
-Date: Fri, 15 Jun 2007 12:30:12 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0706151227330.15358@kivilampi-30.cs.helsinki.fi>
+From: Jens Axboe <jens.axboe@oracle.com>
+Subject: Re: [PATCH][RFC] network splice receive v2
+Date: Fri, 15 Jun 2007 11:34:30 +0200
+Message-ID: <20070615093429.GQ6149@kernel.dk>
+References: <20070611115926.GB18832@kernel.dk> <20070612181717.GA1600@2ka.mipt.ru> <20070612181731.GQ18832@kernel.dk> <20070613080103.GA24701@2ka.mipt.ru> <20070614115720.GA14840@2ka.mipt.ru> <20070614115902.GG6149@kernel.dk> <20070615080618.GA22234@2ka.mipt.ru> <20070615084318.GP6149@kernel.dk> <20070615091445.GA27451@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-805584901-1181899812=:15358"
-Cc: Netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, olaf.kirch@oracle.com
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:51226 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752040AbXFOJaO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jun 2007 05:30:14 -0400
+Received: from brick.kernel.dk ([80.160.20.94]:25338 "EHLO kernel.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752783AbXFOJeT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Jun 2007 05:34:19 -0400
+Content-Disposition: inline
+In-Reply-To: <20070615091445.GA27451@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On Fri, Jun 15 2007, Evgeniy Polyakov wrote:
+> On Fri, Jun 15, 2007 at 10:43:18AM +0200, Jens Axboe (jens.axboe@oracle.com) wrote:
+> > > So, things turned down to be not in the __splice_from_pipe(), but
+> > > splice_to_pipe(). Attached patch fixes a leak for me.
+> > > It was tested with different data files and all were received correctly.
+> > > 
+> > > Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+> > > 
+> > > diff --git a/fs/splice.c b/fs/splice.c
+> > > index bc481f1..365bfd9 100644
+> > > --- a/fs/splice.c
+> > > +++ b/fs/splice.c
+> > > @@ -211,8 +211,6 @@ ssize_t splice_to_pipe(struct pipe_inode_info *pipe,
+> > >  				break;
+> > >  			if (pipe->nrbufs < PIPE_BUFFERS)
+> > >  				continue;
+> > > -
+> > > -			break;
+> > >  		}
+> > >  
+> > >  		if (spd->flags & SPLICE_F_NONBLOCK) {
+> > > 
+> > 
+> > Hmm, curious. If we hit that location, then two conditions are true:
+> > 
+> > - Pipe is full
+> > - We transferred some data
+> 
+> Yep.
+> 
+> > if you remove the break, then you'll end up blocking in pipe_wait()
+> > (unless you have SPLICE_F_NONBLOCK also set). And we don't want to block
+> > waiting for more room, if we already transferred some data. In that case
+> > we just want to return a short splice. Looking at pipe_write(), it'll
+> > block as well though. Just doesn't seem optimal to me, but...
+> > 
+> > So the question is why would doing the break there cause a leak? I just
+> > don't yet see how it can happen, I'd love to fix that condition instead.
+> > For the case you describe, we should have page_nr == 1 and spd->nr_pages
+> > == 2. Is the:
+> > 
+> >         while (page_nr < spd->nr_pages)
+> >                 spd->spd_release(spd, page_nr++);
+> > 
+> > not dropping the right reference?
+> 
+> Both spd->nr_pages and page_nr are equal to 1. When spd->nr_pages
+> was 2 there was only 1 free slot in pipe_buffer.
 
----696243703-805584901-1181899812=:15358
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
+Ah duh, indeed, it is a dumb bug indeed. This should work.
 
-Commit 164891aadf1721fca4dce473bb0e0998181537c6 broke RTT
-sampling of congestion control modules. Inaccurate timestamps
-could be fed to them without providing any way for them to
-identify such cases. Previously RTT sampler was called only if
-FLAG_RETRANS_DATA_ACKED was not set filtering inaccurate
-timestamps nicely. In addition, the new behavior could give an
-invalid timestamp (zero) to RTT sampler if only skbs with
-TCPCB_RETRANS were ACKed. This solves both problems.
-
-Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
----
- include/linux/ktime.h   |   12 ++++++++++++
- include/linux/skbuff.h  |    4 ++++
- net/ipv4/tcp_illinois.c |    3 +++
- net/ipv4/tcp_input.c    |    6 +++++-
- net/ipv4/tcp_lp.c       |    3 ++-
- net/ipv4/tcp_vegas.c    |    3 +++
- net/ipv4/tcp_veno.c     |    3 +++
- 7 files changed, 32 insertions(+), 2 deletions(-)
-
-diff --git a/include/linux/ktime.h b/include/linux/ktime.h
-index c762954..2b139f6 100644
---- a/include/linux/ktime.h
-+++ b/include/linux/ktime.h
-@@ -261,6 +261,18 @@ static inline s64 ktime_to_ns(const ktime_t kt)
- 
- #endif
- 
-+/**
-+ * ktime_equal - Compares two ktime_t variables to see if they are equal
-+ * @cmp1:	comparable1
-+ * @cmp2:	comparable2
-+ *
-+ * Compare two ktime_t variables, returns 1 if equal
-+ */
-+static inline int ktime_equal(const ktime_t cmp1, const ktime_t cmp2)
-+{
-+	return cmp1.tv64 == cmp2.tv64;
-+}
-+
- static inline s64 ktime_to_us(const ktime_t kt)
+diff --git a/fs/splice.c b/fs/splice.c
+index 89871c6..5327cbf 100644
+--- a/fs/splice.c
++++ b/fs/splice.c
+@@ -172,6 +172,7 @@ static const struct pipe_buf_operations user_page_pipe_buf_ops = {
+ ssize_t splice_to_pipe(struct pipe_inode_info *pipe,
+ 		       struct splice_pipe_desc *spd)
  {
- 	struct timeval tv = ktime_to_timeval(kt);
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index e7367c7..6f0b2f7 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -1579,6 +1579,10 @@ static inline ktime_t net_timedelta(ktime_t t)
- 	return ktime_sub(ktime_get_real(), t);
- }
++	unsigned int spd_pages = spd->nr_pages;
+ 	int ret, do_wakeup, page_nr;
  
-+static inline ktime_t net_invalid_timestamp(void)
-+{
-+	return ktime_set(0, 0);
-+}
- 
- extern __sum16 __skb_checksum_complete_head(struct sk_buff *skb, int len);
- extern __sum16 __skb_checksum_complete(struct sk_buff *skb);
-diff --git a/net/ipv4/tcp_illinois.c b/net/ipv4/tcp_illinois.c
-index 4adc47c..b2b2256 100644
---- a/net/ipv4/tcp_illinois.c
-+++ b/net/ipv4/tcp_illinois.c
-@@ -90,6 +90,9 @@ static void tcp_illinois_acked(struct sock *sk, u32 pkts_acked, ktime_t last)
- 
- 	ca->acked = pkts_acked;
- 
-+	if (ktime_equal(last, net_invalid_timestamp()))
-+		return;
-+
- 	rtt = ktime_to_us(net_timedelta(last));
- 
- 	/* ignore bogus values, this prevents wraparound in alpha math */
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index d6d0f9b..aaf6f66 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -2409,7 +2409,7 @@ static int tcp_clean_rtx_queue(struct sock *sk, __s32 *seq_rtt_p)
- 	int acked = 0;
- 	int prior_packets = tp->packets_out;
- 	__s32 seq_rtt = -1;
--	ktime_t last_ackt = ktime_set(0,0);
-+	ktime_t last_ackt = net_invalid_timestamp();
- 
- 	while ((skb = tcp_write_queue_head(sk)) &&
- 	       skb != tcp_send_head(sk)) {
-@@ -2487,6 +2487,10 @@ static int tcp_clean_rtx_queue(struct sock *sk, __s32 *seq_rtt_p)
- 		tcp_ack_update_rtt(sk, acked, seq_rtt);
- 		tcp_ack_packets_out(sk);
- 
-+		/* Is the ACK triggering packet unambiguous? */
-+		if (acked & FLAG_RETRANS_DATA_ACKED)
-+			last_ackt = net_invalid_timestamp();
-+
- 		if (ca_ops->pkts_acked)
- 			ca_ops->pkts_acked(sk, pkts_acked, last_ackt);
+ 	ret = 0;
+@@ -252,7 +253,7 @@ ssize_t splice_to_pipe(struct pipe_inode_info *pipe,
+ 		}
  	}
-diff --git a/net/ipv4/tcp_lp.c b/net/ipv4/tcp_lp.c
-index 43294ad..e49836c 100644
---- a/net/ipv4/tcp_lp.c
-+++ b/net/ipv4/tcp_lp.c
-@@ -266,7 +266,8 @@ static void tcp_lp_pkts_acked(struct sock *sk, u32 num_acked, ktime_t last)
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	struct lp *lp = inet_csk_ca(sk);
  
--	tcp_lp_rtt_sample(sk,  ktime_to_us(net_timedelta(last)));
-+	if (!ktime_equal(last, net_invalid_timestamp()))
-+		tcp_lp_rtt_sample(sk,  ktime_to_us(net_timedelta(last)));
+-	while (page_nr < spd->nr_pages)
++	while (page_nr < spd_pages)
+ 		spd->spd_release(spd, page_nr++);
  
- 	/* calc inference */
- 	if (tcp_time_stamp > tp->rx_opt.rcv_tsecr)
-diff --git a/net/ipv4/tcp_vegas.c b/net/ipv4/tcp_vegas.c
-index 73e19cf..e218a51 100644
---- a/net/ipv4/tcp_vegas.c
-+++ b/net/ipv4/tcp_vegas.c
-@@ -117,6 +117,9 @@ void tcp_vegas_pkts_acked(struct sock *sk, u32 cnt, ktime_t last)
- 	struct vegas *vegas = inet_csk_ca(sk);
- 	u32 vrtt;
- 
-+	if (ktime_equal(last, net_invalid_timestamp()))
-+		return;
-+
- 	/* Never allow zero rtt or baseRTT */
- 	vrtt = ktime_to_us(net_timedelta(last)) + 1;
- 
-diff --git a/net/ipv4/tcp_veno.c b/net/ipv4/tcp_veno.c
-index 9edb340..ec854cc 100644
---- a/net/ipv4/tcp_veno.c
-+++ b/net/ipv4/tcp_veno.c
-@@ -74,6 +74,9 @@ static void tcp_veno_pkts_acked(struct sock *sk, u32 cnt, ktime_t last)
- 	struct veno *veno = inet_csk_ca(sk);
- 	u32 vrtt;
- 
-+	if (ktime_equal(last, net_invalid_timestamp()))
-+		return;
-+
- 	/* Never allow zero rtt or baseRTT */
- 	vrtt = ktime_to_us(net_timedelta(last)) + 1;
- 
--- 
-1.5.0.6
+ 	return ret;
 
----696243703-805584901-1181899812=:15358--
+-- 
+Jens Axboe
+
