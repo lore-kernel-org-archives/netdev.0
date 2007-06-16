@@ -1,54 +1,52 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [IPV6] addrconf: Fix IPv6 on tuntap tunnels
-Date: Sat, 16 Jun 2007 14:33:15 +0200
-Message-ID: <4673D88B.5000805@hartkopp.net>
-References: <20070614.130358.90120374.davem@davemloft.net>	<467259DD.7030703@hartkopp.net>	<4672F9AE.6070400@hp.com> <20070615.151457.98556461.davem@davemloft.net>
+Date: Sat, 16 Jun 2007 17:55:55 +1000
+Message-ID: <20070616075555.GA23905@gondor.apana.org.au>
+References: <20070614.130358.90120374.davem@davemloft.net> <467259DD.7030703@hartkopp.net> <4672F9AE.6070400@hp.com> <20070615.151457.98556461.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: vladislav.yasevich@hp.com, herbert@gondor.apana.org.au,
+Content-Type: text/plain; charset=us-ascii
+Cc: vladislav.yasevich@hp.com, oliver@hartkopp.net,
 	yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
 	koster@debian.org.tw, socketcan@hartkopp.net,
 	urs@isnogud.escape.de, florz@florz.de
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.161]:45684 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754662AbXFPMd4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Jun 2007 08:33:56 -0400
+Received: from rhun.apana.org.au ([64.62.148.172]:4489 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754831AbXFPNb1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Jun 2007 09:31:27 -0400
+Content-Disposition: inline
 In-Reply-To: <20070615.151457.98556461.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Vlad Yasevich <vladislav.yasevich@hp.com>
-> Date: Fri, 15 Jun 2007 16:42:22 -0400
->
->   
->> No, the questions should really be:
->>
->> 1.  Is IPV6 supported over this media type.
->> 	yes: got to 2
->> 	no:  stop
->>
->> 2.  Is the device MTU >= IPV6_MIN_MTU
->> 	yes: continue
->> 	no:  stop
->>
->> Autoconfiguration is a layer on top of IPv6.  Whether it's enabled
->> or not should not dictate whether IPv6 addressed may be configured or not.
->>     
->
+On Fri, Jun 15, 2007 at 03:14:57PM -0700, David Miller wrote:
+> 
+> > No, the questions should really be:
+> > 
+> > 1.  Is IPV6 supported over this media type.
+> > 	yes: got to 2
+> > 	no:  stop
+> > 
+> > 2.  Is the device MTU >= IPV6_MIN_MTU
+> > 	yes: continue
+> > 	no:  stop
+> > 
+> > Autoconfiguration is a layer on top of IPv6.  Whether it's enabled
+> > or not should not dictate whether IPv6 addressed may be configured or not.
+> 
 > Sounds good to me, patches? :-)
->   
 
-Yes, to me it sounds also very good.
-I'm not that deep in IPv6 and i do not know about all the media types
-that support IPv6, e.g. if a whitelist (as i suggested) is the better
-way - or a blacklist.
-So i would just support the request from David for patches :-)
+I don't think we need any more patches since right now MTU >= IPV6_MIN_MTU
+is the only condition we require before we allow IPv6 addresses to be added
+to an interface.
 
-Best regards,
-Oliver
+The original patch simply confused this basic IPv6 address support with
+IPv6 autoconfiguration.
 
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
