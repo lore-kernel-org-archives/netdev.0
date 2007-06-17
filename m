@@ -1,67 +1,47 @@
-From: Mark Fortescue <mark@mtfhpc.demon.co.uk>
-Subject: Re: [2/2] 2.6.22-rc4: known regressions v3
-Date: Sun, 17 Jun 2007 12:35:32 +0100 (BST)
-Message-ID: <Pine.LNX.4.61.0706171223160.3680@mtfhpc.demon.co.uk>
-References: <46704923.1010009@googlemail.com> <46704C44.8020602@googlemail.com>
- <Pine.LNX.4.61.0706132320200.26751@mtfhpc.demon.co.uk>
- <20070614020055.GL15426@holomorphy.com> <Pine.LNX.4.61.0706141123160.28903@mtfhpc.demon.co.uk>
- <20070614142146.GN15426@holomorphy.com>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: [PATCH] Fix stupid wol variable overflow bug
+Date: Sun, 17 Jun 2007 13:40:03 +0200
+Message-ID: <200706171340.04090.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>, Dan Aloni <da-x@monatomic.org>,
-	Chad Tindel <ctindel@users.sourceforge.net>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	sparclinux@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Mikael Pettersson <mikpe@it.uu.se>,
-	linux-pm@lists.linux-foundation.org,
-	"Rafael J. Wysocki" <rjw@sisk.pl>, Pavel Machek <pavel@ucw.cz>,
-	linux-usb-devel@lists.sourceforge.net,
-	Greg Kroah-Hartman <gregkh@suse.de>,
-	Alex Riesen <raa.lkml@gmail.com>, Andi Kleen <ak@suse.de>,
-	discuss@x86-64.org, Ioan Ionita <opslynx@gmail.com>
-To: William Lee Irwin III <wli@holomorphy.com>
-Return-path: <sparclinux-owner@vger.kernel.org>
-In-Reply-To: <20070614142146.GN15426@holomorphy.com>
-Sender: sparclinux-owner@vger.kernel.org
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Maximilian Engelhardt <maxi@daemonizer.de>,
+	Gary Zambrano <zambrano@broadcom.com>
+To: John Linville <linville@tuxdriver.com>,
+	Andrew Morton <akpm@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:47057
+	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755253AbXFQLl2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Jun 2007 07:41:28 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+This bug was introduced by me.
+val is 16bit, but the read value is 32bit.
+Seems like I was smoking crack when porting that part of the driver.
+I guess that's the last stupid bug in these 4 lines of code.
 
-I have been investigating the random invalid instruction occourances on 
-sparc32 (sun4c) and identified that the problem was introduced 
-pre-v2.6.22-rc1. v2.6.21 is OK. The first time I have observed the issue 
-so far is after commit b46b8f19c9cd435ecac4d9d12b39d78c137ecd66:
-Increase slab redzone to 64bits.
+Signed-off-by: Michael Buesch <mb@bu3sch.de>
 
-Prior to this commit there apears to be a problem with the memory 
-management (depmod -a causes the system to run out of memory!) that may be 
-masking the issue. As a result of this, I am going to try to find the 
-'last known good' commit after v2.6.21 to see if this helps narrow down 
-the cause.
+Index: bu3sch-wireless-dev/drivers/net/b44.c
+===================================================================
+--- bu3sch-wireless-dev.orig/drivers/net/b44.c	2007-06-16 19:56:41.000000000 +0200
++++ bu3sch-wireless-dev/drivers/net/b44.c	2007-06-17 13:35:23.000000000 +0200
+@@ -1574,8 +1574,7 @@ static void b44_setup_wol_pci(struct b44
+ 	u16 val;
+ 
+ 	if (bp->sdev->bus->bustype != SSB_BUSTYPE_SSB) {
+-		val = br32(bp, SSB_TMSLOW);
+-		bw32(bp, SSB_TMSLOW, val | SSB_TMSLOW_PE);
++		bw32(bp, SSB_TMSLOW, br32(bp, SSB_TMSLOW) | SSB_TMSLOW_PE);
+ 		pci_read_config_word(bp->sdev->bus->host_pci, SSB_PMCSR, &val);
+ 		pci_write_config_word(bp->sdev->bus->host_pci, SSB_PMCSR, val | SSB_PE);
+ 	}
 
-Regards
- 	Mark Fortescue.
+Please apply this to wireless-dev.
 
-On Thu, 14 Jun 2007, William Lee Irwin III wrote:
-
-> On Thu, Jun 14, 2007 at 11:30:25AM +0100, Mark Fortescue wrote:
->> They apear as soon as simpleinit starts up. Somtimes I get to a login
->> prompt before seeing any. Other times, commands in the simpleinit rc
->> script fail.
->> They do apear to be random. If a command failes, you re-run the command
->> and it is OK. Commands seen to fail are basic (depmod, rm cat ..).
->> The test I did use the same binaries with both the OK and problem kernels
->> so it is not a change to the application code, it is definatly a kernel
->> issue.
->
-> This sounds like it may be addressed by benh's ptep_set_access_flags()
-> fixes. Those fixes are still in -mm, hopefully to hit mainline by 2.6.22.
->
->
-> -- wli
->
+-- 
+Greetings Michael.
