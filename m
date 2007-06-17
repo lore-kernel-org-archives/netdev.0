@@ -1,37 +1,34 @@
-From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Subject: Re: b44: high ping times with wireless-dev
-Date: Sun, 17 Jun 2007 04:32:40 +0200
-Message-ID: <200706170432.40958.mb@bu3sch.de>
-References: <200706162327.47413.maxi@daemonizer.de> <20070616154946.5fb6b013@localhost.localdomain> <200706170242.24214.maxi@daemonizer.de>
+From: Xose Vazquez Perez <xose.vazquez@gmail.com>
+Subject: -x qla3xxx* and ifenslave.c to a package
+Date: Sun, 17 Jun 2007 12:05:04 +0200
+Message-ID: <46750750.80405@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-15"
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-wireless" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Gary Zambrano <zambrano-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	"Jeff Garzik" <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>,
-	"Arnaldo Carvalho de Melo" <acme-f8uhVLnGfZaxAyOMLChx1axOck334EZe@public.gmane.org>
-To: Maximilian Engelhardt <maxi-OwNUvPV92VfddJNmlsFzeA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <200706170242.24214.maxi-OwNUvPV92VfddJNmlsFzeA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: jgarzik@pobox.com, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mu-out-0910.google.com ([209.85.134.188]:59522 "EHLO
+	mu-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761046AbXFQKFJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Jun 2007 06:05:09 -0400
+Received: by mu-out-0910.google.com with SMTP id i10so1810677mue
+        for <netdev@vger.kernel.org>; Sun, 17 Jun 2007 03:05:08 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sunday 17 June 2007 02:42:18 Maximilian Engelhardt wrote:
-> I did build a kernel without the three mentioned above but the problem is 
-> still the same. I also did remove everything but eth0 on interrupt 10 so the 
-> only device using that interrupt is eth0 and then the card completely stopped 
-> working.
+hi,
 
-_That_ is interesting...
-Maybe the IRQ isn't correctly wired up on the backplane and
-it doesn't generate IRQs at all (so it only worked, because other devices
-on the same IRQ line triggered the line).
-I'll take a look at that code.
+Jeff please:
 
--- 
-Greetings Michael.
+remove the "x" file access permission of:
+drivers/net/qla3xxx.c
+drivers/net/qla3xxx.h
+
+move Documentation/networking/ifenslave.c to a user
+space package(iputils, net-tools, ....)
+
+
+-thanks-
+
+
+regards,
