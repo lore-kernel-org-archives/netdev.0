@@ -1,55 +1,67 @@
-From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Subject: Re: b44: high ping times with wireless-dev
-Date: Sun, 17 Jun 2007 13:08:38 +0200
-Message-ID: <200706171308.39169.mb@bu3sch.de>
-References: <200706162327.47413.maxi@daemonizer.de> <200706171255.40155.mb@bu3sch.de>
+From: Mark Fortescue <mark@mtfhpc.demon.co.uk>
+Subject: Re: [2/2] 2.6.22-rc4: known regressions v3
+Date: Sun, 17 Jun 2007 12:35:32 +0100 (BST)
+Message-ID: <Pine.LNX.4.61.0706171223160.3680@mtfhpc.demon.co.uk>
+References: <46704923.1010009@googlemail.com> <46704C44.8020602@googlemail.com>
+ <Pine.LNX.4.61.0706132320200.26751@mtfhpc.demon.co.uk>
+ <20070614020055.GL15426@holomorphy.com> <Pine.LNX.4.61.0706141123160.28903@mtfhpc.demon.co.uk>
+ <20070614142146.GN15426@holomorphy.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-wireless" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Gary Zambrano <zambrano-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Stephen Hemminger <shemminger-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	"Jeff Garzik" <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>,
-	"Arnaldo Carvalho de Melo" <acme-f8uhVLnGfZaxAyOMLChx1axOck334EZe@public.gmane.org>
-To: Maximilian Engelhardt <maxi-OwNUvPV92VfddJNmlsFzeA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <200706171255.40155.mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>, Dan Aloni <da-x@monatomic.org>,
+	Chad Tindel <ctindel@users.sourceforge.net>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	sparclinux@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Mikael Pettersson <mikpe@it.uu.se>,
+	linux-pm@lists.linux-foundation.org,
+	"Rafael J. Wysocki" <rjw@sisk.pl>, Pavel Machek <pavel@ucw.cz>,
+	linux-usb-devel@lists.sourceforge.net,
+	Greg Kroah-Hartman <gregkh@suse.de>,
+	Alex Riesen <raa.lkml@gmail.com>, Andi Kleen <ak@suse.de>,
+	discuss@x86-64.org, Ioan Ionita <opslynx@gmail.com>
+To: William Lee Irwin III <wli@holomorphy.com>
+Return-path: <sparclinux-owner@vger.kernel.org>
+In-Reply-To: <20070614142146.GN15426@holomorphy.com>
+Sender: sparclinux-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sunday 17 June 2007 12:55:39 Michael Buesch wrote:
-> On Saturday 16 June 2007 23:27:43 Maximilian Engelhardt wrote:
-> > [...]
-> > ACPI: PCI Interrupt Link [LNKD] enabled at IRQ 10
-> > ACPI: PCI Interrupt 0000:02:02.0[A] -> Link [LNKD] -> GSI 10 (level, low) -> 
-> > IRQ 10
-> > ssb: Sonics Silicon Backplane found on PCI device 0000:02:02.0
-> > b44.c:v2.0
-> > eth0: Broadcom 44xx/47xx 10/100BaseT Ethernet 00:c0:9f:29:99:a7
-> > [...]
-> 
-> Ok, I prepared two debugging patches.
-> 
-> Please enable SonicsSiliconBackplane Debugging in the kernel kconfig,
-> so I can get more detail information about your card.
-> Device Drivers/Sonics Silicon Backplane/SSB debugging
-> (Must disable "No SSB kernel messages")
-> 
-> Please apply and test the attached debugging patches in a row.
-> So apply patch 1 and test if it works again. If not, apply
-> patch 2 and test if it works.
-> Always save complete dmesg log on each test run and send it to me.
-> 
-> Thanks for testing.
-> (This time it seems we are actually getting somewhere, when
-> dealing with sane people. :D )
-> 
+Hi all,
 
-Ah, forgot to say. Apply patch 2 on top of patch 1.
+I have been investigating the random invalid instruction occourances on 
+sparc32 (sun4c) and identified that the problem was introduced 
+pre-v2.6.22-rc1. v2.6.21 is OK. The first time I have observed the issue 
+so far is after commit b46b8f19c9cd435ecac4d9d12b39d78c137ecd66:
+Increase slab redzone to 64bits.
 
--- 
-Greetings Michael.
+Prior to this commit there apears to be a problem with the memory 
+management (depmod -a causes the system to run out of memory!) that may be 
+masking the issue. As a result of this, I am going to try to find the 
+'last known good' commit after v2.6.21 to see if this helps narrow down 
+the cause.
+
+Regards
+ 	Mark Fortescue.
+
+On Thu, 14 Jun 2007, William Lee Irwin III wrote:
+
+> On Thu, Jun 14, 2007 at 11:30:25AM +0100, Mark Fortescue wrote:
+>> They apear as soon as simpleinit starts up. Somtimes I get to a login
+>> prompt before seeing any. Other times, commands in the simpleinit rc
+>> script fail.
+>> They do apear to be random. If a command failes, you re-run the command
+>> and it is OK. Commands seen to fail are basic (depmod, rm cat ..).
+>> The test I did use the same binaries with both the OK and problem kernels
+>> so it is not a change to the application code, it is definatly a kernel
+>> issue.
+>
+> This sounds like it may be addressed by benh's ptep_set_access_flags()
+> fixes. Those fixes are still in -mm, hopefully to hit mainline by 2.6.22.
+>
+>
+> -- wli
+>
