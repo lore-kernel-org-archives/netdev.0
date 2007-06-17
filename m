@@ -1,63 +1,61 @@
-From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Subject: Re: b44: high ping times with wireless-dev
-Date: Sun, 17 Jun 2007 14:12:44 +0200
-Message-ID: <200706171412.45074.mb@bu3sch.de>
-References: <200706162327.47413.maxi@daemonizer.de> <200706171255.40155.mb@bu3sch.de> <200706171403.34299.maxi@daemonizer.de>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: [PATCH] b44-ssb: Fix IRQ routing bits on the backplane
+Date: Sun, 17 Jun 2007 14:52:38 +0200
+Message-ID: <200706171452.38383.mb@bu3sch.de>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="iso-8859-15"
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-wireless" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Gary Zambrano <zambrano-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Stephen Hemminger <shemminger-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	"Jeff Garzik" <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>,
-	"Arnaldo Carvalho de Melo" <acme-f8uhVLnGfZaxAyOMLChx1axOck334EZe@public.gmane.org>
-To: Maximilian Engelhardt <maxi-OwNUvPV92VfddJNmlsFzeA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <200706171403.34299.maxi-OwNUvPV92VfddJNmlsFzeA@public.gmane.org>
+Cc: netdev@vger.kernel.org, Maximilian Engelhardt <maxi@daemonizer.de>,
+	Gary Zambrano <zambrano@broadcom.com>
+To: John Linville <linville@tuxdriver.com>,
+	Andrew Morton <akpm@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:56697
+	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754133AbXFQM7H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Jun 2007 08:59:07 -0400
 Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sunday 17 June 2007 14:03:30 Maximilian Engelhardt wrote:
-> On Sunday 17 June 2007, Michael Buesch wrote:
-> > On Saturday 16 June 2007 23:27:43 Maximilian Engelhardt wrote:
-> > > [...]
-> > > ACPI: PCI Interrupt Link [LNKD] enabled at IRQ 10
-> > > ACPI: PCI Interrupt 0000:02:02.0[A] -> Link [LNKD] -> GSI 10 (level, low)
-> > > -> IRQ 10
-> > > ssb: Sonics Silicon Backplane found on PCI device 0000:02:02.0
-> > > b44.c:v2.0
-> > > eth0: Broadcom 44xx/47xx 10/100BaseT Ethernet 00:c0:9f:29:99:a7
-> > > [...]
-> >
-> > Ok, I prepared two debugging patches.
-> >
-> > Please enable SonicsSiliconBackplane Debugging in the kernel kconfig,
-> > so I can get more detail information about your card.
-> > Device Drivers/Sonics Silicon Backplane/SSB debugging
-> > (Must disable "No SSB kernel messages")
-> >
-> > Please apply and test the attached debugging patches in a row.
-> > So apply patch 1 and test if it works again. If not, apply
-> > patch 2 and test if it works.
-> > Always save complete dmesg log on each test run and send it to me.
-> >
-> > Thanks for testing.
-> > (This time it seems we are actually getting somewhere, when
-> > dealing with sane people. :D )
-> 
-> I did the tests with my kernel where only the card is on interrupt 10. dmesg 
-> is attached.
-> With the first patch applied networking does work again. I also additionally 
-> tried patch2 and it also does work.
+The backplane on the b44 chip seems to have a silicon bug
+in the IRQ routing. The ethernet core IRQ routing does not work
+with the routing bit returned from the backplaneflag register.
+This patch adds a workaround for the b44 chip to use a hardcoded
+constant. This constant was also used in the old b44 driver.
 
-Great!
-To me this seems to be a silicon bug. The IRQ routing value, which is read
-from the chip here, is hardcoded in the old b44 driver.
-I'll implement a workaround for this and submit a patch.
+Signed-off-by: Michael Buesch <mb@bu3sch.de>
+Cc: Maximilian Engelhardt <maxi@daemonizer.de>
+Cc: Gary Zambrano <zambrano@broadcom.com>
+
+Index: bu3sch-wireless-dev/drivers/ssb/driver_pcicore.c
+===================================================================
+--- bu3sch-wireless-dev.orig/drivers/ssb/driver_pcicore.c	2007-06-17 13:35:45.000000000 +0200
++++ bu3sch-wireless-dev/drivers/ssb/driver_pcicore.c	2007-06-17 14:19:05.000000000 +0200
+@@ -496,9 +496,15 @@ int ssb_pcicore_dev_irqvecs_enable(struc
+ 		u32 intvec;
+ 
+ 		intvec = ssb_read32(pdev, SSB_INTVEC);
+-		tmp = ssb_read32(dev, SSB_TPSFLAG);
+-		tmp &= SSB_TPSFLAG_BPFLAG;
+-		intvec |= tmp;
++		if ((bus->chip_id & 0xFF00) == 0x4400) {
++			/* Workaround: On the BCM44XX the BPFLAG routing
++			 * bit is wrong. Use a hardcoded constant. */
++			intvec |= 0x00000002;
++		} else {
++			tmp = ssb_read32(dev, SSB_TPSFLAG);
++			tmp &= SSB_TPSFLAG_BPFLAG;
++			intvec |= tmp;
++		}
+ 		ssb_write32(pdev, SSB_INTVEC, intvec);
+ 	}
+
+ 
+Please apply this to wireless-dev.
+This is also most likely the bug Uwe Bugla was
+bullshitting about^W^Wreporting.
 
 -- 
 Greetings Michael.
