@@ -1,24 +1,48 @@
-From: David Howells <dhowells@redhat.com>
-Subject: Re: [RFC: 2.6 patch] net/rxrpc/ar-output.c: remove dead code
-Date: Mon, 18 Jun 2007 12:40:02 +0100
-Message-ID: <22946.1182166802@redhat.com>
-References: <20070615214520.GM3588@stusta.de>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Adrian Bunk <bunk@stusta.de>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [PATCH] fix race in AF_UNIX
+Date: Mon, 18 Jun 2007 12:47:21 +0100
+Message-ID: <20070618124721.56411b93@the-village.bc.nu>
+References: <E1I0BzQ-0006gZ-00@dorka.pomaz.szeredi.hu>
+	<20070618.005711.21897961.davem@davemloft.net>
+	<E1I0CTH-0006k3-00@dorka.pomaz.szeredi.hu>
+	<20070618.021813.105401188.davem@davemloft.net>
+	<E1I0DYW-0006uZ-00@dorka.pomaz.szeredi.hu>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, akpm@linux-foundation.org,
+	viro@ftp.linux.org.uk, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Miklos Szeredi <miklos@szeredi.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:52419 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761124AbXFRLlm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Jun 2007 07:41:42 -0400
-In-Reply-To: <20070615214520.GM3588@stusta.de>
+Received: from outpipe-village-512-1.bc.nu ([81.2.110.250]:40746 "EHLO
+	the-village.bc.nu" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754212AbXFRLm1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jun 2007 07:42:27 -0400
+In-Reply-To: <E1I0DYW-0006uZ-00@dorka.pomaz.szeredi.hu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Adrian Bunk <bunk@stusta.de> wrote:
+> No, correctness always trumps performance.  Lost packets on an AF_UNIX
+> socket are _unexceptable_, and this is definitely not a theoretical
+> problem.
 
-> This patch removes dead code spotted by the Coverity checker.
+If its so unacceptable why has nobody noticed until now - its a bug
+clearly, it needs fixing clearly, but unless you can produce some kind of
+exploit from it (eg a DoS attack or kernel memory leak exploiter) it
+doesn't appear to be that serious.
 
-This is the wrong solution.  'copied' should be updated.
+> And BTW my second patch does _not_ have the performance problems you
+> are arguing about, it's just plain ugly.  But hey, if you can't live
+> with ugly code, go and fix it.
 
-David
+If you put ugly code into the kernel you pay for maintaining it for years
+to come. If you get it right then you don't
+
+> Do you want me to send the patch to Andrew instead?  His attitude
+> towards bugfixes is rather better ;)
+
+And it'll get NAKked and binned. DaveM is (as happens sometimes ;)) right
+to insist on the code being clean and efficient.
+
+Alan
