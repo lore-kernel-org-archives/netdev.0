@@ -1,57 +1,56 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: sky bugs in 2.6.22-rc5
-Date: Mon, 18 Jun 2007 13:47:08 -0700
-Message-ID: <20070618134708.6be59348@localhost.localdomain>
-References: <4676E1DD.1060007@trash.net>
-	<20070618130414.35801913@localhost.localdomain>
-	<4676E77E.4080707@trash.net>
-	<20070618132021.64b08836@localhost.localdomain>
-	<4676EE86.5010205@trash.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 2/3] NET: [SCHED] Qdisc changes and sch_rr added for multiqueue
+Date: Mon, 18 Jun 2007 22:54:41 +0200
+Message-ID: <4676F111.4000105@trash.net>
+References: <D5C1322C3E673F459512FB59E0DDC329030D59A7@orsmsx414.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
+Cc: davem@davemloft.net, netdev@vger.kernel.org, jeff@garzik.org,
+	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>, hadi@cyberus.ca
+To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:51187 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758413AbXFRUrm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jun 2007 16:47:42 -0400
-In-Reply-To: <4676EE86.5010205@trash.net>
+Received: from stinky.trash.net ([213.144.137.162]:42274 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1765001AbXFRUyo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jun 2007 16:54:44 -0400
+In-Reply-To: <D5C1322C3E673F459512FB59E0DDC329030D59A7@orsmsx414.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 18 Jun 2007 22:43:50 +0200
-Patrick McHardy <kaber@trash.net> wrote:
-
-> Stephen Hemminger wrote:
-> > On Mon, 18 Jun 2007 22:13:50 +0200
-> > Patrick McHardy <kaber@trash.net> wrote:
-> > 
-> > 
-> >>Stephen Hemminger wrote:
-> >>
-> >>>Does this fix it?  It was possible for the PHY interrupt to race
-> >>>while bringing link up.
-> >>
-> >>
-> >>No, both problems are still present.
-> > 
-> > 
-> > What hardware. Could you load with messages max: modprobe sky2 debug=15
+Waskiewicz Jr, Peter P wrote:
+>>>+	band = TC_H_MIN(band) - 1;
+>>>+	if (band > q->bands) {
+>>
+>>You copied an off-by-one from an old sch_prio version here.
 > 
-> sky2 0000:05:00.0: v1.14 addr 0xdb000000 irq 36 Yukon-EC (0xb6) rev 2
 > 
-> Unloading the driver (with your patch) crashed my box twice.
-Was that under load or just idle?
+> Hmm.  This is the sch_prio from the first 2.6.23-dev tree.  I'll resync
+> and make sure it's the correct one.
 
-> I've
-> attached a log of loading the driver with debug=15, transmitting
-> a few packets, then setting it down and up again and trying to
-> transmit a few more packets (which didn't work).
+Current 2.6.22-rc and net-2.6.23 have
+
+        if (band >= q->bands)
+
+
+
+>>>+static int rr_tune(struct Qdisc *sch, struct rtattr *opt)
+>>>+{
+>>>+	struct rr_sched_data *q = qdisc_priv(sch);
+>>>+	struct tc_rr_qopt *qopt = RTA_DATA(opt);
+>>
+>>
+>>Nested attributes please, don't repeat sch_prio's mistake.
 > 
+> 
+> I'm not sure I understand what you mean here about nested attributes.
 
-What kind of switch.
 
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+Nested netlink attributes, like most qdisc use, instead of
+struct tc_rr_qopt (or additionally). The way you've done
+it makes it hard to add further attributes later.
+
+BTw, couldn't you just merge sch_rr with prio? AFAICT you
+only need a new dequeue function, a new struct Qdisc_ops
+and a MODULE_ALIAS.
+
