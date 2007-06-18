@@ -1,55 +1,41 @@
 From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [IPV6] addrconf: Fix IPv6 on tuntap tunnels
-Date: Mon, 18 Jun 2007 13:56:26 -0400
-Message-ID: <4676C74A.4010607@hp.com>
-References: <20070614.130358.90120374.davem@davemloft.net> <467259DD.7030703@hartkopp.net> <4672F9AE.6070400@hp.com> <20070615.151457.98556461.davem@davemloft.net> <20070616075555.GA23905@gondor.apana.org.au>
+Subject: Re: [PATCH 1/3] [IPV6]: Restore semantics of Routing Header processing.
+Date: Mon, 18 Jun 2007 14:16:29 -0400
+Message-ID: <4676CBFD.1040901@hp.com>
+References: <20070618.150423.46608800.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, oliver@hartkopp.net,
-	yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
-	koster@debian.org.tw, socketcan@hartkopp.net,
-	urs@isnogud.escape.de, florz@florz.de
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, pekkas@netcore.fi, netdev@vger.kernel.org
+To: =?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kgLyDlkInol6Toi7HmmI4=?=
+	<yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel7.hp.com ([156.153.255.213]:45280 "EHLO atlrel7.hp.com"
+Received: from atlrel6.hp.com ([156.153.255.205]:59591 "EHLO atlrel6.hp.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756158AbXFRR4m (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Jun 2007 13:56:42 -0400
-In-Reply-To: <20070616075555.GA23905@gondor.apana.org.au>
+	id S1760495AbXFRSQg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Jun 2007 14:16:36 -0400
+In-Reply-To: <20070618.150423.46608800.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
-> On Fri, Jun 15, 2007 at 03:14:57PM -0700, David Miller wrote:
->>> No, the questions should really be:
->>>
->>> 1.  Is IPV6 supported over this media type.
->>> 	yes: got to 2
->>> 	no:  stop
->>>
->>> 2.  Is the device MTU >= IPV6_MIN_MTU
->>> 	yes: continue
->>> 	no:  stop
->>>
->>> Autoconfiguration is a layer on top of IPv6.  Whether it's enabled
->>> or not should not dictate whether IPv6 addressed may be configured or not.
->> Sounds good to me, patches? :-)
-> 
-> I don't think we need any more patches since right now MTU >= IPV6_MIN_MTU
-> is the only condition we require before we allow IPv6 addresses to be added
-> to an interface.
-> 
-> The original patch simply confused this basic IPv6 address support with
-> IPv6 autoconfiguration.
+YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E wrote:
+>  					 IPSTATS_MIB_INHDRERRORS);
+> @@ -465,6 +440,8 @@ looped_back:
+>  		break;
+>  #ifdef CONFIG_IPV6_MIP6
+>  	case IPV6_SRCRT_TYPE_2:
+> +		if (accept_source_route < 0)
+> +			goto unknown_rh;
+>  		/* Silently discard invalid RTH type 2 */
+>  		if (hdr->hdrlen !=3D 2 || hdr->segments_left !=3D 1) {
+>  			IP6_INC_STATS_BH(ip6_dst_idev(skb->dst),
 
-Looking over the history, Herbert has mostly right.
-
-The only concern I have is that it's currently permitted to configure
-IPv6 addresses on interface that would not have link-local addressing
-(ex: IEEE 1394 link).
-
-Now, is some circumstances that's ok (tuntap is a perfect example).
-In others, particularly where there is an "IPv6 over foo" spec, not so much.
+Do we really want to do this.  The IPv6 working group is bending over b=
+ackwards
+in it's attempt to _not_ break MIPv6 while deprecating RH0.  The abilit=
+y to "break"
+MIPv6 by disable RH2 without disabling the rest of MIP seems a "bad thi=
+ng" to me.
 
 -vlad
+
