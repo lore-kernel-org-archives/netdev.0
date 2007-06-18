@@ -1,8 +1,9 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 2/3] NET: [SCHED] Qdisc changes and sch_rr added for multiqueue
-Date: Mon, 18 Jun 2007 21:05:31 +0200
-Message-ID: <4676D77B.7020105@trash.net>
-References: <20070618184208.12274.13017.stgit@localhost.localdomain> <20070618184224.12274.36798.stgit@localhost.localdomain>
+Subject: Re: [PATCH 3/3] NET: [CORE] Stack changes to add multiqueue hardware
+ support API
+Date: Mon, 18 Jun 2007 21:10:09 +0200
+Message-ID: <4676D891.7080107@trash.net>
+References: <20070618184208.12274.13017.stgit@localhost.localdomain> <20070618184229.12274.88596.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -10,233 +11,94 @@ Cc: davem@davemloft.net, netdev@vger.kernel.org, jeff@garzik.org,
 	auke-jan.h.kok@intel.com, hadi@cyberus.ca
 To: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:40278 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:40373 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762126AbXFRTFh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jun 2007 15:05:37 -0400
-In-Reply-To: <20070618184224.12274.36798.stgit@localhost.localdomain>
+	with ESMTP id S1760029AbXFRTKO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jun 2007 15:10:14 -0400
+In-Reply-To: <20070618184229.12274.88596.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 PJ Waskiewicz wrote:
->
-> diff --git a/net/sched/sch_prio.c b/net/sched/sch_prio.c
-> index 6d7542c..44ecdc6 100644
-> --- a/net/sched/sch_prio.c
-> +++ b/net/sched/sch_prio.c
->  	}
-> +#ifdef CONFIG_NET_SCH_PRIO_MQ
-> +	/* setup queue to band mapping */
-> +	if (q->bands < sch->dev->egress_subqueue_count) {
-> +		qmapoffset = 1;
-> +		mod = sch->dev->egress_subqueue_count;
-> +	} else {
-> +		mod = q->bands % sch->dev->egress_subqueue_count;
-> +		qmapoffset = q->bands / sch->dev->egress_subqueue_count
-> +				+ ((mod) ? 1 : 0);
-> +	}
-> +
-> +	queue = 0;
-> +	offset = 0;
-> +	for (i = 0; i < q->bands; i++) {
-> +		q->band2queue[i] = queue;
-> +		if ( ((i + 1) - offset) == qmapoffset) {
-> +			queue++;
-> +			offset += qmapoffset;
-> +			if (mod)
-> +				mod--;
-> +			qmapoffset = q->bands /
-> +				sch->dev->egress_subqueue_count +
-> +				((mod) ? 1 : 0);
-> +		}
-> +	}
-> +#endif
+> Add the multiqueue hardware device support API to the core network
+> stack.  Allow drivers to allocate multiple queues and manage them
+> at the netdev level if they choose to do so.
+>   
 
-This should really go, its not only ugly, it also makes no sense to use
-more bands than queues since that means multiple bands of different
-priorities are controlled through a single queue state, so lower priority
-bands can stop the queue for higher priority ones.
+Should be 2/3 and qdisc changes should be 3/3. Well actually the qdisc 
+sch_generic changes
+belong in this patch as well and the qdisc changes should be split in 
+one change per qdisc.
 
-The user should enable multiqueue behaviour and using it with a non-matching
-parameters should simply return an error.
+>  /* Functions used for multicast support */
+> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+> index e7367c7..8bcd870 100644
+> --- a/include/linux/skbuff.h
+> +++ b/include/linux/skbuff.h
+> @@ -215,6 +215,7 @@ typedef unsigned char *sk_buff_data_t;
+>   *	@pkt_type: Packet class
+>   *	@fclone: skbuff clone status
+>   *	@ip_summed: Driver fed us an IP checksum
+> + *	@queue_mapping: Queue mapping for multiqueue devices
+>   *	@priority: Packet queueing priority
+>   *	@users: User count - see {datagram,tcp}.c
+>   *	@protocol: Packet protocol from driver
+> @@ -269,6 +270,7 @@ struct sk_buff {
+>  			__u16	csum_offset;
+>  		};
+>  	};
+> +	__u16			queue_mapping;
+>   
 
->  	return 0;
->  }
+We have a 4 byte hole on 64 bit after iif where this would fit in.
+
+> @@ -3377,12 +3381,23 @@ struct net_device *alloc_netdev(int sizeof_priv, const char *name,
+>  	if (sizeof_priv)
+>  		dev->priv = netdev_priv(dev);
 >  
-> diff --git a/net/sched/sch_rr.c b/net/sched/sch_rr.c
-> new file mode 100644
-> index 0000000..ce9f237
-> --- /dev/null
-> +++ b/net/sched/sch_rr.c
+> +  	alloc_size = (sizeof(struct net_device_subqueue) * queue_count);
+> +  
+> +  	p = kzalloc(alloc_size, GFP_KERNEL);
+> +  	if (!p) {
+> +  		printk(KERN_ERR "alloc_netdev: Unable to allocate queues.\n");
+> +  		return NULL;
+>   
 
-For which multiqueue capable device is this? Jamal mentioned that e1000 
-uses drr.
+Same leak here that you already fixed a couple of posts ago.
 
-> @@ -0,0 +1,516 @@
-> +/*
-> + * net/sched/sch_rr.c	Simple n-band round-robin scheduler.
-> + *
-> + *		This program is free software; you can redistribute it and/or
-> + *		modify it under the terms of the GNU General Public License
-> + *		as published by the Free Software Foundation; either version
-> + *		2 of the License, or (at your option) any later version.
-> + *
-> + * The core part of this qdisc is based on sch_prio.  ->dequeue() is where
-> + * this scheduler functionally differs.
-> + *
-> + * Author:	PJ Waskiewicz, <peter.p.waskiewicz.jr@intel.com>
-> + *
-> + * Original Authors (from PRIO): Alexey Kuznetsov, <kuznet@ms2.inr.ac.ru>
-> + * Fixes:       19990609: J Hadi Salim <hadi@nortelnetworks.com>:
-> + *              Init --  EINVAL when opt undefined
-> + */
+> +  	}
+> +  
+> +  	dev->egress_subqueue = p;
+> +  	dev->egress_subqueue_count = queue_count;
 > +
-> +#include <linux/module.h>
-> +#include <asm/uaccess.h>
-> +#include <asm/system.h>
-> +#include <linux/bitops.h>
-> +#include <linux/types.h>
-> +#include <linux/kernel.h>
-> +#include <linux/string.h>
-> +#include <linux/mm.h>
-> +#include <linux/socket.h>
-> +#include <linux/sockios.h>
-> +#include <linux/in.h>
-> +#include <linux/errno.h>
-> +#include <linux/interrupt.h>
-> +#include <linux/if_ether.h>
-> +#include <linux/inet.h>
-> +#include <linux/netdevice.h>
-> +#include <linux/etherdevice.h>
-> +#include <linux/notifier.h>
-> +#include <net/ip.h>
-> +#include <net/route.h>
-> +#include <linux/skbuff.h>
-> +#include <net/netlink.h>
-> +#include <net/sock.h>
-> +#include <net/pkt_sched.h>
+>  	dev->get_stats = internal_stats;
+>  	setup(dev);
+>  	strcpy(dev->name, name);
+>  	return dev;
+>  }
+> -EXPORT_SYMBOL(alloc_netdev);
+> +EXPORT_SYMBOL(alloc_netdev_mq);
+>  
+>  /**
+>   *	free_netdev - free network device
+> @@ -3396,6 +3411,7 @@ void free_netdev(struct net_device *dev)
+>  {
+>  #ifdef CONFIG_SYSFS
+>  	/*  Compatibility with error handling in drivers */
+> +	kfree((char *)dev->egress_subqueue);
+>   
+And the pointless cast as well.
 
-Lots os unnecessary includes. I have a patch that cleans this up for 
-net/sched,
-this is the relevant sch_prio part where you copied this from:
+>  	if (dev->reg_state == NETREG_UNINITIALIZED) {
+>  		kfree((char *)dev - dev->padded);
+>  		return;
+> @@ -3407,6 +3423,7 @@ void free_netdev(struct net_device *dev)
+>  	/* will free via device release */
+>  	put_device(&dev->dev);
+>  #else
+> +	kfree((char *)dev->egress_subqueue);
+>   
 
---- a/net/sched/sch_prio.c
-+++ b/net/sched/sch_prio.c
-@@ -12,28 +12,12 @@
-  */
- 
- #include <linux/module.h>
--#include <asm/uaccess.h>
--#include <asm/system.h>
--#include <linux/bitops.h>
- #include <linux/types.h>
- #include <linux/kernel.h>
- #include <linux/string.h>
--#include <linux/mm.h>
--#include <linux/socket.h>
--#include <linux/sockios.h>
--#include <linux/in.h>
- #include <linux/errno.h>
--#include <linux/interrupt.h>
--#include <linux/if_ether.h>
--#include <linux/inet.h>
--#include <linux/netdevice.h>
--#include <linux/etherdevice.h>
--#include <linux/notifier.h>
--#include <net/ip.h>
--#include <net/route.h>
- #include <linux/skbuff.h>
- #include <net/netlink.h>
--#include <net/sock.h>
- #include <net/pkt_sched.h>
-
-> +
-> +
-> +struct rr_sched_data
-> +{
-> +	int bands;
-> +	int curband;
-> +	struct tcf_proto *filter_list;
-> +	u8  prio2band[TC_RR_MAX + 1];
-> +	struct Qdisc *queues[TCQ_RR_BANDS];
-> +	u16 band2queue[TC_RR_MAX + 1];
-> +};
-> +
-> +
-> +static struct Qdisc *rr_classify(struct sk_buff *skb, struct Qdisc *sch,
-> +				 int *qerr)
-> +{
-> +	struct rr_sched_data *q = qdisc_priv(sch);
-> +	u32 band = skb->priority;
-> +	struct tcf_result res;
-> +
-> +	*qerr = NET_XMIT_BYPASS;
-> +	if (TC_H_MAJ(skb->priority) != sch->handle) {
-> +#ifdef CONFIG_NET_CLS_ACT
-> +		switch (tc_classify(skb, q->filter_list, &res)) {
-> +		case TC_ACT_STOLEN:
-> +		case TC_ACT_QUEUED:
-> +			*qerr = NET_XMIT_SUCCESS;
-> +		case TC_ACT_SHOT:
-> +			return NULL;
-> +		}
-> +
-> +		if (!q->filter_list ) {
-> +#else
-> +		if (!q->filter_list || tc_classify(skb, q->filter_list, &res)) {
-> +#endif
-> +			if (TC_H_MAJ(band))
-> +				band = 0;
-> + 			skb->queue_mapping =
-> + 				  q->band2queue[q->prio2band[band&TC_RR_MAX]];
-> +
-> +			return q->queues[q->prio2band[band&TC_RR_MAX]];
-> +		}
-> +		band = res.classid;
-> +	}
-> +	band = TC_H_MIN(band) - 1;
-> +	if (band > q->bands) {
-
-You copied an off-by-one from an old sch_prio version here.
-
->
-> +static int rr_tune(struct Qdisc *sch, struct rtattr *opt)
-> +{
-> +	struct rr_sched_data *q = qdisc_priv(sch);
-> +	struct tc_rr_qopt *qopt = RTA_DATA(opt);
-
-
-Nested attributes please, don't repeat sch_prio's mistake.
-
-
-> ...
-> +	/* setup queue to band mapping - best effort to map into available
-> +	 * hardware queues
-> +	 */
-> +	if (q->bands < sch->dev->egress_subqueue_count) {
-> +		qmapoffset = 1;
-> +		mod = sch->dev->egress_subqueue_count;
-> +	} else {
-> +		mod = q->bands % sch->dev->egress_subqueue_count;
-> +		qmapoffset = q->bands / sch->dev->egress_subqueue_count
-> +				+ ((mod) ? 1 : 0);
-> +	}
-> +
-> +	queue = 0;
-> +	offset = 0;
-> +	for (i = 0; i < q->bands; i++) {
-> +		q->band2queue[i] = queue;
-> +		if ( ((i + 1) - offset) == qmapoffset) {
-> +			queue++;
-> +			offset += qmapoffset;
-> +			if (mod)
-> +				mod--;
-> +			qmapoffset = q->bands /
-> +				sch->dev->egress_subqueue_count +
-> +				((mod) ? 1 : 0);
-> +		}
-> +	}
-
-Should go as well.
+And here.
 
 
