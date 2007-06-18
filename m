@@ -1,79 +1,32 @@
-From: Krishna Kumar <kumarkr@linux.vnet.ibm.com>
-Subject: [PATCH 2/2 - rev2] qdisc_restart - couple of optimizations.
-Date: Mon, 18 Jun 2007 10:24:11 +0530
-Message-ID: <1182142451.6082.12.camel@localhost.localdomain>
-References: <1181724049.10679.31.camel@localhost.localdomain>
-Reply-To: kumarkr@linux.vnet.ibm.com
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: [PATCH] [IPV6 0/3] Deprecate IPv6 Routing Header Type 0.
+Date: Mon, 18 Jun 2007 15:02:00 +0900 (JST)
+Message-ID: <20070618.150200.19276134.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, herbert@gondor.apana.org.au,
-	peter.p.waskiewicz.jr@intel.com, tgraf@suug.ch, kaber@trash.net,
-	netdev@vger.kernel.org
+Cc: pekkas@netcore.fi, yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ausmtp04.au.ibm.com ([202.81.18.152]:65361 "EHLO
-	ausmtp04.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750771AbXFRExf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jun 2007 00:53:35 -0400
-Received: from sd0109e.au.ibm.com (d23rh905.au.ibm.com [202.81.18.225])
-	by ausmtp04.au.ibm.com (8.13.8/8.13.8) with ESMTP id l5I5F7sT293586
-	for <netdev@vger.kernel.org>; Mon, 18 Jun 2007 15:15:07 +1000
-Received: from d23av03.au.ibm.com (d23av03.au.ibm.com [9.190.250.244])
-	by sd0109e.au.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l5I4uxWk147566
-	for <netdev@vger.kernel.org>; Mon, 18 Jun 2007 14:57:00 +1000
-Received: from d23av03.au.ibm.com (loopback [127.0.0.1])
-	by d23av03.au.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l5I4rQTD015870
-	for <netdev@vger.kernel.org>; Mon, 18 Jun 2007 14:53:27 +1000
-In-Reply-To: <1181724049.10679.31.camel@localhost.localdomain>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:40386 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752210AbXFRGBk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jun 2007 02:01:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-(Same from previous patch, resending for completion)
+Hello.
 
-Changes :
+I think the IETF community is reaching consensus on deprecation of
+RH0 (Routing Header Type 0).  RH0 is now handled as unknown RH type,
+e.g, accept it if segleft == 0, or send ICMPv6 Parameter Problem to
+the sender.
 
-- netif_queue_stopped need not be called inside qdisc_restart as
-  it has been called already in qdisc_run() before the first skb
-  is sent, and in __qdisc_run() after each intermediate skb is 
-  sent (note : we are the only sender, so the queue cannot get
-  stopped while the tx lock was got in the ~LLTX case).
+[PATCH 1/3] [IPV6]: Restore semantics of Routing Header processing.
+[PATCH 2/3] [IPV6]: Do not send RH0 anymore.
+[PATCH 3/3] [IPV6]: Make IPV6_{RECV,2292}RTHDR boolean options.
 
-- BUG_ON((int) q->q.qlen < 0) was a relic from old times when -1
-  meant more packets are available, and __qdisc_run used to loop
-  when qdisc_restart() returned -1. During those days, it was
-  necessary to make sure that qlen is never less than zero, since
-  __qdisc_run would get into an infinite loop if no packets are on
-  the queue and this bug in qdisc was there (and worse - no more
-  skbs could ever get queue'd as we hold the queue lock too). With
-  Herbert's recent change to return values, this check is not
-  required.  Hopefully Herbert can validate this change. If at all
-  this is required, it should be added to skb_dequeue (in failure
-  case), and not to qdisc_qlen.
-
-Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
----
-diff -ruNp org/net/sched/sch_generic.c new/net/sched/sch_generic.c
---- org/net/sched/sch_generic.c 2007-06-11 13:12:11.000000000 +0530
-+++ new/net/sched/sch_generic.c 2007-06-11 15:37:48.000000000 +0530
-@@ -61,7 +61,6 @@ void qdisc_unlock_tree(struct net_device
- 
- static inline int qdisc_qlen(struct Qdisc *q)
- {
--	BUG_ON((int) q->q.qlen < 0);
- 	return q->q.qlen;
- }
- 
-@@ -167,9 +166,7 @@ static inline int qdisc_restart(struct n
- 	/* And release queue */
- 	spin_unlock(&dev->queue_lock);
- 
--	ret = NETDEV_TX_BUSY;
--	if (!netif_queue_stopped(dev))
--		ret = dev_hard_start_xmit(skb, dev);
-+	ret = dev_hard_start_xmit(skb, dev);
- 
- 	if (!lockless)
- 		netif_tx_unlock(dev);
-
-
+-- 
+YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
+GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
