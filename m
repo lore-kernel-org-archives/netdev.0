@@ -1,56 +1,72 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: Fwd: [PATCH] [-mm] ACPI: export ACPI events via netlink
-Date: Mon, 18 Jun 2007 11:01:22 -0400
-Message-ID: <1182178882.4063.11.camel@localhost>
-References: <1179827251.7707.29.camel@localhost.localdomain>
-	 <1179831825.4121.30.camel@localhost>
-	 <1180258853.7707.53.camel@localhost.localdomain>
-	 <4466a10705270629h31977813hd2fc8330bcd87f78@mail.gmail.com>
-	 <4466a10705270634j3560c9a3j9c3630ddc20a24aa@mail.gmail.com>
-	 <1181811576.5411.27.camel@localhost.localdomain>
-	 <1181820510.4091.9.camel@localhost>
-	 <1181869285.5411.39.camel@localhost.localdomain>
-Reply-To: hadi@cyberus.ca
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: 2.6.20->2.6.21 - networking dies after random time
+Date: Mon, 18 Jun 2007 08:10:00 -0700
+Message-ID: <20070618081000.14da5186@localhost.localdomain>
+References: <4bacf17f0706161435g1bb7c08bpd427901f64d57fa@mail.gmail.com>
+	<20070618110849.GA2450@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"linux-acpi@vger" <linux-acpi@vger.kernel.org>, lenb@kernel.org
-To: Zhang Rui <rui.zhang@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.227]:34164 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756664AbXFRPBZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jun 2007 11:01:25 -0400
-Received: by wx-out-0506.google.com with SMTP id t15so1529591wxc
-        for <netdev@vger.kernel.org>; Mon, 18 Jun 2007 08:01:25 -0700 (PDT)
-In-Reply-To: <1181869285.5411.39.camel@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
+Cc: =?ISO-8859-2?Q?Marcin_=A6lusarz?= <marcin.slusarz@gmail.com>,
+	linux-kernel@vger.kernel.org, linux-net@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@o2.pl>
+Return-path: <linux-net-owner@vger.kernel.org>
+In-Reply-To: <20070618110849.GA2450@ff.dom.local>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2007-15-06 at 09:01 +0800, Zhang Rui wrote:
+On Mon, 18 Jun 2007 13:08:49 +0200
+Jarek Poplawski <jarkao2@o2.pl> wrote:
 
-> > I dont have much time to look at your code given travel, but did you
-> > try to use your group id instead of the controller's?
-> > i.e:
-> > rtnl_open_byproto(&rth, nl_mgrp(mydiscoveredacpiid), NETLINK_GENERIC)
+> On 16-06-2007 23:35, Marcin .lusarz wrote:
+> > hi
+> > after upgrading kernel from 2.6.20 to 2.6.21.3 i'm experiencing really
+> > strange problem - my _both_ network cards dies after random uptime -
+> > sometimes it's a few minutes, sometimes hours, sometimes it does not
+> > happen for a couple of days...
+> > today it happened for the first time without nvidia module and almost
+> > immediately after system start
 > > 
-> Yes. It doesn't work if I use my group id here.
-> In fact, I'm using rtnl_open_byproto(&rth, 1, NETLINK_GENERIC) now.
-> That's why I said that this demo receives all the broadcasted genetlink
-> messages.
+> > here is the output of some commands which might help debug this:
+> ...
+> > [   21.726533] Write protecting the kernel read-only data: 1457k
+> > [   25.734316] ACPI: PCI Interrupt 0000:00:0a.0[A] -> GSI 17 (level,
+> > low) -> IRQ 17
+> > [   25.734367] skge 1.10 addr 0xfab00000 irq 17 chip Yukon-Lite rev 9
+> > [   25.734763] skge eth0: addr 00:11:d8:60:74:55
+> > [   25.971279] ne2k-pci.c:v1.03 9/22/2003 D. Becker/P. Gortmaker
+> > [   25.971282]   http://www.scyld.com/network/ne2k-pci.html
+> > [   25.971364] ACPI: PCI Interrupt 0000:00:0c.0[A] -> GSI 17 (level,
+> > low) -> IRQ 17
+> > [   25.971691] eth1: Compex RL2000 found at 0xb000, IRQ 17, 
+> > 00:80:48:DE:5E:89.
+> > [   26.888372] Linux video capture interface: v2.00
+> > [   26.906732] bttv: driver version 0.9.17 loaded
+> ...
+> > [   31.659572] Adding 1020112k swap on /dev/sda2.  Priority:-1
+> > extents:1 across:1020112k
+> > [   42.681974] skge eth1: enabling interface
+> > [   43.228729] NET: Registered protocol family 17
+> > [   46.429756] Time: acpi_pm clocksource has been installed.
+> > [   50.743512] NETDEV WATCHDOG: eth0: transmit timed out
+> > [   50.743521] eth0: Tx timed out, lost interrupt? TSR=0x3, ISR=0x3, t=574.
+> ...
+> 
+> It looks like skge driver enables different device than probbed.
+> Maybe you've something old/wrong about eth0/eth1 in /etc configs?
 
-Ok, by inspection (sorry, still dont have much time) - your kernel code
-is sending to group 1; i.e
+More likely it is just user level device renaming. Most distro's
+rename devices (if needed) using udev.
 
-genlmsg_multicast(skb, 0, 1, GFP_ATOMIC);
+> You can also try with netdev= or pci= kernel parameters.
 
-you need to change that to send to your assigned id, i.e:
-genlmsg_multicast(skb, 0, acpi_event_genl_family.id, GFP_ATOMIC);
+Bad idea. 
 
-then the user space code will work. I should be able to look at it if it
-doesnt work by end of week.
+> If no result - resend it, please - maybe with some debugging on
+> (modinfo skge). BTW - netdev seems to be preferred for this.
 
-cheers,
-jamal
+What is the contents of /proc/interrupts
 
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
