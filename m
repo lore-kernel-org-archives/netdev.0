@@ -1,57 +1,122 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 2/3] NET: [SCHED] Qdisc changes and sch_rr added for multiqueue
-Date: Mon, 18 Jun 2007 23:11:32 +0200
-Message-ID: <4676F504.7090901@trash.net>
-References: <D5C1322C3E673F459512FB59E0DDC329030D5A10@orsmsx414.amr.corp.intel.com>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: [RFC PATCH tcp-2.6 1/2] [TCP]: Discard fuzzy SACK blocks
+Date: Tue, 19 Jun 2007 01:25:57 +0300
+Message-ID: <1182205558564-git-send-email-ilpo.jarvinen@helsinki.fi>
+References: <1182205558580-git-send-email-ilpo.jarvinen@helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, jeff@garzik.org,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>, hadi@cyberus.ca
-To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org,
+	"=?ISO-8859-1?q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:42558 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1763174AbXFRVLj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jun 2007 17:11:39 -0400
-In-Reply-To: <D5C1322C3E673F459512FB59E0DDC329030D5A10@orsmsx414.amr.corp.intel.com>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:56779 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1762556AbXFRW0B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jun 2007 18:26:01 -0400
+In-Reply-To: <1182205558580-git-send-email-ilpo.jarvinen@helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Waskiewicz Jr, Peter P wrote:
->> Nested netlink attributes, like most qdisc use, instead of 
->> struct tc_rr_qopt (or additionally). The way you've done it 
->> makes it hard to add further attributes later.
->>     
->
-> I'm going to need to think about this more, since I'm not immediately
-> getting what you're referring to.  I see the qdisc using tc_prio_qopt as
-> a single member; do you have an example outside of the qdiscs I can look
-> at and see what you're referring to?  Please bear with me: my netlink
-> skills are still very green.
->   
+=46rom: =3D?ISO-8859-1?q?Ilpo_J=3DE4rvinen?=3D <ilpo.jarvinen@helsinki.=
+fi>
 
-Qdisc private parameters are within the TCA_OPTION attribute. The
-data under that attribute can either be a structure (which you used)
-or more netlink attributes specific to a single qdisc, which allows
-to easily add new attributes.
+SACK processing code has been sort of russian roulette as no
+validation of SACK blocks is previously attempted. It is not
+very clear what all kinds of broken SACK blocks really mean
+(e.g., one that has start and end sequence numbers reversed).
 
-For a simple qdisc example look at sch_red or grep for rta_parse_nested
-and nla_parse_nested.
+This fixes also one remote triggerable NULL-ptr access:
+start_seq was trusted as a valid mark_lost_entry_seq but
+without validation it is relatively easy to inject an invalid
+sequence number there that will cause a crash in the lost
+marker code. Other SACK processing code seems safe so this could
+have been fixed locally but that would leave SACK processing
+hazardous in case of future modifications. IMHO, it's just
+better to close the whole roulette rather than disarming just
+one bullet.
 
->   
->> BTw, couldn't you just merge sch_rr with prio? AFAICT you 
->> only need a new dequeue function, a new struct Qdisc_ops and 
->> a MODULE_ALIAS.
->>     
->
-> Are you suggesting a module that can determine RR or PRIO at runtime?
-> Because the two are so similar, I definitely thought about combining
-> them, but because of the dequeue difference, you'd need a load-time
-> switch to determine which mode to run the module in.  That would break
-> ABI for sch_prio, which I was trying to avoid.
+Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+---
+ net/ipv4/tcp_input.c |   40 ++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 40 insertions(+), 0 deletions(-)
 
-Yes, all you need to do is register two different struct Qdisc_ops and
-provide an alias for autoloading.
-
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 4c8882e..ebd9739 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -977,6 +977,27 @@ static void tcp_update_reordering(struct sock *sk,=
+ const int metric,
+  * so that we are allowed not to be bothered by order of our actions,
+  * when multiple events arrive simultaneously. (see the function below=
+).
+  *
++ * SACK block validation.
++ * ----------------------
++ *
++ * SACK block range validation checks that the received SACK block fit=
+s to
++ * the expected sequence limits, i.e., it is between SND.UNA and SND.N=
+XT.
++ * Note that SND.UNA is not included to the range though being valid b=
+ecause
++ * it means that the receiver is rather inconsistent with itself (repo=
+rts
++ * SACK reneging when it should advance SND.UNA).
++ *
++ * With D-SACK the lower bound is extended to cover sequence space bel=
+ow
++ * SND.UNA down to undo_marker, which is the last point of interest. B=
+ut
++ * there all simplicity ends, TCP might receive valid D-SACKs below th=
+at.
++ * As long as they reside fully below undo_marker they do not affect
++ * behavior in anyway and can therefore be safely ignored. In rare cas=
+es
++ * (which are really theoretical ones), the D-SACK will nicely cross t=
+hat
++ * boundary due to skb fragmentation and packet reordering past skb's
++ * retransmission. To consider them correctly, the acceptable range mu=
+st
++ * be extended even more though the exact amount is rather hard to
++ * quantify (from the state TCP has?), so in boundary crossing case
++ * simply adjust start_seq to undo_marker.
++ *
+  * Reordering detection.
+  * --------------------
+  * Reordering metric is maximal distance, which a packet can be displa=
+ced
+@@ -1243,9 +1264,28 @@ tcp_sacktag_write_queue(struct sock *sk, struct =
+sk_buff *ack_skb,
+ 		struct sk_buff *skb;
+ 		__u32 start_seq =3D ntohl(sp->start_seq);
+ 		__u32 end_seq =3D ntohl(sp->end_seq);
++		u32 valid_range_start;
+ 		int fack_count;
+ 		state.dup_sack =3D (found_dup_sack && (i =3D=3D state.first_sack_ind=
+ex));
+=20
++		/* SACK validation: start_seq =3D=3D snd_una is non-sensical */
++		valid_range_start =3D tp->snd_una + 1;
++
++		if (state.dup_sack && tp->undo_marker) {
++			valid_range_start =3D tp->undo_marker;
++
++			/* Undo_marker boundary crossing, see comments above */
++			if (before(start_seq, tp->undo_marker) &&
++			    after(end_seq, tp->undo_marker))
++			    	start_seq =3D tp->undo_marker;
++		}
++
++		/* Discard SACK blocks that are seemingly bad */
++		if (before(start_seq, valid_range_start) ||
++		    after(end_seq, tp->snd_nxt) ||
++		    !before(start_seq, end_seq))
++			continue;
++
+ 		skb =3D cached_skb;
+ 		fack_count =3D cached_fack_count;
+=20
+--=20
+1.5.0.6
 
