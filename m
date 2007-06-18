@@ -1,55 +1,83 @@
-From: Yasuyuki KOZAKAI <yasuyuki.kozakai@toshiba.co.jp>
-Subject: [IPROUTE]: Fix symbolic link to tc-bfifo.8
-Date: Mon, 18 Jun 2007 11:16:42 +0900 (JST)
-Message-ID: <200706180216.l5I2Ghax000887@toshiba.co.jp>
+From: Krishna Kumar <kumarkr@linux.vnet.ibm.com>
+Subject: RE: [PATCH 1/2] qdisc_restart - readability changes, one bug fix.
+Date: Mon, 18 Jun 2007 09:41:25 +0530
+Message-ID: <1182139885.6082.3.camel@localhost.localdomain>
+References: <D5C1322C3E673F459512FB59E0DDC329030A0E5F@orsmsx414.amr.corp.intel.com>
+Reply-To: kumarkr@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: shemminger@osdl.org
+Cc: davem@davemloft.net, hadi@cyberus.ca, herbert@gondor.apana.org.au,
+	tgraf@suug.ch, kaber@trash.net, netdev@vger.kernel.org
+To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from imx9.toshiba.co.jp ([202.33.96.51]:58304 "EHLO
-	imx9.toshiba.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753398AbXFRCUt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Jun 2007 22:20:49 -0400
-Received: from imx12.toshiba.co.jp (imx12 [61.202.160.132])
-	by imx9.toshiba.co.jp  with ESMTP id l5I2KlkC013230
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Mon, 18 Jun 2007 11:20:47 +0900 (JST)
-Received: from wall11.toshiba.co.jp (wall11 [133.199.90.149])
-	by imx12.toshiba.co.jp  with ESMTP id l5I2GiFK017771
-	for <netdev@vger.kernel.org>; Mon, 18 Jun 2007 11:16:44 +0900 (JST)
-Received: (from root@localhost)
-	by wall11.toshiba.co.jp  id l5I2Gi5x019553
-	for netdev@vger.kernel.org; Mon, 18 Jun 2007 11:16:44 +0900 (JST)
-Received: from mx2.toshiba.co.jp (localhost [127.0.0.1])
-	by ovp11.toshiba.co.jp  with ESMTP id l5I2GhoU024753
-	for <netdev@vger.kernel.org>; Mon, 18 Jun 2007 11:16:43 +0900 (JST)
+Received: from ausmtp05.au.ibm.com ([202.81.18.154]:53198 "EHLO
+	ausmtp05.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750971AbXFREKz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jun 2007 00:10:55 -0400
+Received: from sd0109e.au.ibm.com (d23rh905.au.ibm.com [202.81.18.225])
+	by ausmtp05.au.ibm.com (8.13.8/8.13.8) with ESMTP id l5I4CEbs9019466
+	for <netdev@vger.kernel.org>; Mon, 18 Jun 2007 14:12:15 +1000
+Received: from d23av04.au.ibm.com (d23av04.au.ibm.com [9.190.250.237])
+	by sd0109e.au.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l5I4EHJI082740
+	for <netdev@vger.kernel.org>; Mon, 18 Jun 2007 14:14:18 +1000
+Received: from d23av04.au.ibm.com (loopback [127.0.0.1])
+	by d23av04.au.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l5I4AhKD022105
+	for <netdev@vger.kernel.org>; Mon, 18 Jun 2007 14:10:44 +1000
+In-Reply-To: <D5C1322C3E673F459512FB59E0DDC329030A0E5F@orsmsx414.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Fri, 2007-06-15 at 11:01 -0700, Waskiewicz Jr, Peter P wrote:
 
-tc-pbfifo.8 does not exist because it was moved to tc-bfifo.8.
+Hi Peter,
 
-Signed-off-by: Yasuyuki Kozakai <yasuyuki.kozakai@toshiba.co.jp>
----
- Makefile |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
+> I agree that the case shouldn't happen, and will only surface if the
+> driver is indeed buggy.  I've thought about this conditional being
+> removed for awhile, since it will protect against a poorly written
+> driver wrt locking, but then again a driver behaving like that shouldn't
+> be making it into the kernel.  That being said, out-of-tree drivers are
+> heavily used (we have an out-of-tree e1000), and something like this
+> could be missed.  But since that is the corner case of a crappy driver,
+> I'm ok with this being removed.
 
-diff --git a/Makefile b/Makefile
-index dbcb249..af0d5e4 100644
---- a/Makefile
-+++ b/Makefile
-@@ -52,8 +52,7 @@ install: all
- 	install -m 0644 $(shell find etc/iproute2 -maxdepth 1 -type f) $(DESTDIR)$(CONFDIR)
- 	install -m 0755 -d $(DESTDIR)$(MANDIR)/man8
- 	install -m 0644 $(shell find man/man8 -maxdepth 1 -type f) $(DESTDIR)$(MANDIR)/man8
--	ln -sf tc-pbfifo.8  $(DESTDIR)$(MANDIR)/man8/tc-bfifo.8
--	ln -sf tc-pbfifo.8  $(DESTDIR)$(MANDIR)/man8/tc-pfifo.8
-+	ln -sf tc-bfifo.8  $(DESTDIR)$(MANDIR)/man8/tc-pfifo.8
- 	install -m 0755 -d $(DESTDIR)$(MANDIR)/man3
- 	install -m 0644 $(shell find man/man3 -maxdepth 1 -type f) $(DESTDIR)$(MANDIR)/man3
- 
--- 
-1.5.2.2
+Removing this check will work more efficiently for correctly written
+drivers, but it will also catch the wrongly written drivers and free
+up all the skbs (and print messages) as without this change, nothing
+happens and resources are never freed up.
+
+> These, at a glance, look very similar to the qdisc ->enqueue() and
+> ->dequeue() function pointers.  I know I had to look a few times to
+> realize they were separate calls through the qdisc and this new function
+> name.  Perhaps dequeue_skb() can become dev_dequeue_skb() and
+> requeue_skb() can be dev_requeue_skb()?  Something that helps
+> differentiate these from the function pointers of the qdisc_ops might
+> help distinguish what layer the operation is running on.
+
+That is definitely required, I will send out a revised patch.
+
+> I know there's been discussion on the driver side of the world to stop
+> using unlikely() and likely() clauses.  I personally think it's ok in
+> situations like this where you have one corner-case conditional without
+> an else, but it's something to keep in mind when using them in
+> new/rewritten code like this.
+
+OK. The reason I had put the unlikely is that we are executing qdisc_restart
+due to the synchronous queuing of a packet, or since we were rescheduled
+after either :
+	a. not getting tx lock (and when qdisc_restart had atleast one
+	   packet in the queue, look for the qdisc_qlen return value in
+	   handle_dev_cpu_collision).
+	b. tx was busy and packet was requeue'd.
+
+So in most (all?) cases, an skb should be found (I was not able to find a
+case where skb can be NULL).
+
+> The patch looks fine to me outside of the choice of names for
+> dequeue_skb() and requeue_skb(), but I can be easily swayed.
+
+I will send an updated patch for review. Thanks for your review comments.
+
+- KK
+
 
