@@ -1,31 +1,132 @@
 From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
 	<yoshfuji@linux-ipv6.org>
-Subject: [PATCH] [IPV6 0/3] Deprecate IPv6 Routing Header Type 0.
-Date: Mon, 18 Jun 2007 15:02:00 +0900 (JST)
-Message-ID: <20070618.150200.19276134.yoshfuji@linux-ipv6.org>
+Subject: [PATCH 1/3] [IPV6]: Restore semantics of Routing Header processing.
+Date: Mon, 18 Jun 2007 15:04:23 +0900 (JST)
+Message-ID: <20070618.150423.46608800.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: pekkas@netcore.fi, yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:40386 "EHLO
+Received: from yue.linux-ipv6.org ([203.178.140.15]:40392 "EHLO
 	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752210AbXFRGBk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jun 2007 02:01:40 -0400
+	with ESMTP id S1759229AbXFRGEC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jun 2007 02:04:02 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+The "fix" for emerging security threat was overkill and it broke
+basic semantic of IPv6 routing header processing.  We should assume
+RT0 (or even RT2, depends on configuration) as "unknown" RH type so
+that we
+- silently ignore the routing header if segleft == 0
+- send ICMPv6 Parameter Problem message back to the sender,
+  otherwise.
 
-I think the IETF community is reaching consensus on deprecation of
-RH0 (Routing Header Type 0).  RH0 is now handled as unknown RH type,
-e.g, accept it if segleft == 0, or send ICMPv6 Parameter Problem to
-the sender.
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+---
+ net/ipv6/exthdrs.c |   47 ++++++++++++++++-------------------------------
+ 1 files changed, 16 insertions(+), 31 deletions(-)
 
-[PATCH 1/3] [IPV6]: Restore semantics of Routing Header processing.
-[PATCH 2/3] [IPV6]: Do not send RH0 anymore.
-[PATCH 3/3] [IPV6]: Make IPV6_{RECV,2292}RTHDR boolean options.
+diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
+index 14be0b9..05e9bb5 100644
+--- a/net/ipv6/exthdrs.c
++++ b/net/ipv6/exthdrs.c
+@@ -371,22 +371,13 @@ static int ipv6_rthdr_rcv(struct sk_buff **skbp)
+ 	struct rt0_hdr *rthdr;
+ 	int accept_source_route = ipv6_devconf.accept_source_route;
+ 
+-	if (accept_source_route < 0 ||
+-	    ((idev = in6_dev_get(skb->dev)) == NULL)) {
+-		kfree_skb(skb);
+-		return -1;
+-	}
+-	if (idev->cnf.accept_source_route < 0) {
++	idev = in6_dev_get(skb->dev);
++	if (idev) {
++		if (accept_source_route > idev->cnf.accept_source_route)
++			accept_source_route = idev->cnf.accept_source_route;
+ 		in6_dev_put(idev);
+-		kfree_skb(skb);
+-		return -1;
+ 	}
+ 
+-	if (accept_source_route > idev->cnf.accept_source_route)
+-		accept_source_route = idev->cnf.accept_source_route;
+-
+-	in6_dev_put(idev);
+-
+ 	if (!pskb_may_pull(skb, skb_transport_offset(skb) + 8) ||
+ 	    !pskb_may_pull(skb, (skb_transport_offset(skb) +
+ 				 ((skb_transport_header(skb)[1] + 1) << 3)))) {
+@@ -398,24 +389,6 @@ static int ipv6_rthdr_rcv(struct sk_buff **skbp)
+ 
+ 	hdr = (struct ipv6_rt_hdr *)skb_transport_header(skb);
+ 
+-	switch (hdr->type) {
+-#ifdef CONFIG_IPV6_MIP6
+-	case IPV6_SRCRT_TYPE_2:
+-		break;
+-#endif
+-	case IPV6_SRCRT_TYPE_0:
+-		if (accept_source_route > 0)
+-			break;
+-		kfree_skb(skb);
+-		return -1;
+-	default:
+-		IP6_INC_STATS_BH(ip6_dst_idev(skb->dst),
+-				 IPSTATS_MIB_INHDRERRORS);
+-		icmpv6_param_prob(skb, ICMPV6_HDR_FIELD,
+-				  (&hdr->type) - skb_network_header(skb));
+-		return -1;
+-	}
+-
+ 	if (ipv6_addr_is_multicast(&ipv6_hdr(skb)->daddr) ||
+ 	    skb->pkt_type != PACKET_HOST) {
+ 		IP6_INC_STATS_BH(ip6_dst_idev(skb->dst),
+@@ -454,6 +427,8 @@ looped_back:
+ 
+ 	switch (hdr->type) {
+ 	case IPV6_SRCRT_TYPE_0:
++		if (accept_source_route <= 0)
++			goto unknown_rh;
+ 		if (hdr->hdrlen & 0x01) {
+ 			IP6_INC_STATS_BH(ip6_dst_idev(skb->dst),
+ 					 IPSTATS_MIB_INHDRERRORS);
+@@ -465,6 +440,8 @@ looped_back:
+ 		break;
+ #ifdef CONFIG_IPV6_MIP6
+ 	case IPV6_SRCRT_TYPE_2:
++		if (accept_source_route < 0)
++			goto unknown_rh;
+ 		/* Silently discard invalid RTH type 2 */
+ 		if (hdr->hdrlen != 2 || hdr->segments_left != 1) {
+ 			IP6_INC_STATS_BH(ip6_dst_idev(skb->dst),
+@@ -474,6 +451,8 @@ looped_back:
+ 		}
+ 		break;
+ #endif
++	default:
++		goto unknown_rh;
+ 	}
+ 
+ 	/*
+@@ -577,6 +556,12 @@ looped_back:
+ 	skb_push(skb, skb->data - skb_network_header(skb));
+ 	dst_input(skb);
+ 	return -1;
++
++unknown_rh:
++	IP6_INC_STATS_BH(ip6_dst_idev(skb->dst), IPSTATS_MIB_INHDRERRORS);
++	icmpv6_param_prob(skb, ICMPV6_HDR_FIELD,
++			  (&hdr->type) - skb_network_header(skb));
++	return -1;
+ }
+ 
+ static struct inet6_protocol rthdr_protocol = {
+-- 
+1.5.1
 
 -- 
 YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
