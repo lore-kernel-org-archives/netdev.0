@@ -1,37 +1,48 @@
-From: Jan Engelhardt <jengelh@computergmbh.de>
+From: Miklos Szeredi <miklos@szeredi.hu>
 Subject: Re: [PATCH] fix race in AF_UNIX
-Date: Mon, 18 Jun 2007 13:45:19 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0706181344500.5731@fbirervta.pbzchgretzou.qr>
-References: <E1I0BzQ-0006gZ-00@dorka.pomaz.szeredi.hu>
- <20070618.005711.21897961.davem@davemloft.net> <E1I0CTH-0006k3-00@dorka.pomaz.szeredi.hu>
- <20070618.021813.105401188.davem@davemloft.net> <E1I0DYW-0006uZ-00@dorka.pomaz.szeredi.hu>
- <20070618124721.56411b93@the-village.bc.nu>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Miklos Szeredi <miklos@szeredi.hu>, davem@davemloft.net,
-	akpm@linux-foundation.org, viro@ftp.linux.org.uk,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Date: Mon, 18 Jun 2007 13:46:05 +0200
+Message-ID: <E1I0FgL-0007VY-00@dorka.pomaz.szeredi.hu>
+References: <20070618.035144.64026005.davem@davemloft.net>
+	<E1I0EtI-0007Ma-00@dorka.pomaz.szeredi.hu>
+	<20070618.040253.129088293.davem@davemloft.net> <20070618.040915.35042963.davem@davemloft.net>
+Cc: tgraf@suug.ch, akpm@linux-foundation.org, viro@ftp.linux.org.uk,
+	alan@lxorguk.ukuu.org.uk, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sovereign.computergmbh.de ([85.214.69.204]:24306 "EHLO
-	sovereign.computergmbh.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754264AbXFRLpU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jun 2007 07:45:20 -0400
-In-Reply-To: <20070618124721.56411b93@the-village.bc.nu>
+Received: from mail-gw3.sa.ew.hu ([212.108.200.82]:58690 "EHLO
+	mail-gw3.sa.ew.hu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761148AbXFRLqu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jun 2007 07:46:50 -0400
+In-reply-to: <20070618.040915.35042963.davem@davemloft.net> (message from
+	David Miller on Mon, 18 Jun 2007 04:09:15 -0700 (PDT))
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+> > > I'm all for fixing this gc mess that we have now.  But please don't
+> > > expect me to be the one who's doing it.
+> > 
+> > Don't worry, I only expect you to make the situation worse :-)
+> 
+> In any event, I'll try to find some time to look more at your patch.
+> 
+> But just like you don't want to be expected to rewrite the AF_UNIX GC
+> code, you can't expect me to go right to your patch right when you
+> want me to.
+> 
+> I am one human being, and I depend upon other developers to help me
+> out with patch review and so on.  If nobody else wants to review your
+> patch that doesn't work out so well for me.
 
-On Jun 18 2007 12:47, Alan Cox wrote:
->
->> Do you want me to send the patch to Andrew instead?  His attitude
->> towards bugfixes is rather better ;)
->
->And it'll get NAKked and binned. DaveM is (as happens sometimes ;)) right
->to insist on the code being clean and efficient.
+Sure, no problem.  I just pinged you after a week of inactivity, to
+make sure it hasn't been forgotten.  Just say if you are busy and I'll
+wait, but trying to forget the issue is not the way to deal with it.
 
-Or see RFC 1925 number 7a. :)
+> Your behavior also tends to make me (and others) put your patch near
+> the end of the todo list rather than near the top.  Fix your attitude
+> and people will enjoy reviewing your patches that much more.  Reviewing
+> your work will become something to look forward to rather than a chore.
 
+I'll happily admit I'm a fool when it comes to social interactions.
 
-	Jan
--- 
+Miklos
