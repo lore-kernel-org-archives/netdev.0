@@ -1,30 +1,29 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
+From: Andrew Morton <akpm@linux-foundation.org>
 Subject: Re: [Bugme-new] [Bug 8638] New: unregister_netdevice: waiting for
  ppp0 to become free. pppoe + multihome + htb qos?
-Date: Mon, 18 Jun 2007 08:18:18 -0700
-Message-ID: <20070618081818.01dbf2b5@localhost.localdomain>
+Date: Mon, 18 Jun 2007 08:23:31 -0700
+Message-ID: <20070618082331.d1b7fd93.akpm@linux-foundation.org>
 References: <bug-8638-10286@http.bugzilla.kernel.org/>
 	<20070616083454.1612ca7f.akpm@linux-foundation.org>
 	<46769D06.3050603@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+Cc: netdev@vger.kernel.org,
 	"bugme-daemon@kernel-bugs.osdl.org"
 	<bugme-daemon@kernel-bugs.osdl.org>,
 	Paul Mackerras <paulus@samba.org>, kernelbugs@tecnopolis.ca
 To: Chuck Ebbert <cebbert@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:37311 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:60621 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1764054AbXFRPTT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jun 2007 11:19:19 -0400
+	by vger.kernel.org with ESMTP id S1762948AbXFRPYe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jun 2007 11:24:34 -0400
 In-Reply-To: <46769D06.3050603@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 18 Jun 2007 10:56:06 -0400
-Chuck Ebbert <cebbert@redhat.com> wrote:
+On Mon, 18 Jun 2007 10:56:06 -0400 Chuck Ebbert <cebbert@redhat.com> wrote:
 
 > 
 > Is there any way to print the addresses the notifier is calling
@@ -42,12 +41,7 @@ Chuck Ebbert <cebbert@redhat.com> wrote:
 > 
 > but don't see any way to print the functions that get called.
 
-You could walk the chain and print the functions out, but it wouldn't
-really help identify the problem. The problem is when a protocol forgets
-to call dev_put() after calling dev_hold().  The notifier there is
-just a last effort at beating a dead horse. It really should be removed
-since it never helps.  The notifier in unregister does work, and calling
-the notification repeatedly doesn't change anything.
+Nope.  I guess we could add some print_notifier_call_chain() thing, but
+then we'd need one flavour per locking scheme and it would get ridiculous.
 
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+I guess just an unlocked version would be OK - it's just a debug thing.
