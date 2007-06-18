@@ -1,47 +1,57 @@
-From: Miklos Szeredi <miklos@szeredi.hu>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH] fix race in AF_UNIX
-Date: Mon, 18 Jun 2007 11:29:52 +0200
-Message-ID: <E1I0DYW-0006uZ-00@dorka.pomaz.szeredi.hu>
-References: <E1I0BzQ-0006gZ-00@dorka.pomaz.szeredi.hu>
-	<20070618.005711.21897961.davem@davemloft.net>
-	<E1I0CTH-0006k3-00@dorka.pomaz.szeredi.hu> <20070618.021813.105401188.davem@davemloft.net>
+Date: Mon, 18 Jun 2007 02:35:20 -0700 (PDT)
+Message-ID: <20070618.023520.102546505.davem@davemloft.net>
+References: <E1I0CTH-0006k3-00@dorka.pomaz.szeredi.hu>
+	<20070618.021813.105401188.davem@davemloft.net>
+	<E1I0DYW-0006uZ-00@dorka.pomaz.szeredi.hu>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: akpm@linux-foundation.org, viro@ftp.linux.org.uk,
 	alan@lxorguk.ukuu.org.uk, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: davem@davemloft.net
+To: miklos@szeredi.hu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw1.sa.eol.hu ([212.108.200.67]:42912 "EHLO
-	mail-gw1.sa.eol.hu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760958AbXFRJag (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jun 2007 05:30:36 -0400
-In-reply-to: <20070618.021813.105401188.davem@davemloft.net> (message from
-	David Miller on Mon, 18 Jun 2007 02:18:13 -0700 (PDT))
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39548
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751483AbXFRJfC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jun 2007 05:35:02 -0400
+In-Reply-To: <E1I0DYW-0006uZ-00@dorka.pomaz.szeredi.hu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> > And is anyone working on a better patch?
+From: Miklos Szeredi <miklos@szeredi.hu>
+Date: Mon, 18 Jun 2007 11:29:52 +0200
+
+> > > And is anyone working on a better patch?
+> > 
+> > I have no idea.
+> > 
+> > > Those patches aren't "bad" in the correctness sense.  So IMO any one
+> > > of them is better, than having that bug in there.
+> > 
+> > You're adding a very serious performance regression, which is
+> > about as bad as the bug itself.
 > 
-> I have no idea.
-> 
-> > Those patches aren't "bad" in the correctness sense.  So IMO any one
-> > of them is better, than having that bug in there.
-> 
-> You're adding a very serious performance regression, which is
-> about as bad as the bug itself.
+> No, correctness always trumps performance.
 
-No, correctness always trumps performance.  Lost packets on an AF_UNIX
-socket are _unexceptable_, and this is definitely not a theoretical
-problem.
+To a point.  There is no black and white in this world.
 
-And BTW my second patch does _not_ have the performance problems you
-are arguing about, it's just plain ugly.  But hey, if you can't live
-with ugly code, go and fix it.
+> Lost packets on an AF_UNIX socket are _unexceptable_, and this is
+> definitely not a theoretical problem.
 
-> It can wait for a more appropriate fix.
+A lot of people will consider having all of their AF_UNIX sockets on
+their 64 cpu system just stop when garbage collection runs to be
+unacceptable as well.
 
-Now _please_ be a bit more constructive.
+Secondarily, this bug has been around for years and nobody noticed.
+The world will not explode if this bug takes a few more days or
+even a week to work out.  Let's do it right instead of ramming
+arbitrary turds into the kernel.
 
-Do you want me to send the patch to Andrew instead?  His attitude
-towards bugfixes is rather better ;)
+> Do you want me to send the patch to Andrew instead?  His attitude
+> towards bugfixes is rather better ;)
 
-Miklos
+When I explain the ramifications of your patch to him, I'm pretty
+sure he'll agree with me.
