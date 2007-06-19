@@ -1,34 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [WIP][PATCHES] Network xmit batching
-Date: Tue, 19 Jun 2007 15:28:01 -0700 (PDT)
-Message-ID: <20070619.152801.99185860.davem@davemloft.net>
-References: <20070619140038.GA13629@2ka.mipt.ru>
-	<1182270529.4968.73.camel@localhost>
-	<18040.5105.715624.286924@robur.slu.se>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [NET 00/02]: MACVLAN driver
+Date: Tue, 19 Jun 2007 15:29:28 -0700
+Message-ID: <20070619152928.38738411@localhost.localdomain>
+References: <20070619130825.26769.23059.sendpatchset@localhost.localdomain>
+	<20070619090027.3312f2cf@localhost.localdomain>
+	<4678472D.5050907@trash.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, johnpol@2ka.mipt.ru, krkumar2@in.ibm.com,
-	gaagaan@gmail.com, netdev@vger.kernel.org, rick.jones2@hp.com,
-	sri@us.ibm.com
-To: Robert.Olsson@data.slu.se
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58670
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753678AbXFSW1m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2007 18:27:42 -0400
-In-Reply-To: <18040.5105.715624.286924@robur.slu.se>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:53868 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757208AbXFSWaX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2007 18:30:23 -0400
+In-Reply-To: <4678472D.5050907@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Date: Tue, 19 Jun 2007 19:35:45 +0200
+On Tue, 19 Jun 2007 23:14:21 +0200
+Patrick McHardy <kaber@trash.net> wrote:
 
->  pktgen heavily uses gettimeofday. I was using tsc as clock source with 
->  our opterons in the lab. In late 2.6.20 gettimeofday was changed so tsc 
->  couldn't be used on opterons (pktgen at least). 
+> Stephen Hemminger wrote:
+> > Looks good. I have some changes to allow devices with multiple MAC addresses
+> > (never finished).  This device could use that.
 > 
->  To give you an example w.intel's 82571EB we could send 1.488 Mpps using tsc 
->  but with hpet only 400 kpps.
+> 
+> How would the driver do that? I was thinking about using dev_add_mc,
+> but wasn't sure if that would work with all drivers for non-multicast
+> addresses.
+> 
 
-Converting pktgen over to ktime_t might be a nice cleanup.
+Basically, add a new dev_add_addr hook to netdevice.
+Drivers that can do it, would add the hook. If driver didn't have hook,
+then core would put device into promiscuous.  Most devices with multicast
+allow non-multicast addresses, so it could be a simple extension.
+Rather than doing it for all devices, wanted to go in one by one and test.
+
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
