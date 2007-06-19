@@ -1,77 +1,62 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [WIP][PATCHES] Network xmit batching
-Date: Tue, 19 Jun 2007 17:21:48 +0400
-Message-ID: <20070619132148.GA32078@2ka.mipt.ru>
-References: <OFB311484E.057E34E9-ON652572F3.001D5838-652572F3.0022766D@in.ibm.com> <1181216629.4064.22.camel@localhost>
+From: "Satyam Sharma" <satyam.sharma@gmail.com>
+Subject: Re: [RFC][PATCH -mm take5 4/7] using symlink for the net_device
+Date: Tue, 19 Jun 2007 19:51:15 +0530
+Message-ID: <a781481a0706190721x6e4c5e66wdf98cf257ee48f4a@mail.gmail.com>
+References: <466FC455.5060001@bx.jp.nec.com> <466FC6ED.9060208@bx.jp.nec.com>
+	 <a781481a0706130949j7b35e33ds9cda5d8a551c9d7d@mail.gmail.com>
+	 <4677AA06.4090600@bx.jp.nec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: Krishna Kumar2 <krkumar2@in.ibm.com>,
-	Gagan Arneja <gaagaan@gmail.com>, netdev@vger.kernel.org,
-	Rick Jones <rick.jones2@hp.com>,
-	Sridhar Samudrala <sri@us.ibm.com>,
-	David Miller <davem@davemloft.net>,
-	Robert Olsson <Robert.Olsson@data.slu.se>
-To: jamal <hadi@cyberus.ca>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Matt Mackall" <mpm@selenic.com>,
+	"Andrew Morton" <akpm@linux-foundation.org>,
+	"David Miller" <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: "Keiichi KII" <k-keiichi@bx.jp.nec.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:40188 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753305AbXFSOPe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Jun 2007 10:15:34 -0400
+Received: from nz-out-0506.google.com ([64.233.162.236]:64595 "EHLO
+	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752693AbXFSOVQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2007 10:21:16 -0400
+Received: by nz-out-0506.google.com with SMTP id n1so1760295nzf
+        for <netdev@vger.kernel.org>; Tue, 19 Jun 2007 07:21:15 -0700 (PDT)
+In-Reply-To: <4677AA06.4090600@bx.jp.nec.com>
 Content-Disposition: inline
-In-Reply-To: <1181216629.4064.22.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi.
+Hi Keiichi,
 
-On Thu, Jun 07, 2007 at 07:43:49AM -0400, jamal (hadi@cyberus.ca) wrote:
-> Folks, we need help. Please run this on different hardware. Evgeniy, i
-> thought this kind of stuff excites you, no? ;-> (wink, wink).
-> Only the sender needs the patch but the receiver must be a more powerful
-> machine (so that it is not the bottleneck).
+On 6/19/07, Keiichi KII <k-keiichi@bx.jp.nec.com> wrote:
+> Hello Satyam,
+>
+> > Sorry, but we're not covering from the error condition fully here. Note
+> > that later you merge the temporary modify_target_list entirely back
+> > into the target_list ... which would still contain these erroneous
+> > nodes. A full cleanup (kobject_unregister the entry, and then list_del
+> > from modify_target_list) is required here, before continuing.
+>
+> I will fix this. If the error occurs, I think so that we need to cleanup
+> completely.
 
-I've ran several simple tests with desktop e1000 adapter I managed to
-find.
+Yes, thanks.
 
-Test machine is amd athlon64 3500+ with 1gb of ram.
-Another point is dektop core duo 3.4 ghz with 2 gb of ram and sky2
-driver.
+> >> +                       strcpy(nt->np.dev_name, dev->name);
+> >
+> > ... you'll have move this up.
+> >
+>
+> Why? I don't have opposition about moving this up, but I'm misplacing the abobe code?
+> or it isn't appropriate about coding style?
 
-Simple test included test -> desktop and vice versa traffic with 128 and
-4096 block size in netperf-2.4.3 setup.
+As I said, _either_ you stick a "continue;" after recovering from the
+error above this code (i.e. if the sysfs_create_link() just above this
+line fails), _or_ you'll have to move the strcpy() up (above the
+sysfs_create_link). Note that recovering fully would mean
+unregistering the kobject for that target, deleting the node from the
+modify_list and kfree'ing the struct netconsole_target *nt (otherwise
+we'll have a memory leak on our hands). And if we've kfree'd nt, we'll
+oops on trying to dereference it like we're doing in the strcpy here.
 
-Test machine runs 2.6.22-rc5-batch and mainline tree (there is a test
-with 2.6.22-rc4 and there is a noticeble performance win compared to
-that tree in the latest git, likely tcp congestion changes resulted in
-better utilisation). Batched xmit has better numbers.
-
-Results:
-
-2.6.20-ubuntu -> test machine
-
-2.6.22-rc4-batch:
-128: 725.43 724.14
-4096: 698.63 712.77
-
-2.6.22-rc5-mainline:
-128: 760.91 762.04
-4096: 784.32 788.53
-
-2.6.22-rc5-batch:
-128: 766.70
-4096: 788.24
-
-
-test machine -> 2.6.20-ubuntu
-
-2.6.22-rc5-mainline:
-128: 558.16 (Desired confidence was not achieved within the specified iterations.)
-4096: 814.01
-
-2.6.22-rc5-batch:
-128: 569.14 (Desired confidence was not achieved within the specified iterations.)
-4096: 822.72
-
-
--- 
-	Evgeniy Polyakov
+Thanks,
+Satyam
