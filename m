@@ -1,35 +1,53 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [XFRM]: Fix MTU calculation for non-ESP SAs
-Date: Mon, 18 Jun 2007 22:31:01 -0700 (PDT)
-Message-ID: <20070618.223101.39174669.davem@davemloft.net>
-References: <4676AE27.8020504@trash.net>
+Subject: Re: [PATCH] Allow group ownership of TUN/TAP devices (fwd)
+Date: Mon, 18 Jun 2007 22:36:54 -0700 (PDT)
+Message-ID: <20070618.223654.14957392.davem@davemloft.net>
+References: <Line.LNX.4.64.0706181216230.8746@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, pupilla@hotmail.com
-To: kaber@trash.net
+Cc: netdev@vger.kernel.org, jdike@addtoit.com
+To: jmorris@namei.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55765
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51114
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752250AbXFSFan (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2007 01:30:43 -0400
-In-Reply-To: <4676AE27.8020504@trash.net>
+	by vger.kernel.org with ESMTP id S1752856AbXFSFgf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2007 01:36:35 -0400
+In-Reply-To: <Line.LNX.4.64.0706181216230.8746@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Mon, 18 Jun 2007 18:09:11 +0200
+From: James Morris <jmorris@namei.org>
+Date: Mon, 18 Jun 2007 12:16:31 -0400 (EDT)
 
-> [XFRM]: Fix MTU calculation for non-ESP SAs
+> ---------- Forwarded message ----------
+> Date: Mon, 18 Jun 2007 12:05:49 -0400
+> From: Jeff Dike <jdike@addtoit.com>
+> To: maxk@qualcomm.com
+> Cc: Guido Guenther <agx@sigxcpu.org>, LKML <linux-kernel@vger.kernel.org>,
+>     vtun@office.satix.net
+> Subject: [PATCH] Allow group ownership of TUN/TAP devices
 > 
-> My IPsec MTU optimization patch introduced a regression in MTU calculation
-> for non-ESP SAs, the SA's header_len needs to be subtracted from the MTU if
-> the transform doesn't provide a ->get_mtu() function.
+> I recieved from Guido Guenther the patch below to the TUN/TAP driver
+> which allows group ownerships to be effective.
 > 
-> Reported-and-tested-by: Marco Berizzi <pupilla@hotmail.com>
+> It seems reasonable to me.
 > 
-> Signed-off-by: Patrick McHardy <kaber@trash.net>
+> > the attached patches allow tun ownership by group. We found this useful
+> > since we can then spawn tapX devices on system boot (via
+> > /etc/network/interfaces) which logged on users can then use for their
+> > virtual machines.
+> >   
+> > The first patch is for the kernel, the second one for the tunctl. They
+> > shouldn't change existing behaviour and we introduced a new syscall for
+> > the group setting. The user now is allowed to send packages if either
+> > his euid or his egid matches the one specified via tunctl (via -u or -g
+> > respecitvely). If both gid and uid are set via tunctl, both have to
+> > match. In case you find these useful, please apply.
 
-Patch applied, thanks a lot Patrick.
+This patch looks fine.
 
-We only need this for 2.6.22 right?
+I'd like it resubmitted with a proper changelog and signoff, and once
+I have that I will thus queue it up for the 2.6.23 merge window.
+
+Thanks!
