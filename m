@@ -1,46 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/3] NET: [CORE] Stack changes to add multiqueue
- hardware support API
-Date: Mon, 18 Jun 2007 23:28:43 -0700 (PDT)
-Message-ID: <20070618.232843.111185541.davem@davemloft.net>
-References: <20070618184208.12274.13017.stgit@localhost.localdomain>
-	<20070618184229.12274.88596.stgit@localhost.localdomain>
+Subject: Re: [PATCH] AF_RXRPC: Return the number of bytes buffered in
+ rxrpc_send_data()
+Date: Mon, 18 Jun 2007 23:30:58 -0700 (PDT)
+Message-ID: <20070618.233058.03094051.davem@davemloft.net>
+References: <20070618115236.23639.71608.stgit@warthog.cambridge.redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeff@garzik.org, auke-jan.h.kok@intel.com,
-	hadi@cyberus.ca, kaber@trash.net
-To: peter.p.waskiewicz.jr@intel.com
+Cc: bunk@stusta.de, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: dhowells@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54000
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54006
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752964AbXFSG2Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2007 02:28:25 -0400
-In-Reply-To: <20070618184229.12274.88596.stgit@localhost.localdomain>
+	by vger.kernel.org with ESMTP id S1754497AbXFSGak (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2007 02:30:40 -0400
+In-Reply-To: <20070618115236.23639.71608.stgit@warthog.cambridge.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
-Date: Mon, 18 Jun 2007 11:42:29 -0700
+From: David Howells <dhowells@redhat.com>
+Date: Mon, 18 Jun 2007 12:52:36 +0100
 
-> +
-> + 	/* The TX queue control structures */
-> + 	struct net_device_subqueue	*egress_subqueue;
-> + 	int				egress_subqueue_count;
+> Return the number of bytes buffered in rxrpc_send_data().
+> 
+> Signed-off-by: David Howells <dhowells@redhat.com>
 
-Since every net device will have at least one subqueue, I
-would suggest that you do this as follows:
-
-1) In net_device change the quoted part of the patch above to:
-
-	int				egress_subqueue_count;
-	struct net_device_subqueue	egress_subqueue[0];
-
-2) In alloc_netdev():
-
-   Factor (sizeof(struct egress_subqueue) * num_subqueues) into
-   the net_device allocation size, place the "priv" area after
-   the subqueues.
-
-This will save us pointer dereferences on all of these quite
-common accesses.
+Patch applied, thanks a lot David.
