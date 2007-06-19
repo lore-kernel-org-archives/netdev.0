@@ -1,46 +1,48 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [ETHERNET 01/02]: Validate new address in eth_mac_addr
-Date: Tue, 19 Jun 2007 15:08:43 +0200 (MEST)
-Message-ID: <20070619130826.26769.24481.sendpatchset@localhost.localdomain>
-References: <20070619130825.26769.23059.sendpatchset@localhost.localdomain>
-Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
-To: davem@davemloft.net
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
+Subject: Network namespace ported to 2.6.21-mm2
+Date: Tue, 19 Jun 2007 15:12:45 +0200
+Message-ID: <4677D64D.1020604@fr.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>
+To: Linux Containers <containers@lists.osdl.org>,
+	Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:57975 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755925AbXFSNIo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2007 09:08:44 -0400
-In-Reply-To: <20070619130825.26769.23059.sendpatchset@localhost.localdomain>
+Received: from mtagate1.uk.ibm.com ([195.212.29.134]:53806 "EHLO
+	mtagate1.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756608AbXFSNNq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2007 09:13:46 -0400
+Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
+	by mtagate1.uk.ibm.com (8.13.8/8.13.8) with ESMTP id l5JDDiqP173590
+	for <netdev@vger.kernel.org>; Tue, 19 Jun 2007 13:13:44 GMT
+Received: from d06av03.portsmouth.uk.ibm.com (d06av03.portsmouth.uk.ibm.com [9.149.37.213])
+	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l5JDDhY81491188
+	for <netdev@vger.kernel.org>; Tue, 19 Jun 2007 14:13:43 +0100
+Received: from d06av03.portsmouth.uk.ibm.com (loopback [127.0.0.1])
+	by d06av03.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l5JDDghi011816
+	for <netdev@vger.kernel.org>; Tue, 19 Jun 2007 14:13:43 +0100
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[ETHERNET]: Validate new address in eth_mac_addr
+Hi all,
 
-Signed-off-by: Patrick McHardy <kaber@trash.net>
+The network namespace patchset has been ported to 2.6.21-mm2.
 
----
-commit c92ac42cd3badaf120e97223ac4798abf5226424
-tree 824d080a4748fcd6f025bbe7b9466feee46e3303
-parent 45da27ba265dba3c740c45d47f584c30d7066f82
-author Patrick McHardy <kaber@trash.net> Mon, 18 Jun 2007 16:15:32 +0200
-committer Patrick McHardy <kaber@trash.net> Mon, 18 Jun 2007 16:15:32 +0200
+They are still some issues but we are on it, for this reason the 
+patchset is named netns1-beta1.
 
- net/ethernet/eth.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
+The patchset can be found here :
 
-diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
-index 0ac2524..9298a2c 100644
---- a/net/ethernet/eth.c
-+++ b/net/ethernet/eth.c
-@@ -266,8 +266,11 @@ void eth_header_cache_update(struct hh_cache *hh, struct net_device *dev,
- static int eth_mac_addr(struct net_device *dev, void *p)
- {
- 	struct sockaddr *addr = p;
-+
- 	if (netif_running(dev))
- 		return -EBUSY;
-+	if (!is_valid_ether_addr(addr->sa_data))
-+		return -EINVAL;
- 	memcpy(dev->dev_addr, addr->sa_data, dev->addr_len);
- 	return 0;
- }
+http://lxc.sourceforge.net/patches/2.6.21/2.6.21-mm2-netns1-beta1/
+
+Documentation can be found here :
+
+http://lxc.sourceforge.net/network.php
+
+Any suggestions or comments are welcome.
+
+Thanks.
+
+    -- Daniel
+
