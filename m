@@ -1,67 +1,50 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
 Subject: Re: [WIP][PATCHES] Network xmit batching
-Date: Tue, 19 Jun 2007 20:44:20 +0400
-Message-ID: <20070619164420.GB17942@2ka.mipt.ru>
-References: <OFB311484E.057E34E9-ON652572F3.001D5838-652572F3.0022766D@in.ibm.com> <1181216629.4064.22.camel@localhost> <20070619132148.GA32078@2ka.mipt.ru> <20070619133333.GA19667@2ka.mipt.ru> <20070619140038.GA13629@2ka.mipt.ru> <20070619140944.GA26241@2ka.mipt.ru> <1182270768.4968.78.camel@localhost>
+Date: Tue, 19 Jun 2007 19:35:45 +0200
+Message-ID: <18040.5105.715624.286924@robur.slu.se>
+References: <OFB311484E.057E34E9-ON652572F3.001D5838-652572F3.0022766D@in.ibm.com>
+	<1181216629.4064.22.camel@localhost>
+	<20070619132148.GA32078@2ka.mipt.ru>
+	<20070619133333.GA19667@2ka.mipt.ru>
+	<20070619140038.GA13629@2ka.mipt.ru>
+	<1182270529.4968.73.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: Krishna Kumar2 <krkumar2@in.ibm.com>,
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	Krishna Kumar2 <krkumar2@in.ibm.com>,
 	Gagan Arneja <gaagaan@gmail.com>, netdev@vger.kernel.org,
 	Rick Jones <rick.jones2@hp.com>,
 	Sridhar Samudrala <sri@us.ibm.com>,
 	David Miller <davem@davemloft.net>,
 	Robert Olsson <Robert.Olsson@data.slu.se>
-To: jamal <hadi@cyberus.ca>
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:46900 "EHLO 2ka.mipt.ru"
+Received: from mx1.slu.se ([130.238.96.70]:36147 "EHLO mx1.slu.se"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750939AbXFSReN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Jun 2007 13:34:13 -0400
-Content-Disposition: inline
-In-Reply-To: <1182270768.4968.78.camel@localhost>
+	id S1758724AbXFSRkw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Jun 2007 13:40:52 -0400
+In-Reply-To: <1182270529.4968.73.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 19, 2007 at 12:32:48PM -0400, jamal (hadi@cyberus.ca) wrote:
-> > > pktgen reults are quite poor:
-> > > batch (changed from default script: count reduced, clone increased to 10k)
-> > > 241319pps 115Mb/sec
-> 
-> BTW, dont turn on the cloning - leave it as 1 so we can have every
-> packet alloced so as to have worst case scenario.
 
-here is with batch_min 400 and clone 1:
-184251pps 88Mb/sec (88440480bps) errors: 0
-A bit better than without cloning, but that might be a noise.
+jamal writes:
 
-batch_min 0 and clone 1:
-258564pps 124Mb/sec (124110720bps) errors: 0
-Noticebly better than with cloning, but still much worse than mainline.
+ > What is your kernel config in regards to HRES timers? Robert mentioned
+ > to me that the clock source maybe causing issues with pktgen (maybe even
+ > qos). Robert, insights?
 
-> > > mainline (the same script, on start it wrote about unsupported batch_low
-> > > parameter:
-> > > 497520pps 238Mb/sec
-> > 
-> > 
-> > And here is with batch_low=400:
-> 
-> I am going to get rid of that batch param - it doesnt seem to matter
-> what that value is in the long run.
+ pktgen heavily uses gettimeofday. I was using tsc as clock source with 
+ our opterons in the lab. In late 2.6.20 gettimeofday was changed so tsc 
+ couldn't be used on opterons (pktgen at least). 
 
-Hmm, with that parameter result is 87Mb/sec while with batch_min equal
-to zero it is 115Mb/sec. Without batching result is even better -
-238Mb/sec, so it does seem to affect performance.
+ To give you an example w.intel's 82571EB we could send 1.488 Mpps using tsc 
+ but with hpet only 400 kpps.
 
-> > Result: OK: T4143884(U4143864+I20+A4007752+T127073) usec, P1000000 TE8511TS1(B60,-1frags)
-> 
-> So on average you have been sending about 120 packets per batch - which
-> should give you decent numbers. Lets see how Robert responds and if you
-> have time, turn off the kernel configs like i did.
+ But Evgeniy is most likely using the same clocksource both for the mainline 
+ and batch tests so there must be something different...
 
-It is not turned on in my config.
 
-> cheers,
-> jamal
-
--- 
-	Evgeniy Polyakov
+ Cheers.
+					--ro
