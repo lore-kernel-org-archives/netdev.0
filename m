@@ -1,44 +1,64 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: Fwd: [PATCH] [-mm] ACPI: export ACPI events via netlink
-Date: Tue, 19 Jun 2007 12:20:06 -0400
-Message-ID: <1182270006.4968.62.camel@localhost>
-References: <1179827251.7707.29.camel@localhost.localdomain>
-	 <1179831825.4121.30.camel@localhost>
-	 <1180258853.7707.53.camel@localhost.localdomain>
-	 <4466a10705270629h31977813hd2fc8330bcd87f78@mail.gmail.com>
-	 <4466a10705270634j3560c9a3j9c3630ddc20a24aa@mail.gmail.com>
-	 <1181811576.5411.27.camel@localhost.localdomain>
-	 <1181820510.4091.9.camel@localhost>
-	 <1181869285.5411.39.camel@localhost.localdomain>
-	 <1182178882.4063.11.camel@localhost>
-	 <1182252616.21013.12.camel@johannes.berg>
+Subject: Re: [WIP][PATCHES] Network xmit batching
+Date: Tue, 19 Jun 2007 12:24:45 -0400
+Message-ID: <1182270285.4968.68.camel@localhost>
+References: <OFB311484E.057E34E9-ON652572F3.001D5838-652572F3.0022766D@in.ibm.com>
+	 <1181216629.4064.22.camel@localhost>  <20070619132148.GA32078@2ka.mipt.ru>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Zhang Rui <rui.zhang@intel.com>, netdev@vger.kernel.org,
-	"linux-acpi@vger" <linux-acpi@vger.kernel.org>, lenb@kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <1182252616.21013.12.camel@johannes.berg>
-Sender: linux-acpi-owner@vger.kernel.org
+Cc: Krishna Kumar2 <krkumar2@in.ibm.com>,
+	Gagan Arneja <gaagaan@gmail.com>, netdev@vger.kernel.org,
+	Rick Jones <rick.jones2@hp.com>,
+	Sridhar Samudrala <sri@us.ibm.com>,
+	David Miller <davem@davemloft.net>,
+	Robert Olsson <Robert.Olsson@data.slu.se>
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wx-out-0506.google.com ([66.249.82.237]:4516 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753028AbXFSQYv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2007 12:24:51 -0400
+Received: by wx-out-0506.google.com with SMTP id t15so1880359wxc
+        for <netdev@vger.kernel.org>; Tue, 19 Jun 2007 09:24:51 -0700 (PDT)
+In-Reply-To: <20070619132148.GA32078@2ka.mipt.ru>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2007-19-06 at 13:30 +0200, Johannes Berg wrote:
+On Tue, 2007-19-06 at 17:21 +0400, Evgeniy Polyakov wrote:
 
-> Ah, that coincides with something I was wondering about. Isn't it
-> possible to have multiple multicast groups with generic netlink? If so,
-> we might have to use real netlink for wireless...
+> I've ran several simple tests with desktop e1000 adapter I managed to
+> find.
 
+Mucho gracias Evgeniy. 
 
-There is one default mcast group per entity. Most users only need that
-one.
-If you need more, we go one of two ways:
-a) Register for multiple IDs with the code as is. 
-b) we could add a "reserve multicast group" interface in the kernel.
+> Test machine is amd athlon64 3500+ with 1gb of ram.
+> Another point is dektop core duo 3.4 ghz with 2 gb of ram and sky2
+> driver.
+> 
+> Simple test included test -> desktop and vice versa traffic with 128 and
+> 4096 block size in netperf-2.4.3 setup.
+> 
 
-Thoughts?
+Sounds good enough for starters. 
+
+> Test machine runs 2.6.22-rc5-batch and mainline tree (there is a test
+> with 2.6.22-rc4 and there is a noticeble performance win compared to
+> that tree in the latest git, likely tcp congestion changes resulted in
+> better utilisation). 
+
+Do you have tso on/off? I suspect youd see better numbers with tso off.
+
+> Batched xmit has better numbers.
+
+Much appreciated. It would be useful to sort of measure CPU utilization
+as well (my understanding is netperf4 is more capable of that).
+I think the benefit would be a lot more visible as the number of flows
+goes up (simply because there will be a lot more packets/sec going into
+the driver).
 
 cheers,
 jamal
+
 
