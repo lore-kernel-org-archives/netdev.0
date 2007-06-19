@@ -1,51 +1,32 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: RE: [PATCH 3/3] NET: [CORE] Stack changes to add multiqueue hardware support API
-Date: Tue, 19 Jun 2007 16:11:55 -0700
-Message-ID: <D5C1322C3E673F459512FB59E0DDC32903111A87@orsmsx414.amr.corp.intel.com>
-References: <20070619.153758.84956272.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC PATCH tcp-2.6 1/2] [TCP]: Discard fuzzy SACK blocks
+Date: Tue, 19 Jun 2007 16:23:17 -0700 (PDT)
+Message-ID: <20070619.162317.68140432.davem@davemloft.net>
+References: <1182205558564-git-send-email-ilpo.jarvinen@helsinki.fi>
+	<20070618.231646.71856685.davem@davemloft.net>
+	<Pine.LNX.4.64.0706200032250.9974@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, <jeff@garzik.org>,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>, <hadi@cyberus.ca>,
-	<kaber@trash.net>
-To: "David Miller" <davem@davemloft.net>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:59713 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754995AbXFSXL5 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2007 19:11:57 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20070619.153758.84956272.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38744
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753054AbXFSXW7 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Jun 2007 19:22:59 -0400
+In-Reply-To: <Pine.LNX.4.64.0706200032250.9974@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> It's not being allocated at "compile time", it's being 
-> allocated linearly into one block of ram in order to avoid 
-> pointer derefs but it's still "dynamic" in that the size 
-> isn't known until the alloc_netdev() call.
-> 
-> We do this trick all over the networking, TCP sockets are 3 
-> or 4 different structures, all allocated into a linear block 
-> of memory so that:
-> 
-> 1) only one memory allocation needs to be done for each object
->    create, this is not relevant for the net_device case
->    except in extreme examples bringing thousands of devices
->    up and down which I suppose someone can give a realistic
->    example of :-)
-> 
-> 2) each part can be accessed as an offset from the other instead
->    of a pointer deref which costs a cpu memory read
-> 
-> Please change the allocation strategy as I recommended, thanks.
+=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Wed, 20 Jun 2007 02:09:44 +0300 (EEST)
 
-Later this afternoon someone in my group came over and bonked me in the
-head, and made this obvious to me.  Thanks for the follow-up; great
-catch on the efficiency.  It's in my code now and is currently running
-some test passes.
+> For sure you're curious enough - have a nice day with the negations..=
+=2E ;-)
+> ...Seriously, double verification of that pkt_len part wouldn't hurt=20
+> considering it's complexity.
 
-Thanks Dave,
-
--PJ Waskiewicz
+Thanks for explaining everything, you've given me a lot of
+chew on :)
