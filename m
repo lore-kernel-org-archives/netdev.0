@@ -1,207 +1,258 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [NET_SCHED 03/04]: sch_htb: use generic estimator
-Date: Tue, 19 Jun 2007 17:02:22 +0200 (MEST)
-Message-ID: <20070619150203.30997.79383.sendpatchset@localhost.localdomain>
+Subject: [NET_SCHED 02/04]: Remove unnecessary stats_lock pointers
+Date: Tue, 19 Jun 2007 17:02:21 +0200 (MEST)
+Message-ID: <20070619150202.30997.18717.sendpatchset@localhost.localdomain>
 References: <20070619150159.30997.77256.sendpatchset@localhost.localdomain>
 Cc: devik@cdi.cz, netdev@vger.kernel.org,
 	Patrick McHardy <kaber@trash.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:60154 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:60158 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753820AbXFSPCX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2007 11:02:23 -0400
+	with ESMTP id S1753784AbXFSPCW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2007 11:02:22 -0400
 In-Reply-To: <20070619150159.30997.77256.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[NET_SCHED]: sch_htb: use generic estimator
+[NET_SCHED]: Remove unnecessary stats_lock pointers
 
-Use the generic estimator instead of reimplementing (parts of) it.
-For compatibility always create a default estimator for new classes.
+Remove stats_lock pointers from qdisc-internal structures, in all cases
+it points to dev->queue_lock. The only case where it is necessary is for
+top-level qdiscs, where it might also point to dev->ingress_lock in case
+of the ingress qdisc. Also remove it from actions completely, it always
+points to the actions internal lock.
 
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 
 ---
-commit f18cfcd1e11aabd3c0b606c7f3265634b5261e88
-tree f611855506264ccde17bfb22b03e24728b684346
-parent 00b3839a51961a8fda98d3941d0809f16be0ea59
-author Patrick McHardy <kaber@trash.net> Tue, 19 Jun 2007 16:54:15 +0200
-committer Patrick McHardy <kaber@trash.net> Tue, 19 Jun 2007 16:54:15 +0200
+commit 00b3839a51961a8fda98d3941d0809f16be0ea59
+tree 05186e615bc7af5dbe27d634972bcb71e6f10d25
+parent 0f93837e26f826f49382b567ef15efe0e4995615
+author Patrick McHardy <kaber@trash.net> Thu, 14 Jun 2007 16:30:09 +0200
+committer Patrick McHardy <kaber@trash.net> Thu, 14 Jun 2007 16:30:09 +0200
 
- net/sched/sch_htb.c |   84 ++++++++++++++-------------------------------------
- 1 files changed, 23 insertions(+), 61 deletions(-)
+ include/net/act_api.h  |    2 --
+ net/sched/act_api.c    |    7 +++----
+ net/sched/act_police.c |    8 +++-----
+ net/sched/sch_atm.c    |    1 -
+ net/sched/sch_cbq.c    |    8 +++-----
+ net/sched/sch_hfsc.c   |   10 +++-------
+ 6 files changed, 12 insertions(+), 24 deletions(-)
 
-diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-index 035788c..944ad18 100644
---- a/net/sched/sch_htb.c
-+++ b/net/sched/sch_htb.c
-@@ -69,8 +69,6 @@
- */
+diff --git a/include/net/act_api.h b/include/net/act_api.h
+index 8b06c2f..2f0273f 100644
+--- a/include/net/act_api.h
++++ b/include/net/act_api.h
+@@ -19,7 +19,6 @@ struct tcf_common {
+ 	struct gnet_stats_basic		tcfc_bstats;
+ 	struct gnet_stats_queue		tcfc_qstats;
+ 	struct gnet_stats_rate_est	tcfc_rate_est;
+-	spinlock_t			*tcfc_stats_lock;
+ 	spinlock_t			tcfc_lock;
+ };
+ #define tcf_next	common.tcfc_next
+@@ -32,7 +31,6 @@ struct tcf_common {
+ #define tcf_bstats	common.tcfc_bstats
+ #define tcf_qstats	common.tcfc_qstats
+ #define tcf_rate_est	common.tcfc_rate_est
+-#define tcf_stats_lock	common.tcfc_stats_lock
+ #define tcf_lock	common.tcfc_lock
  
- #define HTB_HSIZE 16		/* classid hash size */
--#define HTB_EWMAC 2		/* rate average over HTB_EWMAC*HTB_HSIZE sec */
--#define HTB_RATECM 1		/* whether to use rate computer */
- #define HTB_HYSTERESIS 1	/* whether to use mode hysteresis for speedup */
- #define HTB_VER 0x30011		/* major must be matched with number suplied by TC as version */
+ struct tcf_police {
+diff --git a/net/sched/act_api.c b/net/sched/act_api.c
+index 72bb9bd..32cc191 100644
+--- a/net/sched/act_api.c
++++ b/net/sched/act_api.c
+@@ -230,13 +230,12 @@ struct tcf_common *tcf_hash_create(u32 index, struct rtattr *est, struct tc_acti
+ 		p->tcfc_bindcnt = 1;
  
-@@ -95,12 +93,6 @@ struct htb_class {
- 	struct tc_htb_xstats xstats;	/* our special stats */
- 	int refcnt;		/* usage count of this class */
- 
--#ifdef HTB_RATECM
--	/* rate measurement counters */
--	unsigned long rate_bytes, sum_bytes;
--	unsigned long rate_packets, sum_packets;
--#endif
--
- 	/* topology */
- 	int level;		/* our level (see above) */
- 	struct htb_class *parent;	/* parent class */
-@@ -194,10 +186,6 @@ struct htb_sched {
- 	int rate2quantum;	/* quant = rate / rate2quantum */
- 	psched_time_t now;	/* cached dequeue time */
- 	struct qdisc_watchdog watchdog;
--#ifdef HTB_RATECM
--	struct timer_list rttim;	/* rate computer timer */
--	int recmp_bucket;	/* which hash bucket to recompute next */
--#endif
- 
- 	/* non shaped skbs; let them go directly thru */
- 	struct sk_buff_head direct_queue;
-@@ -677,34 +665,6 @@ static int htb_requeue(struct sk_buff *skb, struct Qdisc *sch)
- 	return NET_XMIT_SUCCESS;
+ 	spin_lock_init(&p->tcfc_lock);
+-	p->tcfc_stats_lock = &p->tcfc_lock;
+ 	p->tcfc_index = index ? index : tcf_hash_new_index(idx_gen, hinfo);
+ 	p->tcfc_tm.install = jiffies;
+ 	p->tcfc_tm.lastuse = jiffies;
+ 	if (est)
+ 		gen_new_estimator(&p->tcfc_bstats, &p->tcfc_rate_est,
+-				  p->tcfc_stats_lock, est);
++				  &p->tcfc_lock, est);
+ 	a->priv = (void *) p;
+ 	return p;
  }
+@@ -595,12 +594,12 @@ int tcf_action_copy_stats(struct sk_buff *skb, struct tc_action *a,
+ 	if (compat_mode) {
+ 		if (a->type == TCA_OLD_COMPAT)
+ 			err = gnet_stats_start_copy_compat(skb, 0,
+-				TCA_STATS, TCA_XSTATS, h->tcf_stats_lock, &d);
++				TCA_STATS, TCA_XSTATS, &h->tcf_lock, &d);
+ 		else
+ 			return 0;
+ 	} else
+ 		err = gnet_stats_start_copy(skb, TCA_ACT_STATS,
+-			h->tcf_stats_lock, &d);
++					    &h->tcf_lock, &d);
  
--#ifdef HTB_RATECM
--#define RT_GEN(D,R) R+=D-(R/HTB_EWMAC);D=0
--static void htb_rate_timer(unsigned long arg)
--{
--	struct Qdisc *sch = (struct Qdisc *)arg;
--	struct htb_sched *q = qdisc_priv(sch);
--	struct hlist_node *p;
--	struct htb_class *cl;
--
--
--	/* lock queue so that we can muck with it */
--	spin_lock_bh(&sch->dev->queue_lock);
--
--	q->rttim.expires = jiffies + HZ;
--	add_timer(&q->rttim);
--
--	/* scan and recompute one bucket at time */
--	if (++q->recmp_bucket >= HTB_HSIZE)
--		q->recmp_bucket = 0;
--
--	hlist_for_each_entry(cl,p, q->hash + q->recmp_bucket, hlist) {
--		RT_GEN(cl->sum_bytes, cl->rate_bytes);
--		RT_GEN(cl->sum_packets, cl->rate_packets);
--	}
--	spin_unlock_bh(&sch->dev->queue_lock);
--}
--#endif
--
- /**
-  * htb_charge_class - charges amount "bytes" to leaf and ancestors
-  *
-@@ -750,11 +710,6 @@ static void htb_charge_class(struct htb_sched *q, struct htb_class *cl,
- 			if (cl->cmode != HTB_CAN_SEND)
- 				htb_add_to_wait_tree(q, cl, diff);
- 		}
--#ifdef HTB_RATECM
--		/* update rate counters */
--		cl->sum_bytes += bytes;
--		cl->sum_packets++;
--#endif
+ 	if (err < 0)
+ 		goto errout;
+diff --git a/net/sched/act_police.c b/net/sched/act_police.c
+index 580698d..3e8716d 100644
+--- a/net/sched/act_police.c
++++ b/net/sched/act_police.c
+@@ -183,7 +183,6 @@ static int tcf_act_police_locate(struct rtattr *rta, struct rtattr *est,
+ 	ret = ACT_P_CREATED;
+ 	police->tcf_refcnt = 1;
+ 	spin_lock_init(&police->tcf_lock);
+-	police->tcf_stats_lock = &police->tcf_lock;
+ 	if (bind)
+ 		police->tcf_bindcnt = 1;
+ override:
+@@ -231,7 +230,7 @@ override:
+ 	if (est)
+ 		gen_replace_estimator(&police->tcf_bstats,
+ 				      &police->tcf_rate_est,
+-				      police->tcf_stats_lock, est);
++				      &police->tcf_lock, est);
  
- 		/* update byte stats except for leaves which are already updated */
- 		if (cl->level) {
-@@ -1095,13 +1050,6 @@ static int htb_init(struct Qdisc *sch, struct rtattr *opt)
- 	if (q->direct_qlen < 2)	/* some devices have zero tx_queue_len */
- 		q->direct_qlen = 2;
+ 	spin_unlock_bh(&police->tcf_lock);
+ 	if (ret != ACT_P_CREATED)
+@@ -450,7 +449,6 @@ struct tcf_police *tcf_police_locate(struct rtattr *rta, struct rtattr *est)
  
--#ifdef HTB_RATECM
--	init_timer(&q->rttim);
--	q->rttim.function = htb_rate_timer;
--	q->rttim.data = (unsigned long)sch;
--	q->rttim.expires = jiffies + HZ;
--	add_timer(&q->rttim);
--#endif
- 	if ((q->rate2quantum = gopt->rate2quantum) < 1)
- 		q->rate2quantum = 1;
- 	q->defcls = gopt->defcls;
-@@ -1175,11 +1123,6 @@ htb_dump_class_stats(struct Qdisc *sch, unsigned long arg, struct gnet_dump *d)
- {
- 	struct htb_class *cl = (struct htb_class *)arg;
+ 	police->tcf_refcnt = 1;
+ 	spin_lock_init(&police->tcf_lock);
+-	police->tcf_stats_lock = &police->tcf_lock;
+ 	if (parm->rate.rate) {
+ 		police->tcfp_R_tab =
+ 			qdisc_get_rtab(&parm->rate, tb[TCA_POLICE_RATE-1]);
+@@ -490,7 +488,7 @@ struct tcf_police *tcf_police_locate(struct rtattr *rta, struct rtattr *est)
+ 	police->tcf_action = parm->action;
+ 	if (est)
+ 		gen_new_estimator(&police->tcf_bstats, &police->tcf_rate_est,
+-				  police->tcf_stats_lock, est);
++				  &police->tcf_lock, est);
+ 	h = tcf_hash(police->tcf_index, POL_TAB_MASK);
+ 	write_lock_bh(&police_lock);
+ 	police->tcf_next = tcf_police_ht[h];
+@@ -591,7 +589,7 @@ int tcf_police_dump_stats(struct sk_buff *skb, struct tcf_police *police)
+ 	struct gnet_dump d;
  
--#ifdef HTB_RATECM
--	cl->rate_est.bps = cl->rate_bytes / (HTB_EWMAC * HTB_HSIZE);
--	cl->rate_est.pps = cl->rate_packets / (HTB_EWMAC * HTB_HSIZE);
--#endif
--
- 	if (!cl->level && cl->un.leaf.q)
- 		cl->qstats.qlen = cl->un.leaf.q->q.qlen;
- 	cl->xstats.tokens = cl->tokens;
-@@ -1277,6 +1220,7 @@ static void htb_destroy_class(struct Qdisc *sch, struct htb_class *cl)
- 		BUG_TRAP(cl->un.leaf.q);
- 		qdisc_destroy(cl->un.leaf.q);
- 	}
-+	gen_kill_estimator(&cl->bstats, &cl->rate_est);
- 	qdisc_put_rtab(cl->rate);
- 	qdisc_put_rtab(cl->ceil);
+ 	if (gnet_stats_start_copy_compat(skb, TCA_STATS2, TCA_STATS,
+-					 TCA_XSTATS, police->tcf_stats_lock,
++					 TCA_XSTATS, &police->tcf_lock,
+ 					 &d) < 0)
+ 		goto errout;
  
-@@ -1305,9 +1249,6 @@ static void htb_destroy(struct Qdisc *sch)
- 	struct htb_sched *q = qdisc_priv(sch);
+diff --git a/net/sched/sch_atm.c b/net/sched/sch_atm.c
+index d1c383f..16fe802 100644
+--- a/net/sched/sch_atm.c
++++ b/net/sched/sch_atm.c
+@@ -71,7 +71,6 @@ struct atm_flow_data {
+ 	int			ref;		/* reference count */
+ 	struct gnet_stats_basic	bstats;
+ 	struct gnet_stats_queue	qstats;
+-	spinlock_t		*stats_lock;
+ 	struct atm_flow_data	*next;
+ 	struct atm_flow_data	*excess;	/* flow for excess traffic;
+ 						   NULL to set CLP instead */
+diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
+index bf1ea9e..b093d8f 100644
+--- a/net/sched/sch_cbq.c
++++ b/net/sched/sch_cbq.c
+@@ -148,7 +148,6 @@ struct cbq_class
+ 	struct gnet_stats_basic bstats;
+ 	struct gnet_stats_queue qstats;
+ 	struct gnet_stats_rate_est rate_est;
+-	spinlock_t		*stats_lock;
+ 	struct tc_cbq_xstats	xstats;
  
- 	qdisc_watchdog_cancel(&q->watchdog);
--#ifdef HTB_RATECM
--	del_timer_sync(&q->rttim);
--#endif
- 	/* This line used to be after htb_destroy_class call below
- 	   and surprisingly it worked in 2.4. But it must precede it
- 	   because filter need its target class alive to be able to call
-@@ -1403,6 +1344,20 @@ static int htb_change_class(struct Qdisc *sch, u32 classid,
- 	if (!cl) {		/* new class */
- 		struct Qdisc *new_q;
- 		int prio;
-+		struct {
-+			struct rtattr		rta;
-+			struct gnet_estimator	opt;
-+		} est = {
-+			.rta = {
-+				.rta_len	= RTA_LENGTH(sizeof(est.opt)),
-+				.rta_type	= TCA_RATE,
-+			},
-+			.opt = {
-+				/* 4s interval, 16s averaging constant */
-+				.interval	= 2,
-+				.ewma_log	= 2,
-+			},
-+		};
+ 	struct tcf_proto	*filter_list;
+@@ -1442,7 +1441,6 @@ static int cbq_init(struct Qdisc *sch, struct rtattr *opt)
+ 	q->link.ewma_log = TC_CBQ_DEF_EWMA;
+ 	q->link.avpkt = q->link.allot/2;
+ 	q->link.minidle = -0x7FFFFFFF;
+-	q->link.stats_lock = &sch->dev->queue_lock;
  
- 		/* check for valid classid */
- 		if (!classid || TC_H_MAJ(classid ^ sch->handle)
-@@ -1418,6 +1373,8 @@ static int htb_change_class(struct Qdisc *sch, u32 classid,
- 		if ((cl = kzalloc(sizeof(*cl), GFP_KERNEL)) == NULL)
- 			goto failure;
+ 	qdisc_watchdog_init(&q->watchdog, sch);
+ 	hrtimer_init(&q->delay_timer, CLOCK_MONOTONIC, HRTIMER_MODE_ABS);
+@@ -1871,7 +1869,8 @@ cbq_change_class(struct Qdisc *sch, u32 classid, u32 parentid, struct rtattr **t
  
-+		gen_new_estimator(&cl->bstats, &cl->rate_est,
-+				  &sch->dev->queue_lock, &est.rta);
- 		cl->refcnt = 1;
- 		INIT_LIST_HEAD(&cl->sibling);
- 		INIT_HLIST_NODE(&cl->hlist);
-@@ -1469,8 +1426,13 @@ static int htb_change_class(struct Qdisc *sch, u32 classid,
- 		hlist_add_head(&cl->hlist, q->hash + htb_hash(classid));
- 		list_add_tail(&cl->sibling,
- 			      parent ? &parent->children : &q->root);
--	} else
-+	} else {
-+		if (tca[TCA_RATE-1])
-+			gen_replace_estimator(&cl->bstats, &cl->rate_est,
+ 		if (tca[TCA_RATE-1])
+ 			gen_replace_estimator(&cl->bstats, &cl->rate_est,
+-				cl->stats_lock, tca[TCA_RATE-1]);
 +					      &sch->dev->queue_lock,
 +					      tca[TCA_RATE-1]);
- 		sch_tree_lock(sch);
-+	}
+ 		return 0;
+ 	}
  
- 	/* it used to be a nasty bug here, we have to check that node
- 	   is really leaf before changing cl->un.leaf ! */
+@@ -1929,7 +1928,6 @@ cbq_change_class(struct Qdisc *sch, u32 classid, u32 parentid, struct rtattr **t
+ 	cl->allot = parent->allot;
+ 	cl->quantum = cl->allot;
+ 	cl->weight = cl->R_tab->rate.rate;
+-	cl->stats_lock = &sch->dev->queue_lock;
+ 
+ 	sch_tree_lock(sch);
+ 	cbq_link_class(cl);
+@@ -1959,7 +1957,7 @@ cbq_change_class(struct Qdisc *sch, u32 classid, u32 parentid, struct rtattr **t
+ 
+ 	if (tca[TCA_RATE-1])
+ 		gen_new_estimator(&cl->bstats, &cl->rate_est,
+-			cl->stats_lock, tca[TCA_RATE-1]);
++				  &sch->dev->queue_lock, tca[TCA_RATE-1]);
+ 
+ 	*arg = (unsigned long)cl;
+ 	return 0;
+diff --git a/net/sched/sch_hfsc.c b/net/sched/sch_hfsc.c
+index 7ccdf63..7130a24 100644
+--- a/net/sched/sch_hfsc.c
++++ b/net/sched/sch_hfsc.c
+@@ -122,7 +122,6 @@ struct hfsc_class
+ 	struct gnet_stats_basic bstats;
+ 	struct gnet_stats_queue qstats;
+ 	struct gnet_stats_rate_est rate_est;
+-	spinlock_t	*stats_lock;
+ 	unsigned int	level;		/* class level in hierarchy */
+ 	struct tcf_proto *filter_list;	/* filter list */
+ 	unsigned int	filter_cnt;	/* filter count */
+@@ -1056,7 +1055,8 @@ hfsc_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
+ 
+ 		if (tca[TCA_RATE-1])
+ 			gen_replace_estimator(&cl->bstats, &cl->rate_est,
+-				cl->stats_lock, tca[TCA_RATE-1]);
++					      &sch->dev->queue_lock,
++					      tca[TCA_RATE-1]);
+ 		return 0;
+ 	}
+ 
+@@ -1096,7 +1096,6 @@ hfsc_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
+ 	cl->qdisc = qdisc_create_dflt(sch->dev, &pfifo_qdisc_ops, classid);
+ 	if (cl->qdisc == NULL)
+ 		cl->qdisc = &noop_qdisc;
+-	cl->stats_lock = &sch->dev->queue_lock;
+ 	INIT_LIST_HEAD(&cl->children);
+ 	cl->vt_tree = RB_ROOT;
+ 	cl->cf_tree = RB_ROOT;
+@@ -1112,7 +1111,7 @@ hfsc_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
+ 
+ 	if (tca[TCA_RATE-1])
+ 		gen_new_estimator(&cl->bstats, &cl->rate_est,
+-			cl->stats_lock, tca[TCA_RATE-1]);
++				  &sch->dev->queue_lock, tca[TCA_RATE-1]);
+ 	*arg = (unsigned long)cl;
+ 	return 0;
+ }
+@@ -1440,8 +1439,6 @@ hfsc_init_qdisc(struct Qdisc *sch, struct rtattr *opt)
+ 		return -EINVAL;
+ 	qopt = RTA_DATA(opt);
+ 
+-	sch->stats_lock = &sch->dev->queue_lock;
+-
+ 	q->defcls = qopt->defcls;
+ 	for (i = 0; i < HFSC_HSIZE; i++)
+ 		INIT_LIST_HEAD(&q->clhash[i]);
+@@ -1456,7 +1453,6 @@ hfsc_init_qdisc(struct Qdisc *sch, struct rtattr *opt)
+ 					  sch->handle);
+ 	if (q->root.qdisc == NULL)
+ 		q->root.qdisc = &noop_qdisc;
+-	q->root.stats_lock = &sch->dev->queue_lock;
+ 	INIT_LIST_HEAD(&q->root.children);
+ 	q->root.vt_tree = RB_ROOT;
+ 	q->root.cf_tree = RB_ROOT;
