@@ -1,84 +1,313 @@
 From: Veena Parat <Veena.Parat@neterion.com>
-Subject: [PATCH 2.6.22 4/4]S2IO: Implementing review comments from old patches
-Date: Tue, 19 Jun 2007 06:06:11 -0400 (EDT)
-Message-ID: <Pine.GSO.4.10.10706190604110.2608-100000@guinness>
+Subject: [PATCH 2.6.22 2/4]S2IO: Removing MSI support from the driver
+Date: Tue, 19 Jun 2007 05:59:47 -0400 (EDT)
+Message-ID: <Pine.GSO.4.10.10706190557030.2608-100000@guinness>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: Leonid.Grossman@neterion.com, ramkrishna.vepa@neterion.com,
 	santosh.rastapur@neterion.com, Sivakumar.Subramani@neterion.com,
-	sreenivasa.honnur@neterion.com, Alicia.Pena@neterion.com,
+	sreenivasa.honnur@neterion.com, alicia.pena@neterion.com,
 	sriram.rapuru@neterion.com
 To: netdev@vger.kernel.org, jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from barracuda.s2io.com ([72.1.205.138]:48151 "EHLO
+Received: from barracuda.s2io.com ([72.1.205.138]:48225 "EHLO
 	barracuda.s2io.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756207AbXFSKGO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2007 06:06:14 -0400
+	with ESMTP id S1753917AbXFSKLq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2007 06:11:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Implementation of review comments 
-1. Incorporated Jeff Garzik's comments on coding standards.
-2. Incorporated Andreas Schwab's comments on redundant condition check.
+1.Removed MSI support from driver - unused feature
+2.Removed pci_request_regions call to allocate bar2 as it is not used in driver
+3.Removed pci_release_regions since pci_request_regions is not done
 
 Signed-off-by: Veena Parat <veena.parat@neterion.com>
 ---
-diff -urpN patch_3/drivers/net/s2io.c patch_4/drivers/net/s2io.c
---- patch_3/drivers/net/s2io.c	2007-06-07 12:11:27.000000000 +0530
-+++ patch_4/drivers/net/s2io.c	2007-06-07 12:00:16.000000000 +0530
-@@ -84,7 +84,7 @@
- #include "s2io.h"
- #include "s2io-regs.h"
+diff -urpN patch_1/drivers/net/s2io.c patch_2/drivers/net/s2io.c
+--- patch_1/drivers/net/s2io.c	2007-05-17 20:35:55.000000000 +0530
++++ patch_2/drivers/net/s2io.c	2007-05-17 20:41:54.000000000 +0530
+@@ -37,7 +37,7 @@
+  * tx_fifo_len: This too is an array of 8. Each element defines the number of
+  * Tx descriptors that can be associated with each corresponding FIFO.
+  * intr_type: This defines the type of interrupt. The values can be 0(INTA),
+- *     1(MSI), 2(MSI_X). Default value is '0(INTA)'
++ *     2(MSI-X). Default value is '0(INTA)'
+  * lro: Specifies whether to enable Large Receive Offload (LRO) or not.
+  *     Possible values '1' for enable '0' for disable. Default is '0'
+  * lro_max_pkts: This parameter defines maximum number of packets can be
+@@ -438,7 +438,7 @@ S2IO_PARM_INT(bimodal, 0);
+ S2IO_PARM_INT(l3l4hdr_size, 128);
+ /* Frequency of Rx desc syncs expressed as power of 2 */
+ S2IO_PARM_INT(rxsync_frequency, 3);
+-/* Interrupt type. Values can be 0(INTA), 1(MSI), 2(MSI_X) */
++/* Interrupt type. Values can be 0(INTA), 2(MSI_X) */
+ S2IO_PARM_INT(intr_type, 0);
+ /* Large receive offload feature */
+ S2IO_PARM_INT(lro, 0);
+@@ -3785,56 +3785,6 @@ static void store_xmsi_data(struct s2io_
+ 	}
+ }
  
--#define DRV_VERSION "2.0.23.1"
-+#define DRV_VERSION "2.0.24.1"
- 
- /* S2io Driver name & version. */
- static char s2io_driver_name[] = "Neterion";
-@@ -4837,15 +4837,15 @@ static void s2io_ethtool_gringparam(stru
- 		ering->rx_max_pending = MAX_RX_DESC_2;
- 
- 	ering->tx_max_pending = MAX_TX_DESC;
--	for (i = 0 ; i < sp->config.tx_fifo_num ; i++) {
-+	for (i = 0 ; i < sp->config.tx_fifo_num ; i++) 
- 		tx_desc_count += sp->config.tx_cfg[i].fifo_len;
--	}
-+
- 	DBG_PRINT(INFO_DBG,"\nmax txds : %d\n",sp->config.max_txds);
- 	ering->tx_pending = tx_desc_count;
- 	rx_desc_count = 0;
--	for (i = 0 ; i < sp->config.rx_ring_num ; i++) {
-+	for (i = 0 ; i < sp->config.rx_ring_num ; i++) 
- 		rx_desc_count += sp->config.rx_cfg[i].num_rxd;
--	}
-+
- 	ering->rx_pending = rx_desc_count;
- 
- 	ering->rx_mini_max_pending = 0;
-@@ -6723,13 +6723,7 @@ static int rx_osm_handler(struct ring_in
- 	struct lro *lro;
- 
- 	skb->dev = dev;
+-int s2io_enable_msi(struct s2io_nic *nic)
+-{
+-	struct XENA_dev_config __iomem *bar0 = nic->bar0;
+-	u16 msi_ctrl, msg_val;
+-	struct config_param *config = &nic->config;
+-	struct net_device *dev = nic->dev;
+-	u64 val64, tx_mat, rx_mat;
+-	int i, err;
 -
+-	val64 = readq(&bar0->pic_control);
+-	val64 &= ~BIT(1);
+-	writeq(val64, &bar0->pic_control);
+-
+-	err = pci_enable_msi(nic->pdev);
 -	if (err) {
--		/* Check for parity error */
--		if (err & 0x1) {
--			sp->mac_control.stats_info->sw_stat.parity_err_cnt++;
+-		DBG_PRINT(ERR_DBG, "%s: enabling MSI failed\n",
+-			  nic->dev->name);
+-		return err;
+-	}
+-
+-	/*
+-	 * Enable MSI and use MSI-1 in stead of the standard MSI-0
+-	 * for interrupt handling.
+-	 */
+-	pci_read_config_word(nic->pdev, 0x4c, &msg_val);
+-	msg_val ^= 0x1;
+-	pci_write_config_word(nic->pdev, 0x4c, msg_val);
+-	pci_read_config_word(nic->pdev, 0x4c, &msg_val);
+-
+-	pci_read_config_word(nic->pdev, 0x42, &msi_ctrl);
+-	msi_ctrl |= 0x10;
+-	pci_write_config_word(nic->pdev, 0x42, msi_ctrl);
+-
+-	/* program MSI-1 into all usable Tx_Mat and Rx_Mat fields */
+-	tx_mat = readq(&bar0->tx_mat0_n[0]);
+-	for (i=0; i<config->tx_fifo_num; i++) {
+-		tx_mat |= TX_MAT_SET(i, 1);
+-	}
+-	writeq(tx_mat, &bar0->tx_mat0_n[0]);
+-
+-	rx_mat = readq(&bar0->rx_mat);
+-	for (i=0; i<config->rx_ring_num; i++) {
+-		rx_mat |= RX_MAT_SET(i, 1);
+-	}
+-	writeq(rx_mat, &bar0->rx_mat);
+-
+-	dev->irq = nic->pdev->irq;
+-	return 0;
+-}
+-
+ static int s2io_enable_msi_x(struct s2io_nic *nic)
+ {
+ 	struct XENA_dev_config __iomem *bar0 = nic->bar0;
+@@ -4265,39 +4215,6 @@ static int s2io_chk_rx_buffers(struct s2
+ 	return 0;
+ }
+ 
+-static irqreturn_t s2io_msi_handle(int irq, void *dev_id)
+-{
+-	struct net_device *dev = (struct net_device *) dev_id;
+-	struct s2io_nic *sp = dev->priv;
+-	int i;
+-	struct mac_info *mac_control;
+-	struct config_param *config;
+-
+-	atomic_inc(&sp->isr_cnt);
+-	mac_control = &sp->mac_control;
+-	config = &sp->config;
+-	DBG_PRINT(INTR_DBG, "%s: MSI handler\n", __FUNCTION__);
+-
+-	/* If Intr is because of Rx Traffic */
+-	for (i = 0; i < config->rx_ring_num; i++)
+-		rx_intr_handler(&mac_control->rings[i]);
+-
+-	/* If Intr is because of Tx Traffic */
+-	for (i = 0; i < config->tx_fifo_num; i++)
+-		tx_intr_handler(&mac_control->fifos[i]);
+-
+-	/*
+-	 * If the Rx buffer count is below the panic threshold then
+-	 * reallocate the buffers from the interrupt handler itself,
+-	 * else schedule a tasklet to reallocate the buffers.
+-	 */
+-	for (i = 0; i < config->rx_ring_num; i++)
+-		s2io_chk_rx_buffers(sp, i);
+-
+-	atomic_dec(&sp->isr_cnt);
+-	return IRQ_HANDLED;
+-}
+-
+ static irqreturn_t s2io_msix_ring_handle(int irq, void *dev_id)
+ {
+ 	struct ring_info *ring = (struct ring_info *)dev_id;
+@@ -6620,10 +6537,9 @@ static int s2io_add_isr(struct s2io_nic 
+ 	struct net_device *dev = sp->dev;
+ 	int err = 0;
+ 
+-	if (sp->intr_type == MSI)
+-		ret = s2io_enable_msi(sp);
+-	else if (sp->intr_type == MSI_X)
++	if (sp->intr_type == MSI_X) 
+ 		ret = s2io_enable_msi_x(sp);
++
+ 	if (ret) {
+ 		DBG_PRINT(ERR_DBG, "%s: Defaulting to INTA\n", dev->name);
+ 		sp->intr_type = INTA;
+@@ -6633,16 +6549,6 @@ static int s2io_add_isr(struct s2io_nic 
+ 	store_xmsi_data(sp);
+ 
+ 	/* After proper initialization of H/W, register ISR */
+-	if (sp->intr_type == MSI) {
+-		err = request_irq((int) sp->pdev->irq, s2io_msi_handle,
+-			IRQF_SHARED, sp->name, dev);
+-		if (err) {
+-			pci_disable_msi(sp->pdev);
+-			DBG_PRINT(ERR_DBG, "%s: MSI registration failed\n",
+-				  dev->name);
+-			return -1;
 -		}
--		err >>= 48;
-+	if ((err = GET_RXD_T_CODE(rxdp->Control_1))) {
- 		switch(err) {
- 			case 1:
- 				sp->mac_control.stats_info->sw_stat.
-diff -urpN patch_3/drivers/net/s2io.h patch_4/drivers/net/s2io.h
---- patch_3/drivers/net/s2io.h	2007-05-21 15:32:26.000000000 +0530
-+++ patch_4/drivers/net/s2io.h	2007-06-07 12:07:01.000000000 +0530
-@@ -503,6 +503,7 @@ struct RxD_t {
- 	u64 Control_1;
- #define RXD_OWN_XENA            BIT(7)
- #define RXD_T_CODE              (BIT(12)|BIT(13)|BIT(14)|BIT(15))
-+#define GET_RXD_T_CODE(val)     ((val & RXD_T_CODE) >> 48)
- #define RXD_FRAME_PROTO         vBIT(0xFFFF,24,8)
- #define RXD_FRAME_PROTO_IPV4    BIT(27)
- #define RXD_FRAME_PROTO_IPV6    BIT(28)
+-	}
+ 	if (sp->intr_type == MSI_X) {
+ 		int i, msix_tx_cnt=0,msix_rx_cnt=0;
+ 
+@@ -6729,14 +6635,6 @@ static void s2io_rem_isr(struct s2io_nic
+ 		pci_disable_msix(sp->pdev);
+ 	} else {
+ 		free_irq(sp->pdev->irq, dev);
+-		if (sp->intr_type == MSI) {
+-			u16 val;
+-
+-			pci_disable_msi(sp->pdev);
+-			pci_read_config_word(sp->pdev, 0x4c, &val);
+-			val ^= 0x1;
+-			pci_write_config_word(sp->pdev, 0x4c, val);
+-		}
+ 	}
+ 	/* Waiting till all Interrupt handlers are complete */
+ 	cnt = 0;
+@@ -7298,11 +7196,11 @@ static int s2io_verify_parm(struct pci_d
+ #ifndef CONFIG_PCI_MSI
+ 	if (*dev_intr_type != INTA) {
+ 		DBG_PRINT(ERR_DBG, "s2io: This kernel does not support"
+-			  "MSI/MSI-X. Defaulting to INTA\n");
++			  "MSI-X. Defaulting to INTA\n");
+ 		*dev_intr_type = INTA;
+ 	}
+ #else
+-	if (*dev_intr_type > MSI_X) {
++	if ((*dev_intr_type != INTA) && (*dev_intr_type != MSI_X)) {
+ 		DBG_PRINT(ERR_DBG, "s2io: Wrong intr_type requested. "
+ 			  "Defaulting to INTA\n");
+ 		*dev_intr_type = INTA;
+@@ -7411,28 +7309,20 @@ s2io_init_nic(struct pci_dev *pdev, cons
+ 		pci_disable_device(pdev);
+ 		return -ENOMEM;
+ 	}
+-	if (dev_intr_type != MSI_X) {
+-		if (pci_request_regions(pdev, s2io_driver_name)) {
+-			DBG_PRINT(ERR_DBG, "Request Regions failed\n");
+-			pci_disable_device(pdev);
+-			return -ENODEV;
+-		}
++
++	if (!(request_mem_region(pci_resource_start(pdev, 0),
++		pci_resource_len(pdev, 0), s2io_driver_name))) {
++		DBG_PRINT(ERR_DBG, "bar0 Request Regions failed\n");
++		pci_disable_device(pdev);
++		return -ENODEV;
+ 	}
+-	else {
+-		if (!(request_mem_region(pci_resource_start(pdev, 0),
+-               	         pci_resource_len(pdev, 0), s2io_driver_name))) {
+-			DBG_PRINT(ERR_DBG, "bar0 Request Regions failed\n");
+-			pci_disable_device(pdev);
+-			return -ENODEV;
+-		}
+-        	if (!(request_mem_region(pci_resource_start(pdev, 2),
+-               	         pci_resource_len(pdev, 2), s2io_driver_name))) {
+-			DBG_PRINT(ERR_DBG, "bar1 Request Regions failed\n");
+-                	release_mem_region(pci_resource_start(pdev, 0),
+-                                   pci_resource_len(pdev, 0));
+-			pci_disable_device(pdev);
+-			return -ENODEV;
+-		}
++	if (!(request_mem_region(pci_resource_start(pdev, 2),
++		pci_resource_len(pdev, 2), s2io_driver_name))) {
++		DBG_PRINT(ERR_DBG, "bar1 Request Regions failed\n");
++		release_mem_region(pci_resource_start(pdev, 0),
++			pci_resource_len(pdev, 0));
++		pci_disable_device(pdev);
++		return -ENODEV;
+ 	}
+ 
+ 	dev = alloc_etherdev(sizeof(struct s2io_nic));
+@@ -7749,9 +7639,6 @@ s2io_init_nic(struct pci_dev *pdev, cons
+ 		case INTA:
+ 		    DBG_PRINT(ERR_DBG, "%s: Interrupt type INTA\n", dev->name);
+ 		    break;
+-		case MSI:
+-		    DBG_PRINT(ERR_DBG, "%s: Interrupt type MSI\n", dev->name);
+-		    break;
+ 		case MSI_X:
+ 		    DBG_PRINT(ERR_DBG, "%s: Interrupt type MSI-X\n", dev->name);
+ 		    break;
+@@ -7791,14 +7678,10 @@ s2io_init_nic(struct pci_dev *pdev, cons
+       mem_alloc_failed:
+ 	free_shared_mem(sp);
+ 	pci_disable_device(pdev);
+-	if (dev_intr_type != MSI_X)
+-		pci_release_regions(pdev);
+-	else {
+-		release_mem_region(pci_resource_start(pdev, 0),
+-			pci_resource_len(pdev, 0));
+-		release_mem_region(pci_resource_start(pdev, 2),
+-			pci_resource_len(pdev, 2));
+-	}
++	release_mem_region(pci_resource_start(pdev, 0),
++		pci_resource_len(pdev, 0));
++	release_mem_region(pci_resource_start(pdev, 2),
++		pci_resource_len(pdev, 2));
+ 	pci_set_drvdata(pdev, NULL);
+ 	free_netdev(dev);
+ 
+@@ -7833,14 +7716,10 @@ static void __devexit s2io_rem_nic(struc
+ 	free_shared_mem(sp);
+ 	iounmap(sp->bar0);
+ 	iounmap(sp->bar1);
+-	if (sp->intr_type != MSI_X)
+-		pci_release_regions(pdev);
+-	else {
+-		release_mem_region(pci_resource_start(pdev, 0),
+-			pci_resource_len(pdev, 0));
+-		release_mem_region(pci_resource_start(pdev, 2),
+-			pci_resource_len(pdev, 2));
+-	}
++	release_mem_region(pci_resource_start(pdev, 0),
++		pci_resource_len(pdev, 0));
++	release_mem_region(pci_resource_start(pdev, 2),
++		pci_resource_len(pdev, 2));
+ 	pci_set_drvdata(pdev, NULL);
+ 	free_netdev(dev);
+ 	pci_disable_device(pdev);
+diff -urpN patch_1/drivers/net/s2io.h patch_2/drivers/net/s2io.h
+--- patch_1/drivers/net/s2io.h	2007-05-17 20:34:50.000000000 +0530
++++ patch_2/drivers/net/s2io.h	2007-05-17 20:41:54.000000000 +0530
+@@ -883,7 +883,6 @@ struct s2io_nic {
+ 	u16		lro_max_aggr_per_sess;
+ 
+ #define INTA	0
+-#define MSI	1
+ #define MSI_X	2
+ 	u8 intr_type;
+ 
+@@ -1027,8 +1026,6 @@ static int s2io_poll(struct net_device *
+ static void s2io_init_pci(struct s2io_nic * sp);
+ static int s2io_set_mac_addr(struct net_device *dev, u8 * addr);
+ static void s2io_alarm_handle(unsigned long data);
+-static int s2io_enable_msi(struct s2io_nic *nic);
+-static irqreturn_t s2io_msi_handle(int irq, void *dev_id);
+ static irqreturn_t
+ s2io_msix_ring_handle(int irq, void *dev_id);
+ static irqreturn_t
 
