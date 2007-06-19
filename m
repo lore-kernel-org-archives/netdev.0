@@ -1,110 +1,92 @@
-From: "Satyam Sharma" <satyam.sharma@gmail.com>
-Subject: Re: [RFC][PATCH -mm take5 6/7] add ioctls for adding/removing target
-Date: Tue, 19 Jun 2007 20:39:52 +0530
-Message-ID: <a781481a0706190809n3387caefv86d289cfd959f805@mail.gmail.com>
-References: <466FC455.5060001@bx.jp.nec.com> <466FC76A.6050006@bx.jp.nec.com>
-	 <a781481a0706131341k17170514q7a9d0ce052dbfe2a@mail.gmail.com>
-	 <4677AA3D.7010604@bx.jp.nec.com>
+From: Sergey Vlasov <vsu@altlinux.ru>
+Subject: Re: [PATCH 2.6.21.3] ppp_mppe: account for osize too small errors
+ in   mppe_decompress()
+Date: Tue, 19 Jun 2007 18:41:48 +0400
+Message-ID: <20070619184148.201f2521.vsu@altlinux.ru>
+References: <46654796.3060800@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Matt Mackall" <mpm@selenic.com>,
-	"Andrew Morton" <akpm@linux-foundation.org>,
-	"David Miller" <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Tue__19_Jun_2007_18_41_48_+0400_ULA1ELEkEpHvmV1D"
+Cc: Paul Mackerras <paulus@samba.org>, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
-To: "Keiichi KII" <k-keiichi@bx.jp.nec.com>
+To: Konstantin Sharlaimov <konstantin.sharlaimov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ik-out-1112.google.com ([66.249.90.181]:11442 "EHLO
-	ik-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754644AbXFSPJz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2007 11:09:55 -0400
-Received: by ik-out-1112.google.com with SMTP id b32so1605055ika
-        for <netdev@vger.kernel.org>; Tue, 19 Jun 2007 08:09:53 -0700 (PDT)
-In-Reply-To: <4677AA3D.7010604@bx.jp.nec.com>
-Content-Disposition: inline
+Received: from mivlgu.ru ([81.18.140.87]:42304 "EHLO mail.mivlgu.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754296AbXFSPNS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Jun 2007 11:13:18 -0400
+In-Reply-To: <46654796.3060800@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi again Keiichi,
+--Signature=_Tue__19_Jun_2007_18_41_48_+0400_ULA1ELEkEpHvmV1D
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: 7bit
 
-On 6/19/07, Keiichi KII <k-keiichi@bx.jp.nec.com> wrote:
-> Hello Satyam,
+On Tue, 05 Jun 2007 22:23:02 +1100 Konstantin Sharlaimov wrote:
+
+> Prevent mppe_decompress() from generating "osize too small" errors when checking
+> for output buffer size. When receiving a packet of mru size the output buffer
+> for decrypted data is 1 byte too small since mppe_decompress() tries to account
+> for possible PFC, however later in code it is assumed no PFC.
 >
-> > *ugh*. I was wondering what a show-stopper this particular patch
-> > was -- introduces a couple of ioctl()'s, exports a new structure to
-> > userspace, adds a hitherto-unneeded header file, brings in
-> > tty_struct/tty_operations and ends up adding so much complexity/
-> > bloat to netconsole.c. Not only that, it must live together (and
-> > side-by-side) with the sysfs interface also, because the two of them
-> > do different things: sysfs to be able to modify target parameters at
-> > run-time and the ioctl()'s to dynamically add/remove targets. We
-> > can't really mkdir(2) or rmdir(2) in sysfs so the ioctl()'s are needed.
-> >
-> > So may I suggest:
-> >
-> > Just lose *both* the sysfs and ioctl() interfaces and use _configfs_.
-> > It is *precisely* the thing you need in your driver here -- the ability
-> > to create / destroy kernel objects (or config_items in configfs lingo)
-> > from _userspace_ via simple mkdir(2) and rmdir(2). And configfs
-> > makes changing multiple configurable parameters atomically trivial
-> > too, via rename(2) ... not to mention a sysfs+ioctls -> configfs
-> > conversion would help your patchset lose some weight too :-)
+> Adjusting the check prevented there errors from occurring.
 >
-> Stephen Hemminger previously advised me about the user interface such as
-> the following messages.
+> Signed-off-by: Konstantin Sharlaimov <konstantin.sharlaimov@gmail.com>
+> ---
+> --- linux-2.6.21.3/drivers/net/ppp_mppe.c.orig	2007-06-01 20:57:04.000000000 +1100
+> +++ linux-2.6.21.3/drivers/net/ppp_mppe.c	2007-06-05 21:46:30.000000000 +1100
+> @@ -493,14 +493,14 @@ mppe_decompress(void *arg, unsigned char
 >
-> > Some other speculations:
-> > 1. Would it be possible to add ioctl's to /dev/console? This would be more in
-> >     keeping with older Unix style model.
-> >
-> > 2. Using sysfs makes sense if there is a device object that exists to
-> >    add the sysfs attributes to.
-> >
-> > 3. Procfs is handy for summary type tables.
-> >
-> > 4. Netlink does feel like overkill for this. Although newer generic netlink
-> >    makes it easier.
->
-> So, I implemented ioctls to add/remove port like this patch on the tty driver.
-> But I'm going to search configfs. Thank you for you information.
+>  	/*
+>  	 * Make sure we have enough room to decrypt the packet.
+> -	 * Note that for our test we only subtract 1 byte whereas in
+> -	 * mppe_compress() we added 2 bytes (+MPPE_OVHD);
+> -	 * this is to account for possible PFC.
+> +	 * To account for possible PFC we should only subtract 1
+> +	 * byte whereas in mppe_compress() we added 2 bytes (+MPPE_OVHD);
+> +	 * However, we assume no PFC, thus subtracting 2 bytes.
+>  	 */
+> -	if (osize < isize - MPPE_OVHD - 1) {
+> +	if (osize < isize - MPPE_OVHD - 2) {
+>  		printk(KERN_DEBUG "mppe_decompress[%d]: osize too small! "
+>  		       "(have: %d need: %d)\n", state->unit,
+> -		       osize, isize - MPPE_OVHD - 1);
+> +		       osize, isize - MPPE_OVHD - 2);
+>  		return DECOMP_ERROR;
+>  	}
+>  	osize = isize - MPPE_OVHD - 2;	/* assume no PFC */
 
-Hmm, I might've missed this thread, but my opinion on the
-alternatives, fwiw:
+Seems that this patch is not correct - even though the comment above
+says "assume no PFC", the subsequent code actually supports PFC:
 
-1. I think adding new ioctl's to the kernel are generally disliked for
-obvious reasons. Perhaps Stephen meant to add some generic
-ioctl's above (and not separate ones specially implemented for
-the dynamically reconfigurable netconsole driver)?
+	/*
+	 * Do PFC decompression.
+	 * This would be nicer if we were given the actual sk_buff
+	 * instead of a char *.
+	 */
+	if ((obuf[0] & 0x01) != 0) {
+		obuf[1] = obuf[0];
+		obuf[0] = 0;
+		obuf++;
+		osize++;
+	}
 
-2. sysfs: In fact after reading Stephen's comment above I now noticed/
-realized that we're introducing the misc device thing _specifically_ to
-be able to attach kobjects for our use in the /sys/class/misc/
-namespace? IMHO all such stuff (and the stuff we're adding to be able
-to export the ioctl interface) would become unnecessary / redundant if
-we switch to configfs, thus making this patchset quite small.
+Therefore, depending on the packet contents, the decompressor may
+really need that extra byte in the output buffer, and changing the
+check may cause buffer overflows.
 
-3. Again, as Stephen mentions, procfs interfaces are generally used
-for different cases ... personally, I wouldn't even consider a procfs
-interface for our case here :-)
+--Signature=_Tue__19_Jun_2007_18_41_48_+0400_ULA1ELEkEpHvmV1D
+Content-Type: application/pgp-signature
 
-4. Yup, netlink is clearly overkill. Also, I think that would require a
-special application on the userspace side to talk over the netlink
-socket, so we lose the ability to "echo > " from shell ... again,
-netlink isn't _quite_ the thing for our case here, IMHO.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.1 (GNU/Linux)
 
-Please do consider configfs. Note that we'll have to lose the sysfs
-symlink from your target's kobject to the kobject of the ethernet
-device if we switch to configfs, but was that symlink needed for
-some essential functionality or was it simply for informational
-purpose? IMHO, this patchset only needs to bring in functionality
-to be able to create, destroy, and modify netconsole targets at
-run-time, and all these reconfiguration tasks would be handled
-quite well by configfs, AFAICT.
+iD8DBQFGd+swW82GfkQfsqIRAulFAJ9Dss/ytsPob+wIXSRw2ulIhPKXTgCghnqi
+G4xAZpbeAlOVbQpiYmD/e44=
+=EWid
+-----END PGP SIGNATURE-----
 
-Thanks again,
-Satyam
-
-PS: I really liked this patchset (and the idea behind it), and was
-thinking of doing a configfs conversion myself, if you hadn't
-replied :-) configfs has similar interfaces / structures as sysfs,
-so it shouldn't really be too time-consuming.
+--Signature=_Tue__19_Jun_2007_18_41_48_+0400_ULA1ELEkEpHvmV1D--
