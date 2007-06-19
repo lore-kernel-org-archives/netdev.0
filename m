@@ -1,52 +1,67 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: RE: [PATCH 3/3] NET: [CORE] Stack changes to add multiqueue hardware support API
-Date: Tue, 19 Jun 2007 10:31:06 -0700
-Message-ID: <D5C1322C3E673F459512FB59E0DDC32903111571@orsmsx414.amr.corp.intel.com>
-References: <20070618.232843.111185541.davem@davemloft.net>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [WIP][PATCHES] Network xmit batching
+Date: Tue, 19 Jun 2007 20:44:20 +0400
+Message-ID: <20070619164420.GB17942@2ka.mipt.ru>
+References: <OFB311484E.057E34E9-ON652572F3.001D5838-652572F3.0022766D@in.ibm.com> <1181216629.4064.22.camel@localhost> <20070619132148.GA32078@2ka.mipt.ru> <20070619133333.GA19667@2ka.mipt.ru> <20070619140038.GA13629@2ka.mipt.ru> <20070619140944.GA26241@2ka.mipt.ru> <1182270768.4968.78.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, <jeff@garzik.org>,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>, <hadi@cyberus.ca>,
-	<kaber@trash.net>
-To: "David Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=koi8-r
+Cc: Krishna Kumar2 <krkumar2@in.ibm.com>,
+	Gagan Arneja <gaagaan@gmail.com>, netdev@vger.kernel.org,
+	Rick Jones <rick.jones2@hp.com>,
+	Sridhar Samudrala <sri@us.ibm.com>,
+	David Miller <davem@davemloft.net>,
+	Robert Olsson <Robert.Olsson@data.slu.se>
+To: jamal <hadi@cyberus.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:30941 "EHLO mga02.intel.com"
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:46900 "EHLO 2ka.mipt.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757500AbXFSRbJ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2007 13:31:09 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20070618.232843.111185541.davem@davemloft.net>
+	id S1750939AbXFSReN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Jun 2007 13:34:13 -0400
+Content-Disposition: inline
+In-Reply-To: <1182270768.4968.78.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> From: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
-> Date: Mon, 18 Jun 2007 11:42:29 -0700
+On Tue, Jun 19, 2007 at 12:32:48PM -0400, jamal (hadi@cyberus.ca) wrote:
+> > > pktgen reults are quite poor:
+> > > batch (changed from default script: count reduced, clone increased to 10k)
+> > > 241319pps 115Mb/sec
 > 
-> > +
-> > + 	/* The TX queue control structures */
-> > + 	struct net_device_subqueue	*egress_subqueue;
-> > + 	int				egress_subqueue_count;
-> 
-> Since every net device will have at least one subqueue, I 
-> would suggest that you do this as follows:
-> 
-> 1) In net_device change the quoted part of the patch above to:
-> 
-> 	int				egress_subqueue_count;
-> 	struct net_device_subqueue	egress_subqueue[0];
-> 
-> 2) In alloc_netdev():
-> 
->    Factor (sizeof(struct egress_subqueue) * num_subqueues) into
->    the net_device allocation size, place the "priv" area after
->    the subqueues.
-> 
-> This will save us pointer dereferences on all of these quite 
-> common accesses.
+> BTW, dont turn on the cloning - leave it as 1 so we can have every
+> packet alloced so as to have worst case scenario.
 
-Thanks Dave!  I'll be putting this in today and run a test pass on it.
-Thanks for the feedback.
+here is with batch_min 400 and clone 1:
+184251pps 88Mb/sec (88440480bps) errors: 0
+A bit better than without cloning, but that might be a noise.
 
--PJ Waskiewicz 
+batch_min 0 and clone 1:
+258564pps 124Mb/sec (124110720bps) errors: 0
+Noticebly better than with cloning, but still much worse than mainline.
+
+> > > mainline (the same script, on start it wrote about unsupported batch_low
+> > > parameter:
+> > > 497520pps 238Mb/sec
+> > 
+> > 
+> > And here is with batch_low=400:
+> 
+> I am going to get rid of that batch param - it doesnt seem to matter
+> what that value is in the long run.
+
+Hmm, with that parameter result is 87Mb/sec while with batch_min equal
+to zero it is 115Mb/sec. Without batching result is even better -
+238Mb/sec, so it does seem to affect performance.
+
+> > Result: OK: T4143884(U4143864+I20+A4007752+T127073) usec, P1000000 TE8511TS1(B60,-1frags)
+> 
+> So on average you have been sending about 120 packets per batch - which
+> should give you decent numbers. Lets see how Robert responds and if you
+> have time, turn off the kernel configs like i did.
+
+It is not turned on in my config.
+
+> cheers,
+> jamal
+
+-- 
+	Evgeniy Polyakov
