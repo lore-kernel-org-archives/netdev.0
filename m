@@ -1,61 +1,47 @@
-From: "Ian Brown" <ianbrn@gmail.com>
-Subject: RTF_DYNAMIC flag in ipv4 and in ipv6 , ICMP redirect and the routing table/cache
-Date: Tue, 19 Jun 2007 18:16:05 +0300
-Message-ID: <d0383f90706190816l77d76634j33573ea125514499@mail.gmail.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Why is this patch not in 2.6.22-rc5?
+Date: Tue, 19 Jun 2007 08:23:02 -0700
+Message-ID: <20070619082302.4b9a5c27@localhost.localdomain>
+References: <1178862045.3979.33.camel@kane-linux>
+	<20070511092519.1f34ab34@freepuppy>
+	<1179130660.3881.23.camel@kane-linux>
+	<20070514085840.17a343f7@freepuppy>
+	<20070613094521.GA8860@localdomain>
+	<20070613155335.47111c67@localhost>
+	<15712.1181795790@death>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nz-out-0506.google.com ([64.233.162.228]:38826 "EHLO
-	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754990AbXFSPQG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2007 11:16:06 -0400
-Received: by nz-out-0506.google.com with SMTP id n1so1778378nzf
-        for <netdev@vger.kernel.org>; Tue, 19 Jun 2007 08:16:06 -0700 (PDT)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Cc: Dan Aloni <da-x@monatomic.org>,
+	Chad Tindel <ctindel@users.sourceforge.net>,
+	Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>,
+	netdev@vger.kernel.org,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	bonding-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: Jay Vosburgh <fubar@us.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759393AbXFSP3f@vger.kernel.org>
+In-Reply-To: <15712.1181795790@death>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+On Wed, 13 Jun 2007 21:36:30 -0700
+Jay Vosburgh <fubar@us.ibm.com> wrote:
 
-Suppose a routing cache entry is added as a consequence of
-a redirect to host ICMP message.
-
-There is in include/linux.h two flags , one for entry which
-is created and one for an entry which is modified because of a redirect:
-
-#define RTF_DYNAMIC     0x0010          /* created dyn. (by redirect) */
-#define RTF_MODIFIED    0x0020          /* modified dyn. (by redirect)
-
-Let's talk about the first case , creation of an entry as a result of redirect.
-(RTF_DYNAMIC).
-
-I saw that  the RTF_DYNAMIC flag is used only in ipv6 (in
-net/ipv6/route.c, in rt6_redirect() method.
-
-MY question is : why is this flag not set in ipv4 redirect method  ?
-(ip_rt_redirect() in route.c).
-
-As far as I understand, because this flag is **not** set in ipv4, there is no
-way to know that a route was changed by a redirect (not in the route cache
-and not in the routing table (fib_table).
-
-The reason for this is, that from "man route" you can see that the
-flags possible when redirect occurs are:
-ute for dynamic routing)
-              D (dynamically installed by daemon or redirect)
-              M (modified from routing daemon or redirect)
-
-D corresponds to RTF_DYNAMIC and M corresponds to RTF_MODIFIED.
-
-I know that many machines are not accepting redirects by default
-from reasons of security. Yet it seems to me stange, that as a result of
-what was explained above, there is no way to know in ipv4 that a route was
-changed as a result of host redirect (yet it is possible as far as I understand
-to know it in ipv6).
-
-Any explanations/clarifications?
-
-Regards,
-IB
+> 
+> 	The following patch (based on a patch from Stephen Hemminger
+> <shemminger@linux-foundation.org>) removes use after free conditions in
+> the unregister path for the bonding master.  Without this patch, an
+> operation of the form "echo -bond0 > /sys/class/net/bonding_masters"
+> would trigger a NULL pointer dereference in sysfs.  I was not able to
+> induce the failure with the non-sysfs code path, but for consistency I
+> updated that code as well.
+> 
+> 	I also did some testing of the bonding /proc file being open
+> while the bond is being deleted, and didn't see any problems there.
+> 
+> Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+	
+Hey David, this patch fixes one of the bugs listed in 2.6.22-rc5
+list. Jay submitted last week but it hasn't made it upstream.
