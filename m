@@ -1,233 +1,67 @@
-From: "Ranjit Manomohan" <ranjitm@google.com>
-Subject: Re: [NET_SCHED 03/04]: sch_htb: use generic estimator
-Date: Tue, 19 Jun 2007 11:07:13 -0700
-Message-ID: <166fe7950706191107p2563af77w9b1038dc216925f@mail.gmail.com>
-References: <20070619150159.30997.77256.sendpatchset@localhost.localdomain>
-	 <20070619150203.30997.79383.sendpatchset@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, devik@cdi.cz, netdev@vger.kernel.org
-To: "Patrick McHardy" <kaber@trash.net>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: [PATCH] bonding: Fix use after free in unregister path
+Date: Tue, 19 Jun 2007 11:12:12 -0700
+Message-ID: <24302.1182276732@death>
+References: <1178862045.3979.33.camel@kane-linux> <20070511092519.1f34ab34@freepuppy> <1179130660.3881.23.camel@kane-linux> <20070514085840.17a343f7@freepuppy> <20070613094521.GA8860@localdomain> <20070613155335.47111c67@localhost> <15712.1181795790@death> <20070619082302.4b9a5c27@localhost.localdomain> <467817CE.80904@garzik.org>
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Dan Aloni <da-x@monatomic.org>,
+	Chad Tindel <ctindel@users.sourceforge.net>,
+	Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>,
+	netdev@vger.kernel.org,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	bonding-devel@lists.sourceforge.net
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.45.13]:25233 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756508AbXFSSH0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2007 14:07:26 -0400
-Received: from zps19.corp.google.com (zps19.corp.google.com [172.25.146.19])
-	by smtp-out.google.com with ESMTP id l5JI7NEX006509
-	for <netdev@vger.kernel.org>; Tue, 19 Jun 2007 11:07:23 -0700
-Received: from ug-out-1314.google.com (ugcp35.prod.google.com [10.66.117.35])
-	by zps19.corp.google.com with ESMTP id l5JI7DxB020025
-	for <netdev@vger.kernel.org>; Tue, 19 Jun 2007 11:07:14 -0700
-Received: by ug-out-1314.google.com with SMTP id p35so179656ugc
-        for <netdev@vger.kernel.org>; Tue, 19 Jun 2007 11:07:13 -0700 (PDT)
-In-Reply-To: <20070619150203.30997.79383.sendpatchset@localhost.localdomain>
-Content-Disposition: inline
+Received: from e31.co.us.ibm.com ([32.97.110.149]:60305 "EHLO
+	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756747AbXFSSMV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2007 14:12:21 -0400
+In-reply-to: <467817CE.80904@garzik.org> 
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 6/19/07, Patrick McHardy <kaber@trash.net> wrote:
-> [NET_SCHED]: sch_htb: use generic estimator
->
-> Use the generic estimator instead of reimplementing (parts of) it.
-> For compatibility always create a default estimator for new classes.
->
-> Signed-off-by: Patrick McHardy <kaber@trash.net>
->
-> ---
-> commit f18cfcd1e11aabd3c0b606c7f3265634b5261e88
-> tree f611855506264ccde17bfb22b03e24728b684346
-> parent 00b3839a51961a8fda98d3941d0809f16be0ea59
-> author Patrick McHardy <kaber@trash.net> Tue, 19 Jun 2007 16:54:15 +0200
-> committer Patrick McHardy <kaber@trash.net> Tue, 19 Jun 2007 16:54:15 +0200
->
->  net/sched/sch_htb.c |   84 ++++++++++++++-------------------------------------
->  1 files changed, 23 insertions(+), 61 deletions(-)
->
-> diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-> index 035788c..944ad18 100644
-> --- a/net/sched/sch_htb.c
-> +++ b/net/sched/sch_htb.c
-> @@ -69,8 +69,6 @@
->  */
->
->  #define HTB_HSIZE 16           /* classid hash size */
-> -#define HTB_EWMAC 2            /* rate average over HTB_EWMAC*HTB_HSIZE sec */
-> -#define HTB_RATECM 1           /* whether to use rate computer */
->  #define HTB_HYSTERESIS 1       /* whether to use mode hysteresis for speedup */
->  #define HTB_VER 0x30011                /* major must be matched with number suplied by TC as version */
->
-> @@ -95,12 +93,6 @@ struct htb_class {
->         struct tc_htb_xstats xstats;    /* our special stats */
->         int refcnt;             /* usage count of this class */
->
-> -#ifdef HTB_RATECM
-> -       /* rate measurement counters */
-> -       unsigned long rate_bytes, sum_bytes;
-> -       unsigned long rate_packets, sum_packets;
-> -#endif
-> -
->         /* topology */
->         int level;              /* our level (see above) */
->         struct htb_class *parent;       /* parent class */
-> @@ -194,10 +186,6 @@ struct htb_sched {
->         int rate2quantum;       /* quant = rate / rate2quantum */
->         psched_time_t now;      /* cached dequeue time */
->         struct qdisc_watchdog watchdog;
-> -#ifdef HTB_RATECM
-> -       struct timer_list rttim;        /* rate computer timer */
-> -       int recmp_bucket;       /* which hash bucket to recompute next */
-> -#endif
->
->         /* non shaped skbs; let them go directly thru */
->         struct sk_buff_head direct_queue;
-> @@ -677,34 +665,6 @@ static int htb_requeue(struct sk_buff *skb, struct Qdisc *sch)
->         return NET_XMIT_SUCCESS;
->  }
->
-> -#ifdef HTB_RATECM
-> -#define RT_GEN(D,R) R+=D-(R/HTB_EWMAC);D=0
-> -static void htb_rate_timer(unsigned long arg)
-> -{
-> -       struct Qdisc *sch = (struct Qdisc *)arg;
-> -       struct htb_sched *q = qdisc_priv(sch);
-> -       struct hlist_node *p;
-> -       struct htb_class *cl;
-> -
-> -
-> -       /* lock queue so that we can muck with it */
-> -       spin_lock_bh(&sch->dev->queue_lock);
-> -
-> -       q->rttim.expires = jiffies + HZ;
-> -       add_timer(&q->rttim);
-> -
-> -       /* scan and recompute one bucket at time */
-> -       if (++q->recmp_bucket >= HTB_HSIZE)
-> -               q->recmp_bucket = 0;
-> -
-> -       hlist_for_each_entry(cl,p, q->hash + q->recmp_bucket, hlist) {
-> -               RT_GEN(cl->sum_bytes, cl->rate_bytes);
-> -               RT_GEN(cl->sum_packets, cl->rate_packets);
-> -       }
-> -       spin_unlock_bh(&sch->dev->queue_lock);
-> -}
-> -#endif
-> -
->  /**
->   * htb_charge_class - charges amount "bytes" to leaf and ancestors
->   *
-> @@ -750,11 +710,6 @@ static void htb_charge_class(struct htb_sched *q, struct htb_class *cl,
->                         if (cl->cmode != HTB_CAN_SEND)
->                                 htb_add_to_wait_tree(q, cl, diff);
->                 }
-> -#ifdef HTB_RATECM
-> -               /* update rate counters */
-> -               cl->sum_bytes += bytes;
-> -               cl->sum_packets++;
-> -#endif
->
->                 /* update byte stats except for leaves which are already updated */
->                 if (cl->level) {
-> @@ -1095,13 +1050,6 @@ static int htb_init(struct Qdisc *sch, struct rtattr *opt)
->         if (q->direct_qlen < 2) /* some devices have zero tx_queue_len */
->                 q->direct_qlen = 2;
->
-> -#ifdef HTB_RATECM
-> -       init_timer(&q->rttim);
-> -       q->rttim.function = htb_rate_timer;
-> -       q->rttim.data = (unsigned long)sch;
-> -       q->rttim.expires = jiffies + HZ;
-> -       add_timer(&q->rttim);
-> -#endif
->         if ((q->rate2quantum = gopt->rate2quantum) < 1)
->                 q->rate2quantum = 1;
->         q->defcls = gopt->defcls;
-> @@ -1175,11 +1123,6 @@ htb_dump_class_stats(struct Qdisc *sch, unsigned long arg, struct gnet_dump *d)
->  {
->         struct htb_class *cl = (struct htb_class *)arg;
->
-> -#ifdef HTB_RATECM
-> -       cl->rate_est.bps = cl->rate_bytes / (HTB_EWMAC * HTB_HSIZE);
-> -       cl->rate_est.pps = cl->rate_packets / (HTB_EWMAC * HTB_HSIZE);
-> -#endif
-> -
->         if (!cl->level && cl->un.leaf.q)
->                 cl->qstats.qlen = cl->un.leaf.q->q.qlen;
->         cl->xstats.tokens = cl->tokens;
-> @@ -1277,6 +1220,7 @@ static void htb_destroy_class(struct Qdisc *sch, struct htb_class *cl)
->                 BUG_TRAP(cl->un.leaf.q);
->                 qdisc_destroy(cl->un.leaf.q);
->         }
-> +       gen_kill_estimator(&cl->bstats, &cl->rate_est);
->         qdisc_put_rtab(cl->rate);
->         qdisc_put_rtab(cl->ceil);
->
-> @@ -1305,9 +1249,6 @@ static void htb_destroy(struct Qdisc *sch)
->         struct htb_sched *q = qdisc_priv(sch);
->
->         qdisc_watchdog_cancel(&q->watchdog);
-> -#ifdef HTB_RATECM
-> -       del_timer_sync(&q->rttim);
-> -#endif
->         /* This line used to be after htb_destroy_class call below
->            and surprisingly it worked in 2.4. But it must precede it
->            because filter need its target class alive to be able to call
-> @@ -1403,6 +1344,20 @@ static int htb_change_class(struct Qdisc *sch, u32 classid,
->         if (!cl) {              /* new class */
->                 struct Qdisc *new_q;
->                 int prio;
-> +               struct {
-> +                       struct rtattr           rta;
-> +                       struct gnet_estimator   opt;
-> +               } est = {
-> +                       .rta = {
-> +                               .rta_len        = RTA_LENGTH(sizeof(est.opt)),
-> +                               .rta_type       = TCA_RATE,
-> +                       },
-> +                       .opt = {
-> +                               /* 4s interval, 16s averaging constant */
-> +                               .interval       = 2,
-> +                               .ewma_log       = 2,
-> +                       },
-> +               };
->
->                 /* check for valid classid */
->                 if (!classid || TC_H_MAJ(classid ^ sch->handle)
-> @@ -1418,6 +1373,8 @@ static int htb_change_class(struct Qdisc *sch, u32 classid,
->                 if ((cl = kzalloc(sizeof(*cl), GFP_KERNEL)) == NULL)
->                         goto failure;
->
-> +               gen_new_estimator(&cl->bstats, &cl->rate_est,
-> +                                 &sch->dev->queue_lock, &est.rta);
 
-Probably need to change the last parameter to
-tca[TCA_RATE-1]?:&est.rta to check if estimator params are specified
-at creation time?
+	The following patch (based on a patch from Stephen Hemminger
+<shemminger@linux-foundation.org>) removes use after free conditions in
+the unregister path for the bonding master.  Without this patch, an
+operation of the form "echo -bond0 > /sys/class/net/bonding_masters"
+would trigger a NULL pointer dereference in sysfs.  I was not able to
+induce the failure with the non-sysfs code path, but for consistency I
+updated that code as well.
 
--Thanks,
-Ranjit
+	I also did some testing of the bonding /proc file being open
+while the bond is being deleted, and didn't see any problems there.
 
->                 cl->refcnt = 1;
->                 INIT_LIST_HEAD(&cl->sibling);
->                 INIT_HLIST_NODE(&cl->hlist);
-> @@ -1469,8 +1426,13 @@ static int htb_change_class(struct Qdisc *sch, u32 classid,
->                 hlist_add_head(&cl->hlist, q->hash + htb_hash(classid));
->                 list_add_tail(&cl->sibling,
->                               parent ? &parent->children : &q->root);
-> -       } else
-> +       } else {
-> +               if (tca[TCA_RATE-1])
-> +                       gen_replace_estimator(&cl->bstats, &cl->rate_est,
-> +                                             &sch->dev->queue_lock,
-> +                                             tca[TCA_RATE-1]);
->                 sch_tree_lock(sch);
-> +       }
->
->         /* it used to be a nasty bug here, we have to check that node
->            is really leaf before changing cl->un.leaf ! */
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 223517d..6287ffb 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -4345,8 +4345,8 @@ static void bond_free_all(void)
+ 		bond_mc_list_destroy(bond);
+ 		/* Release the bonded slaves */
+ 		bond_release_all(bond_dev);
+-		unregister_netdevice(bond_dev);
+ 		bond_deinit(bond_dev);
++		unregister_netdevice(bond_dev);
+ 	}
+
+ #ifdef CONFIG_PROC_FS
+diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+index a122baa..60cccf2 100644
+--- a/drivers/net/bonding/bond_sysfs.c
++++ b/drivers/net/bonding/bond_sysfs.c
+@@ -164,9 +164,9 @@ static ssize_t bonding_store_bonds(struct class *cls, const char *buffer, size_t
+ 				printk(KERN_INFO DRV_NAME
+ 					": %s is being deleted...\n",
+ 					bond->dev->name);
+-				unregister_netdevice(bond->dev);
+ 				bond_deinit(bond->dev);
+ 		        	bond_destroy_sysfs_entry(bond);
++				unregister_netdevice(bond->dev);
+ 				rtnl_unlock();
+ 				goto out;
+ 			}
