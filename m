@@ -1,37 +1,55 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: 2.6.22: ERROR: "__ucmpdi2" [drivers/net/s2io.ko] undefined!
-Date: Tue, 19 Jun 2007 13:10:21 -0700
-Message-ID: <20070619131021.1c814098@localhost.localdomain>
-References: <20070619190253.GA19419@aepfle.de>
+From: Florian Westphal <fw-kernel@strlen.de>
+Subject: [PATCH] TIPC: Fix infinite loop in netlink handler
+Date: Tue, 19 Jun 2007 22:18:34 +0200
+Message-ID: <20070619201834.GH4383@Chamillionaire.breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Olaf Hering <olaf@aepfle.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:37357 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933837AbXFSUK1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2007 16:10:27 -0400
-In-Reply-To: <20070619190253.GA19419@aepfle.de>
-Sender: netdev-owner@vger.kernel.org
+Cc: jon.maloy@ericsson.com, per.liden@ericsson.com,
+	tipc-discussion@lists.sourceforge.net, allan.stephens@windriver.com
+To: netdev@vger.kernel.org
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Sender: tipc-discussion-bounces@lists.sourceforge.net
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Tue, 19 Jun 2007 21:02:53 +0200
-Olaf Hering <olaf@aepfle.de> wrote:
+From: Florian Westphal <fw@strlen.de>
 
-> 
-> What happend to __ucmpdi2 from David Woodhouse?
-> google has a few hits about stuff like this on 32bit powerpc with gcc 4.1.2:
-> 
-> ERROR: "__ucmpdi2" [drivers/net/s2io.ko] undefined!
-> 
-> using the drivers/net/s2io* files from 2.6.21 with 2.6.22-rc5 fixes the
-> compile.
-> 
-> 25805dcf9d83098cf5492117ad2669cd14cc9b24 adds two u64 >>= 48 followed by
-> a switch statement (line 2889 and 6816).
+The tipc netlink config handler uses the nlmsg_pid from the
+request header as destination for its reply. If the application
+initialized nlmsg_pid to 0, the reply is looped back to the kernel,
+causing hangup. Fix: use nlmsg_pid of the skb that triggered the
+request.
 
-Probably the "switch(err) {" needs a cast to a smaller type (like u8).
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+ net/tipc/netlink.c |    2 +-
+  1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/tipc/netlink.c b/net/tipc/netlink.c
+index 4cdafa2..6a7f7b4 100644
+--- a/net/tipc/netlink.c
++++ b/net/tipc/netlink.c
+@@ -60,7 +60,7 @@ static int handle_cmd(struct sk_buff *skb, struct genl_info *info)
+ 		rep_nlh = nlmsg_hdr(rep_buf);
+ 		memcpy(rep_nlh, req_nlh, hdr_space);
+ 		rep_nlh->nlmsg_len = rep_buf->len;
+-		genlmsg_unicast(rep_buf, req_nlh->nlmsg_pid);
++		genlmsg_unicast(rep_buf, NETLINK_CB(skb).pid);
+ 	}
+ 
+ 	return 0;
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by DB2 Express
+Download DB2 Express C - the FREE version of DB2 express and take
+control of your XML. No limits. Just data. Click to get it now.
+http://sourceforge.net/powerbar/db2/
