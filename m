@@ -1,9 +1,8 @@
 From: Keiichi KII <k-keiichi@bx.jp.nec.com>
-Subject: Re: [RFC][PATCH -mm take5 3/7] add interface for netconsole using
- sysfs
-Date: Tue, 19 Jun 2007 19:03:25 +0900
-Message-ID: <4677A9ED.80208@bx.jp.nec.com>
-References: <466FC455.5060001@bx.jp.nec.com> <466FC6BB.4040105@bx.jp.nec.com> <a781481a0706130849u2373983eyeab365a8bc90a4dd@mail.gmail.com>
+Subject: Re: [RFC][PATCH -mm take5 4/7] using symlink for the net_device
+Date: Tue, 19 Jun 2007 19:03:50 +0900
+Message-ID: <4677AA06.4090600@bx.jp.nec.com>
+References: <466FC455.5060001@bx.jp.nec.com> <466FC6ED.9060208@bx.jp.nec.com> <a781481a0706130949j7b35e33ds9cda5d8a551c9d7d@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -13,39 +12,38 @@ Cc: Matt Mackall <mpm@selenic.com>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 To: Satyam Sharma <satyam.sharma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from TYO201.gate.nec.co.jp ([202.32.8.193]:50900 "EHLO
-	tyo201.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755950AbXFSKD5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2007 06:03:57 -0400
-In-Reply-To: <a781481a0706130849u2373983eyeab365a8bc90a4dd@mail.gmail.com>
+Received: from TYO202.gate.nec.co.jp ([202.32.8.206]:56548 "EHLO
+	tyo202.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757353AbXFSKEK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2007 06:04:10 -0400
+In-Reply-To: <a781481a0706130949j7b35e33ds9cda5d8a551c9d7d@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Hello Satyam,
 
-First, I'm sorry I couldn't reply to your comments.
-I'm so appreciate for your comments.
+> Sorry, but we're not covering from the error condition fully here. Note
+> that later you merge the temporary modify_target_list entirely back
+> into the target_list ... which would still contain these erroneous
+> nodes. A full cleanup (kobject_unregister the entry, and then list_del
+> from modify_target_list) is required here, before continuing.
 
-I will fix my patches following your advices.
-But, I have some questions on the another patches. So, I want to ask you
-some questions and answer your questions.
+I will fix this. If the error occurs, I think so that we need to cleanup
+completely.
 
->> +static int miscdev_configured;
+>> +                       strcpy(nt->np.dev_name, dev->name);
 > 
-> Is this really required? We just return with error if misc_register()
-> fails during module init time itself, so it's not really useful ever, is 
-> it?
+> ... you'll have move this up.
+> 
 
-You're right. It isn't required.
+Why? I don't have opposition about moving this up, but I'm misplacing the abobe code?
+or it isn't appropriate about coding style?
 
 Thanks
 -- 
 Keiichi KII
 NEC Corporation OSS Platform Development Division
 E-mail: k-keiichi@bx.jp.nec.com
-
-
-
 
 
 
