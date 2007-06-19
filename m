@@ -1,245 +1,86 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [NET_SCHED 03/04]: sch_htb: use generic estimator
-Date: Tue, 19 Jun 2007 23:22:06 +0200
-Message-ID: <467848FE.7090106@trash.net>
-References: <20070619150159.30997.77256.sendpatchset@localhost.localdomain>	 <20070619150203.30997.79383.sendpatchset@localhost.localdomain> <166fe7950706191107p2563af77w9b1038dc216925f@mail.gmail.com>
+From: Konstantin <konstantin.sharlaimov@gmail.com>
+Subject: Re: [PATCH 2.6.21.3] ppp_mppe: account for osize too small errors in mppe_decompress()
+Date: Wed, 20 Jun 2007 08:33:01 +1100
+Message-ID: <392557440706191433h37aa0629w1e3c05693d25bcf9@mail.gmail.com>
+References: <46654796.3060800@gmail.com>
+	 <20070619184148.201f2521.vsu@altlinux.ru>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------060607060102080408040505"
-Cc: davem@davemloft.net, devik@cdi.cz, netdev@vger.kernel.org
-To: Ranjit Manomohan <ranjitm@google.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Paul Mackerras" <paulus@samba.org>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: "Sergey Vlasov" <vsu@altlinux.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:34038 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751574AbXFSVWd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2007 17:22:33 -0400
-In-Reply-To: <166fe7950706191107p2563af77w9b1038dc216925f@mail.gmail.com>
+Received: from wr-out-0506.google.com ([64.233.184.237]:27889 "EHLO
+	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751620AbXFSVdE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2007 17:33:04 -0400
+Received: by wr-out-0506.google.com with SMTP id 76so1436920wra
+        for <netdev@vger.kernel.org>; Tue, 19 Jun 2007 14:33:03 -0700 (PDT)
+In-Reply-To: <20070619184148.201f2521.vsu@altlinux.ru>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------060607060102080408040505
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
+Thanks for pointing this out. It seems that we would need to allocate
+this extra byte somewhere in kernel ppp code.
 
-Ranjit Manomohan wrote:
-> On 6/19/07, Patrick McHardy <kaber@trash.net> wrote:
-> 
->> [NET_SCHED]: sch_htb: use generic estimator
->>
->> Use the generic estimator instead of reimplementing (parts of) it.
->> For compatibility always create a default estimator for new classes.
->>
->>
->> +               gen_new_estimator(&cl->bstats, &cl->rate_est,
->> +                                 &sch->dev->queue_lock, &est.rta);
-> 
-> 
-> Probably need to change the last parameter to
-> tca[TCA_RATE-1]?:&est.rta to check if estimator params are specified
-> at creation time?
+However, I am not very familiar with that part of the code yet, and
+I'll appreciate any help with finding parts of code where obuffer for
+mppe_decompress is allocated.
 
-
-Good point, thanks for catching this.
-
-
---------------060607060102080408040505
-Content-Type: text/x-diff;
- name="03.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="03.diff"
-
-[NET_SCHED]: sch_htb: use generic estimator
-
-Use the generic estimator instead of reimplementing (parts of) it.
-For compatibility always create a default estimator for new classes.
-
-Signed-off-by: Patrick McHardy <kaber@trash.net>
-
----
-commit 156d3d463446258c3e72b9dc10238e807bfeec71
-tree a136f5576a0ca3066c200c577e559097e6a5d4b8
-parent 831e7e7451b662679e0e3cf56e7c070a027de306
-author Patrick McHardy <kaber@trash.net> Tue, 19 Jun 2007 23:21:00 +0200
-committer Patrick McHardy <kaber@trash.net> Tue, 19 Jun 2007 23:21:00 +0200
-
- net/sched/sch_htb.c |   85 ++++++++++++++-------------------------------------
- 1 files changed, 24 insertions(+), 61 deletions(-)
-
-diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-index 035788c..26f81b8 100644
---- a/net/sched/sch_htb.c
-+++ b/net/sched/sch_htb.c
-@@ -69,8 +69,6 @@
- */
- 
- #define HTB_HSIZE 16		/* classid hash size */
--#define HTB_EWMAC 2		/* rate average over HTB_EWMAC*HTB_HSIZE sec */
--#define HTB_RATECM 1		/* whether to use rate computer */
- #define HTB_HYSTERESIS 1	/* whether to use mode hysteresis for speedup */
- #define HTB_VER 0x30011		/* major must be matched with number suplied by TC as version */
- 
-@@ -95,12 +93,6 @@ struct htb_class {
- 	struct tc_htb_xstats xstats;	/* our special stats */
- 	int refcnt;		/* usage count of this class */
- 
--#ifdef HTB_RATECM
--	/* rate measurement counters */
--	unsigned long rate_bytes, sum_bytes;
--	unsigned long rate_packets, sum_packets;
--#endif
--
- 	/* topology */
- 	int level;		/* our level (see above) */
- 	struct htb_class *parent;	/* parent class */
-@@ -194,10 +186,6 @@ struct htb_sched {
- 	int rate2quantum;	/* quant = rate / rate2quantum */
- 	psched_time_t now;	/* cached dequeue time */
- 	struct qdisc_watchdog watchdog;
--#ifdef HTB_RATECM
--	struct timer_list rttim;	/* rate computer timer */
--	int recmp_bucket;	/* which hash bucket to recompute next */
--#endif
- 
- 	/* non shaped skbs; let them go directly thru */
- 	struct sk_buff_head direct_queue;
-@@ -677,34 +665,6 @@ static int htb_requeue(struct sk_buff *skb, struct Qdisc *sch)
- 	return NET_XMIT_SUCCESS;
- }
- 
--#ifdef HTB_RATECM
--#define RT_GEN(D,R) R+=D-(R/HTB_EWMAC);D=0
--static void htb_rate_timer(unsigned long arg)
--{
--	struct Qdisc *sch = (struct Qdisc *)arg;
--	struct htb_sched *q = qdisc_priv(sch);
--	struct hlist_node *p;
--	struct htb_class *cl;
--
--
--	/* lock queue so that we can muck with it */
--	spin_lock_bh(&sch->dev->queue_lock);
--
--	q->rttim.expires = jiffies + HZ;
--	add_timer(&q->rttim);
--
--	/* scan and recompute one bucket at time */
--	if (++q->recmp_bucket >= HTB_HSIZE)
--		q->recmp_bucket = 0;
--
--	hlist_for_each_entry(cl,p, q->hash + q->recmp_bucket, hlist) {
--		RT_GEN(cl->sum_bytes, cl->rate_bytes);
--		RT_GEN(cl->sum_packets, cl->rate_packets);
--	}
--	spin_unlock_bh(&sch->dev->queue_lock);
--}
--#endif
--
- /**
-  * htb_charge_class - charges amount "bytes" to leaf and ancestors
-  *
-@@ -750,11 +710,6 @@ static void htb_charge_class(struct htb_sched *q, struct htb_class *cl,
- 			if (cl->cmode != HTB_CAN_SEND)
- 				htb_add_to_wait_tree(q, cl, diff);
- 		}
--#ifdef HTB_RATECM
--		/* update rate counters */
--		cl->sum_bytes += bytes;
--		cl->sum_packets++;
--#endif
- 
- 		/* update byte stats except for leaves which are already updated */
- 		if (cl->level) {
-@@ -1095,13 +1050,6 @@ static int htb_init(struct Qdisc *sch, struct rtattr *opt)
- 	if (q->direct_qlen < 2)	/* some devices have zero tx_queue_len */
- 		q->direct_qlen = 2;
- 
--#ifdef HTB_RATECM
--	init_timer(&q->rttim);
--	q->rttim.function = htb_rate_timer;
--	q->rttim.data = (unsigned long)sch;
--	q->rttim.expires = jiffies + HZ;
--	add_timer(&q->rttim);
--#endif
- 	if ((q->rate2quantum = gopt->rate2quantum) < 1)
- 		q->rate2quantum = 1;
- 	q->defcls = gopt->defcls;
-@@ -1175,11 +1123,6 @@ htb_dump_class_stats(struct Qdisc *sch, unsigned long arg, struct gnet_dump *d)
- {
- 	struct htb_class *cl = (struct htb_class *)arg;
- 
--#ifdef HTB_RATECM
--	cl->rate_est.bps = cl->rate_bytes / (HTB_EWMAC * HTB_HSIZE);
--	cl->rate_est.pps = cl->rate_packets / (HTB_EWMAC * HTB_HSIZE);
--#endif
--
- 	if (!cl->level && cl->un.leaf.q)
- 		cl->qstats.qlen = cl->un.leaf.q->q.qlen;
- 	cl->xstats.tokens = cl->tokens;
-@@ -1277,6 +1220,7 @@ static void htb_destroy_class(struct Qdisc *sch, struct htb_class *cl)
- 		BUG_TRAP(cl->un.leaf.q);
- 		qdisc_destroy(cl->un.leaf.q);
- 	}
-+	gen_kill_estimator(&cl->bstats, &cl->rate_est);
- 	qdisc_put_rtab(cl->rate);
- 	qdisc_put_rtab(cl->ceil);
- 
-@@ -1305,9 +1249,6 @@ static void htb_destroy(struct Qdisc *sch)
- 	struct htb_sched *q = qdisc_priv(sch);
- 
- 	qdisc_watchdog_cancel(&q->watchdog);
--#ifdef HTB_RATECM
--	del_timer_sync(&q->rttim);
--#endif
- 	/* This line used to be after htb_destroy_class call below
- 	   and surprisingly it worked in 2.4. But it must precede it
- 	   because filter need its target class alive to be able to call
-@@ -1403,6 +1344,20 @@ static int htb_change_class(struct Qdisc *sch, u32 classid,
- 	if (!cl) {		/* new class */
- 		struct Qdisc *new_q;
- 		int prio;
-+		struct {
-+			struct rtattr		rta;
-+			struct gnet_estimator	opt;
-+		} est = {
-+			.rta = {
-+				.rta_len	= RTA_LENGTH(sizeof(est.opt)),
-+				.rta_type	= TCA_RATE,
-+			},
-+			.opt = {
-+				/* 4s interval, 16s averaging constant */
-+				.interval	= 2,
-+				.ewma_log	= 2,
-+			},
-+		};
- 
- 		/* check for valid classid */
- 		if (!classid || TC_H_MAJ(classid ^ sch->handle)
-@@ -1418,6 +1373,9 @@ static int htb_change_class(struct Qdisc *sch, u32 classid,
- 		if ((cl = kzalloc(sizeof(*cl), GFP_KERNEL)) == NULL)
- 			goto failure;
- 
-+		gen_new_estimator(&cl->bstats, &cl->rate_est,
-+				  &sch->dev->queue_lock,
-+				  tca[TCA_RATE-1] ? : &est.rta);
- 		cl->refcnt = 1;
- 		INIT_LIST_HEAD(&cl->sibling);
- 		INIT_HLIST_NODE(&cl->hlist);
-@@ -1469,8 +1427,13 @@ static int htb_change_class(struct Qdisc *sch, u32 classid,
- 		hlist_add_head(&cl->hlist, q->hash + htb_hash(classid));
- 		list_add_tail(&cl->sibling,
- 			      parent ? &parent->children : &q->root);
--	} else
-+	} else {
-+		if (tca[TCA_RATE-1])
-+			gen_replace_estimator(&cl->bstats, &cl->rate_est,
-+					      &sch->dev->queue_lock,
-+					      tca[TCA_RATE-1]);
- 		sch_tree_lock(sch);
-+	}
- 
- 	/* it used to be a nasty bug here, we have to check that node
- 	   is really leaf before changing cl->un.leaf ! */
-
---------------060607060102080408040505--
+On 6/20/07, Sergey Vlasov <vsu@altlinux.ru> wrote:
+> On Tue, 05 Jun 2007 22:23:02 +1100 Konstantin Sharlaimov wrote:
+>
+> > Prevent mppe_decompress() from generating "osize too small" errors when checking
+> > for output buffer size. When receiving a packet of mru size the output buffer
+> > for decrypted data is 1 byte too small since mppe_decompress() tries to account
+> > for possible PFC, however later in code it is assumed no PFC.
+> >
+> > Adjusting the check prevented there errors from occurring.
+> >
+> > Signed-off-by: Konstantin Sharlaimov <konstantin.sharlaimov@gmail.com>
+> > ---
+> > --- linux-2.6.21.3/drivers/net/ppp_mppe.c.orig        2007-06-01 20:57:04.000000000 +1100
+> > +++ linux-2.6.21.3/drivers/net/ppp_mppe.c     2007-06-05 21:46:30.000000000 +1100
+> > @@ -493,14 +493,14 @@ mppe_decompress(void *arg, unsigned char
+> >
+> >       /*
+> >        * Make sure we have enough room to decrypt the packet.
+> > -      * Note that for our test we only subtract 1 byte whereas in
+> > -      * mppe_compress() we added 2 bytes (+MPPE_OVHD);
+> > -      * this is to account for possible PFC.
+> > +      * To account for possible PFC we should only subtract 1
+> > +      * byte whereas in mppe_compress() we added 2 bytes (+MPPE_OVHD);
+> > +      * However, we assume no PFC, thus subtracting 2 bytes.
+> >        */
+> > -     if (osize < isize - MPPE_OVHD - 1) {
+> > +     if (osize < isize - MPPE_OVHD - 2) {
+> >               printk(KERN_DEBUG "mppe_decompress[%d]: osize too small! "
+> >                      "(have: %d need: %d)\n", state->unit,
+> > -                    osize, isize - MPPE_OVHD - 1);
+> > +                    osize, isize - MPPE_OVHD - 2);
+> >               return DECOMP_ERROR;
+> >       }
+> >       osize = isize - MPPE_OVHD - 2;  /* assume no PFC */
+>
+> Seems that this patch is not correct - even though the comment above
+> says "assume no PFC", the subsequent code actually supports PFC:
+>
+>         /*
+>          * Do PFC decompression.
+>          * This would be nicer if we were given the actual sk_buff
+>          * instead of a char *.
+>          */
+>         if ((obuf[0] & 0x01) != 0) {
+>                 obuf[1] = obuf[0];
+>                 obuf[0] = 0;
+>                 obuf++;
+>                 osize++;
+>         }
+>
+> Therefore, depending on the packet contents, the decompressor may
+> really need that extra byte in the output buffer, and changing the
+> check may cause buffer overflows.
+>
+>
