@@ -1,102 +1,84 @@
-From: Keiichi KII <k-keiichi@bx.jp.nec.com>
-Subject: Re: [RFC][PATCH -mm take5 4/7] using symlink for the net_device
-Date: Tue, 19 Jun 2007 19:04:19 +0900
-Message-ID: <4677AA23.1080708@bx.jp.nec.com>
-References: <466FC455.5060001@bx.jp.nec.com> <466FC6ED.9060208@bx.jp.nec.com>	 <a781481a0706130949j7b35e33ds9cda5d8a551c9d7d@mail.gmail.com> <a781481a0706131203g405a4407y1212bb397f14e8eb@mail.gmail.com>
+From: Veena Parat <Veena.Parat@neterion.com>
+Subject: [PATCH 2.6.22 4/4]S2IO: Implementing review comments from old patches
+Date: Tue, 19 Jun 2007 06:06:11 -0400 (EDT)
+Message-ID: <Pine.GSO.4.10.10706190604110.2608-100000@guinness>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Matt Mackall <mpm@selenic.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Satyam Sharma <satyam.sharma@gmail.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Leonid.Grossman@neterion.com, ramkrishna.vepa@neterion.com,
+	santosh.rastapur@neterion.com, Sivakumar.Subramani@neterion.com,
+	sreenivasa.honnur@neterion.com, Alicia.Pena@neterion.com,
+	sriram.rapuru@neterion.com
+To: netdev@vger.kernel.org, jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from TYO201.gate.nec.co.jp ([202.32.8.193]:51234 "EHLO
-	tyo201.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758689AbXFSKEd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2007 06:04:33 -0400
-In-Reply-To: <a781481a0706131203g405a4407y1212bb397f14e8eb@mail.gmail.com>
+Received: from barracuda.s2io.com ([72.1.205.138]:48151 "EHLO
+	barracuda.s2io.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756207AbXFSKGO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2007 06:06:14 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello Satyam,
+Implementation of review comments 
+1. Incorporated Jeff Garzik's comments on coding standards.
+2. Incorporated Andreas Schwab's comments on redundant condition check.
 
-> and this is why we have to use the dual-list mechanism to react to the net
-> device rename. This isn't so obvious, a comment at the point where you
-> declare modify_target_list would be nice? (BTW temporary_list would be
-> a better name for that, IMO)
-
-All right, my patches are short of comments. So, I will add comments 
-to the ambiguous codes.
-
-> Ok, so reading through the code makes it obvious that this mutex is used
-> to protect against the following race:
-> 
-> Thread #1                               Thread #2
-> =========                               =========
-> 
-> [ NETDEV_CHANGENAME notifier ]          [ ioctl(NETCON_REMOVE_TARGET) ]
-> 
-> netconsole_event()
-> move from target_list to temp list
-> work on temp list
->                                        kobject_unregister()
->                                        -> release_target()
->                                           -> remove_target()
-> move back to target_list
-> 
-> Which would mean a deleted/removed target added back => *boom*
-> 
-> But, the race still hasn't been closed properly!
-> 
-> You're taking the mutex only around "work on temp list" which is
-> insufficient, you need to ensure atomicity inside netconsole_event()
-> _completely_ like this (renaming netdev_change_sem to
-> netdev_changename_mtx):
-
-After the target moves from target_list to temporary_list, 
-the kobject_unregister() of possible raced target isn't called 
-in ioctl(NETCON_REMOVE_TARGET) because the target_list doesn't contain 
-the target .
-
-I have the wrong idea?
-
->> +static char *make_netdev_class_name(char *netdev_name)
->> +{
->> +       char *name;
->> +
->> +       name = kasprintf(GFP_KERNEL, "net:%s", netdev_name);
-> 
-> Why the "net:" prefix in the filename?
-
-Because I drew upon dev_change_name() method in net/core/dev.c.
-The device_rename() in the above function makes use of same prefix 
-related to netdev.
-
->>  static int setup_target_sysfs(struct netconsole_target *nt)
->>  {
->> +       int retval = 0;
->> +       char *name;
->> +
->>         kobject_set_name(&nt->obj, "port%d", nt->id);
->>         nt->obj.parent = &netconsole_miscdev.this_device->kobj;
->>         nt->obj.ktype = &target_ktype;
->> -       return kobject_register(&nt->obj);
->> +       retval = kobject_register(&nt->obj);
->> +       name = make_netdev_class_name(nt->np.dev_name);
->> +       if (!name)
->> +               return -ENOMEM;
-> 
-> Just call kasprintf() directly, why the obfuscation?
-> 
-
-I drew upon dev_change_name() method in net/core/dev.c.
-
-Thanks
--- 
-Keiichi KII
-NEC Corporation OSS Platform Development Division
-E-mail: k-keiichi@bx.jp.nec.com
-
+Signed-off-by: Veena Parat <veena.parat@neterion.com>
+---
+diff -urpN patch_3/drivers/net/s2io.c patch_4/drivers/net/s2io.c
+--- patch_3/drivers/net/s2io.c	2007-06-07 12:11:27.000000000 +0530
++++ patch_4/drivers/net/s2io.c	2007-06-07 12:00:16.000000000 +0530
+@@ -84,7 +84,7 @@
+ #include "s2io.h"
+ #include "s2io-regs.h"
+ 
+-#define DRV_VERSION "2.0.23.1"
++#define DRV_VERSION "2.0.24.1"
+ 
+ /* S2io Driver name & version. */
+ static char s2io_driver_name[] = "Neterion";
+@@ -4837,15 +4837,15 @@ static void s2io_ethtool_gringparam(stru
+ 		ering->rx_max_pending = MAX_RX_DESC_2;
+ 
+ 	ering->tx_max_pending = MAX_TX_DESC;
+-	for (i = 0 ; i < sp->config.tx_fifo_num ; i++) {
++	for (i = 0 ; i < sp->config.tx_fifo_num ; i++) 
+ 		tx_desc_count += sp->config.tx_cfg[i].fifo_len;
+-	}
++
+ 	DBG_PRINT(INFO_DBG,"\nmax txds : %d\n",sp->config.max_txds);
+ 	ering->tx_pending = tx_desc_count;
+ 	rx_desc_count = 0;
+-	for (i = 0 ; i < sp->config.rx_ring_num ; i++) {
++	for (i = 0 ; i < sp->config.rx_ring_num ; i++) 
+ 		rx_desc_count += sp->config.rx_cfg[i].num_rxd;
+-	}
++
+ 	ering->rx_pending = rx_desc_count;
+ 
+ 	ering->rx_mini_max_pending = 0;
+@@ -6723,13 +6723,7 @@ static int rx_osm_handler(struct ring_in
+ 	struct lro *lro;
+ 
+ 	skb->dev = dev;
+-
+-	if (err) {
+-		/* Check for parity error */
+-		if (err & 0x1) {
+-			sp->mac_control.stats_info->sw_stat.parity_err_cnt++;
+-		}
+-		err >>= 48;
++	if ((err = GET_RXD_T_CODE(rxdp->Control_1))) {
+ 		switch(err) {
+ 			case 1:
+ 				sp->mac_control.stats_info->sw_stat.
+diff -urpN patch_3/drivers/net/s2io.h patch_4/drivers/net/s2io.h
+--- patch_3/drivers/net/s2io.h	2007-05-21 15:32:26.000000000 +0530
++++ patch_4/drivers/net/s2io.h	2007-06-07 12:07:01.000000000 +0530
+@@ -503,6 +503,7 @@ struct RxD_t {
+ 	u64 Control_1;
+ #define RXD_OWN_XENA            BIT(7)
+ #define RXD_T_CODE              (BIT(12)|BIT(13)|BIT(14)|BIT(15))
++#define GET_RXD_T_CODE(val)     ((val & RXD_T_CODE) >> 48)
+ #define RXD_FRAME_PROTO         vBIT(0xFFFF,24,8)
+ #define RXD_FRAME_PROTO_IPV4    BIT(27)
+ #define RXD_FRAME_PROTO_IPV6    BIT(28)
 
