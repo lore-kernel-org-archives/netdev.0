@@ -1,60 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/3] NET: [CORE] Stack changes to add multiqueue
- hardware support API
-Date: Tue, 19 Jun 2007 15:37:58 -0700 (PDT)
-Message-ID: <20070619.153758.84956272.davem@davemloft.net>
-References: <20070618.232843.111185541.davem@davemloft.net>
-	<D5C1322C3E673F459512FB59E0DDC329031117B0@orsmsx414.amr.corp.intel.com>
+Subject: Re: [NET 00/02]: MACVLAN driver
+Date: Tue, 19 Jun 2007 15:48:40 -0700 (PDT)
+Message-ID: <20070619.154840.55744015.davem@davemloft.net>
+References: <20070619130825.26769.23059.sendpatchset@localhost.localdomain>
+	<20070619090027.3312f2cf@localhost.localdomain>
+	<4678472D.5050907@trash.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeff@garzik.org, auke-jan.h.kok@intel.com,
-	hadi@cyberus.ca, kaber@trash.net
-To: peter.p.waskiewicz.jr@intel.com
+Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58496
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58741
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754137AbXFSWhk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2007 18:37:40 -0400
-In-Reply-To: <D5C1322C3E673F459512FB59E0DDC329031117B0@orsmsx414.amr.corp.intel.com>
+	by vger.kernel.org with ESMTP id S1759016AbXFSWsV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2007 18:48:21 -0400
+In-Reply-To: <4678472D.5050907@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Date: Tue, 19 Jun 2007 13:01:18 -0700
+From: Patrick McHardy <kaber@trash.net>
+Date: Tue, 19 Jun 2007 23:14:21 +0200
 
-> I've been thinking about this more today, so please bear with me if I'm
-> missing something.  Right now, with how qdisc_restart() is running, we'd
-> definitely call netif_subqueue_stopped(dev, skb->queue_mapping) for all
-> multi-ring and single-ring devices.  However, with Jamal's and Krishna's
-> qdisc_restart() rewrite patch, the checks for netif_queue_stopped() and
-> netif_subqueue_stopped() would be pushed into the qdisc's ->dequeue()
-> functions.  If that's the case, then the only checks on
-> egress_subqueue[x] would be for multi-ring adapters, or if someone was
-> silly enough to load sch_{rr|prio} onto a single-ring device with
-> multiqueue hardware support compiled in.  Given all of that, I'm not
-> sure allocating egress_subqueue[0] at compile time or runtime would make
-> any difference either way.  If I'm missing something, please let me know
-> - I'd like to reduce any unnecessary pointer dereferences if possible,
-> but given the proposed qdisc_restart(), I think the code as-is would be
-> ok.
+> Stephen Hemminger wrote:
+> > Looks good. I have some changes to allow devices with multiple MAC addresses
+> > (never finished).  This device could use that.
+> 
+> 
+> How would the driver do that? I was thinking about using dev_add_mc,
+> but wasn't sure if that would work with all drivers for non-multicast
+> addresses.
 
-It's not being allocated at "compile time", it's being allocated
-linearly into one block of ram in order to avoid pointer
-derefs but it's still "dynamic" in that the size isn't known
-until the alloc_netdev() call.
+This is actually a real issue for virtualization, and many
+if not all current generation ethernet chips support
+programming several unicast ethernet addresses in the MAC.
 
-We do this trick all over the networking, TCP sockets are 3 or 4
-different structures, all allocated into a linear block of
-memory so that:
+Networking switches in domain0 on virtualization hosts use
+this feature to support seperate MACs per guest node,
+and if the chip doesn't support this the chip is put into
+promiscuous mode.
 
-1) only one memory allocation needs to be done for each object
-   create, this is not relevant for the net_device case
-   except in extreme examples bringing thousands of devices
-   up and down which I suppose someone can give a realistic
-   example of :-)
-
-2) each part can be accessed as an offset from the other instead
-   of a pointer deref which costs a cpu memory read
-
-Please change the allocation strategy as I recommended, thanks.
+We don't have any clean interfaces by which to do this MAC
+programming, and we do need something for it soon.
