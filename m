@@ -1,48 +1,35 @@
-From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Subject: Network namespace ported to 2.6.21-mm2
-Date: Tue, 19 Jun 2007 15:12:45 +0200
-Message-ID: <4677D64D.1020604@fr.ibm.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [WIP][PATCHES] Network xmit batching
+Date: Tue, 19 Jun 2007 17:33:35 +0400
+Message-ID: <20070619133333.GA19667@2ka.mipt.ru>
+References: <OFB311484E.057E34E9-ON652572F3.001D5838-652572F3.0022766D@in.ibm.com> <1181216629.4064.22.camel@localhost> <20070619132148.GA32078@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>
-To: Linux Containers <containers@lists.osdl.org>,
-	Linux Netdev List <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=koi8-r
+Cc: Krishna Kumar2 <krkumar2@in.ibm.com>,
+	Gagan Arneja <gaagaan@gmail.com>, netdev@vger.kernel.org,
+	Rick Jones <rick.jones2@hp.com>,
+	Sridhar Samudrala <sri@us.ibm.com>,
+	David Miller <davem@davemloft.net>,
+	Robert Olsson <Robert.Olsson@data.slu.se>
+To: jamal <hadi@cyberus.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate1.uk.ibm.com ([195.212.29.134]:53806 "EHLO
-	mtagate1.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756608AbXFSNNq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2007 09:13:46 -0400
-Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
-	by mtagate1.uk.ibm.com (8.13.8/8.13.8) with ESMTP id l5JDDiqP173590
-	for <netdev@vger.kernel.org>; Tue, 19 Jun 2007 13:13:44 GMT
-Received: from d06av03.portsmouth.uk.ibm.com (d06av03.portsmouth.uk.ibm.com [9.149.37.213])
-	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l5JDDhY81491188
-	for <netdev@vger.kernel.org>; Tue, 19 Jun 2007 14:13:43 +0100
-Received: from d06av03.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av03.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l5JDDghi011816
-	for <netdev@vger.kernel.org>; Tue, 19 Jun 2007 14:13:43 +0100
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:45598 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751907AbXFSNjf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Jun 2007 09:39:35 -0400
+Content-Disposition: inline
+In-Reply-To: <20070619132148.GA32078@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+On Tue, Jun 19, 2007 at 05:21:48PM +0400, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
+> Simple test included test -> desktop and vice versa traffic with 128 and
+> 4096 block size in netperf-2.4.3 setup.
 
-The network namespace patchset has been ported to 2.6.21-mm2.
+I.e. it is not pktgen, but usual userspace application, which should not
+use new batch methods.
 
-They are still some issues but we are on it, for this reason the 
-patchset is named netns1-beta1.
+I will try to find pktget scripts posted in this thread.
 
-The patchset can be found here :
-
-http://lxc.sourceforge.net/patches/2.6.21/2.6.21-mm2-netns1-beta1/
-
-Documentation can be found here :
-
-http://lxc.sourceforge.net/network.php
-
-Any suggestions or comments are welcome.
-
-Thanks.
-
-    -- Daniel
-
+-- 
+	Evgeniy Polyakov
