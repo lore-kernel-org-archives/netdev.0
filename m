@@ -1,50 +1,61 @@
-From: David Gundersen <gundy@iinet.net.au>
-Subject: Re: r8169 tx problem (1s pause with ping)
-Date: Tue, 19 Jun 2007 20:45:44 +1000
-Message-ID: <4677B3D8.1000102@iinet.net.au>
-References: <20070613004154.GA4187@kvack.org> <20070613211859.GA22521@electric-eye.fr.zoreil.com> <46715FBA.3070302@iinet.net.au> <20070618151430.GE10418@kvack.org>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: Fwd: [PATCH] [-mm] ACPI: export ACPI events via netlink
+Date: Tue, 19 Jun 2007 13:30:16 +0200
+Message-ID: <1182252616.21013.12.camel@johannes.berg>
+References: <1179827251.7707.29.camel@localhost.localdomain>
+	 <1179831825.4121.30.camel@localhost>
+	 <1180258853.7707.53.camel@localhost.localdomain>
+	 <4466a10705270629h31977813hd2fc8330bcd87f78@mail.gmail.com>
+	 <4466a10705270634j3560c9a3j9c3630ddc20a24aa@mail.gmail.com>
+	 <1181811576.5411.27.camel@localhost.localdomain>
+	 <1181820510.4091.9.camel@localhost>
+	 <1181869285.5411.39.camel@localhost.localdomain>
+	 <1182178882.4063.11.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Benjamin LaHaise <bcrl@kvack.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ihug-mail.icp-qv1-irony5.iinet.net.au ([203.59.1.199]:18642
-	"EHLO mail-ihug.icp-qv1-irony5.iinet.net.au" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751939AbXFSKpT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2007 06:45:19 -0400
-In-Reply-To: <20070618151430.GE10418@kvack.org>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-K45VSpWH6NveV9xO/pRW"
+Cc: Zhang Rui <rui.zhang@intel.com>, netdev@vger.kernel.org,
+	"linux-acpi@vger" <linux-acpi@vger.kernel.org>, lenb@kernel.org
+To: hadi@cyberus.ca
+Return-path: <linux-acpi-owner@vger.kernel.org>
+In-Reply-To: <1182178882.4063.11.camel@localhost>
+Sender: linux-acpi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-> Out of curiousity, does it work if you just do a single read (ie 
-> RTL_R8(TxPoll);) of the register before writing to it?  That would clear 
-> things up if it is a PCI posting problem.
+--=-K45VSpWH6NveV9xO/pRW
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-Hi Ben,
+On Mon, 2007-06-18 at 11:01 -0400, jamal wrote:
 
-I tried your suggestion but it didn't seem to make any difference :(
+> Ok, by inspection (sorry, still dont have much time) - your kernel code
+> is sending to group 1; i.e
+>=20
+> genlmsg_multicast(skb, 0, 1, GFP_ATOMIC);
+>=20
+> you need to change that to send to your assigned id, i.e:
+> genlmsg_multicast(skb, 0, acpi_event_genl_family.id, GFP_ATOMIC);
+>=20
+> then the user space code will work. I should be able to look at it if it
+> doesnt work by end of week.
 
-I tried the following combinations:
+Ah, that coincides with something I was wondering about. Isn't it
+possible to have multiple multicast groups with generic netlink? If so,
+we might have to use real netlink for wireless...
 
-  - realtek original                          [broken]
-  - realtek original with the RTL_R8(TxPoll)
-    before RTL_W8(TxPoll, NPQ);               [broken]
-  - my patched version without the ndelay
-    loop but including the RTL_R8(TxPoll)
-    (to see if my messing with the frag logic
-     was having any impact)                   [broken]
-  - my patched version including the
-    ndelay loop                               [full speed transfers]
+johannes
 
+--=-K45VSpWH6NveV9xO/pRW
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
 
-Also, I'm not sure if I made it clear in my first post, but I'm testing 
-these changes on a 8168B (it's built in to my GA-945G-S3 motherboard).
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
 
-I'm not sure if we can assume that the same change applied to the 8169 
-driver would have the same effect on the 8169 too?   (is the 8168 just a 
-PCI express version of the [pci] 8169?)
+iD8DBQBGd75I/ETPhpq3jKURAiQPAJ4p4TZ+jNVtmFgSXpEmUtDNT9qHOgCghGOq
+NTb3la9yFluVswAmxdEvHnQ=
+=tC1F
+-----END PGP SIGNATURE-----
 
+--=-K45VSpWH6NveV9xO/pRW--
 
-Dave.
