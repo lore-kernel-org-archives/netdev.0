@@ -1,7 +1,8 @@
 From: Veena Parat <Veena.Parat@neterion.com>
-Subject: [PATCH 2.6.22 2/4]S2IO: Removing MSI support from the driver
-Date: Tue, 19 Jun 2007 05:59:47 -0400 (EDT)
-Message-ID: <Pine.GSO.4.10.10706190557030.2608-100000@guinness>
+Subject: [PATCH 2.6.22 1/4]S2IO: Adding checks to check the return value of
+ pci mapping function
+Date: Tue, 19 Jun 2007 05:56:34 -0400 (EDT)
+Message-ID: <Pine.GSO.4.10.10706190549470.2608-100000@guinness>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: Leonid.Grossman@neterion.com, ramkrishna.vepa@neterion.com,
@@ -10,304 +11,463 @@ Cc: Leonid.Grossman@neterion.com, ramkrishna.vepa@neterion.com,
 	sriram.rapuru@neterion.com
 To: netdev@vger.kernel.org, jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from barracuda.s2io.com ([72.1.205.138]:48225 "EHLO
+Received: from barracuda.s2io.com ([72.1.205.138]:48226 "EHLO
 	barracuda.s2io.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753917AbXFSKLq (ORCPT
+	with ESMTP id S1755102AbXFSKLq (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2007 06:11:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-1.Removed MSI support from driver - unused feature
-2.Removed pci_request_regions call to allocate bar2 as it is not used in driver
-3.Removed pci_release_regions since pci_request_regions is not done
+Adding checks to check the return value of pci mapping function 
 
 Signed-off-by: Veena Parat <veena.parat@neterion.com>
 ---
-diff -urpN patch_1/drivers/net/s2io.c patch_2/drivers/net/s2io.c
---- patch_1/drivers/net/s2io.c	2007-05-17 20:35:55.000000000 +0530
-+++ patch_2/drivers/net/s2io.c	2007-05-17 20:41:54.000000000 +0530
-@@ -37,7 +37,7 @@
-  * tx_fifo_len: This too is an array of 8. Each element defines the number of
-  * Tx descriptors that can be associated with each corresponding FIFO.
-  * intr_type: This defines the type of interrupt. The values can be 0(INTA),
-- *     1(MSI), 2(MSI_X). Default value is '0(INTA)'
-+ *     2(MSI-X). Default value is '0(INTA)'
-  * lro: Specifies whether to enable Large Receive Offload (LRO) or not.
-  *     Possible values '1' for enable '0' for disable. Default is '0'
-  * lro_max_pkts: This parameter defines maximum number of packets can be
-@@ -438,7 +438,7 @@ S2IO_PARM_INT(bimodal, 0);
- S2IO_PARM_INT(l3l4hdr_size, 128);
- /* Frequency of Rx desc syncs expressed as power of 2 */
- S2IO_PARM_INT(rxsync_frequency, 3);
--/* Interrupt type. Values can be 0(INTA), 1(MSI), 2(MSI_X) */
-+/* Interrupt type. Values can be 0(INTA), 2(MSI_X) */
- S2IO_PARM_INT(intr_type, 0);
- /* Large receive offload feature */
- S2IO_PARM_INT(lro, 0);
-@@ -3785,56 +3785,6 @@ static void store_xmsi_data(struct s2io_
- 	}
- }
+diff -urpN org/drivers/net/s2io.c patch_1/drivers/net/s2io.c
+--- org/drivers/net/s2io.c	2007-05-17 20:35:39.000000000 +0530
++++ patch_1/drivers/net/s2io.c	2007-05-17 20:35:55.000000000 +0530
+@@ -282,6 +282,7 @@ static char ethtool_driver_stats_keys[][
+ 	("lro_flush_due_to_max_pkts"),
+ 	("lro_avg_aggr_pkts"),
+ 	("mem_alloc_fail_cnt"),
++	{"pci_map_fail_cnt"},
+ 	("watchdog_timer_cnt"),
+ 	("mem_allocated"),
+ 	("mem_freed"),
+@@ -2247,10 +2248,19 @@ static int fill_rxd_3buf(struct s2io_nic
+ 			(nic->pdev, skb->data, l3l4hdr_size + 4,
+ 			PCI_DMA_FROMDEVICE);
  
--int s2io_enable_msi(struct s2io_nic *nic)
--{
--	struct XENA_dev_config __iomem *bar0 = nic->bar0;
--	u16 msi_ctrl, msg_val;
--	struct config_param *config = &nic->config;
--	struct net_device *dev = nic->dev;
--	u64 val64, tx_mat, rx_mat;
--	int i, err;
++	if ((((struct RxD3*)rxdp)->Buffer1_ptr == 0) ||
++		(((struct RxD3*)rxdp)->Buffer1_ptr == DMA_ERROR_CODE)) {
++		nic->mac_control.stats_info->sw_stat.pci_map_fail_cnt++;
++		return -ENOMEM;
++	}
++
+ 	/* skb_shinfo(skb)->frag_list will have L4 data payload */
+ 	skb_shinfo(skb)->frag_list = dev_alloc_skb(dev->mtu + ALIGN_SIZE);
+ 	if (skb_shinfo(skb)->frag_list == NULL) {
+ 		nic->mac_control.stats_info->sw_stat.mem_alloc_fail_cnt++;
++		pci_unmap_single
++			(nic->pdev, (dma_addr_t)skb->data, l3l4hdr_size + 4,
++			PCI_DMA_FROMDEVICE);
+ 		DBG_PRINT(INFO_DBG, "%s: dev_alloc_skb failed\n ", dev->name);
+ 		return -ENOMEM ;
+ 	}
+@@ -2267,6 +2277,11 @@ static int fill_rxd_3buf(struct s2io_nic
+ 	((struct RxD3*)rxdp)->Buffer2_ptr = pci_map_single(nic->pdev,
+ 				frag_list->data, dev->mtu,
+ 				PCI_DMA_FROMDEVICE);
++	if ((((struct RxD3*)rxdp)->Buffer2_ptr == 0) ||
++		(((struct RxD3*)rxdp)->Buffer2_ptr == DMA_ERROR_CODE)) {
++		nic->mac_control.stats_info->sw_stat.pci_map_fail_cnt++;
++		return -ENOMEM;
++	}
+ 	rxdp->Control_2 |= SET_BUFFER1_SIZE_3(l3l4hdr_size + 4);
+ 	rxdp->Control_2 |= SET_BUFFER2_SIZE_3(dev->mtu);
+ 
+@@ -2399,6 +2414,16 @@ static int fill_rx_buffers(struct s2io_n
+ 			((struct RxD1*)rxdp)->Buffer0_ptr = pci_map_single
+ 			    (nic->pdev, skb->data, size - NET_IP_ALIGN,
+ 				PCI_DMA_FROMDEVICE);
++			if ((((struct RxD1*)rxdp)->Buffer0_ptr == 0) ||
++				(((struct RxD1*)rxdp)->Buffer0_ptr == 
++				DMA_ERROR_CODE)) {
++				nic->mac_control.stats_info->sw_stat.
++					pci_map_fail_cnt++;
++				nic->mac_control.stats_info->sw_stat.mem_freed
++					+= skb->truesize;
++				dev_kfree_skb_irq(skb);
++				return -ENOMEM;
++			}
+ 			rxdp->Control_2 = 
+ 				SET_BUFFER0_SIZE_1(size - NET_IP_ALIGN);
+ 
+@@ -2430,14 +2455,19 @@ static int fill_rx_buffers(struct s2io_n
+ 			skb->data = (void *) (unsigned long)tmp;
+ 			skb_reset_tail_pointer(skb);
+ 
+-			if (!(((struct RxD3*)rxdp)->Buffer0_ptr))
+-				((struct RxD3*)rxdp)->Buffer0_ptr =
+-				   pci_map_single(nic->pdev, ba->ba_0, BUF0_LEN,
+-					   PCI_DMA_FROMDEVICE);
+-			else
+-				pci_dma_sync_single_for_device(nic->pdev,
+-				(dma_addr_t) ((struct RxD3*)rxdp)->Buffer0_ptr,
+-				    BUF0_LEN, PCI_DMA_FROMDEVICE);
++			((struct RxD3*)rxdp)->Buffer0_ptr =
++				pci_map_single(nic->pdev, ba->ba_0, BUF0_LEN,
++					PCI_DMA_FROMDEVICE);
++			if ((((struct RxD3*)rxdp)->Buffer0_ptr == 0) ||
++				(((struct RxD3*)rxdp)->Buffer0_ptr == 
++				DMA_ERROR_CODE)) {
++				nic->mac_control.stats_info->sw_stat.
++					pci_map_fail_cnt++;
++				nic->mac_control.stats_info->sw_stat.mem_freed
++					+= skb->truesize;
++				dev_kfree_skb_irq(skb);
++				return -ENOMEM;
++			}
+ 			rxdp->Control_2 = SET_BUFFER0_SIZE_3(BUF0_LEN);
+ 			if (nic->rxd_mode == RXD_MODE_3B) {
+ 				/* Two buffer mode */
+@@ -2447,15 +2477,37 @@ static int fill_rx_buffers(struct s2io_n
+ 				 * L4 payload
+ 				 */
+ 				((struct RxD3*)rxdp)->Buffer2_ptr = pci_map_single
+-				(nic->pdev, skb->data, dev->mtu + 4,
+-						PCI_DMA_FROMDEVICE);
++					(nic->pdev, skb->data, dev->mtu + 4,
++					PCI_DMA_FROMDEVICE);
++				if ((((struct RxD3*)rxdp)->Buffer2_ptr == 0) ||
++					(((struct RxD3*)rxdp)->Buffer2_ptr == 
++					DMA_ERROR_CODE)) {
++					nic->mac_control.stats_info->sw_stat.
++						pci_map_fail_cnt++;
++					nic->mac_control.stats_info->sw_stat.
++						mem_freed += skb->truesize;
++					dev_kfree_skb_irq(skb);
++					return -ENOMEM;
++				}
+ 
+-				/* Buffer-1 will be dummy buffer. Not used */
+-				if (!(((struct RxD3*)rxdp)->Buffer1_ptr)) {
+-					((struct RxD3*)rxdp)->Buffer1_ptr =
++				((struct RxD3*)rxdp)->Buffer1_ptr =
+ 						pci_map_single(nic->pdev,
+ 						ba->ba_1, BUF1_LEN,
+ 						PCI_DMA_FROMDEVICE);
++				if ((((struct RxD3*)rxdp)->Buffer1_ptr == 0) ||
++					(((struct RxD3*)rxdp)->Buffer1_ptr == 
++					DMA_ERROR_CODE)) {
++					nic->mac_control.stats_info->sw_stat.
++						pci_map_fail_cnt++;
++					nic->mac_control.stats_info->sw_stat.
++						mem_freed += skb->truesize;
++					pci_unmap_single
++						(nic->pdev, 
++						(dma_addr_t)skb->data,
++						dev->mtu + 4, 
++						PCI_DMA_FROMDEVICE);
++					dev_kfree_skb_irq(skb);
++					return -ENOMEM;
+ 				}
+ 				rxdp->Control_2 |= SET_BUFFER1_SIZE_3(1);
+ 				rxdp->Control_2 |= SET_BUFFER2_SIZE_3
+@@ -2655,7 +2707,8 @@ static int s2io_poll(struct net_device *
+ 
+ 	for (i = 0; i < config->rx_ring_num; i++) {
+ 		if (fill_rx_buffers(nic, i) == -ENOMEM) {
+-			DBG_PRINT(INFO_DBG, "%s:Out of memory", dev->name);
++			DBG_PRINT(INFO_DBG, "%s - %s:Out of memory",
++				__FUNCTION__, dev->name);
+ 			DBG_PRINT(INFO_DBG, " in Rx Poll!!\n");
+ 			break;
+ 		}
+@@ -2672,7 +2725,8 @@ no_rx:
+ 
+ 	for (i = 0; i < config->rx_ring_num; i++) {
+ 		if (fill_rx_buffers(nic, i) == -ENOMEM) {
+-			DBG_PRINT(INFO_DBG, "%s:Out of memory", dev->name);
++			DBG_PRINT(INFO_DBG, "%s - %s:Out of memory",
++				__FUNCTION__,  dev->name);
+ 			DBG_PRINT(INFO_DBG, " in Rx Poll!!\n");
+ 			break;
+ 		}
+@@ -2722,7 +2776,8 @@ static void s2io_netpoll(struct net_devi
+ 
+ 	for (i = 0; i < config->rx_ring_num; i++) {
+ 		if (fill_rx_buffers(nic, i) == -ENOMEM) {
+-			DBG_PRINT(INFO_DBG, "%s:Out of memory", dev->name);
++			DBG_PRINT(INFO_DBG, "%s - %s:Out of memory",
++				 __FUNCTION__, dev->name);
+ 			DBG_PRINT(INFO_DBG, " in Rx Netpoll!!\n");
+ 			break;
+ 		}
+@@ -2803,24 +2858,27 @@ static void rx_intr_handler(struct ring_
+ 				 HEADER_SNAP_SIZE,
+ 				 PCI_DMA_FROMDEVICE);
+ 		} else if (nic->rxd_mode == RXD_MODE_3B) {
+-			pci_dma_sync_single_for_cpu(nic->pdev, (dma_addr_t)
++			pci_unmap_single(nic->pdev, (dma_addr_t)
+ 				 ((struct RxD3*)rxdp)->Buffer0_ptr,
+ 				 BUF0_LEN, PCI_DMA_FROMDEVICE);
+ 			pci_unmap_single(nic->pdev, (dma_addr_t)
++				 ((struct RxD3*)rxdp)->Buffer1_ptr,
++				 BUF1_LEN, PCI_DMA_FROMDEVICE);
++			pci_unmap_single(nic->pdev, (dma_addr_t)
+ 				 ((struct RxD3*)rxdp)->Buffer2_ptr,
+ 				 dev->mtu + 4,
+ 				 PCI_DMA_FROMDEVICE);
+ 		} else {
+-			pci_dma_sync_single_for_cpu(nic->pdev, (dma_addr_t)
+-					 ((struct RxD3*)rxdp)->Buffer0_ptr, BUF0_LEN,
+-					 PCI_DMA_FROMDEVICE);
+ 			pci_unmap_single(nic->pdev, (dma_addr_t)
+-					 ((struct RxD3*)rxdp)->Buffer1_ptr,
+-					 l3l4hdr_size + 4,
+-					 PCI_DMA_FROMDEVICE);
++				 ((struct RxD3*)rxdp)->Buffer0_ptr, BUF0_LEN,
++				 PCI_DMA_FROMDEVICE);
+ 			pci_unmap_single(nic->pdev, (dma_addr_t)
+-					 ((struct RxD3*)rxdp)->Buffer2_ptr,
+-					 dev->mtu, PCI_DMA_FROMDEVICE);
++				 ((struct RxD3*)rxdp)->Buffer1_ptr,
++				 l3l4hdr_size + 4,
++				 PCI_DMA_FROMDEVICE);
++			pci_unmap_single(nic->pdev, (dma_addr_t)
++				 ((struct RxD3*)rxdp)->Buffer2_ptr,
++				 dev->mtu, PCI_DMA_FROMDEVICE);
+ 		}
+ 		prefetch(skb->data);
+ 		rx_osm_handler(ring_data, rxdp);
+@@ -4082,11 +4140,33 @@ static int s2io_xmit(struct sk_buff *skb
+ 		txdp->Buffer_Pointer = pci_map_single(sp->pdev,
+ 					sp->ufo_in_band_v,
+ 					sizeof(u64), PCI_DMA_TODEVICE);
++		if ((txdp->Buffer_Pointer == 0) ||
++			(txdp->Buffer_Pointer == DMA_ERROR_CODE)) {
++			sp->mac_control.stats_info->sw_stat.pci_map_fail_cnt++;
++			netif_stop_queue(dev);
++			sp->mac_control.stats_info->sw_stat.mem_freed += 
++				skb->truesize;
++			dev_kfree_skb(skb);
++			spin_unlock_irqrestore(&sp->tx_lock, flags);
++			return 0;
++		}
+ 		txdp++;
+ 	}
+ 
+ 	txdp->Buffer_Pointer = pci_map_single
+ 	    (sp->pdev, skb->data, frg_len, PCI_DMA_TODEVICE);
++
++	if ((txdp->Buffer_Pointer == 0) ||
++		(txdp->Buffer_Pointer == DMA_ERROR_CODE)) {
++		sp->mac_control.stats_info->sw_stat.pci_map_fail_cnt++;
++		netif_stop_queue(dev);
++		sp->mac_control.stats_info->sw_stat.mem_freed +=
++			skb->truesize;
++		dev_kfree_skb(skb);
++		spin_unlock_irqrestore(&sp->tx_lock, flags);
++		return 0;
++	}
++
+ 	txdp->Host_Control = (unsigned long) skb;
+ 	txdp->Control_1 |= TXD_BUFFER0_SIZE(frg_len);
+ 	if (offload_type == SKB_GSO_UDP)
+@@ -4175,11 +4255,13 @@ static int s2io_chk_rx_buffers(struct s2
+ 			clear_bit(0, (&sp->tasklet_status));
+ 		} else if (level == LOW)
+ 			tasklet_schedule(&sp->task);
 -
--	val64 = readq(&bar0->pic_control);
--	val64 &= ~BIT(1);
--	writeq(val64, &bar0->pic_control);
--
--	err = pci_enable_msi(nic->pdev);
--	if (err) {
--		DBG_PRINT(ERR_DBG, "%s: enabling MSI failed\n",
--			  nic->dev->name);
--		return err;
--	}
--
--	/*
--	 * Enable MSI and use MSI-1 in stead of the standard MSI-0
--	 * for interrupt handling.
--	 */
--	pci_read_config_word(nic->pdev, 0x4c, &msg_val);
--	msg_val ^= 0x1;
--	pci_write_config_word(nic->pdev, 0x4c, msg_val);
--	pci_read_config_word(nic->pdev, 0x4c, &msg_val);
--
--	pci_read_config_word(nic->pdev, 0x42, &msi_ctrl);
--	msi_ctrl |= 0x10;
--	pci_write_config_word(nic->pdev, 0x42, msi_ctrl);
--
--	/* program MSI-1 into all usable Tx_Mat and Rx_Mat fields */
--	tx_mat = readq(&bar0->tx_mat0_n[0]);
--	for (i=0; i<config->tx_fifo_num; i++) {
--		tx_mat |= TX_MAT_SET(i, 1);
--	}
--	writeq(tx_mat, &bar0->tx_mat0_n[0]);
--
--	rx_mat = readq(&bar0->rx_mat);
--	for (i=0; i<config->rx_ring_num; i++) {
--		rx_mat |= RX_MAT_SET(i, 1);
--	}
--	writeq(rx_mat, &bar0->rx_mat);
--
--	dev->irq = nic->pdev->irq;
--	return 0;
--}
--
- static int s2io_enable_msi_x(struct s2io_nic *nic)
- {
- 	struct XENA_dev_config __iomem *bar0 = nic->bar0;
-@@ -4265,39 +4215,6 @@ static int s2io_chk_rx_buffers(struct s2
+-	} else if (fill_rx_buffers(sp, rng_n) == -ENOMEM) {
+-			DBG_PRINT(INFO_DBG, "%s:Out of memory", sp->dev->name);
++	} else {
++		if (fill_rx_buffers(sp, rng_n) == -ENOMEM) {
++			DBG_PRINT(INFO_DBG, "%s - %s:Out of memory",
++				__FUNCTION__,  sp->dev->name);
+ 			DBG_PRINT(INFO_DBG, " in Rx Intr!!\n");
+ 	}
++	}
  	return 0;
  }
  
--static irqreturn_t s2io_msi_handle(int irq, void *dev_id)
--{
--	struct net_device *dev = (struct net_device *) dev_id;
--	struct s2io_nic *sp = dev->priv;
--	int i;
--	struct mac_info *mac_control;
--	struct config_param *config;
--
--	atomic_inc(&sp->isr_cnt);
--	mac_control = &sp->mac_control;
--	config = &sp->config;
--	DBG_PRINT(INTR_DBG, "%s: MSI handler\n", __FUNCTION__);
--
--	/* If Intr is because of Rx Traffic */
--	for (i = 0; i < config->rx_ring_num; i++)
--		rx_intr_handler(&mac_control->rings[i]);
--
--	/* If Intr is because of Tx Traffic */
--	for (i = 0; i < config->tx_fifo_num; i++)
--		tx_intr_handler(&mac_control->fifos[i]);
--
--	/*
--	 * If the Rx buffer count is below the panic threshold then
--	 * reallocate the buffers from the interrupt handler itself,
--	 * else schedule a tasklet to reallocate the buffers.
--	 */
--	for (i = 0; i < config->rx_ring_num; i++)
--		s2io_chk_rx_buffers(sp, i);
--
--	atomic_dec(&sp->isr_cnt);
--	return IRQ_HANDLED;
--}
--
- static irqreturn_t s2io_msix_ring_handle(int irq, void *dev_id)
- {
- 	struct ring_info *ring = (struct ring_info *)dev_id;
-@@ -6620,10 +6537,9 @@ static int s2io_add_isr(struct s2io_nic 
- 	struct net_device *dev = sp->dev;
- 	int err = 0;
+@@ -5916,6 +5998,7 @@ static void s2io_get_ethtool_stats(struc
+ 	else
+ 		tmp_stats[i++] = 0;
+ 	tmp_stats[i++] = stat_info->sw_stat.mem_alloc_fail_cnt;
++	tmp_stats[i++] = stat_info->sw_stat.pci_map_fail_cnt;
+ 	tmp_stats[i++] = stat_info->sw_stat.watchdog_timer_cnt;
+ 	tmp_stats[i++] = stat_info->sw_stat.mem_allocated;
+ 	tmp_stats[i++] = stat_info->sw_stat.mem_freed;
+@@ -6158,8 +6241,8 @@ static void s2io_tasklet(unsigned long d
+ 		for (i = 0; i < config->rx_ring_num; i++) {
+ 			ret = fill_rx_buffers(sp, i);
+ 			if (ret == -ENOMEM) {
+-				DBG_PRINT(INFO_DBG, "%s: Out of ",
+-					  dev->name);
++				DBG_PRINT(INFO_DBG, "%s- %s: Out of ",
++					  __FUNCTION__, dev->name);
+ 				DBG_PRINT(INFO_DBG, "memory in tasklet\n");
+ 				break;
+ 			} else if (ret == -EFILL) {
+@@ -6291,6 +6374,16 @@ static int set_rxd_buffer_pointer(struct
+ 				pci_map_single( sp->pdev, (*skb)->data,
+ 					size - NET_IP_ALIGN,
+ 					PCI_DMA_FROMDEVICE);
++			if ((((struct RxD1*)rxdp)->Buffer0_ptr == 0) ||
++				(((struct RxD1*)rxdp)->Buffer0_ptr == 
++				DMA_ERROR_CODE)) {
++				sp->mac_control.stats_info->sw_stat.
++					pci_map_fail_cnt++;
++				sp->mac_control.stats_info->sw_stat.mem_freed +=
++					(*skb)->truesize;
++				dev_kfree_skb(*skb);
++				return -ENOMEM;
++			}
+ 			rxdp->Host_Control = (unsigned long) (*skb);
+ 		}
+ 	} else if ((sp->rxd_mode == RXD_MODE_3B) && (rxdp->Host_Control == 0)) {
+@@ -6315,15 +6408,51 @@ static int set_rxd_buffer_pointer(struct
+ 				pci_map_single(sp->pdev, (*skb)->data,
+ 					       dev->mtu + 4,
+ 					       PCI_DMA_FROMDEVICE);
++			if ((((struct RxD3*)rxdp)->Buffer2_ptr == 0) ||
++				(((struct RxD3*)rxdp)->Buffer2_ptr ==
++				DMA_ERROR_CODE)) {
++				sp->mac_control.stats_info->sw_stat.
++					pci_map_fail_cnt++;
++				sp->mac_control.stats_info->sw_stat.mem_freed +=
++					(*skb)->truesize;
++				dev_kfree_skb(*skb);
++				return -ENOMEM;
++			}
+ 			((struct RxD3*)rxdp)->Buffer0_ptr = *temp0 =
+ 				pci_map_single( sp->pdev, ba->ba_0, BUF0_LEN,
+ 						PCI_DMA_FROMDEVICE);
++			if ((((struct RxD3*)rxdp)->Buffer0_ptr == 0) ||
++				(((struct RxD3*)rxdp)->Buffer0_ptr == 
++				DMA_ERROR_CODE)) {
++				sp->mac_control.stats_info->sw_stat.
++					pci_map_fail_cnt++;
++				sp->mac_control.stats_info->sw_stat.mem_freed +=
++					(*skb)->truesize;
++				pci_unmap_single (sp->pdev, 
++					(dma_addr_t)(*skb)->data,
++					dev->mtu + 4, PCI_DMA_FROMDEVICE);
++				dev_kfree_skb(*skb);
++				return -ENOMEM;
++			}
+ 			rxdp->Host_Control = (unsigned long) (*skb);
  
--	if (sp->intr_type == MSI)
--		ret = s2io_enable_msi(sp);
--	else if (sp->intr_type == MSI_X)
-+	if (sp->intr_type == MSI_X) 
- 		ret = s2io_enable_msi_x(sp);
-+
- 	if (ret) {
- 		DBG_PRINT(ERR_DBG, "%s: Defaulting to INTA\n", dev->name);
- 		sp->intr_type = INTA;
-@@ -6633,16 +6549,6 @@ static int s2io_add_isr(struct s2io_nic 
- 	store_xmsi_data(sp);
+ 			/* Buffer-1 will be dummy buffer not used */
+ 			((struct RxD3*)rxdp)->Buffer1_ptr = *temp1 =
+ 				pci_map_single(sp->pdev, ba->ba_1, BUF1_LEN,
+ 					       PCI_DMA_FROMDEVICE);
++			if ((((struct RxD3*)rxdp)->Buffer0_ptr == 0) ||
++				(((struct RxD3*)rxdp)->Buffer0_ptr == 
++				DMA_ERROR_CODE)) {
++				sp->mac_control.stats_info->sw_stat.
++					pci_map_fail_cnt++;
++				sp->mac_control.stats_info->sw_stat.mem_freed +=
++					(*skb)->truesize;
++				pci_unmap_single (sp->pdev, 
++					(dma_addr_t)(*skb)->data,
++					dev->mtu + 4, PCI_DMA_FROMDEVICE);
++				dev_kfree_skb(*skb);
++				return -ENOMEM;
++			}
+ 		}
+ 	} else if ((rxdp->Host_Control == 0)) {
+ 		/* Three buffer mode */
+@@ -6346,11 +6475,31 @@ static int set_rxd_buffer_pointer(struct
+ 			((struct RxD3*)rxdp)->Buffer0_ptr = *temp0 =
+ 				pci_map_single(sp->pdev, ba->ba_0, BUF0_LEN,
+ 					       PCI_DMA_FROMDEVICE);
++			if ((((struct RxD3*)rxdp)->Buffer0_ptr == 0) ||
++				(((struct RxD3*)rxdp)->Buffer0_ptr == 
++				DMA_ERROR_CODE)) {
++				sp->mac_control.stats_info->sw_stat.
++					pci_map_fail_cnt++;
++				sp->mac_control.stats_info->sw_stat.mem_freed +=
++					(*skb)->truesize;
++				dev_kfree_skb(*skb);
++				return -ENOMEM;
++			}
+ 			/* Buffer-1 receives L3/L4 headers */
+ 			((struct RxD3*)rxdp)->Buffer1_ptr = *temp1 =
+ 				pci_map_single( sp->pdev, (*skb)->data,
+ 						l3l4hdr_size + 4,
+ 						PCI_DMA_FROMDEVICE);
++			if ((((struct RxD3*)rxdp)->Buffer1_ptr == 0) ||
++				(((struct RxD3*)rxdp)->Buffer1_ptr == 
++				DMA_ERROR_CODE)) {
++				sp->mac_control.stats_info->sw_stat.
++					pci_map_fail_cnt++;
++				sp->mac_control.stats_info->sw_stat.mem_freed +=
++					(*skb)->truesize;
++				dev_kfree_skb(*skb);
++				return -ENOMEM;
++			}
+ 			/*
+ 			 * skb_shinfo(skb)->frag_list will have L4
+ 			 * data payload
+@@ -6362,10 +6511,17 @@ static int set_rxd_buffer_pointer(struct
+ 					  failed\n ", dev->name);
+ 				sp->mac_control.stats_info->sw_stat. \
+ 					mem_alloc_fail_cnt++;
++				sp->mac_control.stats_info->sw_stat.mem_freed
++					+= (*skb)->truesize;
++				pci_unmap_single (sp->pdev, 
++					(dma_addr_t)(*skb)->data,
++					l3l4hdr_size + 4, PCI_DMA_FROMDEVICE);
++				dev_kfree_skb(*skb);
+ 				return -ENOMEM ;
+ 			}
+ 			frag_list = skb_shinfo(*skb)->frag_list;
+ 			frag_list->next = NULL;
++			(*skb)->truesize += frag_list->truesize;
+ 			sp->mac_control.stats_info->sw_stat.mem_allocated 
+ 				+= frag_list->truesize;
+ 			/*
+@@ -6374,6 +6530,19 @@ static int set_rxd_buffer_pointer(struct
+ 			((struct RxD3*)rxdp)->Buffer2_ptr = *temp2 =
+ 				pci_map_single( sp->pdev, frag_list->data,
+ 						dev->mtu, PCI_DMA_FROMDEVICE);
++			if ((((struct RxD3*)rxdp)->Buffer2_ptr == 0) ||
++				(((struct RxD3*)rxdp)->Buffer2_ptr ==
++				DMA_ERROR_CODE)) {
++				sp->mac_control.stats_info->sw_stat.
++					pci_map_fail_cnt++;
++				sp->mac_control.stats_info->sw_stat.mem_freed +=
++					(*skb)->truesize;
++				pci_unmap_single (sp->pdev,
++					(dma_addr_t)(*skb)->data,
++					l3l4hdr_size + 4, PCI_DMA_FROMDEVICE);
++				dev_kfree_skb(*skb);
++				return -ENOMEM;
++			}
+ 		}
+ 	}
+ 	return 0;
+@@ -6668,8 +6837,8 @@ static int s2io_card_up(struct s2io_nic 
  
- 	/* After proper initialization of H/W, register ISR */
--	if (sp->intr_type == MSI) {
--		err = request_irq((int) sp->pdev->irq, s2io_msi_handle,
--			IRQF_SHARED, sp->name, dev);
--		if (err) {
--			pci_disable_msi(sp->pdev);
--			DBG_PRINT(ERR_DBG, "%s: MSI registration failed\n",
+ 	for (i = 0; i < config->rx_ring_num; i++) {
+ 		if ((ret = fill_rx_buffers(sp, i))) {
+-			DBG_PRINT(ERR_DBG, "%s: Out of memory in Open\n",
 -				  dev->name);
--			return -1;
--		}
--	}
- 	if (sp->intr_type == MSI_X) {
- 		int i, msix_tx_cnt=0,msix_rx_cnt=0;
++			DBG_PRINT(ERR_DBG, "%s - %s: Out of memory in Open\n",
++				  __FUNCTION__, dev->name);
+ 			s2io_reset(sp);
+ 			free_rx_buffers(sp);
+ 			return -ENOMEM;
+diff -urpN org/drivers/net/s2io.h patch_1/drivers/net/s2io.h
+--- org/drivers/net/s2io.h	2007-05-17 19:26:16.000000000 +0530
++++ patch_1/drivers/net/s2io.h	2007-05-17 20:34:50.000000000 +0530
+@@ -74,6 +74,10 @@ static int debug_level = ERR_DBG;
+ /* DEBUG message print. */
+ #define DBG_PRINT(dbg_level, args...)  if(!(debug_level<dbg_level)) printk(args)
  
-@@ -6729,14 +6635,6 @@ static void s2io_rem_isr(struct s2io_nic
- 		pci_disable_msix(sp->pdev);
- 	} else {
- 		free_irq(sp->pdev->irq, dev);
--		if (sp->intr_type == MSI) {
--			u16 val;
--
--			pci_disable_msi(sp->pdev);
--			pci_read_config_word(sp->pdev, 0x4c, &val);
--			val ^= 0x1;
--			pci_write_config_word(sp->pdev, 0x4c, val);
--		}
- 	}
- 	/* Waiting till all Interrupt handlers are complete */
- 	cnt = 0;
-@@ -7298,11 +7196,11 @@ static int s2io_verify_parm(struct pci_d
- #ifndef CONFIG_PCI_MSI
- 	if (*dev_intr_type != INTA) {
- 		DBG_PRINT(ERR_DBG, "s2io: This kernel does not support"
--			  "MSI/MSI-X. Defaulting to INTA\n");
-+			  "MSI-X. Defaulting to INTA\n");
- 		*dev_intr_type = INTA;
- 	}
- #else
--	if (*dev_intr_type > MSI_X) {
-+	if ((*dev_intr_type != INTA) && (*dev_intr_type != MSI_X)) {
- 		DBG_PRINT(ERR_DBG, "s2io: Wrong intr_type requested. "
- 			  "Defaulting to INTA\n");
- 		*dev_intr_type = INTA;
-@@ -7411,28 +7309,20 @@ s2io_init_nic(struct pci_dev *pdev, cons
- 		pci_disable_device(pdev);
- 		return -ENOMEM;
- 	}
--	if (dev_intr_type != MSI_X) {
--		if (pci_request_regions(pdev, s2io_driver_name)) {
--			DBG_PRINT(ERR_DBG, "Request Regions failed\n");
--			pci_disable_device(pdev);
--			return -ENODEV;
--		}
++#ifndef DMA_ERROR_CODE
++#define DMA_ERROR_CODE          (~(dma_addr_t)0x0)
++#endif
 +
-+	if (!(request_mem_region(pci_resource_start(pdev, 0),
-+		pci_resource_len(pdev, 0), s2io_driver_name))) {
-+		DBG_PRINT(ERR_DBG, "bar0 Request Regions failed\n");
-+		pci_disable_device(pdev);
-+		return -ENODEV;
- 	}
--	else {
--		if (!(request_mem_region(pci_resource_start(pdev, 0),
--               	         pci_resource_len(pdev, 0), s2io_driver_name))) {
--			DBG_PRINT(ERR_DBG, "bar0 Request Regions failed\n");
--			pci_disable_device(pdev);
--			return -ENODEV;
--		}
--        	if (!(request_mem_region(pci_resource_start(pdev, 2),
--               	         pci_resource_len(pdev, 2), s2io_driver_name))) {
--			DBG_PRINT(ERR_DBG, "bar1 Request Regions failed\n");
--                	release_mem_region(pci_resource_start(pdev, 0),
--                                   pci_resource_len(pdev, 0));
--			pci_disable_device(pdev);
--			return -ENODEV;
--		}
-+	if (!(request_mem_region(pci_resource_start(pdev, 2),
-+		pci_resource_len(pdev, 2), s2io_driver_name))) {
-+		DBG_PRINT(ERR_DBG, "bar1 Request Regions failed\n");
-+		release_mem_region(pci_resource_start(pdev, 0),
-+			pci_resource_len(pdev, 0));
-+		pci_disable_device(pdev);
-+		return -ENODEV;
- 	}
+ /* Protocol assist features of the NIC */
+ #define L3_CKSUM_OK 0xFFFF
+ #define L4_CKSUM_OK 0xFFFF
+@@ -97,6 +101,7 @@ struct swStat {
+ 	unsigned long long num_aggregations;
+ 	/* Other statistics */
+ 	unsigned long long mem_alloc_fail_cnt;
++	unsigned long long pci_map_fail_cnt;
+ 	unsigned long long watchdog_timer_cnt;
+ 	unsigned long long mem_allocated;
+ 	unsigned long long mem_freed;
+@@ -851,6 +856,7 @@ struct s2io_nic {
  
- 	dev = alloc_etherdev(sizeof(struct s2io_nic));
-@@ -7749,9 +7639,6 @@ s2io_init_nic(struct pci_dev *pdev, cons
- 		case INTA:
- 		    DBG_PRINT(ERR_DBG, "%s: Interrupt type INTA\n", dev->name);
- 		    break;
--		case MSI:
--		    DBG_PRINT(ERR_DBG, "%s: Interrupt type MSI\n", dev->name);
--		    break;
- 		case MSI_X:
- 		    DBG_PRINT(ERR_DBG, "%s: Interrupt type MSI-X\n", dev->name);
- 		    break;
-@@ -7791,14 +7678,10 @@ s2io_init_nic(struct pci_dev *pdev, cons
-       mem_alloc_failed:
- 	free_shared_mem(sp);
- 	pci_disable_device(pdev);
--	if (dev_intr_type != MSI_X)
--		pci_release_regions(pdev);
--	else {
--		release_mem_region(pci_resource_start(pdev, 0),
--			pci_resource_len(pdev, 0));
--		release_mem_region(pci_resource_start(pdev, 2),
--			pci_resource_len(pdev, 2));
--	}
-+	release_mem_region(pci_resource_start(pdev, 0),
-+		pci_resource_len(pdev, 0));
-+	release_mem_region(pci_resource_start(pdev, 2),
-+		pci_resource_len(pdev, 2));
- 	pci_set_drvdata(pdev, NULL);
- 	free_netdev(dev);
- 
-@@ -7833,14 +7716,10 @@ static void __devexit s2io_rem_nic(struc
- 	free_shared_mem(sp);
- 	iounmap(sp->bar0);
- 	iounmap(sp->bar1);
--	if (sp->intr_type != MSI_X)
--		pci_release_regions(pdev);
--	else {
--		release_mem_region(pci_resource_start(pdev, 0),
--			pci_resource_len(pdev, 0));
--		release_mem_region(pci_resource_start(pdev, 2),
--			pci_resource_len(pdev, 2));
--	}
-+	release_mem_region(pci_resource_start(pdev, 0),
-+		pci_resource_len(pdev, 0));
-+	release_mem_region(pci_resource_start(pdev, 2),
-+		pci_resource_len(pdev, 2));
- 	pci_set_drvdata(pdev, NULL);
- 	free_netdev(dev);
- 	pci_disable_device(pdev);
-diff -urpN patch_1/drivers/net/s2io.h patch_2/drivers/net/s2io.h
---- patch_1/drivers/net/s2io.h	2007-05-17 20:34:50.000000000 +0530
-+++ patch_2/drivers/net/s2io.h	2007-05-17 20:41:54.000000000 +0530
-@@ -883,7 +883,6 @@ struct s2io_nic {
- 	u16		lro_max_aggr_per_sess;
- 
- #define INTA	0
--#define MSI	1
- #define MSI_X	2
- 	u8 intr_type;
- 
-@@ -1027,8 +1026,6 @@ static int s2io_poll(struct net_device *
- static void s2io_init_pci(struct s2io_nic * sp);
- static int s2io_set_mac_addr(struct net_device *dev, u8 * addr);
- static void s2io_alarm_handle(unsigned long data);
--static int s2io_enable_msi(struct s2io_nic *nic);
--static irqreturn_t s2io_msi_handle(int irq, void *dev_id);
- static irqreturn_t
- s2io_msix_ring_handle(int irq, void *dev_id);
- static irqreturn_t
+ 	int task_flag;
+ 	unsigned long long start_time;
++	unsigned long long max_mem;
+ #define CARD_DOWN 1
+ #define CARD_UP 2
+ 	atomic_t card_state;
 
