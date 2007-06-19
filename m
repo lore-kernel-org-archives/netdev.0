@@ -1,74 +1,103 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [WIP][PATCHES] Network xmit batching
-Date: Tue, 19 Jun 2007 18:09:44 +0400
-Message-ID: <20070619140944.GA26241@2ka.mipt.ru>
-References: <OFB311484E.057E34E9-ON652572F3.001D5838-652572F3.0022766D@in.ibm.com> <1181216629.4064.22.camel@localhost> <20070619132148.GA32078@2ka.mipt.ru> <20070619133333.GA19667@2ka.mipt.ru> <20070619140038.GA13629@2ka.mipt.ru>
+From: "Satyam Sharma" <satyam.sharma@gmail.com>
+Subject: Re: [RFC][PATCH -mm take5 4/7] using symlink for the net_device
+Date: Tue, 19 Jun 2007 20:10:00 +0530
+Message-ID: <a781481a0706190740w14ae94f1r1ea8449524c5fb99@mail.gmail.com>
+References: <466FC455.5060001@bx.jp.nec.com> <466FC6ED.9060208@bx.jp.nec.com>
+	 <a781481a0706130949j7b35e33ds9cda5d8a551c9d7d@mail.gmail.com>
+	 <a781481a0706131203g405a4407y1212bb397f14e8eb@mail.gmail.com>
+	 <4677AA23.1080708@bx.jp.nec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: Krishna Kumar2 <krkumar2@in.ibm.com>,
-	Gagan Arneja <gaagaan@gmail.com>, netdev@vger.kernel.org,
-	Rick Jones <rick.jones2@hp.com>,
-	Sridhar Samudrala <sri@us.ibm.com>,
-	David Miller <davem@davemloft.net>,
-	Robert Olsson <Robert.Olsson@data.slu.se>
-To: jamal <hadi@cyberus.ca>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Matt Mackall" <mpm@selenic.com>,
+	"Andrew Morton" <akpm@linux-foundation.org>,
+	"David Miller" <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: "Keiichi KII" <k-keiichi@bx.jp.nec.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:41673 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755709AbXFSObo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Jun 2007 10:31:44 -0400
+Received: from nz-out-0506.google.com ([64.233.162.225]:12730 "EHLO
+	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752218AbXFSOkB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2007 10:40:01 -0400
+Received: by nz-out-0506.google.com with SMTP id n1so1766237nzf
+        for <netdev@vger.kernel.org>; Tue, 19 Jun 2007 07:40:00 -0700 (PDT)
+In-Reply-To: <4677AA23.1080708@bx.jp.nec.com>
 Content-Disposition: inline
-In-Reply-To: <20070619140038.GA13629@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 19, 2007 at 06:00:39PM +0400, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
-> On Tue, Jun 19, 2007 at 05:33:33PM +0400, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
-> > On Tue, Jun 19, 2007 at 05:21:48PM +0400, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
-> > > Simple test included test -> desktop and vice versa traffic with 128 and
-> > > 4096 block size in netperf-2.4.3 setup.
-> > 
-> > I.e. it is not pktgen, but usual userspace application, which should not
-> > use new batch methods.
-> > 
-> > I will try to find pktget scripts posted in this thread.
-> 
-> pktgen reults are quite poor:
-> batch (changed from default script: count reduced, clone increased to 10k)
-> 241319pps 115Mb/sec
-> 
-> mainline (the same script, on start it wrote about unsupported batch_low
-> parameter:
-> 497520pps 238Mb/sec
+Hi,
 
+On 6/19/07, Keiichi KII <k-keiichi@bx.jp.nec.com> wrote:
+> Hello Satyam,
+>
+> > and this is why we have to use the dual-list mechanism to react to the net
+> > device rename. This isn't so obvious, a comment at the point where you
+> > declare modify_target_list would be nice? (BTW temporary_list would be
+> > a better name for that, IMO)
+>
+> All right, my patches are short of comments. So, I will add comments
+> to the ambiguous codes.
+>
+> > Ok, so reading through the code makes it obvious that this mutex is used
+> > to protect against the following race:
+> >
+> > Thread #1                               Thread #2
+> > =========                               =========
+> >
+> > [ NETDEV_CHANGENAME notifier ]          [ ioctl(NETCON_REMOVE_TARGET) ]
+> >
+> > netconsole_event()
+> > move from target_list to temp list
+> > work on temp list
+> >                                        kobject_unregister()
+> >                                        -> release_target()
+> >                                           -> remove_target()
+> > move back to target_list
+> >
+> > Which would mean a deleted/removed target added back => *boom*
+> >
+> > But, the race still hasn't been closed properly!
+> >
+> > You're taking the mutex only around "work on temp list" which is
+> > insufficient, you need to ensure atomicity inside netconsole_event()
+> > _completely_ like this (renaming netdev_change_sem to
+> > netdev_changename_mtx):
+>
+> After the target moves from target_list to temporary_list,
+> the kobject_unregister() of possible raced target isn't called
+> in ioctl(NETCON_REMOVE_TARGET) because the target_list doesn't contain
+> the target .
 
-And here is with batch_low=400:
+Hum, then why have we introduced that lock (netdev_change_sem)
+in the first place, as in what exactly is it protecting?
 
-182607pps 87Mb/sec
+In any case, however, the point to extend the critical section here
+to encapsulate all the three parts still stands. We wouldn't want
+ioctl(NETCON_REMOVE_TARGET) on the specified target to
+return without removing the target that the user specified just
+because that target's ethernet interface happens to be currently
+undergoing a name change. The correct behaviour would be to
+sleep on a mutex till the renaming has completed (which will
+then relinquish the mutex) and then (after acquiring the mutex)
+proceed to remove it, IMHO.
 
-Here is output for batch_low=0 batch tree (batch_low=400 is similar,
-with min_batch parameter set to 400):
+> >> +static char *make_netdev_class_name(char *netdev_name)
+> >> +{
+> >> +       char *name;
+> >> +
+> >> +       name = kasprintf(GFP_KERNEL, "net:%s", netdev_name);
+> >
+> > Why the "net:" prefix in the filename?
+>
+> Because I drew upon dev_change_name() method in net/core/dev.c.
+> The device_rename() in the above function makes use of same prefix
+> related to netdev.
 
-Params: count 1000000  min_pkt_size: 60  max_pkt_size: 60 min_batch 0
-     frags: 0  delay: 0  clone_skb: 10000  ifname: eth1
-     flows: 0 flowlen: 0
-     dst_min: 192.168.4.81  dst_max: 
-     src_min:   src_max: 
-     src_mac: 00:0E:0C:B8:63:0A  dst_mac: 00:17:31:9A:E5:BE
-     udp_src_min: 9  udp_src_max: 9  udp_dst_min: 9  udp_dst_max: 9
-     src_mac_count: 0  dst_mac_count: 0
-     Flags: 
-Current:
-     pkts-sofar: 1000000  errors: 0
-     started: 1182274184549351us  stopped: 1182274188693235us idle: 20us alloc 4007752us txt 127073us
-     seq_num: 1000001  cur_dst_mac_offset: 0  cur_src_mac_offset: 0
-     cur_saddr: 0x3000a8c0  cur_daddr: 0x5104a8c0
-     cur_udp_dst: 9  cur_udp_src: 9
-     flows: 0
-Result: OK: T4143884(U4143864+I20+A4007752+T127073) usec, P1000000 TE8511TS1(B60,-1frags)
-  241319pps 115Mb/sec (115833120bps) errors: 0
+I think you're referring to make_class_name() here? That seems to
+be somewhat bulkier than simply being a wrapper over kasprintf()
+like the make_netdev_class_name() here. I'd definitely recommend
+not obfuscating this simple functionality here.
 
-
-
--- 
-	Evgeniy Polyakov
+Thanks,
+Satyam
