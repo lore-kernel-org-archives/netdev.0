@@ -1,8 +1,8 @@
 From: Keiichi KII <k-keiichi@bx.jp.nec.com>
-Subject: Re: [RFC][PATCH -mm take5 6/7] add ioctls for adding/removing target
-Date: Tue, 19 Jun 2007 19:04:45 +0900
-Message-ID: <4677AA3D.7010604@bx.jp.nec.com>
-References: <466FC455.5060001@bx.jp.nec.com> <466FC76A.6050006@bx.jp.nec.com> <a781481a0706131341k17170514q7a9d0ce052dbfe2a@mail.gmail.com>
+Subject: Re: [RFC][PATCH -mm take5 4/7] using symlink for the net_device
+Date: Tue, 19 Jun 2007 19:04:19 +0900
+Message-ID: <4677AA23.1080708@bx.jp.nec.com>
+References: <466FC455.5060001@bx.jp.nec.com> <466FC6ED.9060208@bx.jp.nec.com>	 <a781481a0706130949j7b35e33ds9cda5d8a551c9d7d@mail.gmail.com> <a781481a0706131203g405a4407y1212bb397f14e8eb@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -11,53 +11,92 @@ Cc: Matt Mackall <mpm@selenic.com>,
 	David Miller <davem@davemloft.net>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 To: Satyam Sharma <satyam.sharma@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758892AbXFSKFf@vger.kernel.org>
-In-Reply-To: <a781481a0706131341k17170514q7a9d0ce052dbfe2a@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from TYO201.gate.nec.co.jp ([202.32.8.193]:51234 "EHLO
+	tyo201.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758689AbXFSKEd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2007 06:04:33 -0400
+In-Reply-To: <a781481a0706131203g405a4407y1212bb397f14e8eb@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Hello Satyam,
 
-> *ugh*. I was wondering what a show-stopper this particular patch
-> was -- introduces a couple of ioctl()'s, exports a new structure to
-> userspace, adds a hitherto-unneeded header file, brings in
-> tty_struct/tty_operations and ends up adding so much complexity/
-> bloat to netconsole.c. Not only that, it must live together (and
-> side-by-side) with the sysfs interface also, because the two of them
-> do different things: sysfs to be able to modify target parameters at
-> run-time and the ioctl()'s to dynamically add/remove targets. We
-> can't really mkdir(2) or rmdir(2) in sysfs so the ioctl()'s are needed.
-> 
-> So may I suggest:
-> 
-> Just lose *both* the sysfs and ioctl() interfaces and use _configfs_.
-> It is *precisely* the thing you need in your driver here -- the ability
-> to create / destroy kernel objects (or config_items in configfs lingo)
-> from _userspace_ via simple mkdir(2) and rmdir(2). And configfs
-> makes changing multiple configurable parameters atomically trivial
-> too, via rename(2) ... not to mention a sysfs+ioctls -> configfs
-> conversion would help your patchset lose some weight too :-)
+> and this is why we have to use the dual-list mechanism to react to the net
+> device rename. This isn't so obvious, a comment at the point where you
+> declare modify_target_list would be nice? (BTW temporary_list would be
+> a better name for that, IMO)
 
-Stephen Hemminger previously advised me	about the user interface such as 
-the following messages.
+All right, my patches are short of comments. So, I will add comments 
+to the ambiguous codes.
 
-> Some other speculations:
-> 1. Would it be possible to add ioctl's to /dev/console? This would be more in
->     keeping with older Unix style model.
+> Ok, so reading through the code makes it obvious that this mutex is used
+> to protect against the following race:
 > 
-> 2. Using sysfs makes sense if there is a device object that exists to
->    add the sysfs attributes to.
+> Thread #1                               Thread #2
+> =========                               =========
 > 
-> 3. Procfs is handy for summary type tables.
+> [ NETDEV_CHANGENAME notifier ]          [ ioctl(NETCON_REMOVE_TARGET) ]
 > 
-> 4. Netlink does feel like overkill for this. Although newer generic netlink
->    makes it easier.
+> netconsole_event()
+> move from target_list to temp list
+> work on temp list
+>                                        kobject_unregister()
+>                                        -> release_target()
+>                                           -> remove_target()
+> move back to target_list
+> 
+> Which would mean a deleted/removed target added back => *boom*
+> 
+> But, the race still hasn't been closed properly!
+> 
+> You're taking the mutex only around "work on temp list" which is
+> insufficient, you need to ensure atomicity inside netconsole_event()
+> _completely_ like this (renaming netdev_change_sem to
+> netdev_changename_mtx):
 
-So, I implemented ioctls to add/remove port like this patch on the tty driver.
-But I'm going to search configfs. Thank you for you information.
+After the target moves from target_list to temporary_list, 
+the kobject_unregister() of possible raced target isn't called 
+in ioctl(NETCON_REMOVE_TARGET) because the target_list doesn't contain 
+the target .
+
+I have the wrong idea?
+
+>> +static char *make_netdev_class_name(char *netdev_name)
+>> +{
+>> +       char *name;
+>> +
+>> +       name = kasprintf(GFP_KERNEL, "net:%s", netdev_name);
+> 
+> Why the "net:" prefix in the filename?
+
+Because I drew upon dev_change_name() method in net/core/dev.c.
+The device_rename() in the above function makes use of same prefix 
+related to netdev.
+
+>>  static int setup_target_sysfs(struct netconsole_target *nt)
+>>  {
+>> +       int retval = 0;
+>> +       char *name;
+>> +
+>>         kobject_set_name(&nt->obj, "port%d", nt->id);
+>>         nt->obj.parent = &netconsole_miscdev.this_device->kobj;
+>>         nt->obj.ktype = &target_ktype;
+>> -       return kobject_register(&nt->obj);
+>> +       retval = kobject_register(&nt->obj);
+>> +       name = make_netdev_class_name(nt->np.dev_name);
+>> +       if (!name)
+>> +               return -ENOMEM;
+> 
+> Just call kasprintf() directly, why the obfuscation?
+> 
+
+I drew upon dev_change_name() method in net/core/dev.c.
 
 Thanks
 -- 
 Keiichi KII
 NEC Corporation OSS Platform Development Division
 E-mail: k-keiichi@bx.jp.nec.com
+
+
