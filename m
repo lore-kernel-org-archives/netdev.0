@@ -1,49 +1,51 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH] iproute2: Format IPv6 tunnels endpoints nicely.
-Date: Tue, 19 Jun 2007 16:29:18 -0700
-Message-ID: <20070619162918.523c4348@localhost.localdomain>
-References: <20070609135356.GA21251@charon.n2.diac24.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [NET 00/02]: MACVLAN driver
+Date: Wed, 20 Jun 2007 01:44:50 +0200
+Message-ID: <46786A72.9080409@trash.net>
+References: <20070619130825.26769.23059.sendpatchset@localhost.localdomain>	<20070619090027.3312f2cf@localhost.localdomain>	<4678472D.5050907@trash.net> <20070619.154840.55744015.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Lamparter <lists@diac24.net>
+Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:41469 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1760139AbXFSXbs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2007 19:31:48 -0400
-In-Reply-To: <20070609135356.GA21251@charon.n2.diac24.net>
+Received: from stinky.trash.net ([213.144.137.162]:36194 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755643AbXFSXpV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2007 19:45:21 -0400
+In-Reply-To: <20070619.154840.55744015.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 9 Jun 2007 15:53:58 +0200
-David Lamparter <lists@diac24.net> wrote:
+David Miller wrote:
+> From: Patrick McHardy <kaber@trash.net>
+> Date: Tue, 19 Jun 2007 23:14:21 +0200
+>
+>   
+>> Stephen Hemminger wrote:
+>>     
+>>> Looks good. I have some changes to allow devices with multiple MAC addresses
+>>> (never finished).  This device could use that.
+>>>       
+>> How would the driver do that? I was thinking about using dev_add_mc,
+>> but wasn't sure if that would work with all drivers for non-multicast
+>> addresses.
+>>     
+>
+> This is actually a real issue for virtualization, and many
+> if not all current generation ethernet chips support
+> programming several unicast ethernet addresses in the MAC.
+>
+> Networking switches in domain0 on virtualization hosts use
+> this feature to support seperate MACs per guest node,
+> and if the chip doesn't support this the chip is put into
+> promiscuous mode.
+>
+> We don't have any clean interfaces by which to do this MAC
+> programming, and we do need something for it soon.
+>   
 
-> Change formatting of IPv6 tunnel endpoints from hex chain to standard IPv6
-> representation.
-> 
-> Signed-off-by: David Lamparter <equinox@diac24.net>
-> 
-> ---
->  lib/ll_addr.c |    3 +++
->  1 files changed, 3 insertions(+), 0 deletions(-)
-> 
-> diff --git a/lib/ll_addr.c b/lib/ll_addr.c
-> index 581487d..f558050 100644
-> --- a/lib/ll_addr.c
-> +++ b/lib/ll_addr.c
-> @@ -38,6 +38,9 @@ const char *ll_addr_n2a(unsigned char *addr, int alen, int type, char *buf, int
->  	    (type == ARPHRD_TUNNEL || type == ARPHRD_SIT || type == ARPHRD_IPGRE)) {
->  		return inet_ntop(AF_INET, addr, buf, blen);
->  	}
-> +	if (alen == 16 && type == ARPHRD_TUNNEL6) {
-> +		return inet_ntop(AF_INET6, addr, buf, blen);
-> +	}
->  	l = 0;
->  	for (i=0; i<alen; i++) {
->  		if (i==0) {
+Stephen's suggestion sounds reasonable and easily implementable,
+I'll see if I can come up with a patch.
 
-Sure applied.
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+
