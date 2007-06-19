@@ -1,61 +1,37 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: Fwd: [PATCH] [-mm] ACPI: export ACPI events via netlink
-Date: Tue, 19 Jun 2007 13:30:16 +0200
-Message-ID: <1182252616.21013.12.camel@johannes.berg>
-References: <1179827251.7707.29.camel@localhost.localdomain>
-	 <1179831825.4121.30.camel@localhost>
-	 <1180258853.7707.53.camel@localhost.localdomain>
-	 <4466a10705270629h31977813hd2fc8330bcd87f78@mail.gmail.com>
-	 <4466a10705270634j3560c9a3j9c3630ddc20a24aa@mail.gmail.com>
-	 <1181811576.5411.27.camel@localhost.localdomain>
-	 <1181820510.4091.9.camel@localhost>
-	 <1181869285.5411.39.camel@localhost.localdomain>
-	 <1182178882.4063.11.camel@localhost>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [XFRM]: Fix MTU calculation for non-ESP SAs
+Date: Tue, 19 Jun 2007 14:02:30 +0200
+Message-ID: <4677C5D6.20005@trash.net>
+References: <4676AE27.8020504@trash.net> <20070618.223101.39174669.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-K45VSpWH6NveV9xO/pRW"
-Cc: Zhang Rui <rui.zhang@intel.com>, netdev@vger.kernel.org,
-	"linux-acpi@vger" <linux-acpi@vger.kernel.org>, lenb@kernel.org
-To: hadi@cyberus.ca
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <1182178882.4063.11.camel@localhost>
-Sender: linux-acpi-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, pupilla@hotmail.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:56414 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756005AbXFSMCs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2007 08:02:48 -0400
+In-Reply-To: <20070618.223101.39174669.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+David Miller wrote:
+> From: Patrick McHardy <kaber@trash.net>
+> Date: Mon, 18 Jun 2007 18:09:11 +0200
+> 
+> 
+>>[XFRM]: Fix MTU calculation for non-ESP SAs
+>>
+>>My IPsec MTU optimization patch introduced a regression in MTU calculation
+>>for non-ESP SAs, the SA's header_len needs to be subtracted from the MTU if
+>>the transform doesn't provide a ->get_mtu() function.
+>>
+> 
+> Patch applied, thanks a lot Patrick.
+> 
+> We only need this for 2.6.22 right?
 
---=-K45VSpWH6NveV9xO/pRW
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
 
-On Mon, 2007-06-18 at 11:01 -0400, jamal wrote:
-
-> Ok, by inspection (sorry, still dont have much time) - your kernel code
-> is sending to group 1; i.e
->=20
-> genlmsg_multicast(skb, 0, 1, GFP_ATOMIC);
->=20
-> you need to change that to send to your assigned id, i.e:
-> genlmsg_multicast(skb, 0, acpi_event_genl_family.id, GFP_ATOMIC);
->=20
-> then the user space code will work. I should be able to look at it if it
-> doesnt work by end of week.
-
-Ah, that coincides with something I was wondering about. Isn't it
-possible to have multiple multicast groups with generic netlink? If so,
-we might have to use real netlink for wireless...
-
-johannes
-
---=-K45VSpWH6NveV9xO/pRW
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iD8DBQBGd75I/ETPhpq3jKURAiQPAJ4p4TZ+jNVtmFgSXpEmUtDNT9qHOgCghGOq
-NTb3la9yFluVswAmxdEvHnQ=
-=tC1F
------END PGP SIGNATURE-----
-
---=-K45VSpWH6NveV9xO/pRW--
-
+Yes, the patch that broke this went into the first 2.6.22-rc.
