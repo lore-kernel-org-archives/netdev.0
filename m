@@ -1,53 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Allow group ownership of TUN/TAP devices (fwd)
-Date: Mon, 18 Jun 2007 22:36:54 -0700 (PDT)
-Message-ID: <20070618.223654.14957392.davem@davemloft.net>
-References: <Line.LNX.4.64.0706181216230.8746@localhost.localdomain>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: 2.6.20->2.6.21 - networking dies after random time
+Date: Tue, 19 Jun 2007 07:50:07 +0200
+Message-ID: <20070619055007.GB1649@ff.dom.local>
+References: <4bacf17f0706161435g1bb7c08bpd427901f64d57fa@mail.gmail.com> <20070618110849.GA2450@ff.dom.local> <20070618081000.14da5186@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jdike@addtoit.com
-To: jmorris@namei.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51114
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752856AbXFSFgf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2007 01:36:35 -0400
-In-Reply-To: <Line.LNX.4.64.0706181216230.8746@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Marcin =?iso-8859-2?Q?=A6lusarz?= <marcin.slusarz@gmail.com>,
+	linux-kernel@vger.kernel.org, linux-net@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
+Return-path: <linux-net-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20070618081000.14da5186@localhost.localdomain>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: James Morris <jmorris@namei.org>
-Date: Mon, 18 Jun 2007 12:16:31 -0400 (EDT)
-
-> ---------- Forwarded message ----------
-> Date: Mon, 18 Jun 2007 12:05:49 -0400
-> From: Jeff Dike <jdike@addtoit.com>
-> To: maxk@qualcomm.com
-> Cc: Guido Guenther <agx@sigxcpu.org>, LKML <linux-kernel@vger.kernel.org>,
->     vtun@office.satix.net
-> Subject: [PATCH] Allow group ownership of TUN/TAP devices
+On Mon, Jun 18, 2007 at 08:10:00AM -0700, Stephen Hemminger wrote:
+> On Mon, 18 Jun 2007 13:08:49 +0200
+> Jarek Poplawski <jarkao2@o2.pl> wrote:
 > 
-> I recieved from Guido Guenther the patch below to the TUN/TAP driver
-> which allows group ownerships to be effective.
+> > On 16-06-2007 23:35, Marcin .lusarz wrote:
+> > > hi
+> > > after upgrading kernel from 2.6.20 to 2.6.21.3 i'm experiencing really
+> > > strange problem - my _both_ network cards dies after random uptime -
+> > > sometimes it's a few minutes, sometimes hours, sometimes it does not
+> > > happen for a couple of days...
+> > > today it happened for the first time without nvidia module and almost
+> > > immediately after system start
+> > > 
+> > > here is the output of some commands which might help debug this:
+...
+> > It looks like skge driver enables different device than probbed.
+> > Maybe you've something old/wrong about eth0/eth1 in /etc configs?
 > 
-> It seems reasonable to me.
-> 
-> > the attached patches allow tun ownership by group. We found this useful
-> > since we can then spawn tapX devices on system boot (via
-> > /etc/network/interfaces) which logged on users can then use for their
-> > virtual machines.
-> >   
-> > The first patch is for the kernel, the second one for the tunctl. They
-> > shouldn't change existing behaviour and we introduced a new syscall for
-> > the group setting. The user now is allowed to send packages if either
-> > his euid or his egid matches the one specified via tunctl (via -u or -g
-> > respecitvely). If both gid and uid are set via tunctl, both have to
-> > match. In case you find these useful, please apply.
+> More likely it is just user level device renaming. Most distro's
+> rename devices (if needed) using udev.
 
-This patch looks fine.
+On the other hand it's interesting, why it's not always, and why
+sometimes it took so long?
 
-I'd like it resubmitted with a proper changelog and signoff, and once
-I have that I will thus queue it up for the 2.6.23 merge window.
-
-Thanks!
+Jarek P. 
