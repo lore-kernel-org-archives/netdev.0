@@ -1,55 +1,93 @@
-From: Florian Westphal <fw-kernel@strlen.de>
-Subject: [PATCH] TIPC: Fix infinite loop in netlink handler
-Date: Tue, 19 Jun 2007 22:18:34 +0200
-Message-ID: <20070619201834.GH4383@Chamillionaire.breakpoint.cc>
+From: Olaf Hering <olaf@aepfle.de>
+Subject: Re: 2.6.22: ERROR: "__ucmpdi2" [drivers/net/s2io.ko] undefined!
+Date: Tue, 19 Jun 2007 22:41:10 +0200
+Message-ID: <20070619204110.GA21384@aepfle.de>
+References: <20070619190253.GA19419@aepfle.de> <20070619131021.1c814098@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: jon.maloy@ericsson.com, per.liden@ericsson.com,
-	tipc-discussion@lists.sourceforge.net, allan.stephens@windriver.com
-To: netdev@vger.kernel.org
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+Content-Type: text/plain; charset=utf-8
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758784AbXFSUlX@vger.kernel.org>
 Content-Disposition: inline
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Sender: tipc-discussion-bounces@lists.sourceforge.net
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+In-Reply-To: <20070619131021.1c814098@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Florian Westphal <fw@strlen.de>
+On Tue, Jun 19, Stephen Hemminger wrote:
 
-The tipc netlink config handler uses the nlmsg_pid from the
-request header as destination for its reply. If the application
-initialized nlmsg_pid to 0, the reply is looped back to the kernel,
-causing hangup. Fix: use nlmsg_pid of the skb that triggered the
-request.
+> On Tue, 19 Jun 2007 21:02:53 +0200
+> Olaf Hering <olaf@aepfle.de> wrote:
+> 
+> > 
+> > What happend to __ucmpdi2 from David Woodhouse?
+> > google has a few hits about stuff like this on 32bit powerpc with gcc 4.1.2:
+> > 
+> > ERROR: "__ucmpdi2" [drivers/net/s2io.ko] undefined!
+> > 
+> > using the drivers/net/s2io* files from 2.6.21 with 2.6.22-rc5 fixes the
+> > compile.
+> > 
+> > 25805dcf9d83098cf5492117ad2669cd14cc9b24 adds two u64 >>= 48 followed by
+> > a switch statement (line 2889 and 6816).
+> 
+> Probably the "switch(err) {" needs a cast to a smaller type (like u8).
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
+This change removes the calls to __ucmpdi2.
+
 ---
- net/tipc/netlink.c |    2 +-
-  1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/net/s2io.c |   16 +++++++++-------
+ 1 file changed, 9 insertions(+), 7 deletions(-)
 
-diff --git a/net/tipc/netlink.c b/net/tipc/netlink.c
-index 4cdafa2..6a7f7b4 100644
---- a/net/tipc/netlink.c
-+++ b/net/tipc/netlink.c
-@@ -60,7 +60,7 @@ static int handle_cmd(struct sk_buff *skb, struct genl_info *info)
- 		rep_nlh = nlmsg_hdr(rep_buf);
- 		memcpy(rep_nlh, req_nlh, hdr_space);
- 		rep_nlh->nlmsg_len = rep_buf->len;
--		genlmsg_unicast(rep_buf, req_nlh->nlmsg_pid);
-+		genlmsg_unicast(rep_buf, NETLINK_CB(skb).pid);
- 	}
+--- a/drivers/net/s2io.c
++++ b/drivers/net/s2io.c
+@@ -2868,6 +2868,7 @@ static void tx_intr_handler(struct fifo_
+ 	struct tx_curr_get_info get_info, put_info;
+ 	struct sk_buff *skb;
+ 	struct TxD *txdlp;
++	u8 err_mask;
  
- 	return 0;
-
--------------------------------------------------------------------------
-This SF.net email is sponsored by DB2 Express
-Download DB2 Express C - the FREE version of DB2 express and take
-control of your XML. No limits. Just data. Click to get it now.
-http://sourceforge.net/powerbar/db2/
+ 	get_info = fifo_data->tx_curr_get_info;
+ 	memcpy(&put_info, &fifo_data->tx_curr_put_info, sizeof(put_info));
+@@ -2886,8 +2887,8 @@ static void tx_intr_handler(struct fifo_
+ 			}
+ 
+ 			/* update t_code statistics */
+-			err >>= 48;
+-			switch(err) {
++			err_mask = err >> 48;
++			switch(err_mask) {
+ 				case 2:
+ 					nic->mac_control.stats_info->sw_stat.
+ 							tx_buf_abort_cnt++;
+@@ -6805,6 +6806,7 @@ static int rx_osm_handler(struct ring_in
+ 	u16 l3_csum, l4_csum;
+ 	unsigned long long err = rxdp->Control_1 & RXD_T_CODE;
+ 	struct lro *lro;
++	u8 err_mask;
+ 
+ 	skb->dev = dev;
+ 
+@@ -6813,8 +6815,8 @@ static int rx_osm_handler(struct ring_in
+ 		if (err & 0x1) {
+ 			sp->mac_control.stats_info->sw_stat.parity_err_cnt++;
+ 		}
+-		err >>= 48;
+-		switch(err) {
++		err_mask = err >> 48;
++		switch(err_mask) {
+ 			case 1:
+ 				sp->mac_control.stats_info->sw_stat.
+ 				rx_parity_err_cnt++;
+@@ -6867,9 +6869,9 @@ static int rx_osm_handler(struct ring_in
+ 		* Note that in this case, since checksum will be incorrect,
+ 		* stack will validate the same.
+ 		*/
+-		if (err != 0x5) {
+-			DBG_PRINT(ERR_DBG, "%s: Rx error Value: 0x%llx\n",
+-				dev->name, err);
++		if (err_mask != 0x5) {
++			DBG_PRINT(ERR_DBG, "%s: Rx error Value: 0x%x\n",
++				dev->name, err_mask);
+ 			sp->stats.rx_crc_errors++;
+ 			sp->mac_control.stats_info->sw_stat.mem_freed 
+ 				+= skb->truesize;
