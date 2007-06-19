@@ -1,53 +1,47 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: Why is this patch not in 2.6.22-rc5?
-Date: Tue, 19 Jun 2007 13:52:14 -0400
-Message-ID: <467817CE.80904@garzik.org>
-References: <1178862045.3979.33.camel@kane-linux>	<20070511092519.1f34ab34@freepuppy>	<1179130660.3881.23.camel@kane-linux>	<20070514085840.17a343f7@freepuppy>	<20070613094521.GA8860@localdomain>	<20070613155335.47111c67@localhost>	<15712.1181795790@death> <20070619082302.4b9a5c27@localhost.localdomain>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [WIP][PATCHES] Network xmit batching
+Date: Tue, 19 Jun 2007 21:55:49 +0400
+Message-ID: <20070619175549.GA616@2ka.mipt.ru>
+References: <OFB311484E.057E34E9-ON652572F3.001D5838-652572F3.0022766D@in.ibm.com> <1181216629.4064.22.camel@localhost> <20070619132148.GA32078@2ka.mipt.ru> <20070619133333.GA19667@2ka.mipt.ru> <20070619140038.GA13629@2ka.mipt.ru> <1182270529.4968.73.camel@localhost> <18040.5105.715624.286924@robur.slu.se> <1182275300.4968.83.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Dan Aloni <da-x@monatomic.org>,
-	Chad Tindel <ctindel@users.sourceforge.net>,
-	Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>,
-	netdev@vger.kernel.org,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	bonding-devel@lists.sourceforge.net
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=koi8-r
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
+	Krishna Kumar2 <krkumar2@in.ibm.com>,
+	Gagan Arneja <gaagaan@gmail.com>, netdev@vger.kernel.org,
+	Rick Jones <rick.jones2@hp.com>,
+	Sridhar Samudrala <sri@us.ibm.com>,
+	David Miller <davem@davemloft.net>
+To: jamal <hadi@cyberus.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:33846 "EHLO mail.dvmed.net"
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:57269 "EHLO 2ka.mipt.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755460AbXFSRwm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Jun 2007 13:52:42 -0400
-In-Reply-To: <20070619082302.4b9a5c27@localhost.localdomain>
+	id S1759588AbXFSR7Y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Jun 2007 13:59:24 -0400
+Content-Disposition: inline
+In-Reply-To: <1182275300.4968.83.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> On Wed, 13 Jun 2007 21:36:30 -0700
-> Jay Vosburgh <fubar@us.ibm.com> wrote:
+On Tue, Jun 19, 2007 at 01:48:20PM -0400, jamal (hadi@cyberus.ca) wrote:
+> On Tue, 2007-19-06 at 19:35 +0200, Robert Olsson wrote:
 > 
->> 	The following patch (based on a patch from Stephen Hemminger
->> <shemminger@linux-foundation.org>) removes use after free conditions in
->> the unregister path for the bonding master.  Without this patch, an
->> operation of the form "echo -bond0 > /sys/class/net/bonding_masters"
->> would trigger a NULL pointer dereference in sysfs.  I was not able to
->> induce the failure with the non-sysfs code path, but for consistency I
->> updated that code as well.
->>
->> 	I also did some testing of the bonding /proc file being open
->> while the bond is being deleted, and didn't see any problems there.
->>
->> Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
-> 	
-> Hey David, this patch fixes one of the bugs listed in 2.6.22-rc5
-> list. Jay submitted last week but it hasn't made it upstream.
+> >  But Evgeniy is most likely using the same clocksource both for the mainline 
+> >  and batch tests so there must be something different...
+> 
+> Iam curious though which one, from my notes on my laptop for that test
+> machine:
 
-Get him to forward it to me, like he does for other bonding patches...
+Batch:
+$ sudo cat
+/sys/devices/system/clocksource/clocksource0/available_clocksource
+tsc acpi_pm jiffies 
 
-	Jeff
+Mainline:
+$ sudo cat
+/sys/devices/system/clocksource/clocksource0/available_clocksource
+tsc acpi_pm jiffies 
 
+Config is exactly the same, so the same should be all parameters.
 
-
+-- 
+	Evgeniy Polyakov
