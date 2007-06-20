@@ -1,79 +1,61 @@
-From: "Michal Piotrowski" <michal.k.k.piotrowski-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [2/2] 2.6.22-rc5: known regressions with patches
-Date: Wed, 20 Jun 2007 15:37:41 +0200
-Message-ID: <6bffcb0e0706200637m33b02ea7le7c8f64c66e159b2@mail.gmail.com>
-References: <4675430B.2000304@googlemail.com> <46754400.2080101@googlemail.com>
-	 <20070618100905.7fc1176c@localhost.localdomain>
+From: "Stephens, Allan" <allan.stephens@windriver.com>
+Subject: Re: [PATCH] TIPC: Fix infinite loop in netlink
+	handler
+Date: Wed, 20 Jun 2007 07:13:22 -0700
+Message-ID: <AF1602CB2550CE4381C0C75118A7856B0135AC94@ala-mail02.corp.ad.wrs.com>
+References: <46784B7F.8050903@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "Linus Torvalds" <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	"Andrew Morton" <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"Christoph Lameter" <clameter-sJ/iWh9BUns@public.gmane.org>,
-	"Dave Airlie" <airlied-cv59FeDIM0c@public.gmane.org>,
-	"Andrea Righi" <righiandr-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
-	Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"Samuel Ortiz" <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>,
-	"Andrey Borzenkov" <arvidjaar-JGs/UdohzUI@public.gmane.org>,
-	"Bjorn Helgaas" <bjorn.helgaas-VXdhtT5mjnY@public.gmane.org>,
-	"Chad Tindel" <ctindel-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
-	"Dan Aloni" <da-x-KzBIeXn4Coe+51mZqJFLXQ@public.gmane.org>,
-	"Jay Vosburgh" <fubar-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
-	"Stephen Smalley" <sds-+05T5uksL2qpZYMLLGbcSA@public.gmane.org>,
-	"James Morris" <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
-	"Eric Paris" <eparis-FjpueFixGhCM4zKIHC2jIg@public.gmane.org>,
-	"Ingo Molnar" <mingo-X9Un+BFzKDI@public.gmane.org>,
-	linux-usb-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
-	"Greg Kroah-Hartman" <gregkh-l3A5Bk7waGM@public.gmane.org>,
-	"Paulo Pereira" <pfmp.404-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"Alan Stern" <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
-To: "Stephen Hemminger" <shemminger-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20070618100905.7fc1176c-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: jon.maloy@ericsson.com, netdev@vger.kernel.org,
+	per.liden@ericsson.com, tipc-discussion@lists.sourceforge.net
+To: "Patrick McHardy" <kaber@trash.net>,
+	"Florian Westphal" <fw-kernel@strlen.de>
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+Content-class: urn:content-classes:message
+In-Reply-To: <46784B7F.8050903@trash.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Sender: tipc-discussion-bounces@lists.sourceforge.net
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On 18/06/07, Stephen Hemminger <shemminger-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org> wrote:
-> On Sun, 17 Jun 2007 16:24:00 +0200
-> Michal Piotrowski <michal.k.k.piotrowski-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
->
-> > Hi all,
-> >
-> > Here is a list of some known regressions in 2.6.22-rc5
-> > with patches available.
-> >
-> > Feel free to add new regressions/remove fixed etc.
-> > http://kernelnewbies.org/known_regressions
-> >
-> >
-> >
-> > Memory management
-> >
-> > Subject    : bug in i386 MTRR initialization
-> > References : http://lkml.org/lkml/2007/5/19/93
-> > Submitter  : Andrea Righi <righiandr-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-> > Status     : patch available
-> >
-> >
-> >
-> > Networking
-> > Subject    : commit 9093bbb2d96d0184f037cea9b4e952a44ebe7c32 broke the bonding driver
-> > References : http://lkml.org/lkml/2007/6/13/65
-> > Submitter  : Dan Aloni <da-x-KzBIeXn4Coe+51mZqJFLXQ@public.gmane.org>
-> > Handled-By : Stephen Hemminger <shemminger-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-> > Status     : patch available
-> >              (I cannot find it in archives. Stephen, please resend the patch)
-> >
->
-> http://www.mail-archive.com/netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org/msg40352.html
+Patrick McHardy wrote:
+ 
+> Florian Westphal wrote:
+> > From: Florian Westphal <fw@strlen.de>
+> > 
+> > The tipc netlink config handler uses the nlmsg_pid from the request 
+> > header as destination for its reply. If the application initialized 
+> > nlmsg_pid to 0, the reply is looped back to the kernel, causing 
+> > hangup. Fix: use nlmsg_pid of the skb that triggered the request.
+> > 
+> > -		genlmsg_unicast(rep_buf, req_nlh->nlmsg_pid);
+> > +		genlmsg_unicast(rep_buf, NETLINK_CB(skb).pid);
+> 
+> 
+> This is the second time we're seeing this bug within a few 
+> weeks, maybe we should rename NETLINK_CB(skb).pid to dst_pid 
+> to avoid similar confusion in the future? We could even 
+> rename nlmsg_pid to nlmsg_src within the kernel, which should 
+> make it completely clear what is being refered to.
 
-Thanks!
+I'm assuming that Patrick's first suggestion should have read "rename
+NETLINK_CB(skb).pid to src_pid", as there is already a "dst_pid" field
+in the netlink_skb_parms structure type.
 
-Regards,
-Michal
+I agree that such a change would make things clearer to folks who are
+relative novices when it comes to Netlink.
 
--- 
-LOG
-http://www.stardust.webpages.pl/log/
+-- Al
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by DB2 Express
+Download DB2 Express C - the FREE version of DB2 express and take
+control of your XML. No limits. Just data. Click to get it now.
+http://sourceforge.net/powerbar/db2/
