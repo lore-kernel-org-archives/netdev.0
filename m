@@ -1,36 +1,35 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 2.6.22-rc4-git6] forcedeth: use unicast receive mode for
- WoL
-Date: Wed, 20 Jun 2007 19:15:26 -0400
-Message-ID: <4679B50E.7080605@garzik.org>
-References: <20070614131638.1a5cef4c@mann-lx.eng.vmware.com>
+Subject: Re: [PATCH 1/5] cxgb3 - fix skb->dev dereference
+Date: Wed, 20 Jun 2007 19:17:13 -0400
+Message-ID: <4679B579.6040208@garzik.org>
+References: <20070530170128.22789.3485.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>
-To: Tim Mann <mann@vmware.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	swise@opengridcomputing.com
+To: divy@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:45622 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:45646 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757335AbXFTXP2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Jun 2007 19:15:28 -0400
-In-Reply-To: <20070614131638.1a5cef4c@mann-lx.eng.vmware.com>
+	id S1751611AbXFTXRP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Jun 2007 19:17:15 -0400
+In-Reply-To: <20070530170128.22789.3485.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Tim Mann wrote:
-> I happened to notice that a system with an NVidia NIC using the
-> forcedeth driver won't wake-on-LAN if the interface was in promiscuous
-> mode when you power off.  By experiment, it looks like
-> the hardware needs to have NvRegPacketFilterFlags set to
-> NVREG_PFF_ALWAYS|NVREG_PFF_MYADDR (i.e., receive unicast packets to my
-> address) in order for WoL to work.
+divy@chelsio.com wrote:
+> From: Divy Le Ray <divy@chelsio.com>
 > 
-> Jeff Garzik writes: "NVIDIA says the patch looks OK."  I didn't venture
-> to insert a signed-off-by line with his name on it, though.
+> eth_type_trans() now sets skb->dev. 
+> References to skb->dev should happen after it is called.
 > 
-> Signed-off-by: Tim Mann <mann@vmware.com>
+> Signed-off-by: Divy Le Ray <divy@chelsio.com>
+> ---
+> 
+>  drivers/net/cxgb3/sge.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
 
-applied to #upstream-fixes (2.6.22)
+applied 1-5 to #upstream-fixes (2.6.22)
 
 
