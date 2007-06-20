@@ -1,92 +1,233 @@
-From: Frank Pavlic <fpavlic@de.ibm.com>
-Subject: [PATCH 8/8] s390: netiucv inlining cleanup
-Date: Wed, 20 Jun 2007 13:03:57 +0200
-Message-ID: <20070620110357.GH9454@de.ibm.com>
-References: <20070620104817.GA2627@de.ibm.com>
+From: Balazs Scheidler <bazsi@balabit.hu>
+Subject: Re: [IPV4] LVS: Allow to send ICMP unreachable responses when
+	real-servers are removed
+Date: Wed, 20 Jun 2007 10:57:20 +0000
+Message-ID: <1182337041.15676.23.camel@bzorp.balabit>
+References: <Pine.LNX.4.58.0705160012470.2626@u.domain.uli>
+	 <200705301138.29582@nienna> <Pine.LNX.4.58.0705310239240.3745@u.domain.uli>
+	 <200705311450.36492@nienna> <Pine.LNX.4.58.0706010123020.2683@u.domain.uli>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: jgarzik@pobox.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: KOVACS Krisztian <hidden@balabit.hu>,
+	David Miller <davem@davemloft.net>, kaber@trash.net,
+	horms@verge.net.au, jkrzyszt@tis.icnet.pl, netdev@vger.kernel.org
+To: Julian Anastasov <ja@ssi.bg>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e5.ny.us.ibm.com ([32.97.182.145]:47232 "EHLO e5.ny.us.ibm.com"
+Received: from www.balabit.hu ([212.92.18.33]:1895 "EHLO lists.balabit.hu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751882AbXFTLDp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Jun 2007 07:03:45 -0400
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e5.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l5KB3iE8004288
-	for <netdev@vger.kernel.org>; Wed, 20 Jun 2007 07:03:44 -0400
-Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l5KB3icX507278
-	for <netdev@vger.kernel.org>; Wed, 20 Jun 2007 07:03:44 -0400
-Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l5KB3io6005064
-	for <netdev@vger.kernel.org>; Wed, 20 Jun 2007 07:03:44 -0400
-Content-Disposition: inline
-In-Reply-To: <20070620104817.GA2627@de.ibm.com>
+	id S1753425AbXFTLSM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Jun 2007 07:18:12 -0400
+Received: from balabit.hu (unknown [10.80.0.254])
+	by lists.balabit.hu (Postfix) with ESMTP id 3A7BEB4F19
+	for <netdev@vger.kernel.org>; Wed, 20 Jun 2007 12:57:19 +0200 (CEST)
+In-Reply-To: <Pine.LNX.4.58.0706010123020.2683@u.domain.uli>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Martin Schwidefsky <schwidefsky@de.ibm.com>
+Hi,
 
-The recent iucv rework patches re-introduced some unnecessary inlines.
-Remove them again.
+Is there a chance that this, or a patch with similar spirit (e.g. a way
+to send packets from non-local IP addresses) could be merged?
 
-Signed-off-by: Frank Pavlic <fpavlic@de.ibm.com>
-Signed-off-by: Martin Schwidefsky <schwidefsky@de.ibm.com>
----
- drivers/s390/net/netiucv.c |   18 +++---------------
- 1 files changed, 3 insertions(+), 15 deletions(-)
-
-diff --git a/drivers/s390/net/netiucv.c b/drivers/s390/net/netiucv.c
-index 5303aea..3d28e1a 100644
---- a/drivers/s390/net/netiucv.c
-+++ b/drivers/s390/net/netiucv.c
-@@ -134,18 +134,6 @@ PRINT_##importance(header "%02x %02x %02x %02x  %02x %02x %02x %02x  " \
- 		   *(((char*)ptr)+28),*(((char*)ptr)+29), \
- 		   *(((char*)ptr)+30),*(((char*)ptr)+31));
- 
--static inline void iucv_hex_dump(unsigned char *buf, size_t len)
--{
--	size_t i;
--
--	for (i = 0; i < len; i++) {
--		if (i && !(i % 16))
--			printk("\n");
--		printk("%02x ", *(buf + i));
--	}
--	printk("\n");
--}
--
- #define PRINTK_HEADER " iucv: "       /* for debugging */
- 
- static struct device_driver netiucv_driver = {
-@@ -280,7 +268,7 @@ static u8 iucvMagic[16] = {
-  *
-  * @returns The printable string (static data!!)
-  */
--static inline char *netiucv_printname(char *name)
-+static char *netiucv_printname(char *name)
- {
- 	static char tmp[9];
- 	char *p = tmp;
-@@ -1730,7 +1718,7 @@ static struct attribute_group netiucv_stat_attr_group = {
- 	.attrs = netiucv_stat_attrs,
- };
- 
--static inline int netiucv_add_files(struct device *dev)
-+static int netiucv_add_files(struct device *dev)
- {
- 	int ret;
- 
-@@ -1744,7 +1732,7 @@ static inline int netiucv_add_files(struct device *dev)
- 	return ret;
- }
- 
--static inline void netiucv_remove_files(struct device *dev)
-+static void netiucv_remove_files(struct device *dev)
- {
- 	IUCV_DBF_TEXT(trace, 3, __FUNCTION__);
- 	sysfs_remove_group(&dev->kobj, &netiucv_stat_attr_group);
+On Fri, 2007-06-01 at 02:18 +0300, Julian Anastasov wrote:
+> 	Hello,
+> 
+> On Thu, 31 May 2007, KOVACS Krisztian wrote:
+> 
+> >   So what about this one?
+> 
+> 	May be we can try with better coding style. Also, this version
+> adds undefined behavior for using FLOWI_FLAG_ANYSRC with multicast
+> oldflp->fl4_dst
+> 
+> > Loosen source address check on IPv4 output
+> > 
+> > From: KOVACS Krisztian <hidden@balabit.hu>
+> > 
+> > ip_route_output() contains a check to make sure that no flows with
+> > non-local source IP addresses are routed. This obviously makes using
+> > such addresses impossible.
+> > 
+> > This patch introduces a flowi flag which makes omitting this check
+> > possible. The new flag provides a way of handling transparent and
+> > non-transparent connections differently.
+> > 
+> > Signed-off-by: KOVACS Krisztian <hidden@balabit.hu>
+> > ---
+> > 
+> >  include/net/flow.h |    1 +
+> >  net/ipv4/route.c   |   47 +++++++++++++++++++++++++----------------------
+> >  2 files changed, 26 insertions(+), 22 deletions(-)
+> > 
+> > diff --git a/include/net/flow.h b/include/net/flow.h
+> > index f3cc1f8..1bfc0dc 100644
+> > --- a/include/net/flow.h
+> > +++ b/include/net/flow.h
+> > @@ -49,6 +49,7 @@ struct flowi {
+> >  	__u8	proto;
+> >  	__u8	flags;
+> >  #define FLOWI_FLAG_MULTIPATHOLDROUTE 0x01
+> > +#define FLOWI_FLAG_ANYSRC 0x02
+> >  	union {
+> >  		struct {
+> >  			__be16	sport;
+> > diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+> > index 8603cfb..88d0a79 100644
+> > --- a/net/ipv4/route.c
+> > +++ b/net/ipv4/route.c
+> > @@ -2396,7 +2396,7 @@ static int ip_route_output_slow(struct rtable **rp, const struct flowi *oldflp)
+> >  
+> >  		/* It is equivalent to inet_addr_type(saddr) == RTN_LOCAL */
+> >  		dev_out = ip_dev_find(oldflp->fl4_src);
+> > -		if (dev_out == NULL)
+> > +		if (dev_out == NULL && !(oldflp->flags & FLOWI_FLAG_ANYSRC))
+> >  			goto out;
+> >  
+> >  		/* I removed check for oif == dev_out->oif here.
+> > @@ -2407,29 +2407,32 @@ static int ip_route_output_slow(struct rtable **rp, const struct flowi *oldflp)
+> >  		      of another iface. --ANK
+> >  		 */
+> >  
+> > -		if (oldflp->oif == 0
+> > -		    && (MULTICAST(oldflp->fl4_dst) || oldflp->fl4_dst == htonl(0xFFFFFFFF))) {
+> > -			/* Special hack: user can direct multicasts
+> > -			   and limited broadcast via necessary interface
+> > -			   without fiddling with IP_MULTICAST_IF or IP_PKTINFO.
+> > -			   This hack is not just for fun, it allows
+> > -			   vic,vat and friends to work.
+> > -			   They bind socket to loopback, set ttl to zero
+> > -			   and expect that it will work.
+> > -			   From the viewpoint of routing cache they are broken,
+> > -			   because we are not allowed to build multicast path
+> > -			   with loopback source addr (look, routing cache
+> > -			   cannot know, that ttl is zero, so that packet
+> > -			   will not leave this host and route is valid).
+> > -			   Luckily, this hack is good workaround.
+> > -			 */
+> > +		if (dev_out) {
+> > +			if (oldflp->oif == 0
+> > +			    && (MULTICAST(oldflp->fl4_dst)
+> > +				|| oldflp->fl4_dst == htonl(0xFFFFFFFF))) {
+> > +				/* Special hack: user can direct multicasts
+> > +				   and limited broadcast via necessary interface
+> > +				   without fiddling with IP_MULTICAST_IF or IP_PKTINFO.
+> > +				   This hack is not just for fun, it allows
+> > +				   vic,vat and friends to work.
+> > +				   They bind socket to loopback, set ttl to zero
+> > +				   and expect that it will work.
+> > +				   From the viewpoint of routing cache they are broken,
+> > +				   because we are not allowed to build multicast path
+> > +				   with loopback source addr (look, routing cache
+> > +				   cannot know, that ttl is zero, so that packet
+> > +				   will not leave this host and route is valid).
+> > +				   Luckily, this hack is good workaround.
+> > +				*/
+> > +
+> > +				fl.oif = dev_out->ifindex;
+> > +				goto make_route;
+> > +			}
+> >  
+> > -			fl.oif = dev_out->ifindex;
+> > -			goto make_route;
+> > -		}
+> > -		if (dev_out)
+> >  			dev_put(dev_out);
+> > -		dev_out = NULL;
+> > +			dev_out = NULL;
+> > +		}
+> >  	}
+> 
+> 	What about something like this, it even reduces checks
+> in the fast path. You can post new version if the following change
+> looks good to you and to other developers. If additional sign line is 
+> needed here it is:
+> 
+> Signed-off-by: Julian Anastasov <ja@ssi.bg>
+> 
+> @@ -2396,8 +2396,6 @@ static int ip_route_output_slow(struct r
+>  
+>  		/* It is equivalent to inet_addr_type(saddr) == RTN_LOCAL */
+>  		dev_out = ip_dev_find(oldflp->fl4_src);
+> -		if (dev_out == NULL)
+> -			goto out;
+>  
+>  		/* I removed check for oif == dev_out->oif here.
+>  		   It was wrong for two reasons:
+> @@ -2409,6 +2407,8 @@ static int ip_route_output_slow(struct r
+>  
+>  		if (oldflp->oif == 0
+>  		    && (MULTICAST(oldflp->fl4_dst) || oldflp->fl4_dst == htonl(0xFFFFFFFF))) {
+> +			if (dev_out == NULL)
+> +				goto out;
+>  			/* Special hack: user can direct multicasts
+>  			   and limited broadcast via necessary interface
+>  			   without fiddling with IP_MULTICAST_IF or IP_PKTINFO.
+> @@ -2427,9 +2427,11 @@ static int ip_route_output_slow(struct r
+>  			fl.oif = dev_out->ifindex;
+>  			goto make_route;
+>  		}
+> -		if (dev_out)
+> +		if (dev_out) {
+>  			dev_put(dev_out);
+> -		dev_out = NULL;
+> +			dev_out = NULL;
+> +		} else if (!(oldflp->flags & FLOWI_FLAG_ANYSRC))
+> +			goto out;
+>  	}
+>  
+> 
+> 
+> 	Or we can go further and to avoid ip_dev_find? For me, this
+> second variant is preferred because calling ip_dev_find() is useless for
+> FLOWI_FLAG_ANYSRC.
+> 
+> @@ -2394,11 +2394,6 @@ static int ip_route_output_slow(struct r
+>  		    ZERONET(oldflp->fl4_src))
+>  			goto out;
+>  
+> -		/* It is equivalent to inet_addr_type(saddr) == RTN_LOCAL */
+> -		dev_out = ip_dev_find(oldflp->fl4_src);
+> -		if (dev_out == NULL)
+> -			goto out;
+> -
+>  		/* I removed check for oif == dev_out->oif here.
+>  		   It was wrong for two reasons:
+>  		   1. ip_dev_find(saddr) can return wrong iface, if saddr is
+> @@ -2409,6 +2404,11 @@ static int ip_route_output_slow(struct r
+>  
+>  		if (oldflp->oif == 0
+>  		    && (MULTICAST(oldflp->fl4_dst) || oldflp->fl4_dst == htonl(0xFFFFFFFF))) {
+> +			/* It is equivalent to inet_addr_type(saddr) == RTN_LOCAL */
+> +			dev_out = ip_dev_find(oldflp->fl4_src);
+> +			if (dev_out == NULL)
+> +				goto out;
+> +
+>  			/* Special hack: user can direct multicasts
+>  			   and limited broadcast via necessary interface
+>  			   without fiddling with IP_MULTICAST_IF or IP_PKTINFO.
+> @@ -2427,9 +2427,14 @@ static int ip_route_output_slow(struct r
+>  			fl.oif = dev_out->ifindex;
+>  			goto make_route;
+>  		}
+> -		if (dev_out)
+> +		if (!(oldflp->flags & FLOWI_FLAG_ANYSRC)) {
+> +			/* It is equivalent to inet_addr_type(saddr) == RTN_LOCAL */
+> +			dev_out = ip_dev_find(oldflp->fl4_src);
+> +			if (dev_out == NULL)
+> +				goto out;
+>  			dev_put(dev_out);
+> -		dev_out = NULL;
+> +			dev_out = NULL;
+> +		}
+>  	}
+>  
+> 
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
 -- 
-1.5.2.1
+Bazsi
 
