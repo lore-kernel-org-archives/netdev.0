@@ -1,379 +1,155 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [RFC NET 01/02]: Secondary unicast address support
-Date: Wed, 20 Jun 2007 20:00:24 +0200 (MEST)
-Message-ID: <20070620180019.6685.50688.sendpatchset@localhost.localdomain>
+Subject: [RFC E1000 02/02]: Secondary unicast address support
+Date: Wed, 20 Jun 2007 20:00:25 +0200 (MEST)
+Message-ID: <20070620180020.6685.38236.sendpatchset@localhost.localdomain>
 References: <20070620180017.6685.70611.sendpatchset@localhost.localdomain>
 Cc: Patrick McHardy <kaber@trash.net>, shemminger@linux-foundation.org,
 	davem@davemloft.net, jeff@garzik.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:55002 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:55007 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755420AbXFTSAZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jun 2007 14:00:25 -0400
+	with ESMTP id S1755778AbXFTSA1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jun 2007 14:00:27 -0400
 In-Reply-To: <20070620180017.6685.70611.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[NETDEV]: Secondary unicast address support
+[E1000]: Secondary unicast address support
 
-Add support for configuring secondary unicast addresses on network devices.
-Devices supporting this feature need to change their set_multicast_list
-function to configure unicast filters as well and assign it to
-dev->set_address_list instead of dev->set_multicast_list. Devices not
-supporting this feature are put in promiscous mode when secondary unicast
-addresses are present.
+Add support for configuring secondary unicast addresses. Unicast
+addresses take precendece over multicast addresses when filling
+the exact address filters to avoid going to promiscous mode.
+When more unicast addresses are present than filter slots,
+unicast filtering is disabled and all slots can be used for
+multicast addresses.
 
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 
 ---
-commit 3f3f6e18b902ee177ecf5a108ba6ecbf1b5c9ba3
-tree 8883aba620211e96d7419f96960cc596506cbeef
-parent 890e2ae4ef5599ee34f280af4882f97c2dcfcb7b
-author Patrick McHardy <kaber@trash.net> Wed, 20 Jun 2007 19:44:11 +0200
-committer Patrick McHardy <kaber@trash.net> Wed, 20 Jun 2007 19:44:11 +0200
+commit 7c1ab0a6f8db6b7f1b9ce6cdd72074e2cb0be8f6
+tree f900bbe8894ecd15db22c37d5c60ff3f2acd9f9e
+parent 3f3f6e18b902ee177ecf5a108ba6ecbf1b5c9ba3
+author Patrick McHardy <kaber@trash.net> Wed, 20 Jun 2007 19:46:06 +0200
+committer Patrick McHardy <kaber@trash.net> Wed, 20 Jun 2007 19:46:06 +0200
 
- include/linux/netdevice.h |   17 ++++
- net/core/dev.c            |  172 +++++++++++++++++++++++++++++++++++++++++++--
- net/core/dev_mcast.c      |   34 +--------
- 3 files changed, 185 insertions(+), 38 deletions(-)
+ drivers/net/e1000/e1000_main.c |   39 +++++++++++++++++++++++++++------------
+ 1 files changed, 27 insertions(+), 12 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 868140d..a1cc2ea 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -191,6 +191,14 @@ struct dev_mc_list
- 	int			dmi_gusers;
- };
+diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+index cf8af92..b1f6724 100644
+--- a/drivers/net/e1000/e1000_main.c
++++ b/drivers/net/e1000/e1000_main.c
+@@ -149,7 +149,7 @@ static void e1000_clean_tx_ring(struct e1000_adapter *adapter,
+                                 struct e1000_tx_ring *tx_ring);
+ static void e1000_clean_rx_ring(struct e1000_adapter *adapter,
+                                 struct e1000_rx_ring *rx_ring);
+-static void e1000_set_multi(struct net_device *netdev);
++static void e1000_set_address_list(struct net_device *netdev);
+ static void e1000_update_phy_info(unsigned long data);
+ static void e1000_watchdog(unsigned long data);
+ static void e1000_82547_tx_fifo_stall(unsigned long data);
+@@ -513,7 +513,7 @@ static void e1000_configure(struct e1000_adapter *adapter)
+ 	struct net_device *netdev = adapter->netdev;
+ 	int i;
  
-+struct dev_uc_list
-+{
-+	struct dev_uc_list	*next;
-+	__u8			duci_addr[MAX_ADDR_LEN];
-+	unsigned char		duci_addrlen;
-+	int			duci_users;
-+};
-+
- struct hh_cache
- {
- 	struct hh_cache *hh_next;	/* Next entry			     */
-@@ -389,7 +397,10 @@ struct net_device
- 	unsigned short          dev_id;		/* for shared network cards */
+-	e1000_set_multi(netdev);
++	e1000_set_address_list(netdev);
  
- 	struct dev_mc_list	*mc_list;	/* Multicast mac addresses	*/
-+	struct dev_uc_list	*uc_list;	/* Secondary unicast mac addresses */
- 	int			mc_count;	/* Number of installed mcasts	*/
-+	int			uc_count;	/* Number of installed ucasts	*/
-+	int			uc_promisc;
- 	int			promiscuity;
- 	int			allmulti;
- 
-@@ -493,6 +504,8 @@ struct net_device
- 						void *saddr,
- 						unsigned len);
- 	int			(*rebuild_header)(struct sk_buff *skb);
-+#define HAVE_ADDRESS_LIST
-+	void			(*set_address_list)(struct net_device *dev);
- #define HAVE_MULTICAST			 
- 	void			(*set_multicast_list)(struct net_device *dev);
- #define HAVE_SET_MAC_ADDR  		 
-@@ -1006,6 +1019,10 @@ extern void		dev_mc_upload(struct net_device *dev);
- extern int 		dev_mc_delete(struct net_device *dev, void *addr, int alen, int all);
- extern int		dev_mc_add(struct net_device *dev, void *addr, int alen, int newonly);
- extern void		dev_mc_discard(struct net_device *dev);
-+extern int 		dev_unicast_delete(struct net_device *dev, void *addr, int alen);
-+extern int		dev_unicast_add(struct net_device *dev, void *addr, int alen);
-+extern void		__dev_address_upload(struct net_device *dev);
-+extern void		dev_address_upload(struct net_device *dev);
- extern void		dev_set_promiscuity(struct net_device *dev, int inc);
- extern void		dev_set_allmulti(struct net_device *dev, int inc);
- extern void		netdev_state_change(struct net_device *dev);
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 5974e5b..4f4beb0 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -943,7 +943,7 @@ int dev_open(struct net_device *dev)
- 		/*
- 		 *	Initialize multicasting status
- 		 */
--		dev_mc_upload(dev);
-+		dev_address_upload(dev);
- 
- 		/*
- 		 *	Wakeup transmit queue engine
-@@ -2522,6 +2522,163 @@ int netdev_set_master(struct net_device *slave, struct net_device *master)
- 	return 0;
+ 	e1000_restore_vlan(adapter);
+ 	e1000_init_manageability(adapter);
+@@ -924,7 +924,7 @@ e1000_probe(struct pci_dev *pdev,
+ 	netdev->stop = &e1000_close;
+ 	netdev->hard_start_xmit = &e1000_xmit_frame;
+ 	netdev->get_stats = &e1000_get_stats;
+-	netdev->set_multicast_list = &e1000_set_multi;
++	netdev->set_address_list = &e1000_set_address_list;
+ 	netdev->set_mac_address = &e1000_set_mac;
+ 	netdev->change_mtu = &e1000_change_mtu;
+ 	netdev->do_ioctl = &e1000_ioctl;
+@@ -2412,20 +2412,21 @@ e1000_set_mac(struct net_device *netdev, void *p)
  }
  
-+void __dev_address_upload(struct net_device *dev)
-+{
-+	/* Don't do anything till we up the interface
-+	 * [dev_open will call this function so the list will
-+	 * stay sane]
-+	 */
-+
-+	if (!(dev->flags&IFF_UP))
-+		return;
-+
-+	if (!netif_device_present(dev))
-+	        return;
-+
-+	if (dev->set_address_list)
-+		dev->set_address_list(dev);
-+	else {
-+		if (dev->uc_count > 0 && !dev->uc_promisc) {
-+			dev_set_promiscuity(dev, 1);
-+			dev->uc_promisc = 1;
-+		} else if (dev->uc_count == 0 && dev->uc_promisc) {
-+			dev_set_promiscuity(dev, -1);
-+			dev->uc_promisc = 0;
-+		}
-+
-+		if (dev->set_multicast_list)
-+			dev->set_multicast_list(dev);
-+	}
-+}
-+
-+/**
-+ *	dev_address_upload	- upload address lists to device
-+ *	@dev: device
-+ *
-+ *	Upload unicast and multicast address lists to device.
-+ *	When the device doesn't support unicast filtering it
-+ *	is put in promiscous mode while addresses are present.
-+ *
-+ */
-+void dev_address_upload(struct net_device *dev)
-+{
-+	netif_tx_lock_bh(dev);
-+	__dev_address_upload(dev);
-+	netif_tx_unlock_bh(dev);
-+}
-+
-+/**
-+ *	dev_unicast_delete	- Release secondary unicast address.
-+ *	@dev: device
-+ *
-+ *	Release reference to a secondary unicast address and remove it
-+ *	from the device if the reference count drop to zero.
-+ *
-+ */
-+int dev_unicast_delete(struct net_device *dev, void *addr, int alen)
-+{
-+	int err = 0;
-+	struct dev_uc_list *duci, **ducip;
-+
-+	netif_tx_lock_bh(dev);
-+
-+	for (ducip = &dev->uc_list; (duci = *ducip) != NULL;
-+	     ducip = &duci->next) {
-+		/*
-+		 *	Find the entry we want to delete. The device could
-+		 *	have variable length entries so check these too.
-+		 */
-+		if (memcmp(duci->duci_addr, addr, duci->duci_addrlen) == 0 &&
-+		    alen == duci->duci_addrlen) {
-+			if (--duci->duci_users)
-+				goto done;
-+
-+			/*
-+			 *	Last user. So delete the entry.
-+			 */
-+			*ducip = duci->next;
-+			dev->uc_count--;
-+
-+			kfree(duci);
-+
-+			/*
-+			 *	We have altered the list, so the card
-+			 *	loaded filter is now wrong. Fix it
-+			 */
-+			__dev_address_upload(dev);
-+
-+			netif_tx_unlock_bh(dev);
-+			return 0;
-+		}
-+	}
-+	err = -ENOENT;
-+done:
-+	netif_tx_unlock_bh(dev);
-+	return err;
-+}
-+EXPORT_SYMBOL(dev_unicast_delete);
-+
-+/**
-+ *	dev_unicast_add		- add a secondary unicast address
-+ *	@dev: device
-+ *
-+ *	Add a secondary unicast address to the device or increase
-+ *	the reference count if it already exists.
-+ *
-+ */
-+int dev_unicast_add(struct net_device *dev, void *addr, int alen)
-+{
-+	int err = 0;
-+	struct dev_uc_list *duci, *duci1;
-+
-+	duci1 = kmalloc(sizeof(*duci), GFP_ATOMIC);
-+
-+	netif_tx_lock_bh(dev);
-+	for (duci = dev->uc_list; duci != NULL; duci = duci->next) {
-+		if (memcmp(duci->duci_addr, addr, duci->duci_addrlen) == 0 &&
-+		    duci->duci_addrlen == alen) {
-+			duci->duci_users++;
-+			goto done;
-+		}
-+	}
-+
-+	if ((duci = duci1) == NULL) {
-+		netif_tx_unlock_bh(dev);
-+		return -ENOMEM;
-+	}
-+	memcpy(duci->duci_addr, addr, alen);
-+	duci->duci_addrlen = alen;
-+	duci->next = dev->uc_list;
-+	duci->duci_users = 1;
-+	dev->uc_list = duci;
-+	dev->uc_count++;
-+
-+	__dev_address_upload(dev);
-+
-+	netif_tx_unlock_bh(dev);
-+	return 0;
-+
-+done:
-+	netif_tx_unlock_bh(dev);
-+	kfree(duci1);
-+	return err;
-+}
-+EXPORT_SYMBOL(dev_unicast_add);
-+
-+void dev_unicast_discard(struct net_device *dev)
-+{
-+	netif_tx_lock_bh(dev);
-+
-+	while (dev->uc_list != NULL) {
-+		struct dev_uc_list *tmp = dev->uc_list;
-+		dev->uc_list = tmp->next;
-+		kfree(tmp);
-+	}
-+	dev->uc_count = 0;
-+
-+	netif_tx_unlock_bh(dev);
-+}
-+
  /**
-  *	dev_set_promiscuity	- update promiscuity count on a device
-  *	@dev: device
-@@ -2541,7 +2698,7 @@ void dev_set_promiscuity(struct net_device *dev, int inc)
- 	else
- 		dev->flags |= IFF_PROMISC;
- 	if (dev->flags != old_flags) {
--		dev_mc_upload(dev);
-+		dev_address_upload(dev);
- 		printk(KERN_INFO "device %s %s promiscuous mode\n",
- 		       dev->name, (dev->flags & IFF_PROMISC) ? "entered" :
- 							       "left");
-@@ -2574,7 +2731,7 @@ void dev_set_allmulti(struct net_device *dev, int inc)
- 	if ((dev->allmulti += inc) == 0)
- 		dev->flags &= ~IFF_ALLMULTI;
- 	if (dev->flags ^ old_flags)
--		dev_mc_upload(dev);
-+		dev_address_upload(dev);
- }
+- * e1000_set_multi - Multicast and Promiscuous mode set
++ * e1000_set_address_list - Secondary Unicast, Multicast and Promiscuous mode set
+  * @netdev: network interface device structure
+  *
+- * The set_multi entry point is called whenever the multicast address
+- * list or the network interface flags are updated.  This routine is
++ * The set_address_list entry point is called whenever the unicast or multicast
++ * address lists or the network interface flags are updated.  This routine is
+  * responsible for configuring the hardware for proper multicast,
+  * promiscuous mode, and all-multi behavior.
+  **/
  
- unsigned dev_get_flags(const struct net_device *dev)
-@@ -2617,10 +2774,10 @@ int dev_change_flags(struct net_device *dev, unsigned flags)
- 				    IFF_ALLMULTI));
- 
- 	/*
--	 *	Load in the correct multicast list now the flags have changed.
-+	 *	Load in the correct address list now the flags have changed.
- 	 */
- 
--	dev_mc_upload(dev);
-+	dev_address_upload(dev);
- 
- 	/*
- 	 *	Have we downed the interface. We handle IFF_UP ourselves
-@@ -2633,7 +2790,7 @@ int dev_change_flags(struct net_device *dev, unsigned flags)
- 		ret = ((old_flags & IFF_UP) ? dev_close : dev_open)(dev);
- 
- 		if (!ret)
--			dev_mc_upload(dev);
-+			dev_address_upload(dev);
+ static void
+-e1000_set_multi(struct net_device *netdev)
++e1000_set_address_list(struct net_device *netdev)
+ {
+ 	struct e1000_adapter *adapter = netdev_priv(netdev);
+ 	struct e1000_hw *hw = &adapter->hw;
++	struct dev_uc_list *uc_ptr;
+ 	struct dev_mc_list *mc_ptr;
+ 	uint32_t rctl;
+ 	uint32_t hash_value;
+@@ -2449,9 +2450,16 @@ e1000_set_multi(struct net_device *netdev)
+ 		rctl |= (E1000_RCTL_UPE | E1000_RCTL_MPE);
+ 	} else if (netdev->flags & IFF_ALLMULTI) {
+ 		rctl |= E1000_RCTL_MPE;
+-		rctl &= ~E1000_RCTL_UPE;
+ 	} else {
+-		rctl &= ~(E1000_RCTL_UPE | E1000_RCTL_MPE);
++		rctl &= ~E1000_RCTL_MPE;
++	}
++
++	uc_ptr = NULL;
++	if (netdev->uc_count > rar_entries - 1) {
++		rctl |= E1000_RCTL_UPE;
++	} else if (!(netdev->flags & IFF_PROMISC)) {
++		rctl &= ~E1000_RCTL_UPE;
++		uc_ptr = netdev->uc_list;
  	}
  
- 	if (dev->flags & IFF_UP &&
-@@ -3497,8 +3654,9 @@ void unregister_netdevice(struct net_device *dev)
- 	raw_notifier_call_chain(&netdev_chain, NETDEV_UNREGISTER, dev);
+ 	E1000_WRITE_REG(hw, RCTL, rctl);
+@@ -2461,7 +2469,10 @@ e1000_set_multi(struct net_device *netdev)
+ 	if (hw->mac_type == e1000_82542_rev2_0)
+ 		e1000_enter_82542_rst(adapter);
  
- 	/*
--	 *	Flush the multicast chain
-+	 *	Flush the unicast and multicast chains
- 	 */
-+	dev_unicast_discard(dev);
- 	dev_mc_discard(dev);
+-	/* load the first 14 multicast address into the exact filters 1-14
++	/* load the first 14 addresses into the exact filters 1-14. Unicast
++	 * addresses take precedence to avoid disabling unicast filtering
++	 * when possible.
++	 *
+ 	 * RAR 0 is used for the station MAC adddress
+ 	 * if there are not 14 addresses, go ahead and clear the filters
+ 	 * -- with 82571 controllers only 0-13 entries are filled here
+@@ -2469,7 +2480,10 @@ e1000_set_multi(struct net_device *netdev)
+ 	mc_ptr = netdev->mc_list;
  
- 	if (dev->uninit)
-diff --git a/net/core/dev_mcast.c b/net/core/dev_mcast.c
-index 5a54053..45d616b 100644
---- a/net/core/dev_mcast.c
-+++ b/net/core/dev_mcast.c
-@@ -63,37 +63,9 @@
-  *	We block accesses to device mc filters with netif_tx_lock.
-  */
+ 	for (i = 1; i < rar_entries; i++) {
+-		if (mc_ptr) {
++		if (uc_ptr) {
++			e1000_rar_set(hw, uc_ptr->duci_addr, i);
++			uc_ptr = uc_ptr->next;
++		} else if (mc_ptr) {
+ 			e1000_rar_set(hw, mc_ptr->dmi_addr, i);
+ 			mc_ptr = mc_ptr->next;
+ 		} else {
+@@ -2479,6 +2493,7 @@ e1000_set_multi(struct net_device *netdev)
+ 			E1000_WRITE_FLUSH(hw);
+ 		}
+ 	}
++	WARN_ON(uc_ptr != NULL);
  
--/*
-- *	Update the multicast list into the physical NIC controller.
-- */
--
--static void __dev_mc_upload(struct net_device *dev)
--{
--	/* Don't do anything till we up the interface
--	 * [dev_open will call this function so the list will
--	 * stay sane]
--	 */
--
--	if (!(dev->flags&IFF_UP))
--		return;
--
--	/*
--	 *	Devices with no set multicast or which have been
--	 *	detached don't get set.
--	 */
--
--	if (dev->set_multicast_list == NULL ||
--	    !netif_device_present(dev))
--		return;
--
--	dev->set_multicast_list(dev);
--}
--
- void dev_mc_upload(struct net_device *dev)
- {
--	netif_tx_lock_bh(dev);
--	__dev_mc_upload(dev);
--	netif_tx_unlock_bh(dev);
-+	dev_address_upload(dev);
- }
+ 	/* clear the old settings from the multicast hash table */
  
- /*
-@@ -135,7 +107,7 @@ int dev_mc_delete(struct net_device *dev, void *addr, int alen, int glbl)
- 			 *	We have altered the list, so the card
- 			 *	loaded filter is now wrong. Fix it
- 			 */
--			__dev_mc_upload(dev);
-+			__dev_address_upload(dev);
+@@ -5098,7 +5113,7 @@ e1000_suspend(struct pci_dev *pdev, pm_message_t state)
  
- 			netif_tx_unlock_bh(dev);
- 			return 0;
-@@ -185,7 +157,7 @@ int dev_mc_add(struct net_device *dev, void *addr, int alen, int glbl)
- 	dev->mc_list = dmi;
- 	dev->mc_count++;
+ 	if (wufc) {
+ 		e1000_setup_rctl(adapter);
+-		e1000_set_multi(netdev);
++		e1000_set_address_list(netdev);
  
--	__dev_mc_upload(dev);
-+	__dev_address_upload(dev);
- 
- 	netif_tx_unlock_bh(dev);
- 	return 0;
+ 		/* turn on all-multi mode if wake on multicast is enabled */
+ 		if (wufc & E1000_WUFC_MC) {
