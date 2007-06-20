@@ -1,41 +1,59 @@
-From: Jan-Bernd Themann <ossthema@de.ibm.com>
-Subject: RE: [PATCH] NET: Multiple queue hardware support
-Date: Wed, 20 Jun 2007 16:58:43 +0200
-Message-ID: <200706201658.43820.ossthema@de.ibm.com>
+From: Florian Westphal <fw-kernel@strlen.de>
+Subject: Re: [PATCH] TIPC: Fix infinite loop in netlink handler
+Date: Wed, 20 Jun 2007 18:12:08 +0200
+Message-ID: <20070620161208.GI4383@Chamillionaire.breakpoint.cc>
+References: <46784B7F.8050903@trash.net> <AF1602CB2550CE4381C0C75118A7856B0135AC94@ala-mail02.corp.ad.wrs.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Christoph Raisch <raisch@de.ibm.com>,
-	Thomas Klein <osstklei@de.ibm.com>,
-	"Jan-Bernd Themann" <themann@de.ibm.com>
-To: peter.p.waskiewicz.jr@intel.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>, jon.maloy@ericsson.com,
+	netdev@vger.kernel.org, per.liden@ericsson.com
+To: "Stephens, Allan" <allan.stephens@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate3.de.ibm.com ([195.212.29.152]:42735 "EHLO
-	mtagate3.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753175AbXFTPWI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jun 2007 11:22:08 -0400
-Received: from d12nrmr1507.megacenter.de.ibm.com (d12nrmr1507.megacenter.de.ibm.com [9.149.167.1])
-	by mtagate3.de.ibm.com (8.13.8/8.13.8) with ESMTP id l5KFM7Ft039056
-	for <netdev@vger.kernel.org>; Wed, 20 Jun 2007 15:22:07 GMT
-Received: from d12av03.megacenter.de.ibm.com (d12av03.megacenter.de.ibm.com [9.149.165.213])
-	by d12nrmr1507.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l5KFM6YM1474762
-	for <netdev@vger.kernel.org>; Wed, 20 Jun 2007 17:22:06 +0200
-Received: from d12av03.megacenter.de.ibm.com (loopback [127.0.0.1])
-	by d12av03.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l5KFM6xh008708
-	for <netdev@vger.kernel.org>; Wed, 20 Jun 2007 17:22:06 +0200
+Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:42594 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752134AbXFTQMV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jun 2007 12:12:21 -0400
 Content-Disposition: inline
+In-Reply-To: <AF1602CB2550CE4381C0C75118A7856B0135AC94@ala-mail02.corp.ad.wrs.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Stephens, Allan <allan.stephens@windriver.com> wrote:
+[removed tipc-discussion list from CC]
+> Patrick McHardy wrote:
+> > Florian Westphal wrote:
+> > > -		genlmsg_unicast(rep_buf, req_nlh->nlmsg_pid);
+> > > +		genlmsg_unicast(rep_buf, NETLINK_CB(skb).pid);
+> > 
+> > 
+> > This is the second time we're seeing this bug within a few 
+> > weeks, maybe we should rename NETLINK_CB(skb).pid to dst_pid 
+> > to avoid similar confusion in the future? We could even 
+> > rename nlmsg_pid to nlmsg_src within the kernel, which should 
+> > make it completely clear what is being refered to.
+> 
+> I'm assuming that Patrick's first suggestion should have read "rename
+> NETLINK_CB(skb).pid to src_pid", as there is already a "dst_pid" field
+> in the netlink_skb_parms structure type.
 
-to me it seems that this patch set only include multiple transmit queue support
-(for qdisc). Am I right with this observation? If so, are there also plans to 
-support multiple receive queues to allow the queues to be processed in parallel
-on different CPUs via a standard interface? Currently, some drivers use 
-"fake netdevices" to feed netif_rx_schedule().
+Hmm, this dst_pid got removed in commit
+4e9b82693542003b028c8494e9e3c49615b91ce7.
 
-Thanks,
-Jan-Bernd
+And im actually not sure if a rename would really help things.
+The problem was/is the usage of the original header value (which works just
+fine if userspace plays along). So the only real solution
+would be to update the nlmsg_pid value to the NETLINK_CB(skb).pid if
+it is 0 before the 'doit' callback in genl_rcv_msg() -- and this seems
+just the wrong thing to to. Plus, there is a snd_seq field in the info
+structure passed to the callback which always has the NETLINK_CB(skb).pid.
+
+
+Perhaps something like the following would be a start?
+
+./include/linux/netlink.h:
+-         __u32           nlmsg_pid;      /* Sending process port ID */
++         __u32           nlmsg_pid;      /* Sending process port ID -
++  must not be used as destination parameter with
++  genlmsg_unicast() and friends as it might be 0 meaning 'send to kernel' */
+
+Thoughts?
