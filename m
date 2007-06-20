@@ -1,57 +1,92 @@
-From: "Prafulla Deuskar" <pdeuskar01@gmail.com>
-Subject: Re: [NET 00/02]: MACVLAN driver
-Date: Wed, 20 Jun 2007 12:35:59 -0700
-Message-ID: <7176eb5f0706201235w1bee20e0n8c25207176e61b0@mail.gmail.com>
-References: <20070619130825.26769.23059.sendpatchset@localhost.localdomain>
-	 <20070619090027.3312f2cf@localhost.localdomain>
-	 <4678472D.5050907@trash.net>
-	 <20070619.154840.55744015.davem@davemloft.net>
-	 <4678CA7F.8070002@garzik.org>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: r8169 tx problem (1s pause with ping)
+Date: Wed, 20 Jun 2007 23:15:30 +0200
+Message-ID: <20070620211530.GA10042@electric-eye.fr.zoreil.com>
+References: <20070613004154.GA4187@kvack.org> <20070613211859.GA22521@electric-eye.fr.zoreil.com> <46715FBA.3070302@iinet.net.au> <20070614220050.GB23266@electric-eye.fr.zoreil.com> <20070619230641.GD14681@electric-eye.fr.zoreil.com> <4678EC07.8050700@iinet.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>, kaber@trash.net,
-	shemminger@linux-foundation.org, netdev@vger.kernel.org
-To: "Jeff Garzik" <jeff@garzik.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Benjamin LaHaise <bcrl@kvack.org>
+To: David Gundersen <gundy@iinet.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.190]:7424 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753293AbXFTTgC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jun 2007 15:36:02 -0400
-Received: by nf-out-0910.google.com with SMTP id g13so10321nfb
-        for <netdev@vger.kernel.org>; Wed, 20 Jun 2007 12:36:00 -0700 (PDT)
-In-Reply-To: <4678CA7F.8070002@garzik.org>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:52437 "EHLO
+	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752181AbXFTVRZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Jun 2007 17:17:25 -0400
 Content-Disposition: inline
+In-Reply-To: <4678EC07.8050700@iinet.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 6/19/07, Jeff Garzik <jeff@garzik.org> wrote:
-> David Miller wrote:
-> > This is actually a real issue for virtualization, and many
-> > if not all current generation ethernet chips support
-> > programming several unicast ethernet addresses in the MAC.
-> >
-> > Networking switches in domain0 on virtualization hosts use
-> > this feature to support seperate MACs per guest node,
-> > and if the chip doesn't support this the chip is put into
-> > promiscuous mode.
-> >
-> > We don't have any clean interfaces by which to do this MAC
-> > programming, and we do need something for it soon.
->
->
-> Yep, that's been on my long term wish list for a while, as well.
->
-> Overall I would like to see a more flexible way of allowing the net
-> stack to learn each NIC's RX filter capabilities, and exploiting them.
-> Plenty of NICs, even 100Mbps ones, support RX filter management that
-> allows scanning for $hw_limit unicast addresses, before having to put
-> the hardware into promisc mode.
->
->        Jeff
+David Gundersen <gundy@iinet.net.au> :
+[...]
+> - Why are you checking dirty_tx against cur_rx (shouldn't it be cur_tx?)?
 
-So how do we manage mac address to RX queue association?
-Ideally we should extend ethtool to do that rather than inventing a
-new tool - Is that acceptable?
+Usual "try something, send something else" bug.
 
--Prafulla
+> - Is there a possibility that the driver could be triggering the card to 
+> send invalid packets with that code?
+[snip]
+
+I do not know but I doubt that it matters.
+
+That being said, the patch below should make things better (though still
+not perfect):
+
+
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index 8f3e0da..35054e8 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -2514,7 +2514,7 @@ static inline u32 rtl8169_tso_csum(struct sk_buff *skb, struct net_device *dev)
+ static int rtl8169_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct rtl8169_private *tp = netdev_priv(dev);
+-	unsigned int frags, entry = tp->cur_tx % NUM_TX_DESC;
++	unsigned int frags, cur_tx, entry = tp->cur_tx % NUM_TX_DESC;
+ 	struct TxDesc *txd = tp->TxDescArray + entry;
+ 	void __iomem *ioaddr = tp->mmio_addr;
+ 	dma_addr_t mapping;
+@@ -2567,13 +2567,17 @@ static int rtl8169_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	dev->trans_start = jiffies;
+ 
++	cur_tx = tp->cur_tx;
++
+ 	tp->cur_tx += frags + 1;
+ 
+-	smp_wmb();
++	mmiowb();
+ 
+-	RTL_W8(TxPoll, NPQ);	/* set polling bit */
++	smp_mb();
+ 
+-	if (TX_BUFFS_AVAIL(tp) < MAX_SKB_FRAGS) {
++	if (cur_tx == tp->dirty_tx)
++		RTL_W8(TxPoll, NPQ);
++	else if (TX_BUFFS_AVAIL(tp) < MAX_SKB_FRAGS) {
+ 		netif_stop_queue(dev);
+ 		smp_rmb();
+ 		if (TX_BUFFS_AVAIL(tp) >= MAX_SKB_FRAGS)
+@@ -2677,10 +2681,18 @@ static void rtl8169_tx_interrupt(struct net_device *dev,
+ 
+ 	if (tp->dirty_tx != dirty_tx) {
+ 		tp->dirty_tx = dirty_tx;
+-		smp_wmb();
+-		if (netif_queue_stopped(dev) &&
+-		    (TX_BUFFS_AVAIL(tp) >= MAX_SKB_FRAGS)) {
+-			netif_wake_queue(dev);
++		smp_mb();
++		if (unlikely(netif_queue_stopped(dev))) {
++			netif_tx_lock(dev);
++		    	if (TX_BUFFS_AVAIL(tp) >= MAX_SKB_FRAGS)
++				netif_wake_queue(dev);
++			if (dirty_tx != tp->cur_tx)
++				RTL_W8(TxPoll, NPQ);
++			netif_tx_unlock(dev);
++		} else if (dirty_tx != tp->cur_tx) {
++			netif_tx_lock(dev);
++			RTL_W8(TxPoll, NPQ);
++			netif_tx_unlock(dev);
+ 		}
+ 	}
+ }
