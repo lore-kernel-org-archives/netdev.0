@@ -1,37 +1,43 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH UPDATED] bonding: Fix 802.3ad no carrier on "no partner
- found" instance
-Date: Wed, 20 Jun 2007 19:13:05 -0400
-Message-ID: <4679B481.8020905@garzik.org>
-References: <97949e3e0706011316n5d90bb04kf3a2c556af3fbe9d@mail.gmail.com> <466B28D9.6040806@garzik.org> <29862.1181797894@death>
+Subject: Re: [PATCH] bonding: Fix use after free in unregister path
+Date: Wed, 20 Jun 2007 19:12:54 -0400
+Message-ID: <4679B476.9060503@garzik.org>
+References: <1178862045.3979.33.camel@kane-linux> <20070511092519.1f34ab34@freepuppy> <1179130660.3881.23.camel@kane-linux> <20070514085840.17a343f7@freepuppy> <20070613094521.GA8860@localdomain> <20070613155335.47111c67@localhost> <15712.1181795790@death> <20070619082302.4b9a5c27@localhost.localdomain> <467817CE.80904@garzik.org> <24302.1182276732@death>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Laurent Chavey <chavey@google.com>, netdev@vger.kernel.org
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Dan Aloni <da-x@monatomic.org>,
+	Chad Tindel <ctindel@users.sourceforge.net>,
+	Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>,
+	netdev@vger.kernel.org,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	bonding-devel@lists.sourceforge.net
 To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:45582 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:45583 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752024AbXFTXNI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Jun 2007 19:13:08 -0400
-In-Reply-To: <29862.1181797894@death>
+	id S1753021AbXFTXNJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Jun 2007 19:13:09 -0400
+In-Reply-To: <24302.1182276732@death>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Jay Vosburgh wrote:
-> 	Modify carrier state determination for 802.3ad mode to comply
-> with section 43.3.9 of IEEE 802.3, which requires that "Links that are
-> not successful candidates for aggregation (e.g., links that are attached
-> to other devices that cannot perform aggregation or links that have been
-> manually configured to be non-aggregatable) are enabled to operate as
-> individual IEEE 802.3 links."
+> 	The following patch (based on a patch from Stephen Hemminger
+> <shemminger@linux-foundation.org>) removes use after free conditions in
+> the unregister path for the bonding master.  Without this patch, an
+> operation of the form "echo -bond0 > /sys/class/net/bonding_masters"
+> would trigger a NULL pointer dereference in sysfs.  I was not able to
+> induce the failure with the non-sysfs code path, but for consistency I
+> updated that code as well.
 > 
-> 	Bug reported by Laurent Chavey <chavey@google.com>.  This patch
-> is an updated version of his patch that changes the wording of
-> commentary and adds an update to the driver version.
+> 	I also did some testing of the bonding /proc file being open
+> while the bond is being deleted, and didn't see any problems there.
 > 
 > Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
-> Signed-off-by: Laurent Chavey <chavey@google.com>
 
 applied to #upstream-fixes
 
