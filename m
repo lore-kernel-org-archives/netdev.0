@@ -1,108 +1,100 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH] fix race in AF_UNIX
-Date: Thu, 21 Jun 2007 09:18:38 -0600
-Message-ID: <m17ipxfi9d.fsf@ebiederm.dsl.xmission.com>
-References: <E1Hvo2m-00038P-00@dorka.pomaz.szeredi.hu>
-	<20070605.224128.104032917.davem@davemloft.net>
-	<E1HvqZB-0003Vc-00@dorka.pomaz.szeredi.hu>
-	<20070607.184731.10907840.davem@davemloft.net>
-	<E1HxgeN-0006Io-00@dorka.pomaz.szeredi.hu>
+From: Jeff Dike <jdike@addtoit.com>
+Subject: Re: [PATCH] Allow group ownership of TUN/TAP devices (fwd)
+Date: Thu, 21 Jun 2007 10:59:11 -0400
+Message-ID: <20070621145911.GA5874@c2.user-mode-linux.org>
+References: <Line.LNX.4.64.0706181216230.8746@localhost.localdomain> <20070618.223654.14957392.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, viro@ftp.linux.org.uk,
-	alan@lxorguk.ukuu.org.uk, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Miklos Szeredi <miklos@szeredi.hu>
+Cc: jmorris@namei.org, netdev@vger.kernel.org,
+	Guido Guenther <agx@sigxcpu.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:55793 "EHLO
-	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752604AbXFUPYp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jun 2007 11:24:45 -0400
-In-Reply-To: <E1HxgeN-0006Io-00@dorka.pomaz.szeredi.hu> (Miklos Szeredi's
-	message of "Mon, 11 Jun 2007 11:57:27 +0200")
+Received: from [198.99.130.12] ([198.99.130.12]:34080 "EHLO
+	saraswathi.solana.com" rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1752973AbXFUPZ3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jun 2007 11:25:29 -0400
+Content-Disposition: inline
+In-Reply-To: <20070618.223654.14957392.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Miklos Szeredi <miklos@szeredi.hu> writes:
+On Mon, Jun 18, 2007 at 10:36:54PM -0700, David Miller wrote:
+> This patch looks fine.
+> 
+> I'd like it resubmitted with a proper changelog and signoff, and once
+> I have that I will thus queue it up for the 2.6.23 merge window.
 
-> [CC'd Al Viro and Alan Cox, restored patch]
->
->> > There are races involving the garbage collector, that can throw away
->> > perfectly good packets with AF_UNIX sockets in them.
->> > 
->> > The problems arise when a socket goes from installed to in-flight or
->> > vice versa during garbage collection.  Since gc is done with a
->> > spinlock held, this only shows up on SMP.
->> > 
->> > Signed-off-by: Miklos Szeredi <mszeredi@suse.cz>
->> 
->> I'm going to hold off on this one for now.
->> 
->> Holding all of the read locks kind of defeats the purpose of using
->> the per-socket lock.
->> 
->> Can't you just lock purely around the receive queue operation?
->
-> That's already protected by the receive queue spinlock.  The race
-> however happens _between_ pushing the root set and marking of the
-> in-flight but reachable sockets.
->
-> If in that space any of the AF_UNIX sockets goes from in-flight to
-> installed into a file descriptor, the garbage collector can miss it.
-> If we want to protect against this using unix_sk(s)->readlock, then we
-> have to hold all of them for the duration of the marking.
->
-> Al, Alan, you have more experience with this piece of code.  Do you
-> have better ideas about how to fix this?
+Introduce a new syscall TUNSETGROUP for group ownership setting of tap
+devices. The user now is allowed to send packages if either his euid or
+his egid matches the one specified via tunctl (via -u or -g
+respecitvely). If both, gid and uid, are set via tunctl, both have to
+match.
 
-I haven't looked at the code closely enough to be confident of
-changing something in this area.  However the classic solution to this
-kind of gc problem is to mark things that are manipulated during
-garbage collection as dirty (not orphaned).
+Signed-Off-By: Guido Guenther <agx@sigxcpu.org>
+Signed-Off-By: Jeff Dike <jdike@linux.intel.com>
 
-It should be possible to fix this problem by simply changing gc_tree
-when we perform a problematic manipulation of a passed socket, such
-as installing a passed socket into the file descriptors of a process.
+---
+ drivers/net/tun.c      |   15 +++++++++++++--
+ include/linux/if_tun.h |    2 ++
+ 2 files changed, 15 insertions(+), 2 deletions(-)
 
-Essentially the idea is moving the current code in the direction of
-an incremental gc algorithm.
-
-
-If I understand the race properly.  What happens is that we dequeue
-a socket (which has packets in it passing sockets) before the
-garbage collector gets to it.  Therefore the garbage collector
-never processes that socket.  So it sounds like we just
-need to call maybe_unmark_and_push or possibly just wait for
-the garbage collector to complete when we do that and the packet
-we have pulled out 
-
-
-
-So just looking at this quickly.  It looks like we need to hold
-the u->readlock mutex in garbage.c while looking at the receive
-queue.  Otherwise we may be processing a packet and have
-the file descriptors in limbo.  Either that or we need
-to slightly extend the scope of the receive queue lock on the
-receive side.
-
-Additionally we need to modify unix_notinflight to mark the sockets
-as inuse, or to at least wait for the garbage collection to complete.
-While being very careful to not add a deadlock scenario.
-
-The require changes to fix this without adding heavy handed locking
-look a bit nasty to make.
-
-I half suspect switching to one of the simpler incremental garbage
-collection algorithms might not be equally easy to implement and
-give us more performance at the same time.  Having a garbage collector
-that can block has advantages.
-
-The practical problem is you can't modify the list of pushed object
-aka gc_tree without holding a lock.  And we never drop the
-unix_table_lock.
-
-
-Anyway hopefully that is enough fodder for someone to come up with
-a light weight fix for this problem.
-
-Eric
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index a2c6caa..62b2b30 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -432,6 +432,7 @@ static void tun_setup(struct net_device *dev)
+ 	init_waitqueue_head(&tun->read_wait);
+ 
+ 	tun->owner = -1;
++	tun->group = -1;
+ 
+ 	SET_MODULE_OWNER(dev);
+ 	dev->open = tun_net_open;
+@@ -467,8 +468,11 @@ static int tun_set_iff(struct file *file, struct ifreq *ifr)
+ 			return -EBUSY;
+ 
+ 		/* Check permissions */
+-		if (tun->owner != -1 &&
+-		    current->euid != tun->owner && !capable(CAP_NET_ADMIN))
++		if (((tun->owner != -1 &&
++		      current->euid != tun->owner) ||
++		     (tun->group != -1 &&
++		      current->egid != tun->group)) &&
++		     !capable(CAP_NET_ADMIN))
+ 			return -EPERM;
+ 	}
+ 	else if (__dev_get_by_name(ifr->ifr_name))
+@@ -610,6 +614,13 @@ static int tun_chr_ioctl(struct inode *inode, struct file *file,
+ 		DBG(KERN_INFO "%s: owner set to %d\n", tun->dev->name, tun->owner);
+ 		break;
+ 
++	case TUNSETGROUP:
++		/* Set group of the device */
++		tun->group= (gid_t) arg;
++
++		DBG(KERN_INFO "%s: group set to %d\n", tun->dev->name, tun->group);
++		break;
++
+ 	case TUNSETLINK:
+ 		/* Only allow setting the type when the interface is down */
+ 		if (tun->dev->flags & IFF_UP) {
+diff --git a/include/linux/if_tun.h b/include/linux/if_tun.h
+index 88aef7b..42eb694 100644
+--- a/include/linux/if_tun.h
++++ b/include/linux/if_tun.h
+@@ -36,6 +36,7 @@ struct tun_struct {
+ 	unsigned long 		flags;
+ 	int			attached;
+ 	uid_t			owner;
++	gid_t			group;
+ 
+ 	wait_queue_head_t	read_wait;
+ 	struct sk_buff_head	readq;
+@@ -78,6 +79,7 @@ struct tun_struct {
+ #define TUNSETPERSIST _IOW('T', 203, int) 
+ #define TUNSETOWNER   _IOW('T', 204, int)
+ #define TUNSETLINK    _IOW('T', 205, int)
++#define TUNSETGROUP   _IOW('T', 206, int)
+ 
+ /* TUNSETIFF ifr flags */
+ #define IFF_TUN		0x0001
