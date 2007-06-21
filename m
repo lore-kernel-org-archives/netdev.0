@@ -1,39 +1,46 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 2/3] NET: [SCHED] Qdisc changes and sch_rr added for multiqueue
-Date: Thu, 21 Jun 2007 21:10:57 +0200
-Message-ID: <467ACD41.4020605@trash.net>
-References: <D5C1322C3E673F459512FB59E0DDC32903146CC1@orsmsx414.amr.corp.intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC NET 00/02]: Secondary unicast address support
+Date: Thu, 21 Jun 2007 12:13:05 -0700 (PDT)
+Message-ID: <20070621.121305.109899848.davem@davemloft.net>
+References: <20070620180017.6685.70611.sendpatchset@localhost.localdomain>
+	<m13b0lf7mr.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, jeff@garzik.org,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>, hadi@cyberus.ca
-To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Cc: kaber@trash.net, netdev@vger.kernel.org,
+	shemminger@linux-foundation.org, jeff@garzik.org
+To: ebiederm@xmission.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:45735 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752955AbXFUTLU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jun 2007 15:11:20 -0400
-In-Reply-To: <D5C1322C3E673F459512FB59E0DDC32903146CC1@orsmsx414.amr.corp.intel.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50297
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753267AbXFUTMr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jun 2007 15:12:47 -0400
+In-Reply-To: <m13b0lf7mr.fsf@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Waskiewicz Jr, Peter P wrote:
->> The code looks correct. Are you sure you had the config 
->> option enabled during your test?
->>
->
-> Yes.  This is the tc command I used to configure the qdisc (with q_rr.c
-> attached from my patches iproute2 package):
->
-> # tc qdisc add dev eth2 root handle 1: rr bands 8
-> RTNETLINK answers: No such file or directory
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Thu, 21 Jun 2007 13:08:12 -0600
 
-Again, I bet you don't have CONFIG_NET_SCH_RR enabled:
+> However this just seems to allow a card to decode multiple mac addresses
+> which in some oddball load balancing configurations may actually be
+> useful, but it seems fairly limited.
+> 
+> Do you have a specific use case you envision for this multiple mac
+> functionality?
 
+Virtualization.
 
-# lsmod|grep prio
-# tc qdisc add dev dummy0 root handle 1: rr bands 8
-# lsmod|grep prio
-sch_prio                5760  1
+If you can't tell the ethernet card that more than 1 MAC address
+are for it, you have to turn the thing into promiscuous mode.
 
+Networking on virtualization is typically done by giving each
+guest a unique MAC address, the guests have a virtual network
+device that connects to the control node (or dom0 in Xen parlace)
+and/or other guests.
+
+The control node has a switch that routes the packets from the
+guests either to other guests or out the real ethernet interface.
+
+Each guest gets a unique MAC so that the switch can know which
+guest an incoming packet is for.
