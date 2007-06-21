@@ -1,64 +1,490 @@
-From: "pradeep singh" <pradeep.rautela@gmail.com>
-Subject: Re: [PATCH v2.6.22-rc5] cxgb2: handle possible NULL pointer dereferencing, take 2
-Date: Thu, 21 Jun 2007 18:30:09 +0530
-Message-ID: <a901b49a0706210600v763f40d3h3dd61fde0bca4a30@mail.gmail.com>
-References: <a901b49a0706210553r58ea8743gc565fcca1a87b58f@mail.gmail.com>
+From: Kieran Mansley <kmansley@solarflare.com>
+Subject: [PATCH 0/4] [Net] Support accelerated network plugin modules
+Date: Thu, 21 Jun 2007 14:17:06 +0100
+Message-ID: <1182431826.5614.38.camel@moonstone.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	jgarzik@pobox.com, pradeep_s@hcl.in,
-	"Dhirendra Singh Kholia" <dhiru.kholia@gmail.com>
-To: trivial@kernel.org
+Content-Type: multipart/mixed; boundary="=-Nwb3FQ8WCJLNoE7oFJEC"
+Cc: netdev@vger.kernel.org
+To: xen-devel@lists.xensource.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.176]:49949 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751124AbXFUNAK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jun 2007 09:00:10 -0400
-Received: by wa-out-1112.google.com with SMTP id v27so307341wah
-        for <netdev@vger.kernel.org>; Thu, 21 Jun 2007 06:00:09 -0700 (PDT)
-In-Reply-To: <a901b49a0706210553r58ea8743gc565fcca1a87b58f@mail.gmail.com>
-Content-Disposition: inline
+Received: from 216-237-3-220.orange.nextweb.net ([216.237.3.220]:15726 "EHLO
+	OCEX01.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754269AbXFUNRO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jun 2007 09:17:14 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 6/21/07, pradeep singh <pradeep.rautela@gmail.com> wrote:
-> Hi,
-> This is second submission for a possible NULL dereference handling in
-> the Chelsio's 10G driver.
->
-> Thanks to Jens Axboe for pointing out my mistake of ignoring
-> subsequent dereferences in init_one routine.
->
-> Thanks
-Apologies, looks like patch formatting got messed up during sending.
-Resending just in case.
 
-Signed-off-by: Pradeep Singh <pradeep.rautela@gmail.com>
----
- drivers/net/chelsio/cxgb2.c |    5 +++++
- 1 files changed, 5 insertions(+), 0 deletions(-)
+--=-Nwb3FQ8WCJLNoE7oFJEC
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
-diff --git a/drivers/net/chelsio/cxgb2.c b/drivers/net/chelsio/cxgb2.c
-index 231ce43..006c634 100644
---- a/drivers/net/chelsio/cxgb2.c
-+++ b/drivers/net/chelsio/cxgb2.c
-@@ -1022,6 +1022,11 @@ static int __devinit init_one(struct pci_dev *pdev,
- 	mmio_start = pci_resource_start(pdev, 0);
- 	mmio_len = pci_resource_len(pdev, 0);
- 	bi = t1_get_board_info(ent->driver_data);
-+	
-+	if (!bi) {
-+                CH_ERR("%s: Board info array index out of
-range\n",pci_name(pdev));
-+                goto out_disable_pdev;
-+        }
+This is a another iteration of some earlier patches sent to the xen-
+devel mailing list, with a number of changes thanks to some useful
+suggestions from others.
 
- 	for (i = 0; i < bi->port_number; ++i) {
- 		struct net_device *netdev;
--- 
-1.4.4.2
+I've also CC'd netdev@vger.kernel.org at Herbert Xu's request as some of
+the files being patched may be merged into upstream linux soon, and so
+folks there may have opinions too.
 
-[snip]
--- 
-Pradeep
+Major changes from last time:
+ - Modify protection in frontend to use an atomic ref count to reduce
+the number of spinlocks that are required, as suggested by Keir Fraser
+and Zhu Han.  This change required an improvement to the protection of
+the hooks when they are being installed for a second (or subsequent
+time) to prevent the new copy being inserted before the old ones have
+been completely finished with.
+
+ - Move the majority of the acceleration code out of existing
+netfront/netback source files and into separate accel.c source file in
+each of those directories, as requested by Keir.  Unfortunately separate
+header files don't make a lot of sense due to mutual dependencies.
+
+ - A number of coding style changes, again requested by Keir.  Apologies
+for not getting this right first time.
+
+What follows is the full description from the earlier posting, included
+here for ease of access should anyone need them:
+
+This set of patches provides the hooks and support necessary for
+accelerated network plugin modules to attach to Xen's netback and
+netfront.  These modules provide a fast path for network traffic where
+there is hardware support available for the netfront driver to send and
+receive packets directly to a NIC (such as those available from
+Solarflare).
+
+As there are currently no available plugins, I've attached a couple of
+dummy ones to illustrate how the hooks could be used.  These are
+incomplete (and clearly wouldn't even compile) in that they only include
+code to show the interface between the accelerated module and
+netfront/netback.  A lot of the comments hint at what code should go
+where.  They don't show any interface between the accelerated frontend
+and accelerated backend, or hardware access, for example, as those would
+both be specific to the implementation.  I hope they help illustrate
+this, but if you have any questions I'm happy to provide more
+information.
+
+A brief overview of the operation of the plugins:  When the accelerated
+modules are loaded, a VI is created by the accelerated backend to allow
+the accelerated frontend to safely access portions of the NIC.  For RX,
+when packets are received by the accelerated backend, it will examine
+them and if appropriate insert filters into the NIC to deliver future
+packets on that address directly to the accelerated frontend's VI.  For
+TX, netfront gives each accelerated frontend the option of sending each
+packet, which it can accept (if it wants to send it directly to the
+hardware) or decline (if it thinks this is more appropriate to send via
+the normal network path).
+
+We have found that using this approach to accelerating network traffic,
+domU to domU connections (across the network) can achieve close to the
+performance of dom0 to dom0 connections on a 10Gbps ethernet.  This is
+roughly double the bandwidth seen with unmodified Xen.
+
+--=-Nwb3FQ8WCJLNoE7oFJEC
+Content-Disposition: attachment; filename=dummy_accel_backend.c
+Content-Type: text/x-csrc; name=dummy_accel_backend.c; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+
+/***************************************************************************/
+/*! \file dumm_accel_backend.c Dummy accelerated plugin module
+
+Copyright 2006 Solarflare Communications Inc,
+               9501 Jeronimo Road, Suite 250,
+               Irvine, CA 92618, USA
+
+This program is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License version 2 as published by the Free
+Software Foundation, incorporated herein by reference.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+
+*/
+/***************************************************************************/
+
+static struct netback_accel_hooks accel_hooks = {
+        &netback_accel_probe,
+        &netback_accel_remove
+};
+
+static const char *frontend_name = "dummynetaccel";
+
+static int netback_accel_init(void)
+{
+        /* Initialise the rest of the module... */
+
+        /* Tell the netback that we're here */
+        netback_connect_accelerator(0, frontend_name, &accel_hooks);
+}
+module_init(netback_accel_init);
+
+
+static void __exit netback_accel_exit(void)
+{
+        netback_disconnect_accelerator(0, frontend_name);
+
+        /* ...and take down the rest of the module */
+}
+module_exit(netback_accel_exit);
+
+
+
+
+int netback_accel_probe(struct xenbus_device *dev)
+{
+        struct backend_info *binfo;
+
+        /* Setup per-device internal state */
+
+        /* Store internal state for future access */
+        binfo = (struct backend_info *) dev->dev.driver_data;
+        binfo->netback_accel_priv = my_internal_state;
+
+        /* Setup watch on accel-state, so we know when frontend
+           acceleration plugin is loaded */
+        setup_domu_accel_watch(dev, my_internal_state);
+}
+
+
+int netback_accel_remove(struct xenbus_device *dev)
+{
+        /* Cleanup as the device is going away */
+}
+
+
+void netback_accel_frontend_changed(struct xenbus_device *dev,
+                                    XenbusState frontend_state)
+{
+        switch(frontend_state) {
+        case XenbusStateConnected:
+                /* Frontend has loaded and is ready to go */
+                /* Initialise ourselves */
+                setup_accel_backend();
+                netback_accel_update_state(dev, XenbusStateConnected);
+        }
+}
+
+
+void netback_accel_update_state(struct xenbus_device *dev, int state)
+{
+        struct xenbus_transaction tr;
+        int err;
+
+        if(xenbus_exists(XBT_NIL, dev->nodename, "")) {
+        again:
+                err = xenbus_transaction_start(&tr);
+                if (err == 0)
+                        err = xenbus_printf(tr, dev->nodename, "accelstate", "%d", 
+                                            state);
+                if (err != 0)
+                        xenbus_transaction_end(tr, 1);
+                else {
+                        err = xenbus_transaction_end(tr, 0);
+                        if(err == -EAGAIN)
+                                goto again;
+                }
+        }
+}
+
+--=-Nwb3FQ8WCJLNoE7oFJEC
+Content-Disposition: attachment; filename=dummy_accel_frontend.c
+Content-Type: text/x-csrc; name=dummy_accel_frontend.c; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+
+/***************************************************************************/
+/*! \file dumm_accel_frontend.c Dummy accelerated plugin module
+
+Copyright 2006 Solarflare Communications Inc,
+               9501 Jeronimo Road, Suite 250,
+               Irvine, CA 92618, USA
+
+This program is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License version 2 as published by the Free
+Software Foundation, incorporated herein by reference.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+
+*/
+/***************************************************************************/
+
+#include <linux/stddef.h>
+#include <linux/errno.h>
+#include <linux/skbuff.h>
+#include <linux/netdevice.h>
+
+#include <xen/xenbus.h>
+#include <xen/evtchn.h>
+#include <xen/gnttab.h>
+
+/* drivers/xen/netfront/netfront.h */
+#include "netfront.h"
+
+static const char *frontend_name = "dummynetaccel";
+
+static struct netfront_accel_hooks accel_hooks = {
+        .new_device            = &netfront_accel_probe,
+        .suspend               = &netfront_accel_xenbus_suspend,
+        .resume                = &netfront_accel_xenbus_resume,
+        .remove                = &netfront_accel_xenbus_remove,
+        .backend_changed       = &netfront_accel_backend_changed,
+        .netdev_poll           = &netfront_accel_netdev_poll,
+        .start_xmit            = &netfront_accel_netdev_start_xmit,
+        .start_napi_interrupts = &netfront_accel_start_napi_interrupts,
+        .stop_napi_interrupts  = &netfront_accel_stop_napi_interrupts
+        .check_busy            = &netfront_accel_check_busy
+};
+
+static int netfront_accel_init(void)
+{
+        /* Initialise internal state to module... */
+
+        /* Hook into normal netfront */
+        netfront_accelerator_loaded(frontend_name, &accel_hooks);
+
+        /* Should now get a probe if netfront has any vifs interested
+           in our acceleration */
+
+        return 0;
+}
+module_init(netfront_accel_init);
+
+static void netfront_accel_exit(void)
+{
+        /* Unhook from normal netfront */
+        netfront_accelerator_unloaded(frontend_name);
+
+        /* ...and rest of module cleanup */
+}
+module_exit(netfront_accel_exit);
+
+
+/* The frontend calls this function to ask this plugin to support a
+   new network interface */
+int netfront_accel_probe(struct net_device *net_dev, struct xenbus_device *dev)
+{
+        unsigned flags;
+
+        /* Setup per-device internal state */
+
+        /* Store internal state handle for access from the xenbus_device */
+        ((struct netfront_info *)dev->dev.driver_data)->accel_priv 
+                = my_internal_state;
+
+        /* Create shared pages, grants, irqs etc for communication
+           with accelerated backend plugin module */
+
+        /* Kick off contact with the backend */
+        netfront_accel_update_state(dev, XenbusStateConnected);
+
+        /* Enable interrupts */
+        local_irq_save(flags);
+        if(netfront_accel_enable_interrupts()) {
+                /* Something to do already */
+                netif_rx_schedule(net_dev);
+        }
+        local_irq_restore(flags);
+
+        return 0;
+}
+
+/* Called on xenbus_suspend callback, allows plugin to remove
+   accelerated path */
+int netfront_accel_xenbus_suspend(struct xenbus_device *dev)
+{
+        /* Disconnect the accelerated plugin */
+        netfront_accelerator_unloaded(frontend_name);
+        
+        /* Tell the accelerated backend that we're going */
+        net_accel_update_state(dev, XenbusStateClosing);
+
+        return 0;
+}
+
+/* Called on xenbus_resume callback, allows plugin to restore
+   accelerated path */
+int netfront_accel_xenbus_resume(struct xenbus_device *dev)
+{
+        /* Reconnect to the frontend module */
+        netfront_accelerator_loaded(frontend_name, &accel_hooks);
+
+        /* Should now get a probe if netfront has any vifs interested
+           in our acceleration */
+
+        return 0;
+}
+
+/* Called on xenbus_remove callback, allows plugin to remove internal
+   state */
+int netfront_accel_xenbus_remove(struct xenbus_device *dev)
+{
+        /* Remove the link to accelerated private state */
+        ((struct netfront_info *)dev->dev.driver_data)->accel_priv = NULL;
+        
+        return 0;
+}
+
+
+/* Function to deal with Xenbus state change in backend */
+void netfront_accel_backend_changed(struct xenbus_device *dev,
+                                    XenbusState frontend_state)
+{
+        /* Not interested in changes of the normal netfront/netback
+           state machine at the moment.  Others may be */
+}
+
+
+/* Function to deal with Xenbus accelstate change in backend */
+void netfront_accel_backend_accel_changed(struct xenbus_device *dev,
+                                          XenbusState backend_state)
+{
+        /* This is called off a watch set up by the accelerated
+           plugin */
+
+        /* Take appropriate internal action based on accelerated state
+           changing - allows the accelerated plugins to go through a
+           seperate but similar state machine cycle to the normal
+           netfront/netback drivers */
+        switch(backend_state) {
+        case XenbusStateUnknown:
+                /* ...etc */ 
+        case XenbusStateConnected:
+                /* We're now ready for action, notify frontend to
+                   start using us for this device */
+                netfront_accelerator_ready(frontend_name, dev)
+        }
+}
+
+/* The net_device is being polled, check the accelerated hardware for
+   any pending packets */
+int netfront_accel_netdev_poll(struct net_device *net_dev, int *budget)
+{
+        int rx_done, rx_allowed = *budget;
+        struct netfront_info *np = netdev_priv(net_dev);
+        my_internal_state = np->accel_priv;
+
+        /* Probe the fast path accelerated hardware to see if there
+           have been any packets delivered direct to this frontend
+           plugin.  This will call netif_receive_skb() on any received
+           packets to pass to stack */
+        rx_done = probe_my_event_queue(my_internal_state, rx_allowed);
+
+        *budget -= rx_done;
+
+        /* Done all we want to ? */
+        if(rx_done < rx_allowed)
+                return 0;
+        
+        /* More to do */
+        return 1;
+}
+
+/* start_xmit: Used to give the accelerated plugin the option of
+   sending a packet.  Returns non-zero if has done so, or zero to
+   decline and force the packet onto normal send path */
+int netfront_accel_netdev_start_xmit(struct sk_buff *skb,
+                                     struct net_device *net_dev)
+{
+        int handled;
+        struct netfront_info *np = netdev_priv(net_dev);
+        my_internal_state = np->accel_priv;
+
+        /* Have a look at this packet and see if it is one to send on
+           the fast path */
+        handled = netfront_accel_xmit(my_internal_state, skb);
+
+        if(handled == BUSY) {
+                /* We'd like to take it, but busy at the moment */
+                netif_stop_queue(net_dev);
+
+                /* netif_wake_queue() will be called when no longer
+                   busy and this packet has been sent */
+        }
+        
+        if(handled == CANT)
+                /* We can't send this on the fast path, force onto
+                   normal slow path by returning zero */
+                return 0;
+        else
+                return 1;
+}
+
+/* Process request from netfront to start napi interrupt
+   mode. (i.e. enable interrupts as it's finished polling) */
+int netfront_accel_start_napi_interrupts(struct net_device *dev) 
+{
+        struct netfront_info *np = netdev_priv(dev);
+        my_internal_state = np->accel_priv;
+
+        
+        if(!netfront_accel_enable_interrupts(my_internal_state)) {
+                /* There was something there already, tell caller we
+                   had something to do. */
+                return 1;
+        }
+
+        return 0;
+}
+
+/* Process request from netfront to stop napi interrupt
+   mode. (i.e. disable interrupts as it's starting to poll */
+void netfront_accel_stop_napi_interrupts(struct net_device *dev) 
+{
+        struct netfront_info *np = netdev_priv(dev);
+        my_internal_state = np->accel_priv;
+
+        netfront_accel_disable_interrupts(my_internal_state);
+}
+
+
+
+void netfront_accel_update_state(struct xenbus_device *dev, int state)
+{
+        struct xenbus_transaction tr;
+        int err;
+
+        if(xenbus_exists(XBT_NIL, dev->nodename, "")) {
+        again:
+                err = xenbus_transaction_start(&tr);
+                if (err == 0)
+                        err = xenbus_printf(tr, dev->nodename, "accelstate", "%d", 
+                                            state);
+                if (err != 0)
+                        xenbus_transaction_end(tr, 1);
+                else {
+                        err = xenbus_transaction_end(tr, 0);
+                        if(err == -EAGAIN)
+                                goto again;
+                }
+        }
+}
+
+int netfront_accel_check_busy(struct net_device *dev)
+{
+        struct netfront_info *np = netdev_priv(dev);
+        my_internal_state = np->accel_priv;
+
+        /* Look at my tx queue and decide if there is available
+           space */
+
+        if ( my_internal_state->tx_space != 0) {
+                return 0;
+        } else {
+                return 1;
+        }
+}
+
+--=-Nwb3FQ8WCJLNoE7oFJEC--
+
