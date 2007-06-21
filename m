@@ -1,26 +1,137 @@
 From: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
-Subject: [PATCH] iproute2: sch_rr support in tc
-Date: Thu, 21 Jun 2007 14:26:58 -0700
-Message-ID: <20070621212658.31100.74012.stgit@localhost.localdomain>
+Subject: [PATCH 1/3] NET: [DOC] Multiqueue hardware support documentation
+Date: Thu, 21 Jun 2007 14:26:37 -0700
+Message-ID: <20070621212637.31066.77614.stgit@localhost.localdomain>
+References: <20070621212629.31066.92148.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeff@garzik.org, auke-jan.h.kok@intel.com
-To: shemminger@linux-foundation.org
+Cc: netdev@vger.kernel.org, jeff@garzik.org, auke-jan.h.kok@intel.com,
+	kaber@trash.net, hadi@cyberus.ca
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:28732 "EHLO mga02.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:18069 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755945AbXFUV1B (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Jun 2007 17:27:01 -0400
+	id S1756146AbXFUV0j (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Jun 2007 17:26:39 -0400
+In-Reply-To: <20070621212629.31066.92148.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch is to support the new sch_rr (round-robin) qdisc being proposed
-in NET for multiqueue network device support in the Linux network stack.
-It uses q_prio.c as the template, since the qdiscs are nearly identical,
-outside of the ->dequeue() routine.
+Add a brief howto to Documentation/networking for multiqueue.  It
+explains how to use the multiqueue API in a driver to support
+multiqueue paths from the stack, as well as the qdiscs to use for
+feeding a multiqueue device.
 
-I'm soliciting feedback for a 2.6.23 multiqueue submission.  Thanks.
+Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+---
 
--- 
-PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
+ Documentation/networking/multiqueue.txt |  100 +++++++++++++++++++++++++++++++
+ 1 files changed, 100 insertions(+), 0 deletions(-)
+
+diff --git a/Documentation/networking/multiqueue.txt b/Documentation/networking/multiqueue.txt
+new file mode 100644
+index 0000000..55b2db8
+--- /dev/null
++++ b/Documentation/networking/multiqueue.txt
+@@ -0,0 +1,100 @@
++
++		HOWTO for multiqueue network device support
++		===========================================
++
++Section 1: Base driver requirements for implementing multiqueue support
++Section 2: Qdisc support for multiqueue devices
++Section 3: Brief howto using PRIO or RR for multiqueue devices
++
++
++Intro: Kernel support for multiqueue devices
++---------------------------------------------------------
++
++Kernel support for multiqueue devices is only an API that is presented to the
++netdevice layer for base drivers to implement.  This feature is part of the
++core networking stack, and all network devices will be running on the
++multiqueue-aware stack.  If a base driver only has one queue, then these
++changes are transparent to that driver.
++
++
++Section 1: Base driver requirements for implementing multiqueue support
++-----------------------------------------------------------------------
++
++Base drivers are required to use the new alloc_etherdev_mq() or
++alloc_netdev_mq() functions to allocate the subqueues for the device.  The
++underlying kernel API will take care of the allocation and deallocation of
++the subqueue memory, as well as netdev configuration of where the queues
++exist in memory.
++
++The base driver will also need to manage the queues as it does the global
++netdev->queue_lock today.  Therefore base drivers should use the
++netif_{start|stop|wake}_subqueue() functions to manage each queue while the
++device is still operational.  netdev->queue_lock is still used when the device
++comes online or when it's completely shut down (unregister_netdev(), etc.).
++
++Finally, the base driver should indicate that it is a multiqueue device.  The
++feature flag NETIF_F_MULTI_QUEUE should be added to the netdev->features
++bitmap on device initialization.  Below is an example from e1000:
++
++#ifdef CONFIG_E1000_MQ
++	if ( (adapter->hw.mac.type == e1000_82571) ||
++	     (adapter->hw.mac.type == e1000_82572) ||
++	     (adapter->hw.mac.type == e1000_80003es2lan))
++		netdev->features |= NETIF_F_MULTI_QUEUE;
++#endif
++
++
++Section 2: Qdisc support for multiqueue devices
++-----------------------------------------------
++
++Currently two qdiscs support multiqueue devices.  A new round-robin qdisc,
++sch_rr, and sch_prio. The qdisc is responsible for classifying the skb's to
++bands and queues, and will store the queue mapping into skb->queue_mapping.
++Use this field in the base driver to determine which queue to send the skb
++to.
++
++sch_rr has been added for hardware that doesn't want scheduling policies from
++software, so it's a straight round-robin qdisc.  It uses the same syntax and
++classification priomap that sch_prio uses, so it should be intuitive to
++configure for people who've used sch_prio.
++
++The PRIO qdisc naturally plugs into a multiqueue device.  If PRIO has been
++built with NET_SCH_PRIO_MQ, then upon load, it will make sure the number of
++bands requested is equal to the number of queues on the hardware.  If they
++are equal, it sets a one-to-one mapping up between the queues and bands.  If
++they're not equal, it will not load the qdisc.  This is the same behavior
++for RR.  Once the association is made, any skb that is classified will have
++skb->queue_mapping set, which will allow the driver to properly queue skb's
++to multiple queues.
++
++
++Section 3: Brief howto using PRIO and RR for multiqueue devices
++---------------------------------------------------------------
++
++The userspace command 'tc,' part of the iproute2 package, is used to configure
++qdiscs.  To add the PRIO qdisc to your network device, assuming the device is
++called eth0, run the following command:
++
++# tc qdisc add dev eth0 root handle 1: prio bands 4
++
++This will create 4 bands, 0 being highest priority, and associate those bands
++to the queues on your NIC.  Assuming eth0 has 4 Tx queues, the band mapping
++would look like:
++
++band 0 => queue 0
++band 1 => queue 1
++band 2 => queue 2
++band 3 => queue 3
++
++Traffic will begin flowing through each queue if your TOS values are assigning
++traffic across the various bands.  For example, ssh traffic will always try to
++go out band 0 based on TOS -> Linux priority conversion (realtime traffic),
++so it will be sent out queue 0.  ICMP traffic (pings) fall into the "normal"
++traffic classification, which is band 1.  Therefore pings will be send out
++queue 1 on the NIC.
++
++The behavior of tc filters remains the same, where it will override TOS priority
++classification.
++
++
++Author: Peter P. Waskiewicz Jr. <peter.p.waskiewicz.jr@intel.com>
