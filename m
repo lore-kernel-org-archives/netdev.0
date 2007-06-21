@@ -1,70 +1,51 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [RFC NET 00/02]: Secondary unicast address support
-Date: Thu, 21 Jun 2007 14:31:53 -0600
-Message-ID: <m1sl8ldp6u.fsf@ebiederm.dsl.xmission.com>
-References: <20070620180017.6685.70611.sendpatchset@localhost.localdomain>
-	<m13b0lf7mr.fsf@ebiederm.dsl.xmission.com>
-	<467ACDE1.7070907@trash.net>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [WIP][PATCHES] Network xmit batching
+Date: Thu, 21 Jun 2007 14:00:07 -0700
+Message-ID: <1182459607.6096.31.camel@raj-laptop>
+References: <OFB311484E.057E34E9-ON652572F3.001D5838-652572F3.0022766D@in.ibm.com>
+	 <1181216629.4064.22.camel@localhost>  <20070619132148.GA32078@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, shemminger@linux-foundation.org,
-	davem@davemloft.net, jeff@garzik.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: rick.jones2@hp.com, jamal <hadi@cyberus.ca>,
+	Krishna Kumar2 <krkumar2@in.ibm.com>,
+	Gagan Arneja <gaagaan@gmail.com>, netdev@vger.kernel.org,
+	Sridhar Samudrala <sri@us.ibm.com>,
+	David Miller <davem@davemloft.net>,
+	Robert Olsson <Robert.Olsson@data.slu.se>
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:48289 "EHLO
-	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755546AbXFUUc4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jun 2007 16:32:56 -0400
-In-Reply-To: <467ACDE1.7070907@trash.net> (Patrick McHardy's message of "Thu,
-	21 Jun 2007 21:13:37 +0200")
+Received: from palrel13.hp.com ([156.153.255.238]:45631 "EHLO palrel13.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756984AbXFUVAN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Jun 2007 17:00:13 -0400
+In-Reply-To: <20070619132148.GA32078@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy <kaber@trash.net> writes:
+On Tue, 2007-06-19 at 17:21 +0400, Evgeniy Polyakov wrote:
+> Hi.
+> 
+> On Thu, Jun 07, 2007 at 07:43:49AM -0400, jamal (hadi@cyberus.ca) wrote:
+> > Folks, we need help. Please run this on different hardware. Evgeniy, i
+> > thought this kind of stuff excites you, no? ;-> (wink, wink).
+> > Only the sender needs the patch but the receiver must be a more powerful
+> > machine (so that it is not the bottleneck).
+> 
+> I've ran several simple tests with desktop e1000 adapter I managed to
+> find.
+> 
+> Test machine is amd athlon64 3500+ with 1gb of ram.
+> Another point is dektop core duo 3.4 ghz with 2 gb of ram and sky2
+> driver.
+> 
+> Simple test included test -> desktop and vice versa traffic with 128 and
+> 4096 block size in netperf-2.4.3 setup.
 
-> Eric W. Biederman wrote:
->> I'm trying to understand what the point of this patch is.
->>
->> In once sense I find the concept of filtering and listening for multiple
->> mac addresses very interesting, especially if we could break out different
->> streams of traffic by destination mac address into separate network devices.
->> This would remove the need to any kind of ethernet tunnel and makes multiple
->> network namespaces much more pleasant.
->>
->> However this just seems to allow a card to decode multiple mac addresses
->> which in some oddball load balancing configurations may actually be
->> useful, but it seems fairly limited.
->>
->> Do you have a specific use case you envision for this multiple mac
->> functionality?
->>
->
-> Yes, please see the MACVLAN patch I posted one or two days earlier.
+Is that in conjunction with setting the test-specific -D to set
+TCP_NODELAY, or was Nagle left-on?  If the latter, perhaps timing issues
+could be why the confidence intervals weren't hit since the relative
+batching of 128byte sends into larger segments is something of a race.
 
-Thanks.  That is what I was envisioning.  I keep suspecting one of
-the cool multi-rx queue nics my start doing some of the demux in hardware.
-But whatever if it works and is relatively fast it is good enough for me.
-
-> 8021q can also make use of it and Dave mentioned some virtualization
-> devices want this as well.
-
-Right makes sense.  And ethernet bridging (which is the general case
-of the virtualization Dave mentioned should also be able to take
-advantage of multiple unicast addresses).  So this definitely make
-sense.
-
-Have you done any performance testing with the macvlan code?  With
-the ethernet tunnel device we keep getting copied unicast packets on
-some path or other which slowed things down.  Simply not doing the
-firewalling until the packets have made it through the macvlan device
-should help here.
-
-For the macvlan code do we need to do anything special if we transmit
-to a mac we would normally receive?  Another unicast mac of the same
-nic for example.
-
-For the macvlan hash you just use an upper byte.  Is that just a
-simple starting place, or do we not need a more complex hash.
-
-Eric
+rick jones
 
