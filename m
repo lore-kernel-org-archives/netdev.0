@@ -1,40 +1,62 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [IPV4] LVS: Allow to send ICMP unreachable responses when
- real-servers are removed
-Date: Thu, 21 Jun 2007 10:56:43 +0300 (EEST)
-Message-ID: <Pine.LNX.4.58.0706211045300.2568@u.domain.uli>
-References: <Pine.LNX.4.58.0705160012470.2626@u.domain.uli>  <200705301138.29582@nienna>
- <Pine.LNX.4.58.0705310239240.3745@u.domain.uli>  <200705311450.36492@nienna>
- <Pine.LNX.4.58.0706010123020.2683@u.domain.uli> <1182337041.15676.23.camel@bzorp.balabit>
+From: Keiichi KII <k-keiichi@bx.jp.nec.com>
+Subject: Re: [RFC][PATCH -mm take5 4/7] using symlink for the net_device
+Date: Thu, 21 Jun 2007 18:24:12 +0900
+Message-ID: <467A43BC.7030309@bx.jp.nec.com>
+References: <466FC455.5060001@bx.jp.nec.com> <466FC6ED.9060208@bx.jp.nec.com>	 <a781481a0706130949j7b35e33ds9cda5d8a551c9d7d@mail.gmail.com>	 <a781481a0706131203g405a4407y1212bb397f14e8eb@mail.gmail.com>	 <4677AA23.1080708@bx.jp.nec.com> <a781481a0706190740w14ae94f1r1ea8449524c5fb99@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: KOVACS Krisztian <hidden@balabit.hu>,
-	David Miller <davem@davemloft.net>, kaber@trash.net,
-	horms@verge.net.au, jkrzyszt@tis.icnet.pl, netdev@vger.kernel.org
-To: Balazs Scheidler <bazsi@balabit.hu>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Matt Mackall <mpm@selenic.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Satyam Sharma <satyam.sharma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([217.79.71.194]:3361 "EHLO u.domain.uli"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751528AbXFUH5u (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Jun 2007 03:57:50 -0400
-In-Reply-To: <1182337041.15676.23.camel@bzorp.balabit>
+Received: from TYO202.gate.nec.co.jp ([202.32.8.206]:47784 "EHLO
+	tyo202.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752870AbXFUJYn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jun 2007 05:24:43 -0400
+In-Reply-To: <a781481a0706190740w14ae94f1r1ea8449524c5fb99@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hello Satyam,
 
-	Hello,
+> In any case, however, the point to extend the critical section here
+> to encapsulate all the three parts still stands. We wouldn't want
+> ioctl(NETCON_REMOVE_TARGET) on the specified target to
+> return without removing the target that the user specified just
+> because that target's ethernet interface happens to be currently
+> undergoing a name change. The correct behaviour would be to
+> sleep on a mutex till the renaming has completed (which will
+> then relinquish the mutex) and then (after acquiring the mutex)
+> proceed to remove it, IMHO.
 
-On Wed, 20 Jun 2007, Balazs Scheidler wrote:
+You're right. I misunderstood. All the three parts needs to encapsulate.
 
-> Is there a chance that this, or a patch with similar spirit (e.g. a way
-> to send packets from non-local IP addresses) could be merged?
+>> >> +static char *make_netdev_class_name(char *netdev_name)
+>> >> +{
+>> >> +       char *name;
+>> >> +
+>> >> +       name = kasprintf(GFP_KERNEL, "net:%s", netdev_name);
+>> >
+>> > Why the "net:" prefix in the filename?
+>>
+>> Because I drew upon dev_change_name() method in net/core/dev.c.
+>> The device_rename() in the above function makes use of same prefix
+>> related to netdev.
+> 
+> I think you're referring to make_class_name() here? That seems to
+> be somewhat bulkier than simply being a wrapper over kasprintf()
+> like the make_netdev_class_name() here. I'd definitely recommend
+> not obfuscating this simple functionality here.
 
-	Last patch from Krisztian is exactly what I preferred
-to see, I hope that someone really tested it :). But i'm not the one
-that decides, so far we don't see comments from other interested
-parties, may be there are other opinions?
+I understand. The wrapper method such as make_netdev_class_name() isn't
+appropriate in this case.
 
-Regards
+Thanks
+-- 
+Keiichi KII
+NEC Corporation OSS Platform Development Division
+E-mail: k-keiichi@bx.jp.nec.com
 
---
-Julian Anastasov <ja@ssi.bg>
