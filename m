@@ -1,43 +1,48 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: FSCKED clock sources WAS(Re: [WIP][PATCHES] Network xmit
-	batching
-Date: Thu, 21 Jun 2007 12:08:19 -0400
-Message-ID: <1182442099.5017.51.camel@localhost>
-References: <20070619140038.GA13629@2ka.mipt.ru>
-	 <1182270529.4968.73.camel@localhost>
-	 <18040.5105.715624.286924@robur.slu.se>
-	 <20070619.152801.99185860.davem@davemloft.net>
-	 <1182441257.5017.48.camel@localhost>
-Reply-To: hadi@cyberus.ca
+From: Shannon Nelson <shannon.nelson@intel.com>
+Subject: [PATCH] NET: [CORE] Re-enable irqs before pushing pending DMA requests
+Date: Thu, 21 Jun 2007 09:34:55 -0700
+Message-ID: <20070621163455.28160.35548.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Robert.Olsson@data.slu.se, johnpol@2ka.mipt.ru,
-	krkumar2@in.ibm.com, gaagaan@gmail.com, netdev@vger.kernel.org,
-	rick.jones2@hp.com, sri@us.ibm.com
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: Dave Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.226]:44448 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751303AbXFUQIX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jun 2007 12:08:23 -0400
-Received: by wx-out-0506.google.com with SMTP id t15so556842wxc
-        for <netdev@vger.kernel.org>; Thu, 21 Jun 2007 09:08:23 -0700 (PDT)
-In-Reply-To: <1182441257.5017.48.camel@localhost>
+Received: from mga02.intel.com ([134.134.136.20]:47217 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752763AbXFUQfH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Jun 2007 12:35:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2007-21-06 at 11:54 -0400, jamal wrote:
+This moves the local_irq_enable() call in net_rx_action() to before
+calling the CONFIG_NET_DMA's dma_async_memcpy_issue_pending() rather
+than after.  This shortens the irq disabled window and allows for DMA
+drivers that need to do their own irq hold.
 
-> The summary is: Batching always is better, jiffies is always the better
-> clock source (and who would have thunk,eh? Opteron kicks a Xeons ass).
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+---
 
-The results in the table for opteron and xeon are swapped when
-cutnpasting from a larger test result. So Opteron is the one with better
-results.
-In any case - off for the day over here.
+ net/core/dev.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-cheers,
-jamal
-
-
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 2609062..ee051bb 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2009,6 +2009,7 @@ static void net_rx_action(struct softirq_action *h)
+ 		}
+ 	}
+ out:
++	local_irq_enable();
+ #ifdef CONFIG_NET_DMA
+ 	/*
+ 	 * There may not be any more sk_buffs coming right now, so push
+@@ -2022,7 +2023,6 @@ out:
+ 		rcu_read_unlock();
+ 	}
+ #endif
+-	local_irq_enable();
+ 	return;
+ 
+ softnet_break:
