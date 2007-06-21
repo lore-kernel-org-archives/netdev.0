@@ -1,51 +1,64 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [WIP][PATCHES] Network xmit batching
-Date: Thu, 21 Jun 2007 14:00:07 -0700
-Message-ID: <1182459607.6096.31.camel@raj-laptop>
-References: <OFB311484E.057E34E9-ON652572F3.001D5838-652572F3.0022766D@in.ibm.com>
-	 <1181216629.4064.22.camel@localhost>  <20070619132148.GA32078@2ka.mipt.ru>
+From: "Caitlin Bestler" <caitlinb@broadcom.com>
+Subject: RE: [RFC NET 00/02]: Secondary unicast address support
+Date: Thu, 21 Jun 2007 14:11:49 -0700
+Message-ID: <1EF1E44200D82B47BD5BA61171E8CE9D0439BB96@NT-IRVA-0750.brcm.ad.broadcom.com>
+References: <20070621.121305.109899848.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: rick.jones2@hp.com, jamal <hadi@cyberus.ca>,
-	Krishna Kumar2 <krkumar2@in.ibm.com>,
-	Gagan Arneja <gaagaan@gmail.com>, netdev@vger.kernel.org,
-	Sridhar Samudrala <sri@us.ibm.com>,
-	David Miller <davem@davemloft.net>,
-	Robert Olsson <Robert.Olsson@data.slu.se>
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel13.hp.com ([156.153.255.238]:45631 "EHLO palrel13.hp.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:3851 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756984AbXFUVAN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Jun 2007 17:00:13 -0400
-In-Reply-To: <20070619132148.GA32078@2ka.mipt.ru>
+	id S1755550AbXFUVL5 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jun 2007 17:11:57 -0400
+Received: from mail-irva-8.broadcom.com (mail-irva-8 [10.10.64.221]) by
+ mail-irva-10.broadcom.com (Postfix) with ESMTP id 3AF072AE for
+ <netdev@vger.kernel.org>; Thu, 21 Jun 2007 14:11:50 -0700 (PDT)
+Received: from NT-IRVA-0750.brcm.ad.broadcom.com (
+ nt-irva-0750.brcm.ad.broadcom.com [10.8.194.64]) by
+ mail-irva-12.broadcom.com (Postfix) with ESMTP id 082B469CA5 for
+ <netdev@vger.kernel.org>; Thu, 21 Jun 2007 14:11:50 -0700 (PDT)
+Content-class: urn:content-classes:message
+In-Reply-To: <20070621.121305.109899848.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2007-06-19 at 17:21 +0400, Evgeniy Polyakov wrote:
-> Hi.
+netdev-owner@vger.kernel.org wrote:
+> From: ebiederm@xmission.com (Eric W. Biederman)
+> Date: Thu, 21 Jun 2007 13:08:12 -0600
 > 
-> On Thu, Jun 07, 2007 at 07:43:49AM -0400, jamal (hadi@cyberus.ca) wrote:
-> > Folks, we need help. Please run this on different hardware. Evgeniy, i
-> > thought this kind of stuff excites you, no? ;-> (wink, wink).
-> > Only the sender needs the patch but the receiver must be a more powerful
-> > machine (so that it is not the bottleneck).
+>> However this just seems to allow a card to decode multiple mac
+>> addresses which in some oddball load balancing configurations may
+>> actually be useful, but it seems fairly limited.
+>> 
+>> Do you have a specific use case you envision for this multiple mac
+>> functionality?
 > 
-> I've ran several simple tests with desktop e1000 adapter I managed to
-> find.
+> Virtualization.
 > 
-> Test machine is amd athlon64 3500+ with 1gb of ram.
-> Another point is dektop core duo 3.4 ghz with 2 gb of ram and sky2
-> driver.
+> If you can't tell the ethernet card that more than 1 MAC
+> address are for it, you have to turn the thing into promiscuous mode.
 > 
-> Simple test included test -> desktop and vice versa traffic with 128 and
-> 4096 block size in netperf-2.4.3 setup.
+> Networking on virtualization is typically done by giving each
+> guest a unique MAC address, the guests have a virtual network
+> device that connects to the control node (or dom0 in Xen
+> parlace) and/or other guests.
+> 
+> The control node has a switch that routes the packets from
+> the guests either to other guests or out the real ethernet interface.
+> 
+> Each guest gets a unique MAC so that the switch can know
+> which guest an incoming packet is for.
 
-Is that in conjunction with setting the test-specific -D to set
-TCP_NODELAY, or was Nagle left-on?  If the latter, perhaps timing issues
-could be why the confidence intervals weren't hit since the relative
-batching of 128byte sends into larger segments is something of a race.
+The same software switch could also throw away the excess
+frames that promiscuous mode would have admitted. Unless
+the misdirected frames were common it would not seem to 
+be a major CPU burden.
 
-rick jones
+Keep in mind that the only MAC addresses that would have
+been transmitted are the ones that the input filter would
+have listed. 
+
 
