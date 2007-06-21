@@ -1,48 +1,90 @@
-From: Shannon Nelson <shannon.nelson@intel.com>
-Subject: [PATCH] NET: [CORE] Re-enable irqs before pushing pending DMA requests
-Date: Thu, 21 Jun 2007 09:34:55 -0700
-Message-ID: <20070621163455.28160.35548.stgit@localhost.localdomain>
+From: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
+Subject: Re: [2/2] 2.6.22-rc5: known regressions with patches v2
+Date: Thu, 21 Jun 2007 18:35:30 +0200
+Message-ID: <467AA8D2.5050305@googlemail.com>
+References: <467AA7E3.3030404@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-2; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Dave Miller <davem@davemloft.net>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Christoph Lameter <clameter@sgi.com>,
+	Dave Airlie <airlied@linux.ie>,
+	Andrea Righi <righiandr@users.sourceforge.net>,
+	Nicolas Ferre <nicolas.ferre@rfo.atmel.com>,
+	Marc Pignat <marc.pignat@hevs.ch>,
+	Netdev <netdev@vger.kernel.org>, linux-wireless@vger.kernel.org,
+	Samuel Ortiz <samuel@sortiz.org>,
+	Andrey Borzenkov <arvidjaar@mail.ru>,
+	Samuel Ortiz <samuel@sortiz.org>,
+	Bjorn Helgaas <bjorn.helgaas@hp.com>,
+	Chad Tindel <ctindel@users.sourceforge.net>,
+	Olaf Hering <olaf@aepfle.de>
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:47217 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752763AbXFUQfH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Jun 2007 12:35:07 -0400
+Received: from ug-out-1314.google.com ([66.249.92.172]:42618 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755798AbXFUQgI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jun 2007 12:36:08 -0400
+Received: by ug-out-1314.google.com with SMTP id j3so614330ugf
+        for <netdev@vger.kernel.org>; Thu, 21 Jun 2007 09:36:07 -0700 (PDT)
+In-Reply-To: <467AA7E3.3030404@googlemail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This moves the local_irq_enable() call in net_rx_action() to before
-calling the CONFIG_NET_DMA's dma_async_memcpy_issue_pending() rather
-than after.  This shortens the irq disabled window and allows for DMA
-drivers that need to do their own irq hold.
+Hi all,
 
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
----
+Here is a list of some known regressions in 2.6.22-rc5
+with patches available.
 
- net/core/dev.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Feel free to add new regressions/remove fixed etc.
+http://kernelnewbies.org/known_regressions
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 2609062..ee051bb 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2009,6 +2009,7 @@ static void net_rx_action(struct softirq_action *h)
- 		}
- 	}
- out:
-+	local_irq_enable();
- #ifdef CONFIG_NET_DMA
- 	/*
- 	 * There may not be any more sk_buffs coming right now, so push
-@@ -2022,7 +2023,6 @@ out:
- 		rcu_read_unlock();
- 	}
- #endif
--	local_irq_enable();
- 	return;
- 
- softnet_break:
+(BTW. There is a new category called "Will be fixed in 2.6.23")
+
+
+
+Memory management
+
+Subject    : bug in i386 MTRR initialization
+References : http://lkml.org/lkml/2007/5/19/93
+Submitter  : Andrea Righi <righiandr@users.sourceforge.net>
+Status     : patch available
+
+
+
+MMC
+
+Subject    : Oops in a driver while using SLUB as a SLAB allocator
+References : http://lkml.org/lkml/2007/6/21/69
+Submitter  : Nicolas Ferre <nicolas.ferre@rfo.atmel.com>
+Handled-By : Marc Pignat <marc.pignat@hevs.ch>
+Patch      : http://lkml.org/lkml/2007/6/21/140
+Status     : patch available
+
+
+
+Networking
+
+Subject    : ERROR: "__ucmpdi2" [drivers/net/s2io.ko] undefined!
+References : http://lkml.org/lkml/2007/6/19/310
+Submitter  : Olaf Hering <olaf@aepfle.de>
+Patch      : http://lkml.org/lkml/2007/6/19/382
+Status     : patch was suggested
+
+Subject    : no irda0 interface (2.6.21 was OK), smsc does not find chip
+References : http://lkml.org/lkml/2007/6/3/16
+Submitter  : Andrey Borzenkov <arvidjaar@mail.ru>
+Handled-By : Samuel Ortiz <samuel@sortiz.org>
+             Bjorn Helgaas <bjorn.helgaas@hp.com>
+Patch      : http://lkml.org/lkml/2007/6/7/237
+Status     : patch was suggested
+
+
+
+Regards,
+Michal
+
+--
+LOG
+http://www.stardust.webpages.pl/log/
