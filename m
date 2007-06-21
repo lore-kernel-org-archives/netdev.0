@@ -1,98 +1,54 @@
-From: "pradeep singh" <pradeep.rautela@gmail.com>
-Subject: Re: [PATCH v2.6.22-rc5] cxgb2: handle possible NULL pointer dereferencing, take 2
-Date: Thu, 21 Jun 2007 18:48:30 +0530
-Message-ID: <a901b49a0706210618q7c22cbe0jd6f7e052a8e05a97@mail.gmail.com>
-References: <a901b49a0706210553r58ea8743gc565fcca1a87b58f@mail.gmail.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [NET 00/02]: MACVLAN driver
+Date: Thu, 21 Jun 2007 16:57:11 +0200
+Message-ID: <467A91C7.6030307@trash.net>
+References: <20070619130825.26769.23059.sendpatchset@localhost.localdomain>	 <20070619090027.3312f2cf@localhost.localdomain>	 <4678472D.5050907@trash.net>	 <20070619.154840.55744015.davem@davemloft.net>	 <4678CA7F.8070002@garzik.org> <7176eb5f0706201235w1bee20e0n8c25207176e61b0@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	jgarzik@pobox.com
-To: trivial@kernel.org
+Cc: Jeff Garzik <jeff@garzik.org>, David Miller <davem@davemloft.net>,
+	shemminger@linux-foundation.org, netdev@vger.kernel.org
+To: Prafulla Deuskar <pdeuskar01@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.183]:24351 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755180AbXFUNSb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jun 2007 09:18:31 -0400
-Received: by wa-out-1112.google.com with SMTP id v27so313805wah
-        for <netdev@vger.kernel.org>; Thu, 21 Jun 2007 06:18:30 -0700 (PDT)
-In-Reply-To: <a901b49a0706210553r58ea8743gc565fcca1a87b58f@mail.gmail.com>
-Content-Disposition: inline
+Received: from stinky.trash.net ([213.144.137.162]:42112 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754601AbXFUO5b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jun 2007 10:57:31 -0400
+In-Reply-To: <7176eb5f0706201235w1bee20e0n8c25207176e61b0@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
-My mistake.
-Resending after reformatting the patch by hand.
-Looks like gmail messes the plain text patches.
-
-Thanks
-
-Signed-off-by: Pradeep Singh <pradeep.rautela@gmail.com>
----
- drivers/net/chelsio/cxgb2.c |    5 +++++
- 1 files changed, 5 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/chelsio/cxgb2.c b/drivers/net/chelsio/cxgb2.c
-index 231ce43..006c634 100644
---- a/drivers/net/chelsio/cxgb2.c
-+++ b/drivers/net/chelsio/cxgb2.c
-@@ -1022,6 +1022,11 @@ static int __devinit init_one(struct pci_dev *pdev,
-       mmio_start = pci_resource_start(pdev, 0);
-       mmio_len = pci_resource_len(pdev, 0);
-       bi = t1_get_board_info(ent->driver_data);
-+
-+       if (!bi) {
-+                CH_ERR("%s: Board info array index out of
-range\n",pci_name(pdev));
-+                goto out_disable_pdev;
-+        }
-
-       for (i = 0; i < bi->port_number; ++i) {
-               struct net_device *netdev;
-
-Thanks
-
---
-On 6/21/07, pradeep singh <pradeep.rautela@gmail.com> wrote:
-> Hi,
-> This is second submission for a possible NULL dereference handling in
-> the Chelsio's 10G driver.
+Prafulla Deuskar wrote:
+> On 6/19/07, Jeff Garzik <jeff@garzik.org> wrote:
+>> David Miller wrote:
+>> > This is actually a real issue for virtualization, and many
+>> > if not all current generation ethernet chips support
+>> > programming several unicast ethernet addresses in the MAC.
+>> >
+>> > Networking switches in domain0 on virtualization hosts use
+>> > this feature to support seperate MACs per guest node,
+>> > and if the chip doesn't support this the chip is put into
+>> > promiscuous mode.
+>> >
+>> > We don't have any clean interfaces by which to do this MAC
+>> > programming, and we do need something for it soon.
+>>
+>>
+>> Yep, that's been on my long term wish list for a while, as well.
+>>
+>> Overall I would like to see a more flexible way of allowing the net
+>> stack to learn each NIC's RX filter capabilities, and exploiting them.
+>> Plenty of NICs, even 100Mbps ones, support RX filter management that
+>> allows scanning for $hw_limit unicast addresses, before having to put
+>> the hardware into promisc mode.
+>>
+>>        Jeff
 >
-> Thanks to Jens Axboe for pointing out my mistake of ignoring
-> subsequent dereferences in init_one routine.
->
-> Thanks
->
-> Signed-off-by: Pradeep Singh <pradeep.rautela@gmail.com>
-> ---
->  drivers/net/chelsio/cxgb2.c |    5 +++++
->  1 files changed, 5 insertions(+), 0 deletions(-)
->
-> diff --git a/drivers/net/chelsio/cxgb2.c b/drivers/net/chelsio/cxgb2.c
-> index 231ce43..006c634 100644
-> --- a/drivers/net/chelsio/cxgb2.c
-> +++ b/drivers/net/chelsio/cxgb2.c
-> @@ -1022,6 +1022,11 @@ static int __devinit init_one(struct pci_dev *pdev,
->         mmio_start = pci_resource_start(pdev, 0);
->         mmio_len = pci_resource_len(pdev, 0);
->         bi = t1_get_board_info(ent->driver_data);
-> +
-> +       if (!bi) {
-> +                CH_ERR("%s: Board info array index out of
-> range\n",pci_name(pdev));
-> +                goto out_disable_pdev;
-> +        }
->
->         for (i = 0; i < bi->port_number; ++i) {
->                 struct net_device *netdev;
-> --
-> 1.4.4.2
->
-> --
-> Pradeep
->
+> So how do we manage mac address to RX queue association? 
 
 
--- 
-Pradeep
+This is not about multiple RX queues but filtering multiple unicast
+addresses without going to promiscous mode. The addresses are used
+by something outside the driver, like macvlan.
+
+
