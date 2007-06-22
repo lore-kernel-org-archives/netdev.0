@@ -1,159 +1,206 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [RTNETLINK]: Add nested compat attribute
-Date: Fri, 22 Jun 2007 18:18:39 +0200
-Message-ID: <467BF65F.4000803@trash.net>
+Subject: [PATCH]: Nested compat attribute sch_prio example
+Date: Fri, 22 Jun 2007 18:18:51 +0200
+Message-ID: <467BF66B.4060609@trash.net>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------050003050701040408020308"
-Cc: netdev@vger.kernel.org,
-	PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
-	Stephen Hemminger <shemminger@linux-foundation.org>
-To: David Miller <davem@davemloft.net>
+ boundary="------------070901040305080109030105"
+Cc: netdev@vger.kernel.org
+To: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:33935 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:33950 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753082AbXFVQSv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jun 2007 12:18:51 -0400
+	with ESMTP id S1758014AbXFVQTC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jun 2007 12:19:02 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------050003050701040408020308
+--------------070901040305080109030105
 Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
 
-This patch adds a new attribute type that can be used
-to replace non-nested attributes that contain structures
-by nested ones in a compatible way.
-
-This can be used in cases like Peter's who is trying to
-extend sch_prio, which currently uses a fixed structure
-without any holes.
-
-Switching to nested attributes makes sure that the next
-person won't run into the same problem.
+These two patches contain some example code how to use
+the nested compat attribute in sch_prio.
 
 
 
---------------050003050701040408020308
+--------------070901040305080109030105
 Content-Type: text/x-diff;
- name="01.diff"
+ name="02.diff"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="01.diff"
+ filename="02.diff"
 
-[RTNETLINK]: Add nested compat attribute
-
-Add a nested compat attribute type that can be used to convert
-attributes that contain a structure to nested attributes in a
-backwards compatible way.
-
-The attribute looks like this:
-
-struct {
-        [ compat contents ]
-        struct rtattr {
-                .rta_len        = total size,
-                .rta_type       = type,
-        } rta;
-        struct old_structure struct;
-
-        [ nested top-level attribute ]
-        struct rtattr {
-                .rta_len        = nest size,
-                .rta_type       = type,
-        } nest_attr;
-
-        [ optional 0 .. n nested attributes ]
-        struct rtattr {
-                .rta_len        = private attribute len,
-                .rta_type       = private attribute typ,
-        } nested_attr;
-        struct nested_data data;
-};
-
-Since both userspace and kernel deal correctly with attributes that are
-larger than expected old versions will just parse the compat part and
-ignore the rest.
+[NET_SCHED]: sch_prio: nested compat attribute test
 
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 
 ---
-commit dece87e23c7cfa1159d3be0ea5b0db89a0fc5872
-tree c14be602de94b258e0343816b6c1809233a2ff5f
-parent c4edf5d552b1450d903a7e7e2d846f2169087e10
-author Patrick McHardy <kaber@gw.localnet> Fri, 22 Jun 2007 17:52:21 +0200
-committer Patrick McHardy <kaber@gw.localnet> Fri, 22 Jun 2007 17:52:21 +0200
+commit 2ceff1c312a93446c95c41c3a54245a15278fe07
+tree 7335b4957440cec27894dd38f3a707b4344f21ea
+parent dece87e23c7cfa1159d3be0ea5b0db89a0fc5872
+author Patrick McHardy <kaber@gw.localnet> Fri, 22 Jun 2007 18:10:44 +0200
+committer Patrick McHardy <kaber@gw.localnet> Fri, 22 Jun 2007 18:10:44 +0200
 
- include/linux/rtnetlink.h |   14 ++++++++++++++
- net/core/rtnetlink.c      |   16 ++++++++++++++++
- 2 files changed, 30 insertions(+), 0 deletions(-)
+ include/linux/pkt_sched.h |    9 +++++++++
+ net/sched/sch_prio.c      |   15 ++++++++++++---
+ 2 files changed, 21 insertions(+), 3 deletions(-)
 
-diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
-index 6127858..6731e7f 100644
---- a/include/linux/rtnetlink.h
-+++ b/include/linux/rtnetlink.h
-@@ -570,6 +570,8 @@ static __inline__ int rtattr_strcmp(cons
- }
+diff --git a/include/linux/pkt_sched.h b/include/linux/pkt_sched.h
+index 2599d39..0bedabe 100644
+--- a/include/linux/pkt_sched.h
++++ b/include/linux/pkt_sched.h
+@@ -101,6 +101,15 @@ struct tc_prio_qopt
+ 	__u8	priomap[TC_PRIO_MAX+1];	/* Map: logical priority -> PRIO band */
+ };
  
- extern int rtattr_parse(struct rtattr *tb[], int maxattr, struct rtattr *rta, int len);
-+extern int rtattr_parse_nested_compat(struct rtattr *tb[], int maxattr,
-+				      struct rtattr *rta, void **data, int len);
- 
- #define rtattr_parse_nested(tb, max, rta) \
- 	rtattr_parse((tb), (max), RTA_DATA((rta)), RTA_PAYLOAD((rta)))
-@@ -638,6 +640,18 @@ #define RTA_NEST_END(skb, start) \
- ({	(start)->rta_len = skb_tail_pointer(skb) - (unsigned char *)(start); \
- 	(skb)->len; })
- 
-+#define RTA_NEST_COMPAT(skb, type, attrlen, data) \
-+({	struct rtattr *__start = (struct rtattr *)skb_tail_pointer(skb); \
-+	RTA_PUT(skb, type, attrlen, data); \
-+	RTA_NEST(skb, type); \
-+	__start; })
++enum
++{
++	TCA_PRIO_UNPSEC,
++	TCA_PRIO_TEST,
++	__TCA_PRIO_MAX
++};
 +
-+#define RTA_NEST_COMPAT_END(skb, start) \
-+({	struct rtattr *__nest = (void *)(start) + NLMSG_ALIGN((start)->rta_len); \
-+	(start)->rta_len = skb_tail_pointer(skb) - (unsigned char *)(start); \
-+	RTA_NEST_END(skb, __nest); \
-+	(skb)->len; })
++#define TCA_PRIO_MAX	(__TCA_PRIO_MAX - 1)
 +
- #define RTA_NEST_CANCEL(skb, start) \
- ({	if (start) \
- 		skb_trim(skb, (unsigned char *) (start) - (skb)->data); \
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 06c0c5a..c25d23b 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -97,6 +97,21 @@ int rtattr_parse(struct rtattr *tb[], in
+ /* TBF section */
+ 
+ struct tc_tbf_qopt
+diff --git a/net/sched/sch_prio.c b/net/sched/sch_prio.c
+index 6d7542c..40a13e8 100644
+--- a/net/sched/sch_prio.c
++++ b/net/sched/sch_prio.c
+@@ -198,10 +198,12 @@ prio_destroy(struct Qdisc* sch)
+ static int prio_tune(struct Qdisc *sch, struct rtattr *opt)
+ {
+ 	struct prio_sched_data *q = qdisc_priv(sch);
+-	struct tc_prio_qopt *qopt = RTA_DATA(opt);
++	struct tc_prio_qopt *qopt;
++	struct rtattr *tb[TCA_PRIO_MAX];
+ 	int i;
+ 
+-	if (opt->rta_len < RTA_LENGTH(sizeof(*qopt)))
++	if (rtattr_parse_nested_compat(tb, TCA_PRIO_MAX, opt, (void *)&qopt,
++				       sizeof(*qopt)))
+ 		return -EINVAL;
+ 	if (qopt->bands > TCQ_PRIO_BANDS || qopt->bands < 2)
+ 		return -EINVAL;
+@@ -211,6 +213,9 @@ static int prio_tune(struct Qdisc *sch, 
+ 			return -EINVAL;
+ 	}
+ 
++	if (tb[TCA_PRIO_TEST-1])
++		printk("TCA_PRIO_TEST: %u\n", *(u32 *)RTA_DATA(tb[TCA_PRIO_TEST-1]));
++
+ 	sch_tree_lock(sch);
+ 	q->bands = qopt->bands;
+ 	memcpy(q->prio2band, qopt->priomap, TC_PRIO_MAX+1);
+@@ -268,11 +273,15 @@ static int prio_dump(struct Qdisc *sch, 
+ {
+ 	struct prio_sched_data *q = qdisc_priv(sch);
+ 	unsigned char *b = skb_tail_pointer(skb);
++	struct rtattr *nest;
+ 	struct tc_prio_qopt opt;
+ 
+ 	opt.bands = q->bands;
+ 	memcpy(&opt.priomap, q->prio2band, TC_PRIO_MAX+1);
+-	RTA_PUT(skb, TCA_OPTIONS, sizeof(opt), &opt);
++
++	nest = RTA_NEST_COMPAT(skb, TCA_OPTIONS, sizeof(opt), &opt);
++	RTA_PUT_U32(skb, TCA_PRIO_TEST, 321);
++	RTA_NEST_COMPAT_END(skb, nest);
+ 	return skb->len;
+ 
+ rtattr_failure:
+
+--------------070901040305080109030105
+Content-Type: text/x-diff;
+ name="02.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="02.diff"
+
+[IPROUTE]: sch_prio: nested compat attribute test
+
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+---
+commit 37e8758e1238bf26172f25a0e3b0dec9c8c4f986
+tree c79e320def8f4c5a5ed7f037f3ca6ec68487b375
+parent d283ea3c852f54941ec785ad39dbfa4586f518c7
+author Patrick McHardy <kaber@gw.localnet> Fri, 22 Jun 2007 18:00:04 +0200
+committer Patrick McHardy <kaber@gw.localnet> Fri, 22 Jun 2007 18:00:04 +0200
+
+ include/linux/pkt_sched.h |    9 +++++++++
+ tc/q_prio.c               |   13 ++++++++++---
+ 2 files changed, 19 insertions(+), 3 deletions(-)
+
+diff --git a/include/linux/pkt_sched.h b/include/linux/pkt_sched.h
+index dc61a85..77eaab1 100644
+--- a/include/linux/pkt_sched.h
++++ b/include/linux/pkt_sched.h
+@@ -101,6 +101,15 @@ struct tc_prio_qopt
+ 	__u8	priomap[TC_PRIO_MAX+1];	/* Map: logical priority -> PRIO band */
+ };
+ 
++enum
++{
++	TCA_PRIO_UNSPEC,
++	TCA_PRIO_TEST,
++	__TCA_PRIO_MAX
++};
++
++#define TCA_PRIO_MAX	(__TCA_PRIO_MAX - 1)
++
+ /* TBF section */
+ 
+ struct tc_tbf_qopt
+diff --git a/tc/q_prio.c b/tc/q_prio.c
+index d696e1b..4934416 100644
+--- a/tc/q_prio.c
++++ b/tc/q_prio.c
+@@ -40,6 +40,7 @@ static int prio_parse_opt(struct qdisc_u
+ 	int pmap_mode = 0;
+ 	int idx = 0;
+ 	struct tc_prio_qopt opt={3,{ 1, 2, 2, 2, 1, 2, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1 }};
++	struct rtattr *nest;
+ 
+ 	while (argc > 0) {
+ 		if (strcmp(*argv, "bands") == 0) {
+@@ -90,7 +91,9 @@ static int prio_parse_opt(struct qdisc_u
+ 			opt.priomap[idx] = opt.priomap[TC_PRIO_BESTEFFORT];
+ 	}
+ */
+-	addattr_l(n, 1024, TCA_OPTIONS, &opt, sizeof(opt));
++	nest = addattr_nest_compat(n, 1024, TCA_OPTIONS, &opt, sizeof(opt));
++	addattr32(n, 1024, TCA_PRIO_TEST, 123);
++	addattr_nest_compat_end(n, nest);
  	return 0;
  }
  
-+int rtattr_parse_nested_compat(struct rtattr *tb[], int maxattr,
-+			       struct rtattr *rta, void **data, int len)
-+{
-+	if (RTA_PAYLOAD(rta) < len)
-+		return -1;
-+	*data = RTA_DATA(rta);
-+
-+	if (RTA_PAYLOAD(rta) >= RTA_ALIGN(len) + sizeof(struct rtattr)) {
-+		rta = RTA_DATA(rta) + RTA_ALIGN(len);
-+		return rtattr_parse_nested(tb, maxattr, rta);
-+	}
-+	memset(tb, 0, sizeof(struct rtattr *) * maxattr);
-+	return 0;
-+}
-+
- static struct rtnl_link *rtnl_msg_handlers[NPROTO];
+@@ -98,16 +101,20 @@ int prio_print_opt(struct qdisc_util *qu
+ {
+ 	int i;
+ 	struct tc_prio_qopt *qopt;
++	struct rtattr *tb[TCA_PRIO_MAX+1];
  
- static inline int rtm_msgindex(int msgtype)
-@@ -1297,6 +1312,7 @@ void __init rtnetlink_init(void)
- EXPORT_SYMBOL(__rta_fill);
- EXPORT_SYMBOL(rtattr_strlcpy);
- EXPORT_SYMBOL(rtattr_parse);
-+EXPORT_SYMBOL(rtattr_parse_nested_compat);
- EXPORT_SYMBOL(rtnetlink_put_metrics);
- EXPORT_SYMBOL(rtnl_lock);
- EXPORT_SYMBOL(rtnl_trylock);
+ 	if (opt == NULL)
+ 		return 0;
+ 
+-	if (RTA_PAYLOAD(opt)  < sizeof(*qopt))
++	if (parse_rtattr_nested_compat(tb, TCA_PRIO_MAX, opt, (void *)&qopt, sizeof(*qopt)))
+ 		return -1;
+-	qopt = RTA_DATA(opt);
++
+ 	fprintf(f, "bands %u priomap ", qopt->bands);
+ 	for (i=0; i<=TC_PRIO_MAX; i++)
+ 		fprintf(f, " %d", qopt->priomap[i]);
++
++	if (tb[TCA_PRIO_TEST])
++		fprintf(f, " TCA_PRIO_TEST: %u ", *(__u32 *)RTA_DATA(tb[TCA_PRIO_TEST]));
+ 	return 0;
+ }
+ 
 
---------------050003050701040408020308--
+--------------070901040305080109030105--
