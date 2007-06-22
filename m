@@ -1,43 +1,47 @@
-From: Tino Keitel <tino.keitel@tikei.de>
-Subject: strange sky disable/enable in the kernel log
-Date: Fri, 22 Jun 2007 07:53:42 +0200
-Message-ID: <20070622055342.GA11876@dose.home.local>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: [IPV6] NDISC: Fix thinko to control Router Preference support.
+Date: Fri, 22 Jun 2007 15:15:27 +0900 (JST)
+Message-ID: <20070622.151527.09531508.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org,
+	haruhito@sfc.keio.ac.jp
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eazy.amigager.de ([213.239.192.238]:48101 "EHLO
-	eazy.amigager.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750898AbXFVFxq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jun 2007 01:53:46 -0400
-Received: from dose.home.local (port-212-202-201-164.dynamic.qsc.de [212.202.201.164])
-	by eazy.amigager.de (Postfix) with ESMTP id 81D3E25C7EE
-	for <netdev@vger.kernel.org>; Fri, 22 Jun 2007 07:53:44 +0200 (CEST)
-Received: from scorpion by dose.home.local with local (Exim 4.67)
-	(envelope-from <tino.keitel@tikei.de>)
-	id 1I1c5W-00037e-IW
-	for netdev@vger.kernel.org; Fri, 22 Jun 2007 07:53:42 +0200
-Content-Disposition: inline
+Received: from yue.linux-ipv6.org ([203.178.140.15]:42917 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751111AbXFVGPE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jun 2007 02:15:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Bug reported by Haruhito Watanabe <haruhito@sfc.keio.ac.jp>.
 
-I just found this in the kernel log:
+This is also appropriate for -stable releases.
 
-2007-06-22_05:47:50.69894 kern.info: sky2 eth0: disabling interface
-2007-06-22_05:47:50.72039 kern.info: sky2 eth0: enabling interface
-2007-06-22_05:47:50.72240 kern.info: sky2 eth0: ram buffer 48K
-2007-06-22_05:47:52.40903 kern.info: sky2 eth0: Link is up at 100 Mbps,
-full duplex, flow control both
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+---
+ net/ipv6/ndisc.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-What could be the cause for this? I use kernel 2.6.22-rc5 with this
-hardware:
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index d8b3645..0358e60 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -1062,7 +1062,7 @@ static void ndisc_router_discovery(struct sk_buff *skb)
+ 	pref = ra_msg->icmph.icmp6_router_pref;
+ 	/* 10b is handled as if it were 00b (medium) */
+ 	if (pref == ICMPV6_ROUTER_PREF_INVALID ||
+-	    in6_dev->cnf.accept_ra_rtr_pref)
++	    !in6_dev->cnf.accept_ra_rtr_pref)
+ 		pref = ICMPV6_ROUTER_PREF_MEDIUM;
+ #endif
+ 
+-- 
+1.5.1
 
-sky2 0000:01:00.0: v1.14 addr 0x90200000 irq 17 Yukon-EC (0xb6) rev 2
-
-01:00.0 Ethernet controller: Marvell Technology Group Ltd. 88E8053
-PCI-E Gigabit Ethernet Controller (rev 22)
-
-Regards,
-Tino
+-- 
+YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
+GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
