@@ -1,29 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [IPV6] NDISC: Fix thinko to control Router Preference support.
-Date: Thu, 21 Jun 2007 23:35:23 -0700 (PDT)
-Message-ID: <20070621.233523.23405008.davem@davemloft.net>
-References: <20070622.151527.09531508.yoshfuji@linux-ipv6.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: [PATCH] ipv4: Only destroy inet devices when we receive an NETDEV_UNREGISTER event
+Date: Fri, 22 Jun 2007 00:42:34 -0600
+Message-ID: <m17ipwebhh.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, haruhito@sfc.keio.ac.jp
-To: yoshfuji@linux-ipv6.org
+Content-Type: text/plain; charset=us-ascii
+Cc: <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50039
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751703AbXFVGfG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jun 2007 02:35:06 -0400
-In-Reply-To: <20070622.151527.09531508.yoshfuji@linux-ipv6.org>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:36722 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751632AbXFVGmk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jun 2007 02:42:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
-Date: Fri, 22 Jun 2007 15:15:27 +0900 (JST)
 
-> Bug reported by Haruhito Watanabe <haruhito@sfc.keio.ac.jp>.
-> 
-> This is also appropriate for -stable releases.
-> 
-> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Currently we destroy inet devices when we remove the last interface
+from an inet device, and during NETDEV_UNREGISTER.  We only create
+them during NETDEV_REGISTER event.  The result is if you and an ipv4
+address to a device delete it (so the device has no ipv4 addresses)
+and attampt to add any ipv4 address to that device you will receive 
+an -ENOBUFS error.
 
-Thank you, I will apply this and push around soon.
+To correct the problem this patch simply deletes the excess inet
+device destroy.
+
+Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+---
+ net/ipv4/devinet.c |    6 +-----
+ 1 files changed, 1 insertions(+), 5 deletions(-)
+
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index fa97b96..abf6352 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -327,12 +327,8 @@ static void __inet_del_ifa(struct in_device *in_dev, struct in_ifaddr **ifap,
+ 		}
+ 
+ 	}
+-	if (destroy) {
++	if (destroy)
+ 		inet_free_ifa(ifa1);
+-
+-		if (!in_dev->ifa_list)
+-			inetdev_destroy(in_dev);
+-	}
+ }
+ 
+ static void inet_del_ifa(struct in_device *in_dev, struct in_ifaddr **ifap,
+-- 
+1.5.1.1.181.g2de0
+
