@@ -1,48 +1,276 @@
-From: Erik Slagter <erik@slagter.name>
-Subject: Re: Linksys Gigabit USB2.0 adapter (asix) regression
-Date: Fri, 22 Jun 2007 21:08:10 +0200
-Message-ID: <467C1E1A.1010007@slagter.name>
-References: <467915D9.3030900@slagter.name> <1182523020.4938.20.camel@dhollis-lnx.sunera.com>
+From: tsbogend@alpha.franken.de (Thomas Bogendoerfer)
+Subject: [PATCH] Ethernet driver for EISA only SNI RM200/RM400 machines
+Date: Fri, 22 Jun 2007 21:53:58 +0200
+Message-ID: <20070622195358.GB13176@alpha.franken.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Hollis <dhollis@davehollis.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: akpm@linux-foundation.org, jgarzik@pobox.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from erik-slagter.demon.nl ([83.160.41.216]:37491 "EHLO
-	artemis.slagter.name" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1760191AbXFVTIM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jun 2007 15:08:12 -0400
-In-Reply-To: <1182523020.4938.20.camel@dhollis-lnx.sunera.com>
+Received: from elvis.franken.de ([193.175.24.41]:58360 "EHLO elvis.franken.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750913AbXFVTx7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 Jun 2007 15:53:59 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Hollis wrote:
+Hi,
 
->> To rule out the possibility of the nic being defective, I connected the
->> USB nic to a windows computer. There it works, although the ethernet
->> connection is a bit flaky (just like it seems...).
->>
->> Then I did a diff on the respective kernel sources of 2.6.20.3 and
->> 2.6.22-rc2 (asix.c and usbnet.c), I found a few changes, but they do not
->> seem to be related to my problem.
->>
->> I am the and of my repertoire here, can anyone please do some
->> suggestions for further testing or even better, fix it ;-)
-> 
-> You wouldn't happen to know what PHY that device is using?  The AX88178
-> (Gigabit USB Ethernet) support in the driver currently only supports the
-> Marvell PHY, which is the only one I've actually encountered to-date.
-> If you can rebuild the driver from your kernel sources but with DEBUG
-> enabled (uncomment it at the top of asix.c)
+This is new ethernet driver, which use the code taken out of lasi_82596
+(done by the other patch I just sent).
 
-No problem, I will do it on sunday. No need to build the driver
-out-of-tree btw.
+Thomas.
 
-> After you build the module, load it with insmod ./asix.ko, plug in your
-> device and send me the dmesg output.  I'm particularly interested in the
-> PHYID=0x12345678 line.  That will tell me what PHY chip is being used in
-> that device and if I need to add support for it.
 
-Will do. Thanks!
+Ethernet driver for EISA only SNI RM200/RM400 machines
 
+Signed-off-by: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
+---
+
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index b0d0d73..af5c90f 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -435,6 +435,13 @@ config LASI_82596
+ 	  Say Y here to support the builtin Intel 82596 ethernet controller
+ 	  found in Hewlett-Packard PA-RISC machines with 10Mbit ethernet.
+ 
++config SNI_82596
++	tristate "SNI RM ethernet"
++	depends on NET_ETHERNET && SNI_RM
++	help
++	  Say Y here to support the on-board Intel 82596 ethernet controller
++	  built into SNI RM machines.
++
+ config MIPS_JAZZ_SONIC
+ 	tristate "MIPS JAZZ onboard SONIC Ethernet support"
+ 	depends on NET_ETHERNET && MACH_JAZZ
+diff --git a/drivers/net/Makefile b/drivers/net/Makefile
+index d268b49..b03270c 100644
+--- a/drivers/net/Makefile
++++ b/drivers/net/Makefile
+@@ -161,6 +161,7 @@ obj-$(CONFIG_ELPLUS) += 3c505.o
+ obj-$(CONFIG_AC3200) += ac3200.o 8390.o
+ obj-$(CONFIG_APRICOT) += 82596.o
+ obj-$(CONFIG_LASI_82596) += lasi_82596.o
++obj-$(CONFIG_SNI_82596) += sni_82596.o
+ obj-$(CONFIG_MVME16x_NET) += 82596.o
+ obj-$(CONFIG_BVME6000_NET) += 82596.o
+ obj-$(CONFIG_SC92031) += sc92031.o
+diff --git a/drivers/net/sni_82596.c b/drivers/net/sni_82596.c
+new file mode 100644
+index 0000000..a37d08a
+--- /dev/null
++++ b/drivers/net/sni_82596.c
+@@ -0,0 +1,204 @@
++/*
++ * sni_82596.c -- driver for intel 82596 ethernet controller, as
++ *  		  used in older SNI RM machines
++ */
++
++#include <linux/module.h>
++#include <linux/kernel.h>
++#include <linux/string.h>
++#include <linux/errno.h>
++#include <linux/ioport.h>
++#include <linux/slab.h>
++#include <linux/interrupt.h>
++#include <linux/delay.h>
++#include <linux/netdevice.h>
++#include <linux/etherdevice.h>
++#include <linux/skbuff.h>
++#include <linux/init.h>
++#include <linux/types.h>
++#include <linux/bitops.h>
++#include <linux/platform_device.h>
++#include <linux/io.h>
++#include <linux/irq.h>
++
++#define SNI_82596_DRIVER_VERSION "SNI RM 82596 driver - Revision: 0.01"
++
++static char sni_82596_string[] = "snirm_82596";
++
++#define DMA_ALLOC                      dma_alloc_coherent
++#define DMA_FREE                       dma_free_coherent
++#define DMA_WBACK(priv, addr, len)     do { } while (0)
++#define DMA_INV(priv, addr, len)       do { } while (0)
++#define DMA_WBACK_INV(priv, addr, len) do { } while (0)
++
++#define SYSBUS      0x00004400
++
++/* big endian CPU, 82596 little endian */
++#define SWAP32(x)   cpu_to_le32((u32)(x))
++#define SWAP16(x)   cpu_to_le16((u16)(x))
++
++#define OPT_MPU_16BIT    0x01
++
++static inline void CA(struct net_device *dev);
++static inline void MPU_PORT(struct net_device *dev, int c, dma_addr_t x);
++
++#include "lib82596.c"
++
++MODULE_AUTHOR("Thomas Bogendoerfer");
++MODULE_DESCRIPTION("i82596 driver");
++MODULE_LICENSE("GPL");
++module_param(i596_debug, int, 0);
++MODULE_PARM_DESC(i596_debug, "82596 debug mask");
++
++static inline void CA(struct net_device *dev)
++{
++	struct i596_private *lp = netdev_priv(dev);
++	
++	writel(0, lp->ca);
++}
++
++
++static inline void MPU_PORT(struct net_device *dev, int c, dma_addr_t x)
++{
++	struct i596_private *lp = netdev_priv(dev);
++
++	u32 v = (u32) (c) | (u32) (x);
++	
++	if (lp->options & OPT_MPU_16BIT) {
++		writew(v & 0xffff, lp->mpu_port);
++		wmb(); udelay(1); /* order writes to MPU port */
++		writew(v >> 16, lp->mpu_port);
++	} else {
++		writel(v, lp->mpu_port);
++		wmb(); udelay(1); /* order writes to MPU port */
++		writel(v, lp->mpu_port);
++	}
++}
++
++
++static int __devinit sni_82596_probe(struct platform_device *dev)
++{
++	struct	net_device *netdevice;
++	struct i596_private *lp;
++	struct  resource *res, *ca, *idprom, *options;
++	int	retval = -ENODEV;
++	static int init;
++	void __iomem *mpu_addr = NULL;
++	void __iomem *ca_addr = NULL;
++	u8 __iomem *eth_addr = NULL;
++	
++	if (init == 0) {
++		printk(KERN_INFO SNI_82596_DRIVER_VERSION "\n");
++		init++;
++	}
++	
++	res = platform_get_resource(dev, IORESOURCE_MEM, 0);
++	if (!res)
++		goto probe_failed;
++	mpu_addr = ioremap_nocache(res->start, 4);
++	if (!mpu_addr) {
++		retval = -ENOMEM;
++		goto probe_failed;
++	}
++	ca = platform_get_resource(dev, IORESOURCE_MEM, 1);
++	if (!ca)
++		goto probe_failed;
++	ca_addr = ioremap_nocache(ca->start, 4);
++	if (!ca_addr) {
++		retval = -ENOMEM;
++		goto probe_failed;
++	}
++	idprom = platform_get_resource(dev, IORESOURCE_MEM, 2);
++	if (!idprom)
++		goto probe_failed;
++	eth_addr = ioremap_nocache(idprom->start, 0x10);
++	if (!eth_addr) {
++		retval = -ENOMEM;
++		goto probe_failed;
++	}
++	options = platform_get_resource(dev, 0, 0);
++	if (!options)
++		goto probe_failed;
++
++	printk(KERN_INFO "Found i82596 at 0x%x\n", res->start);
++
++	netdevice = alloc_etherdev(sizeof(struct i596_private));
++	if (!netdevice) {
++		retval = -ENOMEM;
++		goto probe_failed;
++	}
++	SET_NETDEV_DEV(netdevice, &dev->dev);
++	platform_set_drvdata (dev, netdevice);
++
++	netdevice->base_addr = res->start;
++	netdevice->irq = platform_get_irq(dev, 0);
++		
++	/* someone seams to like messed up stuff */
++	netdevice->dev_addr[0] = readb(eth_addr + 0x0b);
++	netdevice->dev_addr[1] = readb(eth_addr + 0x0a);
++	netdevice->dev_addr[2] = readb(eth_addr + 0x09);
++	netdevice->dev_addr[3] = readb(eth_addr + 0x08);
++	netdevice->dev_addr[4] = readb(eth_addr + 0x07);
++	netdevice->dev_addr[5] = readb(eth_addr + 0x06);
++	iounmap(eth_addr);
++	
++	if (!netdevice->irq) {
++		printk(KERN_ERR "%s: IRQ not found for i82596 at 0x%lx\n",
++			__FILE__, netdevice->base_addr);
++		goto probe_failed;
++	}
++	
++	lp = netdev_priv(netdevice);
++	lp->options = options->flags & IORESOURCE_BITS;
++	lp->ca = ca_addr;
++	lp->mpu_port = mpu_addr;
++	
++	retval = i82596_probe(netdevice);
++	if (retval) {
++		free_netdev(netdevice);
++probe_failed:
++		if (mpu_addr)
++			iounmap(mpu_addr);
++		if (ca_addr)
++			iounmap(ca_addr);
++		if (eth_addr)
++			iounmap(ca_addr);
++	}
++	return retval;
++}
++
++static int __devexit sni_82596_driver_remove (struct platform_device *pdev)
++{
++	struct net_device *dev = platform_get_drvdata(pdev);
++	struct i596_private *lp = netdev_priv(dev);
++
++	unregister_netdev (dev);
++	DMA_FREE(dev->dev.parent, sizeof(struct i596_private),
++		 lp->dma, lp->dma_addr);
++	iounmap(lp->ca);
++	iounmap(lp->mpu_port);
++	free_netdev (dev);
++	return 0;
++}
++
++static struct platform_driver sni_82596_driver = {
++	.probe	= sni_82596_probe,
++	.remove	= __devexit_p(sni_82596_driver_remove),
++	.driver	= {
++		.name	= sni_82596_string,
++	},
++};
++
++static int __devinit sni_82596_init(void)
++{
++	return platform_driver_register(&sni_82596_driver);
++}
++
++
++static void __exit sni_82596_exit(void)
++{
++	platform_driver_unregister(&sni_82596_driver);
++}
++
++module_init(sni_82596_init);
++module_exit(sni_82596_exit);
+
+
+
+-- 
+Crap can work. Given enough thrust pigs will fly, but it's not necessary a
+good idea.                                                [ RFC1925, 2.3 ]
