@@ -1,93 +1,91 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: RE: [PATCH 3/3] NET: [SCHED] Qdisc changes and sch_rr added for multiqueue
-Date: Thu, 21 Jun 2007 17:01:58 -0700
-Message-ID: <D5C1322C3E673F459512FB59E0DDC3290314719B@orsmsx414.amr.corp.intel.com>
-References: <467B0E12.6030200@trash.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [RFC NET 00/02]: Secondary unicast address support
+Date: Fri, 22 Jun 2007 02:08:49 +0200
+Message-ID: <467B1311.6090001@trash.net>
+References: <20070620180017.6685.70611.sendpatchset@localhost.localdomain>	<m13b0lf7mr.fsf@ebiederm.dsl.xmission.com>	<467ACDE1.7070907@trash.net> <m1sl8ldp6u.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>, <jeff@garzik.org>,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>, <hadi@cyberus.ca>
-To: "Patrick McHardy" <kaber@trash.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, shemminger@linux-foundation.org,
+	davem@davemloft.net, jeff@garzik.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:10955 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751581AbXFVACA convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jun 2007 20:02:00 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <467B0E12.6030200@trash.net>
+Received: from stinky.trash.net ([213.144.137.162]:49992 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751090AbXFVAJQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jun 2007 20:09:16 -0400
+In-Reply-To: <m1sl8ldp6u.fsf@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> The dependencies seem to be very confused. SCHED_PRIO does 
-> not depend on anything new, SCH_RR also doesn't depend on 
-> anything. SCH_PRIO_MQ and SCH_RR_MQ (which is missing) depend 
-> on SCH_PRIO/SCH_RR. A single NET_SCH_MULTIQUEUE option seems 
-> better than adding one per scheduler though.
+Eric W. Biederman wrote:
+> Patrick McHardy <kaber@trash.net> writes:
+>
+>   
+>> Eric W. Biederman wrote:
+>>     
+>>> I'm trying to understand what the point of this patch is.
+>>>
+>>> In once sense I find the concept of filtering and listening for multiple
+>>> mac addresses very interesting, especially if we could break out different
+>>> streams of traffic by destination mac address into separate network devices.
+>>> This would remove the need to any kind of ethernet tunnel and makes multiple
+>>> network namespaces much more pleasant.
+>>>
+>>> However this just seems to allow a card to decode multiple mac addresses
+>>> which in some oddball load balancing configurations may actually be
+>>> useful, but it seems fairly limited.
+>>>
+>>> Do you have a specific use case you envision for this multiple mac
+>>> functionality?
+>>>
+>>>       
+>> Yes, please see the MACVLAN patch I posted one or two days earlier.
+>>     
+>
+> Thanks.  That is what I was envisioning.  I keep suspecting one of
+> the cool multi-rx queue nics my start doing some of the demux in hardware.
+> But whatever if it works and is relatively fast it is good enough for me.
+>   
 
-I agree with a NET_SCH_MULTIQUEUE option.  However, SCH_RR does depend
-on SCH_PRIO being built since it's the same code, doesn't it?  Maybe I'm
-not understanding something about the build process.  I'll clean this
-up.
+When NICs support that I guess they the macvlan driver could be adapted
+to take advantage of that.
+>   
+>> 8021q can also make use of it and Dave mentioned some virtualization
+>> devices want this as well.
+>>     
+>
+> Right makes sense.  And ethernet bridging (which is the general case
+> of the virtualization Dave mentioned should also be able to take
+> advantage of multiple unicast addresses).  So this definitely make
+> sense.
+>   
 
-> 
-> > --- a/net/sched/sch_prio.c
-> > +++ b/net/sched/sch_prio.c
-> > @@ -9,6 +9,8 @@
-> >   * Authors:	Alexey Kuznetsov, <kuznet@ms2.inr.ac.ru>
-> >   * Fixes:       19990609: J Hadi Salim <hadi@nortelnetworks.com>:
-> >   *              Init --  EINVAL when opt undefined
-> > + * Additions:	Peter P. Waskiewicz Jr. 
-> <peter.p.waskiewicz.jr@intel.com>
-> > + *		Added round-robin scheduling for selection at load-time
-> >   
-> 
-> git keeps changelogs, please don't add it here.
 
-Roger.
+It needs promiscous mode to learn, so I'm not sure how much
+this will help bridging.
+> Have you done any performance testing with the macvlan code?  With
+> the ethernet tunnel device we keep getting copied unicast packets on
+> some path or other which slowed things down.  Simply not doing the
+> firewalling until the packets have made it through the macvlan device
+> should help here.
+>   
 
-> >  	struct tcf_proto *filter_list;
-> >  	u8  prio2band[TC_PRIO_MAX+1];
-> >  	struct Qdisc *queues[TCQ_PRIO_BANDS];
-> > +	u16 band2queue[TC_PRIO_MAX + 1];
-> >   
-> 
-> Why is this still here? Its a 1:1 mapping.
+Performance should be at least as good as on a bridge device since
+the macvlan driver does basically nothing and uses the same functions
+for receiving and sending packets.
 
-I'll fix this.
+> For the macvlan code do we need to do anything special if we transmit
+> to a mac we would normally receive?  Another unicast mac of the same
+> nic for example.
 
-> > @@ -211,6 +265,22 @@ static int prio_tune(struct Qdisc 
-> *sch, struct rtattr *opt)
-> >  			return -EINVAL;
-> >  	}
-> >  
-> > +	/* If we're prio multiqueue or are using round-robin, make
-> > +	 * sure the number of incoming bands matches the number of
-> > +	 * queues on the device we're associating with.
-> > +	 */
-> > +#ifdef CONFIG_NET_SCH_RR
-> > +	if (strcmp("rr", sch->ops->id) == 0)
-> > +		if (qopt->bands != sch->dev->egress_subqueue_count)
-> > +			return -EINVAL;
-> > +#endif
-> > +
-> > +#ifdef CONFIG_NET_SCH_PRIO_MQ
-> > +	if (strcmp("prio", sch->ops->id) == 0)
-> > +		if (qopt->bands != sch->dev->egress_subqueue_count)
-> > +			return -EINVAL;
-> > +#endif
-> >   
-> 
-> For the tenth time now, the user should enable this at 
-> runtime. You can't just break things dependant on config options.
+That doesn't happen under normal circumstances. I don't believe
+it would work.
 
-I had this in sch_prio and tc before, and was told to remove it because
-of ABI issues.  I can put it back in, but I'm not sure what those
-previous ABI issues were.  Was it backwards compatibility that you
-referred to before that was broken?
+> For the macvlan hash you just use an upper byte.  Is that just a
+> simple starting place, or do we not need a more complex hash.
+>   
 
-As always, the feedback is very much appreciated.  I'll get these fixes
-in as soon as possible.
 
--PJ
+It comes from the original code, I think it should be good enough.
+
