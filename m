@@ -1,70 +1,176 @@
-From: Oliver Hartkopp <oliver@hartkopp.net>
-Subject: Re: [patch 0/7] CAN: Add new PF_CAN protocol family, try #3
-Date: Fri, 22 Jun 2007 17:57:56 +0200
-Message-ID: <467BF184.8040109@hartkopp.net>
-References: <20070622034452.28886.0@janus.isnogud.escape.de> <467BC1E9.6030201@trash.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: [IPROUTE]: Add nested compat attribute
+Date: Fri, 22 Jun 2007 18:18:45 +0200
+Message-ID: <467BF665.60406@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Urs Thuermann <urs@isnogud.escape.de>,
-	David Miller <davem@davemloft.net>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
-	Urs Thuermann <urs.thuermann@volkswagen.de>,
-	netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: multipart/mixed;
+ boundary="------------090906040109050306000409"
+Cc: netdev@vger.kernel.org,
+	PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.160]:60078 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755671AbXFVP6e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jun 2007 11:58:34 -0400
-In-Reply-To: <467BC1E9.6030201@trash.net>
+Received: from stinky.trash.net ([213.144.137.162]:33942 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758002AbXFVQS4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jun 2007 12:18:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy wrote:
-> Urs Thuermann wrote:
->   
->> * Use skb->iif instead of skb->cb to pass receiving interface from
->>   raw_rcv() and bcm_rcv() up to raw_recvmsg() and bcm_recvmsg().
->>     
->
->
-> skb->iif doesn't necessarily point to the incoming network device
-> as seen seen by netif_receive_skb, for layered devices it currently
-> always points to the first interface that received a packet.
->   
+This is a multi-part message in MIME format.
+--------------090906040109050306000409
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
 
-This is exactly the intention.
+This patch adds a new attribute type that can be used
+to replace non-nested attributes that contain structures
+by nested ones in a compatible way.
 
-> Its so far also only used for traffic classification, please explain
-> how you're using it and what values it is set to on which paths.
->   
+This can be used in cases like Peter's who is trying to
+extend sch_prio, which currently uses a fixed structure
+without any holes.
 
-As you might have seen in Documentation/networking/can.txt (hint, hint,
-hint!) the CAN has no routing, no ARP, no MAC adressing and is a
-broadcast only medium. So if there is (at least) any reasonable
-addressing on CAN it consists of the CAN-frame's "CAN-Identifier" and
-the CAN-bus this CAN-frame is sent/received on.
-
-For this reason the information about the interface the CAN-frame has
-been received on has to be made available to the user-application if it
-needs this information. Until your hint about our skb->cb missusage, we
-(successfully) transported this information inside skb->cb to
-socket-level. But indeed skb->iif is the better (and in our opinion the
-right) place to transport this information inside the skb to the
-socket-level.
-
-In both cases (receiving real CAN-frames from the CAN-netdev /
-performing the loopback of CAN-frames) we set skb->iif to zero to let
-netif_receive_skb() set the iif-value to the current skb->dev index. So
-skb->iif is set to the first interface the CAN-frame is received on,
-which is what we need & intended here.
-
-Is it the right approach to let netif_receive_skb() set the iif-value or
-should we better set this value on our own before invoking netif_rx()?
-
-Best regards,
-Oliver
+Switching to nested attributes makes sure that the next
+person won't run into the same problem.
 
 
+
+--------------090906040109050306000409
+Content-Type: text/x-diff;
+ name="01.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="01.diff"
+
+[IPROUTE]: Add nested compat attribute
+
+Add a nested compat attribute type that can be used to convert
+attributes that contain a structure to nested attributes in a
+backwards compatible way.
+
+The attribute looks like this:
+
+struct {
+	[ compat contents ]
+	struct rtattr {
+		.rta_len	= total size,
+		.rta_type	= type,
+	} rta;
+	struct old_structure struct;
+
+	[ nested top-level attribute ]
+	struct rtattr {
+		.rta_len	= nest size,
+		.rta_type	= type,
+	} nest_attr;
+
+	[ optional 0 .. n nested attributes ]
+	struct rtattr {
+		.rta_len	= private attribute len,
+		.rta_type	= private attribute typ,
+	} nested_attr;
+	struct nested_data data;
+};
+
+Since both userspace and kernel deal correctly with attributes that are
+larger than expected old versions will just parse the compat part and
+ignore the rest.
+
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+---
+commit d283ea3c852f54941ec785ad39dbfa4586f518c7
+tree d2300d75cf50897386e670591fa963acd2bbd21b
+parent cd71a8e07f57a74d52e62cc1fed39c03ad64bc08
+author Patrick McHardy <kaber@gw.localnet> Fri, 22 Jun 2007 17:59:27 +0200
+committer Patrick McHardy <kaber@gw.localnet> Fri, 22 Jun 2007 17:59:27 +0200
+
+ include/libnetlink.h |    5 +++++
+ lib/libnetlink.c     |   48 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 53 insertions(+), 0 deletions(-)
+
+diff --git a/include/libnetlink.h b/include/libnetlink.h
+index 49e248e..bd426e6 100644
+--- a/include/libnetlink.h
++++ b/include/libnetlink.h
+@@ -39,11 +39,16 @@ extern int rtnl_send(struct rtnl_handle 
+ extern int addattr32(struct nlmsghdr *n, int maxlen, int type, __u32 data);
+ extern int addattr_l(struct nlmsghdr *n, int maxlen, int type, const void *data, int alen);
+ extern int addraw_l(struct nlmsghdr *n, int maxlen, const void *data, int len);
++extern struct rtattr *addattr_nest(struct nlmsghdr *n, int maxlen, int type);
++extern int addattr_nest_end(struct nlmsghdr *n, struct rtattr *nest);
++extern struct rtattr *addattr_nest_compat(struct nlmsghdr *n, int maxlen, int type, const void *data, int len);
++extern int addattr_nest_compat_end(struct nlmsghdr *n, struct rtattr *nest);
+ extern int rta_addattr32(struct rtattr *rta, int maxlen, int type, __u32 data);
+ extern int rta_addattr_l(struct rtattr *rta, int maxlen, int type, const void *data, int alen);
+ 
+ extern int parse_rtattr(struct rtattr *tb[], int max, struct rtattr *rta, int len);
+ extern int parse_rtattr_byindex(struct rtattr *tb[], int max, struct rtattr *rta, int len);
++extern int parse_rtattr_nested_compat(struct rtattr *tb[], int max, struct rtattr *rta, void **data, int len);
+ 
+ #define parse_rtattr_nested(tb, max, rta) \
+ 	(parse_rtattr((tb), (max), RTA_DATA(rta), RTA_PAYLOAD(rta)))
+diff --git a/lib/libnetlink.c b/lib/libnetlink.c
+index 555dd5c..2add7e9 100644
+--- a/lib/libnetlink.c
++++ b/lib/libnetlink.c
+@@ -527,6 +527,39 @@ int addraw_l(struct nlmsghdr *n, int max
+ 	return 0;
+ }
+ 
++struct rtattr *addattr_nest(struct nlmsghdr *n, int maxlen, int type)
++{
++	struct rtattr *nest = NLMSG_TAIL(n);
++
++	addattr_l(n, maxlen, type, NULL, 0);
++	return nest;
++}
++
++int addattr_nest_end(struct nlmsghdr *n, struct rtattr *nest)
++{
++	nest->rta_len = (void *)NLMSG_TAIL(n) - (void *)nest;
++	return n->nlmsg_len;
++}
++
++struct rtattr *addattr_nest_compat(struct nlmsghdr *n, int maxlen, int type,
++				   const void *data, int len)
++{
++	struct rtattr *start = NLMSG_TAIL(n);
++
++	addattr_l(n, maxlen, type, data, len);
++	addattr_nest(n, maxlen, type);
++	return start;
++}
++
++int addattr_nest_compat_end(struct nlmsghdr *n, struct rtattr *start)
++{
++	struct rtattr *nest = (void *)start + NLMSG_ALIGN(start->rta_len);
++
++	start->rta_len = (void *)NLMSG_TAIL(n) - (void *)start;
++	addattr_nest_end(n, nest);
++	return n->nlmsg_len;
++}
++
+ int rta_addattr32(struct rtattr *rta, int maxlen, int type, __u32 data)
+ {
+ 	int len = RTA_LENGTH(4);
+@@ -589,3 +622,18 @@ int parse_rtattr_byindex(struct rtattr *
+ 		fprintf(stderr, "!!!Deficit %d, rta_len=%d\n", len, rta->rta_len);
+ 	return i;
+ }
++
++int parse_rtattr_nested_compat(struct rtattr *tb[], int max, struct rtattr *rta,
++			       void **data, int len)
++{
++	if (RTA_PAYLOAD(rta) < len)
++		return -1;
++	*data = RTA_DATA(rta);
++
++	if (RTA_PAYLOAD(rta) >= RTA_ALIGN(len) + sizeof(struct rtattr)) {
++		rta = RTA_DATA(rta) + RTA_ALIGN(len);
++		return parse_rtattr_nested(tb, max, rta);
++	}
++	memset(tb, 0, sizeof(struct rtattr *) * max);
++	return 0;
++}
+
+--------------090906040109050306000409--
