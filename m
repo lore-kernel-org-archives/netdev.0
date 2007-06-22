@@ -1,31 +1,29 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH] iproute2: Added support for RR qdisc (sch_rr)
-Date: Thu, 21 Jun 2007 18:50:07 -0700
-Message-ID: <20070621185007.493c0043@oldman>
-References: <20070621212658.31100.74012.stgit@localhost.localdomain>
-	<20070621212704.31100.29812.stgit@localhost.localdomain>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [RFC NET 00/02]: Secondary unicast address support
+Date: Fri, 22 Jun 2007 03:56:09 +0200
+Message-ID: <467B2C39.1040208@trash.net>
+References: <20070620180017.6685.70611.sendpatchset@localhost.localdomain>	<m13b0lf7mr.fsf@ebiederm.dsl.xmission.com>	<467ACDE1.7070907@trash.net> <m1sl8ldp6u.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeff@garzik.org, auke-jan.h.kok@intel.com
-To: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
+Cc: netdev@vger.kernel.org, shemminger@linux-foundation.org,
+	davem@davemloft.net, jeff@garzik.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:57669 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751461AbXFVBur (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jun 2007 21:50:47 -0400
-In-Reply-To: <20070621212704.31100.29812.stgit@localhost.localdomain>
+Received: from stinky.trash.net ([213.144.137.162]:51532 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751502AbXFVB4g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jun 2007 21:56:36 -0400
+In-Reply-To: <m1sl8ldp6u.fsf@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 21 Jun 2007 14:27:04 -0700
-PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com> wrote:
+Eric W. Biederman wrote:
+> For the macvlan hash you just use an upper byte.  Is that just a
+> simple starting place, or do we not need a more complex hash.
+>   
 
-> Add tc support for the sch_rr qdisc.  This qdisc supports multiple queues
->     on hardware.  The syntax for sch_rr is the same as sch_prio.
-> 
->     Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-> 
+That gave me an idea, since the default addresses are random
+anyway I'm now using an incrementing counter for the upper byte.
 
-If the rr discipline makes it into mainline, I'll add it to iproute2.
-If RR stays out of tree, then you need maintain it yourself
+
