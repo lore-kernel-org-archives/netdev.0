@@ -1,45 +1,48 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 3/3] NET: [SCHED] Qdisc changes and sch_rr added for multiqueue
-Date: Fri, 22 Jun 2007 20:53:19 +0200
-Message-ID: <467C1A9F.5060004@trash.net>
-References: <D5C1322C3E673F459512FB59E0DDC32903178F0B@orsmsx414.amr.corp.intel.com> <467C1800.2020103@trash.net>
+From: Erik Slagter <erik@slagter.name>
+Subject: Re: Linksys Gigabit USB2.0 adapter (asix) regression
+Date: Fri, 22 Jun 2007 21:08:10 +0200
+Message-ID: <467C1E1A.1010007@slagter.name>
+References: <467915D9.3030900@slagter.name> <1182523020.4938.20.camel@dhollis-lnx.sunera.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, jeff@garzik.org,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>, hadi@cyberus.ca
-To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Cc: netdev@vger.kernel.org
+To: David Hollis <dhollis@davehollis.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:36661 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759217AbXFVSyD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jun 2007 14:54:03 -0400
-In-Reply-To: <467C1800.2020103@trash.net>
+Received: from erik-slagter.demon.nl ([83.160.41.216]:37491 "EHLO
+	artemis.slagter.name" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1760191AbXFVTIM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jun 2007 15:08:12 -0400
+In-Reply-To: <1182523020.4938.20.camel@dhollis-lnx.sunera.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy wrote:
-> Waskiewicz Jr, Peter P wrote:
-> 
->>Thought about this more last night and this morning.  As far as I can
->>tell, I still need this.  If the qdisc gets loaded with multiqueue
->>turned on, I can just use the value of band to assign
->>skb->queue_mapping.  But if the qdisc is loaded without multiqueue
->>support, then I need to assign a value of zero to queue_mapping, or not
->>assign it at all (it will be zero'd out before the call to ->enqueue()
->>in dev_queue_xmit()).  But I'd rather not have a conditional in the
->>hotpath checking if the qdisc is multiqueue; I'd rather have the array
->>to match the bands so I can just do an assignment.
+David Hollis wrote:
+
+>> To rule out the possibility of the nic being defective, I connected the
+>> USB nic to a windows computer. There it works, although the ethernet
+>> connection is a bit flaky (just like it seems...).
 >>
->>What do you think?
+>> Then I did a diff on the respective kernel sources of 2.6.20.3 and
+>> 2.6.22-rc2 (asix.c and usbnet.c), I found a few changes, but they do not
+>> seem to be related to my problem.
+>>
+>> I am the and of my repertoire here, can anyone please do some
+>> suggestions for further testing or even better, fix it ;-)
 > 
-> 
-> 
-> I very much doubt that it has any measurable impact. You can
-> also add a small inline function
-> 
-> void skb_set_queue_mapping(struct sk_buff *skb, unsigned int queue)
+> You wouldn't happen to know what PHY that device is using?  The AX88178
+> (Gigabit USB Ethernet) support in the driver currently only supports the
+> Marvell PHY, which is the only one I've actually encountered to-date.
+> If you can rebuild the driver from your kernel sources but with DEBUG
+> enabled (uncomment it at the top of asix.c)
 
+No problem, I will do it on sunday. No need to build the driver
+out-of-tree btw.
 
-OK I didn't really listen obviously :) A compile time option
-won't help. Just remove it and assign it conditionally.
+> After you build the module, load it with insmod ./asix.ko, plug in your
+> device and send me the dmesg output.  I'm particularly interested in the
+> PHYID=0x12345678 line.  That will tell me what PHY chip is being used in
+> that device and if I need to add support for it.
+
+Will do. Thanks!
+
