@@ -1,60 +1,123 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [RFC NET 00/02]: Secondary unicast address support
-Date: Thu, 21 Jun 2007 20:30:04 -0700
-Message-ID: <467B423C.80504@candelatech.com>
-References: <20070620180017.6685.70611.sendpatchset@localhost.localdomain>	<m13b0lf7mr.fsf@ebiederm.dsl.xmission.com>	<467ACDE1.7070907@trash.net> <m1sl8ldp6u.fsf@ebiederm.dsl.xmission.com> <467B1311.6090001@trash.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	netdev@vger.kernel.org, shemminger@linux-foundation.org,
-	davem@davemloft.net, jeff@garzik.org
-To: Patrick McHardy <kaber@trash.net>
+From: Urs Thuermann <urs@isnogud.escape.de>
+Subject: [patch 1/7] CAN: Allocate protocol numbers for PF_CAN
+Date: Fri, 22 Jun 2007 05:44:53 +0200
+Message-ID: <20070622034702.28886.1@janus.isnogud.escape.de>
+References: <20070622034452.28886.0@janus.isnogud.escape.de>
+Cc: Thomas Gleixner <tglx@linutronix.de>,
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
+	Urs Thuermann <urs.thuermann@volkswagen.de>,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:33323 "EHLO ns2.lanforge.com"
+Received: from oker.escape.de ([194.120.234.254]:52968 "EHLO oker.escape.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751049AbXFVDaW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Jun 2007 23:30:22 -0400
-In-Reply-To: <467B1311.6090001@trash.net>
+	id S1750719AbXFVEAt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 Jun 2007 00:00:49 -0400
+Content-Disposition: inline; filename=01-can-proto-numbers.diff
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy wrote:
-> Eric W. Biederman wrote:
+This patch adds a protocol/address family number, ARP hardware type,
+ethernet packet type, and a line discipline number for the SocketCAN
+implementation.
 
->> For the macvlan code do we need to do anything special if we transmit
->> to a mac we would normally receive?  Another unicast mac of the same
->> nic for example.
-> 
-> That doesn't happen under normal circumstances. I don't believe
-> it would work.
+Signed-Off-By: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
+Signed-Off-By: Urs Thuermann <urs.thuermann@volkswagen.de>
 
-Assuming you mean you want to send between two mac-vlans on the same physical
-nic...
+---
+ include/linux/if_arp.h   |    1 +
+ include/linux/if_ether.h |    1 +
+ include/linux/socket.h   |    2 ++
+ include/linux/tty.h      |    3 ++-
+ net/core/sock.c          |    4 ++--
+ 5 files changed, 8 insertions(+), 3 deletions(-)
 
-This can work if your mac-vlans are on different subnets and you are
-routing between them (and if you have my send-to-self patch or have
-another way to let a system send packets to itself).
+Index: linux-2.6.22-rc5/include/linux/if_arp.h
+===================================================================
+--- linux-2.6.22-rc5.orig/include/linux/if_arp.h	2007-06-20 14:10:41.000000000 +0200
++++ linux-2.6.22-rc5/include/linux/if_arp.h	2007-06-20 14:11:00.000000000 +0200
+@@ -52,6 +52,7 @@
+ #define ARPHRD_ROSE	270
+ #define ARPHRD_X25	271		/* CCITT X.25			*/
+ #define ARPHRD_HWX25	272		/* Boards with X.25 in firmware	*/
++#define ARPHRD_CAN	280		/* Controller Area Network      */
+ #define ARPHRD_PPP	512
+ #define ARPHRD_CISCO	513		/* Cisco HDLC	 		*/
+ #define ARPHRD_HDLC	ARPHRD_CISCO
+Index: linux-2.6.22-rc5/include/linux/if_ether.h
+===================================================================
+--- linux-2.6.22-rc5.orig/include/linux/if_ether.h	2007-06-20 14:10:41.000000000 +0200
++++ linux-2.6.22-rc5/include/linux/if_ether.h	2007-06-20 14:11:00.000000000 +0200
+@@ -90,6 +90,7 @@
+ #define ETH_P_WAN_PPP   0x0007          /* Dummy type for WAN PPP frames*/
+ #define ETH_P_PPP_MP    0x0008          /* Dummy type for PPP MP frames */
+ #define ETH_P_LOCALTALK 0x0009		/* Localtalk pseudo type 	*/
++#define ETH_P_CAN	0x000C		/* Controller Area Network      */
+ #define ETH_P_PPPTALK	0x0010		/* Dummy type for Atalk over PPP*/
+ #define ETH_P_TR_802_2	0x0011		/* 802.2 frames 		*/
+ #define ETH_P_MOBITEX	0x0015		/* Mobitex (kaz@cafe.net)	*/
+Index: linux-2.6.22-rc5/include/linux/socket.h
+===================================================================
+--- linux-2.6.22-rc5.orig/include/linux/socket.h	2007-06-20 14:10:41.000000000 +0200
++++ linux-2.6.22-rc5/include/linux/socket.h	2007-06-20 14:11:00.000000000 +0200
+@@ -185,6 +185,7 @@
+ #define AF_PPPOX	24	/* PPPoX sockets		*/
+ #define AF_WANPIPE	25	/* Wanpipe API Sockets */
+ #define AF_LLC		26	/* Linux LLC			*/
++#define AF_CAN		29	/* Controller Area Network      */
+ #define AF_TIPC		30	/* TIPC sockets			*/
+ #define AF_BLUETOOTH	31	/* Bluetooth sockets 		*/
+ #define AF_IUCV		32	/* IUCV sockets			*/
+@@ -220,6 +221,7 @@
+ #define PF_PPPOX	AF_PPPOX
+ #define PF_WANPIPE	AF_WANPIPE
+ #define PF_LLC		AF_LLC
++#define PF_CAN		AF_CAN
+ #define PF_TIPC		AF_TIPC
+ #define PF_BLUETOOTH	AF_BLUETOOTH
+ #define PF_IUCV		AF_IUCV
+Index: linux-2.6.22-rc5/include/linux/tty.h
+===================================================================
+--- linux-2.6.22-rc5.orig/include/linux/tty.h	2007-06-20 14:10:41.000000000 +0200
++++ linux-2.6.22-rc5/include/linux/tty.h	2007-06-20 14:11:00.000000000 +0200
+@@ -24,7 +24,7 @@
+ #define NR_PTYS	CONFIG_LEGACY_PTY_COUNT   /* Number of legacy ptys */
+ #define NR_UNIX98_PTY_DEFAULT	4096      /* Default maximum for Unix98 ptys */
+ #define NR_UNIX98_PTY_MAX	(1 << MINORBITS) /* Absolute limit */
+-#define NR_LDISCS		17
++#define NR_LDISCS		18
+ 
+ /* line disciplines */
+ #define N_TTY		0
+@@ -45,6 +45,7 @@
+ #define N_SYNC_PPP	14	/* synchronous PPP */
+ #define N_HCI		15	/* Bluetooth HCI UART */
+ #define N_GIGASET_M101	16	/* Siemens Gigaset M101 serial DECT adapter */
++#define N_SLCAN		17	/* Serial / USB serial CAN Adaptors */
+ 
+ /*
+  * This character is the same as _POSIX_VDISABLE: it cannot be used as
+Index: linux-2.6.22-rc5/net/core/sock.c
+===================================================================
+--- linux-2.6.22-rc5.orig/net/core/sock.c	2007-06-20 14:10:41.000000000 +0200
++++ linux-2.6.22-rc5/net/core/sock.c	2007-06-20 14:11:00.000000000 +0200
+@@ -153,7 +153,7 @@
+   "sk_lock-AF_ASH"   , "sk_lock-AF_ECONET"   , "sk_lock-AF_ATMSVC"   ,
+   "sk_lock-21"       , "sk_lock-AF_SNA"      , "sk_lock-AF_IRDA"     ,
+   "sk_lock-AF_PPPOX" , "sk_lock-AF_WANPIPE"  , "sk_lock-AF_LLC"      ,
+-  "sk_lock-27"       , "sk_lock-28"          , "sk_lock-29"          ,
++  "sk_lock-27"       , "sk_lock-28"          , "sk_lock-AF_CAN"      ,
+   "sk_lock-AF_TIPC"  , "sk_lock-AF_BLUETOOTH", "sk_lock-IUCV"        ,
+   "sk_lock-AF_RXRPC" , "sk_lock-AF_MAX"
+ };
+@@ -167,7 +167,7 @@
+   "slock-AF_ASH"   , "slock-AF_ECONET"   , "slock-AF_ATMSVC"   ,
+   "slock-21"       , "slock-AF_SNA"      , "slock-AF_IRDA"     ,
+   "slock-AF_PPPOX" , "slock-AF_WANPIPE"  , "slock-AF_LLC"      ,
+-  "slock-27"       , "slock-28"          , "slock-29"          ,
++  "slock-27"       , "slock-28"          , "slock-AF_CAN"      ,
+   "slock-AF_TIPC"  , "slock-AF_BLUETOOTH", "slock-AF_IUCV"     ,
+   "slock-AF_RXRPC" , "slock-AF_MAX"
+ };
 
-A normal ethernet switch will NOT turn a packet around on the same
-interface it was received, so that is why you must have them on different
-subnets and have a router in between.
-
-For sending directly to yourself, something like the 'veth' driver
-is probably more useful.
-
-> 
->> For the macvlan hash you just use an upper byte.  Is that just a
->> simple starting place, or do we not need a more complex hash.
->>   
-> 
-> It comes from the original code, I think it should be good enough.
-
-Ahhh, I knew my hash was lame for some reason!
-
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
-
+--
