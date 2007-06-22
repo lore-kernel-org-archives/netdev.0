@@ -1,23 +1,24 @@
 From: Olof Johansson <olof@lixom.net>
-Subject: [PATCH 7/9] pasemi_mac: Minor performance tweaks
-Date: Fri, 22 Jun 2007 15:05:42 -0500
-Message-ID: <20070622200542.GH11723@lixom.net>
+Subject: [PATCH 8/9] pasemi_mac: Reduce locking when cleaning TX ring
+Date: Fri, 22 Jun 2007 15:05:48 -0500
+Message-ID: <20070622200548.GI11723@lixom.net>
 References: <20070622194720.614405000@lixom.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
 To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lixom.net ([66.141.50.11]:59222 "EHLO mail.lixom.net"
+Received: from lixom.net ([66.141.50.11]:59223 "EHLO mail.lixom.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751359AbXFVUHS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751365AbXFVUHS (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 22 Jun 2007 16:07:18 -0400
-Content-Disposition: inline; filename=pasemi_mac-rxperf
+Content-Disposition: inline; filename=pasemi_mac-tx-lock-reduction
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Various minor performance tweaks, do some explicit prefetching of packet
-data, etc.
+Postpone pci unmap and skb free of the transmitted buffers to outside
+of the tx ring lock, batching them up 32 at a time.
+
 
 Signed-off-by: Olof Johansson <olof@lixom.net>
 
@@ -25,86 +26,71 @@ Index: netdev-2.6/drivers/net/pasemi_mac.c
 ===================================================================
 --- netdev-2.6.orig/drivers/net/pasemi_mac.c
 +++ netdev-2.6/drivers/net/pasemi_mac.c
-@@ -481,6 +481,7 @@ static int pasemi_mac_clean_rx(struct pa
- 		rmb();
- 
- 		dp = &RX_DESC(mac, n);
-+		prefetchw(dp);
- 		macrx = dp->macrx;
- 
- 		if (!(macrx & XCT_MACRX_O))
-@@ -502,8 +503,10 @@ static int pasemi_mac_clean_rx(struct pa
- 			if (info->dma == dma)
- 				break;
- 		}
-+		prefetchw(info);
- 
- 		skb = info->skb;
-+		prefetchw(skb);
- 		info->dma = 0;
- 
- 		pci_unmap_single(mac->dma_pdev, dma, skb->len,
-@@ -526,9 +529,7 @@ static int pasemi_mac_clean_rx(struct pa
- 
- 		skb_put(skb, len);
- 
--		skb->protocol = eth_type_trans(skb, mac->netdev);
--
--		if ((macrx & XCT_MACRX_HTY_M) == XCT_MACRX_HTY_IPV4_OK) {
-+		if (likely((macrx & XCT_MACRX_HTY_M) == XCT_MACRX_HTY_IPV4_OK)) {
- 			skb->ip_summed = CHECKSUM_COMPLETE;
- 			skb->csum = (macrx & XCT_MACRX_CSUM_M) >>
- 					   XCT_MACRX_CSUM_S;
-@@ -538,6 +539,7 @@ static int pasemi_mac_clean_rx(struct pa
- 		mac->stats.rx_bytes += len;
- 		mac->stats.rx_packets++;
- 
-+		skb->protocol = eth_type_trans(skb, mac->netdev);
- 		netif_receive_skb(skb);
- 
- 		dp->ptr = 0;
-@@ -569,7 +571,7 @@ static int pasemi_mac_clean_tx(struct pa
- 
- 	for (i = start; i < mac->tx->next_to_use; i++) {
- 		dp = &TX_DESC(mac, i);
--		if (!dp || (dp->mactx & XCT_MACTX_O))
-+		if (unlikely(dp->mactx & XCT_MACTX_O))
- 			break;
- 
- 		count++;
-@@ -957,7 +959,7 @@ static int pasemi_mac_start_tx(struct sk
- 	struct pasemi_mac_txring *txring;
+@@ -562,37 +562,56 @@ static int pasemi_mac_clean_tx(struct pa
+ 	int i;
  	struct pasemi_mac_buffer *info;
  	struct pas_dma_xct_descr *dp;
--	u64 dflags;
-+	u64 dflags, mactx, ptr;
- 	dma_addr_t map;
+-	int start, count;
++	unsigned int start, count, limit;
++	unsigned int total_count;
  	int flags;
++	struct sk_buff *skbs[32];
++	dma_addr_t dmas[32];
  
-@@ -985,6 +987,9 @@ static int pasemi_mac_start_tx(struct sk
- 	if (dma_mapping_error(map))
- 		return NETDEV_TX_BUSY;
++	total_count = 0;
++restart:
+ 	spin_lock_irqsave(&mac->tx->lock, flags);
  
-+	mactx = dflags | XCT_MACTX_LLEN(skb->len);
-+	ptr   = XCT_PTR_LEN(skb->len) | XCT_PTR_ADDR(map);
+ 	start = mac->tx->next_to_clean;
++	limit = min(mac->tx->next_to_use, start+32);
 +
- 	txring = mac->tx;
+ 	count = 0;
  
- 	spin_lock_irqsave(&txring->lock, flags);
-@@ -1005,12 +1010,11 @@ static int pasemi_mac_start_tx(struct sk
- 		}
- 	}
+-	for (i = start; i < mac->tx->next_to_use; i++) {
++	for (i = start; i < limit; i++) {
+ 		dp = &TX_DESC(mac, i);
++
+ 		if (unlikely(dp->mactx & XCT_MACTX_O))
++			/* Not yet transmitted */
+ 			break;
  
+-		count++;
 -
- 	dp = &TX_DESC(mac, txring->next_to_use);
- 	info = &TX_DESC_INFO(mac, txring->next_to_use);
+ 		info = &TX_DESC_INFO(mac, i);
+-
+-		pci_unmap_single(mac->dma_pdev, info->dma,
+-				 info->skb->len, PCI_DMA_TODEVICE);
+-		dev_kfree_skb_irq(info->skb);
++		skbs[count] = info->skb;
++		dmas[count] = info->dma;
  
--	dp->mactx = dflags | XCT_MACTX_LLEN(skb->len);
--	dp->ptr   = XCT_PTR_LEN(skb->len) | XCT_PTR_ADDR(map);
-+	dp->mactx = mactx;
-+	dp->ptr = ptr;
- 	info->dma = map;
- 	info->skb = skb;
+ 		info->skb = NULL;
+ 		info->dma = 0;
+ 		dp->mactx = 0;
+ 		dp->ptr = 0;
++
++		count++;
+ 	}
+ 	mac->tx->next_to_clean += count;
+ 	spin_unlock_irqrestore(&mac->tx->lock, flags);
+ 	netif_wake_queue(mac->netdev);
+ 
+-	return count;
++	for (i = 0; i < count; i++) {
++		pci_unmap_single(mac->dma_pdev, dmas[i],
++				 skbs[i]->len, PCI_DMA_TODEVICE);
++		dev_kfree_skb_irq(skbs[i]);
++	}
++
++	total_count += count;
++
++	/* If the batch was full, try to clean more */
++	if (count == 32)
++		goto restart;
++
++	return total_count;
+ }
+ 
  
 
 --
