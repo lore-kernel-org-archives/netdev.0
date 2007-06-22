@@ -1,49 +1,68 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: 2.6.20->2.6.21 - networking dies after random time
-Date: Fri, 22 Jun 2007 15:32:34 +0200
-Message-ID: <20070622133234.GA3756@ff.dom.local>
-References: <4bacf17f0706161435g1bb7c08bpd427901f64d57fa@mail.gmail.com> <20070618110849.GA2450@ff.dom.local> <20070618081000.14da5186@localhost.localdomain> <20070619055007.GB1649@ff.dom.local> <4bacf17f0706220156j63c4ec4ah75ac13ba653a3e67@mail.gmail.com>
+From: David Hollis <dhollis@davehollis.com>
+Subject: Re: Linksys Gigabit USB2.0 adapter (asix) regression
+Date: Fri, 22 Jun 2007 10:37:00 -0400
+Message-ID: <1182523020.4938.20.camel@dhollis-lnx.sunera.com>
+References: <467915D9.3030900@slagter.name>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, linux-net@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Marcin =?iso-8859-2?Q?=A6lusarz?= <marcin.slusarz@gmail.com>
-Return-path: <linux-net-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4bacf17f0706220156j63c4ec4ah75ac13ba653a3e67@mail.gmail.com>
-Sender: linux-net-owner@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Erik Slagter <erik@slagter.name>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vms040pub.verizon.net ([206.46.252.40]:53009 "EHLO
+	vms040pub.verizon.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755476AbXFVOhz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jun 2007 10:37:55 -0400
+Received: from smtp.davehollis.com ([71.251.104.202])
+ by vms040.mailsrvcs.net (Sun Java System Messaging Server 6.2-6.01 (built Apr
+ 3 2006)) with ESMTPA id <0JK1009WKKMKEBZ2@vms040.mailsrvcs.net> for
+ netdev@vger.kernel.org; Fri, 22 Jun 2007 09:37:32 -0500 (CDT)
+In-reply-to: <467915D9.3030900@slagter.name>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 22, 2007 at 10:56:44AM +0200, Marcin =A6lusarz wrote:
-=2E..
-> When I disable on-board network card in BIOS (controlled by skge)
-> ne2k-pci card is still locking up. So I think it's strictly ne2k-pci
-> card bug. I made some tests and I know how to reproduce it fast (on m=
-y
-> machine) - just make some heavy network traffic...
-=2E..
+On Wed, 2007-06-20 at 13:56 +0200, Erik Slagter wrote:
 
-I'm no good at hardware, but I guess this log could be not enough.
-So, if nobody will find something more sensible, maybe you can try
-some of these suggestions:
+> To rule out the possibility of the nic being defective, I connected the
+> USB nic to a windows computer. There it works, although the ethernet
+> connection is a bit flaky (just like it seems...).
+> 
+> Then I did a diff on the respective kernel sources of 2.6.20.3 and
+> 2.6.22-rc2 (asix.c and usbnet.c), I found a few changes, but they do not
+> seem to be related to my problem.
+> 
+> I am the and of my repertoire here, can anyone please do some
+> suggestions for further testing or even better, fix it ;-)
 
-- you've written it was OK with 2.6.20; it would be interesting
-to check if there were any changes in config (beside new options)
-or even retry 2.6.20 with "current" config after make oldconfig;
-- during such problems it's better to try to turn off as much
-unnecessary options/drivers as possible to find if it's really
-about network driver; e.g.: no SMP, tv cards, acpi - only
-basic, without options etc.;
-- if possible try it with newer kernel e.g. 2.6.22-rc5;
-- if possible try it with another, fresh distro (e.g. some live
-CD/DVD/USB bootable);
-- there was a lockdep warning from tvtime/bttv;
-- try to get some more debugging (help: modinfo ne2k-pci).
+You wouldn't happen to know what PHY that device is using?  The AX88178
+(Gigabit USB Ethernet) support in the driver currently only supports the
+Marvell PHY, which is the only one I've actually encountered to-date.
+If you can rebuild the driver from your kernel sources but with DEBUG
+enabled (uncomment it at the top of asix.c)
 
-Regards,
-Jarek P.
 
-PS: for anybody interested - here is the beginning of this story:
-http://marc.info/?l=3Dlinux-kernel&m=3D118202978609968&w=3D2
+You can build the driver out-of-tree by creating a Makefile with these
+contents:
+
+obj-m   += asix.o
+
+EXTRA_CFLAGS += -DDEBUG
+
+all:
+        make -C /lib/modules/`uname -r`/build SUBDIRS=`pwd`
+
+clean:
+        make -C /lib/modules/`uname -r`/build SUBDIRS=`pwd` clean
+
+
+(You'll also need to copy usbnet.h into that directory)
+
+
+After you build the module, load it with insmod ./asix.ko, plug in your
+device and send me the dmesg output.  I'm particularly interested in the
+PHYID=0x12345678 line.  That will tell me what PHY chip is being used in
+that device and if I need to add support for it.
+
+-- 
+David Hollis <dhollis@davehollis.com>
+
