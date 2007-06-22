@@ -1,23 +1,24 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [IPROUTE]: Add nested compat attribute
-Date: Fri, 22 Jun 2007 18:18:45 +0200
-Message-ID: <467BF665.60406@trash.net>
+Subject: [RTNETLINK]: Add nested compat attribute
+Date: Fri, 22 Jun 2007 18:18:39 +0200
+Message-ID: <467BF65F.4000803@trash.net>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------090906040109050306000409"
+ boundary="------------050003050701040408020308"
 Cc: netdev@vger.kernel.org,
-	PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+	PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
+	Stephen Hemminger <shemminger@linux-foundation.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:33942 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:33935 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758002AbXFVQS4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jun 2007 12:18:56 -0400
+	with ESMTP id S1753082AbXFVQSv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jun 2007 12:18:51 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------090906040109050306000409
+--------------050003050701040408020308
 Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
 
@@ -34,14 +35,14 @@ person won't run into the same problem.
 
 
 
---------------090906040109050306000409
+--------------050003050701040408020308
 Content-Type: text/x-diff;
  name="01.diff"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
  filename="01.diff"
 
-[IPROUTE]: Add nested compat attribute
+[RTNETLINK]: Add nested compat attribute
 
 Add a nested compat attribute type that can be used to convert
 attributes that contain a structure to nested attributes in a
@@ -50,25 +51,25 @@ backwards compatible way.
 The attribute looks like this:
 
 struct {
-	[ compat contents ]
-	struct rtattr {
-		.rta_len	= total size,
-		.rta_type	= type,
-	} rta;
-	struct old_structure struct;
+        [ compat contents ]
+        struct rtattr {
+                .rta_len        = total size,
+                .rta_type       = type,
+        } rta;
+        struct old_structure struct;
 
-	[ nested top-level attribute ]
-	struct rtattr {
-		.rta_len	= nest size,
-		.rta_type	= type,
-	} nest_attr;
+        [ nested top-level attribute ]
+        struct rtattr {
+                .rta_len        = nest size,
+                .rta_type       = type,
+        } nest_attr;
 
-	[ optional 0 .. n nested attributes ]
-	struct rtattr {
-		.rta_len	= private attribute len,
-		.rta_type	= private attribute typ,
-	} nested_attr;
-	struct nested_data data;
+        [ optional 0 .. n nested attributes ]
+        struct rtattr {
+                .rta_len        = private attribute len,
+                .rta_type       = private attribute typ,
+        } nested_attr;
+        struct nested_data data;
 };
 
 Since both userspace and kernel deal correctly with attributes that are
@@ -78,88 +79,58 @@ ignore the rest.
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 
 ---
-commit d283ea3c852f54941ec785ad39dbfa4586f518c7
-tree d2300d75cf50897386e670591fa963acd2bbd21b
-parent cd71a8e07f57a74d52e62cc1fed39c03ad64bc08
-author Patrick McHardy <kaber@gw.localnet> Fri, 22 Jun 2007 17:59:27 +0200
-committer Patrick McHardy <kaber@gw.localnet> Fri, 22 Jun 2007 17:59:27 +0200
+commit dece87e23c7cfa1159d3be0ea5b0db89a0fc5872
+tree c14be602de94b258e0343816b6c1809233a2ff5f
+parent c4edf5d552b1450d903a7e7e2d846f2169087e10
+author Patrick McHardy <kaber@gw.localnet> Fri, 22 Jun 2007 17:52:21 +0200
+committer Patrick McHardy <kaber@gw.localnet> Fri, 22 Jun 2007 17:52:21 +0200
 
- include/libnetlink.h |    5 +++++
- lib/libnetlink.c     |   48 ++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 53 insertions(+), 0 deletions(-)
+ include/linux/rtnetlink.h |   14 ++++++++++++++
+ net/core/rtnetlink.c      |   16 ++++++++++++++++
+ 2 files changed, 30 insertions(+), 0 deletions(-)
 
-diff --git a/include/libnetlink.h b/include/libnetlink.h
-index 49e248e..bd426e6 100644
---- a/include/libnetlink.h
-+++ b/include/libnetlink.h
-@@ -39,11 +39,16 @@ extern int rtnl_send(struct rtnl_handle 
- extern int addattr32(struct nlmsghdr *n, int maxlen, int type, __u32 data);
- extern int addattr_l(struct nlmsghdr *n, int maxlen, int type, const void *data, int alen);
- extern int addraw_l(struct nlmsghdr *n, int maxlen, const void *data, int len);
-+extern struct rtattr *addattr_nest(struct nlmsghdr *n, int maxlen, int type);
-+extern int addattr_nest_end(struct nlmsghdr *n, struct rtattr *nest);
-+extern struct rtattr *addattr_nest_compat(struct nlmsghdr *n, int maxlen, int type, const void *data, int len);
-+extern int addattr_nest_compat_end(struct nlmsghdr *n, struct rtattr *nest);
- extern int rta_addattr32(struct rtattr *rta, int maxlen, int type, __u32 data);
- extern int rta_addattr_l(struct rtattr *rta, int maxlen, int type, const void *data, int alen);
+diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
+index 6127858..6731e7f 100644
+--- a/include/linux/rtnetlink.h
++++ b/include/linux/rtnetlink.h
+@@ -570,6 +570,8 @@ static __inline__ int rtattr_strcmp(cons
+ }
  
- extern int parse_rtattr(struct rtattr *tb[], int max, struct rtattr *rta, int len);
- extern int parse_rtattr_byindex(struct rtattr *tb[], int max, struct rtattr *rta, int len);
-+extern int parse_rtattr_nested_compat(struct rtattr *tb[], int max, struct rtattr *rta, void **data, int len);
+ extern int rtattr_parse(struct rtattr *tb[], int maxattr, struct rtattr *rta, int len);
++extern int rtattr_parse_nested_compat(struct rtattr *tb[], int maxattr,
++				      struct rtattr *rta, void **data, int len);
  
- #define parse_rtattr_nested(tb, max, rta) \
- 	(parse_rtattr((tb), (max), RTA_DATA(rta), RTA_PAYLOAD(rta)))
-diff --git a/lib/libnetlink.c b/lib/libnetlink.c
-index 555dd5c..2add7e9 100644
---- a/lib/libnetlink.c
-+++ b/lib/libnetlink.c
-@@ -527,6 +527,39 @@ int addraw_l(struct nlmsghdr *n, int max
+ #define rtattr_parse_nested(tb, max, rta) \
+ 	rtattr_parse((tb), (max), RTA_DATA((rta)), RTA_PAYLOAD((rta)))
+@@ -638,6 +640,18 @@ #define RTA_NEST_END(skb, start) \
+ ({	(start)->rta_len = skb_tail_pointer(skb) - (unsigned char *)(start); \
+ 	(skb)->len; })
+ 
++#define RTA_NEST_COMPAT(skb, type, attrlen, data) \
++({	struct rtattr *__start = (struct rtattr *)skb_tail_pointer(skb); \
++	RTA_PUT(skb, type, attrlen, data); \
++	RTA_NEST(skb, type); \
++	__start; })
++
++#define RTA_NEST_COMPAT_END(skb, start) \
++({	struct rtattr *__nest = (void *)(start) + NLMSG_ALIGN((start)->rta_len); \
++	(start)->rta_len = skb_tail_pointer(skb) - (unsigned char *)(start); \
++	RTA_NEST_END(skb, __nest); \
++	(skb)->len; })
++
+ #define RTA_NEST_CANCEL(skb, start) \
+ ({	if (start) \
+ 		skb_trim(skb, (unsigned char *) (start) - (skb)->data); \
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 06c0c5a..c25d23b 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -97,6 +97,21 @@ int rtattr_parse(struct rtattr *tb[], in
  	return 0;
  }
  
-+struct rtattr *addattr_nest(struct nlmsghdr *n, int maxlen, int type)
-+{
-+	struct rtattr *nest = NLMSG_TAIL(n);
-+
-+	addattr_l(n, maxlen, type, NULL, 0);
-+	return nest;
-+}
-+
-+int addattr_nest_end(struct nlmsghdr *n, struct rtattr *nest)
-+{
-+	nest->rta_len = (void *)NLMSG_TAIL(n) - (void *)nest;
-+	return n->nlmsg_len;
-+}
-+
-+struct rtattr *addattr_nest_compat(struct nlmsghdr *n, int maxlen, int type,
-+				   const void *data, int len)
-+{
-+	struct rtattr *start = NLMSG_TAIL(n);
-+
-+	addattr_l(n, maxlen, type, data, len);
-+	addattr_nest(n, maxlen, type);
-+	return start;
-+}
-+
-+int addattr_nest_compat_end(struct nlmsghdr *n, struct rtattr *start)
-+{
-+	struct rtattr *nest = (void *)start + NLMSG_ALIGN(start->rta_len);
-+
-+	start->rta_len = (void *)NLMSG_TAIL(n) - (void *)start;
-+	addattr_nest_end(n, nest);
-+	return n->nlmsg_len;
-+}
-+
- int rta_addattr32(struct rtattr *rta, int maxlen, int type, __u32 data)
- {
- 	int len = RTA_LENGTH(4);
-@@ -589,3 +622,18 @@ int parse_rtattr_byindex(struct rtattr *
- 		fprintf(stderr, "!!!Deficit %d, rta_len=%d\n", len, rta->rta_len);
- 	return i;
- }
-+
-+int parse_rtattr_nested_compat(struct rtattr *tb[], int max, struct rtattr *rta,
-+			       void **data, int len)
++int rtattr_parse_nested_compat(struct rtattr *tb[], int maxattr,
++			       struct rtattr *rta, void **data, int len)
 +{
 +	if (RTA_PAYLOAD(rta) < len)
 +		return -1;
@@ -167,10 +138,22 @@ index 555dd5c..2add7e9 100644
 +
 +	if (RTA_PAYLOAD(rta) >= RTA_ALIGN(len) + sizeof(struct rtattr)) {
 +		rta = RTA_DATA(rta) + RTA_ALIGN(len);
-+		return parse_rtattr_nested(tb, max, rta);
++		return rtattr_parse_nested(tb, maxattr, rta);
 +	}
-+	memset(tb, 0, sizeof(struct rtattr *) * max);
++	memset(tb, 0, sizeof(struct rtattr *) * maxattr);
 +	return 0;
 +}
++
+ static struct rtnl_link *rtnl_msg_handlers[NPROTO];
+ 
+ static inline int rtm_msgindex(int msgtype)
+@@ -1297,6 +1312,7 @@ void __init rtnetlink_init(void)
+ EXPORT_SYMBOL(__rta_fill);
+ EXPORT_SYMBOL(rtattr_strlcpy);
+ EXPORT_SYMBOL(rtattr_parse);
++EXPORT_SYMBOL(rtattr_parse_nested_compat);
+ EXPORT_SYMBOL(rtnetlink_put_metrics);
+ EXPORT_SYMBOL(rtnl_lock);
+ EXPORT_SYMBOL(rtnl_trylock);
 
---------------090906040109050306000409--
+--------------050003050701040408020308--
