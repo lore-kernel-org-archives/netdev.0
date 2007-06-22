@@ -1,100 +1,214 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: Fwd: [PATCH] [-mm] ACPI: export ACPI events via netlink
-Date: Fri, 22 Jun 2007 12:09:06 +0200
-Message-ID: <1182506947.21939.89.camel@johannes.berg>
-References: <1179827251.7707.29.camel@localhost.localdomain>
-	 <1179831825.4121.30.camel@localhost>
-	 <1180258853.7707.53.camel@localhost.localdomain>
-	 <4466a10705270629h31977813hd2fc8330bcd87f78@mail.gmail.com>
-	 <4466a10705270634j3560c9a3j9c3630ddc20a24aa@mail.gmail.com>
-	 <1181811576.5411.27.camel@localhost.localdomain>
-	 <1181820510.4091.9.camel@localhost>
-	 <1181869285.5411.39.camel@localhost.localdomain>
-	 <1182178882.4063.11.camel@localhost>
-	 <1182252616.21013.12.camel@johannes.berg>
-	 <1182270006.4968.62.camel@localhost>
-	 <1182338744.3714.59.camel@johannes.berg>
-	 <1182440840.5017.40.camel@localhost>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: [PATCH 3/3] NetXen: Fix the rmmod error on PBlades due incorrect cleanup
+Date: Fri, 22 Jun 2007 12:50:17 +0200
+Message-ID: <200706221250.18194.mb@bu3sch.de>
+References: <200706220842.l5M8gcsD021825@dut39.unminc.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-w+t2VtctO3a1HnoYpNm2"
-Cc: Zhang Rui <rui.zhang@intel.com>, netdev@vger.kernel.org,
-	lenb@kernel.org
-To: hadi@cyberus.ca
+Content-Type: text/plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, amitkale@netxen.com, jeff@garzik.org,
+	netxenproj@linsyssoft.com, rob@netxen.com
+To: Mithlesh Thukral <mithlesh@netxen.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:60448 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751417AbXFVKIC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jun 2007 06:08:02 -0400
-In-Reply-To: <1182440840.5017.40.camel@localhost>
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:47063
+	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752185AbXFVKuo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jun 2007 06:50:44 -0400
+In-Reply-To: <200706220842.l5M8gcsD021825@dut39.unminc.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Friday 22 June 2007 10:42:38 Mithlesh Thukral wrote:
+> diff --git a/drivers/net/netxen/netxen_nic_hw.c b/drivers/net/netxen/netxen_nic_hw.c
+> index 4e958c9..f0df6fb 100644
+> --- a/drivers/net/netxen/netxen_nic_hw.c
+> +++ b/drivers/net/netxen/netxen_nic_hw.c
+> @@ -378,6 +378,7 @@ int netxen_nic_hw_resources(struct netxe
+>  						   crb_rcvpeg_state));
+>  		while (state != PHAN_PEG_RCV_INITIALIZED && loops < 20) {
+>  			udelay(100);
+> +			schedule();
+>  			/* Window 1 call */
+>  			state = readl(NETXEN_CRB_NORMALIZE(adapter,
+>  							   recv_crb_registers
 
---=-w+t2VtctO3a1HnoYpNm2
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+Better do msleep(1); instead of udelay+schedule.
 
-On Thu, 2007-06-21 at 11:47 -0400, jamal wrote:
-> On Wed, 2007-20-06 at 13:25 +0200, Johannes Berg wrote:
->=20
-> > Ok. That's definitely a bug in nl80211 as we have it in development
-> > right now.=20
->=20
-> Sorry, have never looked at that code.
+> @@ -700,7 +701,7 @@ void netxen_nic_pci_change_crbwindow(str
+>  		adapter->curr_window = 0;
+>  }
+>  
+> -void netxen_load_firmware(struct netxen_adapter *adapter)
+> +int netxen_load_firmware(struct netxen_adapter *adapter)
+>  {
+>  	int i;
+>  	u32 data, size = 0;
+> @@ -712,15 +713,25 @@ void netxen_load_firmware(struct netxen_
+>  	writel(1, NETXEN_CRB_NORMALIZE(adapter, NETXEN_ROMUSB_GLB_CAS_RST));
+>  
+>  	for (i = 0; i < size; i++) {
+> -		if (netxen_rom_fast_read(adapter, flashaddr, (int *)&data) != 0) {
+> -			DPRINTK(ERR,
+> -				"Error in netxen_rom_fast_read(). Will skip"
+> -				"loading flash image\n");
+> -			return;
+> +		while (netxen_rom_fast_read(adapter, flashaddr, (int *)&data) != 0) {
+> +			long timeout = 2 * HZ;
+> +			while (timeout) {
+> +			    if (signal_pending(current)) {
+> +				printk( "%s: Got a signal, exiting\n", __FUNCTION__ );
+> +				return -1;
+> +			    }
+> +			    set_current_state(TASK_INTERRUPTIBLE);
+> +			    timeout = schedule_timeout(timeout);
+> +			}
 
-No worries, I was just stating that.
+You're opencoding msleep_interruptible() here?
+And this sleeps two seconds between each rom-read attempt. Is that
+really your intention?
+I'd say better attempt to read more often and sleep less each time.
 
-> You can use setsockopt to set the multicast groups. What you cant do
-> with that is subscribe to many groups in one shot.
-> The call in iproute2 hasnt reflected this reality yet.
+>  		off = netxen_nic_pci_set_window(adapter, memaddr);
+>  		addr = pci_base_offset(adapter, off);
+>  		writel(data, addr);
+> +		while (readl(addr) != data) {
+> +			mdelay(100);
+> +			writel(data, addr);
+> +		}
 
-Ah, ok, I see now. I was under the impression that groups was always
-just a u32.
+Add a timeout. Else this will result in a system hang, if the hardware is faulty.
 
-> > I'd really like to be able to reserve multicast groups with special
-> > semantics too, especially I might want to permit/deny non-CAP_NET_ADMIN
-> > users from binding specific multicast groups. That isn't actually
-> > possible with netlink nor genetlink right now afaict.
->=20
-> This would be hard - but doable via SELinux interface. I think you
-> should be able to extend your tool to make calls to that interface.
+> diff --git a/drivers/net/netxen/netxen_nic_init.c b/drivers/net/netxen/netxen_nic_init.c
+> index 15f6dc5..8f5f4f8 100644
+> --- a/drivers/net/netxen/netxen_nic_init.c
+> +++ b/drivers/net/netxen/netxen_nic_init.c
+> @@ -408,8 +408,12 @@ static inline int
+>  do_rom_fast_read(struct netxen_adapter *adapter, int addr, int *valp)
+>  {
+>  	if (jiffies > (last_schedule_time + (8 * HZ))) {
+> -		last_schedule_time = jiffies;
+> -		schedule();
+> +		if (last_schedule_time) {
+> +			last_schedule_time = jiffies;
+> +			schedule();
+> +		} else {
+> +			last_schedule_time = jiffies;
+> +		}
 
-Why do you think that would be hard? It'd basically just mean replacing
-the netlink_capable(sock, NL_NONROOT_RECV) calls with a call that
-actually tests depending on the group(s) it wants.
+Why this strange thing?
+I'd simply call cond_resched() instead of all this custom
+schedule timekeeping. That's best for system latency.
 
-> > If we register multiple IDs then we'll end up filling up the generic
-> > netlink family space really soon.=20
->=20
-> Theres a huge number of these groups; and not just that, but considering
-> that some genetlink users may not be interested in such multicast
-> groups, it is quiet usable to have many groups as long as we avoid
-> conflict.
+> -void netxen_phantom_init(struct netxen_adapter *adapter, int pegtune_val)
+> +int netxen_phantom_init(struct netxen_adapter *adapter, int pegtune_val)
+>  {
+>  	u32 val = 0;
+> -	int loops = 0;
+>  
+>  	if (!pegtune_val) {
+> -		val = readl(NETXEN_CRB_NORMALIZE(adapter, CRB_CMDPEG_STATE));
+> -		while (val != PHAN_INITIALIZE_COMPLETE && 
+> -			val != PHAN_INITIALIZE_ACK && loops < 200000) {
+> -			udelay(100);
+> -			schedule();
+> -			val =
+> -			    readl(NETXEN_CRB_NORMALIZE
+> +		do {
+> +			long timeout = 10 * HZ;
+> +			while (timeout) {
+> +				if (signal_pending(current)) {
+> +					printk(KERN_INFO"%s: Got a signal, exiting\n", __FUNCTION__ );
+> +					printk(KERN_INFO"%s: val=0x%x, pegtune_val=0x%x\n", __FUNCTION__,
+> +						val, pegtune_val );
+> +					return -1;
+> +				}
+> +				set_current_state(TASK_INTERRUPTIBLE);
+> +				timeout = schedule_timeout(timeout);
+> +			}
+> +			val = readl(NETXEN_CRB_NORMALIZE
+>  				  (adapter, CRB_CMDPEG_STATE));
 
-Yeah, never mind, I thought that the number of groups was limited to 32.
+msleep_interruptible()?
 
-> The multicast issue wasnt well-attacked. We have a group magically
-> assigned to a user based on their allocated id. It should be feasible
-> to add an API to the kernel for registering for many groups and allow
-> user space to discover these groups before registering. Maybe thats
-> the path to proceed to.
+> @@ -1278,11 +1285,13 @@ int netxen_process_cmd_ring(unsigned lon
+>  		if (skb && (cmpxchg(&buffer->skb, skb, 0) == skb)) {
+>  			pci_unmap_single(pdev, frag->dma, frag->length,
+>  					 PCI_DMA_TODEVICE);
+> +			frag->dma = (u64) NULL;
 
-Yeah, sounds reasonable, you could ask the controller for which groups
-are attached to a family and then get the IDs for those groups by name.
+??? Cast the NULL pointer to u64?
 
-johannes
+>  			for (i = 1; i < buffer->frag_count; i++) {
+>  				DPRINTK(INFO, "getting fragment no %d\n", i);
+>  				frag++;	/* Get the next frag */
+>  				pci_unmap_page(pdev, frag->dma, frag->length,
+>  					       PCI_DMA_TODEVICE);
+> +				frag->dma = (u64) NULL;
 
---=-w+t2VtctO3a1HnoYpNm2
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
+???
 
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
+> @@ -547,13 +546,7 @@ #endif
+>  				NETXEN_ROMUSB_GLB_PEGTUNE_DONE));
+>  		/* Handshake with the card before we register the devices. */
+>  		netxen_phantom_init(adapter, NETXEN_NIC_PEG_TUNE);
+> -
+> -	       /* leave the hw in the same state as reboot */
+> -	       writel(0, NETXEN_CRB_NORMALIZE(adapter, CRB_CMDPEG_STATE));
+> -	       netxen_pinit_from_rom(adapter, 0);
+> -	       udelay(500);
+> -	       netxen_load_firmware(adapter);
+> -	       netxen_phantom_init(adapter, NETXEN_NIC_PEG_TUNE);
+> +		mdelay(2000);
 
-iD8DBQBGe5/C/ETPhpq3jKURAkAhAJwNA/dMdP/VJkE+dGiaOKc7y27oXwCfTFfR
-yVUzL05k9NN9q54ndFRDFkM=
-=qdSC
------END PGP SIGNATURE-----
+Two seconds delay? No! Too long, sleep.
 
---=-w+t2VtctO3a1HnoYpNm2--
+> @@ -653,30 +646,21 @@ static void __devexit netxen_nic_remove(
+>  
+>  	netdev = adapter->netdev;
+>  
+> -	netxen_nic_disable_int(adapter);
+> -	if (adapter->irq)
+> -		free_irq(adapter->irq, adapter);
+> -	
+> +	unregister_netdev(netdev);
+> +	mdelay(3000);
 
+Toooo long, sleep.
+
+> @@ -696,17 +680,73 @@ static void __devexit netxen_nic_remove(
+>  		}
+>  	}
+>  
+> -	unregister_netdev(netdev);
+> +	if (adapter->flags & NETXEN_NIC_MSI_ENABLED)
+> +		pci_disable_msi(pdev);
+>  
+>  	vfree(adapter->cmd_buf_arr);
+>  
+> +	pci_disable_device(pdev);
+> +
+> +	if (adapter->portnum == 0) {
+> +		if (init_firmware_done) {
+> +			dma_watchdog_shutdown_request(adapter);
+> +			mdelay(100);
+> +			i = 100;	
+> +			while ((dma_watchdog_shutdown_poll_result(adapter) != 1) && i) {
+> +				printk(KERN_INFO"dma_watchdog_shutdown_poll still in progress\n");
+> +				mdelay(100);
+
+0.1 seconds delay is too long IMO, too. Sleep!
+
+> +		dma_watchdog_shutdown_request(adapter);
+> +		mdelay(100);
+> +		i = 100;	
+> +		while ((dma_watchdog_shutdown_poll_result(adapter) != 1) && i) {
+> +			printk(KERN_INFO"dma_watchdog_shutdown_poll still in progress\n");
+> +			mdelay(100);
+
+same...
+
+
+-- 
+Greetings Michael.
