@@ -1,143 +1,256 @@
 From: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
-Subject: [PATCH 1/3] NET: [DOC] Multiqueue hardware support documentation
-Date: Sat, 23 Jun 2007 14:36:23 -0700
-Message-ID: <20070623213623.18241.72434.stgit@localhost.localdomain>
-References: <20070623213614.18241.45511.stgit@localhost.localdomain>
+Subject: [PATCH] iproute2: sch_rr support in tc
+Date: Sat, 23 Jun 2007 14:36:52 -0700
+Message-ID: <20070623213652.18308.49805.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeff@garzik.org, auke-jan.h.kok@intel.com,
-	hadi@cyberus.ca, kaber@trash.net
-To: davem@davemloft.net
+Cc: netdev@vger.kernel.org, jeff@garzik.org, auke-jan.h.kok@intel.com
+To: shemminger@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:42611 "EHLO mga03.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:2954 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752403AbXFWVgu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 23 Jun 2007 17:36:50 -0400
-In-Reply-To: <20070623213614.18241.45511.stgit@localhost.localdomain>
+	id S1752411AbXFWVhJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 23 Jun 2007 17:37:09 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add a brief howto to Documentation/networking for multiqueue.  It
-explains how to use the multiqueue API in a driver to support
-multiqueue paths from the stack, as well as the qdiscs to use for
-feeding a multiqueue device.
+Updated: This patch applies on top of Patrick McHardy's RTNETLINK
+patches to add nested compat attributes.  This is needed to maintain
+ABI for sch_{rr|prio} in the kernel with respect to tc.  A new option,
+namely multiqueue, was added to sch_prio and sch_rr.  This will allow
+a user to turn multiqueue support on for sch_prio or sch_rr at loadtime.
+Also, tc qdisc ls will display whether or not multiqueue is enabled on
+that qdisc.
+
+This patch is to support the new sch_rr (round-robin) qdisc being proposed
+in NET for multiqueue network device support in the Linux network stack.
+It uses q_prio.c as the template, since the qdiscs are nearly identical,
+outside of the ->dequeue() routine.
 
 Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 ---
 
- Documentation/networking/multiqueue.txt |  106 +++++++++++++++++++++++++++++++
- 1 files changed, 106 insertions(+), 0 deletions(-)
+ include/linux/pkt_sched.h |    2 -
+ tc/Makefile               |    1 
+ tc/q_prio.c               |   15 ++++-
+ tc/q_rr.c                 |  126 +++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 138 insertions(+), 6 deletions(-)
 
-diff --git a/Documentation/networking/multiqueue.txt b/Documentation/networking/multiqueue.txt
+diff --git a/include/linux/pkt_sched.h b/include/linux/pkt_sched.h
+index fa0ec53..ec3a9a5 100644
+--- a/include/linux/pkt_sched.h
++++ b/include/linux/pkt_sched.h
+@@ -104,7 +104,7 @@ struct tc_prio_qopt
+ enum
+ {
+ 	TCA_PRIO_UNSPEC,
+-	TCA_PRIO_TEST,
++	TCA_PRIO_MQ,
+ 	__TCA_PRIO_MAX
+ };
+ 
+diff --git a/tc/Makefile b/tc/Makefile
+index 9d618ff..62e2697 100644
+--- a/tc/Makefile
++++ b/tc/Makefile
+@@ -9,6 +9,7 @@ TCMODULES += q_fifo.o
+ TCMODULES += q_sfq.o
+ TCMODULES += q_red.o
+ TCMODULES += q_prio.o
++TCMODULES += q_rr.o
+ TCMODULES += q_tbf.o
+ TCMODULES += q_cbq.o
+ TCMODULES += f_rsvp.o
+diff --git a/tc/q_prio.c b/tc/q_prio.c
+index 4934416..b34bc05 100644
+--- a/tc/q_prio.c
++++ b/tc/q_prio.c
+@@ -29,7 +29,7 @@
+ 
+ static void explain(void)
+ {
+-	fprintf(stderr, "Usage: ... prio bands NUMBER priomap P1 P2...\n");
++	fprintf(stderr, "Usage: ... prio bands NUMBER priomap P1 P2...[multiqueue]\n");
+ }
+ 
+ #define usage() return(-1)
+@@ -41,6 +41,7 @@ static int prio_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct n
+ 	int idx = 0;
+ 	struct tc_prio_qopt opt={3,{ 1, 2, 2, 2, 1, 2, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1 }};
+ 	struct rtattr *nest;
++	unsigned char mq = 0;
+ 
+ 	while (argc > 0) {
+ 		if (strcmp(*argv, "bands") == 0) {
+@@ -58,6 +59,8 @@ static int prio_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct n
+ 				return -1;
+ 			}
+ 			pmap_mode = 1;
++		} else if (strcmp(*argv, "multiqueue") == 0) {
++			mq = 1;
+ 		} else if (strcmp(*argv, "help") == 0) {
+ 			explain();
+ 			return -1;
+@@ -92,7 +95,7 @@ static int prio_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct n
+ 	}
+ */
+ 	nest = addattr_nest_compat(n, 1024, TCA_OPTIONS, &opt, sizeof(opt));
+-	addattr32(n, 1024, TCA_PRIO_TEST, 123);
++	addattr32(n, 1024, TCA_PRIO_MQ, mq);
+ 	addattr_nest_compat_end(n, nest);
+ 	return 0;
+ }
+@@ -106,15 +109,17 @@ int prio_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
+ 	if (opt == NULL)
+ 		return 0;
+ 
+-	if (parse_rtattr_nested_compat(tb, TCA_PRIO_MAX, opt, (void *)&qopt, sizeof(*qopt)))
++	if (parse_rtattr_nested_compat(tb, TCA_PRIO_MAX, opt, qopt, sizeof(*qopt)))
+ 		return -1;
+ 
+ 	fprintf(f, "bands %u priomap ", qopt->bands);
+ 	for (i=0; i<=TC_PRIO_MAX; i++)
+ 		fprintf(f, " %d", qopt->priomap[i]);
+ 
+-	if (tb[TCA_PRIO_TEST])
+-		fprintf(f, " TCA_PRIO_TEST: %u ", *(__u32 *)RTA_DATA(tb[TCA_PRIO_TEST]));
++	if (tb[TCA_PRIO_MQ])
++		fprintf(f, " multiqueue: %s ",
++		    *(unsigned char *)RTA_DATA(tb[TCA_PRIO_MQ]) ? "on" : "off");
++
+ 	return 0;
+ }
+ 
+diff --git a/tc/q_rr.c b/tc/q_rr.c
 new file mode 100644
-index 0000000..b7ede56
+index 0000000..f74f4d5
 --- /dev/null
-+++ b/Documentation/networking/multiqueue.txt
-@@ -0,0 +1,106 @@
++++ b/tc/q_rr.c
+@@ -0,0 +1,126 @@
++/*
++ * q_rr.c		RR.
++ *
++ *		This program is free software; you can redistribute it and/or
++ *		modify it under the terms of the GNU General Public License
++ *		as published by the Free Software Foundation; either version
++ *		2 of the License, or (at your option) any later version.
++ *
++ * Authors:	PJ Waskiewicz, <peter.p.waskiewicz.jr@intel.com>
++ * Original Authors:	Alexey Kuznetsov, <kuznet@ms2.inr.ac.ru> (from PRIO)
++ *
++ * Changes:
++ *
++ * Ole Husgaard <sparre@login.dknet.dk>: 990513: prio2band map was always reset.
++ * J Hadi Salim <hadi@cyberus.ca>: 990609: priomap fix.
++ */
 +
-+		HOWTO for multiqueue network device support
-+		===========================================
++#include <stdio.h>
++#include <stdlib.h>
++#include <unistd.h>
++#include <syslog.h>
++#include <fcntl.h>
++#include <sys/socket.h>
++#include <netinet/in.h>
++#include <arpa/inet.h>
++#include <string.h>
 +
-+Section 1: Base driver requirements for implementing multiqueue support
-+Section 2: Qdisc support for multiqueue devices
-+Section 3: Brief howto using PRIO or RR for multiqueue devices
++#include "utils.h"
++#include "tc_util.h"
 +
++static void explain(void)
++{
++	fprintf(stderr, "Usage: ... rr bands NUMBER priomap P1 P2... [multiqueue]\n");
++}
 +
-+Intro: Kernel support for multiqueue devices
-+---------------------------------------------------------
++#define usage() return(-1)
 +
-+Kernel support for multiqueue devices is only an API that is presented to the
-+netdevice layer for base drivers to implement.  This feature is part of the
-+core networking stack, and all network devices will be running on the
-+multiqueue-aware stack.  If a base driver only has one queue, then these
-+changes are transparent to that driver.
++static int rr_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct nlmsghdr *n)
++{
++	int ok = 0;
++	int pmap_mode = 0;
++	int idx = 0;
++	struct tc_prio_qopt opt={3,{ 1, 2, 2, 2, 1, 2, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1 }};
++	struct rtattr *nest;
++	unsigned char mq = 0;
 +
++	while (argc > 0) {
++		if (strcmp(*argv, "bands") == 0) {
++			if (pmap_mode)
++				explain();
++			NEXT_ARG();
++			if (get_integer(&opt.bands, *argv, 10)) {
++				fprintf(stderr, "Illegal \"bands\"\n");
++				return -1;
++			}
++			ok++;
++		} else if (strcmp(*argv, "priomap") == 0) {
++			if (pmap_mode) {
++				fprintf(stderr, "Error: duplicate priomap\n");
++				return -1;
++			}
++			pmap_mode = 1;
++		} else if (strcmp(*argv, "help") == 0) {
++			explain();
++			return -1;
++		} else if (strcmp(*argv, "multiqueue") == 0) {
++			mq = 1;
++		} else {
++			unsigned band;
++			if (!pmap_mode) {
++				fprintf(stderr, "What is \"%s\"?\n", *argv);
++				explain();
++				return -1;
++			}
++			if (get_unsigned(&band, *argv, 10)) {
++				fprintf(stderr, "Illegal \"priomap\" element\n");
++				return -1;
++			}
++			if (band > opt.bands) {
++				fprintf(stderr, "\"priomap\" element is out of bands\n");
++				return -1;
++			}
++			if (idx > TC_PRIO_MAX) {
++				fprintf(stderr, "\"priomap\" index > TC_RR_MAX=%u\n", TC_PRIO_MAX);
++				return -1;
++			}
++			opt.priomap[idx++] = band;
++		}
++		argc--; argv++;
++	}
 +
-+Section 1: Base driver requirements for implementing multiqueue support
-+-----------------------------------------------------------------------
++	nest = addattr_nest_compat(n, 1024, TCA_OPTIONS, &opt, sizeof(opt));
++	addattr32(n, 1024, TCA_PRIO_MQ, mq);
++	addattr_nest_compat_end(n, nest);
++	return 0;
++}
 +
-+Base drivers are required to use the new alloc_etherdev_mq() or
-+alloc_netdev_mq() functions to allocate the subqueues for the device.  The
-+underlying kernel API will take care of the allocation and deallocation of
-+the subqueue memory, as well as netdev configuration of where the queues
-+exist in memory.
++int rr_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
++{
++	int i;
++	struct tc_prio_qopt *qopt;
++	struct rtattr *tb[TCA_PRIO_MAX + 1];
 +
-+The base driver will also need to manage the queues as it does the global
-+netdev->queue_lock today.  Therefore base drivers should use the
-+netif_{start|stop|wake}_subqueue() functions to manage each queue while the
-+device is still operational.  netdev->queue_lock is still used when the device
-+comes online or when it's completely shut down (unregister_netdev(), etc.).
++	if (opt == NULL)
++		return 0;
 +
-+Finally, the base driver should indicate that it is a multiqueue device.  The
-+feature flag NETIF_F_MULTI_QUEUE should be added to the netdev->features
-+bitmap on device initialization.  Below is an example from e1000:
++	if (parse_rtattr_nested_compat(tb, TCA_PRIO_MAX, opt, qopt,
++						sizeof(*qopt)))
++		return -1;
 +
-+#ifdef CONFIG_E1000_MQ
-+	if ( (adapter->hw.mac.type == e1000_82571) ||
-+	     (adapter->hw.mac.type == e1000_82572) ||
-+	     (adapter->hw.mac.type == e1000_80003es2lan))
-+		netdev->features |= NETIF_F_MULTI_QUEUE;
-+#endif
++	fprintf(f, "bands %u priomap ", qopt->bands);
++	for (i=0; i <= TC_PRIO_MAX; i++)
++		fprintf(f, " %d", qopt->priomap[i]);
 +
++	if (tb[TCA_PRIO_MQ])
++		fprintf(f, " multiqueue: %s ",
++		    *(unsigned char *)RTA_DATA(tb[TCA_PRIO_MQ]) ? "on" : "off");
 +
-+Section 2: Qdisc support for multiqueue devices
-+-----------------------------------------------
++	return 0;
++}
 +
-+Currently two qdiscs support multiqueue devices.  A new round-robin qdisc,
-+sch_rr, and sch_prio. The qdisc is responsible for classifying the skb's to
-+bands and queues, and will store the queue mapping into skb->queue_mapping.
-+Use this field in the base driver to determine which queue to send the skb
-+to.
-+
-+sch_rr has been added for hardware that doesn't want scheduling policies from
-+software, so it's a straight round-robin qdisc.  It uses the same syntax and
-+classification priomap that sch_prio uses, so it should be intuitive to
-+configure for people who've used sch_prio.
-+
-+The PRIO qdisc naturally plugs into a multiqueue device.  If PRIO has been
-+built with NET_SCH_PRIO_MQ, then upon load, it will make sure the number of
-+bands requested is equal to the number of queues on the hardware.  If they
-+are equal, it sets a one-to-one mapping up between the queues and bands.  If
-+they're not equal, it will not load the qdisc.  This is the same behavior
-+for RR.  Once the association is made, any skb that is classified will have
-+skb->queue_mapping set, which will allow the driver to properly queue skb's
-+to multiple queues.
-+
-+
-+Section 3: Brief howto using PRIO and RR for multiqueue devices
-+---------------------------------------------------------------
-+
-+The userspace command 'tc,' part of the iproute2 package, is used to configure
-+qdiscs.  To add the PRIO qdisc to your network device, assuming the device is
-+called eth0, run the following command:
-+
-+# tc qdisc add dev eth0 root handle 1: prio bands 4 multiqueue
-+
-+This will create 4 bands, 0 being highest priority, and associate those bands
-+to the queues on your NIC.  Assuming eth0 has 4 Tx queues, the band mapping
-+would look like:
-+
-+band 0 => queue 0
-+band 1 => queue 1
-+band 2 => queue 2
-+band 3 => queue 3
-+
-+Traffic will begin flowing through each queue if your TOS values are assigning
-+traffic across the various bands.  For example, ssh traffic will always try to
-+go out band 0 based on TOS -> Linux priority conversion (realtime traffic),
-+so it will be sent out queue 0.  ICMP traffic (pings) fall into the "normal"
-+traffic classification, which is band 1.  Therefore pings will be send out
-+queue 1 on the NIC.
-+
-+Note the use of the multiqueue keyword.  This is only in versions of iproute2
-+that support multiqueue networking devices; if this is omitted when loading
-+a qdisc onto a multiqueue device, the qdisc will load and operate the same
-+if it were loaded onto a single-queue device (i.e. - sends all traffic to
-+queue 0).
-+
-+The behavior of tc filters remains the same, where it will override TOS priority
-+classification.
-+
-+
-+Author: Peter P. Waskiewicz Jr. <peter.p.waskiewicz.jr@intel.com>
++struct qdisc_util rr_qdisc_util = {
++	.id	 	= "rr",
++	.parse_qopt	= rr_parse_opt,
++	.print_qopt	= rr_print_opt,
++};
