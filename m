@@ -1,49 +1,79 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [patch 5/7] CAN: Add virtual CAN netdevice driver
-Date: Sat, 23 Jun 2007 14:52:27 +0200
-Message-ID: <467D178B.8080503@trash.net>
-References: <20070622034452.28886.0@janus.isnogud.escape.de>	<20070622034703.28886.5@janus.isnogud.escape.de>	<467BAC48.1070700@trash.net> <ygfk5tw41rq.fsf@janus.isnogud.escape.de> <467BC2AF.8080901@trash.net> <467D0C97.1000000@hartkopp.net>
+From: =?iso-8859-1?q?R=E9mi_Denis-Courmont?= <rdenis@simphalempin.com>
+Subject: Re: [RFD] First draft of RDNSS-in-RA support for IPv6 DNS autoconfiguration
+Date: Sat, 23 Jun 2007 16:25:44 +0300
+Message-ID: <200706231625.44825@auguste.remlab.net>
+References: <OF0D7F9D29.61F86942-ON88257303.0005AD2A-88257303.0005D48C@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: multipart/signed;
+  boundary="nextPart2010888.yzmkLUdRcS";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, j.hadi123@gmail.com,
-	Urs Thuermann <urs@isnogud.escape.de>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
-	netdev@vger.kernel.org
-To: Oliver Hartkopp <oliver@hartkopp.net>
+Cc: "C. Scott Ananian" <cscott@laptop.org>, netdev@vger.kernel.org
+To: David Stevens <dlstevens@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:52838 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752369AbXFWMwi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jun 2007 08:52:38 -0400
-In-Reply-To: <467D0C97.1000000@hartkopp.net>
+Received: from poy.chewa.net ([194.242.114.73]:3276 "EHLO poy.chewa.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753879AbXFWN6k (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 23 Jun 2007 09:58:40 -0400
+In-Reply-To: <OF0D7F9D29.61F86942-ON88257303.0005AD2A-88257303.0005D48C@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Oliver Hartkopp wrote:
-> Patrick McHardy wrote:
-> 
->>>
->>>Sorry, it's simply a matter of time.  We have been extremely busy with
->>>other projects and two presentations (mgmt, customers, and press) the
->>>last two weeks and have worked on the other changes this week.  I'm
->>>sorry I haven't yet been able to look at your rtnl_link code close
->>>enough, but it's definitely on my todo list.  Starting on Sunday I'll
->>>be on a business trip to .jp for a week, and I hope I get to it in
->>>that week, otherwise on return.
->>>    
->>
->>
->>Sorry, but busy is no reason for merging code that has deprecated
->>(at least by me :)) behaviour. Please change this before submitting
->>for inclusion.
->>  
-> 
-> i was just looking through the mailings regarding your suggested changes
-> (e.g. in VLAN, DUMMY and IFB) an none of them currently went into the
-> kernel and the discussion on some topics (especially in the VLAN case)
-> is just running.
+--nextPart2010888.yzmkLUdRcS
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
+
+	Hello,
+
+Le samedi 23 juin 2007, David Stevens a =E9crit :
+>         Why not make the application that writes resolv.conf
+> also listen on a raw ICMPv6 socket? I don't believe you'd need
+> any kernel changes, then, and it seems pretty simple and
+> straightforward.
+
+Unfortunately, ICMPv6 raw sockets will not work quite properly here,=20
+without modifications. At the moment, such a socket will queue just=20
+about any Router Advertisement that is received by the host.
+
+Now, assuming the userland daemon did sanity check the message (properly=20
+formatted, source and destination addresses are sane, etc), it needs to=20
+know whether the IPv6 kernel stack has "accepted" it or not. It could=20
+be that the interface the RA was received on had autoconf disabled at=20
+the time the packet showed up, or it could be that the system is=20
+currently configured as a router, or it could be that we have a=20
+SeND-patched kernel and the RA did not pass authentication checks.
+
+And then, what happens if IPv6 networking has been initialized before=20
+init got the chance to start the daemon, for instance root over=20
+NFS/IPv6? The RA is lost.
+
+Similarly, the daemon has no way to know when information gathered from=20
+an RA becomes invalid. Of course, it can duplicate the lifetime timers=20
+in userland, but only the kernel knows if the link has been reset to=20
+off and on earlier than lifetime expiration.
 
 
-They are all in the net-2.6.23 tree.
+Whether parsing RDNSS-in-RA belong in the kernel is irrelevant to me, as=20
+the kernel does not provide any interface for userland to do it=20
+properly at the moment.
+
+=2D-=20
+R=E9mi Denis-Courmont
+http://www.remlab.net/
+
+--nextPart2010888.yzmkLUdRcS
+Content-Type: application/pgp-signature; name=signature.asc 
+Content-Description: This is a digitally signed message part.
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.6 (GNU/Linux)
+
+iEYEABECAAYFAkZ9H1gACgkQw+xtvt1tEr3TqwCgzTmaNCpEwj6q+3No0rl2eZDF
+MukAoM+SqS+fbasqHrgP8eOT3Q8GPn/2
+=dyC+
+-----END PGP SIGNATURE-----
+
+--nextPart2010888.yzmkLUdRcS--
