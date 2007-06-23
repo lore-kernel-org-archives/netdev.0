@@ -1,43 +1,58 @@
 From: Ben Greear <greearb@candelatech.com>
 Subject: Re: [RFD] L2 Network namespace infrastructure
-Date: Sat, 23 Jun 2007 13:03:05 -0700
-Message-ID: <467D7C79.8080604@candelatech.com>
-References: <m1tzszbwyb.fsf@ebiederm.dsl.xmission.com>	<467CF8AC.80103@trash.net>	<467D3A48.20706@candelatech.com> <20070623102640.6f111d7e@oldman>
+Date: Sat, 23 Jun 2007 13:09:49 -0700
+Message-ID: <467D7E0D.7060206@candelatech.com>
+References: <m1tzszbwyb.fsf@ebiederm.dsl.xmission.com>	<467CF8AC.80103@trash.net> <467D3A48.20706@candelatech.com> <m14pkya8fv.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	jamal <hadi@cyberus.ca>, Jeff Garzik <jeff@garzik.org>,
+Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>, jamal <hadi@cyberus.ca>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	Jeff Garzik <jeff@garzik.org>,
 	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
 	Linux Containers <containers@lists.osdl.org>
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:38096 "EHLO ns2.lanforge.com"
+Received: from ns2.lanforge.com ([66.165.47.211]:52824 "EHLO ns2.lanforge.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751377AbXFWUI0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 23 Jun 2007 16:08:26 -0400
-In-Reply-To: <20070623102640.6f111d7e@oldman>
+	id S1751702AbXFWUQ5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 23 Jun 2007 16:16:57 -0400
+In-Reply-To: <m14pkya8fv.fsf@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
+Eric W. Biederman wrote:
+> Ben Greear <greearb@candelatech.com> writes:
+>
 >   
 >> Will we be able to have a single application be in multiple name-spaces?
 >>     
 >
-> That would break the whole point of namespaces...
+> A single application certainly.   But then an application can be composed
+> of multiple processes which can be composed of multiple threads.
+>
+> In my current patches a single task_struct belongs to a single network
+> namespace.  That namespace is used when creating sockets.  The sockets
+> themselves have a namespace tag and that is used when transmitting
+> packets, or otherwise operating on the socket.
+>
+> So if you pass a socket from one process to another you can have
+> sockets that belong to different network namespaces in a single task.
 >   
-I was hoping that I could open a socket in one name-space and another in 
-another name
-space, and send traffic between them, within a single application.  This 
-is basically what I can do now with my
-send-to-self patch and (for more clever virtual-routing schemes + NAT, 
-with a conn-track
-patch that Patrick cooked up for me).  It seems these patches I use are 
-not acceptable
-for merge, so I was hoping name-spaces might work instead.
+Any chance it could allow one to use a single threaded, single process 
+and do something like
+int fd1 = socket(...., namespace1);
+int fd2 = socket(...., namespace2);
+
+Or, maybe a sockopt or similar call to move a socket into a particular 
+namespace?
+
+I can certainly see it being useful to allow a default name-space per 
+process, but it would be nice
+to also allow explicit assignment of a socket to a name-space for 
+applications that want to span
+a large number of name-spaces.
 
 Thanks,
 Ben
