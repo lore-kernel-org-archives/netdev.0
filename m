@@ -1,90 +1,61 @@
-From: =?iso-8859-1?q?R=E9mi_Denis-Courmont?= <rdenis@simphalempin.com>
-Subject: Re: [RFD] First draft of RDNSS-in-RA support for IPv6 DNS autoconfiguration
-Date: Sat, 23 Jun 2007 22:18:44 +0300
-Message-ID: <200706232218.50100@auguste.remlab.net>
-References: <OF8A941F0F.60C57774-ON88257303.0064A759-88257303.006782B8@us.ibm.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [RFD] L2 Network namespace infrastructure
+Date: Sat, 23 Jun 2007 13:08:25 -0600
+Message-ID: <m1vede8p5i.fsf@ebiederm.dsl.xmission.com>
+References: <m1tzszbwyb.fsf@ebiederm.dsl.xmission.com>
+	<467CF8AC.80103@trash.net> <m1bqf6a8rd.fsf@ebiederm.dsl.xmission.com>
+	<467D5FCD.4080003@trash.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart4287948.yUG4r4Y1g1";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: cananian@gmail.com, "C. Scott Ananian" <cscott@laptop.org>,
-	netdev@vger.kernel.org
-To: David Stevens <dlstevens@us.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	jamal <hadi@cyberus.ca>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	Ben Greear <greearb@candelatech.com>,
+	Jeff Garzik <jeff@garzik.org>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	Linux Containers <containers@lists.osdl.org>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from poy.chewa.net ([194.242.114.73]:3199 "EHLO poy.chewa.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751919AbXFWTSw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 23 Jun 2007 15:18:52 -0400
-In-Reply-To: <OF8A941F0F.60C57774-ON88257303.0064A759-88257303.006782B8@us.ibm.com>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:33175 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753787AbXFWT1e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jun 2007 15:27:34 -0400
+In-Reply-To: <467D5FCD.4080003@trash.net> (Patrick McHardy's message of "Sat,
+	23 Jun 2007 20:00:45 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart4287948.yUG4r4Y1g1
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+Patrick McHardy <kaber@trash.net> writes:
 
-Le samedi 23 juin 2007, David Stevens a =E9crit :
->         This doesn't say that unauthenticated packets must be
-> delivered, and I don't think the portability of an RDNS daemon is an
-> issue. But even if you really wanted to run the same code on a
-> non-Linux machine, it just means that your daemon code would have to
-> do its own authentication.
-> Reading /proc or netlink with packet formats you've defined to get
-> this information is not more portable to non-Linux machines, right? I
-> don't see any issue here. If an application is relying on the ability
-> to see forged packets for portability reasons, it's probably not an
-> application you want running on your machine. :-)
-
-It so happens that the very userland applications that are currently=20
-using raw ICMPv6 sockets to see RAs *DO* want to see them all. As far=20
-as I know, they are all monitoring softwares (radvdump from radvd,=20
-rdisc6 from ndisc6, and probably scapy as well) where you do want to=20
-see "problematic" packets.
-
-All in all, this would break well-behaved standard-abiding userland=20
-applications...
-
-> > The userspace DNS configuration daemon might need to be started
-> > later than the kernel autoconf - another issue that needs help from
-> > the kernel.
+>>>>Depending upon the data structure it will either be modified to hold
+>>>>a per entry network namespace pointer or it there will be a separate
+>>>>copy per network namespace.  For large global data structures like
+>>>>the ipv4 routing cache hash table adding an additional pointer to the
+>>>>entries appears the more reasonable solution.
+>>>
+>>>
+>>>So the routing cache is shared between all namespaces?
+>> 
+>> 
+>> Yes.  Each namespaces has it's own view so semantically it's not
+>> shared.  But the initial fan out of the hash table 2M or something
+>> isn't something we want to replicate on a per namespace basis even
+>> assuming the huge page allocations could happen.
+>> 
+>> So we just tag the entries and add the network namespace as one more
+>> part of the key when doing hash table look ups.
 >
->         Easily done; the init scripts are what bring the interfaces
-> up in the first place, so start the daemon before those run. Adding
-> an entry in inittab so it'll be automatically restarted if it dies is
-> also a reasonable thing. RA's are resent periodically, and they can
-> be lost anyway, so not the end of the world if you miss one, either.
+>
+> I can wait for the patches, but I would be interested in how
+> GC is performed and whether limits can be configured per
+> namespace.
 
-What about NFS root? the network interface will already be up before=20
-even the real init gets started, let alone the userland RDNSS daemon.
+Currently I believe the gc code is unmodified in my patches.
 
-"resent periodically"... at a default rate of one every 10 minutes! I=20
-surely hope your desktop boots up faster than that. Besides, some links=20
-do not have unsolicited advertisements at all (I have seen such a PPPoA=20
-link for instance). An ugly kludge would be to send a RS from userland,=20
-but that's not so great considering routers are rate-limiting their=20
-RAs.
+Currently I have been focusing on the normal semantics and just
+making something work in a mergeable fashion.
 
-The only way is for the kernel to remember "something" about the last=20
-processed RA. That disqualifies raw ICMPv6 sockets.
+Limits and the like are comparatively easy to add in after the
+rest is working so I haven't been focusing on that.
 
-=2D-=20
-R=E9mi Denis-Courmont
-http://www.remlab.net/
-
---nextPart4287948.yUG4r4Y1g1
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.6 (GNU/Linux)
-
-iEYEABECAAYFAkZ9choACgkQw+xtvt1tEr0hEQCeKsliHkdo/Atb8+eqr18SZyCF
-fPQAoKnMVMFwYR5ao/1FNEpVn2vfBkXi
-=fP4i
------END PGP SIGNATURE-----
-
---nextPart4287948.yUG4r4Y1g1--
+Eric
