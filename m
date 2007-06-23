@@ -1,47 +1,41 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [RFD] L2 Network namespace infrastructure
-Date: Sat, 23 Jun 2007 13:44:56 -0700
-Message-ID: <467D8648.2040407@candelatech.com>
-References: <m1tzszbwyb.fsf@ebiederm.dsl.xmission.com>	<467CF8AC.80103@trash.net> <467D3A48.20706@candelatech.com>	<m14pkya8fv.fsf@ebiederm.dsl.xmission.com>	<467D7E0D.7060206@candelatech.com> <m1myyq8ky6.fsf@ebiederm.dsl.xmission.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch 5/7] CAN: Add virtual CAN netdevice driver
+Date: Sat, 23 Jun 2007 13:51:13 -0700 (PDT)
+Message-ID: <20070623.135113.67582141.davem@davemloft.net>
+References: <ygfk5tw41rq.fsf@janus.isnogud.escape.de>
+	<467BC2AF.8080901@trash.net>
+	<467D0C97.1000000@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>, jamal <hadi@cyberus.ca>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	Jeff Garzik <jeff@garzik.org>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-	Linux Containers <containers@lists.osdl.org>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: kaber@trash.net, j.hadi123@gmail.com, urs@isnogud.escape.de,
+	tglx@linutronix.de, oliver.hartkopp@volkswagen.de,
+	netdev@vger.kernel.org
+To: oliver@hartkopp.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:51505 "EHLO ns2.lanforge.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751245AbXFWUpH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 23 Jun 2007 16:45:07 -0400
-In-Reply-To: <m1myyq8ky6.fsf@ebiederm.dsl.xmission.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48555
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751385AbXFWUuz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jun 2007 16:50:55 -0400
+In-Reply-To: <467D0C97.1000000@hartkopp.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Eric W. Biederman wrote:
-> So it may be that we can cover your scenario.  However it is just
-> enough off of the beaten path that I'm not going to worry about it
-> the first time through.  It looks like it is a very small step from
-> where I am at to where you want to be.  So you may be able to cook
-> up something that will satisfy your requirements relatively easily.
->   
-That sounds fair to me.
+From: Oliver Hartkopp <oliver@hartkopp.net>
+Date: Sat, 23 Jun 2007 14:05:43 +0200
 
-I will assume that as long as you can migrate sockets with the methods you
-described, it should not be that difficult to do the same with a sockopt
-or similar.
+> i was just looking through the mailings regarding your suggested changes
+> (e.g. in VLAN, DUMMY and IFB) an none of them currently went into the
+> kernel and the discussion on some topics (especially in the VLAN case)
+> is just running.
 
-I'll revisit this when your patches are in mainline.
+This code is in the net-2.6 GIT tree of mine at:
 
-Thanks,
-Ben
+	master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git
 
--- 
-Ben Greear <greearb@candelatech.com> 
-Candela Technologies Inc  http://www.candelatech.com
+which is what you should be doing all of your networking
+development against, and generating patches against, anyways.
 
-
+Anything in that tree is scheduled for 2.6.23 inclusion, therefore
+if a preferred interface has been added there, you better use it
+for any new code.
