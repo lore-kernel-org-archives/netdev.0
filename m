@@ -1,49 +1,42 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [patch 5/7] CAN: Add virtual CAN netdevice driver
-Date: Sat, 23 Jun 2007 18:25:09 +0200
-Message-ID: <467D4965.40601@trash.net>
-References: <20070622034452.28886.0@janus.isnogud.escape.de>	<20070622034703.28886.5@janus.isnogud.escape.de>	<467BAC48.1070700@trash.net> <ygfk5tw41rq.fsf@janus.isnogud.escape.de> <467BC2AF.8080901@trash.net> <467D0C97.1000000@hartkopp.net> <467D178B.8080503@trash.net> <467D3891.4010906@hartkopp.net>
+From: Simon Arlott <simon@fire.lp0.eu>
+Subject: Re: [RFD] First draft of RDNSS-in-RA support for IPv6 DNS autoconfiguration
+Date: Sat, 23 Jun 2007 17:40:48 +0100
+Message-ID: <467D4D10.20002@simon.arlott.org.uk>
+References: <OF0D7F9D29.61F86942-ON88257303.0005AD2A-88257303.0005D48C@us.ibm.com>	 <200706231625.44825@auguste.remlab.net> <c6d9bea0706230747y79d39a6eh3c55de3a29cfb4d1@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, j.hadi123@gmail.com,
-	Urs Thuermann <urs@isnogud.escape.de>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
-	netdev@vger.kernel.org
-To: Oliver Hartkopp <oliver@hartkopp.net>
+Cc: =?UTF-8?B?UsOpbWkgRGVuaXMtQ291cm1vbnQ=?= <rdenis@simphalempin.com>,
+	David Stevens <dlstevens@us.ibm.com>, netdev@vger.kernel.org
+To: "C. Scott Ananian" <cscott@laptop.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:56231 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752378AbXFWQZY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jun 2007 12:25:24 -0400
-In-Reply-To: <467D3891.4010906@hartkopp.net>
+Received: from proxima.lp0.eu ([85.158.45.36]:47796 "EHLO proxima.lp0.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754490AbXFWQk7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 23 Jun 2007 12:40:59 -0400
+In-Reply-To: <c6d9bea0706230747y79d39a6eh3c55de3a29cfb4d1@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Oliver Hartkopp wrote:
-> @Patrick: The changes in dummy.c and ifb.c for the netlink support do
-> not look very complicated (not even for me ;-))
+On 23/06/07 15:47, C. Scott Ananian wrote:
+> Advertisements it received.  I considered storing the *complete*
+> Router Advertisement messages received and pushing them unparsed to
+> userland, just to get around the bogus "DNS in the kernel" politics
+> (hint: it's not a resolver in the kernel, it's just nameserver
+> addresses being stored).  Does anyone really suggest that this would
+> be a better solution?
 
+Yes, but I don't think it should be completely unparsed - it should be
+possible to retrieve the data for a specific attribute type with
+expiration information and with notification of changes.
 
-I have a patch to make it even simpler, it basically needs only
-the rtnl_link_ops structures initialized with one or two members
-for devices like dummy and ifb. Will push once we're through the
-patches I sent recently, until then please use the current interface.
+The kernel has to read RAs anyway, why shouldn't it store them in a way
+that userspace can access it on demand? A /proc file which is in
+resolv.conf format is definitely *wrong*, and while I'd argue for DNS
+being special enough to export its attributes is it really too much to
+have the kernel provide everything from the last valid message in a
+partially parsed format? Applications would then parse the data section
+for RA attributes they understand.
 
-> When these changes are
-> implemented, how do i create/remove my interfaces? Is there any
-> userspace tool like 'tc' for that?
-
-
-Its "ip". I think I've CCed you or one of your colleagues on
-the patches, otherwise please check the list. For a device like
-yours it only needs the patch implementing general RTM_NEWLINK
-support, unless you want to make the loopback parameter
-configurable, in which case you would need to add something
-like iplink_vlan that parses the parameter.
-
-BTW, in case the loopback device is required for normal
-operation it might make sense to create *one* device by
-default, but four identical devices seems a bit extreme.
-
+-- 
+Simon Arlott
