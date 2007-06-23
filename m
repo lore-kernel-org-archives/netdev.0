@@ -1,110 +1,90 @@
-From: David Stevens <dlstevens@us.ibm.com>
+From: =?iso-8859-1?q?R=E9mi_Denis-Courmont?= <rdenis@simphalempin.com>
 Subject: Re: [RFD] First draft of RDNSS-in-RA support for IPv6 DNS autoconfiguration
-Date: Sat, 23 Jun 2007 11:51:10 -0700
-Message-ID: <OF8A941F0F.60C57774-ON88257303.0064A759-88257303.006782B8@us.ibm.com>
-References: <200706232113.01745@auguste.remlab.net>
+Date: Sat, 23 Jun 2007 22:18:44 +0300
+Message-ID: <200706232218.50100@auguste.remlab.net>
+References: <OF8A941F0F.60C57774-ON88257303.0064A759-88257303.006782B8@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: multipart/signed;
+  boundary="nextPart4287948.yUG4r4Y1g1";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
 Cc: cananian@gmail.com, "C. Scott Ananian" <cscott@laptop.org>,
 	netdev@vger.kernel.org
-To: =?ISO-8859-1?Q?R=E9mi_Denis-Courmont?= <rdenis@simphalempin.com>
+To: David Stevens <dlstevens@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e35.co.us.ibm.com ([32.97.110.153]:57058 "EHLO
-	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754301AbXFWSvQ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jun 2007 14:51:16 -0400
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e35.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l5NIpFfh017938
-	for <netdev@vger.kernel.org>; Sat, 23 Jun 2007 14:51:15 -0400
-Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
-	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l5NIpFfA216256
-	for <netdev@vger.kernel.org>; Sat, 23 Jun 2007 12:51:15 -0600
-Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l5NIpFIo027248
-	for <netdev@vger.kernel.org>; Sat, 23 Jun 2007 12:51:15 -0600
-In-Reply-To: <200706232113.01745@auguste.remlab.net>
+Received: from poy.chewa.net ([194.242.114.73]:3199 "EHLO poy.chewa.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751919AbXFWTSw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 23 Jun 2007 15:18:52 -0400
+In-Reply-To: <OF8A941F0F.60C57774-ON88257303.0064A759-88257303.006782B8@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-R=E9mi Denis-Courmont <rdenis@simphalempin.com> wrote on 06/23/2007 11:=
-13:01=20
-AM:
+--nextPart4287948.yUG4r4Y1g1
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
->    An implementation might perform additional validity checks on the
->    ICMPv6 message content and discard malformed packets.  However, a
->    portable application must not assume that such validity checks hav=
-e
->    been performed.
+Le samedi 23 juin 2007, David Stevens a =E9crit :
+>         This doesn't say that unauthenticated packets must be
+> delivered, and I don't think the portability of an RDNS daemon is an
+> issue. But even if you really wanted to run the same code on a
+> non-Linux machine, it just means that your daemon code would have to
+> do its own authentication.
+> Reading /proc or netlink with packet formats you've defined to get
+> this information is not more portable to non-Linux machines, right? I
+> don't see any issue here. If an application is relying on the ability
+> to see forged packets for portability reasons, it's probably not an
+> application you want running on your machine. :-)
 
-        This doesn't say that unauthenticated packets must be delivered=
-,
-and I don't think the portability of an RDNS daemon is an issue. But
-even if you really wanted to run the same code on a non-Linux machine,
-it just means that your daemon code would have to do its own=20
-authentication.
-Reading /proc or netlink with packet formats you've defined to get this
-information is not more portable to non-Linux machines, right?
-        I don't see any issue here. If an application is relying on the
-ability to see forged packets for portability reasons, it's probably no=
-t
-an application you want running on your machine. :-)
+It so happens that the very userland applications that are currently=20
+using raw ICMPv6 sockets to see RAs *DO* want to see them all. As far=20
+as I know, they are all monitoring softwares (radvdump from radvd,=20
+rdisc6 from ndisc6, and probably scapy as well) where you do want to=20
+see "problematic" packets.
 
-> That would encourage people into running open recursive DNS servers=20
-> which is widely known and documented as a bad practice. Definitely a=20
-> very bad idea.
-        I don't understand your point here. I'm talking about client
-behaviour, and if the client fails for a server from a downed interface=
-,
-I don't see how that's different from removing the client from the
-list, which is what you want to do. Nobody should feel encouraged to
-do anything different on the server side-- at least not by me!
-=20
-> > But if you really need it, you can monitor netlink, or poll the
-> > interface flags on whatever interval you require for detection.
->=20
-> >         As for autoconf, that's available from sysctl, I assume fro=
-m
-> > /proc somewhere, too. That usually doesn't change, but if you want =
-to
-> > account for runtime configuration changes, you can always monitor
-> > netlink and reread when new addresses appear, too.
->=20
-> There are a bunch of parameters that determine whether an interface=20
-> accepts RAs or not. I doubt it's wise to try to reimplement that into=
-=20
-> userspace, particularly if it is subject to change.
+All in all, this would break well-behaved standard-abiding userland=20
+applications...
 
-        I'm not suggesting re-implementing anything; I'm saying you can
-read the current state at application level, if you need it. If you
-think it's difficult to get the correct information from existing
-API's, then improving those API's is always worthwhile. I don't
-believe it's excessively difficult to determine if autoconf is in
-use, though.
+> > The userspace DNS configuration daemon might need to be started
+> > later than the kernel autoconf - another issue that needs help from
+> > the kernel.
+>
+>         Easily done; the init scripts are what bring the interfaces
+> up in the first place, so start the daemon before those run. Adding
+> an entry in inittab so it'll be automatically restarted if it dies is
+> also a reasonable thing. RA's are resent periodically, and they can
+> be lost anyway, so not the end of the world if you miss one, either.
 
-> My point=20
-> is raw IPv6 sockets are not usable for the time being, and I do not s=
-ee=20
-> anyway to fix without modifying the kernel.
+What about NFS root? the network interface will already be up before=20
+even the real init gets started, let alone the userland RDNSS daemon.
 
-I disagree about raw sockets being usable, but "without modifying the
-kernel" isn't a constraint.
-"modifying the kernel" !=3D "put DNS server info in the kernel";
-if there's a bug, or some minor tweaking that'd help the feature along,
-I'd support that. The important point for me is that the basic mechanis=
-ms
-are already in place, and I think it'd be best to use those rather than
-creating a new interface for all of this.
+"resent periodically"... at a default rate of one every 10 minutes! I=20
+surely hope your desktop boots up faster than that. Besides, some links=20
+do not have unsolicited advertisements at all (I have seen such a PPPoA=20
+link for instance). An ugly kludge would be to send a RS from userland,=20
+but that's not so great considering routers are rate-limiting their=20
+RAs.
 
-> The userspace DNS configuration daemon might need to be started later=
-=20
-> than the kernel autoconf - another issue that needs help from the=20
-> kernel.
-        Easily done; the init scripts are what bring the interfaces up
-in the first place, so start the daemon before those run. Adding an
-entry in inittab so it'll be automatically restarted if it dies is also
-a reasonable thing. RA's are resent periodically, and they can be lost
-anyway, so not the end of the world if you miss one, either.
+The only way is for the kernel to remember "something" about the last=20
+processed RA. That disqualifies raw ICMPv6 sockets.
 
-                                                                +-DLS
+=2D-=20
+R=E9mi Denis-Courmont
+http://www.remlab.net/
 
+--nextPart4287948.yUG4r4Y1g1
+Content-Type: application/pgp-signature; name=signature.asc 
+Content-Description: This is a digitally signed message part.
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.6 (GNU/Linux)
+
+iEYEABECAAYFAkZ9choACgkQw+xtvt1tEr0hEQCeKsliHkdo/Atb8+eqr18SZyCF
+fPQAoKnMVMFwYR5ao/1FNEpVn2vfBkXi
+=fP4i
+-----END PGP SIGNATURE-----
+
+--nextPart4287948.yUG4r4Y1g1--
