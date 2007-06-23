@@ -1,8 +1,7 @@
 From: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
-Subject: [PATCH 2/3] NET: [CORE] Stack changes to add multiqueue hardware
-	support API
-Date: Sat, 23 Jun 2007 14:36:28 -0700
-Message-ID: <20070623213628.18241.51876.stgit@localhost.localdomain>
+Subject: [PATCH 3/3] NET: [SCHED] Qdisc changes and sch_rr added for multiqueue
+Date: Sat, 23 Jun 2007 14:36:33 -0700
+Message-ID: <20070623213633.18241.24627.stgit@localhost.localdomain>
 References: <20070623213614.18241.45511.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,374 +10,295 @@ Cc: netdev@vger.kernel.org, jeff@garzik.org, auke-jan.h.kok@intel.com,
 	hadi@cyberus.ca, kaber@trash.net
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:51512 "EHLO mga02.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:1127 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752317AbXFWVg3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 23 Jun 2007 17:36:29 -0400
+	id S1752331AbXFWVgf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 23 Jun 2007 17:36:35 -0400
 In-Reply-To: <20070623213614.18241.45511.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Updated: Added checks for netif_subqueue_stopped() to netpoll,
-pktgen, and software device dev_queue_xmit().  This will ensure
-external events to these subsystems will be handled correctly if
-a subqueue is shut down.
+Updated: This patch applies on top of Patrick McHardy's RTNETLINK
+nested compat attribute patches.  These are required to preserve
+ABI for iproute2 when working with the multiqueue qdiscs.
 
-Add the multiqueue hardware device support API to the core network
-stack.  Allow drivers to allocate multiple queues and manage them
-at the netdev level if they choose to do so.
+Add the new sch_rr qdisc for multiqueue network device support.
+Allow sch_prio and sch_rr to be compiled with or without multiqueue hardware
+support.
 
-Added a new field to sk_buff, namely queue_mapping, for drivers to
-know which tx_ring to select based on OS classification of the flow.
+sch_rr is part of sch_prio, and is referenced from MODULE_ALIAS.  This
+was done since sch_prio and sch_rr only differ in their dequeue routine.
 
 Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 ---
 
- include/linux/etherdevice.h |    3 +-
- include/linux/netdevice.h   |   62 ++++++++++++++++++++++++++++++++++++++++++-
- include/linux/skbuff.h      |    4 ++-
- net/core/dev.c              |   27 +++++++++++++------
- net/core/netpoll.c          |    8 +++---
- net/core/pktgen.c           |   10 +++++--
- net/core/skbuff.c           |    3 ++
- net/ethernet/eth.c          |    9 +++---
- 8 files changed, 104 insertions(+), 22 deletions(-)
+ include/linux/pkt_sched.h |    4 +-
+ net/sched/Kconfig         |   30 +++++++++++++
+ net/sched/sch_generic.c   |    3 +
+ net/sched/sch_prio.c      |  106 ++++++++++++++++++++++++++++++++++++++++-----
+ 4 files changed, 129 insertions(+), 14 deletions(-)
 
-diff --git a/include/linux/etherdevice.h b/include/linux/etherdevice.h
-index f48eb89..b3fbb54 100644
---- a/include/linux/etherdevice.h
-+++ b/include/linux/etherdevice.h
-@@ -39,7 +39,8 @@ extern void		eth_header_cache_update(struct hh_cache *hh, struct net_device *dev
- extern int		eth_header_cache(struct neighbour *neigh,
- 					 struct hh_cache *hh);
+diff --git a/include/linux/pkt_sched.h b/include/linux/pkt_sched.h
+index 09808b7..ec3a9a5 100644
+--- a/include/linux/pkt_sched.h
++++ b/include/linux/pkt_sched.h
+@@ -103,8 +103,8 @@ struct tc_prio_qopt
  
--extern struct net_device *alloc_etherdev(int sizeof_priv);
-+extern struct net_device *alloc_etherdev_mq(int sizeof_priv, int queue_count);
-+#define alloc_etherdev(sizeof_priv) alloc_etherdev_mq(sizeof_priv, 1)
+ enum
+ {
+-	TCA_PRIO_UNPSEC,
+-	TCA_PRIO_TEST,
++	TCA_PRIO_UNSPEC,
++	TCA_PRIO_MQ,
+ 	__TCA_PRIO_MAX
+ };
  
- /**
-  * is_zero_ether_addr - Determine if give Ethernet address is all zeros.
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index e7913ee..6509eb4 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -108,6 +108,14 @@ struct wireless_dev;
- #define MAX_HEADER (LL_MAX_HEADER + 48)
+diff --git a/net/sched/Kconfig b/net/sched/Kconfig
+index 475df84..7f14fa6 100644
+--- a/net/sched/Kconfig
++++ b/net/sched/Kconfig
+@@ -102,8 +102,16 @@ config NET_SCH_ATM
+ 	  To compile this code as a module, choose M here: the
+ 	  module will be called sch_atm.
+ 
++config NET_SCH_BANDS
++        bool "Multi Band Queueing (PRIO and RR)"
++        ---help---
++          Say Y here if you want to use n-band multiqueue packet
++          schedulers.  These include a priority-based scheduler and
++	   a round-robin scheduler.
++
+ config NET_SCH_PRIO
+ 	tristate "Multi Band Priority Queueing (PRIO)"
++	depends on NET_SCH_BANDS
+ 	---help---
+ 	  Say Y here if you want to use an n-band priority queue packet
+ 	  scheduler.
+@@ -111,6 +119,28 @@ config NET_SCH_PRIO
+ 	  To compile this code as a module, choose M here: the
+ 	  module will be called sch_prio.
+ 
++config NET_SCH_RR
++	tristate "Multi Band Round Robin Queuing (RR)"
++	depends on NET_SCH_BANDS
++	select NET_SCH_PRIO
++	---help---
++	  Say Y here if you want to use an n-band round robin packet
++	  scheduler.
++
++	  The module uses sch_prio for its framework and is aliased as
++	  sch_rr, so it will load sch_prio, although it is referred
++	  to using sch_rr.
++
++config NET_SCH_BANDS_MQ
++	bool "Multiple hardware queue support"
++	depends on NET_SCH_BANDS
++	---help---
++	  Say Y here if you want to allow the PRIO and RR qdiscs to assign
++	  flows to multiple hardware queues on an ethernet device.  This
++	  will still work on devices with 1 queue.
++
++	  Most people will say N here.
++
+ config NET_SCH_RED
+ 	tristate "Random Early Detection (RED)"
+ 	---help---
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index 9461e8a..203d5c4 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -168,7 +168,8 @@ static inline int qdisc_restart(struct net_device *dev)
+ 	spin_unlock(&dev->queue_lock);
+ 
+ 	ret = NETDEV_TX_BUSY;
+-	if (!netif_queue_stopped(dev))
++	if (!netif_queue_stopped(dev) &&
++	    !netif_subqueue_stopped(dev, skb->queue_mapping))
+ 		/* churn baby churn .. */
+ 		ret = dev_hard_start_xmit(skb, dev);
+ 
+diff --git a/net/sched/sch_prio.c b/net/sched/sch_prio.c
+index 40a13e8..8a716f0 100644
+--- a/net/sched/sch_prio.c
++++ b/net/sched/sch_prio.c
+@@ -40,9 +40,11 @@
+ struct prio_sched_data
+ {
+ 	int bands;
++	int curband; /* for round-robin */
+ 	struct tcf_proto *filter_list;
+ 	u8  prio2band[TC_PRIO_MAX+1];
+ 	struct Qdisc *queues[TCQ_PRIO_BANDS];
++	unsigned char mq;
+ };
+ 
+ 
+@@ -70,14 +72,28 @@ prio_classify(struct sk_buff *skb, struct Qdisc *sch, int *qerr)
  #endif
+ 			if (TC_H_MAJ(band))
+ 				band = 0;
++			if (q->mq)
++				skb->queue_mapping = 
++						q->prio2band[band&TC_PRIO_MAX];
++			else
++				skb->queue_mapping = 0;
+ 			return q->queues[q->prio2band[band&TC_PRIO_MAX]];
+ 		}
+ 		band = res.classid;
+ 	}
+ 	band = TC_H_MIN(band) - 1;
+-	if (band >= q->bands)
++	if (band >= q->bands) {
++		if (q->mq)
++			skb->queue_mapping = q->prio2band[0];
++		else
++			skb->queue_mapping = 0;
+ 		return q->queues[q->prio2band[0]];
++	}
  
-+struct net_device_subqueue
++	if (q->mq)
++		skb->queue_mapping = band;
++	else
++		skb->queue_mapping = 0;
+ 	return q->queues[band];
+ }
+ 
+@@ -144,17 +160,57 @@ prio_dequeue(struct Qdisc* sch)
+ 	struct Qdisc *qdisc;
+ 
+ 	for (prio = 0; prio < q->bands; prio++) {
+-		qdisc = q->queues[prio];
+-		skb = qdisc->dequeue(qdisc);
+-		if (skb) {
+-			sch->q.qlen--;
+-			return skb;
++		/* Check if the target subqueue is available before
++		 * pulling an skb.  This way we avoid excessive requeues
++		 * for slower queues.
++		 */
++		if (!netif_subqueue_stopped(sch->dev, (q->mq ? prio : 0))) {
++			qdisc = q->queues[prio];
++			skb = qdisc->dequeue(qdisc);
++			if (skb) {
++				sch->q.qlen--;
++				return skb;
++			}
+ 		}
+ 	}
+ 	return NULL;
+ 
+ }
+ 
++static struct sk_buff *rr_dequeue(struct Qdisc* sch)
 +{
-+	/* Give a control state for each queue.  This struct may contain
-+	 * per-queue locks in the future.
++	struct sk_buff *skb;
++	struct prio_sched_data *q = qdisc_priv(sch);
++	struct Qdisc *qdisc;
++	int bandcount;
++
++	/* Only take one pass through the queues.  If nothing is available,
++	 * return nothing.
 +	 */
-+	unsigned long	state;
++	for (bandcount = 0; bandcount < q->bands; bandcount++) {
++		/* Check if the target subqueue is available before
++		 * pulling an skb.  This way we avoid excessive requeues
++		 * for slower queues.  If the queue is stopped, try the
++		 * next queue.
++		 */
++		if (!netif_subqueue_stopped(sch->dev, (q->mq ? q->curband : 0))) {
++			qdisc = q->queues[q->curband];
++			skb = qdisc->dequeue(qdisc);
++			if (skb) {
++				sch->q.qlen--;
++				q->curband++;
++				if (q->curband >= q->bands)
++					q->curband = 0;
++				return skb;
++			}
++		}
++		q->curband++;
++		if (q->curband >= q->bands)
++			q->curband = 0;
++	}
++	return NULL;
++}
++
+ static unsigned int prio_drop(struct Qdisc* sch)
+ {
+ 	struct prio_sched_data *q = qdisc_priv(sch);
+@@ -202,7 +258,7 @@ static int prio_tune(struct Qdisc *sch, struct rtattr *opt)
+ 	struct rtattr *tb[TCA_PRIO_MAX];
+ 	int i;
+ 
+-	if (rtattr_parse_nested_compat(tb, TCA_PRIO_MAX, opt, (void *)&qopt,
++	if (rtattr_parse_nested_compat(tb, TCA_PRIO_MAX, opt, qopt,
+ 				       sizeof(*qopt)))
+ 		return -EINVAL;
+ 	if (qopt->bands > TCQ_PRIO_BANDS || qopt->bands < 2)
+@@ -213,8 +269,14 @@ static int prio_tune(struct Qdisc *sch, struct rtattr *opt)
+ 			return -EINVAL;
+ 	}
+ 
+-	if (tb[TCA_PRIO_TEST-1])
+-		printk("TCA_PRIO_TEST: %u\n", *(u32 *)RTA_DATA(tb[TCA_PRIO_TEST-1]));
++	/* If we're multiqueue, make sure the number of incoming bands
++	 * matches the number of queues on the device we're associating with.
++	 */
++	if (tb[TCA_PRIO_MQ - 1])
++		q->mq = *(unsigned char *)RTA_DATA(tb[TCA_PRIO_MQ - 1]);
++
++	if (q->mq && (qopt->bands != sch->dev->egress_subqueue_count))
++		return -EINVAL;
+ 
+ 	sch_tree_lock(sch);
+ 	q->bands = qopt->bands;
+@@ -280,7 +342,7 @@ static int prio_dump(struct Qdisc *sch, struct sk_buff *skb)
+ 	memcpy(&opt.priomap, q->prio2band, TC_PRIO_MAX+1);
+ 
+ 	nest = RTA_NEST_COMPAT(skb, TCA_OPTIONS, sizeof(opt), &opt);
+-	RTA_PUT_U32(skb, TCA_PRIO_TEST, 321);
++	RTA_PUT_U8(skb, TCA_PRIO_MQ, q->mq);
+ 	RTA_NEST_COMPAT_END(skb, nest);
+ 	return skb->len;
+ 
+@@ -452,17 +514,39 @@ static struct Qdisc_ops prio_qdisc_ops = {
+ 	.owner		=	THIS_MODULE,
+ };
+ 
++static struct Qdisc_ops rr_qdisc_ops = {
++	.next		=	NULL,
++	.cl_ops		=	&prio_class_ops,
++	.id		=	"rr",
++	.priv_size	=	sizeof(struct prio_sched_data),
++	.enqueue	=	prio_enqueue,
++	.dequeue	=	rr_dequeue,
++	.requeue	=	prio_requeue,
++	.drop		=	prio_drop,
++	.init		=	prio_init,
++	.reset		=	prio_reset,
++	.destroy	=	prio_destroy,
++	.change		=	prio_tune,
++	.dump		=	prio_dump,
++	.owner		=	THIS_MODULE,
 +};
 +
- /*
-  *	Network device statistics. Akin to the 2.0 ether stats but
-  *	with byte counters.
-@@ -325,6 +333,7 @@ struct net_device
- #define NETIF_F_VLAN_CHALLENGED	1024	/* Device cannot handle VLAN packets */
- #define NETIF_F_GSO		2048	/* Enable software GSO. */
- #define NETIF_F_LLTX		4096	/* LockLess TX */
-+#define NETIF_F_MULTI_QUEUE	16384	/* Has multiple TX/RX queues */
- 
- 	/* Segmentation offload features */
- #define NETIF_F_GSO_SHIFT	16
-@@ -543,6 +552,10 @@ struct net_device
- 
- 	/* rtnetlink link ops */
- 	const struct rtnl_link_ops *rtnl_link_ops;
-+
-+ 	/* The TX queue control structures */
-+ 	int				egress_subqueue_count;
-+ 	struct net_device_subqueue	egress_subqueue[0];
- };
- #define to_net_dev(d) container_of(d, struct net_device, dev)
- 
-@@ -705,6 +718,48 @@ static inline int netif_running(const struct net_device *dev)
- 	return test_bit(__LINK_STATE_START, &dev->state);
- }
- 
-+/*
-+ * Routines to manage the subqueues on a device.  We only need start
-+ * stop, and a check if it's stopped.  All other device management is
-+ * done at the overall netdevice level.
-+ * Also test the device if we're multiqueue.
-+ */
-+static inline void netif_start_subqueue(struct net_device *dev, u16 queue_index)
-+{
-+	clear_bit(__LINK_STATE_XOFF, &dev->egress_subqueue[queue_index].state);
-+}
-+
-+static inline void netif_stop_subqueue(struct net_device *dev, u16 queue_index)
-+{
-+#ifdef CONFIG_NETPOLL_TRAP
-+	if (netpoll_trap())
-+		return;
-+#endif
-+	set_bit(__LINK_STATE_XOFF, &dev->egress_subqueue[queue_index].state);
-+}
-+
-+static inline int netif_subqueue_stopped(const struct net_device *dev,
-+                                         u16 queue_index)
-+{
-+	return test_bit(__LINK_STATE_XOFF,
-+	                &dev->egress_subqueue[queue_index].state);
-+}
-+
-+static inline void netif_wake_subqueue(struct net_device *dev, u16 queue_index)
-+{
-+#ifdef CONFIG_NETPOLL_TRAP
-+	if (netpoll_trap())
-+		return;
-+#endif
-+	if (test_and_clear_bit(__LINK_STATE_XOFF,
-+	                       &dev->egress_subqueue[queue_index].state))
-+		__netif_schedule(dev);
-+}
-+
-+static inline int netif_is_multiqueue(const struct net_device *dev)
-+{
-+	return (!!(NETIF_F_MULTI_QUEUE & dev->features));
-+}
- 
- /* Use this variant when it is known for sure that it
-  * is executing from interrupt context.
-@@ -995,8 +1050,11 @@ static inline void netif_tx_disable(struct net_device *dev)
- extern void		ether_setup(struct net_device *dev);
- 
- /* Support for loadable net-drivers */
--extern struct net_device *alloc_netdev(int sizeof_priv, const char *name,
--				       void (*setup)(struct net_device *));
-+extern struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
-+					  void (*setup)(struct net_device *),
-+					  int queue_count);
-+#define alloc_netdev(sizeof_priv, name, setup) \
-+	alloc_netdev_mq(sizeof_priv, name, setup, 1)
- extern int		register_netdev(struct net_device *dev);
- extern void		unregister_netdev(struct net_device *dev);
- /* Functions used for multicast support */
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index e7367c7..01b5e25 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -197,6 +197,7 @@ typedef unsigned char *sk_buff_data_t;
-  *	@tstamp: Time we arrived
-  *	@dev: Device we arrived on/are leaving by
-  *	@iif: ifindex of device we arrived on
-+ *	@queue_mapping: Queue mapping for multiqueue devices
-  *	@transport_header: Transport layer header
-  *	@network_header: Network layer header
-  *	@mac_header: Link layer header
-@@ -246,7 +247,8 @@ struct sk_buff {
- 	ktime_t			tstamp;
- 	struct net_device	*dev;
- 	int			iif;
--	/* 4 byte hole on 64 bit*/
-+	__u16			queue_mapping;
-+	/* 2 byte hole on 64 bit*/
- 
- 	struct  dst_entry	*dst;
- 	struct	sec_path	*sp;
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 2609062..9ea8a47 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1429,7 +1429,9 @@ gso:
- 			skb->next = nskb;
- 			return rc;
- 		}
--		if (unlikely(netif_queue_stopped(dev) && skb->next))
-+		if (unlikely((netif_queue_stopped(dev) ||
-+			     netif_subqueue_stopped(dev, skb->queue_mapping)) &&
-+			     skb->next))
- 			return NETDEV_TX_BUSY;
- 	} while (skb->next);
- 
-@@ -1545,6 +1547,8 @@ gso:
- 		spin_lock(&dev->queue_lock);
- 		q = dev->qdisc;
- 		if (q->enqueue) {
-+			/* reset queue_mapping to zero */
-+			skb->queue_mapping = 0;
- 			rc = q->enqueue(skb, q);
- 			qdisc_run(dev);
- 			spin_unlock(&dev->queue_lock);
-@@ -1574,7 +1578,8 @@ gso:
- 
- 			HARD_TX_LOCK(dev, cpu);
- 
--			if (!netif_queue_stopped(dev)) {
-+			if (!netif_queue_stopped(dev) &&
-+			    !netif_subqueue_stopped(dev, skb->queue_mapping)) {
- 				rc = 0;
- 				if (!dev_hard_start_xmit(skb, dev)) {
- 					HARD_TX_UNLOCK(dev);
-@@ -3343,16 +3348,18 @@ static struct net_device_stats *internal_stats(struct net_device *dev)
- }
- 
- /**
-- *	alloc_netdev - allocate network device
-+ *	alloc_netdev_mq - allocate network device
-  *	@sizeof_priv:	size of private data to allocate space for
-  *	@name:		device name format string
-  *	@setup:		callback to initialize device
-+ *	@queue_count:	the number of subqueues to allocate
-  *
-  *	Allocates a struct net_device with private data area for driver use
-- *	and performs basic initialization.
-+ *	and performs basic initialization.  Also allocates subqueue structs
-+ *	for each queue on the device at the end of the netdevice.
-  */
--struct net_device *alloc_netdev(int sizeof_priv, const char *name,
--		void (*setup)(struct net_device *))
-+struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
-+		void (*setup)(struct net_device *), int queue_count)
+ static int __init prio_module_init(void)
  {
- 	void *p;
- 	struct net_device *dev;
-@@ -3361,7 +3368,9 @@ struct net_device *alloc_netdev(int sizeof_priv, const char *name,
- 	BUG_ON(strlen(name) >= sizeof(dev->name));
- 
- 	/* ensure 32-byte alignment of both the device and private area */
--	alloc_size = (sizeof(*dev) + NETDEV_ALIGN_CONST) & ~NETDEV_ALIGN_CONST;
-+	alloc_size = (sizeof(*dev) + NETDEV_ALIGN_CONST +
-+		     (sizeof(struct net_device_subqueue) * (queue_count - 1))) &
-+		     ~NETDEV_ALIGN_CONST;
- 	alloc_size += sizeof_priv + NETDEV_ALIGN_CONST;
- 
- 	p = kzalloc(alloc_size, GFP_KERNEL);
-@@ -3377,12 +3386,14 @@ struct net_device *alloc_netdev(int sizeof_priv, const char *name,
- 	if (sizeof_priv)
- 		dev->priv = netdev_priv(dev);
- 
-+  	dev->egress_subqueue_count = queue_count;
+-	return register_qdisc(&prio_qdisc_ops);
++	register_qdisc(&prio_qdisc_ops);
++	register_qdisc(&rr_qdisc_ops);
 +
- 	dev->get_stats = internal_stats;
- 	setup(dev);
- 	strcpy(dev->name, name);
- 	return dev;
++	return 0;
  }
--EXPORT_SYMBOL(alloc_netdev);
-+EXPORT_SYMBOL(alloc_netdev_mq);
  
- /**
-  *	free_netdev - free network device
-diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index 758dafe..aac8acf 100644
---- a/net/core/netpoll.c
-+++ b/net/core/netpoll.c
-@@ -66,8 +66,9 @@ static void queue_process(struct work_struct *work)
- 
- 		local_irq_save(flags);
- 		netif_tx_lock(dev);
--		if (netif_queue_stopped(dev) ||
--		    dev->hard_start_xmit(skb, dev) != NETDEV_TX_OK) {
-+		if ((netif_queue_stopped(dev) || 
-+		     netif_subqueue_stopped(dev, skb->queue_mapping)) ||
-+		     dev->hard_start_xmit(skb, dev) != NETDEV_TX_OK) {
- 			skb_queue_head(&npinfo->txq, skb);
- 			netif_tx_unlock(dev);
- 			local_irq_restore(flags);
-@@ -254,7 +255,8 @@ static void netpoll_send_skb(struct netpoll *np, struct sk_buff *skb)
- 			/* try until next clock tick */
- 			for (tries = jiffies_to_usecs(1)/USEC_PER_POLL;
- 					tries > 0; --tries) {
--				if (!netif_queue_stopped(dev))
-+				if (!netif_queue_stopped(dev) &&
-+				    !netif_subqueue_stopped(dev, skb->queue_mapping))
- 					status = dev->hard_start_xmit(skb, dev);
- 
- 				if (status == NETDEV_TX_OK)
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index 9cd3a1c..dffe067 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -3139,7 +3139,9 @@ static __inline__ void pktgen_xmit(struct pktgen_dev *pkt_dev)
- 		}
- 	}
- 
--	if (netif_queue_stopped(odev) || need_resched()) {
-+	if ((netif_queue_stopped(odev) ||
-+	     netif_subqueue_stopped(odev, pkt_dev->skb->queue_mapping)) ||
-+	     need_resched()) {
- 		idle_start = getCurUs();
- 
- 		if (!netif_running(odev)) {
-@@ -3154,7 +3156,8 @@ static __inline__ void pktgen_xmit(struct pktgen_dev *pkt_dev)
- 
- 		pkt_dev->idle_acc += getCurUs() - idle_start;
- 
--		if (netif_queue_stopped(odev)) {
-+		if (netif_queue_stopped(odev) ||
-+		    netif_subqueue_stopped(odev, pkt_dev->skb->queue_mapping)) {
- 			pkt_dev->next_tx_us = getCurUs();	/* TODO */
- 			pkt_dev->next_tx_ns = 0;
- 			goto out;	/* Try the next interface */
-@@ -3181,7 +3184,8 @@ static __inline__ void pktgen_xmit(struct pktgen_dev *pkt_dev)
- 	}
- 
- 	netif_tx_lock_bh(odev);
--	if (!netif_queue_stopped(odev)) {
-+	if (!netif_queue_stopped(odev) &&
-+	    !netif_subqueue_stopped(odev, pkt_dev->skb->queue_mapping)) {
- 
- 		atomic_inc(&(pkt_dev->skb->users));
- 	      retry_now:
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 7c6a34e..7bbed45 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -418,6 +418,7 @@ struct sk_buff *skb_clone(struct sk_buff *skb, gfp_t gfp_mask)
- 	n->nohdr = 0;
- 	C(pkt_type);
- 	C(ip_summed);
-+	C(queue_mapping);
- 	C(priority);
- #if defined(CONFIG_IP_VS) || defined(CONFIG_IP_VS_MODULE)
- 	C(ipvs_property);
-@@ -459,6 +460,7 @@ static void copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
- #endif
- 	new->sk		= NULL;
- 	new->dev	= old->dev;
-+	new->queue_mapping = old->queue_mapping;
- 	new->priority	= old->priority;
- 	new->protocol	= old->protocol;
- 	new->dst	= dst_clone(old->dst);
-@@ -1925,6 +1927,7 @@ struct sk_buff *skb_segment(struct sk_buff *skb, int features)
- 		tail = nskb;
- 
- 		nskb->dev = skb->dev;
-+		nskb->queue_mapping = skb->queue_mapping;
- 		nskb->priority = skb->priority;
- 		nskb->protocol = skb->protocol;
- 		nskb->dst = dst_clone(skb->dst);
-diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
-index 0ac2524..87a509c 100644
---- a/net/ethernet/eth.c
-+++ b/net/ethernet/eth.c
-@@ -316,9 +316,10 @@ void ether_setup(struct net_device *dev)
- EXPORT_SYMBOL(ether_setup);
- 
- /**
-- * alloc_etherdev - Allocates and sets up an Ethernet device
-+ * alloc_etherdev_mq - Allocates and sets up an Ethernet device
-  * @sizeof_priv: Size of additional driver-private structure to be allocated
-  *	for this Ethernet device
-+ * @queue_count: The number of queues this device has.
-  *
-  * Fill in the fields of the device structure with Ethernet-generic
-  * values. Basically does everything except registering the device.
-@@ -328,8 +329,8 @@ EXPORT_SYMBOL(ether_setup);
-  * this private data area.
-  */
- 
--struct net_device *alloc_etherdev(int sizeof_priv)
-+struct net_device *alloc_etherdev_mq(int sizeof_priv, int queue_count)
+ static void __exit prio_module_exit(void)
  {
--	return alloc_netdev(sizeof_priv, "eth%d", ether_setup);
-+	return alloc_netdev_mq(sizeof_priv, "eth%d", ether_setup, queue_count);
+ 	unregister_qdisc(&prio_qdisc_ops);
++	unregister_qdisc(&rr_qdisc_ops);
  }
--EXPORT_SYMBOL(alloc_etherdev);
-+EXPORT_SYMBOL(alloc_etherdev_mq);
+ 
+ module_init(prio_module_init)
+ module_exit(prio_module_exit)
+ 
+ MODULE_LICENSE("GPL");
++MODULE_ALIAS("sch_rr");
