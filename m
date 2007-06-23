@@ -1,7 +1,7 @@
 From: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
-Subject: [PATCH 3/3] NET: [SCHED] Qdisc changes and sch_rr added for multiqueue
-Date: Sat, 23 Jun 2007 14:36:33 -0700
-Message-ID: <20070623213633.18241.24627.stgit@localhost.localdomain>
+Subject: [PATCH 1/3] NET: [DOC] Multiqueue hardware support documentation
+Date: Sat, 23 Jun 2007 14:36:23 -0700
+Message-ID: <20070623213623.18241.72434.stgit@localhost.localdomain>
 References: <20070623213614.18241.45511.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,295 +10,134 @@ Cc: netdev@vger.kernel.org, jeff@garzik.org, auke-jan.h.kok@intel.com,
 	hadi@cyberus.ca, kaber@trash.net
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:1127 "EHLO mga09.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:42611 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752331AbXFWVgf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 23 Jun 2007 17:36:35 -0400
+	id S1752403AbXFWVgu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 23 Jun 2007 17:36:50 -0400
 In-Reply-To: <20070623213614.18241.45511.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Updated: This patch applies on top of Patrick McHardy's RTNETLINK
-nested compat attribute patches.  These are required to preserve
-ABI for iproute2 when working with the multiqueue qdiscs.
-
-Add the new sch_rr qdisc for multiqueue network device support.
-Allow sch_prio and sch_rr to be compiled with or without multiqueue hardware
-support.
-
-sch_rr is part of sch_prio, and is referenced from MODULE_ALIAS.  This
-was done since sch_prio and sch_rr only differ in their dequeue routine.
+Add a brief howto to Documentation/networking for multiqueue.  It
+explains how to use the multiqueue API in a driver to support
+multiqueue paths from the stack, as well as the qdiscs to use for
+feeding a multiqueue device.
 
 Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 ---
 
- include/linux/pkt_sched.h |    4 +-
- net/sched/Kconfig         |   30 +++++++++++++
- net/sched/sch_generic.c   |    3 +
- net/sched/sch_prio.c      |  106 ++++++++++++++++++++++++++++++++++++++++-----
- 4 files changed, 129 insertions(+), 14 deletions(-)
+ Documentation/networking/multiqueue.txt |  106 +++++++++++++++++++++++++++++++
+ 1 files changed, 106 insertions(+), 0 deletions(-)
 
-diff --git a/include/linux/pkt_sched.h b/include/linux/pkt_sched.h
-index 09808b7..ec3a9a5 100644
---- a/include/linux/pkt_sched.h
-+++ b/include/linux/pkt_sched.h
-@@ -103,8 +103,8 @@ struct tc_prio_qopt
- 
- enum
- {
--	TCA_PRIO_UNPSEC,
--	TCA_PRIO_TEST,
-+	TCA_PRIO_UNSPEC,
-+	TCA_PRIO_MQ,
- 	__TCA_PRIO_MAX
- };
- 
-diff --git a/net/sched/Kconfig b/net/sched/Kconfig
-index 475df84..7f14fa6 100644
---- a/net/sched/Kconfig
-+++ b/net/sched/Kconfig
-@@ -102,8 +102,16 @@ config NET_SCH_ATM
- 	  To compile this code as a module, choose M here: the
- 	  module will be called sch_atm.
- 
-+config NET_SCH_BANDS
-+        bool "Multi Band Queueing (PRIO and RR)"
-+        ---help---
-+          Say Y here if you want to use n-band multiqueue packet
-+          schedulers.  These include a priority-based scheduler and
-+	   a round-robin scheduler.
+diff --git a/Documentation/networking/multiqueue.txt b/Documentation/networking/multiqueue.txt
+new file mode 100644
+index 0000000..b7ede56
+--- /dev/null
++++ b/Documentation/networking/multiqueue.txt
+@@ -0,0 +1,106 @@
 +
- config NET_SCH_PRIO
- 	tristate "Multi Band Priority Queueing (PRIO)"
-+	depends on NET_SCH_BANDS
- 	---help---
- 	  Say Y here if you want to use an n-band priority queue packet
- 	  scheduler.
-@@ -111,6 +119,28 @@ config NET_SCH_PRIO
- 	  To compile this code as a module, choose M here: the
- 	  module will be called sch_prio.
- 
-+config NET_SCH_RR
-+	tristate "Multi Band Round Robin Queuing (RR)"
-+	depends on NET_SCH_BANDS
-+	select NET_SCH_PRIO
-+	---help---
-+	  Say Y here if you want to use an n-band round robin packet
-+	  scheduler.
++		HOWTO for multiqueue network device support
++		===========================================
 +
-+	  The module uses sch_prio for its framework and is aliased as
-+	  sch_rr, so it will load sch_prio, although it is referred
-+	  to using sch_rr.
++Section 1: Base driver requirements for implementing multiqueue support
++Section 2: Qdisc support for multiqueue devices
++Section 3: Brief howto using PRIO or RR for multiqueue devices
 +
-+config NET_SCH_BANDS_MQ
-+	bool "Multiple hardware queue support"
-+	depends on NET_SCH_BANDS
-+	---help---
-+	  Say Y here if you want to allow the PRIO and RR qdiscs to assign
-+	  flows to multiple hardware queues on an ethernet device.  This
-+	  will still work on devices with 1 queue.
 +
-+	  Most people will say N here.
++Intro: Kernel support for multiqueue devices
++---------------------------------------------------------
 +
- config NET_SCH_RED
- 	tristate "Random Early Detection (RED)"
- 	---help---
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index 9461e8a..203d5c4 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -168,7 +168,8 @@ static inline int qdisc_restart(struct net_device *dev)
- 	spin_unlock(&dev->queue_lock);
- 
- 	ret = NETDEV_TX_BUSY;
--	if (!netif_queue_stopped(dev))
-+	if (!netif_queue_stopped(dev) &&
-+	    !netif_subqueue_stopped(dev, skb->queue_mapping))
- 		/* churn baby churn .. */
- 		ret = dev_hard_start_xmit(skb, dev);
- 
-diff --git a/net/sched/sch_prio.c b/net/sched/sch_prio.c
-index 40a13e8..8a716f0 100644
---- a/net/sched/sch_prio.c
-+++ b/net/sched/sch_prio.c
-@@ -40,9 +40,11 @@
- struct prio_sched_data
- {
- 	int bands;
-+	int curband; /* for round-robin */
- 	struct tcf_proto *filter_list;
- 	u8  prio2band[TC_PRIO_MAX+1];
- 	struct Qdisc *queues[TCQ_PRIO_BANDS];
-+	unsigned char mq;
- };
- 
- 
-@@ -70,14 +72,28 @@ prio_classify(struct sk_buff *skb, struct Qdisc *sch, int *qerr)
- #endif
- 			if (TC_H_MAJ(band))
- 				band = 0;
-+			if (q->mq)
-+				skb->queue_mapping = 
-+						q->prio2band[band&TC_PRIO_MAX];
-+			else
-+				skb->queue_mapping = 0;
- 			return q->queues[q->prio2band[band&TC_PRIO_MAX]];
- 		}
- 		band = res.classid;
- 	}
- 	band = TC_H_MIN(band) - 1;
--	if (band >= q->bands)
-+	if (band >= q->bands) {
-+		if (q->mq)
-+			skb->queue_mapping = q->prio2band[0];
-+		else
-+			skb->queue_mapping = 0;
- 		return q->queues[q->prio2band[0]];
-+	}
- 
-+	if (q->mq)
-+		skb->queue_mapping = band;
-+	else
-+		skb->queue_mapping = 0;
- 	return q->queues[band];
- }
- 
-@@ -144,17 +160,57 @@ prio_dequeue(struct Qdisc* sch)
- 	struct Qdisc *qdisc;
- 
- 	for (prio = 0; prio < q->bands; prio++) {
--		qdisc = q->queues[prio];
--		skb = qdisc->dequeue(qdisc);
--		if (skb) {
--			sch->q.qlen--;
--			return skb;
-+		/* Check if the target subqueue is available before
-+		 * pulling an skb.  This way we avoid excessive requeues
-+		 * for slower queues.
-+		 */
-+		if (!netif_subqueue_stopped(sch->dev, (q->mq ? prio : 0))) {
-+			qdisc = q->queues[prio];
-+			skb = qdisc->dequeue(qdisc);
-+			if (skb) {
-+				sch->q.qlen--;
-+				return skb;
-+			}
- 		}
- 	}
- 	return NULL;
- 
- }
- 
-+static struct sk_buff *rr_dequeue(struct Qdisc* sch)
-+{
-+	struct sk_buff *skb;
-+	struct prio_sched_data *q = qdisc_priv(sch);
-+	struct Qdisc *qdisc;
-+	int bandcount;
++Kernel support for multiqueue devices is only an API that is presented to the
++netdevice layer for base drivers to implement.  This feature is part of the
++core networking stack, and all network devices will be running on the
++multiqueue-aware stack.  If a base driver only has one queue, then these
++changes are transparent to that driver.
 +
-+	/* Only take one pass through the queues.  If nothing is available,
-+	 * return nothing.
-+	 */
-+	for (bandcount = 0; bandcount < q->bands; bandcount++) {
-+		/* Check if the target subqueue is available before
-+		 * pulling an skb.  This way we avoid excessive requeues
-+		 * for slower queues.  If the queue is stopped, try the
-+		 * next queue.
-+		 */
-+		if (!netif_subqueue_stopped(sch->dev, (q->mq ? q->curband : 0))) {
-+			qdisc = q->queues[q->curband];
-+			skb = qdisc->dequeue(qdisc);
-+			if (skb) {
-+				sch->q.qlen--;
-+				q->curband++;
-+				if (q->curband >= q->bands)
-+					q->curband = 0;
-+				return skb;
-+			}
-+		}
-+		q->curband++;
-+		if (q->curband >= q->bands)
-+			q->curband = 0;
-+	}
-+	return NULL;
-+}
 +
- static unsigned int prio_drop(struct Qdisc* sch)
- {
- 	struct prio_sched_data *q = qdisc_priv(sch);
-@@ -202,7 +258,7 @@ static int prio_tune(struct Qdisc *sch, struct rtattr *opt)
- 	struct rtattr *tb[TCA_PRIO_MAX];
- 	int i;
- 
--	if (rtattr_parse_nested_compat(tb, TCA_PRIO_MAX, opt, (void *)&qopt,
-+	if (rtattr_parse_nested_compat(tb, TCA_PRIO_MAX, opt, qopt,
- 				       sizeof(*qopt)))
- 		return -EINVAL;
- 	if (qopt->bands > TCQ_PRIO_BANDS || qopt->bands < 2)
-@@ -213,8 +269,14 @@ static int prio_tune(struct Qdisc *sch, struct rtattr *opt)
- 			return -EINVAL;
- 	}
- 
--	if (tb[TCA_PRIO_TEST-1])
--		printk("TCA_PRIO_TEST: %u\n", *(u32 *)RTA_DATA(tb[TCA_PRIO_TEST-1]));
-+	/* If we're multiqueue, make sure the number of incoming bands
-+	 * matches the number of queues on the device we're associating with.
-+	 */
-+	if (tb[TCA_PRIO_MQ - 1])
-+		q->mq = *(unsigned char *)RTA_DATA(tb[TCA_PRIO_MQ - 1]);
++Section 1: Base driver requirements for implementing multiqueue support
++-----------------------------------------------------------------------
 +
-+	if (q->mq && (qopt->bands != sch->dev->egress_subqueue_count))
-+		return -EINVAL;
- 
- 	sch_tree_lock(sch);
- 	q->bands = qopt->bands;
-@@ -280,7 +342,7 @@ static int prio_dump(struct Qdisc *sch, struct sk_buff *skb)
- 	memcpy(&opt.priomap, q->prio2band, TC_PRIO_MAX+1);
- 
- 	nest = RTA_NEST_COMPAT(skb, TCA_OPTIONS, sizeof(opt), &opt);
--	RTA_PUT_U32(skb, TCA_PRIO_TEST, 321);
-+	RTA_PUT_U8(skb, TCA_PRIO_MQ, q->mq);
- 	RTA_NEST_COMPAT_END(skb, nest);
- 	return skb->len;
- 
-@@ -452,17 +514,39 @@ static struct Qdisc_ops prio_qdisc_ops = {
- 	.owner		=	THIS_MODULE,
- };
- 
-+static struct Qdisc_ops rr_qdisc_ops = {
-+	.next		=	NULL,
-+	.cl_ops		=	&prio_class_ops,
-+	.id		=	"rr",
-+	.priv_size	=	sizeof(struct prio_sched_data),
-+	.enqueue	=	prio_enqueue,
-+	.dequeue	=	rr_dequeue,
-+	.requeue	=	prio_requeue,
-+	.drop		=	prio_drop,
-+	.init		=	prio_init,
-+	.reset		=	prio_reset,
-+	.destroy	=	prio_destroy,
-+	.change		=	prio_tune,
-+	.dump		=	prio_dump,
-+	.owner		=	THIS_MODULE,
-+};
++Base drivers are required to use the new alloc_etherdev_mq() or
++alloc_netdev_mq() functions to allocate the subqueues for the device.  The
++underlying kernel API will take care of the allocation and deallocation of
++the subqueue memory, as well as netdev configuration of where the queues
++exist in memory.
 +
- static int __init prio_module_init(void)
- {
--	return register_qdisc(&prio_qdisc_ops);
-+	register_qdisc(&prio_qdisc_ops);
-+	register_qdisc(&rr_qdisc_ops);
++The base driver will also need to manage the queues as it does the global
++netdev->queue_lock today.  Therefore base drivers should use the
++netif_{start|stop|wake}_subqueue() functions to manage each queue while the
++device is still operational.  netdev->queue_lock is still used when the device
++comes online or when it's completely shut down (unregister_netdev(), etc.).
 +
-+	return 0;
- }
- 
- static void __exit prio_module_exit(void)
- {
- 	unregister_qdisc(&prio_qdisc_ops);
-+	unregister_qdisc(&rr_qdisc_ops);
- }
- 
- module_init(prio_module_init)
- module_exit(prio_module_exit)
- 
- MODULE_LICENSE("GPL");
-+MODULE_ALIAS("sch_rr");
++Finally, the base driver should indicate that it is a multiqueue device.  The
++feature flag NETIF_F_MULTI_QUEUE should be added to the netdev->features
++bitmap on device initialization.  Below is an example from e1000:
++
++#ifdef CONFIG_E1000_MQ
++	if ( (adapter->hw.mac.type == e1000_82571) ||
++	     (adapter->hw.mac.type == e1000_82572) ||
++	     (adapter->hw.mac.type == e1000_80003es2lan))
++		netdev->features |= NETIF_F_MULTI_QUEUE;
++#endif
++
++
++Section 2: Qdisc support for multiqueue devices
++-----------------------------------------------
++
++Currently two qdiscs support multiqueue devices.  A new round-robin qdisc,
++sch_rr, and sch_prio. The qdisc is responsible for classifying the skb's to
++bands and queues, and will store the queue mapping into skb->queue_mapping.
++Use this field in the base driver to determine which queue to send the skb
++to.
++
++sch_rr has been added for hardware that doesn't want scheduling policies from
++software, so it's a straight round-robin qdisc.  It uses the same syntax and
++classification priomap that sch_prio uses, so it should be intuitive to
++configure for people who've used sch_prio.
++
++The PRIO qdisc naturally plugs into a multiqueue device.  If PRIO has been
++built with NET_SCH_PRIO_MQ, then upon load, it will make sure the number of
++bands requested is equal to the number of queues on the hardware.  If they
++are equal, it sets a one-to-one mapping up between the queues and bands.  If
++they're not equal, it will not load the qdisc.  This is the same behavior
++for RR.  Once the association is made, any skb that is classified will have
++skb->queue_mapping set, which will allow the driver to properly queue skb's
++to multiple queues.
++
++
++Section 3: Brief howto using PRIO and RR for multiqueue devices
++---------------------------------------------------------------
++
++The userspace command 'tc,' part of the iproute2 package, is used to configure
++qdiscs.  To add the PRIO qdisc to your network device, assuming the device is
++called eth0, run the following command:
++
++# tc qdisc add dev eth0 root handle 1: prio bands 4 multiqueue
++
++This will create 4 bands, 0 being highest priority, and associate those bands
++to the queues on your NIC.  Assuming eth0 has 4 Tx queues, the band mapping
++would look like:
++
++band 0 => queue 0
++band 1 => queue 1
++band 2 => queue 2
++band 3 => queue 3
++
++Traffic will begin flowing through each queue if your TOS values are assigning
++traffic across the various bands.  For example, ssh traffic will always try to
++go out band 0 based on TOS -> Linux priority conversion (realtime traffic),
++so it will be sent out queue 0.  ICMP traffic (pings) fall into the "normal"
++traffic classification, which is band 1.  Therefore pings will be send out
++queue 1 on the NIC.
++
++Note the use of the multiqueue keyword.  This is only in versions of iproute2
++that support multiqueue networking devices; if this is omitted when loading
++a qdisc onto a multiqueue device, the qdisc will load and operate the same
++if it were loaded onto a single-queue device (i.e. - sends all traffic to
++queue 0).
++
++The behavior of tc filters remains the same, where it will override TOS priority
++classification.
++
++
++Author: Peter P. Waskiewicz Jr. <peter.p.waskiewicz.jr@intel.com>
