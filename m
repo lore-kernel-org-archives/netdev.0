@@ -1,42 +1,67 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH v2.6.22-rc5] cxgb2: handle possible NULL pointer
- dereferencing, take 2
-Date: Sat, 23 Jun 2007 09:54:46 -0700
-Message-ID: <20070623095446.c1a9c697.akpm@linux-foundation.org>
-References: <a901b49a0706210553r58ea8743gc565fcca1a87b58f@mail.gmail.com>
-	<a901b49a0706210618q7c22cbe0jd6f7e052a8e05a97@mail.gmail.com>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: [PATCH] e1000: Work around 82571 completion
+	timout on Pseries HW
+Date: Sat, 23 Jun 2007 10:05:08 -0700
+Message-ID: <467D52C4.6010905@intel.com>
+References: <20070517090119.GA27145@infradead.org>
+	<OFDD90D73E.30B0DB27-ON872572DE.004ED0BE-862572DE.005242EA@us.ibm.com>
+	<20070623082003.GA29471@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: trivial@kernel.org, netdev@vger.kernel.org, jgarzik@pobox.com
-To: "pradeep singh" <pradeep.rautela@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:52136 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755352AbXFWREl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jun 2007 13:04:41 -0400
-In-Reply-To: <a901b49a0706210618q7c22cbe0jd6f7e052a8e05a97@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: wendyx@linux.vnet.ibm.com, Auke Kok <auke-jan.h.kok@intel.com>,
+	jeff@garzik.org, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, Kumar Gala <galak@kernel.crashing.org>,
+	Wen Xiong <wenxiong@us.ibm.com>
+To: Christoph Hellwig <hch@infradead.org>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-reply-to: <20070623082003.GA29471@infradead.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-> On Thu, 21 Jun 2007 18:48:30 +0530 "pradeep singh" <pradeep.rautela@gmail.com> wrote:
-> Hi,
-> My mistake.
-> Resending after reformatting the patch by hand.
-> Looks like gmail messes the plain text patches.
+Christoph Hellwig wrote:
+> On Thu, May 17, 2007 at 09:58:03AM -0500, Wen Xiong wrote:
+>>>> It really shouldn't be there at all because something in either the 
+>> intel
+>>>> or pseries hardware is totally buggy and we should disable features in
+>>>> the buggy one completely.
+>> Hi,
+>>
+>> Here there are not hardware issue on both Intel or PPC.  The patch is to 
+>> work around a loop hold on early version of PCI SGI spec. 
+>> The later PCI Sgi have spec have corrected it.  We can just implement it 
+>> for PPC only.  Other vendor may have the same issue.
 > 
+> In this case we should add a blacklist for implementations of the old
+> spec.  There should be a way to find specific bridges in the OF firmware
+> tree on powerpc and similar things on other platforms aswell.
 
-That's still mangled so I typed it in again.
+Yes, this is almost what we did.
 
-Please always include a full changlog with each version of a patch.
+IBM is currently testing my patches that implement a generic pci quirk that will 
+be enabled for only selected root complex ID's that require the (1.0a spec) 
+device to disable the completion timeouts.
 
-I do not know what this patch does - please provide a changelog.  In this
-case it should tell us whether and how this null pointer deref is actually
-occuring and if so, why.
+They are currently validating this test on the affected hardware. I expect to 
+get the results within a week and then I will post the patch.
 
-As well as a full description of the problem which it solves, a changelog
-should also describe _how_ it solved it, but that is sufficiently obvious
-in this case.
+Since this is one of the few holes in between the two specs (where manual 
+intervention is needed) I think that a single quirk is a fairly sane approach.
 
+Cheers,
 
-Thanks.
+Auke
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by DB2 Express
+Download DB2 Express C - the FREE version of DB2 express and take
+control of your XML. No limits. Just data. Click to get it now.
+http://sourceforge.net/powerbar/db2/
