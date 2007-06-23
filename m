@@ -1,8 +1,8 @@
 From: Oliver Hartkopp <oliver@hartkopp.net>
 Subject: Re: [patch 5/7] CAN: Add virtual CAN netdevice driver
-Date: Sat, 23 Jun 2007 23:44:48 +0200
-Message-ID: <467D9450.2020400@hartkopp.net>
-References: <467D0C97.1000000@hartkopp.net>	<467D178B.8080503@trash.net>	<467D3891.4010906@hartkopp.net> <20070623.140111.26947368.davem@davemloft.net>
+Date: Sat, 23 Jun 2007 23:49:53 +0200
+Message-ID: <467D9581.1030602@hartkopp.net>
+References: <ygfk5tw41rq.fsf@janus.isnogud.escape.de>	<467BC2AF.8080901@trash.net>	<467D0C97.1000000@hartkopp.net> <20070623.135113.67582141.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
@@ -11,34 +11,32 @@ Cc: kaber@trash.net, j.hadi123@gmail.com, urs@isnogud.escape.de,
 	netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.160]:28639 "EHLO
+Received: from mo-p00-ob.rzone.de ([81.169.146.160]:20689 "EHLO
 	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751555AbXFWVpd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jun 2007 17:45:33 -0400
-In-Reply-To: <20070623.140111.26947368.davem@davemloft.net>
+	with ESMTP id S1752230AbXFWVui (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jun 2007 17:50:38 -0400
+In-Reply-To: <20070623.135113.67582141.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 David Miller wrote:
-> From: Oliver Hartkopp <oliver@hartkopp.net>
-> Date: Sat, 23 Jun 2007 17:13:21 +0200
+> This code is in the net-2.6 GIT tree of mine at:
 >
->   
->> @Dave: Please consider to schedule the PF_CAN stuff for inclusion into
->> 2.6.23 also. Thx.
->>     
->>
+> 	master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git
 >
-> No.  Fix your code to use the correct interfaces and suggestions
-> from Patrick.
+> which is what you should be doing all of your networking
+> development against, and generating patches against, anyways.
+>
+> Anything in that tree is scheduled for 2.6.23 inclusion, therefore
+> if a preferred interface has been added there, you better use it
+> for any new code.
 >   
 
-The part Patrick gave his feedback to is only one part (a sample network
-diver) of the PF_CAN stuff, that maybe left out for the first inclusion.
-So this kind request was only to set a marker that there is something
-coming up in any case.
+Ok - thanks for the advise.
+It's our first real inclusion (besides some patches) and of course we
+want to do our best.
+We'll continue to provide patches against net-2.6.
 
-Thx & best regards,
+Thx.
 Oliver
-
 
