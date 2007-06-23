@@ -1,33 +1,42 @@
-From: sobol@bs-audit.ru
-Subject: =?windows-1251?B?zOjr6+ju7SDi7+X34PLr5e3o6S4=?=
-Date: Sat, 23 Jun 2007 07:01:29 +0400
-Message-ID: <000501c7b542$cbbdea60$b30b65da@paradise.net.nz>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [RFD] First draft of RDNSS-in-RA support for IPv6 DNS autoconfiguration
+Date: Fri, 22 Jun 2007 21:30:05 -0700
+Message-ID: <OFB5D50B53.A24A00A2-ON88257303.0017FE53-88257303.0018AD5D@us.ibm.com>
+References: <467C74BA.9060809@simon.arlott.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1251;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: nester77@narod.ru
+Content-Type: text/plain; charset="US-ASCII"
+Cc: "C. Scott Ananian" <cscott@laptop.org>, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org
+To: Simon Arlott <simon@fire.lp0.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp4.clear.net.nz ([203.97.37.64]:37060 "EHLO
-	smtp4.clear.net.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750951AbXFWDO4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jun 2007 23:14:56 -0400
-Received: from 218-101-11-179.paradise.net.nz
- (218-101-11-179.paradise.net.nz [218.101.11.179])
- by smtp4.clear.net.nz (CLEAR Net Mail)
- with SMTP id <0JK200894IWT2F00@smtp4.clear.net.nz> for netdev@vger.kernel.org;
- Sat, 23 Jun 2007 14:59:43 +1200 (NZST)
+Received: from e31.co.us.ibm.com ([32.97.110.149]:55408 "EHLO
+	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751352AbXFWEaK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jun 2007 00:30:10 -0400
+In-Reply-To: <467C74BA.9060809@simon.arlott.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=CE=F2=E4=FB=F5 =E2 =D1=EE=F7=E8 =E4=EB=FF =F2=E5=F5 ,=EA=F2=EE  =F6=E5=
-=ED=E8=F2 =E8 =EF=EE=ED=EC=E0=E5=F2.
-=D1=E4=E0=E4=E8=EC  =E4=E2=F3=F5=EA=EE=EC=ED=E0=F2=ED=FB=E5 =C0=EF=E0=F0=
-=F2=E0=EC=E5=ED=F2=FB =E2 =EA=F3=F0=EE=F0=F2=ED=EE-=E8=F1=F2=EE=F0=E8=F7=
-=E5=F1=EA=EE=E9 =F7=E0=F1=F2=E8 =E3=EE=F0=EE=E4=E0 =D1=EE=F7=E8 =E4=EB=FF=
- =EE=F2=E4=FB=F5=E0.
-=CD=E0 =C8=FE=EB=FC =C0=E2=E3=F3=F1=F2 =D1=E5=ED=F2=FF=E1=F0=FC.=C4=EE=F0=
-=EE=E3=EE
+netdev-owner@vger.kernel.org wrote on 06/22/2007 06:17:46 PM:
 
-=F2=E5=EB/=F4=E0=EA=F1 8 8622  66-54-81 =C8=F0=E8=ED=E0 =C3=E5=EE=F0=E3=
-=E8=E5=E2=ED=E0
+> On 23/06/07 02:04, David Stevens wrote:
+> >         Why not make the application that writes resolv.conf
+> > also listen on a raw ICMPv6 socket? I don't believe you'd need
+> > any kernel changes, then, and it seems pretty simple and
+> > straightforward.
+> 
+> Because then it requires yet another network daemon, RA in 
+> the kernel means there's no need for one to manage adding 
+> auto-configured IP addresses... what's wrong with doing the 
+> same for DNS?
+
+        It's not yet another one, since you have to run something
+to get it in resolv.conf, anyway. That seems much better to me
+than having the kernel track data that can only be used at the
+application layer. The app itself looks like it'd be really simple.
+        Auto-configured addresses are used by the kernel. It has to
+have those addresses. But the kernel doesn't do DNS look-ups, or
+write resolv.conf; that's the difference, for me.
+
+                                                                +-DLS
+
