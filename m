@@ -1,82 +1,78 @@
-From: =?iso-8859-1?q?R=E9mi_Denis-Courmont?= <rdenis@simphalempin.com>
-Subject: Re: [RFD] First draft of RDNSS-in-RA support for IPv6 DNS autoconfiguration
-Date: Sat, 23 Jun 2007 21:13:01 +0300
-Message-ID: <200706232113.01745@auguste.remlab.net>
-References: <OFBCA57EE5.DABFEB20-ON88257303.00601DB3-88257303.00618B1D@us.ibm.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [RFD] L2 Network namespace infrastructure
+Date: Sat, 23 Jun 2007 11:55:09 -0600
+Message-ID: <m1zm2q8sjm.fsf@ebiederm.dsl.xmission.com>
+References: <m1tzszbwyb.fsf@ebiederm.dsl.xmission.com>
+	<467CF8AC.80103@trash.net> <467D3A48.20706@candelatech.com>
+	<20070623102640.6f111d7e@oldman>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: cananian@gmail.com, "C. Scott Ananian" <cscott@laptop.org>,
-	netdev@vger.kernel.org
-To: David Stevens <dlstevens@us.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ben Greear <greearb@candelatech.com>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>, jamal <hadi@cyberus.ca>,
+	Jeff Garzik <jeff@garzik.org>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	Linux Containers <containers@lists.osdl.org>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from poy.chewa.net ([194.242.114.73]:1235 "EHLO poy.chewa.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753996AbXFWSNG convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jun 2007 14:13:06 -0400
-In-Reply-To: <OFBCA57EE5.DABFEB20-ON88257303.00601DB3-88257303.00618B1D@us.ibm.com>
-Content-Disposition: inline
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:36518 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752855AbXFWSTI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jun 2007 14:19:08 -0400
+In-Reply-To: <20070623102640.6f111d7e@oldman> (Stephen Hemminger's message of
+	"Sat, 23 Jun 2007 10:26:40 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le samedi 23 juin 2007, David Stevens a =E9crit :
->         The kernel should do the authentication, as it will for other
-> RA's,
-> and should not deliver (IMAO) unauthenticated packets. If it is, I
-> would consider that a bug (for all cases, not just this), and that
-> would be a good thing to fix. :-)
+Stephen Hemminger <shemminger@linux-foundation.org> writes:
 
-I am all for an interface whereby the kernel queues all "accepted" RAs=20
-for userland to process additionnal parameters... but that's totally=20
-NOT how ICMPv6 raw sockets currently work, and it would be a very=20
-significant departure from the Advanced IPv6 Socket API (RFC 3542, in=20
-particular =A73.3):
+> On Sat, 23 Jun 2007 08:20:40 -0700
+> Ben Greear <greearb@candelatech.com> wrote:
+>
+>> Patrick McHardy wrote:
+>> > Eric W. Biederman wrote:
+>> >   
+>> >> -- The basic design
+>> >>
+>> >> There will be a network namespace structure that holds the global
+>> >> variables for a network namespace, making those global variables
+>> >> per network namespace.
+>> >>
+>> >> One of those per network namespace global variables will be the
+>> >> loopback device.  Which means the network namespace a packet resides
+>> >> in can be found simply by examining the network device or the socket
+>> >> the packet is traversing.
+>> >>
+>> >> Either a pointer to this global structure will be passed into
+>> >> the functions that need to reference per network namespace variables
+>> >> or a structure that is already passed in (such as the network device)
+>> >> will be modified to contain a pointer to the network namespace
+>> >> structure.
+>> >>     
+>> >
+>> >
+>> > I believe OpenVZ stores the current namespace somewhere global,
+>> > which avoids passing the namespace around. Couldn't you do this
+>> > as well?
+>
+> Maybe the current namespace should be attached to something else
+> like sysfs root? Having multiple namespace indirection possiblities
+> leads to interesting cases where current namespace is not correctly
+> associated with current sysfs tree or current proc tree, ...
 
-   An implementation might perform additional validity checks on the
-   ICMPv6 message content and discard malformed packets.  However, a
-   portable application must not assume that such validity checks have
-   been performed.
+Yes.  There are some oddities there.  
 
-Being malformed does not include failing authentication, or the local=20
-host not using autoconf. I am all for a setsockopt() that limits=20
-delivery to "accepted" RAs, but it does not currently exist.
+In my current tree there is code that makes proc and sysfs match the inspecting
+process.
 
->         An interface going down doesn't directly invalidate a DNS
-> server address, though it may not be the best through another
-> interface. Since it is a list, I think "doing nothing" for this case
-> wouldn't be terrible. This is no worse than the existing resolver
-> code.
+I haven't quite solved the inspection problem where we want to look at
+the namespace of a different process.  But as long as we have clean
+code to do the basics that isn't a big leap when we come to it.
 
-That would encourage people into running open recursive DNS servers=20
-which is widely known and documented as a bad practice. Definitely a=20
-very bad idea.
+I'm not really seeing any problems along this line at this point.
 
-> But if you really need it, you can monitor netlink, or poll the
-> interface flags on whatever interval you require for detection.
+The big problem at this point is code review and merging, and in
+particular breaking this work up into small enough pieces that they
+can be digested, successfully code reviewed and merged.
 
->         As for autoconf, that's available from sysctl, I assume from
-> /proc somewhere, too. That usually doesn't change, but if you want to
-> account for runtime configuration changes, you can always monitor
-> netlink and reread when new addresses appear, too.
-
-There are a bunch of parameters that determine whether an interface=20
-accepts RAs or not. I doubt it's wise to try to reimplement that into=20
-userspace, particularly if it is subject to change.
-
->         There certainly may be complications I haven't thought of,
-> since I haven't implemented it. But I still don't see a good case for
-> using the kernel as a DNS database.
-
-I never said the kernel needed to parse DNS messages by itself. My poin=
-t=20
-is raw IPv6 sockets are not usable for the time being, and I do not see=
-=20
-anyway to fix without modifying the kernel.
-
-The userspace DNS configuration daemon might need to be started later=20
-than the kernel autoconf - another issue that needs help from the=20
-kernel.
-
---=20
-R=E9mi Denis-Courmont
-http://www.remlab.net/
+Eric
