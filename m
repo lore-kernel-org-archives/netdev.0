@@ -1,69 +1,33 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [RFD] First draft of RDNSS-in-RA support for IPv6 DNS
-	autoconfiguration
-Date: Fri, 22 Jun 2007 22:11:39 -0400
-Message-ID: <1182564699.23976.7.camel@xo-13-A4-25.localdomain>
-References: <c6d9bea0706221626h434d17d0l6dc3a6a513601546@mail.gmail.com>
-	 <200706230139.50064.mb@bu3sch.de>
-	 <c6d9bea0706221709h72dfa5bao7f51d4a611950094@mail.gmail.com>
+From: sobol@bs-audit.ru
+Subject: =?windows-1251?B?zOjr6+ju7SDi7+X34PLr5e3o6S4=?=
+Date: Sat, 23 Jun 2007 07:01:29 +0400
+Message-ID: <000501c7b542$cbbdea60$b30b65da@paradise.net.nz>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Michael Buesch <mb@bu3sch.de>, netdev@vger.kernel.org
-To: "C. Scott Ananian" <cscott@laptop.org>
+Content-Type: text/plain; charset=windows-1251;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: nester77@narod.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:44513 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750824AbXFWCHH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Jun 2007 22:07:07 -0400
-In-Reply-To: <c6d9bea0706221709h72dfa5bao7f51d4a611950094@mail.gmail.com>
+Received: from smtp4.clear.net.nz ([203.97.37.64]:37060 "EHLO
+	smtp4.clear.net.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750951AbXFWDO4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jun 2007 23:14:56 -0400
+Received: from 218-101-11-179.paradise.net.nz
+ (218-101-11-179.paradise.net.nz [218.101.11.179])
+ by smtp4.clear.net.nz (CLEAR Net Mail)
+ with SMTP id <0JK200894IWT2F00@smtp4.clear.net.nz> for netdev@vger.kernel.org;
+ Sat, 23 Jun 2007 14:59:43 +1200 (NZST)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2007-06-22 at 20:09 -0400, C. Scott Ananian wrote:
-> > > diff -ruHpN -X dontdiff linux-2.6.22-rc5-orig/include/net/ip6_rdnss.h
-> > > linux-2.6.22-rc5/include/net/ip6_rdnss.h
-> > > --- linux-2.6.22-rc5-orig/include/net/ip6_rdnss.h1969-12-31
-> > > 19:00:00.000000000 -0500
-> > > +++ linux-2.6.22-rc5/include/net/ip6_rdnss.h2007-06-21
-> > > 18:16:33.000000000 -0400 @@ -0,0 +1,58 @@
-> > > +#ifndef _NET_IP6_RDNSS_H
-> > > +#define _NET_IP6_RDNSS_H
-> > > +
-> > > +#ifdef __KERNEL__
-> > > +
-> > > +#include <linux/in6.h>
-> > > +
-> > > +struct nd_opt_rdnss {
-> > > +__u8type;
-> > > +__u8length;
-> > > +#if defined(__BIG_ENDIAN_BITFIELD)
-> > > +__u8priority:4,
-> > > +open:1,
-> > > +reserved1:3;
-> > > +#elif defined(__LITTLE_ENDIAN_BITFIELD)
-> > > +__u8reserved1:3,
-> > > +open:1,
-> > > +priority:4;
-> > > +#else
-> > > +# error not little or big endian
-> > > +#endif
-> >
-> > That is not endianess-safe. Don't use foo:x at all
-> > for stuff where a specific endianess is needed. The
-> > compiler doesn't make any guarantee about it.
-> 
-> This was copied directly from include/net/ip6_route.h.  I believe that
-> it does in fact work, and I (for one) find this much more readable
-> than the alternative.  If it is in fact broken, then
-> include/net/ip6_route.h (and the 35 other files which use this #ifdef
-> in this manner) should be fixed.
+=CE=F2=E4=FB=F5 =E2 =D1=EE=F7=E8 =E4=EB=FF =F2=E5=F5 ,=EA=F2=EE  =F6=E5=
+=ED=E8=F2 =E8 =EF=EE=ED=EC=E0=E5=F2.
+=D1=E4=E0=E4=E8=EC  =E4=E2=F3=F5=EA=EE=EC=ED=E0=F2=ED=FB=E5 =C0=EF=E0=F0=
+=F2=E0=EC=E5=ED=F2=FB =E2 =EA=F3=F0=EE=F0=F2=ED=EE-=E8=F1=F2=EE=F0=E8=F7=
+=E5=F1=EA=EE=E9 =F7=E0=F1=F2=E8 =E3=EE=F0=EE=E4=E0 =D1=EE=F7=E8 =E4=EB=FF=
+ =EE=F2=E4=FB=F5=E0.
+=CD=E0 =C8=FE=EB=FC =C0=E2=E3=F3=F1=F2 =D1=E5=ED=F2=FF=E1=F0=FC.=C4=EE=F0=
+=EE=E3=EE
 
-Though in general, we shouldn't be using bitfields, FYI.  They are known
-to generate really crappy code on many architectures, and patches that
-contain them have been smacked down quite hard by people we all know are
-better hackers than us :)
-
-Dan
-
-
+=F2=E5=EB/=F4=E0=EA=F1 8 8622  66-54-81 =C8=F0=E8=ED=E0 =C3=E5=EE=F0=E3=
+=E8=E5=E2=ED=E0
