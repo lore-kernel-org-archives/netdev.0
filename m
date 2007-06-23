@@ -1,61 +1,49 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
+From: Ben Greear <greearb@candelatech.com>
 Subject: Re: [RFD] L2 Network namespace infrastructure
-Date: Sat, 23 Jun 2007 13:08:25 -0600
-Message-ID: <m1vede8p5i.fsf@ebiederm.dsl.xmission.com>
-References: <m1tzszbwyb.fsf@ebiederm.dsl.xmission.com>
-	<467CF8AC.80103@trash.net> <m1bqf6a8rd.fsf@ebiederm.dsl.xmission.com>
-	<467D5FCD.4080003@trash.net>
+Date: Sat, 23 Jun 2007 13:03:05 -0700
+Message-ID: <467D7C79.8080604@candelatech.com>
+References: <m1tzszbwyb.fsf@ebiederm.dsl.xmission.com>	<467CF8AC.80103@trash.net>	<467D3A48.20706@candelatech.com> <20070623102640.6f111d7e@oldman>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	jamal <hadi@cyberus.ca>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	Ben Greear <greearb@candelatech.com>,
-	Jeff Garzik <jeff@garzik.org>,
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Patrick McHardy <kaber@trash.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	jamal <hadi@cyberus.ca>, Jeff Garzik <jeff@garzik.org>,
 	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
 	Linux Containers <containers@lists.osdl.org>
-To: Patrick McHardy <kaber@trash.net>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:33175 "EHLO
-	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753787AbXFWT1e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jun 2007 15:27:34 -0400
-In-Reply-To: <467D5FCD.4080003@trash.net> (Patrick McHardy's message of "Sat,
-	23 Jun 2007 20:00:45 +0200")
+Received: from ns2.lanforge.com ([66.165.47.211]:38096 "EHLO ns2.lanforge.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751377AbXFWUI0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 23 Jun 2007 16:08:26 -0400
+In-Reply-To: <20070623102640.6f111d7e@oldman>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy <kaber@trash.net> writes:
-
->>>>Depending upon the data structure it will either be modified to hold
->>>>a per entry network namespace pointer or it there will be a separate
->>>>copy per network namespace.  For large global data structures like
->>>>the ipv4 routing cache hash table adding an additional pointer to the
->>>>entries appears the more reasonable solution.
->>>
->>>
->>>So the routing cache is shared between all namespaces?
->> 
->> 
->> Yes.  Each namespaces has it's own view so semantically it's not
->> shared.  But the initial fan out of the hash table 2M or something
->> isn't something we want to replicate on a per namespace basis even
->> assuming the huge page allocations could happen.
->> 
->> So we just tag the entries and add the network namespace as one more
->> part of the key when doing hash table look ups.
+Stephen Hemminger wrote:
+>   
+>> Will we be able to have a single application be in multiple name-spaces?
+>>     
 >
->
-> I can wait for the patches, but I would be interested in how
-> GC is performed and whether limits can be configured per
-> namespace.
+> That would break the whole point of namespaces...
+>   
+I was hoping that I could open a socket in one name-space and another in 
+another name
+space, and send traffic between them, within a single application.  This 
+is basically what I can do now with my
+send-to-self patch and (for more clever virtual-routing schemes + NAT, 
+with a conn-track
+patch that Patrick cooked up for me).  It seems these patches I use are 
+not acceptable
+for merge, so I was hoping name-spaces might work instead.
 
-Currently I believe the gc code is unmodified in my patches.
+Thanks,
+Ben
 
-Currently I have been focusing on the normal semantics and just
-making something work in a mergeable fashion.
+-- 
+Ben Greear <greearb@candelatech.com> 
+Candela Technologies Inc  http://www.candelatech.com
 
-Limits and the like are comparatively easy to add in after the
-rest is working so I haven't been focusing on that.
 
-Eric
