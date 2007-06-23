@@ -1,71 +1,89 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [RFD] First draft of RDNSS-in-RA support for IPv6 DNS autoconfiguration
-Date: Sat, 23 Jun 2007 10:45:59 -0700
-Message-ID: <OFBCA57EE5.DABFEB20-ON88257303.00601DB3-88257303.00618B1D@us.ibm.com>
-References: <200706231952.03096@auguste.remlab.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [RFD] L2 Network namespace infrastructure
+Date: Sat, 23 Jun 2007 20:00:45 +0200
+Message-ID: <467D5FCD.4080003@trash.net>
+References: <m1tzszbwyb.fsf@ebiederm.dsl.xmission.com>	<467CF8AC.80103@trash.net> <m1bqf6a8rd.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: cananian@gmail.com, "C. Scott Ananian" <cscott@laptop.org>,
-	netdev@vger.kernel.org
-To: =?ISO-8859-1?Q?R=E9mi_Denis-Courmont?= <rdenis@simphalempin.com>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	jamal <hadi@cyberus.ca>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	Ben Greear <greearb@candelatech.com>,
+	Jeff Garzik <jeff@garzik.org>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	Linux Containers <containers@lists.osdl.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e33.co.us.ibm.com ([32.97.110.151]:44831 "EHLO
-	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753224AbXFWRqF convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jun 2007 13:46:05 -0400
-Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
-	by e33.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l5NHk54l010956
-	for <netdev@vger.kernel.org>; Sat, 23 Jun 2007 13:46:05 -0400
-Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
-	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l5NHk4CT270788
-	for <netdev@vger.kernel.org>; Sat, 23 Jun 2007 11:46:04 -0600
-Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l5NHk4Ws005527
-	for <netdev@vger.kernel.org>; Sat, 23 Jun 2007 11:46:04 -0600
-In-Reply-To: <200706231952.03096@auguste.remlab.net>
+Received: from stinky.trash.net ([213.144.137.162]:57700 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752309AbXFWSBD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jun 2007 14:01:03 -0400
+In-Reply-To: <m1bqf6a8rd.fsf@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-R=E9mi Denis-Courmont <rdenis@simphalempin.com> wrote on 06/23/2007 09:=
-51:55=20
-AM:
+Eric W. Biederman wrote:
+> Patrick McHardy <kaber@trash.net> writes:
+> 
+>>I believe OpenVZ stores the current namespace somewhere global,
+>>which avoids passing the namespace around. Couldn't you do this
+>>as well?
+> 
+> 
+> It sucks.  Especially in the corner cases.   Think macvlan
+> with the real network device in one namespace and the ``vlan''
+> device in another device.
+> 
+> The implementation of a global is also pretty a little questionable.
+> Last I looked it didn't work on the transmit path at all and
+> interesting on the receive path.
+> 
+> Further and fundamentally all a global achieves is removing the need
+> for the noise patches where you pass the pointer into the various
+> functions.  For long term maintenance it doesn't help anything.
+> 
+> All of the other changes such as messing with the
+> initialization/cleanup and changing access to access the per network
+> namespace data structure, and modifying the code partly along the way
+> to reject working in other non-default network namespaces that are
+> truly intrusive we both still have to make.
+> 
+> So except as an implementation detail how we pass the per network
+> namespace pointer is uninteresting.
+> 
+> Currently I am trying for the least clever most straight forward
+> implementation I can find, that doesn't give us a regression 
+> in network stack performance.
+> 
+> So yes if we want to do passing through a magic per cpu global on
+> the packet receive path now is the time to decide to do that.
+> Currently I don't see the advantage in doing that so I'm not
+> suggesting it.
 
-> How do I authenticate SeND RA? How do I deal with the link going down=
-=20
-> before the expiration? How do I know "this" interface is doing autoco=
-nf=20
-> at all?
 
-        The kernel should do the authentication, as it will for other=20
-RA's,
-and should not deliver (IMAO) unauthenticated packets. If it is, I woul=
-d
-consider that a bug (for all cases, not just this), and that would be a
-good thing to fix. :-)
-        An interface going down doesn't directly invalidate a DNS serve=
-r
-address, though it may not be the best through another interface. Since
-it is a list, I think "doing nothing" for this case wouldn't be terribl=
-e.
-This is no worse than the existing resolver code. But if you really nee=
-d=20
-it,
-you can monitor netlink, or poll the interface flags on whatever interv=
-al=20
-you
-require for detection.
-        As for autoconf, that's available from sysctl, I assume from /p=
-roc
-somewhere, too. That usually doesn't change, but if you want to account
-for runtime configuration changes, you can always monitor netlink and
-reread when new addresses appear, too.
+I think your approach is fine and is probably a lot easier
+to review than using something global.
 
-        There certainly may be complications I haven't thought of, sinc=
-e
-I haven't implemented it. But I still don't see a good case for using t=
-he
-kernel as a DNS database.
+>>>Depending upon the data structure it will either be modified to hold
+>>>a per entry network namespace pointer or it there will be a separate
+>>>copy per network namespace.  For large global data structures like
+>>>the ipv4 routing cache hash table adding an additional pointer to the
+>>>entries appears the more reasonable solution.
+>>
+>>
+>>So the routing cache is shared between all namespaces?
+> 
+> 
+> Yes.  Each namespaces has it's own view so semantically it's not
+> shared.  But the initial fan out of the hash table 2M or something
+> isn't something we want to replicate on a per namespace basis even
+> assuming the huge page allocations could happen.
+> 
+> So we just tag the entries and add the network namespace as one more
+> part of the key when doing hash table look ups.
 
-                                                                +-DLS
 
+I can wait for the patches, but I would be interested in how
+GC is performed and whether limits can be configured per
+namespace.
