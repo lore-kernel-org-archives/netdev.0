@@ -1,65 +1,33 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [RFD] L2 Network namespace infrastructure
-Date: Sat, 23 Jun 2007 14:39:13 -0600
-Message-ID: <m1myyq8ky6.fsf@ebiederm.dsl.xmission.com>
-References: <m1tzszbwyb.fsf@ebiederm.dsl.xmission.com>
-	<467CF8AC.80103@trash.net> <467D3A48.20706@candelatech.com>
-	<m14pkya8fv.fsf@ebiederm.dsl.xmission.com>
-	<467D7E0D.7060206@candelatech.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFD] First draft of RDNSS-in-RA support for IPv6 DNS
+ autoconfiguration
+Date: Sat, 23 Jun 2007 13:41:21 -0700 (PDT)
+Message-ID: <20070623.134121.35817571.davem@davemloft.net>
+References: <200706230139.50064.mb@bu3sch.de>
+	<c6d9bea0706221709h72dfa5bao7f51d4a611950094@mail.gmail.com>
+	<200706231107.14649.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>, jamal <hadi@cyberus.ca>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	Jeff Garzik <jeff@garzik.org>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-	Linux Containers <containers@lists.osdl.org>
-To: Ben Greear <greearb@candelatech.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: cscott@laptop.org, netdev@vger.kernel.org
+To: mb@bu3sch.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:35409 "EHLO
-	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750837AbXFWUkK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jun 2007 16:40:10 -0400
-In-Reply-To: <467D7E0D.7060206@candelatech.com> (Ben Greear's message of "Sat,
-	23 Jun 2007 13:09:49 -0700")
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52258
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750938AbXFWUlE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jun 2007 16:41:04 -0400
+In-Reply-To: <200706231107.14649.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ben Greear <greearb@candelatech.com> writes:
+From: Michael Buesch <mb@bu3sch.de>
+Date: Sat, 23 Jun 2007 11:07:14 +0200
 
-> Any chance it could allow one to use a single threaded, single process and do
-> something like
-> int fd1 = socket(...., namespace1);
-> int fd2 = socket(...., namespace2);
->
-> Or, maybe a sockopt or similar call to move a socket into a particular
-> namespace?
->
-> I can certainly see it being useful to allow a default name-space per process,
-> but it would be nice
-> to also allow explicit assignment of a socket to a name-space for applications
-> that want to span
-> a large number of name-spaces.
+> Yeah, it might work. But I think the compiler doesn't guarantee
+> you anything about it.
 
-That isn't the primary use case so I have not considered it much.
-A setsockopt call might be possible.
+The compiler actually does guarentee these things, and that's why we
+have the endian bitfield macros.  You're overreacting, we've
+been using this stuff for more than 10 years in the basic
+IPV4 header structure, so stop this nonsense.
 
-It is also possible to have a bunch of children opening sockets for you
-and passing to the process that wants to do the work. If you have a
-sufficiently slow socket creation rate that will not be a problem just
-a little cumbersome.
-
-If you can open all of your sockets upfront it is possible to do
-something where you open your sockets then unshare your network
-namespace and repeat.
-
-I am committed to making general infrastructure not something that is
-targeted in a brittle way at only one scenario.
-
-So it may be that we can cover your scenario.  However it is just
-enough off of the beaten path that I'm not going to worry about it
-the first time through.  It looks like it is a very small step from
-where I am at to where you want to be.  So you may be able to cook
-up something that will satisfy your requirements relatively easily.
-
-Eric
