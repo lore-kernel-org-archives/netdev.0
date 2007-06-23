@@ -1,33 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFD] First draft of RDNSS-in-RA support for IPv6 DNS
- autoconfiguration
-Date: Sat, 23 Jun 2007 13:41:21 -0700 (PDT)
-Message-ID: <20070623.134121.35817571.davem@davemloft.net>
-References: <200706230139.50064.mb@bu3sch.de>
-	<c6d9bea0706221709h72dfa5bao7f51d4a611950094@mail.gmail.com>
-	<200706231107.14649.mb@bu3sch.de>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [RFD] L2 Network namespace infrastructure
+Date: Sat, 23 Jun 2007 13:44:56 -0700
+Message-ID: <467D8648.2040407@candelatech.com>
+References: <m1tzszbwyb.fsf@ebiederm.dsl.xmission.com>	<467CF8AC.80103@trash.net> <467D3A48.20706@candelatech.com>	<m14pkya8fv.fsf@ebiederm.dsl.xmission.com>	<467D7E0D.7060206@candelatech.com> <m1myyq8ky6.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: cscott@laptop.org, netdev@vger.kernel.org
-To: mb@bu3sch.de
+Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>, jamal <hadi@cyberus.ca>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	Jeff Garzik <jeff@garzik.org>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	Linux Containers <containers@lists.osdl.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52258
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750938AbXFWUlE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jun 2007 16:41:04 -0400
-In-Reply-To: <200706231107.14649.mb@bu3sch.de>
+Received: from ns2.lanforge.com ([66.165.47.211]:51505 "EHLO ns2.lanforge.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751245AbXFWUpH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 23 Jun 2007 16:45:07 -0400
+In-Reply-To: <m1myyq8ky6.fsf@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Michael Buesch <mb@bu3sch.de>
-Date: Sat, 23 Jun 2007 11:07:14 +0200
+Eric W. Biederman wrote:
+> So it may be that we can cover your scenario.  However it is just
+> enough off of the beaten path that I'm not going to worry about it
+> the first time through.  It looks like it is a very small step from
+> where I am at to where you want to be.  So you may be able to cook
+> up something that will satisfy your requirements relatively easily.
+>   
+That sounds fair to me.
 
-> Yeah, it might work. But I think the compiler doesn't guarantee
-> you anything about it.
+I will assume that as long as you can migrate sockets with the methods you
+described, it should not be that difficult to do the same with a sockopt
+or similar.
 
-The compiler actually does guarentee these things, and that's why we
-have the endian bitfield macros.  You're overreacting, we've
-been using this stuff for more than 10 years in the basic
-IPV4 header structure, so stop this nonsense.
+I'll revisit this when your patches are in mainline.
+
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com> 
+Candela Technologies Inc  http://www.candelatech.com
+
 
