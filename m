@@ -1,78 +1,47 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [RFD] L2 Network namespace infrastructure
-Date: Sat, 23 Jun 2007 11:55:09 -0600
-Message-ID: <m1zm2q8sjm.fsf@ebiederm.dsl.xmission.com>
-References: <m1tzszbwyb.fsf@ebiederm.dsl.xmission.com>
-	<467CF8AC.80103@trash.net> <467D3A48.20706@candelatech.com>
-	<20070623102640.6f111d7e@oldman>
+From: Florian Westphal <fw-kernel@strlen.de>
+Subject: [PATCH][Resend] TIPC: Fix infinite loop in netlink handler
+Date: Sat, 23 Jun 2007 20:25:46 +0200
+Message-ID: <20070623182546.GA26081@Chamillionaire.breakpoint.cc>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Ben Greear <greearb@candelatech.com>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>, jamal <hadi@cyberus.ca>,
-	Jeff Garzik <jeff@garzik.org>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-	Linux Containers <containers@lists.osdl.org>
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: netdev@vger.kernel.org, allan.stephens@windriver.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:36518 "EHLO
-	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752855AbXFWSTI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jun 2007 14:19:08 -0400
-In-Reply-To: <20070623102640.6f111d7e@oldman> (Stephen Hemminger's message of
-	"Sat, 23 Jun 2007 10:26:40 -0700")
+Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:55254 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750804AbXFWSZv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jun 2007 14:25:51 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger <shemminger@linux-foundation.org> writes:
+From: Florian Westphal <fw@strlen.de>
 
-> On Sat, 23 Jun 2007 08:20:40 -0700
-> Ben Greear <greearb@candelatech.com> wrote:
->
->> Patrick McHardy wrote:
->> > Eric W. Biederman wrote:
->> >   
->> >> -- The basic design
->> >>
->> >> There will be a network namespace structure that holds the global
->> >> variables for a network namespace, making those global variables
->> >> per network namespace.
->> >>
->> >> One of those per network namespace global variables will be the
->> >> loopback device.  Which means the network namespace a packet resides
->> >> in can be found simply by examining the network device or the socket
->> >> the packet is traversing.
->> >>
->> >> Either a pointer to this global structure will be passed into
->> >> the functions that need to reference per network namespace variables
->> >> or a structure that is already passed in (such as the network device)
->> >> will be modified to contain a pointer to the network namespace
->> >> structure.
->> >>     
->> >
->> >
->> > I believe OpenVZ stores the current namespace somewhere global,
->> > which avoids passing the namespace around. Couldn't you do this
->> > as well?
->
-> Maybe the current namespace should be attached to something else
-> like sysfs root? Having multiple namespace indirection possiblities
-> leads to interesting cases where current namespace is not correctly
-> associated with current sysfs tree or current proc tree, ...
+The tipc netlink config handler uses the nlmsg_pid from the
+request header as destination for its reply. If the application
+initialized nlmsg_pid to 0, the reply is looped back to the kernel,
+causing hangup. Fix: use nlmsg_pid of the skb that triggered the
+request.
 
-Yes.  There are some oddities there.  
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+I already sent this to netdev@ on the 19th, but the patch itself
+was neither acked nor Nacked. This is a crash that can be
+triggered trivially -- please fix this bug.
 
-In my current tree there is code that makes proc and sysfs match the inspecting
-process.
+ net/tipc/netlink.c |    2 +-
+  1 files changed, 1 insertions(+), 1 deletions(-)
 
-I haven't quite solved the inspection problem where we want to look at
-the namespace of a different process.  But as long as we have clean
-code to do the basics that isn't a big leap when we come to it.
-
-I'm not really seeing any problems along this line at this point.
-
-The big problem at this point is code review and merging, and in
-particular breaking this work up into small enough pieces that they
-can be digested, successfully code reviewed and merged.
-
-Eric
+diff --git a/net/tipc/netlink.c b/net/tipc/netlink.c
+index 4cdafa2..6a7f7b4 100644
+--- a/net/tipc/netlink.c
++++ b/net/tipc/netlink.c
+@@ -60,7 +60,7 @@ static int handle_cmd(struct sk_buff *skb, struct genl_info *info)
+ 		rep_nlh = nlmsg_hdr(rep_buf);
+ 		memcpy(rep_nlh, req_nlh, hdr_space);
+ 		rep_nlh->nlmsg_len = rep_buf->len;
+-		genlmsg_unicast(rep_buf, req_nlh->nlmsg_pid);
++		genlmsg_unicast(rep_buf, NETLINK_CB(skb).pid);
+ 	}
+ 
+ 	return 0;
