@@ -1,61 +1,49 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [RFD] L2 Network namespace infrastructure
-Date: Sat, 23 Jun 2007 08:20:40 -0700
-Message-ID: <467D3A48.20706@candelatech.com>
-References: <m1tzszbwyb.fsf@ebiederm.dsl.xmission.com> <467CF8AC.80103@trash.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [patch 5/7] CAN: Add virtual CAN netdevice driver
+Date: Sat, 23 Jun 2007 18:25:09 +0200
+Message-ID: <467D4965.40601@trash.net>
+References: <20070622034452.28886.0@janus.isnogud.escape.de>	<20070622034703.28886.5@janus.isnogud.escape.de>	<467BAC48.1070700@trash.net> <ygfk5tw41rq.fsf@janus.isnogud.escape.de> <467BC2AF.8080901@trash.net> <467D0C97.1000000@hartkopp.net> <467D178B.8080503@trash.net> <467D3891.4010906@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	jamal <hadi@cyberus.ca>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	Jeff Garzik <jeff@garzik.org>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-	Linux Containers <containers@lists.osdl.org>
-To: Patrick McHardy <kaber@trash.net>
+Cc: David Miller <davem@davemloft.net>, j.hadi123@gmail.com,
+	Urs Thuermann <urs@isnogud.escape.de>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
+	netdev@vger.kernel.org
+To: Oliver Hartkopp <oliver@hartkopp.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:54953 "EHLO ns2.lanforge.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752442AbXFWPZx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 23 Jun 2007 11:25:53 -0400
-In-Reply-To: <467CF8AC.80103@trash.net>
+Received: from stinky.trash.net ([213.144.137.162]:56231 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752378AbXFWQZY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jun 2007 12:25:24 -0400
+In-Reply-To: <467D3891.4010906@hartkopp.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy wrote:
-> Eric W. Biederman wrote:
->   
->> -- The basic design
->>
->> There will be a network namespace structure that holds the global
->> variables for a network namespace, making those global variables
->> per network namespace.
->>
->> One of those per network namespace global variables will be the
->> loopback device.  Which means the network namespace a packet resides
->> in can be found simply by examining the network device or the socket
->> the packet is traversing.
->>
->> Either a pointer to this global structure will be passed into
->> the functions that need to reference per network namespace variables
->> or a structure that is already passed in (such as the network device)
->> will be modified to contain a pointer to the network namespace
->> structure.
->>     
->
->
-> I believe OpenVZ stores the current namespace somewhere global,
-> which avoids passing the namespace around. Couldn't you do this
-> as well?
->   
-Will we be able to have a single application be in multiple name-spaces?
+Oliver Hartkopp wrote:
+> @Patrick: The changes in dummy.c and ifb.c for the netlink support do
+> not look very complicated (not even for me ;-))
 
-Thanks,
-Ben
 
--- 
-Ben Greear <greearb@candelatech.com> 
-Candela Technologies Inc  http://www.candelatech.com
+I have a patch to make it even simpler, it basically needs only
+the rtnl_link_ops structures initialized with one or two members
+for devices like dummy and ifb. Will push once we're through the
+patches I sent recently, until then please use the current interface.
 
+> When these changes are
+> implemented, how do i create/remove my interfaces? Is there any
+> userspace tool like 'tc' for that?
+
+
+Its "ip". I think I've CCed you or one of your colleagues on
+the patches, otherwise please check the list. For a device like
+yours it only needs the patch implementing general RTM_NEWLINK
+support, unless you want to make the loopback parameter
+configurable, in which case you would need to add something
+like iplink_vlan that parses the parameter.
+
+BTW, in case the loopback device is required for normal
+operation it might make sense to create *one* device by
+default, but four identical devices seems a bit extreme.
 
