@@ -1,52 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFD] L2 Network namespace infrastructure
-Date: Sat, 23 Jun 2007 13:57:37 -0700 (PDT)
-Message-ID: <20070623.135737.22037347.davem@davemloft.net>
-References: <m1tzszbwyb.fsf@ebiederm.dsl.xmission.com>
-	<467CF8AC.80103@trash.net>
-	<m1bqf6a8rd.fsf@ebiederm.dsl.xmission.com>
+Subject: Re: [patch 5/7] CAN: Add virtual CAN netdevice driver
+Date: Sat, 23 Jun 2007 14:01:11 -0700 (PDT)
+Message-ID: <20070623.140111.26947368.davem@davemloft.net>
+References: <467D0C97.1000000@hartkopp.net>
+	<467D178B.8080503@trash.net>
+	<467D3891.4010906@hartkopp.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org, hadi@cyberus.ca,
-	shemminger@linux-foundation.org, greearb@candelatech.com,
-	jeff@garzik.org, yoshfuji@linux-ipv6.org, containers@lists.osdl.org
-To: ebiederm@xmission.com
+Cc: kaber@trash.net, j.hadi123@gmail.com, urs@isnogud.escape.de,
+	tglx@linutronix.de, oliver.hartkopp@volkswagen.de,
+	netdev@vger.kernel.org
+To: oliver@hartkopp.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52326
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33329
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751411AbXFWU5T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jun 2007 16:57:19 -0400
-In-Reply-To: <m1bqf6a8rd.fsf@ebiederm.dsl.xmission.com>
+	by vger.kernel.org with ESMTP id S1751409AbXFWVAw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jun 2007 17:00:52 -0400
+In-Reply-To: <467D3891.4010906@hartkopp.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Sat, 23 Jun 2007 11:19:34 -0600
+From: Oliver Hartkopp <oliver@hartkopp.net>
+Date: Sat, 23 Jun 2007 17:13:21 +0200
 
-> Further and fundamentally all a global achieves is removing the need
-> for the noise patches where you pass the pointer into the various
-> functions.  For long term maintenance it doesn't help anything.
+> Patrick McHardy wrote:
+> > Oliver Hartkopp wrote:
+> >   
+> >> i was just looking through the mailings regarding your suggested changes
+> >> (e.g. in VLAN, DUMMY and IFB) an none of them currently went into the
+> >> kernel (..)
+> >>     
+> >
+> >
+> > They are all in the net-2.6.23 tree.
+> >   
+> 
+> Ah, ok - that wasn't on my radar as i missed the mail from Dave to you
+> at June 13th ...
+> 
+> @Dave: Please consider to schedule the PF_CAN stuff for inclusion into
+> 2.6.23 also. Thx.
 
-I don't accept that we have to add another function argument
-to a bunch of core routines just to support this crap,
-especially since you give no way to turn it off and get
-that function argument slot back.
-
-To be honest I think this form of virtualization is a complete
-waste of time, even the openvz approach.
-
-We're protecting the kernel from itself, and that's an endless
-uphill battle that you will never win.  Let's do this kind of
-stuff properly with a real minimal hypervisor, hopefully with
-appropriate hardware level support and good virtualized device
-interfaces, instead of this namespace stuff.
-
-At least the hypervisor approach you have some chance to fully
-harden in some verifyable and truly protected way, with
-namespaces it's just a pipe dream and everyone who works on
-these namespace approaches knows that very well.
-
-The only positive thing that came out of this work is the
-great auditing that the openvz folks have done and the bugs
-they have found, but it basically ends right there.
+No.  Fix your code to use the correct interfaces and suggestions
+from Patrick.
