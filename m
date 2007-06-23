@@ -1,42 +1,37 @@
-From: Simon Arlott <simon@fire.lp0.eu>
-Subject: Re: [RFD] First draft of RDNSS-in-RA support for IPv6 DNS autoconfiguration
-Date: Sat, 23 Jun 2007 17:40:48 +0100
-Message-ID: <467D4D10.20002@simon.arlott.org.uk>
-References: <OF0D7F9D29.61F86942-ON88257303.0005AD2A-88257303.0005D48C@us.ibm.com>	 <200706231625.44825@auguste.remlab.net> <c6d9bea0706230747y79d39a6eh3c55de3a29cfb4d1@mail.gmail.com>
+From: Oliver Hartkopp <oliver@hartkopp.net>
+Subject: Re: [patch 5/7] CAN: Add virtual CAN netdevice driver
+Date: Sat, 23 Jun 2007 18:42:13 +0200
+Message-ID: <467D4D65.2080806@hartkopp.net>
+References: <20070622034452.28886.0@janus.isnogud.escape.de>	<20070622034703.28886.5@janus.isnogud.escape.de>	<467BAC48.1070700@trash.net> <ygfk5tw41rq.fsf@janus.isnogud.escape.de> <467BC2AF.8080901@trash.net> <467D0C97.1000000@hartkopp.net> <467D178B.8080503@trash.net> <467D3891.4010906@hartkopp.net> <467D4965.40601@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: =?UTF-8?B?UsOpbWkgRGVuaXMtQ291cm1vbnQ=?= <rdenis@simphalempin.com>,
-	David Stevens <dlstevens@us.ibm.com>, netdev@vger.kernel.org
-To: "C. Scott Ananian" <cscott@laptop.org>
+Cc: David Miller <davem@davemloft.net>, j.hadi123@gmail.com,
+	Urs Thuermann <urs@isnogud.escape.de>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
+	netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from proxima.lp0.eu ([85.158.45.36]:47796 "EHLO proxima.lp0.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754490AbXFWQk7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 23 Jun 2007 12:40:59 -0400
-In-Reply-To: <c6d9bea0706230747y79d39a6eh3c55de3a29cfb4d1@mail.gmail.com>
+Received: from mo-p00-ob.rzone.de ([81.169.146.160]:29877 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755084AbXFWQmz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jun 2007 12:42:55 -0400
+In-Reply-To: <467D4965.40601@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 23/06/07 15:47, C. Scott Ananian wrote:
-> Advertisements it received.  I considered storing the *complete*
-> Router Advertisement messages received and pushing them unparsed to
-> userland, just to get around the bogus "DNS in the kernel" politics
-> (hint: it's not a resolver in the kernel, it's just nameserver
-> addresses being stored).  Does anyone really suggest that this would
-> be a better solution?
+Patrick McHardy wrote:
+>
+> BTW, in case the loopback device is required for normal
+> operation it might make sense to create *one* device by
+> default, but four identical devices seems a bit extreme.
+>
+>   
 
-Yes, but I don't think it should be completely unparsed - it should be
-possible to retrieve the data for a specific attribute type with
-expiration information and with notification of changes.
+As i wrote before CAN addressing consists of CAN-Identifiers and the
+used interface. The use of four vcan's is definitely a usual case!
 
-The kernel has to read RAs anyway, why shouldn't it store them in a way
-that userspace can access it on demand? A /proc file which is in
-resolv.conf format is definitely *wrong*, and while I'd argue for DNS
-being special enough to export its attributes is it really too much to
-have the kernel provide everything from the last valid message in a
-partially parsed format? Applications would then parse the data section
-for RA attributes they understand.
+Oliver
 
--- 
-Simon Arlott
+
