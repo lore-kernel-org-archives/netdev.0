@@ -1,28 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [SKBUFF]: Fix incorrect config #ifdef around skb_copy_secmark
-Date: Sat, 23 Jun 2007 22:59:07 -0700 (PDT)
-Message-ID: <20070623.225907.81449319.davem@davemloft.net>
-References: <467CFBAF.9080709@trash.net>
-	<Line.LNX.4.64.0706231102390.12813@localhost.localdomain>
+Subject: Re: [PATCH][Resend] TIPC: Fix infinite loop in netlink handler
+Date: Sat, 23 Jun 2007 23:00:00 -0700 (PDT)
+Message-ID: <20070623.230000.04755820.davem@davemloft.net>
+References: <20070623182546.GA26081@Chamillionaire.breakpoint.cc>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org
-To: jmorris@namei.org
+Cc: netdev@vger.kernel.org, allan.stephens@windriver.com
+To: fw-kernel@strlen.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37669
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37673
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752843AbXFXF6t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jun 2007 01:58:49 -0400
-In-Reply-To: <Line.LNX.4.64.0706231102390.12813@localhost.localdomain>
+	by vger.kernel.org with ESMTP id S1753403AbXFXF7l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jun 2007 01:59:41 -0400
+In-Reply-To: <20070623182546.GA26081@Chamillionaire.breakpoint.cc>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: James Morris <jmorris@namei.org>
-Date: Sat, 23 Jun 2007 11:02:54 -0400 (EDT)
+From: Florian Westphal <fw-kernel@strlen.de>
+Date: Sat, 23 Jun 2007 20:25:46 +0200
 
-> Thanks.
+> From: Florian Westphal <fw@strlen.de>
 > 
-> Acked-by: James Morris <jmorris@namei.org>
+> The tipc netlink config handler uses the nlmsg_pid from the
+> request header as destination for its reply. If the application
+> initialized nlmsg_pid to 0, the reply is looped back to the kernel,
+> causing hangup. Fix: use nlmsg_pid of the skb that triggered the
+> request.
+> 
+> Signed-off-by: Florian Westphal <fw@strlen.de>
 
-Applied, thanks everyone.
+Patch applied, thanks for your patience :-)
