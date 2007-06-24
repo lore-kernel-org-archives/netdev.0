@@ -1,47 +1,41 @@
-From: Benny Amorsen <benny+usenet@amorsen.dk>
-Subject: Re: [RFD] L2 Network namespace infrastructure
-Date: 24 Jun 2007 12:25:50 +0200
-Message-ID: <m3zm2p7ioh.fsf@ursa.amorsen.dk>
-References: <20070623.135737.22037347.davem@davemloft.net> <467D9B8F.2050403@garzik.org> <m1ejk28eku.fsf@ebiederm.dsl.xmission.com> <20070623.224853.12137896.davem@davemloft.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 2/3] NET: [CORE] Stack changes to add multiqueue hardware
+ support API
+Date: Sun, 24 Jun 2007 14:00:04 +0200
+Message-ID: <467E5CC4.8070503@trash.net>
+References: <20070623213614.18241.45511.stgit@localhost.localdomain> <20070623213628.18241.51876.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org, jeff@garzik.org,
+	auke-jan.h.kok@intel.com, hadi@cyberus.ca
+To: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from main.gmane.org ([80.91.229.2]:45267 "EHLO ciao.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753762AbXFXKdz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 24 Jun 2007 06:33:55 -0400
-Received: from list by ciao.gmane.org with local (Exim 4.43)
-	id 1I2PPB-0000cW-Mh
-	for netdev@vger.kernel.org; Sun, 24 Jun 2007 12:33:17 +0200
-Received: from hd5b9080a.c45-01-12.sta.perspektivbredband.net ([213.185.8.10])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Sun, 24 Jun 2007 12:33:17 +0200
-Received: from benny+usenet by hd5b9080a.c45-01-12.sta.perspektivbredband.net with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Sun, 24 Jun 2007 12:33:17 +0200
+Received: from stinky.trash.net ([213.144.137.162]:41489 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754297AbXFXMAG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jun 2007 08:00:06 -0400
+In-Reply-To: <20070623213628.18241.51876.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->>>>> "DM" == David Miller <davem@davemloft.net> writes:
-
-DM> Containers are I believe a step backwards, and we're better than
-DM> that.
-
-Are there any alternative proposals?
-
-I guess it would be a start if you could run processes with a
-different policy table as default. Ideally traffic from those
-processes would automatically enter a particular policy table without
-having to manually set up "ip rule" to catch their traffic. ip route
-would by default show that policy table; quagga would by default
-manage that table.
-
-I think that would provide me with the functionality I need, and it
-would not pretend to provide isolation.
+PJ Waskiewicz wrote:
+> +struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
+> +		void (*setup)(struct net_device *), int queue_count)
+>  {
+>  	void *p;
+>  	struct net_device *dev;
+> @@ -3361,7 +3368,9 @@ struct net_device *alloc_netdev(int sizeof_priv, const char *name,
+>  	BUG_ON(strlen(name) >= sizeof(dev->name));
+>  
+>  	/* ensure 32-byte alignment of both the device and private area */
+> -	alloc_size = (sizeof(*dev) + NETDEV_ALIGN_CONST) & ~NETDEV_ALIGN_CONST;
+> +	alloc_size = (sizeof(*dev) + NETDEV_ALIGN_CONST +
+> +		     (sizeof(struct net_device_subqueue) * (queue_count - 1))) &
 
 
-/Benny
+Why queue_count - 1 ? It should be queue_count I think.
 
 
+Otherwise ACK for this patch except that it should also contain the
+sch_generic changes.
