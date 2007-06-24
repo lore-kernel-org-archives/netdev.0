@@ -1,134 +1,55 @@
-From: Ian Kumlien <pomac@vapor.com>
-Subject: Re: [BUG] Sky2 driver in 2.6.22-rc5-git1-cfs-v17
-Date: Sun, 24 Jun 2007 16:13:05 +0200
-Message-ID: <1182694385.7032.18.camel@localhost>
-References: <1182459092.7032.11.camel@localhost>
-	 <20070621185711.7dc9fe88@oldman> <1182480325.7032.13.camel@localhost>
-	 <20070621211351.6d193bed@oldman>
-Reply-To: pomac@vapor.com
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: [CAN] [RFC] skb->iif usage and vcan driver background
+Date: Sun, 24 Jun 2007 18:51:38 +0200
+Message-ID: <467EA11A.7040109@hartkopp.net>
+References: <20070622034452.28886.0@janus.isnogud.escape.de>	<20070622034703.28886.5@janus.isnogud.escape.de>	<467BAC48.1070700@trash.net> <ygfk5tw41rq.fsf@janus.isnogud.escape.de> <467BC2AF.8080901@trash.net> <467D0C97.1000000@hartkopp.net> <467D178B.8080503@trash.net> <467D3891.4010906@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-TmvhDuYP0RGxGz7BJ1Bs"
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Urs Thuermann <urs@isnogud.escape.de>,
+	Thomas Gleixner <tglx@linutronix.de>, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>, j.hadi123@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mxfep03.bredband.com ([195.54.107.76]:62378 "EHLO
-	mxfep03.bredband.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750927AbXFXO0i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jun 2007 10:26:38 -0400
-Received: from ironport2.bredband.com ([195.54.107.84] [195.54.107.84])
-          by mxfep03.bredband.com with ESMTP
-          id <20070624141319.GRUT3181.mxfep03.bredband.com@ironport2.bredband.com>
-          for <netdev@vger.kernel.org>; Sun, 24 Jun 2007 16:13:19 +0200
-In-Reply-To: <20070621211351.6d193bed@oldman>
+Received: from mo-p00-ob.rzone.de ([81.169.146.160]:44809 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751494AbXFXQwX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jun 2007 12:52:23 -0400
+In-Reply-To: <467D3891.4010906@hartkopp.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hello Patrick and Jamal,
 
---=-TmvhDuYP0RGxGz7BJ1Bs
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+as i felt a bit misunderstood in the discussion about the usage of
+skb->iif and the idea behind the virtual CAN driver i created four
+PDF-slides to clarify some issues. The slides may give you the
+appropriate background why the incoming (receiving) interface is
+relevant at user level (which is unusual e.g. for PF_INET). Additionally
+i collected some points what the VCAN driver does - and especially what
+it is not for. So you will see, that approaches like VLAN (regarding
+IEEE 802.1Q) is nothing that can be done with the CAN bus by design. The
+PDF can be found at the BerliOS OSS server:
 
-On tor, 2007-06-21 at 21:13 -0700, Stephen Hemminger wrote:
-> On Fri, 22 Jun 2007 04:45:25 +0200
-> Ian Kumlien <pomac@vapor.com> wrote:
->=20
-> > On tor, 2007-06-21 at 18:57 -0700, Stephen Hemminger wrote:
-> > > Redirected of LKML,  netdev is the proper list.
-> >=20
-> > Thanks =3D)
-> >=20
-> > > On Thu, 21 Jun 2007 22:51:32 +0200
-> > > Ian Kumlien <pomac@vapor.com> wrote:
-> > >=20
-> > > > Hi,=20
-> > > >=20
-> > > > recently have started to see this in my dmesg:
-> > > >=20
-> > > > NETDEV WATCHDOG: eth0: transmit timed out
-> > > > sky2 eth0: tx timeout
-> > > > sky2 eth0: transmit ring 449 .. 408 report=3D449 done=3D449
-> > > > sky2 eth0: disabling interface
-> > > > sky2 eth0: enabling interface
-> > > > sky2 eth0: ram buffer 48K
-> > > > sky2 eth0: Link is up at 1000 Mbps, full duplex, flow control rx
-> > > >=20
-> > > > I'm not using MSI since it seems to have caused problems in the pas=
-t.
-> > > >=20
-> > > > I run with a 9k mtu
-> > > >=20
-> > > > sky2 eth0: transmit ring 18 .. 489 report=3D18 done=3D18
-> > > > ---- I assume ring max is 512 (ie 1-512) since:
-> > > > 	Ring parameters for eth0:
-> > > > 	Current hardware settings:
-> > > > 	RX:             168
-> > > > 	RX Mini:        0
-> > > > 	RX Jumbo:       0
-> > > > 	TX:             511
-> > > > =09
-> > > > 	And 489 + 41 - 18 =3D 512
-> > > >=20
-> > > > sky2 eth0: transmit ring 197 .. 156 report=3D197 done=3D197
-> > > > sky2 eth0: transmit ring 480 .. 439 report=3D480 done=3D480
-> > > > sky2 eth0: transmit ring 413 .. 372 report=3D413 done=3D413
-> > > > sky2 eth0: transmit ring 320 .. 279 report=3D320 done=3D320
-> > > >=20
-> > > > Else, they are all off by 41.
-> > > >=20
-> > > > Is this a known bug?
-> > > no
-> >=20
-> > Damn =3DP
-> >=20
-> > > > Comments? ideas?
-> > > >
-> > > which chip version. probably Yukon EC that seems to be the only one
-> > > that does gigabit with Ram buffer.
-> >=20
-> > sky2 0000:02:00.0: v1.14 addr 0xdbffc000 irq 18 Yukon-EC (0xb6) rev 2
-> >=20
-> > > Does it work alright if you set transmit ring size smaller with ethto=
-ol?
-> > > There might be an off-by-one bug in the worst case calculations about
-> > > list element usage.
-> >=20
-> > I tried this... but not with a specific size, i think i did 480, and ye=
-s
-> > it timed out... any ideas on a more educated value?
-> >=20
-> > --=20
-> > Ian Kumlien <pomac () vapor ! com> -- http://pomac.netswarm.net
->=20
-> Also try setting the idle_timeout module parameter to something link 10 (=
-ms).
-> It will fix problems with lost interrupts.
+http://download.berlios.de/socketcan/iif_and_vcan.pdf
 
-NETDEV WATCHDOG: eth0: transmit timed out
-sky2 eth0: tx timeout
-sky2 eth0: transmit ring 393 .. 352 report=3D393 done=3D393
-sky2 eth0: disabling interface
-sky2 eth0: enabling interface
-sky2 eth0: ram buffer 48K
-sky2 eth0: Link is up at 1000 Mbps, full duplex, flow control rx
+After reading the PDF ...
 
-So, back to 41 again.
+@Jamal: Please give me some feedback, if the (currently implemented)
+transport of the iif-information inside the skb up to socket level is ok
+for you.
 
-10 ms does seem to help but not enough. Are there many known bugs with
-the -EC chipsets?
+@Patrick: The (optional) loading of the vcan module and the
+specification of the needed number of vcan devices (for the wanted
+use-case) was a very easy thing up to now that did not require any
+additional configuration nor additional userspace tools (except saying
+'ifconfig vcan0 up'). As only the use-case required number of interfaces
+are allocated at module load time, i do not see a need for an extra
+netlink interface to implement an IMHO obsolete vcan add/remove
+mechanism. What could the implementation of the netlink API bring for
+the vcan driver use-case?
 
---=20
-Ian Kumlien <pomac () vapor ! com> -- http://pomac.netswarm.net
+Thanks for your review!
+Oliver
 
---=-TmvhDuYP0RGxGz7BJ1Bs
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.7-ecc0.1.6 (GNU/Linux)
-
-iD8DBQBGfnvx7F3Euyc51N8RAtaiAJ4xS/YuVZebAe8MGqZu1x71O5vaCgCgsSiY
-eNR/kKdj8nPpHmjzVGbqBCg=
-=UKR5
------END PGP SIGNATURE-----
-
---=-TmvhDuYP0RGxGz7BJ1Bs--
