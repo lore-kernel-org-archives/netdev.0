@@ -1,43 +1,39 @@
-From: "Robert Iakobashvili" <coroberti@gmail.com>
+From: david@lang.hm
 Subject: Re: Scaling Max IP address limitation
-Date: Sun, 24 Jun 2007 22:19:55 +0200
-Message-ID: <7e63f56c0706241319i4c4c62e8keaaf8848d0b7e5c2@mail.gmail.com>
-References: <467EA7C1.4080006@rossove.com>
-	 <20070624110236.fa36b2f9.akpm@linux-foundation.org>
+Date: Sun, 24 Jun 2007 13:44:29 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0706241342340.12806@asgard.lang.hm>
+References: <467EA7C1.4080006@rossove.com> <D6003DDE-0C36-437B-B70A-D422DFE153D0@mac.com>
+ <Pine.LNX.4.64.0706242153240.11964@fbirervta.pbzchgretzou.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: djones@rossove.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Kyle Moffett <mrmacman_g4@mac.com>, djones@rossove.com,
+	LKML Kernel <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org
+To: Jan Engelhardt <jengelh@computergmbh.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.236]:51094 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752221AbXFXUTz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jun 2007 16:19:55 -0400
-Received: by wx-out-0506.google.com with SMTP id t15so1275953wxc
-        for <netdev@vger.kernel.org>; Sun, 24 Jun 2007 13:19:55 -0700 (PDT)
-In-Reply-To: <20070624110236.fa36b2f9.akpm@linux-foundation.org>
-Content-Disposition: inline
+Received: from dsl081-033-126.lax1.dsl.speakeasy.net ([64.81.33.126]:37254
+	"EHLO bifrost.lang.hm" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751418AbXFXUn7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jun 2007 16:43:59 -0400
+In-Reply-To: <Pine.LNX.4.64.0706242153240.11964@fbirervta.pbzchgretzou.qr>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> On Sun, 24 Jun 2007 12:20:01 -0500 David Jones <djones@rossove.com> wrote:
-> > I am trying to add multiple IP addresses ( v6 ) to my FC7 box on eth0.
-> > But I am hitting a max limit of 4000 IP address . Seems like there is a
-> > limiting variable in linux kernel (which one? ) that prevents from
-> > adding more IP addresses than 4096. What do I need to change in Linux
-> > kernel  ( and then recompile ) to be able to add more IP addresses than
-> > 4K addresses per system? ..
+On Sun, 24 Jun 2007, Jan Engelhardt wrote:
 
-How are you doing this?
+>
+> On Jun 24 2007 15:08, Kyle Moffett wrote:
+>>
+>> Do you really need that many IP addresses?  When somebody finally gets
+>> around to implementing REDIRECT support for ip6tables then you could
+>> just redirect them all to the same port on the local system.
+>
+> The way I see it, it's: "if someone gets around to implement *IPv6 NAT*"
+> (which, if its designers were asked, is contrary to the idea of ipv6).
 
-Could it be some IPv6 issue like scope?
+true, but back in the real world it's sometimes desriable to hid _chich_ 
+specific machine somethign comes from. so I expect that implementation of 
+NAT is going tohappen at some point before it's widely deployed.
 
-
--- 
-Sincerely,
-Robert Iakobashvili,
-coroberti %x40 gmail %x2e com
-...........................................................
-http://curl-loader.sourceforge.net
-A web testing and traffic generation tool.
+David Lang
