@@ -1,39 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Make skb_seq_read unmap the last fragment
-Date: Sat, 23 Jun 2007 23:12:07 -0700 (PDT)
-Message-ID: <20070623.231207.44965284.davem@davemloft.net>
-References: <200706190956.26252.okir@lst.de>
+From: Benny Amorsen <benny+usenet@amorsen.dk>
+Subject: Re: [RFD] L2 Network namespace infrastructure
+Date: 24 Jun 2007 12:25:50 +0200
+Message-ID: <m3zm2p7ioh.fsf@ursa.amorsen.dk>
+References: <20070623.135737.22037347.davem@davemloft.net> <467D9B8F.2050403@garzik.org> <m1ejk28eku.fsf@ebiederm.dsl.xmission.com> <20070623.224853.12137896.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: okir@lst.de
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54107
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753676AbXFXGLt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jun 2007 02:11:49 -0400
-In-Reply-To: <200706190956.26252.okir@lst.de>
+Received: from main.gmane.org ([80.91.229.2]:45267 "EHLO ciao.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753762AbXFXKdz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 24 Jun 2007 06:33:55 -0400
+Received: from list by ciao.gmane.org with local (Exim 4.43)
+	id 1I2PPB-0000cW-Mh
+	for netdev@vger.kernel.org; Sun, 24 Jun 2007 12:33:17 +0200
+Received: from hd5b9080a.c45-01-12.sta.perspektivbredband.net ([213.185.8.10])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Sun, 24 Jun 2007 12:33:17 +0200
+Received: from benny+usenet by hd5b9080a.c45-01-12.sta.perspektivbredband.net with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Sun, 24 Jun 2007 12:33:17 +0200
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Olaf Kirch <okir@lst.de>
-Date: Tue, 19 Jun 2007 09:56:24 +0200
+>>>>> "DM" == David Miller <davem@davemloft.net> writes:
 
-> From: Olaf Kirch <olaf.kirch@oracle.com>
-> 
-> Make skb_seq_read unmap the last fragment
-> 
-> Having walked through the entire skbuff, skb_seq_read would leave the
-> last fragment mapped.  As a consequence, the unwary caller would leak
-> kmaps, and proceed with preempt_count off by one. The only (kind of
-> non-intuitive) workaround is to use skb_seq_read_abort.
-> 
-> This patch makes sure skb_seq_read always unmaps frag_data after having
-> cycled through the skb's paged part.
-> 
-> Signed-off-by: olaf.kirch@oracle.com
+DM> Containers are I believe a step backwards, and we're better than
+DM> that.
 
-Thanks for finding and fixing this bug.
+Are there any alternative proposals?
 
-Patch applied, thanks again Olaf.
+I guess it would be a start if you could run processes with a
+different policy table as default. Ideally traffic from those
+processes would automatically enter a particular policy table without
+having to manually set up "ip rule" to catch their traffic. ip route
+would by default show that policy table; quagga would by default
+manage that table.
+
+I think that would provide me with the functionality I need, and it
+would not pretend to provide isolation.
+
+
+/Benny
+
+
