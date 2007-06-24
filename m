@@ -1,36 +1,74 @@
-From: Olaf Kirch <okir@lst.de>
-Subject: Re: [RFD] First draft of RDNSS-in-RA support for IPv6 DNS autoconfiguration
-Date: Sun, 24 Jun 2007 21:05:49 +0200
-Message-ID: <200706242105.50759.okir@lst.de>
-References: <OF0D7F9D29.61F86942-ON88257303.0005AD2A-88257303.0005D48C@us.ibm.com> <467C74BA.9060809@simon.arlott.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
+From: Kyle Moffett <mrmacman_g4@mac.com>
+Subject: Re: Scaling Max IP address limitation
+Date: Sun, 24 Jun 2007 15:08:37 -0400
+Message-ID: <D6003DDE-0C36-437B-B70A-D422DFE153D0@mac.com>
+References: <467EA7C1.4080006@rossove.com>
+Mime-Version: 1.0 (Apple Message framework v752.2)
+Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Stevens <dlstevens@us.ibm.com>,
-	"C. Scott Ananian" <cscott@laptop.org>, netdev@vger.kernel.org
-To: Simon Arlott <simon@fire.lp0.eu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from verein.lst.de ([213.95.11.210]:60014 "EHLO mail.lst.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751658AbXFXTGW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 24 Jun 2007 15:06:22 -0400
-In-Reply-To: <467C74BA.9060809@simon.arlott.org.uk>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Cc: LKML Kernel <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org
+To: djones@rossove.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756825AbXFXTIz@vger.kernel.org>
+In-Reply-To: <467EA7C1.4080006@rossove.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Saturday 23 June 2007 03:17, Simon Arlott wrote:
-> Because then it requires yet another network daemon, RA in 
-> the kernel means there's no need for one to manage adding 
-> auto-configured IP addresses... what's wrong with doing the 
-> same for DNS?
+On Jun 24, 2007, at 13:20:01, David Jones wrote:
+> Hi, I am trying to add multiple IP addresses ( v6 ) to my FC7 box  
+> on eth0. But I am hitting a max limit of 4000 IP address . Seems  
+> like there is a limiting variable in linux kernel (which one? )  
+> that prevents from adding more IP addresses than 4096. What do I  
+> need to change in Linux kernel  ( and then recompile ) to be able  
+> to add more IP addresses than 4K addresses per system? ..
 
-Actually I think an integrated network autoconfiguration
-daemon capable of doing DHCP, DHCP6, RDNSS, mDNS, you-name-it
-would be a nice thing.
+Do you really need that many IP addresses?  When somebody finally  
+gets around to implementing REDIRECT support for ip6tables then you  
+could just redirect them all to the same port on the local system.   
+Then with a happy little getsockopt() you can find out the original  
+IP address for use in whatever application you are running.  That's  
+likely to be a thousand times more efficient than binary searching  
+through 5000+ mostly-sequential IP addresses per received packet.
 
-Olaf
--- 
-Olaf Kirch  |  --- o --- Nous sommes du soleil we love when we play
-okir@lst.de |    / | \   sol.dhoop.naytheet.ah kin.ir.samse.qurax
+<Unrelated wishful thinking>
+I keep having hopeful dreams that one day netfilter will grow support  
+for cross-protocol NAT (IE: NAT a TCPv4 connection over TCPv6 to the  
+IPv6-only local web server, or vice versa).  It would seem that would  
+require a merged "xtables" program.
+
+Having routing table operations, IPsec transformations, etc just be  
+another step in the firewall rules would also be useful.  It would be  
+handy to be able to "-j ROUTE", then "-j IPSEC", then "-j ROUTE"  
+again, to re-route the now-encapsulated IPsec packets to their proper  
+destination.  That would also eliminate the sort-of-hacky problems  
+with destination network interface in the bridging code: "-j BRIDGE"  
+might be another step in the process, and conceivably you could have  
+independent bridge MAC tables too.  You'd probably also want "-j  
+BRIDGE_TEST" and "-j ROUTE_TEST" to compute the output network  
+interface without actually modifying the addresses.
+
+That would also appear to get rid of the need for all tables other  
+than "filter" and all predefined chains other than "INPUT" and  
+"OUTPUT".  Default rules would be these:
+nettables -A INPUT -j CONNTRACK
+nettables -A INPUT -j LOCALMATCH
+nettables -A INPUT --for-this-host -j ACCEPT
+nettables -A INPUT -j OUTPUT
+nettables -A OUTPUT -j ROUTE
+nettables -A OUTPUT -j TRANSMIT
+
+Forwarded packets would be sent right into the OUTPUT chain from the  
+INPUT chain by appropriate rules.  Instead of turning off  
+ip_forwarding in /proc/sys, you could just change the "-j OUTPUT" in  
+the INPUT chain to "-j ACCEPT", and it would be impossible to forward  
+packets.  I can't see any functionality that we have today which a  
+mechanism like this wouldn't support, aside from the fact that it  
+hands the admin a loaded nuclear missile aimed at their foot  
+(Flushing the INPUT chain would basically be analogous to committing  
+network suicide, although there exist other ways to do that with  
+netfilter today.
+</Unrelated wishful thinking>
+
+Cheers,
+Kyle Moffett
