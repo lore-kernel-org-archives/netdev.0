@@ -1,40 +1,53 @@
-From: Konstantin Sharlaimov <konstantin.sharlaimov@gmail.com>
-Subject: Re: [RFC] [PATCH 2.6.21.5] ppp: fix osize too small errors when
-	decoding mppe
-Date: Mon, 25 Jun 2007 10:38:41 +1100
-Message-ID: <1182728324.8980.17.camel@traveler>
-References: <4679116E.9050507@gmail.com>
-	 <20070623.230702.60547745.davem@davemloft.net>
-Reply-To: konstantin.sharlaimov@gmail.com
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [LARTC] ESFQ: request for user input
+Date: Mon, 25 Jun 2007 01:40:54 +0200
+Message-ID: <467F0106.1070103@trash.net>
+References: <467ECB0C.6020105@fatooh.org> <467EDE48.307@trash.net> <467EF9B6.3040801@fatooh.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: paulus@samba.org, vsu@altlinux.ru, netdev@vger.kernel.org,
-	linux-kernel <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: lartc <lartc@mailman.ds9a.nl>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Corey Hickey <bugfood-ml@fatooh.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.176]:10427 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751004AbXFXXjV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jun 2007 19:39:21 -0400
-Received: by wa-out-1112.google.com with SMTP id v27so1599425wah
-        for <netdev@vger.kernel.org>; Sun, 24 Jun 2007 16:39:21 -0700 (PDT)
-In-Reply-To: <20070623.230702.60547745.davem@davemloft.net>
+Received: from stinky.trash.net ([213.144.137.162]:53322 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751934AbXFXXl1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jun 2007 19:41:27 -0400
+In-Reply-To: <467EF9B6.3040801@fatooh.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2007-06-23 at 23:07 -0700, David Miller wrote:
+Corey Hickey wrote:
+> Patrick McHardy wrote:
+>>>
+>>> Should ESFQ be merged into SFQ or remain as a separate qdisc?
+>>>       
+>> I've CCed netdev. I think merging parts of ESFQ (dynamic depth and
+>> flow number) would make a lot of sense, but I'm intending to submit
+>> an alternative to the ESFQ hashing scheme for 2.6.23:
+>>
+>> http://www.mail-archive.com/netdev@vger.kernel.org/msg39156.html
+>>     
+>
+> Nice. I wasn't aware of that. Your patch looks like it supersedes ESFQ's
+> hashing, so, if it gets applied, that already removes a large chunk of
+> the differences between SFQ and ESFQ.
+>
+> If I don't hear any opposition, then I'll keep an eye out for when your
+> patch gets accepted (assuming it does) and then submit patch(es) porting
+> the rest of ESFQ's features to SFQ.
+>   
 
-The original version of this fix have made it to the 2.6.22-rc5 already
-and should be replaced with this one, however the two can coexist in the
-same code for a while.
+I think it would be best if you would start posting patches
+to add the missing features (without the hash changes) to SFQ,
+if you're quick this may already go in during the 2.6.23 merge
+window. My changes are mostly independant of yours, if there
+are any clashes the one who goes last will just have to rediff
+their patches :)
 
-> > --- linux-2.6.21.3/drivers/net/ppp_generic.c.orig	2007-06-20 09:14:13.000000000
-> > +1100
-> > +++ linux-2.6.21.3/drivers/net/ppp_generic.c	2007-06-20 09:18:06.000000000 +1100
-> 
-> Please prevent your email client from corrupting patches like
-> this by adding new lines.
+Since you need to pass additional parameters to SFQ for your
+changes, have a look at my rtnetlink compat attribute patch:
 
-Also, thank you for pointing this issue out, I'll fix it.
+http://article.gmane.org/gmane.linux.network/64851
 
