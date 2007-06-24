@@ -1,34 +1,68 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 3/3] NET: [SCHED] Qdisc changes and sch_rr added for multiqueue
-Date: Mon, 25 Jun 2007 00:22:10 +0200
-Message-ID: <467EEE92.9040702@trash.net>
-References: <20070623213614.18241.45511.stgit@localhost.localdomain> <20070623213633.18241.24627.stgit@localhost.localdomain>
+From: Corey Hickey <bugfood-ml@fatooh.org>
+Subject: Re: ESFQ: request for user input
+Date: Sun, 24 Jun 2007 16:09:42 -0700
+Message-ID: <467EF9B6.3040801@fatooh.org>
+References: <467ECB0C.6020105@fatooh.org> <467EDE48.307@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, jeff@garzik.org,
-	auke-jan.h.kok@intel.com, hadi@cyberus.ca
-To: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:52137 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751004AbXFXWWY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jun 2007 18:22:24 -0400
-In-Reply-To: <20070623213633.18241.24627.stgit@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
+Cc: lartc <lartc@mailman.ds9a.nl>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <lartc-bounces@mailman.ds9a.nl>
+In-Reply-To: <467EDE48.307@trash.net>
+List-Unsubscribe: <http://mailman.ds9a.nl/cgi-bin/mailman/listinfo/lartc>,
+	<mailto:lartc-request@mailman.ds9a.nl?subject=unsubscribe>
+List-Archive: <http://mailman.ds9a.nl/pipermail/lartc>
+List-Post: <mailto:lartc@mailman.ds9a.nl>
+List-Help: <mailto:lartc-request@mailman.ds9a.nl?subject=help>
+List-Subscribe: <http://mailman.ds9a.nl/cgi-bin/mailman/listinfo/lartc>,
+	<mailto:lartc-request@mailman.ds9a.nl?subject=subscribe>
+Sender: lartc-bounces@mailman.ds9a.nl
+Errors-To: lartc-bounces@mailman.ds9a.nl
 List-Id: netdev.vger.kernel.org
 
-PJ Waskiewicz wrote:
-> +	/* If we're multiqueue, make sure the number of incoming bands
-> +	 * matches the number of queues on the device we're associating with.
-> +	 */
-> +	if (tb[TCA_PRIO_MQ - 1])
-> +		q->mq = *(unsigned char *)RTA_DATA(tb[TCA_PRIO_MQ - 1]);
-> +
-> +	if (q->mq && (qopt->bands != sch->dev->egress_subqueue_count))
-> +		return -EINVAL;
+Patrick McHardy wrote:
+> Corey Hickey wrote:
+>> Hello,
+>>
+>> I haven't been keeping up with sending ESFQ [ANNOUNCE] messages to this
+>> list, but I've still been working on the patch. If you're curious about
+>> recent changes, take a look at the home page, ChangeLog, and README:
+>>
+>> http://fatooh.org/esfq-2.6/
+>> http://fatooh.org/esfq-2.6/current/ChangeLog
+>> http://fatooh.org/esfq-2.6/current/README
+>>
+>> Meanwhile, I'm interested in finally getting ESFQ included in the Linux
+>> kernel. Before I start sending patches and requesting maintainer review,
+>> however, there's one question I want to ask current or potential users
+>> of SFQ and ESFQ:
+>>
+>> Should ESFQ be merged into SFQ or remain as a separate qdisc?
+> 
+> I've CCed netdev. I think merging parts of ESFQ (dynamic depth and
+> flow number) would make a lot of sense, but I'm intending to submit
+> an alternative to the ESFQ hashing scheme for 2.6.23:
+> 
+> http://www.mail-archive.com/netdev@vger.kernel.org/msg39156.html
 
+Nice. I wasn't aware of that. Your patch looks like it supersedes ESFQ's
+hashing, so, if it gets applied, that already removes a large chunk of
+the differences between SFQ and ESFQ.
 
-A nice thing you could do for the user here is use
-egress_subqueue_count as default when qopt->bands == 0
-(and change tc prio to accept 0 in case it doesn't).
+If I don't hear any opposition, then I'll keep an eye out for when your
+patch gets accepted (assuming it does) and then submit patch(es) porting
+the rest of ESFQ's features to SFQ.
+
+I just subscribed myself to netdev.
+
+> I have enough trust in ESFQ's stability that I don't think we need
+> a new qdisc for this and could merge it in SFQ (and the "uses only
+> 1 page" justification isn't true anymore anyway), but I also
+> wouldn't mind adding a new qdisc.
+
+Thanks for the trust; I'm sure that the patches will have to undergo
+some cleanup either way, considering my newbieness to kernel development.
+
+-Corey
