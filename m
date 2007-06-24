@@ -1,44 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] [PATCH 2.6.21.5] ppp: fix osize too small errors when
- decoding mppe
-Date: Sat, 23 Jun 2007 23:07:02 -0700 (PDT)
-Message-ID: <20070623.230702.60547745.davem@davemloft.net>
-References: <4679116E.9050507@gmail.com>
+Subject: Re: [PATCH] NET: [CORE] Re-enable irqs before pushing pending DMA
+ requests
+Date: Sat, 23 Jun 2007 23:09:45 -0700 (PDT)
+Message-ID: <20070623.230945.132856018.davem@davemloft.net>
+References: <20070621163455.28160.35548.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: paulus@samba.org, vsu@altlinux.ru, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: konstantin.sharlaimov@gmail.com
+Cc: netdev@vger.kernel.org
+To: shannon.nelson@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34804
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54105
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753133AbXFXGGo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jun 2007 02:06:44 -0400
-In-Reply-To: <4679116E.9050507@gmail.com>
+	by vger.kernel.org with ESMTP id S1753769AbXFXGJ0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jun 2007 02:09:26 -0400
+In-Reply-To: <20070621163455.28160.35548.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Konstantin Sharlaimov <konstantin.sharlaimov@gmail.com>
-Date: Wed, 20 Jun 2007 22:37:18 +1100
+From: Shannon Nelson <shannon.nelson@intel.com>
+Date: Thu, 21 Jun 2007 09:34:55 -0700
 
-> The mppe_decompress() function required a buffer that is 1 byte too small when
-> receiving a message of mru size. This fixes buffer allocation to prevent this
-> from occurring.
+> This moves the local_irq_enable() call in net_rx_action() to before
+> calling the CONFIG_NET_DMA's dma_async_memcpy_issue_pending() rather
+> than after.  This shortens the irq disabled window and allows for DMA
+> drivers that need to do their own irq hold.
 > 
-> Signed-off-by: Konstantin Sharlaimov <konstantin.sharlaimov@gmail.com>
+> Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
 
-This looks better, I've reverted the original version of the
-fix and applied this new one.
-
-> --- linux-2.6.21.3/drivers/net/ppp_generic.c.orig	2007-06-20 09:14:13.000000000
-> +1100
-> +++ linux-2.6.21.3/drivers/net/ppp_generic.c	2007-06-20 09:18:06.000000000 +1100
-
-Please prevent your email client from corrupting patches like
-this by adding new lines.
-
-I've fixed up your patches by hand now twice, I'm not going to do it
-any more.
-
-Thanks.
+Patch applied, thanks Shannon.
