@@ -1,68 +1,40 @@
-From: Corey Hickey <bugfood-ml@fatooh.org>
-Subject: Re: ESFQ: request for user input
-Date: Sun, 24 Jun 2007 16:09:42 -0700
-Message-ID: <467EF9B6.3040801@fatooh.org>
-References: <467ECB0C.6020105@fatooh.org> <467EDE48.307@trash.net>
+From: Konstantin Sharlaimov <konstantin.sharlaimov@gmail.com>
+Subject: Re: [RFC] [PATCH 2.6.21.5] ppp: fix osize too small errors when
+	decoding mppe
+Date: Mon, 25 Jun 2007 10:38:41 +1100
+Message-ID: <1182728324.8980.17.camel@traveler>
+References: <4679116E.9050507@gmail.com>
+	 <20070623.230702.60547745.davem@davemloft.net>
+Reply-To: konstantin.sharlaimov@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: lartc <lartc@mailman.ds9a.nl>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <lartc-bounces@mailman.ds9a.nl>
-In-Reply-To: <467EDE48.307@trash.net>
-List-Unsubscribe: <http://mailman.ds9a.nl/cgi-bin/mailman/listinfo/lartc>,
-	<mailto:lartc-request@mailman.ds9a.nl?subject=unsubscribe>
-List-Archive: <http://mailman.ds9a.nl/pipermail/lartc>
-List-Post: <mailto:lartc@mailman.ds9a.nl>
-List-Help: <mailto:lartc-request@mailman.ds9a.nl?subject=help>
-List-Subscribe: <http://mailman.ds9a.nl/cgi-bin/mailman/listinfo/lartc>,
-	<mailto:lartc-request@mailman.ds9a.nl?subject=subscribe>
-Sender: lartc-bounces@mailman.ds9a.nl
-Errors-To: lartc-bounces@mailman.ds9a.nl
+Cc: paulus@samba.org, vsu@altlinux.ru, netdev@vger.kernel.org,
+	linux-kernel <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wa-out-1112.google.com ([209.85.146.176]:10427 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751004AbXFXXjV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jun 2007 19:39:21 -0400
+Received: by wa-out-1112.google.com with SMTP id v27so1599425wah
+        for <netdev@vger.kernel.org>; Sun, 24 Jun 2007 16:39:21 -0700 (PDT)
+In-Reply-To: <20070623.230702.60547745.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy wrote:
-> Corey Hickey wrote:
->> Hello,
->>
->> I haven't been keeping up with sending ESFQ [ANNOUNCE] messages to this
->> list, but I've still been working on the patch. If you're curious about
->> recent changes, take a look at the home page, ChangeLog, and README:
->>
->> http://fatooh.org/esfq-2.6/
->> http://fatooh.org/esfq-2.6/current/ChangeLog
->> http://fatooh.org/esfq-2.6/current/README
->>
->> Meanwhile, I'm interested in finally getting ESFQ included in the Linux
->> kernel. Before I start sending patches and requesting maintainer review,
->> however, there's one question I want to ask current or potential users
->> of SFQ and ESFQ:
->>
->> Should ESFQ be merged into SFQ or remain as a separate qdisc?
+On Sat, 2007-06-23 at 23:07 -0700, David Miller wrote:
+
+The original version of this fix have made it to the 2.6.22-rc5 already
+and should be replaced with this one, however the two can coexist in the
+same code for a while.
+
+> > --- linux-2.6.21.3/drivers/net/ppp_generic.c.orig	2007-06-20 09:14:13.000000000
+> > +1100
+> > +++ linux-2.6.21.3/drivers/net/ppp_generic.c	2007-06-20 09:18:06.000000000 +1100
 > 
-> I've CCed netdev. I think merging parts of ESFQ (dynamic depth and
-> flow number) would make a lot of sense, but I'm intending to submit
-> an alternative to the ESFQ hashing scheme for 2.6.23:
-> 
-> http://www.mail-archive.com/netdev@vger.kernel.org/msg39156.html
+> Please prevent your email client from corrupting patches like
+> this by adding new lines.
 
-Nice. I wasn't aware of that. Your patch looks like it supersedes ESFQ's
-hashing, so, if it gets applied, that already removes a large chunk of
-the differences between SFQ and ESFQ.
+Also, thank you for pointing this issue out, I'll fix it.
 
-If I don't hear any opposition, then I'll keep an eye out for when your
-patch gets accepted (assuming it does) and then submit patch(es) porting
-the rest of ESFQ's features to SFQ.
-
-I just subscribed myself to netdev.
-
-> I have enough trust in ESFQ's stability that I don't think we need
-> a new qdisc for this and could merge it in SFQ (and the "uses only
-> 1 page" justification isn't true anymore anyway), but I also
-> wouldn't mind adding a new qdisc.
-
-Thanks for the trust; I'm sure that the patches will have to undergo
-some cleanup either way, considering my newbieness to kernel development.
-
--Corey
