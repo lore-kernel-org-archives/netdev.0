@@ -1,44 +1,73 @@
-From: Jan Engelhardt <jengelh@computergmbh.de>
-Subject: Re: Scaling Max IP address limitation
-Date: Sun, 24 Jun 2007 22:52:34 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0706242251280.11964@fbirervta.pbzchgretzou.qr>
-References: <467EA7C1.4080006@rossove.com> <D6003DDE-0C36-437B-B70A-D422DFE153D0@mac.com>
- <Pine.LNX.4.64.0706242153240.11964@fbirervta.pbzchgretzou.qr>
- <Pine.LNX.4.64.0706241342340.12806@asgard.lang.hm>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [LARTC] ESFQ: request for user input
+Date: Sun, 24 Jun 2007 23:12:40 +0200
+Message-ID: <467EDE48.307@trash.net>
+References: <467ECB0C.6020105@fatooh.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Kyle Moffett <mrmacman_g4@mac.com>, djones@rossove.com,
-	LKML Kernel <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org
-To: david@lang.hm
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: lartc <lartc@mailman.ds9a.nl>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Corey Hickey <bugfood-ml@fatooh.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sovereign.computergmbh.de ([85.214.69.204]:2884 "EHLO
-	sovereign.computergmbh.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751017AbXFXUwf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jun 2007 16:52:35 -0400
-In-Reply-To: <Pine.LNX.4.64.0706241342340.12806@asgard.lang.hm>
+Received: from stinky.trash.net ([213.144.137.162]:51037 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750803AbXFXVMw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jun 2007 17:12:52 -0400
+In-Reply-To: <467ECB0C.6020105@fatooh.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Corey Hickey wrote:
+> Hello,
+> 
+> I haven't been keeping up with sending ESFQ [ANNOUNCE] messages to this
+> list, but I've still been working on the patch. If you're curious about
+> recent changes, take a look at the home page, ChangeLog, and README:
+> 
+> http://fatooh.org/esfq-2.6/
+> http://fatooh.org/esfq-2.6/current/ChangeLog
+> http://fatooh.org/esfq-2.6/current/README
+> 
+> Meanwhile, I'm interested in finally getting ESFQ included in the Linux
+> kernel. Before I start sending patches and requesting maintainer review,
+> however, there's one question I want to ask current or potential users
+> of SFQ and ESFQ:
+> 
+> Should ESFQ be merged into SFQ or remain as a separate qdisc?
 
-On Jun 24 2007 13:44, david@lang.hm wrote:
->> On Jun 24 2007 15:08, Kyle Moffett wrote:
->> >
->> > Do you really need that many IP addresses?  When somebody finally gets
->> > around to implementing REDIRECT support for ip6tables then you could
->> > just redirect them all to the same port on the local system.
->>
->> The way I see it, it's: "if someone gets around to implement *IPv6 NAT*"
->> (which, if its designers were asked, is contrary to the idea of ipv6).
->
-> true, but back in the real world it's sometimes desriable to hid _chich_
-> specific machine somethign comes from. so I expect that implementation of NAT
-> is going tohappen at some point before it's widely deployed.
 
-Client-transparent SOCKS5 proxy. It already exists today! ;-)
-(Not as performant as an in-kernel NAT, though.)
+I've CCed netdev. I think merging parts of ESFQ (dynamic depth and
+flow number) would make a lot of sense, but I'm intending to submit
+an alternative to the ESFQ hashing scheme for 2.6.23:
 
+http://www.mail-archive.com/netdev@vger.kernel.org/msg39156.html
 
-	Jan
--- 
+I have enough trust in ESFQ's stability that I don't think we need
+a new qdisc for this and could merge it in SFQ (and the "uses only
+1 page" justification isn't true anymore anyway), but I also
+wouldn't mind adding a new qdisc.
+
+> Note that I can't promise either is an option, since I haven't queried
+> any maintainers yet; I'd rather have a clear idea of what is more
+> desirable to the users before I propose anything. Of course, if any
+> maintainers read this, I would value their input at this point as well.
+> 
+> Here are some advantages and disadvantages of merging ESFQ with SFQ.
+> Please correct me or let me know of any others you think of.
+> 
+> ---Advantages---
+> * There's nothing radically different about ESFQ. A separate sch_esfq.c
+>   would duplicate lots of the code in sch_sfq.c.
+> * Current users of SFQ would benefit from the better hashing of using
+>   jhash. Other than that, the default parameters of ESFQ are the same
+>   as SFQ's hardcoded values, so ESFQ would be a drop-in replacement.
+> * Having two similar-looking similarly-functioning qdiscs could be
+>   confusing for new users.
+> 
+> ---Disadvantages---
+> * SFQ has been stable for years; it may be undesirable to make changes
+>   that could potentially introduce bugs.
+> * ESFQ is marginally slower than SFQ (although I haven't been able to
+>   measure a practical difference; if someone has benchmark tips I'll try
+>   them).
