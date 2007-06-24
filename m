@@ -1,39 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFD] L2 Network namespace infrastructure
-Date: Sat, 23 Jun 2007 22:48:53 -0700 (PDT)
-Message-ID: <20070623.224853.12137896.davem@davemloft.net>
-References: <20070623.135737.22037347.davem@davemloft.net>
-	<467D9B8F.2050403@garzik.org>
-	<m1ejk28eku.fsf@ebiederm.dsl.xmission.com>
+Subject: Re: [SKBUFF]: Fix incorrect config #ifdef around skb_copy_secmark
+Date: Sat, 23 Jun 2007 22:59:07 -0700 (PDT)
+Message-ID: <20070623.225907.81449319.davem@davemloft.net>
+References: <467CFBAF.9080709@trash.net>
+	<Line.LNX.4.64.0706231102390.12813@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, kaber@trash.net, netdev@vger.kernel.org,
-	hadi@cyberus.ca, shemminger@linux-foundation.org,
-	greearb@candelatech.com, yoshfuji@linux-ipv6.org,
-	containers@lists.osdl.org, torvalds@linux-foundation.org,
-	akpm@linux-foundation.org
-To: ebiederm@xmission.com
+Cc: kaber@trash.net, netdev@vger.kernel.org
+To: jmorris@namei.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37801
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37669
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753133AbXFXFsf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jun 2007 01:48:35 -0400
-In-Reply-To: <m1ejk28eku.fsf@ebiederm.dsl.xmission.com>
+	by vger.kernel.org with ESMTP id S1752843AbXFXF6t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jun 2007 01:58:49 -0400
+In-Reply-To: <Line.LNX.4.64.0706231102390.12813@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Sat, 23 Jun 2007 16:56:49 -0600
+From: James Morris <jmorris@namei.org>
+Date: Sat, 23 Jun 2007 11:02:54 -0400 (EDT)
 
-> If the only use was strong isolation which Dave complains about I would
-> concur that the namespace approach is inappropriate.  However there are
-> a lot other uses.
+> Thanks.
+> 
+> Acked-by: James Morris <jmorris@namei.org>
 
-By your very admission the only appropriate use case is when users
-are not "hostile" and can be trusted to some extent.
-
-And that by definition makes it not appropriate for a general purpose
-operating system like Linux.
-
-Containers are I believe a step backwards, and we're better than that.
+Applied, thanks everyone.
