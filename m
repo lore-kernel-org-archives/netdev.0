@@ -1,42 +1,36 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: FSCKED clock sources WAS(Re: [WIP][PATCHES] Network xmit
-	batching
-Date: Mon, 25 Jun 2007 12:59:54 -0400
-Message-ID: <1182790794.5184.41.camel@localhost>
-References: <20070619140038.GA13629@2ka.mipt.ru>
-	 <1182270529.4968.73.camel@localhost>
-	 <18040.5105.715624.286924@robur.slu.se>
-	 <20070619.152801.99185860.davem@davemloft.net>
-	 <1182441257.5017.48.camel@localhost> <1182442099.5017.51.camel@localhost>
-	 <20070621165546.GH15814@kvack.org>
-Reply-To: hadi@cyberus.ca
+From: Erik Slagter <erik@slagter.name>
+Subject: Re: Linksys Gigabit USB2.0 adapter (asix) regression
+Date: Mon, 25 Jun 2007 19:05:31 +0200
+Message-ID: <467FF5DB.5090006@slagter.name>
+References: <467915D9.3030900@slagter.name> <1182523020.4938.20.camel@dhollis-lnx.sunera.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, Robert.Olsson@data.slu.se,
-	johnpol@2ka.mipt.ru, krkumar2@in.ibm.com, gaagaan@gmail.com,
-	netdev@vger.kernel.org, rick.jones2@hp.com, sri@us.ibm.com
-To: Benjamin LaHaise <bcrl@kvack.org>
+Cc: netdev@vger.kernel.org
+To: David Hollis <dhollis@davehollis.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.232]:15380 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751278AbXFYQ76 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jun 2007 12:59:58 -0400
-Received: by wx-out-0506.google.com with SMTP id t15so1513087wxc
-        for <netdev@vger.kernel.org>; Mon, 25 Jun 2007 09:59:57 -0700 (PDT)
-In-Reply-To: <20070621165546.GH15814@kvack.org>
+Received: from erik-slagter.demon.nl ([83.160.41.216]:47015 "EHLO
+	artemis.slagter.name" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750927AbXFYRFd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jun 2007 13:05:33 -0400
+In-Reply-To: <1182523020.4938.20.camel@dhollis-lnx.sunera.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2007-21-06 at 12:55 -0400, Benjamin LaHaise wrote:
+David Hollis wrote:
 
-> You should qualify that as 'Old P4 Xeon', as the Core 2 Xeons are leagues 
-> better.
+> You wouldn't happen to know what PHY that device is using?  The AX88178
+> (Gigabit USB Ethernet) support in the driver currently only supports the
+> Marvell PHY, which is the only one I've actually encountered to-date.
 
-The Xeon hardware is not that old - about a year or so (and so is the
-opteron). 
-BTW, how could you tell this was old Xeon?
+I'll quote a few of strings that are spewed that I assume might be
+interesting:
 
-cheers,
-jamal 
+drivers/net/usb/asix.c: GPIO Status: 0x0002
+drivers/net/usb/asix.c: EEPROM index 0x17 is 0x0580
+drivers/net/usb/asix.c: GPIO0: 0, PhyMode: 0
+drivers/net/usb/asix.c: PHYID=0x01410cc2
+usb%d: MII_MARVELL_STATUS = 0x848f
+usb%d: MII_MARVELL_LED_CTRL (1) = 0x4100
+usb%d: MII_MARVELL_LED_CTRL (2) = 0x4101
 
