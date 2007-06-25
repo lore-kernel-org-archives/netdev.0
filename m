@@ -1,60 +1,51 @@
-From: "pradeep singh" <pradeep.rautela@gmail.com>
-Subject: Re: [PATCH v2.6.22-rc5] cxgb2: handle possible NULL pointer dereferencing, take 2
-Date: Mon, 25 Jun 2007 11:16:55 +0530
-Message-ID: <a901b49a0706242246w11865c1bq7cc8eebeb278f5cd@mail.gmail.com>
-References: <a901b49a0706210553r58ea8743gc565fcca1a87b58f@mail.gmail.com>
-	 <a901b49a0706210618q7c22cbe0jd6f7e052a8e05a97@mail.gmail.com>
-	 <20070623095446.c1a9c697.akpm@linux-foundation.org>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: strange sky disable/enable in the kernel log
+Date: Sun, 24 Jun 2007 23:11:20 -0700
+Message-ID: <20070624231120.4c04a2ee@freepuppy.localdomain.hemminger.net>
+References: <20070622055342.GA11876@dose.home.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: trivial@kernel.org, netdev@vger.kernel.org, jgarzik@pobox.com
-To: "Andrew Morton" <akpm@linux-foundation.org>
+Cc: netdev@vger.kernel.org
+To: Tino Keitel <tino.keitel@tikei.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.176]:40964 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751485AbXFYFq4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jun 2007 01:46:56 -0400
-Received: by wa-out-1112.google.com with SMTP id v27so1685648wah
-        for <netdev@vger.kernel.org>; Sun, 24 Jun 2007 22:46:56 -0700 (PDT)
-In-Reply-To: <20070623095446.c1a9c697.akpm@linux-foundation.org>
-Content-Disposition: inline
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:56647 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752901AbXFYGLo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jun 2007 02:11:44 -0400
+In-Reply-To: <20070622055342.GA11876@dose.home.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 6/23/07, Andrew Morton <akpm@linux-foundation.org> wrote:
-> > On Thu, 21 Jun 2007 18:48:30 +0530 "pradeep singh" <pradeep.rautela@gmail.com> wrote:
-> > Hi,
-> > My mistake.
-> > Resending after reformatting the patch by hand.
-> > Looks like gmail messes the plain text patches.
-> >
->
-> That's still mangled so I typed it in again.
-Sorry Andrew.
->
-> Please always include a full changlog with each version of a patch.
-point noted down.
->
-> I do not know what this patch does - please provide a changelog.  In this
-> case it should tell us whether and how this null pointer deref is actually
-> occuring and if so, why.
-affirmative.
->
-> As well as a full description of the problem which it solves, a changelog
-> should also describe _how_ it solved it, but that is sufficiently obvious
-> in this case.
+On Fri, 22 Jun 2007 07:53:42 +0200
+Tino Keitel <tino.keitel@tikei.de> wrote:
 
-Thanks for the invaluable suggestion Andrew.
+> Hi,
+> 
+> I just found this in the kernel log:
+> 
+> 2007-06-22_05:47:50.69894 kern.info: sky2 eth0: disabling interface
+> 2007-06-22_05:47:50.72039 kern.info: sky2 eth0: enabling interface
+> 2007-06-22_05:47:50.72240 kern.info: sky2 eth0: ram buffer 48K
+> 2007-06-22_05:47:52.40903 kern.info: sky2 eth0: Link is up at 100 Mbps,
+> full duplex, flow control both
+> 
+> What could be the cause for this? I use kernel 2.6.22-rc5 with this
+> hardware:
+> 
+> sky2 0000:01:00.0: v1.14 addr 0x90200000 irq 17 Yukon-EC (0xb6) rev 2
+> 
+> 01:00.0 Ethernet controller: Marvell Technology Group Ltd. 88E8053
+> PCI-E Gigabit Ethernet Controller (rev 22)
+> 
+> Regards,
+> Tino
 
-Thanks a lot once again.
+Some  script is calling the device stop (down) call. 
+	ifconfig eth0 down
+	ip link set eth0 down
 
-~pradeep
->
->
-> Thanks.
->
-
+another possibility is suspend/resume.
 
 -- 
-Pradeep
+Stephen Hemminger <shemminger@linux-foundation.org>
