@@ -1,69 +1,39 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: RE: [RTNETLINK]: Add nested compat attribute
-Date: Mon, 25 Jun 2007 16:23:02 -0700
-Message-ID: <D5C1322C3E673F459512FB59E0DDC329031B5835@orsmsx414.amr.corp.intel.com>
-References: <20070625.143248.73361950.davem@davemloft.net>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH v2.6.22-rc5] cxgb2: handle possible NULL pointer
+ dereferencing, take 2
+Date: Mon, 25 Jun 2007 16:30:15 -0700
+Message-ID: <20070625163015.175d15c0.akpm@linux-foundation.org>
+References: <a901b49a0706210553r58ea8743gc565fcca1a87b58f@mail.gmail.com>
+	<a901b49a0706210618q7c22cbe0jd6f7e052a8e05a97@mail.gmail.com>
+	<20070625153450.c5f535ca.akpm@linux-foundation.org>
+	<46804C3D.3080205@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, <shemminger@linux-foundation.org>
-To: "David Miller" <davem@davemloft.net>, <kaber@trash.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: pradeep singh <pradeep.rautela@gmail.com>, trivial@kernel.org,
+	netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:38533 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751930AbXFYXXF convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jun 2007 19:23:05 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20070625.143248.73361950.davem@davemloft.net>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:50280 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751249AbXFYXae (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jun 2007 19:30:34 -0400
+In-Reply-To: <46804C3D.3080205@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> From: Patrick McHardy <kaber@trash.net>
-> Date: Mon, 25 Jun 2007 23:08:09 +0200
+On Mon, 25 Jun 2007 19:14:05 -0400
+Jeff Garzik <jeff@garzik.org> wrote:
+
+> Andrew Morton wrote:
+> > The chelsio driver is assuming that pci_device_id.driver_data has been
+> > initialised to the board index, but I am unable to locate anywhere where
+> > that initialisation actually happens.
 > 
-> > David Miller wrote:
-> > >
-> > >> I've been using this patch and the IPROUTE2 patches Patrick has 
-> > >> proposed with no issues.  Can someone else look at these patches 
-> > >> when they have time?  I'd be interested in seeing them 
-> make it into 2.6.23.
-> > >>     
-> > >
-> > > I've just put Patrick's patch into the net-2.6.23 tree.
-> > >   
-> > 
-> > You seem to have added the netlink patch for the generic netlink 
-> > attributes. Peter needs the rtnetlink attribute patch since qdiscs 
-> > still use the old stuff.
-> > 
-> > Attached again to this mail.
+> It's hidden inside the CH_DEVICE() initializer-helper macro.
 > 
-> Thanks for the clarification, I thought they were both the 
-> same patch, resent for the sake of tgraf seeing it.
-> 
-> I've applied this one too, thanks Patrick.
 
-It looks like the one Patrick resent was the older version that requires
-a typecast.  This is the function prototype currently in the kernel:
+oic.
 
-+extern int rtattr_parse_nested_compat(struct rtattr *tb[], int maxattr,
-+				      struct rtattr *rta, void **data,
-int len);
-
-This is the newer version:
-
-+extern int __rtattr_parse_nested_compat(struct rtattr *tb[], int
-maxattr,
-+				        struct rtattr *rta, int len);
-+#define rtattr_parse_nested_compat(tb, max, rta, data, len) \
-+({	data = RTA_PAYLOAD(rta) >= len ? RTA_DATA(rta) : NULL; \
-+	__rtattr_parse_nested_compat(tb, max, rta, len); })
-+
-
-I can send the update to what's in 2.6.23 as the first patch of my
-series, or I can write my function calls using the older callback (which
-isn't a problem).  Which would you prefer?
-
-Thanks,
--PJ Waskiewicz
+Does this driver still have a maintainer, or is it now a "community"
+driver (giggle) ?
