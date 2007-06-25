@@ -1,63 +1,47 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [WIP][PATCHES] Network xmit batching
-Date: Mon, 25 Jun 2007 10:35:14 -0700
-Message-ID: <467FFCD2.30908@hp.com>
-References: <OFB311484E.057E34E9-ON652572F3.001D5838-652572F3.0022766D@in.ibm.com>	<1181216629.4064.22.camel@localhost>	<20070619132148.GA32078@2ka.mipt.ru>	<1182459607.6096.31.camel@raj-laptop> <20070622095935.GA14207@2ka.mipt.ru>
+From: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Subject: Re: [2/2] 2.6.22-rc6: known regressions with patches
+Date: Mon, 25 Jun 2007 11:27:32 -0700 (PDT)
+Message-ID: <alpine.LFD.0.98.0706251126040.3593@woody.linux-foundation.org>
+References: <467F894C.4000604@googlemail.com>
+ <467F8F63.2070101@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: jamal <hadi@cyberus.ca>, Krishna Kumar2 <krkumar2@in.ibm.com>,
-	Gagan Arneja <gaagaan@gmail.com>, netdev@vger.kernel.org,
-	Sridhar Samudrala <sri@us.ibm.com>,
-	David Miller <davem@davemloft.net>,
-	Robert Olsson <Robert.Olsson@data.slu.se>
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel10.hp.com ([156.153.255.245]:56261 "EHLO palrel10.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751343AbXFYRfV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Jun 2007 13:35:21 -0400
-In-Reply-To: <20070622095935.GA14207@2ka.mipt.ru>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=us-ascii
+Cc: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Antonino Daplas <adaplas-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Olaf Hering <olaf-QOLJcTWqO2uzQB+pC5nmwQ@public.gmane.org>, Ville Syrj?l? <syrjala-ORSVBvAovxo@public.gmane.org>,
+	Christoph Lameter <clameter-sJ/iWh9BUns@public.gmane.org>,
+	Dave Airlie <airlied-cv59FeDIM0c@public.gmane.org>,
+	Andrea Righi <righiandr-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
+	Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>,
+	Andrey Borzenkov <arvidjaar-JGs/UdohzUI@public.gmane.org>,
+	Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>,
+	Bjorn Helgaas <bjorn.helgaas-VXdhtT5mjnY@public.gmane.org>,
+	Chad Tindel <ctindel-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
+	Olaf Hering <olaf-QOLJcTWqO2uzQB+pC5nmwQ@public.gmane.org>
+To: Michal Piotrowski <michal.k.k.piotrowski-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <467F8F63.2070101-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Evgeniy Polyakov wrote:
-> On Thu, Jun 21, 2007 at 02:00:07PM -0700, Rick Jones (rick.jones2@hp.com) wrote:
-> 
->>>Simple test included test -> desktop and vice versa traffic with 128 and
->>>4096 block size in netperf-2.4.3 setup.
->>
->>Is that in conjunction with setting the test-specific -D to set
->>TCP_NODELAY, or was Nagle left-on?  If the latter, perhaps timing issues
->>could be why the confidence intervals weren't hit since the relative
->>batching of 128byte sends into larger segments is something of a race.
-> 
-> 
-> I used this parameters:
-> netperf -l 60 -H kano -t TCP_STREAM -i 10,2 -I 99,5 -- -m 128 -s 128K
-> -S 128K
 
-You can take -i up to 30 for the max count if you want to try to hit the 
-levels.
 
+On Mon, 25 Jun 2007, Michal Piotrowski wrote:
 > 
-> so without nodelay.
+> Memory management
 > 
-> With nodelay I've gotten:
-> batch-128: 128.91 mbit/sec
-> mainline-128: 140.57 mbit/sec
-> 
-> which is about 5 times less than withouth nodelay (~760 mbit/s)
-> Although nodelay results look more realistic.
+> Subject    : bug in i386 MTRR initialization
+> References : http://lkml.org/lkml/2007/5/19/93
+> Submitter  : Andrea Righi <righiandr-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+> Status     : patch available
 
-all that fun send batching that happens without nodelay :)
+This one wasn't a bug in the first place, it was just the regular warning 
+for kmalloc-size-0. The "BUG" string was confusing and has been fixed, and 
+the warning for size-0 has gone away and been replaced by returning a 
+pointer that will fault on dereference instead.
 
-rick jones
+So please remove this one.
 
-> 
-> 
-> 
->>rick jones
-> 
-> 
-
+		Linus
