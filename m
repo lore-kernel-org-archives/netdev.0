@@ -1,56 +1,76 @@
-From: Corey Hickey <bugfood-ml@fatooh.org>
-Subject: Re: [LARTC] ESFQ: request for user input
-Date: Sun, 24 Jun 2007 16:45:28 -0700
-Message-ID: <467F0218.6010400@fatooh.org>
-References: <467ECB0C.6020105@fatooh.org> <467EDE48.307@trash.net> <467EF9B6.3040801@fatooh.org> <467F0106.1070103@trash.net>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [RFD] First draft of RDNSS-in-RA support for IPv6 DNS
+	autoconfiguration
+Date: Sun, 24 Jun 2007 22:17:31 -0400
+Message-ID: <1182737851.16455.3.camel@xo-13-A4-25.localdomain>
+References: <OF0D7F9D29.61F86942-ON88257303.0005AD2A-88257303.0005D48C@us.ibm.com>
+	 <200706231625.44825@auguste.remlab.net>
+	 <c6d9bea0706230747y79d39a6eh3c55de3a29cfb4d1@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: lartc <lartc@mailman.ds9a.nl>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?ISO-8859-1?Q?R=E9mi?= Denis-Courmont <rdenis@simphalempin.com>,
+	David Stevens <dlstevens@us.ibm.com>, netdev@vger.kernel.org
+To: "C. Scott Ananian" <cscott@laptop.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hot.fatooh.org ([208.78.103.127]:51067 "EHLO hot.fatooh.org"
+Received: from mx1.redhat.com ([66.187.233.31]:39581 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751418AbXFXXp1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 24 Jun 2007 19:45:27 -0400
-In-Reply-To: <467F0106.1070103@trash.net>
+	id S1752813AbXFYCMy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 24 Jun 2007 22:12:54 -0400
+In-Reply-To: <c6d9bea0706230747y79d39a6eh3c55de3a29cfb4d1@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy wrote:
-> Corey Hickey wrote:
->> Patrick McHardy wrote:
->>>> Should ESFQ be merged into SFQ or remain as a separate qdisc?
->>>>       
->>> I've CCed netdev. I think merging parts of ESFQ (dynamic depth and
->>> flow number) would make a lot of sense, but I'm intending to submit
->>> an alternative to the ESFQ hashing scheme for 2.6.23:
->>>
->>> http://www.mail-archive.com/netdev@vger.kernel.org/msg39156.html
->>>     
->> Nice. I wasn't aware of that. Your patch looks like it supersedes ESFQ's
->> hashing, so, if it gets applied, that already removes a large chunk of
->> the differences between SFQ and ESFQ.
->>
->> If I don't hear any opposition, then I'll keep an eye out for when your
->> patch gets accepted (assuming it does) and then submit patch(es) porting
->> the rest of ESFQ's features to SFQ.
->>   
-> 
-> I think it would be best if you would start posting patches
-> to add the missing features (without the hash changes) to SFQ,
-> if you're quick this may already go in during the 2.6.23 merge
-> window. My changes are mostly independant of yours, if there
-> are any clashes the one who goes last will just have to rediff
-> their patches :)
-> 
-> Since you need to pass additional parameters to SFQ for your
-> changes, have a look at my rtnetlink compat attribute patch:
-> 
-> http://article.gmane.org/gmane.linux.network/64851
+On Sat, 2007-06-23 at 10:47 -0400, C. Scott Ananian wrote:
+> R=C3=A9mi and Simon give my responses very eloquently.  Although you =
+could
+> have yet-another-network-daemon redundantly process RA messages, the
+> kernel is doing it already and it makes sense to just push this
+> information to userland using /proc and/or netlink.  Although parsing
+> RA messages and processing expiry in userland looks barely-possible
+> now, SeND support is really necessary for long-term IPv6 security, an=
+d
+> duplicating SeND functionality in userland would be a nightmare.
+> Futher, the neighbor discover protocol involves Router Solicitation
+> messages which elicit the Router Advertisement reply, and we really
+> don't want userland sending redundant Router Solicitation messages
+> around, just because the kernel doesn't want to tell it what Router
+> Advertisements it received.  I considered storing the *complete*
+> Router Advertisement messages received and pushing them unparsed to
+> userland, just to get around the bogus "DNS in the kernel" politics
+> (hint: it's not a resolver in the kernel, it's just nameserver
+> addresses being stored).  Does anyone really suggest that this would
+> be a better solution?
+>=20
+> The goal is to push the userland component into glibc, likely through
+> a NSS resolver plugin.  Current glibc doesn't do any processing to
+> determine when /etc/resolv.conf has changed, which is a problem for
 
-Ok, I'll work on it later. Thanks.
+The glibc guys rejected things like periodically stat()-ing resolv.conf=
+=2E
+The standard solution to this has been to push the responsibility for
+noticing resolv.conf changes to _each_ _app_, which must periodically
+call _res_init() to get glibc to re-read resolv.conf and notice any
+changes.  This is what eg Mozilla/Firefox and other internet-type apps
+do right now.
 
--Corey
+Or, run a caching nameserver and point resolv.conf to 127.0.0.1, or use
+nss_lwres, which hopefully is in much better shape than it was a year o=
+r
+two ago (ie, actually respecting TTL and such).
+
+Dan
+
+> long-running applications.  Exporting RDNSS-in-RA via netlink message=
+s
+> (or by poll() on a /proc file as is done for /proc/<pid>/mounts, whic=
+h
+> was suggested in linux-kernel) is an elegant solution that (as R=C3=A9=
+mi
+> noted) cleanly handles interface up/down/reconfig, route expiration,
+> and (eventually) the cryptographic neighbor discovery protocol withou=
+t
+> weaving a web of hairs from the kernel to the resolver.
+>  --scott
+>=20
 
