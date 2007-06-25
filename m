@@ -1,54 +1,31 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [NET] au1000_eth: Fix warnings.
-Date: Mon, 25 Jun 2007 16:02:16 -0700
-Message-ID: <20070625160216.e9e29d7f.akpm@linux-foundation.org>
-References: <20070624135953.GA16754@linux-mips.org>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH v2.6.22-rc5] cxgb2: handle possible NULL pointer dereferencing,
+ take 2
+Date: Mon, 25 Jun 2007 19:14:05 -0400
+Message-ID: <46804C3D.3080205@garzik.org>
+References: <a901b49a0706210553r58ea8743gc565fcca1a87b58f@mail.gmail.com> <a901b49a0706210618q7c22cbe0jd6f7e052a8e05a97@mail.gmail.com> <20070625153450.c5f535ca.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org
-To: Ralf Baechle <ralf@linux-mips.org>
+Cc: pradeep singh <pradeep.rautela@gmail.com>, trivial@kernel.org,
+	netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:48672 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751334AbXFYXDD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jun 2007 19:03:03 -0400
-In-Reply-To: <20070624135953.GA16754@linux-mips.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:54966 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751614AbXFYXOK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Jun 2007 19:14:10 -0400
+In-Reply-To: <20070625153450.c5f535ca.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 24 Jun 2007 15:59:54 +0200
-Ralf Baechle <ralf@linux-mips.org> wrote:
+Andrew Morton wrote:
+> The chelsio driver is assuming that pci_device_id.driver_data has been
+> initialised to the board index, but I am unable to locate anywhere where
+> that initialisation actually happens.
 
-> Fixed by including <linux/dma-mapping.h>:
-> 
->   CC      drivers/net/au1000_eth.o
-> drivers/net/au1000_eth.c: In function 'au1000_probe':
-> drivers/net/au1000_eth.c:661: warning: implicit declaration of function 'dma_alloc_noncoherent'
-> drivers/net/au1000_eth.c:802: warning: implicit declaration of function 'dma_free_noncoherent'
-> 
-> Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
-> 
-> diff --git a/drivers/net/au1000_eth.c b/drivers/net/au1000_eth.c
-> index c39ab80..c27cfce 100644
-> --- a/drivers/net/au1000_eth.c
-> +++ b/drivers/net/au1000_eth.c
-> @@ -34,7 +34,7 @@
->   *
->   *
->   */
-> -
-> +#include <linux/dma-mapping.h>
->  #include <linux/module.h>
->  #include <linux/kernel.h>
->  #include <linux/string.h>
+It's hidden inside the CH_DEVICE() initializer-helper macro.
 
-That's more than a warning fix.  On most platforms, dma_alloc_noncoherent()
-is a #define so the driver just won't link there.
+	Jeff
 
-<looks>
 
-But the driver is mips-only, and MIPS uses a regular C function for
-dma_alloc_noncoherent(), so you got lucky.
-
-Still, I'd say this is for-2.6.22.
