@@ -1,46 +1,54 @@
 From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH v2.6.22-rc5] cxgb2: handle possible NULL pointer
- dereferencing, take 2
-Date: Mon, 25 Jun 2007 15:34:50 -0700
-Message-ID: <20070625153450.c5f535ca.akpm@linux-foundation.org>
-References: <a901b49a0706210553r58ea8743gc565fcca1a87b58f@mail.gmail.com>
-	<a901b49a0706210618q7c22cbe0jd6f7e052a8e05a97@mail.gmail.com>
+Subject: Re: [NET] au1000_eth: Fix warnings.
+Date: Mon, 25 Jun 2007 16:02:16 -0700
+Message-ID: <20070625160216.e9e29d7f.akpm@linux-foundation.org>
+References: <20070624135953.GA16754@linux-mips.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: trivial@kernel.org, netdev@vger.kernel.org, jgarzik@pobox.com
-To: "pradeep singh" <pradeep.rautela@gmail.com>
+Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org
+To: Ralf Baechle <ralf@linux-mips.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:37190 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:48672 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752570AbXFYWgF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jun 2007 18:36:05 -0400
-In-Reply-To: <a901b49a0706210618q7c22cbe0jd6f7e052a8e05a97@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S1751334AbXFYXDD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jun 2007 19:03:03 -0400
+In-Reply-To: <20070624135953.GA16754@linux-mips.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 21 Jun 2007 18:48:30 +0530
-"pradeep singh" <pradeep.rautela@gmail.com> wrote:
+On Sun, 24 Jun 2007 15:59:54 +0200
+Ralf Baechle <ralf@linux-mips.org> wrote:
 
-> diff --git a/drivers/net/chelsio/cxgb2.c b/drivers/net/chelsio/cxgb2.c
-> index 231ce43..006c634 100644
-> --- a/drivers/net/chelsio/cxgb2.c
-> +++ b/drivers/net/chelsio/cxgb2.c
-> @@ -1022,6 +1022,11 @@ static int __devinit init_one(struct pci_dev *pdev,
->        mmio_start = pci_resource_start(pdev, 0);
->        mmio_len = pci_resource_len(pdev, 0);
->        bi = t1_get_board_info(ent->driver_data);
-> +
-> +       if (!bi) {
-> +                CH_ERR("%s: Board info array index out of range\n",pci_name(pdev));
-> +                goto out_disable_pdev;
-> +        }
+> Fixed by including <linux/dma-mapping.h>:
 > 
->        for (i = 0; i < bi->port_number; ++i) {
->                struct net_device *netdev;
+>   CC      drivers/net/au1000_eth.o
+> drivers/net/au1000_eth.c: In function 'au1000_probe':
+> drivers/net/au1000_eth.c:661: warning: implicit declaration of function 'dma_alloc_noncoherent'
+> drivers/net/au1000_eth.c:802: warning: implicit declaration of function 'dma_free_noncoherent'
+> 
+> Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+> 
+> diff --git a/drivers/net/au1000_eth.c b/drivers/net/au1000_eth.c
+> index c39ab80..c27cfce 100644
+> --- a/drivers/net/au1000_eth.c
+> +++ b/drivers/net/au1000_eth.c
+> @@ -34,7 +34,7 @@
+>   *
+>   *
+>   */
+> -
+> +#include <linux/dma-mapping.h>
+>  #include <linux/module.h>
+>  #include <linux/kernel.h>
+>  #include <linux/string.h>
 
-The chelsio driver is assuming that pci_device_id.driver_data has been
-initialised to the board index, but I am unable to locate anywhere where
-that initialisation actually happens.  Is this a bug?
+That's more than a warning fix.  On most platforms, dma_alloc_noncoherent()
+is a #define so the driver just won't link there.
 
-(Who maintains this driver now?)
+<looks>
+
+But the driver is mips-only, and MIPS uses a regular C function for
+dma_alloc_noncoherent(), so you got lucky.
+
+Still, I'd say this is for-2.6.22.
