@@ -1,43 +1,73 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH v2.6.22-rc5] cxgb2: handle possible NULL pointer dereferencing,
- take 2
-Date: Mon, 25 Jun 2007 19:32:04 -0400
-Message-ID: <46805074.3000807@garzik.org>
-References: <a901b49a0706210553r58ea8743gc565fcca1a87b58f@mail.gmail.com>	<a901b49a0706210618q7c22cbe0jd6f7e052a8e05a97@mail.gmail.com>	<20070625153450.c5f535ca.akpm@linux-foundation.org>	<46804C3D.3080205@garzik.org> <20070625163015.175d15c0.akpm@linux-foundation.org>
+From: Chris Snook <csnook@redhat.com>
+Subject: Re: [PATCH] atl1: disable 64bit DMA
+Date: Mon, 25 Jun 2007 19:40:26 -0400
+Message-ID: <4680526A.3020908@redhat.com>
+References: <467B12CA.5060405@esuna.co.uk> <467BE118.4090308@redhat.com> <467BE4F1.7040308@esuna.co.uk> <467D0EB0.9030100@esuna.co.uk> <20070624125957.2e27820c@osprey.hogchain.net> <467ED4A8.4080500@esuna.co.uk> <20070624164519.04f215b8@osprey.hogchain.net> <467FB237.2030703@esuna.co.uk> <467FB844.6060702@bellsouth.net> <20070625211855.GA19275@dreamland.darkstar.lan> <46803557.50805@redhat.com> <468038FC.6090302@esuna.co.uk> <46803A40.4070009@redhat.com> <20070625180039.4f083846@osprey.hogchain.net> <46804CFC.4000702@pobox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: pradeep singh <pradeep.rautela@gmail.com>, trivial@kernel.org,
-	netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
+Cc: Jay Cliburn <jacliburn@bellsouth.net>,
+	"Jay L. T. Cornwall" <jay@esuna.co.uk>,
+	Luca Tettamanti <kronos.it@gmail.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:55092 "EHLO mail.dvmed.net"
+Received: from mx1.redhat.com ([66.187.233.31]:45654 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751891AbXFYXcK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Jun 2007 19:32:10 -0400
-In-Reply-To: <20070625163015.175d15c0.akpm@linux-foundation.org>
+	id S1751517AbXFYXka (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Jun 2007 19:40:30 -0400
+In-Reply-To: <46804CFC.4000702@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton wrote:
-> On Mon, 25 Jun 2007 19:14:05 -0400
-> Jeff Garzik <jeff@garzik.org> wrote:
-> 
->> Andrew Morton wrote:
->>> The chelsio driver is assuming that pci_device_id.driver_data has been
->>> initialised to the board index, but I am unable to locate anywhere where
->>> that initialisation actually happens.
->> It's hidden inside the CH_DEVICE() initializer-helper macro.
+Jeff Garzik wrote:
+> Jay Cliburn wrote:
+>> On Mon, 25 Jun 2007 17:57:20 -0400
+>> Chris Snook <csnook@redhat.com> wrote:
 >>
+>>> Jay L. T. Cornwall wrote:
+>>>> Chris Snook wrote:
+>>>>
+>>>>> What boards have we seen this on?  It's quite possible this is:
+>>>> I can reproduce on an Asus P5K with a Core 2 Duo E6600.
+>>>>
+>>>> lspci identifies the controller as:
+>>>>   02:00.0 Ethernet controller: Attansic Technology Corp. L1 Gigabit
+>>>>   Ethernet Adapter (rev b0)
+>>>>
+>>>> dmesg notes the PCI-DMA mapping implementation:
+>>>>   PCI-DMA: Using software bounce buffering for IO (SWIOTLB)
+>>>>
+>>> I had a hunch this was on Intel.  I'd rather just disable this when
+>>> swiotlb is in use, unless we get more complaints.  It's probably
+>>> ultimately a BIOS quirk anyway.
+>>
+>> So far we have reports from both camps:
+>>
+>> Asus M2N8-VMX (AM2):    1 report of lockup
+>> http://sourceforge.net/mailarchive/forum.php?thread_name=46780384.063603.26165%40m12-15.163.com&forum_name=atl1-devel 
+>>
+>>
+>> Asus P5K (LGA775):    2 reports of lockups
+>> http://sourceforge.net/mailarchive/forum.php?thread_name=467E7E34.4010603%40gmail.com&forum_name=atl1-devel 
+>>
+>> http://lkml.org/lkml/2007/6/25/107
+>>
+>> The common denominator in these reports is 4GB RAM.
 > 
-> oic.
+> Although its possible this device doesn't really support 64-bit, it's 
+> more likely that this is a platform problem of some sort, or a driver 
+> bug of some sort.  In the driver, maybe it has a problem when you 
+> -cross- a 4GB boundary, which is not uncommon.
 > 
-> Does this driver still have a maintainer, or is it now a "community"
-> driver (giggle) ?
+>     Jeff
 
-either "probably community" or "ask shemminger"
+I'm going on the record to say I don't trust the chipsets on these boards, and 
+I'd like anyone having these problems to let us 
+(atl1-devel@lists.sourceforge.net) know if they encounter similar problems with 
+any other hardware.  That said, I'm not going to stand in the way of stability 
+just because it *might* be someone else's fault.  I don't think limiting 
+ourselves to dma32, at least while we track this down, is much of a loss on 
+current hardware.
 
-	Jeff
-
-
-
+Acked-By: Chris Snook <csnook@redhat.com>
