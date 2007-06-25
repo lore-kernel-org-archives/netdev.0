@@ -1,33 +1,48 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH] Age Entry For IPv4 Route Table
-Date: Mon, 25 Jun 2007 16:10:14 +0200
-Message-ID: <20070625161014.180cb972.dada1@cosmosbay.com>
-References: <20070625102838.9d1fee20.varunc@linux.vnet.ibm.com>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [CAN] [RFC] skb->iif usage and vcan driver background
+Date: Mon, 25 Jun 2007 16:50:00 +0200
+Message-ID: <467FD618.2060108@hartkopp.net>
+References: <20070622034452.28886.0@janus.isnogud.escape.de>	<20070622034703.28886.5@janus.isnogud.escape.de>	<467BAC48.1070700@trash.net> <ygfk5tw41rq.fsf@janus.isnogud.escape.de> <467BC2AF.8080901@trash.net> <467D0C97.1000000@hartkopp.net> <467D178B.8080503@trash.net> <467D3891.4010906@hartkopp.net> <467EA11A.7040109@hartkopp.net> <467F9AED.1010309@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sri@us.ibm.com, dlstevens@us.ibm.com,
-	varuncha@in.ibm.com
-To: Varun Chandramohan <varunc@linux.vnet.ibm.com>
+Cc: j.hadi123@gmail.com, David Miller <davem@davemloft.net>,
+	Urs Thuermann <urs@isnogud.escape.de>,
+	Thomas Gleixner <tglx@linutronix.de>, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfx2.jmh.fr ([194.153.89.55]:49584 "EHLO pfx2.jmh.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753045AbXFYOKQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Jun 2007 10:10:16 -0400
-In-Reply-To: <20070625102838.9d1fee20.varunc@linux.vnet.ibm.com>
+Received: from mo-p00-ob.rzone.de ([81.169.146.160]:13612 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753640AbXFYOuJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jun 2007 10:50:09 -0400
+In-Reply-To: <467F9AED.1010309@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 25 Jun 2007 10:28:38 +0530
-Varun Chandramohan <varunc@linux.vnet.ibm.com> wrote:
+Patrick McHardy wrote:
+>
+> I normally wouldn't have gone reading some PDF to explain a patch,
+> but this one was really worth it .. a couple of pictures of cars
+> with four applications using can0-can3 :)
+>   
 
-> According to the RFC 4292 (IP Forwarding Table MIB) there is a need for an age entry for all the routes in the routing table. The entry in the RFC is inetCidrRouteAge and oid is inetCidrRouteAge.1.10.
-> Many snmp application require this age entry. So iam adding the age field in the routing table and providing
-> the interface for this value via /proc/net/route.
-> 
+This is a really cool insight for car manufacturers employees. If you
+miss them out you'll definitely be asked "And where is the car in this
+picture?" :-))
 
-Hi Varun
+> Your last slide brings it to the point: "... configured at module
+> load time for the needed use-case:
+> - number of created vcan devices (current default=4)
+> - perform the loopback on driver level (current default=off)"
+>
+> So you *do* have parameters for configuration and you're using the
+> wrong interface. Either drop them or use the correct interface.
+>   
 
-If you find a way to expose this information without breaking /proc/net/route, please consider that jiffies can wrap
-every 49 days on 32 bit platforms.
-So you probably want to use an other time infrastructure if you want meaningfull Age information.
+Ok! Got the message!
+New vcan with netlink interface coming soon.
+
+Thanks for review & regards,
+Oliver
+
+
