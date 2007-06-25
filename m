@@ -1,164 +1,114 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [RTNETLINK]: Add nested compat attribute
-Date: Mon, 25 Jun 2007 23:08:09 +0200
-Message-ID: <46802EB9.506@trash.net>
-References: <467BF65F.4000803@trash.net>	<D5C1322C3E673F459512FB59E0DDC32903179937@orsmsx414.amr.corp.intel.com> <20070625.135047.124049631.davem@davemloft.net>
+From: Luca Tettamanti <kronos.it@gmail.com>
+Subject: [PATCH] atl1: disable 64bit DMA
+Date: Mon, 25 Jun 2007 23:18:55 +0200
+Message-ID: <20070625211855.GA19275@dreamland.darkstar.lan>
+References: <467B12CA.5060405@esuna.co.uk> <467BE118.4090308@redhat.com> <467BE4F1.7040308@esuna.co.uk> <467D0EB0.9030100@esuna.co.uk> <20070624125957.2e27820c@osprey.hogchain.net> <467ED4A8.4080500@esuna.co.uk> <20070624164519.04f215b8@osprey.hogchain.net> <467FB237.2030703@esuna.co.uk> <467FB844.6060702@bellsouth.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------000107080801010307080002"
-Cc: peter.p.waskiewicz.jr@intel.com, netdev@vger.kernel.org,
-	shemminger@linux-foundation.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jay Cliburn <jacliburn@bellsouth.net>,
+	"Jay L. T. Cornwall" <jay@esuna.co.uk>,
+	linux-kernel@vger.kernel.org, Chris Snook <csnook@redhat.com>,
+	netdev@vger.kernel.org
+To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:47097 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751433AbXFYVI4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jun 2007 17:08:56 -0400
-In-Reply-To: <20070625.135047.124049631.davem@davemloft.net>
+Received: from ug-out-1314.google.com ([66.249.92.174]:6865 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752290AbXFYVS7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jun 2007 17:18:59 -0400
+Received: by ug-out-1314.google.com with SMTP id j3so1379826ugf
+        for <netdev@vger.kernel.org>; Mon, 25 Jun 2007 14:18:58 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <467FB844.6060702@bellsouth.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------000107080801010307080002
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Il Mon, Jun 25, 2007 at 07:42:44AM -0500, Jay Cliburn ha scritto: 
+> Jay L. T. Cornwall wrote:
+> >Jay Cliburn wrote:
+> >
+> >>For reasons not yet clear to me, it appears the L1 driver has a bug or
+> >>the device itself has trouble with DMA in high memory.  This patch,
+> >>drafted by Luca Tettamanti, is being explored as a workaround.  I'd be
+> >>interested to know if it fixes your problem.
+> >
+> >Yes, it certainly seems to. Now running with this patch and 4GB active,
+> >I've transferred about 15GB with no problem so far. It usually oopses
+> >after a GB or two.
+> >
+> >I guess it's not an ideal solution, architecturally speaking, but it's a
+> >good deal better than an unstable driver. If there's any other patches
+> >you'd like me to test or traces to capture, I'm happy to help out.
+> >Otherwise I'll run with this one for now since it does the job!
+> 
+> Okay Jay, thanks.
+> 
+> Luca, would you please submit your patch to Jeff Garzik and netdev?
 
-David Miller wrote:
->
->> I've been using this patch and the IPROUTE2 patches Patrick has proposed
->> with no issues.  Can someone else look at these patches when they have
->> time?  I'd be interested in seeing them make it into 2.6.23.
->>     
->
-> I've just put Patrick's patch into the net-2.6.23 tree.
->   
+Hi Jeff,
+a couple of users reported hard lockups when using L1 NICs on machines
+with 4GB or more of RAM. We're still waiting official confirmation from
+the vendor, but it seems that L1 has problems doing DMA to/from high
+memory (physical address above the 4GB limit). Passing 32bit DMA mask
+cures the problem.
 
-You seem to have added the netlink patch for the generic
-netlink attributes. Peter needs the rtnetlink attribute
-patch since qdiscs still use the old stuff.
-
-Attached again to this mail.
-
-
---------------000107080801010307080002
-Content-Type: text/x-diff;
- name="01.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="01.diff"
-
-[RTNETLINK]: Add nested compat attribute
-
-Add a nested compat attribute type that can be used to convert
-attributes that contain a structure to nested attributes in a
-backwards compatible way.
-
-The attribute looks like this:
-
-struct {
-        [ compat contents ]
-        struct rtattr {
-                .rta_len        = total size,
-                .rta_type       = type,
-        } rta;
-        struct old_structure struct;
-
-        [ nested top-level attribute ]
-        struct rtattr {
-                .rta_len        = nest size,
-                .rta_type       = type,
-        } nest_attr;
-
-        [ optional 0 .. n nested attributes ]
-        struct rtattr {
-                .rta_len        = private attribute len,
-                .rta_type       = private attribute typ,
-        } nested_attr;
-        struct nested_data data;
-};
-
-Since both userspace and kernel deal correctly with attributes that are
-larger than expected old versions will just parse the compat part and
-ignore the rest.
-
-Signed-off-by: Patrick McHardy <kaber@trash.net>
+Signed-Off-By: Luca Tettamanti <kronos.it@gmail.com>
 
 ---
-commit dece87e23c7cfa1159d3be0ea5b0db89a0fc5872
-tree c14be602de94b258e0343816b6c1809233a2ff5f
-parent c4edf5d552b1450d903a7e7e2d846f2169087e10
-author Patrick McHardy <kaber@gw.localnet> Fri, 22 Jun 2007 17:52:21 +0200
-committer Patrick McHardy <kaber@gw.localnet> Fri, 22 Jun 2007 17:52:21 +0200
+I think that the patch should be included in 2.6.22.
 
- include/linux/rtnetlink.h |   14 ++++++++++++++
- net/core/rtnetlink.c      |   16 ++++++++++++++++
- 2 files changed, 30 insertions(+), 0 deletions(-)
+ drivers/net/atl1/atl1_main.c |   15 +++------------
+ 1 file changed, 3 insertions(+), 12 deletions(-)
 
-diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
-index 6127858..6731e7f 100644
---- a/include/linux/rtnetlink.h
-+++ b/include/linux/rtnetlink.h
-@@ -570,6 +570,8 @@ static __inline__ int rtattr_strcmp(cons
- }
+diff --git a/drivers/net/atl1/atl1_main.c b/drivers/net/atl1/atl1_main.c
+index 6862c11..a730f15 100644
+--- a/drivers/net/atl1/atl1_main.c
++++ b/drivers/net/atl1/atl1_main.c
+@@ -2097,21 +2097,16 @@ static int __devinit atl1_probe(struct pci_dev *pdev,
+ 	struct net_device *netdev;
+ 	struct atl1_adapter *adapter;
+ 	static int cards_found = 0;
+-	bool pci_using_64 = true;
+ 	int err;
  
- extern int rtattr_parse(struct rtattr *tb[], int maxattr, struct rtattr *rta, int len);
-+extern int rtattr_parse_nested_compat(struct rtattr *tb[], int maxattr,
-+				      struct rtattr *rta, void **data, int len);
+ 	err = pci_enable_device(pdev);
+ 	if (err)
+ 		return err;
  
- #define rtattr_parse_nested(tb, max, rta) \
- 	rtattr_parse((tb), (max), RTA_DATA((rta)), RTA_PAYLOAD((rta)))
-@@ -638,6 +640,18 @@ #define RTA_NEST_END(skb, start) \
- ({	(start)->rta_len = skb_tail_pointer(skb) - (unsigned char *)(start); \
- 	(skb)->len; })
+-	err = pci_set_dma_mask(pdev, DMA_64BIT_MASK);
++	err = pci_set_dma_mask(pdev, DMA_32BIT_MASK);
+ 	if (err) {
+-		err = pci_set_dma_mask(pdev, DMA_32BIT_MASK);
+-		if (err) {
+-			dev_err(&pdev->dev, "no usable DMA configuration\n");
+-			goto err_dma;
+-		}
+-		pci_using_64 = false;
++		dev_err(&pdev->dev, "no usable DMA configuration\n");
++		goto err_dma;
+ 	}
+ 	/* Mark all PCI regions associated with PCI device
+ 	 * pdev as being reserved by owner atl1_driver_name
+@@ -2176,7 +2171,6 @@ static int __devinit atl1_probe(struct pci_dev *pdev,
  
-+#define RTA_NEST_COMPAT(skb, type, attrlen, data) \
-+({	struct rtattr *__start = (struct rtattr *)skb_tail_pointer(skb); \
-+	RTA_PUT(skb, type, attrlen, data); \
-+	RTA_NEST(skb, type); \
-+	__start; })
-+
-+#define RTA_NEST_COMPAT_END(skb, start) \
-+({	struct rtattr *__nest = (void *)(start) + NLMSG_ALIGN((start)->rta_len); \
-+	(start)->rta_len = skb_tail_pointer(skb) - (unsigned char *)(start); \
-+	RTA_NEST_END(skb, __nest); \
-+	(skb)->len; })
-+
- #define RTA_NEST_CANCEL(skb, start) \
- ({	if (start) \
- 		skb_trim(skb, (unsigned char *) (start) - (skb)->data); \
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 06c0c5a..c25d23b 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -97,6 +97,21 @@ int rtattr_parse(struct rtattr *tb[], in
- 	return 0;
- }
+ 	netdev->ethtool_ops = &atl1_ethtool_ops;
+ 	adapter->bd_number = cards_found;
+-	adapter->pci_using_64 = pci_using_64;
  
-+int rtattr_parse_nested_compat(struct rtattr *tb[], int maxattr,
-+			       struct rtattr *rta, void **data, int len)
-+{
-+	if (RTA_PAYLOAD(rta) < len)
-+		return -1;
-+	*data = RTA_DATA(rta);
-+
-+	if (RTA_PAYLOAD(rta) >= RTA_ALIGN(len) + sizeof(struct rtattr)) {
-+		rta = RTA_DATA(rta) + RTA_ALIGN(len);
-+		return rtattr_parse_nested(tb, maxattr, rta);
-+	}
-+	memset(tb, 0, sizeof(struct rtattr *) * maxattr);
-+	return 0;
-+}
-+
- static struct rtnl_link *rtnl_msg_handlers[NPROTO];
+ 	/* setup the private structure */
+ 	err = atl1_sw_init(adapter);
+@@ -2193,9 +2187,6 @@ static int __devinit atl1_probe(struct pci_dev *pdev,
+ 	 */
+ 	/* netdev->features |= NETIF_F_TSO; */
  
- static inline int rtm_msgindex(int msgtype)
-@@ -1297,6 +1312,7 @@ void __init rtnetlink_init(void)
- EXPORT_SYMBOL(__rta_fill);
- EXPORT_SYMBOL(rtattr_strlcpy);
- EXPORT_SYMBOL(rtattr_parse);
-+EXPORT_SYMBOL(rtattr_parse_nested_compat);
- EXPORT_SYMBOL(rtnetlink_put_metrics);
- EXPORT_SYMBOL(rtnl_lock);
- EXPORT_SYMBOL(rtnl_trylock);
+-	if (pci_using_64)
+-		netdev->features |= NETIF_F_HIGHDMA;
+-
+ 	netdev->features |= NETIF_F_LLTX;
+ 
+ 	/*
 
---------------000107080801010307080002--
+
+Luca
+-- 
+Non ho ancora capito se il mio cane e` maschio o femmina:
+quando fa la pipi` si chiude in bagno
