@@ -1,119 +1,277 @@
-From: "Serge E. Hallyn" <serue@us.ibm.com>
-Subject: Re: [RFD] L2 Network namespace infrastructure
-Date: Mon, 25 Jun 2007 10:23:13 -0500
-Message-ID: <20070625152313.GB19546@sergelap.austin.ibm.com>
-References: <m1tzszbwyb.fsf@ebiederm.dsl.xmission.com> <467CF8AC.80103@trash.net> <m1bqf6a8rd.fsf@ebiederm.dsl.xmission.com> <20070623.135737.22037347.davem@davemloft.net> <467D9B8F.2050403@garzik.org> <m1ejk28eku.fsf@ebiederm.dsl.xmission.com> <467DC8CC.3020002@garzik.org>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH 2.6.22-rc5] TCP: Make TCP_RTO_MAX a variable
+Date: Mon, 25 Jun 2007 09:07:48 -0700
+Message-ID: <20070625090748.72d59a9f@freepuppy.localdomain.hemminger.net>
+References: <20070625.220939.132853560.noboru.obata.ar@hitachi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	yoshfuji@linux-ipv6.org, netdev@vger.kernel.org, hadi@cyberus.ca,
-	kaber@trash.net, Linus Torvalds <torvalds@linux-foundation.org>,
-	containers@lists.osdl.org, greearb@candelatech.com,
-	shemminger@linux-foundation.org, David Miller <davem@davemloft.net>
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: OBATA Noboru <noboru.obata.ar@hitachi.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e3.ny.us.ibm.com ([32.97.182.143]:42491 "EHLO e3.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756099AbXFYPXS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Jun 2007 11:23:18 -0400
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e3.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l5PEK3VE024806
-	for <netdev@vger.kernel.org>; Mon, 25 Jun 2007 10:20:03 -0400
-Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
-	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l5PFNFfO484768
-	for <netdev@vger.kernel.org>; Mon, 25 Jun 2007 11:23:15 -0400
-Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
-	by d01av02.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l5PFNErr021799
-	for <netdev@vger.kernel.org>; Mon, 25 Jun 2007 11:23:15 -0400
-Content-Disposition: inline
-In-Reply-To: <467DC8CC.3020002@garzik.org>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:45288 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752213AbXFYQH5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jun 2007 12:07:57 -0400
+In-Reply-To: <20070625.220939.132853560.noboru.obata.ar@hitachi.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Quoting Jeff Garzik (jeff@garzik.org):
-> Eric W. Biederman wrote:
-> >Jeff Garzik <jeff@garzik.org> writes:
-> >
-> >>David Miller wrote:
-> >>>I don't accept that we have to add another function argument
-> >>>to a bunch of core routines just to support this crap,
-> >>>especially since you give no way to turn it off and get
-> >>>that function argument slot back.
-> >>>
-> >>>To be honest I think this form of virtualization is a complete
-> >>>waste of time, even the openvz approach.
-> >>>
-> >>>We're protecting the kernel from itself, and that's an endless
-> >>>uphill battle that you will never win.  Let's do this kind of
-> >>>stuff properly with a real minimal hypervisor, hopefully with
-> >>>appropriate hardware level support and good virtualized device
-> >>>interfaces, instead of this namespace stuff.
-> >>Strongly seconded.  This containerized virtualization approach just 
-> >>bloats up
-> >>the kernel for something that is inherently fragile and IMO less secure --
-> >>protecting the kernel from itself.
-> >>
-> >>Plenty of other virt approaches don't stir the code like this, while
-> >>simultaneously providing fewer, more-clean entry points for the 
-> >>virtualization
-> >>to occur.
-> >
-> >Wrong.  I really don't want to get into a my virtualization approach is 
-> >better
-> >then yours.  But this is flat out wrong.
+On Mon, 25 Jun 2007 22:09:39 +0900 (JST)
+OBATA Noboru <noboru.obata.ar@hitachi.com> wrote:
+
+> From: OBATA Noboru <noboru.obata.ar@hitachi.com>
 > 
-> >99% of the changes I'm talking about introducing are just:
-> >- variable 
-> >+ ptr->variable
-> >
-> >There are more pieces mostly with when we initialize those variables but
-> >that is the essence of the change.
+> Make TCP_RTO_MAX a variable, and allow a user to change it via a
+> new sysctl entry /proc/sys/net/ipv4/tcp_rto_max.  A user can
+> then guarantee TCP retransmission to be more controllable, say,
+> at least once per 10 seconds, by setting it to 10.  This is
+> quite helpful on failover-capable network devices, such as an
+> active-backup bonding device.  On such devices, it is desirable
+> that TCP retransmits a packet shortly after the failover, which
+> is what I would like to do with this patch.  Please see
+> Background and Problem below for rationale in detail.
 > 
-> You completely dodged the main objection.  Which is OK if you are 
-> selling something to marketing departments, but not OK
+> Reading from /proc/sys/net/ipv4/tcp_rto_max shows the current
+> TCP_RTO_MAX in seconds.  The actual value of TCP_RTO_MAX is
+> stored in sysctl_tcp_rto_max in jiffies.
 > 
-> Containers introduce chroot-jail-like features that give one a false 
-> sense of security, while still requiring one to "poke holes" in the 
-> illusion to get hardware-specific tasks accomplished.
+> Writing to /proc/sys/net/ipv4/tcp_rto_max updates the
+> TCP_RTO_MAX, only if the new value is not smaller than
+> TCP_RTO_MIN, which is currently 0.2[sec].  Since tcp_rto_max is
+> an integer, the minimum value of /proc/sys/net/ipv4/tcp_rto_max
+> is 1, in substance.  Also the RtoMax entry in /proc/net/snmp is
+> updated.
 > 
-> The capable/not-capable model (i.e. superuser / normal user) is _still_ 
-> being secured locally, even after decades of work and whitepapers and 
-> audits.
+> Please note that this is effective in IPv6 as well.
 > 
-> You are drinking Deep Kool-Aid if you think adding containers to the 
-> myriad kernel subsystems does anything besides increasing fragility, and 
-> decreasing security.  You are securing in-kernel subsystems against 
-> other in-kernel subsystems.
-
-No we're not.  As the name 'network namespaces' implies, we are
-introducing namespaces for network-related variables.  That's it.
-
-We are not trying to protect in-kernel subsystems from each other.  In
-fact we're not even trying to protect userspace process from each other.
-Though that will in part come free when user processes can't access each
-other's data because they are in different namespaces.  But using an
-LSM like selinux or a custom one to tag and enforce isolation would
-still be encouraged.
-
-> superuser/user model made that difficult 
-> enough... now containers add exponential audit complexity to that.  Who 
-> is to say that a local root does not also pierce the container model?
-
-At the moment it does.
-
-> >And as opposed to other virtualization approaches so far no one has been
-> >able to measure the overhead.  I suspect there will be a few more cache
-> >line misses somewhere but they haven't shown up yet.
-> >
-> >If the only use was strong isolation which Dave complains about I would
-> >concur that the namespace approach is inappropriate.  However there are
-> >a lot other uses.
 > 
-> Sure there are uses.  There are uses to putting the X server into the 
-> kernel, too.  At some point complexity and featuritis has to take a back 
-> seat to basic sanity.
+> Background and Problem
+> ======================
+> 
+> When designing a TCP/IP based network system on failover-capable
+> network devices, people want to set timeouts hierarchically in
+> three layers, network device layer, TCP layer, and application
+> layer (bottom-up order), such that:
+> 
+> 1. Network device layer detects a failure first and switch to a
+>    backup device (say, in 20sec).
+> 
+> 2. TCP layer timeout & retransmission comes next, _hopefully_
+>    before the application layer timeout.
+> 
+> 3. Application layer detects a network failure last (by, say,
+>    30sec timeout) and may trigger a system-level failover.
+> 
+>    * Note 1.  The timeouts for #1 and #2 are handled
+>      independently and there is no relationship between them.
+> 
+>    * Note 2.  The actual timeout settings (20sec or 30sec in
+>      this example) are often determined by systems requirement
+>      and so setting them to certain "safe values" (if any) are
+>      usually not possible.
+> 
+> If TCP retransmission misses the time frame between event #1
+> and #3 in Background above (between 20 and 30sec since network
+> failure), a failure causes the system-level failover where the
+> network-device-level failover should be enough.
+> 
+> The problem in this hierarchical timeout scheme is that TCP
+> layer does not guarantee the next retransmission to occur in
+> certain period of time.  In the above example, people expect TCP
+> to retransmit a packet between 20 and 30sec since network
+> failure, but it may not happen.
+> 
+> Starting from RTO=0.5sec for example, retransmission will occur
+> at time 0.5, 1.5, 3.5, 7.5, 15.5, and 31.5 as indicated by 'o'
+> in the following diagram, but miss the time frame between time
+> 20 and 30.
+> 
+>        time: 0         10        20        30sec
+>              |         |         |         |
+>   App. layer |---------+---------+---------X  ==> system failover
+>    TCP layer oo-o---o--+----o----+---------+o <== expects retrans. b/w 20~30
+> Netdev layer |---------+---------X            ==> network failover
+> 
+> 
+> Signed-off-by: OBATA Noboru <noboru.obata.ar@hitachi.com>
+> ---
+> 
+>  Documentation/networking/ip-sysctl.txt |    6 +
+>  include/linux/sysctl.h                 |    1
+>  include/net/tcp.h                      |    5 +
+>  net/ipv4/sysctl_net_ipv4.c             |   77 +++++++++++++++++++++++++
+>  net/ipv4/tcp_timer.c                   |    3
+>  5 files changed, 91 insertions(+), 1 deletion(-)
+> 
+> diff -uprN -X a/Documentation/dontdiff linux-2.6.22-rc5-orig/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+> --- a/Documentation/networking/ip-sysctl.txt	2007-06-22 21:34:18.000000000 +0900
+> +++ b/Documentation/networking/ip-sysctl.txt	2007-06-25 16:07:21.000000000 +0900
+> @@ -340,6 +340,12 @@ tcp_rmem - vector of 3 INTEGERs: min, de
+>  	net.core.rmem_max, "static" selection via SO_RCVBUF does not use this.
+>  	Default: 87380*2 bytes.
+>  
+> +tcp_rto_max - INTEGER
+> +	Maximum time in seconds to which RTO can grow.  Exponential
+> +	backoff of RTO is bounded by this value.  The value must not be
+> +	smaller than 1.  Note this parameter is also effective for IPv6.
+> +	Default: 120
+> +
+>  tcp_sack - BOOLEAN
+>  	Enable select acknowledgments (SACKS).
+>  
+> diff -uprN -X a/Documentation/dontdiff linux-2.6.22-rc5-orig/include/linux/sysctl.h b/include/linux/sysctl.h
+> --- a/include/linux/sysctl.h	2007-06-22 21:34:33.000000000 +0900
+> +++ b/include/linux/sysctl.h	2007-06-25 16:27:29.000000000 +0900
+> @@ -441,6 +441,7 @@ enum
+>  	NET_TCP_ALLOWED_CONG_CONTROL=123,
+>  	NET_TCP_MAX_SSTHRESH=124,
+>  	NET_TCP_FRTO_RESPONSE=125,
+> +	NET_TCP_RTO_MAX=126,
+>  };
+>  
 
-Generally true, yes.
+Rather than assigning another numeric sysctl value, you can use
+CTL_UNNUMBERED.  The use of numeric sysctl's is being phased down, at one
+point they were even going to be deprecated.
 
--serge
+
+>  enum {
+> diff -uprN -X a/Documentation/dontdiff linux-2.6.22-rc5-orig/include/net/tcp.h b/include/net/tcp.h
+> --- a/include/net/tcp.h	2007-06-22 21:34:33.000000000 +0900
+> +++ b/include/net/tcp.h	2007-06-22 21:40:05.000000000 +0900
+> @@ -121,7 +121,9 @@ extern void tcp_time_wait(struct sock *s
+>  #define TCP_DELACK_MIN	4U
+>  #define TCP_ATO_MIN	4U
+>  #endif
+> -#define TCP_RTO_MAX	((unsigned)(120*HZ))
+> +extern int sysctl_tcp_rto_max;
+> +#define TCP_RTO_MAX	((unsigned)(sysctl_tcp_rto_max))
+> +#define TCP_RTO_MAX_DEFAULT	((unsigned)(120*HZ))
+>  #define TCP_RTO_MIN	((unsigned)(HZ/5))
+>  #define TCP_TIMEOUT_INIT ((unsigned)(3*HZ))	/* RFC 1122 initial RTO value	*/
+
+Rather than causing macro TCP_RTO_MAX to reference sysctl_rto_max directly.
+
+> @@ -203,6 +205,7 @@ extern int sysctl_tcp_synack_retries;
+>  extern int sysctl_tcp_retries1;
+>  extern int sysctl_tcp_retries2;
+>  extern int sysctl_tcp_orphan_retries;
+> +extern int sysctl_tcp_rto_max;
+>  extern int sysctl_tcp_syncookies;
+>  extern int sysctl_tcp_retrans_collapse;
+>  extern int sysctl_tcp_stdurg;
+> diff -uprN -X a/Documentation/dontdiff linux-2.6.22-rc5-orig/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+> --- a/net/ipv4/sysctl_net_ipv4.c	2007-06-22 21:34:33.000000000 +0900
+> +++ b/net/ipv4/sysctl_net_ipv4.c	2007-06-25 16:27:53.000000000 +0900
+> @@ -186,6 +186,74 @@ static int strategy_allowed_congestion_c
+>  
+>  }
+>  
+> +static int proc_tcp_rto_max(ctl_table *ctl, int write, struct file *filp,
+> +			    void __user *buffer, size_t *lenp, loff_t *ppos)
+> +{
+> +	int val = *(int *)ctl->data;
+> +	int ret;
+> +
+> +	ret = proc_dointvec_jiffies(ctl, write, filp, buffer, lenp, ppos);
+> +	if (ret)
+> +		return ret;
+> +
+> +	if (write && *(int *)ctl->data != val) {
+> +		if (*(int *)ctl->data < TCP_RTO_MIN) {
+> +			*(int *)ctl->data = val;
+> +			return -EINVAL;
+> +		}
+> +		TCP_ADD_STATS_USER(TCP_MIB_RTOMAX,
+> +				   (*(int *)ctl->data - val) * 1000 / HZ);
+> +	}
+> +
+> +	return 0;
+> +}
+> +
+> +static int strategy_tcp_rto_max(ctl_table *table, int __user *name,
+> +				int nlen, void __user *oldval,
+> +				size_t __user *oldlenp,
+> +				void __user *newval, size_t newlen)
+> +{
+> +	int *valp = table->data;
+> +	int new;
+> +
+> +	if (!newval || !newlen)
+> +		return 0;
+> +
+> +	if (newlen != sizeof(int))
+> +		return -EINVAL;
+> +
+> +	if (get_user(new, (int __user *)newval))
+> +		return -EFAULT;
+> +
+> +	if (new * HZ == *valp)
+> +		return 0;
+> +
+> +	if (new * HZ < TCP_RTO_MIN)
+> +		return -EINVAL;
+> +
+> +	if (oldval && oldlenp) {
+> +		size_t len;
+> +
+> +		if (get_user(len, oldlenp))
+> +			return -EFAULT;
+> +
+> +		if (len) {
+> +			if (len > table->maxlen)
+> +				len = table->maxlen;
+> +			if (put_user(*valp / HZ, (int __user *)oldval))
+> +				return -EFAULT;
+> +			if (put_user(len, oldlenp))
+> +				return -EFAULT;
+> +		}
+> +	}
+> +
+> +	TCP_ADD_STATS_USER(TCP_MIB_RTOMAX, (new * HZ - *valp) * 1000 / HZ);
+> +
+> +	*valp = new * HZ;
+> +
+> +	return 1;
+> +}
+
+Could sysctl_rto_max be unsigned instead of int to avoid possible sign wrap issues and
+having to cast it on each use?
+
+>  ctl_table ipv4_table[] = {
+>  	{
+>  		.ctl_name	= NET_IPV4_TCP_TIMESTAMPS,
+> @@ -363,6 +431,15 @@ ctl_table ipv4_table[] = {
+>  		.proc_handler	= &proc_dointvec
+>  	},
+>  	{
+> +		.ctl_name	= NET_TCP_RTO_MAX,
+> +		.procname	= "tcp_rto_max",
+> +		.data		= &sysctl_tcp_rto_max,
+> +		.maxlen		= sizeof(int),
+> +		.mode		= 0644,
+> +		.proc_handler	= &proc_tcp_rto_max,
+> +		.strategy	= &strategy_tcp_rto_max
+> +	},
+> +	{
+>  		.ctl_name	= NET_IPV4_TCP_FIN_TIMEOUT,
+>  		.procname	= "tcp_fin_timeout",
+>  		.data		= &sysctl_tcp_fin_timeout,
+> diff -uprN -X a/Documentation/dontdiff linux-2.6.22-rc5-orig/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
+> --- a/net/ipv4/tcp_timer.c	2007-06-22 21:34:33.000000000 +0900
+> +++ b/net/ipv4/tcp_timer.c	2007-06-22 21:39:35.000000000 +0900
+> @@ -31,6 +31,9 @@ int sysctl_tcp_keepalive_intvl __read_mo
+>  int sysctl_tcp_retries1 __read_mostly = TCP_RETR1;
+>  int sysctl_tcp_retries2 __read_mostly = TCP_RETR2;
+>  int sysctl_tcp_orphan_retries __read_mostly;
+> +int sysctl_tcp_rto_max __read_mostly = TCP_RTO_MAX_DEFAULT;
+> +
+> +EXPORT_SYMBOL(sysctl_tcp_rto_max);
+>  
+>  static void tcp_write_timer(unsigned long);
+>  static void tcp_delack_timer(unsigned long);
+
+
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
