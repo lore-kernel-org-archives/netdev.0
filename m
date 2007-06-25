@@ -1,53 +1,57 @@
-From: Benjamin LaHaise <bcrl@kvack.org>
-Subject: Re: FSCKED clock sources WAS(Re: [WIP][PATCHES] Network xmit batching
-Date: Mon, 25 Jun 2007 13:08:07 -0400
-Message-ID: <20070625170807.GH971@kvack.org>
-References: <20070619140038.GA13629@2ka.mipt.ru> <1182270529.4968.73.camel@localhost> <18040.5105.715624.286924@robur.slu.se> <20070619.152801.99185860.davem@davemloft.net> <1182441257.5017.48.camel@localhost> <1182442099.5017.51.camel@localhost> <20070621165546.GH15814@kvack.org> <1182790794.5184.41.camel@localhost>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: Fwd: [PATCH] [-mm] ACPI: export ACPI events via netlink
+Date: Mon, 25 Jun 2007 13:08:57 -0400
+Message-ID: <1182791337.5184.49.camel@localhost>
+References: <1179827251.7707.29.camel@localhost.localdomain>
+	 <1179831825.4121.30.camel@localhost>
+	 <1180258853.7707.53.camel@localhost.localdomain>
+	 <4466a10705270629h31977813hd2fc8330bcd87f78@mail.gmail.com>
+	 <4466a10705270634j3560c9a3j9c3630ddc20a24aa@mail.gmail.com>
+	 <1181811576.5411.27.camel@localhost.localdomain>
+	 <1181820510.4091.9.camel@localhost>
+	 <1181869285.5411.39.camel@localhost.localdomain>
+	 <1182178882.4063.11.camel@localhost>
+	 <1182252616.21013.12.camel@johannes.berg>
+	 <1182270006.4968.62.camel@localhost>
+	 <1182338744.3714.59.camel@johannes.berg>
+	 <1182440840.5017.40.camel@localhost>
+	 <1182506947.21939.89.camel@johannes.berg>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, Robert.Olsson@data.slu.se,
-	johnpol@2ka.mipt.ru, krkumar2@in.ibm.com, gaagaan@gmail.com,
-	netdev@vger.kernel.org, rick.jones2@hp.com, sri@us.ibm.com
-To: jamal <hadi@cyberus.ca>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Zhang Rui <rui.zhang@intel.com>, netdev@vger.kernel.org,
+	lenb@kernel.org, Thomas Graf <tgraf@suug.ch>
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kanga.kvack.org ([66.96.29.28]:33413 "EHLO kanga.kvack.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750870AbXFYRIT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Jun 2007 13:08:19 -0400
-Content-Disposition: inline
-In-Reply-To: <1182790794.5184.41.camel@localhost>
+Received: from wr-out-0506.google.com ([64.233.184.237]:33363 "EHLO
+	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751000AbXFYRJB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jun 2007 13:09:01 -0400
+Received: by wr-out-0506.google.com with SMTP id 76so1003331wra
+        for <netdev@vger.kernel.org>; Mon, 25 Jun 2007 10:09:00 -0700 (PDT)
+In-Reply-To: <1182506947.21939.89.camel@johannes.berg>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 25, 2007 at 12:59:54PM -0400, jamal wrote:
-> On Thu, 2007-21-06 at 12:55 -0400, Benjamin LaHaise wrote:
-> 
-> > You should qualify that as 'Old P4 Xeon', as the Core 2 Xeons are leagues 
-> > better.
-> 
-> The Xeon hardware is not that old - about a year or so (and so is the
-> opteron). 
-> BTW, how could you tell this was old Xeon?
+On Fri, 2007-22-06 at 12:09 +0200, Johannes Berg wrote:
 
-CPUID:
+> Why do you think that would be hard? It'd basically just mean replacing
+> the netlink_capable(sock, NL_NONROOT_RECV) calls with a call that
+> actually tests depending on the group(s) it wants.
 
-vendor_id       : GenuineIntel
-cpu family      : 15
-model           : 4
-model name      : Intel(R) Xeon(TM) CPU 2.80GHz
+I think it could be done. You will need to have root maybe initially set
+such permissions etc - but it may be overkill.
 
-shows that it is a P4 Xeon, which sucks compared to:
+> Yeah, sounds reasonable, you could ask the controller for which groups
+> are attached to a family and then get the IDs for those groups by name.
 
-vendor_id       : GenuineIntel
-cpu family      : 6
-model           : 15
-model name      : Genuine Intel(R) CPU                  @ 2.66GHz
+Yes, we would need a newer api to do it right. But it could be done if
+you register for multi groups.
 
-which is a Core 2 based Xeon.  The tuning required by the P4 is quite 
-different than the Core 2, and it generally performs more poorly due to 
-the length of the pipeline and the expense of pipeline flushes.
+cheers,
+jamal
 
-		-ben
--- 
-"Time is of no importance, Mr. President, only life is important."
-Don't Email: <zyntrop@kvack.org>.
+PS:- I just noticed Thomas wasnt CCed.
+
+
