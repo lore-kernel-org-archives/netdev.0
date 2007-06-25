@@ -1,68 +1,177 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: FSCKED clock sources WAS(Re: [WIP][PATCHES] Network xmit
-	batching
-Date: Mon, 25 Jun 2007 13:16:44 -0400
-Message-ID: <1182791804.5184.57.camel@localhost>
-References: <20070619140038.GA13629@2ka.mipt.ru>
-	 <1182270529.4968.73.camel@localhost>
-	 <18040.5105.715624.286924@robur.slu.se>
-	 <20070619.152801.99185860.davem@davemloft.net>
-	 <1182441257.5017.48.camel@localhost> <1182442099.5017.51.camel@localhost>
-	 <20070621165546.GH15814@kvack.org> <1182790794.5184.41.camel@localhost>
-	 <20070625170807.GH971@kvack.org>
-Reply-To: hadi@cyberus.ca
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: RE: [PATCH 3/3] NET: [SCHED] Qdisc changes and sch_rr added for multiqueue
+Date: Mon, 25 Jun 2007 10:27:04 -0700
+Message-ID: <D5C1322C3E673F459512FB59E0DDC32903179977@orsmsx414.amr.corp.intel.com>
+References: <467E6090.6070703@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, Robert.Olsson@data.slu.se,
-	johnpol@2ka.mipt.ru, krkumar2@in.ibm.com, gaagaan@gmail.com,
-	netdev@vger.kernel.org, rick.jones2@hp.com, sri@us.ibm.com
-To: Benjamin LaHaise <bcrl@kvack.org>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>, <jeff@garzik.org>,
+	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>, <hadi@cyberus.ca>
+To: "Patrick McHardy" <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.226]:25177 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751071AbXFYRQs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jun 2007 13:16:48 -0400
-Received: by wx-out-0506.google.com with SMTP id t15so1518015wxc
-        for <netdev@vger.kernel.org>; Mon, 25 Jun 2007 10:16:47 -0700 (PDT)
-In-Reply-To: <20070625170807.GH971@kvack.org>
+Received: from mga03.intel.com ([143.182.124.21]:14511 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751343AbXFYR1I convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jun 2007 13:27:08 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <467E6090.6070703@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2007-25-06 at 13:08 -0400, Benjamin LaHaise wrote:
-
-> CPUID:
+> >  enum
+> >  {
+> > -	TCA_PRIO_UNPSEC,
+> > -	TCA_PRIO_TEST,
 > 
-> vendor_id       : GenuineIntel
-> cpu family      : 15
-> model           : 4
-> model name      : Intel(R) Xeon(TM) CPU 2.80GHz
 > 
-> shows that it is a P4 Xeon, which sucks compared to:
+> You misunderstood me. You can work on top of my compat 
+> attribute patches, but the example code should not have to go 
+> in to apply your patch.
+
+Ok.  I'll fix my patches.
+
+> > diff --git a/net/sched/Kconfig b/net/sched/Kconfig index 
+> > 475df84..7f14fa6 100644
+> > --- a/net/sched/Kconfig
+> > +++ b/net/sched/Kconfig
+> > @@ -102,8 +102,16 @@ config NET_SCH_ATM
+> >  	  To compile this code as a module, choose M here: the
+> >  	  module will be called sch_atm.
+> >  
+> > +config NET_SCH_BANDS
+> > +        bool "Multi Band Queueing (PRIO and RR)"
 > 
-> vendor_id       : GenuineIntel
-> cpu family      : 6
-> model           : 15
-> model name      : Genuine Intel(R) CPU                  @ 2.66GHz
+> This options seems useless. Its not used *anywhere* except 
+> for dependencies.
+
+I was trying to group the multiqueue qdiscs together with this.  But I
+can see just having the multiqueue option for scheduling will cover
+this.  I'll remove this.
+
+> > +config NET_SCH_BANDS_MQ
+> > +	bool "Multiple hardware queue support"
+> > +	depends on NET_SCH_BANDS
 > 
-> which is a Core 2 based Xeon. 
+> 
+> OK, again:
+> 
+> Introduce NET_SCH_RR. NET_SCH_RR selects NET_SCH_PRIO. 
+> Nothing at all changes for NET_SCH_PRIO itself. Additionally 
+> introduce a boolean NET_SCH_MULTIQUEUE. No dependencies at 
+> all. Use NET_SCH_MULTIQUEUE to guard the multiqueue code in 
+> sch_prio.c.
+> Your current code doesn't even have any ifdefs anymore 
+> though, so this might not be needed at all.
+> 
+> Additionally you could later introduce E1000_MULTIQUEUE and 
+> have that select NET_SCH_MULTIQUEUE.
 
-Ok. Should the model name at least reflect one being a Xeon P4 and other
-as core2 Xeon? ;->
- 
->  The tuning required by the P4 is quite 
-> different than the Core 2, and it generally performs more poorly due to 
-> the length of the pipeline and the expense of pipeline flushes.
+I'll clean this up.  Thanks for the persistance.  :)
 
-I would be very interested to see some numbers on a proper Core2 based
-Xeon (unfortunately cant afford one). You have the hardware, what says
-you? ;->
-AFAIT, the main reason Opterons has the numbers it does is due to 
-the integrated on chip MC. I dont see Intel any time soon getting rid of
-that (for economical reasons more than technical).
-In any case i see batching as actually being a lot more cache friendly
-too.
+> > diff --git a/net/sched/sch_generic.c 
+> b/net/sched/sch_generic.c index 
+> > 9461e8a..203d5c4 100644
+> > --- a/net/sched/sch_generic.c
+> > +++ b/net/sched/sch_generic.c
+> > @@ -168,7 +168,8 @@ static inline int qdisc_restart(struct 
+> net_device *dev)
+> >  	spin_unlock(&dev->queue_lock);
+> >  
+> >  	ret = NETDEV_TX_BUSY;
+> > -	if (!netif_queue_stopped(dev))
+> > +	if (!netif_queue_stopped(dev) &&
+> > +	    !netif_subqueue_stopped(dev, skb->queue_mapping))
+> >  		/* churn baby churn .. */
+> >  		ret = dev_hard_start_xmit(skb, dev);
+> 
+> I'll try again - please move this to patch 2/3.
 
-cheers,
-jamal 
+I'm sorry; I misread your original comment about this.  I'll move the
+change (although this disappears with Jamal's and KK's qdisc_restart()
+cleanup).
 
+> > diff --git a/net/sched/sch_prio.c b/net/sched/sch_prio.c index 
+> > 40a13e8..8a716f0 100644
+> > --- a/net/sched/sch_prio.c
+> > +++ b/net/sched/sch_prio.c
+> > @@ -40,9 +40,11 @@
+> >  struct prio_sched_data
+> >  {
+> >  	int bands;
+> > +	int curband; /* for round-robin */
+> >  	struct tcf_proto *filter_list;
+> >  	u8  prio2band[TC_PRIO_MAX+1];
+> >  	struct Qdisc *queues[TCQ_PRIO_BANDS];
+> > +	unsigned char mq;
+> >  };
+> >  
+> >  
+> > @@ -70,14 +72,28 @@ prio_classify(struct sk_buff *skb, struct Qdisc 
+> > *sch, int *qerr)  #endif
+> >  			if (TC_H_MAJ(band))
+> >  				band = 0;
+> > +			if (q->mq)
+> > +				skb->queue_mapping = 
+> > +						
+> q->prio2band[band&TC_PRIO_MAX];
+> > +			else
+> > +				skb->queue_mapping = 0;
+> 
+> 
+> Might look cleaner if you have one central point where 
+> queue_mapping is set and the band is returned.
+
+I'll see how easy it'll be to condense this; because the queue being
+selected in the qdisc can be different based on a few different things,
+I'm not sure how easy it'll be to assign this in one spot.  I'll play
+around with it and see what I can come up with.
+
+> > +	/* If we're multiqueue, make sure the number of incoming bands
+> > +	 * matches the number of queues on the device we're 
+> associating with.
+> > +	 */
+> > +	if (tb[TCA_PRIO_MQ - 1])
+> > +		q->mq = *(unsigned char *)RTA_DATA(tb[TCA_PRIO_MQ - 1]);
+> 
+> 
+> If you're using it as a flag, please use RTA_GET_FLAG(), 
+> otherwise RTA_GET_U8.
+
+Will do.  Thanks.
+
+> > +	if (q->mq && (qopt->bands != sch->dev->egress_subqueue_count))
+> > +		return -EINVAL;
+> >  
+> >  	sch_tree_lock(sch);
+> >  	q->bands = qopt->bands;
+> > @@ -280,7 +342,7 @@ static int prio_dump(struct Qdisc *sch, 
+> struct sk_buff *skb)
+> >  	memcpy(&opt.priomap, q->prio2band, TC_PRIO_MAX+1);
+> >  
+> >  	nest = RTA_NEST_COMPAT(skb, TCA_OPTIONS, sizeof(opt), &opt);
+> > -	RTA_PUT_U32(skb, TCA_PRIO_TEST, 321);
+> > +	RTA_PUT_U8(skb, TCA_PRIO_MQ, q->mq);
+> 
+> 
+> And RTA_PUT_FLAG. Now that I think of it, does it even makes 
+> sense to have a prio private flag for this instead of a qdisc 
+> global one?
+
+There currently aren't any other qdiscs that are natural fits for
+multiqueue that I can see.  I can see the benefit though of having this
+as a global flag in the qdisc API; let me check it out, and if it makes
+sense, I can move it.
+
+> >  static int __init prio_module_init(void)  {
+> > -	return register_qdisc(&prio_qdisc_ops);
+> > +	register_qdisc(&prio_qdisc_ops);
+> > +	register_qdisc(&rr_qdisc_ops);
+> 
+> Proper error handling please.
+
+Will do.
+
+Thanks,
+-PJ Waskiewicz
