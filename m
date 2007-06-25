@@ -1,33 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC SKBUFF]: Keep track of writable header len of headerless
- clones
-Date: Mon, 25 Jun 2007 04:42:29 -0700 (PDT)
-Message-ID: <20070625.044229.50357629.davem@davemloft.net>
-References: <467E6950.4020707@trash.net>
-	<20070624.195849.56163383.davem@davemloft.net>
-	<467F822F.5020405@trash.net>
+From: Ranko Zivojnovic <ranko@spidernet.net>
+Subject: Re: [Bugme-new] [Bug 8668] New: HTB Deadlock
+Date: Mon, 25 Jun 2007 14:37:55 +0300
+Message-ID: <1182771475.4165.10.camel@ranko-fc2.spidernet.net>
+References: <bug-8668-10286@http.bugzilla.kernel.org/>
+	 <20070624222430.8d5b4bd7.akpm@linux-foundation.org>
+	 <467F8ADA.7060702@trash.net>  <467F8B37.7030000@trash.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org
-To: kaber@trash.net
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+	"bugme-daemon@kernel-bugs.osdl.org"
+	<bugme-daemon@kernel-bugs.osdl.org>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35832
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751070AbXFYLmL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jun 2007 07:42:11 -0400
-In-Reply-To: <467F822F.5020405@trash.net>
+Received: from MPP-Goya.spidernet.net ([194.154.128.52]:55405 "EHLO
+	mail0pop.spidernet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751180AbXFYLwt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jun 2007 07:52:49 -0400
+In-Reply-To: <467F8B37.7030000@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Mon, 25 Jun 2007 10:51:59 +0200
-
-> David Miller wrote:
-> > Patrick please give me a suitable signed-off-by line, I'd
-> > like to apply this to net-2.6.23
-> >   
+On Mon, 2007-06-25 at 11:30 +0200, Patrick McHardy wrote:
+> Patrick McHardy wrote:
+> > It is. This patch I had originally planned for 2.6.23 switches HTB
+> > to the generic estimator, which shouldn't suffer from this.
+> > 
+> > Ranko, can you try if it fixes your timer problem?
 > 
-> Signed-off-by: Patrick McHardy <kaber@trash.net>
+> 
+> Forgot the patch ..
 
-Applied and pushed out, thanks Patrick!
+Will try it - yes.
+
+R.
+
+
