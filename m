@@ -1,48 +1,43 @@
-From: Masakazu Mokuno <mokuno@sm.sony.co.jp>
-Subject: Re: [PATCH] ps3: gigabit ethernet driver for PS3, take2
-Date: Tue, 26 Jun 2007 11:48:57 +0900
-Message-ID: <20070626114742.7854.MOKUNO@sm.sony.co.jp>
-References: <20070619183956.F224.MOKUNO@sm.sony.co.jp> <467D61C0.5040006@am.sony.com>
+From: =?ISO-8859-15?Q?Siim_P=F5der?= <siim@p6drad-teel.net>
+Subject: Re: [PATCH 2.6.22-rc5] TCP: Make TCP_RTO_MAX a variable
+Date: Mon, 25 Jun 2007 17:45:19 +0300
+Message-ID: <467FD4FF.2000104@p6drad-teel.net>
+References: <20070625.220939.132853560.noboru.obata.ar@hitachi.com> <467FBFE2.7050605@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
-	Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>
-To: Geoff Levand <geoffrey.levand@am.sony.com>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from MGW2.Sony.CO.JP ([137.153.0.14]:64268 "EHLO mgw2.sony.co.jp"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752338AbXFZCtO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Jun 2007 22:49:14 -0400
-In-Reply-To: <467D61C0.5040006@am.sony.com>
+Received: from [194.126.108.29] ([194.126.108.29]:60350 "EHLO
+	localhost.localdomain" rhost-flags-FAIL-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752339AbXFZFNZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jun 2007 01:13:25 -0400
+Received: from localhost.skype.net ([127.0.0.1] ident=siim)
+	by localhost.localdomain with esmtp (Exim 4.67)
+	(envelope-from <siim@p6drad-teel.net>)
+	id 1I2poe-0007YI-5I
+	for netdev@vger.kernel.org; Mon, 25 Jun 2007 17:45:20 +0300
+In-Reply-To: <467FBFE2.7050605@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Yo!
 
-On Sat, 23 Jun 2007 11:09:04 -0700
-Geoff Levand <geoffrey.levand@am.sony.com> wrote:
+Patrick McHardy wrote:
+> OBATA Noboru wrote:
+>> Make TCP_RTO_MAX a variable, and allow a user to change it via a
+>> new sysctl entry /proc/sys/net/ipv4/tcp_rto_max.  A user can
+>> then guarantee TCP retransmission to be more controllable, say,
+>> at least once per 10 seconds, by setting it to 10.  This is
+>> quite helpful on failover-capable network devices, such as an
+>> active-backup bonding device.  On such devices, it is desirable
+>> that TCP retransmits a packet shortly after the failover, which
+>> is what I would like to do with this patch.  Please see
+>> Background and Problem below for rationale in detail.
+>=20
+> Would it make sense to do this per route?
 
-> MOKUNO Masakazu wrote:
-> > --- a/MAINTAINERS
-> > +++ b/MAINTAINERS
-> > @@ -2920,6 +2920,12 @@ M:	mikpe@it.uu.se
-> >  L:	linux-ide@vger.kernel.org
-> >  S:	Maintained
-> >  
-> > +PS3 NETWORK SUPPORT
-> > +P:	Masakazu Mokuno
-> > +M:	mokuno@sm.sony.co.jp
-> > +L:	netdev@vger.kernel.org
-> 
-> 
-> I think you should put cbe-oss-dev@ozlabs.org for
-> the mail list.  Users will get better support
-> and I will be able to keep track of the inquiries.
+To only do it per route would reduce it's usefulness with dynamic
+routing as routing daemons would probably have trouble supporting it.
 
-OK, thanks.
-I'll fix it and resubmit after return from OLS.
-
-
---
-Masakazu MOKUNO
-
+Siim P=F5der
