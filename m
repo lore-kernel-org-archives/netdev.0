@@ -1,230 +1,264 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: [Bugme-new] [Bug 8678] New: Kernel OOPSes when suspend/resume
-Date: Tue, 26 Jun 2007 21:59:05 +0200
-Message-ID: <200706262159.05917.rjw@sisk.pl>
-References: <bug-8678-10286@http.bugzilla.kernel.org/> <20070626100953.a842b081.akpm@linux-foundation.org> <200706261942.14722.cijoml@volny.cz>
+From: tsbogend@alpha.franken.de (Thomas Bogendoerfer)
+Subject: [PATCH UPDATE] Ethernet driver for EISA only SNI RM200/RM400 machines
+Date: Tue, 26 Jun 2007 22:53:40 +0200
+Message-ID: <20070626205340.GB21014@alpha.franken.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	linux-pm@lists.linux-foundation.org,
-	"bugme-daemon@kernel-bugs.osdl.org"
-	<bugme-daemon@kernel-bugs.osdl.org>
-To: CIJOML <cijoml@volny.cz>
+Content-Type: text/plain; charset=us-ascii
+Cc: akpm@linux-foundation.org, jgarzik@pobox.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:46033 "EHLO ogre.sisk.pl"
+Received: from elvis.franken.de ([193.175.24.41]:60191 "EHLO elvis.franken.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757453AbXFZTwH convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jun 2007 15:52:07 -0400
-In-Reply-To: <200706261942.14722.cijoml@volny.cz>
+	id S1757362AbXFZUyU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Jun 2007 16:54:20 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday, 26 June 2007 19:42, CIJOML wrote:
-> Dne =FAter=FD 26 =E8erven 2007 19:09 Andrew Morton napsal(a):
-> > On Tue, 26 Jun 2007 08:22:11 -0700 (PDT) bugme-daemon@bugzilla.kern=
-el.org=20
-> wrote:
-> > > http://bugzilla.kernel.org/show_bug.cgi?id=3D8678
-> > >
-> > >            Summary: Kernel OOPSes when suspend/resume
-> > >            Product: Power Management
-> > >            Version: 2.5
-> > >      KernelVersion: 2.6.21.5
-> > >           Platform: All
-> > >         OS/Version: Linux
-> > >               Tree: Mainline
-> > >             Status: NEW
-> > >           Severity: high
-> > >           Priority: P1
-> > >          Component: Hibernation/Suspend
-> > >         AssignedTo: power-management_other@kernel-bugs.osdl.org
-> > >         ReportedBy: cijoml@volny.cz
-> > >
-> > >
-> > > Most recent kernel where this bug did not occur:
-> > > Distribution: Debian Etch
-> > > Hardware Environment: Laptop Prestigio (Pentium M)
-> > > Software Environment: 2.6.21.5, v4l-dvb-b03a5545f8e1
-> > > Problem Description:
-> > >
-> > > --------------
-> > > Stopping tasks ... done.
-> > > Shrinking memory... done (0 pages freed)
-> > > Freed 0 kbytes in 0.02 seconds (0.00 MB/s)
-> > > Suspending console(s)
-> > > dvb_usb_dib0700 4-1:1.0: no suspend for driver dvb_usb_dib0700?
-> > > eth2: Going into suspend...
-> > > ACPI: PCI interrupt for device 0000:02:0c.0 disabled
-> > > radeonfb (0000:01:00.0): suspending for event: 1...
-> > > ACPI: PCI interrupt for device 0000:00:1f.6 disabled
-> > > ACPI: PCI interrupt for device 0000:00:1f.5 disabled
-> > > ACPI: PCI interrupt for device 0000:00:1d.7 disabled
-> > > ACPI: PCI interrupt for device 0000:00:1d.2 disabled
-> > > ACPI: PCI interrupt for device 0000:00:1d.1 disabled
-> > > ACPI: PCI interrupt for device 0000:00:1d.0 disabled
-> > > swsusp: critical section:
-> > > swsusp: Need to copy 112337 pages
-> > > Intel machine check architecture supported.
-> > > Intel machine check reporting enabled on CPU#0.
-> > > ACPI: PCI Interrupt 0000:00:1d.0[A] -> Link [LNKA] -> GSI 11 (lev=
-el, low)
-> > > -> IRQ 11
-> > > PCI: Setting latency timer of device 0000:00:1d.0 to 64
-> > > usb usb1: root hub lost power or was reset
-> > > ACPI: PCI Interrupt 0000:00:1d.1[B] -> Link [LNKD] -> GSI 11 (lev=
-el, low)
-> > > -> IRQ 11
-> > > PCI: Setting latency timer of device 0000:00:1d.1 to 64
-> > > usb usb2: root hub lost power or was reset
-> > > ACPI: PCI Interrupt 0000:00:1d.2[C] -> Link [LNKC] -> GSI 11 (lev=
-el, low)
-> > > -> IRQ 11
-> > > PCI: Setting latency timer of device 0000:00:1d.2 to 64
-> > > usb usb3: root hub lost power or was reset
-> > > ACPI: PCI Interrupt 0000:00:1d.7[D] -> Link [LNKH] -> GSI 11 (lev=
-el, low)
-> > > -> IRQ 11
-> > > PCI: Setting latency timer of device 0000:00:1d.7 to 64
-> > > usb usb4: root hub lost power or was reset
-> > > ehci_hcd 0000:00:1d.7: debug port 1
-> > > PCI: cache line size of 32 is not supported by device 0000:00:1d.=
-7
-> > > PCI: Setting latency timer of device 0000:00:1e.0 to 64
-> > > ACPI: PCI Interrupt 0000:00:1f.1[A] -> Link [LNKC] -> GSI 11 (lev=
-el, low)
-> > > -> IRQ 11
-> > > PM: Writing back config space on device 0000:00:1f.5 at offset 1 =
-(was
-> > > 2900007, writing 2900003)
-> > > ACPI: PCI Interrupt 0000:00:1f.5[B] -> Link [LNKB] -> GSI 9 (leve=
-l, low)
-> > > -> IRQ 9
-> > > PCI: Setting latency timer of device 0000:00:1f.5 to 64
-> > > PM: Writing back config space on device 0000:00:1f.6 at offset 1 =
-(was
-> > > 2900005, writing 2900001)
-> > > ACPI: PCI Interrupt 0000:00:1f.6[B] -> Link [LNKB] -> GSI 9 (leve=
-l, low)
-> > > -> IRQ 9
-> > > PCI: Setting latency timer of device 0000:00:1f.6 to 64
-> > > radeonfb (0000:01:00.0): resuming from state: 1...
-> > > ohci1394: fw-host0: OHCI-1394 1.1 (PCI): IRQ=3D[11]=20
-> > > MMIO=3D[ffdff800-ffdfffff] Max Packet=3D[2048]  IR/IT contexts=3D=
-[4/8]
-> > > eth0: link down
-> > > Yenta O2: res at 0x94/0xD4: 00/ea
-> > > Yenta O2: enabling read prefetch/write burst
-> > > eth2: Coming out of suspend...
-> > > ACPI: PCI Interrupt 0000:02:0c.0[A] -> Link [LNKB] -> GSI 9 (leve=
-l, low)
-> > > -> IRQ 9
-> > > pnp: Failed to activate device 00:03.
-> > > pnp: Failed to activate device 00:04.
-> > >  usbdev4.12_ep00: PM: resume from 0, parent 4-1 still 1
-> > > dvb_usb_dib0700 4-1:1.0: PM: resume from 1, parent 4-1 still 1
-> > > i2c_adapter i2c-5: PM: resume from 0, parent 4-1 still 1
-> > >  usbdev4.12_ep01: PM: resume from 0, parent 4-1:1.0 still 1
-> > >  usbdev4.12_ep81: PM: resume from 0, parent 4-1:1.0 still 1
-> > >  usbdev4.12_ep82: PM: resume from 0, parent 4-1:1.0 still 1
-> > >  usbdev4.12_ep83: PM: resume from 0, parent 4-1:1.0 still 1
-> > >  usbdev4.12: PM: resume from 0, parent 4-1 still 1
-> > >  usbdev1.8_ep00: PM: resume from 0, parent 1-2 still 1
-> > > hci_usb 1-2:1.0: PM: resume from 1, parent 1-2 still 1
-> > >  hci0: PM: resume from 0, parent 1-2:1.0 still 1
-> > >  usbdev1.8_ep81: PM: resume from 0, parent 1-2:1.0 still 1
-> > >  usbdev1.8_ep02: PM: resume from 0, parent 1-2:1.0 still 1
-> > >  usbdev1.8_ep82: PM: resume from 0, parent 1-2:1.0 still 1
-> > > hci_usb 1-2:1.1: PM: resume from 1, parent 1-2 still 1
-> > >  usbdev1.8_ep03: PM: resume from 0, parent 1-2:1.1 still 1
-> > >  usbdev1.8_ep83: PM: resume from 0, parent 1-2:1.1 still 1
-> > >  usbdev1.8: PM: resume from 0, parent 1-2 still 1
-> > > Restarting tasks ... done.
-> > > __tx_submit: hci0 tx submit failed urb f22ca854 type 1 err -19
-> > > usb 1-2: USB disconnect, address 8
-> > > agpgart: Found an AGP 2.0 compliant device at 0000:00:00.0.
-> > > agpgart: Putting AGP V2 device at 0000:00:00.0 into 1x mode
-> > > agpgart: Putting AGP V2 device at 0000:01:00.0 into 1x mode
-> > > [drm] Loading R300 Microcode
-> > > BUG: unable to handle kernel NULL pointer dereference at virtual =
-address
-> > > 00000000
-> > >  printing eip:
-> > > c014787a
-> > > *pde =3D 00000000
-> > > Oops: 0000 [#1]
-> > > PREEMPT
-> > > Modules linked in: michael_mic arc4 ecb blkcipher ieee80211_crypt=
-_tkip
-> > > xt_TCPMSS xt_tcpmss xt_tcpudp iptable_mangle ip_tables x_table
-> > > s ppp_deflate zlib_deflate bsd_comp ppp_async crc_ccitt ppp_gener=
-ic slhc
-> > > mt2060 dvb_usb_dib0700 dib7000m dib7000p dvb_usb dvb_core di
-> > > b3000mc dibx000_common bnep rfcomm hidp hid l2cap capability comm=
-oncap
-> > > eeprom sr_mod sbp2 scsi_mod 8250_pci 8250 serial_core eth1394
-> > > hci_usb bluetooth snd_intel8x0m snd_intel8x0 snd_ac97_codec snd_s=
-eq_oss
-> > > ac97_bus snd_seq_midi_event snd_seq snd_seq_device snd_pcm_os
-> > > s snd_mixer_oss ipw2200 8139too ieee80211 ieee80211_crypt snd_pcm
-> > > snd_timer iTCO_wdt ehci_hcd mii ohci1394 ieee1394 rtc uhci_hcd sn=
-d
-> > > snd_page_alloc ide_cd i2c_i801 pcspkr cdrom
-> > > CPU:    0
-> > > EIP:    0060:[<c014787a>]    Not tainted VLI
-> > > EFLAGS: 00010203   (2.6.21 #4)
-> > > EIP is at put_page+0x5/0xb2
-> > > eax: 00000000   ebx: 00000000   ecx: c0317380   edx: f63f70c0
-> > > esi: ea6e2680   edi: f784dd84   ebp: f784de48   esp: f784dd4c
-> > > ds: 007b   es: 007b   fs: 00d8  gs: 0033  ss: 0068
-> > > Process syslogd (pid: 3160, ti=3Df784c000 task=3Df7995070 task.ti=
-=3Df784c000)
-> > > Stack: 00000001 ea6e2680 f784dd84 c02aebed ea6e2680 f784df20 c02a=
-ea21
-> > > ea6e26b0 c02f58fb 00000036 000001ff f7ca36c0 f7dcfb00 ea6e2680 00=
-000d1f
-> > > 00000000 00000000 00000000 00000001 00000000 000001ff 0ac3ac80 00=
-000036
-> > > c0317380 Call Trace:
-> > >  [<c02aebed>] skb_release_data+0x4e/0x80
-> > >  [<c02aea21>] kfree_skbmem+0x8/0x61
-> > >  [<c02f58fb>] unix_dgram_recvmsg+0x214/0x239
-> > >  [<c02a9e24>] sock_recvmsg+0xec/0x107
-> > >  [<c0128b23>] autoremove_wake_function+0x0/0x35
-> > >  [<c0166775>] core_sys_select+0x1aa/0x2bc
-> > >  [<c0160a26>] pipe_write+0x356/0x3ed
-> > >  [<c015ae4d>] do_sync_readv_writev+0xc1/0xfe
-> > >  [<c02aad15>] sys_recvfrom+0xd7/0x12b
-> > >  [<c0128b23>] autoremove_wake_function+0x0/0x35
-> > >  [<c02aada0>] sys_recv+0x37/0x3b
-> > >  [<c02ab283>] sys_socketcall+0x19c/0x261
-> > >  [<c0120dc5>] sigprocmask+0x94/0xb1
-> > >  [<c0103cdc>] syscall_call+0x7/0xb
-> > >  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-> > > Code: 42 c0 e8 66 fe ff ff 89 e0 25 00 e0 ff ff ff 48 14 8b 40 08=
- a8 08
-> > > 74 05 e9 18 0f 1b 00 c3 e8 b4 ff ff ff 31 c0 c3 57 56 53 89 c
-> > >                                                3 <8b> 00 f6 c4 40=
- 74 0a
-> > > 89 d8 5b 5e 5f e9 e9 fb ff ff ff 4b 04 0f
-> > > EIP: [<c014787a>] put_page+0x5/0xb2 SS:ESP 0068:f784dd4c
-> >
-> > Good heavens.
-> >
-> > Does it oops every time?  And does the oops trace always look like =
-this?
->=20
-> Hi Andrew,
->=20
-> let's guess why I marked it Critical ;)
+Below is an updated patch with changes recommended/requested by Andrew
 
-Can you please retest without DRM?
+Thomas.
 
-Greetings,
-Rafael
+Ethernet driver for EISA only SNI RM200/RM400 machines
 
+Signed-off-by: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
+---
 
---=20
-"Premature optimization is the root of all evil." - Donald Knuth
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index b0d0d73..af5c90f 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -435,6 +435,13 @@ config LASI_82596
+ 	  Say Y here to support the builtin Intel 82596 ethernet controller
+ 	  found in Hewlett-Packard PA-RISC machines with 10Mbit ethernet.
+ 
++config SNI_82596
++	tristate "SNI RM ethernet"
++	depends on NET_ETHERNET && SNI_RM
++	help
++	  Say Y here to support the on-board Intel 82596 ethernet controller
++	  built into SNI RM machines.
++
+ config MIPS_JAZZ_SONIC
+ 	tristate "MIPS JAZZ onboard SONIC Ethernet support"
+ 	depends on NET_ETHERNET && MACH_JAZZ
+diff --git a/drivers/net/Makefile b/drivers/net/Makefile
+index d268b49..b03270c 100644
+--- a/drivers/net/Makefile
++++ b/drivers/net/Makefile
+@@ -161,6 +161,7 @@ obj-$(CONFIG_ELPLUS) += 3c505.o
+ obj-$(CONFIG_AC3200) += ac3200.o 8390.o
+ obj-$(CONFIG_APRICOT) += 82596.o
+ obj-$(CONFIG_LASI_82596) += lasi_82596.o
++obj-$(CONFIG_SNI_82596) += sni_82596.o
+ obj-$(CONFIG_MVME16x_NET) += 82596.o
+ obj-$(CONFIG_BVME6000_NET) += 82596.o
+ obj-$(CONFIG_SC92031) += sc92031.o
+diff --git a/drivers/net/sni_82596.c b/drivers/net/sni_82596.c
+new file mode 100644
+index 0000000..80e32ad
+--- /dev/null
++++ b/drivers/net/sni_82596.c
+@@ -0,0 +1,198 @@
++/*
++ * sni_82596.c -- driver for intel 82596 ethernet controller, as
++ *  		  used in older SNI RM machines
++ */
++
++#include <linux/module.h>
++#include <linux/kernel.h>
++#include <linux/string.h>
++#include <linux/errno.h>
++#include <linux/ioport.h>
++#include <linux/slab.h>
++#include <linux/interrupt.h>
++#include <linux/delay.h>
++#include <linux/netdevice.h>
++#include <linux/etherdevice.h>
++#include <linux/skbuff.h>
++#include <linux/init.h>
++#include <linux/types.h>
++#include <linux/bitops.h>
++#include <linux/platform_device.h>
++#include <linux/io.h>
++#include <linux/irq.h>
++
++#define SNI_82596_DRIVER_VERSION "SNI RM 82596 driver - Revision: 0.01"
++
++static const char sni_82596_string[] = "snirm_82596";
++
++#define DMA_ALLOC                      dma_alloc_coherent
++#define DMA_FREE                       dma_free_coherent
++#define DMA_WBACK(priv, addr, len)     do { } while (0)
++#define DMA_INV(priv, addr, len)       do { } while (0)
++#define DMA_WBACK_INV(priv, addr, len) do { } while (0)
++
++#define SYSBUS      0x00004400
++
++/* big endian CPU, 82596 little endian */
++#define SWAP32(x)   cpu_to_le32((u32)(x))
++#define SWAP16(x)   cpu_to_le16((u16)(x))
++
++#define OPT_MPU_16BIT    0x01
++
++#include "lib82596.c"
++
++MODULE_AUTHOR("Thomas Bogendoerfer");
++MODULE_DESCRIPTION("i82596 driver");
++MODULE_LICENSE("GPL");
++module_param(i596_debug, int, 0);
++MODULE_PARM_DESC(i596_debug, "82596 debug mask");
++
++static inline void ca(struct net_device *dev)
++{
++	struct i596_private *lp = netdev_priv(dev);
++
++	writel(0, lp->ca);
++}
++
++
++static void mpu_port(struct net_device *dev, int c, dma_addr_t x)
++{
++	struct i596_private *lp = netdev_priv(dev);
++
++	u32 v = (u32) (c) | (u32) (x);
++
++	if (lp->options & OPT_MPU_16BIT) {
++		writew(v & 0xffff, lp->mpu_port);
++		wmb();  /* order writes to MPU port */
++		udelay(1);
++		writew(v >> 16, lp->mpu_port);
++	} else {
++		writel(v, lp->mpu_port);
++		wmb();  /* order writes to MPU port */
++		udelay(1);
++		writel(v, lp->mpu_port);
++	}
++}
++
++
++static int __devinit sni_82596_probe(struct platform_device *dev)
++{
++	struct	net_device *netdevice;
++	struct i596_private *lp;
++	struct  resource *res, *ca, *idprom, *options;
++	int	retval = -ENODEV;
++	void __iomem *mpu_addr = NULL;
++	void __iomem *ca_addr = NULL;
++	u8 __iomem *eth_addr = NULL;
++
++	res = platform_get_resource(dev, IORESOURCE_MEM, 0);
++	if (!res)
++		goto probe_failed;
++	mpu_addr = ioremap_nocache(res->start, 4);
++	if (!mpu_addr) {
++		retval = -ENOMEM;
++		goto probe_failed;
++	}
++	ca = platform_get_resource(dev, IORESOURCE_MEM, 1);
++	if (!ca)
++		goto probe_failed;
++	ca_addr = ioremap_nocache(ca->start, 4);
++	if (!ca_addr) {
++		retval = -ENOMEM;
++		goto probe_failed;
++	}
++	idprom = platform_get_resource(dev, IORESOURCE_MEM, 2);
++	if (!idprom)
++		goto probe_failed;
++	eth_addr = ioremap_nocache(idprom->start, 0x10);
++	if (!eth_addr) {
++		retval = -ENOMEM;
++		goto probe_failed;
++	}
++	options = platform_get_resource(dev, 0, 0);
++	if (!options)
++		goto probe_failed;
++
++	printk(KERN_INFO "Found i82596 at 0x%x\n", res->start);
++
++	netdevice = alloc_etherdev(sizeof(struct i596_private));
++	if (!netdevice) {
++		retval = -ENOMEM;
++		goto probe_failed;
++	}
++	SET_NETDEV_DEV(netdevice, &dev->dev);
++	platform_set_drvdata (dev, netdevice);
++
++	netdevice->base_addr = res->start;
++	netdevice->irq = platform_get_irq(dev, 0);
++
++	/* someone seams to like messed up stuff */
++	netdevice->dev_addr[0] = readb(eth_addr + 0x0b);
++	netdevice->dev_addr[1] = readb(eth_addr + 0x0a);
++	netdevice->dev_addr[2] = readb(eth_addr + 0x09);
++	netdevice->dev_addr[3] = readb(eth_addr + 0x08);
++	netdevice->dev_addr[4] = readb(eth_addr + 0x07);
++	netdevice->dev_addr[5] = readb(eth_addr + 0x06);
++	iounmap(eth_addr);
++
++	if (!netdevice->irq) {
++		printk(KERN_ERR "%s: IRQ not found for i82596 at 0x%lx\n",
++			__FILE__, netdevice->base_addr);
++		goto probe_failed;
++	}
++
++	lp = netdev_priv(netdevice);
++	lp->options = options->flags & IORESOURCE_BITS;
++	lp->ca = ca_addr;
++	lp->mpu_port = mpu_addr;
++
++	retval = i82596_probe(netdevice);
++	if (retval) {
++		free_netdev(netdevice);
++probe_failed:
++		if (mpu_addr)
++			iounmap(mpu_addr);
++		if (ca_addr)
++			iounmap(ca_addr);
++		if (eth_addr)
++			iounmap(ca_addr);
++	}
++	return retval;
++}
++
++static int __devexit sni_82596_driver_remove(struct platform_device *pdev)
++{
++	struct net_device *dev = platform_get_drvdata(pdev);
++	struct i596_private *lp = netdev_priv(dev);
++
++	unregister_netdev(dev);
++	DMA_FREE(dev->dev.parent, sizeof(struct i596_private),
++		 lp->dma, lp->dma_addr);
++	iounmap(lp->ca);
++	iounmap(lp->mpu_port);
++	free_netdev (dev);
++	return 0;
++}
++
++static struct platform_driver sni_82596_driver = {
++	.probe	= sni_82596_probe,
++	.remove	= __devexit_p(sni_82596_driver_remove),
++	.driver	= {
++		.name	= sni_82596_string,
++	},
++};
++
++static int __devinit sni_82596_init(void)
++{
++	printk(KERN_INFO SNI_82596_DRIVER_VERSION "\n");
++	return platform_driver_register(&sni_82596_driver);
++}
++
++
++static void __exit sni_82596_exit(void)
++{
++	platform_driver_unregister(&sni_82596_driver);
++}
++
++module_init(sni_82596_init);
++module_exit(sni_82596_exit);
+
+-- 
+Crap can work. Given enough thrust pigs will fly, but it's not necessary a
+good idea.                                                [ RFC1925, 2.3 ]
