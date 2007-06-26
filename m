@@ -1,41 +1,48 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH v2.6.22-rc5] cxgb2: handle possible NULL pointer
- dereferencing, take 2
-Date: Mon, 25 Jun 2007 17:38:27 -0700
-Message-ID: <20070625173827.4dc154cb@freepuppy.localdomain.hemminger.net>
-References: <a901b49a0706210553r58ea8743gc565fcca1a87b58f@mail.gmail.com>
-	<a901b49a0706210618q7c22cbe0jd6f7e052a8e05a97@mail.gmail.com>
-	<20070625153450.c5f535ca.akpm@linux-foundation.org>
-	<46804C9B.5060102@garzik.org>
+From: Masakazu Mokuno <mokuno@sm.sony.co.jp>
+Subject: Re: [PATCH] ps3: gigabit ethernet driver for PS3, take2
+Date: Tue, 26 Jun 2007 11:48:57 +0900
+Message-ID: <20070626114742.7854.MOKUNO@sm.sony.co.jp>
+References: <20070619183956.F224.MOKUNO@sm.sony.co.jp> <467D61C0.5040006@am.sony.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	pradeep singh <pradeep.rautela@gmail.com>, trivial@kernel.org,
-	netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
+	Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>
+To: Geoff Levand <geoffrey.levand@am.sony.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:38009 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752221AbXFZAiq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jun 2007 20:38:46 -0400
-In-Reply-To: <46804C9B.5060102@garzik.org>
+Received: from MGW2.Sony.CO.JP ([137.153.0.14]:64268 "EHLO mgw2.sony.co.jp"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752338AbXFZCtO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Jun 2007 22:49:14 -0400
+In-Reply-To: <467D61C0.5040006@am.sony.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 25 Jun 2007 19:15:39 -0400
-Jeff Garzik <jeff@garzik.org> wrote:
 
-> Andrew Morton wrote:
-> > (Who maintains this driver now?)
-> 
-> 
-> It was abandonware from the beginning of its life.  Stephen H and 
-> Francois R did a bunch of cleanups most recently.
-> 
-> 	Jeff
+On Sat, 23 Jun 2007 11:09:04 -0700
+Geoff Levand <geoffrey.levand@am.sony.com> wrote:
 
-Have a couple of loaner boards, but really don't have the urge to maintain
-the driver. But I will retest any changes/cleanups.
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+> MOKUNO Masakazu wrote:
+> > --- a/MAINTAINERS
+> > +++ b/MAINTAINERS
+> > @@ -2920,6 +2920,12 @@ M:	mikpe@it.uu.se
+> >  L:	linux-ide@vger.kernel.org
+> >  S:	Maintained
+> >  
+> > +PS3 NETWORK SUPPORT
+> > +P:	Masakazu Mokuno
+> > +M:	mokuno@sm.sony.co.jp
+> > +L:	netdev@vger.kernel.org
+> 
+> 
+> I think you should put cbe-oss-dev@ozlabs.org for
+> the mail list.  Users will get better support
+> and I will be able to keep track of the inquiries.
+
+OK, thanks.
+I'll fix it and resubmit after return from OLS.
+
+
+--
+Masakazu MOKUNO
+
