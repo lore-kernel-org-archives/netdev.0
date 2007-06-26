@@ -1,63 +1,62 @@
-From: "Jean-Baptiste Vignaud" <vignaud@xandmail.fr>
-Subject: Re: 2.6.20->2.6.21 - networking dies after random time
-Date: Tue, 26 Jun 2007 16:24:07 +0200
-Message-ID: <JK8YO7$ED15496EC345D64436196D8FF32F355E@xandmail.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH] fix race in AF_UNIX
+Date: Tue, 26 Jun 2007 09:24:08 -0600
+Message-ID: <m17ipqu4br.fsf@ebiederm.dsl.xmission.com>
+References: <E1Hvo2m-00038P-00@dorka.pomaz.szeredi.hu>
+	<20070605.224128.104032917.davem@davemloft.net>
+	<E1HvqZB-0003Vc-00@dorka.pomaz.szeredi.hu>
+	<20070607.184731.10907840.davem@davemloft.net>
+	<E1HxgeN-0006Io-00@dorka.pomaz.szeredi.hu>
+	<m17ipxfi9d.fsf@ebiederm.dsl.xmission.com>
+	<E1I21IL-0004LH-00@dorka.pomaz.szeredi.hu>
+	<m1ir9eaahu.fsf@ebiederm.dsl.xmission.com>
+	<E1I36oi-0002bb-00@dorka.pomaz.szeredi.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "jarkao2" <jarkao2@o2.pl>,
-	"marcin\.slusarz" <marcin.slusarz@gmail.com>,
-	"shemminger" <shemminger@linux-foundation.org>,
-	"linux-net" <linux-net@vger.kernel.org>,
-	"netdev" <netdev@vger.kernel.org>
-To: "linux-kernel" <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, viro@ftp.linux.org.uk,
+	alan@lxorguk.ukuu.org.uk, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Miklos Szeredi <miklos@szeredi.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.xandmail.com ([212.155.184.97]:41551 "EHLO
-	mail.xandmail.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756500AbXFZPLa convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jun 2007 11:11:30 -0400
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:38078 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754138AbXFZPY5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jun 2007 11:24:57 -0400
+In-Reply-To: <E1I36oi-0002bb-00@dorka.pomaz.szeredi.hu> (Miklos Szeredi's
+	message of "Tue, 26 Jun 2007 10:54:32 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello, i have a very similar problem with 2.6.21 also;
+Miklos Szeredi <miklos@szeredi.hu> writes:
+>
+> And I think incremental GC algorithms are much too complex for this
+> task.  What I've realized, is that in fact we don't require a generic
+> garbage collection algorithm, just a much more specialized cycle
+> collection algorithm, since refcounting in struct file takes care of
+> the rest.
+>
+> This would help with localizing the problem to the problematic sockets
+> (which have an in-flight unix socket), instead of having to blindly
+> traverse _all_ unix sockets in the system.
+>
+> I'll look at reimplementing the GC with such an algorithm.
 
-2 3com NICs and they are failling randomly.
+Ok.  If you can do it more simply have at it.
 
-The kernel is a basic fedora 7 kernel (2.6.21-1.3228.fc7)
-I found a bug report and added details here : https://bugzilla.redhat.c=
-om/bugzilla/show_bug.cgi?id=3D243960
+There are incremental garbage collectors that are essentially just the
+current algorithm with fine-grained locking.  So we don't have to live
+in a spin-lock the whole time.
 
-I'm not subcribed on this list, so please cc me if there is any questio=
-ns.
+If your approach fails we can look at something more fine-grained.
 
-JB
+>> It appears clear that since we can't stop the world and garbage
+>> collect we need an incremental collector.
+>
+> Constraining ourselves to stopping unix sockets from going in flight
+> or coming out of flight during garbage collection should be OK I
+> think.  There's still a possibility of a DoS there, but it would only
+> be able to affect _very_ few applications.
 
-> On Tue, Jun 26, 2007 at 08:10:17AM +0200, Marcin =C5=9Alusarz wrote:
-> ...=20
-> > I reproduced it on minimal config:
-> ...
->=20
-> Hm... This method is usable if you can find such minimal config
-> with which the bug cannot be reproduced. Then you can add more
-> until the bug is back. Of course, this takes time...
->=20
-> We know your hardware should be OK - since it was fine with 2.6.20.
-> We don't know how much your configs (kernel & apps) have changed.
-> Sometimes the change of kernel needs some apps to be recompiled too.
-> That's why it could be usable to try 2.6.21 from a live distro to
-> find if it's really kernel's fault.
->=20
-> And, alas, this log doesn't seem to tell nothing new...
->=20
-> Regards,
-> Jarek P.
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-kerne=
-l" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
->=20
->=20
->=20
+Yes.
 
+Eric
