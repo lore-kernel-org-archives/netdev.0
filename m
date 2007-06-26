@@ -1,73 +1,65 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: Fwd: [PATCH] [-mm] ACPI: export ACPI events via netlink
-Date: Tue, 26 Jun 2007 15:42:47 +0200
-Message-ID: <1182865367.3703.8.camel@johannes.berg>
-References: <1179827251.7707.29.camel@localhost.localdomain>
-	 <1179831825.4121.30.camel@localhost>
-	 <1180258853.7707.53.camel@localhost.localdomain>
-	 <4466a10705270629h31977813hd2fc8330bcd87f78@mail.gmail.com>
-	 <4466a10705270634j3560c9a3j9c3630ddc20a24aa@mail.gmail.com>
-	 <1181811576.5411.27.camel@localhost.localdomain>
-	 <1181820510.4091.9.camel@localhost>
-	 <1181869285.5411.39.camel@localhost.localdomain>
-	 <1182178882.4063.11.camel@localhost>
-	 <1182223964.5411.76.camel@localhost.localdomain>
-	 <1182811210.6644.22.camel@johannes.berg>
-	 <1182864796.5186.39.camel@localhost>
+From: "Mr. Berkley Shands" <bshands@exegy.com>
+Subject: forcedeth lockup in 2.6.21.5 and 2.6.22-rc6
+Date: Tue, 26 Jun 2007 09:45:47 -0500
+Message-ID: <4681269B.8090208@exegy.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-sANYQJLcbmJurwrTZjA3"
-Cc: Zhang Rui <rui.zhang@intel.com>, netdev@vger.kernel.org,
-	"linux-acpi@vger" <linux-acpi@vger.kernel.org>, lenb@kernel.org,
-	Thomas Graf <tgraf@suug.ch>
-To: hadi@cyberus.ca
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <1182864796.5186.39.camel@localhost>
-Sender: linux-acpi-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII;
+	format=flowed
+Content-Transfer-Encoding: 7BIT
+To: Net Dev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [209.83.156.2] ([209.83.156.2]:2682 "EHLO service.eng.exegy.net"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750827AbXFZOpu convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jun 2007 10:45:50 -0400
+Received: from HANAFORD.eng.exegy.net (hanaford.eng.exegy.net [10.19.1.4])
+	by service.eng.exegy.net (8.13.1/8.13.1) with ESMTP id l5QEjmxH020670
+	for <netdev@vger.kernel.org>; Tue, 26 Jun 2007 09:45:48 -0500
+Content-class: urn:content-classes:message
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+With Centos-5.0/Redhat 5.0 on multiple motherboards (Tyan 2995/ 
+SuperMicro H8DCE)
+The forcedeth network driver locks up under heavy NFS traffic (32KB frames)
+such as linking shared libraries. It either gives a register dump
+on a lock up in the transmit side, or loops complaining about
+eth0: too many iterations (6) in nv_nic_irq
+The system is hung. I cannot get to /var/log/messages, and only dmesg gives
+information. "service network restart" or even reloading the 
+forcedeth.ko module
+does not restore the link. The only fix is "reboot -f".
 
---=-sANYQJLcbmJurwrTZjA3
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+These machines are 4GB or 8GB opteron workstations. There is no problem
+when using 2.6.20. The error counts reported by ifconfig usually show
+framing errors, sometimes > 10 digits worth concurrent with this issue
+(after being up 5 minutes). I can reproduce this 100% of the time with
+2.6.21.5 and 2.6.22-rc6.
 
-On Tue, 2007-06-26 at 09:33 -0400, jamal wrote:
-> On Tue, 2007-26-06 at 00:40 +0200, Johannes Berg wrote:
->=20
-> > I wonder if we should hold off on this API until we've worked out the
-> > multicast issue.
->=20
-> I think we can fix all the code in one shot later.
+Any clues on what to try next?
 
-Yes, we could fix the code in the kernel, but since the family ID is
-dynamically assigned and I'm trying to decouple the multicast group ID
-from the family ID that would break userspace relying on
-family=3D=3Dmulticast group unless we somehow reserved the family ID number
-ACPI got to make sure that ACPI gets the same multicast group ID.
-Combined with the fact that ACPI might be modular and get into generic
-netlink late in the game this seems non-trivial; also I think it's not
-necessary since holding off on this ACPI genetlink multicast user (which
-is the first besides the controller!) until we've worked out the patch
-shouldn't hurt much.
+berkley
 
->  I just glanced at
-> your patch but i have to run out, i will stare at it later - seems to be
-> in the right direction.
+-- 
 
-Thanks.
+// E. F. Berkley Shands, MSc//
 
-johannes
+** Exegy Inc.**
 
---=-sANYQJLcbmJurwrTZjA3
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
+349 Marshall Road, Suite 100
 
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
+St. Louis , MO  63119
 
-iD8DBQBGgRfX/ETPhpq3jKURAkpkAJwODCMaVnjO1IYhpT13ec5WVpYVdgCglV2M
-/VrcJXTeKRcx+p1P/xs4rNo=
-=5H+x
------END PGP SIGNATURE-----
+Direct:  (314) 218-3600 X450
 
---=-sANYQJLcbmJurwrTZjA3--
+Cell:  (314) 303-2546
 
+Office:  (314) 218-3600
+
+Fax:  (314) 218-3601
+
+ 
+
+The Usual Disclaimer follows...
+ 
+This e-mail and any documents accompanying it may contain legally privileged and/or confidential information belonging to Exegy, Inc. Such information may be protected from disclosure by law. The information is intended for use by only the addressee. If you are not the intended recipient, you are hereby notified that any disclosure or use of the information is strictly prohibited. If you have received this e-mail in error, please immediately contact the sender by e-mail or phone regarding instructions for return or destruction and do not use or disclose the content to others.
