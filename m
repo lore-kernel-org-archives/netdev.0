@@ -1,62 +1,53 @@
-From: Oleg Nesterov <oleg@tv-sign.ru>
-Subject: Re: [PATCH] RFC: have tcp_recvmsg() check kthread_should_stop() and treat it as if it were signalled
-Date: Tue, 26 Jun 2007 15:54:49 +0400
-Message-ID: <20070626115449.GA92@tv-sign.ru>
-References: <20070608123527.9b4cdafe.jlayton@redhat.com> <E1HwpmG-0008LW-00@gondolin.me.apana.org.au> <20070609070826.7bd3480c.jlayton@redhat.com> <a781481a0706251241n36126456x7f4b445a86d1a68f@mail.gmail.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH] NET: Multiqueue network device support.
+Date: Tue, 26 Jun 2007 09:27:28 -0400
+Message-ID: <1182864448.5186.34.camel@localhost>
+References: <1182440388.5017.31.camel@localhost>
+	 <1182475614.30969.102.camel@debian.sh.intel.com>
+	 <1182790051.5184.29.camel@localhost>
+	 <20070625.134741.129320846.davem@davemloft.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Layton <jlayton@redhat.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-To: Satyam Sharma <satyam.sharma@gmail.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: yi.zhu@intel.com, kaber@trash.net, peter.p.waskiewicz.jr@intel.com,
+	netdev@vger.kernel.org, jeff@garzik.org, auke-jan.h.kok@intel.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.screens.ru ([213.234.233.54]:33350 "EHLO mail.screens.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752042AbXFZLyJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Jun 2007 07:54:09 -0400
-Content-Disposition: inline
-In-Reply-To: <a781481a0706251241n36126456x7f4b445a86d1a68f@mail.gmail.com>
+Received: from wx-out-0506.google.com ([66.249.82.237]:7242 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752046AbXFZN1d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jun 2007 09:27:33 -0400
+Received: by wx-out-0506.google.com with SMTP id t15so1768727wxc
+        for <netdev@vger.kernel.org>; Tue, 26 Jun 2007 06:27:32 -0700 (PDT)
+In-Reply-To: <20070625.134741.129320846.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 06/26, Satyam Sharma wrote:
+On Mon, 2007-25-06 at 13:47 -0700, David Miller wrote:
+
+> tg3 uses 1/4:
 > 
-> Yes, why not embed a send_sig(SIGKILL) just before the wake_up_process()
-> in kthread_stop() itself?
-
-Personally, I don't think we should do this.
-
-kthread_stop() doesn't always mean "kill this thread asap". Suppose that
-CPU_DOWN does kthread_stop(workqueue->thread) but doesn't flush the queue
-before that (we did so before 2.6.22 and perhaps we will do again). Now
-work_struct->func() doing tcp_recvmsg() or wait_event_interruptible() fails,
-but this is probably not that we want.
-
-> So could we have signals in _addition_ to kthread_stop_info and change
-> kthread_should_stop() to check for both:
+> #define TG3_TX_WAKEUP_THRESH(tp)		((tp)->tx_pending / 4)
 > 
-> kthread_stop_info.k == current && signal_pending(current)
 
-No, this can't work in general. Some kthreads do flush_signals/dequeue_signal,
-so TIF_SIGPENDING can be lost anyway.
+Sorry - meant tg3 uses a much higher value (default is 128) - say
+relative to e1000 (default of 32).
+My tests with batching on e1000 indicate 128 gives the best results
+which is 1/2 if you look at it from tx ring size perspective. So i have
+hardcoded it in the git tree.
 
-I personally think Jeff's idea to use force_sig() is right. kthread_create()
-doesn't use CLONE_SIGHAND, so it is safe to change ->sighand->actionp[].
+> tp->tx_pending is the current configured ring size, configurable
+> via ethtool.
 
+Thats what e1000 needs as well - currently it hardcodes things.
+I think ethtool is the way to go - I will update the batch tree with
+that fix for e1000.
+Back to the question: Do you recall how this number was arrived at? 
+128 packets will be sent out at GiGe in about 80 microsecs, so from a
+feel-the-wind-direction perspective it seems reasonable.
 
-(offtopic)
+cheers,
+jamal
 
-	cifs_mount:
-
-		send_sig(SIGKILL,srvTcp->tsk,1);
-		tsk = srvTcp->tsk;
-		if(tsk)
-			kthread_stop(tsk);
-
-This "if(tsk)" looks wrong to me. Can srvTcp->tsk be NULL? If yes, send_sig()
-is not safe. Can srvTcp->tsk become NULL after send_sig() ? If yes, this
-check is racy, and kthread_stop() is not safe.
-
-Oleg.
 
