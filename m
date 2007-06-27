@@ -1,38 +1,55 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: a maze of twisty stats, most different
-Date: Wed, 27 Jun 2007 10:20:08 -0700
-Message-ID: <46829C48.6080005@hp.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: sky2 hangs without any messages
+Date: Wed, 27 Jun 2007 13:31:06 -0400
+Message-ID: <20070627133106.7cf1ce5c@oldman>
+References: <20070523075431.GA15935@dose.home.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: Linux Network Development list <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org
+To: Tino Keitel <tino.keitel@tikei.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel13.hp.com ([156.153.255.238]:34914 "EHLO palrel13.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751600AbXF0RUM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Jun 2007 13:20:12 -0400
-Received: from tardy.cup.hp.com (tardy.cup.hp.com [15.244.56.217])
-	by palrel13.hp.com (Postfix) with ESMTP id 40B2835D03
-	for <netdev@vger.kernel.org>; Wed, 27 Jun 2007 10:20:11 -0700 (PDT)
-Received: from [127.0.0.1] (localhost [127.0.0.1])
-	by tardy.cup.hp.com (8.9.3 (PHNE_28810)/8.9.3 SMKit7.02) with ESMTP id KAA12267
-	for <netdev@vger.kernel.org>; Wed, 27 Jun 2007 10:20:08 -0700 (PDT)
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:52589 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755897AbXF0RbX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2007 13:31:23 -0400
+In-Reply-To: <20070523075431.GA15935@dose.home.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-It seems that every driver, when providing support for ethtool -S 
-functionality, has considerable lattitude when it comes to the stats 
-provided.  Clearly this is very nice for the driver writer(s) as it 
-allows them to provide whatever stats they feel are most "natural" for 
-their NIC(s) and name them as they see fit.
+On Wed, 23 May 2007 09:54:31 +0200
+Tino Keitel <tino.keitel@tikei.de> wrote:
 
-However :)
+> Hi folks,
+> 
+> in the last 2 days, I had 2 outages of the NIC of my Mac mini Core Duo.
+> I checked the kernel log but I found nothing sky2 related. After
+> reloading the module, the interface worked again.
+> 
+> Both freezes were connected to access from a remote NFS client to a
+> directory with ~4700 files in it. Both times, after reloading the
+> module and waiting some minutes until the NFS client had recovered from
+> the hanging NFS server, the same action worked.
+> 
+> The network is 100 mbit full duplex. I use NFS over TCP and kernel
+> 2.6.21 with the "disable flow control" patch, the configuration is
+> attached.
+> 
+> Here are the sky2 messages that appeared when I discovered the freeze
+> and reloaded the driver:
+> 
+> sky2 eth0: disabling interface
+> ACPI: PCI interrupt for device 0000:01:00.0 disabled
+> ACPI: PCI Interrupt 0000:01:00.0[A] -> GSI 16 (level, low) -> IRQ 17
+> PCI: Setting latency timer of device 0000:01:00.0 to 64
+> sky2 0000:01:00.0: v1.14 addr 0x90200000 irq 17 Yukon-EC (0xb6) rev 2
+> Device driver eth0 lacks bus and class support for being resumed.
+> sky2 eth0: addr 00:16:cb:a4:e1:68
+> sky2 eth0: enabling interface
+> sky2 eth0: ram buffer 48K
+> sky2 eth0: Link is up at 100 Mbps, full duplex, flow control none
+> 
 
- From the standpoint of someone looking from the outside, say someone 
-wanting to consume ethtool -S statistics, it seems to be a big jumble.
 
-Might there be a way to bring those two camps together?  Is there 
-already, with the same wide availabilty of ethtool, and I've just not 
-seen it?
-
-rick jones
+There is a reproducible hang (due to missed IRQ) in sky2.  It is more reproducible
+with slower CPU's like Mac Mini.
