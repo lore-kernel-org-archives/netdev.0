@@ -1,55 +1,53 @@
 From: Peter Korsgaard <jacmet@sunsite.dk>
-Subject: [PATCH] dm9601: HW header size shouldn't be included in packet length
-Date: Wed, 27 Jun 2007 08:14:50 +0200
-Message-ID: <873b0dgbz9.fsf@p4.be.48ers.dk>
+Subject: [PATCH] usbnet: Zero padding byte if there is tail room in skb
+Date: Wed, 27 Jun 2007 08:48:15 +0200
+Message-ID: <87y7i5evv4.fsf@p4.be.48ers.dk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
+Cc: david-b@pacbell.net
 To: netdev@vger.kernel.org, jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp40.mobistarmail.be ([193.252.23.61]:49478 "EHLO
+Received: from smtp40.mobistarmail.be ([193.252.23.61]:50164 "EHLO
 	smtp40.mobistarmail.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759163AbXF0GeZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2007 02:34:25 -0400
+	with ESMTP id S1758597AbXF0Gr5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2007 02:47:57 -0400
 Received: from me-wanadoo.net (localhost [127.0.0.1])
-	by mwinf4017.mobistarmail.be (SMTP Server) with ESMTP id D289170000A0
-	for <netdev@vger.kernel.org>; Wed, 27 Jun 2007 08:14:31 +0200 (CEST)
+	by mwinf4017.mobistarmail.be (SMTP Server) with ESMTP id 2C42B70000A4
+	for <netdev@vger.kernel.org>; Wed, 27 Jun 2007 08:47:56 +0200 (CEST)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The dm9601 driver was including the 2 byte hardware header in the
-packet length, causing the HW to send 2 extra bytes of garbage on tx.
+Usbnet adds a padding byte if a 0 byte USB packet would be sent. Zero
+padding byte if there is tail room in skb.
 
-Signed-off-by: Peter Korsgaard <jacmet@sunsite.dk>
+Signed-of-by: Peter Korsgaard <jacmet@sunsite.dk>
+Acked-by: David Brownell <dbrownell@users.sourceforge.net>
 
 ---
- drivers/net/usb/dm9601.c |    5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+ drivers/net/usb/usbnet.c |    9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
 
-Index: linux-2.6.22-rc6/drivers/net/usb/dm9601.c
+Index: linux-2.6.22-rc6/drivers/net/usb/usbnet.c
 ===================================================================
---- linux-2.6.22-rc6.orig/drivers/net/usb/dm9601.c
-+++ linux-2.6.22-rc6/drivers/net/usb/dm9601.c
-@@ -489,6 +489,8 @@
- 	   b3..n: packet data
- 	*/
+--- linux-2.6.22-rc6.orig/drivers/net/usb/usbnet.c
++++ linux-2.6.22-rc6/drivers/net/usb/usbnet.c
+@@ -953,11 +953,14 @@
+ 	/* don't assume the hardware handles USB_ZERO_PACKET
+ 	 * NOTE:  strictly conforming cdc-ether devices should expect
+ 	 * the ZLP here, but ignore the one-byte packet.
+-	 *
+-	 * FIXME zero that byte, if it doesn't require a new skb.
+ 	 */
+-	if ((length % dev->maxpacket) == 0)
++	if ((length % dev->maxpacket) == 0) {
+ 		urb->transfer_buffer_length++;
++		if (skb_tailroom(skb)) {
++			skb->data[skb->len] = 0;
++			__skb_put(skb, 1);
++		}
++	}
  
-+	len = skb->len;
-+
- 	if (skb_headroom(skb) < DM_TX_OVERHEAD) {
- 		struct sk_buff *skb2;
- 
-@@ -501,10 +503,9 @@
- 
- 	__skb_push(skb, DM_TX_OVERHEAD);
- 
--	len = skb->len;
- 	/* usbnet adds padding if length is a multiple of packet size
- 	   if so, adjust length value in header */
--	if ((len % dev->maxpacket) == 0)
-+	if ((skb->len % dev->maxpacket) == 0)
- 		len++;
- 
- 	skb->data[0] = len;
+ 	spin_lock_irqsave (&dev->txq.lock, flags);
 
 -- 
 Bye, Peter Korsgaard
