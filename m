@@ -1,89 +1,38 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: [patch 6/7] CAN: Add maintainer entries - update for offset in current
- net-2.6.23.git
-Date: Wed, 27 Jun 2007 05:29:37 +0200
-Message-ID: <4681D9A1.8060206@hartkopp.net>
+From: David Hollis <dhollis@davehollis.com>
+Subject: Re: Linksys Gigabit USB2.0 adapter (asix) regression
+Date: Wed, 27 Jun 2007 01:54:52 -0400
+Message-ID: <1182923692.6644.4.camel@dhollis-lnx.sunera.com>
+References: <467915D9.3030900@slagter.name>
+	<1182523020.4938.20.camel@dhollis-lnx.sunera.com>
+	<467FF5DB.5090006@slagter.name>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Urs Thuermann <urs@isnogud.escape.de>,
-	Thomas Gleixner <tglx@linutronix.de>, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>
+Cc: netdev@vger.kernel.org
+To: Erik Slagter <erik@slagter.name>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.160]:44113 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753385AbXF0D3q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jun 2007 23:29:46 -0400
+Received: from vms042pub.verizon.net ([206.46.252.42]:40119 "EHLO
+	vms042pub.verizon.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756243AbXF0Fzf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2007 01:55:35 -0400
+Received: from smtp.davehollis.com ([71.251.104.159])
+ by vms042.mailsrvcs.net (Sun Java System Messaging Server 6.2-6.01 (built Apr
+ 3 2006)) with ESMTPA id <0JKA00HDF5RN2WP4@vms042.mailsrvcs.net> for
+ netdev@vger.kernel.org; Wed, 27 Jun 2007 00:54:59 -0500 (CDT)
+In-reply-to: <467FF5DB.5090006@slagter.name>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds entries in the CREDITS and MAINTAINERS file for CAN.
+On Mon, 2007-06-25 at 19:05 +0200, Erik Slagter wrote:
+> drivers/net/usb/asix.c: PHYID=0x01410cc2
 
-Signed-Off-By: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
-Signed-Off-By: Urs Thuermann <urs.thuermann@volkswagen.de>
+Ok, it is using a Marvell PHY so that part should be fine.  You
+mentioned that it looks like the packets are being transmitted, but are
+garbled in some way.  The device does prepend a 'header' to ethernet
+packets as they are transmitted down the USB pipe.  The device strips
+this off and puts the packets on the wire.  This could be where the
+issue lies.  Are you on x86 by chance or something else?
 
----
- CREDITS     |   16 ++++++++++++++++
- MAINTAINERS |    9 +++++++++
- 2 files changed, 25 insertions(+)
-
-Index: linux-2.6.22-rc5/CREDITS
-===================================================================
---- linux-2.6.22-rc5.orig/CREDITS	2007-06-20 14:10:41.000000000 +0200
-+++ linux-2.6.22-rc5/CREDITS	2007-06-20 14:11:27.000000000 +0200
-@@ -1330,6 +1330,14 @@
- S: 5623 HZ Eindhoven
- S: The Netherlands
- 
-+N: Oliver Hartkopp
-+E: oliver.hartkopp@volkswagen.de
-+W: http://www.volkswagen.de
-+D: Controller Area Network (network layer core)
-+S: Brieffach 1776
-+S: 38436 Wolfsburg
-+S: Germany
-+
- N: Andrew Haylett
- E: ajh@primag.co.uk
- D: Selection mechanism
-@@ -3283,6 +3291,14 @@
- S: F-35042 Rennes Cedex
- S: France
- 
-+N: Urs Thuermann
-+E: urs.thuermann@volkswagen.de
-+W: http://www.volkswagen.de
-+D: Controller Area Network (network layer core)
-+S: Brieffach 1776
-+S: 38436 Wolfsburg
-+S: Germany
-+
- N: Jon Tombs
- E: jon@gte.esi.us.es
- W: http://www.esi.us.es/~jon
-Index: linux-2.6.22-rc5/MAINTAINERS
-===================================================================
---- linux-2.6.22-rc5.orig/MAINTAINERS	2007-06-20 14:10:41.000000000 +0200
-+++ linux-2.6.22-rc5/MAINTAINERS	2007-06-20 14:11:27.000000000 +0200
-@@ -941,6 +941,15 @@
- L:	video4linux-list@redhat.com
- S:	Maintained
- 
-+CAN NETWORK LAYER
-+P:	Urs Thuermann
-+M:	urs.thuermann@volkswagen.de
-+P:	Oliver Hartkopp
-+M:	oliver.hartkopp@volkswagen.de
-+L:	socketcan-core@lists.berlios.de
-+W:	http://developer.berlios.de/projects/socketcan/
-+S:	Maintained
-+
- CALGARY x86-64 IOMMU
- P:	Muli Ben-Yehuda
- M:	muli@il.ibm.com
-
-
-
-
+-- 
+David Hollis <dhollis@davehollis.com>
 
