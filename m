@@ -1,56 +1,32 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH v2.6.22-rc5] cxgb2: handle possible NULL pointer dereferencing,
- take 2
-Date: Wed, 27 Jun 2007 02:30:13 -0400
-Message-ID: <468203F5.2020501@garzik.org>
-References: <a901b49a0706210553r58ea8743gc565fcca1a87b58f@mail.gmail.com>
+Subject: Re: [NET] au1000_eth: Fix warnings.
+Date: Wed, 27 Jun 2007 02:33:19 -0400
+Message-ID: <468204AF.9050606@garzik.org>
+References: <20070624135953.GA16754@linux-mips.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: trivial@kernel.org, netdev@vger.kernel.org
-To: pradeep singh <pradeep.rautela@gmail.com>,
-	akpm@linux-foundation.org
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org
+To: Ralf Baechle <ralf@linux-mips.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:37811 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:37833 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759304AbXF0GaT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Jun 2007 02:30:19 -0400
-In-Reply-To: <a901b49a0706210553r58ea8743gc565fcca1a87b58f@mail.gmail.com>
+	id S1754692AbXF0GdY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Jun 2007 02:33:24 -0400
+In-Reply-To: <20070624135953.GA16754@linux-mips.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-pradeep singh wrote:
-> Hi,
-> This is second submission for a possible NULL dereference handling in
-> the Chelsio's 10G driver.
+Ralf Baechle wrote:
+> Fixed by including <linux/dma-mapping.h>:
 > 
-> Thanks to Jens Axboe for pointing out my mistake of ignoring
-> subsequent dereferences in init_one routine.
+>   CC      drivers/net/au1000_eth.o
+> drivers/net/au1000_eth.c: In function 'au1000_probe':
+> drivers/net/au1000_eth.c:661: warning: implicit declaration of function 'dma_alloc_noncoherent'
+> drivers/net/au1000_eth.c:802: warning: implicit declaration of function 'dma_free_noncoherent'
 > 
-> Thanks
-> 
-> Signed-off-by: Pradeep Singh <pradeep.rautela@gmail.com>
-> ---
-> drivers/net/chelsio/cxgb2.c |    5 +++++
-> 1 files changed, 5 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/net/chelsio/cxgb2.c b/drivers/net/chelsio/cxgb2.c
-> index 231ce43..006c634 100644
-> --- a/drivers/net/chelsio/cxgb2.c
-> +++ b/drivers/net/chelsio/cxgb2.c
-> @@ -1022,6 +1022,11 @@ static int __devinit init_one(struct pci_dev *pdev,
->     mmio_start = pci_resource_start(pdev, 0);
->     mmio_len = pci_resource_len(pdev, 0);
->     bi = t1_get_board_info(ent->driver_data);
-> +   
-> +    if (!bi) {
-> +                CH_ERR("%s: Board info array index out of
-> range\n",pci_name(pdev));
-> +                goto out_disable_pdev;
-> +        }
+> Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
 
-NAK.  It's impossible to hit this condition.
-
-	Jeff
+applied to #upstream-fixes
 
 
