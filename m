@@ -1,58 +1,89 @@
-From: "Satyam Sharma" <satyam.sharma@gmail.com>
-Subject: Re: [PATCH] RFC: have tcp_recvmsg() check kthread_should_stop() and treat it as if it were signalled
-Date: Wed, 27 Jun 2007 06:59:35 +0530
-Message-ID: <a781481a0706261829l4a5c19cey7e1e75157fb74ce2@mail.gmail.com>
-References: <20070608123527.9b4cdafe.jlayton@redhat.com>
-	 <E1HwpmG-0008LW-00@gondolin.me.apana.org.au>
-	 <20070609070826.7bd3480c.jlayton@redhat.com>
-	 <a781481a0706251241n36126456x7f4b445a86d1a68f@mail.gmail.com>
-	 <20070626115449.GA92@tv-sign.ru>
-	 <a781481a0706261553i1e65e620o884708d0b068b0f8@mail.gmail.com>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: [patch 6/7] CAN: Add maintainer entries - update for offset in current
+ net-2.6.23.git
+Date: Wed, 27 Jun 2007 05:29:37 +0200
+Message-ID: <4681D9A1.8060206@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: "Jeff Layton" <jlayton@redhat.com>, linux-kernel@vger.kernel.org,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	"Herbert Xu" <herbert@gondor.apana.org.au>, netdev@vger.kernel.org,
-	linux-cifs-client@lists.samba.org
-To: "Oleg Nesterov" <oleg@tv-sign.ru>
+Cc: Urs Thuermann <urs@isnogud.escape.de>,
+	Thomas Gleixner <tglx@linutronix.de>, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nz-out-0506.google.com ([64.233.162.234]:8689 "EHLO
-	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752678AbXF0B3g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jun 2007 21:29:36 -0400
-Received: by nz-out-0506.google.com with SMTP id n1so16097nzf
-        for <netdev@vger.kernel.org>; Tue, 26 Jun 2007 18:29:35 -0700 (PDT)
-In-Reply-To: <a781481a0706261553i1e65e620o884708d0b068b0f8@mail.gmail.com>
-Content-Disposition: inline
+Received: from mo-p00-ob.rzone.de ([81.169.146.160]:44113 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753385AbXF0D3q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jun 2007 23:29:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 6/27/07, Satyam Sharma <satyam.sharma@gmail.com> wrote:
-> [...]
-> On 6/26/07, Oleg Nesterov <oleg@tv-sign.ru> wrote:
-> > On 06/26, Satyam Sharma wrote:
-> [...]
-> > > So could we have signals in _addition_ to kthread_stop_info and change
-> > > kthread_should_stop() to check for both:
-> > >
-> > > kthread_stop_info.k == current && signal_pending(current)
-> >
-> > No, this can't work in general. Some kthreads do flush_signals/dequeue_signal,
-> > so TIF_SIGPENDING can be lost anyway.
->
-> Yup, I had thought of precisely this issue yesterday as well. The mental note
-> I made to myself was that the force_sig(SIGKILL) and wake_up_process() in
-> kthread_stop() must be atomic so that the following race is not possible:
+This patch adds entries in the CREDITS and MAINTAINERS file for CAN.
 
-Hmm, the issue seems to have more to do with the ordering of
-flush_signals() w.r.t. checking kthread_should_stop() in the kthread's
-code. I thought about how to tackle this, but there's no easy way to make
-the stuff atomic like I thought earlier. The problem, like you mentioned,
-is if the target kthread proactively flushes its signals by hand *before*
-checking kthread_should_stop().
+Signed-Off-By: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
+Signed-Off-By: Urs Thuermann <urs.thuermann@volkswagen.de>
 
-The only way out seems to be to simply outlaw flush_signals() in kthreads
-(or anything to do with signals), but that would be impossible to enforce ...
+---
+ CREDITS     |   16 ++++++++++++++++
+ MAINTAINERS |    9 +++++++++
+ 2 files changed, 25 insertions(+)
 
-Satyam
+Index: linux-2.6.22-rc5/CREDITS
+===================================================================
+--- linux-2.6.22-rc5.orig/CREDITS	2007-06-20 14:10:41.000000000 +0200
++++ linux-2.6.22-rc5/CREDITS	2007-06-20 14:11:27.000000000 +0200
+@@ -1330,6 +1330,14 @@
+ S: 5623 HZ Eindhoven
+ S: The Netherlands
+ 
++N: Oliver Hartkopp
++E: oliver.hartkopp@volkswagen.de
++W: http://www.volkswagen.de
++D: Controller Area Network (network layer core)
++S: Brieffach 1776
++S: 38436 Wolfsburg
++S: Germany
++
+ N: Andrew Haylett
+ E: ajh@primag.co.uk
+ D: Selection mechanism
+@@ -3283,6 +3291,14 @@
+ S: F-35042 Rennes Cedex
+ S: France
+ 
++N: Urs Thuermann
++E: urs.thuermann@volkswagen.de
++W: http://www.volkswagen.de
++D: Controller Area Network (network layer core)
++S: Brieffach 1776
++S: 38436 Wolfsburg
++S: Germany
++
+ N: Jon Tombs
+ E: jon@gte.esi.us.es
+ W: http://www.esi.us.es/~jon
+Index: linux-2.6.22-rc5/MAINTAINERS
+===================================================================
+--- linux-2.6.22-rc5.orig/MAINTAINERS	2007-06-20 14:10:41.000000000 +0200
++++ linux-2.6.22-rc5/MAINTAINERS	2007-06-20 14:11:27.000000000 +0200
+@@ -941,6 +941,15 @@
+ L:	video4linux-list@redhat.com
+ S:	Maintained
+ 
++CAN NETWORK LAYER
++P:	Urs Thuermann
++M:	urs.thuermann@volkswagen.de
++P:	Oliver Hartkopp
++M:	oliver.hartkopp@volkswagen.de
++L:	socketcan-core@lists.berlios.de
++W:	http://developer.berlios.de/projects/socketcan/
++S:	Maintained
++
+ CALGARY x86-64 IOMMU
+ P:	Muli Ben-Yehuda
+ M:	muli@il.ibm.com
+
+
+
+
+
