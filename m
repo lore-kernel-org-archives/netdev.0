@@ -1,43 +1,46 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] NET: Multiqueue network device support.
-Date: Wed, 27 Jun 2007 18:32:45 -0400
-Message-ID: <1182983565.5155.12.camel@localhost>
-References: <1182790051.5184.29.camel@localhost>
-	 <20070625.134741.129320846.davem@davemloft.net>
-	 <1182864448.5186.34.camel@localhost>
-	 <20070626.135756.30187055.davem@davemloft.net>
-Reply-To: hadi@cyberus.ca
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/5 2.6.22-rc6] UDP: Introduce UDP encapsulation type
+ for L2TP
+Date: Wed, 27 Jun 2007 15:38:51 -0700 (PDT)
+Message-ID: <20070627.153851.42902028.davem@davemloft.net>
+References: <200706272220.l5RMKc7I004940@quickie.katalix.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yi.zhu@intel.com, kaber@trash.net, peter.p.waskiewicz.jr@intel.com,
-	netdev@vger.kernel.org, jeff@garzik.org, auke-jan.h.kok@intel.com
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: jchapman@katalix.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.233]:38752 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759790AbXF0Wct (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2007 18:32:49 -0400
-Received: by wx-out-0506.google.com with SMTP id h31so323744wxd
-        for <netdev@vger.kernel.org>; Wed, 27 Jun 2007 15:32:49 -0700 (PDT)
-In-Reply-To: <20070626.135756.30187055.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58454
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1760254AbXF0Wic (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2007 18:38:32 -0400
+In-Reply-To: <200706272220.l5RMKc7I004940@quickie.katalix.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2007-26-06 at 13:57 -0700, David Miller wrote:
-> From: jamal <hadi@cyberus.ca>
-> Date: Tue, 26 Jun 2007 09:27:28 -0400
+From: James Chapman <jchapman@katalix.com>
+Date: Wed, 27 Jun 2007 23:20:38 +0100
+
+> This patch adds a new UDP_ENCAP_L2TPINUDP encapsulation type for UDP
+> sockets. When a UDP socket's encap_type is UDP_ENCAP_L2TPINUDP, the
+> skb is delivered to a function pointed to by the udp_sock's
+> encap_rcv funcptr. If the skb isn't wanted by L2TP, it returns >0, which
+> causes it to be passed through to UDP.
 > 
-> > Back to the question: Do you recall how this number was arrived at? 
-> > 128 packets will be sent out at GiGe in about 80 microsecs, so from a
-> > feel-the-wind-direction perspective it seems reasonable.
+> Include padding to put the new encap_rcv field on a 4-byte boundary.
 > 
-> I picked it out of a hat.
+> Previously, the only user of UDP encap sockets was ESP, so when
+> CONFIG_XFRM was not defined, some of the encap code was compiled 
+> out. This patch changes that. As a result, udp_encap_rcv() will
+> now do a little more work when CONFIG_XFRM is not defined. 
+> 
+> Signed-off-by: James Chapman <jchapman@katalix.com>
 
-It is not a bad value for Gige; doubt it will be a good one for 10/100
-or even 10GE.
-But you could say that about the ring sizes too.
+Patch applied, thanks.
 
-cheers,
-jamal
+Note that we could use the callback pointer for the XFRM
+case too, and I kind of thought you would understand that
+logical progression and implement that too :-/
 
+That way we don't need any funny return values, there is
+just one and it simply triggers the callback.
