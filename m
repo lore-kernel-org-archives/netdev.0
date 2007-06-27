@@ -1,52 +1,77 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: 2.6.20->2.6.21 - networking dies after random time
-Date: Wed, 27 Jun 2007 12:17:42 +0200
-Message-ID: <20070627101742.GB1899@ff.dom.local>
-References: <JK8YO7$ED15496EC345D64436196D8FF32F355E@xandmail.com>
+From: Mika.Lansirinne@stonesoft.com
+Subject: [PATCH 2.6.21.5] 8139cp: dev->tx_timeout
+Date: Wed, 27 Jun 2007 13:27:16 +0300
+Message-ID: <OF0C14C62A.671A9095-ONC2257307.0035124F-C2257307.00396C0B@stonesoft.com>
+References: <46822182.5070002@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel <linux-kernel@vger.kernel.org>,
-	"marcin\.slusarz" <marcin.slusarz@gmail.com>,
-	shemminger <shemminger@linux-foundation.org>,
-	linux-net <linux-net@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Jean-Baptiste Vignaud <vignaud@xandmail.fr>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756599AbXF0KJr@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <JK8YO7$ED15496EC345D64436196D8FF32F355E@xandmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hki-smtp-2b.stonesoft.com ([84.34.144.172]:34462 "EHLO
+	hki-smtp-2b.stonesoft.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752718AbXF0K1V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2007 06:27:21 -0400
+In-Reply-To: <46822182.5070002@garzik.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 26, 2007 at 04:24:07PM +0200, Jean-Baptiste Vignaud wrote:
-> Hello, i have a very similar problem with 2.6.21 also;
->=20
-> 2 3com NICs and they are failling randomly.
->=20
-> The kernel is a basic fedora 7 kernel (2.6.21-1.3228.fc7)
-> I found a bug report and added details here : https://bugzilla.redhat=
-=2Ecom/bugzilla/show_bug.cgi?id=3D243960
->=20
-> I'm not subcribed on this list, so please cc me if there is any quest=
-ions.
->=20
-> JB
->=20
-> > On Tue, Jun 26, 2007 at 08:10:17AM +0200, Marcin =A6lusarz wrote:
-> > ...
-> > > I reproduced it on minimal config:
-=2E..
-> > We know your hardware should be OK - since it was fine with 2.6.20.
-=2E..
+This patch implements the missing dev->tx_timeout for 8139cp driver
 
-It looks like there is something common in the air...
+Signed-off-by: Mika Lansirinne <mika.lansirinne@stonesoft.com>
+---
 
-Marcin: ne2k_pci with 8390, Jean: 3com, and now I see
-similar problem with 8139cp too (plus some ideas):
+diff -ru linux-2.6.21.5/drivers/net/8139cp.c linux-2.6.21.5_8139cp-tx_timeout/drivers/net/8139cp.c
+--- linux-2.6.21.5/drivers/net/8139cp.c   2007-06-11 21:37:06.000000000 +0300
++++ linux-2.6.21.5_8139cp-tx_timeout/drivers/net/8139cp.c   2007-06-26 15:48:23.000000000 +0300
+@@ -26,7 +26,6 @@
 
-http://marc.info/?l=3Dlinux-netdev&m=3D118293314109648&w=3D2
+      TODO:
+      * Test Tx checksumming thoroughly
+-     * Implement dev->tx_timeout
 
-So, you probably should wait a little & look for new patches here.
+      Low priority TODO:
+      * Complete reset on PciErr
+@@ -1233,6 +1232,30 @@
+      return 0;
+ }
 
-Cheers,
-Jarek P.
++static void cp_tx_timeout(struct net_device *dev)
++{
++     struct cp_private *cp = netdev_priv(dev);
++     int rc;
++     unsigned long flags;
++
++        printk (KERN_WARNING "%s: Transmit timeout, status %2x %4x %4x %4x\n",
++                dev->name, cpr8(Cmd), cpr16(CpCmd),
++                cpr16(IntrStatus), cpr16(IntrMask));
++
++     spin_lock_irqsave(&cp->lock, flags);
++
++     cp_stop_hw(cp);
++     cp_clean_rings(cp);
++     rc = cp_init_rings(cp);
++     cp_start_hw(cp);
++
++     netif_wake_queue(dev);
++
++     spin_unlock_irqrestore(&cp->lock, flags);
++
++     return;
++}
++
+ #ifdef BROKEN
+ static int cp_change_mtu(struct net_device *dev, int new_mtu)
+ {
+@@ -1938,10 +1961,8 @@
+      dev->change_mtu = cp_change_mtu;
+ #endif
+      dev->ethtool_ops = &cp_ethtool_ops;
+-#if 0
+      dev->tx_timeout = cp_tx_timeout;
+      dev->watchdog_timeo = TX_TIMEOUT;
+-#endif
+
+ #if CP_VLAN_TAG_USED
+      dev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
+
