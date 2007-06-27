@@ -1,42 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2.6.21.1] ipconfig: add support for multiple user devs
-Date: Tue, 26 Jun 2007 23:45:12 -0700 (PDT)
-Message-ID: <20070626.234512.69020584.davem@davemloft.net>
-References: <1179429372.31146.31.camel@wcary0u3.ca.nortel.com>
+Subject: Re: [PATCH 1/2] [IPV6] MIP6: Kill unnecessary ifdefs.
+Date: Tue, 26 Jun 2007 23:53:00 -0700 (PDT)
+Message-ID: <20070626.235300.112853061.davem@davemloft.net>
+References: <1179906618559-git-send-email-nakam@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: skormilo@nortel.com
+To: nakam@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33515
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33519
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1758322AbXF0GwF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2007 02:52:05 -0400
-In-Reply-To: <1179429372.31146.31.camel@wcary0u3.ca.nortel.com>
+	by vger.kernel.org with ESMTP id S1752711AbXF0Gwk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2007 02:52:40 -0400
+In-Reply-To: <1179906618559-git-send-email-nakam@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Sean Kormilo" <skormilo@nortel.com>
-Date: Thu, 17 May 2007 15:16:12 -0400
+From: nakam@linux-ipv6.org
+Date: Wed, 23 May 2007 16:50:18 +0900
 
-> Update ipconfig to enable users to specify multiple devices on the kernel commandline
-> ip= option. This allows for up-to 4 devices to be specified, with devices separated by 
-> a '/' character.  For example, to limit autoconfig requests to eth0 and eth2:
-> 	ip=:::::eth0/eth2:DHCP
+> From: Masahide NAKAMURA <nakam@linux-ipv6.org>
 > 
-> This is required in cases where one might want to allow DHCP requests from multiple
-> devices, but not necessarily want to broadcast on all ethernet devices that are present 
-> in the system.
+> Kill unnecessary CONFIG_IPV6_MIP6.
+> 
+> o It is redundant for RAW socket to keep MH out with the config then
+>   it can handle any protocol.
+> o Clean-up at AH.
+> 
+> Signed-off-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
 
-Hi Sean.  I have no objections to your patch, except that the
-4 device limit seems arbitrary.
-
-I would suggest to dynamically kmalloc() up a string buffer after
-parsing the option string counting the "/" characters present.
-
-That way there is no limit to the number of devices which can
-be specified.
-
-Please make this change and resubmit your patch so that I can
-include it, thanks!
+Patch applied to net-2.6.23, thank you!
