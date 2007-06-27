@@ -1,28 +1,28 @@
 From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: (unknown)
-Date: Wed, 27 Jun 2007 12:39:09 +0200
-Message-ID: <20070627103909.GA3438@ff.dom.local>
+Subject: Re: [PATCH] 8139cp dev->tx_timeout
+Date: Wed, 27 Jun 2007 12:43:55 +0200
+Message-ID: <20070627104355.GB3438@ff.dom.local>
+References: <46822182.5070002@garzik.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-2
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Mika.Lansirinne@stonesoft.com, netdev@vger.kernel.org
+Cc: Mika.Lansirinne@stonesoft.com, netdev@vger.kernel.org,
+	Jean-Baptiste Vignaud <vignaud@xandmail.fr>,
+	"marcin\.slusarz" <marcin.slusarz@gmail.com>,
+	shemminger <shemminger@linux-foundation.org>
 To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx12.go2.pl ([193.17.41.142]:33247 "EHLO poczta.o2.pl"
+Received: from mx10.go2.pl ([193.17.41.74]:56702 "EHLO poczta.o2.pl"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753878AbXF0Ka6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Jun 2007 06:30:58 -0400
+	id S1754011AbXF0Kfp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Jun 2007 06:35:45 -0400
 Content-Disposition: inline
+In-Reply-To: <46822182.5070002@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jean-Baptiste Vignaud <vignaud@xandmail.fr>,
-"marcin.slusarz" <marcin.slusarz@gmail.com>,
-shemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH] 8139cp dev->tx_timeout
-References: <OFC04C6285.18455C26-ONC2257306.00364F82-C2257307.002CFBE9@=
-stonesoft.com> <46822182.5070002@garzik.org>
-In-Reply-To: <46822182.5070002@garzik.org>
+
+(second try! sorry)
 
 On 27-06-2007 10:36, Jeff Garzik wrote:
 > Mika.Lansirinne@stonesoft.com wrote:
