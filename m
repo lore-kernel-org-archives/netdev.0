@@ -1,148 +1,122 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH] Re: [2.6.21.1] soft lockup when removing netconsole
- module
-Date: Tue, 26 Jun 2007 16:07:53 -0700
-Message-ID: <20070626160753.f86d8803.akpm@linux-foundation.org>
-References: <20070526154011.GB3735@vanheusden.com>
-	<20070529005628.f7f3abc6.akpm@linux-foundation.org>
-	<20070612110233.GA3281@ff.dom.local>
-	<20070613092537.GA2432@ff.dom.local>
+From: Jay Cliburn <jacliburn@bellsouth.net>
+Subject: Re: [PATCH] atl1: disable 64bit DMA
+Date: Tue, 26 Jun 2007 19:16:01 -0500
+Message-ID: <20070626191601.5c4c4808@osprey.hogchain.net>
+References: <467B12CA.5060405@esuna.co.uk>
+	<467BE118.4090308@redhat.com>
+	<467BE4F1.7040308@esuna.co.uk>
+	<467D0EB0.9030100@esuna.co.uk>
+	<20070624125957.2e27820c@osprey.hogchain.net>
+	<467ED4A8.4080500@esuna.co.uk>
+	<20070624164519.04f215b8@osprey.hogchain.net>
+	<467FB237.2030703@esuna.co.uk>
+	<467FB844.6060702@bellsouth.net>
+	<20070625211855.GA19275@dreamland.darkstar.lan>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Folkert van Heusden <folkert@vanheusden.com>,
-	linux-kernel@vger.kernel.org,
-	Jason Wessel <jason.wessel@windriver.com>,
-	Thomas Gleixner <tglx@linutronix.de>, stable@kernel.org,
+Cc: Jeff Garzik <jgarzik@pobox.com>,
+	"Jay L. T. Cornwall" <jay@esuna.co.uk>,
+	linux-kernel@vger.kernel.org, Chris Snook <csnook@redhat.com>,
 	netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@o2.pl>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758766AbXFZXJF@vger.kernel.org>
-In-Reply-To: <20070613092537.GA2432@ff.dom.local>
-Sender: linux-kernel-owner@vger.kernel.org
+To: Luca Tettamanti <kronos.it@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from imf22aec.mail.bellsouth.net ([205.152.59.70]:34958 "EHLO
+	imf22aec.mail.bellsouth.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753260AbXF0ATB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jun 2007 20:19:01 -0400
+In-Reply-To: <20070625211855.GA19275@dreamland.darkstar.lan>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 13 Jun 2007 11:25:37 +0200
-Jarek Poplawski <jarkao2@o2.pl> wrote:
+On Mon, 25 Jun 2007 23:18:55 +0200
+Luca Tettamanti <kronos.it@gmail.com> wrote:
 
-> On Tue, Jun 12, 2007 at 01:02:33PM +0200, Jarek Poplawski wrote:
-> ...
-> > Of course such a problem should preferably be fixed by somebody who
-> > knows the code (alas I don't know netconsole), to be sure all needed
-> > cancels are still done after this change. I hope Jason's patch is
-> > right but I'm a little surprised I can't see netdev in cc (I'll try
-> > to fix this).
+> Il Mon, Jun 25, 2007 at 07:42:44AM -0500, Jay Cliburn ha scritto: 
+> > Jay L. T. Cornwall wrote:
+> > >Jay Cliburn wrote:
+> > >
+> > >>For reasons not yet clear to me, it appears the L1 driver has a
+> > >>bug or the device itself has trouble with DMA in high memory.
+> > >>This patch, drafted by Luca Tettamanti, is being explored as a
+> > >>workaround.  I'd be interested to know if it fixes your problem.
+> > >
+> > >Yes, it certainly seems to. Now running with this patch and 4GB
+> > >active, I've transferred about 15GB with no problem so far. It
+> > >usually oopses after a GB or two.
+> > >
+> > >I guess it's not an ideal solution, architecturally speaking, but
+> > >it's a good deal better than an unstable driver. If there's any
+> > >other patches you'd like me to test or traces to capture, I'm
+> > >happy to help out. Otherwise I'll run with this one for now since
+> > >it does the job!
+> > 
+> > Okay Jay, thanks.
+> > 
+> > Luca, would you please submit your patch to Jeff Garzik and netdev?
 > 
-> So, I've had a look into netpoll and, unfortunately, I don't
-> think this patch is right... 
+> Hi Jeff,
+> a couple of users reported hard lockups when using L1 NICs on machines
+> with 4GB or more of RAM. We're still waiting official confirmation
+> from the vendor, but it seems that L1 has problems doing DMA to/from
+> high memory (physical address above the 4GB limit). Passing 32bit DMA
+> mask cures the problem.
 > 
-> > > From: Jason Wessel <jason.wessel@windriver.com>
-> > > 
-> > > Do not call cancel_rearming_delayed_work() if there is no
-> > > pending work.
-> > > 
-> > > Signed-off-by: Jason Wessel <jason.wessel@windriver.com>
-> > > Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-> > > ---
-> > > 
-> > >  net/core/netpoll.c |    6 ++++--
-> > >  1 file changed, 4 insertions(+), 2 deletions(-)
-> > > 
-> > > diff -puN net/core/netpoll.c~a net/core/netpoll.c
-> > > --- a/net/core/netpoll.c~a
-> > > +++ a/net/core/netpoll.c
-> > > @@ -784,8 +784,10 @@ void netpoll_cleanup(struct netpoll *np)
-> > >  			if (atomic_dec_and_test(&npinfo->refcnt)) {
-> > >  				skb_queue_purge(&npinfo->arp_tx);
-> > >  				skb_queue_purge(&npinfo->txq);
-> > > -				cancel_rearming_delayed_work(&npinfo->tx_work);
-> > > -				flush_scheduled_work();
-> > > +				if (delayed_work_pending(&npinfo->tx_work)) {
-> > > +					cancel_rearming_delayed_work(&npinfo->tx_work);
-> > > +					flush_scheduled_work();
-> > > +				}
-> > >  
-> > >  				kfree(npinfo);
-> > >  			}
-> > > _
-> 
-> There are such possibilities:
-> 
-> 1. After positive delayed_work_pending(&npinfo->tx_work) test
-> some work is queued, but there is no guarantee that when running
-> it'll rearm again, so cancel_rearming_delayed_work can loop again;
-> 
-> 2. After negative delayed_work_pending(&npinfo->tx_work) test
-> a work is just running, eg. waiting on netif_tx_lock, while
-> kfree(npinfo) is done here (oops?!).
-> 
-> I've found an additional problem here with or without this patch:
-> after deleting a timer in cancel_rearming_delayed_work() there could
-> stay a last skb queued in npinfo->txq, and after kfree(npinfo)
-> we have small memory leak. If I'm right here similar fix is needed
-> in the current netpoll code: additional npinfo->txq purging only
-> or maybe the whole cancel_rearming_ changed like this.
-> 
-> I've tried to eliminate these problems in attached below patch
-> proposal. I'm not sure it's all right: as I've written earlier I
-> don't know netconsole enough, but it's probably a little better
-> than above solution.
-> 
-> I've some doubts yet (I didn't have time to check this all):
-> 
-> 1. I hope this other schedule_delayed_work() from netpoll_send_skb()
-> is not possible when netpoll_cleanup() runs - if I'm wrong additional
-> check of npinfo->refcnt should be done there;
-> 2. I also hope npinfo->refcnt before scheduling should be enough here
-> - if not - another possibility is adding some locking eg.:
-> netif_tx_lock before cancel for synchronization.
-> 
-> Of course it would be very nice if somebody could test or verify
-> this patch more.
-> 
-> Regards,
-> Jarek P.
-> 
-> 
-> Signed-off-by: Jarek Poplawski <jarkao2@o2.pl>
+> Signed-Off-By: Luca Tettamanti <kronos.it@gmail.com>
 > 
 > ---
+> I think that the patch should be included in 2.6.22.
 > 
-> diff -Nurp 2.6.21-/net/core/netpoll.c 2.6.21/net/core/netpoll.c
-> --- 2.6.21-/net/core/netpoll.c	2007-04-26 15:08:32.000000000 +0200
-> +++ 2.6.21/net/core/netpoll.c	2007-06-12 21:05:23.000000000 +0200
-> @@ -73,7 +73,8 @@ static void queue_process(struct work_st
->  			netif_tx_unlock(dev);
->  			local_irq_restore(flags);
+>  drivers/net/atl1/atl1_main.c |   15 +++------------
+>  1 file changed, 3 insertions(+), 12 deletions(-)
+> 
+> diff --git a/drivers/net/atl1/atl1_main.c
+> b/drivers/net/atl1/atl1_main.c index 6862c11..a730f15 100644
+> --- a/drivers/net/atl1/atl1_main.c
+> +++ b/drivers/net/atl1/atl1_main.c
+> @@ -2097,21 +2097,16 @@ static int __devinit atl1_probe(struct
+> pci_dev *pdev, struct net_device *netdev;
+>  	struct atl1_adapter *adapter;
+>  	static int cards_found = 0;
+> -	bool pci_using_64 = true;
+>  	int err;
 >  
-> -			schedule_delayed_work(&npinfo->tx_work, HZ/10);
-> +			if (atomic_read(&npinfo->refcnt))
-> +				schedule_delayed_work(&npinfo->tx_work, HZ/10);
->  			return;
->  		}
->  		netif_tx_unlock(dev);
-> @@ -780,9 +781,15 @@ void netpoll_cleanup(struct netpoll *np)
->  			if (atomic_dec_and_test(&npinfo->refcnt)) {
->  				skb_queue_purge(&npinfo->arp_tx);
->  				skb_queue_purge(&npinfo->txq);
-> -				cancel_rearming_delayed_work(&npinfo->tx_work);
-> +				cancel_delayed_work(&npinfo->tx_work);
->  				flush_scheduled_work();
+>  	err = pci_enable_device(pdev);
+>  	if (err)
+>  		return err;
 >  
-> +				/* clean after last, unfinished work */
-> +				if (!skb_queue_empty(&npinfo->txq)) {
-> +					struct sk_buff *skb;
-> +					skb = __skb_dequeue(&npinfo->txq);
-> +					kfree_skb(skb);
-> +				}
->  				kfree(npinfo);
->  			}
->  		}
+> -	err = pci_set_dma_mask(pdev, DMA_64BIT_MASK);
+> +	err = pci_set_dma_mask(pdev, DMA_32BIT_MASK);
+>  	if (err) {
+> -		err = pci_set_dma_mask(pdev, DMA_32BIT_MASK);
+> -		if (err) {
+> -			dev_err(&pdev->dev, "no usable DMA
+> configuration\n");
+> -			goto err_dma;
+> -		}
+> -		pci_using_64 = false;
+> +		dev_err(&pdev->dev, "no usable DMA configuration\n");
+> +		goto err_dma;
+>  	}
+>  	/* Mark all PCI regions associated with PCI device
+>  	 * pdev as being reserved by owner atl1_driver_name
+> @@ -2176,7 +2171,6 @@ static int __devinit atl1_probe(struct pci_dev
+> *pdev, 
+>  	netdev->ethtool_ops = &atl1_ethtool_ops;
+>  	adapter->bd_number = cards_found;
+> -	adapter->pci_using_64 = pci_using_64;
+>  
+>  	/* setup the private structure */
+>  	err = atl1_sw_init(adapter);
+> @@ -2193,9 +2187,6 @@ static int __devinit atl1_probe(struct pci_dev
+> *pdev, */
+>  	/* netdev->features |= NETIF_F_TSO; */
+>  
+> -	if (pci_using_64)
+> -		netdev->features |= NETIF_F_HIGHDMA;
+> -
+>  	netdev->features |= NETIF_F_LLTX;
+>  
+>  	/*
 
-Everything went quiet?
-
-If this patch has been tested and fixes the bug, can you please send a
-version which is ready for merging?  (ie: add a suitable description of
-what it does).
-
-
-Thanks.
+Acked-by: Jay Cliburn <jacliburn@bellsouth.net>
