@@ -1,38 +1,56 @@
-From: David Hollis <dhollis@davehollis.com>
-Subject: Re: Linksys Gigabit USB2.0 adapter (asix) regression
-Date: Wed, 27 Jun 2007 01:54:52 -0400
-Message-ID: <1182923692.6644.4.camel@dhollis-lnx.sunera.com>
-References: <467915D9.3030900@slagter.name>
-	<1182523020.4938.20.camel@dhollis-lnx.sunera.com>
-	<467FF5DB.5090006@slagter.name>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH v2.6.22-rc5] cxgb2: handle possible NULL pointer dereferencing,
+ take 2
+Date: Wed, 27 Jun 2007 02:30:13 -0400
+Message-ID: <468203F5.2020501@garzik.org>
+References: <a901b49a0706210553r58ea8743gc565fcca1a87b58f@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Erik Slagter <erik@slagter.name>
+Cc: trivial@kernel.org, netdev@vger.kernel.org
+To: pradeep singh <pradeep.rautela@gmail.com>,
+	akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vms042pub.verizon.net ([206.46.252.42]:40119 "EHLO
-	vms042pub.verizon.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756243AbXF0Fzf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2007 01:55:35 -0400
-Received: from smtp.davehollis.com ([71.251.104.159])
- by vms042.mailsrvcs.net (Sun Java System Messaging Server 6.2-6.01 (built Apr
- 3 2006)) with ESMTPA id <0JKA00HDF5RN2WP4@vms042.mailsrvcs.net> for
- netdev@vger.kernel.org; Wed, 27 Jun 2007 00:54:59 -0500 (CDT)
-In-reply-to: <467FF5DB.5090006@slagter.name>
+Received: from srv5.dvmed.net ([207.36.208.214]:37811 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759304AbXF0GaT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Jun 2007 02:30:19 -0400
+In-Reply-To: <a901b49a0706210553r58ea8743gc565fcca1a87b58f@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2007-06-25 at 19:05 +0200, Erik Slagter wrote:
-> drivers/net/usb/asix.c: PHYID=0x01410cc2
+pradeep singh wrote:
+> Hi,
+> This is second submission for a possible NULL dereference handling in
+> the Chelsio's 10G driver.
+> 
+> Thanks to Jens Axboe for pointing out my mistake of ignoring
+> subsequent dereferences in init_one routine.
+> 
+> Thanks
+> 
+> Signed-off-by: Pradeep Singh <pradeep.rautela@gmail.com>
+> ---
+> drivers/net/chelsio/cxgb2.c |    5 +++++
+> 1 files changed, 5 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/net/chelsio/cxgb2.c b/drivers/net/chelsio/cxgb2.c
+> index 231ce43..006c634 100644
+> --- a/drivers/net/chelsio/cxgb2.c
+> +++ b/drivers/net/chelsio/cxgb2.c
+> @@ -1022,6 +1022,11 @@ static int __devinit init_one(struct pci_dev *pdev,
+>     mmio_start = pci_resource_start(pdev, 0);
+>     mmio_len = pci_resource_len(pdev, 0);
+>     bi = t1_get_board_info(ent->driver_data);
+> +   
+> +    if (!bi) {
+> +                CH_ERR("%s: Board info array index out of
+> range\n",pci_name(pdev));
+> +                goto out_disable_pdev;
+> +        }
 
-Ok, it is using a Marvell PHY so that part should be fine.  You
-mentioned that it looks like the packets are being transmitted, but are
-garbled in some way.  The device does prepend a 'header' to ethernet
-packets as they are transmitted down the USB pipe.  The device strips
-this off and puts the packets on the wire.  This could be where the
-issue lies.  Are you on x86 by chance or something else?
+NAK.  It's impossible to hit this condition.
 
--- 
-David Hollis <dhollis@davehollis.com>
+	Jeff
+
 
