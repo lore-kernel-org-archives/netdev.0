@@ -1,47 +1,61 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [Bugme-new] [Bug 8668] New: HTB Deadlock
-Date: Wed, 27 Jun 2007 16:53:48 +0200
-Message-ID: <468279FC.3070502@trash.net>
-References: <20070627114521.GA3762@ff.dom.local> <46824D88.1090300@trash.net> <20070627121013.GB3762@ff.dom.local>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [Devel] Re: [RFD] L2 Network namespace infrastructure
+Date: Wed, 27 Jun 2007 07:56:15 -0700
+Message-ID: <46827A8F.6090205@candelatech.com>
+References: <m1tzszbwyb.fsf@ebiederm.dsl.xmission.com> <467CF8AC.80103@trash.net> <468276BA.7020309@sw.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	"bugme-daemon@kernel-bugs.osdl.org"
-	<bugme-daemon@kernel-bugs.osdl.org>, ranko@spidernet.net
-To: Jarek Poplawski <jarkao2@o2.pl>
+Cc: Patrick McHardy <kaber@trash.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Jeff Garzik <jeff@garzik.org>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	netdev@vger.kernel.org, jamal <hadi@cyberus.ca>,
+	Linux Containers <containers@lists.osdl.org>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	David Miller <davem@davemloft.net>
+To: Kirill Korotaev <dev@sw.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:58774 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752836AbXF0OzD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2007 10:55:03 -0400
-In-Reply-To: <20070627121013.GB3762@ff.dom.local>
+Received: from ns2.lanforge.com ([66.165.47.211]:37332 "EHLO ns2.lanforge.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752921AbXF0O55 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Jun 2007 10:57:57 -0400
+In-Reply-To: <468276BA.7020309@sw.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jarek Poplawski wrote:
-> On Wed, Jun 27, 2007 at 01:44:08PM +0200, Patrick McHardy wrote:
+Kirill Korotaev wrote:
+> Patrick McHardy wrote:
 >   
->>> BTW, maybe I look at this too short, but is this del_timer()
->>> in gen_kill_estimator() enough? I cannot see nothing against
->>> a timer just running and doing mod_timer() again...
->>>       
->> Yes, but nothing bad can happen, the timer will find an empty
->> list and do nothing. It would make more sense to check for
->> an empty list before restarting the timer though.
->>
->>
->> Could you send a patch for that?
->>
+>> I believe OpenVZ stores the current namespace somewhere global,
+>> which avoids passing the namespace around. Couldn't you do this
+>> as well?
 >>     
 >
-> Probably I could, but it's your idea!
+> yes, we store a global namespace context on current
+> (can be stored in per-cpu as well).
 >
-> I look at this just now, and maybe it's enough for asking,
-> but definitely not enough for patch. I'll try to check this
-> more in the evening, so I could send something tomorrow.
->
-> So if it's not only about kindness, feel free to do it
-> sooner and I've no doubts  - better.
+> do you prefer this way?
+>   
+For what it's worth, I don't prefer this way as I can see wanting to 
+have one application
+use several namespaces at once....
 
-I can take care of it, no problem.
+Thanks,
+Ben
+
+> Thanks,
+> Kirill
+>
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>   
+
+
+-- 
+Ben Greear <greearb@candelatech.com> 
+Candela Technologies Inc  http://www.candelatech.com
+
+
