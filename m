@@ -1,161 +1,131 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [NET]: gen_estimator: fix locking and timer related bugs [Re:
- [Bugme-new] [Bug 8668] New: HTB Deadlock]
-Date: Wed, 27 Jun 2007 17:25:45 +0200
-Message-ID: <46828179.5030404@trash.net>
-References: <20070627114521.GA3762@ff.dom.local> <46824D88.1090300@trash.net> <20070627121013.GB3762@ff.dom.local> <468279FC.3070502@trash.net> <46827DB1.3060509@trash.net>
+From: Kirill Korotaev <dev@sw.ru>
+Subject: Re: [Devel] Re: [RFD] L2 Network namespace infrastructure
+Date: Wed, 27 Jun 2007 19:38:35 +0400
+Message-ID: <4682847B.4080509@sw.ru>
+References: <m1tzszbwyb.fsf@ebiederm.dsl.xmission.com>	<467CF8AC.80103@trash.net>	<m1bqf6a8rd.fsf@ebiederm.dsl.xmission.com>	<20070623.135737.22037347.davem@davemloft.net>	<467D9B8F.2050403@garzik.org>	<m1ejk28eku.fsf@ebiederm.dsl.xmission.com> <467DC8CC.3020002@garzik.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------050800060208030001050603"
-Cc: Jarek Poplawski <jarkao2@o2.pl>,
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
+	shemminger@linux-foundation.org, hadi@cyberus.ca,
+	David Miller <davem@davemloft.net>, greearb@candelatech.com,
+	containers@lists.osdl.org,
 	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org,
-	"bugme-daemon@kernel-bugs.osdl.org"
-	<bugme-daemon@kernel-bugs.osdl.org>, ranko@spidernet.net
-To: David Miller <davem@davemloft.net>
+	Linus Torvalds <torvalds@linux-foundation.org>, kaber@trash.net
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:59358 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752121AbXF0P0Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2007 11:26:16 -0400
-In-Reply-To: <46827DB1.3060509@trash.net>
+Received: from mailhub.sw.ru ([195.214.233.200]:24113 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752937AbXF0Pmj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Jun 2007 11:42:39 -0400
+In-Reply-To: <467DC8CC.3020002@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------050800060208030001050603
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-
-Patrick McHardy wrote:
-> [NET]: gen_estimator: fix locking and timer related bugs
+Jeff Garzik wrote:
+> Eric W. Biederman wrote:
 > 
+>>Jeff Garzik <jeff@garzik.org> writes:
+>>
+>>
+>>>David Miller wrote:
+>>>
+>>>>I don't accept that we have to add another function argument
+>>>>to a bunch of core routines just to support this crap,
+>>>>especially since you give no way to turn it off and get
+>>>>that function argument slot back.
+>>>>
+>>>>To be honest I think this form of virtualization is a complete
+>>>>waste of time, even the openvz approach.
+>>>>
+>>>>We're protecting the kernel from itself, and that's an endless
+>>>>uphill battle that you will never win.  Let's do this kind of
+>>>>stuff properly with a real minimal hypervisor, hopefully with
+>>>>appropriate hardware level support and good virtualized device
+>>>>interfaces, instead of this namespace stuff.
+>>>
+>>>Strongly seconded.  This containerized virtualization approach just bloats up
+>>>the kernel for something that is inherently fragile and IMO less secure --
+>>>protecting the kernel from itself.
+>>>
+>>>Plenty of other virt approaches don't stir the code like this, while
+>>>simultaneously providing fewer, more-clean entry points for the virtualization
+>>>to occur.
+>>
+>>Wrong.  I really don't want to get into a my virtualization approach is better
+>>then yours.  But this is flat out wrong.
+> 
+> 
+>>99% of the changes I'm talking about introducing are just:
+>>- variable 
+>>+ ptr->variable
+>>
+>>There are more pieces mostly with when we initialize those variables but
+>>that is the essence of the change.
+> 
+> 
+> You completely dodged the main objection.  Which is OK if you are 
+> selling something to marketing departments, but not OK
 
+It is a pure illusion that one kind of virtualization is better then the other one.
+Look, maybe *hardware* virtualization and a small size of the hypervisor
+make you feel safer, however you totally forget about all the emulation drivers etc.
+which can have bugs and security implications as well and maybe triggerable
+from inside VM.
 
-That one still left a race, we could be reinitalizing the timer
-while it is still running. This patch additionally makes sure
-each timer is only initialized once.
+> Containers introduce chroot-jail-like features that give one a false 
+> sense of security, while still requiring one to "poke holes" in the 
+> illusion to get hardware-specific tasks accomplished.
 
+The concepts of users in any OS (and in Linux in particular) give people
+a false sense of security as well!
+I know a bunch of examples of how one user can crash/DoS/abuse another one
+e.g. on RHEL5 or mainstream.
+But no one have problems with that and no one thinks that multiuserness
+is a step-backward or maybe someone does?!
 
---------------050800060208030001050603
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
+Yes, there are always bugs and sometimes security implications,
+but people leave fine with it when it is fixed.
 
-[NET]: gen_estimator: fix locking and timer related bugs
+> The capable/not-capable model (i.e. superuser / normal user) is _still_ 
+> being secured locally, even after decades of work and whitepapers and 
+> audits.
 
-As noticed by Jarek Poplawski <jarkao2@o2.pl>, the timer removal in
-gen_kill_estimator races with the timer function rearming the timer.
+> You are drinking Deep Kool-Aid if you think adding containers to the 
+> myriad kernel subsystems does anything besides increasing fragility, and 
+> decreasing security.  You are securing in-kernel subsystems against 
+> other in-kernel subsystems.  superuser/user model made that difficult 
+> enough... now containers add exponential audit complexity to that.  Who 
+> is to say that a local root does not also pierce the container model?
 
-Additionally there are a few more related problems that seem to be
-relicts from the timer when the estimator was qdisc specific and
-could rely on the rtnl or dev->qdisc_lock:
+containers do the only thing:
+make sure that objects from one context are not visible to another one.
 
-- the check whether the list is empty and a timer needs to be started
-  when adding a new estimator doesn't take the lock, so it races
-  against concurrent additions, which can result in the timer beeing
-  added twice or getting reinitialized after being added.
+If containers are not used - everything returns to the case as it is now, i.e.
+everything is global and globally visible and no auditing overhead at all.
+So if you are not interested in containers - the code auditing
+won't be noticably harder for you.
 
-- the new estimator's next pointer is also set without holding the
-  lock, again racing against concurrent additions with possible
-  list corruption as a result.
+>>And as opposed to other virtualization approaches so far no one has been
+>>able to measure the overhead.  I suspect there will be a few more cache
+>>line misses somewhere but they haven't shown up yet.
+>>
+>>If the only use was strong isolation which Dave complains about I would
+>>concur that the namespace approach is inappropriate.  However there are
+>>a lot other uses.
+> 
+> 
+> Sure there are uses.  There are uses to putting the X server into the 
+> kernel, too.  At some point complexity and featuritis has to take a back 
+> seat to basic sanity.
 
-- the timer deletion when killing an estimator is also not under
-  the lock and races against timer arming when adding a new estimator.
+I agree about sanity, however I totally disagree about complexity
+you talk about.
+Bugs we face/fix in Linux kernel which are found with the help of
+that kind of virtualization makes me believe that Linux kernel
+only wins from it.
 
-Fix by holding the lock around the entire list addition and initial
-timer arming. Removal is not done explicitly anymore, instead the
-timer function only rearms the timer when there are still estimators
-present.
+Thanks,
+Kirill
 
-Signed-off-by: Patrick McHardy <kaber@trash.net>
-
----
-commit b6a0c468c258d96c6f132fc71ca74225235bc223
-tree 6f61004cf4810a4826aa5c7477e4d455ae3a5698
-parent 48d8d7ee5dd17c64833e0343ab4ae8ef01cc2648
-author Patrick McHardy <kaber@trash.net> Wed, 27 Jun 2007 17:06:02 +0200
-committer Patrick McHardy <kaber@trash.net> Wed, 27 Jun 2007 17:24:13 +0200
-
- net/core/gen_estimator.c |   27 +++++++++++----------------
- 1 files changed, 11 insertions(+), 16 deletions(-)
-
-diff --git a/net/core/gen_estimator.c b/net/core/gen_estimator.c
-index 17daf4c..88a7805 100644
---- a/net/core/gen_estimator.c
-+++ b/net/core/gen_estimator.c
-@@ -127,8 +127,8 @@ static void est_timer(unsigned long arg)
- 		e->rate_est->pps = (e->avpps+0x1FF)>>10;
- 		spin_unlock(e->stats_lock);
- 	}
--
--	mod_timer(&elist[idx].timer, jiffies + ((HZ<<idx)/4));
-+	if (elist[idx].list != NULL)
-+		mod_timer(&elist[idx].timer, jiffies + ((HZ<<idx)/4));
- 	read_unlock(&est_lock);
- }
- 
-@@ -152,6 +152,7 @@ int gen_new_estimator(struct gnet_stats_basic *bstats,
- {
- 	struct gen_estimator *est;
- 	struct gnet_estimator *parm = RTA_DATA(opt);
-+	int idx;
- 
- 	if (RTA_PAYLOAD(opt) < sizeof(*parm))
- 		return -EINVAL;
-@@ -163,7 +164,7 @@ int gen_new_estimator(struct gnet_stats_basic *bstats,
- 	if (est == NULL)
- 		return -ENOBUFS;
- 
--	est->interval = parm->interval + 2;
-+	est->interval = idx = parm->interval + 2;
- 	est->bstats = bstats;
- 	est->rate_est = rate_est;
- 	est->stats_lock = stats_lock;
-@@ -173,16 +174,14 @@ int gen_new_estimator(struct gnet_stats_basic *bstats,
- 	est->last_packets = bstats->packets;
- 	est->avpps = rate_est->pps<<10;
- 
--	est->next = elist[est->interval].list;
--	if (est->next == NULL) {
--		init_timer(&elist[est->interval].timer);
--		elist[est->interval].timer.data = est->interval;
--		elist[est->interval].timer.expires = jiffies + ((HZ<<est->interval)/4);
--		elist[est->interval].timer.function = est_timer;
--		add_timer(&elist[est->interval].timer);
--	}
- 	write_lock_bh(&est_lock);
--	elist[est->interval].list = est;
-+	if (!elist[idx].timer.function)
-+		setup_timer(&elist[idx].timer, est_timer, est->interval);
-+	if (elist[est->interval].list == NULL)
-+		mod_timer(&elist[idx].timer, jiffies + ((HZ<<idx)/4));
-+
-+	est->next = elist[idx].list;
-+	elist[idx].list = est;
- 	write_unlock_bh(&est_lock);
- 	return 0;
- }
-@@ -202,7 +201,6 @@ void gen_kill_estimator(struct gnet_stats_basic *bstats,
- 	struct gen_estimator *est, **pest;
- 
- 	for (idx=0; idx <= EST_MAX_INTERVAL; idx++) {
--		int killed = 0;
- 		pest = &elist[idx].list;
- 		while ((est=*pest) != NULL) {
- 			if (est->rate_est != rate_est || est->bstats != bstats) {
-@@ -215,10 +213,7 @@ void gen_kill_estimator(struct gnet_stats_basic *bstats,
- 			write_unlock_bh(&est_lock);
- 
- 			kfree(est);
--			killed++;
- 		}
--		if (killed && elist[idx].list == NULL)
--			del_timer(&elist[idx].timer);
- 	}
- }
- 
-
---------------050800060208030001050603--
