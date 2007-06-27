@@ -1,40 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH 0/2] dmaengine: preparation for raid acceleration
-Date: Wed, 27 Jun 2007 00:54:16 -0700 (PDT)
-Message-ID: <20070627.005416.43852201.davem@davemloft.net>
-References: <20070602001527.1707.58092.stgit@dwillia2-linux.ch.intel.com>
+Subject: Re: resend [PATCH 2/5 2.6.21] L2TP: Changes to existing ppp and
+ socket kernel headers for L2TP
+Date: Wed, 27 Jun 2007 01:00:37 -0700 (PDT)
+Message-ID: <20070627.010037.34759135.davem@davemloft.net>
+References: <200705261747.l4QHlOf8001718@quickie.katalix.com>
+	<20070627.001824.15264721.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	christopher.leech@intel.com
-To: dan.j.williams@intel.com
+Cc: netdev@vger.kernel.org
+To: jchapman@katalix.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33293
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34375
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753549AbXF0Hx5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2007 03:53:57 -0400
-In-Reply-To: <20070602001527.1707.58092.stgit@dwillia2-linux.ch.intel.com>
+	by vger.kernel.org with ESMTP id S1754066AbXF0IAR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2007 04:00:17 -0400
+In-Reply-To: <20070627.001824.15264721.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Dan Williams <dan.j.williams@intel.com>
-Date: Fri, 01 Jun 2007 17:17:49 -0700
+From: David Miller <davem@davemloft.net>
+Date: Wed, 27 Jun 2007 00:18:24 -0700 (PDT)
 
-> Hello David,
+> From: James Chapman <jchapman@katalix.com>
+> Date: Sat, 26 May 2007 18:47:24 +0100
 > 
-> The following two patches are part of the raid acceleration series I
-> would like to push for 2.6.23 consideration.  I am sending these two
-> separately for your review for the following reasons: the 'dmaengine'
-> core initially came in through netdev,  patch #2 makes changes to
-> net/dev/core.c, and lastly I have an ack on the raid changes but no ack
-> from the community on the i/oat and dmaengine changes.
+> > Add struct sockaddr_pppol2tp to carry L2TP-specific address
+> > information for the PPPoX (PPPoL2TP) socket. Unfortunately we can't
+> > use the union inside struct sockaddr_pppox because the L2TP-specific
+> > data is larger than the current size of the union and we must preserve
+> > the size of struct sockaddr_pppox for binary compatibility.
+> > 
+> > Also add a PPPIOCGL2TPSTATS ioctl to allow userspace to obtain
+> > L2TP counters and state from the kernel.
+> > 
+> > Signed-off-by: James Chapman <jchapman@katalix.com>
 > 
->       dmaengine: add base support for the async_tx api
->       dmaengine: move channel management to the client
+> This looks OK, patch applied to net-2.6.23, thanks.
 
-Dan, you can merge this through Andrew's -mm tree and this
-will actually make things easier for me.  The net changes
-are minimal and I have no problem with them.
-
-Acked-by: David S. Miller <davem@davemloft.net>
+Actually, I had to back this out because it depended upon
+header files added by subsequent patches and thus broke
+the build.
