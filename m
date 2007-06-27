@@ -1,46 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] IPV6 checksum offloading in network devices
-Date: Wed, 27 Jun 2007 00:44:53 -0700 (PDT)
-Message-ID: <20070627.004453.55726417.davem@davemloft.net>
-References: <20070530085320.0c35bd71@freepuppy>
-	<465DA2A4.2060608@trash.net>
-	<20070530140034.13bbf971@freepuppy>
+Subject: Re: [RFC PATCH 0/2] dmaengine: preparation for raid acceleration
+Date: Wed, 27 Jun 2007 00:54:16 -0700 (PDT)
+Message-ID: <20070627.005416.43852201.davem@davemloft.net>
+References: <20070602001527.1707.58092.stgit@dwillia2-linux.ch.intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, herbert.xu@redhat.com, netdev@vger.kernel.org,
-	mchan@broadcom.com
-To: shemminger@linux-foundation.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	christopher.leech@intel.com
+To: dan.j.williams@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41727
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33293
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754205AbXF0Hoe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2007 03:44:34 -0400
-In-Reply-To: <20070530140034.13bbf971@freepuppy>
+	by vger.kernel.org with ESMTP id S1753549AbXF0Hx5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2007 03:53:57 -0400
+In-Reply-To: <20070602001527.1707.58092.stgit@dwillia2-linux.ch.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Date: Wed, 30 May 2007 14:00:34 -0700
+From: Dan Williams <dan.j.williams@intel.com>
+Date: Fri, 01 Jun 2007 17:17:49 -0700
 
-> This is better. 
-> There is still a possiblity when a device allows IPV6 and not IPV4
-> checksumming, that the checksum will be done in the fixup code in
-> dev_queue_xmit.
+> Hello David,
 > 
-> The existing model for checksum offload does not correctly handle
-> devices that can offload IPV4 and IPV6 only. The NETIF_F_HW_CSUM flag
-> implies device can do any arbitrary protocol.
+> The following two patches are part of the raid acceleration series I
+> would like to push for 2.6.23 consideration.  I am sending these two
+> separately for your review for the following reasons: the 'dmaengine'
+> core initially came in through netdev,  patch #2 makes changes to
+> net/dev/core.c, and lastly I have an ack on the raid changes but no ack
+> from the community on the i/oat and dmaengine changes.
 > 
-> This patch:
->  * adds NETIF_F_IPV6_CSUM for those devices
->  * fixes bnx2 and tg3 devices that need it
->  * add NETIF_F_IPV6_CSUM to ipv6 output (incl GSO)
->  * fixes assumptions about NETIF_F_ALL_CSUM in nat
->  * adjusts bridge union of checksumming computation
+>       dmaengine: add base support for the async_tx api
+>       dmaengine: move channel management to the client
 
-I've applied this to net-2.6.23, we can back it out or rework
-it if there are problems.
+Dan, you can merge this through Andrew's -mm tree and this
+will actually make things easier for me.  The net changes
+are minimal and I have no problem with them.
 
-Several of these checksum feature tests are getting out of
-hand :-)
+Acked-by: David S. Miller <davem@davemloft.net>
