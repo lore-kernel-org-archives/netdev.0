@@ -1,54 +1,42 @@
-From: Peter Korsgaard <jacmet@sunsite.dk>
-Subject: [PATCH] usbnet: Zero padding byte if there is tail room in skb
-Date: Wed, 27 Jun 2007 08:48:15 +0200
-Message-ID: <87y7i5evv4.fsf@p4.be.48ers.dk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2.6.21.1] ipconfig: add support for multiple user devs
+Date: Tue, 26 Jun 2007 23:45:12 -0700 (PDT)
+Message-ID: <20070626.234512.69020584.davem@davemloft.net>
+References: <1179429372.31146.31.camel@wcary0u3.ca.nortel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: david-b@pacbell.net
-To: netdev@vger.kernel.org, jeff@garzik.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: skormilo@nortel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp40.mobistarmail.be ([193.252.23.61]:50164 "EHLO
-	smtp40.mobistarmail.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758597AbXF0Gr5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2007 02:47:57 -0400
-Received: from me-wanadoo.net (localhost [127.0.0.1])
-	by mwinf4017.mobistarmail.be (SMTP Server) with ESMTP id 2C42B70000A4
-	for <netdev@vger.kernel.org>; Wed, 27 Jun 2007 08:47:56 +0200 (CEST)
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33515
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1758322AbXF0GwF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2007 02:52:05 -0400
+In-Reply-To: <1179429372.31146.31.camel@wcary0u3.ca.nortel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Usbnet adds a padding byte if a 0 byte USB packet would be sent. Zero
-padding byte if there is tail room in skb.
+From: "Sean Kormilo" <skormilo@nortel.com>
+Date: Thu, 17 May 2007 15:16:12 -0400
 
-Signed-of-by: Peter Korsgaard <jacmet@sunsite.dk>
-Acked-by: David Brownell <dbrownell@users.sourceforge.net>
+> Update ipconfig to enable users to specify multiple devices on the kernel commandline
+> ip= option. This allows for up-to 4 devices to be specified, with devices separated by 
+> a '/' character.  For example, to limit autoconfig requests to eth0 and eth2:
+> 	ip=:::::eth0/eth2:DHCP
+> 
+> This is required in cases where one might want to allow DHCP requests from multiple
+> devices, but not necessarily want to broadcast on all ethernet devices that are present 
+> in the system.
 
----
- drivers/net/usb/usbnet.c |    9 ++++++---
- 1 file changed, 6 insertions(+), 3 deletions(-)
+Hi Sean.  I have no objections to your patch, except that the
+4 device limit seems arbitrary.
 
-Index: linux-2.6.22-rc6/drivers/net/usb/usbnet.c
-===================================================================
---- linux-2.6.22-rc6.orig/drivers/net/usb/usbnet.c
-+++ linux-2.6.22-rc6/drivers/net/usb/usbnet.c
-@@ -953,11 +953,14 @@
- 	/* don't assume the hardware handles USB_ZERO_PACKET
- 	 * NOTE:  strictly conforming cdc-ether devices should expect
- 	 * the ZLP here, but ignore the one-byte packet.
--	 *
--	 * FIXME zero that byte, if it doesn't require a new skb.
- 	 */
--	if ((length % dev->maxpacket) == 0)
-+	if ((length % dev->maxpacket) == 0) {
- 		urb->transfer_buffer_length++;
-+		if (skb_tailroom(skb)) {
-+			skb->data[skb->len] = 0;
-+			__skb_put(skb, 1);
-+		}
-+	}
- 
- 	spin_lock_irqsave (&dev->txq.lock, flags);
+I would suggest to dynamically kmalloc() up a string buffer after
+parsing the option string counting the "/" characters present.
 
--- 
-Bye, Peter Korsgaard
+That way there is no limit to the number of devices which can
+be specified.
 
+Please make this change and resubmit your patch so that I can
+include it, thanks!
