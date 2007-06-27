@@ -1,42 +1,46 @@
-From: Erik Slagter <erik@slagter.name>
-Subject: Re: Linksys Gigabit USB2.0 adapter (asix) regression
-Date: Wed, 27 Jun 2007 09:43:46 +0200
-Message-ID: <46821532.7080308@slagter.name>
-References: <467915D9.3030900@slagter.name>	<1182523020.4938.20.camel@dhollis-lnx.sunera.com>	<467FF5DB.5090006@slagter.name> <1182923692.6644.4.camel@dhollis-lnx.sunera.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC] IPV6 checksum offloading in network devices
+Date: Wed, 27 Jun 2007 00:44:53 -0700 (PDT)
+Message-ID: <20070627.004453.55726417.davem@davemloft.net>
+References: <20070530085320.0c35bd71@freepuppy>
+	<465DA2A4.2060608@trash.net>
+	<20070530140034.13bbf971@freepuppy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Hollis <dhollis@davehollis.com>
+Cc: kaber@trash.net, herbert.xu@redhat.com, netdev@vger.kernel.org,
+	mchan@broadcom.com
+To: shemminger@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from erik-slagter.demon.nl ([83.160.41.216]:60362 "EHLO
-	artemis.slagter.name" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753790AbXF0Hn6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2007 03:43:58 -0400
-In-Reply-To: <1182923692.6644.4.camel@dhollis-lnx.sunera.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41727
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754205AbXF0Hoe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2007 03:44:34 -0400
+In-Reply-To: <20070530140034.13bbf971@freepuppy>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Hollis wrote:
-> On Mon, 2007-06-25 at 19:05 +0200, Erik Slagter wrote:
->> drivers/net/usb/asix.c: PHYID=0x01410cc2
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Date: Wed, 30 May 2007 14:00:34 -0700
+
+> This is better. 
+> There is still a possiblity when a device allows IPV6 and not IPV4
+> checksumming, that the checksum will be done in the fixup code in
+> dev_queue_xmit.
 > 
-> Ok, it is using a Marvell PHY so that part should be fine.  You
-> mentioned that it looks like the packets are being transmitted, but are
-> garbled in some way.  The device does prepend a 'header' to ethernet
-> packets as they are transmitted down the USB pipe.  The device strips
-> this off and puts the packets on the wire.  This could be where the
-> issue lies.  Are you on x86 by chance or something else?
+> The existing model for checksum offload does not correctly handle
+> devices that can offload IPV4 and IPV6 only. The NETIF_F_HW_CSUM flag
+> implies device can do any arbitrary protocol.
+> 
+> This patch:
+>  * adds NETIF_F_IPV6_CSUM for those devices
+>  * fixes bnx2 and tg3 devices that need it
+>  * add NETIF_F_IPV6_CSUM to ipv6 output (incl GSO)
+>  * fixes assumptions about NETIF_F_ALL_CSUM in nat
+>  * adjusts bridge union of checksumming computation
 
-They are either garbled are they are not passed on the wire. The
-transmitted packets are shown by tshark, but a tshark run on "the other
-end of the line" does not show them.
+I've applied this to net-2.6.23, we can back it out or rework
+it if there are problems.
 
-Platform is indeed x86, to be precise: fedora 7, kernel 2.6.22-rc6, cpu
-pentium M, dell laptop inspiron 9300, ICH6.
-
-If you want me to test something please yell, it's no trouble at all to
-change a few lines in the driver's source and recompile the module.
-
-Please note I cannot send mail to you: "(conversation with
-dhollis.dyndns.org[71.251.104.159] timed out while sending MAIL FROM)"
+Several of these checksum feature tests are getting out of
+hand :-)
