@@ -1,48 +1,102 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [NET 04/05]: dev: secondary unicast address support
-Date: Wed, 27 Jun 2007 01:55:38 -0700 (PDT)
-Message-ID: <20070627.015538.119276504.davem@davemloft.net>
-References: <20070622122336.15215.95560.sendpatchset@localhost.localdomain>
-	<20070627.012840.98863737.davem@davemloft.net>
-	<46822011.3030406@trash.net>
+From: David Brownell <david-b@pacbell.net>
+Subject: Re: [PATCH] Update MAINTAINERS for USB network devices
+Date: Wed, 27 Jun 2007 01:54:15 -0700
+Message-ID: <200706270154.16022.david-b@pacbell.net>
+References: <87myyl6df1.fsf@nanv.dk> <46821E80.8080105@garzik.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: kaber@trash.net
+Cc: Peter Korsgaard <jacmet@sunsite.dk>, netdev@vger.kernel.org,
+	Petko Manolov <petkan@nucleusys.com>, Greg KH <greg@kroah.com>
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48932
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751120AbXF0IzT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2007 04:55:19 -0400
-In-Reply-To: <46822011.3030406@trash.net>
+Received: from smtp118.sbc.mail.sp1.yahoo.com ([69.147.64.91]:37246 "HELO
+	smtp118.sbc.mail.sp1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752521AbXF0JBB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2007 05:01:01 -0400
+In-Reply-To: <46821E80.8080105@garzik.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Wed, 27 Jun 2007 10:30:09 +0200
+On Wednesday 27 June 2007, Jeff Garzik wrote:
+> Peter Korsgaard wrote:
+> > Questions regarding the USB network drivers should now go to netdev.
+> > 
+> > Signed-off-by: Peter Korsgaard <jacmet@sunsite.dk>
+> > ---
+> >  MAINTAINERS |   13 +++++--------
+> >  1 file changed, 5 insertions(+), 8 deletions(-)
+> > 
+> > Index: linux-2.6.22-rc6/MAINTAINERS
+> > ===================================================================
+> > --- linux-2.6.22-rc6.orig/MAINTAINERS
+> > +++ linux-2.6.22-rc6/MAINTAINERS
+> > @@ -3610,15 +3610,14 @@
+> >  USB CDC ETHERNET DRIVER
+> >  P:	Greg Kroah-Hartman
 
-> David Miller wrote:
-> > From: Patrick McHardy <kaber@trash.net>
-> > Date: Fri, 22 Jun 2007 14:24:12 +0200 (MEST)
-> > 
-> > 
-> >>[NET]: dev: secondary unicast address support
-> >>
-> >>Add support for configuring secondary unicast addresses on network
-> >>devices. To support this devices capable of filtering multiple
-> >>unicast addresses need to change their set_multicast_list function
-> >>to configure unicast filters as well and assign it to dev->set_rx_mode
-> >>instead of dev->set_multicast_list. Other devices are put into promiscous
-> >>mode when secondary unicast addresses are present.
-> >>
-> >>Signed-off-by: Patrick McHardy <kaber@trash.net>
-> > 
-> > 
-> > Also applied, thanks for doing this work Patrick.
+I think that may refer to the old cdc ethernet driver
+though ... Greg?  The new one, in the usbnet framework,
+is a very different beast...
+
+
+> >  M:	greg@kroah.com
+> > -L:	linux-usb-users@lists.sourceforge.net
+> > -L:	linux-usb-devel@lists.sourceforge.net
+> > +L:	netdev@vger.kernel.org
+> >  S:	Maintained
+> >  W:	http://www.kroah.com/linux-usb/
+> >  
+> >  USB DAVICOM DM9601 DRIVER
+> >  P:	Peter Korsgaard
+> >  M:	jacmet@sunsite.dk
+> > -L:	linux-usb-devel@lists.sourceforge.net
+> > +L:	netdev@vger.kernel.org
+> >  W:	http://www.linux-usb.org/usbnet
+> >  S:	Maintained
+> >  
+> > @@ -3702,8 +3701,7 @@
+> >  USB PEGASUS DRIVER
+> >  P:	Petko Manolov
+> >  M:	petkan@users.sourceforge.net
+> > -L:	linux-usb-users@lists.sourceforge.net
+> > -L:	linux-usb-devel@lists.sourceforge.net
+> > +L:	netdev@vger.kernel.org
+> >  W:	http://pegasus2.sourceforge.net/
+> >  S:	Maintained
+> >  
+> > @@ -3717,8 +3715,7 @@
+> >  USB RTL8150 DRIVER
+> >  P:	Petko Manolov
+> >  M:	petkan@users.sourceforge.net
+> > -L:	linux-usb-users@lists.sourceforge.net
+> > -L:	linux-usb-devel@lists.sourceforge.net
+> > +L:	netdev@vger.kernel.org
+> >  W:	http://pegasus2.sourceforge.net/
+> >  S:	Maintained
+> >  
+> > @@ -3829,7 +3826,7 @@
+> >  USB "USBNET" DRIVER FRAMEWORK
+> >  P:	David Brownell
+> >  M:	dbrownell@users.sourceforge.net
+> > -L:	linux-usb-devel@lists.sourceforge.net
+> > +L:	netdev@vger.kernel.org
+> >  W:	http://www.linux-usb.org/usbnet
+> >  S:	Maintained
+> 
+> Quite true, but for courtesy's sake you should keep the relevant 
+> maintainers in the loop, and get their ACKs, when you start changing 
+> their MAINTAINERS entries.
+
+Acked-by-Me.
+
+
+> 
+> 	Jeff
 > 
 > 
-> Thanks. Please hold off on the MACVLAN patch, I want to convert it
-> to use this stuff before adding it.
+> 
 
-Ok.
+
