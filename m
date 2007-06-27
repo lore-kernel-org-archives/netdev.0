@@ -1,43 +1,37 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] 8139cp dev->tx_timeout
-Date: Wed, 27 Jun 2007 04:36:18 -0400
-Message-ID: <46822182.5070002@garzik.org>
-References: <OFC04C6285.18455C26-ONC2257306.00364F82-C2257307.002CFBE9@stonesoft.com>
+From: "Peter Korsgaard" <jacmet@sunsite.dk>
+Subject: Re: [PATCH] Update MAINTAINERS for USB network devices
+Date: Wed, 27 Jun 2007 10:42:35 +0200
+Message-ID: <9305ca410706270142v6898ff3dk715d8ec94accd55b@mail.gmail.com>
+References: <87myyl6df1.fsf@nanv.dk> <46821E80.8080105@garzik.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Mika.Lansirinne@stonesoft.com
+Cc: netdev@vger.kernel.org,
+	"David Brownell" <dbrownell@users.sourceforge.net>,
+	"Petko Manolov" <petkan@nucleusys.com>
+To: "Jeff Garzik" <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:38678 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752890AbXF0IgU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Jun 2007 04:36:20 -0400
-In-Reply-To: <OFC04C6285.18455C26-ONC2257306.00364F82-C2257307.002CFBE9@stonesoft.com>
+Received: from wx-out-0506.google.com ([66.249.82.230]:58312 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751120AbXF0Iml (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2007 04:42:41 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so95519wxd
+        for <netdev@vger.kernel.org>; Wed, 27 Jun 2007 01:42:40 -0700 (PDT)
+In-Reply-To: <46821E80.8080105@garzik.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Mika.Lansirinne@stonesoft.com wrote:
-> Hello All,
-> 
-> We have been experimenting a couple of interface hangs with the 8139cp
-> driver. It appears that the tx buffer stops transmitting and never starts
-> up again in some yet unknown conditions. To be able to circumvent this we
-> implemented the missing dev->tx_timeout function which should reset the
-> interface and allow it work again.
-> 
-> The problem reoccurs quite seldom and we have yet to be able to confirm
-> that the attached patch helps the situation. We though that we should
-> submit the patch anyway for reviewing.
-> 
-> The patch is made against 2.6.21.5 kernel.
+On 6/27/07, Jeff Garzik <jeff@garzik.org> wrote:
 
-Seems OK, but I'm definitely interested in hearing test feedback.
+> Quite true, but for courtesy's sake you should keep the relevant
+> maintainers in the loop, and get their ACKs, when you start changing
+> their MAINTAINERS entries.
 
-Also, all patches need a Signed-off-by line per 
-Documentation/SubmittingPatches or
-http://linux.yyz.us/patch-format.html
+Sorry, I forgot the CCs.
 
-	Jeff
+David already agreed with the change:
+http://thread.gmane.org/gmane.linux.usb.devel/55377/focus=55382
 
-
+-- 
+Bye, Peter Korsgaard
