@@ -1,8 +1,7 @@
 From: Steve Wise <swise@opengridcomputing.com>
-Subject: [ofa-general] [PATCH 4/6] iw_cxgb3: ctrl-qp init/clear shouldn't set
-	the gen bit.
-Date: Wed, 27 Jun 2007 10:51:40 -0500
-Message-ID: <20070627155140.24944.61647.stgit@dell3.ogc.int>
+Subject: [ofa-general] [PATCH 5/6] iw_cxgb3: Don't post TID_RELEASE message.
+Date: Wed, 27 Jun 2007 10:51:45 -0500
+Message-ID: <20070627155145.24944.64064.stgit@dell3.ogc.int>
 References: <20070627155119.24944.44172.stgit@dell3.ogc.int>
 Content-Type: text/plain; charset=utf-8; format=fixed
 Content-Transfer-Encoding: quoted-printable
@@ -23,34 +22,57 @@ Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
 
-iw_cxgb3: ctrl-qp init/clear shouldn't set the gen bit.
+iw_cxgb3: Don't post TID_RELEASE message.
+
+The LLD does this for us in cxgb3_remove_tid().
+
+Also fixed active open failure cases where we shouldn't
+be releasing the TID as well.
 
 Signed-off-by: Steve Wise <swise@opengridcomputing.com>
 ---
 
- drivers/infiniband/hw/cxgb3/cxio_hal.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/infiniband/hw/cxgb3/iwch_cm.c |   13 ++++++++++---
+ 1 files changed, 10 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/infiniband/hw/cxgb3/cxio_hal.c b/drivers/infiniband/=
-hw/cxgb3/cxio_hal.c
-index 215bbe5..1518b41 100644
---- a/drivers/infiniband/hw/cxgb3/cxio_hal.c
-+++ b/drivers/infiniband/hw/cxgb3/cxio_hal.c
-@@ -144,7 +144,7 @@ static int cxio_hal_clear_qp_ctx(struct=20
- 	}
- 	wqe =3D (struct t3_modify_qp_wr *) skb_put(skb, sizeof(*wqe));
- 	memset(wqe, 0, sizeof(*wqe));
--	build_fw_riwrh((struct fw_riwrh *) wqe, T3_WR_QP_MOD, 3, 1, qpid, 7);
-+	build_fw_riwrh((struct fw_riwrh *) wqe, T3_WR_QP_MOD, 3, 0, qpid, 7);
- 	wqe->flags =3D cpu_to_be32(MODQP_WRITE_EC);
- 	sge_cmd =3D qpid << 8 | 3;
- 	wqe->sge_cmd =3D cpu_to_be64(sge_cmd);
-@@ -548,7 +548,7 @@ static int cxio_hal_init_ctrl_qp(struct=20
- 			V_EC_UP_TOKEN(T3_CTL_QP_TID) | F_EC_VALID)) << 32;
- 	wqe =3D (struct t3_modify_qp_wr *) skb_put(skb, sizeof(*wqe));
- 	memset(wqe, 0, sizeof(*wqe));
--	build_fw_riwrh((struct fw_riwrh *) wqe, T3_WR_QP_MOD, 0, 1,
-+	build_fw_riwrh((struct fw_riwrh *) wqe, T3_WR_QP_MOD, 0, 0,
- 		       T3_CTL_QP_TID, 7);
- 	wqe->flags =3D cpu_to_be32(MODQP_WRITE_EC);
- 	sge_cmd =3D (3ULL << 56) | FW_RI_SGEEC_START << 8 | 3;
+diff --git a/drivers/infiniband/hw/cxgb3/iwch_cm.c b/drivers/infiniband/h=
+w/cxgb3/iwch_cm.c
+index 4d7c277..228721f 100644
+--- a/drivers/infiniband/hw/cxgb3/iwch_cm.c
++++ b/drivers/infiniband/hw/cxgb3/iwch_cm.c
+@@ -254,8 +254,6 @@ static void release_ep_resources(struct=20
+ 	cxgb3_remove_tid(ep->com.tdev, (void *)ep, ep->hwtid);
+ 	dst_release(ep->dst);
+ 	l2t_release(L2DATA(ep->com.tdev), ep->l2t);
+-	if (ep->com.tdev->type =3D=3D T3B)
+-		release_tid(ep->com.tdev, ep->hwtid, NULL);
+ 	put_ep(&ep->com);
+ }
+=20
+@@ -1103,6 +1101,15 @@ static int abort_rpl(struct t3cdev *tdev
+ 	return CPL_RET_BUF_DONE;
+ }
+=20
++/*
++ * Return whether a failed active open has allocated a TID
++ */
++static inline int act_open_has_tid(int status)
++{
++	return status !=3D CPL_ERR_TCAM_FULL && status !=3D CPL_ERR_CONN_EXIST =
+&&
++	       status !=3D CPL_ERR_ARP_MISS;
++}
++
+ static int act_open_rpl(struct t3cdev *tdev, struct sk_buff *skb, void *=
+ctx)
+ {
+ 	struct iwch_ep *ep =3D ctx;
+@@ -1112,7 +1119,7 @@ static int act_open_rpl(struct t3cdev *t
+ 	     status2errno(rpl->status));
+ 	connect_reply_upcall(ep, status2errno(rpl->status));
+ 	state_set(&ep->com, DEAD);
+-	if (ep->com.tdev->type =3D=3D T3B)
++	if (ep->com.tdev->type =3D=3D T3B && act_open_has_tid(rpl->status))
+ 		release_tid(ep->com.tdev, GET_TID(rpl), NULL);
+ 	cxgb3_free_atid(ep->com.tdev, ep->atid);
+ 	dst_release(ep->dst);
