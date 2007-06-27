@@ -1,46 +1,47 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [Devel] Re: [RFD] L2 Network namespace infrastructure
-Date: Wed, 27 Jun 2007 16:45:33 +0200
-Message-ID: <4682780D.1060303@trash.net>
-References: <m1tzszbwyb.fsf@ebiederm.dsl.xmission.com> <467CF8AC.80103@trash.net> <468276BA.7020309@sw.ru>
+Subject: Re: [Bugme-new] [Bug 8668] New: HTB Deadlock
+Date: Wed, 27 Jun 2007 16:53:48 +0200
+Message-ID: <468279FC.3070502@trash.net>
+References: <20070627114521.GA3762@ff.dom.local> <46824D88.1090300@trash.net> <20070627121013.GB3762@ff.dom.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Jeff Garzik <jeff@garzik.org>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-	netdev@vger.kernel.org, jamal <hadi@cyberus.ca>,
-	Linux Containers <containers@lists.osdl.org>,
-	Ben Greear <greearb@candelatech.com>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	David Miller <davem@davemloft.net>
-To: Kirill Korotaev <dev@sw.ru>
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+	"bugme-daemon@kernel-bugs.osdl.org"
+	<bugme-daemon@kernel-bugs.osdl.org>, ranko@spidernet.net
+To: Jarek Poplawski <jarkao2@o2.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:58611 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:58774 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751120AbXF0Oqt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2007 10:46:49 -0400
-In-Reply-To: <468276BA.7020309@sw.ru>
+	with ESMTP id S1752836AbXF0OzD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2007 10:55:03 -0400
+In-Reply-To: <20070627121013.GB3762@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Kirill Korotaev wrote:
-> Patrick McHardy wrote:
+Jarek Poplawski wrote:
+> On Wed, Jun 27, 2007 at 01:44:08PM +0200, Patrick McHardy wrote:
 >   
+>>> BTW, maybe I look at this too short, but is this del_timer()
+>>> in gen_kill_estimator() enough? I cannot see nothing against
+>>> a timer just running and doing mod_timer() again...
+>>>       
+>> Yes, but nothing bad can happen, the timer will find an empty
+>> list and do nothing. It would make more sense to check for
+>> an empty list before restarting the timer though.
 >>
 >>
->> I believe OpenVZ stores the current namespace somewhere global,
->> which avoids passing the namespace around. Couldn't you do this
->> as well?
+>> Could you send a patch for that?
+>>
 >>     
 >
-> yes, we store a global namespace context on current
-> (can be stored in per-cpu as well).
+> Probably I could, but it's your idea!
 >
-> do you prefer this way?
+> I look at this just now, and maybe it's enough for asking,
+> but definitely not enough for patch. I'll try to check this
+> more in the evening, so I could send something tomorrow.
+>
+> So if it's not only about kindness, feel free to do it
+> sooner and I've no doubts  - better.
 
-I'm not sure, it would avoid passing it around everywhere, but I'd
-expect it to be harder to review because you can't simply follow it
-as it gets passed around.
-
-
+I can take care of it, no problem.
