@@ -1,43 +1,79 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: resend [PATCH 2/5 2.6.21] L2TP: Changes to existing ppp and
- socket kernel headers for L2TP
-Date: Wed, 27 Jun 2007 01:00:37 -0700 (PDT)
-Message-ID: <20070627.010037.34759135.davem@davemloft.net>
-References: <200705261747.l4QHlOf8001718@quickie.katalix.com>
-	<20070627.001824.15264721.davem@davemloft.net>
+From: Peter Korsgaard <jacmet@sunsite.dk>
+Subject: [PATCH] Update MAINTAINERS for USB network devices
+Date: Wed, 27 Jun 2007 09:53:54 +0200
+Message-ID: <87myyl6df1.fsf@nanv.dk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jchapman@katalix.com
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34375
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754066AbXF0IAR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2007 04:00:17 -0400
-In-Reply-To: <20070627.001824.15264721.davem@davemloft.net>
+Received: from vps.korsgaard.com ([64.79.194.204]:41244 "EHLO nanv.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755721AbXF0IP2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Jun 2007 04:15:28 -0400
+Received: from peko by nanv.dk with local (Exim 4.50)
+	id 1I3SLa-0002S6-MN
+	for netdev@vger.kernel.org; Wed, 27 Jun 2007 09:53:54 +0200
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: David Miller <davem@davemloft.net>
-Date: Wed, 27 Jun 2007 00:18:24 -0700 (PDT)
+Questions regarding the USB network drivers should now go to netdev.
 
-> From: James Chapman <jchapman@katalix.com>
-> Date: Sat, 26 May 2007 18:47:24 +0100
-> 
-> > Add struct sockaddr_pppol2tp to carry L2TP-specific address
-> > information for the PPPoX (PPPoL2TP) socket. Unfortunately we can't
-> > use the union inside struct sockaddr_pppox because the L2TP-specific
-> > data is larger than the current size of the union and we must preserve
-> > the size of struct sockaddr_pppox for binary compatibility.
-> > 
-> > Also add a PPPIOCGL2TPSTATS ioctl to allow userspace to obtain
-> > L2TP counters and state from the kernel.
-> > 
-> > Signed-off-by: James Chapman <jchapman@katalix.com>
-> 
-> This looks OK, patch applied to net-2.6.23, thanks.
+Signed-off-by: Peter Korsgaard <jacmet@sunsite.dk>
+---
+ MAINTAINERS |   13 +++++--------
+ 1 file changed, 5 insertions(+), 8 deletions(-)
 
-Actually, I had to back this out because it depended upon
-header files added by subsequent patches and thus broke
-the build.
+Index: linux-2.6.22-rc6/MAINTAINERS
+===================================================================
+--- linux-2.6.22-rc6.orig/MAINTAINERS
++++ linux-2.6.22-rc6/MAINTAINERS
+@@ -3610,15 +3610,14 @@
+ USB CDC ETHERNET DRIVER
+ P:	Greg Kroah-Hartman
+ M:	greg@kroah.com
+-L:	linux-usb-users@lists.sourceforge.net
+-L:	linux-usb-devel@lists.sourceforge.net
++L:	netdev@vger.kernel.org
+ S:	Maintained
+ W:	http://www.kroah.com/linux-usb/
+ 
+ USB DAVICOM DM9601 DRIVER
+ P:	Peter Korsgaard
+ M:	jacmet@sunsite.dk
+-L:	linux-usb-devel@lists.sourceforge.net
++L:	netdev@vger.kernel.org
+ W:	http://www.linux-usb.org/usbnet
+ S:	Maintained
+ 
+@@ -3702,8 +3701,7 @@
+ USB PEGASUS DRIVER
+ P:	Petko Manolov
+ M:	petkan@users.sourceforge.net
+-L:	linux-usb-users@lists.sourceforge.net
+-L:	linux-usb-devel@lists.sourceforge.net
++L:	netdev@vger.kernel.org
+ W:	http://pegasus2.sourceforge.net/
+ S:	Maintained
+ 
+@@ -3717,8 +3715,7 @@
+ USB RTL8150 DRIVER
+ P:	Petko Manolov
+ M:	petkan@users.sourceforge.net
+-L:	linux-usb-users@lists.sourceforge.net
+-L:	linux-usb-devel@lists.sourceforge.net
++L:	netdev@vger.kernel.org
+ W:	http://pegasus2.sourceforge.net/
+ S:	Maintained
+ 
+@@ -3829,7 +3826,7 @@
+ USB "USBNET" DRIVER FRAMEWORK
+ P:	David Brownell
+ M:	dbrownell@users.sourceforge.net
+-L:	linux-usb-devel@lists.sourceforge.net
++L:	netdev@vger.kernel.org
+ W:	http://www.linux-usb.org/usbnet
+ S:	Maintained
+ 
+
+-- 
+Bye, Peter Korsgaard
