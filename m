@@ -1,147 +1,211 @@
 From: James Chapman <jchapman@katalix.com>
-Subject: [PATCH 1/5 2.6.22-rc6] UDP: Introduce UDP encapsulation type for L2TP
+Subject: [PATCH 2/5 2.6.22-rc6] L2TP: Changes to existing ppp and socket kernel headers for L2TP
 Date: Wed, 27 Jun 2007 23:20:38 +0100
-Message-ID: <200706272220.l5RMKc7I004940@quickie.katalix.com>
+Message-ID: <200706272220.l5RMKcv9004943@quickie.katalix.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s36.avahost.net ([74.53.95.194]:60937 "EHLO s36.avahost.net"
+Received: from s36.avahost.net ([74.53.95.194]:60938 "EHLO s36.avahost.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757641AbXF0WVU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1758839AbXF0WVU (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 27 Jun 2007 18:21:20 -0400
 Received: from jchapman.plus.com ([84.92.108.75] helo=quickie.katalix.com)
 	by s36.avahost.net with esmtps (TLSv1:AES256-SHA:256)
 	(Exim 4.63)
 	(envelope-from <jchapman@katalix.com>)
-	id 1I3fk2-00050M-S8
+	id 1I3fk2-00050N-UD
 	for netdev@vger.kernel.org; Wed, 27 Jun 2007 17:12:03 -0500
 Received: from quickie.katalix.com (quickie.katalix.com [127.0.0.1])
-	by quickie.katalix.com (8.13.5/8.13.5) with ESMTP id l5RMKcOl004948
+	by quickie.katalix.com (8.13.5/8.13.5) with ESMTP id l5RMKcei004950
 	for <netdev@vger.kernel.org>; Wed, 27 Jun 2007 23:20:38 +0100
 Received: (from james@localhost)
-	by quickie.katalix.com (8.13.5/8.13.5/Submit) id l5RMKc7I004940
+	by quickie.katalix.com (8.13.5/8.13.5/Submit) id l5RMKcv9004943
 	for netdev@vger.kernel.org; Wed, 27 Jun 2007 23:20:38 +0100
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds a new UDP_ENCAP_L2TPINUDP encapsulation type for UDP
-sockets. When a UDP socket's encap_type is UDP_ENCAP_L2TPINUDP, the
-skb is delivered to a function pointed to by the udp_sock's
-encap_rcv funcptr. If the skb isn't wanted by L2TP, it returns >0, which
-causes it to be passed through to UDP.
+Add struct sockaddr_pppol2tp to carry L2TP-specific address
+information for the PPPoX (PPPoL2TP) socket. Unfortunately we can't
+use the union inside struct sockaddr_pppox because the L2TP-specific
+data is larger than the current size of the union and we must preserve
+the size of struct sockaddr_pppox for binary compatibility.
 
-Include padding to put the new encap_rcv field on a 4-byte boundary.
+Also add a PPPIOCGL2TPSTATS ioctl to allow userspace to obtain
+L2TP counters and state from the kernel.
 
-Previously, the only user of UDP encap sockets was ESP, so when
-CONFIG_XFRM was not defined, some of the encap code was compiled 
-out. This patch changes that. As a result, udp_encap_rcv() will
-now do a little more work when CONFIG_XFRM is not defined. 
+Add new if_pppol2tp.h header.
 
 Signed-off-by: James Chapman <jchapman@katalix.com>
 
----
-
-This mechanism could now be used by any protocol encapsulated in UDP
-since the encap_rcv funcptr could be set to point to a
-protocol-specific encap_rcv function. Should UDP_ENCAP_L2TPINUDP be
-something like UDP_ENCAP_GENERICINUDP?
-
-Index: linux-2.6.22-rc6/include/linux/udp.h
+Index: linux-2.6.22-rc6/include/linux/if_ppp.h
 ===================================================================
---- linux-2.6.22-rc6.orig/include/linux/udp.h
-+++ linux-2.6.22-rc6/include/linux/udp.h
-@@ -42,6 +42,7 @@ static inline struct udphdr *udp_hdr(con
- /* UDP encapsulation types */
- #define UDP_ENCAP_ESPINUDP_NON_IKE	1 /* draft-ietf-ipsec-nat-t-ike-00/01 */
- #define UDP_ENCAP_ESPINUDP	2 /* draft-ietf-ipsec-udp-encaps-06 */
-+#define UDP_ENCAP_L2TPINUDP	3 /* rfc2661 */
- 
- #ifdef __KERNEL__
- #include <linux/types.h>
-@@ -70,6 +71,11 @@ struct udp_sock {
- #define UDPLITE_SEND_CC  0x2  		/* set via udplite setsockopt         */
- #define UDPLITE_RECV_CC  0x4		/* set via udplite setsocktopt        */
- 	__u8		 pcflag;        /* marks socket as UDP-Lite if > 0    */
-+	__u8		 unused[3];
-+	/*
-+	 * For encapsulation sockets.
-+	 */
-+	int (*encap_rcv)(struct sock *sk, struct sk_buff *skb);
+--- linux-2.6.22-rc6.orig/include/linux/if_ppp.h
++++ linux-2.6.22-rc6/include/linux/if_ppp.h
+@@ -110,6 +110,21 @@ struct ifpppcstatsreq {
+ 	struct ppp_comp_stats stats;
  };
  
- static inline struct udp_sock *udp_sk(const struct sock *sk)
-Index: linux-2.6.22-rc6/net/ipv4/udp.c
++/* For PPPIOCGL2TPSTATS */
++struct pppol2tp_ioc_stats {
++	__u16	tunnel_id;	/* redundant */
++	__u16	session_id;	/* if zero, get tunnel stats */
++	__u32	using_ipsec:1;	/* valid only for session_id == 0 */
++	__u64	tx_packets;
++	__u64	tx_bytes;
++	__u64	tx_errors;
++	__u64	rx_packets;
++	__u64	rx_bytes;
++	__u64	rx_seq_discards;
++	__u64	rx_oos_packets;
++	__u64	rx_errors;
++};
++
+ #define ifr__name       b.ifr_ifrn.ifrn_name
+ #define stats_ptr       b.ifr_ifru.ifru_data
+ 
+@@ -146,6 +161,7 @@ struct ifpppcstatsreq {
+ #define PPPIOCDISCONN	_IO('t', 57)		/* disconnect channel */
+ #define PPPIOCATTCHAN	_IOW('t', 56, int)	/* attach to ppp channel */
+ #define PPPIOCGCHAN	_IOR('t', 55, int)	/* get ppp channel number */
++#define PPPIOCGL2TPSTATS _IOR('t', 54, struct pppol2tp_ioc_stats)
+ 
+ #define SIOCGPPPSTATS   (SIOCDEVPRIVATE + 0)
+ #define SIOCGPPPVER     (SIOCDEVPRIVATE + 1)	/* NEVER change this!! */
+Index: linux-2.6.22-rc6/include/linux/if_pppox.h
 ===================================================================
---- linux-2.6.22-rc6.orig/net/ipv4/udp.c
-+++ linux-2.6.22-rc6/net/ipv4/udp.c
-@@ -70,6 +70,7 @@
-  *	Alexey Kuznetsov:		allow both IPv4 and IPv6 sockets to bind
-  *					a single port at the same time.
-  *	Derek Atkins <derek@ihtfp.com>: Add Encapulation Support
-+ *	James Chapman		:	Add L2TP encapsulation type.
-  *
-  *
-  *		This program is free software; you can redistribute it and/or
-@@ -923,12 +924,10 @@ int udp_disconnect(struct sock *sk, int 
-  * 	1  if the UDP system should process it
-  *	0  if we should drop this packet
-  * 	-1 if it should get processed by xfrm4_rcv_encap
-+ *	-2 if it should get processed by l2tp
-  */
- static int udp_encap_rcv(struct sock * sk, struct sk_buff *skb)
- {
--#ifndef CONFIG_XFRM
--	return 1;
--#else
- 	struct udp_sock *up = udp_sk(sk);
- 	struct udphdr *uh;
- 	struct iphdr *iph;
-@@ -983,8 +982,14 @@ static int udp_encap_rcv(struct sock * s
- 			/* Must be an IKE packet.. pass it through */
- 			return 1;
- 		break;
-+	case UDP_ENCAP_L2TPINUDP:
-+		/* Let caller know to send this to l2tp */
-+		return -2;
- 	}
+--- linux-2.6.22-rc6.orig/include/linux/if_pppox.h
++++ linux-2.6.22-rc6/include/linux/if_pppox.h
+@@ -27,6 +27,7 @@
+ #include <asm/semaphore.h>
+ #include <linux/ppp_channel.h>
+ #endif /* __KERNEL__ */
++#include <linux/if_pppol2tp.h>
  
-+#ifndef CONFIG_XFRM
-+	return 1;
-+#else
- 	/* At this point we are sure that this is an ESPinUDP packet,
- 	 * so we need to remove 'len' bytes from the packet (the UDP
- 	 * header and optional ESP marker bytes) and then modify the
-@@ -1055,12 +1060,25 @@ int udp_queue_rcv_skb(struct sock * sk, 
- 			kfree_skb(skb);
- 			return 0;
- 		}
--		if (ret < 0) {
-+		if (ret == -1) {
- 			/* process the ESP packet */
- 			ret = xfrm4_rcv_encap(skb, up->encap_type);
- 			UDP_INC_STATS_BH(UDP_MIB_INDATAGRAMS, up->pcflag);
- 			return -ret;
- 		}
-+		if (ret == -2) {
-+			/* process the L2TP packet */
-+			if (up->encap_rcv != NULL) {
-+				ret = (*up->encap_rcv)(sk, skb);
-+				if (ret <= 0) {
-+					UDP_INC_STATS_BH(UDP_MIB_INDATAGRAMS, up->pcflag);
-+					return ret;
-+				}
+ /* For user-space programs to pick up these definitions
+  * which they wouldn't get otherwise without defining __KERNEL__
+@@ -50,8 +51,9 @@ struct pppoe_addr{ 
+  * Protocols supported by AF_PPPOX 
+  */ 
+ #define PX_PROTO_OE    0 /* Currently just PPPoE */
+-#define PX_MAX_PROTO   1	
+- 
++#define PX_PROTO_OL2TP 1 /* Now L2TP also */
++#define PX_MAX_PROTO   2
 +
-+				/* FALLTHROUGH -- pass up as UDP packet */
-+			}
-+		}
-+
- 		/* FALLTHROUGH -- it's a UDP Packet */
- 	}
+ struct sockaddr_pppox { 
+        sa_family_t     sa_family;            /* address family, AF_PPPOX */ 
+        unsigned int    sa_protocol;          /* protocol identifier */ 
+@@ -60,6 +62,16 @@ struct sockaddr_pppox { 
+        }sa_addr; 
+ }__attribute__ ((packed)); 
  
-@@ -1349,6 +1367,7 @@ int udp_lib_setsockopt(struct sock *sk, 
- 		case 0:
- 		case UDP_ENCAP_ESPINUDP:
- 		case UDP_ENCAP_ESPINUDP_NON_IKE:
-+		case UDP_ENCAP_L2TPINUDP:
- 			up->encap_type = val;
- 			break;
- 		default:
++/* The use of the above union isn't viable because the size of this
++ * struct must stay fixed over time -- applications use sizeof(struct
++ * sockaddr_pppox) to fill it. We use a protocol specific sockaddr
++ * type instead.
++ */
++struct sockaddr_pppol2tp {
++	sa_family_t     sa_family;      /* address family, AF_PPPOX */
++	unsigned int    sa_protocol;    /* protocol identifier */
++	struct pppol2tp_addr pppol2tp;
++}__attribute__ ((packed));
+ 
+ /*********************************************************************
+  *
+Index: linux-2.6.22-rc6/include/linux/socket.h
+===================================================================
+--- linux-2.6.22-rc6.orig/include/linux/socket.h
++++ linux-2.6.22-rc6/include/linux/socket.h
+@@ -287,6 +287,7 @@ struct ucred {
+ #define SOL_NETLINK	270
+ #define SOL_TIPC	271
+ #define SOL_RXRPC	272
++#define SOL_PPPOL2TP	273
+ 
+ /* IPX options */
+ #define IPX_TYPE	1
+Index: linux-2.6.22-rc6/include/linux/if_pppol2tp.h
+===================================================================
+--- /dev/null
++++ linux-2.6.22-rc6/include/linux/if_pppol2tp.h
+@@ -0,0 +1,69 @@
++/***************************************************************************
++ * Linux PPP over L2TP (PPPoL2TP) Socket Implementation (RFC 2661)
++ *
++ * This file supplies definitions required by the PPP over L2TP driver
++ * (pppol2tp.c).  All version information wrt this file is located in pppol2tp.c
++ *
++ * License:
++ *		This program is free software; you can redistribute it and/or
++ *		modify it under the terms of the GNU General Public License
++ *		as published by the Free Software Foundation; either version
++ *		2 of the License, or (at your option) any later version.
++ *
++ */
++
++#ifndef __LINUX_IF_PPPOL2TP_H
++#define __LINUX_IF_PPPOL2TP_H
++
++#include <asm/types.h>
++
++#ifdef __KERNEL__
++#include <linux/in.h>
++#endif
++
++/* Structure used to connect() the socket to a particular tunnel UDP
++ * socket.
++ */
++struct pppol2tp_addr
++{
++	pid_t	pid;			/* pid that owns the fd.
++					 * 0 => current */
++	int	fd;			/* FD of UDP socket to use */
++
++	struct sockaddr_in addr;	/* IP address and port to send to */
++
++	__be16 s_tunnel, s_session;	/* For matching incoming packets */
++	__be16 d_tunnel, d_session;	/* For sending outgoing packets */
++};
++
++/* Socket options:
++ * DEBUG	- bitmask of debug message categories
++ * SENDSEQ	- 0 => don't send packets with sequence numbers
++ *		  1 => send packets with sequence numbers
++ * RECVSEQ	- 0 => receive packet sequence numbers are optional
++ *		  1 => drop receive packets without sequence numbers
++ * LNSMODE	- 0 => act as LAC.
++ *		  1 => act as LNS.
++ * REORDERTO	- reorder timeout (in millisecs). If 0, don't try to reorder.
++ */
++enum {
++	PPPOL2TP_SO_DEBUG	= 1,
++	PPPOL2TP_SO_RECVSEQ	= 2,
++	PPPOL2TP_SO_SENDSEQ	= 3,
++	PPPOL2TP_SO_LNSMODE	= 4,
++	PPPOL2TP_SO_REORDERTO	= 5,
++};
++
++/* Debug message categories for the DEBUG socket option */
++enum {
++	PPPOL2TP_MSG_DEBUG	= (1 << 0),	/* verbose debug (if
++						 * compiled in) */
++	PPPOL2TP_MSG_CONTROL	= (1 << 1),	/* userspace - kernel
++						 * interface */
++	PPPOL2TP_MSG_SEQ	= (1 << 2),	/* sequence numbers */
++	PPPOL2TP_MSG_DATA	= (1 << 3),	/* data packets */
++};
++
++
++
++#endif
+Index: linux-2.6.22-rc6/include/linux/Kbuild
+===================================================================
+--- linux-2.6.22-rc6.orig/include/linux/Kbuild
++++ linux-2.6.22-rc6/include/linux/Kbuild
+@@ -225,6 +225,7 @@ unifdef-y += if_fddi.h
+ unifdef-y += if_frad.h
+ unifdef-y += if_ltalk.h
+ unifdef-y += if_link.h
++unifdef-y += if_pppol2tp.h
+ unifdef-y += if_pppox.h
+ unifdef-y += if_shaper.h
+ unifdef-y += if_tr.h
