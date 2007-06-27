@@ -1,10 +1,10 @@
-From: Kirill Korotaev <dev@sw.ru>
+From: Patrick McHardy <kaber@trash.net>
 Subject: Re: [Devel] Re: [RFD] L2 Network namespace infrastructure
-Date: Wed, 27 Jun 2007 18:39:54 +0400
-Message-ID: <468276BA.7020309@sw.ru>
-References: <m1tzszbwyb.fsf@ebiederm.dsl.xmission.com> <467CF8AC.80103@trash.net>
+Date: Wed, 27 Jun 2007 16:45:33 +0200
+Message-ID: <4682780D.1060303@trash.net>
+References: <m1tzszbwyb.fsf@ebiederm.dsl.xmission.com> <467CF8AC.80103@trash.net> <468276BA.7020309@sw.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
 	Jeff Garzik <jeff@garzik.org>,
@@ -14,47 +14,33 @@ Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
 	Ben Greear <greearb@candelatech.com>,
 	Stephen Hemminger <shemminger@linux-foundation.org>,
 	David Miller <davem@davemloft.net>
-To: Patrick McHardy <kaber@trash.net>
+To: Kirill Korotaev <dev@sw.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.233.200]:18509 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756495AbXF0OkP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Jun 2007 10:40:15 -0400
-In-Reply-To: <467CF8AC.80103@trash.net>
+Received: from stinky.trash.net ([213.144.137.162]:58611 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751120AbXF0Oqt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2007 10:46:49 -0400
+In-Reply-To: <468276BA.7020309@sw.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy wrote:
-> Eric W. Biederman wrote:
-> 
->>-- The basic design
+Kirill Korotaev wrote:
+> Patrick McHardy wrote:
+>   
 >>
->>There will be a network namespace structure that holds the global
->>variables for a network namespace, making those global variables
->>per network namespace.
 >>
->>One of those per network namespace global variables will be the
->>loopback device.  Which means the network namespace a packet resides
->>in can be found simply by examining the network device or the socket
->>the packet is traversing.
->>
->>Either a pointer to this global structure will be passed into
->>the functions that need to reference per network namespace variables
->>or a structure that is already passed in (such as the network device)
->>will be modified to contain a pointer to the network namespace
->>structure.
-> 
-> 
-> 
-> I believe OpenVZ stores the current namespace somewhere global,
-> which avoids passing the namespace around. Couldn't you do this
-> as well?
+>> I believe OpenVZ stores the current namespace somewhere global,
+>> which avoids passing the namespace around. Couldn't you do this
+>> as well?
+>>     
+>
+> yes, we store a global namespace context on current
+> (can be stored in per-cpu as well).
+>
+> do you prefer this way?
 
-yes, we store a global namespace context on current
-(can be stored in per-cpu as well).
+I'm not sure, it would avoid passing it around everywhere, but I'd
+expect it to be harder to review because you can't simply follow it
+as it gets passed around.
 
-do you prefer this way?
-
-Thanks,
-Kirill
 
