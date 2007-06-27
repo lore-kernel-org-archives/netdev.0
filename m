@@ -1,88 +1,32 @@
-From: Petko Manolov <petkan@nucleusys.com>
-Subject: Re: [PATCH] Update MAINTAINERS for USB network devices
-Date: Wed, 27 Jun 2007 13:44:54 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0706271340240.6919@bender.nucleusys.com>
-References: <87myyl6df1.fsf@nanv.dk> <46821E80.8080105@garzik.org>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: [Bugme-new] [Bug 8668] New: HTB Deadlock
+Date: Wed, 27 Jun 2007 13:45:21 +0200
+Message-ID: <20070627114521.GA3762@ff.dom.local>
+References: <467F8ADA.7060702@trash.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Peter Korsgaard <jacmet@sunsite.dk>, netdev@vger.kernel.org,
-	David Brownell <dbrownell@users.sourceforge.net>
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+	"bugme-daemon\@kernel-bugs\.osdl\.org"
+	<bugme-daemon@kernel-bugs.osdl.org>, ranko@spidernet.net
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from n152-u15.estnet.bg ([89.253.152.15]:2807 "EHLO
-	zztop.nucleusys.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753627AbXF0LSh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2007 07:18:37 -0400
-In-Reply-To: <46821E80.8080105@garzik.org>
+Received: from mx10.go2.pl ([193.17.41.74]:56428 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752170AbXF0LhK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Jun 2007 07:37:10 -0400
+Content-Disposition: inline
+In-Reply-To: <467F8ADA.7060702@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 27 Jun 2007, Jeff Garzik wrote:
+On 25-06-2007 11:28, Patrick McHardy wrote:
+...
+> It is. This patch I had originally planned for 2.6.23 switches HTB
+> to the generic estimator, which shouldn't suffer from this.
 
-> Peter Korsgaard wrote:
->> Questions regarding the USB network drivers should now go to netdev.
->> 
->> Signed-off-by: Peter Korsgaard <jacmet@sunsite.dk>
->> ---
->>  MAINTAINERS |   13 +++++--------
->>  1 file changed, 5 insertions(+), 8 deletions(-)
->> 
->> Index: linux-2.6.22-rc6/MAINTAINERS
->> ===================================================================
->> --- linux-2.6.22-rc6.orig/MAINTAINERS
->> +++ linux-2.6.22-rc6/MAINTAINERS
->> @@ -3610,15 +3610,14 @@
->>  USB CDC ETHERNET DRIVER
->>  P:	Greg Kroah-Hartman
->>  M:	greg@kroah.com
->> -L:	linux-usb-users@lists.sourceforge.net
->> -L:	linux-usb-devel@lists.sourceforge.net
->> +L:	netdev@vger.kernel.org
->>  S:	Maintained
->>  W:	http://www.kroah.com/linux-usb/
->>   USB DAVICOM DM9601 DRIVER
->>  P:	Peter Korsgaard
->>  M:	jacmet@sunsite.dk
->> -L:	linux-usb-devel@lists.sourceforge.net
->> +L:	netdev@vger.kernel.org
->>  W:	http://www.linux-usb.org/usbnet
->>  S:	Maintained
->>  @@ -3702,8 +3701,7 @@
->>  USB PEGASUS DRIVER
->>  P:	Petko Manolov
->>  M:	petkan@users.sourceforge.net
->> -L:	linux-usb-users@lists.sourceforge.net
->> -L:	linux-usb-devel@lists.sourceforge.net
->> +L:	netdev@vger.kernel.org
->>  W:	http://pegasus2.sourceforge.net/
->>  S:	Maintained
->>  @@ -3717,8 +3715,7 @@
->>  USB RTL8150 DRIVER
->>  P:	Petko Manolov
->>  M:	petkan@users.sourceforge.net
->> -L:	linux-usb-users@lists.sourceforge.net
->> -L:	linux-usb-devel@lists.sourceforge.net
->> +L:	netdev@vger.kernel.org
->>  W:	http://pegasus2.sourceforge.net/
->>  S:	Maintained
->>  @@ -3829,7 +3826,7 @@
->>  USB "USBNET" DRIVER FRAMEWORK
->>  P:	David Brownell
->>  M:	dbrownell@users.sourceforge.net
->> -L:	linux-usb-devel@lists.sourceforge.net
->> +L:	netdev@vger.kernel.org
->>  W:	http://www.linux-usb.org/usbnet
->>  S:	Maintained
->
-> Quite true, but for courtesy's sake you should keep the relevant 
-> maintainers in the loop, and get their ACKs, when you start changing 
-> their MAINTAINERS entries.
->
-> 	Jeff
+BTW, maybe I look at this too short, but is this del_timer()
+in gen_kill_estimator() enough? I cannot see nothing against
+a timer just running and doing mod_timer() again...
 
-Well, with these drivers there are as many USB related issues as there are 
-network ones.  I'd rather have both lists in the file.  Linux-usb-users 
-should probably go away, but i guess Greg has the final word.
-
-
- 		Petko
+Regards,
+Jarek P.
