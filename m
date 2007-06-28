@@ -1,148 +1,72 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [RFT] r8169 changes against 2.6.22-rc6
-Date: Fri, 29 Jun 2007 01:42:22 +0200
-Message-ID: <20070628234222.GA8180@electric-eye.fr.zoreil.com>
+From: Soren Hansen <soren@ubuntu.com>
+Subject: Re: r8169 patches
+Date: Fri, 29 Jun 2007 01:50:47 +0200
+Message-ID: <20070628235047.GM4838@atlas.linux2go.dk>
+References: <20070628090054.GH4838@atlas.linux2go.dk> <20070628211036.GA4233@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jeff@garzik.org, Roel.Teuwen@advalvas.be,
-	Tim Durack <tdurack@gmail.com>,
-	Jens Stroebel <drifter@bcsoft.de>,
-	Soren Hansen <soren@ubuntu.com>,
-	Kacper Bielecki <kazjote@stud.ics.p.lodz.pl>,
-	Andrew Paprocki <andrew@ishiboo.com>,
-	Clemens Brunner <clemens.brunner@tugraz.at>,
-	Alexey Borzenkov <snaury@gmail.com>,
-	Benjamin LaHaise <bcrl@kvack.org>,
-	Edward Hsu <edward_hsu@realtek.com.tw>,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	Daniel Drake <dsd@gentoo.org>, Raoul Bhatia <r.bhatia@ipax.at>,
-	Philip Craig <philipc@snapgear.com>,
-	Mike Isely <isely@pobox.com>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	mirek kratochvil <exa.exa@gmail.com>,
-	Mathew <mathewfer@gmail.com>,
-	Oleg Verych <olecom@flower.upol.cz>,
-	Will Trives <will@trivescon.com.au>,
-	"Thomas A. Oehser" <tom@toms.net>,
-	James Morris <jmorris@namei.org>,
-	"Boris B. Zhmurov" <bb@kernel
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932448AbXF1Xro@vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="GU3/x65mZ6MFE8p3"
+Cc: netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from atlas.linux2go.dk ([88.198.22.52]:41322 "EHLO atlas.linux2go.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1762270AbXF2ASu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Jun 2007 20:18:50 -0400
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20070628211036.GA4233@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The latest serie of r8169 changes is available against 2.6.22-rc6 as:
-http://www.fr.zoreil.com/people/francois/misc/20070628-2.6.22-rc6-r8169-test.patch
 
-or (tarball sits one level higher):
+--GU3/x65mZ6MFE8p3
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.22-rc6/r8169-20070628/
+On Thu, Jun 28, 2007 at 11:10:37PM +0200, Francois Romieu wrote:
+> > I have an Asrock ConRoe945G-DVI motherboard with a RTL8111/8168B in
+> > it.  The stock r8159 driver locks up from time to time. I've
+> > described it here: https://launchpad.net/bugs/121815 . The patchset
+> > at http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.22-rc3/ seems to
+> > fix it.  Can you explain why the patchset is not in the mainline
+> > kernel?
+> 1. thanks for the report
 
-or (rebase prone branch)
+Thanks for providing the patch!
 
-git://electric-eye.fr.zoreil.com/home/romieu/linux-2.6.git#r8169
- 
-Please do not clone your whole git kernel tree from here, thanks.
+> 2. increase net.core.wmem_max, ping -f -q -l xx -s yy with xx and yy
+>    big enough and the driver will _still_ stop receiving/transmitting :o(
 
-Changes (most recent first):
+Oh, dear.
 
-- perform RX config change after mac filtering
-- mac address change support
-- display some extra debug information during startup
-- add endianess annotations to [RT]xDesc
-- align the IP header when there is no DMA constraint
-- add bit description for the TxPoll register
-- cleanup
-- remove the media option
-- small 8101 comment
-- confusion between hardware and IP header alignment
-- merge with version 8.001.00 of Realtek's r8168 driver
-- merge with version 6.001.00 of Realtek's r8169 driver
-- prettify mac_version
-- populate the hw_start handler for the 8110
-- populate the hw_start handler for the 8168
-- add helpers for per-device hw_start handler
-- add hooks for per-device hw_start handler
-- Rx path update
-- kill eth_copy_and_sum()
-- de-obfuscate modulo arithmetic
-- use netdev_alloc_skb
+> 3. if I take the time to write a nice message to tell you why, it will
+>    delay me:
+>    - publishing an updated patchset against -rc6 that can handle davem's
+>      git-net with minor pain for akpm
+>    - preparing a serie for Jeff
+>    - answering the rot^Wpending r8169 reports
 
-Use of this serie is strongly suggested if:
-- you own an asrock ConRoe945G-DVI
-- you need bonding
-- you need to fix the performance regression due to misalignment
+Thanks for taking time to responding anyway!
 
-This serie should fix the non-wol related issues if you are an asus P5B
-user.
+The reason I asked was that I was hoping the response would be that the
+patchset had no know regressions, but still lacked testing. In that
+case, I would have discussed its inclusion in our (Ubuntu's) alpha
+releases with our kernel team, but if you feel you're on track already,
+I'll stop annoying you. :)
 
-Catastrophic events apart, the patches will be sent for review on netdev
-tomorow and scheduled for inclusion in 2.6.23.
+Thanks for your time.
 
-Success and failure reports or patches will be welcome. Please Cc: netdev
-and include "r8169" in the Subject.
+--GU3/x65mZ6MFE8p3
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
 
-As a bonus, the patch below on top of the current serie could help Benjamin
-(and probably others too). It's still WIP though.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.3 (GNU/Linux)
 
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index 2fe3652..dc302c2 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -2518,7 +2518,7 @@ static inline u32 rtl8169_tso_csum(struct sk_buff *skb, struct net_device *dev)
- static int rtl8169_start_xmit(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct rtl8169_private *tp = netdev_priv(dev);
--	unsigned int frags, entry = tp->cur_tx % NUM_TX_DESC;
-+	unsigned int frags, cur_tx, entry = tp->cur_tx % NUM_TX_DESC;
- 	struct TxDesc *txd = tp->TxDescArray + entry;
- 	void __iomem *ioaddr = tp->mmio_addr;
- 	dma_addr_t mapping;
-@@ -2571,13 +2571,17 @@ static int rtl8169_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 	dev->trans_start = jiffies;
- 
-+	cur_tx = tp->cur_tx;
-+
- 	tp->cur_tx += frags + 1;
- 
--	smp_wmb();
-+	mmiowb();
- 
--	RTL_W8(TxPoll, NPQ);	/* set polling bit */
-+	smp_mb();
- 
--	if (TX_BUFFS_AVAIL(tp) < MAX_SKB_FRAGS) {
-+	if (cur_tx == tp->dirty_tx)
-+		RTL_W8(TxPoll, NPQ);
-+	else if (TX_BUFFS_AVAIL(tp) < MAX_SKB_FRAGS) {
- 		netif_stop_queue(dev);
- 		smp_rmb();
- 		if (TX_BUFFS_AVAIL(tp) >= MAX_SKB_FRAGS)
-@@ -2681,10 +2685,18 @@ static void rtl8169_tx_interrupt(struct net_device *dev,
- 
- 	if (tp->dirty_tx != dirty_tx) {
- 		tp->dirty_tx = dirty_tx;
--		smp_wmb();
--		if (netif_queue_stopped(dev) &&
--		    (TX_BUFFS_AVAIL(tp) >= MAX_SKB_FRAGS)) {
--			netif_wake_queue(dev);
-+		smp_mb();
-+		if (unlikely(netif_queue_stopped(dev))) {
-+			netif_tx_lock(dev);
-+		    	if (TX_BUFFS_AVAIL(tp) >= MAX_SKB_FRAGS)
-+				netif_wake_queue(dev);
-+			if (dirty_tx != tp->cur_tx)
-+				RTL_W8(TxPoll, NPQ);
-+			netif_tx_unlock(dev);
-+		} else if (dirty_tx != tp->cur_tx) {
-+			netif_tx_lock(dev);
-+			RTL_W8(TxPoll, NPQ);
-+			netif_tx_unlock(dev);
- 		}
- 	}
- }
+iD8DBQFGhElXonjfXui9pOMRAhb5AJ91DeZ3SrJ3tg491aEFJfea515ypACgjHHW
+u9NzZtqFRrusDm0cGJ56fvY=
+=q051
+-----END PGP SIGNATURE-----
 
--- 
-Ueimor
+--GU3/x65mZ6MFE8p3--
