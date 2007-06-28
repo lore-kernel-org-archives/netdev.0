@@ -1,33 +1,39 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: [NET]: gen_estimator: fix locking and timer related bugs [Re: [Bugme-new] [Bug 8668] New: HTB Deadlock]
-Date: Thu, 28 Jun 2007 15:27:17 +0200
-Message-ID: <20070628132717.GC3284@ff.dom.local>
-References: <20070627114521.GA3762@ff.dom.local> <46824D88.1090300@trash.net> <20070627121013.GB3762@ff.dom.local> <468279FC.3070502@trash.net> <46827DB1.3060509@trash.net> <46828179.5030404@trash.net> <20070628091339.GC1618@ff.dom.local> <4683A848.5040907@trash.net> <20070628130335.GA3284@ff.dom.local> <4683AFD7.8080605@trash.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org,
-	"bugme-daemon\@kernel-bugs\.osdl\.org"
-	<bugme-daemon@kernel-bugs.osdl.org>, ranko@spidernet.net
-To: Patrick McHardy <kaber@trash.net>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: [GIT PATCHES] SCTP fixes
+Date: Thu, 28 Jun 2007 10:34:57 -0400
+Message-ID: <11830412972450-git-send-email-vladislav.yasevich@hp.com>
+Cc: lksctp-developers@lists.sourceforge.net, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx10.go2.pl ([193.17.41.74]:60795 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755075AbXF1NTG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Jun 2007 09:19:06 -0400
-Content-Disposition: inline
-In-Reply-To: <4683AFD7.8080605@trash.net>
+Received: from atlrel6.hp.com ([156.153.255.205]:39664 "EHLO atlrel6.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755891AbXF1OfP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Jun 2007 10:35:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 28, 2007 at 02:55:51PM +0200, Patrick McHardy wrote:
-...
-> Its overkill in that case. The concurrent additions and removals
-> can't happen.
-> 
 
-Then the changelog needs one more change. Plus, maybe - btw,
-1 line about this at the beginning of the file?
+Hi David
 
-Jarek P.
+Please pull the following changes:
+
+The following changes since commit 19e6454ca778e11e81497bd87c930dc0defd03d7:
+  David Howells (1):
+        [AF_RXRPC]: Return the number of bytes buffered in rxrpc_send_data()
+
+are found in the git repository at:
+
+  master.kernel.org:/pub/scm/linux/kernel/git/vxy/lksctp-dev.git
+
+Neil Horman (2):
+      SCTP: update sctp_getsockopt helpers to allow oversized buffers
+      SCTP: Fix sctp_getsockopt_get_peer_addrs
+
+Zach Brown (1):
+      SCTP: lock_sock_nested in sctp_sock_migrate
+
+ net/sctp/socket.c |  120 +++++++++++++++++++++++++++++++++++-----------------
+ 1 files changed, 81 insertions(+), 39 deletions(-)
+
+Thanks
+-vlad
