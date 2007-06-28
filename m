@@ -1,28 +1,41 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [Bugme-new] [Bug 8668] New: HTB Deadlock
-Date: Thu, 28 Jun 2007 14:24:55 +0200
-Message-ID: <4683A897.4020809@trash.net>
-References: <20070627114521.GA3762@ff.dom.local> <46824D88.1090300@trash.net> <20070627121013.GB3762@ff.dom.local> <468279FC.3070502@trash.net> <20070628075231.GB1618@ff.dom.local>
+From: Chris Snook <csnook@redhat.com>
+Subject: Re: a maze of twisty stats, most different
+Date: Thu, 28 Jun 2007 08:47:56 -0400
+Message-ID: <4683ADFC.4020000@redhat.com>
+References: <46829C48.6080005@hp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	"bugme-daemon@kernel-bugs.osdl.org"
-	<bugme-daemon@kernel-bugs.osdl.org>, ranko@spidernet.net
-To: Jarek Poplawski <jarkao2@o2.pl>
+Cc: Linux Network Development list <netdev@vger.kernel.org>
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:49370 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760566AbXF1M0X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jun 2007 08:26:23 -0400
-In-Reply-To: <20070628075231.GB1618@ff.dom.local>
+Received: from mx1.redhat.com ([66.187.233.31]:35991 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1763517AbXF1Mr7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Jun 2007 08:47:59 -0400
+In-Reply-To: <46829C48.6080005@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jarek Poplawski wrote:
-> BTW #2, I hope it's about some new policy, but I cannot see
-> any #ifdef CONFIG_NET_ESTIMATOR in this sch_htb patch.
+Rick Jones wrote:
+> It seems that every driver, when providing support for ethtool -S 
+> functionality, has considerable lattitude when it comes to the stats 
+> provided.  Clearly this is very nice for the driver writer(s) as it 
+> allows them to provide whatever stats they feel are most "natural" for 
+> their NIC(s) and name them as they see fit.
 
-One of my previous patches for 2.6.23 killed that option,
-the code was always compiled in anyways.
+This is deliberate.  Ethtool operates at a very primitive level, and generally 
+does little or no translation between the hardware registers and userspace.
 
+> However :)
+> 
+>  From the standpoint of someone looking from the outside, say someone 
+> wanting to consume ethtool -S statistics, it seems to be a big jumble.
+> 
+> Might there be a way to bring those two camps together?  Is there 
+> already, with the same wide availabilty of ethtool, and I've just not 
+> seen it?
+
+ifconfig comes to mind, for one.  What statistics are you looking for exactly?
+
+	-- Chris
