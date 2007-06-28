@@ -1,59 +1,35 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [NET]: gen_estimator: fix locking and timer related bugs [Re:
- [Bugme-new] [Bug 8668] New: HTB Deadlock]
-Date: Thu, 28 Jun 2007 14:55:51 +0200
-Message-ID: <4683AFD7.8080605@trash.net>
-References: <20070627114521.GA3762@ff.dom.local> <46824D88.1090300@trash.net> <20070627121013.GB3762@ff.dom.local> <468279FC.3070502@trash.net> <46827DB1.3060509@trash.net> <46828179.5030404@trash.net> <20070628091339.GC1618@ff.dom.local> <4683A848.5040907@trash.net> <20070628130335.GA3284@ff.dom.local>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: [Bugme-new] [Bug 8668] New: HTB Deadlock
+Date: Thu, 28 Jun 2007 15:18:50 +0200
+Message-ID: <20070628131850.GB3284@ff.dom.local>
+References: <20070627114521.GA3762@ff.dom.local> <46824D88.1090300@trash.net> <20070627121013.GB3762@ff.dom.local> <468279FC.3070502@trash.net> <20070628075231.GB1618@ff.dom.local> <4683A897.4020809@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org,
-	"bugme-daemon@kernel-bugs.osdl.org"
-	<bugme-daemon@kernel-bugs.osdl.org>, ranko@spidernet.net
-To: Jarek Poplawski <jarkao2@o2.pl>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+	ranko@spidernet.net
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:49978 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760321AbXF1M4n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jun 2007 08:56:43 -0400
-In-Reply-To: <20070628130335.GA3284@ff.dom.local>
+Received: from mx2.go2.pl ([193.17.41.42]:59548 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753178AbXF1NKh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Jun 2007 09:10:37 -0400
+Content-Disposition: inline
+In-Reply-To: <4683A897.4020809@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jarek Poplawski wrote:
-> On Thu, Jun 28, 2007 at 02:23:36PM +0200, Patrick McHardy wrote:
+On Thu, Jun 28, 2007 at 02:24:55PM +0200, Patrick McHardy wrote:
+> Jarek Poplawski wrote:
+> >BTW #2, I hope it's about some new policy, but I cannot see
+> >any #ifdef CONFIG_NET_ESTIMATOR in this sch_htb patch.
 > 
->>Jarek Poplawski wrote:
->>
->>>>@@ -202,7 +201,6 @@ void gen_kill_estimator(struct gnet_stats_basic 
->>>>*bstats,
->>>>	struct gen_estimator *est, **pest;
->>>>
->>>>	for (idx=0; idx <= EST_MAX_INTERVAL; idx++) {
->>>>-		int killed = 0;
->>>>		pest = &elist[idx].list;
->>>>		while ((est=*pest) != NULL) {
->>>
->>>So, maybe this list walking here needs some locking too?
->>
->>It depends on whether estimators should be able to rely on
->>the rtnl in the future or be completely responsible for their
->>own locking. My patch yesterday was made under the assumption
->>that they shouldn't rely on external locking, which seemed to
->>be the right thing for a "generic" implementation. OTOH its
->>still specific to networking, so relying on the rtnl doesn't
->>sound too unreasonable too. I'm beginning to thing I made
->>the wrong choice with my patch.
->>
->>I'm busy right now, would you mind looking into a patch that
->>only deals with the timer races, but still relies on the
->>rtnl?
+> One of my previous patches for 2.6.23 killed that option,
+> the code was always compiled in anyways.
 > 
-> 
-> In that case this patch looks OK & enough.
 
+Maybe I look at something else but I cannot find this patch,
+at least here:
 
-Its overkill in that case. The concurrent additions and removals
-can't happen.
+http://git.kernel.org/?p=linux/kernel/git/davem/net-2.6.23.git;a=tree
+
+Jarek P.
