@@ -1,67 +1,41 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: git-net, git-netdev-all and everything else on g5
-Date: Fri, 29 Jun 2007 03:18:31 +0800
-Message-ID: <20070628191831.GA25497@gondor.apana.org.au>
-References: <20070628021338.0d37f95a.akpm@linux-foundation.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 2/3] NET: [CORE] Stack changes to add multiqueue hardware
+ support API
+Date: Thu, 28 Jun 2007 21:37:25 +0200
+Message-ID: <46840DF5.7010204@trash.net>
+References: <D5C1322C3E673F459512FB59E0DDC329031F061E@orsmsx414.amr.corp.intel.com> <468409E4.7000603@trash.net> <46840CD8.7000308@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@linux-foundation.org>
-To: Andrew Morton <akpm@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	davem@davemloft.net, netdev@vger.kernel.org,
+	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>, hadi@cyberus.ca
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:1569 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1765318AbXF1TiD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jun 2007 15:38:03 -0400
-Content-Disposition: inline
-In-Reply-To: <20070628021338.0d37f95a.akpm@linux-foundation.org>
+Received: from stinky.trash.net ([213.144.137.162]:58073 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1763637AbXF1TiZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jun 2007 15:38:25 -0400
+In-Reply-To: <46840CD8.7000308@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 28, 2007 at 09:13:38AM +0000, Andrew Morton wrote:
+Jeff Garzik wrote:
+> Patrick McHardy wrote:
 > 
-> With the full -mm lineup, my tg3-using powerpc g5 spits lots of these:
+>> Yes, but there are users that don't go through qdiscs, like netpoll,
+>> Having them check the QDISC_RUNNING bit seems ugly.
 > 
-> windfarm: Drive bay control loop started.
-> audit(1183017094.732:2): audit_pid=2117 old=0 by auid=4294967295
-> ------------[ cut here ]------------
-> Badness at net/core/dev.c:1303
+> 
+> Is netpoll the only such user?
 
-Hmm, we really should come up with a better way for checking
-checksum support.
+I'm not sure, I just remembered that one :)
 
-[NET]: Fix TX checksum feature check
+Looking at Peter's multiqueue patch, which should include all
+hard_start_xmit users (I'm not seeing sch_teql though, Peter?)
+the only other one is pktgen.
 
-This patch fixes a boolean error in the new TX checksum check
-that causes bogus TSO packets to be generated.
+> netpoll tends to be a special case in every sense of the word, and I
+> wish it was less so :/
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
---
-diff --git a/net/core/dev.c b/net/core/dev.c
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1509,11 +1509,11 @@ int dev_queue_xmit(struct sk_buff *skb)
- 		skb_set_transport_header(skb, skb->csum_start -
- 					      skb_headroom(skb));
- 
--		if (!(dev->features & NETIF_F_GEN_CSUM)
--		    || ((dev->features & NETIF_F_IP_CSUM)
--			&& skb->protocol == htons(ETH_P_IP))
--		    || ((dev->features & NETIF_F_IPV6_CSUM)
--			&& skb->protocol == htons(ETH_P_IPV6)))
-+		if (!(dev->features & NETIF_F_GEN_CSUM) &&
-+		    !((dev->features & NETIF_F_IP_CSUM) &&
-+		      skb->protocol == htons(ETH_P_IP)) &&
-+		    !((dev->features & NETIF_F_IPV6_CSUM) &&
-+		      skb->protocol == htons(ETH_P_IPV6)))
- 			if (skb_checksum_help(skb))
- 				goto out_kfree_skb;
- 	}
+Indeed.
