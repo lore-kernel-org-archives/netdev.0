@@ -1,31 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: a maze of twisty stats, most different
-Date: Thu, 28 Jun 2007 13:36:17 -0700 (PDT)
-Message-ID: <20070628.133617.43010120.davem@davemloft.net>
-References: <4683F10F.6070007@hp.com>
-	<OF4B8149B6.D8E6CC86-ON88257308.006345F0-88257308.0064762A@us.ibm.com>
+Subject: Re: [PATCH 2/3] NET: [CORE] Stack changes to add multiqueue
+ hardware support API
+Date: Thu, 28 Jun 2007 13:39:42 -0700 (PDT)
+Message-ID: <20070628.133942.90822934.davem@davemloft.net>
+References: <D5C1322C3E673F459512FB59E0DDC329031F061E@orsmsx414.amr.corp.intel.com>
+	<468409E4.7000603@trash.net>
+	<46840CD8.7000308@garzik.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: rick.jones2@hp.com, csnook@redhat.com, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org
-To: dlstevens@us.ibm.com
+Cc: kaber@trash.net, peter.p.waskiewicz.jr@intel.com,
+	netdev@vger.kernel.org, auke-jan.h.kok@intel.com, hadi@cyberus.ca
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51050
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36793
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1757619AbXF1Uf6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jun 2007 16:35:58 -0400
-In-Reply-To: <OF4B8149B6.D8E6CC86-ON88257308.006345F0-88257308.0064762A@us.ibm.com>
+	by vger.kernel.org with ESMTP id S1765357AbXF1UjX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jun 2007 16:39:23 -0400
+In-Reply-To: <46840CD8.7000308@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: David Stevens <dlstevens@us.ibm.com>
-Date: Thu, 28 Jun 2007 11:17:51 -0700
+From: Jeff Garzik <jeff@garzik.org>
+Date: Thu, 28 Jun 2007 15:32:40 -0400
 
-> Comments?
+> Patrick McHardy wrote:
+> > Yes, but there are users that don't go through qdiscs, like netpoll,
+> > Having them check the QDISC_RUNNING bit seems ugly.
+> 
+> Is netpoll the only such user?
+> 
+> netpoll tends to be a special case in every sense of the word, and I 
+> wish it was less so :/
 
-I think sysfs is a better model for MIBs, the extensibility we
-get for free since each SNMP MIB entry we want to add is simply
-a new file.
+Seconded.
 
-I'd be quite thrilled to apply a patch which implemented this.
+I'm perfectly happy to consider rearchitecting of netpoll to something
+that works better.
