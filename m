@@ -1,44 +1,40 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: a maze of twisty stats, most different
-Date: Thu, 28 Jun 2007 14:21:48 -0700
-Message-ID: <4684266C.6020509@hp.com>
-References: <4683F10F.6070007@hp.com>	<OF4B8149B6.D8E6CC86-ON88257308.006345F0-88257308.0064762A@us.ibm.com> <20070628.133617.43010120.davem@davemloft.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: r8169: 2.6.22rc6+patches works, but 2.6.21.5 and 2.6.22rc6 without patches->network transfer blocking
+Date: Thu, 28 Jun 2007 23:30:50 +0200
+Message-ID: <20070628213050.GB4233@electric-eye.fr.zoreil.com>
+References: <4683F923.80508@bcsoft.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: dlstevens@us.ibm.com, csnook@redhat.com, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev list <netdev@vger.kernel.org>
+To: Jens Stroebel <drifter@bcsoft.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel10.hp.com ([156.153.255.245]:45914 "EHLO palrel10.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758226AbXF1VVv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Jun 2007 17:21:51 -0400
-In-Reply-To: <20070628.133617.43010120.davem@davemloft.net>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:58943 "EHLO
+	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759446AbXF1Vdm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Jun 2007 17:33:42 -0400
+Content-Disposition: inline
+In-Reply-To: <4683F923.80508@bcsoft.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: David Stevens <dlstevens@us.ibm.com>
-> Date: Thu, 28 Jun 2007 11:17:51 -0700
-> 
-> 
->>Comments?
-> 
-> 
-> I think sysfs is a better model for MIBs, the extensibility we
-> get for free since each SNMP MIB entry we want to add is simply
-> a new file.
-> 
-> I'd be quite thrilled to apply a patch which implemented this.
+Jens Stroebel <drifter@bcsoft.de> :
+[...]
+> Is there any possibility to get this fix working in 2.6.21.5? Would it
+> be possible to apply the single patch to 2.6.21.5 and get a working
+> driver? Or would it be possible to create the fixing patch for the
+> driver in 2.6.21.5?
 
+Mantra: mainline first, stable later.
 
-OK, lets suppose this was done.  Assume we were speaking of a link-level 
-stats  MIB,  would this then be something that did an ethtool-like call 
-into each driver and so we are back to per-driver differences having to 
-be dealt with by higher layers, or would we be having the drivers stick 
-stats in multiple places?  Or are we back to wanting drivers to have a 
-common set of stats they keep?
+In the next future, most of this patchset will hopefully go into
+2.6.23-rc1. Some people will then complain that 2.6.23-rc1 breaks
+their 816x. After that the patchkit will be amended and the r8169
+regressions in 2.6.23-rcX fixed.
 
-rick jones
-unafraid to show his ignorance of how things work, and how :)
+Then it will be time to feed some r8169 bits in 2.6.2x.y
+
+It may help and/or accelerate things if you can narrow the fix(es) in
+the current r8169 serie.
+
+-- 
+Ueimor
