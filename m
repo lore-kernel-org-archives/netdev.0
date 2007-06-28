@@ -1,41 +1,31 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 2/3] NET: [CORE] Stack changes to add multiqueue hardware
- support API
-Date: Thu, 28 Jun 2007 21:37:25 +0200
-Message-ID: <46840DF5.7010204@trash.net>
-References: <D5C1322C3E673F459512FB59E0DDC329031F061E@orsmsx414.amr.corp.intel.com> <468409E4.7000603@trash.net> <46840CD8.7000308@garzik.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: a maze of twisty stats, most different
+Date: Thu, 28 Jun 2007 13:36:17 -0700 (PDT)
+Message-ID: <20070628.133617.43010120.davem@davemloft.net>
+References: <4683F10F.6070007@hp.com>
+	<OF4B8149B6.D8E6CC86-ON88257308.006345F0-88257308.0064762A@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	davem@davemloft.net, netdev@vger.kernel.org,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>, hadi@cyberus.ca
-To: Jeff Garzik <jeff@garzik.org>
+Cc: rick.jones2@hp.com, csnook@redhat.com, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org
+To: dlstevens@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:58073 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1763637AbXF1TiZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jun 2007 15:38:25 -0400
-In-Reply-To: <46840CD8.7000308@garzik.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51050
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1757619AbXF1Uf6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jun 2007 16:35:58 -0400
+In-Reply-To: <OF4B8149B6.D8E6CC86-ON88257308.006345F0-88257308.0064762A@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
-> Patrick McHardy wrote:
-> 
->> Yes, but there are users that don't go through qdiscs, like netpoll,
->> Having them check the QDISC_RUNNING bit seems ugly.
-> 
-> 
-> Is netpoll the only such user?
+From: David Stevens <dlstevens@us.ibm.com>
+Date: Thu, 28 Jun 2007 11:17:51 -0700
 
-I'm not sure, I just remembered that one :)
+> Comments?
 
-Looking at Peter's multiqueue patch, which should include all
-hard_start_xmit users (I'm not seeing sch_teql though, Peter?)
-the only other one is pktgen.
+I think sysfs is a better model for MIBs, the extensibility we
+get for free since each SNMP MIB entry we want to add is simply
+a new file.
 
-> netpoll tends to be a special case in every sense of the word, and I
-> wish it was less so :/
-
-Indeed.
+I'd be quite thrilled to apply a patch which implemented this.
