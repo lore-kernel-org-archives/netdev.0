@@ -1,100 +1,143 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: git-net, git-netdev-all and everything else on g5
-Date: Thu, 28 Jun 2007 02:13:38 -0700
-Message-ID: <20070628021338.0d37f95a.akpm@linux-foundation.org>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: Fwd: [PATCH] [-mm] ACPI: export ACPI events via netlink
+Date: Thu, 28 Jun 2007 11:45:39 +0200
+Message-ID: <1183023939.4769.76.camel@johannes.berg>
+References: <1179827251.7707.29.camel@localhost.localdomain>
+	 <1179831825.4121.30.camel@localhost>
+	 <1180258853.7707.53.camel@localhost.localdomain>
+	 <4466a10705270629h31977813hd2fc8330bcd87f78@mail.gmail.com>
+	 <4466a10705270634j3560c9a3j9c3630ddc20a24aa@mail.gmail.com>
+	 <1181811576.5411.27.camel@localhost.localdomain>
+	 <1181820510.4091.9.camel@localhost>
+	 <1181869285.5411.39.camel@localhost.localdomain>
+	 <1182178882.4063.11.camel@localhost>
+	 <1182223964.5411.76.camel@localhost.localdomain>
+	 <1182811210.6644.22.camel@johannes.berg>
+	 <1182986681.5155.55.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:46252 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1760140AbXF1JNq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jun 2007 05:13:46 -0400
-Received: from imap1.linux-foundation.org (imap1.linux-foundation.org [207.189.120.55])
-	by smtp2.linux-foundation.org (8.13.5.20060308/8.13.5/Debian-3ubuntu1.1) with ESMTP id l5S9Dh8a006149
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Thu, 28 Jun 2007 02:13:44 -0700
-Received: from box (localhost [127.0.0.1])
-	by imap1.linux-foundation.org (8.13.5.20060308/8.13.5/Debian-3ubuntu1.1) with SMTP id l5S9DcWg022092
-	for <netdev@vger.kernel.org>; Thu, 28 Jun 2007 02:13:38 -0700
-Sender: netdev-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-p9wP7CzjXM8b3POoVcba"
+Cc: Zhang Rui <rui.zhang@intel.com>, netdev@vger.kernel.org,
+	"linux-acpi@vger" <linux-acpi@vger.kernel.org>, lenb@kernel.org,
+	Thomas Graf <tgraf@suug.ch>
+To: hadi@cyberus.ca
+Return-path: <linux-acpi-owner@vger.kernel.org>
+In-Reply-To: <1182986681.5155.55.camel@localhost>
+Sender: linux-acpi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-With the full -mm lineup, my tg3-using powerpc g5 spits lots of these:
+--=-p9wP7CzjXM8b3POoVcba
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-windfarm: Drive bay control loop started.
-audit(1183017094.732:2): audit_pid=2117 old=0 by auid=4294967295
-------------[ cut here ]------------
-Badness at net/core/dev.c:1303
-Call Trace:
-[c00000000b45ead0] [c0000000000108c8] .show_stack+0x50/0x1cc (unreliable)
-[c00000000b45eb80] [c0000000001b563c] .report_bug+0xa0/0x110
-[c00000000b45ec10] [c0000000000250a0] .program_check_exception+0x1fc/0x738
-[c00000000b45ecd0] [c000000000004a84] program_check_common+0x104/0x180
---- Exception: 700 at .skb_gso_segment+0xd0/0x298
-    LR = .dev_hard_start_xmit+0x23c/0x33c
-[c00000000b45efc0] [0000000000000001] 0x1 (unreliable)
-[c00000000b45f060] [c00000000037bc2c] .dev_hard_start_xmit+0x23c/0x33c
-[c00000000b45f100] [c000000000394934] .__qdisc_run+0x8c/0x410
-[c00000000b45f1b0] [c00000000037c0f4] .dev_queue_xmit+0x3c8/0x408
-[c00000000b45f240] [c0000000003a7180] .ip_output+0x1d8/0x3d4
-[c00000000b45f300] [c0000000003a63f0] .ip_queue_xmit+0x374/0x51c
-[c00000000b45f450] [c0000000003bdcc0] .tcp_transmit_skb+0x54c/0x9dc
-[c00000000b45f560] [c0000000003bf8f8] .__tcp_push_pending_frames+0x2fc/0xb58
-[c00000000b45f6a0] [c0000000003bbccc] .tcp_rcv_established+0x204/0x900
-[c00000000b45f750] [c0000000003c6080] .tcp_v4_do_rcv+0x230/0x598
-[c00000000b45f830] [c0000000003b1200] .tcp_prequeue_process+0xa0/0xf4
-[c00000000b45f8c0] [c0000000003b19c8] .tcp_recvmsg+0x4f0/0x940
-[c00000000b45f9b0] [c000000000370fa0] .sock_common_recvmsg+0x68/0x90
-[c00000000b45fa40] [c00000000036b2cc] .sock_aio_read+0x120/0x148
-[c00000000b45fb50] [c0000000000d029c] .do_sync_read+0xd0/0x160
-[c00000000b45fcf0] [c0000000000d04ec] .vfs_read+0x1c0/0x1d8
-[c00000000b45fd90] [c0000000000d0888] .sys_read+0x4c/0x90
-[c00000000b45fe30] [c00000000000872c] syscall_exit+0x0/0x40
-------------[ cut here ]------------
-Badness at net/core/dev.c:1303
-Call Trace:
-[c00000000b45e9c0] [c0000000000108c8] .show_stack+0x50/0x1cc (unreliable)
-[c00000000b45ea70] [c0000000001b563c] .report_bug+0xa0/0x110
-[c00000000b45eb00] [c0000000000250a0] .program_check_exception+0x1fc/0x738
-[c00000000b45ebc0] [c000000000004a84] program_check_common+0x104/0x180
---- Exception: 700 at .skb_gso_segment+0xd0/0x298
-    LR = .dev_hard_start_xmit+0x23c/0x33c
-[c00000000b45eeb0] [c000000000079a60] .__wake_up_bit+0x4c/0x60 (unreliable)
-[c00000000b45ef50] [c00000000037bc2c] .dev_hard_start_xmit+0x23c/0x33c
-[c00000000b45eff0] [c000000000394934] .__qdisc_run+0x8c/0x410
-[c00000000b45f0a0] [c00000000037c0f4] .dev_queue_xmit+0x3c8/0x408
-[c00000000b45f130] [c0000000003a7180] .ip_output+0x1d8/0x3d4
-[c00000000b45f1f0] [c0000000003a63f0] .ip_queue_xmit+0x374/0x51c
-[c00000000b45f340] [c0000000003bdcc0] .tcp_transmit_skb+0x54c/0x9dc
-[c00000000b45f450] [c0000000003bf8f8] .__tcp_push_pending_frames+0x2fc/0xb58
-[c00000000b45f590] [c0000000003bbccc] .tcp_rcv_established+0x204/0x900
-[c00000000b45f640] [c0000000003c6080] .tcp_v4_do_rcv+0x230/0x598
-[c00000000b45f720] [c00000000036fb8c] .release_sock+0xa0/0x16c
-[c00000000b45f7c0] [c00000000036fd08] .sk_wait_data+0xb0/0x148
-[c00000000b45f8c0] [c0000000003b1a6c] .tcp_recvmsg+0x594/0x940
-[c00000000b45f9b0] [c000000000370fa0] .sock_common_recvmsg+0x68/0x90
-[c00000000b45fa40] [c00000000036b2cc] .sock_aio_read+0x120/0x148
-[c00000000b45fb50] [c0000000000d029c] .do_sync_read+0xd0/0x160
-[c00000000b45fcf0] [c0000000000d04ec] .vfs_read+0x1c0/0x1d8
-[c00000000b45fd90] [c0000000000d0888] .sys_read+0x4c/0x90
-[c00000000b45fe30] [c00000000000872c] syscall_exit+0x0/0x40
+On Wed, 2007-06-27 at 19:24 -0400, jamal wrote:
+> On Tue, 2007-26-06 at 00:40 +0200, Johannes Berg wrote:
+>=20
+> > I wonder if we should hold off on this API until we've worked out the
+> > multicast issue.
+>=20
+> Even if the ACPI thing goes in first, you will have to change a few
+> others that are existing in-kernel that need to be changed sooner or
+> later. So either way is fine.
 
-That's here, in skb_gso_segment():
+No, the controller is the only other generic netlink multicast user
+according to what I've found. :)
 
-        skb_reset_mac_header(skb);
-        skb->mac_len = skb->network_header - skb->mac_header;
-        __skb_pull(skb, skb->mac_len);
+> heres some feedback:
+> - I think you should use the same approach as we use for ops.=20
+> a) i.e other than the reserved group for controller (which you seem to
+> be taking care of), every other genetlink user has to explicitly
+> register when they need a mcast group.=20
 
-->        if (WARN_ON(skb->ip_summed != CHECKSUM_PARTIAL)) {
+Alright. I think that most likely this will happen right at setup, but I
+can change it.
+
+> b) While the names may vary on a per-family basis, the Grpids should be
+> unique (e.g when you run out of group ids - it would take a lot more
+> allocations than there are families; 32 bit vs 16 bit for that to
+> happen)
+
+actually didn't you just say that groups don't run out at 32-bit because
+the groups bitmap can be extended? You wouldn't be able to sign up for
+the groups >31 at bind() time but with ioctls you can bind higher group
+numbers after the fact. And the dynamic groups mean you need to bind
+later anyway since you don't know the ID when you create the socket.
+
+> c) Use a global hash table to store all the genl_multicast_groups;
+> I think this (handwaving) should be searchable by i) name ii)ID and iii)
+> family.=20
+
+Yeah, makes sense, I never liked the bitmap stuff I did there.
 
 
-config: http://userweb.kernel.org/~akpm/config-g5.txt
-dmesg: http://userweb.kernel.org/~akpm/dmesg-g5.txt
+> Add the list constructs on the struct - look at the way commands are
+> done.
+> We do use hash tables for global storage of families for example.
 
-Note that that dmesg contains extra stuff at the end which looks like the
-box is trying to oops.
+Right, with dynamic registration that's basically a given.
+=20
+> > +static unsigned long mcast_group_start =3D 0x3;
+> > +static unsigned long *multicast_groups =3D &mcast_group_start;
+> > +static unsigned long multicast_group_bits =3D BITS_PER_LONG;
+>=20
+> I think if you used a hash table you wont need to keep track of the
+> above; maybe not - You may still need the above to keep track of which
+> IDs are in use and where holes in multicast group ID space exist
+> (assuming some are going to be unregistered over time etc)=20
 
-Generally ugly.
+Ah, holes are a good point. I'll think about it.
+
+>  we use a simple scheme in the case of families; once all
+> IDs are consumed we dont alloc more - in the case of mcast grps this is
+> not necessary IMO i.e it doesnt matter if there is collision when you
+> run out. You return errors at the moment.
+
+Are you saying I should double-allocate groups? I really don't want that
+since I plan to add permission checks on top of this.
+
+> > --- wireless-dev.orig/include/linux/genetlink.h	2007-06-25 23:56:19.895=
+732308 +0200
+> > +++ wireless-dev/include/linux/genetlink.h	2007-06-26 00:33:36.78573230=
+8 +0200
+> > @@ -52,6 +52,9 @@ enum {
+> >  	CTRL_ATTR_HDRSIZE,
+> >  	CTRL_ATTR_MAXATTR,
+> >  	CTRL_ATTR_OPS,
+> > +	CTRL_ATTR_MCAST_GROUPS,
+> > +	CTRL_ATTR_MCAST_GRP_NAME,
+> > +	CTRL_ATTR_MCAST_GRP_ID,
+>=20
+> Dont think those last two belong in the same namespace. i.e  they should
+> be a separate enum; even more the name/id pair probably belong in one
+> TLV under the struct genl_multicast_group that is exported to user
+> space.
+
+Hm? Not sure I understand this. These are attributes for the generic
+netlink controller messages, where else should I put them? Why give them
+numbers from a different namespace because they're used inside nested
+attributes?
+
+> Overall: I think you are on the right path. Good stuff.
+> I see user space doing a discovery of which groups a family belongs to
+> or even doing a bind-by-name in which the underlying user-space code
+> does a discovery to find the id, then does a bind to that id.
+
+Yeah, that's what I was thinking of, although the bind-by-name needs
+(family-id, group-name) and nost just group-name
+
+johannes
+
+--=-p9wP7CzjXM8b3POoVcba
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iD8DBQBGg4ND/ETPhpq3jKURArmmAJ964XcRUjnnTWHtf4rMnE0y4GqY3ACdHUxo
+3M93jSU4tgWgTouaEmbZc3o=
+=tydY
+-----END PGP SIGNATURE-----
+
+--=-p9wP7CzjXM8b3POoVcba--
+
