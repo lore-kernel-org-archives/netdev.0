@@ -1,57 +1,41 @@
-From: Kirill Korotaev <dev@sw.ru>
-Subject: Re: [Devel] Re: [RFD] L2 Network namespace infrastructure
-Date: Thu, 28 Jun 2007 17:12:01 +0400
-Message-ID: <4683B3A1.2040401@sw.ru>
-References: <m1tzszbwyb.fsf@ebiederm.dsl.xmission.com> <467CF8AC.80103@trash.net> <468276BA.7020309@sw.ru> <46827A8F.6090205@candelatech.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [Bugme-new] [Bug 8668] New: HTB Deadlock
+Date: Thu, 28 Jun 2007 15:16:42 +0200
+Message-ID: <4683B4BA.3040605@trash.net>
+References: <20070627114521.GA3762@ff.dom.local> <46824D88.1090300@trash.net> <20070627121013.GB3762@ff.dom.local> <468279FC.3070502@trash.net> <20070628075231.GB1618@ff.dom.local> <4683A897.4020809@trash.net> <20070628131850.GB3284@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Jeff Garzik <jeff@garzik.org>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-	netdev@vger.kernel.org, jamal <hadi@cyberus.ca>,
-	Linux Containers <containers@lists.osdl.org>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	David Miller <davem@davemloft.net>
-To: Ben Greear <greearb@candelatech.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+	ranko@spidernet.net
+To: Jarek Poplawski <jarkao2@o2.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.233.200]:11197 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754007AbXF1NMZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Jun 2007 09:12:25 -0400
-In-Reply-To: <46827A8F.6090205@candelatech.com>
+Received: from stinky.trash.net ([213.144.137.162]:50369 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753810AbXF1NRe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jun 2007 09:17:34 -0400
+In-Reply-To: <20070628131850.GB3284@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ben Greear wrote:
-> Kirill Korotaev wrote:
+Jarek Poplawski wrote:
+> On Thu, Jun 28, 2007 at 02:24:55PM +0200, Patrick McHardy wrote:
 > 
->>Patrick McHardy wrote:
->>  
+>>Jarek Poplawski wrote:
 >>
->>>I believe OpenVZ stores the current namespace somewhere global,
->>>which avoids passing the namespace around. Couldn't you do this
->>>as well?
->>>    
+>>>BTW #2, I hope it's about some new policy, but I cannot see
+>>>any #ifdef CONFIG_NET_ESTIMATOR in this sch_htb patch.
 >>
->>yes, we store a global namespace context on current
->>(can be stored in per-cpu as well).
+>>One of my previous patches for 2.6.23 killed that option,
+>>the code was always compiled in anyways.
 >>
->>do you prefer this way?
->>  
 > 
-> For what it's worth, I don't prefer this way as I can see wanting to 
-> have one application
-> use several namespaces at once....
+> 
+> Maybe I look at something else but I cannot find this patch,
+> at least here:
+> 
+> http://git.kernel.org/?p=linux/kernel/git/davem/net-2.6.23.git;a=tree
 
-As I wrote to you in another email, it's not a problem,
-since applications itself do not own network namespace.
 
-It is objects like sockets which are binded to net namespace and thus
-you can have sockets from different namespaces in one application
-regardless of mechanism of context handling we talk about.
-
-Thanks,
-Kirill
+No, its not in Dave's tree yet.
 
