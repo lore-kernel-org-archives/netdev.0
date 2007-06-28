@@ -1,41 +1,54 @@
-From: Chris Snook <csnook@redhat.com>
-Subject: Re: a maze of twisty stats, most different
-Date: Thu, 28 Jun 2007 08:47:56 -0400
-Message-ID: <4683ADFC.4020000@redhat.com>
-References: <46829C48.6080005@hp.com>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: [NET]: gen_estimator: fix locking and timer related bugs [Re: [Bugme-new] [Bug 8668] New: HTB Deadlock]
+Date: Thu, 28 Jun 2007 15:03:35 +0200
+Message-ID: <20070628130335.GA3284@ff.dom.local>
+References: <20070627114521.GA3762@ff.dom.local> <46824D88.1090300@trash.net> <20070627121013.GB3762@ff.dom.local> <468279FC.3070502@trash.net> <46827DB1.3060509@trash.net> <46828179.5030404@trash.net> <20070628091339.GC1618@ff.dom.local> <4683A848.5040907@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linux Network Development list <netdev@vger.kernel.org>
-To: Rick Jones <rick.jones2@hp.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org,
+	"bugme-daemon\@kernel-bugs\.osdl\.org"
+	<bugme-daemon@kernel-bugs.osdl.org>, ranko@spidernet.net
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:35991 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1763517AbXF1Mr7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Jun 2007 08:47:59 -0400
-In-Reply-To: <46829C48.6080005@hp.com>
+Received: from mx12.go2.pl ([193.17.41.142]:52281 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1758258AbXF1MzX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Jun 2007 08:55:23 -0400
+Content-Disposition: inline
+In-Reply-To: <4683A848.5040907@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Rick Jones wrote:
-> It seems that every driver, when providing support for ethtool -S 
-> functionality, has considerable lattitude when it comes to the stats 
-> provided.  Clearly this is very nice for the driver writer(s) as it 
-> allows them to provide whatever stats they feel are most "natural" for 
-> their NIC(s) and name them as they see fit.
-
-This is deliberate.  Ethtool operates at a very primitive level, and generally 
-does little or no translation between the hardware registers and userspace.
-
-> However :)
+On Thu, Jun 28, 2007 at 02:23:36PM +0200, Patrick McHardy wrote:
+> Jarek Poplawski wrote:
+> >>@@ -202,7 +201,6 @@ void gen_kill_estimator(struct gnet_stats_basic 
+> >>*bstats,
+> >> 	struct gen_estimator *est, **pest;
+> >> 
+> >> 	for (idx=0; idx <= EST_MAX_INTERVAL; idx++) {
+> >>-		int killed = 0;
+> >> 		pest = &elist[idx].list;
+> >> 		while ((est=*pest) != NULL) {
+> >
+> >So, maybe this list walking here needs some locking too?
 > 
->  From the standpoint of someone looking from the outside, say someone 
-> wanting to consume ethtool -S statistics, it seems to be a big jumble.
+> It depends on whether estimators should be able to rely on
+> the rtnl in the future or be completely responsible for their
+> own locking. My patch yesterday was made under the assumption
+> that they shouldn't rely on external locking, which seemed to
+> be the right thing for a "generic" implementation. OTOH its
+> still specific to networking, so relying on the rtnl doesn't
+> sound too unreasonable too. I'm beginning to thing I made
+> the wrong choice with my patch.
 > 
-> Might there be a way to bring those two camps together?  Is there 
-> already, with the same wide availabilty of ethtool, and I've just not 
-> seen it?
+> I'm busy right now, would you mind looking into a patch that
+> only deals with the timer races, but still relies on the
+> rtnl?
 
-ifconfig comes to mind, for one.  What statistics are you looking for exactly?
+In that case this patch looks OK & enough.
 
-	-- Chris
+My earlier proposals are only of cosmetical value.
+
+Jarek P.
