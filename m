@@ -1,34 +1,42 @@
 From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: RE: [PATCH] iproute2: sch_rr support in tc
-Date: Thu, 28 Jun 2007 09:47:45 -0700
-Message-ID: <D5C1322C3E673F459512FB59E0DDC329031F0383@orsmsx414.amr.corp.intel.com>
-References: <4683E485.8050907@trash.net>
+Subject: RE: [PATCH 3/3] NET: [SCHED] Qdisc changes and sch_rr added for multiqueue
+Date: Thu, 28 Jun 2007 09:50:36 -0700
+Message-ID: <D5C1322C3E673F459512FB59E0DDC329031F0391@orsmsx414.amr.corp.intel.com>
+References: <4683E5DE.7000805@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain;
 	charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
-Cc: <shemminger@linux-foundation.org>, <netdev@vger.kernel.org>,
-	<jeff@garzik.org>, "Kok, Auke-jan H" <auke-jan.h.kok@intel.com>
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>, <jeff@garzik.org>,
+	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>, <hadi@cyberus.ca>
 To: "Patrick McHardy" <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:59284 "EHLO mga03.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:54074 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756463AbXF1Qrs convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jun 2007 12:47:48 -0400
+	id S1751781AbXF1Quo convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jun 2007 12:50:44 -0400
 Content-class: urn:content-classes:message
-In-Reply-To: <4683E485.8050907@trash.net>
+In-Reply-To: <4683E5DE.7000805@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-> Since rr is not built as a module you could actually put 
-> everything in q_prio and share the code. But I don't really care :)
+> Its not error handling. You do:
+> 
+> err = register qdisc 1
+> if (err)
+> 	return err;
+> err = register qdisc 2
+> if (err)
+> 	unregister qdisc 2
+> return err
+> 
+> anyways, I already fixed that and cleaned up prio_classify 
+> the way I suggested. Will send shortly.
 
-I tried doing this, but I couldn't get things working quite right with
-selecting the correct module from sch_prio to sch_rr.  So I just added
-the q_rr.c portion of tc, and it fixed the selection issues I was
-seeing.  At least for userspace, it may be better to explicitly show the
-existance of rr being independent; that's just my personal preference.
+Thanks for fixing; however, the current sch_prio doesn't unregister the
+qdisc if register_qdisc() on prio fails, or does that happen implicitly
+because the module will probably unload?
 
-Cheers,
+Thanks again Patrick,
 -PJ
