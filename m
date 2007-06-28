@@ -1,63 +1,71 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: a maze of twisty stats, most different
-Date: Thu, 28 Jun 2007 11:17:51 -0700
-Message-ID: <OF4B8149B6.D8E6CC86-ON88257308.006345F0-88257308.0064762A@us.ibm.com>
-References: <4683F10F.6070007@hp.com>
+From: Kumar Gala <galak@kernel.crashing.org>
+Subject: Please pull from 'from_linus' branch
+Date: Thu, 28 Jun 2007 13:31:56 -0500 (CDT)
+Message-ID: <Pine.LNX.4.64.0706281330290.32589@blarg.am.freescale.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: Chris Snook <csnook@redhat.com>,
-	Linux Network Development list <netdev@vger.kernel.org>,
-	netdev-owner@vger.kernel.org
-To: Rick Jones <rick.jones2@hp.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, Andy Fleming <afleming@freescale.com>,
+	Jeff Garzik <jeff@garzik.org>, linux-kernel@vger.kernel.org
+To: Linus Torvalds <torvalds@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e33.co.us.ibm.com ([32.97.110.151]:41145 "EHLO
-	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759616AbXF1S1E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jun 2007 14:27:04 -0400
-In-Reply-To: <4683F10F.6070007@hp.com>
+Received: from gate.crashing.org ([63.228.1.57]:36210 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1764281AbXF1ScJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Jun 2007 14:32:09 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I think there's a more general problem that's a huge hassle. There are 
-lots of
-new SNMP MIB's, but no conventions (that I'm aware of, at least) to allow 
-for
-changes to the /proc entries that get them to applications. For example, 
-the
-route age data recently submitted. I agree that existing apps rely on 
-these
-and are generally very fragile, but in practice it means it isn't easy to 
-do any
-changes for RFC compliance with new MIBS, short of replicating existing 
-data
-in a new /proc entry along with the old one.
+Please pull from 'for_linus' branch of
 
-How do people feel about adding a MIB subtree in /proc that tracks MIB
-updates with some basic rules:
+	master.kernel.org:/pub/scm/linux/kernel/git/galak/powerpc.git for_linus
 
-1) all fields must be tagged with a label
-2) all apps using it must match the label, and ignore anything they don't
-        match
+to receive the following updates:
 
-Then future additions to a row just mean adding a label (like route age),
-and items like the one-per-line v6 statistics could add new ones easily, 
-too.
-And the existing MIB and non-MIB stats can be the same format, though
-possibly derived from different data.
+ drivers/net/phy/mdio_bus.c |    3 ++-
+ drivers/net/phy/vitesse.c  |    2 +-
+ 2 files changed, 3 insertions(+), 2 deletions(-)
 
-I've got a patch for doing ICMPMsgStats, which replaces the individual
-ICMP counters now defined (and which are deprecated), but changing
-/proc/net/snmp6 doesn't seem so wise, given how fragile some of these
-apps are.
+Kumar Gala (1):
+      phy: Fix phy_id for Vitesse 824x PHY
 
-Defined device stats could live in that proposed tree, too, and with basic
-rules for users would allow Linux-only useful extensions without breaking
-the rules that apps using it should follow (and therefore without breaking 
-the
-apps). That's independent of ethtool extensions, but at least marginally 
-related...
+commit 5f708dd91d15876e26d7a57f97a255cedffca463
+Author: Kumar Gala <galak@kernel.crashing.org>
+Date:   Thu Jun 28 13:26:06 2007 -0500
 
-Comments?
+    phy: Fix phy_id for Vitesse 824x PHY
 
-                                                +-DLS
+    The phy_id specified for the Vitesse 824x PHY would never match because
+    it was expecting bits to be set that would be masked by the phy_id_mask.
+    Fix the phy_id so it will match properly, and changed the mdio_bus_match
+    to mask both the driver and devices phy_id with the mask so we dont have
+    this issue in the future.
 
+    Signed-off-by: Kumar Gala <galak@kernel.crashing.org>
+
+diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
+index fc4aee9..fc2f0e6 100644
+--- a/drivers/net/phy/mdio_bus.c
++++ b/drivers/net/phy/mdio_bus.c
+@@ -131,7 +131,8 @@ static int mdio_bus_match(struct device *dev, struct device_driver *drv)
+ 	struct phy_device *phydev = to_phy_device(dev);
+ 	struct phy_driver *phydrv = to_phy_driver(drv);
+
+-	return (phydrv->phy_id == (phydev->phy_id & phydrv->phy_id_mask));
++	return ((phydrv->phy_id & phydrv->phy_id_mask) ==
++		(phydev->phy_id & phydrv->phy_id_mask));
+ }
+
+ /* Suspend and resume.  Copied from platform_suspend and
+diff --git a/drivers/net/phy/vitesse.c b/drivers/net/phy/vitesse.c
+index 792716b..596222b 100644
+--- a/drivers/net/phy/vitesse.c
++++ b/drivers/net/phy/vitesse.c
+@@ -84,7 +84,7 @@ static int vsc824x_config_intr(struct phy_device *phydev)
+
+ /* Vitesse 824x */
+ static struct phy_driver vsc8244_driver = {
+-	.phy_id		= 0x000fc6c2,
++	.phy_id		= 0x000fc6c0,
+ 	.name		= "Vitesse VSC8244",
+ 	.phy_id_mask	= 0x000fffc0,
+ 	.features	= PHY_GBIT_FEATURES,
