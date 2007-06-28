@@ -1,58 +1,63 @@
-From: Jens Stroebel <drifter@bcsoft.de>
-Subject: r8169: 2.6.22rc6+patches works, but 2.6.21.5 and 2.6.22rc6 without
- patches->network transfer blocking
-Date: Thu, 28 Jun 2007 20:08:35 +0200
-Message-ID: <4683F923.80508@bcsoft.de>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: a maze of twisty stats, most different
+Date: Thu, 28 Jun 2007 11:17:51 -0700
+Message-ID: <OF4B8149B6.D8E6CC86-ON88257308.006345F0-88257308.0064762A@us.ibm.com>
+References: <4683F10F.6070007@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: romieu@fr.zoreil.com
-To: netdev list <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: Chris Snook <csnook@redhat.com>,
+	Linux Network Development list <netdev@vger.kernel.org>,
+	netdev-owner@vger.kernel.org
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.177]:56223 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755072AbXF1SIl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jun 2007 14:08:41 -0400
+Received: from e33.co.us.ibm.com ([32.97.110.151]:41145 "EHLO
+	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759616AbXF1S1E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jun 2007 14:27:04 -0400
+In-Reply-To: <4683F10F.6070007@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-			Hello.
+I think there's a more general problem that's a huge hassle. There are 
+lots of
+new SNMP MIB's, but no conventions (that I'm aware of, at least) to allow 
+for
+changes to the /proc entries that get them to applications. For example, 
+the
+route age data recently submitted. I agree that existing apps rely on 
+these
+and are generally very fragile, but in practice it means it isn't easy to 
+do any
+changes for RFC compliance with new MIBS, short of replicating existing 
+data
+in a new /proc entry along with the old one.
 
-The hardware involved:
+How do people feel about adding a MIB subtree in /proc that tracks MIB
+updates with some basic rules:
 
-Motherboard: Asus P5B
-lspci:
-02:00.0 Ethernet controller: Realtek Semiconductor Co., Ltd.
-RTL8111/8168B PCI Express Gigabit Ethernet
- controller (rev 01)
+1) all fields must be tagged with a label
+2) all apps using it must match the label, and ignore anything they don't
+        match
 
-First the non-working scenario (2.6.21.5, 2.6.22rc6 unpatched):
-During the use of network connections, we experience "network transfer
-stops" during which a transfer seems to stall completely for many
-seconds, after which the transfer runs as if nothing happened.
+Then future additions to a row just mean adding a label (like route age),
+and items like the one-per-line v6 statistics could add new ones easily, 
+too.
+And the existing MIB and non-MIB stats can be the same format, though
+possibly derived from different data.
 
-This is reproducable everytime w.
- svn co http://svnserver/svn/tree
-   (hangs VERY LONG)
+I've got a patch for doing ICMPMsgStats, which replaces the individual
+ICMP counters now defined (and which are deprecated), but changing
+/proc/net/snmp6 doesn't seem so wise, given how fragile some of these
+apps are.
 
-Now with all patches under
-http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.22-rc3/r8169-20070527/
+Defined device stats could live in that proposed tree, too, and with basic
+rules for users would allow Linux-only useful extensions without breaking
+the rules that apps using it should follow (and therefore without breaking 
+the
+apps). That's independent of ethtool extensions, but at least marginally 
+related...
 
-    and the single patch
-http://www.fr.zoreil.com/people/francois/misc/20070619-2.6.22-rc5-r8169-test.patch
+Comments?
 
-the problem is gone. Without the single patch, the problem persists.
+                                                +-DLS
 
-Is there any possibility to get this fix working in 2.6.21.5? Would it
-be possible to apply the single patch to 2.6.21.5 and get a working
-driver? Or would it be possible to create the fixing patch for the
-driver in 2.6.21.5?
-
-		Greets,
-		  Jens
--- 
-drifter@bcsoft.de
-			23.....56.......drifting
-By caffeine alone I set my mind in motion, By the beans of Java
-do thoughts acquire speed,  hands acquire shaking,  the shaking
-becomes a warning, By caffeine alone do I set my mind in motion
