@@ -1,128 +1,500 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: a maze of twisty stats, most different
-Date: Thu, 28 Jun 2007 10:34:07 -0700
-Message-ID: <4683F10F.6070007@hp.com>
-References: <46829C48.6080005@hp.com> <4683ADFC.4020000@redhat.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: [CORE] Stack changes to add multiqueue hardware support API
+Date: Thu, 28 Jun 2007 19:57:50 +0200
+Message-ID: <4683F69E.8010506@trash.net>
+References: <20070628162056.18728.20195.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linux Network Development list <netdev@vger.kernel.org>
-To: Chris Snook <csnook@redhat.com>
+Content-Type: multipart/mixed;
+ boundary="------------010100050008060600010000"
+Cc: davem@davemloft.net, netdev@vger.kernel.org, jeff@garzik.org,
+	auke-jan.h.kok@intel.com, hadi@cyberus.ca
+To: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel12.hp.com ([156.153.255.237]:34879 "EHLO palrel12.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756399AbXF1ReK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Jun 2007 13:34:10 -0400
-In-Reply-To: <4683ADFC.4020000@redhat.com>
+Received: from stinky.trash.net ([213.144.137.162]:56224 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761043AbXF1R6s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jun 2007 13:58:48 -0400
+In-Reply-To: <20070628162056.18728.20195.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Chris Snook wrote:
-> Rick Jones wrote:
-> 
->> It seems that every driver, when providing support for ethtool -S 
->> functionality, has considerable lattitude when it comes to the stats 
->> provided.  Clearly this is very nice for the driver writer(s) as it 
->> allows them to provide whatever stats they feel are most "natural" for 
->> their NIC(s) and name them as they see fit.
-> 
-> 
-> This is deliberate.  Ethtool operates at a very primitive level, and 
-> generally does little or no translation between the hardware registers 
-> and userspace.
+This is a multi-part message in MIME format.
+--------------010100050008060600010000
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
 
-Noted.
+This is an slightly changed version of Peter's patch.
+Changes are:
 
-> 
->> However :)
->>
->>  From the standpoint of someone looking from the outside, say someone 
->> wanting to consume ethtool -S statistics, it seems to be a big jumble.
->>
->> Might there be a way to bring those two camps together?  Is there 
->> already, with the same wide availabilty of ethtool, and I've just not 
->> seen it?
-> 
-> 
-> ifconfig comes to mind, for one.  What statistics are you looking for 
-> exactly?
+- introduce NETDEVICES_MULTIQUEUE config option instead of
+  NET_SCH_MULTIQUEUE. Schedulers build in multiqueue support
+  automatically when that option is selected.
 
-This would be my strawman - in terms of content not necessarily format, 
-and not all the things would be applicable I'm sure.  Still, it covers 
-the basics which are (IMO) sufficint for initial troubleshooting.
+- make netif_*_subqueue functions NOPs for the
+  !NETDEVICES_MULTIQUEUE case
 
-$ lanadmin -g mibstats 0
+- move skb->iif and skb->queue_mapping next to the other
+  packet scheduling related members
 
-                       LAN INTERFACE STATUS DISPLAY
-                        Thu, Jun 28,2007  10:24:02
+- fix comment: the two byte hole in struct sk_buff is
+  on both 32 and 64 bit
 
-PPA Number                      = 0
-Description                     = lan0 HP PCI 10/100Base-TX Core 
-[100BASE-TX,FD,AUTO,TT=1500]
-Type (value)                    = ethernet-csmacd(6)
-MTU Size                        = 1500
-Speed                           = 100000000
-Station Address                 = 0x1083cf5502
-Administration Status (value)   = up(1)
-Operation Status (value)        = up(1)
-Last Change                     = 678
-Inbound Octets                  = 2816678451
-Inbound Unicast Packets         = 5557984
-Inbound Non-Unicast Packets     = 6857814
-Inbound Discards                = 0
-Inbound Errors                  = 0
-Inbound Unknown Protocols       = 798022
-Outbound Octets                 = 1833385875
-Outbound Unicast Packets        = 5744993
-Outbound Non-Unicast Packets    = 3845
-Outbound Discards               = 0
-Outbound Errors                 = 0
-Outbound Queue Length           = 0
-Specific                        = 655367
 
-Ethernet-like Statistics Group
+--------------010100050008060600010000
+Content-Type: text/x-diff;
+ name="01.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="01.diff"
 
-Index                           = 1
-Alignment Errors                = 0
-FCS Errors                      = 0
-Single Collision Frames         = 0
-Multiple Collision Frames       = 0
-Deferred Transmissions          = 0
-Late Collisions                 = 0
-Excessive Collisions            = 0
-Internal MAC Transmit Errors    = 0
-Carrier Sense Errors            = 0
-Frames Too Long                 = 0
-Internal MAC Receive Errors     = 0
+[CORE] Stack changes to add multiqueue hardware	support API
 
-What I'm thinking of might be as simple as a convention that the first N 
-stats each driver provides are something akin to the above - consistent 
-names and semantics for the stats, and then a driver/NIC-specific 
-portion following
+Add the multiqueue hardware device support API to the core network
+stack.  Allow drivers to allocate multiple queues and manage them
+at the netdev level if they choose to do so.
 
-There is indeed pretty decent overlap with ifconfig output:
+Added a new field to sk_buff, namely queue_mapping, for drivers to
+know which tx_ring to select based on OS classification of the flow.
 
-[root@hpcpc107 netperf2_work]# ifconfig eth0
-eth0      Link encap:Ethernet  HWaddr 00:17:A4:AB:40:FB
-           inet addr:16.89.84.107  Bcast:16.89.84.127  Mask:255.255.255.128
-           inet6 addr: fe80::217:a4ff:feab:40fb/64 Scope:Link
-           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-           RX packets:12448920 errors:0 dropped:0 overruns:0 frame:0
-           TX packets:6075025 errors:0 dropped:0 overruns:0 carrier:0
-           collisions:0 txqueuelen:1000
-           RX bytes:18505185007 (17.2 GiB)  TX bytes:2750351151 (2.5 GiB)
-           Interrupt:55
+Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-The break-out of the stats is nice - "late collisions" in the lanadmin 
-is quite helpful when looking for duplex mismatch.
+---
+commit 48e334930c5fbb64a821733a7056e2800057c128
+tree d7fabeffef8ea856d345fe44be24a916b0a698af
+parent 0552c565358330c59913f2b512355f196e31bd74
+author Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com> Thu, 28 Jun 2007 18:41:00 +0200
+committer Patrick McHardy <kaber@trash.net> Thu, 28 Jun 2007 19:43:53 +0200
 
-I'm not sure if the "UP" and "RUNNING" are matched with administrative 
-and operational state (what we want and what we have respectively).  The 
-queue length in the lanadmin is the current queue length, not the limit. 
-  Serves as a guesstimate as to the utilization of the NIC if one wants 
-to abuse little's law and all that.
+ drivers/net/Kconfig         |    8 +++++
+ include/linux/etherdevice.h |    3 +-
+ include/linux/netdevice.h   |   76 ++++++++++++++++++++++++++++++++++++++++++-
+ include/linux/skbuff.h      |   25 ++++++++++++--
+ net/core/dev.c              |   27 +++++++++++----
+ net/core/netpoll.c          |    8 +++--
+ net/core/pktgen.c           |   10 ++++--
+ net/core/skbuff.c           |    3 ++
+ net/ethernet/eth.c          |    9 +++--
+ 9 files changed, 145 insertions(+), 24 deletions(-)
 
-Mostly I'm looking for a bit broader set of link-level stats which would 
-be reported consistenly regardless of NIC type.
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index e5549dc..8bce4fb 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -28,6 +28,14 @@ config NETDEVICES
+ # that for each of the symbols.
+ if NETDEVICES
+ 
++config NETDEVICES_MULTIQUEUE
++	bool "Netdevice multiple hardware queue support"
++	---help---
++	  Say Y here if you want to allow the network stack to use multiple
++	  hardware TX queues on an ethernet device.
++
++	  Most people will say N here.
++
+ config IFB
+ 	tristate "Intermediate Functional Block support"
+ 	depends on NET_CLS_ACT
+diff --git a/include/linux/etherdevice.h b/include/linux/etherdevice.h
+index f48eb89..6cdb973 100644
+--- a/include/linux/etherdevice.h
++++ b/include/linux/etherdevice.h
+@@ -39,7 +39,8 @@ extern void		eth_header_cache_update(struct hh_cache *hh, struct net_device *dev
+ extern int		eth_header_cache(struct neighbour *neigh,
+ 					 struct hh_cache *hh);
+ 
+-extern struct net_device *alloc_etherdev(int sizeof_priv);
++extern struct net_device *alloc_etherdev_mq(int sizeof_priv, unsigned int queue_count);
++#define alloc_etherdev(sizeof_priv) alloc_etherdev_mq(sizeof_priv, 1)
+ 
+ /**
+  * is_zero_ether_addr - Determine if give Ethernet address is all zeros.
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 2c0cc19..1b43e15 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -108,6 +108,14 @@ struct wireless_dev;
+ #define MAX_HEADER (LL_MAX_HEADER + 48)
+ #endif
+ 
++struct net_device_subqueue
++{
++	/* Give a control state for each queue.  This struct may contain
++	 * per-queue locks in the future.
++	 */
++	unsigned long   state;
++};
++
+ /*
+  *	Network device statistics. Akin to the 2.0 ether stats but
+  *	with byte counters.
+@@ -331,6 +339,7 @@ struct net_device
+ #define NETIF_F_VLAN_CHALLENGED	1024	/* Device cannot handle VLAN packets */
+ #define NETIF_F_GSO		2048	/* Enable software GSO. */
+ #define NETIF_F_LLTX		4096	/* LockLess TX */
++#define NETIF_F_MULTI_QUEUE	16384	/* Has multiple TX/RX queues */
+ 
+ 	/* Segmentation offload features */
+ #define NETIF_F_GSO_SHIFT	16
+@@ -557,6 +566,10 @@ struct net_device
+ 
+ 	/* rtnetlink link ops */
+ 	const struct rtnl_link_ops *rtnl_link_ops;
++
++	/* The TX queue control structures */
++	unsigned int			egress_subqueue_count;
++	struct net_device_subqueue	egress_subqueue[0];
+ };
+ #define to_net_dev(d) container_of(d, struct net_device, dev)
+ 
+@@ -719,6 +732,62 @@ static inline int netif_running(const struct net_device *dev)
+ 	return test_bit(__LINK_STATE_START, &dev->state);
+ }
+ 
++/*
++ * Routines to manage the subqueues on a device.  We only need start
++ * stop, and a check if it's stopped.  All other device management is
++ * done at the overall netdevice level.
++ * Also test the device if we're multiqueue.
++ */
++static inline void netif_start_subqueue(struct net_device *dev, u16 queue_index)
++{
++#ifdef CONFIG_NETDEVICES_MULTIQUEUE
++	clear_bit(__LINK_STATE_XOFF, &dev->egress_subqueue[queue_index].state);
++#endif
++}
++
++static inline void netif_stop_subqueue(struct net_device *dev, u16 queue_index)
++{
++#ifdef CONFIG_NETDEVICES_MULTIQUEUE
++#ifdef CONFIG_NETPOLL_TRAP
++	if (netpoll_trap())
++		return;
++#endif
++	set_bit(__LINK_STATE_XOFF, &dev->egress_subqueue[queue_index].state);
++#endif
++}
++
++static inline int netif_subqueue_stopped(const struct net_device *dev,
++					 u16 queue_index)
++{
++#ifdef CONFIG_NETDEVICES_MULTIQUEUE
++	return test_bit(__LINK_STATE_XOFF,
++			&dev->egress_subqueue[queue_index].state);
++#else
++	return 0;
++#endif
++}
++
++static inline void netif_wake_subqueue(struct net_device *dev, u16 queue_index)
++{
++#ifdef CONFIG_NETDEVICES_MULTIQUEUE
++#ifdef CONFIG_NETPOLL_TRAP
++	if (netpoll_trap())
++		return;
++#endif
++	if (test_and_clear_bit(__LINK_STATE_XOFF,
++			       &dev->egress_subqueue[queue_index].state))
++		__netif_schedule(dev);
++#endif
++}
++
++static inline int netif_is_multiqueue(const struct net_device *dev)
++{
++#ifdef CONFIG_NETDEVICES_MULTIQUEUE
++	return (!!(NETIF_F_MULTI_QUEUE & dev->features));
++#else
++	return 0;
++#endif
++}
+ 
+ /* Use this variant when it is known for sure that it
+  * is executing from interrupt context.
+@@ -1009,8 +1078,11 @@ static inline void netif_tx_disable(struct net_device *dev)
+ extern void		ether_setup(struct net_device *dev);
+ 
+ /* Support for loadable net-drivers */
+-extern struct net_device *alloc_netdev(int sizeof_priv, const char *name,
+-				       void (*setup)(struct net_device *));
++extern struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
++				       void (*setup)(struct net_device *),
++				       unsigned int queue_count);
++#define alloc_netdev(sizeof_priv, name, setup) \
++	alloc_netdev_mq(sizeof_priv, name, setup, 1)
+ extern int		register_netdev(struct net_device *dev);
+ extern void		unregister_netdev(struct net_device *dev);
+ /* Functions used for secondary unicast and multicast support */
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index b7b2628..e3851bb 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -196,7 +196,6 @@ typedef unsigned char *sk_buff_data_t;
+  *	@sk: Socket we are owned by
+  *	@tstamp: Time we arrived
+  *	@dev: Device we arrived on/are leaving by
+- *	@iif: ifindex of device we arrived on
+  *	@transport_header: Transport layer header
+  *	@network_header: Network layer header
+  *	@mac_header: Link layer header
+@@ -231,6 +230,8 @@ typedef unsigned char *sk_buff_data_t;
+  *	@nfctinfo: Relationship of this skb to the connection
+  *	@nfct_reasm: netfilter conntrack re-assembly pointer
+  *	@nf_bridge: Saved data about a bridged frame - see br_netfilter.c
++ *	@iif: ifindex of device we arrived on
++ *	@queue_mapping: Queue mapping for multiqueue devices
+  *	@tc_index: Traffic control index
+  *	@tc_verd: traffic control verdict
+  *	@dma_cookie: a cookie to one of several possible DMA operations
+@@ -246,8 +247,6 @@ struct sk_buff {
+ 	struct sock		*sk;
+ 	ktime_t			tstamp;
+ 	struct net_device	*dev;
+-	int			iif;
+-	/* 4 byte hole on 64 bit*/
+ 
+ 	struct  dst_entry	*dst;
+ 	struct	sec_path	*sp;
+@@ -290,12 +289,18 @@ struct sk_buff {
+ #ifdef CONFIG_BRIDGE_NETFILTER
+ 	struct nf_bridge_info	*nf_bridge;
+ #endif
++
++	int			iif;
++	__u16			queue_mapping;
++
+ #ifdef CONFIG_NET_SCHED
+ 	__u16			tc_index;	/* traffic control index */
+ #ifdef CONFIG_NET_CLS_ACT
+ 	__u16			tc_verd;	/* traffic control verdict */
+ #endif
+ #endif
++	/* 2 byte hole */
++
+ #ifdef CONFIG_NET_DMA
+ 	dma_cookie_t		dma_cookie;
+ #endif
+@@ -1721,6 +1726,20 @@ static inline void skb_init_secmark(struct sk_buff *skb)
+ { }
+ #endif
+ 
++static inline void skb_set_queue_mapping(struct sk_buff *skb, u16 queue_mapping)
++{
++#ifdef CONFIG_NETDEVICES_MULTIQUEUE
++	skb->queue_mapping = queue_mapping;
++#endif
++}
++
++static inline void skb_copy_queue_mapping(struct sk_buff *to, const struct sk_buff *from)
++{
++#ifdef CONFIG_NETDEVICES_MULTIQUEUE
++	to->queue_mapping = from->queue_mapping;
++#endif
++}
++
+ static inline int skb_is_gso(const struct sk_buff *skb)
+ {
+ 	return skb_shinfo(skb)->gso_size;
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 778e102..e94991a 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1429,7 +1429,9 @@ gso:
+ 			skb->next = nskb;
+ 			return rc;
+ 		}
+-		if (unlikely(netif_queue_stopped(dev) && skb->next))
++		if (unlikely((netif_queue_stopped(dev) ||
++			     netif_subqueue_stopped(dev, skb->queue_mapping)) &&
++			     skb->next))
+ 			return NETDEV_TX_BUSY;
+ 	} while (skb->next);
+ 
+@@ -1547,6 +1549,8 @@ gso:
+ 		spin_lock(&dev->queue_lock);
+ 		q = dev->qdisc;
+ 		if (q->enqueue) {
++			/* reset queue_mapping to zero */
++			skb->queue_mapping = 0;
+ 			rc = q->enqueue(skb, q);
+ 			qdisc_run(dev);
+ 			spin_unlock(&dev->queue_lock);
+@@ -1576,7 +1580,8 @@ gso:
+ 
+ 			HARD_TX_LOCK(dev, cpu);
+ 
+-			if (!netif_queue_stopped(dev)) {
++			if (!netif_queue_stopped(dev) &&
++			    !netif_subqueue_stopped(dev, skb->queue_mapping)) {
+ 				rc = 0;
+ 				if (!dev_hard_start_xmit(skb, dev)) {
+ 					HARD_TX_UNLOCK(dev);
+@@ -3539,16 +3544,18 @@ static struct net_device_stats *internal_stats(struct net_device *dev)
+ }
+ 
+ /**
+- *	alloc_netdev - allocate network device
++ *	alloc_netdev_mq - allocate network device
+  *	@sizeof_priv:	size of private data to allocate space for
+  *	@name:		device name format string
+  *	@setup:		callback to initialize device
++ *	@queue_count:	the number of subqueues to allocate
+  *
+  *	Allocates a struct net_device with private data area for driver use
+- *	and performs basic initialization.
++ *	and performs basic initialization.  Also allocates subquue structs
++ *	for each queue on the device at the end of the netdevice.
+  */
+-struct net_device *alloc_netdev(int sizeof_priv, const char *name,
+-		void (*setup)(struct net_device *))
++struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
++		void (*setup)(struct net_device *), unsigned int queue_count)
+ {
+ 	void *p;
+ 	struct net_device *dev;
+@@ -3557,7 +3564,9 @@ struct net_device *alloc_netdev(int sizeof_priv, const char *name,
+ 	BUG_ON(strlen(name) >= sizeof(dev->name));
+ 
+ 	/* ensure 32-byte alignment of both the device and private area */
+-	alloc_size = (sizeof(*dev) + NETDEV_ALIGN_CONST) & ~NETDEV_ALIGN_CONST;
++	alloc_size = (sizeof(*dev) + NETDEV_ALIGN_CONST +
++		     (sizeof(struct net_device_subqueue) * queue_count)) &
++		     ~NETDEV_ALIGN_CONST;
+ 	alloc_size += sizeof_priv + NETDEV_ALIGN_CONST;
+ 
+ 	p = kzalloc(alloc_size, GFP_KERNEL);
+@@ -3573,12 +3582,14 @@ struct net_device *alloc_netdev(int sizeof_priv, const char *name,
+ 	if (sizeof_priv)
+ 		dev->priv = netdev_priv(dev);
+ 
++	dev->egress_subqueue_count = queue_count;
++
+ 	dev->get_stats = internal_stats;
+ 	setup(dev);
+ 	strcpy(dev->name, name);
+ 	return dev;
+ }
+-EXPORT_SYMBOL(alloc_netdev);
++EXPORT_SYMBOL(alloc_netdev_mq);
+ 
+ /**
+  *	free_netdev - free network device
+diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+index 758dafe..2ace33d 100644
+--- a/net/core/netpoll.c
++++ b/net/core/netpoll.c
+@@ -66,8 +66,9 @@ static void queue_process(struct work_struct *work)
+ 
+ 		local_irq_save(flags);
+ 		netif_tx_lock(dev);
+-		if (netif_queue_stopped(dev) ||
+-		    dev->hard_start_xmit(skb, dev) != NETDEV_TX_OK) {
++		if ((netif_queue_stopped(dev) ||
++		     netif_subqueue_stopped(dev, skb->queue_mapping)) ||
++		     dev->hard_start_xmit(skb, dev) != NETDEV_TX_OK) {
+ 			skb_queue_head(&npinfo->txq, skb);
+ 			netif_tx_unlock(dev);
+ 			local_irq_restore(flags);
+@@ -254,7 +255,8 @@ static void netpoll_send_skb(struct netpoll *np, struct sk_buff *skb)
+ 			/* try until next clock tick */
+ 			for (tries = jiffies_to_usecs(1)/USEC_PER_POLL;
+ 					tries > 0; --tries) {
+-				if (!netif_queue_stopped(dev))
++				if (!netif_queue_stopped(dev) &&
++				    !netif_subqueue_stopped(dev, skb->queue_mapping))
+ 					status = dev->hard_start_xmit(skb, dev);
+ 
+ 				if (status == NETDEV_TX_OK)
+diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+index 9cd3a1c..dffe067 100644
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -3139,7 +3139,9 @@ static __inline__ void pktgen_xmit(struct pktgen_dev *pkt_dev)
+ 		}
+ 	}
+ 
+-	if (netif_queue_stopped(odev) || need_resched()) {
++	if ((netif_queue_stopped(odev) ||
++	     netif_subqueue_stopped(odev, pkt_dev->skb->queue_mapping)) ||
++	     need_resched()) {
+ 		idle_start = getCurUs();
+ 
+ 		if (!netif_running(odev)) {
+@@ -3154,7 +3156,8 @@ static __inline__ void pktgen_xmit(struct pktgen_dev *pkt_dev)
+ 
+ 		pkt_dev->idle_acc += getCurUs() - idle_start;
+ 
+-		if (netif_queue_stopped(odev)) {
++		if (netif_queue_stopped(odev) ||
++		    netif_subqueue_stopped(odev, pkt_dev->skb->queue_mapping)) {
+ 			pkt_dev->next_tx_us = getCurUs();	/* TODO */
+ 			pkt_dev->next_tx_ns = 0;
+ 			goto out;	/* Try the next interface */
+@@ -3181,7 +3184,8 @@ static __inline__ void pktgen_xmit(struct pktgen_dev *pkt_dev)
+ 	}
+ 
+ 	netif_tx_lock_bh(odev);
+-	if (!netif_queue_stopped(odev)) {
++	if (!netif_queue_stopped(odev) &&
++	    !netif_subqueue_stopped(odev, pkt_dev->skb->queue_mapping)) {
+ 
+ 		atomic_inc(&(pkt_dev->skb->users));
+ 	      retry_now:
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 8d8e8fc..af03556 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -419,6 +419,7 @@ struct sk_buff *skb_clone(struct sk_buff *skb, gfp_t gfp_mask)
+ 	n->nohdr = 0;
+ 	C(pkt_type);
+ 	C(ip_summed);
++	skb_copy_queue_mapping(n, skb);
+ 	C(priority);
+ #if defined(CONFIG_IP_VS) || defined(CONFIG_IP_VS_MODULE)
+ 	C(ipvs_property);
+@@ -460,6 +461,7 @@ static void copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
+ #endif
+ 	new->sk		= NULL;
+ 	new->dev	= old->dev;
++	skb_copy_queue_mapping(new, old);
+ 	new->priority	= old->priority;
+ 	new->protocol	= old->protocol;
+ 	new->dst	= dst_clone(old->dst);
+@@ -1927,6 +1929,7 @@ struct sk_buff *skb_segment(struct sk_buff *skb, int features)
+ 		tail = nskb;
+ 
+ 		nskb->dev = skb->dev;
++		skb_copy_queue_mapping(nskb, skb);
+ 		nskb->priority = skb->priority;
+ 		nskb->protocol = skb->protocol;
+ 		nskb->dst = dst_clone(skb->dst);
+diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
+index 0ac2524..1387e54 100644
+--- a/net/ethernet/eth.c
++++ b/net/ethernet/eth.c
+@@ -316,9 +316,10 @@ void ether_setup(struct net_device *dev)
+ EXPORT_SYMBOL(ether_setup);
+ 
+ /**
+- * alloc_etherdev - Allocates and sets up an Ethernet device
++ * alloc_etherdev_mq - Allocates and sets up an Ethernet device
+  * @sizeof_priv: Size of additional driver-private structure to be allocated
+  *	for this Ethernet device
++ * @queue_count: The number of queues this device has.
+  *
+  * Fill in the fields of the device structure with Ethernet-generic
+  * values. Basically does everything except registering the device.
+@@ -328,8 +329,8 @@ EXPORT_SYMBOL(ether_setup);
+  * this private data area.
+  */
+ 
+-struct net_device *alloc_etherdev(int sizeof_priv)
++struct net_device *alloc_etherdev_mq(int sizeof_priv, unsigned int queue_count)
+ {
+-	return alloc_netdev(sizeof_priv, "eth%d", ether_setup);
++	return alloc_netdev_mq(sizeof_priv, "eth%d", ether_setup, queue_count);
+ }
+-EXPORT_SYMBOL(alloc_etherdev);
++EXPORT_SYMBOL(alloc_etherdev_mq);
 
-rick jones
+--------------010100050008060600010000--
