@@ -1,43 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT PATCHES] SCTP fixes
-Date: Thu, 28 Jun 2007 21:24:35 -0700 (PDT)
-Message-ID: <20070628.212435.03979074.davem@davemloft.net>
-References: <11830412972450-git-send-email-vladislav.yasevich@hp.com>
+From: Kumar Gala <galak@kernel.crashing.org>
+Subject: Please pull from 'from_linus' branch
+Date: Fri, 29 Jun 2007 00:13:46 -0500 (CDT)
+Message-ID: <Pine.LNX.4.64.0706290012430.15686@blarg.am.freescale.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: lksctp-developers@lists.sourceforge.net, netdev@vger.kernel.org
-To: vladislav.yasevich@hp.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	acme@redhat.com
+To: Linus Torvalds <torvalds@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53764
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750813AbXF2EYP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jun 2007 00:24:15 -0400
-In-Reply-To: <11830412972450-git-send-email-vladislav.yasevich@hp.com>
+Received: from gate.crashing.org ([63.228.1.57]:52567 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751455AbXF2FOU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Jun 2007 01:14:20 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Date: Thu, 28 Jun 2007 10:34:57 -0400
+Please pull from 'for_linus' branch of
 
-> 
-> Hi David
-> 
-> Please pull the following changes:
-> 
-> The following changes since commit 19e6454ca778e11e81497bd87c930dc0defd03d7:
->   David Howells (1):
->         [AF_RXRPC]: Return the number of bytes buffered in rxrpc_send_data()
-> 
-> are found in the git repository at:
-> 
->   master.kernel.org:/pub/scm/linux/kernel/git/vxy/lksctp-dev.git
-> 
-> Neil Horman (2):
->       SCTP: update sctp_getsockopt helpers to allow oversized buffers
->       SCTP: Fix sctp_getsockopt_get_peer_addrs
-> 
-> Zach Brown (1):
->       SCTP: lock_sock_nested in sctp_sock_migrate
+	master.kernel.org:/pub/scm/linux/kernel/git/galak/powerpc.git for_linus
 
-Pulled, thanks a lot Vlad.
+to receive the following updates:
+
+ drivers/net/gianfar.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+Kumar Gala (1):
+      gianfar: Fix typo bug introduced by move to udp_hdr()
+
+commit 8da32de5c845b711a500f89342baf10c662e2ecb
+Author: Kumar Gala <galak@kernel.crashing.org>
+Date:   Fri Jun 29 00:12:04 2007 -0500
+
+    gianfar: Fix typo bug introduced by move to udp_hdr()
+
+    In commit 4bedb45203eab92a87b4c863fe2d0cded633427f both the udp and tcp
+    cases where changed to use udp_hdr() instead of leaving the tcp case
+    alone and fixing with tcp_hdr().
+
+    This ended up causing random behavior with TCP connections because
+    of looking for tcp_hdr()->check in the wrong place.
+
+    Signed-off-by: Kumar Gala <galak@kernel.crashing.org>
+
+diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
+index 6822bf1..1b854bf 100644
+--- a/drivers/net/gianfar.c
++++ b/drivers/net/gianfar.c
+@@ -944,7 +944,7 @@ static inline void gfar_tx_checksum(struct sk_buff *skb, struct txfcb *fcb)
+ 		flags |= TXFCB_UDP;
+ 		fcb->phcs = udp_hdr(skb)->check;
+ 	} else
+-		fcb->phcs = udp_hdr(skb)->check;
++		fcb->phcs = tcp_hdr(skb)->check;
+
+ 	/* l3os is the distance between the start of the
+ 	 * frame (skb->data) and the start of the IP hdr.
