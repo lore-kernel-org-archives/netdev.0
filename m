@@ -1,62 +1,148 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: Fwd: [PATCH] [-mm] ACPI: export ACPI events via netlink
-Date: Fri, 29 Jun 2007 14:09:47 +0200
-Message-ID: <4684F68B.5030805@trash.net>
-References: <1179827251.7707.29.camel@localhost.localdomain>	 <1179831825.4121.30.camel@localhost>	 <1180258853.7707.53.camel@localhost.localdomain>	 <4466a10705270629h31977813hd2fc8330bcd87f78@mail.gmail.com>	 <4466a10705270634j3560c9a3j9c3630ddc20a24aa@mail.gmail.com>	 <1181811576.5411.27.camel@localhost.localdomain>	 <1181820510.4091.9.camel@localhost>	 <1181869285.5411.39.camel@localhost.localdomain>	 <1182178882.4063.11.camel@localhost>	 <1182223964.5411.76.camel@localhost.localdomain>	 <1182811210.6644.22.camel@johannes.berg>	 <1182986681.5155.55.camel@localhost>	 <1183023939.4769.76.camel@johannes.berg>  <4684F25B.5090607@trash.net> <1183118486.5156.77.camel@localhost>
+From: Jens Stroebel <drifter@bcsoft.de>
+Subject: 2.6.21.5+1small patch: not blocking [was: Re: r8169: 2.6.22rc6+patches
+ works, but 2.6.21.5 and 2.6.22rc6 without patches->network transfer blocking]
+Date: Fri, 29 Jun 2007 14:18:32 +0200
+Message-ID: <4684F898.80204@bcsoft.de>
+References: <4683F923.80508@bcsoft.de> <20070628213050.GB4233@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	Zhang Rui <rui.zhang@intel.com>, netdev@vger.kernel.org,
-	"linux-acpi@vger" <linux-acpi@vger.kernel.org>, lenb@kernel.org,
-	Thomas Graf <tgraf@suug.ch>
-To: hadi@cyberus.ca
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <1183118486.5156.77.camel@localhost>
-Sender: linux-acpi-owner@vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------000801040403090809080406"
+Cc: netdev list <netdev@vger.kernel.org>
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from moutng.kundenserver.de ([212.227.126.171]:53100 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758332AbXF2MSf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jun 2007 08:18:35 -0400
+In-Reply-To: <20070628213050.GB4233@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> On Fri, 2007-29-06 at 13:51 +0200, Patrick McHardy wrote:
+This is a multi-part message in MIME format.
+--------------000801040403090809080406
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+
+Francois Romieu wrote:
+> Jens Stroebel <drifter@bcsoft.de> :
+> [...]
+>> Would it
+>> be possible to apply the single patch to 2.6.21.5 and get a working
+>> driver?
+
+> Mantra: mainline first, stable later.
+
+hm .. OK.
+
+> In the next future, most of this patchset will hopefully go into
+> 2.6.23-rc1. Some people will then complain that 2.6.23-rc1 breaks
+> their 816x. After that the patchkit will be amended and the r8169
+> regressions in 2.6.23-rcX fixed.
 > 
-> 
->>Do multicast groups have to have a seperate name? 
-> 
-> 
-> As i see it: the name would be unique per family
-> Its like DNS IP to name mapping essentially (in the simple case of IP
-> being globaly reachable). You do a discovery of the ID by knowing the
-> name.
+> Then it will be time to feed some r8169 bits in 2.6.2x.y
+
+By this time, probably the hosts which should run w. the driver will be
+standing all around the world, which makes applying a patch slightly
+more interesting... ;-)
+
+But see below:
+
+> It may help and/or accelerate things if you can narrow the fix(es) in
+> the current r8169 serie.
+
+As I mentioned in the initial message, I had experimented with
+2.6.22rc6; unfortunately
+
+ a) we have some stuff depending on the kernel where
+    2.6.21.5<->2.6.22rc6 makes a difference (does not work)
+ b) I experienced a hard lockup w. kernel 2.6.22rc6 this morning while
+    not really doing something special (file IO, extracting a tar. As
+    this was reproducably happening, we retreated from experimenting
+    with it now.
+
+Instead, I built 2.6.21.5+[a patch I snatched from a mail communication
+you had on 2007-06-20
+(Msg-ID: <20070620211530.GA10042@electric-eye.fr.zoreil.com> )].
+I will attach it with this mail, as it is really small and you don't
+have to dig around to know what I'm talking about.
+
+As I am no kernel-developer, I am not sure there are no undesired side
+effects by applying this patch to this kernel; if you think there are
+(could/should be), it would be nice if you could state that, so I'd
+refrain from testing with this combination.
+
+		greets,
+		   jens
+-- 
+drifter@bcsoft.de
+			23.....56.......drifting
+By caffeine alone I set my mind in motion, By the beans of Java
+do thoughts acquire speed,  hands acquire shaking,  the shaking
+becomes a warning, By caffeine alone do I set my mind in motion
+
+--------------000801040403090809080406
+Content-Type: text/plain;
+ name="8169_stop_blocking.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="8169_stop_blocking.patch"
+
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -2514,7 +2514,7 @@ static inline u32 rtl8169_tso_csum(struct sk_buff *skb, struct net_device *dev)
+ static int rtl8169_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct rtl8169_private *tp = netdev_priv(dev);
+-	unsigned int frags, entry = tp->cur_tx % NUM_TX_DESC;
++	unsigned int frags, cur_tx, entry = tp->cur_tx % NUM_TX_DESC;
+ 	struct TxDesc *txd = tp->TxDescArray + entry;
+ 	void __iomem *ioaddr = tp->mmio_addr;
+ 	dma_addr_t mapping;
+@@ -2567,13 +2567,17 @@ static int rtl8169_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	dev->trans_start = jiffies;
+ 
++	cur_tx = tp->cur_tx;
++
+ 	tp->cur_tx += frags + 1;
+ 
+-	smp_wmb();
++	mmiowb();
+ 
+-	RTL_W8(TxPoll, NPQ);	/* set polling bit */
++	smp_mb();
+ 
+-	if (TX_BUFFS_AVAIL(tp) < MAX_SKB_FRAGS) {
++	if (cur_tx == tp->dirty_tx)
++		RTL_W8(TxPoll, NPQ);
++	else if (TX_BUFFS_AVAIL(tp) < MAX_SKB_FRAGS) {
+ 		netif_stop_queue(dev);
+ 		smp_rmb();
+ 		if (TX_BUFFS_AVAIL(tp) >= MAX_SKB_FRAGS)
+@@ -2677,10 +2681,18 @@ static void rtl8169_tx_interrupt(struct net_device *dev,
+ 
+ 	if (tp->dirty_tx != dirty_tx) {
+ 		tp->dirty_tx = dirty_tx;
+-		smp_wmb();
+-		if (netif_queue_stopped(dev) &&
+-		    (TX_BUFFS_AVAIL(tp) >= MAX_SKB_FRAGS)) {
+-			netif_wake_queue(dev);
++		smp_mb();
++		if (unlikely(netif_queue_stopped(dev))) {
++			netif_tx_lock(dev);
++		    	if (TX_BUFFS_AVAIL(tp) >= MAX_SKB_FRAGS)
++				netif_wake_queue(dev);
++			if (dirty_tx != tp->cur_tx)
++				RTL_W8(TxPoll, NPQ);
++			netif_tx_unlock(dev);
++		} else if (dirty_tx != tp->cur_tx) {
++			netif_tx_lock(dev);
++			RTL_W8(TxPoll, NPQ);
++			netif_tx_unlock(dev);
+ 		}
+ 	}
+ }
 
 
-Mhh .. I agree that it would be necessary to have a group identifier
-for dynamically allocated groups like one group per device or something.
-I'm wondering if anyone really needs this though. Having messages
-grouped logically by type makes more sense to me.
-
->>Or would it suffice
->>to have them associated with the genl family and be able to find out
->>the starting group number? 
-> 
-> 
-> The id space is global.
-> 
-> 
->>In that case something like
->>
->>struct genl_mc_groups {
->>	struct genl_family *family or char *family_name or similar;
->>	unsigned int group_off;
->>	unsigned int group_num;
->>	unsigned long groups[];
->>};
->>
->>seems to make more sense since you only need a single struct
->>per family.
-> 
-> 
-> I think something that ties to the family would be needed.
-
-
-My example includes a pointer to the family or the name, but anything
-else that works is fine also.
+--------------000801040403090809080406--
