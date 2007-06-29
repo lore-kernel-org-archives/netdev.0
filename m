@@ -1,53 +1,98 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: e1000: backport ich9 support from 7.5.5 ?
-Date: Fri, 29 Jun 2007 12:51:02 -0700
-Message-ID: <468562A6.8060901@intel.com>
-References: <1183138159.17243.16.camel@blaa> <20070629175006.GB3917@falooley.org>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH 01/21] r8169: use netdev_alloc_skb
+Date: Fri, 29 Jun 2007 22:13:14 +0200
+Message-ID: <20070629201314.GB3240@electric-eye.fr.zoreil.com>
+References: <20070629201212.GA3240@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Mark McLoughlin <markmc@redhat.com>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	Jeff Garzik <jeff@garzik.org>
-To: Jason Lunz <lunz@reflexsecurity.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Edward Hsu <edward_hsu@realtek.com.tw>
+To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:25576 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754359AbXF2TvH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Jun 2007 15:51:07 -0400
-In-Reply-To: <20070629175006.GB3917@falooley.org>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:55597 "EHLO
+	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753042AbXF2UOE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Jun 2007 16:14:04 -0400
+Content-Disposition: inline
+In-Reply-To: <20070629201212.GA3240@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jason Lunz wrote:
-> On Fri, Jun 29, 2007 at 06:29:18PM +0100, Mark McLoughlin wrote:
->> 	I understand there is some delay in getting e1000-7.5.5 into the
->> upstream kernel given the major re-working of the chipset specific
->> parts.
->>
->> 	I wonder would it be feasible in the meantime to backport the ich9
->> support and push it upstream?
-> 
-> seconded - this driver reorg has been holding back support for the
-> newest e1000 hardware since at least 2.6.20, and I haven't seen any
-> indication that the 7.5.5 e1000 driver will even be added to 2.6.23.
+Use netdev_alloc_skb and remove the useless sk_buff * argument of
+rtl8169_alloc_rx_skb.
 
-I disagree, we should not break the current e1000 driver in the kernel while 
-there is a new driver coming up that introduces ich9 support without breaking 
-(the old e1000) support for all other devices. This is why we want to drop a new 
-version of the e1000 driver upstream instead, and put all newer devices in that 
-driver.
+Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+Cc: Edward Hsu <edward_hsu@realtek.com.tw>
+---
+ drivers/net/r8169.c |   27 ++++++++++++++-------------
+ 1 files changed, 14 insertions(+), 13 deletions(-)
 
-For distro's not following kernel.org releases we have the perfect solution: A 
-fully tested 7.5.5 driver on sourceforge that was extensively tested against 
-RHEL5 for instance, but also a lot of other older kernels.
-
-> What's the prognosis for the 7.5.5-series e1000 reorg going into
-> netdev-2.6?
-
-I sure hope to get it out before 2.6.23 merge window close... But anything can 
-unfortunately happen.
-
-
-Auke
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index 5ec7752..4586446 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -1997,31 +1997,28 @@ static inline void rtl8169_map_to_asic(struct RxDesc *desc, dma_addr_t mapping,
+ 	rtl8169_mark_to_asic(desc, rx_buf_sz);
+ }
+ 
+-static int rtl8169_alloc_rx_skb(struct pci_dev *pdev, struct sk_buff **sk_buff,
+-				struct RxDesc *desc, int rx_buf_sz,
+-				unsigned int align)
++static struct sk_buff *rtl8169_alloc_rx_skb(struct pci_dev *pdev,
++					    struct net_device *dev,
++					    struct RxDesc *desc, int rx_buf_sz,
++					    unsigned int align)
+ {
+ 	struct sk_buff *skb;
+ 	dma_addr_t mapping;
+-	int ret = 0;
+ 
+-	skb = dev_alloc_skb(rx_buf_sz + align);
++	skb = netdev_alloc_skb(dev, rx_buf_sz + align);
+ 	if (!skb)
+ 		goto err_out;
+ 
+ 	skb_reserve(skb, (align - 1) & (unsigned long)skb->data);
+-	*sk_buff = skb;
+ 
+ 	mapping = pci_map_single(pdev, skb->data, rx_buf_sz,
+ 				 PCI_DMA_FROMDEVICE);
+ 
+ 	rtl8169_map_to_asic(desc, mapping, rx_buf_sz);
+-
+ out:
+-	return ret;
++	return skb;
+ 
+ err_out:
+-	ret = -ENOMEM;
+ 	rtl8169_make_unusable_by_asic(desc);
+ 	goto out;
+ }
+@@ -2044,15 +2041,19 @@ static u32 rtl8169_rx_fill(struct rtl8169_private *tp, struct net_device *dev,
+ 	u32 cur;
+ 
+ 	for (cur = start; end - cur > 0; cur++) {
+-		int ret, i = cur % NUM_RX_DESC;
++		struct sk_buff *skb;
++		unsigned int i = cur % NUM_RX_DESC;
+ 
+ 		if (tp->Rx_skbuff[i])
+ 			continue;
+ 
+-		ret = rtl8169_alloc_rx_skb(tp->pci_dev, tp->Rx_skbuff + i,
+-			tp->RxDescArray + i, tp->rx_buf_sz, tp->align);
+-		if (ret < 0)
++		skb = rtl8169_alloc_rx_skb(tp->pci_dev, dev,
++					   tp->RxDescArray + i,
++					   tp->rx_buf_sz, tp->align);
++		if (!skb)
+ 			break;
++
++		tp->Rx_skbuff[i] = skb;
+ 	}
+ 	return cur - start;
+ }
+-- 
+1.4.4.2
 
