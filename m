@@ -1,68 +1,72 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: Multiqueue and virtualization WAS(Re: [PATCH 3/3] NET: [SCHED]
-	Qdisc changes and sch_rr added for multiqueue
-Date: Fri, 29 Jun 2007 08:54:30 -0400
-Message-ID: <1183121670.5188.16.camel@localhost>
-References: <D5C1322C3E673F459512FB59E0DDC329031F0648@orsmsx414.amr.corp.intel.com>
-	 <46840AF5.4020209@trash.net>
-	 <20070628.212032.108743475.davem@davemloft.net>
-	 <1183117415.5156.61.camel@localhost>  <4684F41B.9080309@trash.net>
-Reply-To: hadi@cyberus.ca
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: Fwd: [PATCH] [-mm] ACPI: export ACPI events via netlink
+Date: Fri, 29 Jun 2007 14:57:49 +0200
+Message-ID: <1183121869.4089.57.camel@johannes.berg>
+References: <1179827251.7707.29.camel@localhost.localdomain>
+	 <1179831825.4121.30.camel@localhost>
+	 <1180258853.7707.53.camel@localhost.localdomain>
+	 <4466a10705270629h31977813hd2fc8330bcd87f78@mail.gmail.com>
+	 <4466a10705270634j3560c9a3j9c3630ddc20a24aa@mail.gmail.com>
+	 <1181811576.5411.27.camel@localhost.localdomain>
+	 <1181820510.4091.9.camel@localhost>
+	 <1181869285.5411.39.camel@localhost.localdomain>
+	 <1182178882.4063.11.camel@localhost>
+	 <1182223964.5411.76.camel@localhost.localdomain>
+	 <1182811210.6644.22.camel@johannes.berg>
+	 <1182986681.5155.55.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	peter.p.waskiewicz.jr@intel.com, netdev@vger.kernel.org,
-	jeff@garzik.org, auke-jan.h.kok@intel.com
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-VCu6RSV7ZBu4+UFr7AKX"
+Cc: Zhang Rui <rui.zhang@intel.com>, netdev@vger.kernel.org,
+	"linux-acpi@vger" <linux-acpi@vger.kernel.org>, lenb@kernel.org,
+	Thomas Graf <tgraf@suug.ch>, Patrick McHardy <kaber@trash.net>
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.228]:57653 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755911AbXF2Mye (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jun 2007 08:54:34 -0400
-Received: by wx-out-0506.google.com with SMTP id h31so828082wxd
-        for <netdev@vger.kernel.org>; Fri, 29 Jun 2007 05:54:34 -0700 (PDT)
-In-Reply-To: <4684F41B.9080309@trash.net>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:35093 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751944AbXF2M5f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jun 2007 08:57:35 -0400
+In-Reply-To: <1182986681.5155.55.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2007-29-06 at 13:59 +0200, Patrick McHardy wrote:
 
-> I'm guessing that that wouldn't allow to do unicast filtering for
-> the guests on the real device without hacking the bridge code for
-> this special case. 
+--=-VCu6RSV7ZBu4+UFr7AKX
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-For ingress (i guess you could say for egress as well): we can do it as
-well today with tc filtering on the host - it is involved but is part of
-provisioning for a guest IMO.
-A substantial amount of ethernet switches (ok, not the $5 ones) do
-filtering at the same level.
+On Wed, 2007-06-27 at 19:24 -0400, jamal wrote:
 
-> The difference to a real bridge is that the
-> all addresses are completely known in advance, so it doesn't need
-> promiscous mode for learning.
+> a) i.e other than the reserved group for controller (which you seem to
+> be taking care of), every other genetlink user has to explicitly
+> register when they need a mcast group.=20
 
-You mean the per-virtual MAC addresses are known in advance, right?
-This is fine. The bridging or otherwise (like L3 etc) is for
-interconnecting once you have the provisioning done. And you could build
-different "broadcast domains" by having multiple bridges.
+Hm. I'm starting to dislike the dynamic registration the more I think
+about it. Now when a group is unregistered I'd have to unbind everybody
+who's currently using it... At least when I want to enforce
+root/non-root binds which is a further goal.
 
-To go off on a slight tangent:
-I think you have to look at the two types of NICs separately 
-1) dumb ones where you may have to use the mcast filters in hardware to
-pretend you have a unicast address per virtual device - those will be
-really hard to simulate using a separate netdevice per MAC address.
-Actually your bigger problem on those is tx MAC address selection
-because that is not built into the hardware. I still think even for
-these types something above netdevice (bridge, L3 routing, tc action
-redirect etc) will do.
-2) The new NICs being built for virtualization; those allow you to
-explicitly have clean separation of IO where the only thing that is
-shared between virtual devices is the wire and the bus (otherwise
-each has its own registers etc) i.e the hardware is designed with this
-in mind. In such a case, i think a separate netdevice per single MAC
-address - possibly tied to a separate CPU should work.
+> c) Use a global hash table to store all the genl_multicast_groups;
+> I think this (handwaving) should be searchable by i) name ii)ID and iii)
+> family.=20
 
-cheers,
-jamal
+Also, it doesn't look like I'll ever be searching for a group unless we
+want to allow userspace to explicitly ask for a group ID, but I'd think
+it should just get the list of all IDs when asking for family
+information and then cache that.
+
+johannes
+
+--=-VCu6RSV7ZBu4+UFr7AKX
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iD8DBQBGhQHN/ETPhpq3jKURAr6/AJ9f3r8/cgjxhFmeJ1VFqbt57RoNjwCgohfK
+48nto6hoibMREHvM1tsHSQg=
+=6OZt
+-----END PGP SIGNATURE-----
+
+--=-VCu6RSV7ZBu4+UFr7AKX--
 
