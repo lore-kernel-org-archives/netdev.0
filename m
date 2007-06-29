@@ -1,46 +1,45 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH 03/21] r8169: kill eth_copy_and_sum()
-Date: Fri, 29 Jun 2007 22:17:52 +0200
-Message-ID: <20070629201752.GE3240@electric-eye.fr.zoreil.com>
-References: <20070629201212.GA3240@electric-eye.fr.zoreil.com>
+From: Jason Lunz <lunz@reflexsecurity.com>
+Subject: Re: e1000: backport ich9 support from 7.5.5 ?
+Date: Fri, 29 Jun 2007 13:22:31 -0700
+Message-ID: <20070629202230.GC3917@falooley.org>
+References: <1183138159.17243.16.camel@blaa> <20070629175006.GB3917@falooley.org> <468562A6.8060901@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Edward Hsu <edward_hsu@realtek.com.tw>
-To: jgarzik@pobox.com
+Cc: Mark McLoughlin <markmc@redhat.com>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	Jeff Garzik <jeff@garzik.org>
+To: "Kok\, Auke" <auke-jan.h.kok@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:41519 "EHLO
-	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753294AbXF2UVj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Jun 2007 16:21:39 -0400
+Received: from crown.reflexsecurity.com ([72.54.139.163]:42970 "EHLO
+	crown.reflexsecurity.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753316AbXF2UWX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jun 2007 16:22:23 -0400
 Content-Disposition: inline
-In-Reply-To: <20070629201212.GA3240@electric-eye.fr.zoreil.com>
+In-Reply-To: <468562A6.8060901@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-It hasn't "summed" anything in over 7 years, and it's
-just a straight mempcy ala skb_copy_to_linear_data()
-so just get rid of it.
+On Fri, Jun 29, 2007 at 12:51:02PM -0700, Kok, Auke wrote:
+> For distro's not following kernel.org releases we have the perfect 
+> solution: A fully tested 7.5.5 driver on sourceforge that was extensively 
+> tested against RHEL5 for instance, but also a lot of other older kernels.
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-Cc: Edward Hsu <edward_hsu@realtek.com.tw>
----
- drivers/net/r8169.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+I'm sure you and your team have tested the driver thoroughly, but you
+cannot hope to match the amount of testing the driver is subjected to by
+going into -mm and -rc kernels.
 
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index 1f7fb54..e4827a4 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -2495,7 +2495,7 @@ static inline int rtl8169_try_rx_copy(struct sk_buff **sk_buff, int pkt_size,
- 		skb = dev_alloc_skb(pkt_size + align);
- 		if (skb) {
- 			skb_reserve(skb, (align - 1) & (unsigned long)skb->data);
--			eth_copy_and_sum(skb, sk_buff[0]->data, pkt_size, 0);
-+			skb_copy_from_linear_data(*sk_buff, skb->data, pkt_size);
- 			*sk_buff = skb;
- 			rtl8169_mark_to_asic(desc, rx_buf_sz);
- 			ret = 0;
--- 
-1.4.4.2
+There have been several instances over the years in the e1000 driver
+where new releases caused regressions on old or esoteric hardware, and
+these were only later discovered by the community. This is why I prefer
+kernel.org versions of the e1000 driver, even if they're a little older.
 
+Ordinarily this is a pretty good strategy, because the mainline driver
+hasn't usually lagged too far behind new hardware becoming available.
+That's no longer true of the newer pcie e1000 parts and the 7.5.5.1
+driver.
+
+Is there any specific objection remaining to the merge of e1000 7.5.5.1
+into 2.6.23? Is there anything I can do to expedite the process other
+than cheer from the sidelines?
+
+Jason
