@@ -1,58 +1,53 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: a maze of twisty stats, most different
-Date: Fri, 29 Jun 2007 21:37:42 +0200
-Message-ID: <20070629193742.GA31569@one.firstfloor.org>
-References: <p73abui4qj4.fsf@bingen.suse.de> <OFAD87D0AB.C0688B5F-ON88257309.006374DE-88257309.0064D4D0@us.ibm.com>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: e1000: backport ich9 support from 7.5.5 ?
+Date: Fri, 29 Jun 2007 12:51:02 -0700
+Message-ID: <468562A6.8060901@intel.com>
+References: <1183138159.17243.16.camel@blaa> <20070629175006.GB3917@falooley.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <andi@firstfloor.org>, ak@suse.de,
-	Chris Snook <csnook@redhat.com>,
-	Linux Network Development list <netdev@vger.kernel.org>,
-	Rick Jones <rick.jones2@hp.com>
-To: David Stevens <dlstevens@us.ibm.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Mark McLoughlin <markmc@redhat.com>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	Jeff Garzik <jeff@garzik.org>
+To: Jason Lunz <lunz@reflexsecurity.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:50648 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752002AbXF2Thq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jun 2007 15:37:46 -0400
-Content-Disposition: inline
-In-Reply-To: <OFAD87D0AB.C0688B5F-ON88257309.006374DE-88257309.0064D4D0@us.ibm.com>
+Received: from mga01.intel.com ([192.55.52.88]:25576 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754359AbXF2TvH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Jun 2007 15:51:07 -0400
+In-Reply-To: <20070629175006.GB3917@falooley.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> That works ok for some things, like new global counters, but some
-> items really fit best in existing files and the concern there is about
-> other uses of them beyond the standard tools.
->         Examples:
-> -addition of route age in /proc/net/route and /proc/net/ipv6_route
-
-Routing information belongs into netlink imho. The /proc setup
-for it already only shows a small subset of it. Netlink is easily
-extensible -- just add new headers.
-
-> -per-group data in /proc/net/igmp & igmp6
-
-Don't know.  But you can probably just add more fields there,
-multicasting is not exactly something that a lot of people care about
-so there are likely not many scripts that might get broken.
-
-> -per-interface MLD MIB info, which ought to go with other per-interface 
-> data
-
-ethtool ?  It's also extensible, although you have to change
-the userland. But I don't think there is a risk of someone's script
-breaking.
-
+Jason Lunz wrote:
+> On Fri, Jun 29, 2007 at 06:29:18PM +0100, Mark McLoughlin wrote:
+>> 	I understand there is some delay in getting e1000-7.5.5 into the
+>> upstream kernel given the major re-working of the chipset specific
+>> parts.
+>>
+>> 	I wonder would it be feasible in the meantime to backport the ich9
+>> support and push it upstream?
 > 
->         I think everything that uses this kind of interface ought to do
-> label matching, so additional columns in a row (anywhere in the row)
-> would just be skipped/ignored by things that don't understand them,
-> and similarlarly for single-row tagged items. You can do that in scripts
-> with awk, but if existing items don't, they'll break.
+> seconded - this driver reorg has been holding back support for the
+> newest e1000 hardware since at least 2.6.20, and I haven't seen any
+> indication that the 7.5.5 e1000 driver will even be added to 2.6.23.
 
-I would expect shell scripts to generally do netstat -s | ..., which
-is easily matchable.
+I disagree, we should not break the current e1000 driver in the kernel while 
+there is a new driver coming up that introduces ich9 support without breaking 
+(the old e1000) support for all other devices. This is why we want to drop a new 
+version of the e1000 driver upstream instead, and put all newer devices in that 
+driver.
+
+For distro's not following kernel.org releases we have the perfect solution: A 
+fully tested 7.5.5 driver on sourceforge that was extensively tested against 
+RHEL5 for instance, but also a lot of other older kernels.
+
+> What's the prognosis for the 7.5.5-series e1000 reorg going into
+> netdev-2.6?
+
+I sure hope to get it out before 2.6.23 merge window close... But anything can 
+unfortunately happen.
 
 
--Andi> 
-> 
+Auke
+
