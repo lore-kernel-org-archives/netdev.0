@@ -1,64 +1,37 @@
-From: Mark McLoughlin <markmc@redhat.com>
-Subject: e1000: backport ich9 support from 7.5.5 ?
-Date: Fri, 29 Jun 2007 18:29:18 +0100
-Message-ID: <1183138159.17243.16.camel@blaa>
+From: Jason Lunz <lunz@reflexsecurity.com>
+Subject: Re: e1000: backport ich9 support from 7.5.5 ?
+Date: Fri, 29 Jun 2007 10:50:07 -0700
+Message-ID: <20070629175006.GB3917@falooley.org>
+References: <1183138159.17243.16.camel@blaa>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-GViD+44yIi6exKAyb0fl"
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Auke Kok <auke-jan.h.kok@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=us-ascii
+Cc: Auke Kok <auke-jan.h.kok@intel.com>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	Jeff Garzik <jeff@garzik.org>
+To: Mark McLoughlin <markmc@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from crown.reflexsecurity.com ([72.54.139.163]:47034 "EHLO
+	crown.reflexsecurity.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753508AbXF2Rt4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jun 2007 13:49:56 -0400
+Content-Disposition: inline
+In-Reply-To: <1183138159.17243.16.camel@blaa>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Fri, Jun 29, 2007 at 06:29:18PM +0100, Mark McLoughlin wrote:
+> 	I understand there is some delay in getting e1000-7.5.5 into the
+> upstream kernel given the major re-working of the chipset specific
+> parts.
+> 
+> 	I wonder would it be feasible in the meantime to backport the ich9
+> support and push it upstream?
 
---=-GViD+44yIi6exKAyb0fl
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+seconded - this driver reorg has been holding back support for the
+newest e1000 hardware since at least 2.6.20, and I haven't seen any
+indication that the 7.5.5 e1000 driver will even be added to 2.6.23.
 
-Hi Auke,
-	I understand there is some delay in getting e1000-7.5.5 into the
-upstream kernel given the major re-working of the chipset specific
-parts.
+What's the prognosis for the 7.5.5-series e1000 reorg going into
+netdev-2.6?
 
-	I wonder would it be feasible in the meantime to backport the ich9
-support and push it upstream?
-
-	A first-cut at the backport is attached. Note, this patch applies
-against latest netdev-2.6-git, but I haven't actually tested this
-version of the patch beyond compiling. A similar patch against 2.6.18
-worked fine with some light testing.
-
-Thanks,
-Mark.
-
---=-GViD+44yIi6exKAyb0fl
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
--------------------------------------------------------------------------
-This SF.net email is sponsored by DB2 Express
-Download DB2 Express C - the FREE version of DB2 express and take
-control of your XML. No limits. Just data. Click to get it now.
-http://sourceforge.net/powerbar/db2/
---=-GViD+44yIi6exKAyb0fl
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-
---=-GViD+44yIi6exKAyb0fl--
+Jason
