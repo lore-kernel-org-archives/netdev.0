@@ -1,72 +1,54 @@
-From: Soren Hansen <soren@ubuntu.com>
-Subject: Re: r8169 patches
-Date: Fri, 29 Jun 2007 01:50:47 +0200
-Message-ID: <20070628235047.GM4838@atlas.linux2go.dk>
-References: <20070628090054.GH4838@atlas.linux2go.dk> <20070628211036.GA4233@electric-eye.fr.zoreil.com>
+From: "Stanley Cai" <stanley.w.cai@gmail.com>
+Subject: [linux-usb-devel] USB: cdc-subset.c support for new vendor/product ID
+Date: Thu, 28 Jun 2007 21:13:28 -0400
+Message-ID: <dd2695e90706281813p3bb8baecx422c7c29793754ae@mail.gmail.com>
+References: <1776cf1c0706140502p3f159832u653bd9e53bd5b171@mail.gmail.com>
+	 <200706241749.37401.david-b@pacbell.net>
+	 <1776cf1c0706260500k55a14c60u974f36bfa2e15235@mail.gmail.com>
+	 <200706261017.06524.david-b@pacbell.net>
+	 <1776cf1c0706280324k3a56c7e9m4d3af26f6d1dfba3@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="GU3/x65mZ6MFE8p3"
-Cc: netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: everxiang@gmail.com, linux-usb-devel@lists.sourceforge.net,
+	"David Brownell" <david-b@pacbell.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlas.linux2go.dk ([88.198.22.52]:41322 "EHLO atlas.linux2go.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1762270AbXF2ASu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Jun 2007 20:18:50 -0400
+Received: from wx-out-0506.google.com ([66.249.82.227]:52249 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761426AbXF2BN3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jun 2007 21:13:29 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so697358wxd
+        for <netdev@vger.kernel.org>; Thu, 28 Jun 2007 18:13:28 -0700 (PDT)
+In-Reply-To: <1776cf1c0706280324k3a56c7e9m4d3af26f6d1dfba3@mail.gmail.com>
 Content-Disposition: inline
-In-Reply-To: <20070628211036.GA4233@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Send to the lists on behalf on Jing, Any comment is welcome. Thanks -stanley
 
---GU3/x65mZ6MFE8p3
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+----------------------
 
-On Thu, Jun 28, 2007 at 11:10:37PM +0200, Francois Romieu wrote:
-> > I have an Asrock ConRoe945G-DVI motherboard with a RTL8111/8168B in
-> > it.  The stock r8159 driver locks up from time to time. I've
-> > described it here: https://launchpad.net/bugs/121815 . The patchset
-> > at http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.22-rc3/ seems to
-> > fix it.  Can you explain why the patchset is not in the mainline
-> > kernel?
-> 1. thanks for the report
+hi,
 
-Thanks for providing the patch!
+Here's one patch for cdc subset to support new vendor/product ID.
+Could you help to check whether it is accaptable or not? Thanks a lot!
 
-> 2. increase net.core.wmem_max, ping -f -q -l xx -s yy with xx and yy
->    big enough and the driver will _still_ stop receiving/transmitting :o(
+Signed-off-by: Jing Xiang<everxiang@gmail.com>
 
-Oh, dear.
-
-> 3. if I take the time to write a nice message to tell you why, it will
->    delay me:
->    - publishing an updated patchset against -rc6 that can handle davem's
->      git-net with minor pain for akpm
->    - preparing a serie for Jeff
->    - answering the rot^Wpending r8169 reports
-
-Thanks for taking time to responding anyway!
-
-The reason I asked was that I was hoping the response would be that the
-patchset had no know regressions, but still lacked testing. In that
-case, I would have discussed its inclusion in our (Ubuntu's) alpha
-releases with our kernel team, but if you feel you're on track already,
-I'll stop annoying you. :)
-
-Thanks for your time.
-
---GU3/x65mZ6MFE8p3
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.3 (GNU/Linux)
-
-iD8DBQFGhElXonjfXui9pOMRAhb5AJ91DeZ3SrJ3tg491aEFJfea515ypACgjHHW
-u9NzZtqFRrusDm0cGJ56fvY=
-=q051
------END PGP SIGNATURE-----
-
---GU3/x65mZ6MFE8p3--
+diff -uNpr linux-2.6.21.5/driver/usb/net/cdc_subset.c
+linux-2.6.21.5.t/driver/usb/net/cdc_subset.c
+--- linux-2.6.21.5/driver/usb/net/cdc_subset.c  2007-06-14
+18:34:05.000000000 +0800
++++ linux-2.6.21.5.t/driver/usb/net/cdc_subset.c        2007-06-28
+15:55:56.290598304 +0800
+@@ -305,6 +305,9 @@ static const struct usb_device_id   produc
+        USB_DEVICE (0x8086, 0x07d3),    // "blob" bootloader
+        .driver_info =  (unsigned long) &blob_info,
+ }, {
++       USB_DEVICE (0x1286, 0x8001),    // "blob" bootloader
++       .driver_info =  (unsigned long) &blob_info,
++}, {
+        // Linux Ethernet/RNDIS gadget on pxa210/25x/26x, second config
+        // e.g. Gumstix, current OpenZaurus, ...
+        USB_DEVICE_VER (0x0525, 0xa4a2, 0x0203, 0x0203),
