@@ -1,34 +1,64 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: a maze of twisty stats, most different
-Date: 29 Jun 2007 19:30:23 +0200
-Message-ID: <p73abui4qj4.fsf@bingen.suse.de>
-References: <4683F10F.6070007@hp.com>
-	<OF4B8149B6.D8E6CC86-ON88257308.006345F0-88257308.0064762A@us.ibm.com>
+From: Mark McLoughlin <markmc@redhat.com>
+Subject: e1000: backport ich9 support from 7.5.5 ?
+Date: Fri, 29 Jun 2007 18:29:18 +0100
+Message-ID: <1183138159.17243.16.camel@blaa>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rick Jones <rick.jones2@hp.com>, Chris Snook <csnook@redhat.com>,
-	Linux Network Development list <netdev@vger.kernel.org>
-To: David Stevens <dlstevens@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:39984 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753157AbXF2Qet (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Jun 2007 12:34:49 -0400
-In-Reply-To: <OF4B8149B6.D8E6CC86-ON88257308.006345F0-88257308.0064762A@us.ibm.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: multipart/mixed; boundary="=-GViD+44yIi6exKAyb0fl"
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: Auke Kok <auke-jan.h.kok@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-David Stevens <dlstevens@us.ibm.com> writes:
 
-> I think there's a more general problem that's a huge hassle. There are 
-> lots of
-> new SNMP MIB's, but no conventions (that I'm aware of, at least) to allow 
-> for
-> changes to the /proc entries that get them to applications. 
+--=-GViD+44yIi6exKAyb0fl
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
-Actually /proc/net/snmp and netstat -s are extensible. If you add a new
-MIB or field there it should just show up in netstat -s. It won't know about
-the text decoding that is done for the early traditional MIBs, but that
-is already not there for most of the newer fields.
+Hi Auke,
+	I understand there is some delay in getting e1000-7.5.5 into the
+upstream kernel given the major re-working of the chipset specific
+parts.
 
--Andi
+	I wonder would it be feasible in the meantime to backport the ich9
+support and push it upstream?
+
+	A first-cut at the backport is attached. Note, this patch applies
+against latest netdev-2.6-git, but I haven't actually tested this
+version of the patch beyond compiling. A similar patch against 2.6.18
+worked fine with some light testing.
+
+Thanks,
+Mark.
+
+--=-GViD+44yIi6exKAyb0fl
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by DB2 Express
+Download DB2 Express C - the FREE version of DB2 express and take
+control of your XML. No limits. Just data. Click to get it now.
+http://sourceforge.net/powerbar/db2/
+--=-GViD+44yIi6exKAyb0fl
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+
+--=-GViD+44yIi6exKAyb0fl--
