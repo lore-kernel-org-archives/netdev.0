@@ -1,67 +1,71 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Bluetooth lockdep warning
-Date: Fri, 29 Jun 2007 14:37:53 +0200
-Message-ID: <4684FD21.6030609@trash.net>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: Fwd: [PATCH] [-mm] ACPI: export ACPI events via netlink
+Date: Fri, 29 Jun 2007 14:46:20 +0200
+Message-ID: <1183121180.4089.51.camel@johannes.berg>
+References: <1179827251.7707.29.camel@localhost.localdomain>
+	 <1179831825.4121.30.camel@localhost>
+	 <1180258853.7707.53.camel@localhost.localdomain>
+	 <4466a10705270629h31977813hd2fc8330bcd87f78@mail.gmail.com>
+	 <4466a10705270634j3560c9a3j9c3630ddc20a24aa@mail.gmail.com>
+	 <1181811576.5411.27.camel@localhost.localdomain>
+	 <1181820510.4091.9.camel@localhost>
+	 <1181869285.5411.39.camel@localhost.localdomain>
+	 <1182178882.4063.11.camel@localhost>
+	 <1182223964.5411.76.camel@localhost.localdomain>
+	 <1182811210.6644.22.camel@johannes.berg>
+	 <1182986681.5155.55.camel@localhost>
+	 <1183023939.4769.76.camel@johannes.berg>  <4684F25B.5090607@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: marcel@holtmann.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:43793 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755429AbXF2MiF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jun 2007 08:38:05 -0400
-Sender: netdev-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-iLSSSorjytBRDoLbhFLX"
+Cc: hadi@cyberus.ca, Zhang Rui <rui.zhang@intel.com>,
+	netdev@vger.kernel.org,
+	"linux-acpi@vger" <linux-acpi@vger.kernel.org>, lenb@kernel.org,
+	Thomas Graf <tgraf@suug.ch>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <linux-acpi-owner@vger.kernel.org>
+In-Reply-To: <4684F25B.5090607@trash.net>
+Sender: linux-acpi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I'm getting this on current -git after adding an obexfs mount
-to my fstab:
 
-=============================================
-[ INFO: possible recursive locking detected ]
-2.6.22-rc6 #2
----------------------------------------------
-obexfs/3786 is trying to acquire lock:
- (sk_lock-AF_BLUETOOTH){--..}, at: [<ffffffff88216593>]
-l2cap_sock_bind+0x37/0xf3 [l2cap]
+--=-iLSSSorjytBRDoLbhFLX
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-but task is already holding lock:
- (sk_lock-AF_BLUETOOTH){--..}, at: [<ffffffff8821f4cc>]
-rfcomm_sock_connect+0x47/0xe0 [rfcomm]
+On Fri, 2007-06-29 at 13:51 +0200, Patrick McHardy wrote:
 
-other info that might help us debug this:
-2 locks held by obexfs/3786:
- #0:  (sk_lock-AF_BLUETOOTH){--..}, at: [<ffffffff8821f4cc>]
-rfcomm_sock_connect+0x47/0xe0 [rfc
-omm]
- #1:  (rfcomm_mutex){--..}, at: [<ffffffff8123888e>] mutex_lock+0x25/0x2a
+> Do multicast groups have to have a seperate name? Or would it suffice
+> to have them associated with the genl family and be able to find out
+> the starting group number? In that case something like
+>=20
+> struct genl_mc_groups {
+> 	struct genl_family *family or char *family_name or similar;
+> 	unsigned int group_off;
+> 	unsigned int group_num;
+> 	unsigned long groups[];
+> };
+>=20
+> seems to make more sense since you only need a single struct
+> per family.
 
-stack backtrace:
+Hmm, another thought: since we have 32 bits for group numbers and 16
+bits for families we could just reserve 16 bits for groups within each
+family. Or do we get trouble with that because in some place there's a
+group bitmap or such?
 
-Call Trace:
- [<ffffffff81044c91>] __lock_acquire+0x162/0xbbe
- [<ffffffff88216593>] :l2cap:l2cap_sock_bind+0x37/0xf3
- [<ffffffff81045769>] lock_acquire+0x7c/0xa0
- [<ffffffff88216593>] :l2cap:l2cap_sock_bind+0x37/0xf3
- [<ffffffff811a0fe8>] lock_sock_nested+0xd6/0xea
- [<ffffffff8104c18c>] module_put+0x4c/0x68
- [<ffffffff88216593>] :l2cap:l2cap_sock_bind+0x37/0xf3
- [<ffffffff8119e2f5>] kernel_bind+0xb/0xd
- [<ffffffff8821cb6f>] :rfcomm:rfcomm_dlc_open+0xc7/0x260
- [<ffffffff81030000>] iomem_open+0x17/0x39
- [<ffffffff8821f525>] :rfcomm:rfcomm_sock_connect+0xa0/0xe0
- [<ffffffff8119edbc>] sys_connect+0x68/0x8e
- [<ffffffff81076fd3>] fd_install+0x5e/0x67
- [<ffffffff81239aa8>] trace_hardirqs_on_thunk+0x35/0x37
- [<ffffffff81044684>] trace_hardirqs_on+0x11c/0x147
- [<ffffffff81239aa8>] trace_hardirqs_on_thunk+0x35/0x37
- [<ffffffff81009cee>] system_call+0x7e/0x83
+johannes
 
+--=-iLSSSorjytBRDoLbhFLX
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
 
-The warning appears to be bogus (things work fine), the reason
-seems to be that the rfcomm socket and the rfcomm l2 socket share
-the same lockdep class. Can someone more familiar with that
-code please have a look?
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
 
+iD8DBQBGhP8c/ETPhpq3jKURApxvAKClnV/RA1tbN8h9c8TYh18UEaanEACdE1Qb
+4HGfZgJ+ol6pU5ze1TbIwBU=
+=lXRq
+-----END PGP SIGNATURE-----
+
+--=-iLSSSorjytBRDoLbhFLX--
 
