@@ -1,47 +1,50 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: Multiqueue and virtualization WAS(Re: [PATCH 3/3] NET: [SCHED]
- Qdisc changes and sch_rr added for multiqueue
-Date: Fri, 29 Jun 2007 08:33:06 -0700
-Message-ID: <46852632.5050707@candelatech.com>
-References: <D5C1322C3E673F459512FB59E0DDC329031F0648@orsmsx414.amr.corp.intel.com>	 <46840AF5.4020209@trash.net>	 <20070628.212032.108743475.davem@davemloft.net>	 <1183117415.5156.61.camel@localhost>  <4684F41B.9080309@trash.net> <1183121670.5188.16.camel@localhost> <46850450.6040608@trash.net>
+From: Jens Stroebel <drifter@bcsoft.de>
+Subject: Re: 2.6.21.5+1small patch: not blocking
+Date: Fri, 29 Jun 2007 17:44:56 +0200
+Message-ID: <468528F8.8050806@bcsoft.de>
+References: <4683F923.80508@bcsoft.de> <20070628213050.GB4233@electric-eye.fr.zoreil.com> <4684F898.80204@bcsoft.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, David Miller <davem@davemloft.net>,
-	peter.p.waskiewicz.jr@intel.com, netdev@vger.kernel.org,
-	jeff@garzik.org, auke-jan.h.kok@intel.com
-To: Patrick McHardy <kaber@trash.net>
+Cc: netdev list <netdev@vger.kernel.org>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:42547 "EHLO ns2.lanforge.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755825AbXF2PdV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Jun 2007 11:33:21 -0400
-In-Reply-To: <46850450.6040608@trash.net>
+Received: from moutng.kundenserver.de ([212.227.126.183]:56951 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933466AbXF2PpH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jun 2007 11:45:07 -0400
+In-Reply-To: <4684F898.80204@bcsoft.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy wrote:
-> Right, but the current bridging code always uses promiscous mode
-> and its nice to avoid that if possible. Looking at the code, it
-> should be easy to avoid though by disabling learning (and thus
-> promisous mode) and adding unicast filters for all static fdb entries.
->   
-I am curious about why people are so hot to do away with promisc mode.  
-It seems to me
-that in a modern switched environment, there should only very rarely be 
-unicast packets received
-on an interface that does not want to receive them.
+Jens Stroebel wrote:
+> Francois Romieu wrote:
+>> [...]
 
-Could someone give a quick example of when I am wrong and promisc mode 
-would allow
-a NIC to receive a significant number of packets not really destined for it?
+>> It may help and/or accelerate things if you can narrow the fix(es) in
+>> the current r8169 serie.
 
-Thanks,
-Ben
+> Instead, I built 2.6.21.5+[a patch I snatched from a mail communication
+> you had on 2007-06-20
+> (Msg-ID: <20070620211530.GA10042@electric-eye.fr.zoreil.com> )].
+> I will attach it with this mail, as it is really small and you don't
+> have to dig around to know what I'm talking about.
+> 
+> As I am no kernel-developer, I am not sure there are no undesired side
+> effects by applying this patch to this kernel; if you think there are
+> (could/should be), it would be nice if you could state that, so I'd
+> refrain from testing with this combination.
 
+Following up to myself:
 
+It seems like the patch is able to change things in a way which makes
+the machine lock up hard. Pity that, looked so promising at first...
+
+		greets,
+		   jens
 -- 
-Ben Greear <greearb@candelatech.com> 
-Candela Technologies Inc  http://www.candelatech.com
-
-
+drifter@bcsoft.de
+			23.....56.......drifting
+By caffeine alone I set my mind in motion, By the beans of Java
+do thoughts acquire speed,  hands acquire shaking,  the shaking
+becomes a warning, By caffeine alone do I set my mind in motion
