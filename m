@@ -1,54 +1,81 @@
-From: "Stanley Cai" <stanley.w.cai@gmail.com>
-Subject: [linux-usb-devel] USB: cdc-subset.c support for new vendor/product ID
-Date: Thu, 28 Jun 2007 21:13:28 -0400
-Message-ID: <dd2695e90706281813p3bb8baecx422c7c29793754ae@mail.gmail.com>
-References: <1776cf1c0706140502p3f159832u653bd9e53bd5b171@mail.gmail.com>
-	 <200706241749.37401.david-b@pacbell.net>
-	 <1776cf1c0706260500k55a14c60u974f36bfa2e15235@mail.gmail.com>
-	 <200706261017.06524.david-b@pacbell.net>
-	 <1776cf1c0706280324k3a56c7e9m4d3af26f6d1dfba3@mail.gmail.com>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Subject: Re: quirk_e100_interrupt() called too early
+Date: Thu, 28 Jun 2007 20:07:27 -0600
+Message-ID: <200706282007.27841.bjorn.helgaas@hp.com>
+References: <4683A80F.5020605@semihalf.com> <4683DB44.9070704@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: everxiang@gmail.com, linux-usb-devel@lists.sourceforge.net,
-	"David Brownell" <david-b@pacbell.net>
-To: netdev@vger.kernel.org
+Cc: Marian Balakowicz <m8@semihalf.com>,
+	linux-pci@atrey.karlin.mff.cuni.cz, len.brown@intel.com,
+	NetDev <netdev@vger.kernel.org>
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>,
+	nils.rennebarth@packetalarm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.227]:52249 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761426AbXF2BN3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jun 2007 21:13:29 -0400
-Received: by wx-out-0506.google.com with SMTP id h31so697358wxd
-        for <netdev@vger.kernel.org>; Thu, 28 Jun 2007 18:13:28 -0700 (PDT)
-In-Reply-To: <1776cf1c0706280324k3a56c7e9m4d3af26f6d1dfba3@mail.gmail.com>
+Received: from atlrel6.hp.com ([156.153.255.205]:52573 "EHLO atlrel6.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1765058AbXF2CHg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Jun 2007 22:07:36 -0400
+In-Reply-To: <4683DB44.9070704@intel.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Send to the lists on behalf on Jing, Any comment is welcome. Thanks -stanley
+On Thursday 28 June 2007 10:01:08 am Kok, Auke wrote:
+> Marian Balakowicz wrote:
+> > I am enabling and testing PCI on tqm5200 mpc5200 based board where I
+> > faced the following issue.
+> > 
+> > I am using EEPRO100 PCI card for which there is specific
+> > quirk_e100_interrupt that tries to disable interrupts if
+> > they were left enabled by the firmware. quirk_e100_interrupts() is
+> > called after PCI controller is initialized and before PCI bus
+> > enumeration is performed. On some powerpc platforms, like the one I am
+> > using, PCI controller configuration sets different MEM and IO windows
+> > than those set by firmware. That is why quirk_e100_interrupt() is
+> > causing kernel panic as it tries to read from device BAR0 offets which
+> > at this time point to a invalid PCI window (set by firmware).
+> > 
+> > The patch below delays the quirk_100_interrupt() to pci_fixup_final
+> > phase, which happens after bus enumeration and before device PCI enable
+> > and device driver initialization - so, it seem to be still a good place
+> > for this quirk. It works fine for me but I only tested it on a tqm5200.
+> > Could someone please help and verify that on other platforms?
+> 
+> will try to do. This sounds indeed like the proper thing to do. Unfortunately I 
+> don't have any NICs to repro this on (allthough I have a ppc box with said 
+> firmware probe method).
+> 
+> Bjorn orignially wrote this patch, perhaps he can comment on the fixup move?
 
-----------------------
+Your patch looks reasonable to me.
 
-hi,
+I don't have a machine that exhibits the original problem, so
+I can't actually test this patch either.  As long as the fixup
+happens before any PCI drivers claim devices, I think it should
+be fine.
 
-Here's one patch for cdc subset to support new vendor/product ID.
-Could you help to check whether it is accaptable or not? Thanks a lot!
+I copied Nils Rennebarth, who originally reported the bug:
+  http://bugzilla.kernel.org/show_bug.cgi?id=5918
+in case he can test your patch.
 
-Signed-off-by: Jing Xiang<everxiang@gmail.com>
+> > diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
+> > index 01d8f8a..7194074 100644
+> > --- a/drivers/pci/quirks.c
+> > +++ b/drivers/pci/quirks.c
+> > @@ -1475,7 +1475,7 @@ static void __devinit quirk_e100_interru
+> > 
+> >         iounmap(csr);
+> >  }
+> > -DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, PCI_ANY_ID,
+> > quirk_e100_interrupt);
+> > +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_INTEL, PCI_ANY_ID,
+> > quirk_e100_interrupt);
+> > 
+> >  static void __devinit fixup_rev1_53c810(struct pci_dev* dev)
+> >  {
+> 
+> 
 
-diff -uNpr linux-2.6.21.5/driver/usb/net/cdc_subset.c
-linux-2.6.21.5.t/driver/usb/net/cdc_subset.c
---- linux-2.6.21.5/driver/usb/net/cdc_subset.c  2007-06-14
-18:34:05.000000000 +0800
-+++ linux-2.6.21.5.t/driver/usb/net/cdc_subset.c        2007-06-28
-15:55:56.290598304 +0800
-@@ -305,6 +305,9 @@ static const struct usb_device_id   produc
-        USB_DEVICE (0x8086, 0x07d3),    // "blob" bootloader
-        .driver_info =  (unsigned long) &blob_info,
- }, {
-+       USB_DEVICE (0x1286, 0x8001),    // "blob" bootloader
-+       .driver_info =  (unsigned long) &blob_info,
-+}, {
-        // Linux Ethernet/RNDIS gadget on pxa210/25x/26x, second config
-        // e.g. Gumstix, current OpenZaurus, ...
-        USB_DEVICE_VER (0x0525, 0xa4a2, 0x0203, 0x0203),
+
