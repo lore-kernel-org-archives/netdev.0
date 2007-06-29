@@ -1,79 +1,77 @@
-From: Pierre Capillon <pierrecap@yahoo.fr>
-Subject: Getting hopcount and dupacks from TCP CA module
-Date: Fri, 29 Jun 2007 11:48:37 +0200 (CEST)
-Message-ID: <20070629094837.92827.qmail@web25504.mail.ukl.yahoo.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 2/3] NET: [CORE] Stack changes to add multiqueue hardware
+ support API
+Date: Fri, 29 Jun 2007 06:54:37 -0400
+Message-ID: <4684E4ED.90604@garzik.org>
+References: <20070628162056.18728.20195.stgit@localhost.localdomain>	<20070628162113.18728.20109.stgit@localhost.localdomain> <20070628.203956.18146513.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: peter.p.waskiewicz.jr@intel.com, netdev@vger.kernel.org,
+	auke-jan.h.kok@intel.com, hadi@cyberus.ca, kaber@trash.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web25504.mail.ukl.yahoo.com ([217.12.10.150]:47307 "HELO
-	web25504.mail.ukl.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754064AbXF2JzS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jun 2007 05:55:18 -0400
+Received: from srv5.dvmed.net ([207.36.208.214]:56177 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751132AbXF2Kym (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Jun 2007 06:54:42 -0400
+In-Reply-To: <20070628.203956.18146513.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+David Miller wrote:
+> From: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
+> Date: Thu, 28 Jun 2007 09:21:13 -0700
+> 
+>> -struct net_device *alloc_netdev(int sizeof_priv, const char *name,
+>> -		void (*setup)(struct net_device *))
+>> +struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
+>> +		void (*setup)(struct net_device *), int queue_count)
+>>  {
+>>  	void *p;
+>>  	struct net_device *dev;
+>> @@ -3557,7 +3564,9 @@ struct net_device *alloc_netdev(int sizeof_priv, const char *name,
+>>  	BUG_ON(strlen(name) >= sizeof(dev->name));
+>>  
+>>  	/* ensure 32-byte alignment of both the device and private area */
+>> -	alloc_size = (sizeof(*dev) + NETDEV_ALIGN_CONST) & ~NETDEV_ALIGN_CONST;
+>> +	alloc_size = (sizeof(*dev) + NETDEV_ALIGN_CONST +
+>> +		     (sizeof(struct net_device_subqueue) * queue_count)) &
+>> +		     ~NETDEV_ALIGN_CONST;
+>>  	alloc_size += sizeof_priv + NETDEV_ALIGN_CONST;
+>>  
+>>  	p = kzalloc(alloc_size, GFP_KERNEL);
+>> @@ -3573,12 +3582,14 @@ struct net_device *alloc_netdev(int sizeof_priv, const char *name,
+>>  	if (sizeof_priv)
+>>  		dev->priv = netdev_priv(dev);
+>>  
+>> +	dev->egress_subqueue_count = queue_count;
+>> +
+>>  	dev->get_stats = internal_stats;
+>>  	setup(dev);
+>>  	strcpy(dev->name, name);
+>>  	return dev;
+>>  }
+> 
+> This isn't going to work.
+> 
+> The pointer returned from netdev_priv() doesn't take into account the
+> variable sized queues at the end of struct netdev, so we can stomp
+> over the queues with the private area.
+> 
+> This probably works by luck because of NETDEV_ALIGN.
+> 
+> The simplest fix is to just make netdev_priv() use dev->priv,
+> except when it's being initialized during allocation, and
+> that's what I'm going to do when I apply your patch.
 
-I'm a french IT engineering student and as part of my
-internship, I'm writing a congestion avoidance module
-based on research by my tutor. It aims at better
-efficiency and throughput on mobile adhoc networks.
+Ugh.  That will reverse the gains we had with the current setup, won't it?
 
-Basically, it is a sender-side modification that
-differentiates between losses due to network
-congestion or link failure, in which case I would need
-to get the new route properties for the current tcp
-socket.
+Also, what happens when we want to add ingress_queue[0] ?
 
-Is there a simple and generic way of knowing the route
-length (hopcount) from a TCP CA module, once RTO has
-occured? Currently, the paper states I should know the
-exact new route length to recompute the congestion
-window and RTO values. I guess I need to get that
-information from the routing layers, but is it event
-possible from the module? Or is it simpler to rework
-the algorithm to have the congestion window based on
-hop difference (using received TTL values from the
-remote end)?
-
-Either way, I would appreciate hints/pointers to
-structures and/or mechanics I would not have properly
-understood in congestion avoidance modules (especially
-how to get down to the received IP header for received
-TTL values or to the routing protocols).
-
-Regarding dupacks, after a full week of studying the
-code and another week of implementing most of the
-principles described in the said paper, I would like
-some confirmation : it seems like the field
-tp->sacked_out is accounting for them in a SACKless
-connection (in tcp_fastretrans_alert()). Can I without
-a doubt rely on it to adjust TCP's behavior? If so,
-can I check is the state is TCP_CA_Disorder and then
-the value of sacked_out in order to adjust my behavior
-once 3 duplicate acks have been received, or is there
-a better way to do it?
-I'm sorry if this sounds like a dumb question, but I
-want to make sure, as I'm no expert.
-
-
-Thanks a lot.
-
-
-
-Pierre Capillon
+	Jeff
 
 
 
 
-=09
-	=09
-_______________________________________________________________________=
-____=20
-D=E9couvrez une nouvelle fa=E7on d'obtenir des r=E9ponses =E0 toutes vo=
-s questions !=20
-Profitez des connaissances, des opinions et des exp=E9riences des inter=
-nautes sur Yahoo! Questions/R=E9ponses=20
-http://fr.answers.yahoo.com
+
