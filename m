@@ -1,104 +1,66 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Multiqueue and virtualization WAS(Re: [PATCH 3/3] NET: [SCHED]
-	Qdisc changes and sch_rr added for multiqueue
-Date: Fri, 29 Jun 2007 07:43:35 -0400
-Message-ID: <1183117415.5156.61.camel@localhost>
-References: <D5C1322C3E673F459512FB59E0DDC329031F0648@orsmsx414.amr.corp.intel.com>
-	 <46840AF5.4020209@trash.net>
-	 <20070628.212032.108743475.davem@davemloft.net>
+Subject: Re: Fwd: [PATCH] [-mm] ACPI: export ACPI events via netlink
+Date: Fri, 29 Jun 2007 07:48:12 -0400
+Message-ID: <1183117692.5156.67.camel@localhost>
+References: <1179827251.7707.29.camel@localhost.localdomain>
+	 <1179831825.4121.30.camel@localhost>
+	 <1180258853.7707.53.camel@localhost.localdomain>
+	 <4466a10705270629h31977813hd2fc8330bcd87f78@mail.gmail.com>
+	 <4466a10705270634j3560c9a3j9c3630ddc20a24aa@mail.gmail.com>
+	 <1181811576.5411.27.camel@localhost.localdomain>
+	 <1181820510.4091.9.camel@localhost>
+	 <1181869285.5411.39.camel@localhost.localdomain>
+	 <1182178882.4063.11.camel@localhost>
+	 <1182223964.5411.76.camel@localhost.localdomain>
+	 <1182811210.6644.22.camel@johannes.berg>
+	 <1182986681.5155.55.camel@localhost>
+	 <1183023939.4769.76.camel@johannes.berg>
+	 <1183115835.5156.37.camel@localhost>
+	 <1183116527.4089.40.camel@johannes.berg>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, peter.p.waskiewicz.jr@intel.com,
-	netdev@vger.kernel.org, jeff@garzik.org, auke-jan.h.kok@intel.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.239]:22956 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759174AbXF2Lnk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jun 2007 07:43:40 -0400
-Received: by wx-out-0506.google.com with SMTP id h31so813673wxd
-        for <netdev@vger.kernel.org>; Fri, 29 Jun 2007 04:43:39 -0700 (PDT)
-In-Reply-To: <20070628.212032.108743475.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
+Cc: Zhang Rui <rui.zhang@intel.com>, netdev@vger.kernel.org,
+	"linux-acpi@vger" <linux-acpi@vger.kernel.org>, lenb@kernel.org,
+	Thomas Graf <tgraf@suug.ch>
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <linux-acpi-owner@vger.kernel.org>
+In-Reply-To: <1183116527.4089.40.camel@johannes.berg>
+Sender: linux-acpi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-Ive changed the topic for you friend - otherwise most people wont follow
-(as youve said a few times yourself ;->).
-
-On Thu, 2007-28-06 at 21:20 -0700, David Miller wrote:
-
-> Now I get to pose a problem for everyone, prove to me how useful
-> this new code is by showing me how it can be used to solve a
-> reocurring problem in virtualized network drivers of which I've
-> had to code one up recently, see my most recent blog entry at:
-> 
-> 	http://vger.kernel.org/~davem/cgi-bin/blog.cgi/index.html
+On Fri, 2007-29-06 at 13:28 +0200, Johannes Berg wrote:
+> On Fri, 2007-06-29 at 07:17 -0400, jamal wrote:
 > 
 
-nice.
-
-> Anyways the gist of the issue is (and this happens for Sun LDOMS
-> networking, lguest, IBM iSeries, etc.) that we have a single
-> virtualized network device.  There is a "port" to the control
-> node (which switches packets to the real network for the guest)
-> and one "port" to each of the other guests.
-> 
-> Each guest gets a unique MAC address.  There is a queue per-port
-> that can fill up.
-> 
-> What all the drivers like this do right now is stop the queue if
-> any of the per-port queues fill up, and that's why my sunvnet
-> driver does right now as well.  We can only thus wakeup the
-> queue when all of the ports have some space.
-
-Is a netdevice really the correct construct for the host side?
-Sounds to me a layer above the netdevice is the way to go. A bridge for
-example or L3 routing or even simple tc classify/redirection etc.
-I havent used what has become openvz these days in many years (or played
-with Erics approach), but if i recall correctly - it used to have a
-single netdevice per guest on the host. Thats close to what a basic
-qemu/UML has today. In such a case it is something above netdevices
-which does the guest selection.
- 
-> The ports (and thus the queues) are selected by destinationt
-> MAC address.  Each port has a remote MAC address, if there
-> is an exact match with a port's remote MAC we'd use that port
-> and thus that port's queue.  If there is no exact match
-> (some other node on the real network, broadcast, multicast,
-> etc.) we want to use the control node's port and port queue.
+> Because of this I'd really prefer if we could hold off on adding groups,
+> but I can handle both cases fine by just reserving a family and group ID
+> for the current users.
 > 
 
-Ok, Dave, isnt that what a bridge does? ;-> Youd need filtering to go
-with it (for example to restrict guest0 from getting certain brodcasts
-etc) - but we already have that. 
+sure - if you rush you can make it into Daves 2.6.23; then both can
+conform at the same time.
 
-> So the problem to solve is to make a way for drivers to do the queue
-> selection before the generic queueing layer starts to try and push
-> things to the driver.  Perhaps a classifier in the driver or similar.
->
-> The solution to this problem generalizes to the other facility
-> we want now, hashing the transmit queue by smp_processor_id()
-> or similar.  With that in place we can look at doing the TX locking
-> per-queue too as is hinted at by the comments above the per-queue
-> structure in the current net-2.6.23 tree.
 
-A major surgery will be needed on the tx path if you want to hash tx
-queue to processor id. Our unit construct (today, net-2.6.23) that can
-be tied to a cpu is a netdevice. OTOH, if you used a netdevice it should
-work as is. But i am possibly missing something in your comments.
-What do you have in mind.
-
-> My current work-in-progress sunvnet.c driver is included below so
-> we can discuss things concretely with code.
+> I think I'd prefer if we just returned an error. See, we aren't going to
+> run out of groups in the foreseeable future, and if we ever have users
+> that generate *a lot* of groups we can still add the sharing code etc.
+> For now it seems just bloat and a code path we won't ever touch so prone
+> to errors in it.
 > 
-> I'm listening. :-)
 
-And you got words above.
+Ok, you are doing the coding and i dont have strong opinions on either;
+so go for it.
+
+> Ok :) Though I'm not sure I understood the suggestion of sending just
+> one TLV, what should I send? 
+
+I meant when user space asks the controller "please tell me details
+about family X" you will always pass an id and name. Never just one.
+So why not just send that in a struct which has a id/name (as you
+already have defined in your current patch).
 
 cheers,
 jamal
-
 
