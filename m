@@ -1,67 +1,68 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: Fwd: [PATCH] [-mm] ACPI: export ACPI events via netlink
-Date: Fri, 29 Jun 2007 14:51:51 +0200
-Message-ID: <1183121511.4089.53.camel@johannes.berg>
-References: <1179827251.7707.29.camel@localhost.localdomain>
-	 <1179831825.4121.30.camel@localhost>
-	 <1180258853.7707.53.camel@localhost.localdomain>
-	 <4466a10705270629h31977813hd2fc8330bcd87f78@mail.gmail.com>
-	 <4466a10705270634j3560c9a3j9c3630ddc20a24aa@mail.gmail.com>
-	 <1181811576.5411.27.camel@localhost.localdomain>
-	 <1181820510.4091.9.camel@localhost>
-	 <1181869285.5411.39.camel@localhost.localdomain>
-	 <1182178882.4063.11.camel@localhost>
-	 <1182223964.5411.76.camel@localhost.localdomain>
-	 <1182811210.6644.22.camel@johannes.berg>
-	 <1182986681.5155.55.camel@localhost>
-	 <1183023939.4769.76.camel@johannes.berg>  <4684F25B.5090607@trash.net>
-	 <1183121180.4089.51.camel@johannes.berg>  <4684FF9A.10807@trash.net>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: Multiqueue and virtualization WAS(Re: [PATCH 3/3] NET: [SCHED]
+	Qdisc changes and sch_rr added for multiqueue
+Date: Fri, 29 Jun 2007 08:54:30 -0400
+Message-ID: <1183121670.5188.16.camel@localhost>
+References: <D5C1322C3E673F459512FB59E0DDC329031F0648@orsmsx414.amr.corp.intel.com>
+	 <46840AF5.4020209@trash.net>
+	 <20070628.212032.108743475.davem@davemloft.net>
+	 <1183117415.5156.61.camel@localhost>  <4684F41B.9080309@trash.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-6LA5z19I0fohnDD5A6GU"
-Cc: hadi@cyberus.ca, Zhang Rui <rui.zhang@intel.com>,
-	netdev@vger.kernel.org,
-	"linux-acpi@vger" <linux-acpi@vger.kernel.org>, lenb@kernel.org,
-	Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	peter.p.waskiewicz.jr@intel.com, netdev@vger.kernel.org,
+	jeff@garzik.org, auke-jan.h.kok@intel.com
 To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:58196 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1764631AbXF2Mve (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jun 2007 08:51:34 -0400
-In-Reply-To: <4684FF9A.10807@trash.net>
+Received: from wx-out-0506.google.com ([66.249.82.228]:57653 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755911AbXF2Mye (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jun 2007 08:54:34 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so828082wxd
+        for <netdev@vger.kernel.org>; Fri, 29 Jun 2007 05:54:34 -0700 (PDT)
+In-Reply-To: <4684F41B.9080309@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Fri, 2007-29-06 at 13:59 +0200, Patrick McHardy wrote:
 
---=-6LA5z19I0fohnDD5A6GU
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+> I'm guessing that that wouldn't allow to do unicast filtering for
+> the guests on the real device without hacking the bridge code for
+> this special case. 
 
-On Fri, 2007-06-29 at 14:48 +0200, Patrick McHardy wrote:
+For ingress (i guess you could say for egress as well): we can do it as
+well today with tc filtering on the host - it is involved but is part of
+provisioning for a guest IMO.
+A substantial amount of ethernet switches (ok, not the $5 ones) do
+filtering at the same level.
 
-> > Hmm, another thought: since we have 32 bits for group numbers and 16
-> > bits for families we could just reserve 16 bits for groups within each
-> > family. Or do we get trouble with that because in some place there's a
-> > group bitmap or such?
->=20
->=20
-> Yes, af_netlink has a bitmap per socket that is subscribed to any group.
+> The difference to a real bridge is that the
+> all addresses are completely known in advance, so it doesn't need
+> promiscous mode for learning.
 
-Not a good idea then. I'll see what I can do.
+You mean the per-virtual MAC addresses are known in advance, right?
+This is fine. The bridging or otherwise (like L3 etc) is for
+interconnecting once you have the provisioning done. And you could build
+different "broadcast domains" by having multiple bridges.
 
-johannes
+To go off on a slight tangent:
+I think you have to look at the two types of NICs separately 
+1) dumb ones where you may have to use the mcast filters in hardware to
+pretend you have a unicast address per virtual device - those will be
+really hard to simulate using a separate netdevice per MAC address.
+Actually your bigger problem on those is tx MAC address selection
+because that is not built into the hardware. I still think even for
+these types something above netdevice (bridge, L3 routing, tc action
+redirect etc) will do.
+2) The new NICs being built for virtualization; those allow you to
+explicitly have clean separation of IO where the only thing that is
+shared between virtual devices is the wire and the bus (otherwise
+each has its own registers etc) i.e the hardware is designed with this
+in mind. In such a case, i think a separate netdevice per single MAC
+address - possibly tied to a separate CPU should work.
 
---=-6LA5z19I0fohnDD5A6GU
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iD8DBQBGhQBm/ETPhpq3jKURAqrJAJ42Y2hrvCCaOTgs1AZYlm7iVb7KqQCaAz+V
-DrqW+Uy52VYZaVT87utl2Tg=
-=e/HP
------END PGP SIGNATURE-----
-
---=-6LA5z19I0fohnDD5A6GU--
+cheers,
+jamal
 
