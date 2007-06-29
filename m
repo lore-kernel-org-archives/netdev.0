@@ -1,71 +1,49 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: Fwd: [PATCH] [-mm] ACPI: export ACPI events via netlink
-Date: Fri, 29 Jun 2007 13:58:17 +0200
-Message-ID: <1183118297.4089.44.camel@johannes.berg>
-References: <1179827251.7707.29.camel@localhost.localdomain>
-	 <1179831825.4121.30.camel@localhost>
-	 <1180258853.7707.53.camel@localhost.localdomain>
-	 <4466a10705270629h31977813hd2fc8330bcd87f78@mail.gmail.com>
-	 <4466a10705270634j3560c9a3j9c3630ddc20a24aa@mail.gmail.com>
-	 <1181811576.5411.27.camel@localhost.localdomain>
-	 <1181820510.4091.9.camel@localhost>
-	 <1181869285.5411.39.camel@localhost.localdomain>
-	 <1182178882.4063.11.camel@localhost>
-	 <1182223964.5411.76.camel@localhost.localdomain>
-	 <1182811210.6644.22.camel@johannes.berg>
-	 <1182986681.5155.55.camel@localhost>
-	 <1183023939.4769.76.camel@johannes.berg>
-	 <1183115835.5156.37.camel@localhost>
-	 <1183116527.4089.40.camel@johannes.berg>
-	 <1183117692.5156.67.camel@localhost>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: Multiqueue and virtualization WAS(Re: [PATCH 3/3] NET: [SCHED]
+ Qdisc changes and sch_rr added for multiqueue
+Date: Fri, 29 Jun 2007 13:59:23 +0200
+Message-ID: <4684F41B.9080309@trash.net>
+References: <D5C1322C3E673F459512FB59E0DDC329031F0648@orsmsx414.amr.corp.intel.com>	 <46840AF5.4020209@trash.net>	 <20070628.212032.108743475.davem@davemloft.net> <1183117415.5156.61.camel@localhost>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-V75/SMRD/g5kiS7k2p1R"
-Cc: Zhang Rui <rui.zhang@intel.com>, netdev@vger.kernel.org,
-	"linux-acpi@vger" <linux-acpi@vger.kernel.org>, lenb@kernel.org,
-	Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	peter.p.waskiewicz.jr@intel.com, netdev@vger.kernel.org,
+	jeff@garzik.org, auke-jan.h.kok@intel.com
 To: hadi@cyberus.ca
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <1183117692.5156.67.camel@localhost>
-Sender: linux-acpi-owner@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:42979 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760477AbXF2L7d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jun 2007 07:59:33 -0400
+In-Reply-To: <1183117415.5156.61.camel@localhost>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+jamal wrote:
+> On Thu, 2007-28-06 at 21:20 -0700, David Miller wrote:
+> 
+>>Each guest gets a unique MAC address.  There is a queue per-port
+>>that can fill up.
+>>
+>>What all the drivers like this do right now is stop the queue if
+>>any of the per-port queues fill up, and that's why my sunvnet
+>>driver does right now as well.  We can only thus wakeup the
+>>queue when all of the ports have some space.
+> 
+> 
+> Is a netdevice really the correct construct for the host side?
+> Sounds to me a layer above the netdevice is the way to go. A bridge for
+> example or L3 routing or even simple tc classify/redirection etc.
+> I havent used what has become openvz these days in many years (or played
+> with Erics approach), but if i recall correctly - it used to have a
+> single netdevice per guest on the host. Thats close to what a basic
+> qemu/UML has today. In such a case it is something above netdevices
+> which does the guest selection.
 
---=-V75/SMRD/g5kiS7k2p1R
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
 
-On Fri, 2007-06-29 at 07:48 -0400, jamal wrote:
-
-> sure - if you rush you can make it into Daves 2.6.23; then both can
-> conform at the same time.
-
-Yeah, I'll have to see whether I can make that. If not, no big deal
-either.
-
-> > Ok :) Though I'm not sure I understood the suggestion of sending just
-> > one TLV, what should I send?=20
->=20
-> I meant when user space asks the controller "please tell me details
-> about family X" you will always pass an id and name. Never just one.
-> So why not just send that in a struct which has a id/name (as you
-> already have defined in your current patch).
-
-I'll have to look at the struct stuff again, but yeah, something like
-that can be done.
-
-johannes
-
---=-V75/SMRD/g5kiS7k2p1R
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iD8DBQBGhPPZ/ETPhpq3jKURAh48AKCWzPqQS3QUltBYrt9d3LLZCZTuagCfZj13
-JZhStUuR0faaWCBxoTL6/Zs=
-=qsdg
------END PGP SIGNATURE-----
-
---=-V75/SMRD/g5kiS7k2p1R--
-
+I'm guessing that that wouldn't allow to do unicast filtering for
+the guests on the real device without hacking the bridge code for
+this special case. The difference to a real bridge is that the
+all addresses are completely known in advance, so it doesn't need
+promiscous mode for learning.
