@@ -1,64 +1,47 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: 2.6.20->2.6.21 - networking dies after random time
-Date: Fri, 29 Jun 2007 17:07:59 +0200
-Message-ID: <20070629150759.GC2771@ff.dom.local>
-References: <JKE37W$0126317E099DF36884CC046B6F8A7AA9@xandmail.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: Multiqueue and virtualization WAS(Re: [PATCH 3/3] NET: [SCHED]
+ Qdisc changes and sch_rr added for multiqueue
+Date: Fri, 29 Jun 2007 08:33:06 -0700
+Message-ID: <46852632.5050707@candelatech.com>
+References: <D5C1322C3E673F459512FB59E0DDC329031F0648@orsmsx414.amr.corp.intel.com>	 <46840AF5.4020209@trash.net>	 <20070628.212032.108743475.davem@davemloft.net>	 <1183117415.5156.61.camel@localhost>  <4684F41B.9080309@trash.net> <1183121670.5188.16.camel@localhost> <46850450.6040608@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel <linux-kernel@vger.kernel.org>,
-	"marcin\.slusarz" <marcin.slusarz@gmail.com>,
-	shemminger <shemminger@linux-foundation.org>,
-	linux-net <linux-net@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Jean-Baptiste Vignaud <vignaud@xandmail.fr>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S933054AbXF2PAF@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <JKE37W$0126317E099DF36884CC046B6F8A7AA9@xandmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: hadi@cyberus.ca, David Miller <davem@davemloft.net>,
+	peter.p.waskiewicz.jr@intel.com, netdev@vger.kernel.org,
+	jeff@garzik.org, auke-jan.h.kok@intel.com
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ns2.lanforge.com ([66.165.47.211]:42547 "EHLO ns2.lanforge.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755825AbXF2PdV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Jun 2007 11:33:21 -0400
+In-Reply-To: <46850450.6040608@trash.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 29, 2007 at 10:50:20AM +0200, Jean-Baptiste Vignaud wrote:
-> Update...
-> I did 2 tests :
-> 
-> 1)  booted with option acpi=off
-> It booted correctly, i managed to get some load on one of the card
-> and after a while (10 minutes i guess) the Timeout occurs. Side effect,
-> at the same moment the sata contolers lost control of the disks somehow
-> and the raid 5 array on the system crashed hard. I have no traces as i
-> was unable to rebuild it (and i tried a lot of extreme  voodoo methods).
+Patrick McHardy wrote:
+> Right, but the current bridging code always uses promiscous mode
+> and its nice to avoid that if possible. Looking at the code, it
+> should be easy to avoid though by disabling learning (and thus
+> promisous mode) and adding unicast filters for all static fdb entries.
+>   
+I am curious about why people are so hot to do away with promisc mode.  
+It seems to me
+that in a modern switched environment, there should only very rarely be 
+unicast packets received
+on an interface that does not want to receive them.
 
-I think the main option: acpi=on is usually needed.
+Could someone give a quick example of when I am wrong and promisc mode 
+would allow
+a NIC to receive a significant number of packets not really destined for it?
 
-If you, guys, are not exhausted yet, I think you could try to
-turn off (or change for somethig else) most of the options from
-"Processors type and features", and maybe something below PCI
-support. But there are many new options which couldn't be turned
-off so easy, so there is no much hope...
+Thanks,
+Ben
 
-> 
-> 2) changed the 3com cards
-> i replaced by two cards,
-> 01:06.0 Ethernet controller: VIA Technologies, Inc. VT6102 [Rhine-II] (rev 42)
-> 01:07.0 Ethernet controller: Realtek Semiconductor Co., Ltd. RTL-8029(AS)
-> 
-> reinstalled and stressed the network (small download from a laptop) and :
-> 
-> Jun 29 09:34:10 loki kernel: NETDEV WATCHDOG: eth0: transmit timed out
-> Jun 29 09:34:51 loki last message repeated 14 times
-> Jun 29 09:35:18 loki last message repeated 8 times
-> 
-> so it seems to be a more generic problem.
 
-I wonder if you tried to change the place - I've read this
-advice many times. And maybe it would be better to try with
-one card at first?
+-- 
+Ben Greear <greearb@candelatech.com> 
+Candela Technologies Inc  http://www.candelatech.com
 
-It seems there are some patches with dev->tx_timeout but it
-looks like fixing results only. Let's wait...
 
-Cheers,
-Jarek P.
-
-PS: Marcin - your last message wasn't plain text - so probably
-dumped by kernel lists. 
