@@ -1,35 +1,39 @@
 From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: e1000: backport ich9 support from 7.5.5 ?
-Date: Sat, 30 Jun 2007 09:26:43 +0100
-Message-ID: <20070630082643.GB20140@infradead.org>
-References: <1183138159.17243.16.camel@blaa> <20070629175006.GB3917@falooley.org> <468571C6.3090305@garzik.org> <46857C08.4030303@intel.com> <20070629150350.414553d4.akpm@linux-foundation.org> <4685838D.9080108@garzik.org> <c0a09e5c0706291657kd5e4baawb113a17ca5ab2191@mail.gmail.com>
+Subject: Re: [PATCH] CIFS: make cifsd (more)
+Date: Sat, 30 Jun 2007 09:42:09 +0100
+Message-ID: <20070630084209.GA21186@infradead.org>
+References: <524f69650706251525g7b17ea02o5fb3e637615fe542@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jeff@garzik.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"Kok, Auke" <auke-jan.h.kok@intel.com>,
-	Jason Lunz <lunz@reflexsecurity.com>,
-	Mark McLoughlin <markmc@redhat.com>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Andrew Grover <andy.grover@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:48801 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753239AbXF3I0t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jun 2007 04:26:49 -0400
+Cc: linux-fsdevel@vger.kernel.org, jlayton@redhat.com,
+	linux-kernel@vger.kernel.org, linux-cifs-client@lists.samba.org,
+	netdev@vger.kernel.org
+To: Steve French <smfrench@gmail.com>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <c0a09e5c0706291657kd5e4baawb113a17ca5ab2191@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <524f69650706251525g7b17ea02o5fb3e637615fe542@mail.gmail.com>
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 29, 2007 at 04:57:46PM -0700, Andrew Grover wrote:
-> When I was at Intel, I heard a lot of "the linux community won't let
-> us split the driver". "Oh well, guess we gotta keep lugging around all
-> the old crap." So it was a (perhaps misunderstood) desire to make you
-> guys happy that led to e1000 turning into a monster.
+On Mon, Jun 25, 2007 at 05:25:00PM -0500, Steve French wrote:
+> Jeff,
+> Not seeing any objections to your revised approach (to not allowing
+> signals for cifsd kernel thread), I just merged something similar to
+> your patch to the cifs-2.6.git tree (also fixed some nearby lines that
+> went past 80 columns).
 
-Where exactly is that crap coming from?  We've always told people to
-split drivers if things go to divergent and there's some interesting
-examples where the vendors has a monster driver and mainline has two
-nicely split ones (sk98lin vs skge and sky2 for example).
+Ok, I'm back to this.
 
+As I said mixing force_sig with the kthread infrastructure is a bad idea.
+The proper short-term (aka 2.6.22) fix is to revert the kthread conversion
+for this particular thread.  Just go back to what worked before.
+
+Now the right fix is a lot more complicated and involved:
+
+	Stop using blocking recvmsg (or read) in kernel threads!
+
+If you look at what the other consumers of networking reads from kernel
+threads do is they either use tcp_read_sock and hooks into the sk_ callbacks
+which would be nice for high performance reads in cifs aswell, but probably
+not the demultiplexer thread, or they use MSG_DONTWAIT to avoid this problems
+and deal with the blocking behaviour on a higher level.
