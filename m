@@ -1,62 +1,47 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: PM policy, hotplug, power saving (was Re: [PATCH] b44: power
- down PHY when interface down)
-Date: Sat, 30 Jun 2007 14:10:58 -0400
-Message-ID: <20070630141058.4c678c37@oldman>
-References: <4354d3270706300447ladcda4by987b1f87963112f9@mail.gmail.com>
-	<20070630120541.GA21339@srcf.ucam.org>
-	<46866C6B.9010801@linux.intel.com>
-	<468687DE.6030003@garzik.org>
+From: Henrique de Moraes Holschuh <hmh@hmh.eng.br>
+Subject: PM policy, hotplug, power saving and WoL
+Date: Sat, 30 Jun 2007 15:31:23 -0300
+Message-ID: <20070630183123.GB25474@khazad-dum.debian.net>
+References: <4354d3270706300447ladcda4by987b1f87963112f9@mail.gmail.com> <20070630120541.GA21339@srcf.ucam.org> <46866C6B.9010801@linux.intel.com> <468687DE.6030003@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: Arjan van de Ven <arjan@linux.intel.com>,
 	Matthew Garrett <mjg59@srcf.ucam.org>,
-	=?UTF-8?B?VMO2csO2aw==?= Edvin <edwintorok@gmail.com>,
+	=?iso-8859-1?B?VPZy9ms=?= Edvin <edwintorok@gmail.com>,
 	netdev@vger.kernel.org, power@bughost.org, zambrano@broadcom.com,
 	linux-kernel@vger.kernel.org
 To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:43383 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752552AbXF3SLW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jun 2007 14:11:22 -0400
+Received: from out2.smtp.messagingengine.com ([66.111.4.26]:33123 "EHLO
+	out2.smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753185AbXF3Sb0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jun 2007 14:31:26 -0400
+Content-Disposition: inline
 In-Reply-To: <468687DE.6030003@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 30 Jun 2007 12:42:06 -0400
-Jeff Garzik <jeff@garzik.org> wrote:
-
-> Arjan van de Ven wrote:
-> > Matthew Garrett wrote:
-> >> Do you still get link beat detection when the phy is powered down?
-> 
-> > does that matter?
-> > If the interface is down, nic drivers aren't expected to detect link... 
-> > if userspace wants to find link status it should have the interface up.
-> 
-> 
-> Definitely matters.  Switch renegotiation can take a while, and you must 
-> take into account the common case of interface bouncing (immediate down, 
-> then up).
-> 
-> Hoards actively complained the few times we experimented with this, 
-> because of e.g. DHCP's habit of bouncing the interface, which resulted 
-> in PHY power bouncing, which resulted in negotiation, which resulted in 
-> an excrutiating wait on various broken or stupid switches.
-> 
-> Overall, this may be classed with other problems of a similar sort:  we 
-> can power down a PHY, but that removes hotplug capability and extends 
-> partner/link negotiation time.
-> 
+On Sat, 30 Jun 2007, Jeff Garzik wrote:
 > Like SATA, we actually want to support BOTH -- active hotplug and PHY 
 > power-down -- and so this wanders into power management policy.
-> 
-> Give me a knob, and we can program plenty of ethernet|SATA|USB|... 
-> drivers to power down the PHY and save power.
-> 
-> 	Jeff
+>
+> Give me a knob, and we can program plenty of ethernet|SATA|USB|... drivers 
+> to power down the PHY and save power.
 
-We do have IFF_DORMANT, but almost no driver uses it. And most
-certainly, the common applications wouldn't know how to use it.
+While at it, could we please fix our borked WOL interface requirements, so
+that the PHY is *never* to be powered down when WOL is active?  This is
+another deficiency that userspace has to work around in halt(8)...
+
+If WOL is enabled and supported in a device, the kernel must never do
+anything that would cause that device to stop responding to WOL packets.
+
+OTOH, if WOL is disabled, it would be very very nice indeed to be able to
+tell the kernel that yes, it is to power down the PHY if it is not in use.
+Laptops appreciate it a lot, and so do the switches (which will know they
+don't have to forward any traffic over that port).
+
+-- 
+  "One disk to rule them all, One disk to find them. One disk to bring
+  them all and in the darkness grind them. In the Land of Redmond
+  where the shadows lie." -- The Silicon Valley Tarot
+  Henrique Holschuh
