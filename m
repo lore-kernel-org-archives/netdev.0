@@ -1,50 +1,84 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 3/3] NetXen: Graceful teardown of interface and hardware
- upon module unload
-Date: Sat, 30 Jun 2007 18:43:13 -0400
-Message-ID: <4686DC81.5090908@garzik.org>
-References: <20070630203844.256007454@netxen.com> <20070630204424.876510236@netxen.com> <200707010012.11527.mb@bu3sch.de>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: [PATCH] b44: power down PHY when interface down
+Date: Sun, 1 Jul 2007 01:17:34 +0200
+Message-ID: <20070630231734.GF2553@xi.wantstofly.org>
+References: <4354d3270706300447ladcda4by987b1f87963112f9@mail.gmail.com> <200706302353.25426.mb@bu3sch.de> <20070630220301.GD2553@xi.wantstofly.org> <200707010024.40649.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: dhananjay.phadke@gmail.com, netdev@vger.kernel.org, rob@netxen.com,
-	Milan Bag <mbag@netxen.com>, Wen Xiong <wenxiong@us.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: =?iso-8859-1?B?VPZy9ms=?= Edvin <edwintorok@gmail.com>,
+	zambrano@broadcom.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, power@bughost.org
 To: Michael Buesch <mb@bu3sch.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:38811 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753027AbXF3WnS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 30 Jun 2007 18:43:18 -0400
-In-Reply-To: <200707010012.11527.mb@bu3sch.de>
-Sender: netdev-owner@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754708AbXF3XRu@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <200707010024.40649.mb@bu3sch.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michael Buesch wrote:
-> On Saturday 30 June 2007 22:38:47 dhananjay.phadke@gmail.com wrote:
->> These changes allow driver close routine to be called during module unload,
->> to clean-up buffers and other software resources, flush queues etc. Also,
->> hardware is reset to pristine state. 
->>
->> Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
->> Signed-off-by: Milan Bag <mbag@netxen.com>
->> Signed-off-by: Wen Xiong <wenxiong@us.ibm.com>
+On Sun, Jul 01, 2007 at 12:24:40AM +0200, Michael Buesch wrote:
+
+> > > Hm, I was going to measure the real power advantage with a
+> > > PCI-extender card. But my B44B0 card doesn't seem to work in
+> > > that extender card. It works perfectly fine sticked directly into
+> > > the motherboard, though, and other cards like a BCM4318 work in
+> > > the extender, too.
+> > > Not sure what this is.
+> > > The extender has an application note about nonworking cards in the
+> > > extender and a too big resistor on the board IDSEL pin being the
+> > > cause of this.
+> > 
+> > Does the card show up in lspci at all?
 > 
->>  		off = netxen_nic_pci_set_window(adapter, memaddr);
->>  		addr = pci_base_offset(adapter, off);
->>  		writel(data, addr);
->> +		do {
->> +			if (readl(addr) == data)
->> +				break;
->> +			msleep_interruptible(100);
+> No it doesn't.
+
+Right, so it sounds like it might be this issue.
+
+
+> > Does the extender board have a PCI-PCI bridge on it?  (If not,
+> > there's not really any reason to resistively couple the IDSEL
+> > line to the host, since the host should take care of that.)
 > 
-> If you use msleep_interruptible(), I'd say you should check for
-> the return value of that call and probably abort firmware
-> processing here if a signal interrupted us.
+> There's no bridge. It just decouples all voltage lines, so you can
+> drive it from external supply and/or measure voltages and current.
+> On the PCB it looks like the the IDSEL line is rather directly
+> routed to the host IDSEL. It just goes through one of the bus
+> isolation chips. So I guess (just my guess) that this chip has some
+> resistance and if the total resistance of the chip + the IDSEL
+> resistor on the mainboard goes above some threshold it doesn't work
+> anymore for some cards. In the application note they write
+> about trouble for IDSEL resistors >51ohms.
 
-While strictly this is true, I strongly urge the use of 
-non-interruptible sleeps when used in hardware-related delays.  Very 
-rarely does one really want to care about signals for such cases.
+More or less.  You can't add the resistances like that, since the
+bus isolation chip buffers the IDSEL signal, but it is correct that
+if the host's IDSEL resistor is larger than a certain value, the
+combination of the resistive coupling of IDSEL plus the extra buffer
+in the isolator might be causing the IDSEL input on the 'guest' PCI
+board to assert too late (or not assert at all), causing config
+accesses to fail.
 
-	Jeff
+(This also depends on the specific 'guest' PCI board used, as you
+noted, due to differing IDSEL trace lengths/capacitances and input
+pin capacitances on different PCI boards.  Also, it might work at
+33 MHz but not work at 66 MHz, etc.)
+
+If you feel adventurous, you could try to hack around this by
+figuring out which AD[31:16] line this PCI slot's IDSEL line is
+resistively coupled to (depends on the slot), and then adding
+another parallel resistor on the board itself to make the bus
+isolator's input buffer charge faster.  Note that this does
+increase the load on that specific AD[] line, which might cause
+other funny effects.
 
 
+> > > Maybe I can try with another machine tomorrow.
+> > 
+> > That would only make a difference if there is no PCI-PCI bridge on
+> > the extender board.
+> 
+> Well, they suggest it in the application note as a possible fix. ;)
+
+The bus isolation chip doesn't count as a PCI-PCI bridge. :)  I'm just
+saying that you wouldn't see the issue you are seeing now if the
+extender board had a real PCI-PCI bridge on it, since in that case the
+type 0 config access to the guest PCI board would be generated by the
+bridge instead of by the host.
