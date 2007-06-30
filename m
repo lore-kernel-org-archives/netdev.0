@@ -1,39 +1,47 @@
-From: Arjan van de Ven <arjan@linux.intel.com>
-Subject: Re: [PATCH] b44: power down PHY when interface down
-Date: Sat, 30 Jun 2007 07:44:59 -0700
-Message-ID: <46866C6B.9010801@linux.intel.com>
-References: <4354d3270706300447ladcda4by987b1f87963112f9@mail.gmail.com> <20070630120541.GA21339@srcf.ucam.org>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: Multiqueue and virtualization WAS(Re: [PATCH 3/3] NET: [SCHED]
+	Qdisc changes and sch_rr added for multiqueue
+Date: Sat, 30 Jun 2007 10:52:44 -0400
+Message-ID: <1183215164.5165.13.camel@localhost>
+References: <1183121670.5188.16.camel@localhost>
+	 <20070629.143102.88475921.davem@davemloft.net>
+	 <1183167053.5153.7.camel@localhost>
+	 <20070629.213503.34601850.davem@davemloft.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?ISO-8859-1?Q?T=F6r=F6k_Edvin?= <edwintorok@gmail.com>,
-	netdev@vger.kernel.org, power@bughost.org, zambrano@broadcom.com,
-	linux-kernel@vger.kernel.org
-To: Matthew Garrett <mjg59@srcf.ucam.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: kaber@trash.net, peter.p.waskiewicz.jr@intel.com,
+	netdev@vger.kernel.org, jeff@garzik.org, auke-jan.h.kok@intel.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga05.intel.com ([192.55.52.89]:55183 "EHLO
-	fmsmga101.fm.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756854AbXF3Oqr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jun 2007 10:46:47 -0400
-In-Reply-To: <20070630120541.GA21339@srcf.ucam.org>
+Received: from wx-out-0506.google.com ([66.249.82.227]:26919 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756523AbXF3Ows (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jun 2007 10:52:48 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so1096027wxd
+        for <netdev@vger.kernel.org>; Sat, 30 Jun 2007 07:52:47 -0700 (PDT)
+In-Reply-To: <20070629.213503.34601850.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Matthew Garrett wrote:
-> On Sat, Jun 30, 2007 at 02:47:35PM +0300, T=F6r=F6k Edvin wrote:
->> When the interface is down (or driver removed), the BroadCom 44xx ca=
-rd=20
->> remains
->> powered on, and both its MAC and PHY is using up power.
->> This patch makes the driver issue a MAC_CTRL_PHY_PDOWN when the inte=
-rface
->> is halted, and does a partial chip reset turns off the activity LEDs=
- too.
->=20
-> Do you still get link beat detection when the phy is powered down?
->=20
-does that matter?
-If the interface is down, nic drivers aren't expected to detect=20
-link... if userspace wants to find link status it should have the=20
-interface up.
+On Fri, 2007-29-06 at 21:35 -0700, David Miller wrote:
+
+> Awesome, but let's concentrate on the client since I can actually
+> implement and test anything we come up with :-)
+
+Ok, you need to clear one premise for me then ;->
+You said the model is for the guest/client to hook have a port to the
+host and one to each guest; i think this is the confusing part for me
+(and may have led to the switch discussion) because i have not seen this
+model used before. What i have seen before is that the host side
+connects the different guests. In such a scenario, on the guest is a
+single port that connects to the host - the host worries (lets forget
+the switch/bridge for a sec) about how to get packets from guestX to
+guestY pending consultation of access control details.
+What is the advantage of direct domain-domain connection? Is it a
+scalable?
+
+cheers,
+jamal
+
