@@ -1,69 +1,48 @@
-From: Mark McLoughlin <markmc@redhat.com>
-Subject: Re: e1000: backport ich9 support from 7.5.5 ?
-Date: Sat, 30 Jun 2007 22:24:53 +0100
-Message-ID: <1183238694.9055.10.camel@blaa>
-References: <1183138159.17243.16.camel@blaa>
-	<20070629175006.GB3917@falooley.org>  <468562A6.8060901@intel.com>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: [PATCH] b44: power down PHY when interface down
+Date: Sat, 30 Jun 2007 23:53:25 +0200
+Message-ID: <200706302353.25426.mb@bu3sch.de>
+References: <4354d3270706300447ladcda4by987b1f87963112f9@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	Jason Lunz <lunz@reflexsecurity.com>, Jeff Garzik <jeff@garzik.org>
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <468562A6.8060901@intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: zambrano@broadcom.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, power@bughost.org
+To: "=?iso-8859-1?q?T=F6r=F6k?= Edvin" <edwintorok@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:39508
+	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752998AbXF3VyK convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jun 2007 17:54:10 -0400
+In-Reply-To: <4354d3270706300447ladcda4by987b1f87963112f9@mail.gmail.com>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Auke,
+On Saturday 30 June 2007 13:47:35 T=F6r=F6k Edvin wrote:
+> When the interface is down (or driver removed), the BroadCom 44xx car=
+d remains
+> powered on, and both its MAC and PHY is using up power.
+> This patch makes the driver issue a MAC_CTRL_PHY_PDOWN when the inter=
+face
+> is halted, and does a partial chip reset turns off the activity LEDs =
+too.
+>=20
+> Applies to 2.6.22-rc6, or current git head.
+>=20
+> Tested on a Broadcom BCM4401-B0 card, it saves ~0.5W (measured using =
+powertop).
 
-On Fri, 2007-06-29 at 12:51 -0700, Kok, Auke wrote:
-> Jason Lunz wrote:
-> > On Fri, Jun 29, 2007 at 06:29:18PM +0100, Mark McLoughlin wrote:
-> >> 	I understand there is some delay in getting e1000-7.5.5 into the
-> >> upstream kernel given the major re-working of the chipset specific
-> >> parts.
-> >>
-> >> 	I wonder would it be feasible in the meantime to backport the ich9
-> >> support and push it upstream?
-> > 
-> > seconded - this driver reorg has been holding back support for the
-> > newest e1000 hardware since at least 2.6.20, and I haven't seen any
-> > indication that the 7.5.5 e1000 driver will even be added to 2.6.23.
-> 
-> I disagree, we should not break the current e1000 driver in the kernel while 
-> there is a new driver coming up that introduces ich9 support without breaking 
-> (the old e1000) support for all other devices. This is why we want to drop a new 
-> version of the e1000 driver upstream instead, and put all newer devices in that 
-> driver.
+Hm, I was going to measure the real power advantage with a
+PCI-extender card. But my B44B0 card doesn't seem to work in
+that extender card. It works perfectly fine sticked directly into
+the motherboard, though, and other cards like a BCM4318 work in
+the extender, too.
+Not sure what this is.
+The extender has an application note about nonworking cards in the
+extender and a too big resistor on the board IDSEL pin being the
+cause of this.
+Maybe I can try with another machine tomorrow.
 
-	Clearly some major changes are happening around e1000, but the point
-I'm making is that ich9 support, in particular, doesn't need to be held
-hostage to these longer term changes. I think the backport shows that:
-
-  - ich9 differs only very slightly from ich8, which is already 
-    supported upstream. The patch largely consists of:
-
--    if (hw->mac_type == e1000_ich8lan)
-+    if (hw->mac_type == e1000_ich8lan || hw->mac_type == e1000_ich9lan)
-
-  - adding ich9 support is very unlikely to affect support for any
-    other chipsets
-
-Thanks,
-Mark.
-
-
--------------------------------------------------------------------------
-This SF.net email is sponsored by DB2 Express
-Download DB2 Express C - the FREE version of DB2 express and take
-control of your XML. No limits. Just data. Click to get it now.
-http://sourceforge.net/powerbar/db2/
+--=20
+Greetings Michael.
