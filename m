@@ -1,39 +1,41 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [PATCH] CIFS: make cifsd (more)
-Date: Sat, 30 Jun 2007 09:42:09 +0100
-Message-ID: <20070630084209.GA21186@infradead.org>
-References: <524f69650706251525g7b17ea02o5fb3e637615fe542@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-fsdevel@vger.kernel.org, jlayton@redhat.com,
-	linux-kernel@vger.kernel.org, linux-cifs-client@lists.samba.org,
-	netdev@vger.kernel.org
-To: Steve French <smfrench@gmail.com>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <524f69650706251525g7b17ea02o5fb3e637615fe542@mail.gmail.com>
-Sender: linux-fsdevel-owner@vger.kernel.org
+From: Kumar Gala <galak@kernel.crashing.org>
+Subject: Re: Please pull from 'from_linus' branch
+Date: Sat, 30 Jun 2007 04:06:10 -0500
+Message-ID: <1446B1A2-74F8-473D-8439-BCE47E8EF9E3@kernel.crashing.org>
+References: <Pine.LNX.4.64.0706290012430.15686@blarg.am.freescale.net> <4684E7C6.6040300@garzik.org>
+Mime-Version: 1.0 (Apple Message framework v752.2)
+Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linus Torvalds <torvalds@osdl.org>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, acme@redhat.com
+To: Jeff Garzik <jeff@garzik.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gate.crashing.org ([63.228.1.57]:47919 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753116AbXF3JGM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 30 Jun 2007 05:06:12 -0400
+In-Reply-To: <4684E7C6.6040300@garzik.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 25, 2007 at 05:25:00PM -0500, Steve French wrote:
-> Jeff,
-> Not seeing any objections to your revised approach (to not allowing
-> signals for cifsd kernel thread), I just merged something similar to
-> your patch to the cifs-2.6.git tree (also fixed some nearby lines that
-> went past 80 columns).
 
-Ok, I'm back to this.
+On Jun 29, 2007, at 6:06 AM, Jeff Garzik wrote:
 
-As I said mixing force_sig with the kthread infrastructure is a bad idea.
-The proper short-term (aka 2.6.22) fix is to revert the kthread conversion
-for this particular thread.  Just go back to what worked before.
+> Kumar Gala wrote:
+>> Please pull from 'for_linus' branch of
+>> 	master.kernel.org:/pub/scm/linux/kernel/git/galak/powerpc.git  
+>> for_linus
+>> to receive the following updates:
+>>  drivers/net/gianfar.c |    2 +-
+>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>> Kumar Gala (1):
+>>       gianfar: Fix typo bug introduced by move to udp_hdr()
+>
+> Why is net driver stuff no longer going through me?
+>
+> Fixes are regularly going upstream.
 
-Now the right fix is a lot more complicated and involved:
+Sorry about that, will push stuff through you in the future.  I've  
+sent Linus one off fixes in the past for post -rc issues.
 
-	Stop using blocking recvmsg (or read) in kernel threads!
-
-If you look at what the other consumers of networking reads from kernel
-threads do is they either use tcp_read_sock and hooks into the sk_ callbacks
-which would be nice for high performance reads in cifs aswell, but probably
-not the demultiplexer thread, or they use MSG_DONTWAIT to avoid this problems
-and deal with the blocking behaviour on a higher level.
+- k
