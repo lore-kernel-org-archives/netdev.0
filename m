@@ -1,43 +1,59 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 10/21] r8169: merge with version 6.001.00 of Realtek's
- r8169 driver
-Date: Sat, 30 Jun 2007 05:47:40 -0400
-Message-ID: <468626BC.80805@pobox.com>
-References: <20070629201212.GA3240@electric-eye.fr.zoreil.com> <20070629202510.GL3240@electric-eye.fr.zoreil.com> <1183149335.2642.10.camel@laptopd505.fenrus.org> <46857068.4050803@pobox.com> <20070630094138.GB13042@electric-eye.fr.zoreil.com>
+From: Jeff Layton <jlayton@redhat.com>
+Subject: Re: [PATCH] CIFS: make cifsd (more)
+Date: Sat, 30 Jun 2007 07:15:14 -0400
+Message-ID: <20070630071514.514d4833.jlayton@redhat.com>
+References: <524f69650706251525g7b17ea02o5fb3e637615fe542@mail.gmail.com>
+	<20070630084209.GA21186@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Arjan van de Ven <arjan@infradead.org>, netdev@vger.kernel.org,
-	Edward Hsu <edward_hsu@realtek.com.tw>
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:34970 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754227AbXF3Jrq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 30 Jun 2007 05:47:46 -0400
-In-Reply-To: <20070630094138.GB13042@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: Steve French <smfrench@gmail.com>, linux-fsdevel@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-cifs-client@lists.samba.org,
+	netdev@vger.kernel.org
+To: Christoph Hellwig <hch@infradead.org>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <20070630084209.GA21186@infradead.org>
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Francois Romieu wrote:
-> Jeff Garzik <jgarzik@pobox.com> :
->> Arjan van de Ven wrote:
->>>> +	pci_write_config_byte(tp->pci_dev, PCI_LATENCY_TIMER, 0x40);
->>> can you create a pci_set_latency_timer() for this please?
-> [...]
->>>> +	if (tp->mac_version <= RTL_GIGA_MAC_VER_06)
->>>> +		pci_write_config_byte(tp->pci_dev, PCI_CACHE_LINE_SIZE, 
->>>> 0x08);
->>> and something for this as well?
->> Why?  Nothing here seems generic to me.
+On Sat, 30 Jun 2007 09:42:09 +0100
+Christoph Hellwig <hch@infradead.org> wrote:
+
+> On Mon, Jun 25, 2007 at 05:25:00PM -0500, Steve French wrote:
+> > Jeff,
+> > Not seeing any objections to your revised approach (to not allowing
+> > signals for cifsd kernel thread), I just merged something similar to
+> > your patch to the cifs-2.6.git tree (also fixed some nearby lines that
+> > went past 80 columns).
 > 
-> I.e. no need for pci_set_latency_timer(struct pci_dev *dev, u8 latency)
-> neither pci_set_cache_line_size(struct pci_dev *dev, u8 size) ?
+> Ok, I'm back to this.
+> 
+> As I said mixing force_sig with the kthread infrastructure is a bad idea.
+> The proper short-term (aka 2.6.22) fix is to revert the kthread conversion
+> for this particular thread.  Just go back to what worked before.
 
-Yeah.  When it gets to be a one-line wrapper like that, I don't see much 
-additional value in pci_set_cache_line_size() over 
-pci_write_config_byte(,PCI_CACHE_LINE_SIZE,).
+Could you clarify why this is? It looks like kthreads and signalling
+should be more or less orthogonal. Or is it just an issue of the
+complexity added when you mix signalling into kthreads?
 
-	Jeff
+Note that the problem of insulation from userspace signals predates the
+conversion to using the kthreads interface for cifsd. So even if we
+revert the switch of the demultiplexer thread to kthreads in the near
+term, I'd like to keep the recent change to block all signals from
+userspace and use force_sig in lieu of send_sig.
 
+Does that sound reasonable?
 
+>
+> Now the right fix is a lot more complicated and involved:
+> 
+> 	Stop using blocking recvmsg (or read) in kernel threads!
+> 
+> If you look at what the other consumers of networking reads from kernel
+> threads do is they either use tcp_read_sock and hooks into the sk_ callbacks
+> which would be nice for high performance reads in cifs aswell, but probably
+> not the demultiplexer thread, or they use MSG_DONTWAIT to avoid this problems
+> and deal with the blocking behaviour on a higher level.
+
+-- 
+Jeff Layton <jlayton@redhat.com>
