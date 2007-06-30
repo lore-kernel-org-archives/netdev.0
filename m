@@ -1,547 +1,69 @@
-From: dhananjay.phadke@gmail.com
-Subject: [PATCH 3/3] NetXen: Graceful teardown of interface and hardware upon module unload
-Date: Sun, 01 Jul 2007 02:08:47 +0530
-Message-ID: <20070630204424.876510236@netxen.com>
-References: <20070630203844.256007454@netxen.com>
-Cc: rob@netxen.com, Milan Bag <mbag@netxen.com>,
-	Wen Xiong <wenxiong@us.ibm.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [203.199.144.227] ([203.199.144.227]:2921 "EHLO
-	stellar.unminc.com" rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752491AbXF3VTH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jun 2007 17:19:07 -0400
-Content-Disposition: inline; filename=rmmod.patch
-Sender: netdev-owner@vger.kernel.org
+From: Mark McLoughlin <markmc@redhat.com>
+Subject: Re: e1000: backport ich9 support from 7.5.5 ?
+Date: Sat, 30 Jun 2007 22:24:53 +0100
+Message-ID: <1183238694.9055.10.camel@blaa>
+References: <1183138159.17243.16.camel@blaa>
+	<20070629175006.GB3917@falooley.org>  <468562A6.8060901@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	Jason Lunz <lunz@reflexsecurity.com>, Jeff Garzik <jeff@garzik.org>
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <468562A6.8060901@intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-These changes allow driver close routine to be called during module unload,
-to clean-up buffers and other software resources, flush queues etc. Also,
-hardware is reset to pristine state. 
+Hi Auke,
 
-Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
-Signed-off-by: Milan Bag <mbag@netxen.com>
-Signed-off-by: Wen Xiong <wenxiong@us.ibm.com>
+On Fri, 2007-06-29 at 12:51 -0700, Kok, Auke wrote:
+> Jason Lunz wrote:
+> > On Fri, Jun 29, 2007 at 06:29:18PM +0100, Mark McLoughlin wrote:
+> >> 	I understand there is some delay in getting e1000-7.5.5 into the
+> >> upstream kernel given the major re-working of the chipset specific
+> >> parts.
+> >>
+> >> 	I wonder would it be feasible in the meantime to backport the ich9
+> >> support and push it upstream?
+> > 
+> > seconded - this driver reorg has been holding back support for the
+> > newest e1000 hardware since at least 2.6.20, and I haven't seen any
+> > indication that the 7.5.5 e1000 driver will even be added to 2.6.23.
+> 
+> I disagree, we should not break the current e1000 driver in the kernel while 
+> there is a new driver coming up that introduces ich9 support without breaking 
+> (the old e1000) support for all other devices. This is why we want to drop a new 
+> version of the e1000 driver upstream instead, and put all newer devices in that 
+> driver.
 
-Index: netdev-2.6/drivers/net/netxen/netxen_nic.h
-===================================================================
---- netdev-2.6.orig/drivers/net/netxen/netxen_nic.h
-+++ netdev-2.6/drivers/net/netxen/netxen_nic.h
-@@ -952,6 +952,24 @@ struct netxen_adapter {
- 	int (*stop_port) (struct netxen_adapter *);
- };				/* netxen_adapter structure */
- 
-+/*
-+ * NetXen dma watchdog control structure
-+ *
-+ *	Bit 0		: enabled => R/O: 1 watchdog active, 0 inactive
-+ *	Bit 1		: disable_request => 1 req disable dma watchdog
-+ *	Bit 2		: enable_request =>  1 req enable dma watchdog
-+ *	Bit 3-31	: unused
-+ */
-+
-+#define netxen_set_dma_watchdog_disable_req(config_word) \
-+	_netxen_set_bits(config_word, 1, 1, 1)
-+#define netxen_set_dma_watchdog_enable_req(config_word) \
-+	_netxen_set_bits(config_word, 2, 1, 1)
-+#define netxen_get_dma_watchdog_enabled(config_word) \
-+	((config_word) & 0x1)
-+#define netxen_get_dma_watchdog_disabled(config_word) \
-+	(((config_word) >> 1) & 0x1)
-+
- /* Max number of xmit producer threads that can run simultaneously */
- #define	MAX_XMIT_PRODUCERS		16
- 
-@@ -1031,8 +1049,8 @@ int netxen_nic_erase_pxe(struct netxen_a
- /* Functions from netxen_nic_init.c */
- void netxen_free_adapter_offload(struct netxen_adapter *adapter);
- int netxen_initialize_adapter_offload(struct netxen_adapter *adapter);
--void netxen_phantom_init(struct netxen_adapter *adapter, int pegtune_val);
--void netxen_load_firmware(struct netxen_adapter *adapter);
-+int netxen_phantom_init(struct netxen_adapter *adapter, int pegtune_val);
-+int netxen_load_firmware(struct netxen_adapter *adapter);
- int netxen_pinit_from_rom(struct netxen_adapter *adapter, int verbose);
- int netxen_rom_fast_read(struct netxen_adapter *adapter, int addr, int *valp);
- int netxen_rom_fast_read_words(struct netxen_adapter *adapter, int addr, 
-@@ -1230,6 +1248,62 @@ static inline void get_brd_name_by_type(
- 		name = "Unknown";
- }
- 
-+static inline int
-+dma_watchdog_shutdown_request(struct netxen_adapter *adapter)
-+{
-+	u32 ctrl;
-+
-+	/* check if already inactive */
-+	if (netxen_nic_hw_read_wx(adapter,
-+	    NETXEN_CAM_RAM(NETXEN_CAM_RAM_DMA_WATCHDOG_CTRL), &ctrl, 4))
-+		printk(KERN_ERR "failed to read dma watchdog status\n");
-+
-+	if (netxen_get_dma_watchdog_enabled(ctrl) == 0)
-+		return 1;
-+
-+	/* Send the disable request */
-+	netxen_set_dma_watchdog_disable_req(ctrl);
-+	netxen_crb_writelit_adapter(adapter,
-+		NETXEN_CAM_RAM(NETXEN_CAM_RAM_DMA_WATCHDOG_CTRL), ctrl);
-+
-+	return 0;
-+}
-+
-+static inline int
-+dma_watchdog_shutdown_poll_result(struct netxen_adapter *adapter)
-+{
-+	u32 ctrl;
-+
-+	if (netxen_nic_hw_read_wx(adapter,
-+	    NETXEN_CAM_RAM(NETXEN_CAM_RAM_DMA_WATCHDOG_CTRL), &ctrl, 4))
-+		printk(KERN_ERR "failed to read dma watchdog status\n");
-+
-+	return ((netxen_get_dma_watchdog_enabled(ctrl) == 0) &&
-+		(netxen_get_dma_watchdog_disabled(ctrl) == 0));
-+}
-+
-+static inline int
-+dma_watchdog_wakeup(struct netxen_adapter *adapter)
-+{
-+	u32 ctrl;
-+
-+	if (netxen_nic_hw_read_wx(adapter,
-+		NETXEN_CAM_RAM(NETXEN_CAM_RAM_DMA_WATCHDOG_CTRL), &ctrl, 4))
-+		printk(KERN_ERR "failed to read dma watchdog status\n");
-+
-+	if (netxen_get_dma_watchdog_enabled(ctrl))
-+		return 1;
-+
-+	/* send the wakeup request */
-+	netxen_set_dma_watchdog_enable_req(ctrl);
-+
-+	netxen_crb_writelit_adapter(adapter,
-+		NETXEN_CAM_RAM(NETXEN_CAM_RAM_DMA_WATCHDOG_CTRL), ctrl);
-+
-+	return 0;
-+}
-+
-+
- int netxen_is_flash_supported(struct netxen_adapter *adapter);
- int netxen_get_flash_mac_addr(struct netxen_adapter *adapter, u64 mac[]);
- extern void netxen_change_ringparam(struct netxen_adapter *adapter);
-Index: netdev-2.6/drivers/net/netxen/netxen_nic_hdr.h
-===================================================================
---- netdev-2.6.orig/drivers/net/netxen/netxen_nic_hdr.h
-+++ netdev-2.6/drivers/net/netxen/netxen_nic_hdr.h
-@@ -687,4 +687,6 @@ enum {
- 
- #define PCIE_MAX_MASTER_SPLIT	(0x14048)
- 
-+#define NETXEN_CAM_RAM_DMA_WATCHDOG_CTRL		(0x14)
-+
- #endif				/* __NETXEN_NIC_HDR_H_ */
-Index: netdev-2.6/drivers/net/netxen/netxen_nic_hw.c
-===================================================================
---- netdev-2.6.orig/drivers/net/netxen/netxen_nic_hw.c
-+++ netdev-2.6/drivers/net/netxen/netxen_nic_hw.c
-@@ -377,7 +377,7 @@ int netxen_nic_hw_resources(struct netxe
- 						   recv_crb_registers[ctx].
- 						   crb_rcvpeg_state));
- 		while (state != PHAN_PEG_RCV_INITIALIZED && loops < 20) {
--			udelay(100);
-+			msleep(1);
- 			/* Window 1 call */
- 			state = readl(NETXEN_CRB_NORMALIZE(adapter,
- 							   recv_crb_registers
-@@ -394,7 +394,7 @@ int netxen_nic_hw_resources(struct netxe
- 	}
- 	adapter->intr_scheme = readl(
- 		NETXEN_CRB_NORMALIZE(adapter, CRB_NIC_CAPABILITIES_FW));
--	printk(KERN_NOTICE "%s: FW capabilities:0x%x\n", netdev->name,
-+	printk(KERN_NOTICE "%s: FW capabilities:0x%x\n", netxen_nic_driver_name,
- 			adapter->intr_scheme);
- 	DPRINTK(INFO, "Receive Peg ready too. starting stuff\n");
- 
-@@ -701,7 +701,7 @@ void netxen_nic_pci_change_crbwindow(str
- 		adapter->curr_window = 0;
- }
- 
--void netxen_load_firmware(struct netxen_adapter *adapter)
-+int netxen_load_firmware(struct netxen_adapter *adapter)
- {
- 	int i;
- 	u32 data, size = 0;
-@@ -713,15 +713,24 @@ void netxen_load_firmware(struct netxen_
- 	writel(1, NETXEN_CRB_NORMALIZE(adapter, NETXEN_ROMUSB_GLB_CAS_RST));
- 
- 	for (i = 0; i < size; i++) {
--		if (netxen_rom_fast_read(adapter, flashaddr, (int *)&data) != 0) {
--			DPRINTK(ERR,
--				"Error in netxen_rom_fast_read(). Will skip"
--				"loading flash image\n");
--			return;
--		}
-+		int retries = 10;
-+		if (netxen_rom_fast_read(adapter, flashaddr, (int *)&data) != 0)
-+			return -EIO;
-+
- 		off = netxen_nic_pci_set_window(adapter, memaddr);
- 		addr = pci_base_offset(adapter, off);
- 		writel(data, addr);
-+		do {
-+			if (readl(addr) == data)
-+				break;
-+			msleep_interruptible(100);
-+			writel(data, addr);
-+		} while (--retries);
-+		if (!retries) {
-+			printk(KERN_ERR "%s: firmware load aborted, write failed at 0x%x\n",
-+					netxen_nic_driver_name, memaddr);
-+			return -EIO;
-+		}
- 		flashaddr += 4;
- 		memaddr += 4;
- 	}
-@@ -731,7 +740,7 @@ void netxen_load_firmware(struct netxen_
- 	       NETXEN_CRB_NORMALIZE(adapter, NETXEN_ROMUSB_GLB_CHIP_CLK_CTRL));
- 	writel(0, NETXEN_CRB_NORMALIZE(adapter, NETXEN_ROMUSB_GLB_CAS_RST));
- 
--	udelay(100);
-+	return 0;
- }
- 
- int
-Index: netdev-2.6/drivers/net/netxen/netxen_nic_init.c
-===================================================================
---- netdev-2.6.orig/drivers/net/netxen/netxen_nic_init.c
-+++ netdev-2.6/drivers/net/netxen/netxen_nic_init.c
-@@ -407,10 +407,7 @@ static inline int do_rom_fast_write(stru
- static inline int
- do_rom_fast_read(struct netxen_adapter *adapter, int addr, int *valp)
- {
--	if (jiffies > (last_schedule_time + (8 * HZ))) {
--		last_schedule_time = jiffies;
--		schedule();
--	}
-+	cond_resched();
- 
- 	netxen_nic_reg_write(adapter, NETXEN_ROMUSB_ROM_ADDRESS, addr);
- 	netxen_nic_reg_write(adapter, NETXEN_ROMUSB_ROM_ABYTE_CNT, 3);
-@@ -856,10 +853,10 @@ int netxen_pinit_from_rom(struct netxen_
- 				netxen_nic_pci_change_crbwindow(adapter, 1);
- 			}
- 			if (init_delay == 1) {
--				ssleep(1);
-+				ssleep(2);
- 				init_delay = 0;
- 			}
--			msleep(1);
-+			msleep(20);
- 		}
- 		kfree(buf);
- 
-@@ -935,10 +932,6 @@ int netxen_initialize_adapter_offload(st
- void netxen_free_adapter_offload(struct netxen_adapter *adapter)
- {
- 	if (adapter->dummy_dma.addr) {
--		writel(0, NETXEN_CRB_NORMALIZE(adapter,
--			CRB_HOST_DUMMY_BUF_ADDR_HI));
--		writel(0, NETXEN_CRB_NORMALIZE(adapter,
--			CRB_HOST_DUMMY_BUF_ADDR_LO));
- 		pci_free_consistent(adapter->ahw.pdev,
- 				    NETXEN_HOST_DUMMY_DMA_SIZE,
- 				    adapter->dummy_dma.addr,
-@@ -947,25 +940,37 @@ void netxen_free_adapter_offload(struct 
- 	}
- }
- 
--void netxen_phantom_init(struct netxen_adapter *adapter, int pegtune_val)
-+int netxen_phantom_init(struct netxen_adapter *adapter, int pegtune_val)
- {
- 	u32 val = 0;
--	int loops = 0;
-+	int retries = 30;
- 
- 	if (!pegtune_val) {
--		val = readl(NETXEN_CRB_NORMALIZE(adapter, CRB_CMDPEG_STATE));
--		while (val != PHAN_INITIALIZE_COMPLETE && 
--			val != PHAN_INITIALIZE_ACK && loops < 200000) {
--			udelay(100);
--			schedule();
--			val =
--			    readl(NETXEN_CRB_NORMALIZE
-+		do {
-+			val = readl(NETXEN_CRB_NORMALIZE
- 				  (adapter, CRB_CMDPEG_STATE));
--			loops++;
-+			pegtune_val = readl(NETXEN_CRB_NORMALIZE
-+				  (adapter, NETXEN_ROMUSB_GLB_PEGTUNE_DONE));
-+
-+			if (val == PHAN_INITIALIZE_COMPLETE ||
-+				val == PHAN_INITIALIZE_ACK)
-+				return 0;
-+
-+			if (msleep_interruptible(1000))
-+				break;
-+		} while (--retries);
-+		if (signal_pending(current)) {
-+			printk(KERN_WARNING "netxen_phantom_init: exiting on signal\n");
-+			return -EINTR;
-+		}
-+		if (!retries) {
-+			printk(KERN_WARNING "netxen_phantom_init: init failed, "
-+					"pegtune_val=%x\n", pegtune_val);
-+			return -1;
- 		}
--		if (val != PHAN_INITIALIZE_COMPLETE)
--			printk("WARNING: Initial boot wait loop failed...\n");
- 	}
-+
-+	return 0;
- }
- 
- int netxen_nic_rx_has_work(struct netxen_adapter *adapter)
-@@ -1122,6 +1127,7 @@ netxen_process_rcv(struct netxen_adapter
- 		adapter->stats.csummed++;
- 		skb->ip_summed = CHECKSUM_UNNECESSARY;
- 	}
-+	skb->dev = netdev;
- 	if (desc_ctx == RCV_DESC_LRO_CTXID) {
- 		/* True length was only available on the last pkt */
- 		skb_put(skb, buffer->lro_length);
-@@ -1226,6 +1232,7 @@ u32 netxen_process_rcv_ring(struct netxe
- 		       NETXEN_CRB_NORMALIZE(adapter,
- 					    recv_crb_registers[adapter->portnum].
- 					    crb_rcv_status_consumer));
-+		wmb();
- 	}
- 
- 	return count;
-@@ -1278,11 +1285,13 @@ int netxen_process_cmd_ring(unsigned lon
- 		if (skb && (cmpxchg(&buffer->skb, skb, 0) == skb)) {
- 			pci_unmap_single(pdev, frag->dma, frag->length,
- 					 PCI_DMA_TODEVICE);
-+			frag->dma = 0ULL;
- 			for (i = 1; i < buffer->frag_count; i++) {
- 				DPRINTK(INFO, "getting fragment no %d\n", i);
- 				frag++;	/* Get the next frag */
- 				pci_unmap_page(pdev, frag->dma, frag->length,
- 					       PCI_DMA_TODEVICE);
-+				frag->dma = 0ULL;
- 			}
- 
- 			adapter->stats.skbfreed++;
-@@ -1448,6 +1457,7 @@ void netxen_post_rx_buffers(struct netxe
- 			writel(msg,
- 			       DB_NORMALIZE(adapter,
- 					    NETXEN_RCV_PRODUCER_OFFSET));
-+			wmb();
- 		}
- 	}
- }
-Index: netdev-2.6/drivers/net/netxen/netxen_nic_main.c
-===================================================================
---- netdev-2.6.orig/drivers/net/netxen/netxen_nic_main.c
-+++ netdev-2.6/drivers/net/netxen/netxen_nic_main.c
-@@ -511,6 +511,8 @@ netxen_nic_probe(struct pci_dev *pdev, c
- 			val |= 0x4;
- 			netxen_nic_write_w0(adapter, NETXEN_PCIE_REG(0x4), val);
- 			netxen_nic_read_w0(adapter, NETXEN_PCIE_REG(0x4), &val);
-+			if (!(val & 0x4))
-+				printk(KERN_ERR "NetXen: bit set failed\n");
- 		    }
- 		    val = readl(NETXEN_CRB_NORMALIZE(adapter,
- 					NETXEN_ROMUSB_GLB_SW_RESET));
-@@ -523,11 +525,10 @@ netxen_nic_probe(struct pci_dev *pdev, c
- 			err = -ENODEV;
- 			goto err_out_free_dev;
- 		    }
--
--		    /* clear the register for future unloads/loads */
--		    writel(0, NETXEN_CRB_NORMALIZE(adapter, 
--					    NETXEN_CAM_RAM(0x1fc)));
- 		}
-+
-+		/* clear the register for future unloads/loads */
-+		writel(0, NETXEN_CRB_NORMALIZE(adapter, NETXEN_CAM_RAM(0x1fc)));
- 		printk(KERN_INFO "State: 0x%0x\n",
- 			readl(NETXEN_CRB_NORMALIZE(adapter, CRB_CMDPEG_STATE)));
- 
-@@ -545,13 +546,6 @@ netxen_nic_probe(struct pci_dev *pdev, c
- 				NETXEN_ROMUSB_GLB_PEGTUNE_DONE));
- 		/* Handshake with the card before we register the devices. */
- 		netxen_phantom_init(adapter, NETXEN_NIC_PEG_TUNE);
--
--	       /* leave the hw in the same state as reboot */
--	       writel(0, NETXEN_CRB_NORMALIZE(adapter, CRB_CMDPEG_STATE));
--	       netxen_pinit_from_rom(adapter, 0);
--	       udelay(500);
--	       netxen_load_firmware(adapter);
--	       netxen_phantom_init(adapter, NETXEN_NIC_PEG_TUNE);
- 	}
- 
- 	/*
-@@ -642,8 +636,8 @@ static void __devexit netxen_nic_remove(
- 	struct netxen_rx_buffer *buffer;
- 	struct netxen_recv_context *recv_ctx;
- 	struct netxen_rcv_desc_ctx *rcv_desc;
--	int i;
--	int ctxid, ring;
-+	int i, ctxid, ring;
-+	static int init_firmware_done = 0;
- 
- 	adapter = pci_get_drvdata(pdev);
- 	if (adapter == NULL)
-@@ -651,30 +645,20 @@ static void __devexit netxen_nic_remove(
- 
- 	netdev = adapter->netdev;
- 
--	netxen_nic_disable_int(adapter);
--	if (adapter->irq)
--		free_irq(adapter->irq, adapter);
--	
-+	unregister_netdev(netdev);
-+
- 	if (adapter->stop_port)
- 		adapter->stop_port(adapter);
- 
--	if ((adapter->flags & NETXEN_NIC_MSI_ENABLED))
--		pci_disable_msi(pdev);
--
--	if (adapter->portnum == 0)
--		netxen_free_adapter_offload(adapter);
-+	netxen_nic_disable_int(adapter);
- 
--	if(adapter->portnum == 0) {
--		/* leave the hw in the same state as reboot */
--		writel(0, NETXEN_CRB_NORMALIZE(adapter, CRB_CMDPEG_STATE));
--		netxen_pinit_from_rom(adapter, 0);
--		udelay(500);
--		netxen_load_firmware(adapter);
--		netxen_phantom_init(adapter, NETXEN_NIC_PEG_TUNE);
--	}
-+	if (adapter->irq)
-+		free_irq(adapter->irq, adapter);
- 
--	if (adapter->is_up == NETXEN_ADAPTER_UP_MAGIC)
-+	if (adapter->is_up == NETXEN_ADAPTER_UP_MAGIC) {
-+		init_firmware_done++;
- 		netxen_free_hw_resources(adapter);
-+	}
- 
- 	for (ctxid = 0; ctxid < MAX_RCV_CTX; ++ctxid) {
- 		recv_ctx = &adapter->recv_ctx[ctxid];
-@@ -694,17 +678,73 @@ static void __devexit netxen_nic_remove(
- 		}
- 	}
- 
--	unregister_netdev(netdev);
-+	if (adapter->flags & NETXEN_NIC_MSI_ENABLED)
-+		pci_disable_msi(pdev);
- 
- 	vfree(adapter->cmd_buf_arr);
- 
-+	pci_disable_device(pdev);
-+
-+	if (adapter->portnum == 0) {
-+		if (init_firmware_done) {
-+			dma_watchdog_shutdown_request(adapter);
-+			msleep(100);
-+			i = 100;
-+			while ((dma_watchdog_shutdown_poll_result(adapter) != 1) && i) {
-+				printk(KERN_INFO "dma_watchdog_shutdown_poll still in progress\n");
-+				msleep(100);
-+				i--;
-+			}
-+
-+			if (i == 0) {
-+				printk(KERN_ERR "dma_watchdog_shutdown_request failed\n");
-+				return;
-+			}
-+
-+			/* clear the register for future unloads/loads */
-+			writel(0, NETXEN_CRB_NORMALIZE(adapter, NETXEN_CAM_RAM(0x1fc)));
-+			printk(KERN_INFO "State: 0x%0x\n",
-+				readl(NETXEN_CRB_NORMALIZE(adapter, CRB_CMDPEG_STATE)));
-+
-+			/* leave the hw in the same state as reboot */
-+			writel(0, NETXEN_CRB_NORMALIZE(adapter, CRB_CMDPEG_STATE));
-+			if (netxen_pinit_from_rom(adapter, 0))
-+				return;
-+			udelay(500);
-+			if (netxen_load_firmware(adapter))
-+				return;
-+			netxen_phantom_init(adapter, NETXEN_NIC_PEG_TUNE);
-+		}
-+
-+		/* clear the register for future unloads/loads */
-+		writel(0, NETXEN_CRB_NORMALIZE(adapter, NETXEN_CAM_RAM(0x1fc)));
-+		printk(KERN_INFO "State: 0x%0x\n",
-+			readl(NETXEN_CRB_NORMALIZE(adapter, CRB_CMDPEG_STATE)));
-+
-+		dma_watchdog_shutdown_request(adapter);
-+		mdelay(100);
-+		i = 100;
-+		while ((dma_watchdog_shutdown_poll_result(adapter) != 1) && i) {
-+			printk(KERN_INFO "dma_watchdog_shutdown_poll still in progress\n");
-+			mdelay(100);
-+			i--;
-+		}
-+
-+		if (i) {
-+			netxen_free_adapter_offload(adapter);
-+		} else {
-+			printk(KERN_ERR "failed to dma shutdown\n");
-+			return;
-+		}
-+
-+	}
-+
- 	iounmap(adapter->ahw.db_base);
- 	iounmap(adapter->ahw.pci_base0);
- 	iounmap(adapter->ahw.pci_base1);
- 	iounmap(adapter->ahw.pci_base2);
- 
- 	pci_release_regions(pdev);
--	pci_disable_device(pdev);
- 	pci_set_drvdata(pdev, NULL);
- 
- 	free_netdev(netdev);
-@@ -801,7 +841,7 @@ static int netxen_nic_close(struct net_d
- 		if (buffrag->dma) {
- 			pci_unmap_single(adapter->pdev, buffrag->dma,
- 					 buffrag->length, PCI_DMA_TODEVICE);
--			buffrag->dma = (u64) NULL;
-+			buffrag->dma = 0ULL;
- 		}
- 		for (j = 0; j < cmd_buff->frag_count; j++) {
- 			buffrag++;
-@@ -809,7 +849,7 @@ static int netxen_nic_close(struct net_d
- 				pci_unmap_page(adapter->pdev, buffrag->dma,
- 					       buffrag->length, 
- 					       PCI_DMA_TODEVICE);
--				buffrag->dma = (u64) NULL;
-+				buffrag->dma = 0ULL;
- 			}
- 		}
- 		/* Free the skb we received in netxen_nic_xmit_frame */
-@@ -819,8 +859,10 @@ static int netxen_nic_close(struct net_d
- 		}
- 		cmd_buff++;
- 	}
--	FLUSH_SCHEDULED_WORK();
--	del_timer_sync(&adapter->watchdog_timer);
-+	if (adapter->is_up == NETXEN_ADAPTER_UP_MAGIC) {
-+		FLUSH_SCHEDULED_WORK();
-+		del_timer_sync(&adapter->watchdog_timer);
-+	}
- 
- 	return 0;
- }
-@@ -1259,6 +1301,7 @@ static void __exit netxen_exit_module(vo
- 	/*
- 	 * Wait for some time to allow the dma to drain, if any.
- 	 */
-+	msleep(100);
- 	pci_unregister_driver(&netxen_driver);
- 	destroy_workqueue(netxen_workq);
- }
+	Clearly some major changes are happening around e1000, but the point
+I'm making is that ich9 support, in particular, doesn't need to be held
+hostage to these longer term changes. I think the backport shows that:
 
--- 
+  - ich9 differs only very slightly from ich8, which is already 
+    supported upstream. The patch largely consists of:
+
+-    if (hw->mac_type == e1000_ich8lan)
++    if (hw->mac_type == e1000_ich8lan || hw->mac_type == e1000_ich9lan)
+
+  - adding ich9 support is very unlikely to affect support for any
+    other chipsets
+
+Thanks,
+Mark.
+
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by DB2 Express
+Download DB2 Express C - the FREE version of DB2 express and take
+control of your XML. No limits. Just data. Click to get it now.
+http://sourceforge.net/powerbar/db2/
