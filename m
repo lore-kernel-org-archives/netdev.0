@@ -1,38 +1,58 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: r8169 tx problem (1s pause with ping)
-Date: Fri, 15 Jun 2007 00:00:51 +0200
-Message-ID: <20070614220050.GB23266@electric-eye.fr.zoreil.com>
-References: <20070613004154.GA4187@kvack.org> <20070613211859.GA22521@electric-eye.fr.zoreil.com> <46715FBA.3070302@iinet.net.au>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: [PATCH] b44: power down PHY when interface down
+Date: Sun, 1 Jul 2007 00:03:01 +0200
+Message-ID: <20070630220301.GD2553@xi.wantstofly.org>
+References: <4354d3270706300447ladcda4by987b1f87963112f9@mail.gmail.com> <200706302353.25426.mb@bu3sch.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Benjamin LaHaise <bcrl@kvack.org>
-To: David Gundersen <gundy@iinet.net.au>
+Cc: =?iso-8859-1?B?VPZy9ms=?= Edvin <edwintorok@gmail.com>,
+	zambrano@broadcom.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, power@bughost.org
+To: Michael Buesch <mb@bu3sch.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:36977 "EHLO
-	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751048AbXFNWFG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Jun 2007 18:05:06 -0400
+Received: from alephnull.demon.nl ([83.160.184.112]:45482 "EHLO
+	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752500AbXF3WDE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jun 2007 18:03:04 -0400
 Content-Disposition: inline
-In-Reply-To: <46715FBA.3070302@iinet.net.au>
+In-Reply-To: <200706302353.25426.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Gundersen <gundy@iinet.net.au> :
-[...]
-> I might do some more thorough testing on the weekend to find out what
-> the minimal changes required are to get things working.
+On Sat, Jun 30, 2007 at 11:53:25PM +0200, Michael Buesch wrote:
 
-In your patch, the first chunk of data (which is handed back to the
-nic outside of rtl8169_xmit_frags) will not have is First fragment
-bit set when nr_frags != 0. It makes me a bit nervous.
+> > When the interface is down (or driver removed), the BroadCom 44xx card remains
+> > powered on, and both its MAC and PHY is using up power.
+> > This patch makes the driver issue a MAC_CTRL_PHY_PDOWN when the interface
+> > is halted, and does a partial chip reset turns off the activity LEDs too.
+> > 
+> > Applies to 2.6.22-rc6, or current git head.
+> > 
+> > Tested on a Broadcom BCM4401-B0 card, it saves ~0.5W (measured using powertop).
+> 
+> Hm, I was going to measure the real power advantage with a
+> PCI-extender card. But my B44B0 card doesn't seem to work in
+> that extender card. It works perfectly fine sticked directly into
+> the motherboard, though, and other cards like a BCM4318 work in
+> the extender, too.
+> Not sure what this is.
+> The extender has an application note about nonworking cards in the
+> extender and a too big resistor on the board IDSEL pin being the
+> cause of this.
 
-The NPQ part of your patch actually forces the start_xmit handler to
-wait for all previously queued packets to be sent before telling the
-nic that a packet may be available. I can understand that it will fix
-the symptoms but it will implicitly shorten the TX queue a lot.
+Does the card show up in lspci at all?  IDSEL drive strength
+issues should only affect config space accesses.
 
-A pesky fever apart, I should be able to come with a patch before
-the week end.
+Does the extender board have a PCI-PCI bridge on it?  (If not,
+there's not really any reason to resistively couple the IDSEL
+line to the host, since the host should take care of that.)
 
--- 
-Ueimor
+
+> Maybe I can try with another machine tomorrow.
+
+That would only make a difference if there is no PCI-PCI bridge on
+the extender board.
+
+If the extender resistively couples the host's IDSEL line, you might
+see different results on a different host bridge, since different
+host bridges can use different numbers of IDSEL stepping cycles.
