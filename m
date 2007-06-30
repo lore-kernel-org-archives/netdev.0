@@ -1,58 +1,62 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: [PATCH] b44: power down PHY when interface down
-Date: Sun, 1 Jul 2007 00:03:01 +0200
-Message-ID: <20070630220301.GD2553@xi.wantstofly.org>
-References: <4354d3270706300447ladcda4by987b1f87963112f9@mail.gmail.com> <200706302353.25426.mb@bu3sch.de>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: [PATCH 2/3] NetXen: Support per PCI-function interrupt mask registers
+Date: Sun, 1 Jul 2007 00:17:33 +0200
+Message-ID: <200707010017.33917.mb@bu3sch.de>
+References: <20070630203844.256007454@netxen.com> <20070630204423.353697018@netxen.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: =?iso-8859-1?B?VPZy9ms=?= Edvin <edwintorok@gmail.com>,
-	zambrano@broadcom.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, power@bughost.org
-To: Michael Buesch <mb@bu3sch.de>
+Content-Type: text/plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, rob@netxen.com
+To: dhananjay.phadke@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alephnull.demon.nl ([83.160.184.112]:45482 "EHLO
-	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752500AbXF3WDE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jun 2007 18:03:04 -0400
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:45125
+	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752953AbXF3WSP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jun 2007 18:18:15 -0400
+In-Reply-To: <20070630204423.353697018@netxen.com>
 Content-Disposition: inline
-In-Reply-To: <200706302353.25426.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Jun 30, 2007 at 11:53:25PM +0200, Michael Buesch wrote:
-
-> > When the interface is down (or driver removed), the BroadCom 44xx card remains
-> > powered on, and both its MAC and PHY is using up power.
-> > This patch makes the driver issue a MAC_CTRL_PHY_PDOWN when the interface
-> > is halted, and does a partial chip reset turns off the activity LEDs too.
-> > 
-> > Applies to 2.6.22-rc6, or current git head.
-> > 
-> > Tested on a Broadcom BCM4401-B0 card, it saves ~0.5W (measured using powertop).
+On Saturday 30 June 2007 22:38:46 dhananjay.phadke@gmail.com wrote:
+> This patch updates the various access routines to access different
+> control and status settings present in different register locations.
+> This will fix problems related to working of different ports in
+> multi Port card.
 > 
-> Hm, I was going to measure the real power advantage with a
-> PCI-extender card. But my B44B0 card doesn't seem to work in
-> that extender card. It works perfectly fine sticked directly into
-> the motherboard, though, and other cards like a BCM4318 work in
-> the extender, too.
-> Not sure what this is.
-> The extender has an application note about nonworking cards in the
-> extender and a too big resistor on the board IDSEL pin being the
-> cause of this.
+> Signed-off by: Dhananjay Phadke <dhananjay@netxen.com>
+> Signed-off by: Milan Bag <mbag@netxen.com>
 
-Does the card show up in lspci at all?  IDSEL drive strength
-issues should only affect config space accesses.
+> +	/* Window = 0 or 1 */
+> +	if (!(adapter->flags & NETXEN_NIC_MSI_ENABLED)) {
+> +		do {
+> +			writel(0xffffffff, (void *)
+> +				(PCI_OFFSET_SECOND_RANGE(adapter, ISR_INT_TARGET_STATUS)));
+> +			mask = readl((void *)
+> +					(pci_base_offset(adapter, ISR_INT_VECTOR)));
 
-Does the extender board have a PCI-PCI bridge on it?  (If not,
-there's not really any reason to resistively couple the IDSEL
-line to the host, since the host should take care of that.)
+I think you should add a small delay into this loop. Otherwise
+it depends on the speed of the CPU (and chipset) how big the total
+timeout (32) of the loop is. Could be too small on fast systems.
+Something like:
+			if (!(mask & 0x80))
+				break;
+			udelay(10);
+			} while (++count < 32);
+and drop the next line.
 
+> +		} while (((mask & 0x80) != 0) && (++count < 32));
+> +
+> +		if ((mask & 0x80) != 0) {
+> +			printk(KERN_NOTICE "Could not disable interrupt completely\n");
+> +		}
+> +	}
+> +
+> +	DPRINTK(1, INFO, "Done with Disable Int\n");
+> +
+> +	return;
+>  }
 
-> Maybe I can try with another machine tomorrow.
-
-That would only make a difference if there is no PCI-PCI bridge on
-the extender board.
-
-If the extender resistively couples the host's IDSEL line, you might
-see different results on a different host bridge, since different
-host bridges can use different numbers of IDSEL stepping cycles.
+-- 
+Greetings Michael.
