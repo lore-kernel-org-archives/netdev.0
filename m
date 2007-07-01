@@ -1,54 +1,91 @@
-From: Kyle Moffett <mrmacman_g4@mac.com>
-Subject: Re: PM policy, hotplug, power saving (was Re: [PATCH] b44: power down PHY when interface down)
-Date: Sun, 1 Jul 2007 00:51:15 -0400
-Message-ID: <05EEFFFE-AD93-40A1-8851-92C3053286E1@mac.com>
-References: <4354d3270706300447ladcda4by987b1f87963112f9@mail.gmail.com> <20070630120541.GA21339@srcf.ucam.org> <46866C6B.9010801@linux.intel.com> <468687DE.6030003@garzik.org>
-Mime-Version: 1.0 (Apple Message framework v752.2)
-Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: RESEND [PATCH 2/3] NetXen: Support per PCI-function interrupt mask registers
+Date: Sun, 1 Jul 2007 11:27:49 +0200
+Message-ID: <200707011127.49766.mb@bu3sch.de>
+References: <20070701024325.287283308@netxen.com> <20070701024730.494758559@netxen.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: Arjan van de Ven <arjan@linux.intel.com>,
-	Matthew Garrett <mjg59@srcf.ucam.org>,
-	=?ISO-8859-1?Q?T=F6r=F6k_Edvin?= <edwintorok@gmail.com>,
-	netdev@vger.kernel.org, power@bughost.org, zambrano@broadcom.com,
-	linux-kernel@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+Cc: netdev@vger.kernel.org, rob@netxen.com
+To: dhananjay.phadke@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpout.mac.com ([17.250.248.174]:64898 "EHLO smtpout.mac.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750772AbXGAEvX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 1 Jul 2007 00:51:23 -0400
-In-Reply-To: <468687DE.6030003@garzik.org>
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:54076
+	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755161AbXGAJ2h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jul 2007 05:28:37 -0400
+In-Reply-To: <20070701024730.494758559@netxen.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Jun 30, 2007, at 12:42:06, Jeff Garzik wrote:
-> Definitely matters.  Switch renegotiation can take a while, and you  
-> must take into account the common case of interface bouncing  
-> (immediate down, then up).
->
-> Hoards actively complained the few times we experimented with this,  
-> because of e.g. DHCP's habit of bouncing the interface, which  
-> resulted in PHY power bouncing, which resulted in negotiation,  
-> which resulted in an excrutiating wait on various broken or stupid  
-> switches.
->
-> Overall, this may be classed with other problems of a similar  
-> sort:  we can power down a PHY, but that removes hotplug capability  
-> and extends partner/link negotiation time.
->
-> Like SATA, we actually want to support BOTH -- active hotplug and  
-> PHY power-down -- and so this wanders into power management policy.
->
-> Give me a knob, and we can program plenty of ethernet|SATA|USB|...  
-> drivers to power down the PHY and save power.
+On Sunday 01 July 2007 04:43:27 dhananjay.phadke@gmail.com wrote:
+> This patch updates the various access routines to access different
+> control and status settings present in different register locations.
+> This will fix problems related to working of different ports in
+> multi Port card.
+> 
+> Signed-off by: Dhananjay Phadke <dhananjay@netxen.com>
+> Signed-off by: Milan Bag <mbag@netxen.com>
+> 
+> Index: netdev-2.6/drivers/net/netxen/netxen_nic.h
+> ===================================================================
+> --- netdev-2.6.orig/drivers/net/netxen/netxen_nic.h
+> +++ netdev-2.6/drivers/net/netxen/netxen_nic.h
+> @@ -937,6 +937,7 @@ struct netxen_adapter {
+>  	struct netxen_ring_ctx *ctx_desc;
+>  	struct pci_dev *ctx_desc_pdev;
+>  	dma_addr_t ctx_desc_phys_addr;
+> +	int intr_scheme;
+>  	int (*enable_phy_interrupts) (struct netxen_adapter *);
+>  	int (*disable_phy_interrupts) (struct netxen_adapter *);
+>  	void (*handle_phy_intr) (struct netxen_adapter *);
+> @@ -1080,37 +1081,103 @@ struct net_device_stats *netxen_nic_get_
+>  
+>  static inline void netxen_nic_disable_int(struct netxen_adapter *adapter)
+>  {
+> -	/*
+> -	 * ISR_INT_MASK: Can be read from window 0 or 1.
+> -	 */
+> -	writel(0x7ff, PCI_OFFSET_SECOND_RANGE(adapter, ISR_INT_MASK));
+> +	uint32_t	mask = 0x7ff;
+> +	int count = 0;
+>  
+> +	DPRINTK(1, INFO, "Entered ISR Disable \n");
+> +
+> +	switch (adapter->portnum) {
+> +	case 0:
+> +		writel(0x0, NETXEN_CRB_NORMALIZE(adapter, CRB_SW_INT_MASK_0));
+> +		break;
+> +	case 1:
+> +		writel(0x0, NETXEN_CRB_NORMALIZE(adapter, CRB_SW_INT_MASK_1));
+> +		break;
+> +	case 2:
+> +		writel(0x0, NETXEN_CRB_NORMALIZE(adapter, CRB_SW_INT_MASK_2));
+> +		break;
+> +	case 3:
+> +		writel(0x0, NETXEN_CRB_NORMALIZE(adapter, CRB_SW_INT_MASK_3));
+> +		break;
+> +	}
+> +
+> +	if (adapter->intr_scheme != -1 &&
+> +		adapter->intr_scheme != INTR_SCHEME_PERPORT) {
+> +		writel(mask,
+> +			(void *)(PCI_OFFSET_SECOND_RANGE(adapter, ISR_INT_MASK)));
+> +	}
+> +
+> +	/* Window = 0 or 1 */
+> +	if (!(adapter->flags & NETXEN_NIC_MSI_ENABLED)) {
+> +		do {
+> +			writel(0xffffffff, (void *)
+> +				(PCI_OFFSET_SECOND_RANGE(adapter, ISR_INT_TARGET_STATUS)));
+> +			mask = readl((void *)
+> +					(pci_base_offset(adapter, ISR_INT_VECTOR)));
+> +			udelay(10);
 
-With some buggy switches and other hardware you actually *want* to  
-bounce the link to get them to properly renegotiate.  I can also see  
-wanting to power off and on a single-PoE-port NIC to restart whatever  
-device is at the other end, although I don't know if any such devices  
-exist.  Currently the tg3 driver turns the PHY off and on during down/ 
-up on a few of my systems, which I use to make a buggy no-name switch  
-recognize STP changes properly.
+This needlessly always delays at least 10 uS, even if it succeed on the
+first attempt.
+Better do it like I suggested to avoid that.
 
-Cheers,
-Kyle Moffett
+-- 
+Greetings Michael.
