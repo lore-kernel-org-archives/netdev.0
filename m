@@ -1,69 +1,40 @@
 From: Adrian Bunk <bunk@stusta.de>
-Subject: [-mm patch] e1000: #if 0 two functions
-Date: Sun, 1 Jul 2007 22:20:43 +0200
-Message-ID: <20070701202043.GE10869@stusta.de>
+Subject: [2.6 patch] drivers/net/ns83820.c: fix a check-after-use
+Date: Sun, 1 Jul 2007 22:21:10 +0200
+Message-ID: <20070701202110.GH10869@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Cc: Peter Oruba <peter.oruba@amd.com>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	cramerj@intel.com, john.ronciak@intel.com,
-	jesse.brandeburg@intel.com, jeffrey.t.kirsher@intel.com,
-	auke-jan.h.kok@intel.com, jgarzik@pobox.com,
-	linux-kernel@vger.kernel.org, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from emailhub.stusta.mhn.de ([141.84.69.5]:46814 "EHLO
+Received: from mailout.stusta.mhn.de ([141.84.69.5]:46830 "EHLO
 	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1758322AbXGAUUR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jul 2007 16:20:17 -0400
+	with ESMTP id S1758674AbXGAUUn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jul 2007 16:20:43 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-e1000_{read,write}_pci_cfg() are no longer used.
+This patch fixes a check-after-use spotted by the Coverity checker.
 
 Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
 ---
-
-This patch has been sent on:
-- 5 Jun 2007
-
- drivers/net/e1000/e1000_hw.h   |    2 --
- drivers/net/e1000/e1000_main.c |    4 ++++
- 2 files changed, 4 insertions(+), 2 deletions(-)
-
---- linux-2.6.22-rc3-mm1/drivers/net/e1000/e1000_hw.h.old	2007-06-04 22:03:05.000000000 +0200
-+++ linux-2.6.22-rc3-mm1/drivers/net/e1000/e1000_hw.h	2007-06-04 22:03:14.000000000 +0200
-@@ -421,8 +421,6 @@ void e1000_tbi_adjust_stats(struct e1000
- void e1000_get_bus_info(struct e1000_hw *hw);
- void e1000_pci_set_mwi(struct e1000_hw *hw);
- void e1000_pci_clear_mwi(struct e1000_hw *hw);
--void e1000_read_pci_cfg(struct e1000_hw *hw, uint32_t reg, uint16_t * value);
--void e1000_write_pci_cfg(struct e1000_hw *hw, uint32_t reg, uint16_t * value);
- int32_t e1000_read_pcie_cap_reg(struct e1000_hw *hw, uint32_t reg, uint16_t *value);
- void e1000_pcix_set_mmrbc(struct e1000_hw *hw, int mmrbc);
- int e1000_pcix_get_mmrbc(struct e1000_hw *hw);
---- linux-2.6.22-rc3-mm1/drivers/net/e1000/e1000_main.c.old	2007-06-04 22:03:24.000000000 +0200
-+++ linux-2.6.22-rc3-mm1/drivers/net/e1000/e1000_main.c	2007-06-04 22:03:40.000000000 +0200
-@@ -4888,6 +4888,8 @@ e1000_pci_clear_mwi(struct e1000_hw *hw)
- 	pci_clear_mwi(adapter->pdev);
- }
+--- linux-2.6.22-rc6-mm1/drivers/net/ns83820.c.old	2007-06-29 22:12:22.000000000 +0200
++++ linux-2.6.22-rc6-mm1/drivers/net/ns83820.c	2007-06-29 22:13:59.000000000 +0200
+@@ -1985,11 +1985,13 @@ static int __devinit ns83820_init_one(st
  
-+#if 0
+ 	ndev = alloc_etherdev(sizeof(struct ns83820));
+ 	dev = PRIV(ndev);
+-	dev->ndev = ndev;
 +
- void
- e1000_read_pci_cfg(struct e1000_hw *hw, uint32_t reg, uint16_t *value)
- {
-@@ -4904,6 +4906,8 @@ e1000_write_pci_cfg(struct e1000_hw *hw,
- 	pci_write_config_word(adapter->pdev, reg, *value);
- }
+ 	err = -ENOMEM;
+ 	if (!dev)
+ 		goto out;
  
-+#endif  /*  0  */
++	dev->ndev = ndev;
 +
- int
- e1000_pcix_get_mmrbc(struct e1000_hw *hw)
- {
-
+ 	spin_lock_init(&dev->rx_info.lock);
+ 	spin_lock_init(&dev->tx_lock);
+ 	spin_lock_init(&dev->misc_lock);
 
