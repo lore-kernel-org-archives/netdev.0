@@ -1,48 +1,57 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [-mm patch] make struct dccp_li_cachep static
-Date: Sun, 1 Jul 2007 22:23:44 +0200
-Message-ID: <20070701202344.GX10869@stusta.de>
-References: <20070628034321.38c9f12b.akpm@linux-foundation.org>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: RESEND [PATCH 3/3] NetXen: Graceful teardown of interface and hardware upon module unload
+Date: Sun, 1 Jul 2007 22:23:04 +0200
+Message-ID: <200707012223.04514.mb@bu3sch.de>
+References: <20070701185558.881537150@netxen.com> <20070701190017.829260145@netxen.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: linux-kernel@vger.kernel.org, dccp@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>, acme@ghostprotocols.net,
-	davem@davemloft.net
+Content-Type: text/plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, rob@netxen.com,
+	Milan Bag <mbag@netxen.com>, Wen Xiong <wenxiong@us.ibm.com>
+To: dhananjay.phadke@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout.stusta.mhn.de ([141.84.69.5]:46898 "EHLO
-	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1759305AbXGAUXR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jul 2007 16:23:17 -0400
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:41499
+	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759585AbXGAUXt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jul 2007 16:23:49 -0400
+In-Reply-To: <20070701190017.829260145@netxen.com>
 Content-Disposition: inline
-In-Reply-To: <20070628034321.38c9f12b.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 28, 2007 at 03:43:21AM -0700, Andrew Morton wrote:
->...
-> Changes since 2.6.22-rc4-mm2:
->...
->  git-net.patch
->...
->  git trees
->...
+On Sunday 01 July 2007 20:56:01 dhananjay.phadke@gmail.com wrote:
+> These changes allow driver close routine to be called during module unload,
+> to clean-up buffers and other software resources, flush queues etc. Also,
+> hardware is reset to pristine state. 
+> 
+> Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
+> Signed-off-by: Milan Bag <mbag@netxen.com>
+> Signed-off-by: Wen Xiong <wenxiong@us.ibm.com>
+> 
 
 
-Struct dccp_li_cachep can become static.
+> +			msleep(1);
+> +			if (netxen_load_firmware(adapter))
+> +				return;
+> +			netxen_phantom_init(adapter, NETXEN_NIC_PEG_TUNE);
+> +		}
+> +
+> +		/* clear the register for future unloads/loads */
+> +		writel(0, NETXEN_CRB_NORMALIZE(adapter, NETXEN_CAM_RAM(0x1fc)));
+> +		printk(KERN_INFO "State: 0x%0x\n",
+> +			readl(NETXEN_CRB_NORMALIZE(adapter, CRB_CMDPEG_STATE)));
+> +
+> +		dma_watchdog_shutdown_request(adapter);
+> +		mdelay(100);
+> +		i = 100;
+> +		while ((dma_watchdog_shutdown_poll_result(adapter) != 1) && i) {
+> +			printk(KERN_INFO "dma_watchdog_shutdown_poll still in progress\n");
+> +			mdelay(100);
+> +			i--;
+> +		}
 
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
+msleep, please.
 
----
---- linux-2.6.22-rc6-mm1/net/dccp/ccids/lib/loss_interval.c.old	2007-07-01 00:38:12.000000000 +0200
-+++ linux-2.6.22-rc6-mm1/net/dccp/ccids/lib/loss_interval.c	2007-07-01 00:38:21.000000000 +0200
-@@ -27,7 +27,7 @@
- 	u32		 dccplih_interval;
- };
- 
--struct kmem_cache *dccp_li_cachep __read_mostly;
-+static struct kmem_cache *dccp_li_cachep __read_mostly;
- 
- static inline struct dccp_li_hist_entry *dccp_li_hist_entry_new(const gfp_t prio)
- {
-
+-- 
+Greetings Michael.
