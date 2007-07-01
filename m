@@ -1,104 +1,137 @@
-From: James Chapman <jchapman@katalix.com>
-Subject: Re: e1000: backport ich9 support from 7.5.5 ?
-Date: Sun, 01 Jul 2007 11:45:53 +0100
-Message-ID: <468785E1.7050801@katalix.com>
-References: <1183138159.17243.16.camel@blaa>	
-	<20070629175006.GB3917@falooley.org>
-	<468571C6.3090305@garzik.org>	 <46857C08.4030303@intel.com>	
-	<20070629150350.414553d4.akpm@linux-foundation.org>	
-	<4685838D.9080108@garzik.org>
-	<c0a09e5c0706291657kd5e4baawb113a17ca5ab2191@mail.gmail.com>
-	<46859F3F.305@garzik.org> <4685C09B.7040908@intel.com>
-	<4686692E.5080604@katalix.com> <468684E1.6080901@intel.com>
+From: "=?ISO-8859-1?Q?T=F6r=F6k_Edvin?=" <edwintorok@gmail.com>
+Subject: Re: [PATCH] b44: power down PHY when interface down
+Date: Sun, 1 Jul 2007 15:49:23 +0300
+Message-ID: <4354d3270707010549x940a593v1cac2a7478fdd46f@mail.gmail.com>
+References: <4354d3270706300447ladcda4by987b1f87963112f9@mail.gmail.com>
+	 <20070630081302.66b1d984@oldman>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Mark McLoughlin <markmc@redhat.com>,
-	Jeff Garzik <jeff@garzik.org>, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, Andrew Grover <andy.grover@gmail.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Jason Lunz <lunz@reflexsecurity.com>
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <468684E1.6080901@intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Cc: zambrano@broadcom.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, power@bughost.org
+To: "Stephen Hemminger" <shemminger@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wa-out-1112.google.com ([209.85.146.182]:28733 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755837AbXGAMtX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jul 2007 08:49:23 -0400
+Received: by wa-out-1112.google.com with SMTP id v27so1920709wah
+        for <netdev@vger.kernel.org>; Sun, 01 Jul 2007 05:49:23 -0700 (PDT)
+In-Reply-To: <20070630081302.66b1d984@oldman>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Kok, Auke wrote:
-> James Chapman wrote:
->> I briefly looked over your new driver. I think it might benefit by 
->> moving common parts into one or more libraries (or modules) and have 
->> separate chip-specific drivers for 82540, 82541, 82542, 82543, 82571 
->> etc. Put all the chip-specific bits in a chip-specific driver and have 
->> each driver call into the common (shared) code. The device 
->> probe/init/remove would be done by the chip-specific code, not the 
->> common code like it is now. When built as a module, the chip-specific 
->> parts and the common parts could be built as separate modules; 
->> modprobe would load the common parts automatically. Most of the code 
->> would be in the common part since these chips are very similar.
-> 
-> splitting beyond the obvious does not make any sense and will just add 
-> confusion.
+On 6/30/07, Stephen Hemminger <shemminger@linux-foundation.org> wrote:
+>
+> This is a non-standard formatting for comments, please follow
+> Coding style:
 
-Users wouldn't need to know which driver to load - the right driver 
-would be loaded automatically. Distros would ship all of them (and the 
-common bits). The few users who know which device(s) they have could 
-build only the required drivers if they wanted to do so.
+Thanks, I have updated the patch.
 
-> I'm not against a pcie/pre-pcie split or even going a step 
-> further and looking into using PHYlib as you suggest below, but we 
-> should really avoid trying to create an unmaintainable mess where we 
-> have to patch 7 drivers for each generic issue we find.
+When the interface is down (or driver removed), the BroadCom 44xx card
+remains powered on,
+and both its MAC and PHY is using up power.
+This patch makes the driver issue a MAC_CTRL_PHY_PDOWN when the
+interface is halted.
+Also doing a partial chip reset turns off the activity LEDs too.
 
-The generic issues would be in the common part so would be patched once.
+Signed-off-by: Torok Edwin <edwintorok@gmail.com>
+---
+ b44.c |   28 +++++++++++++++++++++++-----
+  1 file changed, 23 insertions(+), 5 deletions(-)
+diff --git a/drivers/net/b44.c b/drivers/net/b44.c
+index 879a2ff..43926fd 100644
+--- a/drivers/net/b44.c
++++ b/drivers/net/b44.c
+@@ -113,6 +113,8 @@ static void b44_init_rings(struct b44 *);
+ #define B44_FULL_RESET		1
+ #define B44_FULL_RESET_SKIP_PHY	2
+ #define B44_PARTIAL_RESET	3
++#define B44_CHIP_RESET_FULL     4
++#define B44_CHIP_RESET_PARTIAL  5
 
-Looking at your new driver code, there are separate source files for the 
-5 chips I mention, hence my leaning towards a driver per device. I 
-counted 24 funcptrs that are set up in order for the common code to call 
-out to driver-private chip specific functions. Wouldn't most of these go 
-away if the chip-specific code called common code, not the other way round?
+ static void b44_init_hw(struct b44 *, int);
 
-Let me use an example to illustrate what I mean. e1000_setup_link() is 
-common code. It simply calls a function pointed to by func.setup_link, 
-which was initialized to a chip-specific function, e.g. 
-e1000_setup_link_82543() in e1000_init_mac_params_82543(). It turns out 
-that e1000_setup_link() is called by chip-specific code from 
-e1000_init_hw_82543() so the abstraction through e1000_setup_link() 
-wouldn't be needed for init. However, e1000_setup_link() is also called 
-from the common driver/ethtool entry points e1000_open() and 
-e1000_set_pause_params(). These entry points could be moved in to the 
-chip specific code, calling out to common code when necessary: the 
-funcptrs/abstractions wouldn't then be needed. This would obviously lead 
-to some common boilerplate code in each chip specific driver for the 
-driver entry points open/close etc and occasionally some common changes 
-might be needed in that code. However, I'm sure most bugs will be in the 
-guts of the driver, not the boilerplate code so the duplication of the 
-driver boilerplate code wouldn't matter so much. I think maintenance 
-effort would actually reduce with this kind of structure.
+@@ -1283,7 +1285,7 @@ static void b44_clear_stats(struct b44 *bp)
+ }
 
-I don't want to sound negative though; it's great that you and Intel are 
-putting a lot of work into this driver. You know much more about the 
-actual chip feature differences/workarounds than I do so if you don't 
-think the approach I suggest will work, I'm happy to just drop this thread.
+ /* bp->lock is held. */
+-static void b44_chip_reset(struct b44 *bp)
++static void b44_chip_reset(struct b44 *bp, int reset_kind)
+ {
+ 	if (ssb_is_core_up(bp)) {
+ 		bw32(bp, B44_RCV_LAZY, 0);
+@@ -1307,6 +1309,13 @@ static void b44_chip_reset(struct b44 *bp)
 
--- 
-James Chapman
-Katalix Systems Ltd
-http://www.katalix.com
-Catalysts for your Embedded Linux software development
+ 	b44_clear_stats(bp);
 
++	/*
++	 * Don't enable PHY if we are doing a partial reset
++	 * we are probably going to power down
++	 */
++	if (reset_kind == B44_CHIP_RESET_PARTIAL)
++		return;
++
+ 	/* Make PHY accessible. */
+ 	bw32(bp, B44_MDIO_CTRL, (MDIO_CTRL_PREAMBLE |
+ 			     (0x0d & MDIO_CTRL_MAXF_MASK)));
+@@ -1332,7 +1341,14 @@ static void b44_chip_reset(struct b44 *bp)
+ static void b44_halt(struct b44 *bp)
+ {
+ 	b44_disable_ints(bp);
+-	b44_chip_reset(bp);
++	/* reset PHY */
++	b44_phy_reset(bp);
++	/* power down PHY */
++	printk(KERN_INFO PFX "%s: powering down PHY\n", bp->dev->name);
++	bw32(bp, B44_MAC_CTRL, MAC_CTRL_PHY_PDOWN);
++	/* now reset the chip, but without enabling the MAC&PHY
++	 * part of it. This has to be done _after_ we shut down the PHY */
++	b44_chip_reset(bp, B44_CHIP_RESET_PARTIAL);
+ }
 
+ /* bp->lock is held. */
+@@ -1376,7 +1392,7 @@ static void b44_init_hw(struct b44 *bp, int reset_kind)
+ {
+ 	u32 val;
 
--------------------------------------------------------------------------
-This SF.net email is sponsored by DB2 Express
-Download DB2 Express C - the FREE version of DB2 express and take
-control of your XML. No limits. Just data. Click to get it now.
-http://sourceforge.net/powerbar/db2/
+-	b44_chip_reset(bp);
++	b44_chip_reset(bp, B44_CHIP_RESET_FULL);
+ 	if (reset_kind == B44_FULL_RESET) {
+ 		b44_phy_reset(bp);
+ 		b44_setup_phy(bp);
+@@ -1430,7 +1446,7 @@ static int b44_open(struct net_device *dev)
+
+ 	err = request_irq(dev->irq, b44_interrupt, IRQF_SHARED, dev->name, dev);
+ 	if (unlikely(err < 0)) {
+-		b44_chip_reset(bp);
++		b44_chip_reset(bp, B44_CHIP_RESET_PARTIAL);
+ 		b44_free_rings(bp);
+ 		b44_free_consistent(bp);
+ 		goto out;
+@@ -2250,7 +2266,7 @@ static int __devinit b44_init_one(struct pci_dev *pdev,
+ 	/* Chip reset provides power to the b44 MAC & PCI cores, which
+ 	 * is necessary for MAC register access.
+ 	 */
+-	b44_chip_reset(bp);
++	b44_chip_reset(bp, B44_CHIP_RESET_FULL);
+
+ 	printk(KERN_INFO "%s: Broadcom 4400 10/100BaseT Ethernet ", dev->name);
+ 	for (i = 0; i < 6; i++)
+@@ -2284,6 +2300,7 @@ static void __devexit b44_remove_one(struct pci_dev *pdev)
+ 	free_netdev(dev);
+ 	pci_release_regions(pdev);
+ 	pci_disable_device(pdev);
++	pci_set_power_state(pdev, PCI_D3hot);
+ 	pci_set_drvdata(pdev, NULL);
+ }
+
+@@ -2312,6 +2329,7 @@ static int b44_suspend(struct pci_dev *pdev,
+pm_message_t state)
+ 		b44_setup_wol(bp);
+ 	}
+ 	pci_disable_device(pdev);
++	pci_set_power_state(pdev, PCI_D3hot);
+ 	return 0;
+ }
