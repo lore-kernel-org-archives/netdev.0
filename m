@@ -1,37 +1,54 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 3/3] NetXen: Graceful teardown of interface and hardware
- upon module unload
-Date: Sat, 30 Jun 2007 23:27:07 -0400
-Message-ID: <46871F0B.6020801@garzik.org>
-References: <20070630203844.256007454@netxen.com>	 <20070630204424.876510236@netxen.com>	 <200707010012.11527.mb@bu3sch.de> <4686DC81.5090908@garzik.org> <ab901500706301849h5f8e25c7k8e2c0a8f04dd3198@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+From: Kyle Moffett <mrmacman_g4@mac.com>
+Subject: Re: PM policy, hotplug, power saving (was Re: [PATCH] b44: power down PHY when interface down)
+Date: Sun, 1 Jul 2007 00:51:15 -0400
+Message-ID: <05EEFFFE-AD93-40A1-8851-92C3053286E1@mac.com>
+References: <4354d3270706300447ladcda4by987b1f87963112f9@mail.gmail.com> <20070630120541.GA21339@srcf.ucam.org> <46866C6B.9010801@linux.intel.com> <468687DE.6030003@garzik.org>
+Mime-Version: 1.0 (Apple Message framework v752.2)
+Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Michael Buesch <mb@bu3sch.de>, netdev@vger.kernel.org,
-	rob@netxen.com, Milan Bag <mbag@netxen.com>,
-	Wen Xiong <wenxiong@us.ibm.com>
-To: Dhananjay Phadke <dhananjay.phadke@gmail.com>
+Cc: Arjan van de Ven <arjan@linux.intel.com>,
+	Matthew Garrett <mjg59@srcf.ucam.org>,
+	=?ISO-8859-1?Q?T=F6r=F6k_Edvin?= <edwintorok@gmail.com>,
+	netdev@vger.kernel.org, power@bughost.org, zambrano@broadcom.com,
+	linux-kernel@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:39603 "EHLO mail.dvmed.net"
+Received: from smtpout.mac.com ([17.250.248.174]:64898 "EHLO smtpout.mac.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754952AbXGAD1L (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 30 Jun 2007 23:27:11 -0400
-In-Reply-To: <ab901500706301849h5f8e25c7k8e2c0a8f04dd3198@mail.gmail.com>
+	id S1750772AbXGAEvX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 1 Jul 2007 00:51:23 -0400
+In-Reply-To: <468687DE.6030003@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dhananjay Phadke wrote:
-> This stage is safe to bail out on signal. It's initializing about a
-> hundred registers
-> and trying to guaranty by retrying, so can get stretched too much on 
-> faulty h/w.
+On Jun 30, 2007, at 12:42:06, Jeff Garzik wrote:
+> Definitely matters.  Switch renegotiation can take a while, and you  
+> must take into account the common case of interface bouncing  
+> (immediate down, then up).
+>
+> Hoards actively complained the few times we experimented with this,  
+> because of e.g. DHCP's habit of bouncing the interface, which  
+> resulted in PHY power bouncing, which resulted in negotiation,  
+> which resulted in an excrutiating wait on various broken or stupid  
+> switches.
+>
+> Overall, this may be classed with other problems of a similar  
+> sort:  we can power down a PHY, but that removes hotplug capability  
+> and extends partner/link negotiation time.
+>
+> Like SATA, we actually want to support BOTH -- active hotplug and  
+> PHY power-down -- and so this wanders into power management policy.
+>
+> Give me a knob, and we can program plenty of ethernet|SATA|USB|...  
+> drivers to power down the PHY and save power.
 
-This implies that you have -add- code to check for and handle signals at 
-each delay point.  Don't bother.  Too much code bloat for negligable gain.
+With some buggy switches and other hardware you actually *want* to  
+bounce the link to get them to properly renegotiate.  I can also see  
+wanting to power off and on a single-PoE-port NIC to restart whatever  
+device is at the other end, although I don't know if any such devices  
+exist.  Currently the tg3 driver turns the PHY off and on during down/ 
+up on a few of my systems, which I use to make a buggy no-name switch  
+recognize STP changes properly.
 
-It is better just to remove the _interruptible, for many reasons.
-
-	Jeff
-
-
-
+Cheers,
+Kyle Moffett
