@@ -1,46 +1,24 @@
-From: David Brownell <david-b@pacbell.net>
-Subject: [patch 2.6.22-rc6] net/usb/cdc_ether minor sparse cleanup
-Date: Sun, 1 Jul 2007 11:47:59 -0700
-Message-ID: <200707011148.00019.david-b@pacbell.net>
-Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Network development list <netdev@vger.kernel.org>
+From: dhananjay.phadke@gmail.com
+Subject: RESEND [PATCH 0/3] NetXen: Bug fixes for multiport and blade adapters
+Date: Mon, 02 Jul 2007 00:25:58 +0530
+Message-ID: <20070701185558.881537150@netxen.com>
+Cc: rob@netxen.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp116.sbc.mail.sp1.yahoo.com ([69.147.64.89]:22665 "HELO
-	smtp116.sbc.mail.sp1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1755415AbXGASs1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jul 2007 14:48:27 -0400
-Content-Disposition: inline
+Received: from [203.199.144.227] ([203.199.144.227]:2210 "EHLO
+	stellar.unminc.com" rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754716AbXGATDV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jul 2007 15:03:21 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Remove an "sparse" warning about a shadowed variable name.
+Removed signal_pending checks during init, per Jeff's suggestion.
 
-Signed-off-by: David Brownell <dbrownell@users.sourceforge.net>
----
- drivers/net/usb/cdc_ether.c |    8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
 
---- g26.orig/drivers/net/usb/cdc_ether.c	2007-07-01 11:40:37.000000000 -0700
-+++ g26/drivers/net/usb/cdc_ether.c	2007-07-01 11:40:48.000000000 -0700
-@@ -144,14 +144,14 @@ int usbnet_generic_cdc_bind(struct usbne
- 			 * modem interface from an RNDIS non-modem.
- 			 */
- 			if (rndis) {
--				struct usb_cdc_acm_descriptor *d;
-+				struct usb_cdc_acm_descriptor *acm;
- 
--				d = (void *) buf;
--				if (d->bmCapabilities) {
-+				acm = (void *) buf;
-+				if (acm->bmCapabilities) {
- 					dev_dbg(&intf->dev,
- 						"ACM capabilities %02x, "
- 						"not really RNDIS?\n",
--						d->bmCapabilities);
-+						acm->bmCapabilities);
- 					goto bad_desc;
- 				}
- 			}
+ drivers/net/netxen/netxen_nic.h          |  180 +++++++++++++++++++++++++++---
+ drivers/net/netxen/netxen_nic_hdr.h      |    2 +
+ drivers/net/netxen/netxen_nic_hw.c       |   33 ++++--
+ drivers/net/netxen/netxen_nic_init.c     |   51 +++++----
+ drivers/net/netxen/netxen_nic_main.c     |  177 ++++++++++++++++++-----------
+ drivers/net/netxen/netxen_nic_phan_reg.h |   14 +++
+ 6 files changed, 341 insertions(+), 116 deletions(-)
