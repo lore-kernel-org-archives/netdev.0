@@ -1,31 +1,30 @@
-From: Joerg Mayer <jmayer-2TuS4uRBb1yzQB+pC5nmwQ@public.gmane.org>
-Subject: Re: [PATCH] zd1211rw-mac80211: basic regulatory domain support
-Date: Sun, 1 Jul 2007 22:32:38 +0200
-Message-ID: <20070701203238.GE8218@thot.informatik.uni-kl.de>
-References: <20070701163907.39B6B7B409F@zog.reactivated.net>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [2.6 patch] the overdue eepro100 removal
+Date: Sun, 01 Jul 2007 17:51:23 -0400
+Message-ID: <468821DB.2080405@pobox.com>
+References: <20070701202139.GM10869@stusta.de> <46880F86.1070405@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kune-hUSrv6EASfkEnNRfnnE9gw@public.gmane.org
-To: Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20070701163907.39B6B7B409F-k/4jFdqg8LLlyo9zxV8I99HuzzzSOjJt@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Adrian Bunk <bunk@stusta.de>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, saw@saw.sw.com.sg
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:44723 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750919AbXGAVve (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 1 Jul 2007 17:51:34 -0400
+In-Reply-To: <46880F86.1070405@intel.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Jul 01, 2007 at 05:39:06PM +0100, Daniel Drake wrote:
-> This patch causes zd1211rw-mac80211 to interpret the regdomain in the
-> EEPROM and restrict the channels accordingly, like the softmac driver does.
+Kok, Auke wrote:
+> this needs to be resceduled for 2.6.24 (at least). We're hoping to merge 
+> the proposed changes (still being worked on) in .23. Milton Miller and 
+> David Acker are working on that.
 
-The patch only addresses the allowed channels but not the allowed
-maximum power levels. Is this intentional?
-I've only looked at the patch, so maybe this is handled elsewhere.
+Quite agreed.
+
+	Jeff
 
 
- ciao
-       Joerg
---
-Joerg Mayer                                           <jmayer-2TuS4uRBb1yzQB+pC5nmwQ@public.gmane.org>
-We are stuck with technology when what we really want is just stuff that
-works. Some say that should read Microsoft instead of technology.
