@@ -1,27 +1,279 @@
 From: dhananjay.phadke@gmail.com
-Subject: RESEND [PATCH 0/3] NetXen: Bug fixes for multiport and blade adapters
-Date: Sun, 01 Jul 2007 08:13:25 +0530
-Message-ID: <20070701024325.287283308@netxen.com>
+Subject: RESEND [PATCH 2/3] NetXen: Support per PCI-function interrupt mask registers
+Date: Sun, 01 Jul 2007 08:13:27 +0530
+Message-ID: <20070701024730.494758559@netxen.com>
+References: <20070701024325.287283308@netxen.com>
 Cc: rob@netxen.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [203.199.144.227] ([203.199.144.227]:2944 "EHLO
+Received: from [203.199.144.227] ([203.199.144.227]:1604 "EHLO
 	stellar.unminc.com" rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754698AbXGACuc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jun 2007 22:50:32 -0400
+	with ESMTP id S1754780AbXGACue (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jun 2007 22:50:34 -0400
+Content-Disposition: inline; filename=perport.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Resending with changes suggested.
+This patch updates the various access routines to access different
+control and status settings present in different register locations.
+This will fix problems related to working of different ports in
+multi Port card.
+
+Signed-off by: Dhananjay Phadke <dhananjay@netxen.com>
+Signed-off by: Milan Bag <mbag@netxen.com>
+
+Index: netdev-2.6/drivers/net/netxen/netxen_nic.h
+===================================================================
+--- netdev-2.6.orig/drivers/net/netxen/netxen_nic.h
++++ netdev-2.6/drivers/net/netxen/netxen_nic.h
+@@ -937,6 +937,7 @@ struct netxen_adapter {
+ 	struct netxen_ring_ctx *ctx_desc;
+ 	struct pci_dev *ctx_desc_pdev;
+ 	dma_addr_t ctx_desc_phys_addr;
++	int intr_scheme;
+ 	int (*enable_phy_interrupts) (struct netxen_adapter *);
+ 	int (*disable_phy_interrupts) (struct netxen_adapter *);
+ 	void (*handle_phy_intr) (struct netxen_adapter *);
+@@ -1080,37 +1081,103 @@ struct net_device_stats *netxen_nic_get_
+ 
+ static inline void netxen_nic_disable_int(struct netxen_adapter *adapter)
+ {
+-	/*
+-	 * ISR_INT_MASK: Can be read from window 0 or 1.
+-	 */
+-	writel(0x7ff, PCI_OFFSET_SECOND_RANGE(adapter, ISR_INT_MASK));
++	uint32_t	mask = 0x7ff;
++	int count = 0;
+ 
++	DPRINTK(1, INFO, "Entered ISR Disable \n");
++
++	switch (adapter->portnum) {
++	case 0:
++		writel(0x0, NETXEN_CRB_NORMALIZE(adapter, CRB_SW_INT_MASK_0));
++		break;
++	case 1:
++		writel(0x0, NETXEN_CRB_NORMALIZE(adapter, CRB_SW_INT_MASK_1));
++		break;
++	case 2:
++		writel(0x0, NETXEN_CRB_NORMALIZE(adapter, CRB_SW_INT_MASK_2));
++		break;
++	case 3:
++		writel(0x0, NETXEN_CRB_NORMALIZE(adapter, CRB_SW_INT_MASK_3));
++		break;
++	}
++
++	if (adapter->intr_scheme != -1 &&
++		adapter->intr_scheme != INTR_SCHEME_PERPORT) {
++		writel(mask,
++			(void *)(PCI_OFFSET_SECOND_RANGE(adapter, ISR_INT_MASK)));
++	}
++
++	/* Window = 0 or 1 */
++	if (!(adapter->flags & NETXEN_NIC_MSI_ENABLED)) {
++		do {
++			writel(0xffffffff, (void *)
++				(PCI_OFFSET_SECOND_RANGE(adapter, ISR_INT_TARGET_STATUS)));
++			mask = readl((void *)
++					(pci_base_offset(adapter, ISR_INT_VECTOR)));
++			udelay(10);
++		} while (((mask & 0x80) != 0) && (++count < 32));
++
++		if ((mask & 0x80) != 0) {
++			printk(KERN_NOTICE "Could not disable interrupt completely\n");
++		}
++	}
++
++	DPRINTK(1, INFO, "Done with Disable Int\n");
++
++	return;
+ }
+ 
+ static inline void netxen_nic_enable_int(struct netxen_adapter *adapter)
+ {
+ 	u32 mask;
+ 
+-	switch (adapter->ahw.board_type) {
+-	case NETXEN_NIC_GBE:
+-		mask = 0x77b;
++	DPRINTK(1, INFO, "Entered ISR Enable \n");
++
++	if (adapter->intr_scheme != -1 &&
++		adapter->intr_scheme != INTR_SCHEME_PERPORT) {
++		switch (adapter->ahw.board_type) {
++		case NETXEN_NIC_GBE:
++			mask  =  0x77b;
++			break;
++		case NETXEN_NIC_XGBE:
++			mask  =  0x77f;
++			break;
++		default:
++			mask  =  0x7ff;
++			break;
++		}
++
++		writel(mask,
++			(void *)(PCI_OFFSET_SECOND_RANGE(adapter, ISR_INT_MASK)));
++	}
++	switch (adapter->portnum) {
++	case 0:
++		writel(0x1, NETXEN_CRB_NORMALIZE(adapter, CRB_SW_INT_MASK_0));
++		break;
++	case 1:
++		writel(0x1, NETXEN_CRB_NORMALIZE(adapter, CRB_SW_INT_MASK_1));
+ 		break;
+-	case NETXEN_NIC_XGBE:
+-		mask = 0x77f;
++	case 2:
++		writel(0x1, NETXEN_CRB_NORMALIZE(adapter, CRB_SW_INT_MASK_2));
+ 		break;
+-	default:
+-		mask = 0x7ff;
++	case 3:
++		writel(0x1, NETXEN_CRB_NORMALIZE(adapter, CRB_SW_INT_MASK_3));
+ 		break;
+ 	}
+ 
+-	writel(mask, PCI_OFFSET_SECOND_RANGE(adapter, ISR_INT_MASK));
+-
+ 	if (!(adapter->flags & NETXEN_NIC_MSI_ENABLED)) {
+ 		mask = 0xbff;
+-		writel(0X0, NETXEN_CRB_NORMALIZE(adapter, CRB_INT_VECTOR));
+-		writel(mask, PCI_OFFSET_SECOND_RANGE(adapter,
+-						     ISR_INT_TARGET_MASK));
++		if (adapter->intr_scheme != -1 &&
++			adapter->intr_scheme != INTR_SCHEME_PERPORT) {
++			writel(0X0, NETXEN_CRB_NORMALIZE(adapter, CRB_INT_VECTOR));
++		}
++		writel(mask,
++			(void *)(PCI_OFFSET_SECOND_RANGE(adapter, ISR_INT_TARGET_MASK)));
+ 	}
++
++	DPRINTK(1, INFO, "Done with enable Int\n");
++
++	return;
+ }
+ 
+ /*
+Index: netdev-2.6/drivers/net/netxen/netxen_nic_hw.c
+===================================================================
+--- netdev-2.6.orig/drivers/net/netxen/netxen_nic_hw.c
++++ netdev-2.6/drivers/net/netxen/netxen_nic_hw.c
+@@ -392,7 +392,11 @@ int netxen_nic_hw_resources(struct netxe
+ 			return err;
+ 		}
+ 	}
+-	DPRINTK(INFO, "Recieve Peg ready too. starting stuff\n");
++	adapter->intr_scheme = readl(
++		NETXEN_CRB_NORMALIZE(adapter, CRB_NIC_CAPABILITIES_FW));
++	printk(KERN_NOTICE "%s: FW capabilities:0x%x\n", netdev->name,
++			adapter->intr_scheme);
++	DPRINTK(INFO, "Receive Peg ready too. starting stuff\n");
+ 
+ 	addr = netxen_alloc(adapter->ahw.pdev,
+ 			    sizeof(struct netxen_ring_ctx) +
+Index: netdev-2.6/drivers/net/netxen/netxen_nic_init.c
+===================================================================
+--- netdev-2.6.orig/drivers/net/netxen/netxen_nic_init.c
++++ netdev-2.6/drivers/net/netxen/netxen_nic_init.c
+@@ -139,6 +139,8 @@ int netxen_init_firmware(struct netxen_a
+ 		return err;
+ 	}
+ 	/* Window 1 call */
++	writel(INTR_SCHEME_PERPORT,
++	       NETXEN_CRB_NORMALIZE(adapter, CRB_NIC_CAPABILITIES_HOST));
+ 	writel(MPORT_MULTI_FUNCTION_MODE,
+ 	       NETXEN_CRB_NORMALIZE(adapter, CRB_MPORT_MODE));
+ 	writel(PHAN_INITIALIZE_ACK,
+Index: netdev-2.6/drivers/net/netxen/netxen_nic_main.c
+===================================================================
+--- netdev-2.6.orig/drivers/net/netxen/netxen_nic_main.c
++++ netdev-2.6/drivers/net/netxen/netxen_nic_main.c
+@@ -308,7 +308,13 @@ netxen_nic_probe(struct pci_dev *pdev, c
+ 
+ 	adapter->netdev  = netdev;
+ 	adapter->pdev    = pdev;
++
++	/* this will be read from FW later */
++	adapter->intr_scheme = -1;
++
++	/* This will be reset for mezz cards  */
+ 	adapter->portnum = pci_func_id;
++	adapter->status   &= ~NETXEN_NETDEV_STATUS;
+ 
+ 	netdev->open		   = netxen_nic_open;
+ 	netdev->stop		   = netxen_nic_close;
+@@ -1100,28 +1106,26 @@ static int
+ netxen_handle_int(struct netxen_adapter *adapter, struct net_device *netdev)
+ {
+ 	u32 ret = 0;
++	u32 our_int = 0;
+ 
+ 	DPRINTK(INFO, "Entered handle ISR\n");
+ 	adapter->stats.ints++;
+ 
+ 	if (!(adapter->flags & NETXEN_NIC_MSI_ENABLED)) {
+-		int count = 0;
+-		u32 mask;
+-		u32 our_int = 0;
+ 		our_int = readl(NETXEN_CRB_NORMALIZE(adapter, CRB_INT_VECTOR));
+ 		/* not our interrupt */
+ 		if ((our_int & (0x80 << adapter->portnum)) == 0)
+ 			return ret;
+-		netxen_nic_disable_int(adapter);
+-		/* Window = 0 or 1 */
+-		do {
+-			writel(0xffffffff, PCI_OFFSET_SECOND_RANGE(adapter,
+-						ISR_INT_TARGET_STATUS));
+-			mask = readl(pci_base_offset(adapter, ISR_INT_VECTOR));
+-		} while (((mask & 0x80) != 0) && (++count < 32));
+-		if ((mask & 0x80) != 0)
+-			printk("Could not disable interrupt completely\n");
++	}
+ 
++	netxen_nic_disable_int(adapter);
++
++	if (adapter->intr_scheme == INTR_SCHEME_PERPORT) {
++		/* claim interrupt */
++		if (!(adapter->flags & NETXEN_NIC_MSI_ENABLED)) {
++			writel(our_int & ~((u32)(0x80 << adapter->portnum)),
++			NETXEN_CRB_NORMALIZE(adapter, CRB_INT_VECTOR));
++		}
+ 	}
+ 
+ 	if (netxen_nic_rx_has_work(adapter) || netxen_nic_tx_has_work(adapter)) {
+@@ -1133,7 +1137,7 @@ netxen_handle_int(struct netxen_adapter 
+ 		} else {
+ 			static unsigned int intcount = 0;
+ 			if ((++intcount & 0xfff) == 0xfff)
+-				printk(KERN_ERR
++				DPRINTK(KERN_ERR
+ 				       "%s: %s interrupt %d while in poll\n",
+ 				       netxen_nic_driver_name, netdev->name,
+ 				       intcount);
+Index: netdev-2.6/drivers/net/netxen/netxen_nic_phan_reg.h
+===================================================================
+--- netdev-2.6.orig/drivers/net/netxen/netxen_nic_phan_reg.h
++++ netdev-2.6/drivers/net/netxen/netxen_nic_phan_reg.h
+@@ -114,6 +114,20 @@
+ #define CRB_V2P_3		    NETXEN_NIC_REG(0x29c)
+ #define CRB_V2P(port)		    (CRB_V2P_0+((port)*4))
+ #define CRB_DRIVER_VERSION	    NETXEN_NIC_REG(0x2a0)
++/* sw int status/mask registers */
++#define CRB_SW_INT_MASK_0	   NETXEN_NIC_REG(0x1d8)
++#define CRB_SW_INT_MASK_1	   NETXEN_NIC_REG(0x1e0)
++#define CRB_SW_INT_MASK_2	   NETXEN_NIC_REG(0x1e4)
++#define CRB_SW_INT_MASK_3	   NETXEN_NIC_REG(0x1e8)
++
++/*
++ * capabilities register, can be used to selectively enable/disable features
++ * for backward compability
++ */
++#define CRB_NIC_CAPABILITIES_HOST	NETXEN_NIC_REG(0x1a8)
++#define CRB_NIC_CAPABILITIES_FW	  	NETXEN_NIC_REG(0x1dc)
++
++#define INTR_SCHEME_PERPORT	      	0x1
+ 
+ /* used for ethtool tests */
+ #define CRB_SCRATCHPAD_TEST	    NETXEN_NIC_REG(0x280)
 
 -- 
-Dhananjay Phadke
-NetXen Inc.
-
- drivers/net/netxen/netxen_nic.h          |  177 +++++++++++++++++++++++++++---
- drivers/net/netxen/netxen_nic_hdr.h      |    2 +
- drivers/net/netxen/netxen_nic_hw.c       |   39 +++++--
- drivers/net/netxen/netxen_nic_init.c     |   64 +++++++----
- drivers/net/netxen/netxen_nic_main.c     |  177 +++++++++++++++++++-----------
- drivers/net/netxen/netxen_nic_phan_reg.h |   14 +++
- 6 files changed, 357 insertions(+), 116 deletions(-)
