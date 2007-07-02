@@ -1,66 +1,91 @@
-From: Nils Rennebarth <nils.rennebarth@funkwerk-ec.com>
-Subject: Re: quirk_e100_interrupt() called too early
-Date: Mon, 2 Jul 2007 10:07:52 +0200
-Message-ID: <4688B258.4000501@funkwerk-ec.com>
-References: <4683A80F.5020605@semihalf.com> <4683DB44.9070704@intel.com> <200706282007.27841.bjorn.helgaas@hp.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: Fwd: [PATCH] [-mm] ACPI: export ACPI events via netlink
+Date: Mon, 02 Jul 2007 10:43:41 +0200
+Message-ID: <1183365821.4089.94.camel@johannes.berg>
+References: <1179827251.7707.29.camel@localhost.localdomain>
+	 <1179831825.4121.30.camel@localhost>
+	 <1180258853.7707.53.camel@localhost.localdomain>
+	 <4466a10705270629h31977813hd2fc8330bcd87f78@mail.gmail.com>
+	 <4466a10705270634j3560c9a3j9c3630ddc20a24aa@mail.gmail.com>
+	 <1181811576.5411.27.camel@localhost.localdomain>
+	 <1181820510.4091.9.camel@localhost>
+	 <1181869285.5411.39.camel@localhost.localdomain>
+	 <1182178882.4063.11.camel@localhost>
+	 <1182223964.5411.76.camel@localhost.localdomain>
+	 <1182811210.6644.22.camel@johannes.berg>
+	 <1182986681.5155.55.camel@localhost>
+	 <1183121869.4089.57.camel@johannes.berg>  <468504FE.9000502@trash.net>
+	 <1183122920.4089.63.camel@johannes.berg>  <468507C9.2000800@trash.net>
+	 <1183124085.4089.66.camel@johannes.berg>  <46850CB8.8000509@trash.net>
+	 <1183124981.4089.69.camel@johannes.berg>  <46850EDE.5020804@trash.net>
+	 <1183125924.4089.73.camel@johannes.berg>
+	 <1183126739.4089.76.camel@johannes.berg>
+	 <1183129006.4089.84.camel@johannes.berg>
+	 <1183217536.5165.25.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Kok, Auke" <auke-jan.h.kok@intel.com>,
-	Marian Balakowicz <m8@semihalf.com>,
-	"linux-pci@atrey.karlin.mff.cuni.cz"
-	<linux-pci@atrey.karlin.mff.cuni.cz>,
-	"len.brown@intel.com" <len.brown@intel.com>,
-	NetDev <netdev@vger.kernel.org>
-To: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [85.93.77.62] ([85.93.77.62]:53560 "EHLO
-	virgo.stuttgart.de.funkwerk-ec.com" rhost-flags-FAIL-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751457AbXGBIN1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jul 2007 04:13:27 -0400
-In-Reply-To: <200706282007.27841.bjorn.helgaas@hp.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-y+Z5QCL/K0zrec3qDGJZ"
+Cc: Patrick McHardy <kaber@trash.net>, Zhang Rui <rui.zhang@intel.com>,
+	netdev@vger.kernel.org,
+	"linux-acpi@vger" <linux-acpi@vger.kernel.org>, lenb@kernel.org,
+	Thomas Graf <tgraf@suug.ch>
+To: hadi@cyberus.ca
+Return-path: <linux-acpi-owner@vger.kernel.org>
+In-Reply-To: <1183217536.5165.25.camel@localhost>
+Sender: linux-acpi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Bjorn Helgaas wrote:
-> On Thursday 28 June 2007 10:01:08 am Kok, Auke wrote:
-> I copied Nils Rennebarth, who originally reported the bug:
->   http://bugzilla.kernel.org/show_bug.cgi?id=3D5918
-> in case he can test your patch.
-Most of the embedded boards we now work with appear to exhibit the same=
-=20
-behaviour: During boot the
 
-=46irmware left 0000:01:05.0 e100 interrupts enabled, disabling
+--=-y+Z5QCL/K0zrec3qDGJZ
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-message appears for all four e100 nics. (The mainboard is a em-8510A=20
-btw.) When I have time I could try if the quirk still works with the
-mentioned patch, but I am quite busy with other things at the moment.
+On Sat, 2007-06-30 at 11:32 -0400, jamal wrote:
 
---=20
+> > +static void genl_unregister_mc_group(struct genl_multicast_group *grp)
+> > +{
+> > +	/*
+> > +	 * TODO: fix multicast group re-use by clearing the bit
+> > +	 *	 for this group in all genetlink sockets.
+> > +	 */
+> > +	clear_bit(grp->id, mc_groups);
+> > +	list_del(&grp->list);
+>=20
+> I think you need a=20
+> genl_ctrl_event(CTRL_CMD_DELMCAST_GRP, family);
+> here? You may need to save the mcast details before you delete.
 
-Mit freundlichen Gr=FC=DFen / with kind regards
+I will, but not currently because right now mcast groups are only
+deleted when the family is dropped.
 
-Nils Rennebarth, Software Developer
+> > +			NLA_PUT_U32(skb, CTRL_ATTR_MCAST_GRP_ID, grp->id);
+> > +			NLA_PUT_STRING(skb, CTRL_ATTR_MCAST_GRP_NAME,
+> > +				       grp->name);
+> > +
+>=20
+> Consider my earlier suggestion to use CTRL_ATTR_MCAST_GRP which has both
+> id and name in one struct.
 
---
-=46unkwerk IP-Appliances GmbH
-M=F6nchhaldenstra=DFe 28
-D-70191 Stuttgart
+Yeah I thought about that but then saw Patrick's patches to convert
+other things away from structs so I wasn't sure what the idea here is.
+Patrick, care to comment?
 
-Tel: +49 711 900300 - 0
-=46ax: +49 711 900300 - 90
+> Other than that - looking good.
 
-E-Mail: Nils.Rennebarth@funkwerk-ec.com
+:)
 
-Location: GmbH Neu-Ulm, Local Court Memmingen, HRB 13043
-Managing Directors: Michael Marsanu, Soenke Weisner
+johannes
 
---------------------------------
-The information contained in this e-mail has been carefully researched,
-but the possibility of it being inapplicable in individual cases cannot
-be ruled out. We therefore regret that we cannot accept responsibility
-or liability of any kind whatsoever for the correctness of the
-information given. Please notify us if you discover that information is
-inapplicable.
+--=-y+Z5QCL/K0zrec3qDGJZ
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iD8DBQBGiLq9/ETPhpq3jKURAk7SAJ0Q97DJhEE4b/ozZtscZP4kmdl9cQCfbR2k
+4SVPf6JujQTM6Np8m96EbTE=
+=5J4b
+-----END PGP SIGNATURE-----
+
+--=-y+Z5QCL/K0zrec3qDGJZ--
+
