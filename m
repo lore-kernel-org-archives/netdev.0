@@ -1,38 +1,34 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] Update MAINTAINERS for USB network devices
-Date: Mon, 02 Jul 2007 08:25:32 -0400
-Message-ID: <4688EEBC.5020209@garzik.org>
-References: <87myyl6df1.fsf@nanv.dk> <46821E80.8080105@garzik.org>	<200706270154.16022.david-b@pacbell.net>	<20070627144416.GA28899@kroah.com> <877ippgq9x.fsf@p4.be.48ers.dk>
+Subject: Re: RESEND [PATCH 1/3] NetXen: Fix issue of MSI not working correctly
+Date: Mon, 02 Jul 2007 08:26:17 -0400
+Message-ID: <4688EEE9.1030004@garzik.org>
+References: <20070701185558.881537150@netxen.com> <20070701190014.878166067@netxen.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Greg KH <greg@kroah.com>, David Brownell <david-b@pacbell.net>,
-	netdev@vger.kernel.org, Petko Manolov <petkan@nucleusys.com>
-To: Peter Korsgaard <jacmet@sunsite.dk>
+Cc: netdev@vger.kernel.org, rob@netxen.com,
+	Milan Bag <mbag@netxen.com>, Wen Xiong <wenxiong@us.ibm.com>
+To: dhananjay.phadke@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:50950 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:50975 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754015AbXGBMZi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Jul 2007 08:25:38 -0400
-In-Reply-To: <877ippgq9x.fsf@p4.be.48ers.dk>
+	id S1751641AbXGBM0V (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Jul 2007 08:26:21 -0400
+In-Reply-To: <20070701190014.878166067@netxen.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Peter Korsgaard wrote:
->>>>>> "Greg" == Greg KH <greg@kroah.com> writes:
+dhananjay.phadke@gmail.com wrote:
+> NetXen driver uses PCI function 0 to provide the functionality of MSI.
+> The patch makes driver check the bus master bit for function 0 and
+> enable it after the card initialization.
 > 
->  Greg> Yeah, this is the cdc_acm driver that is still in the USB drivers/
->  Greg> directory tree as it is a USB class driver that shows up as a tty device
->  Greg> to userspace.  It should not be moved to the networking list unless no
->  Greg> one minds that I never see any queries about it :)
-> 
-> Ok, here's an updated patch:
-> 
-> Questions regarding the USB network drivers should now go to netdev.
-> 
-> Signed-off-by: Peter Korsgaard <jacmet@sunsite.dk>
-> Acked-by: David Brownell <dbrownell@users.sourceforge.net>
+> Signed-off-by: Dhananjay Phadke<dhananjay@netxen.com>
+> Signed-off-by: Milan Bag <mbag@netxen.com>
+> Signed-off-by: Wen Xiong <wenxiong@us.ibm.com>
 
-applied
+applied patch #1 and #2 (dated July 1, 2:55PM)
+
+applied patch #3 (dated July 2, 12:07 AM)
 
 
