@@ -1,53 +1,31 @@
-From: Peter Missel <peter.missel@onlinehome.de>
-Subject: Re: r8169 2.2LK: Low link speed after suspend
-Date: Mon, 2 Jul 2007 22:07:00 +0200
-Message-ID: <200707022207.01132.peter.missel@onlinehome.de>
-References: <200704162241.31729.peter.missel@onlinehome.de> <200707011426.19957.peter.missel@onlinehome.de> <20070701230234.GA316@electric-eye.fr.zoreil.com>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: [PATCH] ixgbe: Introduce new 10GbE driver for Intel 82598 based PCI	Express adapters...
+Date: Mon, 2 Jul 2007 21:16:36 +0100
+Message-ID: <20070702201636.GA5100@infradead.org>
+References: <4688F512.3030801@garzik.org> <E35F4F4D7F6C9E4E826FEC1F86CEF58304193063@orsmsx412.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Jens Stroebel <drifter@bcsoft.de>
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
+	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
+	arjan@linux.intel.com, akpm@linux-foundation.org
+To: "Veeraiyan, Ayyappan" <ayyappan.veeraiyan@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.187]:57310 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753102AbXGBUHM convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jul 2007 16:07:12 -0400
-In-Reply-To: <20070701230234.GA316@electric-eye.fr.zoreil.com>
+Received: from pentafluge.infradead.org ([213.146.154.40]:51035 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753524AbXGBUQy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jul 2007 16:16:54 -0400
 Content-Disposition: inline
+In-Reply-To: <E35F4F4D7F6C9E4E826FEC1F86CEF58304193063@orsmsx412.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thanks Francois.
+On Mon, Jul 02, 2007 at 12:00:29PM -0700, Veeraiyan, Ayyappan wrote:
+> Agreed. 
+> Fake netdevs are needed for doing the multiple Rx queues in NAPI mode.
+> We are thinking to solve in 2 ways. Having netdev pointer in ring
+> structure or having an array of netdev pointers in ixgbe_adatper struct
+> which would be visible to all rings.
 
-Unfortunately I couldn't get NFS to work with the updated kernel, so I =
-had to=20
-revert to the original from SuSE 10.2.
-
-The other thing that didn't work with 2.6.21.5 was suspend-to-disk (wou=
-ld=20
-suspend, but not resume), so I don't have any useful input for you this=
- time.
-
-I'll be back.
-
-regards,
-Peter
-
-
-> Peter Missel <peter.missel@onlinehome.de> :
-> [...]
->
-> > The patch applies without failure; I'm getting a warning during bui=
-ld,
-> >
-> >   CC [M]  drivers/net/r8169.o
-> > drivers/net/r8169.c: In function =E2=80=98rtl8169_start_xmit=E2=80=99=
-:
-> > drivers/net/r8169.c:2341: warning: =E2=80=98txd=E2=80=99 may be use=
-d uninitialized in
-> > this function
->
-> It's known and harmless. Blame gcc :o)
-
+Didn't we have a patchset floating around recently that separates NAPI
+state from struct netdevice?
 
