@@ -1,81 +1,94 @@
-From: "Williams, Mitch A" <mitch.a.williams@intel.com>
-Subject: Re: e1000: backport ich9 support from 7.5.5 ?
-Date: Mon, 2 Jul 2007 16:52:52 -0700
-Message-ID: <08FE5CC30C9A3F41BF819A502CF7BF6E019416BA@fmsmsx411.amr.corp.intel.com>
-References: <1183238694.9055.10.camel@blaa>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: [PATCH] ixgbe: Introduce new 10GbE driver for Intel 82598 based
+ PCI Express adapters...
+Date: Mon, 02 Jul 2007 16:57:12 -0700
+Message-ID: <468990D8.6040604@intel.com>
+References: <4688F512.3030801@garzik.org> <20070702214238.GA7085@infradead.org> <46897611.9020207@intel.com> <200707030010.25431.mb@bu3sch.de> <46897934.5040101@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	Jason Lunz <lunz@reflexsecurity.com>, Jeff Garzik <jeff@garzik.org>
-To: "Mark McLoughlin" <markmc@redhat.com>,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-Content-class: urn:content-classes:message
-In-Reply-To: <1183238694.9055.10.camel@blaa>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Cc: Michael Buesch <mb@bu3sch.de>,
+	Christoph Hellwig <hch@infradead.org>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	"Veeraiyan, Ayyappan" <ayyappan.veeraiyan@intel.com>,
+	netdev@vger.kernel.org, arjan@linux.intel.com,
+	akpm@linux-foundation.org
+To: Jeff Garzik <jeff@garzik.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:18873 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757761AbXGBX5O (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Jul 2007 19:57:14 -0400
+In-Reply-To: <46897934.5040101@garzik.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- 
+Jeff Garzik wrote:
+> Michael Buesch wrote:
+>> On Tuesday 03 July 2007 00:02:57 Kok, Auke wrote:
+>>> well, FWIW when I started looking at adding these flags I looked in various 
+>>> subsystems in the kernel and picked an implementation that suited. Guess what 
+>>> pci.h has? ...:
+>>>
+>>> 	unsigned int msi_enabled:1;
+>>> 	unsigned int msix_enabled:1;
+>>>
+>>> this is literally where I copied the example from
+>>>
+>>> I suppose I can fix those, but I really don't understand what all the fuzz is 
+>>> about here. We're only conserving memory and staying far away from the real 
+>> I'm not sure if these bitfields actually _do_ conserve memory.
+>> Generated code gets bigger (need bitwise masks and stuff).
+>> Code also needs memory. It probably only conserves memory, if the
+>> structure is instanciated a lot.
+> 
+> Actually, that's a good point.  On several RISC architectures it 
+> certainly generates bigger code.
 
-Mark McLoughlin wrote:
+so, even on i386 it does (17 bytes and 6 instructions to test vs. 10:3 if using 
+a "bool"):
 
->> I disagree, we should not break the current e1000 driver in 
->the kernel while 
->> there is a new driver coming up that introduces ich9 support 
->without breaking 
->> (the old e1000) support for all other devices. This is why 
->we want to drop a new 
->> version of the e1000 driver upstream instead, and put all 
->newer devices in that 
->> driver.
->
->	Clearly some major changes are happening around e1000, 
->but the point
->I'm making is that ich9 support, in particular, doesn't need to be held
->hostage to these longer term changes. I think the backport shows that:
->
+unsigned int:1:
+  8048365:       0f b6 45 f8             movzbl 0xfffffff8(%ebp),%eax
+  8048369:       0c 01                   or     $0x1,%al
+  804836b:       88 45 f8                mov    %al,0xfffffff8(%ebp)
+  804836e:       0f b6 45 f8             movzbl 0xfffffff8(%ebp),%eax
+  8048372:       24 01                   and    $0x1,%al
+  8048374:       84 c0                   test   %al,%al
 
-There seems to be a lot of concern over obsoleting the e1000 driver
-too quickly, and with confusing users (and startup scripts) about which
-driver to load.
+bool:
+  8048365:       c6 45 fb 01             movb   $0x1,0xfffffffb(%ebp)
+  8048369:       0f b6 45 fb             movzbl 0xfffffffb(%ebp),%eax
+  804836d:       84 c0                   test   %al,%al
 
-Obviously, we at Intel want to get e1000new into the kernel as quickly
-as possible, and to obsolete e1000 also as quickly as possible.  The
-point of this exercise is to reduce our support and maintenance burden,
-and e1000new has shown itself internally to be much easier to work on.
+unsigned int:
+  8048365:       c7 45 f8 01 00 00 00    movl   $0x1,0xfffffff8(%ebp)
+  804836c:       8b 45 f8                mov    0xfffffff8(%ebp),%eax
+  804836f:       85 c0                   test   %eax,%eax
 
-So how about this:
-- We include e1000new in 2.6.23, along side e1000.  We expose ICH9
-  device IDs in e1000new, and gate the rest of the IDs inside
-  #ifndef CONFIG_E1000.  This gives distis ICH9 support, along
-  with a guarantee of the known e1000 driver.  It also lets the more
-  bleeding-edge people turn off e1000 and run with just e1000new to
-  work out any kinks.
-- For 2.6.24, we reverse the situation:  Gate all device IDs in e1000
-  behind #ifndef CONFIG_E1000NEW, and expose all of them in e1000new.
-  At this point we (i.e. the community, not just Intel) should be 
-  confident in e1000new, and we can mark e1000 as obsolete.  It's still
-  a fallback option for those with old/funky/misconfigured hardware.
-- After a year (or whatever), we remove e1000.
+using var & flag:
+  8048365:       c7 45 f8 01 00 00 00    movl   $0x1,0xfffffff8(%ebp)
+  804836c:       8b 45 f8                mov    0xfffffff8(%ebp),%eax
+  804836f:       25 00 04 00 00          and    $0x400,%eax
+  8048374:       85 c0                   test   %eax,%eax
 
-Seems to me that this plan should appease either everybody or nobody.
-We get ICH9 support out there, e1000new gets in the kernel and
-exercised,
-and we get to set a definite date for obsoleting e1000.
+note that using "var & flag" is slightly larger here... 1 extra instruction and 
+7 more bytes.
 
--Mitch
+interesting...
 
--------------------------------------------------------------------------
-This SF.net email is sponsored by DB2 Express
-Download DB2 Express C - the FREE version of DB2 express and take
-control of your XML. No limits. Just data. Click to get it now.
-http://sourceforge.net/powerbar/db2/
+
+but let's stay constructive here:
+
+~/git/linux-2.6 $ grep -r 'unsigned int.*:1;' * | wc -l
+748
+
+Is anyone going to fix those? If we don't, someone will certainly again submit 
+patches to add more of these bitfields, after all, some very prominent parts of 
+the kernel still use them. Only recently for instance mac80211 merged like 30 of 
+these.... and drivers/net, include etc.. certainly has a lot of these.
+
+Cheers,
+
+
+Auke
