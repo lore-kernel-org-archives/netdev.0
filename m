@@ -1,67 +1,82 @@
-From: Peter Korsgaard <jacmet@sunsite.dk>
-Subject: Re: [PATCH] Cleanup usbnet_probe() return value handling
-Date: Tue, 03 Jul 2007 00:46:42 +0200
-Message-ID: <87sl86juel.fsf@p4.be.48ers.dk>
-References: <87lkdyx19a.fsf@nanv.dk> <200707020914.38479.david-b@pacbell.net>
+From: "Veeraiyan, Ayyappan" <ayyappan.veeraiyan@intel.com>
+Subject: RE: [PATCH] ixgbe: Introduce new 10GbE driver for Intel 82598 based PCI	Express adapters...
+Date: Mon, 2 Jul 2007 15:56:23 -0700
+Message-ID: <E35F4F4D7F6C9E4E826FEC1F86CEF58304193401@orsmsx412.amr.corp.intel.com>
+References: <20070702140958.5ea6571a@freepuppy.localdomain.hemminger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, dbrownell@users.sourceforge.net
-To: David Brownell <david-b@pacbell.net>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Jeff Garzik" <jeff@garzik.org>, <netdev@vger.kernel.org>,
+	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
+	<arjan@linux.intel.com>, <akpm@linux-foundation.org>
+To: "Stephen Hemminger" <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp40.mobistarmail.be ([193.252.23.61]:15902 "EHLO
-	smtp40.mobistarmail.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757556AbXGBWqU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jul 2007 18:46:20 -0400
-Received: from me-wanadoo.net (localhost [127.0.0.1])
-	by mwinf4016.mobistarmail.be (SMTP Server) with ESMTP id 19C4F700008B
-	for <netdev@vger.kernel.org>; Tue,  3 Jul 2007 00:46:16 +0200 (CEST)
-In-Reply-To: <200707020914.38479.david-b@pacbell.net> (David Brownell's
-	message of "Mon, 2 Jul 2007 09:14:38 -0700")
+Received: from mga01.intel.com ([192.55.52.88]:2752 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756212AbXGBW4Z convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jul 2007 18:56:25 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <20070702140958.5ea6571a@freepuppy.localdomain.hemminger.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->>>>> "David" == David Brownell <david-b@pacbell.net> writes:
+On 7/2/07, Stephen Hemminger <shemminger@linux-foundation.org> wrote:
+> > Fake netdevs are needed for doing the multiple Rx queues in NAPI
+mode.
+> > We are thinking to solve in 2 ways. Having netdev pointer in ring
+> > structure or having an array of netdev pointers in ixgbe_adatper
+struct
+> > which would be visible to all rings.
+> 
+> Wait until Davem & I separate NAPI from network device.
+> The patch is close to ready for 2.6.24 when this driver will need to
+show up.
+> 
+> Since I know Intel will be forced to backport this to older distro's.
+You
+> would be best to have a single receive queue version when you have to
+make
+> it work on the older code.
 
-Hi,
+So far all our testing indicates we need multiple Rx queues to have
+better CPU utilization number at 10Gig line rate. So I am thinking
+adding the non-NAPI support to the driver (like other 10Gig drivers) and
+restrict to single rx queue in case of NAPI. I already have the non-NAPI
+version coded up and went through internal testing. I will add this in
+the next submission. We will add the multiple Rx queues support in NAPI
+mode once when "separate NAPI from network device" is done. Does this
+sound ok?
 
- David> I'd rather see the later test updated to match this one.
- David> (Good catch!)
+> 
+> You only need to store the name for when you are doing request_irq, so
+> it can just be a stack temporary.
+>
 
- David> The return convention is "negative means error".  There's
- David> code in USB which has multiple nonnegative success codes.
+request_irq expects allocated memory not just stack temporary. I glanced
+the kernel source.. There are precedents to the way we did.
 
-Ok, updated patch does that instead.
+linux-2.6/source/drivers/usb/core/hcd.c
 
- David> In particular usb_control_msg(), which would very naturally
- David> used as the body of a bind() method, returns negative or
- David> the number of bytes transferred.
+1594         /* enable irqs just before we start the controller */
+1595         if (hcd->driver->irq) {
+1596                 snprintf(hcd->irq_descr, sizeof(hcd->irq_descr),
+"%s:usb%d",
+1597                                 hcd->driver->description,
+hcd->self.busnum);
+1598                 if ((retval = request_irq(irqnum, &usb_hcd_irq,
+irqflags,
+1599                                 hcd->irq_descr, hcd)) != 0) {
+1600                         dev_err(hcd->self.controller,
+1601                                         "request interrupt %d
+failed\n", irqnum);
+1602                         goto err_request_irq;
+1603                 }
 
-Yeah, that was the original problem in my dm9601 driver.
-
-usbnet_probe() handles a positive return value from the driver bind()
-function as success, but will later only setup the status handler if the
-return value was zero, leading to confusion. Patch adjusts this to accept
-positive values as success in both checks.
-
-Signed-off-by: Peter Korsgaard <jacmet@sunsite.dk>
----
- drivers/net/usb/usbnet.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-Index: linux-2.6.22-rc7/drivers/net/usb/usbnet.c
-===================================================================
---- linux-2.6.22-rc7.orig/drivers/net/usb/usbnet.c
-+++ linux-2.6.22-rc7/drivers/net/usb/usbnet.c
-@@ -1208,7 +1208,7 @@
- 			status = 0;
  
- 	}
--	if (status == 0 && dev->status)
-+	if (status >= 0 && dev->status)
- 		status = init_status (dev, udev);
- 	if (status < 0)
- 		goto out3;
+> Stephen Hemminger <shemminger@linux-foundation.org>
 
--- 
-Bye, Peter Korsgaard
+I appreciate the feedback.
 
+Thanks,
+Ayyappa
