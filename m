@@ -1,47 +1,47 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [PATCH] ixgbe: Introduce new 10GbE driver for Intel 82598 based PCI	Express adapters...
-Date: Mon, 2 Jul 2007 22:42:38 +0100
-Message-ID: <20070702214238.GA7085@infradead.org>
-References: <4688F512.3030801@garzik.org> <E35F4F4D7F6C9E4E826FEC1F86CEF58304193063@orsmsx412.amr.corp.intel.com> <20070702140958.5ea6571a@freepuppy.localdomain.hemminger.net>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: [2.6 patch] the overdue eepro100 removal
+Date: Mon, 02 Jul 2007 14:45:54 -0700
+Message-ID: <46897212.30104@intel.com>
+References: <20070701202139.GM10869@stusta.de> <46894BD5.9080609@tmr.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Veeraiyan, Ayyappan" <ayyappan.veeraiyan@intel.com>,
-	Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
-	arjan@linux.intel.com, akpm@linux-foundation.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Adrian Bunk <bunk@stusta.de>, jgarzik@pobox.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	saw@saw.sw.com.sg
+To: Bill Davidsen <davidsen@tmr.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:42499 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755555AbXGBVnD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jul 2007 17:43:03 -0400
-Content-Disposition: inline
-In-Reply-To: <20070702140958.5ea6571a@freepuppy.localdomain.hemminger.net>
+Received: from mga01.intel.com ([192.55.52.88]:24236 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755629AbXGBVpz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Jul 2007 17:45:55 -0400
+In-Reply-To: <46894BD5.9080609@tmr.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 02, 2007 at 02:09:58PM -0700, Stephen Hemminger wrote:
-> The patch is close to ready for 2.6.24 when this driver will need to show up.
-
-If intel manages to fix up the reamining issues I'd rather see it appear
-in 2.6.23..
-
-> Since I know Intel will be forced to backport this to older distro's. You
-> would be best to have a single receive queue version when you have to make
-> it work on the older code.
-
-But that'll require the single receiver queue version I guess.  The
-netdevice abuse is the only really major issue I see, although I'd of
-course really like to see the driver getting rid of the bitfield abuse
-aswell.
-
-> > Since we wanted to distinguish the various MSIX vectors in
-> > /proc/interrupts and since request_irq expects memory for name to be
-> > allocated somewhere, I added this part of the ring struct.
+Bill Davidsen wrote:
+> Adrian Bunk wrote:
+>> This patch contains the overdue removal of the eepro100 driver.
+>>
+>> Signed-off-by: Adrian Bunk <bunk@stusta.de>
+>>
+> The hardware supported by this driver is still in use, thanks. It's 
+> probably easier to leave the eepro100 driver in than find anyone who 
+> wants to investigate why the other driver (e100? from memory) doesn't 
+> work with some cards. As I recall this was suggested over a year ago and 
+> it was decided to leave it in, all of the reasons for doing so still 
+> seem valid. There really doesn't seem to be a benefit, it's not like 
+> people are working night and day to support new cards for this chip.
 > 
-> You only need to store the name for when you are doing request_irq, so
-> it can just be a stack temporary.  
 
-Lots of drivers where the interface name is assigned after request_irq
-just use an internal name, e.g. ixgbeX in the case of this driver.
+please see the thread "Re: [PATCH] fix e100 rx path on ARM (was [PATCH] e100 rx: 
+or s and el bits)" which is discussing a fix for this issue and currently being 
+worked.
 
+eepro100 will *still* be removed once e100 is fixed to support those devices.
+
+Moreover, we now also have a fix for the e100 IPMI issues on some tyan boards 
+(patch coming this week!). That hopefully solves all e100 issues that are still 
+open.
+
+Auke
