@@ -1,66 +1,67 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [git patches] net driver fixes
-Date: Mon, 2 Jul 2007 15:15:00 -0700
-Message-ID: <20070702151500.3a1d0843@freepuppy.localdomain.hemminger.net>
-References: <20070702145401.GA10000@havoc.gtf.org>
-	<20070702221329.GA3492@stusta.de>
+From: Peter Korsgaard <jacmet@sunsite.dk>
+Subject: Re: [PATCH] Cleanup usbnet_probe() return value handling
+Date: Tue, 03 Jul 2007 00:46:42 +0200
+Message-ID: <87sl86juel.fsf@p4.be.48ers.dk>
+References: <87lkdyx19a.fsf@nanv.dk> <200707020914.38479.david-b@pacbell.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, ionut@cs.columbia.edu,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	maximilian attems <max@stro.at>
-To: Adrian Bunk <bunk@stusta.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, dbrownell@users.sourceforge.net
+To: David Brownell <david-b@pacbell.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:56832 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756573AbXGBWQl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jul 2007 18:16:41 -0400
-In-Reply-To: <20070702221329.GA3492@stusta.de>
+Received: from smtp40.mobistarmail.be ([193.252.23.61]:15902 "EHLO
+	smtp40.mobistarmail.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757556AbXGBWqU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jul 2007 18:46:20 -0400
+Received: from me-wanadoo.net (localhost [127.0.0.1])
+	by mwinf4016.mobistarmail.be (SMTP Server) with ESMTP id 19C4F700008B
+	for <netdev@vger.kernel.org>; Tue,  3 Jul 2007 00:46:16 +0200 (CEST)
+In-Reply-To: <200707020914.38479.david-b@pacbell.net> (David Brownell's
+	message of "Mon, 2 Jul 2007 09:14:38 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 3 Jul 2007 00:13:29 +0200
-Adrian Bunk <bunk@stusta.de> wrote:
+>>>>> "David" == David Brownell <david-b@pacbell.net> writes:
 
-> On Mon, Jul 02, 2007 at 10:54:01AM -0400, Jeff Garzik wrote:
-> >...
-> > maximilian attems (1):
-> >       starfire list alpha as 64 bit arch
-> >...
-> > --- a/drivers/net/starfire.c
-> > +++ b/drivers/net/starfire.c
-> > @@ -152,7 +152,7 @@ static int full_duplex[MAX_UNITS] = {0, };
-> >   * This SUCKS.
-> >   * We need a much better method to determine if dma_addr_t is 64-bit.
-> >   */
-> > -#if (defined(__i386__) && defined(CONFIG_HIGHMEM64G)) || defined(__x86_64__) || defined (__ia64__) || defined(__mips64__) || (defined(__mips__) && defined(CONFIG_HIGHMEM) && defined(CONFIG_64BIT_PHYS_ADDR))
-> > +#if (defined(__i386__) && defined(CONFIG_HIGHMEM64G)) || defined(__x86_64__) || defined (__ia64__) || defined(__alpha__) || defined(__mips64__) || (defined(__mips__) && defined(CONFIG_HIGHMEM) && defined(CONFIG_64BIT_PHYS_ADDR))
-> >  /* 64-bit dma_addr_t */
-> >  #define ADDR_64BITS	/* This chip uses 64 bit addresses. */
-> >  #define netdrv_addr_t u64
-> >...
-> 
-> The patch is correct and definitely the best solution at this time of 
-> the 2.6.22 development cycle.
-> 
-> But the comment in the context exactly matches what I thought when
-> I saw this code...
-> 
-> Does anyone have a suggestion how to do this better?
-> 
-> cu
-> Adrian
-> 
+Hi,
 
-Yeah, write code that handles it in compiler. Like:
-	if (sizeof(dma_addr_t) > sizeof(u32)) {
-		do something...
-	}
-That means that it gets checked even if optimizer removes it as
-unneeded.
+ David> I'd rather see the later test updated to match this one.
+ David> (Good catch!)
+
+ David> The return convention is "negative means error".  There's
+ David> code in USB which has multiple nonnegative success codes.
+
+Ok, updated patch does that instead.
+
+ David> In particular usb_control_msg(), which would very naturally
+ David> used as the body of a bind() method, returns negative or
+ David> the number of bytes transferred.
+
+Yeah, that was the original problem in my dm9601 driver.
+
+usbnet_probe() handles a positive return value from the driver bind()
+function as success, but will later only setup the status handler if the
+return value was zero, leading to confusion. Patch adjusts this to accept
+positive values as success in both checks.
+
+Signed-off-by: Peter Korsgaard <jacmet@sunsite.dk>
+---
+ drivers/net/usb/usbnet.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+Index: linux-2.6.22-rc7/drivers/net/usb/usbnet.c
+===================================================================
+--- linux-2.6.22-rc7.orig/drivers/net/usb/usbnet.c
++++ linux-2.6.22-rc7/drivers/net/usb/usbnet.c
+@@ -1208,7 +1208,7 @@
+ 			status = 0;
+ 
+ 	}
+-	if (status == 0 && dev->status)
++	if (status >= 0 && dev->status)
+ 		status = init_status (dev, udev);
+ 	if (status < 0)
+ 		goto out3;
 
 -- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+Bye, Peter Korsgaard
+
