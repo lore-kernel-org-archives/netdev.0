@@ -1,140 +1,77 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH] ixgbe: Introduce new 10GbE driver for Intel 82598 based
- PCI	Express adapters...
-Date: Mon, 2 Jul 2007 14:09:58 -0700
-Message-ID: <20070702140958.5ea6571a@freepuppy.localdomain.hemminger.net>
-References: <4688F512.3030801@garzik.org>
-	<E35F4F4D7F6C9E4E826FEC1F86CEF58304193063@orsmsx412.amr.corp.intel.com>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: Re: [WIP][PATCHES] Network xmit batching - tg3 support
+Date: Mon, 02 Jul 2007 14:20:44 -0700
+Message-ID: <1183411245.6609.16.camel@teletran1>
+References: <OFB311484E.057E34E9-ON652572F3.001D5838-652572F3.0022766D@in.ibm.com>
+ <1181216629.4064.22.camel@localhost>
+ <20070619132148.GA32078@2ka.mipt.ru>
+ <20070619133333.GA19667@2ka.mipt.ru>
+ <20070619140038.GA13629@2ka.mipt.ru>
+ <1182270529.4968.73.camel@localhost>
+ <18040.5105.715624.286924@robur.slu.se>
+ <1182275300.4968.83.camel@localhost>
+ <1182989145.5155.81.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Jeff Garzik" <jeff@garzik.org>, <netdev@vger.kernel.org>,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
-	<arjan@linux.intel.com>, <akpm@linux-foundation.org>
-To: "Veeraiyan, Ayyappan" <ayyappan.veeraiyan@intel.com>
+Cc: "Robert Olsson" <Robert.Olsson@data.slu.se>,
+	"Evgeniy Polyakov" <johnpol@2ka.mipt.ru>,
+	"Krishna Kumar2" <krkumar2@in.ibm.com>,
+	"Gagan Arneja" <gaagaan@gmail.com>, netdev@vger.kernel.org,
+	"Rick Jones" <rick.jones2@hp.com>,
+	"Sridhar Samudrala" <sri@us.ibm.com>,
+	"David Miller" <davem@davemloft.net>,
+	"Jeff Garzik" <jeff@garzik.org>,
+	"Michael Chan" <mchan@broadcom.com>
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:46068 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755358AbXGBVKU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jul 2007 17:10:20 -0400
-In-Reply-To: <E35F4F4D7F6C9E4E826FEC1F86CEF58304193063@orsmsx412.amr.corp.intel.com>
+Received: from mms2.broadcom.com ([216.31.210.18]:1993 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754838AbXGBVVL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Jul 2007 17:21:11 -0400
+In-Reply-To: <1182989145.5155.81.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2 Jul 2007 12:00:29 -0700
-"Veeraiyan, Ayyappan" <ayyappan.veeraiyan@intel.com> wrote:
+On Wed, 2007-06-27 at 20:05 -0400, jamal wrote:
+> peoplez,
+> 
+> I have added support for tg3 on batching. I see equivalent performance
+> improvement for pktgen as i did with e1000 when using gige. 
+> I have only tested on two machines (one being a laptop which does
+> 10/100Mbps). Unfortunately in both cases these are considered to be in
+> the class of  "buggy" tg3s (which take a longer code path).
+> 
+> To the tg3 folks - can you double check if am off on something?
+> I have split a few things that you may like as well.
+> I havent upgraded the tree - it is still circa 2.6.22-rc4 based; at some
+> point i will sync with Daves net-26
+> 
+> Anyone who has tg3 based hardware: I would appreciate any testing and
+> results ...
+> 
+> The git tree is at:
+> git://git.kernel.org/pub/scm/linux/kernel/git/hadi/batch-lin26.git
+> but i have attached the patch in case you just wanna stare.
+> 
+> cheers,
+> jamal
 
-> On 7/2/07, Jeff Garzik <jeff@garzik.org> wrote:
-> > Ayyappan Veeraiyan wrote:
-> > > +#define IXGBE_TX_FLAGS_VLAN_MASK     0xffff0000
-> > > +#define IXGBE_TX_FLAGS_VLAN_SHIFT    16
-> > 
-> > defining bits using the form "(1 << n)" is preferred.  Makes it easier
-> > to read, by eliminating the requirement of the human brain to decode
-> hex
-> > into bit numbers.
-> > 
-> > 
-> 
-> Ok.
-> 
-> > > +             struct net_device netdev;
-> > > +     };
-> > 
-> > Embedded a struct net_device into your ring?  How can I put this?
-> > 
-> > Wrong, wrong.  Wrong, wrong, wrong.  Wrong.
-> > 
-> 
-> Agreed. 
-> Fake netdevs are needed for doing the multiple Rx queues in NAPI mode.
-> We are thinking to solve in 2 ways. Having netdev pointer in ring
-> structure or having an array of netdev pointers in ixgbe_adatper struct
-> which would be visible to all rings.
+Hi Jamal.  I'll be testing your patch soon, but I wanted to point out a
+bug in the patch.  The patch defines TG3_SKB_CB() as follows :
 
-Wait until Davem & I separate NAPI from network device.
-The patch is close to ready for 2.6.24 when this driver will need to show up.
+#define TG3_SKB_CB(__skb) ((struct tg3_tx_cbdata *)&((__skb)->cb[0]))
 
-Since I know Intel will be forced to backport this to older distro's. You
-would be best to have a single receive queue version when you have to make
-it work on the older code.
+This definition will collide with the VLAN macros if TG3_VLAN_TAG_USED
+is set.  vlan_tx_tag_get() is defined as :
 
-> > > +
-> > > +     char name[IFNAMSIZ + 5];
-> > 
-> > The interface name should not be stored by your ring structure
-> >
+#define vlan_tx_tag_get(__skb)  (VLAN_TX_SKB_CB(__skb)->vlan_tag)
 
-Gag
- 
-> Yes, I agree and also (pointed out by someone before) this would break
-> if the user changes the interface name..
-> But, having the "cause" in the MSIX vector name really helps in
-> debugging and helps the user also. 
+VLAN_TX_SKB_CB is defined as :
 
-If you need a unique token use ifindex
+#define VLAN_TX_SKB_CB(__skb) \
+        ((struct vlan_skb_tx_cookie *)&((__skb)->cb[0]))
 
-> 
-> I think the below output is much better
-> 
-> [root@ayyapsz src]# cat /proc/interrupts | grep eth0
-> 214:          0          0   PCI-MSI-edge      eth0-lsc
-> 215:      11763          4   PCI-MSI-edge      eth0-rx7
-> 216:          0          0   PCI-MSI-edge      eth0-rx6
-> 217:      77324          0   PCI-MSI-edge      eth0-rx5
-> 218:          0          0   PCI-MSI-edge      eth0-rx4
-> 219:      52911          0   PCI-MSI-edge      eth0-rx3
-> 220:      80271          0   PCI-MSI-edge      eth0-rx2
-> 221:      80244          6   PCI-MSI-edge      eth0-rx1
-> 222:         12          0   PCI-MSI-edge      eth0-rx0
-> 223:     124870      28543   PCI-MSI-edge      eth0-tx0
-> 
-> Compared to 
-> 
-> [root@ayyapsz src]# cat /proc/interrupts | grep eth0
-> 214:          0          0   PCI-MSI-edge      eth0
-> 215:      11763          4   PCI-MSI-edge      eth0
-> 216:          0          0   PCI-MSI-edge      eth0
-> 217:      77324          0   PCI-MSI-edge      eth0
-> 218:          0          0   PCI-MSI-edge      eth0
-> 219:      52911          0   PCI-MSI-edge      eth0
-> 220:      80271          0   PCI-MSI-edge      eth0
-> 221:      80244          6   PCI-MSI-edge      eth0
-> 222:         12          0   PCI-MSI-edge      eth0
-> 223:     124900      28543   PCI-MSI-edge      eth0
-> 
-> Since we wanted to distinguish the various MSIX vectors in
-> /proc/interrupts and since request_irq expects memory for name to be
-> allocated somewhere, I added this part of the ring struct.
+Also, I think the count, max_per_txd, and nr_frags fields of the
+tg3_tx_cbdata struct are not needed.
 
-You only need to store the name for when you are doing request_irq, so
-it can just be a stack temporary.  
-
-> > 
-> > Kill io_base and stop setting netdev->base_addr
-> 
-> In my latest internal version, I already removed the io_base member (and
-> couple more from ixgbe_adapter) but still setting the netdev->base_addr.
-> I will remove that also..
-> 
-> > > +     struct ixgbe_hw_stats stats;
-> > > +     char lsc_name[IFNAMSIZ + 5];
-> > 
-> > delete lsc_name and use netdev name directly in request_irq()
-> > 
-> 
-> Please see the response for the name member of ring structure.
->  
-> > 
-> > Will review more after you fix these problems.
-> > 
-> 
-> Thanks for the feedback. I will post another version shortly (except the
-> feature flags change and the ring struct name members) which fixes my
-> previous TODO list and also most of Francois comments..
-> 
-> Ayyappan
-
-
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
