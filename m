@@ -1,84 +1,42 @@
-From: maximilian attems <max@stro.at>
-Subject: [patch] dgrs romove Kconfig option
-Date: Mon, 2 Jul 2007 15:52:01 +0200
-Message-ID: <20070702135201.GA4779@stro.at>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH UPDATE #2] Extract chip specific code out of lasi_82596.c
+Date: Mon, 02 Jul 2007 09:58:31 -0400
+Message-ID: <46890487.7060004@pobox.com>
+References: <20070627224622.GA13356@alpha.franken.de> <4688F2D8.6020308@pobox.com> <20070702134105.GA7403@alpha.franken.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Adrian Bunk <bunk@stusta.de>, Andres Salomon <dilinger@debian.org>,
-	Alan <alan@lxorguk.ukuu.org.uk>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org
+To: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from baikonur.stro.at ([213.239.196.228]:2039 "EHLO baikonur.stro.at"
+Received: from srv5.dvmed.net ([207.36.208.214]:51655 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752432AbXGBNwf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Jul 2007 09:52:35 -0400
-Content-Disposition: inline
+	id S1753037AbXGBN6d (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Jul 2007 09:58:33 -0400
+In-Reply-To: <20070702134105.GA7403@alpha.franken.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-nobody objected to adrian's rfc dropping dgrs on netdev back in dec. 2006.
--> http://marc.info/?l=linux-netdev&m=116507999803538&w=2
-as bonus points this will get rid of a prorpietary licensed firmware.
+Thomas Bogendoerfer wrote:
+> On Mon, Jul 02, 2007 at 08:43:04AM -0400, Jeff Garzik wrote:
+>> applied both patches.
+>>
+>> Please provide an update that does at Andrew requested -- rather than 
+>> #include'ing lib82596.c, you should update the Makefile for relevant 
+>> drivers to look like
 
-so now be a bit more serious and remove the Kconfig entries
-and see if anyone shouts. if no voice is to be heard as
-expected by zero bug entries on kernel.org or debian.org,
-the full removal is scheduled for 2.6.24.
+> I got the impression that Andrew is fine with that approach after my
+> explanation. I would need additional header files for all the
+> different swap macros/dma stuff, and that isn't nice either, isn't it ? 
 
-Signed-off-by: maximilian attems <max@stro.at>
-Acked-by: Alan <alan@lxorguk.ukuu.org.uk>
+Fair enough.
 
 
-diff --git a/Documentation/feature-removal-schedule.txt b/Documentation/feature-removal-schedule.txt
-index 7d3f205..306276e 100644
---- a/Documentation/feature-removal-schedule.txt
-+++ b/Documentation/feature-removal-schedule.txt
-@@ -348,3 +348,10 @@ Who:  Tejun Heo <htejun@gmail.com>
- 
- ---------------------------
- 
-+What: drivers/net/dgrs.c
-+When: option 2.6.23, code 2.6.24
-+Why: no users, product never reached market
-+Who: maximilian attems <max@stro.at>
-+
-+---------------------------
-+
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 7d57f4a..78a6a78 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -1447,21 +1447,6 @@ config TC35815
- 	depends on NET_PCI && PCI && MIPS
- 	select MII
- 
--config DGRS
--	tristate "Digi Intl. RightSwitch SE-X support"
--	depends on NET_PCI && (PCI || EISA)
--	---help---
--	  This is support for the Digi International RightSwitch series of
--	  PCI/EISA Ethernet switch cards. These include the SE-4 and the SE-6
--	  models.  If you have a network card of this type, say Y and read the
--	  Ethernet-HOWTO, available from
--	  <http://www.tldp.org/docs.html#howto>.  More specific
--	  information is contained in <file:Documentation/networking/dgrs.txt>.
--
--	  To compile this driver as a module, choose M here and read
--	  <file:Documentation/networking/net-modules.txt>.  The module
--	  will be called dgrs.
--
- config EEPRO100
- 	tristate "EtherExpressPro/100 support (eepro100, original Becker driver)"
- 	depends on NET_PCI && PCI
-diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index a77affa..209a079 100644
---- a/drivers/net/Makefile
-+++ b/drivers/net/Makefile
-@@ -38,7 +38,6 @@ obj-$(CONFIG_CASSINI) += cassini.o
- obj-$(CONFIG_MACE) += mace.o
- obj-$(CONFIG_BMAC) += bmac.o
- 
--obj-$(CONFIG_DGRS) += dgrs.o
- obj-$(CONFIG_VORTEX) += 3c59x.o
- obj-$(CONFIG_TYPHOON) += typhoon.o
- obj-$(CONFIG_NE2K_PCI) += ne2k-pci.o 8390.o
+> There are other drivers doing the same as I do, which didn't get any
+> objections. Is it me you have a prolem with ?
+
+Put down the insanity and paranoia juice.  Slowly.
+
+	Jeff
+
+
