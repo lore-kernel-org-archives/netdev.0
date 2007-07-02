@@ -1,47 +1,80 @@
-From: Jens Stroebel <drifter@bcsoft.de>
-Subject: Re: r8169 2.2LK: Low link speed after suspend
-Date: Mon, 02 Jul 2007 12:23:14 +0200
-Message-ID: <4688D212.7080609@bcsoft.de>
-References: <200704162241.31729.peter.missel@onlinehome.de> <200705012119.48598.peter.missel@onlinehome.de> <20070501200723.GA19212@electric-eye.fr.zoreil.com> <200706301448.50541.peter.missel@onlinehome.de> <20070630133810.GA15951@electric-eye.fr.zoreil.com> <20070630193003.GA21140@electric-eye.fr.zoreil.com>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: [NETPOLL] netconsole: fix soft lockup when removing module
+Date: Mon, 2 Jul 2007 13:08:01 +0200
+Message-ID: <20070702110801.GD1639@ff.dom.local>
+References: <20070701173558.GA207@tv-sign.ru> <20070702063424.GA1639@ff.dom.local> <20070702092408.GA137@tv-sign.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"David S\. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Oleg Nesterov <oleg@tv-sign.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.187]:55116 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750816AbXGBKXT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jul 2007 06:23:19 -0400
-In-Reply-To: <20070630193003.GA21140@electric-eye.fr.zoreil.com>
+Received: from mx12.go2.pl ([193.17.41.142]:49739 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751368AbXGBK7j (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Jul 2007 06:59:39 -0400
+Content-Disposition: inline
+In-Reply-To: <20070702092408.GA137@tv-sign.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Francois Romieu wrote:
-> Francois Romieu <romieu@fr.zoreil.com> :
-> [...]
->> The patch will not apply directly against 2.6.21.5. Is it an option for
->> you to try 2.6.22-rc6 or are you stuck with 2.6.21.5 ?
+On Mon, Jul 02, 2007 at 01:24:08PM +0400, Oleg Nesterov wrote:
+> On 07/02, Jarek Poplawski wrote:
+> >
+> > > > --- a/net/core/netpoll.c
+> > > > +++ b/net/core/netpoll.c
+> > > > @@ -72,7 +72,8 @@ static void queue_process(struct work_struct *work)
+> > > >  			netif_tx_unlock(dev);
+> > > >  			local_irq_restore(flags);
+> > > >  
+> > > > -			schedule_delayed_work(&npinfo->tx_work, HZ/10);
+> > > > +			if (atomic_read(&npinfo->refcnt))
+> > > > +				schedule_delayed_work(&npinfo->tx_work, HZ/10);
+> > > >  			return;
+> > > >  		}
+> >
+> > [...snip...]
+> > 
+> > So, 2.6.21 needs something better (maybe you've found it btw.?),
+> > but they weren't too interested, anyway.
 > 
-> If you feel adventurous, you will find a compile-tested-only patchkit for
-> 2.6.21.5 here:
-> http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.21.5
-> or:
-> http://www.fr.zoreil.com/people/francois/misc/20060630-2.6.21.5-r8169-test.patch
+> We can do a double flush trick. If queue_process() checks ->refcnt before
+> schedule_delayed_work() like above, netpoll_cleanup() can do
 > 
-> The content should be almost the same as the 2.6.22-rc6 patchkit dated
-> from 2007/06/28 (i.e. pending 2.6.23 merge).
+> 	flush_scheduled_work();
+> 
+> 	// the next invocation of queue_process()
+> 	// must see ->refcnt == 0
+> 	if (!cancel_delayed_work(&npinfo->tx_work)) {
+> 		/* may be queued, wait for completion */
+> 		flush_scheduled_work();
+> 	}
 
-  Wow, great; I applied it to the kernel build this morning;
-in itself, it does not stop the blocking behavior from happening.
-But I will try to add the patch I mentioned in the previous messages of
-which you said it shouldn't be used without applying the patchset first.
+I'll try to think about it later, but I don't plan to do next patch,
+so feel free to send this. I didn't plan to fix netpoll at all
+(I never didn't use nor studied this before...). But couldn't stand
+this stupid lockup stays in 2.6.21. Now, I see it probably doesn't
+annoy more than 2 or 3 people around...
 
-		greets,
-		   jens
--- 
-drifter@bcsoft.de
-			23.....56.......drifting
-By caffeine alone I set my mind in motion, By the beans of Java
-do thoughts acquire speed,  hands acquire shaking,  the shaking
-becomes a warning, By caffeine alone do I set my mind in motion
+> 
+> Jarek, I don't understand net/, a silly question. Why do we need the #2 chunk?
+> Isn't it better to move skb_queue_purge(&npinfo->txq) after cancel_..._work()
+> instead?
+
+I've thought about this too, but because I don't know netpoll/netconsole
+enough I didn't want to change more than minimum needed. 
+
+skb_queue_purge() uses heavy locking (irqsave) and I don't remember now
+if I've found the reason or simply believed somebody had to have a reason
+to do this there, anyway, if moved after cancel_ it could be done without
+this locking, and something like while () instead of my if () should be
+enough.
+
+But there was not much interest about this patch, and I'm not currently
+interested to be the main netconsole expert too, so maybe you would
+like to try...
+
+Cheers,
+Jarek P.
