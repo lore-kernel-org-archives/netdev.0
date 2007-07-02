@@ -1,48 +1,34 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: quirk_e100_interrupt() called too early
-Date: Mon, 02 Jul 2007 12:03:27 -0700
-Message-ID: <46894BFF.70405@intel.com>
-References: <4683A80F.5020605@semihalf.com> <4683DB44.9070704@intel.com> <200706282007.27841.bjorn.helgaas@hp.com> <4688B258.4000501@funkwerk-ec.com>
+From: "Ayyappan Veeraiyan" <Ayyappan.Veeraiyan@intel.com>
+Subject: Re: [PATCH] ixgbe: Introduce new 10GbE driver for Intel 82598 based PCI Express adapters...
+Date: Mon, 2 Jul 2007 12:04:37 -0700
+Message-ID: <ae4a4a920707021204x4e6a360u4d96750b4922fe10@mail.gmail.com>
+References: <4688F512.3030801@garzik.org>
+	 <E35F4F4D7F6C9E4E826FEC1F86CEF58304193063@orsmsx412.amr.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Bjorn Helgaas <bjorn.helgaas@hp.com>,
-	"Kok, Auke" <auke-jan.h.kok@intel.com>,
-	Marian Balakowicz <m8@semihalf.com>,
-	"linux-pci@atrey.karlin.mff.cuni.cz"
-	<linux-pci@atrey.karlin.mff.cuni.cz>,
-	"len.brown@intel.com" <len.brown@intel.com>,
-	NetDev <netdev@vger.kernel.org>
-To: Nils Rennebarth <nils.rennebarth@funkwerk-ec.com>
+Cc: netdev@vger.kernel.org,
+	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
+	arjan@linux.intel.com, akpm@linux-foundation.org
+To: "Jeff Garzik" <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:28138 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756233AbXGBTDa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Jul 2007 15:03:30 -0400
-In-Reply-To: <4688B258.4000501@funkwerk-ec.com>
+Received: from an-out-0708.google.com ([209.85.132.244]:7941 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753187AbXGBTEi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jul 2007 15:04:38 -0400
+Received: by an-out-0708.google.com with SMTP id d31so341169and
+        for <netdev@vger.kernel.org>; Mon, 02 Jul 2007 12:04:37 -0700 (PDT)
+In-Reply-To: <E35F4F4D7F6C9E4E826FEC1F86CEF58304193063@orsmsx412.amr.corp.intel.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Nils Rennebarth wrote:
-> Bjorn Helgaas wrote:
->> On Thursday 28 June 2007 10:01:08 am Kok, Auke wrote:
->> I copied Nils Rennebarth, who originally reported the bug:
->>   http://bugzilla.kernel.org/show_bug.cgi?id=5918
->> in case he can test your patch.
- >
-> Most of the embedded boards we now work with appear to exhibit the same 
-> behaviour: During boot the
-> 
-> Firmware left 0000:01:05.0 e100 interrupts enabled, disabling
-> 
-> message appears for all four e100 nics. (The mainboard is a em-8510A 
-> btw.) When I have time I could try if the quirk still works with the
-> mentioned patch, but I am quite busy with other things at the moment.
+On 7/2/07, Veeraiyan, Ayyappan <ayyappan.veeraiyan@intel.com> wrote:
 
-well, we're too late for 2.6.22 I think so you have some time. However I'd like 
-to make sure we can get this in with 2.6.23. Alternatively, someone could always 
-send me one of these boards ;)
+> Thanks for the feedback. I will post another version shortly (except the
+> feature flags change and the ring struct name members) which fixes my
 
-Thanks for taking the time to test
+Just to clarify this, I will wait some more time for feature flags
+discussion and the ring structure name feedback..
 
-Auke
+Ayyappan
