@@ -1,48 +1,38 @@
-From: "Daniel J Blueman" <daniel.blueman@gmail.com>
-Subject: sky2 silicon bugs and workarounds...
-Date: Mon, 2 Jul 2007 14:37:06 +0100
-Message-ID: <6278d2220707020637m2f11a691x9c51ca4bfe823104@mail.gmail.com>
-References: <6278d2220707020636h7764fb27lb648ce50f1597b4@mail.gmail.com>
+From: tsbogend@alpha.franken.de (Thomas Bogendoerfer)
+Subject: Re: [PATCH UPDATE #2] Extract chip specific code out of lasi_82596.c
+Date: Mon, 2 Jul 2007 15:41:05 +0200
+Message-ID: <20070702134105.GA7403@alpha.franken.de>
+References: <20070627224622.GA13356@alpha.franken.de> <4688F2D8.6020308@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Linux Netdev" <netdev@vger.kernel.org>
-To: "Stephen Hemminger" <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org
+To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.168]:64588 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754847AbXGBNhI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jul 2007 09:37:08 -0400
-Received: by ug-out-1314.google.com with SMTP id j3so1256796ugf
-        for <netdev@vger.kernel.org>; Mon, 02 Jul 2007 06:37:06 -0700 (PDT)
-In-Reply-To: <6278d2220707020636h7764fb27lb648ce50f1597b4@mail.gmail.com>
+Received: from elvis.franken.de ([193.175.24.41]:58177 "EHLO elvis.franken.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753630AbXGBNl4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Jul 2007 09:41:56 -0400
 Content-Disposition: inline
+In-Reply-To: <4688F2D8.6020308@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Stephen,
+On Mon, Jul 02, 2007 at 08:43:04AM -0400, Jeff Garzik wrote:
+> applied both patches.
+> 
+> Please provide an update that does at Andrew requested -- rather than 
+> #include'ing lib82596.c, you should update the Makefile for relevant 
+> drivers to look like
 
-When the sky2 driver initialises, it sets the the ISR timer register
-(STAT_ISR_TIMER_INI) to 125 * 20 = 2500, whereas the vendor sk98lin
-driver sets it to 400, irrespective of the clockspeed of the NIC
-processor.
+I got the impression that Andrew is fine with that approach after my
+explanation. I would need additional header files for all the
+different swap macros/dma stuff, and that isn't nice either, isn't it ? 
 
-I guess you found more performance/stability from this value...?
+There are other drivers doing the same as I do, which didn't get any
+objections. Is it me you have a prolem with ?
 
-I've checked through the errata workarounds common to my rev-1 and 2
-Yukon-EC chips...the HWF_WA_DEV_4167 "oversize receive hang"
-workaround checks and can reset the (as I understand) bus master unit
-of the NIC (in CheckRxPath) in a periodic timer that is fired, where
-is finds no progress is made.
+Thomas.
 
-With the issues we see, can they be detected earlier by the stats
-counters not being incremented, then resetting the bus-master unit,
-rather than the whole chip getting kicked after a far longer period.
-
-It looks like if it is a silicon bug, we can just acknowledge it and
-have a better framework to detect the chip's PCI interface locking up
-and kick it in a smarter way perhaps...
-
-Daniel
---
-Daniel J Blueman
+-- 
+Crap can work. Given enough thrust pigs will fly, but it's not necessary a
+good idea.                                                [ RFC1925, 2.3 ]
