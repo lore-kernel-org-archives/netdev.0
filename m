@@ -1,34 +1,38 @@
-From: "Ayyappan Veeraiyan" <Ayyappan.Veeraiyan@intel.com>
-Subject: Re: [PATCH] ixgbe: Introduce new 10GbE driver for Intel 82598 based PCI Express adapters...
-Date: Mon, 2 Jul 2007 12:04:37 -0700
-Message-ID: <ae4a4a920707021204x4e6a360u4d96750b4922fe10@mail.gmail.com>
-References: <4688F512.3030801@garzik.org>
-	 <E35F4F4D7F6C9E4E826FEC1F86CEF58304193063@orsmsx412.amr.corp.intel.com>
+From: Andres Salomon <dilinger@queued.net>
+Subject: Re: [patch] dgrs romove Kconfig option
+Date: Mon, 2 Jul 2007 15:32:03 -0400
+Message-ID: <20070702153203.f5b10b68.dilinger@queued.net>
+References: <20070702135201.GA4779@stro.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
-	arjan@linux.intel.com, akpm@linux-foundation.org
-To: "Jeff Garzik" <jeff@garzik.org>
+Cc: netdev@vger.kernel.org, Adrian Bunk <bunk@stusta.de>,
+	Andres Salomon <dilinger@debian.org>,
+	Alan <alan@lxorguk.ukuu.org.uk>
+To: maximilian attems <max@stro.at>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.244]:7941 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753187AbXGBTEi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jul 2007 15:04:38 -0400
-Received: by an-out-0708.google.com with SMTP id d31so341169and
-        for <netdev@vger.kernel.org>; Mon, 02 Jul 2007 12:04:37 -0700 (PDT)
-In-Reply-To: <E35F4F4D7F6C9E4E826FEC1F86CEF58304193063@orsmsx412.amr.corp.intel.com>
-Content-Disposition: inline
+Received: from mail.queued.net ([207.210.101.209]:1402 "EHLO mail.queued.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752810AbXGBT6Q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Jul 2007 15:58:16 -0400
+In-Reply-To: <20070702135201.GA4779@stro.at>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 7/2/07, Veeraiyan, Ayyappan <ayyappan.veeraiyan@intel.com> wrote:
+On Mon, 2 Jul 2007 15:52:01 +0200
+maximilian attems <max@stro.at> wrote:
 
-> Thanks for the feedback. I will post another version shortly (except the
-> feature flags change and the ring struct name members) which fixes my
+> nobody objected to adrian's rfc dropping dgrs on netdev back in dec. 2006.
+> -> http://marc.info/?l=linux-netdev&m=116507999803538&w=2
+> as bonus points this will get rid of a prorpietary licensed firmware.
+> 
+> so now be a bit more serious and remove the Kconfig entries
+> and see if anyone shouts. if no voice is to be heard as
+> expected by zero bug entries on kernel.org or debian.org,
+> the full removal is scheduled for 2.6.24.
 
-Just to clarify this, I will wait some more time for feature flags
-discussion and the ring structure name feedback..
+Why not just do the full removal now?  If someone shouts, it's just as easy
+to add it all back.  Leaving around half a driver is just annoying..
 
-Ayyappan
+-- 
+Andres Salomon <dilinger@queued.net>
