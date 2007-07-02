@@ -1,33 +1,40 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 2.6.22 4/4]S2IO: Implementing review comments from old
- patches
-Date: Mon, 02 Jul 2007 08:18:53 -0400
-Message-ID: <4688ED2D.2090200@garzik.org>
-References: <Pine.GSO.4.10.10706190604110.2608-100000@guinness>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: Handling set_mac_address in set_rx_mode
+Date: Mon, 02 Jul 2007 14:20:16 +0200
+Message-ID: <4688ED80.4090105@trash.net>
+References: <4686A614.1000709@trash.net> <4686BF35.8080605@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Leonid.Grossman@neterion.com,
-	ramkrishna.vepa@neterion.com, santosh.rastapur@neterion.com,
-	Sivakumar.Subramani@neterion.com, sreenivasa.honnur@neterion.com,
-	Alicia.Pena@neterion.com, sriram.rapuru@neterion.com
-To: Veena Parat <Veena.Parat@neterion.com>
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:50818 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751824AbXGBMS4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Jul 2007 08:18:56 -0400
-In-Reply-To: <Pine.GSO.4.10.10706190604110.2608-100000@guinness>
+Received: from stinky.trash.net ([213.144.137.162]:48653 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752488AbXGBMUc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jul 2007 08:20:32 -0400
+In-Reply-To: <4686BF35.8080605@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Veena Parat wrote:
-> Implementation of review comments 
-> 1. Incorporated Jeff Garzik's comments on coding standards.
-> 2. Incorporated Andreas Schwab's comments on redundant condition check.
+Jeff Garzik wrote:
+> Patrick McHardy wrote:
 > 
-> Signed-off-by: Veena Parat <veena.parat@neterion.com>
+>> While adding support for secondary unicast addresses to 8021q and
+>> macvlan, I've tried keeping dev->dev_addr as global address on
+>> dev->uc_list and have drivers skip them to avoid having all
+>> dev_unicast_add users implement a state machine like this:
+> 
+> 
+> [...]
+> 
+> Something that is not entirely clear to me...  This has zero impact on
+> existing drivers, right?
 
-ACK but dropped due to patch #2 being dropped
 
+Yes, since the set_rx_mode hook is new anyway this would only
+affect drivers offering it (which is none so far). But this
+idea turned not to be so good anyways, without the
+set_mac_address callback the driver can't validate the new
+address.
 
