@@ -1,52 +1,53 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: 2.6.22-rc6: local_bh_enable warning
-Date: Mon, 02 Jul 2007 10:22:04 -0400
-Message-ID: <46890A0C.1060801@pobox.com>
-References: <20070630170853.GA17467@flint.arm.linux.org.uk> <468906DC.3010709@trash.net>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] ixgbe: Introduce new 10GbE driver for Intel 82598 based
+ PCI	Express adapters...
+Date: Mon, 02 Jul 2007 10:25:49 -0400
+Message-ID: <46890AED.7070906@garzik.org>
+References: <20070612234417.5102.29147.stgit@localhost.localdomain> <20070612234431.5102.33880.stgit@localhost.localdomain> <4688F512.3030801@garzik.org> <4689062A.8080809@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Russell King <rmk@arm.linux.org.uk>,
-	netfilter-devel@lists.netfilter.org,
-	Michal Piotrowski <michal.k.k.piotrowski@gmail.com>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
+Cc: Ayyappan Veeraiyan <ayyappan.veeraiyan@intel.com>,
+	netdev@vger.kernel.org, auke-jan.h.kok@intel.com,
+	akpm@linux-foundation.org
+To: Arjan van de Ven <arjan@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:52012 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:52079 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753615AbXGBOWi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Jul 2007 10:22:38 -0400
-In-Reply-To: <468906DC.3010709@trash.net>
+	id S1760146AbXGBOZw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Jul 2007 10:25:52 -0400
+In-Reply-To: <4689062A.8080809@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy wrote:
-> Russell King wrote:
->> Having upgraded from 2.6.16 to 2.6.22-rc6, I'm now seeing the following.
+Arjan van de Ven wrote:
+>  >> +    u32 alloc_rx_buff_failed;
+>>> +    struct {
+>>> +        unsigned int rx_csum_enabled    :1;
+>>> +        unsigned int msi_capable    :1;
+>>> +        unsigned int msi_enabled    :1;
+>>> +        unsigned int msix_capable    :1;
+>>> +        unsigned int msix_enabled    :1;
+>>> +        unsigned int imir_enabled    :1;
+>>> +        unsigned int in_netpoll        :1;
+>>> +    } flags;
 >>
->> Looks like netfilter is calling local_bh_enable() with IRQs disabled,
->> which would appear to be illegal.  Thankfully, this is a warn-once
->> warning.
->>
->> WARNING: at /home/rmk/git/linux-2.6-rmk/kernel/softirq.c:138 local_bh_enable()
->> [...]
->> [<c01447fc>] (nf_conntrack_destroy+0x0/0x2c) from [<c012c05c>] (__kfree_skb+0xd0/0x100)
->> [<c012bf8c>] (__kfree_skb+0x0/0x100) from [<c012c0d8>] (kfree_skb+0x4c/0x50)
->>  r5:c12a3800 r4:00000300
->> [<c012c08c>] (kfree_skb+0x0/0x50) from [<bf03cbb0>] (el3_start_xmit+0xb8/0xd0 [3c589_cs])
->> [<bf03caf8>] (el3_start_xmit+0x0/0xd0 [3c589_cs]) from [<c01324dc>] (dev_hard_start_xmit+0x1a8/0x244)
->>  r7:c12a3800 r6:c1a9aa00 r5:c1a9aa00 r4:c12a3800
->> [<c0132334>] (dev_hard_start_xmit+0x0/0x244) from [<c013fcc0>] (__qdisc_run+0xb0/0x198)
+>> always avoid bitfields.  They generate horrible code, and endian 
+>> problems abound (though no endian problems are apparent here).
 > 
-> 
-> Thats a bug in the 3c589_cs driver. Patch attached.
-> 
-> Signed-off-by: Patrick McHardy <kaber@trash.net>
+> they generate no worse code than open coding the checks for these 
+> feature flags...
 
-You would post this JUST after I finished my patch applying run, 
-wouldn't you?  :)
+That would be the logical assumption, but reality does not bear that 
+logic out to be true.
 
-Will apply in a few minutes, thanks :)
+I'm not sure whether gcc is confused about ABI alignment or such, on 
+various platforms, but every time I look at the asm generated it is 
+/not/ equivalent to open-coded feature flags and bitwise logic.  Often 
+it is demonstrably worse.
+
+The same is true for icc too :)  Bitfields are just bad juju for 
+compilers, I guess.
 
 	Jeff
 
