@@ -1,67 +1,66 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: [PATCH] Re: [NETPOLL] netconsole: fix soft lockup when removing module
-Date: Mon, 2 Jul 2007 09:52:26 +0200
-Message-ID: <20070702075226.GB1639@ff.dom.local>
-References: <20070701173558.GA207@tv-sign.ru>
+From: Nils Rennebarth <nils.rennebarth@funkwerk-ec.com>
+Subject: Re: quirk_e100_interrupt() called too early
+Date: Mon, 2 Jul 2007 10:07:52 +0200
+Message-ID: <4688B258.4000501@funkwerk-ec.com>
+References: <4683A80F.5020605@semihalf.com> <4683DB44.9070704@intel.com> <200706282007.27841.bjorn.helgaas@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"David S\. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Oleg Nesterov <oleg@tv-sign.ru>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Kok, Auke" <auke-jan.h.kok@intel.com>,
+	Marian Balakowicz <m8@semihalf.com>,
+	"linux-pci@atrey.karlin.mff.cuni.cz"
+	<linux-pci@atrey.karlin.mff.cuni.cz>,
+	"len.brown@intel.com" <len.brown@intel.com>,
+	NetDev <netdev@vger.kernel.org>
+To: Bjorn Helgaas <bjorn.helgaas@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx10.go2.pl ([193.17.41.74]:44791 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751895AbXGBHoG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Jul 2007 03:44:06 -0400
-Content-Disposition: inline
-In-Reply-To: <20070701173558.GA207@tv-sign.ru>
+Received: from [85.93.77.62] ([85.93.77.62]:53560 "EHLO
+	virgo.stuttgart.de.funkwerk-ec.com" rhost-flags-FAIL-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751457AbXGBIN1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jul 2007 04:13:27 -0400
+In-Reply-To: <200706282007.27841.bjorn.helgaas@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Bjorn Helgaas wrote:
+> On Thursday 28 June 2007 10:01:08 am Kok, Auke wrote:
+> I copied Nils Rennebarth, who originally reported the bug:
+>   http://bugzilla.kernel.org/show_bug.cgi?id=3D5918
+> in case he can test your patch.
+Most of the embedded boards we now work with appear to exhibit the same=
+=20
+behaviour: During boot the
 
->From my recent patch:
+=46irmware left 0000:01:05.0 e100 interrupts enabled, disabling
 
-> >    #1
-> >    Until kernel ver. 2.6.21 (including) cancel_rearming_delayed_work()
-> >    required a work function should always (unconditionally) rearm with
-> >    delay > 0 - otherwise it would endlessly loop. This patch replaces
-> >    this function with cancel_delayed_work(). Later kernel versions don't
-> >    require this, so here it's only for uniformity.
+message appears for all four e100 nics. (The mainboard is a em-8510A=20
+btw.) When I have time I could try if the quirk still works with the
+mentioned patch, but I am quite busy with other things at the moment.
 
-But Oleg Nesterov <oleg@tv-sign.ru> found:
+--=20
 
-> But 2.6.22 doesn't need this change, why it was merged?
-> 
-> In fact, I suspect this change adds a race,
-...
+Mit freundlichen Gr=FC=DFen / with kind regards
 
-His description was right (thanks), so this patch reverts #1.
+Nils Rennebarth, Software Developer
 
-Signed-off-by: Jarek Poplawski <jarkao2@o2.pl>
+--
+=46unkwerk IP-Appliances GmbH
+M=F6nchhaldenstra=DFe 28
+D-70191 Stuttgart
 
----
+Tel: +49 711 900300 - 0
+=46ax: +49 711 900300 - 90
 
-diff -Nurp 2.6.22-rc7-/net/core/netpoll.c 2.6.22-rc7/net/core/netpoll.c
---- 2.6.22-rc7-/net/core/netpoll.c	2007-07-02 09:03:27.000000000 +0200
-+++ 2.6.22-rc7/net/core/netpoll.c	2007-07-02 09:32:34.000000000 +0200
-@@ -72,8 +72,7 @@ static void queue_process(struct work_st
- 			netif_tx_unlock(dev);
- 			local_irq_restore(flags);
- 
--			if (atomic_read(&npinfo->refcnt))
--				schedule_delayed_work(&npinfo->tx_work, HZ/10);
-+			schedule_delayed_work(&npinfo->tx_work, HZ/10);
- 			return;
- 		}
- 		netif_tx_unlock(dev);
-@@ -786,7 +785,7 @@ void netpoll_cleanup(struct netpoll *np)
- 			if (atomic_dec_and_test(&npinfo->refcnt)) {
- 				skb_queue_purge(&npinfo->arp_tx);
- 				skb_queue_purge(&npinfo->txq);
--				cancel_delayed_work(&npinfo->tx_work);
-+				cancel_rearming_delayed_work(&npinfo->tx_work);
- 				flush_scheduled_work();
- 
- 				/* clean after last, unfinished work */
+E-Mail: Nils.Rennebarth@funkwerk-ec.com
+
+Location: GmbH Neu-Ulm, Local Court Memmingen, HRB 13043
+Managing Directors: Michael Marsanu, Soenke Weisner
+
+--------------------------------
+The information contained in this e-mail has been carefully researched,
+but the possibility of it being inapplicable in individual cases cannot
+be ruled out. We therefore regret that we cannot accept responsibility
+or liability of any kind whatsoever for the correctness of the
+information given. Please notify us if you discover that information is
+inapplicable.
