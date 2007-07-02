@@ -1,85 +1,81 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [WIP][PATCHES] Network xmit batching - tg3 support
-Date: Mon, 02 Jul 2007 17:21:21 -0700
-Message-ID: <1183422081.4947.14.camel@dell>
-References: <OFB311484E.057E34E9-ON652572F3.001D5838-652572F3.0022766D@in.ibm.com>
- <1181216629.4064.22.camel@localhost>
- <20070619132148.GA32078@2ka.mipt.ru>
- <20070619133333.GA19667@2ka.mipt.ru>
- <20070619140038.GA13629@2ka.mipt.ru>
- <1182270529.4968.73.camel@localhost>
- <18040.5105.715624.286924@robur.slu.se>
- <1182275300.4968.83.camel@localhost>
- <1182989145.5155.81.camel@localhost>
- <1183411245.6609.16.camel@teletran1>
+From: "Williams, Mitch A" <mitch.a.williams@intel.com>
+Subject: Re: e1000: backport ich9 support from 7.5.5 ?
+Date: Mon, 2 Jul 2007 16:52:52 -0700
+Message-ID: <08FE5CC30C9A3F41BF819A502CF7BF6E019416BA@fmsmsx411.amr.corp.intel.com>
+References: <1183238694.9055.10.camel@blaa>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, "Robert Olsson" <Robert.Olsson@data.slu.se>,
-	"Evgeniy Polyakov" <johnpol@2ka.mipt.ru>,
-	"Krishna Kumar2" <krkumar2@in.ibm.com>,
-	"Gagan Arneja" <gaagaan@gmail.com>,
-	"netdev" <netdev@vger.kernel.org>,
-	"Rick Jones" <rick.jones2@hp.com>,
-	"Sridhar Samudrala" <sri@us.ibm.com>,
-	"David Miller" <davem@davemloft.net>,
-	"Jeff Garzik" <jeff@garzik.org>
-To: "Matt Carlson" <mcarlson@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3754 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755388AbXGBX3W (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Jul 2007 19:29:22 -0400
-In-Reply-To: <1183411245.6609.16.camel@teletran1>
-Sender: netdev-owner@vger.kernel.org
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	Jason Lunz <lunz@reflexsecurity.com>, Jeff Garzik <jeff@garzik.org>
+To: "Mark McLoughlin" <markmc@redhat.com>,
+	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Content-class: urn:content-classes:message
+In-Reply-To: <1183238694.9055.10.camel@blaa>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2007-07-02 at 14:20 -0700, Matt Carlson wrote:
-
-> 
-> Also, I think the count, max_per_txd, and nr_frags fields of the
-> tg3_tx_cbdata struct are not needed.
-
-The count field is not needed also.
-
-+struct tg3_tx_cbdata {
-+	u32 base_flags;
-+	int count;
-+	unsigned int max_per_txd;
-+	unsigned int nr_frags;
-+	unsigned int mss;
-+};
-+#define TG3_SKB_CB(__skb)       ((struct tg3_tx_cbdata *)&((__skb)->cb[0]))
-
-Only base_flags and mss are needed and these can be determined right
-before sending the frame.  So is it better not to store these in the
-skb->cb at all?
-
-@@ -3118,12 +3120,16 @@ static void tg3_tx(struct tg3 *tp)
- 	 */
- 	smp_mb();
  
-+	dcount = tg3_tx_avail(tp);
- 	if (unlikely(netif_queue_stopped(tp->dev) &&
--		     (tg3_tx_avail(tp) > TG3_TX_WAKEUP_THRESH(tp)))) {
-+		     (dcount > TG3_TX_WAKEUP_THRESH(tp)))) {
- 		netif_tx_lock(tp->dev);
-+		tp->dev->xmit_win = 1;
- 		if (netif_queue_stopped(tp->dev) &&
--		    (tg3_tx_avail(tp) > TG3_TX_WAKEUP_THRESH(tp)))
-+		    (dcount > TG3_TX_WAKEUP_THRESH(tp))) {
- 			netif_wake_queue(tp->dev);
-+			tp->dev->xmit_win = dcount;
-+		}
- 		netif_tx_unlock(tp->dev);
- 	}
- }
 
-This is also not right.  tg3_tx() runs without netif_tx_lock().
-tg3_tx_avail() can change after you get the netif_tx_lock() and we must
-get the updated value again.  If we just rely on dcount, we can call
-wake_queue() when the ring is full, or there may be no wakeup when the
-ring is empty.
+Mark McLoughlin wrote:
 
+>> I disagree, we should not break the current e1000 driver in 
+>the kernel while 
+>> there is a new driver coming up that introduces ich9 support 
+>without breaking 
+>> (the old e1000) support for all other devices. This is why 
+>we want to drop a new 
+>> version of the e1000 driver upstream instead, and put all 
+>newer devices in that 
+>> driver.
+>
+>	Clearly some major changes are happening around e1000, 
+>but the point
+>I'm making is that ich9 support, in particular, doesn't need to be held
+>hostage to these longer term changes. I think the backport shows that:
+>
 
+There seems to be a lot of concern over obsoleting the e1000 driver
+too quickly, and with confusing users (and startup scripts) about which
+driver to load.
 
+Obviously, we at Intel want to get e1000new into the kernel as quickly
+as possible, and to obsolete e1000 also as quickly as possible.  The
+point of this exercise is to reduce our support and maintenance burden,
+and e1000new has shown itself internally to be much easier to work on.
+
+So how about this:
+- We include e1000new in 2.6.23, along side e1000.  We expose ICH9
+  device IDs in e1000new, and gate the rest of the IDs inside
+  #ifndef CONFIG_E1000.  This gives distis ICH9 support, along
+  with a guarantee of the known e1000 driver.  It also lets the more
+  bleeding-edge people turn off e1000 and run with just e1000new to
+  work out any kinks.
+- For 2.6.24, we reverse the situation:  Gate all device IDs in e1000
+  behind #ifndef CONFIG_E1000NEW, and expose all of them in e1000new.
+  At this point we (i.e. the community, not just Intel) should be 
+  confident in e1000new, and we can mark e1000 as obsolete.  It's still
+  a fallback option for those with old/funky/misconfigured hardware.
+- After a year (or whatever), we remove e1000.
+
+Seems to me that this plan should appease either everybody or nobody.
+We get ICH9 support out there, e1000new gets in the kernel and
+exercised,
+and we get to set a definite date for obsoleting e1000.
+
+-Mitch
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by DB2 Express
+Download DB2 Express C - the FREE version of DB2 express and take
+control of your XML. No limits. Just data. Click to get it now.
+http://sourceforge.net/powerbar/db2/
