@@ -1,142 +1,81 @@
-From: "Li Yang-r58472" <LeoLi@freescale.com>
-Subject: RE: [PATCH] ucc_geth.c, make PHY device optional.
-Date: Tue, 3 Jul 2007 19:38:00 +0800
-Message-ID: <989B956029373F45A0B8AF0297081890D8385E@zch01exm26.fsl.freescale.net>
-References: <1183461586.20673.192.camel@gentoo-jocke.transmode.se>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: Fwd: [PATCH] [-mm] ACPI: export ACPI events via netlink
+Date: Tue, 03 Jul 2007 00:12:50 +0200
+Message-ID: <1183414370.4089.141.camel@johannes.berg>
+References: <1179827251.7707.29.camel@localhost.localdomain>
+	 <4466a10705270634j3560c9a3j9c3630ddc20a24aa@mail.gmail.com>
+	 <1181811576.5411.27.camel@localhost.localdomain>
+	 <1181820510.4091.9.camel@localhost>
+	 <1181869285.5411.39.camel@localhost.localdomain>
+	 <1182178882.4063.11.camel@localhost>
+	 <1182223964.5411.76.camel@localhost.localdomain>
+	 <1182811210.6644.22.camel@johannes.berg>
+	 <1182986681.5155.55.camel@localhost>
+	 <1183121869.4089.57.camel@johannes.berg>  <468504FE.9000502@trash.net>
+	 <1183122920.4089.63.camel@johannes.berg>  <468507C9.2000800@trash.net>
+	 <1183124085.4089.66.camel@johannes.berg>  <46850CB8.8000509@trash.net>
+	 <1183124981.4089.69.camel@johannes.berg>  <46850EDE.5020804@trash.net>
+	 <1183125924.4089.73.camel@johannes.berg>
+	 <1183126739.4089.76.camel@johannes.berg>
+	 <1183129006.4089.84.camel@johannes.berg>
+	 <1183217536.5165.25.camel@localhost>
+	 <1183365821.4089.94.camel@johannes.berg>  <4688F612.1060408@trash.net>
+	 <1183386883.4089.120.camel@johannes.ber g>  <46890DF8.2020706@trash.net>
+	 <1183387687.4089.124.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: 8BIT
-Cc: "linuxppc-dev Development" <linuxppc-dev@ozlabs.org>,
-	"Netdev" <netdev@vger.kernel.org>,
-	"Fleming Andy-afleming" <afleming@freescale.com>
-To: <joakim.tjernlund@transmode.se>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-qmrMXRMUmAFkdwEUJj+8"
+Cc: hadi@cyberus.ca, Zhang Rui <rui.zhang@intel.com>,
+	netdev@vger.kernel.org,
+	"linux-acpi@vger" <linux-acpi@vger.kernel.org>, lenb@kernel.org,
+	Thomas Graf <tgraf@suug.ch>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from de01egw01.freescale.net ([192.88.165.102]:34747 "EHLO
-	de01egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754486AbXGCLgL convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2007 07:36:11 -0400
-Received: from de01smr02.am.mot.com (de01smr02.freescale.net [10.208.0.151])
-	by de01egw01.freescale.net (8.12.11/de01egw01) with ESMTP id l63Ba6mC025918
-	for <netdev@vger.kernel.org>; Tue, 3 Jul 2007 04:36:07 -0700 (MST)
-Received: from zch01exm26.fsl.freescale.net (zch01exm26.ap.freescale.net [10.192.129.221])
-	by de01smr02.am.mot.com (8.13.1/8.13.0) with ESMTP id l63Ba5Hi026740
-	for <netdev@vger.kernel.org>; Tue, 3 Jul 2007 06:36:06 -0500 (CDT)
-Content-class: urn:content-classes:message
-In-Reply-To: <1183461586.20673.192.camel@gentoo-jocke.transmode.se>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:53759 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756300AbXGCLx2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2007 07:53:28 -0400
+In-Reply-To: <1183387687.4089.124.camel@johannes.berg>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: Joakim Tjernlund [mailto:joakim.tjernlund@transmode.se]
-> Sent: Tuesday, July 03, 2007 7:20 PM
-> To: Li Yang-r58472
-> Cc: linuxppc-dev Development; Netdev; Fleming Andy-afleming
-> Subject: RE: [PATCH] ucc_geth.c, make PHY device optional.
-> 
-> On Tue, 2007-07-03 at 16:22 +0800, Li Yang-r58472 wrote:
-> > > -----Original Message-----
-> > > From: Joakim Tjernlund [mailto:joakim.tjernlund@transmode.se]
-> > > Sent: Tuesday, July 03, 2007 3:21 PM
-> > > To: Li Yang-r58472
-> > > Cc: linuxppc-dev Development; Netdev; Fleming Andy-afleming
-> > > Subject: RE: [PATCH] ucc_geth.c, make PHY device optional.
-> > >
-> > > On Tue, 2007-07-03 at 11:42 +0800, Li Yang-r58472 wrote:
-> > > > > -----Original Message-----
-> > > > > From: netdev-owner@vger.kernel.org
-> > > > [mailto:netdev-owner@vger.kernel.org] On
-> > > > > Behalf Of Joakim Tjernlund
-> > > > > Sent: Tuesday, July 03, 2007 8:52 AM
-> > > > > To: 'linuxppc-dev Development'; 'Netdev'; Li Yang-r58472
-> > > > > Subject: [PATCH] ucc_geth.c, make PHY device optional.
-> > > > >
-> > > > > > This patch makes the PHY optional for ucc_geth.c ethernet
-> > driver.
-> > > > > > This is useful to support a direct mii to mii connection to,
-for
-> > > > example,
-> > > > > > a onboard swicth.
-> > > > > >
-> > > > > > Signed-off-by: Joakim Tjernlund
-<joakim.tjernlund@transmode.se>
-> > > > > ----
-> > > > Hi Joakim,
-> > > >
-> > > > I'm wondering if we really need to have the option to disable
-> > phylib.
-> > >
-> > > maybe, but it has to be dynamic too. I need to use PHY on UCC2 and
-mii
-> > > on UCC3 and UCC4.
-> > >
-> > > > Actually we have made phylib selected by default for ucc_geth.
-Many
-> > L2
-> > > > switch chips have the capacity to be controlled.  Therefore they
-can
-> > be
-> > > > managed as a phy device.
-> > >
-> > > Yes, they can be but why force a PHY impl. when its is of no use?
-The
-> > > only thing the eth driver needs from the it is speed and duplex.
-If
-> > > these are fixed, you don't need to talk with a PHY.
-> >
-> > The driver needs to get and set the link speed/status on runtime
-(such
-> > as for ethtool interface).  Currently this is implementation through
-> > phydev interface.  IMHO, it will be easier to maintain if we only
-use
-> > this standard interface, rather than use different interfaces for
-> > different cases.
-> 
-> hmm maybe, but there is no need to much around with speed/status
-> from user space. The speed and duplex must be set before user space
-> is up.
-> 
-> >
-> > >
-> > > > For the MII interface which is not
-> > > > configurable, shouldn't we use the fixed phy support from
-Vitaly?
-> > >
-> > > Well, I think the the fixed phy is great when your eth driver
-requires
-> > a
-> > > PHY, but it is a workaround with extra processing overhead. IMHO
-the
-> > > best impl. is to make the PHY optional in the eth driver and as
-you
-> > can
-> > > see from the patch, that was really simple.
-> >
-> > I agree there is overhead. However, it will have the advantage of
-> > abstracting all the PHY related stuff out of controller driver.
-> >
-> > >
-> > > An useful extension would be to add a new propety in the DTS to
-hold
-> > > initial speed and duplex(perhaps extend phy-connection-type). This
-> > > would be useful for the fixed driver too as one could derive speed
-and
-> > > duplex for the fixed phy from that property instead of creating a
-> > fixed
-> > > phy for each speed and duplex one want to support.
-> >
-> > I agree that there should be a device node to configure it.  The
-current
-> > fixed phy driver is a little bit too complex to emulate the register
-> > access.  Maybe it's better to have a null phy driver which just
-reads
-> > PHY capacity and status from device node.
-> 
-> A null phy driver is better than the current fixed phy, I agree.
-> Where would you like to put initial speed and duplex? In a fake phy
-node
-> or in the ethernet node?
 
-I think a fake phy node is better.
+--=-qmrMXRMUmAFkdwEUJj+8
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-- Leo
+On Mon, 2007-07-02 at 16:48 +0200, Johannes Berg wrote:
+
+> If I find time I might
+> actually fix the unregistration bug too, but I have a feeling digging in
+> the socket code might take more time than I have right now.
+
+Hmm. I started digging into the af_netlink.c code and realised that the
+whole thing I've been doing cannot possibly work completely since the
+genl socket is created with GENL_MAX_ID as the "groups" parameter to
+netlink_kernel_create() and that limits the groups, and the af_netlink
+code really wants to know the number of groups up-front.
+
+So some deeper surgery is required to lift the limit of 1023 multicast
+group now. Not that I like the current genetlink code, we allocate 256
+bytes for the in-kernel socket just for the listeners bitmap, and just
+as many for each socket's groups bitmaps while it's unlikely a regular
+system right now will ever reach that limit.
+
+I'll be posting some patches as replies.
+
+johannes
+
+--=-qmrMXRMUmAFkdwEUJj+8
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iD4DBQBGiXhi/ETPhpq3jKURAhfhAJ97jj0doWGvjGmJf1B0hzyiV7D9PwCYnVWv
+HN7AdkR/X0ZoxxZQig16JA==
+=c2cy
+-----END PGP SIGNATURE-----
+
+--=-qmrMXRMUmAFkdwEUJj+8--
+
