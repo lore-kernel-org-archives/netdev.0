@@ -1,42 +1,80 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH UPDATE #2] Extract chip specific code out of lasi_82596.c
-Date: Mon, 02 Jul 2007 09:58:31 -0400
-Message-ID: <46890487.7060004@pobox.com>
-References: <20070627224622.GA13356@alpha.franken.de> <4688F2D8.6020308@pobox.com> <20070702134105.GA7403@alpha.franken.de>
+From: Mika.Lansirinne@stonesoft.com
+Subject: [PATCH 2.6.22-rc7] 8139cp: dev->tx_timeout
+Date: Mon, 2 Jul 2007 16:30:52 +0300
+Message-ID: <OF60EF0345.A1609CC7-ONC225730C.0049023C-C225730C.004A3C15@stonesoft.com>
+References: <4688F1F6.70803@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org
-To: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
+Content-Type: text/plain; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:51655 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753037AbXGBN6d (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Jul 2007 09:58:33 -0400
-In-Reply-To: <20070702134105.GA7403@alpha.franken.de>
+Received: from mail.stonesoft.com ([192.89.38.171]:35357 "EHLO
+	hki-smtp-2a.stonesoft.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751558AbXGBOEh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jul 2007 10:04:37 -0400
+In-Reply-To: <4688F1F6.70803@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thomas Bogendoerfer wrote:
-> On Mon, Jul 02, 2007 at 08:43:04AM -0400, Jeff Garzik wrote:
->> applied both patches.
->>
->> Please provide an update that does at Andrew requested -- rather than 
->> #include'ing lib82596.c, you should update the Makefile for relevant 
->> drivers to look like
+(Resending the patch against 2.6.22-rc7)
 
-> I got the impression that Andrew is fine with that approach after my
-> explanation. I would need additional header files for all the
-> different swap macros/dma stuff, and that isn't nice either, isn't it ? 
+This patch implements the missing dev->tx_timeout for 8139cp driver
 
-Fair enough.
+Signed-off-by: Mika Lansirinne <mika.lansirinne@stonesoft.com>
 
+---
 
-> There are other drivers doing the same as I do, which didn't get any
-> objections. Is it me you have a prolem with ?
+diff -uprN linux-2.6.22-rc7/drivers/net/8139cp.c linux-2.6.22-rc7_8139cp-tx_timeout/drivers/net/8139cp.c
+--- linux-2.6.22-rc7/drivers/net/8139cp.c 2007-07-01 22:54:24.000000000 +0300
++++ linux-2.6.22-rc7_8139cp-tx_timeout/drivers/net/8139cp.c 2007-07-02 16:00:38.000000000 +0300
+@@ -26,7 +26,6 @@
 
-Put down the insanity and paranoia juice.  Slowly.
+      TODO:
+      * Test Tx checksumming thoroughly
+-     * Implement dev->tx_timeout
 
-	Jeff
+      Low priority TODO:
+      * Complete reset on PciErr
+@@ -1223,6 +1222,30 @@ static int cp_close (struct net_device *
+      return 0;
+ }
 
++static void cp_tx_timeout(struct net_device *dev)
++{
++     struct cp_private *cp = netdev_priv(dev);
++     int rc;
++     unsigned long flags;
++
++        printk (KERN_WARNING "%s: Transmit timeout, status %2x %4x %4x %4x\n",
++                dev->name, cpr8(Cmd), cpr16(CpCmd),
++                cpr16(IntrStatus), cpr16(IntrMask));
++
++     spin_lock_irqsave(&cp->lock, flags);
++
++     cp_stop_hw(cp);
++     cp_clean_rings(cp);
++     rc = cp_init_rings(cp);
++     cp_start_hw(cp);
++
++     netif_wake_queue(dev);
++
++     spin_unlock_irqrestore(&cp->lock, flags);
++
++     return;
++}
++
+ #ifdef BROKEN
+ static int cp_change_mtu(struct net_device *dev, int new_mtu)
+ {
+@@ -1928,10 +1951,8 @@ static int cp_init_one (struct pci_dev *
+      dev->change_mtu = cp_change_mtu;
+ #endif
+      dev->ethtool_ops = &cp_ethtool_ops;
+-#if 0
+      dev->tx_timeout = cp_tx_timeout;
+      dev->watchdog_timeo = TX_TIMEOUT;
+-#endif
+
+ #if CP_VLAN_TAG_USED
+      dev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
 
