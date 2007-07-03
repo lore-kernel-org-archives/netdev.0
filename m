@@ -1,82 +1,85 @@
-From: "Veeraiyan, Ayyappan" <ayyappan.veeraiyan@intel.com>
-Subject: RE: [PATCH] ixgbe: Introduce new 10GbE driver for Intel 82598 based PCI	Express adapters...
-Date: Mon, 2 Jul 2007 15:56:23 -0700
-Message-ID: <E35F4F4D7F6C9E4E826FEC1F86CEF58304193401@orsmsx412.amr.corp.intel.com>
-References: <20070702140958.5ea6571a@freepuppy.localdomain.hemminger.net>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [WIP][PATCHES] Network xmit batching - tg3 support
+Date: Mon, 02 Jul 2007 17:21:21 -0700
+Message-ID: <1183422081.4947.14.camel@dell>
+References: <OFB311484E.057E34E9-ON652572F3.001D5838-652572F3.0022766D@in.ibm.com>
+ <1181216629.4064.22.camel@localhost>
+ <20070619132148.GA32078@2ka.mipt.ru>
+ <20070619133333.GA19667@2ka.mipt.ru>
+ <20070619140038.GA13629@2ka.mipt.ru>
+ <1182270529.4968.73.camel@localhost>
+ <18040.5105.715624.286924@robur.slu.se>
+ <1182275300.4968.83.camel@localhost>
+ <1182989145.5155.81.camel@localhost>
+ <1183411245.6609.16.camel@teletran1>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Jeff Garzik" <jeff@garzik.org>, <netdev@vger.kernel.org>,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
-	<arjan@linux.intel.com>, <akpm@linux-foundation.org>
-To: "Stephen Hemminger" <shemminger@linux-foundation.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: hadi@cyberus.ca, "Robert Olsson" <Robert.Olsson@data.slu.se>,
+	"Evgeniy Polyakov" <johnpol@2ka.mipt.ru>,
+	"Krishna Kumar2" <krkumar2@in.ibm.com>,
+	"Gagan Arneja" <gaagaan@gmail.com>,
+	"netdev" <netdev@vger.kernel.org>,
+	"Rick Jones" <rick.jones2@hp.com>,
+	"Sridhar Samudrala" <sri@us.ibm.com>,
+	"David Miller" <davem@davemloft.net>,
+	"Jeff Garzik" <jeff@garzik.org>
+To: "Matt Carlson" <mcarlson@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:2752 "EHLO mga01.intel.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:3754 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756212AbXGBW4Z convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jul 2007 18:56:25 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20070702140958.5ea6571a@freepuppy.localdomain.hemminger.net>
+	id S1755388AbXGBX3W (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Jul 2007 19:29:22 -0400
+In-Reply-To: <1183411245.6609.16.camel@teletran1>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 7/2/07, Stephen Hemminger <shemminger@linux-foundation.org> wrote:
-> > Fake netdevs are needed for doing the multiple Rx queues in NAPI
-mode.
-> > We are thinking to solve in 2 ways. Having netdev pointer in ring
-> > structure or having an array of netdev pointers in ixgbe_adatper
-struct
-> > which would be visible to all rings.
-> 
-> Wait until Davem & I separate NAPI from network device.
-> The patch is close to ready for 2.6.24 when this driver will need to
-show up.
-> 
-> Since I know Intel will be forced to backport this to older distro's.
-You
-> would be best to have a single receive queue version when you have to
-make
-> it work on the older code.
-
-So far all our testing indicates we need multiple Rx queues to have
-better CPU utilization number at 10Gig line rate. So I am thinking
-adding the non-NAPI support to the driver (like other 10Gig drivers) and
-restrict to single rx queue in case of NAPI. I already have the non-NAPI
-version coded up and went through internal testing. I will add this in
-the next submission. We will add the multiple Rx queues support in NAPI
-mode once when "separate NAPI from network device" is done. Does this
-sound ok?
+On Mon, 2007-07-02 at 14:20 -0700, Matt Carlson wrote:
 
 > 
-> You only need to store the name for when you are doing request_irq, so
-> it can just be a stack temporary.
->
+> Also, I think the count, max_per_txd, and nr_frags fields of the
+> tg3_tx_cbdata struct are not needed.
 
-request_irq expects allocated memory not just stack temporary. I glanced
-the kernel source.. There are precedents to the way we did.
+The count field is not needed also.
 
-linux-2.6/source/drivers/usb/core/hcd.c
++struct tg3_tx_cbdata {
++	u32 base_flags;
++	int count;
++	unsigned int max_per_txd;
++	unsigned int nr_frags;
++	unsigned int mss;
++};
++#define TG3_SKB_CB(__skb)       ((struct tg3_tx_cbdata *)&((__skb)->cb[0]))
 
-1594         /* enable irqs just before we start the controller */
-1595         if (hcd->driver->irq) {
-1596                 snprintf(hcd->irq_descr, sizeof(hcd->irq_descr),
-"%s:usb%d",
-1597                                 hcd->driver->description,
-hcd->self.busnum);
-1598                 if ((retval = request_irq(irqnum, &usb_hcd_irq,
-irqflags,
-1599                                 hcd->irq_descr, hcd)) != 0) {
-1600                         dev_err(hcd->self.controller,
-1601                                         "request interrupt %d
-failed\n", irqnum);
-1602                         goto err_request_irq;
-1603                 }
+Only base_flags and mss are needed and these can be determined right
+before sending the frame.  So is it better not to store these in the
+skb->cb at all?
 
+@@ -3118,12 +3120,16 @@ static void tg3_tx(struct tg3 *tp)
+ 	 */
+ 	smp_mb();
  
-> Stephen Hemminger <shemminger@linux-foundation.org>
++	dcount = tg3_tx_avail(tp);
+ 	if (unlikely(netif_queue_stopped(tp->dev) &&
+-		     (tg3_tx_avail(tp) > TG3_TX_WAKEUP_THRESH(tp)))) {
++		     (dcount > TG3_TX_WAKEUP_THRESH(tp)))) {
+ 		netif_tx_lock(tp->dev);
++		tp->dev->xmit_win = 1;
+ 		if (netif_queue_stopped(tp->dev) &&
+-		    (tg3_tx_avail(tp) > TG3_TX_WAKEUP_THRESH(tp)))
++		    (dcount > TG3_TX_WAKEUP_THRESH(tp))) {
+ 			netif_wake_queue(tp->dev);
++			tp->dev->xmit_win = dcount;
++		}
+ 		netif_tx_unlock(tp->dev);
+ 	}
+ }
 
-I appreciate the feedback.
+This is also not right.  tg3_tx() runs without netif_tx_lock().
+tg3_tx_avail() can change after you get the netif_tx_lock() and we must
+get the updated value again.  If we just rely on dcount, we can call
+wake_queue() when the ring is full, or there may be no wakeup when the
+ring is empty.
 
-Thanks,
-Ayyappa
+
+
