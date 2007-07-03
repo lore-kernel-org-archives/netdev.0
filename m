@@ -1,57 +1,46 @@
-From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: Re: [PATCH] ixgbe: Introduce new 10GbE driver for Intel 82598 based PCI Express adapters...
-Date: Tue, 3 Jul 2007 11:24:23 -0700
-Message-ID: <200707031124.24529.inaky@linux.intel.com>
-References: <4688F512.3030801@garzik.org> <200707021716.49637.inaky@linux.intel.com> <468A4CDE.5010808@garzik.org>
+From: Matt Mackall <mpm@selenic.com>
+Subject: Re: [PATCH 07/12] use a dynamic pool of sk_buffs to keep up with fast targets
+Date: Tue, 3 Jul 2007 13:45:33 -0500
+Message-ID: <20070703184533.GR11166@waste.org>
+References: <1d8423c28c48a6d26516cdc707dbcdf015a4e347.1182883861.git.ecashin@coraid.com> <bca4cec8ad679e8f8549cb78e012e54bfad1027e.1182883861.git.ecashin@coraid.com> <20070702213636.9ca1d842.akpm@linux-foundation.org> <20070702.214036.42772583.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "Kok, Auke" <auke-jan.h.kok@intel.com>,
-	Michael Buesch <mb@bu3sch.de>,
-	Christoph Hellwig <hch@infradead.org>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	"Veeraiyan, Ayyappan" <ayyappan.veeraiyan@intel.com>,
-	netdev@vger.kernel.org, arjan@linux.intel.com,
-	akpm@linux-foundation.org
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: akpm@linux-foundation.org, ecashin@coraid.com,
+	linux-kernel@vger.kernel.org, greg@kroah.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:34899 "EHLO mga09.intel.com"
+Received: from waste.org ([66.93.16.53]:40742 "EHLO waste.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754882AbXGCSY0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Jul 2007 14:24:26 -0400
-In-Reply-To: <468A4CDE.5010808@garzik.org>
+	id S1755802AbXGCSpz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Jul 2007 14:45:55 -0400
 Content-Disposition: inline
+In-Reply-To: <20070702.214036.42772583.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 03 July 2007, Jeff Garzik wrote:
-> Inaky Perez-Gonzalez wrote:
-> > I don't think bitfields are broken. Maybe it's the compiler what should be fixed (*)
+On Mon, Jul 02, 2007 at 09:40:36PM -0700, David Miller wrote:
+> From: Andrew Morton <akpm@linux-foundation.org>
+> Date: Mon, 2 Jul 2007 21:36:36 -0700
 > 
-> Then you do not understand bitfields.  It is -axiomatic- that bitfields 
-> are more difficult for compilers to implement.
+> > My initial thought is that if there is a legitimate need for this
+> > new capability then it should be made available to other parts of
+> > the kernel rather than being private to the AEO driver.
 > 
-> Access to bitfields are not atomic within the machine int in which they 
-> are stored... you need to "unpack" the values stored in bitfields, even 
-> if they are single-bit bitfields.
+> Absolutely.
+> 
+> We even used to have something like this on a per-cpu basis but using
+> generic SLAB is so much better for caching and NUMA that we got rid of
+> that.
+> 
+> Every sk_buff private "quicklist" pool implementation you
+> see should essentially be NAK'd from the get go, it's
+> meaningless and if it's really needed one should investigate
+> why SKB allocations become such a problem instead of papering
+> over the issue. :-)
 
-Which we do manually when we don't use bitfields. Again, conceptually,
-there is no difference.
+This is in the VM write-back path. SLAB is insufficient to avoid
+deadlock.
 
-> You cannot set multiple bitfields at one time, without even more complex 
-> data structures.  You cannot compare and test multiple bitfields at one 
->   time.
-
-But I am not saying that you only use bitfields. There are cases where
-they make the code much more readable (for me, at least), and cases
-(like the one you mention) where they not [this is why I use unions,
-btw]..
-
-> ...
->  
-> Finally, this is -nothing new-.  I've been telling other driver writers 
-> not to use bitfields in their drivers.  Google for 'garzik' and 'bitfield'.
-
-I know, I am just disagreeing. This is one of those things each person is
-entrenched on and is impossible to change (like emacs vs vi).
+-- 
+Mathematics is the supreme nostalgia of our time.
