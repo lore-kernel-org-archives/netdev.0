@@ -1,43 +1,90 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: [PATCH] IPV6: Call inet6addr_chain notifiers on link down
-Date: Tue, 03 Jul 2007 10:57:32 -0400
-Message-ID: <468A63DC.2090500@hp.com>
+From: Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>
+Subject: Re: [PATCH] ps3: gigabit ethernet driver for PS3, take2
+Date: Tue, 3 Jul 2007 17:11:48 +0200 (CEST)
+Message-ID: <Pine.LNX.4.62.0707031709040.8675@pademelon.sonytel.be>
+References: <20070619183956.F224.MOKUNO@sm.sony.co.jp> <4688EFD1.1060805@garzik.org>
+ <20070703194416.91C5.MOKUNO@sm.sony.co.jp> <468A4AED.7080907@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: =?ISO-8859-1?Q?YOSHIFUJI_Hideaki_/_=3F=3F=3F=3F?=
-	<yoshfuji@linux-ipv6.org>, netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-584337861-129714989-1183475508=:8675"
+Cc: Masakazu Mokuno <mokuno@sm.sony.co.jp>, netdev@vger.kernel.org,
+	Geoff Levand <geoffrey.levand@am.sony.com>,
+	Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel8.hp.com ([156.153.255.206]:52693 "EHLO atlrel8.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755143AbXGCO56 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Jul 2007 10:57:58 -0400
+Received: from vervifontaine.sonytel.be ([80.88.33.193]:36334 "EHLO
+	vervifontaine.sonycom.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1756384AbXGCPL4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2007 11:11:56 -0400
+In-Reply-To: <468A4AED.7080907@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Currently if the link is brought down via ip link or ifconfig down,
-the inet6addr_chain notifiers are not called even though all
-the addresses are removed from the interface.  This caused SCTP
-to add duplicate addresses to it's list.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
----
- net/ipv6/addrconf.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+---584337861-129714989-1183475508=:8675
+Content-Type: TEXT/PLAIN; charset=UTF-8
+Content-Transfer-Encoding: 8BIT
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index f96ed76..6496e03 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -2472,6 +2472,7 @@ static int addrconf_ifdown(struct net_device *dev, int how)
- 		write_unlock_bh(&idev->lock);
+On Tue, 3 Jul 2007, Jeff Garzik wrote:
+> Masakazu Mokuno wrote:
+> > > > --- a/drivers/net/Makefile
+> > > > +++ b/drivers/net/Makefile
+> > > > @@ -60,6 +60,8 @@ obj-$(CONFIG_TIGON3) += tg3.o
+> > > >  obj-$(CONFIG_BNX2) += bnx2.o
+> > > >  spidernet-y += spider_net.o spider_net_ethtool.o
+> > > >  obj-$(CONFIG_SPIDER_NET) += spidernet.o sungem_phy.o
+> > > > +obj-$(CONFIG_GELIC_NET) += ps3_gelic.o
+> > > > +ps3_gelic-objs += gelic_net.o
+> > > >  obj-$(CONFIG_TC35815) += tc35815.o
+> > > >  obj-$(CONFIG_SKGE) += skge.o
+> > > >  obj-$(CONFIG_SKY2) += sky2.o
+> > > > --- /dev/null
+> > > > +++ b/drivers/net/gelic_net.c
+> > > The patch does not reflect the new name...
+> > 
+> > The driver's module name is 'ps3_gelic.ko' and the souce file names are
+> > 'gelic_net.{c,h}'.  As Geoff Levand said in the mail dated June 16, we
+> > have plan to add wireless support and its file name would be
+> > gelic_wireless.c.
+> > If this support added, the make file would be:
+> > 
+> >   obj-$(CONFIG_GELIC_NET) += ps3_gelic.o
+> >   gelic-$(CONFIG_GELIC_WIRELESS) += gelic_wireless.o
+> >   ps3_gelic-objs += gelic_net.o $(gelic-y)
+> 
+> 
+> For single-file modules, the source file prefix should match the output file
+> prefix.
+> 
+> No Linux driver does it any other way.  It leads to confusion.
+
+Right now it's indeed a single source file module.
+
+However, we are working on wireless support for gelic (the virtual network
+device supports both wired and wireless), which will add a second source file.
+
+So you want us to rename
+  1. gelic_net.c -> ps3_gelic_net.c
+  2. gelic_wireless.c -> ps3_gelic_wireless.c
+while the actual kernel module will be ps3_gelic.{o,ko}, right?
+
+With kind regards,
  
- 		__ipv6_ifa_notify(RTM_DELADDR, ifa);
-+		atomic_notifier_call_chain(&inet6addr_chain, NETDEV_DOWN, ifp);
- 		in6_ifa_put(ifa);
- 
- 		write_lock_bh(&idev->lock);
--- 
-1.5.0.3.438.gc49b2
+Geert Uytterhoeven
+Software Architect
 
+Sony Network and Software Technology Center Europe
+The Corporate Village · Da Vincilaan 7-D1 · B-1935 Zaventem · Belgium
+ 
+Phone:    +32 (0)2 700 8453	
+Fax:      +32 (0)2 700 8622	
+E-mail:   Geert.Uytterhoeven@sonycom.com	
+Internet: http://www.sony-europe.com/
+ 	
+Sony Network and Software Technology Center Europe	
+A division of Sony Service Centre (Europe) N.V.	
+Registered office: Technologielaan 7 · B-1840 Londerzeel · Belgium	
+VAT BE 0413.825.160 · RPR Brussels	
+Fortis Bank Zaventem · Swift GEBABEBB08A · IBAN BE39001382358619
+---584337861-129714989-1183475508=:8675--
