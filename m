@@ -1,83 +1,137 @@
-From: Masakazu Mokuno <mokuno@sm.sony.co.jp>
-Subject: Re: [PATCH] ps3: gigabit ethernet driver for PS3, take2
-Date: Tue, 03 Jul 2007 21:01:55 +0900
-Message-ID: <20070703194416.91C5.MOKUNO@sm.sony.co.jp>
-References: <20070619183956.F224.MOKUNO@sm.sony.co.jp> <4688EFD1.1060805@garzik.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] netlink: allocate group bitmaps dynamically
+Date: Tue, 03 Jul 2007 14:05:57 +0200
+Message-ID: <468A3BA5.9050909@trash.net>
+References: <1179827251.7707.29.camel@localhost.localdomain>	 <1182178882.4063.11.camel@localhost>	 <1182223964.5411.76.camel@localhost.localdomain>	 <1182811210.6644.22.camel@johannes.berg>	 <1182986681.5155.55.camel@localhost>	 <1183121869.4089.57.camel@johannes.berg>  <468504FE.9000502@trash.net>	 <1183122920.4089.63.camel@johannes.berg>  <468507C9.2000800@trash.net>	 <1183124085.4089.66.camel@johannes.berg>  <46850CB8.8000509@trash.net>	 <1183124981.4089.69.camel@johannes.berg>  <46850EDE.5020804@trash.net>	 <1183125924.4089.73.camel@johannes.berg>	 <1183126739.4089.76.camel@johannes.berg>	 <1183129006.4089.84.camel@johannes.berg>	 <1183217536.5165.25.camel@localhost>	 <1183365821.4089.94.camel@johannes.berg>  <4688F612.1060408@trash.net>	 <1183386883.4089.120.camel@johannes.ber g>  <46890DF8.2020706@trash.net>	 <1183387687.4089.124.camel@johannes.berg>	 <1183414370.4089.141.camel@jo
+ hannes.berg> <1183457329.3841.0.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Geoff Levand <geoffrey.levand@am.sony.com>,
-	Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>
-To: Jeff Garzik <jeff@garzik.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from MGW2.Sony.CO.JP ([137.153.0.14]:44069 "EHLO mgw2.sony.co.jp"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754486AbXGCMCF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Jul 2007 08:02:05 -0400
-In-Reply-To: <4688EFD1.1060805@garzik.org>
-Sender: netdev-owner@vger.kernel.org
+Cc: hadi@cyberus.ca, Zhang Rui <rui.zhang@intel.com>,
+	netdev@vger.kernel.org,
+	"linux-acpi@vger" <linux-acpi@vger.kernel.org>, lenb@kernel.org,
+	Thomas Graf <tgraf@suug.ch>
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <linux-acpi-owner@vger.kernel.org>
+In-Reply-To: <1183457329.3841.0.camel@johannes.berg>
+Sender: linux-acpi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-On Mon, 02 Jul 2007 08:30:09 -0400
-Jeff Garzik <jeff@garzik.org> wrote:
-
-> > --- a/drivers/net/Kconfig
-> > +++ b/drivers/net/Kconfig
-> > @@ -2264,6 +2264,16 @@ config TSI108_ETH
-> >  	     To compile this driver as a module, choose M here: the module
-> >  	     will be called tsi108_eth.
-> >  
-> > +config GELIC_NET
-> > +	tristate "PS3 Gigabit Ethernet driver"
-> > +	depends on PPC_PS3
-> > +	help
-> > +	  This driver supports the network device on the PS3 game
-> > +	  console.  This driver has built-in support for Ethernet.
-> > +
-> > +	  To compile this driver as a module, choose M here: the
-> > +	  module will be called ps3_gelic.
-> > +
-> >  config GIANFAR
-> >  	tristate "Gianfar Ethernet"
-> >  	depends on 85xx || 83xx || PPC_86xx
-> > --- a/drivers/net/Makefile
-> > +++ b/drivers/net/Makefile
-> > @@ -60,6 +60,8 @@ obj-$(CONFIG_TIGON3) += tg3.o
-> >  obj-$(CONFIG_BNX2) += bnx2.o
-> >  spidernet-y += spider_net.o spider_net_ethtool.o
-> >  obj-$(CONFIG_SPIDER_NET) += spidernet.o sungem_phy.o
-> > +obj-$(CONFIG_GELIC_NET) += ps3_gelic.o
-> > +ps3_gelic-objs += gelic_net.o
-> >  obj-$(CONFIG_TC35815) += tc35815.o
-> >  obj-$(CONFIG_SKGE) += skge.o
-> >  obj-$(CONFIG_SKY2) += sky2.o
-> > --- /dev/null
-> > +++ b/drivers/net/gelic_net.c
+Johannes Berg wrote:
+> Allow changing the number of groups for a netlink family
+> after it has been created.
 > 
-> The patch does not reflect the new name...
+> Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
+> 
+> ---
+>  include/linux/netlink.h  |    1 
+>  net/netlink/af_netlink.c |   61 +++++++++++++++++++++++++++++++++++------------
+>  2 files changed, 47 insertions(+), 15 deletions(-)
+> 
+> --- wireless-dev.orig/net/netlink/af_netlink.c	2007-07-03 00:10:31.617889695 +0200
+> +++ wireless-dev/net/netlink/af_netlink.c	2007-07-03 00:31:30.267889695 +0200
+> @@ -316,8 +316,11 @@ netlink_update_listeners(struct sock *sk
+>  
+>  	for (i = 0; i < NLGRPSZ(tbl->groups)/sizeof(unsigned long); i++) {
+>  		mask = 0;
+> -		sk_for_each_bound(sk, node, &tbl->mc_list)
+> -			mask |= nlk_sk(sk)->groups[i];
+> +		sk_for_each_bound(sk, node, &tbl->mc_list) {
+> +			if (nlk_sk(sk)->ngroups >=
+> +			    (i + 1) * sizeof(unsigned long))
 
-The driver's module name is 'ps3_gelic.ko' and the souce file names are
-'gelic_net.{c,h}'.  As Geoff Levand said in the mail dated June 16, we
-have plan to add wireless support and its file name would be gelic_wireless.c.
-If this support added, the make file would be:
 
-  obj-$(CONFIG_GELIC_NET) += ps3_gelic.o
-  gelic-$(CONFIG_GELIC_WIRELESS) += gelic_wireless.o
-  ps3_gelic-objs += gelic_net.o $(gelic-y)
+This condition implies that a socket can bind to a non-existant
+group, which shouldn't be possible.
 
-To avoid from changing the module name after adding wireless support, I
-submitted with that name.
+> +				mask |= nlk_sk(sk)->groups[i];
+> +		}
+>  		tbl->listeners[i] = mask;
+>  	}
+>  	/* this function is only called with the netlink table "grabbed", which
+> @@ -555,10 +558,11 @@ netlink_update_subscriptions(struct sock
+>  	nlk->subscriptions = subscriptions;
+>  }
+>  
+> -static int netlink_alloc_groups(struct sock *sk)
+> +static int netlink_realloc_groups(struct sock *sk)
+>  {
+>  	struct netlink_sock *nlk = nlk_sk(sk);
+>  	unsigned int groups;
+> +	unsigned long *new_groups;
+>  	int err = 0;
+>  
+>  	netlink_lock_table();
+> @@ -570,9 +574,15 @@ static int netlink_alloc_groups(struct s
+>  	if (err)
+>  		return err;
+>  
+> -	nlk->groups = kzalloc(NLGRPSZ(groups), GFP_KERNEL);
+> -	if (nlk->groups == NULL)
+> +	if (nlk->ngroups >= groups)
+> +		return 0;
+> +
+> +	new_groups = krealloc(nlk->groups, NLGRPSZ(groups), GFP_KERNEL);
+> +	if (new_groups == NULL)
+>  		return -ENOMEM;
+> +	memset((char*)new_groups + NLGRPSZ(nlk->ngroups), 0,
+> +	       NLGRPSZ(groups) - NLGRPSZ(nlk->ngroups));
+> +	nlk->groups = new_groups;
 
 
-If the make file were like:
+This should probably happen with the table grabbed to avoid races
+with concurrent broadcasts.
 
-  obj-$(CONFIG_GELIC_NET) += gelic_net.o
-  obj-$(CONFIG_GELIC_WIRELESS) += gelic_wireless.o
 
-then we would get two modules gelic_net.ko and gelic_wireless.ko, which
-we don't want.
 
---
-Masakazu MOKUNO
+> @@ -1332,6 +1338,31 @@ out_sock_release:
+>  	return NULL;
+>  }
+>  
+> +int netlink_change_ngroups(int unit, unsigned int groups)
+> +{
+> +	unsigned long *listeners;
+> +	int err = 0;
+> +
+> +	netlink_table_grab();
+
+
+Unfortunately that doesn't prevent races with netlink_has_listeners
+since its lockless (and should really stay that way).
+
+
+> +	if (NLGRPSZ(nl_table[unit].groups) < NLGRPSZ(groups)) {
+> +		listeners = krealloc(nl_table[unit].listeners,
+> +				     NLGRPSZ(groups), GFP_KERNEL);
+> +		if (!listeners) {
+> +			err = -ENOMEM;
+> +			goto out_ungrab;
+> +		}
+> +		memset((char*) listeners + NLGRPSZ(nl_table[unit].groups),
+> +		       0, NLGRPSZ(groups) - NLGRPSZ(nl_table[unit].groups));
+> +		nl_table[unit].listeners = listeners;
+> +	}
+> +	nl_table[unit].groups = groups;
+> +
+> + out_ungrab:
+> +	netlink_table_ungrab();
+> +	return err;
+> +}
+> +EXPORT_SYMBOL(netlink_change_ngroups);
+> +
+>  void netlink_set_nonroot(int protocol, unsigned int flags)
+>  {
+>  	if ((unsigned int)protocol < MAX_LINKS)
+> --- wireless-dev.orig/include/linux/netlink.h	2007-07-03 00:09:13.047889695 +0200
+> +++ wireless-dev/include/linux/netlink.h	2007-07-03 00:31:30.267889695 +0200
+> @@ -161,6 +161,7 @@ extern struct sock *netlink_kernel_creat
+>  					  void (*input)(struct sock *sk, int len),
+>  					  struct mutex *cb_mutex,
+>  					  struct module *module);
+> +extern int netlink_change_ngroups(int unit, unsigned int groups);
+>  extern void netlink_ack(struct sk_buff *in_skb, struct nlmsghdr *nlh, int err);
+>  extern int netlink_has_listeners(struct sock *sk, unsigned int group);
+>  extern int netlink_unicast(struct sock *ssk, struct sk_buff *skb, __u32 pid, int nonblock);
+> 
+> 
 
