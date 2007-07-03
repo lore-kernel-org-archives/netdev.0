@@ -1,38 +1,48 @@
-From: Eli Cohen <eli@mellanox.co.il>
-Subject: receive errors
-Date: Tue, 03 Jul 2007 18:39:20 +0300
-Message-ID: <1183477160.25031.170.camel@mtls03>
-Reply-To: eli@mellanox.co.il
+From: Peter Missel <peter.missel@onlinehome.de>
+Subject: Re: r8169 2.2LK: Low link speed after suspend
+Date: Tue, 3 Jul 2007 20:00:51 +0200
+Message-ID: <200707032000.52243.peter.missel@onlinehome.de>
+References: <200704162241.31729.peter.missel@onlinehome.de> <200707022207.01132.peter.missel@onlinehome.de> <20070702215621.GA18766@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-To: linux-net@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org, Jens Stroebel <drifter@bcsoft.de>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from p02c11o142.mxlogic.net ([208.65.144.75]:53666 "EHLO
-	p02c11o142.mxlogic.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755233AbXGCQmP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2007 12:42:15 -0400
+Received: from moutng.kundenserver.de ([212.227.126.179]:54308 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754601AbXGCSBD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2007 14:01:03 -0400
+In-Reply-To: <20070702215621.GA18766@electric-eye.fr.zoreil.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Hi Francois!
 
-I am running a benchmark that uses a UDP socket to send small packets
-(20 bytes) from on side to the other side. I experience packet loss
-reported by the benchmark and I can see that it matches what I see with
-netstat:
+> Peter Missel <peter.missel@onlinehome.de> :
+>
+> > Unfortunately I couldn't get NFS to work with the updated kernel, so I
+> > had to revert to the original from SuSE 10.2.
+>
+> No NFS but networking or no networking at all ?
 
-[root@sw174 opt]# netstat -us
-Udp:
-    26971289 packets received
-    7 packets to unknown port received.
-    32615 packet receive errors
-    155761284 packets sent
+Networking in itself was fine and stable, and with seemingly much better 
+performance in large file transfers as well.
 
-Can someone please direct to the source code that detects such receive
-errors and/or suggest why such a thing could happen?
+The system log shows the occasional "APIC error on CPU0" that didn't seem to 
+do any harm at all, except once where it then said it had disabled the PCI 
+IRQ for the Realtek LAN chip. This is not seen on 2.6.18, and occurred only 
+once with (I think) the original, unpatched r8169 driver from 2.6.21.5. With 
+the patched driver, just the "APIC error" message appears with no device 
+related information at all, so I can't really say whether this is anything to 
+do with the Realtek LAN at all.
 
-Thanks
-Eli
+NFS appeared to be working too, problem was just that workstation and server 
+couldn't agree on file locking procedures anymore, and all existing files 
+could only be read but not written to. This proved quite unproductive, so I 
+had to revert.
 
+regards,
+Peter
