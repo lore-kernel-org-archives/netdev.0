@@ -1,41 +1,53 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: [GIT PATCHES]: Crit SCTP updates
-Date: Tue,  3 Jul 2007 15:52:38 -0400
-Message-ID: <11834923583821-git-send-email-vladislav.yasevich@hp.com>
-Cc: lksctp-developers@lists.sourceforge.net, netdev@vger.kernel.org
-To: davem@davemloft.net
+From: olof@lixom.net (Olof Johansson)
+Subject: Re: [PATCH 2/9] pasemi_mac: Clean TX ring in poll
+Date: Tue, 3 Jul 2007 15:31:31 -0500
+Message-ID: <20070703203131.GA26181@lixom.net>
+References: <20070622194720.614405000@lixom.net> <20070622200501.GC11723@lixom.net> <4688F0CE.9020600@pobox.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel7.hp.com ([156.153.255.213]:59727 "EHLO atlrel7.hp.com"
+Received: from lixom.net ([66.141.50.11]:35381 "EHLO mail.lixom.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757191AbXGCTxK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Jul 2007 15:53:10 -0400
+	id S1757002AbXGCUVB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Jul 2007 16:21:01 -0400
+Content-Disposition: inline
+In-Reply-To: <4688F0CE.9020600@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi David
+On Mon, Jul 02, 2007 at 08:34:22AM -0400, Jeff Garzik wrote:
+> >Index: netdev-2.6/drivers/net/pasemi_mac.c
+> >===================================================================
+> >--- netdev-2.6.orig/drivers/net/pasemi_mac.c
+> >+++ netdev-2.6/drivers/net/pasemi_mac.c
+> >@@ -1052,6 +1052,7 @@ static int pasemi_mac_poll(struct net_de
+> > 	int pkts, limit = min(*budget, dev->quota);
+> > 	struct pasemi_mac *mac = netdev_priv(dev);
+> > 
+> >+	pasemi_mac_clean_tx(mac);
+> > 	pkts = pasemi_mac_clean_rx(mac, limit);
+> 
+> Why is this needed?  Is your TX interrupt mitigated or delayed somehow?
 
-This is a pull request for some critical SCTP fixes that I just pushed out.
-The fix some important issues and I think should be candidates for stable.
+On some level hardware, we only have the possibility of taking the
+TX interrupt after a certain number of packets, and no way of doing a
+(hw) timer-based one (i.e.  after no packets have been sent for x ms,
+interrupt). Taking an interrupt for every TX packet isn't an interesting
+proposal, and doing it solely based on count > 1 can leave stale packets
+there for a long time when the network is otherwise idle.
 
-Do you want to me to generate the stable patches from these, or do you
-take of it usually?
+So, I would need to do a software based timer. The poll function seemed like
+a good enough solution for now though, since it's called periodically even
+when the NAPI mode is such that interrupts are enabled.
 
-Thanks
--vlad
+> In general, drivers should only clean TX in one place.  Doing so in 
+> multiple places tends to indicate a bug somewhere.
 
-The following changes since commit 5f0212174db33828f8bddcff501b73d2bc734f72:
-  Randy Dunlap (1):
-        [IRDA]: fix printk format
+Yes, I wish I could just do it in the interrupt handler. I could do it
+with a dedicated timer if you prefer, but I'd still need to have two
+ways of entering the tx clean function.
 
-are found in the git repository at:
 
-  master.kernel.org:/pub/scm/linux/kernel/git/vxy/lksctp-dev.git
-
-Vlad Yasevich (3):
-      SCTP: Fix thinko in sctp_copy_laddrs()
-      SCTP: Check to make sure file is valid before setting timeout
-      SCTP: Add scope_id validation for link-local binds
-
- net/sctp/ipv6.c   |    4 ++++
- net/sctp/socket.c |   12 +++++++++---
- 2 files changed, 13 insertions(+), 3 deletions(-)
+-Olof
