@@ -1,86 +1,104 @@
-From: "Javier Cardona" <javier@cozybit.com>
-Subject: Proposed interface for per-packet mesh-ttl
-Date: Tue, 3 Jul 2007 12:29:24 -0700
-Message-ID: <445f43ac0707031229m4ed60e0cg7960437c3e373c8e@mail.gmail.com>
-References: <445f43ac0707031149o2b50fc0en48aef4130b4b60ec@mail.gmail.com>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: Re: [WIP][PATCHES] Network xmit batching - tg3 support
+Date: Tue, 03 Jul 2007 12:31:23 -0700
+Message-ID: <1183491084.14005.27.camel@teletran1>
+References: <OFB311484E.057E34E9-ON652572F3.001D5838-652572F3.0022766D@in.ibm.com>
+ <1181216629.4064.22.camel@localhost>
+ <20070619132148.GA32078@2ka.mipt.ru>
+ <20070619133333.GA19667@2ka.mipt.ru>
+ <20070619140038.GA13629@2ka.mipt.ru>
+ <1182270529.4968.73.camel@localhost>
+ <18040.5105.715624.286924@robur.slu.se>
+ <1182275300.4968.83.camel@localhost>
+ <1182989145.5155.81.camel@localhost>
+ <1183411245.6609.16.camel@teletran1>
+ <1183468188.5159.73.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: "Robert Olsson" <Robert.Olsson@data.slu.se>,
+	"Evgeniy Polyakov" <johnpol@2ka.mipt.ru>,
+	"Krishna Kumar2" <krkumar2@in.ibm.com>,
+	"Gagan Arneja" <gaagaan@gmail.com>, netdev@vger.kernel.org,
+	"Rick Jones" <rick.jones2@hp.com>,
+	"Sridhar Samudrala" <sri@us.ibm.com>,
+	"David Miller" <davem@davemloft.net>,
+	"Jeff Garzik" <jeff@garzik.org>,
+	"Michael Chan" <mchan@broadcom.com>
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nz-out-0506.google.com ([64.233.162.235]:25189 "EHLO
-	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757323AbXGCT3Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2007 15:29:25 -0400
-Received: by nz-out-0506.google.com with SMTP id s18so1328219nze
-        for <netdev@vger.kernel.org>; Tue, 03 Jul 2007 12:29:25 -0700 (PDT)
-In-Reply-To: <445f43ac0707031149o2b50fc0en48aef4130b4b60ec@mail.gmail.com>
-Content-Disposition: inline
+Received: from mms3.broadcom.com ([216.31.210.19]:2431 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756020AbXGCTba (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Jul 2007 15:31:30 -0400
+In-Reply-To: <1183468188.5159.73.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Woodhouse suggested that this list is a more appropriate forum
-for my message...
+On Tue, 2007-07-03 at 09:09 -0400, jamal wrote:
+> On Mon, 2007-02-07 at 14:20 -0700, Matt Carlson wrote:
+> 
+> 
+> > 
+> > Hi Jamal.  I'll be testing your patch soon,
+> 
+> much thanks. Please let me know if you need help while doing this.
+> What tools are you planning to test with? I have tested this patch
+> with pktgen on a dual opteron/tg3-buggy. 
+> There is an outstanding issue in regards to clocksource - however the
+> batch does well regardless of the clock source.
 
----------- Forwarded message ----------
-From: Javier Cardona <javier@cozybit.com>
-Date: Jul 3, 2007 11:49 AM
-Subject: Proposed interface for per-packet mesh-ttl
-To: libertas-dev@lists.infradead.org
+I had planned on using netperf, but pktgen sounds like a more controlled
+environment.  Thanks for the tip.
 
+> >  but I wanted to point out a
+> > bug in the patch.  The patch defines TG3_SKB_CB() as follows :
+> > 
+> > #define TG3_SKB_CB(__skb) ((struct tg3_tx_cbdata *)&((__skb)->cb[0]))
+> > 
+> > This definition will collide with the VLAN macros if TG3_VLAN_TAG_USED
+> > is set.  vlan_tx_tag_get() is defined as :
+> > 
+> > #define vlan_tx_tag_get(__skb)  (VLAN_TX_SKB_CB(__skb)->vlan_tag)
+> > 
+> > VLAN_TX_SKB_CB is defined as :
+> > 
+> > #define VLAN_TX_SKB_CB(__skb) \
+> >         ((struct vlan_skb_tx_cookie *)&((__skb)->cb[0]))
+> > 
+> 
+> yikes. Thanks for catching that - I thought i had this pretty much
+> covered after scanning the source. So that bug exists on the e1000 as
+> well.
+> [It sounds very dangerous to me the way skb->cb is being used by the
+> vlan code (i.e requires human intervention/knowledge to catch it as an
+> issue). I had no freaking idea the vlan code was using it. Maybe a huge
+> comment somewhere on how these cbs are being used by drivers would help
+> or even a registration on startup to just make sure there is no conflict
+> at a layer (i have been meaning to do the later for years now). In any
+> case this is is a digression]. 
+> 
+> In the meantime, changing it to use byte 8 and above should do it? i.e.
+> #define TG3_SKB_CB(__skb) ((struct tg3_tx_cbdata *)&((__skb)->cb[8]))
+> 
+> There are 48 bytes there on the skb-cb, so there should be plenty.
 
-Libertas-dev,
+Do you see any reason why we couldn't just add the VLAN code to the prep
+stage and simply overwrite that portion of the skb-cb?  Our driver would
+just store its value in the base_flags member of tg3_tx_cbdata.
 
-I'm currently working on per-packet mesh ttl.  My plan is to register
-new mesh sockopts through netfilter.  The user interface will be:
+> > Also, I think the count, max_per_txd, and nr_frags fields of the
+> > tg3_tx_cbdata struct are not needed.
+> 
+> Yes, you are right. That was a result of the LinuxWay(tm) (aka cutnpaste
+> from the e1000 which needs them), Can you send me a patch for that and
+> TG3_SKB_CB? 
 
-#include <sys/types.h>
-#include <sys/socket.h>
+Once we iron out the skb-cb issue, sure.
 
-/* in mesh.h ? */
-#define MESH_SO_SET_TTL         77
-#define MESH_SO_GET_TTL         77
+> 
+> cheers,
+> jamal
+> 
+> 
 
-int main()
-{
-    int sock;
-    int optlen;
-    unsigned char ttl;
-
-    ttl = 7;
-    optlen = sizeof(ttl);
-
-    sock = socket (PF_INET, SOCK_STREAM, 0);
-    setsockopt(sock, SOL_IP, MESH_SO_SET_TTL, &ttl, optlen);
-    getsockopt(sock, SOL_IP, MESH_SO_GET_TTL, &ttl, &optlen);
-
-    /* from here on, all traffic from sock will be sent to the mesh
-with ttl=7 */
-
-    return 0;
-}
-
-
-Pros:
-
-* it is non-intrusive (only need to reserve the socket option values,
-no other changes to the net stack are needed)
-* runtime configurable (this options may be supported only when a
-mesh_opts module is loaded).
-* familiar and intuitive (at least to me :)
-
-Cons:
-
-* netfilter only has hooks for IPv4 and IPv6.  If we want to make mesh
-parameters configurable at other layers (e.g. packet) we'll have to
-create the hooks.
-* It is debatable whether a mesh option should be set at SOL_IP, as it
-is a layer 2 protocol.    We do want (some) mesh options to be applied
-to flows a that level, and the {g,s}etsockopt interface does not
-support setting lower layer options to higher layer sockets.
-
-Speak up if you would like to see this done in a different way.
-
-Cheers,
-
-Javier
