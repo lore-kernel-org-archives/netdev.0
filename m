@@ -1,55 +1,87 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Please pull 'libertas-fixes' branch of wireless-2.6
-Date: Tue, 3 Jul 2007 14:48:13 -0400
-Message-ID: <20070703184813.GC3534@tuxdriver.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH 2/2] net: make net and forcedeth to use kmalloc_node
+Date: Tue, 3 Jul 2007 12:04:30 -0700
+Message-ID: <20070703120430.4dcbba68@freepuppy.localdomain.hemminger.net>
+References: <200706291330.37070.yinghai.lu@sun.com>
+	<20070703115840.e05a0f47.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Yinghai Lu <Yinghai.Lu@Sun.COM>, Andi Kleen <ak@suse.de>,
+	Greg KH <greg@kroah.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:41163 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757275AbXGCTEr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2007 15:04:47 -0400
+In-Reply-To: <20070703115840.e05a0f47.akpm@linux-foundation.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The following changes since commit aa2e09da2a332e748532aa2a71b090e7e7c3203d:
-  Len Brown (1):
-        ACPI: fix acpi_osi=!Linux
+On Tue, 3 Jul 2007 11:58:40 -0700
+Andrew Morton <akpm@linux-foundation.org> wrote:
 
-are found in the git repository at:
+> On Fri, 29 Jun 2007 13:30:36 -0700
+> Yinghai Lu <Yinghai.Lu@Sun.COM> wrote:
+> 
+> > [PATCH 2/2] net: make net and forcedeth to use kmalloc_node
+> 
+> Please copy netdev@vger.kernel.org on net patches.
+> 
+> This patch modifies a net driver as well as the networking core.  These
+> subsytems have different maintainers who run different development trees. 
+> Consequently I must split your patch into two and change their titles and
+> changelogs appropriately.
+> 
+> Please do this for us in future, thanks.
+> 
+> 
+> > diff --git a/drivers/net/forcedeth.c b/drivers/net/forcedeth.c
+> > index 42ba1c0..6d53b52 100644
+> > --- a/drivers/net/forcedeth.c
+> > +++ b/drivers/net/forcedeth.c
+> > @@ -1383,7 +1383,7 @@ static int nv_alloc_rx(struct net_device *dev)
+> >  		less_rx = np->last_rx.orig;
+> >  
+> >  	while (np->put_rx.orig != less_rx) {
+> > -		struct sk_buff *skb = dev_alloc_skb(np->rx_buf_sz + NV_RX_ALLOC_PAD);
+> > +		struct sk_buff *skb = dev_alloc_skb_node(np->rx_buf_sz + NV_RX_ALLOC_PAD, dev_to_node(&dev->dev));
+> 
+> If we're going to do this then it would probably make sense to change
+> dev_alloc_skb_node() so that it takes a `struct net_device *' rather than a
+> bare node-id.  That's a call which the net guys will need to make, which is
+> why we cc them on our emails.
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git libertas-fixes
+The driver should use netdev_alloc_skb. That routine is supposed to be overriden
+on architecture's that need per node changes.
 
-Holger Schurig (1):
-      libertas: fix use-after-free in rx path
+> >  		if (skb) {
+> >  			np->put_rx_ctx->skb = skb;
+> >  			np->put_rx_ctx->dma = pci_map_single(np->pci_dev,
+> > @@ -1415,7 +1415,7 @@ static int nv_alloc_rx_optimized(struct net_device *dev)
+> >  		less_rx = np->last_rx.ex;
+> >  
+> >  	while (np->put_rx.ex != less_rx) {
+> > -		struct sk_buff *skb = dev_alloc_skb(np->rx_buf_sz + NV_RX_ALLOC_PAD);
+> > +		struct sk_buff *skb = dev_alloc_skb_node(np->rx_buf_sz + NV_RX_ALLOC_PAD, dev_to_node(&dev->dev));
+> 
+> It might help to edit code in an 80-col xterm.
+> 
+> Please run scritps/checkpatch.pl across all your diffs.  Its suggestions
+> are by no means compulsory, but they do provide things for you to check up
+> and and have a think about, thanks.
+> 
+> I won't apply this (these) patches because I expect API changes.
+> 
+> 
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-Robert P. J. Day (1):
-      WIRELESS: Remove clearly obsolete libertas/version.h file.
-
- drivers/net/wireless/libertas/rx.c      |    1 -
- drivers/net/wireless/libertas/version.h |    1 -
- 2 files changed, 0 insertions(+), 2 deletions(-)
- delete mode 100644 drivers/net/wireless/libertas/version.h
-
-diff --git a/drivers/net/wireless/libertas/rx.c b/drivers/net/wireless/libertas/rx.c
-index 88d9d2d..769c86f 100644
---- a/drivers/net/wireless/libertas/rx.c
-+++ b/drivers/net/wireless/libertas/rx.c
-@@ -439,7 +439,6 @@ static int process_rxed_802_11_packet(wlan_private * priv, struct sk_buff *skb)
- 	ret = 0;
- 
- done:
--	skb->protocol = __constant_htons(0x0019);	/* ETH_P_80211_RAW */
- 	lbs_deb_leave_args(LBS_DEB_RX, "ret %d", ret);
- 	return ret;
- }
-diff --git a/drivers/net/wireless/libertas/version.h b/drivers/net/wireless/libertas/version.h
-deleted file mode 100644
-index 8b13789..0000000
---- a/drivers/net/wireless/libertas/version.h
-+++ /dev/null
-@@ -1 +0,0 @@
--
 
 -- 
-John W. Linville
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Stephen Hemminger <shemminger@linux-foundation.org>
