@@ -1,34 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [NET_SCHED 02/04]: Remove unnecessary stats_lock pointers
-Date: Mon, 02 Jul 2007 22:47:49 -0700 (PDT)
-Message-ID: <20070702.224749.04054251.davem@davemloft.net>
-References: <20070619150159.30997.77256.sendpatchset@localhost.localdomain>
-	<20070619150202.30997.18717.sendpatchset@localhost.localdomain>
+Subject: Re: [NET_SCHED 03/04]: sch_htb: use generic estimator
+Date: Mon, 02 Jul 2007 22:48:26 -0700 (PDT)
+Message-ID: <20070702.224826.08672034.davem@davemloft.net>
+References: <20070619150203.30997.79383.sendpatchset@localhost.localdomain>
+	<166fe7950706191107p2563af77w9b1038dc216925f@mail.gmail.com>
+	<467848FE.7090106@trash.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: devik@cdi.cz, netdev@vger.kernel.org
+Cc: ranjitm@google.com, devik@cdi.cz, netdev@vger.kernel.org
 To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43485
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43489
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750873AbXGCFr3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2007 01:47:29 -0400
-In-Reply-To: <20070619150202.30997.18717.sendpatchset@localhost.localdomain>
+	by vger.kernel.org with ESMTP id S1751264AbXGCFsG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2007 01:48:06 -0400
+In-Reply-To: <467848FE.7090106@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Patrick McHardy <kaber@trash.net>
-Date: Tue, 19 Jun 2007 17:02:21 +0200 (MEST)
+Date: Tue, 19 Jun 2007 23:22:06 +0200
 
-> [NET_SCHED]: Remove unnecessary stats_lock pointers
+> [NET_SCHED]: sch_htb: use generic estimator
 > 
-> Remove stats_lock pointers from qdisc-internal structures, in all cases
-> it points to dev->queue_lock. The only case where it is necessary is for
-> top-level qdiscs, where it might also point to dev->ingress_lock in case
-> of the ingress qdisc. Also remove it from actions completely, it always
-> points to the actions internal lock.
+> Use the generic estimator instead of reimplementing (parts of) it.
+> For compatibility always create a default estimator for new classes.
 > 
 > Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-Applied.
+Applied, thanks.
