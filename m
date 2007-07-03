@@ -1,50 +1,53 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: e1000: backport ich9 support from 7.5.5 ?
-Date: Mon, 02 Jul 2007 18:44:52 -0700
-Message-ID: <4689AA14.5020805@intel.com>
-References: <08FE5CC30C9A3F41BF819A502CF7BF6E019416BA@fmsmsx411.amr.corp.intel.com>
-	<46899408.4030407@hp.com> <20070703005537.GB3962@falooley.org>
+From: "Li Yang-r58472" <LeoLi@freescale.com>
+Subject: RE: [PATCH] ucc_geth.c, make PHY device optional.
+Date: Tue, 3 Jul 2007 11:42:39 +0800
+Message-ID: <989B956029373F45A0B8AF0297081890D837CB@zch01exm26.fsl.freescale.net>
+References: <012701c7bd0c$64fe67c0$0e67a8c0@Jocke>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Mark McLoughlin <markmc@redhat.com>,
-	"Kok,  Auke-jan H" <auke-jan.h.kok@intel.com>,
-	Rick Jones <rick.jones2@hp.com>, Jeff Garzik <jeff@garzik.org>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Jason Lunz <lunz@reflexsecurity.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-reply-to: <20070703005537.GB3962@falooley.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain;
+	charset="US-ASCII"
+Content-Transfer-Encoding: 8BIT
+To: "Joakim Tjernlund" <joakim.tjernlund@transmode.se>,
+	"linuxppc-dev Development" <linuxppc-dev@ozlabs.org>,
+	"Netdev" <netdev@vger.kernel.org>,
+	"Fleming Andy-afleming" <afleming@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from az33egw02.freescale.net ([192.88.158.103]:34171 "EHLO
+	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753072AbXGCDkx convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jul 2007 23:40:53 -0400
+Received: from az33smr01.freescale.net (az33smr01.freescale.net [10.64.34.199])
+	by az33egw02.freescale.net (8.12.11/az33egw02) with ESMTP id l633ejho024280
+	for <netdev@vger.kernel.org>; Mon, 2 Jul 2007 20:40:46 -0700 (MST)
+Received: from zch01exm26.fsl.freescale.net (zch01exm26.ap.freescale.net [10.192.129.221])
+	by az33smr01.freescale.net (8.13.1/8.13.0) with ESMTP id l633eil0007361
+	for <netdev@vger.kernel.org>; Mon, 2 Jul 2007 22:40:45 -0500 (CDT)
+Content-class: urn:content-classes:message
+In-Reply-To: <012701c7bd0c$64fe67c0$0e67a8c0@Jocke>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jason Lunz wrote:
-> On Mon, Jul 02, 2007 at 05:10:48PM -0700, Rick Jones wrote:
->> Rambling a bit, and recognizing that "e1000new" was probably just a 
->> strawman name, but I suspect that a _very_ different name for the new 
->> driver would be a good thing, rather than a varition on the e1000 theme. 
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org
+[mailto:netdev-owner@vger.kernel.org] On
+> Behalf Of Joakim Tjernlund
+> Sent: Tuesday, July 03, 2007 8:52 AM
+> To: 'linuxppc-dev Development'; 'Netdev'; Li Yang-r58472
+> Subject: [PATCH] ucc_geth.c, make PHY device optional.
 > 
-> I rather liked the "e1000e" name suggested by Christoph Hellwig. That
-> may not be different enough for you, though. Anything but "e1000new";
-> it won't be new forever.
+> > This patch makes the PHY optional for ucc_geth.c ethernet driver.
+> > This is useful to support a direct mii to mii connection to, for
+example,
+> > a onboard swicth.
+> >
+> > Signed-off-by: Joakim Tjernlund <joakim.tjernlund@transmode.se>
+> ----
+Hi Joakim,
 
-hehe, yes, true. And the e1000new was just a placeholder. e1000e seems much more 
-attractive for me, especially if we end up splitting the driver at the pci/pci-e 
-boundary (like ixgb and ixgbe are).
+I'm wondering if we really need to have the option to disable phylib.
+Actually we have made phylib selected by default for ucc_geth.  Many L2
+switch chips have the capacity to be controlled.  Therefore they can be
+managed as a phy device.  For the MII interface which is not
+configurable, shouldn't we use the fixed phy support from Vitaly?
 
-Auke
-
-
-
--------------------------------------------------------------------------
-This SF.net email is sponsored by DB2 Express
-Download DB2 Express C - the FREE version of DB2 express and take
-control of your XML. No limits. Just data. Click to get it now.
-http://sourceforge.net/powerbar/db2/
+- Leo
