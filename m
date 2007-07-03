@@ -1,53 +1,44 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] ps3: gigabit ethernet driver for PS3, take2
-Date: Tue, 03 Jul 2007 09:11:09 -0400
-Message-ID: <468A4AED.7080907@garzik.org>
-References: <20070619183956.F224.MOKUNO@sm.sony.co.jp> <4688EFD1.1060805@garzik.org> <20070703194416.91C5.MOKUNO@sm.sony.co.jp>
+Subject: Re: [E1000-devel] e1000: backport ich9 support from 7.5.5 ?
+Date: Tue, 03 Jul 2007 09:13:43 -0400
+Message-ID: <468A4B87.1070100@garzik.org>
+References: <1183238694.9055.10.camel@blaa> <08FE5CC30C9A3F41BF819A502CF7BF6E019416BA@fmsmsx411.amr.corp.intel.com> <20070703071530.GA25369@infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Geoff Levand <geoffrey.levand@am.sony.com>,
-	Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>
-To: Masakazu Mokuno <mokuno@sm.sony.co.jp>
+Cc: "Williams, Mitch A" <mitch.a.williams@intel.com>,
+	Mark McLoughlin <markmc@redhat.com>,
+	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	Jason Lunz <lunz@reflexsecurity.com>
+To: Christoph Hellwig <hch@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:59812 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:59844 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753496AbXGCNLO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Jul 2007 09:11:14 -0400
-In-Reply-To: <20070703194416.91C5.MOKUNO@sm.sony.co.jp>
+	id S1754560AbXGCNNx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Jul 2007 09:13:53 -0400
+In-Reply-To: <20070703071530.GA25369@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Masakazu Mokuno wrote:
->>> --- a/drivers/net/Makefile
->>> +++ b/drivers/net/Makefile
->>> @@ -60,6 +60,8 @@ obj-$(CONFIG_TIGON3) += tg3.o
->>>  obj-$(CONFIG_BNX2) += bnx2.o
->>>  spidernet-y += spider_net.o spider_net_ethtool.o
->>>  obj-$(CONFIG_SPIDER_NET) += spidernet.o sungem_phy.o
->>> +obj-$(CONFIG_GELIC_NET) += ps3_gelic.o
->>> +ps3_gelic-objs += gelic_net.o
->>>  obj-$(CONFIG_TC35815) += tc35815.o
->>>  obj-$(CONFIG_SKGE) += skge.o
->>>  obj-$(CONFIG_SKY2) += sky2.o
->>> --- /dev/null
->>> +++ b/drivers/net/gelic_net.c
->> The patch does not reflect the new name...
+Christoph Hellwig wrote:
+> On Mon, Jul 02, 2007 at 04:52:52PM -0700, Williams, Mitch A wrote:
+>> - We include e1000new in 2.6.23, along side e1000.  We expose ICH9
+>>   device IDs in e1000new, and gate the rest of the IDs inside
+>>   #ifndef CONFIG_E1000.
 > 
-> The driver's module name is 'ps3_gelic.ko' and the souce file names are
-> 'gelic_net.{c,h}'.  As Geoff Levand said in the mail dated June 16, we
-> have plan to add wireless support and its file name would be gelic_wireless.c.
-> If this support added, the make file would be:
-> 
->   obj-$(CONFIG_GELIC_NET) += ps3_gelic.o
->   gelic-$(CONFIG_GELIC_WIRELESS) += gelic_wireless.o
->   ps3_gelic-objs += gelic_net.o $(gelic-y)
+> No.  Hardware support in one driver should never be affected by config
+> options in another drivers.
+
+Agreed.
 
 
-For single-file modules, the source file prefix should match the output 
-file prefix.
+> Also I really think there shouldn't be one single driver for all the
+> hardware as outlined by intel people in this thread.
 
-No Linux driver does it any other way.  It leads to confusion.
+Agreed.
+
+(as I've been saying)
 
 	Jeff
 
