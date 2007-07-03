@@ -1,7 +1,7 @@
 From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [PATCH] netlink: allocate group bitmaps dynamically
-Date: Tue, 03 Jul 2007 12:08:49 +0200
-Message-ID: <1183457329.3841.0.camel@johannes.berg>
+Subject: [PATCH] netlink: allow removing multicast groups
+Date: Tue, 03 Jul 2007 12:09:23 +0200
+Message-ID: <1183457363.3841.2.camel@johannes.berg>
 References: <1179827251.7707.29.camel@localhost.localdomain>
 	 <4466a10705270634j3560c9a3j9c3630ddc20a24aa@mail.gmail.com>
 	 <1181811576.5411.27.camel@localhost.localdomain>
@@ -31,139 +31,111 @@ Cc: hadi@cyberus.ca, Zhang Rui <rui.zhang@intel.com>,
 	"linux-acpi@vger" <linux-acpi@vger.kernel.org>, lenb@kernel.org,
 	Thomas Graf <tgraf@suug.ch>
 To: Patrick McHardy <kaber@trash.net>
-Return-path: <linux-acpi-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:34077 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758707AbXGCLx7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2007 07:53:59 -0400
 In-Reply-To: <1183414370.4089.141.camel@johannes.berg>
-Sender: linux-acpi-owner@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Allow changing the number of groups for a netlink family
-after it has been created.
+Allow kicking listeners out of a multicast group when necessary
+(for example if that group is going to be removed.)
 
 Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
 
 ---
- include/linux/netlink.h  |    1 
- net/netlink/af_netlink.c |   61 +++++++++++++++++++++++++++++++++++------------
- 2 files changed, 47 insertions(+), 15 deletions(-)
+ include/linux/netlink.h  |    1 +
+ net/netlink/af_netlink.c |   47 ++++++++++++++++++++++++++++++++++-------------
+ 2 files changed, 35 insertions(+), 13 deletions(-)
 
---- wireless-dev.orig/net/netlink/af_netlink.c	2007-07-03 00:10:31.617889695 +0200
-+++ wireless-dev/net/netlink/af_netlink.c	2007-07-03 00:31:30.267889695 +0200
-@@ -316,8 +316,11 @@ netlink_update_listeners(struct sock *sk
- 
- 	for (i = 0; i < NLGRPSZ(tbl->groups)/sizeof(unsigned long); i++) {
- 		mask = 0;
--		sk_for_each_bound(sk, node, &tbl->mc_list)
--			mask |= nlk_sk(sk)->groups[i];
-+		sk_for_each_bound(sk, node, &tbl->mc_list) {
-+			if (nlk_sk(sk)->ngroups >=
-+			    (i + 1) * sizeof(unsigned long))
-+				mask |= nlk_sk(sk)->groups[i];
-+		}
- 		tbl->listeners[i] = mask;
- 	}
- 	/* this function is only called with the netlink table "grabbed", which
-@@ -555,10 +558,11 @@ netlink_update_subscriptions(struct sock
- 	nlk->subscriptions = subscriptions;
+--- wireless-dev.orig/include/linux/netlink.h	2007-07-03 11:54:21.818696328 +0200
++++ wireless-dev/include/linux/netlink.h	2007-07-03 11:54:32.638696328 +0200
+@@ -162,6 +162,7 @@ extern struct sock *netlink_kernel_creat
+ 					  struct mutex *cb_mutex,
+ 					  struct module *module);
+ extern int netlink_change_ngroups(int unit, unsigned int groups);
++extern void netlink_clear_multicast_users(int unit, unsigned int group);
+ extern void netlink_ack(struct sk_buff *in_skb, struct nlmsghdr *nlh, int err);
+ extern int netlink_has_listeners(struct sock *sk, unsigned int group);
+ extern int netlink_unicast(struct sock *ssk, struct sk_buff *skb, __u32 pid, int nonblock);
+--- wireless-dev.orig/net/netlink/af_netlink.c	2007-07-03 11:54:21.908696328 +0200
++++ wireless-dev/net/netlink/af_netlink.c	2007-07-03 11:54:32.638696328 +0200
+@@ -1015,6 +1015,24 @@ void netlink_set_err(struct sock *ssk, u
+ 	read_unlock(&nl_table_lock);
  }
  
--static int netlink_alloc_groups(struct sock *sk)
-+static int netlink_realloc_groups(struct sock *sk)
- {
- 	struct netlink_sock *nlk = nlk_sk(sk);
- 	unsigned int groups;
-+	unsigned long *new_groups;
- 	int err = 0;
- 
- 	netlink_lock_table();
-@@ -570,9 +574,15 @@ static int netlink_alloc_groups(struct s
- 	if (err)
- 		return err;
- 
--	nlk->groups = kzalloc(NLGRPSZ(groups), GFP_KERNEL);
--	if (nlk->groups == NULL)
-+	if (nlk->ngroups >= groups)
-+		return 0;
-+
-+	new_groups = krealloc(nlk->groups, NLGRPSZ(groups), GFP_KERNEL);
-+	if (new_groups == NULL)
- 		return -ENOMEM;
-+	memset((char*)new_groups + NLGRPSZ(nlk->ngroups), 0,
-+	       NLGRPSZ(groups) - NLGRPSZ(nlk->ngroups));
-+	nlk->groups = new_groups;
- 	nlk->ngroups = groups;
- 	return 0;
- }
-@@ -591,11 +601,9 @@ static int netlink_bind(struct socket *s
- 	if (nladdr->nl_groups) {
- 		if (!netlink_capable(sock, NL_NONROOT_RECV))
- 			return -EPERM;
--		if (nlk->groups == NULL) {
--			err = netlink_alloc_groups(sk);
--			if (err)
--				return err;
--		}
-+		err = netlink_realloc_groups(sk);
-+		if (err)
-+			return err;
- 	}
- 
- 	if (nlk->pid) {
-@@ -1041,11 +1049,9 @@ static int netlink_setsockopt(struct soc
- 
- 		if (!netlink_capable(sock, NL_NONROOT_RECV))
- 			return -EPERM;
--		if (nlk->groups == NULL) {
--			err = netlink_alloc_groups(sk);
--			if (err)
--				return err;
--		}
-+		err = netlink_realloc_groups(sk);
-+		if (err)
-+			return err;
- 		if (!val || val - 1 >= nlk->ngroups)
- 			return -EINVAL;
- 		netlink_table_grab();
-@@ -1332,6 +1338,31 @@ out_sock_release:
- 	return NULL;
- }
- 
-+int netlink_change_ngroups(int unit, unsigned int groups)
++static void netlink_update_socket_mc(struct netlink_sock *nlk,
++				     unsigned int group,
++				     int is_new)
 +{
-+	unsigned long *listeners;
-+	int err = 0;
++	int old, new = !!is_new, subscriptions;
 +
 +	netlink_table_grab();
-+	if (NLGRPSZ(nl_table[unit].groups) < NLGRPSZ(groups)) {
-+		listeners = krealloc(nl_table[unit].listeners,
-+				     NLGRPSZ(groups), GFP_KERNEL);
-+		if (!listeners) {
-+			err = -ENOMEM;
-+			goto out_ungrab;
-+		}
-+		memset((char*) listeners + NLGRPSZ(nl_table[unit].groups),
-+		       0, NLGRPSZ(groups) - NLGRPSZ(nl_table[unit].groups));
-+		nl_table[unit].listeners = listeners;
-+	}
-+	nl_table[unit].groups = groups;
-+
-+ out_ungrab:
++	old = test_bit(group - 1, nlk->groups);
++	subscriptions = nlk->subscriptions - old + new;
++	if (new)
++		__set_bit(group - 1, nlk->groups);
++	else
++		__clear_bit(group - 1, nlk->groups);
++	netlink_update_subscriptions(&nlk->sk, subscriptions);
++	netlink_update_listeners(&nlk->sk);
 +	netlink_table_ungrab();
-+	return err;
 +}
-+EXPORT_SYMBOL(netlink_change_ngroups);
++
+ static int netlink_setsockopt(struct socket *sock, int level, int optname,
+ 			      char __user *optval, int optlen)
+ {
+@@ -1040,9 +1058,6 @@ static int netlink_setsockopt(struct soc
+ 		break;
+ 	case NETLINK_ADD_MEMBERSHIP:
+ 	case NETLINK_DROP_MEMBERSHIP: {
+-		unsigned int subscriptions;
+-		int old, new = optname == NETLINK_ADD_MEMBERSHIP ? 1 : 0;
+-
+ 		if (!netlink_capable(sock, NL_NONROOT_RECV))
+ 			return -EPERM;
+ 		err = netlink_realloc_groups(sk);
+@@ -1050,16 +1065,8 @@ static int netlink_setsockopt(struct soc
+ 			return err;
+ 		if (!val || val - 1 >= nlk->ngroups)
+ 			return -EINVAL;
+-		netlink_table_grab();
+-		old = test_bit(val - 1, nlk->groups);
+-		subscriptions = nlk->subscriptions - old + new;
+-		if (new)
+-			__set_bit(val - 1, nlk->groups);
+-		else
+-			__clear_bit(val - 1, nlk->groups);
+-		netlink_update_subscriptions(sk, subscriptions);
+-		netlink_update_listeners(sk);
+-		netlink_table_ungrab();
++		netlink_update_socket_mc(nlk, val,
++					 optname == NETLINK_ADD_MEMBERSHIP);
+ 		err = 0;
+ 		break;
+ 	}
+@@ -1359,6 +1366,20 @@ int netlink_change_ngroups(int unit, uns
+ }
+ EXPORT_SYMBOL(netlink_change_ngroups);
+ 
++void netlink_clear_multicast_users(int unit, unsigned int group)
++{
++	struct sock *sk;
++	struct hlist_node *node;
++
++	read_lock(&nl_table_lock);
++
++	sk_for_each_bound(sk, node, &nl_table[unit].mc_list)
++		netlink_update_socket_mc(nlk_sk(sk), group, 0);
++
++	read_unlock(&nl_table_lock);
++}
++EXPORT_SYMBOL(netlink_clear_multicast_users);
 +
  void netlink_set_nonroot(int protocol, unsigned int flags)
  {
  	if ((unsigned int)protocol < MAX_LINKS)
---- wireless-dev.orig/include/linux/netlink.h	2007-07-03 00:09:13.047889695 +0200
-+++ wireless-dev/include/linux/netlink.h	2007-07-03 00:31:30.267889695 +0200
-@@ -161,6 +161,7 @@ extern struct sock *netlink_kernel_creat
- 					  void (*input)(struct sock *sk, int len),
- 					  struct mutex *cb_mutex,
- 					  struct module *module);
-+extern int netlink_change_ngroups(int unit, unsigned int groups);
- extern void netlink_ack(struct sk_buff *in_skb, struct nlmsghdr *nlh, int err);
- extern int netlink_has_listeners(struct sock *sk, unsigned int group);
- extern int netlink_unicast(struct sock *ssk, struct sk_buff *skb, __u32 pid, int nonblock);
 
 
