@@ -1,53 +1,52 @@
-From: olof@lixom.net (Olof Johansson)
-Subject: Re: [PATCH 2/9] pasemi_mac: Clean TX ring in poll
-Date: Tue, 3 Jul 2007 15:31:31 -0500
-Message-ID: <20070703203131.GA26181@lixom.net>
-References: <20070622194720.614405000@lixom.net> <20070622200501.GC11723@lixom.net> <4688F0CE.9020600@pobox.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Jeff Garzik <jgarzik@pobox.com>
+From: Oleg Verych <olecom@flower.upol.cz>
+Subject: Stalled connection (need help to debug)
+Date: Tue, 3 Jul 2007 20:48:46 +0000 (UTC)
+Message-ID: <slrnf8le9t.2kl.olecom@flower.upol.cz>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lixom.net ([66.141.50.11]:35381 "EHLO mail.lixom.net"
+Received: from main.gmane.org ([80.91.229.2]:54949 "EHLO ciao.gmane.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757002AbXGCUVB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Jul 2007 16:21:01 -0400
-Content-Disposition: inline
-In-Reply-To: <4688F0CE.9020600@pobox.com>
+	id S1750706AbXGCUtH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Jul 2007 16:49:07 -0400
+Received: from list by ciao.gmane.org with local (Exim 4.43)
+	id 1I5pIz-0006mv-Cg
+	for netdev@vger.kernel.org; Tue, 03 Jul 2007 22:49:01 +0200
+Received: from flower.upol.cz ([158.194.64.22])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Tue, 03 Jul 2007 22:49:01 +0200
+Received: from olecom by flower.upol.cz with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Tue, 03 Jul 2007 22:49:01 +0200
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 02, 2007 at 08:34:22AM -0400, Jeff Garzik wrote:
-> >Index: netdev-2.6/drivers/net/pasemi_mac.c
-> >===================================================================
-> >--- netdev-2.6.orig/drivers/net/pasemi_mac.c
-> >+++ netdev-2.6/drivers/net/pasemi_mac.c
-> >@@ -1052,6 +1052,7 @@ static int pasemi_mac_poll(struct net_de
-> > 	int pkts, limit = min(*budget, dev->quota);
-> > 	struct pasemi_mac *mac = netdev_priv(dev);
-> > 
-> >+	pasemi_mac_clean_tx(mac);
-> > 	pkts = pasemi_mac_clean_rx(mac, limit);
-> 
-> Why is this needed?  Is your TX interrupt mitigated or delayed somehow?
+Hallo.
 
-On some level hardware, we only have the possibility of taking the
-TX interrupt after a certain number of packets, and no way of doing a
-(hw) timer-based one (i.e.  after no packets have been sent for x ms,
-interrupt). Taking an interrupt for every TX packet isn't an interesting
-proposal, and doing it solely based on count > 1 can leave stale packets
-there for a long time when the network is otherwise idle.
+I have a very strange problem.
 
-So, I would need to do a software based timer. The poll function seemed like
-a good enough solution for now though, since it's called periodically even
-when the NAPI mode is such that interrupts are enabled.
+Server (with Debian Etch) was running for 80 days perfectly. Then, (after
+some lighting, i believe) i noticed, that connection, that isn't active
+(i.e. is not transferring something) frizzes (on linux) and then
+dies (connections reset).
 
-> In general, drivers should only clean TX in one place.  Doing so in 
-> multiple places tends to indicate a bug somewhere.
+Logs are empty. Ping is working, reconnection is OK. But if it's not
+active ==> same stall.
 
-Yes, I wish I could just do it in the interrupt handler. I could do it
-with a dedicated timer if you prefer, but I'd still need to have two
-ways of entering the tx clean function.
+Server is pretty far way and after i tried everything (reconfigure IF,
+different client OSes), i've rebooted it. Still the same problem. I
+didn't do power cycle though.
 
+I use this server as my Internet ant (it's flower.upol.cz, BTW).
+I do ssh && screen -x to work on it. The only way i still can do this,
+it's my clock.sh script (updates tty with current time after 1 sec):
 
--Olof
+$ ssh && clock.sh && exec screen -x
+
+Any advise on how to debug this will be very appreciated. Thanks.
+
+--
+-o--=O`C
+ #oo'L O
+<___=E M
+
