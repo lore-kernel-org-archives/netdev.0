@@ -1,64 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 8/9] [TCP]: Reduce sacked_out with reno when purging
- write_queue
-Date: Mon, 02 Jul 2007 22:00:09 -0700 (PDT)
-Message-ID: <20070702.220009.128111387.davem@davemloft.net>
-References: <11801685621520-git-send-email-ilpo.jarvinen@helsinki.fi>
-	<11801685621830-git-send-email-ilpo.jarvinen@helsinki.fi>
-	<1180168562524-git-send-email-ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH 3/9] [TCP]: Tighten tcp_sock's belt, drop left_out
+Date: Mon, 02 Jul 2007 22:02:27 -0700 (PDT)
+Message-ID: <20070702.220227.15591645.davem@davemloft.net>
+References: <11801685623173-git-send-email-ilpo.jarvinen@helsinki.fi>
+	<20070531.014241.28790645.davem@davemloft.net>
+	<Pine.LNX.4.64.0705311846390.14736@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
 To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34327
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42289
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752137AbXGCE7u convert rfc822-to-8bit
+	by vger.kernel.org with ESMTP id S1751264AbXGCFCI convert rfc822-to-8bit
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Jul 2007 00:59:50 -0400
-In-Reply-To: <1180168562524-git-send-email-ilpo.jarvinen@helsinki.fi>
+	Tue, 3 Jul 2007 01:02:08 -0400
+In-Reply-To: <Pine.LNX.4.64.0705311846390.14736@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 =46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-Date: Sat, 26 May 2007 11:36:01 +0300
+Date: Thu, 31 May 2007 19:31:21 +0300 (EEST)
 
-> Previously TCP had a transitional state during which reno
-> counted segments that are already below the current window into
-> sacked_out, which is now prevented. Re-try now unconditional
-> S+L catching (I wonder if we could get that BUG_ON place
-> pinpointed more exactly in oops because now inlining makes it
-> lose its original context as they always seem to be in
-> tcp_ack, #define helps?).
+> (i.e, how does it show up in oops if tcp_verify_left_out looks like t=
+his):
 >=20
-> Beware, this change is not a trivial one and might have some
-> unexpected side-effects under obscure conditions since state
-> tracking is to happen much later on and the reno sack counting
-> was highly depending on the current state.
+> #define tcp_verify_left_out(tp) BUG_ON(...)
 >=20
-> This approach conservatively calls just remove_sack and leaves
-> reset_sack() calls alone. The best solution to the whole problem
-> would be to first calculate the new sacked_out fully (this patch
-> does not move reno_sack_reset calls from original sites and thus
-> does not implement this). However, that would require very
-> invasive change to fastretrans_alert (perhaps even slicing it to
-> two halves). Alternatively, all callers of tcp_packets_in_flight
-> (i.e., users that depend on sacked_out) should be postponed
-> until the new sacked_out has been calculated but it isn't any
-> simpler alternative.
->=20
-> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+> ...does it still point to the tcp.h line xxxx then or to the
+> tcp_sync_left_out(tp) @ line yyyy in tcp_input.c? ...I'll test that
+> later on by myself in case you don't know the answer.
 
-So basically the idea behind this patch is to do the update of
-the fake RENO sakcs in clean_rtx_queue instead of fixing it up
-at the very last moment right before we invoke tcp_try_to_undo_partial(=
-).
+Yes a define would make the BUG appear in the function it gets
+used in.
 
-I like this patch and I can't find any holes in the idea.
-
-But some things have changed in the meantime and this patch
-(and probably 9/9 too) don't apply cleanly.  Could you respin
-these against current tcp-2.6 so I can apply them?
-
-Thanks.
+Depending upon the configuration and the implementation of BUG()
+the same might happen for inline functions too.  For example, if
+the BUG() is configured in non-verbose mode and is implemented using
+a trap instruction or __builtin_trap().  But you cannot depend
+upon this universally of course.
