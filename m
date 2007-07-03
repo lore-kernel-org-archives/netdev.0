@@ -1,73 +1,78 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: Multiqueue and virtualization WAS(Re: [PATCH 3/3] NET: [SCHED]
-	Qdisc changes and sch_rr added for multiqueue
-Date: Tue, 03 Jul 2007 08:42:33 -0400
-Message-ID: <1183466553.5159.51.camel@localhost>
-References: <1183167053.5153.7.camel@localhost>
-	 <20070629.213503.34601850.davem@davemloft.net>
-	 <1183215164.5165.13.camel@localhost>
-	 <20070630.133357.77057070.davem@davemloft.net>
-Reply-To: hadi@cyberus.ca
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] ixgbe: Introduce new 10GbE driver for Intel 82598 based PCI	Express adapters...
+Date: Tue, 3 Jul 2007 08:53:46 -0400
+Message-ID: <20070703125346.GB4988@hmsreliant.homelinux.net>
+References: <4688F512.3030801@garzik.org> <E35F4F4D7F6C9E4E826FEC1F86CEF58304193063@orsmsx412.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, peter.p.waskiewicz.jr@intel.com,
-	netdev@vger.kernel.org, jeff@garzik.org, auke-jan.h.kok@intel.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
+	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
+	arjan@linux.intel.com, akpm@linux-foundation.org
+To: "Veeraiyan, Ayyappan" <ayyappan.veeraiyan@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.235]:8189 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753046AbXGCMmi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2007 08:42:38 -0400
-Received: by wx-out-0506.google.com with SMTP id h31so1780697wxd
-        for <netdev@vger.kernel.org>; Tue, 03 Jul 2007 05:42:37 -0700 (PDT)
-In-Reply-To: <20070630.133357.77057070.davem@davemloft.net>
+Received: from ra.tuxdriver.com ([70.61.120.52]:3890 "EHLO ra.tuxdriver.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755024AbXGCMyg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Jul 2007 08:54:36 -0400
+Content-Disposition: inline
+In-Reply-To: <E35F4F4D7F6C9E4E826FEC1F86CEF58304193063@orsmsx412.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2007-30-06 at 13:33 -0700, David Miller wrote:
-
-> It's like twice as fast, since the switch doesn't have to copy
-> the packet in, switch it, then the destination guest copies it
-> into it's address space.
+On Mon, Jul 02, 2007 at 12:00:29PM -0700, Veeraiyan, Ayyappan wrote:
+> On 7/2/07, Jeff Garzik <jeff@garzik.org> wrote:
+> > Ayyappan Veeraiyan wrote:
+> > > +#define IXGBE_TX_FLAGS_VLAN_MASK     0xffff0000
+> > > +#define IXGBE_TX_FLAGS_VLAN_SHIFT    16
+> > 
+> > defining bits using the form "(1 << n)" is preferred.  Makes it easier
+> > to read, by eliminating the requirement of the human brain to decode
+> hex
+> > into bit numbers.
+> > 
+> > 
 > 
-> There is approximately one copy for each hop you go over through these
-> virtual devices.
+> Ok.
+> 
+> > > +             struct net_device netdev;
+> > > +     };
+> > 
+> > Embedded a struct net_device into your ring?  How can I put this?
+> > 
+> > Wrong, wrong.  Wrong, wrong, wrong.  Wrong.
+> > 
+> 
+> Agreed. 
+> Fake netdevs are needed for doing the multiple Rx queues in NAPI mode.
+> We are thinking to solve in 2 ways. Having netdev pointer in ring
+> structure or having an array of netdev pointers in ixgbe_adatper struct
+> which would be visible to all rings.
+> 
+If thats what you're using the netdev pointers in the ring structure for, I'd
+like to remind you that you tried using Fake netdevs in e1000 last year, and the
+results were crashes and potential data corruption.
 
-Ok - i see what you are getting at, and while it makes more sense to me
-now, let me continue to be _the_ devils advocate (sip some esspresso
-before responding or reading): 
-for some reason i always thought that packets going across these things
-(likely not in the case of hypervisor based virtualization like Xen)
-just have their skbs cloned when crossing domains, is that not the
-case?[1]
-Assuming they copy, the balance that needs to be stricken now is
-between:
+http://marc.info/?l=linux-netdev&m=114954878711789&w=2
 
-a) copy is expensive
-vs
-b1) For N guests, N^2 queues in the system vs N queues and 1 vs N
-replicated global info.
-b2) The architecture challenges to resolve the fact you now have to deal
-with a mesh (1-1 mapping) instead of star topology between the guests. 
+The consensus there at the
+end of the above thread was to revert out the e1000 multiple rx queue code until
+such time as the netpoll code could be updated to better interoperate with
+multiple rx queues (Andy Grover I believe was the person who volunteered for the
+job).  Given that I've not seen any netpoll updates regarding netpoll and
+multi-rx since then, I'm guessing the use of fake netdevs is still a problem.
+I've not checked this driver for all of the potential problems we found, but I
+will, and let you know if I see any.
 
-I dont think #b1 is such a big deal; in the old days when i had played
-with what is now openvz, i was happy to get 1024 virtual routers/guests
-(each running Zebra/OSPF). I could live with a little more wasted memory
-if the copy is reduced.
-I think sub-consciously i am questioning #b2. Do you really need that
-sacrifice just so that you can avoid one extra copy between two guests?
-If i was running virtual routers or servers i think the majority of
-traffic (by far) would be between a domain and outside of the box not
-between any two domains within the same box. 
+Regards
+Neil
+ 
 
-cheers,
-jamal
-
-
-[1] But then if this is true, i can think of a simple way to attack the
-other domains by inserting a kernel module into a domain that reduced
-the refcount of each received skb to 0. I would be suprised if the
-openvz type approach hasnt thought this through.
-
-
+-- 
+/***************************************************
+ *Neil Horman
+ *Software Engineer
+ *Red Hat, Inc.
+ *nhorman@tuxdriver.com
+ *gpg keyid: 1024D / 0x92A74FA1
+ *http://pgp.mit.edu
+ ***************************************************/
