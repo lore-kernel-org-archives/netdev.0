@@ -1,45 +1,26 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [E1000-devel] e1000: backport ich9 support from 7.5.5 ?
-Date: Tue, 03 Jul 2007 09:13:43 -0400
-Message-ID: <468A4B87.1070100@garzik.org>
-References: <1183238694.9055.10.camel@blaa> <08FE5CC30C9A3F41BF819A502CF7BF6E019416BA@fmsmsx411.amr.corp.intel.com> <20070703071530.GA25369@infradead.org>
+From: Kacper Bielecki <kazjote@stud.ics.p.lodz.pl>
+Subject: Re: PROBLEM: network interface regularly stops working
+Date: Tue, 3 Jul 2007 15:11:56 +0200
+Message-ID: <200707031511.56583.kazjote@stud.ics.p.lodz.pl>
+References: <200706051208.40929.kazjote@stud.ics.p.lodz.pl> <200706052147.02376.kazjote@stud.ics.p.lodz.pl> <20070605203709.GA26645@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "Williams, Mitch A" <mitch.a.williams@intel.com>,
-	Mark McLoughlin <markmc@redhat.com>,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	Jason Lunz <lunz@reflexsecurity.com>
-To: Christoph Hellwig <hch@infradead.org>
+Cc: netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:59844 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754560AbXGCNNx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Jul 2007 09:13:53 -0400
-In-Reply-To: <20070703071530.GA25369@infradead.org>
+Received: from stud.ics.p.lodz.pl ([212.51.220.231]:30718 "EHLO
+	stud.ics.p.lodz.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753789AbXGCNRL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2007 09:17:11 -0400
+In-Reply-To: <20070605203709.GA26645@electric-eye.fr.zoreil.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Christoph Hellwig wrote:
-> On Mon, Jul 02, 2007 at 04:52:52PM -0700, Williams, Mitch A wrote:
->> - We include e1000new in 2.6.23, along side e1000.  We expose ICH9
->>   device IDs in e1000new, and gate the rest of the IDs inside
->>   #ifndef CONFIG_E1000.
-> 
-> No.  Hardware support in one driver should never be affected by config
-> options in another drivers.
+New kernel patch didn't solve my problem. 
 
-Agreed.
-
-
-> Also I really think there shouldn't be one single driver for all the
-> hardware as outlined by intel people in this thread.
-
-Agreed.
-
-(as I've been saying)
-
-	Jeff
-
-
+I noticed also that number of packets dropped which is shown in ifconfig 
+output increases always by 4294967295 no mather what time elapsed between two 
+runs.
