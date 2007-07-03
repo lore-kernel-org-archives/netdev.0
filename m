@@ -1,93 +1,109 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH 8/9] [TCP]: Reduce sacked_out with reno when purging
- write_queue
-Date: Tue, 3 Jul 2007 14:08:18 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0707031353480.14307@kivilampi-30.cs.helsinki.fi>
-References: <11801685621520-git-send-email-ilpo.jarvinen@helsinki.fi>
- <11801685621830-git-send-email-ilpo.jarvinen@helsinki.fi>
- <1180168562524-git-send-email-ilpo.jarvinen@helsinki.fi>
- <20070702.220009.128111387.davem@davemloft.net>
+From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
+Subject: RE: [PATCH] ucc_geth.c, make PHY device optional.
+Date: Tue, 03 Jul 2007 13:19:46 +0200
+Message-ID: <1183461586.20673.192.camel@gentoo-jocke.transmode.se>
+References: <989B956029373F45A0B8AF0297081890D8383E@zch01exm26.fsl.freescale.net>
+Reply-To: joakim.tjernlund@transmode.se
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-685715096-1183460898=:14307"
-Cc: Netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: linuxppc-dev Development <linuxppc-dev@ozlabs.org>,
+	Netdev <netdev@vger.kernel.org>,
+	Fleming Andy-afleming <afleming@freescale.com>
+To: Li Yang-r58472 <LeoLi@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:35599 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756770AbXGCLIT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2007 07:08:19 -0400
-In-Reply-To: <20070702.220009.128111387.davem@davemloft.net>
+Received: from mail.transmode.se ([83.241.175.147]:63789 "EHLO
+	tmnt04.transmode.se" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756013AbXGCLTs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2007 07:19:48 -0400
+In-Reply-To: <989B956029373F45A0B8AF0297081890D8383E@zch01exm26.fsl.freescale.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-
----696243703-685715096-1183460898=:14307
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
-
-On Mon, 2 Jul 2007, David Miller wrote:
-
-> From: "Ilpo_Järvinen" <ilpo.jarvinen@helsinki.fi>
-> Date: Sat, 26 May 2007 11:36:01 +0300
-> 
-> > Previously TCP had a transitional state during which reno
-> > counted segments that are already below the current window into
-> > sacked_out, which is now prevented. Re-try now unconditional
-> > S+L catching (I wonder if we could get that BUG_ON place
-> > pinpointed more exactly in oops because now inlining makes it
-> > lose its original context as they always seem to be in
-> > tcp_ack, #define helps?).
+On Tue, 2007-07-03 at 16:22 +0800, Li Yang-r58472 wrote:
+> > -----Original Message-----
+> > From: Joakim Tjernlund [mailto:joakim.tjernlund@transmode.se]
+> > Sent: Tuesday, July 03, 2007 3:21 PM
+> > To: Li Yang-r58472
+> > Cc: linuxppc-dev Development; Netdev; Fleming Andy-afleming
+> > Subject: RE: [PATCH] ucc_geth.c, make PHY device optional.
 > > 
-> > Beware, this change is not a trivial one and might have some
-> > unexpected side-effects under obscure conditions since state
-> > tracking is to happen much later on and the reno sack counting
-> > was highly depending on the current state.
+> > On Tue, 2007-07-03 at 11:42 +0800, Li Yang-r58472 wrote:
+> > > > -----Original Message-----
+> > > > From: netdev-owner@vger.kernel.org
+> > > [mailto:netdev-owner@vger.kernel.org] On
+> > > > Behalf Of Joakim Tjernlund
+> > > > Sent: Tuesday, July 03, 2007 8:52 AM
+> > > > To: 'linuxppc-dev Development'; 'Netdev'; Li Yang-r58472
+> > > > Subject: [PATCH] ucc_geth.c, make PHY device optional.
+> > > >
+> > > > > This patch makes the PHY optional for ucc_geth.c ethernet
+> driver.
+> > > > > This is useful to support a direct mii to mii connection to, for
+> > > example,
+> > > > > a onboard swicth.
+> > > > >
+> > > > > Signed-off-by: Joakim Tjernlund <joakim.tjernlund@transmode.se>
+> > > > ----
+> > > Hi Joakim,
+> > >
+> > > I'm wondering if we really need to have the option to disable
+> phylib.
 > > 
-> > This approach conservatively calls just remove_sack and leaves
-> > reset_sack() calls alone. The best solution to the whole problem
-> > would be to first calculate the new sacked_out fully (this patch
-> > does not move reno_sack_reset calls from original sites and thus
-> > does not implement this). However, that would require very
-> > invasive change to fastretrans_alert (perhaps even slicing it to
-> > two halves). Alternatively, all callers of tcp_packets_in_flight
-> > (i.e., users that depend on sacked_out) should be postponed
-> > until the new sacked_out has been calculated but it isn't any
-> > simpler alternative.
+> > maybe, but it has to be dynamic too. I need to use PHY on UCC2 and mii
+> > on UCC3 and UCC4.
 > > 
-> > Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+> > > Actually we have made phylib selected by default for ucc_geth.  Many
+> L2
+> > > switch chips have the capacity to be controlled.  Therefore they can
+> be
+> > > managed as a phy device.
+> > 
+> > Yes, they can be but why force a PHY impl. when its is of no use? The
+> > only thing the eth driver needs from the it is speed and duplex. If
+> > these are fixed, you don't need to talk with a PHY.
 > 
-> So basically the idea behind this patch is to do the update of
-> the fake RENO sakcs in clean_rtx_queue instead of fixing it up
-> at the very last moment right before we invoke tcp_try_to_undo_partial().
+> The driver needs to get and set the link speed/status on runtime (such
+> as for ethtool interface).  Currently this is implementation through
+> phydev interface.  IMHO, it will be easier to maintain if we only use
+> this standard interface, rather than use different interfaces for
+> different cases.
 
-Yeap, it would change sacked_out that things are seeing before 
-undo_partial point (if there would be some) but it would qualify IMHO 
-as fix for those case too rather than bug. I checked that F-RTO (with 
-reno) cannot ever access stale sacked_out because of other constraints 
-based on ACK's snd_una, and that's pretty much what's being done between 
-there.
+hmm maybe, but there is no need to much around with speed/status
+from user space. The speed and duplex must be set before user space
+is up.
 
-TCP might still do another update later on by using tcp_reset_reno_sack, 
-but that's always going to more aggressive update (or at least an equal 
-one).
-
-> I like this patch and I can't find any holes in the idea.
 > 
-> But some things have changed in the meantime and this patch
-> (and probably 9/9 too) don't apply cleanly.  Could you respin
-> these against current tcp-2.6 so I can apply them?
+> > 
+> > > For the MII interface which is not
+> > > configurable, shouldn't we use the fixed phy support from Vitaly?
+> > 
+> > Well, I think the the fixed phy is great when your eth driver requires
+> a
+> > PHY, but it is a workaround with extra processing overhead. IMHO the
+> > best impl. is to make the PHY optional in the eth driver and as you
+> can
+> > see from the patch, that was really simple.
+> 
+> I agree there is overhead. However, it will have the advantage of
+> abstracting all the PHY related stuff out of controller driver.
+> 
+> > 
+> > An useful extension would be to add a new propety in the DTS to hold
+> > initial speed and duplex(perhaps extend phy-connection-type). This
+> > would be useful for the fixed driver too as one could derive speed and
+> > duplex for the fixed phy from that property instead of creating a
+> fixed
+> > phy for each speed and duplex one want to support.
+> 
+> I agree that there should be a device node to configure it.  The current
+> fixed phy driver is a little bit too complex to emulate the register
+> access.  Maybe it's better to have a null phy driver which just reads
+> PHY capacity and status from device node.
 
-I knew that :-), it was postponed due to other, more important issues and 
-because the trees then got some depencies at that point I decided it's 
-better to wait for a while until tcp-2.6 gets all stuff that's to be in 
-net-2.6... But now that things seem to have settled, I'll provide the 
-updated one later on. The 9/9 should be dropped, I've noticed a cpu 
-processing vulnerability in it which I previously didn't see there (I 
-describe it in my other post).
+A null phy driver is better than the current fixed phy, I agree.
+Where would you like to put initial speed and duplex? In a fake phy node
+or in the ethernet node?
+Perhaps this should live in BSP code instead?
 
-
--- 
- i.
----696243703-685715096-1183460898=:14307--
+ Jocke
