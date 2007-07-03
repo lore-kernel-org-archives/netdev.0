@@ -1,38 +1,32 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 3/4] [IrDA] kingsun-sir.c charset fix
-Date: Mon, 02 Jul 2007 22:56:23 -0700 (PDT)
-Message-ID: <20070702.225623.107290580.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 4/4] [IrDA] tsap init routine factorisation
+Date: Mon, 02 Jul 2007 22:57:15 -0700 (PDT)
+Message-ID: <20070702.225715.109569495.davem@davemloft.net>
 References: <20070701221427.101308704@sortiz.org>
-	<20070701221705.948742675@sortiz.org>
+	<20070701221706.468909173@sortiz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, a_villacis-5itmuRygkZmgSpxsJD1C4w@public.gmane.org,
-	irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org
-Return-path: <irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <20070701221705.948742675-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
-	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=irda-users>
-List-Post: <mailto:irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
-	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Sender: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-Errors-To: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, irda-users@lists.sourceforge.net,
+	gl@dsa-ac.de
+To: samuel@sortiz.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56164
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753376AbXGCF4z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2007 01:56:55 -0400
+In-Reply-To: <20070701221706.468909173@sortiz.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org
-Date: Mon, 02 Jul 2007 01:14:30 +0300
+From: samuel@sortiz.org
+Date: Mon, 02 Jul 2007 01:14:31 +0300
 
-> Cc: Alex Villac=EDs Lasso <a_villacis-5itmuRygkZmgSpxsJD1C4w@public.gmane.org>
-> Signed-off-by: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
+> This patch extracts common code from irttp_open_tsap() and irttp_dup() 
+> into a new function to 1) avoid code duplication, 2) help avoid forgetting 
+> object initialization in the tsap duplication path in the future.
+> 
+> Signed-off-by: G. Liakhovetski <gl@dsa-ac.de>
+> Signed-off-by: Samuel Ortiz <samuel@sortiz.org>
 
-Applied.
-
--------------------------------------------------------------------------
-This SF.net email is sponsored by DB2 Express
-Download DB2 Express C - the FREE version of DB2 express and take
-control of your XML. No limits. Just data. Click to get it now.
-http://sourceforge.net/powerbar/db2/
+Also applied, thanks.
