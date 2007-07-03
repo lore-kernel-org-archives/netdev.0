@@ -1,13 +1,13 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] ixgbe: Introduce new 10GbE driver for Intel 82598 based
- PCI Express adapters...
-Date: Mon, 02 Jul 2007 20:11:36 -0400
-Message-ID: <46899438.3080504@garzik.org>
-References: <4688F512.3030801@garzik.org> <20070702214238.GA7085@infradead.org> <46897611.9020207@intel.com> <200707030010.25431.mb@bu3sch.de> <46897934.5040101@garzik.org> <468990D8.6040604@intel.com>
+From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+Subject: Re: [PATCH] ixgbe: Introduce new 10GbE driver for Intel 82598 based PCI Express adapters...
+Date: Mon, 2 Jul 2007 17:16:48 -0700
+Message-ID: <200707021716.49637.inaky@linux.intel.com>
+References: <4688F512.3030801@garzik.org> <46897934.5040101@garzik.org> <468990D8.6040604@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Michael Buesch <mb@bu3sch.de>,
+Cc: Jeff Garzik <jeff@garzik.org>, Michael Buesch <mb@bu3sch.de>,
 	Christoph Hellwig <hch@infradead.org>,
 	Stephen Hemminger <shemminger@linux-foundation.org>,
 	"Veeraiyan, Ayyappan" <ayyappan.veeraiyan@intel.com>,
@@ -15,31 +15,73 @@ Cc: Michael Buesch <mb@bu3sch.de>,
 	akpm@linux-foundation.org
 To: "Kok, Auke" <auke-jan.h.kok@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:55475 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755629AbXGCALo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Jul 2007 20:11:44 -0400
+Received: from mga06.intel.com ([134.134.136.21]:32513 "EHLO
+	orsmga101.jf.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756014AbXGCAQ5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jul 2007 20:16:57 -0400
 In-Reply-To: <468990D8.6040604@intel.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Kok, Auke wrote:
+On Monday 02 July 2007, Kok, Auke wrote:
+> Jeff Garzik wrote:
+> > Michael Buesch wrote:
+> >> On Tuesday 03 July 2007 00:02:57 Kok, Auke wrote:
+> >>> well, FWIW when I started looking at adding these flags I looked in various 
+> >>> subsystems in the kernel and picked an implementation that suited. Guess what 
+> >>> pci.h has? ...:
+> >>>
+> >>> 	unsigned int msi_enabled:1;
+> >>> 	unsigned int msix_enabled:1;
+> >>>
+> >>> this is literally where I copied the example from
+> >>>
+> >>> I suppose I can fix those, but I really don't understand what all the fuzz is 
+> >>> about here. We're only conserving memory and staying far away from the real 
+> >> I'm not sure if these bitfields actually _do_ conserve memory.
+> >> Generated code gets bigger (need bitwise masks and stuff).
+> >> Code also needs memory. It probably only conserves memory, if the
+> >> structure is instanciated a lot.
+> > 
+> > Actually, that's a good point.  On several RISC architectures it 
+> > certainly generates bigger code.
+> 
+>...
+>
 > but let's stay constructive here:
 > 
 > ~/git/linux-2.6 $ grep -r 'unsigned int.*:1;' * | wc -l
 > 748
 > 
-> Is anyone going to fix those? If we don't, someone will certainly again 
-> submit patches to add more of these bitfields, after all, some very 
-> prominent parts of the kernel still use them. Only recently for instance 
-> mac80211 merged like 30 of these.... and drivers/net, include etc.. 
-> certainly has a lot of these.
+> Is anyone going to fix those? If we don't, someone will certainly again submit 
+> patches to add more of these bitfields, after all, some very prominent parts of 
+> the kernel still use them. Only recently for instance mac80211 merged like 30 of 
+> these.... and drivers/net, include etc.. certainly has a lot of these.
+
+I don't think bitfields are broken. Maybe it's the compiler what should be fixed (*)
+
+...bitfields are there to save the coder having to type masks by hand. There should 
+be no difference in the generated code from doing
+
+u32 value = readl(fromsomewhere);
+printf("bits 16 & 15 0x%08x\n", value & 0x00018000 >> 15);
+
+union {
+  struct {
+    u32 reserved1:15;
+    u32 val:2;
+   } __attribute__((packed))
+   u32 data;
+} value;
+value.data = readl(fromsomewhere);
+printf("bits 16 & 15 0x%08x\n", value.val);
+
+Granted, that looks big, but once you nail it out at your struct definitons, it
+makes maintenance much easier when looking at the bitmasks in the specs. Masks and
+shifts tend to suck on the long term when they accumulate.
+
+-- Inaky
 
 
-There is a lot of crap in the kernel.  Just look at all the grotty SCSI 
-or char drivers, for example.  The first task is to avoid adding more 
-crap :)
-
-	Jeff
-
-
+(*) not to mention the endianness mess
