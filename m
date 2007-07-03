@@ -1,137 +1,73 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] netlink: allocate group bitmaps dynamically
-Date: Tue, 03 Jul 2007 14:05:57 +0200
-Message-ID: <468A3BA5.9050909@trash.net>
-References: <1179827251.7707.29.camel@localhost.localdomain>	 <1182178882.4063.11.camel@localhost>	 <1182223964.5411.76.camel@localhost.localdomain>	 <1182811210.6644.22.camel@johannes.berg>	 <1182986681.5155.55.camel@localhost>	 <1183121869.4089.57.camel@johannes.berg>  <468504FE.9000502@trash.net>	 <1183122920.4089.63.camel@johannes.berg>  <468507C9.2000800@trash.net>	 <1183124085.4089.66.camel@johannes.berg>  <46850CB8.8000509@trash.net>	 <1183124981.4089.69.camel@johannes.berg>  <46850EDE.5020804@trash.net>	 <1183125924.4089.73.camel@johannes.berg>	 <1183126739.4089.76.camel@johannes.berg>	 <1183129006.4089.84.camel@johannes.berg>	 <1183217536.5165.25.camel@localhost>	 <1183365821.4089.94.camel@johannes.berg>  <4688F612.1060408@trash.net>	 <1183386883.4089.120.camel@johannes.ber g>  <46890DF8.2020706@trash.net>	 <1183387687.4089.124.camel@johannes.berg>	 <1183414370.4089.141.camel@jo
- hannes.berg> <1183457329.3841.0.camel@johannes.berg>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: Multiqueue and virtualization WAS(Re: [PATCH 3/3] NET: [SCHED]
+	Qdisc changes and sch_rr added for multiqueue
+Date: Tue, 03 Jul 2007 08:42:33 -0400
+Message-ID: <1183466553.5159.51.camel@localhost>
+References: <1183167053.5153.7.camel@localhost>
+	 <20070629.213503.34601850.davem@davemloft.net>
+	 <1183215164.5165.13.camel@localhost>
+	 <20070630.133357.77057070.davem@davemloft.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, Zhang Rui <rui.zhang@intel.com>,
-	netdev@vger.kernel.org,
-	"linux-acpi@vger" <linux-acpi@vger.kernel.org>, lenb@kernel.org,
-	Thomas Graf <tgraf@suug.ch>
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <1183457329.3841.0.camel@johannes.berg>
-Sender: linux-acpi-owner@vger.kernel.org
+Cc: kaber@trash.net, peter.p.waskiewicz.jr@intel.com,
+	netdev@vger.kernel.org, jeff@garzik.org, auke-jan.h.kok@intel.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wx-out-0506.google.com ([66.249.82.235]:8189 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753046AbXGCMmi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2007 08:42:38 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so1780697wxd
+        for <netdev@vger.kernel.org>; Tue, 03 Jul 2007 05:42:37 -0700 (PDT)
+In-Reply-To: <20070630.133357.77057070.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Johannes Berg wrote:
-> Allow changing the number of groups for a netlink family
-> after it has been created.
+On Sat, 2007-30-06 at 13:33 -0700, David Miller wrote:
+
+> It's like twice as fast, since the switch doesn't have to copy
+> the packet in, switch it, then the destination guest copies it
+> into it's address space.
 > 
-> Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
-> 
-> ---
->  include/linux/netlink.h  |    1 
->  net/netlink/af_netlink.c |   61 +++++++++++++++++++++++++++++++++++------------
->  2 files changed, 47 insertions(+), 15 deletions(-)
-> 
-> --- wireless-dev.orig/net/netlink/af_netlink.c	2007-07-03 00:10:31.617889695 +0200
-> +++ wireless-dev/net/netlink/af_netlink.c	2007-07-03 00:31:30.267889695 +0200
-> @@ -316,8 +316,11 @@ netlink_update_listeners(struct sock *sk
->  
->  	for (i = 0; i < NLGRPSZ(tbl->groups)/sizeof(unsigned long); i++) {
->  		mask = 0;
-> -		sk_for_each_bound(sk, node, &tbl->mc_list)
-> -			mask |= nlk_sk(sk)->groups[i];
-> +		sk_for_each_bound(sk, node, &tbl->mc_list) {
-> +			if (nlk_sk(sk)->ngroups >=
-> +			    (i + 1) * sizeof(unsigned long))
+> There is approximately one copy for each hop you go over through these
+> virtual devices.
+
+Ok - i see what you are getting at, and while it makes more sense to me
+now, let me continue to be _the_ devils advocate (sip some esspresso
+before responding or reading): 
+for some reason i always thought that packets going across these things
+(likely not in the case of hypervisor based virtualization like Xen)
+just have their skbs cloned when crossing domains, is that not the
+case?[1]
+Assuming they copy, the balance that needs to be stricken now is
+between:
+
+a) copy is expensive
+vs
+b1) For N guests, N^2 queues in the system vs N queues and 1 vs N
+replicated global info.
+b2) The architecture challenges to resolve the fact you now have to deal
+with a mesh (1-1 mapping) instead of star topology between the guests. 
+
+I dont think #b1 is such a big deal; in the old days when i had played
+with what is now openvz, i was happy to get 1024 virtual routers/guests
+(each running Zebra/OSPF). I could live with a little more wasted memory
+if the copy is reduced.
+I think sub-consciously i am questioning #b2. Do you really need that
+sacrifice just so that you can avoid one extra copy between two guests?
+If i was running virtual routers or servers i think the majority of
+traffic (by far) would be between a domain and outside of the box not
+between any two domains within the same box. 
+
+cheers,
+jamal
 
 
-This condition implies that a socket can bind to a non-existant
-group, which shouldn't be possible.
+[1] But then if this is true, i can think of a simple way to attack the
+other domains by inserting a kernel module into a domain that reduced
+the refcount of each received skb to 0. I would be suprised if the
+openvz type approach hasnt thought this through.
 
-> +				mask |= nlk_sk(sk)->groups[i];
-> +		}
->  		tbl->listeners[i] = mask;
->  	}
->  	/* this function is only called with the netlink table "grabbed", which
-> @@ -555,10 +558,11 @@ netlink_update_subscriptions(struct sock
->  	nlk->subscriptions = subscriptions;
->  }
->  
-> -static int netlink_alloc_groups(struct sock *sk)
-> +static int netlink_realloc_groups(struct sock *sk)
->  {
->  	struct netlink_sock *nlk = nlk_sk(sk);
->  	unsigned int groups;
-> +	unsigned long *new_groups;
->  	int err = 0;
->  
->  	netlink_lock_table();
-> @@ -570,9 +574,15 @@ static int netlink_alloc_groups(struct s
->  	if (err)
->  		return err;
->  
-> -	nlk->groups = kzalloc(NLGRPSZ(groups), GFP_KERNEL);
-> -	if (nlk->groups == NULL)
-> +	if (nlk->ngroups >= groups)
-> +		return 0;
-> +
-> +	new_groups = krealloc(nlk->groups, NLGRPSZ(groups), GFP_KERNEL);
-> +	if (new_groups == NULL)
->  		return -ENOMEM;
-> +	memset((char*)new_groups + NLGRPSZ(nlk->ngroups), 0,
-> +	       NLGRPSZ(groups) - NLGRPSZ(nlk->ngroups));
-> +	nlk->groups = new_groups;
-
-
-This should probably happen with the table grabbed to avoid races
-with concurrent broadcasts.
-
-
-
-> @@ -1332,6 +1338,31 @@ out_sock_release:
->  	return NULL;
->  }
->  
-> +int netlink_change_ngroups(int unit, unsigned int groups)
-> +{
-> +	unsigned long *listeners;
-> +	int err = 0;
-> +
-> +	netlink_table_grab();
-
-
-Unfortunately that doesn't prevent races with netlink_has_listeners
-since its lockless (and should really stay that way).
-
-
-> +	if (NLGRPSZ(nl_table[unit].groups) < NLGRPSZ(groups)) {
-> +		listeners = krealloc(nl_table[unit].listeners,
-> +				     NLGRPSZ(groups), GFP_KERNEL);
-> +		if (!listeners) {
-> +			err = -ENOMEM;
-> +			goto out_ungrab;
-> +		}
-> +		memset((char*) listeners + NLGRPSZ(nl_table[unit].groups),
-> +		       0, NLGRPSZ(groups) - NLGRPSZ(nl_table[unit].groups));
-> +		nl_table[unit].listeners = listeners;
-> +	}
-> +	nl_table[unit].groups = groups;
-> +
-> + out_ungrab:
-> +	netlink_table_ungrab();
-> +	return err;
-> +}
-> +EXPORT_SYMBOL(netlink_change_ngroups);
-> +
->  void netlink_set_nonroot(int protocol, unsigned int flags)
->  {
->  	if ((unsigned int)protocol < MAX_LINKS)
-> --- wireless-dev.orig/include/linux/netlink.h	2007-07-03 00:09:13.047889695 +0200
-> +++ wireless-dev/include/linux/netlink.h	2007-07-03 00:31:30.267889695 +0200
-> @@ -161,6 +161,7 @@ extern struct sock *netlink_kernel_creat
->  					  void (*input)(struct sock *sk, int len),
->  					  struct mutex *cb_mutex,
->  					  struct module *module);
-> +extern int netlink_change_ngroups(int unit, unsigned int groups);
->  extern void netlink_ack(struct sk_buff *in_skb, struct nlmsghdr *nlh, int err);
->  extern int netlink_has_listeners(struct sock *sk, unsigned int group);
->  extern int netlink_unicast(struct sock *ssk, struct sk_buff *skb, __u32 pid, int nonblock);
-> 
-> 
 
