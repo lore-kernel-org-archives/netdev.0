@@ -1,62 +1,46 @@
-From: Yinghai Lu <Yinghai.Lu@Sun.COM>
-Subject: Re: [PATCH 2/2] net: make net and forcedeth to use kmalloc_node
-Date: Tue, 03 Jul 2007 14:28:50 -0700
-Message-ID: <468ABF92.5030800@sun.com>
-References: <200706291330.37070.yinghai.lu@sun.com>
- <20070703115840.e05a0f47.akpm@linux-foundation.org>
- <20070703120430.4dcbba68@freepuppy.localdomain.hemminger.net>
-Reply-To: Yinghai.Lu@Sun.COM
+From: David Miller <davem@davemloft.net>
+Subject: Re: [WIP][PATCHES] Network xmit batching - tg3 support
+Date: Tue, 03 Jul 2007 14:30:17 -0700 (PDT)
+Message-ID: <20070703.143017.122063558.davem@davemloft.net>
+References: <1182989145.5155.81.camel@localhost>
+	<1183411245.6609.16.camel@teletran1>
+	<1183468188.5159.73.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; format=flowed; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: Andrew Morton <akpm@linux-foundation.org>, Andi Kleen <ak@suse.de>,
-	Greg KH <greg@kroah.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1761841AbXGCV00@vger.kernel.org>
-In-reply-to: <20070703120430.4dcbba68@freepuppy.localdomain.hemminger.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: mcarlson@broadcom.com, Robert.Olsson@data.slu.se,
+	johnpol@2ka.mipt.ru, krkumar2@in.ibm.com, gaagaan@gmail.com,
+	netdev@vger.kernel.org, rick.jones2@hp.com, sri@us.ibm.com,
+	jeff@garzik.org, mchan@broadcom.com
+To: hadi@cyberus.ca
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35914
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754018AbXGCV35 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2007 17:29:57 -0400
+In-Reply-To: <1183468188.5159.73.camel@localhost>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> On Tue, 3 Jul 2007 11:58:40 -0700
-> Andrew Morton <akpm@linux-foundation.org> wrote:
-> 
->> On Fri, 29 Jun 2007 13:30:36 -0700
->> Yinghai Lu <Yinghai.Lu@Sun.COM> wrote:
->>
->>> [PATCH 2/2] net: make net and forcedeth to use kmalloc_node
->> Please copy netdev@vger.kernel.org on net patches.
->>
->> This patch modifies a net driver as well as the networking core.  These
->> subsytems have different maintainers who run different development trees. 
->> Consequently I must split your patch into two and change their titles and
->> changelogs appropriately.
->>
->> Please do this for us in future, thanks.
->>
->>
->>> diff --git a/drivers/net/forcedeth.c b/drivers/net/forcedeth.c
->>> index 42ba1c0..6d53b52 100644
->>> --- a/drivers/net/forcedeth.c
->>> +++ b/drivers/net/forcedeth.c
->>> @@ -1383,7 +1383,7 @@ static int nv_alloc_rx(struct net_device *dev)
->>>  		less_rx = np->last_rx.orig;
->>>  
->>>  	while (np->put_rx.orig != less_rx) {
->>> -		struct sk_buff *skb = dev_alloc_skb(np->rx_buf_sz + NV_RX_ALLOC_PAD);
->>> +		struct sk_buff *skb = dev_alloc_skb_node(np->rx_buf_sz + NV_RX_ALLOC_PAD, dev_to_node(&dev->dev));
->> If we're going to do this then it would probably make sense to change
->> dev_alloc_skb_node() so that it takes a `struct net_device *' rather than a
->> bare node-id.  That's a call which the net guys will need to make, which is
->> why we cc them on our emails.
-> 
-> The driver should use netdev_alloc_skb. That routine is supposed to be overriden
-> on architecture's that need per node changes.
+From: jamal <hadi@cyberus.ca>
+Date: Tue, 03 Jul 2007 09:09:48 -0400
 
-do you mean:
-use dev_alloc_skb_node for numa arch.
-and other non numa will use macro or static inline to dev_alloc_skb
+> [It sounds very dangerous to me the way skb->cb is being used by the
+> vlan code (i.e requires human intervention/knowledge to catch it as an
+> issue). I had no freaking idea the vlan code was using it. Maybe a huge
+> comment somewhere on how these cbs are being used by drivers would help
+> or even a registration on startup to just make sure there is no conflict
+> at a layer (i have been meaning to do the later for years now). In any
+> case this is is a digression]. 
 
-YH
+This is how the VLAN layer passed in the tag for the transmit
+function.
+
+The CB is owned by the caller until you spam it with your local
+data at your level, so if you need any information the previous
+layer provides you have to sample it before using the ->cb[]
+
+So you can simply fix this by reading the VLAN tag, then using
+the ->cb[] however you like.
+
+It's always been like this, don't be surprised :)
