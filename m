@@ -1,90 +1,1079 @@
-From: Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>
-Subject: Re: [PATCH] ps3: gigabit ethernet driver for PS3, take2
-Date: Tue, 3 Jul 2007 17:11:48 +0200 (CEST)
-Message-ID: <Pine.LNX.4.62.0707031709040.8675@pademelon.sonytel.be>
-References: <20070619183956.F224.MOKUNO@sm.sony.co.jp> <4688EFD1.1060805@garzik.org>
- <20070703194416.91C5.MOKUNO@sm.sony.co.jp> <468A4AED.7080907@garzik.org>
+From: Ben Dooks <ben@fluff.org>
+Subject: [PATCH] AX88796 network driver
+Date: Tue, 3 Jul 2007 16:53:09 +0100
+Message-ID: <20070703155309.GA4005@fluff.org.uk>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-584337861-129714989-1183475508=:8675"
-Cc: Masakazu Mokuno <mokuno@sm.sony.co.jp>, netdev@vger.kernel.org,
-	Geoff Levand <geoffrey.levand@am.sony.com>,
-	Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain; charset=us-ascii
+To: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vervifontaine.sonytel.be ([80.88.33.193]:36334 "EHLO
-	vervifontaine.sonycom.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1756384AbXGCPL4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2007 11:11:56 -0400
-In-Reply-To: <468A4AED.7080907@garzik.org>
+Received: from 87-194-8-8.bethere.co.uk ([87.194.8.8]:62027 "EHLO
+	aeryn.fluff.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754392AbXGCPxL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2007 11:53:11 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+Support for the Asix AX88796 network controller, an
+NE2000 compatible 10/100 ethernet device with internal
+PHY.
 
----584337861-129714989-1183475508=:8675
-Content-Type: TEXT/PLAIN; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
+The driver supports PHY settings via either ioctl() or
+the ethtool driver ops. 
 
-On Tue, 3 Jul 2007, Jeff Garzik wrote:
-> Masakazu Mokuno wrote:
-> > > > --- a/drivers/net/Makefile
-> > > > +++ b/drivers/net/Makefile
-> > > > @@ -60,6 +60,8 @@ obj-$(CONFIG_TIGON3) += tg3.o
-> > > >  obj-$(CONFIG_BNX2) += bnx2.o
-> > > >  spidernet-y += spider_net.o spider_net_ethtool.o
-> > > >  obj-$(CONFIG_SPIDER_NET) += spidernet.o sungem_phy.o
-> > > > +obj-$(CONFIG_GELIC_NET) += ps3_gelic.o
-> > > > +ps3_gelic-objs += gelic_net.o
-> > > >  obj-$(CONFIG_TC35815) += tc35815.o
-> > > >  obj-$(CONFIG_SKGE) += skge.o
-> > > >  obj-$(CONFIG_SKY2) += sky2.o
-> > > > --- /dev/null
-> > > > +++ b/drivers/net/gelic_net.c
-> > > The patch does not reflect the new name...
-> > 
-> > The driver's module name is 'ps3_gelic.ko' and the souce file names are
-> > 'gelic_net.{c,h}'.  As Geoff Levand said in the mail dated June 16, we
-> > have plan to add wireless support and its file name would be
-> > gelic_wireless.c.
-> > If this support added, the make file would be:
-> > 
-> >   obj-$(CONFIG_GELIC_NET) += ps3_gelic.o
-> >   gelic-$(CONFIG_GELIC_WIRELESS) += gelic_wireless.o
-> >   ps3_gelic-objs += gelic_net.o $(gelic-y)
-> 
-> 
-> For single-file modules, the source file prefix should match the output file
-> prefix.
-> 
-> No Linux driver does it any other way.  It leads to confusion.
+Signed-off-by: Ben Dooks <ben-linux@fluff.org>
 
-Right now it's indeed a single source file module.
-
-However, we are working on wireless support for gelic (the virtual network
-device supports both wired and wireless), which will add a second source file.
-
-So you want us to rename
-  1. gelic_net.c -> ps3_gelic_net.c
-  2. gelic_wireless.c -> ps3_gelic_wireless.c
-while the actual kernel module will be ps3_gelic.{o,ko}, right?
-
-With kind regards,
+Index: linux-2.6.21-quilt4/drivers/net/8390.h
+===================================================================
+--- linux-2.6.21-quilt4.orig/drivers/net/8390.h	2007-04-26 04:08:32.000000000 +0100
++++ linux-2.6.21-quilt4/drivers/net/8390.h	2007-06-04 15:46:35.000000000 +0100
+@@ -73,6 +73,9 @@ struct ei_device {
+ 	u32 *reg_offset;		/* Register mapping table */
+ 	spinlock_t page_lock;		/* Page register locks */
+ 	unsigned long priv;		/* Private field to store bus IDs etc. */
++#ifdef AX88796_PLATFORM
++	unsigned char rxcr_base;	/* default value for RXCR */
++#endif
+ };
  
-Geert Uytterhoeven
-Software Architect
-
-Sony Network and Software Technology Center Europe
-The Corporate Village · Da Vincilaan 7-D1 · B-1935 Zaventem · Belgium
+ /* The maximum number of 8390 interrupt service routines called per IRQ. */
+@@ -86,11 +89,19 @@ struct ei_device {
+ /* Some generic ethernet register configurations. */
+ #define E8390_TX_IRQ_MASK	0xa	/* For register EN0_ISR */
+ #define E8390_RX_IRQ_MASK	0x5
++
++#ifdef AX88796_PLATFORM
++#define E8390_RXCONFIG		(ei_status.rxcr_base | 0x04)
++#define E8390_RXOFF		(ei_status.rxcr_base | 0x20)
++#else
+ #define E8390_RXCONFIG		0x4	/* EN0_RXCR: broadcasts, no multicast,errors */
+ #define E8390_RXOFF		0x20	/* EN0_RXCR: Accept no packets */
++#endif
++
+ #define E8390_TXCONFIG		0x00	/* EN0_TXCR: Normal transmit mode */
+ #define E8390_TXOFF		0x02	/* EN0_TXCR: Transmitter off */
  
-Phone:    +32 (0)2 700 8453	
-Fax:      +32 (0)2 700 8622	
-E-mail:   Geert.Uytterhoeven@sonycom.com	
-Internet: http://www.sony-europe.com/
- 	
-Sony Network and Software Technology Center Europe	
-A division of Sony Service Centre (Europe) N.V.	
-Registered office: Technologielaan 7 · B-1840 Londerzeel · Belgium	
-VAT BE 0413.825.160 · RPR Brussels	
-Fortis Bank Zaventem · Swift GEBABEBB08A · IBAN BE39001382358619
----584337861-129714989-1183475508=:8675--
++
+ /*  Register accessed at EN_CMD, the 8390 base addr.  */
+ #define E8390_STOP	0x01	/* Stop and reset the chip */
+ #define E8390_START	0x02	/* Start the chip, clear reset */
+Index: linux-2.6.21-quilt4/drivers/net/Makefile
+===================================================================
+--- linux-2.6.21-quilt4.orig/drivers/net/Makefile	2007-04-26 04:08:32.000000000 +0100
++++ linux-2.6.21-quilt4/drivers/net/Makefile	2007-06-04 15:46:35.000000000 +0100
+@@ -107,6 +107,7 @@ obj-$(CONFIG_NET_SB1250_MAC) += sb1250-m
+ obj-$(CONFIG_B44) += b44.o
+ obj-$(CONFIG_FORCEDETH) += forcedeth.o
+ obj-$(CONFIG_NE_H8300) += ne-h8300.o
++obj-$(CONFIG_AX88796) += ax88796.o
+ 
+ obj-$(CONFIG_TSI108_ETH) += tsi108_eth.o
+ obj-$(CONFIG_MV643XX_ETH) += mv643xx_eth.o
+Index: linux-2.6.21-quilt4/drivers/net/ax88796.c
+===================================================================
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ linux-2.6.21-quilt4/drivers/net/ax88796.c	2007-06-04 15:51:04.000000000 +0100
+@@ -0,0 +1,952 @@
++/* drivers/net/ax88796.c
++ *
++ * Copyright 2005,2007 Simtec Electronics
++ *	Ben Dooks <ben@simtec.co.uk>
++ *
++ * Asix AX88796 10/100 Ethernet controller support
++ *	Based on ne.c, by Donald Becker, et-al.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++*/
++
++#include <linux/module.h>
++#include <linux/kernel.h>
++#include <linux/errno.h>
++#include <linux/isapnp.h>
++#include <linux/init.h>
++#include <linux/interrupt.h>
++#include <linux/platform_device.h>
++#include <linux/delay.h>
++#include <linux/timer.h>
++#include <linux/netdevice.h>
++#include <linux/etherdevice.h>
++#include <linux/ethtool.h>
++#include <linux/mii.h>
++
++#include <net/ax88796.h>
++
++#include <asm/system.h>
++#include <asm/io.h>
++
++static int phy_debug = 0;
++
++/* Rename the lib8390.c functions to show that they are in this driver */
++#define __ei_open       ax_ei_open
++#define __ei_close      ax_ei_close
++#define __ei_poll	ax_ei_poll
++#define __ei_tx_timeout ax_ei_tx_timeout
++#define __ei_interrupt  ax_ei_interrupt
++#define ____alloc_ei_netdev ax__alloc_ei_netdev
++#define __NS8390_init   ax_NS8390_init
++
++/* force unsigned long back to 'void __iomem *' */
++#define ax_convert_addr(_a) ((void __force __iomem *)(_a))
++
++#define ei_inb(_a)	readb(ax_convert_addr(_a))
++#define ei_outb(_v, _a) writeb(_v, ax_convert_addr(_a))
++
++#define ei_inb_p(_a)	ei_inb(_a)
++#define ei_outb_p(_v, _a) ei_outb(_v, _a)
++
++/* define EI_SHIFT() to take into account our register offsets */
++#define EI_SHIFT(x)     (ei_local->reg_offset[(x)])
++
++/* Ensure we have our RCR base value */
++#define AX88796_PLATFORM
++
++static unsigned char version[] = "ax88796.c: Copyright 2005,2007 Simtec Electronics\n";
++
++#include "lib8390.c"
++
++#define DRV_NAME "ax88796"
++#define DRV_VERSION "1.00"
++
++/* from ne.c */
++#define NE_CMD		EI_SHIFT(0x00)
++#define NE_RESET	EI_SHIFT(0x1f)
++#define NE_DATAPORT	EI_SHIFT(0x10)
++
++#define NE1SM_START_PG	0x20	/* First page of TX buffer */
++#define NE1SM_STOP_PG 	0x40	/* Last page +1 of RX ring */
++#define NESM_START_PG	0x40	/* First page of TX buffer */
++#define NESM_STOP_PG	0x80	/* Last page +1 of RX ring */
++
++/* device private data */
++
++struct ax_device {
++	struct timer_list	 mii_timer;
++	spinlock_t		 mii_lock;
++	struct mii_if_info	 mii;
++
++	u32			 msg_enable;
++	void __iomem		*map2;
++	struct platform_device	*dev;
++	struct resource		*mem;
++	struct resource		*mem2;
++	struct ax_plat_data	*plat;
++
++	unsigned char		 running;
++	unsigned char		 resume_open;
++
++	u32			 reg_offsets[0x20];
++};
++
++static inline struct ax_device *to_ax_dev(struct net_device *dev)
++{
++	struct ei_device *ei_local = netdev_priv(dev);
++	return (struct ax_device *)(ei_local+1);
++}
++
++/* ax_initial_check
++ *
++ * do an initial probe for the card to check wether it exists
++ * and is functional
++ */
++
++static int ax_initial_check(struct net_device *dev)
++{
++	struct ei_device *ei_local = netdev_priv(dev);
++	void __iomem *ioaddr = ei_local->mem;
++	int reg0;
++	int regd;
++
++	reg0 = ei_inb(ioaddr);
++	if (reg0 == 0xFF)
++		return -ENODEV;
++
++	ei_outb(E8390_NODMA+E8390_PAGE1+E8390_STOP, ioaddr + E8390_CMD);
++	regd = ei_inb(ioaddr + 0x0d);
++	ei_outb(0xff, ioaddr + 0x0d);
++	ei_outb(E8390_NODMA+E8390_PAGE0, ioaddr + E8390_CMD);
++	ei_inb(ioaddr + EN0_COUNTER0); /* Clear the counter by reading. */
++	if (ei_inb(ioaddr + EN0_COUNTER0) != 0) {
++		ei_outb(reg0, ioaddr);
++		ei_outb(regd, ioaddr + 0x0d);	/* Restore the old values. */
++		return -ENODEV;
++	}
++
++	return 0;
++}
++
++/* Hard reset the card.  This used to pause for the same period that a
++   8390 reset command required, but that shouldn't be necessary. */
++
++static void ax_reset_8390(struct net_device *dev)
++{
++	struct ei_device *ei_local = netdev_priv(dev);
++	unsigned long reset_start_time = jiffies;
++	void __iomem *addr = (void __iomem *)dev->base_addr;
++
++	if (ei_debug > 1)
++		printk(KERN_DEBUG "resetting the 8390 t=%ld...", jiffies);
++
++	ei_outb(ei_inb(addr + NE_RESET), addr + NE_RESET);
++
++	ei_status.txing = 0;
++	ei_status.dmaing = 0;
++
++	/* This check _should_not_ be necessary, omit eventually. */
++	while ((ei_inb(addr + EN0_ISR) & ENISR_RESET) == 0) {
++		if (jiffies - reset_start_time > 2*HZ/100) {
++			printk(KERN_WARNING "%s: %s did not complete.\n",
++			       __FUNCTION__, dev->name);
++			break;
++		}
++	}
++
++	ei_outb(ENISR_RESET, addr + EN0_ISR);	/* Ack intr. */
++}
++
++
++static void ax_get_8390_hdr(struct net_device *dev, struct e8390_pkt_hdr *hdr,
++			    int ring_page)
++{
++	struct ei_device *ei_local = netdev_priv(dev);
++	void __iomem *nic_base = ei_local->mem;
++
++	/* This *shouldn't* happen. If it does, it's the last thing you'll see */
++	if (ei_status.dmaing) {
++		printk(KERN_EMERG "%s: DMAing conflict in %s [DMAstat:%d][irqlock:%d].\n",
++			dev->name, __FUNCTION__,
++		       ei_status.dmaing, ei_status.irqlock);
++		return;
++	}
++
++	ei_status.dmaing |= 0x01;
++	ei_outb(E8390_NODMA+E8390_PAGE0+E8390_START, nic_base+ NE_CMD);
++	ei_outb(sizeof(struct e8390_pkt_hdr), nic_base + EN0_RCNTLO);
++	ei_outb(0, nic_base + EN0_RCNTHI);
++	ei_outb(0, nic_base + EN0_RSARLO);		/* On page boundary */
++	ei_outb(ring_page, nic_base + EN0_RSARHI);
++	ei_outb(E8390_RREAD+E8390_START, nic_base + NE_CMD);
++
++	if (ei_status.word16)
++		readsw(nic_base + NE_DATAPORT, hdr, sizeof(struct e8390_pkt_hdr)>>1);
++	else
++		readsb(nic_base + NE_DATAPORT, hdr, sizeof(struct e8390_pkt_hdr));
++
++	ei_outb(ENISR_RDC, nic_base + EN0_ISR);	/* Ack intr. */
++	ei_status.dmaing &= ~0x01;
++
++	le16_to_cpus(&hdr->count);
++}
++
++
++/* Block input and output, similar to the Crynwr packet driver.  If you
++   are porting to a new ethercard, look at the packet driver source for hints.
++   The NEx000 doesn't share the on-board packet memory -- you have to put
++   the packet out through the "remote DMA" dataport using ei_outb. */
++
++static void ax_block_input(struct net_device *dev, int count,
++			   struct sk_buff *skb, int ring_offset)
++{
++	struct ei_device *ei_local = netdev_priv(dev);
++	void __iomem *nic_base = ei_local->mem;
++	char *buf = skb->data;
++
++	if (ei_status.dmaing) {
++		printk(KERN_EMERG "%s: DMAing conflict in ax_block_input "
++			"[DMAstat:%d][irqlock:%d].\n",
++			dev->name, ei_status.dmaing, ei_status.irqlock);
++		return;
++	}
++
++	ei_status.dmaing |= 0x01;
++
++	ei_outb(E8390_NODMA+E8390_PAGE0+E8390_START, nic_base+ NE_CMD);
++	ei_outb(count & 0xff, nic_base + EN0_RCNTLO);
++	ei_outb(count >> 8, nic_base + EN0_RCNTHI);
++	ei_outb(ring_offset & 0xff, nic_base + EN0_RSARLO);
++	ei_outb(ring_offset >> 8, nic_base + EN0_RSARHI);
++	ei_outb(E8390_RREAD+E8390_START, nic_base + NE_CMD);
++
++	if (ei_status.word16) {
++		readsw(nic_base + NE_DATAPORT, buf, count >> 1);
++		if (count & 0x01)
++			buf[count-1] = ei_inb(nic_base + NE_DATAPORT);
++
++	} else {
++		readsb(nic_base + NE_DATAPORT, buf, count);
++	}
++
++	ei_status.dmaing &= ~1;
++}
++
++static void ax_block_output(struct net_device *dev, int count,
++			    const unsigned char *buf, const int start_page)
++{
++	struct ei_device *ei_local = netdev_priv(dev);
++	void __iomem *nic_base = ei_local->mem;
++	unsigned long dma_start;
++
++	/* Round the count up for word writes.  Do we need to do this?
++	   What effect will an odd byte count have on the 8390?
++	   I should check someday. */
++
++	if (ei_status.word16 && (count & 0x01))
++		count++;
++
++	/* This *shouldn't* happen. If it does, it's the last thing you'll see */
++	if (ei_status.dmaing) {
++		printk(KERN_EMERG "%s: DMAing conflict in %s."
++			"[DMAstat:%d][irqlock:%d]\n",
++			dev->name, __FUNCTION__,
++		       ei_status.dmaing, ei_status.irqlock);
++		return;
++	}
++
++	ei_status.dmaing |= 0x01;
++	/* We should already be in page 0, but to be safe... */
++	ei_outb(E8390_PAGE0+E8390_START+E8390_NODMA, nic_base + NE_CMD);
++
++	ei_outb(ENISR_RDC, nic_base + EN0_ISR);
++
++	/* Now the normal output. */
++	ei_outb(count & 0xff, nic_base + EN0_RCNTLO);
++	ei_outb(count >> 8,   nic_base + EN0_RCNTHI);
++	ei_outb(0x00, nic_base + EN0_RSARLO);
++	ei_outb(start_page, nic_base + EN0_RSARHI);
++
++	ei_outb(E8390_RWRITE+E8390_START, nic_base + NE_CMD);
++	if (ei_status.word16) {
++		writesw(nic_base + NE_DATAPORT, buf, count>>1);
++	} else {
++		writesb(nic_base + NE_DATAPORT, buf, count);
++	}
++
++	dma_start = jiffies;
++
++	while ((ei_inb(nic_base + EN0_ISR) & ENISR_RDC) == 0) {
++		if (jiffies - dma_start > 2*HZ/100) {		/* 20ms */
++			printk(KERN_WARNING "%s: timeout waiting for Tx RDC.\n", dev->name);
++			ax_reset_8390(dev);
++			ax_NS8390_init(dev,1);
++			break;
++		}
++	}
++
++	ei_outb(ENISR_RDC, nic_base + EN0_ISR);	/* Ack intr. */
++	ei_status.dmaing &= ~0x01;
++	return;
++}
++
++/* definitions for accessing MII/EEPROM interface */
++
++#define AX_MEMR			EI_SHIFT(0x14)
++#define AX_MEMR_MDC		(1<<0)
++#define AX_MEMR_MDIR		(1<<1)
++#define AX_MEMR_MDI		(1<<2)
++#define AX_MEMR_MDO		(1<<3)
++#define AX_MEMR_EECS		(1<<4)
++#define AX_MEMR_EEI		(1<<5)
++#define AX_MEMR_EEO		(1<<6)
++#define AX_MEMR_EECLK		(1<<7)
++
++/* ax_mii_ei_outbits
++ *
++ * write the specified set of bits to the phy
++*/
++
++static void
++ax_mii_ei_outbits(struct net_device *dev, unsigned int bits, int len)
++{
++	struct ei_device *ei_local = (struct ei_device *) netdev_priv(dev);
++	void __iomem *memr_addr = (void __iomem *)dev->base_addr + AX_MEMR;
++	unsigned int memr;
++
++	/* clock low, data to output mode */
++	memr = ei_inb(memr_addr);
++	memr &= ~(AX_MEMR_MDC | AX_MEMR_MDIR);
++	ei_outb(memr, memr_addr);
++
++	for (len--; len >= 0; len--) {
++		if (bits & (1 << len))
++			memr |= AX_MEMR_MDO;
++		else
++			memr &= ~AX_MEMR_MDO;
++
++		ei_outb(memr, memr_addr);
++
++		/* clock high */
++
++		ei_outb(memr | AX_MEMR_MDC, memr_addr);
++		udelay(1);
++
++		/* clock low */
++		ei_outb(memr, memr_addr);
++	}
++
++	/* leaves the clock line low, mdir input */
++	memr |= AX_MEMR_MDIR;
++	ei_outb(memr, (void __iomem *)dev->base_addr + AX_MEMR);
++}
++
++/* ax_phy_ei_inbits
++ *
++ * read a specified number of bits from the phy
++*/
++
++static unsigned int
++ax_phy_ei_inbits(struct net_device *dev, int no)
++{
++	struct ei_device *ei_local = (struct ei_device *) netdev_priv(dev);
++	void __iomem *memr_addr = (void __iomem *)dev->base_addr + AX_MEMR;
++	unsigned int memr;
++	unsigned int result = 0;
++
++	/* clock low, data to input mode */
++	memr = ei_inb(memr_addr);
++	memr &= ~AX_MEMR_MDC;
++	memr |= AX_MEMR_MDIR;
++	ei_outb(memr, memr_addr);
++
++	for (no--; no >= 0; no--) {
++		ei_outb(memr | AX_MEMR_MDC, memr_addr);
++
++		udelay(1);
++
++		if (ei_inb(memr_addr) & AX_MEMR_MDI)
++			result |= (1<<no);
++
++		ei_outb(memr, memr_addr);
++	}
++
++	return result;
++}
++
++/* ax_phy_issueaddr
++ *
++ * use the low level bit shifting routines to send the address
++ * and command to the specified phy
++*/
++
++static void
++ax_phy_issueaddr(struct net_device *dev, int phy_addr, int reg, int opc)
++{
++	if (phy_debug)
++		pr_debug("%s: dev %p, %04x, %04x, %d\n",
++			__FUNCTION__, dev, phy_addr, reg, opc);
++
++	ax_mii_ei_outbits(dev, 0x3f, 6);	/* pre-amble */
++	ax_mii_ei_outbits(dev, 1, 2);		/* frame-start */
++	ax_mii_ei_outbits(dev, opc, 2);		/* op code */
++	ax_mii_ei_outbits(dev, phy_addr, 5);	/* phy address */
++	ax_mii_ei_outbits(dev, reg, 5);		/* reg address */
++}
++
++static int
++ax_phy_read(struct net_device *dev, int phy_addr, int reg)
++{
++	struct ei_device *ei_local = (struct ei_device *) netdev_priv(dev);
++	unsigned long flags;
++ 	unsigned int result;
++
++      	spin_lock_irqsave(&ei_local->page_lock, flags);
++
++	ax_phy_issueaddr(dev, phy_addr, reg, 2);
++
++	result = ax_phy_ei_inbits(dev, 17);
++	result &= ~(3<<16);
++
++      	spin_unlock_irqrestore(&ei_local->page_lock, flags);
++
++	if (phy_debug)
++		pr_debug("%s: %04x.%04x => read %04x\n", __FUNCTION__,
++			 phy_addr, reg, result);
++
++	return result;
++}
++
++static void
++ax_phy_write(struct net_device *dev, int phy_addr, int reg, int value)
++{
++	struct ei_device *ei = (struct ei_device *) netdev_priv(dev);
++	unsigned long flags;
++
++	printk(KERN_DEBUG "%s: %p, %04x, %04x %04x\n",
++	       __FUNCTION__, dev, phy_addr, reg, value);
++
++      	spin_lock_irqsave(&ei->page_lock, flags);
++
++	ax_phy_issueaddr(dev, phy_addr, reg, 1);
++	ax_mii_ei_outbits(dev, 2, 2);		/* send TA */
++	ax_mii_ei_outbits(dev, value, 16);
++
++      	spin_unlock_irqrestore(&ei->page_lock, flags);
++}
++
++static void ax_mii_expiry(unsigned long data)
++{
++	struct net_device *dev = (struct net_device *)data;
++	struct ax_device  *ax = to_ax_dev(dev);
++	unsigned long flags;
++
++	spin_lock_irqsave(&ax->mii_lock, flags);
++	mii_check_media(&ax->mii, netif_msg_link(ax), 0);
++	spin_unlock_irqrestore(&ax->mii_lock, flags);
++
++	if (ax->running) {
++		ax->mii_timer.expires = jiffies + HZ*2;
++		add_timer(&ax->mii_timer);
++	}
++}
++
++static int ax_open(struct net_device *dev)
++{
++	struct ax_device  *ax = to_ax_dev(dev);
++	struct ei_device *ei_local = netdev_priv(dev);
++	int ret;
++
++	dev_dbg(ax->dev, "%s: open\n", dev->name);
++
++	ret = request_irq(dev->irq, ax_ei_interrupt, 0, dev->name, dev);
++	if (ret)
++		return ret;
++
++	ret = ax_ei_open(dev);
++	if (ret)
++		return ret;
++
++	/* turn the phy on (if turned off) */
++
++	ei_outb(ax->plat->gpoc_val, ei_local->mem + EI_SHIFT(0x17));
++	ax->running = 1;
++
++	/* start the MII timer */
++
++	init_timer(&ax->mii_timer);
++
++	ax->mii_timer.expires  = jiffies+1;
++	ax->mii_timer.data     = (unsigned long) dev;
++	ax->mii_timer.function = ax_mii_expiry;
++
++	add_timer(&ax->mii_timer);
++
++	return 0;
++}
++
++static int ax_close(struct net_device *dev)
++{
++	struct ax_device *ax = to_ax_dev(dev);
++	struct ei_device *ei_local = netdev_priv(dev);
++
++	dev_dbg(ax->dev, "%s: close\n", dev->name);
++
++	/* turn the phy off */
++
++	ei_outb(ax->plat->gpoc_val | (1<<6),
++	       ei_local->mem + EI_SHIFT(0x17));
++
++	ax->running = 0;
++	wmb();
++
++	del_timer_sync(&ax->mii_timer);
++	ax_ei_close(dev);
++
++	free_irq(dev->irq, dev);
++	return 0;
++}
++
++static int ax_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
++{
++	struct ax_device *ax = to_ax_dev(dev);
++	unsigned long flags;
++	int rc;
++
++	if (!netif_running(dev))
++		return -EINVAL;
++
++	spin_lock_irqsave(&ax->mii_lock, flags);
++	rc = generic_mii_ioctl(&ax->mii, if_mii(req), cmd, NULL);
++	spin_unlock_irqrestore(&ax->mii_lock, flags);
++
++	return rc;
++}
++
++/* ethtool ops */
++
++static void ax_get_drvinfo(struct net_device *dev,
++			   struct ethtool_drvinfo *info)
++{
++	struct ax_device *ax = to_ax_dev(dev);
++
++	strcpy(info->driver, DRV_NAME);
++	strcpy(info->version, DRV_VERSION);
++	strcpy(info->bus_info, ax->dev->name);
++}
++
++static int ax_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
++{
++	struct ax_device *ax = to_ax_dev(dev);
++	unsigned long flags;
++
++	spin_lock_irqsave(&ax->mii_lock, flags);
++	mii_ethtool_gset(&ax->mii, cmd);
++	spin_lock_irqsave(&ax->mii_lock, flags);
++
++	return 0;
++}
++
++static int ax_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
++{
++	struct ax_device *ax = to_ax_dev(dev);
++	unsigned long flags;
++	int rc;
++
++	spin_lock_irqsave(&ax->mii_lock, flags);
++	rc = mii_ethtool_sset(&ax->mii, cmd);
++	spin_lock_irqsave(&ax->mii_lock, flags);
++
++	return rc;
++}
++
++static int ax_nway_reset(struct net_device *dev)
++{
++	struct ax_device *ax = to_ax_dev(dev);
++	return mii_nway_restart(&ax->mii);
++}
++
++static u32 ax_get_link(struct net_device *dev)
++{
++	struct ax_device *ax = to_ax_dev(dev);
++	return mii_link_ok(&ax->mii);
++}
++
++static const struct ethtool_ops ax_ethtool_ops = {
++	.get_drvinfo		= ax_get_drvinfo,
++	.get_settings		= ax_get_settings,
++	.set_settings		= ax_set_settings,
++	.nway_reset		= ax_nway_reset,
++	.get_link		= ax_get_link,
++	.get_perm_addr		= ethtool_op_get_perm_addr,
++};
++
++/* setup code */
++
++static void ax_initial_setup(struct net_device *dev, struct ei_device *ei_local)
++{
++	void __iomem *ioaddr = ei_local->mem;
++	struct ax_device *ax = to_ax_dev(dev);
++
++	/* Select page 0*/
++	ei_outb(E8390_NODMA+E8390_PAGE0+E8390_STOP, ioaddr + E8390_CMD);
++
++	/* set to byte access */
++	ei_outb(ax->plat->dcr_val & ~1, ioaddr + EN0_DCFG);
++	ei_outb(ax->plat->gpoc_val, ioaddr + EI_SHIFT(0x17));
++}
++
++/* ax_init_dev
++ *
++ * initialise the specified device, taking care to note the MAC
++ * address it may already have (if configured), ensure
++ * the device is ready to be used by lib8390.c and registerd with
++ * the network layer.
++ */
++
++static int ax_init_dev(struct net_device *dev, int first_init)
++{
++	struct ei_device *ei_local = netdev_priv(dev);
++	struct ax_device *ax = to_ax_dev(dev);
++	void __iomem *ioaddr = ei_local->mem;
++	unsigned int start_page;
++	unsigned int stop_page;
++	int ret;
++	int i;
++
++	ret = ax_initial_check(dev);
++	if (ret)
++		goto err_out;
++
++	/* setup goes here */
++
++	ax_initial_setup(dev, ei_local);
++
++	/* read the mac from the card prom if we need it */
++
++	if (first_init && ax->plat->flags & AXFLG_HAS_EEPROM) {
++		unsigned char SA_prom[32];
++
++		for(i = 0; i < sizeof(SA_prom); i+=2) {
++			SA_prom[i] = ei_inb(ioaddr + NE_DATAPORT);
++			SA_prom[i+1] = ei_inb(ioaddr + NE_DATAPORT);
++		}
++
++		if (ax->plat->wordlength == 2)
++			for (i = 0; i < 16; i++)
++				SA_prom[i] = SA_prom[i+i];
++
++		memcpy(dev->dev_addr,  SA_prom, 6);
++	}
++
++	if (ax->plat->wordlength == 2) {
++		/* We must set the 8390 for word mode. */
++		ei_outb(ax->plat->dcr_val, ei_local->mem + EN0_DCFG);
++		start_page = NESM_START_PG;
++		stop_page = NESM_STOP_PG;
++	} else {
++		start_page = NE1SM_START_PG;
++		stop_page = NE1SM_STOP_PG;
++	}
++
++	/* load the mac-address from the device if this is the
++	 * first time we've initialised */
++
++	if (first_init && ax->plat->flags & AXFLG_MAC_FROMDEV) {
++		ei_outb(E8390_NODMA + E8390_PAGE1 + E8390_STOP,
++			ei_local->mem + E8390_CMD); /* 0x61 */
++
++		for (i = 0 ; i < ETHER_ADDR_LEN ; i++)
++			dev->dev_addr[i] = ei_inb(ioaddr + EN1_PHYS_SHIFT(i));
++	}
++
++	ax_reset_8390(dev);
++
++	ei_status.name = "AX88796";
++	ei_status.tx_start_page = start_page;
++	ei_status.stop_page = stop_page;
++	ei_status.word16 = (ax->plat->wordlength == 2);
++	ei_status.rx_start_page = start_page + TX_PAGES;
++
++#ifdef PACKETBUF_MEMSIZE
++	 /* Allow the packet buffer size to be overridden by know-it-alls. */
++	ei_status.stop_page = ei_status.tx_start_page + PACKETBUF_MEMSIZE;
++#endif
++
++	ei_status.reset_8390	= &ax_reset_8390;
++	ei_status.block_input	= &ax_block_input;
++	ei_status.block_output	= &ax_block_output;
++	ei_status.get_8390_hdr	= &ax_get_8390_hdr;
++	ei_status.priv = 0;
++
++	dev->open		= ax_open;
++	dev->stop		= ax_close;
++	dev->do_ioctl		= ax_ioctl;
++	dev->ethtool_ops	= &ax_ethtool_ops;
++
++	ax->msg_enable		= NETIF_MSG_LINK;
++	ax->mii.phy_id_mask	= 0x1f;
++	ax->mii.reg_num_mask	= 0x1f;
++	ax->mii.phy_id		= 0x10;		/* onboard phy */
++	ax->mii.force_media	= 0;
++	ax->mii.full_duplex	= 0;
++	ax->mii.mdio_read	= ax_phy_read;
++	ax->mii.mdio_write	= ax_phy_write;
++	ax->mii.dev		= dev;
++
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	dev->poll_controller = ax_ei_poll;
++#endif
++	ax_NS8390_init(dev, 0);
++
++	if (first_init) {
++		printk("AX88796: %dbit, irq %d, %lx, MAC: ",
++		       ei_status.word16 ? 16:8, dev->irq, dev->base_addr);
++
++		for (i = 0; i < ETHER_ADDR_LEN; i++)
++			printk("%2.2x%c", dev->dev_addr[i],
++			       (i < (ETHER_ADDR_LEN-1) ? ':' : ' '));
++
++		printk("\n");
++	}
++
++	ret = register_netdev(dev);
++	if (ret)
++		goto out_irq;
++
++	return 0;
++
++ out_irq:
++	/* cleanup irq */
++	free_irq(dev->irq, dev);
++ err_out:
++	return ret;
++}
++
++static int ax_remove(struct platform_device *_dev)
++{
++	struct net_device *dev = platform_get_drvdata(_dev);
++	struct ax_device  *ax;
++
++	ax = to_ax_dev(dev);
++
++	unregister_netdev(dev);
++	free_irq(dev->irq, dev);
++
++	iounmap(ei_status.mem);
++	release_resource(ax->mem);
++	kfree(ax->mem);
++
++	if (ax->map2) {
++		iounmap(ax->map2);
++		release_resource(ax->mem2);
++		kfree(ax->mem2);
++	}
++
++	free_netdev(dev);
++
++	return 0;
++}
++
++/* ax_probe
++ *
++ * This is the entry point when the platform device system uses to
++ * notify us of a new device to attach to. Allocate memory, find
++ * the resources and information passed, and map the necessary registers.
++*/
++
++static int ax_probe(struct platform_device *pdev)
++{
++	struct net_device *dev;
++	struct ax_device  *ax;
++	struct resource   *res;
++	size_t size;
++	int ret;
++
++	dev = ax__alloc_ei_netdev(sizeof(struct ax_device));
++	if (dev == NULL)
++		return -ENOMEM;
++
++	/* ok, let's setup our device */
++	ax = to_ax_dev(dev);
++
++	memset(ax, 0, sizeof(struct ax_device));
++
++	spin_lock_init(&ax->mii_lock);
++
++	ax->dev = pdev;
++	ax->plat = pdev->dev.platform_data;
++	platform_set_drvdata(pdev, dev);
++
++	ei_status.rxcr_base  = ax->plat->rcr_val;
++
++	/* find the platform resources */
++
++	dev->irq  = platform_get_irq(pdev, 0);
++	if (dev->irq < 0) {
++		dev_err(&pdev->dev, "no IRQ specified\n");
++		ret = -ENXIO;
++		goto exit_mem;
++	}
++
++	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++	if (res == NULL) {
++		dev_err(&pdev->dev, "no MEM specified\n");
++		ret = -ENXIO;
++		goto exit_mem;
++	}
++
++	size = (res->end - res->start) + 1;
++
++	/* setup the register offsets from either the platform data
++	 * or by using the size of the resource provided */
++
++	if (ax->plat->reg_offsets)
++		ei_status.reg_offset = ax->plat->reg_offsets;
++	else {
++		ei_status.reg_offset = ax->reg_offsets;
++		for (ret = 0; ret < 0x18; ret++)
++			ax->reg_offsets[ret] = (size / 0x18) * ret;
++	}
++
++	ax->mem = request_mem_region(res->start, size, pdev->name);
++	if (ax->mem == NULL) {
++		dev_err(&pdev->dev, "cannot reserve registers\n");
++ 		ret = -ENXIO;
++		goto exit_mem;
++	}
++
++	ei_status.mem = ioremap(res->start, size);
++	dev->base_addr = (long)ei_status.mem;
++
++	if (ei_status.mem == NULL) {
++		dev_err(&pdev->dev, "Cannot ioremap area (%08zx,%08zx)\n",
++			res->start, res->end);
++
++ 		ret = -ENXIO;
++		goto exit_req;
++	}
++
++	/* look for reset area */
++
++	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
++	if (res == NULL) {
++		if (!ax->plat->reg_offsets) {
++			for (ret = 0; ret < 0x20; ret++)
++				ax->reg_offsets[ret] = (size / 0x20) * ret;
++		}
++
++		ax->map2 = NULL;
++	} else {
++ 		size = (res->end - res->start) + 1;
++
++		ax->mem2 = request_mem_region(res->start, size, pdev->name);
++		if (ax->mem == NULL) {
++			dev_err(&pdev->dev, "cannot reserve registers\n");
++			ret = -ENXIO;
++			goto exit_mem1;
++		}
++
++		ax->map2 = ioremap(res->start, size);
++		if (ax->map2 == NULL) {
++			dev_err(&pdev->dev, "cannot map reset register");
++			ret = -ENXIO;
++			goto exit_mem2;
++		}
++
++		ei_status.reg_offset[0x1f] = ax->map2 - ei_status.mem;
++	}
++
++	/* got resources, now initialise and register device */
++
++	ret = ax_init_dev(dev, 1);
++	if (!ret)
++		return 0;
++
++	if (ax->map2 == NULL)
++		goto exit_mem1;
++
++	iounmap(ax->map2);
++
++ exit_mem2:
++	release_resource(ax->mem2);
++	kfree(ax->mem2);
++
++ exit_mem1:
++	iounmap(ei_status.mem);
++
++ exit_req:
++	release_resource(ax->mem);
++	kfree(ax->mem);
++
++ exit_mem:
++	free_netdev(dev);
++
++	return ret;
++}
++
++/* suspend and resume */
++
++#ifdef CONFIG_PM
++static int ax_suspend(struct platform_device *dev, pm_message_t state)
++{
++	struct net_device *ndev = platform_get_drvdata(dev);
++	struct ax_device  *ax = to_ax_dev(ndev);
++
++	ax->resume_open = ax->running;
++
++	netif_device_detach(ndev);
++	ax_close(ndev);
++
++	return 0;
++}
++
++static int ax_resume(struct platform_device *pdev)
++{
++	struct net_device *ndev = platform_get_drvdata(pdev);
++	struct ax_device  *ax = to_ax_dev(ndev);
++
++	ax_initial_setup(ndev, netdev_priv(ndev));
++	ax_NS8390_init(ndev, ax->resume_open);
++	netif_device_attach(ndev);
++
++	if (ax->resume_open)
++		ax_open(ndev);
++
++	return 0;
++}
++
++#else
++#define ax_suspend NULL
++#define ax_resume  NULL
++#endif
++
++static struct platform_driver axdrv = {
++	.driver	= {
++		.name		= "ax88796",
++		.owner		= THIS_MODULE,
++	},
++	.probe		= ax_probe,
++	.remove		= ax_remove,
++	.suspend	= ax_suspend,
++	.resume		= ax_resume,
++};
++
++static int __init axdrv_init(void)
++{
++	return platform_driver_register(&axdrv);
++}
++
++static void __exit axdrv_exit(void)
++{
++	platform_driver_unregister(&axdrv);
++}
++
++module_init(axdrv_init);
++module_exit(axdrv_exit);
++
++MODULE_DESCRIPTION("AX88796 10/100 Ethernet platform driver");
++MODULE_AUTHOR("Ben Dooks, <ben@simtec.co.uk>");
++MODULE_LICENSE("GPL v2");
+Index: linux-2.6.21-quilt4/drivers/net/Kconfig
+===================================================================
+--- linux-2.6.21-quilt4.orig/drivers/net/Kconfig	2007-04-26 04:08:32.000000000 +0100
++++ linux-2.6.21-quilt4/drivers/net/Kconfig	2007-06-04 15:46:35.000000000 +0100
+@@ -201,6 +201,14 @@ config MACB
+ 
+ source "drivers/net/arm/Kconfig"
+ 
++config AX88796
++	tristate "ASIX AX88796 NE2000 clone support"
++	select CRC32
++	select MII
++	help
++	  AX88796 driver, using platform bus to provide
++	  chip detection and resources
++
+ config MACE
+ 	tristate "MACE (Power Mac ethernet) support"
+ 	depends on NET_ETHERNET && PPC_PMAC && PPC32
+Index: linux-2.6.21-quilt4/include/net/ax88796.h
+===================================================================
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ linux-2.6.21-quilt4/include/net/ax88796.h	2007-06-04 15:46:35.000000000 +0100
+@@ -0,0 +1,27 @@
++/* include/net/ax88796.h
++ *
++ * Copyright 2005 Simtec Electronics
++ *	Ben Dooks <ben@simtec.co.uk>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ *
++*/
++
++#ifndef __NET_AX88796_PLAT_H
++#define __NET_AX88796_PLAT_H
++
++#define AXFLG_HAS_EEPROM		(1<<0)
++#define AXFLG_MAC_FROMDEV		(1<<1)	/* device already has MAC */
++
++struct ax_plat_data {
++	unsigned int	 flags;
++	unsigned char	 wordlength;		/* 1 or 2 */
++	unsigned char	 dcr_val;		/* default value for DCR */
++	unsigned char	 rcr_val;		/* default value for RCR */
++	unsigned char	 gpoc_val;		/* default value for GPOC */
++	u32		*reg_offsets;		/* register offsets */
++};
++
++#endif /* __NET_AX88796_PLAT_H */
