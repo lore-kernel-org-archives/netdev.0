@@ -1,40 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Allow group ownership of TUN/TAP devices (fwd)
-Date: Mon, 02 Jul 2007 22:50:46 -0700 (PDT)
-Message-ID: <20070702.225046.102906247.davem@davemloft.net>
-References: <Line.LNX.4.64.0706181216230.8746@localhost.localdomain>
-	<20070618.223654.14957392.davem@davemloft.net>
-	<20070621145911.GA5874@c2.user-mode-linux.org>
+Subject: Re: [PATCH 1/4] [IrDA] Netlink layer
+Date: Mon, 02 Jul 2007 22:54:39 -0700 (PDT)
+Message-ID: <20070702.225439.67561626.davem@davemloft.net>
+References: <20070701221427.101308704@sortiz.org>
+	<20070701221705.099529494@sortiz.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jmorris@namei.org, netdev@vger.kernel.org, agx@sigxcpu.org
-To: jdike@addtoit.com
+Cc: netdev@vger.kernel.org, irda-users@lists.sourceforge.net
+To: samuel@sortiz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43499
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57089
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752138AbXGCFu1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2007 01:50:27 -0400
-In-Reply-To: <20070621145911.GA5874@c2.user-mode-linux.org>
+	by vger.kernel.org with ESMTP id S1751237AbXGCFyT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2007 01:54:19 -0400
+In-Reply-To: <20070701221705.099529494@sortiz.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jeff Dike <jdike@addtoit.com>
-Date: Thu, 21 Jun 2007 10:59:11 -0400
+From: samuel@sortiz.org
+Date: Mon, 02 Jul 2007 01:14:28 +0300
 
-> On Mon, Jun 18, 2007 at 10:36:54PM -0700, David Miller wrote:
-> > This patch looks fine.
-> > 
-> > I'd like it resubmitted with a proper changelog and signoff, and once
-> > I have that I will thus queue it up for the 2.6.23 merge window.
+> First IrDA configuration netlink layer implementation.
+> Currently, we only support the set/get mode commands.
 > 
-> Introduce a new syscall TUNSETGROUP for group ownership setting of tap
-> devices. The user now is allowed to send packages if either his euid or
-> his egid matches the one specified via tunctl (via -u or -g
-> respecitvely). If both, gid and uid, are set via tunctl, both have to
-> match.
-> 
-> Signed-Off-By: Guido Guenther <agx@sigxcpu.org>
-> Signed-Off-By: Jeff Dike <jdike@linux.intel.com>
+> Signed-off-by: Samuel Ortiz <samuel@sortiz.org>
 
-Patch applied, thanks a lot!
+Patch applied, thanks.
