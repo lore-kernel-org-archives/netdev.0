@@ -1,90 +1,54 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [WIP][PATCHES] Network xmit batching - tg3 support
-Date: Tue, 03 Jul 2007 09:09:48 -0400
-Message-ID: <1183468188.5159.73.camel@localhost>
-References: <OFB311484E.057E34E9-ON652572F3.001D5838-652572F3.0022766D@in.ibm.com>
-	 <1181216629.4064.22.camel@localhost> <20070619132148.GA32078@2ka.mipt.ru>
-	 <20070619133333.GA19667@2ka.mipt.ru> <20070619140038.GA13629@2ka.mipt.ru>
-	 <1182270529.4968.73.camel@localhost>
-	 <18040.5105.715624.286924@robur.slu.se>
-	 <1182275300.4968.83.camel@localhost> <1182989145.5155.81.camel@localhost>
-	 <1183411245.6609.16.camel@teletran1>
-Reply-To: hadi@cyberus.ca
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] ps3: gigabit ethernet driver for PS3, take2
+Date: Tue, 03 Jul 2007 09:11:09 -0400
+Message-ID: <468A4AED.7080907@garzik.org>
+References: <20070619183956.F224.MOKUNO@sm.sony.co.jp> <4688EFD1.1060805@garzik.org> <20070703194416.91C5.MOKUNO@sm.sony.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	Krishna Kumar2 <krkumar2@in.ibm.com>,
-	Gagan Arneja <gaagaan@gmail.com>, netdev@vger.kernel.org,
-	Rick Jones <rick.jones2@hp.com>,
-	Sridhar Samudrala <sri@us.ibm.com>,
-	David Miller <davem@davemloft.net>,
-	Jeff Garzik <jeff@garzik.org>,
-	Michael Chan <mchan@broadcom.com>
-To: Matt Carlson <mcarlson@broadcom.com>
+Cc: netdev@vger.kernel.org, Geoff Levand <geoffrey.levand@am.sony.com>,
+	Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>
+To: Masakazu Mokuno <mokuno@sm.sony.co.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.238]:22907 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754059AbXGCNJ6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2007 09:09:58 -0400
-Received: by wx-out-0506.google.com with SMTP id h31so1787134wxd
-        for <netdev@vger.kernel.org>; Tue, 03 Jul 2007 06:09:54 -0700 (PDT)
-In-Reply-To: <1183411245.6609.16.camel@teletran1>
+Received: from srv5.dvmed.net ([207.36.208.214]:59812 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753496AbXGCNLO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Jul 2007 09:11:14 -0400
+In-Reply-To: <20070703194416.91C5.MOKUNO@sm.sony.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2007-02-07 at 14:20 -0700, Matt Carlson wrote:
-
-
+Masakazu Mokuno wrote:
+>>> --- a/drivers/net/Makefile
+>>> +++ b/drivers/net/Makefile
+>>> @@ -60,6 +60,8 @@ obj-$(CONFIG_TIGON3) += tg3.o
+>>>  obj-$(CONFIG_BNX2) += bnx2.o
+>>>  spidernet-y += spider_net.o spider_net_ethtool.o
+>>>  obj-$(CONFIG_SPIDER_NET) += spidernet.o sungem_phy.o
+>>> +obj-$(CONFIG_GELIC_NET) += ps3_gelic.o
+>>> +ps3_gelic-objs += gelic_net.o
+>>>  obj-$(CONFIG_TC35815) += tc35815.o
+>>>  obj-$(CONFIG_SKGE) += skge.o
+>>>  obj-$(CONFIG_SKY2) += sky2.o
+>>> --- /dev/null
+>>> +++ b/drivers/net/gelic_net.c
+>> The patch does not reflect the new name...
 > 
-> Hi Jamal.  I'll be testing your patch soon,
-
-much thanks. Please let me know if you need help while doing this.
-What tools are you planning to test with? I have tested this patch
-with pktgen on a dual opteron/tg3-buggy. 
-There is an outstanding issue in regards to clocksource - however the
-batch does well regardless of the clock source.
-
->  but I wanted to point out a
-> bug in the patch.  The patch defines TG3_SKB_CB() as follows :
+> The driver's module name is 'ps3_gelic.ko' and the souce file names are
+> 'gelic_net.{c,h}'.  As Geoff Levand said in the mail dated June 16, we
+> have plan to add wireless support and its file name would be gelic_wireless.c.
+> If this support added, the make file would be:
 > 
-> #define TG3_SKB_CB(__skb) ((struct tg3_tx_cbdata *)&((__skb)->cb[0]))
-> 
-> This definition will collide with the VLAN macros if TG3_VLAN_TAG_USED
-> is set.  vlan_tx_tag_get() is defined as :
-> 
-> #define vlan_tx_tag_get(__skb)  (VLAN_TX_SKB_CB(__skb)->vlan_tag)
-> 
-> VLAN_TX_SKB_CB is defined as :
-> 
-> #define VLAN_TX_SKB_CB(__skb) \
->         ((struct vlan_skb_tx_cookie *)&((__skb)->cb[0]))
-> 
+>   obj-$(CONFIG_GELIC_NET) += ps3_gelic.o
+>   gelic-$(CONFIG_GELIC_WIRELESS) += gelic_wireless.o
+>   ps3_gelic-objs += gelic_net.o $(gelic-y)
 
-yikes. Thanks for catching that - I thought i had this pretty much
-covered after scanning the source. So that bug exists on the e1000 as
-well.
-[It sounds very dangerous to me the way skb->cb is being used by the
-vlan code (i.e requires human intervention/knowledge to catch it as an
-issue). I had no freaking idea the vlan code was using it. Maybe a huge
-comment somewhere on how these cbs are being used by drivers would help
-or even a registration on startup to just make sure there is no conflict
-at a layer (i have been meaning to do the later for years now). In any
-case this is is a digression]. 
 
-In the meantime, changing it to use byte 8 and above should do it? i.e.
-#define TG3_SKB_CB(__skb) ((struct tg3_tx_cbdata *)&((__skb)->cb[8]))
+For single-file modules, the source file prefix should match the output 
+file prefix.
 
-There are 48 bytes there on the skb-cb, so there should be plenty.
+No Linux driver does it any other way.  It leads to confusion.
 
-> Also, I think the count, max_per_txd, and nr_frags fields of the
-> tg3_tx_cbdata struct are not needed.
+	Jeff
 
-Yes, you are right. That was a result of the LinuxWay(tm) (aka cutnpaste
-from the e1000 which needs them), Can you send me a patch for that and
-TG3_SKB_CB? 
-
-cheers,
-jamal
 
