@@ -1,47 +1,68 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: e1000: backport ich9 support from 7.5.5 ?
-Date: Tue, 3 Jul 2007 08:15:30 +0100
-Message-ID: <20070703071530.GA25369@infradead.org>
-References: <1183238694.9055.10.camel@blaa>
-	<08FE5CC30C9A3F41BF819A502CF7BF6E019416BA@fmsmsx411.amr.corp.intel.com>
+From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
+Subject: RE: [PATCH] ucc_geth.c, make PHY device optional.
+Date: Tue, 03 Jul 2007 09:20:46 +0200
+Message-ID: <1183447246.20673.155.camel@gentoo-jocke.transmode.se>
+References: <989B956029373F45A0B8AF0297081890D837CB@zch01exm26.fsl.freescale.net>
+Reply-To: joakim.tjernlund@transmode.se
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Mark McLoughlin <markmc@redhat.com>,
-	"Kok,  Auke-jan H" <auke-jan.h.kok@intel.com>,
-	Jeff Garzik <jeff@garzik.org>, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, Jason Lunz <lunz@reflexsecurity.com>
-To: "Williams, Mitch A" <mitch.a.williams@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-Content-Disposition: inline
-In-Reply-To: <08FE5CC30C9A3F41BF819A502CF7BF6E019416BA@fmsmsx411.amr.corp.intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Cc: linuxppc-dev Development <linuxppc-dev@ozlabs.org>,
+	Netdev <netdev@vger.kernel.org>,
+	Fleming Andy-afleming <afleming@freescale.com>
+To: Li Yang-r58472 <LeoLi@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.transmode.se ([83.241.175.147]:53614 "EHLO
+	tmnt04.transmode.se" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755422AbXGCHUv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2007 03:20:51 -0400
+In-Reply-To: <989B956029373F45A0B8AF0297081890D837CB@zch01exm26.fsl.freescale.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 02, 2007 at 04:52:52PM -0700, Williams, Mitch A wrote:
-> - We include e1000new in 2.6.23, along side e1000.  We expose ICH9
->   device IDs in e1000new, and gate the rest of the IDs inside
->   #ifndef CONFIG_E1000.
+On Tue, 2007-07-03 at 11:42 +0800, Li Yang-r58472 wrote:
+> > -----Original Message-----
+> > From: netdev-owner@vger.kernel.org
+> [mailto:netdev-owner@vger.kernel.org] On
+> > Behalf Of Joakim Tjernlund
+> > Sent: Tuesday, July 03, 2007 8:52 AM
+> > To: 'linuxppc-dev Development'; 'Netdev'; Li Yang-r58472
+> > Subject: [PATCH] ucc_geth.c, make PHY device optional.
+> > 
+> > > This patch makes the PHY optional for ucc_geth.c ethernet driver.
+> > > This is useful to support a direct mii to mii connection to, for
+> example,
+> > > a onboard swicth.
+> > >
+> > > Signed-off-by: Joakim Tjernlund <joakim.tjernlund@transmode.se>
+> > ----
+> Hi Joakim,
+> 
+> I'm wondering if we really need to have the option to disable phylib.
 
-No.  Hardware support in one driver should never be affected by config
-options in another drivers.
+maybe, but it has to be dynamic too. I need to use PHY on UCC2 and mii
+on UCC3 and UCC4.
 
-Also I really think there shouldn't be one single driver for all the
-hardware as outlined by intel people in this thread.  I'd say add a new
-e1000e driver for all the pci-e hardware and have a temporary config
-option to disable those device already supported by the existing e1000
-driver.
+> Actually we have made phylib selected by default for ucc_geth.  Many L2
+> switch chips have the capacity to be controlled.  Therefore they can be
+> managed as a phy device.
 
--------------------------------------------------------------------------
-This SF.net email is sponsored by DB2 Express
-Download DB2 Express C - the FREE version of DB2 express and take
-control of your XML. No limits. Just data. Click to get it now.
-http://sourceforge.net/powerbar/db2/
+Yes, they can be but why force a PHY impl. when its is of no use? The
+only thing the eth driver needs from the it is speed and duplex. If
+these are fixed, you don't need to talk with a PHY.
+
+> For the MII interface which is not
+> configurable, shouldn't we use the fixed phy support from Vitaly?
+
+Well, I think the the fixed phy is great when your eth driver requires a
+PHY, but it is a workaround with extra processing overhead. IMHO the
+best impl. is to make the PHY optional in the eth driver and as you can
+see from the patch, that was really simple.
+
+An useful extension would be to add a new propety in the DTS to hold
+initial speed and duplex(perhaps extend phy-connection-type). This
+would be useful for the fixed driver too as one could derive speed and
+duplex for the fixed phy from that property instead of creating a fixed
+phy for each speed and duplex one want to support.
+
+ Jocke
