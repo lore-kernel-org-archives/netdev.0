@@ -1,71 +1,79 @@
-From: "Veeraiyan, Ayyappan" <ayyappan.veeraiyan@intel.com>
-Subject: RE: [PATCH] ixgbe: Introduce new 10GbE driver for Intel 82598 based PCI	Express adapters...
-Date: Mon, 2 Jul 2007 17:08:42 -0700
-Message-ID: <E35F4F4D7F6C9E4E826FEC1F86CEF583041934FE@orsmsx412.amr.corp.intel.com>
-References: <20070702214238.GA7085@infradead.org>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: e1000: backport ich9 support from 7.5.5 ?
+Date: Mon, 02 Jul 2007 17:10:48 -0700
+Message-ID: <46899408.4030407@hp.com>
+References: <08FE5CC30C9A3F41BF819A502CF7BF6E019416BA@fmsmsx411.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Jeff Garzik" <jeff@garzik.org>, <netdev@vger.kernel.org>,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
-	<arjan@linux.intel.com>, <akpm@linux-foundation.org>
-To: "Christoph Hellwig" <hch@infradead.org>,
-	"Stephen Hemminger" <shemminger@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:58108 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755226AbXGCAIo convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jul 2007 20:08:44 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20070702214238.GA7085@infradead.org>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Mark McLoughlin <markmc@redhat.com>,
+	"Kok,  Auke-jan H" <auke-jan.h.kok@intel.com>,
+	Jeff Garzik <jeff@garzik.org>, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, Jason Lunz <lunz@reflexsecurity.com>
+To: "Williams, Mitch A" <mitch.a.williams@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <08FE5CC30C9A3F41BF819A502CF7BF6E019416BA@fmsmsx411.amr.corp.intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On 7/2/07, Christoph Hellwig <hch@infradead.org> wrote:
+> There seems to be a lot of concern over obsoleting the e1000 driver
+> too quickly, and with confusing users (and startup scripts) about which
+> driver to load.
+
+Yes.
+
+> Obviously, we at Intel want to get e1000new into the kernel as quickly
+> as possible, and to obsolete e1000 also as quickly as possible.  The
+> point of this exercise is to reduce our support and maintenance burden,
+> and e1000new has shown itself internally to be much easier to work on.
 > 
-> But that'll require the single receiver queue version I guess.  The
-> netdevice abuse is the only really major issue I see, although I'd of
-> course really like to see the driver getting rid of the bitfield abuse
-> aswell.
-
-The submitted driver code supports single queue version in case of MSIX
-allocation failures... As I said in the other mail, I feel, restricting
-to single Rx queue in NAPI mode is better approach till Stephen's and
-DaveM' work of separating NAPI from netdevice is done..
-
-> Lots of drivers where the interface name is assigned after request_irq
-> just use an internal name, e.g. ixgbeX in the case of this driver.
+> So how about this:
+> - We include e1000new in 2.6.23, along side e1000.  We expose ICH9
+>   device IDs in e1000new, and gate the rest of the IDs inside
+>   #ifndef CONFIG_E1000.  This gives distis ICH9 support, along
+>   with a guarantee of the known e1000 driver.  It also lets the more
+>   bleeding-edge people turn off e1000 and run with just e1000new to
+>   work out any kinks.
+> - For 2.6.24, we reverse the situation:  Gate all device IDs in e1000
+>   behind #ifndef CONFIG_E1000NEW, and expose all of them in e1000new.
+>   At this point we (i.e. the community, not just Intel) should be 
+>   confident in e1000new, and we can mark e1000 as obsolete.  It's still
+>   a fallback option for those with old/funky/misconfigured hardware.
+> - After a year (or whatever), we remove e1000.
 > 
+> Seems to me that this plan should appease either everybody or nobody.
+> We get ICH9 support out there, e1000new gets in the kernel and
+> exercised, and we get to set a definite date for obsoleting e1000.
 
-This sounds ok to me. 
+What sort of timeframes are we looking at with 2.6.23 and then 2.6.24 
+and how might they map to distro releases?  Much as everyone 
+wants/encourages folks to test the kernel.org kernels and such, the 
+_real_ exposure still seems to come with a distro release.
 
-With this change, this is the output..
+Rambling a bit, and recognizing that "e1000new" was probably just a 
+strawman name, but I suspect that a _very_ different name for the new 
+driver would be a good thing, rather than a varition on the e1000 theme. 
+  "The Law of the Telephone Game" pretty much guaratees that something 
+with "e1000" in its name will be shortened to just "e1000."
 
-[root@ayyapsz src]# ip link
-1: lo: <LOOPBACK,UP,10000> mtu 16436 qdisc noqueue
-    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-2: sit0: <NOARP> mtu 1480 qdisc noop
-    link/sit 0.0.0.0 brd 0.0.0.0
-3: eth6: <BROADCAST,MULTICAST,UP,10000> mtu 1500 qdisc pfifo_fast qlen
-1000
-    link/ether 00:50:8b:05:5f:95 brd ff:ff:ff:ff:ff:ff
-29: eth0: <BROADCAST,MULTICAST,UP,10000> mtu 1500 qdisc pfifo_fast qlen
-1000
-    link/ether 00:1b:21:01:e4:93 brd ff:ff:ff:ff:ff:ff
-30: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc noop qlen 1000
-    link/ether 00:1b:21:01:e4:92 brd ff:ff:ff:ff:ff:ff
+How about "elk" (ee el kay) - applying that same "telephone" game 
+(consistency? nah) to e1000 to get e1k, which if you look at it quickly 
+enough looks like elk.  OK, that's half in jest, but only half.  I may 
+be wrong, but I don't think I've seen anyone shortening the current 
+e1000 to e1k?
 
-[root@ayyapsz src]# cat /proc/interrupts | grep 29
-214:          0          0   PCI-MSI-edge      ixgbe29-lsc
-215:      11764      80213   PCI-MSI-edge      ixgbe29-rx7
-216:      80257          0   PCI-MSI-edge      ixgbe29-rx6
-217:      77331          0   PCI-MSI-edge      ixgbe29-rx5
-218:      24201          0   PCI-MSI-edge      ixgbe29-rx4
-219:      52911          0   PCI-MSI-edge      ixgbe29-rx3
-220:     104591          0   PCI-MSI-edge      ixgbe29-rx2
-221:      80249          8   PCI-MSI-edge      ixgbe29-rx1
-222:         14          0   PCI-MSI-edge      ixgbe29-rx0
-223:     194023     118220   PCI-MSI-edge      ixgbe29-tx0 
+rick jones
 
-Ayyappan
+-------------------------------------------------------------------------
+This SF.net email is sponsored by DB2 Express
+Download DB2 Express C - the FREE version of DB2 express and take
+control of your XML. No limits. Just data. Click to get it now.
+http://sourceforge.net/powerbar/db2/
