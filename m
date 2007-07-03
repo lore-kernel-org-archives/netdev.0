@@ -1,105 +1,53 @@
-From: "Li Yang-r58472" <LeoLi@freescale.com>
-Subject: RE: [PATCH] ucc_geth.c, make PHY device optional.
-Date: Tue, 3 Jul 2007 16:22:55 +0800
-Message-ID: <989B956029373F45A0B8AF0297081890D8383E@zch01exm26.fsl.freescale.net>
-References: <1183447246.20673.155.camel@gentoo-jocke.transmode.se>
+From: Marian Balakowicz <m8@semihalf.com>
+Subject: [PATCH] PCI: quirk_e100_interrupt() called too early
+Date: Tue, 03 Jul 2007 11:03:18 +0200
+Message-ID: <468A10D6.2020900@semihalf.com>
+References: <4683A80F.5020605@semihalf.com> <4683DB44.9070704@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: 8BIT
-Cc: "linuxppc-dev Development" <linuxppc-dev@ozlabs.org>,
-	"Netdev" <netdev@vger.kernel.org>,
-	"Fleming Andy-afleming" <afleming@freescale.com>
-To: <joakim.tjernlund@transmode.se>
+Content-Type: text/plain; charset=ISO-8859-2
+Content-Transfer-Encoding: 7bit
+Cc: bjorn.helgaas@hp.com, linux-pci@atrey.karlin.mff.cuni.cz,
+	len.brown@intel.com, NetDev <netdev@vger.kernel.org>
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from de01egw01.freescale.net ([192.88.165.102]:65173 "EHLO
-	de01egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755413AbXGCIVG convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2007 04:21:06 -0400
-Received: from de01smr02.am.mot.com (de01smr02.freescale.net [10.208.0.151])
-	by de01egw01.freescale.net (8.12.11/de01egw01) with ESMTP id l638L2YW010956
-	for <netdev@vger.kernel.org>; Tue, 3 Jul 2007 01:21:03 -0700 (MST)
-Received: from zch01exm26.fsl.freescale.net (zch01exm26.ap.freescale.net [10.192.129.221])
-	by de01smr02.am.mot.com (8.13.1/8.13.0) with ESMTP id l638L08Y029417
-	for <netdev@vger.kernel.org>; Tue, 3 Jul 2007 03:21:02 -0500 (CDT)
-Content-class: urn:content-classes:message
-In-Reply-To: <1183447246.20673.155.camel@gentoo-jocke.transmode.se>
+Received: from mail.semihalf.com ([83.12.36.68]:36191 "EHLO mail.semihalf.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753264AbXGCJbN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Jul 2007 05:31:13 -0400
+In-Reply-To: <4683DB44.9070704@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: Joakim Tjernlund [mailto:joakim.tjernlund@transmode.se]
-> Sent: Tuesday, July 03, 2007 3:21 PM
-> To: Li Yang-r58472
-> Cc: linuxppc-dev Development; Netdev; Fleming Andy-afleming
-> Subject: RE: [PATCH] ucc_geth.c, make PHY device optional.
-> 
-> On Tue, 2007-07-03 at 11:42 +0800, Li Yang-r58472 wrote:
-> > > -----Original Message-----
-> > > From: netdev-owner@vger.kernel.org
-> > [mailto:netdev-owner@vger.kernel.org] On
-> > > Behalf Of Joakim Tjernlund
-> > > Sent: Tuesday, July 03, 2007 8:52 AM
-> > > To: 'linuxppc-dev Development'; 'Netdev'; Li Yang-r58472
-> > > Subject: [PATCH] ucc_geth.c, make PHY device optional.
-> > >
-> > > > This patch makes the PHY optional for ucc_geth.c ethernet
-driver.
-> > > > This is useful to support a direct mii to mii connection to, for
-> > example,
-> > > > a onboard swicth.
-> > > >
-> > > > Signed-off-by: Joakim Tjernlund <joakim.tjernlund@transmode.se>
-> > > ----
-> > Hi Joakim,
-> >
-> > I'm wondering if we really need to have the option to disable
-phylib.
-> 
-> maybe, but it has to be dynamic too. I need to use PHY on UCC2 and mii
-> on UCC3 and UCC4.
-> 
-> > Actually we have made phylib selected by default for ucc_geth.  Many
-L2
-> > switch chips have the capacity to be controlled.  Therefore they can
-be
-> > managed as a phy device.
-> 
-> Yes, they can be but why force a PHY impl. when its is of no use? The
-> only thing the eth driver needs from the it is speed and duplex. If
-> these are fixed, you don't need to talk with a PHY.
+quirk_e100_interrupts() is called after PCI controller is initialized
+and before PCI bus enumeration is performed. On some powerpc platforms
+which modify PCI controller configuration and set different MEM and IO
+windows than those set by firmware quirk_e100_interrupt() is causing
+kernel panic as it tries to read from device BAR0 offets which at this
+time points to a invalid PCI window (set by firmware).
 
-The driver needs to get and set the link speed/status on runtime (such
-as for ethtool interface).  Currently this is implementation through
-phydev interface.  IMHO, it will be easier to maintain if we only use
-this standard interface, rather than use different interfaces for
-different cases.
+This patch delays the quirk_100_interrupt() to pci_fixup_final phase,
+which happens after bus enumeration and before PCI enable and
+device driver initialization.
 
-> 
-> > For the MII interface which is not
-> > configurable, shouldn't we use the fixed phy support from Vitaly?
-> 
-> Well, I think the the fixed phy is great when your eth driver requires
-a
-> PHY, but it is a workaround with extra processing overhead. IMHO the
-> best impl. is to make the PHY optional in the eth driver and as you
-can
-> see from the patch, that was really simple.
+Signed-off-by: Marian Balakowicz <m8@semihalf.com>
+---
 
-I agree there is overhead. However, it will have the advantage of
-abstracting all the PHY related stuff out of controller driver.
+ drivers/pci/quirks.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-> 
-> An useful extension would be to add a new propety in the DTS to hold
-> initial speed and duplex(perhaps extend phy-connection-type). This
-> would be useful for the fixed driver too as one could derive speed and
-> duplex for the fixed phy from that property instead of creating a
-fixed
-> phy for each speed and duplex one want to support.
+diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
+index 01d8f8a..7194074 100644
+--- a/drivers/pci/quirks.c
++++ b/drivers/pci/quirks.c
+@@ -1475,7 +1475,7 @@ static void __devinit quirk_e100_interru
 
-I agree that there should be a device node to configure it.  The current
-fixed phy driver is a little bit too complex to emulate the register
-access.  Maybe it's better to have a null phy driver which just reads
-PHY capacity and status from device node.
+ 	iounmap(csr);
+ }
+-DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, PCI_ANY_ID, quirk_e100_interrupt);
++DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_INTEL, PCI_ANY_ID, quirk_e100_interrupt);
 
-- Leo
+ static void __devinit fixup_rev1_53c810(struct pci_dev* dev)
+ {
+
+
+
