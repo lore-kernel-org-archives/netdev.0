@@ -1,7 +1,7 @@
 From: Satyam Sharma <ssatyam@cse.iitk.ac.in>
-Subject: [PATCH -mm 1/9] netconsole: Cleanups, codingstyle, prettyfication
-Date: Wed, 04 Jul 2007 16:37:44 +0530
-Message-ID: <20070704110744.28520.57466.sendpatchset@cselinux1.cse.iitk.ac.in>
+Subject: [PATCH -mm 6/9] netconsole: Update documentation for multiple target support
+Date: Wed, 04 Jul 2007 16:38:09 +0530
+Message-ID: <20070704110809.28520.1141.sendpatchset@cselinux1.cse.iitk.ac.in>
 References: <20070704110739.28520.5036.sendpatchset@cselinux1.cse.iitk.ac.in>
 Cc: Keiichi Kii <k-keiichi@bx.jp.nec.com>,
 	Satyam Sharma <ssatyam@cse.iitk.ac.in>,
@@ -12,9 +12,9 @@ Cc: Keiichi Kii <k-keiichi@bx.jp.nec.com>,
 	David Miller <davem@davemloft.net>
 To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail4.iitk.ac.in ([203.197.196.4]:57163 "EHLO mail4.iitk.ac.in"
+Received: from mail4.iitk.ac.in ([203.197.196.4]:57161 "EHLO mail4.iitk.ac.in"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761449AbXGDLIC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1761448AbXGDLIC (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 4 Jul 2007 07:08:02 -0400
 In-Reply-To: <20070704110739.28520.5036.sendpatchset@cselinux1.cse.iitk.ac.in>
 Sender: netdev-owner@vger.kernel.org
@@ -22,11 +22,9 @@ List-Id: netdev.vger.kernel.org
 
 From: Satyam Sharma <ssatyam@cse.iitk.ac.in>
 
-[1/9] netconsole: Cleanups, codingstyle, prettyfication
+[6/9] netconsole: Update documentation for multiple target support
 
-(1) Remove unwanted headers.
-(2) Mark __init and __exit as appropriate.
-(3) Various trivial codingstyle and prettification stuffs.
+... and add a few useful general purpose tips as well while we're at it.
 
 Signed-off-by: Satyam Sharma <ssatyam@cse.iitk.ac.in>
 Cc: Keiichi Kii <k-keiichi@bx.jp.nec.com>
@@ -34,124 +32,43 @@ Cc: Takayoshi Kochi <t-kochi@bq.jp.nec.com>
 
 ---
 
- drivers/net/netconsole.c |   55 +++++++++++++++++++++++------------------------
- 1 file changed, 27 insertions(+), 28 deletions(-)
+ Documentation/networking/netconsole.txt |   18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
 
 ---
 
-diff -ruNp a/drivers/net/netconsole.c b/drivers/net/netconsole.c
---- a/drivers/net/netconsole.c	2007-04-26 08:38:32.000000000 +0530
-+++ b/drivers/net/netconsole.c	2007-07-03 20:27:17.000000000 +0530
-@@ -35,35 +35,32 @@
-  ****************************************************************/
+diff -ruNp a/Documentation/networking/netconsole.txt b/Documentation/networking/netconsole.txt
+--- a/Documentation/networking/netconsole.txt	2007-04-26 08:38:32.000000000 +0530
++++ b/Documentation/networking/netconsole.txt	2007-07-02 11:44:53.000000000 +0530
+@@ -34,6 +34,12 @@ Examples:
  
- #include <linux/mm.h>
--#include <linux/tty.h>
- #include <linux/init.h>
- #include <linux/module.h>
- #include <linux/console.h>
--#include <linux/tty_driver.h>
- #include <linux/moduleparam.h>
- #include <linux/string.h>
--#include <linux/sysrq.h>
--#include <linux/smp.h>
- #include <linux/netpoll.h>
+  insmod netconsole netconsole=@/,@10.0.0.2/
  
- MODULE_AUTHOR("Maintainer: Matt Mackall <mpm@selenic.com>");
- MODULE_DESCRIPTION("Console driver for network interfaces");
- MODULE_LICENSE("GPL");
- 
--static char config[256];
--module_param_string(netconsole, config, 256, 0);
-+#define MAX_PARAM_LENGTH	256
-+#define MAX_PRINT_CHUNK		1000
++It also supports logging to multiple remote agents by specifying
++parameters for the multiple agents separated by semicolons and the
++complete string enclosed in "quotes", thusly:
 +
-+static char config[MAX_PARAM_LENGTH];
-+module_param_string(netconsole, config, MAX_PARAM_LENGTH, 0);
- MODULE_PARM_DESC(netconsole, " netconsole=[src-port]@[src-ip]/[dev],[tgt-port]@<tgt-ip>/[tgt-macaddr]\n");
- 
- static struct netpoll np = {
--	.name = "netconsole",
--	.dev_name = "eth0",
--	.local_port = 6665,
--	.remote_port = 6666,
--	.remote_mac = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
-+	.name		= "netconsole",
-+	.dev_name	= "eth0",
-+	.local_port	= 6665,
-+	.remote_port	= 6666,
-+	.remote_mac	= {0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
- };
--static int configured = 0;
--
--#define MAX_PRINT_CHUNK 1000
-+static int configured;
- 
- static void write_msg(struct console *con, const char *msg, unsigned int len)
- {
-@@ -75,7 +72,7 @@ static void write_msg(struct console *co
- 
- 	local_irq_save(flags);
- 
--	for(left = len; left; ) {
-+	for (left = len; left;) {
- 		frag = min(left, MAX_PRINT_CHUNK);
- 		netpoll_send_udp(&np, msg, frag);
- 		msg += frag;
-@@ -86,12 +83,12 @@ static void write_msg(struct console *co
- }
- 
- static struct console netconsole = {
--	.name = "netcon",
--	.flags = CON_ENABLED | CON_PRINTBUFFER,
--	.write = write_msg
-+	.name	= "netcon",
-+	.flags	= CON_ENABLED | CON_PRINTBUFFER,
-+	.write	= write_msg,
- };
- 
--static int option_setup(char *opt)
-+static int __init option_setup(char *opt)
- {
- 	configured = !netpoll_parse_options(&np, opt);
- 	return 1;
-@@ -99,28 +96,30 @@ static int option_setup(char *opt)
- 
- __setup("netconsole=", option_setup);
- 
--static int init_netconsole(void)
-+static int __init init_netconsole(void)
- {
--	int err;
-+	int err = 0;
- 
--	if(strlen(config))
-+	if (strnlen(config, MAX_PARAM_LENGTH))
- 		option_setup(config);
- 
--	if(!configured) {
--		printk("netconsole: not configured, aborting\n");
--		return 0;
-+	if (!configured) {
-+		printk(KERN_INFO "netconsole: not configured, aborting\n");
-+		goto out;
- 	}
- 
- 	err = netpoll_setup(&np);
- 	if (err)
--		return err;
-+		goto out;
- 
- 	register_console(&netconsole);
- 	printk(KERN_INFO "netconsole: network logging started\n");
--	return 0;
++modprobe netconsole netconsole="@/,@10.0.0.2/;@/eth1,6892@10.0.0.3/"
 +
-+out:
-+	return err;
- }
+ Built-in netconsole starts immediately after the TCP stack is
+ initialized and attempts to bring up the supplied dev at the supplied
+ address.
+@@ -44,6 +50,18 @@ WARNING: the default target ethernet set
+ ethernet address to send packets, which can cause increased load on
+ other systems on the same ethernet segment.
  
--static void cleanup_netconsole(void)
-+static void __exit cleanup_netconsole(void)
- {
- 	unregister_console(&netconsole);
- 	netpoll_cleanup(&np);
++TIP: some LAN switches may be configured to suppress ethernet broadcasts
++so it is advised to explicitly specify the remote agents' MAC addresses
++from the config parameters passed to netconsole.
++
++TIP: to find out the MAC address of 10.0.0.2, you may try using:
++ping -c 1 10.0.0.2 ; /sbin/arp -n | grep 10.0.0.2
++
++TIP: in case the remote logging agent is on a separate LAN subnet than
++the sender, it is suggested to try specifying the default gateway's
++(you may use /sbin/route -n to find out) MAC address as the remote MAC
++address instead.
++
+ NOTE: the network device (eth1 in the above case) can run any kind
+ of other network traffic, netconsole is not intrusive. Netconsole
+ might cause slight delays in other traffic if the volume of kernel
