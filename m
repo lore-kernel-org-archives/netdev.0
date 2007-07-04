@@ -1,61 +1,71 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: multicasting netlink messages to groups > 31 from userspace
-Date: Tue, 03 Jul 2007 21:51:25 +0200
-Message-ID: <1183492286.4021.21.camel@johannes.berg>
+From: Urs Thuermann <urs@isnogud.escape.de>
+Subject: Re: [patch 5/7] CAN: Add virtual CAN netdevice driver
+Date: 04 Jul 2007 13:37:23 +0200
+Message-ID: <ygfzm2ciemk.fsf@janus.isnogud.escape.de>
+References: <20070622034452.28886.0@janus.isnogud.escape.de>
+	<20070622034703.28886.5@janus.isnogud.escape.de>
+	<467BAC48.1070700@trash.net> <ygfk5tw41rq.fsf@janus.isnogud.escape.de>
+	<467BC2AF.8080901@trash.net> <467D0C97.1000000@hartkopp.net>
+	<467D178B.8080503@trash.net> <467D3891.4010906@hartkopp.net>
+	<467D4965.40601@trash.net> <467D4D65.2080806@hartkopp.net>
+	<467D54AB.5010407@trash.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-cZ+u+DYeoOmYqJNwuE+Z"
-Cc: jamal <hadi@cyberus.ca>, Patrick McHardy <kaber@trash.net>,
-	Thomas Graf <tgraf@suug.ch>
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Oliver Hartkopp <oliver@hartkopp.net>,
+	David Miller <davem@davemloft.net>, j.hadi123@gmail.com,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
+	netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:60765 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758327AbXGDLjw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jul 2007 07:39:52 -0400
+Received: from oker.escape.de ([194.120.234.254]:49159 "EHLO oker.escape.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757328AbXGDLlD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Jul 2007 07:41:03 -0400
+In-Reply-To: <467D54AB.5010407@trash.net>; from Patrick McHardy on Sat, 23 Jun 2007 19:13:15 +0200
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Patrick McHardy <kaber@trash.net> writes:
 
---=-cZ+u+DYeoOmYqJNwuE+Z
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+> It should create as many devices as necessary to operate (similar
+> to the loopback device) by default. Optional interfaces that are
+> used for addressing reasons should be manually added by the user
+> as needed. And it should not use module parameters for that please.
 
-Hey,
+I have now changed vcan to use the netlink interface.  I am now
+thinking about how many interfaces should be created at module load
+time.
 
-Looking through the code that uses NL_NONROOT_SEND I just realised that
-it's impossible to send multicast messages from userspace to multicast
-groups with IDs higher than 31. That's not really good given that
-everywhere else we handle multicast groups up to 2^32-1 :/
+The PF_CAN doesn't need vcan to operate, like lo for IP.  vcan is
+mostly for doing tests when you don't have real CAN interfaces
+available, and you would normally want to have as many vcan devices as
+you would have real CAN interface on your target hardware.
 
-Unfortunately, I haven't found any good way to fix this; in fact the
-only way to fix it backward-compatibly I could come up with so far is to
-extend struct sockaddr_nl by "__u32 nl_group;" and use that in
-netlink_sendmsg instead of nl_groups when msg_namelen is large enough
-and I'm not even sure that checking msg_namelen is enough, apps could
-give you a length much longer than the actual structure... Maybe
-additionally require that nl_groups is set to ~0 or something. The same
-should be done for netlink_connect() then.
+This is why I also wanted to have a default of 0 vcan interfaces and
+an ioctl do add interfaces as needed.  Then we decided however to have
+a module parameter with a typical default and no ioctl().
 
-It would of course be possible to add a new sockopt
-NETLINK_{SET,GET}_DST_GROUP, but that prevents you from sending messages
-to multiple high groups with sendmsg(), and I think having a working
-sendmsg() is desirable as well.
+Now, I would again think that 0 vcan interfaces should be created
+automatically and the user must create the devices he needs.  Wouldn't
+that also be a better default for dummy interfaces?  It would simplify
+dummy.c quite a bit, since dummy_init_one() could be removed
+completely and dummy_init_module() would only register the
+dummy_link_ops, right?
 
-Does anybody have any better ideas?
+However, this could surprise a user loading the module and not seeing
+any new interface.  Is it because of backward compatibility that you
+create one dummy interface by default?
 
-johannes
+For this reason I also consider a default of one vcan interface to be
+created automatically.  But then 1 seems almost as arbitrarily as 4,
+since also 1 is not needed for PF_CAN to work.
 
---=-cZ+u+DYeoOmYqJNwuE+Z
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
+I currently still prefer no default interfaces, since we would get rid
+of some code.
 
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
+What is the reason you don't like a module parameter to control the
+number of default interfaces?  We still have that in our code
+currently (but I'm about to remove it).
 
-iD8DBQBGiqi8/ETPhpq3jKURAtCeAJ4rAKR1+argXq9yN7jK2Is+4ajOdgCfdpsx
-EfQV54hujHia+dYW5SuZuGU=
-=J9nM
------END PGP SIGNATURE-----
-
---=-cZ+u+DYeoOmYqJNwuE+Z--
-
+urs
