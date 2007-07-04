@@ -1,61 +1,59 @@
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: Re: [WIP][PATCHES] Network xmit batching - tg3 support
-Date: Wed, 4 Jul 2007 09:49:32 +0530
-Message-ID: <OF95AE6EF1.D13A78A8-ON6525730E.0016D384-6525730E.0017C2E4@in.ibm.com>
-References: <1183469180.5159.89.camel@localhost>
+From: David Brownell <david-b@pacbell.net>
+Subject: Re: [PATCH] Cleanup usbnet_probe() return value handling
+Date: Tue, 3 Jul 2007 21:34:13 -0700
+Message-ID: <200707032134.13339.david-b@pacbell.net>
+References: <87lkdyx19a.fsf@nanv.dk> <200707020914.38479.david-b@pacbell.net> <87sl86juel.fsf@p4.be.48ers.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>,
-	Gagan Arneja <gaagaan@gmail.com>,
-	Jeff Garzik <jeff@garzik.org>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	Matt Carlson <mcarlson@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>,
-	netdev <netdev@vger.kernel.org>, Rick Jones <rick.jones2@hp.com>,
-	Robert Olsson <Robert.Olsson@data.slu.se>,
-	Sridhar Samudrala <sri@us.ibm.com>
-To: hadi@cyberus.ca
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Peter Korsgaard <jacmet@sunsite.dk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ausmtp04.au.ibm.com ([202.81.18.152]:46133 "EHLO
-	ausmtp04.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751133AbXGDESn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jul 2007 00:18:43 -0400
-Received: from sd0109e.au.ibm.com (d23rh905.au.ibm.com [202.81.18.225])
-	by ausmtp04.au.ibm.com (8.13.8/8.13.8) with ESMTP id l644eX02041066
-	for <netdev@vger.kernel.org>; Wed, 4 Jul 2007 14:40:38 +1000
-Received: from d23av02.au.ibm.com (d23av02.au.ibm.com [9.190.250.243])
-	by sd0109e.au.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l644Ld2X065080
-	for <netdev@vger.kernel.org>; Wed, 4 Jul 2007 14:21:40 +1000
-Received: from d23av02.au.ibm.com (loopback [127.0.0.1])
-	by d23av02.au.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l644I6B2021355
-	for <netdev@vger.kernel.org>; Wed, 4 Jul 2007 14:18:07 +1000
-In-Reply-To: <1183469180.5159.89.camel@localhost>
+Received: from smtp124.sbc.mail.sp1.yahoo.com ([69.147.64.97]:45027 "HELO
+	smtp124.sbc.mail.sp1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751900AbXGDEeP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jul 2007 00:34:15 -0400
+In-Reply-To: <87sl86juel.fsf@p4.be.48ers.dk>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Jamal,
+On Monday 02 July 2007, Peter Korsgaard wrote:
 
-J Hadi Salim <j.hadi123@gmail.com> wrote on 07/03/2007 06:56:20 PM:
+> usbnet_probe() handles a positive return value from the driver bind()
+> function as success, but will later only setup the status handler if the
+> return value was zero, leading to confusion. Patch adjusts this to accept
+> positive values as success in both checks.
+> 
+> Signed-off-by: Peter Korsgaard <jacmet@sunsite.dk>
 
-> On Mon, 2007-02-07 at 17:21 -0700, Michael Chan wrote:
->
-> [Matt, please include the count in the fix per previous email]
-> long answer:
-> My goal with storing these values and computing them was to do certain
-> things that dont require holding the netif_tx_lock within a batch as
-> well. Evaluating the packet metadata and formating the packet to be
-> ready for stashing into DMA was one thing i could do outside of holding
-> the lock easily - and running that in loop of 100 packets amortizes the
-> instruction cache and allows me (when i get to it) to hold the lock for
-> a lot less computation.
+Signed-off-by: David Brownell <dbrownell@users.sourceforge.net>
 
-Do you see any contention for tx_lock which can justify having a prep
-handler? As I understood, no other CPU can be in the xmit code at the
-same time since RUNNING bit is held. Hence getting this lock early or
-late should not matter for the xmit side (and you are also holding
-dev->queue_lock while running prep so no new skbs can also be added to
-the dev during this time). And I couldn't find any driver that uses the
-same tx_lock on rx, so where is the saving by doing prep ?
+... though I'd adjust comments to say "non-negative" rather
+than "positive".  Most folks won't say that zero is positive.
 
-- KK
+
+> ---
+>  drivers/net/usb/usbnet.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> Index: linux-2.6.22-rc7/drivers/net/usb/usbnet.c
+> ===================================================================
+> --- linux-2.6.22-rc7.orig/drivers/net/usb/usbnet.c
+> +++ linux-2.6.22-rc7/drivers/net/usb/usbnet.c
+> @@ -1208,7 +1208,7 @@
+>  			status = 0;
+>  
+>  	}
+> -	if (status == 0 && dev->status)
+> +	if (status >= 0 && dev->status)
+>  		status = init_status (dev, udev);
+>  	if (status < 0)
+>  		goto out3;
+> 
+> -- 
+> Bye, Peter Korsgaard
+> 
+
 
