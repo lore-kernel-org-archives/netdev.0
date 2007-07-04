@@ -1,62 +1,71 @@
-From: Patrick McHardy <kaber@trash.net>
+From: Johannes Berg <johannes@sipsolutions.net>
 Subject: Re: multicasting netlink messages to groups > 31 from userspace
-Date: Wed, 04 Jul 2007 16:30:40 +0200
-Message-ID: <468BAF10.6080208@trash.net>
-References: <1183492286.4021.21.camel@johannes.berg>	 <468BAADC.4030203@trash.net> <1183558702.3812.33.camel@johannes.berg>
+Date: Wed, 04 Jul 2007 16:38:03 +0200
+Message-ID: <1183559883.3812.42.camel@johannes.berg>
+References: <1183492286.4021.21.camel@johannes.berg>
+	 <468BAADC.4030203@trash.net> <1183558702.3812.33.camel@johannes.berg>
+	 <468BAF10.6080208@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-B8tNGcRz3jR/phLEYukW"
 Cc: netdev <netdev@vger.kernel.org>, jamal <hadi@cyberus.ca>,
 	Thomas Graf <tgraf@suug.ch>
-To: Johannes Berg <johannes@sipsolutions.net>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:38773 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758557AbXGDObr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jul 2007 10:31:47 -0400
-In-Reply-To: <1183558702.3812.33.camel@johannes.berg>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:56573 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759760AbXGDOhK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jul 2007 10:37:10 -0400
+In-Reply-To: <468BAF10.6080208@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Johannes Berg wrote:
-> On Wed, 2007-07-04 at 16:12 +0200, Patrick McHardy wrote:
-> 
->>Johannes Berg wrote:
->>
->>>Hey,
->>>
->>>Looking through the code that uses NL_NONROOT_SEND I just realised that
->>>it's impossible to send multicast messages from userspace to multicast
->>>groups with IDs higher than 31. That's not really good given that
->>>everywhere else we handle multicast groups up to 2^32-1 :/
->>
->>
->>Why do you want to send to a multicast group from userspace?
-> 
-> 
-> Why not, what's wrong with that?
 
+--=-B8tNGcRz3jR/phLEYukW
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-The kernel doesn't have any multicast listeners (yet).
+On Wed, 2007-07-04 at 16:30 +0200, Patrick McHardy wrote:
 
-> Actually, I think I mentioned this earlier, I was thinking about doing
-> wireless configuration as a group where both the kernel and possibly a
-> userspace process listen on that multicast group and processes that want
-> to configure a device just send to that group. Then the kernel ignores
-> the message if a userspace process is handling the specific device
-> completely. For example changing the BSSID: if the kernel is doing MLME
-> then it changes the BSSID, but if a userspace process is doing it then
-> the kernel doesn't do anything since BSSID changing is a pure MLME
-> function, but for consistency it'd be nice if both could be done the
-> same way, hence a multicast group.
-> 
-> This was actually suggested by Herbert since it's easy to find out if
-> that multicast group has a listener and not so easy if a special generic
-> netlink socket in userspace is (still) open.
+[...]
+> The kernel doesn't have any multicast listeners (yet).
 
+Right.
 
-I wonder if thats really a good idea to use multicast for device
-configuration. Unicast transmissions from userspace to kernel
-are reliable when you don't use MSG_DONTWAIT. For multicasts
-doing the same would mean blocking on each receiver when the
-receive queue is full.
+> I wonder if thats really a good idea to use multicast for device
+> configuration. Unicast transmissions from userspace to kernel
+> are reliable when you don't use MSG_DONTWAIT. For multicasts
+> doing the same would mean blocking on each receiver when the
+> receive queue is full.
+
+That's a good point actually. Are transmissions from userspace to
+userspace also reliable in that case?
+
+In fact, we haven't quite decided yet whether we want all configuration
+to be via netlink. I strongly prefer this, but other people say that
+userspace<->userspace communication is nothing that nl80211 should be
+involved in.
+
+What I initially wanted was to publish something like "Device wlan0 is
+managed by netlink pid 12345" (or 0 if the kernel is doing it) and then
+configuration would be "send to <number the kernel told you>". However,
+that got me into problems when trying to determine "is the process
+owning netlink pid 12345 still alive" at which point Herbert suggested
+the use of multicast groups (and doing the exclusion "only one manager
+per netdev" in userspace instead of the kernel).
+
+johannes
+
+--=-B8tNGcRz3jR/phLEYukW
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iD8DBQBGi7DL/ETPhpq3jKURAr9tAJ4l03R00QZEzcQTgKd+XHgqhPUc6QCghDNa
+vhvk3Pu8EfpheZ9gTVzPkQM=
+=SU1N
+-----END PGP SIGNATURE-----
+
+--=-B8tNGcRz3jR/phLEYukW--
+
