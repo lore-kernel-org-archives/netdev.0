@@ -1,69 +1,73 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: multicasting netlink messages to groups > 31 from userspace
-Date: Wed, 04 Jul 2007 17:08:33 +0200
-Message-ID: <1183561713.9662.5.camel@johannes.berg>
-References: <1183492286.4021.21.camel@johannes.berg>
-	 <468BAADC.4030203@trash.net> <1183558702.3812.33.camel@johannes.berg>
-	 <468BAF10.6080208@trash.net> <1183559883.3812.42.camel@johannes.berg>
-	 <468BB327.5050709@trash.net> <1183561006.3812.47.camel@johannes.berg>
-	 <468BB5F8.3080908@trash.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: [NET]: Fix gen_estimator timer removal race
+Date: Wed, 04 Jul 2007 17:47:51 +0200
+Message-ID: <468BC127.1090904@trash.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-WFn+P5g8RWozaj16cI6g"
-Cc: netdev <netdev@vger.kernel.org>, jamal <hadi@cyberus.ca>,
-	Thomas Graf <tgraf@suug.ch>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: multipart/mixed;
+ boundary="------------070706070107080200040802"
+Cc: Jarek Poplawski <jarkao2@o2.pl>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:38187 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755215AbXGDPHo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jul 2007 11:07:44 -0400
-In-Reply-To: <468BB5F8.3080908@trash.net>
+Received: from stinky.trash.net ([213.144.137.162]:40305 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751500AbXGDPsH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jul 2007 11:48:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+This is a multi-part message in MIME format.
+--------------070706070107080200040802
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
 
---=-WFn+P5g8RWozaj16cI6g
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+This is an updated version of the gen_estimator fix
+that relies on all changes happening under the rtnl
+and just fixes the race between timer rearming and
+timer removal.
 
-On Wed, 2007-07-04 at 17:00 +0200, Patrick McHardy wrote:
 
-> Not by itself probably but a user could DoS your wireless connectivity
-> this way.
 
-Hmm, if anything then not the connectivity but rather the MLME i.e. it
-won't do roaming properly maybe. Maybe we should then have a way to say
-that somebody only wants to receive messages from privileged users, that
-way the MLME process wouldn't be affected.
+--------------070706070107080200040802
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
 
-> I'm not sure, it would probably also have to be called when userspace
-> unsubscribes from a group, no?
+[NET]: Fix gen_estimator timer removal race
 
-No actually having that hook means I can do without multicast groups by
-just publishing that "send configuration requests to pid N" where N is
-either 0 (in-kernel MLME) or something else (userspace MLME); I just
-didn't know the hook existed.
+As noticed by Jarek Poplawski <jarkao2@o2.pl>, the timer removal in
+gen_kill_estimator races with the timer function rearming the timer.
 
-Not that we shouldn't fix the multicast issues anyway though the one
-from this particular thread wouldn't be too interesting right now until
-somebody needs userspace to multicast; the other three patches still
-should be done now before there are more generic netlink multicast
-users.
+Check whether the timer list is empty before rearming the timer
+in the timer function to fix this.
 
-johannes
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 
---=-WFn+P5g8RWozaj16cI6g
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
+---
+commit 369edff5c22c6838cb632c24a1971f1ce6823991
+tree b0f47f8469ed9fc47e8fc6b597b204aac816133a
+parent ba609a9d97ba231c3d94443c50579ceb5fc33867
+author Patrick McHardy <kaber@trash.net> Wed, 04 Jul 2007 17:45:26 +0200
+committer Patrick McHardy <kaber@trash.net> Wed, 04 Jul 2007 17:45:26 +0200
 
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
+ net/core/gen_estimator.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-iD8DBQBGi7fx/ETPhpq3jKURApQMAKCgpJ67ScJNJOdSWkpqhJ0E1T9tHACgtVVN
-9YqA1ORKAcJOaKTyKg9IZA4=
-=dRcS
------END PGP SIGNATURE-----
+diff --git a/net/core/gen_estimator.c b/net/core/gen_estimator.c
+index 17daf4c..cc84d8d 100644
+--- a/net/core/gen_estimator.c
++++ b/net/core/gen_estimator.c
+@@ -128,7 +128,8 @@ static void est_timer(unsigned long arg)
+ 		spin_unlock(e->stats_lock);
+ 	}
+ 
+-	mod_timer(&elist[idx].timer, jiffies + ((HZ<<idx)/4));
++	if (elist[idx].list != NULL)
++		mod_timer(&elist[idx].timer, jiffies + ((HZ<<idx)/4));
+ 	read_unlock(&est_lock);
+ }
+ 
 
---=-WFn+P5g8RWozaj16cI6g--
-
+--------------070706070107080200040802--
