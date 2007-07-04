@@ -1,52 +1,73 @@
-From: Matt Mackall <mpm@selenic.com>
-Subject: Re: [PATCH -mm 2/9] netconsole: Code simplification
-Date: Wed, 4 Jul 2007 08:46:18 -0500
-Message-ID: <20070704134618.GA11115@waste.org>
-References: <20070704110739.28520.5036.sendpatchset@cselinux1.cse.iitk.ac.in> <20070704110749.28520.92997.sendpatchset@cselinux1.cse.iitk.ac.in>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: multicasting netlink messages to groups > 31 from userspace
+Date: Wed, 04 Jul 2007 15:54:01 +0200
+Message-ID: <1183557241.3812.20.camel@johannes.berg>
+References: <1183492286.4021.21.camel@johannes.berg>
+	 <20070704120440.GB6336@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Keiichi Kii <k-keiichi@bx.jp.nec.com>,
-	Netdev <netdev@vger.kernel.org>,
-	Joel Becker <joel.becker@oracle.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>
-To: Satyam Sharma <ssatyam@cse.iitk.ac.in>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-fcUshrrADsj0W0XD1J1P"
+Cc: netdev <netdev@vger.kernel.org>, jamal <hadi@cyberus.ca>,
+	Patrick McHardy <kaber@trash.net>, Thomas Graf <tgraf@suug.ch>
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from waste.org ([66.93.16.53]:36683 "EHLO waste.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758986AbXGDNra (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Jul 2007 09:47:30 -0400
-Content-Disposition: inline
-In-Reply-To: <20070704110749.28520.92997.sendpatchset@cselinux1.cse.iitk.ac.in>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:36794 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759192AbXGDNxJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jul 2007 09:53:09 -0400
+In-Reply-To: <20070704120440.GB6336@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 04, 2007 at 04:37:49PM +0530, Satyam Sharma wrote:
-> From: Satyam Sharma <ssatyam@cse.iitk.ac.in>
-> 
-> [2/9] netconsole: Code simplification
-> 
-> (1) Extract netpoll_parse_options() out of option_setup(), and into
-> init_netconsole() itself. So "configured" variable is redundant and
-> can be removed.
-> 
-> (2) With this change, option_setup() is not required for modular netconsole.
 
-How is this a simplification? You've taken code with no #ifdefs and
-added one! Please have both modular and nonmodular continue to use the
-same paths.
+--=-fcUshrrADsj0W0XD1J1P
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-> 
-> (3) The (!np.dev) check in write_msg() is bogus (always false), because:
-> np.dev is set by netpoll_setup(), which is called by the target init
-> code in init_netconsole() _before_ register_console() => write_msg() cannot
-> be triggered unless netpoll_setup() returns with success. And that will not
-> happen if netpoll_setup() failed to set np.dev. Also np.dev cannot go from
-> under us while netconsole is loaded. This is because netpoll_setup() grabs
-> a reference for us on that dev. So let's remove the pointless check.
+On Wed, 2007-07-04 at 16:04 +0400, Evgeniy Polyakov wrote:
+> On Tue, Jul 03, 2007 at 09:51:25PM +0200, Johannes Berg (johannes@sipsolu=
+tions.net) wrote:
+> > Does anybody have any better ideas?
 
-This ought to be a separate patch.
+> Why don't you want to reserve a set of bits in group number, which means=20
+> 'allow to work with unpriveledged users', that bits should not cross exis=
+ting=20
+> users (hardcoded in various files in kernel), all new code can use that
+> groups.
 
--- 
-Mathematics is the supreme nostalgia of our time.
+Uh wait, we're confusing two issues here. This idea actually makes good
+sense, although it'd have to be two bits (allow unpriv users to recv,
+allow unpriv users to send), limiting the groups to 2^30-1. Fine with
+me.
+
+However, the actual issue I wanted to address with this mail is that we
+cannot have userspace send to groups > 32. However, your idea above can
+equally well apply here; we could say some bit in the nl_groups field is
+reserved and that if that bit is set the other bits form the group
+number to send to instead of a bitfield where the highest group is sent
+to. That should work fine, both limits the number of available groups to
+2^30 respectively 2^31 but that's not an issue.
+
+The thing with actually trying to fix this issue now is that when we
+have generic netlink and multicast group registrations, we'll have
+userspace programs sending to a multicast group using nl_groups =3D
+(1<<group.id) and then group.id grows > 32 if a whole bunch of other
+groups were registered before, and it all messes up. Hence we actually
+have to address this issue well before userspace starts using the
+generic netlink multicast API.
+
+johannes
+
+--=-fcUshrrADsj0W0XD1J1P
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iD8DBQBGi6Z4/ETPhpq3jKURAk4rAJ9pOQFmvB1rXRUvtMz9WwfcMbAECQCeL7R0
+yffjoksqGPwtMdLT/WvnrW4=
+=GgPz
+-----END PGP SIGNATURE-----
+
+--=-fcUshrrADsj0W0XD1J1P--
+
