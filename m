@@ -1,31 +1,44 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Who's allowed to set a skb destructor?
-Date: Wed, 4 Jul 2007 13:38:11 +0400
-Message-ID: <20070704093811.GE15210@2ka.mipt.ru>
-References: <468B54A6.5090902@ens-lyon.org>
+From: "Robert Iakobashvili" <coroberti@gmail.com>
+Subject: Re: Beyond 64K TCP connections limit per IP-address
+Date: Wed, 4 Jul 2007 11:40:48 +0200
+Message-ID: <7e63f56c0707040240p4ec962fajd93074909b07ea03@mail.gmail.com>
+References: <7e63f56c0707040050k7d1a9daeq276d7d924ef802e8@mail.gmail.com>
+	 <20070704093658.GD15210@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: netdev@vger.kernel.org
-To: Brice Goglin <Brice.Goglin@ens-lyon.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: NetDev <netdev@vger.kernel.org>
+To: "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:36485 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756907AbXGDJiS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Jul 2007 05:38:18 -0400
+Received: from wx-out-0506.google.com ([66.249.82.231]:38556 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757019AbXGDJks (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jul 2007 05:40:48 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so2034144wxd
+        for <netdev@vger.kernel.org>; Wed, 04 Jul 2007 02:40:48 -0700 (PDT)
+In-Reply-To: <20070704093658.GD15210@2ka.mipt.ru>
 Content-Disposition: inline
-In-Reply-To: <468B54A6.5090902@ens-lyon.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 04, 2007 at 10:04:54AM +0200, Brice Goglin (Brice.Goglin@ens-lyon.org) wrote:
-> So, I'd like to have a clear statement about who's allowed to use a
-> destructor :)
+On 7/4/07, Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
+> On Wed, Jul 04, 2007 at 09:50:31AM +0200, Robert Iakobashvili (coroberti@gmail.com) wrote:
+> > If I am correct, a TCP server can make up to
+> > 64K accepts for a port at a single IP-address.
+>
+> No, it is essentially unlimited - linux uses local/remote addr/port
+> tuples for hash chains, so there is no per-addr limits.
+> If there is some kind of binds, then yes, only 64k ports per address.
 
-That one who allocates skb - if it is socket layer, it sets own
-socket destructor, netlink has own too and so on.
+Thanks, it clarified me the issue.
+Probably, I am experiencing some local problem with
+the web-server I am using for tests.
 
-> Thanks,
-> Brice
 
 -- 
-	Evgeniy Polyakov
+Sincerely,
+Robert Iakobashvili,
+coroberti %x40 gmail %x2e com
+...........................................................
+http://curl-loader.sourceforge.net
+A web testing and traffic generation tool.
