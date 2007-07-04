@@ -1,45 +1,50 @@
-From: Keiichi KII <k-keiichi@bx.jp.nec.com>
-Subject: Re: [RFC][PATCH -mm 0/9] netconsole: Multiple targets and dynamic
- reconfigurability
-Date: Wed, 04 Jul 2007 20:49:38 +0900
-Message-ID: <468B8952.9030205@bx.jp.nec.com>
-References: <20070704110739.28520.5036.sendpatchset@cselinux1.cse.iitk.ac.in>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] ACPI: export acpi events via generic netlink
+Date: Wed, 04 Jul 2007 14:01:27 +0200
+Message-ID: <1183550487.3812.14.camel@johannes.berg>
+References: <1182224403.5411.84.camel@localhost.localdomain>
+	 <200707031545.16787.lenb@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>,
-	Joel Becker <joel.becker@oracle.com>,
-	Matt Mackall <mpm@selenic.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>
-To: Satyam Sharma <ssatyam@cse.iitk.ac.in>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from TYO202.gate.nec.co.jp ([202.32.8.206]:38298 "EHLO
-	tyo202.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757712AbXGDLu0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jul 2007 07:50:26 -0400
-In-Reply-To: <20070704110739.28520.5036.sendpatchset@cselinux1.cse.iitk.ac.in>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-v8ZmBqZoVw8uz68gP1X+"
+Cc: Zhang Rui <rui.zhang@intel.com>, linux-acpi@vger.kernel.org,
+	netdev@vger.kernel.org, hadi@cyberus.ca
+To: Len Brown <lenb@kernel.org>
+Return-path: <linux-acpi-owner@vger.kernel.org>
+In-Reply-To: <200707031545.16787.lenb@kernel.org>
+Sender: linux-acpi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Satyam,
- 
-At first, thank you for your helping.
-I'm going to try/review your patches.
 
->[ I had initially thought about only modifying Keiichi's patches to
->incorporate the suggested stuff, sysfs+ioctl->configfs conversion, etc,
->but the changes became too much and I ultimately ended up rewriting the
->patchset. This also gave the flexibility to make other changes possible.
->Keiichi, Takayoshi, kindly review this, and if OK, please give your
->Signed-off-by:'s to the patches herein. ]
+--=-v8ZmBqZoVw8uz68gP1X+
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-By the way, how can I add Signed-off-by:'s to your patches?
-Should I add it to each patch and submit them to this list again?
+On Tue, 2007-07-03 at 15:45 -0400, Len Brown wrote:
+> Thanks for including the demo program, Rui, it works for me (tm).
+>=20
+> Applied -- with the incremental patch below, which I think
+> is correct because the only caller is bus.c, which is part of
+> the base kernel, not a module.
 
-Anybody could give me an advice?
--- 
-Keiichi KII
-NEC Corporation OSS Platform Development Division
-E-mail: k-keiichi@bx.jp.nec.com
+Dang, mail crossing :)
+
+Are you open to reworking this on top of my multicast patches that I
+hope to get in soonish, or should I respin my multicast patches to
+ensure ACPI has a stable family and multicast group number?
+
+johannes
+
+--=-v8ZmBqZoVw8uz68gP1X+
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iD8DBQBGi4wX/ETPhpq3jKURAiYOAKCjbHp01r13B6vksUuWB5UOKeIY4QCeOoTQ
+P9Ieefg5jkIGK3sP8+E9QTQ=
+=cyOB
+-----END PGP SIGNATURE-----
+
+--=-v8ZmBqZoVw8uz68gP1X+--
+
