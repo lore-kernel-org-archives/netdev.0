@@ -1,30 +1,31 @@
 From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Beyond 64K TCP connections limit per IP-address
-Date: Wed, 4 Jul 2007 13:36:58 +0400
-Message-ID: <20070704093658.GD15210@2ka.mipt.ru>
-References: <7e63f56c0707040050k7d1a9daeq276d7d924ef802e8@mail.gmail.com>
+Subject: Re: Who's allowed to set a skb destructor?
+Date: Wed, 4 Jul 2007 13:38:11 +0400
+Message-ID: <20070704093811.GE15210@2ka.mipt.ru>
+References: <468B54A6.5090902@ens-lyon.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=koi8-r
-Cc: NetDev <netdev@vger.kernel.org>
-To: Robert Iakobashvili <coroberti@gmail.com>
+Cc: netdev@vger.kernel.org
+To: Brice Goglin <Brice.Goglin@ens-lyon.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:36482 "EHLO 2ka.mipt.ru"
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:36485 "EHLO 2ka.mipt.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757242AbXGDJhJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Jul 2007 05:37:09 -0400
+	id S1756907AbXGDJiS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Jul 2007 05:38:18 -0400
 Content-Disposition: inline
-In-Reply-To: <7e63f56c0707040050k7d1a9daeq276d7d924ef802e8@mail.gmail.com>
+In-Reply-To: <468B54A6.5090902@ens-lyon.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 04, 2007 at 09:50:31AM +0200, Robert Iakobashvili (coroberti@gmail.com) wrote:
-> If I am correct, a TCP server can make up to
-> 64K accepts for a port at a single IP-address.
+On Wed, Jul 04, 2007 at 10:04:54AM +0200, Brice Goglin (Brice.Goglin@ens-lyon.org) wrote:
+> So, I'd like to have a clear statement about who's allowed to use a
+> destructor :)
 
-No, it is essentially unlimited - linux uses local/remote addr/port
-tuples for hash chains, so there is no per-addr limits.
-If there is some kind of binds, then yes, only 64k ports per address.
+That one who allocates skb - if it is socket layer, it sets own
+socket destructor, netlink has own too and so on.
 
+> Thanks,
+> Brice
 
 -- 
 	Evgeniy Polyakov
