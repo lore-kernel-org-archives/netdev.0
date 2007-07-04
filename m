@@ -1,7 +1,7 @@
 From: Satyam Sharma <ssatyam@cse.iitk.ac.in>
-Subject: [PATCH -mm 3/9] netconsole: Introduce netconsole_target
-Date: Wed, 04 Jul 2007 16:37:54 +0530
-Message-ID: <20070704110754.28520.73112.sendpatchset@cselinux1.cse.iitk.ac.in>
+Subject: [PATCH -mm 8/9] netconsole: Update documentation for dynamic reconfigurability
+Date: Wed, 04 Jul 2007 16:38:19 +0530
+Message-ID: <20070704110819.28520.50445.sendpatchset@cselinux1.cse.iitk.ac.in>
 References: <20070704110739.28520.5036.sendpatchset@cselinux1.cse.iitk.ac.in>
 Cc: Keiichi Kii <k-keiichi@bx.jp.nec.com>,
 	Satyam Sharma <ssatyam@cse.iitk.ac.in>,
@@ -12,31 +12,20 @@ Cc: Keiichi Kii <k-keiichi@bx.jp.nec.com>,
 	David Miller <davem@davemloft.net>
 To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail4.iitk.ac.in ([203.197.196.4]:57178 "EHLO mail4.iitk.ac.in"
+Received: from mail4.iitk.ac.in ([203.197.196.4]:57175 "EHLO mail4.iitk.ac.in"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758968AbXGDLIK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Jul 2007 07:08:10 -0400
+	id S1761171AbXGDLIH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Jul 2007 07:08:07 -0400
 In-Reply-To: <20070704110739.28520.5036.sendpatchset@cselinux1.cse.iitk.ac.in>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Satyam Sharma <ssatyam@cse.iitk.ac.in>
 
-[3/9] netconsole: Introduce netconsole_target
+[8/9] netconsole: Update documentation for dynamic reconfigurability
 
-Introduce a wrapper structure over netpoll to represent targets
-configured in netconsole. This will get extended with other members in
-further patches.
-
-Ok, so the original patchset did this along with (and inside the #ifdef)
-of CONFIG_NETCONSOLE_DYNAMIC itself. I decided otherwise, and was able
-to drastically cut down on the #ifdef-complexity of final netconsole.c.
-Also, struct netconsole_target would be required for multiple targets
-support also, and not just dynamic reconfigurability. Previously these
-two things were coupled, but I want to de-link that. (more on this later)
-
-Note that this patch in itself looks quite redundant / stupid, but it is
-purposefully made this way, so further patches are much more readable.
+Add myself to parties interested in receiving bug reports, and give lots
+of examples. Also fix some whitespace inconsistencies I introduced earlier.
 
 Signed-off-by: Satyam Sharma <ssatyam@cse.iitk.ac.in>
 Cc: Keiichi Kii <k-keiichi@bx.jp.nec.com>
@@ -44,87 +33,116 @@ Cc: Takayoshi Kochi <t-kochi@bq.jp.nec.com>
 
 ---
 
- drivers/net/netconsole.c |   34 ++++++++++++++++++++++++----------
- 1 file changed, 24 insertions(+), 10 deletions(-)
+ Documentation/networking/netconsole.txt |   70 +++++++++++++++++++++++++++++++-
+ 1 file changed, 68 insertions(+), 2 deletions(-)
 
 ---
 
-diff -ruNp a/drivers/net/netconsole.c b/drivers/net/netconsole.c
---- a/drivers/net/netconsole.c	2007-07-03 21:16:41.000000000 +0530
-+++ b/drivers/net/netconsole.c	2007-07-03 21:35:32.000000000 +0530
-@@ -63,24 +63,35 @@ static int __init option_setup(char *opt
- __setup("netconsole=", option_setup);
- #endif
+diff -ruNp a/Documentation/networking/netconsole.txt b/Documentation/networking/netconsole.txt
+--- a/Documentation/networking/netconsole.txt	2007-07-04 03:12:25.000000000 +0530
++++ b/Documentation/networking/netconsole.txt	2007-07-04 12:24:44.000000000 +0530
+@@ -3,6 +3,10 @@ started by Ingo Molnar <mingo@redhat.com
+ 2.6 port and netpoll api by Matt Mackall <mpm@selenic.com>, Sep 9 2003
  
--static struct netpoll np = {
--	.name		= "netconsole",
--	.dev_name	= "eth0",
--	.local_port	= 6665,
--	.remote_port	= 6666,
--	.remote_mac	= {0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
-+/**
-+ * struct netconsole_target - Represents a configured netconsole target.
-+ * @np:		The netpoll structure for this target.
-+ */
-+struct netconsole_target {
-+	struct netpoll		np;
-+};
+ Please send bug reports to Matt Mackall <mpm@selenic.com>
++and Satyam Sharma <satyam.sharma@gmail.com>
 +
-+static struct netconsole_target default_target = {
-+	.np		= {
-+		.name		= "netconsole",
-+		.dev_name	= "eth0",
-+		.local_port	= 6665,
-+		.remote_port	= 6666,
-+		.remote_mac	= {0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
-+	},
- };
++Introduction:
++=============
  
- static void write_msg(struct console *con, const char *msg, unsigned int len)
- {
- 	int frag, left;
- 	unsigned long flags;
-+	struct netconsole_target *nt = &default_target;
+ This module logs kernel printk messages over UDP allowing debugging of
+ problem where disk logging fails and serial consoles are impractical.
+@@ -13,6 +17,9 @@ the specified interface as soon as possi
+ capture of early kernel panics, it does capture most of the boot
+ process.
  
- 	local_irq_save(flags);
- 
- 	for (left = len; left;) {
- 		frag = min(left, MAX_PRINT_CHUNK);
--		netpoll_send_udp(&np, msg, frag);
-+		netpoll_send_udp(&nt->np, msg, frag);
- 		msg += frag;
- 		left -= frag;
- 	}
-@@ -97,17 +108,18 @@ static struct console netconsole = {
- static int __init init_netconsole(void)
- {
- 	int err = 0;
-+	struct netconsole_target *nt = &default_target;
- 
- 	if (!strnlen(config, MAX_PARAM_LENGTH)) {
- 		printk(KERN_INFO "netconsole: not configured, aborting\n");
- 		goto out;
- 	}
- 
--	err = netpoll_parse_options(&np, config);
-+	err = netpoll_parse_options(&nt->np, config);
- 	if (err)
- 		goto out;
- 
--	err = netpoll_setup(&np);
-+	err = netpoll_setup(&nt->np);
- 	if (err)
- 		goto out;
- 
-@@ -120,8 +132,10 @@ out:
- 
- static void __exit cleanup_netconsole(void)
- {
-+	struct netconsole_target *nt = &default_target;
++Sender and receiver configuration:
++==================================
 +
- 	unregister_console(&netconsole);
--	netpoll_cleanup(&np);
-+	netpoll_cleanup(&nt->np);
- }
+ It takes a string configuration parameter "netconsole" in the
+ following format:
  
- module_init(init_netconsole);
+@@ -38,7 +45,7 @@ It also supports logging to multiple rem
+ parameters for the multiple agents separated by semicolons and the
+ complete string enclosed in "quotes", thusly:
+ 
+-modprobe netconsole netconsole="@/,@10.0.0.2/;@/eth1,6892@10.0.0.3/"
++ modprobe netconsole netconsole="@/,@10.0.0.2/;@/eth1,6892@10.0.0.3/"
+ 
+ Built-in netconsole starts immediately after the TCP stack is
+ initialized and attempts to bring up the supplied dev at the supplied
+@@ -46,6 +53,64 @@ address.
+ 
+ The remote host can run either 'netcat -u -l -p <port>' or syslogd.
+ 
++Dynamic reconfiguration:
++========================
++
++Dynamic reconfigurability is a useful addition to netconsole that enables
++remote logging targets to be dynamically added, removed, or have their
++parameters reconfigured at runtime from a configfs-based userspace interface.
++
++To include this feature, select CONFIG_NETCONSOLE_DYNAMIC when building the
++netconsole module (or kernel, if netconsole is built-in).
++
++Some examples follow (configfs is mounted at the /config mountpoint, say).
++
++To add a remote logging target (target names can be arbitrary):
++
++ cd /config/netconsole/
++ mkdir target1
++
++Note that newly created targets have default parameter values (as mentioned
++above) and are disabled by default -- they must first be enabled by writing
++"1" to the "enabled" attribute (usually after setting parameters accordingly)
++as described below.
++
++To remove a target:
++
++ rmdir /config/netconsole/othertarget/
++
++The interface exposes these parameters of a netconsole target to userspace:
++
++	id		Unique identifier for this target	(read-only)
++	enabled		Is this target currently enabled?	(read-write)
++	dev_name	Local network interface name		(read-only)
++	local_ip	Source IP address to use		(read-write)
++	remote_ip	Remote agent's IP address		(read-write)
++	local_port	Source UDP port to use			(read-write)
++	remote_port	Remote agent's UDP port			(read-write)
++	local_mac	Local interface's MAC address		(read-only)
++	remote_mac	Remote agent's MAC address		(read-write)
++
++The "enabled" attribute is also used to control whether the parameters of
++a target can be updated or not -- you can modify the parameters of only
++disabled targets (i.e. if "enabled" is 0).
++
++To update a target's parameters:
++
++ cat enabled				# check if enabled is 1
++ echo 0 > enabled			# disable the target (if required)
++ echo eth2 > dev_name			# set local interface
++ echo 10.0.0.4 > remote_ip		# update some parameter
++ echo cb:a9:87:65:43:21 > remote_mac	# update more parameters
++ echo 1 > enabled			# enable target again
++
++Note that you can even update the local interface dynamically. This is
++especially useful if you want to use interfaces that have newly come up
++and didn't even exist when netconsole was loaded / initialized.
++
++Miscellaneous notes:
++====================
++
+ WARNING: the default target ethernet setting uses the broadcast
+ ethernet address to send packets, which can cause increased load on
+ other systems on the same ethernet segment.
+@@ -55,7 +120,8 @@ so it is advised to explicitly specify t
+ from the config parameters passed to netconsole.
+ 
+ TIP: to find out the MAC address of 10.0.0.2, you may try using:
+-ping -c 1 10.0.0.2 ; /sbin/arp -n | grep 10.0.0.2
++
++ ping -c 1 10.0.0.2 ; /sbin/arp -n | grep 10.0.0.2
+ 
+ TIP: in case the remote logging agent is on a separate LAN subnet than
+ the sender, it is suggested to try specifying the default gateway's
