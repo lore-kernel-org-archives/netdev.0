@@ -1,34 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT PATCHES]: Crit SCTP updates
-Date: Tue, 03 Jul 2007 17:28:41 -0700 (PDT)
-Message-ID: <20070703.172841.46215895.davem@davemloft.net>
-References: <11834923583821-git-send-email-vladislav.yasevich@hp.com>
+From: Yinghai Lu <Yinghai.Lu@Sun.COM>
+Subject: [PATCH 2/4] net: use numa_node in net_devcice->dev instead of parent
+Date: Tue, 03 Jul 2007 17:30:51 -0700
+Message-ID: <200707031730.51677.yinghai.lu@sun.com>
+References: <200706291330.37070.yinghai.lu@sun.com> <468ABF92.5030800@sun.com>
+ <20070703143407.7e4232f8@freepuppy.localdomain.hemminger.net>
+Reply-To: Yinghai Lu <Yinghai.Lu@Sun.COM>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: lksctp-developers@lists.sourceforge.net, netdev@vger.kernel.org
-To: vladislav.yasevich@hp.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57143
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751300AbXGDA2V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2007 20:28:21 -0400
-In-Reply-To: <11834923583821-git-send-email-vladislav.yasevich@hp.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 7BIT
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Andi Kleen <ak@suse.de>, Greg KH <greg@kroah.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760083AbXGDAeF@vger.kernel.org>
+In-reply-to: <20070703143407.7e4232f8@freepuppy.localdomain.hemminger.net>
+Content-disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Date: Tue,  3 Jul 2007 15:52:38 -0400
+[PATCH 2/4] net: use numa_node in net_devcice->dev instead of parent
 
-> This is a pull request for some critical SCTP fixes that I just pushed out.
-> The fix some important issues and I think should be candidates for stable.
-
-Thanks Vlad I'll pull this in and push to Linus as soon as I get
-a chance.
-
-> Do you want to me to generate the stable patches from these, or do you
-> take of it usually?
-
-I usually take care of -stable, so don't worry about it. :)
-
-
+Signed-off-by: Yinghai Lu <yinghai.lu@sun.com>
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 27cfe5f..005cc1c 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -217,7 +217,7 @@ nodata:
+ struct sk_buff *__netdev_alloc_skb(struct net_device *dev,
+ 		unsigned int length, gfp_t gfp_mask)
+ {
+-	int node = dev->dev.parent ? dev_to_node(dev->dev.parent) : -1;
++	int node = dev_to_node(&dev->dev);
+ 	struct sk_buff *skb;
+ 
+ 	skb = __alloc_skb(length + NET_SKB_PAD, gfp_mask, 0, node);
