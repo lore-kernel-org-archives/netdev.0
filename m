@@ -1,28 +1,30 @@
-From: gshan <gshan@alcatel-lucent.com>
-Subject: Big sized packets have been dropped strangly
-Date: Wed, 04 Jul 2007 17:11:09 +0800
-Message-ID: <468B642D.9030109@alcatel-lucent.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: Beyond 64K TCP connections limit per IP-address
+Date: Wed, 4 Jul 2007 13:36:58 +0400
+Message-ID: <20070704093658.GD15210@2ka.mipt.ru>
+References: <7e63f56c0707040050k7d1a9daeq276d7d924ef802e8@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759632AbXGDJL2@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=koi8-r
+Cc: NetDev <netdev@vger.kernel.org>
+To: Robert Iakobashvili <coroberti@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:36482 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757242AbXGDJhJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Jul 2007 05:37:09 -0400
+Content-Disposition: inline
+In-Reply-To: <7e63f56c0707040050k7d1a9daeq276d7d924ef802e8@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hey Guys,
+On Wed, Jul 04, 2007 at 09:50:31AM +0200, Robert Iakobashvili (coroberti@gmail.com) wrote:
+> If I am correct, a TCP server can make up to
+> 64K accepts for a port at a single IP-address.
 
-I got a strange problem recently but no ideas, so to post the question 
-here. We have a FPGA what finish ATM AAL5 to ethernet frame, and CPU 
-receives IP packets from it. The interface based on the FPGA (called 
-sar0) has been bound with several IP addresses. When the MTU of the 
-interface is configurated to 1500, trivial packets can be received, but 
-big-sized packets are dropped. If the MTU is increased to 9500, 
-everything is ok except the NFS connection. We mounted with another 
-machine through sar0. When the MTU is 9500, the speed of the NFS becomes 
-very very slow (it almost took 10 minutes to transfer 100KB files).
+No, it is essentially unlimited - linux uses local/remote addr/port
+tuples for hash chains, so there is no per-addr limits.
+If there is some kind of binds, then yes, only 64k ports per address.
 
-I don't know why it is and how to solve it. Any suggestions are appreciated!
 
-Thanks,
-Gavin
+-- 
+	Evgeniy Polyakov
