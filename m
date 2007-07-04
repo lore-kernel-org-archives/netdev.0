@@ -1,77 +1,66 @@
 From: Satyam Sharma <ssatyam@cse.iitk.ac.in>
-Subject: [RFC][PATCH -mm 0/9] netconsole: Multiple targets and dynamic reconfigurability
-Date: Wed, 04 Jul 2007 16:37:39 +0530
-Message-ID: <20070704110739.28520.5036.sendpatchset@cselinux1.cse.iitk.ac.in>
-Cc: Keiichi Kii <k-keiichi@bx.jp.nec.com>,
-	Satyam Sharma <ssatyam@cse.iitk.ac.in>,
+Subject: [PATCH -rc7 1/1] netpoll: Fix a leak-n-bug in netpoll_cleanup()
+Date: Wed, 04 Jul 2007 16:36:41 +0530
+Message-ID: <20070704110641.28497.92035.sendpatchset@cselinux1.cse.iitk.ac.in>
+Cc: Satyam Sharma <ssatyam@cse.iitk.ac.in>,
 	Netdev <netdev@vger.kernel.org>,
-	Joel Becker <joel.becker@oracle.com>,
-	Matt Mackall <mpm@selenic.com>,
 	Andrew Morton <akpm@linux-foundation.org>,
 	David Miller <davem@davemloft.net>
 To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail4.iitk.ac.in ([203.197.196.4]:57173 "EHLO mail4.iitk.ac.in"
+Received: from mail4.iitk.ac.in ([203.197.196.4]:57174 "EHLO mail4.iitk.ac.in"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761020AbXGDLIG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Jul 2007 07:08:06 -0400
+	id S1761243AbXGDLIH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Jul 2007 07:08:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Satyam Sharma <ssatyam@cse.iitk.ac.in>
 
-[0/9] netconsole: Multiple targets and dynamic reconfigurability
+[1/1] netpoll: Fix a leak-n-bug in netpoll_cleanup()
 
-This patchset is a rework of the original idea and patches posted by
-Keiichi Kii and Takayoshi Kochi at: http://lkml.org/lkml/2007/6/13/72
+93ec2c723e3f8a216dde2899aeb85c648672bc6b applied excessive duct tape to
+the netpoll beast's netpoll_cleanup(), thus substituting one leak with
+another, and opening up a little buglet :-)
 
-[ I had initially thought about only modifying Keiichi's patches to
-incorporate the suggested stuff, sysfs+ioctl->configfs conversion, etc,
-but the changes became too much and I ultimately ended up rewriting the
-patchset. This also gave the flexibility to make other changes possible.
-Keiichi, Takayoshi, kindly review this, and if OK, please give your
-Signed-off-by:'s to the patches herein. ]
+net_device->npinfo (netpoll_info) is a shared and refcounted object and
+cannot simply be set NULL the first time netpoll_cleanup() is called.
+Otherwise, further netpoll_cleanup()'s see np->dev->npinfo == NULL and
+become no-ops, thus leaking. And it's a bug too: the first call to
+netpoll_cleanup() would thus (annoyingly) "disable" other (still alive)
+netpolls too. Maybe nobody noticed this because netconsole (only user
+of netpoll) never supported multiple netpoll objects earlier.
 
-This patchset depends upon the earlier netpoll fixlet and the configfs
-cleanup patches. Diffed against 2.6.22-rc6-mm1.
-
-[1/9] netconsole: Cleanups, codingstyle, prettyfication
-[2/9] netconsole: Code simplification
-[3/9] netconsole: Introduce netconsole_target
-[4/9] netconsole: Introduce netconsole_netdev_notifier
-[5/9] netconsole: Introduce dev_status member
-[6/9] netconsole: Update documentation for multiple target support
-[7/9] netconsole: Support multiple logging targets
-[8/9] netconsole: Update documentation for dynamic reconfigurability
-[9/9] netconsole: Support dynamic reconfiguration using configfs
+This is a trivial and obvious one-line fixlet.
 
 Signed-off-by: Satyam Sharma <ssatyam@cse.iitk.ac.in>
 
-About this patchset:
-====================
+[ Andrew, this is diffed against 2.6.22-rc7 but applies successfully to
+the 2.6.22-rc6-mm1 tree also. ]
 
-What?
+---
 
-Support multiple remote logging targets in netconsole. Also, ability to
-dynamically add or remove targets or modify parameters (IP, port, remote
-MAC address) of targets at runtime, from userspace, using configfs.
+ net/core/netpoll.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Why?
+---
 
->From Keiichi Kii's original post:
-
-[...] current netconsole is not flexible. For example, if you want to change
-ip address for logging agent, in the case of built-in netconsole, you can't
-change config except for changing boot parameter and rebooting your system,
-or in the case of module netconsole, you need to remove it and reload
-with different parameters. [...] and we have been losing serial console
-port with PCs and Servers.
-
-(... and especially laptops, I would add.)
-
-The patchset is heavily commented and verbosely changelogged, so hope you
-have as much fun reading and reviewing it as I had writing it :-)
-
-Kindly review and comment.
-
-Satyam
+diff -ruNp a/net/core/netpoll.c b/net/core/netpoll.c
+--- a/net/core/netpoll.c	2007-07-02 22:11:21.000000000 +0530
++++ b/net/core/netpoll.c	2007-07-03 16:28:10.000000000 +0530
+@@ -782,7 +782,6 @@ void netpoll_cleanup(struct netpoll *np)
+ 				spin_unlock_irqrestore(&npinfo->rx_lock, flags);
+ 			}
+ 
+-			np->dev->npinfo = NULL;
+ 			if (atomic_dec_and_test(&npinfo->refcnt)) {
+ 				skb_queue_purge(&npinfo->arp_tx);
+ 				skb_queue_purge(&npinfo->txq);
+@@ -796,6 +795,7 @@ void netpoll_cleanup(struct netpoll *np)
+ 					kfree_skb(skb);
+ 				}
+ 				kfree(npinfo);
++				np->dev->npinfo = NULL;
+ 			}
+ 		}
+ 
