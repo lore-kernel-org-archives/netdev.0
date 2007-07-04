@@ -1,72 +1,93 @@
-From: "Akinobu Mita" <akinobu.mita@gmail.com>
-Subject: Re: [PATCH 1/2] eHEA: Capability flag for DLPAR support
-Date: Wed, 4 Jul 2007 21:53:39 +0900
-Message-ID: <961aa3350707040553m12ff1bccw9421e714337c80d1@mail.gmail.com>
-References: <200707041209.37127.ossthema@de.ibm.com>
+From: Satyam Sharma <ssatyam@cse.iitk.ac.in>
+Subject: Re: [PATCH -mm 9/9] netconsole: Support dynamic reconfiguration
+ using configfs
+Date: Wed, 4 Jul 2007 18:51:36 +0530 (IST)
+Message-ID: <Pine.LNX.4.64.0707041829220.30225@cselinux1.cse.iitk.ac.in>
+References: <20070704110739.28520.5036.sendpatchset@cselinux1.cse.iitk.ac.in>
+ <20070704110824.28520.11661.sendpatchset@cselinux1.cse.iitk.ac.in>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Jeff Garzik" <jeff@garzik.org>, netdev <netdev@vger.kernel.org>,
-	"Christoph Raisch" <raisch@de.ibm.com>,
-	"Jan-Bernd Themann" <themann@de.ibm.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	linux-ppc <linuxppc-dev@ozlabs.org>,
-	"Marcus Eder" <meder@de.ibm.com>,
-	"Thomas Klein" <tklein@de.ibm.com>,
-	"Stefan Roscher" <stefan.roscher@de.ibm.com>
-To: "Jan-Bernd Themann" <ossthema@de.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.181]:32108 "EHLO
-	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758900AbXGDMxk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jul 2007 08:53:40 -0400
-Received: by py-out-1112.google.com with SMTP id u77so3836409pyb
-        for <netdev@vger.kernel.org>; Wed, 04 Jul 2007 05:53:40 -0700 (PDT)
-In-Reply-To: <200707041209.37127.ossthema@de.ibm.com>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Keiichi Kii <k-keiichi@bx.jp.nec.com>,
+	Netdev <netdev@vger.kernel.org>,
+	Joel Becker <joel.becker@oracle.com>,
+	Matt Mackall <mpm@selenic.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>
+To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1761315AbXGDNAd@vger.kernel.org>
+In-Reply-To: <20070704110824.28520.11661.sendpatchset@cselinux1.cse.iitk.ac.in>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-2007/7/4, Jan-Bernd Themann <ossthema@de.ibm.com>:
+[ Some more thoughts I had on this, for those interested. ]
 
-> diff --git a/drivers/net/ehea/ehea_main.c b/drivers/net/ehea/ehea_main.c
-> index bdb5241..f8c0908 100644
-> --- a/drivers/net/ehea/ehea_main.c
-> +++ b/drivers/net/ehea/ehea_main.c
-> @@ -2923,6 +2923,15 @@ static int check_module_parm(void)
->         return ret;
->  }
->
-> +static ssize_t ehea_show_capabilities(struct device_driver *drv,
-> +                                     char *buf)
+> +#ifdef	CONFIG_NETCONSOLE_DYNAMIC
+> +
+> +/*
+> + * Targets that were created by parsing the boot/module option string
+> + * do not exist in the configfs hierarchy and will never go away (and
+> + * have zeroed-out config_item members). So make these a no-op for them.
+> + */
+> +static void netconsole_target_get(struct netconsole_target *nt)
 > +{
-> +       return sprintf(buf, "%d", EHEA_CAPABILITIES);
+> +	static struct config_item empty_item;	/* Zeroed-out config_item */
+> +
+> +	if (memcmp(&nt->item, &empty_item, sizeof(struct config_item)))
+> +		config_item_get(&nt->item);
 > +}
 > +
-> +static DRIVER_ATTR(capabilities, S_IRUSR | S_IRGRP | S_IROTH,
-> +                  ehea_show_capabilities, NULL);
+> +static void netconsole_target_put(struct netconsole_target *nt)
+> +{
+> +	static struct config_item empty_item;	/* Zeroed-out config_item */
 > +
->  int __init ehea_module_init(void)
->  {
->         int ret;
-> @@ -2937,12 +2946,20 @@ int __init ehea_module_init(void)
->         if (ret)
->                 ehea_error("failed registering eHEA device driver on ebus");
->
-
-You forgot to put:
-                return ret;
-or
-                goto out;
-
-> +       ret = driver_create_file(&ehea_driver.driver, &driver_attr_capabilities);
-> +       if (ret) {
-> +               ehea_error("failed to register capabilities attribute, ret=%d", ret);
-> +               ibmebus_unregister_driver(&ehea_driver);
-> +               goto out;
-> +       }
+> +	if (memcmp(&nt->item, &empty_item, sizeof(struct config_item)))
+> +		config_item_put(&nt->item);
+> +}
 > +
->  out:
->         return ret;
->  }
->
+> +#else	/* !CONFIG_NETCONSOLE_DYNAMIC */
+> +
+>  /*
+> - * Allocate new target and setup netpoll for it.
+> + * No danger of targets going away from under us when dynamic
+> + * reconfigurability is off.
+> + */
+> +static void netconsole_target_get(struct netconsole_target *nt)
+> +{
+> +}
+> +
+> +static void netconsole_target_put(struct netconsole_target *nt)
+> +{
+> +}
+> +
+> +#endif	/* CONFIG_NETCONSOLE_DYNAMIC */
+
+This whole stuff (and calls to netconsole_target_get and _put from code
+below) is not necessary. All the access to the netconsole_target objects
+(that are present in the target_list) happens inside
+spin_lock_irqsave(target_list_lock), so there's no need to do a
+config_item_get() on these as there is no race window in which userspace
+can delete (and thus release) these items from under us. Note that
+drop_netconsole_target() removes target-to-delete from target_list
+(under spin_lock_irqsave) _before_ free'ing the objects, and that both
+_get() and _put() are balanced *inside* a spin_lock_irqsave /
+spin_unlock_irqrestore pair -- so all this business is quite pointless.
+
+I've kept this stuff in for now, but would like to get rid of it, really.
+It's an unnecessary #ifdef-#else-#endif kludge. Comments?
+
+> +	if (nt->enabled) {
+> +		printk(KERN_ERR "netconsole: target (id %d) is enabled, "
+> +				"disable to update parameters\n", nt->id);
+> +		return -EINVAL;
+> +	}
+
+[ Such code exists in all the store() operations for all attributes other
+than "enabled" itself. ]
+
+Anyway, the problem is that the error does not show up violently in the
+shell. The write fails, of course, values are unchanged, and dmesg shows
+the diagnostic outputted above -- but "echo" does not complain about
+-EINVAL returning from write(2) for some reason, neither did -EACCES.
+I guess "echo" needs to be fixed. BTW would -EACCES be more appropriate?
+
+Satyam
