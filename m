@@ -1,56 +1,47 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: [WIP][PATCHES] Network xmit batching - tg3 support
-Date: Tue, 03 Jul 2007 21:59:48 -0400
-Message-ID: <1183514388.5174.29.camel@localhost>
-References: <OFB311484E.057E34E9-ON652572F3.001D5838-652572F3.0022766D@in.ibm.com>
-	 <1181216629.4064.22.camel@localhost> <20070619132148.GA32078@2ka.mipt.ru>
-	 <20070619133333.GA19667@2ka.mipt.ru> <20070619140038.GA13629@2ka.mipt.ru>
-	 <1182270529.4968.73.camel@localhost>
-	 <18040.5105.715624.286924@robur.slu.se>
-	 <1182275300.4968.83.camel@localhost> <1182989145.5155.81.camel@localhost>
-	 <1183411245.6609.16.camel@teletran1> <1183468188.5159.73.camel@localhost>
-	 <1183491084.14005.27.camel@teletran1>
+Subject: Re: Multiqueue and virtualization WAS(Re: [PATCH 3/3] NET: [SCHED]
+	Qdisc changes and sch_rr added for multiqueue
+Date: Tue, 03 Jul 2007 22:20:11 -0400
+Message-ID: <1183515611.5174.34.camel@localhost>
+References: <1183215164.5165.13.camel@localhost>
+	 <20070630.133357.77057070.davem@davemloft.net>
+	 <1183466553.5159.51.camel@localhost>
+	 <20070703.142431.49854676.davem@davemloft.net>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	Krishna Kumar2 <krkumar2@in.ibm.com>,
-	Gagan Arneja <gaagaan@gmail.com>, netdev@vger.kernel.org,
-	Rick Jones <rick.jones2@hp.com>,
-	Sridhar Samudrala <sri@us.ibm.com>,
-	David Miller <davem@davemloft.net>,
-	Jeff Garzik <jeff@garzik.org>,
-	Michael Chan <mchan@broadcom.com>
-To: Matt Carlson <mcarlson@broadcom.com>
+Cc: kaber@trash.net, peter.p.waskiewicz.jr@intel.com,
+	netdev@vger.kernel.org, jeff@garzik.org, auke-jan.h.kok@intel.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.229]:28835 "EHLO
+Received: from wx-out-0506.google.com ([66.249.82.229]:37136 "EHLO
 	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755215AbXGDB7v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2007 21:59:51 -0400
-Received: by wx-out-0506.google.com with SMTP id h31so1958735wxd
-        for <netdev@vger.kernel.org>; Tue, 03 Jul 2007 18:59:51 -0700 (PDT)
-In-Reply-To: <1183491084.14005.27.camel@teletran1>
+	with ESMTP id S1752910AbXGDCUQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2007 22:20:16 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so1962053wxd
+        for <netdev@vger.kernel.org>; Tue, 03 Jul 2007 19:20:16 -0700 (PDT)
+In-Reply-To: <20070703.142431.49854676.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2007-03-07 at 12:31 -0700, Matt Carlson wrote:
+On Tue, 2007-03-07 at 14:24 -0700, David Miller wrote:
+[.. some useful stuff here deleted ..]
 
-> I had planned on using netperf, but pktgen sounds like a more controlled
-> environment.  Thanks for the tip.
+> That's why you have to copy into a purpose-built set of memory
+> that is composed of pages that _ONLY_ contain TX packet buffers
+> and nothing else.
+> 
+> The cost of going through the switch is too high, and the copies are
+> necessary, so concentrate on allowing me to map the guest ports to the
+> egress queues.  Anything else is a waste of discussion time, I've been
+> pouring over these issues endlessly for weeks, so if I'm saying doing
+> copies and avoiding the switch is necessary I do in fact mean it. :-)
 
-I can help more if you use pktgen - netperf is more involved. Also
-pktgen is much closer to the driver so it would let you see closely
-if any improvements are obvious or not. 
-
-> Do you see any reason why we couldn't just add the VLAN code to the prep
-> stage and simply overwrite that portion of the skb-cb?  Our driver would
-> just store its value in the base_flags member of tg3_tx_cbdata.
-
-That would be a much better approach;-> Go for it.
+ok, i get it Dave ;-> Thanks for your patience, that was useful.
+Now that is clear for me, I will go back and look at your original email
+and try to get back on track to what you really asked ;->
 
 cheers,
 jamal
-
 
