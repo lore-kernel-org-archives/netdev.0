@@ -1,56 +1,50 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: Via Rhine II Network Card Failure
-Date: Wed, 4 Jul 2007 14:11:41 +0200
-Message-ID: <20070704121141.GA3996@ff.dom.local>
-References: <665527d90706210358k5a1d27f2r30536547f447a516@mail.gmail.com>
+From: Satyam Sharma <ssatyam@cse.iitk.ac.in>
+Subject: Re: [RFC][PATCH -mm 0/9] netconsole: Multiple targets and dynamic
+ reconfigurability
+Date: Wed, 4 Jul 2007 17:55:15 +0530 (IST)
+Message-ID: <Pine.LNX.4.64.0707041752210.29756@cselinux1.cse.iitk.ac.in>
+References: <20070704110739.28520.5036.sendpatchset@cselinux1.cse.iitk.ac.in>
+ <468B8952.9030205@bx.jp.nec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Satyam Sharma <satyam.sharma@gmail.com>
-To: Mark Hannessen <markhannessen@gmail.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>,
+	Joel Becker <joel.becker@oracle.com>,
+	Matt Mackall <mpm@selenic.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>
+To: Keiichi KII <k-keiichi@bx.jp.nec.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx12.go2.pl ([193.17.41.142]:45561 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1759360AbXGDMDQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Jul 2007 08:03:16 -0400
-Content-Disposition: inline
-In-Reply-To: <665527d90706210358k5a1d27f2r30536547f447a516@mail.gmail.com>
+Received: from mail4.iitk.ac.in ([203.197.196.4]:48858 "EHLO mail4.iitk.ac.in"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757152AbXGDMDx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Jul 2007 08:03:53 -0400
+In-Reply-To: <468B8952.9030205@bx.jp.nec.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 21-06-2007 12:58, Mark Hannessen wrote:
-> Hi list,
-> 
-> I have some trouble getting my network card to run.
-> when I run dmesg I can clearly see it being detected
-> 
-> eth0: VIA Rhine II at 0xee006000, 00:e0:c5:54:88:a8, IRQ 11.
-> eth0: MII PHY found at address 1, status 0x786d advertising 05e1 Link 45e1.
-> 
-> but when I try ifconfig eth0 up it fails with a no device error.
-> 
-> SIOCSIFADDR: No such device eth0:
-> ERROR while getting interface flags: No such device
-> 
-> I tried adding pci=routeirq too, but that didn't work either.
-> 
-> I know there is nothing wrong with the card itself because it works on
-> the linux distro that came with it.
-> 
-> does anyone have any hints as to what might get it up and running?
+Hi Keiichi,
 
-I see the list has been really overworked...
+On Wed, 4 Jul 2007, Keiichi KII wrote:
+> [...]
+> At first, thank you for your helping.
+> I'm going to try/review your patches.
+> 
+> >[ I had initially thought about only modifying Keiichi's patches to
+> >incorporate the suggested stuff, sysfs+ioctl->configfs conversion, etc,
+> >but the changes became too much and I ultimately ended up rewriting the
+> >patchset. This also gave the flexibility to make other changes possible.
+> >Keiichi, Takayoshi, kindly review this, and if OK, please give your
+> >Signed-off-by:'s to the patches herein. ]
+> 
+> By the way, how can I add Signed-off-by:'s to your patches?
+> Should I add it to each patch and submit them to this list again?
+> 
+> Anybody could give me an advice?
 
-It's a long time and I hope you've found the reason yet.
-If not, here are some hints:
+I think you could just individually reply to all the mails and replace
+the "Cc:" in front of your name + email ID with "Signed-off-by:" --
+after reviewing & testing this, of course!
 
-- is eth0 shown in /proc e.g. in /proc/interrupts?
-- is ifconfig -a returning something?
-- can you try ip (from iproute package) e.g. ip link set eth0 up
-- do you have the same net options enabled as in this distro:
-  e.g. CONFIG_PACKET?
-- maybe you can try to figure something after (as root):
-  strace ifconfig eth0 up
-or send the output here...
-
-Regards,
-Jarek P.
+Thanks,
+Satyam
