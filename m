@@ -1,49 +1,61 @@
-From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
-Subject: Re: [PATCH] ucc_geth.c, make PHY device optional.
-Date: Wed, 04 Jul 2007 18:44:39 +0200
-Message-ID: <1183567479.20673.225.camel@gentoo-jocke.transmode.se>
-References: <989B956029373F45A0B8AF0297081890D839B4@zch01exm26.fsl.freescale.net>
-	<B27F0350-E5ED-48BF-9605-1E6BE29B9E36@kernel.crashing.org>
-Reply-To: joakim.tjernlund@transmode.se
+From: "Yinghai Lu" <yhlu.kernel@gmail.com>
+Subject: Re: [PATCH 2/4] net: use numa_node in net_devcice->dev instead of parent
+Date: Wed, 4 Jul 2007 09:54:00 -0700
+Message-ID: <86802c440707040954w409c50b5qf9016db7f567479e@mail.gmail.com>
+References: <20070703143407.7e4232f8@freepuppy.localdomain.hemminger.net>
+	 <200707031730.51677.yinghai.lu@sun.com>
+	 <20070704085120.GB19515@infradead.org>
+	 <20070704.033530.105423846.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev Development <linuxppc-dev@ozlabs.org>,
-	Netdev <netdev@vger.kernel.org>
-To: Segher Boessenkool <segher@kernel.crashing.org>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-In-Reply-To: <B27F0350-E5ED-48BF-9605-1E6BE29B9E36@kernel.crashing.org>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Cc: hch@infradead.org, shemminger@linux-foundation.org,
+	akpm@linux-foundation.org, ak@suse.de, greg@kroah.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: "David Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nz-out-0506.google.com ([64.233.162.232]:6038 "EHLO
+	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754592AbXGDQyD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jul 2007 12:54:03 -0400
+Received: by nz-out-0506.google.com with SMTP id s18so1615411nze
+        for <netdev@vger.kernel.org>; Wed, 04 Jul 2007 09:54:00 -0700 (PDT)
+In-Reply-To: <20070704.033530.105423846.davem@davemloft.net>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2007-07-04 at 15:32 +0200, Segher Boessenkool wrote:
-> > How about separate autoneg to a property "dumb-phy", which  
-> > indicates the
-> > PHY/switch doesn't provide MII register interface.
-> 
-> Something like that I suppose.  But don't call it "dumb phy",
-> nor "fake phy", nor anything similar -- there simply is _no_
-> phy.  If the Linux code wants to pretend there is one, that's
-> one thing, but there is no need to do any of this trickery in
-> the device tree.
-> 
-> > Therefore, it should
-> > use the fixed speed and duplex from device node rather than registers.
-> 
-> Yes.
+On 7/4/07, David Miller <davem@davemloft.net> wrote:
+> From: Christoph Hellwig <hch@infradead.org>
+> Date: Wed, 4 Jul 2007 09:51:20 +0100
+>
+> > On Tue, Jul 03, 2007 at 05:30:51PM -0700, Yinghai Lu wrote:
+> > > [PATCH 2/4] net: use numa_node in net_devcice->dev instead of parent
+> > >
+> > > Signed-off-by: Yinghai Lu <yinghai.lu@sun.com>
+> > > diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> > > index 27cfe5f..005cc1c 100644
+> > > --- a/net/core/skbuff.c
+> > > +++ b/net/core/skbuff.c
+> > > @@ -217,7 +217,7 @@ nodata:
+> > >  struct sk_buff *__netdev_alloc_skb(struct net_device *dev,
+> > >             unsigned int length, gfp_t gfp_mask)
+> > >  {
+> > > -   int node = dev->dev.parent ? dev_to_node(dev->dev.parent) : -1;
+> > > +   int node = dev_to_node(&dev->dev);
+> >
+> > This looks wrong to me unless the device model has once again changed
+> > silently.  When I wrote this code &dev->dev was a device allocated
+> > as part of the netdevice and the parent is the pci (or whatever) device
+> > that has the node information.
+>
+> Correct, this change is completely bogus.
+> -
 
-Not sure I follow, something like this?
-  initial-phy-capacity = <speed duplex>
-  no-mdio-interface
+please check that with
 
-autoneg does not fit in there.
+http://lkml.org/lkml/2007/7/3/419
 
-Jocke
+[PATCH 1/4] try parent numa_node at first before using default
+
+YH
