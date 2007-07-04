@@ -1,47 +1,34 @@
-From: Brice Goglin <Brice.Goglin@ens-lyon.org>
-Subject: Who's allowed to set a skb destructor?
-Date: Wed, 04 Jul 2007 10:04:54 +0200
-Message-ID: <468B54A6.5090902@ens-lyon.org>
+From: Florian Weimer <fweimer@bfk.de>
+Subject: Re: Beyond 64K TCP connections limit per IP-address
+Date: Wed, 04 Jul 2007 10:19:50 +0200
+Message-ID: <82sl84pom1.fsf@mid.bfk.de>
+References: <7e63f56c0707040050k7d1a9daeq276d7d924ef802e8@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: NetDev <netdev@vger.kernel.org>
+To: "Robert Iakobashvili" <coroberti@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from iona.labri.fr ([147.210.8.143]:49756 "EHLO iona.labri.fr"
+Received: from mx01.bfk.de ([193.227.124.2]:56076 "EHLO mx01.bfk.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754570AbXGDIE4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Jul 2007 04:04:56 -0400
-Received: from localhost (localhost.localdomain [127.0.0.1])
-	by iona.labri.fr (Postfix) with ESMTP id D220A90097
-	for <netdev@vger.kernel.org>; Wed,  4 Jul 2007 10:03:53 +0200 (CEST)
-Received: from iona.labri.fr ([127.0.0.1])
-	by localhost (iona.labri.fr [127.0.0.1]) (amavisd-new, port 10024)
-	with LMTP id u5pqRE8AA2GS for <netdev@vger.kernel.org>;
-	Wed,  4 Jul 2007 10:03:53 +0200 (CEST)
-Received: from [147.210.128.231] (laptop-147-210-128-231.labri.fr [147.210.128.231])
-	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(Client did not present a certificate)
-	by iona.labri.fr (Postfix) with ESMTP id BCB4B90094
-	for <netdev@vger.kernel.org>; Wed,  4 Jul 2007 10:03:53 +0200 (CEST)
+	id S1756127AbXGDIhc convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jul 2007 04:37:32 -0400
+In-Reply-To: <7e63f56c0707040050k7d1a9daeq276d7d924ef802e8@mail.gmail.com> (Robert Iakobashvili's message of "Wed, 4 Jul 2007 09:50:31 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+* Robert Iakobashvili:
 
-I am trying to understand whether I can setup a skb destructor in my
-code (which is basically a protocol above dev_queue_xmit() and co). From
-what I see in many parts in the current kernel code, the "protocol" (I
-mean, the one who actually creates the skb) may setup a destructor.
+> If I am correct, a TCP server can make up to
+> 64K accepts for a port at a single IP-address.
 
-However, I also see some places where some low-level drivers might be
-using a destructor too , without apparently checking whether an upper
-layer already uses one. For instance, write_ofld_wr() in cxgb3/sge.c. I
-found some old threads about adding support for multiple destructors but
-I don't see anything like this in the current kernel.
+I don't think such a limit exists.  In typical configurations, a
+single client IP address can only establish a few tens of thousands of
+TCP connections to one server port.  But as soon as multiple clients
+are involved, there is virtually no protocol-imposed limit.
 
-So, I'd like to have a clear statement about who's allowed to use a
-destructor :)
-
-Thanks,
-Brice
-
+--=20
+=46lorian Weimer                <fweimer@bfk.de>
+BFK edv-consulting GmbH       http://www.bfk.de/
+Kriegsstra=DFe 100              tel: +49-721-96201-1
+D-76133 Karlsruhe             fax: +49-721-96201-99
