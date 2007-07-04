@@ -1,73 +1,61 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [NET]: Fix gen_estimator timer removal race
-Date: Wed, 04 Jul 2007 17:47:51 +0200
-Message-ID: <468BC127.1090904@trash.net>
+From: Satyam Sharma <ssatyam@cse.iitk.ac.in>
+Subject: Re: [PATCH -mm 5/9] netconsole: Introduce dev_status member
+Date: Wed, 4 Jul 2007 22:03:13 +0530 (IST)
+Message-ID: <Pine.LNX.4.64.0707042158001.757@cselinux1.cse.iitk.ac.in>
+References: <20070704110739.28520.5036.sendpatchset@cselinux1.cse.iitk.ac.in>
+ <20070704110804.28520.25792.sendpatchset@cselinux1.cse.iitk.ac.in>
+ <20070704135642.GB11115@waste.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------070706070107080200040802"
-Cc: Jarek Poplawski <jarkao2@o2.pl>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Keiichi Kii <k-keiichi@bx.jp.nec.com>,
+	Netdev <netdev@vger.kernel.org>,
+	Joel Becker <joel.becker@oracle.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>
+To: Matt Mackall <mpm@selenic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:40305 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751500AbXGDPsH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jul 2007 11:48:07 -0400
+Received: from mail4.iitk.ac.in ([203.197.196.4]:35833 "EHLO mail4.iitk.ac.in"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752057AbXGDQLu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Jul 2007 12:11:50 -0400
+In-Reply-To: <20070704135642.GB11115@waste.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------070706070107080200040802
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
+On Wed, 4 Jul 2007, Matt Mackall wrote:
+> On Wed, Jul 04, 2007 at 04:38:04PM +0530, Satyam Sharma wrote:
+> > [...]
+> > +/*
+> > + * Why no net_dev_is_up() in netdevice.h? The kernel could lose a lot of
+> > + * weight if only netdevice.h had the good sense to export such a function.
+> > + * Oh well ...
+> > + */
+> > +static inline int net_dev_is_up(struct net_device *net_dev)
+> > +{
+> > +	return ((net_dev->flags & IFF_UP) == IFF_UP);
+> > +}
+> 
+> Why editorialize? Why not just add this to netdevice.h?
 
-This is an updated version of the gen_estimator fix
-that relies on all changes happening under the rtnl
-and just fixes the race between timer rearming and
-timer removal.
+Hmm, I wanted to keep all changes local to netconsole, but ...
+ok, will do that.
 
+> > +	if (nt->dev_status) {
+> 
+> Why not simply call net_dev_is_up?
 
+Yes, I did consider just calling the function here instead of
+introducing another member ... again, ok will do that ...
 
---------------070706070107080200040802
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
+> > We then join this up with the just-introduced net_device notifier, and
+> > introduce NETDEV_UP and NETDEV_DOWN notifications. By disabling the target
+> > when the corresponding local interface is down, we save the overhead of
+> > unnecessarily disabling interrupts and calling into the netpoll stack in
+> > console->write().
+> 
+> Yuck. 
 
-[NET]: Fix gen_estimator timer removal race
+... so all this will go too.
 
-As noticed by Jarek Poplawski <jarkao2@o2.pl>, the timer removal in
-gen_kill_estimator races with the timer function rearming the timer.
-
-Check whether the timer list is empty before rearming the timer
-in the timer function to fix this.
-
-Signed-off-by: Patrick McHardy <kaber@trash.net>
-
----
-commit 369edff5c22c6838cb632c24a1971f1ce6823991
-tree b0f47f8469ed9fc47e8fc6b597b204aac816133a
-parent ba609a9d97ba231c3d94443c50579ceb5fc33867
-author Patrick McHardy <kaber@trash.net> Wed, 04 Jul 2007 17:45:26 +0200
-committer Patrick McHardy <kaber@trash.net> Wed, 04 Jul 2007 17:45:26 +0200
-
- net/core/gen_estimator.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
-
-diff --git a/net/core/gen_estimator.c b/net/core/gen_estimator.c
-index 17daf4c..cc84d8d 100644
---- a/net/core/gen_estimator.c
-+++ b/net/core/gen_estimator.c
-@@ -128,7 +128,8 @@ static void est_timer(unsigned long arg)
- 		spin_unlock(e->stats_lock);
- 	}
- 
--	mod_timer(&elist[idx].timer, jiffies + ((HZ<<idx)/4));
-+	if (elist[idx].list != NULL)
-+		mod_timer(&elist[idx].timer, jiffies + ((HZ<<idx)/4));
- 	read_unlock(&est_lock);
- }
- 
-
---------------070706070107080200040802--
+Satyam
