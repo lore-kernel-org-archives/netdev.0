@@ -1,59 +1,48 @@
-From: David Brownell <david-b@pacbell.net>
-Subject: Re: [PATCH] Cleanup usbnet_probe() return value handling
-Date: Tue, 3 Jul 2007 21:34:13 -0700
-Message-ID: <200707032134.13339.david-b@pacbell.net>
-References: <87lkdyx19a.fsf@nanv.dk> <200707020914.38479.david-b@pacbell.net> <87sl86juel.fsf@p4.be.48ers.dk>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: [PATCH] Re: [NETPOLL] netconsole: fix soft lockup when removing module
+Date: Wed, 4 Jul 2007 08:41:59 +0200
+Message-ID: <20070704064159.GA2057@ff.dom.local>
+References: <20070701173558.GA207@tv-sign.ru> <20070702075226.GB1639@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Peter Korsgaard <jacmet@sunsite.dk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp124.sbc.mail.sp1.yahoo.com ([69.147.64.97]:45027 "HELO
-	smtp124.sbc.mail.sp1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751900AbXGDEeP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jul 2007 00:34:15 -0400
-In-Reply-To: <87sl86juel.fsf@p4.be.48ers.dk>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"David S\. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Oleg Nesterov <oleg@tv-sign.ru>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758968AbXGDGdp@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <20070702075226.GB1639@ff.dom.local>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 02 July 2007, Peter Korsgaard wrote:
-
-> usbnet_probe() handles a positive return value from the driver bind()
-> function as success, but will later only setup the status handler if the
-> return value was zero, leading to confusion. Patch adjusts this to accept
-> positive values as success in both checks.
+On Mon, Jul 02, 2007 at 09:52:26AM +0200, Jarek Poplawski wrote:
 > 
-> Signed-off-by: Peter Korsgaard <jacmet@sunsite.dk>
-
-Signed-off-by: David Brownell <dbrownell@users.sourceforge.net>
-
-... though I'd adjust comments to say "non-negative" rather
-than "positive".  Most folks won't say that zero is positive.
-
-
-> ---
->  drivers/net/usb/usbnet.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+> From my recent patch:
 > 
-> Index: linux-2.6.22-rc7/drivers/net/usb/usbnet.c
-> ===================================================================
-> --- linux-2.6.22-rc7.orig/drivers/net/usb/usbnet.c
-> +++ linux-2.6.22-rc7/drivers/net/usb/usbnet.c
-> @@ -1208,7 +1208,7 @@
->  			status = 0;
->  
->  	}
-> -	if (status == 0 && dev->status)
-> +	if (status >= 0 && dev->status)
->  		status = init_status (dev, udev);
->  	if (status < 0)
->  		goto out3;
+> > >    #1
+> > >    Until kernel ver. 2.6.21 (including) cancel_rearming_delayed_work()
+> > >    required a work function should always (unconditionally) rearm with
+> > >    delay > 0 - otherwise it would endlessly loop. This patch replaces
+> > >    this function with cancel_delayed_work(). Later kernel versions don't
+> > >    require this, so here it's only for uniformity.
 > 
-> -- 
-> Bye, Peter Korsgaard
+> But Oleg Nesterov <oleg@tv-sign.ru> found:
 > 
+> > But 2.6.22 doesn't need this change, why it was merged?
+> > 
+> > In fact, I suspect this change adds a race,
+> ...
+> 
+> His description was right (thanks), so this patch reverts #1.
+> 
+> Signed-off-by: Jarek Poplawski <jarkao2@o2.pl>
 
+Oleg,
 
+I think maybe you could ack these 2 netconsole patches...
+They were done on your request but it looks like Andrew
+is waiting on something...
+
+Thanks,
+Jarek P.
