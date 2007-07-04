@@ -1,61 +1,49 @@
-From: Satyam Sharma <ssatyam@cse.iitk.ac.in>
-Subject: Re: [PATCH -mm 5/9] netconsole: Introduce dev_status member
-Date: Wed, 4 Jul 2007 22:03:13 +0530 (IST)
-Message-ID: <Pine.LNX.4.64.0707042158001.757@cselinux1.cse.iitk.ac.in>
-References: <20070704110739.28520.5036.sendpatchset@cselinux1.cse.iitk.ac.in>
- <20070704110804.28520.25792.sendpatchset@cselinux1.cse.iitk.ac.in>
- <20070704135642.GB11115@waste.org>
+From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
+Subject: Re: [PATCH] ucc_geth.c, make PHY device optional.
+Date: Wed, 04 Jul 2007 18:44:39 +0200
+Message-ID: <1183567479.20673.225.camel@gentoo-jocke.transmode.se>
+References: <989B956029373F45A0B8AF0297081890D839B4@zch01exm26.fsl.freescale.net>
+	<B27F0350-E5ED-48BF-9605-1E6BE29B9E36@kernel.crashing.org>
+Reply-To: joakim.tjernlund@transmode.se
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Keiichi Kii <k-keiichi@bx.jp.nec.com>,
-	Netdev <netdev@vger.kernel.org>,
-	Joel Becker <joel.becker@oracle.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>
-To: Matt Mackall <mpm@selenic.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail4.iitk.ac.in ([203.197.196.4]:35833 "EHLO mail4.iitk.ac.in"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752057AbXGDQLu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Jul 2007 12:11:50 -0400
-In-Reply-To: <20070704135642.GB11115@waste.org>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linuxppc-dev Development <linuxppc-dev@ozlabs.org>,
+	Netdev <netdev@vger.kernel.org>
+To: Segher Boessenkool <segher@kernel.crashing.org>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+In-Reply-To: <B27F0350-E5ED-48BF-9605-1E6BE29B9E36@kernel.crashing.org>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 4 Jul 2007, Matt Mackall wrote:
-> On Wed, Jul 04, 2007 at 04:38:04PM +0530, Satyam Sharma wrote:
-> > [...]
-> > +/*
-> > + * Why no net_dev_is_up() in netdevice.h? The kernel could lose a lot of
-> > + * weight if only netdevice.h had the good sense to export such a function.
-> > + * Oh well ...
-> > + */
-> > +static inline int net_dev_is_up(struct net_device *net_dev)
-> > +{
-> > +	return ((net_dev->flags & IFF_UP) == IFF_UP);
-> > +}
+On Wed, 2007-07-04 at 15:32 +0200, Segher Boessenkool wrote:
+> > How about separate autoneg to a property "dumb-phy", which  
+> > indicates the
+> > PHY/switch doesn't provide MII register interface.
 > 
-> Why editorialize? Why not just add this to netdevice.h?
-
-Hmm, I wanted to keep all changes local to netconsole, but ...
-ok, will do that.
-
-> > +	if (nt->dev_status) {
+> Something like that I suppose.  But don't call it "dumb phy",
+> nor "fake phy", nor anything similar -- there simply is _no_
+> phy.  If the Linux code wants to pretend there is one, that's
+> one thing, but there is no need to do any of this trickery in
+> the device tree.
 > 
-> Why not simply call net_dev_is_up?
-
-Yes, I did consider just calling the function here instead of
-introducing another member ... again, ok will do that ...
-
-> > We then join this up with the just-introduced net_device notifier, and
-> > introduce NETDEV_UP and NETDEV_DOWN notifications. By disabling the target
-> > when the corresponding local interface is down, we save the overhead of
-> > unnecessarily disabling interrupts and calling into the netpoll stack in
-> > console->write().
+> > Therefore, it should
+> > use the fixed speed and duplex from device node rather than registers.
 > 
-> Yuck. 
+> Yes.
 
-... so all this will go too.
+Not sure I follow, something like this?
+  initial-phy-capacity = <speed duplex>
+  no-mdio-interface
 
-Satyam
+autoneg does not fit in there.
+
+Jocke
