@@ -1,55 +1,28 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: via-rhine: Transmit timed out problem
-Date: Wed, 4 Jul 2007 11:03:05 +0200
-Message-ID: <20070704090305.GA2737@ff.dom.local>
-References: <20070622121804.GB14554@zetta.epsmu.com>
+From: gshan <gshan@alcatel-lucent.com>
+Subject: Big sized packets have been dropped strangly
+Date: Wed, 04 Jul 2007 17:11:09 +0800
+Message-ID: <468B642D.9030109@alcatel-lucent.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, rl@hellgate.ch,
-	linux-kernel@vger.kernel.org
-To: Kirill Kuvaldin <kuvkir@epsmu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx12.go2.pl ([193.17.41.142]:38711 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1759972AbXGDIyk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Jul 2007 04:54:40 -0400
-Content-Disposition: inline
-In-Reply-To: <20070622121804.GB14554@zetta.epsmu.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759632AbXGDJL2@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 22-06-2007 14:18, Kirill Kuvaldin wrote:
-> Hi,
-> 
-> I'm experiencing a strange problem with a via rhine network card on Ubuntu 
-> 7.04 (2.6.20-16-generic #2 SMP). The hardware seemed to come into an
-> inconsistent state, since rmmod'ing and modprobe'ing the via-rhine driver 
-> back didn't help. 
-> 
-> After the problem had appeared, I could see the following in dmesg:
-> 
-> [ 8601.971189] irq 21: nobody cared (try booting with the "irqpoll"
-> option)
-> [ 8601.971214]  [<c01543a4>] __report_bad_irq+0x24/0x80
-...
-> [ 8601.971291] handlers:
-> [ 8601.971293] [<f887ff10>] (usb_hcd_irq+0x0/0x60 [usbcore])
-> [ 8601.971311] [<f88a7dd0>] (rhine_interrupt+0x0/0xb80 [via_rhine])
-> [ 8601.971324] Disabling IRQ #21
-...
-> The interrupt seemed to be unhandled and got disabled by the kernel
-> then. The transmission seemed to time out for some reason (probably, the
-> hardware got into an inconsistent state?).
-...
-> Is that information sufficient for debug? Let me know if you need
-> any additional data.
+Hey Guys,
 
-Your diagnose seems right but there are at least 2 suspects.
-I doubt I can debug this, but maybe trying this "irqpoll" could
-really tell more to somebody.
+I got a strange problem recently but no ideas, so to post the question 
+here. We have a FPGA what finish ATM AAL5 to ethernet frame, and CPU 
+receives IP packets from it. The interface based on the FPGA (called 
+sar0) has been bound with several IP addresses. When the MTU of the 
+interface is configurated to 1500, trivial packets can be received, but 
+big-sized packets are dropped. If the MTU is increased to 9500, 
+everything is ok except the NFS connection. We mounted with another 
+machine through sar0. When the MTU is 9500, the speed of the NFS becomes 
+very very slow (it almost took 10 minutes to transfer 100KB files).
 
-You could probably try to check this without USB (e.g. with kernel
-parameter "nousb"), too.
+I don't know why it is and how to solve it. Any suggestions are appreciated!
 
-Regards,
-Jarek P.
+Thanks,
+Gavin
