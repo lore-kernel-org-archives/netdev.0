@@ -1,43 +1,71 @@
 From: Bill Davidsen <davidsen@tmr.com>
-Subject: Re: Big sized packets have been dropped strangly
-Date: Thu, 05 Jul 2007 18:01:30 -0400
-Message-ID: <468D6A3A.3040101@tmr.com>
-References: <468B642D.9030109@alcatel-lucent.com>
+Subject: Re: [2.6 patch] the overdue eepro100 removal
+Date: Thu, 05 Jul 2007 12:01:56 -0400
+Message-ID: <468D15F4.6020106@tmr.com>
+References: <20070701202139.GM10869@stusta.de> <46894BD5.9080609@tmr.com> <46897212.30104@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: gshan <gshan@alcatel-lucent.com>
+Cc: Adrian Bunk <bunk@stusta.de>, jgarzik@pobox.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	saw@saw.sw.com.sg, Linus Torvalds <torvalds@linux-foundation.org>
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail.tmr.com ([64.65.253.246]:34742 "EHLO gaimboi.tmr.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752883AbXGILSp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Jul 2007 07:18:45 -0400
-In-Reply-To: <468B642D.9030109@alcatel-lucent.com>
+	id S1756266AbXGILS4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Jul 2007 07:18:56 -0400
+In-Reply-To: <46897212.30104@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-gshan wrote:
-> Hey Guys,
-> 
-> I got a strange problem recently but no ideas, so to post the question 
-> here. We have a FPGA what finish ATM AAL5 to ethernet frame, and CPU 
-> receives IP packets from it. The interface based on the FPGA (called 
-> sar0) has been bound with several IP addresses. When the MTU of the 
-> interface is configurated to 1500, trivial packets can be received, but 
-> big-sized packets are dropped. If the MTU is increased to 9500, 
-> everything is ok except the NFS connection. We mounted with another 
-> machine through sar0. When the MTU is 9500, the speed of the NFS becomes 
-> very very slow (it almost took 10 minutes to transfer 100KB files).
-> 
-> I don't know why it is and how to solve it. Any suggestions are 
-> appreciated!
-> 
-http://groups.google.com/group/fa.linux.kernel/msg/4434f7c5d38d9292
+Please do not make unnecessary kernel changes which require changes in 
+our systems.
 
-I think that's relevant.
+Kok, Auke wrote:
+> Bill Davidsen wrote:
+>> Adrian Bunk wrote:
+>>> This patch contains the overdue removal of the eepro100 driver.
+>>>
+>>> Signed-off-by: Adrian Bunk <bunk@stusta.de>
+>>>
+>> The hardware supported by this driver is still in use, thanks. It's 
+>> probably easier to leave the eepro100 driver in than find anyone who 
+>> wants to investigate why the other driver (e100? from memory) doesn't 
+>> work with some cards. As I recall this was suggested over a year ago 
+>> and it was decided to leave it in, all of the reasons for doing so 
+>> still seem valid. There really doesn't seem to be a benefit, it's not 
+>> like people are working night and day to support new cards for this 
+>> chip.
+>>
+>
+> please see the thread "Re: [PATCH] fix e100 rx path on ARM (was 
+> [PATCH] e100 rx: or s and el bits)" which is discussing a fix for this 
+> issue and currently being worked.
+>
+> eepro100 will *still* be removed once e100 is fixed to support those 
+> devices.
+>
+Frankly I think there are more of us running old cards on PC hardware 
+than people running ARM! And for a number of card for old buses like 
+ISA, EISA, and VESA, the e100 has not worked. These are old PCs 
+converted to routers and firewalls, and for security should not be left 
+without upgrades.
+> Moreover, we now also have a fix for the e100 IPMI issues on some tyan 
+> boards (patch coming this week!). That hopefully solves all e100 
+> issues that are still open.
+>
+
+If you think the e100 driver fixes your problems use it and be happy. 
+But since you don't have to test system behavior with the new driver, 
+and you won't be called at night or on weekends if it doesn't work, do 
+the rest of the world a favor and stop taking out things we know to 
+work! Leaving in the eepro100 causes no work for you, and even if e100 
+works perfectly it needs to be validated in any sane network. it still 
+makes work.
 
 -- 
-Bill Davidsen <davidsen@tmr.com>
-   "We have more to fear from the bungling of the incompetent than from
-the machinations of the wicked."  - from Slashdot
+bill davidsen <davidsen@tmr.com>
+  CTO TMR Associates, Inc
+  Doing interesting things with small computers since 1979
+
