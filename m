@@ -1,40 +1,50 @@
-From: Satyam Sharma <ssatyam@cse.iitk.ac.in>
-Subject: Re: [PATCH -mm 8/9] netconsole: Update documentation for dynamic
- reconfigurability
-Date: Thu, 5 Jul 2007 19:33:51 +0530 (IST)
-Message-ID: <Pine.LNX.4.64.0707051929050.20044@cselinux1.cse.iitk.ac.in>
-References: <20070704110739.28520.5036.sendpatchset@cselinux1.cse.iitk.ac.in>
- <20070704110819.28520.50445.sendpatchset@cselinux1.cse.iitk.ac.in>
- <468CEAEC.7040102@bx.jp.nec.com> <Pine.LNX.4.64.0707051913001.19842@cselinux1.cse.iitk.ac.in>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: Who's allowed to set a skb destructor?
+Date: Thu, 5 Jul 2007 15:51:48 +0200
+Message-ID: <20070705135148.GC4759@ff.dom.local>
+References: <p733b032mec.fsf@bingen.suse.de> <20070705122849.GA4759@ff.dom.local> <20070705130640.GA24731@one.firstfloor.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>,
-	Joel Becker <joel.becker@oracle.com>,
-	Matt Mackall <mpm@selenic.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>
-To: Keiichi KII <k-keiichi@bx.jp.nec.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Brice Goglin <Brice.Goglin@ens-lyon.org>, netdev@vger.kernel.org,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	Divy Le Ray <divy@chelsio.com>
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail4.iitk.ac.in ([203.197.196.4]:40604 "EHLO mail4.iitk.ac.in"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756609AbXGENmT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Jul 2007 09:42:19 -0400
-In-Reply-To: <Pine.LNX.4.64.0707051913001.19842@cselinux1.cse.iitk.ac.in>
+Received: from mx10.go2.pl ([193.17.41.74]:44630 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1757100AbXGENnU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Jul 2007 09:43:20 -0400
+Content-Disposition: inline
+In-Reply-To: <20070705130640.GA24731@one.firstfloor.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 5 Jul 2007, Satyam Sharma wrote:
-> [...]
-> BTW I did some testing myself, and have found another *embarrassing* bug:
-> if netconsole is loaded _without_ specifying any "netconsole=" parameter,
-> module is still kept loaded, but on unloading configfs_unregister_...()
-> obviously panics! :-) This should've been found by me earlier, just that
-> I never tested without specifying the parameter to modprobe :-(
+On Thu, Jul 05, 2007 at 03:06:40PM +0200, Andi Kleen wrote:
+> On Thu, Jul 05, 2007 at 02:28:50PM +0200, Jarek Poplawski wrote:
+> > I wonder if it's very unsound to think about a one way list
+> > of destructors. Of course, not owners could only clean their
+> > private allocations. Woudn't this save some skb clonning,
+> > copying or adding new fields for private infos?
+> 
+> skb cloning isn't very expensive when you need it. And they
+> got a little private area you can use for your own stuff 
+> while you have it queued (skb->cb) 
 
-Basically that check upfront in init_netconsole() checking if the boot/
-module param was provided now becomes unnecessary -- with dynamic
-reconfigurability, a user might plausibly want to load netconsole without
-specifying any params, but add targets later ...
+Not expensive in speed, but allocating size_of skb when
+you e.g. need 2 or 3 integers looks like a little expensive.
 
-Satyam
+> 
+> As a historical note one of the big changes during the Linux 2.0
+> and 2.1 TCP rewrite was that TCP was changed to always clone for the
+> retransmit queue. This cleaned up the code greatly and fixed
+> many problems. Cloning was also especially optimized for this. When TCP 
+> which is about one of the most performance critical protocols around can 
+> afford it likely other code can too.
+
+I've read opinions that current skb structure is far from
+optimal. So, it seems clonnig wasn't enough in many situations,
+and fiels were added. Of course, it's only a part of the story:
+some other clients couldn't think about the structure changed
+for them, so probably made it other, more expensive way?
+ 
+Jarek P.
