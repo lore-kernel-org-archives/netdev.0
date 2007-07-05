@@ -1,39 +1,45 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: [NET]: Fix gen_estimator timer removal race
-Date: Thu, 5 Jul 2007 07:48:01 +0200
-Message-ID: <20070705054801.GA1569@ff.dom.local>
-References: <468BC127.1090904@trash.net>
+From: Joel Becker <Joel.Becker@oracle.com>
+Subject: Re: [PATCH -mm 5/9] netconsole: Introduce dev_status member
+Date: Wed, 4 Jul 2007 23:39:05 -0700
+Message-ID: <20070705063904.GG17650@tasint.org>
+References: <20070704110739.28520.5036.sendpatchset@cselinux1.cse.iitk.ac.in> <20070704110804.28520.25792.sendpatchset@cselinux1.cse.iitk.ac.in>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.go2.pl ([193.17.41.42]:48792 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754789AbXGEFjk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Jul 2007 01:39:40 -0400
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Keiichi Kii <k-keiichi@bx.jp.nec.com>,
+	Netdev <netdev@vger.kernel.org>, Matt Mackall <mpm@selenic.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>
+To: Satyam Sharma <ssatyam@cse.iitk.ac.in>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758131AbXGEGj7@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <468BC127.1090904@trash.net>
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <20070704110804.28520.25792.sendpatchset@cselinux1.cse.iitk.ac.in>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 04, 2007 at 05:47:51PM +0200, Patrick McHardy wrote:
-> This is an updated version of the gen_estimator fix
-> that relies on all changes happening under the rtnl
-> and just fixes the race between timer rearming and
-> timer removal.
-> 
-> 
+On Wed, Jul 04, 2007 at 04:38:04PM +0530, Satyam Sharma wrote:
+> -	if (!(event == NETDEV_CHANGEADDR || event == NETDEV_CHANGENAME))
+> -		goto done;
+> +	if (!(event == NETDEV_UP || event == NETDEV_DOWN ||
+> +	      event == NETDEV_CHANGEADDR || event == NETDEV_CHANGENAME))
+> +	      	goto done;
+>
+>  	if (nt->np.dev == dev) {
+>  		switch (event) {
 
-> [NET]: Fix gen_estimator timer removal race
-> 
-> As noticed by Jarek Poplawski <jarkao2@o2.pl>, the timer removal in
-> gen_kill_estimator races with the timer function rearming the timer.
-> 
-> Check whether the timer list is empty before rearming the timer
-> in the timer function to fix this.
-> 
-> Signed-off-by: Patrick McHardy <kaber@trash.net>
+	It's a small nit, but isn't the large if() just the degenerate
+default case of the switch()?  Why have it at all?  
 
-Acked-by: Jarek Poplawski <jarkao2@o2.pl>
+Joel
+
+-- 
+
+Life's Little Instruction Book #396
+
+	"Never give anyone a fruitcake."
+
+Joel Becker
+Principal Software Developer
+Oracle
+E-mail: joel.becker@oracle.com
+Phone: (650) 506-8127
