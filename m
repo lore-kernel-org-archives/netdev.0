@@ -1,60 +1,51 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: [PATCH 1/2][IPV6] addrconf: fix timer deleting on exit
-Date: Thu, 5 Jul 2007 13:12:46 +0200
-Message-ID: <20070705111246.GB1569@ff.dom.local>
+From: Divy Le Ray <divy@chelsio.com>
+Subject: Re: Who's allowed to set a skb destructor?
+Date: Thu, 05 Jul 2007 04:07:07 -0700
+Message-ID: <468CD0DB.8060705@chelsio.com>
+References: <468B54A6.5090902@ens-lyon.org> <p733b032mec.fsf@bingen.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-	"David S\. Miller" <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Brice Goglin <Brice.Goglin@ens-lyon.org>, netdev@vger.kernel.org
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx10.go2.pl ([193.17.41.74]:50409 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755857AbXGELES (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Jul 2007 07:04:18 -0400
-Content-Disposition: inline
+Received: from stargate.chelsio.com ([12.22.49.110]:2983 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754191AbXGELHY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jul 2007 07:07:24 -0400
+In-Reply-To: <p733b032mec.fsf@bingen.suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Andi Kleen wrote:
+> Brice Goglin <Brice.Goglin@ens-lyon.org> writes:
+>
+>   
+>> I am trying to understand whether I can setup a skb destructor in my
+>> code (which is basically a protocol above dev_queue_xmit() and co). From
+>> what I see in many parts in the current kernel code, the "protocol" (I
+>> mean, the one who actually creates the skb) may setup a destructor.
+>>     
+>
+> The socket layer generally needs it for its own accounting.
+> Unless you never pass it up you can't use it.
+>
+>   
+>> However, I also see some places where some low-level drivers might be
+>> using a destructor too , without apparently checking whether an upper
+>> layer already uses one. For instance, write_ofld_wr() in cxgb3/sge.c.
+>>     
+>
+> Likely a bug. Normally that should not slip past code review.
+>   
 
-It looks like a timer function can be running and rearm
-the timer after removing a ipv6 module.
+Andi,
 
+The destructor method is set and used for skbs originating from the RDMA 
+driver sitting above cxgb3.
 
-Signed-off-by: Jarek Poplawski <jarkao2@o2.pl>
+The patch introducing this code was discussed at the time.
+http://marc.info/?l=linux-netdev&m=117029329230969&w=2
 
----
-
-diff -Nurp 2.6.22-rc7-/net/ipv6/addrconf.c 2.6.22-rc7/net/ipv6/addrconf.c
---- 2.6.22-rc7-/net/ipv6/addrconf.c	2007-07-02 09:03:29.000000000 +0200
-+++ 2.6.22-rc7/net/ipv6/addrconf.c	2007-07-05 12:27:22.000000000 +0200
-@@ -2957,8 +2957,11 @@ restart:
- 		read_unlock(&addrconf_hash_lock);
- 	}
- 
--	addr_chk_timer.expires = time_before(next, jiffies + HZ) ? jiffies + HZ : next;
--	add_timer(&addr_chk_timer);
-+	if (ipv6_dev_notf.notifier_call) {	/* exit time? */
-+		addr_chk_timer.expires = time_before(next, jiffies + HZ)
-+							? jiffies + HZ : next;
-+		add_timer(&addr_chk_timer);
-+	}
- 	spin_unlock_bh(&addrconf_verify_lock);
- }
- 
-@@ -4281,9 +4284,13 @@ void __exit addrconf_cleanup(void)
- 			 */
- 		}
- 	}
-+
-+	/* now exit flag for a timer... */
-+	ipv6_dev_notf.notifier_call = NULL;
- 	write_unlock_bh(&addrconf_hash_lock);
- 
--	del_timer(&addr_chk_timer);
-+	if (!del_timer_sync(&addr_chk_timer))
-+		del_timer_sync(&addr_chk_timer);
- 
- 	rtnl_unlock();
- 
+Cheers,
+Divy
