@@ -1,7 +1,7 @@
 From: Jan-Bernd Themann <ossthema@de.ibm.com>
-Subject: [PATCH 1/2] eHEA: Capability flag for DLPAR support
-Date: Thu, 5 Jul 2007 09:26:25 +0200
-Message-ID: <200707050926.26087.ossthema@de.ibm.com>
+Subject: [PATCH 2/2] eHEA: Receive SKB Aggregation
+Date: Thu, 5 Jul 2007 09:26:30 +0200
+Message-ID: <200707050926.30468.ossthema@de.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="us-ascii"
@@ -15,89 +15,506 @@ Cc: netdev <netdev@vger.kernel.org>,
 	Thomas Klein <tklein@de.ibm.com>,
 	Stefan Roscher <stefan.roscher@de.ibm.com>
 To: Jeff Garzik <jeff@garzik.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758319AbXGEHvg@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mtagate5.uk.ibm.com ([195.212.29.138]:59773 "EHLO
+	mtagate5.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758123AbXGEHve (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jul 2007 03:51:34 -0400
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch introduces a capability flag that is used by the DLPAR userspace
-tool to check which DLPAR features are supported by the eHEA driver.
-
-Missing goto has been included.
+This patch enables the receive side processing to aggregate TCP packets within
+the HEA device driver. It analyses the packets already received after an
+interrupt arrived and forwards these as chains of SKBs for the same TCP
+connection with modified header field. We have seen a lower CPU load and
+improved throughput for small numbers of parallel TCP connections.
+As this feature is considered as experimental it is switched off by default
+and can be activated via a module parameter.
 
 Signed-off-by: Jan-Bernd Themann <themann@de.ibm.com>
 ---
- drivers/net/ehea/ehea.h      |    8 +++++++-
- drivers/net/ehea/ehea_main.c |   23 ++++++++++++++++++++++-
- 2 files changed, 29 insertions(+), 2 deletions(-)
+ drivers/net/ehea/ehea.h      |   30 ++++
+ drivers/net/ehea/ehea_main.c |  324 +++++++++++++++++++++++++++++++++++++++++-
+ 2 files changed, 348 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/ehea/ehea.h b/drivers/net/ehea/ehea.h
-index abaf3ac..f03f070 100644
+index f03f070..65e6c8e 100644
 --- a/drivers/net/ehea/ehea.h
 +++ b/drivers/net/ehea/ehea.h
-@@ -39,7 +39,13 @@
- #include <asm/io.h>
+@@ -55,6 +55,7 @@
+ #define EHEA_MAX_ENTRIES_RQ3 16383
+ #define EHEA_MAX_ENTRIES_SQ  32767
+ #define EHEA_MIN_ENTRIES_QP  127
++#define EHEA_LRO_MAX_PKTS 60
  
- #define DRV_NAME	"ehea"
--#define DRV_VERSION	"EHEA_0065"
-+#define DRV_VERSION	"EHEA_0067"
+ #define EHEA_SMALL_QUEUES
+ #define EHEA_NUM_TX_QP 1
+@@ -84,6 +85,8 @@
+ #define EHEA_RQ2_PKT_SIZE       1522
+ #define EHEA_L_PKT_SIZE         256	/* low latency */
+ 
++#define MAX_LRO_DESCRIPTORS 8
 +
-+/* EHEA capability flags */
-+#define DLPAR_PORT_ADD_REM 1
-+#define DLPAR_MEM_ADD 2
-+#define DLPAR_MEM_REM 4
-+#define EHEA_CAPABILITIES (DLPAR_PORT_ADD_REM)
+ /* Send completion signaling */
  
- #define EHEA_MSG_DEFAULT (NETIF_MSG_LINK | NETIF_MSG_TIMER \
- 	| NETIF_MSG_RX_ERR | NETIF_MSG_TX_ERR)
+ /* Protection Domain Identifier */
+@@ -340,6 +343,29 @@ struct ehea_q_skb_arr {
+ };
+ 
+ /*
++ * Large Receive Offload (LRO) descriptor for a tcp session
++ */
++struct ehea_lro {
++	struct sk_buff *parent;
++	struct sk_buff *last_skb;
++	struct iphdr *iph;
++	struct tcphdr *tcph;
++
++	u32 tcp_rcv_tsecr;
++	u32 tcp_rcv_tsval;
++	u32 tcp_ack;
++	u32 tcp_next_seq;
++	u32 skb_tot_frags_len;
++	u16 ip_tot_len;
++	u16 tcp_saw_tstamp; 		/* timestamps enabled */
++	u16 tcp_window;
++	u16 vlan_tag;
++	int skb_sg_cnt;			/* counts aggregated skbs */
++	int vlan_packet;
++	int active;
++};
++
++/*
+  * Port resources
+  */
+ struct ehea_port_res {
+@@ -368,6 +394,9 @@ struct ehea_port_res {
+ 	u64 tx_packets;
+ 	u64 rx_packets;
+ 	u32 poll_counter;
++	struct ehea_lro lro[MAX_LRO_DESCRIPTORS];
++	u64 lro_desc;
++	struct port_stats p_state;
+ };
+ 
+ 
+@@ -417,6 +446,7 @@ struct ehea_port {
+ 	u32 msg_enable;
+ 	u32 sig_comp_iv;
+ 	u32 state;
++	u32 lro_max_aggr;
+ 	u8 full_duplex;
+ 	u8 autoneg;
+ 	u8 num_def_qps;
 diff --git a/drivers/net/ehea/ehea_main.c b/drivers/net/ehea/ehea_main.c
-index bdb5241..383144d 100644
+index 383144d..c283643 100644
 --- a/drivers/net/ehea/ehea_main.c
 +++ b/drivers/net/ehea/ehea_main.c
-@@ -2923,6 +2923,15 @@ static int check_module_parm(void)
- 	return ret;
+@@ -34,6 +34,7 @@
+ #include <linux/list.h>
+ #include <linux/if_ether.h>
+ #include <net/ip.h>
++#include <net/tcp.h>
+ 
+ #include "ehea.h"
+ #include "ehea_qmr.h"
+@@ -52,6 +53,8 @@ static int rq2_entries = EHEA_DEF_ENTRIES_RQ2;
+ static int rq3_entries = EHEA_DEF_ENTRIES_RQ3;
+ static int sq_entries = EHEA_DEF_ENTRIES_SQ;
+ static int use_mcs = 0;
++static int use_lro = 0;
++static int lro_max_pkts = EHEA_LRO_MAX_PKTS;
+ static int num_tx_qps = EHEA_NUM_TX_QP;
+ 
+ module_param(msg_level, int, 0);
+@@ -60,6 +63,8 @@ module_param(rq2_entries, int, 0);
+ module_param(rq3_entries, int, 0);
+ module_param(sq_entries, int, 0);
+ module_param(use_mcs, int, 0);
++module_param(use_lro, int, 0);
++module_param(lro_max_pkts, int, 0);
+ module_param(num_tx_qps, int, 0);
+ 
+ MODULE_PARM_DESC(num_tx_qps, "Number of TX-QPS");
+@@ -77,6 +82,10 @@ MODULE_PARM_DESC(sq_entries, " Number of entries for the Send Queue  "
+ 		 "[2^x - 1], x = [6..14]. Default = "
+ 		 __MODULE_STRING(EHEA_DEF_ENTRIES_SQ) ")");
+ MODULE_PARM_DESC(use_mcs, " 0:NAPI, 1:Multiple receive queues, Default = 1 ");
++MODULE_PARM_DESC(lro_max_pkts, " LRO: Max packets to be aggregated. Default = "
++		 __MODULE_STRING(EHEA_LRO_MAX_PKTS));
++MODULE_PARM_DESC(use_lro, " Large Receive Offload, 1: enable, 0: disable, "
++		 "Default = 0");
+ 
+ static int port_name_cnt = 0;
+ 
+@@ -380,6 +389,297 @@ static int ehea_treat_poll_error(struct ehea_port_res *pr, int rq,
+ 	return 0;
  }
  
-+static ssize_t ehea_show_capabilities(struct device_driver *drv,
-+				      char *buf)
++static int try_get_ip_tcp_hdr(struct ehea_cqe *cqe, struct sk_buff *skb,
++			      struct iphdr **iphdr, struct tcphdr **tcph)
 +{
-+	return sprintf(buf, "%d", EHEA_CAPABILITIES);
++	unsigned int ip_hdrlength;
++	struct iphdr *iph;
++
++	/* non tcp/udp packets */
++	if (!cqe->header_length)
++		return -1;
++
++	/* non tcp packet */
++	skb_reset_network_header(skb);
++	iph = ip_hdr(skb);
++	if (iph->protocol != IPPROTO_TCP)
++		return -1;
++
++	ip_hdrlength = ip_hdrlen(skb);
++
++	/* check ip header: packet length */
++	if (iph->tot_len > cqe->num_bytes_transfered - ETH_HLEN)
++		return -1;
++
++	/* check ip header: minimal ip header received */
++	if (ip_hdrlength > iph->tot_len - 20)
++		return -1;
++
++	skb_set_transport_header(skb, ip_hdrlength);
++	*tcph = tcp_hdr(skb);
++
++	/* check if ip header and tcp header are complete */
++	if (iph->tot_len < ip_hdrlength + tcp_hdrlen(skb))
++		return -1;
++
++	*iphdr = iph;
++	return 0;
 +}
 +
-+static DRIVER_ATTR(capabilities, S_IRUSR | S_IRGRP | S_IROTH,
-+		   ehea_show_capabilities, NULL);
++#define TCP_PAYLOAD_LENGTH(iph, tcph) \
++(ntohs(iph->tot_len) - (iph->ihl << 2) - (tcph->doff << 2))
 +
- int __init ehea_module_init(void)
- {
- 	int ret;
-@@ -2934,8 +2943,19 @@ int __init ehea_module_init(void)
- 	if (ret)
- 		goto out;
- 	ret = ibmebus_register_driver(&ehea_driver);
--	if (ret)
-+	if (ret) {
- 		ehea_error("failed registering eHEA device driver on ebus");
-+		goto out;
++#define IPH_LEN_WO_OPTIONS 5
++#define TCPH_LEN_WO_OPTIONS 5
++#define TCPH_LEN_W_TIMESTAMP 8
++
++static int lro_tcp_check(struct iphdr *iph, struct tcphdr *tcph,
++			 int tcp_data_len, struct ehea_lro *lro)
++{
++	if (tcp_data_len == 0)
++		return -1;
++
++	if (iph->ihl != IPH_LEN_WO_OPTIONS)
++		return -1;
++
++	if (tcph->cwr || tcph->ece || tcph->urg || !tcph->ack || tcph->psh
++	    || tcph->rst || tcph->syn || tcph->fin)
++		return -1;
++
++	if (INET_ECN_is_ce(ipv4_get_dsfield(iph)))
++		return -1;
++
++	if (tcph->doff != TCPH_LEN_WO_OPTIONS
++	    && tcph->doff != TCPH_LEN_W_TIMESTAMP)
++		return -1;
++
++	/* check tcp options (only timestamp allowed) */
++	if (tcph->doff == TCPH_LEN_W_TIMESTAMP) {
++		u32 *topt = (u32 *)(tcph + 1);
++
++		if (*topt != htonl((TCPOPT_NOP << 24) | (TCPOPT_NOP << 16)
++				   | (TCPOPT_TIMESTAMP << 8) | TCPOLEN_TIMESTAMP))
++			return -1;
++
++		/* timestamp should be in right order */
++		topt++;
++		if (lro && (ntohl(lro->tcp_rcv_tsval) > ntohl(*topt)))
++			return -1;
++
++		/* timestamp reply should not be zero */
++		topt++;
++		if (*topt == 0)
++			return -1;
 +	}
 +
-+	ret = driver_create_file(&ehea_driver.driver,
-+				 &driver_attr_capabilities);
-+	if (ret) {
-+		ehea_error("failed to register capabilities attribute, ret=%d",
-+			   ret);
-+		ibmebus_unregister_driver(&ehea_driver);
-+		goto out;
++	return 0;
++}
++
++static void update_tcp_ip_header(struct ehea_lro *lro)
++{
++	struct iphdr *iph = lro->iph;
++	struct tcphdr *tcph = lro->tcph;
++	u32 *p;
++
++	tcph->ack_seq = lro->tcp_ack;
++	tcph->window = lro->tcp_window;
++
++	if (lro->tcp_saw_tstamp) {
++		p = (u32 *)(tcph + 1);
++		*(p+2) = lro->tcp_rcv_tsecr;
 +	}
++
++	iph->tot_len = htons(lro->ip_tot_len);
++	iph->check = 0;
++	iph->check = ip_fast_csum((u8 *)lro->iph, iph->ihl);
++}
++
++static void init_lro_desc(struct ehea_lro *lro, struct ehea_cqe *cqe,
++			  struct sk_buff *skb, struct iphdr *iph,
++			  struct tcphdr *tcph, u32 tcp_data_len)
++{
++	u32 *ptr;
++
++	lro->parent = skb;
++	lro->iph = iph;
++	lro->tcph = tcph;
++	lro->tcp_next_seq = ntohl(tcph->seq) + tcp_data_len;
++	lro->tcp_ack = ntohl(tcph->ack_seq);
++
++	lro->skb_sg_cnt = 1;
++	lro->ip_tot_len = ntohs(iph->tot_len);
++
++	if (tcph->doff == 8) {
++		ptr = (u32 *)(tcph+1);
++		lro->tcp_saw_tstamp = 1;
++		lro->tcp_rcv_tsval = *(ptr+1);
++		lro->tcp_rcv_tsecr = *(ptr+2);
++	}
++
++	if (cqe->status & EHEA_CQE_VLAN_TAG_XTRACT) {
++		lro->vlan_packet = 1;
++		lro->vlan_tag = cqe->vlan_tag;
++	}
++
++	lro->active = 1;
++}
++
++static inline void clear_lro_desc(struct ehea_lro *lro)
++{
++	memset(lro, 0, sizeof(struct ehea_lro));
++}
++
++static void lro_add_packet(struct ehea_lro *lro, struct sk_buff *skb,
++			   struct tcphdr *tcph, u32 tcp_len)
++{
++	struct sk_buff *parent = lro->parent;
++	u32 *topt;
++
++	lro->skb_sg_cnt++;
++
++	lro->ip_tot_len += tcp_len;
++	lro->tcp_next_seq += tcp_len;
++	lro->tcp_window = lro->tcph->window;
++	lro->tcp_ack = lro->tcph->ack_seq;
++
++	if (lro->tcp_saw_tstamp) {
++		topt = (u32 *) (tcph + 1);
++		lro->tcp_rcv_tsval = *(topt + 1);
++		lro->tcp_rcv_tsecr = *(topt + 2);
++	}
++
++	parent->len += tcp_len;
++	parent->data_len += tcp_len;
++
++	skb_pull(skb, (skb->len - tcp_len));
++	parent->truesize += skb->truesize;
++
++	if (lro->last_skb)
++		lro->last_skb->next = skb;
++	else
++		skb_shinfo(parent)->frag_list = skb;
++
++	lro->last_skb = skb;
++
++	return;
++}
++
++static int check_tcp_conn(struct ehea_lro *lro, struct iphdr *iph,
++			 struct tcphdr *tcph)
++{
++	if ((lro->iph->saddr != iph->saddr) || (lro->iph->daddr != iph->daddr) ||
++	    (lro->tcph->source != tcph->source) || (lro->tcph->dest != tcph->dest))
++		return -1;
++	return 0;
++}
++
++static void flush_lro(struct ehea_port_res *pr, struct ehea_lro *lro)
++{
++	update_tcp_ip_header(lro);
++
++	if (lro->vlan_packet && pr->port->vgrp)
++		vlan_hwaccel_receive_skb(lro->parent, pr->port->vgrp,
++					 lro->vlan_tag);
++	else
++		netif_receive_skb(lro->parent);
++
++	clear_lro_desc(lro);
++}
++
++static void flush_all_lro(struct ehea_port_res *pr)
++{
++	int i;
++	struct ehea_lro *lro;
++
++	for (i = 0; i < MAX_LRO_DESCRIPTORS; i++) {
++		lro = &pr->lro[i];
++		if (lro->active)
++			flush_lro(pr, lro);
++	}
++}
++
++static struct ehea_lro *ehea_get_lro(struct ehea_port_res *pr,
++				     struct iphdr *iph, struct tcphdr *tcph)
++{
++	struct ehea_lro *lro = NULL;
++	struct ehea_lro *tmp;
++	int i;
++
++	for (i = 0; i < MAX_LRO_DESCRIPTORS; i++) {
++		tmp = &pr->lro[i];
++		if (tmp->active)
++			if (!check_tcp_conn(tmp, iph, tcph)) {
++				lro = tmp;
++				goto out;
++			}
++	}
++
++	for (i = 0; i < MAX_LRO_DESCRIPTORS; i++) {
++		if(!pr->lro[i].active) {
++			lro = &pr->lro[i];
++			goto out;
++		}
++	}
++
++out:
++	return lro;
++}
++
++static void ehea_proc_skb(struct ehea_port_res *pr, struct ehea_cqe *cqe,
++		     struct sk_buff *skb)
++{
++	struct iphdr *iph;
++	struct tcphdr *tcph;
++	struct ehea_lro *lro;
++	int tcp_data_len;
++	int skip_orig_skb = 0;
++
++	if (use_lro) {
++		if (try_get_ip_tcp_hdr(cqe, skb, &iph, &tcph))
++			goto out;
++
++		lro = ehea_get_lro(pr, iph, tcph);
++		if (!lro)
++			goto out;
++
++		tcp_data_len = TCP_PAYLOAD_LENGTH(iph, tcph);
++
++		if (!lro->active) {
++			if (lro_tcp_check(iph, tcph, tcp_data_len, NULL))
++				goto out;
++
++			init_lro_desc(lro, cqe, skb, iph, tcph, tcp_data_len);
++			return;
++		}
++
++		if (lro->tcp_next_seq != ntohl(tcph->seq)) {
++			flush_lro(pr, lro);
++			goto out;
++		}
++
++		if (lro_tcp_check(iph, tcph, tcp_data_len, lro)) {
++			flush_lro(pr, lro);
++			goto out;
++		}
++
++		lro_add_packet(lro, skb, tcph, tcp_data_len);
++
++		if (lro->skb_sg_cnt > pr->port->lro_max_aggr)
++			flush_lro(pr, lro);
++
++		skip_orig_skb = 1;
++	}
++
++out:
++	if (skip_orig_skb)
++		return;
++
++	if ((cqe->status & EHEA_CQE_VLAN_TAG_XTRACT) && pr->port->vgrp)
++		vlan_hwaccel_receive_skb(skb, pr->port->vgrp, cqe->vlan_tag);
++	else
++		netif_receive_skb(skb);
++}
++
+ static struct ehea_cqe *ehea_proc_rwqes(struct net_device *dev,
+ 					struct ehea_port_res *pr,
+ 					int *budget)
+@@ -426,6 +726,7 @@ static struct ehea_cqe *ehea_proc_rwqes(struct net_device *dev,
+ 					if (!skb)
+ 						break;
+ 				}
++				skb_reserve(skb, NET_IP_ALIGN);
+ 				skb_copy_to_linear_data(skb, ((char*)cqe) + 64,
+ 						 cqe->num_bytes_transfered - 4);
+ 				ehea_fill_skb(port->netdev, skb, cqe);
+@@ -451,12 +752,7 @@ static struct ehea_cqe *ehea_proc_rwqes(struct net_device *dev,
+ 				processed_rq3++;
+ 			}
  
- out:
- 	return ret;
-@@ -2943,6 +2963,7 @@ out:
+-			if ((cqe->status & EHEA_CQE_VLAN_TAG_XTRACT)
+-			    && port->vgrp)
+-				vlan_hwaccel_receive_skb(skb, port->vgrp,
+-							 cqe->vlan_tag);
+-			else
+-				netif_receive_skb(skb);
++			ehea_proc_skb(pr, cqe, skb);
+ 		} else {
+ 			pr->p_stats.poll_receive_errors++;
+ 			port_reset = ehea_treat_poll_error(pr, rq, cqe,
+@@ -468,6 +764,9 @@ static struct ehea_cqe *ehea_proc_rwqes(struct net_device *dev,
+ 		cqe = ehea_poll_rq1(qp, &wqe_index);
+ 	}
  
- static void __exit ehea_module_exit(void)
++	if (use_lro)
++		flush_all_lro(pr);
++
+ 	pr->rx_packets += processed;
+ 	*budget -= processed;
+ 
+@@ -1684,9 +1983,15 @@ out:
+ 
+ static int ehea_change_mtu(struct net_device *dev, int new_mtu)
  {
-+	driver_remove_file(&ehea_driver.driver, &driver_attr_capabilities);
- 	ibmebus_unregister_driver(&ehea_driver);
++	struct ehea_port *port = netdev_priv(dev);
++
+ 	if ((new_mtu < 68) || (new_mtu > EHEA_MAX_PACKET_SIZE))
+ 		return -EINVAL;
+ 	dev->mtu = new_mtu;
++
++	if (use_lro)
++		port->lro_max_aggr = (0xFFFF / new_mtu);
++
+ 	return 0;
  }
  
+@@ -2491,6 +2796,7 @@ struct ehea_port *ehea_setup_single_port(struct ehea_adapter *adapter,
+ 	struct ehea_port *port;
+ 	struct device *port_dev;
+ 	int jumbo;
++	int lro_pkts;
+ 
+ 	/* allocate memory for the port structures */
+ 	dev = alloc_etherdev(sizeof(struct ehea_port));
+@@ -2565,6 +2871,12 @@ struct ehea_port *ehea_setup_single_port(struct ehea_adapter *adapter,
+ 		goto out_unreg_port;
+ 	}
+ 
++	lro_pkts = (0xFFFF / dev->mtu);
++	if (lro_pkts < lro_max_pkts)
++		port->lro_max_aggr = lro_pkts;
++	else
++		port->lro_max_aggr = lro_max_pkts;
++
+ 	ret = ehea_get_jumboframe_status(port, &jumbo);
+ 	if (ret)
+ 		ehea_error("failed determining jumbo frame status for %s",
 -- 
 1.5.2
+
