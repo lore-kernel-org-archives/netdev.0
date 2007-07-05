@@ -1,8 +1,8 @@
 From: Joel Becker <Joel.Becker@oracle.com>
-Subject: Re: [PATCH -mm 5/9] netconsole: Introduce dev_status member
-Date: Wed, 4 Jul 2007 23:39:05 -0700
-Message-ID: <20070705063904.GG17650@tasint.org>
-References: <20070704110739.28520.5036.sendpatchset@cselinux1.cse.iitk.ac.in> <20070704110804.28520.25792.sendpatchset@cselinux1.cse.iitk.ac.in>
+Subject: Re: [PATCH -mm 8/9] netconsole: Update documentation for dynamic reconfigurability
+Date: Wed, 4 Jul 2007 23:52:14 -0700
+Message-ID: <20070705065213.GH17650@tasint.org>
+References: <20070704110739.28520.5036.sendpatchset@cselinux1.cse.iitk.ac.in> <20070704110819.28520.50445.sendpatchset@cselinux1.cse.iitk.ac.in>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
@@ -11,32 +11,30 @@ Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
 	Andrew Morton <akpm@linux-foundation.org>,
 	David Miller <davem@davemloft.net>
 To: Satyam Sharma <ssatyam@cse.iitk.ac.in>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758131AbXGEGj7@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from agminet01.oracle.com ([141.146.126.228]:20800 "EHLO
+	agminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756900AbXGEGwn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jul 2007 02:52:43 -0400
 Content-Disposition: inline
-In-Reply-To: <20070704110804.28520.25792.sendpatchset@cselinux1.cse.iitk.ac.in>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20070704110819.28520.50445.sendpatchset@cselinux1.cse.iitk.ac.in>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 04, 2007 at 04:38:04PM +0530, Satyam Sharma wrote:
-> -	if (!(event == NETDEV_CHANGEADDR || event == NETDEV_CHANGENAME))
-> -		goto done;
-> +	if (!(event == NETDEV_UP || event == NETDEV_DOWN ||
-> +	      event == NETDEV_CHANGEADDR || event == NETDEV_CHANGENAME))
-> +	      	goto done;
->
->  	if (nt->np.dev == dev) {
->  		switch (event) {
+On Wed, Jul 04, 2007 at 04:38:19PM +0530, Satyam Sharma wrote:
+> +Some examples follow (configfs is mounted at the /config mountpoint, say).
 
-	It's a small nit, but isn't the large if() just the degenerate
-default case of the switch()?  Why have it at all?  
+	configfs is generally expected to be mounted at
+/sys/kernel/config, and it even creates that mountpoint for itself.  The
+documentation should probably be consistent with that.
 
 Joel
 
 -- 
 
-Life's Little Instruction Book #396
-
-	"Never give anyone a fruitcake."
+"Also, all of life's big problems include the words 'indictment' or
+	'inoperable.' Everything else is small stuff."
+	- Alton Brown
 
 Joel Becker
 Principal Software Developer
