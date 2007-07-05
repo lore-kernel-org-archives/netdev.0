@@ -1,50 +1,96 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: Who's allowed to set a skb destructor?
-Date: Thu, 5 Jul 2007 15:51:48 +0200
-Message-ID: <20070705135148.GC4759@ff.dom.local>
-References: <p733b032mec.fsf@bingen.suse.de> <20070705122849.GA4759@ff.dom.local> <20070705130640.GA24731@one.firstfloor.org>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: multicasting netlink messages to groups > 31 from userspace
+Date: Thu, 05 Jul 2007 09:53:30 -0400
+Message-ID: <1183643610.5163.76.camel@localhost>
+References: <1183492286.4021.21.camel@johannes.berg>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Brice Goglin <Brice.Goglin@ens-lyon.org>, netdev@vger.kernel.org,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	Divy Le Ray <divy@chelsio.com>
-To: Andi Kleen <andi@firstfloor.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Patrick McHardy <kaber@trash.net>,
+	Thomas Graf <tgraf@suug.ch>
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx10.go2.pl ([193.17.41.74]:44630 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1757100AbXGENnU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Jul 2007 09:43:20 -0400
-Content-Disposition: inline
-In-Reply-To: <20070705130640.GA24731@one.firstfloor.org>
+Received: from wx-out-0506.google.com ([66.249.82.236]:37638 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757113AbXGENxe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jul 2007 09:53:34 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so2343854wxd
+        for <netdev@vger.kernel.org>; Thu, 05 Jul 2007 06:53:33 -0700 (PDT)
+In-Reply-To: <1183492286.4021.21.camel@johannes.berg>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 05, 2007 at 03:06:40PM +0200, Andi Kleen wrote:
-> On Thu, Jul 05, 2007 at 02:28:50PM +0200, Jarek Poplawski wrote:
-> > I wonder if it's very unsound to think about a one way list
-> > of destructors. Of course, not owners could only clean their
-> > private allocations. Woudn't this save some skb clonning,
-> > copying or adding new fields for private infos?
+
+This email captures the essence of the thread, so let me start here. 
+I dont know if i read well enough all the details, but i think i have a
+good grasp of the discusion.
+
+To just pick on mentioned issues on the thread which i picked up:
+- i think it is fairly usable by netlink to be used as an IPC. The fact
+you can do mcast is a huge advantage. i.e i should be able to send to
+kernel/user and a mcast group to which a "netlink sniffer" is connected
+for debugging etc.
+The DoS issue is applicable IMO to any IPC. i.e
+if i have access to sending to you, i can send you many messages and
+fill up your unix socket rcvq etc.
+- On reliability: This is something you will have to deal with yourself
+in your application.
+For example you could have netlink ACKs sent back to you by all
+receivers to the mcast grp (just like the kernel does when you unicast
+and ask for acknowledgement).
+- In addition to the netlink sock open/close that Patrick mentioned, you
+can listen to generic netlink events on the accounting/task netlink and
+find out when processes are created/destroyed if that is useful. I
+couldnt tell why you needed to know this...
+
+On Tue, 2007-03-07 at 21:51 +0200, Johannes Berg wrote:
+> Hey,
 > 
-> skb cloning isn't very expensive when you need it. And they
-> got a little private area you can use for your own stuff 
-> while you have it queued (skb->cb) 
+> Looking through the code that uses NL_NONROOT_SEND I just realised that
+> it's impossible to send multicast messages from userspace to multicast
+> groups with IDs higher than 31. That's not really good given that
+> everywhere else we handle multicast groups up to 2^32-1 :/
 
-Not expensive in speed, but allocating size_of skb when
-you e.g. need 2 or 3 integers looks like a little expensive.
+Yes, this is TheWayItHasBeen(tm).
+Patrick had a patch a while back to allow for subscribing to higher
+groups because bind() has a similar issue in that it allows you only to
+subscribe to the first 32. So it is logical to fix connect, and sendmsg
+in a similar fashion.
 
-> 
-> As a historical note one of the big changes during the Linux 2.0
-> and 2.1 TCP rewrite was that TCP was changed to always clone for the
-> retransmit queue. This cleaned up the code greatly and fixed
-> many problems. Cloning was also especially optimized for this. When TCP 
-> which is about one of the most performance critical protocols around can 
-> afford it likely other code can too.
+> Unfortunately, I haven't found any good way to fix this; in fact the
+> only way to fix it backward-compatibly I could come up with so far is to
+> extend struct sockaddr_nl by "__u32 nl_group;" and use that in
+> netlink_sendmsg instead of nl_groups when msg_namelen is large enough
+> and I'm not even sure that checking msg_namelen is enough, apps could
+> give you a length much longer than the actual structure... Maybe
+> additionally require that nl_groups is set to ~0 or something. 
 
-I've read opinions that current skb structure is far from
-optimal. So, it seems clonnig wasn't enough in many situations,
-and fiels were added. Of course, it's only a part of the story:
-some other clients couldn't think about the structure changed
-for them, so probably made it other, more expensive way?
- 
-Jarek P.
+We had long chats when Patricks patch went in on this specific issue. I
+cant remember the outcome - i remember vaguely that something was going
+to break if you muck with sockaddr_nl
+
+> The same
+> should be done for netlink_connect() then.
+
+Fixing connect IMO would be a good first start because if you do
+connect() to the right group(s) before sendsmg() you could send
+to the correct group.
+
+> It would of course be possible to add a new sockopt
+> NETLINK_{SET,GET}_DST_GROUP, 
+
+This maybe your best first starting option IMO. It will be in similar
+spirit to Patricks bind() fix.
+
+> but that prevents you from sending messages
+> to multiple high groups with sendmsg(), 
+
+Iirc, i dont think we can do that anymore. But we can introduce a new
+scheme to allow for this. For example, could you not use CMSG to specify
+an explicit list of groups on sendmsg? IIRC, Patrick used CMSG to report
+on rcv which group a msg was received on. 
+
+cheers,
+jamal
+
