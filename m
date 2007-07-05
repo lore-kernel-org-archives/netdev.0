@@ -1,44 +1,40 @@
-From: Keiichi KII <k-keiichi@bx.jp.nec.com>
-Subject: Re: [PATCH -mm 8/9] netconsole: Update documentation for dynamic
- reconfigurability
-Date: Thu, 05 Jul 2007 21:58:20 +0900
-Message-ID: <468CEAEC.7040102@bx.jp.nec.com>
-References: <20070704110739.28520.5036.sendpatchset@cselinux1.cse.iitk.ac.in> <20070704110819.28520.50445.sendpatchset@cselinux1.cse.iitk.ac.in>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: Who's allowed to set a skb destructor?
+Date: Thu, 5 Jul 2007 15:06:40 +0200
+Message-ID: <20070705130640.GA24731@one.firstfloor.org>
+References: <p733b032mec.fsf@bingen.suse.de> <20070705122849.GA4759@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>,
-	Joel Becker <joel.becker@oracle.com>,
-	Matt Mackall <mpm@selenic.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>
-To: Satyam Sharma <ssatyam@cse.iitk.ac.in>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andi Kleen <andi@firstfloor.org>,
+	Brice Goglin <Brice.Goglin@ens-lyon.org>,
+	netdev@vger.kernel.org, Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	Divy Le Ray <divy@chelsio.com>
+To: Jarek Poplawski <jarkao2@o2.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from TYO202.gate.nec.co.jp ([202.32.8.206]:56069 "EHLO
-	tyo202.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758380AbXGENBY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jul 2007 09:01:24 -0400
-In-Reply-To: <20070704110819.28520.50445.sendpatchset@cselinux1.cse.iitk.ac.in>
+Received: from one.firstfloor.org ([213.235.205.2]:46186 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757782AbXGENGo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jul 2007 09:06:44 -0400
+Content-Disposition: inline
+In-Reply-To: <20070705122849.GA4759@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Satyam,
+On Thu, Jul 05, 2007 at 02:28:50PM +0200, Jarek Poplawski wrote:
+> I wonder if it's very unsound to think about a one way list
+> of destructors. Of course, not owners could only clean their
+> private allocations. Woudn't this save some skb clonning,
+> copying or adding new fields for private infos?
 
-> + cat enabled				# check if enabled is 1
-> + echo 0 > enabled			# disable the target (if required)
-> + echo eth2 > dev_name			# set local interface
+skb cloning isn't very expensive when you need it. And they
+got a little private area you can use for your own stuff 
+while you have it queued (skb->cb) 
 
-I think that the above line should change from "echo eth2 > dev_name" to 
-"echo -n eth2 > dev_name" or the newline should be removed at store_dev_name().
-The default behavior of echo(1) outputs the newline. 
-So, if we write appropriate network device name to dev_name, 
-the netpoll can't find net_device in netpoll_setup(). 
+As a historical note one of the big changes during the Linux 2.0
+and 2.1 TCP rewrite was that TCP was changed to always clone for the
+retransmit queue. This cleaned up the code greatly and fixed
+many problems. Cloning was also especially optimized for this. When TCP 
+which is about one of the most performance critical protocols around can 
+afford it likely other code can too.
 
-I don't have enough time now. So I will check your patches more specific 
-at the weekend.
-Thanks
--- 
-Keiichi KII
-NEC Corporation OSS Platform Development Division
-E-mail: k-keiichi@bx.jp.nec.com
+-Andi
