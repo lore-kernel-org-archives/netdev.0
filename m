@@ -1,51 +1,45 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] ixgbe: Introduce new 10GbE driver for Intel 82598 based
- PCI Express adapters...
-Date: Thu, 05 Jul 2007 19:29:01 -0400
-Message-ID: <468D7EBD.7020103@garzik.org>
-References: <4688F512.3030801@garzik.org> <200707021716.49637.inaky@linux.intel.com> <468A4CDE.5010808@garzik.org> <200707031124.24529.inaky@linux.intel.com>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [RFC 2/2] shrink size of scatterlist on common i386/x86-64
+Date: Thu, 05 Jul 2007 16:32:45 -0700
+Message-ID: <adak5te2zqa.fsf@cisco.com>
+References: <20070705231412.021359760@linux-foundation.org>
+	<20070705231615.451797310@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Kok, Auke" <auke-jan.h.kok@intel.com>,
-	Michael Buesch <mb@bu3sch.de>,
-	Christoph Hellwig <hch@infradead.org>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	"Veeraiyan, Ayyappan" <ayyappan.veeraiyan@intel.com>,
-	netdev@vger.kernel.org, arjan@linux.intel.com,
-	akpm@linux-foundation.org
-To: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:51854 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752511AbXGEX3f (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Jul 2007 19:29:35 -0400
-In-Reply-To: <200707031124.24529.inaky@linux.intel.com>
+Received: from sj-iport-6.cisco.com ([171.71.176.117]:65073 "EHLO
+	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758694AbXGEXct (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jul 2007 19:32:49 -0400
+In-Reply-To: <20070705231615.451797310@linux-foundation.org> (Stephen Hemminger's message of "Thu, 05 Jul 2007 16:14:14 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Inaky Perez-Gonzalez wrote:
-> On Tuesday 03 July 2007, Jeff Garzik wrote:
->> Inaky Perez-Gonzalez wrote:
->> Access to bitfields are not atomic within the machine int in which they 
->> are stored... you need to "unpack" the values stored in bitfields, even 
->> if they are single-bit bitfields.
-> 
-> Which we do manually when we don't use bitfields. Again, conceptually,
-> there is no difference.
+ > --- a/include/asm-i386/scatterlist.h	2007-07-05 14:37:11.000000000 -0700
+ > +++ b/include/asm-i386/scatterlist.h	2007-07-05 15:44:51.000000000 -0700
+ > @@ -5,9 +5,9 @@
+ >  
+ >  struct scatterlist {
+ >      struct page		*page;
+ > -    unsigned int	offset;
+ >      dma_addr_t		dma_address;
+ > -    unsigned int	length;
+ > +    u16			offset;
+ > +    u16			length;
+ >  };
 
-Practically speaking -- there are differences.
+Actually this struct layout could be even better, since pointers are
+32 bits but dma_addr_t may be 64 bits... having
 
-The "manual" method hides nothing from the programmer, while use of 
-bitfields hides the lack of atomicity.
+struct scatterlist {
+	dma_addr_t	dma_address;
+	struct page    *page;
+	u16		offset;
+	u16		length;
+};
 
-When you have programmers who make mistakes -- i.e. real humans -- these 
-things matter.
+would allow struct scatterlist to be 16 bytes.  Seems like a good thing...
 
-But overall, it is not any one detail that discourages use of bitfields; 
-it is the sum of all the reasons.  Practical experience, compiler 
-technology, mistakes made (and not made), all point to avoiding bitfields.
-
-	Jeff
-
-
+ - R.
