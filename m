@@ -1,67 +1,67 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH net-2.6.23] UDP: Cleanup UDP encapsulation code
-Date: Thu, 05 Jul 2007 17:04:25 +0200
-Message-ID: <468D0879.4080903@trash.net>
-References: <200707051427.l65ER6iS016766@quickie.katalix.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH -mm 5/9] netconsole: Introduce dev_status member
+Date: Thu, 5 Jul 2007 08:17:03 -0700
+Message-ID: <20070705081703.7bcc28bc@oldman>
+References: <20070704110739.28520.5036.sendpatchset@cselinux1.cse.iitk.ac.in>
+	<20070704110804.28520.25792.sendpatchset@cselinux1.cse.iitk.ac.in>
+	<20070704135642.GB11115@waste.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: derek@ihtfp.com, netdev@vger.kernel.org
-To: James Chapman <jchapman@katalix.com>
+Cc: Satyam Sharma <ssatyam@cse.iitk.ac.in>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Keiichi Kii <k-keiichi@bx.jp.nec.com>,
+	Netdev <netdev@vger.kernel.org>,
+	Joel Becker <joel.becker@oracle.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>
+To: Matt Mackall <mpm@selenic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:33175 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757094AbXGEPEv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jul 2007 11:04:51 -0400
-In-Reply-To: <200707051427.l65ER6iS016766@quickie.katalix.com>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:36730 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757211AbXGEPSq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jul 2007 11:18:46 -0400
+In-Reply-To: <20070704135642.GB11115@waste.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-James Chapman wrote:
+On Wed, 4 Jul 2007 08:56:42 -0500
+Matt Mackall <mpm@selenic.com> wrote:
 
-> diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-> index b9276f8..777d5e8 100644
-> --- a/net/ipv4/udp.c
-> +++ b/net/ipv4/udp.c
-> @@ -70,7 +70,8 @@
->   *	Alexey Kuznetsov:		allow both IPv4 and IPv6 sockets to bind
->   *					a single port at the same time.
->   *	Derek Atkins <derek@ihtfp.com>: Add Encapulation Support
-> - *	James Chapman		:	Add L2TP encapsulation type.
-> + *	James Chapman		:	Use socket's encap_rcv for all encapsulated
-> + *					protocols..
+> On Wed, Jul 04, 2007 at 04:38:04PM +0530, Satyam Sharma wrote:
+> > From: Satyam Sharma <ssatyam@cse.iitk.ac.in>
+> > 
+> > [5/9] netconsole: Introduce dev_status member
+> > 
+> > Introduce a new member in netconsole_target that tracks the status (up or
+> > down) of the underlying interface network device that the specific logging
+> > target netpoll is attached to.
+> > 
+> > We then join this up with the just-introduced net_device notifier, and
+> > introduce NETDEV_UP and NETDEV_DOWN notifications. By disabling the target
+> > when the corresponding local interface is down, we save the overhead of
+> > unnecessarily disabling interrupts and calling into the netpoll stack in
+> > console->write().
+> 
+> Yuck. 
+> 
+> > +/*
+> > + * Why no net_dev_is_up() in netdevice.h? The kernel could lose a lot of
+> > + * weight if only netdevice.h had the good sense to export such a function.
+> > + * Oh well ...
+> > + */
+> > +static inline int net_dev_is_up(struct net_device *net_dev)
+> > +{
+> > +	return ((net_dev->flags & IFF_UP) == IFF_UP);
+> > +}
+> 
+> Why editorialize? Why not just add this to netdevice.h?
+> 
+> > +	if (nt->dev_status) {
+> 
+> Why not simply call net_dev_is_up?
 
-We have git for changelogs, please don't add to this.
+The flags field values are really BSD legacy-ish stuff and should not be
+used internally. IFF_UP etc, do not have the necessary atomic properties.
 
-> -				}
-> +		unsigned int len;
->  
-> -				/* FALLTHROUGH -- pass up as UDP packet */
-> +		/* if we're overly short, let UDP handle it */
-> +		len = skb->len - sizeof(struct udphdr);
-> +		if (len <= 0)
-> +			goto udp;
-> +
-> +		if (up->encap_rcv != NULL) {
-> +			int ret;
-> +
-> +			ret = (*up->encap_rcv)(sk, skb);
-> +			if (ret == 0)
-> +				goto out;
-> +			if (ret < 0) {
-> +				/* Eat the packet .. */
-> +				kfree_skb(skb);
-> +				goto out;
->  			}
-
-
-This doesn't seem to handle encapsulated transport mode packets.
-In that case xfrm4_rcv_encap returns the negative decapsulated
-protocol number, you change it to a positive number again:
-
-> +	ret = xfrm4_rcv_encap(skb, encap_type);
-> +	return -ret;
-
-and then continue to process it as UDP. What should happen in
-that case is that the negative protocol value is returned to
-ip_local_deliver_finish.
+Use netif_running() instead.
