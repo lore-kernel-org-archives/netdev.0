@@ -1,47 +1,55 @@
-From: Zhang Rui <rui.zhang@intel.com>
-Subject: Re: [PATCH] ACPI: export acpi events via generic netlink
-Date: Thu, 05 Jul 2007 16:54:30 +0800
-Message-ID: <1183625670.8961.57.camel@localhost.localdomain>
-References: <1182224403.5411.84.camel@localhost.localdomain>
-	 <200707031545.16787.lenb@kernel.org>
-	 <1183550487.3812.14.camel@johannes.berg>
-	 <1183623847.8961.45.camel@localhost.localdomain>
-	 <1183624541.3818.2.camel@johannes.berg>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: Who's allowed to set a skb destructor?
+Date: 05 Jul 2007 12:08:27 +0200
+Message-ID: <p733b032mec.fsf@bingen.suse.de>
+References: <468B54A6.5090902@ens-lyon.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Len Brown <lenb@kernel.org>,
-	"linux-acpi@vger" <linux-acpi@vger.kernel.org>,
-	netdev@vger.kernel.org, hadi@cyberus.ca
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <1183624541.3818.2.camel@johannes.berg>
-Sender: linux-acpi-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Brice Goglin <Brice.Goglin@ens-lyon.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.suse.de ([195.135.220.15]:37542 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753562AbXGEJNG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Jul 2007 05:13:06 -0400
+In-Reply-To: <468B54A6.5090902@ens-lyon.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2007-07-05 at 10:35 +0200, Johannes Berg wrote:
-> On Thu, 2007-07-05 at 16:24 +0800, Zhang Rui wrote:
-> 
-> > I missed the discussion about the multicast issues.
-> > You don't need to reserve a family and group ID for ACPI. I'll rework
-> > this on your patches.:)
-> 
-> I don't want to hold you, don't worry, I can handle it as well.
-I got your comments on my original patch and it seems that we don't need
-to change a lot with your patches applied. :)
+Brice Goglin <Brice.Goglin@ens-lyon.org> writes:
 
-> > But I don't know when these mutlicast patches can be merged while I hope
-> > the function of exporting ACPI event via genetlink can be added ASAP.
-> > 
-> > I'm okay to hold off on this patch if you think the multicast patches
-> > can be merged soon. Or else I tend to apply it first and send an
-> > additional patch together with your patches later.
-> 
-> I personally think it's ready to go and haven't received any further
-> comments, but maybe something will come up still. I'll wait a few days
-> and then repost as an actual .23 submission.
-That would be great. Can we add the ACPI genetlink patch to your patch
-set and send them together? I'll refresh it based on your comments.
+> I am trying to understand whether I can setup a skb destructor in my
+> code (which is basically a protocol above dev_queue_xmit() and co). From
+> what I see in many parts in the current kernel code, the "protocol" (I
+> mean, the one who actually creates the skb) may setup a destructor.
 
-Thanks,
-Rui
+The socket layer generally needs it for its own accounting.
+Unless you never pass it up you can't use it.
+
+> However, I also see some places where some low-level drivers might be
+> using a destructor too , without apparently checking whether an upper
+> layer already uses one. For instance, write_ofld_wr() in cxgb3/sge.c.
+
+Likely a bug. Normally that should not slip past code review.
+
+> found some old threads about adding support for multiple destructors but
+> I don't see anything like this in the current kernel.
+> 
+> So, I'd like to have a clear statement about who's allowed to use a
+> destructor :)
+
+The traditional standpoint was that having your own large skb pools 
+is not recommended because you won't interact well with the 
+rest of the system running low on memory and you tieing up 
+memory.
+
+Essentially you would recreate all the problems traditional Unix
+systems have with fixed size mbuf pools. Linux always used a more
+dynamic and flexible allocate-only-as-you-need approach even when it
+can have a little more overhead in managing IOMMUs etc.
+
+These days there are shrinker callbacks that would in theory
+allow you to handle this, but it would be likely still hard to implement
+correctly.
+
+-Andi
