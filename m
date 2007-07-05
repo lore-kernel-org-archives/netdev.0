@@ -1,97 +1,249 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH] tg3: Fix VLAN tag corruption
-Date: Thu, 05 Jul 2007 14:54:33 -0700
-Message-ID: <1183672474.24582.9.camel@teletran1>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: [PATCH] netxen: deinline and sparse fix
+Date: Thu, 5 Jul 2007 16:13:55 -0700
+Message-ID: <20070705161355.47694009@freepuppy.localdomain.hemminger.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "Robert Olsson" <Robert.Olsson@data.slu.se>,
-	"Evgeniy Polyakov" <johnpol@2ka.mipt.ru>,
-	"Krishna Kumar2" <krkumar2@in.ibm.com>,
-	"Gagan Arneja" <gaagaan@gmail.com>, netdev@vger.kernel.org,
-	"Rick Jones" <rick.jones2@hp.com>,
-	"Sridhar Samudrala" <sri@us.ibm.com>,
-	"David Miller" <davem@davemloft.net>,
-	"Jeff Garzik" <jeff@garzik.org>,
-	"Michael Chan" <mchan@broadcom.com>
-To: "jamal" <hadi@cyberus.ca>
+Cc: netdev@vger.kernel.org
+To: Dhananjay Phadke <dhananjay@netxen.com>,
+	Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:2959 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757992AbXGEVyp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Jul 2007 17:54:45 -0400
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:52449 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759828AbXGEXOC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jul 2007 19:14:02 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch fixes a VLAN tag corruption bug introduced in the tx batching
-modifications.
+Get rid of dubious casts to (void *) which causes a sparse warning.
+And move largeish function from inline to the one file that uses the code,
+the compiler can then decide to inline it.
 
-Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
-Signed-off-by: Michael Chan <mchan@broadcom.com>
+Compile tested only.
 
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index be03cbd..cef9cbe 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -3896,8 +3896,15 @@ struct tg3_tx_cbdata {
- static int tg3_prep_bug_frame(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct tg3_tx_cbdata *cb = TG3_SKB_CB(skb);
-+	struct tg3 *tp = netdev_priv(dev);
-+	u32 vlantag = 0;
-+
-+#if TG3_VLAN_TAG_USED
-+	if (tp->vlgrp != NULL && vlan_tx_tag_present(skb))
-+		vlantag = (TXD_FLAG_VLAN | (vlan_tx_tag_get(skb) << 16));
-+#endif
+Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+
+---
+ drivers/net/netxen/netxen_nic.h      |  103 -----------------------------------
+ drivers/net/netxen/netxen_nic_main.c |   97 ++++++++++++++++++++++++++++++++
+ 2 files changed, 97 insertions(+), 103 deletions(-)
+
+--- a/drivers/net/netxen/netxen_nic.h	2007-07-05 14:21:36.000000000 -0700
++++ b/drivers/net/netxen/netxen_nic.h	2007-07-05 16:09:01.000000000 -0700
+@@ -1097,109 +1097,6 @@ int netxen_nic_change_mtu(struct net_dev
+ int netxen_nic_set_mac(struct net_device *netdev, void *p);
+ struct net_device_stats *netxen_nic_get_stats(struct net_device *netdev);
  
--	cb->base_flags = 0;
-+	cb->base_flags = vlantag;
- 	cb->mss = skb_shinfo(skb)->gso_size;
- 	if (cb->mss != 0) {
- 		if (skb_header_cloned(skb) &&
-@@ -3919,8 +3926,15 @@ static int tg3_prep_bug_frame(struct sk_buff *skb, struct net_device *dev)
- static int tg3_prep_frame(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct tg3_tx_cbdata *cb = TG3_SKB_CB(skb);
-+	struct tg3 *tp = netdev_priv(dev);
-+	u32 vlantag = 0;
-+
-+#if TG3_VLAN_TAG_USED
-+	if (tp->vlgrp != NULL && vlan_tx_tag_present(skb))
-+		vlantag = (TXD_FLAG_VLAN | (vlan_tx_tag_get(skb) << 16));
-+#endif
- 
--	cb->base_flags = 0;
-+	cb->base_flags = vlantag;
- 	cb->mss = skb_shinfo(skb)->gso_size;
- 	if (cb->mss != 0) {
- 		int tcp_opt_len, ip_tcp_len;
-@@ -3985,13 +3999,6 @@ static int tg3_enqueue(struct sk_buff *skb, struct net_device *dev)
- 	u32 len, entry;
- 	struct tg3_tx_cbdata *cb = TG3_SKB_CB(skb);
- 
+-static inline void netxen_nic_disable_int(struct netxen_adapter *adapter)
+-{
+-	uint32_t	mask = 0x7ff;
+-	int retries = 32;
 -
--#if TG3_VLAN_TAG_USED
--	if (tp->vlgrp != NULL && vlan_tx_tag_present(skb))
--		cb->base_flags |= (TXD_FLAG_VLAN |
--			       (vlan_tx_tag_get(skb) << 16));
--#endif
+-	DPRINTK(1, INFO, "Entered ISR Disable \n");
 -
- 	entry = tp->tx_prod;
- 	len = skb_headlen(skb);
- 	/* Queue skb data, a.k.a. the main skb fragment. */
-@@ -4187,11 +4194,6 @@ static int tg3_enqueue_buggy(struct sk_buff *skb, struct net_device *dev)
- 			}
- 		}
- 	}
--#if TG3_VLAN_TAG_USED
--	if (tp->vlgrp != NULL && vlan_tx_tag_present(skb))
--		cb->base_flags |= (TXD_FLAG_VLAN |
--			       (vlan_tx_tag_get(skb) << 16));
--#endif
- 	len = skb_headlen(skb);
- 	entry = tp->tx_prod;
+-	switch (adapter->portnum) {
+-	case 0:
+-		writel(0x0, NETXEN_CRB_NORMALIZE(adapter, CRB_SW_INT_MASK_0));
+-		break;
+-	case 1:
+-		writel(0x0, NETXEN_CRB_NORMALIZE(adapter, CRB_SW_INT_MASK_1));
+-		break;
+-	case 2:
+-		writel(0x0, NETXEN_CRB_NORMALIZE(adapter, CRB_SW_INT_MASK_2));
+-		break;
+-	case 3:
+-		writel(0x0, NETXEN_CRB_NORMALIZE(adapter, CRB_SW_INT_MASK_3));
+-		break;
+-	}
+-
+-	if (adapter->intr_scheme != -1 &&
+-		adapter->intr_scheme != INTR_SCHEME_PERPORT) {
+-		writel(mask,
+-			(void *)(PCI_OFFSET_SECOND_RANGE(adapter, ISR_INT_MASK)));
+-	}
+-
+-	/* Window = 0 or 1 */
+-	if (!(adapter->flags & NETXEN_NIC_MSI_ENABLED)) {
+-		do {
+-			writel(0xffffffff, (void *)
+-				(PCI_OFFSET_SECOND_RANGE(adapter, ISR_INT_TARGET_STATUS)));
+-			mask = readl((void *)
+-					(pci_base_offset(adapter, ISR_INT_VECTOR)));
+-			if (!(mask & 0x80))
+-				break;
+-			udelay(10);
+-		} while (--retries);
+-
+-		if (!retries) {
+-			printk(KERN_NOTICE "%s: Failed to disable interrupt completely\n",
+-					netxen_nic_driver_name);
+-		}
+-	}
+-
+-	DPRINTK(1, INFO, "Done with Disable Int\n");
+-
+-	return;
+-}
+-
+-static inline void netxen_nic_enable_int(struct netxen_adapter *adapter)
+-{
+-	u32 mask;
+-
+-	DPRINTK(1, INFO, "Entered ISR Enable \n");
+-
+-	if (adapter->intr_scheme != -1 &&
+-		adapter->intr_scheme != INTR_SCHEME_PERPORT) {
+-		switch (adapter->ahw.board_type) {
+-		case NETXEN_NIC_GBE:
+-			mask  =  0x77b;
+-			break;
+-		case NETXEN_NIC_XGBE:
+-			mask  =  0x77f;
+-			break;
+-		default:
+-			mask  =  0x7ff;
+-			break;
+-		}
+-
+-		writel(mask,
+-			(void *)(PCI_OFFSET_SECOND_RANGE(adapter, ISR_INT_MASK)));
+-	}
+-	switch (adapter->portnum) {
+-	case 0:
+-		writel(0x1, NETXEN_CRB_NORMALIZE(adapter, CRB_SW_INT_MASK_0));
+-		break;
+-	case 1:
+-		writel(0x1, NETXEN_CRB_NORMALIZE(adapter, CRB_SW_INT_MASK_1));
+-		break;
+-	case 2:
+-		writel(0x1, NETXEN_CRB_NORMALIZE(adapter, CRB_SW_INT_MASK_2));
+-		break;
+-	case 3:
+-		writel(0x1, NETXEN_CRB_NORMALIZE(adapter, CRB_SW_INT_MASK_3));
+-		break;
+-	}
+-
+-	if (!(adapter->flags & NETXEN_NIC_MSI_ENABLED)) {
+-		mask = 0xbff;
+-		if (adapter->intr_scheme != -1 &&
+-			adapter->intr_scheme != INTR_SCHEME_PERPORT) {
+-			writel(0X0, NETXEN_CRB_NORMALIZE(adapter, CRB_INT_VECTOR));
+-		}
+-		writel(mask,
+-			(void *)(PCI_OFFSET_SECOND_RANGE(adapter, ISR_INT_TARGET_MASK)));
+-	}
+-
+-	DPRINTK(1, INFO, "Done with enable Int\n");
+-
+-	return;
+-}
  
-
-
+ /*
+  * NetXen Board information
+--- a/drivers/net/netxen/netxen_nic_main.c	2007-07-05 15:17:32.000000000 -0700
++++ b/drivers/net/netxen/netxen_nic_main.c	2007-07-05 16:09:59.000000000 -0700
+@@ -156,6 +156,103 @@ static inline void netxen_nic_update_cmd
+ #define	ADAPTER_LIST_SIZE 12
+ int netxen_cards_found;
+ 
++static void netxen_nic_disable_int(struct netxen_adapter *adapter)
++{
++	uint32_t	mask = 0x7ff;
++	int retries = 32;
++
++	DPRINTK(1, INFO, "Entered ISR Disable \n");
++
++	switch (adapter->portnum) {
++	case 0:
++		writel(0x0, NETXEN_CRB_NORMALIZE(adapter, CRB_SW_INT_MASK_0));
++		break;
++	case 1:
++		writel(0x0, NETXEN_CRB_NORMALIZE(adapter, CRB_SW_INT_MASK_1));
++		break;
++	case 2:
++		writel(0x0, NETXEN_CRB_NORMALIZE(adapter, CRB_SW_INT_MASK_2));
++		break;
++	case 3:
++		writel(0x0, NETXEN_CRB_NORMALIZE(adapter, CRB_SW_INT_MASK_3));
++		break;
++	}
++
++	if (adapter->intr_scheme != -1 &&
++	    adapter->intr_scheme != INTR_SCHEME_PERPORT)
++		writel(mask,PCI_OFFSET_SECOND_RANGE(adapter, ISR_INT_MASK));
++
++	/* Window = 0 or 1 */
++	if (!(adapter->flags & NETXEN_NIC_MSI_ENABLED)) {
++		do {
++			writel(0xffffffff,
++			       PCI_OFFSET_SECOND_RANGE(adapter, ISR_INT_TARGET_STATUS));
++			mask = readl(pci_base_offset(adapter, ISR_INT_VECTOR));
++			if (!(mask & 0x80))
++				break;
++			udelay(10);
++		} while (--retries);
++
++		if (!retries) {
++			printk(KERN_NOTICE "%s: Failed to disable interrupt completely\n",
++					netxen_nic_driver_name);
++		}
++	}
++
++	DPRINTK(1, INFO, "Done with Disable Int\n");
++}
++
++static void netxen_nic_enable_int(struct netxen_adapter *adapter)
++{
++	u32 mask;
++
++	DPRINTK(1, INFO, "Entered ISR Enable \n");
++
++	if (adapter->intr_scheme != -1 &&
++		adapter->intr_scheme != INTR_SCHEME_PERPORT) {
++		switch (adapter->ahw.board_type) {
++		case NETXEN_NIC_GBE:
++			mask  =  0x77b;
++			break;
++		case NETXEN_NIC_XGBE:
++			mask  =  0x77f;
++			break;
++		default:
++			mask  =  0x7ff;
++			break;
++		}
++
++		writel(mask, PCI_OFFSET_SECOND_RANGE(adapter, ISR_INT_MASK));
++	}
++
++	switch (adapter->portnum) {
++	case 0:
++		writel(0x1, NETXEN_CRB_NORMALIZE(adapter, CRB_SW_INT_MASK_0));
++		break;
++	case 1:
++		writel(0x1, NETXEN_CRB_NORMALIZE(adapter, CRB_SW_INT_MASK_1));
++		break;
++	case 2:
++		writel(0x1, NETXEN_CRB_NORMALIZE(adapter, CRB_SW_INT_MASK_2));
++		break;
++	case 3:
++		writel(0x1, NETXEN_CRB_NORMALIZE(adapter, CRB_SW_INT_MASK_3));
++		break;
++	}
++
++	if (!(adapter->flags & NETXEN_NIC_MSI_ENABLED)) {
++		mask = 0xbff;
++		if (adapter->intr_scheme != -1 &&
++			adapter->intr_scheme != INTR_SCHEME_PERPORT) {
++			writel(0X0, NETXEN_CRB_NORMALIZE(adapter, CRB_INT_VECTOR));
++		}
++		writel(mask,
++		       PCI_OFFSET_SECOND_RANGE(adapter, ISR_INT_TARGET_MASK));
++	}
++
++	DPRINTK(1, INFO, "Done with enable Int\n");
++}
++
+ /*
+  * netxen_nic_probe()
+  *
