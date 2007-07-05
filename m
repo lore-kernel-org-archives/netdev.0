@@ -1,55 +1,50 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: Who's allowed to set a skb destructor?
-Date: 05 Jul 2007 12:08:27 +0200
-Message-ID: <p733b032mec.fsf@bingen.suse.de>
-References: <468B54A6.5090902@ens-lyon.org>
+From: Satyam Sharma <ssatyam@cse.iitk.ac.in>
+Subject: Re: [PATCH -mm 5/9] netconsole: Introduce dev_status member
+Date: Thu, 5 Jul 2007 15:06:01 +0530 (IST)
+Message-ID: <Pine.LNX.4.64.0707051501190.15925@cselinux1.cse.iitk.ac.in>
+References: <20070704110739.28520.5036.sendpatchset@cselinux1.cse.iitk.ac.in>
+ <20070704110804.28520.25792.sendpatchset@cselinux1.cse.iitk.ac.in>
+ <20070705063904.GG17650@tasint.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Brice Goglin <Brice.Goglin@ens-lyon.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Keiichi Kii <k-keiichi@bx.jp.nec.com>,
+	Netdev <netdev@vger.kernel.org>, Matt Mackall <mpm@selenic.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>
+To: Joel Becker <Joel.Becker@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:37542 "EHLO mx2.suse.de"
+Received: from mail4.iitk.ac.in ([203.197.196.4]:51067 "EHLO mail4.iitk.ac.in"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753562AbXGEJNG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Jul 2007 05:13:06 -0400
-In-Reply-To: <468B54A6.5090902@ens-lyon.org>
+	id S1757868AbXGEJOb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Jul 2007 05:14:31 -0400
+In-Reply-To: <20070705063904.GG17650@tasint.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Brice Goglin <Brice.Goglin@ens-lyon.org> writes:
-
-> I am trying to understand whether I can setup a skb destructor in my
-> code (which is basically a protocol above dev_queue_xmit() and co). From
-> what I see in many parts in the current kernel code, the "protocol" (I
-> mean, the one who actually creates the skb) may setup a destructor.
-
-The socket layer generally needs it for its own accounting.
-Unless you never pass it up you can't use it.
-
-> However, I also see some places where some low-level drivers might be
-> using a destructor too , without apparently checking whether an upper
-> layer already uses one. For instance, write_ofld_wr() in cxgb3/sge.c.
-
-Likely a bug. Normally that should not slip past code review.
-
-> found some old threads about adding support for multiple destructors but
-> I don't see anything like this in the current kernel.
+On Wed, 4 Jul 2007, Joel Becker wrote:
+> On Wed, Jul 04, 2007 at 04:38:04PM +0530, Satyam Sharma wrote:
+> > -	if (!(event == NETDEV_CHANGEADDR || event == NETDEV_CHANGENAME))
+> > -		goto done;
+> > +	if (!(event == NETDEV_UP || event == NETDEV_DOWN ||
+> > +	      event == NETDEV_CHANGEADDR || event == NETDEV_CHANGENAME))
+> > +	      	goto done;
+> >
+> >  	if (nt->np.dev == dev) {
+> >  		switch (event) {
 > 
-> So, I'd like to have a clear statement about who's allowed to use a
-> destructor :)
+> 	It's a small nit, but isn't the large if() just the degenerate
+> default case of the switch()?  Why have it at all?  
 
-The traditional standpoint was that having your own large skb pools 
-is not recommended because you won't interact well with the 
-rest of the system running low on memory and you tieing up 
-memory.
+Yes, the large if() is redundant in this particular patch.
 
-Essentially you would recreate all the problems traditional Unix
-systems have with fixed size mbuf pools. Linux always used a more
-dynamic and flexible allocate-only-as-you-need approach even when it
-can have a little more overhead in managing IOMMUs etc.
+But in further patches, the switch() is enclosed inside a 
+spin_lock_irqsave() and list_for_each_entry(target_list) and so the
+large if() upfront saves us from unnecessarily disabling interrupts
+and iterating through the entire target_list in the case that it is
+a notification for an event that we don't care about.
 
-These days there are shrinker callbacks that would in theory
-allow you to handle this, but it would be likely still hard to implement
-correctly.
+So I'll remove this if() from this patch and introduce it in the
+later one itself, which is where it starts making some sense, anyway.
 
--Andi
+Satyam
