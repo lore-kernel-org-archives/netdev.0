@@ -1,43 +1,92 @@
-From: "Satyam Sharma" <satyam.sharma@gmail.com>
-Subject: Re: Via Rhine II Network Card Failure
-Date: Thu, 5 Jul 2007 16:42:31 +0530
-Message-ID: <a781481a0707050412t4da2d732p83cb219695f52457@mail.gmail.com>
-References: <665527d90706210358k5a1d27f2r30536547f447a516@mail.gmail.com>
-	 <20070704121141.GA3996@ff.dom.local>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: [PATCH 2/2][IPV6] addrconf: fix addrconf_del_timer locking etc.
+Date: Thu, 5 Jul 2007 13:37:42 +0200
+Message-ID: <20070705113742.GC1569@ff.dom.local>
+References: <20070705111246.GB1569@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Mark Hannessen" <markhannessen@gmail.com>, netdev@vger.kernel.org
-To: "Jarek Poplawski" <jarkao2@o2.pl>
+Content-Type: text/plain; charset=us-ascii
+Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	"David S\. Miller" <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.248]:4817 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758538AbXGELMc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jul 2007 07:12:32 -0400
-Received: by an-out-0708.google.com with SMTP id d31so512950and
-        for <netdev@vger.kernel.org>; Thu, 05 Jul 2007 04:12:32 -0700 (PDT)
-In-Reply-To: <20070704121141.GA3996@ff.dom.local>
+Received: from mx10.go2.pl ([193.17.41.74]:58625 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751639AbXGEL3O (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Jul 2007 07:29:14 -0400
 Content-Disposition: inline
+In-Reply-To: <20070705111246.GB1569@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 7/4/07, Jarek Poplawski <jarkao2@o2.pl> wrote:
-> On 21-06-2007 12:58, Mark Hannessen wrote:
-> > [...]
-> > SIOCSIFADDR: No such device eth0:
-> > ERROR while getting interface flags: No such device
-> [...]
-> - is eth0 shown in /proc e.g. in /proc/interrupts?
-> - is ifconfig -a returning something?
-> - can you try ip (from iproute package) e.g. ip link set eth0 up
-> - do you have the same net options enabled as in this distro:
->   e.g. CONFIG_PACKET?
-> - maybe you can try to figure something after (as root):
->   strace ifconfig eth0 up
-> or send the output here...
+addrconf_del_timer() is sometimes done without a lock.
+IMHO it could be racy e.g. when between del_timer() and
+__in6_ifa_put() some other in6_ifa_put() is done.
 
-BTW that "No such device eth0" is generally a case of
-module not loaded / something wrong with modprobe.conf
-Mark, are you sure those kind of issues can be ruled out?
+addrconf_dad_kick() also runs unlocked in one place. 
 
-Satyam
+BTW, I changed a bit one printk to be more precise, I hope.
+
+PS: this patch was prepared on 2.6.22-rc7 with my neighbouring
+PATCH 1/2, but they could be applied independently too.
+
+
+Signed-off-by: Jarek Poplawski <jarkao2@o2.pl>
+
+---
+
+diff -Nurp 2.6.22-rc7-1_2/net/ipv6/addrconf.c 2.6.22-rc7-2_2/net/ipv6/addrconf.c
+--- 2.6.22-rc7-1_2/net/ipv6/addrconf.c	2007-07-05 12:33:34.000000000 +0200
++++ 2.6.22-rc7-2_2/net/ipv6/addrconf.c	2007-07-05 12:39:51.000000000 +0200
+@@ -477,7 +477,7 @@ void inet6_ifa_finish_destroy(struct ine
+ 	in6_dev_put(ifp->idev);
+ 
+ 	if (del_timer(&ifp->timer))
+-		printk("Timer is still running, when freeing ifa=%p\n", ifp);
++		printk("Timer is still pending, when freeing ifa=%p\n", ifp);
+ 
+ 	if (!ifp->dead) {
+ 		printk("Freeing alive inet6 address %p\n", ifp);
+@@ -698,7 +698,9 @@ static void ipv6_del_addr(struct inet6_i
+ 
+ 	atomic_notifier_call_chain(&inet6addr_chain, NETDEV_DOWN, ifp);
+ 
++	spin_lock_bh(&ifp->lock);
+ 	addrconf_del_timer(ifp);
++	spin_unlock_bh(&ifp->lock);
+ 
+ 	/*
+ 	 * Purge or update corresponding prefix
+@@ -2427,7 +2429,9 @@ static int addrconf_ifdown(struct net_de
+ 			if (ifa->idev == idev) {
+ 				*bifa = ifa->lst_next;
+ 				ifa->lst_next = NULL;
++				spin_lock_bh(&ifa->lock);
+ 				addrconf_del_timer(ifa);
++				spin_unlock_bh(&ifa->lock);
+ 				in6_ifa_put(ifa);
+ 				continue;
+ 			}
+@@ -2468,9 +2472,11 @@ static int addrconf_ifdown(struct net_de
+ 		idev->addr_list = ifa->if_next;
+ 		ifa->if_next = NULL;
+ 		ifa->dead = 1;
+-		addrconf_del_timer(ifa);
+ 		write_unlock_bh(&idev->lock);
+ 
++		spin_lock_bh(&ifa->lock);
++		addrconf_del_timer(ifa);
++		spin_unlock_bh(&ifa->lock);
+ 		__ipv6_ifa_notify(RTM_DELADDR, ifa);
+ 		in6_ifa_put(ifa);
+ 
+@@ -2701,8 +2707,8 @@ static void addrconf_dad_run(struct inet
+ 			spin_unlock_bh(&ifp->lock);
+ 			continue;
+ 		}
+-		spin_unlock_bh(&ifp->lock);
+ 		addrconf_dad_kick(ifp);
++		spin_unlock_bh(&ifp->lock);
+ 	}
+ 	read_unlock_bh(&idev->lock);
+ }
