@@ -1,44 +1,44 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: Who's allowed to set a skb destructor?
-Date: Thu, 5 Jul 2007 15:00:12 +0200
-Message-ID: <20070705130012.GB4759@ff.dom.local>
-References: <p733b032mec.fsf@bingen.suse.de> <20070705122849.GA4759@ff.dom.local> <20070705122847.GA13368@2ka.mipt.ru>
+From: Keiichi KII <k-keiichi@bx.jp.nec.com>
+Subject: Re: [PATCH -mm 8/9] netconsole: Update documentation for dynamic
+ reconfigurability
+Date: Thu, 05 Jul 2007 21:58:20 +0900
+Message-ID: <468CEAEC.7040102@bx.jp.nec.com>
+References: <20070704110739.28520.5036.sendpatchset@cselinux1.cse.iitk.ac.in> <20070704110819.28520.50445.sendpatchset@cselinux1.cse.iitk.ac.in>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <andi@firstfloor.org>,
-	Brice Goglin <Brice.Goglin@ens-lyon.org>,
-	netdev@vger.kernel.org, Divy Le Ray <divy@chelsio.com>
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>,
+	Joel Becker <joel.becker@oracle.com>,
+	Matt Mackall <mpm@selenic.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>
+To: Satyam Sharma <ssatyam@cse.iitk.ac.in>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx12.go2.pl ([193.17.41.142]:37217 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755092AbXGEMvo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Jul 2007 08:51:44 -0400
-Content-Disposition: inline
-In-Reply-To: <20070705122847.GA13368@2ka.mipt.ru>
+Received: from TYO202.gate.nec.co.jp ([202.32.8.206]:56069 "EHLO
+	tyo202.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758380AbXGENBY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jul 2007 09:01:24 -0400
+In-Reply-To: <20070704110819.28520.50445.sendpatchset@cselinux1.cse.iitk.ac.in>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 05, 2007 at 04:28:47PM +0400, Evgeniy Polyakov wrote:
-> Hi, Jarek.
-> 
-> On Thu, Jul 05, 2007 at 02:28:50PM +0200, Jarek Poplawski (jarkao2@o2.pl) wrote:
-> > I wonder if it's very unsound to think about a one way list
-> > of destructors. Of course, not owners could only clean their
-> > private allocations. Woudn't this save some skb clonning,
-> > copying or adding new fields for private infos?
-> 
-> There should not be any additional allocations, since they are very
-> slow, that part of mbuf is really horrible for performance - openbsd
-> hackers removed additional allocation of mbuf tag in PF code during the
-> last hackathon, which doubled its performance, that is why skb has only 
-> one control structure and data area, which incorporates additional 
-> control information, thus there is no need for multiple destructors.
+Hi Satyam,
 
-Of course, my knowledge of this is far not enough, and maybe
-I got this reversed, but from Andi's words I've understood
-that linux prefers another (mixed) approach, so I've thought
-such list should be a consequence...
+> + cat enabled				# check if enabled is 1
+> + echo 0 > enabled			# disable the target (if required)
+> + echo eth2 > dev_name			# set local interface
 
-Thanks,
-Jarek P.
+I think that the above line should change from "echo eth2 > dev_name" to 
+"echo -n eth2 > dev_name" or the newline should be removed at store_dev_name().
+The default behavior of echo(1) outputs the newline. 
+So, if we write appropriate network device name to dev_name, 
+the netpoll can't find net_device in netpoll_setup(). 
+
+I don't have enough time now. So I will check your patches more specific 
+at the weekend.
+Thanks
+-- 
+Keiichi KII
+NEC Corporation OSS Platform Development Division
+E-mail: k-keiichi@bx.jp.nec.com
