@@ -1,62 +1,48 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [PATCH 1/2] net: netdevice locking assumptions documentation
-Date: Fri, 6 Jul 2007 11:26:23 -0700
-Message-ID: <20070706112623.478aedcf@freepuppy.rosehill.hemminger.net>
+Subject: Re: sky2 silicon bugs and workarounds...
+Date: Fri, 6 Jul 2007 12:02:08 -0700
+Message-ID: <20070706120208.27ca08b2@freepuppy.rosehill.hemminger.net>
+References: <6278d2220707020636h7764fb27lb648ce50f1597b4@mail.gmail.com>
+	<6278d2220707020637m2f11a691x9c51ca4bfe823104@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+Cc: "Linux Netdev" <netdev@vger.kernel.org>
+To: "Daniel J Blueman" <daniel.blueman@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:38770 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:46051 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1762449AbXGFSdN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jul 2007 14:33:13 -0400
+	by vger.kernel.org with ESMTP id S1762066AbXGFTCm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jul 2007 15:02:42 -0400
+In-Reply-To: <6278d2220707020637m2f11a691x9c51ca4bfe823104@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Update the documentation about locking assumptions.
+On Mon, 2 Jul 2007 14:37:06 +0100
+"Daniel J Blueman" <daniel.blueman@gmail.com> wrote:
 
-Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+> Hi Stephen,
+> 
+> When the sky2 driver initialises, it sets the the ISR timer register
+> (STAT_ISR_TIMER_INI) to 125 * 20 = 2500, whereas the vendor sk98lin
+> driver sets it to 400, irrespective of the clockspeed of the NIC
+> processor.
+> 
+> I guess you found more performance/stability from this value...?
+> 
+> I've checked through the errata workarounds common to my rev-1 and 2
+> Yukon-EC chips...the HWF_WA_DEV_4167 "oversize receive hang"
+> workaround checks and can reset the (as I understand) bus master unit
+> of the NIC (in CheckRxPath) in a periodic timer that is fired, where
+> is finds no progress is made.
+> 
 
+My best guess at what that is handling is the chip (bug) that causes
+the receiver to hang if a packet larger than the receive DMA buffer is
+received.  The sky2 driver doesn't need this because it allocates a 
+slightly larger buffer than necessary, and truncates the oversize packet.
+This works because the hardware has a truncation register that was probably
+designed for use when packet sniffing.
 
---- a/Documentation/networking/netdevices.txt	2007-06-25 09:03:04.000000000 -0700
-+++ b/Documentation/networking/netdevices.txt	2007-07-06 10:15:31.000000000 -0700
-@@ -20,7 +20,6 @@ private data which gets freed when the n
- separately allocated data is attached to the network device
- (dev->priv) then it is up to the module exit handler to free that.
- 
--
- struct net_device synchronization rules
- =======================================
- dev->open:
-@@ -43,16 +42,17 @@ dev->get_stats:
- 
- dev->hard_start_xmit:
- 	Synchronization: netif_tx_lock spinlock.
-+
- 	When the driver sets NETIF_F_LLTX in dev->features this will be
- 	called without holding netif_tx_lock. In this case the driver
- 	has to lock by itself when needed. It is recommended to use a try lock
--	for this and return -1 when the spin lock fails. 
-+	for this and return NETDEV_TX_LOCKED when the spin lock fails.
- 	The locking there should also properly protect against 
--	set_multicast_list
--	Context: Process with BHs disabled or BH (timer).
--	Notes: netif_queue_stopped() is guaranteed false
--               Interrupts must be enabled when calling hard_start_xmit.
--                (Interrupts must also be enabled when enabling the BH handler.)
-+	set_multicast_list.
-+
-+	Context: Process with BHs disabled or BH (timer),
-+	         will be called with interrupts disabled by netconsole.
-+
- 	Return codes: 
- 	o NETDEV_TX_OK everything ok. 
- 	o NETDEV_TX_BUSY Cannot transmit packet, try later 
-@@ -74,4 +74,5 @@ dev->poll:
- 	Synchronization: __LINK_STATE_RX_SCHED bit in dev->state.  See
- 		dev_close code and comments in net/core/dev.c for more info.
- 	Context: softirq
-+	         will be called with interrupts disabled by netconsole.
- 
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
