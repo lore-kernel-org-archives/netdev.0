@@ -1,109 +1,53 @@
-From: Ranko Zivojnovic <ranko@spidernet.net>
+From: Patrick McHardy <kaber@trash.net>
 Subject: Re: + gen_estimator-fix-locking-and-timer-related-bugs.patch added
-	to -mm tree
-Date: Fri, 06 Jul 2007 16:59:04 +0300
-Message-ID: <1183730344.6389.11.camel@ranko-fc2.spidernet.net>
-References: <200706271921.l5RJLgCC003910@imap1.linux-foundation.org>
-	 <1183642800.3789.11.camel@ranko-fc2.spidernet.net>
-	 <20070705142135.GG4759@ff.dom.local>
-	 <1183646029.4069.11.camel@ranko-fc2.spidernet.net>
-	 <1183651165.4069.26.camel@ranko-fc2.spidernet.net>
-	 <20070706061420.GA1846@ff.dom.local> <20070706062629.GC1846@ff.dom.local>
-	 <20070706064523.GA2144@ff.dom.local>
-	 <1183727654.6389.3.camel@ranko-fc2.spidernet.net>
-	 <468E434A.9060303@trash.net>
+ to -mm tree
+Date: Fri, 06 Jul 2007 16:21:13 +0200
+Message-ID: <468E4FD9.4060702@trash.net>
+References: <200706271921.l5RJLgCC003910@imap1.linux-foundation.org>	 <1183642800.3789.11.camel@ranko-fc2.spidernet.net>	 <20070705142135.GG4759@ff.dom.local>	 <1183646029.4069.11.camel@ranko-fc2.spidernet.net>	 <1183651165.4069.26.camel@ranko-fc2.spidernet.net>	 <20070706061420.GA1846@ff.dom.local> <20070706062629.GC1846@ff.dom.local>	 <20070706064523.GA2144@ff.dom.local> <1183727654.6389.3.camel@ranko-fc2.spidernet.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-jZt4A9kHcBO4CynroXm6"
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
 Cc: Jarek Poplawski <jarkao2@o2.pl>, akpm@linux-foundation.org,
 	netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+To: Ranko Zivojnovic <ranko@spidernet.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from MPP-Goya.spidernet.net ([194.154.128.52]:20622 "EHLO
-	mail0pop.spidernet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751888AbXGFN7U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jul 2007 09:59:20 -0400
-In-Reply-To: <468E434A.9060303@trash.net>
+Received: from stinky.trash.net ([213.144.137.162]:58926 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753779AbXGFOVh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jul 2007 10:21:37 -0400
+In-Reply-To: <1183727654.6389.3.camel@ranko-fc2.spidernet.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Ranko Zivojnovic wrote:
+> BUG: spinlock lockup on CPU#0, swapper/0, c03eff80
+>  [<c01ed1fe>] _raw_spin_lock+0x108/0x13c
+>  [<c02a8468>] __qdisc_run+0x97/0x1b0
+>  [<c02a96f3>] qdisc_watchdog+0x19/0x58
+>  [<c02fe5e7>] __lock_text_start+0x37/0x43
+>  [<c02a9730>] qdisc_watchdog+0x56/0x58
+>  [<c02a96da>] qdisc_watchdog+0x0/0x58
+>  [<c0135d84>] run_hrtimer_softirq+0x58/0xb5
+>  [...]
 
---=-jZt4A9kHcBO4CynroXm6
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+> BUG: spinlock lockup on CPU#1, swapper/0, c03eff80
+>  [<c01ed1fe>] _raw_spin_lock+0x108/0x13c
+>  [<c0298b9b>] est_timer+0x53/0x148
+>  [<c01294b3>] run_timer_softirq+0x30/0x184
+>  [<c01295a4>] run_timer_softirq+0x121/0x184
+>  [<c0126252>] __do_softirq+0x66/0xf3
+>  [<c0298b48>] est_timer+0x0/0x148
+>  [...]
 
-On Fri, 2007-07-06 at 15:27 +0200, Patrick McHardy wrote:
-> Ranko Zivojnovic wrote:
-> > Managed to get stuck on a normal machine as well (2.6.22-rc6-mm1 +
-> > sch_htb patch) ... here's the log:
-> > 
-> 
-> Can you post the script you're using to reproduce this please?
 
-Attached.
+There is at least one ABBA deadlock, est_timer does:
 
-R.
+read_lock(&est_lock)
+spin_lock(e->stats_lock) (which is dev->queue_lock)
 
---=-jZt4A9kHcBO4CynroXm6
-Content-Disposition: attachment; filename=tc-crash.sh
-Content-Type: application/x-shellscript; name=tc-crash.sh
-Content-Transfer-Encoding: 7bit
+and qdisc_destroy calls htb_destroy under dev->queue_lock, which
+calls htb_destroy_class, then gen_kill_estimator and this
+write_locks est_lock.
 
-#!/bin/bash
-#
-# This script does nothing useful other than attempt
-# to hammer the kernel with additions and removals of
-# qdisc and classes hoping to crash the kernel
-#
-
-def_c=10
-a_max=100
-b_max=10
-dev="lo"
-targ_ip="127.0.0.1"
-
-# Flood target
-ping -fq $targ_ip &
-
-sleep 1
-
-for ((i=0;i<1000000;i++))
-do 
-	ms=$((1000 + i)); 
-	printf "%i - sleep %ims" $i $ms; 
-
-	tc qdisc del dev $dev root
-
-	(
-	echo qdisc add dev $dev root handle 1: htb default $def_c
-	
-	for ((a=1; a<=a_max; a++))
-	do
-		echo class add dev $dev parent 1: classid 1:$a htb rate 100kbit ceil 100kbit
-		aq=$((a+1))
-		echo qdisc add dev $dev parent 1:$a handle $aq: htb default $def_c
-		
-		for ((b=1; b<=b_max; b++))
-		do
-			echo class add dev $dev parent $aq: classid $aq:$b htb rate 100kbit ceil 100kbit
-			echo qdisc add dev $dev parent $aq:$b sfq perturb 10
-		done
-	done
-
-	echo filter add dev $dev parent 1:0 prio 5 protocol ip u32
-	echo filter add dev $dev parent 1:0 prio 5 handle 1: protocol ip u32 divisor 256
-	
-	# Just some filters to itterate through before hitting the target ip
-	echo filter add dev $dev protocol ip parent 1:0 prio 5 u32 ht 800:: match ip src 1.1.1.1 at 12 flowid $def_c
-	echo filter add dev $dev protocol ip parent 1:0 prio 5 u32 ht 800:: match ip dst 2.2.2.2 at 16 flowid $def_c
-	echo filter add dev $dev protocol ip parent 1:0 prio 5 u32 ht 800:: match ip dst 10.0.0.0/8 hashkey mask 0x0000ff00 at 16 link 1:
-	echo filter add dev $dev protocol ip parent 1:0 prio 5 u32 ht 800:: match ip src $targ_ip at 12 flowid $def_c
-	
-	) | tc -batch -
-
-	# Skew execution
-	usleep $((ms*1000)); 
-	echo " - done."
-done
-
---=-jZt4A9kHcBO4CynroXm6--
-
+I can't see the problem above though, the qdisc_run path only takes
+dev->queue_lock. Please enable lockdep and post the output if any.
