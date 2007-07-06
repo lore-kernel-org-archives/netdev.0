@@ -1,33 +1,58 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: Who's allowed to set a skb destructor?
-Date: Fri, 6 Jul 2007 11:44:03 +0200
-Message-ID: <20070706094403.GC2362@ff.dom.local>
-References: <p733b032mec.fsf@bingen.suse.de> <20070705122849.GA4759@ff.dom.local> <20070705122847.GA13368@2ka.mipt.ru> <20070706090835.GB2362@ff.dom.local>
+From: "jing xiang" <everxiang@gmail.com>
+Subject: [PATCH]: cdc-subset to support new vendor/product
+	ID
+Date: Fri, 6 Jul 2007 18:10:12 +0800
+Message-ID: <1776cf1c0707060310m4919b680s7dcc94fbf22fef9@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <andi@firstfloor.org>,
-	Brice Goglin <Brice.Goglin@ens-lyon.org>,
-	netdev@vger.kernel.org, Divy Le Ray <divy@chelsio.com>
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx10.go2.pl ([193.17.41.74]:37608 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1759626AbXGFJfd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Jul 2007 05:35:33 -0400
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: David Brownell <david-b@pacbell.net>, greg@kroah.com
+To: netdev@vger.kernel.org, linux-usb-devel@lists.sourceforge.net
+Return-path: <linux-usb-devel-bounces@lists.sourceforge.net>
 Content-Disposition: inline
-In-Reply-To: <20070706090835.GB2362@ff.dom.local>
-Sender: netdev-owner@vger.kernel.org
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-usb-devel>,
+	<mailto:linux-usb-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-usb-devel>
+List-Post: <mailto:linux-usb-devel@lists.sourceforge.net>
+List-Help: <mailto:linux-usb-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-usb-devel>,
+	<mailto:linux-usb-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: linux-usb-devel-bounces@lists.sourceforge.net
+Errors-To: linux-usb-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 06, 2007 at 11:08:35AM +0200, Jarek Poplawski wrote:
-...
-> BSDs were sometimes recommended for specific jobs like mail etc.
-> but usually linux better fitted the needs. Especially well linux
-> appeared for an internet gateway/router/firewall/antispam thing,
-> and the main reasons were: netfilter with additional, unofficial
-> patches e.g. l-7 filtering and imq. BSD was no option here.
+Hi,
 
-I've forgotten to mention two other "performance boosters" which
-very often completed these solutions: htb or hfsc.
+This patch is for cdc subset to support Mavell vendor/product ID.
 
-Jarek P.
+Jing Xiang
+
+Signed-off-by: Jing Xiang<everxiang@gmail.com>
+
+diff -uNpr linux-2.6.21.5/driver/usb/net/cdc_subset.c
+linux-2.6.21.5.t/driver/usb/net/cdc_subset.c
+--- linux-2.6.21.5/driver/usb/net/cdc_subset.c  2007-06-14
+18:34:05.000000000 +0800
++++ linux-2.6.21.5.t/driver/usb/net/cdc_subset.c        2007-06-28
+15:55:56.290598304 +0800
+
+@@ -305,6 +305,9 @@ static const struct usb_device_id   produc
+       USB_DEVICE (0x8086, 0x07d3),    // "blob" bootloader
+       .driver_info =  (unsigned long) &blob_info,
+ }, {
++       USB_DEVICE (0x1286, 0x8001),    // "blob" bootloader
++       .driver_info =  (unsigned long) &blob_info,
++}, {
+       // Linux Ethernet/RNDIS gadget on pxa210/25x/26x, second config
+       // e.g. Gumstix, current OpenZaurus, ...
+       USB_DEVICE_VER (0x0525, 0xa4a2, 0x0203, 0x0203),
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by DB2 Express
+Download DB2 Express C - the FREE version of DB2 express and take
+control of your XML. No limits. Just data. Click to get it now.
+http://sourceforge.net/powerbar/db2/
+_______________________________________________
+linux-usb-devel@lists.sourceforge.net
+To unsubscribe, use the last form field at:
+https://lists.sourceforge.net/lists/listinfo/linux-usb-devel
