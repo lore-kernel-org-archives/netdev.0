@@ -1,42 +1,52 @@
 From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: [PATCH 1/2][IPV6] addrconf: fix timer deleting on exit
-Date: Fri, 6 Jul 2007 07:30:17 +0200
-Message-ID: <20070706053017.GA1653@ff.dom.local>
-References: <20070705111246.GB1569@ff.dom.local> <20070705.143740.45154350.davem@davemloft.net>
+Subject: Re: + gen_estimator-fix-locking-and-timer-related-bugs.patch added to -mm tree
+Date: Fri, 6 Jul 2007 08:14:21 +0200
+Message-ID: <20070706061420.GA1846@ff.dom.local>
+References: <200706271921.l5RJLgCC003910@imap1.linux-foundation.org> <1183642800.3789.11.camel@ranko-fc2.spidernet.net> <20070705142135.GG4759@ff.dom.local> <1183646029.4069.11.camel@ranko-fc2.spidernet.net> <1183651165.4069.26.camel@ranko-fc2.spidernet.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org,
-	herbert@gondor.apana.org.au
-To: David Miller <davem@davemloft.net>
+Cc: akpm@linux-foundation.org, kaber@trash.net, netdev@vger.kernel.org
+To: Ranko Zivojnovic <ranko@spidernet.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx10.go2.pl ([193.17.41.74]:35796 "EHLO poczta.o2.pl"
+Received: from mx2.go2.pl ([193.17.41.42]:42144 "EHLO poczta.o2.pl"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754715AbXGFFVr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Jul 2007 01:21:47 -0400
+	id S1754843AbXGFGFu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Jul 2007 02:05:50 -0400
 Content-Disposition: inline
-In-Reply-To: <20070705.143740.45154350.davem@davemloft.net>
+In-Reply-To: <1183651165.4069.26.camel@ranko-fc2.spidernet.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 05, 2007 at 02:37:40PM -0700, David Miller wrote:
-> From: Jarek Poplawski <jarkao2@o2.pl>
-> Date: Thu, 5 Jul 2007 13:12:46 +0200
-> 
+On Thu, Jul 05, 2007 at 06:59:25PM +0300, Ranko Zivojnovic wrote:
+> On Thu, 2007-07-05 at 17:34 +0300, Ranko Zivojnovic wrote:
+> > Anyhow - I am currently running 2.6.22-rc6-mm1 + sch_htb patch and
+> > running a test script that always managed to reproduce the problem
+> > within half hour - so far it looks good, but I will leave it hammering
+> > until tomorrow and will let you know.
 > > 
-> > It looks like a timer function can be running and rearm
-> > the timer after removing a ipv6 module.
-> > 
-> > Signed-off-by: Jarek Poplawski <jarkao2@o2.pl>
 > 
-> This is completely academic as ipv6 as a module cannot
-> be removed, and it's been that way for years :-)
+> Ahm...it managed to get stuck:
 > 
+> Relevant piece of the process table ('tc' stays stuck):
+>  9608 pts/0    S+     0:00 /bin/bash ./tc-crash.sh
+>  9609 pts/0    D+     0:00 tc qdisc del dev lo root
+> 
+> There was no soft lockup kernel warning however sysreq 'w' & 'q' dump
+> the following:
+> 
+> ---cut---
 
-Very nice! This is what I've always dreamed about:
-pure programming without any practical usability.
+I have to admit you are really good at this testing!
 
-My other big dream is that some beautiful day linux
-will have separate arch for this, e.g. pure64...
+Especially after this first htb bug I was almost stunned,
+how long such repeatable and not very hidden bug can
+live in one of the most popular networking modules...
 
-Thanks,
+This new lockup bug you have just found needs some time
+to figure out. BTW, I wonder if you had lockdep on
+(CONFIG_PROVE_LOCKING or CONFIG_LOCK_ALLOC)?
+
+Thanks & regards,
 Jarek P.
+
+PS: I hope you don't mind I forward this to netdev.
