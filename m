@@ -1,104 +1,92 @@
-From: Philippe De Muyter <phdm@macqel.be>
-Subject: [PATCH] 7990 : Various fixes and cleanups
-Date: Fri, 6 Jul 2007 11:58:28 +0200
-Message-ID: <20070706095828.GA12270@muff.macqel.be>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: multicasting netlink messages to groups > 31 from userspace
+Date: Fri, 06 Jul 2007 12:50:54 +0200
+Message-ID: <1183719054.3818.105.camel@johannes.berg>
+References: <1183492286.4021.21.camel@johannes.berg>
+	 <1183643610.5163.76.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-3JkSiA0G8n3ziUv0blQ1"
+Cc: netdev <netdev@vger.kernel.org>, Patrick McHardy <kaber@trash.net>,
+	Thomas Graf <tgraf@suug.ch>
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.macqel.be ([194.78.208.39]:11430 "EHLO mail.macqel.be"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760024AbXGFKVk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Jul 2007 06:21:40 -0400
-Content-Disposition: inline
+Received: from crystal.sipsolutions.net ([195.210.38.204]:36580 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751861AbXGFKty (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jul 2007 06:49:54 -0400
+In-Reply-To: <1183643610.5163.76.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
 
-This patch
-- avoids 7990 blocking when no tx buffer is available,
-- implements tx_bytes statistic that was missing
-- sets skb->dev before calling netix_rx()
-- improves readability and code efficiency in buffer rings initialisation
-- avoids useless memset part for tx packets smaller than ETH_ZLEN
+--=-3JkSiA0G8n3ziUv0blQ1
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Philippe De Muyter <phdm@macqel.be>
+On Thu, 2007-07-05 at 09:53 -0400, jamal wrote:
+> This email captures the essence of the thread, so let me start here.=20
+> I dont know if i read well enough all the details, but i think i have a
+> good grasp of the discusion.
 
-diff -r 6c0a10cc415a drivers/net/7990.c
---- a/drivers/net/7990.c	Thu Jul  5 16:10:16 2007 -0700
-+++ b/drivers/net/7990.c	Fri Jul  6 11:27:20 2007 +0200
-@@ -179,12 +179,14 @@ static void lance_init_ring (struct net_
- 	lp->tx_full = 0;
-         /* Setup the Tx ring entries */
-         for (i = 0; i < (1<<lp->lance_log_tx_bufs); i++) {
-+		volatile struct lance_tx_desc *td;
-+                td = &ib->btx_ring [i];
-                 leptr = LANCE_ADDR(&aib->tx_buf[i][0]);
--                ib->btx_ring [i].tmd0      = leptr;
--                ib->btx_ring [i].tmd1_hadr = leptr >> 16;
--                ib->btx_ring [i].tmd1_bits = 0;
--                ib->btx_ring [i].length    = 0xf000; /* The ones required by tmd2 */
--                ib->btx_ring [i].misc      = 0;
-+                td->tmd0      = leptr;
-+                td->tmd1_hadr = leptr >> 16;
-+                td->tmd1_bits = 0;
-+                td->length    = 0xf000; /* The ones required by tmd2 */
-+                td->misc      = 0;
-                 if (DEBUG_IRING)
-                    printk ("%d: 0x%8.8x\n", i, leptr);
-         }
-@@ -193,14 +195,16 @@ static void lance_init_ring (struct net_
-         if (DEBUG_IRING)
-                 printk ("RX rings:\n");
-         for (i = 0; i < (1<<lp->lance_log_rx_bufs); i++) {
-+		volatile struct lance_rx_desc *rd;
-+                rd = &ib->brx_ring [i];
-                 leptr = LANCE_ADDR(&aib->rx_buf[i][0]);
- 
--                ib->brx_ring [i].rmd0      = leptr;
--                ib->brx_ring [i].rmd1_hadr = leptr >> 16;
--                ib->brx_ring [i].rmd1_bits = LE_R1_OWN;
-+                rd->rmd0      = leptr;
-+                rd->rmd1_hadr = leptr >> 16;
-+                rd->rmd1_bits = LE_R1_OWN;
-                 /* 0xf000 == bits that must be one (reserved, presumably) */
--                ib->brx_ring [i].length    = -RX_BUFF_SIZE | 0xf000;
--                ib->brx_ring [i].mblength  = 0;
-+                rd->length    = -RX_BUFF_SIZE | 0xf000;
-+                rd->mblength  = 0;
-                 if (DEBUG_IRING)
-                         printk ("%d: 0x%8.8x\n", i, leptr);
-         }
-@@ -331,6 +335,7 @@ static int lance_rx (struct net_device *
-                                 return 0;
-                         }
- 
-+                        skb->dev = dev;
-                         skb_reserve (skb, 2);           /* 16 byte align */
-                         skb_put (skb, len);             /* make room */
-                         eth_copy_and_sum(skb,
-@@ -541,9 +546,6 @@ int lance_start_xmit (struct sk_buff *sk
-         static int outs;
- 	unsigned long flags;
- 
--        if (!TX_BUFFS_AVAIL)
--                return -1;
--
- 	netif_stop_queue (dev);
- 
-         skblen = skb->len;
-@@ -565,9 +567,11 @@ int lance_start_xmit (struct sk_buff *sk
-         ib->btx_ring [entry].length = (-len) | 0xf000;
-         ib->btx_ring [entry].misc = 0;
- 
--	if (skb->len < ETH_ZLEN)
--		memset((void *)&ib->tx_buf[entry][0], 0, ETH_ZLEN);
-         skb_copy_from_linear_data(skb, (void *)&ib->tx_buf[entry][0], skblen);
-+    	if (skblen < ETH_ZLEN)
-+    		memset((char *)&ib->tx_buf[entry][0] + skblen, 0, ETH_ZLEN - skblen);
-+
-+	lp->stats.tx_bytes += skblen;
- 
-         /* Now, give the packet to the lance */
-         ib->btx_ring [entry].tmd1_bits = (LE_T1_POK|LE_T1_OWN);
+:)
+
+> The DoS issue is applicable IMO to any IPC. i.e
+> if i have access to sending to you, i can send you many messages and
+> fill up your unix socket rcvq etc.
+
+Yeah, good point.
+
+> - In addition to the netlink sock open/close that Patrick mentioned, you
+> can listen to generic netlink events on the accounting/task netlink and
+> find out when processes are created/destroyed if that is useful. I
+> couldnt tell why you needed to know this...
+
+No, I need to know if a specific socket that I was using in the kernel
+to communicate with a special userspace process is still open, but the
+notifier seems to address that. I haven't tested it yet.
+
+> Yes, this is TheWayItHasBeen(tm).
+> Patrick had a patch a while back to allow for subscribing to higher
+> groups because bind() has a similar issue in that it allows you only to
+> subscribe to the first 32. So it is logical to fix connect, and sendmsg
+> in a similar fashion.
+
+Yeah, that's the sock opt.
+
+> Fixing connect IMO would be a good first start because if you do
+> connect() to the right group(s) before sendsmg() you could send
+> to the correct group.
+>=20
+> > It would of course be possible to add a new sockopt
+> > NETLINK_{SET,GET}_DST_GROUP,=20
+>=20
+> This maybe your best first starting option IMO. It will be in similar
+> spirit to Patricks bind() fix.
+
+Right.
+
+> Iirc, i dont think we can do that anymore. But we can introduce a new
+> scheme to allow for this. For example, could you not use CMSG to specify
+> an explicit list of groups on sendmsg? IIRC, Patrick used CMSG to report
+> on rcv which group a msg was received on.=20
+
+I'll have to look into it. Patrick suggested this as well in the reply,
+but I think it's not going to be too important to me right now,
+depending on the outcome in the wireless discussion.
+
+johannes
+
+--=-3JkSiA0G8n3ziUv0blQ1
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iD8DBQBGjh6O/ETPhpq3jKURAm+RAJwOKsXNYGunM/khMse0e1DhMS+h0gCfey88
+uTa/hZL85NShPsyG6Sk+QfY=
+=mxm9
+-----END PGP SIGNATURE-----
+
+--=-3JkSiA0G8n3ziUv0blQ1--
+
