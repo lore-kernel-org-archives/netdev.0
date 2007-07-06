@@ -1,75 +1,106 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: multicasting netlink messages to groups > 31 from userspace
-Date: Fri, 06 Jul 2007 12:53:52 +0200
-Message-ID: <1183719232.3818.109.camel@johannes.berg>
-References: <1183492286.4021.21.camel@johannes.berg>
-	 <468BAADC.4030203@trash.net> <1183558702.3812.33.camel@johannes.berg>
-	 <468BAF10.6080208@trash.net> <1183559883.3812.42.camel@johannes.berg>
-	 <468BB327.5050709@trash.net> <1183561006.3812.47.camel@johannes.berg>
-	 <468BB5F8.3080908@trash.net> <1183561713.9662.5.camel@johannes.berg>
-	 <468CF41E.4020409@trash.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: [NET]: Avoid copying writable clones in tunnel drivers
+Date: Fri, 06 Jul 2007 14:27:47 +0200
+Message-ID: <468E3543.1060106@trash.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-8pU4lQBRotDObNjxCkPK"
-Cc: netdev <netdev@vger.kernel.org>, jamal <hadi@cyberus.ca>,
-	Thomas Graf <tgraf@suug.ch>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: multipart/mixed;
+ boundary="------------040009080609060901090500"
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:36677 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756437AbXGFKwx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jul 2007 06:52:53 -0400
-In-Reply-To: <468CF41E.4020409@trash.net>
+Received: from stinky.trash.net ([213.144.137.162]:56669 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759809AbXGFM2J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jul 2007 08:28:09 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+This is a multi-part message in MIME format.
+--------------040009080609060901090500
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
 
---=-8pU4lQBRotDObNjxCkPK
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
 
-On Thu, 2007-07-05 at 15:37 +0200, Patrick McHardy wrote:
+--------------040009080609060901090500
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
 
-> Earlier filtering makes sense, especially for userspace. The other
-> part exceeds my wireless knowledge :)
+[NET]: Avoid copying writable clones in tunnel drivers
 
-No worries. I'll see if I can come up with a way to do earlier
-filtering, but it's not actually required for the functionality. And the
-discussion in the wireless realm still isn't over.
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-> > No actually having that hook means I can do without multicast groups by
-> > just publishing that "send configuration requests to pid N" where N is
-> > either 0 (in-kernel MLME) or something else (userspace MLME); I just
-> > didn't know the hook existed.
->=20
->=20
-> Even better. Publishing that to userspace is going to be racy though.
+---
+commit f9dcf4c066b67c80d81ed2de40f62169f3bb5cf0
+tree c7cf908b9b97a9d9476fa7a96372305ec1478078
+parent 720d6ee708b60d1f1f61484af02c900134de0651
+author Patrick McHardy <kaber@trash.net> Fri, 06 Jul 2007 14:25:50 +0200
+committer Patrick McHardy <kaber@trash.net> Fri, 06 Jul 2007 14:26:34 +0200
 
-I could instead have userspace always send message to 0 and just
-redirect them to the userspace process if present; will have to look
-into it. That wouldn't be racy at least, but I think this race is going
-to be the least of your worries (if the userspace MLME just died then
-you have to completely re-do all configuration anyway, and if it just
-started the same)
+ net/ipv4/ip_gre.c     |    3 ++-
+ net/ipv4/ipip.c       |    3 ++-
+ net/ipv6/ip6_tunnel.c |    4 ++--
+ net/ipv6/sit.c        |    3 ++-
+ 4 files changed, 8 insertions(+), 5 deletions(-)
 
-> The genetlink stuff defintely makes sense. I'll have a closer look at
-> your patches this weekend.
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index 6328293..5c14ed6 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -809,7 +809,8 @@ static int ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	max_headroom = LL_RESERVED_SPACE(tdev) + gre_hlen;
+ 
+-	if (skb_headroom(skb) < max_headroom || skb_cloned(skb) || skb_shared(skb)) {
++	if (skb_headroom(skb) < max_headroom || skb_shared(skb)||
++	    (skb_cloned(skb) && !skb_clone_writable(skb, 0))) {
+ 		struct sk_buff *new_skb = skb_realloc_headroom(skb, max_headroom);
+ 		if (!new_skb) {
+ 			ip_rt_put(rt);
+diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
+index ebd2f2d..3964372 100644
+--- a/net/ipv4/ipip.c
++++ b/net/ipv4/ipip.c
+@@ -595,7 +595,8 @@ static int ipip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	 */
+ 	max_headroom = (LL_RESERVED_SPACE(tdev)+sizeof(struct iphdr));
+ 
+-	if (skb_headroom(skb) < max_headroom || skb_cloned(skb) || skb_shared(skb)) {
++	if (skb_headroom(skb) < max_headroom || skb_shared(skb) ||
++	    (skb_cloned(skb) && !skb_clone_writable(skb, 0))) {
+ 		struct sk_buff *new_skb = skb_realloc_headroom(skb, max_headroom);
+ 		if (!new_skb) {
+ 			ip_rt_put(rt);
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index a0902fb..281aee4 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -883,8 +883,8 @@ static int ip6_tnl_xmit2(struct sk_buff *skb,
+ 	 */
+ 	max_headroom += LL_RESERVED_SPACE(tdev);
+ 
+-	if (skb_headroom(skb) < max_headroom ||
+-	    skb_cloned(skb) || skb_shared(skb)) {
++	if (skb_headroom(skb) < max_headroom || skb_shared(skb) ||
++	    (skb_cloned(skb) && !skb_clone_writable(skb, 0))) {
+ 		struct sk_buff *new_skb;
+ 
+ 		if (!(new_skb = skb_realloc_headroom(skb, max_headroom)))
+diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+index 1efa95a..eb20bb6 100644
+--- a/net/ipv6/sit.c
++++ b/net/ipv6/sit.c
+@@ -532,7 +532,8 @@ static int ipip6_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	 */
+ 	max_headroom = LL_RESERVED_SPACE(tdev)+sizeof(struct iphdr);
+ 
+-	if (skb_headroom(skb) < max_headroom || skb_cloned(skb) || skb_shared(skb)) {
++	if (skb_headroom(skb) < max_headroom || skb_shared(skb) ||
++	    (skb_cloned(skb) && !skb_clone_writable(skb, 0))) {
+ 		struct sk_buff *new_skb = skb_realloc_headroom(skb, max_headroom);
+ 		if (!new_skb) {
+ 			ip_rt_put(rt);
 
-Thanks. I know Zhang Rui will definitely appreciate that too :)
-
-johannes
-
---=-8pU4lQBRotDObNjxCkPK
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iD8DBQBGjh9A/ETPhpq3jKURAvwmAJ4iA95HOGqf+oihOmf+3NVE5AT/9gCfaDyx
-rWzYS656YDuW861QpwEM9pU=
-=4alY
------END PGP SIGNATURE-----
-
---=-8pU4lQBRotDObNjxCkPK--
-
+--------------040009080609060901090500--
