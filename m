@@ -1,58 +1,104 @@
-From: "jing xiang" <everxiang@gmail.com>
-Subject: [PATCH]: cdc-subset to support new vendor/product
-	ID
-Date: Fri, 6 Jul 2007 18:10:12 +0800
-Message-ID: <1776cf1c0707060310m4919b680s7dcc94fbf22fef9@mail.gmail.com>
+From: Philippe De Muyter <phdm@macqel.be>
+Subject: [PATCH] 7990 : Various fixes and cleanups
+Date: Fri, 6 Jul 2007 11:58:28 +0200
+Message-ID: <20070706095828.GA12270@muff.macqel.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: David Brownell <david-b@pacbell.net>, greg@kroah.com
-To: netdev@vger.kernel.org, linux-usb-devel@lists.sourceforge.net
-Return-path: <linux-usb-devel-bounces@lists.sourceforge.net>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.macqel.be ([194.78.208.39]:11430 "EHLO mail.macqel.be"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760024AbXGFKVk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Jul 2007 06:21:40 -0400
 Content-Disposition: inline
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-usb-devel>,
-	<mailto:linux-usb-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-usb-devel>
-List-Post: <mailto:linux-usb-devel@lists.sourceforge.net>
-List-Help: <mailto:linux-usb-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-usb-devel>,
-	<mailto:linux-usb-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: linux-usb-devel-bounces@lists.sourceforge.net
-Errors-To: linux-usb-devel-bounces@lists.sourceforge.net
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Hi all,
 
-This patch is for cdc subset to support Mavell vendor/product ID.
+This patch
+- avoids 7990 blocking when no tx buffer is available,
+- implements tx_bytes statistic that was missing
+- sets skb->dev before calling netix_rx()
+- improves readability and code efficiency in buffer rings initialisation
+- avoids useless memset part for tx packets smaller than ETH_ZLEN
 
-Jing Xiang
+Signed-off-by: Philippe De Muyter <phdm@macqel.be>
 
-Signed-off-by: Jing Xiang<everxiang@gmail.com>
-
-diff -uNpr linux-2.6.21.5/driver/usb/net/cdc_subset.c
-linux-2.6.21.5.t/driver/usb/net/cdc_subset.c
---- linux-2.6.21.5/driver/usb/net/cdc_subset.c  2007-06-14
-18:34:05.000000000 +0800
-+++ linux-2.6.21.5.t/driver/usb/net/cdc_subset.c        2007-06-28
-15:55:56.290598304 +0800
-
-@@ -305,6 +305,9 @@ static const struct usb_device_id   produc
-       USB_DEVICE (0x8086, 0x07d3),    // "blob" bootloader
-       .driver_info =  (unsigned long) &blob_info,
- }, {
-+       USB_DEVICE (0x1286, 0x8001),    // "blob" bootloader
-+       .driver_info =  (unsigned long) &blob_info,
-+}, {
-       // Linux Ethernet/RNDIS gadget on pxa210/25x/26x, second config
-       // e.g. Gumstix, current OpenZaurus, ...
-       USB_DEVICE_VER (0x0525, 0xa4a2, 0x0203, 0x0203),
-
--------------------------------------------------------------------------
-This SF.net email is sponsored by DB2 Express
-Download DB2 Express C - the FREE version of DB2 express and take
-control of your XML. No limits. Just data. Click to get it now.
-http://sourceforge.net/powerbar/db2/
-_______________________________________________
-linux-usb-devel@lists.sourceforge.net
-To unsubscribe, use the last form field at:
-https://lists.sourceforge.net/lists/listinfo/linux-usb-devel
+diff -r 6c0a10cc415a drivers/net/7990.c
+--- a/drivers/net/7990.c	Thu Jul  5 16:10:16 2007 -0700
++++ b/drivers/net/7990.c	Fri Jul  6 11:27:20 2007 +0200
+@@ -179,12 +179,14 @@ static void lance_init_ring (struct net_
+ 	lp->tx_full = 0;
+         /* Setup the Tx ring entries */
+         for (i = 0; i < (1<<lp->lance_log_tx_bufs); i++) {
++		volatile struct lance_tx_desc *td;
++                td = &ib->btx_ring [i];
+                 leptr = LANCE_ADDR(&aib->tx_buf[i][0]);
+-                ib->btx_ring [i].tmd0      = leptr;
+-                ib->btx_ring [i].tmd1_hadr = leptr >> 16;
+-                ib->btx_ring [i].tmd1_bits = 0;
+-                ib->btx_ring [i].length    = 0xf000; /* The ones required by tmd2 */
+-                ib->btx_ring [i].misc      = 0;
++                td->tmd0      = leptr;
++                td->tmd1_hadr = leptr >> 16;
++                td->tmd1_bits = 0;
++                td->length    = 0xf000; /* The ones required by tmd2 */
++                td->misc      = 0;
+                 if (DEBUG_IRING)
+                    printk ("%d: 0x%8.8x\n", i, leptr);
+         }
+@@ -193,14 +195,16 @@ static void lance_init_ring (struct net_
+         if (DEBUG_IRING)
+                 printk ("RX rings:\n");
+         for (i = 0; i < (1<<lp->lance_log_rx_bufs); i++) {
++		volatile struct lance_rx_desc *rd;
++                rd = &ib->brx_ring [i];
+                 leptr = LANCE_ADDR(&aib->rx_buf[i][0]);
+ 
+-                ib->brx_ring [i].rmd0      = leptr;
+-                ib->brx_ring [i].rmd1_hadr = leptr >> 16;
+-                ib->brx_ring [i].rmd1_bits = LE_R1_OWN;
++                rd->rmd0      = leptr;
++                rd->rmd1_hadr = leptr >> 16;
++                rd->rmd1_bits = LE_R1_OWN;
+                 /* 0xf000 == bits that must be one (reserved, presumably) */
+-                ib->brx_ring [i].length    = -RX_BUFF_SIZE | 0xf000;
+-                ib->brx_ring [i].mblength  = 0;
++                rd->length    = -RX_BUFF_SIZE | 0xf000;
++                rd->mblength  = 0;
+                 if (DEBUG_IRING)
+                         printk ("%d: 0x%8.8x\n", i, leptr);
+         }
+@@ -331,6 +335,7 @@ static int lance_rx (struct net_device *
+                                 return 0;
+                         }
+ 
++                        skb->dev = dev;
+                         skb_reserve (skb, 2);           /* 16 byte align */
+                         skb_put (skb, len);             /* make room */
+                         eth_copy_and_sum(skb,
+@@ -541,9 +546,6 @@ int lance_start_xmit (struct sk_buff *sk
+         static int outs;
+ 	unsigned long flags;
+ 
+-        if (!TX_BUFFS_AVAIL)
+-                return -1;
+-
+ 	netif_stop_queue (dev);
+ 
+         skblen = skb->len;
+@@ -565,9 +567,11 @@ int lance_start_xmit (struct sk_buff *sk
+         ib->btx_ring [entry].length = (-len) | 0xf000;
+         ib->btx_ring [entry].misc = 0;
+ 
+-	if (skb->len < ETH_ZLEN)
+-		memset((void *)&ib->tx_buf[entry][0], 0, ETH_ZLEN);
+         skb_copy_from_linear_data(skb, (void *)&ib->tx_buf[entry][0], skblen);
++    	if (skblen < ETH_ZLEN)
++    		memset((char *)&ib->tx_buf[entry][0] + skblen, 0, ETH_ZLEN - skblen);
++
++	lp->stats.tx_bytes += skblen;
+ 
+         /* Now, give the packet to the lance */
+         ib->btx_ring [entry].tmd1_bits = (LE_T1_POK|LE_T1_OWN);
