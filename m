@@ -1,101 +1,125 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: Splitting e1000 (Was: Re: e1000: backport ich9
- support from 7.5.5 ?)
-Date: Thu, 05 Jul 2007 20:22:10 -0400
-Message-ID: <468D8B32.9020305@garzik.org>
-References: <1183138159.17243.16.camel@blaa>
-	<20070629175006.GB3917@falooley.org>
-	<468571C6.3090305@garzik.org> <46857C08.4030303@intel.com>
-	<20070629150350.414553d4.akpm@linux-foundation.org>
-	<4685838D.9080108@garzik.org>
-	<c0a09e5c0706291657kd5e4baawb113a17ca5ab2191@mail.gmail.com>
-	<46859F3F.305@garzik.org> <4685C09B.7040908@intel.com>
-	<20070630082520.GA20140@infradead.org> <468AD23A.4090904@intel.com>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: [PATCH] tg3: Tx availability fix
+Date: Thu, 05 Jul 2007 17:23:17 -0700
+Message-ID: <1183681399.24582.68.camel@teletran1>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Mark McLoughlin <markmc@redhat.com>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Christoph Hellwig <hch@infradead.org>,
-	"Ronciak,  John" <john.ronciak@intel.com>,
-	Andrew Grover <andy.grover@gmail.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	'Stephen Hemminger' <shemminger@linux-foundation.org>,
-	Jason Lunz <lunz@reflexsecurity.com>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <468AD23A.4090904@intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Cc: "Robert Olsson" <Robert.Olsson@data.slu.se>,
+	"Evgeniy Polyakov" <johnpol@2ka.mipt.ru>,
+	"Krishna Kumar2" <krkumar2@in.ibm.com>,
+	"Gagan Arneja" <gaagaan@gmail.com>, netdev@vger.kernel.org,
+	"Rick Jones" <rick.jones2@hp.com>,
+	"Sridhar Samudrala" <sri@us.ibm.com>,
+	"David Miller" <davem@davemloft.net>,
+	"Jeff Garzik" <jeff@garzik.org>,
+	"Michael Chan" <mchan@broadcom.com>
+To: "jamal" <hadi@cyberus.ca>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:2236 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759020AbXGFAX0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Jul 2007 20:23:26 -0400
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Kok, Auke wrote:
-> 1a) We post an e1000e driver that implements support for all 8257x 
-> (ich8/9, es2lan etc) devices.
-> 1b) We post a patch that drops support for all of these devices in the 
-> form of a pci-ID removal (no code removed) for e1000.
-> 
-> 2) we post patches that remove code support for non-8254x devices at a 
-> later stage.
-> 
-> 3) we backport any and all cleanups and flags from e1000e to e1000 where 
-> applicable.
-> 
-> 
-> This plan leaves a significant gap that I'm worrying about: after step 
-> (1) we basically have forced everyone to switch without providing a 
-> fallback (allthough we have our out-of-tree driver, but no in-kernel 
-> version in case issues exist).
-> 
-> 
-> Comments?
+This patch changes how and to what value the xmit_win variable is
+assigned.
 
-I like the general gist of it.  My own suggestion would be
+The patch starts by correcting the initialization of xmit_win to be 1/4
+the value of tx_pending rather than the tx ring size.  The tx_pending
+value is initialized to be the tx ring size, but it may be changed
+through ethtool.
 
-1) Create e1001.c, which is the SMALLEST POSSIBLE "it works" driver for 
-ICH9.  No feature enablement (no TSO, no MQ, no IOAT, not even checksum 
-offload), just a rock solid, no frills driver.  Think like e100.c :)
+The patch then reverts the code back to the old logic when deciding
+whether or not to wake up the transmit queue.  The new tx batching
+implementation had changed this code so that the tg3_tx_avail() function
+was only called once and the value returned stored in a local variable.
+While the new code looks slightly cleaner, there is the possibility that
+more descriptors will become available in-between the time of the call
+and the time the value gets used.  Reverting back to the old logic will
+ensure that the driver always acts on current information.
 
-2) We review the hell out of e1001, and merge it.  This enables ICH9 
-users, and ONLY ICH9 users, on e1001 in the upstream kernel, allowing us 
-to blithely ignore driver->driver migration issues present with other chips.
+The last change makes sure that new xmit_win values, as assigned by the
+transmit queue wake code, will not be drastically larger than the value
+set during initialization.
+
+As a bonus, this patch removes the unused struct tg3_tx_cbdata members.
+
+Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+
+diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+index cef9cbe..afa617a 100644
+--- a/drivers/net/tg3.c
++++ b/drivers/net/tg3.c
+@@ -581,7 +581,7 @@ static inline void tg3_netif_stop(struct tg3 *tp)
+ static inline void tg3_netif_start(struct tg3 *tp)
+ {
+ 	netif_wake_queue(tp->dev);
+-	tp->dev->xmit_win = TG3_TX_RING_SIZE >> 2;
++	tp->dev->xmit_win = tp->tx_pending >> 2;
+ 	/* NOTE: unconditional netif_wake_queue is only appropriate
+ 	 * so long as all callers are assured to have free tx slots
+ 	 * (such as after tg3_init_hw)
+@@ -3120,15 +3120,14 @@ static void tg3_tx(struct tg3 *tp)
+ 	 */
+ 	smp_mb();
+ 
+-	dcount = tg3_tx_avail(tp);
+ 	if (unlikely(netif_queue_stopped(tp->dev) &&
+-		     (dcount > TG3_TX_WAKEUP_THRESH(tp)))) {
++		     (tg3_tx_avail(tp) > TG3_TX_WAKEUP_THRESH(tp)))) {
+ 		netif_tx_lock(tp->dev);
+ 		tp->dev->xmit_win = 1;
+ 		if (netif_queue_stopped(tp->dev) &&
+-		    (dcount > TG3_TX_WAKEUP_THRESH(tp))) {
++		    (tg3_tx_avail(tp) > TG3_TX_WAKEUP_THRESH(tp))) {
+ 			netif_wake_queue(tp->dev);
+-			tp->dev->xmit_win = dcount;
++			tp->dev->xmit_win = tg3_tx_avail(tp) >> 2;
+ 		}
+ 		netif_tx_unlock(tp->dev);
+ 	}
+@@ -3885,9 +3884,6 @@ static void tg3_set_txd(struct tg3 *tp, int entry,
+ 
+ struct tg3_tx_cbdata {
+ 	u32 base_flags;
+-	int count;
+-	unsigned int max_per_txd;
+-	unsigned int nr_frags;
+ 	unsigned int mss;
+ };
+ #define TG3_SKB_CB(__skb)       ((struct tg3_tx_cbdata *)&((__skb)->cb[0]))
+@@ -3974,16 +3970,16 @@ static int tg3_prep_frame(struct sk_buff *skb, struct net_device *dev)
+ void tg3_kick_DMA(struct tg3 *tp)
+ {
+ 	u32 entry = tp->tx_prod;
+-	u32 count = tg3_tx_avail(tp);
++
+ 	/* Packets are ready, update Tx producer idx local and on card. */
+ 	tw32_tx_mbox((MAILBOX_SNDHOST_PROD_IDX_0 + TG3_64BIT_REG_LOW), entry);
+ 
+-	if (unlikely(count <= (MAX_SKB_FRAGS + 1))) {
++	if (unlikely(tg3_tx_avail(tp) <= (MAX_SKB_FRAGS + 1))) {
+ 		netif_stop_queue(tp->dev);
+ 		tp->dev->xmit_win = 1;
+-		if (count > TG3_TX_WAKEUP_THRESH(tp)) {
++		if (tg3_tx_avail(tp) > TG3_TX_WAKEUP_THRESH(tp)) {
+ 			netif_wake_queue(tp->dev);
+-			tp->dev->xmit_win = count;
++			tp->dev->xmit_win = tg3_tx_avail(tp) >> 2;
+ 		}
+ 	}
+ 
+@@ -11965,7 +11961,7 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
+ 	dev->change_mtu = tg3_change_mtu;
+ 	dev->irq = pdev->irq;
+ 	dev->features |= NETIF_F_BTX;
+-	dev->xmit_win = TG3_TX_RING_SIZE >> 2;
++	dev->xmit_win = tp->tx_pending >> 2;
+ 
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	dev->poll_controller = tg3_poll_controller;
 
 
-At this point, e1001 is out in the field and in the upstream kernel in 
-the absolute shortest amount of time.  Users of chips NOT found in 
-current e1000 driver, and all future chips, can be enabled with little 
-impediments, in parallel with the steps below.
-
-(all the "3^y" steps can occur in parallel)
-
-3^1) Add features to e1001, enabling new gizmos on new hardware.  This 
-can proceed in parallel with any e1000 work.  This allows users to use 
-git-bisect to find driver bugs -- or even hardware bugs, since you have 
-a baseline working e1001 driver.
-
-3^2) Add full ICH8 (8257x?) support to e1001.
-
-4) Drop 8257x PCI IDs from e1000.  See who complains.  Lather, rinse, 
-repeat.
-
-5) Figure out how the hell to clean up the current mess that is e1000, 
-and how to make sure e1000 and e1001 stay clean, long term.
-
-	Jeff
-
-
-
--------------------------------------------------------------------------
-This SF.net email is sponsored by DB2 Express
-Download DB2 Express C - the FREE version of DB2 express and take
-control of your XML. No limits. Just data. Click to get it now.
-http://sourceforge.net/powerbar/db2/
