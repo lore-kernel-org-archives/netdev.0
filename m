@@ -1,48 +1,56 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: sky2 silicon bugs and workarounds...
-Date: Fri, 6 Jul 2007 12:02:08 -0700
-Message-ID: <20070706120208.27ca08b2@freepuppy.rosehill.hemminger.net>
-References: <6278d2220707020636h7764fb27lb648ce50f1597b4@mail.gmail.com>
-	<6278d2220707020637m2f11a691x9c51ca4bfe823104@mail.gmail.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Does the Netxen driver work?
+Date: Fri, 06 Jul 2007 12:05:49 -0700
+Message-ID: <468E928D.20606@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Linux Netdev" <netdev@vger.kernel.org>
-To: "Daniel J Blueman" <daniel.blueman@gmail.com>
+To: NetDev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:46051 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1762066AbXGFTCm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jul 2007 15:02:42 -0400
-In-Reply-To: <6278d2220707020637m2f11a691x9c51ca4bfe823104@mail.gmail.com>
+Received: from ns2.lanforge.com ([66.165.47.211]:56260 "EHLO ns2.lanforge.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1762165AbXGFTFu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Jul 2007 15:05:50 -0400
+Received: from [192.168.100.224] (static-71-121-249-218.sttlwa.dsl-w.verizon.net [71.121.249.218])
+	(authenticated bits=0)
+	by ns2.lanforge.com (8.13.4/8.13.4) with ESMTP id l66J5nZN022685
+	for <netdev@vger.kernel.org>; Fri, 6 Jul 2007 12:05:49 -0700
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2 Jul 2007 14:37:06 +0100
-"Daniel J Blueman" <daniel.blueman@gmail.com> wrote:
+Hello!
 
-> Hi Stephen,
-> 
-> When the sky2 driver initialises, it sets the the ISR timer register
-> (STAT_ISR_TIMER_INI) to 125 * 20 = 2500, whereas the vendor sk98lin
-> driver sets it to 400, irrespective of the clockspeed of the NIC
-> processor.
-> 
-> I guess you found more performance/stability from this value...?
-> 
-> I've checked through the errata workarounds common to my rev-1 and 2
-> Yukon-EC chips...the HWF_WA_DEV_4167 "oversize receive hang"
-> workaround checks and can reset the (as I understand) bus master unit
-> of the NIC (in CheckRxPath) in a periodic timer that is fired, where
-> is finds no progress is made.
-> 
+I just got some Netxen 10Gbe CX4 adapters and put them into freshly
+updated Fedora 7 64-bit systems.  So far, I am not having much luck.
 
-My best guess at what that is handling is the chip (bug) that causes
-the receiver to hang if a packet larger than the receive DMA buffer is
-received.  The sky2 driver doesn't need this because it allocates a 
-slightly larger buffer than necessary, and truncates the oversize packet.
-This works because the hardware has a truncation register that was probably
-designed for use when packet sniffing.
+Kernel is:  Official F7  2.6.21-1.3228.fc7
+
+NIC:
+01:00.0 Ethernet controller: NetXen Incorporated NXB-10GCX4 10 Gigabit Ethernet PCIe Adapter with CX4 copper interface (rev 25)
+
+The motherboard chipset is Intel based (I can provide more info is someone
+cares..but I first wanted to make sure there are no well-known issues.)
+
+Interesting boot messages:
+
+Jul  5 16:15:17 a440-dc kernel: ACPI: PCI Interrupt 0000:01:00.0[A] -> GSI 16 (level, low) -> IRQ 16
+Jul  5 16:15:17 a440-dc kernel: netxen-nic: unable to allocate MSI interrupt error
+Jul  5 16:15:17 a440-dc kernel: netxen-nic: XGbE board initialized
+
+Is that MSI error fatal?
+
+The two NICs are connected by a CX4 cable, and from dmesg output, it appears
+they have negotiated link properly.
+
+However, I see tx counters incrementing on both sides, but no rx counters.
+
+I will try the latest 22-pre kernel in the meantime, but if anyone has
+any experience getting these NICs to work, I'm interested to know about it.
+
+Thanks,
+Ben
 
 -- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
+
