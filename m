@@ -1,46 +1,42 @@
-From: "Bhanu Kalyan Chetlapalli" <chbhanukalyan@gmail.com>
-Subject: Re:
-Date: Fri, 6 Jul 2007 09:33:22 +0530
-Message-ID: <7d15175e0707052103mf383699i983ff2d48637ece0@mail.gmail.com>
-References: <7d15175e0707050852h16e4a57j3605d07f3887998f@mail.gmail.com>
-	 <a901b49a0707052044y7ba56ebbk8c8c66c97e5df167@mail.gmail.com>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: [PATCH 1/2][IPV6] addrconf: fix timer deleting on exit
+Date: Fri, 6 Jul 2007 07:30:17 +0200
+Message-ID: <20070706053017.GA1653@ff.dom.local>
+References: <20070705111246.GB1569@ff.dom.local> <20070705.143740.45154350.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "pradeep singh" <pradeep.rautela@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org,
+	herbert@gondor.apana.org.au
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.241]:24134 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760588AbXGFEDX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jul 2007 00:03:23 -0400
-Received: by an-out-0708.google.com with SMTP id d31so18232and
-        for <netdev@vger.kernel.org>; Thu, 05 Jul 2007 21:03:22 -0700 (PDT)
-In-Reply-To: <a901b49a0707052044y7ba56ebbk8c8c66c97e5df167@mail.gmail.com>
+Received: from mx10.go2.pl ([193.17.41.74]:35796 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754715AbXGFFVr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Jul 2007 01:21:47 -0400
 Content-Disposition: inline
+In-Reply-To: <20070705.143740.45154350.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 7/6/07, pradeep singh <pradeep.rautela@gmail.com> wrote:
-> On 7/5/07, Bhanu Kalyan Chetlapalli <chbhanukalyan@gmail.com> wrote:
-> > subscribe netdev
-> oops perhaps you need to send it to majordomo :-)
+On Thu, Jul 05, 2007 at 02:37:40PM -0700, David Miller wrote:
+> From: Jarek Poplawski <jarkao2@o2.pl>
+> Date: Thu, 5 Jul 2007 13:12:46 +0200
+> 
+> > 
+> > It looks like a timer function can be running and rearm
+> > the timer after removing a ipv6 module.
+> > 
+> > Signed-off-by: Jarek Poplawski <jarkao2@o2.pl>
+> 
+> This is completely academic as ipv6 as a module cannot
+> be removed, and it's been that way for years :-)
+> 
 
-Sorry about that, I just copied the wrong address, and realized it
-immediately after (as it often happens for me) pressing send :(
+Very nice! This is what I've always dreamed about:
+pure programming without any practical usability.
 
->
-> > -
-> > To unsubscribe from this list: send the line "unsubscribe netdev" in
-> > the body of a message to majordomo@vger.kernel.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> >
->
->
-> --
-> Pradeep
->
+My other big dream is that some beautiful day linux
+will have separate arch for this, e.g. pure64...
 
-
--- 
-The box said "Requires Windows Vista or better." So I installed LINUX
+Thanks,
+Jarek P.
