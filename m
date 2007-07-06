@@ -1,33 +1,48 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [RFC 2/2] shrink size of scatterlist on common i386/x86-64
-Date: Fri, 06 Jul 2007 17:43:46 +1000
-Message-ID: <1183707826.6005.177.camel@localhost.localdomain>
-References: <20070705231615.451797310@linux-foundation.org>
-	 <20070705.164308.01771618.davem@davemloft.net>
-	 <20070705170051.37ff2ab8@freepuppy.localdomain.hemminger.net>
-	 <20070705.171535.105173068.davem@davemloft.net>
+From: =?iso-8859-1?q?R=E9mi_Denis-Courmont?=
+	<remi.denis-courmont@nokia.com>
+Subject: Re: [PATCH net-2.6.23 take2] UDP: Cleanup UDP encapsulation code
+Date: Fri, 6 Jul 2007 10:55:17 +0300
+Message-ID: <200707061055.17951.remi.denis-courmont@nokia.com>
+References: <200707051618.l65GIh0J030375@quickie.katalix.com> <200707051951.03619@auguste.remlab.net> <468D299E.5070902@katalix.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: "ext James Chapman" <jchapman@katalix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:40489 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760042AbXGFHoH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Jul 2007 03:44:07 -0400
-In-Reply-To: <20070705.171535.105173068.davem@davemloft.net>
+Received: from smtp.nokia.com ([131.228.20.171]:63464 "EHLO
+	mgw-ext12.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757119AbXGFHzn convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jul 2007 03:55:43 -0400
+In-Reply-To: <468D299E.5070902@katalix.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2007-07-05 at 17:15 -0700, David Miller wrote:
-> Also even with the scatterlist idea, we'd still need to do two
-> map calls, one for skb->data and one for the page vector.
+On Thursday 05 July 2007 20:25:50 ext James Chapman wrote:
+> R=E9mi Denis-Courmont wrote:
+> > By the way, couldn't encap_type be remove altogether (using two sli=
+ghtly
+> > different callbacks for ESP) from udp_sock?
+>
+> The notion of encap_type is needed for the setsockopt call so it woul=
+d
+> have to stay in the API. If it were removed from udp_sock, getsockopt
+> would have to derive the encap_type from encap_rcv funcptr values, wh=
+ich
+> would be messy. I think it might complicate the logic in ESP too.
 
-We could make skb->shinfo(skb)->frags[0] the first segment and deprecate
-skb->data and skb->len.
+Right. By the way, shouldn't "len" rather be signed in there?
 
-OK, you can stop hitting me now...
-Rusty.
+		unsigned int len;
+
+		/* if we're overly short, let UDP handle it */
+		len =3D skb->len - sizeof(struct udphdr);
+		if (len <=3D 0)
+			goto udp;
 
 
+Regards,
+
+--=20
+R=E9mi Denis-Courmont
