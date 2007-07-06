@@ -1,62 +1,33 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: Who's allowed to set a skb destructor?
-Date: Fri, 6 Jul 2007 09:47:20 +0200
-Message-ID: <20070706074720.GA2362@ff.dom.local>
-References: <p733b032mec.fsf@bingen.suse.de> <20070705122849.GA4759@ff.dom.local> <20070705130640.GA24731@one.firstfloor.org>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [RFC 2/2] shrink size of scatterlist on common i386/x86-64
+Date: Fri, 06 Jul 2007 17:43:46 +1000
+Message-ID: <1183707826.6005.177.camel@localhost.localdomain>
+References: <20070705231615.451797310@linux-foundation.org>
+	 <20070705.164308.01771618.davem@davemloft.net>
+	 <20070705170051.37ff2ab8@freepuppy.localdomain.hemminger.net>
+	 <20070705.171535.105173068.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Brice Goglin <Brice.Goglin@ens-lyon.org>, netdev@vger.kernel.org,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	Divy Le Ray <divy@chelsio.com>
-To: Andi Kleen <andi@firstfloor.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx10.go2.pl ([193.17.41.74]:59504 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1760829AbXGFHiv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Jul 2007 03:38:51 -0400
-Content-Disposition: inline
-In-Reply-To: <20070705130640.GA24731@one.firstfloor.org>
+Received: from ozlabs.org ([203.10.76.45]:40489 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760042AbXGFHoH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Jul 2007 03:44:07 -0400
+In-Reply-To: <20070705.171535.105173068.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 05, 2007 at 03:06:40PM +0200, Andi Kleen wrote:
-> On Thu, Jul 05, 2007 at 02:28:50PM +0200, Jarek Poplawski wrote:
-> > I wonder if it's very unsound to think about a one way list
-> > of destructors. Of course, not owners could only clean their
-> > private allocations. Woudn't this save some skb clonning,
-> > copying or adding new fields for private infos?
-> 
-> skb cloning isn't very expensive when you need it. And they
-> got a little private area you can use for your own stuff 
-> while you have it queued (skb->cb) 
-> 
-> As a historical note one of the big changes during the Linux 2.0
-> and 2.1 TCP rewrite was that TCP was changed to always clone for the
-> retransmit queue. This cleaned up the code greatly and fixed
-> many problems. Cloning was also especially optimized for this. When TCP 
-> which is about one of the most performance critical protocols around can 
-> afford it likely other code can too.
+On Thu, 2007-07-05 at 17:15 -0700, David Miller wrote:
+> Also even with the scatterlist idea, we'd still need to do two
+> map calls, one for skb->data and one for the page vector.
 
-I've thought about this a bit more, and, if I don't miss something,
-there is a possibility to use these things together: let's imagine
-such simplified api:
+We could make skb->shinfo(skb)->frags[0] the first segment and deprecate
+skb->data and skb->len.
 
-- a driver which needs a bit of space to track skbs in a few places,
-  registers itself with some function telling the size, maybe a
-  callback/destructor and maybe a protocol id; some index is returned;
-- if this is the first one registered, api allocates new space using
-  skb clonning or some similar slab pool, to get blank space, and
-  reserves space for this driver according to the index (internally
-  mapped to some offset); since this moment every new skb is
-  automatically 'cloned' and the driver can read/write its place using
-  the api to map the requests;
-- next registered drivers use the same 'clone', unless there is no
-  more space, so next 'clones' are generated;
-- the lifetime of such 'clones' is controlled similarly to the 'real 
-  clones'; with the most basic version destructors could be avoided;
-- some indexes could be made public constants to allow sharing.
+OK, you can stop hitting me now...
+Rusty.
 
-Is this wrong?
 
-Regards,
-Jarek P.
