@@ -1,94 +1,55 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH net-2.6.23 take2] UDP: Cleanup UDP encapsulation code
-Date: Fri, 06 Jul 2007 15:31:56 +0200
-Message-ID: <468E444C.9070609@trash.net>
-References: <200707051618.l65GIh0J030375@quickie.katalix.com> <200707051951.03619@auguste.remlab.net> <468D299E.5070902@katalix.com> <200707061055.17951.remi.denis-courmont@nokia.com>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: [PATCH updated] IPV6: Call inet6addr_chain notifiers on link down
+Date: Fri, 06 Jul 2007 09:32:09 -0400
+Message-ID: <468E4459.6040605@hp.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------040302060908080500090209"
-Cc: ext James Chapman <jchapman@katalix.com>, netdev@vger.kernel.org
-To: =?ISO-8859-15?Q?R=E9mi_Denis-Courmont?=
-	<remi.denis-courmont@nokia.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: =?ISO-8859-1?Q?YOSHIFUJI_Hideaki_/_=3F=3F=3F=3F?=
+	<yoshfuji@linux-ipv6.org>, David Miller <davem@davemloft.net>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:57900 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751992AbXGFNcT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jul 2007 09:32:19 -0400
-In-Reply-To: <200707061055.17951.remi.denis-courmont@nokia.com>
+Received: from atlrel7.hp.com ([156.153.255.213]:39097 "EHLO atlrel7.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751008AbXGFNdz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Jul 2007 09:33:55 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------040302060908080500090209
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 8bit
+Dave
 
-Rémi Denis-Courmont wrote:
-> On Thursday 05 July 2007 20:25:50 ext James Chapman wrote:
-> 
->>Rémi Denis-Courmont wrote:
->>
->>>By the way, couldn't encap_type be remove altogether (using two slightly
->>>different callbacks for ESP) from udp_sock?
->>
->>The notion of encap_type is needed for the setsockopt call so it would
->>have to stay in the API. If it were removed from udp_sock, getsockopt
->>would have to derive the encap_type from encap_rcv funcptr values, which
->>would be messy. I think it might complicate the logic in ESP too.
-> 
-> 
-> Right. By the way, shouldn't "len" rather be signed in there?
-> 
-> 		unsigned int len;
-> 
-> 		/* if we're overly short, let UDP handle it */
-> 		len = skb->len - sizeof(struct udphdr);
-> 		if (len <= 0)
-> 			goto udp;
+Ok... This one was taken off the the system actually running the patch
+so I know this one is correct.  I just retested, turning on temporary
+addresses as well, and the notification happen correctly.
 
+I was expecting an ACK from Yoshifuji-san before you applied it so feel
+free to wait for it.
 
-It should, but the < 0 case can't happen since __udp4_lib_rcv
-already makes sure that we have at least a complete UDP header.
+-vlad
+--
 
-Anyways, this patch fixes it.
+Currently if the link is brought down via ip link or ifconfig down,
+the inet6addr_chain notifiers are not called even though all
+the addresses are removed from the interface.  This caused SCTP
+to add duplicate addresses to it's list.
 
-Signed-off-by: Patrick McHardy <kaber@trash.net>
+Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+---
+ net/ipv6/addrconf.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
---------------040302060908080500090209
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
-
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 4ec4a25..2835535 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -951,14 +951,10 @@ int udp_queue_rcv_skb(struct sock * sk, struct sk_buff *skb)
- 		 * >0 if skb should be passed on to UDP.
- 		 * <0 if skb should be resubmitted as proto -N
- 		 */
--		unsigned int len;
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index f96ed76..2cc3728 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -2472,6 +2472,7 @@ static int addrconf_ifdown(struct net_device *dev, int how)
+ 		write_unlock_bh(&idev->lock);
  
- 		/* if we're overly short, let UDP handle it */
--		len = skb->len - sizeof(struct udphdr);
--		if (len <= 0)
--			goto udp;
--
--		if (up->encap_rcv != NULL) {
-+		if (skb->len > sizeof(struct udphdr) &&
-+		    up->encap_rcv != NULL) {
- 			int ret;
+ 		__ipv6_ifa_notify(RTM_DELADDR, ifa);
++		atomic_notifier_call_chain(&inet6addr_chain, NETDEV_DOWN, ifa);
+ 		in6_ifa_put(ifa);
  
- 			ret = (*up->encap_rcv)(sk, skb);
-@@ -971,7 +967,6 @@ int udp_queue_rcv_skb(struct sock * sk, struct sk_buff *skb)
- 		/* FALLTHROUGH -- it's a UDP Packet */
- 	}
- 
--udp:
- 	/*
- 	 * 	UDP-Lite specific tests, ignored on UDP sockets
- 	 */
+ 		write_lock_bh(&idev->lock);
+-- 
+1.5.0.3.438.gc49b2
 
---------------040302060908080500090209--
