@@ -1,31 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] IPV6: Call inet6addr_chain notifiers on link down
-Date: Thu, 05 Jul 2007 17:00:11 -0700 (PDT)
-Message-ID: <20070705.170011.26365263.davem@davemloft.net>
-References: <468A63DC.2090500@hp.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [RFC 2/2] shrink size of scatterlist on common i386/x86-64
+Date: Thu, 5 Jul 2007 17:00:51 -0700
+Message-ID: <20070705170051.37ff2ab8@freepuppy.localdomain.hemminger.net>
+References: <20070705231412.021359760@linux-foundation.org>
+	<20070705231615.451797310@linux-foundation.org>
+	<20070705.164308.01771618.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
-To: vladislav.yasevich@hp.com
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46643
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1760342AbXGEX7v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jul 2007 19:59:51 -0400
-In-Reply-To: <468A63DC.2090500@hp.com>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:36444 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1760886AbXGFABd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jul 2007 20:01:33 -0400
+In-Reply-To: <20070705.164308.01771618.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Date: Tue, 03 Jul 2007 10:57:32 -0400
+On Thu, 05 Jul 2007 16:43:08 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-> Currently if the link is brought down via ip link or ifconfig down,
-> the inet6addr_chain notifiers are not called even though all
-> the addresses are removed from the interface.  This caused SCTP
-> to add duplicate addresses to it's list.
+> From: Stephen Hemminger <shemminger@linux-foundation.org>
+> Date: Thu, 05 Jul 2007 16:14:14 -0700
 > 
-> Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+> > The scatterlist only needs 16 bits for length/offset because
+> > PAGE_SIZE is 4K
+> > 
+> > Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+> 
+> Unfortunately I don't think this can be done, even on i386.
+> 
+> It is legal to use order!=0 pages and multi-page areas in a single
+> scatterlist entry.
+> 
 
-Looks good, applied, thanks Vlad.
-I'll push this to -stable too.
+Okay, but then using SG lists makes skbuff's much bigger.
+    
+	fraglist	scatterlist		   per skbuff
+32 bit	8		20		+12 * 18 = +216!
+64 bit	16		32		+16 * 18 = +288
+
+So never mind...
+
+I'll do a fraglist to scatter list set of routines, but not sure
+if it's worth it.
+
+
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
