@@ -1,56 +1,44 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH v2] tg3: Tx availability fix
-Date: Fri, 06 Jul 2007 09:14:40 -0400
-Message-ID: <1183727680.5155.12.camel@localhost>
-References: <1183681399.24582.68.camel@teletran1>
-	 <1183683561.24582.76.camel@teletran1>
-Reply-To: hadi@cyberus.ca
+From: Ranko Zivojnovic <ranko@spidernet.net>
+Subject: Re: + gen_estimator-fix-locking-and-timer-related-bugs.patch added
+	to -mm tree
+Date: Fri, 06 Jul 2007 16:16:18 +0300
+Message-ID: <1183727778.6389.6.camel@ranko-fc2.spidernet.net>
+References: <200706271921.l5RJLgCC003910@imap1.linux-foundation.org>
+	 <1183642800.3789.11.camel@ranko-fc2.spidernet.net>
+	 <20070705142135.GG4759@ff.dom.local>
+	 <1183646029.4069.11.camel@ranko-fc2.spidernet.net>
+	 <1183651165.4069.26.camel@ranko-fc2.spidernet.net>
+	 <20070706061420.GA1846@ff.dom.local> <20070706062629.GC1846@ff.dom.local>
+	 <20070706064523.GA2144@ff.dom.local>  <20070706124711.GA3453@ff.dom.local>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	Krishna Kumar2 <krkumar2@in.ibm.com>,
-	Gagan Arneja <gaagaan@gmail.com>, netdev@vger.kernel.org,
-	Rick Jones <rick.jones2@hp.com>,
-	Sridhar Samudrala <sri@us.ibm.com>,
-	David Miller <davem@davemloft.net>,
-	Jeff Garzik <jeff@garzik.org>,
-	Michael Chan <mchan@broadcom.com>
-To: Matt Carlson <mcarlson@broadcom.com>
+Cc: akpm@linux-foundation.org, kaber@trash.net, netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@o2.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.239]:23549 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751373AbXGFNOo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jul 2007 09:14:44 -0400
-Received: by wx-out-0506.google.com with SMTP id h31so181423wxd
-        for <netdev@vger.kernel.org>; Fri, 06 Jul 2007 06:14:43 -0700 (PDT)
-In-Reply-To: <1183683561.24582.76.camel@teletran1>
+Received: from MPP-Goya.spidernet.net ([194.154.128.52]:58195 "EHLO
+	mail0pop.spidernet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752466AbXGFNQc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jul 2007 09:16:32 -0400
+In-Reply-To: <20070706124711.GA3453@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Matt,
+On Fri, 2007-07-06 at 14:47 +0200, Jarek Poplawski wrote:
+> On Fri, Jul 06, 2007 at 08:45:23AM +0200, Jarek Poplawski wrote:
+> > On Fri, Jul 06, 2007 at 09:08:43AM +0300, Ranko Zivojnovic wrote:
+> ...
+> > > In order to get that parameter out of the way - I will make the same
+> > > test on a real machine.
+> 
+> BTW, maybe it would be better to try with something more stable than -mm.
 
-I have applied both changes (and updated the git tree) with a small
-caveat on the second patch:
+That would be the next thing I was to try. Suggestion?
 
-On Thu, 2007-05-07 at 17:59 -0700, Matt Carlson wrote:
+> There is also one bug invoked by sysreq, but I hope you've started to use
+> sysreq only after the lockup begun.
 
-> The last change makes sure that new xmit_win values, as assigned by the
-> transmit queue wake code, will not be drastically larger than the value
-> set during initialization.
+Yes - it was after the lockup.
 
-I have left out the above change i.e i kept it as
-dev->xmit_win = tp->tx_pending
-
-If you dont mind lets keep it that way for now so we dont introduce any
-new variables. i.e. thats how i have been testing and collecting
-results. 
-If you run some tests and come up with better results by using a /4 i
-would be more than happy to add it back.
-
-Thanks very much for all your efforts - Broadcom rocks.
-
-cheers,
-jamal
+R.
 
