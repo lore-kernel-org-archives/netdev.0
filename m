@@ -1,40 +1,74 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC 2/2] shrink size of scatterlist on common i386/x86-64
-Date: Fri, 06 Jul 2007 01:54:17 -0700 (PDT)
-Message-ID: <20070706.015417.74747276.davem@davemloft.net>
-References: <20070705170051.37ff2ab8@freepuppy.localdomain.hemminger.net>
-	<20070705.171535.105173068.davem@davemloft.net>
-	<1183707826.6005.177.camel@localhost.localdomain>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: Who's allowed to set a skb destructor?
+Date: Fri, 6 Jul 2007 11:08:35 +0200
+Message-ID: <20070706090835.GB2362@ff.dom.local>
+References: <p733b032mec.fsf@bingen.suse.de> <20070705122849.GA4759@ff.dom.local> <20070705122847.GA13368@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org
-To: rusty@rustcorp.com.au
+Content-Type: text/plain; charset=us-ascii
+Cc: Andi Kleen <andi@firstfloor.org>,
+	Brice Goglin <Brice.Goglin@ens-lyon.org>,
+	netdev@vger.kernel.org, Divy Le Ray <divy@chelsio.com>
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48876
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754532AbXGFIyL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jul 2007 04:54:11 -0400
-In-Reply-To: <1183707826.6005.177.camel@localhost.localdomain>
+Received: from mx2.go2.pl ([193.17.41.42]:37945 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755932AbXGFJAF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Jul 2007 05:00:05 -0400
+Content-Disposition: inline
+In-Reply-To: <20070705122847.GA13368@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Rusty Russell <rusty@rustcorp.com.au>
-Date: Fri, 06 Jul 2007 17:43:46 +1000
-
-> On Thu, 2007-07-05 at 17:15 -0700, David Miller wrote:
-> > Also even with the scatterlist idea, we'd still need to do two
-> > map calls, one for skb->data and one for the page vector.
+On Thu, Jul 05, 2007 at 04:28:47PM +0400, Evgeniy Polyakov wrote:
+> Hi, Jarek.
 > 
-> We could make skb->shinfo(skb)->frags[0] the first segment and deprecate
-> skb->data and skb->len.
+> On Thu, Jul 05, 2007 at 02:28:50PM +0200, Jarek Poplawski (jarkao2@o2.pl) wrote:
+> > I wonder if it's very unsound to think about a one way list
+> > of destructors. Of course, not owners could only clean their
+> > private allocations. Woudn't this save some skb clonning,
+> > copying or adding new fields for private infos?
 > 
-> OK, you can stop hitting me now...
+> There should not be any additional allocations, since they are very
+> slow, that part of mbuf is really horrible for performance - openbsd
+> hackers removed additional allocation of mbuf tag in PF code during the
+> last hackathon, which doubled its performance, that is why skb has only 
+> one control structure and data area, which incorporates additional 
+> control information, thus there is no need for multiple destructors.
 
-The fly in that ointment is that referencing the backing
-page of kmalloc() data is not safe currently, especially
-with SLUB.
+I'd like to add a few words about performance-way-thinking.
 
-Jens Axboe ran into this while trying to implement sendfile()
-via splice() several weeks ago, it's an ongoing battle that
-even C. Lameter is even involved in now :-)
+Some time ago I've read mainly networking/admins lists. One of the
+most often questions was: what should I choose linux or bsd? And
+very often bsd was praised for better performance, but almost
+always linux was advised as more universal (even by people who
+said they use both).
+
+BSDs were sometimes recommended for specific jobs like mail etc.
+but usually linux better fitted the needs. Especially well linux
+appeared for an internet gateway/router/firewall/antispam thing,
+and the main reasons were: netfilter with additional, unofficial
+patches e.g. l-7 filtering and imq. BSD was no option here.
+
+Some time later, reading this list, I've found many people almost
+hate netfilter for performance. You can imagine how l-7 adds to
+this "performance". IMQ isn't even mentioned here - looks like
+some dirty word (lack of programmers affects it's quality and
+doesn't help linux too). But it's nothing near performance too.
+I can also remember quite a lot of questions like: how can I avoid
+tc/ip and do this with netfilter only?
+
+Probably the most of the readers/writers were small or middle
+networks admins (but quite often servicing hundreds or thousans
+boxes too), probably not always advanced enough, but you know what,
+they made 99% of interested. So, I understand something could've
+changed with voip, and there are high performance linux servers
+too (their admins have never heard of imq), and probably thinking
+about them could pay off better, but there could be some cost
+of such thinking too.
+
+Regards,
+Jarek P.
+
+PS: in my opinion lack of linux performance wasn't even the second
+most often asked question there; rather this: why my new & beautiful
+linux box sometimes lockups?
