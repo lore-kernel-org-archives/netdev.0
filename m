@@ -1,69 +1,62 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: Multiqueue and virtualization WAS(Re: [PATCH 3/3] NET: [SCHED]
-	Qdisc changes and sch_rr added for multiqueue
-Date: Fri, 06 Jul 2007 17:32:46 +1000
-Message-ID: <1183707166.6005.172.camel@localhost.localdomain>
-References: <1183215164.5165.13.camel@localhost>
-	 <20070630.133357.77057070.davem@davemloft.net>
-	 <1183466553.5159.51.camel@localhost>
-	 <20070703.142431.49854676.davem@davemloft.net>
-	 <1183515611.5174.34.camel@localhost>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: Who's allowed to set a skb destructor?
+Date: Fri, 6 Jul 2007 09:47:20 +0200
+Message-ID: <20070706074720.GA2362@ff.dom.local>
+References: <p733b032mec.fsf@bingen.suse.de> <20070705122849.GA4759@ff.dom.local> <20070705130640.GA24731@one.firstfloor.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, kaber@trash.net,
-	peter.p.waskiewicz.jr@intel.com, netdev@vger.kernel.org,
-	jeff@garzik.org, auke-jan.h.kok@intel.com
-To: hadi@cyberus.ca
+Content-Type: text/plain; charset=us-ascii
+Cc: Brice Goglin <Brice.Goglin@ens-lyon.org>, netdev@vger.kernel.org,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	Divy Le Ray <divy@chelsio.com>
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:45154 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761167AbXGFHdK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Jul 2007 03:33:10 -0400
-In-Reply-To: <1183515611.5174.34.camel@localhost>
+Received: from mx10.go2.pl ([193.17.41.74]:59504 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1760829AbXGFHiv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Jul 2007 03:38:51 -0400
+Content-Disposition: inline
+In-Reply-To: <20070705130640.GA24731@one.firstfloor.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2007-07-03 at 22:20 -0400, jamal wrote:
-> On Tue, 2007-03-07 at 14:24 -0700, David Miller wrote:
-> [.. some useful stuff here deleted ..]
+On Thu, Jul 05, 2007 at 03:06:40PM +0200, Andi Kleen wrote:
+> On Thu, Jul 05, 2007 at 02:28:50PM +0200, Jarek Poplawski wrote:
+> > I wonder if it's very unsound to think about a one way list
+> > of destructors. Of course, not owners could only clean their
+> > private allocations. Woudn't this save some skb clonning,
+> > copying or adding new fields for private infos?
 > 
-> > That's why you have to copy into a purpose-built set of memory
-> > that is composed of pages that _ONLY_ contain TX packet buffers
-> > and nothing else.
-> > 
-> > The cost of going through the switch is too high, and the copies are
-> > necessary, so concentrate on allowing me to map the guest ports to the
-> > egress queues.  Anything else is a waste of discussion time, I've been
-> > pouring over these issues endlessly for weeks, so if I'm saying doing
-> > copies and avoiding the switch is necessary I do in fact mean it. :-)
+> skb cloning isn't very expensive when you need it. And they
+> got a little private area you can use for your own stuff 
+> while you have it queued (skb->cb) 
 > 
-> ok, i get it Dave ;-> Thanks for your patience, that was useful.
-> Now that is clear for me, I will go back and look at your original email
-> and try to get back on track to what you really asked ;->
+> As a historical note one of the big changes during the Linux 2.0
+> and 2.1 TCP rewrite was that TCP was changed to always clone for the
+> retransmit queue. This cleaned up the code greatly and fixed
+> many problems. Cloning was also especially optimized for this. When TCP 
+> which is about one of the most performance critical protocols around can 
+> afford it likely other code can too.
 
-To expand on this, there are already "virtual" nic drivers in tree which
-do the demux based on dst mac and send to appropriate other guest
-(iseries_veth.c and Carsten Otte said the S/390 drivers do too).  lguest
-and DaveM's LDOM make two more.
+I've thought about this a bit more, and, if I don't miss something,
+there is a possibility to use these things together: let's imagine
+such simplified api:
 
-There is currently no good way to write such a driver.  If one recipient
-is full, you have to drop the packet: if you netif_stop_queue, it means
-a slow/buggy recipient blocks packets going to other recipients.  But
-dropping packets makes networking suck.
+- a driver which needs a bit of space to track skbs in a few places,
+  registers itself with some function telling the size, maybe a
+  callback/destructor and maybe a protocol id; some index is returned;
+- if this is the first one registered, api allocates new space using
+  skb clonning or some similar slab pool, to get blank space, and
+  reserves space for this driver according to the index (internally
+  mapped to some offset); since this moment every new skb is
+  automatically 'cloned' and the driver can read/write its place using
+  the api to map the requests;
+- next registered drivers use the same 'clone', unless there is no
+  more space, so next 'clones' are generated;
+- the lifetime of such 'clones' is controlled similarly to the 'real 
+  clones'; with the most basic version destructors could be avoided;
+- some indexes could be made public constants to allow sharing.
 
-Some hypervisors (eg. Xen) only have a virtual NIC which is
-point-to-point: this sidesteps the issue, with the risk that you might
-need a huge number of virtual NICs if you wanted arbitrary guests to
-talk to each other (Xen doesn't support that, they route/bridge through
-dom0).
+Is this wrong?
 
-Most hypervisors have a sensible maximum on the number of guests they
-could talk to, so I'm not too unhappy with a static number of queues.
-But the dstmac -> queue mapping changes in hypervisor-specific ways, so
-it really needs to be managed by the driver...
-
-Hope that adds something,
-Rusty.
-
-
+Regards,
+Jarek P.
