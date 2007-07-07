@@ -1,233 +1,310 @@
-From: =?utf-8?q?R=C3=A9mi_Denis-Courmont?= <rdenis@simphalempin.com>
-Subject: [PATCH net-2.6.23] Per-datagram TTL and TOS via sendmsg()
-Date: Sat, 7 Jul 2007 14:21:43 +0300
-Message-ID: <200707071421.44131@auguste.remlab.net>
+From: Daniel Lezcano <dlezcano@meiosys.com>
+Subject: Re: L2 network namespaces + macvlan performances
+Date: Sat, 07 Jul 2007 13:39:32 +0200
+Message-ID: <468F7B74.3090103@meiosys.com>
+References: <468E724F.9070505@bull.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linux Containers <containers@lists.osdl.org>,
+	netdev@vger.kernel.org, ebiederm@xmission.com,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	Patrick McHardy <kaber@trash.net>
+To: Benjamin Thery <benjamin.thery@bull.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from poy.chewa.net ([194.242.114.73]:2175 "EHLO poy.chewa.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752932AbXGGLVu convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Jul 2007 07:21:50 -0400
-Received: from auguste.remlab.net (unknown [IPv6:2002:3e4e:969c:0:20d:60ff:fe38:6d16])
-	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	(Authenticated sender: remi)
-	by poy.chewa.net (Postfix) with ESMTP id 83DF19661F
-	for <netdev@vger.kernel.org>; Sat,  7 Jul 2007 13:21:47 +0200 (CEST)
-Content-Disposition: inline
+Received: from mtagate4.uk.ibm.com ([195.212.29.137]:23078 "EHLO
+	mtagate4.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752861AbXGGLnD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Jul 2007 07:43:03 -0400
+Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
+	by mtagate4.uk.ibm.com (8.13.8/8.13.8) with ESMTP id l67Bh0kV114176
+	for <netdev@vger.kernel.org>; Sat, 7 Jul 2007 11:43:00 GMT
+Received: from d06av04.portsmouth.uk.ibm.com (d06av04.portsmouth.uk.ibm.com [9.149.37.216])
+	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l67Bh0Kb3002390
+	for <netdev@vger.kernel.org>; Sat, 7 Jul 2007 12:43:00 +0100
+Received: from d06av04.portsmouth.uk.ibm.com (loopback [127.0.0.1])
+	by d06av04.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l67BgxpK016086
+	for <netdev@vger.kernel.org>; Sat, 7 Jul 2007 12:43:00 +0100
+In-Reply-To: <468E724F.9070505@bull.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds support for specifying IPv4 Time-To-Live (IP_TTL) and/o=
-r=20
-Type-Of-Service (IP_TOS) values on a per datagram basis through=20
-sendmsg() ancilliary data. Until then, it only worked for IPv6 sockets=20
-(using IPV6_HOPLIMIT and IPV6_TCLASS).
+Benjamin Thery wrote:
+> Following a discussion we had at OLS concerning L2 network namespace
+> performances and how the new macvlan driver could potentially improve
+> them, I've ported the macvlan patchset on top of Eric's net namespace
+> patchset on 2.6.22-rc4-mm2.
+> 
+> A little bit of history:
+> 
+> Some months ago, when we ran some performance tests (using netperf)
+> on net namespace, we observed the following things:
+> 
+> Using 'etun', the virtual ethernet tunnel driver, and IP routes
+> from inside a network namespace,
+> 
+> - The throughput is the same as the "normal" case(*)
+>   (* normal case: no namespace, using physical adapters).
+>   No regression. Good.
+> 
+> - But the CPU load increases a lot. Bad.
+>   The reasons are:
+>     - All checksums are done in software. No hardware offloading.
+>     - Every TCP packets going through the etun devices are
+>       duplicated in ip_forward() before we decrease the ttl.
+>           (packets are routed between both ends of etun)
+> 
+> We also made some testing with bridges, and obtained the same results:
+>     CPU load increase:
+>     - No hardware offloading
+>     - Packets are duplicated somewhere in the bridge+netfilter
+>           code (can't remember where right now)
+> 
+> 
+> This time, I've replaced the etun interface by the new macvlan,
+> which should benefits from the hardware offloading capabilities of the
+> physical adapter and suppress the forwarding stuff.
+> 
+> My test setup is:
+> 
+>   Host A                    Host B
+>  ______________            ___________
+> |  _________   |          |           |
+> | | Netns 1 |  |          |           |
+> | |         |  |          |           |
+> | | macvlan0|  |          |           |
+> | |___|_____|  |          |           |
+> |     |        |          |           |
+> |_____|________|          |___________|
+>       | eth0 (192.168.0.2)     | eth0 (192.168.0.1)
+>       |                        |
+> -----------------------------------------
+> macvlan0 (192.168.0.3)
+> 
+> - netperf runs on host A
+> - netserver runs on host B
+> - Adapters speed is 1GB/s
+> 
+> On this setup I ran the following netperf tests: TCP_STREAM, TCP_MAERTS, 
+> TCP_RR, UDP_STREAM, UDP_RR.
+> 
+> Between the "normal" case and the "net namespace + macvlan" case, 
+> results are  about the same for both the throughput and the local CPU 
+> load for the following test types: TCP_MAERTS, TCP_RR, UDP_STREAM, UDP_RR.
+> 
+> macvlan looks like a very good candidate for network namespace in these 
+> cases.
+> 
+> But, with the TCP_STREAM test, I observed the CPU load is about the
+> same (that's what we wanted) but the throughput decreases by about 5%:
+> from 850MB/s down to 810MB/s.
+> I haven't investigated yet why the throughput decrease in the case.
+> Does it come from my setup, from macvlan additional treatments, other? I 
+> don't know yet
+> 
+> Attached to this email you'll find the raw netperf outputs for the three 
+> cases:
+> 
+> - netperf through a physical adapter, no namespace:
+>     netperf-results-2.6.22-rc4-mm2-netns1-vanilla.txt   
+> - netperf through etun, inside a namespace:
+>     netperf-results-2.6.22-rc4-mm2-netns1-using-etun.txt   
+> - netperf through macvlan, inside a namespace:
+>     netperf-results-2.6.22-rc4-mm2-netns1-using-macvlan.txt
+> 
+> 
+> macvlan looks promising.
+> 
+> Regards,
+> Benjamin
 
-Signed-off-by: R=C3=A9mi Denis-Courmont <rdenis@simphalempin.com>
-
-diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
-index 62daf21..7a6dc33 100644
---- a/include/net/inet_sock.h
-+++ b/include/net/inet_sock.h
-@@ -140,6 +140,8 @@ struct inet_sock {
- 		int			length; /* Total length of all frames */
- 		__be32			addr;
- 		struct flowi		fl;
-+		__s16			ttl;
-+		__s16			tos;
- 	} cork;
- };
-=20
-diff --git a/include/net/ip.h b/include/net/ip.h
-index abf2820..dcfdb41 100644
---- a/include/net/ip.h
-+++ b/include/net/ip.h
-@@ -54,6 +54,8 @@ struct ipcm_cookie
- 	__be32			addr;
- 	int			oif;
- 	struct ip_options	*opt;
-+	__s16			ttl;
-+	__s16			tos;
- };
-=20
- #define IPCB(skb) ((struct inet_skb_parm*)((skb)->cb))
-diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
-index 02a899b..e10852d 100644
---- a/net/ipv4/icmp.c
-+++ b/net/ipv4/icmp.c
-@@ -392,8 +392,9 @@ static void icmp_reply(struct icmp_bxm *icmp_param,=
-=20
-struct sk_buff *skb)
- 	icmp_param->data.icmph.checksum =3D 0;
- 	icmp_out_count(icmp_param->data.icmph.type);
-=20
--	inet->tos =3D ip_hdr(skb)->tos;
- 	daddr =3D ipc.addr =3D rt->rt_src;
-+	ipc.tos =3D ip_hdr(skb)->tos;
-+	ipc.ttl =3D MULTICAST(daddr) ? inet->mc_ttl : inet->uc_ttl;
- 	ipc.opt =3D NULL;
- 	if (icmp_param->replyopts.optlen) {
- 		ipc.opt =3D &icmp_param->replyopts;
-@@ -438,7 +439,6 @@ void icmp_send(struct sk_buff *skb_in, int type, in=
-t=20
-code, __be32 info)
- 	struct rtable *rt =3D (struct rtable *)skb_in->dst;
- 	struct ipcm_cookie ipc;
- 	__be32 saddr;
--	u8  tos;
-=20
- 	if (!rt)
- 		goto out;
-@@ -526,9 +526,9 @@ void icmp_send(struct sk_buff *skb_in, int type, in=
-t=20
-code, __be32 info)
- 			saddr =3D 0;
- 	}
-=20
--	tos =3D icmp_pointers[type].error ? ((iph->tos & IPTOS_TOS_MASK) |
--					   IPTOS_PREC_INTERNETCONTROL) :
--					  iph->tos;
-+	ipc.tos =3D icmp_pointers[type].error ? ((iph->tos & IPTOS_TOS_MASK) =
-|
-+					       IPTOS_PREC_INTERNETCONTROL) :
-+					      iph->tos;
-=20
- 	if (ip_options_echo(&icmp_param.replyopts, skb_in))
- 		goto out_unlock;
-@@ -545,7 +545,7 @@ void icmp_send(struct sk_buff *skb_in, int type, in=
-t=20
-code, __be32 info)
- 	icmp_param.skb	  =3D skb_in;
- 	icmp_param.offset =3D skb_network_offset(skb_in);
- 	icmp_out_count(icmp_param.data.icmph.type);
--	inet_sk(icmp_socket->sk)->tos =3D tos;
-+	ipc.ttl =3D -1;
- 	ipc.addr =3D iph->saddr;
- 	ipc.opt =3D &icmp_param.replyopts;
-=20
-@@ -557,7 +557,7 @@ void icmp_send(struct sk_buff *skb_in, int type, in=
-t=20
-code, __be32 info)
- 						icmp_param.replyopts.faddr :
- 						iph->saddr,
- 					.saddr =3D saddr,
--					.tos =3D RT_TOS(tos)
-+					.tos =3D RT_TOS(ipc.tos)
- 				}
- 			},
- 			.proto =3D IPPROTO_ICMP,
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index 34ea454..67ce657 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -806,6 +806,8 @@ int ip_append_data(struct sock *sk,
- 					    dst_mtu(rt->u.dst.path);
- 		inet->cork.rt =3D rt;
- 		inet->cork.length =3D 0;
-+		inet->cork.ttl =3D ipc->ttl;
-+		inet->cork.tos =3D ipc->tos;
- 		sk->sk_sndmsg_page =3D NULL;
- 		sk->sk_sndmsg_off =3D 0;
- 		if ((exthdrlen =3D rt->u.dst.header_len) !=3D 0) {
-@@ -1233,7 +1235,9 @@ int ip_push_pending_frames(struct sock *sk)
- 	if (inet->cork.flags & IPCORK_OPT)
- 		opt =3D inet->cork.opt;
-=20
--	if (rt->rt_type =3D=3D RTN_MULTICAST)
-+	if (inet->cork.ttl !=3D -1)
-+		ttl =3D inet->cork.ttl;
-+	else if (rt->rt_type =3D=3D RTN_MULTICAST)
- 		ttl =3D inet->mc_ttl;
- 	else
- 		ttl =3D ip_select_ttl(inet, &rt->u.dst);
-@@ -1245,7 +1249,7 @@ int ip_push_pending_frames(struct sock *sk)
- 		iph->ihl +=3D opt->optlen>>2;
- 		ip_options_build(skb, opt, inet->cork.addr, rt, 0);
- 	}
--	iph->tos =3D inet->tos;
-+	iph->tos =3D (inet->cork.tos !=3D -1) ? inet->cork.tos : inet->tos;
- 	iph->tot_len =3D htons(skb->len);
- 	iph->frag_off =3D df;
- 	ip_select_ident(iph, &rt->u.dst, sk);
-@@ -1343,6 +1347,8 @@ void ip_send_reply(struct sock *sk, struct sk_buf=
-f=20
-*skb, struct ip_reply_arg *ar
-=20
- 	daddr =3D ipc.addr =3D rt->rt_src;
- 	ipc.opt =3D NULL;
-+	ipc.tos =3D ip_hdr(skb)->tos;
-+	ipc.ttl =3D inet->uc_ttl;
-=20
- 	if (replyopts.opt.optlen) {
- 		ipc.opt =3D &replyopts.opt;
-@@ -1374,7 +1380,6 @@ void ip_send_reply(struct sock *sk, struct sk_buf=
-f=20
-*skb, struct ip_reply_arg *ar
- 	   with locally disabled BH and that sk cannot be already spinlocked.
- 	 */
- 	bh_lock_sock(sk);
--	inet->tos =3D ip_hdr(skb)->tos;
- 	sk->sk_priority =3D skb->priority;
- 	sk->sk_protocol =3D ip_hdr(skb)->protocol;
- 	sk->sk_bound_dev_if =3D arg->bound_dev_if;
-diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
-index 4d54457..02c47ff 100644
---- a/net/ipv4/ip_sockglue.c
-+++ b/net/ipv4/ip_sockglue.c
-@@ -190,6 +190,16 @@ int ip_cmsg_send(struct msghdr *msg, struct=20
-ipcm_cookie *ipc)
- 			ipc->addr =3D info->ipi_spec_dst.s_addr;
- 			break;
- 		}
-+		case IP_TTL:
-+			if (cmsg->cmsg_len !=3D CMSG_LEN(sizeof(int)))
-+				return -EINVAL;
-+			ipc->ttl =3D *(int *)CMSG_DATA(cmsg);
-+			break;
-+		case IP_TOS:
-+			if (cmsg->cmsg_len !=3D CMSG_LEN(sizeof(int)))
-+				return -EINVAL;
-+			ipc->tos =3D *(int *)CMSG_DATA(cmsg);
-+			break;
- 		default:
- 			return -EINVAL;
- 		}
-diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
-index 24d7c9f..035bb37 100644
---- a/net/ipv4/raw.c
-+++ b/net/ipv4/raw.c
-@@ -436,6 +436,8 @@ static int raw_sendmsg(struct kiocb *iocb, struct=20
-sock *sk, struct msghdr *msg,
- 	ipc.addr =3D inet->saddr;
- 	ipc.opt =3D NULL;
- 	ipc.oif =3D sk->sk_bound_dev_if;
-+	ipc.ttl =3D MULTICAST(daddr) ? inet->mc_ttl : inet->uc_ttl;
-+	ipc.tos =3D inet->tos;
-=20
- 	if (msg->msg_controllen) {
- 		err =3D ip_cmsg_send(msg, &ipc);
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index facb7e2..d7d6a02 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -581,6 +581,8 @@ int udp_sendmsg(struct kiocb *iocb, struct sock *sk=
-,=20
-struct msghdr *msg,
- 	}
- 	ipc.addr =3D inet->saddr;
-=20
-+	ipc.ttl =3D MULTICAST(daddr) ? inet->mc_ttl : inet->uc_ttl;
-+	ipc.tos =3D inet->tos;
- 	ipc.oif =3D sk->sk_bound_dev_if;
- 	if (msg->msg_controllen) {
- 		err =3D ip_cmsg_send(msg, &ipc);
+Very interesting.
+Thank you very much Benjamin for investigating this.
+I will update the http://lxc.sf.net web site with your description and 
+results.
 
 
---=20
-R=C3=A9mi Denis-Courmont
-http://www.remlab.net/
+> ------------------------------------------------------------------------
+> 
+> NETPERF RESULTS: the "normal" case : 
+> ====================================
+> No network namespace, traffic goes through real 1GB/s physical adapters.
+> 
+> ------------------------------------------------
+> TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.76.1 (192.168.76.1) port 0 AF_INET : +/-2.5% @ 95% conf.
+> Recv   Send    Send                          Utilization       Service Demand
+> Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
+> Size   Size    Size     Time     Throughput  local    remote   local   remote
+> bytes  bytes   bytes    secs.    10^6bits/s  % S      % S      us/KB   us/KB
+> 
+>  87380  16384   1400    20.03       857.39   6.39     9.75     2.444   3.727  
+> ------------------------------------------------
+> 
+> ------------------------------------------------
+> TCP MAERTS TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.76.1 (192.168.76.1) port 0 AF_INET : +/-2.5% @ 95% conf.
+> Recv   Send    Send                          Utilization       Service Demand
+> Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
+> Size   Size    Size     Time     Throughput  local    remote   local   remote
+> bytes  bytes   bytes    secs.    10^6bits/s  % S      % S      us/KB   us/KB
+> 
+>  87380  16384  87380    20.03       763.15   4.75     10.33    2.038   4.434  
+> ------------------------------------------------
+> 
+> ------------------------------------------------
+> TCP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.76.1 (192.168.76.1) port 0 AF_INET : +/-2.5% @ 95% conf.
+> Local /Remote
+> Socket Size   Request Resp.  Elapsed Trans.   CPU    CPU    S.dem   S.dem
+> Send   Recv   Size    Size   Time    Rate     local  remote local   remote
+> bytes  bytes  bytes   bytes  secs.   per sec  % S    % S    us/Tr   us/Tr
+> 
+> 16384  87380  1       1      20.00   12594.24  4.16   6.06   13.212  19.231 
+> 16384  87380 
+> ------------------------------------------------
+> 
+> ------------------------------------------------
+> UDP UNIDIRECTIONAL SEND TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.76.1 (192.168.76.1) port 0 AF_INET : +/-2.5% @ 95% conf.
+> Socket  Message  Elapsed      Messages                   CPU      Service
+> Size    Size     Time         Okay Errors   Throughput   Util     Demand
+> bytes   bytes    secs            #      #   10^6bits/sec % SS     us/KB
+> 
+> 110592    1400   20.00     1701653      0      952.9     6.84     2.354 
+> 107520           20.00     1701647             952.9     9.66     3.321 
+> 
+> ------------------------------------------------
+> 
+> ------------------------------------------------
+> UDP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.76.1 (192.168.76.1) port 0 AF_INET : +/-2.5% @ 95% conf.
+> Local /Remote
+> Socket Size   Request Resp.  Elapsed Trans.   CPU    CPU    S.dem   S.dem
+> Send   Recv   Size    Size   Time    Rate     local  remote local   remote
+> bytes  bytes  bytes   bytes  secs.   per sec  % S    % S    us/Tr   us/Tr
+> 
+> 110592 110592 1       1      20.00   13789.92   3.82   6.16   11.087  17.855
+> 107520 107520
+> ------------------------------------------------
+> 
+> 
+> 
+> ------------------------------------------------------------------------
+> 
+> NETPERF RESULTS: the etun case :
+> ====================================
+> netperf is ran from a network namespace, 
+> traffic goes through etun adapters.
+> 
+> ------------------------------------------------
+> TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.76.1 (192.168.76.1) port 0 AF_INET : +/-2.5% @ 95% conf.
+> Recv   Send    Send                          Utilization       Service Demand
+> Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
+> Size   Size    Size     Time     Throughput  local    remote   local   remote
+> bytes  bytes   bytes    secs.    10^6bits/s  % S      % U      us/KB   us/KB
+> 
+>  87380  16384   1400    40.02       840.64   12.89    -1.00    5.025   -1.000 
+> ------------------------------------------------
+> 
+> ------------------------------------------------
+> TCP MAERTS TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.76.1 (192.168.76.1) port 0 AF_INET : +/-2.5% @ 95% conf.
+> Recv   Send    Send                          Utilization       Service Demand
+> Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
+> Size   Size    Size     Time     Throughput  local    remote   local   remote
+> bytes  bytes   bytes    secs.    10^6bits/s  % S      % U      us/KB   us/KB
+> 
+>  87380  16384  87380    40.03       763.30   6.29     -1.00    2.701   -1.000 
+> ------------------------------------------------
+> 
+> ------------------------------------------------
+> TCP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.76.1 (192.168.76.1) port 0 AF_INET : +/-2.5% @ 95% conf.
+> Local /Remote
+> Socket Size   Request Resp.  Elapsed Trans.   CPU    CPU    S.dem   S.dem
+> Send   Recv   Size    Size   Time    Rate     local  remote local   remote
+> bytes  bytes  bytes   bytes  secs.   per sec  % S    % U    us/Tr   us/Tr
+> 
+> 16384  87380  1       1      40.00   12230.34  4.64   -1.00  15.167  -1.000 
+> 16384  87380 
+> ------------------------------------------------
+> 
+> ------------------------------------------------
+> UDP UNIDIRECTIONAL SEND TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.76.1 (192.168.76.1) port 0 AF_INET : +/-2.5% @ 95% conf.
+> Socket  Message  Elapsed      Messages                   CPU      Service
+> Size    Size     Time         Okay Errors   Throughput   Util     Demand
+> bytes   bytes    secs            #      #   10^6bits/sec % SU     us/KB
+> 
+> 110592    1400   40.00     12981742      0     3634.7     25.64    8.801 
+> 107520           40.00     3409123             954.5     -1.00    -1.000
+> 
+> ------------------------------------------------
+> 
+> ------------------------------------------------
+> UDP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.76.1 (192.168.76.1) port 0 AF_INET : +/-2.5% @ 95% conf.
+> Local /Remote
+> Socket Size   Request Resp.  Elapsed Trans.   CPU    CPU    S.dem   S.dem
+> Send   Recv   Size    Size   Time    Rate     local  remote local   remote
+> bytes  bytes  bytes   bytes  secs.   per sec  % S    % U    us/Tr   us/Tr
+> 
+> 110592 110592 1       1      40.00   13385.96   4.22   -1.00  12.658  -1.000
+> 107520 107520
+> ------------------------------------------------
+> 
+> 
+> 
+> ------------------------------------------------------------------------
+> 
+> NETPERF RESULTS: the "normal" case :
+> ====================================
+> netperf is ran from a network namespace,
+> traffic goes through a macvlan adapter.
+> 
+> ------------------------------------------------
+> TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.76.1 (192.168.76.1) port 0 AF_INET : +/-2.5% @ 95% conf.
+> Recv   Send    Send                          Utilization       Service Demand
+> Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
+> Size   Size    Size     Time     Throughput  local    remote   local   remote
+> bytes  bytes   bytes    secs.    10^6bits/s  % S      % S      us/KB   us/KB
+> 
+>  87380  16384   1400    20.03       817.40   7.26     12.96    2.912   5.200  
+> ------------------------------------------------
+> 
+> ------------------------------------------------
+> TCP MAERTS TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.76.1 (192.168.76.1) port 0 AF_INET : +/-2.5% @ 95% conf.
+> Recv   Send    Send                          Utilization       Service Demand
+> Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
+> Size   Size    Size     Time     Throughput  local    remote   local   remote
+> bytes  bytes   bytes    secs.    10^6bits/s  % S      % S      us/KB   us/KB
+> 
+>  87380  16384  87380    20.03       763.33   4.95     10.32    2.127   4.429  
+> ------------------------------------------------
+> 
+> ------------------------------------------------
+> TCP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.76.1 (192.168.76.1) port 0 AF_INET : +/-2.5% @ 95% conf.
+> Local /Remote
+> Socket Size   Request Resp.  Elapsed Trans.   CPU    CPU    S.dem   S.dem
+> Send   Recv   Size    Size   Time    Rate     local  remote local   remote
+> bytes  bytes  bytes   bytes  secs.   per sec  % S    % S    us/Tr   us/Tr
+> 
+> 16384  87380  1       1      20.00   12448.36  4.34   6.21   13.950  19.939 
+> 16384  87380 
+> ------------------------------------------------
+> 
+> ------------------------------------------------
+> UDP UNIDIRECTIONAL SEND TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.76.1 (192.168.76.1) port 0 AF_INET : +/-2.5% @ 95% conf.
+> Socket  Message  Elapsed      Messages                   CPU      Service
+> Size    Size     Time         Okay Errors   Throughput   Util     Demand
+> bytes   bytes    secs            #      #   10^6bits/sec % SS     us/KB
+> 
+> 110592    1400   20.00     1704200      0      954.3     7.11     2.440 
+> 107520           20.00     1704194             954.3     9.66     3.318 
+> 
+> ------------------------------------------------
+> 
+> ------------------------------------------------
+> UDP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.76.1 (192.168.76.1) port 0 AF_INET : +/-2.5% @ 95% conf.
+> Local /Remote
+> Socket Size   Request Resp.  Elapsed Trans.   CPU    CPU    S.dem   S.dem
+> Send   Recv   Size    Size   Time    Rate     local  remote local   remote
+> bytes  bytes  bytes   bytes  secs.   per sec  % S    % S    us/Tr   us/Tr
+> 
+> 110592 110592 1       1      20.00   13751.49   3.98   6.09   11.625  17.788
+> 107520 107520
+> ------------------------------------------------
+> 
 
