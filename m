@@ -1,61 +1,107 @@
-From: James Chapman <jchapman@katalix.com>
-Subject: Re: Splitting e1000 (Was: Re: e1000: backport ich9 support from 7.5.5
- ?)
-Date: Sat, 07 Jul 2007 14:58:42 +0100
-Message-ID: <468F9C12.8070600@katalix.com>
-References: <1183138159.17243.16.camel@blaa> <20070629175006.GB3917@falooley.org> <468571C6.3090305@garzik.org> <46857C08.4030303@intel.com> <20070629150350.414553d4.akpm@linux-foundation.org> <4685838D.9080108@garzik.org> <c0a09e5c0706291657kd5e4baawb113a17ca5ab2191@mail.gmail.com> <46859F3F.305@garzik.org> <4685C09B.7040908@intel.com> <20070630082520.GA20140@infradead.org> <468AD23A.4090904@intel.com> <468D8B32.9020305@garzik.org> <468EDAF9.3020606@intel.com>
+From: =?utf-8?q?R=C3=A9mi_Denis-Courmont?= <rdenis@simphalempin.com>
+Subject: [PATCH] Fix handling of IPv6 RH with 0 segments left
+Date: Sat, 7 Jul 2007 17:34:59 +0300
+Message-ID: <200707071735.00366@auguste.remlab.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>,
-	Christoph Hellwig <hch@infradead.org>,
-	Andrew Grover <andy.grover@gmail.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Jason Lunz <lunz@reflexsecurity.com>,
-	Mark McLoughlin <markmc@redhat.com>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	'Stephen Hemminger' <shemminger@linux-foundation.org>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Arjan van de Ven <arjan@linux.intel.com>
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s36.avahost.net ([74.53.95.194]:53777 "EHLO s36.avahost.net"
+Received: from poy.chewa.net ([194.242.114.73]:4013 "EHLO poy.chewa.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753699AbXGGN7E (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 7 Jul 2007 09:59:04 -0400
-In-Reply-To: <468EDAF9.3020606@intel.com>
+	id S1750921AbXGGOfE convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Jul 2007 10:35:04 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Kok, Auke wrote:
-> I don't think that anyone besides you and maybe one or two others are 
-> interested in doing this rewrite from scratch. 
+=46ix handling of IPv6 Routing Headers with zero segments left.
+In that case, we should ignore the extension header and continue with
+the next one, rather than return a Paramater Problem.
 
-I count myself as one of those others. :) I don't think it's a rewrite 
-though; it's a rework.
+This is more consistent with RFC2461 (=C2=A74.4) and=20
+draft-ietf-ipv6-deprecate-rh0.
 
-> The rest of us would 
-> rather see something much more similar to my original suggestion which 
-> relieves the ich9-wishes for everyone and provides a good starting point 
-> to go forward. Not to mention that a lot of that code is already there, 
-> and at least cleaned up quite a bit already.
+Signed-off-by: R=C3=A9mi Denis-Courmont <rdenis@simphalempin.com>
+---
+ net/ipv6/exthdrs.c |   45 +++++++++++++++++++-------------------------=
+-
+ 1 files changed, 19 insertions(+), 26 deletions(-)
 
-But the structure of it isn't right, as mentioned by Jeff and I in 
-previous posts. Any restructuring of your new driver will obviously take 
-time. In my view using the urgency of needing ich9 support to get the 
-new driver in isn't the right tradeoff. Perhaps the ich9 code should be 
-backported into the existing e1000, which is where this thread started? 
-This will buy time to restructure the new driver to make sure it is 
-right for the future.
+diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
+index 14be0b9..7c8fc06 100644
+--- a/net/ipv6/exthdrs.c
++++ b/net/ipv6/exthdrs.c
+@@ -398,32 +398,6 @@ static int ipv6_rthdr_rcv(struct sk_buff **skbp)
+=20
+ 	hdr =3D (struct ipv6_rt_hdr *)skb_transport_header(skb);
+=20
+-	switch (hdr->type) {
+-#ifdef CONFIG_IPV6_MIP6
+-	case IPV6_SRCRT_TYPE_2:
+-		break;
+-#endif
+-	case IPV6_SRCRT_TYPE_0:
+-		if (accept_source_route > 0)
+-			break;
+-		kfree_skb(skb);
+-		return -1;
+-	default:
+-		IP6_INC_STATS_BH(ip6_dst_idev(skb->dst),
+-				 IPSTATS_MIB_INHDRERRORS);
+-		icmpv6_param_prob(skb, ICMPV6_HDR_FIELD,
+-				  (&hdr->type) - skb_network_header(skb));
+-		return -1;
+-	}
+-
+-	if (ipv6_addr_is_multicast(&ipv6_hdr(skb)->daddr) ||
+-	    skb->pkt_type !=3D PACKET_HOST) {
+-		IP6_INC_STATS_BH(ip6_dst_idev(skb->dst),
+-				 IPSTATS_MIB_INADDRERRORS);
+-		kfree_skb(skb);
+-		return -1;
+-	}
+-
+ looped_back:
+ 	if (hdr->segments_left =3D=3D 0) {
+ 		switch (hdr->type) {
+@@ -454,6 +428,11 @@ looped_back:
+=20
+ 	switch (hdr->type) {
+ 	case IPV6_SRCRT_TYPE_0:
++		/* Silently discard RH0 by default */
++		if (accept_source_route <=3D 0) {
++			kfree_skb(skb);
++			return -1;
++		}
+ 		if (hdr->hdrlen & 0x01) {
+ 			IP6_INC_STATS_BH(ip6_dst_idev(skb->dst),
+ 					 IPSTATS_MIB_INHDRERRORS);
+@@ -474,6 +453,20 @@ looped_back:
+ 		}
+ 		break;
+ #endif
++	default:
++		IP6_INC_STATS_BH(ip6_dst_idev(skb->dst),
++				 IPSTATS_MIB_INHDRERRORS);
++		icmpv6_param_prob(skb, ICMPV6_HDR_FIELD,
++				  (&hdr->type) - skb_network_header(skb));
++		return -1;
++	}
++
++	if (ipv6_addr_is_multicast(&ipv6_hdr(skb)->daddr) ||
++	    skb->pkt_type !=3D PACKET_HOST) {
++		IP6_INC_STATS_BH(ip6_dst_idev(skb->dst),
++				 IPSTATS_MIB_INADDRERRORS);
++		kfree_skb(skb);
++		return -1;
+ 	}
+=20
+ 	/*
+--=20
+1.5.2.3
 
-I agree with Jeff that the initial version of the new driver should have 
-only essential features - bells and whistles can be added incrementally.
 
--- 
-James Chapman
-Katalix Systems Ltd
-http://www.katalix.com
-Catalysts for your Embedded Linux software development
-
+--=20
+R=C3=A9mi Denis-Courmont
+http://www.remlab.net/
