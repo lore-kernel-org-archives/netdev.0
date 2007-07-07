@@ -1,310 +1,81 @@
-From: Daniel Lezcano <dlezcano@meiosys.com>
-Subject: Re: L2 network namespaces + macvlan performances
-Date: Sat, 07 Jul 2007 13:39:32 +0200
-Message-ID: <468F7B74.3090103@meiosys.com>
-References: <468E724F.9070505@bull.net>
+From: James Chapman <jchapman@katalix.com>
+Subject: Re: RFR: New e1000 driver (e1000new), was: Re: e1000: backport ich9
+ support from 7.5.5 ?
+Date: Sat, 07 Jul 2007 13:23:11 +0100
+Message-ID: <468F85AF.3010603@katalix.com>
+References: <1183138159.17243.16.camel@blaa>	<20070629175006.GB3917@falooley.org>	<468571C6.3090305@garzik.org>	<46857C08.4030303@intel.com> <20070629150350.414553d4.akpm@linux-foundation.org> <4685838D.9080108@garzik.org> <468594B7.6070309@intel.com> <468E92F8.7010501@garzik.org> <468EDAC4.8070300@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Linux Containers <containers@lists.osdl.org>,
-	netdev@vger.kernel.org, ebiederm@xmission.com,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Patrick McHardy <kaber@trash.net>
-To: Benjamin Thery <benjamin.thery@bull.net>
+Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Jason Lunz <lunz@reflexsecurity.com>,
+	Mark McLoughlin <markmc@redhat.com>,
+	e1000-devel@lists.sourceforge.net,
+	Arjan van de Ven <arjan@linux.intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate4.uk.ibm.com ([195.212.29.137]:23078 "EHLO
-	mtagate4.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752861AbXGGLnD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Jul 2007 07:43:03 -0400
-Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
-	by mtagate4.uk.ibm.com (8.13.8/8.13.8) with ESMTP id l67Bh0kV114176
-	for <netdev@vger.kernel.org>; Sat, 7 Jul 2007 11:43:00 GMT
-Received: from d06av04.portsmouth.uk.ibm.com (d06av04.portsmouth.uk.ibm.com [9.149.37.216])
-	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l67Bh0Kb3002390
-	for <netdev@vger.kernel.org>; Sat, 7 Jul 2007 12:43:00 +0100
-Received: from d06av04.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av04.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l67BgxpK016086
-	for <netdev@vger.kernel.org>; Sat, 7 Jul 2007 12:43:00 +0100
-In-Reply-To: <468E724F.9070505@bull.net>
+Received: from s36.avahost.net ([74.53.95.194]:40130 "EHLO s36.avahost.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753320AbXGGMXS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 7 Jul 2007 08:23:18 -0400
+In-Reply-To: <468EDAC4.8070300@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Benjamin Thery wrote:
-> Following a discussion we had at OLS concerning L2 network namespace
-> performances and how the new macvlan driver could potentially improve
-> them, I've ported the macvlan patchset on top of Eric's net namespace
-> patchset on 2.6.22-rc4-mm2.
-> 
-> A little bit of history:
-> 
-> Some months ago, when we ran some performance tests (using netperf)
-> on net namespace, we observed the following things:
-> 
-> Using 'etun', the virtual ethernet tunnel driver, and IP routes
-> from inside a network namespace,
-> 
-> - The throughput is the same as the "normal" case(*)
->   (* normal case: no namespace, using physical adapters).
->   No regression. Good.
-> 
-> - But the CPU load increases a lot. Bad.
->   The reasons are:
->     - All checksums are done in software. No hardware offloading.
->     - Every TCP packets going through the etun devices are
->       duplicated in ip_forward() before we decrease the ttl.
->           (packets are routed between both ends of etun)
-> 
-> We also made some testing with bridges, and obtained the same results:
->     CPU load increase:
->     - No hardware offloading
->     - Packets are duplicated somewhere in the bridge+netfilter
->           code (can't remember where right now)
-> 
-> 
-> This time, I've replaced the etun interface by the new macvlan,
-> which should benefits from the hardware offloading capabilities of the
-> physical adapter and suppress the forwarding stuff.
-> 
-> My test setup is:
-> 
->   Host A                    Host B
->  ______________            ___________
-> |  _________   |          |           |
-> | | Netns 1 |  |          |           |
-> | |         |  |          |           |
-> | | macvlan0|  |          |           |
-> | |___|_____|  |          |           |
-> |     |        |          |           |
-> |_____|________|          |___________|
->       | eth0 (192.168.0.2)     | eth0 (192.168.0.1)
->       |                        |
-> -----------------------------------------
-> macvlan0 (192.168.0.3)
-> 
-> - netperf runs on host A
-> - netserver runs on host B
-> - Adapters speed is 1GB/s
-> 
-> On this setup I ran the following netperf tests: TCP_STREAM, TCP_MAERTS, 
-> TCP_RR, UDP_STREAM, UDP_RR.
-> 
-> Between the "normal" case and the "net namespace + macvlan" case, 
-> results are  about the same for both the throughput and the local CPU 
-> load for the following test types: TCP_MAERTS, TCP_RR, UDP_STREAM, UDP_RR.
-> 
-> macvlan looks like a very good candidate for network namespace in these 
-> cases.
-> 
-> But, with the TCP_STREAM test, I observed the CPU load is about the
-> same (that's what we wanted) but the throughput decreases by about 5%:
-> from 850MB/s down to 810MB/s.
-> I haven't investigated yet why the throughput decrease in the case.
-> Does it come from my setup, from macvlan additional treatments, other? I 
-> don't know yet
-> 
-> Attached to this email you'll find the raw netperf outputs for the three 
-> cases:
-> 
-> - netperf through a physical adapter, no namespace:
->     netperf-results-2.6.22-rc4-mm2-netns1-vanilla.txt   
-> - netperf through etun, inside a namespace:
->     netperf-results-2.6.22-rc4-mm2-netns1-using-etun.txt   
-> - netperf through macvlan, inside a namespace:
->     netperf-results-2.6.22-rc4-mm2-netns1-using-macvlan.txt
-> 
-> 
-> macvlan looks promising.
-> 
-> Regards,
-> Benjamin
+Kok, Auke wrote:
+> Jeff Garzik wrote:
+>> * The multitude of tiny, fine-grained operations for MAC, NVM, PHY, 
+>> etc. is a signal that organization is backwards.  You should be 
+>> creating hardware-specific high level operations (PHY layer hooks, 
+>> net_device hooks, interrupt handler) that call out to more-generic 
+>> functions when necessary.  Doing so eliminates the need to create a 
+>> new hook for every little twirl in the code path.
 
-Very interesting.
-Thank you very much Benjamin for investigating this.
-I will update the http://lxc.sf.net web site with your description and 
-results.
+I think this is the key point that needs to be addressed in the new 
+driver. All of the netdevice glue such as PCI ID tables, netdev open, 
+close etc should be in its own driver for each device, which calls out 
+to common code where appropriate.
 
+> are you talking about the internals of e1000_phy/mac/nvm etc? i agree 
+> that the amount of forward/backward mapping in here is a bit of a 
+> spaghetti and could be more clear
 
-> ------------------------------------------------------------------------
+Make it more clear by restructuring it, not by adding comments though.
+
+>> * The multitude of files makes it difficult to review.  Much easier in 
+>> one file, or a small few.
 > 
-> NETPERF RESULTS: the "normal" case : 
-> ====================================
-> No network namespace, traffic goes through real 1GB/s physical adapters.
-> 
-> ------------------------------------------------
-> TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.76.1 (192.168.76.1) port 0 AF_INET : +/-2.5% @ 95% conf.
-> Recv   Send    Send                          Utilization       Service Demand
-> Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
-> Size   Size    Size     Time     Throughput  local    remote   local   remote
-> bytes  bytes   bytes    secs.    10^6bits/s  % S      % S      us/KB   us/KB
-> 
->  87380  16384   1400    20.03       857.39   6.39     9.75     2.444   3.727  
-> ------------------------------------------------
-> 
-> ------------------------------------------------
-> TCP MAERTS TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.76.1 (192.168.76.1) port 0 AF_INET : +/-2.5% @ 95% conf.
-> Recv   Send    Send                          Utilization       Service Demand
-> Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
-> Size   Size    Size     Time     Throughput  local    remote   local   remote
-> bytes  bytes   bytes    secs.    10^6bits/s  % S      % S      us/KB   us/KB
-> 
->  87380  16384  87380    20.03       763.15   4.75     10.33    2.038   4.434  
-> ------------------------------------------------
-> 
-> ------------------------------------------------
-> TCP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.76.1 (192.168.76.1) port 0 AF_INET : +/-2.5% @ 95% conf.
-> Local /Remote
-> Socket Size   Request Resp.  Elapsed Trans.   CPU    CPU    S.dem   S.dem
-> Send   Recv   Size    Size   Time    Rate     local  remote local   remote
-> bytes  bytes  bytes   bytes  secs.   per sec  % S    % S    us/Tr   us/Tr
-> 
-> 16384  87380  1       1      20.00   12594.24  4.16   6.06   13.212  19.231 
-> 16384  87380 
-> ------------------------------------------------
-> 
-> ------------------------------------------------
-> UDP UNIDIRECTIONAL SEND TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.76.1 (192.168.76.1) port 0 AF_INET : +/-2.5% @ 95% conf.
-> Socket  Message  Elapsed      Messages                   CPU      Service
-> Size    Size     Time         Okay Errors   Throughput   Util     Demand
-> bytes   bytes    secs            #      #   10^6bits/sec % SS     us/KB
-> 
-> 110592    1400   20.00     1701653      0      952.9     6.84     2.354 
-> 107520           20.00     1701647             952.9     9.66     3.321 
-> 
-> ------------------------------------------------
-> 
-> ------------------------------------------------
-> UDP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.76.1 (192.168.76.1) port 0 AF_INET : +/-2.5% @ 95% conf.
-> Local /Remote
-> Socket Size   Request Resp.  Elapsed Trans.   CPU    CPU    S.dem   S.dem
-> Send   Recv   Size    Size   Time    Rate     local  remote local   remote
-> bytes  bytes  bytes   bytes  secs.   per sec  % S    % S    us/Tr   us/Tr
-> 
-> 110592 110592 1       1      20.00   13789.92   3.82   6.16   11.087  17.855
-> 107520 107520
-> ------------------------------------------------
-> 
-> 
-> 
-> ------------------------------------------------------------------------
-> 
-> NETPERF RESULTS: the etun case :
-> ====================================
-> netperf is ran from a network namespace, 
-> traffic goes through etun adapters.
-> 
-> ------------------------------------------------
-> TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.76.1 (192.168.76.1) port 0 AF_INET : +/-2.5% @ 95% conf.
-> Recv   Send    Send                          Utilization       Service Demand
-> Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
-> Size   Size    Size     Time     Throughput  local    remote   local   remote
-> bytes  bytes   bytes    secs.    10^6bits/s  % S      % U      us/KB   us/KB
-> 
->  87380  16384   1400    40.02       840.64   12.89    -1.00    5.025   -1.000 
-> ------------------------------------------------
-> 
-> ------------------------------------------------
-> TCP MAERTS TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.76.1 (192.168.76.1) port 0 AF_INET : +/-2.5% @ 95% conf.
-> Recv   Send    Send                          Utilization       Service Demand
-> Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
-> Size   Size    Size     Time     Throughput  local    remote   local   remote
-> bytes  bytes   bytes    secs.    10^6bits/s  % S      % U      us/KB   us/KB
-> 
->  87380  16384  87380    40.03       763.30   6.29     -1.00    2.701   -1.000 
-> ------------------------------------------------
-> 
-> ------------------------------------------------
-> TCP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.76.1 (192.168.76.1) port 0 AF_INET : +/-2.5% @ 95% conf.
-> Local /Remote
-> Socket Size   Request Resp.  Elapsed Trans.   CPU    CPU    S.dem   S.dem
-> Send   Recv   Size    Size   Time    Rate     local  remote local   remote
-> bytes  bytes  bytes   bytes  secs.   per sec  % S    % U    us/Tr   us/Tr
-> 
-> 16384  87380  1       1      40.00   12230.34  4.64   -1.00  15.167  -1.000 
-> 16384  87380 
-> ------------------------------------------------
-> 
-> ------------------------------------------------
-> UDP UNIDIRECTIONAL SEND TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.76.1 (192.168.76.1) port 0 AF_INET : +/-2.5% @ 95% conf.
-> Socket  Message  Elapsed      Messages                   CPU      Service
-> Size    Size     Time         Okay Errors   Throughput   Util     Demand
-> bytes   bytes    secs            #      #   10^6bits/sec % SU     us/KB
-> 
-> 110592    1400   40.00     12981742      0     3634.7     25.64    8.801 
-> 107520           40.00     3409123             954.5     -1.00    -1.000
-> 
-> ------------------------------------------------
-> 
-> ------------------------------------------------
-> UDP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.76.1 (192.168.76.1) port 0 AF_INET : +/-2.5% @ 95% conf.
-> Local /Remote
-> Socket Size   Request Resp.  Elapsed Trans.   CPU    CPU    S.dem   S.dem
-> Send   Recv   Size    Size   Time    Rate     local  remote local   remote
-> bytes  bytes  bytes   bytes  secs.   per sec  % S    % U    us/Tr   us/Tr
-> 
-> 110592 110592 1       1      40.00   13385.96   4.22   -1.00  12.658  -1.000
-> 107520 107520
-> ------------------------------------------------
-> 
-> 
-> 
-> ------------------------------------------------------------------------
-> 
-> NETPERF RESULTS: the "normal" case :
-> ====================================
-> netperf is ran from a network namespace,
-> traffic goes through a macvlan adapter.
-> 
-> ------------------------------------------------
-> TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.76.1 (192.168.76.1) port 0 AF_INET : +/-2.5% @ 95% conf.
-> Recv   Send    Send                          Utilization       Service Demand
-> Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
-> Size   Size    Size     Time     Throughput  local    remote   local   remote
-> bytes  bytes   bytes    secs.    10^6bits/s  % S      % S      us/KB   us/KB
-> 
->  87380  16384   1400    20.03       817.40   7.26     12.96    2.912   5.200  
-> ------------------------------------------------
-> 
-> ------------------------------------------------
-> TCP MAERTS TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.76.1 (192.168.76.1) port 0 AF_INET : +/-2.5% @ 95% conf.
-> Recv   Send    Send                          Utilization       Service Demand
-> Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
-> Size   Size    Size     Time     Throughput  local    remote   local   remote
-> bytes  bytes   bytes    secs.    10^6bits/s  % S      % S      us/KB   us/KB
-> 
->  87380  16384  87380    20.03       763.33   4.95     10.32    2.127   4.429  
-> ------------------------------------------------
-> 
-> ------------------------------------------------
-> TCP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.76.1 (192.168.76.1) port 0 AF_INET : +/-2.5% @ 95% conf.
-> Local /Remote
-> Socket Size   Request Resp.  Elapsed Trans.   CPU    CPU    S.dem   S.dem
-> Send   Recv   Size    Size   Time    Rate     local  remote local   remote
-> bytes  bytes  bytes   bytes  secs.   per sec  % S    % S    us/Tr   us/Tr
-> 
-> 16384  87380  1       1      20.00   12448.36  4.34   6.21   13.950  19.939 
-> 16384  87380 
-> ------------------------------------------------
-> 
-> ------------------------------------------------
-> UDP UNIDIRECTIONAL SEND TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.76.1 (192.168.76.1) port 0 AF_INET : +/-2.5% @ 95% conf.
-> Socket  Message  Elapsed      Messages                   CPU      Service
-> Size    Size     Time         Okay Errors   Throughput   Util     Demand
-> bytes   bytes    secs            #      #   10^6bits/sec % SS     us/KB
-> 
-> 110592    1400   20.00     1704200      0      954.3     7.11     2.440 
-> 107520           20.00     1704194             954.3     9.66     3.318 
-> 
-> ------------------------------------------------
-> 
-> ------------------------------------------------
-> UDP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.76.1 (192.168.76.1) port 0 AF_INET : +/-2.5% @ 95% conf.
-> Local /Remote
-> Socket Size   Request Resp.  Elapsed Trans.   CPU    CPU    S.dem   S.dem
-> Send   Recv   Size    Size   Time    Rate     local  remote local   remote
-> bytes  bytes  bytes   bytes  secs.   per sec  % S    % S    us/Tr   us/Tr
-> 
-> 110592 110592 1       1      20.00   13751.49   3.98   6.09   11.625  17.788
-> 107520 107520
-> ------------------------------------------------
-> 
+> well, at least the files are reasonably well structured by topic. 
+> Combining small files just to make reviewing easier seems strange to me, 
+> besides making it easier to jump around in an editor it doesn't add any 
+> value to the code organization, and just encourages more forward 
+> declarations and horrible ordering issues.
+
+There's a lot of common code across the e1000 family. But all of the 
+chip-specific code for an individual driver could be in one file. I 
+envisage something like this:-
+
+e1000_core.c	- common code used by all drivers of the e1000 family.
+		  Exports functions used by actual drivers. Loadable
+		  as a separate module when built as a module.
+e1000_82541.c	- driver for 82541
+e1000_82542.c	- driver for 82542
+e1000_xxxxx.c	- driver for xxxxx
+
+If phylib were used, the phy-specific parts would move out naturally 
+into a phy driver for each phy device. And if e1000_core.c were 
+implemented well, few changes should occur over time as more e1000 
+devices are released.
+
+There would obviously be no overlap of PCI IDs in each driver. For the 
+initial version, support just one device - more can be added later. The 
+important thing is to get the structure right in the initial version.
+
+-- 
+James Chapman
+Katalix Systems Ltd
+http://www.katalix.com
+Catalysts for your Embedded Linux software development
 
