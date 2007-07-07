@@ -1,69 +1,52 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Splitting e1000 (Was: Re: e1000: backport ich9
-	support from 7.5.5 ?)
-Date: Sat, 7 Jul 2007 21:04:31 +0200
-Message-ID: <20070707190431.GA26341@electric-eye.fr.zoreil.com>
-References: <46857C08.4030303@intel.com>
-	<20070629150350.414553d4.akpm@linux-foundation.org>
-	<4685838D.9080108@garzik.org>
-	<c0a09e5c0706291657kd5e4baawb113a17ca5ab2191@mail.gmail.com>
-	<46859F3F.305@garzik.org> <4685C09B.7040908@intel.com>
-	<20070630082520.GA20140@infradead.org>
-	<468AD23A.4090904@intel.com> <468D8B32.9020305@garzik.org>
-	<468EDAF9.3020606@intel.com>
+From: Satyam Sharma <ssatyam@cse.iitk.ac.in>
+Subject: Re: [PATCH -mm 9/9] netconsole: Support dynamic reconfiguration
+ using configfs
+Date: Sun, 8 Jul 2007 01:08:12 +0530 (IST)
+Message-ID: <Pine.LNX.4.64.0707080105520.3789@cselinux1.cse.iitk.ac.in>
+References: <20070704110739.28520.5036.sendpatchset@cselinux1.cse.iitk.ac.in>
+ <20070704110824.28520.11661.sendpatchset@cselinux1.cse.iitk.ac.in>
+ <468FDC97.3050409@bx.jp.nec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Mark McLoughlin <markmc@redhat.com>,
-	Jeff Garzik <jeff@garzik.org>, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Christoph Hellwig <hch@infradead.org>,
-	"Ronciak,  John" <john.ronciak@intel.com>,
-	Arjan van de Ven <arjan@linux.intel.com>,
-	Andrew Grover <andy.grover@gmail.com>,
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>,
+	Joel Becker <joel.becker@oracle.com>,
+	Matt Mackall <mpm@selenic.com>,
 	Andrew Morton <akpm@linux-foundation.org>,
-	'Stephen Hemminger' <shemminger@linux-foundation.org>,
-	Jason Lunz <lunz@reflexsecurity.com>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-Content-Disposition: inline
-In-Reply-To: <468EDAF9.3020606@intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+	David Miller <davem@davemloft.net>
+To: KII Keiichi <k-keiichi@bx.jp.nec.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail4.iitk.ac.in ([203.197.196.4]:41439 "EHLO mail4.iitk.ac.in"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752547AbXGGTQb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 7 Jul 2007 15:16:31 -0400
+In-Reply-To: <468FDC97.3050409@bx.jp.nec.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Kok, Auke <auke-jan.h.kok@intel.com> :
-> Jeff Garzik wrote:
-> >Kok, Auke wrote:
-[...]
-> This is not acceptable and hardly fair to expect from us.
+Hi Keiichi,
+
+On Sun, 8 Jul 2007, KII Keiichi wrote:
+> Hi Satyam,
 > 
-> It also exposes users to endless delays and uncertainties as to a final 
-> resolution. Not to mention that writing a driver from scratch for (just) 
-> ich9 will take significant time, is silly since it's almost identical to 
-> ich8 etc..
+> > After more discussion, Joel suggested the idea to separately manage the
+> > lifetimes of the two kinds of netconsole_target objects, those created while
+> > parsing boot/module options and those created via configfs mkdir(2) from
+> > userspace, in my driver itself. That adds a little bit of complexity and
+> > redundancy (multiple item creation and destruction points) in this driver.
+> > Note that the latter type (configfs-created netconsole_targets) can be
+> > modified / updated / destroyed at runtime from userspace but the former
+> > (param string created) cannot, as they are not exposed through our configfs
+> > namespace. However, this is not really a problem and is similar to current
+> > behaviour in any case.
 > 
-> I don't think that anyone besides you and maybe one or two others are 
-> interested in doing this rewrite from scratch.
+> Maybe you should add the above description into 
+> Documentation/networking/netconsole.txt.
+> The users of netconsole applied these patches may think that they can change 
+> parameters of netconsole_target(param string created at the time of parsing 
+> boot/options).
 
-So far I'd say him and at least two others. Is it time to count them ?
+Yes, you're absolutely right. This definitely needs to be mentioned in the
+documenation -- I'll take care of this in the next iteration.
 
-Everybody is cool and polite but after a week of discussion this is
-going nowhere.
-
--- 
-Ueimor
-
--------------------------------------------------------------------------
-This SF.net email is sponsored by DB2 Express
-Download DB2 Express C - the FREE version of DB2 express and take
-control of your XML. No limits. Just data. Click to get it now.
-http://sourceforge.net/powerbar/db2/
+Satyam
