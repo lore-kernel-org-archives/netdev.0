@@ -1,56 +1,93 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: sky2: restore workarounds for lost interrupts
-Date: Fri, 6 Jul 2007 15:53:21 -0700
-Message-ID: <20070706155321.55edc032@freepuppy.rosehill.hemminger.net>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: RFR: New e1000 driver (e1000new), was: Re: e1000: backport ich9
+ support from 7.5.5 ?
+Date: Fri, 06 Jul 2007 17:13:56 -0700
+Message-ID: <468EDAC4.8070300@intel.com>
+References: <1183138159.17243.16.camel@blaa>	<20070629175006.GB3917@falooley.org>	<468571C6.3090305@garzik.org>	<46857C08.4030303@intel.com> <20070629150350.414553d4.akpm@linux-foundation.org> <4685838D.9080108@garzik.org> <468594B7.6070309@intel.com> <468E92F8.7010501@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jeff Garzik <jgarzik@pobox.com>
+Cc: netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
+	Jason Lunz <lunz@reflexsecurity.com>,
+	Mark McLoughlin <markmc@redhat.com>,
+	e1000-devel@lists.sourceforge.net,
+	Arjan van de Ven <arjan@linux.intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:55749 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751033AbXGFWx0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jul 2007 18:53:26 -0400
+Received: from mga09.intel.com ([134.134.136.24]:2825 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752609AbXGGAOO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Jul 2007 20:14:14 -0400
+In-Reply-To: <468E92F8.7010501@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Sky2 will hang under load due to lost IRQ. It is reproducible fastest on
-Yukon EC chips, but others may have same problem.
+Jeff Garzik wrote:
+> OK, just looked through the driver.  I think its structured inside-out 
+> from what it should be.
+> 
+> Comments:
+> 
+> * is a clear improvement from current e1000
+> 
+> * The multitude of tiny, fine-grained operations for MAC, NVM, PHY, etc. 
+> is a signal that organization is backwards.  You should be creating 
+> hardware-specific high level operations (PHY layer hooks, net_device 
+> hooks, interrupt handler) that call out to more-generic functions when 
+> necessary.  Doing so eliminates the need to create a new hook for every 
+> little twirl in the code path.
+> 
+> In the long run, a driver is easier to maintain if you can easily follow 
+> the code path for a particular hardware generation.  Creating 
+> e1001_8257x_do_this_thing(), which calls more generic code as needed, is 
+> easier to review and doesn't require all sorts of indirection through APIs.
+> 
+> Doing so also means that many workarounds for older hardware "disappear" 
+> from the most-travelled code paths over time.  The 64k boundary check 
+> found in e1000new is an easy example of something that really shouldn't 
+> pollute newer code at all [yes, even though it reduces to 'return 1' for 
+> most].
 
-This patch restores a couple of workarounds from 2.6.16 that reduce
-the likely hood of failure. It is not possible to prove this is sufficient
-to stop hangs.
- * restart transmit moderation timer in case it expires during IRQ routine
- * default to having 10 HZ watchdog timer.
-At this point it more important not to hang than to worry about the
-power cost. If possible please put in 2.6.22.
+are you talking about the internals of e1000_phy/mac/nvm etc? i agree that the 
+amount of forward/backward mapping in here is a bit of a spaghetti and could be 
+more clear
 
-Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+> * The multitude of files makes it difficult to review.  Much easier in 
+> one file, or a small few.
 
+well, at least the files are reasonably well structured by topic. Combining 
+small files just to make reviewing easier seems strange to me, besides making it 
+easier to jump around in an editor it doesn't add any value to the code 
+organization, and just encourages more forward declarations and horrible 
+ordering issues.
 
---- a/drivers/net/sky2.c	2007-07-05 22:41:48.000000000 -0700
-+++ b/drivers/net/sky2.c	2007-07-05 22:42:46.000000000 -0700
-@@ -96,7 +96,7 @@ static int disable_msi = 0;
- module_param(disable_msi, int, 0);
- MODULE_PARM_DESC(disable_msi, "Disable Message Signaled Interrupt (MSI)");
- 
--static int idle_timeout = 0;
-+static int idle_timeout = 100;
- module_param(idle_timeout, int, 0);
- MODULE_PARM_DESC(idle_timeout, "Watchdog timer for lost interrupts (ms)");
- 
-@@ -2490,6 +2490,13 @@ static int sky2_poll(struct net_device *
- 
- 	work_done = sky2_status_intr(hw, work_limit);
- 	if (work_done < work_limit) {
-+		/* Bug/Errata workaround?
-+		 * Need to kick the TX irq moderation timer.
-+		 */
-+		if (sky2_read8(hw, STAT_TX_TIMER_CTRL) == TIM_START) {
-+			sky2_write8(hw, STAT_TX_TIMER_CTRL, TIM_STOP);
-+			sky2_write8(hw, STAT_TX_TIMER_CTRL, TIM_START);
-+		}
- 		netif_rx_complete(dev0);
- 
- 		/* end of interrupt, re-enables also acts as I/O synchronization */
+> * bitfields
+
+consider these gone ;)
+
+> * check for PCI DMA mapping failure
+
+*draws blank* specific one? I'm not seeing what you mean here
+
+> * atomic_t irq_sem is reinventing the wheel (and too heavy for you 
+> needs, too?).  You might as well use a lock or mutex or whatnot at that 
+> point, since you are using a locked instruction.  tg3 might also have 
+> some hints in this regard.
+
+absolutely, I really don't like irq_sem and several people insist even that it 
+can be removed (allthough I've demonstrated that plain removing it actually 
+breaks on pci-e adapters). I had left it in since it currently works fine, but 
+it's high on my list to fix.
+
+> * like I noted in the last email, the quickest path to upstream is to 
+> start SMALL.  Create the smallest working driver, review it heavily, get 
+> it upstream.  Add all hardware&features after that.
+
+In this line, I will try to drop things like multiqueue from it completely to 
+avoid making it over-complex (and not used at all right now), as is the case in 
+a lot of points right now.
+
+Thanks for reviewing.
+
+Auke
