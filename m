@@ -1,58 +1,48 @@
-From: Joel Becker <Joel.Becker@oracle.com>
-Subject: Re: [PATCH -mm 9/9] netconsole: Support dynamic reconfiguration using configfs
-Date: Sat, 7 Jul 2007 01:18:53 -0700
-Message-ID: <20070707081852.GC1011@tasint.org>
-References: <20070704110739.28520.5036.sendpatchset@cselinux1.cse.iitk.ac.in> <20070704110824.28520.11661.sendpatchset@cselinux1.cse.iitk.ac.in> <20070707060114.GB1011@tasint.org> <Pine.LNX.4.64.0707071216450.24470@cselinux1.cse.iitk.ac.in>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: [PATCH] [BNX2]: Seems to not need net/tcp.h
+Date: Sat, 7 Jul 2007 11:49:56 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0707071048200.18869@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Keiichi Kii <k-keiichi@bx.jp.nec.com>,
-	Netdev <netdev@vger.kernel.org>, Matt Mackall <mpm@selenic.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>
-To: Satyam Sharma <ssatyam@cse.iitk.ac.in>
+Content-Type: MULTIPART/MIXED; boundary="-696243703-1554381597-1183797268=:18869"
+Cc: Netdev <netdev@vger.kernel.org>
+To: Michael Chan <mchan@broadcom.com>, Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from agminet01.oracle.com ([141.146.126.228]:23849 "EHLO
-	agminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751362AbXGGIT3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Jul 2007 04:19:29 -0400
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0707071216450.24470@cselinux1.cse.iitk.ac.in>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:56672 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752609AbXGGIuD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Jul 2007 04:50:03 -0400
+Content-ID: <Pine.LNX.4.64.0707071148100.18869@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Jul 07, 2007 at 01:18:45PM +0530, Satyam Sharma wrote:
-> However, for items that are statically initialized (often the
-> group->cg_item members of subsystems or default groups) we often simply
-> set ci_namebuf and then call config_item_init() -- say via
-> config_group_init(), like I've done with the netconsole subsystem in this
-> patch -- but config_item_init() does not set ci_name for such items to
-> ci_namebuf. This means the ci_name member of _initialized_ config_items
-> with their names in ci_namebuf is left un-initialized (NULL, actually,
-> because the subsys / default group would likely be static).
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-	Configfs notices subsystems and default groups and handles this.
-See configfs_register_subsystem() and create_default_group() in
-fs/configfs/dir.c
-
-> Right. We shouldn't special case (at least not without adding a comment
-> why that would be right) and we never know what might happen to the code
-> at some later day. So let's keep the get() / put() pair.
-
-	If you're keeping them, don't do the "empty_item", check the
-name.
-	Otherwise, the changes you describe sound good.
-
-Joel
+---696243703-1554381597-1183797268=:18869
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
+Content-ID: <Pine.LNX.4.64.0707071148101.18869@kivilampi-30.cs.helsinki.fi>
 
 
+Got bored to always recompile it for no reason.
+
+Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+---
+ drivers/net/bnx2.c |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+index 88b33c6..56244f6 100644
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -40,7 +40,6 @@
+ #define BCM_VLAN 1
+ #endif
+ #include <net/ip.h>
+-#include <net/tcp.h>
+ #include <net/checksum.h>
+ #include <linux/workqueue.h>
+ #include <linux/crc32.h>
 -- 
-
-"I have never let my schooling interfere with my education."
-        - Mark Twain
-
-Joel Becker
-Principal Software Developer
-Oracle
-E-mail: joel.becker@oracle.com
-Phone: (650) 506-8127
+1.5.0.6
+---696243703-1554381597-1183797268=:18869--
