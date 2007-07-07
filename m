@@ -1,98 +1,96 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: Splitting e1000 (Was: Re: e1000: backport ich9 support from 7.5.5
- ?)
-Date: Fri, 06 Jul 2007 17:14:49 -0700
-Message-ID: <468EDAF9.3020606@intel.com>
-References: <1183138159.17243.16.camel@blaa> <20070629175006.GB3917@falooley.org> <468571C6.3090305@garzik.org> <46857C08.4030303@intel.com> <20070629150350.414553d4.akpm@linux-foundation.org> <4685838D.9080108@garzik.org> <c0a09e5c0706291657kd5e4baawb113a17ca5ab2191@mail.gmail.com> <46859F3F.305@garzik.org> <4685C09B.7040908@intel.com> <20070630082520.GA20140@infradead.org> <468AD23A.4090904@intel.com> <468D8B32.9020305@garzik.org>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [2.6.23 1/9][BNX2]: Add bnx2_set_default_link().
+Date: Fri, 06 Jul 2007 20:28:45 -0700
+Message-ID: <1183778925.5182.18.camel@dell>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Christoph Hellwig <hch@infradead.org>,
-	Andrew Grover <andy.grover@gmail.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Jason Lunz <lunz@reflexsecurity.com>,
-	Mark McLoughlin <markmc@redhat.com>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	'Stephen Hemminger' <shemminger@linux-foundation.org>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Arjan van de Ven <arjan@linux.intel.com>
-To: Jeff Garzik <jeff@garzik.org>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:54207 "EHLO mga09.intel.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:4153 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752488AbXGGAPI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Jul 2007 20:15:08 -0400
-In-Reply-To: <468D8B32.9020305@garzik.org>
+	id S1753667AbXGGCga (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Jul 2007 22:36:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
-> Kok, Auke wrote:
->> 1a) We post an e1000e driver that implements support for all 8257x 
->> (ich8/9, es2lan etc) devices.
->> 1b) We post a patch that drops support for all of these devices in the 
->> form of a pci-ID removal (no code removed) for e1000.
->>
->> 2) we post patches that remove code support for non-8254x devices at a 
->> later stage.
->>
->> 3) we backport any and all cleanups and flags from e1000e to e1000 where 
->> applicable.
->>
->>
->> This plan leaves a significant gap that I'm worrying about: after step 
->> (1) we basically have forced everyone to switch without providing a 
->> fallback (allthough we have our out-of-tree driver, but no in-kernel 
->> version in case issues exist).
->>
->>
->> Comments?
-> 
-> I like the general gist of it.  My own suggestion would be
-> 
-> 1) Create e1001.c, which is the SMALLEST POSSIBLE "it works" driver for 
-> ICH9.  No feature enablement (no TSO, no MQ, no IOAT, not even checksum 
-> offload), just a rock solid, no frills driver.  Think like e100.c :)
-> 
-> 2) We review the hell out of e1001, and merge it.  This enables ICH9 
-> users, and ONLY ICH9 users, on e1001 in the upstream kernel, allowing us 
-> to blithely ignore driver->driver migration issues present with other chips.
-> 
-> 
-> At this point, e1001 is out in the field and in the upstream kernel in 
-> the absolute shortest amount of time.  Users of chips NOT found in 
-> current e1000 driver, and all future chips, can be enabled with little 
-> impediments, in parallel with the steps below.
-> 
-> (all the "3^y" steps can occur in parallel)
-> 
-> 3^1) Add features to e1001, enabling new gizmos on new hardware.  This 
-> can proceed in parallel with any e1000 work.  This allows users to use 
-> git-bisect to find driver bugs -- or even hardware bugs, since you have 
-> a baseline working e1001 driver.
-> 
-> 3^2) Add full ICH8 (8257x?) support to e1001.
-> 
-> 4) Drop 8257x PCI IDs from e1000.  See who complains.  Lather, rinse, 
-> repeat.
-> 
-> 5) Figure out how the hell to clean up the current mess that is e1000, 
-> and how to make sure e1000 and e1001 stay clean, long term.
+[BNX2]: Add bnx2_set_default_link().
+
+Put existing code to setup the default link settings in this new
+function.  This makes it easier to support the remote PHY feature in
+the next few patches.
+
+Also change ETHTOOL_ALL_FIBRE_SPEED to include 2500Mbps if supported.
+
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+index 0f4f76f..56bc41e 100644
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -1323,7 +1323,9 @@ bnx2_setup_serdes_phy(struct bnx2 *bp)
+ }
+ 
+ #define ETHTOOL_ALL_FIBRE_SPEED						\
+-	(ADVERTISED_1000baseT_Full)
++	(bp->phy_flags & PHY_2_5G_CAPABLE_FLAG) ?			\
++		(ADVERTISED_2500baseX_Full | ADVERTISED_1000baseT_Full) :\
++		(ADVERTISED_1000baseT_Full)
+ 
+ #define ETHTOOL_ALL_COPPER_SPEED					\
+ 	(ADVERTISED_10baseT_Half | ADVERTISED_10baseT_Full |		\
+@@ -1335,6 +1337,27 @@ bnx2_setup_serdes_phy(struct bnx2 *bp)
+ 
+ #define PHY_ALL_1000_SPEED (ADVERTISE_1000HALF | ADVERTISE_1000FULL)
+ 
++static void
++bnx2_set_default_link(struct bnx2 *bp)
++{
++	bp->autoneg = AUTONEG_SPEED | AUTONEG_FLOW_CTRL;
++	bp->req_line_speed = 0;
++	if (bp->phy_flags & PHY_SERDES_FLAG) {
++		u32 reg;
++
++		bp->advertising = ETHTOOL_ALL_FIBRE_SPEED | ADVERTISED_Autoneg;
++
++		reg = REG_RD_IND(bp, bp->shmem_base + BNX2_PORT_HW_CFG_CONFIG);
++		reg &= BNX2_PORT_HW_CFG_CFG_DFLT_LINK_MASK;
++		if (reg == BNX2_PORT_HW_CFG_CFG_DFLT_LINK_1G) {
++			bp->autoneg = 0;
++			bp->req_line_speed = bp->line_speed = SPEED_1000;
++			bp->req_duplex = DUPLEX_FULL;
++		}
++	} else
++		bp->advertising = ETHTOOL_ALL_COPPER_SPEED | ADVERTISED_Autoneg;
++}
++
+ static int
+ bnx2_setup_copper_phy(struct bnx2 *bp)
+ {
+@@ -6374,23 +6397,7 @@ bnx2_init_board(struct pci_dev *pdev, struct net_device *dev)
+ 		}
+ 	}
+ 
+-	bp->autoneg = AUTONEG_SPEED | AUTONEG_FLOW_CTRL;
+-	bp->req_line_speed = 0;
+-	if (bp->phy_flags & PHY_SERDES_FLAG) {
+-		bp->advertising = ETHTOOL_ALL_FIBRE_SPEED | ADVERTISED_Autoneg;
+-
+-		reg = REG_RD_IND(bp, bp->shmem_base + BNX2_PORT_HW_CFG_CONFIG);
+-		reg &= BNX2_PORT_HW_CFG_CFG_DFLT_LINK_MASK;
+-		if (reg == BNX2_PORT_HW_CFG_CFG_DFLT_LINK_1G) {
+-			bp->autoneg = 0;
+-			bp->req_line_speed = bp->line_speed = SPEED_1000;
+-			bp->req_duplex = DUPLEX_FULL;
+-		}
+-	}
+-	else {
+-		bp->advertising = ETHTOOL_ALL_COPPER_SPEED | ADVERTISED_Autoneg;
+-	}
+-
++	bnx2_set_default_link(bp);
+ 	bp->req_flow_ctrl = FLOW_CTRL_RX | FLOW_CTRL_TX;
+ 
+ 	init_timer(&bp->timer);
 
 
-This is not acceptable and hardly fair to expect from us.
-
-It also exposes users to endless delays and uncertainties as to a final 
-resolution. Not to mention that writing a driver from scratch for (just) ich9 
-will take significant time, is silly since it's almost identical to ich8 etc..
-
-I don't think that anyone besides you and maybe one or two others are interested 
-in doing this rewrite from scratch. The rest of us would rather see something 
-much more similar to my original suggestion which relieves the ich9-wishes for 
-everyone and provides a good starting point to go forward. Not to mention that a 
-lot of that code is already there, and at least cleaned up quite a bit already.
-
-
-Auke
