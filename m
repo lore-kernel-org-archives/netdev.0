@@ -1,60 +1,89 @@
-From: "Robert P. J. Day" <rpjday@mindspring.com>
-Subject: call to schedule_timeout() with wrong state in af_inet.c
-Date: Sat, 7 Jul 2007 14:44:02 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0707071429050.3832@localhost.localdomain>
+From: "Andrew Grover" <andy.grover@gmail.com>
+Subject: Re: RFR: New e1000 driver (e1000new),
+	was: Re: e1000: backport ich9 support from 7.5.5 ?
+Date: Sat, 7 Jul 2007 11:59:44 -0700
+Message-ID: <c0a09e5c0707071159y4de39ff3w2562c750d9b35af4@mail.gmail.com>
+References: <1183138159.17243.16.camel@blaa>
+	<20070629175006.GB3917@falooley.org> <468571C6.3090305@garzik.org>
+	<46857C08.4030303@intel.com>
+	<20070629150350.414553d4.akpm@linux-foundation.org>
+	<4685838D.9080108@garzik.org> <468594B7.6070309@intel.com>
+	<468E92F8.7010501@garzik.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nic.NetDirect.CA ([216.16.235.2]:54411 "EHLO
-	rubicon.netdirect.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752588AbXGGSqH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Jul 2007 14:46:07 -0400
-Received: from [192.168.1.102] (CPE0018396a01ee-CM001404e0fd78.cpe.net.cable.rogers.com [74.102.207.204])
-	(authenticated bits=0)
-	by rubicon.netdirect.ca (8.13.1/8.13.1) with ESMTP id l67IjoHJ015504
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Sat, 7 Jul 2007 14:46:00 -0400
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Mark McLoughlin <markmc@redhat.com>,
+	"Kok, Auke" <auke-jan.h.kok@intel.com>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Arjan van de Ven <arjan@linux.intel.com>,
+	Jason Lunz <lunz@reflexsecurity.com>
+To: "Jeff Garzik" <jeff@garzik.org>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <468E92F8.7010501@garzik.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
+On 7/6/07, Jeff Garzik <jeff@garzik.org> wrote:
+> OK, just looked through the driver.  I think its structured inside-out
+> from what it should be.
 
-  based on a trivial check i added to kernel/timer.c, it seems that
-schedule_timeout() is being called with a current state of
-TASK_RUNNING, which shouldn't happen.  this appears to be the
-offending snippet of code:
+> * The multitude of tiny, fine-grained operations for MAC, NVM, PHY, etc.
+> is a signal that organization is backwards.  You should be creating
+> hardware-specific high level operations (PHY layer hooks, net_device
+> hooks, interrupt handler) that call out to more-generic functions when
+> necessary.  Doing so eliminates the need to create a new hook for every
+> little twirl in the code path.
 
-net/ipv4/af_inet.c (inet_wait_for_connect)
-==========================================
-...
-while ((1 << sk->sk_state) & (TCPF_SYN_SENT | TCPF_SYN_RECV)) {
-                release_sock(sk);
-                timeo = schedule_timeout(timeo);
-                lock_sock(sk);
-...
+I think the nice thing about the driver's organization is that it
+gives a clear overview of how the driver works, without delving into
+generation-specific details. This fixes a problem that the old driver
+had, where it was very easy to get lost in the woods of
+family-specific workarounds.
 
-  at least, that's what *seems* to be the problem, based on dumping
-the hex address and checking it against /proc/kallsyms.
+> In the long run, a driver is easier to maintain if you can easily follow
+> the code path for a particular hardware generation.  Creating
+> e1001_8257x_do_this_thing(), which calls more generic code as needed, is
+> easier to review and doesn't require all sorts of indirection through APIs.
 
-  the diagnostic shows up whenever i run fetchmail, for instance:
+Basically make a library of e1000-routines. The alternative is a
+polymorphic approach (i.e. using function pointers so generic code can
+call specific code). Both approaches are used extensively in the
+kernel -- I happen to think the latter approach is better suited to
+the e1000's current issue.
 
-Jul  7 14:42:07 localhost kernel: Bad schedule_timeout state: 0 from fetchmail, c0388732
+(For what is a driver but specific code called from generic code? This
+just reuses this helpful design pattern at a lower level.)
 
-  that last value is the value of __builtin_return_address(0), and i
-cross-checked that against /proc/kallsyms:
-...
-c038845d T inet_bind
-c0388615 T inet_stream_connect
-c0388814 T inet_accept
-c03888b5 T inet_sock_destruct
-...
+> Doing so also means that many workarounds for older hardware "disappear"
+> from the most-travelled code paths over time.  The 64k boundary check
+> found in e1000new is an easy example of something that really shouldn't
+> pollute newer code at all [yes, even though it reduces to 'return 1' for
+> most].
 
-rday
--- 
-========================================================================
-Robert P. J. Day
-Linux Consulting, Training and Annoying Kernel Pedantry
-Waterloo, Ontario, CANADA
+Given that the new driver would only support PCIe devices (i.e.
+relatively new/good HW) I would think this would cut down on the
+"workaround" hooks, leaving the "HW is genuinely different" hooks.
 
-http://fsdev.net/wiki/index.php?title=Main_Page
-========================================================================
+> * The multitude of files makes it difficult to review.  Much easier in
+> one file, or a small few.
+
+Removing support for pre-PCIe in the new driver would help alleviate this.
+
+Regards -- Andy
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by DB2 Express
+Download DB2 Express C - the FREE version of DB2 express and take
+control of your XML. No limits. Just data. Click to get it now.
+http://sourceforge.net/powerbar/db2/
