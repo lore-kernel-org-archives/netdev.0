@@ -1,28 +1,34 @@
-From: "Andrew Grover" <andy.grover@gmail.com>
-Subject: Re: RFR: New e1000 driver (e1000new),
-	was: Re: e1000: backport ich9 support from 7.5.5 ?
-Date: Sat, 7 Jul 2007 11:59:44 -0700
-Message-ID: <c0a09e5c0707071159y4de39ff3w2562c750d9b35af4@mail.gmail.com>
-References: <1183138159.17243.16.camel@blaa>
-	<20070629175006.GB3917@falooley.org> <468571C6.3090305@garzik.org>
-	<46857C08.4030303@intel.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Splitting e1000 (Was: Re: e1000: backport ich9
+	support from 7.5.5 ?)
+Date: Sat, 7 Jul 2007 21:04:31 +0200
+Message-ID: <20070707190431.GA26341@electric-eye.fr.zoreil.com>
+References: <46857C08.4030303@intel.com>
 	<20070629150350.414553d4.akpm@linux-foundation.org>
-	<4685838D.9080108@garzik.org> <468594B7.6070309@intel.com>
-	<468E92F8.7010501@garzik.org>
+	<4685838D.9080108@garzik.org>
+	<c0a09e5c0706291657kd5e4baawb113a17ca5ab2191@mail.gmail.com>
+	<46859F3F.305@garzik.org> <4685C09B.7040908@intel.com>
+	<20070630082520.GA20140@infradead.org>
+	<468AD23A.4090904@intel.com> <468D8B32.9020305@garzik.org>
+	<468EDAF9.3020606@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Cc: Mark McLoughlin <markmc@redhat.com>,
-	"Kok, Auke" <auke-jan.h.kok@intel.com>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
+	Jeff Garzik <jeff@garzik.org>, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Christoph Hellwig <hch@infradead.org>,
+	"Ronciak,  John" <john.ronciak@intel.com>,
 	Arjan van de Ven <arjan@linux.intel.com>,
-	Jason Lunz <lunz@reflexsecurity.com>
-To: "Jeff Garzik" <jeff@garzik.org>
+	Andrew Grover <andy.grover@gmail.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	'Stephen Hemminger' <shemminger@linux-foundation.org>,
+	Jason Lunz <lunz@reflexsecurity.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
 Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <468E92F8.7010501@garzik.org>
 Content-Disposition: inline
+In-Reply-To: <468EDAF9.3020606@intel.com>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
@@ -34,53 +40,27 @@ Sender: e1000-devel-bounces@lists.sourceforge.net
 Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On 7/6/07, Jeff Garzik <jeff@garzik.org> wrote:
-> OK, just looked through the driver.  I think its structured inside-out
-> from what it should be.
+Kok, Auke <auke-jan.h.kok@intel.com> :
+> Jeff Garzik wrote:
+> >Kok, Auke wrote:
+[...]
+> This is not acceptable and hardly fair to expect from us.
+> 
+> It also exposes users to endless delays and uncertainties as to a final 
+> resolution. Not to mention that writing a driver from scratch for (just) 
+> ich9 will take significant time, is silly since it's almost identical to 
+> ich8 etc..
+> 
+> I don't think that anyone besides you and maybe one or two others are 
+> interested in doing this rewrite from scratch.
 
-> * The multitude of tiny, fine-grained operations for MAC, NVM, PHY, etc.
-> is a signal that organization is backwards.  You should be creating
-> hardware-specific high level operations (PHY layer hooks, net_device
-> hooks, interrupt handler) that call out to more-generic functions when
-> necessary.  Doing so eliminates the need to create a new hook for every
-> little twirl in the code path.
+So far I'd say him and at least two others. Is it time to count them ?
 
-I think the nice thing about the driver's organization is that it
-gives a clear overview of how the driver works, without delving into
-generation-specific details. This fixes a problem that the old driver
-had, where it was very easy to get lost in the woods of
-family-specific workarounds.
+Everybody is cool and polite but after a week of discussion this is
+going nowhere.
 
-> In the long run, a driver is easier to maintain if you can easily follow
-> the code path for a particular hardware generation.  Creating
-> e1001_8257x_do_this_thing(), which calls more generic code as needed, is
-> easier to review and doesn't require all sorts of indirection through APIs.
-
-Basically make a library of e1000-routines. The alternative is a
-polymorphic approach (i.e. using function pointers so generic code can
-call specific code). Both approaches are used extensively in the
-kernel -- I happen to think the latter approach is better suited to
-the e1000's current issue.
-
-(For what is a driver but specific code called from generic code? This
-just reuses this helpful design pattern at a lower level.)
-
-> Doing so also means that many workarounds for older hardware "disappear"
-> from the most-travelled code paths over time.  The 64k boundary check
-> found in e1000new is an easy example of something that really shouldn't
-> pollute newer code at all [yes, even though it reduces to 'return 1' for
-> most].
-
-Given that the new driver would only support PCIe devices (i.e.
-relatively new/good HW) I would think this would cut down on the
-"workaround" hooks, leaving the "HW is genuinely different" hooks.
-
-> * The multitude of files makes it difficult to review.  Much easier in
-> one file, or a small few.
-
-Removing support for pre-PCIe in the new driver would help alleviate this.
-
-Regards -- Andy
+-- 
+Ueimor
 
 -------------------------------------------------------------------------
 This SF.net email is sponsored by DB2 Express
