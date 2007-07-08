@@ -1,65 +1,70 @@
-From: Muli Ben-Yehuda <muli@il.ibm.com>
-Subject: Re: [RFC 2/2] shrink size of scatterlist on common i386/x86-64
-Date: Sun, 8 Jul 2007 19:17:30 +0300
-Message-ID: <20070708161730.GA4146@rhun.haifa.ibm.com>
-References: <20070705.171535.105173068.davem@davemloft.net> <08FE5CC30C9A3F41BF819A502CF7BF6E0198249D@fmsmsx411.amr.corp.intel.com> <20070706.122019.55506705.davem@davemloft.net>
+From: Arjan van de Ven <arjan@linux.intel.com>
+Subject: Re: Splitting e1000 (Was: Re: e1000: backport ich9
+ support from 7.5.5 ?)
+Date: Sun, 08 Jul 2007 09:29:42 -0700
+Message-ID: <469110F6.2030902@linux.intel.com>
+References: <46857C08.4030303@intel.com>	<20070629150350.414553d4.akpm@linux-foundation.org>	<4685838D.9080108@garzik.org>	<c0a09e5c0706291657kd5e4baawb113a17ca5ab2191@mail.gmail.com>	<46859F3F.305@garzik.org>	<4685C09B.7040908@intel.com>	<20070630082520.GA20140@infradead.org>	<468AD23A.4090904@intel.com>	<468D8B32.9020305@garzik.org>	<468EDAF9.3020606@intel.com>	<20070707190431.GA26341@electric-eye.fr.zoreil.com>	<46900B83.1060902@intel.com>
+	<20070707183244.19d21893@freepuppy.rosehill.hemminger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: mitch.a.williams@intel.com, shemminger@linux-foundation.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate3.uk.ibm.com ([195.212.29.136]:33529 "EHLO
-	mtagate3.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754292AbXGHQRd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Jul 2007 12:17:33 -0400
-Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
-	by mtagate3.uk.ibm.com (8.13.8/8.13.8) with ESMTP id l68GHWfq145598
-	for <netdev@vger.kernel.org>; Sun, 8 Jul 2007 16:17:32 GMT
-Received: from d06av02.portsmouth.uk.ibm.com (d06av02.portsmouth.uk.ibm.com [9.149.37.228])
-	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l68GHVsL3137722
-	for <netdev@vger.kernel.org>; Sun, 8 Jul 2007 17:17:32 +0100
-Received: from d06av02.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av02.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l68GHV5S020950
-	for <netdev@vger.kernel.org>; Sun, 8 Jul 2007 17:17:31 +0100
-Content-Disposition: inline
-In-Reply-To: <20070706.122019.55506705.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Mark McLoughlin <markmc@redhat.com>,
+	"Kok, Auke" <auke-jan.h.kok@intel.com>,
+	Jeff Garzik <jeff@garzik.org>, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Christoph Hellwig <hch@infradead.org>,
+	"Ronciak,  John" <john.ronciak@intel.com>,
+	Andrew Grover <andy.grover@gmail.com>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Jason Lunz <lunz@reflexsecurity.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20070707183244.19d21893@freepuppy.rosehill.hemminger.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 06, 2007 at 12:20:19PM -0700, David Miller wrote:
-> From: "Williams, Mitch A" <mitch.a.williams@intel.com>
-> Date: Fri, 6 Jul 2007 10:14:56 -0700
+Stephen Hemminger wrote:
+>> I would really like to continue with my original plan that I posted that follows 
+>> Christoph's idea. I hope you can all agree with that so we can get on with this.
 > 
-> > In my opinion, IOMMU table locking is the major issue with this
-> > type of architecture.  Since both Intel and AMD are touting IOMMUs
-> > for virtual- ization support, this is an issue that's going to
-> > need a lot of scrutiny.
-> 
-> For the allocation of IOMMU entries themselves you can play tricks
-> using atomic operations on 64-bit words of the allocator bitmap to
-> avoid locking that.
-
-Hmm, any pointers?
-
-> You can use per-cpu salts to determine where to start the search and
-> avoid hitting the same cachelines as other cpus working on the same
-> table.
-> 
-> But you'll need to lock in order to flush the IOMMU tlb I'm afraid.
-> The way to mitigate that is to only flush the IOMMU tlb once per
-> allocator generation.
-
-That works, but isn't optimal when you have an isolation-capable IOMMU
-and you want the full isolation properties of the IOMMU. If you only
-flush the IOTLB when the allocator wraps around, a stale entry in the
-IOTLB can allow a DMA to go through for an IO entry that has already
-been unmapped. One way to mitigate that and still retain full
-isolation is to make sure no one else gets to use the frames that are
-the targets of the DMA until the translation has been flushed out of
-the IOTLB, but that requires pretty deep surgery.
-
-Cheers,
-Muli
+> I think rather than having a meta-discussion, which always seems to degenerate
+> into finger pointing. Let's look at the code. The problem with popular drivers
+> (as I too well know) is that user's seem to find every wart.  There are lots of
+> old drivers that never seem to get the same scrutiny, and if they did would
+> be tarred and feathered.
 
 
+I'd second this; also lets be honest and fair about things and use a 
+similar standard for all drivers; are we going to ask all driver 
+submitters to remove NAPI, TSO and other stuff? I would hope not. Are 
+all new drivers that have even a single bitfield going to be rejected? 
+That's be a new rule but ok, if it applies to all drivers it's fair.
+
+So the question in my opinion should be "is this driver good enough 
+for merging, and if not, what specifically is wrong enough to hold of 
+merging" not "what would the perfect ideal 
+we-have-all-the-time-in-the-world driver be" and certainly not "how is 
+this going to work in an enterprise distro" since the later is the 
+problem for the enterprise disro that they get paid to solve, not for 
+kernel.org kernels.
+
+What is there now is a driver that works, is relatively clean (and yes 
+if you look deep enough you can ALWAYS nitpick on any code, even 
+Linus' or Jeff's best code) and provides good performance with all the 
+features a modern ethernet driver is supposed to have.
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by DB2 Express
+Download DB2 Express C - the FREE version of DB2 express and take
+control of your XML. No limits. Just data. Click to get it now.
+http://sourceforge.net/powerbar/db2/
