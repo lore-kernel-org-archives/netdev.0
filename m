@@ -1,48 +1,58 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] CXGB3: Replace kcalloc(1,...) with kmalloc() in
-	cxgb3_offload.c.
-Date: Sun, 08 Jul 2007 12:08:49 +0200
-Message-ID: <1183889330.3771.0.camel@johannes.berg>
-References: <Pine.LNX.4.64.0707080537360.7944@localhost.localdomain>
+From: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Subject: [PATCH] ieee1394: first minimal NUMA awareness
+Date: Sun, 8 Jul 2007 13:34:21 +0200 (CEST)
+Message-ID: <tkrat.a9c71958a0779a73@s5r6.in-berlin.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-bLZQdLJtPjxtwG/7k3OU"
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: "Robert P. J. Day" <rpjday@mindspring.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:38384 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755691AbXGHKJF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Jul 2007 06:09:05 -0400
-In-Reply-To: <Pine.LNX.4.64.0707080537360.7944@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
+To: linux1394-devel@lists.sourceforge.net
+Return-path: <linux1394-devel-bounces@lists.sourceforge.net>
+Content-Disposition: INLINE
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
+	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux1394-devel>
+List-Post: <mailto:linux1394-devel@lists.sourceforge.net>
+List-Help: <mailto:linux1394-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
+	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: linux1394-devel-bounces@lists.sourceforge.net
+Errors-To: linux1394-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
+Association of a host device with a node on NUMA machines optimizes
+allocations of skbs given from the networking stack to eth1394.
 
---=-bLZQdLJtPjxtwG/7k3OU
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+Signed-off-by: Stefan Richter <stefanr@s5r6.in-berlin.de>
+---
 
-On Sun, 2007-07-08 at 05:39 -0400, Robert P. J. Day wrote:
+Note, in Linux 2.6.20 and earlier and 2.6.23 and later, eth1394 calls
+or will call SET_NETDEV_DEV(eth1394_netdev, &h->device).
 
-> -	t =3D kcalloc(1, sizeof(*t), GFP_KERNEL);
-> +	t =3D kcalloc(sizeof(*t), GFP_KERNEL);
-               ^
-I don't think that's going to work, and shouldn't it probably use
-kzalloc instead of kmalloc (as you wrote in subject)
+ drivers/ieee1394/hosts.c |    1 +
+ 1 file changed, 1 insertion(+)
 
-johannes
+Index: linux-2.6.22-rc7/drivers/ieee1394/hosts.c
+===================================================================
+--- linux-2.6.22-rc7.orig/drivers/ieee1394/hosts.c
++++ linux-2.6.22-rc7/drivers/ieee1394/hosts.c
+@@ -154,6 +154,7 @@ struct hpsb_host *hpsb_alloc_host(struct
+ 
+ 	memcpy(&h->device, &nodemgr_dev_template_host, sizeof(h->device));
+ 	h->device.parent = dev;
++	set_dev_node(&h->device, dev_to_node(dev));
+ 	snprintf(h->device.bus_id, BUS_ID_SIZE, "fw-host%d", h->id);
+ 
+ 	h->host_dev.parent = &h->device;
 
---=-bLZQdLJtPjxtwG/7k3OU
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
+-- 
+Stefan Richter
+-=====-=-=== -=== -=---
+http://arcgraph.de/sr/
 
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
 
-iD8DBQBGkLex/ETPhpq3jKURAlCVAJ4iIXVy1Q3MpAoZU38cD3jnz2jDLQCfbtwd
-jRDPXGulJP2Gr4k5Qmhhecg=
-=tYGw
------END PGP SIGNATURE-----
-
---=-bLZQdLJtPjxtwG/7k3OU--
-
+-------------------------------------------------------------------------
+This SF.net email is sponsored by DB2 Express
+Download DB2 Express C - the FREE version of DB2 express and take
+control of your XML. No limits. Just data. Click to get it now.
+http://sourceforge.net/powerbar/db2/
