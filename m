@@ -1,54 +1,100 @@
-From: Jonathan Lundell <linux@lundell-bros.com>
-Subject: Re: [E1000-devel] RFR: New e1000 driver (e1000new), was: Re: e1000: backport ich9 support from 7.5.5 ?
-Date: Sun, 8 Jul 2007 15:01:37 -0700
-Message-ID: <5F1B56E5-479D-4E21-8640-B2F8C54850F7@lundell-bros.com>
-References: <1183138159.17243.16.camel@blaa> <20070629175006.GB3917@falooley.org>	<468571C6.3090305@garzik.org> <46857C08.4030303@intel.com> <20070629150350.414553d4.akpm@linux-foundation.org> <4685838D.9080108@garzik.org> <468594B7.6070309@intel.com> <468597F7.2050700@linux.intel.com> <46912AEA.3030604@garzik.org> <4691458B.50403@linux.intel.com>
-Mime-Version: 1.0 (Apple Message framework v752.3)
-Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 8724] New: Unaligned acess in udp_recvmsg() on
+ EV56
+Date: Sun, 8 Jul 2007 15:29:35 -0700
+Message-ID: <20070708152935.b34d6e66.akpm@linux-foundation.org>
+References: <bug-8724-10286@http.bugzilla.kernel.org/>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, Mark McLoughlin <markmc@redhat.com>,
-	"Kok, Auke" <auke-jan.h.kok@intel.com>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Jason Lunz <lunz@reflexsecurity.com>
-To: Arjan van de Ven <arjan@linux.intel.com>
+Cc: netdev@vger.kernel.org, jailbird@alcatraz.fdf.net,
+	"bugme-daemon@kernel-bugs.osdl.org"
+	<bugme-daemon@kernel-bugs.osdl.org>
+To: Ivan Kokshaysky <ink@jurassic.park.msu.ru>,
+	Richard Henderson <rth@twiddle.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gretel.pobox.com ([208.58.1.197]:56352 "EHLO gretel.pobox.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757624AbXGHWQy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 8 Jul 2007 18:16:54 -0400
-Received: from rune.pobox.com (rune.pobox.com [208.210.124.79])
-	by gretel.pobox.com (Postfix) with ESMTP id 145F465EE7CA
-	for <netdev@vger.kernel.org>; Sun,  8 Jul 2007 18:04:31 -0400 (EDT)
-In-Reply-To: <4691458B.50403@linux.intel.com>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:56905 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755160AbXGHW3z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Jul 2007 18:29:55 -0400
+In-Reply-To: <bug-8724-10286@http.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Jul 8, 2007, at 1:14 PM, Arjan van de Ven wrote:
+On Sun,  8 Jul 2007 14:30:17 -0700 (PDT) bugme-daemon@bugzilla.kernel.org wrote:
 
->> I reject the notion that a "flag day" switchover for a huge mass of
->> e1000 users is the correct path.  I do not think that best serves  
->> Linux
->> users.
->
-> so the options we have is do it one pci id a time; and the suggestion
-> by others like Christoph has been to make the split at the PCI Express
-> switchover. Do you agree with that approach?
+> http://bugzilla.kernel.org/show_bug.cgi?id=8724
+> 
+>            Summary: Unaligned acess in udp_recvmsg() on EV56
+>            Product: Platform Specific/Hardware
+>            Version: 2.5
+>      KernelVersion: 2.6.22-rc7-git7
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: Alpha
+>         AssignedTo: rth@twiddle.net
+>         ReportedBy: jailbird@alcatraz.fdf.net
+> 
+> 
+> Most recent kernel where this bug did not occur: Occurs in all 2.6.2[12] at
+> least
+> Distribution: Debian testing/lenny
+> Hardware Environment: Digital PWS 433au (EV56)
+> Software Environment:
+> Linux utopia 2.6.22-rc7-git7 #1 Thu Jul 8 10:34:17 CDT 2027 alpha GNU/Linux
+> 
+> Gnu C                  4.2.1
+> Gnu make               3.81
+> binutils               (GNU Binutils for Debian) 2.17.50.20070426
+> util-linux             2.12r
+> mount                  2.12r
+> module-init-tools      3.3-pre11
+> e2fsprogs              1.40-WIP
+> xfsprogs               2.8.18
+> Linux C Library        > libc.2.5
+> Dynamic linker (ldd)   2.5
+> Procps                 3.2.7
+> Net-tools              1.60
+> Kbd                    85:
+> Sh-utils               5.97
+> udev                   105
+> Modules Loaded         ipt_TOS xt_multiport xt_tcpudp xt_state ip6table_mangle
+> ip6table_filter ip6_tables ipv6 iptable_nat nf_nat nf_conntrack_ipv4
+> nf_conntrack iptable_mangle iptable_filter ip_tables x_tables dm_mod serio_raw
+> mxser_new ide_generic via_rhine mii generic ide_core tulip bitrev crc32 sg
+> sr_mod cdrom raid1 md_mod loop
+> 
+> Problem Description:
+> kernel unaligned acc    : 2248 (pc=fffffc0000583de4,va=fffffc00071c382a)
+> 
+> fffffc0000583bc0 T udp_recvmsg
+> fffffc0000583ed0 T udp_destroy_sock
+> 
+> kernel unaligned acc    : 1231 (pc=fffffc0000585190,va=fffffc000795e02e)
+> 
+> fffffc0000585120 T __udp4_lib_rcv
+> fffffc0000585bf0 T udp_rcv
+> 
+> This problem does NOT seem to affect my Tsunami/Shark (EV68AL) box running the
+> same kernel version on the same LAN.  Not sure if it's CPU generation related
+> (EV5 vs EV6), or if it's the NIC (via_rhine on the EV5 vs e100 on the EV6).
+> 
+> Steps to reproduce:
+> According to tshark, the only UDP packets are DHCP packets:
+> 
+> 1815064200.131003   10.5.128.1 -> 255.255.255.255 DHCP DHCP Offer    -
+> Transaction ID 0x27c6
+> 
+> 
 
-My preference, as someone who has to support pretty much all  
-generations of e1000-supported hardware in the field running critical  
-applications is for a single well-structured driver. Qualifying a new  
-release of the driver is a big deal, and having to qualify two of  
-them doesn't really appeal to me.
+That output isn't terribly illuminating.  We'd need to work out
+which code corresponds with pc=fffffc0000583de4 and
+pc=fffffc0000585190.
 
-We're seeing at least a couple of generations of mainboard that will  
-have both PCIe and PCI-X slots (and adapters) in them, so even in the  
-same box a PCIe split would require us to use both drivers. If  
-splitting the driver really makes for substantial simplification of  
-both, I suppose that's a compensating benefit, but it's not purely  
-beneficial.
-
-The e1000 driver (and the team behind it) has been a blessing to our  
-business. Whatever they're doing right, I'd like to see them keep  
-doing it.
+I don't think there's necessarily a bug here: that's just the kernel
+telling us that there are unaligned accesses which got successfully
+fixed up, so we're being perhaps a bit inefficient.  Yes?
