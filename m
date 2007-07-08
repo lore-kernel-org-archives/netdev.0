@@ -1,48 +1,78 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: [PATCH] [NET]: Another unnecessary net/tcp.h inclusion in net/dn.h
-Date: Sun, 8 Jul 2007 18:26:26 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0707081739370.29874@kivilampi-30.cs.helsinki.fi>
+From: Muli Ben-Yehuda <muli@il.ibm.com>
+Subject: Re: [RFC 2/2] shrink size of scatterlist on common i386/x86-64
+Date: Sun, 8 Jul 2007 19:11:54 +0300
+Message-ID: <20070708161154.GZ4146@rhun.haifa.ibm.com>
+References: <20070705.171535.105173068.davem@davemloft.net> <08FE5CC30C9A3F41BF819A502CF7BF6E0198249D@fmsmsx411.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; boundary="-696243703-1453638256-1183905629=:29874"
-Cc: Netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	shemminger@linux-foundation.org, netdev@vger.kernel.org
+To: "Williams, Mitch A" <mitch.a.williams@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:43905 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753960AbXGHP02 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Jul 2007 11:26:28 -0400
-Content-ID: <Pine.LNX.4.64.0707081826060.29874@kivilampi-30.cs.helsinki.fi>
+Received: from mtagate6.uk.ibm.com ([195.212.29.139]:10403 "EHLO
+	mtagate6.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753262AbXGHQL6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Jul 2007 12:11:58 -0400
+Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
+	by mtagate6.uk.ibm.com (8.13.8/8.13.8) with ESMTP id l68GBufQ424224
+	for <netdev@vger.kernel.org>; Sun, 8 Jul 2007 16:11:56 GMT
+Received: from d06av04.portsmouth.uk.ibm.com (d06av04.portsmouth.uk.ibm.com [9.149.37.216])
+	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l68GBumE1708178
+	for <netdev@vger.kernel.org>; Sun, 8 Jul 2007 17:11:56 +0100
+Received: from d06av04.portsmouth.uk.ibm.com (loopback [127.0.0.1])
+	by d06av04.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l68GBtmw025221
+	for <netdev@vger.kernel.org>; Sun, 8 Jul 2007 17:11:56 +0100
+Content-Disposition: inline
+In-Reply-To: <08FE5CC30C9A3F41BF819A502CF7BF6E0198249D@fmsmsx411.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On Fri, Jul 06, 2007 at 10:14:56AM -0700, Williams, Mitch A wrote:
+> David Miller wrote:
+> >> Okay, but then using SG lists makes skbuff's much bigger.
+> >>     
+> >> 	fraglist	scatterlist		   per skbuff
+> >> 32 bit	8		20		+12 * 18 = +216!
+> >> 64 bit	16		32		+16 * 18 = +288
+> >> 
+> >> So never mind...
+> >
+> >I know, this is why nobody ever really tries to tackle this.
+> >
+> >> I'll do a fraglist to scatter list set of routines, but not sure
+> >> if it's worth it.
+> >
+> >It's better to add dma_map_skb() et al. interfaces to be honest.
+> >
+> >Also even with the scatterlist idea, we'd still need to do two
+> >map calls, one for skb->data and one for the page vector.
+> 
+> FWIW, I tried this about a year ago to try to improve e1000
+> performance on pSeries.  I was hoping to simplify the driver
+> transmit code and make IOMMU mapping easier.  This was on 2.6.16 or
+> thereabouts.
+> 
+> Net result:  zilch.  No performance increase, no noticeable CPU
+> utilization
+> benefits.  Nothing.  So I dropped it.
 
----696243703-1453638256-1183905629=:29874
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
-Content-ID: <Pine.LNX.4.64.0707081826061.29874@kivilampi-30.cs.helsinki.fi>
+Do you have pointers to the patches perchance?
 
+> Slightly off topic:
+> The real problem that I saw on pSeries is lock contention for the IOMMU.
+> It's architected with a single table per slot, which is great in that
+> two boards in separate slots won't have lock contention.  However, this
+> all goes out the window when you drop a quad-port gigabit adapter in
+> there.
+> The time spent waiting for the IOMMU table lock goes up exponentially
+> as you activate each additional port.
+> 
+> In my opinion, IOMMU table locking is the major issue with this type
+> of architecture.  Since both Intel and AMD are touting IOMMUs for
+> virtual- ization support, this is an issue that's going to need a
+> lot of scrutiny.
 
-No longer needed.
+Agreed.
 
-Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
----
- include/net/dn.h |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
-
-diff --git a/include/net/dn.h b/include/net/dn.h
-index ac4ce90..6277783 100644
---- a/include/net/dn.h
-+++ b/include/net/dn.h
-@@ -3,7 +3,6 @@
- 
- #include <linux/dn.h>
- #include <net/sock.h>
--#include <net/tcp.h>
- #include <asm/byteorder.h>
- 
- #define dn_ntohs(x) le16_to_cpu(x)
--- 
-1.5.0.6
----696243703-1453638256-1183905629=:29874--
+Cheers,
+Muli
