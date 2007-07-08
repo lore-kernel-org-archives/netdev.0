@@ -1,76 +1,85 @@
 From: Arjan van de Ven <arjan@linux.intel.com>
-Subject: Re: Splitting e1000 (Was: Re: e1000: backport ich9 support from 7.5.5
- ?)
-Date: Sun, 08 Jul 2007 13:05:22 -0700
-Message-ID: <46914382.8090801@linux.intel.com>
-References: <46857C08.4030303@intel.com>	<20070629150350.414553d4.akpm@linux-foundation.org>	<4685838D.9080108@garzik.org>	<c0a09e5c0706291657kd5e4baawb113a17ca5ab2191@mail.gmail.com>	<46859F3F.305@garzik.org>	<4685C09B.7040908@intel.com>	<20070630082520.GA20140@infradead.org>	<468AD23A.4090904@intel.com>	<468D8B32.9020305@garzik.org>	<468EDAF9.3020606@intel.com>	<20070707190431.GA26341@electric-eye.fr.zoreil.com>	<46900B83.1060902@intel.com> <20070707183244.19d21893@freepuppy.rosehill.hemminger.net> <469110F6.2030902@linux.intel.com> <4691279C.8030603@garzik.org>
+Subject: Re: RFR: New e1000 driver (e1000new),
+ was: Re: e1000: backport ich9 support from 7.5.5 ?
+Date: Sun, 08 Jul 2007 13:14:03 -0700
+Message-ID: <4691458B.50403@linux.intel.com>
+References: <1183138159.17243.16.camel@blaa>	<20070629175006.GB3917@falooley.org>	<468571C6.3090305@garzik.org>	<46857C08.4030303@intel.com>
+	<20070629150350.414553d4.akpm@linux-foundation.org>
+	<4685838D.9080108@garzik.org> <468594B7.6070309@intel.com>
+	<468597F7.2050700@linux.intel.com> <46912AEA.3030604@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+Cc: Mark McLoughlin <markmc@redhat.com>,
 	"Kok, Auke" <auke-jan.h.kok@intel.com>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Andrew Grover <andy.grover@gmail.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Jason Lunz <lunz@reflexsecurity.com>,
-	Mark McLoughlin <markmc@redhat.com>,
 	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
 	"Ronciak, John" <john.ronciak@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andy Gospodarek <andy@greyhouse.net>
+	Andrew Morton <akpm@linux-foundation.org>,
+	Jason Lunz <lunz@reflexsecurity.com>
 To: Jeff Garzik <jeff@garzik.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga06.intel.com ([134.134.136.21]:35934 "EHLO
-	orsmga101.jf.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755455AbXGHUHR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Jul 2007 16:07:17 -0400
-In-Reply-To: <4691279C.8030603@garzik.org>
-Sender: netdev-owner@vger.kernel.org
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <46912AEA.3030604@garzik.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
-> Arjan van de Ven wrote:
->> I'd second this; also lets be honest and fair about things and use a 
->> similar standard for all drivers; are we going to ask all driver 
->> submitters to remove NAPI, TSO and other stuff? I would hope not. Are 
+
+> I reject the notion that a "flag day" switchover for a huge mass of 
+> e1000 users is the correct path.  I do not think that best serves Linux 
+> users.
+
+so the options we have is do it one pci id a time; and the suggestion 
+by others like Christoph has been to make the split at the PCI Express 
+switchover. Do you agree with that approach?
+
 > 
-> That was merely a suggestion.  My general meaning was "small driver is 
-> easier to get into the kernel and into the field."
-
-it didn't quite come across as a suggestion, but if it was only a 
-suggestion then ok; it's not really a practical option.
-
->> all new drivers that have even a single bitfield going to be rejected? 
->> That's be a new rule but ok, if it applies to all drivers it's fair.
+>> I appreciate the pain a temporary dual driver situation gives; it 
+>> comes down to a few things that I can think of right now, if you see 
+>> more please add to the list.
+>>
+>> 1) users who find a bug in the new one silently use the old one rather 
+>> than reporting the bug; and only scream when the old one eventually 
+>> goes away (see ALSA/OSS duplication)
+>>
+>> 2) users who enable both in KConfig may get a "random" one
+>>
+>> 3) distros really prefer only 1 driver per PCI ID for their 
+>> infrastructure tools
+>>
+>> 4) there will be resistance against deleting the old one meaning it 
+>> might not happen
 > 
-> That's one of a gazillion checklist items that a new driver has to pass 
-> through.  You know how it works for new drivers.
-> 
-> "it looks better than our last try" and "it looks better than that ugly 
-> driver over there" does not grant you a free pass on review.
+> You are missing the largest source of pain and headache:  Users will use 
+> the default driver, which means no field testing at all until flag day, 
+> with obvious results.
 
-I know how it works for new drivers; they need to be good enough to 
-maintain forward and form a burden on the stack/maintainers. Any 
-remaining items need to be small enough to not be a 'risk' for users.
+which is why the proposal that was below the text you quoted talks 
+about working with the distro kernel maintainers and get the new 
+driver default for their development releases etc etc.... that adds
+a significant level of granularity. For example I'd not be surprised 
+if Fedora and Ubuntu test releases have orders of magnitude more users 
+than kernel.org "self compiloe" kernels.
 
 
->> What is there now is a driver that works, is relatively clean (and yes 
->> if you look deep enough you can ALWAYS nitpick on any code, even 
->> Linus' or Jeff's best code) and provides good performance with all the 
->> features a modern ethernet driver is supposed to have.
-> 
-> Is this is the attitude, what's the point of even posting the driver for 
-> review?  Intel posted e1000new on June 29.  Feedback was then posted. 
+> Furthermore, Linux kernel history demonstrates that "temporary dual 
+> driver situations" are rarely temporary.  Thus, selling it as such in 
+> the face of all contrary experience is pure hyperbole.
 
-and feedback is being incorperated.
+history also demonstrates it can be done (just look at Adrian Bunk and 
+the OSS drivers) as long as someone is determined to do it. It's not 
+easy, especially cases where the two drivers have different 
+maintainers who disagree, or represent different 
+interfaces/functionality; but it's very not impossible either.
 
-> Ten days later, without a single revision, Intel declares its own driver 
-> clean and working and good enough for merging as-is.
-
-No. Arjan looked at driver and sees a rather clean driver compared to 
-some of the other recently merged drivers, sees a list of relatively 
-simple todos (some of which obviously aren't merge stoppers, others 
-are) and hopes that this driver will be treated objectively without 
-the appearance of having different levels of bars depending on what 
-your email address ends with.
+-------------------------------------------------------------------------
+This SF.net email is sponsored by DB2 Express
+Download DB2 Express C - the FREE version of DB2 express and take
+control of your XML. No limits. Just data. Click to get it now.
+http://sourceforge.net/powerbar/db2/
