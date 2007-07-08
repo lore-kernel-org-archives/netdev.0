@@ -1,21 +1,21 @@
 From: =?utf-8?q?R=C3=A9mi_Denis-Courmont?= <rdenis@simphalempin.com>
-Subject: [PATCH net-2.6.23 take 2] Per-datagram TTL and TOS via sendmsg()
-Date: Sun, 8 Jul 2007 11:07:05 +0300
-Message-ID: <200707081107.06014@auguste.remlab.net>
+Subject: [PATCH net-2.6.23 take 3] Per-datagram TTL and TOS via sendmsg()
+Date: Sun, 8 Jul 2007 11:13:09 +0300
+Message-ID: <200707081113.10203@auguste.remlab.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from poy.chewa.net ([194.242.114.73]:1847 "EHLO poy.chewa.net"
+Received: from poy.chewa.net ([194.242.114.73]:3711 "EHLO poy.chewa.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751168AbXGHIHJ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Jul 2007 04:07:09 -0400
+	id S1751143AbXGHINN convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Jul 2007 04:13:13 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[This time with automatic carriage return off :-$]
+[Hmm, stupid me. Right this time. Sorry for the line noise.]
 
 This patch adds support for specifying IPv4 Time-To-Live (IP_TTL) and/o=
 r=20
@@ -56,8 +56,7 @@ index 02a899b..e10852d 100644
 --- a/net/ipv4/icmp.c
 +++ b/net/ipv4/icmp.c
 @@ -392,8 +392,9 @@ static void icmp_reply(struct icmp_bxm *icmp_param,=
-=20
-struct sk_buff *skb)
+ struct sk_buff *skb)
  	icmp_param->data.icmph.checksum =3D 0;
  	icmp_out_count(icmp_param->data.icmph.type);
 =20
@@ -69,8 +68,7 @@ struct sk_buff *skb)
  	if (icmp_param->replyopts.optlen) {
  		ipc.opt =3D &icmp_param->replyopts;
 @@ -438,7 +439,6 @@ void icmp_send(struct sk_buff *skb_in, int type, in=
-t=20
-code, __be32 info)
+t code, __be32 info)
  	struct rtable *rt =3D (struct rtable *)skb_in->dst;
  	struct ipcm_cookie ipc;
  	__be32 saddr;
@@ -79,8 +77,7 @@ code, __be32 info)
  	if (!rt)
  		goto out;
 @@ -526,9 +526,9 @@ void icmp_send(struct sk_buff *skb_in, int type, in=
-t=20
-code, __be32 info)
+t code, __be32 info)
  			saddr =3D 0;
  	}
 =20
@@ -95,8 +92,7 @@ code, __be32 info)
  	if (ip_options_echo(&icmp_param.replyopts, skb_in))
  		goto out_unlock;
 @@ -545,7 +545,7 @@ void icmp_send(struct sk_buff *skb_in, int type, in=
-t=20
-code, __be32 info)
+t code, __be32 info)
  	icmp_param.skb	  =3D skb_in;
  	icmp_param.offset =3D skb_network_offset(skb_in);
  	icmp_out_count(icmp_param.data.icmph.type);
@@ -106,8 +102,7 @@ code, __be32 info)
  	ipc.opt =3D &icmp_param.replyopts;
 =20
 @@ -557,7 +557,7 @@ void icmp_send(struct sk_buff *skb_in, int type, in=
-t=20
-code, __be32 info)
+t code, __be32 info)
  						icmp_param.replyopts.faddr :
  						iph->saddr,
  					.saddr =3D saddr,
@@ -150,8 +145,7 @@ index 34ea454..67ce657 100644
  	iph->frag_off =3D df;
  	ip_select_ident(iph, &rt->u.dst, sk);
 @@ -1343,6 +1347,8 @@ void ip_send_reply(struct sock *sk, struct sk_buf=
-f=20
-*skb, struct ip_reply_arg *ar
+f *skb, struct ip_reply_arg *ar
 =20
  	daddr =3D ipc.addr =3D rt->rt_src;
  	ipc.opt =3D NULL;
@@ -161,8 +155,7 @@ f=20
  	if (replyopts.opt.optlen) {
  		ipc.opt =3D &replyopts.opt;
 @@ -1374,7 +1380,6 @@ void ip_send_reply(struct sock *sk, struct sk_buf=
-f=20
-*skb, struct ip_reply_arg *ar
+f *skb, struct ip_reply_arg *ar
  	   with locally disabled BH and that sk cannot be already spinlocked.
  	 */
  	bh_lock_sock(sk);
@@ -174,8 +167,8 @@ diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
 index 4d54457..02c47ff 100644
 --- a/net/ipv4/ip_sockglue.c
 +++ b/net/ipv4/ip_sockglue.c
-@@ -190,6 +190,16 @@ int ip_cmsg_send(struct msghdr *msg, struct=20
-ipcm_cookie *ipc)
+@@ -190,6 +190,16 @@ int ip_cmsg_send(struct msghdr *msg, struct ipcm_c=
+ookie *ipc)
  			ipc->addr =3D info->ipi_spec_dst.s_addr;
  			break;
  		}
@@ -196,8 +189,8 @@ diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
 index 24d7c9f..035bb37 100644
 --- a/net/ipv4/raw.c
 +++ b/net/ipv4/raw.c
-@@ -436,6 +436,8 @@ static int raw_sendmsg(struct kiocb *iocb, struct=20
-sock *sk, struct msghdr *msg,
+@@ -436,6 +436,8 @@ static int raw_sendmsg(struct kiocb *iocb, struct s=
+ock *sk, struct msghdr *msg,
  	ipc.addr =3D inet->saddr;
  	ipc.opt =3D NULL;
  	ipc.oif =3D sk->sk_bound_dev_if;
@@ -211,8 +204,7 @@ index facb7e2..d7d6a02 100644
 --- a/net/ipv4/udp.c
 +++ b/net/ipv4/udp.c
 @@ -581,6 +581,8 @@ int udp_sendmsg(struct kiocb *iocb, struct sock *sk=
-,=20
-struct msghdr *msg,
+, struct msghdr *msg,
  	}
  	ipc.addr =3D inet->saddr;
 =20
