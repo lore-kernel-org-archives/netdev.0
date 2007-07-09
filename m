@@ -1,87 +1,95 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: [2.6 patch] the overdue eepro100 removal
-Date: Mon, 09 Jul 2007 10:37:29 -0700
-Message-ID: <46927259.4060403@intel.com>
-References: <20070701202139.GM10869@stusta.de> <46894BD5.9080609@tmr.com> <46897212.30104@intel.com> <468D15F4.6020106@tmr.com> <20070709125208.GZ3492@stusta.de> <4692701B.3030506@tmr.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Adrian Bunk <bunk@stusta.de>, jgarzik@pobox.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	saw@saw.sw.com.sg, Linus Torvalds <torvalds@linux-foundation.org>
-To: Bill Davidsen <davidsen@tmr.com>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: [PATCH] bonding / ipv6: no addrconf for slaves separately from master
+Date: Mon, 09 Jul 2007 10:42:47 -0700
+Message-ID: <22567.1184002967@death>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Jeff Garzik <jgarzik@pobox.com>, yoshfuji@linux-ipv6.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:13482 "EHLO mga03.intel.com"
+Received: from e4.ny.us.ibm.com ([32.97.182.144]:39835 "EHLO e4.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752852AbXGIRhc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Jul 2007 13:37:32 -0400
-In-Reply-To: <4692701B.3030506@tmr.com>
+	id S1753747AbXGIRm7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Jul 2007 13:42:59 -0400
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e4.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l69HgtqZ004452
+	for <netdev@vger.kernel.org>; Mon, 9 Jul 2007 13:42:55 -0400
+Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
+	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l69HgtdJ476934
+	for <netdev@vger.kernel.org>; Mon, 9 Jul 2007 13:42:55 -0400
+Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
+	by d01av02.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l69HgskL021887
+	for <netdev@vger.kernel.org>; Mon, 9 Jul 2007 13:42:55 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Bill Davidsen wrote:
-> Adrian Bunk wrote:
->> On Thu, Jul 05, 2007 at 12:01:56PM -0400, Bill Davidsen wrote:
->>   
->>> Please do not make unnecessary kernel changes which require changes in our 
->>> systems.
-> 
->>> If you think the e100 driver fixes your problems use it and be happy. But 
->>> since you don't have to test system behavior with the new driver, and you 
->>> won't be called at night or on weekends if it doesn't work, do the rest of 
->>> the world a favor and stop taking out things we know to work! Leaving in 
->>> the eepro100 causes no work for you, and even if e100 works perfectly it 
->>> needs to be validated in any sane network. it still makes work.
->>>     
->> The goal is to get e100 better, and removing eepro100 helps with 
->> reaching this goal.
->>   
-> That's *your* goal, it should not be a shock that users have a goal of 
-> using their systems without having to reconfigure them every time 
-> there's a kernel upgrade containing a security fix.
 
-unfortunately it is impossible for anyone to patch *every* old version of an OS 
-there is. Not only do we not want to do this (too much work, little return), but 
-most of the times it is exponentially more difficult to fix a security bug in an 
-older OS version than a new one.
+	At present, when a device is enslaved to bonding, if ipv6 is
+active then addrconf will be initated on the slave (because it is closed
+then opened during the enslavement processing).  This causes DAD and RS
+packets to be sent from the slave.  These packets in turn can confuse
+switches that perform ipv6 snooping, causing them to incorrectly update
+their forwarding tables (if, e.g., the slave being added is an inactve
+backup that won't be used right away) and direct traffic away from the
+active slave to a backup slave (where the incoming packets will be
+dropped).
 
->> Why didn't _you_ try the e100 driver when you validated your systems 
->> after you upgraded them to kernel 2.6, and if you did and it didn't 
->> work, where is your bug report?
->>   
-> Is that a joke, or subtle irony? Do you generally validate drivers you 
-> don't use just because your hardware might be able to support them? I 
-> don't validate various accelerated video drivers on systems running 
-> mostly text console, never check sound options on systems with an audio 
-> application, etc. After I tried the e100 driver on the first few systems 
-> and found issues (which may be resolved by now) I went back to eepro100 
-> and used what worked. And used the driver for any new systems in other 
-> installs.
-> 
-> If there were any benefit to removing a working driver I would at least 
-> be able to see it as a resources issue, but as far as I can see you just 
-> seem to have a personal preference for the e100 driver and want to force 
-> others to use it because you are so much better able to decide what 
-> users need than the system administrators. That's one of the reasons 
-> people choose open source, because they have a choice, and can use 
-> what's best for them.
+	This patch alters the behavior so that addrconf will only run on
+the master device itself.  I believe this is logically correct, as it
+prevents slaves from having an IPv6 identity independent from the
+master.  This is consistent with the IPv4 behavior for bonding.
 
-as discussed before we really want to avoid having (1) an unmaintained 
-bitrotting driver for X and (2) one that should work because people are being 
-paid to take care of it.
+	This is accomplished by (a) having bonding set IFF_SLAVE sooner
+in the enslavement processing than currently occurs (before open, not
+after), and (b) having ipv6 addrconf ignore UP and CHANGE events on
+slave devices.
 
-The community has always encouraged us to work with us fixing the last issues in 
-e100 to make it work for everyone. After all, we have all the documentation and 
-facilities here to do almost all of the work.
+	The eql driver also uses the IFF_SLAVE flag.  I inspected eql,
+and I believe this change is reasonable for its usage of IFF_SLAVE, but
+I did not test it.
 
-I asked Adrian to postpone removing the eepro100 driver since we know that e100 
-is still not working on some platforms. However, if e100 is not working on your 
-specific platform, then I would certainly like to know about your problem, and 
-whether it still exists. This is orthogonal to your argument: Your complaint 
-stands (and eepro100 will not be removed until we address the ARM platform 
-issues), but I ask you kindly to work with us and test the current e100 driver 
-and report any issues to us.
+Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
 
-Cheers,
 
-Auke
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 6287ffb..2bb70e0 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1390,6 +1390,11 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 		goto err_free;
+ 	}
+ 
++	res = netdev_set_master(slave_dev, bond_dev);
++	if (res) {
++		dprintk("Error %d calling netdev_set_master\n", res);
++		goto err_close;
++	}
+ 	/* open the slave since the application closed it */
+ 	res = dev_open(slave_dev);
+ 	if (res) {
+@@ -1397,12 +1402,6 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 		goto err_restore_mac;
+ 	}
+ 
+-	res = netdev_set_master(slave_dev, bond_dev);
+-	if (res) {
+-		dprintk("Error %d calling netdev_set_master\n", res);
+-		goto err_close;
+-	}
+-
+ 	new_slave->dev = slave_dev;
+ 	slave_dev->priv_flags |= IFF_BONDING;
+ 
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index f96ed76..79b79f3 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -2268,6 +2268,9 @@ static int addrconf_notify(struct notifier_block *this, unsigned long event,
+ 		break;
+ 	case NETDEV_UP:
+ 	case NETDEV_CHANGE:
++		if (dev->flags & IFF_SLAVE)
++			break;
++
+ 		if (event == NETDEV_UP) {
+ 			if (!netif_carrier_ok(dev)) {
+ 				/* device is not ready yet. */
