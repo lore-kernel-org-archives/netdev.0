@@ -1,45 +1,81 @@
-From: Jean Tourrilhes <jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH 2.6] SoftMAC : fix ESSID problem
-Date: Mon, 9 Jul 2007 15:19:22 -0700
-Message-ID: <20070709221922.GB1381@bougret.hpl.hp.com>
-Reply-To: jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: [PATCH 04/12] sky2: check for more work before leaving NAPI
+Date: Mon, 09 Jul 2007 15:33:36 -0700
+Message-ID: <20070709223453.238106926@linux-foundation.org>
+References: <20070709223332.966231494@linux-foundation.org>
+Cc: netdev@vger.kernel.org
+To: Jeff Garzik <jgarzik@pobox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:47881 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755403AbXGIWgm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2007 18:36:42 -0400
+Content-Disposition: inline; filename=sky2-work-check.patch
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-	Hi,
+This patch avoids generating another IRQ if more packets
+arrive while in the NAPI poll routine. Before marking device as
+finished, it rechecks that the status ring is empty.
 
-	Victor Porton reported that the SoftMAC layer had random
-problem when setting the ESSID :
-		http://bugzilla.kernel.org/show_bug.cgi?id=8686
-	After investigation, it turned out to be worse, the SoftMAC
-layer is left in an inconsistent state. The fix is pretty trivial.
-        John : would you mind pushing that to 2.6.23 ?
-        Thanks...
+Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
-        Jean
 
-Signed-off-by: Jean Tourrilhes <jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org>
+--- a/drivers/net/sky2.c	2007-07-09 15:30:09.000000000 -0700
++++ b/drivers/net/sky2.c	2007-07-09 15:30:10.000000000 -0700
+@@ -2477,8 +2477,7 @@ static void sky2_err_intr(struct sky2_hw
+ static int sky2_poll(struct net_device *dev0, int *budget)
+ {
+ 	struct sky2_hw *hw = ((struct sky2_port *) netdev_priv(dev0))->hw;
+-	int work_limit = min(dev0->quota, *budget);
+-	int work_done = 0;
++	int work_done;
+ 	u32 status = sky2_read32(hw, B0_Y2_SP_EISR);
+ 
+ 	if (unlikely(status & Y2_IS_ERROR))
+@@ -2490,25 +2489,25 @@ static int sky2_poll(struct net_device *
+ 	if (status & Y2_IS_IRQ_PHY2)
+ 		sky2_phy_intr(hw, 1);
+ 
+-	work_done = sky2_status_intr(hw, work_limit);
+-	if (work_done < work_limit) {
+-		/* Bug/Errata workaround?
+-		 * Need to kick the TX irq moderation timer.
+-		 */
+-		if (sky2_read8(hw, STAT_TX_TIMER_CTRL) == TIM_START) {
+-			sky2_write8(hw, STAT_TX_TIMER_CTRL, TIM_STOP);
+-			sky2_write8(hw, STAT_TX_TIMER_CTRL, TIM_START);
+-		}
+-		netif_rx_complete(dev0);
++	work_done = sky2_status_intr(hw, min(dev0->quota, *budget));
++	*budget -= work_done;
++	dev0->quota -= work_done;
+ 
+-		/* end of interrupt, re-enables also acts as I/O synchronization */
+-		sky2_read32(hw, B0_Y2_SP_LISR);
+-		return 0;
+-	} else {
+-		*budget -= work_done;
+-		dev0->quota -= work_done;
++	/* More work? */
++ 	if (hw->st_idx != sky2_read16(hw, STAT_PUT_IDX))
+ 		return 1;
++
++	/* Bug/Errata workaround?
++	 * Need to kick the TX irq moderation timer.
++	 */
++	if (sky2_read8(hw, STAT_TX_TIMER_CTRL) == TIM_START) {
++		sky2_write8(hw, STAT_TX_TIMER_CTRL, TIM_STOP);
++		sky2_write8(hw, STAT_TX_TIMER_CTRL, TIM_START);
+ 	}
++	netif_rx_complete(dev0);
++
++	sky2_read32(hw, B0_Y2_SP_LISR);
++	return 0;
+ }
+ 
+ static irqreturn_t sky2_intr(int irq, void *dev_id)
 
------------------------------------------------------------
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
 
---- linux/net/ieee80211/softmac/ieee80211softmac_assoc.j1.c	2007-07-09 13:56:13.000000000 -0700
-+++ linux/net/ieee80211/softmac/ieee80211softmac_assoc.c	2007-07-09 13:56:41.000000000 -0700
-@@ -271,8 +271,11 @@ ieee80211softmac_assoc_work(struct work_
- 			 */
- 			dprintk(KERN_INFO PFX "Associate: Scanning for networks first.\n");
- 			ieee80211softmac_notify(mac->dev, IEEE80211SOFTMAC_EVENT_SCAN_FINISHED, ieee80211softmac_assoc_notify_scan, NULL);
--			if (ieee80211softmac_start_scan(mac))
-+			if (ieee80211softmac_start_scan(mac)) {
- 				dprintk(KERN_INFO PFX "Associate: failed to initiate scan. Is device up?\n");
-+				mac->associnfo.associating = 0;
-+				mac->associnfo.associated = 0;
-+			}
- 			goto out;
- 		} else {
- 			mac->associnfo.associating = 0;
