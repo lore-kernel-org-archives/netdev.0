@@ -1,48 +1,68 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: + gen_estimator-fix-locking-and-timer-related-bugs.patch added to -mm tree
-Date: Mon, 9 Jul 2007 10:25:23 +0200
-Message-ID: <20070709082522.GB1851@ff.dom.local>
-References: <200706271921.l5RJLgCC003910@imap1.linux-foundation.org> <1183642800.3789.11.camel@ranko-fc2.spidernet.net> <20070705142135.GG4759@ff.dom.local> <1183646029.4069.11.camel@ranko-fc2.spidernet.net> <1183651165.4069.26.camel@ranko-fc2.spidernet.net> <20070706061420.GA1846@ff.dom.local> <20070706062629.GC1846@ff.dom.local> <20070706064523.GA2144@ff.dom.local> <20070706124711.GA3453@ff.dom.local> <1183727778.6389.6.camel@ranko-fc2.spidernet.net>
+From: Muli Ben-Yehuda <muli@il.ibm.com>
+Subject: Re: [RFC 2/2] shrink size of scatterlist on common i386/x86-64
+Date: Mon, 9 Jul 2007 11:53:07 +0300
+Message-ID: <20070709085307.GK3182@rhun.haifa.ibm.com>
+References: <08FE5CC30C9A3F41BF819A502CF7BF6E0198249D@fmsmsx411.amr.corp.intel.com> <20070706.122019.55506705.davem@davemloft.net> <20070708161730.GA4146@rhun.haifa.ibm.com> <20070709.000640.122589877.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: akpm@linux-foundation.org, kaber@trash.net, netdev@vger.kernel.org
-To: Ranko Zivojnovic <ranko@spidernet.net>
+Cc: mitch.a.williams@intel.com, shemminger@linux-foundation.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx10.go2.pl ([193.17.41.74]:54515 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751171AbXGIIQp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Jul 2007 04:16:45 -0400
+Received: from mtagate5.uk.ibm.com ([195.212.29.138]:50409 "EHLO
+	mtagate5.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751043AbXGIIxL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2007 04:53:11 -0400
+Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
+	by mtagate5.uk.ibm.com (8.13.8/8.13.8) with ESMTP id l698r9Mn542350
+	for <netdev@vger.kernel.org>; Mon, 9 Jul 2007 08:53:09 GMT
+Received: from d06av03.portsmouth.uk.ibm.com (d06av03.portsmouth.uk.ibm.com [9.149.37.213])
+	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l698r93j3084504
+	for <netdev@vger.kernel.org>; Mon, 9 Jul 2007 09:53:09 +0100
+Received: from d06av03.portsmouth.uk.ibm.com (loopback [127.0.0.1])
+	by d06av03.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l698r8am030404
+	for <netdev@vger.kernel.org>; Mon, 9 Jul 2007 09:53:08 +0100
 Content-Disposition: inline
-In-Reply-To: <1183727778.6389.6.camel@ranko-fc2.spidernet.net>
+In-Reply-To: <20070709.000640.122589877.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 06, 2007 at 04:16:18PM +0300, Ranko Zivojnovic wrote:
-> On Fri, 2007-07-06 at 14:47 +0200, Jarek Poplawski wrote:
-> > On Fri, Jul 06, 2007 at 08:45:23AM +0200, Jarek Poplawski wrote:
-> > > On Fri, Jul 06, 2007 at 09:08:43AM +0300, Ranko Zivojnovic wrote:
-> > ...
-> > > > In order to get that parameter out of the way - I will make the same
-> > > > test on a real machine.
-> > 
-> > BTW, maybe it would be better to try with something more stable than -mm.
+On Mon, Jul 09, 2007 at 12:06:40AM -0700, David Miller wrote:
+
+> > That works, but isn't optimal when you have an isolation-capable
+> > IOMMU and you want the full isolation properties of the IOMMU. If
+> > you only flush the IOTLB when the allocator wraps around, a stale
+> > entry in the IOTLB can allow a DMA to go through for an IO entry
+> > that has already been unmapped. One way to mitigate that and still
+> > retain full isolation is to make sure no one else gets to use the
+> > frames that are the targets of the DMA until the translation has
+> > been flushed out of the IOTLB, but that requires pretty deep
+> > surgery.
 > 
-> That would be the next thing I was to try. Suggestion?
+> Virtualization sucks doesn't it? :-)
 
-Of course, -mm needs testing too, and it's probably easier
-to find bugs here, but it's hard to check fixes: you never
-know if the new bugs are caused by the fix or the fix only
-uncovered them. So, last stable or -rc versions (at least
-with higher numbers) should make things faster. 
+no comment :-) FWIW isolation capable IOMMUs are also useful to catch
+DMA errors when drivers program devices to DMA where they
+shouldn't. Sure, drivers can trash the kernel in other ways, but a
+printk beats random memory corruption any day of the week.
 
-I've looked a bit on this first log, and it's very strange,
-especially stats of cpu#0. Maybe it's really about vmware
-or maybe there is something more, but it doesn't seem this
-stats_lock deadlock could've done all this mess. Anyway, it
-would be interesting to repeat such test with -mm after
-checking e.g. with 2.6.22.
+> It's one of the worst aspects of all of this virtualization
+> business.  In my view it makes no sense to split up the physical
+> hardware.  Just give control nodes complete access to everything and
+> instead of playing games partializing real hardware, just give
+> virtual instances to everybody and be done with all of this
+> complexity.
 
-Thanks,
-Jarek P.
+Virtual instances have a non-negligible performance cost and
+development cost - you need a virtual driver for any device or class
+of devices out there. Not to say that they aren't useful, just that
+direct access (aka "passthrough") has its uses too.
 
-PS: Sorry for late responding.
+> Anyways, hypervisors et al. have already decided to do this
+> braindamage so you will need to find some way to make it go fast now
+> won't you? :)
+
+Working on it :-)
+
+Cheers,
+Muli
