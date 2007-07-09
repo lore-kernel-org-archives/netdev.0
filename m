@@ -1,42 +1,45 @@
-From: linas@austin.ibm.com (Linas Vepstas)
-Subject: Re: [PATCH] spidernet: improve interrupt handling
-Date: Mon, 9 Jul 2007 17:19:22 -0500
-Message-ID: <20070709221922.GP4457@austin.ibm.com>
-References: <20070709.174808.-1350520249.kouish@swc.toshiba.co.jp>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [GIT PATCH] Updates for RH0 deprecation.
+Date: Tue, 10 Jul 2007 07:25:01 +0900 (JST)
+Message-ID: <20070710.072501.41348033.yoshfuji@linux-ipv6.org>
+References: <20070710.022901.53209186.yoshfuji@linux-ipv6.org>
+	<20070709.142830.93645744.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, cbe-oss-dev@ozlabs.org
-To: Ishizaki Kou <kou.ishizaki@toshiba.co.jp>
+Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e2.ny.us.ibm.com ([32.97.182.142]:57405 "EHLO e2.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753913AbXGIWTY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Jul 2007 18:19:24 -0400
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e2.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l69MJOAY007837
-	for <netdev@vger.kernel.org>; Mon, 9 Jul 2007 18:19:24 -0400
-Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l69MJOiO346376
-	for <netdev@vger.kernel.org>; Mon, 9 Jul 2007 18:19:24 -0400
-Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
-	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l69MJNsL032686
-	for <netdev@vger.kernel.org>; Mon, 9 Jul 2007 18:19:23 -0400
-Content-Disposition: inline
-In-Reply-To: <20070709.174808.-1350520249.kouish@swc.toshiba.co.jp>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:47670 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754439AbXGIWY0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2007 18:24:26 -0400
+In-Reply-To: <20070709.142830.93645744.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 09, 2007 at 05:48:08PM +0900, Ishizaki Kou wrote:
-> We intend this patch to improve spidernet interrupt handling to be
-> more strict.  We had following problem and this patch solves it.
+In article <20070709.142830.93645744.davem@davemloft.net> (at Mon, 09 Jul 2007 14:28:30 -0700 (PDT)), David Miller <davem@davemloft.net> says:
 
-Looks reasonable to me. I'll forward it upstream. In the future,
-could you use "diff -Nupr"? it adds some extra information
-(the name of the subroutine) to the patch chunks; this makes 
-it easier to read. 
+> From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
+> Date: Tue, 10 Jul 2007 02:29:01 +0900 (JST)
+> 
+> > Changesets are available at
+> > 	git://git.linux-ipv6.org/gitroot/yoshfuji/linux-2.6-dev.git/
+> > on the branch named
+> > 	linux-2.6.22_deprecate-rh0-20070710
+> 
+> davem@sunset:~/src/GIT/ipv6-2.6$ git pull git://git.linux-ipv6.org/gitroot/yoshfuji/linux-2.6-dev.git linux-2.6.22_deprecate-rh0-20070710
+> error: no such remote ref refs/heads/linux-2.6.22_deprecate-rh0-20070710
+> fatal: Fetch failure: git://git.linux-ipv6.org/gitroot/yoshfuji/linux-2.6-dev.git
 
-QUILT_DIFF_OPTS="-Nupr"
-in ~/.quiltrc if you use quilt.
+... Sorry, the repository was not synchronized appropriately...
+(rsync has been stuck for several days; I do not know the reason...)
 
---linas
+Would you please try it again?
 
+Thank you.
+
+-- 
+YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
+GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
