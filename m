@@ -1,53 +1,56 @@
-From: Tetsuo Handa <from-netdev@I-love.SAKURA.ne.jp>
-Subject: Re: [RFC] Allow LSM to use IP address/port number.
-Date: Mon, 9 Jul 2007 22:13:52 +0900
-Message-ID: <200707092213.HAC58314.WSNFtPGOFUE@I-love.SAKURA.ne.jp>
-References: <200707070225.AFC45609.MNStNTPG@I-love.SAKURA.ne.jp>
-	<200707061343.03942.paul.moore@hp.com>
-	<200707090533.l695X1PM059672@www262.sakura.ne.jp>
-	<20070709.002629.28788394.davem@davemloft.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [patch 5/7] CAN: Add virtual CAN netdevice driver
+Date: Mon, 09 Jul 2007 16:18:59 +0200
+Message-ID: <469243D3.3090208@trash.net>
+References: <20070622034452.28886.0@janus.isnogud.escape.de>	<20070622034703.28886.5@janus.isnogud.escape.de>	<467BAC48.1070700@trash.net> <ygfk5tw41rq.fsf@janus.isnogud.escape.de>	<467BC2AF.8080901@trash.net> <467D0C97.1000000@hartkopp.net>	<467D178B.8080503@trash.net> <467D3891.4010906@hartkopp.net>	<467D4965.40601@trash.net> <467D4D65.2080806@hartkopp.net>	<467D54AB.5010407@trash.net> <ygfzm2ciemk.fsf@janus.isnogud.escape.de>	<468BA83A.7070500@trash.net> <ygfodil7qpi.fsf@janus.isnogud.escape.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-security-module@vger.kernel.org
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20070709.002629.28788394.davem@davemloft.net>
-Sender: linux-security-module-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Oliver Hartkopp <oliver@hartkopp.net>,
+	David Miller <davem@davemloft.net>,
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
+	j.hadi123@gmail.com, netdev@vger.kernel.org
+To: Urs Thuermann <urs@isnogud.escape.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:63826 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753247AbXGIOTR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2007 10:19:17 -0400
+In-Reply-To: <ygfodil7qpi.fsf@janus.isnogud.escape.de>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+Urs Thuermann wrote:
+> + * CAN network devices *should* support a local loopback functionality
+> + * (see Documentation/networking/can.txt). To test the handling of CAN
+> + * interfaces that do not support the loopback both driver types are
+> + * implemented inside this vcan driver. In the case that the driver does
+> + * not support the loopback the IFF_LOOPBACK remains clear in dev->flags.
+> + * This causes the PF_CAN core to perform the loopback as a fallback solution.
+> + */
+> +
+> +static int loopback = 0; /* vcan default: no loopback, just free the skb */
+> +module_param(loopback, int, S_IRUGO);
+> +MODULE_PARM_DESC(loopback, "Loop back sent frames. vcan default: 0 (Off)");
 
-Thank you for your comment.
+...
 
-
-David Miller wrote:
-> I don't think it's such a hot idea to return errors if the
-> wait_on_sync_kiocb() has returned success.
-My patch may return errors for non-wait_on_sync_kiocb() case too.
-Are you saying only wait_on_sync_kiocb() case is bad?
-If so, could you please explain me why?
-The location I inserted a hook is "after aio event finished".
-Both "struct kiocb" and "struct sock_iocb" are no longer in use.
-So, I think this location can safely return errors.
-
-
-If you are saying "don't return error after receiving data",
-I'll explain you why I need hooks after receiving data.
-
-What I want to do is to implement a kind of anti-virus software's
-personal firewall feature.
-It drops messages from unwanted IP address/ports.
-(To be exact, it doesn't drop, it just tells userland process
-not to use received messages by returning errors.)
-
-security_socket_recvmsg() is called before retrieving a message.
-I want a hook that is called after retrieving a message
-so that I can use IP address and port number for judgement.
-
-I also want to allow users judge interactively using a popup dialog.
-To judge interactively, the hook has to be block-able.
-If non-interactive, iptables is the appropriate location for filtering.
-This is why I want to insert security_socket_post_recvmsg() hook here.
+> +static void vcan_setup(struct net_device *dev)
+> +{
+> +	DBG("dev %s\n", dev->name);
+> +
+> +	dev->type              = ARPHRD_CAN;
+> +	dev->mtu               = sizeof(struct can_frame);
+> +	dev->hard_header_len   = 0;
+> +	dev->addr_len          = 0;
+> +	dev->tx_queue_len      = 0;
+> +	dev->flags             = IFF_NOARP;
+> +
+> +	/* set flags according to driver capabilities */
+> +	if (loopback)
+> +		dev->flags |= IFF_LOOPBACK;
 
 
-Regards.
+Still configuration of the network device based on module parameters.
+What about people that want loopback and non-loopback devices at the
+same time?
