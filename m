@@ -1,47 +1,64 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: + gen_estimator-fix-locking-and-timer-related-bugs.patch added
- to -mm tree
-Date: Mon, 09 Jul 2007 18:54:05 +0200
-Message-ID: <4692682D.5030705@trash.net>
-References: <200706271921.l5RJLgCC003910@imap1.linux-foundation.org>	 <1183642800.3789.11.camel@ranko-fc2.spidernet.net>	 <20070705142135.GG4759@ff.dom.local>	 <1183646029.4069.11.camel@ranko-fc2.spidernet.net>	 <1183651165.4069.26.camel@ranko-fc2.spidernet.net>	 <20070706061420.GA1846@ff.dom.local> <20070706062629.GC1846@ff.dom.local>	 <20070706064523.GA2144@ff.dom.local>	 <1183727654.6389.3.camel@ranko-fc2.spidernet.net>	 <468E4FD9.4060702@trash.net>	 <1183733732.6389.26.camel@ranko-fc2.spidernet.net>	 <1183794918.30237.69.camel@localhost.localdomain>	 <Pine.LNX.4.64.0707071704370.1808@x2>	 <1183984861.18656.21.camel@ranko-fc2.spidernet.net>	 <46923DA8.9010208@trash.net> <1183999420.18656.54.camel@ranko-fc2.spidernet.net>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: L2 network namespaces + macvlan performances
+Date: Mon, 09 Jul 2007 09:59:06 -0700
+Message-ID: <4692695A.8000301@hp.com>
+References: <468E724F.9070505@bull.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jarek Poplawski <jarkao2@o2.pl>, akpm@linux-foundation.org,
-	netdev@vger.kernel.org
-To: Ranko Zivojnovic <ranko@spidernet.net>
+Cc: Linux Containers <containers@lists.osdl.org>,
+	netdev@vger.kernel.org, ebiederm@xmission.com,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	Patrick McHardy <kaber@trash.net>
+To: Benjamin Thery <benjamin.thery@bull.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:34077 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754170AbXGIQyY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2007 12:54:24 -0400
-In-Reply-To: <1183999420.18656.54.camel@ranko-fc2.spidernet.net>
+Received: from palrel12.hp.com ([156.153.255.237]:57470 "EHLO palrel12.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750750AbXGIRAQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Jul 2007 13:00:16 -0400
+In-Reply-To: <468E724F.9070505@bull.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ranko Zivojnovic wrote:
-> On Mon, 2007-07-09 at 15:52 +0200, Patrick McHardy wrote:
+> Between the "normal" case and the "net namespace + macvlan" case, 
+> results are  about the same for both the throughput and the local CPU 
+> load for the following test types: TCP_MAERTS, TCP_RR, UDP_STREAM, UDP_RR.
 > 
->>You could also use synchronize_rcu(), estimator destruction is
->>not particulary performance critical.
+> macvlan looks like a very good candidate for network namespace in these 
+> cases.
 > 
-> 
-> I've tried synchronize_rcu(), but it went kaboom with the below, thus
-> call_rcu() must stay:
-> 
-> ---cut---
-> BUG: sleeping function called from invalid context at kernel/sched.c:3928
-> in_atomic():1, irqs_disabled():0
+> But, with the TCP_STREAM test, I observed the CPU load is about the
+> same (that's what we wanted) but the throughput decreases by about 5%:
+> from 850MB/s down to 810MB/s.
+> I haven't investigated yet why the throughput decrease in the case.
+> Does it come from my setup, from macvlan additional treatments, other? I 
+> don't know yet
 
+Given that your "normal" case doesn't hit link-rate on the TCP_STREAM, 
+but it does with UDP_STREAM, it could be that there isn't quite enough 
+TCP window available, particularly given it seems the default settings 
+for sockets/windows are in use.  You might try your normal case with the 
+test-specific -S and -s options to increase the socket buffer size:
 
-Right, I forgot that we're holding some locks.
+netperf -H 192.168.76.1 -i 30,3 -l 20 -t TCP_STREAM -- -m 1400 -S 128K 
+-S 128K
 
-> [...]
-> All the changes above now included in the attached patch. I've clean
-> compiled it with 2.6.22 and now testing this version.
+and see if that gets you link-rate.  One other possibility there is the 
+use of the 1400 byte send - that probably doesn't interact terribly well 
+with TSO.  Also, it isn't (?) likely the MSS for the connection, which 
+you can have reported by adding a "-v 2" to the global options.  You 
+could/should then use the MSS in a subsequent test, or perhaps better 
+still use a rather larger send size for TCP_STREAM|TCP_MAERTS - I myself 
+for no particular reason tend to use either 32KB or 64KB as the send 
+size in the netperf TCP_STREAM tests I run.
 
+A final WAG - that the 1400 byte send size interacted poorly with the 
+Nagle algorithm since it was a sub-MSS send.  When Nagle is involved, 
+things can be very timing-sensitive, change the timing ever so slightly 
+and you can have a rather larger change in throughput. That could be 
+dealt-with either with the larger send sizes mentioned above, or by 
+adding a test-specific -D option to set TCP_NODELAY.
 
-Looks good. Please resend with a Signed-off-by: line once you're done
-testing so Dave can apply it (ideally with a new subject so it doesn't
-get missed).
+happy benchmarking,
 
+rick jones
