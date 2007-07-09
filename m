@@ -1,44 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [NET]: Fix gen_estimator timer removal race
-Date: Mon, 09 Jul 2007 15:30:36 -0700 (PDT)
-Message-ID: <20070709.153036.24205948.davem@davemloft.net>
-References: <468BC127.1090904@trash.net>
-	<20070705054801.GA1569@ff.dom.local>
+Subject: Re: [PATCH -rc7 1/1] netpoll: Fix a leak-n-bug in netpoll_cleanup()
+Date: Mon, 09 Jul 2007 15:22:52 -0700 (PDT)
+Message-ID: <20070709.152252.13771404.davem@davemloft.net>
+References: <20070704110641.28497.92035.sendpatchset@cselinux1.cse.iitk.ac.in>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org
-To: jarkao2@o2.pl
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	akpm@linux-foundation.org
+To: ssatyam@cse.iitk.ac.in
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48662
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48660
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754334AbXGJD3i (ORCPT
+	by vger.kernel.org with ESMTP id S1754368AbXGJD3i (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2007 23:29:38 -0400
-In-Reply-To: <20070705054801.GA1569@ff.dom.local>
+In-Reply-To: <20070704110641.28497.92035.sendpatchset@cselinux1.cse.iitk.ac.in>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jarek Poplawski <jarkao2@o2.pl>
-Date: Thu, 5 Jul 2007 07:48:01 +0200
+From: Satyam Sharma <ssatyam@cse.iitk.ac.in>
+Date: Wed, 04 Jul 2007 16:36:41 +0530
 
-> On Wed, Jul 04, 2007 at 05:47:51PM +0200, Patrick McHardy wrote:
-> > This is an updated version of the gen_estimator fix
-> > that relies on all changes happening under the rtnl
-> > and just fixes the race between timer rearming and
-> > timer removal.
-> > 
-> > 
+> From: Satyam Sharma <ssatyam@cse.iitk.ac.in>
 > 
-> > [NET]: Fix gen_estimator timer removal race
-> > 
-> > As noticed by Jarek Poplawski <jarkao2@o2.pl>, the timer removal in
-> > gen_kill_estimator races with the timer function rearming the timer.
-> > 
-> > Check whether the timer list is empty before rearming the timer
-> > in the timer function to fix this.
-> > 
-> > Signed-off-by: Patrick McHardy <kaber@trash.net>
+> [1/1] netpoll: Fix a leak-n-bug in netpoll_cleanup()
 > 
-> Acked-by: Jarek Poplawski <jarkao2@o2.pl>
+> 93ec2c723e3f8a216dde2899aeb85c648672bc6b applied excessive duct tape to
+> the netpoll beast's netpoll_cleanup(), thus substituting one leak with
+> another, and opening up a little buglet :-)
+> 
+> net_device->npinfo (netpoll_info) is a shared and refcounted object and
+> cannot simply be set NULL the first time netpoll_cleanup() is called.
+> Otherwise, further netpoll_cleanup()'s see np->dev->npinfo == NULL and
+> become no-ops, thus leaking. And it's a bug too: the first call to
+> netpoll_cleanup() would thus (annoyingly) "disable" other (still alive)
+> netpolls too. Maybe nobody noticed this because netconsole (only user
+> of netpoll) never supported multiple netpoll objects earlier.
+> 
+> This is a trivial and obvious one-line fixlet.
+> 
+> Signed-off-by: Satyam Sharma <ssatyam@cse.iitk.ac.in>
 
-Applied, thanks guys.
+Applied to net-2.6.23, I'll forward this on to -stable too.
+
+Thanks.
