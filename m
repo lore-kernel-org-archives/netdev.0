@@ -1,65 +1,58 @@
-From: Oliver Hartkopp <oliver@hartkopp.net>
-Subject: Re: [patch 5/7] CAN: Add virtual CAN netdevice driver
-Date: Mon, 09 Jul 2007 17:27:10 +0200
-Message-ID: <469253CE.8040004@hartkopp.net>
-References: <20070622034452.28886.0@janus.isnogud.escape.de>	<20070622034703.28886.5@janus.isnogud.escape.de>	<467BAC48.1070700@trash.net> <ygfk5tw41rq.fsf@janus.isnogud.escape.de>	<467BC2AF.8080901@trash.net> <467D0C97.1000000@hartkopp.net>	<467D178B.8080503@trash.net> <467D3891.4010906@hartkopp.net>	<467D4965.40601@trash.net> <467D4D65.2080806@hartkopp.net>	<467D54AB.5010407@trash.net> <ygfzm2ciemk.fsf@janus.isnogud.escape.de>	<468BA83A.7070500@trash.net> <ygfodil7qpi.fsf@janus.isnogud.escape.de> <469243D3.3090208@trash.net>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 8726] New: MSG_TRUNC not regarded in
+ unix_dgram_recvmsg()
+Date: Mon, 9 Jul 2007 09:16:47 -0700
+Message-ID: <20070709091647.9fce4cc0.akpm@linux-foundation.org>
+References: <bug-8726-10286@http.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Urs Thuermann <urs@isnogud.escape.de>,
-	David Miller <davem@davemloft.net>,
-	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
-	j.hadi123@gmail.com, netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Cc: "bugme-daemon@kernel-bugs.osdl.org"
+	<bugme-daemon@kernel-bugs.osdl.org>, garkein@mailueberfall.de
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.162]:47773 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751581AbXGIP1e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2007 11:27:34 -0400
-In-Reply-To: <469243D3.3090208@trash.net>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:58881 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753913AbXGIQQ6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2007 12:16:58 -0400
+In-Reply-To: <bug-8726-10286@http.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy wrote:
-> Urs Thuermann wrote:
->   
->> (..) To test the handling of CAN
->> + * interfaces that do not support the loopback both driver types are
->> + * implemented inside this vcan driver.
->> (..)
->>     
->
-> Still configuration of the network device based on module parameters.
-> What about people that want loopback and non-loopback devices at the
-> same time?
->   
+On Mon,  9 Jul 2007 04:01:58 -0700 (PDT) bugme-daemon@bugzilla.kernel.org wrote:
 
-Hi Patrick,
-
-the people get the loopback functionality in ANY case. There is indeed
-no difference from the view of the users, if you change this switch.
-
-The possibility to enable the loopback on vcan driver level is only to ...
-
-1. Test the loopback fallback code in af_can.c
-2. Show, how a correct loopback handling is to be implemented
-
-... nothing more.
-
-Regarding point 1: The code is well tested now.
-Regarding point 2: Even if code is the best documentation in many cases,
-the loopback functionality may also be 'documented' in another way.
-
-I had a short discussion with Urs about that. Please select:
-
-[ ] Let it like it is
-[ ] Remove the whole loopback functionality (as it is only test code for
-a different module)
-[ ] Remove the module parameter and make it a #define VCAN_LOOPBACK for
-testing
-
-:-)
-
-Thanks & best regards,
-Oliver
-
+> http://bugzilla.kernel.org/show_bug.cgi?id=8726
+> 
+>            Summary: MSG_TRUNC not regarded in unix_dgram_recvmsg()
+>            Product: Networking
+>            Version: 2.5
+>      KernelVersion: 2.6.19
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: Other
+>         AssignedTo: acme@ghostprotocols.net
+>         ReportedBy: garkein@mailueberfall.de
+> 
+> 
+> Problem Description:
+> 
+> In unix_dgram_recvmsg() in af_unix.c the flag MSG_TRUNC is not regarded as
+> described in the recv(2) man page.
+> 
+> This did work in older kernels (I have a working 2.6.13, but am not sure if
+> that is a plain kernel.org one, nor if it was the last working revision).
+> I believe the bug was introduced when the variable "copied" was removed from
+> the code.
+> 
+> IMHO, the line 1650:
+> 
+> err = size;
+> 
+> should read
+> 
+> err = (flags & MSG_TRUNC) ? skb->len : size;
+> 
