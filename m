@@ -1,192 +1,92 @@
-From: akpm@linux-foundation.org
-Subject: [patch 1/2] Introduce O_CLOEXEC
-Date: Mon, 09 Jul 2007 14:54:53 -0700
-Message-ID: <200707092154.l69LssVX014487@imap1.linux-foundation.org>
-Cc: akpm@linux-foundation.org, drepper@redhat.com, chris@zankel.net,
-	davidel@xmailserver.org, kyle@parisc-linux.org, mingo@elte.hu,
-	mtk-manpages@gmx.net
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:49022 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755806AbXGIV42 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2007 17:56:28 -0400
-Sender: netdev-owner@vger.kernel.org
+From: Jean Tourrilhes <jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH 2.6] WE : Fix get 32 char ESSID
+Date: Mon, 9 Jul 2007 15:13:22 -0700
+Message-ID: <20070709221322.GA1381@bougret.hpl.hp.com>
+Reply-To: jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Ulrich Drepper <drepper@redhat.com>
+	Hi,
 
-The problem is as follows: in multi-threaded code (or more correctly: all
-code using clone() with CLONE_FILES) we have a race when exec'ing.
+	A little bug was introduced a few months ago that prevent
+reading ESSID with 32 character. Philippe Teuwen was the first one to
+report that, followed by the MadWifi team :
+		http://madwifi.org/ticket/930
+	The patch fix this bug by removing obsolete code. It also
+reenable setting the full range of ESSID, including ESSID with a final
+NUL which are valid. This was tested on 2.6.21 and 2.6.22.
+	John : would you mind pushing that to 2.6.23 ? If you are
+happy with it, I can provide backport patches for earlier kernels.
+        Thanks...
 
-   thread #1                       thread #2
+        Jean
 
-   fd=open()
+Signed-off-by: Jean Tourrilhes <jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org>
 
-                                   fork + exec
+-----------------------------------------------------------
 
-  fcntl(fd,F_SETFD,FD_CLOEXEC)
-
-In some applications this can happen frequently.  Take a web browser.  One
-thread opens a file and another thread starts, say, an external PDF viewer.
- The result can even be a security issue if that open file descriptor
-refers to a sensitive file and the external program can somehow be tricked
-into using that descriptor.
-
-Just adding O_CLOEXEC support to open() doesn't solve the whole set of
-problems.  There are other ways to create file descriptors (socket,
-epoll_create, Unix domain socket transfer, etc).  These can and should be
-addressed separately though.  open() is such an easy case that it makes not
-much sense putting the fix off.
-
-The test program:
-
-#include <errno.h>
-#include <fcntl.h>
-#include <stdio.h>
-#include <unistd.h>
-
-#ifndef O_CLOEXEC
-# define O_CLOEXEC 02000000
-#endif
-
-int
-main (int argc, char *argv[])
-{
-  int fd;
-  if (argc > 1)
-    {
-      fd = atol (argv[1]);
-      printf ("child: fd = %d\n", fd);
-      if (fcntl (fd, F_GETFD) == 0 || errno != EBADF)
-        {
-          puts ("file descriptor valid in child");
-          return 1;
-        }
-      return 0;
-    }
-
-  fd = open ("/proc/self/exe", O_RDONLY | O_CLOEXEC);
-  printf ("in parent: new fd = %d\n", fd);
-  char buf[20];
-  snprintf (buf, sizeof (buf), "%d", fd);
-  execl ("/proc/self/exe", argv[0], buf, NULL);
-  puts ("execl failed");
-  return 1;
-}
-
-[kyle@parisc-linux.org: parisc fix]
-Signed-off-by: Ulrich Drepper <drepper@redhat.com>
-Acked-by: Ingo Molnar <mingo@elte.hu>
-Cc: Davide Libenzi <davidel@xmailserver.org>
-Cc: Michael Kerrisk <mtk-manpages@gmx.net>
-Cc: Chris Zankel <chris@zankel.net>
-Signed-off-by: Kyle McMartin <kyle@parisc-linux.org>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
----
-
- fs/open.c                   |   14 +++++++++++---
- include/asm-generic/fcntl.h |    3 +++
- include/asm-parisc/fcntl.h  |   31 ++++++++++++++++---------------
- 3 files changed, 30 insertions(+), 18 deletions(-)
-
-diff -puN fs/open.c~introduce-o_cloexec-take-2 fs/open.c
---- a/fs/open.c~introduce-o_cloexec-take-2
-+++ a/fs/open.c
-@@ -855,7 +855,7 @@ EXPORT_SYMBOL(dentry_open);
- /*
-  * Find an empty file descriptor entry, and mark it busy.
-  */
--int get_unused_fd(void)
-+static int get_unused_fd_flags(int flags)
- {
- 	struct files_struct * files = current->files;
- 	int fd, error;
-@@ -891,7 +891,10 @@ repeat:
- 	}
+--- linux/net/wireless/wext.j1.c	2007-07-09 13:19:22.000000000 -0700
++++ linux/net/wireless/wext.c	2007-07-09 13:19:59.000000000 -0700
+@@ -741,39 +741,11 @@ static int ioctl_standard_call(struct ne
+ 		int	extra_size;
+ 		int	user_length = 0;
+ 		int	err;
+-		int	essid_compat = 0;
  
- 	FD_SET(fd, fdt->open_fds);
--	FD_CLR(fd, fdt->close_on_exec);
-+	if (flags & O_CLOEXEC)
-+		FD_SET(fd, fdt->close_on_exec);
-+	else
-+		FD_CLR(fd, fdt->close_on_exec);
- 	files->next_fd = fd + 1;
- #if 1
- 	/* Sanity check */
-@@ -907,6 +910,11 @@ out:
- 	return error;
- }
+ 		/* Calculate space needed by arguments. Always allocate
+ 		 * for max space. Easier, and won't last long... */
+ 		extra_size = descr->max_tokens * descr->token_size;
  
-+int get_unused_fd(void)
-+{
-+	return get_unused_fd_flags(0);
-+}
-+
- EXPORT_SYMBOL(get_unused_fd);
- 
- static void __put_unused_fd(struct files_struct *files, unsigned int fd)
-@@ -959,7 +967,7 @@ long do_sys_open(int dfd, const char __u
- 	int fd = PTR_ERR(tmp);
- 
- 	if (!IS_ERR(tmp)) {
--		fd = get_unused_fd();
-+		fd = get_unused_fd_flags(flags);
- 		if (fd >= 0) {
- 			struct file *f = do_filp_open(dfd, tmp, flags, mode);
- 			if (IS_ERR(f)) {
-diff -puN include/asm-generic/fcntl.h~introduce-o_cloexec-take-2 include/asm-generic/fcntl.h
---- a/include/asm-generic/fcntl.h~introduce-o_cloexec-take-2
-+++ a/include/asm-generic/fcntl.h
-@@ -48,6 +48,9 @@
- #ifndef O_NOATIME
- #define O_NOATIME	01000000
- #endif
-+#ifndef O_CLOEXEC
-+#define O_CLOEXEC	02000000	/* set close_on_exec */
-+#endif
- #ifndef O_NDELAY
- #define O_NDELAY	O_NONBLOCK
- #endif
-diff -puN include/asm-parisc/fcntl.h~introduce-o_cloexec-take-2 include/asm-parisc/fcntl.h
---- a/include/asm-parisc/fcntl.h~introduce-o_cloexec-take-2
-+++ a/include/asm-parisc/fcntl.h
-@@ -3,21 +3,22 @@
- 
- /* open/fcntl - O_SYNC is only implemented on blocks devices and on files
-    located on an ext2 file system */
--#define O_APPEND	00000010
--#define O_BLKSEEK	00000100 /* HPUX only */
--#define O_CREAT		00000400 /* not fcntl */
--#define O_EXCL		00002000 /* not fcntl */
--#define O_LARGEFILE	00004000
--#define O_SYNC		00100000
--#define O_NONBLOCK	00200004 /* HPUX has separate NDELAY & NONBLOCK */
--#define O_NOCTTY	00400000 /* not fcntl */
--#define O_DSYNC		01000000 /* HPUX only */
--#define O_RSYNC		02000000 /* HPUX only */
--#define O_NOATIME	04000000
+-		/* Check need for ESSID compatibility for WE < 21 */
+-		switch (cmd) {
+-		case SIOCSIWESSID:
+-		case SIOCGIWESSID:
+-		case SIOCSIWNICKN:
+-		case SIOCGIWNICKN:
+-			if (iwr->u.data.length == descr->max_tokens + 1)
+-				essid_compat = 1;
+-			else if (IW_IS_SET(cmd) && (iwr->u.data.length != 0)) {
+-				char essid[IW_ESSID_MAX_SIZE + 1];
 -
--#define O_DIRECTORY	00010000 /* must be a directory */
--#define O_NOFOLLOW	00000200 /* don't follow links */
--#define O_INVISIBLE	04000000 /* invisible I/O, for DMAPI/XDSM */
-+#define O_APPEND	000000010
-+#define O_BLKSEEK	000000100 /* HPUX only */
-+#define O_CREAT		000000400 /* not fcntl */
-+#define O_EXCL		000002000 /* not fcntl */
-+#define O_LARGEFILE	000004000
-+#define O_SYNC		000100000
-+#define O_NONBLOCK	000200004 /* HPUX has separate NDELAY & NONBLOCK */
-+#define O_NOCTTY	000400000 /* not fcntl */
-+#define O_DSYNC		001000000 /* HPUX only */
-+#define O_RSYNC		002000000 /* HPUX only */
-+#define O_NOATIME	004000000
-+#define O_CLOEXEC	010000000 /* set close_on_exec */
-+
-+#define O_DIRECTORY	000010000 /* must be a directory */
-+#define O_NOFOLLOW	000000200 /* don't follow links */
-+#define O_INVISIBLE	004000000 /* invisible I/O, for DMAPI/XDSM */
+-				err = copy_from_user(essid, iwr->u.data.pointer,
+-						     iwr->u.data.length *
+-						     descr->token_size);
+-				if (err)
+-					return -EFAULT;
+-
+-				if (essid[iwr->u.data.length - 1] == '\0')
+-					essid_compat = 1;
+-			}
+-			break;
+-		default:
+-			break;
+-		}
+-
+-		iwr->u.data.length -= essid_compat;
+-
+ 		/* Check what user space is giving us */
+ 		if (IW_IS_SET(cmd)) {
+ 			/* Check NULL pointer */
+@@ -811,7 +783,6 @@ static int ioctl_standard_call(struct ne
+ 		}
  
- #define F_GETLK64	8
- #define F_SETLK64	9
-_
+ 		/* Create the kernel buffer */
+-		/*    kzalloc ensures NULL-termination for essid_compat */
+ 		extra = kzalloc(extra_size, GFP_KERNEL);
+ 		if (extra == NULL)
+ 			return -ENOMEM;
+@@ -830,8 +801,6 @@ static int ioctl_standard_call(struct ne
+ 		/* Call the handler */
+ 		ret = handler(dev, &info, &(iwr->u), extra);
+ 
+-		iwr->u.data.length += essid_compat;
+-
+ 		/* If we have something to return to the user */
+ 		if (!ret && IW_IS_GET(cmd)) {
+ 			/* Check if there is enough buffer up there */
