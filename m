@@ -1,35 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 2/8] Make some network-related proc files use
- seq_list_xxx helpers
-Date: Mon, 09 Jul 2007 13:15:23 -0700 (PDT)
-Message-ID: <20070709.131523.93383253.davem@davemloft.net>
-References: <200707091851.l69IpAma001726@imap1.linux-foundation.org>
+Subject: Re: [patch 3/8] "wrong timeout value in sk_wait_data()": cleanups
+Date: Mon, 09 Jul 2007 13:16:08 -0700 (PDT)
+Message-ID: <20070709.131608.84975018.davem@davemloft.net>
+References: <200707091851.l69IpBFV001731@imap1.linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xemul@sw.ru, xemul@openvz.org
+Cc: netdev@vger.kernel.org, vvs@sw.ru
 To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46042
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46048
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752739AbXGIUPB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2007 16:15:01 -0400
-In-Reply-To: <200707091851.l69IpAma001726@imap1.linux-foundation.org>
+	by vger.kernel.org with ESMTP id S1753308AbXGIUPq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2007 16:15:46 -0400
+In-Reply-To: <200707091851.l69IpBFV001731@imap1.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: akpm@linux-foundation.org
 Date: Mon, 09 Jul 2007 11:51:10 -0700
 
-> From: Pavel Emelianov <xemul@sw.ru>
+> From: Andrew Morton <akpm@linux-foundation.org>
 > 
-> This includes /proc/net/protocols, /proc/net/rxrpc_calls and
-> /proc/net/rxrpc_connections files.
+> - save 4 bytes
 > 
-> All three need seq_list_start_head to show some header.
+> - it's read-mostly.
 > 
-> Signed-off-by: Pavel Emelianov <xemul@openvz.org>
-> Acked-by: David S. Miller <davem@davemloft.net>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Acked-by: Vasily Averin <vvs@sw.ru>
 > Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 
-Applied, thanks.
+Applied.
