@@ -1,307 +1,186 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [PATCH 03/12] sky2: debug interface
-Date: Mon, 09 Jul 2007 15:33:35 -0700
-Message-ID: <20070709223453.182094731@linux-foundation.org>
+Subject: [PATCH 07/12] sky2: add support for read/write of EEPROM
+Date: Mon, 09 Jul 2007 15:33:39 -0700
+Message-ID: <20070709223453.418635581@linux-foundation.org>
 References: <20070709223332.966231494@linux-foundation.org>
 Cc: netdev@vger.kernel.org
 To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:58077 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:60710 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755921AbXGIWhW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2007 18:37:22 -0400
-Content-Disposition: inline; filename=sky2-debugfs.patch
+	by vger.kernel.org with ESMTP id S1755956AbXGIWhY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2007 18:37:24 -0400
+Content-Disposition: inline; filename=sky2-eeprom.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add an optional debug interface for displaying state of transmit/receive
-rings. Creates a file debugfs/sky2/ethX for each device that is up.
+Add get/set eeprom support for sky2.
 
 Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
-
 ---
- drivers/net/Kconfig |   10 ++
- drivers/net/sky2.c  |  176 +++++++++++++++++++++++++++++++++++++++++++++++++++-
- drivers/net/sky2.h  |    4 +
- 3 files changed, 188 insertions(+), 2 deletions(-)
+ drivers/net/sky2.c |  140 +++++++++++++++++++++++++++++++++++++++++++----------
+ 1 file changed, 115 insertions(+), 25 deletions(-)
 
---- a/drivers/net/Kconfig	2007-07-09 15:30:04.000000000 -0700
-+++ b/drivers/net/Kconfig	2007-07-09 15:30:09.000000000 -0700
-@@ -2133,6 +2133,16 @@ config SKY2
- 	  To compile this driver as a module, choose M here: the module
- 	  will be called sky2.  This is recommended.
+--- a/drivers/net/sky2.c	2007-07-09 15:30:10.000000000 -0700
++++ b/drivers/net/sky2.c	2007-07-09 15:30:12.000000000 -0700
+@@ -77,6 +77,9 @@
+ #define NAPI_WEIGHT		64
+ #define PHY_RETRIES		1000
  
-+config SKY2_DEBUG
-+       bool "Debugging interface"
-+       depends on SKY2 && DEBUG_FS
-+       help
-+	 This option adds the ability to dump driver state for debugging.
-+	 The file debugfs/sky2/ethX displays the state of the internal
-+	 transmit and receive rings.
++#define SKY2_EEPROM_MAGIC	0x9955aabb
 +
-+	 If unsure, say N.
 +
- config SK98LIN
- 	tristate "Marvell Yukon Chipset / SysKonnect SK-98xx Support (DEPRECATED)"
- 	depends on PCI
---- a/drivers/net/sky2.c	2007-07-09 15:30:09.000000000 -0700
-+++ b/drivers/net/sky2.c	2007-07-09 15:30:09.000000000 -0700
-@@ -39,6 +39,7 @@
- #include <linux/workqueue.h>
- #include <linux/if_vlan.h>
- #include <linux/prefetch.h>
-+#include <linux/debugfs.h>
- #include <linux/mii.h>
+ #define RING_NEXT(x,s)	(((x)+1) & ((s)-1))
  
- #include <asm/irq.h>
-@@ -1574,13 +1575,13 @@ static void sky2_tx_complete(struct sky2
- 			if (unlikely(netif_msg_tx_done(sky2)))
- 				printk(KERN_DEBUG "%s: tx done %u\n",
- 				       dev->name, idx);
-+
- 			sky2->net_stats.tx_packets++;
- 			sky2->net_stats.tx_bytes += re->skb->len;
+ static const u32 default_msg =
+@@ -3429,34 +3432,121 @@ static int sky2_set_tso(struct net_devic
+ 	return ethtool_op_set_tso(dev, data);
+ }
  
- 			dev_kfree_skb_any(re->skb);
-+			sky2->tx_next = RING_NEXT(idx, TX_RING_SIZE);
- 		}
--
--		le->opcode = 0;	/* paranoia */
- 	}
- 
- 	sky2->tx_cons = idx;
-@@ -3470,6 +3471,195 @@ static const struct ethtool_ops sky2_eth
- 	.get_perm_addr	= ethtool_op_get_perm_addr,
- };
- 
-+#ifdef CONFIG_SKY2_DEBUG
-+
-+static struct dentry *sky2_debug;
-+
-+static int sky2_debug_show(struct seq_file *seq, void *v)
++static int sky2_get_eeprom_len(struct net_device *dev)
 +{
-+	struct net_device *dev = seq->private;
-+	const struct sky2_port *sky2 = netdev_priv(dev);
-+	const struct sky2_hw *hw = sky2->hw;
-+	unsigned port = sky2->port;
-+	unsigned idx, last;
-+	int sop;
++	struct sky2_port *sky2 = netdev_priv(dev);
++	u16 reg2;
 +
-+	if (!netif_running(dev))
-+		return -ENETDOWN;
++	reg2 = sky2_pci_read32(sky2->hw, PCI_DEV_REG2);
++	return 1 << ( ((reg2 & PCI_VPD_ROM_SZ) >> 14) + 8);
++}
 +
-+	seq_printf(seq, "IRQ src=%x mask=%x control=%x\n",
-+		   sky2_read32(hw, B0_ISRC),
-+		   sky2_read32(hw, B0_IMSK),
-+		   sky2_read32(hw, B0_Y2_SP_ICR));
++static u32 sky2_vpd_read(struct sky2_hw *hw, int cap, u16 offset)
++{
++	sky2_pci_write16(hw, cap + PCI_VPD_ADDR, offset);
 +
-+	netif_poll_disable(hw->dev[0]);
-+	last = sky2_read16(hw, STAT_PUT_IDX);
++	while (!(sky2_pci_read16(hw, cap + PCI_VPD_ADDR) & PCI_VPD_ADDR_F))
++			cpu_relax();
++	return sky2_pci_read32(hw, cap + PCI_VPD_DATA);
++}
 +
-+	if (hw->st_idx == last)
-+		seq_puts(seq, "Status ring (empty)\n");
-+	else {
-+		seq_puts(seq, "Status ring\n");
-+		for (idx = hw->st_idx; idx != last && idx < STATUS_RING_SIZE;
-+		     idx = RING_NEXT(idx, STATUS_RING_SIZE)) {
-+			const struct sky2_status_le *le = hw->st_le + idx;
-+			seq_printf(seq, "[%d] %#x %d %#x\n",
-+				   idx, le->opcode, le->length, le->status);
-+		}
-+		seq_puts(seq, "\n");
++static void sky2_vpd_write(struct sky2_hw *hw, int cap, u16 offset, u32 val)
++{
++	sky2_pci_write32(hw, cap + PCI_VPD_DATA, val);
++	sky2_pci_write16(hw, cap + PCI_VPD_ADDR, offset | PCI_VPD_ADDR_F);
++	do {
++		cpu_relax();
++	} while (sky2_pci_read16(hw, cap + PCI_VPD_ADDR) & PCI_VPD_ADDR_F);
++}
++
++static int sky2_get_eeprom(struct net_device *dev, struct ethtool_eeprom *eeprom,
++			   u8 *data)
++{
++	struct sky2_port *sky2 = netdev_priv(dev);
++	int cap = pci_find_capability(sky2->hw->pdev, PCI_CAP_ID_VPD);
++	int length = eeprom->len;
++	u16 offset = eeprom->offset;
++
++	if (!cap)
++		return -EINVAL;
++
++	eeprom->magic = SKY2_EEPROM_MAGIC;
++
++	while (length > 0) {
++		u32 val = sky2_vpd_read(sky2->hw, cap, offset);
++		int n = min_t(int, length, sizeof(val));
++
++		memcpy(data, &val, n);
++		length -= n;
++		data += n;
++		offset += n;
 +	}
-+
-+	seq_printf(seq, "Tx ring pending=%u...%u report=%d done=%d\n",
-+		   sky2->tx_cons, sky2->tx_prod,
-+		   sky2_read16(hw, port == 0 ? STAT_TXA1_RIDX : STAT_TXA2_RIDX),
-+		   sky2_read16(hw, Q_ADDR(txqaddr[port], Q_DONE)));
-+
-+	/* Dump contents of tx ring */
-+	sop = 1;
-+	for (idx = sky2->tx_next; idx != sky2->tx_prod && idx < TX_RING_SIZE;
-+	     idx = RING_NEXT(idx, TX_RING_SIZE)) {
-+		const struct sky2_tx_le *le = sky2->tx_le + idx;
-+		u32 a = le32_to_cpu(le->addr);
-+
-+		if (sop)
-+			seq_printf(seq, "%u:", idx);
-+		sop = 0;
-+
-+		switch(le->opcode & ~HW_OWNER) {
-+		case OP_ADDR64:
-+			seq_printf(seq, " %#x:", a);
-+			break;
-+		case OP_LRGLEN:
-+			seq_printf(seq, " mtu=%d", a);
-+			break;
-+		case OP_VLAN:
-+			seq_printf(seq, " vlan=%d", be16_to_cpu(le->length));
-+			break;
-+		case OP_TCPLISW:
-+			seq_printf(seq, " csum=%#x", a);
-+			break;
-+		case OP_LARGESEND:
-+			seq_printf(seq, " tso=%#x(%d)", a, le16_to_cpu(le->length));
-+			break;
-+		case OP_PACKET:
-+			seq_printf(seq, " %#x(%d)", a, le16_to_cpu(le->length));
-+			break;
-+		case OP_BUFFER:
-+			seq_printf(seq, " frag=%#x(%d)", a, le16_to_cpu(le->length));
-+			break;
-+		default:
-+			seq_printf(seq, " op=%#x,%#x(%d)", le->opcode,
-+				   a, le16_to_cpu(le->length));
-+		}
-+
-+		if (le->ctrl & EOP) {
-+			seq_putc(seq, '\n');
-+			sop = 1;
-+		}
-+	}
-+
-+	seq_printf(seq, "\nRx ring hw get=%d put=%d last=%d\n",
-+		   sky2_read16(hw, Y2_QADDR(rxqaddr[port], PREF_UNIT_GET_IDX)),
-+		   last = sky2_read16(hw, Y2_QADDR(rxqaddr[port], PREF_UNIT_PUT_IDX)),
-+		   sky2_read16(hw, Y2_QADDR(rxqaddr[port], PREF_UNIT_LAST_IDX)));
-+
-+	netif_poll_enable(hw->dev[0]);
 +	return 0;
 +}
 +
-+static int sky2_debug_open(struct inode *inode, struct file *file)
++static int sky2_set_eeprom(struct net_device *dev, struct ethtool_eeprom *eeprom,
++			   u8 *data)
 +{
-+	return single_open(file, sky2_debug_show, inode->i_private);
-+}
++	struct sky2_port *sky2 = netdev_priv(dev);
++	int cap = pci_find_capability(sky2->hw->pdev, PCI_CAP_ID_VPD);
++	int length = eeprom->len;
++	u16 offset = eeprom->offset;
 +
-+static const struct file_operations sky2_debug_fops = {
-+	.owner		= THIS_MODULE,
-+	.open		= sky2_debug_open,
-+	.read		= seq_read,
-+	.llseek		= seq_lseek,
-+	.release	= single_release,
-+};
++	if (!cap)
++		return -EINVAL;
 +
-+/*
-+ * Use network device events to create/remove/rename
-+ * debugfs file entries
-+ */
-+static int sky2_device_event(struct notifier_block *unused,
-+			     unsigned long event, void *ptr)
-+{
-+	struct net_device *dev = ptr;
++	if (eeprom->magic != SKY2_EEPROM_MAGIC)
++		return -EINVAL;
 +
-+	if (dev->open == sky2_up) {
-+		struct sky2_port *sky2 = netdev_priv(dev);
++	while (length > 0) {
++		u32 val;
++		int n = min_t(int, length, sizeof(val));
 +
-+		switch(event) {
-+		case NETDEV_CHANGENAME:
-+			if (!netif_running(dev))
-+				break;
-+			/* fallthrough */
-+		case NETDEV_DOWN:
-+		case NETDEV_GOING_DOWN:
-+			if (sky2->debugfs) {
-+				printk(KERN_DEBUG PFX "%s: remove debugfs\n",
-+				       dev->name);
-+				debugfs_remove(sky2->debugfs);
-+				sky2->debugfs = NULL;
-+			}
++		if (n < sizeof(val))
++			val = sky2_vpd_read(sky2->hw, cap, offset);
++		memcpy(&val, data, n);
 +
-+			if (event != NETDEV_CHANGENAME)
-+				break;
-+			/* fallthrough for changename */
-+		case NETDEV_UP:
-+			if (sky2_debug) {
-+				struct dentry *d;
-+				d = debugfs_create_file(dev->name, S_IRUGO,
-+							sky2_debug, dev,
-+							&sky2_debug_fops);
-+				if (d == NULL || IS_ERR(d))
-+					printk(KERN_INFO PFX
-+					       "%s: debugfs create failed\n",
-+					       dev->name);
-+				else
-+					sky2->debugfs = d;
-+			}
-+			break;
-+		}
++		sky2_vpd_write(sky2->hw, cap, offset, val);
++
++		length -= n;
++		data += n;
++		offset += n;
 +	}
-+
-+	return NOTIFY_DONE;
++	return 0;
 +}
 +
-+static struct notifier_block sky2_notifier = {
-+	.notifier_call = sky2_device_event,
-+};
 +
-+
-+static __init void sky2_debug_init(void)
-+{
-+	struct dentry *ent;
-+
-+	ent = debugfs_create_dir("sky2", NULL);
-+	if (!ent || IS_ERR(ent))
-+		return;
-+
-+	sky2_debug = ent;
-+	register_netdevice_notifier(&sky2_notifier);
-+}
-+
-+static __exit void sky2_debug_cleanup(void)
-+{
-+	if (sky2_debug) {
-+		unregister_netdevice_notifier(&sky2_notifier);
-+		debugfs_remove(sky2_debug);
-+		sky2_debug = NULL;
-+	}
-+}
-+
-+#else
-+#define sky2_debug_init()
-+#define sky2_debug_cleanup()
-+#endif
-+
-+
- /* Initialize network device */
- static __devinit struct net_device *sky2_init_netdev(struct sky2_hw *hw,
- 						     unsigned port,
-@@ -3960,12 +4150,14 @@ static struct pci_driver sky2_driver = {
- 
- static int __init sky2_init_module(void)
- {
-+	sky2_debug_init();
- 	return pci_register_driver(&sky2_driver);
- }
- 
- static void __exit sky2_cleanup_module(void)
- {
- 	pci_unregister_driver(&sky2_driver);
-+	sky2_debug_cleanup();
- }
- 
- module_init(sky2_init_module);
---- a/drivers/net/sky2.h	2007-07-09 15:30:04.000000000 -0700
-+++ b/drivers/net/sky2.h	2007-07-09 15:30:09.000000000 -0700
-@@ -1998,6 +1998,7 @@ struct sky2_port {
- 	struct sky2_tx_le    *tx_le;
- 	u16		     tx_cons;		/* next le to check */
- 	u16		     tx_prod;		/* next le to use */
-+	u16		     tx_next;		/* debug only */
- 	u32		     tx_addr64;
- 	u16		     tx_pending;
- 	u16		     tx_last_mss;
-@@ -2028,6 +2029,9 @@ struct sky2_port {
-  	enum flow_control    flow_mode;
-  	enum flow_control    flow_status;
- 
-+#ifdef CONFIG_SKY2_DEBUG
-+	struct dentry	     *debugfs;
-+#endif
- 	struct net_device_stats net_stats;
- 
- };
+ static const struct ethtool_ops sky2_ethtool_ops = {
+-	.get_settings = sky2_get_settings,
+-	.set_settings = sky2_set_settings,
+-	.get_drvinfo  = sky2_get_drvinfo,
+-	.get_wol      = sky2_get_wol,
+-	.set_wol      = sky2_set_wol,
+-	.get_msglevel = sky2_get_msglevel,
+-	.set_msglevel = sky2_set_msglevel,
+-	.nway_reset   = sky2_nway_reset,
+-	.get_regs_len = sky2_get_regs_len,
+-	.get_regs = sky2_get_regs,
+-	.get_link = ethtool_op_get_link,
+-	.get_sg = ethtool_op_get_sg,
+-	.set_sg = ethtool_op_set_sg,
+-	.get_tx_csum = ethtool_op_get_tx_csum,
+-	.set_tx_csum = sky2_set_tx_csum,
+-	.get_tso = ethtool_op_get_tso,
+-	.set_tso = sky2_set_tso,
+-	.get_rx_csum = sky2_get_rx_csum,
+-	.set_rx_csum = sky2_set_rx_csum,
+-	.get_strings = sky2_get_strings,
+-	.get_coalesce = sky2_get_coalesce,
+-	.set_coalesce = sky2_set_coalesce,
+-	.get_ringparam = sky2_get_ringparam,
+-	.set_ringparam = sky2_set_ringparam,
++	.get_settings	= sky2_get_settings,
++	.set_settings	= sky2_set_settings,
++	.get_drvinfo	= sky2_get_drvinfo,
++	.get_wol	= sky2_get_wol,
++	.set_wol	= sky2_set_wol,
++	.get_msglevel	= sky2_get_msglevel,
++	.set_msglevel	= sky2_set_msglevel,
++	.nway_reset	= sky2_nway_reset,
++	.get_regs_len	= sky2_get_regs_len,
++	.get_regs	= sky2_get_regs,
++	.get_link	= ethtool_op_get_link,
++	.get_eeprom_len	= sky2_get_eeprom_len,
++	.get_eeprom	= sky2_get_eeprom,
++	.set_eeprom	= sky2_set_eeprom,
++	.get_sg 	= ethtool_op_get_sg,
++	.set_sg 	= ethtool_op_set_sg,
++	.get_tx_csum	= ethtool_op_get_tx_csum,
++	.set_tx_csum	= sky2_set_tx_csum,
++	.get_tso	= ethtool_op_get_tso,
++	.set_tso	= sky2_set_tso,
++	.get_rx_csum	= sky2_get_rx_csum,
++	.set_rx_csum	= sky2_set_rx_csum,
++	.get_strings	= sky2_get_strings,
++	.get_coalesce	= sky2_get_coalesce,
++	.set_coalesce	= sky2_set_coalesce,
++	.get_ringparam	= sky2_get_ringparam,
++	.set_ringparam	= sky2_set_ringparam,
+ 	.get_pauseparam = sky2_get_pauseparam,
+ 	.set_pauseparam = sky2_set_pauseparam,
+-	.phys_id = sky2_phys_id,
++	.phys_id	= sky2_phys_id,
+ 	.get_stats_count = sky2_get_stats_count,
+ 	.get_ethtool_stats = sky2_get_ethtool_stats,
+ 	.get_perm_addr	= ethtool_op_get_perm_addr,
 
 -- 
 Stephen Hemminger <shemminger@linux-foundation.org>
