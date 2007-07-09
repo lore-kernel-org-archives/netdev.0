@@ -1,214 +1,87 @@
-From: Ranko Zivojnovic <ranko@spidernet.net>
-Subject: Re: + gen_estimator-fix-locking-and-timer-related-bugs.patch added
-	to -mm tree
-Date: Mon, 09 Jul 2007 15:41:01 +0300
-Message-ID: <1183984861.18656.21.camel@ranko-fc2.spidernet.net>
-References: <200706271921.l5RJLgCC003910@imap1.linux-foundation.org>
-	 <1183642800.3789.11.camel@ranko-fc2.spidernet.net>
-	 <20070705142135.GG4759@ff.dom.local>
-	 <1183646029.4069.11.camel@ranko-fc2.spidernet.net>
-	 <1183651165.4069.26.camel@ranko-fc2.spidernet.net>
-	 <20070706061420.GA1846@ff.dom.local> <20070706062629.GC1846@ff.dom.local>
-	 <20070706064523.GA2144@ff.dom.local>
-	 <1183727654.6389.3.camel@ranko-fc2.spidernet.net>
-	 <468E4FD9.4060702@trash.net>
-	 <1183733732.6389.26.camel@ranko-fc2.spidernet.net>
-	 <1183794918.30237.69.camel@localhost.localdomain>
-	 <Pine.LNX.4.64.0707071704370.1808@x2>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: Re: [2.6 patch] the overdue eepro100 removal
+Date: Mon, 9 Jul 2007 14:52:08 +0200
+Message-ID: <20070709125208.GZ3492@stusta.de>
+References: <20070701202139.GM10869@stusta.de> <46894BD5.9080609@tmr.com> <46897212.30104@intel.com> <468D15F4.6020106@tmr.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-XLbmUmc+plBCtaNi04w7"
-Cc: Jarek Poplawski <jarkao2@o2.pl>, akpm@linux-foundation.org,
-	netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=utf-8
+Cc: "Kok, Auke" <auke-jan.h.kok@intel.com>, jgarzik@pobox.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	saw@saw.sw.com.sg, Linus Torvalds <torvalds@linux-foundation.org>
+To: Bill Davidsen <davidsen@tmr.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from MPP-Goya.spidernet.net ([194.154.128.52]:56789 "EHLO
-	mail0pop.spidernet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751601AbXGIMlZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2007 08:41:25 -0400
-In-Reply-To: <Pine.LNX.4.64.0707071704370.1808@x2>
+Received: from emailhub.stusta.mhn.de ([141.84.69.5]:55482 "EHLO
+	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751691AbXGIMvh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2007 08:51:37 -0400
+Content-Disposition: inline
+In-Reply-To: <468D15F4.6020106@tmr.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Thu, Jul 05, 2007 at 12:01:56PM -0400, Bill Davidsen wrote:
+> Please do not make unnecessary kernel changes which require changes in our 
+> systems.
 
---=-XLbmUmc+plBCtaNi04w7
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Welcome to the kernel 2.6 development model.
 
-On Sat, 2007-07-07 at 17:10 +0200, Patrick McHardy wrote:
-> On Sat, 7 Jul 2007, Ranko Zivojnovic wrote:
-> > Maybe the appropriate way to fix this would to call gen_kill_estimator,
-> > with the appropriate lock order, before the call to qdisc_destroy, so
-> > when dev->queue_lock is taken for qdisc_destroy - the structure is
-> > already off the list.
-> 
-> Probably easier to just kill est_lock and use rcu lists.
-> I'm currently travelling, I'll look into it tomorrow.
+> Kok, Auke wrote:
+>> Bill Davidsen wrote:
+>>> Adrian Bunk wrote:
+>>>> This patch contains the overdue removal of the eepro100 driver.
+>>>>
+>>>> Signed-off-by: Adrian Bunk <bunk@stusta.de>
+>>>>
+>>> The hardware supported by this driver is still in use, thanks. It's 
+>>> probably easier to leave the eepro100 driver in than find anyone who 
+>>> wants to investigate why the other driver (e100? from memory) doesn't 
+>>> work with some cards. As I recall this was suggested over a year ago and 
+>>> it was decided to leave it in, all of the reasons for doing so still seem 
+>>> valid. There really doesn't seem to be a benefit, it's not like people 
+>>> are working night and day to support new cards for this chip.
+>>>
+>>
+>> please see the thread "Re: [PATCH] fix e100 rx path on ARM (was [PATCH] 
+>> e100 rx: or s and el bits)" which is discussing a fix for this issue and 
+>> currently being worked.
+>>
+>> eepro100 will *still* be removed once e100 is fixed to support those 
+>> devices.
+>>
+> Frankly I think there are more of us running old cards on PC hardware than 
+> people running ARM! And for a number of card for old buses like ISA, EISA, 
+> and VESA, the e100 has not worked. These are old PCs converted to routers 
+> and firewalls, and for security should not be left without upgrades.
 
-Patrick, I've taken liberty to try and implement this myself. Attached
-is the whole new gen_estimator-fix-locking-and-timer-related-bugs.patch
-that is RCU lists based. Please be kind to review.
+WTF are you talking about?
 
-I've just compiled it against 2.6.22 together with sch_htb patch and I
-am currently testing it. I will let it run until tomorrow or until it
-crashes.
+Both drivers only support PCI cards.
 
-R.
+>> Moreover, we now also have a fix for the e100 IPMI issues on some tyan 
+>> boards (patch coming this week!). That hopefully solves all e100 issues 
+>> that are still open.
+>
+> If you think the e100 driver fixes your problems use it and be happy. But 
+> since you don't have to test system behavior with the new driver, and you 
+> won't be called at night or on weekends if it doesn't work, do the rest of 
+> the world a favor and stop taking out things we know to work! Leaving in 
+> the eepro100 causes no work for you, and even if e100 works perfectly it 
+> needs to be validated in any sane network. it still makes work.
 
---=-XLbmUmc+plBCtaNi04w7
-Content-Disposition: attachment; filename=gen_estimator-fix-locking-and-timer-related-bugs.patch
-Content-Type: text/x-patch; name=gen_estimator-fix-locking-and-timer-related-bugs.patch; charset=UTF-8
-Content-Transfer-Encoding: 7bit
+The goal is to get e100 better, and removing eepro100 helps with 
+reaching this goal.
 
---- a/net/core/gen_estimator.c	2007-06-25 02:21:48.000000000 +0300
-+++ b/net/core/gen_estimator.c	2007-07-09 14:27:12.053336875 +0300
-@@ -79,7 +79,7 @@
- 
- struct gen_estimator
- {
--	struct gen_estimator	*next;
-+	struct list_head	list;
- 	struct gnet_stats_basic	*bstats;
- 	struct gnet_stats_rate_est	*rate_est;
- 	spinlock_t		*stats_lock;
-@@ -89,26 +89,27 @@
- 	u32			last_packets;
- 	u32			avpps;
- 	u32			avbps;
-+	struct rcu_head		e_rcu;
- };
- 
- struct gen_estimator_head
- {
- 	struct timer_list	timer;
--	struct gen_estimator	*list;
-+	struct list_head	list;
- };
- 
- static struct gen_estimator_head elist[EST_MAX_INTERVAL+1];
- 
- /* Estimator array lock */
--static DEFINE_RWLOCK(est_lock);
-+static DEFINE_SPINLOCK(est_lock);
- 
- static void est_timer(unsigned long arg)
- {
- 	int idx = (int)arg;
- 	struct gen_estimator *e;
- 
--	read_lock(&est_lock);
--	for (e = elist[idx].list; e; e = e->next) {
-+	rcu_read_lock();
-+	list_for_each_entry_rcu(e, &elist[idx].list, list) {
- 		u64 nbytes;
- 		u32 npackets;
- 		u32 rate;
-@@ -127,9 +128,9 @@
- 		e->rate_est->pps = (e->avpps+0x1FF)>>10;
- 		spin_unlock(e->stats_lock);
- 	}
--
--	mod_timer(&elist[idx].timer, jiffies + ((HZ<<idx)/4));
--	read_unlock(&est_lock);
-+	if (!list_empty(&elist[idx].list))
-+		mod_timer(&elist[idx].timer, jiffies + ((HZ<<idx)/4));
-+	rcu_read_unlock();
- }
- 
- /**
-@@ -152,6 +153,7 @@
- {
- 	struct gen_estimator *est;
- 	struct gnet_estimator *parm = RTA_DATA(opt);
-+	int idx;
- 
- 	if (RTA_PAYLOAD(opt) < sizeof(*parm))
- 		return -EINVAL;
-@@ -163,7 +165,8 @@
- 	if (est == NULL)
- 		return -ENOBUFS;
- 
--	est->interval = parm->interval + 2;
-+	INIT_LIST_HEAD(&est->list);
-+	est->interval = idx = parm->interval + 2;
- 	est->bstats = bstats;
- 	est->rate_est = rate_est;
- 	est->stats_lock = stats_lock;
-@@ -173,20 +176,26 @@
- 	est->last_packets = bstats->packets;
- 	est->avpps = rate_est->pps<<10;
- 
--	est->next = elist[est->interval].list;
--	if (est->next == NULL) {
--		init_timer(&elist[est->interval].timer);
--		elist[est->interval].timer.data = est->interval;
--		elist[est->interval].timer.expires = jiffies + ((HZ<<est->interval)/4);
--		elist[est->interval].timer.function = est_timer;
--		add_timer(&elist[est->interval].timer);
-+	spin_lock_bh(&est_lock);
-+	if (!elist[idx].timer.function) {
-+		INIT_LIST_HEAD(&elist[idx].list);
-+		setup_timer(&elist[idx].timer, est_timer, est->interval);
- 	}
--	write_lock_bh(&est_lock);
--	elist[est->interval].list = est;
--	write_unlock_bh(&est_lock);
-+		
-+	if (list_empty(&elist[est->interval].list))
-+		mod_timer(&elist[idx].timer, jiffies + ((HZ<<idx)/4));
-+
-+	list_add_rcu(&est->list, &elist[idx].list);
-+	spin_unlock_bh(&est_lock);
- 	return 0;
- }
- 
-+static void __gen_kill_estimator(struct rcu_head *head)
-+{
-+	struct gen_estimator *e = container_of(head, struct gen_estimator, e_rcu);
-+	kfree(e);
-+}
-+
- /**
-  * gen_kill_estimator - remove a rate estimator
-  * @bstats: basic statistics
-@@ -199,26 +208,23 @@
- 	struct gnet_stats_rate_est *rate_est)
- {
- 	int idx;
--	struct gen_estimator *est, **pest;
-+	struct gen_estimator *e, *n;
- 
- 	for (idx=0; idx <= EST_MAX_INTERVAL; idx++) {
--		int killed = 0;
--		pest = &elist[idx].list;
--		while ((est=*pest) != NULL) {
--			if (est->rate_est != rate_est || est->bstats != bstats) {
--				pest = &est->next;
--				continue;
--			}
- 
--			write_lock_bh(&est_lock);
--			*pest = est->next;
--			write_unlock_bh(&est_lock);
-+		/* Skip non initialized indexes */
-+		if (!elist[idx].timer.function)
-+			continue;
-+
-+		list_for_each_entry_safe(e, n, &elist[idx].list, list) {
-+			if (e->rate_est != rate_est || e->bstats != bstats)
-+				continue;
- 
--			kfree(est);
--			killed++;
-+			spin_lock_bh(&est_lock);
-+			list_del_rcu(&e->list);
-+			spin_unlock_bh(&est_lock);
-+			call_rcu(&e->e_rcu, __gen_kill_estimator);
- 		}
--		if (killed && elist[idx].list == NULL)
--			del_timer(&elist[idx].timer);
- 	}
- }
- 
+Why didn't _you_ try the e100 driver when you validated your systems 
+after you upgraded them to kernel 2.6, and if you did and it didn't 
+work, where is your bug report?
 
---=-XLbmUmc+plBCtaNi04w7--
+cu
+Adrian
+
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
 
