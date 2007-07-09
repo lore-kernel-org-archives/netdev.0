@@ -1,34 +1,25 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [RFC] Allow LSM to use IP address/port number.
-Date: Mon, 9 Jul 2007 19:41:19 -0400 (EDT)
-Message-ID: <Line.LNX.4.64.0707091940450.10029@d.namei>
-References: <200707070225.AFC45609.MNStNTPG@I-love.SAKURA.ne.jp>
- <200707061343.03942.paul.moore@hp.com> <200707090533.l695X1PM059672@www262.sakura.ne.jp>
- <20070709.002629.28788394.davem@davemloft.net>
- <200707092213.HAC58314.WSNFtPGOFUE@I-love.SAKURA.ne.jp>
- <Line.LNX.4.64.0707091842360.9417@d.namei> <20070709160538.289d8ac2@freepuppy.rosehill.hemminger.net>
+From: Jean Tourrilhes <jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 2.6] SoftMAC : fix ESSID problem
+Date: Mon, 9 Jul 2007 16:44:19 -0700
+Message-ID: <20070709234419.GA1829@bougret.hpl.hp.com>
+References: <20070709221922.GB1381@bougret.hpl.hp.com> <200707100046.23832.mb@bu3sch.de> <4692C77C.30005@lwfinger.net>
+Reply-To: jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Tetsuo Handa <from-netdev@I-love.SAKURA.ne.jp>,
-	davem@davemloft.net, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail7.sea5.speakeasy.net ([69.17.117.9]:51097 "EHLO
-	mail7.sea5.speakeasy.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760779AbXGIXlX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2007 19:41:23 -0400
-In-Reply-To: <20070709160538.289d8ac2@freepuppy.rosehill.hemminger.net>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Larry Finger <larry.finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <4692C77C.30005-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 9 Jul 2007, Stephen Hemminger wrote:
+On Mon, Jul 09, 2007 at 06:40:44PM -0500, Larry Finger wrote:
+> 
+> This patch should also be sent to stable-DgEjT+Ai2yi4UlQgPVntAg@public.gmane.org
 
-> Isn't it better to hook into existing netfilter infrastructure somehow?
+	Please do so if you like it.
 
-Yes, it has been suggested several times.
+> Larry
 
-
--- 
-James Morris
-<jmorris@namei.org>
+	Jean
