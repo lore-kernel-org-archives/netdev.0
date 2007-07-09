@@ -1,61 +1,62 @@
 From: akpm@linux-foundation.org
-Subject: [patch 2/2] O_CLOEXEC for SCM_RIGHTS
-Date: Mon, 09 Jul 2007 14:54:55 -0700
-Message-ID: <200707092154.l69LstT9014492@imap1.linux-foundation.org>
-Cc: akpm@linux-foundation.org, drepper@redhat.com, mb@bu3sch.de,
-	mingo@elte.hu, mtk-manpages@gmx.net
+Subject: [patch 1/2] Introduce O_CLOEXEC
+Date: Mon, 09 Jul 2007 14:54:53 -0700
+Message-ID: <200707092154.l69LssVX014487@imap1.linux-foundation.org>
+Cc: akpm@linux-foundation.org, drepper@redhat.com, chris@zankel.net,
+	davidel@xmailserver.org, kyle@parisc-linux.org, mingo@elte.hu,
+	mtk-manpages@gmx.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:52937 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:49022 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755676AbXGIV4Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2007 17:56:16 -0400
+	by vger.kernel.org with ESMTP id S1755806AbXGIV42 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2007 17:56:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Ulrich Drepper <drepper@redhat.com>
 
-Part two in the O_CLOEXEC saga: adding support for file descriptors received
-through Unix domain sockets.
+The problem is as follows: in multi-threaded code (or more correctly: all
+code using clone() with CLONE_FILES) we have a race when exec'ing.
 
-The patch is once again pretty minimal, it introduces a new flag for recvmsg
-and passes it just like the existing MSG_CMSG_COMPAT flag.  I think this bit
-is not used otherwise but the networking people will know better.
+   thread #1                       thread #2
 
-This new flag is not recognized by recvfrom and recv.  These functions cannot
-be used for that purpose and the asymmetry this introduces is not worse than
-the already existing MSG_CMSG_COMPAT situations.
+   fd=open()
 
-The patch must be applied on the patch which introduced O_CLOEXEC.  It has to
-remove static from the new get_unused_fd_flags function but since scm.c cannot
-live in a module the function still hasn't to be exported.
+                                   fork + exec
 
-Here's a test program to make sure the code works.  It's so much longer than
-the actual patch...
+  fcntl(fd,F_SETFD,FD_CLOEXEC)
+
+In some applications this can happen frequently.  Take a web browser.  One
+thread opens a file and another thread starts, say, an external PDF viewer.
+ The result can even be a security issue if that open file descriptor
+refers to a sensitive file and the external program can somehow be tricked
+into using that descriptor.
+
+Just adding O_CLOEXEC support to open() doesn't solve the whole set of
+problems.  There are other ways to create file descriptors (socket,
+epoll_create, Unix domain socket transfer, etc).  These can and should be
+addressed separately though.  open() is such an easy case that it makes not
+much sense putting the fix off.
+
+The test program:
 
 #include <errno.h>
-#include <error.h>
 #include <fcntl.h>
 #include <stdio.h>
-#include <string.h>
 #include <unistd.h>
-#include <sys/socket.h>
-#include <sys/un.h>
 
 #ifndef O_CLOEXEC
 # define O_CLOEXEC 02000000
 #endif
-#ifndef MSG_CMSG_CLOEXEC
-# define MSG_CMSG_CLOEXEC 0x40000000
-#endif
-
 
 int
 main (int argc, char *argv[])
 {
+  int fd;
   if (argc > 1)
     {
-      int fd = atol (argv[1]);
+      fd = atol (argv[1]);
       printf ("child: fd = %d\n", fd);
       if (fcntl (fd, F_GETFD) == 0 || errno != EBADF)
         {
@@ -63,178 +64,129 @@ main (int argc, char *argv[])
           return 1;
         }
       return 0;
-
     }
 
-  struct sockaddr_un sun;
-  strcpy (sun.sun_path, "./testsocket");
-  sun.sun_family = AF_UNIX;
-
-  char databuf[] = "hello";
-  struct iovec iov[1];
-  iov[0].iov_base = databuf;
-  iov[0].iov_len = sizeof (databuf);
-
-  union
-  {
-    struct cmsghdr hdr;
-    char bytes[CMSG_SPACE (sizeof (int))];
-  } buf;
-  struct msghdr msg = { .msg_iov = iov, .msg_iovlen = 1,
-                        .msg_control = buf.bytes,
-                        .msg_controllen = sizeof (buf) };
-  struct cmsghdr *cmsg = CMSG_FIRSTHDR (&msg);
-
-  cmsg->cmsg_level = SOL_SOCKET;
-  cmsg->cmsg_type = SCM_RIGHTS;
-  cmsg->cmsg_len = CMSG_LEN (sizeof (int));
-
-  msg.msg_controllen = cmsg->cmsg_len;
-
-  pid_t child = fork ();
-  if (child == -1)
-    error (1, errno, "fork");
-  if (child == 0)
-    {
-      int sock = socket (PF_UNIX, SOCK_STREAM, 0);
-      if (sock < 0)
-        error (1, errno, "socket");
-
-      if (bind (sock, (struct sockaddr *) &sun, sizeof (sun)) < 0)
-        error (1, errno, "bind");
-      if (listen (sock, SOMAXCONN) < 0)
-        error (1, errno, "listen");
-
-      int conn = accept (sock, NULL, NULL);
-      if (conn == -1)
-        error (1, errno, "accept");
-
-      *(int *) CMSG_DATA (cmsg) = sock;
-      if (sendmsg (conn, &msg, MSG_NOSIGNAL) < 0)
-        error (1, errno, "sendmsg");
-
-      return 0;
-    }
-
-  /* For a test suite this should be more robust like a
-     barrier in shared memory.  */
-  sleep (1);
-  
-  int sock = socket (PF_UNIX, SOCK_STREAM, 0);
-  if (sock < 0)
-    error (1, errno, "socket");
-
-  if (connect (sock, (struct sockaddr *) &sun, sizeof (sun)) < 0)
-    error (1, errno, "connect");
-  unlink (sun.sun_path);
-
-  *(int *) CMSG_DATA (cmsg) = -1;
-
-  if (recvmsg (sock, &msg, MSG_CMSG_CLOEXEC) < 0)
-    error (1, errno, "recvmsg");
-
-  int fd = *(int *) CMSG_DATA (cmsg);
-  if (fd == -1)
-    error (1, 0, "no descriptor received");
-
-  char fdname[20];
-  snprintf (fdname, sizeof (fdname), "%d", fd);
-  execl ("/proc/self/exe", argv[0], fdname, NULL);
+  fd = open ("/proc/self/exe", O_RDONLY | O_CLOEXEC);
+  printf ("in parent: new fd = %d\n", fd);
+  char buf[20];
+  snprintf (buf, sizeof (buf), "%d", fd);
+  execl ("/proc/self/exe", argv[0], buf, NULL);
   puts ("execl failed");
   return 1;
 }
 
+[kyle@parisc-linux.org: parisc fix]
 Signed-off-by: Ulrich Drepper <drepper@redhat.com>
-Cc: Ingo Molnar <mingo@elte.hu>
-Cc: Michael Buesch <mb@bu3sch.de>
+Acked-by: Ingo Molnar <mingo@elte.hu>
+Cc: Davide Libenzi <davidel@xmailserver.org>
 Cc: Michael Kerrisk <mtk-manpages@gmx.net>
-[akpm@linux-foundation.org: Fix fastcall inconsistency noted by Michael Buesch]
-[akpm@linux-foundation.org: build fix]
+Cc: Chris Zankel <chris@zankel.net>
+Signed-off-by: Kyle McMartin <kyle@parisc-linux.org>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- fs/open.c              |    2 +-
- include/linux/file.h   |    1 +
- include/linux/socket.h |    3 +++
- net/compat.c           |    3 ++-
- net/core/scm.c         |    3 ++-
- net/socket.c           |    4 +---
- 6 files changed, 10 insertions(+), 6 deletions(-)
+ fs/open.c                   |   14 +++++++++++---
+ include/asm-generic/fcntl.h |    3 +++
+ include/asm-parisc/fcntl.h  |   31 ++++++++++++++++---------------
+ 3 files changed, 30 insertions(+), 18 deletions(-)
 
-diff -puN fs/open.c~o_cloexec-for-scm_rights fs/open.c
---- a/fs/open.c~o_cloexec-for-scm_rights
+diff -puN fs/open.c~introduce-o_cloexec-take-2 fs/open.c
+--- a/fs/open.c~introduce-o_cloexec-take-2
 +++ a/fs/open.c
 @@ -855,7 +855,7 @@ EXPORT_SYMBOL(dentry_open);
  /*
   * Find an empty file descriptor entry, and mark it busy.
   */
--static int get_unused_fd_flags(int flags)
-+int get_unused_fd_flags(int flags)
+-int get_unused_fd(void)
++static int get_unused_fd_flags(int flags)
  {
  	struct files_struct * files = current->files;
  	int fd, error;
-diff -puN include/linux/file.h~o_cloexec-for-scm_rights include/linux/file.h
---- a/include/linux/file.h~o_cloexec-for-scm_rights
-+++ a/include/linux/file.h
-@@ -73,6 +73,7 @@ extern struct file * FASTCALL(fget_light
- extern void FASTCALL(set_close_on_exec(unsigned int fd, int flag));
- extern void put_filp(struct file *);
- extern int get_unused_fd(void);
-+extern int get_unused_fd_flags(int flags);
- extern void FASTCALL(put_unused_fd(unsigned int fd));
- struct kmem_cache;
+@@ -891,7 +891,10 @@ repeat:
+ 	}
  
-diff -puN include/linux/socket.h~o_cloexec-for-scm_rights include/linux/socket.h
---- a/include/linux/socket.h~o_cloexec-for-scm_rights
-+++ a/include/linux/socket.h
-@@ -253,6 +253,9 @@ struct ucred {
+ 	FD_SET(fd, fdt->open_fds);
+-	FD_CLR(fd, fdt->close_on_exec);
++	if (flags & O_CLOEXEC)
++		FD_SET(fd, fdt->close_on_exec);
++	else
++		FD_CLR(fd, fdt->close_on_exec);
+ 	files->next_fd = fd + 1;
+ #if 1
+ 	/* Sanity check */
+@@ -907,6 +910,11 @@ out:
+ 	return error;
+ }
  
- #define MSG_EOF         MSG_FIN
++int get_unused_fd(void)
++{
++	return get_unused_fd_flags(0);
++}
++
+ EXPORT_SYMBOL(get_unused_fd);
  
-+#define MSG_CMSG_CLOEXEC 0x40000000	/* Set close_on_exit for file
-+					   descriptor received through
-+					   SCM_RIGHTS */
- #if defined(CONFIG_COMPAT)
- #define MSG_CMSG_COMPAT	0x80000000	/* This message needs 32 bit fixups */
- #else
-diff -puN net/compat.c~o_cloexec-for-scm_rights net/compat.c
---- a/net/compat.c~o_cloexec-for-scm_rights
-+++ a/net/compat.c
-@@ -276,7 +276,8 @@ void scm_detach_fds_compat(struct msghdr
- 		err = security_file_receive(fp[i]);
- 		if (err)
- 			break;
--		err = get_unused_fd();
-+		err = get_unused_fd_flags(MSG_CMSG_CLOEXEC & kmsg->msg_flags
-+					  ? O_CLOEXEC : 0);
- 		if (err < 0)
- 			break;
- 		new_fd = err;
-diff -puN net/core/scm.c~o_cloexec-for-scm_rights net/core/scm.c
---- a/net/core/scm.c~o_cloexec-for-scm_rights
-+++ a/net/core/scm.c
-@@ -228,7 +228,8 @@ void scm_detach_fds(struct msghdr *msg, 
- 		err = security_file_receive(fp[i]);
- 		if (err)
- 			break;
--		err = get_unused_fd();
-+		err = get_unused_fd_flags(MSG_CMSG_CLOEXEC & msg->msg_flags
-+					  ? O_CLOEXEC : 0);
- 		if (err < 0)
- 			break;
- 		new_fd = err;
-diff -puN net/socket.c~o_cloexec-for-scm_rights net/socket.c
---- a/net/socket.c~o_cloexec-for-scm_rights
-+++ a/net/socket.c
-@@ -1939,9 +1939,7 @@ asmlinkage long sys_recvmsg(int fd, stru
- 	total_len = err;
+ static void __put_unused_fd(struct files_struct *files, unsigned int fd)
+@@ -959,7 +967,7 @@ long do_sys_open(int dfd, const char __u
+ 	int fd = PTR_ERR(tmp);
  
- 	cmsg_ptr = (unsigned long)msg_sys.msg_control;
--	msg_sys.msg_flags = 0;
--	if (MSG_CMSG_COMPAT & flags)
--		msg_sys.msg_flags = MSG_CMSG_COMPAT;
-+	msg_sys.msg_flags = flags & (MSG_CMSG_CLOEXEC|MSG_CMSG_COMPAT);
+ 	if (!IS_ERR(tmp)) {
+-		fd = get_unused_fd();
++		fd = get_unused_fd_flags(flags);
+ 		if (fd >= 0) {
+ 			struct file *f = do_filp_open(dfd, tmp, flags, mode);
+ 			if (IS_ERR(f)) {
+diff -puN include/asm-generic/fcntl.h~introduce-o_cloexec-take-2 include/asm-generic/fcntl.h
+--- a/include/asm-generic/fcntl.h~introduce-o_cloexec-take-2
++++ a/include/asm-generic/fcntl.h
+@@ -48,6 +48,9 @@
+ #ifndef O_NOATIME
+ #define O_NOATIME	01000000
+ #endif
++#ifndef O_CLOEXEC
++#define O_CLOEXEC	02000000	/* set close_on_exec */
++#endif
+ #ifndef O_NDELAY
+ #define O_NDELAY	O_NONBLOCK
+ #endif
+diff -puN include/asm-parisc/fcntl.h~introduce-o_cloexec-take-2 include/asm-parisc/fcntl.h
+--- a/include/asm-parisc/fcntl.h~introduce-o_cloexec-take-2
++++ a/include/asm-parisc/fcntl.h
+@@ -3,21 +3,22 @@
  
- 	if (sock->file->f_flags & O_NONBLOCK)
- 		flags |= MSG_DONTWAIT;
+ /* open/fcntl - O_SYNC is only implemented on blocks devices and on files
+    located on an ext2 file system */
+-#define O_APPEND	00000010
+-#define O_BLKSEEK	00000100 /* HPUX only */
+-#define O_CREAT		00000400 /* not fcntl */
+-#define O_EXCL		00002000 /* not fcntl */
+-#define O_LARGEFILE	00004000
+-#define O_SYNC		00100000
+-#define O_NONBLOCK	00200004 /* HPUX has separate NDELAY & NONBLOCK */
+-#define O_NOCTTY	00400000 /* not fcntl */
+-#define O_DSYNC		01000000 /* HPUX only */
+-#define O_RSYNC		02000000 /* HPUX only */
+-#define O_NOATIME	04000000
+-
+-#define O_DIRECTORY	00010000 /* must be a directory */
+-#define O_NOFOLLOW	00000200 /* don't follow links */
+-#define O_INVISIBLE	04000000 /* invisible I/O, for DMAPI/XDSM */
++#define O_APPEND	000000010
++#define O_BLKSEEK	000000100 /* HPUX only */
++#define O_CREAT		000000400 /* not fcntl */
++#define O_EXCL		000002000 /* not fcntl */
++#define O_LARGEFILE	000004000
++#define O_SYNC		000100000
++#define O_NONBLOCK	000200004 /* HPUX has separate NDELAY & NONBLOCK */
++#define O_NOCTTY	000400000 /* not fcntl */
++#define O_DSYNC		001000000 /* HPUX only */
++#define O_RSYNC		002000000 /* HPUX only */
++#define O_NOATIME	004000000
++#define O_CLOEXEC	010000000 /* set close_on_exec */
++
++#define O_DIRECTORY	000010000 /* must be a directory */
++#define O_NOFOLLOW	000000200 /* don't follow links */
++#define O_INVISIBLE	004000000 /* invisible I/O, for DMAPI/XDSM */
+ 
+ #define F_GETLK64	8
+ #define F_SETLK64	9
 _
