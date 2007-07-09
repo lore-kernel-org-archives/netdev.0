@@ -1,37 +1,43 @@
 From: akpm@linux-foundation.org
-Subject: [patch 7/8] net/ipv4/netfilter/ip_tables.c: lower printk severity
-Date: Mon, 09 Jul 2007 11:51:13 -0700
-Message-ID: <200707091851.l69IpDYm001743@imap1.linux-foundation.org>
+Subject: [patch 8/8] RPC: Remove Makefile reference to obsolete RXRPC config variable
+Date: Mon, 09 Jul 2007 11:51:14 -0700
+Message-ID: <200707091851.l69IpEIo001746@imap1.linux-foundation.org>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	da-x@monatomic.org
+	rpjday@mindspring.com, bfields@fieldses.org,
+	trond.myklebust@fys.uio.no
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:60889 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:57655 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757843AbXGISvu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2007 14:51:50 -0400
+	by vger.kernel.org with ESMTP id S1759910AbXGISwL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2007 14:52:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Dan Aloni <da-x@monatomic.org>
+From: "Robert P. J. Day" <rpjday@mindspring.com>
 
-Signed-off-by: Dan Aloni <da-x@monatomic.org>
+Since there is no Kconfig variable RXRPC anywhere in the tree, and the
+variable AF_RXRPC performs exactly the same function, remove the reference
+to CONFIG_RXRPC from net/Makefile.
+
+Signed-off-by: Robert P. J. Day <rpjday@mindspring.com>
+Cc: Trond Myklebust <trond.myklebust@fys.uio.no>
+Cc: "J. Bruce Fields" <bfields@fieldses.org>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- net/ipv4/netfilter/ip_tables.c |    2 +-
- 1 files changed, 1 insertion(+), 1 deletion(-)
+ net/Makefile |    1 -
+ 1 files changed, 1 deletion(-)
 
-diff -puN net/ipv4/netfilter/ip_tables.c~net-ipv4-netfilter-ip_tablesc-lower-printk-severity net/ipv4/netfilter/ip_tables.c
---- a/net/ipv4/netfilter/ip_tables.c~net-ipv4-netfilter-ip_tablesc-lower-printk-severity
-+++ a/net/ipv4/netfilter/ip_tables.c
-@@ -2331,7 +2331,7 @@ static int __init ip_tables_init(void)
- 	if (ret < 0)
- 		goto err5;
- 
--	printk("ip_tables: (C) 2000-2006 Netfilter Core Team\n");
-+	printk(KERN_INFO "ip_tables: (C) 2000-2006 Netfilter Core Team\n");
- 	return 0;
- 
- err5:
+diff -puN net/Makefile~rpc-remove-makefile-reference-to-obsolete-rxrpc-config net/Makefile
+--- a/net/Makefile~rpc-remove-makefile-reference-to-obsolete-rxrpc-config
++++ a/net/Makefile
+@@ -37,7 +37,6 @@ obj-$(CONFIG_AX25)		+= ax25/
+ obj-$(CONFIG_IRDA)		+= irda/
+ obj-$(CONFIG_BT)		+= bluetooth/
+ obj-$(CONFIG_SUNRPC)		+= sunrpc/
+-obj-$(CONFIG_RXRPC)		+= rxrpc/
+ obj-$(CONFIG_AF_RXRPC)		+= rxrpc/
+ obj-$(CONFIG_ATM)		+= atm/
+ obj-$(CONFIG_DECNET)		+= decnet/
 _
