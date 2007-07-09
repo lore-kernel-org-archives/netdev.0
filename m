@@ -1,45 +1,85 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [GIT PATCH] Updates for RH0 deprecation.
-Date: Tue, 10 Jul 2007 07:25:01 +0900 (JST)
-Message-ID: <20070710.072501.41348033.yoshfuji@linux-ipv6.org>
-References: <20070710.022901.53209186.yoshfuji@linux-ipv6.org>
-	<20070709.142830.93645744.davem@davemloft.net>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: Splitting e1000 (Was: Re: e1000: backport ich9
+ support from 7.5.5 ?)
+Date: Mon, 09 Jul 2007 18:26:25 -0400
+Message-ID: <4692B611.1050603@garzik.org>
+References: <46857C08.4030303@intel.com>	<20070629150350.414553d4.akpm@linux-foundation.org>	<4685838D.9080108@garzik.org>	<c0a09e5c0706291657kd5e4baawb113a17ca5ab2191@mail.gmail.com>	<46859F3F.305@garzik.org>	<4685C09B.7040908@intel.com>	<20070630082520.GA20140@infradead.org>	<468AD23A.4090904@intel.com>	<468D8B32.9020305@garzik.org>	<468EDAF9.3020606@intel.com>	<20070707190431.GA26341@electric-eye.fr.zoreil.com>	<46900B83.1060902@intel.com>
+	<20070707183244.19d21893@freepuppy.rosehill.hemminger.net>
+	<469110F6.2030902@linux.intel.com> <4691279C.8030603@garzik.org>
+	<46914382.8090801@linux.intel.com>
+	<469280F5.8000909@garzik.org> <46929EBB.3000809@intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:47670 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754439AbXGIWY0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2007 18:24:26 -0400
-In-Reply-To: <20070709.142830.93645744.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
+Cc: e1000-devel@lists.sourceforge.net,
+	Arjan van de Ven <arjan@linux.intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	Christoph Hellwig <hch@infradead.org>, netdev@vger.kernel.org,
+	Andrew Grover <andy.grover@gmail.com>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <46929EBB.3000809@intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-In article <20070709.142830.93645744.davem@davemloft.net> (at Mon, 09 Jul 2007 14:28:30 -0700 (PDT)), David Miller <davem@davemloft.net> says:
+Kok, Auke wrote:
+> I would strongly vote for taking a stripped down e1000new then, mask out 
+> all the pci id's except ich9, remove all code for pre-pci-e silicon and 
+> remove the most annoying and needlessly complexing code like the 
+> semi-implemented multiqueue code that is in there.
 
-> From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
-> Date: Tue, 10 Jul 2007 02:29:01 +0900 (JST)
+I'm fine for that as a path forward.  I would think that would zap a lot 
+of the hooks.
+
+
+> How we are going to improve the internal api then can subsequently be 
+> done upstream in steps: implement using phylib, reorganize the code. 
+> This would give the community a view on the progress.
 > 
-> > Changesets are available at
-> > 	git://git.linux-ipv6.org/gitroot/yoshfuji/linux-2.6-dev.git/
-> > on the branch named
-> > 	linux-2.6.22_deprecate-rh0-20070710
-> 
-> davem@sunset:~/src/GIT/ipv6-2.6$ git pull git://git.linux-ipv6.org/gitroot/yoshfuji/linux-2.6-dev.git linux-2.6.22_deprecate-rh0-20070710
-> error: no such remote ref refs/heads/linux-2.6.22_deprecate-rh0-20070710
-> fatal: Fetch failure: git://git.linux-ipv6.org/gitroot/yoshfuji/linux-2.6-dev.git
+> I fear that if I spend yet another 2 months offline working on making a 
+> minimal ich9 driver I will lose even more time and patience: Even though 
+> the current driver (with pre-pci-e stripped) might not be as nice as you 
+> want, at least we can work together on it. I would rather go with 
+> something I know that works, isn't too bad, and we have time and start 
+> reviewing upstream immediately.
 
-... Sorry, the repository was not synchronized appropriately...
-(rsync has been stuck for several days; I do not know the reason...)
+"minimal ich9 driver" is more a metaphor, describing the seed from which 
+a clean driver would logically grow:  imagine a minimal ich9 driver, 
+then add TSO, add support for other PCI-e phys, etc.  Whether you do 
+this exercise in your head or on the computer makes no difference, as 
+long as you can see what the end result should look like.
 
-Would you please try it again?
+Not asking for yet another driver...  Start with e1000new or whatever 
+base you like.  Post driver for review, get feedback, update, lather, 
+rinse, repeat.  If we're all responsive, it should not take long at all 
+to get something upstream-mergeable.  Solve the "big potato" issues 
+especially :)
 
-Thank you.
 
--- 
-YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
-GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+> Agreed. All current e1000 pci-e hardware is based on the same mac, so 
+> it's the logical split. The differences are PHYs and manageability, but 
+
+OK
+
+	Jeff
+
+
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by DB2 Express
+Download DB2 Express C - the FREE version of DB2 express and take
+control of your XML. No limits. Just data. Click to get it now.
+http://sourceforge.net/powerbar/db2/
