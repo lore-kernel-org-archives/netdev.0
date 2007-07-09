@@ -1,48 +1,78 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [RFC NET_SCHED 00/05]: Kill NET_CLS_POLICE
-Date: Mon,  9 Jul 2007 22:46:12 +0200 (MEST)
-Message-ID: <20070709204611.1461.16465.sendpatchset@localhost.localdomain>
+Subject: [NET_SCHED 02/05]: sch_atm: act_api support
+Date: Mon,  9 Jul 2007 22:46:15 +0200 (MEST)
+Message-ID: <20070709204614.1461.59556.sendpatchset@localhost.localdomain>
+References: <20070709204611.1461.16465.sendpatchset@localhost.localdomain>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
 To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:41501 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:41507 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754505AbXGIUqN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2007 16:46:13 -0400
+	with ESMTP id S1754723AbXGIUqQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2007 16:46:16 -0400
+In-Reply-To: <20070709204611.1461.16465.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[This is a resend because of a typo in Jamal's address that I believe
- made vger reject the mails. Appologies in case they arrive twice.]
+[NET_SCHED]: sch_atm: act_api support
 
+Handle act_api classification results.
 
-These patches update the NET_CLS_ACT code to fully replace NET_CLS_POLICE
-and remove the old code. There is one incompatibility, please look at
-patch 4/5 for details.
+The ATM scheduler behaves slightly different than other schedulers
+in that it only handles policer results for successful classifications,
+this behaviour is retained for the act_api case.
 
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 
- include/net/act_api.h     |   30 ---
- include/net/pkt_cls.h     |    8 -
- include/net/pkt_sched.h   |    4 +-
- include/net/sch_generic.h |    2 +-
- net/sched/Kconfig         |    8 +-
- net/sched/Makefile        |    1 -
- net/sched/act_police.c    |  246 ++----------------------
- net/sched/cls_api.c       |   40 ----
- net/sched/cls_u32.c       |    3 -
- net/sched/sch_api.c       |   67 ++++---
- net/sched/sch_atm.c       |  475 ++++++++++++++++++++++-----------------------
- net/sched/sch_cbq.c       |   48 ++---
- net/sched/sch_dsmark.c    |   34 ++--
- net/sched/sch_hfsc.c      |    3 -
- net/sched/sch_htb.c       |    3 -
- net/sched/sch_ingress.c   |   19 --
- net/sched/sch_tbf.c       |    2 +-
- 17 files changed, 330 insertions(+), 663 deletions(-)
+---
+commit c7c3ff564b59bfb21aadd54cabab9369f120eaba
+tree e0c0de83f364229f0bb4b8abb586fd64c204fd12
+parent d040f72f96e69c5494179d4431e8db82e8a11c74
+author Patrick McHardy <kaber@trash.net> Mon, 09 Jul 2007 22:03:09 +0200
+committer Patrick McHardy <kaber@trash.net> Mon, 09 Jul 2007 22:03:09 +0200
 
-Patrick McHardy (5):
-      [NET_SCHED]: sch_atm: Lindent
-      [NET_SCHED]: sch_atm: act_api support
-      [NET_SCHED]: sch_dsmark: act_api support
-      [NET_SCHED]: act_api: qdisc internal reclassify support
-      [NET_SCHED]: Kill CONFIG_NET_CLS_POLICE
+ net/sched/sch_atm.c |   21 ++++++++++++++-------
+ 1 files changed, 14 insertions(+), 7 deletions(-)
+
+diff --git a/net/sched/sch_atm.c b/net/sched/sch_atm.c
+index 9b458c4..ccee10d 100644
+--- a/net/sched/sch_atm.c
++++ b/net/sched/sch_atm.c
+@@ -411,11 +411,21 @@ static int atm_tc_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 		if (flow->vcc)
+ 			ATM_SKB(skb)->atm_options = flow->vcc->atm_options;
+ 		/*@@@ looks good ... but it's not supposed to work :-) */
+-#ifdef CONFIG_NET_CLS_POLICE
++#ifdef CONFIG_NET_CLS_ACT
++		switch (result) {
++		case TC_ACT_QUEUED:
++		case TC_ACT_STOLEN:
++			kfree_skb(skb);
++			return NET_XMIT_SUCCESS;
++		case TC_ACT_SHOT:
++			kfree_skb(skb);
++			goto drop;
++		}
++#elif defined(CONFIG_NET_CLS_POLICE)
+ 		switch (result) {
+ 		case TC_POLICE_SHOT:
+ 			kfree_skb(skb);
+-			break;
++			goto drop;
+ 		case TC_POLICE_RECLASSIFY:
+ 			if (flow->excess)
+ 				flow = flow->excess;
+@@ -431,11 +441,8 @@ static int atm_tc_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 		}
+ #endif
+ 	}
+-	if (
+-#ifdef CONFIG_NET_CLS_POLICE
+-		   result == TC_POLICE_SHOT ||
+-#endif
+-		   (ret = flow->q->enqueue(skb, flow->q)) != 0) {
++	if ((ret = flow->q->enqueue(skb, flow->q)) != 0) {
++drop: __maybe_unused
+ 		sch->qstats.drops++;
+ 		if (flow)
+ 			flow->qstats.drops++;
