@@ -1,46 +1,61 @@
-From: Patrizio Bassi <patrizio.bassi@gmail.com>
-Subject: (unknown)
-Date: Mon, 09 Jul 2007 08:12:37 +0200
-Message-ID: <4691D1D5.6030904@gmail.com>
-Reply-To: patrizio.bassi@gmail.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC 2/2] shrink size of scatterlist on common i386/x86-64
+Date: Mon, 09 Jul 2007 00:06:40 -0700 (PDT)
+Message-ID: <20070709.000640.122589877.davem@davemloft.net>
+References: <08FE5CC30C9A3F41BF819A502CF7BF6E0198249D@fmsmsx411.amr.corp.intel.com>
+	<20070706.122019.55506705.davem@davemloft.net>
+	<20070708161730.GA4146@rhun.haifa.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: mitch.a.williams@intel.com, shemminger@linux-foundation.org,
+	netdev@vger.kernel.org
+To: muli@il.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ik-out-1112.google.com ([66.249.90.177]:26274 "EHLO
-	ik-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750818AbXGIGMl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2007 02:12:41 -0400
-Received: by ik-out-1112.google.com with SMTP id b32so448202ika
-        for <netdev@vger.kernel.org>; Sun, 08 Jul 2007 23:12:40 -0700 (PDT)
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49389
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751090AbXGIHGS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2007 03:06:18 -0400
+In-Reply-To: <20070708161730.GA4146@rhun.haifa.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi
+From: Muli Ben-Yehuda <muli@il.ibm.com>
+Date: Sun, 8 Jul 2007 19:17:30 +0300
 
-after some email exchange with Stephen Hemminger i decide to forward the question to netdev ml.
+> On Fri, Jul 06, 2007 at 12:20:19PM -0700, David Miller wrote:
+> > From: "Williams, Mitch A" <mitch.a.williams@intel.com>
+> > Date: Fri, 6 Jul 2007 10:14:56 -0700
+> > 
+> > > In my opinion, IOMMU table locking is the major issue with this
+> > > type of architecture.  Since both Intel and AMD are touting IOMMUs
+> > > for virtual- ization support, this is an issue that's going to
+> > > need a lot of scrutiny.
+> > 
+> > For the allocation of IOMMU entries themselves you can play tricks
+> > using atomic operations on 64-bit words of the allocator bitmap to
+> > avoid locking that.
+> 
+> Hmm, any pointers?
 
-I'm using vmware 6 and bridged networking with interface eth1 (sky2 driver).
+I've never implemented it but it is certainly possible to do.
 
-The brigde works only when eth1 has the physical connection enabled (another pc plugged in), so
-i always need to have another pc running to have virtual networking.
-with tcpdump i can see packets coming from virtual machines, but none
-sent back.
+> That works, but isn't optimal when you have an isolation-capable IOMMU
+> and you want the full isolation properties of the IOMMU. If you only
+> flush the IOTLB when the allocator wraps around, a stale entry in the
+> IOTLB can allow a DMA to go through for an IO entry that has already
+> been unmapped. One way to mitigate that and still retain full
+> isolation is to make sure no one else gets to use the frames that are
+> the targets of the DMA until the translation has been flushed out of
+> the IOTLB, but that requires pretty deep surgery.
 
-With other drivers (some old 3com cards) i don't have this issue.
+Virtualization sucks doesn't it? :-)
 
-I wonder if it's possibile to have the sky2 interface always "alive" (as
-ifconfig reports it up) in order to have the bridge working.
-I looked for some ethtool options...but nothing...
+It's one of the worst aspects of all of this virtualization business.
+In my view it makes no sense to split up the physical hardware.  Just
+give control nodes complete access to everything and instead of
+playing games partializing real hardware, just give virtual instances
+to everybody and be done with all of this complexity.
 
-i saw in the code the queue disable, but i would like to switch this
-somehow runtime...
-
-thanks for support
-
-Patrizio
-
-ps. please CC me i'm not subscribed.
-
-
+Anyways, hypervisors et al. have already decided to do this braindamage
+so you will need to find some way to make it go fast now won't you? :)
