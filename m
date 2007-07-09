@@ -1,34 +1,50 @@
-From: Tetsuo Handa <from-netdev@i-love.sakura.ne.jp>
-Subject: Re: [RFC] Allow LSM to use IP address/port number.
-Date: Tue, 10 Jul 2007 13:11:37 +0900
-Message-ID: <200707100411.l6A4BbMo060033@www262.sakura.ne.jp>
-References: <200707070225.AFC45609.MNStNTPG@I-love.SAKURA.ne.jp> <200707061343.03942.paul.moore@hp.com> <200707090533.l695X1PM059672@www262.sakura.ne.jp> <20070709.002629.28788394.davem@davemloft.net> <200707092213.HAC58314.WSNFtPGOFUE@I-love.SAKURA.ne.jp> <Line.LNX.4.64.0707091842360.9417@d.namei> <20070709160538.289d8ac2@freepuppy.rosehill.hemminger.net> <Line.LNX.4.64.0707091940450.10029@d.namei>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Races in net_rx_action vs netpoll?
+Date: Mon, 09 Jul 2007 15:27:46 -0700 (PDT)
+Message-ID: <20070709.152746.75758774.davem@davemloft.net>
+References: <200707041416.33732.okir@lst.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-2022-JP"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org
-To: James Morris <jmorris@namei.org>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <Line.LNX.4.64.0707091940450.10029@d.namei>
-Sender: linux-security-module-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: okir@lst.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47205
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751003AbXGJESv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2007 00:18:51 -0400
+In-Reply-To: <200707041416.33732.okir@lst.de>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thank you for your comment.
+From: Olaf Kirch <okir@lst.de>
+Date: Wed, 4 Jul 2007 14:16:32 +0200
 
-I have a question regarding netfilter infrastructure.
+Another locking bug in netpoll, why am I not surprised? :-/
 
-I want to filter messages using "task_struct->security".
-Can the netfilter's queuing to userspace feature
-get a list of "struct task_struct" who shares a socket
-that is going to receive incoming messages?
+Thanks for reporting this Olaf.
 
-My approach is not "is this socket allowed to receive from xxx.xxx.xxx.xxx port yy"
-but "is this process allowed to receive from xxx.xxx.xxx.xxx port yy".
-So, my approach is not using security context associated with a socket
-but security context associated with a process.
+> I think the only real fix for this is to restrict who is allowed
+> to remove the interface from the poll_list. Only net_rx_action
+> should be allowed to do so. A possible patch is given below
+> (beware, it's untested so far)
 
-If I can't use netfilter, there is no chance to filter before enqueuing
-messages. So, I think propagating errors to the local user
-after dequeuing messages is the only possible way.
+I'm happy to entertain this kind of solution, but we really
+need to first have an interface to change multiple bits
+at a time in one atomic operation, because by itself this
+patch doubles the number of atomices we do when starting
+a NAPI poll.
 
-Regards.
+>  static inline int __netif_rx_schedule_prep(struct net_device *dev)
+>  {
+> +	/* The driver may have decided that there's no more work
+> +	 * to be done - but now another interrupt arrives, and
+> +	 * we changed our mind. */
+> +	smp_mb__before_clear_bit();
+> +	clear_bit(__LINK_STATE_RX_COMPLETE, &dev->state);
+> +
+>  	return !test_and_set_bit(__LINK_STATE_RX_SCHED, &dev->state);
+>  }
+>  
+
+Because of that change.
