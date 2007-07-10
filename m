@@ -1,52 +1,78 @@
-From: Joel Becker <Joel.Becker@oracle.com>
-Subject: Re: [PATCH v2 -mm 8/9] netconsole: Support multiple logging targets
-Date: Tue, 10 Jul 2007 21:29:48 -0700
-Message-ID: <20070711042948.GS1011@tasint.org>
-References: <20070710091920.23907.96483.sendpatchset@cselinux1.cse.iitk.ac.in> <20070710092001.23907.39876.sendpatchset@cselinux1.cse.iitk.ac.in> <e9e943910707100323o35cb0316i5d3f21584ad8e4ae@mail.gmail.com> <Pine.LNX.4.64.0707110340370.2445@cselinux1.cse.iitk.ac.in>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Duane Griffin <duaneg@dghda.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Matt Mackall <mpm@selenic.com>,
-	Keiichi Kii <k-keiichi@bx.jp.nec.com>,
+From: Satyam Sharma <ssatyam@cse.iitk.ac.in>
+Subject: [PATCH v2 (updated) -mm 4/9] netconsole: Add some useful tips to documentation
+Date: Wed, 11 Jul 2007 03:49:29 +0530
+Message-ID: <20070710221929.3414.80246.sendpatchset@cselinux1.cse.iitk.ac.in>
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
 	Netdev <netdev@vger.kernel.org>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
+	Keiichi Kii <k-keiichi@bx.jp.nec.com>,
+	Satyam Sharma <ssatyam@cse.iitk.ac.in>,
+	Jesper Juhl <jesper.juhl@gmail.com>,
+	Joel Becker <joel.becker@oracle.com>,
+	Matt Mackall <mpm@selenic.com>,
 	Andrew Morton <akpm@linux-foundation.org>,
 	David Miller <davem@davemloft.net>
-To: Satyam Sharma <ssatyam@cse.iitk.ac.in>
+To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from agminet01.oracle.com ([141.146.126.228]:19254 "EHLO
-	agminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751638AbXGKEaZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2007 00:30:25 -0400
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0707110340370.2445@cselinux1.cse.iitk.ac.in>
+Received: from mail4.iitk.ac.in ([203.197.196.4]:57889 "EHLO mail4.iitk.ac.in"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752104AbXGKEyK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Jul 2007 00:54:10 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 11, 2007 at 03:47:09AM +0530, Satyam Sharma wrote:
-> Hmm, I put it in there because I expected that the user must have had
-> at least one target configured (added to target_list) if he's got the
-> module loaded/built-in (and netconsole registered), which is when this
-> function would be triggered anyway.
+[4/9 (updated)] netconsole: Add some useful tips to documentation
 
-	Loading the module won't happen without a config, but there's no
-requirement that a built-in netconsole has a kernel command-line
-argument.  I always build netconsole for my kernels.  Sure, I usually do
-it as a module, but if I build a monolithic kernel I compile it in.
-That doesn't mean I always have a server, let alone a netconsole= option
-:-)
+Add some useful general-purpose tips. Also suggest solution for the frequent
+problem of console_loglevel set too low numerically (i.e. for high priority
+messages only) on the sender.
 
-Joel
+Cc: Matt Mackall <mpm@selenic.com>
+Cc: Jesper Juhl <jesper.juhl@gmail.com>
+Signed-off-by: Satyam Sharma <ssatyam@cse.iitk.ac.in>
 
--- 
+---
 
-"When choosing between two evils, I always like to try the one
- I've never tried before."
-        - Mae West
+ Documentation/networking/netconsole.txt |   24 ++++++++++++++++++++++++
+ 1 file changed, 24 insertions(+)
 
-Joel Becker
-Principal Software Developer
-Oracle
-E-mail: joel.becker@oracle.com
-Phone: (650) 506-8127
+---
+
+diff -ruNp a/Documentation/networking/netconsole.txt b/Documentation/networking/netconsole.txt
+--- a/Documentation/networking/netconsole.txt	2007-04-26 08:38:32.000000000 +0530
++++ b/Documentation/networking/netconsole.txt	2007-07-11 03:11:08.000000000 +0530
+@@ -44,11 +44,35 @@ WARNING: the default target ethernet set
+ ethernet address to send packets, which can cause increased load on
+ other systems on the same ethernet segment.
+ 
++TIP: some LAN switches may be configured to suppress ethernet broadcasts
++so it is advised to explicitly specify the remote agents' MAC addresses
++from the config parameters passed to netconsole.
++
++TIP: to find out the MAC address of, say, 10.0.0.2, you may try using:
++
++ ping -c 1 10.0.0.2 ; /sbin/arp -n | grep 10.0.0.2
++
++TIP: in case the remote logging agent is on a separate LAN subnet than
++the sender, it is suggested to try specifying the MAC address of the
++default gateway (you may use /sbin/route -n to find it out) as the
++remote MAC address instead.
++
+ NOTE: the network device (eth1 in the above case) can run any kind
+ of other network traffic, netconsole is not intrusive. Netconsole
+ might cause slight delays in other traffic if the volume of kernel
+ messages is high, but should have no other impact.
+ 
++NOTE: if you find that the remote logging agent is not receiving or
++printing all messages from the sender, it is likely that you have set the
++"console_loglevel" parameter (on the sender) to only send high priority
++messages to the console. You can change this at runtime by updating
++/proc/sys/kernel/printk appropriately, say by:
++
++ echo 9 > /proc/sys/kernel/printk
++
++which would send all kernel messages to the console. Refer the proc(5)
++man page for more details.
++
+ Netconsole was designed to be as instantaneous as possible, to
+ enable the logging of even the most critical kernel bugs. It works
+ from IRQ contexts as well, and does not enable interrupts while
