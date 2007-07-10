@@ -1,67 +1,76 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: [PATCH] e100: Fix Tyan motherboard e100 not receiving IPMI commands
-Date: Tue, 10 Jul 2007 08:45:11 -0700
-Message-ID: <20070710154511.8419.38789.stgit@localhost.localdomain>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Fw: iproute2 showing wrong number of bytes on 64bit architectures.
+Date: Tue, 10 Jul 2007 08:56:40 -0700
+Message-ID: <20070710085640.128311d1@freepuppy.rosehill.hemminger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: david.graham@intel.com, auke-jan.h.kok@intel.com,
-	netdev@vger.kernel.org
-To: jeff@garzik.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:40378 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755496AbXGJPpO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Jul 2007 11:45:14 -0400
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:34577 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753110AbXGJP4o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2007 11:56:44 -0400
+Received: from freepuppy.rosehill.hemminger.net (069-064-229-129.pdx.net [69.64.229.129])
+	(authenticated bits=0)
+	by smtp2.linux-foundation.org (8.13.5.20060308/8.13.5/Debian-3ubuntu1.1) with ESMTP id l6AFufQG001386
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Tue, 10 Jul 2007 08:56:43 -0700
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: David Graham <david.graham@intel.com>
+Looks like net_device_stats should have always used u32?
+Too late to change it now.
 
-The 82550 & 51 parts have an extended configuration block that
-includes a bit "GMRC", required to enable the expected TCO behavior,
-in config byte offset 22d.  The config block sent by the failing driver
-does include the extension area, but this bit is not initialised,
-and the downlaod only specifies 0x16 bytes to be sent to the NIC
-(thaht's bytes 00..21d). By initializing the GMRC bit, and extending
-the download size for D102+ MACs, the problem is resolved.
+Begin forwarded message:
 
-Signed-off-by: David Graham <david.graham@intel.com>
-Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
----
+Date: Tue, 10 Jul 2007 13:58:51 +0200
+From: Andreas Henriksson <andreas@fatal.se>
+To: netdev@vger.kernel.org
+Cc: 199054@bugs.debian.org
+Subject: iproute2 showing wrong number of bytes on 64bit architectures.
 
- drivers/net/e100.c |   12 +++++++++---
- 1 files changed, 9 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/e100.c b/drivers/net/e100.c
-index 763810c..74ea637 100644
---- a/drivers/net/e100.c
-+++ b/drivers/net/e100.c
-@@ -159,7 +159,7 @@
- 
- #define DRV_NAME		"e100"
- #define DRV_EXT			"-NAPI"
--#define DRV_VERSION		"3.5.17-k4"DRV_EXT
-+#define DRV_VERSION		"3.5.23-k4"DRV_EXT
- #define DRV_DESCRIPTION		"Intel(R) PRO/100 Network Driver"
- #define DRV_COPYRIGHT		"Copyright(c) 1999-2006 Intel Corporation"
- #define PFX			DRV_NAME ": "
-@@ -1024,10 +1024,16 @@ static void e100_configure(struct nic *nic, struct cb *cb, struct sk_buff *skb)
- 		config->mwi_enable = 0x1;	/* 1=enable, 0=disable */
- 		config->standard_tcb = 0x0;	/* 1=standard, 0=extended */
- 		config->rx_long_ok = 0x1;	/* 1=VLANs ok, 0=standard */
--		if(nic->mac >= mac_82559_D101M)
-+		if (nic->mac >= mac_82559_D101M) {
- 			config->tno_intr = 0x1;		/* TCO stats enable */
--		else
-+			/* Enable TCO in extended config */
-+			if (nic->mac >= mac_82551_10) {
-+				config->byte_count = 0x20; /* extended bytes */
-+				config->rx_d102_mode = 0x1; /* GMRC for TCO */
-+			}
-+		} else {
- 			config->standard_stat_counter = 0x0;
-+		}
- 	}
- 
- 	DPRINTK(HW, DEBUG, "[00-07]=%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X\n",
+Hello!
+
+While investigating the problems reported in Debian bug #199054
+(http://bugs.debian.org/199054), stating that the RX/TX bytes differ between
+ifconfig and ip(route2) I came across this:
+
+include/linux/if_link.h (used in kernel and iproute2 source):
+/* The struct should be in sync with struct net_device_stats */
+struct rtnl_link_stats
+{
+	__u32 ...;
+	__u32 ...;
+	__u32 ...;
+	__u32 ...;
+...
+
+
+include/linux/netdevice.h:
+struct net_device_stats
+{
+	unsigned long   ...;
+	unsigned long   ...;
+	unsigned long   ...;
+	unsigned long   ...;
+	unsigned long   ...;
+....
+
+
+This will be a problem when unsigned long isn't 32bits, but I guess the
+rtnetlink message size is static for good reason. 
+Can someone please advise on how to fix this?
+
+-- 
+Regards,
+Andreas Henriksson
+-
+To unsubscribe from this list: send the line "unsubscribe netdev" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
