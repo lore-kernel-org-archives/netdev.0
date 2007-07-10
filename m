@@ -1,46 +1,103 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: + gen_estimator-fix-locking-and-timer-related-bugs.patch added
- to -mm tree
-Date: Tue, 10 Jul 2007 14:20:12 +0200
-Message-ID: <4693797C.1020408@trash.net>
-References: <1183727654.6389.3.camel@ranko-fc2.spidernet.net> <468E4FD9.4060702@trash.net> <1183733732.6389.26.camel@ranko-fc2.spidernet.net> <1183794918.30237.69.camel@localhost.localdomain> <Pine.LNX.4.64.0707071704370.1808@x2> <1183984861.18656.21.camel@ranko-fc2.spidernet.net> <46923DA8.9010208@trash.net> <1183999420.18656.54.camel@ranko-fc2.spidernet.net> <20070710073447.GA1870@ff.dom.local> <1184062147.11966.37.camel@localhost.localdomain> <20070710121756.GB3130@ff.dom.local>
+From: Jesper Juhl <jesper.juhl@gmail.com>
+Subject: Re: [PATCH v2 -mm 4/9] netconsole: Add some useful tips to documentation
+Date: Tue, 10 Jul 2007 14:34:39 +0200
+Message-ID: <200707101434.39938.jesper.juhl@gmail.com>
+References: <20070710091920.23907.96483.sendpatchset@cselinux1.cse.iitk.ac.in> <20070710091941.23907.45658.sendpatchset@cselinux1.cse.iitk.ac.in> <20070710094142.GM11115@waste.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Ranko Zivojnovic <ranko@spidernet.net>, akpm@linux-foundation.org,
-	netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@o2.pl>
+Cc: Satyam Sharma <ssatyam@cse.iitk.ac.in>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Keiichi Kii <k-keiichi@bx.jp.nec.com>,
+	Netdev <netdev@vger.kernel.org>,
+	Joel Becker <joel.becker@oracle.com>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>,
+	Jesper Juhl <jesper.juhl@gmail.com>
+To: Matt Mackall <mpm@selenic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:58247 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751662AbXGJMUa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2007 08:20:30 -0400
-In-Reply-To: <20070710121756.GB3130@ff.dom.local>
+Received: from ug-out-1314.google.com ([66.249.92.175]:50821 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752420AbXGJMfJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2007 08:35:09 -0400
+Received: by ug-out-1314.google.com with SMTP id j3so1315247ugf
+        for <netdev@vger.kernel.org>; Tue, 10 Jul 2007 05:35:08 -0700 (PDT)
+In-Reply-To: <20070710094142.GM11115@waste.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jarek Poplawski wrote:
-> On Tue, Jul 10, 2007 at 01:09:07PM +0300, Ranko Zivojnovic wrote:
-> 
->>However I decided not to use _rcu based iteration neither the
->>rcu_read_lock() after going through the RCU documentation and a bunch of
->>examples in kernel that iterate through the lists using non _rcu macros
->>and do list_del_rcu() just fine.
->>
->>For readability, the reference to list_del_rcu as well as call_rcu, I
->>believe, should be enough of the indication. Please do correct me if I
->>am wrong here.
-> 
-> 
-> It's only my opinion, and it's probably not very popular at least
-> at net/ code, so it's more about general policy and not this
-> particular code. But:
-> - if somebody is looking after some rcu related problems, why can't
-> he/she spare some time by omitting lists without _rcu and not
-> analyzing why/how such lists are used and locked?
+On Tuesday 10 July 2007 11:41:43 Matt Mackall wrote:
+> On Tue, Jul 10, 2007 at 02:49:41PM +0530, Satyam Sharma wrote:
+> > From: Satyam Sharma <ssatyam@cse.iitk.ac.in>
+> >
+> > [4/9] netconsole: Add some useful tips to documentation
+> >
+> > Add some useful general-purpose tips.
+> >
+> > Signed-off-by: Satyam Sharma <ssatyam@cse.iitk.ac.in>
+> > Cc: Keiichi Kii <k-keiichi@bx.jp.nec.com>
+>
+> Acked-by: Matt Mackall <mpm@selenic.com>
+>
+> As long as we're on the subject, I've been meaning to add a note
+> telling people to set their console log level to something useful, as
+> having that set too low is the most common problem people encounter.
+
+How about this?
 
 
-RCU is used for the read-side, using it on the write-side just makes
-things *less* understandable IMO. It will look like the read-side
-but still do modifications.
+From: Satyam Sharma <ssatyam@cse.iitk.ac.in>
+
+Add some useful general-purpose tips.
+
+Signed-off-by: Satyam Sharma <ssatyam@cse.iitk.ac.in>
+Cc: Keiichi Kii <k-keiichi@bx.jp.nec.com>
+Acked-by: Matt Mackall <mpm@selenic.com>
+Signed-off-by: Jesper Juhl <jesper.juhl@gmail.com>
+
+---
+
+ Documentation/networking/netconsole.txt |   18 ++++++++++++++++++
+ 1 files changed, 18 insertions(+), 0 deletions(-)
+
+diff --git a/Documentation/networking/netconsole.txt b/Documentation/networking/netconsole.txt
+index 1caa6c7..ffd5058 100644
+--- a/Documentation/networking/netconsole.txt
++++ b/Documentation/networking/netconsole.txt
+@@ -44,11 +44,29 @@ WARNING: the default target ethernet setting uses the broadcast
+ ethernet address to send packets, which can cause increased load on
+ other systems on the same ethernet segment.
+ 
++TIP: some LAN switches may be configured to suppress ethernet broadcasts
++so it is advised to explicitly specify the remote agents' MAC addresses
++from the config parameters passed to netconsole.
++
++TIP: to find out the MAC address of, say, 10.0.0.2, you may try using:
++
++ ping -c 1 10.0.0.2 ; /sbin/arp -n | grep 10.0.0.2
++
++TIP: in case the remote logging agent is on a separate LAN subnet than
++the sender, it is suggested to try specifying the MAC address of the
++default gateway (you may use /sbin/route -n to find it out) as the
++remote MAC address instead.
++
+ NOTE: the network device (eth1 in the above case) can run any kind
+ of other network traffic, netconsole is not intrusive. Netconsole
+ might cause slight delays in other traffic if the volume of kernel
+ messages is high, but should have no other impact.
+ 
++Some people forget to raise the kernels log_level to an
++appropriate level and thus don't see all the kernel log messages they
++expect. You can add the kernel boot option "ignore_loglevel" to see all
++messages or you can use SysRq to set the log level to a specific value.
++
+ Netconsole was designed to be as instantaneous as possible, to
+ enable the logging of even the most critical kernel bugs. It works
+ from IRQ contexts as well, and does not enable interrupts while
+
+
+
 
