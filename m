@@ -1,268 +1,97 @@
-From: Alex Krohn <alex@gossamer-threads.com>
-Subject: 2.6.21.5 and forcedeth locks up during boot
-Date: Tue, 10 Jul 2007 01:24:20 -0700
-Message-ID: <20070710011239.53A7.ALEX@gossamer-threads.com>
-Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="------_46933F7753A60231A168_MULTIPART_MIXED_"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+From: Satyam Sharma <ssatyam@cse.iitk.ac.in>
+Subject: [RFC][PATCH v2 -mm 0/9] netconsole: Multiple targets and dynamic reconfigurability
+Date: Tue, 10 Jul 2007 14:49:20 +0530
+Message-ID: <20070710091920.23907.96483.sendpatchset@cselinux1.cse.iitk.ac.in>
+Cc: Matt Mackall <mpm@selenic.com>,
+	Keiichi Kii <k-keiichi@bx.jp.nec.com>,
+	Satyam Sharma <ssatyam@cse.iitk.ac.in>,
+	Netdev <netdev@vger.kernel.org>,
+	Joel Becker <joel.becker@oracle.com>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>
+To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gossamer.nmsrv.com ([209.139.239.21]:45412 "EHLO
-	gossamer-threads.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754958AbXGJIdj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2007 04:33:39 -0400
+Received: from mail4.iitk.ac.in ([203.197.196.4]:42573 "EHLO mail4.iitk.ac.in"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755858AbXGJI5M (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Jul 2007 04:57:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---------_46933F7753A60231A168_MULTIPART_MIXED_
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
+[0/9] netconsole: Multiple targets and dynamic reconfigurability
 
-Hi,
+This patchset is a rework of the original idea and patches posted by
+Keiichi Kii and Takayoshi Kochi at: http://lkml.org/lkml/2007/6/13/72
 
-I have a tyan s2912 system that I'm trying to get to boot. It locks up
-right now just after:
+This is v2 of the patchset, the previous version is available at:
+http://lkml.org/lkml/2007/7/4/107
 
-forcedeth: using HIGHDMA
+This is diffed against 2.6.22-rc6-mm1 + the earlier netpoll fixlet and the
+configfs cleanup patches (those are already merged in -mm AFAIK, and hence
+not reproduced here).
 
-I did some printk in forcedeth.c, and it seems to be stuck in here:
+[1/9] netconsole: Cleanups, codingstyle, prettyfication
+[2/9] netconsole: Remove bogus check
+[3/9] netconsole: Simplify boot/module option setup logic
+[4/9] netconsole: Add some useful tips to documentation
+[5/9] netconsole: Introduce netconsole_target
+[6/9] netconsole: Introduce netconsole_netdev_notifier
+[7/9] netconsole: Use netif_running() in write_msg()
+[8/9] netconsole: Support multiple logging targets
+[9/9] netconsole: Support dynamic reconfiguration using configfs
 
-> for (i = 0; i < 5000; i++) {
->         msleep(1);
->         if (nv_mgmt_acquire_sema(dev)) {
->                 /* management unit setup the phy already? */
->                 if ((readl(base + NvRegTransmitterControl) & NVREG_XMITCTL_SYNC_MASK) ==
->                     NVREG_XMITCTL_SYNC_PHY_INIT) {
->                         /* phy is inited by mgmt unit */
->                         phyinitialized = 1;
->                         dprintk(KERN_INFO "%s: Phy already initialized by mgmt unit.\n", pci_name(pci_dev));
->                 } else {
->                         /* we need to init the phy */
->                 }
->                 break;
->         }
-> }
+Changes since v1:
+=================
 
-nv_mgmt_acquire_sema never returns true, and also has a 5 second delay
-in it, so it starts looping 5,000 times with a 5 second delay. The
-screen blanks out and doesn't come back, so I'm not sure if it ever
-would finish. 
+* Split / merge various patches in the patchset as suggested in reviews.
 
-I'm able to get it to boot with a knoppix cd, so I'm thinking there must
-be something wrong in my .config. I've attached the lspci and config for
-reference. Any tips to what I'm missing or how to debug further would be
-greatly appreciated.
+* Get rid of redundant "id" and "dev_status" fields.
 
-Thanks!
+* Use netif_running() instead of IFF_UP.
 
-Alex
---------_46933F7753A60231A168_MULTIPART_MIXED_
-Content-Type: application/octet-stream;
- name="config.gz"
-Content-Disposition: attachment;
- filename="config.gz"
-Content-Transfer-Encoding: base64
+* Explain the boot/module option setup simplification and the netdev
+  notifier patches in more detail (justify why they're good / required).
 
-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
-ti2ELReENTTgSeN/QAaGUfN1AAA=
---------_46933F7753A60231A168_MULTIPART_MIXED_
-Content-Type: application/octet-stream;
- name="lspci.gz"
-Content-Disposition: attachment;
- filename="lspci.gz"
-Content-Transfer-Encoding: base64
+* Get rid of possible trailing newline from echo(1) in store_dev_name().
 
-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
-AAA=
---------_46933F7753A60231A168_MULTIPART_MIXED_--
+* Fix a panic bug -- now, when no boot/module option is specified, we
+  skip only the part that creates and inserts param string-created
+  targets. Rest of the initialization (notifier, configfs subsystem)
+  is done as usual.
 
+* Get rid of lock-skipping special-casing where possible.
+
+* Use config_item_name() instead of "empty_item".
+
+* Introduce netpoll_print_options() in netpoll and use it.
+
+* Style cleanups (reduce #ifdefs, indentation, whitespace fixes, etc).
+
+* Miscellaneous fixes in documentation (as suggested in reviews).
+
+About this patchset:
+====================
+
+What?
+
+Support multiple remote logging targets in netconsole. Also, ability to
+dynamically add or remove targets or modify parameters (IP, port, remote
+MAC address) of targets at runtime, from userspace, using configfs.
+
+Why?
+
+>From Keiichi Kii's original post:
+
+[...] current netconsole is not flexible. For example, if you want to change
+ip address for logging agent, in the case of built-in netconsole, you can't
+change config except for changing boot parameter and rebooting your system,
+or in the case of module netconsole, you need to remove it and reload
+with different parameters. [...] and we have been losing serial console
+port with PCs and Servers.
+
+(... and especially laptops, I would add.)
+
+Kindly review and comment.
+
+Satyam
