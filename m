@@ -1,66 +1,118 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: + gen_estimator-fix-locking-and-timer-related-bugs.patch added to -mm tree
-Date: Tue, 10 Jul 2007 15:51:52 +0200
-Message-ID: <20070710135152.GD3130@ff.dom.local>
-References: <1183794918.30237.69.camel@localhost.localdomain> <Pine.LNX.4.64.0707071704370.1808@x2> <1183984861.18656.21.camel@ranko-fc2.spidernet.net> <46923DA8.9010208@trash.net> <1183999420.18656.54.camel@ranko-fc2.spidernet.net> <20070710073447.GA1870@ff.dom.local> <1184062147.11966.37.camel@localhost.localdomain> <20070710121756.GB3130@ff.dom.local> <4693797C.1020408@trash.net> <20070710131033.GC3130@ff.dom.local>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: [PATCH 2.6] WE : Fix get 32 char ESSID
+Date: Tue, 10 Jul 2007 11:10:44 -0400
+Message-ID: <20070710151044.GC7927@tuxdriver.com>
+References: <20070709221322.GA1381@bougret.hpl.hp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Ranko Zivojnovic <ranko@spidernet.net>, akpm@linux-foundation.org,
-	netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx12.go2.pl ([193.17.41.142]:54586 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753437AbXGJNnN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Jul 2007 09:43:13 -0400
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Jean Tourrilhes <jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20070710131033.GC3130@ff.dom.local>
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <20070709221322.GA1381-yAE0UhLNZJawPNPzzlOzwdBPR1lH4CV8@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 10, 2007 at 03:10:34PM +0200, Jarek Poplawski wrote:
-> On Tue, Jul 10, 2007 at 02:20:12PM +0200, Patrick McHardy wrote:
-> > Jarek Poplawski wrote:
-> > > On Tue, Jul 10, 2007 at 01:09:07PM +0300, Ranko Zivojnovic wrote:
-> > > 
-> > >>However I decided not to use _rcu based iteration neither the
-> > >>rcu_read_lock() after going through the RCU documentation and a bunch of
-> > >>examples in kernel that iterate through the lists using non _rcu macros
-> > >>and do list_del_rcu() just fine.
-> > >>
-> > >>For readability, the reference to list_del_rcu as well as call_rcu, I
-> > >>believe, should be enough of the indication. Please do correct me if I
-> > >>am wrong here.
-> > > 
-> > > 
-> > > It's only my opinion, and it's probably not very popular at least
-> > > at net/ code, so it's more about general policy and not this
-> > > particular code. But:
-> > > - if somebody is looking after some rcu related problems, why can't
-> > > he/she spare some time by omitting lists without _rcu and not
-> > > analyzing why/how such lists are used and locked?
-> > 
-> > 
-> > RCU is used for the read-side, using it on the write-side just makes
-> > things *less* understandable IMO. It will look like the read-side
-> > but still do modifications.
-> > 
+On Mon, Jul 09, 2007 at 03:13:22PM -0700, Jean Tourrilhes wrote:
+
+> 	A little bug was introduced a few months ago that prevent
+> reading ESSID with 32 character. Philippe Teuwen was the first one to
+> report that, followed by the MadWifi team :
+> 		http://madwifi.org/ticket/930
+> 	The patch fix this bug by removing obsolete code. It also
+> reenable setting the full range of ESSID, including ESSID with a final
+> NUL which are valid. This was tested on 2.6.21 and 2.6.22.
+> 	John : would you mind pushing that to 2.6.23 ? If you are
+> happy with it, I can provide backport patches for earlier kernels.
+
+Jean,
+
+Thanks for the patch.
+
+Iirc, I wrote this ugly little piece of code that you seek to remove.
+It's purpose is/was to preserve userland ABI for older versions of
+the wireless-tools package.  I'll have to dig a little deeper if you
+need a more detailed refresher -- let me know.
+
+In that case, I believe the issue was that using older wireless-tools
+w/ newer kernels would result in the SSID getting truncated by one
+character.  If we apply this patch (removing my hack/fix), won't we
+be reintroducing that issue?  If not, can you remind me as to why not?
+
+Thanks,
+
+John
+
 > 
-> From Documentation/RCU/checklist:
+> Signed-off-by: Jean Tourrilhes <jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org>
 > 
-> "9.      All RCU list-traversal primitives, which include
->         list_for_each_rcu(), list_for_each_entry_rcu(),
->         list_for_each_continue_rcu(), and list_for_each_safe_rcu(),
->         must be within an RCU read-side critical section.  RCU
->         read-side critical sections are delimited by rcu_read_lock()
->         and rcu_read_unlock(), or by similar primitives such as
->         rcu_read_lock_bh() and rcu_read_unlock_bh().
+> -----------------------------------------------------------
+> 
+> --- linux/net/wireless/wext.j1.c	2007-07-09 13:19:22.000000000 -0700
+> +++ linux/net/wireless/wext.c	2007-07-09 13:19:59.000000000 -0700
+> @@ -741,39 +741,11 @@ static int ioctl_standard_call(struct ne
+>  		int	extra_size;
+>  		int	user_length = 0;
+>  		int	err;
+> -		int	essid_compat = 0;
+>  
+>  		/* Calculate space needed by arguments. Always allocate
+>  		 * for max space. Easier, and won't last long... */
+>  		extra_size = descr->max_tokens * descr->token_size;
+>  
+> -		/* Check need for ESSID compatibility for WE < 21 */
+> -		switch (cmd) {
+> -		case SIOCSIWESSID:
+> -		case SIOCGIWESSID:
+> -		case SIOCSIWNICKN:
+> -		case SIOCGIWNICKN:
+> -			if (iwr->u.data.length == descr->max_tokens + 1)
+> -				essid_compat = 1;
+> -			else if (IW_IS_SET(cmd) && (iwr->u.data.length != 0)) {
+> -				char essid[IW_ESSID_MAX_SIZE + 1];
+> -
+> -				err = copy_from_user(essid, iwr->u.data.pointer,
+> -						     iwr->u.data.length *
+> -						     descr->token_size);
+> -				if (err)
+> -					return -EFAULT;
+> -
+> -				if (essid[iwr->u.data.length - 1] == '\0')
+> -					essid_compat = 1;
+> -			}
+> -			break;
+> -		default:
+> -			break;
+> -		}
+> -
+> -		iwr->u.data.length -= essid_compat;
+> -
+>  		/* Check what user space is giving us */
+>  		if (IW_IS_SET(cmd)) {
+>  			/* Check NULL pointer */
+> @@ -811,7 +783,6 @@ static int ioctl_standard_call(struct ne
+>  		}
+>  
+>  		/* Create the kernel buffer */
+> -		/*    kzalloc ensures NULL-termination for essid_compat */
+>  		extra = kzalloc(extra_size, GFP_KERNEL);
+>  		if (extra == NULL)
+>  			return -ENOMEM;
+> @@ -830,8 +801,6 @@ static int ioctl_standard_call(struct ne
+>  		/* Call the handler */
+>  		ret = handler(dev, &info, &(iwr->u), extra);
+>  
+> -		iwr->u.data.length += essid_compat;
+> -
+>  		/* If we have something to return to the user */
+>  		if (!ret && IW_IS_GET(cmd)) {
+>  			/* Check if there is enough buffer up there */
+> 
+> -
+> To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-...But, on the other hand, Ranko didn't use any of these primitives...
-So, first I said he should use this, and than I asked why there was
-no rcu_read_locks around... I really start to amaze with my consistency.
-
-I hope some day you'll forgive me (no hurry, I can wait).
-
-Cheers,
-Jarek P. 
+-- 
+John W. Linville
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
