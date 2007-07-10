@@ -1,34 +1,56 @@
-From: Matt Mackall <mpm@selenic.com>
-Subject: Re: [PATCH v2 -mm 3/9] netconsole: Simplify boot/module option setup logic
-Date: Tue, 10 Jul 2007 04:23:39 -0500
-Message-ID: <20070710092339.GL11115@waste.org>
-References: <20070710091920.23907.96483.sendpatchset@cselinux1.cse.iitk.ac.in> <20070710091936.23907.68970.sendpatchset@cselinux1.cse.iitk.ac.in>
+From: Marcin Juszkiewicz <openembedded@hrw.one.pl>
+Subject: [PATCH] PCMCIA: add Socket Ethernet card into pcnet_cs
+Date: Tue, 10 Jul 2007 11:40:28 +0200
+Message-ID: <200707101140.30649.openembedded@hrw.one.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Keiichi Kii <k-keiichi@bx.jp.nec.com>,
-	Netdev <netdev@vger.kernel.org>,
-	Joel Becker <joel.becker@oracle.com>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>
-To: Satyam Sharma <ssatyam@cse.iitk.ac.in>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from waste.org ([66.93.16.53]:46737 "EHLO waste.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1763959AbXGJJYX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Jul 2007 05:24:23 -0400
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@vger.kernel.org, linux-pcmcia@lists.infradead.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-pcmcia-bounces+glkpd-linux-pcmcia=m.gmane.org@lists.infradead.org>
 Content-Disposition: inline
-In-Reply-To: <20070710091936.23907.68970.sendpatchset@cselinux1.cse.iitk.ac.in>
-Sender: netdev-owner@vger.kernel.org
+List-Unsubscribe: <http://lists.infradead.org/mailman/listinfo/linux-pcmcia>,
+	<mailto:linux-pcmcia-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-pcmcia>
+List-Post: <mailto:linux-pcmcia@lists.infradead.org>
+List-Help: <mailto:linux-pcmcia-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-pcmcia>,
+	<mailto:linux-pcmcia-request@lists.infradead.org?subject=subscribe>
+Sender: linux-pcmcia-bounces@lists.infradead.org
+Errors-To: linux-pcmcia-bounces+glkpd-linux-pcmcia=m.gmane.org+glkpd-linux-pcmcia=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 10, 2007 at 02:49:36PM +0530, Satyam Sharma wrote:
-> From: Satyam Sharma <ssatyam@cse.iitk.ac.in>
-> 
-> [3/9] netconsole: Simplify boot/module option setup logic
+From: Marcin Juszkiewicz <openembedded@hrw.one.pl>
 
-Acked-by: Matt Mackall <mpm@selenic.com>
+One card submitted by =C5ngstr=F6m user.
 
--- 
-Mathematics is the supreme nostalgia of our time.
+Signed-off-by: Marcin Juszkiewicz <openembedded@hrw.one.pl>
+
+Index: git/drivers/net/pcmcia/pcnet_cs.c
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+--- git.orig/drivers/net/pcmcia/pcnet_cs.c      2007-03-07 09:48:53.0465020=
+55 +0100
++++ git/drivers/net/pcmcia/pcnet_cs.c   2007-03-07 09:50:26.426256388 +0100
+@@ -1577,6 +1577,7 @@
+        PCMCIA_DEVICE_MANF_CARD(0x0274, 0x1103),
+        PCMCIA_DEVICE_MANF_CARD(0x0274, 0x1121),
+        PCMCIA_DEVICE_PROD_ID12("2408LAN", "Ethernet", 0x352fff7f, 0x00b2e9=
+41),
++       PCMCIA_DEVICE_PROD_ID1234("Socket", "CF 10/100 Ethernet Card", "Rev=
+ision B", "05/11/06", 0xb38bcc2e, 0x4de88352, 0xeaca6c8d, 0x7e57c22e),
+        PCMCIA_DEVICE_PROD_ID123("Cardwell", "PCMCIA", "ETHERNET", 0x953367=
+2e, 0x281f1c5d, 0x3ff7175b),
+        PCMCIA_DEVICE_PROD_ID123("CNet  ", "CN30BC", "ETHERNET", 0x9fe55d3d=
+, 0x85601198, 0x3ff7175b),
+        PCMCIA_DEVICE_PROD_ID123("Digital", "Ethernet", "Adapter", 0x9999ab=
+35, 0x00b2e941, 0x4b0d829e),
+
+
+-- =
+
+JID: hrw-jabber.org
+OpenEmbedded developer/consultant
+
+                Great response time! Was that 5 baud or 10?
