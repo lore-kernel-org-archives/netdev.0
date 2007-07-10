@@ -1,84 +1,99 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [PATCH 1/3] [IPV6]: Restore semantics of Routing Header processing.
-Date: Mon, 09 Jul 2007 21:27:35 -0400
-Message-ID: <4692E087.8080908@hp.com>
-References: <20070618.150423.46608800.yoshfuji@linux-ipv6.org>	<4676CBFD.1040901@hp.com> <20070709.143250.132417671.davem@davemloft.net>
+From: Philip Craig <philipc@snapgear.com>
+Subject: Re: [PATCH] Fix kernel unaligned access with r8169 on sparc64
+Date: Tue, 10 Jul 2007 11:39:19 +1000
+Message-ID: <4692E347.3060200@snapgear.com>
+References: <200707061502.49146.florian.fainelli@telecomint.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: yoshfuji@linux-ipv6.org, pekkas@netcore.fi, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Francois Romieu <romieu@fr.zoreil.com>
+To: Florian Fainelli <florian.fainelli@telecomint.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.hp.com ([192.151.27.10]:34041 "EHLO mailhub.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756725AbXGJBx2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Jul 2007 21:53:28 -0400
-In-Reply-To: <20070709.143250.132417671.davem@davemloft.net>
+Received: from rex.snapgear.com ([203.143.235.140]:42759 "EHLO
+	cyberguard.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756725AbXGJCAF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2007 22:00:05 -0400
+In-Reply-To: <200707061502.49146.florian.fainelli@telecomint.eu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Vlad Yasevich <vladislav.yasevich@hp.com>
-> Date: Mon, 18 Jun 2007 14:16:29 -0400
->=20
->> YOSHIFUJI Hideaki / =EF=BF=BD=EF=BF=BD=EF=BF=BD=EF=BF=BD=EF=BF=BD=EF=
-=BF=BD=EF=BF=BD=EF=BF=BD=EF=BF=BD=EF=BF=BD=EF=BF=BD=EF=BF=BD wrote:
->>>  					 IPSTATS_MIB_INHDRERRORS);
->>> @@ -465,6 +440,8 @@ looped_back:
->>>  		break;
->>>  #ifdef CONFIG_IPV6_MIP6
->>>  	case IPV6_SRCRT_TYPE_2:
->>> +		if (accept_source_route < 0)
->>> +			goto unknown_rh;
->>>  		/* Silently discard invalid RTH type 2 */
->>>  		if (hdr->hdrlen !=3D 2 || hdr->segments_left !=3D 1) {
->>>  			IP6_INC_STATS_BH(ip6_dst_idev(skb->dst),
->> Do we really want to do this.  The IPv6 working group is bending ove=
-r backwards
->> in it's attempt to _not_ break MIPv6 while deprecating RH0.  The abi=
-lity to "break"
->> MIPv6 by disable RH2 without disabling the rest of MIP seems a "bad =
-thing" to me.
->=20
-> He's just preserving the intended logic of the sysctl, which by
-> default does allow RT2 and thus keeps MIPV6 working, so I see no
-> reason to be alarmed by this part of the patch.
->=20
+Florian Fainelli wrote:
+> Hi all,
+> 
+> When using the r8169 gigabit ethernet network driver under a Sun Entreprise 
+> 450, you will encounter a lot of kernel unaligned access on ip_rcv and 
+> ip_fast_csum. The full report is available here : 
+> http://www.mail-archive.com/debian-bugs-dist%40lists.debian.org/msg363433.htm
 
-Yes, but the addition of the sysctl was an overreaction.  Type 2
-routing header was never a threat and the capability to disable it
-is equivalent to capability of disabling Destionation Option Header
-or any other extension IPv6 extension header.
-
-Additionally, the following text is not going through the working
-group:
-
-4.2. Firewall Policy
+Try the patches at http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.22-rc6/
+I think patches 0012 and/or 0017 will fix this.
 
 
-   Blocking all IPv6 packets which carry Routing Headers (rather than
-   specifically blocking type 0, and permitting other types) has very
-   serious implications for the future development of IPv6.  If even a
-   small percentage of deployed firewalls block other types of routing
-   headers by default, it will become impossible in practice to extend
-   IPv6 routing headers.  For example, Mobile IPv6 [RFC3775] relies upo=
-n
-   a type-2 RH; wide-scale, indescriminate blocking of Routing Headers
-   will make Mobile IPv6 undeployable.
+> The following patch against 2.6.22-rc6 will fix this problem.
+> 
+> Signed-off-by: Florian Fainelli <florian.fainelli@telecomint.eu>
+> 
+> 
+> ------------------------------------------------------------------------
+> 
+> diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+> index 5ec7752..5095dbe 100644
+> --- a/drivers/net/r8169.c
+> +++ b/drivers/net/r8169.c
+> @@ -69,6 +69,7 @@ VERSION 2.2LK	<2005/01/25>
+>  #include <asm/system.h>
+>  #include <asm/io.h>
+>  #include <asm/irq.h>
+> +#include <asm/unaligned.h>
+>  
+>  #ifdef CONFIG_R8169_NAPI
+>  #define NAPI_SUFFIX	"-NAPI"
+> @@ -224,7 +225,9 @@ static struct pci_device_id rtl8169_pci_tbl[] = {
+>  
+>  MODULE_DEVICE_TABLE(pci, rtl8169_pci_tbl);
+>  
+> +#if !defined(__sparc__)
+>  static int rx_copybreak = 200;
+> +#endif
+>  static int use_dac;
+>  static struct {
+>  	u32 msg_enable;
+> @@ -465,8 +468,10 @@ MODULE_AUTHOR("Realtek and the Linux r8169 crew <netdev@vger.kernel.org>");
+>  MODULE_DESCRIPTION("RealTek RTL-8169 Gigabit Ethernet driver");
+>  module_param_array(media, int, &num_media, 0);
+>  MODULE_PARM_DESC(media, "force phy operation. Deprecated by ethtool (8).");
+> +#if !defined(__sparc__)
+>  module_param(rx_copybreak, int, 0);
+>  MODULE_PARM_DESC(rx_copybreak, "Copy breakpoint for copy-only-tiny-frames");
+> +#endif
+>  module_param(use_dac, int, 0);
+>  MODULE_PARM_DESC(use_dac, "Enable PCI DAC. Unsafe on 32 bit PCI slot.");
+>  module_param_named(debug, debug.msg_enable, int, 0);
+> @@ -2486,10 +2491,25 @@ static inline int rtl8169_try_rx_copy(struct sk_buff **sk_buff, int pkt_size,
+>  {
+>  	int ret = -1;
+>  
+> -	if (pkt_size < rx_copybreak) {
+> +#if defined(__sparc__)
+> +	if (pkt_size) {
+>  		struct sk_buff *skb;
+> +		int i;
+> +
+> +		skb = dev_alloc_skb(pkt_size + 4);
+> +
+> +		/* align the data to the ip header - should be faster than copying the entire packet to the stack */
+> +		for (i = pkt_size - (pkt_size % 4); i >= 0; i -= 4) {
+> +			put_unaligned(*((u32 *) (skb->data + i)), (u32 *) (skb->data + i + 2));
+> +		}
+> +		skb->data += 2;
+> +		skb->tail += 2;
+> +#else
+> +	if (pkt_size < rx_copybreak) {
+> +                struct sk_buff *skb;
+>  
+>  		skb = dev_alloc_skb(pkt_size + align);
+> +#endif
+>  		if (skb) {
+>  			skb_reserve(skb, (align - 1) & (unsigned long)skb->data);
+>  			eth_copy_and_sum(skb, sk_buff[0]->data, pkt_size, 0);
 
-   Firewall policy intended to protect against packets containing RH0
-   MUST NOT simply filter all traffic with a routing header; it must be
-   possible to disable forwarding of type 0 traffic without blocking
-   other types of routing headers.  In addition, the default
-   configuration MUST permit forwarding of traffic using a RH other tha=
-n
-   0.
-
-I know that they are applying to this to firewalls, but what we are
-doing is providing a really simple nob, not even a firewall rule, that
-can just disable RH type 2.
-
-Just seems wrong to me.
-
--vlad
