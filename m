@@ -1,39 +1,44 @@
-From: Miklos Szeredi <miklos@szeredi.hu>
-Subject: Re: [PATCH re-resend] fix race in AF_UNIX garbage collector
-Date: Tue, 10 Jul 2007 20:47:47 +0200
-Message-ID: <E1I8KkV-0006Hq-00@dorka.pomaz.szeredi.hu>
-References: <E1I8CMY-00053l-00@dorka.pomaz.szeredi.hu>
-	<20070710030443.f2deaab6.akpm@linux-foundation.org> <20070710.105520.30182869.davem@davemloft.net>
-Cc: akpm@linux-foundation.org, miklos@szeredi.hu,
-	netdev@vger.kernel.org, ebiederm@xmission.com,
-	viro@ftp.linux.org.uk, alan@lxorguk.ukuu.org.uk,
-	linux-kernel@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw2.sa.eol.hu ([212.108.200.109]:54248 "EHLO
-	mail-gw2.sa.eol.hu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754737AbXGJSsj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2007 14:48:39 -0400
-In-reply-to: <20070710.105520.30182869.davem@davemloft.net> (message from
-	David Miller on Tue, 10 Jul 2007 10:55:20 -0700 (PDT))
-Sender: netdev-owner@vger.kernel.org
+From: James Bottomley <James.Bottomley@SteelEye.com>
+Subject: Re: ata and netdev (was Re: -mm merge plans for 2.6.23)
+Date: Tue, 10 Jul 2007 14:55:02 -0400
+Message-ID: <1184093702.3401.83.camel@localhost.localdomain>
+References: <20070710013152.ef2cd200.akpm@linux-foundation.org>
+	 <4693C4F8.40903@garzik.org>
+	 <20070710112458.e9dbb55e.akpm@linux-foundation.org>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jeff@garzik.org>, linux-kernel@vger.kernel.org,
+	IDE/ATA development list <linux-ide@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>, Tejun Heo <htejun@gmail.com>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Deepak Saxena <dsaxena@plexity.net>,
+	Dan Faerch <dan@hacker.dk>, Benjamin LaHaise <bcrl@kvack.org>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-ide-owner@vger.kernel.org>
+In-Reply-To: <20070710112458.e9dbb55e.akpm@linux-foundation.org>
+Sender: linux-ide-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> > On Tue, 10 Jul 2007 11:50:30 +0200 Miklos Szeredi <miklos@szeredi.hu> wrote:
+On Tue, 2007-07-10 at 11:24 -0700, Andrew Morton wrote:
+> > > ata-ahci-alpm-store-interrupt-value.patch
+> > > ata-ahci-alpm-expose-power-management-policy-option-to-users.patch
+> > > ata-ahci-alpm-enable-link-power-management-for-ata-drivers.patch
+> > > ata-ahci-alpm-enable-aggressive-link-power-management-for-ahci-controllers.patch
+> > > 
+> > >  These appear to need some work.
 > > 
-> > > Can you please add this to -mm.  Sometimes that has wonderful effect
-> > > on the willingness of people to look at a patch.
-> > 
-> > sure ;)
+> > seemed mostly OK to me.  what comments did I miss?
 > 
-> Andrew please don't, it's in my "to review" pile.
+> Oh, I thought these were the patches which affected scsi and which James
+> had issues with.  I guess I got confused.
 
-Yeah, and I can guess, where it is sitting in that pile ;)
+Well ... my concern was really how to make them more generic ... ahci
+isn't the only controller that can do phy power management, and it also
+seemed to me that the most generic entity for power management was the
+transport rather than the SCSI mid-layer, but that debate is still
+ongoing.
 
-Dave, if you are busy, just say so.  But if you don't reply anything,
-I'm bound to think the patch is being ignored.
+James
 
-I apologize for being annoying.  Just let's get over this bloody bug ;)
 
-Thanks,
-Miklos
