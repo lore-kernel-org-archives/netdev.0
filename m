@@ -1,48 +1,36 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: ata and netdev (was Re: -mm merge plans for 2.6.23)
-Date: Tue, 10 Jul 2007 13:35:19 -0700
-Message-ID: <20070710133519.739ad282.akpm@linux-foundation.org>
-References: <20070710013152.ef2cd200.akpm@linux-foundation.org>
-	<4693C4F8.40903@garzik.org>
-	<20070710112458.e9dbb55e.akpm@linux-foundation.org>
-	<4693EC9B.6020305@ru.mvista.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] Fix kernel unaligned access with r8169 on sparc64
+Date: Tue, 10 Jul 2007 22:59:10 +0200
+Message-ID: <20070710205910.GA3436@electric-eye.fr.zoreil.com>
+References: <200707061502.49146.florian.fainelli@telecomint.eu> <4692E347.3060200@snapgear.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, linux-kernel@vger.kernel.org,
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Fainelli <florian.fainelli@telecomint.eu>,
 	netdev@vger.kernel.org
-To: Sergei Shtylyov <sshtylyov@ru.mvista.com>
+To: Philip Craig <philipc@snapgear.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:60493 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757125AbXGJUkd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2007 16:40:33 -0400
-In-Reply-To: <4693EC9B.6020305@ru.mvista.com>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:45540 "EHLO
+	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757448AbXGJVA6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Jul 2007 17:00:58 -0400
+Content-Disposition: inline
+In-Reply-To: <4692E347.3060200@snapgear.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 11 Jul 2007 00:31:23 +0400
-Sergei Shtylyov <sshtylyov@ru.mvista.com> wrote:
+Philip Craig <philipc@snapgear.com> :
+[...]
+> Try the patches at http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.22-rc6/
+> I think patches 0012 and/or 0017 will fix this.
 
-> Hello.
-> 
-> Andrew Morton wrote:
-> 
-> > 3x59x-fix-pci-resource-management.patch: you wrote it ;) I have a comment
-> 
->     No, I did, almost a year ago already. :-)
+They should but they will not apply directly against 2.6.18-something.
 
-I thought that was odd.  I fixed the attribution.
- 
-> > here:
-> 
-> > - I don't remember the story with cardbus either.  Presumably once upon a
-> >   time the cardbus layer was claiming IO regions on behalf of cardbus
-> >   devices (?)
-> 
->     IIRC, that's your own comment.
-
-yup, that's what "I have a comment" meant ;)
-
-The comment seems rather bogus actually.  Let's just merge it.
-
+Florian, can you consider one of the option below:
+- try current 2.6.23-git. It contains the changes which should fix your
+  alignment issues.
+- try http://www.fr.zoreil.com/people/francois/backport/r8169/20070604-00
+  It is a backport against 2.6.18 which should bring you quite close to
+  2.6.23-git wrt r8169. 
+  
+-- 
+Ueimor
