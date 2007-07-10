@@ -1,64 +1,62 @@
-From: "Veeraiyan, Ayyappan" <ayyappan.veeraiyan@intel.com>
-Subject: RE: [PATCH 0/1] ixgbe: Support for Intel(R) 10GbE PCI Express adapters -	Take #2
-Date: Tue, 10 Jul 2007 11:11:44 -0700
-Message-ID: <E35F4F4D7F6C9E4E826FEC1F86CEF583042488B2@orsmsx412.amr.corp.intel.com>
-References: <4693C951.3040608@garzik.org>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] ps3: gigabit ethernet driver for PS3, take3
+Date: Tue, 10 Jul 2007 14:14:47 -0400
+Message-ID: <4693CC97.4030207@garzik.org>
+References: <20070705193748.D018.MOKUNO@sm.sony.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, <arjan@linux.intel.com>,
-	<akpm@linux-foundation.org>,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>, <hch@infradead.org>,
-	<shemminger@linux-foundation.org>, <nhorman@tuxdriver.com>,
-	<inaky@linux.intel.com>, <mb@bu3sch.de>
-To: "Jeff Garzik" <jeff@garzik.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, cbe-oss-dev@ozlabs.org
+To: Masakazu Mokuno <mokuno@sm.sony.co.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:43849 "EHLO mga09.intel.com"
+Received: from srv5.dvmed.net ([207.36.208.214]:32944 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759201AbXGJSLr convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2007 14:11:47 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <4693C951.3040608@garzik.org>
+	id S1755160AbXGJSOw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Jul 2007 14:14:52 -0400
+In-Reply-To: <20070705193748.D018.MOKUNO@sm.sony.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 7/10/07, Jeff Garzik <jeff@garzik.org> wrote:
-> Ayyappan.Veeraiyan@intel.com wrote:
+Masakazu Mokuno wrote:
+> Hi, 
 > 
-> Doing both tends to signal that the author hasn't bothered to measure
-> the differences between various approaches, and pick a clear winner.
+> This is the third submission of the network driver for PS3.
+> The differences from the previous one are:
 > 
-
-I did pick NAPI in our previous submission based on various tests. But
-to get 10Gig line rate we need to use multiple Rx queues which will need
-fake netdevs.. Since fake netdevs weren't acceptable, I added non-NAPI
-support which gets 10Gig line rate with multi-rx. I am ok with removing
-NAPI support till the work of separating the netdevs and NAPI work is
-done..
-
-> I strongly prefer NAPI combined with hardware interrupt mitigation --
-it
-> helps with multiple net interfaces balance load across the system, at
-> times of high load -- but I'm open to other solutions as well.
+>   - renamed source file names so that their prefix can match
+>     with the module name
+>   - added cbe-oss-dev@ozlabs.org line for MAINTAINER file
+>   - changed some in copyright comments
+>   
+> If there are no more comments, please apply for 2.6.23. 
 > 
-
-Majority of tests we did here, we saw NAPI is better. But for some
-specific test cases (especially if we add the SW RSC i.e. LRO), we saw
-better throughput and CPU utilization with non-NAPI.
-
-> So...  what are your preferences?  What is the setup that gets closest
-> to wire speed under Linux?  :)
-
-With SW LRO, non-NAPI is better but without LRO, NAPI is better but NAPI
-needs multiple Rx queues. So given the limitations, non-NPAI is my
-preference now.
-
-I will post the performance numbers later today..
-
+> Thank you
 > 
->         Jeff
+> --
+> Subject: PS3: Ethernet driver
+> 
+> From: Masakazu Mokuno <mokuno@sm.sony.co.jp>
+> 
+> Add Gigabit Ethernet support for the PS3 game console.  The module will
+> be called ps3_gelic.
+> 
+> CC: Geoff Levand <geoffrey.levand@am.sony.com>
+> Signed-off-by: Masakazu Mokuno <mokuno@sm.sony.co.jp>
+> ---
+>  MAINTAINERS                 |    7 
+>  drivers/net/Kconfig         |   10 
+>  drivers/net/Makefile        |    2 
+>  drivers/net/ps3_gelic_net.c | 1576 ++++++++++++++++++++++++++++++++++++++++++++
+>  drivers/net/ps3_gelic_net.h |  239 ++++++
+>  5 files changed, 1834 insertions(+)
 
-Thanks..
+applied
 
-Ayyappan
+I request that you fix the NETDEV_TX_LOCKED return value on error in 
+->hard_start_xmit(), which appears to be an incorrect return value for 
+that condition, for your driver
+
+	Jeff
+
+
+
