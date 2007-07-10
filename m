@@ -1,1298 +1,268 @@
-From: Sinan Akman <sinan@writeme.com>
-Subject: Re: [patch 2/7] Blackfin: on-chip ethernet MAC controller driver
-Date: Mon, 09 Jul 2007 23:56:06 -0400
-Message-ID: <46930356.4040705@writeme.com>
-References: <200707091850.l69IoK5v001679@imap1.linux-foundation.org>	 <4692890B.7090906@writeme.com> <1184036753.22259.2.camel@roc-desktop>
-Reply-To: sinan@writeme.com
+From: Alex Krohn <alex@gossamer-threads.com>
+Subject: 2.6.21.5 and forcedeth locks up during boot
+Date: Tue, 10 Jul 2007 01:24:20 -0700
+Message-ID: <20070710011239.53A7.ALEX@gossamer-threads.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: multipart/mixed; boundary="------_46933F7753A60231A168_MULTIPART_MIXED_"
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, jeff@garzik.org, netdev@vger.kernel.org
-To: bryan.wu@analog.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout14.yourhostingaccount.com ([65.254.253.112]:43988 "EHLO
-	mailout14.yourhostingaccount.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751054AbXGJEiu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2007 00:38:50 -0400
-Received: from mailscan11.yourhostingaccount.com ([10.1.15.11] helo=mailscan11.yourhostingaccount.com)
-	by mailout14.yourhostingaccount.com with esmtp (Exim)
-	id 1I86pC-0003F7-IP
-	for netdev@vger.kernel.org; Mon, 09 Jul 2007 23:55:42 -0400
-Received: from impout03.yourhostingaccount.com ([10.1.55.3] ident=exim)
-	by mailscan11.yourhostingaccount.com with spamscanlookuphost (Exim)
-	id 1I86pC-0006dK-Fg
-	for netdev@vger.kernel.org; Mon, 09 Jul 2007 23:55:42 -0400
-In-Reply-To: <1184036753.22259.2.camel@roc-desktop>
+Received: from gossamer.nmsrv.com ([209.139.239.21]:45412 "EHLO
+	gossamer-threads.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754958AbXGJIdj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2007 04:33:39 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Bryan Wu wrote:
+--------_46933F7753A60231A168_MULTIPART_MIXED_
+Content-Type: text/plain; charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
 
->On Mon, 2007-07-09 at 15:14 -0400, Sinan Akman wrote:
->  
->
->>akpm@linux-foundation.org wrote:
->>
->>    
->>
->>>From: "Wu, Bryan" <bryan.wu@analog.com>
->>>
->>>This patch implements the driver necessary use the Analog Devices
->>>Blackfin processor's on-chip ethernet MAC controller.
->>>
->>>Signed-off-by: Bryan Wu <bryan.wu@analog.com>
->>>Cc: Jeff Garzik <jeff@garzik.org>
->>>Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
->>>---
->>>
->>>drivers/net/Kconfig    |   44 +
->>>drivers/net/Makefile   |    1 
->>>drivers/net/bfin_mac.c |  981 +++++++++++++++++++++++++++++++++++++++
->>>drivers/net/bfin_mac.h |  147 +++++
->>>4 files changed, 1173 insertions(+)
->>>
->>>diff -puN drivers/net/Kconfig~blackfin-on-chip-ethernet-mac-controller-driver drivers/net/Kconfig
->>>--- a/drivers/net/Kconfig~blackfin-on-chip-ethernet-mac-controller-driver
->>>+++ a/drivers/net/Kconfig
->>>@@ -821,6 +821,50 @@ config ULTRA32
->>>	  <file:Documentation/networking/net-modules.txt>. The module
->>>	  will be called smc-ultra32.
->>>
->>>+config BFIN_MAC
->>>+	tristate "Blackfin 536/537 on-chip mac support"
->>>+	depends on NET_ETHERNET && (BF537 || BF536) && (!BF537_PORT_H)
->>>+	select CRC32
->>>+	select BFIN_MAC_USE_L1 if DMA_UNCACHED_NONE
->>>+	help
->>>+	  This is the driver for blackfin on-chip mac device. Say Y if you want it
->>>+	  compiled into the kernel. This driver is also available as a module
->>>+	  ( = code which can be inserted in and removed from the running kernel
->>>+	  whenever you want). The module will be called bfin_mac.
->>>+
->>>+config BFIN_MAC_USE_L1
->>>+	bool "Use L1 memory for rx/tx packets"
->>>+	depends on BFIN_MAC && BF537
->>>+	default y
->>>+	help
->>>+	  To get maximum network performace, you should use L1 memory as rx/tx buffers.
->>>+	  Say N here if you want to reserve L1 memory for other uses.
->>>+
->>>+config BFIN_TX_DESC_NUM
->>>+	int "Number of transmit buffer packets"
->>>+	depends on BFIN_MAC
->>>+	range 6 10 if BFIN_MAC_USE_L1
->>>+	range 10 100
->>>+	default "10"
->>>+	help
->>>+	  Set the number of buffer packets used in driver.
->>>+
->>>+config BFIN_RX_DESC_NUM
->>>+	int "Number of receive buffer packets"
->>>+	depends on BFIN_MAC
->>>+	range 20 100 if BFIN_MAC_USE_L1
->>>+	range 20 800
->>>+	default "20"
->>>+	help
->>>+	  Set the number of buffer packets used in driver.
->>>+
->>>+config BFIN_MAC_RMII
->>>+	bool "RMII PHY Interface (EXPERIMENTAL)"
->>>+	depends on BFIN_MAC && EXPERIMENTAL
->>>+	default n
->>>+	help
->>>+	  Use Reduced PHY MII Interface
->>>+
->>>config SMC9194
->>>	tristate "SMC 9194 support"
->>>	depends on NET_VENDOR_SMC && (ISA || MAC && BROKEN)
->>>diff -puN drivers/net/Makefile~blackfin-on-chip-ethernet-mac-controller-driver drivers/net/Makefile
->>>--- a/drivers/net/Makefile~blackfin-on-chip-ethernet-mac-controller-driver
->>>+++ a/drivers/net/Makefile
->>>@@ -195,6 +195,7 @@ obj-$(CONFIG_S2IO) += s2io.o
->>>obj-$(CONFIG_MYRI10GE) += myri10ge/
->>>obj-$(CONFIG_SMC91X) += smc91x.o
->>>obj-$(CONFIG_SMC911X) += smc911x.o
->>>+obj-$(CONFIG_BFIN_MAC) += bfin_mac.o
->>>obj-$(CONFIG_DM9000) += dm9000.o
->>>obj-$(CONFIG_FEC_8XX) += fec_8xx/
->>>obj-$(CONFIG_PASEMI_MAC) += pasemi_mac.o
->>>diff -puN /dev/null drivers/net/bfin_mac.c
->>>--- /dev/null
->>>+++ a/drivers/net/bfin_mac.c
->>>@@ -0,0 +1,981 @@
->>>+/*
->>>+ * File:         drivers/net/bfin_mac.c
->>>+ * Based on:
->>>+ * Author:       Luke Yang <luke.yang@analog.com>
->>>+ *
->>>+ * Created:
->>>+ * Description:
->>>+ *
->>>+ * Modified:
->>>+ *               Copyright 2004-2006 Analog Devices Inc.
->>>+ *
->>>+ * Bugs:         Enter bugs at http://blackfin.uclinux.org/
->>>+ *
->>>+ * This program is free software ;  you can redistribute it and/or modify
->>>+ * it under the terms of the GNU General Public License as published by
->>>+ * the Free Software Foundation ;  either version 2, or (at your option)
->>>+ * any later version.
->>>+ *
->>>+ * This program is distributed in the hope that it will be useful,
->>>+ * but WITHOUT ANY WARRANTY ;  without even the implied warranty of
->>>+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
->>>+ * GNU General Public License for more details.
->>>+ *
->>>+ * You should have received a copy of the GNU General Public License
->>>+ * along with this program ;  see the file COPYING.
->>>+ * If not, write to the Free Software Foundation,
->>>+ * 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
->>>+ */
->>>+
->>>+#include <linux/init.h>
->>>+#include <linux/module.h>
->>>+#include <linux/kernel.h>
->>>+#include <linux/sched.h>
->>>+#include <linux/slab.h>
->>>+#include <linux/delay.h>
->>>+#include <linux/timer.h>
->>>+#include <linux/errno.h>
->>>+#include <linux/ioport.h>
->>>+#include <linux/crc32.h>
->>>+#include <linux/device.h>
->>>+#include <linux/spinlock.h>
->>>+#include <linux/ethtool.h>
->>>+#include <linux/mii.h>
->>>+
->>>+#include <linux/netdevice.h>
->>>+#include <linux/etherdevice.h>
->>>+#include <linux/skbuff.h>
->>>+
->>>+#include <linux/platform_device.h>
->>>+#include <linux/netdevice.h>
->>>+#include <linux/etherdevice.h>
->>>+#include <linux/skbuff.h>
->>>+
->>>+#include <asm/io.h>
->>>+#include <asm/irq.h>
->>>+#include <asm/dma.h>
->>>+#include <linux/dma-mapping.h>
->>>+
->>>+#include <asm/irq.h>
->>>+#include <asm/blackfin.h>
->>>+#include <asm/delay.h>
->>> 
->>>
->>>      
->>>
->>  Something very minor, but are
->>netdevice.h, etherdevice.h etc
->>being included here twice ?
->>
->>    
->>
->
->Thanks, Sinan.
->
->I am packing up all patches for current merge window.
->This driver will be resent with you guys' review.
->
->-Bryan Wu
->
->  
->
->>>+
->>>+#include "bfin_mac.h"
->>>+
->>>+#define CARDNAME "bfin_mac"
->>>+
->>>+MODULE_LICENSE("GPL");
->>>+MODULE_AUTHOR("Luke Yang");
->>>+MODULE_DESCRIPTION("Blackfin MAC Driver");
->>>+
->>>+#if defined(CONFIG_BFIN_MAC_USE_L1)
->>>+# define bfin_mac_alloc(dma_handle, size)  l1_data_sram_zalloc(size)
->>>+# define bfin_mac_free(dma_handle, ptr)    l1_data_sram_free(ptr)
->>>+#else
->>>+# define bfin_mac_alloc(dma_handle, size)  dma_alloc_coherent(NULL, size, dma_handle, GFP_DMA)
->>>+# define bfin_mac_free(dma_handle, ptr)    dma_free_coherent(NULL, sizeof(*ptr), ptr, dma_handle)
->>>+#endif
->>>+
->>>+#define PKT_BUF_SZ 1580
->>>+
->>>+static void desc_list_free(void);
->>>+
->>>+/* pointers to maintain transmit list */
->>>+static struct net_dma_desc_tx *tx_list_head;
->>>+static struct net_dma_desc_tx *tx_list_tail;
->>>+static struct net_dma_desc_rx *rx_list_head;
->>>+static struct net_dma_desc_rx *rx_list_tail;
->>>+static struct net_dma_desc_rx *current_rx_ptr;
->>>+static struct net_dma_desc_tx *current_tx_ptr;
->>>+static struct net_dma_desc_tx *tx_desc;
->>>+static struct net_dma_desc_rx *rx_desc;
->>>+
->>>+static int desc_list_init(void)
->>>+{
->>>+	struct net_dma_desc_tx *tmp_desc_tx;
->>>+	struct net_dma_desc_rx *tmp_desc_rx;
->>>+	int i;
->>>+	struct sk_buff *new_skb;
->>>+#if !defined(CONFIG_BFIN_MAC_USE_L1)
->>>+	dma_addr_t dma_handle;
->>>+#endif
->>>+
->>>+	tx_desc =
->>>+	    bfin_mac_alloc(&dma_handle,
->>>+			   sizeof(struct net_dma_desc_tx) *
->>>+			   CONFIG_BFIN_TX_DESC_NUM);
->>>+	if (tx_desc == NULL)
->>>+		goto init_error;
->>>+
->>>+	rx_desc =
->>>+	    bfin_mac_alloc(&dma_handle,
->>>+			   sizeof(struct net_dma_desc_rx) *
->>>+			   CONFIG_BFIN_RX_DESC_NUM);
->>>+	if (rx_desc == NULL)
->>>+		goto init_error;
->>>+
->>>+	/* init tx_list */
->>>+	for (i = 0; i < CONFIG_BFIN_TX_DESC_NUM; i++) {
->>>+
->>>+		tmp_desc_tx = tx_desc + i;
->>>+
->>>+		if (i == 0) {
->>>+			tx_list_head = tmp_desc_tx;
->>>+			tx_list_tail = tmp_desc_tx;
->>>+		}
->>>+
->>>+		tmp_desc_tx->desc_a.start_addr =
->>>+		    (unsigned long)tmp_desc_tx->packet;
->>>+		tmp_desc_tx->desc_a.x_count = 0;
->>>+		tmp_desc_tx->desc_a.config.b_DMA_EN = 0;	/* disabled */
->>>+		tmp_desc_tx->desc_a.config.b_WNR = 0;		/* read from memory */
->>>+		tmp_desc_tx->desc_a.config.b_WDSIZE = 2;	/* wordsize is 32 bits */
->>>+		tmp_desc_tx->desc_a.config.b_NDSIZE = 6;	/* 6 half words is desc size. */
->>>+		tmp_desc_tx->desc_a.config.b_FLOW = 7;		/* large desc flow */
->>>+		tmp_desc_tx->desc_a.next_dma_desc = &(tmp_desc_tx->desc_b);
->>>+
->>>+		tmp_desc_tx->desc_b.start_addr =
->>>+		    (unsigned long)(&(tmp_desc_tx->status));
->>>+		tmp_desc_tx->desc_b.x_count = 0;
->>>+		tmp_desc_tx->desc_b.config.b_DMA_EN = 1;	/* enabled */
->>>+		tmp_desc_tx->desc_b.config.b_WNR = 1;		/* write to memory */
->>>+		tmp_desc_tx->desc_b.config.b_WDSIZE = 2;	/* wordsize is 32 bits */
->>>+		tmp_desc_tx->desc_b.config.b_DI_EN = 0;		/* disable interrupt */
->>>+		tmp_desc_tx->desc_b.config.b_NDSIZE = 6;
->>>+		tmp_desc_tx->desc_b.config.b_FLOW = 7;		/* stop mode */
->>>+		tmp_desc_tx->skb = NULL;
->>>+		tx_list_tail->desc_b.next_dma_desc = &(tmp_desc_tx->desc_a);
->>>+		tx_list_tail->next = tmp_desc_tx;
->>>+
->>>+		tx_list_tail = tmp_desc_tx;
->>>+	}
->>>+	tx_list_tail->next = tx_list_head;	/* tx_list is a circle */
->>>+	tx_list_tail->desc_b.next_dma_desc = &(tx_list_head->desc_a);
->>>+	current_tx_ptr = tx_list_head;
->>>+
->>>+	/* init rx_list */
->>>+	for (i = 0; i < CONFIG_BFIN_RX_DESC_NUM; i++) {
->>>+
->>>+		tmp_desc_rx = rx_desc + i;
->>>+
->>>+		if (i == 0) {
->>>+			rx_list_head = tmp_desc_rx;
->>>+			rx_list_tail = tmp_desc_rx;
->>>+		}
->>>+
->>>+		/* allocat a new skb for next time receive */
->>>+		new_skb = dev_alloc_skb(PKT_BUF_SZ + 2);
->>>      
->>>
-       Bryan, I might be completly off here but
-is this skb allocation different than the one
-below in  bf537mac_rx ?
+Hi,
 
->>>+		if (!new_skb) {
->>>+			printk(KERN_NOTICE CARDNAME
->>>+			       ": init: low on mem - packet dropped\n");
->>>+			goto init_error;
->>>+		}
->>>+		skb_reserve(new_skb, 2);
->>>+		tmp_desc_rx->skb = new_skb;
->>>+		/* since RXDWA is enabled */
->>>+		tmp_desc_rx->desc_a.start_addr =
->>>+		    (unsigned long)new_skb->data - 2;
->>>+		tmp_desc_rx->desc_a.x_count = 0;
->>>+		tmp_desc_rx->desc_a.config.b_DMA_EN = 1;	/* enabled */
->>>+		tmp_desc_rx->desc_a.config.b_WNR = 1;		/* Write to memory */
->>>+		tmp_desc_rx->desc_a.config.b_WDSIZE = 2;	/* wordsize is 32 bits */
->>>+		tmp_desc_rx->desc_a.config.b_NDSIZE = 6;	/* 6 half words is desc size. */
->>>+		tmp_desc_rx->desc_a.config.b_FLOW = 7;		/* large desc flow */
->>>+		tmp_desc_rx->desc_a.next_dma_desc = &(tmp_desc_rx->desc_b);
->>>+
->>>+		tmp_desc_rx->desc_b.start_addr =
->>>+		    (unsigned long)(&(tmp_desc_rx->status));
->>>+		tmp_desc_rx->desc_b.x_count = 0;
->>>+		tmp_desc_rx->desc_b.config.b_DMA_EN = 1;	/* enabled */
->>>+		tmp_desc_rx->desc_b.config.b_WNR = 1;		/* Write to memory */
->>>+		tmp_desc_rx->desc_b.config.b_WDSIZE = 2;	/* wordsize is 32 bits */
->>>+		tmp_desc_rx->desc_b.config.b_NDSIZE = 6;
->>>+		tmp_desc_rx->desc_b.config.b_DI_EN = 1;		/* enable interrupt */
->>>+		tmp_desc_rx->desc_b.config.b_FLOW = 7;		/* large mode */
->>>+		rx_list_tail->desc_b.next_dma_desc = &(tmp_desc_rx->desc_a);
->>>+
->>>+		rx_list_tail->next = tmp_desc_rx;
->>>+		rx_list_tail = tmp_desc_rx;
->>>+	}
->>>+	rx_list_tail->next = rx_list_head;	/* rx_list is a circle */
->>>+	rx_list_tail->desc_b.next_dma_desc = &(rx_list_head->desc_a);
->>>+	current_rx_ptr = rx_list_head;
->>>+
->>>+	return 0;
->>>+
->>>+      init_error:
->>>+	desc_list_free();
->>>+	printk(KERN_ERR CARDNAME ": kmalloc failed\n");
->>>+	return -ENOMEM;
->>>+}
->>>+
->>>+static void desc_list_free(void)
->>>+{
->>>+	struct net_dma_desc_rx *tmp_desc_rx;
->>>+	struct net_dma_desc_tx *tmp_desc_tx;
->>>+	int i;
->>>+#if !defined(CONFIG_BFIN_MAC_USE_L1)
->>>+	dma_addr_t dma_handle = 0;
->>>+#endif
->>>+
->>>+	if (tx_desc != NULL) {
->>>+		tmp_desc_tx = tx_list_head;
->>>+		for (i = 0; i < CONFIG_BFIN_TX_DESC_NUM; i++) {
->>>+			if (tmp_desc_tx != NULL) {
->>>+				if (tmp_desc_tx->skb) {
->>>+					dev_kfree_skb(tmp_desc_tx->skb);
->>>+					tmp_desc_tx->skb = NULL;
->>>+				}
->>>+
->>>+			}
->>>+			tmp_desc_tx = tmp_desc_tx->next;
->>>+		}
->>>+		bfin_mac_free(dma_handle, tx_desc);
->>>+	}
->>>+
->>>+	if (rx_desc != NULL) {
->>>+		tmp_desc_rx = rx_list_head;
->>>+		for (i = 0; i < CONFIG_BFIN_RX_DESC_NUM; i++) {
->>>+			if (tmp_desc_rx != NULL) {
->>>+				if (tmp_desc_rx->skb) {
->>>+					dev_kfree_skb(tmp_desc_rx->skb);
->>>+					tmp_desc_rx->skb = NULL;
->>>+				}
->>>+			}
->>>+			tmp_desc_rx = tmp_desc_rx->next;
->>>+		}
->>>+		bfin_mac_free(dma_handle, rx_desc);
->>>+	}
->>>+}
->>>+
->>>+/*---PHY CONTROL AND CONFIGURATION-----------------------------------------*/
->>>+
->>>+/* Set FER regs to MUX in Ethernet pins */
->>>+static void setup_pin_mux(void)
->>>+{
->>>+	unsigned int fer_val;
->>>+
->>>+	/*
->>>+	 * FER reg bug work-around
->>>+	 * read it once
->>>+	 */
->>>+	fer_val = bfin_read_PORTH_FER();
->>>+
->>>+#if defined(CONFIG_BFIN_MAC_RMII)
->>>+	fer_val = 0xC373;
->>>+#else
->>>+	fer_val = 0xffff;
->>>+#endif
->>>+	/* write it twice to the same value */
->>>+
->>>+	bfin_write_PORTH_FER(fer_val);
->>>+	bfin_write_PORTH_FER(fer_val);
->>>+}
->>>+
->>>+/* Wait until the previous MDC/MDIO transaction has completed */
->>>+static void poll_mdc_done(void)
->>>+{
->>>+	/* poll the STABUSY bit */
->>>+	while ((bfin_read_EMAC_STAADD()) & STABUSY) {
->>>+	};
->>>+}
->>>+
->>>+/* Read an off-chip register in a PHY through the MDC/MDIO port */
->>>+static u16 read_phy_reg(u16 PHYAddr, u16 RegAddr)
->>>+{
->>>+	poll_mdc_done();
->>>+	bfin_write_EMAC_STAADD(SET_PHYAD(PHYAddr) | SET_REGAD(RegAddr) | STABUSY);	/* read mode */
->>>+	poll_mdc_done();
->>>+
->>>+	return (u16) bfin_read_EMAC_STADAT();
->>>+}
->>>+
->>>+/* Write an off-chip register in a PHY through the MDC/MDIO port */
->>>+static void raw_write_phy_reg(u16 PHYAddr, u16 RegAddr, u32 Data)
->>>+{
->>>+	bfin_write_EMAC_STADAT(Data);
->>>+
->>>+	bfin_write_EMAC_STAADD(SET_PHYAD(PHYAddr) | SET_REGAD(RegAddr) | STAOP | STABUSY);	/* write mode */
->>>+
->>>+	poll_mdc_done();
->>>+}
->>>+
->>>+static void write_phy_reg(u16 PHYAddr, u16 RegAddr, u32 Data)
->>>+{
->>>+	poll_mdc_done();
->>>+	raw_write_phy_reg(PHYAddr, RegAddr, Data);
->>>+}
->>>+
->>>+/* set up the phy */
->>>+static void bf537mac_setphy(struct net_device *dev)
->>>+{
->>>+	u16 phydat;
->>>+	u32 sysctl;
->>>+	struct bf537mac_local *lp = netdev_priv(dev);
->>>+
->>>+	pr_debug("start settting up phy\n");
->>>+
->>>+	/* Program PHY registers */
->>>+	phydat = 0;
->>>+
->>>+	/* issue a reset */
->>>+	raw_write_phy_reg(lp->PhyAddr, PHYREG_MODECTL, 0x8000);
->>>+
->>>+	/* wait half a second */
->>>+	udelay(500);
->>>+
->>>+	phydat = read_phy_reg(lp->PhyAddr, PHYREG_MODECTL);
->>>+
->>>+	/* advertise flow control supported */
->>>+	phydat = read_phy_reg(lp->PhyAddr, PHYREG_ANAR);
->>>+	phydat |= (1 << 10);
->>>+	write_phy_reg(lp->PhyAddr, PHYREG_ANAR, phydat);
->>>+
->>>+	phydat = 0;
->>>+	if (lp->Negotiate) {
->>>+		phydat |= 0x1000;	/* enable auto negotiation */
->>>+	} else {
->>>+		if (lp->FullDuplex) {
->>>+			phydat |= (1 << 8);	/* full duplex */
->>>+		} else {
->>>+			phydat &= (~(1 << 8));	/* half duplex */
->>>+		}
->>>+		if (!lp->Port10) {
->>>+			phydat |= (1 << 13);	/* 100 Mbps */
->>>+		} else {
->>>+			phydat &= (~(1 << 13));	/* 10 Mbps */
->>>+		}
->>>+	}
->>>+
->>>+	if (lp->Loopback) {
->>>+		phydat |= (1 << 14);	/* enable TX->RX loopback */
->>>+#if 0
->>>+		write_phy_reg(lp->PhyAddr, PHYREG_MODECTL, phydat);
->>>+#endif
->>>+	}
->>>+
->>>+	write_phy_reg(lp->PhyAddr, PHYREG_MODECTL, phydat);
->>>+	udelay(500);
->>>+
->>>+	phydat = read_phy_reg(lp->PhyAddr, PHYREG_MODECTL);
->>>+	/* check for SMSC PHY */
->>>+	if ((read_phy_reg(lp->PhyAddr, PHYREG_PHYID1) == 0x7)
->>>+	    && ((read_phy_reg(lp->PhyAddr, PHYREG_PHYID2) & 0xfff0) == 0xC0A0)) {
->>>+		/* we have SMSC PHY so reqest interrupt on link down condition */
->>>+		write_phy_reg(lp->PhyAddr, 30, 0x0ff);	/* enable interrupts */
->>>+		/* enable PHY_INT */
->>>+		sysctl = bfin_read_EMAC_SYSCTL();
->>>+		sysctl |= 0x1;
->>>+#if 0
->>>+		bfin_write_EMAC_SYSCTL(sysctl);
->>>+#endif
->>>+	}
->>>+}
->>>+
->>>+/**************************************************************************/
->>>+void setup_system_regs(struct net_device *dev)
->>>+{
->>>+	int PHYADDR;
->>>+	unsigned short sysctl, phydat;
->>>+	u32 opmode;
->>>+	struct bf537mac_local *lp = netdev_priv(dev);
->>>+	int count = 0;
->>>+
->>>+	PHYADDR = lp->PhyAddr;
->>>+
->>>+	/* Enable PHY output */
->>>+	if (!(bfin_read_VR_CTL() & PHYCLKOE))
->>>+		bfin_write_VR_CTL(bfin_read_VR_CTL() | PHYCLKOE);
->>>+
->>>+	/* MDC  = 2.5 MHz */
->>>+	sysctl = SET_MDCDIV(24);
->>>+	/* Odd word alignment for Receive Frame DMA word */
->>>+	/* Configure checksum support and rcve frame word alignment */
->>>+#if defined(BFIN_MAC_CSUM_OFFLOAD)
->>>+	sysctl |= RXDWA | RXCKS;
->>>+#else
->>>+	sysctl |= RXDWA;
->>>+#endif
->>>+	bfin_write_EMAC_SYSCTL(sysctl);
->>>+	/* auto negotiation on  */
->>>+	/* full duplex          */
->>>+	/* 100 Mbps             */
->>>+	phydat = PHY_ANEG_EN | PHY_DUPLEX | PHY_SPD_SET;
->>>+	write_phy_reg(PHYADDR, PHYREG_MODECTL, phydat);
->>>+
->>>+	/* test if full duplex supported */
->>>+	do {
->>>+		msleep(100);
->>>+		phydat = read_phy_reg(PHYADDR, PHYREG_MODESTAT);
->>>+		if (count > 30) {
->>>+			printk(KERN_NOTICE CARDNAME
->>>+			       ": Link is down, please check your network connection\n");
->>>+			break;
->>>+		}
->>>+		count++;
->>>+	} while (!(phydat & 0x0004));
->>>+
->>>+	phydat = read_phy_reg(PHYADDR, PHYREG_ANLPAR);
->>>+
->>>+	if ((phydat & 0x0100) || (phydat & 0x0040)) {
->>>+		opmode = FDMODE;
->>>+	} else {
->>>+		opmode = 0;
->>>+		printk(KERN_INFO CARDNAME ": Network is set to half duplex\n");
->>>+	}
->>>+
->>>+#if defined(CONFIG_BFIN_MAC_RMII)
->>>+	opmode |= RMII; /* For Now only 100MBit are supported */
->>>+#endif
->>>+
->>>+	bfin_write_EMAC_OPMODE(opmode);
->>>+
->>>+#if 0
->>>+	bfin_write_EMAC_MMC_CTL(RSTC | CROLL | MMCE);
->>>+#endif
->>>+	bfin_write_EMAC_MMC_CTL(RSTC | CROLL);
->>>+
->>>+	/* Initialize the TX DMA channel registers */
->>>+	bfin_write_DMA2_X_COUNT(0);
->>>+	bfin_write_DMA2_X_MODIFY(4);
->>>+	bfin_write_DMA2_Y_COUNT(0);
->>>+	bfin_write_DMA2_Y_MODIFY(0);
->>>+
->>>+	/* Initialize the RX DMA channel registers */
->>>+	bfin_write_DMA1_X_COUNT(0);
->>>+	bfin_write_DMA1_X_MODIFY(4);
->>>+	bfin_write_DMA1_Y_COUNT(0);
->>>+	bfin_write_DMA1_Y_MODIFY(0);
->>>+}
->>>+
->>>+void setup_mac_addr(u8 * mac_addr)
->>>+{
->>>+	/* this depends on a little-endian machine */
->>>+	bfin_write_EMAC_ADDRLO(*(u32 *) & mac_addr[0]);
->>>+	bfin_write_EMAC_ADDRHI(*(u16 *) & mac_addr[4]);
->>>+}
->>>+
->>>+static void adjust_tx_list(void)
->>>+{
->>>+	if (tx_list_head->status.status_word != 0
->>>+	    && current_tx_ptr != tx_list_head) {
->>>+		goto adjust_head;	/* released something, just return; */
->>>+	}
->>>+
->>>+	/* if nothing released, check wait condition */
->>>+	/* current's next can not be the head, otherwise the dma will not stop as we want */
->>>+	if (current_tx_ptr->next->next == tx_list_head) {
->>>+		while (tx_list_head->status.status_word == 0) {
->>>+			udelay(10);
->>>+			if (tx_list_head->status.status_word != 0
->>>+			    || !(bfin_read_DMA2_IRQ_STATUS() & 0x08)) {
->>>+				goto adjust_head;
->>>+			}
->>>+		}
->>>+		if (tx_list_head->status.status_word != 0) {
->>>+			goto adjust_head;
->>>+		}
->>>+	}
->>>+
->>>+	return;
->>>+
->>>+      adjust_head:
->>>+	do {
->>>+		tx_list_head->desc_a.config.b_DMA_EN = 0;
->>>+		tx_list_head->status.status_word = 0;
->>>+		if (tx_list_head->skb) {
->>>+			dev_kfree_skb(tx_list_head->skb);
->>>+			tx_list_head->skb = NULL;
->>>+		} else {
->>>+			printk(KERN_ERR CARDNAME
->>>+			       ": no sk_buff in a transmitted frame!\n");
->>>+		}
->>>+		tx_list_head = tx_list_head->next;
->>>+	} while (tx_list_head->status.status_word != 0
->>>+		 && current_tx_ptr != tx_list_head);
->>>+	return;
->>>+
->>>+}
->>>+
->>>+static int bf537mac_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
->>>+{
->>>+	struct bf537mac_local *lp = netdev_priv(dev);
->>>+	unsigned int data;
->>>+
->>>+	current_tx_ptr->skb = skb;
->>>+	/* Is skb->data always 16-bit aligned? Do we need to memcpy((char *)(tail->packet + 2),skb->data,len)? */
->>>+	if ((((unsigned int)(skb->data)) & 0x02) == 2) {
->>>+		/* move skb->data to current_tx_ptr payload */
->>>+		data = (unsigned int)(skb->data) - 2;
->>>+		*((unsigned short *)data) = (unsigned short)(skb->len);
->>>+		current_tx_ptr->desc_a.start_addr = (unsigned long)data;
->>>+		blackfin_dcache_flush_range(data, (data + (skb->len)) + 2);	/* this is important! */
->>>+
->>>+	} else {
->>>+		*((unsigned short *)(current_tx_ptr->packet)) =
->>>+		    (unsigned short)(skb->len);
->>>+		memcpy((char *)(current_tx_ptr->packet + 2), skb->data,
->>>+		       (skb->len));
->>>+		current_tx_ptr->desc_a.start_addr =
->>>+		    (unsigned long)current_tx_ptr->packet;
->>>+		if (current_tx_ptr->status.status_word != 0)
->>>+			current_tx_ptr->status.status_word = 0;
->>>+		blackfin_dcache_flush_range((unsigned int)current_tx_ptr->
->>>+					    packet,
->>>+					    (unsigned int)(current_tx_ptr->
->>>+							   packet + skb->len) +
->>>+					    2);
->>>+	}
->>>+
->>>+	current_tx_ptr->desc_a.config.b_DMA_EN = 1;	/* enable this packet's dma */
->>>+
->>>+	if (bfin_read_DMA2_IRQ_STATUS() & 0x08) {	/* tx dma is running, just return */
->>>+		goto out;
->>>+	} else {
->>>+		/* tx dma is not running */
->>>+		bfin_write_DMA2_NEXT_DESC_PTR(&(current_tx_ptr->desc_a));
->>>+		/* dma enabled, read from memory, size is 6 */
->>>+		bfin_write_DMA2_CONFIG(*((unsigned short *)(&(current_tx_ptr->desc_a.config))));
->>>+		/* Turn on the EMAC tx */
->>>+		bfin_write_EMAC_OPMODE(bfin_read_EMAC_OPMODE() | TE);
->>>+	}
->>>+
->>>+      out:
->>>+	adjust_tx_list();
->>>+	current_tx_ptr = current_tx_ptr->next;
->>>+	dev->trans_start = jiffies;
->>>+	lp->stats.tx_packets++;
->>>+	lp->stats.tx_bytes += (skb->len);
->>>+	return 0;
->>>+}
->>>+
->>>+static void bf537mac_rx(struct net_device *dev)
->>>+{
->>>+	struct sk_buff *skb, *new_skb;
->>>+	struct bf537mac_local *lp = netdev_priv(dev);
->>>+	unsigned short len;
->>>+
->>>+	/* allocat a new skb for next time receive */
->>>+	skb = current_rx_ptr->skb;
->>>+	new_skb = dev_alloc_skb(PKT_BUF_SZ + 2);
->>>      
->>>
-           The one right above here ?
+I have a tyan s2912 system that I'm trying to get to boot. It locks up
+right now just after:
 
->>>+	if (!new_skb) {
->>>+		printk(KERN_NOTICE CARDNAME
->>>+		       ": rx: low on mem - packet dropped\n");
->>>+		lp->stats.rx_dropped++;
->>>+		goto out;
->>>+	}
->>>+	/* reserve 2 bytes for RXDWA padding */
->>>+	skb_reserve(new_skb, 2);
->>>+	current_rx_ptr->skb = new_skb;
->>>+	current_rx_ptr->desc_a.start_addr = (unsigned long)new_skb->data - 2;
->>>+
->>>+#if 0
->>>+	int i;
->>>+	if (len >= 64) {
->>>+		for (i=0;i<len;i++) {
->>>+			printk("%.2x-",((unsigned char *)pkt)[i]);
->>>+			if (((i%8)==0) && (i!=0)) printk("\n");
->>>+		}
->>>+	printk("\n");
->>>+	}
->>>+#endif
->>>+
->>>+	len = (unsigned short)((current_rx_ptr->status.status_word) & RX_FRLEN);
->>>+	skb_put(skb, len);
->>>+	blackfin_dcache_invalidate_range((unsigned long)skb->head,
->>>+					 (unsigned long)skb->tail);
->>>+
->>>+	dev->last_rx = jiffies;
->>>+	skb->dev = dev;
->>>+	skb->protocol = eth_type_trans(skb, dev);
->>>+#if defined(BFIN_MAC_CSUM_OFFLOAD)
->>>+	skb->csum = current_rx_ptr->status.ip_payload_csum;
->>>+	skb->ip_summed = CHECKSUM_PARTIAL;
->>>+#endif
->>>+
->>>+	netif_rx(skb);
->>>+	lp->stats.rx_packets++;
->>>+	lp->stats.rx_bytes += len;
->>>+	current_rx_ptr->status.status_word = 0x00000000;
->>>+	current_rx_ptr = current_rx_ptr->next;
->>>+
->>>+      out:
->>>+	return;
->>>+}
->>>+
->>>+/* interrupt routine to handle rx and error signal */
->>>+static irqreturn_t bf537mac_interrupt(int irq, void *dev_id)
->>>+{
->>>+	struct net_device *dev = dev_id;
->>>+	int number = 0;
->>>+
->>>+      get_one_packet:
->>>+	if (current_rx_ptr->status.status_word == 0) {	/* no more new packet received */
->>>+		if (number == 0) {
->>>+			if (current_rx_ptr->next->status.status_word != 0) {
->>>+				current_rx_ptr = current_rx_ptr->next;
->>>+				goto real_rx;
->>>+			}
->>>+		}
->>>+		bfin_write_DMA1_IRQ_STATUS(bfin_read_DMA1_IRQ_STATUS() |
->>>+					   DMA_DONE | DMA_ERR);
->>>+		return IRQ_HANDLED;
->>>+	}
->>>+
->>>+      real_rx:
->>>+	bf537mac_rx(dev);
->>>+	number++;
->>>+	goto get_one_packet;
->>>+}
->>>+
->>>+#ifdef CONFIG_NET_POLL_CONTROLLER
->>>+static void bf537mac_poll(struct net_device *dev)
->>>+{
->>>+	disable_irq(IRQ_MAC_RX);
->>>+	bf537mac_interrupt(IRQ_MAC_RX, dev);
->>>+	enable_irq(IRQ_MAC_RX);
->>>+}
->>>+#endif				/* CONFIG_NET_POLL_CONTROLLER */
->>>+
->>>+static void bf537mac_reset(void)
->>>+{
->>>+	unsigned int opmode;
->>>+
->>>+	opmode = bfin_read_EMAC_OPMODE();
->>>+	opmode &= (~RE);
->>>+	opmode &= (~TE);
->>>+	/* Turn off the EMAC */
->>>+	bfin_write_EMAC_OPMODE(bfin_read_EMAC_OPMODE() & opmode);
->>>+}
->>>+
->>>+/*
->>>+ * Enable Interrupts, Receive, and Transmit
->>>+ */
->>>+static int bf537mac_enable(struct net_device *dev)
->>>+{
->>>+	u32 opmode;
->>>+
->>>+	pr_debug("%s: %s\n", dev->name, __FUNCTION__);
->>>+
->>>+	/* Set RX DMA */
->>>+	bfin_write_DMA1_NEXT_DESC_PTR(&(rx_list_head->desc_a));
->>>+	bfin_write_DMA1_CONFIG(*
->>>+			       ((unsigned short
->>>+				 *)(&(rx_list_head->desc_a.config))));
->>>+
->>>+	/* Wait MII done */
->>>+	poll_mdc_done();
->>>+
->>>+	/* We enable only RX here */
->>>+	/* ASTP   : Enable Automatic Pad Stripping
->>>+	   PR     : Promiscuous Mode for test
->>>+	   PSF    : Receive frames with total length less than 64 bytes.
->>>+	   FDMODE : Full Duplex Mode
->>>+	   LB     : Internal Loopback for test
->>>+	   RE     : Receiver Enable */
->>>+	opmode = bfin_read_EMAC_OPMODE();
->>>+	if (opmode & FDMODE)
->>>+		opmode |= PSF;
->>>+	else
->>>+		opmode |= DRO | DC | PSF;
->>>+	opmode |= RE;
->>>+
->>>+#if defined(CONFIG_BFIN_MAC_RMII)
->>>+	opmode |= RMII; /* For Now only 100MBit are supported */
->>>+#ifdef CONFIG_BF_REV_0_2
->>>+	opmode |= TE;
->>>+#endif
->>>+#endif
->>>+	/* Turn on the EMAC rx */
->>>+	bfin_write_EMAC_OPMODE(opmode);
->>>+
->>>+	return 0;
->>>+}
->>>+
->>>+/* Our watchdog timed out. Called by the networking layer */
->>>+static void bf537mac_timeout(struct net_device *dev)
->>>+{
->>>+	pr_debug("%s: %s\n", dev->name, __FUNCTION__);
->>>+
->>>+	bf537mac_reset();
->>>+
->>>+	/* reset tx queue */
->>>+	tx_list_tail = tx_list_head->next;
->>>+
->>>+	bf537mac_enable(dev);
->>>+
->>>+	/* We can accept TX packets again */
->>>+	dev->trans_start = jiffies;
->>>+	netif_wake_queue(dev);
->>>+}
->>>+
->>>+/*
->>>+ * Get the current statistics.
->>>+ * This may be called with the card open or closed.
->>>+ */
->>>+static struct net_device_stats *bf537mac_query_statistics(struct net_device
->>>+							  *dev)
->>>+{
->>>+	struct bf537mac_local *lp = netdev_priv(dev);
->>>+
->>>+	pr_debug("%s: %s\n", dev->name, __FUNCTION__);
->>>+
->>>+	return &lp->stats;
->>>+}
->>>+
->>>+/*
->>>+ * This routine will, depending on the values passed to it,
->>>+ * either make it accept multicast packets, go into
->>>+ * promiscuous mode (for TCPDUMP and cousins) or accept
->>>+ * a select set of multicast packets
->>>+ */
->>>+static void bf537mac_set_multicast_list(struct net_device *dev)
->>>+{
->>>+	u32 sysctl;
->>>+
->>>+	if (dev->flags & IFF_PROMISC) {
->>>+		printk(KERN_INFO "%s: set to promisc mode\n", dev->name);
->>>+		sysctl = bfin_read_EMAC_OPMODE();
->>>+		sysctl |= RAF;
->>>+		bfin_write_EMAC_OPMODE(sysctl);
->>>+	} else if (dev->flags & IFF_ALLMULTI || dev->mc_count > 16) {
->>>+		/* accept all multicast */
->>>+		sysctl = bfin_read_EMAC_OPMODE();
->>>+		sysctl |= PAM;
->>>+		bfin_write_EMAC_OPMODE(sysctl);
->>>+	} else if (dev->mc_count) {
->>>+		/* set multicast */
->>>+	} else {
->>>+		/* clear promisc or multicast mode */
->>>+		sysctl = bfin_read_EMAC_OPMODE();
->>>+		sysctl &= ~(RAF | PAM);
->>>+		bfin_write_EMAC_OPMODE(sysctl);
->>>+	}
->>>+}
->>>+
->>>+/*
->>>+ * this puts the device in an inactive state
->>>+ */
->>>+static void bf537mac_shutdown(struct net_device *dev)
->>>+{
->>>+	/* Turn off the EMAC */
->>>+	bfin_write_EMAC_OPMODE(0x00000000);
->>>+	/* Turn off the EMAC RX DMA */
->>>+	bfin_write_DMA1_CONFIG(0x0000);
->>>+	bfin_write_DMA2_CONFIG(0x0000);
->>>+}
->>>+
->>>+/*
->>>+ * Open and Initialize the interface
->>>+ *
->>>+ * Set up everything, reset the card, etc..
->>>+ */
->>>+static int bf537mac_open(struct net_device *dev)
->>>+{
->>>+	pr_debug("%s: %s\n", dev->name, __FUNCTION__);
->>>+
->>>+	/*
->>>+	 * Check that the address is valid.  If its not, refuse
->>>+	 * to bring the device up.  The user must specify an
->>>+	 * address using ifconfig eth0 hw ether xx:xx:xx:xx:xx:xx
->>>+	 */
->>>+	if (!is_valid_ether_addr(dev->dev_addr)) {
->>>+		printk(KERN_WARNING CARDNAME ": no valid ethernet hw addr\n");
->>>+		return -EINVAL;
->>>+	}
->>>+
->>>+	/* initial rx and tx list */
->>>+	desc_list_init();
->>>+
->>>+	bf537mac_setphy(dev);
->>>+	setup_system_regs(dev);
->>>+	bf537mac_reset();
->>>+	bf537mac_enable(dev);
->>>+
->>>+	pr_debug("hardware init finished\n");
->>>+	netif_start_queue(dev);
->>>+	netif_carrier_on(dev);
->>>+
->>>+	return 0;
->>>+}
->>>+
->>>+/*
->>>+ *
->>>+ * this makes the board clean up everything that it can
->>>+ * and not talk to the outside world.   Caused by
->>>+ * an 'ifconfig ethX down'
->>>+ */
->>>+static int bf537mac_close(struct net_device *dev)
->>>+{
->>>+	pr_debug("%s: %s\n", dev->name, __FUNCTION__);
->>>+
->>>+	netif_stop_queue(dev);
->>>+	netif_carrier_off(dev);
->>>+
->>>+	/* clear everything */
->>>+	bf537mac_shutdown(dev);
->>>+
->>>+	/* free the rx/tx buffers */
->>>+	desc_list_free();
->>>+
->>>+	return 0;
->>>+}
->>>+
->>>+static int __init bf537mac_probe(struct net_device *dev)
->>>+{
->>>+	struct bf537mac_local *lp = netdev_priv(dev);
->>>+	int retval;
->>>+
->>>+	/* Grab the MAC address in the MAC */
->>>+	*(u32 *) (&(dev->dev_addr[0])) = bfin_read_EMAC_ADDRLO();
->>>+	*(u16 *) (&(dev->dev_addr[4])) = (u16) bfin_read_EMAC_ADDRHI();
->>>+
->>>+/* probe mac */
->>>+	/*todo: how to proble? which is revision_register */
->>>+	bfin_write_EMAC_ADDRLO(0x12345678);
->>>+	if (bfin_read_EMAC_ADDRLO() != 0x12345678) {
->>>+		pr_debug("can't detect bf537 mac!\n");
->>>+		retval = -ENODEV;
->>>+		goto err_out;
->>>+	}
->>>+
->>>+	/*Is it valid? (Did bootloader initialize it?) */
->>>+	if (!is_valid_ether_addr(dev->dev_addr)) {
->>>+		/* Grab the MAC from the board somehow - this is done in the
->>>+		   arch/blackfin/boards/bf537/boardname.c */
->>>+		get_bf537_ether_addr(dev->dev_addr);
->>>+	}
->>>+
->>>+	/* If still not valid, get a random one */
->>>+	if (!is_valid_ether_addr(dev->dev_addr)) {
->>>+		random_ether_addr(dev->dev_addr);
->>>+	}
->>>+
->>>+	setup_mac_addr(dev->dev_addr);
->>>+
->>>+	/* Fill in the fields of the device structure with ethernet values. */
->>>+	ether_setup(dev);
->>>+
->>>+	dev->open = bf537mac_open;
->>>+	dev->stop = bf537mac_close;
->>>+	dev->hard_start_xmit = bf537mac_hard_start_xmit;
->>>+	dev->tx_timeout = bf537mac_timeout;
->>>+	dev->get_stats = bf537mac_query_statistics;
->>>+	dev->set_multicast_list = bf537mac_set_multicast_list;
->>>+#if 0
->>>+	dev->ethtool_ops = &bf537mac_ethtool_ops;
->>>+#endif
->>>+#ifdef CONFIG_NET_POLL_CONTROLLER
->>>+	dev->poll_controller = bf537mac_poll;
->>>+#endif
->>>+
->>>+	/* fill in some of the fields */
->>>+	lp->version = 1;
->>>+	lp->PhyAddr = 0x01;
->>>+	lp->CLKIN = 25;
->>>+	lp->FullDuplex = 0;
->>>+	lp->Negotiate = 1;
->>>+	lp->FlowControl = 0;
->>>+	spin_lock_init(&lp->lock);
->>>+
->>>+	/* set the GPIO pins to Ethernet mode */
->>>+	setup_pin_mux();
->>>+
->>>+	/* now, enable interrupts */
->>>+	/* register irq handler */
->>>+	if (request_irq
->>>+	    (IRQ_MAC_RX, bf537mac_interrupt, IRQF_DISABLED | IRQF_SHARED,
->>>+	     "BFIN537_MAC_RX", dev)) {
->>>+		printk(KERN_WARNING CARDNAME
->>>+		       ": Unable to attach BlackFin MAC RX interrupt\n");
->>>+		return -EBUSY;
->>>+	}
->>>+
->>>+	/* Enable PHY output early */
->>>+	if (!(bfin_read_VR_CTL() & PHYCLKOE))
->>>+		bfin_write_VR_CTL(bfin_read_VR_CTL() | PHYCLKOE);
->>>+
->>>+	retval = register_netdev(dev);
->>>+	if (retval == 0) {
->>>+		/* now, print out the card info, in a short format.. */
->>>+		printk(KERN_INFO "Blackfin mac net device registered\n");
->>>+	}
->>>+
->>>+      err_out:
->>>+	return retval;
->>>+}
->>>+
->>>+static int bfin_mac_probe(struct platform_device *pdev)
->>>+{
->>>+	struct net_device *ndev;
->>>+
->>>+	ndev = alloc_etherdev(sizeof(struct bf537mac_local));
->>>+
->>>+	if (!ndev) {
->>>+		printk(KERN_WARNING CARDNAME ": could not allocate device\n");
->>>+		return -ENOMEM;
->>>+	}
->>>+
->>>+	if (bf537mac_probe(ndev) != 0) {
->>>+		platform_set_drvdata(pdev, NULL);
->>>+		free_netdev(ndev);
->>>+		printk(KERN_WARNING CARDNAME ": not found\n");
->>>+		return -ENODEV;
->>>+	}
->>>+
->>>+	SET_MODULE_OWNER(ndev);
->>>+	SET_NETDEV_DEV(ndev, &pdev->dev);
->>>+
->>>+	platform_set_drvdata(pdev, ndev);
->>>+
->>>+	return 0;
->>>+}
->>>+
->>>+static int bfin_mac_remove(struct platform_device *pdev)
->>>+{
->>>+	struct net_device *ndev = platform_get_drvdata(pdev);
->>>+
->>>+	platform_set_drvdata(pdev, NULL);
->>>+
->>>+	unregister_netdev(ndev);
->>>+
->>>+	free_irq(IRQ_MAC_RX, ndev);
->>>+
->>>+	free_netdev(ndev);
->>>+
->>>+	return 0;
->>>+}
->>>+
->>>+static int bfin_mac_suspend(struct platform_device *pdev, pm_message_t state)
->>>+{
->>>+	return 0;
->>>+}
->>>+
->>>+static int bfin_mac_resume(struct platform_device *pdev)
->>>+{
->>>+	return 0;
->>>+}
->>>+
->>>+static struct platform_driver bfin_mac_driver = {
->>>+	.probe = bfin_mac_probe,
->>>+	.remove = bfin_mac_remove,
->>>+	.resume = bfin_mac_resume,
->>>+	.suspend = bfin_mac_suspend,
->>>+	.driver = {
->>>+		   .name = CARDNAME,
->>>+		   },
->>>+};
->>>+
->>>+static int __init bfin_mac_init(void)
->>>+{
->>>+	return platform_driver_register(&bfin_mac_driver);
->>>+}
->>>+
->>>+module_init(bfin_mac_init);
->>>+
->>>+static void __exit bfin_mac_cleanup(void)
->>>+{
->>>+	platform_driver_unregister(&bfin_mac_driver);
->>>+}
->>>+
->>>+module_exit(bfin_mac_cleanup);
->>>diff -puN /dev/null drivers/net/bfin_mac.h
->>>--- /dev/null
->>>+++ a/drivers/net/bfin_mac.h
->>>@@ -0,0 +1,147 @@
->>>+/*
->>>+ * File:         drivers/net/bfin_mac.h
->>>+ * Based on:
->>>+ * Author:       Luke Yang <luke.yang@analog.com>
->>>+ *
->>>+ * Created:
->>>+ * Description:
->>>+ *
->>>+ * Modified:
->>>+ *               Copyright 2004-2006 Analog Devices Inc.
->>>+ *
->>>+ * Bugs:         Enter bugs at http://blackfin.uclinux.org/
->>>+ *
->>>+ * This program is free software ;  you can redistribute it and/or modify
->>>+ * it under the terms of the GNU General Public License as published by
->>>+ * the Free Software Foundation ;  either version 2, or (at your option)
->>>+ * any later version.
->>>+ *
->>>+ * This program is distributed in the hope that it will be useful,
->>>+ * but WITHOUT ANY WARRANTY ;  without even the implied warranty of
->>>+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
->>>+ * GNU General Public License for more details.
->>>+ *
->>>+ * You should have received a copy of the GNU General Public License
->>>+ * along with this program ;  see the file COPYING.
->>>+ * If not, write to the Free Software Foundation,
->>>+ * 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
->>>+ */
->>>+
->>>+/*
->>>+ * PHY REGISTER NAMES
->>>+ */
->>>+#define PHYREG_MODECTL		0x0000
->>>+#define PHYREG_MODESTAT		0x0001
->>>+#define PHYREG_PHYID1		0x0002
->>>+#define PHYREG_PHYID2		0x0003
->>>+#define PHYREG_ANAR		0x0004
->>>+#define PHYREG_ANLPAR		0x0005
->>>+#define PHYREG_ANER		0x0006
->>>+#define PHYREG_NSR		0x0010
->>>+#define PHYREG_LBREMR		0x0011
->>>+#define PHYREG_REC		0x0012
->>>+#define PHYREG_10CFG		0x0013
->>>+#define PHYREG_PHY1_1		0x0014
->>>+#define PHYREG_PHY1_2		0x0015
->>>+#define PHYREG_PHY2		0x0016
->>>+#define PHYREG_TW_1		0x0017
->>>+#define PHYREG_TW_2		0x0018
->>>+#define PHYREG_TEST		0x0019
->>>+
->>>+#define PHY_RESET		0x8000
->>>+#define PHY_ANEG_EN		0x1000
->>>+#define PHY_DUPLEX		0x0100
->>>+#define PHY_SPD_SET		0x2000
->>>+
->>>+#define BFIN_MAC_CSUM_OFFLOAD
->>>+
->>>+typedef struct _DMA_CONFIG {
->>>+	unsigned short b_DMA_EN:1;	/* Bit 0 : DMA Enable */
->>>+	unsigned short b_WNR:1;		/* Bit 1 : DMA Direction */
->>>+	unsigned short b_WDSIZE:2;	/* Bit 2 & 3 : DMA Tranfer Word size */
->>>+	unsigned short b_DMA2D:1;	/* Bit 4 : DMA Mode 2D or 1D */
->>>+	unsigned short b_RESTART:1;	/* Bit 5 : Retain the FIFO */
->>>+	unsigned short b_DI_SEL:1;	/* Bit 6 : Data Interrupt Timing Select */
->>>+	unsigned short b_DI_EN:1;	/* Bit 7 : Data Interrupt Enable */
->>>+	unsigned short b_NDSIZE:4;	/* Bit 8 to 11 : Flex descriptor Size */
->>>+	unsigned short b_FLOW:3;	/* Bit 12 to 14 : FLOW */
->>>+} DMA_CONFIG_REG;
->>>+
->>>+struct dma_descriptor {
->>>+	struct dma_descriptor *next_dma_desc;
->>>+	unsigned long start_addr;
->>>+	DMA_CONFIG_REG config;
->>>+	unsigned short x_count;
->>>+};
->>>+
->>>+#if 0
->>>+struct status_area {
->>>+  unsigned short ip_hdr_chksum;         /* the IP header checksum */
->>>+  unsigned short ip_payload_chksum;     /* the IP header and payload checksum */
->>>+  unsigned long  status_word;           /* the frame status word */
->>>+};
->>>+#endif
->>>+
->>>+struct status_area_rx {
->>>+#if defined(BFIN_MAC_CSUM_OFFLOAD)
->>>+	unsigned short ip_hdr_csum;	/* ip header checksum */
->>>+	unsigned short ip_payload_csum;	/* ip payload(udp or tcp or others) checksum */
->>>+#endif
->>>+	unsigned long status_word;	/* the frame status word */
->>>+};
->>>+
->>>+struct status_area_tx {
->>>+	unsigned long status_word;	/* the frame status word */
->>>+};
->>>+
->>>+/* use two descriptors for a packet */
->>>+struct net_dma_desc_rx {
->>>+	struct net_dma_desc_rx *next;
->>>+	struct sk_buff *skb;
->>>+	struct dma_descriptor desc_a;
->>>+	struct dma_descriptor desc_b;
->>>+	volatile struct status_area_rx status;
->>>+};
->>>+
->>>+/* use two descriptors for a packet */
->>>+struct net_dma_desc_tx {
->>>+	struct net_dma_desc_tx *next;
->>>+	struct sk_buff *skb;
->>>+	struct dma_descriptor desc_a;
->>>+	struct dma_descriptor desc_b;
->>>+	volatile unsigned char packet[1560];
->>>+	volatile struct status_area_tx status;
->>>+};
->>>+
->>>+struct bf537mac_local {
->>>+	/*
->>>+	 * these are things that the kernel wants me to keep, so users
->>>+	 * can find out semi-useless statistics of how well the card is
->>>+	 * performing
->>>+	 */
->>>+	struct net_device_stats stats;
->>>+
->>>+	int version;
->>>+
->>>+	int FlowEnabled;	/* record if data flow is active */
->>>+	int EtherIntIVG;	/* IVG for the ethernet interrupt */
->>>+	int RXIVG;		/* IVG for the RX completion */
->>>+	int TXIVG;		/* IVG for the TX completion */
->>>+	int PhyAddr;		/* PHY address */
->>>+	int OpMode;		/* set these bits n the OPMODE regs */
->>>+	int Port10;		/* set port speed to 10 Mbit/s */
->>>+	int GenChksums;		/* IP checksums to be calculated */
->>>+	int NoRcveLnth;		/* dont insert recv length at start of buffer */
->>>+	int StripPads;		/* remove trailing pad bytes */
->>>+	int FullDuplex;		/* set full duplex mode */
->>>+	int Negotiate;		/* enable auto negotiation */
->>>+	int Loopback;		/* loopback at the PHY */
->>>+	int Cache;		/* Buffers may be cached */
->>>+	int FlowControl;	/* flow control active */
->>>+	int CLKIN;		/* clock in value in MHZ */
->>>+	unsigned short IntMask;	/* interrupt mask */
->>>+	unsigned char Mac[6];	/* MAC address of the board */
->>>+	spinlock_t lock;
->>>+};
->>>+
->>>+extern void get_bf537_ether_addr(char *addr);
->>>_
->>>-
->>>To unsubscribe from this list: send the line "unsubscribe netdev" in
->>>the body of a message to majordomo@vger.kernel.org
->>>More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>>
->>> 
->>>
->>>      
->>>
->
->  
->
+forcedeth: using HIGHDMA
+
+I did some printk in forcedeth.c, and it seems to be stuck in here:
+
+> for (i = 0; i < 5000; i++) {
+>         msleep(1);
+>         if (nv_mgmt_acquire_sema(dev)) {
+>                 /* management unit setup the phy already? */
+>                 if ((readl(base + NvRegTransmitterControl) & NVREG_XMITCTL_SYNC_MASK) ==
+>                     NVREG_XMITCTL_SYNC_PHY_INIT) {
+>                         /* phy is inited by mgmt unit */
+>                         phyinitialized = 1;
+>                         dprintk(KERN_INFO "%s: Phy already initialized by mgmt unit.\n", pci_name(pci_dev));
+>                 } else {
+>                         /* we need to init the phy */
+>                 }
+>                 break;
+>         }
+> }
+
+nv_mgmt_acquire_sema never returns true, and also has a 5 second delay
+in it, so it starts looping 5,000 times with a 5 second delay. The
+screen blanks out and doesn't come back, so I'm not sure if it ever
+would finish. 
+
+I'm able to get it to boot with a knoppix cd, so I'm thinking there must
+be something wrong in my .config. I've attached the lspci and config for
+reference. Any tips to what I'm missing or how to debug further would be
+greatly appreciated.
+
+Thanks!
+
+Alex
+--------_46933F7753A60231A168_MULTIPART_MIXED_
+Content-Type: application/octet-stream;
+ name="config.gz"
+Content-Disposition: attachment;
+ filename="config.gz"
+Content-Transfer-Encoding: base64
+
+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
+ti2ELReENTTgSeN/QAaGUfN1AAA=
+--------_46933F7753A60231A168_MULTIPART_MIXED_
+Content-Type: application/octet-stream;
+ name="lspci.gz"
+Content-Disposition: attachment;
+ filename="lspci.gz"
+Content-Transfer-Encoding: base64
+
+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
+AAA=
+--------_46933F7753A60231A168_MULTIPART_MIXED_--
 
