@@ -1,187 +1,64 @@
-From: Remi Denis-Courmont <rdenis@simphalempin.com>
-Subject: [PATCH] IPv6: optionaly validate RAs on raw sockets
-Date: Tue, 10 Jul 2007 21:11:17 +0300
-Message-ID: <200707102111.18824@auguste.remlab.net>
+From: "Veeraiyan, Ayyappan" <ayyappan.veeraiyan@intel.com>
+Subject: RE: [PATCH 0/1] ixgbe: Support for Intel(R) 10GbE PCI Express adapters -	Take #2
+Date: Tue, 10 Jul 2007 11:11:44 -0700
+Message-ID: <E35F4F4D7F6C9E4E826FEC1F86CEF583042488B2@orsmsx412.amr.corp.intel.com>
+References: <4693C951.3040608@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>, yoshfuji@linux-ipv6.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, <arjan@linux.intel.com>,
+	<akpm@linux-foundation.org>,
+	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>, <hch@infradead.org>,
+	<shemminger@linux-foundation.org>, <nhorman@tuxdriver.com>,
+	<inaky@linux.intel.com>, <mb@bu3sch.de>
+To: "Jeff Garzik" <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from poy.chewa.net ([194.242.114.73]:3951 "EHLO poy.chewa.net"
+Received: from mga09.intel.com ([134.134.136.24]:43849 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756013AbXGJSLW convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2007 14:11:22 -0400
-Content-Disposition: inline
+	id S1759201AbXGJSLr convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2007 14:11:47 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <4693C951.3040608@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-ICMPv6 Router Advertisements may now contain informations that is
-mostly of interest to userland. This currently mostly consists of
-recursive DNS server addresses (though one should expect other
-stuff to come).
+On 7/10/07, Jeff Garzik <jeff@garzik.org> wrote:
+> Ayyappan.Veeraiyan@intel.com wrote:
+> 
+> Doing both tends to signal that the author hasn't bothered to measure
+> the differences between various approaches, and pick a clear winner.
+> 
 
-This patch adds a setsockopt to ICMPv6 sockets to only deliver Router
-Advertisements if they pass the same set of checks as the kernel
-IPv6 autoconfiguration does, so that userland can parse attributes it
-is interested safely (otherwise, it would get and parse advertisements
-that the kernel rejected).
+I did pick NAPI in our previous submission based on various tests. But
+to get 10Gig line rate we need to use multiple Rx queues which will need
+fake netdevs.. Since fake netdevs weren't acceptable, I added non-NAPI
+support which gets 10Gig line rate with multi-rx. I am ok with removing
+NAPI support till the work of separating the netdevs and NAPI work is
+done..
 
-N.B.: not too sure about the option name though...
+> I strongly prefer NAPI combined with hardware interrupt mitigation --
+it
+> helps with multiple net interfaces balance load across the system, at
+> times of high load -- but I'm open to other solutions as well.
+> 
 
-Signed-off-by: Remi Denis-Courmont <rdenis@simphalempin.com>
+Majority of tests we did here, we saw NAPI is better. But for some
+specific test cases (especially if we add the SW RSC i.e. LRO), we saw
+better throughput and CPU utilization with non-NAPI.
 
-diff --git a/include/linux/icmpv6.h b/include/linux/icmpv6.h
-index 7c5e981..8c96822 100644
---- a/include/linux/icmpv6.h
-+++ b/include/linux/icmpv6.h
-@@ -139,6 +139,7 @@ static inline struct icmp6hdr *icmp6_hdr(const stru=
-ct sk_buff *skb)
-  */
-=20
- #define ICMPV6_FILTER			1
-+#define ICMPV6_VALID_ADVERT		2
-=20
- /*
-  *	ICMPV6 filter
-diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-index 648bd1f..af72f02 100644
---- a/include/linux/ipv6.h
-+++ b/include/linux/ipv6.h
-@@ -343,7 +343,9 @@ struct ipv6_pinfo {
- struct raw6_sock {
- 	/* inet_sock has to be the first member of raw6_sock */
- 	struct inet_sock	inet;
--	__u32			checksum;	/* perform checksum */
-+	__u16			unused;
-+	__u8			valid_advert;	/* deliver valid RAs only */
-+	__u8			checksum;	/* perform checksum */
- 	__u32			offset;		/* checksum offset  */
- 	struct icmp6_filter	filter;
- 	/* ipv6_pinfo has to be the last member of raw6_sock, see inet6_sk_ge=
-neric */
-diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
-index a58459a..da6cb50 100644
---- a/net/ipv6/raw.c
-+++ b/net/ipv6/raw.c
-@@ -127,12 +127,35 @@ static __inline__ int icmpv6_filter(struct sock *=
-sk, struct sk_buff *skb)
-=20
- 	if (pskb_may_pull(skb, sizeof(struct icmp6hdr))) {
- 		__u32 *data =3D &rp->filter.data[0];
--		int bit_nr;
-+		int type;
-=20
- 		icmph =3D (struct icmp6hdr *) skb->data;
--		bit_nr =3D icmph->icmp6_type;
-+		type =3D icmph->icmp6_type;
-=20
--		return (data[bit_nr >> 5] & (1 << (bit_nr & 31))) !=3D 0;
-+		if (data[type >> 5] & (1 << (type & 31)))
-+			return 1;
-+
-+		/* Userland only wants valid router advertisements? */
-+		if (type =3D=3D NDISC_ROUTER_ADVERTISEMENT &&
-+		    rp->valid_advert) {
-+			struct inet6_dev *idev;
-+
-+			if (!pskb_may_pull(skb, sizeof(struct ra_msg)) ||
-+			    !(ipv6_addr_type(&ipv6_hdr(skb)->saddr) &
-+			      IPV6_ADDR_LINKLOCAL))
-+				return 1;
-+
-+		        idev =3D in6_dev_get(skb->dev);
-+		        if (!idev)
-+		                return 1;
-+
-+			/* Ignore RA when routing */
-+			if (idev->cnf.forwarding || !idev->cnf.accept_ra) {
-+				in6_dev_put(idev);
-+				return 1;
-+			}
-+			in6_dev_put(idev);
-+		}
- 	}
- 	return 0;
- }
-@@ -877,13 +900,26 @@ do_confirm:
- static int rawv6_seticmpfilter(struct sock *sk, int level, int optname=
-,
- 			       char __user *optval, int optlen)
- {
-+	struct raw6_sock *rp =3D raw6_sk(sk);
-+
- 	switch (optname) {
- 	case ICMPV6_FILTER:
- 		if (optlen > sizeof(struct icmp6_filter))
- 			optlen =3D sizeof(struct icmp6_filter);
--		if (copy_from_user(&raw6_sk(sk)->filter, optval, optlen))
-+		if (copy_from_user(&rp->filter, optval, optlen))
- 			return -EFAULT;
- 		return 0;
-+	case ICMPV6_VALID_ADVERT: {
-+		int val;
-+
-+		if (optlen !=3D sizeof(int))
-+			return -EINVAL;
-+		if (copy_from_user(&val, optval, sizeof(int)))
-+			return -EFAULT;
-+		/* -1 resets to default, which is actually 0 */
-+		rp->valid_advert =3D (val > 0);
-+		return 0;
-+	}
- 	default:
- 		return -ENOPROTOOPT;
- 	}
-@@ -894,25 +930,38 @@ static int rawv6_seticmpfilter(struct sock *sk, i=
-nt level, int optname,
- static int rawv6_geticmpfilter(struct sock *sk, int level, int optname=
-,
- 			       char __user *optval, int __user *optlen)
- {
-+	struct raw6_sock *rp =3D raw6_sk(sk);
- 	int len;
-=20
-+	if (get_user(len, optlen))
-+		return -EFAULT;
-+	if (len < 0)
-+		return -EINVAL;
-+
- 	switch (optname) {
- 	case ICMPV6_FILTER:
--		if (get_user(len, optlen))
--			return -EFAULT;
--		if (len < 0)
--			return -EINVAL;
- 		if (len > sizeof(struct icmp6_filter))
- 			len =3D sizeof(struct icmp6_filter);
--		if (put_user(len, optlen))
-+		if (copy_to_user(optval, &rp->filter, len))
- 			return -EFAULT;
--		if (copy_to_user(optval, &raw6_sk(sk)->filter, len))
-+		break;
-+	case ICMPV6_VALID_ADVERT: {
-+		int val;
-+
-+		if (len < sizeof(int))
-+			return -EINVAL;
-+		val =3D rp->valid_advert;
-+		len =3D sizeof(int);
-+		if (copy_to_user(optval, &val, sizeof(int)))
- 			return -EFAULT;
--		return 0;
-+		break;
-+	}
- 	default:
- 		return -ENOPROTOOPT;
- 	}
-=20
-+	if (put_user(len, optlen))
-+		return -EFAULT;
- 	return 0;
- }
-=20
+> So...  what are your preferences?  What is the setup that gets closest
+> to wire speed under Linux?  :)
 
---=20
-R=C3=A9mi Denis-Courmont
-http://www.remlab.net/
+With SW LRO, non-NAPI is better but without LRO, NAPI is better but NAPI
+needs multiple Rx queues. So given the limitations, non-NPAI is my
+preference now.
+
+I will post the performance numbers later today..
+
+> 
+>         Jeff
+
+Thanks..
+
+Ayyappan
