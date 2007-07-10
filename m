@@ -1,73 +1,48 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [ANNOUNCE] iproute2 2.6.22-070710
-Date: Tue, 10 Jul 2007 19:01:03 -0700
-Message-ID: <20070710190103.09ffa0e8@freepuppy.rosehill.hemminger.net>
+From: Satyam Sharma <ssatyam@cse.iitk.ac.in>
+Subject: Re: [PATCH v2 -mm 8/9] netconsole: Support multiple logging targets
+Date: Wed, 11 Jul 2007 03:47:09 +0530 (IST)
+Message-ID: <Pine.LNX.4.64.0707110340370.2445@cselinux1.cse.iitk.ac.in>
+References: <20070710091920.23907.96483.sendpatchset@cselinux1.cse.iitk.ac.in>
+  <20070710092001.23907.39876.sendpatchset@cselinux1.cse.iitk.ac.in>
+ <e9e943910707100323o35cb0316i5d3f21584ad8e4ae@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, lartc@mailman.ds9a.nl
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:51622 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755360AbXGKCBP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2007 22:01:15 -0400
-Sender: netdev-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Matt Mackall <mpm@selenic.com>,
+	Keiichi Kii <k-keiichi@bx.jp.nec.com>,
+	Netdev <netdev@vger.kernel.org>,
+	Joel Becker <joel.becker@oracle.com>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>
+To: Duane Griffin <duaneg@dghda.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752896AbXGKEEd@vger.kernel.org>
+In-Reply-To: <e9e943910707100323o35cb0316i5d3f21584ad8e4ae@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an update to iproute2 utilities including bug fixes and features
-related to 2.6.22 kernel.
+Hi,
 
-This package tries to be source compatible across releases.
-The same source should build on older systems, but obviously the
-newer kernel features won't be available.
+On Tue, 10 Jul 2007, Duane Griffin wrote:
+> On 10/07/07, Satyam Sharma <ssatyam@cse.iitk.ac.in> wrote:
+> > +       /* Avoid taking lock and disabling interrupts unnecessarily */
+> > +       if (unlikely(list_empty(&target_list)))
+> > +               return;
+> 
+> Is the unlikely a good idea here? Not having any targets may be
+> unusual but it isn't ridiculous. It might even be a sensible default
+> for distros.
 
-It can be downloaded from:
-  http://developer.osdl.org/dev/iproute2/download/iproute2-2.6.22-070710.tar.gz
+Hmm, I put it in there because I expected that the user must have had
+at least one target configured (added to target_list) if he's got the
+module loaded/built-in (and netconsole registered), which is when this
+function would be triggered anyway.
 
-Repository:
-  git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git
+> My (very limited) understanding of unlikely is that it
+> could impose a very large penalty in that case and would make a very
+> marginal difference at best in the common case.
 
-For more info on iproute2 see:
-  http://linux-net.osdl.org/index.php/Iproute2
+I wouldn't call it a large penalty, but yeah, probably the unlikely()
+there isn't all that important either.
 
-Changelog
-
-David Lamparter (1):
-      iproute2: Format IPv6 tunnels endpoints nicely.
-
-Mike Frysinger (1):
-      ip/routef lifesaver
-
-Patrick McHardy (1):
-      Fwd: Re: more iproute2 issues (not critical)
-
-Pavel Roskin (1):
-      ip: add support for displaying link types 802 and 803
-
-Stephen Hemminger (11):
-      Revert "Increase internal clock resolution to nsec"
-      Add xt_tcpudp.h
-      incorrect initialization
-      headers update to 2.6.22
-      fix last change
-      fix build warnings
-      netem: static
-      Add TC_LIB_DIR environment variable.
-      ss: fix issues with signed inodes
-
-Thomas Graf (2):
-      iproute2: support for goto/nop action and detached flag
-      iproute2: Support IFF_LOWER_UP and IFF_DORMANT
-
-Yasuyuki KOZAKAI (1):
-      Fix symbolic link to tc-bfifo.8
-
-jamal (2):
-      SAD info
-      SPD info
-
-
-
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+Satyam
