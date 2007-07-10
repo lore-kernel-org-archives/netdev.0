@@ -1,54 +1,36 @@
-From: Jean Tourrilhes <jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 2.6] SoftMAC : fix duplicate display of channel in scan
-Date: Tue, 10 Jul 2007 12:47:17 -0700
-Message-ID: <20070710194717.GA7310@bougret.hpl.hp.com>
-References: <20070710184155.GA6955@bougret.hpl.hp.com> <4693DD18.1010905@lwfinger.net>
-Reply-To: jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org
+From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
+Subject: Re: ata and netdev (was Re: -mm merge plans for 2.6.23)
+Date: Tue, 10 Jul 2007 23:56:26 +0400
+Message-ID: <4693E46A.4020900@ru.mvista.com>
+References: <20070710013152.ef2cd200.akpm@linux-foundation.org> <4693C4F8.40903@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Larry Finger <larry.finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <4693DD18.1010905-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gateway-1237.mvista.com ([63.81.120.155]:16340 "EHLO
+	imap.sh.mvista.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755670AbXGJTyZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2007 15:54:25 -0400
+In-Reply-To: <4693C4F8.40903@garzik.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 10, 2007 at 02:25:12PM -0500, Larry Finger wrote:
-> Jean,
-> 
-> Jean Tourrilhes wrote:
-> >	Hi,
-> >
-> >	SoftMAC output the channel twice in the scan output. It should
-> >display frequency and channel, but only once for each.
-> >--------------------------------------------------------
-> >          Cell 02 - Address: A2:00:04:XX:XX:XX
-> >                    ESSID:"TheESSID"
-> >                    Protocol:IEEE 802.11b
-> >                    Mode:Ad-Hoc
-> >->                  Channel:5
-> >->                  Frequency:2.432 GHz (Channel 5)
-> 
-> The frequency output is needed by NetworkManager, which is why I added it. 
-> At that time, I thought that some tool or other might be scanning the 
-> output looking for "Channel:", not "Channel "; therefore I left both in.
+Hello.
 
-	All of the other drivers display only a single line, and
-SoftMAC is the odd one here. I think that have the info twice may
-confuse some tools.
-	I know that there are scripts that parse iwlist output,
-however I'm not keen on the practice, as there are alternatives.
+Jeff Garzik wrote:
 
-> If we are sure that removing the channel-only line will not break
-> something, I'll be happy to send your patch upstream.
+>> 3x59x-fix-pci-resource-management.patch
 
-	Unfortunately, I can't guarantee that. I can only guarantee
-that it will be similar to what other drivers do.
+    Now that the fix for CONFIG_PCI=n has been merged, what's left is to test 
+this on EISA (at least Andrew wanted it :-).
 
-> Larry
+>>  netdev patches which are stuck in limbo land.
 
-	Have fun...
+> ?  I don't think I've seen these.
 
-	Jean
+    You should have, I was sending it to you.
+
+WBR, Sergei
