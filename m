@@ -1,31 +1,29 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] netxen: deinline and sparse fix
-Date: Tue, 10 Jul 2007 12:42:08 -0400
-Message-ID: <4693B6E0.6010900@garzik.org>
-References: <20070705161355.47694009@freepuppy.localdomain.hemminger.net>
+Subject: Re: [PATCH 2.6.22-rc7] 8139cp: dev->tx_timeout
+Date: Tue, 10 Jul 2007 12:42:21 -0400
+Message-ID: <4693B6ED.5030102@garzik.org>
+References: <OF60EF0345.A1609CC7-ONC225730C.0049023C-C225730C.004A3C15@stonesoft.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Dhananjay Phadke <dhananjay@netxen.com>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: netdev@vger.kernel.org
+To: Mika.Lansirinne@stonesoft.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:60169 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:60177 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754609AbXGJQmL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Jul 2007 12:42:11 -0400
-In-Reply-To: <20070705161355.47694009@freepuppy.localdomain.hemminger.net>
+	id S1755349AbXGJQm0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Jul 2007 12:42:26 -0400
+In-Reply-To: <OF60EF0345.A1609CC7-ONC225730C.0049023C-C225730C.004A3C15@stonesoft.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> Get rid of dubious casts to (void *) which causes a sparse warning.
-> And move largeish function from inline to the one file that uses the code,
-> the compiler can then decide to inline it.
+Mika.Lansirinne@stonesoft.com wrote:
+> (Resending the patch against 2.6.22-rc7)
 > 
-> Compile tested only.
+> This patch implements the missing dev->tx_timeout for 8139cp driver
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+> Signed-off-by: Mika Lansirinne <mika.lansirinne@stonesoft.com>
 
-applied
+ACK but still fails to apply
 
 
