@@ -1,13 +1,13 @@
 From: Joel Becker <Joel.Becker@oracle.com>
-Subject: Re: [PATCH v2 -mm 4/9] netconsole: Add some useful tips to documentation
-Date: Tue, 10 Jul 2007 21:20:37 -0700
-Message-ID: <20070711042036.GR1011@tasint.org>
-References: <20070710091920.23907.96483.sendpatchset@cselinux1.cse.iitk.ac.in> <20070710091941.23907.45658.sendpatchset@cselinux1.cse.iitk.ac.in> <20070710094142.GM11115@waste.org> <200707101434.39938.jesper.juhl@gmail.com> <Pine.LNX.4.64.0707110256220.2445@cselinux1.cse.iitk.ac.in>
+Subject: Re: [PATCH v2 -mm 8/9] netconsole: Support multiple logging targets
+Date: Tue, 10 Jul 2007 21:29:48 -0700
+Message-ID: <20070711042948.GS1011@tasint.org>
+References: <20070710091920.23907.96483.sendpatchset@cselinux1.cse.iitk.ac.in> <20070710092001.23907.39876.sendpatchset@cselinux1.cse.iitk.ac.in> <e9e943910707100323o35cb0316i5d3f21584ad8e4ae@mail.gmail.com> <Pine.LNX.4.64.0707110340370.2445@cselinux1.cse.iitk.ac.in>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jesper Juhl <jesper.juhl@gmail.com>,
-	Matt Mackall <mpm@selenic.com>,
+Cc: Duane Griffin <duaneg@dghda.com>,
 	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Matt Mackall <mpm@selenic.com>,
 	Keiichi Kii <k-keiichi@bx.jp.nec.com>,
 	Netdev <netdev@vger.kernel.org>,
 	Stephen Hemminger <shemminger@linux-foundation.org>,
@@ -15,31 +15,35 @@ Cc: Jesper Juhl <jesper.juhl@gmail.com>,
 	David Miller <davem@davemloft.net>
 To: Satyam Sharma <ssatyam@cse.iitk.ac.in>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from agminet01.oracle.com ([141.146.126.228]:17422 "EHLO
+Received: from agminet01.oracle.com ([141.146.126.228]:19254 "EHLO
 	agminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751598AbXGKEVP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2007 00:21:15 -0400
+	with ESMTP id S1751638AbXGKEaZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2007 00:30:25 -0400
 Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0707110256220.2445@cselinux1.cse.iitk.ac.in>
+In-Reply-To: <Pine.LNX.4.64.0707110340370.2445@cselinux1.cse.iitk.ac.in>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 11, 2007 at 03:40:22AM +0530, Satyam Sharma wrote:
-> IMHO something that mentions /proc/sys/kernel/printk would be better.
-> 
-> You don't need to have built with SysRq support for that, it's clearly
-> more flexible than the ignore_loglevel option and wouldn't require a
-> reboot either. I'll send out an updated patch shortly.
+On Wed, Jul 11, 2007 at 03:47:09AM +0530, Satyam Sharma wrote:
+> Hmm, I put it in there because I expected that the user must have had
+> at least one target configured (added to target_list) if he's got the
+> module loaded/built-in (and netconsole registered), which is when this
+> function would be triggered anyway.
 
-	Why not dmesg -n?  We've been using that for years.  Or is there
-some extra change in /proc/sys/kernel/printk?
+	Loading the module won't happen without a config, but there's no
+requirement that a built-in netconsole has a kernel command-line
+argument.  I always build netconsole for my kernels.  Sure, I usually do
+it as a module, but if I build a monolithic kernel I compile it in.
+That doesn't mean I always have a server, let alone a netconsole= option
+:-)
 
 Joel
 
 -- 
 
-"Against stupidity the Gods themselves contend in vain."
-	- Friedrich von Schiller
+"When choosing between two evils, I always like to try the one
+ I've never tried before."
+        - Mae West
 
 Joel Becker
 Principal Software Developer
