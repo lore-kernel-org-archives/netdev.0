@@ -1,37 +1,42 @@
-From: Chuck Ebbert <cebbert@redhat.com>
-Subject: Re: Linux 2.6.22: Leak r=1 1
-Date: Wed, 11 Jul 2007 15:01:32 -0400
-Message-ID: <4695290C.1040303@redhat.com>
-References: <20070711174030.tjmxpxtfsn4twgk2@m.safari.iki.fi>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Fwd: r8169 driver supporting the 8167 dev ID
+Date: Wed, 11 Jul 2007 21:28:50 +0200
+Message-ID: <20070711192850.GA4904@electric-eye.fr.zoreil.com>
+References: <71421f560707091922y60dec801w836e1e4e88c36de2@mail.gmail.com> <71421f560707091923y64565c84wecb1229c219642c4@mail.gmail.com> <20070710212513.GB3436@electric-eye.fr.zoreil.com> <71421f560707101724x42fb6c8ye82bd08a9c7bca5@mail.gmail.com> <71421f560707110605x1bf79d7dj73ce7edd590b58ce@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: Linux Networking Mailing List <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Jonathan Larsen <agentc0re@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:42804 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761976AbXGKTBe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Jul 2007 15:01:34 -0400
-Received: from int-mx1.corp.redhat.com (int-mx1.corp.redhat.com [172.16.52.254])
-	by mx1.redhat.com (8.13.1/8.13.1) with ESMTP id l6BJ1X7H015835
-	for <netdev@vger.kernel.org>; Wed, 11 Jul 2007 15:01:33 -0400
-Received: from mail.boston.redhat.com (mail.boston.redhat.com [172.16.76.12])
-	by int-mx1.corp.redhat.com (8.13.1/8.13.1) with ESMTP id l6BJ1Xla022566
-	for <netdev@vger.kernel.org>; Wed, 11 Jul 2007 15:01:33 -0400
-Received: from [172.16.83.145] (dhcp83-145.boston.redhat.com [172.16.83.145])
-	by mail.boston.redhat.com (8.13.1/8.13.1) with ESMTP id l6BJ1XG2026934
-	for <netdev@vger.kernel.org>; Wed, 11 Jul 2007 15:01:33 -0400
-In-Reply-To: <20070711174030.tjmxpxtfsn4twgk2@m.safari.iki.fi>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:41177 "EHLO
+	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933631AbXGKT24 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Jul 2007 15:28:56 -0400
+Content-Disposition: inline
+In-Reply-To: <71421f560707110605x1bf79d7dj73ce7edd590b58ce@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 07/11/2007 01:40 PM, Sami Farin wrote:
-> That's right, so descriptive is the new Linux kernel 2.6.22.
-> Took a while to grep what is "leaking".
+Jonathan Larsen <agentc0re@gmail.com> :
+> I got git installed on my dev box.  i went to my linux source dir and ran,
+> git init
+> git add .
+> git format-patch v2.6.18..v2.6.23-rc1 -- drivers/net/r8169.c
 > 
+> and i got an error
+> fatal: bad revision 'v2.6.18..v2.6.23-rc1'
+> 
+> what did i do wrong?  im sure im missing something easy.
 
-You didn't post that:
+You should read the tutorial until you find the 'Using git for collaboration'
+part. You missed a:
 
-$ find . -type f | xargs grep "Leak r=" /dev/null
-./net/ipv4/tcp_input.c:                 printk(KERN_DEBUG "Leak r=%u %d\n",
+git clone git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux-2.6.git
 
+v2.6.23-rc1 is not available yet. Replace it with 'master' or, say,
+4eb6bf6bfb580afaf1e1a1d30cba17a078530cf4
+
+PS: please trim the irrelevant parts in your reply and do not top post. 
+
+-- 
+Ueimor
