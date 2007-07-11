@@ -1,49 +1,76 @@
-From: Olaf Kirch <okir@lst.de>
-Subject: Re: Races in net_rx_action vs netpoll?
-Date: Wed, 11 Jul 2007 09:41:37 +0200
-Message-ID: <200707110941.38587.okir@lst.de>
-References: <200707041416.33732.okir@lst.de> <200707101244.32753.okir@lst.de> <20070710.224457.95896396.davem@davemloft.net>
+From: Ishizaki Kou <kou.ishizaki@toshiba.co.jp>
+Subject: Re: [Cbe-oss-dev] [PATCH] spidernet: don't use debug flag
+Date: Wed, 11 Jul 2007 16:57:38 +0900 (JST)
+Message-ID: <200707110758.l6B7w1Jc026926@toshiba.co.jp>
+References: <20070709212617.GM4457@austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: kou.ishizaki@toshiba.co.jp, netdev@vger.kernel.org,
+	cbe-oss-dev@ozlabs.org
+To: linas@austin.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from verein.lst.de ([213.95.11.210]:48944 "EHLO mail.lst.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756054AbXGKHuX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Jul 2007 03:50:23 -0400
-In-Reply-To: <20070710.224457.95896396.davem@davemloft.net>
-Content-Disposition: inline
+Received: from imx9.toshiba.co.jp ([202.33.96.51]:54889 "EHLO
+	imx9.toshiba.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754453AbXGKIGm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2007 04:06:42 -0400
+Received: from imx12.toshiba.co.jp (imx12 [61.202.160.132])
+	by imx9.toshiba.co.jp  with ESMTP id l6B86eZv003586
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Wed, 11 Jul 2007 17:06:40 +0900 (JST)
+In-Reply-To: <20070709212617.GM4457@austin.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 11 July 2007 07:44, David Miller wrote:
-> > +#ifdef CONFIG_NETPOLL
-> > +	/* Prevent race with netpoll - yes, this is a kludge.
-> > +	 * But at least it doesn't penalize the non-netpoll
-> > +	 * code path. */
-> > +	if (test_bit(__LINK_STATE_POLL_LIST_FROZEN, &dev->state))
-> > +		return;
-> > +#endif
-> > +
-> >  	local_irq_save(flags);
-> >  	BUG_ON(!test_bit(__LINK_STATE_RX_SCHED, &dev->state));
-> >  	list_del(&dev->poll_list);
+Linas-san,
+
+> > GDTDCEIDIS flag is defined that it is for debug and should not be
+used.
 > 
-> That new bit can be set in interrupt context can't it?
+> !? Certainly, my spec doesn't say anything like this;
 
-It's set and cleared in poll_napi only, and as far as I can tell 
-poll_napi will only ever be called from via softirq, but never
-from an interrupt handler directly.
+First, I'm sorry to say that GDTDCEDIS is for debug. It's my
+misunderstanding.
 
-I also don't think the test_bit() needs to lock out interrupts.
-The only reason we do it for the RX_SCHED bit is that the RX_SCHED
-bit and the poll_list change must happen atomically wrt interrupts
-from the NIC, right?
+My HW manual of SCC simply said that GDTDCEDIS must not be set(Is 
+it same for you?).  But I don't know concretely what will go wrong 
+by setting this bit.
 
-Olaf
--- 
-Olaf Kirch  |  --- o --- Nous sommes du soleil we love when we play
-okir@lst.de |    / | \   sol.dhoop.naytheet.ah kin.ir.samse.qurax
+> I don't know of any other way of turning off the descriptor 
+> chain end interrupt; leaving it on hurts performance in a big way.
+> 
+> I get the following TX performance numbers:
+> 
+> pkt sz       rate w/o patch      rate w/patch
+> (bytes)      (Mbits/sec)         (Mbits/sec)
+> -------      ----------          ---------
+> 400            503                 353
+> 200            239                  88
+> 100            122                  44
+>  60             73                  26
+> 
+> That's not quite a 3x performance degradation.
+> 
+> In addition, with your patch, the number of interrupts jumps
+> from just about zero, to about 55K/second. From what I can tell, 
+> this huge interrupt rate eats up all the CPU cycles, which is
+> why the performance drops so drasically.
+
+I understand the influence for performance by setting GDTDCEDIS and
+why you set this bit.
+
+> > We met some troubles on Celleb platform by setting this flag.
+> >  -network does not recover after ifconfig down, then up operations.
+> 
+> Can you be more specific?  I can't imagine why this flag would
+> have anything to do with ifdown/ifup. The device open/close 
+> routines should reset all hardware state; this shouldn't make
+> any difference. (It doesn't for me, at least).  
+
+Sorry, I have no more information that ifconfig down/up commands. All
+about I know is that I met the phenomenon when GDTDCEDIS is set.
+
+I need more investigation. Please drop the patch.
+
+Best regards,
+Kou Ishizaki
