@@ -1,44 +1,61 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [PATCH] IPv6: optionaly validate RAs on raw sockets
-Date: Wed, 11 Jul 2007 12:50:12 -0400
-Message-ID: <46950A44.2040808@hp.com>
-References: <OF12E7973A.D9D0F9C5-ON88257315.005882D0-88257315.0058D5B9@us.ibm.com> <200707111919.11746@auguste.remlab.net>
+From: Dan Faerch <dan@hacker.dk>
+Subject: Re: ata and netdev (was Re: -mm merge plans for 2.6.23)
+Date: Wed, 11 Jul 2007 18:47:55 +0200
+Message-ID: <469509BB.9050405@hacker.dk>
+References: <20070710013152.ef2cd200.akpm@linux-foundation.org>	<4693C4F8.40903@garzik.org> <20070710112458.e9dbb55e.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Stevens <dlstevens@us.ibm.com>, davem@davemloft.net,
-	netdev@vger.kernel.org,
-	=?ISO-8859-1?Q?YOSHIFUJI_Hideaki_/_=3F=3F=3F?=
-	 =?ISO-8859-1?Q?=3F?= <yoshfuji@linux-ipv6.org>
-To: =?ISO-8859-1?Q?R=E9mi_Denis-Courmont?= <rdenis@simphalempin.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel8.hp.com ([156.153.255.206]:47739 "EHLO atlrel8.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751459AbXGKQwI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Jul 2007 12:52:08 -0400
-In-Reply-To: <200707111919.11746@auguste.remlab.net>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jeff@garzik.org>, linux-kernel@vger.kernel.org,
+	IDE/ATA development list <linux-ide@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>, Tejun Heo <htejun@gmail.com>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Deepak Saxena <dsaxena@plexity.net>,
+	Benjamin LaHaise <bcrl@kvack.org>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-ide-owner@vger.kernel.org>
+In-Reply-To: <20070710112458.e9dbb55e.akpm@linux-foundation.org>
+Sender: linux-ide-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-R=E9mi Denis-Courmont wrote:
-> Le mercredi 11 juillet 2007, David Stevens a =E9crit :
->>         That sounds like a good idea to me (FWIW),
->> though I also still think a simple raw-socket
->> application would do it just fine, possibly with
->> no kernel modification at all.
->>         But since the kernel wouldn't be maintaining
->> the DNS info, which was my real objection to the
->> original version,  netlink would work well too.
->=20
-> One remaining corner case is NFS/IPv6 root, whereby userland won't ha=
-ve=20
-> a chance to start before the network, and hence may miss the solicite=
-d=20
-> RA. Or would it? By default, the next unsolicited RA can be anytime=20
-> from now to after 10 minutes, so that's not sufficient. I wouldn't=20
-> personnaly care, but...
->=20
+Andrew Morton wrote:
+> drivers-net-ns83820c-add-paramter-to-disable-auto.patch:
+>
+> See comments in changelog: ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.22-rc6/2.6.22-rc6-mm1/broken-out/drivers-net-ns83820c-add-paramter-to-disable-auto.patch
+>
+> Dan, Ben: is there any prospect of progress here?
+Mmm.. Ben had 2 comments last year:
 
-You've got the same issue with the socket option approach.
+In regards to the ethtool stuff i coded:
 
--vlad
+> This part is good, although doing something for copper cards needs doing, 
+
+I know very little about hardware and only own the fiber version of this 
+card. Even if i tried to make code for the copper version, it would 
+probably blow it up the phy and set the switches on fire ;).
+
+And in regards to the '"disable_autoneg" module argument':
+
+> This is the part I disagree with.  Are you sure it isn't a bug in the 
+> link autonegotiation state machine for fibre cards?  It should be defaulting 
+> to 1Gbit/full duplex if no autonegotiation is happening, and if it isn't 
+> then that should be fixed instead of papering over things with a config 
+> option.
+
+This is pretty much Russian to me. 
+I wouldnt know where to find the "link-autonegotiation-state-machine-for-fibre-cards" or know what to do with it anyway :).
+
+The "disable_autoneg" is a convenient feature (for me and the other guy who made the same patch last year) and i consider it a harmless feature in every way.
+It is simply an 'if'-statement, that skips the "start autoneg" function upon load.
+We can simply remove the feature entirely if it is deemed undesirable.
+
+
+
+So in conclusion:
+- I vote "use the patch as-is", but im fine with it being changed. 
+- If it needs support for copper, someone else has to code it.
+
+
+Regards
+- Dan
+
