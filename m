@@ -1,78 +1,37 @@
-From: Satyam Sharma <ssatyam@cse.iitk.ac.in>
-Subject: [PATCH v2 (updated) -mm 4/9] netconsole: Add some useful tips to documentation
-Date: Wed, 11 Jul 2007 03:49:29 +0530
-Message-ID: <20070710221929.3414.80246.sendpatchset@cselinux1.cse.iitk.ac.in>
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	Netdev <netdev@vger.kernel.org>,
-	Keiichi Kii <k-keiichi@bx.jp.nec.com>,
-	Satyam Sharma <ssatyam@cse.iitk.ac.in>,
-	Jesper Juhl <jesper.juhl@gmail.com>,
-	Joel Becker <joel.becker@oracle.com>,
-	Matt Mackall <mpm@selenic.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>
-To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+From: Ishizaki Kou <kou.ishizaki@toshiba.co.jp>
+Subject: Re: [Cbe-oss-dev] [PATCH] spidernet: improve interrupt handling
+Date: Wed, 11 Jul 2007 13:57:30 +0900 (JST)
+Message-ID: <20070711.135730.-1300544419.kouish@swc.toshiba.co.jp>
+References: <20070709221922.GP4457@austin.ibm.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, cbe-oss-dev@ozlabs.org
+To: linas@austin.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail4.iitk.ac.in ([203.197.196.4]:57889 "EHLO mail4.iitk.ac.in"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752104AbXGKEyK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Jul 2007 00:54:10 -0400
+Received: from inet-tsb5.toshiba.co.jp ([202.33.96.24]:49064 "EHLO
+	inet-tsb5.toshiba.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753418AbXGKE5t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2007 00:57:49 -0400
+In-Reply-To: <20070709221922.GP4457@austin.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[4/9 (updated)] netconsole: Add some useful tips to documentation
+Linas-san,
 
-Add some useful general-purpose tips. Also suggest solution for the frequent
-problem of console_loglevel set too low numerically (i.e. for high priority
-messages only) on the sender.
+> On Mon, Jul 09, 2007 at 05:48:08PM +0900, Ishizaki Kou wrote:
+> > We intend this patch to improve spidernet interrupt handling to be
+> > more strict.  We had following problem and this patch solves it.
+> 
+> Looks reasonable to me. I'll forward it upstream. In the future,
 
-Cc: Matt Mackall <mpm@selenic.com>
-Cc: Jesper Juhl <jesper.juhl@gmail.com>
-Signed-off-by: Satyam Sharma <ssatyam@cse.iitk.ac.in>
+Thank you.
 
----
+> could you use "diff -Nupr"? it adds some extra information
+> (the name of the subroutine) to the patch chunks; this makes 
+> it easier to read. 
 
- Documentation/networking/netconsole.txt |   24 ++++++++++++++++++++++++
- 1 file changed, 24 insertions(+)
+I see. I will do so next time. 
 
----
-
-diff -ruNp a/Documentation/networking/netconsole.txt b/Documentation/networking/netconsole.txt
---- a/Documentation/networking/netconsole.txt	2007-04-26 08:38:32.000000000 +0530
-+++ b/Documentation/networking/netconsole.txt	2007-07-11 03:11:08.000000000 +0530
-@@ -44,11 +44,35 @@ WARNING: the default target ethernet set
- ethernet address to send packets, which can cause increased load on
- other systems on the same ethernet segment.
- 
-+TIP: some LAN switches may be configured to suppress ethernet broadcasts
-+so it is advised to explicitly specify the remote agents' MAC addresses
-+from the config parameters passed to netconsole.
-+
-+TIP: to find out the MAC address of, say, 10.0.0.2, you may try using:
-+
-+ ping -c 1 10.0.0.2 ; /sbin/arp -n | grep 10.0.0.2
-+
-+TIP: in case the remote logging agent is on a separate LAN subnet than
-+the sender, it is suggested to try specifying the MAC address of the
-+default gateway (you may use /sbin/route -n to find it out) as the
-+remote MAC address instead.
-+
- NOTE: the network device (eth1 in the above case) can run any kind
- of other network traffic, netconsole is not intrusive. Netconsole
- might cause slight delays in other traffic if the volume of kernel
- messages is high, but should have no other impact.
- 
-+NOTE: if you find that the remote logging agent is not receiving or
-+printing all messages from the sender, it is likely that you have set the
-+"console_loglevel" parameter (on the sender) to only send high priority
-+messages to the console. You can change this at runtime by updating
-+/proc/sys/kernel/printk appropriately, say by:
-+
-+ echo 9 > /proc/sys/kernel/printk
-+
-+which would send all kernel messages to the console. Refer the proc(5)
-+man page for more details.
-+
- Netconsole was designed to be as instantaneous as possible, to
- enable the logging of even the most critical kernel bugs. It works
- from IRQ contexts as well, and does not enable interrupts while
+Best regards,
+Kou Ishizaki
