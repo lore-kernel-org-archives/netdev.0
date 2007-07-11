@@ -1,62 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6.23 take2] UDP: Cleanup UDP encapsulation code
-Date: Tue, 10 Jul 2007 23:06:54 -0700 (PDT)
-Message-ID: <20070710.230654.03111146.davem@davemloft.net>
-References: <468D299E.5070902@katalix.com>
-	<200707061055.17951.remi.denis-courmont@nokia.com>
-	<468E444C.9070609@trash.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: remi.denis-courmont@nokia.com, jchapman@katalix.com,
-	netdev@vger.kernel.org
-To: kaber@trash.net
+From: Miklos Szeredi <miklos@szeredi.hu>
+Subject: Re: [PATCH resend] rewrite AF_UNIX garbage collector, fixes race
+Date: Wed, 11 Jul 2007 08:41:30 +0200
+Message-ID: <E1I8VtC-0007uM-00@dorka.pomaz.szeredi.hu>
+References: <E1I61UT-0006Gk-00@dorka.pomaz.szeredi.hu>
+	<20070710.221224.48800386.davem@davemloft.net> <20070710222511.bcc87825.akpm@linux-foundation.org>
+Cc: davem@davemloft.net, miklos@szeredi.hu, netdev@vger.kernel.org,
+	ebiederm@xmission.com, viro@ftp.linux.org.uk,
+	alan@lxorguk.ukuu.org.uk, linux-kernel@vger.kernel.org
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33262
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755244AbXGKGeL convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Jul 2007 02:34:11 -0400
-In-Reply-To: <468E444C.9070609@trash.net>
+Received: from mail-gw3.sa.ew.hu ([212.108.200.82]:50896 "EHLO
+	mail-gw3.sa.ew.hu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750929AbXGKGlz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2007 02:41:55 -0400
+In-reply-to: <20070710222511.bcc87825.akpm@linux-foundation.org> (message from
+	Andrew Morton on Tue, 10 Jul 2007 22:25:11 -0700)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: Patrick McHardy <kaber@trash.net>
-Date: Fri, 06 Jul 2007 15:31:56 +0200
+> > But myself, nor any other developers, are going to review your work
+> > any faster if you do things like try to slip things in behind the
+> > maintainer's back as you attempted to do yesterday by asking Andrew to
+> > put your AF_UNIX garbage collector rewrite directly into his -mm tree.
+> 
+> mmm...  I didn't see it as a slip-behind-the-back thing.  More a "park it
+> in -mm for a bit of concurrent testing and so it doesn't get lost and so I
+> don't have to worry about it any more" thing.  Plenty of that goes on.
 
-> R=E9mi Denis-Courmont wrote:
-> > On Thursday 05 July 2007 20:25:50 ext James Chapman wrote:
-> >=20
-> >>R=E9mi Denis-Courmont wrote:
-> >>
-> >>>By the way, couldn't encap_type be remove altogether (using two sl=
-ightly
-> >>>different callbacks for ESP) from udp_sock?
-> >>
-> >>The notion of encap_type is needed for the setsockopt call so it wo=
-uld
-> >>have to stay in the API. If it were removed from udp_sock, getsocko=
-pt
-> >>would have to derive the encap_type from encap_rcv funcptr values, =
-which
-> >>would be messy. I think it might complicate the logic in ESP too.
-> >=20
-> >=20
-> > Right. By the way, shouldn't "len" rather be signed in there?
-> >=20
-> > 		unsigned int len;
-> >=20
-> > 		/* if we're overly short, let UDP handle it */
-> > 		len =3D skb->len - sizeof(struct udphdr);
-> > 		if (len <=3D 0)
-> > 			goto udp;
->=20
->=20
-> It should, but the < 0 case can't happen since __udp4_lib_rcv
-> already makes sure that we have at least a complete UDP header.
->=20
-> Anyways, this patch fixes it.
->=20
-> Signed-off-by: Patrick McHardy <kaber@trash.net>
+Exactly.  I have CC-ed everyone involved, and clearly stated that I do
+want it reviewed.  There wasn't any evil intention.
 
-Applied, thanks.
+I _am_ slightly pissed off by still not having this bug fixed after
+two months, and after spending considerable effort at hunting it down
+and finding a solution for it (actually three different solutions by
+now).
+
+This may seem low priority and irrelevant, but it _is_ a bug, and it's
+affecting a real world application.  So please take that into
+consideration.
+
+Thanks,
+Miklos
