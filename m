@@ -1,46 +1,41 @@
-From: Satyam Sharma <ssatyam@cse.iitk.ac.in>
-Subject: Re: [PATCH v2 -mm 4/9] netconsole: Add some useful tips to documentation
-Date: Wed, 11 Jul 2007 11:35:03 +0530 (IST)
-Message-ID: <Pine.LNX.4.64.0707111120120.10373@cselinux1.cse.iitk.ac.in>
-References: <20070710091920.23907.96483.sendpatchset@cselinux1.cse.iitk.ac.in>
- <20070710091941.23907.45658.sendpatchset@cselinux1.cse.iitk.ac.in>
- <20070710094142.GM11115@waste.org> <200707101434.39938.jesper.juhl@gmail.com>
- <Pine.LNX.4.64.0707110256220.2445@cselinux1.cse.iitk.ac.in>
- <20070711042036.GR1011@tasint.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH][NET_SCHED] Make HTB scheduler work with TSO.
+Date: Tue, 10 Jul 2007 22:43:26 -0700 (PDT)
+Message-ID: <20070710.224326.78734799.davem@davemloft.net>
+References: <Pine.LNX.4.63.0706121647280.4120@ranjit.corp.google.com>
+	<20070709.151522.52166816.davem@davemloft.net>
+	<166fe7950707101502w65447adcm3f284df9494440ed@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Jesper Juhl <jesper.juhl@gmail.com>,
-	Matt Mackall <mpm@selenic.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Keiichi Kii <k-keiichi@bx.jp.nec.com>,
-	Netdev <netdev@vger.kernel.org>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>
-To: Joel Becker <Joel.Becker@oracle.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: ranjitm@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail4.iitk.ac.in ([203.197.196.4]:47876 "EHLO mail4.iitk.ac.in"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752560AbXGKFml (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Jul 2007 01:42:41 -0400
-In-Reply-To: <20070711042036.GR1011@tasint.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44386
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754523AbXGKFnE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2007 01:43:04 -0400
+In-Reply-To: <166fe7950707101502w65447adcm3f284df9494440ed@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 10 Jul 2007, Joel Becker wrote:
-> On Wed, Jul 11, 2007 at 03:40:22AM +0530, Satyam Sharma wrote:
-> > IMHO something that mentions /proc/sys/kernel/printk would be better.
-> > 
-> > You don't need to have built with SysRq support for that, it's clearly
-> > more flexible than the ignore_loglevel option and wouldn't require a
-> > reboot either. I'll send out an updated patch shortly.
+From: "Ranjit Manomohan" <ranjitm@google.com>
+Date: Tue, 10 Jul 2007 15:02:16 -0700
+
+> On 7/9/07, David Miller <davem@davemloft.net> wrote:
+> > From: Ranjit Manomohan <ranjitm@google.com>
+> > Date: Tue, 12 Jun 2007 16:53:21 -0700 (PDT)
+> >
+> > > Currently the HTB scheduler does not correctly account for TSO packets
+> > > which causes large inaccuracies in the bandwidth control when using TSO.
+> > > This patch allows the HTB scheduler to work with TSO enabled devices.
+> > >
+> > > Signed-off-by: Ranjit Manomohan <ranjitm@google.com>
+> >
+> > Your patch has much white-space damage and therefore won't apply,
+> > please fix this up and resubmit, thanks.
+> >
 > 
-> 	Why not dmesg -n?  We've been using that for years.  Or is there
-> some extra change in /proc/sys/kernel/printk?
+> patch based on net-2.6.23 attached.
 
-Yes, "dmesg -n" sounds the most straightforward. There are multiple ways
-of course, for some reason I've always used /proc/sys/kernel/printk for
-this (which has the extra "feature" that it accepts values greater than
-8 too :-)
-
-Satyam
+Patch applied, thank you.
