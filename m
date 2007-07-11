@@ -1,331 +1,288 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [PATCH] tcp: tcp probe wraparound handling and other changes
-Date: Wed, 11 Jul 2007 10:51:15 -0700
-Message-ID: <20070711105115.43ae0530@freepuppy.rosehill.hemminger.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [VLAN 02/04]: Fix MAC address handling
+Date: Wed, 11 Jul 2007 19:54:18 +0200
+Message-ID: <4695194A.3040908@trash.net>
+References: <20070711173812.18369.47109.sendpatchset@localhost.localdomain> <20070711173815.18369.24201.sendpatchset@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: multipart/mixed;
+ boundary="------------030304050602050403070100"
+Cc: netdev@vger.kernel.org, greearb@candelatech.com, xemul@openvz.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:58370 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754469AbXGKRvV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2007 13:51:21 -0400
+Received: from stinky.trash.net ([213.144.137.162]:58649 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1764658AbXGKRyV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2007 13:54:21 -0400
+In-Reply-To: <20070711173815.18369.24201.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Switch from formatting messages in probe routine and copying with kfifo, 
-to using a small circular queue of information and formatting on read. 
-This avoids wraparound issues with kfifo, and saves one copy.
+This is a multi-part message in MIME format.
+--------------030304050602050403070100
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
 
-Also make sure to state correct license, rather than copying off some other
-driver I started with.
+Patrick McHardy wrote:
+> [VLAN]: Fix MAC address handling
+> 
+> +static void vlan_sync_address(struct net_device *dev,
+> +			      struct net_device *vlandev)
+> +{
+> +	struct vlan_dev_info *vlan = VLAN_DEV_INFO(vlandev);
+> +
+> +	if (!compare_ether_addr(vlan->real_dev_addr, dev->dev_addr))
+> +		return;
+> +
+> +	if (compare_ether_addr(vlandev->dev_addr, dev->dev_addr))
+> +		dev_unicast_add(dev, vlandev->dev_addr, ETH_ALEN);
+> +	else
+> +		dev_unicast_delete(dev, vlandev->dev_addr, ETH_ALEN);
+> +
+> +	memcpy(vlan->real_dev_addr, dev->dev_addr, ETH_ALEN);
+> +}
 
-Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+
+Unfortunately the one case I didn't test is still wrong :|
+
+The above synchronization incorrectly removes the address in case
+if was different before and is still different afterwards. This
+patch is fixed and contains a few comments as an added bonus :)
+
+
+--------------030304050602050403070100
+Content-Type: text/x-diff;
+ name="02.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="02.diff"
+
+[VLAN]: Fix MAC address handling
+
+The VLAN MAC address handling is broken in multiple ways. When the address
+differs when setting it, the real device is put in promiscous mode twice,
+but never taken out again. Additionally it doesn't resync when the real
+device's address is changed and needlessly puts it in promiscous mode when
+the vlan device is still down.
+
+Fix by moving address handling to vlan_dev_open/vlan_dev_stop and properly
+deal with address changes in the device notifier. Also switch to
+dev_unicast_add (which needs the exact same handling).
+
+Since the set_mac_address handler is identical to the generic ethernet one
+with these changes, kill it and use ether_setup().
+
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 
 ---
- net/ipv4/tcp_probe.c |  201 ++++++++++++++++++++++++++++++---------------------
- 1 file changed, 119 insertions(+), 82 deletions(-)
+commit 7d0a5d2f8d28ebe95cda8d2e16bf6d8030efc8b3
+tree d91afa76b1aaaaa069a435967b8627f6aa820e13
+parent 690fb4dbafa9f60f8cb520d5def544580107b3a4
+author Patrick McHardy <kaber@trash.net> Wed, 11 Jul 2007 19:52:08 +0200
+committer Patrick McHardy <kaber@trash.net> Wed, 11 Jul 2007 19:52:08 +0200
 
---- a/net/ipv4/tcp_probe.c	2007-06-25 09:03:23.000000000 -0700
-+++ b/net/ipv4/tcp_probe.c	2007-07-11 10:44:04.000000000 -0700
-@@ -6,8 +6,7 @@
-  *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License as published by
-- * the Free Software Foundation; either version 2 of the License, or
-- * (at your option) any later version.
-+ * the Free Software Foundation; either version 2 of the License.
-  *
-  * This program is distributed in the hope that it will be useful,
-  * but WITHOUT ANY WARRANTY; without even the implied warranty of
-@@ -25,23 +24,22 @@
- #include <linux/tcp.h>
- #include <linux/proc_fs.h>
- #include <linux/module.h>
--#include <linux/kfifo.h>
- #include <linux/ktime.h>
- #include <linux/time.h>
--#include <linux/vmalloc.h>
+ include/linux/if_vlan.h |    1 +
+ net/8021q/vlan.c        |   43 +++++++++++++++++++++++++++++++----
+ net/8021q/vlan.h        |    1 -
+ net/8021q/vlan_dev.c    |   57 +++++++++++++++--------------------------------
+ 4 files changed, 57 insertions(+), 45 deletions(-)
+
+diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
+index c791287..61a57dc 100644
+--- a/include/linux/if_vlan.h
++++ b/include/linux/if_vlan.h
+@@ -135,6 +135,7 @@ struct vlan_dev_info {
+ 	int old_allmulti;               /* similar to above. */
+ 	int old_promiscuity;            /* similar to above. */
+ 	struct net_device *real_dev;    /* the underlying device/interface */
++	unsigned char real_dev_addr[ETH_ALEN];
+ 	struct proc_dir_entry *dent;    /* Holds the proc data */
+ 	unsigned long cnt_inc_headroom_on_tx; /* How many times did we have to grow the skb on TX. */
+ 	unsigned long cnt_encap_on_xmit;      /* How many times did we have to encapsulate the skb on TX. */
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index e7583ee..b463ba4 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -345,12 +345,8 @@ static int vlan_dev_init(struct net_device *dev)
+ 					  (1<<__LINK_STATE_DORMANT))) |
+ 		      (1<<__LINK_STATE_PRESENT);
  
- #include <net/tcp.h>
- 
- MODULE_AUTHOR("Stephen Hemminger <shemminger@linux-foundation.org>");
- MODULE_DESCRIPTION("TCP cwnd snooper");
- MODULE_LICENSE("GPL");
-+MODULE_VERSION("1.1");
- 
- static int port __read_mostly = 0;
- MODULE_PARM_DESC(port, "Port to match (0=all)");
- module_param(port, int, 0);
- 
--static int bufsize __read_mostly = 64*1024;
--MODULE_PARM_DESC(bufsize, "Log buffer size (default 64k)");
-+static int bufsize __read_mostly = 4096;
-+MODULE_PARM_DESC(bufsize, "Log buffer size in packets (4096)");
- module_param(bufsize, int, 0);
- 
- static int full __read_mostly;
-@@ -50,39 +48,38 @@ module_param(full, int, 0);
- 
- static const char procname[] = "tcpprobe";
- 
--struct {
--	struct kfifo	*fifo;
-+struct tcp_log {
-+	ktime_t tstamp;
-+	__be32	saddr, daddr;
-+	__be16	sport, dport;
-+	u16	length;
-+	u32	snd_nxt;
-+	u32	snd_una;
-+	u32	snd_wnd;
-+	u32	snd_cwnd;
-+	u32	ssthresh;
-+	u32	srtt;
-+};
-+
-+static struct {
- 	spinlock_t	lock;
- 	wait_queue_head_t wait;
- 	ktime_t		start;
- 	u32		lastcwnd;
--} tcpw;
- 
--/*
-- * Print to log with timestamps.
-- * FIXME: causes an extra copy
-- */
--static void printl(const char *fmt, ...)
--	__attribute__ ((format (printf, 1, 2)));
-+	unsigned long	head, tail;
-+	struct tcp_log	*log;
-+} tcp_probe;
-+
- 
--static void printl(const char *fmt, ...)
-+static inline int tcp_probe_used(void)
- {
--	va_list args;
--	int len;
--	struct timespec tv;
--	char tbuf[256];
+-	/* TODO: maybe just assign it to be ETHERNET? */
+-	dev->type = real_dev->type;
 -
--	va_start(args, fmt);
--	/* want monotonic time since start of tcp_probe */
--	tv = ktime_to_timespec(ktime_sub(ktime_get(), tcpw.start));
--
--	len = sprintf(tbuf, "%lu.%09lu ",
--		      (unsigned long) tv.tv_sec, (unsigned long) tv.tv_nsec);
--	len += vscnprintf(tbuf+len, sizeof(tbuf)-len, fmt, args);
--	va_end(args);
-+	return (tcp_probe.head - tcp_probe.tail) % bufsize;
-+}
+ 	memcpy(dev->broadcast, real_dev->broadcast, real_dev->addr_len);
+ 	memcpy(dev->dev_addr, real_dev->dev_addr, real_dev->addr_len);
+-	dev->addr_len = real_dev->addr_len;
  
--	kfifo_put(tcpw.fifo, tbuf, len);
--	wake_up(&tcpw.wait);
-+static inline int tcp_probe_avail(void)
-+{
-+	return bufsize - tcp_probe_used();
- }
- 
- /*
-@@ -97,63 +94,117 @@ static int jtcp_rcv_established(struct s
- 
- 	/* Only update if port matches */
- 	if ((port == 0 || ntohs(inet->dport) == port || ntohs(inet->sport) == port)
--	    && (full || tp->snd_cwnd != tcpw.lastcwnd)) {
--		printl("%d.%d.%d.%d:%u %d.%d.%d.%d:%u %d %#x %#x %u %u %u %u\n",
--		       NIPQUAD(inet->saddr), ntohs(inet->sport),
--		       NIPQUAD(inet->daddr), ntohs(inet->dport),
--		       skb->len, tp->snd_nxt, tp->snd_una,
--		       tp->snd_cwnd, tcp_current_ssthresh(sk),
--		       tp->snd_wnd, tp->srtt >> 3);
--		tcpw.lastcwnd = tp->snd_cwnd;
-+	    && (full || tp->snd_cwnd != tcp_probe.lastcwnd)) {
-+
-+		spin_lock(&tcp_probe.lock);
-+		/* If log fills, just silently drop */
-+		if (tcp_probe_avail() > 1) {
-+			struct tcp_log *p = tcp_probe.log + tcp_probe.head;
-+
-+			p->tstamp = ktime_get();
-+			p->saddr = inet->saddr;
-+			p->sport = inet->sport;
-+			p->daddr = inet->daddr;
-+			p->dport = inet->dport;
-+			p->length = skb->len;
-+			p->snd_nxt = tp->snd_nxt;
-+			p->snd_una = tp->snd_una;
-+			p->snd_cwnd = tp->snd_cwnd;
-+			p->snd_wnd = tp->snd_wnd;
-+			p->srtt = tp->srtt >> 3;
-+
-+			tcp_probe.head = (tcp_probe.head + 1) % bufsize;
-+		}
-+		tcp_probe.lastcwnd = tp->snd_cwnd;
-+		spin_unlock(&tcp_probe.lock);
-+
-+		wake_up(&tcp_probe.wait);
+ 	if (real_dev->features & NETIF_F_HW_VLAN_TX) {
+ 		dev->hard_header     = real_dev->hard_header;
+@@ -364,6 +360,7 @@ static int vlan_dev_init(struct net_device *dev)
+ 		dev->rebuild_header  = vlan_dev_rebuild_header;
  	}
+ 	dev->hard_header_parse = real_dev->hard_header_parse;
++	dev->hard_header_cache = NULL;
  
- 	jprobe_return();
+ 	lockdep_set_class(&dev->_xmit_lock, &vlan_netdev_xmit_lock_key);
  	return 0;
- }
- 
--static struct jprobe tcp_probe = {
-+static struct jprobe tcp_jprobe = {
- 	.kp = {
- 		.symbol_name	= "tcp_rcv_established",
- 	},
- 	.entry	= JPROBE_ENTRY(jtcp_rcv_established),
- };
- 
--
- static int tcpprobe_open(struct inode * inode, struct file * file)
+@@ -373,6 +370,8 @@ void vlan_setup(struct net_device *new_dev)
  {
--	kfifo_reset(tcpw.fifo);
--	tcpw.start = ktime_get();
-+	/* Reset (empty) log */
-+	spin_lock_bh(&tcp_probe.lock);
-+	tcp_probe.head = tcp_probe.tail = 0;
-+	tcp_probe.start = ktime_get();
-+	spin_unlock_bh(&tcp_probe.lock);
+ 	SET_MODULE_OWNER(new_dev);
+ 
++	ether_setup(new_dev);
 +
- 	return 0;
+ 	/* new_dev->ifindex = 0;  it will be set when added to
+ 	 * the global list.
+ 	 * iflink is set as well.
+@@ -392,7 +391,6 @@ void vlan_setup(struct net_device *new_dev)
+ 	new_dev->init = vlan_dev_init;
+ 	new_dev->open = vlan_dev_open;
+ 	new_dev->stop = vlan_dev_stop;
+-	new_dev->set_mac_address = vlan_dev_set_mac_address;
+ 	new_dev->set_multicast_list = vlan_dev_set_multicast_list;
+ 	new_dev->destructor = free_netdev;
+ 	new_dev->do_ioctl = vlan_dev_ioctl;
+@@ -592,6 +590,30 @@ out_free_newdev:
+ 	return err;
  }
  
-+static int tcpprobe_sprint(char *tbuf, int n)
++static void vlan_sync_address(struct net_device *dev,
++			      struct net_device *vlandev)
 +{
-+	const struct tcp_log *p
-+		= tcp_probe.log + tcp_probe.tail % bufsize;
-+	struct timespec tv
-+		= ktime_to_timespec(ktime_sub(p->tstamp, tcp_probe.start));
++	struct vlan_dev_info *vlan = VLAN_DEV_INFO(vlandev);
 +
-+	return snprintf(tbuf, n,
-+			"%lu.%09lu %d.%d.%d.%d:%u %d.%d.%d.%d:%u"
-+			" %d %#x %#x %u %u %u %u\n",
-+			(unsigned long) tv.tv_sec,
-+			(unsigned long) tv.tv_nsec,
-+			NIPQUAD(p->saddr), ntohs(p->sport),
-+			NIPQUAD(p->daddr), ntohs(p->dport),
-+			p->length, p->snd_nxt, p->snd_una,
-+			p->snd_cwnd, p->ssthresh, p->snd_wnd, p->srtt);
++	/* May be called without an actual change */
++	if (!compare_ether_addr(vlan->real_dev_addr, dev->dev_addr))
++		return;
++
++	/* vlan address was different from the old address and is equal to
++	 * the new address */
++	if (compare_ether_addr(vlandev->dev_addr, vlan->real_dev_addr) &&
++	    !compare_ether_addr(vlandev->dev_addr, dev->dev_addr))
++		dev_unicast_delete(dev, vlandev->dev_addr, ETH_ALEN);
++
++	/* vlan address was equal to the old address and is different from
++	 * the new address */
++	if (!compare_ether_addr(vlandev->dev_addr, vlan->real_dev_addr) &&
++	    compare_ether_addr(vlandev->dev_addr, dev->dev_addr))
++		dev_unicast_add(dev, vlandev->dev_addr, ETH_ALEN);
++
++	memcpy(vlan->real_dev_addr, dev->dev_addr, ETH_ALEN);
 +}
 +
- static ssize_t tcpprobe_read(struct file *file, char __user *buf,
- 			     size_t len, loff_t *ppos)
+ static int vlan_device_event(struct notifier_block *unused, unsigned long event, void *ptr)
  {
- 	int error = 0, cnt = 0;
--	unsigned char *tbuf;
+ 	struct net_device *dev = ptr;
+@@ -618,6 +640,17 @@ static int vlan_device_event(struct notifier_block *unused, unsigned long event,
+ 		}
+ 		break;
  
- 	if (!buf || len < 0)
- 		return -EINVAL;
- 
--	if (len == 0)
--		return 0;
--
--	tbuf = vmalloc(len);
--	if (!tbuf)
--		return -ENOMEM;
--
--	error = wait_event_interruptible(tcpw.wait,
--					 __kfifo_len(tcpw.fifo) != 0);
--	if (error)
--		goto out_free;
--
--	cnt = kfifo_get(tcpw.fifo, tbuf, len);
--	error = copy_to_user(buf, tbuf, cnt);
--
--out_free:
--	vfree(tbuf);
-+	while (cnt < len) {
-+		char tbuf[128];
-+		int width;
++	case NETDEV_CHANGEADDR:
++		/* Adjust unicast filters on underlying device */
++		for (i = 0; i < VLAN_GROUP_ARRAY_LEN; i++) {
++			vlandev = vlan_group_get_device(grp, i);
++			if (!vlandev)
++				continue;
 +
-+		/* Wait for data in buffer */
-+		error = wait_event_interruptible(tcp_probe.wait,
-+						 tcp_probe_used() > 0);
-+		if (error)
-+			break;
-+
-+		spin_lock_bh(&tcp_probe.lock);
-+		if (tcp_probe.head == tcp_probe.tail) {
-+			/* multiple readers race? */
-+			spin_unlock_bh(&tcp_probe.lock);
-+			continue;
++			vlan_sync_address(dev, vlandev);
 +		}
++		break;
 +
-+		width = tcpprobe_sprint(tbuf, sizeof(tbuf));
-+
-+		if (width < len)
-+			tcp_probe.tail = (tcp_probe.tail + 1) % bufsize;
-+
-+		spin_unlock_bh(&tcp_probe.lock);
-+
-+		/* if record greater than space available
-+		   return partial buffer (so far) */
-+		if (width >= len)
-+			break;
-+
-+		error = copy_to_user(buf + cnt, tbuf, width);
-+		if (error)
-+			break;
-+		cnt += width;
-+	}
- 
--	return error ? error : cnt;
-+	return cnt == 0 ? error : cnt;
+ 	case NETDEV_DOWN:
+ 		/* Put all VLANs for this dev in the down state too.  */
+ 		for (i = 0; i < VLAN_GROUP_ARRAY_LEN; i++) {
+diff --git a/net/8021q/vlan.h b/net/8021q/vlan.h
+index fe6bb0f..62ce1c5 100644
+--- a/net/8021q/vlan.h
++++ b/net/8021q/vlan.h
+@@ -58,7 +58,6 @@ int vlan_dev_hard_header(struct sk_buff *skb, struct net_device *dev,
+ int vlan_dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev);
+ int vlan_dev_hwaccel_hard_start_xmit(struct sk_buff *skb, struct net_device *dev);
+ int vlan_dev_change_mtu(struct net_device *dev, int new_mtu);
+-int vlan_dev_set_mac_address(struct net_device *dev, void* addr);
+ int vlan_dev_open(struct net_device* dev);
+ int vlan_dev_stop(struct net_device* dev);
+ int vlan_dev_ioctl(struct net_device* dev, struct ifreq *ifr, int cmd);
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index 95afe38..d4a62d1 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -612,44 +612,6 @@ void vlan_dev_get_vid(const struct net_device *dev, unsigned short *result)
+ 	*result = VLAN_DEV_INFO(dev)->vlan_id;
  }
  
- static const struct file_operations tcpprobe_fops = {
-@@ -166,34 +217,37 @@ static __init int tcpprobe_init(void)
- {
- 	int ret = -ENOMEM;
- 
--	init_waitqueue_head(&tcpw.wait);
--	spin_lock_init(&tcpw.lock);
--	tcpw.fifo = kfifo_alloc(bufsize, GFP_KERNEL, &tcpw.lock);
--	if (IS_ERR(tcpw.fifo))
--		return PTR_ERR(tcpw.fifo);
-+	init_waitqueue_head(&tcp_probe.wait);
-+	spin_lock_init(&tcp_probe.lock);
-+
-+	if (bufsize < 0)
-+		return -EINVAL;
-+
-+	tcp_probe.log = kcalloc(sizeof(struct tcp_log), bufsize, GFP_KERNEL);
-+	if (!tcp_probe.log)
-+		goto err0;
- 
- 	if (!proc_net_fops_create(procname, S_IRUSR, &tcpprobe_fops))
- 		goto err0;
- 
--	ret = register_jprobe(&tcp_probe);
-+	ret = register_jprobe(&tcp_jprobe);
- 	if (ret)
- 		goto err1;
- 
--	pr_info("TCP watch registered (port=%d)\n", port);
-+	pr_info("TCP probe registered (port=%d)\n", port);
- 	return 0;
-  err1:
- 	proc_net_remove(procname);
-  err0:
--	kfifo_free(tcpw.fifo);
-+	kfree(tcp_probe.log);
- 	return ret;
- }
- module_init(tcpprobe_init);
- 
- static __exit void tcpprobe_exit(void)
- {
--	kfifo_free(tcpw.fifo);
- 	proc_net_remove(procname);
--	unregister_jprobe(&tcp_probe);
+-int vlan_dev_set_mac_address(struct net_device *dev, void *addr_struct_p)
+-{
+-	struct sockaddr *addr = (struct sockaddr *)(addr_struct_p);
+-	int i;
 -
-+	unregister_jprobe(&tcp_jprobe);
-+	kfree(tcp_probe.log);
+-	if (netif_running(dev))
+-		return -EBUSY;
+-
+-	memcpy(dev->dev_addr, addr->sa_data, dev->addr_len);
+-
+-	printk("%s: Setting MAC address to ", dev->name);
+-	for (i = 0; i < 6; i++)
+-		printk(" %2.2x", dev->dev_addr[i]);
+-	printk(".\n");
+-
+-	if (memcmp(VLAN_DEV_INFO(dev)->real_dev->dev_addr,
+-		   dev->dev_addr,
+-		   dev->addr_len) != 0) {
+-		if (!(VLAN_DEV_INFO(dev)->real_dev->flags & IFF_PROMISC)) {
+-			int flgs = VLAN_DEV_INFO(dev)->real_dev->flags;
+-
+-			/* Increment our in-use promiscuity counter */
+-			dev_set_promiscuity(VLAN_DEV_INFO(dev)->real_dev, 1);
+-
+-			/* Make PROMISC visible to the user. */
+-			flgs |= IFF_PROMISC;
+-			printk("VLAN (%s):  Setting underlying device (%s) to promiscious mode.\n",
+-			       dev->name, VLAN_DEV_INFO(dev)->real_dev->name);
+-			dev_change_flags(VLAN_DEV_INFO(dev)->real_dev, flgs);
+-		}
+-	} else {
+-		printk("VLAN (%s):  Underlying device (%s) has same MAC, not checking promiscious mode.\n",
+-		       dev->name, VLAN_DEV_INFO(dev)->real_dev->name);
+-	}
+-
+-	return 0;
+-}
+-
+ static inline int vlan_dmi_equals(struct dev_mc_list *dmi1,
+ 				  struct dev_mc_list *dmi2)
+ {
+@@ -736,15 +698,32 @@ static void vlan_flush_mc_list(struct net_device *dev)
+ 
+ int vlan_dev_open(struct net_device *dev)
+ {
+-	if (!(VLAN_DEV_INFO(dev)->real_dev->flags & IFF_UP))
++	struct vlan_dev_info *vlan = VLAN_DEV_INFO(dev);
++	struct net_device *real_dev = vlan->real_dev;
++	int err;
++
++	if (!(real_dev->flags & IFF_UP))
+ 		return -ENETDOWN;
+ 
++	if (compare_ether_addr(dev->dev_addr, real_dev->dev_addr)) {
++		err = dev_unicast_add(real_dev, dev->dev_addr, ETH_ALEN);
++		if (err < 0)
++			return err;
++	}
++	memcpy(vlan->real_dev_addr, real_dev->dev_addr, ETH_ALEN);
++
+ 	return 0;
  }
- module_exit(tcpprobe_exit);
+ 
+ int vlan_dev_stop(struct net_device *dev)
+ {
++	struct net_device *real_dev = VLAN_DEV_INFO(dev)->real_dev;
++
+ 	vlan_flush_mc_list(dev);
++
++	if (compare_ether_addr(dev->dev_addr, real_dev->dev_addr))
++		dev_unicast_delete(real_dev, dev->dev_addr, dev->addr_len);
++
+ 	return 0;
+ }
+ 
+
+--------------030304050602050403070100--
