@@ -1,47 +1,57 @@
-From: Pavel Emelianov <xemul@openvz.org>
-Subject: Re: [PATCH] Virtual ethernet device (v2.1)
-Date: Wed, 11 Jul 2007 16:44:53 +0400
-Message-ID: <4694D0C5.6020700@openvz.org>
-References: <4694A363.2070406@openvz.org> <4694CBD9.90503@trash.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: [IPROUTE]: Fix meta ematch usage of 0 values
+Date: Wed, 11 Jul 2007 14:48:12 +0200
+Message-ID: <4694D18C.1060400@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Ben Greear <greearb@candelatech.com>, devel@openvz.org,
-	Kirill Korotaev <dev@openvz.org>
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: multipart/mixed;
+ boundary="------------030000060202070501090309"
+Cc: Thomas Graf <tgraf@suug.ch>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.233.200]:39732 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758366AbXGKMpL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Jul 2007 08:45:11 -0400
-In-Reply-To: <4694CBD9.90503@trash.net>
+Received: from stinky.trash.net ([213.144.137.162]:52239 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760550AbXGKMsz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2007 08:48:55 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy wrote:
-> Pavel Emelianov wrote:
->> +static const struct nla_policy veth_policy[VETH_INFO_MAX + 1] = {
->> +	[VETH_INFO_MAC]		= { .type = NLA_BINARY, .len = ETH_ALEN },
->> +	[VETH_INFO_PEER]	= { .type = NLA_STRING },
->> +	[VETH_INFO_PEER_MAC]	= { .type = NLA_BINARY, .len = ETH_ALEN },
->> +};
-> 
-> 
-> Looks good, just one question. What happended to the IFLA_PARTNER
-> attribute idea? I have a patch to allow specifying the initial
-> MAC address for a device, IFLA_PARTNER would make the whole thing
-> symetrical.
+This is a multi-part message in MIME format.
+--------------030000060202070501090309
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
 
-Well, the notion of a partner is not applicable to any generic link
-unlike the device name, physical (MAC) address or MTU value. So i 
-think that it's better to keep this as a specific driver information 
-not to confuse the generic code. I think it's worth making this as 
-some more generic code than it is now, but since this driver is the 
-only user of "partner" maybe it's better not to make it right now. 
-Later, when we do know what do we want "partner" to be.
 
-Thanks,
-Pavel
+--------------030000060202070501090309
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
+
+[IPROUTE]: Fix meta ematch usage of 0 values
+
+em_meta doesn't send 0 values to the kernel. breaking matching on them and
+resulting in "Missing value TLV" messages on dump.
+
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+diff --git a/tc/em_meta.c b/tc/em_meta.c
+index 5fc0c59..b727422 100644
+--- a/tc/em_meta.c
++++ b/tc/em_meta.c
+@@ -406,11 +406,8 @@ static int meta_parse_eopt(struct nlmsghdr *n, struct tcf_ematch_hdr *hdr,
+ 
+ 	addattr_l(n, MAX_MSG, TCA_EM_META_HDR, &meta_hdr, sizeof(meta_hdr));
+ 
+-	if (lvalue)
+-		dump_value(n, TCA_EM_META_LVALUE, lvalue, &meta_hdr.left);
+-
+-	if (rvalue)
+-		dump_value(n, TCA_EM_META_RVALUE, rvalue, &meta_hdr.right);
++	dump_value(n, TCA_EM_META_LVALUE, lvalue, &meta_hdr.left);
++	dump_value(n, TCA_EM_META_RVALUE, rvalue, &meta_hdr.right);
+ 
+ 	return 0;
+ }
+
+--------------030000060202070501090309--
