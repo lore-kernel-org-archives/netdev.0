@@ -1,36 +1,58 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: Bluetooth patches for 2.6.23
-Date: Wed, 11 Jul 2007 11:48:50 +0200
-Message-ID: <1184147330.4536.58.camel@aeonflux.holtmann.net>
-References: <1184141363.4536.32.camel@aeonflux.holtmann.net>
-	 <20070711091256.GA18759@infradead.org>
+From: Keiichi KII <k-keiichi@bx.jp.nec.com>
+Subject: Re: [RFC][PATCH v2 -mm 0/9] netconsole: Multiple targets and dynamic
+ reconfigurability
+Date: Wed, 11 Jul 2007 18:59:32 +0900
+Message-ID: <4694AA04.1000202@bx.jp.nec.com>
+References: <20070710091920.23907.96483.sendpatchset@cselinux1.cse.iitk.ac.in>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Christoph Hellwig <hch@infradead.org>
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Matt Mackall <mpm@selenic.com>,
+	Netdev <netdev@vger.kernel.org>,
+	Joel Becker <joel.becker@oracle.com>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>
+To: Satyam Sharma <ssatyam@cse.iitk.ac.in>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from coyote.holtmann.net ([217.160.111.169]:55761 "EHLO
-	mail.holtmann.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758121AbXGKJuJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2007 05:50:09 -0400
-In-Reply-To: <20070711091256.GA18759@infradead.org>
+Received: from TYO202.gate.nec.co.jp ([202.32.8.206]:57494 "EHLO
+	tyo202.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1762716AbXGKKCi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2007 06:02:38 -0400
+In-Reply-To: <20070710091920.23907.96483.sendpatchset@cselinux1.cse.iitk.ac.in>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Christoph,
+Hi Satyam,
 
-> > these are the Bluetooth patches for the 2.6.23 kernel release. Please
-> > pull and send them of to Linus.
+I'm going to test/review these patches and report the result of tests 
+on IA64/x86 until this Friday.
+
+> [0/9] netconsole: Multiple targets and dynamic reconfigurability
 > 
-> Any chance you could take a look at http://lkml.org/lkml/2007/4/22/199
-> for the next merge batch?
+> This patchset is a rework of the original idea and patches posted by
+> Keiichi Kii and Takayoshi Kochi at: http://lkml.org/lkml/2007/6/13/72
+> 
+> This is v2 of the patchset, the previous version is available at:
+> http://lkml.org/lkml/2007/7/4/107
+> 
+> This is diffed against 2.6.22-rc6-mm1 + the earlier netpoll fixlet and the
+> configfs cleanup patches (those are already merged in -mm AFAIK, and hence
+> not reproduced here).
+> 
+> [1/9] netconsole: Cleanups, codingstyle, prettyfication
+> [2/9] netconsole: Remove bogus check
+> [3/9] netconsole: Simplify boot/module option setup logic
+> [4/9] netconsole: Add some useful tips to documentation
+> [5/9] netconsole: Introduce netconsole_target
+> [6/9] netconsole: Introduce netconsole_netdev_notifier
+> [7/9] netconsole: Use netif_running() in write_msg()
+> [8/9] netconsole: Support multiple logging targets
+> [9/9] netconsole: Support dynamic reconfiguration using configfs
 
-the patch looks good, but it hasn't had enough testing and I need to get
-back home first to do a proper testing with one of my test systems.
-
-Regards
-
-Marcel
-
-
+Thanks
+-- 
+Keiichi KII
+NEC Corporation OSS Platform Development Division
+E-mail: k-keiichi@bx.jp.nec.com
