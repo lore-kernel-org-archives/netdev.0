@@ -1,44 +1,56 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: [ofa-general] [PATCH 2.6.23] iw_cxgb3: remove the cm_id reference on
-	listen failures.
-Date: Wed, 11 Jul 2007 13:04:35 -0500
-Message-ID: <20070711180435.11665.71117.stgit@dell3.ogc.int>
-Content-Type: text/plain; charset=utf-8; format=fixed
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	general@lists.openfabrics.org
-To: rdreier@cisco.com
-Return-path: <general-bounces@lists.openfabrics.org>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [VLAN 02/04]: Fix MAC address handling
+Date: Wed, 11 Jul 2007 11:16:48 -0700
+Message-ID: <46951E90.6050608@candelatech.com>
+References: <20070711173812.18369.47109.sendpatchset@localhost.localdomain> <20070711173815.18369.24201.sendpatchset@localhost.localdomain> <4695194A.3040908@trash.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org, xemul@openvz.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ns2.lanforge.com ([66.165.47.211]:53715 "EHLO ns2.lanforge.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756312AbXGKSQ4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Jul 2007 14:16:56 -0400
+In-Reply-To: <4695194A.3040908@trash.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Patrick McHardy wrote:
+> Patrick McHardy wrote:
+>> [VLAN]: Fix MAC address handling
+>>
+>> +static void vlan_sync_address(struct net_device *dev,
+>> +			      struct net_device *vlandev)
+>> +{
+>> +	struct vlan_dev_info *vlan = VLAN_DEV_INFO(vlandev);
+>> +
+>> +	if (!compare_ether_addr(vlan->real_dev_addr, dev->dev_addr))
+>> +		return;
+>> +
+>> +	if (compare_ether_addr(vlandev->dev_addr, dev->dev_addr))
+>> +		dev_unicast_add(dev, vlandev->dev_addr, ETH_ALEN);
+>> +	else
+>> +		dev_unicast_delete(dev, vlandev->dev_addr, ETH_ALEN);
+>> +
+>> +	memcpy(vlan->real_dev_addr, dev->dev_addr, ETH_ALEN);
+>> +}
+> 
+> 
+> Unfortunately the one case I didn't test is still wrong :|
+> 
+> The above synchronization incorrectly removes the address in case
+> if was different before and is still different afterwards. This
+> patch is fixed and contains a few comments as an added bonus :)
 
-iw_cxgb3: remove the cm_id reference on listen failures.
+The new patch looks good to me..though this is some tricky code
+so I might have missed something...
 
-Signed-off-by: Steve Wise <swise@opengridcomputing.com>
----
+Thanks,
+Ben
 
- drivers/infiniband/hw/cxgb3/iwch_cm.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
 
-diff --git a/drivers/infiniband/hw/cxgb3/iwch_cm.c b/drivers/infiniband/h=
-w/cxgb3/iwch_cm.c
-index 3b41dc0..5dc68cd 100644
---- a/drivers/infiniband/hw/cxgb3/iwch_cm.c
-+++ b/drivers/infiniband/hw/cxgb3/iwch_cm.c
-@@ -1914,6 +1914,7 @@ int iwch_create_listen(struct iw_cm_id *
- fail3:
- 	cxgb3_free_stid(ep->com.tdev, ep->stid);
- fail2:
-+	cm_id->rem_ref(cm_id);
- 	put_ep(&ep->com);
- fail1:
- out:
