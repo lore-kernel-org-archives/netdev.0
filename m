@@ -1,34 +1,37 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH resend] rewrite AF_UNIX garbage collector, fixes race
-Date: Tue, 10 Jul 2007 22:25:11 -0700
-Message-ID: <20070710222511.bcc87825.akpm@linux-foundation.org>
-References: <E1I61UT-0006Gk-00@dorka.pomaz.szeredi.hu>
-	<20070710.221224.48800386.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [NET]: Update comments for skb checksums
+Date: Tue, 10 Jul 2007 22:42:12 -0700 (PDT)
+Message-ID: <20070710.224212.18577949.davem@davemloft.net>
+References: <20070711013353.GA6082@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: miklos@szeredi.hu, netdev@vger.kernel.org, ebiederm@xmission.com,
-	viro@ftp.linux.org.uk, alan@lxorguk.ukuu.org.uk,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, rusty@rustcorp.com.au
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:47943 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752675AbXGKF0E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2007 01:26:04 -0400
-In-Reply-To: <20070710.221224.48800386.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44377
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754587AbXGKFlu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2007 01:41:50 -0400
+In-Reply-To: <20070711013353.GA6082@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 10 Jul 2007 22:12:24 -0700 (PDT) David Miller <davem@davemloft.net> wrote:
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Wed, 11 Jul 2007 09:33:53 +0800
 
-> But myself, nor any other developers, are going to review your work
-> any faster if you do things like try to slip things in behind the
-> maintainer's back as you attempted to do yesterday by asking Andrew to
-> put your AF_UNIX garbage collector rewrite directly into his -mm tree.
+> Hi Dave:
+> 
+> [NET]: Update comments for skb checksums
+> 
+> Rusty (whose comments we should all study and emulate :) pointed
+> out that our comments for skb checksums are no longer up-to-date.
+> So here is a patch to
+> 
+> 1) add the case of partial checksums on input;
+> 2) update partial checksum case to mention csum_start/csum_offset;
+> 3) mention the new IPv6 feature bit.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-mmm...  I didn't see it as a slip-behind-the-back thing.  More a "park it
-in -mm for a bit of concurrent testing and so it doesn't get lost and so I
-don't have to worry about it any more" thing.  Plenty of that goes on.
-
-It wasn't done in a very subtle way though ;)
+Applied, thanks Herbert.
