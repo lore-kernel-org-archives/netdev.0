@@ -1,116 +1,64 @@
-From: "Daniel J Blueman" <daniel.blueman@gmail.com>
-Subject: Re: sky2 hangs without any messages
-Date: Wed, 11 Jul 2007 23:21:29 +0100
-Message-ID: <6278d2220707111521m520ee651k5536652986c86e5e@mail.gmail.com>
-References: <6278d2220707020315q7c3df1cci5c7bb52316ad6081@mail.gmail.com>
-	 <20070703123546.5d41410b@freepuppy.localdomain.hemminger.net>
-	 <6278d2220707031402o7b13e45egc564076a1114b6f5@mail.gmail.com>
-	 <6278d2220707050609s3579915bo50cf259ba73712f4@mail.gmail.com>
-	 <20070705101046.542c1f8e@freepuppy.localdomain.hemminger.net>
-	 <6278d2220707110315h55b69c69r66420377afa703da@mail.gmail.com>
-	 <20070711082733.603f6540@freepuppy.rosehill.hemminger.net>
-	 <6278d2220707110843i16d3a325nebec8cb766a40a5e@mail.gmail.com>
-	 <6278d2220707111439r5ea69a29v51cdbef1cbb7ab25@mail.gmail.com>
-	 <20070711144553.6c89dc3a@freepuppy.rosehill.hemminger.net>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [1/5][TG3]: Fix irq_sync race condition.
+Date: Wed, 11 Jul 2007 16:31:45 -0700
+Message-ID: <1184196705.5211.8.camel@dell>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Linux Netdev" <netdev@vger.kernel.org>
-To: "Stephen Hemminger" <shemminger@linux-foundation.org>
+Cc: gaagaan@gmail.com
+To: davem@davemloft.net, mcarlson@broadcom.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.235]:19358 "EHLO
-	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1763062AbXGKWVb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2007 18:21:31 -0400
-Received: by wr-out-0506.google.com with SMTP id i30so946579wra
-        for <netdev@vger.kernel.org>; Wed, 11 Jul 2007 15:21:31 -0700 (PDT)
-In-Reply-To: <20070711144553.6c89dc3a@freepuppy.rosehill.hemminger.net>
-Content-Disposition: inline
+Received: from mms1.broadcom.com ([216.31.210.17]:1215 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753378AbXGKWje (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Jul 2007 18:39:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11/07/07, Stephen Hemminger <shemminger@linux-foundation.org> wrote:
-> On Wed, 11 Jul 2007 22:39:49 +0100
-> "Daniel J Blueman" <daniel.blueman@gmail.com> wrote:
->
-> > On 11/07/07, Daniel J Blueman <daniel.blueman@gmail.com> wrote:
-> > > > > On 05/07/07, Stephen Hemminger <shemminger@linux-foundation.org> wrote:
-> > > > > > Well, it didn't fix my test, but it made it better.  The following seemed
-> > > > > > to work longer...
-> > > > > >
-> > > > > > --- a/drivers/net/sky2.c        2007-07-05 09:09:45.000000000 -0700
-> > > > > > +++ b/drivers/net/sky2.c        2007-07-05 09:09:51.000000000 -0700
-> > > > > > @@ -2490,6 +2490,13 @@ static int sky2_poll(struct net_device *
-> > > > > >
-> > > > > >         work_done = sky2_status_intr(hw, work_limit);
-> > > > > >         if (work_done < work_limit) {
-> > > > > > +               /* Bug/Errata workaround?
-> > > > > > +                * Need to kick the TX irq moderation timer.
-> > > > > > +                */
-> > > > > > +               if (sky2_read8(hw, STAT_TX_TIMER_CTRL) == TIM_START) {
-> > > > > > +                       sky2_write8(hw, STAT_TX_TIMER_CTRL, TIM_STOP);
-> > > > > > +                       sky2_write8(hw, STAT_TX_TIMER_CTRL, TIM_START);
-> > > > > > +               }
-> > > > > >                 netif_rx_complete(dev0);
-> > > > > >
-> > > > > >                 /* end of interrupt, re-enables also acts as I/O synchronization */
-> > > > >
-> > > > > I spoke too soon on this. With the above patch on 2.6.22-rc7, it
-> > > > > failed much sooner than the previous patch with the
-> > > > > read32(B0_Y2_SP_LISR); I'll try to reproduce with the older patch.
-> > > > >
-> > > > > Note the ifconfig error/dropped/frame count at the time of failure:
-> > [snip]
-> > > > The last message means some how frame was received with checksum for count
-> > > > wrong. I have only seen it when coalescing is messed up.
-> > > >
-> > > > I ran for 2+ days with the patch, and only 20min without. Usually my ISP connection
-> > > > gives up after that because of crappy DSL box, and that makes DNS not work.
-> > >
-> > > It wedged when I was copying a few GBs of data from my server to a
-> > > local disk at the time, and running rsync over ssh on a large file on
-> > > my server to my laptop's disk.
-> > >
-> > > This would be the typical load that would cause the NIC to lockup from
-> > > missing an IRQ or otherwise, however, it did feel like the new code
-> > > didn't un-wedge the Yukon-EC's bus master unit.
-> > >
-> > > What other tricks can be used to reset the Yukon-EC's bus master unit?
-> > >
-> > > I'll try the read32(B0_Y2_SP_LISR) trick, as before.
-> >
-> > Nope, this still locks up as you found.
-> >
-> > I have a reliable reproducer:
-> >
-> > 1. export directory over NFS TCP on server
-> > 2. mount directory on client
-> > 3. run 'iozone -a' in directory on client
-> >
-> > I'm reproducing this with NFSv4 (with callbacks working) with 1500
-> > octet MTU with one client, all gigabit. It would be good to hear if
-> > you can reproduce the problem there.
-> >
-> > Daniel
->
-> Please try again with post 2.6.22 git version (1.16)?
+[TG3]: Fix irq_sync race condition.
 
-Reproduced with 2.6.22 w/ sky2 1.16 from git. We observe this
-characteristic failure on the NFS server (always around 2-3GB of
-transmit):
+Gagan Arneja <gaagaan@gmail.com> pointed out that tg3_reset_task()
+could potentially race with another thread calling tg3_full_lock()
+such as the ethtool_set_xxx() functions.  This may trigger the
+BUG_ON() in tg3_irq_quiesce() or cause the irq_sync flag to be out-
+of-sync.
 
-$ ifconfig lan0
-lan0      Link encap:Ethernet  HWaddr 00:03:2D:05:9C:27
-          inet addr:192.168.0.250  Bcast:192.168.0.255  Mask:255.255.255.0
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-          RX packets:24007220 errors:1 dropped:1 overruns:0 frame:1
-          TX packets:13886495 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:1000
-          RX bytes:171026170 (163.1 MiB)  TX bytes:2262910580 (2.1 GiB)
-          Interrupt:16
+I think the easiest way to fix this is to get the tp->lock first
+before setting the irq_sync flag.  This is safe to do because the
+tp->lock is never grabbed by the irq handler.  This change will
+guarantee that the irq_sync flag updates will be serialized.  We also
+have to change one spot to call tg3_netif_start() (which clears the
+irq_sync flag) before releasing the tp->lock.
 
-I'll rebuild with debugfs and grab the debug you've exported.
+Signed-off-by: Michael Chan <mchan@broadcom.com>
 
-Daniel
--- 
-Daniel J Blueman
+diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+index 3a43426..314f5cf 100644
+--- a/drivers/net/tg3.c
++++ b/drivers/net/tg3.c
+@@ -3512,9 +3512,9 @@ static inline int tg3_irq_sync(struct tg3 *tp)
+  */
+ static inline void tg3_full_lock(struct tg3 *tp, int irq_sync)
+ {
++	spin_lock_bh(&tp->lock);
+ 	if (irq_sync)
+ 		tg3_irq_quiesce(tp);
+-	spin_lock_bh(&tp->lock);
+ }
+ 
+ static inline void tg3_full_unlock(struct tg3 *tp)
+@@ -9116,10 +9116,10 @@ static void tg3_vlan_rx_register(struct net_device *dev, struct vlan_group *grp)
+ 	/* Update RX_MODE_KEEP_VLAN_TAG bit in RX_MODE register. */
+ 	__tg3_set_rx_mode(dev);
+ 
+-	tg3_full_unlock(tp);
+-
+ 	if (netif_running(dev))
+ 		tg3_netif_start(tp);
++
++	tg3_full_unlock(tp);
+ }
+ #endif
+ 
+
+
