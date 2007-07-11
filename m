@@ -1,59 +1,101 @@
-From: "Jesper Juhl" <jesper.juhl@gmail.com>
-Subject: Re: [PATCH v2 -mm 4/9] netconsole: Add some useful tips to documentation
-Date: Wed, 11 Jul 2007 13:56:17 +0200
-Message-ID: <9a8748490707110456v25b69e1eq5e2f054b4df35cea@mail.gmail.com>
-References: <20070710091920.23907.96483.sendpatchset@cselinux1.cse.iitk.ac.in>
-	 <20070710091941.23907.45658.sendpatchset@cselinux1.cse.iitk.ac.in>
-	 <20070710094142.GM11115@waste.org>
-	 <200707101434.39938.jesper.juhl@gmail.com>
-	 <Pine.LNX.4.64.0707110256220.2445@cselinux1.cse.iitk.ac.in>
-	 <20070711042036.GR1011@tasint.org>
-	 <Pine.LNX.4.64.0707111120120.10373@cselinux1.cse.iitk.ac.in>
+From: Andreas Henriksson <andreas@fatal.se>
+Subject: Re: iproute2 showing wrong number of bytes on 64bit architectures.
+Date: Wed, 11 Jul 2007 13:50:07 +0200
+Message-ID: <20070711115007.GA27431@scream.fatal.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Joel Becker" <Joel.Becker@oracle.com>,
-	"Matt Mackall" <mpm@selenic.com>,
-	"Linux Kernel Mailing List" <linux-kernel@vger.kernel.org>,
-	"Keiichi Kii" <k-keiichi@bx.jp.nec.com>,
-	Netdev <netdev@vger.kernel.org>,
-	"Stephen Hemminger" <shemminger@linux-foundation.org>,
-	"Andrew Morton" <akpm@linux-foundation.org>,
-	"David Miller" <davem@davemloft.net>
-To: "Satyam Sharma" <ssatyam@cse.iitk.ac.in>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, cfriesen@nortel.com,
+	shemminger@linux-foundation.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.181]:10267 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762112AbXGKL4S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2007 07:56:18 -0400
-Received: by wa-out-1112.google.com with SMTP id v27so2264197wah
-        for <netdev@vger.kernel.org>; Wed, 11 Jul 2007 04:56:17 -0700 (PDT)
-In-Reply-To: <Pine.LNX.4.64.0707111120120.10373@cselinux1.cse.iitk.ac.in>
+Received: from 1-1-1-9a.ghn.gbg.bostream.se ([82.182.69.4]:37151 "EHLO
+	scream.fatal.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753156AbXGKMCQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2007 08:02:16 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11/07/07, Satyam Sharma <ssatyam@cse.iitk.ac.in> wrote:
-> On Tue, 10 Jul 2007, Joel Becker wrote:
-> > On Wed, Jul 11, 2007 at 03:40:22AM +0530, Satyam Sharma wrote:
-> > > IMHO something that mentions /proc/sys/kernel/printk would be better.
-> > >
-> > > You don't need to have built with SysRq support for that, it's clearly
-> > > more flexible than the ignore_loglevel option and wouldn't require a
-> > > reboot either. I'll send out an updated patch shortly.
-> >
-> >       Why not dmesg -n?  We've been using that for years.  Or is there
-> > some extra change in /proc/sys/kernel/printk?
->
-> Yes, "dmesg -n" sounds the most straightforward. There are multiple ways
-> of course, for some reason I've always used /proc/sys/kernel/printk for
-> this (which has the extra "feature" that it accepts values greater than
-> 8 too :-)
->
-Why not mention all the various methods, dmesg -n,
-/proc/sys/kernel/printk, SysRq, ignore_loglevel  ??
+(Sorry for breaking the thread, please CC me on future replies...)
+
+If I understand the discussion correctly, the problem in itself isn't greater
+then that different methods of gathering the statistics have different
+rollovers and thus confuse people who aren't aware of which method each tool
+uses. The the main issue with fixing this is that it needs to be handled
+gently to not break the userspace API/ABI.
+
+I see three different paths...
+
+a) just ignore the issue and let everybody who run into this stay confused
+and cry about linux being crap unless they dig deeper and gets informed of
+the different interfaces and their rollovers.
+
+b) be lazy and fix only the confusion by making sure that the statistics in
+/proc/net/dev also rolls over at 32bits so that all exported statistics show
+the same number (while ignoring possible problems with 32bit rollovers, like
+fast networks might roll over too quickly and make the stats useless).
+
+c) take the more painful route of switching over to 64bit statistics in
+netlink. Add 64bit interface, port userspace tools, deprecate the old 32bit
+interface. (I guess exporting as u64 even on 32bit architectures wouldn't
+hurt them, even if they still will rollover at (unsigned long) 32 bits.)
+
+
+I'd prefer not to do (a). Would (b) be acceptable? If not, could someone who
+is more familiar with how to do netlink please help me out with a patch for
+adding the required kernel part of (c)?
+(I'm going away for 2 weeks on friday, so I'll pick up whatever needs doing
+when I'm back...)
+
+
+Here's a completely untested patch for (b):
+
+
+--- linux-2.6.22/net/core/dev.c	2007-07-09 01:32:17.000000000 +0200
++++ linux-2.6.22/net/core/dev.c.new	2007-07-11 13:56:21.000000000 +0200
+@@ -2184,23 +2184,24 @@
+ {
+ 	struct net_device_stats *stats = dev->get_stats(dev);
+ 
+-	seq_printf(seq, "%6s:%8lu %7lu %4lu %4lu %4lu %5lu %10lu %9lu "
+-		   "%8lu %7lu %4lu %4lu %4lu %5lu %7lu %10lu\n",
+-		   dev->name, stats->rx_bytes, stats->rx_packets,
+-		   stats->rx_errors,
+-		   stats->rx_dropped + stats->rx_missed_errors,
+-		   stats->rx_fifo_errors,
+-		   stats->rx_length_errors + stats->rx_over_errors +
+-		    stats->rx_crc_errors + stats->rx_frame_errors,
+-		   stats->rx_compressed, stats->multicast,
+-		   stats->tx_bytes, stats->tx_packets,
+-		   stats->tx_errors, stats->tx_dropped,
+-		   stats->tx_fifo_errors, stats->collisions,
+-		   stats->tx_carrier_errors +
+-		    stats->tx_aborted_errors +
++	/* Always rollover stats at 32bits to match netlink interface */
++	seq_printf(seq, "%6s:%8u %7u %4u %4u %4u %5u %10u %9u "
++		   "%8u %7u %4u %4u %4u %5u %7u %10u\n",
++		   dev->name, (u32)stats->rx_bytes, (u32)stats->rx_packets,
++		   (u32)stats->rx_errors,
++		   (u32)(stats->rx_dropped + stats->rx_missed_errors),
++		   (u32)stats->rx_fifo_errors,
++		   (u32)(stats->rx_length_errors + stats->rx_over_errors +
++		    stats->rx_crc_errors + stats->rx_frame_errors),
++		   (u32)stats->rx_compressed, (u32)stats->multicast,
++		   (u32)stats->tx_bytes, (u32)stats->tx_packets,
++		   (u32)stats->tx_errors, (u32)stats->tx_dropped,
++		   (u32)stats->tx_fifo_errors, (u32)stats->collisions,
++		   (u32)(stats->tx_carrier_errors +
++		    ustats->tx_aborted_errors +
+ 		    stats->tx_window_errors +
+-		    stats->tx_heartbeat_errors,
+-		   stats->tx_compressed);
++		    stats->tx_heartbeat_errors),
++		   (u32)stats->tx_compressed);
+ }
+ 
+ /*
+
 
 -- 
-Jesper Juhl <jesper.juhl@gmail.com>
-Don't top-post  http://www.catb.org/~esr/jargon/html/T/top-post.html
-Plain text mails only, please      http://www.expita.com/nomime.html
+Regards,
+Andreas Henriksson
