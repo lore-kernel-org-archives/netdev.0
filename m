@@ -1,70 +1,64 @@
-From: "seventh guardian" <seventhguardian@gmail.com>
-Subject: Re: d80211 deadlock with wpa_supplicant and rmmod
-Date: Thu, 12 Jul 2007 00:17:35 +0100
-Message-ID: <1caff7430707111617o70a534a5x2cf6b611a91f301a@mail.gmail.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] spidernet: enable poll() before registering interrupts
+Date: Thu, 12 Jul 2007 01:19:11 +0200
+Message-ID: <200707120119.12589.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: cbe-oss-dev@ozlabs.org, netdev@vger.kernel.org,
+	Christian Krafft <krafft@de.ibm.com>
+To: Linas Vepstas <linas@austin.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.173]:23497 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934786AbXGKXRh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2007 19:17:37 -0400
-Received: by ug-out-1314.google.com with SMTP id j3so225132ugf
-        for <netdev@vger.kernel.org>; Wed, 11 Jul 2007 16:17:36 -0700 (PDT)
+Received: from moutng.kundenserver.de ([212.227.126.179]:63378 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758355AbXGKXV2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2007 19:21:28 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
-First of all I'm fairly new to this list (in all, this is my first
-message), so please be gentle.. I promise I will try not to waste your
-precious time.
+We must not call netif_poll_enable after enabling interrupts,
+because an interrupt might come in and set the __LINK_STATE_RX_SCHED
+bit before we get to clear that bit again. If that happens,
+the next call to the ->poll() function will oops.
 
-> I believe we have a deadlock in d80211.
+Signed-off-by: Arnd Bergmann <arnd.bergmann@de.ibm.com>
+---
+This was found during testing with the fedora kernel,
+with all patches from netdev-2.6.git applied.
 
-I have it too. But I'm using iwl3945 driver, in-kernel mac80211, and a
-gentoo kernel (basically a patched vanilla-2.6.22.1). My machine is a
-x86_64 core 2 duo.
+It may not be the right fix, but this is currently the
+only way I can get that kernel to boot.
 
-> The following triggers it on my 2way SMT machine with preempt.
->
-> modprobe bcm43xx-d80211
-> add sta0
-> ifconfig sta0 up
-> start wpa_supplicant on the interface
-> rmmod bcm43xx-d80211
->
-> After that rmmod hangs spinning and wpa_supplicant
-> stays in D state.
->
-> If I first kill wpa_supplicant and then rmmod the module,
-> it does not deadlock.
+One part I don't understand at the moment is that Christian
+Krafft reported the same problem with tg3, but that driver
+has all interrupts disabled at the device while calling
+the request_irq() function, which seems to be the best
+solution for avoiding the bug in the first place.
 
-I can trigger this way:
-
-modprobe iwl3945
-ifconfig wlan0 up
-start wpa_supplicant
-do some wpa_supplicant work (for instance issue a scan)
-stop wpa_supplicant
-
-Then it will deadlock (that is, wpa_supplicant will refuse to be
-killed). The same thing happens if I try to modprobe the module out
-(modprobe will "hang spinning" as you said). I have to ultimately
-hard-shutdown my machine to bring it back to normal.
-
-> Below is sysrq-t output. It looks like it's related to rtnl_mutex.
->
-> (...)
-
-I'm sorry for my inexperience, but I have no idea on which more data
-to provide you. I will gladly help running any tests you would find
-appropriate.
-
-> --
-> Greetings Michael.
-
-Cheers,
-  Renato Caldas
+Index: linux-2.6/drivers/net/spider_net.c
+===================================================================
+--- linux-2.6.orig/drivers/net/spider_net.c
++++ linux-2.6/drivers/net/spider_net.c
+@@ -1997,6 +1997,7 @@ spider_net_open(struct net_device *netde
+ 	/* further enhancement: setup hw vlan, if needed */
+ 
+ 	result = -EBUSY;
++	netif_poll_enable(netdev);
+ 	if (request_irq(netdev->irq, spider_net_interrupt,
+ 			     IRQF_SHARED, netdev->name, netdev))
+ 		goto register_int_failed;
+@@ -2005,11 +2006,11 @@ spider_net_open(struct net_device *netde
+ 
+ 	netif_start_queue(netdev);
+ 	netif_carrier_on(netdev);
+-	netif_poll_enable(netdev);
+ 
+ 	return 0;
+ 
+ register_int_failed:
++	netif_poll_disable(netdev);
+ 	spider_net_free_rx_chain_contents(card);
+ alloc_skbs_failed:
+ 	spider_net_free_chain(card, &card->rx_chain);
