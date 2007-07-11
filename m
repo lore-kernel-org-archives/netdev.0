@@ -1,61 +1,52 @@
-From: Ivan Kokshaysky <ink@jurassic.park.msu.ru>
-Subject: Re: [Bugme-new] [Bug 8724] New: Unaligned acess in udp_recvmsg() on EV56
-Date: Wed, 11 Jul 2007 17:45:11 +0400
-Message-ID: <20070711174511.B1148@jurassic.park.msu.ru>
-References: <bug-8724-10286@http.bugzilla.kernel.org/> <20070708152935.b34d6e66.akpm@linux-foundation.org>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [PATCH] IPv6: optionaly validate RAs on raw sockets
+Date: Wed, 11 Jul 2007 10:10:12 -0400
+Message-ID: <4694E4C4.6010404@hp.com>
+References: <200707102111.18824@auguste.remlab.net> <20070711.212916.36390936.yoshfuji@linux-ipv6.org> <200707111544.43151.rdenis@simphalempin.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Richard Henderson <rth@twiddle.net>, netdev@vger.kernel.org,
-	jailbird@alcatraz.fdf.net,
-	"bugme-daemon@kernel-bugs.osdl.org"
-	<bugme-daemon@kernel-bugs.osdl.org>
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kgLyDlkInol6Toi7HmmI4=?=
+	<yoshfuji@linux-ipv6.org>, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: =?UTF-8?B?UsOpbWkgRGVuaXMtQ291cm1vbnQ=?= <rdenis@simphalempin.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from jurassic.park.msu.ru ([195.208.223.243]:43182 "EHLO
-	jurassic.park.msu.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760528AbXGKNpL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2007 09:45:11 -0400
-Content-Disposition: inline
-In-Reply-To: <20070708152935.b34d6e66.akpm@linux-foundation.org>; from akpm@linux-foundation.org on Sun, Jul 08, 2007 at 03:29:35PM -0700
+Received: from atlrel8.hp.com ([156.153.255.206]:42997 "EHLO atlrel8.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1763057AbXGKOZB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Jul 2007 10:25:01 -0400
+In-Reply-To: <200707111544.43151.rdenis@simphalempin.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Jul 08, 2007 at 03:29:35PM -0700, Andrew Morton wrote:
-> > This problem does NOT seem to affect my Tsunami/Shark (EV68AL) box running the
-> > same kernel version on the same LAN.  Not sure if it's CPU generation related
-> > (EV5 vs EV6), or if it's the NIC (via_rhine on the EV5 vs e100 on the EV6).
+R=C3=A9mi Denis-Courmont wrote:
+> On Wednesday 11 July 2007 15:29:16 YOSHIFUJI Hideaki / =E5=90=89=E8=97=
+=A4=E8=8B=B1=E6=98=8E wrote:
+>> In article <200707102111.18824@auguste.remlab.net> (at Tue, 10 Jul 2=
+007=20
+> 21:11:17 +0300), Remi Denis-Courmont <rdenis@simphalempin.com> says:
+>>> ICMPv6 Router Advertisements may now contain informations that is
+>>> mostly of interest to userland. This currently mostly consists of
+>>> recursive DNS server addresses (though one should expect other
+>>> stuff to come).
+>> I really do not want to have such non-standard API in kernel.
+>=20
+> I can only think of a very limited set of ways to extract options fro=
+m RAs=20
+> that the kernel currently ignores:
+>=20
+> 1) parse everything in kernel addrconf.c
+> 2) validate RA in kernel, parse userland options in userland
 
-It is the NIC, I suppose.
+Yes, #2 is the right option.  However, I agree that passing such info w=
+ith
+non-standard socket option is not ideal.
 
-> I don't think there's necessarily a bug here: that's just the kernel
-> telling us that there are unaligned accesses which got successfully
-> fixed up, so we're being perhaps a bit inefficient.  Yes?
+Since you asked for another idea, how about using netlink to send _vali=
+dated_ RA
+information to interested parties?
 
-Sort of. It's not exactly a bug, just an old and well known problem
-with ethernet controllers that can do DMA only at 32-bit boundaries,
-so the IP headers are not properly aligned. A workaround is to
-disable "rx_copybreak" feature, either by passing "rx_copybreak=1536"
-to the driver, or add #ifdef to via_rhine.c, like tulip, starfire and
-many other drivers have:
+-vlad
 
-/*
- * Set the copy breakpoint for the copy-only-tiny-frames scheme.
- * Setting to > 1518 effectively disables this feature.
- *
- * NOTE:
- * The ia64 doesn't allow for unaligned loads even of integers being
- * misaligned on a 2 byte boundary. Thus always force copying of
- * packets as the starfire doesn't allow for misaligned DMAs ;-(
- * 23/10/2000 - Jes
- *
- * The Alpha and the Sparc don't like unaligned loads, either. On Sparc64,
- * at least, having unaligned frames leads to a rather serious performance
- * penalty. -Ion
- */
-#if defined(__ia64__) || defined(__alpha__) || defined(__sparc__)
-static int rx_copybreak = PKT_BUF_SZ;
-#else
-static int rx_copybreak /* = 0 */;
-#endif
 
-Ivan.
+
