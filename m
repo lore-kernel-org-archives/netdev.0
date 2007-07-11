@@ -1,288 +1,168 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [VLAN 02/04]: Fix MAC address handling
-Date: Wed, 11 Jul 2007 19:54:18 +0200
-Message-ID: <4695194A.3040908@trash.net>
-References: <20070711173812.18369.47109.sendpatchset@localhost.localdomain> <20070711173815.18369.24201.sendpatchset@localhost.localdomain>
+Subject: [NET_SCHED]: ematch: module autoloading
+Date: Wed, 11 Jul 2007 20:01:32 +0200
+Message-ID: <46951AFC.60500@trash.net>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------030304050602050403070100"
-Cc: netdev@vger.kernel.org, greearb@candelatech.com, xemul@openvz.org
-To: davem@davemloft.net
+ boundary="------------010908090708040606050405"
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Thomas Graf <tgraf@suug.ch>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:58649 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:58801 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1764658AbXGKRyV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2007 13:54:21 -0400
-In-Reply-To: <20070711173815.18369.24201.sendpatchset@localhost.localdomain>
+	with ESMTP id S1752419AbXGKSBf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2007 14:01:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------030304050602050403070100
+--------------010908090708040606050405
 Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
 
-Patrick McHardy wrote:
-> [VLAN]: Fix MAC address handling
-> 
-> +static void vlan_sync_address(struct net_device *dev,
-> +			      struct net_device *vlandev)
-> +{
-> +	struct vlan_dev_info *vlan = VLAN_DEV_INFO(vlandev);
-> +
-> +	if (!compare_ether_addr(vlan->real_dev_addr, dev->dev_addr))
-> +		return;
-> +
-> +	if (compare_ether_addr(vlandev->dev_addr, dev->dev_addr))
-> +		dev_unicast_add(dev, vlandev->dev_addr, ETH_ALEN);
-> +	else
-> +		dev_unicast_delete(dev, vlandev->dev_addr, ETH_ALEN);
-> +
-> +	memcpy(vlan->real_dev_addr, dev->dev_addr, ETH_ALEN);
-> +}
 
-
-Unfortunately the one case I didn't test is still wrong :|
-
-The above synchronization incorrectly removes the address in case
-if was different before and is still different afterwards. This
-patch is fixed and contains a few comments as an added bonus :)
-
-
---------------030304050602050403070100
-Content-Type: text/x-diff;
- name="02.diff"
+--------------010908090708040606050405
+Content-Type: text/plain;
+ name="x"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="02.diff"
+ filename="x"
 
-[VLAN]: Fix MAC address handling
-
-The VLAN MAC address handling is broken in multiple ways. When the address
-differs when setting it, the real device is put in promiscous mode twice,
-but never taken out again. Additionally it doesn't resync when the real
-device's address is changed and needlessly puts it in promiscous mode when
-the vlan device is still down.
-
-Fix by moving address handling to vlan_dev_open/vlan_dev_stop and properly
-deal with address changes in the device notifier. Also switch to
-dev_unicast_add (which needs the exact same handling).
-
-Since the set_mac_address handler is identical to the generic ethernet one
-with these changes, kill it and use ether_setup().
+[NET_SCHED]: ematch: module autoloading
 
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 
 ---
-commit 7d0a5d2f8d28ebe95cda8d2e16bf6d8030efc8b3
-tree d91afa76b1aaaaa069a435967b8627f6aa820e13
-parent 690fb4dbafa9f60f8cb520d5def544580107b3a4
-author Patrick McHardy <kaber@trash.net> Wed, 11 Jul 2007 19:52:08 +0200
-committer Patrick McHardy <kaber@trash.net> Wed, 11 Jul 2007 19:52:08 +0200
+commit daa5d0f76104559af6718688e0e37ff9fda9ea6a
+tree 78efa14a3dda378a4b9dbc88ff5e1108671a4028
+parent 5ff8523dfdac610944d1f85f54e30cd96dc6104b
+author Patrick McHardy <kaber@trash.net> Wed, 11 Jul 2007 19:59:26 +0200
+committer Patrick McHardy <kaber@trash.net> Wed, 11 Jul 2007 19:59:26 +0200
 
- include/linux/if_vlan.h |    1 +
- net/8021q/vlan.c        |   43 +++++++++++++++++++++++++++++++----
- net/8021q/vlan.h        |    1 -
- net/8021q/vlan_dev.c    |   57 +++++++++++++++--------------------------------
- 4 files changed, 57 insertions(+), 45 deletions(-)
+ include/linux/pkt_cls.h |   17 +++++++----------
+ include/net/pkt_cls.h   |    2 ++
+ net/sched/em_cmp.c      |    1 +
+ net/sched/em_meta.c     |    2 ++
+ net/sched/em_nbyte.c    |    2 ++
+ net/sched/em_text.c     |    2 ++
+ net/sched/em_u32.c      |    2 ++
+ net/sched/ematch.c      |   13 +++++++++++++
+ 8 files changed, 31 insertions(+), 10 deletions(-)
 
-diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
-index c791287..61a57dc 100644
---- a/include/linux/if_vlan.h
-+++ b/include/linux/if_vlan.h
-@@ -135,6 +135,7 @@ struct vlan_dev_info {
- 	int old_allmulti;               /* similar to above. */
- 	int old_promiscuity;            /* similar to above. */
- 	struct net_device *real_dev;    /* the underlying device/interface */
-+	unsigned char real_dev_addr[ETH_ALEN];
- 	struct proc_dir_entry *dent;    /* Holds the proc data */
- 	unsigned long cnt_inc_headroom_on_tx; /* How many times did we have to grow the skb on TX. */
- 	unsigned long cnt_encap_on_xmit;      /* How many times did we have to encapsulate the skb on TX. */
-diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-index e7583ee..b463ba4 100644
---- a/net/8021q/vlan.c
-+++ b/net/8021q/vlan.c
-@@ -345,12 +345,8 @@ static int vlan_dev_init(struct net_device *dev)
- 					  (1<<__LINK_STATE_DORMANT))) |
- 		      (1<<__LINK_STATE_PRESENT);
- 
--	/* TODO: maybe just assign it to be ETHERNET? */
--	dev->type = real_dev->type;
--
- 	memcpy(dev->broadcast, real_dev->broadcast, real_dev->addr_len);
- 	memcpy(dev->dev_addr, real_dev->dev_addr, real_dev->addr_len);
--	dev->addr_len = real_dev->addr_len;
- 
- 	if (real_dev->features & NETIF_F_HW_VLAN_TX) {
- 		dev->hard_header     = real_dev->hard_header;
-@@ -364,6 +360,7 @@ static int vlan_dev_init(struct net_device *dev)
- 		dev->rebuild_header  = vlan_dev_rebuild_header;
- 	}
- 	dev->hard_header_parse = real_dev->hard_header_parse;
-+	dev->hard_header_cache = NULL;
- 
- 	lockdep_set_class(&dev->_xmit_lock, &vlan_netdev_xmit_lock_key);
- 	return 0;
-@@ -373,6 +370,8 @@ void vlan_setup(struct net_device *new_dev)
- {
- 	SET_MODULE_OWNER(new_dev);
- 
-+	ether_setup(new_dev);
-+
- 	/* new_dev->ifindex = 0;  it will be set when added to
- 	 * the global list.
- 	 * iflink is set as well.
-@@ -392,7 +391,6 @@ void vlan_setup(struct net_device *new_dev)
- 	new_dev->init = vlan_dev_init;
- 	new_dev->open = vlan_dev_open;
- 	new_dev->stop = vlan_dev_stop;
--	new_dev->set_mac_address = vlan_dev_set_mac_address;
- 	new_dev->set_multicast_list = vlan_dev_set_multicast_list;
- 	new_dev->destructor = free_netdev;
- 	new_dev->do_ioctl = vlan_dev_ioctl;
-@@ -592,6 +590,30 @@ out_free_newdev:
- 	return err;
- }
- 
-+static void vlan_sync_address(struct net_device *dev,
-+			      struct net_device *vlandev)
-+{
-+	struct vlan_dev_info *vlan = VLAN_DEV_INFO(vlandev);
-+
-+	/* May be called without an actual change */
-+	if (!compare_ether_addr(vlan->real_dev_addr, dev->dev_addr))
-+		return;
-+
-+	/* vlan address was different from the old address and is equal to
-+	 * the new address */
-+	if (compare_ether_addr(vlandev->dev_addr, vlan->real_dev_addr) &&
-+	    !compare_ether_addr(vlandev->dev_addr, dev->dev_addr))
-+		dev_unicast_delete(dev, vlandev->dev_addr, ETH_ALEN);
-+
-+	/* vlan address was equal to the old address and is different from
-+	 * the new address */
-+	if (!compare_ether_addr(vlandev->dev_addr, vlan->real_dev_addr) &&
-+	    compare_ether_addr(vlandev->dev_addr, dev->dev_addr))
-+		dev_unicast_add(dev, vlandev->dev_addr, ETH_ALEN);
-+
-+	memcpy(vlan->real_dev_addr, dev->dev_addr, ETH_ALEN);
-+}
-+
- static int vlan_device_event(struct notifier_block *unused, unsigned long event, void *ptr)
- {
- 	struct net_device *dev = ptr;
-@@ -618,6 +640,17 @@ static int vlan_device_event(struct notifier_block *unused, unsigned long event,
- 		}
- 		break;
- 
-+	case NETDEV_CHANGEADDR:
-+		/* Adjust unicast filters on underlying device */
-+		for (i = 0; i < VLAN_GROUP_ARRAY_LEN; i++) {
-+			vlandev = vlan_group_get_device(grp, i);
-+			if (!vlandev)
-+				continue;
-+
-+			vlan_sync_address(dev, vlandev);
-+		}
-+		break;
-+
- 	case NETDEV_DOWN:
- 		/* Put all VLANs for this dev in the down state too.  */
- 		for (i = 0; i < VLAN_GROUP_ARRAY_LEN; i++) {
-diff --git a/net/8021q/vlan.h b/net/8021q/vlan.h
-index fe6bb0f..62ce1c5 100644
---- a/net/8021q/vlan.h
-+++ b/net/8021q/vlan.h
-@@ -58,7 +58,6 @@ int vlan_dev_hard_header(struct sk_buff *skb, struct net_device *dev,
- int vlan_dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev);
- int vlan_dev_hwaccel_hard_start_xmit(struct sk_buff *skb, struct net_device *dev);
- int vlan_dev_change_mtu(struct net_device *dev, int new_mtu);
--int vlan_dev_set_mac_address(struct net_device *dev, void* addr);
- int vlan_dev_open(struct net_device* dev);
- int vlan_dev_stop(struct net_device* dev);
- int vlan_dev_ioctl(struct net_device* dev, struct ifreq *ifr, int cmd);
-diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index 95afe38..d4a62d1 100644
---- a/net/8021q/vlan_dev.c
-+++ b/net/8021q/vlan_dev.c
-@@ -612,44 +612,6 @@ void vlan_dev_get_vid(const struct net_device *dev, unsigned short *result)
- 	*result = VLAN_DEV_INFO(dev)->vlan_id;
- }
- 
--int vlan_dev_set_mac_address(struct net_device *dev, void *addr_struct_p)
+diff --git a/include/linux/pkt_cls.h b/include/linux/pkt_cls.h
+index c3f01b3..30b8571 100644
+--- a/include/linux/pkt_cls.h
++++ b/include/linux/pkt_cls.h
+@@ -403,16 +403,13 @@ enum
+  *   1..32767		Reserved for ematches inside kernel tree
+  *   32768..65535	Free to use, not reliable
+  */
+-enum
 -{
--	struct sockaddr *addr = (struct sockaddr *)(addr_struct_p);
--	int i;
--
--	if (netif_running(dev))
--		return -EBUSY;
--
--	memcpy(dev->dev_addr, addr->sa_data, dev->addr_len);
--
--	printk("%s: Setting MAC address to ", dev->name);
--	for (i = 0; i < 6; i++)
--		printk(" %2.2x", dev->dev_addr[i]);
--	printk(".\n");
--
--	if (memcmp(VLAN_DEV_INFO(dev)->real_dev->dev_addr,
--		   dev->dev_addr,
--		   dev->addr_len) != 0) {
--		if (!(VLAN_DEV_INFO(dev)->real_dev->flags & IFF_PROMISC)) {
--			int flgs = VLAN_DEV_INFO(dev)->real_dev->flags;
--
--			/* Increment our in-use promiscuity counter */
--			dev_set_promiscuity(VLAN_DEV_INFO(dev)->real_dev, 1);
--
--			/* Make PROMISC visible to the user. */
--			flgs |= IFF_PROMISC;
--			printk("VLAN (%s):  Setting underlying device (%s) to promiscious mode.\n",
--			       dev->name, VLAN_DEV_INFO(dev)->real_dev->name);
--			dev_change_flags(VLAN_DEV_INFO(dev)->real_dev, flgs);
--		}
--	} else {
--		printk("VLAN (%s):  Underlying device (%s) has same MAC, not checking promiscious mode.\n",
--		       dev->name, VLAN_DEV_INFO(dev)->real_dev->name);
--	}
--
--	return 0;
--}
--
- static inline int vlan_dmi_equals(struct dev_mc_list *dmi1,
- 				  struct dev_mc_list *dmi2)
- {
-@@ -736,15 +698,32 @@ static void vlan_flush_mc_list(struct net_device *dev)
+-	TCF_EM_CONTAINER,
+-	TCF_EM_CMP,
+-	TCF_EM_NBYTE,
+-	TCF_EM_U32,
+-	TCF_EM_META,
+-	TCF_EM_TEXT,
+-	__TCF_EM_MAX
+-};
++#define	TCF_EM_CONTAINER	0
++#define	TCF_EM_CMP		1
++#define	TCF_EM_NBYTE		2
++#define	TCF_EM_U32		3
++#define	TCF_EM_META		4
++#define	TCF_EM_TEXT		5
++#define	TCF_EM_MAX		5
  
- int vlan_dev_open(struct net_device *dev)
+ enum
  {
--	if (!(VLAN_DEV_INFO(dev)->real_dev->flags & IFF_UP))
-+	struct vlan_dev_info *vlan = VLAN_DEV_INFO(dev);
-+	struct net_device *real_dev = vlan->real_dev;
-+	int err;
-+
-+	if (!(real_dev->flags & IFF_UP))
- 		return -ENETDOWN;
- 
-+	if (compare_ether_addr(dev->dev_addr, real_dev->dev_addr)) {
-+		err = dev_unicast_add(real_dev, dev->dev_addr, ETH_ALEN);
-+		if (err < 0)
-+			return err;
-+	}
-+	memcpy(vlan->real_dev_addr, real_dev->dev_addr, ETH_ALEN);
-+
- 	return 0;
+diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
+index 4129df7..6c29920 100644
+--- a/include/net/pkt_cls.h
++++ b/include/net/pkt_cls.h
+@@ -306,6 +306,8 @@ static inline int tcf_em_tree_match(struct sk_buff *skb,
+ 		return 1;
  }
  
- int vlan_dev_stop(struct net_device *dev)
- {
-+	struct net_device *real_dev = VLAN_DEV_INFO(dev)->real_dev;
++#define MODULE_ALIAS_TCF_EMATCH(kind)	MODULE_ALIAS("ematch-kind-" __stringify(kind))
 +
- 	vlan_flush_mc_list(dev);
+ #else /* CONFIG_NET_EMATCH */
+ 
+ struct tcf_ematch_tree
+diff --git a/net/sched/em_cmp.c b/net/sched/em_cmp.c
+index 8d6dacd..cc49c93 100644
+--- a/net/sched/em_cmp.c
++++ b/net/sched/em_cmp.c
+@@ -98,3 +98,4 @@ MODULE_LICENSE("GPL");
+ module_init(init_em_cmp);
+ module_exit(exit_em_cmp);
+ 
++MODULE_ALIAS_TCF_EMATCH(TCF_EM_CMP);
+diff --git a/net/sched/em_meta.c b/net/sched/em_meta.c
+index 60acf8c..650f09c 100644
+--- a/net/sched/em_meta.c
++++ b/net/sched/em_meta.c
+@@ -848,3 +848,5 @@ MODULE_LICENSE("GPL");
+ 
+ module_init(init_em_meta);
+ module_exit(exit_em_meta);
 +
-+	if (compare_ether_addr(dev->dev_addr, real_dev->dev_addr))
-+		dev_unicast_delete(real_dev, dev->dev_addr, dev->addr_len);
++MODULE_ALIAS_TCF_EMATCH(TCF_EM_META);
+diff --git a/net/sched/em_nbyte.c b/net/sched/em_nbyte.c
+index b4b36ef..370a1b2 100644
+--- a/net/sched/em_nbyte.c
++++ b/net/sched/em_nbyte.c
+@@ -76,3 +76,5 @@ MODULE_LICENSE("GPL");
+ 
+ module_init(init_em_nbyte);
+ module_exit(exit_em_nbyte);
 +
- 	return 0;
- }
++MODULE_ALIAS_TCF_EMATCH(TCF_EM_NBYTE);
+diff --git a/net/sched/em_text.c b/net/sched/em_text.c
+index e8f4616..d5cd86e 100644
+--- a/net/sched/em_text.c
++++ b/net/sched/em_text.c
+@@ -150,3 +150,5 @@ MODULE_LICENSE("GPL");
+ 
+ module_init(init_em_text);
+ module_exit(exit_em_text);
++
++MODULE_ALIAS_TCF_EMATCH(TCF_EM_TEXT);
+diff --git a/net/sched/em_u32.c b/net/sched/em_u32.c
+index 0a2a7fe..112796e 100644
+--- a/net/sched/em_u32.c
++++ b/net/sched/em_u32.c
+@@ -60,3 +60,5 @@ MODULE_LICENSE("GPL");
+ 
+ module_init(init_em_u32);
+ module_exit(exit_em_u32);
++
++MODULE_ALIAS_TCF_EMATCH(TCF_EM_U32);
+diff --git a/net/sched/ematch.c b/net/sched/ematch.c
+index 2483739..f3a104e 100644
+--- a/net/sched/ematch.c
++++ b/net/sched/ematch.c
+@@ -222,6 +222,19 @@ static int tcf_em_validate(struct tcf_proto *tp,
+ 
+ 		if (em->ops == NULL) {
+ 			err = -ENOENT;
++#ifdef CONFIG_KMOD
++			__rtnl_unlock();
++			request_module("ematch-kind-%u", em_hdr->kind);
++			rtnl_lock();
++			em->ops = tcf_em_lookup(em_hdr->kind);
++			if (em->ops) {
++				/* We dropped the RTNL mutex in order to
++				 * perform the module load. Tell the caller
++				 * to replay the request. */
++				module_put(em->ops->owner);
++				err = -EAGAIN;
++			}
++#endif
+ 			goto errout;
+ 		}
  
 
---------------030304050602050403070100--
+--------------010908090708040606050405--
