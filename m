@@ -1,37 +1,32 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: [5/5][TG3]: Update version to 3.78.
-Date: Wed, 11 Jul 2007 16:32:37 -0700
-Message-ID: <1184196757.5211.12.camel@dell>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [patch 5/7] CAN: Add virtual CAN netdevice driver
+Date: Thu, 12 Jul 2007 00:52:58 +0200
+Message-ID: <46955F4A.9060206@trash.net>
+References: <20070622034452.28886.0@janus.isnogud.escape.de>	<20070622034703.28886.5@janus.isnogud.escape.de>	<467BAC48.1070700@trash.net> <ygfk5tw41rq.fsf@janus.isnogud.escape.de>	<467BC2AF.8080901@trash.net> <467D0C97.1000000@hartkopp.net>	<467D178B.8080503@trash.net> <467D3891.4010906@hartkopp.net>	<467D4965.40601@trash.net> <467D4D65.2080806@hartkopp.net>	<467D54AB.5010407@trash.net> <ygfzm2ciemk.fsf@janus.isnogud.escape.de>	<468BA83A.7070500@trash.net> <ygfodil7qpi.fsf@janus.isnogud.escape.de> <469243D3.3090208@trash.net> <469253CE.8040004@hartkopp.net> <46953273.2080102@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-To: davem@davemloft.net, mcarlson@broadcom.com, netdev@vger.kernel.org
+Cc: Urs Thuermann <urs@isnogud.escape.de>,
+	David Miller <davem@davemloft.net>, j.hadi123@gmail.com,
+	netdev@vger.kernel.org
+To: Oliver Hartkopp <oliver@hartkopp.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3478 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934580AbXGKWko (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Jul 2007 18:40:44 -0400
+Received: from stinky.trash.net ([213.144.137.162]:64196 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1763368AbXGKWxJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2007 18:53:09 -0400
+In-Reply-To: <46953273.2080102@hartkopp.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[TG3]: Update version to 3.78.
-
-Signed-off-by: Michael Chan <mchan@broadcom.com>
-
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 0d40f9d..3245f16 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -64,8 +64,8 @@
- 
- #define DRV_MODULE_NAME		"tg3"
- #define PFX DRV_MODULE_NAME	": "
--#define DRV_MODULE_VERSION	"3.77"
--#define DRV_MODULE_RELDATE	"May 31, 2007"
-+#define DRV_MODULE_VERSION	"3.78"
-+#define DRV_MODULE_RELDATE	"July 11, 2007"
- 
- #define TG3_DEF_MAC_MODE	0
- #define TG3_DEF_RX_MODE		0
+Oliver Hartkopp wrote:
+> Hi Patrick,
+> 
+> what's your opinion about my reply to your remark?
+> 
+> Should we just change the module parameter from "loopback" to
+> "loopbacktest" to make the test intention obvious?
+> Or should we remove the loopback test functionality?
 
 
+I'll look into it tommorrow, please be patient.
