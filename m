@@ -1,68 +1,72 @@
-From: Yasuyuki KOZAKAI <yasuyuki.kozakai@toshiba.co.jp>
-Subject: Re: [patch 2/8] Make some network-related proc files use
- seq_list_xxx helpers
-Date: Wed, 11 Jul 2007 09:05:13 +0900 (JST)
-Message-ID: <200707110005.l6B05ErU005927@toshiba.co.jp>
-References: <200707091851.l69IpAma001726@imap1.linux-foundation.org>
-	<20070709.131523.93383253.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [NET]: Update comments for skb checksums
+Date: Wed, 11 Jul 2007 09:33:53 +0800
+Message-ID: <20070711013353.GA6082@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org, xemul@sw.ru,
-	xemul@openvz.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: Rusty Russell <rusty@rustcorp.com.au>
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from imx9.toshiba.co.jp ([202.33.96.51]:37418 "EHLO
-	imx9.toshiba.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1763880AbXGKAfW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2007 20:35:22 -0400
-Received: from inet-tsb5.toshiba.co.jp (inet-tsb5 [202.33.96.24])
-	by imx9.toshiba.co.jp  with ESMTP id l6B0ZIFv013453
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Wed, 11 Jul 2007 09:35:19 +0900 (JST)
-Received: from tsb-wall.toshiba.co.jp ([133.199.160.134])
-	by inet-tsb5.toshiba.co.jp  with ESMTP id l6B05GYJ018368
-	for <netdev@vger.kernel.org>; Wed, 11 Jul 2007 09:05:16 +0900 (JST)
-Received: (from root@localhost)
-	by tsb-wall.toshiba.co.jp  id l6B05FTc010801
-	for netdev@vger.kernel.org; Wed, 11 Jul 2007 09:05:15 +0900 (JST)
-Received: from mx.toshiba.co.jp (localhost [127.0.0.1])
-	by ovp1.toshiba.co.jp  with ESMTP id l6B05FMQ008240
-	for <netdev@vger.kernel.org>; Wed, 11 Jul 2007 09:05:15 +0900 (JST)
-In-Reply-To: <20070709.131523.93383253.davem@davemloft.net>
+Received: from rhun.apana.org.au ([64.62.148.172]:2003 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754207AbXGKBeI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2007 21:34:08 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi Dave:
 
-I've met compile error on net-2.6.23 tree.
+[NET]: Update comments for skb checksums
 
-net/built-in.o: In function `proto_seq_next':
-sock.c:(.text+0x3008): undefined reference to `seq_list_next'
-net/built-in.o: In function `proto_seq_start':
-sock.c:(.text+0x3079): undefined reference to `seq_list_start_head'
-make: *** [.tmp_vmlinux1] Error 1
+Rusty (whose comments we should all study and emulate :) pointed
+out that our comments for skb checksums are no longer up-to-date.
+So here is a patch to
 
--- Yasuyuki Kozakai
+1) add the case of partial checksums on input;
+2) update partial checksum case to mention csum_start/csum_offset;
+3) mention the new IPv6 feature bit.
 
-From: David Miller <davem@davemloft.net>
-Date: Mon, 09 Jul 2007 13:15:23 -0700 (PDT)
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-> From: akpm@linux-foundation.org
-> Date: Mon, 09 Jul 2007 11:51:10 -0700
-> 
-> > From: Pavel Emelianov <xemul@sw.ru>
-> > 
-> > This includes /proc/net/protocols, /proc/net/rxrpc_calls and
-> > /proc/net/rxrpc_connections files.
-> > 
-> > All three need seq_list_start_head to show some header.
-> > 
-> > Signed-off-by: Pavel Emelianov <xemul@openvz.org>
-> > Acked-by: David S. Miller <davem@davemloft.net>
-> > Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-> 
-> Applied, thanks.
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -65,13 +65,20 @@
+  *	    is able to produce some skb->csum, it MUST use COMPLETE,
+  *	    not UNNECESSARY.
+  *
++ *	PARTIAL: identical to the case for output below.  This may occur
++ *	    on a packet received directly from another Linux OS, e.g.,
++ *	    a virtualised Linux kernel on the same host.  The packet can
++ *	    be treated in the same way as UNNECESSARY except that on
++ *	    output (i.e., forwarding) the checksum must be filled in
++ *	    by the OS or the hardware.
++ *
+  * B. Checksumming on output.
+  *
+  *	NONE: skb is checksummed by protocol or csum is not required.
+  *
+  *	PARTIAL: device is required to csum packet as seen by hard_start_xmit
+- *	from skb->transport_header to the end and to record the checksum
+- *	at skb->transport_header + skb->csum.
++ *	from skb->csum_start to the end and to record the checksum
++ *	at skb->csum_start + skb->csum_offset.
+  *
+  *	Device must show its capabilities in dev->features, set
+  *	at device setup time.
+@@ -82,6 +89,7 @@
+  *			  TCP/UDP over IPv4. Sigh. Vendors like this
+  *			  way by an unknown reason. Though, see comment above
+  *			  about CHECKSUM_UNNECESSARY. 8)
++ *	NETIF_F_IPV6_CSUM about as dumb as the last one but does IPv6 instead.
+  *
+  *	Any questions? No questions, good. 		--ANK
+  */
