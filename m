@@ -1,30 +1,38 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] Virtual ethernet device (v2.1)
-Date: Wed, 11 Jul 2007 19:32:52 +0200
-Message-ID: <46951444.6090209@trash.net>
-References: <4694A363.2070406@openvz.org> <4694CBD9.90503@trash.net> <4694D0C5.6020700@openvz.org> <4694D2CC.10409@trash.net> <4694D473.3080707@openvz.org> <4694D741.80906@trash.net> <4694DBE6.4080702@openvz.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Ben Greear <greearb@candelatech.com>, devel@openvz.org,
-	Kirill Korotaev <dev@openvz.org>
-To: Pavel Emelianov <xemul@openvz.org>
+Subject: [RTNETLINK 00/04]: rtnl_link improvements
+Date: Wed, 11 Jul 2007 19:38:13 +0200 (MEST)
+Message-ID: <20070711173812.18369.47109.sendpatchset@localhost.localdomain>
+Cc: netdev@vger.kernel.org, greearb@candelatech.com,
+	Patrick McHardy <kaber@trash.net>, xemul@openvz.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:58214 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:58334 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753837AbXGKRcy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2007 13:32:54 -0400
-In-Reply-To: <4694DBE6.4080702@openvz.org>
+	with ESMTP id S1755606AbXGKRiO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2007 13:38:14 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Pavel Emelianov wrote:
-> OK. I'll try to make the generic call. Could you please send me the
-> patches with IFLA_ADDRESS support for booth kernel and ip utility.
+These patches simplify the rtnl_link API and add support for specifying
+the initial device address. The rtnl_link patches depend on the VLAN fix
+because I didn't want to build on top of the broken address handling.
+
+Please apply, thanks.
 
 
-I'll send the kernel patches seperately in a few minutes. iproute
-doesn't need any further patches.
+ drivers/net/dummy.c      |   61 ++++++++------------------------------------
+ drivers/net/ifb.c        |   62 ++++++++++----------------------------------
+ include/linux/if_vlan.h  |    1 +
+ net/8021q/vlan.c         |   64 ++++++++++++++++++++++++++--------------------
+ net/8021q/vlan.h         |    1 -
+ net/8021q/vlan_dev.c     |   57 +++++++++++++----------------------------
+ net/8021q/vlan_netlink.c |    7 +++++
+ net/core/rtnetlink.c     |   27 +++++++++++++++----
+ net/ethernet/eth.c       |    3 ++
+ 9 files changed, 111 insertions(+), 172 deletions(-)
+
+Patrick McHardy (4):
+      [ETH]: Validate address in eth_mac_addr
+      [VLAN]: Fix MAC address handling
+      [RTNETLINK]: rtnl_link API simplification
+      [RTNETLINK]: rtnl_link: allow specifying initial device address
