@@ -1,7 +1,7 @@
 From: "Michael Chan" <mchan@broadcom.com>
-Subject: [4/5][TG3]: Add missing NVRAM strapping.
-Date: Wed, 11 Jul 2007 16:32:25 -0700
-Message-ID: <1184196745.5211.11.camel@dell>
+Subject: [3/5][TG3]: Enable auto MDI.
+Date: Wed, 11 Jul 2007 16:32:15 -0700
+Message-ID: <1184196735.5211.10.camel@dell>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -9,48 +9,136 @@ To: davem@davemloft.net, mcarlson@broadcom.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mms3.broadcom.com ([216.31.210.19]:2770 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932673AbXGKWkU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Jul 2007 18:40:20 -0400
+	id S934536AbXGKWkA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Jul 2007 18:40:00 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[TG3]: Add missing NVRAM strapping.
+[TG3]: Enable auto MDI.
 
-This patch adds a missing NVRAM strapping for 5755 devices.
+This patch adds automatic MDI crossover support when autonegotiation is
+turned off.  Automatic MDI crossover allows link to be established
+without the use of a crossover cable.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 4f59e5c..0d40f9d 100644
+index 1df129a..4f59e5c 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -9461,11 +9461,13 @@ static void __devinit tg3_get_5755_nvram_info(struct tg3 *tp)
- 		case FLASH_5755VENDOR_ATMEL_FLASH_1:
- 		case FLASH_5755VENDOR_ATMEL_FLASH_2:
- 		case FLASH_5755VENDOR_ATMEL_FLASH_3:
-+		case FLASH_5755VENDOR_ATMEL_FLASH_5:
- 			tp->nvram_jedecnum = JEDEC_ATMEL;
- 			tp->tg3_flags |= TG3_FLAG_NVRAM_BUFFERED;
- 			tp->tg3_flags2 |= TG3_FLG2_FLASH;
- 			tp->nvram_pagesize = 264;
--			if (nvcfg1 == FLASH_5755VENDOR_ATMEL_FLASH_1)
-+			if (nvcfg1 == FLASH_5755VENDOR_ATMEL_FLASH_1 ||
-+			    nvcfg1 == FLASH_5755VENDOR_ATMEL_FLASH_5)
- 				tp->nvram_size = (protect ? 0x3e200 : 0x80000);
- 			else if (nvcfg1 == FLASH_5755VENDOR_ATMEL_FLASH_2)
- 				tp->nvram_size = (protect ? 0x1f200 : 0x40000);
+@@ -721,6 +721,44 @@ static int tg3_writephy(struct tg3 *tp, int reg, u32 val)
+ 	return ret;
+ }
+ 
++static void tg3_phy_toggle_automdix(struct tg3 *tp, int enable)
++{
++	u32 phy;
++
++	if (!(tp->tg3_flags2 & TG3_FLG2_5705_PLUS) ||
++	    (tp->tg3_flags2 & TG3_FLG2_ANY_SERDES))
++		return;
++
++	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5906) {
++		u32 ephy;
++
++		if (!tg3_readphy(tp, MII_TG3_EPHY_TEST, &ephy)) {
++			tg3_writephy(tp, MII_TG3_EPHY_TEST,
++				     ephy | MII_TG3_EPHY_SHADOW_EN);
++			if (!tg3_readphy(tp, MII_TG3_EPHYTST_MISCCTRL, &phy)) {
++				if (enable)
++					phy |= MII_TG3_EPHYTST_MISCCTRL_MDIX;
++				else
++					phy &= ~MII_TG3_EPHYTST_MISCCTRL_MDIX;
++				tg3_writephy(tp, MII_TG3_EPHYTST_MISCCTRL, phy);
++			}
++			tg3_writephy(tp, MII_TG3_EPHY_TEST, ephy);
++		}
++	} else {
++		phy = MII_TG3_AUXCTL_MISC_RDSEL_MISC |
++		      MII_TG3_AUXCTL_SHDWSEL_MISC;
++		if (!tg3_writephy(tp, MII_TG3_AUX_CTRL, phy) &&
++		    !tg3_readphy(tp, MII_TG3_AUX_CTRL, &phy)) {
++			if (enable)
++				phy |= MII_TG3_AUXCTL_MISC_FORCE_AMDIX;
++			else
++				phy &= ~MII_TG3_AUXCTL_MISC_FORCE_AMDIX;
++			phy |= MII_TG3_AUXCTL_MISC_WREN;
++			tg3_writephy(tp, MII_TG3_AUX_CTRL, phy);
++		}
++	}
++}
++
+ static void tg3_phy_set_wirespeed(struct tg3 *tp)
+ {
+ 	u32 val;
+@@ -1045,23 +1083,11 @@ out:
+ 	}
+ 
+ 	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5906) {
+-		u32 phy_reg;
+-
+ 		/* adjust output voltage */
+ 		tg3_writephy(tp, MII_TG3_EPHY_PTEST, 0x12);
+-
+-		if (!tg3_readphy(tp, MII_TG3_EPHY_TEST, &phy_reg)) {
+-			u32 phy_reg2;
+-
+-			tg3_writephy(tp, MII_TG3_EPHY_TEST,
+-				     phy_reg | MII_TG3_EPHY_SHADOW_EN);
+-			/* Enable auto-MDIX */
+-			if (!tg3_readphy(tp, 0x10, &phy_reg2))
+-				tg3_writephy(tp, 0x10, phy_reg2 | 0x4000);
+-			tg3_writephy(tp, MII_TG3_EPHY_TEST, phy_reg);
+-		}
+ 	}
+ 
++	tg3_phy_toggle_automdix(tp, 1);
+ 	tg3_phy_set_wirespeed(tp);
+ 	return 0;
+ }
+@@ -8847,14 +8873,14 @@ static int tg3_run_loopback(struct tg3 *tp, int loopback_mode)
+ 					     phytest | MII_TG3_EPHY_SHADOW_EN);
+ 				if (!tg3_readphy(tp, 0x1b, &phy))
+ 					tg3_writephy(tp, 0x1b, phy & ~0x20);
+-				if (!tg3_readphy(tp, 0x10, &phy))
+-					tg3_writephy(tp, 0x10, phy & ~0x4000);
+ 				tg3_writephy(tp, MII_TG3_EPHY_TEST, phytest);
+ 			}
+ 			val = BMCR_LOOPBACK | BMCR_FULLDPLX | BMCR_SPEED100;
+ 		} else
+ 			val = BMCR_LOOPBACK | BMCR_FULLDPLX | BMCR_SPEED1000;
+ 
++		tg3_phy_toggle_automdix(tp, 0);
++
+ 		tg3_writephy(tp, MII_BMCR, val);
+ 		udelay(40);
+ 
 diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
-index e1b9381..d84e75e 100644
+index bd9f4f4..e1b9381 100644
 --- a/drivers/net/tg3.h
 +++ b/drivers/net/tg3.h
-@@ -1467,6 +1467,7 @@
- #define  FLASH_5755VENDOR_ATMEL_FLASH_2	 0x03400002
- #define  FLASH_5755VENDOR_ATMEL_FLASH_3	 0x03400000
- #define  FLASH_5755VENDOR_ATMEL_FLASH_4	 0x00000003
-+#define  FLASH_5755VENDOR_ATMEL_FLASH_5	 0x02000003
- #define  FLASH_5755VENDOR_ATMEL_EEPROM_64KHZ	 0x03c00003
- #define  FLASH_5755VENDOR_ATMEL_EEPROM_376KHZ	 0x03c00002
- #define  FLASH_5787VENDOR_ATMEL_EEPROM_64KHZ	 0x03000003
+@@ -1642,6 +1642,11 @@
+ 
+ #define MII_TG3_AUX_CTRL		0x18 /* auxilliary control register */
+ 
++#define MII_TG3_AUXCTL_MISC_WREN	0x8000
++#define MII_TG3_AUXCTL_MISC_FORCE_AMDIX	0x0200
++#define MII_TG3_AUXCTL_MISC_RDSEL_MISC	0x7000
++#define MII_TG3_AUXCTL_SHDWSEL_MISC		0x0007
++
+ #define MII_TG3_AUX_STAT		0x19 /* auxilliary status register */
+ #define MII_TG3_AUX_STAT_LPASS		0x0004
+ #define MII_TG3_AUX_STAT_SPDMASK	0x0700
+@@ -1667,6 +1672,9 @@
+ #define MII_TG3_EPHY_TEST		0x1f /* 5906 PHY register */
+ #define MII_TG3_EPHY_SHADOW_EN		0x80
+ 
++#define MII_TG3_EPHYTST_MISCCTRL	0x10 /* 5906 EPHY misc ctrl shadow register */
++#define MII_TG3_EPHYTST_MISCCTRL_MDIX	0x4000
++
+ #define MII_TG3_TEST1			0x1e
+ #define MII_TG3_TEST1_TRIM_EN		0x0010
+ #define MII_TG3_TEST1_CRC_EN		0x8000
 
 
