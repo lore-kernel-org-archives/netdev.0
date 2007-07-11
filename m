@@ -1,56 +1,58 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [PATCH] IPv6: optionaly validate RAs on raw sockets
-Date: Wed, 11 Jul 2007 06:20:29 -0700
-Message-ID: <OF0DBC22C3.C87A2D77-ON88257315.0046DAAD-88257315.00493963@us.ibm.com>
-References: <200707111544.43151.rdenis@simphalempin.com>
+From: Pavel Emelianov <xemul@openvz.org>
+Subject: Re: [PATCH] Virtual ethernet device (v2.1)
+Date: Wed, 11 Jul 2007 17:32:22 +0400
+Message-ID: <4694DBE6.4080702@openvz.org>
+References: <4694A363.2070406@openvz.org> <4694CBD9.90503@trash.net> <4694D0C5.6020700@openvz.org> <4694D2CC.10409@trash.net> <4694D473.3080707@openvz.org> <4694D741.80906@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org,
-	=?ISO-2022-JP?B?WU9TSElGVUpJIEhpZGVha2kgLyAbJEI1SEYjMVFMQBsoQg==?=
-	<yoshfuji@linux-ipv6.org>
-To: =?ISO-8859-1?Q?R=E9mi_Denis-Courmont?= <rdenis@simphalempin.com>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	Ben Greear <greearb@candelatech.com>, devel@openvz.org,
+	Kirill Korotaev <dev@openvz.org>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e36.co.us.ibm.com ([32.97.110.154]:46551 "EHLO
-	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757375AbXGKNUh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2007 09:20:37 -0400
-In-Reply-To: <200707111544.43151.rdenis@simphalempin.com>
+Received: from mailhub.sw.ru ([195.214.233.200]:29597 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756121AbXGKNco (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Jul 2007 09:32:44 -0400
+In-Reply-To: <4694D741.80906@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I think #2 in your list is the right choice, and that has nothing to do 
-with adding a
-non-standard option (which I completely agree is a bad idea).
+Patrick McHardy wrote:
+> Pavel Emelianov wrote:
+>> Patrick McHardy wrote:
+>>
+>>> Mhh doing it later means dealing with compatibility issues, which
+>>> is why I'm asking now. We currently support IFLA_NAME, IFLA_MTU,
+>>
+>> Oh, I see.
+>>
+>>
+>>> IFLA_TXQLEN, IFLA_WEIGTH, IFLA_OPERSTATE and IFLA_LINKMODE, and
+>>> with my patch additionally IFLA_ADDRESS and IFLA_BROADCAST.
+>>> AFAICT they are all applicable for the partner link as well.
+>>
+>> Agree. Maybe it is better to make some generic routine to create the
+>> device with the parameters specified in the netlink packet. Then the
+>> generic code creates one end of a tunnel and calls ->new_link callback.
+>> This callback extracts the PARTNER packet part and calls this generic
+>> routine to create the second pair.
+> 
+> 
+> Something like that. Moving the part between NLM_F_CREATE and the
+> ops->newlink call of rtnl_newlink to a new function should work.
+> 
+> For now you could even parse the IFLA_PARTNER attribute and nested
+> IFLA_NAME/IFLA_ADDRESS attributes yourself and ignore the rest,
+> this will at least leave us the option of handling it generically
+> later.
 
-It looked like you're just checking if the machine is acting as a router 
-or not and
-if it comes from a link-local address; is that right? Of course, lots of 
-apps already
-check for "am I a router" and they don't require a new socket option. (!) 
-See everything
-in the quagga package, for example. And checking the address type in a app 
-is
-trivial.
+OK. I'll try to make the generic call. Could you please send me the
+patches with IFLA_ADDRESS support for booth kernel and ip utility.
 
-The previous discussion about "validation" was talking about RA's that are 
-forged,
-so don't pass IPsec authentication checks. I don't see any reason at all 
-to deliver those
-to an application (ever), so no non-standard socket option required there. 
-I don't know
-if those are currently delivered on raw sockets or not, but if they are, I 
-think it's
-reasonable to have a patch that clones them only after authentication 
-rather than before.
-
-Prior discussion used FUD about some monitoring apps needing to see forged 
-RA's.
-I don't think there really are apps that need to see forged RA's, but if 
-they really
-want everything, they should use bpf or the like, just as they would need 
-to do to
-receive, for example, packets with invalid checksums.
-
-                                                                +-DLS
+Thanks,
+Pavel
 
