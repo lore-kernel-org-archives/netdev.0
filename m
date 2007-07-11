@@ -1,51 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 2/8] Make some network-related proc files use
- seq_list_xxx helpers
-Date: Tue, 10 Jul 2007 22:42:37 -0700 (PDT)
-Message-ID: <20070710.224237.58786266.davem@davemloft.net>
-References: <20070709.131523.93383253.davem@davemloft.net>
-	<200707110005.l6B05EWo024030@toshiba.co.jp>
-	<20070710172052.22c0510a.akpm@linux-foundation.org>
+From: Satyam Sharma <ssatyam@cse.iitk.ac.in>
+Subject: Re: [PATCH v2 -mm 4/9] netconsole: Add some useful tips to documentation
+Date: Wed, 11 Jul 2007 11:35:03 +0530 (IST)
+Message-ID: <Pine.LNX.4.64.0707111120120.10373@cselinux1.cse.iitk.ac.in>
+References: <20070710091920.23907.96483.sendpatchset@cselinux1.cse.iitk.ac.in>
+ <20070710091941.23907.45658.sendpatchset@cselinux1.cse.iitk.ac.in>
+ <20070710094142.GM11115@waste.org> <200707101434.39938.jesper.juhl@gmail.com>
+ <Pine.LNX.4.64.0707110256220.2445@cselinux1.cse.iitk.ac.in>
+ <20070711042036.GR1011@tasint.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: yasuyuki.kozakai@toshiba.co.jp, netdev@vger.kernel.org,
-	xemul@sw.ru, xemul@openvz.org, torvalds@linux-foundation.org
-To: akpm@linux-foundation.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Jesper Juhl <jesper.juhl@gmail.com>,
+	Matt Mackall <mpm@selenic.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Keiichi Kii <k-keiichi@bx.jp.nec.com>,
+	Netdev <netdev@vger.kernel.org>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>
+To: Joel Becker <Joel.Becker@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44383
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754575AbXGKFmP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2007 01:42:15 -0400
-In-Reply-To: <20070710172052.22c0510a.akpm@linux-foundation.org>
+Received: from mail4.iitk.ac.in ([203.197.196.4]:47876 "EHLO mail4.iitk.ac.in"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752560AbXGKFml (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Jul 2007 01:42:41 -0400
+In-Reply-To: <20070711042036.GR1011@tasint.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Andrew Morton <akpm@linux-foundation.org>
-Date: Tue, 10 Jul 2007 17:20:52 -0700
-
-> On Wed, 11 Jul 2007 09:05:13 +0900 (JST)
-> Yasuyuki KOZAKAI <yasuyuki.kozakai@toshiba.co.jp> wrote:
-> 
+On Tue, 10 Jul 2007, Joel Becker wrote:
+> On Wed, Jul 11, 2007 at 03:40:22AM +0530, Satyam Sharma wrote:
+> > IMHO something that mentions /proc/sys/kernel/printk would be better.
 > > 
-> > I've met compile error on net-2.6.23 tree.
-> > 
-> > net/built-in.o: In function `proto_seq_next':
-> > sock.c:(.text+0x3008): undefined reference to `seq_list_next'
-> > net/built-in.o: In function `proto_seq_start':
-> > sock.c:(.text+0x3079): undefined reference to `seq_list_start_head'
-> > make: *** [.tmp_vmlinux1] Error 1
-> > 
+> > You don't need to have built with SysRq support for that, it's clearly
+> > more flexible than the ignore_loglevel option and wouldn't require a
+> > reboot either. I'll send out an updated patch shortly.
 > 
-> crap, that's my fault, sorry.  Sending David patches which depend on things
-> which are in -mm.
-> 
-> Let me send
-> make-common-helpers-for-seq_files-that-work-with-list_head-s.patch
-> Linuswards and it all should come good.
+> 	Why not dmesg -n?  We've been using that for years.  Or is there
+> some extra change in /proc/sys/kernel/printk?
 
-I've rebased my tree at:
+Yes, "dmesg -n" sounds the most straightforward. There are multiple ways
+of course, for some reason I've always used /proc/sys/kernel/printk for
+this (which has the extra "feature" that it accepts values greater than
+8 too :-)
 
-	kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git
-
-now that this has been sorted out.
+Satyam
