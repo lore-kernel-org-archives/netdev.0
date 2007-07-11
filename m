@@ -1,41 +1,33 @@
-From: linas@austin.ibm.com (Linas Vepstas)
-Subject: Re: [Cbe-oss-dev] [PATCH] spidernet: don't use debug flag
-Date: Wed, 11 Jul 2007 15:37:42 -0500
-Message-ID: <20070711203742.GI5549@austin.ibm.com>
-References: <20070709212617.GM4457@austin.ibm.com> <200707110758.l6B7w1Jc026926@toshiba.co.jp>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Virtual ethernet device (v2.1)
+Date: Wed, 11 Jul 2007 13:45:04 -0700 (PDT)
+Message-ID: <20070711.134504.126764586.davem@davemloft.net>
+References: <4694A363.2070406@openvz.org>
+	<200707111254.24352.borntraeger@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, cbe-oss-dev@ozlabs.org
-To: Ishizaki Kou <kou.ishizaki@toshiba.co.jp>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: xemul@openvz.org, kaber@trash.net, netdev@vger.kernel.org,
+	dlezcano@fr.ibm.com, greearb@candelatech.com, devel@openvz.org,
+	dev@openvz.org
+To: borntraeger@de.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e5.ny.us.ibm.com ([32.97.182.145]:44575 "EHLO e5.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756876AbXGKUhr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Jul 2007 16:37:47 -0400
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e5.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l6BKbkGt004324
-	for <netdev@vger.kernel.org>; Wed, 11 Jul 2007 16:37:46 -0400
-Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l6BKbhXZ509610
-	for <netdev@vger.kernel.org>; Wed, 11 Jul 2007 16:37:43 -0400
-Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l6BKbggD013914
-	for <netdev@vger.kernel.org>; Wed, 11 Jul 2007 16:37:43 -0400
-Content-Disposition: inline
-In-Reply-To: <200707110758.l6B7w1Jc026926@toshiba.co.jp>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50518
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1757652AbXGKUol (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2007 16:44:41 -0400
+In-Reply-To: <200707111254.24352.borntraeger@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 11, 2007 at 04:57:38PM +0900, Ishizaki Kou wrote:
-[...]
-> I need more investigation. Please drop the patch.
+From: Christian Borntraeger <borntraeger@de.ibm.com>
+Date: Wed, 11 Jul 2007 12:54:24 +0200
 
-OK.
+> Am Mittwoch, 11. Juli 2007 schrieb Pavel Emelianov:
+> >  drivers/net/veth.c   |  452 
+> >  include/net/veth.h   |   14 +
+> 
+> I know, I am late in the game, but wont the name collide somewhat with 
+> drivers/net/ibmveth.h, drivers/net/iseries_veth.c, and drivers/net/ibmveth.c?
 
---linas
-
-p.s. I tested ifdown/ifup, and didn't see any problems.
-Does your bug happen immediately, or does it take many attempts 
-to trigger it?
-
-
+We discussed that and decided that it's not an issue.
