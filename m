@@ -1,73 +1,49 @@
-From: Veena Parat <Veena.Parat@neterion.com>
-Subject: [PATCH 2.6.22 4/4]S2IO: Implementing review comments from old patches
-Date: Thu, 12 Jul 2007 06:23:37 -0400 (EDT)
-Message-ID: <Pine.GSO.4.10.10707120620210.16507-100000@guinness>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [2.6.23 PATCH 13/18] dm: netlink
+Date: Thu, 12 Jul 2007 03:27:27 -0700 (PDT)
+Message-ID: <20070712.032727.07453420.davem@davemloft.net>
+References: <20070711142712.e646995b.akpm@linux-foundation.org>
+	<20070711233736.GA29241@us.ibm.com>
+	<20070712081028.GB25699@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: support@neterion.com
-To: netdev@vger.kernel.org, jeff@garzik.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: andmike@us.ibm.com, akpm@linux-foundation.org, agk@redhat.com,
+	dm-devel@redhat.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: johnpol@2ka.mipt.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from barracuda.s2io.com ([72.1.205.138]:44779 "EHLO
-	barracuda.s2io.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757914AbXGLKXi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jul 2007 06:23:38 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48648
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1760131AbXGLK13 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jul 2007 06:27:29 -0400
+In-Reply-To: <20070712081028.GB25699@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Implementation of review comments
- - Incorporated Jeff Garzik's comments on coding standards
- - Incorporated Andreas Schwab's comments on redundant condition check
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Date: Thu, 12 Jul 2007 12:10:29 +0400
 
-Signed-off-by: Veena Parat <veena.parat@neterion.com>
----
-diff -Nurp 2.0.23.1P3/drivers/net/s2io.c 2.0.23.1P4/drivers/net/s2io.c
---- 2.0.23.1P3/drivers/net/s2io.c	2007-07-04 01:36:55.000000000 -0700
-+++ 2.0.23.1P4/drivers/net/s2io.c	2007-07-04 02:54:29.000000000 -0700
-@@ -84,7 +84,7 @@
- #include "s2io.h"
- #include "s2io-regs.h"
- 
--#define DRV_VERSION "2.0.23.1"
-+#define DRV_VERSION "2.0.24.1"
- 
- /* S2io Driver name & version. */
- static char s2io_driver_name[] = "Neterion";
-@@ -4836,15 +4836,13 @@ static void s2io_ethtool_gringparam(stru
- 		ering->rx_max_pending = MAX_RX_DESC_2;
- 
- 	ering->tx_max_pending = MAX_TX_DESC;
--	for (i = 0 ; i < sp->config.tx_fifo_num ; i++) {
-+	for (i = 0 ; i < sp->config.tx_fifo_num ; i++) 
- 		tx_desc_count += sp->config.tx_cfg[i].fifo_len;
--	}
- 	DBG_PRINT(INFO_DBG,"\nmax txds : %d\n",sp->config.max_txds);
- 	ering->tx_pending = tx_desc_count;
- 	rx_desc_count = 0;
--	for (i = 0 ; i < sp->config.rx_ring_num ; i++) {
-+	for (i = 0 ; i < sp->config.rx_ring_num ; i++) 
- 		rx_desc_count += sp->config.rx_cfg[i].num_rxd;
--	}
- 	ering->rx_pending = rx_desc_count;
- 
- 	ering->rx_mini_max_pending = 0;
-diff -Nurp 2.0.23.1P3/drivers/net/s2io.h 2.0.23.1P4/drivers/net/s2io.h
---- 2.0.23.1P3/drivers/net/s2io.h	2007-07-03 23:58:40.000000000 -0700
-+++ 2.0.23.1P4/drivers/net/s2io.h	2007-07-04 02:54:29.000000000 -0700
-@@ -464,7 +464,7 @@ struct TxD {
- #define TXD_LIST_OWN_XENA       BIT(7)
- #define TXD_T_CODE              (BIT(12)|BIT(13)|BIT(14)|BIT(15))
- #define TXD_T_CODE_OK(val)      (|(val & TXD_T_CODE))
--#define GET_TXD_T_CODE(val)     ((val & TXD_T_CODE)<<12)
-+#define GET_TXD_T_CODE(val)     ((val & TXD_T_CODE)>> 48)
- #define TXD_GATHER_CODE         (BIT(22) | BIT(23))
- #define TXD_GATHER_CODE_FIRST   BIT(22)
- #define TXD_GATHER_CODE_LAST    BIT(23)
-@@ -503,6 +503,7 @@ struct RxD_t {
- 	u64 Control_1;
- #define RXD_OWN_XENA            BIT(7)
- #define RXD_T_CODE              (BIT(12)|BIT(13)|BIT(14)|BIT(15))
-+#define GET_RXD_T_CODE(val)     ((val & RXD_T_CODE) >> 48)
- #define RXD_FRAME_PROTO         vBIT(0xFFFF,24,8)
- #define RXD_FRAME_PROTO_IPV4    BIT(27)
- #define RXD_FRAME_PROTO_IPV6    BIT(28)
+> On Wed, Jul 11, 2007 at 04:37:36PM -0700, Mike Anderson (andmike@us.ibm.com) wrote:
+> > > > --- linux.orig/include/linux/netlink.h	2007-07-11 21:37:31.000000000 +0100
+> > > > +++ linux/include/linux/netlink.h	2007-07-11 21:37:50.000000000 +0100
+> > > > @@ -21,7 +21,7 @@
+> > > >  #define NETLINK_DNRTMSG		14	/* DECnet routing messages */
+> > > >  #define NETLINK_KOBJECT_UEVENT	15	/* Kernel messages to userspace */
+> > > >  #define NETLINK_GENERIC		16
+> > > > -/* leave room for NETLINK_DM (DM Events) */
+> > > > +#define NETLINK_DM		17	/* Device Mapper */
+> > > >  #define NETLINK_SCSITRANSPORT	18	/* SCSI Transports */
+> > > >  #define NETLINK_ECRYPTFS	19
+> > > 
+> > > Have the net guys checked this?  
+> > 
+> > No. The support is a derivative of the netlink support in
+> > scsi_transport_iscsi.c.
+> 
+> I'm not sure about all net guys, but the first question rised after
+> reading this - why do you want special netlink family and do not want to
+> use interfaces created on top of - like connector and genetlink?
 
+I agree, there is really no reason to not at least use
+genetlink.
