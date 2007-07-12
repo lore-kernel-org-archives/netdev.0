@@ -1,106 +1,529 @@
-From: Ranko Zivojnovic <ranko@spidernet.net>
-Subject: Re: [NET]: gen_estimator deadlock fix
-Date: Thu, 12 Jul 2007 12:18:23 +0300
-Message-ID: <1184231903.3477.65.camel@ranko-fc2.spidernet.net>
-References: <1184161297.1141.53.camel@ranko-fc2.spidernet.net>
-	 <20070712073746.GA1708@ff.dom.local>
+From: Pavel Emelianov <xemul@openvz.org>
+Subject: [PATCH 2/2] Virtual ethernet device driver
+Date: Thu, 12 Jul 2007 13:19:16 +0400
+Message-ID: <4695F214.6020401@openvz.org>
+References: <4695F0BF.1000305@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
 	Patrick McHardy <kaber@trash.net>
-To: Jarek Poplawski <jarkao2@o2.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from MPP-Goya.spidernet.net ([194.154.128.52]:20811 "EHLO
-	mail0pop.spidernet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752513AbXGLJSr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jul 2007 05:18:47 -0400
-In-Reply-To: <20070712073746.GA1708@ff.dom.local>
+Received: from mailhub.sw.ru ([195.214.233.200]:25208 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752096AbXGLJTZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Jul 2007 05:19:25 -0400
+In-Reply-To: <4695F0BF.1000305@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2007-07-12 at 09:37 +0200, Jarek Poplawski wrote:
-> On Wed, Jul 11, 2007 at 04:41:37PM +0300, Ranko Zivojnovic wrote:
-> > Signed-off-by: Ranko Zivojnovic <ranko@spidernet.net>
-> 
-> Maybe it's only my issue, but it seems there are no tabs: all spaces...
+Veth stands for Virtual ETHernet. It is a simple tunnel driver
+that works at the link layer and looks like a pair of ethernet
+devices interconnected with each other.
 
-Nope - you are right - just noticed my mailer converts tabs into spaces
-- sorry about this...
+Mainly it allows to communicate between network namespaces but
+it can be used as is as well.
 
-> 
-> ...plus some old doubts:
-> 
+The newlink callback is organized that way to make it easy to 
+create the peer device in the separate namespace when we have 
+them in kernel.
 
->  -               setup_timer(&elist[idx].timer, est_timer, est->interval);
->  +               setup_timer(&elist[idx].timer, est_timer, idx);
-> 
+This implementation uses another interface - the RTM_NRELINK
+message introduced by Patric.
 
-I left this because setup_timer expects unsigned long.
+Signed-off-by: Pavel Emelianov <xemul@openvz.org>
 
-> ...
-> >  /**
-> >   * gen_kill_estimator - remove a rate estimator
-> >   * @bstats: basic statistics
-> > @@ -195,31 +201,28 @@ int gen_new_estimator(struct gnet_stats_basic *bstats,
-> >   *
-> >   * Removes the rate estimator specified by &bstats and &rate_est
-> >   * and deletes the timer.
-> > + *
-> > + * NOTE: Called under rtnl_mutex
-> >   */
-> >  void gen_kill_estimator(struct gnet_stats_basic *bstats,
-> >         struct gnet_stats_rate_est *rate_est)
-> >  {
-> ...
-> > +               list_for_each_entry_safe(e, n, &elist[idx].list, list) {
-> > +                       if (e->rate_est != rate_est || e->bstats != bstats)
-> > +                               continue;
-> > 
-> > -                       kfree(est);
-> > -                       killed++;
-> > +                       list_del_rcu(&e->list);
-> > +                       call_rcu(&e->e_rcu, __gen_kill_estimator);
-> >                 }
-> > -               if (killed && elist[idx].list == NULL)
-> > -                       del_timer(&elist[idx].timer);
-> >         }
-> >  }
-> 
-> I've done a bit of mess last time, so maybe it was forgotten, but I
-> still think this kind of race is possible:
-> 
-> - gen_kill_estimator is called during qdisc_destroy under
->   dev->queue_lock,
-> - est_timer is running and waiting on this lock just on the
->   list entry of the destroyed class,
-> - gen_kill_estimator kills the entry and returns,
-> - in xxx_destroy_class kfree(cl) is done etc.,
-> - est_timer gets the lock and does nbytes = e->bstats->bytes or
->   e->rate_est-bps = ... with freed memory.
+---
 
-Unfortunately I cannot say for sure that _currently_ anything really bad
-can happen here... someone with better knowledge will have to confirm
-this - Patrick?
+ drivers/net/Kconfig  |    6 
+ drivers/net/Makefile |    1 
+ drivers/net/veth.c   |  426 +++++++++++++++++++++++++++++++++++++++++++++++++++
+ include/net/veth.h   |   12 +
+ 4 files changed, 445 insertions(+)
 
-Here's why - the only updates that are being done in the est_timer are
-to the structure pointed by 'e'. Yes - it is possible the values it will
-refer to could be random (freed memory), _however_ the 'e' structure is
-still valid as it is _not_ kfree()'d directly from gen_kill_estimator()
-- i.e. it will not be kfree()'d until rcu_read_unlock() is called -
-which is outside the loop.
+diff-tree 293fc37c28eee0a27e19179ab0d809460c73eced (from 15028aad00ddf241581fbe74a02ec89cbb28d35d)
+Author: Pavel <pavel@xemulnb.sw.ru>
+Date:   Thu Jul 12 13:05:44 2007 +0400
 
-I don't mind fixing all the classful qdiscs to call_rcu() to release
-their class structures for consistency purposes ... in fact ... that is
-exactly what I will do in order to avoid any potential future mishaps.
-One may actually decide in the future to add a callback to a user
-defined function to update some qdisc/class specific rates and given
-this inconsistency in handling qdiscs vs classes - it could have a nasty
-backfire.
+    Veth support
 
-Will have a new patch soon.
-
-Regards,
-
-Ranko
-
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index d4e39ff..7bdc6e3 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -124,6 +124,12 @@ config TUN
+ 
+ 	  If you don't know what to use this for, you don't need it.
+ 
++config VETH
++	tristate "Virtual ethernet device"
++	---help---
++	  The device is an ethernet tunnel. Devices are created in pairs. When
++	  one end receives the packet it appears on its pair and vice versa.
++
+ config NET_SB1000
+ 	tristate "General Instruments Surfboard 1000"
+ 	depends on PNP
+diff --git a/drivers/net/Makefile b/drivers/net/Makefile
+index a2241e6..d7b1103 100644
+--- a/drivers/net/Makefile
++++ b/drivers/net/Makefile
+@@ -189,6 +189,7 @@ obj-$(CONFIG_MACSONIC) += macsonic.o
+ obj-$(CONFIG_MACMACE) += macmace.o
+ obj-$(CONFIG_MAC89x0) += mac89x0.o
+ obj-$(CONFIG_TUN) += tun.o
++obj-$(CONFIG_VETH) += veth.o
+ obj-$(CONFIG_NET_NETX) += netx-eth.o
+ obj-$(CONFIG_DL2K) += dl2k.o
+ obj-$(CONFIG_R8169) += r8169.o
+diff --git a/drivers/net/veth.c b/drivers/net/veth.c
+new file mode 100644
+index 0000000..caa7b62
+--- /dev/null
++++ b/drivers/net/veth.c
+@@ -0,0 +1,426 @@
++/*
++ *  drivers/net/veth.c
++ *
++ *  Copyright (C) 2007 OpenVZ http://openvz.org, SWsoft Inc
++ *
++ * Author: Pavel Emelianov <xemul@openvz.org>
++ * Ethtool interface from: Eric W. Biederman <ebiederm@xmission.com>
++ *
++ */
++
++#include <linux/list.h>
++#include <linux/netdevice.h>
++#include <linux/ethtool.h>
++#include <linux/etherdevice.h>
++
++#include <net/dst.h>
++#include <net/xfrm.h>
++#include <net/veth.h>
++
++#define DRV_NAME	"veth"
++#define DRV_VERSION	"1.0"
++
++struct veth_net_stats {
++	unsigned long	rx_packets;
++	unsigned long	tx_packets;
++	unsigned long	rx_bytes;
++	unsigned long	tx_bytes;
++	unsigned long	tx_dropped;
++};
++
++struct veth_priv {
++	struct net_device *peer;
++	struct net_device *dev;
++	struct list_head list;
++	struct veth_net_stats *stats;
++	unsigned ip_summed;
++};
++
++static LIST_HEAD(veth_list);
++
++/*
++ * ethtool interface
++ */
++
++static struct {
++	const char string[ETH_GSTRING_LEN];
++} ethtool_stats_keys[] = {
++	{ "peer_ifindex" },
++};
++
++static int veth_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
++{
++	cmd->supported		= 0;
++	cmd->advertising	= 0;
++	cmd->speed		= SPEED_10000;
++	cmd->duplex		= DUPLEX_FULL;
++	cmd->port		= PORT_TP;
++	cmd->phy_address	= 0;
++	cmd->transceiver	= XCVR_INTERNAL;
++	cmd->autoneg		= AUTONEG_DISABLE;
++	cmd->maxtxpkt		= 0;
++	cmd->maxrxpkt		= 0;
++	return 0;
++}
++
++static void veth_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info)
++{
++	strcpy(info->driver, DRV_NAME);
++	strcpy(info->version, DRV_VERSION);
++	strcpy(info->fw_version, "N/A");
++}
++
++static void veth_get_strings(struct net_device *dev, u32 stringset, u8 *buf)
++{
++	switch(stringset) {
++	case ETH_SS_STATS:
++		memcpy(buf, &ethtool_stats_keys, sizeof(ethtool_stats_keys));
++		break;
++	}
++}
++
++static int veth_get_stats_count(struct net_device *dev)
++{
++	return ARRAY_SIZE(ethtool_stats_keys);
++}
++
++static void veth_get_ethtool_stats(struct net_device *dev,
++		struct ethtool_stats *stats, u64 *data)
++{
++	struct veth_priv *priv;
++
++	priv = netdev_priv(dev);
++	data[0] = priv->peer->ifindex;
++}
++
++static u32 veth_get_rx_csum(struct net_device *dev)
++{
++	struct veth_priv *priv;
++
++	priv = netdev_priv(dev);
++	return priv->ip_summed == CHECKSUM_UNNECESSARY;
++}
++
++static int veth_set_rx_csum(struct net_device *dev, u32 data)
++{
++	struct veth_priv *priv;
++
++	priv = netdev_priv(dev);
++	priv->ip_summed = data ? CHECKSUM_UNNECESSARY : CHECKSUM_NONE;
++	return 0;
++}
++
++static u32 veth_get_tx_csum(struct net_device *dev)
++{
++	return (dev->features & NETIF_F_NO_CSUM) != 0;
++}
++
++static int veth_set_tx_csum(struct net_device *dev, u32 data)
++{
++	if (data)
++		dev->features |= NETIF_F_NO_CSUM;
++	else
++		dev->features &= ~NETIF_F_NO_CSUM;
++	return 0;
++}
++
++static struct ethtool_ops veth_ethtool_ops = {
++	.get_settings		= veth_get_settings,
++	.get_drvinfo		= veth_get_drvinfo,
++	.get_link		= ethtool_op_get_link,
++	.get_rx_csum		= veth_get_rx_csum,
++	.set_rx_csum		= veth_set_rx_csum,
++	.get_tx_csum		= veth_get_tx_csum,
++	.set_tx_csum		= veth_set_tx_csum,
++	.get_sg			= ethtool_op_get_sg,
++	.set_sg			= ethtool_op_set_sg,
++	.get_strings		= veth_get_strings,
++	.get_stats_count	= veth_get_stats_count,
++	.get_ethtool_stats	= veth_get_ethtool_stats,
++	.get_perm_addr		= ethtool_op_get_perm_addr,
++};
++
++/*
++ * xmit
++ */
++
++static int veth_xmit(struct sk_buff *skb, struct net_device *dev)
++{
++	struct net_device *rcv = NULL;
++	struct veth_priv *priv, *rcv_priv;
++	struct veth_net_stats *stats;
++	int length, cpu;
++
++	skb_orphan(skb);
++
++	priv = netdev_priv(dev);
++	rcv = priv->peer;
++	rcv_priv = netdev_priv(rcv);
++
++	cpu = smp_processor_id();
++	stats = per_cpu_ptr(priv->stats, cpu);
++
++	if (!(rcv->flags & IFF_UP))
++		goto outf;
++
++	skb->pkt_type = PACKET_HOST;
++	skb->protocol = eth_type_trans(skb, rcv);
++	if (dev->features & NETIF_F_NO_CSUM)
++		skb->ip_summed = rcv_priv->ip_summed;
++
++	dst_release(skb->dst);
++	skb->dst = NULL;
++	skb->mark = 0;
++	secpath_reset(skb);
++	nf_reset(skb);
++
++	length = skb->len;
++
++	stats->tx_bytes += length;
++	stats->tx_packets++;
++
++	stats = per_cpu_ptr(rcv_priv->stats, cpu);
++	stats->rx_bytes += length;
++	stats->rx_packets++;
++
++	netif_rx(skb);
++	return 0;
++
++outf:
++	kfree_skb(skb);
++	stats->tx_dropped++;
++	return 0;
++}
++
++/*
++ * general routines
++ */
++
++static struct net_device_stats *veth_get_stats(struct net_device *dev)
++{
++	struct veth_priv *priv;
++	struct net_device_stats *dev_stats;
++	int cpu;
++	struct veth_net_stats *stats;
++	
++	priv = netdev_priv(dev);
++	dev_stats = &dev->stats;
++
++	dev_stats->rx_packets = 0;
++	dev_stats->tx_packets = 0;
++	dev_stats->rx_bytes = 0;
++	dev_stats->tx_bytes = 0;
++	dev_stats->tx_dropped = 0;
++
++	for_each_online_cpu(cpu) {
++		stats = per_cpu_ptr(priv->stats, cpu);
++
++		dev_stats->rx_packets += stats->rx_packets;
++		dev_stats->tx_packets += stats->tx_packets;
++		dev_stats->rx_bytes += stats->rx_bytes;
++		dev_stats->tx_bytes += stats->tx_bytes;
++		dev_stats->tx_dropped += stats->tx_dropped;
++	}
++
++	return dev_stats;
++}
++
++static int veth_open(struct net_device *dev)
++{
++	struct veth_priv *priv;
++
++	priv = netdev_priv(dev);
++	if (priv->peer == NULL)
++		return -ENOTCONN;
++
++	if (priv->peer->flags & IFF_UP) {
++		netif_carrier_on(dev);
++		netif_carrier_on(priv->peer);
++	}
++	return 0;
++}
++
++static int veth_close(struct net_device *dev)
++{
++	struct veth_priv *priv;
++
++	if (netif_carrier_ok(dev)) {
++		priv = netdev_priv(dev);
++		netif_carrier_off(dev);
++		netif_carrier_off(priv->peer);
++	}
++	return 0;
++}
++
++static int veth_dev_init(struct net_device *dev)
++{
++	struct veth_net_stats *stats;
++	struct veth_priv *priv;
++
++	stats = alloc_percpu(struct veth_net_stats);
++	if (stats == NULL)
++		return -ENOMEM;
++
++	priv = netdev_priv(dev);
++	priv->stats = stats;
++	return 0;
++}
++
++static void veth_dev_free(struct net_device *dev)
++{
++	struct veth_priv *priv;
++
++	priv = netdev_priv(dev);
++	free_percpu(priv->stats);
++	free_netdev(dev);
++}
++
++static void veth_setup(struct net_device *dev)
++{
++	ether_setup(dev);
++
++	dev->hard_start_xmit = veth_xmit;
++	dev->get_stats = veth_get_stats;
++	dev->open = veth_open;
++	dev->stop = veth_close;
++	dev->ethtool_ops = &veth_ethtool_ops;
++	dev->features |= NETIF_F_LLTX;
++	dev->init = veth_dev_init;
++	dev->destructor = veth_dev_free;
++	netif_carrier_off(dev);
++}
++
++/*
++ * netlink interface
++ */
++
++static struct rtnl_link_ops veth_link_ops;
++
++static int veth_newlink(struct net_device *dev,
++			 struct nlattr *tb[], struct nlattr *data[])
++{
++	int err;
++	struct net_device *peer;
++	struct veth_priv *priv;
++	char ifname[IFNAMSIZ];
++
++	/*
++	 * prepare the devices info
++	 */
++
++	if (tb[IFLA_ADDRESS] == NULL)
++		random_ether_addr(dev->dev_addr);
++
++	if (data != NULL && data[VETH_INFO_PEER] != NULL) {
++		err = nla_parse_nested(tb, IFLA_INFO_MAX,
++				data[VETH_INFO_PEER], ifla_policy);
++		if (err < 0)
++			return err;
++	}
++
++	if (tb[IFLA_IFNAME])
++		nla_strlcpy(ifname, tb[IFLA_IFNAME], IFNAMSIZ);
++	else
++		snprintf(ifname, IFNAMSIZ, DRV_NAME "%%d");
++
++	peer = rtnl_create_link(ifname, &veth_link_ops, tb);
++	if (IS_ERR(peer))
++		return PTR_ERR(peer);
++
++	if (tb[IFLA_ADDRESS] == NULL)
++		random_ether_addr(peer->dev_addr);
++
++	/*
++	 * register devices
++	 */
++
++	err = register_netdevice(peer);
++	if (err < 0)
++		goto err_register_peer;
++
++	err = register_netdevice(dev);
++	if (err < 0)
++		goto err_register_dev;
++
++	/*
++	 * tie the deviced together
++	 */
++
++	priv = netdev_priv(dev);
++	priv->dev = dev;
++	priv->peer = peer;
++	list_add(&priv->list, &veth_list);
++
++	priv = netdev_priv(peer);
++	priv->dev = peer;
++	priv->peer = dev;
++	INIT_LIST_HEAD(&priv->list);
++	return 0;
++
++err_register_dev:
++	unregister_netdevice(peer);
++	return err;
++
++err_register_peer:
++	free_netdev(peer);
++	return err;
++}
++
++static void veth_dellink(struct net_device *dev)
++{
++	struct veth_priv *priv;
++	struct net_device *peer;
++
++	priv = netdev_priv(dev);
++	peer = priv->peer;
++
++	if (!list_empty(&priv->list))
++		list_del(&priv->list);
++
++	priv = netdev_priv(peer);
++	if (!list_empty(&priv->list))
++		list_del(&priv->list);
++
++	unregister_netdevice(dev);
++	unregister_netdevice(peer);
++}
++
++static const struct nla_policy veth_policy[VETH_INFO_MAX + 1];
++
++static struct rtnl_link_ops veth_link_ops = {
++	.kind		= DRV_NAME,
++	.priv_size	= sizeof(struct veth_priv),
++	.setup		= veth_setup,
++	.newlink	= veth_newlink,
++	.dellink	= veth_dellink,
++	.policy		= veth_policy,
++	.maxtype	= VETH_INFO_MAX,
++};
++
++/*
++ * init/fini
++ */
++
++static __init int veth_init(void)
++{
++	return rtnl_link_register(&veth_link_ops);
++}
++
++static __exit void veth_exit(void)
++{
++	struct veth_priv *priv, *next;
++
++	rtnl_lock();
++	__rtnl_link_unregister(&veth_link_ops);
++
++	list_for_each_entry_safe(priv, next, &veth_list, list)
++		veth_dellink(priv->dev);
++	rtnl_unlock();
++}
++
++module_init(veth_init);
++module_exit(veth_exit);
++
++MODULE_DESCRIPTION("Virtual Ethernet Tunnel");
++MODULE_LICENSE("GPL v2");
++MODULE_ALIAS_RTNL_LINK(DRV_NAME);
+diff --git a/include/net/veth.h b/include/net/veth.h
+new file mode 100644
+index 0000000..aa2e6f9
+--- /dev/null
++++ b/include/net/veth.h
+@@ -0,0 +1,12 @@
++#ifndef __NET_VETH_H__
++#define __NET_VETH_H__
++
++enum {
++	VETH_INFO_UNSPEC,
++	VETH_INFO_PEER,
++
++	__VETH_INFO_MAX
++#define VETH_INFO_MAX	(__VETH_INFO_MAX - 1)
++};
++
++#endif
