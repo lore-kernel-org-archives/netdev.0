@@ -1,140 +1,46 @@
 From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [RFC 1/3] lro: Generic LRO for TCP traffic
-Date: Thu, 12 Jul 2007 12:01:38 +0400
-Message-ID: <20070712080137.GA25699@2ka.mipt.ru>
-References: <200707111621.34376.ossthema@de.ibm.com>
+Subject: Re: [2.6.23 PATCH 13/18] dm: netlink
+Date: Thu, 12 Jul 2007 12:10:29 +0400
+Message-ID: <20070712081028.GB25699@2ka.mipt.ru>
+References: <20070711210137.GE24114@agk.fab.redhat.com> <20070711142712.e646995b.akpm@linux-foundation.org> <20070711233736.GA29241@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=koi8-r
-Cc: netdev <netdev@vger.kernel.org>,
-	Christoph Raisch <raisch@de.ibm.com>,
-	Jan-Bernd Themann <themann@de.ibm.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	linux-ppc <linuxppc-dev@ozlabs.org>,
-	Marcus Eder <meder@de.ibm.com>,
-	Thomas Klein <tklein@de.ibm.com>,
-	Stefan Roscher <stefan.roscher@de.ibm.com>
-To: Jan-Bernd Themann <ossthema@de.ibm.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Alasdair G Kergon <agk@redhat.com>, dm-devel@redhat.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Mike Anderson <andmike@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:32879 "EHLO 2ka.mipt.ru"
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:32883 "EHLO 2ka.mipt.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757537AbXGLJ7I (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Jul 2007 05:59:08 -0400
+	id S1758595AbXGLJ7l (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Jul 2007 05:59:41 -0400
 Content-Disposition: inline
-In-Reply-To: <200707111621.34376.ossthema@de.ibm.com>
+In-Reply-To: <20070711233736.GA29241@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi, Jan-Bernd.
+On Wed, Jul 11, 2007 at 04:37:36PM -0700, Mike Anderson (andmike@us.ibm.com) wrote:
+> > > --- linux.orig/include/linux/netlink.h	2007-07-11 21:37:31.000000000 +0100
+> > > +++ linux/include/linux/netlink.h	2007-07-11 21:37:50.000000000 +0100
+> > > @@ -21,7 +21,7 @@
+> > >  #define NETLINK_DNRTMSG		14	/* DECnet routing messages */
+> > >  #define NETLINK_KOBJECT_UEVENT	15	/* Kernel messages to userspace */
+> > >  #define NETLINK_GENERIC		16
+> > > -/* leave room for NETLINK_DM (DM Events) */
+> > > +#define NETLINK_DM		17	/* Device Mapper */
+> > >  #define NETLINK_SCSITRANSPORT	18	/* SCSI Transports */
+> > >  #define NETLINK_ECRYPTFS	19
+> > 
+> > Have the net guys checked this?  
+> 
+> No. The support is a derivative of the netlink support in
+> scsi_transport_iscsi.c.
 
-I have couple of comments over implementation besides one you saw
-previous time.
+I'm not sure about all net guys, but the first question rised after
+reading this - why do you want special netlink family and do not want to
+use interfaces created on top of - like connector and genetlink?
 
-On Wed, Jul 11, 2007 at 04:21:34PM +0200, Jan-Bernd Themann (ossthema@de.ibm.com) wrote:
-> +static int lro_tcp_ip_check(struct sk_buff *skb, struct iphdr *iph,
-> +			    struct tcphdr *tcph, struct net_lro_desc *lro_desc)
-> +{
-> +        /* check ip header: packet length */
-> +        if (ntohs(iph->tot_len) > skb->len)
-> +		return -1;
-> +
-> +	if (TCP_PAYLOAD_LENGTH(iph, tcph) == 0)
-> +		return -1;
-> +
-> +	if (iph->ihl != IPH_LEN_WO_OPTIONS)
-> +		return -1;
-> +
-> +	if (tcph->cwr || tcph->ece || tcph->urg || !tcph->ack || tcph->psh
-> +	    || tcph->rst || tcph->syn || tcph->fin)
-> +		return -1;
-
-I think you do not want to break lro frame because of push flag - it is
-pretty common flag, which does not brak processing (and I'm not sure if
-it has any special meaning this days).
-
-> +	if (INET_ECN_is_ce(ipv4_get_dsfield(iph)))
-> +		return -1;
-> +
-> +	if (tcph->doff != TCPH_LEN_WO_OPTIONS
-> +	    && tcph->doff != TCPH_LEN_W_TIMESTAMP)
-> +		return -1;
-> +
-> +	/* check tcp options (only timestamp allowed) */
-> +	if (tcph->doff == TCPH_LEN_W_TIMESTAMP) {
-> +		u32 *topt = (u32 *)(tcph + 1);
-> +
-> +		if (*topt != htonl((TCPOPT_NOP << 24) | (TCPOPT_NOP << 16)
-> +				   | (TCPOPT_TIMESTAMP << 8)
-> +				   | TCPOLEN_TIMESTAMP))
-> +			return -1;
-> +
-> +		/* timestamp should be in right order */
-> +		topt++;
-> +		if (lro_desc && (ntohl(lro_desc->tcp_rcv_tsval) > ntohl(*topt)))
-> +			return -1;
-
-This still does not handle wrapping over 32 bits.
-What about
-if (lro_desc && after(ntohl(lro_desc->tcp_rcv_tsval), ntohl(*topt)))
-	return -1;
-
-> +		/* timestamp reply should not be zero */
-> +		topt++;
-> +		if (*topt == 0)
-> +			return -1;
-> +	}
-> +
-> +	return 0;
-> +}
-
-> +static struct net_lro_desc *lro_get_desc(struct net_lro_mgr *mgr,
-> +					 struct net_lro_desc *lro_arr,
-> +					 struct iphdr *iph,
-> +					 struct tcphdr *tcph)
-> +{
-> +	struct net_lro_desc *lro_desc = NULL;
-> +	struct net_lro_desc *tmp;
-> +	int max_desc = mgr->max_desc;
-> +	int i;
-> +
-> +	for (i = 0; i < max_desc; i++) {
-> +		tmp = &lro_arr[i];
-> +		if (tmp->active)
-> +			if (!lro_check_tcp_conn(tmp, iph, tcph)) {
-> +				lro_desc = tmp;
-> +				goto out;
-> +			}
-> +	}
-
-Ugh... What about tree structure or hash here?
-
-> +	for (i = 0; i < max_desc; i++) {
-> +		if(!lro_arr[i].active) {
-> +			lro_desc = &lro_arr[i];
-> +			goto out;
-> +		}
-> +	}
-> +
-> +out:
-> +	return lro_desc;
-> +}
-
-> +int __lro_proc_skb(struct net_lro_mgr *lro_mgr, struct sk_buff *skb,
-> +		   struct vlan_group *vgrp, u16 vlan_tag, void *priv)
-> +{
-> +	struct net_lro_desc *lro_desc;
-> +        struct iphdr *iph;
-> +        struct tcphdr *tcph;
-> +
-> +	if (!lro_mgr->get_ip_tcp_hdr
-> +	    || lro_mgr->get_ip_tcp_hdr(skb, &iph, &tcph, priv))
-> +		goto out;
-> +
-> +	lro_desc = lro_get_desc(lro_mgr, lro_mgr->lro_arr, iph, tcph);
-> +	if (!lro_desc)
-> +		goto out;
-
-There is no protection of the descriptor array from accessing from
-different CPUs. Is it forbidden to share net_lro_mgr structure?
+> -andmike
 
 -- 
 	Evgeniy Polyakov
