@@ -1,239 +1,105 @@
-From: Mike Anderson <andmike@us.ibm.com>
-Subject: Re: [2.6.23 PATCH 14/18] dm: netlink add to core
-Date: Wed, 11 Jul 2007 17:40:38 -0700
-Message-ID: <20070712004038.GB29241@us.ibm.com>
-References: <20070711210159.GF24114@agk.fab.redhat.com>
-	<20070711143423.36722a41.akpm@linux-foundation.org>
-Reply-To: device-mapper development <dm-devel@redhat.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: sky2 hangs without any messages
+Date: Wed, 11 Jul 2007 18:46:59 -0700
+Message-ID: <20070711184659.279f8ea0@freepuppy.rosehill.hemminger.net>
+References: <6278d2220707020315q7c3df1cci5c7bb52316ad6081@mail.gmail.com>
+	<6278d2220707031402o7b13e45egc564076a1114b6f5@mail.gmail.com>
+	<6278d2220707050609s3579915bo50cf259ba73712f4@mail.gmail.com>
+	<20070705101046.542c1f8e@freepuppy.localdomain.hemminger.net>
+	<6278d2220707110315h55b69c69r66420377afa703da@mail.gmail.com>
+	<20070711082733.603f6540@freepuppy.rosehill.hemminger.net>
+	<6278d2220707110843i16d3a325nebec8cb766a40a5e@mail.gmail.com>
+	<6278d2220707111439r5ea69a29v51cdbef1cbb7ab25@mail.gmail.com>
+	<20070711144553.6c89dc3a@freepuppy.rosehill.hemminger.net>
+	<6278d2220707111521m520ee651k5536652986c86e5e@mail.gmail.com>
+	<6278d2220707111555i6b6cee71qb37894ab2beed247@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, dm-devel@redhat.com,
-	linux-kernel@vger.kernel.org, Alasdair G Kergon <agk@redhat.com>
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <dm-devel-bounces@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <20070711143423.36722a41.akpm@linux-foundation.org>
-List-Unsubscribe: <https://www.redhat.com/mailman/listinfo/dm-devel>,
-	<mailto:dm-devel-request@redhat.com?subject=unsubscribe>
-List-Archive: <https://www.redhat.com/archives/dm-devel>
-List-Post: <mailto:dm-devel@redhat.com>
-List-Help: <mailto:dm-devel-request@redhat.com?subject=help>
-List-Subscribe: <https://www.redhat.com/mailman/listinfo/dm-devel>,
-	<mailto:dm-devel-request@redhat.com?subject=subscribe>
-Sender: dm-devel-bounces@redhat.com
-Errors-To: dm-devel-bounces@redhat.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "Linux Netdev" <netdev@vger.kernel.org>
+To: "Daniel J Blueman" <daniel.blueman@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:50576 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757559AbXGLBrK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2007 21:47:10 -0400
+In-Reply-To: <6278d2220707111555i6b6cee71qb37894ab2beed247@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton <akpm@linux-foundation.org> wrote:
-> On Wed, 11 Jul 2007 22:01:59 +0100
-> Alasdair G Kergon <agk@redhat.com> wrote:
-> 
-> > From: Mike Anderson <andmike@us.ibm.com>
-> > 
-> > This patch adds support for the dm_path_event dm_send_event funtions which
-> > create and send netlink attribute events.
-> > 
-> > ...
+On Wed, 11 Jul 2007 23:55:29 +0100
+"Daniel J Blueman" <daniel.blueman@gmail.com> wrote:
+
+> > >
+> > > Please try again with post 2.6.22 git version (1.16)?
 > >
-> > --- linux.orig/drivers/md/dm-netlink.c	2007-07-11 21:37:50.000000000 +0100
-> > +++ linux/drivers/md/dm-netlink.c	2007-07-11 21:37:51.000000000 +0100
-> > @@ -40,6 +40,17 @@ struct dm_event_cache {
-> >  
-> >  static struct dm_event_cache _dme_cache;
-> >  
-> > +struct dm_event {
-> > +        struct dm_event_cache *cdata;
-> > +        struct mapped_device *md;
-> > +        struct sk_buff *skb;
-> > +        struct list_head elist;
-> > +};
-> > +
-> > +static struct sock *_dm_netlink_sock;
-> > +static uint32_t _dm_netlink_daemon_pid;
-> > +static DEFINE_SPINLOCK(_dm_netlink_pid_lock);
+> > Reproduced with 2.6.22 w/ sky2 1.16 from git. We observe this
+> > characteristic failure on the NFS server (always around 2-3GB of
+> > transmit):
+> >
+> > $ ifconfig lan0
+> > lan0      Link encap:Ethernet  HWaddr 00:03:2D:05:9C:27
+> >           inet addr:192.168.0.250  Bcast:192.168.0.255  Mask:255.255.255.0
+> >           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+> >           RX packets:24007220 errors:1 dropped:1 overruns:0 frame:1
+> >           TX packets:13886495 errors:0 dropped:0 overruns:0 carrier:0
+> >           collisions:0 txqueuelen:1000
+> >           RX bytes:171026170 (163.1 MiB)  TX bytes:2262910580 (2.1 GiB)
+> >           Interrupt:16
+> >
+> > I'll rebuild with debugfs and grab the debug you've exported.
 > 
-> The usage of this lock makes my head spin a bit.  It's a shame it wasn't
-> documented.
-> 
-> There's obviously something very significant happening with process IDs in
-> here.  A description of the design would be helpful.  Especially for the
-> containerisation guys who no doubt will need to tear their hair out over it
-> all ;)
-> 
+> In quiescent state [1] and in failure state [2]. This time, 2 framing
+> failures [3]; took 3.6GB of transmit to hit the window.
 
-ok, answered below.
+Since the IRQ workaround has a timeout of 100ms. I observed cases where
+the TCP connection dropped (because of lost packets), but the network device
+then recovered.  Can you ping the other side after it hangs?  Or reconnect?
 
-> 
-> > +static int dm_netlink_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
-> > +{
-> > +	int r = 0;
-> > +
-> > +	if (security_netlink_recv(skb, CAP_SYS_ADMIN))
-> > +		return -EPERM;
-> > +
-> > +	spin_lock(&_dm_netlink_pid_lock);
-> > +	if (_dm_netlink_daemon_pid) {
-> > +		if (_dm_netlink_daemon_pid != nlh->nlmsg_pid)
-> > +			r = -EBUSY;
-> > +	} else
-> > +		_dm_netlink_daemon_pid = nlh->nlmsg_pid;
-> > +	spin_unlock(&_dm_netlink_pid_lock);
-> > +
-> > +	return r;
-> > +}
-> 
-> This really does need some comments.  nfi what it's all trying to do here.
-> 
+Ifconfig lumps a bunch of different errors together so it can confuse the issue.
+Preference is for:
+ 	ip -s -s link show eth0
+or 
+	grep -v '^0' /sys/class/net/eth0/statistics/*
 
-The code is restricting the connection to only one daemon.
+If the framing error does reproduce with the hang, perhaps the chip needs some
+receive flush logic to recover. Receive errors normally put a message in syslog
+output, did you look there?
 
-I added the lock above as in some testing of connect / disconnect cycles
-with a lot of events I receiving errors.
+> Daniel
+> 
+> --- [1]
+> 
+> # cat sky2/lan0
+> IRQ src=0 mask=c000001d control=0
+> Status ring (empty)
+> Tx ring pending=191...191 report=191 done=191
+> 
+> Rx ring hw get=956 put=61 last=1023
+> 
+> --- [2]
+> 
+> # cat sky2/lan0
+> IRQ src=0 mask=c000001d control=0
+> Status ring (empty)
+> Tx ring pending=251...251 report=251 done=251
+> 
+> Rx ring hw get=1020 put=160 last=1023
+> 
+> --- [3]
+> 
+> $ ifconfig lan0
+> lan0      Link encap:Ethernet  HWaddr 00:03:2D:05:9C:27
+>           inet addr:192.168.0.250  Bcast:192.168.0.255  Mask:255.255.255.0
+>           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+>           RX packets:13304841 errors:1 dropped:1 overruns:0 frame:2
+>           TX packets:7493765 errors:0 dropped:0 overruns:0 carrier:0
+>           collisions:0 txqueuelen:1000
+>           RX bytes:232720755 (221.9 MiB)  TX bytes:3964088142 (3.6 GiB)
+>           Interrupt:16
 
-The pid is a hold over from older code. If this will cause issue for other
-users I can switch to using nlmsg_multicast (genlmsg_multicast depending
-on the comment if I need to switch to the genl interface) and remove this
-code all together.
+You aren't hung because of lost IRQ. When than happens the debugfs output will have
+a bunch of Tx packets stuck (not cleaned up), and Status messages, and receive packets.
 
-> > +static void dm_netlink_rcv(struct sock *sk, int len)
-> > +{
-> > +	unsigned qlen = 0;
-> 
-> stupid gcc.
-> 
-> > +
-> > +	do
-> > +		netlink_run_queue(sk, &qlen, &dm_netlink_rcv_msg);
-> > +	while (qlen);
-> > +
-> > +}
-> 
-> stray blank line there.
-> 
-
-ok, removed.
-
-> > +static int dm_netlink_rcv_event(struct notifier_block *this,
-> > +				unsigned long event, void *ptr)
-> > +{
-> > +	struct netlink_notify *n = ptr;
-> > +
-> > +	spin_lock(&_dm_netlink_pid_lock);
-> > +
-> > +	if (event == NETLINK_URELEASE &&
-> > +	    n->protocol == NETLINK_DM && n->pid &&
-> > +	    n->pid == _dm_netlink_daemon_pid)
-> > +		_dm_netlink_daemon_pid = 0;
-> > +
-> > +	spin_unlock(&_dm_netlink_pid_lock);
-> > +
-> > +	return NOTIFY_DONE;
-> > +}
-> > +
-> > +static struct notifier_block dm_netlink_notifier = {
-> > +	.notifier_call  = dm_netlink_rcv_event,
-> > +};
-> > +
-> >  int __init dm_netlink_init(void)
-> >  {
-> >  	int r;
-> >  
-> > +	r = netlink_register_notifier(&dm_netlink_notifier);
-> > +	if (r)
-> > +		return r;
-> > +
-> > +	_dm_netlink_sock = netlink_kernel_create(NETLINK_DM, 0,
-> > +						 dm_netlink_rcv, NULL,
-> > +						 THIS_MODULE);
-> 
-> I think we're supposed to use the genetlink APIs here.  One for the net
-> guys to check, please.
-> 
-ok, I can switch if that is the new recommended method.
-
-> > +	if (!_dm_netlink_sock) {
-> > +		r = -ENOBUFS;
-> > +		goto notifier_out;
-> > +	}
-> >  	r = dme_cache_init(&_dme_cache, DM_EVENT_SKB_SIZE);
-> > -	if (!r)
-> > -		DMINFO("version 1.0.0 loaded");
-> > +	if (r)
-> > +		goto socket_out;
-> > +
-> > +	DMINFO("version 1.0.0 loaded");
-> > +
-> > +	return 0;
-> > +
-> > +socket_out:
-> > +	sock_release(_dm_netlink_sock->sk_socket);
-> > +notifier_out:
-> > +	netlink_unregister_notifier(&dm_netlink_notifier);
-> > +	DMERR("%s: dme_cache_init failed: %d", __FUNCTION__, r);
-> >  
-> >  	return r;
-> >  }
-> > @@ -100,4 +292,6 @@ int __init dm_netlink_init(void)
-> >  void dm_netlink_exit(void)
-> >  {
-> >  	dme_cache_destroy(&_dme_cache);
-> > +	sock_release(_dm_netlink_sock->sk_socket);
-> > +	netlink_unregister_notifier(&dm_netlink_notifier);
-> >  }
-> > Index: linux/drivers/md/dm-netlink.h
-> > ===================================================================
-> > --- linux.orig/drivers/md/dm-netlink.h	2007-07-11 21:37:50.000000000 +0100
-> > +++ linux/drivers/md/dm-netlink.h	2007-07-11 21:37:51.000000000 +0100
-> > @@ -21,19 +21,22 @@
-> >  #ifndef DM_NETLINK_H
-> >  #define DM_NETLINK_H
-> >  
-> > -struct dm_event_cache;
-> > +#include <linux/dm-netlink-if.h>
-> > +
-> > +struct dm_table;
-> >  struct mapped_device;
-> > -struct dm_event {
-> > -	struct dm_event_cache *cdata;
-> > -	struct mapped_device *md;
-> > -	struct sk_buff *skb;
-> > -	struct list_head elist;
-> > -};
-> > +struct dm_event;
-> > +
-> > +void dm_event_add(struct mapped_device *md, struct list_head *elist);
-> >  
-> >  #ifdef CONFIG_DM_NETLINK
-> >  
-> >  int dm_netlink_init(void);
-> >  void dm_netlink_exit(void);
-> > +void dm_netlink_send_events(struct list_head *events);
-> > +
-> > +void dm_path_event(enum dm_netlink_event_type evt_type, struct dm_table *t,
-> > +                   const char *path, int nr_valid_paths);
-> >  
-> >  #else	/* CONFIG_DM_NETLINK */
-> >  
-> > @@ -44,6 +47,14 @@ static inline int __init dm_netlink_init
-> >  static inline void dm_netlink_exit(void)
-> >  {
-> >  }
-> > +static void inline dm_netlink_send_events(struct list_head *events)
-> > +{
-> > +}
-> > +static void inline dm_path_event(enum dm_netlink_event_type evt_type,
-> > +			  struct dm_table *t, const char *path,
-> > +			  int nr_valid_paths)
-> > +{
-> > +}
-> 
-> Please use `static inline void', not `static void inline'.  Just a
-> consistency thing.
-> 
-
-Done.
-
--andmike
---
-Michael Anderson
-andmike@us.ibm.com
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
