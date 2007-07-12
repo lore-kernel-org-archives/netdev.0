@@ -1,7 +1,7 @@
 From: Pavel Emelianov <xemul@openvz.org>
 Subject: Re: [PATCH 2/2] Virtual ethernet device driver
-Date: Thu, 12 Jul 2007 17:14:34 +0400
-Message-ID: <4696293A.4030108@openvz.org>
+Date: Thu, 12 Jul 2007 17:17:49 +0400
+Message-ID: <469629FD.4030709@openvz.org>
 References: <4695F0BF.1000305@openvz.org> <4695F214.6020401@openvz.org> <46961F21.7030409@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15
@@ -10,10 +10,10 @@ Cc: David Miller <davem@davemloft.net>,
 	Linux Netdev List <netdev@vger.kernel.org>
 To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.233.200]:4787 "EHLO relay.sw.ru"
+Received: from mailhub.sw.ru ([195.214.233.200]:31385 "EHLO relay.sw.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932444AbXGLNPC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Jul 2007 09:15:02 -0400
+	id S1762666AbXGLNSC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Jul 2007 09:18:02 -0400
 In-Reply-To: <46961F21.7030409@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
@@ -44,17 +44,7 @@ Patrick McHardy wrote:
 > 
 > 
 > Not having a peer should be an error, no?
-
-No. That's the intention - if the user doesn't specify "peer" in the
-command line then two _identical_ devices are created. Of course, if
-he specifies one name - there'll be a collision, but one can say
-"my_own_veth_number_%d" and everything will be ok. Or just use the 
-default name provided. E.g. "ip link add type veth" will send a packet
-with data[VETH_INFO_PEER} == NULL, but this is OK! User just wants a 
-default tunnel and he will get it :)
-
-Does this answer your second comment below?
-
+> 
 >> +
 >> +	if (tb[IFLA_IFNAME])
 >> +		nla_strlcpy(ifname, tb[IFLA_IFNAME], IFNAMSIZ);
@@ -64,7 +54,11 @@ Does this answer your second comment below?
 > 
 > Does this work? The other device is not registered at this time, so I
 > think the allocated names could clash ..
-> 
+
+Oh! And one more thing, I've just thought about - even two devices with
+similar name would be ok when we have a namespaces and one of the ends of
+this tunnel is to be in some other namespace rather that the init one.
+
 > If it does work you could also perform name allocation in the
 > rtnl_create_link function.
 > 
@@ -127,10 +121,5 @@ Does this answer your second comment below?
 > 
 > Devices are unregistered automatically through the dellink function,
 > rtnl_link_unregister(..) is enough.
+> 
 
-OK. This looks like a minor and not-significant comment, so
-do I need to resend the patch or David is OK to take it and
-I will send an incremental one?
-
-Thanks,
-Pavel
