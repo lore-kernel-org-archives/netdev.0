@@ -1,53 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2.6.22] TCP: Make TCP_RTO_MAX a variable (take 2)
-Date: Thu, 12 Jul 2007 02:37:10 -0700 (PDT)
-Message-ID: <20070712.023710.36923635.davem@davemloft.net>
-References: <20070712.161510.26510093.noboru.obata.ar@hitachi.com>
+From: Ranko Zivojnovic <ranko@spidernet.net>
+Subject: Re: [NET]: gen_estimator deadlock fix
+Date: Thu, 12 Jul 2007 12:40:00 +0300
+Message-ID: <1184233200.3477.71.camel@ranko-fc2.spidernet.net>
+References: <1184161297.1141.53.camel@ranko-fc2.spidernet.net>
+	 <20070712073746.GA1708@ff.dom.local>
+	 <1184231903.3477.65.camel@ranko-fc2.spidernet.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@linux-foundation.org, yoshfuji@linux-ipv6.org,
-	netdev@vger.kernel.org
-To: noboru.obata.ar@hitachi.com
+Cc: netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Jarek Poplawski <jarkao2@o2.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46672
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751369AbXGLJhM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jul 2007 05:37:12 -0400
-In-Reply-To: <20070712.161510.26510093.noboru.obata.ar@hitachi.com>
+Received: from MPP-Goya.spidernet.net ([194.154.128.52]:30786 "EHLO
+	mail0pop.spidernet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755749AbXGLJlE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jul 2007 05:41:04 -0400
+In-Reply-To: <1184231903.3477.65.camel@ranko-fc2.spidernet.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: OBATA Noboru <noboru.obata.ar@hitachi.com>
-Date: Thu, 12 Jul 2007 16:15:10 +0900 (JST)
+On Thu, 2007-07-12 at 12:18 +0300, Ranko Zivojnovic wrote:
+> > 
+> > I've done a bit of mess last time, so maybe it was forgotten, but I
+> > still think this kind of race is possible:
+> > 
+> > - gen_kill_estimator is called during qdisc_destroy under
+> >   dev->queue_lock,
+> > - est_timer is running and waiting on this lock just on the
+> >   list entry of the destroyed class,
+> > - gen_kill_estimator kills the entry and returns,
+> > - in xxx_destroy_class kfree(cl) is done etc.,
+> > - est_timer gets the lock and does nbytes = e->bstats->bytes or
+> >   e->rate_est-bps = ... with freed memory.
+> 
+> Unfortunately I cannot say for sure that _currently_ anything really bad
+> can happen here... someone with better knowledge will have to confirm
+> this - Patrick?
+> 
 
-> 1. Network device layer detects a failure first and switch to a
->    backup device (say, in 20sec).
-> 
-> 2. TCP layer timeout & retransmission comes next, _hopefully_
->    before the application layer timeout.
-> 
-> 3. Application layer detects a network failure last (by, say,
->    30sec timeout) and may trigger a system-level failover.
-> 
->    * Note 1.  The timeouts for #1 and #2 are handled
->      independently and there is no relationship between them.
-> 
->    * Note 2.  The actual timeout settings (20sec or 30sec in
->      this example) are often determined by systems requirement
->      and so setting them to certain "safe values" (if any) are
->      usually not possible.
-> 
-> If TCP retransmission misses the time frame between event #1
-> and #3 in Background above (between 20 and 30sec since network
-> failure), a failure causes the system-level failover where the
-> network-device-level failover should be enough.
+Oops - just saw it - and you even mention it up there: 
 
-I'm still totally unconvinced, this seems pointless.
+e->rate_est->bps = ...
+          ^^^^
+>
+> Will have a new patch soon.
+>
 
-TCP's timeouts are perfectly fine, and the only thing you
-might be showing above is that the application timeouts
-are too short or that TCP needs notifications.
+R.
 
-I am totally unconvinced about your dom0 vs. domU notification
-arguments as well.
