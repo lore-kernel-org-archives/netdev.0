@@ -1,80 +1,67 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: Linux 2.6.22: Leak r=1 1
-Date: Thu, 12 Jul 2007 16:56:20 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0707121425330.27679@kivilampi-30.cs.helsinki.fi>
-References: <20070711174030.tjmxpxtfsn4twgk2@m.safari.iki.fi>
- <Pine.LNX.4.64.0707120827280.12545@kivilampi-30.cs.helsinki.fi>
- <20070712100416.bsyxfjvuppc3vvks@m.safari.iki.fi>
+From: Pavel Emelianov <xemul@openvz.org>
+Subject: Re: [PATCH 2/2] Virtual ethernet device driver
+Date: Thu, 12 Jul 2007 17:58:41 +0400
+Message-ID: <46963391.1080609@openvz.org>
+References: <4695F0BF.1000305@openvz.org> <4695F214.6020401@openvz.org> <46961F21.7030409@trash.net> <4696293A.4030108@openvz.org> <46962AC5.2030005@trash.net> <46962E6A.5020906@openvz.org> <4696305B.5070809@trash.net>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; boundary="-696243703-1663873335-1184241550=:27679"
-Cc: David Miller <davem@davemloft.net>,
-	Linux Networking Mailing List <netdev@vger.kernel.org>
-To: Sami Farin <safari-kernel@safari.iki.fi>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:49389 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932281AbXGLN4W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jul 2007 09:56:22 -0400
-In-Reply-To: <20070712100416.bsyxfjvuppc3vvks@m.safari.iki.fi>
-Content-ID: <Pine.LNX.4.64.0707121632430.27679@kivilampi-30.cs.helsinki.fi>
+Received: from mailhub.sw.ru ([195.214.233.200]:32025 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932102AbXGLN65 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Jul 2007 09:58:57 -0400
+In-Reply-To: <4696305B.5070809@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-
----696243703-1663873335-1184241550=:27679
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
-Content-ID: <Pine.LNX.4.64.0707121632431.27679@kivilampi-30.cs.helsinki.fi>
-
-On Thu, 12 Jul 2007, Sami Farin wrote:
-
-> On Thu, Jul 12, 2007 at 10:53:57 +0300, Ilpo Järvinen wrote:
-> > On Wed, 11 Jul 2007, Sami Farin wrote:
-> > 
-> > > That's right, so descriptive is the new Linux kernel 2.6.22.
-> > > Took a while to grep what is "leaking".
-> > > 
-> > > Linux safari.finland.fbi 2.6.22-cfs-v19 #3 SMP Tue Jul 10 00:22:25 EEST 2007 i686 i686 i386 GNU/Linux
-> > > 
-> > > Just normal Internet usage, azureus for example =)
-> > > I think this is easy to trigger.
-> > 
-> > I guess those packet loss periods help you to reproduce it so easily.
-> ...
-> > I'd be interested to study some tcpdumps that relate to Leak cases you're 
-> > seeing. Could you record some Sami? I'm not sure though how one can figure 
+Patrick McHardy wrote:
+> Pavel Emelianov wrote:
+>> Patrick McHardy wrote:
+>>
+>>> No, to get unique names the sequence has to be:
+>>>
+>>> dev_alloc_name
+>>> register_netdevice
+>>> dev_alloc_name
+>>> register_netdevice
+>>>
+>>> But you have:
+>>>
+>>> dev_alloc_name
+>>> dev_alloc_name (<- might allocate same name as first call)
+>>> register_netdevice
+>>> register_netdevice
+>>
+>> Oops :) You're right. That's the problem. I was carried away by
+>> testing the "peer" options and checking for names rather than
+>> "veth%d" to work...
+>>
+>> By the way, that will create some problems. You see, your patches
+>> imply that the register_netdevice() will be called at the very end
+>> of the ->newlink callback. Otherwise, the error path of any code
+>> following the registering will have to call unregister_netdevice()
+>> which will BUG() in free_netdev() in rtnl_newlink() - the device
+>> state will be neither UNINITIALIZED nor UNREGISTERED :(
 > 
-> I now have 300 MB capture and several new&retarded music videos...
-> And 10 WARNINGs and 0 Leak printk's.
+> 
+> Thats true. I think you could do:
+> 
+> - use name of the supplied device for the second device
+> - register second device
+> - allocate new name for first device
+> - register first device
+> 
 
-Thanks, every warning would have lead to a Leak print later on (not 
-necessarily with 1-to-1 relation but every pending warning would be 
-"acknowledged" by a single Leak print). So every time the WARNING 
-triggers, inconsistency would have been result without the patch.
+Not 100% like this (since the first name is expected to be associated
+with the device with the first address), but reallocating the name for
+the first device sounds like a good idea.
 
-> 2007-07-12 12:03:18.910712500 <4>[ 1318.606826] WARNING: at net/ipv4/tcp_input.c:1402 tcp_enter_frto_loss()
-...snip...
- 
-> This is MAYBE the guilty connection if timestamps are to be believed:
- 
-...snip...
+David, which way would be more preferable - to fix booth issues pointed
+by Patric and send the v.4 patch, or to wait for this patch to be committed
+and then send two incremental fixes?
 
-I think you got the correct connection... Thanks. The problem seems to
-be related to FIN (a case that wouldn't have occurred to me without your 
-log, thanks again :-))... I think that the patch I suggested should be 
-fine (and it fixes the fuzzy sack block issues as well) though I still 
-have problem in figuring out what's the exact path of execution on each 
-ACK near the end of the connection (the sent packets are misplaced in the 
-shown dump but the original order can be reconstructed from IP identifiers 
-and TCP timestamps).
-
-> Well, haven't gotten Leaks anymore after applying the patch.
-
-I'd have been a bit surprised if they would have still been there with 
-the patch...
-
--- 
- i.
----696243703-1663873335-1184241550=:27679--
+Pavel
