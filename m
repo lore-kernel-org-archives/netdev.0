@@ -1,40 +1,49 @@
-From: Yinghai Lu <Yinghai.Lu@Sun.COM>
-Subject: Re: [PATCH 1/5] try parent numa_node at first before using default
-Date: Wed, 11 Jul 2007 20:01:32 -0700
-Message-ID: <4695998C.8090100@sun.com>
-References: <200707101641.17672.yinghai.lu@sun.com>
- <200707101652.31378.yinghai.lu@sun.com> <4694B702.2050507@s5r6.in-berlin.de>
- <20070711210833.GA22745@kroah.com> <46954B92.8000407@sun.com>
- <46959651.1050400@s5r6.in-berlin.de>
-Reply-To: Yinghai.Lu@Sun.COM
+From: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 2.6] SoftMAC : fix duplicate display of channel in scan
+Date: Wed, 11 Jul 2007 23:30:17 -0400
+Message-ID: <1184211018.9446.0.camel@localhost.localdomain>
+References: <20070710184155.GA6955@bougret.hpl.hp.com>
+	 <4693DD18.1010905@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; format=flowed; charset=ISO-8859-1
-Content-Transfer-Encoding: 7BIT
-Cc: Greg KH <greg@kroah.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Andi Kleen <ak@suse.de>, rientjes@google.com,
-	Christoph Lameter <clameter@sgi.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	David Miller <davem@davemloft.net>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Stefan Richter <stefanr@s5r6.in-berlin.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sca-es-mail-1.Sun.COM ([192.18.43.132]:47041 "EHLO
-	sca-es-mail-1.sun.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1764301AbXGLC6J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2007 22:58:09 -0400
-In-reply-to: <46959651.1050400@s5r6.in-berlin.de>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org, Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Larry Finger <larry.finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4693DD18.1010905-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Stefan Richter wrote:
-> Yinghai Lu wrote:
->> original default is -1, and this patch just try to use parent's node as
->> default.
+On Tue, 2007-07-10 at 14:25 -0500, Larry Finger wrote:
+> Jean,
 > 
-> But in many cases, the patch does so at a time when the parent is not
-> yet known.
-then it will use -1.
+> Jean Tourrilhes wrote:
+> > 	Hi,
+> > 
+> > 	SoftMAC output the channel twice in the scan output. It should
+> > display frequency and channel, but only once for each.
+> > --------------------------------------------------------
+> >           Cell 02 - Address: A2:00:04:XX:XX:XX
+> >                     ESSID:"TheESSID"
+> >                     Protocol:IEEE 802.11b
+> >                     Mode:Ad-Hoc
+> > ->                  Channel:5
+> > ->                  Frequency:2.432 GHz (Channel 5)
+> 
+> The frequency output is needed by NetworkManager, which is why I added it. At that time, I thought 
+> that some tool or other might be scanning the output looking for "Channel:", not "Channel "; 
+> therefore I left both in. If we are sure that removing the channel-only line will not break 
+> something, I'll be happy to send your patch upstream.
 
-YH
+Should fix NM, really, to deal with either channel or frequency and
+handle each as appropriate.
+
+Dan
+
+> Larry
+> 
+> -
+> To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
