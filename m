@@ -1,154 +1,149 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [NET 02/05]: dev_mcast: add multicast list synchronization helpers
-Date: Thu, 12 Jul 2007 20:13:42 +0200 (MEST)
-Message-ID: <20070712181341.13849.58440.sendpatchset@localhost.localdomain>
+Subject: [VLAN 03/05]: Fix promiscous/allmulti synchronization races
+Date: Thu, 12 Jul 2007 20:13:44 +0200 (MEST)
+Message-ID: <20070712181343.13849.57866.sendpatchset@localhost.localdomain>
 References: <20070712181338.13849.74894.sendpatchset@localhost.localdomain>
 Cc: netdev@vger.kernel.org, greearb@candelatech.com,
 	Patrick McHardy <kaber@trash.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:54184 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:54189 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755355AbXGLSNo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jul 2007 14:13:44 -0400
+	with ESMTP id S1755425AbXGLSNp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jul 2007 14:13:45 -0400
 In-Reply-To: <20070712181338.13849.74894.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[NET]: dev_mcast: add multicast list synchronization helpers
+[VLAN]: Fix promiscous/allmulti synchronization races
 
-The method drivers currently use to synchronize multicast lists is not
-very pretty:
-
-- walk the multicast list
-- search each entry on a copy of the previous list
-- if new add to lower device
-- walk the copy of the previous list
-- search each entry on the current list
-- if removed delete from lower device
-- copy entire list
-
-This patch adds a new field to struct dev_addr_list to store the
-synchronization state and adds two helper functions for synchronization
-and cleanup.
+The set_multicast_list function may be called without holding the rtnl
+mutex, resulting in races when changing the underlying device's promiscous
+and allmulti state. Use the change_rx_mode hook, which is always invoked
+under the rtnl.
 
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 
 ---
-commit 934ee4749ce12cb9b868a98fd3822cf5cdfa8208
-tree ddb91cc1428e52f82712101518fccce65ed4597d
-parent b977db07766ffb261d2c7ebe050cbc3b1d7d281a
-author Patrick McHardy <kaber@trash.net> Thu, 12 Jul 2007 19:53:58 +0200
-committer Patrick McHardy <kaber@trash.net> Thu, 12 Jul 2007 19:53:58 +0200
+commit 86de1244f4e8736a7bdfc28b899cc2ce5e36cf5c
+tree 1379e7ae0b054d4f1390b0d1960aecee9ece37e6
+parent 934ee4749ce12cb9b868a98fd3822cf5cdfa8208
+author Patrick McHardy <kaber@trash.net> Thu, 12 Jul 2007 19:57:34 +0200
+committer Patrick McHardy <kaber@trash.net> Thu, 12 Jul 2007 19:57:34 +0200
 
- include/linux/netdevice.h |    3 ++
- net/core/dev_mcast.c      |   75 +++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 78 insertions(+), 0 deletions(-)
+ include/linux/if_vlan.h |    2 --
+ net/8021q/vlan.c        |    1 +
+ net/8021q/vlan.h        |    1 +
+ net/8021q/vlan_dev.c    |   38 ++++++++++++++++++++------------------
+ 4 files changed, 22 insertions(+), 20 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index f193aba..e5af458 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -190,6 +190,7 @@ struct dev_addr_list
- 	struct dev_addr_list	*next;
- 	u8			da_addr[MAX_ADDR_LEN];
- 	u8			da_addrlen;
-+	u8			da_synced;
- 	int			da_users;
- 	int			da_gusers;
- };
-@@ -1103,6 +1104,8 @@ extern int		dev_unicast_delete(struct net_device *dev, void *addr, int alen);
- extern int		dev_unicast_add(struct net_device *dev, void *addr, int alen);
- extern int 		dev_mc_delete(struct net_device *dev, void *addr, int alen, int all);
- extern int		dev_mc_add(struct net_device *dev, void *addr, int alen, int newonly);
-+extern int		dev_mc_sync(struct net_device *to, struct net_device *from);
-+extern void		dev_mc_unsync(struct net_device *to, struct net_device *from);
- extern void		dev_mc_discard(struct net_device *dev);
- extern int 		__dev_addr_delete(struct dev_addr_list **list, int *count, void *addr, int alen, int all);
- extern int		__dev_addr_add(struct dev_addr_list **list, int *count, void *addr, int alen, int newonly);
-diff --git a/net/core/dev_mcast.c b/net/core/dev_mcast.c
-index aa38100..235a2a8 100644
---- a/net/core/dev_mcast.c
-+++ b/net/core/dev_mcast.c
-@@ -102,6 +102,81 @@ int dev_mc_add(struct net_device *dev, void *addr, int alen, int glbl)
+diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
+index 61a57dc..7f71df4 100644
+--- a/include/linux/if_vlan.h
++++ b/include/linux/if_vlan.h
+@@ -132,8 +132,6 @@ struct vlan_dev_info {
+                                            * made, in order to feed the right changes down
+                                            * to the real hardware...
+                                            */
+-	int old_allmulti;               /* similar to above. */
+-	int old_promiscuity;            /* similar to above. */
+ 	struct net_device *real_dev;    /* the underlying device/interface */
+ 	unsigned char real_dev_addr[ETH_ALEN];
+ 	struct proc_dir_entry *dent;    /* Holds the proc data */
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index abb9900..39bdcc2 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -373,6 +373,7 @@ void vlan_setup(struct net_device *new_dev)
+ 	new_dev->open = vlan_dev_open;
+ 	new_dev->stop = vlan_dev_stop;
+ 	new_dev->set_multicast_list = vlan_dev_set_multicast_list;
++	new_dev->change_rx_flags = vlan_change_rx_flags;
+ 	new_dev->destructor = free_netdev;
+ 	new_dev->do_ioctl = vlan_dev_ioctl;
+ 
+diff --git a/net/8021q/vlan.h b/net/8021q/vlan.h
+index 62ce1c5..7df5b29 100644
+--- a/net/8021q/vlan.h
++++ b/net/8021q/vlan.h
+@@ -69,6 +69,7 @@ int vlan_dev_set_vlan_flag(const struct net_device *dev,
+ 			   u32 flag, short flag_val);
+ void vlan_dev_get_realdev_name(const struct net_device *dev, char *result);
+ void vlan_dev_get_vid(const struct net_device *dev, unsigned short *result);
++void vlan_change_rx_flags(struct net_device *dev, int change);
+ void vlan_dev_set_multicast_list(struct net_device *vlan_dev);
+ 
+ int vlan_check_real_dev(struct net_device *real_dev, unsigned short vlan_id);
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index d4a62d1..dec7e62 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -712,6 +712,11 @@ int vlan_dev_open(struct net_device *dev)
+ 	}
+ 	memcpy(vlan->real_dev_addr, real_dev->dev_addr, ETH_ALEN);
+ 
++	if (dev->flags & IFF_ALLMULTI)
++		dev_set_allmulti(real_dev, 1);
++	if (dev->flags & IFF_PROMISC)
++		dev_set_promiscuity(real_dev, 1);
++
+ 	return 0;
+ }
+ 
+@@ -721,6 +726,11 @@ int vlan_dev_stop(struct net_device *dev)
+ 
+ 	vlan_flush_mc_list(dev);
+ 
++	if (dev->flags & IFF_ALLMULTI)
++		dev_set_allmulti(real_dev, -1);
++	if (dev->flags & IFF_PROMISC)
++		dev_set_promiscuity(real_dev, -1);
++
+ 	if (compare_ether_addr(dev->dev_addr, real_dev->dev_addr))
+ 		dev_unicast_delete(real_dev, dev->dev_addr, dev->addr_len);
+ 
+@@ -754,34 +764,26 @@ int vlan_dev_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
  	return err;
  }
  
-+/**
-+ *	dev_mc_sync	- Synchronize device's multicast list to another device
-+ *	@to: destination device
-+ *	@from: source device
-+ *
-+ * 	Add newly added addresses to the destination device and release
-+ * 	addresses that have no users left. The source device must be
-+ * 	locked by netif_tx_lock_bh.
-+ *
-+ *	This function is intended to be called from the dev->set_multicast_list
-+ *	function of layered software devices.
-+ */
-+int dev_mc_sync(struct net_device *to, struct net_device *from)
++void vlan_change_rx_flags(struct net_device *dev, int change)
 +{
-+	struct dev_addr_list *da;
-+	int err = 0;
++	struct net_device *real_dev = VLAN_DEV_INFO(dev)->real_dev;
 +
-+	netif_tx_lock_bh(to);
-+	for (da = from->mc_list; da != NULL; da = da->next) {
-+		if (!da->da_synced) {
-+			err = __dev_addr_add(&to->mc_list, &to->mc_count,
-+					     da->da_addr, da->da_addrlen, 0);
-+			if (err < 0)
-+				break;
-+			da->da_synced = 1;
-+			da->da_users++;
-+		} else if (da->da_users == 1) {
-+			__dev_addr_delete(&to->mc_list, &to->mc_count,
-+					  da->da_addr, da->da_addrlen, 0);
-+			__dev_addr_delete(&from->mc_list, &from->mc_count,
-+					  da->da_addr, da->da_addrlen, 0);
-+		}
-+	}
-+	if (!err)
-+		__dev_set_rx_mode(to);
-+	netif_tx_unlock_bh(to);
-+
-+	return err;
++	if (change & IFF_ALLMULTI)
++		dev_set_allmulti(real_dev, dev->flags & IFF_ALLMULTI ? 1 : -1);
++	if (change & IFF_PROMISC)
++		dev_set_promiscuity(real_dev, dev->flags & IFF_PROMISC ? 1 : -1);
 +}
-+EXPORT_SYMBOL(dev_mc_sync);
 +
-+
-+/**
-+ * 	dev_mc_unsync	- Remove synchronized addresses from the destination
-+ * 			  device
-+ *	@to: destination device
-+ *	@from: source device
-+ *
-+ * 	Remove all addresses that were added to the destination device by
-+ * 	dev_mc_sync(). This function is intended to be called from the
-+ * 	dev->stop function of layered software devices.
-+ */
-+void dev_mc_unsync(struct net_device *to, struct net_device *from)
-+{
-+	struct dev_addr_list *da;
-+
-+	netif_tx_lock_bh(from);
-+	netif_tx_lock_bh(to);
-+
-+	for (da = from->mc_list; da != NULL; da = da->next) {
-+		if (!da->da_synced)
-+			continue;
-+		__dev_addr_delete(&to->mc_list, &to->mc_count,
-+				  da->da_addr, da->da_addrlen, 0);
-+		da->da_synced = 0;
-+		__dev_addr_delete(&from->mc_list, &from->mc_count,
-+				  da->da_addr, da->da_addrlen, 0);
-+	}
-+	__dev_set_rx_mode(to);
-+
-+	netif_tx_unlock_bh(to);
-+	netif_tx_unlock_bh(from);
-+}
-+EXPORT_SYMBOL(dev_mc_unsync);
-+
- /*
-  *	Discard multicast list when a device is downed
-  */
+ /** Taken from Gleb + Lennert's VLAN code, and modified... */
+ void vlan_dev_set_multicast_list(struct net_device *vlan_dev)
+ {
+ 	struct dev_mc_list *dmi;
+ 	struct net_device *real_dev;
+-	int inc;
+ 
+ 	if (vlan_dev && (vlan_dev->priv_flags & IFF_802_1Q_VLAN)) {
+ 		/* Then it's a real vlan device, as far as we can tell.. */
+ 		real_dev = VLAN_DEV_INFO(vlan_dev)->real_dev;
+ 
+-		/* compare the current promiscuity to the last promisc we had.. */
+-		inc = vlan_dev->promiscuity - VLAN_DEV_INFO(vlan_dev)->old_promiscuity;
+-		if (inc) {
+-			printk(KERN_INFO "%s: dev_set_promiscuity(master, %d)\n",
+-			       vlan_dev->name, inc);
+-			dev_set_promiscuity(real_dev, inc); /* found in dev.c */
+-			VLAN_DEV_INFO(vlan_dev)->old_promiscuity = vlan_dev->promiscuity;
+-		}
+-
+-		inc = vlan_dev->allmulti - VLAN_DEV_INFO(vlan_dev)->old_allmulti;
+-		if (inc) {
+-			printk(KERN_INFO "%s: dev_set_allmulti(master, %d)\n",
+-			       vlan_dev->name, inc);
+-			dev_set_allmulti(real_dev, inc); /* dev.c */
+-			VLAN_DEV_INFO(vlan_dev)->old_allmulti = vlan_dev->allmulti;
+-		}
+-
+ 		/* looking for addresses to add to master's list */
+ 		for (dmi = vlan_dev->mc_list; dmi != NULL; dmi = dmi->next) {
+ 			if (vlan_should_add_mc(dmi, VLAN_DEV_INFO(vlan_dev)->old_mc_list)) {
