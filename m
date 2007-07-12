@@ -1,27 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Bluetooth patches for 2.6.23
-Date: Wed, 11 Jul 2007 19:39:05 -0700 (PDT)
-Message-ID: <20070711.193905.112853378.davem@davemloft.net>
-References: <1184141363.4536.32.camel@aeonflux.holtmann.net>
+Subject: Re: [ETH 01/04]: Validate address in eth_mac_addr
+Date: Wed, 11 Jul 2007 19:41:29 -0700 (PDT)
+Message-ID: <20070711.194129.44098074.davem@davemloft.net>
+References: <20070711173812.18369.47109.sendpatchset@localhost.localdomain>
+	<20070711173814.18369.53719.sendpatchset@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: marcel@holtmann.org
+Cc: netdev@vger.kernel.org, greearb@candelatech.com, xemul@openvz.org
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41626
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41631
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1759312AbXGLCim (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2007 22:38:42 -0400
-In-Reply-To: <1184141363.4536.32.camel@aeonflux.holtmann.net>
+	by vger.kernel.org with ESMTP id S1762435AbXGLClG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2007 22:41:06 -0400
+In-Reply-To: <20070711173814.18369.53719.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Marcel Holtmann <marcel@holtmann.org>
-Date: Wed, 11 Jul 2007 10:09:23 +0200
+From: Patrick McHardy <kaber@trash.net>
+Date: Wed, 11 Jul 2007 19:38:14 +0200 (MEST)
 
-> Please pull from
+> [ETH]: Validate address in eth_mac_addr
 > 
->         git://git.kernel.org/pub/scm/linux/kernel/git/holtmann/bluetooth-2.6.git
+> Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-Pulled, thanks Marcel.
+Applied.
