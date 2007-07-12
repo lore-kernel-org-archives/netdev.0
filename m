@@ -1,31 +1,59 @@
-From: Jean Tourrilhes <jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 2.6] SoftMAC : fix duplicate display of channel in scan
-Date: Thu, 12 Jul 2007 09:49:18 -0700
-Message-ID: <20070712164918.GC13445@bougret.hpl.hp.com>
-References: <20070710184155.GA6955@bougret.hpl.hp.com> <4693DD18.1010905@lwfinger.net> <1184211018.9446.0.camel@localhost.localdomain> <20070712163440.GA13445@bougret.hpl.hp.com> <46965977.7020807@lwfinger.net>
-Reply-To: jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [PATCH][RFC] network splice receive v3
+Date: Thu, 12 Jul 2007 21:02:47 +0400
+Message-ID: <20070712170247.GA18469@2ka.mipt.ru>
+References: <20070711091927.GQ4587@kernel.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Larry Finger <larry.finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset=koi8-r
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	olaf.kirch@oracle.com
+To: Jens Axboe <jens.axboe@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:51338 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752996AbXGLRDS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Jul 2007 13:03:18 -0400
 Content-Disposition: inline
-In-Reply-To: <46965977.7020807-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <20070711091927.GQ4587@kernel.dk>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 12, 2007 at 11:40:23AM -0500, Larry Finger wrote:
-> Jean Tourrilhes wrote:
-> >
-> >	Well, I actually like forcing driver to use frequency, because
-> >that's an absolute physical measure and contains more meaning.
+On Wed, Jul 11, 2007 at 11:19:27AM +0200, Jens Axboe (jens.axboe@oracle.com) wrote:
+> Hi,
+
+Hi Jens.
+
+> Here's an updated implementation of tcp network splice receive support.
+> It actually works for me now, no data corruption seen.
 > 
-> Yes, but it is easier to keep a channel number in your head than a 
-> frequency.
+> For the original announcement and how to test it, see:
+> 
+> http://marc.info/?l=linux-netdev&m=118103093400770&w=2
+> 
+> The splice core changes needed to support this are now merged in
+> 2.6.22-git, so the patchset shrinks to just two patches - one for adding
+> a release hook, and one for the networking changes.
+> 
+> The code is also available in the splice-net branch here:
+> 
+> git://git.kernel.dk/data/git/linux-2.6-block.git splice-net
+> 
+> There's a third experimental patch in there that allows vmsplice
+> directly to user memory, that still needs some work though.
+> 
+> Comments, testing welcome!
 
-	That's why iwlist display both in 'iwlist freq' and 'iwlist scan'.
+It looks like you included all bits we found in the previous runs, so
+likely it will work good, but so far I have conflicts merging todays git
+and your tree in include/linux/splice.h, fs/ext2/file.c, fs/splice.c and 
+mm/filemap_xip.c. This can be a problem with my tree though.
+It really looks like the last tree we tested, so if you think additional
+one will not hurt, feel free to ping, so I will completely rebase
+testing tree.
 
-> Larry
+> -- 
+> Jens Axboe
 
-	Jean
+
+-- 
+	Evgeniy Polyakov
