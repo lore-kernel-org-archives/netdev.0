@@ -1,30 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [3/5][TG3]: Enable auto MDI.
-Date: Wed, 11 Jul 2007 19:48:37 -0700 (PDT)
-Message-ID: <20070711.194837.122831876.davem@davemloft.net>
-References: <1184196735.5211.10.camel@dell>
+Subject: Re: [4/5][TG3]: Add missing NVRAM strapping.
+Date: Wed, 11 Jul 2007 19:48:59 -0700 (PDT)
+Message-ID: <20070711.194859.77403489.davem@davemloft.net>
+References: <1184196745.5211.11.camel@dell>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: mcarlson@broadcom.com, netdev@vger.kernel.org
 To: mchan@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46244
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46247
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1758110AbXGLCsO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2007 22:48:14 -0400
-In-Reply-To: <1184196735.5211.10.camel@dell>
+	by vger.kernel.org with ESMTP id S1757587AbXGLCsg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2007 22:48:36 -0400
+In-Reply-To: <1184196745.5211.11.camel@dell>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: "Michael Chan" <mchan@broadcom.com>
-Date: Wed, 11 Jul 2007 16:32:15 -0700
+Date: Wed, 11 Jul 2007 16:32:25 -0700
 
-> [TG3]: Enable auto MDI.
+> [TG3]: Add missing NVRAM strapping.
 > 
-> This patch adds automatic MDI crossover support when autonegotiation is
-> turned off.  Automatic MDI crossover allows link to be established
-> without the use of a crossover cable.
+> This patch adds a missing NVRAM strapping for 5755 devices.
 > 
 > Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 > Signed-off-by: Michael Chan <mchan@broadcom.com>
