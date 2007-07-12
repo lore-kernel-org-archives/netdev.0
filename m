@@ -1,361 +1,157 @@
-From: Ursula.Braun.braunu@de.ibm.com
-Subject: [patch 1/2] s390: scatter-gather for inbound traffic in qeth driver
-Date: Thu, 12 Jul 2007 09:51:00 +0200
-Message-ID: <20070712075326.591246000@linux.vnet.ibm.com>
-References: <20070712075059.579991000@linux.vnet.ibm.com>
-Cc: Frank Blaschka <frank.blaschka@de.ibm.com>,
-	Frank Pavlic <fpavlic@de.ibm.com>
-To: jgarzik@pobox.com, netdev@vger.kernel.org,
-	linux-s390@vger.kernel.org
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: Linux 2.6.22: Leak r=1 1
+Date: Thu, 12 Jul 2007 10:53:57 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0707120827280.12545@kivilampi-30.cs.helsinki.fi>
+References: <20070711174030.tjmxpxtfsn4twgk2@m.safari.iki.fi>
+Mime-Version: 1.0
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-605683641-1184226837=:12545"
+Cc: Linux Networking Mailing List <netdev@vger.kernel.org>
+To: Sami Farin <safari-kernel@safari.iki.fi>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate5.de.ibm.com ([195.212.29.154]:17262 "EHLO
-	mtagate5.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757249AbXGLHx3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jul 2007 03:53:29 -0400
-Content-Disposition: inline; filename=701-qeth-scatter-gather.diff
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:54437 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758456AbXGLHyB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jul 2007 03:54:01 -0400
+In-Reply-To: <20070711174030.tjmxpxtfsn4twgk2@m.safari.iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Frank Blaschka <frank.blaschka@de.ibm.com>
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-For large incoming packets > PAGE_SIZE/2 qeth creates a fragmented skb
-by adding pointers to qdio pages to the fragment list of the skb.
-This avoids allocating big chunks of consecutive memory. Also copying
-data from the qdio buffer to the skb is economized.
+---696243703-605683641-1184226837=:12545
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
 
-Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
-Signed-off-by: Ursula Braun <braunu@de.ibm.com>
-Signed-off-by: Frank Pavlic <fpavlic@de.ibm.com>
----
+On Wed, 11 Jul 2007, Sami Farin wrote:
 
- drivers/s390/net/qeth.h      |    9 ++
- drivers/s390/net/qeth_main.c |  182 +++++++++++++++++++++++++++++++++++--------
- drivers/s390/net/qeth_proc.c |    6 +
- 3 files changed, 165 insertions(+), 32 deletions(-)
+> That's right, so descriptive is the new Linux kernel 2.6.22.
+> Took a while to grep what is "leaking".
+> 
+> Linux safari.finland.fbi 2.6.22-cfs-v19 #3 SMP Tue Jul 10 00:22:25 EEST 2007 i686 i686 i386 GNU/Linux
+> 
+> Just normal Internet usage, azureus for example =)
+> I think this is easy to trigger.
 
-Index: linux-2.6-uschi/drivers/s390/net/qeth.h
-===================================================================
---- linux-2.6-uschi.orig/drivers/s390/net/qeth.h
-+++ linux-2.6-uschi/drivers/s390/net/qeth.h
-@@ -211,6 +211,10 @@ struct qeth_perf_stats {
- 	/* initial values when measuring starts */
- 	unsigned long initial_rx_packets;
- 	unsigned long initial_tx_packets;
-+	/* inbound scatter gather data */
-+	unsigned int sg_skbs_rx;
-+	unsigned int sg_frags_rx;
-+	unsigned int sg_alloc_page_rx;
- };
- 
- /* Routing stuff */
-@@ -341,6 +345,9 @@ qeth_is_ipa_enabled(struct qeth_ipa_info
- 
- #define QETH_IP_HEADER_SIZE 40
- 
-+/* large receive scatter gather copy break */
-+#define QETH_RX_SG_CB (PAGE_SIZE >> 1)
-+
- struct qeth_hdr_layer3 {
- 	__u8  id;
- 	__u8  flags;
-@@ -771,6 +778,7 @@ struct qeth_card_options {
- 	int layer2;
- 	enum qeth_large_send_types large_send;
- 	int performance_stats;
-+	int rx_sg_cb;
- };
- 
- /*
-@@ -828,6 +836,7 @@ struct qeth_card {
- 	int (*orig_hard_header)(struct sk_buff *,struct net_device *,
- 				unsigned short,void *,void *,unsigned);
- 	struct qeth_osn_info osn_info;
-+	atomic_t force_alloc_skb;
- };
- 
- struct qeth_card_list_struct {
-Index: linux-2.6-uschi/drivers/s390/net/qeth_main.c
-===================================================================
---- linux-2.6-uschi.orig/drivers/s390/net/qeth_main.c
-+++ linux-2.6-uschi/drivers/s390/net/qeth_main.c
-@@ -1054,6 +1054,7 @@ qeth_set_intial_options(struct qeth_card
- 	else
- 		card->options.layer2 = 0;
- 	card->options.performance_stats = 0;
-+	card->options.rx_sg_cb = QETH_RX_SG_CB;
- }
- 
- /**
-@@ -2258,6 +2259,89 @@ qeth_get_skb(unsigned int length, struct
- 	return skb;
- }
- 
-+static inline int
-+qeth_create_skb_frag(struct qdio_buffer_element *element,
-+		     struct sk_buff **pskb,
-+		     int offset, int *pfrag, int data_len)
-+{
-+	struct page *page = virt_to_page(element->addr);
-+	if (*pfrag == 0) {
-+		/* the upper protocol layers assume that there is data in the
-+		 * skb itself. Copy a small amount (64 bytes) to make them
-+		 * happy. */
-+		*pskb = dev_alloc_skb(64 + QETH_FAKE_LL_LEN_ETH);
-+		if (!(*pskb))
-+			return -ENOMEM;
-+		skb_reserve(*pskb, QETH_FAKE_LL_LEN_ETH);
-+		if (data_len <= 64) {
-+			memcpy(skb_put(*pskb, data_len), element->addr + offset,
-+				data_len);
-+		} else {
-+			get_page(page);
-+			memcpy(skb_put(*pskb, 64), element->addr + offset, 64);
-+			skb_fill_page_desc(*pskb, *pfrag, page, offset + 64,
-+				data_len - 64);
-+			(*pskb)->data_len += data_len - 64;
-+			(*pskb)->len	  += data_len - 64;
-+			(*pskb)->truesize += data_len - 64;
-+		}
-+	} else {
-+		get_page(page);
-+		skb_fill_page_desc(*pskb, *pfrag, page, offset, data_len);
-+		(*pskb)->data_len += data_len;
-+		(*pskb)->len	  += data_len;
-+		(*pskb)->truesize += data_len;
-+	}
-+	(*pfrag)++;
-+	return 0;
-+}
-+
-+static inline struct qeth_buffer_pool_entry *
-+qeth_find_free_buffer_pool_entry(struct qeth_card *card)
-+{
-+	struct list_head *plh;
-+	struct qeth_buffer_pool_entry *entry;
-+	int i, free;
-+	struct page *page;
-+
-+	if (list_empty(&card->qdio.in_buf_pool.entry_list))
-+		return NULL;
-+
-+	list_for_each(plh, &card->qdio.in_buf_pool.entry_list) {
-+		entry = list_entry(plh, struct qeth_buffer_pool_entry, list);
-+		free = 1;
-+		for (i = 0; i < QETH_MAX_BUFFER_ELEMENTS(card); ++i) {
-+			if (page_count(virt_to_page(entry->elements[i])) > 1) {
-+				free = 0;
-+				break;
-+			}
-+		}
-+		if (free) {
-+			list_del_init(&entry->list);
-+			return entry;
-+		}
-+	}
-+
-+	/* no free buffer in pool so take first one and swap pages */
-+	entry = list_entry(card->qdio.in_buf_pool.entry_list.next,
-+			struct qeth_buffer_pool_entry, list);
-+	for (i = 0; i < QETH_MAX_BUFFER_ELEMENTS(card); ++i) {
-+		if (page_count(virt_to_page(entry->elements[i])) > 1) {
-+			page = alloc_page(GFP_ATOMIC|GFP_DMA);
-+			if (!page) {
-+				return NULL;
-+			} else {
-+				free_page((unsigned long)entry->elements[i]);
-+				entry->elements[i] = page_address(page);
-+				if (card->options.performance_stats)
-+					card->perf_stats.sg_alloc_page_rx++;
-+			}
-+		}
-+	}
-+	list_del_init(&entry->list);
-+	return entry;
-+}
-+
- static struct sk_buff *
- qeth_get_next_skb(struct qeth_card *card, struct qdio_buffer *buffer,
- 		  struct qdio_buffer_element **__element, int *__offset,
-@@ -2269,6 +2353,8 @@ qeth_get_next_skb(struct qeth_card *card
- 	int skb_len;
- 	void *data_ptr;
- 	int data_len;
-+	int use_rx_sg = 0;
-+	int frag = 0;
- 
- 	QETH_DBF_TEXT(trace,6,"nextskb");
- 	/* qeth_hdr must not cross element boundaries */
-@@ -2293,23 +2379,43 @@ qeth_get_next_skb(struct qeth_card *card
- 
- 	if (!skb_len)
- 		return NULL;
--	if (card->options.fake_ll){
--		if(card->dev->type == ARPHRD_IEEE802_TR){
--			if (!(skb = qeth_get_skb(skb_len+QETH_FAKE_LL_LEN_TR, *hdr)))
--				goto no_mem;
--			skb_reserve(skb,QETH_FAKE_LL_LEN_TR);
-+	if ((skb_len >= card->options.rx_sg_cb) &&
-+	    (!(card->info.type == QETH_CARD_TYPE_OSN)) &&
-+	    (!atomic_read(&card->force_alloc_skb))) {
-+		use_rx_sg = 1;
-+	} else {
-+		if (card->options.fake_ll) {
-+			if (card->dev->type == ARPHRD_IEEE802_TR) {
-+				if (!(skb = qeth_get_skb(skb_len +
-+						QETH_FAKE_LL_LEN_TR, *hdr)))
-+					goto no_mem;
-+				skb_reserve(skb, QETH_FAKE_LL_LEN_TR);
-+			} else {
-+				if (!(skb = qeth_get_skb(skb_len +
-+						QETH_FAKE_LL_LEN_ETH, *hdr)))
-+					goto no_mem;
-+				skb_reserve(skb, QETH_FAKE_LL_LEN_ETH);
-+			}
- 		} else {
--			if (!(skb = qeth_get_skb(skb_len+QETH_FAKE_LL_LEN_ETH, *hdr)))
-+			skb = qeth_get_skb(skb_len, *hdr);
-+			if (!skb)
- 				goto no_mem;
--			skb_reserve(skb,QETH_FAKE_LL_LEN_ETH);
- 		}
--	} else if (!(skb = qeth_get_skb(skb_len, *hdr)))
--		goto no_mem;
-+	}
-+
- 	data_ptr = element->addr + offset;
- 	while (skb_len) {
- 		data_len = min(skb_len, (int)(element->length - offset));
--		if (data_len)
--			memcpy(skb_put(skb, data_len), data_ptr, data_len);
-+		if (data_len) {
-+			if (use_rx_sg) {
-+				if (qeth_create_skb_frag(element, &skb, offset,
-+				    &frag, data_len))
-+					goto no_mem;
-+			} else {
-+				memcpy(skb_put(skb, data_len), data_ptr,
-+					data_len);
-+			}
-+		}
- 		skb_len -= data_len;
- 		if (skb_len){
- 			if (qeth_is_last_sbale(element)){
-@@ -2331,6 +2437,10 @@ qeth_get_next_skb(struct qeth_card *card
- 	}
- 	*__element = element;
- 	*__offset = offset;
-+	if (use_rx_sg && card->options.performance_stats) {
-+		card->perf_stats.sg_skbs_rx++;
-+		card->perf_stats.sg_frags_rx += skb_shinfo(skb)->nr_frags;
-+	}
- 	return skb;
- no_mem:
- 	if (net_ratelimit()){
-@@ -2608,28 +2718,15 @@ qeth_process_inbound_buffer(struct qeth_
- 	}
- }
- 
--static struct qeth_buffer_pool_entry *
--qeth_get_buffer_pool_entry(struct qeth_card *card)
--{
--	struct qeth_buffer_pool_entry *entry;
--
--	QETH_DBF_TEXT(trace, 6, "gtbfplen");
--	if (!list_empty(&card->qdio.in_buf_pool.entry_list)) {
--		entry = list_entry(card->qdio.in_buf_pool.entry_list.next,
--				struct qeth_buffer_pool_entry, list);
--		list_del_init(&entry->list);
--		return entry;
--	}
--	return NULL;
--}
--
--static void
-+static int
- qeth_init_input_buffer(struct qeth_card *card, struct qeth_qdio_buffer *buf)
- {
- 	struct qeth_buffer_pool_entry *pool_entry;
- 	int i;
-- 
--	pool_entry = qeth_get_buffer_pool_entry(card);
-+
-+	pool_entry = qeth_find_free_buffer_pool_entry(card);
-+	if (!pool_entry)
-+		return 1;
- 	/*
- 	 * since the buffer is accessed only from the input_tasklet
- 	 * there shouldn't be a need to synchronize; also, since we use
-@@ -2648,6 +2745,7 @@ qeth_init_input_buffer(struct qeth_card 
- 			buf->buffer->element[i].flags = 0;
- 	}
- 	buf->state = QETH_QDIO_BUF_EMPTY;
-+	return 0;
- }
- 
- static void
-@@ -2682,6 +2780,7 @@ qeth_queue_input_buffer(struct qeth_card
- 	int count;
- 	int i;
- 	int rc;
-+	int newcount = 0;
- 
- 	QETH_DBF_TEXT(trace,6,"queinbuf");
- 	count = (index < queue->next_buf_to_init)?
-@@ -2692,9 +2791,27 @@ qeth_queue_input_buffer(struct qeth_card
- 	/* only requeue at a certain threshold to avoid SIGAs */
- 	if (count >= QETH_IN_BUF_REQUEUE_THRESHOLD(card)){
- 		for (i = queue->next_buf_to_init;
--		     i < queue->next_buf_to_init + count; ++i)
--			qeth_init_input_buffer(card,
--				&queue->bufs[i % QDIO_MAX_BUFFERS_PER_Q]);
-+		     i < queue->next_buf_to_init + count; ++i) {
-+			if (qeth_init_input_buffer(card,
-+				&queue->bufs[i % QDIO_MAX_BUFFERS_PER_Q])) {
-+				break;
-+			} else {
-+				newcount++;
-+			}
-+		}
-+
-+		if (newcount < count) {
-+			/* we are in memory shortage so we switch back to
-+			   traditional skb allocation and drop packages */
-+			if (atomic_cmpxchg(&card->force_alloc_skb, 0, 1))
-+				printk(KERN_WARNING
-+					"qeth: switch to alloc skb\n");
-+			count = newcount;
-+		} else {
-+			if (atomic_cmpxchg(&card->force_alloc_skb, 1, 0))
-+				printk(KERN_WARNING "qeth: switch to sg\n");
-+		}
-+
- 		/*
- 		 * according to old code it should be avoided to requeue all
- 		 * 128 buffers in order to benefit from PCI avoidance.
-@@ -6494,6 +6611,7 @@ qeth_hardsetup_card(struct qeth_card *ca
- 
- 	QETH_DBF_TEXT(setup, 2, "hrdsetup");
- 
-+	atomic_set(&card->force_alloc_skb, 0);
- retry:
- 	if (retries < 3){
- 		PRINT_WARN("Retrying to do IDX activates.\n");
-Index: linux-2.6-uschi/drivers/s390/net/qeth_proc.c
-===================================================================
---- linux-2.6-uschi.orig/drivers/s390/net/qeth_proc.c
-+++ linux-2.6-uschi/drivers/s390/net/qeth_proc.c
-@@ -212,6 +212,12 @@ qeth_perf_procfile_seq_show(struct seq_f
- 		      "  Skb fragments sent in SG mode          : %u\n\n",
- 		      card->perf_stats.sg_skbs_sent,
- 		      card->perf_stats.sg_frags_sent);
-+	seq_printf(s, "  Skbs received in SG mode               : %u\n"
-+		      "  Skb fragments received in SG mode      : %u\n"
-+		      "  Page allocations for rx SG mode        : %u\n\n",
-+		      card->perf_stats.sg_skbs_rx,
-+		      card->perf_stats.sg_frags_rx,
-+		      card->perf_stats.sg_alloc_page_rx);
- 	seq_printf(s, "  large_send tx (in Kbytes)              : %u\n"
- 		      "  large_send count                       : %u\n\n",
- 		      card->perf_stats.large_send_bytes >> 10,
+I guess those packet loss periods help you to reproduce it so easily.
+
+> # ss -n|wc -l
+> 870
+> 
+> # ping -A 80.223.96.1 
+> PING 80.223.96.1 (80.223.96.1) 56(84) bytes of data.
+> 64 bytes from 80.223.96.1: icmp_seq=1 ttl=255 time=431 ms
+> ...
+> --- 80.223.96.1 ping statistics ---
+> 40 packets transmitted, 25 received, 37% packet loss, time 17954ms
+> rtt min/avg/max/mdev = 406.000/467.758/530.983/29.384 ms, pipe 2, ipg/ewma 460.361/456.381 ms
+> 
+> But ploss is only temporary (when I am downloading with azureus =) ,
+> when only uploading (95% of bandwidth used) rtt avg = 32ms).
+> 
+> # dmesg|grep Leak
+> [114992.191011] Leak r=1 4
+> [124231.713348] Leak r=1 4
+> [142807.938284] Leak r=1 4
+> [142999.674521] Leak r=1 1
+> [143177.462073] Leak r=1 4
+> [143230.001570] Leak r=1 4
+> [143232.982560] Leak r=1 4
+> [143234.537096] Leak r=1 4
+> [143297.927760] Leak r=1 4
+> [143300.633603] Leak r=1 4
+> [143302.172917] Leak r=1 4
+> [143357.083193] Leak r=1 1
+> [143361.780879] Leak r=1 4
+> [143413.706490] Leak r=1 4
+> [143552.996598] Leak r=1 1
+> 
+> [root@safari /proc/sys/net/ipv4]# grep . *
+[...snip...]
+
+> tcp_frto:1
+
+I suspect this is the main ingrediment to trigger these leaks, well, 
+I'm pretty sure of... Sami, please test the patch included below, 
+Dave can then put that one to net-2.6 and to stable too.
+
+This is sort of poking to dark still... But it's pretty much the only 
+place where the SACKED_RETRANS bit is touched without checking first that 
+the adjustment can safely be made (and all SACKED_RETRANS changes in 
+2.6.22 are FRTO related as well). Most likely something cleared 
+SACKED_RETRANS bit underneath FRTO and in tcp_enter_frto_loss I just 
+blindly assumed that it's still there.
+
+While the patch below probably works, and leaks are no more, I'd like to 
+get bottom of this by really figuring out what caused the SACKED_RETRANS 
+bit to get cleared in the first place (wasn't expecting this happen while 
+I wrote the FRTO). I guess that it could be "lost retransmit" loop in 
+sacktag but again I've no concrete proof for that yet. Because for that to
+trigger, something must have allowed sending skbs past the snd_nxt at the 
+time of the RTO, which too must be prevented during FRTO! Thus there could 
+be other issues while this is just a sympthom of the main problem.
+
+I'd be interested to study some tcpdumps that relate to Leak cases you're 
+seeing. Could you record some Sami? I'm not sure though how one can figure 
+out the timestamp relation between the kernel log and a tcpdump log... 
+Anyway, for this debugging, you should use a debug version of this patch 
+with WARN_ON to get exact timestamp of the event since the leak print may 
+occur much later on, I put one available at 
+http://www.cs.helsinki.fi/u/ijjarvin/patches/ .
+
+
+Other candidates for the cause are even less likely. The first two are 
+self-standing so that this patch is going to be necessary as long as 
+fuzzy SACK blocks are allowed to be received and processed in sacktag 
+(regardless there turns to be additional problem triggering this one or 
+not):
+ - DSACK touching snd_una (receiver is pretty inconsistent with itself 
+   because snd_una wasn't advanced).
+ - 2xRTO and SACK @ snd_una (same note as above)
+ - snd_una advanced full skb _without_ FLAG_DATA_ACKED being set 
+   (unlikely)
+ - Head not retransmitted on RTO when FRTO was enabled (no, it's not
+   going to be this one)
+It cannot be double SACKED_RETRANS because another msg would be printed
+already in tcp_retransmit_skb.
+
+Anyway, I'll be offline over the weekend starting from the Friday
+morning.
+
+...thanks for your report Sami.
 
 -- 
+ i.
+
+
+
+[PATCH] [TCP]: Verify the presence of RETRANS bit when leaving FRTO
+
+For yet unknown reason, something cleared SACKED_RETRANS bit
+underneath FRTO.
+
+Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+---
+ net/ipv4/tcp_input.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
+
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 69f9f1e..4e5884a 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -1398,7 +1398,9 @@ static void tcp_enter_frto_loss(struct sock *sk, int allowed_segments, int flag)
+ 		 * waiting for the first ACK and did not get it)...
+ 		 */
+ 		if ((tp->frto_counter == 1) && !(flag&FLAG_DATA_ACKED)) {
+-			tp->retrans_out += tcp_skb_pcount(skb);
++			/* For some reason this R-bit might get cleared? */
++			if (TCP_SKB_CB(skb)->sacked & TCPCB_SACKED_RETRANS)
++				tp->retrans_out += tcp_skb_pcount(skb);
+ 			/* ...enter this if branch just for the first segment */
+ 			flag |= FLAG_DATA_ACKED;
+ 		} else {
+-- 
+1.5.0.6
+
+---696243703-605683641-1184226837=:12545--
