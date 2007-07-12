@@ -1,38 +1,26 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH 2.6.22] TCP: Make TCP_RTO_MAX a variable (take 2)
-Date: Thu, 12 Jul 2007 13:51:44 -0700
-Message-ID: <46969460.3020604@hp.com>
-References: <20070712.161510.26510093.noboru.obata.ar@hitachi.com> <20070712.023710.36923635.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: TCP stalls in current git, possibly splice related
+Date: Thu, 12 Jul 2007 13:52:54 -0700 (PDT)
+Message-ID: <20070712.135254.112289065.davem@davemloft.net>
+References: <Line.LNX.4.64.0707121608100.10773@d.namei>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: noboru.obata.ar@hitachi.com, shemminger@linux-foundation.org,
-	yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: jens.axboe@oracle.com, netdev@vger.kernel.org
+To: jmorris@namei.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel13.hp.com ([156.153.255.238]:54392 "EHLO palrel13.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758774AbXGLUwY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Jul 2007 16:52:24 -0400
-In-Reply-To: <20070712.023710.36923635.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49852
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1759578AbXGLUwz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jul 2007 16:52:55 -0400
+In-Reply-To: <Line.LNX.4.64.0707121608100.10773@d.namei>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> 
-> TCP's timeouts are perfectly fine, and the only thing you
-> might be showing above is that the application timeouts
-> are too short or that TCP needs notifications.
+From: James Morris <jmorris@namei.org>
+Date: Thu, 12 Jul 2007 16:12:25 -0400 (EDT)
 
-The application timeouts are probably being driven by external desires 
-for a given recovery time.
+> I'm seeing TCP connection stalls with current git, and a bisect found the 
+> following as a possible cause:
 
-TCP notifications don't solve anything unless the links in question are 
-local to the machine on which the TCP endpoint resides.
-
-So, it seems that what this is really saying is that in the context of 
-Linux at least, TCP is not a suitable protocol to be used in situations 
-where a fast detection/recovery is desired.
-
-Does that pretty much sum it up?
-
-rick jones
+To add to this James is seeing this with distcc I believe.
