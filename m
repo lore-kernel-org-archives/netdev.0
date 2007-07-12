@@ -1,68 +1,31 @@
-From: Satyam Sharma <ssatyam@cse.iitk.ac.in>
-Subject: Re: [PATCH v2 -mm 9/9] netconsole: Support dynamic reconfiguration
- using configfs
-Date: Thu, 12 Jul 2007 22:38:17 +0530 (IST)
-Message-ID: <Pine.LNX.4.64.0707122235330.10842@cselinux1.cse.iitk.ac.in>
-References: <20070710091920.23907.96483.sendpatchset@cselinux1.cse.iitk.ac.in>
- <20070710092006.23907.33652.sendpatchset@cselinux1.cse.iitk.ac.in>
- <4695FCB8.8090102@bx.jp.nec.com>
+From: Jean Tourrilhes <jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 2.6] SoftMAC : fix duplicate display of channel in scan
+Date: Thu, 12 Jul 2007 09:49:18 -0700
+Message-ID: <20070712164918.GC13445@bougret.hpl.hp.com>
+References: <20070710184155.GA6955@bougret.hpl.hp.com> <4693DD18.1010905@lwfinger.net> <1184211018.9446.0.camel@localhost.localdomain> <20070712163440.GA13445@bougret.hpl.hp.com> <46965977.7020807@lwfinger.net>
+Reply-To: jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Matt Mackall <mpm@selenic.com>,
-	Netdev <netdev@vger.kernel.org>,
-	Joel Becker <joel.becker@oracle.com>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>
-To: Keiichi KII <k-keiichi@bx.jp.nec.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail4.iitk.ac.in ([203.197.196.4]:53505 "EHLO mail4.iitk.ac.in"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S935456AbXGLQpo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Jul 2007 12:45:44 -0400
-In-Reply-To: <4695FCB8.8090102@bx.jp.nec.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Larry Finger <larry.finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <46965977.7020807-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
-
-On Thu, 12 Jul 2007, Keiichi KII wrote:
-> Hi Satyam,
+On Thu, Jul 12, 2007 at 11:40:23AM -0500, Larry Finger wrote:
+> Jean Tourrilhes wrote:
+> >
+> >	Well, I actually like forcing driver to use frequency, because
+> >that's an absolute physical measure and contains more meaning.
 > 
-> >  struct netconsole_target {
-> >  	struct list_head	list;
-> > +#ifdef	CONFIG_NETCONSOLE_DYNAMIC
-> > +	struct config_item	item;
-> > +	int			enabled;
-> > +#endif
-> >  	struct netpoll		np;
-> >  };
-> 
-> If CONFIG_NETCONSOLE_DYNAMIC is unset, we can't access to the "enabled" member.
-> So, the compile errors occur because the following functions make use of 
-> the above one.
+> Yes, but it is easier to keep a channel number in your head than a 
+> frequency.
 
-Gargh, yes.
+	That's why iwlist display both in 'iwlist freq' and 'iwlist scan'.
 
-> Signed-off-by: Keiichi Kii <k-keiichi@bx.jp.nec.com>
-> 
-> Index: mm/drivers/net/netconsole.c
-> ===================================================================
-> --- mm.orig/drivers/net/netconsole.c
-> +++ mm/drivers/net/netconsole.c
-> @@ -94,8 +94,8 @@ struct netconsole_target {
->         struct list_head        list;
->  #ifdef CONFIG_NETCONSOLE_DYNAMIC
->         struct config_item      item;
-> -       int                     enabled;
->  #endif
-> +       int                     enabled;
->         struct netpoll          np;
->  };
+> Larry
 
-Yup, enabled should be out of CONFIG_NETCONSOLE_DYNAMIC. I'll include this
-change in the next version as well.
-
-Thanks,
-Satyam
+	Jean
