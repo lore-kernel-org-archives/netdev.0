@@ -1,45 +1,34 @@
-From: James Morris <jmorris@namei.org>
-Subject: TCP stalls in current git, possibly splice related
-Date: Thu, 12 Jul 2007 16:12:25 -0400 (EDT)
-Message-ID: <Line.LNX.4.64.0707121608100.10773@d.namei>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2.6.22] TCP: Make TCP_RTO_MAX a variable (take 2)
+Date: Thu, 12 Jul 2007 13:24:48 -0700 (PDT)
+Message-ID: <20070712.132448.115910193.davem@davemloft.net>
+References: <20070712.161510.26510093.noboru.obata.ar@hitachi.com>
+	<20070712.023710.36923635.davem@davemloft.net>
+	<20070712.225950.12335719.noboru.obata.ar@hitachi.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Jens Axboe <jens.axboe@oracle.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@linux-foundation.org, yoshfuji@linux-ipv6.org,
+	netdev@vger.kernel.org
+To: noboru.obata.ar@hitachi.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.sea5.speakeasy.net ([69.17.117.4]:37778 "EHLO
-	mail2.sea5.speakeasy.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755705AbXGLUM2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jul 2007 16:12:28 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33792
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1755744AbXGLUes (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jul 2007 16:34:48 -0400
+In-Reply-To: <20070712.225950.12335719.noboru.obata.ar@hitachi.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I'm seeing TCP connection stalls with current git, and a bisect found the 
-following as a possible cause:
+From: OBATA Noboru <noboru.obata.ar@hitachi.com>
+Date: Thu, 12 Jul 2007 22:59:50 +0900 (JST)
 
-534f2aaa6ab07cd71164180bc958a7dcde41db11 is first bad commit
-commit 534f2aaa6ab07cd71164180bc958a7dcde41db11
-Author: Jens Axboe <jens.axboe@oracle.com>
-Date:   Fri Jun 1 14:52:37 2007 +0200
+> How do you think TCP timeouts in Linux can adapt to such changes
+> in network environment?
 
-    sys_sendfile: switch to using ->splice_read, if available
-    
-    This patch makes sendfile prefer to use ->splice_read(), if it's
-    available in the file_operations structure.
-    
-    Signed-off-by: Jens Axboe <jens.axboe@oracle.com>
+I'm honestly not interested in discussing this any more
+and Ian has even showed that the RFCs state that if we have
+a maximum it must be at least 60.
 
-
-It's a large patch, and not clear if it's the patch itself or coincidental 
-to it.
-
-I've looked at some tcpdumps, but may not be able to get back to them 
-until tomorrow or the weekend, & thought it might be useful to get the 
-report out now.
-
-
-
-- James
--- 
-James Morris
-<jmorris@namei.org>
+So really, there is no chance of merging a TCP_RTO_MAX
+decreasing patch, sorry.
