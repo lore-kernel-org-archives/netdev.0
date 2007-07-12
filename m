@@ -1,134 +1,154 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [NET 01/05]: Add net_device change_rx_mode callback
-Date: Thu, 12 Jul 2007 20:13:40 +0200 (MEST)
-Message-ID: <20070712181340.13849.14304.sendpatchset@localhost.localdomain>
+Subject: [NET 02/05]: dev_mcast: add multicast list synchronization helpers
+Date: Thu, 12 Jul 2007 20:13:42 +0200 (MEST)
+Message-ID: <20070712181341.13849.58440.sendpatchset@localhost.localdomain>
 References: <20070712181338.13849.74894.sendpatchset@localhost.localdomain>
 Cc: netdev@vger.kernel.org, greearb@candelatech.com,
 	Patrick McHardy <kaber@trash.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:54180 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:54184 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754880AbXGLSNm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jul 2007 14:13:42 -0400
+	with ESMTP id S1755355AbXGLSNo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jul 2007 14:13:44 -0400
 In-Reply-To: <20070712181338.13849.74894.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[NET]: Add net_device change_rx_mode callback
+[NET]: dev_mcast: add multicast list synchronization helpers
 
-Currently the set_multicast_list (and set_rx_mode) callbacks are
-responsible for configuring the device according to the IFF_PROMISC,
-IFF_MULTICAST and IFF_ALLMULTI flags and the mc_list (and uc_list in
-case of set_rx_mode).
+The method drivers currently use to synchronize multicast lists is not
+very pretty:
 
-These callbacks can be invoked from BH context without the rtnl_mutex
-by dev_mc_add/dev_mc_delete, which makes reading the device flags and
-promiscous/allmulti count racy. For real hardware drivers that just
-commit all changes to the hardware this is not a real problem since
-the stack guarantees to call them for every change, so at least the
-final call will not race and commit the correct configuration to the
-hardware.
+- walk the multicast list
+- search each entry on a copy of the previous list
+- if new add to lower device
+- walk the copy of the previous list
+- search each entry on the current list
+- if removed delete from lower device
+- copy entire list
 
-For software devices that want to synchronize promiscous and multicast
-state to an underlying device however this can cause corruption of the
-underlying device's flags or promisc/allmulti counts.
-
-When the software device is concurrently put in promiscous or allmulti
-mode while set_multicast_list is invoked from bottem half context, the
-device might synchronize the change to the underlying device without
-holding the rtnl_mutex, which races with concurrent changes to the
-underlying device.
-
-Add a dev->change_rx_flags hook that is invoked when any of the flags
-that affect rx filtering change (under the rtnl_mutex), which allows
-drivers to perform synchronization immediately and only synchronize
-the address lists in set_multicast_list/set_rx_mode.
+This patch adds a new field to struct dev_addr_list to store the
+synchronization state and adds two helper functions for synchronization
+and cleanup.
 
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 
 ---
-commit b977db07766ffb261d2c7ebe050cbc3b1d7d281a
-tree 1497ca885659afdde8ea81ea7d1534de28a773d3
-parent 15028aad00ddf241581fbe74a02ec89cbb28d35d
-author Patrick McHardy <kaber@trash.net> Thu, 12 Jul 2007 19:53:55 +0200
-committer Patrick McHardy <kaber@trash.net> Thu, 12 Jul 2007 19:53:55 +0200
+commit 934ee4749ce12cb9b868a98fd3822cf5cdfa8208
+tree ddb91cc1428e52f82712101518fccce65ed4597d
+parent b977db07766ffb261d2c7ebe050cbc3b1d7d281a
+author Patrick McHardy <kaber@trash.net> Thu, 12 Jul 2007 19:53:58 +0200
+committer Patrick McHardy <kaber@trash.net> Thu, 12 Jul 2007 19:53:58 +0200
 
- include/linux/netdevice.h |    3 +++
- net/core/dev.c            |   17 ++++++++++++++++-
- 2 files changed, 19 insertions(+), 1 deletions(-)
+ include/linux/netdevice.h |    3 ++
+ net/core/dev_mcast.c      |   75 +++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 78 insertions(+), 0 deletions(-)
 
 diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 79cc3da..f193aba 100644
+index f193aba..e5af458 100644
 --- a/include/linux/netdevice.h
 +++ b/include/linux/netdevice.h
-@@ -516,6 +516,9 @@ struct net_device
- 						void *saddr,
- 						unsigned len);
- 	int			(*rebuild_header)(struct sk_buff *skb);
-+#define HAVE_CHANGE_RX_FLAGS
-+	void			(*change_rx_flags)(struct net_device *dev,
-+						   int flags);
- #define HAVE_SET_RX_MODE
- 	void			(*set_rx_mode)(struct net_device *dev);
- #define HAVE_MULTICAST			 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 4221dcd..cb055e5 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2507,6 +2507,8 @@ static void __dev_set_promiscuity(struct net_device *dev, int inc)
- {
- 	unsigned short old_flags = dev->flags;
- 
-+	ASSERT_RTNL();
-+
- 	if ((dev->promiscuity += inc) == 0)
- 		dev->flags &= ~IFF_PROMISC;
- 	else
-@@ -2521,6 +2523,9 @@ static void __dev_set_promiscuity(struct net_device *dev, int inc)
- 			dev->name, (dev->flags & IFF_PROMISC),
- 			(old_flags & IFF_PROMISC),
- 			audit_get_loginuid(current->audit_context));
-+
-+		if (dev->change_rx_flags)
-+			dev->change_rx_flags(dev, IFF_PROMISC);
- 	}
+@@ -190,6 +190,7 @@ struct dev_addr_list
+ 	struct dev_addr_list	*next;
+ 	u8			da_addr[MAX_ADDR_LEN];
+ 	u8			da_addrlen;
++	u8			da_synced;
+ 	int			da_users;
+ 	int			da_gusers;
+ };
+@@ -1103,6 +1104,8 @@ extern int		dev_unicast_delete(struct net_device *dev, void *addr, int alen);
+ extern int		dev_unicast_add(struct net_device *dev, void *addr, int alen);
+ extern int 		dev_mc_delete(struct net_device *dev, void *addr, int alen, int all);
+ extern int		dev_mc_add(struct net_device *dev, void *addr, int alen, int newonly);
++extern int		dev_mc_sync(struct net_device *to, struct net_device *from);
++extern void		dev_mc_unsync(struct net_device *to, struct net_device *from);
+ extern void		dev_mc_discard(struct net_device *dev);
+ extern int 		__dev_addr_delete(struct dev_addr_list **list, int *count, void *addr, int alen, int all);
+ extern int		__dev_addr_add(struct dev_addr_list **list, int *count, void *addr, int alen, int newonly);
+diff --git a/net/core/dev_mcast.c b/net/core/dev_mcast.c
+index aa38100..235a2a8 100644
+--- a/net/core/dev_mcast.c
++++ b/net/core/dev_mcast.c
+@@ -102,6 +102,81 @@ int dev_mc_add(struct net_device *dev, void *addr, int alen, int glbl)
+ 	return err;
  }
  
-@@ -2559,11 +2564,16 @@ void dev_set_allmulti(struct net_device *dev, int inc)
- {
- 	unsigned short old_flags = dev->flags;
- 
-+	ASSERT_RTNL();
++/**
++ *	dev_mc_sync	- Synchronize device's multicast list to another device
++ *	@to: destination device
++ *	@from: source device
++ *
++ * 	Add newly added addresses to the destination device and release
++ * 	addresses that have no users left. The source device must be
++ * 	locked by netif_tx_lock_bh.
++ *
++ *	This function is intended to be called from the dev->set_multicast_list
++ *	function of layered software devices.
++ */
++int dev_mc_sync(struct net_device *to, struct net_device *from)
++{
++	struct dev_addr_list *da;
++	int err = 0;
 +
- 	dev->flags |= IFF_ALLMULTI;
- 	if ((dev->allmulti += inc) == 0)
- 		dev->flags &= ~IFF_ALLMULTI;
--	if (dev->flags ^ old_flags)
-+	if (dev->flags ^ old_flags) {
-+		if (dev->change_rx_flags)
-+			dev->change_rx_flags(dev, IFF_ALLMULTI);
- 		dev_set_rx_mode(dev);
++	netif_tx_lock_bh(to);
++	for (da = from->mc_list; da != NULL; da = da->next) {
++		if (!da->da_synced) {
++			err = __dev_addr_add(&to->mc_list, &to->mc_count,
++					     da->da_addr, da->da_addrlen, 0);
++			if (err < 0)
++				break;
++			da->da_synced = 1;
++			da->da_users++;
++		} else if (da->da_users == 1) {
++			__dev_addr_delete(&to->mc_list, &to->mc_count,
++					  da->da_addr, da->da_addrlen, 0);
++			__dev_addr_delete(&from->mc_list, &from->mc_count,
++					  da->da_addr, da->da_addrlen, 0);
++		}
 +	}
- }
- 
++	if (!err)
++		__dev_set_rx_mode(to);
++	netif_tx_unlock_bh(to);
++
++	return err;
++}
++EXPORT_SYMBOL(dev_mc_sync);
++
++
++/**
++ * 	dev_mc_unsync	- Remove synchronized addresses from the destination
++ * 			  device
++ *	@to: destination device
++ *	@from: source device
++ *
++ * 	Remove all addresses that were added to the destination device by
++ * 	dev_mc_sync(). This function is intended to be called from the
++ * 	dev->stop function of layered software devices.
++ */
++void dev_mc_unsync(struct net_device *to, struct net_device *from)
++{
++	struct dev_addr_list *da;
++
++	netif_tx_lock_bh(from);
++	netif_tx_lock_bh(to);
++
++	for (da = from->mc_list; da != NULL; da = da->next) {
++		if (!da->da_synced)
++			continue;
++		__dev_addr_delete(&to->mc_list, &to->mc_count,
++				  da->da_addr, da->da_addrlen, 0);
++		da->da_synced = 0;
++		__dev_addr_delete(&from->mc_list, &from->mc_count,
++				  da->da_addr, da->da_addrlen, 0);
++	}
++	__dev_set_rx_mode(to);
++
++	netif_tx_unlock_bh(to);
++	netif_tx_unlock_bh(from);
++}
++EXPORT_SYMBOL(dev_mc_unsync);
++
  /*
-@@ -2764,6 +2774,8 @@ int dev_change_flags(struct net_device *dev, unsigned flags)
- 	int ret, changes;
- 	int old_flags = dev->flags;
- 
-+	ASSERT_RTNL();
-+
- 	/*
- 	 *	Set the flags on our device.
- 	 */
-@@ -2778,6 +2790,9 @@ int dev_change_flags(struct net_device *dev, unsigned flags)
- 	 *	Load in the correct multicast list now the flags have changed.
- 	 */
- 
-+	if (dev->change_rx_flags && (dev->flags ^ flags) & IFF_MULTICAST)
-+		dev->change_rx_flags(dev, IFF_MULTICAST);
-+
- 	dev_set_rx_mode(dev);
- 
- 	/*
+  *	Discard multicast list when a device is downed
+  */
