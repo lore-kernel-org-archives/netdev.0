@@ -1,57 +1,59 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH 2.6.22] TCP: Make TCP_RTO_MAX a variable (take 2)
-Date: Thu, 12 Jul 2007 15:27:30 -0700
-Message-ID: <4696AAD2.9030405@hp.com>
-References: <20070712.161510.26510093.noboru.obata.ar@hitachi.com>	<20070712.023710.36923635.davem@davemloft.net>	<20070712.225950.12335719.noboru.obata.ar@hitachi.com>	<20070712.132448.115910193.davem@davemloft.net>	<20070712141203.7350429a@freepuppy.rosehill.hemminger.net>	<46969CA9.8030406@hp.com> <20070712150229.7a841c4d@freepuppy.rosehill.hemminger.net>
+From: Samuel Ortiz <samuel@sortiz.org>
+Subject: Re: RFC: removing DONGLE_OLD drivers?
+Date: Fri, 13 Jul 2007 01:30:19 +0300
+Message-ID: <20070712223018.GA3576@sortiz.org>
+References: <20070709172539.GF3492@stusta.de>
+Reply-To: Samuel Ortiz <samuel@sortiz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: noboru.obata.ar@hitachi.com, David Miller <davem@davemloft.net>,
-	yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Adrian Bunk <bunk@stusta.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel11.hp.com ([156.153.255.246]:35058 "EHLO palrel11.hp.com"
+Received: from smtp27.orange.fr ([80.12.242.94]:46664 "EHLO smtp27.orange.fr"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755567AbXGLW2N (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Jul 2007 18:28:13 -0400
-In-Reply-To: <20070712150229.7a841c4d@freepuppy.rosehill.hemminger.net>
+	id S1757653AbXGLXDG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Jul 2007 19:03:06 -0400
+Received: from smtp27.orange.fr (mwinf2704 [10.232.12.26])
+	by mwinf2705.orange.fr (SMTP Server) with ESMTP id B87C71C19E31
+	for <netdev@vger.kernel.org>; Fri, 13 Jul 2007 00:58:22 +0200 (CEST)
+Received: from me-wanadoo.net (localhost [127.0.0.1])
+	by mwinf2704.orange.fr (SMTP Server) with ESMTP id 9CBC81C04CF3
+	for <netdev@vger.kernel.org>; Fri, 13 Jul 2007 00:42:00 +0200 (CEST)
+Content-Disposition: inline
+In-Reply-To: <20070709172539.GF3492@stusta.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> So the problem is that RTO can grows to be twice the failover detection
-> time.  So back to the original mail, the scenario has a switch with failover
-> detection of 20seconds.  Worst case TCP RTO could grow to 40 seconds.
-> 
-> Going back in archive to original mail:
-> 
-> 
->>Background
->>==========
->>
->>When designing a TCP/IP based network system on failover-capable
->>network devices, people want to set timeouts hierarchically in
->>three layers, network device layer, TCP layer, and application
->>layer (bottom-up order), such that:
->>
->>1. Network device layer detects a failure first and switch to a
->>   backup device (say, in 20sec).
->>
->>2. TCP layer timeout & retransmission comes next, _hopefully_
->>   before the application layer timeout.
->>
->>3. Application layer detects a network failure last (by, say,
->>   30sec timeout) and may trigger a system-level failover.
-> 
-> 
-> Sounds like the solution is to make the switch failover detection faster.
-> If you get switch failover down to 5sec then TCP RTO shouldn't be bigger
-> than 10sec, and application will survive.
+Hi Adrian,
 
-That may indeed be the best solution, we'll have to wait to hear if 
-there is any freedom there.  When this sort of thing has crossed my path 
-in other contexts, the general answer is that the device failover time 
-is fixed, and the application layer time is similarly constrained by 
-end-user expectation/requirement.  Often as not, layer 8 and 9 issues 
-tend to dominate and expect to trump (in this case layer 4 issues).
+On Mon, Jul 09, 2007 at 07:25:39PM +0200, Adrian Bunk wrote:
+> With one exception, all DONGLE_OLD drivers have newer counterparts.
+> 
+> The DONGLE_OLD drivers depend on BROKEN_ON_SMP which e.g. implies that 
+> the many distributions shipping only SMP-kernels will never offer them.
+> 
+> The one exception is a driver for the Cirrus Logic EDB-7211 evaluation 
+> board that itself is out of production for some years.
+> 
+> Can we remove these old drivers or is there a good reason for keeping 
+> them?
+I didn't notice the ep7211 is only using the old dongle API.
+I'll convert it to the new one, and then we can start looking at getting
+rid of the old drivers.
 
-rick jones
+Cheers,
+Samuel.
+
+
+
+> cu
+> Adrian
+> 
+> -- 
+> 
+>        "Is there not promise of rain?" Ling Tan asked suddenly out
+>         of the darkness. There had been need of rain for many days.
+>        "Only a promise," Lao Er said.
+>                                        Pearl S. Buck - Dragon Seed
+> 
+
