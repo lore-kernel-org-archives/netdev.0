@@ -1,52 +1,80 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 8724] New: Unaligned acess in udp_recvmsg() on
- EV56
-Date: Thu, 12 Jul 2007 11:31:11 -0700
-Message-ID: <20070712113111.8ba886e2.akpm@linux-foundation.org>
-References: <bug-8724-10286@http.bugzilla.kernel.org/>
-	<20070708152935.b34d6e66.akpm@linux-foundation.org>
-	<20070711174511.B1148@jurassic.park.msu.ru>
-	<469668B6.7020305@alcatraz.fdf.net>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [PATCH] try parent numa_node at first before using default
+Date: Thu, 12 Jul 2007 11:31:41 -0700
+Message-ID: <20070712183141.GB22471@kroah.com>
+References: <200707101641.17672.yinghai.lu@sun.com> <469610D4.70009@s5r6.in-berlin.de> <20070712172310.4d662e1f@gondolin.boeblingen.de.ibm.com> <200707121059.54320.yinghai.lu@sun.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Ivan Kokshaysky <ink@jurassic.park.msu.ru>,
-	Richard Henderson <rth@twiddle.net>, netdev@vger.kernel.org,
-	"bugme-daemon@kernel-bugs.osdl.org"
-	<bugme-daemon@kernel-bugs.osdl.org>
-To: Dustin Marquess <jailbird@alcatraz.dnsalias.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Cornelia Huck <cornelia.huck@de.ibm.com>,
+	Stefan Richter <stefanr@s5r6.in-berlin.de>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Andi Kleen <ak@suse.de>, rientjes@google.com,
+	Christoph Lameter <clameter@sgi.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	David Miller <davem@davemloft.net>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Yinghai Lu <Yinghai.Lu@Sun.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:52431 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754655AbXGLSbe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jul 2007 14:31:34 -0400
-In-Reply-To: <469668B6.7020305@alcatraz.fdf.net>
+Received: from pentafluge.infradead.org ([213.146.154.40]:35869 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753923AbXGLSh7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jul 2007 14:37:59 -0400
+Content-Disposition: inline
+In-Reply-To: <200707121059.54320.yinghai.lu@sun.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 12 Jul 2007 12:45:26 -0500
-Dustin Marquess <jailbird@alcatraz.dnsalias.net> wrote:
-
-> Bingo!  That did it.
+On Thu, Jul 12, 2007 at 10:59:53AM -0700, Yinghai Lu wrote:
+> [PATCH] try parent numa_node at first before using default
 > 
-> I copied/modified the #ifdef from tulip_core.c:
+> For pci_device, pcibios_scan_root and pci_scan_root will call pci_device_add.
+> pci_device_add will call device_initialize and set_dev_node(&dev->dev,
+> pcibus_to_node(bus)).
+> other device such as netdev, and usb_device, set_dev_node is never be
+> used. So that field numa_node always is -1.
 > 
-> /* Set the copy breakpoint for the copy-only-tiny-buffer Rx structure. */
-> #if defined(__alpha__) || defined(__arm__) || defined(__hppa__) \
->         || defined(CONFIG_SPARC) || defined(__ia64__) \
->         || defined(__sh__) || defined(__mips__)
-> static int rx_copybreak = 1518;
-> #else
-> static int rx_copybreak;
-> #endif
+> So for netdev, it will need to use dev->parent to get pci_device to
+> use it's numa_node. esp in netdev_alloc_skb()
+> not sure how other device such as infiniband do that.
 > 
-> And that seems to have worked like a champ.
+> Actually before patch
+> [PATCH 1/2] x86_64: get mp_bus_to_node as early
+> there is a bug about squence of bus->sysdata and using pcibus_to_node.
+> the numa_node of pci_dev->dev is never set correctly...always 0.
+> 
+> So some device have to use pcibus_to_node(to_pci_dev(dev)->bus) directly
+> such as dma_alloc_pages in arch/x86_64/kernel/pci-dma.c.
+> or hwif_to_node in include/linux/ide.h
+> 
+> According to Stefan Richter
+>   - Change all subsystems to set dev->parent before device_initialize().
+>     *Document* that the device_initialize() API has this requirement.
+>     This is counter-intuitive, amounts to some work across the kernel,
+>     and could be gotten wrong again in future code because it's a
+>     counter-intuitive API.
+> 
+>   - Move your code from device_initialize() to device_add().  One minor
+>     drawback is that node-specific allocations based on the device's
+>     numa_node would not be optimized before device_add(), but there is
+>     probably no need for this.  Driver probes come after device_add().
+> 
+>   - Let subsystems explicitly call set_dev_node() on their own.
+> 
+> this patch is using second method.
+> 
+> Also we don't need call set_dev_node in pci_device_add anymore. but need to
+> make sure every pci root bus's bridge device numa is set.
+> 
+> with this patch, we could use device->numa_node direclty for all device.
 
-Can you send us a patch please?
+Please split this into two separate patches, as they are doing two
+different things.  One for the driver core, and one for pci devices.
 
-http://www.zip.com.au/~akpm/linux/patches/stuff/tpp.txt and
-http://linux.yyz.us/patch-format.html
+Also, what kind of performance issues have you seen with this patch in
+place?  As your previous patches were incorrect, I am guessing that you
+are not able to test this?
 
-contain some guidelines.
+thanks,
 
-Thanks.
+greg k-h
