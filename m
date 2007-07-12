@@ -1,74 +1,49 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH 2.6.22] TCP: Make TCP_RTO_MAX a variable (take 2)
-Date: Thu, 12 Jul 2007 15:02:29 -0700
-Message-ID: <20070712150229.7a841c4d@freepuppy.rosehill.hemminger.net>
-References: <20070712.161510.26510093.noboru.obata.ar@hitachi.com>
-	<20070712.023710.36923635.davem@davemloft.net>
-	<20070712.225950.12335719.noboru.obata.ar@hitachi.com>
-	<20070712.132448.115910193.davem@davemloft.net>
-	<20070712141203.7350429a@freepuppy.rosehill.hemminger.net>
-	<46969CA9.8030406@hp.com>
+From: Chris Stromsoe <cbs@cts.ucla.edu>
+Subject: Re: [RFT] skge: fiber carrier handling
+Date: Thu, 12 Jul 2007 15:24:50 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0707121514180.9995@potato.cts.ucla.edu>
+References: <20070710183953.GA8898@havoc.gtf.org> <Pine.LNX.4.64.0707111128330.31463@twin.jikos.cz>
+ <Pine.LNX.4.64.0707110920270.11697@potato.cts.ucla.edu>
+ <20070712145601.72417b42@freepuppy.rosehill.hemminger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: noboru.obata.ar@hitachi.com, David Miller <davem@davemloft.net>,
-	yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
-To: Rick Jones <rick.jones2@hp.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Jiri Kosina <jikos@jikos.cz>, Jeff Garzik <jeff@garzik.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:42958 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753856AbXGLWCp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jul 2007 18:02:45 -0400
-In-Reply-To: <46969CA9.8030406@hp.com>
+Received: from smtp-2.smtp.ucla.edu ([169.232.47.136]:59789 "EHLO
+	smtp-2.smtp.ucla.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754778AbXGLWZK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jul 2007 18:25:10 -0400
+In-Reply-To: <20070712145601.72417b42@freepuppy.rosehill.hemminger.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 12 Jul 2007 14:27:05 -0700
-Rick Jones <rick.jones2@hp.com> wrote:
+On Thu, 12 Jul 2007, Stephen Hemminger wrote:
 
-> > One question is why the RTO gets so large that it limits failover?
-> > 
-> > If Linux TCP is working correctly,  RTO should be srtt + 2*rttvar
-> > 
-> > So either there is a huge srtt or variance, or something is going
-> > wrong with RTT estimation.  Given some reasonable maximums of
-> > Srtt = 500ms and rttvar = 250ms, that would cause RTO to be 1second.
-> 
-> I suspect that what is happening here is that a link goes down in a 
-> trunk somewhere for some number of seconds, resulting in a given TCP 
-> segment being retransmitted several times, with the doubling of the RTO 
-> each time.
-> 
-> rick jones
+> Does this fix your problems?  I don't have dual port boards but have an 
+> old SK-9843 fiber board.
 
-So the problem is that RTO can grows to be twice the failover detection
-time.  So back to the original mail, the scenario has a switch with failover
-detection of 20seconds.  Worst case TCP RTO could grow to 40 seconds.
+Nope.  It still hangs with:
 
-Going back in archive to original mail:
+fresno:~# ip li set eth2 up
+fresno:~# ip li set eth2 down
+fresno:~# ip li set eth3 up
 
-> Background
-> ==========
-> 
-> When designing a TCP/IP based network system on failover-capable
-> network devices, people want to set timeouts hierarchically in
-> three layers, network device layer, TCP layer, and application
-> layer (bottom-up order), such that:
-> 
-> 1. Network device layer detects a failure first and switch to a
->    backup device (say, in 20sec).
-> 
-> 2. TCP layer timeout & retransmission comes next, _hopefully_
->    before the application layer timeout.
-> 
-> 3. Application layer detects a network failure last (by, say,
->    30sec timeout) and may trigger a system-level failover.
+This is with 2.6.22.1
 
-Sounds like the solution is to make the switch failover detection faster.
-If you get switch failover down to 5sec then TCP RTO shouldn't be bigger
-than 10sec, and application will survive.
+If I load the sk98lin driver, I don't have any problems changing link 
+state on both ports:
+
+fresno:~# rmmod skge
+fresno:~# modprobe sk98lin RlmtMode=DualNet
+fresno:~# ip li set eth2 up
+fresno:~# ip li set eth2 down
+fresno:~# ip li set eth3 up
+fresno:~# ip li set eth3 down
 
 
 
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+-Chris
