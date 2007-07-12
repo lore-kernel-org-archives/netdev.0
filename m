@@ -1,84 +1,53 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [2.6.23 PATCH 14/18] dm: netlink add to core
-Date: Thu, 12 Jul 2007 09:07:07 -0600
-Message-ID: <m1bqehfyp0.fsf@ebiederm.dsl.xmission.com>
-References: <20070711210159.GF24114@agk.fab.redhat.com>
-	<20070711143423.36722a41.akpm@linux-foundation.org>
+From: Cornelia Huck <cornelia.huck@de.ibm.com>
+Subject: Re: [PATCH 1/5] try parent numa_node at first before using default
+Date: Thu, 12 Jul 2007 17:23:10 +0200
+Message-ID: <20070712172310.4d662e1f@gondolin.boeblingen.de.ibm.com>
+References: <200707101641.17672.yinghai.lu@sun.com>
+	<200707101652.31378.yinghai.lu@sun.com>
+	<4694B702.2050507@s5r6.in-berlin.de>
+	<20070711210833.GA22745@kroah.com>
+	<46954B92.8000407@sun.com>
+	<46959651.1050400@s5r6.in-berlin.de>
+	<4695998C.8090100@sun.com>
+	<4695C088.7000606@s5r6.in-berlin.de>
+	<20070712091529.2b914ece@gondolin.boeblingen.de.ibm.com>
+	<469610D4.70009@s5r6.in-berlin.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alasdair G Kergon <agk@redhat.com>, dm-devel@redhat.com,
-	linux-kernel@vger.kernel.org, Mike Anderson <andmike@us.ibm.com>,
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Yinghai.Lu@Sun.COM, Greg KH <greg@kroah.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Andi Kleen <ak@suse.de>, rientjes@google.com,
+	Christoph Lameter <clameter@sgi.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	David Miller <davem@davemloft.net>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
 	netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
+To: Stefan Richter <stefanr@s5r6.in-berlin.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:57606 "EHLO
-	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757483AbXGLPNx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jul 2007 11:13:53 -0400
-In-Reply-To: <20070711143423.36722a41.akpm@linux-foundation.org> (Andrew
-	Morton's message of "Wed, 11 Jul 2007 14:34:23 -0700")
+Received: from mtagate1.uk.ibm.com ([195.212.29.134]:44198 "EHLO
+	mtagate1.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756507AbXGLPXC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jul 2007 11:23:02 -0400
+In-Reply-To: <469610D4.70009@s5r6.in-berlin.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton <akpm@linux-foundation.org> writes:
+On Thu, 12 Jul 2007 13:30:28 +0200,
+Stefan Richter <stefanr@s5r6.in-berlin.de> wrote:
 
-> On Wed, 11 Jul 2007 22:01:59 +0100
-> Alasdair G Kergon <agk@redhat.com> wrote:
->
->> From: Mike Anderson <andmike@us.ibm.com>
->> 
->> This patch adds support for the dm_path_event dm_send_event funtions which
->> create and send netlink attribute events.
->> 
->> ...
->>
->> --- linux.orig/drivers/md/dm-netlink.c 2007-07-11 21:37:50.000000000 +0100
->> +++ linux/drivers/md/dm-netlink.c	2007-07-11 21:37:51.000000000 +0100
->> @@ -40,6 +40,17 @@ struct dm_event_cache {
->>  
->>  static struct dm_event_cache _dme_cache;
->>  
->> +struct dm_event {
->> +        struct dm_event_cache *cdata;
->> +        struct mapped_device *md;
->> +        struct sk_buff *skb;
->> +        struct list_head elist;
->> +};
->> +
->> +static struct sock *_dm_netlink_sock;
->> +static uint32_t _dm_netlink_daemon_pid;
->> +static DEFINE_SPINLOCK(_dm_netlink_pid_lock);
->
-> The usage of this lock makes my head spin a bit.  It's a shame it wasn't
-> documented.
->
-> There's obviously something very significant happening with process IDs in
-> here.  A description of the design would be helpful.  Especially for the
-> containerisation guys who no doubt will need to tear their hair out over it
-> all ;)
+> So, since figuring the correct DMA device out is done by drivers
+> themselves, they usually can figure out the correct NUMA node as well.
+> The only precondition is that each DMA device has the correct NUMA node
+> set.  This is the job of subsystems like PCI, but it may be reasonable
+> to have simple and broadly applicable helpers for this in the driver core.
+> 
+> So, _is_ the dev->numa_node = dev->parent.numa_node assumption, if
+> implemented in device_add() and device_move(), as simple and as broadly
+> applicable as we want driver core's API to be?  Perhaps yes.
 
-Andrew this actually has nothing to do with process IDs.  The pid
-referred to here is the netlink port number. It just happens to be called
-a pid.
-
-In this case netlink is being used to simply broadcast events.
-
-I may be a little off but looking at the events types defined.
-device down, device up.  Defining a completely new interface for this
-looks absolutely absurd.
-
-
-This is device hotplug isn't it?   As such we should be using the
-hotplug infrastructure and not reinventing the wheel here.
-
-If it isn't hotplug it looks like something that inotify should
-handle.
-
-If that isn't the case I am fairly certain that md already has a
-mechanism to handle this, and those two should stay in sync
-if at all possible on this kind of thing.
-
-So this appears to be a gratuitous user interface addition.
-Why do we need a new user interface for this?
-
-Eric
+If making the general assumption that the device will inherit the
+numa_node through its parent(s) from the responsible DMA device is
+reasonable, then device_move() should certainly update the numa_node
+from the new parent. (For special cases, the caller could still call
+set_dev_node() itself.)
