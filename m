@@ -1,50 +1,61 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH] ps3: fix return value in the case of tx error
-Date: Thu, 12 Jul 2007 12:27:12 -0700
-Message-ID: <20070712122712.06145fa3@freepuppy.rosehill.hemminger.net>
-References: <20070712154930.3DE4.MOKUNO@sm.sony.co.jp>
+Subject: Re: [PATCH] ps3: gigabit ethernet driver for PS3, take3
+Date: Thu, 12 Jul 2007 12:39:17 -0700
+Message-ID: <20070712123917.5d54fbaa@freepuppy.rosehill.hemminger.net>
+References: <20070705193748.D018.MOKUNO@sm.sony.co.jp>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, cbe-oss-dev@ozlabs.org
+Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
+	cbe-oss-dev@ozlabs.org
 To: Masakazu Mokuno <mokuno@sm.sony.co.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:35256 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:44310 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754692AbXGLT1y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jul 2007 15:27:54 -0400
-In-Reply-To: <20070712154930.3DE4.MOKUNO@sm.sony.co.jp>
+	by vger.kernel.org with ESMTP id S1753955AbXGLTja (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jul 2007 15:39:30 -0400
+In-Reply-To: <20070705193748.D018.MOKUNO@sm.sony.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 12 Jul 2007 15:59:26 +0900
+On Thu, 05 Jul 2007 20:11:16 +0900
 Masakazu Mokuno <mokuno@sm.sony.co.jp> wrote:
 
-> 	Hi
-> 	
-> This patch fixes the improper return value of the hard_start_xmit()
-> handler of PS3 gelic network driver.
+> Hi, 
 > 
-> Signed-off-by: Masakazu Mokuno <mokuno@sm.sony.co.jp>
-> ---
->  drivers/net/ps3_gelic_net.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+> This is the third submission of the network driver for PS3.
+> The differences from the previous one are:
 > 
-> --- a/drivers/net/ps3_gelic_net.c
-> +++ b/drivers/net/ps3_gelic_net.c
-> @@ -803,7 +803,7 @@ kick:
->  error:
->  	card->netdev_stats.tx_dropped++;
->  	spin_unlock_irqrestore(&card->tx_dma_lock, flags);
-> -	return NETDEV_TX_LOCKED;
-> +	return NETDEV_TX_BUSY;
->  }
->  
+>   - renamed source file names so that their prefix can match
+>     with the module name
+>   - added cbe-oss-dev@ozlabs.org line for MAINTAINER file
+>   - changed some in copyright comments
+>   
+> If there are no more comments, please apply for 2.6.23. 
+>
 
-Wrong again. In case of error the device should free the skb
-and return NETDEV_TX_OK. When you return NETDEV_TX_BUSY the
-assumption is that send will be requeued. Chances are that what
-ever caused the skb not to usable will continue.
+This isn't a show stopper. But could you consider integrating vlan
+support with existing VLAN acceleration hooks?
 
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+
+Please remove GELIC_NET_GET_MODE/GELIC_NET_SET_MODE, they seem
+to be ioctl's left over from an earlier version.
+
+You don't need a net_device_stats element in gelic_net_card because
+it is already included in net_device structure in recent kernels.
+
+Why make ethtool support conditional. It should always be enabled.
+
+Don't call netif_poll_enable() in net_open. It is unnecessary and
+racy. 
+
+It is better to use device name (ie eth0) as name of irq for request_irq()
+because the user level IRQ balancer has some heuristics that know that
+names of form "ethX" are network devices.  May not matter on PS3 because
+it isn't true SMP.
+
+You are wasting memory by always allocating full maximum receive size buffers.
+Your max mtu is 2308 so the allocation will end up being rounded up to 4K
+so that costs twice as much memory as allocating a standard 1518 (or 1536)
+size Ethernet MTU buffer.
+
