@@ -1,98 +1,45 @@
-From: "Mr. James W. Laferriere" <babydr@baby-dragons.com>
-Subject: Re: iproute2 2.6.22-070710 ,  mp_ematch.y:11: unrecognized:
- %error-verbose , ...
-Date: Thu, 12 Jul 2007 20:58:00 -0700 (PDT)
-Message-ID: <Pine.LNX.4.64.0707122055190.7098@filesrv1.baby-dragons.com>
-References: <20070710190103.09ffa0e8@freepuppy.rosehill.hemminger.net>
- <Pine.LNX.4.64.0707112034250.9153@filesrv1.baby-dragons.com>
- <20070711211009.088c814e@freepuppy.rosehill.hemminger.net>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH 2.6.22] TCP: Make TCP_RTO_MAX a variable (take 2)
+Date: Fri, 13 Jul 2007 07:29:45 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0707130726550.30150@kivilampi-30.cs.helsinki.fi>
+References: <20070712.161510.26510093.noboru.obata.ar@hitachi.com>
+ <20070712.023710.36923635.davem@davemloft.net> <20070712.225950.12335719.noboru.obata.ar@hitachi.com>
+ <20070712.132448.115910193.davem@davemloft.net>
+ <20070712141203.7350429a@freepuppy.rosehill.hemminger.net> <46969CA9.8030406@hp.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: netdev@vger.kernel.org, lartc@mailman.ds9a.nl
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	noboru.obata.ar@hitachi.com, David Miller <davem@davemloft.net>,
+	yoshfuji@linux-ipv6.org, Netdev <netdev@vger.kernel.org>
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns3.system-techniques.com ([204.91.156.41]:40819 "EHLO
-	ns3.baby-dragons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752041AbXGMD6H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jul 2007 23:58:07 -0400
-In-Reply-To: <20070711211009.088c814e@freepuppy.rosehill.hemminger.net>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:43790 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750825AbXGME3r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jul 2007 00:29:47 -0400
+In-Reply-To: <46969CA9.8030406@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- 	Hello Stephen ,  Thank you .  see inline .
+On Thu, 12 Jul 2007, Rick Jones wrote:
 
-On Wed, 11 Jul 2007, Stephen Hemminger wrote:
-> On Wed, 11 Jul 2007 20:38:43 -0700 (PDT)
-> "Mr. James W. Laferriere" <babydr@baby-dragons.com> wrote:
->
->>  	Hello Stephen (& All) ,  Maybe next build of the tarball one could tar
->> up the base directory name as well .  ie: iproute2-2.6.22-070710/ .
->>  	The error below while being (quite probably) manually correctable isn't
->> something I'd expect to see in a release .
->>  		Twyl ,  JimL
->>
->> ps: I am not subscribed to netdev (I am quite sure) .
->>
->> $ ./configure
->> TC schedulers
->>   ATM    no
->>
->> $ make
->> make[1]: Entering directory `/home/archive/iproute2-2_6_22-070710/lib'
->> ...snip...
->> gcc -D_GNU_SOURCE -O2 -Wstrict-prototypes -Wall -I../include -DRESOLVE_HOSTNAMES -DCONFIG_GACT -DCONFIG_GACT_PROB   -c -o m_ematch.o m_ematch.c
->> bison -d -t -v -o emp_ematch.yacc.c emp_ematch.y
->> emp_ematch.y:11: unrecognized: %error-verbose
->> emp_ematch.y:11:    Skipping to next %
->> make[1]: *** [emp_ematch.yacc.c] Error 1
->> make[1]: Leaving directory `/home/archive/iproute2-2_6_22-070710/tc'
->> make: *** [all] Error 2
->> jiml@filesrv1:/home/archive
->
-> Which version of bison. There have been issues where bison / flex don't
-> always stay source compatible across releases.
+> > One question is why the RTO gets so large that it limits failover?
+> > 
+> > If Linux TCP is working correctly,  RTO should be srtt + 2*rttvar
+> > 
+> > So either there is a huge srtt or variance, or something is going
+> > wrong with RTT estimation.  Given some reasonable maximums of
+> > Srtt = 500ms and rttvar = 250ms, that would cause RTO to be 1second.
+> 
+> I suspect that what is happening here is that a link goes down in a trunk
+> somewhere for some number of seconds, resulting in a given TCP segment being
+> retransmitted several times, with the doubling of the RTO each time.
 
-$ bison --version
-bison (GNU Bison) 1.35
+But that's a back-off for the retransmissions, the doubling is 
+temporary... Once you return to normal conditions, the accumulated backoff 
+multiplier will be immediately cut back to normal. So you should then be 
+back to 1 second (like in the example or whatever) again...
 
-$ flex --version
-flex version 2.5.4
-
-$ /usr/src/linux/scripts/ver_linux
-If some fields are empty or look unusual you may have an old version.
-Compare to the current minimal requirements in Documentation/Changes.
-
-Linux filesrv1 2.6.18.3 #2 SMP Fri Jan 5 20:01:06 PST 2007 i686 unknown unknown GNU/Linux
-
-Gnu C                  3.3.6
-Gnu make               3.80
-binutils               2.15.92.0.2
-util-linux             2.12p
-mount                  2.12p
-module-init-tools      3.1
-e2fsprogs              1.38
-jfsutils               1.1.8
-reiserfsprogs          3.6.19
-xfsprogs               2.6.13
-pcmcia-cs              3.2.8
-quota-tools            3.12.
-PPP                    2.4.4b1
-nfs-utils              1.0.7
-Linux C Library        2.3.5
-Dynamic linker (ldd)   2.3.5
-Linux C++ Library      5.0.7
-Procps                 3.2.5
-Net-tools              1.60
-Kbd                    1.12
-Sh-utils               5.2.1
-udev                   064
-Modules Loaded
-
- 	Any thing else I can provide to help diagnose this please just ask .
- 		Tia ,  JimL
 -- 
-+-----------------------------------------------------------------+
-| James   W.   Laferriere | System   Techniques | Give me VMS     |
-| Network        Engineer | 663  Beaumont  Blvd |  Give me Linux  |
-| babydr@baby-dragons.com | Pacifica, CA. 94044 |   only  on  AXP |
-+-----------------------------------------------------------------+
+ i.
