@@ -1,43 +1,41 @@
-From: Kumar Gala <galak@kernel.crashing.org>
-Subject: [PATCH] gianfar: kill unused header
-Date: Fri, 13 Jul 2007 00:38:47 -0500 (CDT)
-Message-ID: <Pine.LNX.4.64.0707130037570.16069@blarg.am.freescale.net>
+From: Jens Axboe <jens.axboe@oracle.com>
+Subject: Re: [2.6 patch] more ACSI removal
+Date: Fri, 13 Jul 2007 07:42:47 +0200
+Message-ID: <20070713054247.GZ4587@kernel.dk>
+References: <20070712234553.GR3492@stusta.de>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, Andy Fleming <afleming@freescale.com>
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Boaz Harrosh <bharrosh@panasas.com>, linux-kernel@vger.kernel.org,
+	jgarzik@pobox.com, netdev@vger.kernel.org, geert@linux-m68k.org,
+	zippel@linux-m68k.org, linux-m68k@vger.kernel.org
+To: Adrian Bunk <bunk@stusta.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:42637 "EHLO gate.crashing.org"
+Received: from brick.kernel.dk ([80.160.20.94]:26443 "EHLO kernel.dk"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751994AbXGMFjG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Jul 2007 01:39:06 -0400
+	id S1751731AbXGMFnA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Jul 2007 01:43:00 -0400
+Content-Disposition: inline
+In-Reply-To: <20070712234553.GR3492@stusta.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-A long time ago we used OCP with the gianfar driver.  Eventually when
-we kill arch/ppc including this will cause issues so lets just kill it now.
+On Fri, Jul 13 2007, Adrian Bunk wrote:
+> This patch removes some code that became dead code after the ATARI_ACSI 
+> removal.
+> 
+> It also indirectly fixes the following bug introduced by
+> commit c2bcf3b8978c291e1b7f6499475c8403a259d4d6:
+> 
+>  config ATARI_SLM
+>         tristate "Atari SLM laser printer support"
+> -       depends on ATARI && ATARI_ACSI!=n
+> +       depends on ATARI
+> 
+> 
+> Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
-Signed-off-by: Kumar Gala <galak@kernel.crashing.org>
+Thanks Adrian, applied!
 
----
-commit 4e2440a284a0bfaaf3baa0ba4de2c2300912c983
-tree cd40eeafcd71577c95dc775b2e682ed852db5f71
-parent 773208946a132fb733ba273ee8562814f828cc28
-author Kumar Gala <galak@kernel.crashing.org> Fri, 13 Jul 2007 00:37:49 -0500
-committer Kumar Gala <galak@kernel.crashing.org> Fri, 13 Jul 2007 00:37:49 -0500
+-- 
+Jens Axboe
 
- drivers/net/gianfar_mii.c |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/gianfar_mii.c b/drivers/net/gianfar_mii.c
-index 5dd34a1..ac3596f 100644
---- a/drivers/net/gianfar_mii.c
-+++ b/drivers/net/gianfar_mii.c
-@@ -31,7 +31,6 @@
- #include <linux/mm.h>
- #include <linux/module.h>
- #include <linux/platform_device.h>
--#include <asm/ocp.h>
- #include <linux/crc32.h>
- #include <linux/mii.h>
- #include <linux/phy.h>
