@@ -1,35 +1,67 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] EP93XX_ETH must select MII
-Date: Fri, 13 Jul 2007 02:12:08 +0200
-Message-ID: <20070713001208.GX3492@stusta.de>
+From: Mike Anderson <andmike@us.ibm.com>
+Subject: Re: [dm-devel] Re: [2.6.23 PATCH 13/18] dm: netlink
+Date: Thu, 12 Jul 2007 19:00:59 -0700
+Message-ID: <20070713020059.GA5402@us.ibm.com>
+References: <20070711210137.GE24114@agk.fab.redhat.com> <20070711142712.e646995b.akpm@linux-foundation.org> <20070712231920.GZ11166@waste.org> <20070712163115.ee686f8d.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	John Donoghue <john.donoghue@ieee.org>
-To: jgarzik@pobox.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Matt Mackall <mpm@selenic.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Alasdair G Kergon <agk@redhat.com>
+To: device-mapper development <dm-devel@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout.stusta.mhn.de ([141.84.69.5]:59670 "EHLO
-	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754476AbXGMALe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jul 2007 20:11:34 -0400
+Received: from e5.ny.us.ibm.com ([32.97.182.145]:40705 "EHLO e5.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753973AbXGMCBH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Jul 2007 22:01:07 -0400
 Content-Disposition: inline
+In-Reply-To: <20070712163115.ee686f8d.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: John Donoghue <john.donoghue@ieee.org>
+Andrew Morton <akpm@linux-foundation.org> wrote:
+> On Thu, 12 Jul 2007 18:19:20 -0500
+> Matt Mackall <mpm@selenic.com> wrote:
+> 
+> > On Wed, Jul 11, 2007 at 02:27:12PM -0700, Andrew Morton wrote:
+> > > On Wed, 11 Jul 2007 22:01:37 +0100
+> > > Alasdair G Kergon <agk@redhat.com> wrote:
+> > > 
+> > > > From: Mike Anderson <andmike@us.ibm.com>
+> > > > 
+> > > > This patch adds a dm-netlink skeleton support to the Makefile, and the dm
+> > > > directory.
+> > > > 
+> > > > ...
+> > > >  
+> > > > +config DM_NETLINK
+> > > > +	bool "DM netlink events (EXPERIMENTAL)"
+> > > > +	depends on BLK_DEV_DM && EXPERIMENTAL
+> > > > +	---help---
+> > > > +	Generate netlink events for DM events.
+> > > 
+> > > Need a dependency on NET there?
+> > 
+> > It's really sad to make DM dependent on the network layer.
+> > 
+> 
+> Yes, it would be somewhat sad.  However one can presumably continue to use
+> DM, just without "DM netlink events".
+> 
 
-CONFIG_EP93XX_ETH=y, CONFIG_MII=n results in an obvious link error.
+Yes, if you deselect you just do not receive the events through netlink.
 
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
+> But that probably means that one will not be able to use the standard DM
+> admin tools without networking.  Maybe there will remain alternative but
+> cruder ways to get things done?
 
---- linux-2.6.20.2.orig/drivers/net/arm/Kconfig	2007-03-09 22:32:46.000000000 -0500
-+++ linux-2.6.20.2/drivers/net/arm/Kconfig	2007-03-09 22:50:43.000000000 -0500
-@@ -43,6 +43,7 @@
- config EP93XX_ETH
- 	tristate "EP93xx Ethernet support"
- 	depends on ARM && ARCH_EP93XX
-+	select MII
- 	help
- 	  This is a driver for the ethernet hardware included in EP93xx CPUs.
- 	  Say Y if you are building a kernel for EP93xx based devices.
+No, all admin tools and interfaces function as they do today. The
+dm-netlink patch series only contains 9 deletions (actual just one true
+deletion of existing kernel code the others are due to break up of the
+patch into compilable chunks). The intent was not to break users or force
+migration.
 
+
+-andmike
+--
+Michael Anderson
+andmike@us.ibm.com
