@@ -1,67 +1,34 @@
-From: Mike Anderson <andmike@us.ibm.com>
-Subject: Re: [dm-devel] Re: [2.6.23 PATCH 13/18] dm: netlink
-Date: Thu, 12 Jul 2007 19:00:59 -0700
-Message-ID: <20070713020059.GA5402@us.ibm.com>
-References: <20070711210137.GE24114@agk.fab.redhat.com> <20070711142712.e646995b.akpm@linux-foundation.org> <20070712231920.GZ11166@waste.org> <20070712163115.ee686f8d.akpm@linux-foundation.org>
+From: James Morris <jmorris@namei.org>
+Subject: Re: TCP stalls in current git, possibly splice related
+Date: Thu, 12 Jul 2007 22:26:00 -0400 (EDT)
+Message-ID: <Line.LNX.4.64.0707122225470.13816@d.namei>
+References: <Line.LNX.4.64.0707121608100.10773@d.namei>
+ <20070712.135254.112289065.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Matt Mackall <mpm@selenic.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Alasdair G Kergon <agk@redhat.com>
-To: device-mapper development <dm-devel@redhat.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: jens.axboe@oracle.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e5.ny.us.ibm.com ([32.97.182.145]:40705 "EHLO e5.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753973AbXGMCBH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Jul 2007 22:01:07 -0400
-Content-Disposition: inline
-In-Reply-To: <20070712163115.ee686f8d.akpm@linux-foundation.org>
+Received: from mail8.sea5.speakeasy.net ([69.17.117.10]:58381 "EHLO
+	mail8.sea5.speakeasy.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759619AbXGMC0C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jul 2007 22:26:02 -0400
+In-Reply-To: <20070712.135254.112289065.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton <akpm@linux-foundation.org> wrote:
-> On Thu, 12 Jul 2007 18:19:20 -0500
-> Matt Mackall <mpm@selenic.com> wrote:
+On Thu, 12 Jul 2007, David Miller wrote:
+
+> From: James Morris <jmorris@namei.org>
+> Date: Thu, 12 Jul 2007 16:12:25 -0400 (EDT)
 > 
-> > On Wed, Jul 11, 2007 at 02:27:12PM -0700, Andrew Morton wrote:
-> > > On Wed, 11 Jul 2007 22:01:37 +0100
-> > > Alasdair G Kergon <agk@redhat.com> wrote:
-> > > 
-> > > > From: Mike Anderson <andmike@us.ibm.com>
-> > > > 
-> > > > This patch adds a dm-netlink skeleton support to the Makefile, and the dm
-> > > > directory.
-> > > > 
-> > > > ...
-> > > >  
-> > > > +config DM_NETLINK
-> > > > +	bool "DM netlink events (EXPERIMENTAL)"
-> > > > +	depends on BLK_DEV_DM && EXPERIMENTAL
-> > > > +	---help---
-> > > > +	Generate netlink events for DM events.
-> > > 
-> > > Need a dependency on NET there?
-> > 
-> > It's really sad to make DM dependent on the network layer.
-> > 
+> > I'm seeing TCP connection stalls with current git, and a bisect found the 
+> > following as a possible cause:
 > 
-> Yes, it would be somewhat sad.  However one can presumably continue to use
-> DM, just without "DM netlink events".
-> 
+> To add to this James is seeing this with distcc I believe.
 
-Yes, if you deselect you just do not receive the events through netlink.
+Correct.
 
-> But that probably means that one will not be able to use the standard DM
-> admin tools without networking.  Maybe there will remain alternative but
-> cruder ways to get things done?
-
-No, all admin tools and interfaces function as they do today. The
-dm-netlink patch series only contains 9 deletions (actual just one true
-deletion of existing kernel code the others are due to break up of the
-patch into compilable chunks). The intent was not to break users or force
-migration.
-
-
--andmike
---
-Michael Anderson
-andmike@us.ibm.com
+-- 
+James Morris
+<jmorris@namei.org>
