@@ -1,35 +1,105 @@
-From: Ishizaki Kou <kou.ishizaki@toshiba.co.jp>
-Subject: Re: [Cbe-oss-dev] [PATCH] spidernet: don't use debug flag
-Date: Fri, 13 Jul 2007 17:16:05 +0900 (JST)
-Message-ID: <20070713.171605.-1300519026.kouish@swc.toshiba.co.jp>
-References: <20070711203742.GI5549@austin.ibm.com>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: Races in net_rx_action vs netpoll?
+Date: Fri, 13 Jul 2007 10:55:08 +0200
+Message-ID: <20070713085508.GC2009@ff.dom.local>
+References: <20070712125949.GC1708@ff.dom.local> <200707121554.33915.okir@lst.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, cbe-oss-dev@ozlabs.org
-To: linas@austin.ibm.com
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Olaf Kirch <okir@lst.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from imx9.toshiba.co.jp ([202.33.96.51]:36288 "EHLO
-	imx9.toshiba.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757882AbXGMIYj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jul 2007 04:24:39 -0400
-Received: from imx12.toshiba.co.jp (imx12 [61.202.160.132])
-	by imx9.toshiba.co.jp  with ESMTP id l6D8Oarc020919
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Fri, 13 Jul 2007 17:24:36 +0900 (JST)
-In-Reply-To: <20070711203742.GI5549@austin.ibm.com>
+Received: from mx12.go2.pl ([193.17.41.142]:58712 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1761644AbXGMIqX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Jul 2007 04:46:23 -0400
+Content-Disposition: inline
+In-Reply-To: <200707121554.33915.okir@lst.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Linas-san,
+On Thu, Jul 12, 2007 at 03:54:32PM +0200, Olaf Kirch wrote:
+> Hi Jarek,
+> 
+> On Thursday 12 July 2007 14:59, Jarek Poplawski wrote:
+> 
+> > > +#ifdef CONFIG_NETPOLL
+> > > +	/* Prevent race with netpoll - yes, this is a kludge.
+> > > +	 * But at least it doesn't penalize the non-netpoll
+> > > +	 * code path. */
+> > 
+> > Alas, this can penalize those who have it enabled (e.g. by distro),
+> > but don't use.
+> 
+> Well, the test_bit is actually cheap; it's not atomic, and has no memory
+> ordering requirements by all I know. The costly thing is set_bit/clear_bit
+> in poll_napi; and you only ever get there when you *use* netpoll.
 
-> p.s. I tested ifdown/ifup, and didn't see any problems.
-> Does your bug happen immediately, or does it take many attempts 
-> to trigger it?
+I've only meant "it doesn't penalize" isn't too precise here,
+at least if you take it "mathematically". But, e.g. "politically"
+it's 110% right, of course.
 
-Thanks for your testing.
+> 
+> > And it looks like _netif_rx_complete should be a better place,
+> > at least considering such cards as: 8139too, skge, sungem and
+> > maybe more (according to 2.6.22).
+> 
+> Why?
 
-It happens immediately in our environment. It may be celleb specific.
+It seems I miss something, but if it's to be called from dev->poll,
+these drivers use __netif_rx_complete instead of netif_rx_complete.
 
-Best regards,
-Kou Ishizaki
+> 
+> > > +		set_bit(__LINK_STATE_POLL_LIST_FROZEN, &np->dev->state);
+> > >  		npinfo->rx_flags |= NETPOLL_RX_DROP;
+> > 
+> > I wonder, why this flag cannot be used for this check?
+> 
+> I tried, but it made the patch rather icky. netpoll_info is defined
+> in netpoll.h, which includes netdevice.h. So you cannot inline the
+> check, and have to use an out-of-line function instead, along the
+> lines of
+> 
+> extern int am_i_being_called_by_poll_napi(struct net_device *);
+> 
+> netif_rx_complete(struct net_device *dev)
+> {
+> #ifdef CONFIG_NETPOLL
+> 	if (unlikely(dev->npinfo && am_i_being_called_by_poll_napi(dev))
+> 		return;
+> #endif
+> 	...
+> }
+> 
+> If you don't mind that, yes - this flag (or better, a newly introduced
+> NETPOLL_RX_NAPI) may work as well.
+> 
+> One thing I was a little worried about was whether dev->npinfo can
+> go away all of a sudden. It's really just protected by an rcu_readlock...
+
+I didn't think about this struct netpoll_info vs. inlining,
+but I'm glad you did, so adding a new flag looks more reasonably
+if we don't want to mess to much with netdevice.h.
+BTW, I don't think there could be any problem with rcu (if it's
+all about calling dev->poll from poll_napi) because then poll_napi
+should have the same problem.
+
+> 
+> > BTW, I'd be very glad if somebody could hint me what is the main
+> > reason for such troublesome function as poll_napi: if it's about
+> > performance isn't this enough to increase budget for netpoll in
+> > net_rx_action?
+> 
+> I think one reason is that you want to get the kernel oops out even
+> when the machine is so hosed that it doesn't even service softirqs
+> anymore.
+
+Thanks! So, I have to think about this more. Of course, such idea
+is fine if it doesn't collide with normal service, which I'm not
+sure is true now. I mean this problem here, and e.g. needles
+servicing of not netconsole packets by different cpus, but also
+some unclear to me things like calling this from find_skb when
+there is a problem with alloc_skb (I wonder how a card driver
+manages to get these skbs for receiving?).
+
+Cheers,
+Jarek P.
