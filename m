@@ -1,54 +1,34 @@
-From: "seventh guardian" <seventhguardian@gmail.com>
-Subject: Re: d80211 deadlock with wpa_supplicant and rmmod
-Date: Fri, 13 Jul 2007 13:05:43 +0100
-Message-ID: <1caff7430707130505r579ef08cmacc6c77f7535a66c@mail.gmail.com>
-References: <1caff7430707111617o70a534a5x2cf6b611a91f301a@mail.gmail.com>
-	 <20070711234153.GB5099@tuxdriver.com>
-	 <1184234538.6669.30.camel@johannes.berg>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: [NET]: gen_estimator deadlock fix
+Date: Fri, 13 Jul 2007 14:17:34 +0200
+Message-ID: <20070713121733.GB3282@ff.dom.local>
+References: <1184161297.1141.53.camel@ranko-fc2.spidernet.net> <20070712073746.GA1708@ff.dom.local> <1184231903.3477.65.camel@ranko-fc2.spidernet.net> <20070712104641.GB1708@ff.dom.local> <1184240842.3477.110.camel@ranko-fc2.spidernet.net> <46961970.7080209@trash.net> <1184262525.3477.135.camel@ranko-fc2.spidernet.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: Ranko Zivojnovic <ranko@spidernet.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.239]:24630 "EHLO
-	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755171AbXGMMFp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jul 2007 08:05:45 -0400
-Received: by wr-out-0506.google.com with SMTP id i30so314835wra
-        for <netdev@vger.kernel.org>; Fri, 13 Jul 2007 05:05:44 -0700 (PDT)
-In-Reply-To: <1184234538.6669.30.camel@johannes.berg>
+Received: from mx10.go2.pl ([193.17.41.74]:34607 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755037AbXGMMIs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Jul 2007 08:08:48 -0400
 Content-Disposition: inline
+In-Reply-To: <1184262525.3477.135.camel@ranko-fc2.spidernet.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 7/12/07, Johannes Berg <johannes@sipsolutions.net> wrote:
-> On Wed, 2007-07-11 at 19:41 -0400, John W. Linville wrote:
->
-> > > >I believe we have a deadlock in d80211.
-> > >
-> > > I have it too. But I'm using iwl3945 driver, in-kernel mac80211, and a
-> > > gentoo kernel (basically a patched vanilla-2.6.22.1). My machine is a
-> > > x86_64 core 2 duo.
-> > >
-> > > >The following triggers it on my 2way SMT machine with preempt.
-> > > >
-> > > >modprobe bcm43xx-d80211
-> > > >add sta0
-> > > >ifconfig sta0 up
-> > > >start wpa_supplicant on the interface
-> > > >rmmod bcm43xx-d80211
->
-> Sounds like the bug with the scheduled work locking. See the
-> "mac80211/bcm43xx deadlock" thread, there's a patch, report back if you
-> can/can not reproduce with the patch.
+On Thu, Jul 12, 2007 at 08:48:45PM +0300, Ranko Zivojnovic wrote:
+...
+> Ok - here's the patch for a review - it compiles clean ... and that's as
+> much as it has been tested - I'll try give it a run later today or
+> definitely tomorrow.
+...
 
-Hello, sorry for the delay but I only managed to try it out today..
-I've applied the patch and tortured the system as far as I could, and
-no hang at all :)
+Ranko, you have some powers!
 
-I've read the thread and it apparently replaces one bad problem for a
-lesser one, so I understand if it's not applied.. But at least there
-is a place in the code to point as the culprit :)
+Alas, I definitely need more time. I hope I'll manage to check this
+till monday. Of course, if testing will be OK and somebody will check
+and ack this earlier I don't see any reason in waiting on my opinion.
 
-Thanks,
-  Renato Caldas
+Thanks & good weekend,
+Jarek P.
