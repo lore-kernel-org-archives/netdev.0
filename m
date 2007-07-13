@@ -1,140 +1,84 @@
-From: Yinghai Lu <Yinghai.Lu@Sun.COM>
-Subject: [PATCH] try parent numa_node at first before using default v2
-Date: Fri, 13 Jul 2007 12:27:05 -0700
-Message-ID: <200707131227.07856.yinghai.lu@sun.com>
-References: <200707101641.17672.yinghai.lu@sun.com>
- <200707121059.54320.yinghai.lu@sun.com>
- <20070713074806.6a641528@gondolin.boeblingen.de.ibm.com>
-Reply-To: Yinghai Lu <Yinghai.Lu@Sun.COM>
+From: linas@austin.ibm.com (Linas Vepstas)
+Subject: [PATCH] crash in 2.6.22-git2 sysctl_set_parent()
+Date: Fri, 13 Jul 2007 15:05:15 -0500
+Message-ID: <20070713200515.GS5549@austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 7BIT
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Cornelia Huck <cornelia.huck@de.ibm.com>,
-	Stefan Richter <stefanr@s5r6.in-berlin.de>,
-	Greg KH <greg@kroah.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Andi Kleen <ak@suse.de>, rientjes@google.com,
-	Christoph Lameter <clameter@sgi.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sca-es-mail-1.Sun.COM ([192.18.43.132]:61520 "EHLO
-	sca-es-mail-1.sun.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759669AbXGMTXp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jul 2007 15:23:45 -0400
-In-reply-to: <20070713074806.6a641528@gondolin.boeblingen.de.ibm.com>
-Content-disposition: inline
+Received: from e1.ny.us.ibm.com ([32.97.182.141]:51976 "EHLO e1.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756749AbXGMUFW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Jul 2007 16:05:22 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[PATCH] try parent numa_node at first before using default v2
 
-For pci_device, pcibios_scan_root and pci_scan_root will call pci_device_add.
-pci_device_add will call device_initialize and set_dev_node(&dev->dev,
-pcibus_to_node(bus)).
-other device such as netdev, and usb_device, set_dev_node is never be
-used. So that field numa_node always is -1.
+This is a patch (& bug report) for a crash in sysctl_set_parent() 
+in 2.6.22-git2. 
 
-So for netdev, it will need to use dev->parent to get pci_device to
-use it's numa_node. esp in netdev_alloc_skb()
-not sure how other device such as infiniband do that.
+Problem: 2.6.22-git2 crashes with a stack trace 
+[c000000001d0fb00] c000000000067b4c .sysctl_set_parent+0x48/0x7c
+[c000000001d0fb90] c000000000069b40 .register_sysctl_table+0x7c/0xf4
+[c000000001d0fc30] c00000000065e710 .devinet_init+0x88/0xb0
+[c000000001d0fcc0] c00000000065db74 .ip_rt_init+0x17c/0x32c
+[c000000001d0fd70] c00000000065deec .ip_init+0x10/0x34
+[c000000001d0fdf0] c00000000065e898 .inet_init+0x160/0x3dc
+[c000000001d0fea0] c000000000630bc4 .kernel_init+0x204/0x3c8
 
-Actually before patch
-[PATCH 1/2] x86_64: get mp_bus_to_node as early
-there is a bug about squence of bus->sysdata and using pcibus_to_node.
-the numa_node of pci_dev->dev is never set correctly...always 0.
+A bit of poking around makes it clear what the problem is:
+In sysctl_set_parent(), the for loop 
 
-So some device have to use pcibus_to_node(to_pci_dev(dev)->bus) directly
-such as dma_alloc_pages in arch/x86_64/kernel/pci-dma.c.
-or hwif_to_node in include/linux/ide.h
+   for (; table->ctl_name || table->procname; table++) {
 
-According to Stefan Richter
-  - Change all subsystems to set dev->parent before device_initialize().
-    *Document* that the device_initialize() API has this requirement.
-    This is counter-intuitive, amounts to some work across the kernel,
-    and could be gotten wrong again in future code because it's a
-    counter-intuitive API.
+walks off the end of the table, and into garbage.  Basically,
+this for-loop iterator expects all table arrays to be 
+"null terminated".  However, net/ipv4/devinet.c statically 
+declares an array that is not null-terminated.  The patch 
+below fixes that; it works for me.  Its somewhat conservative;
+if one wishes to assume that the compiler will always zero out
+the empty parts of the structure, then this pach can be shrunk 
+to one line: +	ctl_table		devinet_root_dir[3];
 
-  - Move your code from device_initialize() to device_add().  One minor
-    drawback is that node-specific allocations based on the device's
-    numa_node would not be optimized before device_add(), but there is
-    probably no need for this.  Driver probes come after device_add().
+Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
 
-  - Let subsystems explicitly call set_dev_node() on their own.
+----
+I tried to audit some of the code to see where else there 
+might be similar badly-formed static declarations.  This is hard,
+as there's a lot of code. Most seems fine.
 
-this patch is using second method.
 
-Also we don't need call set_dev_node in pci_device_add anymore. but need to
-make sure every pci root bus's bridge device numa is set.
+ net/core/neighbour.c |    4 ++++
+ net/ipv4/devinet.c   |    7 ++++++-
+ 2 files changed, 10 insertions(+), 1 deletion(-)
 
-with this patch, we could use device->numa_node direclty for all device.
-
-Signed-off-by: Yinghai Lu <yinghai.lu@sun.com>
-
-diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
-index e48fcf0..c029ffc 100644
---- a/drivers/pci/probe.c
-+++ b/drivers/pci/probe.c
-@@ -935,7 +938,6 @@ void pci_device_add(struct pci_dev *dev, struct pci_bus *bus)
- 	dev->dev.release = pci_release_dev;
- 	pci_dev_get(dev);
+Index: linux-2.6.22-git2/net/ipv4/devinet.c
+===================================================================
+--- linux-2.6.22-git2.orig/net/ipv4/devinet.c	2007-07-13 14:23:21.000000000 -0500
++++ linux-2.6.22-git2/net/ipv4/devinet.c	2007-07-13 14:24:15.000000000 -0500
+@@ -1424,7 +1424,7 @@ static struct devinet_sysctl_table {
+ 	ctl_table		devinet_dev[2];
+ 	ctl_table		devinet_conf_dir[2];
+ 	ctl_table		devinet_proto_dir[2];
+-	ctl_table		devinet_root_dir[2];
++	ctl_table		devinet_root_dir[3];
+ } devinet_sysctl = {
+ 	.devinet_vars = {
+ 		DEVINET_SYSCTL_COMPLEX_ENTRY(FORWARDING, "forwarding",
+@@ -1493,8 +1493,13 @@ static struct devinet_sysctl_table {
+ 			.data		= &ipv4_devconf.loop,
+ 			.maxlen		= sizeof(int),
+ 			.mode		= 0644,
++			.child	= 0x0,
+ 			.proc_handler	= &proc_dointvec,
+ 		},
++		{
++			.ctl_name	= 0,
++			.procname	= 0,
++		},
+ 	},
+ };
  
--	set_dev_node(&dev->dev, pcibus_to_node(bus));
- 	dev->dev.dma_mask = &dev->dma_mask;
- 	dev->dev.coherent_dma_mask = 0xffffffffull;
- 
-@@ -1096,6 +1098,9 @@ struct pci_bus * pci_create_bus(struct device *parent,
- 		goto dev_reg_err;
- 	b->bridge = get_device(dev);
- 
-+	if (!parent)
-+		set_dev_node(b->bridge, pcibus_to_node(b));
-+
- 	b->class_dev.class = &pcibus_class;
- 	sprintf(b->class_dev.class_id, "%04x:%02x", pci_domain_nr(b), bus);
- 	error = class_device_register(&b->class_dev);
-diff --git a/drivers/base/core.c b/drivers/base/core.c
-index 0455aa7..d8b063b 100644
---- a/drivers/base/core.c
-+++ b/drivers/base/core.c
-@@ -672,6 +672,11 @@ int device_add(struct device *dev)
- 	if (error)
- 		goto Error;
- 
-+	/* use parent numa_node */
-+	if (parent) {
-+		set_dev_node(dev, dev_to_node(parent));
-+	}
-+
- 	/* first, register with generic layer. */
- 	kobject_set_name(&dev->kobj, "%s", dev->bus_id);
- 	error = kobject_add(&dev->kobj);
-@@ -1269,8 +1274,11 @@ int device_move(struct device *dev, struct device *new_parent)
- 	dev->parent = new_parent;
- 	if (old_parent)
- 		klist_remove(&dev->knode_parent);
--	if (new_parent)
-+	if (new_parent) {
- 		klist_add_tail(&dev->knode_parent, &new_parent->klist_children);
-+		set_dev_node(dev, dev_to_node(new_parent));
-+	}
-+
- 	if (!dev->class)
- 		goto out_put;
- 	error = device_move_class_links(dev, old_parent, new_parent);
-@@ -1280,9 +1288,12 @@ int device_move(struct device *dev, struct device *new_parent)
- 		if (!kobject_move(&dev->kobj, &old_parent->kobj)) {
- 			if (new_parent)
- 				klist_remove(&dev->knode_parent);
--			if (old_parent)
-+			dev->parent = old_parent;
-+			if (old_parent) {
- 				klist_add_tail(&dev->knode_parent,
- 					       &old_parent->klist_children);
-+				set_dev_node(dev, dev_to_node(old_parent));
-+			}
- 		}
- 		put_device(new_parent);
- 		goto out;
