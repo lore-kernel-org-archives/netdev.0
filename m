@@ -1,45 +1,44 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH 2.6.22] TCP: Make TCP_RTO_MAX a variable (take 2)
-Date: Fri, 13 Jul 2007 07:29:45 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0707130726550.30150@kivilampi-30.cs.helsinki.fi>
-References: <20070712.161510.26510093.noboru.obata.ar@hitachi.com>
- <20070712.023710.36923635.davem@davemloft.net> <20070712.225950.12335719.noboru.obata.ar@hitachi.com>
- <20070712.132448.115910193.davem@davemloft.net>
- <20070712141203.7350429a@freepuppy.rosehill.hemminger.net> <46969CA9.8030406@hp.com>
+From: "Yinghai Lu" <yhlu.kernel@gmail.com>
+Subject: Re: [PATCH] try parent numa_node at first before using default
+Date: Thu, 12 Jul 2007 21:42:12 -0700
+Message-ID: <86802c440707122142t796aaf29v46403cc50c7ba4ea@mail.gmail.com>
+References: <200707101641.17672.yinghai.lu@sun.com>
+	 <469610D4.70009@s5r6.in-berlin.de>
+	 <20070712172310.4d662e1f@gondolin.boeblingen.de.ibm.com>
+	 <200707121059.54320.yinghai.lu@sun.com>
+	 <20070712183141.GB22471@kroah.com>
+	 <86802c440707121206i3186fe9chba55fe2e5e5e4c5@mail.gmail.com>
+	 <20070713031622.GC2395@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	noboru.obata.ar@hitachi.com, David Miller <davem@davemloft.net>,
-	yoshfuji@linux-ipv6.org, Netdev <netdev@vger.kernel.org>
-To: Rick Jones <rick.jones2@hp.com>
+Cc: "Cornelia Huck" <cornelia.huck@de.ibm.com>,
+	"Stefan Richter" <stefanr@s5r6.in-berlin.de>,
+	"Andrew Morton" <akpm@linux-foundation.org>,
+	"Andi Kleen" <ak@suse.de>, rientjes@google.com,
+	"Christoph Lameter" <clameter@sgi.com>,
+	"Christoph Hellwig" <hch@infradead.org>,
+	"David Miller" <davem@davemloft.net>,
+	"Linux Kernel Mailing List" <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: "Greg KH" <greg@kroah.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:43790 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750825AbXGME3r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jul 2007 00:29:47 -0400
-In-Reply-To: <46969CA9.8030406@hp.com>
+Received: from nz-out-0506.google.com ([64.233.162.229]:14021 "EHLO
+	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758093AbXGMEmO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jul 2007 00:42:14 -0400
+Received: by nz-out-0506.google.com with SMTP id s18so342335nze
+        for <netdev@vger.kernel.org>; Thu, 12 Jul 2007 21:42:13 -0700 (PDT)
+In-Reply-To: <20070713031622.GC2395@kroah.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 12 Jul 2007, Rick Jones wrote:
+On 7/12/07, Greg KH <greg@kroah.com> wrote:
+>
+> But you were not able to test USB, right?  Does that work properly now
+> with this patch?
 
-> > One question is why the RTO gets so large that it limits failover?
-> > 
-> > If Linux TCP is working correctly,  RTO should be srtt + 2*rttvar
-> > 
-> > So either there is a huge srtt or variance, or something is going
-> > wrong with RTT estimation.  Given some reasonable maximums of
-> > Srtt = 500ms and rttvar = 250ms, that would cause RTO to be 1second.
-> 
-> I suspect that what is happening here is that a link goes down in a trunk
-> somewhere for some number of seconds, resulting in a given TCP segment being
-> retransmitted several times, with the doubling of the RTO each time.
+Will test it later with USB cdrom by big file reading.
 
-But that's a back-off for the retransmissions, the doubling is 
-temporary... Once you return to normal conditions, the accumulated backoff 
-multiplier will be immediately cut back to normal. So you should then be 
-back to 1 second (like in the example or whatever) again...
-
--- 
- i.
+YH
