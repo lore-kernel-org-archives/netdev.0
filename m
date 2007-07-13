@@ -1,8 +1,8 @@
 From: KII Keiichi <k-keiichi@bx.jp.nec.com>
-Subject: Re: [PATCH v2 -mm 6/9] netconsole: Introduce netconsole_netdev_notifier
-Date: Fri, 13 Jul 2007 22:47:11 +0900
-Message-ID: <4697825F.3030101@bx.jp.nec.com>
-References: <20070710091920.23907.96483.sendpatchset@cselinux1.cse.iitk.ac.in> <20070710091951.23907.36072.sendpatchset@cselinux1.cse.iitk.ac.in>
+Subject: Re: [PATCH v2 -mm 8/9] netconsole: Support multiple logging targets
+Date: Fri, 13 Jul 2007 22:49:27 +0900
+Message-ID: <469782E7.1070302@bx.jp.nec.com>
+References: <20070710091920.23907.96483.sendpatchset@cselinux1.cse.iitk.ac.in> <20070710092001.23907.39876.sendpatchset@cselinux1.cse.iitk.ac.in>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
@@ -15,11 +15,11 @@ Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
 	David Miller <davem@davemloft.net>
 To: Satyam Sharma <ssatyam@cse.iitk.ac.in>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from TYO202.gate.nec.co.jp ([202.32.8.206]:56618 "EHLO
-	tyo202.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757226AbXGMNtW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jul 2007 09:49:22 -0400
-In-Reply-To: <20070710091951.23907.36072.sendpatchset@cselinux1.cse.iitk.ac.in>
+Received: from TYO201.gate.nec.co.jp ([202.32.8.193]:59003 "EHLO
+	tyo201.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755249AbXGMNtY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jul 2007 09:49:24 -0400
+In-Reply-To: <20070710092001.23907.39876.sendpatchset@cselinux1.cse.iitk.ac.in>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
@@ -27,20 +27,29 @@ Hi Satyam,
 
 > From: Satyam Sharma <ssatyam@cse.iitk.ac.in>
 > 
-> [6/9] netconsole: Introduce netconsole_netdev_notifier
+> [8/9] netconsole: Support multiple logging targets
 > 
-> To update fields of underlying netpoll structure at runtime on
-> corresponding NETDEV_CHANGEADDR or NETDEV_CHANGENAME notifications.
+> This patch introduces support for multiple targets:
 > 
-> ioctl(SIOCSIFHWADDR) {or ioctl(SIOCSIFNAME)} could be used to change the
-> hardware/MAC address {or name} of the local interface that our netpoll is
-> attached to. Whenever this happens, netdev notifier chain is called out
-> with the NETDEV_CHANGEADDR {or NETDEV_CHANGENAME} event message. We respond
-> to that and update the local_mac {or dev_name} field of the struct netpoll.
-> This makes sense anyway, but is especially required for dynamic netconsole
-> because the netpoll structure's internal members become user visible files
-> when either sysfs or configfs are used. So this helps us to keep up with the
-> MAC address / name changes and keep the values in struct netpoll uptodate.
+> Let's keep this out of CONFIG_NETCONSOLE_DYNAMIC as well -- this is useful
+> even in the default case and (including the infrastructure introduced in
+> previous patches) doesn't really add too many bytes to module text. All the
+> complexity (and size) comes with the dynamic reconfigurability / userspace
+> interface patch, and so it's plausible users may want to keep this enabled
+> but that disabled (say to avoid a dep on CONFIG_CONFIGFS_FS too).
+> 
+> Also update documentation to mention the use of ";" separator to specify
+> multiple logging targets in the boot/module option string.
+> 
+> Brief overview:
+> 
+> We maintain a target_list (and corresponding lock). Get rid of the static
+> "default_target" and introduce allocation and release functions for our
+> netconsole_target objects (but keeping sure to preserve previous behaviour
+> such as default values). During init_netconsole(), ";" is used as the
+> separator to identify multiple target specifications in the boot/module
+> option string. The target specifications are parsed and netpolls setup.
+> During exit, the target_list is torn down and all items released.
 > 
 > Signed-off-by: Satyam Sharma <ssatyam@cse.iitk.ac.in>
 > Cc: Keiichi Kii <k-keiichi@bx.jp.nec.com>
@@ -52,4 +61,5 @@ Thanks
 Keiichi KII
 NEC Corporation OSS Platform Development Division
 E-mail: k-keiichi@bx.jp.nec.com
+
 
