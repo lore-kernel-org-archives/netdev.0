@@ -1,56 +1,65 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: TCP stalls in current git, possibly splice related
-Date: Fri, 13 Jul 2007 23:55:04 +0200
-Message-ID: <1184363704.3928.6.camel@johannes.berg>
-References: <Line.LNX.4.64.0707121608100.10773@d.namei>
-	 <1184320965.30334.2.camel@johannes.berg>  <20070713110534.GF5328@kernel.dk>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: Splitting e1000 (Was: Re: e1000: backport ich9
+ support from 7.5.5 ?)
+Date: Fri, 13 Jul 2007 18:08:42 -0400
+Message-ID: <4697F7EA.9050101@garzik.org>
+References: <46857C08.4030303@intel.com>	<20070629150350.414553d4.akpm@linux-foundation.org>	<4685838D.9080108@garzik.org>	<c0a09e5c0706291657kd5e4baawb113a17ca5ab2191@mail.gmail.com>	<46859F3F.305@garzik.org>	<4685C09B.7040908@intel.com>	<20070630082520.GA20140@infradead.org>	<468AD23A.4090904@intel.com>	<468D8B32.9020305@garzik.org>	<468EDAF9.3020606@intel.com>	<20070707190431.GA26341@electric-eye.fr.zoreil.com>	<46900B83.1060902@intel.com>
+	<20070707183244.19d21893@freepuppy.rosehill.hemminger.net>
+	<469110F6.2030902@linux.intel.com> <4691279C.8030603@garzik.org>
+	<46914382.8090801@linux.intel.com>
+	<469280F5.8000909@garzik.org> <46929EBB.3000809@intel.com>
+	<4692B611.1050603@garzik.org> <4697F27F.6060107@intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-bl/Piu0PLx7BIK7M0IFX"
-Cc: James Morris <jmorris@namei.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Jens Axboe <jens.axboe@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:35032 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756544AbXGMV4q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jul 2007 17:56:46 -0400
-In-Reply-To: <20070713110534.GF5328@kernel.dk>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel@lists.sourceforge.net,
+	Arjan van de Ven <arjan@linux.intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	Christoph Hellwig <hch@infradead.org>, netdev@vger.kernel.org,
+	Andrew Grover <andy.grover@gmail.com>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <4697F27F.6060107@intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
+Kok, Auke wrote:
+> Sorry for not replying to this earlier (I was on vacation for 2 days). 
+> We had some internal discussions and all the noses appear to be facing 
+> in the proper direction. I'm very happy with this and it will be my 
+> highest priority to make this work. I will attempt to get a quick start 
+> on this and come with a start point driver as soon as I can. Thanks to 
+> everyones who commented!
 
---=-bl/Piu0PLx7BIK7M0IFX
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+Sounds good to me.  My only further comment would be to agree and 
+encourage posting of quick-start soon.  Don't worry about much beyond 
+"it works" tests before posting the first public version.  We'll 
+inevitably need a couple more minor revisions before merging, as with 
+all new drivers.
 
-On Fri, 2007-07-13 at 13:05 +0200, Jens Axboe wrote:
-> On Fri, Jul 13 2007, Johannes Berg wrote:
-> > On Thu, 2007-07-12 at 16:12 -0400, James Morris wrote:
-> > > I'm seeing TCP connection stalls with current git, and a bisect found=
- the=20
-> > > following as a possible cause:
-> >=20
-> > I'm also seeing stalls with synergy.
->=20
-> Please try the below.
+We all seem to be going in the right direction, so the process should 
+not take months.  I'll make it a priority to review each revision as 
+soon as possible.
 
-Thanks. I already had your mail in the other part of the thread marked,
-I'll give it a try on Monday or Tuesday; I'm away from the setup where I
-always see the problem right now.
+	Jeff
 
-johannes
 
---=-bl/Piu0PLx7BIK7M0IFX
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
 
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iD8DBQBGl/S3/ETPhpq3jKURAinXAKCdwMRnfzAzCXdsgc6CNvB7oX+UXwCglnJi
-JRyG5khMj0GJ84QwcF6ftvk=
-=UmeE
------END PGP SIGNATURE-----
-
---=-bl/Piu0PLx7BIK7M0IFX--
-
+-------------------------------------------------------------------------
+This SF.net email is sponsored by DB2 Express
+Download DB2 Express C - the FREE version of DB2 express and take
+control of your XML. No limits. Just data. Click to get it now.
+http://sourceforge.net/powerbar/db2/
