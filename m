@@ -1,44 +1,35 @@
-From: Cruise Huang <zyziii@tom.com>
-Subject: a question about the "reord"
-Date: Fri, 13 Jul 2007 15:26:28 +0800
-Message-ID: <46972924.9020605@tom.com>
+From: Ishizaki Kou <kou.ishizaki@toshiba.co.jp>
+Subject: Re: [Cbe-oss-dev] [PATCH] spidernet: don't use debug flag
+Date: Fri, 13 Jul 2007 17:16:05 +0900 (JST)
+Message-ID: <20070713.171605.-1300519026.kouish@swc.toshiba.co.jp>
+References: <20070711203742.GI5549@austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, cbe-oss-dev@ozlabs.org
+To: linas@austin.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpr1.tom.com ([202.108.255.195]:34995 "HELO tom.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1759033AbXGMH5l (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Jul 2007 03:57:41 -0400
-Received: from [192.168.9.92] (unknown [172.24.140.62])
-	by bjapp32 (Coremail) with SMTP id S4ABnE8pl0YmAIw+.1
-	for <netdev@vger.kernel.org>; Fri, 13 Jul 2007 15:27:21 +0800 (CST)
-Received: from 192.168.9.92([210.22.111.234])
-	by bjapp22.tom.com(KBAS Gateway 2.1 2.125e) with ESMTP id local22747.1184311631 for <netdev@vger.kernel.org>;
-	Fri Jul 13 15:27:11 2007 +0800
+Received: from imx9.toshiba.co.jp ([202.33.96.51]:36288 "EHLO
+	imx9.toshiba.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757882AbXGMIYj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jul 2007 04:24:39 -0400
+Received: from imx12.toshiba.co.jp (imx12 [61.202.160.132])
+	by imx9.toshiba.co.jp  with ESMTP id l6D8Oarc020919
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Fri, 13 Jul 2007 17:24:36 +0900 (JST)
+In-Reply-To: <20070711203742.GI5549@austin.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dear all:
-I'm reading the code about the Congestion Control.Now I'm confused about
-the variable "reord" in the function tcp_sacktag_write_queue().
+Linas-san,
 
-The "reord" is initialized as the tp->packets_out, I think, which is a
-max threshold of the reordering.
+> p.s. I tested ifdown/ifup, and didn't see any problems.
+> Does your bug happen immediately, or does it take many attempts 
+> to trigger it?
 
-If it detect a hole or D-SACK ,set the reord to :
----> reord = min(fack_count, reord);
+Thanks for your testing.
 
-Finally,the code may update the reordering by:
----> tcp_update_reordering(sk, ((tp->fackets_out + 1) - reord), 0);
+It happens immediately in our environment. It may be celleb specific.
 
-The questions are :
-<1> What's the purpose of the "reord" ?
-<2> Why use the "((tp->fackets_out + 1) - reord)" to update the reordering.
-
-Do I need to study some more RFC about this ? If yes,please tell me
-,thanks .
-
-
+Best regards,
+Kou Ishizaki
