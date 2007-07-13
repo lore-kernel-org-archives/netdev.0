@@ -1,57 +1,63 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH 2.6.22] TCP: Make TCP_RTO_MAX a variable (take 2)
-Date: Fri, 13 Jul 2007 09:55:10 -0700
-Message-ID: <4697AE6E.4070600@hp.com>
-References: <20070712.161510.26510093.noboru.obata.ar@hitachi.com>	<20070712.023710.36923635.davem@davemloft.net>	<20070712.225950.12335719.noboru.obata.ar@hitachi.com>	<20070712.132448.115910193.davem@davemloft.net>	<20070712141203.7350429a@freepuppy.rosehill.hemminger.net>	<46969CA9.8030406@hp.com> <Pine.LNX.4.64.0707130726550.30150@kivilampi-30.cs.helsinki.fi>
+From: Satyam Sharma <ssatyam@cse.iitk.ac.in>
+Subject: Re: [RFC][PATCH v2 -mm 0/9] netconsole: Multiple targets and dynamic
+ reconfigurability
+Date: Fri, 13 Jul 2007 23:00:48 +0530 (IST)
+Message-ID: <Pine.LNX.4.64.0707132255370.327@cselinux1.cse.iitk.ac.in>
+References: <20070710091920.23907.96483.sendpatchset@cselinux1.cse.iitk.ac.in>
+ <46978084.2040504@bx.jp.nec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	noboru.obata.ar@hitachi.com, David Miller <davem@davemloft.net>,
-	yoshfuji@linux-ipv6.org, Netdev <netdev@vger.kernel.org>
-To: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Matt Mackall <mpm@selenic.com>,
+	Netdev <netdev@vger.kernel.org>,
+	Joel Becker <joel.becker@oracle.com>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>
+To: KII Keiichi <k-keiichi@bx.jp.nec.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel10.hp.com ([156.153.255.245]:36267 "EHLO palrel10.hp.com"
+Received: from mail4.iitk.ac.in ([203.197.196.4]:48160 "EHLO mail4.iitk.ac.in"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752812AbXGMQ4L (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Jul 2007 12:56:11 -0400
-In-Reply-To: <Pine.LNX.4.64.0707130726550.30150@kivilampi-30.cs.helsinki.fi>
+	id S1751782AbXGMRIF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Jul 2007 13:08:05 -0400
+In-Reply-To: <46978084.2040504@bx.jp.nec.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ilpo J=E4rvinen wrote:
-> On Thu, 12 Jul 2007, Rick Jones wrote:
->=20
->=20
->>>One question is why the RTO gets so large that it limits failover?
->>>
->>>If Linux TCP is working correctly,  RTO should be srtt + 2*rttvar
->>>
->>>So either there is a huge srtt or variance, or something is going
->>>wrong with RTT estimation.  Given some reasonable maximums of
->>>Srtt =3D 500ms and rttvar =3D 250ms, that would cause RTO to be 1sec=
-ond.
->>
->>I suspect that what is happening here is that a link goes down in a t=
-runk
->>somewhere for some number of seconds, resulting in a given TCP segmen=
-t being
->>retransmitted several times, with the doubling of the RTO each time.
->=20
->=20
-> But that's a back-off for the retransmissions, the doubling is=20
-> temporary... Once you return to normal conditions, the accumulated ba=
-ckoff=20
-> multiplier will be immediately cut back to normal. So you should then=
- be=20
-> back to 1 second (like in the example or whatever) again...
+Hi Keiichi,
 
-=46ine, but so?  I suspect the point of the patch is to provide a lower=
- cap on the=20
-accumulated backoff so data starts flowing over the connection within t=
-hat lower=20
-cap once the link is restored/failed-over.
+On Fri, 13 Jul 2007, KII Keiichi wrote:
+> Hi Satyam,
+> 
+> > [0/9] netconsole: Multiple targets and dynamic reconfigurability
+> > 
+> > This patchset is a rework of the original idea and patches posted by
+> > Keiichi Kii and Takayoshi Kochi at: http://lkml.org/lkml/2007/6/13/72
+> > 
+> > This is v2 of the patchset, the previous version is available at:
+> > http://lkml.org/lkml/2007/7/4/107
+> > 
+> > This is diffed against 2.6.22-rc6-mm1 + the earlier netpoll fixlet and the
+> > configfs cleanup patches (those are already merged in -mm AFAIK, and hence
+> > not reproduced here).
+> > 
+> > [1/9] netconsole: Cleanups, codingstyle, prettyfication
+> > [2/9] netconsole: Remove bogus check
+> > [3/9] netconsole: Simplify boot/module option setup logic
+> > [4/9] netconsole: Add some useful tips to documentation
+> > [5/9] netconsole: Introduce netconsole_target
+> > [6/9] netconsole: Introduce netconsole_netdev_notifier
+> > [7/9] netconsole: Use netif_running() in write_msg()
+> > [8/9] netconsole: Support multiple logging targets
+> > [9/9] netconsole: Support dynamic reconfiguration using configfs
+> > 
+> 
+> I tested your v2 patches on the x86/IA64 architecture.
+> There was no problem on my tests.
+> 
+> Signed-off-by: Keiichi Kii <k-keiichi@bx.jp.nec.com>
 
-rick jones
+Ok, thanks! I'll send out the next series (with the various few
+fixes and cleanups suggested this time) with your Sign-offs/Acks.
 
+Satyam
