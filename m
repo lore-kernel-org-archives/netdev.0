@@ -1,37 +1,43 @@
-From: Jens Axboe <jens.axboe@oracle.com>
-Subject: Re: TCP stalls in current git, possibly splice related
-Date: Fri, 13 Jul 2007 07:36:49 +0200
-Message-ID: <20070713053648.GX4587@kernel.dk>
-References: <Line.LNX.4.64.0707121608100.10773@d.namei> <20070712.135254.112289065.davem@davemloft.net> <Line.LNX.4.64.0707122225470.13816@d.namei>
+From: Kumar Gala <galak@kernel.crashing.org>
+Subject: [PATCH] gianfar: kill unused header
+Date: Fri, 13 Jul 2007 00:38:47 -0500 (CDT)
+Message-ID: <Pine.LNX.4.64.0707130037570.16069@blarg.am.freescale.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: James Morris <jmorris@namei.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, Andy Fleming <afleming@freescale.com>
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from brick.kernel.dk ([80.160.20.94]:10133 "EHLO kernel.dk"
+Received: from gate.crashing.org ([63.228.1.57]:42637 "EHLO gate.crashing.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751738AbXGMFhB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Jul 2007 01:37:01 -0400
-Content-Disposition: inline
-In-Reply-To: <Line.LNX.4.64.0707122225470.13816@d.namei>
+	id S1751994AbXGMFjG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Jul 2007 01:39:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 12 2007, James Morris wrote:
-> On Thu, 12 Jul 2007, David Miller wrote:
-> 
-> > From: James Morris <jmorris@namei.org>
-> > Date: Thu, 12 Jul 2007 16:12:25 -0400 (EDT)
-> > 
-> > > I'm seeing TCP connection stalls with current git, and a bisect found the 
-> > > following as a possible cause:
-> > 
-> > To add to this James is seeing this with distcc I believe.
-> 
-> Correct.
+A long time ago we used OCP with the gianfar driver.  Eventually when
+we kill arch/ppc including this will cause issues so lets just kill it now.
 
-I'll try and reproduce.
+Signed-off-by: Kumar Gala <galak@kernel.crashing.org>
 
--- 
-Jens Axboe
+---
+commit 4e2440a284a0bfaaf3baa0ba4de2c2300912c983
+tree cd40eeafcd71577c95dc775b2e682ed852db5f71
+parent 773208946a132fb733ba273ee8562814f828cc28
+author Kumar Gala <galak@kernel.crashing.org> Fri, 13 Jul 2007 00:37:49 -0500
+committer Kumar Gala <galak@kernel.crashing.org> Fri, 13 Jul 2007 00:37:49 -0500
 
+ drivers/net/gianfar_mii.c |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/gianfar_mii.c b/drivers/net/gianfar_mii.c
+index 5dd34a1..ac3596f 100644
+--- a/drivers/net/gianfar_mii.c
++++ b/drivers/net/gianfar_mii.c
+@@ -31,7 +31,6 @@
+ #include <linux/mm.h>
+ #include <linux/module.h>
+ #include <linux/platform_device.h>
+-#include <asm/ocp.h>
+ #include <linux/crc32.h>
+ #include <linux/mii.h>
+ #include <linux/phy.h>
