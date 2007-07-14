@@ -1,108 +1,44 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [Bugme-new] [Bug 8736] New: New TC deadlock scenario
-Date: Sat, 14 Jul 2007 17:43:55 +0200
-Message-ID: <4698EF3B.5070907@trash.net>
-References: <bug-8736-10286@http.bugzilla.kernel.org/> <20070711111803.f8f97d98.akpm@linux-foundation.org> <469521F0.1010803@trash.net>
+From: =?iso-8859-1?q?R=E9mi_Denis-Courmont?= <rdenis@simphalempin.com>
+Subject: Re: No cmsg for SOCK_STREAM?
+Date: Sat, 14 Jul 2007 19:38:11 +0300
+Message-ID: <200707141938.12028@auguste.remlab.net>
+References: <C63E4CE2-57E4-446C-B7B0-80D9E506A83C@mac.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------090105060209020505030002"
-Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	"bugme-daemon@kernel-bugs.osdl.org"
-	<bugme-daemon@kernel-bugs.osdl.org>
-To: ranko@spidernet.net
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-net@vger.kernel.org, Linux NetDev <netdev@vger.kernel.org>
+To: Daniel Schaffrath <daniel.schaffrath@mac.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:36110 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753282AbXGNPol (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Jul 2007 11:44:41 -0400
-In-Reply-To: <469521F0.1010803@trash.net>
+Received: from poy.chewa.net ([194.242.114.73]:4850 "EHLO poy.chewa.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755281AbXGNQiU convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Jul 2007 12:38:20 -0400
+In-Reply-To: <C63E4CE2-57E4-446C-B7B0-80D9E506A83C@mac.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------090105060209020505030002
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-
-Patrick McHardy wrote:
-> Andrew Morton wrote:
-> 
->>>http://bugzilla.kernel.org/show_bug.cgi?id=8736
->>>
->>>Here is another scenario I bumped onto - qdisc_watchdog_cancel() and
->>>qdisc_restart() deadlock.
->>>
->>>[...]
->>>DEADLOCK!
-> 
-> 
-> 
-> Good catch.
-> 
-> Please try reverting commit 1936502d00ae6c2aa3931c42f6cf54afaba094f2,
-> that should fix it.
-
-
-Ranko, did you get a chance to test this? I've attached the patch
-since it doesn't revert cleanly ..
-
-
---------------090105060209020505030002
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
-
-[NET_SCHED]: Revert "avoid transmit softirq on watchdog wakeup" optimization
-
-As noticed by Ranko Zivojnovic <ranko@spidernet.net>, calling qdisc_run
-from the timer handler can result in deadlock:
-
-> CPU#0
+Le samedi 14 juillet 2007, Daniel Schaffrath a =E9crit :
+> 'man 7 ip' sais that IP_RECVOPTS is not supported for SOCK_STREAM
+> sockets.
 >
-> qdisc_watchdog() fires and gets dev->queue_lock
-> qdisc_run()...qdisc_restart()...
-> -> releases dev->queue_lock and enters dev_hard_start_xmit()
->
-> CPU#1
->
-> tc del qdisc dev ...
-> qdisc_graft()...dev_graft_qdisc()...dev_deactivate()...
-> -> grabs dev->queue_lock ...
->
-> qdisc_reset()...{cbq,hfsc,htb,netem,tbf}_reset()...qdisc_watchdog_cancel()...
-> -> hrtimer_cancel() - waiting for the qdisc_watchdog() to exit, while still
->		        holding dev->queue_lock
->
-> CPU#0
->
-> dev_hard_start_xmit() returns ...
-> -> wants to get dev->queue_lock(!)
->
-> DEADLOCK!
+> But what if for debugging/measuring purposes I wanted to record the
+> route of the datagrams containing the stream segments? Are there any
+> other ways to get the IP options? Like a second raw socket to deliver
+> cmsgs to user space and later resubmit for kernel TCP processing and
+> normal delivery to application -- if that is possible at all.
 
-The entire optimization is a bit questionable IMO, it moves potentially
-large parts of NET_TX_SOFTIRQ work to TIMER_SOFTIRQ/HRTIMER_SOFTIRQ,
-which kind of defeats the separation of them.
+The STREAM does not return data on a per-packet basis, so it would be=20
+total non-sense to have IP_RECVOPTS on STREAM sockets. What would the=20
+kernel do when there is re-assembly before delivery to userland, or if=20
+a retransmitted segment has different options?!
 
-Signed-off-by: Patrick McHardy <kaber@trash.net>
-diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index d92ea26..4fd0bec 100644
---- a/net/sched/sch_api.c
-+++ b/net/sched/sch_api.c
-@@ -278,11 +278,7 @@ static enum hrtimer_restart qdisc_watchdog(struct hrtimer *timer)
- 
- 	wd->qdisc->flags &= ~TCQ_F_THROTTLED;
- 	smp_wmb();
--	if (spin_trylock(&dev->queue_lock)) {
--		qdisc_run(dev);
--		spin_unlock(&dev->queue_lock);
--	} else
--		netif_schedule(dev);
-+	netif_schedule(dev);
- 
- 	return HRTIMER_NORESTART;
- }
+=46YI, the "advanced" socket API (for IPv6) consistently notes that=20
+sending/receiving IP(v6) options per-packet is only defined for DGRAM=20
+and RAW sockets.
 
---------------090105060209020505030002--
+You have to raw sockets, or better yet, BPF to do this.
+
+--=20
+R=E9mi Denis-Courmont
+http://www.remlab.net/
