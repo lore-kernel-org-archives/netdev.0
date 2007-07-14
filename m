@@ -1,28 +1,40 @@
-From: James Morris <jmorris@namei.org>
-Subject: nicstat
-Date: Sat, 14 Jul 2007 09:28:50 -0400 (EDT)
-Message-ID: <Line.LNX.4.64.0707140927290.25256@d.namei>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: nicstat
+Date: Sat, 14 Jul 2007 14:43:55 +0100
+Message-ID: <20070714134355.GA11022@infradead.org>
+References: <Line.LNX.4.64.0707140927290.25256@d.namei>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: James Morris <jmorris@namei.org>, Tim.Cook@sun.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail8.sea5.speakeasy.net ([69.17.117.10]:56678 "EHLO
-	mail8.sea5.speakeasy.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755416AbXGNN2y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Jul 2007 09:28:54 -0400
-Received: from dsl092-066-197.bos1.dsl.speakeasy.net (HELO d.namei) ([66.92.66.197])
-          (envelope-sender <jmorris@namei.org>)
-          by mail8.sea5.speakeasy.net (qmail-ldap-1.03) with AES256-SHA encrypted SMTP
-          for <netdev@vger.kernel.org>; 14 Jul 2007 13:28:53 -0000
+Received: from pentafluge.infradead.org ([213.146.154.40]:37469 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757057AbXGNNn6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Jul 2007 09:43:58 -0400
+Content-Disposition: inline
+In-Reply-To: <Line.LNX.4.64.0707140927290.25256@d.namei>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This might be of interest (there's a Linux version):
+On Sat, Jul 14, 2007 at 09:28:50AM -0400, James Morris wrote:
+> This might be of interest (there's a Linux version):
+> 
+> http://blogs.sun.com/timc/entry/nicstat_the_solaris_network_monitoring
 
-http://blogs.sun.com/timc/entry/nicstat_the_solaris_network_monitoring
+The code has a comment:
 
+ * CAVEATS
+ *	It appears there is no way to determine the speed of an interface
+ *	in Linux, so the %Util numbers are bogus at present.
 
+Which is not true.  This is easily retriviable through ethtool for any
+driver supporting it.
 
--- 
-James Morris
-<jmorris@namei.org>
+Aso I'm a bit surprised that a
+
+"extern int errno;"
+
+still works with a modern libc, folks please always include errno.h instead.
+Same for the opt* variables for getopt, please always get them through
+unistd.h
