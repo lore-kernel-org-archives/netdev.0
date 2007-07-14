@@ -1,69 +1,43 @@
-From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Subject: Re: [PATCH #2] Merge the Sonics Silicon Backplane subsystem
-Date: Sat, 14 Jul 2007 19:47:45 +0200
-Message-ID: <200707141947.46191.mb@bu3sch.de>
-References: <200707141918.22457.mb@bu3sch.de> <20070714172605.GA15586@infradead.org>
+From: Gabriel C <nix.or.die@googlemail.com>
+Subject: Re: [PATCH] NET_CLS_RSVP6 should depend on IPV6
+Date: Sat, 14 Jul 2007 20:29:42 +0200
+Message-ID: <46991616.8070509@googlemail.com>
+References: <4698A7B6.1030302@googlemail.com> <4698ED6E.6020502@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Aurelien Jarno <aurelien-rXXEIb44qovR7s880joybQ@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Gary Zambrano <zambrano-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20070714172605.GA15586-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ug-out-1314.google.com ([66.249.92.175]:46803 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759461AbXGNSaJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Jul 2007 14:30:09 -0400
+Received: by ug-out-1314.google.com with SMTP id j3so753347ugf
+        for <netdev@vger.kernel.org>; Sat, 14 Jul 2007 11:30:08 -0700 (PDT)
+In-Reply-To: <4698ED6E.6020502@trash.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Saturday 14 July 2007 19:26:05 Christoph Hellwig wrote:
-> On Sat, Jul 14, 2007 at 07:18:20PM +0200, Michael Buesch wrote:
-> > --- /dev/null
-> > +++ b/drivers/ssb/Makefile
-> > @@ -0,0 +1,11 @@
-> > +ssb-builtin-drivers-y					+= driver_chipcommon.o
-> > +ssb-builtin-drivers-$(CONFIG_SSB_DRIVER_MIPS)		+= driver_mipscore.o
-> > +ssb-builtin-drivers-$(CONFIG_SSB_DRIVER_PCICORE)	+= driver_pcicore.o
-> > +
-> > +ssb-hostsupport-$(CONFIG_SSB_PCIHOST)			+= pci.o pcihost_wrapper.o
-> > +ssb-hostsupport-$(CONFIG_SSB_PCMCIAHOST)		+= pcmcia.o
-> > +
-> > +obj-$(CONFIG_SSB) += ssb.o
-> > +
-> > +ssb-objs	:= main.o scan.o \
-> > +		   $(ssb-hostsupport-y) $(ssb-builtin-drivers-y)
-> 
-> Whoa, this makefile is more than ugly :)
-> 
-> Please try something like:
-> 
-> # core
-> ssb-y					+= main.o scan.o
-> 
-> # host support
-> ssb-$(CONFIG_SSB_PCIHOST)		+= pci.o pcihost_wrapper.o
-> ssb-$(CONFIG_SSB_PCMCIAHOST)		+= pcmcia.o
-> 
-> # drivers
-> ssb-y					+= driver_chipcommon.o
-> ssb-$(CONFIG_SSB_DRIVER_MIPS)		+= driver_mipscore.o
-> ssb-$(CONFIG_SSB_DRIVER_PCICORE)	+= driver_pcicore.o
-> 
-> obj-$(CONFIG_SSB)			+= ssb.o
-> 
-> instead
-> 
-> 
-> > +	default y
-> 
-> please don't add defauly y statements for random drivers.
-> 
+Patrick McHardy wrote:
+> Gabriel C wrote:
+>   
+>> cls_rsvp6 only works with IPV6 enabled kernels and IMO it should depends
+>> on IPV6.
+>>     
+>
+>
+> I can't see any functional dependency on IPv6, what exactly are you
+> refering to? People might want to use it on a bridge for example
+> without having IPv6 running locally.
+>
+>   
 
-Thanks for your comments. I fixed that and will submit it
-with the next round.
+I didn't knew it can be used with bridges , in this case just ignore the
+patch and sorry for the noise.
 
--- 
-Greetings Michael.
+
+Regards,
+
+Gabriel
