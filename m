@@ -1,36 +1,40 @@
-From: "Andrew Paprocki" <andrew@ishiboo.com>
-Subject: r8169 in 2.6.22 release still not detecting link
-Date: Sat, 14 Jul 2007 18:31:29 -0400
-Message-ID: <76366b180707141531j28588861n19e2d96dd68d308a@mail.gmail.com>
+From: Simon Arlott <simon@fire.lp0.eu>
+Subject: open() on sockets (sock_no_open)
+Date: Sun, 15 Jul 2007 00:04:17 +0100
+Message-ID: <46995671.5080503@simon.arlott.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: "Francois Romieu" <romieu@fr.zoreil.com>, brad@langhorst.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.182]:1401 "EHLO
-	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1764245AbXGNWbb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Jul 2007 18:31:31 -0400
-Received: by py-out-1112.google.com with SMTP id d32so1547799pye
-        for <netdev@vger.kernel.org>; Sat, 14 Jul 2007 15:31:30 -0700 (PDT)
-Content-Disposition: inline
+Received: from proxima.lp0.eu ([85.158.45.36]:35789 "EHLO proxima.lp0.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932394AbXGNXET (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 14 Jul 2007 19:04:19 -0400
+Received: from redrum.lp0.eu ([2001:4b10:1005:0:204:23ff:fea8:25f0]:60952 ident=byte)
+	by proxima.lp0.eu with esmtps (TLSv1:AES256-SHA:256)
+	id 1I9qew-0001X1-3k
+	for netdev@vger.kernel.org; Sun, 15 Jul 2007 00:04:18 +0100
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Francois,
+There are sockets in /proc/<pid>/fd/, but they can't be opened because
+of this function:
 
-Just writing to let you know that I'm still not getting a link on
-either r8169 port with the stock 2.6.22 kernel. I haven't been able to
-get any other network interface working on this device yet, as it only
-has a mini-PCI slot and I haven't found working wireless hardware yet.
-If I had a connection, I'd try to git bisect from the last known
-working point (2.6.18), but it is difficult for me to do that given
-the current setup.
+/*
+ *  In theory you can't get an open on this inode, but /proc provides
+ *  a back door. Remember to keep it shut otherwise you'll let the
+ *  creepy crawlies in.
+ */
+static int sock_no_open(struct inode *irrelevant, struct file *dontcare)
 
-Do you have any ideas about where I can place some debugging trace? I
-seem to always be able to get a link by backing off to the upstream
-Realtek driver (6.*). If you suspect any part of the driver, let me
-know and I'll put printk()s everywhere possible.
 
-Thanks, -Andrew
+How would I make it possible to open existing sockets?
+
+It's possible to duplicate access to the same socket using fork(), but I
+just seem to be creating a mess when I try to make open() work because
+it breaks after calling socket_close... is there a way to do this so it
+works properly?
+
+-- 
+Simon Arlott
