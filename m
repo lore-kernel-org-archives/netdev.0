@@ -1,72 +1,44 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: ANNOUNCE: igb: Intel 82575 Gigabit Ethernet driver (PCI-Express)
-Date: Fri, 13 Jul 2007 16:29:30 -0700
-Message-ID: <46980ADA.5050104@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>,
-	Arjan van de Ven <arjan@linux.intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	Mitch Williams <mitch.a.williams@intel.com>,
-	Auke Kok <auke-jan.h.kok@intel.com>
-To: NetDev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:61462 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759696AbXGMX3b (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Jul 2007 19:29:31 -0400
-Sender: netdev-owner@vger.kernel.org
+From: Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+Subject: [PATCH] zd1211rw: Add ID for Planex GW-US54GXS
+Date: Sat, 14 Jul 2007 01:40:11 +0100 (BST)
+Message-ID: <20070714004011.EE4A07B409F@zog.reactivated.net>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: kune-hUSrv6EASfkEnNRfnnE9gw@public.gmane.org
+Cc: mokuno-DfbDroY8Xu1L9jVzuh4AOg@public.gmane.org
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+From: Masakazu Mokuno <mokuno-DfbDroY8Xu1L9jVzuh4AOg@public.gmane.org>
 
+This patch adds the ID for Planex GW-US54GXS USB wireless adapter sold in
+Japan.
+Since this device returns the regulatory region as 0x49,
+the patch 'Allow channels 1-11 for unrecognised regulatory domains' is
+required.
 
-All,
+Tested by Masakazu Mokuno
+zd1211b chip 2019:5303 v4810 high 00-90-cc AL2230_RF pa0 ---N-
 
-We are pleased to announce a new Gigabit Ethernet product and its driver to the
-linux community. This product is the Intel(R) 82575 Gigabit Ethernet adapter
-family. Physical adapters will be available to the public soon. These adapters
-come in 2- and 4-port versions (copper PHY) currently. Other variants will be
-available later.
+Signed-off-by: Masakazu Mokuno <mokuno-DfbDroY8Xu1L9jVzuh4AOg@public.gmane.org>
+Signed-off-by: Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+---
+ zd_usb.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-The 82575 chipset supports significantly different features that warrant a new
-driver. The descriptor format is (just like the ixgbe driver) different. The
-device can use multiple MSI-X vectors and multiple queues for both send and
-receive. This allows us to optimize some of the driver code specifically as well
-compared to the e1000-supported devices.
-
-This driver was forked from e1000 several months ago and extensively reworked
-and cleaned up since. The driver was also tested on several platforms in our
-validation labs.
-
-Allthough some of the codebase is currently shared with the e1000 driver (this
-igb driver has a copy of that code where needed), we realize that many of the
-changes that we are discussing for e1000 (the pci-express adapters that e1000
-supports particularly) will also apply to this driver. However, since this is a
-completely new driver that is relatively free of all old NIC support, we feel
-that it is currently the right time to post this driver.
-
-Unfortunately, the patch to insert this driver is too large to send to netdev. I
-have therefore posted the patch on http:
-
-      http://foo-projects.org/~sofar/igb.patch       [558K]
-      http://foo-projects.org/~sofar/igb.patch.bz2   [98K]
-
-And also put up the patch in a git tree for those who want to pull:
-
-      git-pull git://lost.foo-projects.org/~ahkok/git/linux-2.6 igb
-
-Please review and provide comments!
-
-Current issues:
-
-There are several discussions ongoing about multiqueue and NAPI that also apply
-to this driver, so several TODO items already exist (remove fake netdevs for
-instance). As we get to these issues with the new e1000e and ixgbe driver, we
-will try to address them in this igb driver as well, but feel free to raise them
-early and now as well.
-
-
-Thanks,
-
-Auke Kok
+diff --git a/zd_usb.c b/zd_usb.c
+index 1e9c9ce..95c99a7 100644
+--- a/drivers/net/wireless/zd1211rw/zd_usb.c
++++ b/drivers/net/wireless/zd1211rw/zd_usb.c
+@@ -72,6 +72,7 @@ static struct usb_device_id usb_ids[] = {
+ 	{ USB_DEVICE(0x0586, 0x3413), .driver_info = DEVICE_ZD1211B },
+ 	{ USB_DEVICE(0x0053, 0x5301), .driver_info = DEVICE_ZD1211B },
+ 	{ USB_DEVICE(0x0411, 0x00da), .driver_info = DEVICE_ZD1211B },
++	{ USB_DEVICE(0x2019, 0x5303), .driver_info = DEVICE_ZD1211B },
+ 	/* "Driverless" devices that need ejecting */
+ 	{ USB_DEVICE(0x0ace, 0x2011), .driver_info = DEVICE_INSTALLER },
+ 	{ USB_DEVICE(0x0ace, 0x20ff), .driver_info = DEVICE_INSTALLER },
+-- 
+1.5.2.2
