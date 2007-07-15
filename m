@@ -1,117 +1,95 @@
-From: Bryan Wu <bryan.wu@analog.com>
-Subject: Re: [PATCH try#2] Blackfin ethernet driver: on chip ethernet MAC
-	controller driver
-Date: Sun, 15 Jul 2007 22:01:04 +0800
-Message-ID: <1184508064.6030.6.camel@roc-laptop>
-References: <1184491629.3140.59.camel@roc-laptop>
-	 <200707151236.51779.mb@bu3sch.de> <1184501264.3140.71.camel@roc-laptop>
-	 <200707151417.10964.mb@bu3sch.de>
-Reply-To: bryan.wu@analog.com
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: bryan.wu@analog.com, Mike Frysinger <vapier.adi@gmail.com>,
-	Jeff Garzik <jeff@garzik.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
-To: Michael Buesch <mb@bu3sch.de>
+From: Daniel Drake <dsd@gentoo.org>
+Subject: [PATCH v2] mac80211: STA reassociation improvements
+Date: Sun, 15 Jul 2007 15:02:51 +0100 (BST)
+Message-ID: <20070715140251.B4F6B7B409F@zog.reactivated.net>
+Cc: linville@tuxdriver.com
+To: jbenc@suse.cz
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nwd2mail11.analog.com ([137.71.25.57]:39176 "EHLO
-	nwd2mail11.analog.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753076AbXGOOB3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Jul 2007 10:01:29 -0400
-In-Reply-To: <200707151417.10964.mb@bu3sch.de>
+Received: from mtaout02-winn.ispmail.ntl.com ([81.103.221.48]:58867 "EHLO
+	mtaout02-winn.ispmail.ntl.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755702AbXGOOCz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Jul 2007 10:02:55 -0400
+Cc: linux-wireless@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2007-07-15 at 14:17 +0200, Michael Buesch wrote:
-> On Sunday 15 July 2007 14:07:44 Bryan Wu wrote:
-> > @@ -483,9 +487,12 @@
-> >  
-> >  void setup_mac_addr(u8 * mac_addr)
-> >  {
-> > +	u32 addr_low = le32_to_cpu(*(u32 *) & mac_addr[0]);
-> > +	u16 addr_hi = le16_to_cpu(*(u16 *) & mac_addr[4]);
-> > +
-> >  	/* this depends on a little-endian machine */
-> > -	bfin_write_EMAC_ADDRLO(*(u32 *) & mac_addr[0]);
-> > -	bfin_write_EMAC_ADDRHI(*(u16 *) & mac_addr[4]);
-> > +	bfin_write_EMAC_ADDRLO(addr_low);
-> > +	bfin_write_EMAC_ADDRHI(addr_hi);
-> >  }
-> >  
-> >  static void adjust_tx_list(void)
-> > @@ -866,10 +873,10 @@
-> >  	int retval;
-> >  
-> >  	/* Grab the MAC address in the MAC */
-> > -	*(u32 *) (&(dev->dev_addr[0])) = bfin_read_EMAC_ADDRLO();
-> > -	*(u16 *) (&(dev->dev_addr[4])) = (u16) bfin_read_EMAC_ADDRHI();
-> > +	*(u32 *) (&(dev->dev_addr[0])) = cpu_to_le32(bfin_read_EMAC_ADDRLO());
-> > +	*(u16 *) (&(dev->dev_addr[4])) = cpu_to_le16((u16) bfin_read_EMAC_ADDRHI());
-> 
-> Try something like this:
-> 
-> @@ -483,9 +487,12 @@
->  
->  void setup_mac_addr(u8 * mac_addr)
->  {
-> +       u32 addr_low = le32_to_cpu(*(__le32 *) & mac_addr[0]);
-> +       u16 addr_hi = le16_to_cpu(*(__le16 *) & mac_addr[4]);
-> +
-> -       /* this depends on a little-endian machine */
-> -       bfin_write_EMAC_ADDRLO(*(u32 *) & mac_addr[0]);
-> -       bfin_write_EMAC_ADDRHI(*(u16 *) & mac_addr[4]);
-> +       bfin_write_EMAC_ADDRLO(addr_low);
-> +       bfin_write_EMAC_ADDRHI(addr_hi);
->  }
->  
->  static void adjust_tx_list(void)
-> @@ -866,10 +873,10 @@
->         int retval;
->  
->         /* Grab the MAC address in the MAC */
-> -       *(u32 *) (&(dev->dev_addr[0])) = bfin_read_EMAC_ADDRLO();
-> -       *(u16 *) (&(dev->dev_addr[4])) = (u16) bfin_read_EMAC_ADDRHI();
-> +       *(__le32 *) (&(dev->dev_addr[0])) = cpu_to_le32(bfin_read_EMAC_ADDRLO());
-> +       *(__le16 *) (&(dev->dev_addr[4])) = cpu_to_le16((u16) bfin_read_EMAC_ADDRHI());
-> 
+My cheapy D-Link AP behaves strangely w.r.t reassociations.
 
-Thanks a lot, Michael. 
+The following sequence of commands causes me to lose association and to be
+unable to regain it:
 
-I got a generic question about this endianess check. When should use it
-in a driver or something else? I grep it in the driver/net/
+	ifconfig eth8 down
+	ifconfig eth8 up
+	iwconfig eth8 essid <x>
+
+This is because mac80211 tries to reassociate, rather than just associate.
+My AP replies with an association response (not a reassociation response...)
+denying the association with code 12: "Association denied due to reason
+outside the scope of this standard"
+
+mac80211 tries this reassociation another 4 times or so before finally giving
+up.
+
+I see 2 problems here:
+ 1. bringing the interface down and up again should be resetting interface state
+    i.e. after the interface is brought down, it should have no memory of if or
+         where it was previously associated
+ 2. after the first reassociation fails, mac80211 should fall back to
+    standard association for the next attempt
+
+Signed-off-by: Daniel Drake <dsd@gentoo.org>
 
 ---
-drivers/net/e100.c:             ns->tx_window_errors += le32_to_cpu(s->tx_late_collisions);
-drivers/net/e100.c:             ns->tx_carrier_errors += le32_to_cpu(s->tx_lost_crs);
-drivers/net/e100.c:             ns->tx_fifo_errors += le32_to_cpu(s->tx_underruns);
-drivers/net/e100.c:             ns->tx_errors += le32_to_cpu(s->tx_max_collisions) +
-drivers/net/e100.c:                     le32_to_cpu(s->tx_lost_crs);
-drivers/net/e100.c:             ns->rx_length_errors += le32_to_cpu(s->rx_short_frame_errors) +
-drivers/net/e100.c:             ns->rx_crc_errors += le32_to_cpu(s->rx_crc_errors);
-drivers/net/e100.c:             ns->rx_frame_errors += le32_to_cpu(s->rx_alignment_errors);
-drivers/net/e100.c:             ns->rx_over_errors += le32_to_cpu(s->rx_overrun_errors);
-drivers/net/e100.c:             ns->rx_fifo_errors += le32_to_cpu(s->rx_overrun_errors);
-drivers/net/e100.c:             ns->rx_missed_errors += le32_to_cpu(s->rx_resource_errors);
-drivers/net/e100.c:             ns->rx_errors += le32_to_cpu(s->rx_crc_errors) +
-drivers/net/e100.c:                     le32_to_cpu(s->rx_alignment_errors) +
-drivers/net/e100.c:                     le32_to_cpu(s->rx_short_frame_errors) +
-drivers/net/e100.c:                     le32_to_cpu(s->rx_cdt_errors);
-drivers/net/e100.c:             nic->tx_deferred += le32_to_cpu(s->tx_deferred);
-drivers/net/e100.c:                     le32_to_cpu(s->tx_single_collisions);
-drivers/net/e100.c:                     le32_to_cpu(s->tx_multiple_collisions);
-drivers/net/e100.c:                     nic->tx_fc_pause += le32_to_cpu(s->fc_xmt_pause);
-drivers/net/e100.c:                     nic->rx_fc_pause += le32_to_cpu(s->fc_rcv_pause);
-drivers/net/e100.c:                             le32_to_cpu(s->fc_rcv_unsupported);
-drivers/net/e100.c:                             le32_to_cpu(cb->u.tcb.tbd.buf_addr),
-drivers/net/e100.c:                                     le32_to_cpu(cb->u.tcb.tbd.buf_addr),
----
+Changes since first submission: created ieee80211_if_open and moved state
+resetting to there, and clarified reasoning for retrying with a full
+association as requested by Jiri Benc.
 
-Normally, it is used to protect some rx/tx status flags or dma buf addr.
-
-Any guide line for this leXX_to_cpu usage?
-
-Thanks again
-
-- Bryan Wu
+Index: wireless-dev/net/mac80211/ieee80211.c
+===================================================================
+--- wireless-dev.orig/net/mac80211/ieee80211.c
++++ wireless-dev/net/mac80211/ieee80211.c
+@@ -2277,6 +2277,18 @@ static struct net_device_stats *ieee8021
+ 	return &(sdata->stats);
+ }
+ 
++static void ieee80211_if_open(struct net_device *dev)
++{
++	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
++
++	switch (sdata->type) {
++	case IEEE80211_IF_TYPE_STA:
++	case IEEE80211_IF_TYPE_IBSS:
++		sdata->u.sta.prev_bssid_set = 0;
++		break;
++	}
++}
++
+ static void ieee80211_if_shutdown(struct net_device *dev)
+ {
+ 	struct ieee80211_local *local = wdev_priv(dev->ieee80211_ptr);
+@@ -2426,6 +2438,7 @@ static int ieee80211_open(struct net_dev
+ 		local->hw.conf.flags |= IEEE80211_CONF_RADIOTAP;
+ 		return 0;
+ 	}
++	ieee80211_if_open(dev);
+ 	ieee80211_start_soft_monitor(local);
+ 
+ 	if (local->ops->add_interface) {
+Index: wireless-dev/net/mac80211/ieee80211_sta.c
+===================================================================
+--- wireless-dev.orig/net/mac80211/ieee80211_sta.c
++++ wireless-dev/net/mac80211/ieee80211_sta.c
+@@ -1605,8 +1605,10 @@ static void ieee80211_rx_mgmt_assoc_resp
+ 	if (status_code != WLAN_STATUS_SUCCESS) {
+ 		printk(KERN_DEBUG "%s: AP denied association (code=%d)\n",
+ 		       dev->name, status_code);
+-		if (status_code == WLAN_STATUS_REASSOC_NO_ASSOC)
+-			ifsta->prev_bssid_set = 0;
++		/* if this was a reassociation, ensure we try a "full"
++		 * association next time. This works around some broken APs
++		 * which do not correctly reject reassociation requests. */
++		ifsta->prev_bssid_set = 0;
+ 		return;
+ 	}
+ 
