@@ -1,76 +1,108 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 8756] New: Route advmss copied to ALL routes
- when interface MTU changes
-Date: Sat, 14 Jul 2007 21:48:31 -0700
-Message-ID: <20070714214831.d9def8c6.akpm@linux-foundation.org>
-References: <bug-8756-10286@http.bugzilla.kernel.org/>
+From: "Beschorner Daniel" <Daniel.Beschorner@facton.com>
+Subject: IPSec freeze
+Date: Sun, 15 Jul 2007 08:29:27 +0200
+Message-ID: <3C59DB883F7B0B4D8096010D45ACCD13230225@exch.facton.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "bugme-daemon@kernel-bugs.osdl.org"
-	<bugme-daemon@kernel-bugs.osdl.org>, bugzilla@fire.lp0.eu
-To: netdev@vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:37728 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751151AbXGOEst (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Jul 2007 00:48:49 -0400
-In-Reply-To: <bug-8756-10286@http.bugzilla.kernel.org/>
+Received: from alpha.facton.com ([83.236.152.122]:42077 "EHLO alpha.facton.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751984AbXGOGiQ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Jul 2007 02:38:16 -0400
+Received: from exch.facton.local (exch [192.168.200.5])
+	by alpha.facton.com (8.13.8/8.13.8/FACTON) with ESMTP id l6F6TRuN004008
+	for <netdev@vger.kernel.org>; Sun, 15 Jul 2007 08:29:27 +0200
+Content-class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 14 Jul 2007 15:34:31 -0700 (PDT) bugme-daemon@bugzilla.kernel.org wrote:
+Today a new site joined our Linux IPSec VPN, now all the other routers
+(all 2.6.22) freeze hard reproducible.
+No oops, no sysreq, only hard reset rewakes them.
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=8756
+The only difference of the new site compared to the others: ADSL, thus a
+MTU of 1492, the others have 1500.
+Disabling IPSec und doing normal operations between the routers is fine,
+PMTU is honored correctly.
+If I set the MTU of the other routers to 1492 I can avoid the IPSec
+crash.
 
-It is unclear which kernel version this applies to?
+Some kind of strange need-to-frag-ICMP that causes such things?
+Any ideas how to debug this?
 
->            Summary: Route advmss copied to ALL routes when interface MTU
->                     changes
->            Product: Networking
->            Version: 2.5
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: IPV6
->         AssignedTo: yoshfuji@linux-ipv6.org
->         ReportedBy: bugzilla@fire.lp0.eu
-> 
-> 
-> Steps to reproduce:
-> 1. Have multiple network devices and routes for them with standard (low, i.e.
-> 1500) MTUs and default ADVMSS (e.g. 1440)
-> 2. Change the MTU on one of them to something high (e.g. 7200)
-> 3. The ADVMSS is incorrectly set for ALL routes based on the new MTU of the
-> interface that changed.
-> 
-> Note: if addrconf is running then the ADVMSS will be reset on the next RA, so
-> this will impede attempts to reproduce.
-> 
-> # ip -6 r
-> fe80::/64 dev sit0  metric 256  expires 4481744sec mtu 1480 advmss 1440
-> hoplimit 4294967295
-> fe80::/64 dev ppp0  metric 256  expires 19071345sec mtu 1500 advmss 1440
-> hoplimit 4294967295
-> fe80::/64 dev eth0  metric 256  expires 19072430sec mtu 1500 advmss 1440
-> hoplimit 4294967295
-> default dev ppp0  metric 1024  expires 19071347sec mtu 1500 advmss 1440
-> hoplimit 4294967295
-> 
-> # ifconfig eth0 mtu 7200
-> 
-> # ip -6 r
-> fe80::/64 dev sit0  metric 256  expires 4481732sec mtu 1480 advmss 7140
-> hoplimit 4294967295 <-- wrong
-> fe80::/64 dev ppp0  metric 256  expires 19071334sec mtu 1500 advmss 7140
-> hoplimit 4294967295 <-- wrong
-> fe80::/64 dev eth0  metric 256  expires 19072419sec mtu 7200 advmss 7140
-> hoplimit 4294967295 <-- correct
-> 
-> Explicitly setting the MTU on these other routes (although this is not possible
-> without having to add another route due to bug 8755) automatically sets ADVMSS
-> appropriately.
-> 
+Thanks!
+Daniel
+
+Here a tcpdump of a router (1.1.1.1, obfuscated) just before it died:
+
+07:58:23.588064 IP (tos 0x0, ttl  64, id 8192, offset 0, flags [DF],
+proto: ESP (50), length: 1496) 1.1.1.1 > 2.2.2.2:
+ESP(spi=0xae81babb,seq=0x15), length 1476
+07:58:23.590414 IP (tos 0x0, ttl  48, id 22785, offset 0, flags [DF],
+proto: ESP (50), length: 152) 2.2.2.2 > 1.1.1.1:
+ESP(spi=0x593f3550,seq=0xf), length 132
+07:58:23.592928 IP (tos 0x0, ttl  48, id 22785, offset 0, flags [DF],
+proto: ESP (50), length: 104) 2.2.2.2 > 1.1.1.1:
+ESP(spi=0x593f3550,seq=0x10), length 84
+07:58:23.593246 IP (tos 0x0, ttl  64, id 0, offset 0, flags [DF], proto:
+ESP (50), length: 1496) 1.1.1.1 > 2.2.2.2: ESP(spi=0xae81babb,seq=0x16),
+length 1476
+07:58:23.596486 IP (tos 0x0, ttl  48, id 22785, offset 0, flags [DF],
+proto: ESP (50), length: 152) 2.2.2.2 > 1.1.1.1:
+ESP(spi=0x593f3550,seq=0x11), length 132
+07:58:23.596806 IP (tos 0x0, ttl  64, id 0, offset 0, flags [DF], proto:
+ESP (50), length: 1496) 1.1.1.1 > 2.2.2.2: ESP(spi=0xae81babb,seq=0x17),
+length 1476
+07:58:23.596859 IP (tos 0x0, ttl  64, id 10655, offset 0, flags [DF],
+proto: ESP (50), length: 200) 1.1.1.1 > 2.2.2.2:
+ESP(spi=0xae81babb,seq=0x18), length 180
+07:58:23.726550 IP (tos 0x0, ttl  50, id 8192, offset 0, flags [none],
+proto: ICMP (1), length: 56) 67.38.70.235 > 1.1.1.1: ICMP 2.2.2.2
+unreachable - need to frag (mtu 1492), length 36
+        IP (tos 0x0, ttl  45, id 8192, offset 0, flags [DF], proto: ESP
+(50), length: 1496) 1.1.1.1 > 2.2.2.2: [|ESP]
+07:58:23.731648 IP (tos 0x0, ttl  50, id 0, offset 0, flags [none],
+proto: ICMP (1), length: 56) 67.38.70.235 > 1.1.1.1: ICMP 2.2.2.2
+unreachable - need to frag (mtu 1492), length 36
+        IP (tos 0x0, ttl  45, id 0, offset 0, flags [DF], proto: ESP
+(50), length: 1496) 1.1.1.1 > 2.2.2.2: [|ESP]
+07:58:23.734776 IP (tos 0x0, ttl  50, id 0, offset 0, flags [none],
+proto: ICMP (1), length: 56) 67.38.70.235 > 1.1.1.1: ICMP 2.2.2.2
+unreachable - need to frag (mtu 1492), length 36
+        IP (tos 0x0, ttl  45, id 0, offset 0, flags [DF], proto: ESP
+(50), length: 1496) 1.1.1.1 > 2.2.2.2: [|ESP]
+07:58:23.740504 IP (tos 0x0, ttl  48, id 22785, offset 0, flags [DF],
+proto: ESP (50), length: 104) 2.2.2.2 > 1.1.1.1:
+ESP(spi=0x593f3550,seq=0x12), length 84
+07:58:23.743108 IP (tos 0x0, ttl  48, id 22785, offset 0, flags [DF],
+proto: ESP (50), length: 104) 2.2.2.2 > 1.1.1.1:
+ESP(spi=0x593f3550,seq=0x13), length 84
+07:58:23.754123 IP (tos 0x0, ttl  48, id 22785, offset 0, flags [DF],
+proto: ESP (50), length: 104) 2.2.2.2 > 1.1.1.1:
+ESP(spi=0x593f3550,seq=0x14), length 84
+
+Here a log of another death from inside the tunnel (last packet is again
+the time of crash):
+The Tunnel MTU of 1430 is correct for an outer MTU of 1500, but the
+additional -8 doesn't take place?!?
+
+05:17:18.563448 IP 192.168.200.1.80 > 192.168.203.1.3084: tcp 1460
+05:17:18.563468 IP 192.168.200.254 > 192.168.200.1: ICMP 192.168.203.1
+unreachable - need to frag (mtu 1430), length 556
+05:17:18.563471 IP 192.168.200.1.80 > 192.168.203.1.3084: tcp 1460
+05:17:18.563479 IP 192.168.200.254 > 192.168.200.1: ICMP 192.168.203.1
+unreachable - need to frag (mtu 1430), length 556
+05:17:18.563481 IP 192.168.200.1.80 > 192.168.203.1.3084: tcp 1460
+05:17:18.563490 IP 192.168.200.254 > 192.168.200.1: ICMP 192.168.203.1
+unreachable - need to frag (mtu 1430), length 556
+05:17:18.563492 IP 192.168.200.1.80 > 192.168.203.1.3084: tcp 1460
+05:17:18.563499 IP 192.168.200.254 > 192.168.200.1: ICMP 192.168.203.1
+unreachable - need to frag (mtu 1430), length 556
+05:17:18.563616 IP 192.168.200.1.80 > 192.168.203.1.3084: tcp 1390
+05:17:18.882785 IP 192.168.203.1.3084 > 192.168.200.1.80: tcp 0
+05:17:18.882921 IP 192.168.200.1.80 > 192.168.203.1.3084: tcp 1390
+05:17:18.883097 IP 192.168.200.1.80 > 192.168.203.1.3084: tcp 1390
+05:17:19.042207 IP 192.168.203.1.3084 > 192.168.200.1.80: tcp 0
