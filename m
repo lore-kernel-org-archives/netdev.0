@@ -1,38 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC NET_SCHED 00/05]: Kill NET_CLS_POLICE
-Date: Sun, 15 Jul 2007 00:00:59 -0700 (PDT)
-Message-ID: <20070715.000059.66060619.davem@davemloft.net>
-References: <20070709204611.1461.16465.sendpatchset@localhost.localdomain>
+Subject: Re: [PATCH updated] IPV6: Call inet6addr_chain notifiers on link
+ down
+Date: Sun, 15 Jul 2007 00:17:23 -0700 (PDT)
+Message-ID: <20070715.001723.94889330.davem@davemloft.net>
+References: <468E4459.6040605@hp.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, netdev@vger.kernel.org
-To: kaber@trash.net
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: vladislav.yasevich@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52601
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36814
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752105AbXGOHA5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Jul 2007 03:00:57 -0400
-In-Reply-To: <20070709204611.1461.16465.sendpatchset@localhost.localdomain>
+	by vger.kernel.org with ESMTP id S1753202AbXGOHRV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Jul 2007 03:17:21 -0400
+In-Reply-To: <468E4459.6040605@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Mon,  9 Jul 2007 22:46:12 +0200 (MEST)
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Date: Fri, 06 Jul 2007 09:32:09 -0400
 
-> [This is a resend because of a typo in Jamal's address that I believe
->  made vger reject the mails. Appologies in case they arrive twice.]
+> Currently if the link is brought down via ip link or ifconfig down,
+> the inet6addr_chain notifiers are not called even though all
+> the addresses are removed from the interface.  This caused SCTP
+> to add duplicate addresses to it's list.
 > 
-> 
-> These patches update the NET_CLS_ACT code to fully replace NET_CLS_POLICE
-> and remove the old code. There is one incompatibility, please look at
-> patch 4/5 for details.
+> Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
 
-Considering the amount of code you are able to kill, I think
-the slight incompatability is definitely worth it.
+Applied, thanks Vlad.
 
-These patches have sat long enough for objections to come up,
-so I'm going to put this into my tree now.
-
-We'll have enough time to revert or sort out any issues before
-2.6.23-final goes out the door.
+I'll push this to -stable too.
