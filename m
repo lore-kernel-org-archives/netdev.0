@@ -1,43 +1,45 @@
-From: Simon Arlott <simon@fire.lp0.eu>
-Subject: Re: [Bugme-new] [Bug 8754] New: Kernel addrconf modifies MTU of non-kernel
- routes
-Date: Sun, 15 Jul 2007 10:29:57 +0100
-Message-ID: <4699E915.5040904@simon.arlott.org.uk>
-References: <bug-8754-10286@http.bugzilla.kernel.org/> <20070714150908.093eefdb.akpm@linux-foundation.org>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: [PATCH 1/3] Blackfin ethernet driver: on chip ethernet MAC controller driver
+Date: Sun, 15 Jul 2007 11:36:04 +0200
+Message-ID: <200707151136.05223.mb@bu3sch.de>
+References: <1184438993.3140.23.camel@roc-laptop> <200707142138.36619.mb@bu3sch.de> <1184491016.3140.52.camel@roc-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	"bugme-daemon@kernel-bugs.osdl.org"
-	<bugme-daemon@kernel-bugs.osdl.org>
-To: netdev@vger.kernel.org
+Cc: Jeff Garzik <jeff@garzik.org>, LKML <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>
+To: bryan.wu@analog.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from proxima.lp0.eu ([85.158.45.36]:47902 "EHLO proxima.lp0.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756133AbXGOJ37 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 15 Jul 2007 05:29:59 -0400
-In-Reply-To: <20070714150908.093eefdb.akpm@linux-foundation.org>
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:42538
+	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756672AbXGOJhW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Jul 2007 05:37:22 -0400
+In-Reply-To: <1184491016.3140.52.camel@roc-laptop>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 14/07/07 23:09, Andrew Morton wrote:
-> On Sat, 14 Jul 2007 14:54:32 -0700 (PDT) bugme-daemon@bugzilla.kernel.org wrote:
->> http://bugzilla.kernel.org/show_bug.cgi?id=8754
->> 
->> I have an MTU of 16110 set on eth0 on a network where the MTU is 1500 as set by
->> RAs. One of the other hosts on the network has an MRU/MTU of 7200 so I have a
->> specific route to it with this MTU.
->> 
->> If I add the route early (i.e. on startup) before address autoconfiguration
->> takes place, when the first RA is received the kernel changes the MTU on my
->> route - this should not happen.
+On Sunday 15 July 2007 11:16:56 Bryan Wu wrote:
+> In current Blackfin DMA allocation/free, the return value from 
+> bfin_mac_alloc() is used as the dma_handle, here it is the
+> tx_desc/rx_desc. 
+> The "dma_handle" is useless in the following code.
 
-This also happens whenever I change the MTU on eth0 - it will alter the
-MTU on routes *I* have added too. While this is valid behaviour for a
-new MTU that is too low for the route it is not for an MTU above the route.
+I think a comment has to be added, at least, as it's very confusing.
 
-Changing the MTU also allows the "next RA with MTU set changes
-non-kernel routes too" problem to occur again.
+> This is some magic code for PHY ID. In the future, we will rewrite some
+> code based on kernel phy abstraction layer to support more phy device.
+
+Ok, nice idea.
+
+> > Unwind the allocations above, if registering fails.
+> > 
+> 
+> In fact, it is safe. Because if registering fails, bf537mac_probe will
+> return none zero to bfin_mac_probe which will do free_netdev.
+
+Hm, weren't there some DMA allocations, too? Are they free'd properly?
 
 -- 
-Simon Arlott
+Greetings Michael.
