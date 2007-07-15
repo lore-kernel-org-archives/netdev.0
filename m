@@ -1,2155 +1,1315 @@
-From: Jay Cliburn <jacliburn@bellsouth.net>
-Subject: [PATCH 5/5] atl1: reorder atl1_main functions
-Date: Sun, 15 Jul 2007 11:03:29 -0500
-Message-ID: <1184515409122-git-send-email-jacliburn@bellsouth.net>
-References: <11845154092908-git-send-email-jacliburn@bellsouth.net>
-Cc: jacliburn@bellsouth.net, csnook@redhat.com,
-	atl1-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: jeff@garzik.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from imf18aec.mail.bellsouth.net ([205.152.59.66]:32787 "EHLO
-	imf18aec.mail.bellsouth.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1760957AbXGOQDn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Jul 2007 12:03:43 -0400
-In-Reply-To: <11845154092908-git-send-email-jacliburn@bellsouth.net>
-Sender: netdev-owner@vger.kernel.org
+From: Bryan Wu <bryan.wu@analog.com>
+Subject: [PATCH try#3] Blackfin ethernet driver: on chip ethernet MAC
+	controller driver
+Date: Mon, 16 Jul 2007 01:05:47 +0800
+Message-ID: <1184519147.19504.20.camel@roc-laptop>
+Reply-To: bryan.wu@analog.com
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+To: Michael Buesch <mb@bu3sch.de>,
+	Mike Frysinger <vapier.adi@gmail.com>,
+	Jeff Garzik <jeff@garzik.org>,
+	Christoph Hellwig <hch@infradead.org>,
+	Dan Williams <dcbw@redhat.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1762368AbXGORHi@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Reorder functions in atl1_main into more logical groupings to make the
-code easier to follow. This patch is large, but it's harmless; it neither
-adds nor removes any functionality whatsoever.
+This patch implements the driver necessary use the Analog Devices
+Blackfin processor's on-chip ethernet MAC controller.
 
-Signed-off-by: Jay Cliburn <jacliburn@bellsouth.net>
+[try#2]
+ - add timeout control
+ - kill dma_config_reg bitfields
+ - some trivial cleanup
+ 
+[try#3]
+ - add endianess check
+ - add DRV_NAME, DRV_VERSION... driver information string
+ - add some comments for silicon anomaly and dma API confusion
+ - some code trivial cleanup
+
+Signed-off-by: Bryan Wu <bryan.wu@analog.com>
+Cc: Michael Buesch <mb@bu3sch.de>
+Cc: Mike Frysinger <vapier.adi@gmail.com>
+Cc: Jeff Garzik <jeff@garzik.org>
+Cc: Christoph Hellwig <hch@infradead.org>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+
 ---
- drivers/net/atl1/atl1_main.c | 1950 +++++++++++++++++++++---------------------
- 1 files changed, 975 insertions(+), 975 deletions(-)
+ MAINTAINERS            |    7 +
+ drivers/net/Kconfig    |   44 ++
+ drivers/net/Makefile   |    1 +
+ drivers/net/bfin_mac.c | 1033 ++++++++++++++++++++++++++++++++++++++++++++++++
+ drivers/net/bfin_mac.h |  132 ++++++
+ 5 files changed, 1217 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/bfin_mac.c
+ create mode 100644 drivers/net/bfin_mac.h
 
-diff --git a/drivers/net/atl1/atl1_main.c b/drivers/net/atl1/atl1_main.c
-index 67ddf8d..f7ac475 100644
---- a/drivers/net/atl1/atl1_main.c
-+++ b/drivers/net/atl1/atl1_main.c
-@@ -168,6 +168,64 @@ static int __devinit atl1_sw_init(struct atl1_adapter *adapter)
- 	return 0;
- }
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 845fbf4..21a2265 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -754,6 +754,13 @@ L:	uclinux-dist-devel@blackfin.uclinux.org (subscribers-only)
+ W:	http://blackfin.uclinux.org
+ S:	Supported
  
-+static int mdio_read(struct net_device *netdev, int phy_id, int reg_num)
-+{
-+	struct atl1_adapter *adapter = netdev_priv(netdev);
-+	u16 result;
++BLACKFIN EMAC DRIVER
++P:	Bryan Wu
++M:	bryan.wu@analog.com
++L:	uclinux-dist-devel@blackfin.uclinux.org (subscribers-only)
++W:	http://blackfin.uclinux.org
++S:	Supported
 +
-+	atl1_read_phy_reg(&adapter->hw, reg_num & 0x1f, &result);
+ BLACKFIN RTC DRIVER
+ P:	Mike Frysinger
+ M:	michael.frysinger@analog.com
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index ba314ad..9356a6e 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -838,6 +838,50 @@ config ULTRA32
+ 	  <file:Documentation/networking/net-modules.txt>. The module
+ 	  will be called smc-ultra32.
+ 
++config BFIN_MAC
++	tristate "Blackfin 536/537 on-chip mac support"
++	depends on NET_ETHERNET && (BF537 || BF536) && (!BF537_PORT_H)
++	select CRC32
++	select BFIN_MAC_USE_L1 if DMA_UNCACHED_NONE
++	help
++	  This is the driver for blackfin on-chip mac device. Say Y if you want it
++	  compiled into the kernel. This driver is also available as a module
++	  ( = code which can be inserted in and removed from the running kernel
++	  whenever you want). The module will be called bfin_mac.
 +
-+	return result;
-+}
++config BFIN_MAC_USE_L1
++	bool "Use L1 memory for rx/tx packets"
++	depends on BFIN_MAC && BF537
++	default y
++	help
++	  To get maximum network performace, you should use L1 memory as rx/tx buffers.
++	  Say N here if you want to reserve L1 memory for other uses.
 +
-+static void mdio_write(struct net_device *netdev, int phy_id, int reg_num,
-+	int val)
-+{
-+	struct atl1_adapter *adapter = netdev_priv(netdev);
++config BFIN_TX_DESC_NUM
++	int "Number of transmit buffer packets"
++	depends on BFIN_MAC
++	range 6 10 if BFIN_MAC_USE_L1
++	range 10 100
++	default "10"
++	help
++	  Set the number of buffer packets used in driver.
 +
-+	atl1_write_phy_reg(&adapter->hw, reg_num, val);
-+}
++config BFIN_RX_DESC_NUM
++	int "Number of receive buffer packets"
++	depends on BFIN_MAC
++	range 20 100 if BFIN_MAC_USE_L1
++	range 20 800
++	default "20"
++	help
++	  Set the number of buffer packets used in driver.
 +
++config BFIN_MAC_RMII
++	bool "RMII PHY Interface (EXPERIMENTAL)"
++	depends on BFIN_MAC && EXPERIMENTAL
++	default n
++	help
++	  Use Reduced PHY MII Interface
++
+ config SMC9194
+ 	tristate "SMC 9194 support"
+ 	depends on NET_VENDOR_SMC && (ISA || MAC && BROKEN)
+diff --git a/drivers/net/Makefile b/drivers/net/Makefile
+index a2241e6..c23a1b3 100644
+--- a/drivers/net/Makefile
++++ b/drivers/net/Makefile
+@@ -198,6 +198,7 @@ obj-$(CONFIG_S2IO) += s2io.o
+ obj-$(CONFIG_MYRI10GE) += myri10ge/
+ obj-$(CONFIG_SMC91X) += smc91x.o
+ obj-$(CONFIG_SMC911X) += smc911x.o
++obj-$(CONFIG_BFIN_MAC) += bfin_mac.o
+ obj-$(CONFIG_DM9000) += dm9000.o
+ obj-$(CONFIG_FEC_8XX) += fec_8xx/
+ obj-$(CONFIG_PASEMI_MAC) += pasemi_mac.o
+diff --git a/drivers/net/bfin_mac.c b/drivers/net/bfin_mac.c
+new file mode 100644
+index 0000000..27d641c
+--- /dev/null
++++ b/drivers/net/bfin_mac.c
+@@ -0,0 +1,1033 @@
 +/*
-+ * atl1_mii_ioctl -
-+ * @netdev:
-+ * @ifreq:
-+ * @cmd:
-+ */
-+static int atl1_mii_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
-+{
-+	struct atl1_adapter *adapter = netdev_priv(netdev);
-+	unsigned long flags;
-+	int retval;
-+
-+	if (!netif_running(netdev))
-+		return -EINVAL;
-+
-+	spin_lock_irqsave(&adapter->lock, flags);
-+	retval = generic_mii_ioctl(&adapter->mii, if_mii(ifr), cmd, NULL);
-+	spin_unlock_irqrestore(&adapter->lock, flags);
-+
-+	return retval;
-+}
-+
-+/*
-+ * atl1_ioctl -
-+ * @netdev:
-+ * @ifreq:
-+ * @cmd:
-+ */
-+static int atl1_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
-+{
-+	switch (cmd) {
-+	case SIOCGMIIPHY:
-+	case SIOCGMIIREG:
-+	case SIOCSMIIREG:
-+		return atl1_mii_ioctl(netdev, ifr, cmd);
-+	default:
-+		return -EOPNOTSUPP;
-+	}
-+}
-+
- /*
-  * atl1_setup_mem_resources - allocate Tx / RX descriptor resources
-  * @adapter: board private structure
-@@ -276,555 +334,116 @@ void atl1_init_ring_ptrs(struct atl1_adapter *adapter)
- }
- 
- /*
-- * atl1_irq_enable - Enable default interrupt generation settings
-+ * atl1_clean_rx_ring - Free RFD Buffers
-  * @adapter: board private structure
-  */
--static void atl1_irq_enable(struct atl1_adapter *adapter)
--{
--	iowrite32(IMR_NORMAL_MASK, adapter->hw.hw_addr + REG_IMR);
--	ioread32(adapter->hw.hw_addr + REG_IMR);
--}
--
--static void atl1_clear_phy_int(struct atl1_adapter *adapter)
--{
--	u16 phy_data;
--	unsigned long flags;
--
--	spin_lock_irqsave(&adapter->lock, flags);
--	atl1_read_phy_reg(&adapter->hw, 19, &phy_data);
--	spin_unlock_irqrestore(&adapter->lock, flags);
--}
--
--static void atl1_inc_smb(struct atl1_adapter *adapter)
--{
--	struct stats_msg_block *smb = adapter->smb.smb;
--
--	/* Fill out the OS statistics structure */
--	adapter->soft_stats.rx_packets += smb->rx_ok;
--	adapter->soft_stats.tx_packets += smb->tx_ok;
--	adapter->soft_stats.rx_bytes += smb->rx_byte_cnt;
--	adapter->soft_stats.tx_bytes += smb->tx_byte_cnt;
--	adapter->soft_stats.multicast += smb->rx_mcast;
--	adapter->soft_stats.collisions += (smb->tx_1_col + smb->tx_2_col * 2 +
--		smb->tx_late_col + smb->tx_abort_col * adapter->hw.max_retry);
--
--	/* Rx Errors */
--	adapter->soft_stats.rx_errors += (smb->rx_frag + smb->rx_fcs_err +
--		smb->rx_len_err + smb->rx_sz_ov + smb->rx_rxf_ov +
--		smb->rx_rrd_ov + smb->rx_align_err);
--	adapter->soft_stats.rx_fifo_errors += smb->rx_rxf_ov;
--	adapter->soft_stats.rx_length_errors += smb->rx_len_err;
--	adapter->soft_stats.rx_crc_errors += smb->rx_fcs_err;
--	adapter->soft_stats.rx_frame_errors += smb->rx_align_err;
--	adapter->soft_stats.rx_missed_errors += (smb->rx_rrd_ov +
--		smb->rx_rxf_ov);
--
--	adapter->soft_stats.rx_pause += smb->rx_pause;
--	adapter->soft_stats.rx_rrd_ov += smb->rx_rrd_ov;
--	adapter->soft_stats.rx_trunc += smb->rx_sz_ov;
--
--	/* Tx Errors */
--	adapter->soft_stats.tx_errors += (smb->tx_late_col +
--		smb->tx_abort_col + smb->tx_underrun + smb->tx_trunc);
--	adapter->soft_stats.tx_fifo_errors += smb->tx_underrun;
--	adapter->soft_stats.tx_aborted_errors += smb->tx_abort_col;
--	adapter->soft_stats.tx_window_errors += smb->tx_late_col;
--
--	adapter->soft_stats.excecol += smb->tx_abort_col;
--	adapter->soft_stats.deffer += smb->tx_defer;
--	adapter->soft_stats.scc += smb->tx_1_col;
--	adapter->soft_stats.mcc += smb->tx_2_col;
--	adapter->soft_stats.latecol += smb->tx_late_col;
--	adapter->soft_stats.tx_underun += smb->tx_underrun;
--	adapter->soft_stats.tx_trunc += smb->tx_trunc;
--	adapter->soft_stats.tx_pause += smb->tx_pause;
--
--	adapter->net_stats.rx_packets = adapter->soft_stats.rx_packets;
--	adapter->net_stats.tx_packets = adapter->soft_stats.tx_packets;
--	adapter->net_stats.rx_bytes = adapter->soft_stats.rx_bytes;
--	adapter->net_stats.tx_bytes = adapter->soft_stats.tx_bytes;
--	adapter->net_stats.multicast = adapter->soft_stats.multicast;
--	adapter->net_stats.collisions = adapter->soft_stats.collisions;
--	adapter->net_stats.rx_errors = adapter->soft_stats.rx_errors;
--	adapter->net_stats.rx_over_errors =
--		adapter->soft_stats.rx_missed_errors;
--	adapter->net_stats.rx_length_errors =
--		adapter->soft_stats.rx_length_errors;
--	adapter->net_stats.rx_crc_errors = adapter->soft_stats.rx_crc_errors;
--	adapter->net_stats.rx_frame_errors =
--		adapter->soft_stats.rx_frame_errors;
--	adapter->net_stats.rx_fifo_errors = adapter->soft_stats.rx_fifo_errors;
--	adapter->net_stats.rx_missed_errors =
--		adapter->soft_stats.rx_missed_errors;
--	adapter->net_stats.tx_errors = adapter->soft_stats.tx_errors;
--	adapter->net_stats.tx_fifo_errors = adapter->soft_stats.tx_fifo_errors;
--	adapter->net_stats.tx_aborted_errors =
--		adapter->soft_stats.tx_aborted_errors;
--	adapter->net_stats.tx_window_errors =
--		adapter->soft_stats.tx_window_errors;
--	adapter->net_stats.tx_carrier_errors =
--		adapter->soft_stats.tx_carrier_errors;
--}
--
--static void atl1_rx_checksum(struct atl1_adapter *adapter,
--	struct rx_return_desc *rrd, struct sk_buff *skb)
--{
--	struct pci_dev *pdev = adapter->pdev;
--
--	skb->ip_summed = CHECKSUM_NONE;
--
--	if (unlikely(rrd->pkt_flg & PACKET_FLAG_ERR)) {
--		if (rrd->err_flg & (ERR_FLAG_CRC | ERR_FLAG_TRUNC |
--					ERR_FLAG_CODE | ERR_FLAG_OV)) {
--			adapter->hw_csum_err++;
--			dev_printk(KERN_DEBUG, &pdev->dev,
--				"rx checksum error\n");
--			return;
--		}
--	}
--
--	/* not IPv4 */
--	if (!(rrd->pkt_flg & PACKET_FLAG_IPV4))
--		/* checksum is invalid, but it's not an IPv4 pkt, so ok */
--		return;
--
--	/* IPv4 packet */
--	if (likely(!(rrd->err_flg &
--		(ERR_FLAG_IP_CHKSUM | ERR_FLAG_L4_CHKSUM)))) {
--		skb->ip_summed = CHECKSUM_UNNECESSARY;
--		adapter->hw_csum_good++;
--		return;
--	}
--
--	/* IPv4, but hardware thinks its checksum is wrong */
--	dev_printk(KERN_DEBUG, &pdev->dev,
--		"hw csum wrong, pkt_flag:%x, err_flag:%x\n",
--		rrd->pkt_flg, rrd->err_flg);
--	skb->ip_summed = CHECKSUM_COMPLETE;
--	skb->csum = htons(rrd->xsz.xsum_sz.rx_chksum);
--	adapter->hw_csum_err++;
--	return;
--}
--
--/*
-- * atl1_alloc_rx_buffers - Replace used receive buffers
-- * @adapter: address of board private structure
-- */
--static u16 atl1_alloc_rx_buffers(struct atl1_adapter *adapter)
--{
--	struct atl1_rfd_ring *rfd_ring = &adapter->rfd_ring;
--	struct pci_dev *pdev = adapter->pdev;
--	struct page *page;
--	unsigned long offset;
--	struct atl1_buffer *buffer_info, *next_info;
--	struct sk_buff *skb;
--	u16 num_alloc = 0;
--	u16 rfd_next_to_use, next_next;
--	struct rx_free_desc *rfd_desc;
--
--	next_next = rfd_next_to_use = atomic_read(&rfd_ring->next_to_use);
--	if (++next_next == rfd_ring->count)
--		next_next = 0;
--	buffer_info = &rfd_ring->buffer_info[rfd_next_to_use];
--	next_info = &rfd_ring->buffer_info[next_next];
--
--	while (!buffer_info->alloced && !next_info->alloced) {
--		if (buffer_info->skb) {
--			buffer_info->alloced = 1;
--			goto next;
--		}
--
--		rfd_desc = ATL1_RFD_DESC(rfd_ring, rfd_next_to_use);
--
--		skb = dev_alloc_skb(adapter->rx_buffer_len + NET_IP_ALIGN);
--		if (unlikely(!skb)) {	/* Better luck next round */
--			adapter->net_stats.rx_dropped++;
--			break;
--		}
--
--		/*
--		 * Make buffer alignment 2 beyond a 16 byte boundary
--		 * this will result in a 16 byte aligned IP header after
--		 * the 14 byte MAC header is removed
--		 */
--		skb_reserve(skb, NET_IP_ALIGN);
--
--		buffer_info->alloced = 1;
--		buffer_info->skb = skb;
--		buffer_info->length = (u16) adapter->rx_buffer_len;
--		page = virt_to_page(skb->data);
--		offset = (unsigned long)skb->data & ~PAGE_MASK;
--		buffer_info->dma = pci_map_page(pdev, page, offset,
--						adapter->rx_buffer_len,
--						PCI_DMA_FROMDEVICE);
--		rfd_desc->buffer_addr = cpu_to_le64(buffer_info->dma);
--		rfd_desc->buf_len = cpu_to_le16(adapter->rx_buffer_len);
--		rfd_desc->coalese = 0;
--
--next:
--		rfd_next_to_use = next_next;
--		if (unlikely(++next_next == rfd_ring->count))
--			next_next = 0;
--
--		buffer_info = &rfd_ring->buffer_info[rfd_next_to_use];
--		next_info = &rfd_ring->buffer_info[next_next];
--		num_alloc++;
--	}
--
--	if (num_alloc) {
--		/*
--		 * Force memory writes to complete before letting h/w
--		 * know there are new descriptors to fetch.  (Only
--		 * applicable for weak-ordered memory model archs,
--		 * such as IA-64).
--		 */
--		wmb();
--		atomic_set(&rfd_ring->next_to_use, (int)rfd_next_to_use);
--	}
--	return num_alloc;
--}
--
--static void atl1_clean_alloc_flag(struct atl1_adapter *adapter,
--	struct rx_return_desc *rrd, u16 offset)
--{
--	struct atl1_rfd_ring *rfd_ring = &adapter->rfd_ring;
--
--	while (rfd_ring->next_to_clean != (rrd->buf_indx + offset)) {
--		rfd_ring->buffer_info[rfd_ring->next_to_clean].alloced = 0;
--		if (++rfd_ring->next_to_clean == rfd_ring->count) {
--			rfd_ring->next_to_clean = 0;
--		}
--	}
--}
--
--static void atl1_update_rfd_index(struct atl1_adapter *adapter,
--	struct rx_return_desc *rrd)
--{
--	u16 num_buf;
--
--	num_buf = (rrd->xsz.xsum_sz.pkt_size + adapter->rx_buffer_len - 1) /
--		adapter->rx_buffer_len;
--	if (rrd->num_buf == num_buf)
--		/* clean alloc flag for bad rrd */
--		atl1_clean_alloc_flag(adapter, rrd, num_buf);
--}
--
--static void atl1_intr_rx(struct atl1_adapter *adapter)
-+static void atl1_clean_rx_ring(struct atl1_adapter *adapter)
- {
--	int i, count;
--	u16 length;
--	u16 rrd_next_to_clean;
--	u32 value;
- 	struct atl1_rfd_ring *rfd_ring = &adapter->rfd_ring;
- 	struct atl1_rrd_ring *rrd_ring = &adapter->rrd_ring;
- 	struct atl1_buffer *buffer_info;
--	struct rx_return_desc *rrd;
--	struct sk_buff *skb;
--
--	count = 0;
--
--	rrd_next_to_clean = atomic_read(&rrd_ring->next_to_clean);
--
--	while (1) {
--		rrd = ATL1_RRD_DESC(rrd_ring, rrd_next_to_clean);
--		i = 1;
--		if (likely(rrd->xsz.valid)) {	/* packet valid */
--chk_rrd:
--			/* check rrd status */
--			if (likely(rrd->num_buf == 1))
--				goto rrd_ok;
--
--			/* rrd seems to be bad */
--			if (unlikely(i-- > 0)) {
--				/* rrd may not be DMAed completely */
--				dev_printk(KERN_DEBUG, &adapter->pdev->dev,
--					"incomplete RRD DMA transfer\n");
--				udelay(1);
--				goto chk_rrd;
--			}
--			/* bad rrd */
--			dev_printk(KERN_DEBUG, &adapter->pdev->dev,
--				"bad RRD\n");
--			/* see if update RFD index */
--			if (rrd->num_buf > 1)
--				atl1_update_rfd_index(adapter, rrd);
--
--			/* update rrd */
--			rrd->xsz.valid = 0;
--			if (++rrd_next_to_clean == rrd_ring->count)
--				rrd_next_to_clean = 0;
--			count++;
--			continue;
--		} else {	/* current rrd still not be updated */
-+	struct pci_dev *pdev = adapter->pdev;
-+	unsigned long size;
-+	unsigned int i;
- 
--			break;
-+	/* Free all the Rx ring sk_buffs */
-+	for (i = 0; i < rfd_ring->count; i++) {
-+		buffer_info = &rfd_ring->buffer_info[i];
-+		if (buffer_info->dma) {
-+			pci_unmap_page(pdev, buffer_info->dma,
-+				buffer_info->length, PCI_DMA_FROMDEVICE);
-+			buffer_info->dma = 0;
- 		}
--rrd_ok:
--		/* clean alloc flag for bad rrd */
--		atl1_clean_alloc_flag(adapter, rrd, 0);
--
--		buffer_info = &rfd_ring->buffer_info[rrd->buf_indx];
--		if (++rfd_ring->next_to_clean == rfd_ring->count)
--			rfd_ring->next_to_clean = 0;
--
--		/* update rrd next to clean */
--		if (++rrd_next_to_clean == rrd_ring->count)
--			rrd_next_to_clean = 0;
--		count++;
--
--		if (unlikely(rrd->pkt_flg & PACKET_FLAG_ERR)) {
--			if (!(rrd->err_flg &
--				(ERR_FLAG_IP_CHKSUM | ERR_FLAG_L4_CHKSUM
--				| ERR_FLAG_LEN))) {
--				/* packet error, don't need upstream */
--				buffer_info->alloced = 0;
--				rrd->xsz.valid = 0;
--				continue;
--			}
-+		if (buffer_info->skb) {
-+			dev_kfree_skb(buffer_info->skb);
-+			buffer_info->skb = NULL;
- 		}
--
--		/* Good Receive */
--		pci_unmap_page(adapter->pdev, buffer_info->dma,
--			       buffer_info->length, PCI_DMA_FROMDEVICE);
--		skb = buffer_info->skb;
--		length = le16_to_cpu(rrd->xsz.xsum_sz.pkt_size);
--
--		skb_put(skb, length - ETHERNET_FCS_SIZE);
--
--		/* Receive Checksum Offload */
--		atl1_rx_checksum(adapter, rrd, skb);
--		skb->protocol = eth_type_trans(skb, adapter->netdev);
--
--		if (adapter->vlgrp && (rrd->pkt_flg & PACKET_FLAG_VLAN_INS)) {
--			u16 vlan_tag = (rrd->vlan_tag >> 4) |
--					((rrd->vlan_tag & 7) << 13) |
--					((rrd->vlan_tag & 8) << 9);
--			vlan_hwaccel_rx(skb, adapter->vlgrp, vlan_tag);
--		} else
--			netif_rx(skb);
--
--		/* let protocol layer free skb */
--		buffer_info->skb = NULL;
--		buffer_info->alloced = 0;
--		rrd->xsz.valid = 0;
--
--		adapter->netdev->last_rx = jiffies;
- 	}
- 
--	atomic_set(&rrd_ring->next_to_clean, rrd_next_to_clean);
--
--	atl1_alloc_rx_buffers(adapter);
-+	size = sizeof(struct atl1_buffer) * rfd_ring->count;
-+	memset(rfd_ring->buffer_info, 0, size);
- 
--	/* update mailbox ? */
--	if (count) {
--		u32 tpd_next_to_use;
--		u32 rfd_next_to_use;
--		u32 rrd_next_to_clean;
-+	/* Zero out the descriptor ring */
-+	memset(rfd_ring->desc, 0, rfd_ring->size);
- 
--		spin_lock(&adapter->mb_lock);
-+	rfd_ring->next_to_clean = 0;
-+	atomic_set(&rfd_ring->next_to_use, 0);
- 
--		tpd_next_to_use = atomic_read(&adapter->tpd_ring.next_to_use);
--		rfd_next_to_use =
--		    atomic_read(&adapter->rfd_ring.next_to_use);
--		rrd_next_to_clean =
--		    atomic_read(&adapter->rrd_ring.next_to_clean);
--		value = ((rfd_next_to_use & MB_RFD_PROD_INDX_MASK) <<
--			MB_RFD_PROD_INDX_SHIFT) |
--                        ((rrd_next_to_clean & MB_RRD_CONS_INDX_MASK) <<
--			MB_RRD_CONS_INDX_SHIFT) |
--                        ((tpd_next_to_use & MB_TPD_PROD_INDX_MASK) <<
--			MB_TPD_PROD_INDX_SHIFT);
--		iowrite32(value, adapter->hw.hw_addr + REG_MAILBOX);
--		spin_unlock(&adapter->mb_lock);
--	}
-+	rrd_ring->next_to_use = 0;
-+	atomic_set(&rrd_ring->next_to_clean, 0);
- }
- 
--static void atl1_intr_tx(struct atl1_adapter *adapter)
-+/*
-+ * atl1_clean_tx_ring - Free Tx Buffers
-+ * @adapter: board private structure
-+ */
-+static void atl1_clean_tx_ring(struct atl1_adapter *adapter)
- {
- 	struct atl1_tpd_ring *tpd_ring = &adapter->tpd_ring;
- 	struct atl1_buffer *buffer_info;
--	u16 sw_tpd_next_to_clean;
--	u16 cmb_tpd_next_to_clean;
--
--	sw_tpd_next_to_clean = atomic_read(&tpd_ring->next_to_clean);
--	cmb_tpd_next_to_clean = le16_to_cpu(adapter->cmb.cmb->tpd_cons_idx);
--
--	while (cmb_tpd_next_to_clean != sw_tpd_next_to_clean) {
--		struct tx_packet_desc *tpd;
-+	struct pci_dev *pdev = adapter->pdev;
-+	unsigned long size;
-+	unsigned int i;
- 
--		tpd = ATL1_TPD_DESC(tpd_ring, sw_tpd_next_to_clean);
--		buffer_info = &tpd_ring->buffer_info[sw_tpd_next_to_clean];
-+	/* Free all the Tx ring sk_buffs */
-+	for (i = 0; i < tpd_ring->count; i++) {
-+		buffer_info = &tpd_ring->buffer_info[i];
- 		if (buffer_info->dma) {
--			pci_unmap_page(adapter->pdev, buffer_info->dma,
--				       buffer_info->length, PCI_DMA_TODEVICE);
-+			pci_unmap_page(pdev, buffer_info->dma,
-+				buffer_info->length, PCI_DMA_TODEVICE);
- 			buffer_info->dma = 0;
- 		}
-+	}
- 
-+	for (i = 0; i < tpd_ring->count; i++) {
-+		buffer_info = &tpd_ring->buffer_info[i];
- 		if (buffer_info->skb) {
--			dev_kfree_skb_irq(buffer_info->skb);
-+			dev_kfree_skb_any(buffer_info->skb);
- 			buffer_info->skb = NULL;
- 		}
--		tpd->buffer_addr = 0;
--		tpd->desc.data = 0;
--
--		if (++sw_tpd_next_to_clean == tpd_ring->count)
--			sw_tpd_next_to_clean = 0;
- 	}
--	atomic_set(&tpd_ring->next_to_clean, sw_tpd_next_to_clean);
--
--	if (netif_queue_stopped(adapter->netdev)
--	    && netif_carrier_ok(adapter->netdev))
--		netif_wake_queue(adapter->netdev);
--}
--
--static void atl1_check_for_link(struct atl1_adapter *adapter)
--{
--	struct net_device *netdev = adapter->netdev;
--	u16 phy_data = 0;
--
--	spin_lock(&adapter->lock);
--	adapter->phy_timer_pending = false;
--	atl1_read_phy_reg(&adapter->hw, MII_BMSR, &phy_data);
--	atl1_read_phy_reg(&adapter->hw, MII_BMSR, &phy_data);
--	spin_unlock(&adapter->lock);
- 
--	/* notify upper layer link down ASAP */
--	if (!(phy_data & BMSR_LSTATUS)) {	/* Link Down */
--		if (netif_carrier_ok(netdev)) {	/* old link state: Up */
--			dev_info(&adapter->pdev->dev, "%s link is down\n",
--				netdev->name);
--			adapter->link_speed = SPEED_0;
--			netif_carrier_off(netdev);
--			netif_stop_queue(netdev);
--		}
--	}
--	schedule_work(&adapter->link_chg_task);
--}
--
--/*
-- * atl1_intr - Interrupt Handler
-- * @irq: interrupt number
-- * @data: pointer to a network interface device structure
-- * @pt_regs: CPU registers structure
-- */
--static irqreturn_t atl1_intr(int irq, void *data)
--{
--	struct atl1_adapter *adapter = netdev_priv(data);
--	u32 status;
--	u8 update_rx;
--	int max_ints = 10;
--
--	status = adapter->cmb.cmb->int_stats;
--	if (!status)
--		return IRQ_NONE;
--
--	update_rx = 0;
--
--	do {
--		/* clear CMB interrupt status at once */
--		adapter->cmb.cmb->int_stats = 0;
--
--		if (status & ISR_GPHY)	/* clear phy status */
--			atl1_clear_phy_int(adapter);
--
--		/* clear ISR status, and Enable CMB DMA/Disable Interrupt */
--		iowrite32(status | ISR_DIS_INT, adapter->hw.hw_addr + REG_ISR);
--
--		/* check if SMB intr */
--		if (status & ISR_SMB)
--			atl1_inc_smb(adapter);
--
--		/* check if PCIE PHY Link down */
--		if (status & ISR_PHY_LINKDOWN) {
--			dev_printk(KERN_DEBUG, &adapter->pdev->dev,
--				"pcie phy link down %x\n", status);
--			if (netif_running(adapter->netdev)) {	/* reset MAC */
--				iowrite32(0, adapter->hw.hw_addr + REG_IMR);
--				schedule_work(&adapter->pcie_dma_to_rst_task);
--				return IRQ_HANDLED;
--			}
--		}
--
--		/* check if DMA read/write error ? */
--		if (status & (ISR_DMAR_TO_RST | ISR_DMAW_TO_RST)) {
--			dev_printk(KERN_DEBUG, &adapter->pdev->dev,
--				"pcie DMA r/w error (status = 0x%x)\n",
--				status);
--			iowrite32(0, adapter->hw.hw_addr + REG_IMR);
--			schedule_work(&adapter->pcie_dma_to_rst_task);
--			return IRQ_HANDLED;
--		}
--
--		/* link event */
--		if (status & ISR_GPHY) {
--			adapter->soft_stats.tx_carrier_errors++;
--			atl1_check_for_link(adapter);
--		}
--
--		/* transmit event */
--		if (status & ISR_CMB_TX)
--			atl1_intr_tx(adapter);
--
--		/* rx exception */
--		if (unlikely(status & (ISR_RXF_OV | ISR_RFD_UNRUN |
--			ISR_RRD_OV | ISR_HOST_RFD_UNRUN |
--			ISR_HOST_RRD_OV | ISR_CMB_RX))) {
--			if (status & (ISR_RXF_OV | ISR_RFD_UNRUN |
--				ISR_RRD_OV | ISR_HOST_RFD_UNRUN |
--				ISR_HOST_RRD_OV))
--				dev_printk(KERN_DEBUG, &adapter->pdev->dev,
--					"rx exception, ISR = 0x%x\n", status);
--			atl1_intr_rx(adapter);
--		}
--
--		if (--max_ints < 0)
--			break;
-+	size = sizeof(struct atl1_buffer) * tpd_ring->count;
-+	memset(tpd_ring->buffer_info, 0, size);
- 
--	} while ((status = adapter->cmb.cmb->int_stats));
-+	/* Zero out the descriptor ring */
-+	memset(tpd_ring->desc, 0, tpd_ring->size);
- 
--	/* re-enable Interrupt */
--	iowrite32(ISR_DIS_SMB | ISR_DIS_DMA, adapter->hw.hw_addr + REG_ISR);
--	return IRQ_HANDLED;
-+	atomic_set(&tpd_ring->next_to_use, 0);
-+	atomic_set(&tpd_ring->next_to_clean, 0);
- }
- 
- /*
-- * atl1_set_multi - Multicast and Promiscuous mode set
-- * @netdev: network interface device structure
-+ * atl1_free_ring_resources - Free Tx / RX descriptor Resources
-+ * @adapter: board private structure
-  *
-- * The set_multi entry point is called whenever the multicast address
-- * list or the network interface flags are updated.  This routine is
-- * responsible for configuring the hardware for proper multicast,
-- * promiscuous mode, and all-multi behavior.
-+ * Free all transmit software resources
-  */
--static void atl1_set_multi(struct net_device *netdev)
-+void atl1_free_ring_resources(struct atl1_adapter *adapter)
- {
--	struct atl1_adapter *adapter = netdev_priv(netdev);
--	struct atl1_hw *hw = &adapter->hw;
--	struct dev_mc_list *mc_ptr;
--	u32 rctl;
--	u32 hash_value;
-+	struct pci_dev *pdev = adapter->pdev;
-+	struct atl1_tpd_ring *tpd_ring = &adapter->tpd_ring;
-+	struct atl1_rfd_ring *rfd_ring = &adapter->rfd_ring;
-+	struct atl1_rrd_ring *rrd_ring = &adapter->rrd_ring;
-+	struct atl1_ring_header *ring_header = &adapter->ring_header;
- 
--	/* Check for Promiscuous and All Multicast modes */
--	rctl = ioread32(hw->hw_addr + REG_MAC_CTRL);
--	if (netdev->flags & IFF_PROMISC)
--		rctl |= MAC_CTRL_PROMIS_EN;
--	else if (netdev->flags & IFF_ALLMULTI) {
--		rctl |= MAC_CTRL_MC_ALL_EN;
--		rctl &= ~MAC_CTRL_PROMIS_EN;
--	} else
--		rctl &= ~(MAC_CTRL_PROMIS_EN | MAC_CTRL_MC_ALL_EN);
-+	atl1_clean_tx_ring(adapter);
-+	atl1_clean_rx_ring(adapter);
- 
--	iowrite32(rctl, hw->hw_addr + REG_MAC_CTRL);
-+	kfree(tpd_ring->buffer_info);
-+	pci_free_consistent(pdev, ring_header->size, ring_header->desc,
-+		ring_header->dma);
- 
--	/* clear the old settings from the multicast hash table */
--	iowrite32(0, hw->hw_addr + REG_RX_HASH_TABLE);
--	iowrite32(0, (hw->hw_addr + REG_RX_HASH_TABLE) + (1 << 2));
-+	tpd_ring->buffer_info = NULL;
-+	tpd_ring->desc = NULL;
-+	tpd_ring->dma = 0;
- 
--	/* compute mc addresses' hash value ,and put it into hash table */
--	for (mc_ptr = netdev->mc_list; mc_ptr; mc_ptr = mc_ptr->next) {
--		hash_value = atl1_hash_mc_addr(hw, mc_ptr->dmi_addr);
--		atl1_hash_set(hw, hash_value);
--	}
-+	rfd_ring->buffer_info = NULL;
-+	rfd_ring->desc = NULL;
-+	rfd_ring->dma = 0;
-+
-+	rrd_ring->desc = NULL;
-+	rrd_ring->dma = 0;
- }
- 
- static void atl1_setup_mac_ctrl(struct atl1_adapter *adapter)
-@@ -865,6 +484,31 @@ static void atl1_setup_mac_ctrl(struct atl1_adapter *adapter)
- 	iowrite32(value, hw->hw_addr + REG_MAC_CTRL);
- }
- 
-+/*
-+ * atl1_set_mac - Change the Ethernet Address of the NIC
-+ * @netdev: network interface device structure
-+ * @p: pointer to an address structure
++ * File:	drivers/net/bfin_mac.c
++ * Based on:
++ * Maintainer:
++ * 		Bryan Wu <bryan.wu@analog.com>
 + *
-+ * Returns 0 on success, negative on failure
++ * Original author:
++ * 		Luke Yang <luke.yang@analog.com>
++ *
++ * Created:
++ * Description:
++ *
++ * Modified:
++ *		Copyright 2004-2006 Analog Devices Inc.
++ *
++ * Bugs:	Enter bugs at http://blackfin.uclinux.org/
++ *
++ * This program is free software ;  you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation ;  either version 2, or (at your option)
++ * any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY ;  without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program ;  see the file COPYING.
++ * If not, write to the Free Software Foundation,
++ * 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 + */
-+static int atl1_set_mac(struct net_device *netdev, void *p)
++
++#include <linux/init.h>
++#include <linux/module.h>
++#include <linux/kernel.h>
++#include <linux/sched.h>
++#include <linux/slab.h>
++#include <linux/delay.h>
++#include <linux/timer.h>
++#include <linux/errno.h>
++#include <linux/irq.h>
++#include <linux/io.h>
++#include <linux/ioport.h>
++#include <linux/crc32.h>
++#include <linux/device.h>
++#include <linux/spinlock.h>
++#include <linux/ethtool.h>
++#include <linux/mii.h>
++
++#include <linux/netdevice.h>
++#include <linux/etherdevice.h>
++#include <linux/skbuff.h>
++
++#include <linux/platform_device.h>
++#include <linux/netdevice.h>
++#include <linux/etherdevice.h>
++#include <linux/skbuff.h>
++
++#include <asm/dma.h>
++#include <linux/dma-mapping.h>
++
++#include <asm/blackfin.h>
++#include <asm/cacheflush.h>
++
++#include "bfin_mac.h"
++
++#define DRV_NAME	"bfin_mac"
++#define DRV_VERSION	"1.0"
++#define DRV_AUTHOR	"Bryan Wu, Luke Yang"
++#define DRV_DESC	"Blackfin BF53[67] on-chip Ethernet MAC driver"
++
++MODULE_AUTHOR(DRV_AUTHOR);
++MODULE_LICENSE("GPL");
++MODULE_DESCRIPTION(DRV_DESC);
++
++#if defined(CONFIG_BFIN_MAC_USE_L1)
++# define bfin_mac_alloc(dma_handle, size)  l1_data_sram_zalloc(size)
++# define bfin_mac_free(dma_handle, ptr)    l1_data_sram_free(ptr)
++#else
++# define bfin_mac_alloc(dma_handle, size) \
++	dma_alloc_coherent(NULL, size, dma_handle, GFP_KERNEL)
++# define bfin_mac_free(dma_handle, ptr) \
++	dma_free_coherent(NULL, sizeof(*ptr), ptr, dma_handle)
++#endif
++
++#define PKT_BUF_SZ 1580
++
++#define MAX_TIMEOUT_CNT	500
++
++static void desc_list_free(void);
++
++/* pointers to maintain transmit list */
++static struct net_dma_desc_tx *tx_list_head;
++static struct net_dma_desc_tx *tx_list_tail;
++static struct net_dma_desc_rx *rx_list_head;
++static struct net_dma_desc_rx *rx_list_tail;
++static struct net_dma_desc_rx *current_rx_ptr;
++static struct net_dma_desc_tx *current_tx_ptr;
++static struct net_dma_desc_tx *tx_desc;
++static struct net_dma_desc_rx *rx_desc;
++
++static int desc_list_init(void)
 +{
-+	struct atl1_adapter *adapter = netdev_priv(netdev);
-+	struct sockaddr *addr = p;
++	struct net_dma_desc_tx *tmp_desc_tx;
++	struct net_dma_desc_rx *tmp_desc_rx;
++	int i;
++	struct sk_buff *new_skb;
++#if !defined(CONFIG_BFIN_MAC_USE_L1)
++	/*
++	 * This dma_handle is useless in Blackfin dma_alloc_coherent().
++	 * The real dma handler is the return value of dma_alloc_coherent().
++	 */
++	dma_addr_t dma_handle;
++#endif
 +
-+	if (netif_running(netdev))
-+		return -EBUSY;
++	tx_desc =
++	    bfin_mac_alloc(&dma_handle,
++			   sizeof(struct net_dma_desc_tx) *
++			   CONFIG_BFIN_TX_DESC_NUM);
++	if (tx_desc == NULL)
++		goto init_error;
 +
-+	if (!is_valid_ether_addr(addr->sa_data))
-+		return -EADDRNOTAVAIL;
++	rx_desc =
++	    bfin_mac_alloc(&dma_handle,
++			   sizeof(struct net_dma_desc_rx) *
++			   CONFIG_BFIN_RX_DESC_NUM);
++	if (rx_desc == NULL)
++		goto init_error;
 +
-+	memcpy(netdev->dev_addr, addr->sa_data, netdev->addr_len);
-+	memcpy(adapter->hw.mac_addr, addr->sa_data, netdev->addr_len);
++	/* init tx_list */
++	for (i = 0; i < CONFIG_BFIN_TX_DESC_NUM; i++) {
 +
-+	atl1_set_mac_addr(&adapter->hw);
++		tmp_desc_tx = tx_desc + i;
++
++		if (i == 0) {
++			tx_list_head = tmp_desc_tx;
++			tx_list_tail = tmp_desc_tx;
++		}
++
++		tmp_desc_tx->desc_a.start_addr =
++		    (unsigned long)tmp_desc_tx->packet;
++		tmp_desc_tx->desc_a.x_count = 0;
++		/* disabled */
++		tmp_desc_tx->desc_a.config = 0;
++		/* read from memory WNR = 0 */
++		/* wordsize is 32 bits */
++		tmp_desc_tx->desc_a.config |= WDSIZE_32;
++		/* 6 half words is desc size. */
++		tmp_desc_tx->desc_a.config |= NDSIZE_6;
++		/* large desc flow */
++		tmp_desc_tx->desc_a.config |= DMAFLOW_LARGE;
++		tmp_desc_tx->desc_a.next_dma_desc = &(tmp_desc_tx->desc_b);
++
++		tmp_desc_tx->desc_b.start_addr =
++		    (unsigned long)(&(tmp_desc_tx->status));
++		tmp_desc_tx->desc_b.x_count = 0;
++		/* enabled */
++		tmp_desc_tx->desc_b.config |= DMAEN;
++		/* write to memory */
++		tmp_desc_tx->desc_b.config |= WNR;
++		/* wordsize is 32 bits */
++		tmp_desc_tx->desc_b.config |= WDSIZE_32;
++		/* disable interrupt */
++		tmp_desc_tx->desc_b.config &= ~DI_EN;
++		/* 6 half words is desc size. */
++		tmp_desc_tx->desc_b.config |= NDSIZE_6;
++		/* stop mode */
++		tmp_desc_tx->desc_b.config |= DMAFLOW_LARGE;
++		tmp_desc_tx->skb = NULL;
++		tx_list_tail->desc_b.next_dma_desc = &(tmp_desc_tx->desc_a);
++		tx_list_tail->next = tmp_desc_tx;
++
++		tx_list_tail = tmp_desc_tx;
++	}
++	tx_list_tail->next = tx_list_head;	/* tx_list is a circle */
++	tx_list_tail->desc_b.next_dma_desc = &(tx_list_head->desc_a);
++	current_tx_ptr = tx_list_head;
++
++	/* init rx_list */
++	for (i = 0; i < CONFIG_BFIN_RX_DESC_NUM; i++) {
++
++		tmp_desc_rx = rx_desc + i;
++
++		if (i == 0) {
++			rx_list_head = tmp_desc_rx;
++			rx_list_tail = tmp_desc_rx;
++		}
++
++		/* allocate a new skb for next time receive */
++		new_skb = dev_alloc_skb(PKT_BUF_SZ + 2);
++		if (!new_skb) {
++			printk(KERN_NOTICE DRV_NAME
++			       ": init: low on mem - packet dropped\n");
++			goto init_error;
++		}
++		skb_reserve(new_skb, 2);
++		tmp_desc_rx->skb = new_skb;
++		/* since RXDWA is enabled */
++		tmp_desc_rx->desc_a.start_addr =
++		    (unsigned long)new_skb->data - 2;
++		tmp_desc_rx->desc_a.x_count = 0;
++		/* enabled */
++		tmp_desc_rx->desc_a.config |= DMAEN;
++		/* Write to memory */
++		tmp_desc_rx->desc_a.config |= WNR;
++		/* wordsize is 32 bits */
++		tmp_desc_rx->desc_a.config |= WDSIZE_32;
++		/* 6 half words is desc size. */
++		tmp_desc_rx->desc_a.config |= NDSIZE_6;
++		/* large desc flow */
++		tmp_desc_rx->desc_a.config |= DMAFLOW_LARGE;
++		tmp_desc_rx->desc_a.next_dma_desc = &(tmp_desc_rx->desc_b);
++
++		tmp_desc_rx->desc_b.start_addr =
++		    (unsigned long)(&(tmp_desc_rx->status));
++		tmp_desc_rx->desc_b.x_count = 0;
++		/* enabled */
++		tmp_desc_rx->desc_b.config |= DMAEN;
++		/* Write to memory */
++		tmp_desc_rx->desc_b.config |= WNR;
++		/* wordsize is 32 bits */
++		tmp_desc_rx->desc_b.config |= WDSIZE_32;
++		tmp_desc_rx->desc_b.config |= NDSIZE_6;
++		/* enable interrupt */
++		tmp_desc_rx->desc_b.config |= DI_EN;
++		/* large mode */
++		tmp_desc_rx->desc_b.config |= DMAFLOW_LARGE;
++		rx_list_tail->desc_b.next_dma_desc = &(tmp_desc_rx->desc_a);
++
++		rx_list_tail->next = tmp_desc_rx;
++		rx_list_tail = tmp_desc_rx;
++	}
++	rx_list_tail->next = rx_list_head;	/* rx_list is a circle */
++	rx_list_tail->desc_b.next_dma_desc = &(rx_list_head->desc_a);
++	current_rx_ptr = rx_list_head;
++
++	return 0;
++
++init_error:
++	desc_list_free();
++	printk(KERN_ERR DRV_NAME ": kmalloc failed\n");
++	return -ENOMEM;
++}
++
++static void desc_list_free(void)
++{
++	struct net_dma_desc_rx *tmp_desc_rx;
++	struct net_dma_desc_tx *tmp_desc_tx;
++	int i;
++#if !defined(CONFIG_BFIN_MAC_USE_L1)
++	dma_addr_t dma_handle = 0;
++#endif
++
++	if (tx_desc != NULL) {
++		tmp_desc_tx = tx_list_head;
++		for (i = 0; i < CONFIG_BFIN_TX_DESC_NUM; i++) {
++			if (tmp_desc_tx != NULL) {
++				if (tmp_desc_tx->skb) {
++					dev_kfree_skb(tmp_desc_tx->skb);
++					tmp_desc_tx->skb = NULL;
++				}
++
++			}
++			tmp_desc_tx = tmp_desc_tx->next;
++		}
++		bfin_mac_free(dma_handle, tx_desc);
++	}
++
++	if (rx_desc != NULL) {
++		tmp_desc_rx = rx_list_head;
++		for (i = 0; i < CONFIG_BFIN_RX_DESC_NUM; i++) {
++			if (tmp_desc_rx != NULL) {
++				if (tmp_desc_rx->skb) {
++					dev_kfree_skb(tmp_desc_rx->skb);
++					tmp_desc_rx->skb = NULL;
++				}
++			}
++			tmp_desc_rx = tmp_desc_rx->next;
++		}
++		bfin_mac_free(dma_handle, rx_desc);
++	}
++}
++
++/*---PHY CONTROL AND CONFIGURATION-----------------------------------------*/
++
++/*
++ * Set FER regs to MUX in Ethernet pins
++ *
++ * NOTES: silicon anomaly, 
++ * GPIO PINx_FER register bug
++ * need reat it once and write the same value twice
++ */
++static void setup_pin_mux(void)
++{
++	unsigned int fer_val;
++
++	/*
++	 * FER reg bug work-around
++	 * read it once
++	 */
++	fer_val = bfin_read_PORTH_FER();
++
++#if defined(CONFIG_BFIN_MAC_RMII)
++	fer_val = 0xC373;
++#else
++	fer_val = 0xffff;
++#endif
++	/* write it twice to the same value */
++
++	bfin_write_PORTH_FER(fer_val);
++	bfin_write_PORTH_FER(fer_val);
++}
++
++/* Wait until the previous MDC/MDIO transaction has completed */
++static void poll_mdc_done(void)
++{
++	int timeout_cnt = MAX_TIMEOUT_CNT;
++
++	/* poll the STABUSY bit */
++	while ((bfin_read_EMAC_STAADD()) & STABUSY) {
++		mdelay(10);
++		if (timeout_cnt-- < 0) {
++			printk(KERN_ERR DRV_NAME
++			": wait MDC/MDIO transaction to complete timeout\n");
++			break;
++		}
++	}
++}
++
++/* Read an off-chip register in a PHY through the MDC/MDIO port */
++static u16 read_phy_reg(u16 PHYAddr, u16 RegAddr)
++{
++	poll_mdc_done();
++	/* read mode */
++	bfin_write_EMAC_STAADD(SET_PHYAD(PHYAddr) |
++				SET_REGAD(RegAddr) |
++				STABUSY);
++	poll_mdc_done();
++
++	return (u16) bfin_read_EMAC_STADAT();
++}
++
++/* Write an off-chip register in a PHY through the MDC/MDIO port */
++static void raw_write_phy_reg(u16 PHYAddr, u16 RegAddr, u32 Data)
++{
++	bfin_write_EMAC_STADAT(Data);
++
++	/* write mode */
++	bfin_write_EMAC_STAADD(SET_PHYAD(PHYAddr) |
++				SET_REGAD(RegAddr) |
++				STAOP |
++				STABUSY);
++
++	poll_mdc_done();
++}
++
++static void write_phy_reg(u16 PHYAddr, u16 RegAddr, u32 Data)
++{
++	poll_mdc_done();
++	raw_write_phy_reg(PHYAddr, RegAddr, Data);
++}
++
++/* set up the phy */
++static void bf537mac_setphy(struct net_device *dev)
++{
++	u16 phydat;
++	struct bf537mac_local *lp = netdev_priv(dev);
++
++	/* Program PHY registers */
++	pr_debug("start setting up phy\n");
++
++	/* issue a reset */
++	raw_write_phy_reg(lp->PhyAddr, PHYREG_MODECTL, 0x8000);
++
++	/* wait half a second */
++	msleep(500);
++
++	phydat = read_phy_reg(lp->PhyAddr, PHYREG_MODECTL);
++
++	/* advertise flow control supported */
++	phydat = read_phy_reg(lp->PhyAddr, PHYREG_ANAR);
++	phydat |= (1 << 10);
++	write_phy_reg(lp->PhyAddr, PHYREG_ANAR, phydat);
++
++	phydat = 0;
++	if (lp->Negotiate) {
++		phydat |= 0x1000;	/* enable auto negotiation */
++	} else {
++		if (lp->FullDuplex) {
++			phydat |= (1 << 8);	/* full duplex */
++		} else {
++			phydat &= (~(1 << 8));	/* half duplex */
++		}
++		if (!lp->Port10) {
++			phydat |= (1 << 13);	/* 100 Mbps */
++		} else {
++			phydat &= (~(1 << 13));	/* 10 Mbps */
++		}
++	}
++
++	if (lp->Loopback)
++		phydat |= (1 << 14);	/* enable TX->RX loopback */
++
++	write_phy_reg(lp->PhyAddr, PHYREG_MODECTL, phydat);
++	msleep(500);
++
++	phydat = read_phy_reg(lp->PhyAddr, PHYREG_MODECTL);
++	/* check for SMSC PHY */
++	if ((read_phy_reg(lp->PhyAddr, PHYREG_PHYID1) == 0x7) &&
++	((read_phy_reg(lp->PhyAddr, PHYREG_PHYID2) & 0xfff0) == 0xC0A0)) {
++		/*
++		 * we have SMSC PHY so reqest interrupt
++		 * on link down condition
++		 */
++
++		/* enable interrupts */
++		write_phy_reg(lp->PhyAddr, 30, 0x0ff);
++	}
++}
++
++/**************************************************************************/
++void setup_system_regs(struct net_device *dev)
++{
++	int phyaddr;
++	unsigned short sysctl, phydat;
++	u32 opmode;
++	struct bf537mac_local *lp = netdev_priv(dev);
++	int count = 0;
++
++	phyaddr = lp->PhyAddr;
++
++	/* Enable PHY output */
++	if (!(bfin_read_VR_CTL() & PHYCLKOE))
++		bfin_write_VR_CTL(bfin_read_VR_CTL() | PHYCLKOE);
++
++	/* MDC  = 2.5 MHz */
++	sysctl = SET_MDCDIV(24);
++	/* Odd word alignment for Receive Frame DMA word */
++	/* Configure checksum support and rcve frame word alignment */
++#if defined(BFIN_MAC_CSUM_OFFLOAD)
++	sysctl |= RXDWA | RXCKS;
++#else
++	sysctl |= RXDWA;
++#endif
++	bfin_write_EMAC_SYSCTL(sysctl);
++	/* auto negotiation on  */
++	/* full duplex          */
++	/* 100 Mbps             */
++	phydat = PHY_ANEG_EN | PHY_DUPLEX | PHY_SPD_SET;
++	write_phy_reg(phyaddr, PHYREG_MODECTL, phydat);
++
++	/* test if full duplex supported */
++	do {
++		msleep(100);
++		phydat = read_phy_reg(phyaddr, PHYREG_MODESTAT);
++		if (count > 30) {
++			printk(KERN_NOTICE DRV_NAME ": Link is down\n");
++			printk(KERN_NOTICE DRV_NAME
++				 "please check your network connection\n");
++			break;
++		}
++		count++;
++	} while (!(phydat & 0x0004));
++
++	phydat = read_phy_reg(phyaddr, PHYREG_ANLPAR);
++
++	if ((phydat & 0x0100) || (phydat & 0x0040)) {
++		opmode = FDMODE;
++	} else {
++		opmode = 0;
++		printk(KERN_INFO DRV_NAME
++			": Network is set to half duplex\n");
++	}
++
++#if defined(CONFIG_BFIN_MAC_RMII)
++	opmode |= RMII; /* For Now only 100MBit are supported */
++#endif
++
++	bfin_write_EMAC_OPMODE(opmode);
++
++	bfin_write_EMAC_MMC_CTL(RSTC | CROLL);
++
++	/* Initialize the TX DMA channel registers */
++	bfin_write_DMA2_X_COUNT(0);
++	bfin_write_DMA2_X_MODIFY(4);
++	bfin_write_DMA2_Y_COUNT(0);
++	bfin_write_DMA2_Y_MODIFY(0);
++
++	/* Initialize the RX DMA channel registers */
++	bfin_write_DMA1_X_COUNT(0);
++	bfin_write_DMA1_X_MODIFY(4);
++	bfin_write_DMA1_Y_COUNT(0);
++	bfin_write_DMA1_Y_MODIFY(0);
++}
++
++void setup_mac_addr(u8 * mac_addr)
++{
++	u32 addr_low = le32_to_cpu(*(__le32 *) & mac_addr[0]);
++	u16 addr_hi = le16_to_cpu(*(__le16 *) & mac_addr[4]);
++
++	/* this depends on a little-endian machine */
++	bfin_write_EMAC_ADDRLO(addr_low);
++	bfin_write_EMAC_ADDRHI(addr_hi);
++}
++
++static void adjust_tx_list(void)
++{
++	int timeout_cnt = MAX_TIMEOUT_CNT;
++
++	if (tx_list_head->status.status_word != 0
++	    && current_tx_ptr != tx_list_head) {
++		goto adjust_head;	/* released something, just return; */
++	}
++
++	/*
++	 * if nothing released, check wait condition
++	 * current's next can not be the head,
++	 * otherwise the dma will not stop as we want
++	 */
++	if (current_tx_ptr->next->next == tx_list_head) {
++		while (tx_list_head->status.status_word == 0) {
++			mdelay(10);
++			if (tx_list_head->status.status_word != 0
++			    || !(bfin_read_DMA2_IRQ_STATUS() & 0x08)) {
++				goto adjust_head;
++			}
++			if (timeout_cnt-- < 0) {
++				printk(KERN_ERR DRV_NAME
++				": wait for adjust tx list head timeout\n");
++				break;
++			}
++		}
++		if (tx_list_head->status.status_word != 0) {
++			goto adjust_head;
++		}
++	}
++
++	return;
++
++adjust_head:
++	do {
++		tx_list_head->desc_a.config &= ~DMAEN;
++		tx_list_head->status.status_word = 0;
++		if (tx_list_head->skb) {
++			dev_kfree_skb(tx_list_head->skb);
++			tx_list_head->skb = NULL;
++		} else {
++			printk(KERN_ERR DRV_NAME
++			       ": no sk_buff in a transmitted frame!\n");
++		}
++		tx_list_head = tx_list_head->next;
++	} while (tx_list_head->status.status_word != 0
++		 && current_tx_ptr != tx_list_head);
++	return;
++
++}
++
++static int bf537mac_hard_start_xmit(struct sk_buff *skb,
++				struct net_device *dev)
++{
++	struct bf537mac_local *lp = netdev_priv(dev);
++	unsigned int data;
++
++	current_tx_ptr->skb = skb;
++
++	/*
++	 * Is skb->data always 16-bit aligned?
++	 * Do we need to memcpy((char *)(tail->packet + 2), skb->data, len)?
++	 */
++	if ((((unsigned int)(skb->data)) & 0x02) == 2) {
++		/* move skb->data to current_tx_ptr payload */
++		data = (unsigned int)(skb->data) - 2;
++		*((unsigned short *)data) = (unsigned short)(skb->len);
++		current_tx_ptr->desc_a.start_addr = (unsigned long)data;
++		/* this is important! */
++		blackfin_dcache_flush_range(data, (data + (skb->len)) + 2);
++
++	} else {
++		*((unsigned short *)(current_tx_ptr->packet)) =
++		    (unsigned short)(skb->len);
++		memcpy((char *)(current_tx_ptr->packet + 2), skb->data,
++		       (skb->len));
++		current_tx_ptr->desc_a.start_addr =
++		    (unsigned long)current_tx_ptr->packet;
++		if (current_tx_ptr->status.status_word != 0)
++			current_tx_ptr->status.status_word = 0;
++		blackfin_dcache_flush_range((unsigned int)current_tx_ptr->
++					    packet,
++					    (unsigned int)(current_tx_ptr->
++							   packet + skb->len) +
++					    2);
++	}
++
++	/* enable this packet's dma */
++	current_tx_ptr->desc_a.config |= DMAEN;
++
++	if (bfin_read_DMA2_IRQ_STATUS() & 0x08) {
++		/* tx dma is running, just return */
++		goto out;
++	} else {
++		/* tx dma is not running */
++		bfin_write_DMA2_NEXT_DESC_PTR(&(current_tx_ptr->desc_a));
++		/* dma enabled, read from memory, size is 6 */
++		bfin_write_DMA2_CONFIG(current_tx_ptr->desc_a.config);
++		/* Turn on the EMAC tx */
++		bfin_write_EMAC_OPMODE(bfin_read_EMAC_OPMODE() | TE);
++	}
++
++out:
++	adjust_tx_list();
++	current_tx_ptr = current_tx_ptr->next;
++	dev->trans_start = jiffies;
++	lp->stats.tx_packets++;
++	lp->stats.tx_bytes += (skb->len);
 +	return 0;
 +}
 +
- static u32 atl1_check_link(struct atl1_adapter *adapter)
- {
- 	struct atl1_hw *hw = &adapter->hw;
-@@ -972,6 +616,103 @@ static u32 atl1_check_link(struct atl1_adapter *adapter)
- 	return ATL1_SUCCESS;
- }
- 
-+static void atl1_check_for_link(struct atl1_adapter *adapter)
++static void bf537mac_rx(struct net_device *dev)
 +{
-+	struct net_device *netdev = adapter->netdev;
-+	u16 phy_data = 0;
++	struct sk_buff *skb, *new_skb;
++	struct bf537mac_local *lp = netdev_priv(dev);
++	unsigned short len;
 +
-+	spin_lock(&adapter->lock);
-+	adapter->phy_timer_pending = false;
-+	atl1_read_phy_reg(&adapter->hw, MII_BMSR, &phy_data);
-+	atl1_read_phy_reg(&adapter->hw, MII_BMSR, &phy_data);
-+	spin_unlock(&adapter->lock);
-+
-+	/* notify upper layer link down ASAP */
-+	if (!(phy_data & BMSR_LSTATUS)) {	/* Link Down */
-+		if (netif_carrier_ok(netdev)) {	/* old link state: Up */
-+			dev_info(&adapter->pdev->dev, "%s link is down\n",
-+				netdev->name);
-+			adapter->link_speed = SPEED_0;
-+			netif_carrier_off(netdev);
-+			netif_stop_queue(netdev);
-+		}
++	/* allocate a new skb for next time receive */
++	skb = current_rx_ptr->skb;
++	new_skb = dev_alloc_skb(PKT_BUF_SZ + 2);
++	if (!new_skb) {
++		printk(KERN_NOTICE DRV_NAME
++		       ": rx: low on mem - packet dropped\n");
++		lp->stats.rx_dropped++;
++		goto out;
 +	}
-+	schedule_work(&adapter->link_chg_task);
-+}
++	/* reserve 2 bytes for RXDWA padding */
++	skb_reserve(new_skb, 2);
++	current_rx_ptr->skb = new_skb;
++	current_rx_ptr->desc_a.start_addr = (unsigned long)new_skb->data - 2;
 +
-+/*
-+ * atl1_set_multi - Multicast and Promiscuous mode set
-+ * @netdev: network interface device structure
-+ *
-+ * The set_multi entry point is called whenever the multicast address
-+ * list or the network interface flags are updated.  This routine is
-+ * responsible for configuring the hardware for proper multicast,
-+ * promiscuous mode, and all-multi behavior.
-+ */
-+static void atl1_set_multi(struct net_device *netdev)
-+{
-+	struct atl1_adapter *adapter = netdev_priv(netdev);
-+	struct atl1_hw *hw = &adapter->hw;
-+	struct dev_mc_list *mc_ptr;
-+	u32 rctl;
-+	u32 hash_value;
++	len = (unsigned short)((current_rx_ptr->status.status_word) & RX_FRLEN);
++	skb_put(skb, len);
++	blackfin_dcache_invalidate_range((unsigned long)skb->head,
++					 (unsigned long)skb->tail);
 +
-+	/* Check for Promiscuous and All Multicast modes */
-+	rctl = ioread32(hw->hw_addr + REG_MAC_CTRL);
-+	if (netdev->flags & IFF_PROMISC)
-+		rctl |= MAC_CTRL_PROMIS_EN;
-+	else if (netdev->flags & IFF_ALLMULTI) {
-+		rctl |= MAC_CTRL_MC_ALL_EN;
-+		rctl &= ~MAC_CTRL_PROMIS_EN;
-+	} else
-+		rctl &= ~(MAC_CTRL_PROMIS_EN | MAC_CTRL_MC_ALL_EN);
++	dev->last_rx = jiffies;
++	skb->dev = dev;
++	skb->protocol = eth_type_trans(skb, dev);
++#if defined(BFIN_MAC_CSUM_OFFLOAD)
++	skb->csum = current_rx_ptr->status.ip_payload_csum;
++	skb->ip_summed = CHECKSUM_PARTIAL;
++#endif
 +
-+	iowrite32(rctl, hw->hw_addr + REG_MAC_CTRL);
++	netif_rx(skb);
++	lp->stats.rx_packets++;
++	lp->stats.rx_bytes += len;
++	current_rx_ptr->status.status_word = 0x00000000;
++	current_rx_ptr = current_rx_ptr->next;
 +
-+	/* clear the old settings from the multicast hash table */
-+	iowrite32(0, hw->hw_addr + REG_RX_HASH_TABLE);
-+	iowrite32(0, (hw->hw_addr + REG_RX_HASH_TABLE) + (1 << 2));
-+
-+	/* compute mc addresses' hash value ,and put it into hash table */
-+	for (mc_ptr = netdev->mc_list; mc_ptr; mc_ptr = mc_ptr->next) {
-+		hash_value = atl1_hash_mc_addr(hw, mc_ptr->dmi_addr);
-+		atl1_hash_set(hw, hash_value);
-+	}
-+}
-+
-+/*
-+ * atl1_change_mtu - Change the Maximum Transfer Unit
-+ * @netdev: network interface device structure
-+ * @new_mtu: new value for maximum frame size
-+ *
-+ * Returns 0 on success, negative on failure
-+ */
-+static int atl1_change_mtu(struct net_device *netdev, int new_mtu)
-+{
-+	struct atl1_adapter *adapter = netdev_priv(netdev);
-+	int old_mtu = netdev->mtu;
-+	int max_frame = new_mtu + ENET_HEADER_SIZE + ETHERNET_FCS_SIZE;
-+
-+	if ((max_frame < MINIMUM_ETHERNET_FRAME_SIZE) ||
-+	    (max_frame > MAX_JUMBO_FRAME_SIZE)) {
-+		dev_warn(&adapter->pdev->dev, "invalid MTU setting\n");
-+		return -EINVAL;
-+	}
-+
-+	adapter->hw.max_frame_size = max_frame;
-+	adapter->hw.tx_jumbo_task_th = (max_frame + 7) >> 3;
-+	adapter->rx_buffer_len = (max_frame + 7) & ~7;
-+	adapter->hw.rx_jumbo_th = adapter->rx_buffer_len / 8;
-+
-+	netdev->mtu = new_mtu;
-+	if ((old_mtu != new_mtu) && netif_running(netdev)) {
-+		atl1_down(adapter);
-+		atl1_up(adapter);
-+	}
-+
-+	return 0;
-+}
-+
- static void set_flow_ctrl_old(struct atl1_adapter *adapter)
- {
- 	u32 hi, lo, value;
-@@ -1202,6 +943,48 @@ static u32 atl1_configure(struct atl1_adapter *adapter)
- }
- 
- /*
-+ * atl1_pcie_patch - Patch for PCIE module
-+ */
-+static void atl1_pcie_patch(struct atl1_adapter *adapter)
-+{
-+	u32 value;
-+
-+	/* much vendor magic here */
-+	value = 0x6500;
-+	iowrite32(value, adapter->hw.hw_addr + 0x12FC);
-+	/* pcie flow control mode change */
-+	value = ioread32(adapter->hw.hw_addr + 0x1008);
-+	value |= 0x8000;
-+	iowrite32(value, adapter->hw.hw_addr + 0x1008);
-+}
-+
-+/*
-+ * When ACPI resume on some VIA MotherBoard, the Interrupt Disable bit/0x400
-+ * on PCI Command register is disable.
-+ * The function enable this bit.
-+ * Brackett, 2006/03/15
-+ */
-+static void atl1_via_workaround(struct atl1_adapter *adapter)
-+{
-+	unsigned long value;
-+
-+	value = ioread16(adapter->hw.hw_addr + PCI_COMMAND);
-+	if (value & PCI_COMMAND_INTX_DISABLE)
-+		value &= ~PCI_COMMAND_INTX_DISABLE;
-+	iowrite32(value, adapter->hw.hw_addr + PCI_COMMAND);
-+}
-+
-+/*
-+ * atl1_irq_enable - Enable default interrupt generation settings
-+ * @adapter: board private structure
-+ */
-+static void atl1_irq_enable(struct atl1_adapter *adapter)
-+{
-+	iowrite32(IMR_NORMAL_MASK, adapter->hw.hw_addr + REG_IMR);
-+	ioread32(adapter->hw.hw_addr + REG_IMR);
-+}
-+
-+/*
-  * atl1_irq_disable - Mask off interrupt generation on the NIC
-  * @adapter: board private structure
-  */
-@@ -1212,36 +995,434 @@ static void atl1_irq_disable(struct atl1_adapter *adapter)
- 	synchronize_irq(adapter->pdev->irq);
- }
- 
--static void atl1_vlan_rx_register(struct net_device *netdev,
--	struct vlan_group *grp)
-+static void atl1_clear_phy_int(struct atl1_adapter *adapter)
- {
--	struct atl1_adapter *adapter = netdev_priv(netdev);
-+	u16 phy_data;
- 	unsigned long flags;
--	u32 ctrl;
- 
- 	spin_lock_irqsave(&adapter->lock, flags);
--	/* atl1_irq_disable(adapter); */
--	adapter->vlgrp = grp;
-+	atl1_read_phy_reg(&adapter->hw, 19, &phy_data);
-+	spin_unlock_irqrestore(&adapter->lock, flags);
-+}
- 
--	if (grp) {
--		/* enable VLAN tag insert/strip */
--		ctrl = ioread32(adapter->hw.hw_addr + REG_MAC_CTRL);
--		ctrl |= MAC_CTRL_RMV_VLAN;
--		iowrite32(ctrl, adapter->hw.hw_addr + REG_MAC_CTRL);
--	} else {
--		/* disable VLAN tag insert/strip */
--		ctrl = ioread32(adapter->hw.hw_addr + REG_MAC_CTRL);
--		ctrl &= ~MAC_CTRL_RMV_VLAN;
--		iowrite32(ctrl, adapter->hw.hw_addr + REG_MAC_CTRL);
-+static void atl1_inc_smb(struct atl1_adapter *adapter)
-+{
-+	struct stats_msg_block *smb = adapter->smb.smb;
-+
-+	/* Fill out the OS statistics structure */
-+	adapter->soft_stats.rx_packets += smb->rx_ok;
-+	adapter->soft_stats.tx_packets += smb->tx_ok;
-+	adapter->soft_stats.rx_bytes += smb->rx_byte_cnt;
-+	adapter->soft_stats.tx_bytes += smb->tx_byte_cnt;
-+	adapter->soft_stats.multicast += smb->rx_mcast;
-+	adapter->soft_stats.collisions += (smb->tx_1_col + smb->tx_2_col * 2 +
-+		smb->tx_late_col + smb->tx_abort_col * adapter->hw.max_retry);
-+
-+	/* Rx Errors */
-+	adapter->soft_stats.rx_errors += (smb->rx_frag + smb->rx_fcs_err +
-+		smb->rx_len_err + smb->rx_sz_ov + smb->rx_rxf_ov +
-+		smb->rx_rrd_ov + smb->rx_align_err);
-+	adapter->soft_stats.rx_fifo_errors += smb->rx_rxf_ov;
-+	adapter->soft_stats.rx_length_errors += smb->rx_len_err;
-+	adapter->soft_stats.rx_crc_errors += smb->rx_fcs_err;
-+	adapter->soft_stats.rx_frame_errors += smb->rx_align_err;
-+	adapter->soft_stats.rx_missed_errors += (smb->rx_rrd_ov +
-+		smb->rx_rxf_ov);
-+
-+	adapter->soft_stats.rx_pause += smb->rx_pause;
-+	adapter->soft_stats.rx_rrd_ov += smb->rx_rrd_ov;
-+	adapter->soft_stats.rx_trunc += smb->rx_sz_ov;
-+
-+	/* Tx Errors */
-+	adapter->soft_stats.tx_errors += (smb->tx_late_col +
-+		smb->tx_abort_col + smb->tx_underrun + smb->tx_trunc);
-+	adapter->soft_stats.tx_fifo_errors += smb->tx_underrun;
-+	adapter->soft_stats.tx_aborted_errors += smb->tx_abort_col;
-+	adapter->soft_stats.tx_window_errors += smb->tx_late_col;
-+
-+	adapter->soft_stats.excecol += smb->tx_abort_col;
-+	adapter->soft_stats.deffer += smb->tx_defer;
-+	adapter->soft_stats.scc += smb->tx_1_col;
-+	adapter->soft_stats.mcc += smb->tx_2_col;
-+	adapter->soft_stats.latecol += smb->tx_late_col;
-+	adapter->soft_stats.tx_underun += smb->tx_underrun;
-+	adapter->soft_stats.tx_trunc += smb->tx_trunc;
-+	adapter->soft_stats.tx_pause += smb->tx_pause;
-+
-+	adapter->net_stats.rx_packets = adapter->soft_stats.rx_packets;
-+	adapter->net_stats.tx_packets = adapter->soft_stats.tx_packets;
-+	adapter->net_stats.rx_bytes = adapter->soft_stats.rx_bytes;
-+	adapter->net_stats.tx_bytes = adapter->soft_stats.tx_bytes;
-+	adapter->net_stats.multicast = adapter->soft_stats.multicast;
-+	adapter->net_stats.collisions = adapter->soft_stats.collisions;
-+	adapter->net_stats.rx_errors = adapter->soft_stats.rx_errors;
-+	adapter->net_stats.rx_over_errors =
-+		adapter->soft_stats.rx_missed_errors;
-+	adapter->net_stats.rx_length_errors =
-+		adapter->soft_stats.rx_length_errors;
-+	adapter->net_stats.rx_crc_errors = adapter->soft_stats.rx_crc_errors;
-+	adapter->net_stats.rx_frame_errors =
-+		adapter->soft_stats.rx_frame_errors;
-+	adapter->net_stats.rx_fifo_errors = adapter->soft_stats.rx_fifo_errors;
-+	adapter->net_stats.rx_missed_errors =
-+		adapter->soft_stats.rx_missed_errors;
-+	adapter->net_stats.tx_errors = adapter->soft_stats.tx_errors;
-+	adapter->net_stats.tx_fifo_errors = adapter->soft_stats.tx_fifo_errors;
-+	adapter->net_stats.tx_aborted_errors =
-+		adapter->soft_stats.tx_aborted_errors;
-+	adapter->net_stats.tx_window_errors =
-+		adapter->soft_stats.tx_window_errors;
-+	adapter->net_stats.tx_carrier_errors =
-+		adapter->soft_stats.tx_carrier_errors;
-+}
-+
-+/*
-+ * atl1_get_stats - Get System Network Statistics
-+ * @netdev: network interface device structure
-+ *
-+ * Returns the address of the device statistics structure.
-+ * The statistics are actually updated from the timer callback.
-+ */
-+static struct net_device_stats *atl1_get_stats(struct net_device *netdev)
-+{
-+	struct atl1_adapter *adapter = netdev_priv(netdev);
-+	return &adapter->net_stats;
-+}
-+
-+static void atl1_update_mailbox(struct atl1_adapter *adapter)
-+{
-+	unsigned long flags;
-+	u32 tpd_next_to_use;
-+	u32 rfd_next_to_use;
-+	u32 rrd_next_to_clean;
-+	u32 value;
-+
-+	spin_lock_irqsave(&adapter->mb_lock, flags);
-+
-+	tpd_next_to_use = atomic_read(&adapter->tpd_ring.next_to_use);
-+	rfd_next_to_use = atomic_read(&adapter->rfd_ring.next_to_use);
-+	rrd_next_to_clean = atomic_read(&adapter->rrd_ring.next_to_clean);
-+
-+	value = ((rfd_next_to_use & MB_RFD_PROD_INDX_MASK) <<
-+		MB_RFD_PROD_INDX_SHIFT) |
-+		((rrd_next_to_clean & MB_RRD_CONS_INDX_MASK) <<
-+		MB_RRD_CONS_INDX_SHIFT) |
-+		((tpd_next_to_use & MB_TPD_PROD_INDX_MASK) <<
-+		MB_TPD_PROD_INDX_SHIFT);
-+	iowrite32(value, adapter->hw.hw_addr + REG_MAILBOX);
-+
-+	spin_unlock_irqrestore(&adapter->mb_lock, flags);
-+}
-+
-+static void atl1_clean_alloc_flag(struct atl1_adapter *adapter,
-+	struct rx_return_desc *rrd, u16 offset)
-+{
-+	struct atl1_rfd_ring *rfd_ring = &adapter->rfd_ring;
-+
-+	while (rfd_ring->next_to_clean != (rrd->buf_indx + offset)) {
-+		rfd_ring->buffer_info[rfd_ring->next_to_clean].alloced = 0;
-+		if (++rfd_ring->next_to_clean == rfd_ring->count) {
-+			rfd_ring->next_to_clean = 0;
-+		}
- 	}
-+}
- 
--	/* atl1_irq_enable(adapter); */
--	spin_unlock_irqrestore(&adapter->lock, flags);
-+static void atl1_update_rfd_index(struct atl1_adapter *adapter,
-+	struct rx_return_desc *rrd)
-+{
-+	u16 num_buf;
-+
-+	num_buf = (rrd->xsz.xsum_sz.pkt_size + adapter->rx_buffer_len - 1) /
-+		adapter->rx_buffer_len;
-+	if (rrd->num_buf == num_buf)
-+		/* clean alloc flag for bad rrd */
-+		atl1_clean_alloc_flag(adapter, rrd, num_buf);
- }
- 
--static void atl1_restore_vlan(struct atl1_adapter *adapter)
-+static void atl1_rx_checksum(struct atl1_adapter *adapter,
-+	struct rx_return_desc *rrd, struct sk_buff *skb)
- {
--	atl1_vlan_rx_register(adapter->netdev, adapter->vlgrp);
-+	struct pci_dev *pdev = adapter->pdev;
-+
-+	skb->ip_summed = CHECKSUM_NONE;
-+
-+	if (unlikely(rrd->pkt_flg & PACKET_FLAG_ERR)) {
-+		if (rrd->err_flg & (ERR_FLAG_CRC | ERR_FLAG_TRUNC |
-+					ERR_FLAG_CODE | ERR_FLAG_OV)) {
-+			adapter->hw_csum_err++;
-+			dev_printk(KERN_DEBUG, &pdev->dev,
-+				"rx checksum error\n");
-+			return;
-+		}
-+	}
-+
-+	/* not IPv4 */
-+	if (!(rrd->pkt_flg & PACKET_FLAG_IPV4))
-+		/* checksum is invalid, but it's not an IPv4 pkt, so ok */
-+		return;
-+
-+	/* IPv4 packet */
-+	if (likely(!(rrd->err_flg &
-+		(ERR_FLAG_IP_CHKSUM | ERR_FLAG_L4_CHKSUM)))) {
-+		skb->ip_summed = CHECKSUM_UNNECESSARY;
-+		adapter->hw_csum_good++;
-+		return;
-+	}
-+
-+	/* IPv4, but hardware thinks its checksum is wrong */
-+	dev_printk(KERN_DEBUG, &pdev->dev,
-+		"hw csum wrong, pkt_flag:%x, err_flag:%x\n",
-+		rrd->pkt_flg, rrd->err_flg);
-+	skb->ip_summed = CHECKSUM_COMPLETE;
-+	skb->csum = htons(rrd->xsz.xsum_sz.rx_chksum);
-+	adapter->hw_csum_err++;
++out:
 +	return;
 +}
 +
-+/*
-+ * atl1_alloc_rx_buffers - Replace used receive buffers
-+ * @adapter: address of board private structure
-+ */
-+static u16 atl1_alloc_rx_buffers(struct atl1_adapter *adapter)
++/* interrupt routine to handle rx and error signal */
++static irqreturn_t bf537mac_interrupt(int irq, void *dev_id)
 +{
-+	struct atl1_rfd_ring *rfd_ring = &adapter->rfd_ring;
-+	struct pci_dev *pdev = adapter->pdev;
-+	struct page *page;
-+	unsigned long offset;
-+	struct atl1_buffer *buffer_info, *next_info;
-+	struct sk_buff *skb;
-+	u16 num_alloc = 0;
-+	u16 rfd_next_to_use, next_next;
-+	struct rx_free_desc *rfd_desc;
++	struct net_device *dev = dev_id;
++	int number = 0;
 +
-+	next_next = rfd_next_to_use = atomic_read(&rfd_ring->next_to_use);
-+	if (++next_next == rfd_ring->count)
-+		next_next = 0;
-+	buffer_info = &rfd_ring->buffer_info[rfd_next_to_use];
-+	next_info = &rfd_ring->buffer_info[next_next];
-+
-+	while (!buffer_info->alloced && !next_info->alloced) {
-+		if (buffer_info->skb) {
-+			buffer_info->alloced = 1;
-+			goto next;
-+		}
-+
-+		rfd_desc = ATL1_RFD_DESC(rfd_ring, rfd_next_to_use);
-+
-+		skb = dev_alloc_skb(adapter->rx_buffer_len + NET_IP_ALIGN);
-+		if (unlikely(!skb)) {	/* Better luck next round */
-+			adapter->net_stats.rx_dropped++;
-+			break;
-+		}
-+
-+		/*
-+		 * Make buffer alignment 2 beyond a 16 byte boundary
-+		 * this will result in a 16 byte aligned IP header after
-+		 * the 14 byte MAC header is removed
-+		 */
-+		skb_reserve(skb, NET_IP_ALIGN);
-+
-+		buffer_info->alloced = 1;
-+		buffer_info->skb = skb;
-+		buffer_info->length = (u16) adapter->rx_buffer_len;
-+		page = virt_to_page(skb->data);
-+		offset = (unsigned long)skb->data & ~PAGE_MASK;
-+		buffer_info->dma = pci_map_page(pdev, page, offset,
-+						adapter->rx_buffer_len,
-+						PCI_DMA_FROMDEVICE);
-+		rfd_desc->buffer_addr = cpu_to_le64(buffer_info->dma);
-+		rfd_desc->buf_len = cpu_to_le16(adapter->rx_buffer_len);
-+		rfd_desc->coalese = 0;
-+
-+next:
-+		rfd_next_to_use = next_next;
-+		if (unlikely(++next_next == rfd_ring->count))
-+			next_next = 0;
-+
-+		buffer_info = &rfd_ring->buffer_info[rfd_next_to_use];
-+		next_info = &rfd_ring->buffer_info[next_next];
-+		num_alloc++;
-+	}
-+
-+	if (num_alloc) {
-+		/*
-+		 * Force memory writes to complete before letting h/w
-+		 * know there are new descriptors to fetch.  (Only
-+		 * applicable for weak-ordered memory model archs,
-+		 * such as IA-64).
-+		 */
-+		wmb();
-+		atomic_set(&rfd_ring->next_to_use, (int)rfd_next_to_use);
-+	}
-+	return num_alloc;
-+}
-+
-+static void atl1_intr_rx(struct atl1_adapter *adapter)
-+{
-+	int i, count;
-+	u16 length;
-+	u16 rrd_next_to_clean;
-+	u32 value;
-+	struct atl1_rfd_ring *rfd_ring = &adapter->rfd_ring;
-+	struct atl1_rrd_ring *rrd_ring = &adapter->rrd_ring;
-+	struct atl1_buffer *buffer_info;
-+	struct rx_return_desc *rrd;
-+	struct sk_buff *skb;
-+
-+	count = 0;
-+
-+	rrd_next_to_clean = atomic_read(&rrd_ring->next_to_clean);
-+
-+	while (1) {
-+		rrd = ATL1_RRD_DESC(rrd_ring, rrd_next_to_clean);
-+		i = 1;
-+		if (likely(rrd->xsz.valid)) {	/* packet valid */
-+chk_rrd:
-+			/* check rrd status */
-+			if (likely(rrd->num_buf == 1))
-+				goto rrd_ok;
-+
-+			/* rrd seems to be bad */
-+			if (unlikely(i-- > 0)) {
-+				/* rrd may not be DMAed completely */
-+				dev_printk(KERN_DEBUG, &adapter->pdev->dev,
-+					"incomplete RRD DMA transfer\n");
-+				udelay(1);
-+				goto chk_rrd;
-+			}
-+			/* bad rrd */
-+			dev_printk(KERN_DEBUG, &adapter->pdev->dev,
-+				"bad RRD\n");
-+			/* see if update RFD index */
-+			if (rrd->num_buf > 1)
-+				atl1_update_rfd_index(adapter, rrd);
-+
-+			/* update rrd */
-+			rrd->xsz.valid = 0;
-+			if (++rrd_next_to_clean == rrd_ring->count)
-+				rrd_next_to_clean = 0;
-+			count++;
-+			continue;
-+		} else {	/* current rrd still not be updated */
-+
-+			break;
-+		}
-+rrd_ok:
-+		/* clean alloc flag for bad rrd */
-+		atl1_clean_alloc_flag(adapter, rrd, 0);
-+
-+		buffer_info = &rfd_ring->buffer_info[rrd->buf_indx];
-+		if (++rfd_ring->next_to_clean == rfd_ring->count)
-+			rfd_ring->next_to_clean = 0;
-+
-+		/* update rrd next to clean */
-+		if (++rrd_next_to_clean == rrd_ring->count)
-+			rrd_next_to_clean = 0;
-+		count++;
-+
-+		if (unlikely(rrd->pkt_flg & PACKET_FLAG_ERR)) {
-+			if (!(rrd->err_flg &
-+				(ERR_FLAG_IP_CHKSUM | ERR_FLAG_L4_CHKSUM
-+				| ERR_FLAG_LEN))) {
-+				/* packet error, don't need upstream */
-+				buffer_info->alloced = 0;
-+				rrd->xsz.valid = 0;
-+				continue;
++get_one_packet:
++	if (current_rx_ptr->status.status_word == 0) {
++		/* no more new packet received */
++		if (number == 0) {
++			if (current_rx_ptr->next->status.status_word != 0) {
++				current_rx_ptr = current_rx_ptr->next;
++				goto real_rx;
 +			}
 +		}
-+
-+		/* Good Receive */
-+		pci_unmap_page(adapter->pdev, buffer_info->dma,
-+			       buffer_info->length, PCI_DMA_FROMDEVICE);
-+		skb = buffer_info->skb;
-+		length = le16_to_cpu(rrd->xsz.xsum_sz.pkt_size);
-+
-+		skb_put(skb, length - ETHERNET_FCS_SIZE);
-+
-+		/* Receive Checksum Offload */
-+		atl1_rx_checksum(adapter, rrd, skb);
-+		skb->protocol = eth_type_trans(skb, adapter->netdev);
-+
-+		if (adapter->vlgrp && (rrd->pkt_flg & PACKET_FLAG_VLAN_INS)) {
-+			u16 vlan_tag = (rrd->vlan_tag >> 4) |
-+					((rrd->vlan_tag & 7) << 13) |
-+					((rrd->vlan_tag & 8) << 9);
-+			vlan_hwaccel_rx(skb, adapter->vlgrp, vlan_tag);
-+		} else
-+			netif_rx(skb);
-+
-+		/* let protocol layer free skb */
-+		buffer_info->skb = NULL;
-+		buffer_info->alloced = 0;
-+		rrd->xsz.valid = 0;
-+
-+		adapter->netdev->last_rx = jiffies;
++		bfin_write_DMA1_IRQ_STATUS(bfin_read_DMA1_IRQ_STATUS() |
++					   DMA_DONE | DMA_ERR);
++		return IRQ_HANDLED;
 +	}
 +
-+	atomic_set(&rrd_ring->next_to_clean, rrd_next_to_clean);
-+
-+	atl1_alloc_rx_buffers(adapter);
-+
-+	/* update mailbox ? */
-+	if (count) {
-+		u32 tpd_next_to_use;
-+		u32 rfd_next_to_use;
-+		u32 rrd_next_to_clean;
-+
-+		spin_lock(&adapter->mb_lock);
-+
-+		tpd_next_to_use = atomic_read(&adapter->tpd_ring.next_to_use);
-+		rfd_next_to_use =
-+		    atomic_read(&adapter->rfd_ring.next_to_use);
-+		rrd_next_to_clean =
-+		    atomic_read(&adapter->rrd_ring.next_to_clean);
-+		value = ((rfd_next_to_use & MB_RFD_PROD_INDX_MASK) <<
-+			MB_RFD_PROD_INDX_SHIFT) |
-+                        ((rrd_next_to_clean & MB_RRD_CONS_INDX_MASK) <<
-+			MB_RRD_CONS_INDX_SHIFT) |
-+                        ((tpd_next_to_use & MB_TPD_PROD_INDX_MASK) <<
-+			MB_TPD_PROD_INDX_SHIFT);
-+		iowrite32(value, adapter->hw.hw_addr + REG_MAILBOX);
-+		spin_unlock(&adapter->mb_lock);
-+	}
++real_rx:
++	bf537mac_rx(dev);
++	number++;
++	goto get_one_packet;
 +}
 +
-+static void atl1_intr_tx(struct atl1_adapter *adapter)
-+{
-+	struct atl1_tpd_ring *tpd_ring = &adapter->tpd_ring;
-+	struct atl1_buffer *buffer_info;
-+	u16 sw_tpd_next_to_clean;
-+	u16 cmb_tpd_next_to_clean;
-+
-+	sw_tpd_next_to_clean = atomic_read(&tpd_ring->next_to_clean);
-+	cmb_tpd_next_to_clean = le16_to_cpu(adapter->cmb.cmb->tpd_cons_idx);
-+
-+	while (cmb_tpd_next_to_clean != sw_tpd_next_to_clean) {
-+		struct tx_packet_desc *tpd;
-+
-+		tpd = ATL1_TPD_DESC(tpd_ring, sw_tpd_next_to_clean);
-+		buffer_info = &tpd_ring->buffer_info[sw_tpd_next_to_clean];
-+		if (buffer_info->dma) {
-+			pci_unmap_page(adapter->pdev, buffer_info->dma,
-+				       buffer_info->length, PCI_DMA_TODEVICE);
-+			buffer_info->dma = 0;
-+		}
-+
-+		if (buffer_info->skb) {
-+			dev_kfree_skb_irq(buffer_info->skb);
-+			buffer_info->skb = NULL;
-+		}
-+		tpd->buffer_addr = 0;
-+		tpd->desc.data = 0;
-+
-+		if (++sw_tpd_next_to_clean == tpd_ring->count)
-+			sw_tpd_next_to_clean = 0;
-+	}
-+	atomic_set(&tpd_ring->next_to_clean, sw_tpd_next_to_clean);
-+
-+	if (netif_queue_stopped(adapter->netdev)
-+	    && netif_carrier_ok(adapter->netdev))
-+		netif_wake_queue(adapter->netdev);
- }
- 
- static u16 tpd_avail(struct atl1_tpd_ring *tpd_ring)
-@@ -1465,31 +1646,6 @@ static void atl1_tx_queue(struct atl1_adapter *adapter, int count,
- 	atomic_set(&tpd_ring->next_to_use, (int)tpd_next_to_use);
- }
- 
--static void atl1_update_mailbox(struct atl1_adapter *adapter)
--{
--	unsigned long flags;
--	u32 tpd_next_to_use;
--	u32 rfd_next_to_use;
--	u32 rrd_next_to_clean;
--	u32 value;
--
--	spin_lock_irqsave(&adapter->mb_lock, flags);
--
--	tpd_next_to_use = atomic_read(&adapter->tpd_ring.next_to_use);
--	rfd_next_to_use = atomic_read(&adapter->rfd_ring.next_to_use);
--	rrd_next_to_clean = atomic_read(&adapter->rrd_ring.next_to_clean);
--
--	value = ((rfd_next_to_use & MB_RFD_PROD_INDX_MASK) <<
--		MB_RFD_PROD_INDX_SHIFT) |
--		((rrd_next_to_clean & MB_RRD_CONS_INDX_MASK) <<
--		MB_RRD_CONS_INDX_SHIFT) |
--		((tpd_next_to_use & MB_TPD_PROD_INDX_MASK) <<
--		MB_TPD_PROD_INDX_SHIFT);
--	iowrite32(value, adapter->hw.hw_addr + REG_MAILBOX);
--
--	spin_unlock_irqrestore(&adapter->mb_lock, flags);
--}
--
- static int atl1_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
- {
- 	struct atl1_adapter *adapter = netdev_priv(netdev);
-@@ -1601,129 +1757,208 @@ static int atl1_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
- }
- 
- /*
-- * atl1_get_stats - Get System Network Statistics
-- * @netdev: network interface device structure
-- *
-- * Returns the address of the device statistics structure.
-- * The statistics are actually updated from the timer callback.
-+ * atl1_intr - Interrupt Handler
-+ * @irq: interrupt number
-+ * @data: pointer to a network interface device structure
-+ * @pt_regs: CPU registers structure
-  */
--static struct net_device_stats *atl1_get_stats(struct net_device *netdev)
-+static irqreturn_t atl1_intr(int irq, void *data)
- {
--	struct atl1_adapter *adapter = netdev_priv(netdev);
--	return &adapter->net_stats;
--}
-+	struct atl1_adapter *adapter = netdev_priv(data);
-+	u32 status;
-+	u8 update_rx;
-+	int max_ints = 10;
- 
--/*
-- * atl1_clean_rx_ring - Free RFD Buffers
-- * @adapter: board private structure
-- */
--static void atl1_clean_rx_ring(struct atl1_adapter *adapter)
--{
--	struct atl1_rfd_ring *rfd_ring = &adapter->rfd_ring;
--	struct atl1_rrd_ring *rrd_ring = &adapter->rrd_ring;
--	struct atl1_buffer *buffer_info;
--	struct pci_dev *pdev = adapter->pdev;
--	unsigned long size;
--	unsigned int i;
-+	status = adapter->cmb.cmb->int_stats;
-+	if (!status)
-+		return IRQ_NONE;
- 
--	/* Free all the Rx ring sk_buffs */
--	for (i = 0; i < rfd_ring->count; i++) {
--		buffer_info = &rfd_ring->buffer_info[i];
--		if (buffer_info->dma) {
--			pci_unmap_page(pdev, buffer_info->dma,
--				buffer_info->length, PCI_DMA_FROMDEVICE);
--			buffer_info->dma = 0;
-+	update_rx = 0;
-+
-+	do {
-+		/* clear CMB interrupt status at once */
-+		adapter->cmb.cmb->int_stats = 0;
-+
-+		if (status & ISR_GPHY)	/* clear phy status */
-+			atl1_clear_phy_int(adapter);
-+
-+		/* clear ISR status, and Enable CMB DMA/Disable Interrupt */
-+		iowrite32(status | ISR_DIS_INT, adapter->hw.hw_addr + REG_ISR);
-+
-+		/* check if SMB intr */
-+		if (status & ISR_SMB)
-+			atl1_inc_smb(adapter);
-+
-+		/* check if PCIE PHY Link down */
-+		if (status & ISR_PHY_LINKDOWN) {
-+			dev_printk(KERN_DEBUG, &adapter->pdev->dev,
-+				"pcie phy link down %x\n", status);
-+			if (netif_running(adapter->netdev)) {	/* reset MAC */
-+				iowrite32(0, adapter->hw.hw_addr + REG_IMR);
-+				schedule_work(&adapter->pcie_dma_to_rst_task);
-+				return IRQ_HANDLED;
-+			}
- 		}
--		if (buffer_info->skb) {
--			dev_kfree_skb(buffer_info->skb);
--			buffer_info->skb = NULL;
-+
-+		/* check if DMA read/write error ? */
-+		if (status & (ISR_DMAR_TO_RST | ISR_DMAW_TO_RST)) {
-+			dev_printk(KERN_DEBUG, &adapter->pdev->dev,
-+				"pcie DMA r/w error (status = 0x%x)\n",
-+				status);
-+			iowrite32(0, adapter->hw.hw_addr + REG_IMR);
-+			schedule_work(&adapter->pcie_dma_to_rst_task);
-+			return IRQ_HANDLED;
- 		}
--	}
- 
--	size = sizeof(struct atl1_buffer) * rfd_ring->count;
--	memset(rfd_ring->buffer_info, 0, size);
-+		/* link event */
-+		if (status & ISR_GPHY) {
-+			adapter->soft_stats.tx_carrier_errors++;
-+			atl1_check_for_link(adapter);
-+		}
- 
--	/* Zero out the descriptor ring */
--	memset(rfd_ring->desc, 0, rfd_ring->size);
-+		/* transmit event */
-+		if (status & ISR_CMB_TX)
-+			atl1_intr_tx(adapter);
- 
--	rfd_ring->next_to_clean = 0;
--	atomic_set(&rfd_ring->next_to_use, 0);
-+		/* rx exception */
-+		if (unlikely(status & (ISR_RXF_OV | ISR_RFD_UNRUN |
-+			ISR_RRD_OV | ISR_HOST_RFD_UNRUN |
-+			ISR_HOST_RRD_OV | ISR_CMB_RX))) {
-+			if (status & (ISR_RXF_OV | ISR_RFD_UNRUN |
-+				ISR_RRD_OV | ISR_HOST_RFD_UNRUN |
-+				ISR_HOST_RRD_OV))
-+				dev_printk(KERN_DEBUG, &adapter->pdev->dev,
-+					"rx exception, ISR = 0x%x\n", status);
-+			atl1_intr_rx(adapter);
-+		}
- 
--	rrd_ring->next_to_use = 0;
--	atomic_set(&rrd_ring->next_to_clean, 0);
-+		if (--max_ints < 0)
-+			break;
-+
-+	} while ((status = adapter->cmb.cmb->int_stats));
-+
-+	/* re-enable Interrupt */
-+	iowrite32(ISR_DIS_SMB | ISR_DIS_DMA, adapter->hw.hw_addr + REG_ISR);
-+	return IRQ_HANDLED;
- }
- 
- /*
-- * atl1_clean_tx_ring - Free Tx Buffers
-- * @adapter: board private structure
-+ * atl1_watchdog - Timer Call-back
-+ * @data: pointer to netdev cast into an unsigned long
-  */
--static void atl1_clean_tx_ring(struct atl1_adapter *adapter)
-+static void atl1_watchdog(unsigned long data)
- {
--	struct atl1_tpd_ring *tpd_ring = &adapter->tpd_ring;
--	struct atl1_buffer *buffer_info;
--	struct pci_dev *pdev = adapter->pdev;
--	unsigned long size;
--	unsigned int i;
-+	struct atl1_adapter *adapter = (struct atl1_adapter *)data;
- 
--	/* Free all the Tx ring sk_buffs */
--	for (i = 0; i < tpd_ring->count; i++) {
--		buffer_info = &tpd_ring->buffer_info[i];
--		if (buffer_info->dma) {
--			pci_unmap_page(pdev, buffer_info->dma,
--				buffer_info->length, PCI_DMA_TODEVICE);
--			buffer_info->dma = 0;
--		}
--	}
-+	/* Reset the timer */
-+	mod_timer(&adapter->watchdog_timer, jiffies + 2 * HZ);
-+}
- 
--	for (i = 0; i < tpd_ring->count; i++) {
--		buffer_info = &tpd_ring->buffer_info[i];
--		if (buffer_info->skb) {
--			dev_kfree_skb_any(buffer_info->skb);
--			buffer_info->skb = NULL;
--		}
--	}
-+/*
-+ * atl1_phy_config - Timer Call-back
-+ * @data: pointer to netdev cast into an unsigned long
-+ */
-+static void atl1_phy_config(unsigned long data)
-+{
-+	struct atl1_adapter *adapter = (struct atl1_adapter *)data;
-+	struct atl1_hw *hw = &adapter->hw;
-+	unsigned long flags;
- 
--	size = sizeof(struct atl1_buffer) * tpd_ring->count;
--	memset(tpd_ring->buffer_info, 0, size);
-+	spin_lock_irqsave(&adapter->lock, flags);
-+	adapter->phy_timer_pending = false;
-+	atl1_write_phy_reg(hw, MII_ADVERTISE, hw->mii_autoneg_adv_reg);
-+	atl1_write_phy_reg(hw, MII_AT001_CR, hw->mii_1000t_ctrl_reg);
-+	atl1_write_phy_reg(hw, MII_BMCR, MII_CR_RESET | MII_CR_AUTO_NEG_EN);
-+	spin_unlock_irqrestore(&adapter->lock, flags);
-+}
- 
--	/* Zero out the descriptor ring */
--	memset(tpd_ring->desc, 0, tpd_ring->size);
-+/*
-+ * atl1_tx_timeout - Respond to a Tx Hang
-+ * @netdev: network interface device structure
-+ */
-+static void atl1_tx_timeout(struct net_device *netdev)
-+{
-+	struct atl1_adapter *adapter = netdev_priv(netdev);
-+	/* Do the reset outside of interrupt context */
-+	schedule_work(&adapter->tx_timeout_task);
-+}
- 
--	atomic_set(&tpd_ring->next_to_use, 0);
--	atomic_set(&tpd_ring->next_to_clean, 0);
-+/*
-+ * Orphaned vendor comment left intact here:
-+ * <vendor comment>
-+ * If TPD Buffer size equal to 0, PCIE DMAR_TO_INT
-+ * will assert. We do soft reset <0x1400=1> according
-+ * with the SPEC. BUT, it seemes that PCIE or DMA
-+ * state-machine will not be reset. DMAR_TO_INT will
-+ * assert again and again.
-+ * </vendor comment>
-+ */
-+static void atl1_tx_timeout_task(struct work_struct *work)
-+{
-+	struct atl1_adapter *adapter =
-+		container_of(work, struct atl1_adapter, tx_timeout_task);
-+	struct net_device *netdev = adapter->netdev;
-+
-+	netif_device_detach(netdev);
-+	atl1_down(adapter);
-+	atl1_up(adapter);
-+	netif_device_attach(netdev);
- }
- 
- /*
-- * atl1_free_ring_resources - Free Tx / RX descriptor Resources
-- * @adapter: board private structure
-- *
-- * Free all transmit software resources
-+ * atl1_link_chg_task - deal with link change event Out of interrupt context
-  */
--void atl1_free_ring_resources(struct atl1_adapter *adapter)
-+static void atl1_link_chg_task(struct work_struct *work)
- {
--	struct pci_dev *pdev = adapter->pdev;
--	struct atl1_tpd_ring *tpd_ring = &adapter->tpd_ring;
--	struct atl1_rfd_ring *rfd_ring = &adapter->rfd_ring;
--	struct atl1_rrd_ring *rrd_ring = &adapter->rrd_ring;
--	struct atl1_ring_header *ring_header = &adapter->ring_header;
-+	struct atl1_adapter *adapter =
-+               container_of(work, struct atl1_adapter, link_chg_task);
-+	unsigned long flags;
- 
--	atl1_clean_tx_ring(adapter);
--	atl1_clean_rx_ring(adapter);
-+	spin_lock_irqsave(&adapter->lock, flags);
-+	atl1_check_link(adapter);
-+	spin_unlock_irqrestore(&adapter->lock, flags);
-+}
- 
--	kfree(tpd_ring->buffer_info);
--	pci_free_consistent(pdev, ring_header->size, ring_header->desc,
--		ring_header->dma);
-+static void atl1_vlan_rx_register(struct net_device *netdev,
-+	struct vlan_group *grp)
-+{
-+	struct atl1_adapter *adapter = netdev_priv(netdev);
-+	unsigned long flags;
-+	u32 ctrl;
- 
--	tpd_ring->buffer_info = NULL;
--	tpd_ring->desc = NULL;
--	tpd_ring->dma = 0;
-+	spin_lock_irqsave(&adapter->lock, flags);
-+	/* atl1_irq_disable(adapter); */
-+	adapter->vlgrp = grp;
- 
--	rfd_ring->buffer_info = NULL;
--	rfd_ring->desc = NULL;
--	rfd_ring->dma = 0;
-+	if (grp) {
-+		/* enable VLAN tag insert/strip */
-+		ctrl = ioread32(adapter->hw.hw_addr + REG_MAC_CTRL);
-+		ctrl |= MAC_CTRL_RMV_VLAN;
-+		iowrite32(ctrl, adapter->hw.hw_addr + REG_MAC_CTRL);
-+	} else {
-+		/* disable VLAN tag insert/strip */
-+		ctrl = ioread32(adapter->hw.hw_addr + REG_MAC_CTRL);
-+		ctrl &= ~MAC_CTRL_RMV_VLAN;
-+		iowrite32(ctrl, adapter->hw.hw_addr + REG_MAC_CTRL);
-+	}
- 
--	rrd_ring->desc = NULL;
--	rrd_ring->dma = 0;
-+	/* atl1_irq_enable(adapter); */
-+	spin_unlock_irqrestore(&adapter->lock, flags);
-+}
-+
-+static void atl1_restore_vlan(struct atl1_adapter *adapter)
-+{
-+	atl1_vlan_rx_register(adapter->netdev, adapter->vlgrp);
-+}
-+
-+int atl1_reset(struct atl1_adapter *adapter)
-+{
-+	int ret;
-+
-+	ret = atl1_reset_hw(&adapter->hw);
-+	if (ret != ATL1_SUCCESS)
-+		return ret;
-+	return atl1_init_hw(&adapter->hw);
- }
- 
- s32 atl1_up(struct atl1_adapter *adapter)
-@@ -1793,173 +2028,6 @@ void atl1_down(struct atl1_adapter *adapter)
- }
- 
- /*
-- * atl1_change_mtu - Change the Maximum Transfer Unit
-- * @netdev: network interface device structure
-- * @new_mtu: new value for maximum frame size
-- *
-- * Returns 0 on success, negative on failure
-- */
--static int atl1_change_mtu(struct net_device *netdev, int new_mtu)
--{
--	struct atl1_adapter *adapter = netdev_priv(netdev);
--	int old_mtu = netdev->mtu;
--	int max_frame = new_mtu + ENET_HEADER_SIZE + ETHERNET_FCS_SIZE;
--
--	if ((max_frame < MINIMUM_ETHERNET_FRAME_SIZE) ||
--	    (max_frame > MAX_JUMBO_FRAME_SIZE)) {
--		dev_warn(&adapter->pdev->dev, "invalid MTU setting\n");
--		return -EINVAL;
--	}
--
--	adapter->hw.max_frame_size = max_frame;
--	adapter->hw.tx_jumbo_task_th = (max_frame + 7) >> 3;
--	adapter->rx_buffer_len = (max_frame + 7) & ~7;
--	adapter->hw.rx_jumbo_th = adapter->rx_buffer_len / 8;
--
--	netdev->mtu = new_mtu;
--	if ((old_mtu != new_mtu) && netif_running(netdev)) {
--		atl1_down(adapter);
--		atl1_up(adapter);
--	}
--
--	return 0;
--}
--
--/*
-- * atl1_set_mac - Change the Ethernet Address of the NIC
-- * @netdev: network interface device structure
-- * @p: pointer to an address structure
-- *
-- * Returns 0 on success, negative on failure
-- */
--static int atl1_set_mac(struct net_device *netdev, void *p)
--{
--	struct atl1_adapter *adapter = netdev_priv(netdev);
--	struct sockaddr *addr = p;
--
--	if (netif_running(netdev))
--		return -EBUSY;
--
--	if (!is_valid_ether_addr(addr->sa_data))
--		return -EADDRNOTAVAIL;
--
--	memcpy(netdev->dev_addr, addr->sa_data, netdev->addr_len);
--	memcpy(adapter->hw.mac_addr, addr->sa_data, netdev->addr_len);
--
--	atl1_set_mac_addr(&adapter->hw);
--	return 0;
--}
--
--/*
-- * atl1_watchdog - Timer Call-back
-- * @data: pointer to netdev cast into an unsigned long
-- */
--static void atl1_watchdog(unsigned long data)
--{
--	struct atl1_adapter *adapter = (struct atl1_adapter *)data;
--
--	/* Reset the timer */
--	mod_timer(&adapter->watchdog_timer, jiffies + 2 * HZ);
--}
--
--static int mdio_read(struct net_device *netdev, int phy_id, int reg_num)
--{
--	struct atl1_adapter *adapter = netdev_priv(netdev);
--	u16 result;
--
--	atl1_read_phy_reg(&adapter->hw, reg_num & 0x1f, &result);
--
--	return result;
--}
--
--static void mdio_write(struct net_device *netdev, int phy_id, int reg_num,
--	int val)
--{
--	struct atl1_adapter *adapter = netdev_priv(netdev);
--
--	atl1_write_phy_reg(&adapter->hw, reg_num, val);
--}
--
--/*
-- * atl1_mii_ioctl -
-- * @netdev:
-- * @ifreq:
-- * @cmd:
-- */
--static int atl1_mii_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
--{
--	struct atl1_adapter *adapter = netdev_priv(netdev);
--	unsigned long flags;
--	int retval;
--
--	if (!netif_running(netdev))
--		return -EINVAL;
--
--	spin_lock_irqsave(&adapter->lock, flags);
--	retval = generic_mii_ioctl(&adapter->mii, if_mii(ifr), cmd, NULL);
--	spin_unlock_irqrestore(&adapter->lock, flags);
--
--	return retval;
--}
--
--/*
-- * atl1_ioctl -
-- * @netdev:
-- * @ifreq:
-- * @cmd:
-- */
--static int atl1_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
--{
--	switch (cmd) {
--	case SIOCGMIIPHY:
--	case SIOCGMIIREG:
--	case SIOCSMIIREG:
--		return atl1_mii_ioctl(netdev, ifr, cmd);
--	default:
--		return -EOPNOTSUPP;
--	}
--}
--
--/*
-- * atl1_tx_timeout - Respond to a Tx Hang
-- * @netdev: network interface device structure
-- */
--static void atl1_tx_timeout(struct net_device *netdev)
--{
--	struct atl1_adapter *adapter = netdev_priv(netdev);
--	/* Do the reset outside of interrupt context */
--	schedule_work(&adapter->tx_timeout_task);
--}
--
--/*
-- * atl1_phy_config - Timer Call-back
-- * @data: pointer to netdev cast into an unsigned long
-- */
--static void atl1_phy_config(unsigned long data)
--{
--	struct atl1_adapter *adapter = (struct atl1_adapter *)data;
--	struct atl1_hw *hw = &adapter->hw;
--	unsigned long flags;
--
--	spin_lock_irqsave(&adapter->lock, flags);
--	adapter->phy_timer_pending = false;
--	atl1_write_phy_reg(hw, MII_ADVERTISE, hw->mii_autoneg_adv_reg);
--	atl1_write_phy_reg(hw, MII_AT001_CR, hw->mii_1000t_ctrl_reg);
--	atl1_write_phy_reg(hw, MII_BMCR, MII_CR_RESET | MII_CR_AUTO_NEG_EN);
--	spin_unlock_irqrestore(&adapter->lock, flags);
--}
--
--int atl1_reset(struct atl1_adapter *adapter)
--{
--	int ret;
--
--	ret = atl1_reset_hw(&adapter->hw);
--	if (ret != ATL1_SUCCESS)
--		return ret;
--	return atl1_init_hw(&adapter->hw);
--}
--
--/*
-  * atl1_open - Called when a network interface is made active
-  * @netdev: network interface device structure
-  *
-@@ -2011,82 +2079,113 @@ static int atl1_close(struct net_device *netdev)
- 	return 0;
- }
- 
--#ifdef CONFIG_NET_POLL_CONTROLLER
--static void atl1_poll_controller(struct net_device *netdev)
--{
--	disable_irq(netdev->irq);
--	atl1_intr(netdev->irq, netdev);
--	enable_irq(netdev->irq);
--}
--#endif
--
--/*
-- * Orphaned vendor comment left intact here:
-- * <vendor comment>
-- * If TPD Buffer size equal to 0, PCIE DMAR_TO_INT
-- * will assert. We do soft reset <0x1400=1> according
-- * with the SPEC. BUT, it seemes that PCIE or DMA
-- * state-machine will not be reset. DMAR_TO_INT will
-- * assert again and again.
-- * </vendor comment>
-- */
--static void atl1_tx_timeout_task(struct work_struct *work)
-+#ifdef CONFIG_PM
-+static int atl1_suspend(struct pci_dev *pdev, pm_message_t state)
- {
--	struct atl1_adapter *adapter =
--		container_of(work, struct atl1_adapter, tx_timeout_task);
--	struct net_device *netdev = adapter->netdev;
-+	struct net_device *netdev = pci_get_drvdata(pdev);
-+	struct atl1_adapter *adapter = netdev_priv(netdev);
-+	struct atl1_hw *hw = &adapter->hw;
-+	u32 ctrl = 0;
-+	u32 wufc = adapter->wol;
- 
- 	netif_device_detach(netdev);
--	atl1_down(adapter);
--	atl1_up(adapter);
--	netif_device_attach(netdev);
--}
-+	if (netif_running(netdev))
-+		atl1_down(adapter);
- 
--/*
-- * atl1_link_chg_task - deal with link change event Out of interrupt context
-- */
--static void atl1_link_chg_task(struct work_struct *work)
--{
--	struct atl1_adapter *adapter =
--               container_of(work, struct atl1_adapter, link_chg_task);
--	unsigned long flags;
-+	atl1_read_phy_reg(hw, MII_BMSR, (u16 *) & ctrl);
-+	atl1_read_phy_reg(hw, MII_BMSR, (u16 *) & ctrl);
-+	if (ctrl & BMSR_LSTATUS)
-+		wufc &= ~ATL1_WUFC_LNKC;
- 
--	spin_lock_irqsave(&adapter->lock, flags);
--	atl1_check_link(adapter);
--	spin_unlock_irqrestore(&adapter->lock, flags);
-+	/* reduce speed to 10/100M */
-+	if (wufc) {
-+		atl1_phy_enter_power_saving(hw);
-+		/* if resume, let driver to re- setup link */
-+		hw->phy_configured = false;
-+		atl1_set_mac_addr(hw);
-+		atl1_set_multi(netdev);
-+
-+		ctrl = 0;
-+		/* turn on magic packet wol */
-+		if (wufc & ATL1_WUFC_MAG)
-+			ctrl = WOL_MAGIC_EN | WOL_MAGIC_PME_EN;
-+
-+		/* turn on Link change WOL */
-+		if (wufc & ATL1_WUFC_LNKC)
-+			ctrl |= (WOL_LINK_CHG_EN | WOL_LINK_CHG_PME_EN);
-+		iowrite32(ctrl, hw->hw_addr + REG_WOL_CTRL);
-+
-+		/* turn on all-multi mode if wake on multicast is enabled */
-+		ctrl = ioread32(hw->hw_addr + REG_MAC_CTRL);
-+		ctrl &= ~MAC_CTRL_DBG;
-+		ctrl &= ~MAC_CTRL_PROMIS_EN;
-+		if (wufc & ATL1_WUFC_MC)
-+			ctrl |= MAC_CTRL_MC_ALL_EN;
-+		else
-+			ctrl &= ~MAC_CTRL_MC_ALL_EN;
-+
-+		/* turn on broadcast mode if wake on-BC is enabled */
-+		if (wufc & ATL1_WUFC_BC)
-+			ctrl |= MAC_CTRL_BC_EN;
-+		else
-+			ctrl &= ~MAC_CTRL_BC_EN;
-+
-+		/* enable RX */
-+		ctrl |= MAC_CTRL_RX_EN;
-+		iowrite32(ctrl, hw->hw_addr + REG_MAC_CTRL);
-+		pci_enable_wake(pdev, PCI_D3hot, 1);
-+		pci_enable_wake(pdev, PCI_D3cold, 1);
-+	} else {
-+		iowrite32(0, hw->hw_addr + REG_WOL_CTRL);
-+		pci_enable_wake(pdev, PCI_D3hot, 0);
-+		pci_enable_wake(pdev, PCI_D3cold, 0);
-+	}
-+
-+	pci_save_state(pdev);
-+	pci_disable_device(pdev);
-+
-+	pci_set_power_state(pdev, PCI_D3hot);
-+
-+	return 0;
- }
- 
--/*
-- * atl1_pcie_patch - Patch for PCIE module
-- */
--static void atl1_pcie_patch(struct atl1_adapter *adapter)
-+static int atl1_resume(struct pci_dev *pdev)
- {
--	u32 value;
-+	struct net_device *netdev = pci_get_drvdata(pdev);
-+	struct atl1_adapter *adapter = netdev_priv(netdev);
-+	u32 ret_val;
- 
--	/* much vendor magic here */
--	value = 0x6500;
--	iowrite32(value, adapter->hw.hw_addr + 0x12FC);
--	/* pcie flow control mode change */
--	value = ioread32(adapter->hw.hw_addr + 0x1008);
--	value |= 0x8000;
--	iowrite32(value, adapter->hw.hw_addr + 0x1008);
-+	pci_set_power_state(pdev, 0);
-+	pci_restore_state(pdev);
-+
-+	ret_val = pci_enable_device(pdev);
-+	pci_enable_wake(pdev, PCI_D3hot, 0);
-+	pci_enable_wake(pdev, PCI_D3cold, 0);
-+
-+	iowrite32(0, adapter->hw.hw_addr + REG_WOL_CTRL);
-+	atl1_reset(adapter);
-+
-+	if (netif_running(netdev))
-+		atl1_up(adapter);
-+	netif_device_attach(netdev);
-+
-+	atl1_via_workaround(adapter);
-+
-+	return 0;
- }
-+#else
-+#define atl1_suspend NULL
-+#define atl1_resume NULL
-+#endif
- 
--/*
-- * When ACPI resume on some VIA MotherBoard, the Interrupt Disable bit/0x400
-- * on PCI Command register is disable.
-- * The function enable this bit.
-- * Brackett, 2006/03/15
-- */
--static void atl1_via_workaround(struct atl1_adapter *adapter)
 +#ifdef CONFIG_NET_POLL_CONTROLLER
-+static void atl1_poll_controller(struct net_device *netdev)
- {
--	unsigned long value;
--
--	value = ioread16(adapter->hw.hw_addr + PCI_COMMAND);
--	if (value & PCI_COMMAND_INTX_DISABLE)
--		value &= ~PCI_COMMAND_INTX_DISABLE;
--	iowrite32(value, adapter->hw.hw_addr + PCI_COMMAND);
-+	disable_irq(netdev->irq);
-+	atl1_intr(netdev->irq, netdev);
-+	enable_irq(netdev->irq);
- }
++static void bf537mac_poll(struct net_device *dev)
++{
++	disable_irq(IRQ_MAC_RX);
++	bf537mac_interrupt(IRQ_MAC_RX, dev);
++	enable_irq(IRQ_MAC_RX);
++}
++#endif				/* CONFIG_NET_POLL_CONTROLLER */
++
++static void bf537mac_reset(void)
++{
++	unsigned int opmode;
++
++	opmode = bfin_read_EMAC_OPMODE();
++	opmode &= (~RE);
++	opmode &= (~TE);
++	/* Turn off the EMAC */
++	bfin_write_EMAC_OPMODE(opmode);
++}
++
++/*
++ * Enable Interrupts, Receive, and Transmit
++ */
++static int bf537mac_enable(struct net_device *dev)
++{
++	u32 opmode;
++
++	pr_debug("%s: %s\n", dev->name, __FUNCTION__);
++
++	/* Set RX DMA */
++	bfin_write_DMA1_NEXT_DESC_PTR(&(rx_list_head->desc_a));
++	bfin_write_DMA1_CONFIG(rx_list_head->desc_a.config);
++
++	/* Wait MII done */
++	poll_mdc_done();
++
++	/* We enable only RX here */
++	/* ASTP   : Enable Automatic Pad Stripping
++	   PR     : Promiscuous Mode for test
++	   PSF    : Receive frames with total length less than 64 bytes.
++	   FDMODE : Full Duplex Mode
++	   LB     : Internal Loopback for test
++	   RE     : Receiver Enable */
++	opmode = bfin_read_EMAC_OPMODE();
++	if (opmode & FDMODE)
++		opmode |= PSF;
++	else
++		opmode |= DRO | DC | PSF;
++	opmode |= RE;
++
++#if defined(CONFIG_BFIN_MAC_RMII)
++	opmode |= RMII; /* For Now only 100MBit are supported */
++#ifdef CONFIG_BF_REV_0_2
++	opmode |= TE;
 +#endif
- 
- /*
-  * atl1_probe - Device Initialization Routine
-@@ -2320,105 +2419,6 @@ static void __devexit atl1_remove(struct pci_dev *pdev)
- 	pci_disable_device(pdev);
- }
- 
--#ifdef CONFIG_PM
--static int atl1_suspend(struct pci_dev *pdev, pm_message_t state)
--{
--	struct net_device *netdev = pci_get_drvdata(pdev);
--	struct atl1_adapter *adapter = netdev_priv(netdev);
--	struct atl1_hw *hw = &adapter->hw;
--	u32 ctrl = 0;
--	u32 wufc = adapter->wol;
--
--	netif_device_detach(netdev);
--	if (netif_running(netdev))
--		atl1_down(adapter);
--
--	atl1_read_phy_reg(hw, MII_BMSR, (u16 *) & ctrl);
--	atl1_read_phy_reg(hw, MII_BMSR, (u16 *) & ctrl);
--	if (ctrl & BMSR_LSTATUS)
--		wufc &= ~ATL1_WUFC_LNKC;
--
--	/* reduce speed to 10/100M */
--	if (wufc) {
--		atl1_phy_enter_power_saving(hw);
--		/* if resume, let driver to re- setup link */
--		hw->phy_configured = false;
--		atl1_set_mac_addr(hw);
--		atl1_set_multi(netdev);
--
--		ctrl = 0;
--		/* turn on magic packet wol */
--		if (wufc & ATL1_WUFC_MAG)
--			ctrl = WOL_MAGIC_EN | WOL_MAGIC_PME_EN;
--
--		/* turn on Link change WOL */
--		if (wufc & ATL1_WUFC_LNKC)
--			ctrl |= (WOL_LINK_CHG_EN | WOL_LINK_CHG_PME_EN);
--		iowrite32(ctrl, hw->hw_addr + REG_WOL_CTRL);
--
--		/* turn on all-multi mode if wake on multicast is enabled */
--		ctrl = ioread32(hw->hw_addr + REG_MAC_CTRL);
--		ctrl &= ~MAC_CTRL_DBG;
--		ctrl &= ~MAC_CTRL_PROMIS_EN;
--		if (wufc & ATL1_WUFC_MC)
--			ctrl |= MAC_CTRL_MC_ALL_EN;
--		else
--			ctrl &= ~MAC_CTRL_MC_ALL_EN;
--
--		/* turn on broadcast mode if wake on-BC is enabled */
--		if (wufc & ATL1_WUFC_BC)
--			ctrl |= MAC_CTRL_BC_EN;
--		else
--			ctrl &= ~MAC_CTRL_BC_EN;
--
--		/* enable RX */
--		ctrl |= MAC_CTRL_RX_EN;
--		iowrite32(ctrl, hw->hw_addr + REG_MAC_CTRL);
--		pci_enable_wake(pdev, PCI_D3hot, 1);
--		pci_enable_wake(pdev, PCI_D3cold, 1);
--	} else {
--		iowrite32(0, hw->hw_addr + REG_WOL_CTRL);
--		pci_enable_wake(pdev, PCI_D3hot, 0);
--		pci_enable_wake(pdev, PCI_D3cold, 0);
--	}
--
--	pci_save_state(pdev);
--	pci_disable_device(pdev);
--
--	pci_set_power_state(pdev, PCI_D3hot);
--
--	return 0;
--}
--
--static int atl1_resume(struct pci_dev *pdev)
--{
--	struct net_device *netdev = pci_get_drvdata(pdev);
--	struct atl1_adapter *adapter = netdev_priv(netdev);
--	u32 ret_val;
--
--	pci_set_power_state(pdev, 0);
--	pci_restore_state(pdev);
--
--	ret_val = pci_enable_device(pdev);
--	pci_enable_wake(pdev, PCI_D3hot, 0);
--	pci_enable_wake(pdev, PCI_D3cold, 0);
--
--	iowrite32(0, adapter->hw.hw_addr + REG_WOL_CTRL);
--	atl1_reset(adapter);
--
--	if (netif_running(netdev))
--		atl1_up(adapter);
--	netif_device_attach(netdev);
--
--	atl1_via_workaround(adapter);
--
--	return 0;
--}
--#else
--#define atl1_suspend NULL
--#define atl1_resume NULL
--#endif
--
- static struct pci_driver atl1_driver = {
- 	.name = atl1_driver_name,
- 	.id_table = atl1_pci_tbl,
++#endif
++	/* Turn on the EMAC rx */
++	bfin_write_EMAC_OPMODE(opmode);
++
++	return 0;
++}
++
++/* Our watchdog timed out. Called by the networking layer */
++static void bf537mac_timeout(struct net_device *dev)
++{
++	pr_debug("%s: %s\n", dev->name, __FUNCTION__);
++
++	bf537mac_reset();
++
++	/* reset tx queue */
++	tx_list_tail = tx_list_head->next;
++
++	bf537mac_enable(dev);
++
++	/* We can accept TX packets again */
++	dev->trans_start = jiffies;
++	netif_wake_queue(dev);
++}
++
++/*
++ * Get the current statistics.
++ * This may be called with the card open or closed.
++ */
++static struct net_device_stats *bf537mac_query_statistics(struct net_device
++							  *dev)
++{
++	struct bf537mac_local *lp = netdev_priv(dev);
++
++	pr_debug("%s: %s\n", dev->name, __FUNCTION__);
++
++	return &lp->stats;
++}
++
++/*
++ * This routine will, depending on the values passed to it,
++ * either make it accept multicast packets, go into
++ * promiscuous mode (for TCPDUMP and cousins) or accept
++ * a select set of multicast packets
++ */
++static void bf537mac_set_multicast_list(struct net_device *dev)
++{
++	u32 sysctl;
++
++	if (dev->flags & IFF_PROMISC) {
++		printk(KERN_INFO "%s: set to promisc mode\n", dev->name);
++		sysctl = bfin_read_EMAC_OPMODE();
++		sysctl |= RAF;
++		bfin_write_EMAC_OPMODE(sysctl);
++	} else if (dev->flags & IFF_ALLMULTI || dev->mc_count > 16) {
++		/* accept all multicast */
++		sysctl = bfin_read_EMAC_OPMODE();
++		sysctl |= PAM;
++		bfin_write_EMAC_OPMODE(sysctl);
++	} else if (dev->mc_count) {
++		/* set multicast */
++	} else {
++		/* clear promisc or multicast mode */
++		sysctl = bfin_read_EMAC_OPMODE();
++		sysctl &= ~(RAF | PAM);
++		bfin_write_EMAC_OPMODE(sysctl);
++	}
++}
++
++/*
++ * this puts the device in an inactive state
++ */
++static void bf537mac_shutdown(struct net_device *dev)
++{
++	/* Turn off the EMAC */
++	bfin_write_EMAC_OPMODE(0x00000000);
++	/* Turn off the EMAC RX DMA */
++	bfin_write_DMA1_CONFIG(0x0000);
++	bfin_write_DMA2_CONFIG(0x0000);
++}
++
++/*
++ * Open and Initialize the interface
++ *
++ * Set up everything, reset the card, etc..
++ */
++static int bf537mac_open(struct net_device *dev)
++{
++	pr_debug("%s: %s\n", dev->name, __FUNCTION__);
++
++	/*
++	 * Check that the address is valid.  If its not, refuse
++	 * to bring the device up.  The user must specify an
++	 * address using ifconfig eth0 hw ether xx:xx:xx:xx:xx:xx
++	 */
++	if (!is_valid_ether_addr(dev->dev_addr)) {
++		printk(KERN_WARNING DRV_NAME ": no valid ethernet hw addr\n");
++		return -EINVAL;
++	}
++
++	/* initial rx and tx list */
++	desc_list_init();
++
++	bf537mac_setphy(dev);
++	setup_system_regs(dev);
++	bf537mac_reset();
++	bf537mac_enable(dev);
++
++	pr_debug("hardware init finished\n");
++	netif_start_queue(dev);
++	netif_carrier_on(dev);
++
++	return 0;
++}
++
++/*
++ *
++ * this makes the board clean up everything that it can
++ * and not talk to the outside world.   Caused by
++ * an 'ifconfig ethX down'
++ */
++static int bf537mac_close(struct net_device *dev)
++{
++	pr_debug("%s: %s\n", dev->name, __FUNCTION__);
++
++	netif_stop_queue(dev);
++	netif_carrier_off(dev);
++
++	/* clear everything */
++	bf537mac_shutdown(dev);
++
++	/* free the rx/tx buffers */
++	desc_list_free();
++
++	return 0;
++}
++
++static int __init bf537mac_probe(struct net_device *dev)
++{
++	struct bf537mac_local *lp = netdev_priv(dev);
++	int retval;
++
++	/* Grab the MAC address in the MAC */
++	*(__le32 *) (&(dev->dev_addr[0])) = cpu_to_le32(bfin_read_EMAC_ADDRLO());
++	*(__le16 *) (&(dev->dev_addr[4])) = cpu_to_le16((u16) bfin_read_EMAC_ADDRHI());
++
++	/* probe mac */
++	/*todo: how to proble? which is revision_register */
++	bfin_write_EMAC_ADDRLO(0x12345678);
++	if (bfin_read_EMAC_ADDRLO() != 0x12345678) {
++		pr_debug("can't detect bf537 mac!\n");
++		retval = -ENODEV;
++		goto err_out;
++	}
++
++	/*Is it valid? (Did bootloader initialize it?) */
++	if (!is_valid_ether_addr(dev->dev_addr)) {
++		/* Grab the MAC from the board somehow - this is done in the
++		   arch/blackfin/mach-bf537/boards/eth_mac.c */
++		get_bf537_ether_addr(dev->dev_addr);
++	}
++
++	/* If still not valid, get a random one */
++	if (!is_valid_ether_addr(dev->dev_addr)) {
++		random_ether_addr(dev->dev_addr);
++	}
++
++	setup_mac_addr(dev->dev_addr);
++
++	/* Fill in the fields of the device structure with ethernet values. */
++	ether_setup(dev);
++
++	dev->open = bf537mac_open;
++	dev->stop = bf537mac_close;
++	dev->hard_start_xmit = bf537mac_hard_start_xmit;
++	dev->tx_timeout = bf537mac_timeout;
++	dev->get_stats = bf537mac_query_statistics;
++	dev->set_multicast_list = bf537mac_set_multicast_list;
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	dev->poll_controller = bf537mac_poll;
++#endif
++
++	/* fill in some of the fields */
++	lp->version = 1;
++	lp->PhyAddr = 0x01;
++	lp->CLKIN = 25;
++	lp->FullDuplex = 0;
++	lp->Negotiate = 1;
++	lp->FlowControl = 0;
++	spin_lock_init(&lp->lock);
++
++	/* set the GPIO pins to Ethernet mode */
++	setup_pin_mux();
++
++	/* now, enable interrupts */
++	/* register irq handler */
++	if (request_irq
++	    (IRQ_MAC_RX, bf537mac_interrupt, IRQF_DISABLED | IRQF_SHARED,
++	     "BFIN537_MAC_RX", dev)) {
++		printk(KERN_WARNING DRV_NAME
++		       ": Unable to attach BlackFin MAC RX interrupt\n");
++		return -EBUSY;
++	}
++
++	/* Enable PHY output early */
++	if (!(bfin_read_VR_CTL() & PHYCLKOE))
++		bfin_write_VR_CTL(bfin_read_VR_CTL() | PHYCLKOE);
++
++	retval = register_netdev(dev);
++	if (retval == 0) {
++		/* now, print out the card info, in a short format.. */
++		printk(KERN_INFO "%s: Version %s, %s\n",
++			 DRV_NAME, DRV_VERSION, DRV_DESC);
++	}
++
++err_out:
++	return retval;
++}
++
++static int bfin_mac_probe(struct platform_device *pdev)
++{
++	struct net_device *ndev;
++
++	ndev = alloc_etherdev(sizeof(struct bf537mac_local));
++	if (!ndev) {
++		printk(KERN_WARNING DRV_NAME ": could not allocate device\n");
++		return -ENOMEM;
++	}
++
++	SET_MODULE_OWNER(ndev);
++	SET_NETDEV_DEV(ndev, &pdev->dev);
++
++	platform_set_drvdata(pdev, ndev);
++
++	if (bf537mac_probe(ndev) != 0) {
++		platform_set_drvdata(pdev, NULL);
++		free_netdev(ndev);
++		printk(KERN_WARNING DRV_NAME ": not found\n");
++		return -ENODEV;
++	}
++
++	return 0;
++}
++
++static int bfin_mac_remove(struct platform_device *pdev)
++{
++	struct net_device *ndev = platform_get_drvdata(pdev);
++
++	platform_set_drvdata(pdev, NULL);
++
++	unregister_netdev(ndev);
++
++	free_irq(IRQ_MAC_RX, ndev);
++
++	free_netdev(ndev);
++
++	return 0;
++}
++
++static int bfin_mac_suspend(struct platform_device *pdev, pm_message_t state)
++{
++	return 0;
++}
++
++static int bfin_mac_resume(struct platform_device *pdev)
++{
++	return 0;
++}
++
++static struct platform_driver bfin_mac_driver = {
++	.probe = bfin_mac_probe,
++	.remove = bfin_mac_remove,
++	.resume = bfin_mac_resume,
++	.suspend = bfin_mac_suspend,
++	.driver = {
++		   .name = DRV_NAME,
++		   },
++};
++
++static int __init bfin_mac_init(void)
++{
++	return platform_driver_register(&bfin_mac_driver);
++}
++
++module_init(bfin_mac_init);
++
++static void __exit bfin_mac_cleanup(void)
++{
++	platform_driver_unregister(&bfin_mac_driver);
++}
++
++module_exit(bfin_mac_cleanup);
+diff --git a/drivers/net/bfin_mac.h b/drivers/net/bfin_mac.h
+new file mode 100644
+index 0000000..af87189
+--- /dev/null
++++ b/drivers/net/bfin_mac.h
+@@ -0,0 +1,132 @@
++/*
++ * File:	drivers/net/bfin_mac.c
++ * Based on:
++ * Maintainer:
++ * 		Bryan Wu <bryan.wu@analog.com>
++ *
++ * Original author:
++ * 		Luke Yang <luke.yang@analog.com>
++ *
++ * Created:
++ * Description:
++ *
++ * Modified:
++ *		Copyright 2004-2006 Analog Devices Inc.
++ *
++ * Bugs:	Enter bugs at http://blackfin.uclinux.org/
++ *
++ * This program is free software ;  you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation ;  either version 2, or (at your option)
++ * any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY ;  without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program ;  see the file COPYING.
++ * If not, write to the Free Software Foundation,
++ * 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
++ */
++
++/*
++ * PHY REGISTER NAMES
++ */
++#define PHYREG_MODECTL		0x0000
++#define PHYREG_MODESTAT		0x0001
++#define PHYREG_PHYID1		0x0002
++#define PHYREG_PHYID2		0x0003
++#define PHYREG_ANAR		0x0004
++#define PHYREG_ANLPAR		0x0005
++#define PHYREG_ANER		0x0006
++#define PHYREG_NSR		0x0010
++#define PHYREG_LBREMR		0x0011
++#define PHYREG_REC		0x0012
++#define PHYREG_10CFG		0x0013
++#define PHYREG_PHY1_1		0x0014
++#define PHYREG_PHY1_2		0x0015
++#define PHYREG_PHY2		0x0016
++#define PHYREG_TW_1		0x0017
++#define PHYREG_TW_2		0x0018
++#define PHYREG_TEST		0x0019
++
++#define PHY_RESET		0x8000
++#define PHY_ANEG_EN		0x1000
++#define PHY_DUPLEX		0x0100
++#define PHY_SPD_SET		0x2000
++
++#define BFIN_MAC_CSUM_OFFLOAD
++
++struct dma_descriptor {
++	struct dma_descriptor *next_dma_desc;
++	unsigned long start_addr;
++	unsigned short config;
++	unsigned short x_count;
++};
++
++struct status_area_rx {
++#if defined(BFIN_MAC_CSUM_OFFLOAD)
++	unsigned short ip_hdr_csum;	/* ip header checksum */
++	/* ip payload(udp or tcp or others) checksum */
++	unsigned short ip_payload_csum;
++#endif
++	unsigned long status_word;	/* the frame status word */
++};
++
++struct status_area_tx {
++	unsigned long status_word;	/* the frame status word */
++};
++
++/* use two descriptors for a packet */
++struct net_dma_desc_rx {
++	struct net_dma_desc_rx *next;
++	struct sk_buff *skb;
++	struct dma_descriptor desc_a;
++	struct dma_descriptor desc_b;
++	struct status_area_rx status;
++};
++
++/* use two descriptors for a packet */
++struct net_dma_desc_tx {
++	struct net_dma_desc_tx *next;
++	struct sk_buff *skb;
++	struct dma_descriptor desc_a;
++	struct dma_descriptor desc_b;
++	unsigned char packet[1560];
++	struct status_area_tx status;
++};
++
++struct bf537mac_local {
++	/*
++	 * these are things that the kernel wants me to keep, so users
++	 * can find out semi-useless statistics of how well the card is
++	 * performing
++	 */
++	struct net_device_stats stats;
++
++	int version;
++
++	int FlowEnabled;	/* record if data flow is active */
++	int EtherIntIVG;	/* IVG for the ethernet interrupt */
++	int RXIVG;		/* IVG for the RX completion */
++	int TXIVG;		/* IVG for the TX completion */
++	int PhyAddr;		/* PHY address */
++	int OpMode;		/* set these bits n the OPMODE regs */
++	int Port10;		/* set port speed to 10 Mbit/s */
++	int GenChksums;		/* IP checksums to be calculated */
++	int NoRcveLnth;		/* dont insert recv length at start of buffer */
++	int StripPads;		/* remove trailing pad bytes */
++	int FullDuplex;		/* set full duplex mode */
++	int Negotiate;		/* enable auto negotiation */
++	int Loopback;		/* loopback at the PHY */
++	int Cache;		/* Buffers may be cached */
++	int FlowControl;	/* flow control active */
++	int CLKIN;		/* clock in value in MHZ */
++	unsigned short IntMask;	/* interrupt mask */
++	unsigned char Mac[6];	/* MAC address of the board */
++	spinlock_t lock;
++};
++
++extern void get_bf537_ether_addr(char *addr);
 -- 
-1.5.2.2
-
+1.5.2
