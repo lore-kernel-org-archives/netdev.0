@@ -1,47 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 3/3] s390: af_iucv: add lock when updating accept_q
-Date: Sat, 14 Jul 2007 19:05:25 -0700 (PDT)
-Message-ID: <20070714.190525.102575313.davem@davemloft.net>
-References: <20070713085053.530802000@linux.vnet.ibm.com>
-	<20070713085246.022609000@linux.vnet.ibm.com>
+Subject: Re: [NET]: Add ethtool support for NETIF_F_IPV6_CSUM devices.
+Date: Sat, 14 Jul 2007 19:08:49 -0700 (PDT)
+Message-ID: <20070714.190849.112849734.davem@davemloft.net>
+References: <1184378602.6079.1.camel@dell>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-	fpavlic@de.ibm.com
-To: braunu@de.ibm.com
+Cc: netdev@vger.kernel.org
+To: mchan@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52251
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52255
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S932640AbXGOCFX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Jul 2007 22:05:23 -0400
-In-Reply-To: <20070713085246.022609000@linux.vnet.ibm.com>
+	by vger.kernel.org with ESMTP id S1751043AbXGOCIr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Jul 2007 22:08:47 -0400
+In-Reply-To: <1184378602.6079.1.camel@dell>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ursula Braun <braunu@de.ibm.com>
-Date: Fri, 13 Jul 2007 10:50:56 +0200
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Fri, 13 Jul 2007 19:03:22 -0700
 
-> From: Ursula Braun <braunu@de.ibm.com>
+> [NET]: Add ethtool support for NETIF_F_IPV6_CSUM devices.
 > 
-> The accept_queue of an af_iucv socket will be corrupted, if
-> adding and deleting of entries in this queue occurs at the
-> same time (connect request from one client, while accept call
-> is processed for another client).
-> Solution: add locking when updating accept_q
+> Add ethtool utility function to set or clear IPV6_CSUM feature flag.
+> Modify tg3.c and bnx2.c to use this function when doing ethtool -K
+> to change tx checksum.
 > 
-> Signed-off-by: Ursula Braun <braunu@de.ibm.com>
-> Acked-by: Frank Pavlic <fpavlic@de.ibm.com>
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
 
-Also applied, thanks.
+This is OK for now since IPV6 implies IPV4 checksumming
+and this dependency is wired in elsewhere too.
 
-In the future please us consistent formatting of your
-changelog header lines.  I have to edit them by hand
-and I'd like to stop having to do that.
+If some day that implication stops existing we'll
+have to revisit this code.
 
-Use something like:
-
-[AF_IUCV]: Blah blah blah.
-
-Thanks :)
-
+Applied, thanks Michael.
