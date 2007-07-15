@@ -1,33 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH updated] IPV6: Call inet6addr_chain notifiers on link
- down
-Date: Sun, 15 Jul 2007 00:17:23 -0700 (PDT)
-Message-ID: <20070715.001723.94889330.davem@davemloft.net>
-References: <468E4459.6040605@hp.com>
+Subject: Re: Linux 2.6.22: Leak r=1 1
+Date: Sun, 15 Jul 2007 00:20:11 -0700 (PDT)
+Message-ID: <20070715.002011.09952517.davem@davemloft.net>
+References: <20070711174030.tjmxpxtfsn4twgk2@m.safari.iki.fi>
+	<Pine.LNX.4.64.0707120827280.12545@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: vladislav.yasevich@hp.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: safari-kernel@safari.iki.fi, netdev@vger.kernel.org
+To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36814
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36818
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753202AbXGOHRV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Jul 2007 03:17:21 -0400
-In-Reply-To: <468E4459.6040605@hp.com>
+	by vger.kernel.org with ESMTP id S1753149AbXGOHUJ convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 15 Jul 2007 03:20:09 -0400
+In-Reply-To: <Pine.LNX.4.64.0707120827280.12545@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Date: Fri, 06 Jul 2007 09:32:09 -0400
+=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Thu, 12 Jul 2007 10:53:57 +0300 (EEST)
 
-> Currently if the link is brought down via ip link or ifconfig down,
-> the inet6addr_chain notifiers are not called even though all
-> the addresses are removed from the interface.  This caused SCTP
-> to add duplicate addresses to it's list.
-> 
-> Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+> Dave can then put that one to net-2.6 and to stable too.
+ ...
+> [PATCH] [TCP]: Verify the presence of RETRANS bit when leaving FRTO
+>=20
+> For yet unknown reason, something cleared SACKED_RETRANS bit
+> underneath FRTO.
+>=20
+> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
 
-Applied, thanks Vlad.
-
-I'll push this to -stable too.
+Applied, and I'll push to -stable.
