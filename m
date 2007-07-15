@@ -1,29 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] IPv4: Cleanup call to __neigh_lookup()
-Date: Sat, 14 Jul 2007 20:51:12 -0700 (PDT)
-Message-ID: <20070714.205112.77404448.davem@davemloft.net>
-References: <20070714221816.45c0ab9f@hyperion.delvare>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 8755] New: "ip -6 route change " behaves like
+ "ip -6 route add"
+Date: Sat, 14 Jul 2007 21:47:31 -0700
+Message-ID: <20070714214731.baf38cb8.akpm@linux-foundation.org>
+References: <bug-8755-10286@http.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, netdev@vger.kernel.org
-To: khali@linux-fr.org
+Cc: "bugme-daemon@kernel-bugs.osdl.org"
+	<bugme-daemon@kernel-bugs.osdl.org>, bugzilla@fire.lp0.eu
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36856
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752339AbXGODvJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Jul 2007 23:51:09 -0400
-In-Reply-To: <20070714221816.45c0ab9f@hyperion.delvare>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:36555 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750980AbXGOErx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Jul 2007 00:47:53 -0400
+In-Reply-To: <bug-8755-10286@http.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jean Delvare <khali@linux-fr.org>
-Date: Sat, 14 Jul 2007 22:18:16 +0200
+On Sat, 14 Jul 2007 15:21:21 -0700 (PDT) bugme-daemon@bugzilla.kernel.org wrote:
 
-> Back in the times of Linux 2.2, negative values for the creat parameter
-> of __neigh_lookup() had a particular meaning, but no longer, so we
-> should pass 1 instead.
+> http://bugzilla.kernel.org/show_bug.cgi?id=8755
 > 
-> Signed-off-by: Jean Delvare <khali@linux-fr.org>
-
-Applied, thanks.
+>            Summary: "ip -6 route change " behaves like "ip -6 route add"
+>            Product: Networking
+>            Version: 2.5
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: IPV6
+>         AssignedTo: yoshfuji@linux-ipv6.org
+>         ReportedBy: bugzilla@fire.lp0.eu
+> 
+> 
+> The "ip -6 route change" command behaves as though "ip -6 route add" was used.
+> The source of iproute2 shows that "change" uses the "NLM_F_REPLACE" netlink
+> flag only.
+> 
+> ip utility, iproute2-ss070313
+> 
+> Changing an existing route:
+> # ip -6 r show 2002::/16
+> 2002::/16 dev sit0  metric 1024  expires 4482618sec mtu 1480 advmss 7140
+> hoplimit 4294967295
+> # ip -6 r change 2002::/16 dev sit0 mtu 1280
+> RTNETLINK answers: File exists
+> 
+> Adding a route using "change":
+> # ip -6 r change 2002::/17 dev sit0 mtu 1280
+> # ip -6 r show 2002::/17
+> 2002::/17 dev sit0  metric 1024  expires 21334368sec mtu 1280 advmss 1220
+> hoplimit 4294967295
+> 
