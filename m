@@ -1,32 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC 0/3] lro: Generic Large Receive Offload for TCP traffic
-Date: Sun, 15 Jul 2007 02:40:15 -0700 (PDT)
-Message-ID: <20070715.024015.126137834.davem@davemloft.net>
-References: <200707111621.24852.ossthema@de.ibm.com>
-	<20070714.235748.02297780.davem@davemloft.net>
-	<20070715091253.GA15790@infradead.org>
+From: Bryan Wu <bryan.wu@analog.com>
+Subject: Re: [PATCH 1/3] Blackfin ethernet driver: on chip ethernet MAC
+	controller driver
+Date: Sun, 15 Jul 2007 17:52:30 +0800
+Message-ID: <1184493150.3140.65.camel@roc-laptop>
+References: <1184438993.3140.23.camel@roc-laptop>
+	 <200707142138.36619.mb@bu3sch.de> <1184491016.3140.52.camel@roc-laptop>
+	 <200707151136.05223.mb@bu3sch.de>
+Reply-To: bryan.wu@analog.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: ossthema@de.ibm.com, netdev@vger.kernel.org, raisch@de.ibm.com,
-	themann@de.ibm.com, linux-kernel@vger.kernel.org,
-	linuxppc-dev@ozlabs.org, meder@de.ibm.com, tklein@de.ibm.com,
-	stefan.roscher@de.ibm.com
-To: hch@infradead.org
+Cc: bryan.wu@analog.com, Jeff Garzik <jeff@garzik.org>,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Michael Buesch <mb@bu3sch.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40021
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756722AbXGOJkM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Jul 2007 05:40:12 -0400
-In-Reply-To: <20070715091253.GA15790@infradead.org>
+Received: from nwd2mail11.analog.com ([137.71.25.57]:22773 "EHLO
+	nwd2mail11.analog.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756367AbXGOJwj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Jul 2007 05:52:39 -0400
+In-Reply-To: <200707151136.05223.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Christoph Hellwig <hch@infradead.org>
-Date: Sun, 15 Jul 2007 10:12:53 +0100
+On Sun, 2007-07-15 at 11:36 +0200, Michael Buesch wrote:
+> On Sunday 15 July 2007 11:16:56 Bryan Wu wrote:
+> > In current Blackfin DMA allocation/free, the return value from 
+> > bfin_mac_alloc() is used as the dma_handle, here it is the
+> > tx_desc/rx_desc. 
+> > The "dma_handle" is useless in the following code.
+> 
+> I think a comment has to be added, at least, as it's very confusing.
 
-> I'm not sure that's a good idea.  If current chips can't handle ipv6
-> lro there is no way to actually test it and the code will surely bitrot.
+No problem, it should be.
+> 
+> > This is some magic code for PHY ID. In the future, we will rewrite some
+> > code based on kernel phy abstraction layer to support more phy device.
+> 
+> Ok, nice idea.
+> 
+> > > Unwind the allocations above, if registering fails.
+> > > 
+> > 
+> > In fact, it is safe. Because if registering fails, bf537mac_probe will
+> > return none zero to bfin_mac_probe which will do free_netdev.
+> 
+> Hm, weren't there some DMA allocations, too? Are they free'd properly?
+> 
 
-Christoph, you can do LRO pretty much completely in software.
+Oh, the DMA allocation happens in bf537mac_open not in bf537mac_probe.
+so when registering fails, only free_netdev should be ok.
 
+I sent out a new driver patch for #2 try, please give us some comments
+
+Thanks
+- Bryan Wu
