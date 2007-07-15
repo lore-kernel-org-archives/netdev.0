@@ -1,55 +1,86 @@
-From: Simon Arlott <simon@fire.lp0.eu>
-Subject: Re: [Bugme-new] [Bug 8755] New: "ip -6 route change " behaves like
- "ip -6 route add"
-Date: Sun, 15 Jul 2007 19:49:07 +0100
-Message-ID: <469A6C23.60206@simon.arlott.org.uk>
-References: <bug-8755-10286@http.bugzilla.kernel.org/> <20070714214731.baf38cb8.akpm@linux-foundation.org> <469A382E.6000104@trash.net>
+From: Ayaz Abdulla <aabdulla@nvidia.com>
+Subject: [PATCH 1/3] forcedeth bug fix: cicada phy
+Date: Sun, 15 Jul 2007 06:50:28 -0400
+Message-ID: <4699FBF4.7090906@nvidia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	"bugme-daemon@kernel-bugs.osdl.org"
-	<bugme-daemon@kernel-bugs.osdl.org>
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: multipart/mixed;
+ boundary="------------050703070802030700000806"
+To: Jeff Garzik <jgarzik@pobox.com>,
+	Manfred Spraul <manfred@colorfullife.com>,
+	Andrew Morton <akpm@osdl.org>, nedev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from proxima.lp0.eu ([85.158.45.36]:42866 "EHLO proxima.lp0.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754505AbXGOStM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 15 Jul 2007 14:49:12 -0400
-In-Reply-To: <469A382E.6000104@trash.net>
+Received: from hqemgate02.nvidia.com ([216.228.112.143]:1189 "EHLO
+	HQEMGATE02.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750936AbXGOTmu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Jul 2007 15:42:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 15/07/07 16:07, Patrick McHardy wrote:
->>>Changing an existing route:
->>># ip -6 r show 2002::/16
->>>2002::/16 dev sit0  metric 1024  expires 4482618sec mtu 1480 advmss 7140
->>>hoplimit 4294967295
->>># ip -6 r change 2002::/16 dev sit0 mtu 1280
->>>RTNETLINK answers: File exists
-^ This is clearly a bug, since I'm trying to change an existing route
-and it gives an error as if it tried to add it.
+This is a multi-part message in MIME format.
+--------------050703070802030700000806
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
->>>Adding a route using "change":
->>># ip -6 r change 2002::/17 dev sit0 mtu 1280
->>># ip -6 r show 2002::/17
->>>2002::/17 dev sit0  metric 1024  expires 21334368sec mtu 1280 advmss 1220
->>>hoplimit 4294967295
-^ This shouldn't be possible!
+This patch contains errata fixes for the cicada phy. It only renamed the 
+defines to be phy specific.
 
-> There is a difference between "add" and "change". "add" will only add a
-> new address if there isn't already one with the same identity, "change"
-> will allow to change attributes of an existing address, like flags,
-> lifetime, ..., or behave similar to "add" in case the address doesn't
-> already exist.
-> 
-> What kind of behaviour are you expecting?
+Signed-off-by: Ayaz Abdulla <aabdulla@nvidia.com>
 
-That "change" would actually change not simply add. It won't let me
-change anything and in fact can only add instead.
 
-Compare it to ipv4 where "change" never adds - "replace" is "change, or
-add". (Also, "replace" doesn't work for v6 either).
+--------------050703070802030700000806
+Content-Type: text/plain;
+ name="patch-forcedeth-cicada"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="patch-forcedeth-cicada"
 
--- 
-Simon Arlott
+--- old/drivers/net/forcedeth.c	2007-07-15 06:20:14.000000000 -0400
++++ new/drivers/net/forcedeth.c	2007-07-15 06:24:20.000000000 -0400
+@@ -557,12 +557,12 @@
+ #define PHYID2_MODEL_MASK		0x03f0
+ #define PHY_MODEL_MARVELL_E3016		0x220
+ #define PHY_MARVELL_E3016_INITMASK	0x0300
+-#define PHY_INIT1	0x0f000
+-#define PHY_INIT2	0x0e00
+-#define PHY_INIT3	0x01000
+-#define PHY_INIT4	0x0200
+-#define PHY_INIT5	0x0004
+-#define PHY_INIT6	0x02000
++#define PHY_CICADA_INIT1	0x0f000
++#define PHY_CICADA_INIT2	0x0e00
++#define PHY_CICADA_INIT3	0x01000
++#define PHY_CICADA_INIT4	0x0200
++#define PHY_CICADA_INIT5	0x0004
++#define PHY_CICADA_INIT6	0x02000
+ #define PHY_GIGABIT	0x0100
+ 
+ #define PHY_TIMEOUT	0x1
+@@ -1141,14 +1141,14 @@
+ 	/* phy vendor specific configuration */
+ 	if ((np->phy_oui == PHY_OUI_CICADA) && (phyinterface & PHY_RGMII) ) {
+ 		phy_reserved = mii_rw(dev, np->phyaddr, MII_RESV1, MII_READ);
+-		phy_reserved &= ~(PHY_INIT1 | PHY_INIT2);
+-		phy_reserved |= (PHY_INIT3 | PHY_INIT4);
++		phy_reserved &= ~(PHY_CICADA_INIT1 | PHY_CICADA_INIT2);
++		phy_reserved |= (PHY_CICADA_INIT3 | PHY_CICADA_INIT4);
+ 		if (mii_rw(dev, np->phyaddr, MII_RESV1, phy_reserved)) {
+ 			printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
+ 			return PHY_ERROR;
+ 		}
+ 		phy_reserved = mii_rw(dev, np->phyaddr, MII_NCONFIG, MII_READ);
+-		phy_reserved |= PHY_INIT5;
++		phy_reserved |= PHY_CICADA_INIT5;
+ 		if (mii_rw(dev, np->phyaddr, MII_NCONFIG, phy_reserved)) {
+ 			printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
+ 			return PHY_ERROR;
+@@ -1156,7 +1156,7 @@
+ 	}
+ 	if (np->phy_oui == PHY_OUI_CICADA) {
+ 		phy_reserved = mii_rw(dev, np->phyaddr, MII_SREVISION, MII_READ);
+-		phy_reserved |= PHY_INIT6;
++		phy_reserved |= PHY_CICADA_INIT6;
+ 		if (mii_rw(dev, np->phyaddr, MII_SREVISION, phy_reserved)) {
+ 			printk(KERN_INFO "%s: phy init failed.\n", pci_name(np->pci_dev));
+ 			return PHY_ERROR;
+
+--------------050703070802030700000806--
