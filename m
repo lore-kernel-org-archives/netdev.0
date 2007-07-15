@@ -1,77 +1,86 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: [PATCH try#2] Blackfin ethernet driver: on chip ethernet MAC controller driver
-Date: Sun, 15 Jul 2007 14:17:10 +0200
-Message-ID: <200707151417.10964.mb@bu3sch.de>
-References: <1184491629.3140.59.camel@roc-laptop> <200707151236.51779.mb@bu3sch.de> <1184501264.3140.71.camel@roc-laptop>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [PATCH 1/3] Blackfin ethernet driver: on chip ethernet MAC
+	controller driver
+Date: Sun, 15 Jul 2007 09:04:21 -0400
+Message-ID: <1184504661.5871.25.camel@localhost.localdomain>
+References: <1184438993.3140.23.camel@roc-laptop>
+	 <200707142138.36619.mb@bu3sch.de>
+	 <8bd0f97a0707141249y2c90a59cs356aa3cef357f721@mail.gmail.com>
+	 <200707142217.36361.mb@bu3sch.de>
+	 <8bd0f97a0707141338q996f246p6abdc2f65efa5e7@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-15"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Mike Frysinger <vapier.adi@gmail.com>,
+Cc: Michael Buesch <mb@bu3sch.de>, bryan.wu@analog.com,
 	Jeff Garzik <jeff@garzik.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
-To: bryan.wu@analog.com
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Mike Frysinger <vapier.adi@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:41246
-	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754451AbXGOMUa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Jul 2007 08:20:30 -0400
-In-Reply-To: <1184501264.3140.71.camel@roc-laptop>
-Content-Disposition: inline
+Received: from mx1.redhat.com ([66.187.233.31]:38752 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757337AbXGONE7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 15 Jul 2007 09:04:59 -0400
+In-Reply-To: <8bd0f97a0707141338q996f246p6abdc2f65efa5e7@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sunday 15 July 2007 14:07:44 Bryan Wu wrote:
-> @@ -483,9 +487,12 @@
->  
->  void setup_mac_addr(u8 * mac_addr)
->  {
-> +	u32 addr_low = le32_to_cpu(*(u32 *) & mac_addr[0]);
-> +	u16 addr_hi = le16_to_cpu(*(u16 *) & mac_addr[4]);
-> +
->  	/* this depends on a little-endian machine */
-> -	bfin_write_EMAC_ADDRLO(*(u32 *) & mac_addr[0]);
-> -	bfin_write_EMAC_ADDRHI(*(u16 *) & mac_addr[4]);
-> +	bfin_write_EMAC_ADDRLO(addr_low);
-> +	bfin_write_EMAC_ADDRHI(addr_hi);
->  }
->  
->  static void adjust_tx_list(void)
-> @@ -866,10 +873,10 @@
->  	int retval;
->  
->  	/* Grab the MAC address in the MAC */
-> -	*(u32 *) (&(dev->dev_addr[0])) = bfin_read_EMAC_ADDRLO();
-> -	*(u16 *) (&(dev->dev_addr[4])) = (u16) bfin_read_EMAC_ADDRHI();
-> +	*(u32 *) (&(dev->dev_addr[0])) = cpu_to_le32(bfin_read_EMAC_ADDRLO());
-> +	*(u16 *) (&(dev->dev_addr[4])) = cpu_to_le16((u16) bfin_read_EMAC_ADDRHI());
+On Sat, 2007-07-14 at 16:38 -0400, Mike Frysinger wrote:
+> On 7/14/07, Michael Buesch <mb@bu3sch.de> wrote:
+> > On Saturday 14 July 2007 21:49:21 Mike Frysinger wrote:
+> > > On 7/14/07, Michael Buesch <mb@bu3sch.de> wrote:
+> > > > On Saturday 14 July 2007 20:49:53 Bryan Wu wrote:
+> > > > > +static int __init bf537mac_probe(struct net_device *dev)
+> > > > > +{
+> > > > > +     struct bf537mac_local *lp = netdev_priv(dev);
+> > > > > +     int retval;
+> > > > > +
+> > > > > +     /* Grab the MAC address in the MAC */
+> > > > > +     *(u32 *) (&(dev->dev_addr[0])) = bfin_read_EMAC_ADDRLO();
+> > > > > +     *(u16 *) (&(dev->dev_addr[4])) = (u16) bfin_read_EMAC_ADDRHI();
+> > > >
+> > > > Endianess broken.
+> > > >
+> > > > > +struct dma_config_reg {
+> > > > > +     unsigned short b_DMA_EN:1;  /* Bit 0 : DMA Enable */
+> > > > > +     unsigned short b_WNR:1;     /* Bit 1 : DMA Direction */
+> > > > > +     unsigned short b_WDSIZE:2;  /* Bit 2 & 3 : DMA Tranfer Word size */
+> > > > > +     unsigned short b_DMA2D:1;   /* Bit 4 : DMA Mode 2D or 1D */
+> > > > > +     unsigned short b_RESTART:1; /* Bit 5 : Retain the FIFO */
+> > > > > +     unsigned short b_DI_SEL:1;  /* Bit 6 : Data Interrupt Timing Select */
+> > > > > +     unsigned short b_DI_EN:1;   /* Bit 7 : Data Interrupt Enable */
+> > > > > +     unsigned short b_NDSIZE:4;  /* Bit 8 to 11 : Flex descriptor Size */
+> > > > > +     unsigned short b_FLOW:3;    /* Bit 12 to 14 : FLOW */
+> > > > > +};
+> > > >
+> > > > This is most likely not endianess safe.
+> > >
+> > > do we really need to care about this ?  this is a driver for a MAC
+> > > which can only be found on Blackfin processors and Blackfin itself is
+> > > only little endian.
+> >
+> > Well, this bitfield _might_ be OK (although I don't like bitfields
+> > at all), but the above pointer casting stuff should really use
+> > leXX_to_cpu. It's so easy to use and it is easier to read and
+> > maintain the code afterwards.
+> 
+> i think that's arguable ... i dont see how:
+> a = foo(b);
+> is easier to read than:
+> a = b;
+> but it is easy to use ... i guess my point was more along the lines of
+> wasting further time auditing a driver for endianness issues that will
+> never actually be an issue.
 
-Try something like this:
+Sometimes by doing this you catch bugs you didn't see before.  It's a
+good thing to do generally.  Does sparse with endianness check show
+errors?  You may want to fix those.
 
-@@ -483,9 +487,12 @@
- 
- void setup_mac_addr(u8 * mac_addr)
- {
-+       u32 addr_low = le32_to_cpu(*(__le32 *) & mac_addr[0]);
-+       u16 addr_hi = le16_to_cpu(*(__le16 *) & mac_addr[4]);
-+
--       /* this depends on a little-endian machine */
--       bfin_write_EMAC_ADDRLO(*(u32 *) & mac_addr[0]);
--       bfin_write_EMAC_ADDRHI(*(u16 *) & mac_addr[4]);
-+       bfin_write_EMAC_ADDRLO(addr_low);
-+       bfin_write_EMAC_ADDRHI(addr_hi);
- }
- 
- static void adjust_tx_list(void)
-@@ -866,10 +873,10 @@
-        int retval;
- 
-        /* Grab the MAC address in the MAC */
--       *(u32 *) (&(dev->dev_addr[0])) = bfin_read_EMAC_ADDRLO();
--       *(u16 *) (&(dev->dev_addr[4])) = (u16) bfin_read_EMAC_ADDRHI();
-+       *(__le32 *) (&(dev->dev_addr[0])) = cpu_to_le32(bfin_read_EMAC_ADDRLO());
-+       *(__le16 *) (&(dev->dev_addr[4])) = cpu_to_le16((u16) bfin_read_EMAC_ADDRHI());
+Dan
 
--- 
-Greetings Michael.
+> -mike
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
