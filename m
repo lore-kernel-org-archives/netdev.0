@@ -1,48 +1,46 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/1] eHEA: Introducing support vor DLPAR memory add
-Date: Mon, 16 Jul 2007 17:59:59 -0400
-Message-ID: <469BEA5F.5050508@garzik.org>
-References: <200707111632.00235.osstklei@de.ibm.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: r8169 in 2.6.22 release still not detecting link
+Date: Mon, 16 Jul 2007 23:59:40 +0200
+Message-ID: <20070716215940.GA4170@electric-eye.fr.zoreil.com>
+References: <76366b180707141531j28588861n19e2d96dd68d308a@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Christoph Raisch <raisch@de.ibm.com>,
-	Jan-Bernd Themann <ossthema@de.ibm.com>,
-	Jan-Bernd Themann <themann@de.ibm.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	linux-ppc <linuxppc-dev@ozlabs.org>,
-	Marcus Eder <meder@de.ibm.com>,
-	netdev <netdev@vger.kernel.org>,
-	Thomas Klein <tklein@de.ibm.com>,
-	Stefan Roscher <ossrosch@linux.vnet.ibm.com>
-To: Thomas Klein <osstklei@de.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, brad@langhorst.com
+To: Andrew Paprocki <andrew@ishiboo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:37008 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756371AbXGPWAF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Jul 2007 18:00:05 -0400
-In-Reply-To: <200707111632.00235.osstklei@de.ibm.com>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:56993 "EHLO
+	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760925AbXGPWBa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Jul 2007 18:01:30 -0400
+Content-Disposition: inline
+In-Reply-To: <76366b180707141531j28588861n19e2d96dd68d308a@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thomas Klein wrote:
-> This patch adds support for DLPAR memory add to the eHEA driver. To detect
-> whether memory was added the driver uses its own memory mapping table and
-> checks for kernel addresses whether they're located in already known memory
-> sections. If not the function ehea_rereg_mrs() is triggered which performs
-> a rebuild of the mapping table and a re-registration of the global memory
-> region.
-> 
-> Signed-off-by: Thomas Klein <tklein@de.ibm.com>
-> ---
-> 
->  drivers/net/ehea/ehea.h      |   23 +++++--
->  drivers/net/ehea/ehea_main.c |  144 +++++++++++++++++++++++++++++++++++----
->  drivers/net/ehea/ehea_phyp.h |    3 +
->  drivers/net/ehea/ehea_qmr.c  |  156 ++++++++++++++++++++++++++++++------------
->  drivers/net/ehea/ehea_qmr.h  |   14 +++-
->  5 files changed, 275 insertions(+), 65 deletions(-)
+Andrew Paprocki <andrew@ishiboo.com> :
+[...]
+> Just writing to let you know that I'm still not getting a link on
+> either r8169 port with the stock 2.6.22 kernel. I haven't been able to
+> get any other network interface working on this device yet, as it only
+> has a mini-PCI slot and I haven't found working wireless hardware yet.
+> If I had a connection, I'd try to git bisect from the last known
+> working point (2.6.18), but it is difficult for me to do that given
+> the current setup.
 
-applied
+You will find a backport of the r8169 driver for the 2.6.18 kernel at
+http://www.fr.zoreil.com/people/francois/backport/r8169/20070604-00
+(tarball in the upper directory).
 
+As 2.6.18 corrupts your data and 2.6.22 does not detect the link, it
+could help if you tried each patch in the serie (on top of the previous
+one) against 2.6.18 until the link is lost.
 
+> Do you have any ideas about where I can place some debugging trace? I
+> seem to always be able to get a link by backing off to the upstream
+> Realtek driver (6.*).
+
+Ok, that's good to know. I.e. got a link and no data corruption with
+2.6.22 ?
+
+-- 
+Ueimor
