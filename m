@@ -1,40 +1,37 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
 Subject: Re: [PATCH]: Can not set the IPV6_PKTINFO option
-Date: Mon, 16 Jul 2007 15:14:06 +0100
-Message-ID: <200707161514.06324@strip-the-willow>
-References: <E1IAR9h-0007nr-00@gondolin.me.apana.org.au>
+Date: Mon, 16 Jul 2007 23:17:01 +0900 (JST)
+Message-ID: <20070716.231701.04033316.yoshfuji@linux-ipv6.org>
+References: <200707161438.02572@strip-the-willow>
+	<E1IAR9h-0007nr-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-6"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: herbert@gondor.apana.org.au, gerrit@erg.abdn.ac.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:64894 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932920AbXGPOQJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Jul 2007 10:16:09 -0400
+Received: from yue.linux-ipv6.org ([203.178.140.15]:48076 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1762836AbXGPOQT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jul 2007 10:16:19 -0400
 In-Reply-To: <E1IAR9h-0007nr-00@gondolin.me.apana.org.au>
-Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-|  That is, someone needs to send a patch to the upstream manpages
-|  maintainer and fix the documentation to actually describe what the
-|  code does.
-|  
-If it is simply replacing IPV6_PKTINFO with IPV6_RECVPKTINFO then I'd be happy to do this.
-Anything more complicated than that - it would be good to have some of the developers taking
-a look. 
+In article <E1IAR9h-0007nr-00@gondolin.me.apana.org.au> (at Mon, 16 Jul 2007 22:02:29 +0800), Herbert Xu <herbert@gondor.apana.org.au> says:
 
-Here is the text of the manpage (ipv6 in section 7):
+> Gerrit Renker <gerrit@erg.abdn.ac.uk> wrote:
+> > 
+> > Manpage date says 1999-06-29 but in fact manpages are from up-to-date lenny/sid.
+> 
+> I think Yoshifuji-san's point is not that your manpages package
+> is out-of-date, but that the manpage itself is out-of-date.
+> That is, someone needs to send a patch to the upstream manpages
+> maintainer and fix the documentation to actually describe what the
+> code does.
 
-IPV6_PKTINFO
-  Set delivery of the IPV6_PKTINFO control message on incoming datagrams.  
-  Only allowed for SOCK_DGRAM  or  SOCK_RAW sockets.  Argument is a pointer to a 
-  boolean value in an integer.
+Exactly.  The ipv6(7) manpage is one of the TODOs.
+Contributions, expecially from native speakers, are really welcome.
 
-The v4 IP_PKTINFO works in the same way as the above description.
-
-
-Gerrit
+--yoshfuji
