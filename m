@@ -1,53 +1,44 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: Re: [PATCH] [IrDA] Fix IrDA build failure
-Date: Mon, 16 Jul 2007 15:05:19 +0200
-Message-ID: <20070716130519.GE3653@stusta.de>
-References: <20070716111715.GB22757@mail.solidboot.com> <20070716115624.GA4492@2ka.mipt.ru> <20070716120744.GD3653@stusta.de> <20070716121708.GA24483@2ka.mipt.ru>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH]: Can not set the IPV6_PKTINFO option
+Date: Mon, 16 Jul 2007 22:07:30 +0900 (JST)
+Message-ID: <20070716.220730.18710682.yoshfuji@linux-ipv6.org>
+References: <200707161341.23419@strip-the-willow>
+	<20070716.215605.106156812.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Samuel Ortiz <samuel.ortiz@solidboot.com>, davem@davemloft.net,
-	eric.y.miao@gmail.com, sam@ravnborg.org, netdev@vger.kernel.org,
-	irda-users@lists.sourceforge.net, stable@kernel.org
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	yoshfuji@linux-ipv6.org
+To: gerrit@erg.abdn.ac.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout.stusta.mhn.de ([141.84.69.5]:34566 "EHLO
-	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1758850AbXGPNF7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jul 2007 09:05:59 -0400
-Content-Disposition: inline
-In-Reply-To: <20070716121708.GA24483@2ka.mipt.ru>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:48072 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758011AbXGPNGs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jul 2007 09:06:48 -0400
+In-Reply-To: <20070716.215605.106156812.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 16, 2007 at 04:17:08PM +0400, Evgeniy Polyakov wrote:
-> On Mon, Jul 16, 2007 at 02:07:44PM +0200, Adrian Bunk (bunk@stusta.de) wrote:
-> > > What about having all of them __devinit/__devexit?
-> > 
-> > That would be completely wrong.
+In article <20070716.215605.106156812.yoshfuji@linux-ipv6.org> (at Mon, 16 Jul 2007 21:56:05 +0900 (JST)), YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> says:
+
+> In article <200707161341.23419@strip-the-willow> (at Mon, 16 Jul 2007 13:41:23 +0100), Gerrit Renker <gerrit@erg.abdn.ac.uk> says:
 > 
-> Hi Adrian.
+> > [IPv6]: Can not set the IPV6_PKTINFO option
+> > 
+> > The Linux manpage of ipv6(7) mentions the IPV6_PKTINFO option (and it is defined in header
+> > files), but there is no setsockopt support for it. Aliasing to IPV6_RECVPKTINFO fixes this,
+> > and checking datagram_recv_ctl() in net/ipv6/datagram.c confirms that this works as 
+> > expected from the API.
+> > 
+> > Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+> 
+> NAK.  It is obsolete.
 
-Hi Evgeniy,
+I meant, the manpage is outdated.
 
-> Then why should irda have __init/__exit at first point
+Current IPV6_PKTINFO is not equal to IPV6_RECVPKTINFO
+but a sticky option to set source address / interface
+for outgoing packet.
 
-for code that only gets called during driver loading resp. driver 
-unloading.
-
-> - replacing that
-> with appropriate 'dev' prefix I suggested.
-
-You seem to misunderstand what the "dev" prefix is doing.
-
-> 	Evgeniy Polyakov
-
-cu
-Adrian
-
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
-
+--yoshfuji
