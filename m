@@ -1,121 +1,94 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [**RFC**] [IPV6]: Support RFC3542 IPV6_PKTINFO socket option.
-Date: Mon, 16 Jul 2007 11:31:28 -0400
-Message-ID: <469B8F50.7000906@hp.com>
-References: <20070716.234413.103263857.yoshfuji@linux-ipv6.org>
+From: Oliver Hartkopp <oliver@hartkopp.net>
+Subject: Re: [patch 5/7] CAN: Add virtual CAN netdevice driver
+Date: Mon, 16 Jul 2007 18:00:27 +0200
+Message-ID: <469B961B.70309@hartkopp.net>
+References: <20070622034452.28886.0@janus.isnogud.escape.de>	<20070622034703.28886.5@janus.isnogud.escape.de>	<467BAC48.1070700@trash.net> <ygfk5tw41rq.fsf@janus.isnogud.escape.de>	<467BC2AF.8080901@trash.net> <467D0C97.1000000@hartkopp.net>	<467D178B.8080503@trash.net> <467D3891.4010906@hartkopp.net>	<467D4965.40601@trash.net> <467D4D65.2080806@hartkopp.net>	<467D54AB.5010407@trash.net> <ygfzm2ciemk.fsf@janus.isnogud.escape.de>	<468BA83A.7070500@trash.net> <ygfodil7qpi.fsf@janus.isnogud.escape.de> <469243D3.3090208@trash.net> <469253CE.8040004@hartkopp.net> <469B6D8D.1030809@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: =?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kgLyDlkInol6Toi7HmmI4=?=
-	<yoshfuji@linux-ipv6.org>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Urs Thuermann <urs@isnogud.escape.de>,
+	David Miller <davem@davemloft.net>,
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
+	j.hadi123@gmail.com, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel7.hp.com ([156.153.255.213]:45131 "EHLO atlrel7.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759424AbXGPPrA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Jul 2007 11:47:00 -0400
-In-Reply-To: <20070716.234413.103263857.yoshfuji@linux-ipv6.org>
+Received: from mo-p00-ob.rzone.de ([81.169.146.160]:32028 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758595AbXGPQAj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jul 2007 12:00:39 -0400
+In-Reply-To: <469B6D8D.1030809@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E wrote:
-> Hello.
->=20
-> This patch is just a tentative implementation of RFC3542 IPV6_PKTINFO
-> sticky option, and is NOT intended to be applied so far.
->=20
-> We need to check if this is okay in RFC POV, anyway.
+Patrick McHardy wrote:
+> Oliver Hartkopp wrote:
+>   
+>> the people get the loopback functionality in ANY case. There is indeed
+>> no difference from the view of the users, if you change this switch.
+>>
+>> The possibility to enable the loopback on vcan driver level is only to ...
+>>
+>> 1. Test the loopback fallback code in af_can.c
+>> 2. Show, how a correct loopback handling is to be implemented
+>>
+>> ... nothing more.
+>>     
+>
+>
+> So its the "correct" handling and the other one is only fallback? That
+> still sounds like it wants proper configuration. How does loopback work
+> without this driver?
+>   
 
-ok.  comments from just the RFC pov.
+As the addressing in CAN consist of a CAN-identifier and a CAN-interface
+you always have at least one available CAN-interface you are working on.
+In our case we may have several virtual CAN-interfaces.
 
-> diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
-> index fe0f490..cc6e480 100644
-> --- a/net/ipv6/datagram.c
-> +++ b/net/ipv6/datagram.c
-> @@ -496,7 +496,55 @@ int datagram_recv_ctl(struct sock *sk, struct ms=
-ghdr *msg, struct sk_buff *skb)
->  	return 0;
->  }
-> =20
-> -int datagram_send_ctl(struct msghdr *msg, struct flowi *fl,
-> +int ip6_datagram_set_pktinfo(struct in6_pktinfo *src_info,
-> +			     struct in6_addr *saddr,
-> +			     struct flowi *fl)
-> +{
-> +	struct net_device *dev =3D NULL;
-> +	int addr_type;
-> +
-> +	if (src_info->ipi6_ifindex) {
-> +		if (fl->oif && src_info->ipi6_ifindex !=3D fl->oif)
-> +			return -EINVAL;
-> +		fl->oif =3D src_info->ipi6_ifindex;
-> +	}
-> +
-> +	addr_type =3D ipv6_addr_type(&src_info->ipi6_addr);
-> +
-> +	if (addr_type =3D=3D IPV6_ADDR_ANY)
-> +		return 0;
+On the CAN bus there is a CSMA/CA access with arbitration by the
+CAN-identifier.
+Due to the arbitration on the CAN bus the _transmission_ of a low prio
+CAN-ID
+may be delayed from the _receipition_ of a high prio CAN frame. To
+reflect the correct traffic on the node the loopback of the sent
+data has to be performed right _after_ a successful transmission. If
+the CAN network interface is not capable to perform the loopback for
+some reason the PF_CAN core can do this task as a fallback solution.
 
-The above code will not fully clear the previously set option since
-we are not guaranteed that fl->oif is 0.
+There are low cost adapters that are connected via some kind of ASCII
+protocol on a serial line. These low cost adapters do not provide any TX
+acknowledge that may be used to initiate the loopback receiption for the
+sent CAN-frame . They are really dumb.
 
-   An   application can clear any sticky IPV6_PKTINFO option by doing a
-   "regular" setsockopt with ipi6_addr being in6addr_any and
-   ipi6_ifindex being zero.
+So you can divide the CAN controller drivers into two classes:
 
+1. With an ACK (e.g. a valid TX interrupt) to trigger the loopback of
+the sent frame
+2. Without any feedback (the dumb one)
 
+The intelligent ones (1.) do set dev->flags = (IFF_NOARP | IFF_LOOPBACK);
+The dumb ones (2.) only set dev->flags = IFF_NOARP;
 
-> +
-> +	if (saddr) {
-> +		if (!ipv6_addr_any(saddr))
-> +			return -EINVAL;
-> +		if (!ipv6_addr_equal(&src_info->ipi6_addr, saddr))
-> +			return -EINVAL;
-> +	}
-  =20
-Not following the following text:
-   If the ipi6_addr member is not the
-   unspecified address, but the socket has already bound a source
-   address, then the ipi6_addr value overrides the already-bound source
-   address for this output operation only.
+If a CAN-frame has to be looped back (the default), the function
+can_send() in af_can.c looks whether the interface is capable to perform
+the loopback or not (by checking the IFF_LOOPBACK flag in dev->flags).
+In the case of a dumb interface the CAN-frame is looped back
+immediately. In the case of an intelligent interface the CAN core keeps
+it's hands off and lets the interface do the loopback. This should be
+the usual case.
 
+The loopback module parameter in the vcan driver enables or disables the
+loopback on driver level, to test whether the fallback functionality for
+'dumb interfaces' in af_can.c is working properly or not. Maybe it
+should therefore be renamed to 'testloopback' or it should be removed
+completely.
 
-> +
-> +	if (addr_type & IPV6_ADDR_LINKLOCAL) {
-> +		if (!src_info->ipi6_ifindex)
-> +			return -EINVAL;
-> +		else {
-> +			dev =3D dev_get_by_index(src_info->ipi6_ifindex);
-> +			if (!dev)
-> +				return -ENODEV;
-> +		}
-> +	}
-> +	if (!ipv6_chk_addr(&src_info->ipi6_addr, dev, 0)) {
-> +		if (dev)
-> +			dev_put(dev);
-> +		return -EINVAL;
-> +	}
-> +	if (dev)
-> +		dev_put(dev);
-> +
-> +	ipv6_addr_copy(&fl->fl6_src, &src_info->ipi6_addr);
+>From the functional side the user is not able to feel any difference
+whether the loopback test is enabled in the vcan driver or not.
 
-Additional checks needed for:
+Thanks very much for your feedback!
 
-   IPV6_PKTINFO can also be used as a sticky option for specifying the
-   socket's default source address.  However, the ipi6_addr member must
-   be the unspecified address for TCP sockets, because it is not
-   possible to dynamically change the source address of a TCP
-   connection.  When the IPV6_PKTINFO option is specified for a TCP
-   socket with a non-unspecified address, the call will fail.  This
-   restriction should be applied even before the socket binds a specifi=
-c
-   address.
+Best regards,
+Oliver
 
 
-Also, see Section 6.7 for the correct interface selection rules that sh=
-ould
-be applied as well.  Not sure if these are implemented anywhere.
 
-Thanks
--vlad
