@@ -1,44 +1,44 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH]: Can not set the IPV6_PKTINFO option
-Date: Mon, 16 Jul 2007 22:07:30 +0900 (JST)
-Message-ID: <20070716.220730.18710682.yoshfuji@linux-ipv6.org>
-References: <200707161341.23419@strip-the-willow>
-	<20070716.215605.106156812.yoshfuji@linux-ipv6.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [patch 5/7] CAN: Add virtual CAN netdevice driver
+Date: Mon, 16 Jul 2007 15:07:25 +0200
+Message-ID: <469B6D8D.1030809@trash.net>
+References: <20070622034452.28886.0@janus.isnogud.escape.de>	<20070622034703.28886.5@janus.isnogud.escape.de>	<467BAC48.1070700@trash.net> <ygfk5tw41rq.fsf@janus.isnogud.escape.de>	<467BC2AF.8080901@trash.net> <467D0C97.1000000@hartkopp.net>	<467D178B.8080503@trash.net> <467D3891.4010906@hartkopp.net>	<467D4965.40601@trash.net> <467D4D65.2080806@hartkopp.net>	<467D54AB.5010407@trash.net> <ygfzm2ciemk.fsf@janus.isnogud.escape.de>	<468BA83A.7070500@trash.net> <ygfodil7qpi.fsf@janus.isnogud.escape.de> <469243D3.3090208@trash.net> <469253CE.8040004@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	yoshfuji@linux-ipv6.org
-To: gerrit@erg.abdn.ac.uk
+Cc: Urs Thuermann <urs@isnogud.escape.de>,
+	David Miller <davem@davemloft.net>,
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
+	j.hadi123@gmail.com, netdev@vger.kernel.org
+To: Oliver Hartkopp <oliver@hartkopp.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:48072 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758011AbXGPNGs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jul 2007 09:06:48 -0400
-In-Reply-To: <20070716.215605.106156812.yoshfuji@linux-ipv6.org>
+Received: from stinky.trash.net ([213.144.137.162]:49865 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755744AbXGPNI5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jul 2007 09:08:57 -0400
+In-Reply-To: <469253CE.8040004@hartkopp.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In article <20070716.215605.106156812.yoshfuji@linux-ipv6.org> (at Mon, 16 Jul 2007 21:56:05 +0900 (JST)), YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> says:
-
-> In article <200707161341.23419@strip-the-willow> (at Mon, 16 Jul 2007 13:41:23 +0100), Gerrit Renker <gerrit@erg.abdn.ac.uk> says:
+Oliver Hartkopp wrote:
+> Patrick McHardy wrote:
 > 
-> > [IPv6]: Can not set the IPV6_PKTINFO option
-> > 
-> > The Linux manpage of ipv6(7) mentions the IPV6_PKTINFO option (and it is defined in header
-> > files), but there is no setsockopt support for it. Aliasing to IPV6_RECVPKTINFO fixes this,
-> > and checking datagram_recv_ctl() in net/ipv6/datagram.c confirms that this works as 
-> > expected from the API.
-> > 
-> > Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+>>Still configuration of the network device based on module parameters.
+>>What about people that want loopback and non-loopback devices at the
+>>same time?
+>>  
 > 
-> NAK.  It is obsolete.
+> the people get the loopback functionality in ANY case. There is indeed
+> no difference from the view of the users, if you change this switch.
+> 
+> The possibility to enable the loopback on vcan driver level is only to ...
+> 
+> 1. Test the loopback fallback code in af_can.c
+> 2. Show, how a correct loopback handling is to be implemented
+> 
+> ... nothing more.
 
-I meant, the manpage is outdated.
 
-Current IPV6_PKTINFO is not equal to IPV6_RECVPKTINFO
-but a sticky option to set source address / interface
-for outgoing packet.
-
---yoshfuji
+So its the "correct" handling and the other one is only fallback? That
+still sounds like it wants proper configuration. How does loopback work
+without this driver?
