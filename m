@@ -1,43 +1,58 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [patch 1/2] s390: scatter-gather for inbound traffic in qeth
- driver
-Date: Mon, 16 Jul 2007 18:29:29 -0400
-Message-ID: <469BF149.3060901@garzik.org>
-References: <20070712105133.165267000@linux.vnet.ibm.com> <20070712105450.168931000@linux.vnet.ibm.com>
+Subject: Re: [PATCH]: cdc-subset to support new
+ vendor/product ID
+Date: Mon, 16 Jul 2007 18:30:27 -0400
+Message-ID: <469BF183.3070001@garzik.org>
+References: <1776cf1c0707060310m4919b680s7dcc94fbf22fef9@mail.gmail.com>	
+	<4693B7FA.60306@garzik.org>	
+	<1776cf1c0707132309s715a4cdfy53e639f33cecc404@mail.gmail.com>
+	<1776cf1c0707132313j546ab73av109b1c3264db150f@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-	Frank Blaschka <frank.blaschka@de.ibm.com>,
-	Frank Pavlic <fpavlic@de.ibm.com>
-To: Ursula Braun <braunu@de.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:37252 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759965AbXGPW3a (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Jul 2007 18:29:30 -0400
-In-Reply-To: <20070712105450.168931000@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: David Brownell <david-b@pacbell.net>, netdev@vger.kernel.org,
+	linux-usb-devel@lists.sourceforge.net, greg@kroah.com
+To: jing xiang <everxiang@gmail.com>
+Return-path: <linux-usb-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1776cf1c0707132313j546ab73av109b1c3264db150f@mail.gmail.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-usb-devel>,
+	<mailto:linux-usb-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-usb-devel>
+List-Post: <mailto:linux-usb-devel@lists.sourceforge.net>
+List-Help: <mailto:linux-usb-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-usb-devel>,
+	<mailto:linux-usb-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: linux-usb-devel-bounces@lists.sourceforge.net
+Errors-To: linux-usb-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Ursula Braun wrote:
-> From: Frank Blaschka <frank.blaschka@de.ibm.com>
+jing xiang wrote:
+> This patch is for cdc subset to support Mavell vendor/product ID.
 > 
-> For large incoming packets > PAGE_SIZE/2 qeth creates a fragmented skb
-> by adding pointers to qdio pages to the fragment list of the skb.
-> This avoids allocating big chunks of consecutive memory. Also copying
-> data from the qdio buffer to the skb is economized.
+> Signed-off-by: Jing Xiang <everxiang@gmail.com>
 > 
-> Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
-> Signed-off-by: Ursula Braun <braunu@de.ibm.com>
-> Signed-off-by: Frank Pavlic <fpavlic@de.ibm.com>
-> ---
-> 
->  drivers/s390/net/qeth.h      |    9 ++
->  drivers/s390/net/qeth_main.c |  182 +++++++++++++++++++++++++++++++++++--------
->  drivers/s390/net/qeth_proc.c |    6 +
->  3 files changed, 165 insertions(+), 32 deletions(-)
+> --- linux-2.6.21.5/drivers/usb/net/cdc_subset.c.orig    2007-07-14
+> 13:57:37.543028144 +0800
+> +++ linux-2.6.21.5/drivers/usb/net/cdc_subset.c 2007-07-14
+> 13:58:30.521974120 +0800
+> @@ -305,6 +305,9 @@ static const struct usb_device_id   produc
+>        USB_DEVICE (0x8086, 0x07d3),    // "blob" bootloader
+>        .driver_info =  (unsigned long) &blob_info,
+> }, {
+> +       USB_DEVICE (0x1286, 0x8001),    // "blob" bootloader
+> +       .driver_info =  (unsigned long) &blob_info,
+> +}, {
 
-applied 1-2
+driver has moved to drivers/net/usb.  applied manually
 
 
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by DB2 Express
+Download DB2 Express C - the FREE version of DB2 express and take
+control of your XML. No limits. Just data. Click to get it now.
+http://sourceforge.net/powerbar/db2/
+_______________________________________________
+linux-usb-devel@lists.sourceforge.net
+To unsubscribe, use the last form field at:
+https://lists.sourceforge.net/lists/listinfo/linux-usb-devel
