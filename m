@@ -1,32 +1,38 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH]: Can not set the IPV6_PKTINFO option
-Date: Mon, 16 Jul 2007 22:02:29 +0800
-Message-ID: <E1IAR9h-0007nr-00@gondolin.me.apana.org.au>
-References: <200707161438.02572@strip-the-willow>
-Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
-To: gerrit@erg.abdn.ac.uk (Gerrit Renker)
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: IPSec freeze
+Date: Mon, 16 Jul 2007 16:07:21 +0200
+Message-ID: <469B7B99.6040402@trash.net>
+References: <469A3698.5020105@trash.net> <3C59DB883F7B0B4D8096010D45ACCD1323022E@exch.facton.local> <3C59DB883F7B0B4D8096010D45ACCD1323023A@exch.facton.local> <469B7001.3090604@trash.net> <3C59DB883F7B0B4D8096010D45ACCD1323023D@exch.facton.local>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Beschorner Daniel <Daniel.Beschorner@facton.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:1812 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1765340AbXGPOCw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jul 2007 10:02:52 -0400
-In-Reply-To: <200707161438.02572@strip-the-willow>
+Received: from stinky.trash.net ([213.144.137.162]:51186 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1764730AbXGPOI5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jul 2007 10:08:57 -0400
+In-Reply-To: <3C59DB883F7B0B4D8096010D45ACCD1323023D@exch.facton.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Gerrit Renker <gerrit@erg.abdn.ac.uk> wrote:
+Beschorner Daniel wrote:
+>>I'm running IPsec in the same setup as you describe above without
+>>problems. I'm probably not seeing ICMP frag requireds on the wire
+>>though since I believe the entire path is >= 1492.
+>>
+>>Could you try to find out whether those are responsible?
+>>
 > 
-> Manpage date says 1999-06-29 but in fact manpages are from up-to-date lenny/sid.
+> 
+> It's definitely the first large packet or corresponding ICMP that
+> triggers the crash, slow packets don't harm.
+> IPSec on pathes with a PMTU of 1500 works fine.
 
-I think Yoshifuji-san's point is not that your manpages package
-is out-of-date, but that the manpage itself is out-of-date.
-That is, someone needs to send a patch to the upstream manpages
-maintainer and fix the documentation to actually describe what the
-code does.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+I recreated the same setup here, but things work fine even with
+different MTUs. Please try to narrow it down further or capture
+some more information (serial console/netconsole,
+CONFIG_DETECT_SOFTLOCKUP, ..).
+
