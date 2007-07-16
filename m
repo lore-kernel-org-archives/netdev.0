@@ -1,37 +1,27 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH]: Can not set the IPV6_PKTINFO option
-Date: Mon, 16 Jul 2007 23:17:01 +0900 (JST)
-Message-ID: <20070716.231701.04033316.yoshfuji@linux-ipv6.org>
-References: <200707161438.02572@strip-the-willow>
-	<E1IAR9h-0007nr-00@gondolin.me.apana.org.au>
+From: "Beschorner Daniel" <Daniel.Beschorner@facton.com>
+Subject: Re: IPSec freeze
+Date: Mon, 16 Jul 2007 16:17:01 +0200
+Message-ID: <3C59DB883F7B0B4D8096010D45ACCD13230240@exch.facton.local>
+References: <469A3698.5020105@trash.net> <3C59DB883F7B0B4D8096010D45ACCD1323022E@exch.facton.local> <3C59DB883F7B0B4D8096010D45ACCD1323023A@exch.facton.local> <469B7001.3090604@trash.net> <3C59DB883F7B0B4D8096010D45ACCD1323023D@exch.facton.local> <469B7B99.6040402@trash.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: herbert@gondor.apana.org.au, gerrit@erg.abdn.ac.uk
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>
+To: "Patrick McHardy" <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:48076 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762836AbXGPOQT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jul 2007 10:16:19 -0400
-In-Reply-To: <E1IAR9h-0007nr-00@gondolin.me.apana.org.au>
+Received: from alpha.facton.com ([83.236.152.122]:44963 "EHLO alpha.facton.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759113AbXGPORI convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jul 2007 10:17:08 -0400
+Content-class: urn:content-classes:message
+In-reply-to: <469B7B99.6040402@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In article <E1IAR9h-0007nr-00@gondolin.me.apana.org.au> (at Mon, 16 Jul 2007 22:02:29 +0800), Herbert Xu <herbert@gondor.apana.org.au> says:
+> I recreated the same setup here, but things work fine even with
+> different MTUs. Please try to narrow it down further or capture
+> some more information (serial console/netconsole,
+> CONFIG_DETECT_SOFTLOCKUP, ..).
 
-> Gerrit Renker <gerrit@erg.abdn.ac.uk> wrote:
-> > 
-> > Manpage date says 1999-06-29 but in fact manpages are from up-to-date lenny/sid.
-> 
-> I think Yoshifuji-san's point is not that your manpages package
-> is out-of-date, but that the manpage itself is out-of-date.
-> That is, someone needs to send a patch to the upstream manpages
-> maintainer and fix the documentation to actually describe what the
-> code does.
-
-Exactly.  The ipv6(7) manpage is one of the TODOs.
-Contributions, expecially from native speakers, are really welcome.
-
---yoshfuji
+Did you turn on IPSec compression? 
