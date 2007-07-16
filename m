@@ -1,46 +1,34 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: r8169 in 2.6.22 release still not detecting link
-Date: Mon, 16 Jul 2007 23:59:40 +0200
-Message-ID: <20070716215940.GA4170@electric-eye.fr.zoreil.com>
-References: <76366b180707141531j28588861n19e2d96dd68d308a@mail.gmail.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] Fix Tsi108 ethernet driver performance
+Date: Mon, 16 Jul 2007 18:27:34 -0400
+Message-ID: <469BF0D6.5000601@garzik.org>
+References: <1B5F013528140F45B5C671039279CA5701F834BB@NANUK.pc.tundra.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, brad@langhorst.com
-To: Andrew Paprocki <andrew@ishiboo.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	Zang Roy-r61911 <tie-fei.zang@freescale.com>,
+	Josh Boyer <jwboyer@linux.vnet.ibm.com>
+To: Alexandre Bounine <Alexandre.Bounine@tundra.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:56993 "EHLO
-	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760925AbXGPWBa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Jul 2007 18:01:30 -0400
-Content-Disposition: inline
-In-Reply-To: <76366b180707141531j28588861n19e2d96dd68d308a@mail.gmail.com>
+Received: from srv5.dvmed.net ([207.36.208.214]:37233 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752169AbXGPW1h (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Jul 2007 18:27:37 -0400
+In-Reply-To: <1B5F013528140F45B5C671039279CA5701F834BB@NANUK.pc.tundra.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrew Paprocki <andrew@ishiboo.com> :
-[...]
-> Just writing to let you know that I'm still not getting a link on
-> either r8169 port with the stock 2.6.22 kernel. I haven't been able to
-> get any other network interface working on this device yet, as it only
-> has a mini-PCI slot and I haven't found working wireless hardware yet.
-> If I had a connection, I'd try to git bisect from the last known
-> working point (2.6.18), but it is difficult for me to do that given
-> the current setup.
+Alexandre Bounine wrote:
+> From: Alexandre Bounine <alexandreb@tundra.com>
+> 
+> This patch improves performance of the Tsi108 Ethernet driver by
+> changing interrupt handling for frame receive path. It reduces number of
+> interrupts generated for received frames and therefore lowers CPU
+> utilization by the device driver.
+>    
+> Signed-off-by: Alexandre Bounine <alexandreb@tundra.com>
 
-You will find a backport of the r8169 driver for the 2.6.18 kernel at
-http://www.fr.zoreil.com/people/francois/backport/r8169/20070604-00
-(tarball in the upper directory).
+Look into NAPI...
 
-As 2.6.18 corrupts your data and 2.6.22 does not detect the link, it
-could help if you tried each patch in the serie (on top of the previous
-one) against 2.6.18 until the link is lost.
 
-> Do you have any ideas about where I can place some debugging trace? I
-> seem to always be able to get a link by backing off to the upstream
-> Realtek driver (6.*).
-
-Ok, that's good to know. I.e. got a link and no data corruption with
-2.6.22 ?
-
--- 
-Ueimor
