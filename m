@@ -1,49 +1,53 @@
-From: Oliver Hartkopp <oliver@hartkopp.net>
-Subject: Re: [patch 5/7] CAN: Add virtual CAN netdevice driver
-Date: Mon, 16 Jul 2007 08:05:49 +0200
-Message-ID: <469B0ABD.50508@hartkopp.net>
-References: <20070622034452.28886.0@janus.isnogud.escape.de>	<20070622034703.28886.5@janus.isnogud.escape.de>	<467BAC48.1070700@trash.net> <ygfk5tw41rq.fsf@janus.isnogud.escape.de>	<467BC2AF.8080901@trash.net> <467D0C97.1000000@hartkopp.net>	<467D178B.8080503@trash.net> <467D3891.4010906@hartkopp.net>	<467D4965.40601@trash.net> <467D4D65.2080806@hartkopp.net>	<467D54AB.5010407@trash.net> <ygfzm2ciemk.fsf@janus.isnogud.escape.de>	<468BA83A.7070500@trash.net> <ygfodil7qpi.fsf@janus.isnogud.escape.de> <469243D3.3090208@trash.net> <469253CE.8040004@hartkopp.net> <46953273.2080102@hartkopp.net> <46955F4A.9060206@trash.net>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: [NET]: gen_estimator deadlock fix
+Date: Mon, 16 Jul 2007 09:00:32 +0200
+Message-ID: <20070716070032.GA1871@ff.dom.local>
+References: <1184161297.1141.53.camel@ranko-fc2.spidernet.net> <20070712073746.GA1708@ff.dom.local> <1184231903.3477.65.camel@ranko-fc2.spidernet.net> <20070712104641.GB1708@ff.dom.local> <1184240842.3477.110.camel@ranko-fc2.spidernet.net> <46961970.7080209@trash.net> <1184262525.3477.135.camel@ranko-fc2.spidernet.net> <20070713121733.GB3282@ff.dom.local> <1184329602.16732.16.camel@ranko-fc2.spidernet.net> <20070713134231.GC3282@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Urs Thuermann <urs@isnogud.escape.de>,
-	David Miller <davem@davemloft.net>, j.hadi123@gmail.com,
-	netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: Ranko Zivojnovic <ranko@spidernet.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.162]:49886 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751996AbXGPGGC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jul 2007 02:06:02 -0400
-In-Reply-To: <46955F4A.9060206@trash.net>
+Received: from mx2.go2.pl ([193.17.41.42]:53713 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754203AbXGPGvk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Jul 2007 02:51:40 -0400
+Content-Disposition: inline
+In-Reply-To: <20070713134231.GC3282@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
--------- Original-Message --------
-Subject: Re: [patch 5/7] CAN: Add virtual CAN netdevice driver
-Date: Thu, 12 Jul 2007 00:52:58 +0200
-From: Patrick McHardy <kaber@trash.net>
-To: Oliver Hartkopp <oliver@hartkopp.net>
+On Fri, Jul 13, 2007 at 03:42:31PM +0200, Jarek Poplawski wrote:
+...
+> On Fri, Jul 13, 2007 at 03:26:42PM +0300, Ranko Zivojnovic wrote:
+> I've been a bit tight on time today, and only now I see that maybe
+> you have done too much. Of course, you can do it your way, but I
+> think it should be easier not change too much at once, so if possible
+> only include structs bstats and rate_est into struct gen_estimator
+> and do otherwise in these few sch_'s and act_'s which use this plus
+> all acceses and allocs changed appropriately. So it should be only 6
+> or 7 files affected. It seems no changes about gen_stats are necessary
+> now (next patch?).
 
-Patrick McHardy wrote:
-> Oliver Hartkopp wrote:
->   
->> Hi Patrick,
->>
->> what's your opinion about my reply to your remark?
->>     
-> I'll look into it tommorrow, please be patient.
->   
+Alas, I was wrong. This idea really needs to change all these files
+plus even more! If I could've foreseen this...
 
-I am.
+There is probably quite easy way to get rid of this one race only
+by e.g. replacing *bstats field with NULL in gen_kill_estimator,
+and check for this in est_timer just after taking a lock.
 
-This issue has blocked any ongoing activities for one week now.
-You also won't be happy if someone raises objections on your code and
-then vanishes for discussions for a week (except on other topics on the ML).
-Take 2(!) minutes from your valuable time to *understand* the loopback
-testing feature and you'll recognize that your remark completely missed
-the point.
+The gain from an api change would be mainly faster gen_kill_
+and gen_replace_estimator. But, on the other hand, you have it
+almost done. Ranko, I think these changes need opinion of more
+maintainers as soon as possible - after all they could have some
+objections; IMHO at least: Jamal Hadi Salim, Thomas Graf (authors
+plus act_), Stephen Hemminger (sch_netem) and Jiri Benc
+(net/mac80211).
 
-Thanks.
+I also have some suggestions, but maybe it would be better to do
+them on a current version (the main is about this *stats_lock - 
+you probably misunderstood Patrick - but I hope you found it
+yourself).
 
-
+Regards,
+Jarek P.
