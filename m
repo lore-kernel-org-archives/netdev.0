@@ -1,43 +1,36 @@
-From: Sam Ravnborg <sam@ravnborg.org>
-Subject: Re: [PATCH] [IrDA] Fix IrDA build failure
-Date: Mon, 16 Jul 2007 17:16:05 +0200
-Message-ID: <20070716151604.GB16474@uranus.ravnborg.org>
-References: <20070716111715.GB22757@mail.solidboot.com> <20070716115624.GA4492@2ka.mipt.ru>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: IPSec freeze
+Date: Mon, 16 Jul 2007 17:18:31 +0200
+Message-ID: <469B8C47.3030306@trash.net>
+References: <469A3698.5020105@trash.net> <3C59DB883F7B0B4D8096010D45ACCD1323022E@exch.facton.local> <3C59DB883F7B0B4D8096010D45ACCD1323023A@exch.facton.local> <469B7001.3090604@trash.net> <3C59DB883F7B0B4D8096010D45ACCD1323023D@exch.facton.local> <469B7B99.6040402@trash.net> <3C59DB883F7B0B4D8096010D45ACCD13230240@exch.facton.local> <469B878C.1020204@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Samuel Ortiz <samuel.ortiz@solidboot.com>, davem@davemloft.net,
-	eric.y.miao@gmail.com, netdev@vger.kernel.org,
-	irda-users@lists.sourceforge.net, stable@kernel.org
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Beschorner Daniel <Daniel.Beschorner@facton.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pasmtpb.tele.dk ([80.160.77.98]:58890 "EHLO pasmtpB.tele.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756039AbXGPPP1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Jul 2007 11:15:27 -0400
-Content-Disposition: inline
-In-Reply-To: <20070716115624.GA4492@2ka.mipt.ru>
+Received: from stinky.trash.net ([213.144.137.162]:52684 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1765830AbXGPPSe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jul 2007 11:18:34 -0400
+In-Reply-To: <469B878C.1020204@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 16, 2007 at 03:56:26PM +0400, Evgeniy Polyakov wrote:
-> Hi Samuel.
+Patrick McHardy wrote:
+> Beschorner Daniel wrote:
 > 
-> On Mon, Jul 16, 2007 at 02:17:15PM +0300, Samuel Ortiz (samuel.ortiz@solidboot.com) wrote:
-> > This is due to the irda_init fix recently added, where we call __exit
-> > routines from an __init one. It is a build failure that I didn't catch
-> > because it doesn't show up when building IrDA as a module. My apologies
-> > for that.
+>>>I recreated the same setup here, but things work fine even with
+>>>different MTUs. Please try to narrow it down further or capture
+>>>some more information (serial console/netconsole,
+>>>CONFIG_DETECT_SOFTLOCKUP, ..).
+>>
+>>
+>>Did you turn on IPSec compression? 
 > 
-> What about having all of them __devinit/__devexit?
+> 
+> 
+> No. Please send the policy you're using.
 
-__devinit is used to say that this funtion is used for hotplug so place this
-in section .init.text only if !HOTPLUG.
 
-So with __devinit/__devexit we would see exactly the same in the !HOTPLUG
-case but only make it harder to trigger since the normal build has
-HOTPLUG enabled.
-
-New version of modpost will btw. catch these kind of errors so also in the
-x86 case we will be notified - but then only as a warning not as an error.
-
-	Sam
+I managed to reproduce a crash with ipcomp, will try to fix it later.
