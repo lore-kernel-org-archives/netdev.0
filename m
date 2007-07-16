@@ -1,34 +1,53 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [NET]: gen_estimator deadlock fix
-Date: Mon, 16 Jul 2007 15:03:32 +0200
-Message-ID: <469B6CA4.9030205@trash.net>
-References: <1184161297.1141.53.camel@ranko-fc2.spidernet.net> <20070712073746.GA1708@ff.dom.local> <1184231903.3477.65.camel@ranko-fc2.spidernet.net> <20070712104641.GB1708@ff.dom.local> <1184240842.3477.110.camel@ranko-fc2.spidernet.net> <46961970.7080209@trash.net> <1184262525.3477.135.camel@ranko-fc2.spidernet.net> <20070713121733.GB3282@ff.dom.local> <1184329602.16732.16.camel@ranko-fc2.spidernet.net> <20070713134231.GC3282@ff.dom.local> <20070716070032.GA1871@ff.dom.local>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: Re: [PATCH] [IrDA] Fix IrDA build failure
+Date: Mon, 16 Jul 2007 15:05:19 +0200
+Message-ID: <20070716130519.GE3653@stusta.de>
+References: <20070716111715.GB22757@mail.solidboot.com> <20070716115624.GA4492@2ka.mipt.ru> <20070716120744.GD3653@stusta.de> <20070716121708.GA24483@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Ranko Zivojnovic <ranko@spidernet.net>, netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@o2.pl>
+Content-Type: text/plain; charset=utf-8
+Cc: Samuel Ortiz <samuel.ortiz@solidboot.com>, davem@davemloft.net,
+	eric.y.miao@gmail.com, sam@ravnborg.org, netdev@vger.kernel.org,
+	irda-users@lists.sourceforge.net, stable@kernel.org
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:49766 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756370AbXGPNFE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jul 2007 09:05:04 -0400
-In-Reply-To: <20070716070032.GA1871@ff.dom.local>
+Received: from mailout.stusta.mhn.de ([141.84.69.5]:34566 "EHLO
+	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1758850AbXGPNF7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jul 2007 09:05:59 -0400
+Content-Disposition: inline
+In-Reply-To: <20070716121708.GA24483@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jarek Poplawski wrote:
-> There is probably quite easy way to get rid of this one race only
-> by e.g. replacing *bstats field with NULL in gen_kill_estimator,
-> and check for this in est_timer just after taking a lock.
+On Mon, Jul 16, 2007 at 04:17:08PM +0400, Evgeniy Polyakov wrote:
+> On Mon, Jul 16, 2007 at 02:07:44PM +0200, Adrian Bunk (bunk@stusta.de) wrote:
+> > > What about having all of them __devinit/__devexit?
+> > 
+> > That would be completely wrong.
 > 
-> The gain from an api change would be mainly faster gen_kill_
-> and gen_replace_estimator. But, on the other hand, you have it
-> almost done. Ranko, I think these changes need opinion of more
-> maintainers as soon as possible - after all they could have some
-> objections; IMHO at least: Jamal Hadi Salim, Thomas Graf (authors
-> plus act_), Stephen Hemminger (sch_netem) and Jiri Benc
-> (net/mac80211).
+> Hi Adrian.
 
+Hi Evgeniy,
 
-Frankly, all we need is a final patch.
+> Then why should irda have __init/__exit at first point
+
+for code that only gets called during driver loading resp. driver 
+unloading.
+
+> - replacing that
+> with appropriate 'dev' prefix I suggested.
+
+You seem to misunderstand what the "dev" prefix is doing.
+
+> 	Evgeniy Polyakov
+
+cu
+Adrian
+
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
+
