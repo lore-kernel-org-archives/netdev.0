@@ -1,51 +1,78 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [RFC 0/3] netlink/generic netlink multicast group rework
-Date: Mon, 16 Jul 2007 10:48:31 +0200
-Message-ID: <1184575711.15112.3.camel@johannes.berg>
-References: <20070704143037.495786000@sipsolutions.net>
+From: Toralf =?utf-8?q?F=C3=B6rster?= <toralf.foerster@gmx.de>
+Subject: Re: build #307 failed for 2.6.22-g8f41958 in linux/./drivers/net/slip.c
+Date: Mon, 16 Jul 2007 11:36:19 +0200
+Message-ID: <200707161136.24332.toralf.foerster@gmx.de>
+References: <200707161009.59675.toralf.foerster@gmx.de> <20070716083228.GA30605@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-tv4vV8LCq2VAr+2DBsOd"
-Cc: hadi@cyberus.ca, Patrick McHardy <kaber@trash.net>
-To: netdev@vger.kernel.org
+Content-Type: multipart/signed;
+  boundary="nextPart4419294.PEUdiTfCUM";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:34162 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753825AbXGPJgY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jul 2007 05:36:24 -0400
-In-Reply-To: <20070704143037.495786000@sipsolutions.net>
+Received: from mail.gmx.net ([213.165.64.20]:53448 "HELO mail.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1756300AbXGPJg1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Jul 2007 05:36:27 -0400
+In-Reply-To: <20070716083228.GA30605@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
---=-tv4vV8LCq2VAr+2DBsOd
-Content-Type: text/plain
+--nextPart4419294.PEUdiTfCUM
+Content-Type: text/plain;
+  charset="utf-8"
 Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-On Wed, 2007-07-04 at 16:30 +0200, Johannes Berg wrote:
-> This is just a repost of the patches that I posted previously
-> because they were buried deeply in the ACPI thread and I'm
-> hoping that now other people will also take a look.
+Am Montag, 16. Juli 2007 10:32 schrieb Evgeniy Polyakov:
+> This is a result of 'select' usage in Kconfig.
+> Although this patch can help too.
+>
 
-Ping? Has anybody had a chance to look into this? I've been running
-regular work on my notebook with this ever since posting and it all
-works fine; the ACPI people would like to see this in to base the ACPI
-notification on it. I don't care all that much right now but if they
-don't base their acpi notification on it then these patches will need to
-be updated to give acpi a stable family/multicast number.
+Hi,
+unfortunatly the patch doesn't help :
 
-johannes
+tfoerste@n22 ~/devel/linux-2.6 $ cp ../results/config.rnd.307 .config
+tfoerste@n22 ~/devel/linux-2.6 $ make oldconfig 1>/dev/null
+tfoerste@n22 ~/devel/linux-2.6 $ diff .config .config.old
+4c4
+< # Mon Jul 16 11:35:19 2007
+=2D--
+> # Mon Jul 16 09:43:31 2007
 
---=-tv4vV8LCq2VAr+2DBsOd
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
+
+
+> Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+>=20
+> diff --git a/net/ieee80211/Kconfig b/net/ieee80211/Kconfig
+> index 1438ade..a23414f 100644
+> --- a/net/ieee80211/Kconfig
+> +++ b/net/ieee80211/Kconfig
+> @@ -1,5 +1,6 @@
+>  config IEEE80211
+>  	tristate "Generic IEEE 802.11 Networking Stack"
+> +	depends on NET
+>  	---help---
+>  	This option enables the hardware independent IEEE 802.11
+>  	networking stack.
+>=20
+
+=2D-=20
+MfG/Sincerely
+
+Toralf F=C3=B6rster
+
+--nextPart4419294.PEUdiTfCUM
+Content-Type: application/pgp-signature
 
 -----BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
+Version: GnuPG v1.4.7 (GNU/Linux)
 
-iD8DBQBGmzDf/ETPhpq3jKURAi9/AJ9kg8bOvrilSX3BI+uqrc5AbQPt7gCgiONF
-KWANlC2cN733jufUUoAsCJo=
-=c4qk
+iD8DBQBGmzwUhyrlCH22naMRAsvpAJ9qaBVpPuB6Lpi4nzXGAVgjxbp7IQCfbRJz
+O7oN3TWKiWnjbdVuCi1/OEA=
+=saur
 -----END PGP SIGNATURE-----
 
---=-tv4vV8LCq2VAr+2DBsOd--
-
+--nextPart4419294.PEUdiTfCUM--
