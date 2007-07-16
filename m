@@ -1,38 +1,40 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: IPSec freeze
-Date: Mon, 16 Jul 2007 16:07:21 +0200
-Message-ID: <469B7B99.6040402@trash.net>
-References: <469A3698.5020105@trash.net> <3C59DB883F7B0B4D8096010D45ACCD1323022E@exch.facton.local> <3C59DB883F7B0B4D8096010D45ACCD1323023A@exch.facton.local> <469B7001.3090604@trash.net> <3C59DB883F7B0B4D8096010D45ACCD1323023D@exch.facton.local>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: [PATCH]: Can not set the IPV6_PKTINFO option
+Date: Mon, 16 Jul 2007 15:14:06 +0100
+Message-ID: <200707161514.06324@strip-the-willow>
+References: <E1IAR9h-0007nr-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain;
+  charset="iso-8859-6"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Beschorner Daniel <Daniel.Beschorner@facton.com>
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:51186 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1764730AbXGPOI5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jul 2007 10:08:57 -0400
-In-Reply-To: <3C59DB883F7B0B4D8096010D45ACCD1323023D@exch.facton.local>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:64894 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S932920AbXGPOQJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Jul 2007 10:16:09 -0400
+In-Reply-To: <E1IAR9h-0007nr-00@gondolin.me.apana.org.au>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Beschorner Daniel wrote:
->>I'm running IPsec in the same setup as you describe above without
->>problems. I'm probably not seeing ICMP frag requireds on the wire
->>though since I believe the entire path is >= 1492.
->>
->>Could you try to find out whether those are responsible?
->>
-> 
-> 
-> It's definitely the first large packet or corresponding ICMP that
-> triggers the crash, slow packets don't harm.
-> IPSec on pathes with a PMTU of 1500 works fine.
+|  That is, someone needs to send a patch to the upstream manpages
+|  maintainer and fix the documentation to actually describe what the
+|  code does.
+|  
+If it is simply replacing IPV6_PKTINFO with IPV6_RECVPKTINFO then I'd be happy to do this.
+Anything more complicated than that - it would be good to have some of the developers taking
+a look. 
+
+Here is the text of the manpage (ipv6 in section 7):
+
+IPV6_PKTINFO
+  Set delivery of the IPV6_PKTINFO control message on incoming datagrams.  
+  Only allowed for SOCK_DGRAM  or  SOCK_RAW sockets.  Argument is a pointer to a 
+  boolean value in an integer.
+
+The v4 IP_PKTINFO works in the same way as the above description.
 
 
-I recreated the same setup here, but things work fine even with
-different MTUs. Please try to narrow it down further or capture
-some more information (serial console/netconsole,
-CONFIG_DETECT_SOFTLOCKUP, ..).
-
+Gerrit
