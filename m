@@ -1,58 +1,30 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH]: cdc-subset to support new
- vendor/product ID
-Date: Mon, 16 Jul 2007 18:30:27 -0400
-Message-ID: <469BF183.3070001@garzik.org>
-References: <1776cf1c0707060310m4919b680s7dcc94fbf22fef9@mail.gmail.com>	
-	<4693B7FA.60306@garzik.org>	
-	<1776cf1c0707132309s715a4cdfy53e639f33cecc404@mail.gmail.com>
-	<1776cf1c0707132313j546ab73av109b1c3264db150f@mail.gmail.com>
+Subject: Re: [2.6 patch] EP93XX_ETH must select MII
+Date: Mon, 16 Jul 2007 18:29:48 -0400
+Message-ID: <469BF15C.90906@garzik.org>
+References: <20070713001208.GX3492@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Brownell <david-b@pacbell.net>, netdev@vger.kernel.org,
-	linux-usb-devel@lists.sourceforge.net, greg@kroah.com
-To: jing xiang <everxiang@gmail.com>
-Return-path: <linux-usb-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1776cf1c0707132313j546ab73av109b1c3264db150f@mail.gmail.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-usb-devel>,
-	<mailto:linux-usb-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-usb-devel>
-List-Post: <mailto:linux-usb-devel@lists.sourceforge.net>
-List-Help: <mailto:linux-usb-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-usb-devel>,
-	<mailto:linux-usb-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: linux-usb-devel-bounces@lists.sourceforge.net
-Errors-To: linux-usb-devel-bounces@lists.sourceforge.net
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	John Donoghue <john.donoghue@ieee.org>
+To: Adrian Bunk <bunk@stusta.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:37270 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756174AbXGPW3v (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Jul 2007 18:29:51 -0400
+In-Reply-To: <20070713001208.GX3492@stusta.de>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-jing xiang wrote:
-> This patch is for cdc subset to support Mavell vendor/product ID.
+Adrian Bunk wrote:
+> From: John Donoghue <john.donoghue@ieee.org>
 > 
-> Signed-off-by: Jing Xiang <everxiang@gmail.com>
+> CONFIG_EP93XX_ETH=y, CONFIG_MII=n results in an obvious link error.
 > 
-> --- linux-2.6.21.5/drivers/usb/net/cdc_subset.c.orig    2007-07-14
-> 13:57:37.543028144 +0800
-> +++ linux-2.6.21.5/drivers/usb/net/cdc_subset.c 2007-07-14
-> 13:58:30.521974120 +0800
-> @@ -305,6 +305,9 @@ static const struct usb_device_id   produc
->        USB_DEVICE (0x8086, 0x07d3),    // "blob" bootloader
->        .driver_info =  (unsigned long) &blob_info,
-> }, {
-> +       USB_DEVICE (0x1286, 0x8001),    // "blob" bootloader
-> +       .driver_info =  (unsigned long) &blob_info,
-> +}, {
+> Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
-driver has moved to drivers/net/usb.  applied manually
+applied
 
 
-
--------------------------------------------------------------------------
-This SF.net email is sponsored by DB2 Express
-Download DB2 Express C - the FREE version of DB2 express and take
-control of your XML. No limits. Just data. Click to get it now.
-http://sourceforge.net/powerbar/db2/
-_______________________________________________
-linux-usb-devel@lists.sourceforge.net
-To unsubscribe, use the last form field at:
-https://lists.sourceforge.net/lists/listinfo/linux-usb-devel
