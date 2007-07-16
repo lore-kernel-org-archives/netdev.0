@@ -1,33 +1,46 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [PATCH] [IrDA] Fix IrDA build failure
-Date: Mon, 16 Jul 2007 16:17:08 +0400
-Message-ID: <20070716121708.GA24483@2ka.mipt.ru>
-References: <20070716111715.GB22757@mail.solidboot.com> <20070716115624.GA4492@2ka.mipt.ru> <20070716120744.GD3653@stusta.de>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: [PATCH]: Can not set the IPV6_PKTINFO option
+Date: Mon, 16 Jul 2007 13:41:23 +0100
+Message-ID: <200707161341.23419@strip-the-willow>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: Samuel Ortiz <samuel.ortiz@solidboot.com>, davem@davemloft.net,
-	eric.y.miao@gmail.com, sam@ravnborg.org, netdev@vger.kernel.org,
-	irda-users@lists.sourceforge.net, stable@kernel.org
-To: Adrian Bunk <bunk@stusta.de>
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:43647 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758917AbXGPMUx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Jul 2007 08:20:53 -0400
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:62213 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751990AbXGPMnl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Jul 2007 08:43:41 -0400
 Content-Disposition: inline
-In-Reply-To: <20070716120744.GD3653@stusta.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 16, 2007 at 02:07:44PM +0200, Adrian Bunk (bunk@stusta.de) wrote:
-> > What about having all of them __devinit/__devexit?
-> 
-> That would be completely wrong.
+[IPv6]: Can not set the IPV6_PKTINFO option
 
-Hi Adrian.
+The Linux manpage of ipv6(7) mentions the IPV6_PKTINFO option (and it is defined in header
+files), but there is no setsockopt support for it. Aliasing to IPV6_RECVPKTINFO fixes this,
+and checking datagram_recv_ctl() in net/ipv6/datagram.c confirms that this works as 
+expected from the API.
 
-Then why should irda have __init/__exit at first point - replacing that
-with appropriate 'dev' prefix I suggested.
-
--- 
-	Evgeniy Polyakov
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+---
+--- a/net/ipv6/ipv6_sockglue.c
++++ b/net/ipv6/ipv6_sockglue.c
+@@ -315,6 +315,7 @@ static int do_ipv6_setsockopt(struct sock *sk, int level, int optname,
+ 		retv = 0;
+ 		break;
+ 
++	case IPV6_PKTINFO:
+ 	case IPV6_RECVPKTINFO:
+ 		np->rxopt.bits.rxinfo = valbool;
+ 		retv = 0;
+@@ -928,6 +929,7 @@ static int do_ipv6_getsockopt(struct sock *sk, int level, int optname,
+ 		val = np->ipv6only;
+ 		break;
+ 
++	case IPV6_PKTINFO:
+ 	case IPV6_RECVPKTINFO:
+ 		val = np->rxopt.bits.rxinfo;
+ 		break;
