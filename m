@@ -1,80 +1,63 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH try#5] Blackfin ethernet driver: on chip ethernet MAC
- controller driver
-Date: Tue, 17 Jul 2007 02:11:53 +0900 (JST)
-Message-ID: <20070717.021153.74661454.yoshfuji@linux-ipv6.org>
-References: <1184604542.6107.44.camel@roc-laptop>
+From: linas@austin.ibm.com (Linas Vepstas)
+Subject: Re: [PATCH] crash in 2.6.22-git2 sysctl_set_parent()
+Date: Mon, 16 Jul 2007 12:22:36 -0500
+Message-ID: <20070716172236.GA5771@austin.ibm.com>
+References: <20070713200515.GS5549@austin.ibm.com> <m13azreqtr.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: michael.hennerich@analog.com, mb@bu3sch.de, vapier.adi@gmail.com,
-	jeff@garzik.org, hch@infradead.org, dcbw@redhat.com,
-	akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, joe@perches.com, yoshfuji@linux-ipv6.org
-To: bryan.wu@analog.com
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	netdev@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:48096 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753516AbXGPRLM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jul 2007 13:11:12 -0400
-In-Reply-To: <1184604542.6107.44.camel@roc-laptop>
+Received: from e4.ny.us.ibm.com ([32.97.182.144]:52374 "EHLO e4.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754582AbXGPRWi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Jul 2007 13:22:38 -0400
+Content-Disposition: inline
+In-Reply-To: <m13azreqtr.fsf@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+On Fri, Jul 13, 2007 at 07:06:56PM -0600, Eric W. Biederman wrote:
+> >  			.data		= &ipv4_devconf.loop,
+> >  			.maxlen		= sizeof(int),
+> >  			.mode		= 0644,
+> > +			.child	= 0x0,
+> >  			.proc_handler	= &proc_dointvec,
+> >  		},
+> Where did this entry above in devinet_sysctl come from?
 
-In article <1184604542.6107.44.camel@roc-laptop> (at Tue, 17 Jul 2007 00:49:02 +0800), Bryan Wu <bryan.wu@analog.com> says:
+My bad.
+I habitually apply the "send-to-self" patch, since some of the 
+network testing that I do is easiest if I load up the all of the 
+adapters in the same box. (If you're not familiar with this patch ... 
+its great, and I wish it was integratedd into mainline. It allows
+one to drive network traffic through the physical devices, even
+if they are in the same box.  Without it, the network stack is
+too clever, and won't allow you to do this.)
 
-> +static void bf537mac_set_multicast_list(struct net_device *dev)
-> +{
-> +	u32 sysctl;
-> +
-> +	if (dev->flags & IFF_PROMISC) {
-> +		printk(KERN_INFO "%s: set to promisc mode\n", dev->name);
-> +		sysctl = bfin_read_EMAC_OPMODE();
-> +		sysctl |= RAF;
-> +		bfin_write_EMAC_OPMODE(sysctl);
-> +	} else if (dev->flags & IFF_ALLMULTI || dev->mc_count > 16) {
-> +		/* accept all multicast */
-> +		sysctl = bfin_read_EMAC_OPMODE();
-> +		sysctl |= PAM;
-> +		bfin_write_EMAC_OPMODE(sysctl);
-> +	} else if (dev->mc_count) {
-> +		/* set multicast */
-> +	} else {
-> +		/* clear promisc or multicast mode */
-> +		sysctl = bfin_read_EMAC_OPMODE();
-> +		sysctl &= ~(RAF | PAM);
-> +		bfin_write_EMAC_OPMODE(sysctl);
-> +	}
-> +}
-> +
+> > +		{
+> > +			.ctl_name	= 0,
+> > +			.procname	= 0,
+> > +		},
+> I probably would have just done:
+> +		{},
 
-Is this function really correct?
+Yes, in retrospect, this would have been the simplest solution.
 
-Please make sure to set up multicast list on device, or
-set "all multi" on device if you do not know what to do; e.g.
+> What added the additional entry to devinet_root_dir?  I don't see that
+> in Linus' tree?
+> 
+> The result may be fine but if it isn't named in a per network device
+> manner we are adding duplicate entries to the root /proc/sys directory
+> which is wrong.
+> 
+> Actually come to think of it I am concerned that someone added a
+> settable entry into /proc/sys/ it should at least be in /proc/sys/net/
+> where it won't conflict with other uses of that directory.  Especially
+> as things like network devices have user controlled names.
 
-static void bf537mac_set_multicast_list(struct net_device *dev)
-{
-     u32 sysctl;
+Sigh. Silly me. Haste makes waste.
 
-     if (dev->flags & IFF_PROMISC) {
-             printk(KERN_INFO "%s: set to promisc mode\n", dev->name);
-             sysctl = bfin_read_EMAC_OPMODE();
-             sysctl |= RAF;
-             bfin_write_EMAC_OPMODE(sysctl);
-     } else if (dev->flags & IFF_ALLMULTI || dev->mc_count) {
-             /* accept all multicast */
-             sysctl = bfin_read_EMAC_OPMODE();
-             sysctl |= PAM;
-             bfin_write_EMAC_OPMODE(sysctl);
-     } else {
-             /* clear promisc or multicast mode */
-             sysctl = bfin_read_EMAC_OPMODE();
-             sysctl &= ~(RAF | PAM);
-             bfin_write_EMAC_OPMODE(sysctl);
-     }
-}
---yoshfuji
+--linas
+
