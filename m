@@ -1,76 +1,27 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: Re: [irda-users] [PATCH] [IrDA] Fix IrDA build failure
-Date: Tue, 17 Jul 2007 07:08:12 +0200
-Message-ID: <20070717050812.GA3801@stusta.de>
-References: <20070716111715.GB22757@mail.solidboot.com> <20070716130052.GC22757@mail.solidboot.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] NS83820: Handle multicast frames.
+Date: Tue, 17 Jul 2007 01:10:05 -0400
+Message-ID: <469C4F2D.90805@garzik.org>
+References: <20070717.134554.126619013.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: davem@davemloft.net, sam@ravnborg.org, stable@kernel.org,
-	eric.y.miao@gmail.com, irda-users@lists.sourceforge.net,
-	netdev@vger.kernel.org
-To: Samuel Ortiz <samuel.ortiz@solidboot.com>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: =?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kgLyDlkInol6Toi7HmmI4=?=
+	<yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout.stusta.mhn.de ([141.84.69.5]:35189 "EHLO
-	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753318AbXGQFIv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2007 01:08:51 -0400
-Content-Disposition: inline
-In-Reply-To: <20070716130052.GC22757@mail.solidboot.com>
+Received: from srv5.dvmed.net ([207.36.208.214]:40644 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753501AbXGQFKH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Jul 2007 01:10:07 -0400
+In-Reply-To: <20070717.134554.126619013.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 16, 2007 at 04:00:52PM +0300, Samuel Ortiz wrote:
-> On Mon, Jul 16, 2007 at 02:17:15PM +0300, Samuel Ortiz wrote:
-> > Hi Dave,
-> > 
-> > When having built-in IrDA, we hit the following error:
-> > 
-> > `irda_sysctl_unregister' referenced in section `.init.text' of
-> > net/built-in.o: defined in discarded section `.exit.text' of
-> > net/built-in.o
-> > `irda_proc_unregister' referenced in section `.init.text' of
-> > net/built-in.o: defined in discarded section `.exit.text' of
-> > net/built-in.o
-> > `irsock_cleanup' referenced in section `.init.text' of net/built-in.o:
-> > defined in discarded section `.exit.text' of net/built-in.o
-> > `irttp_cleanup' referenced in section `.init.text' of net/built-in.o:
-> > defined in discarded section `.exit.text' of net/built-in.o
-> > `iriap_cleanup' referenced in section `.init.text' of net/built-in.o:
-> > defined in discarded section `.exit.text' of net/built-in.o
-> > `irda_device_cleanup' referenced in section `.init.text' of
-> > net/built-in.o: defined in discarded section `.exit.text' of
-> > net/built-in.o
-> > `irlap_cleanup' referenced in section `.init.text' of net/built-in.o:
-> > defined in discarded section `.exit.text' of net/built-in.o
-> > `irlmp_cleanup' referenced in section `.init.text' of net/built-in.o:
-> > defined in discarded section `.exit.text' of net/built-in.o
-> > make[1]: *** [.tmp_vmlinux1] Error 1
-> > make: *** [_all] Error 2
-> > 
-> > This is due to the irda_init fix recently added, where we call __exit
-> > routines from an __init one. It is a build failure that I didn't catch
-> > because it doesn't show up when building IrDA as a module. My apologies
-> > for that.
-> I forgot to mention that the build fails on ARM but not on x86. As Sam
-> explained to me, x86 discards exit sections at runtime only, unlike ARM.
-> I don't know about other platforms though.
-> 
-> So, to hit this build failure, you need a combination of !x86 and
-> built-in IrDA.
+YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E wrote:
+> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
-On i386 these are runtime failures (although in unlikely error paths) 
-which isn't better.
+applied all four patches
 
-> Cheers,
-> Samuel.
-
-cu
-Adrian
-
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
 
