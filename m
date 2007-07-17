@@ -1,47 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [NET]: gen_estimator deadlock fix
-Date: Mon, 16 Jul 2007 18:28:53 -0700 (PDT)
-Message-ID: <20070716.182853.121295652.davem@davemloft.net>
-References: <20070716070032.GA1871@ff.dom.local>
-	<469B6CA4.9030205@trash.net>
-	<1184607905.18564.50.camel@ranko-fc2.spidernet.net>
+Subject: Re: [PATCH 1/7][ATM]: Replacing kmalloc/memset combination with
+ kzalloc.
+Date: Mon, 16 Jul 2007 18:31:01 -0700 (PDT)
+Message-ID: <20070716.183101.35508853.davem@davemloft.net>
+References: <200707161629.l6GGTh3U009254@cmf.nrl.navy.mil>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, jarkao2@o2.pl, netdev@vger.kernel.org
-To: ranko@spidernet.net
+Cc: netdev@vger.kernel.org
+To: chas@cmf.nrl.navy.mil
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42931
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42936
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756797AbXGQB2v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jul 2007 21:28:51 -0400
-In-Reply-To: <1184607905.18564.50.camel@ranko-fc2.spidernet.net>
+	by vger.kernel.org with ESMTP id S1752232AbXGQBa7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jul 2007 21:30:59 -0400
+In-Reply-To: <200707161629.l6GGTh3U009254@cmf.nrl.navy.mil>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ranko Zivojnovic <ranko@spidernet.net>
-Date: Mon, 16 Jul 2007 20:45:05 +0300
+From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
+Date: Mon, 16 Jul 2007 12:29:43 -0400
 
-> [NET] gen_estimator deadlock fix
+> [ATM]: Replacing kmalloc/memset combination with kzalloc.
 > 
-> -Fixes ABBA deadlock noted by Patrick McHardy <kaber@trash.net>:
-> 
-> > There is at least one ABBA deadlock, est_timer() does:
-> > read_lock(&est_lock)
-> > spin_lock(e->stats_lock) (which is dev->queue_lock)
-> >
-> > and qdisc_destroy calls htb_destroy under dev->queue_lock, which
-> > calls htb_destroy_class, then gen_kill_estimator and this
-> > write_locks est_lock.
-> 
-> To fix the ABBA deadlock the rate estimators are now kept on an rcu list.
-> 
-> -The est_lock changes the use from protecting the list to protecting
-> the update to the 'bstat' pointer in order to avoid NULL dereferencing.
-> 
-> -The 'interval' member of the gen_estimator structure removed as it is
-> not needed.
-> 
-> Signed-off-by: Ranko Zivojnovic <ranko@spidernet.net>
+> Signed-off-by: vignesh babu <vignesh.babu@wipro.com>
+> Signed-off-by: chas williams <chas@cmf.nrl.navy.mil>
 
-Applied, thanks.
+I had to apply this patch by hand because sch_atm.c has
+changed considerably in the current tree.
+
+But applied nonetheless, thanks.
