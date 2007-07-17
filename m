@@ -1,70 +1,47 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [patch 2/3] netlink: allow removing multicast groups
-Date: Tue, 17 Jul 2007 17:50:25 +0200
-Message-ID: <469CE541.9090708@trash.net>
-References: <20070717122706.899784000@sipsolutions.net> <20070717123643.626951000@sipsolutions.net>
+Subject: Re: [PATCH net-2.6.22-rc7] xfrm beet interfamily support
+Date: Tue, 17 Jul 2007 18:00:19 +0200
+Message-ID: <469CE793.7020903@trash.net>
+References: <200707161506.47915.joakim.koskela@hiit.fi> <469BBD4C.5040503@trash.net> <200707171730.21655.joakim.koskela@hiit.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Zhang Rui <rui.zhang@intel.com>, jamal <hadi@cyberus.ca>
-To: Johannes Berg <johannes@sipsolutions.net>
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: joakim.koskela@hiit.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:47505 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:47705 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S935361AbXGQPub (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2007 11:50:31 -0400
-In-Reply-To: <20070717123643.626951000@sipsolutions.net>
+	with ESMTP id S1752976AbXGQQA0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2007 12:00:26 -0400
+In-Reply-To: <200707171730.21655.joakim.koskela@hiit.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Johannes Berg wrote:
-> +static void netlink_update_socket_mc(struct netlink_sock *nlk,
-> +				     unsigned int group,
-> +				     int is_new)
-> +{
-> +	int old, new = !!is_new, subscriptions;
-> +
-> +	netlink_table_grab();
-
-
-Having the caller lock the table would save lots of atomic operation
-in case of netlink_clear_multicast_users.
-
-> +	old = test_bit(group - 1, nlk->groups);
-> +	subscriptions = nlk->subscriptions - old + new;
-> +	if (new)
-> +		__set_bit(group - 1, nlk->groups);
-> +	else
-> +		__clear_bit(group - 1, nlk->groups);
-> +	netlink_update_subscriptions(&nlk->sk, subscriptions);
-> +	netlink_update_listeners(&nlk->sk);
-> +	netlink_table_ungrab();
-> +}
-> +
-
-> +void netlink_clear_multicast_users(int unit, unsigned int group)
-
-Same as in the last patch, passing the kernel socket would be nicer IMO.
-
-> +{
-> +	struct sock *sk;
-> +	struct hlist_node *node;
-> +
-> +	read_lock(&nl_table_lock);
-
-Won't this deadlock? netlink_table_grab takes a write-lock.
-
-> +
-> +	sk_for_each_bound(sk, node, &nl_table[unit].mc_list)
-> +		netlink_update_socket_mc(nlk_sk(sk), group, 0);
-> +
-> +	read_unlock(&nl_table_lock);
-> +}
-> +EXPORT_SYMBOL(netlink_clear_multicast_users);
-> +
->  void netlink_set_nonroot(int protocol, unsigned int flags)
->  {
->  	if ((unsigned int)protocol < MAX_LINKS)
+Joakim Koskela wrote:
+> On Monday 16 July 2007 21:47:40 Patrick McHardy wrote:
 > 
+>>>diff --git a/net/ipv4/xfrm4_output.c b/net/ipv4/xfrm4_output.c
+>>>index 44ef208..8db7910 100644
+>>>--- a/net/ipv4/xfrm4_output.c
+>>>+++ b/net/ipv4/xfrm4_output.c
+>>>@@ -53,7 +53,8 @@ static int xfrm4_output_one(struct sk_buff *skb)
+>>> 			goto error_nolock;
+>>> 	}
+>>>
+>>>-	if (x->props.mode == XFRM_MODE_TUNNEL) {
+>>>+	if (x->props.mode == XFRM_MODE_TUNNEL ||
+>>>+	    x->props.mode == XFRM_MODE_BEET) {
+>>> 		err = xfrm4_tunnel_check_size(skb);
+>>
+>>Its not a real tunnel and all packets are generated locally, why
+>>does it need to send ICMPs?
+> 
+> 
+> Guess not. I'll have to still trace through, but can probably be removed.
+
+
+Just FYI: it does make a difference with netfilter since packets
+may be NATed to match a policy, but thats a more general problem
+that also affects transport mode and should be dealt with within
+netfilter, possibly by propagating PMTU values amonst dst_entries.
 
