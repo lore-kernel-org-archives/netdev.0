@@ -1,46 +1,35 @@
-From: "Beschorner Daniel" <Daniel.Beschorner@facton.com>
+From: Patrick McHardy <kaber@trash.net>
 Subject: Re: IPSec freeze
-Date: Tue, 17 Jul 2007 21:03:20 +0200
-Message-ID: <3C59DB883F7B0B4D8096010D45ACCD1323024F@exch.facton.local>
-References: <469A3698.5020105@trash.net> <3C59DB883F7B0B4D8096010D45ACCD1323022E@exch.facton.local> <3C59DB883F7B0B4D8096010D45ACCD1323023A@exch.facton.local> <469B7001.3090604@trash.net> <3C59DB883F7B0B4D8096010D45ACCD1323023D@exch.facton.local> <469B7B99.6040402@trash.net> <3C59DB883F7B0B4D8096010D45ACCD13230240@exch.facton.local> <469B878C.1020204@trash.net> <469B8C47.3030306@trash.net> <3C59DB883F7B0B4D8096010D45ACCD13230242@exch.facton.local> <469BB50C.10203@trash.net> <469CE9E5.7040003@trash.net>
+Date: Tue, 17 Jul 2007 23:45:41 +0200
+Message-ID: <469D3885.7070208@trash.net>
+References: <469A3698.5020105@trash.net> <3C59DB883F7B0B4D8096010D45ACCD1323022E@exch.facton.local> <3C59DB883F7B0B4D8096010D45ACCD1323023A@exch.facton.local> <469B7001.3090604@trash.net> <3C59DB883F7B0B4D8096010D45ACCD1323023D@exch.facton.local> <469B7B99.6040402@trash.net> <3C59DB883F7B0B4D8096010D45ACCD13230240@exch.facton.local> <469B878C.1020204@trash.net> <469B8C47.3030306@trash.net> <3C59DB883F7B0B4D8096010D45ACCD13230242@exch.facton.local> <469BB50C.10203@trash.net> <469CE9E5.7040003@trash.net> <3C59DB883F7B0B4D8096010D45ACCD1323024F@exch.facton.local>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, "Eric Dumazet" <dada1@cosmosbay.com>
-To: "Patrick McHardy" <kaber@trash.net>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Eric Dumazet <dada1@cosmosbay.com>
+To: Beschorner Daniel <Daniel.Beschorner@facton.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alpha.facton.com ([83.236.152.122]:41874 "EHLO alpha.facton.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934008AbXGQTzt convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2007 15:55:49 -0400
-Content-class: urn:content-classes:message
-In-reply-to: <469CE9E5.7040003@trash.net>
+Received: from stinky.trash.net ([213.144.137.162]:53933 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S936945AbXGQVpz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2007 17:45:55 -0400
+In-Reply-To: <3C59DB883F7B0B4D8096010D45ACCD1323024F@exch.facton.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> >>> I managed to reproduce a crash with ipcomp, will try to 
-> fix it later.
-> >>>       
-> >> Yes, I can confirm this.
-> >> After disabling IPComp the crashes went away.
-> >>     
-> > The crash happens in xfrm_bundle_ok when walking the bundle upwards
-> > following xfrm_dst->u.next. The loop should be stopped when
-> > xfrm_dst->u.next == first (the topmost xfrm_dst), but it points to
-> > NULL instead. I'm pretty sure the attached patch is responsible,
-> > it breaks XFRM's assumption that dst->next and xfrm_dst->u.next are
-> > the same pointer and xfrm_dst now shares the next pointer with
-> > rcu_head.next in struct dst_entry.
-> >
-> > Eric, could you look into this please?
+Beschorner Daniel wrote:
+>>I fixed it myself. Daniel, can you please test this patch?
 > 
-> I fixed it myself. Daniel, can you please test this patch?
+> 
+> Many thanks Patrick!!!
+> I tested it and found it working!
 
-Many thanks Patrick!!!
-I tested it and found it working!
 
-No more crashes with IPComp and smaller PMTUs.
-But the "pmtu discovery on SA ESP/..." messages don't disappear.
+Thanks for testing.
 
-Daniel
+> No more crashes with IPComp and smaller PMTUs.
+> But the "pmtu discovery on SA ESP/..." messages don't disappear.
+
+
+Thats probably a different issue. Please post the output of
+"ip -x xfrm state" (obfuscate keys if you care ..).
