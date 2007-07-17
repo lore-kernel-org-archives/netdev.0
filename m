@@ -1,61 +1,76 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 2.6.22-rc7 0/4] phy/gianfar: Fixes for gianfar and vitesse
- RGMII-ID support
-Date: Tue, 17 Jul 2007 01:07:07 -0400
-Message-ID: <469C4E7B.6050401@garzik.org>
-References: <1184635621688-git-send-email-afleming@freescale.com>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: Re: [irda-users] [PATCH] [IrDA] Fix IrDA build failure
+Date: Tue, 17 Jul 2007 07:08:12 +0200
+Message-ID: <20070717050812.GA3801@stusta.de>
+References: <20070716111715.GB22757@mail.solidboot.com> <20070716130052.GC22757@mail.solidboot.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: paulus@samba.org, galak@kernel.crashing.org,
-	netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
-To: Andy Fleming <afleming@freescale.com>
+Content-Type: text/plain; charset=utf-8
+Cc: davem@davemloft.net, sam@ravnborg.org, stable@kernel.org,
+	eric.y.miao@gmail.com, irda-users@lists.sourceforge.net,
+	netdev@vger.kernel.org
+To: Samuel Ortiz <samuel.ortiz@solidboot.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:40626 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751755AbXGQFHP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Jul 2007 01:07:15 -0400
-In-Reply-To: <1184635621688-git-send-email-afleming@freescale.com>
+Received: from mailout.stusta.mhn.de ([141.84.69.5]:35189 "EHLO
+	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753318AbXGQFIv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2007 01:08:51 -0400
+Content-Disposition: inline
+In-Reply-To: <20070716130052.GC22757@mail.solidboot.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andy Fleming wrote:
-> A few bugs in the Vitesse PHY driver were found on the 8641D HPCN board.
-> Originally, they were masked by a bug in the PHY Lib which was fixed by patch 
-> 5f708dd91d15876e26d7a57f97a255cedffca463 (Fix phy_id for Vitesse 824x PHY).
-> That patch allowed the Vitesse PHY to bind on the 8641D HPCN board, thereby
-> exposing a bug in the interrupt handling and a bug in the configuration of
-> the PHY.  This sequence of patches fixes the irq handling bug, then fixes 
-> the configuration bug in 3 places:
+On Mon, Jul 16, 2007 at 04:00:52PM +0300, Samuel Ortiz wrote:
+> On Mon, Jul 16, 2007 at 02:17:15PM +0300, Samuel Ortiz wrote:
+> > Hi Dave,
+> > 
+> > When having built-in IrDA, we hit the following error:
+> > 
+> > `irda_sysctl_unregister' referenced in section `.init.text' of
+> > net/built-in.o: defined in discarded section `.exit.text' of
+> > net/built-in.o
+> > `irda_proc_unregister' referenced in section `.init.text' of
+> > net/built-in.o: defined in discarded section `.exit.text' of
+> > net/built-in.o
+> > `irsock_cleanup' referenced in section `.init.text' of net/built-in.o:
+> > defined in discarded section `.exit.text' of net/built-in.o
+> > `irttp_cleanup' referenced in section `.init.text' of net/built-in.o:
+> > defined in discarded section `.exit.text' of net/built-in.o
+> > `iriap_cleanup' referenced in section `.init.text' of net/built-in.o:
+> > defined in discarded section `.exit.text' of net/built-in.o
+> > `irda_device_cleanup' referenced in section `.init.text' of
+> > net/built-in.o: defined in discarded section `.exit.text' of
+> > net/built-in.o
+> > `irlap_cleanup' referenced in section `.init.text' of net/built-in.o:
+> > defined in discarded section `.exit.text' of net/built-in.o
+> > `irlmp_cleanup' referenced in section `.init.text' of net/built-in.o:
+> > defined in discarded section `.exit.text' of net/built-in.o
+> > make[1]: *** [.tmp_vmlinux1] Error 1
+> > make: *** [_all] Error 2
+> > 
+> > This is due to the irda_init fix recently added, where we call __exit
+> > routines from an __init one. It is a build failure that I didn't catch
+> > because it doesn't show up when building IrDA as a module. My apologies
+> > for that.
+> I forgot to mention that the build fails on ARM but not on x86. As Sam
+> explained to me, x86 discards exit sections at runtime only, unlike ARM.
+> I don't know about other platforms though.
 > 
-> 1) The Vitesse PHY driver
-> 2) The gianfar driver (needs to pass in the mode correctly for internal delay)
-> 3) The OF device tree for arch/powerpc boards
-> 
-> You can apply the following patches, or pull them directly:
-> 
-> The following changes since commit c5e3ae8823693b260ce1f217adca8add1bc0b3de:
->   Ayaz Abdulla (1):
->         forcedeth bug fix: realtek phy
-> 
-> are found in the git repository at:
-> 
->   http://opensource.freescale.com/pub/scm/linux-2.6-85xx.git netdev
-> 
-> Andy Fleming (4):
->       Fix Vitesse 824x PHY interrupt acking
->       Add phy-connection-type to gianfar nodes
->       Fix Vitesse RGMII-ID support
->       Fix RGMII-ID handling in gianfar
-> 
->  Documentation/powerpc/booting-without-of.txt |    6 +++
->  arch/powerpc/boot/dts/mpc8641_hpcn.dts       |    4 ++
->  arch/powerpc/sysdev/fsl_soc.c                |    9 +++++
->  drivers/net/gianfar.c                        |   12 ++++++-
->  drivers/net/phy/vitesse.c                    |   46 +++++++++++++++++++++++---
->  include/linux/fsl_devices.h                  |    1 +
->  6 files changed, 72 insertions(+), 6 deletions(-)
+> So, to hit this build failure, you need a combination of !x86 and
+> built-in IrDA.
 
-pulled
+On i386 these are runtime failures (although in unlikely error paths) 
+which isn't better.
 
+> Cheers,
+> Samuel.
+
+cu
+Adrian
+
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
 
