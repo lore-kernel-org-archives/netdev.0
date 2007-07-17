@@ -1,29 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 7/7][ATM]: [idt77252] Rename
- CONFIG_ATM_IDT77252_SEND_IDLE to not resemble a Kconfig variable
-Date: Mon, 16 Jul 2007 18:35:18 -0700 (PDT)
-Message-ID: <20070716.183518.108810442.davem@davemloft.net>
-References: <200707161631.l6GGVxsS009402@cmf.nrl.navy.mil>
+Subject: Re: [PATCH] TCP: remove unused argument to cong_avoid op
+Date: Mon, 16 Jul 2007 18:36:04 -0700 (PDT)
+Message-ID: <20070716.183604.78383718.davem@davemloft.net>
+References: <20070716161951.65453706@oldman>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: chas@cmf.nrl.navy.mil
+To: shemminger@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38443
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38446
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751095AbXGQBfQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jul 2007 21:35:16 -0400
-In-Reply-To: <200707161631.l6GGVxsS009402@cmf.nrl.navy.mil>
+	by vger.kernel.org with ESMTP id S1752300AbXGQBgB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jul 2007 21:36:01 -0400
+In-Reply-To: <20070716161951.65453706@oldman>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
-Date: Mon, 16 Jul 2007 12:31:59 -0400
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Date: Mon, 16 Jul 2007 16:19:51 +0100
 
-> [ATM]: [idt77252] Rename CONFIG_ATM_IDT77252_SEND_IDLE to not resemble a Kconfig variable
+> None of the existing TCP congestion controls use the rtt value pased
+> in the ca_ops->cong_avoid interface.  Which is lucky because seq_rtt
+> could have been -1 when handling a duplicate ack.
 > 
-> Signed-off-by: Robert P. J. Day <rpjday@mindspring.com>
-> Signed-off-by: chas williams <chas@cmf.nrl.navy.mil>
+> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
-Also applied, thanks.
+Looks good, applied, thanks Stephen.
