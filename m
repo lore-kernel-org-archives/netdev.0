@@ -1,8 +1,8 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [patch 1/3] netlink: allocate group bitmaps dynamically
-Date: Tue, 17 Jul 2007 17:45:53 +0200
-Message-ID: <469CE431.9070705@trash.net>
-References: <20070717122706.899784000@sipsolutions.net> <20070717123642.918587000@sipsolutions.net>
+Subject: Re: [patch 2/3] netlink: allow removing multicast groups
+Date: Tue, 17 Jul 2007 17:50:25 +0200
+Message-ID: <469CE541.9090708@trash.net>
+References: <20070717122706.899784000@sipsolutions.net> <20070717123643.626951000@sipsolutions.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
@@ -10,101 +10,61 @@ Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
 	Zhang Rui <rui.zhang@intel.com>, jamal <hadi@cyberus.ca>
 To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:47408 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:47505 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S935026AbXGQPqA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2007 11:46:00 -0400
-In-Reply-To: <20070717123642.918587000@sipsolutions.net>
+	with ESMTP id S935361AbXGQPub (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2007 11:50:31 -0400
+In-Reply-To: <20070717123643.626951000@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Johannes Berg wrote:
-> Allow changing the number of groups for a netlink family
-> after it has been created, use RCU to protect the listeners
-> bitmap keeping netlink_has_listeners() lock-free.
-> 
-> Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
-> 
-> ---
->  include/linux/netlink.h  |    1 
->  net/netlink/af_netlink.c |   86 +++++++++++++++++++++++++++++++++++------------
->  2 files changed, 66 insertions(+), 21 deletions(-)
-> 
-> --- wireless-dev.orig/net/netlink/af_netlink.c	2007-07-17 14:05:30.210964463 +0200
-> +++ wireless-dev/net/netlink/af_netlink.c	2007-07-17 14:05:30.720964463 +0200
-> -static int netlink_alloc_groups(struct sock *sk)
-> +static int netlink_realloc_groups(struct sock *sk)
->  {
->  	struct netlink_sock *nlk = nlk_sk(sk);
->  	unsigned int groups;
-> +	unsigned long *new_groups;
->  	int err = 0;
->  
->  	netlink_lock_table();
-
-
-This is actually a bug in the current code I think, netlink_lock_table
-is a reader lock.
-
->  	groups = nl_table[sk->sk_protocol].groups;
->  	if (!nl_table[sk->sk_protocol].registered)
->  		err = -ENOENT;
-> -	netlink_unlock_table();
->  
->  	if (err)
-> -		return err;
-> +		goto out_unlock;
->  
-> -	nlk->groups = kzalloc(NLGRPSZ(groups), GFP_KERNEL);
-> -	if (nlk->groups == NULL)
-> -		return -ENOMEM;
-> +	if (nlk->ngroups >= groups)
-> +		goto out_unlock;
-> +
-> +	new_groups = krealloc(nlk->groups, NLGRPSZ(groups), GFP_KERNEL);
-> +	if (new_groups == NULL) {
-> +		err = -ENOMEM;
-> +		goto out_unlock;
-> +	}
-> +	memset((char*)new_groups + NLGRPSZ(nlk->ngroups), 0,
-> +	       NLGRPSZ(groups) - NLGRPSZ(nlk->ngroups));
-> +
-> +	nlk->groups = new_groups;
->  	nlk->ngroups = groups;
-> -	return 0;
-> + out_unlock:
-> +	netlink_unlock_table();
-> +	return err;
->  }
-
-
-> +int netlink_change_ngroups(int unit, unsigned int groups)
-
-
-I think it would be more consistent to pass the kernel socket
-instead of the unit.
-
+> +static void netlink_update_socket_mc(struct netlink_sock *nlk,
+> +				     unsigned int group,
+> +				     int is_new)
 > +{
-> +	unsigned long *listeners, old = NULL;
-> +	int err = 0;
+> +	int old, new = !!is_new, subscriptions;
 > +
 > +	netlink_table_grab();
-> +	if (NLGRPSZ(nl_table[unit].groups) < NLGRPSZ(groups)) {
-> +		listeners = kzalloc(NLGRPSZ(groups), GFP_ATOMIC);
-> +		if (!listeners) {
-> +			err = -ENOMEM;
-> +			goto out_ungrab;
-> +		}
-> +		old = nl_table[unit].listeners;
-> +		memcpy(listeners, old, NLGRPSZ(nl_table[unit].groups));
-> +		rcu_assign_pointer(nl_table[unit].listeners, listeners);
-> +	}
-> +	nl_table[unit].groups = groups;
 
 
-This might set the group to a value < 32. I don't expect it matters,
-but when I changed to old code to support > 32 groups I enforced
-a minimum of 32 so anything outside the kernel multicasting on them
-would still work (even though its a really stupid idea). So for
-consistency this should probably also use a minimum of 32.
+Having the caller lock the table would save lots of atomic operation
+in case of netlink_clear_multicast_users.
+
+> +	old = test_bit(group - 1, nlk->groups);
+> +	subscriptions = nlk->subscriptions - old + new;
+> +	if (new)
+> +		__set_bit(group - 1, nlk->groups);
+> +	else
+> +		__clear_bit(group - 1, nlk->groups);
+> +	netlink_update_subscriptions(&nlk->sk, subscriptions);
+> +	netlink_update_listeners(&nlk->sk);
+> +	netlink_table_ungrab();
+> +}
+> +
+
+> +void netlink_clear_multicast_users(int unit, unsigned int group)
+
+Same as in the last patch, passing the kernel socket would be nicer IMO.
+
+> +{
+> +	struct sock *sk;
+> +	struct hlist_node *node;
+> +
+> +	read_lock(&nl_table_lock);
+
+Won't this deadlock? netlink_table_grab takes a write-lock.
+
+> +
+> +	sk_for_each_bound(sk, node, &nl_table[unit].mc_list)
+> +		netlink_update_socket_mc(nlk_sk(sk), group, 0);
+> +
+> +	read_unlock(&nl_table_lock);
+> +}
+> +EXPORT_SYMBOL(netlink_clear_multicast_users);
+> +
+>  void netlink_set_nonroot(int protocol, unsigned int flags)
+>  {
+>  	if ((unsigned int)protocol < MAX_LINKS)
+> 
 
