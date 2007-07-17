@@ -1,104 +1,72 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: IPSec freeze
-Date: Tue, 17 Jul 2007 18:10:13 +0200
-Message-ID: <469CE9E5.7040003@trash.net>
-References: <469A3698.5020105@trash.net> <3C59DB883F7B0B4D8096010D45ACCD1323022E@exch.facton.local> <3C59DB883F7B0B4D8096010D45ACCD1323023A@exch.facton.local> <469B7001.3090604@trash.net> <3C59DB883F7B0B4D8096010D45ACCD1323023D@exch.facton.local> <469B7B99.6040402@trash.net> <3C59DB883F7B0B4D8096010D45ACCD13230240@exch.facton.local> <469B878C.1020204@trash.net> <469B8C47.3030306@trash.net> <3C59DB883F7B0B4D8096010D45ACCD13230242@exch.facton.local> <469BB50C.10203@trash.net>
-Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------090300080202010900060302"
-Cc: netdev@vger.kernel.org, Eric Dumazet <dada1@cosmosbay.com>
-To: Beschorner Daniel <Daniel.Beschorner@facton.com>
+From: <gregkh@suse.de>
+Subject: patch pci-quirk_e100_interrupt-called-too-early.patch added to gregkh-2.6 tree
+Date: Tue, 17 Jul 2007 10:21:08 -0700
+Message-ID: <20070717172109.0DA7614540D0@imap.suse.de>
+References: <468A10D6.2020900@semihalf.com>
+To: m8@semihalf.com, auke-jan.h.kok@intel.com, gregkh@suse.de,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:47936 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759751AbXGQQNM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2007 12:13:12 -0400
-In-Reply-To: <469BB50C.10203@trash.net>
+Received: from ns2.suse.de ([195.135.220.15]:51373 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752718AbXGQRVN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Jul 2007 13:21:13 -0400
+In-Reply-To: <468A10D6.2020900@semihalf.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------090300080202010900060302
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
 
-Patrick McHardy wrote:
-> Beschorner Daniel wrote:
->   
->>> I managed to reproduce a crash with ipcomp, will try to fix it later.
->>>       
->> Yes, I can confirm this.
->> After disabling IPComp the crashes went away.
->>     
->
->
-> The crash happens in xfrm_bundle_ok when walking the bundle upwards
-> following xfrm_dst->u.next. The loop should be stopped when
-> xfrm_dst->u.next == first (the topmost xfrm_dst), but it points to
-> NULL instead. I'm pretty sure the attached patch is responsible,
-> it breaks XFRM's assumption that dst->next and xfrm_dst->u.next are
-> the same pointer and xfrm_dst now shares the next pointer with
-> rcu_head.next in struct dst_entry.
->
-> Eric, could you look into this please?
+This is a note to let you know that I've just added the patch titled
 
-I fixed it myself. Daniel, can you please test this patch?
+     Subject: [PATCH] PCI: quirk_e100_interrupt() called too early
+
+to my gregkh-2.6 tree.  Its filename is
+
+     pci-quirk_e100_interrupt-called-too-early.patch
+
+This tree can be found at 
+    http://www.kernel.org/pub/linux/kernel/people/gregkh/gregkh-2.6/patches/
 
 
+>From owner-linux-pci@atrey.karlin.mff.cuni.cz Tue Jul  3 02:03:55 2007
+From: Marian Balakowicz <m8@semihalf.com>
+Date: Tue, 03 Jul 2007 11:03:18 +0200
+Subject: [PATCH] PCI: quirk_e100_interrupt() called too early
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Cc: bjorn.helgaas@hp.com, linux-pci@atrey.karlin.mff.cuni.cz, len.brown@intel.com, NetDev <netdev@vger.kernel.org>
+Message-ID: <468A10D6.2020900@semihalf.com>
 
 
---------------090300080202010900060302
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
+quirk_e100_interrupts() is called after PCI controller is initialized
+and before PCI bus enumeration is performed. On some powerpc platforms
+which modify PCI controller configuration and set different MEM and IO
+windows than those set by firmware quirk_e100_interrupt() is causing
+kernel panic as it tries to read from device BAR0 offets which at this
+time points to a invalid PCI window (set by firmware).
 
-[XFRM]: Fix crash introduced by struct dst_entry reordering
+This patch delays the quirk_100_interrupt() to pci_fixup_final phase,
+which happens after bus enumeration and before PCI enable and
+device driver initialization.
 
-XFRM expects xfrm_dst->u.next to be same pointer as dst->next, which
-was broken by the dst_entry reordering in commit 1e19e02c~, causing
-an oops in xfrm_bundle_ok when walking the bundle upwards.
-
-Kill xfrm_dst->u.next and change the only user to use dst->next instead.
-
-Signed-off-by: Patrick McHardy <kaber@trash.net>
+Signed-off-by: Marian Balakowicz <m8@semihalf.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
 
 ---
-commit 20c2fee8cc562817f11752e1d87350d5994fa098
-tree f42318b847e962aa637136e94722a688c231111a
-parent 308ac1b6249226730b70fcf7c13a289c27ce2bf3
-author Patrick McHardy <kaber@trash.net> Tue, 17 Jul 2007 18:11:29 +0200
-committer Patrick McHardy <kaber@trash.net> Tue, 17 Jul 2007 18:11:29 +0200
+ drivers/pci/quirks.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
- include/net/xfrm.h     |    1 -
- net/xfrm/xfrm_policy.c |    2 +-
- 2 files changed, 1 insertions(+), 2 deletions(-)
-
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index ae959e9..a5f80bf 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -585,7 +585,6 @@ static inline int xfrm_sec_ctx_match(struct xfrm_sec_ctx *s1, struct xfrm_sec_ct
- struct xfrm_dst
+--- a/drivers/pci/quirks.c
++++ b/drivers/pci/quirks.c
+@@ -1485,7 +1485,7 @@ static void __devinit quirk_e100_interru
+ 
+ 	iounmap(csr);
+ }
+-DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, PCI_ANY_ID, quirk_e100_interrupt);
++DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_INTEL, PCI_ANY_ID, quirk_e100_interrupt);
+ 
+ static void __devinit fixup_rev1_53c810(struct pci_dev* dev)
  {
- 	union {
--		struct xfrm_dst		*next;
- 		struct dst_entry	dst;
- 		struct rtable		rt;
- 		struct rt6_info		rt6;
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 157bfbd..b48f06f 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -2141,7 +2141,7 @@ int xfrm_bundle_ok(struct xfrm_policy *pol, struct xfrm_dst *first,
- 		if (last == first)
- 			break;
- 
--		last = last->u.next;
-+		last = (struct xfrm_dst *)last->u.dst.next;
- 		last->child_mtu_cached = mtu;
- 	}
- 
 
---------------090300080202010900060302--
+
+Patches currently in gregkh-2.6 which might be from m8@semihalf.com are
+
+pci/pci-quirk_e100_interrupt-called-too-early.patch
