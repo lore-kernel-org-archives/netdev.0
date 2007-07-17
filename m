@@ -1,233 +1,115 @@
-From: Brian King <brking@linux.vnet.ibm.com>
-Subject: [PATCH 1/4] ibmveth: Enable TCP checksum offload
-Date: Tue, 17 Jul 2007 10:17:51 -0500
-Message-ID: <36172.3840506331$1184685531@news.gmane.org>
+From: Joakim Koskela <joakim.koskela@hiit.fi>
+Subject: Re: [PATCH net-2.6.22-rc7] xfrm beet interfamily support
+Date: Tue, 17 Jul 2007 17:30:21 +0300
+Message-ID: <200707171730.21655.joakim.koskela@hiit.fi>
+References: <200707161506.47915.joakim.koskela@hiit.fi> <469BBD4C.5040503@trash.net>
+Reply-To: joakim.koskela@hiit.fi
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, rcjenn@linux.vnet.ibm.com,
-	brking@linux.vnet.ibm.com, netdev@vger.kernel.org
-To: santil@linux.vnet.ibm.com
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from pne-smtpout4-sn2.hy.skanova.net ([81.228.8.154]:54021 "EHLO
+	pne-smtpout4-sn2.hy.skanova.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S934910AbXGQPof (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2007 11:44:35 -0400
+In-Reply-To: <469BBD4C.5040503@trash.net>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Monday 16 July 2007 21:47:40 Patrick McHardy wrote:
+>
+> I lost interest here, but the reintroduced bugs make me think that
+> some old version was simply rediffed without even checking the
+> output and the state initialization also seems to need a bit more work.
+>
 
-This patchset enables TCP checksum offload support for IPV4
-on ibmveth. This completely eliminates the generation and checking of
-the checksum for packets that are completely virtual and never
-touch a physical network. A simple TCP_STREAM netperf run on
-a virtual network with maximum mtu set yielded a ~30% increase
-in throughput. This feature is enabled by default on systems that
-support it, but can be disabled with a module option.
+Thanks for reviewing the code, really appreciate it (whoa, would have been a 
+lot of problems [re-]introduced)! And yes, you're right - it seemed at the 
+time easier to just convert the old code to run in the new kernel as it's 
+been working fine for us. Quickly scanned the existing (non-interfamily) beet 
+implementation, but I guess not thoroughly enough. Anyway, merged back the 
+latest non-interfamily versions and rolling with those now. Should have a 
+fixed version ready soon..
 
-Signed-off-by: Brian King <brking@linux.vnet.ibm.com>
----
+Some other comments:
 
- linux-2.6-bjking1/drivers/net/ibmveth.c |   58 ++++++++++++++++++++++++++++++++
- linux-2.6-bjking1/drivers/net/ibmveth.h |   41 +++++++++++++++++++++-
- 2 files changed, 97 insertions(+), 2 deletions(-)
+> Joakim Koskela wrote:
+> > diff --git a/net/ipv4/xfrm4_input.c b/net/ipv4/xfrm4_input.c
+> > index fa1902d..7a39f4c 100644
+> > --- a/net/ipv4/xfrm4_input.c
+> > +++ b/net/ipv4/xfrm4_input.c
+> > @@ -108,7 +108,8 @@ int xfrm4_rcv_encap(struct sk_buff *skb, __u16
+> > encap_type) if (x->mode->input(x, skb))
+> >  			goto drop;
+> >
+> > -		if (x->props.mode == XFRM_MODE_TUNNEL) {
+> > +		if (x->props.mode == XFRM_MODE_TUNNEL ||
+> > +		    x->props.mode == XFRM_MODE_BEET) {
+> >  			decaps = 1;
+> >  			break;
+> >  		}
+>
+> I was under the impression that one of the main points of BEET is that
+> it offers tunnel semantics but does only transport mode processing.
+> Its necessary for inter-family tunnels, but shouldn't this be avoided
+> for normal use?
+>
 
-diff -puN drivers/net/ibmveth.c~ibmveth_csum_offload drivers/net/ibmveth.c
---- linux-2.6/drivers/net/ibmveth.c~ibmveth_csum_offload	2007-07-12 08:27:47.000000000 -0500
-+++ linux-2.6-bjking1/drivers/net/ibmveth.c	2007-07-12 09:35:55.000000000 -0500
-@@ -47,6 +47,8 @@
- #include <linux/mm.h>
- #include <linux/ethtool.h>
- #include <linux/proc_fs.h>
-+#include <linux/in.h>
-+#include <linux/ip.h>
- #include <asm/semaphore.h>
- #include <asm/hvcall.h>
- #include <asm/atomic.h>
-@@ -103,12 +105,15 @@ static struct proc_dir_entry *ibmveth_pr
- 
- static const char ibmveth_driver_name[] = "ibmveth";
- static const char ibmveth_driver_string[] = "IBM i/pSeries Virtual Ethernet Driver";
-+static unsigned int ibmveth_csum_offload = 1;
- #define ibmveth_driver_version "1.03"
- 
- MODULE_AUTHOR("Santiago Leon <santil@us.ibm.com>");
- MODULE_DESCRIPTION("IBM i/pSeries Virtual Ethernet Driver");
- MODULE_LICENSE("GPL");
- MODULE_VERSION(ibmveth_driver_version);
-+module_param_named(csum_offload, ibmveth_csum_offload, uint, 0);
-+MODULE_PARM_DESC(csum_offload, "Checksum offload (0/1). Default: 1");
- 
- /* simple methods of getting data from the current rxq entry */
- static inline int ibmveth_rxq_pending_buffer(struct ibmveth_adapter *adapter)
-@@ -131,6 +136,11 @@ static inline int ibmveth_rxq_frame_leng
- 	return (adapter->rx_queue.queue_addr[adapter->rx_queue.index].length);
- }
- 
-+static inline int ibmveth_rxq_csum_good(struct ibmveth_adapter *adapter)
-+{
-+	return (adapter->rx_queue.queue_addr[adapter->rx_queue.index].csum_good);
-+}
-+
- /* setup the initial settings for a buffer pool */
- static void ibmveth_init_buffer_pool(struct ibmveth_buff_pool *pool, u32 pool_index, u32 pool_size, u32 buff_size, u32 pool_active)
- {
-@@ -684,6 +694,24 @@ static int ibmveth_start_xmit(struct sk_
- 					desc[0].fields.length, DMA_TO_DEVICE);
- 	desc[0].fields.valid   = 1;
- 
-+	if (skb->ip_summed == CHECKSUM_PARTIAL &&
-+	    ip_hdr(skb)->protocol != IPPROTO_TCP && skb_checksum_help(skb)) {
-+		ibmveth_error_printk("tx: failed to checksum packet\n");
-+		tx_dropped++;
-+		goto out;
-+	}
-+
-+	if (skb->ip_summed == CHECKSUM_PARTIAL) {
-+		unsigned char *buf = skb_transport_header(skb) + skb->csum_offset;
-+
-+		desc[0].fields.no_csum = 1;
-+		desc[0].fields.csum_good = 1;
-+
-+		/* Need to zero out the checksum */
-+		buf[0] = 0;
-+		buf[1] = 0;
-+	}
-+
- 	if(dma_mapping_error(desc[0].fields.address)) {
- 		ibmveth_error_printk("tx: unable to map initial fragment\n");
- 		tx_map_failed++;
-@@ -702,6 +730,10 @@ static int ibmveth_start_xmit(struct sk_
- 				frag->size, DMA_TO_DEVICE);
- 		desc[curfrag+1].fields.length = frag->size;
- 		desc[curfrag+1].fields.valid  = 1;
-+		if (skb->ip_summed == CHECKSUM_PARTIAL) {
-+			desc[curfrag+1].fields.no_csum = 1;
-+			desc[curfrag+1].fields.csum_good = 1;
-+		}
- 
- 		if(dma_mapping_error(desc[curfrag+1].fields.address)) {
- 			ibmveth_error_printk("tx: unable to map fragment %d\n", curfrag);
-@@ -792,7 +824,11 @@ static int ibmveth_poll(struct net_devic
- 			} else {
- 				int length = ibmveth_rxq_frame_length(adapter);
- 				int offset = ibmveth_rxq_frame_offset(adapter);
-+				int csum_good = ibmveth_rxq_csum_good(adapter);
-+
- 				skb = ibmveth_rxq_get_buffer(adapter);
-+				if (csum_good)
-+					skb->ip_summed = CHECKSUM_UNNECESSARY;
- 
- 				ibmveth_rxq_harvest_buffer(adapter);
- 
-@@ -962,8 +998,10 @@ static void ibmveth_poll_controller(stru
- static int __devinit ibmveth_probe(struct vio_dev *dev, const struct vio_device_id *id)
- {
- 	int rc, i;
-+	long ret;
- 	struct net_device *netdev;
- 	struct ibmveth_adapter *adapter = NULL;
-+	union ibmveth_illan_attributes set_attr, ret_attr;
- 
- 	unsigned char *mac_addr_p;
- 	unsigned int *mcastFilterSize_p;
-@@ -1058,6 +1096,26 @@ static int __devinit ibmveth_probe(struc
- 
- 	ibmveth_debug_printk("registering netdev...\n");
- 
-+	if (ibmveth_csum_offload) {
-+		ret = h_illan_attributes(dev->unit_address, 0, 0, &ret_attr.desc);
-+
-+		if (ret == H_SUCCESS && !ret_attr.fields.active_trunk &&
-+		    !ret_attr.fields.trunk_priority &&
-+		    ret_attr.fields.csum_offload_padded_pkt_support) {
-+			set_attr.desc = 0;
-+			set_attr.fields.tcp_csum_offload_ipv4 = 1;
-+
-+			ret = h_illan_attributes(dev->unit_address, 0, set_attr.desc,
-+						 &ret_attr.desc);
-+
-+			if (ret == H_SUCCESS)
-+				netdev->features |= NETIF_F_IP_CSUM;
-+			else
-+				ret = h_illan_attributes(dev->unit_address, set_attr.desc,
-+							 0, &ret_attr.desc);
-+		}
-+	}
-+
- 	rc = register_netdev(netdev);
- 
- 	if(rc) {
-diff -puN drivers/net/ibmveth.h~ibmveth_csum_offload drivers/net/ibmveth.h
---- linux-2.6/drivers/net/ibmveth.h~ibmveth_csum_offload	2007-07-12 08:27:47.000000000 -0500
-+++ linux-2.6-bjking1/drivers/net/ibmveth.h	2007-07-12 09:32:54.000000000 -0500
-@@ -67,6 +67,21 @@ static inline long h_send_logical_lan(un
- 	return rc;
- }
- 
-+static inline long h_illan_attributes(unsigned long unit_address,
-+				      unsigned long reset_mask, unsigned long set_mask,
-+				      unsigned long *ret_attributes)
-+{
-+	long rc;
-+	unsigned long retbuf[PLPAR_HCALL_BUFSIZE];
-+
-+	rc = plpar_hcall(H_ILLAN_ATTRIBUTES, retbuf, unit_address,
-+			 reset_mask, set_mask);
-+
-+	*ret_attributes = retbuf[0];
-+
-+	return rc;
-+}
-+
- #define h_multicast_ctrl(ua, cmd, mac) \
-   plpar_hcall_norets(H_MULTICAST_CTRL, ua, cmd, mac)
- 
-@@ -144,7 +159,9 @@ struct ibmveth_adapter {
- struct ibmveth_buf_desc_fields {
-     u32 valid : 1;
-     u32 toggle : 1;
--    u32 reserved : 6;
-+    u32 reserved : 4;
-+    u32 no_csum : 1;
-+    u32 csum_good : 1;
-     u32 length : 24;
-     u32 address;
- };
-@@ -154,10 +171,30 @@ union ibmveth_buf_desc {
-     struct ibmveth_buf_desc_fields fields;
- };
- 
-+struct ibmveth_illan_attributes_fields {
-+	u32 reserved;
-+	u32 reserved2 : 18;
-+	u32 csum_offload_padded_pkt_support : 1;
-+	u32 reserved3 : 1;
-+	u32 trunk_priority : 4;
-+	u32 reserved4 : 5;
-+	u32 tcp_csum_offload_ipv6 : 1;
-+	u32 tcp_csum_offload_ipv4 : 1;
-+	u32 active_trunk : 1;
-+};
-+
-+union ibmveth_illan_attributes {
-+	u64 desc;
-+	struct ibmveth_illan_attributes_fields fields;
-+};
-+
- struct ibmveth_rx_q_entry {
-     u16 toggle : 1;
-     u16 valid : 1;
--    u16 reserved : 14;
-+    u16 reserved : 4;
-+    u16 no_csum : 1;
-+    u16 csum_good : 1;
-+    u16 reserved2 : 8;
-     u16 offset;
-     u32 length;
-     u64 correlator;
-_
+Yes, this is actually quite a nice improvement to the interfamily processing I 
+(at least) haven't thought of before. Tested it & works fine (ipv4-ipv4).
+
+>
+> > diff --git a/net/ipv4/xfrm4_output.c b/net/ipv4/xfrm4_output.c
+> > index 44ef208..8db7910 100644
+> > --- a/net/ipv4/xfrm4_output.c
+> > +++ b/net/ipv4/xfrm4_output.c
+> > @@ -53,7 +53,8 @@ static int xfrm4_output_one(struct sk_buff *skb)
+> >  			goto error_nolock;
+> >  	}
+> >
+> > -	if (x->props.mode == XFRM_MODE_TUNNEL) {
+> > +	if (x->props.mode == XFRM_MODE_TUNNEL ||
+> > +	    x->props.mode == XFRM_MODE_BEET) {
+> >  		err = xfrm4_tunnel_check_size(skb);
+>
+> Its not a real tunnel and all packets are generated locally, why
+> does it need to send ICMPs?
+
+Guess not. I'll have to still trace through, but can probably be removed.
+
+> > +		if (xfrm[i]->props.mode != XFRM_MODE_TRANSPORT) {
+> > +			encap_family = xfrm[i]->props.family;
+> > +			if (encap_family == AF_INET) {
+> > +				remote.in = (struct in_addr *)
+> > +					&xfrm[i]->id.daddr.a4;
+> > +				local.in  = (struct in_addr *)
+> > +					&xfrm[i]->props.saddr.a4;
+> > +			} else if (encap_family == AF_INET6) {
+> > +				remote.in6 = (struct in6_addr *)
+> > +					xfrm[i]->id.daddr.a6;
+> > +				local.in6 = (struct in6_addr *)
+> > +					xfrm[i]->props.saddr.a6;
+> > +			}
+>
+> No ifdefs here?
+
+Thanks for noticing!
+
+> >  static int ipip_init_state(struct xfrm_state *x)
+> >  {
+> > -	if (x->props.mode != XFRM_MODE_TUNNEL)
+> > +	if (x->props.mode != XFRM_MODE_TUNNEL ||
+> > +	    x->props.mode != XFRM_MODE_BEET)
+> >  		return -EINVAL;
+>
+> Looks like a bug fix that should be seperated.
+>
+
+Probably. This has been there for a while, don't know what's the story behind 
+it, have to check..
+
+br, j
