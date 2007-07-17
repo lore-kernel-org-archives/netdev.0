@@ -1,115 +1,110 @@
-From: Joakim Koskela <joakim.koskela@hiit.fi>
-Subject: Re: [PATCH net-2.6.22-rc7] xfrm beet interfamily support
-Date: Tue, 17 Jul 2007 17:30:21 +0300
-Message-ID: <200707171730.21655.joakim.koskela@hiit.fi>
-References: <200707161506.47915.joakim.koskela@hiit.fi> <469BBD4C.5040503@trash.net>
-Reply-To: joakim.koskela@hiit.fi
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [patch 1/3] netlink: allocate group bitmaps dynamically
+Date: Tue, 17 Jul 2007 17:45:53 +0200
+Message-ID: <469CE431.9070705@trash.net>
+References: <20070717122706.899784000@sipsolutions.net> <20070717123642.918587000@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-15"
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Patrick McHardy <kaber@trash.net>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Zhang Rui <rui.zhang@intel.com>, jamal <hadi@cyberus.ca>
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pne-smtpout4-sn2.hy.skanova.net ([81.228.8.154]:54021 "EHLO
-	pne-smtpout4-sn2.hy.skanova.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S934910AbXGQPof (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2007 11:44:35 -0400
-In-Reply-To: <469BBD4C.5040503@trash.net>
-Content-Disposition: inline
+Received: from stinky.trash.net ([213.144.137.162]:47408 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S935026AbXGQPqA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2007 11:46:00 -0400
+In-Reply-To: <20070717123642.918587000@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 16 July 2007 21:47:40 Patrick McHardy wrote:
->
-> I lost interest here, but the reintroduced bugs make me think that
-> some old version was simply rediffed without even checking the
-> output and the state initialization also seems to need a bit more work.
->
+Johannes Berg wrote:
+> Allow changing the number of groups for a netlink family
+> after it has been created, use RCU to protect the listeners
+> bitmap keeping netlink_has_listeners() lock-free.
+> 
+> Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
+> 
+> ---
+>  include/linux/netlink.h  |    1 
+>  net/netlink/af_netlink.c |   86 +++++++++++++++++++++++++++++++++++------------
+>  2 files changed, 66 insertions(+), 21 deletions(-)
+> 
+> --- wireless-dev.orig/net/netlink/af_netlink.c	2007-07-17 14:05:30.210964463 +0200
+> +++ wireless-dev/net/netlink/af_netlink.c	2007-07-17 14:05:30.720964463 +0200
+> -static int netlink_alloc_groups(struct sock *sk)
+> +static int netlink_realloc_groups(struct sock *sk)
+>  {
+>  	struct netlink_sock *nlk = nlk_sk(sk);
+>  	unsigned int groups;
+> +	unsigned long *new_groups;
+>  	int err = 0;
+>  
+>  	netlink_lock_table();
 
-Thanks for reviewing the code, really appreciate it (whoa, would have been a 
-lot of problems [re-]introduced)! And yes, you're right - it seemed at the 
-time easier to just convert the old code to run in the new kernel as it's 
-been working fine for us. Quickly scanned the existing (non-interfamily) beet 
-implementation, but I guess not thoroughly enough. Anyway, merged back the 
-latest non-interfamily versions and rolling with those now. Should have a 
-fixed version ready soon..
 
-Some other comments:
+This is actually a bug in the current code I think, netlink_lock_table
+is a reader lock.
 
-> Joakim Koskela wrote:
-> > diff --git a/net/ipv4/xfrm4_input.c b/net/ipv4/xfrm4_input.c
-> > index fa1902d..7a39f4c 100644
-> > --- a/net/ipv4/xfrm4_input.c
-> > +++ b/net/ipv4/xfrm4_input.c
-> > @@ -108,7 +108,8 @@ int xfrm4_rcv_encap(struct sk_buff *skb, __u16
-> > encap_type) if (x->mode->input(x, skb))
-> >  			goto drop;
-> >
-> > -		if (x->props.mode == XFRM_MODE_TUNNEL) {
-> > +		if (x->props.mode == XFRM_MODE_TUNNEL ||
-> > +		    x->props.mode == XFRM_MODE_BEET) {
-> >  			decaps = 1;
-> >  			break;
-> >  		}
->
-> I was under the impression that one of the main points of BEET is that
-> it offers tunnel semantics but does only transport mode processing.
-> Its necessary for inter-family tunnels, but shouldn't this be avoided
-> for normal use?
->
+>  	groups = nl_table[sk->sk_protocol].groups;
+>  	if (!nl_table[sk->sk_protocol].registered)
+>  		err = -ENOENT;
+> -	netlink_unlock_table();
+>  
+>  	if (err)
+> -		return err;
+> +		goto out_unlock;
+>  
+> -	nlk->groups = kzalloc(NLGRPSZ(groups), GFP_KERNEL);
+> -	if (nlk->groups == NULL)
+> -		return -ENOMEM;
+> +	if (nlk->ngroups >= groups)
+> +		goto out_unlock;
+> +
+> +	new_groups = krealloc(nlk->groups, NLGRPSZ(groups), GFP_KERNEL);
+> +	if (new_groups == NULL) {
+> +		err = -ENOMEM;
+> +		goto out_unlock;
+> +	}
+> +	memset((char*)new_groups + NLGRPSZ(nlk->ngroups), 0,
+> +	       NLGRPSZ(groups) - NLGRPSZ(nlk->ngroups));
+> +
+> +	nlk->groups = new_groups;
+>  	nlk->ngroups = groups;
+> -	return 0;
+> + out_unlock:
+> +	netlink_unlock_table();
+> +	return err;
+>  }
 
-Yes, this is actually quite a nice improvement to the interfamily processing I 
-(at least) haven't thought of before. Tested it & works fine (ipv4-ipv4).
 
->
-> > diff --git a/net/ipv4/xfrm4_output.c b/net/ipv4/xfrm4_output.c
-> > index 44ef208..8db7910 100644
-> > --- a/net/ipv4/xfrm4_output.c
-> > +++ b/net/ipv4/xfrm4_output.c
-> > @@ -53,7 +53,8 @@ static int xfrm4_output_one(struct sk_buff *skb)
-> >  			goto error_nolock;
-> >  	}
-> >
-> > -	if (x->props.mode == XFRM_MODE_TUNNEL) {
-> > +	if (x->props.mode == XFRM_MODE_TUNNEL ||
-> > +	    x->props.mode == XFRM_MODE_BEET) {
-> >  		err = xfrm4_tunnel_check_size(skb);
->
-> Its not a real tunnel and all packets are generated locally, why
-> does it need to send ICMPs?
+> +int netlink_change_ngroups(int unit, unsigned int groups)
 
-Guess not. I'll have to still trace through, but can probably be removed.
 
-> > +		if (xfrm[i]->props.mode != XFRM_MODE_TRANSPORT) {
-> > +			encap_family = xfrm[i]->props.family;
-> > +			if (encap_family == AF_INET) {
-> > +				remote.in = (struct in_addr *)
-> > +					&xfrm[i]->id.daddr.a4;
-> > +				local.in  = (struct in_addr *)
-> > +					&xfrm[i]->props.saddr.a4;
-> > +			} else if (encap_family == AF_INET6) {
-> > +				remote.in6 = (struct in6_addr *)
-> > +					xfrm[i]->id.daddr.a6;
-> > +				local.in6 = (struct in6_addr *)
-> > +					xfrm[i]->props.saddr.a6;
-> > +			}
->
-> No ifdefs here?
+I think it would be more consistent to pass the kernel socket
+instead of the unit.
 
-Thanks for noticing!
+> +{
+> +	unsigned long *listeners, old = NULL;
+> +	int err = 0;
+> +
+> +	netlink_table_grab();
+> +	if (NLGRPSZ(nl_table[unit].groups) < NLGRPSZ(groups)) {
+> +		listeners = kzalloc(NLGRPSZ(groups), GFP_ATOMIC);
+> +		if (!listeners) {
+> +			err = -ENOMEM;
+> +			goto out_ungrab;
+> +		}
+> +		old = nl_table[unit].listeners;
+> +		memcpy(listeners, old, NLGRPSZ(nl_table[unit].groups));
+> +		rcu_assign_pointer(nl_table[unit].listeners, listeners);
+> +	}
+> +	nl_table[unit].groups = groups;
 
-> >  static int ipip_init_state(struct xfrm_state *x)
-> >  {
-> > -	if (x->props.mode != XFRM_MODE_TUNNEL)
-> > +	if (x->props.mode != XFRM_MODE_TUNNEL ||
-> > +	    x->props.mode != XFRM_MODE_BEET)
-> >  		return -EINVAL;
->
-> Looks like a bug fix that should be seperated.
->
 
-Probably. This has been there for a while, don't know what's the story behind 
-it, have to check..
+This might set the group to a value < 32. I don't expect it matters,
+but when I changed to old code to support > 32 groups I enforced
+a minimum of 32 so anything outside the kernel multicasting on them
+would still work (even though its a really stupid idea). So for
+consistency this should probably also use a minimum of 32.
 
-br, j
