@@ -1,47 +1,61 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] Add a network activity LED trigger
-Date: Wed, 18 Jul 2007 16:14:14 +0200
-Message-ID: <469E2036.8050606@trash.net>
-References: <200707181527.38895.florian.fainelli@telecomint.eu>	 <469E16C5.4000102@trash.net>	 <200707181544.11890.florian.fainelli@telecomint.eu>	 <469E1BB0.2040104@trash.net> <1184767844.21219.3.camel@localhost.localdomain>
+From: "rae l" <crquan@gmail.com>
+Subject: Re: [PATCH 2/2] net/core: some functions' definition order adjustment for readability
+Date: Wed, 18 Jul 2007 22:31:37 +0800
+Message-ID: <91b13c310707180731w58e7dfaau4d7668e24a1f6ec7@mail.gmail.com>
+References: <20070718.030306.50591269.davem@davemloft.net>
+	 <1184758229305-git-send-email-crquan@gmail.com>
+	 <11847582511783-git-send-email-crquan@gmail.com>
+	 <469E09FF.5050203@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Florian Fainelli <florian.fainelli@telecomint.eu>,
-	netdev@vger.kernel.org
-To: Richard Purdie <rpurdie@rpsys.net>
+Cc: "David Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
+	linux-kernel@vger.kernel.org
+To: "Patrick McHardy" <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:39780 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758825AbXGRORZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2007 10:17:25 -0400
-In-Reply-To: <1184767844.21219.3.camel@localhost.localdomain>
+Received: from ug-out-1314.google.com ([66.249.92.175]:56535 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753553AbXGRObj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2007 10:31:39 -0400
+Received: by ug-out-1314.google.com with SMTP id j3so268214ugf
+        for <netdev@vger.kernel.org>; Wed, 18 Jul 2007 07:31:37 -0700 (PDT)
+In-Reply-To: <469E09FF.5050203@trash.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Richard Purdie wrote:
-> On Wed, 2007-07-18 at 15:54 +0200, Patrick McHardy wrote:
->   
->> Florian Fainelli wrote:
->>     
->>>> Besides missing a declaration and not linking without the network
->>>> LED config option, its pretty ridiculous to call this for every
->>>> packet just to make a led blink.
->>>>     
->>>>         
->>> Could you suggest me a better way to do so ? The code was highly inspired from 
->>> what is done with the IDE trigger. The declaration is done in linux/leds.h, 
->>> which is included in dev.c for that purpose.
->>>   
->>>       
->> Maybe just increment a variable and periodically check it or something
->> like that.
->>     
+On 7/18/07, Patrick McHardy <kaber@trash.net> wrote:
+> This could be done in the patch moving it .. anyways,
+What?
+
 >
-> Are there not already packet counters that the LED trigger could just
-> look at? If it did that at say 20Hz or 10Hz, it would probably look
-> quite reasonable without impacting on the system too much
+>
+> Denis Cheng wrote:
+> > +#ifdef CONFIG_PROC_FS
+> > +static void *dev_mc_seq_start(struct seq_file *seq, loff_t *pos)
+>
+>
+> If you're interested in doing more work, it would be nice to
+> generalize the seq-file functions for unicast and multicast
+> address lists and add /proc/net/dev_unicast or something like
+> that.
+Eh, there is already a dev_multicast file but lack of dev_unicast,
+but is dev_unicast really useful?
 
-The qdisc counters might work, I think all qdiscs properly maintain
-at least byte and packet counters. Or simply check the queue length,
-if > 0 there is activity.
+>
+> OTOH we could also export this using rtnetlink. The main reason
+> why I didn't do that is that it can only be read, not changed,
+> but this is also true for statistics etc. Any opinions on this?
+how to do that?
 
+>
+>
+
+
+-- 
+Denis Cheng
+Linux Application Developer
+
+"One of my most productive days was throwing away 1000 lines of code."
+ - Ken Thompson.
