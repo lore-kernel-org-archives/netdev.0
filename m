@@ -1,46 +1,56 @@
-From: Chuck Ebbert <cebbert@redhat.com>
-Subject: Re: Occational lockups during boot with post 2.6.22 kernels
-Date: Wed, 18 Jul 2007 10:58:51 -0400
-Message-ID: <469E2AAB.2010408@redhat.com>
-References: <m3sl7mk1f1.fsf@telia.com>
+From: Jiri Benc <jbenc-AlSwsSmVLrQ@public.gmane.org>
+Subject: [PATCH v2] mac80211: fix GCC warning on 64bit platforms
+Date: Wed, 18 Jul 2007 17:10:44 +0200
+Message-ID: <20070718171044.2de287cd@griffin.suse.cz>
+References: <20070714.185935.18577806.davem@davemloft.net>
+	<20070714.204116.23012949.davem@davemloft.net>
+	<20070716184653.355253bf@griffin.suse.cz>
+	<20070716.145358.35015496.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, Bcm43xx-dev@lists.berlios.de,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Netdev <netdev@vger.kernel.org>
-To: Peter Osterlund <petero2@telia.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:32912 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753078AbXGRO72 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Jul 2007 10:59:28 -0400
-In-Reply-To: <m3sl7mk1f1.fsf@telia.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20070716.145358.35015496.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 07/17/2007 08:20 PM, Peter Osterlund wrote:
-> Current -git kernels sometimes lock up on my computer during boot. I
-> guess it happens about 10-20% of the time. I first saw this maybe a
-> week ago, but never with kernels <= 2.6.22.
-> 
-> The last reported info on the console is that named is started.
-> SysRq-T still works and reports the non-sleeping tasks below.
-> 
-> My guess is that wpa_supplicant and events/0 deadlock and later the
-> named thread also hangs when it needs a deadlocked resource.
-> 
-> I'm using the bcm43xx driver.
->  
-> No lockdep errors are reported before the lockup. Earlier during boot
-> the kernel reports:
-> 
->   Good, all 218 testcases passed! |
+net/mac80211/ieee80211.c: In function ieee80211_register_hw:
+net/mac80211/ieee80211.c:4989: warning: comparison of distinct pointer types lacks a cast
 
-Try this, it should at least detect the problem:
+Size of ieee80211_tx_status_rtap_hdr structure will never be greater than
+unsigned int.
 
-http://lkml.org/lkml/2007/7/17/202
-http://lkml.org/lkml/2007/7/17/204
-http://lkml.org/lkml/2007/7/17/203
+Signed-off-by: Jiri Benc <jbenc-AlSwsSmVLrQ@public.gmane.org>
 
-It's a known bug in wireless/80211, not sure when it will be fixed.
+---
+
+On Mon, 16 Jul 2007 14:53:58 -0700 (PDT), David Miller wrote:
+> The macro "max_t" exists for these kinds of situations, please
+> use it. :-)
+
+Ok.
+
+---
+ net/mac80211/ieee80211.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+--- mac80211-2.6.orig/net/mac80211/ieee80211.c
++++ mac80211-2.6/net/mac80211/ieee80211.c
+@@ -4986,8 +4986,8 @@ int ieee80211_register_hw(struct ieee802
+ 	 * and we need some headroom for passing the frame to monitor
+ 	 * interfaces, but never both at the same time.
+ 	 */
+-	local->tx_headroom = max(local->hw.extra_tx_headroom,
+-				 sizeof(struct ieee80211_tx_status_rtap_hdr));
++	local->tx_headroom = max_t(unsigned, local->hw.extra_tx_headroom,
++				   sizeof(struct ieee80211_tx_status_rtap_hdr));
+ 
+ 	debugfs_hw_add(local);
+ 
+
+-- 
+Jiri Benc
+SUSE Labs
