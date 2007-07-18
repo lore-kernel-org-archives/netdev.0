@@ -1,38 +1,24 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH v2 1/3] netlink: allocate group bitmaps dynamically
-Date: Wed, 18 Jul 2007 18:30:04 +0200
-Message-ID: <469E400C.6030907@trash.net>
-References: <20070717122706.899784000@sipsolutions.net> <1184769287.4200.1.camel@johannes.berg>
+From: Larry Finger <larry.finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: Re: [PATCH v2] mac80211: fix GCC warning on 64bit platforms
+Date: Wed, 18 Jul 2007 11:40:24 -0500
+Message-ID: <469E4278.5090509@lwfinger.net>
+References: <20070714.185935.18577806.davem@davemloft.net>	<20070714.204116.23012949.davem@davemloft.net>	<20070716184653.355253bf@griffin.suse.cz>	<20070716.145358.35015496.davem@davemloft.net>	<20070718171044.2de287cd@griffin.suse.cz>	<469E3C70.4070809@lwfinger.net> <20070718182740.69addc09@griffin.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Zhang Rui <rui.zhang@intel.com>, jamal <hadi@cyberus.ca>
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:42643 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933421AbXGRQaf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2007 12:30:35 -0400
-In-Reply-To: <1184769287.4200.1.camel@johannes.berg>
-Sender: netdev-owner@vger.kernel.org
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Jiri Benc <jbenc-AlSwsSmVLrQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20070718182740.69addc09-IhiK2ZEFs2oCVLCxKZUutA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Johannes Berg wrote:
-> Allow changing the number of groups for a netlink family
-> after it has been created, use RCU to protect the listeners
-> bitmap keeping netlink_has_listeners() lock-free.
+Jiri Benc wrote:
 > 
-> Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
-> 
-> ---
-> Changes: incorporate Patrick's comments, add kernel-doc
+> If you think "int" is more appropriate, fine with me, I don't really
+> care.
 
+No, I'm just trying to learn.
 
-All three patches look good to me.
-
-Acked-by: Patrick McHardy <kaber@trash.net>
-
-and for Jamal again ..
-
-Acked-by: Jamal Hadi Salim <hadi@cyberus.ca>
+Larry
