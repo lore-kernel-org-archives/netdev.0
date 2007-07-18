@@ -1,24 +1,68 @@
-From: Larry Finger <larry.finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: [PATCH v2] mac80211: fix GCC warning on 64bit platforms
-Date: Wed, 18 Jul 2007 11:40:24 -0500
-Message-ID: <469E4278.5090509@lwfinger.net>
-References: <20070714.185935.18577806.davem@davemloft.net>	<20070714.204116.23012949.davem@davemloft.net>	<20070716184653.355253bf@griffin.suse.cz>	<20070716.145358.35015496.davem@davemloft.net>	<20070718171044.2de287cd@griffin.suse.cz>	<469E3C70.4070809@lwfinger.net> <20070718182740.69addc09@griffin.suse.cz>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 8778] New: Ocotea board: kernel reports access
+ of bad area during boot with DEBUG_SLAB=y
+Date: Wed, 18 Jul 2007 09:55:37 -0700
+Message-ID: <20070718095537.d344dc0a.akpm@linux-foundation.org>
+References: <bug-8778-10286@http.bugzilla.kernel.org/>
+	<20070718005253.942f0464.akpm@linux-foundation.org>
+	<20070718083425.GA29722@gate.ebshome.net>
+	<1184766070.3699.2.camel@zod.rchland.ibm.com>
+	<20070718155940.GB29722@gate.ebshome.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Jiri Benc <jbenc-AlSwsSmVLrQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20070718182740.69addc09-IhiK2ZEFs2oCVLCxKZUutA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Josh Boyer <jwboyer@linux.vnet.ibm.com>, bart.vanassche@gmail.com,
+	netdev@vger.kernel.org,
+	"bugme-daemon@kernel-bugs.osdl.org"
+	<bugme-daemon@bugzilla.kernel.org>, linuxppc-embedded@ozlabs.org
+To: Eugene Surovegin <ebs@ebshome.net>, linux-mm@kvack.org,
+	Christoph Lameter <clameter@sgi.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:53364 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752023AbXGRQ4b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2007 12:56:31 -0400
+In-Reply-To: <20070718155940.GB29722@gate.ebshome.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jiri Benc wrote:
+On Wed, 18 Jul 2007 08:59:40 -0700 Eugene Surovegin <ebs@ebshome.net> wrote:
+
+> On Wed, Jul 18, 2007 at 08:41:10AM -0500, Josh Boyer wrote:
+> > On Wed, 2007-07-18 at 01:34 -0700, Eugene Surovegin wrote:
+> > > On Wed, Jul 18, 2007 at 12:52:53AM -0700, Andrew Morton wrote:
+> > > > On Wed, 18 Jul 2007 00:07:50 -0700 (PDT) bugme-daemon@bugzilla.kernel.org wrote:
+> > > > 
+> > > > > http://bugzilla.kernel.org/show_bug.cgi?id=8778
+> > > > > 
+> > > > >            Summary: Ocotea board: kernel reports access of bad area during
+> > > > >                     boot with DEBUG_SLAB=y
+> > > 
+> > > Slab debugging is probably the culprit here. I had similar problem 
+> > > couple of years ago, not sure something has changed since then, 
+> > > haven't checked.
+> > > 
+> > > When slab debugging was enabled it made memory allocations non L1 
+> > > cache line aligned. This is very bad for DMA on non-coherent cache 
+> > > arches (PPC440 is one of those archs).
+> > > 
+> > > I have a hack for EMAC which tries to "workaround" this problem:
+> > > 	http://kernel.ebshome.net/emac_slab_debug.diff
+> > > which might help.
+> > 
+> > Would you be opposed to including that patch in mainline?
 > 
-> If you think "int" is more appropriate, fine with me, I don't really
-> care.
+> Yes. I don't think it's the right way to fix this issue. IMO, the 
+> right one is to fix slab allocator. You cannot change all drivers to 
+> do this kind of cache flushing, and yes, I saw the same problem with 
+> PCI based NIC I tried on Ocotea at the time.
+> 
 
-No, I'm just trying to learn.
+hm.  It should be the case that providing SLAB_HWCACHE_ALIGN at
+kmem_cache_create() time will override slab-debugging's offsetting
+of the returned addresses.
 
-Larry
+Or is the problem occurring with memory which is returned from kmalloc(),
+rather than from kmem_cache_alloc()?
+
+A complete description of the problem would help here, please.
