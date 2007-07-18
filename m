@@ -1,74 +1,53 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] [IrDA] Fix IrDA build failure
-Date: Wed, 18 Jul 2007 02:17:19 -0700 (PDT)
-Message-ID: <20070718.021719.10298885.davem@davemloft.net>
-References: <20070716111715.GB22757@mail.solidboot.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-2.6.22-rc7] xfrm beet interfamily support
+Date: Wed, 18 Jul 2007 02:18:14 -0700 (PDT)
+Message-ID: <20070718.021814.99458359.davem@davemloft.net>
+References: <200707161506.47915.joakim.koskela@hiit.fi>
+	<39e6f6c70707160556m37137161odec6d01cc200524c@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sam-uyr5N9Q2VtJg9hUCZPvPmw@public.gmane.org, stable-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, eric.y.miao-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: samuel.ortiz-EmnPodGKVbzby3iVrkZq2A@public.gmane.org
-Return-path: <irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <20070716111715.GB22757-OPs8hQ7j6VREYlHNa9+yaNBPR1lH4CV8@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
-	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=irda-users>
-List-Post: <mailto:irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
-	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Sender: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-Errors-To: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Cc: joakim.koskela@hiit.fi, netdev@vger.kernel.org
+To: acme@ghostprotocols.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50843
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1756119AbXGRJSQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2007 05:18:16 -0400
+In-Reply-To: <39e6f6c70707160556m37137161odec6d01cc200524c@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Samuel Ortiz <samuel.ortiz-EmnPodGKVbzby3iVrkZq2A@public.gmane.org>
-Date: Mon, 16 Jul 2007 14:17:15 +0300
+From: "Arnaldo Carvalho de Melo" <acme@ghostprotocols.net>
+Date: Mon, 16 Jul 2007 09:56:59 -0300
 
-> When having built-in IrDA, we hit the following error:
+> Sorry for not commented that the code you were using (and David said
+> it was invalid) is in fact valid:
 > 
-> `irda_sysctl_unregister' referenced in section `.init.text' of
-> net/built-in.o: defined in discarded section `.exit.text' of
-> net/built-in.o
-> `irda_proc_unregister' referenced in section `.init.text' of
-> net/built-in.o: defined in discarded section `.exit.text' of
-> net/built-in.o
-> `irsock_cleanup' referenced in section `.init.text' of net/built-in.o:
-> defined in discarded section `.exit.text' of net/built-in.o
-> `irttp_cleanup' referenced in section `.init.text' of net/built-in.o:
-> defined in discarded section `.exit.text' of net/built-in.o
-> `iriap_cleanup' referenced in section `.init.text' of net/built-in.o:
-> defined in discarded section `.exit.text' of net/built-in.o
-> `irda_device_cleanup' referenced in section `.init.text' of
-> net/built-in.o: defined in discarded section `.exit.text' of
-> net/built-in.o
-> `irlap_cleanup' referenced in section `.init.text' of net/built-in.o:
-> defined in discarded section `.exit.text' of net/built-in.o
-> `irlmp_cleanup' referenced in section `.init.text' of net/built-in.o:
-> defined in discarded section `.exit.text' of net/built-in.o
-> make[1]: *** [.tmp_vmlinux1] Error 1
-> make: *** [_all] Error 2
+>             skb->transport_header = skb->network_header;
 > 
-> This is due to the irda_init fix recently added, where we call __exit
-> routines from an __init one. It is a build failure that I didn't catch
-> because it doesn't show up when building IrDA as a module. My apologies
-> for that.
-> The following patch fixes that failure and is against your net-2.6
-> tree. I hope it can make it to the merge window, and stable-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
-> is CCed on this mail.
+> This works for both offsets and pointers, i.e. both transport_header
+> and network_header are in the same "address space".
 > 
-> Signed-off-by: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
+> 
+>              skb_set_transport_header(skb, skb_network_offset(skb));
+> 
+> Also works, but its too convoluted IMHO, for pointers it would reduce to:
+> 
+>               skb->transport_header = skb->data + skb->network_header
+> - skb->data;
+> 
+> for offsets:
+> 
+>               skb->transport_header = skb->data - skb->head;
+>               skb->transport_header += skb->head + skb->network_header
+> - skb->data;
+> 
+> I.e. both reduce to:
+> 
+>                skb->transport_header = skb->network_header;
+> 
+> Some more comments below, but I think this time, sans the above
+> possible cleanup, your patch is OK wrt offsets/pointers.
 
-I've applied this.
-
-I realize that alternative suggestions have been made on
-how to fix this, and when consensus on that is reached someone
-can send me a follow-on patch.
-
-Thanks!
-
--------------------------------------------------------------------------
-This SF.net email is sponsored by DB2 Express
-Download DB2 Express C - the FREE version of DB2 express and take
-control of your XML. No limits. Just data. Click to get it now.
-http://sourceforge.net/powerbar/db2/
+Thanks for the correction, indeed you are correct :)
