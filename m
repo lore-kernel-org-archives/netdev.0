@@ -1,56 +1,45 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] negative groups in netlink_setsockopt
-Date: Wed, 18 Jul 2007 12:10:52 +0200
-Message-ID: <1184753452.4658.9.camel@johannes.berg>
-References: <1184675164.3773.83.camel@johannes.berg>
-	 <20070718.020821.15264737.davem@davemloft.net>
+From: Abhijit Menon-Sen <ams@toroid.org>
+Subject: Re: tc filter add ... fw ... action drop
+Date: Wed, 18 Jul 2007 15:57:16 +0530
+Message-ID: <20070718102716.GA32421@toroid.org>
+References: <20070718032841.GA14874@toroid.org> <469DE243.20903@trash.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-Wb4z7PCXp5285DgttKVm"
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:40553 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753865AbXGRKO1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2007 06:14:27 -0400
-In-Reply-To: <20070718.020821.15264737.davem@davemloft.net>
+Received: from fugue.toroid.org ([85.10.196.113]:1844 "EHLO fugue.toroid.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753333AbXGRK1S (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Jul 2007 06:27:18 -0400
+Content-Disposition: inline
+In-Reply-To: <469DE243.20903@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+At 2007-07-18 11:49:55 +0200, kaber@trash.net wrote:
+>
+> >   # tc filter add dev eth0 parent 1: protocol ip prio 0 handle
+> >     0xfffffff fw police rate 1 burst 1 mpu 0 mtu 1 action drop
+>
+> It seems this is merely a parsing error, iproute doesn't have an
+> "action" parameter and aborts parsing, so it uses the default
+> value of "RECLASSIFY".
 
---=-Wb4z7PCXp5285DgttKVm
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+I can confirm that your patch deals with my command sensibly, and also
+that "tc filter add ... conform-exceed drop/drop" does what I wanted.
 
-On Wed, 2007-07-18 at 02:08 -0700, David Miller wrote:
-> From: Johannes Berg <johannes@sipsolutions.net>
-> Date: Tue, 17 Jul 2007 14:26:04 +0200
->=20
-> > Reading netlink_setsockopt it's not immediately clear why there isn't a
-> > bug when you pass in negative numbers, the reason being that the >=3D
-> > comparison is really unsigned although 'val' is signed because
-> > nlk->ngroups is unsigned. Make 'val' unsigned too.
-> >=20
-> > Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
->=20
-> Applied, but I updated the "(int __user *)" cast in
-> get_user() to match as well when applying this.
+> It never had this parameter [...]
 
-Oh, good catch, thanks.
+That command is from a script that used to work with iproute2-ss020116
+(2002!), which had the following in tc/m_police.c:
 
-johannes
+210     } else if (strcmp(*argv, "action") == 0) {
+211             NEXT_ARG();
+212             if (get_police_result(&p.action, &presult, *argv)) {
 
---=-Wb4z7PCXp5285DgttKVm
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
+I don't know when that bit was dropped, but it used to be there. :-)
 
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
+Thank you for your help.
 
-iD8DBQBGnecs/ETPhpq3jKURAuY5AJ9iiVfPjyhS+fsS7dt1bVrCn1VrpwCfa++Y
-n0EHUlnUC+SEFF25NB/ra0g=
-=hHRX
------END PGP SIGNATURE-----
-
---=-Wb4z7PCXp5285DgttKVm--
-
+-- ams
