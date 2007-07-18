@@ -1,45 +1,74 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: Linux 2.6.22: Leak r=1 1
-Date: Wed, 18 Jul 2007 12:16:56 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0707181205550.5653@kivilampi-30.cs.helsinki.fi>
-References: <20070711174030.tjmxpxtfsn4twgk2@m.safari.iki.fi>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] [IrDA] Fix IrDA build failure
+Date: Wed, 18 Jul 2007 02:17:19 -0700 (PDT)
+Message-ID: <20070718.021719.10298885.davem@davemloft.net>
+References: <20070716111715.GB22757@mail.solidboot.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Linux Networking Mailing List <netdev@vger.kernel.org>,
-	Pasi Sarolahti <pasi.sarolahti@nokia.com>
-To: Sami Farin <safari-kernel@safari.iki.fi>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:57212 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762326AbXGRJQ6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2007 05:16:58 -0400
-In-Reply-To: <20070711174030.tjmxpxtfsn4twgk2@m.safari.iki.fi>
-Sender: netdev-owner@vger.kernel.org
+Cc: sam-uyr5N9Q2VtJg9hUCZPvPmw@public.gmane.org, stable-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, eric.y.miao-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: samuel.ortiz-EmnPodGKVbzby3iVrkZq2A@public.gmane.org
+Return-path: <irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <20070716111715.GB22757-OPs8hQ7j6VREYlHNa9+yaNBPR1lH4CV8@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
+	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=irda-users>
+List-Post: <mailto:irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
+	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Sender: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Errors-To: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 11 Jul 2007, Sami Farin wrote:
+From: Samuel Ortiz <samuel.ortiz-EmnPodGKVbzby3iVrkZq2A@public.gmane.org>
+Date: Mon, 16 Jul 2007 14:17:15 +0300
 
-> That's right, so descriptive is the new Linux kernel 2.6.22.
+> When having built-in IrDA, we hit the following error:
 > 
-> Linux safari.finland.fbi 2.6.22-cfs-v19 #3 SMP Tue Jul 10 00:22:25 EEST 2007 i686 i686 i386 GNU/Linux
+> `irda_sysctl_unregister' referenced in section `.init.text' of
+> net/built-in.o: defined in discarded section `.exit.text' of
+> net/built-in.o
+> `irda_proc_unregister' referenced in section `.init.text' of
+> net/built-in.o: defined in discarded section `.exit.text' of
+> net/built-in.o
+> `irsock_cleanup' referenced in section `.init.text' of net/built-in.o:
+> defined in discarded section `.exit.text' of net/built-in.o
+> `irttp_cleanup' referenced in section `.init.text' of net/built-in.o:
+> defined in discarded section `.exit.text' of net/built-in.o
+> `iriap_cleanup' referenced in section `.init.text' of net/built-in.o:
+> defined in discarded section `.exit.text' of net/built-in.o
+> `irda_device_cleanup' referenced in section `.init.text' of
+> net/built-in.o: defined in discarded section `.exit.text' of
+> net/built-in.o
+> `irlap_cleanup' referenced in section `.init.text' of net/built-in.o:
+> defined in discarded section `.exit.text' of net/built-in.o
+> `irlmp_cleanup' referenced in section `.init.text' of net/built-in.o:
+> defined in discarded section `.exit.text' of net/built-in.o
+> make[1]: *** [.tmp_vmlinux1] Error 1
+> make: *** [_all] Error 2
 > 
-> [root@safari /proc/sys/net/ipv4]# grep . *
+> This is due to the irda_init fix recently added, where we call __exit
+> routines from an __init one. It is a build failure that I didn't catch
+> because it doesn't show up when building IrDA as a module. My apologies
+> for that.
+> The following patch fixes that failure and is against your net-2.6
+> tree. I hope it can make it to the merge window, and stable-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+> is CCed on this mail.
+> 
+> Signed-off-by: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
 
-...snip...
+I've applied this.
 
-> tcp_frto:1
+I realize that alternative suggestions have been made on
+how to fix this, and when consensus on that is reached someone
+can send me a follow-on patch.
 
-...This is fully unrelated to the issue but I'm a bit curious who enabled 
-frto on your machine (since it's disabled by default), did you do it by 
-yourself or the distribution perhaps?
+Thanks!
 
-This is interesting because frto to be useful in large scale, sender must 
-have it enabled and therefore it's usually not under control of the host 
-that is attached to the wireless access link. ...In case some 
-distribution (yours) is already enabling it, the deployment is somewhat 
-proceeding already :-)... ...And we also get incremental testing of the 
-code too...
-
--- 
- i.
+-------------------------------------------------------------------------
+This SF.net email is sponsored by DB2 Express
+Download DB2 Express C - the FREE version of DB2 express and take
+control of your XML. No limits. Just data. Click to get it now.
+http://sourceforge.net/powerbar/db2/
