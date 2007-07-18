@@ -1,61 +1,49 @@
-From: john@BlueSkyTours.com
-Subject: Re: Realtek RTL8111B serious performance issues
-Date: Wed, 18 Jul 2007 15:25:28 -0600 (MDT)
-Message-ID: <Pine.SOC.4.64.0707181516300.19789@katana>
-References: <Pine.SOC.4.64.0707172328150.3299@katana>
- <20070718072635.GA26243@electric-eye.fr.zoreil.com>
+From: "Robert P. J. Day" <rpjday@mindspring.com>
+Subject: Re: [PATCH] net/, drivers/net/ , missing EXPERIMENTAL in menus
+Date: Wed, 18 Jul 2007 17:28:01 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0707181726160.17198@localhost.localdomain>
+References: <469E75AA.7040109@pimpmylinux.org>
+ <Pine.LNX.4.64.0707181620460.13912@localhost.localdomain>
+ <20070718134012.cde2f956.randy.dunlap@oracle.com> <469E7BE1.6090401@garzik.org>
+ <Pine.LNX.4.64.0707181648330.15343@localhost.localdomain>
+ <20070718210903.GM3801@stusta.de>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Jeff Garzik <jeff@garzik.org>,
+	Randy Dunlap <randy.dunlap@oracle.com>,
+	Gabriel C <crazy@pimpmylinux.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Adrian Bunk <bunk@stusta.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nat1.blueskytours.com ([12.96.192.180]:36469 "HELO
-	volcano.blueskytours.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with SMTP id S1754685AbXGRVZa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2007 17:25:30 -0400
-In-Reply-To: <20070718072635.GA26243@electric-eye.fr.zoreil.com>
+Received: from nic.NetDirect.CA ([216.16.235.2]:52787 "EHLO
+	rubicon.netdirect.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755072AbXGRVbw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2007 17:31:52 -0400
+In-Reply-To: <20070718210903.GM3801@stusta.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Wed, 18 Jul 2007, Adrian Bunk wrote:
 
-On Wed, 18 Jul 2007, Francois Romieu wrote:
+> If you are not doing it, noone might do it. And discusing
+> improvements noone will implement is somehow pointless...
 
-> john@BlueSkyTours.com <john@BlueSkyTours.com> :
-> [...]
->> Anyone have any suggestions for solving this problem?
->
-> Try 2.6.23-rc1 when it is published or apply against 2.6.22 one of:
-> http://www.fr.zoreil.com/people/francois/misc/20070628-2.6.22-rc6-r8169-test.patch
+sure, i'm willing to help, but i don't think doing *nothing* about it
+is an option.  you may not like gabriel's proposed patch, but you have
+to admit that he has a valid objection that should be addressed.  so
+you can address it the manual and brute force way, or you can invest a
+little more time and do it right.
 
-Unfortunately, the 20070628 patch did not make any difference.
+but, either way, i think you have to deal with it.  now it's just time
+to make a choice.
 
+rday
+-- 
+========================================================================
+Robert P. J. Day
+Linux Consulting, Training and Annoying Kernel Pedantry
+Waterloo, Ontario, CANADA
 
-> http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.22-rc6/r8169-20070628/
-
-
-I tried various patches from that directory (aren't most or all of them
-included in the 20070628 patch?), but none of them helped either.
-
-
-This problem could be very difficult to track down.  Like I said, it
-definately effects emacs and firefox being "drawn" on a remote computer.
-Ping times, however, are not that bad:
-
-PING 192.168.26.150: 56 data bytes
-64 bytes from dyn26-1.blueskytours.com (192.168.26.150): icmp_seq=0. time=0.287 ms
-64 bytes from dyn26-1.blueskytours.com (192.168.26.150): icmp_seq=1. time=0.279 ms
-64 bytes from dyn26-1.blueskytours.com (192.168.26.150): icmp_seq=2. time=0.196 ms
-64 bytes from dyn26-1.blueskytours.com (192.168.26.150): icmp_seq=3. time=0.201 ms
-64 bytes from dyn26-1.blueskytours.com (192.168.26.150): icmp_seq=4. time=0.159 ms
-64 bytes from dyn26-1.blueskytours.com (192.168.26.150): icmp_seq=5. time=0.148 ms
-64 bytes from dyn26-1.blueskytours.com (192.168.26.150): icmp_seq=6. time=0.150 ms
-
-Also, wget gets good throughput when retrieving files.
-
-It just seems to be X traffic which is extremely slow.  Using the old
-Linksys 10/100 PCI NIC, emacs comes up virtually instantaneously.  Using the
-integrated Realtek 8111B, emacs takes 10 seconds to draw.
-
-Thank you very much for trying to help.
-
-John
+http://fsdev.net/wiki/index.php?title=Main_Page
+========================================================================
