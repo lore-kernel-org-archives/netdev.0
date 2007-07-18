@@ -1,29 +1,27 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] rfkill: Make state sysfs writable
-Date: Wed, 18 Jul 2007 15:38:19 -0700 (PDT)
-Message-ID: <20070718.153819.94037060.davem@davemloft.net>
-References: <200707181959.22520.IvDoorn@gmail.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] fix wrong argument of tc35815_read_plat_dev_addr()
+Date: Wed, 18 Jul 2007 18:38:34 -0400
+Message-ID: <469E966A.7090103@garzik.org>
+References: <20070718111342.0388a43b.yoichi_yuasa@tripeaks.co.jp>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: dtor@insightbb.com, netdev@vger.kernel.org
-To: ivdoorn@gmail.com
+Cc: netdev@vger.kernel.org, Atsushi Nemoto <anemo@mba.ocn.ne.jp>
+To: Yoichi Yuasa <yoichi_yuasa@tripeaks.co.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34702
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1759657AbXGRWiU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2007 18:38:20 -0400
-In-Reply-To: <200707181959.22520.IvDoorn@gmail.com>
+Received: from srv5.dvmed.net ([207.36.208.214]:33134 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932840AbXGRWih (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Jul 2007 18:38:37 -0400
+In-Reply-To: <20070718111342.0388a43b.yoichi_yuasa@tripeaks.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ivo van Doorn <ivdoorn@gmail.com>
-Date: Wed, 18 Jul 2007 19:59:22 +0200
-
-> The rfkill state Sysfs attribute should be made writable,
-> we already pass the argument for the store handler,
-> so we only need to update the permissions flag.
+Yoichi Yuasa wrote:
+> Fix wrong argument of tc35815_read_plat_dev_addr()
 > 
-> Signed-off-by: Ivo van Doorn <IvDoorn@gmail.com>
+> Signed-off-by: Yoichi Yuasa <yoichi_yuasa@tripeaks.co.jp>
 
-Applied, thanks.
+applied
+
+
