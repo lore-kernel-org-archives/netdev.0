@@ -1,54 +1,78 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH v2] mac80211: fix GCC warning on 64bit platforms
-Date: Wed, 18 Jul 2007 18:00:24 +0200
-Message-ID: <1184774424.4002.10.camel@johannes.berg>
-References: <20070714.185935.18577806.davem@davemloft.net>
-	 <20070714.204116.23012949.davem@davemloft.net>
-	 <20070716184653.355253bf@griffin.suse.cz>
-	 <20070716.145358.35015496.davem@davemloft.net>
-	 <20070718171044.2de287cd@griffin.suse.cz>
+From: Eugene Surovegin <ebs@ebshome.net>
+Subject: Re: [Bugme-new] [Bug 8778] New: Ocotea board: kernel reports access of bad area during boot with DEBUG_SLAB=y
+Date: Wed, 18 Jul 2007 10:04:33 -0700
+Message-ID: <20070718170433.GC29722@gate.ebshome.net>
+References: <bug-8778-10286@http.bugzilla.kernel.org/> <20070718005253.942f0464.akpm@linux-foundation.org> <20070718083425.GA29722@gate.ebshome.net> <1184766070.3699.2.camel@zod.rchland.ibm.com> <20070718155940.GB29722@gate.ebshome.net> <20070718095537.d344dc0a.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-cMOtrpgLuykpVVEPw8VL"
-Cc: David Miller <davem@davemloft.net>, linville@tuxdriver.com,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: Jiri Benc <jbenc@suse.cz>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-mm@kvack.org, Christoph Lameter <clameter@sgi.com>,
+	Josh Boyer <jwboyer@linux.vnet.ibm.com>,
+	bart.vanassche@gmail.com, netdev@vger.kernel.org,
+	"bugme-daemon@kernel-bugs.osdl.org"
+	<bugme-daemon@bugzilla.kernel.org>, linuxppc-embedded@ozlabs.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:48348 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934634AbXGRQ5W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2007 12:57:22 -0400
-In-Reply-To: <20070718171044.2de287cd@griffin.suse.cz>
+Received: from gate.ebshome.net ([208.106.21.240]:34477 "EHLO gate.ebshome.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752630AbXGRREe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Jul 2007 13:04:34 -0400
+Content-Disposition: inline
+In-Reply-To: <20070718095537.d344dc0a.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Wed, Jul 18, 2007 at 09:55:37AM -0700, Andrew Morton wrote:
+> On Wed, 18 Jul 2007 08:59:40 -0700 Eugene Surovegin <ebs@ebshome.net> wrote:
+> 
+> > On Wed, Jul 18, 2007 at 08:41:10AM -0500, Josh Boyer wrote:
+> > > On Wed, 2007-07-18 at 01:34 -0700, Eugene Surovegin wrote:
+> > > > On Wed, Jul 18, 2007 at 12:52:53AM -0700, Andrew Morton wrote:
+> > > > > On Wed, 18 Jul 2007 00:07:50 -0700 (PDT) bugme-daemon@bugzilla.kernel.org wrote:
+> > > > > 
+> > > > > > http://bugzilla.kernel.org/show_bug.cgi?id=8778
+> > > > > > 
+> > > > > >            Summary: Ocotea board: kernel reports access of bad area during
+> > > > > >                     boot with DEBUG_SLAB=y
+> > > > 
+> > > > Slab debugging is probably the culprit here. I had similar problem 
+> > > > couple of years ago, not sure something has changed since then, 
+> > > > haven't checked.
+> > > > 
+> > > > When slab debugging was enabled it made memory allocations non L1 
+> > > > cache line aligned. This is very bad for DMA on non-coherent cache 
+> > > > arches (PPC440 is one of those archs).
+> > > > 
+> > > > I have a hack for EMAC which tries to "workaround" this problem:
+> > > > 	http://kernel.ebshome.net/emac_slab_debug.diff
+> > > > which might help.
+> > > 
+> > > Would you be opposed to including that patch in mainline?
+> > 
+> > Yes. I don't think it's the right way to fix this issue. IMO, the 
+> > right one is to fix slab allocator. You cannot change all drivers to 
+> > do this kind of cache flushing, and yes, I saw the same problem with 
+> > PCI based NIC I tried on Ocotea at the time.
+> > 
+> 
+> hm.  It should be the case that providing SLAB_HWCACHE_ALIGN at
+> kmem_cache_create() time will override slab-debugging's offsetting
+> of the returned addresses.
+> 
+> Or is the problem occurring with memory which is returned from kmalloc(),
+> rather than from kmem_cache_alloc()?
 
---=-cMOtrpgLuykpVVEPw8VL
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+It's kmalloc, at least this is how I think skbs are allocated.
 
-On Wed, 2007-07-18 at 17:10 +0200, Jiri Benc wrote:
-> net/mac80211/ieee80211.c: In function ieee80211_register_hw:
-> net/mac80211/ieee80211.c:4989: warning: comparison of distinct pointer ty=
-pes lacks a cast
->=20
-> Size of ieee80211_tx_status_rtap_hdr structure will never be greater than
-> unsigned int.
+Andrew, I don't have access to PPC hw right now (doing MIPS 
+development these days), so I cannot quickly check that my theory is 
+still correct for the latest kernel. I'd wait for the reporter to try 
+my hack and then we can decide what to do. IIRC there was some 
+provision in slab allocator to enforce alignment, when I was debugging 
+this problem more then a year ago, that option didn't work.
 
-Thanks Jiri, just noticed that it was actually my bug.
+BTW, I think slob allocator had the same issue with alignment as slab 
+with enabled debugging (at least at the time I looked at it).
 
-johannes
-
---=-cMOtrpgLuykpVVEPw8VL
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iD8DBQBGnjkX/ETPhpq3jKURArfXAJ4mFw6lfkbdR4aZcJah2Cu/O33nQACgs8lI
-n5Y0R4TpLeyZPv/+5BS/QTs=
-=XvYK
------END PGP SIGNATURE-----
-
---=-cMOtrpgLuykpVVEPw8VL--
+-- 
+Eugene
 
