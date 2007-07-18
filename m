@@ -1,78 +1,60 @@
-From: Eugene Surovegin <ebs@ebshome.net>
-Subject: Re: [Bugme-new] [Bug 8778] New: Ocotea board: kernel reports access of bad area during boot with DEBUG_SLAB=y
-Date: Wed, 18 Jul 2007 10:04:33 -0700
-Message-ID: <20070718170433.GC29722@gate.ebshome.net>
-References: <bug-8778-10286@http.bugzilla.kernel.org/> <20070718005253.942f0464.akpm@linux-foundation.org> <20070718083425.GA29722@gate.ebshome.net> <1184766070.3699.2.camel@zod.rchland.ibm.com> <20070718155940.GB29722@gate.ebshome.net> <20070718095537.d344dc0a.akpm@linux-foundation.org>
+From: Roy Pledge <Roy.Pledge@freescale.com>
+Subject: Re: Socket Buffers and Memory Managment
+Date: Wed, 18 Jul 2007 13:13:21 -0400
+Message-ID: <469E4A31.6030603@freescale.com>
+References: <551531.35231.qm@web82912.mail.mud.yahoo.com> <20070717204129.79e7fe0d@oldman>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-mm@kvack.org, Christoph Lameter <clameter@sgi.com>,
-	Josh Boyer <jwboyer@linux.vnet.ibm.com>,
-	bart.vanassche@gmail.com, netdev@vger.kernel.org,
-	"bugme-daemon@kernel-bugs.osdl.org"
-	<bugme-daemon@bugzilla.kernel.org>, linuxppc-embedded@ozlabs.org
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: vinay ravuri <vinaynyc@yahoo.com>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.ebshome.net ([208.106.21.240]:34477 "EHLO gate.ebshome.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752630AbXGRREe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Jul 2007 13:04:34 -0400
-Content-Disposition: inline
-In-Reply-To: <20070718095537.d344dc0a.akpm@linux-foundation.org>
+Received: from de01egw01.freescale.net ([192.88.165.102]:64526 "EHLO
+	de01egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752413AbXGRROA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2007 13:14:00 -0400
+In-Reply-To: <20070717204129.79e7fe0d@oldman>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 18, 2007 at 09:55:37AM -0700, Andrew Morton wrote:
-> On Wed, 18 Jul 2007 08:59:40 -0700 Eugene Surovegin <ebs@ebshome.net> wrote:
+Stephen Hemminger wrote:
 > 
-> > On Wed, Jul 18, 2007 at 08:41:10AM -0500, Josh Boyer wrote:
-> > > On Wed, 2007-07-18 at 01:34 -0700, Eugene Surovegin wrote:
-> > > > On Wed, Jul 18, 2007 at 12:52:53AM -0700, Andrew Morton wrote:
-> > > > > On Wed, 18 Jul 2007 00:07:50 -0700 (PDT) bugme-daemon@bugzilla.kernel.org wrote:
-> > > > > 
-> > > > > > http://bugzilla.kernel.org/show_bug.cgi?id=8778
-> > > > > > 
-> > > > > >            Summary: Ocotea board: kernel reports access of bad area during
-> > > > > >                     boot with DEBUG_SLAB=y
-> > > > 
-> > > > Slab debugging is probably the culprit here. I had similar problem 
-> > > > couple of years ago, not sure something has changed since then, 
-> > > > haven't checked.
-> > > > 
-> > > > When slab debugging was enabled it made memory allocations non L1 
-> > > > cache line aligned. This is very bad for DMA on non-coherent cache 
-> > > > arches (PPC440 is one of those archs).
-> > > > 
-> > > > I have a hack for EMAC which tries to "workaround" this problem:
-> > > > 	http://kernel.ebshome.net/emac_slab_debug.diff
-> > > > which might help.
-> > > 
-> > > Would you be opposed to including that patch in mainline?
-> > 
-> > Yes. I don't think it's the right way to fix this issue. IMO, the 
-> > right one is to fix slab allocator. You cannot change all drivers to 
-> > do this kind of cache flushing, and yes, I saw the same problem with 
-> > PCI based NIC I tried on Ocotea at the time.
-> > 
+> You could play tricks with skb frags but it would be fragile
+> and not worth the trouble. The problem is that the receive
+> skb can stay in the system for a really long time (until the application
+> reads the data) so your fixed size buffer pool in hardware
+> would get exhausted.
+>  
+Perhaps you could elaborate on why this is considered fragile?  It seems to me 
+that as long as proper page management is performed, this mechanism should be 
+stable for processing non-contiguous receive buffers.  I agree that 
+replenishment needs to be addressed, but I see that as an independent issue from 
+using frag lists on receive.
+
+>> Also, if the h/w gives me a single packet in multiple
+>> locations (i.e. non-contiguous chunks of memory), can
+>> socket buffers handle chains of buffers?  I am looking
+>> for a facility like mbuf's in netbsd where one can
+>> chain multiple buffers together to make construct a
+>> single packet.
 > 
-> hm.  It should be the case that providing SLAB_HWCACHE_ALIGN at
-> kmem_cache_create() time will override slab-debugging's offsetting
-> of the returned addresses.
-> 
-> Or is the problem occurring with memory which is returned from kmalloc(),
-> rather than from kmem_cache_alloc()?
+> Yes, skb frag list could be used for that but you don't
+> want to do that. See above. Copy the data into an new
+> skb and reserve any necessary bytes so IP header is
+> aligned.  I.e. if using ethernet header (14 bytes), do
+> skb_reserve(skb, 2) before copying the data.
 
-It's kmalloc, at least this is how I think skbs are allocated.
+But isn't avoiding the copy the point of all this?  With some hardware models 
+using skbs as receive buffers is inconvenient and can be wasteful if jumbo 
+frames are required.  Wouldn't a mechanism where it is possible to create (or 
+populate) an skb from data in a pre existing buffer without copying be more 
+general and address more hardware models?  It seems to me that more and more 
+hardware is supporting scatter/gather output for received data, but the page* 
+model in the frag list can be restrictive in how data is placed before being 
+passed into the stack.
 
-Andrew, I don't have access to PPC hw right now (doing MIPS 
-development these days), so I cannot quickly check that my theory is 
-still correct for the latest kernel. I'd wait for the reporter to try 
-my hack and then we can decide what to do. IIRC there was some 
-provision in slab allocator to enforce alignment, when I was debugging 
-this problem more then a year ago, that option didn't work.
+Thanks
 
-BTW, I think slob allocator had the same issue with alignment as slab 
-with enabled debugging (at least at the time I looked at it).
+Roy
 
--- 
-Eugene
 
