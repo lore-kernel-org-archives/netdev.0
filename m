@@ -1,74 +1,58 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH try#6] Blackfin ethernet driver: on chip ethernet MAC
- controller driver
-Date: Wed, 18 Jul 2007 18:39:42 -0400
-Message-ID: <469E96AE.4070105@garzik.org>
-References: <1184654625.6503.21.camel@roc-desktop>
+From: Sami Farin <safari-kernel@safari.iki.fi>
+Subject: Re: Linux 2.6.22: Leak r=1 1
+Date: Thu, 19 Jul 2007 00:39:48 +0300
+Message-ID: <20070718213948.lwpul36asyzannl5@m.safari.iki.fi>
+References: <20070711174030.tjmxpxtfsn4twgk2@m.safari.iki.fi> <Pine.LNX.4.64.0707181205550.5653@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: michael.hennerich@analog.com, mb@bu3sch.de, vapier.adi@gmail.com,
-	hch@infradead.org, dcbw@redhat.com, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	joe@perches.com, yoshfuji@linux-ipv6.org
-To: bryan.wu@analog.com
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	Pasi Sarolahti <pasi.sarolahti@nokia.com>
+To: Linux Networking Mailing List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:33171 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933939AbXGRWkI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Jul 2007 18:40:08 -0400
-In-Reply-To: <1184654625.6503.21.camel@roc-desktop>
+Received: from pne-smtpout3-sn2.hy.skanova.net ([81.228.8.111]:48216 "EHLO
+	pne-smtpout3-sn2.hy.skanova.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1764188AbXGRWtU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2007 18:49:20 -0400
+Received: from safari.iki.fi (80.223.106.128) by pne-smtpout3-sn2.hy.skanova.net (7.2.075)
+        id 469383A1000430CC for netdev@vger.kernel.org; Wed, 18 Jul 2007 23:39:49 +0200
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0707181205550.5653@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Bryan Wu wrote:
-> This patch implements the driver necessary use the Analog Devices
-> Blackfin processor's on-chip ethernet MAC controller.
-> 
-> [try#2]
->  - add timeout control
->  - kill dma_config_reg bitfields
->  - some trivial cleanup
-> 
-> [try#3]
->  - add endianess check
->  - add DRV_NAME, DRV_VERSION... driver information string
->  - add some comments for silicon anomaly and dma API confusion
->  - some code trivial cleanup
-> 
-> [try#4]
->  - add Blackfin latest GPIO pin mux opertion with Michael Hennerich's
->   help and Dan's review
->  - rewrite the DMA descriptor list operation in a more readable way
->   by Joe's review
-> 
-> [try#5]
->  - cleanup some coding style by Joe's review.
-> 
-> [try#6]
->  - 1.1 version fix a bug when set up multicast list pointed by Mr. yoshfuji
->  - rearrange the desc_list_free function.
-> 
-> Signed-off-by: Michael Hennerich <michael.hennerich@analog.com>
-> Signed-off-by: Bryan Wu <bryan.wu@analog.com>
-> Cc: Michael Buesch <mb@bu3sch.de>
-> Cc: Mike Frysinger <vapier.adi@gmail.com>
-> Cc: Jeff Garzik <jeff@garzik.org>
-> Cc: Christoph Hellwig <hch@infradead.org>
-> Cc: Dan Williams <dcbw@redhat.com>
-> Cc: Joe Perches <joe@perches.com>
-> Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-> 
-> ---
->  MAINTAINERS            |    7 +
->  drivers/net/Kconfig    |   44 +++
->  drivers/net/Makefile   |    1 +
->  drivers/net/bfin_mac.c | 1009 ++++++++++++++++++++++++++++++++++++++++++++++++
->  drivers/net/bfin_mac.h |  132 +++++++
->  5 files changed, 1193 insertions(+), 0 deletions(-)
->  create mode 100644 drivers/net/bfin_mac.c
->  create mode 100644 drivers/net/bfin_mac.h
+On Wed, Jul 18, 2007 at 12:16:56 +0300, Ilpo J=E4rvinen wrote:
+> On Wed, 11 Jul 2007, Sami Farin wrote:
+>=20
+> > That's right, so descriptive is the new Linux kernel 2.6.22.
+> >=20
+> > Linux safari.finland.fbi 2.6.22-cfs-v19 #3 SMP Tue Jul 10 00:22:25 =
+EEST 2007 i686 i686 i386 GNU/Linux
+> >=20
+> > [root@safari /proc/sys/net/ipv4]# grep . *
+>=20
+> ...snip...
+>=20
+> > tcp_frto:1
+>=20
+> ...This is fully unrelated to the issue but I'm a bit curious who ena=
+bled=20
+> frto on your machine (since it's disabled by default), did you do it =
+by=20
+> yourself or the distribution perhaps?
 
-applied
+I enabled it by myself...
+
+If you'd like to get more widespread testing,
+try suggesting Fedora project to add the tuning
+to /etc/sysctl.conf (or something like that).
+Maybe fedora-devel-list:
+http://www.redhat.com/mailman/listinfo/fedora-devel-list
+Note that they have antispam on that list which requires
+that email address found on From: header field must be
+subscribed to the list or otherwise your email is
+devnulled.
+
+--=20
+Do what you love because life is too short for anything else.
 
