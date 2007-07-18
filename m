@@ -1,59 +1,29 @@
-From: Denis Cheng <crquan@gmail.com>
-Subject: [PATCH] [drivers/net/cxgb3] removed several unneeded zero initilization
-Date: Wed, 18 Jul 2007 15:24:49 +0800
-Message-ID: <11847434891556-git-send-email-crquan@gmail.com>
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
-	cr_quan@163.com, Denis Cheng <crquan@gmail.com>,
-	linux-bugs@chelsio.com
-To: linux-bugs@chelsio.com
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Realtek RTL8111B serious performance issues
+Date: Wed, 18 Jul 2007 09:26:35 +0200
+Message-ID: <20070718072635.GA26243@electric-eye.fr.zoreil.com>
+References: <Pine.SOC.4.64.0707172328150.3299@katana>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: john@BlueSkyTours.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.180]:15067 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752479AbXGRHYk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2007 03:24:40 -0400
-Received: by wa-out-1112.google.com with SMTP id v27so114888wah
-        for <netdev@vger.kernel.org>; Wed, 18 Jul 2007 00:24:39 -0700 (PDT)
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:47603 "EHLO
+	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752627AbXGRH3S (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Jul 2007 03:29:18 -0400
+Content-Disposition: inline
+In-Reply-To: <Pine.SOC.4.64.0707172328150.3299@katana>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Cc: linux-bugs@chelsio.com
-Signed-off-by: Denis Cheng <crquan@gmail.com>
----
- drivers/net/cxgb3/cxgb3_main.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+john@BlueSkyTours.com <john@BlueSkyTours.com> :
+[...]
+> Anyone have any suggestions for solving this problem?
 
-diff --git a/drivers/net/cxgb3/cxgb3_main.c b/drivers/net/cxgb3/cxgb3_main.c
-index 6fd1e52..45711f9 100644
---- a/drivers/net/cxgb3/cxgb3_main.c
-+++ b/drivers/net/cxgb3/cxgb3_main.c
-@@ -754,7 +754,7 @@ static int upgrade_fw(struct adapter *adap)
-  */
- static int cxgb_up(struct adapter *adap)
- {
--	int err = 0;
-+	int err;
- 
- 	if (!(adap->flags & FULL_INIT_DONE)) {
- 		err = t3_check_fw_version(adap);
-@@ -861,7 +861,7 @@ static int offload_open(struct net_device *dev)
- 	struct adapter *adapter = dev->priv;
- 	struct t3cdev *tdev = T3CDEV(dev);
- 	int adap_up = adapter->open_device_map & PORT_MASK;
--	int err = 0;
-+	int err;
- 
- 	if (test_and_set_bit(OFFLOAD_DEVMAP_BIT, &adapter->open_device_map))
- 		return 0;
-@@ -1502,7 +1502,7 @@ static int set_eeprom(struct net_device *dev, struct ethtool_eeprom *eeprom,
- 		      u8 * data)
- {
- 	u8 *buf;
--	int err = 0;
-+	int err;
- 	u32 aligned_offset, aligned_len, *p;
- 	struct adapter *adapter = dev->priv;
- 
+Try 2.6.23-rc1 when it is published or apply against 2.6.22 one of:
+http://www.fr.zoreil.com/people/francois/misc/20070628-2.6.22-rc6-r8169-test.patch
+http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.22-rc6/r8169-20070628/
+
 -- 
-1.5.2.2
-
+Ueimor
