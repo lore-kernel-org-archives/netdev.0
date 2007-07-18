@@ -1,49 +1,54 @@
-From: "Beschorner Daniel" <Daniel.Beschorner@facton.com>
-Subject: Re: pmtu discovery on SA
-Date: Wed, 18 Jul 2007 18:13:59 +0200
-Message-ID: <3C59DB883F7B0B4D8096010D45ACCD13230257@exch.facton.local>
-References: <469A3698.5020105@trash.net> <3C59DB883F7B0B4D8096010D45ACCD1323022E@exch.facton.local> <3C59DB883F7B0B4D8096010D45ACCD1323023A@exch.facton.local> <469B7001.3090604@trash.net> <3C59DB883F7B0B4D8096010D45ACCD1323023D@exch.facton.local> <469B7B99.6040402@trash.net> <3C59DB883F7B0B4D8096010D45ACCD13230240@exch.facton.local> <469B878C.1020204@trash.net> <469B8C47.3030306@trash.net> <3C59DB883F7B0B4D8096010D45ACCD13230242@exch.facton.local> <469BB50C.10203@trash.net> <469CE9E5.7040003@trash.net> <3C59DB883F7B0B4D8096010D45ACCD1323024F@exch.facton.local> <469D3885.7070208@trash.net> <3C59DB883F7B0B4D8096010D45ACCD13230254@exch.facton.local> <469E1242.3050105@trash.net>
+From: Larry Finger <larry.finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: Re: [PATCH v2] mac80211: fix GCC warning on 64bit platforms
+Date: Wed, 18 Jul 2007 11:14:40 -0500
+Message-ID: <469E3C70.4070809@lwfinger.net>
+References: <20070714.185935.18577806.davem@davemloft.net>	<20070714.204116.23012949.davem@davemloft.net>	<20070716184653.355253bf@griffin.suse.cz>	<20070716.145358.35015496.davem@davemloft.net> <20070718171044.2de287cd@griffin.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
-To: "Patrick McHardy" <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from alpha.facton.com ([83.236.152.122]:59035 "EHLO alpha.facton.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754526AbXGRQOH convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2007 12:14:07 -0400
-Content-class: urn:content-classes:message
-In-reply-to: <469E1242.3050105@trash.net>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Jiri Benc <jbenc-AlSwsSmVLrQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20070718171044.2de287cd-IhiK2ZEFs2oCVLCxKZUutA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-> Beschorner Daniel wrote:
-> >>>No more crashes with IPComp and smaller PMTUs.
-> >>>But the "pmtu discovery on SA ESP/..." messages don't disappear.
-> >>
-> >>Thats probably a different issue. Please post the output of
-> >>"ip -x xfrm state" (obfuscate keys if you care ..).
-> > 
-> > 
-> > Linux (MTU 1500) <-> ADSL router (1492) <-> ... <-> Linux (1500)
+Jiri Benc wrote:
+> net/mac80211/ieee80211.c: In function ieee80211_register_hw:
+> net/mac80211/ieee80211.c:4989: warning: comparison of distinct pointer types lacks a cast
 > 
-> In a previous mail you mentioned:
+> Size of ieee80211_tx_status_rtap_hdr structure will never be greater than
+> unsigned int.
 > 
-> > The router on the ADSL line (behind an ADSL Netopia router 
-> via Ethernet)
-> > crashed too with 1500, now it uses 1492.
+> Signed-off-by: Jiri Benc <jbenc-AlSwsSmVLrQ@public.gmane.org>
 > 
-> So its using 1492 now? Otherwise it would be expected since the
-> initial MTU calculation would be based on 1500.
+> ---
+> 
+> On Mon, 16 Jul 2007 14:53:58 -0700 (PDT), David Miller wrote:
+>> The macro "max_t" exists for these kinds of situations, please
+>> use it. :-)
+> 
+> Ok.
+> 
+> ---
+>  net/mac80211/ieee80211.c |    4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> --- mac80211-2.6.orig/net/mac80211/ieee80211.c
+> +++ mac80211-2.6/net/mac80211/ieee80211.c
+> @@ -4986,8 +4986,8 @@ int ieee80211_register_hw(struct ieee802
+>  	 * and we need some headroom for passing the frame to monitor
+>  	 * interfaces, but never both at the same time.
+>  	 */
+> -	local->tx_headroom = max(local->hw.extra_tx_headroom,
+> -				 sizeof(struct ieee80211_tx_status_rtap_hdr));
+> +	local->tx_headroom = max_t(unsigned, local->hw.extra_tx_headroom,
+> +				   sizeof(struct ieee80211_tx_status_rtap_hdr));
+>  
+>  	debugfs_hw_add(local);
 
-I'm using 1500 again.
+For my info on how to use max_t, not as a critique of this patch. (1) Is 'unsigned' enough or should 
+it be 'unsigned int'? (2) Because tx_headroom is an int, why use unsigned at all?
 
-Just to make it clear: Is this message an error, or a warning or just
-for information?
-Could you explain a bit please.
-I have no connections hangs or other kind of problems.
-
-Thank you
-Daniel
+Larry
