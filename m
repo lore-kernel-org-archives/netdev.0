@@ -1,30 +1,28 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: updated tcatm patches for kernel/iproute 2.6.22
-Date: Thu, 19 Jul 2007 00:58:44 +0200
-Message-ID: <469E9B24.2080002@trash.net>
-References: <20070718210638.bs44zz4veowqf2kr@m.safari.iki.fi>
+Subject: Re: ~3 hours old git tree: Virtual device lo asks to queue packet!
+Date: Thu, 19 Jul 2007 01:06:31 +0200
+Message-ID: <469E9CF7.1040403@trash.net>
+References: <200707182218.13548.arekm@maven.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: Linux Networking Mailing List <netdev@vger.kernel.org>
-To: Sami Farin <safari-kernel@safari.iki.fi>
+Cc: netdev@vger.kernel.org
+To: Arkadiusz Miskiewicz <arekm@maven.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:50264 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:50400 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934035AbXGRW7V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2007 18:59:21 -0400
-In-Reply-To: <20070718210638.bs44zz4veowqf2kr@m.safari.iki.fi>
+	with ESMTP id S1753333AbXGRXHJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2007 19:07:09 -0400
+In-Reply-To: <200707182218.13548.arekm@maven.pl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Sami Farin wrote:
-> I had used tcatm patch with 2.6.16 kernel and I was
-> happy with it.
-> Now I patched Linux kernel 2.6.22 and iproute-2.6.22
-> for tcatm.  Seems to work (TM).  Only HTB tested.
+Arkadiusz Miskiewicz wrote:
+> I'm having problems with networking on recent git kernel.
+> 
+> kernel logs tons of "Virtual device lo asks to queue packet!"
+> and networking stops working correctly:
+> 
+> CONFIG_NETDEVICES_MULTIQUEUE=y
 
-
-Let me repeat again before we get in an endless discussion
-again - I will NACK these patches until we have a solution
-that works for all qdiscs.
-
+Does it go away if you disable this option?
