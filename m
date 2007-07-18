@@ -1,36 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC 0/3] lro: Generic Large Receive Offload for TCP traffic
- (IPv6)
-Date: Wed, 18 Jul 2007 15:23:10 -0700 (PDT)
-Message-ID: <20070718.152310.124381122.davem@davemloft.net>
-References: <20070715091253.GA15790@infradead.org>
-	<20070715.024015.126137834.davem@davemloft.net>
-	<200707181501.00163.ossthema@de.ibm.com>
+Subject: Re: [PATCH v2] mac80211: fix GCC warning on 64bit platforms
+Date: Wed, 18 Jul 2007 15:29:14 -0700 (PDT)
+Message-ID: <20070718.152914.04054726.davem@davemloft.net>
+References: <20070716184653.355253bf@griffin.suse.cz>
+	<20070716.145358.35015496.davem@davemloft.net>
+	<20070718171044.2de287cd@griffin.suse.cz>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hch@infradead.org, netdev@vger.kernel.org, raisch@de.ibm.com,
-	themann@de.ibm.com, linux-kernel@vger.kernel.org,
-	linuxppc-dev@ozlabs.org, meder@de.ibm.com, tklein@de.ibm.com,
-	stefan.roscher@de.ibm.com
-To: ossthema@de.ibm.com
+Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org
+To: jbenc@suse.cz
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52850
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57936
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756082AbXGRWXL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2007 18:23:11 -0400
-In-Reply-To: <200707181501.00163.ossthema@de.ibm.com>
+	by vger.kernel.org with ESMTP id S1752446AbXGRW3P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2007 18:29:15 -0400
+In-Reply-To: <20070718171044.2de287cd@griffin.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jan-Bernd Themann <ossthema@de.ibm.com>
-Date: Wed, 18 Jul 2007 15:00:59 +0200
+From: Jiri Benc <jbenc@suse.cz>
+Date: Wed, 18 Jul 2007 17:10:44 +0200
 
-> Hi,
-> 
-> I suggest we keep the interface open for IPv6 support by adding 
-> an additional parameter but first just get IPv4 support only 
-> into the kernel. IPv6 support can then incrementially be added.
-> Would that be ok?
+> -	local->tx_headroom = max(local->hw.extra_tx_headroom,
+> -				 sizeof(struct ieee80211_tx_status_rtap_hdr));
+> +	local->tx_headroom = max_t(unsigned, local->hw.extra_tx_headroom,
+> +				   sizeof(struct ieee80211_tx_status_rtap_hdr));
 
-I guess so.
+Please spell out the complete type, "unsigned int".
