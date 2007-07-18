@@ -1,69 +1,47 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: tc filter add ... fw ... action drop
-Date: Wed, 18 Jul 2007 12:46:20 +0200
-Message-ID: <469DEF7C.8040709@trash.net>
-References: <20070718032841.GA14874@toroid.org> <469DE243.20903@trash.net> <20070718102716.GA32421@toroid.org> <469DEB9A.9020606@trash.net>
+From: Jens Axboe <jens.axboe@oracle.com>
+Subject: Re: TCP stalls in current git, possibly splice related
+Date: Wed, 18 Jul 2007 12:49:16 +0200
+Message-ID: <20070718104916.GJ11657@kernel.dk>
+References: <Line.LNX.4.64.0707121608100.10773@d.namei> <1184320965.30334.2.camel@johannes.berg> <20070713110534.GF5328@kernel.dk> <1184575545.15112.0.camel@johannes.berg> <20070716120247.GG5195@kernel.dk> <1184711770.4658.5.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------010800010709020608080908"
-Cc: Abhijit Menon-Sen <ams@toroid.org>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: James Morris <jmorris@namei.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:35063 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753527AbXGRKqq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2007 06:46:46 -0400
-In-Reply-To: <469DEB9A.9020606@trash.net>
+Received: from brick.kernel.dk ([80.160.20.94]:29501 "EHLO kernel.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753334AbXGRKtn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Jul 2007 06:49:43 -0400
+Content-Disposition: inline
+In-Reply-To: <1184711770.4658.5.camel@johannes.berg>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------010800010709020608080908
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-
-Patrick McHardy wrote:
-> Abhijit Menon-Sen wrote:
+On Wed, Jul 18 2007, Johannes Berg wrote:
+> On Mon, 2007-07-16 at 14:02 +0200, Jens Axboe wrote:
 > 
->>That command is from a script that used to work with iproute2-ss020116
->>(2002!), which had the following in tc/m_police.c:
->>
->>210     } else if (strcmp(*argv, "action") == 0) {
->>211             NEXT_ARG();
->>212             if (get_police_result(&p.action, &presult, *argv)) {
->>
->>I don't know when that bit was dropped, but it used to be there. :-)
+> > Yep, it's a sender thing, so upgrading the receiver will not change
+> > anything.
 > 
+> Ok, I upgraded, but that didn't help. And in fact, I don't see how it
+> could have since synergy doesn't use splice or sendfile. I should've
+> thought of that right away, sorry.
 > 
-> 
-> Indeed, I missed that. I'll fix up the patch ..
+> It seems that packets are actually coming in during the time that my
+> mouse hangs though (ran wireshark in parallel and saw no pauses in the
+> timeline.) Hence, it actually seems to be on the receiver side, and
+> running the synergy client under strace reveals that during the time my
+> mouse hangs it's in poll() waiting for input on the tcp socket. sysrg-t
+> doesn't show anything useful, it's just scheduling waiting for data.
+> According to wireshark data is sent, but it never shows up at the
+> application layer.
 
+OK, then we can put splice off the hook at least :-)
 
-OK this patch fixes parsing of "action ...". I've removed
-the erroring on unknown arguments again since in that case
-the caller should continue parsing.
+If it's easily reproducible (and it sounds like it), then a git bisect
+might be the easiest way forward.
 
+-- 
+Jens Axboe
 
---------------010800010709020608080908
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
-
-diff --git a/tc/m_police.c b/tc/m_police.c
-index 36a7719..76cdbe1 100644
---- a/tc/m_police.c
-+++ b/tc/m_police.c
-@@ -227,7 +227,8 @@ int act_parse_police(struct action_util *a,int *argc_p, char ***argv_p, int tca_
- 			p.action = TC_POLICE_OK;
- 		} else if (matches(*argv, "pipe") == 0) {
- 			p.action = TC_POLICE_PIPE;
--		} else if (strcmp(*argv, "conform-exceed") == 0) {
-+		} else if (strcmp(*argv, "action") == 0 ||
-+			   strcmp(*argv, "conform-exceed") == 0) {
- 			NEXT_ARG();
- 			if (get_police_result(&p.action, &presult, *argv)) {
- 				fprintf(stderr, "Illegal \"action\"\n");
-
---------------010800010709020608080908--
