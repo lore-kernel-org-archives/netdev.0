@@ -1,50 +1,45 @@
-From: Jiri Benc <jbenc-AlSwsSmVLrQ@public.gmane.org>
-Subject: Re: [PATCH v2] mac80211: fix GCC warning on 64bit platforms
-Date: Wed, 18 Jul 2007 18:27:40 +0200
-Message-ID: <20070718182740.69addc09@griffin.suse.cz>
-References: <20070714.185935.18577806.davem@davemloft.net>
-	<20070714.204116.23012949.davem@davemloft.net>
-	<20070716184653.355253bf@griffin.suse.cz>
-	<20070716.145358.35015496.davem@davemloft.net>
-	<20070718171044.2de287cd@griffin.suse.cz>
-	<469E3C70.4070809@lwfinger.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: pmtu discovery on SA
+Date: Wed, 18 Jul 2007 18:27:27 +0200
+Message-ID: <469E3F6F.6040004@trash.net>
+References: <469A3698.5020105@trash.net> <3C59DB883F7B0B4D8096010D45ACCD1323022E@exch.facton.local> <3C59DB883F7B0B4D8096010D45ACCD1323023A@exch.facton.local> <469B7001.3090604@trash.net> <3C59DB883F7B0B4D8096010D45ACCD1323023D@exch.facton.local> <469B7B99.6040402@trash.net> <3C59DB883F7B0B4D8096010D45ACCD13230240@exch.facton.local> <469B878C.1020204@trash.net> <469B8C47.3030306@trash.net> <3C59DB883F7B0B4D8096010D45ACCD13230242@exch.facton.local> <469BB50C.10203@trash.net> <469CE9E5.7040003@trash.net> <3C59DB883F7B0B4D8096010D45ACCD1323024F@exch.facton.local> <469D3885.7070208@trash.net> <3C59DB883F7B0B4D8096010D45ACCD13230254@exch.facton.local> <469E1242.3050105@trash.net> <3C59DB883F7B0B4D8096010D45ACCD13230257@exch.facton.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Larry Finger <larry.finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <469E3C70.4070809-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev@vger.kernel.org
+To: Beschorner Daniel <Daniel.Beschorner@facton.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:42599 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761000AbXGRQ17 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2007 12:27:59 -0400
+In-Reply-To: <3C59DB883F7B0B4D8096010D45ACCD13230257@exch.facton.local>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 18 Jul 2007 11:14:40 -0500, Larry Finger wrote:
-> > -	local->tx_headroom = max(local->hw.extra_tx_headroom,
-> > -				 sizeof(struct ieee80211_tx_status_rtap_hdr));
-> > +	local->tx_headroom = max_t(unsigned, local->hw.extra_tx_headroom,
-> > +				   sizeof(struct ieee80211_tx_status_rtap_hdr));
-> >  
-> >  	debugfs_hw_add(local);
+Beschorner Daniel wrote:
+>>Beschorner Daniel wrote:
+>>
+>>So its using 1492 now? Otherwise it would be expected since the
+>>initial MTU calculation would be based on 1500.
 > 
-> For my info on how to use max_t, not as a critique of this patch.
-> (1) Is 'unsigned' enough or should it be 'unsigned int'?
+> 
+> I'm using 1500 again.
+> 
+> Just to make it clear: Is this message an error, or a warning or just
+> for information?
+> Could you explain a bit please.
 
-Don't know. For a C compiler, it doesn't matter, but it's fact that
-most of the code in the kernel uses "unsigned int".
 
-> (2) Because tx_headroom is an int, why use unsigned at all?
+Its a debugging message nowadays (NETDEBUG). I was mostly interested
+in this since I changed the IPsec MTU calculation in 2.6.22 and it
+might have been a bug.
 
-Because hw.extra_tx_headroom is unsigned. tx_headroom should be IMO
-unsigned too but that's not just a matter of changing its type as it
-would mean a lot of new warnings. We're talking about numbers several
-orders less than int, so it's not an issue here anyway.
+> I have no connections hangs or other kind of problems.
 
-If you think "int" is more appropriate, fine with me, I don't really
-care.
 
- Jiri
+Thanks for clarifying this. I guess the reason why you're seeing
+them now and not before is that we're now always using the maximum
+room available, while previously packets were usually a bit smaller
+than possible.
 
--- 
-Jiri Benc
-SUSE Labs
