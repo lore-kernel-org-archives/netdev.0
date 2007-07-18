@@ -1,46 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: IPSec freeze
-Date: Wed, 18 Jul 2007 01:58:42 -0700 (PDT)
-Message-ID: <20070718.015842.90122319.davem@davemloft.net>
-References: <469BB50C.10203@trash.net>
-	<469CE9E5.7040003@trash.net>
-	<3C59DB883F7B0B4D8096010D45ACCD1323024F@exch.facton.local>
+Subject: Re: [PPPOL2TP 1/2]: Fix use-after-free
+Date: Wed, 18 Jul 2007 02:04:19 -0700 (PDT)
+Message-ID: <20070718.020419.28394997.davem@davemloft.net>
+References: <469CB3E1.5060901@trash.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org, dada1@cosmosbay.com
-To: Daniel.Beschorner@facton.com
+Cc: netdev@vger.kernel.org, jchapman@katalix.com
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36302
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51343
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754164AbXGRI6n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2007 04:58:43 -0400
-In-Reply-To: <3C59DB883F7B0B4D8096010D45ACCD1323024F@exch.facton.local>
+	by vger.kernel.org with ESMTP id S1752614AbXGRJEU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2007 05:04:20 -0400
+In-Reply-To: <469CB3E1.5060901@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Beschorner Daniel" <Daniel.Beschorner@facton.com>
-Date: Tue, 17 Jul 2007 21:03:20 +0200
+From: Patrick McHardy <kaber@trash.net>
+Date: Tue, 17 Jul 2007 14:19:45 +0200
 
-> > >>> I managed to reproduce a crash with ipcomp, will try to 
-> > fix it later.
-> > >>>       
-> > >> Yes, I can confirm this.
-> > >> After disabling IPComp the crashes went away.
-> > >>     
-> > > The crash happens in xfrm_bundle_ok when walking the bundle upwards
-> > > following xfrm_dst->u.next. The loop should be stopped when
-> > > xfrm_dst->u.next == first (the topmost xfrm_dst), but it points to
-> > > NULL instead. I'm pretty sure the attached patch is responsible,
-> > > it breaks XFRM's assumption that dst->next and xfrm_dst->u.next are
-> > > the same pointer and xfrm_dst now shares the next pointer with
-> > > rcu_head.next in struct dst_entry.
-> > >
-> > > Eric, could you look into this please?
-> > 
-> > I fixed it myself. Daniel, can you please test this patch?
+> [PPPOL2TP]: Fix use-after-free
 > 
-> Many thanks Patrick!!!
-> I tested it and found it working!
+> Don't use skb->len after passing it to ip_queue_xmit.
+> 
+> Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-Thank you for testing.
+Applied.
