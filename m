@@ -1,42 +1,44 @@
-From: "Robert P. J. Day" <rpjday@mindspring.com>
+From: Randy Dunlap <randy.dunlap@oracle.com>
 Subject: Re: [PATCH] net/, drivers/net/ , missing EXPERIMENTAL in menus
-Date: Wed, 18 Jul 2007 16:23:09 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0707181620460.13912@localhost.localdomain>
+Date: Wed, 18 Jul 2007 13:40:12 -0700
+Message-ID: <20070718134012.cde2f956.randy.dunlap@oracle.com>
 References: <469E75AA.7040109@pimpmylinux.org>
+	<Pine.LNX.4.64.0707181620460.13912@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Gabriel C <crazy@pimpmylinux.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
 	netdev@vger.kernel.org
-To: Gabriel C <crazy@pimpmylinux.org>
+To: "Robert P. J. Day" <rpjday@mindspring.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nic.NetDirect.CA ([216.16.235.2]:50394 "EHLO
-	rubicon.netdirect.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757771AbXGRUZM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2007 16:25:12 -0400
-In-Reply-To: <469E75AA.7040109@pimpmylinux.org>
+Received: from rgminet01.oracle.com ([148.87.113.118]:45082 "EHLO
+	rgminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750925AbXGRUhb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2007 16:37:31 -0400
+In-Reply-To: <Pine.LNX.4.64.0707181620460.13912@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 18 Jul 2007, Gabriel C wrote:
+On Wed, 18 Jul 2007 16:23:09 -0400 (EDT) Robert P. J. Day wrote:
 
-> Everything 'depends on' EXPERIMENTAL should be marked as such,
-> visible in the menus.
+> On Wed, 18 Jul 2007, Gabriel C wrote:
+> 
+> > Everything 'depends on' EXPERIMENTAL should be marked as such,
+> > visible in the menus.
+> 
+> rather than add all that extraneous dreck to the Kconfig files, i
+> *really* wish folks would give serious thought to my earlier
+> suggestion about a "maturity level" attribute that could be used to
+> not only add a parenthesized maturity level during display, but could
+> also be used to activate/deactivate entire levels in one operation.
+> 
+> there's no point adding all that redundant content when it can all be
+> done automatically.
 
-rather than add all that extraneous dreck to the Kconfig files, i
-*really* wish folks would give serious thought to my earlier
-suggestion about a "maturity level" attribute that could be used to
-not only add a parenthesized maturity level during display, but could
-also be used to activate/deactivate entire levels in one operation.
+I like it.  Are there any kconfig patches to support this plan?
 
-there's no point adding all that redundant content when it can all be
-done automatically.
 
-rday
--- 
-========================================================================
-Robert P. J. Day
-Linux Consulting, Training and Annoying Kernel Pedantry
-Waterloo, Ontario, CANADA
-
-http://fsdev.net/wiki/index.php?title=Main_Page
-========================================================================
+---
+~Randy
+*** Remember to use Documentation/SubmitChecklist when testing your code ***
