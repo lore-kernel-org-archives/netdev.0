@@ -1,39 +1,34 @@
-From: Jeremy Fitzhardinge <jeremy@goop.org>
-Subject: Re: [patch 37/44] xen: add virtual network device driver
-Date: Tue, 17 Jul 2007 17:40:27 -0700
-Message-ID: <469D617B.6000801@goop.org>
-References: <20070716231536.937393000@xensource.com>	 <20070716232916.472694000@xensource.com> <20070717094511.795beb69@oldman>	 <469CD222.1030202@goop.org> <1184715909.10380.39.camel@localhost.localdomain>
+From: Yoichi Yuasa <yoichi_yuasa@tripeaks.co.jp>
+Subject: [PATCH] fix wrong argument of tc35815_read_plat_dev_addr()
+Date: Wed, 18 Jul 2007 11:13:42 +0900
+Message-ID: <20070718111342.0388a43b.yoichi_yuasa@tripeaks.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	Jeremy Fitzhardinge <jeremy@xensource.com>,
-	Linus Torvalds <torvalds@linux-foundation.com>,
-	Andi Kleen <ak@suse.de>,
-	Andrew Morton <akpm@linux-foundation.com>,
-	lkml <linux-kernel@vger.kernel.org>,
-	Xen-devel <xen-devel@lists.xensource.com>,
-	Chris Wright <chrisw@sous-sol.org>,
-	Ian Pratt <ian.pratt@xensource.com>,
-	Christian Limpach <Christian.Limpach@cl.cam.ac.uk>,
-	Jeff Garzik <jeff@garzik.org>,
-	Christoph Hellwig <hch@infradead.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Keir Fraser <Keir.Fraser@cl.cam.ac.uk>, netdev@vger.kernel.org
-To: Rusty Russell <rusty@rustcorp.com.au>
+Cc: yoichi_yuasa@tripeaks.co.jp, netdev@vger.kernel.org,
+	Atsushi Nemoto <anemo@mba.ocn.ne.jp>
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw.goop.org ([64.81.55.164]:46152 "EHLO mail.goop.org"
+Received: from mfo32.po.2iij.NET ([210.128.50.15]:7879 "EHLO mfo32.po.2iij.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759934AbXGRAlX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Jul 2007 20:41:23 -0400
-In-Reply-To: <1184715909.10380.39.camel@localhost.localdomain>
+	id S1756546AbXGRCS4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Jul 2007 22:18:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Rusty Russell wrote:
-> The default function points to the internal stats...
->   
+Fix wrong argument of tc35815_read_plat_dev_addr()
 
-Right you are.
+Signed-off-by: Yoichi Yuasa <yoichi_yuasa@tripeaks.co.jp>
 
-    J
+diff -pruN -X generic/Documentation/dontdiff generic-orig/drivers/net/tc35815.c generic/drivers/net/tc35815.c
+--- generic-orig/drivers/net/tc35815.c	2007-07-18 10:45:56.542655750 +0900
++++ generic/drivers/net/tc35815.c	2007-07-18 10:41:42.230762250 +0900
+@@ -626,7 +626,7 @@ static int __devinit tc35815_read_plat_d
+ 	return -ENODEV;
+ }
+ #else
+-static int __devinit tc35815_read_plat_dev_addr(struct device *dev)
++static int __devinit tc35815_read_plat_dev_addr(struct net_device *dev)
+ {
+ 	return -ENODEV;
+ }
