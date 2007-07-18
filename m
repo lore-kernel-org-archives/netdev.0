@@ -1,48 +1,27 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 1/3] netlink: allocate group bitmaps dynamically
-Date: Wed, 18 Jul 2007 15:34:04 -0700 (PDT)
-Message-ID: <20070718.153404.00455892.davem@davemloft.net>
-References: <20070717122706.899784000@sipsolutions.net>
-	<1184769287.4200.1.camel@johannes.berg>
-	<469E400C.6030907@trash.net>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 4/4] ibmveth: Add ethtool driver stats hooks
+Date: Wed, 18 Jul 2007 18:34:05 -0400
+Message-ID: <469E955D.4050903@garzik.org>
+References: <11846854701127-patch-mail.ibm.com> <200707171518.l6HFICqM006034@d03av02.boulder.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: johannes@sipsolutions.net, netdev@vger.kernel.org,
-	rui.zhang@intel.com, hadi@cyberus.ca
-To: kaber@trash.net
+Cc: santil@linux.vnet.ibm.com, rcjenn@linux.vnet.ibm.com,
+	netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
+To: Brian King <brking@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34694
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751961AbXGRWeF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2007 18:34:05 -0400
-In-Reply-To: <469E400C.6030907@trash.net>
+Received: from srv5.dvmed.net ([207.36.208.214]:33059 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757016AbXGRWeG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Jul 2007 18:34:06 -0400
+In-Reply-To: <200707171518.l6HFICqM006034@d03av02.boulder.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Wed, 18 Jul 2007 18:30:04 +0200
+Brian King wrote:
+> Add ethtool hooks to ibmveth to retrieve driver statistics.
+> 
+> 
+ACK patches 3-4
 
-> Johannes Berg wrote:
-> > Allow changing the number of groups for a netlink family
-> > after it has been created, use RCU to protect the listeners
-> > bitmap keeping netlink_has_listeners() lock-free.
-> > 
-> > Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
-> > 
-> > ---
-> > Changes: incorporate Patrick's comments, add kernel-doc
-> 
-> 
-> All three patches look good to me.
-> 
-> Acked-by: Patrick McHardy <kaber@trash.net>
-> 
-> and for Jamal again ..
-> 
-> Acked-by: Jamal Hadi Salim <hadi@cyberus.ca>
 
-Aha, Johannes did resubmit all 3 patches, they arrived out
-of order here which confused me :-)
-
-I'll apply these, thanks.
