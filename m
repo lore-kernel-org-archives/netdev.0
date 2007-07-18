@@ -1,45 +1,38 @@
-From: Eugene Surovegin <ebs@ebshome.net>
-Subject: Re: [Bugme-new] [Bug 8778] New: Ocotea board: kernel reports access of bad area during boot with DEBUG_SLAB=y
-Date: Wed, 18 Jul 2007 01:34:25 -0700
-Message-ID: <20070718083425.GA29722@gate.ebshome.net>
-References: <bug-8778-10286@http.bugzilla.kernel.org/> <20070718005253.942f0464.akpm@linux-foundation.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: IPSec freeze
+Date: Wed, 18 Jul 2007 01:58:31 -0700 (PDT)
+Message-ID: <20070718.015831.112851819.davem@davemloft.net>
+References: <3C59DB883F7B0B4D8096010D45ACCD13230242@exch.facton.local>
+	<469BB50C.10203@trash.net>
+	<469CE9E5.7040003@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linuxppc-embedded@ozlabs.org,
-	"bugme-daemon@kernel-bugs.osdl.org"
-	<bugme-daemon@bugzilla.kernel.org>, bart.vanassche@gmail.com
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Daniel.Beschorner@facton.com, netdev@vger.kernel.org,
+	dada1@cosmosbay.com
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.ebshome.net ([208.106.21.240]:33014 "EHLO gate.ebshome.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753799AbXGRIlI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Jul 2007 04:41:08 -0400
-Content-Disposition: inline
-In-Reply-To: <20070718005253.942f0464.akpm@linux-foundation.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39146
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754164AbXGRI6c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2007 04:58:32 -0400
+In-Reply-To: <469CE9E5.7040003@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 18, 2007 at 12:52:53AM -0700, Andrew Morton wrote:
-> On Wed, 18 Jul 2007 00:07:50 -0700 (PDT) bugme-daemon@bugzilla.kernel.org wrote:
+From: Patrick McHardy <kaber@trash.net>
+Date: Tue, 17 Jul 2007 18:10:13 +0200
+
+> [XFRM]: Fix crash introduced by struct dst_entry reordering
 > 
-> > http://bugzilla.kernel.org/show_bug.cgi?id=8778
-> > 
-> >            Summary: Ocotea board: kernel reports access of bad area during
-> >                     boot with DEBUG_SLAB=y
+> XFRM expects xfrm_dst->u.next to be same pointer as dst->next, which
+> was broken by the dst_entry reordering in commit 1e19e02c~, causing
+> an oops in xfrm_bundle_ok when walking the bundle upwards.
+> 
+> Kill xfrm_dst->u.next and change the only user to use dst->next instead.
+> 
+> Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-Slab debugging is probably the culprit here. I had similar problem 
-couple of years ago, not sure something has changed since then, 
-haven't checked.
+Applied, thanks a lot Patrick.
 
-When slab debugging was enabled it made memory allocations non L1 
-cache line aligned. This is very bad for DMA on non-coherent cache 
-arches (PPC440 is one of those archs).
-
-I have a hack for EMAC which tries to "workaround" this problem:
-	http://kernel.ebshome.net/emac_slab_debug.diff
-which might help.
-
--- 
-Eugene
-
-
+I'll toss this to -stable too.
