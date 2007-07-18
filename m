@@ -1,55 +1,38 @@
-From: =?ISO-8859-15?Q?Mika_Penttil=E4?= <mika.penttila@kolumbus.fi>
-Subject: Re: pmtu discovery on SA
-Date: Wed, 18 Jul 2007 21:47:24 +0300
-Message-ID: <469E603C.3070308@kolumbus.fi>
-References: <469A3698.5020105@trash.net> <3C59DB883F7B0B4D8096010D45ACCD1323022E@exch.facton.local> <3C59DB883F7B0B4D8096010D45ACCD1323023A@exch.facton.local> <469B7001.3090604@trash.net> <3C59DB883F7B0B4D8096010D45ACCD1323023D@exch.facton.local> <469B7B99.6040402@trash.net> <3C59DB883F7B0B4D8096010D45ACCD13230240@exch.facton.local> <469B878C.1020204@trash.net> <469B8C47.3030306@trash.net> <3C59DB883F7B0B4D8096010D45ACCD13230242@exch.facton.local> <469BB50C.10203@trash.net> <469CE9E5.7040003@trash.net> <3C59DB883F7B0B4D8096010D45ACCD1323024F@exch.facton.local> <469D3885.7070208@trash.net> <3C59DB883F7B0B4D8096010D45ACCD13230254@exch.facton.local> <469E1242.3050105@trash.net> <3C59DB883F7B0B4D8096010D45ACCD13230257@exch.facton.local> <469E3F6F.6040004@trash.net> <469E465A.9000902@kolumbus.fi> <469E5BA0.6030200@trash.net> <469E5E65.7070902@kolumbus.fi> <469E5ED2.1060306@trash.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Beschorner Daniel <Daniel.Beschorner@facton.com>,
-	netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+From: Andy Fleming <afleming@freescale.com>
+Subject: Re: [PATCH 1/2] Fix error checking in Vitesse IRQ config
+Date: Wed, 18 Jul 2007 13:52:52 -0500
+Message-ID: <7318E17E-C9F9-42CE-89A4-E3DBAF0A02C6@freescale.com>
+References: <11847405503115-git-send-email-afleming@freescale.com> <a901b49a0707180000g1c107323ub6c95a6ef3b5b2fe@mail.gmail.com>
+Mime-Version: 1.0 (Apple Message framework v752.2)
+Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
+To: pradeep singh <pradeep.rautela@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pne-smtpout4-sn1.fre.skanova.net ([81.228.11.168]:51167 "EHLO
-	pne-smtpout4-sn1.fre.skanova.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750767AbXGRStY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2007 14:49:24 -0400
-In-Reply-To: <469E5ED2.1060306@trash.net>
+Received: from az33egw01.freescale.net ([192.88.158.102]:34331 "EHLO
+	az33egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759804AbXGRSxA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2007 14:53:00 -0400
+In-Reply-To: <a901b49a0707180000g1c107323ub6c95a6ef3b5b2fe@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy wrote:
-> Mika Penttil=E4 wrote:
->> Hmm. esp4_err() looks like this :
->>
->>    struct iphdr *iph =3D (struct iphdr*)skb->data;
->>    struct ip_esp_hdr *esph =3D (struct=20
->> ip_esp_hdr*)(skb->data+(iph->ihl<<2));
->>    struct xfrm_state *x;
->>
->>    if (icmp_hdr(skb)->type !=3D ICMP_DEST_UNREACH ||
->>        icmp_hdr(skb)->code !=3D ICMP_FRAG_NEEDED)
->>        return;
->>
->>    x =3D xfrm_state_lookup((xfrm_address_t *)&iph->daddr, esph->spi,=
-=20
->> IPPROTO_ESP, AF_INET);
->>    if (!x)
->>        return;
->>    NETDEBUG(KERN_DEBUG "pmtu discovery on SA ESP/%08x/%08x\n",
->>         ntohl(esph->spi), ntohl(iph->daddr));
->>    xfrm_state_put(x);
->>
->>
->>
->> where could pmtu discovery be happening?
->
-> xfrm_init_pmtu, xfrm_bundle_ok, xfrm_state_mtu, esp4_get_mtu, ...
->
-Okay yes but for instance the current tcp session isn't recovering from=
-=20
-from esp4_err() ? The next connect attempt uses the new pmtu?
 
---Mika
+On Jul 18, 2007, at 02:00, pradeep singh wrote:
 
+> On 7/18/07, Andy Fleming <afleming@freescale.com> wrote:
+
+>> -               if (err)
+>> +               if (err < 0)
+>>                         return err;
+>
+> but would that mean, if phy_read returns > 0 it is a success?
+
+Yes.  phy_read() returns a 32-bit value.  If there's an error, it  
+returns a negative number.  If not, it returns whatever was in the  
+register (which is only 16 bits)
+
+phy_write() returns 0 on success, and non-zero, otherwise.  In  
+hindsight, it would have been better to be consistent.
+
+Andy
