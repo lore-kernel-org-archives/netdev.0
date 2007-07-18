@@ -1,75 +1,58 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: kmap_atomic() oopses in current mainline
-Date: Thu, 19 Jul 2007 14:01:33 +0400
-Message-ID: <20070719100132.GC15839@2ka.mipt.ru>
-References: <20070719013304.3c060c99.akpm@linux-foundation.org> <20070719092856.GA15839@2ka.mipt.ru> <20070719023831.400f7905.akpm@linux-foundation.org>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: TCP stalls in current git, possibly splice related
+Date: Wed, 18 Jul 2007 23:24:17 +0200
+Message-ID: <1184793857.8125.23.camel@johannes.berg>
+References: <Line.LNX.4.64.0707121608100.10773@d.namei>
+	 <1184320965.30334.2.camel@johannes.berg> <20070713110534.GF5328@kernel.dk>
+	 <1184575545.15112.0.camel@johannes.berg> <20070716120247.GG5195@kernel.dk>
+	 <1184711770.4658.5.camel@johannes.berg>  <20070718104916.GJ11657@kernel.dk>
+	 <1184756332.4658.16.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: netdev@vger.kernel.org, linux-kernel-announce@vger.kernel.org,
-	Dan Williams <dan.j.williams@intel.com>
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-BED9jqTFr30xxq8D14W6"
+Cc: James Morris <jmorris@namei.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Jens Axboe <jens.axboe@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:35936 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932085AbXGSKCe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Jul 2007 06:02:34 -0400
-Content-Disposition: inline
-In-Reply-To: <20070719023831.400f7905.akpm@linux-foundation.org>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:35588 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1764926AbXGSKFc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2007 06:05:32 -0400
+In-Reply-To: <1184756332.4658.16.camel@johannes.berg>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 19, 2007 at 02:38:31AM -0700, Andrew Morton (akpm@linux-foundation.org) wrote:
-> > > is very wrong if both ASYNC_TX_KMAP_DST and ASYNC_TX_KMAP_SRC can ever be
-> > > set.  We'll end up using the same kmap slot for both src add dest and we
-> > > get either corrupted data or a BUG.
-> > 
-> > So far it can not since the only user is raid code, which only allows to
-> > perform either reading from bio or writing into one, which requires only
-> > one mapping.
-> 
-> hm, so we got lucky?
 
-I would say it was intentionally, current code can perform only one
-operation in a time. Of course changing KM_USER from 0 to 1 in second
-kmap_atomic will not force oceans to run out of coasts.
+--=-BED9jqTFr30xxq8D14W6
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-Kind of:
+On Wed, 2007-07-18 at 12:58 +0200, Johannes Berg wrote:
 
-diff --git a/crypto/async_tx/async_memcpy.c b/crypto/async_tx/async_memcpy.c
-index a973f4e..a48c7f3 100644
---- a/crypto/async_tx/async_memcpy.c
-+++ b/crypto/async_tx/async_memcpy.c
-@@ -94,7 +94,7 @@ async_memcpy(struct page *dest, struct page *src, unsigned int dest_offset,
- 			dest_buf = page_address(dest) + dest_offset;
- 
- 		if (flags & ASYNC_TX_KMAP_SRC)
--			src_buf = kmap_atomic(src, KM_USER0) + src_offset;
-+			src_buf = kmap_atomic(src, KM_USER1) + src_offset;
- 		else
- 			src_buf = page_address(src) + src_offset;
- 
-@@ -104,7 +104,7 @@ async_memcpy(struct page *dest, struct page *src, unsigned int dest_offset,
- 			kunmap_atomic(dest_buf, KM_USER0);
- 
- 		if (flags & ASYNC_TX_KMAP_SRC)
--			kunmap_atomic(src_buf, KM_USER0);
-+			kunmap_atomic(src_buf, KM_USER1);
- 
- 		async_tx_sync_epilog(flags, depend_tx, cb_fn, cb_param);
- 	}
+> Yeah, I only need to try to remember when I last *didn't* see the
+> problem, and hope that my analysis about it being on the receiver side
+> is correct :)
 
-> > Btw, shouldn't it always be kmap_atomic() even if flag is not set.
-> > That pages are usual one returned by alloc_page().
-> 
-> The code would work OK if the kmap_atomic()s were unconditional, but it
-> would be a bit more expensive if the page is in highmem and we don't
-> actually intend to access it with the CPU.
-> 
-> kmap_atomic() against a non-highmem page is basically free: just an
-> additional test_bit().
+Hm. I went back to 2.6.20 on the receiver side and still saw it. Maybe I
+need to go back further?
 
-As far as I recall there was an intention to do async memory copy to
-userspace, so likely kmapping is a good idea.
+With strace (the synergyc process) and tcpdump (on the interface) I
+continually see packets coming in but the read sometimes pauses for 8
+seconds... Not sure why. Very weird, but right now I don't have enough
+time for investigating.
 
--- 
-	Evgeniy Polyakov
+johannes
+
+--=-BED9jqTFr30xxq8D14W6
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iD8DBQBGnoUB/ETPhpq3jKURAv5eAJ9OrmI07SGfQpNi0LN+OxFJDuoOIACeOSvc
+O8eQrXVZ/+vfNvSx5YVaRrQ=
+=SRTQ
+-----END PGP SIGNATURE-----
+
+--=-BED9jqTFr30xxq8D14W6--
+
