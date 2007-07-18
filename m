@@ -1,58 +1,100 @@
 From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: TCP stalls in current git, possibly splice related
-Date: Wed, 18 Jul 2007 23:24:17 +0200
-Message-ID: <1184793857.8125.23.camel@johannes.berg>
-References: <Line.LNX.4.64.0707121608100.10773@d.namei>
-	 <1184320965.30334.2.camel@johannes.berg> <20070713110534.GF5328@kernel.dk>
-	 <1184575545.15112.0.camel@johannes.berg> <20070716120247.GG5195@kernel.dk>
-	 <1184711770.4658.5.camel@johannes.berg>  <20070718104916.GJ11657@kernel.dk>
-	 <1184756332.4658.16.camel@johannes.berg>
+Subject: [PATCH] enforce generic netlink multicast group API
+Date: Thu, 19 Jul 2007 00:05:19 +0200
+Message-ID: <1184796319.8125.28.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-BED9jqTFr30xxq8D14W6"
-Cc: James Morris <jmorris@namei.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Jens Axboe <jens.axboe@oracle.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Patrick McHardy <kaber@trash.net>, netdev <netdev@vger.kernel.org>,
+	jamal <hadi@cyberus.ca>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:35588 "EHLO
+Received: from crystal.sipsolutions.net ([195.210.38.204]:35623 "EHLO
 	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1764926AbXGSKFc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2007 06:05:32 -0400
-In-Reply-To: <1184756332.4658.16.camel@johannes.berg>
+	with ESMTP id S935689AbXGSKGf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2007 06:06:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+This patch changes genlmsg_multicast() to take a struct
+genl_multicast_group * instead of the ID, that way users are forced to
+register a group before being able to use genlmsg_multicast().
 
---=-BED9jqTFr30xxq8D14W6
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
 
-On Wed, 2007-07-18 at 12:58 +0200, Johannes Berg wrote:
+---
+Just seemed like a good idea to enforce using this API so we won't get
+into any trouble with somebody using the family number as the group,
+nobody noticing and then being stuck with that userspace ABI. Not sure
+if it's worth it, but it doesn't really make a difference code-wise, I
+guess it shouldn't even generate different code.
 
-> Yeah, I only need to try to remember when I last *didn't* see the
-> problem, and hope that my analysis about it being on the receiver side
-> is correct :)
+---
+ include/net/genetlink.h |    9 +++++----
+ net/netlink/genetlink.c |   10 ++++++++--
+ 2 files changed, 13 insertions(+), 6 deletions(-)
 
-Hm. I went back to 2.6.20 on the receiver side and still saw it. Maybe I
-need to go back further?
+--- wireless-dev.orig/include/net/genetlink.h	2007-07-18 23:54:48.680937160 +0200
++++ wireless-dev/include/net/genetlink.h	2007-07-18 23:55:44.330937160 +0200
+@@ -7,7 +7,7 @@
+ /**
+  * struct genl_multicast_group - generic netlink multicast group
+  * @name: name of the multicast group, names are per-family
+- * @id: multicast group ID, assigned by the core, to use with
++ * @id: multicast group ID, assigned by the core, used by
+  *      genlmsg_multicast().
+  * @list: list entry for linking
+  * @family: pointer to family, need not be set before registering
+@@ -171,13 +171,14 @@ static inline int genlmsg_cancel(struct 
+  * genlmsg_multicast - multicast a netlink message
+  * @skb: netlink message as socket buffer
+  * @pid: own netlink pid to avoid sending to yourself
+- * @group: multicast group id
++ * @group: multicast group
+  * @flags: allocation flags
+  */
+ static inline int genlmsg_multicast(struct sk_buff *skb, u32 pid,
+-				    unsigned int group, gfp_t flags)
++				    struct genl_multicast_group *group,
++				    gfp_t flags)
+ {
+-	return nlmsg_multicast(genl_sock, skb, pid, group, flags);
++	return nlmsg_multicast(genl_sock, skb, pid, group->id, flags);
+ }
+ 
+ /**
+--- wireless-dev.orig/net/netlink/genetlink.c	2007-07-18 23:54:08.210937160 +0200
++++ wireless-dev/net/netlink/genetlink.c	2007-07-18 23:59:29.470937160 +0200
+@@ -730,7 +730,7 @@ static int genl_ctrl_event(int event, vo
+ 		if (IS_ERR(msg))
+ 			return PTR_ERR(msg);
+ 
+-		genlmsg_multicast(msg, 0, GENL_ID_CTRL, GFP_KERNEL);
++		genlmsg_multicast(msg, 0, &notify_grp, GFP_KERNEL);
+ 		break;
+ 	case CTRL_CMD_NEWMCAST_GRP:
+ 	case CTRL_CMD_DELMCAST_GRP:
+@@ -738,7 +738,7 @@ static int genl_ctrl_event(int event, vo
+ 		if (IS_ERR(msg))
+ 			return PTR_ERR(msg);
+ 
+-		genlmsg_multicast(msg, 0, GENL_ID_CTRL, GFP_KERNEL);
++		genlmsg_multicast(msg, 0, &notify_grp, GFP_KERNEL);
+ 		break;
+ 	}
+ 
+@@ -754,6 +754,12 @@ static struct genl_ops genl_ctrl_ops = {
+ 
+ static struct genl_multicast_group notify_grp = {
+ 	.name		= "notify",
++	/*
++	 * The ID is fixed because it is userspace ABI,
++	 * pre-assign so we already have a valid one
++	 * during registration of the controller family.
++	 */
++	.id		= GENL_ID_CTRL,
+ };
+ 
+ static int __init genl_init(void)
 
-With strace (the synergyc process) and tcpdump (on the interface) I
-continually see packets coming in but the read sometimes pauses for 8
-seconds... Not sure why. Very weird, but right now I don't have enough
-time for investigating.
-
-johannes
-
---=-BED9jqTFr30xxq8D14W6
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iD8DBQBGnoUB/ETPhpq3jKURAv5eAJ9OrmI07SGfQpNi0LN+OxFJDuoOIACeOSvc
-O8eQrXVZ/+vfNvSx5YVaRrQ=
-=SRTQ
------END PGP SIGNATURE-----
-
---=-BED9jqTFr30xxq8D14W6--
 
