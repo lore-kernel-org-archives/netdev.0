@@ -1,8 +1,9 @@
 From: Denis Cheng <crquan@gmail.com>
-Subject: [PATCH 1/2] net/core: merge the content of dev_mcast.c into dev.c
-Date: Wed, 18 Jul 2007 19:30:28 +0800
-Message-ID: <1184758229305-git-send-email-crquan@gmail.com>
+Subject: [PATCH 2/2] net/core: some functions' definition order adjustment for readability
+Date: Wed, 18 Jul 2007 19:30:29 +0800
+Message-ID: <11847582511783-git-send-email-crquan@gmail.com>
 References: <20070718.030306.50591269.davem@davemloft.net>
+ <1184758229305-git-send-email-crquan@gmail.com>
 Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru,
 	Patrick McHardy <kaber@trash.net>, pekkas@netcore.fi,
 	jmorris@namei.org, linux-kernel@vger.kernel.org,
@@ -11,140 +12,27 @@ To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from nz-out-0506.google.com ([64.233.162.224]:19881 "EHLO
 	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751664AbXGRLag (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2007 07:30:36 -0400
+	with ESMTP id S1758178AbXGRLar (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2007 07:30:47 -0400
 Received: by nz-out-0506.google.com with SMTP id s18so138749nze
-        for <netdev@vger.kernel.org>; Wed, 18 Jul 2007 04:30:35 -0700 (PDT)
-In-Reply-To: <20070718.030306.50591269.davem@davemloft.net>
+        for <netdev@vger.kernel.org>; Wed, 18 Jul 2007 04:30:46 -0700 (PDT)
+In-Reply-To: <1184758229305-git-send-email-crquan@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-- removed three function declarations from header file to mark them static,
-- reduced one file
-
 Signed-off-by: Denis Cheng <crquan@gmail.com>
 ---
+ net/core/dev.c |  407 ++++++++++++++++++++++++++++----------------------------
+ 1 files changed, 201 insertions(+), 206 deletions(-)
 
-this one is just merging by concatenating, and I'll try to adjust some
-function definitions' order to make it more readable.
-
- include/linux/netdevice.h |    3 -
- net/core/Makefile         |    2 +-
- net/core/dev.c            |  239 +++++++++++++++++++++++++++++++++++++++++-
- net/core/dev_mcast.c      |  255 ---------------------------------------------
- 4 files changed, 237 insertions(+), 262 deletions(-)
- delete mode 100644 net/core/dev_mcast.c
-
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 9820ca1..ca68c58 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1091,15 +1091,12 @@ extern int		register_netdev(struct net_device *dev);
- extern void		unregister_netdev(struct net_device *dev);
- /* Functions used for secondary unicast and multicast support */
- extern void		dev_set_rx_mode(struct net_device *dev);
--extern void		__dev_set_rx_mode(struct net_device *dev);
- extern int		dev_unicast_delete(struct net_device *dev, void *addr, int alen);
- extern int		dev_unicast_add(struct net_device *dev, void *addr, int alen);
- extern int 		dev_mc_delete(struct net_device *dev, void *addr, int alen, int all);
- extern int		dev_mc_add(struct net_device *dev, void *addr, int alen, int newonly);
- extern int		dev_mc_sync(struct net_device *to, struct net_device *from);
- extern void		dev_mc_unsync(struct net_device *to, struct net_device *from);
--extern int 		__dev_addr_delete(struct dev_addr_list **list, int *count, void *addr, int alen, int all);
--extern int		__dev_addr_add(struct dev_addr_list **list, int *count, void *addr, int alen, int newonly);
- extern void		dev_set_promiscuity(struct net_device *dev, int inc);
- extern void		dev_set_allmulti(struct net_device *dev, int inc);
- extern void		netdev_state_change(struct net_device *dev);
-diff --git a/net/core/Makefile b/net/core/Makefile
-index 4751613..54d28dd 100644
---- a/net/core/Makefile
-+++ b/net/core/Makefile
-@@ -7,7 +7,7 @@ obj-y := sock.o request_sock.o skbuff.o iovec.o datagram.o stream.o scm.o \
- 
- obj-$(CONFIG_SYSCTL) += sysctl_net_core.o
- 
--obj-y		     += dev.o ethtool.o dev_mcast.o dst.o netevent.o \
-+obj-y		     += dev.o ethtool.o dst.o netevent.o \
- 			neighbour.o rtnetlink.o utils.o link_watch.o filter.o
- 
- obj-$(CONFIG_XFRM) += flow.o
 diff --git a/net/core/dev.c b/net/core/dev.c
-index 6357f54..16842af 100644
+index 16842af..ee567dd 100644
 --- a/net/core/dev.c
 +++ b/net/core/dev.c
-@@ -18,6 +18,7 @@
-  *		Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-  *		Adam Sulmicki <adam@cfar.umd.edu>
-  *              Pekka Riikonen <priikone@poesidon.pspt.fi>
-+ *              Denis Cheng <crquan@gmail.com>
-  *
-  *	Changes:
-  *              D.J. Barrow     :       Fixed bug where dev->refcnt gets set
-@@ -70,6 +71,32 @@
-  *              			indefinitely on dev->refcnt
-  * 		J Hadi Salim	:	- Backlog queue sampling
-  *				        - netif_rx() feedback
-+ *              Denis Cheng     :       Merge dev_mcast.c into it
-+ */
-+
-+/*
-+ * 	The original information in dev_mcast.c:
-+ *
-+ *	Linux NET3:	Multicast List maintenance.
-+ *
-+ *	Authors:
-+ *		Tim Kordas <tjk@nostromo.eeap.cwru.edu>
-+ *		Richard Underwood <richard@wuzz.demon.co.uk>
-+ *
-+ *	Stir fried together from the IP multicast and CAP patches above
-+ *		Alan Cox <Alan.Cox@linux.org>
-+ *
-+ *	Fixes:
-+ *		Alan Cox	:	Update the device on a real delete
-+ *					rather than any time but...
-+ *		Alan Cox	:	IFF_ALLMULTI support.
-+ *		Alan Cox	: 	New format set_multicast_list() calls.
-+ *		Gleb Natapov    :       Remove dev_mc_lock.
-+ *
-+ *	This program is free software; you can redistribute it and/or
-+ *	modify it under the terms of the GNU General Public License
-+ *	as published by the Free Software Foundation; either version
-+ *	2 of the License, or (at your option) any later version.
-  */
- 
- #include <asm/uaccess.h>
-@@ -2622,7 +2649,7 @@ void dev_set_allmulti(struct net_device *dev, int inc)
-  *	filtering it is put in promiscous mode while unicast addresses
-  *	are present.
-  */
--void __dev_set_rx_mode(struct net_device *dev)
-+static void __dev_set_rx_mode(struct net_device *dev)
- {
- 	/* dev_open will call this function so the list will stay sane. */
- 	if (!(dev->flags&IFF_UP))
-@@ -2657,7 +2684,7 @@ void dev_set_rx_mode(struct net_device *dev)
- 	netif_tx_unlock_bh(dev);
+@@ -2790,6 +2790,134 @@ int dev_unicast_add(struct net_device *dev, void *addr, int alen)
  }
+ EXPORT_SYMBOL(dev_unicast_add);
  
--int __dev_addr_delete(struct dev_addr_list **list, int *count,
-+static int __dev_addr_delete(struct dev_addr_list **list, int *count,
- 		      void *addr, int alen, int glbl)
- {
- 	struct dev_addr_list *da;
-@@ -2683,7 +2710,7 @@ int __dev_addr_delete(struct dev_addr_list **list, int *count,
- 	return -ENOENT;
- }
- 
--int __dev_addr_add(struct dev_addr_list **list, int *count,
-+static int __dev_addr_add(struct dev_addr_list **list, int *count,
- 		   void *addr, int alen, int glbl)
- {
- 	struct dev_addr_list *da;
-@@ -4049,3 +4076,209 @@ EXPORT_SYMBOL(dev_load);
- #endif
- 
- EXPORT_PER_CPU_SYMBOL(softnet_data);
-+
 +/*
 + *	Device multicast list maintenance.
 + *
@@ -163,7 +51,6 @@ index 6357f54..16842af 100644
 +/*
 + *	Delete a device level multicast
 + */
-+
 +int dev_mc_delete(struct net_device *dev, void *addr, int alen, int glbl)
 +{
 +	int err;
@@ -182,11 +69,11 @@ index 6357f54..16842af 100644
 +	netif_tx_unlock_bh(dev);
 +	return err;
 +}
++EXPORT_SYMBOL(dev_mc_delete);
 +
 +/*
 + *	Add a device level multicast
 + */
-+
 +int dev_mc_add(struct net_device *dev, void *addr, int alen, int glbl)
 +{
 +	int err;
@@ -198,6 +85,7 @@ index 6357f54..16842af 100644
 +	netif_tx_unlock_bh(dev);
 +	return err;
 +}
++EXPORT_SYMBOL(dev_mc_add);
 +
 +/**
 + *	dev_mc_sync	- Synchronize device's multicast list to another device
@@ -240,7 +128,6 @@ index 6357f54..16842af 100644
 +}
 +EXPORT_SYMBOL(dev_mc_sync);
 +
-+
 +/**
 + * 	dev_mc_unsync	- Remove synchronized addresses from the destination
 + * 			  device
@@ -274,6 +161,13 @@ index 6357f54..16842af 100644
 +}
 +EXPORT_SYMBOL(dev_mc_unsync);
 +
+ static void __dev_addr_discard(struct dev_addr_list **list)
+ {
+ 	struct dev_addr_list *tmp;
+@@ -3963,6 +4091,79 @@ static int __init netdev_dma_register(void)
+ static int __init netdev_dma_register(void) { return -ENODEV; }
+ #endif /* CONFIG_NET_DMA */
+ 
 +#ifdef CONFIG_PROC_FS
 +static void *dev_mc_seq_start(struct seq_file *seq, loff_t *pos)
 +{
@@ -298,7 +192,6 @@ index 6357f54..16842af 100644
 +{
 +	read_unlock(&dev_base_lock);
 +}
-+
 +
 +static int dev_mc_seq_show(struct seq_file *seq, void *v)
 +{
@@ -348,63 +241,13 @@ index 6357f54..16842af 100644
 +	proc_net_fops_create("dev_mcast", 0, &dev_mc_seq_fops);
 +}
 +
-+EXPORT_SYMBOL(dev_mc_add);
-+EXPORT_SYMBOL(dev_mc_delete);
-diff --git a/net/core/dev_mcast.c b/net/core/dev_mcast.c
-deleted file mode 100644
-index 99aece1..0000000
---- a/net/core/dev_mcast.c
-+++ /dev/null
-@@ -1,255 +0,0 @@
--/*
-- *	Linux NET3:	Multicast List maintenance.
-- *
-- *	Authors:
-- *		Tim Kordas <tjk@nostromo.eeap.cwru.edu>
-- *		Richard Underwood <richard@wuzz.demon.co.uk>
-- *
-- *	Stir fried together from the IP multicast and CAP patches above
-- *		Alan Cox <Alan.Cox@linux.org>
-- *
-- *	Fixes:
-- *		Alan Cox	:	Update the device on a real delete
-- *					rather than any time but...
-- *		Alan Cox	:	IFF_ALLMULTI support.
-- *		Alan Cox	: 	New format set_multicast_list() calls.
-- *		Gleb Natapov    :       Remove dev_mc_lock.
-- *
-- *	This program is free software; you can redistribute it and/or
-- *	modify it under the terms of the GNU General Public License
-- *	as published by the Free Software Foundation; either version
-- *	2 of the License, or (at your option) any later version.
-- */
--
--#include <linux/module.h>
--#include <asm/uaccess.h>
--#include <asm/system.h>
--#include <linux/bitops.h>
--#include <linux/types.h>
--#include <linux/kernel.h>
--#include <linux/string.h>
--#include <linux/mm.h>
--#include <linux/socket.h>
--#include <linux/sockios.h>
--#include <linux/in.h>
--#include <linux/errno.h>
--#include <linux/interrupt.h>
--#include <linux/if_ether.h>
--#include <linux/inet.h>
--#include <linux/netdevice.h>
--#include <linux/etherdevice.h>
--#include <linux/proc_fs.h>
--#include <linux/seq_file.h>
--#include <linux/init.h>
--#include <net/ip.h>
--#include <net/route.h>
--#include <linux/skbuff.h>
--#include <net/sock.h>
--#include <net/arp.h>
--
+ /*
+  *	Initialize the DEV module. At boot time this walks the device list and
+  *	unhooks any devices that fail to initialise (normally hardware not
+@@ -4076,209 +4277,3 @@ EXPORT_SYMBOL(dev_load);
+ #endif
+ 
+ EXPORT_PER_CPU_SYMBOL(softnet_data);
 -
 -/*
 - *	Device multicast list maintenance.
