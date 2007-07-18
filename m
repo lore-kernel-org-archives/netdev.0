@@ -1,55 +1,39 @@
-From: "Beschorner Daniel" <Daniel.Beschorner@facton.com>
-Subject: pmtu discovery on SA
-Date: Wed, 18 Jul 2007 14:21:56 +0200
-Message-ID: <3C59DB883F7B0B4D8096010D45ACCD13230254@exch.facton.local>
-References: <469A3698.5020105@trash.net> <3C59DB883F7B0B4D8096010D45ACCD1323022E@exch.facton.local> <3C59DB883F7B0B4D8096010D45ACCD1323023A@exch.facton.local> <469B7001.3090604@trash.net> <3C59DB883F7B0B4D8096010D45ACCD1323023D@exch.facton.local> <469B7B99.6040402@trash.net> <3C59DB883F7B0B4D8096010D45ACCD13230240@exch.facton.local> <469B878C.1020204@trash.net> <469B8C47.3030306@trash.net> <3C59DB883F7B0B4D8096010D45ACCD13230242@exch.facton.local> <469BB50C.10203@trash.net> <469CE9E5.7040003@trash.net> <3C59DB883F7B0B4D8096010D45ACCD1323024F@exch.facton.local> <469D3885.7070208@trash.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 2/2] net/core: some functions' definition order adjustment
+ for readability
+Date: Wed, 18 Jul 2007 14:39:27 +0200
+Message-ID: <469E09FF.5050203@trash.net>
+References: <20070718.030306.50591269.davem@davemloft.net> <1184758229305-git-send-email-crquan@gmail.com> <11847582511783-git-send-email-crquan@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
-To: "Patrick McHardy" <kaber@trash.net>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
+	linux-kernel@vger.kernel.org
+To: Denis Cheng <crquan@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alpha.facton.com ([83.236.152.122]:56194 "EHLO alpha.facton.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758283AbXGRMWE convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2007 08:22:04 -0400
-Content-class: urn:content-classes:message
-In-reply-to: <469D3885.7070208@trash.net>
+Received: from stinky.trash.net ([213.144.137.162]:37640 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752918AbXGRMjz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2007 08:39:55 -0400
+In-Reply-To: <11847582511783-git-send-email-crquan@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> > No more crashes with IPComp and smaller PMTUs.
-> > But the "pmtu discovery on SA ESP/..." messages don't disappear.
-> 
-> Thats probably a different issue. Please post the output of
-> "ip -x xfrm state" (obfuscate keys if you care ..).
+This could be done in the patch moving it .. anyways,
 
-Linux (MTU 1500) <-> ADSL router (1492) <-> ... <-> Linux (1500)
 
-Both boxes show these messages.
+Denis Cheng wrote:
+> +#ifdef CONFIG_PROC_FS
+> +static void *dev_mc_seq_start(struct seq_file *seq, loff_t *pos)
 
-src 1.1.1.1 dst 2.2.2.2
-        proto comp spi 0x0000e901 reqid 16398 mode tunnel
-        replay-window 0
-        comp deflate 0x
-src 2.2.2.2 dst 1.1.1.1
-        proto comp spi 0x000001a3 reqid 16398 mode tunnel
-        replay-window 0
-        comp deflate 0x
-src 1.1.1.1 dst 2.2.2.2
-        proto esp spi 0x767eaf0b reqid 16397 mode transport
-        replay-window 32
-        auth hmac(sha1) 0xxxxxxxxxxxxxxxxxxxxxx
-        enc cbc(aes) 0xxxxxxxxxxxxxxxxxxxxxx
-src 2.2.2.2 dst 1.1.1.1
-        proto esp spi 0x44c5adda reqid 16397 mode transport
-        replay-window 32
-        auth hmac(sha1) 0xxxxxxxxxxxxxxxxxxxxxx
-        enc cbc(aes) 0xxxxxxxxxxxxxxxxxxxxxx
-src 2.2.2.2 dst 1.1.1.1
-        proto (null) spi 0xd527fed2 reqid 0 mode tunnel
-        replay-window 0
-src 1.1.1.1 dst 2.2.2.2
-        proto (null) spi 0x4cf1a149 reqid 0 mode tunnel
-        replay-window 0 
+
+If you're interested in doing more work, it would be nice to
+generalize the seq-file functions for unicast and multicast
+address lists and add /proc/net/dev_unicast or something like
+that.
+
+OTOH we could also export this using rtnetlink. The main reason
+why I didn't do that is that it can only be read, not changed,
+but this is also true for statistics etc. Any opinions on this?
+
