@@ -1,45 +1,71 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: pmtu discovery on SA
-Date: Wed, 18 Jul 2007 18:27:27 +0200
-Message-ID: <469E3F6F.6040004@trash.net>
-References: <469A3698.5020105@trash.net> <3C59DB883F7B0B4D8096010D45ACCD1323022E@exch.facton.local> <3C59DB883F7B0B4D8096010D45ACCD1323023A@exch.facton.local> <469B7001.3090604@trash.net> <3C59DB883F7B0B4D8096010D45ACCD1323023D@exch.facton.local> <469B7B99.6040402@trash.net> <3C59DB883F7B0B4D8096010D45ACCD13230240@exch.facton.local> <469B878C.1020204@trash.net> <469B8C47.3030306@trash.net> <3C59DB883F7B0B4D8096010D45ACCD13230242@exch.facton.local> <469BB50C.10203@trash.net> <469CE9E5.7040003@trash.net> <3C59DB883F7B0B4D8096010D45ACCD1323024F@exch.facton.local> <469D3885.7070208@trash.net> <3C59DB883F7B0B4D8096010D45ACCD13230254@exch.facton.local> <469E1242.3050105@trash.net> <3C59DB883F7B0B4D8096010D45ACCD13230257@exch.facton.local>
+From: Josh Boyer <jwboyer@linux.vnet.ibm.com>
+Subject: Re: [Bugme-new] [Bug 8778] New: Ocotea board: kernel reports
+	access of bad area during boot with DEBUG_SLAB=y
+Date: Wed, 18 Jul 2007 11:28:47 -0500
+Message-ID: <1184776127.16299.22.camel@weaponx.rchland.ibm.com>
+References: <bug-8778-10286@http.bugzilla.kernel.org/>
+	 <20070718005253.942f0464.akpm@linux-foundation.org>
+	 <20070718083425.GA29722@gate.ebshome.net>
+	 <1184766070.3699.2.camel@zod.rchland.ibm.com>
+	 <20070718155940.GB29722@gate.ebshome.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Beschorner Daniel <Daniel.Beschorner@facton.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	bart.vanassche@gmail.com, netdev@vger.kernel.org,
+	"bugme-daemon@kernel-bugs.osdl.org"
+	<bugme-daemon@bugzilla.kernel.org>, linuxppc-embedded@ozlabs.org
+To: Eugene Surovegin <ebs@ebshome.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:42599 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761000AbXGRQ17 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2007 12:27:59 -0400
-In-Reply-To: <3C59DB883F7B0B4D8096010D45ACCD13230257@exch.facton.local>
+Received: from e34.co.us.ibm.com ([32.97.110.152]:57685 "EHLO
+	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934210AbXGRQ2v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2007 12:28:51 -0400
+Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
+	by e34.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l6IGSngZ009267
+	for <netdev@vger.kernel.org>; Wed, 18 Jul 2007 12:28:49 -0400
+Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
+	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v8.4) with ESMTP id l6IGSnDd234056
+	for <netdev@vger.kernel.org>; Wed, 18 Jul 2007 10:28:49 -0600
+Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l6IGSmp3004757
+	for <netdev@vger.kernel.org>; Wed, 18 Jul 2007 10:28:49 -0600
+In-Reply-To: <20070718155940.GB29722@gate.ebshome.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Beschorner Daniel wrote:
->>Beschorner Daniel wrote:
->>
->>So its using 1492 now? Otherwise it would be expected since the
->>initial MTU calculation would be based on 1500.
+On Wed, 2007-07-18 at 08:59 -0700, Eugene Surovegin wrote:
+> On Wed, Jul 18, 2007 at 08:41:10AM -0500, Josh Boyer wrote:
+> > On Wed, 2007-07-18 at 01:34 -0700, Eugene Surovegin wrote:
+> > > On Wed, Jul 18, 2007 at 12:52:53AM -0700, Andrew Morton wrote:
+> > > > On Wed, 18 Jul 2007 00:07:50 -0700 (PDT) bugme-daemon@bugzilla.kernel.org wrote:
+> > > > 
+> > > > > http://bugzilla.kernel.org/show_bug.cgi?id=8778
+> > > > > 
+> > > > >            Summary: Ocotea board: kernel reports access of bad area during
+> > > > >                     boot with DEBUG_SLAB=y
+> > > 
+> > > Slab debugging is probably the culprit here. I had similar problem 
+> > > couple of years ago, not sure something has changed since then, 
+> > > haven't checked.
+> > > 
+> > > When slab debugging was enabled it made memory allocations non L1 
+> > > cache line aligned. This is very bad for DMA on non-coherent cache 
+> > > arches (PPC440 is one of those archs).
+> > > 
+> > > I have a hack for EMAC which tries to "workaround" this problem:
+> > > 	http://kernel.ebshome.net/emac_slab_debug.diff
+> > > which might help.
+> > 
+> > Would you be opposed to including that patch in mainline?
 > 
-> 
-> I'm using 1500 again.
-> 
-> Just to make it clear: Is this message an error, or a warning or just
-> for information?
-> Could you explain a bit please.
+> Yes. I don't think it's the right way to fix this issue. IMO, the 
+> right one is to fix slab allocator. You cannot change all drivers to 
+> do this kind of cache flushing, and yes, I saw the same problem with 
+> PCI based NIC I tried on Ocotea at the time.
 
+Hm... good point.  I'd still like to see if your patch works around the
+reporter's problem.
 
-Its a debugging message nowadays (NETDEBUG). I was mostly interested
-in this since I changed the IPsec MTU calculation in 2.6.22 and it
-might have been a bug.
-
-> I have no connections hangs or other kind of problems.
-
-
-Thanks for clarifying this. I guess the reason why you're seeing
-them now and not before is that we're now always using the maximum
-room available, while previously packets were usually a bit smaller
-than possible.
+josh
 
