@@ -1,56 +1,77 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: Linux, tcpdump and vlan
-Date: Thu, 19 Jul 2007 16:23:48 +0200
-Message-ID: <m3k5swbhfv.fsf@maximus.localdomain>
-References: <878246.51044.qm@web56608.mail.re3.yahoo.com>
-	<469E9AC8.3090603@trash.net> <m3zm1sbjzl.fsf@maximus.localdomain>
-	<20070719144131.0c230c8f@oldman.hamilton.local>
+From: "Dale Farnsworth" <dale@farnsworth.org>
+Subject: Re: [PATCH] Merge GT/MV642xx Support into MV643xx Driver [8/8]
+Date: Thu, 19 Jul 2007 07:45:02 -0700
+Message-ID: <20070719144502.GG12892@xyzzy.farnsworth.org>
+References: <469EF04C.1020505@realitydiluted.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>,
-	andrei radulescu-banu <iubica2@yahoo.com>,
-	linux-kernel@vger.kernel.org,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: netdev@vger.kernel.org
+To: "Steven J. Hill" <sjhill@realitydiluted.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:57650 "EHLO khc.piap.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755886AbXGSOXu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Jul 2007 10:23:50 -0400
-In-Reply-To: <20070719144131.0c230c8f@oldman.hamilton.local> (Stephen Hemminger's message of "Thu, 19 Jul 2007 14:41:31 +0100")
+Received: from xyzzy.farnsworth.org ([65.39.95.219]:4937 "HELO farnsworth.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1756027AbXGSOpD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Jul 2007 10:45:03 -0400
+Content-Disposition: inline
+In-Reply-To: <469EF04C.1020505@realitydiluted.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger <shemminger@linux-foundation.org> writes:
+On Thu, Jul 19, 2007 at 05:02:04AM +0000, Steven J. Hill wrote:
+> Fix long standing panic with regards to descriptors and locking.
+> 
+> Signed-off-by: Steven J. Hill <sjhill1@rockwellcollins.com>
+> ---
+> 
+> diff -ur linux-2.6.22.1/drivers/net/mv643xx_eth.c linux-2.6.22.1-rci/drivers/net/mv643xx_eth.c
+> --- linux-2.6.22.1/drivers/net/mv643xx_eth.c	2007-07-18 22:55:11.000000000 -0500
+> +++ linux-2.6.22.1-rci/drivers/net/mv643xx_eth.c	2007-07-18 22:39:37.000000000 -0500
+> @@ -350,13 +350,6 @@
+>  
+>  	while (mp->tx_desc_count > 0) {
+>  		spin_lock_irqsave(&mp->lock, flags);
+> -
+> -		/* tx_desc_count might have changed before acquiring the lock */
+> -		if (mp->tx_desc_count <= 0) {
+> -			spin_unlock_irqrestore(&mp->lock, flags);
+> -			return released;
+> -		}
+> -
 
-> 1) non-accelerated device 
->     * all frames show in promiscious mode
->     * tag is part of the frame that shows up
->        in tcpdump, and then gets stripped by the 8021q module.
+The code you remove above is needed to protect against a nasty bug.
+It was added in January and needs to stay in.
 
-Sure. It's IMHO good and working, modulo the tag being removed
-on the master device (optional cloning or something, IIRC).
+> @@ -367,7 +360,7 @@
+>  
+>  		if (!force && (cmd_sts & ETH_BUFFER_OWNED_BY_DMA)) {
+>  			spin_unlock_irqrestore(&mp->lock, flags);
+> -			return released;
+> +			continue;
+>  		}
 
-> 2) rx tag stripping device
->      * all frames show in promiscious mode
->      * tag is in skb but NOT passed to tcpdump
-> 3) rx vlan acceleration
->      * only frames that for vlan's that are registered show up
->         in promisicous mode
->      * tag is in skb but NOT passed to tcpdump
+No.  Continuing at that point results in the driver spinning, wasting
+cpu while polling for the hardware to release the DMA descriptor.
 
-I wasn't aware of devices doing 3. Aren't we able to tell them
-to receive all packets anyway (even unknown VLANs#)?
+> @@ -1488,7 +1481,19 @@
+>  	BUG_ON(netif_queue_stopped(dev));
+>  	BUG_ON(skb == NULL);
+>  
+> -	if (mp->tx_ring_size - mp->tx_desc_count < MAX_DESCS_PER_SKB) {
+> +	if (mp->tx_ring_size - mp->tx_desc_count <= MAX_DESCS_PER_SKB) {
+> +		/*
+> +		 * We are completely out of TX descriptors, however,
+> +		 * if 'tx_used_desc_q' is zero, most likely the port
+> +		 * has been configured and is up, but there is no link.
+> +		 * We attempt to free a single descriptor to keep the
+> +		 * 'sendto' call and rest of the stack happy. If this
+> +		 * check is taken out, expect an error and kernel panic
+> +		 * from 'kernel/softirq.c:141' inside 'local_bh_enable'.
+> +		 */
+> +		if (mp->tx_used_desc_q == 0)
+> +			mv643xx_eth_free_all_tx_descs(dev);
 
-> Unfortunately, the tag is lost as part of the VLAN acceleration process
-> so it is not a simple matter of changing code in AF_PACKET receive
-> to restore the tag.
+I don't understand the bug, but regardless, we need a better fix.
+Freeing all the descriptors when the HW xmit queue is full is not
+a solution.
 
-I'm not sure if we really want it. If needed we can disable
-acceleration, can't we? While accelerated we can see the packets
-(without tags) on logical devices.
-
-However seeing unknown tags on master device (with tcpdump etc)
-would certainly be useful.
--- 
-Krzysztof Halasa
+-Dale
