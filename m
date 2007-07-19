@@ -1,87 +1,75 @@
-From: "Robert P. J. Day" <rpjday@mindspring.com>
-Subject: Re: [PATCH] net/, drivers/net/ , missing EXPERIMENTAL in menus
-Date: Thu, 19 Jul 2007 12:19:19 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0707191213130.8844@localhost.localdomain>
-References: <469E75AA.7040109@pimpmylinux.org>
- <Pine.LNX.4.64.0707181620460.13912@localhost.localdomain>
- <20070718134012.cde2f956.randy.dunlap@oracle.com> <469E7BE1.6090401@garzik.org>
- <Pine.LNX.4.64.0707181648330.15343@localhost.localdomain>
- <20070718210903.GM3801@stusta.de> <Pine.LNX.4.64.0707181712340.16513@localhost.localdomain>
- <20070719054742.GN3801@stusta.de> <Pine.LNX.4.64.0707190331330.11902@localhost.localdomain>
- <469F240E.9040205@s5r6.in-berlin.de> <Pine.LNX.4.64.0707190523001.19216@localhost.localdomain>
- <20070719083109.13b2ab56.rdunlap@xenotime.net>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: Races in net_rx_action vs netpoll?
+Date: Thu, 19 Jul 2007 17:27:47 +0100
+Message-ID: <20070719172747.7f01b38e@oldman.hamilton.local>
+References: <200707101244.32753.okir@lst.de>
+	<200707110941.38587.okir@lst.de>
+	<20070711.193320.102574858.davem@davemloft.net>
+	<200707191719.21034.okir@lst.de>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Stefan Richter <stefanr@s5r6.in-berlin.de>,
-	Adrian Bunk <bunk@stusta.de>, Jeff Garzik <jeff@garzik.org>,
-	Gabriel C <crazy@pimpmylinux.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Randy Dunlap <rdunlap@xenotime.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Olaf Kirch <okir@lst.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nic.NetDirect.CA ([216.16.235.2]:58843 "EHLO
-	rubicon.netdirect.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1763372AbXGSQWh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2007 12:22:37 -0400
-In-Reply-To: <20070719083109.13b2ab56.rdunlap@xenotime.net>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:58710 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758288AbXGSQ2A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2007 12:28:00 -0400
+In-Reply-To: <200707191719.21034.okir@lst.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 19 Jul 2007, Randy Dunlap wrote:
+On Thu, 19 Jul 2007 17:19:19 +0200
+Olaf Kirch <okir@lst.de> wrote:
 
-> On Thu, 19 Jul 2007 05:25:30 -0400 (EDT) Robert P. J. Day wrote:
->
-> > On Thu, 19 Jul 2007, Stefan Richter wrote:
-> >
-> > > Robert P. J. Day wrote:
-> > > > On Thu, 19 Jul 2007, Adrian Bunk wrote:
-> > > >
-> > > > ...
-> > > >> I would consider it more ugly to special case this and that in the
-> > > >> kconfig code when plain dependencies already offer exactly the same
-> > > >> functionality...
-> > > >
-> > > > well, this is the *third* time i've proposed adding this kind of
-> > > > feature so, at this point, i've really given up caring about it.  if
-> > > > someone wants to do this, have at it.  i have better things to do than
-> > > > to keep suggesting it and getting nowhere with it.
-> > >
-> > > For better or worse, it can often be observed that feature requests
-> > > don't set anything in motion until a first patch is sent.  Even a
-> > > patch that is far from perfect can get things going really quickly.
-> > > (If the requested feature makes sense to other people.)
-> >
-> > i *did* submit a preliminary patch once upon a time, and it
-> > (predictably) went nowhere.  so, if someone else wants to pick this up
-> > and do something with it, you have my blessing.  life's too short to
-> > keep wasting time on this.
->
-> I think that Stefan means a patch to the kconfig source code,
-> not the the Kconfig files.  Good luck.  I'd still like to see it.
+> On Thursday 12 July 2007 04:33, David Miller wrote:
+> > I'll add merge your patch with a target of 2.6.23
+> > 
+> > If you really want, after this patch has sat in 2.6.23 for a while
+> > and got some good testing, we can consider a submission for -stable.
+> 
+> Okay, those of you who followed the discussion on lkml will have
+> read why this patch breaks on e1000.
+> 
+> Short summary: some NIC drivers expect that there is a one-to-one
+> relation between calls to net_rx_schedule (where we put the device
+> on the poll list) and netif_rx_complete (where it's supposed to be
+> taken off the list). The e1000 is such a beast. Not sure if other
+> drivers make the same assumption re NAPI.
+> 
+> So: should a driver be allowed to rely on this behavior? Or should
+> I go and look for another fix to the poll_napi issue?
+> 
+> I keep coming back to the question Jarek asked - why does netpoll
+> want to call dev->poll() anyway? I dug around a little and it
+> seems the original idea was to do this only if netpoll_poll was
+> running on the CPU the netdevice was scheduled to.
+> 
+> So one way to fix the problem is to add a dev->poll_cpu field
+> that tells us on which CPU's poll list it has been added - and
+> check for this in poll_napi.
+> 
+> Comments?
 
-yes, i understand what he wanted now.  as a first step (that
-theoretically shouldn't change any behaviour), i'd patch the Kconfig
-structure to add a new attribute ("maturity") which would be allowed
-to be set to *exactly one* of a pre-defined set of values (say,
-OBSOLETE, DEPRECATED, EXPERIMENTAL, and STILLBLEEDING).  and that's
-it, nothing more.
+Please revisit the requirements that netconsole needs and redesign it
+from scratch.  The existing code  is causing too much breakage. 
 
-don't try to do anything with any of that just yet, just add the
-infrastructure to support the (optional) association of a maturity
-level with a config option.  that's step one.
+Can it be done without breaking the semantics of network
+devices, or should we rewrite the driver interface to take have a different
+interface like netdev_sync_send_skb()  that is slow, synchronous and 
+non-interrupt (ie polls for completion).  Of course, then people will complain
+that netconsole traffic slows the machine down.
+for completion.
 
-rday
-
-p.s.  and, yes, i really meant it when i said that an option could
-have one, and *only* one, maturity level.  if you start arguing
-this point, i swear, i will hunt you down and give you *such* a
-wedgie.
-
--- 
-========================================================================
-Robert P. J. Day
-Linux Consulting, Training and Annoying Kernel Pedantry
-Waterloo, Ontario, CANADA
-
-http://fsdev.net/wiki/index.php?title=Main_Page
-========================================================================
+> David, should I submit an updated patch for 2.6.23, or do you
+> prefer to yank the patch now and try again for 2.6.24?
+> 
+> Olaf
+> -- 
+> Olaf Kirch  |  --- o --- Nous sommes du soleil we love when we play
+> okir@lst.de |    / | \   sol.dhoop.naytheet.ah kin.ir.samse.qurax
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
