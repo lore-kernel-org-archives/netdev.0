@@ -1,66 +1,62 @@
-From: Denis Cheng <crquan@gmail.com>
-Subject: [PATCH 2/2] nbd: change a parameter's type to remove a memcpy call
-Date: Thu, 19 Jul 2007 17:34:31 +0800
-Message-ID: <11848377013773-git-send-email-crquan@gmail.com>
-References: <11848376711601-git-send-email-crquan@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Pavel Machek <pavel@ucw.cz>,
-	Steven Whitehouse <steve@chygwyn.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Denis Cheng <crquan@gmail.com>
-To: Paul Clements <Paul.Clements@steeleye.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from qb-out-0506.google.com ([72.14.204.237]:35445 "EHLO
-	qb-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755287AbXGSJfO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2007 05:35:14 -0400
-Received: by qb-out-0506.google.com with SMTP id e11so1095850qbe
-        for <netdev@vger.kernel.org>; Thu, 19 Jul 2007 02:35:13 -0700 (PDT)
-In-Reply-To: <11848376711601-git-send-email-crquan@gmail.com>
-Sender: netdev-owner@vger.kernel.org
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: kmap_atomic() oopses in current mainline
+Date: Thu, 19 Jul 2007 02:38:31 -0700
+Message-ID: <20070719023831.400f7905.akpm@linux-foundation.org>
+References: <20070719013304.3c060c99.akpm@linux-foundation.org>
+	<20070719092856.GA15839@2ka.mipt.ru>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel-announce@vger.kernel.org,
+	Dan Williams <dan.j.williams@intel.com>
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Return-path: <linux-kernel-announce-owner@vger.kernel.org>
+In-Reply-To: <20070719092856.GA15839@2ka.mipt.ru>
+Sender: linux-kernel-announce-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-this memcpy looks so strange, in fact it's merely a pointer dereference,
-so I change the parameter's type to refer it more directly,
-this could make the memcpy not needed anymore.
+On Thu, 19 Jul 2007 13:28:56 +0400 Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
 
-in the function nbd_read_stat where nbd_find_request is only once called,
-the parameter served should be transformed accordingly.
+> Hi.
+> 
+> On Thu, Jul 19, 2007 at 01:33:04AM -0700, Andrew Morton (akpm@linux-foundation.org) wrote:
+> > I don't think the 2-year-old Vaio has offload engine support ;) Dan, this:
+> > 
+> > +		if (flags & ASYNC_TX_KMAP_DST)
+> > +			dest_buf = kmap_atomic(dest, KM_USER0) + dest_offset;
+> > +		else
+> > +			dest_buf = page_address(dest) + dest_offset;
+> > +
+> > +		if (flags & ASYNC_TX_KMAP_SRC)
+> > +			src_buf = kmap_atomic(src, KM_USER0) + src_offset;
+> > +		else
+> > +			src_buf = page_address(src) + src_offset;
+> > +
+> > +		memcpy(dest_buf, src_buf, len);
+> > +
+> > +		if (flags & ASYNC_TX_KMAP_DST)
+> > +			kunmap_atomic(dest_buf, KM_USER0);
+> > +
+> > +		if (flags & ASYNC_TX_KMAP_SRC)
+> > +			kunmap_atomic(src_buf, KM_USER0);
+> > +
+> > 
+> > is very wrong if both ASYNC_TX_KMAP_DST and ASYNC_TX_KMAP_SRC can ever be
+> > set.  We'll end up using the same kmap slot for both src add dest and we
+> > get either corrupted data or a BUG.
+> 
+> So far it can not since the only user is raid code, which only allows to
+> perform either reading from bio or writing into one, which requires only
+> one mapping.
 
-Signed-off-by: Denis Cheng <crquan@gmail.com>
----
- drivers/block/nbd.c |    7 ++-----
- 1 files changed, 2 insertions(+), 5 deletions(-)
+hm, so we got lucky?
 
-diff --git a/drivers/block/nbd.c b/drivers/block/nbd.c
-index 86639c0..a4d8508 100644
---- a/drivers/block/nbd.c
-+++ b/drivers/block/nbd.c
-@@ -235,14 +235,11 @@ error_out:
- 	return 1;
- }
- 
--static struct request *nbd_find_request(struct nbd_device *lo, char *handle)
-+static struct request *nbd_find_request(struct nbd_device *lo, struct request *xreq)
- {
- 	struct request *req, *n;
--	struct request *xreq;
- 	int err;
- 
--	memcpy(&xreq, handle, sizeof(xreq));
--
- 	err = wait_event_interruptible(lo->active_wq, lo->active_req != xreq);
- 	if (unlikely(err))
- 		goto out;
-@@ -297,7 +294,7 @@ static struct request *nbd_read_stat(struct nbd_device *lo)
- 		goto harderror;
- 	}
- 
--	req = nbd_find_request(lo, reply.handle);
-+	req = nbd_find_request(lo, *(struct request **)reply.handle);
- 	if (unlikely(IS_ERR(req))) {
- 		result = PTR_ERR(req);
- 		if (result != -ENOENT)
--- 
-1.5.2.2
+> Btw, shouldn't it always be kmap_atomic() even if flag is not set.
+> That pages are usual one returned by alloc_page().
 
+The code would work OK if the kmap_atomic()s were unconditional, but it
+would be a bit more expensive if the page is in highmem and we don't
+actually intend to access it with the CPU.
+
+kmap_atomic() against a non-highmem page is basically free: just an
+additional test_bit().
