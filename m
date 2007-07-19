@@ -1,51 +1,80 @@
-From: Sami Farin <safari-kernel@safari.iki.fi>
-Subject: Re: updated tcatm patches for kernel/iproute 2.6.22
-Date: Thu, 19 Jul 2007 14:35:59 +0300
-Message-ID: <20070719113559.4y2z4bj4vwtglupw@m.safari.iki.fi>
-References: <20070718210638.bs44zz4veowqf2kr@m.safari.iki.fi> <469E9B24.2080002@trash.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: net/ipv4/inetpeer.c stack warnings
+Date: Thu, 19 Jul 2007 14:48:59 +0200
+Message-ID: <469F5DBB.3080106@trash.net>
+References: <469F5941.7090900@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Linux Networking Mailing List <netdev@vger.kernel.org>
+Content-Type: multipart/mixed;
+ boundary="------------080804060201080304000500"
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Gabriel C <nix.or.die@googlemail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pne-smtpout3-sn1.fre.skanova.net ([81.228.11.120]:44087 "EHLO
-	pne-smtpout3-sn1.fre.skanova.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756027AbXGSMp4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2007 08:45:56 -0400
-Received: from safari.iki.fi (80.223.106.128) by pne-smtpout3-sn1.fre.skanova.net (7.2.075)
-        id 46758C5300119AD9 for netdev@vger.kernel.org; Thu, 19 Jul 2007 13:36:00 +0200
-Content-Disposition: inline
-In-Reply-To: <469E9B24.2080002@trash.net>
+Received: from stinky.trash.net ([213.144.137.162]:33683 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933960AbXGSMwY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2007 08:52:24 -0400
+In-Reply-To: <469F5941.7090900@googlemail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 19, 2007 at 00:58:44 +0200, Patrick McHardy wrote:
-> Sami Farin wrote:
-> > I had used tcatm patch with 2.6.16 kernel and I was
-> > happy with it.
-> > Now I patched Linux kernel 2.6.22 and iproute-2.6.22
-> > for tcatm.  Seems to work (TM).  Only HTB tested.
-> 
-> 
-> Let me repeat again before we get in an endless discussion
-> again - I will NACK these patches until we have a solution
-> that works for all qdiscs.
+This is a multi-part message in MIME format.
+--------------080804060201080304000500
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
 
-I googled for
-"Accurate packet scheduling for ATM" mchardy
-and found some threads from 2006.
+Gabriel C wrote:
+> Hello ,
+>
+> I noticed on current git this warning in net/ipv4/inetpeer.c
 
-http://www.mail-archive.com/netdev@vger.kernel.org/msg15706.html
-http://www.mail-archive.com/netdev@vger.kernel.org/msg21395.html
+Yeah, I have no idea why the gcc people thought that this was
+something worth warning about. Especially since explicitly
+checking for != NULL silences the warning again.
 
-So, Patrick:
-1) what is this "solution"?  do you have code?
-   or a brief explanation...
-2) are you still working on this?
-   is somebody else?
-3) do you have patches for iproute/kernel 2.6.22?
-4) if you have some patches, but they are not yet
-   complete, what else needs to be done?
 
--- 
-Do what you love because life is too short for anything else.
 
+--------------080804060201080304000500
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
+
+[IPV4]: Fix inetpeer gcc-4.2 warnings
+
+  CC      net/ipv4/inetpeer.o
+net/ipv4/inetpeer.c: In function 'unlink_from_pool':
+net/ipv4/inetpeer.c:297: warning: the address of 'stack' will always evaluate as 'true'
+net/ipv4/inetpeer.c:297: warning: the address of 'stack' will always evaluate as 'true'
+net/ipv4/inetpeer.c: In function 'inet_getpeer':
+net/ipv4/inetpeer.c:409: warning: the address of 'stack' will always evaluate as 'true'
+net/ipv4/inetpeer.c:409: warning: the address of 'stack' will always evaluate as 'true'
+
+"Fix" by checking for != NULL.
+
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+diff --git a/net/ipv4/inetpeer.c b/net/ipv4/inetpeer.c
+index 2f44e61..f725f9f 100644
+--- a/net/ipv4/inetpeer.c
++++ b/net/ipv4/inetpeer.c
+@@ -158,7 +158,7 @@ static void unlink_from_unused(struct inet_peer *p)
+ #define lookup(_daddr,_stack) 					\
+ ({								\
+ 	struct inet_peer *u, **v;				\
+-	if (_stack) {						\
++	if (_stack != NULL) {					\
+ 		stackptr = _stack;				\
+ 		*stackptr++ = &peer_root;			\
+ 	}							\
+@@ -169,7 +169,7 @@ static void unlink_from_unused(struct inet_peer *p)
+ 			v = &u->avl_left;			\
+ 		else						\
+ 			v = &u->avl_right;			\
+-		if (_stack)					\
++		if (_stack != NULL)				\
+ 			*stackptr++ = v;			\
+ 		u = *v;						\
+ 	}							\
+
+--------------080804060201080304000500--
