@@ -1,98 +1,65 @@
-From: Jay Cliburn <jacliburn@bellsouth.net>
-Subject: [PATCH 5/5] atl1: use kernel provided ethernet length constants
-Date: Thu, 19 Jul 2007 18:45:14 -0500
-Message-ID: <1184888714353-git-send-email-jacliburn@bellsouth.net>
-References: <1184888714454-git-send-email-jacliburn@bellsouth.net>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	atl1-devel@lists.sourceforge.net, csnook@redhat.com,
-	Jay Cliburn <jacliburn@bellsouth.net>
-To: jeff@garzik.org
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: ANNOUNCE: igb: Intel 82575 Gigabit Ethernet driver (PCI-Express)
+Date: Thu, 19 Jul 2007 16:52:02 -0700
+Message-ID: <469FF922.2090900@intel.com>
+References: <46980ADA.5050104@intel.com> <469ED3D7.6040905@garzik.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: NetDev <netdev@vger.kernel.org>,
+	Arjan van de Ven <arjan@linux.intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	Mitch Williams <mitch.a.williams@intel.com>
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from imf17aec.mail.bellsouth.net ([205.152.59.65]:60964 "EHLO
-	imf17aec.mail.bellsouth.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1761026AbXGSXp0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2007 19:45:26 -0400
-In-Reply-To: <1184888714454-git-send-email-jacliburn@bellsouth.net>
+Received: from mga01.intel.com ([192.55.52.88]:8474 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760907AbXGSXwf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Jul 2007 19:52:35 -0400
+In-Reply-To: <469ED3D7.6040905@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Use constants already provided by the kernel for ethernet related lengths.
+Jeff Garzik wrote:
+> Kok, Auke wrote:
+>>      http://foo-projects.org/~sofar/igb.patch       [558K]
+>>      http://foo-projects.org/~sofar/igb.patch.bz2   [98K]
+> 
+> Just took a look at this.
+> 
+> This has the same problem as in the other thread -- huge internal API -- 
+> except this time, the problem is emphasized by the fact that the 
+> majority of the API hooks only have a single user, making each hook and 
+> API entry point demonstrably useless overhead.
+> 
+> Please remove the useless internal API and resubmit.
 
-Signed-off-by: Jay Cliburn <jacliburn@bellsouth.net>
----
- drivers/net/atl1/atl1_hw.h   |    5 -----
- drivers/net/atl1/atl1_main.c |   13 +++++++------
- 2 files changed, 7 insertions(+), 11 deletions(-)
+Why don't you accept it now and allow us the time to work on this in the coming 
+period? The driver works, performs better than all 8257x hardware and uses less 
+CPU utilization. That must be good for everyone. Keeping it outside of the linux 
+tree is just going to postpone testing the non-internal API parts.
 
-diff --git a/drivers/net/atl1/atl1_hw.h b/drivers/net/atl1/atl1_hw.h
-index f0d7e82..939aa0f 100644
---- a/drivers/net/atl1/atl1_hw.h
-+++ b/drivers/net/atl1/atl1_hw.h
-@@ -680,11 +680,6 @@ void atl1_check_options(struct atl1_adapter *adapter);
- #define AUTONEG_ADVERTISE_10_100_ALL	0x000F	/* All 10/100 speeds */
- #define AUTONEG_ADVERTISE_10_ALL	0x0003	/* 10Mbps Full & Half speeds */
- 
--/* The size (in bytes) of a ethernet packet */
--#define ENET_HEADER_SIZE		14
--#define MAXIMUM_ETHERNET_FRAME_SIZE	1518	/* with FCS */
--#define MINIMUM_ETHERNET_FRAME_SIZE	64	/* with FCS */
--#define ETHERNET_FCS_SIZE		4
- #define MAX_JUMBO_FRAME_SIZE		0x2800
- 
- #define PHY_AUTO_NEG_TIME	45	/* 4.5 Seconds */
-diff --git a/drivers/net/atl1/atl1_main.c b/drivers/net/atl1/atl1_main.c
-index 6aa2dc3..993ed2a 100644
---- a/drivers/net/atl1/atl1_main.c
-+++ b/drivers/net/atl1/atl1_main.c
-@@ -59,6 +59,7 @@
- #include <linux/skbuff.h>
- #include <linux/etherdevice.h>
- #include <linux/if_vlan.h>
-+#include <linux/if_ether.h>
- #include <linux/irqreturn.h>
- #include <linux/workqueue.h>
- #include <linux/timer.h>
-@@ -120,8 +121,8 @@ static int __devinit atl1_sw_init(struct atl1_adapter *adapter)
- 	struct atl1_hw *hw = &adapter->hw;
- 	struct net_device *netdev = adapter->netdev;
- 
--	hw->max_frame_size = netdev->mtu + ENET_HEADER_SIZE + ETHERNET_FCS_SIZE;
--	hw->min_frame_size = MINIMUM_ETHERNET_FRAME_SIZE;
-+	hw->max_frame_size = netdev->mtu + ETH_HLEN + ETH_FCS_LEN;
-+	hw->min_frame_size = ETH_ZLEN + ETH_FCS_LEN;
- 
- 	adapter->wol = 0;
- 	adapter->rx_buffer_len = (hw->max_frame_size + 7) & ~7;
-@@ -688,9 +689,9 @@ static int atl1_change_mtu(struct net_device *netdev, int new_mtu)
- {
- 	struct atl1_adapter *adapter = netdev_priv(netdev);
- 	int old_mtu = netdev->mtu;
--	int max_frame = new_mtu + ENET_HEADER_SIZE + ETHERNET_FCS_SIZE;
-+	int max_frame = new_mtu + ETH_HLEN + ETH_FCS_LEN;
- 
--	if ((max_frame < MINIMUM_ETHERNET_FRAME_SIZE) ||
-+	if ((max_frame < ETH_ZLEN + ETH_FCS_LEN) ||
- 	    (max_frame > MAX_JUMBO_FRAME_SIZE)) {
- 		dev_warn(&adapter->pdev->dev, "invalid MTU setting\n");
- 		return -EINVAL;
-@@ -1337,7 +1338,7 @@ rrd_ok:
- 		skb = buffer_info->skb;
- 		length = le16_to_cpu(rrd->xsz.xsum_sz.pkt_size);
- 
--		skb_put(skb, length - ETHERNET_FCS_SIZE);
-+		skb_put(skb, length - ETH_FCS_LEN);
- 
- 		/* Receive Checksum Offload */
- 		atl1_rx_checksum(adapter, rrd, skb);
-@@ -1456,7 +1457,7 @@ static int atl1_tso(struct atl1_adapter *adapter, struct sk_buff *skb,
- 			tcp_hdr(skb)->check = ~csum_tcpudp_magic(iph->saddr,
- 				iph->daddr, 0, IPPROTO_TCP, 0);
- 			ipofst = skb_network_offset(skb);
--			if (ipofst != ENET_HEADER_SIZE) /* 802.3 frame */
-+			if (ipofst != ETH_HLEN) /* 802.3 frame */
- 				tso->tsopl |= 1 << TSO_PARAM_ETHTYPE_SHIFT;
- 
- 			tso->tsopl |= (iph->ihl &
--- 
-1.5.2.2
+> PLEASE take a look at how bnx2 and tg3 are structured.
 
+They don't use PHYlib. Nobody is perfect...
+
+We can and we should be able to _not_ agree on certain things and live together 
+just fine. While I agree that some designs are better, the current internal API 
+design has worked really good for us and allowed us to develop this driver and 
+ixgbe in much faster rate than ever before. It was most useful in silicon 
+validation and extremely flexible for us. At one point, the 82575 silicon was 
+even supporter by the e1000 driver, because this internal API made it so easy to 
+add new hardware support. For obvious reasons (differences in hw) we decided to 
+split this driver off.
+
+It served a good purpose. We can improve it, and I sure want to do that, but I 
+think it's better to improve something *upstream*, then going back working at 
+things offline without having any certainty that you will accept it after I get 
+back, since you might just reject it on another argument, etc. It will take 
+quite some effort and convincing to make this happen, and it would help a lot if 
+we can work with/in the community on that, instead of off-line.
+
+That will also give the non-internal API parts the better testing.
+
+
+Auke
