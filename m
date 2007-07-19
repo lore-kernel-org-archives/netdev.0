@@ -1,44 +1,46 @@
-From: Jens Axboe <jens.axboe@oracle.com>
-Subject: Re: [PATCH][RFC] network splice receive v3
-Date: Thu, 19 Jul 2007 11:07:31 +0200
-Message-ID: <20070719090730.GD11657@kernel.dk>
-References: <20070711091927.GQ4587@kernel.dk> <20070719.180518.79100322.yoshfuji@linux-ipv6.org>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: Socket Buffers and Memory Managment
+Date: Thu, 19 Jul 2007 13:08:26 +0400
+Message-ID: <20070719090826.GA14860@2ka.mipt.ru>
+References: <20070717204129.79e7fe0d@oldman> <261750.43078.qm@web82911.mail.mud.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	olaf.kirch@oracle.com, johnpol@2ka.mipt.ru
-To: "YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
+Content-Type: text/plain; charset=koi8-r
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	netdev@vger.kernel.org
+To: vinay ravuri <vinaynyc@yahoo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from brick.kernel.dk ([80.160.20.94]:25381 "EHLO kernel.dk"
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:38461 "EHLO 2ka.mipt.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751507AbXGSJHu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Jul 2007 05:07:50 -0400
+	id S1751651AbXGSJIe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Jul 2007 05:08:34 -0400
 Content-Disposition: inline
-In-Reply-To: <20070719.180518.79100322.yoshfuji@linux-ipv6.org>
+In-Reply-To: <261750.43078.qm@web82911.mail.mud.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 19 2007, YOSHIFUJI Hideaki / ?$B5HF#1QL@ wrote:
-> Hello.
-> 
-> In article <20070711091927.GQ4587@kernel.dk> (at Wed, 11 Jul 2007 11:19:27 +0200), Jens Axboe <jens.axboe@oracle.com> says:
-> 
-> > @@ -835,6 +835,7 @@ const struct proto_ops inet_stream_ops = {
-> >  	.recvmsg	   = sock_common_recvmsg,
-> >  	.mmap		   = sock_no_mmap,
-> >  	.sendpage	   = tcp_sendpage,
-> > +	.splice_read	   = tcp_splice_read,
-> >  #ifdef CONFIG_COMPAT
-> >  	.compat_setsockopt = compat_sock_common_setsockopt,
-> >  	.compat_getsockopt = compat_sock_common_getsockopt,
-> 
-> Please add similar bits in net/ipv6/af_inet6.c
-> unless there are any dependency on IPv4.
-> (And if there are, it is not good.)
+Hi.
 
-There are no specific ipv4 depedencies, it's just an oversight. So
-thanks for the clue, I'll add it!
+On Wed, Jul 18, 2007 at 11:51:03PM -0700, vinay ravuri (vinaynyc@yahoo.com) wrote:
+> How about the following approach:
+> 
+> I allocate an skb of 0 bytes and replace data element
+> of skb struct (i.e. skb.data = addr_given_by_hw) when
+> the h/w interrupts me with a packet.  I register for a
+> destructor for this skb and when the kernel is ready
+> to free the skb, I make sure that my free is invoked -
+> Ofcourse this is assuming that their is a facility in
+> linux socket buffers to be able to do destructors.  Is
+> this approach a viable, if so, are any gottcha's?
+
+It will not work, since kfree_skb() eventually tries to free skb->head
+into kmem cache, so you will need to hack kfree_skb() not to try to
+release that data at all. Likely the best zero-copy approach in your
+case is to use frag_list, but be ready that your netwrok will regularily
+stall - when hardware buffers are all in use and not yet freed, you will
+not be able to send/receive new packets, although amount of memory will
+allow that.
+
+> -Vinay
 
 -- 
-Jens Axboe
-
+	Evgeniy Polyakov
