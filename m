@@ -1,170 +1,62 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH 1/2] Introduce the generic rtnl_create_link()
-Date: Thu, 19 Jul 2007 13:26:52 +0400
-Message-ID: <469F2E5C.2050907@openvz.org>
-References: <469F2DE7.9090407@openvz.org>
+From: "Robert P. J. Day" <rpjday@mindspring.com>
+Subject: Re: [PATCH] net/, drivers/net/ , missing EXPERIMENTAL in menus
+Date: Thu, 19 Jul 2007 05:25:30 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0707190523001.19216@localhost.localdomain>
+References: <469E75AA.7040109@pimpmylinux.org>
+ <Pine.LNX.4.64.0707181620460.13912@localhost.localdomain>
+ <20070718134012.cde2f956.randy.dunlap@oracle.com> <469E7BE1.6090401@garzik.org>
+ <Pine.LNX.4.64.0707181648330.15343@localhost.localdomain>
+ <20070718210903.GM3801@stusta.de> <Pine.LNX.4.64.0707181712340.16513@localhost.localdomain>
+ <20070719054742.GN3801@stusta.de> <Pine.LNX.4.64.0707190331330.11902@localhost.localdomain>
+ <469F240E.9040205@s5r6.in-berlin.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Adrian Bunk <bunk@stusta.de>, Jeff Garzik <jeff@garzik.org>,
+	Randy Dunlap <randy.dunlap@oracle.com>,
+	Gabriel C <crazy@pimpmylinux.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Stefan Richter <stefanr@s5r6.in-berlin.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.233.200]:48379 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S937799AbXGSJ1B (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Jul 2007 05:27:01 -0400
-In-Reply-To: <469F2DE7.9090407@openvz.org>
+Received: from nic.NetDirect.CA ([216.16.235.2]:43302 "EHLO
+	rubicon.netdirect.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752551AbXGSJ2P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2007 05:28:15 -0400
+In-Reply-To: <469F240E.9040205@s5r6.in-berlin.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This routine gets the parsed rtnl attributes and creates a new
-link with generic info (IFLA_LINKINFO policy). Its intention
-is to help the drivers, that need to create several links at 
-once (like VETH).
+On Thu, 19 Jul 2007, Stefan Richter wrote:
 
-This is nothing but a copy-paste-ed part of rtnl_newlink() function
-that is responsible for creation of new device.
+> Robert P. J. Day wrote:
+> > On Thu, 19 Jul 2007, Adrian Bunk wrote:
+> >
+> > ...
+> >> I would consider it more ugly to special case this and that in the
+> >> kconfig code when plain dependencies already offer exactly the same
+> >> functionality...
+> >
+> > well, this is the *third* time i've proposed adding this kind of
+> > feature so, at this point, i've really given up caring about it.  if
+> > someone wants to do this, have at it.  i have better things to do than
+> > to keep suggesting it and getting nowhere with it.
+>
+> For better or worse, it can often be observed that feature requests
+> don't set anything in motion until a first patch is sent.  Even a
+> patch that is far from perfect can get things going really quickly.
+> (If the requested feature makes sense to other people.)
 
-Signed-off-by: Pavel Emelianov <xemul@openvz.org>
-Acked-by: Patrick McHardy <kaber@trash.net>
+i *did* submit a preliminary patch once upon a time, and it
+(predictably) went nowhere.  so, if someone else wants to pick this up
+and do something with it, you have my blessing.  life's too short to
+keep wasting time on this.
 
----
+rday
+-- 
+========================================================================
+Robert P. J. Day
+Linux Consulting, Training and Annoying Kernel Pedantry
+Waterloo, Ontario, CANADA
 
- include/net/rtnetlink.h |    4 ++
- net/core/rtnetlink.c    |   83 ++++++++++++++++++++++++++++++------------------
- 2 files changed, 57 insertions(+), 30 deletions(-)
-
-diff --git a/include/net/rtnetlink.h b/include/net/rtnetlink.h
-index 3861c05..8218288 100644
---- a/include/net/rtnetlink.h
-+++ b/include/net/rtnetlink.h
-@@ -78,6 +78,10 @@ extern void	__rtnl_link_unregister(struc
- extern int	rtnl_link_register(struct rtnl_link_ops *ops);
- extern void	rtnl_link_unregister(struct rtnl_link_ops *ops);
- 
-+extern struct net_device *rtnl_create_link(char *ifname,
-+		const struct rtnl_link_ops *ops, struct nlattr *tb[]);
-+extern const struct nla_policy ifla_policy[IFLA_MAX+1];
-+
- #define MODULE_ALIAS_RTNL_LINK(kind) MODULE_ALIAS("rtnl-link-" kind)
- 
- #endif
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 864cbdf..02e00e8 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -714,7 +714,7 @@ cont:
- 	return skb->len;
- }
- 
--static const struct nla_policy ifla_policy[IFLA_MAX+1] = {
-+const struct nla_policy ifla_policy[IFLA_MAX+1] = {
- 	[IFLA_IFNAME]		= { .type = NLA_STRING, .len = IFNAMSIZ-1 },
- 	[IFLA_ADDRESS]		= { .type = NLA_BINARY, .len = MAX_ADDR_LEN },
- 	[IFLA_BROADCAST]	= { .type = NLA_BINARY, .len = MAX_ADDR_LEN },
-@@ -941,6 +941,50 @@ static int rtnl_dellink(struct sk_buff *
- 	return 0;
- }
- 
-+struct net_device *rtnl_create_link(char *ifname,
-+		const struct rtnl_link_ops *ops, struct nlattr *tb[])
-+{
-+	int err;
-+	struct net_device *dev;
-+
-+	err = -ENOMEM;
-+	dev = alloc_netdev(ops->priv_size, ifname, ops->setup);
-+	if (!dev)
-+		goto err;
-+
-+	if (strchr(dev->name, '%')) {
-+		err = dev_alloc_name(dev, dev->name);
-+		if (err < 0)
-+			goto err_free;
-+	}
-+
-+	dev->rtnl_link_ops = ops;
-+
-+	if (tb[IFLA_MTU])
-+		dev->mtu = nla_get_u32(tb[IFLA_MTU]);
-+	if (tb[IFLA_ADDRESS])
-+		memcpy(dev->dev_addr, nla_data(tb[IFLA_ADDRESS]),
-+				nla_len(tb[IFLA_ADDRESS]));
-+	if (tb[IFLA_BROADCAST])
-+		memcpy(dev->broadcast, nla_data(tb[IFLA_BROADCAST]),
-+				nla_len(tb[IFLA_BROADCAST]));
-+	if (tb[IFLA_TXQLEN])
-+		dev->tx_queue_len = nla_get_u32(tb[IFLA_TXQLEN]);
-+	if (tb[IFLA_WEIGHT])
-+		dev->weight = nla_get_u32(tb[IFLA_WEIGHT]);
-+	if (tb[IFLA_OPERSTATE])
-+		set_operstate(dev, nla_get_u8(tb[IFLA_OPERSTATE]));
-+	if (tb[IFLA_LINKMODE])
-+		dev->link_mode = nla_get_u8(tb[IFLA_LINKMODE]);
-+
-+	return dev;
-+
-+err_free:
-+	free_netdev(dev);
-+err:
-+	return ERR_PTR(err);
-+}
-+
- static int rtnl_newlink(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- {
- 	const struct rtnl_link_ops *ops;
-@@ -1051,40 +1095,17 @@ replay:
- 
- 		if (!ifname[0])
- 			snprintf(ifname, IFNAMSIZ, "%s%%d", ops->kind);
--		dev = alloc_netdev(ops->priv_size, ifname, ops->setup);
--		if (!dev)
--			return -ENOMEM;
--
--		if (strchr(dev->name, '%')) {
--			err = dev_alloc_name(dev, dev->name);
--			if (err < 0)
--				goto err_free;
--		}
--		dev->rtnl_link_ops = ops;
- 
--		if (tb[IFLA_MTU])
--			dev->mtu = nla_get_u32(tb[IFLA_MTU]);
--		if (tb[IFLA_ADDRESS])
--			memcpy(dev->dev_addr, nla_data(tb[IFLA_ADDRESS]),
--			       nla_len(tb[IFLA_ADDRESS]));
--		if (tb[IFLA_BROADCAST])
--			memcpy(dev->broadcast, nla_data(tb[IFLA_BROADCAST]),
--			       nla_len(tb[IFLA_BROADCAST]));
--		if (tb[IFLA_TXQLEN])
--			dev->tx_queue_len = nla_get_u32(tb[IFLA_TXQLEN]);
--		if (tb[IFLA_WEIGHT])
--			dev->weight = nla_get_u32(tb[IFLA_WEIGHT]);
--		if (tb[IFLA_OPERSTATE])
--			set_operstate(dev, nla_get_u8(tb[IFLA_OPERSTATE]));
--		if (tb[IFLA_LINKMODE])
--			dev->link_mode = nla_get_u8(tb[IFLA_LINKMODE]);
-+		dev = rtnl_create_link(ifname, ops, tb);
- 
--		if (ops->newlink)
-+		if (IS_ERR(dev))
-+			err = PTR_ERR(dev);
-+		else if (ops->newlink)
- 			err = ops->newlink(dev, tb, data);
- 		else
- 			err = register_netdevice(dev);
--err_free:
--		if (err < 0)
-+
-+		if (err < 0 && !IS_ERR(dev))
- 			free_netdev(dev);
- 		return err;
- 	}
-@@ -1333,3 +1354,5 @@ EXPORT_SYMBOL(rtnl_unlock);
- EXPORT_SYMBOL(rtnl_unicast);
- EXPORT_SYMBOL(rtnl_notify);
- EXPORT_SYMBOL(rtnl_set_sk_err);
-+EXPORT_SYMBOL(rtnl_create_link);
-+EXPORT_SYMBOL(ifla_policy);
-
+http://fsdev.net/wiki/index.php?title=Main_Page
+========================================================================
