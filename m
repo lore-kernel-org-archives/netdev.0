@@ -1,52 +1,65 @@
-From: Jon Loeliger <jdl@freescale.com>
-Subject: Re: [PATCH 1/2] Fix error checking in Vitesse IRQ config
-Date: Thu, 19 Jul 2007 11:49:42 -0500
-Message-ID: <1184863782.16820.10.camel@ld0161-tx32>
-References: <11847405503115-git-send-email-afleming@freescale.com>
+From: Ragner Magalhaes <ragner.magalhaes@indt.org.br>
+Subject: Re: [PATCH 2/4] ibmveth: Implement ethtool hooks to enable/disable
+ checksum offload
+Date: Thu, 19 Jul 2007 12:08:32 -0400
+Message-ID: <469F8C80.7070302@indt.org.br>
+References: <1184860086366-patch-mail.ibm.com> <200707191548.l6JFmEYM020387@d03av04.boulder.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"linuxppc-dev@ozlabs.org" <linuxppc-dev@ozlabs.org>
-To: Andy Fleming <afleming@freescale.com>
+Cc: santil@linux.vnet.ibm.com, rcjenn@linux.vnet.ibm.com,
+	netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
+To: ext Brian King <brking@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from de01egw02.freescale.net ([192.88.165.103]:62583 "EHLO
-	de01egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933360AbXGSQtu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2007 12:49:50 -0400
-In-Reply-To: <11847405503115-git-send-email-afleming@freescale.com>
+Received: from smtp.nokia.com ([131.228.20.172]:44834 "EHLO
+	mgw-ext13.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S940244AbXGSQ41 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2007 12:56:27 -0400
+In-Reply-To: <200707191548.l6JFmEYM020387@d03av04.boulder.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2007-07-18 at 01:35, Andy Fleming wrote:
-> phy_read() returns a negative number if there's an error, but the
-> error-checking code in the Vitesse driver's config_intr function
-> triggers if phy_read() returns non-zero.  Correct that.
-> 
-> Signed-off-by: Andy Fleming <afleming@freescale.com>
-> ---
-> I made a really stupid mistake in the 4 patches I sent out, earlier.  I
-> thought those patches had been tested, but they hadn't been.  This one
-> corrects a tiny error in the patch, and they have now been tested.  As before
-> this change can be pulled from:
-> 
-> http://opensource.freescale.com/pub/scm/linux-2.6-85xx.git netdev
-> 
-> Really, REALLY sorry about that.  I have been given a paper bag of appropriate
-> size and shape to fit over my head.
-> 
->  drivers/net/phy/vitesse.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/net/phy/vitesse.c b/drivers/net/phy/vitesse.c
-> index 6a53856..8874497 100644
+ext Brian King wrote:
 
+> +
+> +static int ibmveth_set_rx_csum(struct net_device *dev, u32 data)
+> +{
+> +	struct ibmveth_adapter *adapter = dev->priv;
+> +
 
-Acked-by: Jon Loeliger <jdl@freescale.com>
+Why do not to do
 
-Tested on the 8641HPCN.
+	if ((data && adapter->rx_csum) || (!data && !adapter->rx_csum))
+		return 0;
+less two lines.
 
-Thanks,
-jdl
+> +	if (data && adapter->rx_csum)
+> +		return 0;
+> +	if (!data && !adapter->rx_csum)
+> +		return 0;
+> +
+> +	return ibmveth_set_csum_offload(dev, data, ibmveth_set_rx_csum_flags);
+> +}
+> +
+> +static int ibmveth_set_tx_csum(struct net_device *dev, u32 data)
+> +{
+> +	struct ibmveth_adapter *adapter = dev->priv;
+> +	int rc = 0;
+> +
 
-
+here also, as above ...
+> +	if (data && (dev->features & NETIF_F_IP_CSUM))
+> +		return 0;
+> +	if (!data && !(dev->features & NETIF_F_IP_CSUM))
+> +		return 0;
+> +
+> +	if (data && !adapter->rx_csum)
+> +		rc = ibmveth_set_csum_offload(dev, data, ibmveth_set_tx_csum_flags);
+> +	else
+> +		ibmveth_set_tx_csum_flags(dev, data);
+> +
+> +	return rc;
+> +}
+> +
+Best regards,
+Ragner
