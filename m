@@ -1,62 +1,50 @@
-From: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>
-Subject: Re: 2.6.22-git: known regressions with patches
-Date: Thu, 19 Jul 2007 21:21:08 +0200
-Message-ID: <200707192121.08869.bzolnier@gmail.com>
-References: <469F92B8.5090809@googlemail.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: Linux, tcpdump and vlan
+Date: Thu, 19 Jul 2007 20:28:10 +0100
+Message-ID: <20070719202810.4d9ee230@oldman>
+References: <839334.9648.qm@web56605.mail.re3.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Giacomo Catenazzi <cate@cateee.net>,
-	Jens Axboe <jens.axboe@oracle.com>,
-	Stefan Richter <stefanr@s5r6.in-berlin.de>,
-	Jan Engelhardt <jengelh@linux01.gwdg.de>,
-	Jens Axboe <axboe@suse.de>,
-	"Peter M. Jones" <pjones@redhat.com>,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	"=?utf-8?q?S=2E=C3=87a=C4=9Flar?= Onur" <caglar@pardus.org.tr>,
-	Meelis Roos <mroos@linux.ee>,
-	Cornelia Huck <cornelia.huck@de.ibm.com>,
-	David Howells <dhowells@redhat.com>, netdev@vger.kernel.org,
-	Randy Dunlap <randy.dunlap@oracle.com>,
-	Trond Myklebust <Trond.Myklebust@netapp.com>,
-	"J. Bruce Fields" <bfields@citi.umich.edu>
-To: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.173]:54026 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755102AbXGSTK7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2007 15:10:59 -0400
-Received: by ug-out-1314.google.com with SMTP id j3so474035ugf
-        for <netdev@vger.kernel.org>; Thu, 19 Jul 2007 12:10:57 -0700 (PDT)
-In-Reply-To: <469F92B8.5090809@googlemail.com>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Cc: Ben Greear <greearb@candelatech.com>,
+	Patrick McHardy <kaber@trash.net>,
+	Krzysztof Halasa <khc@pm.waw.pl>, linux-kernel@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: andrei radulescu-banu <iubica2@yahoo.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965818AbXGST3c@vger.kernel.org>
+In-Reply-To: <839334.9648.qm@web56605.mail.re3.yahoo.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Thu, 19 Jul 2007 11:20:43 -0700 (PDT)
+andrei radulescu-banu <iubica2@yahoo.com> wrote:
 
-Hi,
-
-On Thursday 19 July 2007, Michal Piotrowski wrote:
-
-> Unclassified
+> > [Ben] If tcpdump and/or bridging needs to disable the hw-accel, then it can 
+> explicitly do so by some API.  That is better than overloading
+> the promisc flag in my opinion.  
 > 
-> Subject         : disk error loop (panic?) ide_do_rw_disk-bad
-> References      : http://lkml.org/lkml/2007/7/17/467
-> Last known good : ?
-> Submitter       : Giacomo Catenazzi <cate@cateee.net>
-> Caused-By       : ?
-> Handled-By      : Jens Axboe <jens.axboe@oracle.com>
->                   Linus Torvalds <torvalds@linux-foundation.org>
->                   Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>
-> Patch           : http://lkml.org/lkml/2007/7/19/26
-> Status          : patch available
+> I guess I could be persuaded in the end. But let me still play devil advocate. The semantics of 'promiscuous', in my opinion, mean 'receive everything', including vlan.
+> 
+> > [Ben] This is especially true since promisc 
+> is not easily readable by user-space and things like tcpdump
+> cannot have full control of promisc (if a mac-vlan has the NIC in 
+> promisc mode, for instance, then tcpdump can never disable it.)
+> 
+> I agree with all the above. For example when you run 'ifconfig' during 'tcpdump', the interface does not have the promiscuous flag set!! 
 
-Additional patch is an improvement but the regression itself has already
-been fixed in the mainline (by reverting problematic changes).
+In kernel it is a nice atomic counter, no problem.
 
-Thanks,
-Bart
+> 
+> This confused me for a while, until I realized that tcpdump's packet socket was using an obscure packet_dev_mc() API (af_packet.c) to get the interface in promiscuous mode. The reason for this is that packet_mc_add() implements a reference counted mechanism for promiscuous. So that:
+> - starting tcpdump instance 1 sets promiscuous mode
+> - starting tcpdump instance 2 bumps the ref count in packet_mc_add()
+> - killing tcpdump instance 1 bumps down the ref count, the interface stays promiscuous
+> - killing tcpdump instance 2 truly clear promiscuous mode.
+> 
+> The trick here is that when you kill tcpdump, the kernel clears the packet socket, and in process bumps down the ref count. Had tcpdump manually set/cleared the promisc flag, the interface would have stayed promisc after tcpdump was killed.
+> 
+> (The mac-vlan driver must have this corner problem as well. If a mac-vlan interface is disabled while tcpdump runs, it may yank promiscuousness from under tcpdump.)
+
+The kernel has no such problem
+
+> So if you want to create an ethtool API to set vlan-promiscuous mode, one problem to grapple is that we need a similar mechanism to the above, so you can run two concurrent tcpdump's (or tcpdump while bridging vlans) and the vlan-promiscuous mode gets set correctly each time.  For tcpdump at least, the new ethtool API needs to be called from packet_mc_add().
