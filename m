@@ -1,57 +1,73 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: Linux, tcpdump and vlan
-Date: Thu, 19 Jul 2007 09:47:24 -0700
-Message-ID: <469F959C.4090003@candelatech.com>
-References: <123837.78916.qm@web56604.mail.re3.yahoo.com>
+From: "rae l" <crquan@gmail.com>
+Subject: Re: [PATCH 1/2] nbd: use list_for_each_entry_safe to make it more consolidated and readable
+Date: Fri, 20 Jul 2007 00:48:29 +0800
+Message-ID: <91b13c310707190948j4eee14eauf53dd1c72c7fdb8a@mail.gmail.com>
+References: <11848376711601-git-send-email-crquan@gmail.com>
+	 <469F7F58.4080709@steeleye.com>
+	 <91b13c310707190855h6fee9604pcc86b6712d2c76f8@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	Krzysztof Halasa <khc@pm.waw.pl>, linux-kernel@vger.kernel.org,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: andrei radulescu-banu <iubica2@yahoo.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"Pavel Machek" <pavel@ucw.cz>,
+	"Steven Whitehouse" <steve@chygwyn.com>,
+	"Andrew Morton" <akpm@linux-foundation.org>,
+	debra <chdebra@gmail.com>
+To: "Paul Clements" <paul.clements@steeleye.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:60569 "EHLO ns2.lanforge.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760462AbXGSQrh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Jul 2007 12:47:37 -0400
-In-Reply-To: <123837.78916.qm@web56604.mail.re3.yahoo.com>
+Received: from ug-out-1314.google.com ([66.249.92.169]:5517 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933360AbXGSQsb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2007 12:48:31 -0400
+Received: by ug-out-1314.google.com with SMTP id j3so447458ugf
+        for <netdev@vger.kernel.org>; Thu, 19 Jul 2007 09:48:29 -0700 (PDT)
+In-Reply-To: <91b13c310707190855h6fee9604pcc86b6712d2c76f8@mail.gmail.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-andrei radulescu-banu wrote:
->> [Ben] I think a better method would be to allow disabling VLAN HW accel for a NIC with ethtool.
->>     
->
-> This requires changes to ethtool and e1000 driver, +other drivers. It is a handy thing to have. I don't view it as a solution to tcpdump - or to the vlan bridging problem. One concern: if we're switching hw accel mode on the fly, we need to carefully protect tx frames that are just about going out and have already been set up for the opposite mode.
->   
-I think it would be valid to let a few packets slip through on the old 
-behaviour during changeover..or perhaps to drop them
-entirely if that is required.
+On 7/19/07, rae l <crquan@gmail.com> wrote:
+> On 7/19/07, Paul Clements <paul.clements@steeleye.com> wrote:
+> > Could you name "n" as "tmp" (as in the previous code) so that it's clear
+> > that's only a temporary variable. Other than that, this looks good.
+> Sure. I just use the name "n" as in the declaration of
+> list_for_each_entry_safe in the header file <linux/list.h>
+> I'll resend it a little later.
 
-Turning off vlan hw-accel when the nic goes promisc is also going to 
-require driver changes, I believe, so
-either way you have to do that work.
+Signed-off-by: Denis Cheng <crquan@gmail.com>
+---
+ drivers/block/nbd.c |    6 ++----
+ 1 files changed, 2 insertions(+), 4 deletions(-)
 
-If tcpdump and/or bridging needs to disable the hw-accel, then it can 
-explicitly do so by some API.  That is better than overloading
-the promisc flag in my opinion.  This is especially true since promisc 
-is not easily readable by user-space and things like tcpdump
-cannot have full control of promisc (if a mac-vlan has the NIC in 
-promisc mode, for instance, then tcpdump can never disable it.)
+diff --git a/drivers/block/nbd.c b/drivers/block/nbd.c
+index c129510..86639c0 100644
+--- a/drivers/block/nbd.c
++++ b/drivers/block/nbd.c
+@@ -237,8 +237,7 @@ error_out:
 
-> Any comments on what is the expected behavior of 'tcpdump -i eth0.2' vs. 'tcpdump -i eth0'?
->   
-I would expect that you see tags with -i eth0, but not with -i eth0.2
+ static struct request *nbd_find_request(struct nbd_device *lo, char *handle)
+ {
+-	struct request *req;
+-	struct list_head *tmp;
++	struct request *req, *tmp;
+ 	struct request *xreq;
+ 	int err;
 
-That is the way it currently works with non-hw-accell VLANs (or it was 
-the last I checked).
+@@ -249,8 +248,7 @@ static struct request *nbd_find_request(struct
+nbd_device *lo, char *handle)
+ 		goto out;
 
-Ben
+ 	spin_lock(&lo->queue_lock);
+-	list_for_each(tmp, &lo->queue_head) {
+-		req = list_entry(tmp, struct request, queuelist);
++	list_for_each_entry_safe(req, tmp, &lo->queue_head, queuelist) {
+ 		if (req != xreq)
+ 			continue;
+ 		list_del_init(&req->queuelist);
 
 -- 
-Ben Greear <greearb@candelatech.com> 
-Candela Technologies Inc  http://www.candelatech.com
+Denis Cheng
+Linux Application Developer
 
-
+"One of my most productive days was throwing away 1000 lines of code."
+ - Ken Thompson.
