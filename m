@@ -1,61 +1,57 @@
-From: Paul Clements <paul.clements@steeleye.com>
-Subject: Re: [PATCH 1/2] nbd: use list_for_each_entry_safe to make it more
- consolidated and readable
-Date: Thu, 19 Jul 2007 11:12:24 -0400
-Message-ID: <469F7F58.4080709@steeleye.com>
-References: <11848376711601-git-send-email-crquan@gmail.com>
+From: Olaf Kirch <okir@lst.de>
+Subject: Re: Races in net_rx_action vs netpoll?
+Date: Thu, 19 Jul 2007 17:19:19 +0200
+Message-ID: <200707191719.21034.okir@lst.de>
+References: <200707101244.32753.okir@lst.de> <200707110941.38587.okir@lst.de> <20070711.193320.102574858.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Pavel Machek <pavel@ucw.cz>,
-	Steven Whitehouse <steve@chygwyn.com>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Denis Cheng <crquan@gmail.com>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hancock.steeleye.com ([71.30.118.248]:39619 "EHLO
-	hancock.sc.steeleye.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S938895AbXGSPMZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2007 11:12:25 -0400
-In-Reply-To: <11848376711601-git-send-email-crquan@gmail.com>
+Received: from verein.lst.de ([213.95.11.210]:42327 "EHLO mail.lst.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S939200AbXGSPTj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Jul 2007 11:19:39 -0400
+In-Reply-To: <20070711.193320.102574858.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Denis Cheng wrote:
-> Thus the traverse of the loop may delete nodes, use the safe version.
+On Thursday 12 July 2007 04:33, David Miller wrote:
+> I'll add merge your patch with a target of 2.6.23
 > 
-> Signed-off-by: Denis Cheng <crquan@gmail.com>
-> ---
->  drivers/block/nbd.c |    6 ++----
->  1 files changed, 2 insertions(+), 4 deletions(-)
-> 
-> diff --git a/drivers/block/nbd.c b/drivers/block/nbd.c
-> index c129510..86639c0 100644
-> --- a/drivers/block/nbd.c
-> +++ b/drivers/block/nbd.c
-> @@ -237,8 +237,7 @@ error_out:
->  
->  static struct request *nbd_find_request(struct nbd_device *lo, char *handle)
->  {
-> -	struct request *req;
-> -	struct list_head *tmp;
-> +	struct request *req, *n;
->  	struct request *xreq;
->  	int err;
->  
-> @@ -249,8 +248,7 @@ static struct request *nbd_find_request(struct nbd_device *lo, char *handle)
->  		goto out;
->  
->  	spin_lock(&lo->queue_lock);
-> -	list_for_each(tmp, &lo->queue_head) {
-> -		req = list_entry(tmp, struct request, queuelist);
-> +	list_for_each_entry_safe(req, n, &lo->queue_head, queuelist) {
->  		if (req != xreq)
->  			continue;
->  		list_del_init(&req->queuelist);
+> If you really want, after this patch has sat in 2.6.23 for a while
+> and got some good testing, we can consider a submission for -stable.
 
-Could you name "n" as "tmp" (as in the previous code) so that it's clear 
-that's only a temporary variable. Other than that, this looks good.
+Okay, those of you who followed the discussion on lkml will have
+read why this patch breaks on e1000.
 
-Thanks,
-Paul
+Short summary: some NIC drivers expect that there is a one-to-one
+relation between calls to net_rx_schedule (where we put the device
+on the poll list) and netif_rx_complete (where it's supposed to be
+taken off the list). The e1000 is such a beast. Not sure if other
+drivers make the same assumption re NAPI.
+
+So: should a driver be allowed to rely on this behavior? Or should
+I go and look for another fix to the poll_napi issue?
+
+I keep coming back to the question Jarek asked - why does netpoll
+want to call dev->poll() anyway? I dug around a little and it
+seems the original idea was to do this only if netpoll_poll was
+running on the CPU the netdevice was scheduled to.
+
+So one way to fix the problem is to add a dev->poll_cpu field
+that tells us on which CPU's poll list it has been added - and
+check for this in poll_napi.
+
+Comments?
+
+David, should I submit an updated patch for 2.6.23, or do you
+prefer to yank the patch now and try again for 2.6.24?
+
+Olaf
+-- 
+Olaf Kirch  |  --- o --- Nous sommes du soleil we love when we play
+okir@lst.de |    / | \   sol.dhoop.naytheet.ah kin.ir.samse.qurax
