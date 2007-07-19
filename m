@@ -1,71 +1,28 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: Realtek RTL8111B serious performance issues
-Date: Thu, 19 Jul 2007 00:44:29 -0400
-Message-ID: <20070719004429.fc33c8a7.billfink@mindspring.com>
-References: <Pine.SOC.4.64.0707172328150.3299@katana>
-	<20070718072635.GA26243@electric-eye.fr.zoreil.com>
-	<Pine.SOC.4.64.0707181516300.19789@katana>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [GIT PULL] [NET]: Whitespace fixes
+Date: Wed, 18 Jul 2007 21:46:48 -0700 (PDT)
+Message-ID: <20070718.214648.59465162.davem@davemloft.net>
+References: <20070719.112133.94748123.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org
-To: john@BlueSkyTours.com
+Cc: netdev@vger.kernel.org
+To: yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-scoter.atl.sa.earthlink.net ([209.86.89.67]:34764 "EHLO
-	elasmtp-scoter.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751041AbXGSEos (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2007 00:44:48 -0400
-In-Reply-To: <Pine.SOC.4.64.0707181516300.19789@katana>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60034
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751195AbXGSEqu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2007 00:46:50 -0400
+In-Reply-To: <20070719.112133.94748123.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi John,
+From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
+Date: Thu, 19 Jul 2007 11:21:33 +0900 (JST)
 
-On Wed, 18 Jul 2007, john@BlueSkyTours.com wrote:
+> Please consider pulling the following commits from
+> 	net-2.6-20070719-whitespace-20070719
+> branch at
+> 	<git://git.linux-ipv6.org/gitroot/yoshfuji/linux-2.6-dev.git>.
 
-> On Wed, 18 Jul 2007, Francois Romieu wrote:
-> 
-> > john@BlueSkyTours.com <john@BlueSkyTours.com> :
-> > [...]
-> >> Anyone have any suggestions for solving this problem?
-> >
-> > Try 2.6.23-rc1 when it is published or apply against 2.6.22 one of:
-> > http://www.fr.zoreil.com/people/francois/misc/20070628-2.6.22-rc6-r8169-test.patch
-> 
-> Unfortunately, the 20070628 patch did not make any difference.
-> 
-> 
-> > http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.22-rc6/r8169-20070628/
-> 
-> 
-> I tried various patches from that directory (aren't most or all of them
-> included in the 20070628 patch?), but none of them helped either.
-> 
-> 
-> This problem could be very difficult to track down.  Like I said, it
-> definately effects emacs and firefox being "drawn" on a remote computer.
-> Ping times, however, are not that bad:
-> 
-> PING 192.168.26.150: 56 data bytes
-> 64 bytes from dyn26-1.blueskytours.com (192.168.26.150): icmp_seq=0. time=0.287 ms
-> 64 bytes from dyn26-1.blueskytours.com (192.168.26.150): icmp_seq=1. time=0.279 ms
-> 64 bytes from dyn26-1.blueskytours.com (192.168.26.150): icmp_seq=2. time=0.196 ms
-> 64 bytes from dyn26-1.blueskytours.com (192.168.26.150): icmp_seq=3. time=0.201 ms
-> 64 bytes from dyn26-1.blueskytours.com (192.168.26.150): icmp_seq=4. time=0.159 ms
-> 64 bytes from dyn26-1.blueskytours.com (192.168.26.150): icmp_seq=5. time=0.148 ms
-> 64 bytes from dyn26-1.blueskytours.com (192.168.26.150): icmp_seq=6. time=0.150 ms
-> 
-> Also, wget gets good throughput when retrieving files.
-> 
-> It just seems to be X traffic which is extremely slow.  Using the old
-> Linksys 10/100 PCI NIC, emacs comes up virtually instantaneously.  Using the
-> integrated Realtek 8111B, emacs takes 10 seconds to draw.
-> 
-> Thank you very much for trying to help.
-
-Any chance that the Realtek 8111B is sharing interrupts with another
-device ("cat /proc/interrupts")?  Perhaps it is, and the Linksys isn't,
-which could explain the difference in behavior.  Just something simple
-to check and either rule in or out.
-
-						-Bill
+Pulled, thanks a lot.
