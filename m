@@ -1,44 +1,41 @@
-From: Stefan Richter <stefanr@s5r6.in-berlin.de>
-Subject: Re: [PATCH] net/, drivers/net/ , missing EXPERIMENTAL in menus
-Date: Thu, 19 Jul 2007 10:42:54 +0200
-Message-ID: <469F240E.9040205@s5r6.in-berlin.de>
-References: <469E75AA.7040109@pimpmylinux.org> <Pine.LNX.4.64.0707181620460.13912@localhost.localdomain> <20070718134012.cde2f956.randy.dunlap@oracle.com> <469E7BE1.6090401@garzik.org> <Pine.LNX.4.64.0707181648330.15343@localhost.localdomain> <20070718210903.GM3801@stusta.de> <Pine.LNX.4.64.0707181712340.16513@localhost.localdomain> <20070719054742.GN3801@stusta.de> <Pine.LNX.4.64.0707190331330.11902@localhost.localdomain>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [PATCH][RFC] network splice receive v3
+Date: Thu, 19 Jul 2007 12:44:12 +0400
+Message-ID: <20070719084412.GD6216@2ka.mipt.ru>
+References: <20070711091927.GQ4587@kernel.dk> <20070712170247.GA18469@2ka.mipt.ru> <20070713122058.GL5328@kernel.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Adrian Bunk <bunk@stusta.de>, Jeff Garzik <jeff@garzik.org>,
-	Randy Dunlap <randy.dunlap@oracle.com>,
-	Gabriel C <crazy@pimpmylinux.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: "Robert P. J. Day" <rpjday@mindspring.com>
+Content-Type: text/plain; charset=koi8-r
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	olaf.kirch@oracle.com
+To: Jens Axboe <jens.axboe@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hp3.statik.tu-cottbus.de ([141.43.120.68]:51375 "EHLO
-	hp3.statik.tu-cottbus.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S937250AbXGSIn3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2007 04:43:29 -0400
-In-Reply-To: <Pine.LNX.4.64.0707190331330.11902@localhost.localdomain>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:57227 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S935337AbXGSIou (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Jul 2007 04:44:50 -0400
+Content-Disposition: inline
+In-Reply-To: <20070713122058.GL5328@kernel.dk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Robert P. J. Day wrote:
-> On Thu, 19 Jul 2007, Adrian Bunk wrote:
-> 
-> ...
->> I would consider it more ugly to special case this and that in the
->> kconfig code when plain dependencies already offer exactly the same
->> functionality...
-> 
-> well, this is the *third* time i've proposed adding this kind of
-> feature so, at this point, i've really given up caring about it.  if
-> someone wants to do this, have at it.  i have better things to do than
-> to keep suggesting it and getting nowhere with it.
+Hi.
 
-For better or worse, it can often be observed that feature requests
-don't set anything in motion until a first patch is sent.  Even a patch
-that is far from perfect can get things going really quickly.  (If the
-requested feature makes sense to other people.)
+On Fri, Jul 13, 2007 at 02:21:00PM +0200, Jens Axboe (jens.axboe@oracle.com) wrote:
+> > It really looks like the last tree we tested, so if you think additional
+> > one will not hurt, feel free to ping, so I will completely rebase
+> > testing tree.
+> 
+> It would be great if you could retest! There are some minor changes in
+> there, and some extra testing definitely will not hurt.
+
+I've just tested it with 2.6.22
+(e1c1e98d2a3f57b22a0d4136c8160e54404aa437 commit) and did not found any
+problems - after qute big files were transferred there is no observed 
+previously skb leak, no crashes (quite a few debug options are turned on 
+in config) and files are correct on both peers, so it works good.
+
+> -- 
+> Jens Axboe
+
 -- 
-Stefan Richter
--=====-=-=== -=== =--==
-http://arcgraph.de/sr/
+	Evgeniy Polyakov
