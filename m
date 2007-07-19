@@ -1,67 +1,43 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: kmap_atomic() oopses in current mainline
-Date: Thu, 19 Jul 2007 01:33:04 -0700
-Message-ID: <20070719013304.3c060c99.akpm@linux-foundation.org>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: Socket Buffers and Memory Managment
+Date: Thu, 19 Jul 2007 09:10:41 +0100
+Message-ID: <20070719091041.06f29789@oldman>
+References: <20070717204129.79e7fe0d@oldman>
+	<261750.43078.qm@web82911.mail.mud.yahoo.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Dan Williams <dan.j.williams@intel.com>
-To: netdev@vger.kernel.org, linux-kernel-announce@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: vinay ravuri <vinaynyc@yahoo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:56751 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:60795 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751046AbXGSIdP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2007 04:33:15 -0400
+	by vger.kernel.org with ESMTP id S1758121AbXGSIeT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2007 04:34:19 -0400
+In-Reply-To: <261750.43078.qm@web82911.mail.mud.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Wed, 18 Jul 2007 23:51:03 -0700 (PDT)
+vinay ravuri <vinaynyc@yahoo.com> wrote:
 
-I've had a handful of random mystery oopses associated with no particular
-activity.  A typical trace is at:
+> How about the following approach:
+> 
+> I allocate an skb of 0 bytes and replace data element
+> of skb struct (i.e. skb.data = addr_given_by_hw) when
+> the h/w interrupts me with a packet.  I register for a
+> destructor for this skb and when the kernel is ready
+> to free the skb, I make sure that my free is invoked -
+> Ofcourse this is assuming that their is a facility in
+> linux socket buffers to be able to do destructors.  Is
+> this approach a viable, if so, are any gottcha's?
+> 
+> -Vinay
 
-	http://userweb.kernel.org/~akpm/dsc03659.jpg
+You need to use frag list for that since upper layers expect to
+be able to use that data area for normal use, ie bridging/routing, etc.
+Also access to data area would be non-cached so you want to make
+sure it is only accessed once.
 
-the trace is messy and it doesn't seem to want to happen now I've turned on
-frame pointers, but it looks networky to me.
-
-So if anyone has made kmap_atomic() changes in networking recently, please
-check your work.  The machine does have highmem.
-
-
-
-The crash appears to be happening here:
-
-        BUG_ON(!pte_none(*(kmap_pte-idx)));
-
-which would indicate a wild value is being passing km kmap_atomic()'s
-km_type arg.
-
-
-
-
-I don't think the 2-year-old Vaio has offload engine support ;) Dan, this:
-
-+		if (flags & ASYNC_TX_KMAP_DST)
-+			dest_buf = kmap_atomic(dest, KM_USER0) + dest_offset;
-+		else
-+			dest_buf = page_address(dest) + dest_offset;
-+
-+		if (flags & ASYNC_TX_KMAP_SRC)
-+			src_buf = kmap_atomic(src, KM_USER0) + src_offset;
-+		else
-+			src_buf = page_address(src) + src_offset;
-+
-+		memcpy(dest_buf, src_buf, len);
-+
-+		if (flags & ASYNC_TX_KMAP_DST)
-+			kunmap_atomic(dest_buf, KM_USER0);
-+
-+		if (flags & ASYNC_TX_KMAP_SRC)
-+			kunmap_atomic(src_buf, KM_USER0);
-+
-
-is very wrong if both ASYNC_TX_KMAP_DST and ASYNC_TX_KMAP_SRC can ever be
-set.  We'll end up using the same kmap slot for both src add dest and we
-get either corrupted data or a BUG.
-
-
+But how will you handle a slow receiver where all the skb's end up
+staying queued. Won't you exhaust your packet memory.
