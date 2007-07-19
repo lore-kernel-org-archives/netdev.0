@@ -1,77 +1,34 @@
-From: Paul Clements <paul.clements@steeleye.com>
-Subject: Re: [PATCH 2/2] nbd: change a parameter's type to remove a memcpy
- call
-Date: Thu, 19 Jul 2007 13:35:53 -0400
-Message-ID: <469FA0F9.9090001@steeleye.com>
-References: <11848376711601-git-send-email-crquan@gmail.com> <11848377013773-git-send-email-crquan@gmail.com>
+From: andrei radulescu-banu <iubica2@yahoo.com>
+Subject: Re: Linux, tcpdump and vlan
+Date: Thu, 19 Jul 2007 10:46:52 -0700 (PDT)
+Message-ID: <544527.16391.qm@web56614.mail.re3.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Pavel Machek <pavel@ucw.cz>,
-	Steven Whitehouse <steve@chygwyn.com>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Denis Cheng <crquan@gmail.com>
+Content-Type: text/plain; charset=ascii
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	Krzysztof Halasa <khc@pm.waw.pl>, linux-kernel@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hancock.steeleye.com ([71.30.118.248]:60523 "EHLO
-	hancock.sc.steeleye.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754667AbXGSRfz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2007 13:35:55 -0400
-In-Reply-To: <11848377013773-git-send-email-crquan@gmail.com>
+Received: from web56614.mail.re3.yahoo.com ([66.196.97.58]:34740 "HELO
+	web56614.mail.re3.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754667AbXGSRqx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2007 13:46:53 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Denis Cheng wrote:
-> this memcpy looks so strange, in fact it's merely a pointer dereference,
-> so I change the parameter's type to refer it more directly,
-> this could make the memcpy not needed anymore.
-> 
-> in the function nbd_read_stat where nbd_find_request is only once called,
-> the parameter served should be transformed accordingly.
 
-This is really a matter of preference. The generated code ends up being 
-about the same, I think, while your patch makes the call to 
-nbd_find_request kind of obtuse. Also, the memcpy's are balanced between 
-send_req and find_request, so you can quickly see how the data is being 
-transferred (from req into handle, and then back again). Your patch 
-makes this less clear, at least to me.
+>> [Andrei] VLAN_TX_SKB_CB() is perfect for that.
+> [Patrick, Stephen] No its not. Its only legal to use while something has ownership
+of the skb. Between VLAN devices and real devices qdiscs are
+free to use it.
 
---
-Paul
+All right, using VLAN_TX_SKB_CB() is a bad idea. In that case, we need to amend the skb struct, I don't see another way.
 
 
-> Signed-off-by: Denis Cheng <crquan@gmail.com>
-> ---
->  drivers/block/nbd.c |    7 ++-----
->  1 files changed, 2 insertions(+), 5 deletions(-)
-> 
-> diff --git a/drivers/block/nbd.c b/drivers/block/nbd.c
-> index 86639c0..a4d8508 100644
-> --- a/drivers/block/nbd.c
-> +++ b/drivers/block/nbd.c
-> @@ -235,14 +235,11 @@ error_out:
->  	return 1;
->  }
->  
-> -static struct request *nbd_find_request(struct nbd_device *lo, char *handle)
-> +static struct request *nbd_find_request(struct nbd_device *lo, struct request *xreq)
->  {
->  	struct request *req, *n;
-> -	struct request *xreq;
->  	int err;
->  
-> -	memcpy(&xreq, handle, sizeof(xreq));
-> -
->  	err = wait_event_interruptible(lo->active_wq, lo->active_req != xreq);
->  	if (unlikely(err))
->  		goto out;
-> @@ -297,7 +294,7 @@ static struct request *nbd_read_stat(struct nbd_device *lo)
->  		goto harderror;
->  	}
->  
-> -	req = nbd_find_request(lo, reply.handle);
-> +	req = nbd_find_request(lo, *(struct request **)reply.handle);
->  	if (unlikely(IS_ERR(req))) {
->  		result = PTR_ERR(req);
->  		if (result != -ENOENT)
 
+
+
+       
+____________________________________________________________________________________
+Be a better Globetrotter. Get better travel answers from someone who knows. Yahoo! Answers - Check it out.
+http://answers.yahoo.com/dir/?link=list&sid=396545469
