@@ -1,90 +1,77 @@
-From: "=?utf-8?q?S=2E=C3=87a=C4=9Flar?= Onur" <caglar@pardus.org.tr>
-Subject: Re: 2.6.22-git: known regressions with patches
-Date: Thu, 19 Jul 2007 20:08:09 +0300
-Message-ID: <200707192008.15147.caglar@pardus.org.tr>
-References: <469F92B8.5090809@googlemail.com>
-Reply-To: caglar@pardus.org.tr
+From: Paul Clements <paul.clements@steeleye.com>
+Subject: Re: [PATCH 2/2] nbd: change a parameter's type to remove a memcpy
+ call
+Date: Thu, 19 Jul 2007 13:35:53 -0400
+Message-ID: <469FA0F9.9090001@steeleye.com>
+References: <11848376711601-git-send-email-crquan@gmail.com> <11848377013773-git-send-email-crquan@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart3915519.YtECA2XLpR";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Giacomo Catenazzi <cate@cateee.net>,
-	Jens Axboe <jens.axboe@oracle.com>,
-	Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
-	Stefan Richter <stefanr@s5r6.in-berlin.de>,
-	Jan Engelhardt <jengelh@linux01.gwdg.de>,
-	Jens Axboe <axboe@suse.de>,
-	"Peter M. Jones" <pjones@redhat.com>,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	Meelis Roos <mroos@linux.ee>,
-	Cornelia Huck <cornelia.huck@de.ibm.com>,
-	David Howells <dhowells@redhat.com>, netdev@vger.kernel.org,
-	Randy Dunlap <randy.dunlap@oracle.com>,
-	Trond Myklebust <Trond.Myklebust@netapp.com>,
-	"J. Bruce Fields" <bfields@citi.umich.edu>
-To: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Pavel Machek <pavel@ucw.cz>,
+	Steven Whitehouse <steve@chygwyn.com>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Denis Cheng <crquan@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.uludag.org.tr ([193.140.100.220]:49898 "EHLO uludag.org.tr"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S940342AbXGSRJJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Jul 2007 13:09:09 -0400
-In-Reply-To: <469F92B8.5090809@googlemail.com>
+Received: from hancock.steeleye.com ([71.30.118.248]:60523 "EHLO
+	hancock.sc.steeleye.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754667AbXGSRfz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2007 13:35:55 -0400
+In-Reply-To: <11848377013773-git-send-email-crquan@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart3915519.YtECA2XLpR
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+Denis Cheng wrote:
+> this memcpy looks so strange, in fact it's merely a pointer dereference,
+> so I change the parameter's type to refer it more directly,
+> this could make the memcpy not needed anymore.
+> 
+> in the function nbd_read_stat where nbd_find_request is only once called,
+> the parameter served should be transformed accordingly.
 
-Hi Michal;
+This is really a matter of preference. The generated code ends up being 
+about the same, I think, while your patch makes the call to 
+nbd_find_request kind of obtuse. Also, the memcpy's are balanced between 
+send_req and find_request, so you can quickly see how the data is being 
+transferred (from req into handle, and then back again). Your patch 
+makes this less clear, at least to me.
 
-19 Tem 2007 Per tarihinde, Michal Piotrowski =C5=9Funlar=C4=B1 yazm=C4=B1=
-=C5=9Ft=C4=B1:=20
-> Block layer
->
-> Subject         : bsg.c:(.init.text+0x43d): undefined reference to
-> `scsi_register_interface' References      :
-> http://lkml.org/lkml/2007/7/16/343
-> Last known good : ?
-> Submitter       : Larry Finger <Larry.Finger@lwfinger.net>
-> Caused-By       : ?
-> Handled-By      : S.=C3=87a=C4=9Flar Onur <caglar@pardus.org.tr>
-> Patch           : http://lkml.org/lkml/2007/7/16/380
-> Status          : patch available
+--
+Paul
 
-After a off-list discussion this was solved with Linus's commit [1], so ple=
-ase=20
-drop that one
 
-[1]=20
-http://git.kernel.org/?p=3Dlinux/kernel/git/torvalds/linux-2.6.git;a=3Dcomm=
-it;h=3D29417b899a77aaba1c060f5e123db4f50006f58a
+> Signed-off-by: Denis Cheng <crquan@gmail.com>
+> ---
+>  drivers/block/nbd.c |    7 ++-----
+>  1 files changed, 2 insertions(+), 5 deletions(-)
+> 
+> diff --git a/drivers/block/nbd.c b/drivers/block/nbd.c
+> index 86639c0..a4d8508 100644
+> --- a/drivers/block/nbd.c
+> +++ b/drivers/block/nbd.c
+> @@ -235,14 +235,11 @@ error_out:
+>  	return 1;
+>  }
+>  
+> -static struct request *nbd_find_request(struct nbd_device *lo, char *handle)
+> +static struct request *nbd_find_request(struct nbd_device *lo, struct request *xreq)
+>  {
+>  	struct request *req, *n;
+> -	struct request *xreq;
+>  	int err;
+>  
+> -	memcpy(&xreq, handle, sizeof(xreq));
+> -
+>  	err = wait_event_interruptible(lo->active_wq, lo->active_req != xreq);
+>  	if (unlikely(err))
+>  		goto out;
+> @@ -297,7 +294,7 @@ static struct request *nbd_read_stat(struct nbd_device *lo)
+>  		goto harderror;
+>  	}
+>  
+> -	req = nbd_find_request(lo, reply.handle);
+> +	req = nbd_find_request(lo, *(struct request **)reply.handle);
+>  	if (unlikely(IS_ERR(req))) {
+>  		result = PTR_ERR(req);
+>  		if (result != -ENOENT)
 
-Cheers
-=2D-=20
-S.=C3=87a=C4=9Flar Onur <caglar@pardus.org.tr>
-http://cekirdek.pardus.org.tr/~caglar/
-
-Linux is like living in a teepee. No Windows, no Gates and an Apache in hou=
-se!
-
---nextPart3915519.YtECA2XLpR
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.4 (GNU/Linux)
-
-iD8DBQBGn5p+y7E6i0LKo6YRAowhAKDUsRQBQpbQp7lgebGtEYI44np7hwCfbRpq
-byayx/iQGIhdU7aGZXDOErA=
-=tmqV
------END PGP SIGNATURE-----
-
---nextPart3915519.YtECA2XLpR--
