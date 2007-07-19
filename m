@@ -1,51 +1,44 @@
-From: "Beschorner Daniel" <Daniel.Beschorner@facton.com>
-Subject: Re: pmtu discovery on SA
-Date: Thu, 19 Jul 2007 17:51:56 +0200
-Message-ID: <3C59DB883F7B0B4D8096010D45ACCD13230268@exch.facton.local>
-References: <469A3698.5020105@trash.net> <3C59DB883F7B0B4D8096010D45ACCD1323022E@exch.facton.local> <3C59DB883F7B0B4D8096010D45ACCD1323023A@exch.facton.local> <469B7001.3090604@trash.net> <3C59DB883F7B0B4D8096010D45ACCD1323023D@exch.facton.local> <469B7B99.6040402@trash.net> <3C59DB883F7B0B4D8096010D45ACCD13230240@exch.facton.local> <469B878C.1020204@trash.net> <469B8C47.3030306@trash.net> <3C59DB883F7B0B4D8096010D45ACCD13230242@exch.facton.local> <469BB50C.10203@trash.net> <469CE9E5.7040003@trash.net> <3C59DB883F7B0B4D8096010D45ACCD1323024F@exch.facton.local> <469D3885.7070208@trash.net> <3C59DB883F7B0B4D8096010D45ACCD13230254@exch.facton.local> <469E1242.3050105@trash.net> <3C59DB883F7B0B4D8096010D45ACCD13230257@exch.facton.local> <469E3F6F.6040004@trash.net>
+From: "rae l" <crquan@gmail.com>
+Subject: Re: [PATCH 1/2] nbd: use list_for_each_entry_safe to make it more consolidated and readable
+Date: Thu, 19 Jul 2007 23:55:18 +0800
+Message-ID: <91b13c310707190855h6fee9604pcc86b6712d2c76f8@mail.gmail.com>
+References: <11848376711601-git-send-email-crquan@gmail.com>
+	 <469F7F58.4080709@steeleye.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
-To: "Patrick McHardy" <kaber@trash.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"Pavel Machek" <pavel@ucw.cz>,
+	"Steven Whitehouse" <steve@chygwyn.com>,
+	"Andrew Morton" <akpm@linux-foundation.org>
+To: "Paul Clements" <paul.clements@steeleye.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alpha.facton.com ([83.236.152.122]:39036 "EHLO alpha.facton.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1765098AbXGSPwF convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2007 11:52:05 -0400
-Content-class: urn:content-classes:message
-In-reply-to: <469E3F6F.6040004@trash.net>
+Received: from ug-out-1314.google.com ([66.249.92.168]:62867 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933090AbXGSPzU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2007 11:55:20 -0400
+Received: by ug-out-1314.google.com with SMTP id j3so436911ugf
+        for <netdev@vger.kernel.org>; Thu, 19 Jul 2007 08:55:19 -0700 (PDT)
+In-Reply-To: <469F7F58.4080709@steeleye.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> > Just to make it clear: Is this message an error, or a 
-> warning or just
-> > for information?
-> > Could you explain a bit please.
-> 
-> 
-> Its a debugging message nowadays (NETDEBUG). I was mostly interested
-> in this since I changed the IPsec MTU calculation in 2.6.22 and it
-> might have been a bug.
-> 
-> > I have no connections hangs or other kind of problems.
-> 
-> 
-> Thanks for clarifying this. I guess the reason why you're seeing
-> them now and not before is that we're now always using the maximum
-> room available, while previously packets were usually a bit smaller
-> than possible.
+On 7/19/07, Paul Clements <paul.clements@steeleye.com> wrote:
+> Could you name "n" as "tmp" (as in the previous code) so that it's clear
+> that's only a temporary variable. Other than that, this looks good.
+Sure. I just use the name "n" as in the declaration of
+list_for_each_entry_safe in the header file <linux/list.h>
+I'll resend it a little later.
 
-Yes, our tunnels gained 2 bytes in 2.6.22. Maybe I would have seen the
-messages earlier with older kernels too, but our ADSL line started with
-2.6.22.
+>
+> Thanks,
+> Paul
+>
 
-I tested a little bit around and found the ESP pmtud is doing it's job
-well.
-The message really just says what it does.
+-- 
+Denis Cheng
+Linux Application Developer
 
-Thank you for clarifying this and most notably for fixing the crash bug
-so fast!
-
-Daniel
+"One of my most productive days was throwing away 1000 lines of code."
+ - Ken Thompson.
