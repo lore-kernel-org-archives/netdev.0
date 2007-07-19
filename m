@@ -1,69 +1,74 @@
-From: Brian King <brking@linux.vnet.ibm.com>
-Subject: Re: [PATCH 1/4] ibmveth: Enable TCP checksum offload
-Date: Thu, 19 Jul 2007 08:35:14 -0500
-Message-ID: <469F6892.2020908@linux.vnet.ibm.com>
-References: <11846854701127-patch-mail.ibm.com> <469E9510.7060703@garzik.org>
-Reply-To: brking@linux.vnet.ibm.com
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: Linux, tcpdump and vlan
+Date: Thu, 19 Jul 2007 14:41:31 +0100
+Message-ID: <20070719144131.0c230c8f@oldman.hamilton.local>
+References: <878246.51044.qm@web56608.mail.re3.yahoo.com>
+	<469E9AC8.3090603@trash.net>
+	<m3zm1sbjzl.fsf@maximus.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, rcjenn@linux.vnet.ibm.com,
-	santil@linux.vnet.ibm.com, netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+Cc: Patrick McHardy <kaber@trash.net>,
+	andrei radulescu-banu <iubica2@yahoo.com>,
+	linux-kernel@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Krzysztof Halasa <khc@pm.waw.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e1.ny.us.ibm.com ([32.97.182.141]:49997 "EHLO e1.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757624AbXGSNfR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Jul 2007 09:35:17 -0400
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e1.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l6JDZGW2012157
-	for <netdev@vger.kernel.org>; Thu, 19 Jul 2007 09:35:16 -0400
-Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
-	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.4) with ESMTP id l6JDZG2g535876
-	for <netdev@vger.kernel.org>; Thu, 19 Jul 2007 09:35:16 -0400
-Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
-	by d01av02.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l6JDZFu8026120
-	for <netdev@vger.kernel.org>; Thu, 19 Jul 2007 09:35:16 -0400
-In-Reply-To: <469E9510.7060703@garzik.org>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:48005 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753778AbXGSNmt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2007 09:42:49 -0400
+In-Reply-To: <m3zm1sbjzl.fsf@maximus.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
-> Brian King wrote:
->> This patchset enables TCP checksum offload support for IPV4
->> on ibmveth. This completely eliminates the generation and checking of
->> the checksum for packets that are completely virtual and never
->> touch a physical network. A simple TCP_STREAM netperf run on
->> a virtual network with maximum mtu set yielded a ~30% increase
->> in throughput. This feature is enabled by default on systems that
->> support it, but can be disabled with a module option.
->>
->> Signed-off-by: Brian King <brking@linux.vnet.ibm.com>
+On Thu, 19 Jul 2007 15:28:46 +0200
+Krzysztof Halasa <khc@pm.waw.pl> wrote:
+
+> Patrick McHardy <kaber@trash.net> writes:
 > 
-> this should be controllable purely via ethtool...
-
-I'll remove the module parameter and resend.
-
->>  struct ibmveth_rx_q_entry {
->>      u16 toggle : 1;
->>      u16 valid : 1;
->> -    u16 reserved : 14;
->> +    u16 reserved : 4;
->> +    u16 no_csum : 1;
->> +    u16 csum_good : 1;
->> +    u16 reserved2 : 8;
->>      u16 offset;
+> > Your suggestion of disabling VLAN acceleration in promiscous
+> > mode sounds like a reasonable solution until then ..
 > 
-> As a general rule, it would be nice to start moving away from bitfields 
-> in this driver
+> From a user perspective:
+> 
+> I'm not sure promiscous mode is related to the problem.
+> Tcpdump without promiscous mode makes perfect sense.
+> 
+> I don't know very well VLAN code internals, but I think
+> the VLAN # is used for looking up the interface, so
+> presenting the "original" packet on the trunk device
+> would IMHO involve some skb cloning, and perhaps some
+> ethtool option could probably control that.
+> 
+> Not sure about untagged frames vs. tagged frames with
+> the default VLAN id - can the hardware at all differentiate
+> between them?
+> 
+> 
+> Or, perhaps it should be left (almost) as is - with "software"
+> VLANs the traffic always goes through the master interface,
+> but with "accelerated" mode it only goes through logical
+> interfaces and doesn't show up on master? Probably with
+> exception of invalid VLANs, which could be injected back to
+> master (because no logical device exists)?
 
-I'll take a look at that for a future cleanup patch.
 
-Thanks,
+I don't claim to be a VLAN expert but there are really three cases
+for handling tagged frames
 
-Brian
+1) non-accelerated device 
+    * all frames show in promiscious mode
+    * tag is part of the frame that shows up
+       in tcpdump, and then gets stripped by the 8021q module.
+2) rx tag stripping device
+     * all frames show in promiscious mode
+     * tag is in skb but NOT passed to tcpdump
+3) rx vlan acceleration
+     * only frames that for vlan's that are registered show up
+        in promisicous mode
+     * tag is in skb but NOT passed to tcpdump
 
--- 
-Brian King
-Linux on Power Virtualization
-IBM Linux Technology Center
+Unfortunately, the tag is lost as part of the VLAN acceleration process
+so it is not a simple matter of changing code in AF_PACKET receive
+to restore the tag.
