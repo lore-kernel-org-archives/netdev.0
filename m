@@ -1,47 +1,64 @@
-From: "Robert P. J. Day" <rpjday@mindspring.com>
-Subject: Re: [PATCH] net/, drivers/net/ , missing EXPERIMENTAL in menus
-Date: Thu, 19 Jul 2007 03:33:59 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0707190331330.11902@localhost.localdomain>
-References: <469E75AA.7040109@pimpmylinux.org>
- <Pine.LNX.4.64.0707181620460.13912@localhost.localdomain>
- <20070718134012.cde2f956.randy.dunlap@oracle.com> <469E7BE1.6090401@garzik.org>
- <Pine.LNX.4.64.0707181648330.15343@localhost.localdomain>
- <20070718210903.GM3801@stusta.de> <Pine.LNX.4.64.0707181712340.16513@localhost.localdomain>
- <20070719054742.GN3801@stusta.de>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Jeff Garzik <jeff@garzik.org>,
-	Randy Dunlap <randy.dunlap@oracle.com>,
-	Gabriel C <crazy@pimpmylinux.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Adrian Bunk <bunk@stusta.de>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: [RFC 3/3] TCP: htcp - use measured rtt
+Date: Thu, 19 Jul 2007 08:41:32 +0100
+Message-ID: <20070719074906.806729566@linux-foundation.org>
+References: <20070719074129.670215301@linux-foundation.org>
+Cc: Sangtae Ha <sha2@ncsu.edu>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nic.NetDirect.CA ([216.16.235.2]:41659 "EHLO
-	rubicon.netdirect.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762428AbXGSIYS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2007 04:24:18 -0400
-In-Reply-To: <20070719054742.GN3801@stusta.de>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:42162 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1763549AbXGSIYe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2007 04:24:34 -0400
+Cc: Luca De Cicco <ldecicco@gmail.com>
+Cc: Gavin McCullagh <gavin.mccullagh@nuim.ie>
+Cc: netdev@vger.kernel.org
+Content-Disposition: inline; filename=htcp-fix.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 19 Jul 2007, Adrian Bunk wrote:
+Change HTCP to use measured RTT rather than smooth RTT.
+Srtt is computed using the TCP receive timestamp
+options, so it is vulnerable to hostile receivers. To avoid any problems
+this might cause use the measured RTT instead.
 
-...
-> I would consider it more ugly to special case this and that in the
-> kconfig code when plain dependencies already offer exactly the same
-> functionality...
+Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
-well, this is the *third* time i've proposed adding this kind of
-feature so, at this point, i've really given up caring about it.  if
-someone wants to do this, have at it.  i have better things to do than
-to keep suggesting it and getting nowhere with it.
+--- a/net/ipv4/tcp_htcp.c	2007-07-19 08:26:40.000000000 +0100
++++ b/net/ipv4/tcp_htcp.c	2007-07-19 08:28:07.000000000 +0100
+@@ -76,12 +76,11 @@ static u32 htcp_cwnd_undo(struct sock *s
+ 	return max(tp->snd_cwnd, (tp->snd_ssthresh << 7) / ca->beta);
+ }
+ 
+-static inline void measure_rtt(struct sock *sk)
++static inline void measure_rtt(struct sock *sk, u32 srtt)
+ {
+ 	const struct inet_connection_sock *icsk = inet_csk(sk);
+ 	const struct tcp_sock *tp = tcp_sk(sk);
+ 	struct htcp *ca = inet_csk_ca(sk);
+-	u32 srtt = tp->srtt >> 3;
+ 
+ 	/* keep track of minimum RTT seen so far, minRTT is zero at first */
+ 	if (ca->minRTT > srtt || !ca->minRTT)
+@@ -108,6 +107,9 @@ static void measure_achieved_throughput(
+ 	if (icsk->icsk_ca_state == TCP_CA_Open)
+ 		ca->pkts_acked = pkts_acked;
+ 
++	if (rtt > 0)
++		measure_rtt(sk, usecs_to_jiffies(rtt));
++
+ 	if (!use_bandwidth_switch)
+ 		return;
+ 
+@@ -237,8 +239,6 @@ static void htcp_cong_avoid(struct sock 
+ 	if (tp->snd_cwnd <= tp->snd_ssthresh)
+ 		tcp_slow_start(tp);
+ 	else {
+-		measure_rtt(sk);
+-
+ 		/* In dangerous area, increase slowly.
+ 		 * In theory this is tp->snd_cwnd += alpha / tp->snd_cwnd
+ 		 */
 
-rday
---
-========================================================================
-Robert P. J. Day Linux Consulting, Training and Annoying Kernel
-Pedantry Waterloo, Ontario, CANADA
+-- 
 
-http://fsdev.net/wiki/index.php?title=Main_Page
-========================================================================
