@@ -1,67 +1,61 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: Linux, tcpdump and vlan
-Date: Thu, 19 Jul 2007 16:00:33 +0100
-Message-ID: <20070719160033.628f39e1@oldman.hamilton.local>
-References: <878246.51044.qm@web56608.mail.re3.yahoo.com>
-	<469E9AC8.3090603@trash.net>
-	<m3zm1sbjzl.fsf@maximus.localdomain>
-	<20070719144131.0c230c8f@oldman.hamilton.local>
-	<m3k5swbhfv.fsf@maximus.localdomain>
+From: Paul Clements <paul.clements@steeleye.com>
+Subject: Re: [PATCH 1/2] nbd: use list_for_each_entry_safe to make it more
+ consolidated and readable
+Date: Thu, 19 Jul 2007 11:12:24 -0400
+Message-ID: <469F7F58.4080709@steeleye.com>
+References: <11848376711601-git-send-email-crquan@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	andrei radulescu-banu <iubica2@yahoo.com>,
-	linux-kernel@vger.kernel.org,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Krzysztof Halasa <khc@pm.waw.pl>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Pavel Machek <pavel@ucw.cz>,
+	Steven Whitehouse <steve@chygwyn.com>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Denis Cheng <crquan@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:34232 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754928AbXGSPBP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2007 11:01:15 -0400
-In-Reply-To: <m3k5swbhfv.fsf@maximus.localdomain>
+Received: from hancock.steeleye.com ([71.30.118.248]:39619 "EHLO
+	hancock.sc.steeleye.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S938895AbXGSPMZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2007 11:12:25 -0400
+In-Reply-To: <11848376711601-git-send-email-crquan@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 19 Jul 2007 16:23:48 +0200
-Krzysztof Halasa <khc@pm.waw.pl> wrote:
-
-> Stephen Hemminger <shemminger@linux-foundation.org> writes:
+Denis Cheng wrote:
+> Thus the traverse of the loop may delete nodes, use the safe version.
 > 
-> > 1) non-accelerated device 
-> >     * all frames show in promiscious mode
-> >     * tag is part of the frame that shows up
-> >        in tcpdump, and then gets stripped by the 8021q module.
+> Signed-off-by: Denis Cheng <crquan@gmail.com>
+> ---
+>  drivers/block/nbd.c |    6 ++----
+>  1 files changed, 2 insertions(+), 4 deletions(-)
 > 
-> Sure. It's IMHO good and working, modulo the tag being removed
-> on the master device (optional cloning or something, IIRC).
-> 
-> > 2) rx tag stripping device
-> >      * all frames show in promiscious mode
-> >      * tag is in skb but NOT passed to tcpdump
-> > 3) rx vlan acceleration
-> >      * only frames that for vlan's that are registered show up
-> >         in promisicous mode
-> >      * tag is in skb but NOT passed to tcpdump
-> 
-> I wasn't aware of devices doing 3. Aren't we able to tell them
-> to receive all packets anyway (even unknown VLANs#)?
+> diff --git a/drivers/block/nbd.c b/drivers/block/nbd.c
+> index c129510..86639c0 100644
+> --- a/drivers/block/nbd.c
+> +++ b/drivers/block/nbd.c
+> @@ -237,8 +237,7 @@ error_out:
+>  
+>  static struct request *nbd_find_request(struct nbd_device *lo, char *handle)
+>  {
+> -	struct request *req;
+> -	struct list_head *tmp;
+> +	struct request *req, *n;
+>  	struct request *xreq;
+>  	int err;
+>  
+> @@ -249,8 +248,7 @@ static struct request *nbd_find_request(struct nbd_device *lo, char *handle)
+>  		goto out;
+>  
+>  	spin_lock(&lo->queue_lock);
+> -	list_for_each(tmp, &lo->queue_head) {
+> -		req = list_entry(tmp, struct request, queuelist);
+> +	list_for_each_entry_safe(req, n, &lo->queue_head, queuelist) {
+>  		if (req != xreq)
+>  			continue;
+>  		list_del_init(&req->queuelist);
 
-See NETIF_F_HW_VLAN_FILTER (e1000, etc).
+Could you name "n" as "tmp" (as in the previous code) so that it's clear 
+that's only a temporary variable. Other than that, this looks good.
 
-> > Unfortunately, the tag is lost as part of the VLAN acceleration process
-> > so it is not a simple matter of changing code in AF_PACKET receive
-> > to restore the tag.
-> 
-> I'm not sure if we really want it. If needed we can disable
-> acceleration, can't we? While accelerated we can see the packets
-> (without tags) on logical devices.
-
-Not at runtime, acceleration is always on if you compile kernel with vlan
-support.  That is a design mistake as far as I can tell.
-
-> However seeing unknown tags on master device (with tcpdump etc)
-> would certainly be useful.
-
-Only in promiscuous mode. In some sense tag is part of the mac address.
+Thanks,
+Paul
