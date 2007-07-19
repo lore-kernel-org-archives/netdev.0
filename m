@@ -1,57 +1,67 @@
-From: Olaf Kirch <okir@lst.de>
-Subject: Re: Races in net_rx_action vs netpoll?
-Date: Thu, 19 Jul 2007 17:19:19 +0200
-Message-ID: <200707191719.21034.okir@lst.de>
-References: <200707101244.32753.okir@lst.de> <200707110941.38587.okir@lst.de> <20070711.193320.102574858.davem@davemloft.net>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: Linux, tcpdump and vlan
+Date: Thu, 19 Jul 2007 16:20:08 +0100
+Message-ID: <20070719162008.7c94bcaa@oldman.hamilton.local>
+References: <878246.51044.qm@web56608.mail.re3.yahoo.com>
+	<469E9AC8.3090603@trash.net>
+	<m3zm1sbjzl.fsf@maximus.localdomain>
+	<20070719144131.0c230c8f@oldman.hamilton.local>
+	<m3k5swbhfv.fsf@maximus.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: Patrick McHardy <kaber@trash.net>,
+	andrei radulescu-banu <iubica2@yahoo.com>,
+	linux-kernel@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Krzysztof Halasa <khc@pm.waw.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from verein.lst.de ([213.95.11.210]:42327 "EHLO mail.lst.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S939200AbXGSPTj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Jul 2007 11:19:39 -0400
-In-Reply-To: <20070711.193320.102574858.davem@davemloft.net>
-Content-Disposition: inline
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:45340 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1762596AbXGSPUt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2007 11:20:49 -0400
+In-Reply-To: <m3k5swbhfv.fsf@maximus.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 12 July 2007 04:33, David Miller wrote:
-> I'll add merge your patch with a target of 2.6.23
+On Thu, 19 Jul 2007 16:23:48 +0200
+Krzysztof Halasa <khc@pm.waw.pl> wrote:
+
+> Stephen Hemminger <shemminger@linux-foundation.org> writes:
 > 
-> If you really want, after this patch has sat in 2.6.23 for a while
-> and got some good testing, we can consider a submission for -stable.
+> > 1) non-accelerated device 
+> >     * all frames show in promiscious mode
+> >     * tag is part of the frame that shows up
+> >        in tcpdump, and then gets stripped by the 8021q module.
+> 
+> Sure. It's IMHO good and working, modulo the tag being removed
+> on the master device (optional cloning or something, IIRC).
+> 
+> > 2) rx tag stripping device
+> >      * all frames show in promiscious mode
+> >      * tag is in skb but NOT passed to tcpdump
+> > 3) rx vlan acceleration
+> >      * only frames that for vlan's that are registered show up
+> >         in promisicous mode
+> >      * tag is in skb but NOT passed to tcpdump
+> 
+> I wasn't aware of devices doing 3. Aren't we able to tell them
+> to receive all packets anyway (even unknown VLANs#)?
 
-Okay, those of you who followed the discussion on lkml will have
-read why this patch breaks on e1000.
+See NETIF_F_HW_VLAN_FILTER (e1000, etc).
 
-Short summary: some NIC drivers expect that there is a one-to-one
-relation between calls to net_rx_schedule (where we put the device
-on the poll list) and netif_rx_complete (where it's supposed to be
-taken off the list). The e1000 is such a beast. Not sure if other
-drivers make the same assumption re NAPI.
+> > Unfortunately, the tag is lost as part of the VLAN acceleration process
+> > so it is not a simple matter of changing code in AF_PACKET receive
+> > to restore the tag.
+> 
+> I'm not sure if we really want it. If needed we can disable
+> acceleration, can't we? While accelerated we can see the packets
+> (without tags) on logical devices.
 
-So: should a driver be allowed to rely on this behavior? Or should
-I go and look for another fix to the poll_napi issue?
+Not at runtime, acceleration is always on if you compile kernel with vlan
+support.  That is a design mistake as far as I can tell.
 
-I keep coming back to the question Jarek asked - why does netpoll
-want to call dev->poll() anyway? I dug around a little and it
-seems the original idea was to do this only if netpoll_poll was
-running on the CPU the netdevice was scheduled to.
+> However seeing unknown tags on master device (with tcpdump etc)
+> would certainly be useful.
 
-So one way to fix the problem is to add a dev->poll_cpu field
-that tells us on which CPU's poll list it has been added - and
-check for this in poll_napi.
-
-Comments?
-
-David, should I submit an updated patch for 2.6.23, or do you
-prefer to yank the patch now and try again for 2.6.24?
-
-Olaf
--- 
-Olaf Kirch  |  --- o --- Nous sommes du soleil we love when we play
-okir@lst.de |    / | \   sol.dhoop.naytheet.ah kin.ir.samse.qurax
+Only in promiscuous mode. In some sense tag is part of the mac address.
