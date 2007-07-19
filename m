@@ -1,65 +1,90 @@
-From: Ragner Magalhaes <ragner.magalhaes@indt.org.br>
-Subject: Re: [PATCH 2/4] ibmveth: Implement ethtool hooks to enable/disable
- checksum offload
-Date: Thu, 19 Jul 2007 12:08:32 -0400
-Message-ID: <469F8C80.7070302@indt.org.br>
-References: <1184860086366-patch-mail.ibm.com> <200707191548.l6JFmEYM020387@d03av04.boulder.ibm.com>
+From: "=?utf-8?q?S=2E=C3=87a=C4=9Flar?= Onur" <caglar@pardus.org.tr>
+Subject: Re: 2.6.22-git: known regressions with patches
+Date: Thu, 19 Jul 2007 20:08:09 +0300
+Message-ID: <200707192008.15147.caglar@pardus.org.tr>
+References: <469F92B8.5090809@googlemail.com>
+Reply-To: caglar@pardus.org.tr
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: multipart/signed;
+  boundary="nextPart3915519.YtECA2XLpR";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: santil@linux.vnet.ibm.com, rcjenn@linux.vnet.ibm.com,
-	netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
-To: ext Brian King <brking@linux.vnet.ibm.com>
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Giacomo Catenazzi <cate@cateee.net>,
+	Jens Axboe <jens.axboe@oracle.com>,
+	Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
+	Stefan Richter <stefanr@s5r6.in-berlin.de>,
+	Jan Engelhardt <jengelh@linux01.gwdg.de>,
+	Jens Axboe <axboe@suse.de>,
+	"Peter M. Jones" <pjones@redhat.com>,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	Meelis Roos <mroos@linux.ee>,
+	Cornelia Huck <cornelia.huck@de.ibm.com>,
+	David Howells <dhowells@redhat.com>, netdev@vger.kernel.org,
+	Randy Dunlap <randy.dunlap@oracle.com>,
+	Trond Myklebust <Trond.Myklebust@netapp.com>,
+	"J. Bruce Fields" <bfields@citi.umich.edu>
+To: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nokia.com ([131.228.20.172]:44834 "EHLO
-	mgw-ext13.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S940244AbXGSQ41 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2007 12:56:27 -0400
-In-Reply-To: <200707191548.l6JFmEYM020387@d03av04.boulder.ibm.com>
+Received: from ns2.uludag.org.tr ([193.140.100.220]:49898 "EHLO uludag.org.tr"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S940342AbXGSRJJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Jul 2007 13:09:09 -0400
+In-Reply-To: <469F92B8.5090809@googlemail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-ext Brian King wrote:
+--nextPart3915519.YtECA2XLpR
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-> +
-> +static int ibmveth_set_rx_csum(struct net_device *dev, u32 data)
-> +{
-> +	struct ibmveth_adapter *adapter = dev->priv;
-> +
+Hi Michal;
 
-Why do not to do
+19 Tem 2007 Per tarihinde, Michal Piotrowski =C5=9Funlar=C4=B1 yazm=C4=B1=
+=C5=9Ft=C4=B1:=20
+> Block layer
+>
+> Subject         : bsg.c:(.init.text+0x43d): undefined reference to
+> `scsi_register_interface' References      :
+> http://lkml.org/lkml/2007/7/16/343
+> Last known good : ?
+> Submitter       : Larry Finger <Larry.Finger@lwfinger.net>
+> Caused-By       : ?
+> Handled-By      : S.=C3=87a=C4=9Flar Onur <caglar@pardus.org.tr>
+> Patch           : http://lkml.org/lkml/2007/7/16/380
+> Status          : patch available
 
-	if ((data && adapter->rx_csum) || (!data && !adapter->rx_csum))
-		return 0;
-less two lines.
+After a off-list discussion this was solved with Linus's commit [1], so ple=
+ase=20
+drop that one
 
-> +	if (data && adapter->rx_csum)
-> +		return 0;
-> +	if (!data && !adapter->rx_csum)
-> +		return 0;
-> +
-> +	return ibmveth_set_csum_offload(dev, data, ibmveth_set_rx_csum_flags);
-> +}
-> +
-> +static int ibmveth_set_tx_csum(struct net_device *dev, u32 data)
-> +{
-> +	struct ibmveth_adapter *adapter = dev->priv;
-> +	int rc = 0;
-> +
+[1]=20
+http://git.kernel.org/?p=3Dlinux/kernel/git/torvalds/linux-2.6.git;a=3Dcomm=
+it;h=3D29417b899a77aaba1c060f5e123db4f50006f58a
 
-here also, as above ...
-> +	if (data && (dev->features & NETIF_F_IP_CSUM))
-> +		return 0;
-> +	if (!data && !(dev->features & NETIF_F_IP_CSUM))
-> +		return 0;
-> +
-> +	if (data && !adapter->rx_csum)
-> +		rc = ibmveth_set_csum_offload(dev, data, ibmveth_set_tx_csum_flags);
-> +	else
-> +		ibmveth_set_tx_csum_flags(dev, data);
-> +
-> +	return rc;
-> +}
-> +
-Best regards,
-Ragner
+Cheers
+=2D-=20
+S.=C3=87a=C4=9Flar Onur <caglar@pardus.org.tr>
+http://cekirdek.pardus.org.tr/~caglar/
+
+Linux is like living in a teepee. No Windows, no Gates and an Apache in hou=
+se!
+
+--nextPart3915519.YtECA2XLpR
+Content-Type: application/pgp-signature; name=signature.asc 
+Content-Description: This is a digitally signed message part.
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.4 (GNU/Linux)
+
+iD8DBQBGn5p+y7E6i0LKo6YRAowhAKDUsRQBQpbQp7lgebGtEYI44np7hwCfbRpq
+byayx/iQGIhdU7aGZXDOErA=
+=tmqV
+-----END PGP SIGNATURE-----
+
+--nextPart3915519.YtECA2XLpR--
