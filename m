@@ -1,46 +1,125 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: Linux, tcpdump and vlan
-Date: Thu, 19 Jul 2007 18:33:15 +0200
-Message-ID: <469F924B.2090901@trash.net>
-References: <123837.78916.qm@web56604.mail.re3.yahoo.com>
+From: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
+Subject: 2.6.22-git: known regressions with patches
+Date: Thu, 19 Jul 2007 18:35:04 +0200
+Message-ID: <469F92B8.5090809@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	Krzysztof Halasa <khc@pm.waw.pl>, linux-kernel@vger.kernel.org,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: andrei radulescu-banu <iubica2@yahoo.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Giacomo Catenazzi <cate@cateee.net>,
+	Jens Axboe <jens.axboe@oracle.com>,
+	Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
+	Stefan Richter <stefanr@s5r6.in-berlin.de>,
+	Jan Engelhardt <jengelh@linux01.gwdg.de>,
+	Jens Axboe <axboe@suse.de>,
+	"Peter M. Jones" <pjones@redhat.com>,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	=?UTF-8?B?IlMuw4dhxJ9sYXIgT251?= =?UTF-8?B?ciI=?=
+	<caglar@pardus.org.tr>, Meelis Roos <mroos@linux.ee>,
+	Cornelia Huck <cornelia.huck@de.ibm.com>,
+	David Howells <dhowells@redhat.com>, netdev@vger.kernel.org,
+	Randy Dunlap <randy.dunlap@oracle.com>,
+	Trond Myklebust <Trond.Myklebust@netapp.com>,
+	"J. Bruce Fields" <bfields@citi.umich.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:38161 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1765749AbXGSQeN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2007 12:34:13 -0400
-In-Reply-To: <123837.78916.qm@web56604.mail.re3.yahoo.com>
+Received: from ug-out-1314.google.com ([66.249.92.170]:54576 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964921AbXGSQga (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2007 12:36:30 -0400
+Received: by ug-out-1314.google.com with SMTP id j3so445077ugf
+        for <netdev@vger.kernel.org>; Thu, 19 Jul 2007 09:36:29 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-andrei radulescu-banu wrote:
-> The consensus seems to be that skb's need to carry vlan accelerated tags in their cb's, on rx as well as tx. VLAN_TX_SKB_CB() is perfect for that.
+Hi all,
+
+Here is a list of some known regressions in 2.6.22-git
+with patches available.
+
+=46eel free to add new regressions/remove fixed etc.
+http://kernelnewbies.org/known_regressions
+
+List of Aces
+
+Name                    Regressions fixed since 21-Jun-2007
+Adrian Bunk                            3
+Andi Kleen                             2
+Andrew Morton                          2
+David Woodhouse                        2
+Hugh Dickins                           2
+Jens Axboe                             2
 
 
-No its not. Its only legal to use while something has ownership
-of the skb. Between VLAN devices and real devices qdiscs are
-free to use it.
+Unclassified
 
->>[Patrick] On the TX path, it could simply use the CB, but this is actually
-> 
-> also wrong (for both macvlan and real devices) since qdiscs have
-> ownership of the skb in between, and at least netem *does* modify
-> the CB, breaking VLAN.
-> 
-> Thanks for pointing that out... It appears to me that qdisc/netem already breaks the vlan implementation, in the path 
-> 
-> vlan_dev_hwaccel_hard_start_xmit(): sets accelerated vlan tag in skb->cb, calls
-> dev_queue_xmit(): may pass skb to qdisc/netem, which may mangle skb->cb before calling
-> dev->hard_start_xmit(), resulting in a tx frame without its vlan tag.
-> 
-> So netem needs to look for hw accelerated vlan metadata and insert it in the skb... Don't see any other way around this. 
+Subject         : disk error loop (panic?) ide_do_rw_disk-bad
+References      : http://lkml.org/lkml/2007/7/17/467
+Last known good : ?
+Submitter       : Giacomo Catenazzi <cate@cateee.net>
+Caused-By       : ?
+Handled-By      : Jens Axboe <jens.axboe@oracle.com>
+                  Linus Torvalds <torvalds@linux-foundation.org>
+                  Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>
+Patch           : http://lkml.org/lkml/2007/7/19/26
+Status          : patch available
+
+Subject         : Kconfig prompts without help text
+References      : http://lkml.org/lkml/2007/7/16/326
+Last known good : ?
+Submitter       : Stefan Richter <stefanr@s5r6.in-berlin.de>
+Caused-By       : ?
+Handled-By      : Jan Engelhardt <jengelh@linux01.gwdg.de>
+Patch           : http://lkml.org/lkml/2007/7/18/236
+Status          : patch available
 
 
-No, we might want to put other data in the cb in the future.
-VLAN should follow the rules instead.
+
+Block layer
+
+Subject         : bsg.c:(.init.text+0x43d): undefined reference to `scs=
+i_register_interface'
+References      : http://lkml.org/lkml/2007/7/16/343
+Last known good : ?
+Submitter       : Larry Finger <Larry.Finger@lwfinger.net>
+Caused-By       : ?
+Handled-By      : S.=C3=87a=C4=9Flar Onur <caglar@pardus.org.tr>
+Patch           : http://lkml.org/lkml/2007/7/16/380
+Status          : patch available
+
+
+
+=46S
+
+Subject         : AFS compile broken
+References      : http://lkml.org/lkml/2007/7/19/218
+Last known good : ?
+Submitter       : Meelis Roos <mroos@linux.ee>
+Caused-By       : ?
+Handled-By      : Cornelia Huck <cornelia.huck@de.ibm.com>
+Patch           : http://lkml.org/lkml/2007/7/19/223
+Status          : patch available
+
+
+
+Networking
+
+Subject         : net/sunrpc/auth_gss/auth_gss.c:100?: warning: implici=
+t declaration of function '*_kernel'
+References      : http://lkml.org/lkml/2007/7/14/78
+Last known good : ?
+Submitter       : Randy Dunlap <randy.dunlap@oracle.com>
+Caused-By       : ?
+Handled-By      : J. Bruce Fields <bfields@citi.umich.edu>
+Patch           : http://lkml.org/lkml/2007/7/14/95
+Status          : patch available
+
+
+
+Regards,
+Michal
+
+--
+LOG
+http://www.stardust.webpages.pl/log/
