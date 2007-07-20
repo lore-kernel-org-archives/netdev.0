@@ -1,70 +1,140 @@
 From: Masakazu Mokuno <mokuno@sm.sony.co.jp>
-Subject: [PATCH 9/10] ps3: fix rare issue that reenabling rx DMA fails
-Date: Fri, 20 Jul 2007 17:35:54 +0900
-Message-ID: <20070720173431.67A1.MOKUNO@sm.sony.co.jp>
+Subject: [PATCH 10/10] ps3: reduce allocation size of rx skb buffers
+Date: Fri, 20 Jul 2007 17:39:25 +0900
+Message-ID: <20070720173613.67A4.MOKUNO@sm.sony.co.jp>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, cbe-oss-dev@ozlabs.org
 To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from MGW2.Sony.CO.JP ([137.153.0.14]:37548 "EHLO mgw2.sony.co.jp"
+Received: from MGW3.Sony.CO.JP ([137.153.0.15]:57627 "EHLO mgw3.sony.co.jp"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1765358AbXGTIf5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Jul 2007 04:35:57 -0400
+	id S1751595AbXGTIja (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Jul 2007 04:39:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fixed rare issue that 'lv1_net_start_rx_dma failed, status=-9" was shown
-in dmesg.  This meant restarting rx DMA had been rejected by the hypervisor.
-This issue would caused if the guest os requested starting DMA when 
-the hypervisor thought the DMA was in progress.
-The state machine for DMA status of the hypervisor would be updated
-by processing interrupt in the hypervisor.
-Thus we should wait for the interrupt delivery before restarting
-DMA.
+Reduced allocation size for rx skb buffers, from 2308 bytes to 
+1356 per buffer.
 
 Signed-off-by: Masakazu Mokuno <mokuno@sm.sony.co.jp>
 ---
- drivers/net/ps3_gelic_net.c |    9 +++++++--
- drivers/net/ps3_gelic_net.h |    1 +
- 2 files changed, 8 insertions(+), 2 deletions(-)
+ drivers/net/ps3_gelic_net.c |   45 ++++++++++++++++++++++++++++++++++++--------
+ drivers/net/ps3_gelic_net.h |   12 ++++++-----
+ 2 files changed, 44 insertions(+), 13 deletions(-)
 
 --- a/drivers/net/ps3_gelic_net.c
 +++ b/drivers/net/ps3_gelic_net.c
-@@ -943,8 +943,8 @@ refill:
- 	descr->prev->next_descr_addr = descr->bus_addr;
- 
- 	if (dmac_chain_ended) {
--		gelic_net_enable_rxdmac(card);
--		dev_dbg(ctodev(card), "reenable rx dma\n");
-+		card->rx_dma_restart_required = 1;
-+		dev_dbg(ctodev(card), "reenable rx dma scheduled\n");
+@@ -917,31 +917,60 @@ static int gelic_net_decode_one_descr(st
+ 		goto refill;
  	}
  
- 	return 1;
-@@ -1020,6 +1020,11 @@ static irqreturn_t gelic_net_interrupt(i
- 	if (!status)
- 		return IRQ_NONE;
- 
-+	if (card->rx_dma_restart_required) {
-+		card->rx_dma_restart_required = 0;
-+		gelic_net_enable_rxdmac(card);
+-	if ((status != GELIC_NET_DESCR_COMPLETE) &&
+-	    (status != GELIC_NET_DESCR_FRAME_END)) {
++	if (status == GELIC_NET_DESCR_BUFFER_FULL) {
++		/*
++		 * Buffer full would occur if and only if
++		 * the frame length was longer than the size of this
++		 * descriptor's buffer.  If the frame length was equal
++		 * to or shorter than buffer'size, FRAME_END condition
++		 * would occur.
++		 * Anyway this frame was longer than the MTU,
++		 * just drop it.
++		 */
++		dev_info(ctodev(card), "overlength frame\n");
++		goto refill;
 +	}
++	/*
++	 * descriptoers any other than FRAME_END here should
++	 * be treated as error.
++	 */
++	if (status != GELIC_NET_DESCR_FRAME_END) {
+ 		dev_dbg(ctodev(card), "RX descriptor with state %x\n",
+ 			status);
+ 		goto refill;
+ 	}
+ 
+ 	/* ok, we've got a packet in descr */
+-	gelic_net_pass_skb_up(descr, card); /* 1: skb_up sccess */
+-
++	gelic_net_pass_skb_up(descr, card);
+ refill:
+-	descr->next_descr_addr = 0; /* unlink the descr */
++	/*
++	 * So that always DMAC can see the end
++	 * of the descriptor chain to avoid
++	 * from unwanted DMAC overrun.
++	 */
++	descr->next_descr_addr = 0;
+ 
+ 	/* change the descriptor state: */
+ 	gelic_net_set_descr_status(descr, GELIC_NET_DESCR_NOT_IN_USE);
+ 
+-	/* refill one desc
+-	 * FIXME: this can fail, but for now, just leave this
+-	 * descriptor without skb
++	/*
++	 * this call can fail, but for now, just leave this
++	 * decriptor without skb
+ 	 */
+ 	gelic_net_prepare_rx_descr(card, descr);
 +
- 	if (status & GELIC_NET_RXINT) {
- 		gelic_net_rx_irq_off(card);
- 		netif_rx_schedule(netdev);
+ 	chain->head = descr;
+ 	chain->tail = descr->next;
++
++	/*
++	 * Set this descriptor the end of the chain.
++	 */
+ 	descr->prev->next_descr_addr = descr->bus_addr;
+ 
++	/*
++	 * If dmac chain was met, DMAC stopped.
++	 * thus re-enable it
++	 */
+ 	if (dmac_chain_ended) {
+ 		card->rx_dma_restart_required = 1;
+ 		dev_dbg(ctodev(card), "reenable rx dma scheduled\n");
 --- a/drivers/net/ps3_gelic_net.h
 +++ b/drivers/net/ps3_gelic_net.h
-@@ -207,6 +207,7 @@ struct gelic_net_card {
+@@ -32,8 +32,8 @@
+ #define GELIC_NET_RX_DESCRIPTORS        128 /* num of descriptors */
+ #define GELIC_NET_TX_DESCRIPTORS        128 /* num of descriptors */
  
- 	struct gelic_net_descr_chain tx_chain;
- 	struct gelic_net_descr_chain rx_chain;
-+	int rx_dma_restart_required;
- 	/* gurad dmac descriptor chain*/
- 	spinlock_t chain_lock;
+-#define GELIC_NET_MAX_MTU               2308
+-#define GELIC_NET_MIN_MTU               64
++#define GELIC_NET_MAX_MTU               VLAN_ETH_FRAME_LEN
++#define GELIC_NET_MIN_MTU               VLAN_ETH_ZLEN
+ #define GELIC_NET_RXBUF_ALIGN           128
+ #define GELIC_NET_RX_CSUM_DEFAULT       1 /* hw chksum */
+ #define GELIC_NET_WATCHDOG_TIMEOUT      5*HZ
+@@ -81,7 +81,8 @@ enum gelic_net_int1_status {
+ 					    */
+ #define GELIC_NET_RXVLNPKT	0x00200000 /* VLAN packet */
+ /* bit 20..16 reserved */
+-#define GELIC_NET_RXRECNUM	0x0000ff00 /* reception receipt number */
++#define GELIC_NET_RXRRECNUM	0x0000ff00 /* reception receipt number */
++#define GELIC_NET_RXRRECNUM_SHIFT	8
+ /* bit 7..0 reserved */
  
+ #define GELIC_NET_TXDESC_TAIL		0
+@@ -129,13 +130,14 @@ enum gelic_net_int1_status {
+ 
+ 
+ enum gelic_net_descr_status {
+-	GELIC_NET_DESCR_COMPLETE            = 0x00, /* used in rx and tx */
++	GELIC_NET_DESCR_COMPLETE            = 0x00, /* used in tx */
++	GELIC_NET_DESCR_BUFFER_FULL         = 0x00, /* used in rx */
+ 	GELIC_NET_DESCR_RESPONSE_ERROR      = 0x01, /* used in rx and tx */
+ 	GELIC_NET_DESCR_PROTECTION_ERROR    = 0x02, /* used in rx and tx */
+ 	GELIC_NET_DESCR_FRAME_END           = 0x04, /* used in rx */
+ 	GELIC_NET_DESCR_FORCE_END           = 0x05, /* used in rx and tx */
+ 	GELIC_NET_DESCR_CARDOWNED           = 0x0a, /* used in rx and tx */
+-	GELIC_NET_DESCR_NOT_IN_USE                  /* any other value */
++	GELIC_NET_DESCR_NOT_IN_USE          = 0x0b  /* any other value */
+ };
+ /* for lv1_net_control */
+ #define GELIC_NET_GET_MAC_ADDRESS               0x0000000000000001
 
 --
 Masakazu MOKUNO
