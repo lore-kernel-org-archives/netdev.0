@@ -1,39 +1,148 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: tg3 issues
-Date: Fri, 20 Jul 2007 12:34:21 -0700
-Message-ID: <1184960061.4850.9.camel@dell>
-References: <469E78A2.80904@imperialnet.org>
- <366312910707190419se33ddd2o3870b5684e077276@mail.gmail.com>
- <20070719113755.GA1934@hmsreliant.homelinux.net>
- <469F6601.20800@imperialnet.org> <1184866465.10854.45.camel@dell>
- <46A0E9D7.7020904@imperialnet.org>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "Neil Horman" <nhorman@tuxdriver.com>,
-	"netdev" <netdev@vger.kernel.org>
-To: "patric" <pakar@imperialnet.org>
+From: dhananjay@netxen.com
+Subject: [PATCH 1/2] netxen: IMEZ multiport card 2nd port issue, dma watchdog fix
+Date: Sat, 21 Jul 2007 00:37:50 +0530
+Message-ID: <20070720191307.020802741@netxen.com>
+References: <20070720190749.535704712@netxen.com>
+Cc: rob@netxen.com, Wen Xiong <wenxiong@us.ibm.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:1065 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753272AbXGTSl1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Jul 2007 14:41:27 -0400
-In-Reply-To: <46A0E9D7.7020904@imperialnet.org>
+Received: from [203.199.144.227] ([203.199.144.227]:2774 "EHLO
+	stellar.unminc.com" rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S935927AbXGTTSi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jul 2007 15:18:38 -0400
+Content-Disposition: inline; filename=dma.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2007-07-20 at 18:59 +0200, patric wrote:
+This fixes issue with 2nd port of multiport adapter that the MAC address
+is reset by firmware in PCI probe. This patch also fixes a bug that PCI
+resources are not released if dma watchdog shutdown failed. The dma watchdog
+poll messages during module unload are also suppressed.
 
-> Thanks... That's a confirmation on what i  suspected.. I think i'll dig 
-> into the code instead and try to figure out some way of making it work a 
-> bit better for my setup atleast...
-> I'll post a patch later if i get something working... Btw, do you have 
-> any timings on how long it takes for the cards to get a lock on the link?
-> 
+Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
+Signed-off-by: Wen Xiong <wenxiong@us.ibm.com>
 
-Serdes link comes up very fast.  The clause 37 autoneg involves going
-through a few states and exchanging base pages and optional next pages.
-Each state completes in 10 msec, so the whole autoneg should complete in
-roughly 100 msec or so.  But because it is done in software for these
-older cards, it can take much longer because it can get out-of-sync. 
+Index: netdev-2.6/drivers/net/netxen/netxen_nic_main.c
+===================================================================
+--- netdev-2.6.orig/drivers/net/netxen/netxen_nic_main.c
++++ netdev-2.6/drivers/net/netxen/netxen_nic_main.c
+@@ -46,7 +46,7 @@ MODULE_DESCRIPTION("NetXen Multi port (1
+ MODULE_LICENSE("GPL");
+ MODULE_VERSION(NETXEN_NIC_LINUX_VERSIONID);
+ 
+-char netxen_nic_driver_name[] = "netxen-nic";
++char netxen_nic_driver_name[] = "netxen_nic";
+ static char netxen_nic_driver_string[] = "NetXen Network Driver version "
+     NETXEN_NIC_LINUX_VERSIONID;
+ 
+@@ -785,19 +785,18 @@ static void __devexit netxen_nic_remove(
+ 
+ 	if (adapter->portnum == 0) {
+ 		if (init_firmware_done) {
+-			dma_watchdog_shutdown_request(adapter);
+-			msleep(100);
+ 			i = 100;
+-			while ((dma_watchdog_shutdown_poll_result(adapter) != 1) && i) {
+-				printk(KERN_INFO "dma_watchdog_shutdown_poll still in progress\n");
++			do {
++				if (dma_watchdog_shutdown_request(adapter) == 1)
++					break;
+ 				msleep(100);
+-				i--;
+-			}
+-
+-			if (i == 0) {
+-				printk(KERN_ERR "dma_watchdog_shutdown_request failed\n");
+-				return;
+-			}
++				if (dma_watchdog_shutdown_poll_result(adapter) == 1)
++					break;
++			} while (--i);
++
++			if (i == 0)
++				printk(KERN_ERR "%s: dma_watchdog_shutdown failed\n",
++						netdev->name);
+ 
+ 			/* clear the register for future unloads/loads */
+ 			writel(0, NETXEN_CRB_NORMALIZE(adapter, NETXEN_CAM_RAM(0x1fc)));
+@@ -805,12 +804,11 @@ static void __devexit netxen_nic_remove(
+ 				readl(NETXEN_CRB_NORMALIZE(adapter, CRB_CMDPEG_STATE)));
+ 
+ 			/* leave the hw in the same state as reboot */
++			netxen_phantom_init(adapter, NETXEN_NIC_PEG_TUNE);
+ 			writel(0, NETXEN_CRB_NORMALIZE(adapter, CRB_CMDPEG_STATE));
+-			if (netxen_pinit_from_rom(adapter, 0))
+-				return;
++			netxen_pinit_from_rom(adapter, 0);
+ 			msleep(1);
+-			if (netxen_load_firmware(adapter))
+-				return;
++			netxen_load_firmware(adapter);
+ 			netxen_phantom_init(adapter, NETXEN_NIC_PEG_TUNE);
+ 		}
+ 
+@@ -819,22 +817,21 @@ static void __devexit netxen_nic_remove(
+ 		printk(KERN_INFO "State: 0x%0x\n",
+ 			readl(NETXEN_CRB_NORMALIZE(adapter, CRB_CMDPEG_STATE)));
+ 
+-		dma_watchdog_shutdown_request(adapter);
+-		msleep(100);
+ 		i = 100;
+-		while ((dma_watchdog_shutdown_poll_result(adapter) != 1) && i) {
+-			printk(KERN_INFO "dma_watchdog_shutdown_poll still in progress\n");
++		do {
++			if (dma_watchdog_shutdown_request(adapter) == 1)
++				break;
+ 			msleep(100);
+-			i--;
+-		}
++			if (dma_watchdog_shutdown_poll_result(adapter) == 1)
++				break;
++		} while (--i);
+ 
+ 		if (i) {
+ 			netxen_free_adapter_offload(adapter);
+ 		} else {
+-			printk(KERN_ERR "failed to dma shutdown\n");
+-			return;
++			printk(KERN_ERR "%s: dma_watchdog_shutdown failed\n",
++					netdev->name);
+ 		}
+-
+ 	}
+ 
+ 	iounmap(adapter->ahw.db_base);
+@@ -898,8 +895,6 @@ static int netxen_nic_open(struct net_de
+ 
+ 	/* Done here again so that even if phantom sw overwrote it,
+ 	 * we set it */
+-	if (adapter->macaddr_set)
+-		adapter->macaddr_set(adapter, netdev->dev_addr);
+ 	if (adapter->init_port
+ 	    && adapter->init_port(adapter, adapter->portnum) != 0) {
+ 	    del_timer_sync(&adapter->watchdog_timer);
+@@ -907,6 +902,8 @@ static int netxen_nic_open(struct net_de
+ 				netxen_nic_driver_name, adapter->portnum);
+ 		return -EIO;
+ 	}
++	if (adapter->macaddr_set)
++		adapter->macaddr_set(adapter, netdev->dev_addr);
+ 
+ 	netxen_nic_set_link_parameters(adapter);
+ 
+Index: netdev-2.6/drivers/net/netxen/netxen_nic.h
+===================================================================
+--- netdev-2.6.orig/drivers/net/netxen/netxen_nic.h
++++ netdev-2.6/drivers/net/netxen/netxen_nic.h
+@@ -1179,8 +1179,7 @@ dma_watchdog_shutdown_poll_result(struct
+ 	    NETXEN_CAM_RAM(NETXEN_CAM_RAM_DMA_WATCHDOG_CTRL), &ctrl, 4))
+ 		printk(KERN_ERR "failed to read dma watchdog status\n");
+ 
+-	return ((netxen_get_dma_watchdog_enabled(ctrl) == 0) &&
+-		(netxen_get_dma_watchdog_disabled(ctrl) == 0));
++	return (netxen_get_dma_watchdog_enabled(ctrl) == 0);
+ }
+ 
+ static inline int
 
+-- 
