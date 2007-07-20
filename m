@@ -1,48 +1,36 @@
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: [ofa-general] Re: [PATCH 00/10] Implement batching skb API
-Date: Fri, 20 Jul 2007 13:17:40 +0530
-Message-ID: <OF106EAF42.CD1BE35D-ON6525731E.002A5041-6525731E.002AD13B@in.ibm.com>
-References: <20070720081848.7cc652fb@oldman>
+From: Masakazu Mokuno <mokuno@sm.sony.co.jp>
+Subject: [PATCH 0/10] ps3: fixes for ps3_gelic driver
+Date: Fri, 20 Jul 2007 17:08:17 +0900
+Message-ID: <20070720162345.6775.MOKUNO@sm.sony.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: jagana@us.ibm.com, johnpol@2ka.mipt.ru, herbert@gondor.apana.org.au,
-	gaagaan@gmail.com, Robert.Olsson@data.slu.se,
-	kumarkr@linux.ibm.com, mcarlson@broadcom.com,
-	peter.p.waskiewicz.jr@intel.com, hadi@cyberus.ca,
-	kaber@trash.net, jeff@garzik.org, general@lists.openfabrics.org,
-	mchan@broadcom.com, tgraf@suug.ch, netdev@vger.kernel.org,
-	sri@us.ibm.com, davem@davemloft.net, rdreier@cisco.com
-To: Stephen Hemminger <shemminger@linux-foundation.org>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <20070720081848.7cc652fb@oldman>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: text/plain; charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: cbe-oss-dev@ozlabs.org, netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from MGW2.Sony.CO.JP ([137.153.0.14]:49322 "EHLO mgw2.sony.co.jp"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1762228AbXGTIIU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Jul 2007 04:08:20 -0400
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger <shemminger@linux-foundation.org> wrote on 07/20/2007
-12:48:48 PM:
+This patchset are fixes and updates incorporating the comments from Jeff
+Garzik and Stephen Hemminger.
+Please accept the following patches for the ps3_gelic driver.  Thanks.
 
-> You may see worse performance with batching in the real world when
-> running over WAN's.  Like TSO, batching will generate back to back packet
-> trains that are subject to multi-packet synchronized loss. The problem is
-that
-> intermediate router queues are often close to full, and when a long
-string
-> of packets arrives back to back only the first ones will get in, the rest
-> get dropped.  Normal sends have at least minimal pacing so they are less
-> likely do get synchronized drop.
+ [1] ps3: fix wrong calculation of rx descriptor address
+ [2] ps3: some minor cleanups
+ [3] ps3: tx descriptor handling cleanup
+ [4] ps3: removed defines no longer used
+ [5] ps3: removed conditional ethtool support
+ [6] ps3: use net_device_stats of net_device structure
+ [7] ps3: use ethX as the name of irq
+ [8] ps3: removed calling netif_poll_enable() in open()
+ [9] ps3: fix rare issue that reenabling rx DMA fails
+[10] ps3: reduce allocation size of rx skb buffers
 
-Also forgot to mention in the previous mail, if performance is seen to be
-dipping,
-batching can be disabled on WAN's by:
 
-echo 0 > /sys/class/net/<dev>/tx_batch_skbs
+--
+Masakazu MOKUNO
 
-and use batching on local/site networks in that case.
