@@ -1,253 +1,45 @@
 From: Masakazu Mokuno <mokuno@sm.sony.co.jp>
-Subject: [PATCH 3/10] ps3: tx descriptor handling cleanup
-Date: Fri, 20 Jul 2007 17:24:56 +0900
-Message-ID: <20070720172304.678D.MOKUNO@sm.sony.co.jp>
+Subject: [PATCH 4/10] ps3: removed defines no longer used
+Date: Fri, 20 Jul 2007 17:27:12 +0900
+Message-ID: <20070720172518.6792.MOKUNO@sm.sony.co.jp>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, cbe-oss-dev@ozlabs.org
 To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from NS4.Sony.CO.JP ([137.153.0.44]:37989 "EHLO ns4.sony.co.jp"
+Received: from NS5.Sony.CO.JP ([137.153.0.45]:48030 "EHLO ns5.sony.co.jp"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S935052AbXGTIZE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Jul 2007 04:25:04 -0400
+	id S932380AbXGTI1Q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Jul 2007 04:27:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-gelic: TX descriptor handling cleanup
-
-        - Emitted return value of NETDEV_TX_LOCKED when DMA map or kick
-          failure.
-          Now it would free the skb, update drop packet statistics 
-          and return OK. Requested from Jeff Garzik.
-        - Enable tx queue if number of free descriptors are more than 2
-        - Fixed descriptor leak if dma map for second descriptor failed
-        - Stopped calling xmit handler from interrupt handler in order 
-          to recheck tx queue.  Instead, call appropriate helper functions.
+Removed defines no longer used.
 
 Signed-off-by: Masakazu Mokuno <mokuno@sm.sony.co.jp>
 ---
- drivers/net/ps3_gelic_net.c |  124 +++++++++++++++++++++++++-------------------
- 1 file changed, 71 insertions(+), 53 deletions(-)
+ drivers/net/ps3_gelic_net.h |    7 -------
+ 1 file changed, 7 deletions(-)
 
---- a/drivers/net/ps3_gelic_net.c
-+++ b/drivers/net/ps3_gelic_net.c
-@@ -408,22 +408,25 @@ static void gelic_net_release_tx_chain(s
- 			break;
+--- a/drivers/net/ps3_gelic_net.h
++++ b/drivers/net/ps3_gelic_net.h
+@@ -28,15 +28,8 @@
+ #ifndef _GELIC_NET_H
+ #define _GELIC_NET_H
  
- 		case GELIC_NET_DESCR_COMPLETE:
--			card->netdev_stats.tx_packets++;
--			card->netdev_stats.tx_bytes +=
--				tx_chain->tail->skb->len;
-+			if (tx_chain->tail->skb) {
-+				card->netdev_stats.tx_packets++;
-+				card->netdev_stats.tx_bytes +=
-+					tx_chain->tail->skb->len;
-+			}
- 			break;
- 
- 		case GELIC_NET_DESCR_CARDOWNED:
- 			/* pending tx request */
- 		default:
- 			/* any other value (== GELIC_NET_DESCR_NOT_IN_USE) */
--			goto out;
-+			if (!stop)
-+				goto out;
- 		}
- 		gelic_net_release_tx_descr(card, tx_chain->tail);
--		release = 1;
-+		release ++;
- 	}
- out:
--	if (!stop && release)
-+	if (!stop && (2 < release))
- 		netif_wake_queue(card->netdev);
- }
- 
-@@ -660,19 +663,21 @@ static int gelic_net_prepare_tx_descr_v(
- {
- 	dma_addr_t buf[2];
- 	unsigned int vlan_len;
-+	struct gelic_net_descr *sec_descr = descr->next;
- 
- 	if (skb->len < GELIC_NET_VLAN_POS)
- 		return -EINVAL;
- 
--	memcpy(&descr->vlan, skb->data, GELIC_NET_VLAN_POS);
-+	vlan_len = GELIC_NET_VLAN_POS;
-+	memcpy(&descr->vlan, skb->data, vlan_len);
- 	if (card->vlan_index != -1) {
-+		/* internal vlan tag used */
- 		descr->vlan.h_vlan_proto = htons(ETH_P_8021Q); /* vlan 0x8100*/
- 		descr->vlan.h_vlan_TCI = htons(card->vlan_id[card->vlan_index]);
--		vlan_len = GELIC_NET_VLAN_POS + VLAN_HLEN; /* VLAN_HLEN=4 */
--	} else
--		vlan_len = GELIC_NET_VLAN_POS; /* no vlan tag */
-+		vlan_len += VLAN_HLEN; /* added for above two lines */
-+	}
- 
--	/* first descr */
-+	/* map data area */
- 	buf[0] = dma_map_single(ctodev(card), &descr->vlan,
- 			     vlan_len, DMA_TO_DEVICE);
- 
-@@ -683,20 +688,6 @@ static int gelic_net_prepare_tx_descr_v(
- 		return -ENOMEM;
- 	}
- 
--	descr->buf_addr = buf[0];
--	descr->buf_size = vlan_len;
--	descr->skb = skb; /* not used */
--	descr->data_status = 0;
--	gelic_net_set_txdescr_cmdstat(descr, skb, 1); /* not the frame end */
+-#define GELIC_NET_DRV_NAME "Gelic Network Driver"
+-#define GELIC_NET_DRV_VERSION "1.0"
 -
--	/* second descr */
--	card->tx_chain.head = card->tx_chain.head->next;
--	descr->next_descr_addr = descr->next->bus_addr;
--	descr = descr->next;
--	if (gelic_net_get_descr_status(descr) != GELIC_NET_DESCR_NOT_IN_USE)
--		/* XXX will be removed */
--		dev_err(ctodev(card), "descr is not free!\n");
+ #define GELIC_NET_ETHTOOL               /* use ethtool */
+ 
+-/* ioctl */
+-#define GELIC_NET_GET_MODE              (SIOCDEVPRIVATE + 0)
+-#define GELIC_NET_SET_MODE              (SIOCDEVPRIVATE + 1)
 -
- 	buf[1] = dma_map_single(ctodev(card), skb->data + GELIC_NET_VLAN_POS,
- 			     skb->len - GELIC_NET_VLAN_POS,
- 			     DMA_TO_DEVICE);
-@@ -711,13 +702,24 @@ static int gelic_net_prepare_tx_descr_v(
- 		return -ENOMEM;
- 	}
- 
--	descr->buf_addr = buf[1];
--	descr->buf_size = skb->len - GELIC_NET_VLAN_POS;
--	descr->skb = skb;
-+	/* first descr */
-+	descr->buf_addr = buf[0];
-+	descr->buf_size = vlan_len;
-+	descr->skb = NULL; /* not used */
- 	descr->data_status = 0;
--	descr->next_descr_addr = 0; /* terminate hw descr */
--	gelic_net_set_txdescr_cmdstat(descr, skb, 0);
-+	descr->next_descr_addr = descr->next->bus_addr;
-+	gelic_net_set_txdescr_cmdstat(descr, skb, 1); /* not the frame end */
- 
-+	/* second descr */
-+	sec_descr->buf_addr = buf[1];
-+	sec_descr->buf_size = skb->len - GELIC_NET_VLAN_POS;
-+	sec_descr->skb = skb;
-+	sec_descr->data_status = 0;
-+	sec_descr->next_descr_addr = 0; /* terminate hw descr */
-+	gelic_net_set_txdescr_cmdstat(sec_descr, skb, 0);
-+
-+	/* bump free descriptor pointer */
-+	card->tx_chain.head = sec_descr->next;
- 	return 0;
- }
- 
-@@ -730,7 +732,7 @@ static int gelic_net_prepare_tx_descr_v(
- static int gelic_net_kick_txdma(struct gelic_net_card *card,
- 				struct gelic_net_descr *descr)
- {
--	int status = -ENXIO;
-+	int status = 0;
- 	int count = 10;
- 
- 	if (card->tx_dma_progress)
-@@ -764,47 +766,62 @@ static int gelic_net_kick_txdma(struct g
- static int gelic_net_xmit(struct sk_buff *skb, struct net_device *netdev)
- {
- 	struct gelic_net_card *card = netdev_priv(netdev);
--	struct gelic_net_descr *descr = NULL;
-+	struct gelic_net_descr *descr;
- 	int result;
- 	unsigned long flags;
- 
- 	spin_lock_irqsave(&card->tx_dma_lock, flags);
- 
- 	gelic_net_release_tx_chain(card, 0);
--	if (!skb)
--		goto kick;
-+
- 	descr = gelic_net_get_next_tx_descr(card);
- 	if (!descr) {
-+		/*
-+		 * no more descriptors free
-+		 */
- 		netif_stop_queue(netdev);
- 		spin_unlock_irqrestore(&card->tx_dma_lock, flags);
- 		return NETDEV_TX_BUSY;
- 	}
--	result = gelic_net_prepare_tx_descr_v(card, descr, skb);
--
--	if (result)
--		goto error;
- 
--	card->tx_chain.head = card->tx_chain.head->next;
--
--	if (descr->prev)
--		descr->prev->next_descr_addr = descr->bus_addr;
--kick:
-+	result = gelic_net_prepare_tx_descr_v(card, descr, skb);
-+	if (result) {
-+		/*
-+		 * DMA map failed.  As chanses are that failure
-+		 * would continue, just release skb and return
-+		 */
-+		card->netdev_stats.tx_dropped++;
-+		dev_kfree_skb_any(skb);
-+		spin_unlock_irqrestore(&card->tx_dma_lock, flags);
-+		return NETDEV_TX_OK;
-+	}
-+	/*
-+	 * link this prepared descriptor to previous one
-+	 * to achieve high performance
-+	 */
-+	descr->prev->next_descr_addr = descr->bus_addr;
- 	/*
- 	 * as hardware descriptor is modified in the above lines,
- 	 * ensure that the hardware sees it
- 	 */
- 	wmb();
--	if (gelic_net_kick_txdma(card, card->tx_chain.tail))
--		goto error;
-+	if (gelic_net_kick_txdma(card, descr)) {
-+		/*
-+		 * kick failed.
-+		 * release descriptors which were just prepared
-+		 */
-+		card->netdev_stats.tx_dropped++;
-+		gelic_net_release_tx_descr(card, descr);
-+		gelic_net_release_tx_descr(card, descr->next);
-+		card->tx_chain.tail = descr->next->next;
-+		dev_info(ctodev(card), "%s: kick failure\n", __func__);
-+	} else {
-+		/* OK, DMA started/reserved */
-+		netdev->trans_start = jiffies;
-+	}
- 
--	netdev->trans_start = jiffies;
- 	spin_unlock_irqrestore(&card->tx_dma_lock, flags);
- 	return NETDEV_TX_OK;
--
--error:
--	card->netdev_stats.tx_dropped++;
--	spin_unlock_irqrestore(&card->tx_dma_lock, flags);
--	return NETDEV_TX_LOCKED;
- }
- 
- /**
-@@ -1025,9 +1042,10 @@ static irqreturn_t gelic_net_interrupt(i
- 	if (status & GELIC_NET_TXINT) {
- 		spin_lock_irqsave(&card->tx_dma_lock, flags);
- 		card->tx_dma_progress = 0;
-+		gelic_net_release_tx_chain(card, 0);
-+		/* kick outstanding tx descriptor if any */
-+		gelic_net_kick_txdma(card, card->tx_chain.tail);
- 		spin_unlock_irqrestore(&card->tx_dma_lock, flags);
--		/* start pending DMA */
--		gelic_net_xmit(NULL, netdev);
- 	}
- 	return IRQ_HANDLED;
- }
+ /* descriptors */
+ #define GELIC_NET_RX_DESCRIPTORS        128 /* num of descriptors */
+ #define GELIC_NET_TX_DESCRIPTORS        128 /* num of descriptors */
 
 --
 Masakazu MOKUNO
