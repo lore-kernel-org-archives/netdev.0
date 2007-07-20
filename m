@@ -1,49 +1,40 @@
-From: Domen Puncer <domen.puncer@telargo.com>
-Subject: [PATCH] ucc_geth_mii: fix __exit called from __init
-Date: Fri, 20 Jul 2007 10:19:36 +0200
-Message-ID: <20070720081936.GB4529@moe.telargo.com>
+From: Masakazu Mokuno <mokuno@sm.sony.co.jp>
+Subject: [PATCH 1/10] ps3: fix wrong calculation of rx descriptor address
+Date: Fri, 20 Jul 2007 17:20:54 +0900
+Message-ID: <20070720172015.6787.MOKUNO@sm.sony.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-embedded@ozlabs.org
-To: leoli@freescale.com
-Return-path: <linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
-	<mailto:linuxppc-embedded-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-embedded>
-List-Post: <mailto:linuxppc-embedded@ozlabs.org>
-List-Help: <mailto:linuxppc-embedded-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
-	<mailto:linuxppc-embedded-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+Cc: netdev@vger.kernel.org, cbe-oss-dev@ozlabs.org
+To: Jeff Garzik <jeff@garzik.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from MGW2.Sony.CO.JP ([137.153.0.14]:58182 "EHLO mgw2.sony.co.jp"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1762718AbXGTIU7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Jul 2007 04:20:59 -0400
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-void __exit uec_mdio_exit(void) is called from
-- static int __init ucc_geth_init(void)
-- static void __exit ucc_geth_exit(void)
+Fixed the bug that calculation of the address of rx descriptor was
+wrong.
 
-First one would make error path more than just an error.
-
-
-Signed-off-by: Domen Puncer <domen.puncer@telargo.com>
-
+Signed-off-by: Masakazu Mokuno <mokuno@sm.sony.co.jp>
 ---
- drivers/net/ucc_geth_mii.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/ps3_gelic_net.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Index: work-powerpc.git/drivers/net/ucc_geth_mii.c
-===================================================================
---- work-powerpc.git.orig/drivers/net/ucc_geth_mii.c
-+++ work-powerpc.git/drivers/net/ucc_geth_mii.c
-@@ -272,7 +272,8 @@ int __init uec_mdio_init(void)
- 	return of_register_platform_driver(&uec_mdio_driver);
- }
+--- a/drivers/net/ps3_gelic_net.c
++++ b/drivers/net/ps3_gelic_net.c
+@@ -1107,7 +1107,7 @@ static int gelic_net_open(struct net_dev
+ 			card->descr, GELIC_NET_TX_DESCRIPTORS))
+ 		goto alloc_tx_failed;
+ 	if (gelic_net_init_chain(card, &card->rx_chain,
+-				 card->descr + GELIC_NET_RX_DESCRIPTORS,
++				 card->descr + GELIC_NET_TX_DESCRIPTORS,
+ 				 GELIC_NET_RX_DESCRIPTORS))
+ 		goto alloc_rx_failed;
  
--void __exit uec_mdio_exit(void)
-+/* called from __init ucc_geth_init, therefore can not be __exit */
-+void uec_mdio_exit(void)
- {
- 	of_unregister_platform_driver(&uec_mdio_driver);
- }
+
+--
+Masakazu MOKUNO
+
