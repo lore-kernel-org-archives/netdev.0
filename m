@@ -1,46 +1,26 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [GENETLINK]: Question: global lock (genl_mutex) possible refinement?
-Date: Fri, 20 Jul 2007 16:00:31 +0200
-Message-ID: <46A0BFFF.5020000@trash.net>
-References: <46A0B017.4080505@st.com> <46A0B6DE.1080904@trash.net> <46A0BF7F.80001@st.com>
+From: Dhananjay Phadke <dhananjay@netxen.com>
+Subject: Re: [PATCH 1/1] netxen: Load firmware during probe, dma watchdog
+ fix.
+Date: Fri, 20 Jul 2007 20:13:00 +0530
+Message-ID: <46A0C9F4.8040909@netxen.com>
+References: <20070719091108.839200259@netxen.com> <20070719091131.467737478@netxen.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Richard MUSIL <richard.musil@st.com>
+Cc: dhananjay@netxen.com, rob@netxen.com, Milan Bag <mbag@netxen.com>,
+	Wen Xiong <wenxiong@us.ibm.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:62081 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756210AbXGTOBt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jul 2007 10:01:49 -0400
-In-Reply-To: <46A0BF7F.80001@st.com>
+Received: from 66-126-254-34.unm.net ([66.126.254.34]:49143 "EHLO
+	nxmail.netxen.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S932849AbXGTOsx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jul 2007 10:48:53 -0400
+In-Reply-To: <20070719091131.467737478@netxen.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[ Please quote and break your lines appropriately ]
+Please ignore this patch. There's one more patch in the series. I will
+send them together.
 
-Richard MUSIL wrote:
-> Patrick McHardy wrote:
->>
->>The usual way to do this for auto-loading of modules that register
->>things that take a mutex that is already held during netlink queue
->>processing, like qdiscs, classifiers, .. is:
->>
->>- look for <qdisc/classifier/...>, if not found:
->>- drop mutex (using the __ unlock variant to avoid reentering queue
->>processing)
->>- perform module loading (which takes the mutex and registers itself)
->>- grab mutex again
->>- look for <qdisc/classifier/...> again
->>- if not found return -ENOENT
->>- if found drop reference, return -EAGAIN
->>
->>The caller is changed to handle -EAGAIN by replaying the entire
->>request. Your problem sounds very similar, look at net/sched/sch_api.c
->>for an example.
-> 
-> 
-> The aforementioned mutex is local to genetlink module, so I cannot temporarily drop it, call the stuff and grab it again (which was mine original thought too).
-
-Export the lock/unlock/.. functions. You'll also need a new version
-similar to __rtnl_unlock.
+Thanks,
+-Dhananjay
