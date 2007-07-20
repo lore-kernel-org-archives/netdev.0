@@ -1,40 +1,38 @@
-From: David Howells <dhowells@redhat.com>
-Subject: [PATCH] NET: Add missing entries to family name tables
-Date: Fri, 20 Jul 2007 10:53:25 +0100
-Message-ID: <20070720095325.23049.72209.stgit@warthog.cambridge.redhat.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 02/10] Networking include file changes.
+Date: Fri, 20 Jul 2007 11:59:35 +0200
+Message-ID: <46A08787.8040501@trash.net>
+References: <20070720063149.26341.84076.sendpatchset@localhost.localdomain> <20070720063216.26341.80316.sendpatchset@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, dhowells@redhat.com
-To: netdev@vger.kernel.org
+Cc: davem@davemloft.net, rdreier@cisco.com, johnpol@2ka.mipt.ru,
+	Robert.Olsson@data.slu.se, peter.p.waskiewicz.jr@intel.com,
+	herbert@gondor.apana.org.au, gaagaan@gmail.com,
+	kumarkr@linux.ibm.com, xma@us.ibm.com, rick.jones2@hp.com,
+	mcarlson@broadcom.com, netdev@vger.kernel.org, jagana@us.ibm.com,
+	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
+	jeff@garzik.org, hadi@cyberus.ca, sri@us.ibm.com
+To: Krishna Kumar <krkumar2@in.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:35141 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755421AbXGTJx2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Jul 2007 05:53:28 -0400
+Received: from stinky.trash.net ([213.144.137.162]:56661 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757987AbXGTKAw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jul 2007 06:00:52 -0400
+In-Reply-To: <20070720063216.26341.80316.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add missing entries to af_family_clock_key_strings[].
+Krishna Kumar wrote:
+> diff -ruNp org/include/linux/netdevice.h new/include/linux/netdevice.h
+> --- org/include/linux/netdevice.h	2007-07-20 07:49:28.000000000 +0530
+> +++ new/include/linux/netdevice.h	2007-07-20 08:30:55.000000000 +0530
+> @@ -264,6 +264,8 @@ enum netdev_state_t
+>  	__LINK_STATE_QDISC_RUNNING,
+>  };
+>  
+> +/* Minimum length of device hardware queue for batching to work */
+> +#define MIN_QUEUE_LEN_BATCH	16
 
-Signed-off-by: David Howells <dhowells@redhat.com>
----
 
- net/core/sock.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
-
-diff --git a/net/core/sock.c b/net/core/sock.c
-index bd209c4..cfed7d4 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -182,7 +182,8 @@ static const char *af_family_clock_key_strings[AF_MAX+1] = {
-   "clock-21"       , "clock-AF_SNA"      , "clock-AF_IRDA"     ,
-   "clock-AF_PPPOX" , "clock-AF_WANPIPE"  , "clock-AF_LLC"      ,
-   "clock-27"       , "clock-28"          , "clock-29"          ,
--  "clock-AF_TIPC"  , "clock-AF_BLUETOOTH", "clock-AF_MAX"
-+  "clock-AF_TIPC"  , "clock-AF_BLUETOOTH", "clock-AF_IUCV"     ,
-+  "clock-AF_RXRPC" , "clock-AF_MAX"
- };
- #endif
- 
-
+Is there any downside in using batching with smaller queue sizes?
