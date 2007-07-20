@@ -1,88 +1,43 @@
-From: "Robert P. J. Day" <rpjday@mindspring.com>
-Subject: Re: [PATCH] IP_VS should depend on EXPERIMENTAL ?
-Date: Fri, 20 Jul 2007 09:04:20 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0707200846170.13750@localhost.localdomain>
-References: <46A0A01A.7030403@googlemail.com> <Pine.LNX.4.64.0707200753300.10966@localhost.localdomain>
- <46A0A7C2.3090006@googlemail.com> <Pine.LNX.4.64.0707200818010.12187@localhost.localdomain>
- <46A0AB44.70009@googlemail.com>
+From: Richard MUSIL <richard.musil@st.com>
+Subject: [GENETLINK]: Question: global lock (genl_mutex) possible refinement?
+Date: Fri, 20 Jul 2007 14:52:39 +0200
+Message-ID: <46A0B017.4080505@st.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Gabriel C <nix.or.die@googlemail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1761715AbXGTNG3@vger.kernel.org>
-In-Reply-To: <46A0AB44.70009@googlemail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s200aog13.obsmtp.com ([207.126.144.127]:40219 "EHLO
+	s200aog13.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751312AbXGTNLW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jul 2007 09:11:22 -0400
+Received: from zeta.dmz-eu.st.com (ns2.st.com [164.129.230.9])
+	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id ED472DAEC
+	for <netdev@vger.kernel.org>; Fri, 20 Jul 2007 12:52:36 +0000 (GMT)
+Received: from mail1.prg.st.com (mail1.prg.st.com [164.130.59.16])
+	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id BEBEA4C021
+	for <netdev@vger.kernel.org>; Fri, 20 Jul 2007 12:52:36 +0000 (GMT)
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 20 Jul 2007, Gabriel C wrote:
+I am currently trying to write a module which communicates with user space using NETLINK_GENERIC. This module (dev_mgr) manages virtual devices which are also supposed to use genetlink for communication with user space.
 
-> Robert P. J. Day wrote:
+I want to do something like that:
+dev_mgr <- receives message from user space to create new device
+dev_mgr	inside 'doit' handler:
+	1. creates device
+	2. registers new genetlink family for the device
+	3. returns family name and id to user
 
-> > this has *nothing* to do with the aforementioned maturity levels.
-> > i understand entirely the inconsistency above.  what i'm
-> > suggesting is that it might very well be more appropriate to *drop
-> > the dependency* rather than munge the prompt to add the qualifier.
->
-> This is a thing the author/maintainer/subsystem maintainer should and need do.
->
-> They know when something is not EXPERIMENTAL anymore.
+This should work similarly for device removal.
 
-agreed (sort of).  all i'm saying (and after this, i'll shut the heck
-up about it) is that, if you find a Kconfig entry of the form:
+After few reboots I found out that 2. blocks on genl_mutex, since this mutex is already acquired when genl_register_family is called (by genl_rcv).
 
-config FUBAR
-	prompt "whatever"
-	depends on ... && EXPERIMENTAL
+I do not see why registering new family (when processing message for another family) should be a problem. In fact from genl_lock and genl_trylock occurrence it seems that genl_mutex is mostly used for syncing access to family list and also for message processing.
+Since I am not (yet) familiar enough with (ge)netlink internals I am asking:
+Would it make sense to split the mutex into two, one for family list and one for messaging, so it would be possible to change families when processing the message?
 
-and you want to make that selection consistent, you have two
-possibilities:
-
-1) add "(EXPERIMENTAL)" to the prompt to match the dependency, or
-2) drop the dependency on EXPERIMENTAL to match the prompt
-
-  i contend that, *for now*, it's a better investment in time to find
-entries like that that are *clearly* not experimental any more, and
-drop the dependency.  not only will that make it consistent, but it's
-unlikely that you'll ever have to *revert* that decision.
-
-  OTOH, it's quite possible that, after you add the prompt suffix of
-"(EXPERIMENTAL)" for consistency, the feature maintainer might come by
-tomorrow and say something like, "nah, that feature's been around for
-years, it's as stable as it gets," and will undo the patch you just
-made, wasting your time and effort.
-
-  lastly, i'm not convinced that it's *only* the feature maintainer
-that can make that decision.  surely, there's enough clever people
-here who can look at any given feature and say, "yeah, i've been using
-that for years, it's rock solid, it's stupid to keep that dependent on
-EXPERIMENTAL."
-
-  all i'm saying is, if you want to put some time in here, it's better
-invested in *removing* what are clearly ridiculous dependencies on
-EXPERIMENTAL, rather than *adding* even more of that labelling to the
-tree.
-
-rday
-
-p.s.  even if a given Kconfig entry *is* consistent, as in:
-
-config SNAFU
-	bool "... (EXPERIMENTAL)"
-	depends on ... && EXPERIMENTAL
-	...
-
-  it's clear that there's a pile of *that* stuff for which all
-references to EXPERIMENTAL can be dropped.  all in all, given the
-possible cleanup here, i'm thinking that going in and *adding* more
-EXPERIMENTAL clutter to the Kconfig files is going in exactly the
-wrong direction.
+Simple split could introduce possible danger of user removing family inside processing of the message for this particular family, but would this really be a danger?
 
 --
-========================================================================
-Robert P. J. Day
-Linux Consulting, Training and Annoying Kernel Pedantry
-Waterloo, Ontario, CANADA
-
-http://fsdev.net/wiki/index.php?title=Main_Page
-========================================================================
+Richard
