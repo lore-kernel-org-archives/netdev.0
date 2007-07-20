@@ -1,81 +1,52 @@
-From: Krishna Kumar <krkumar2@in.ibm.com>
-Subject: [ofa-general] [PATCH 08/10] IPoIB multicast/CM changes.
-Date: Fri, 20 Jul 2007 12:03:26 +0530
-Message-ID: <20070720063326.26341.24459.sendpatchset@localhost.localdomain>
-References: <20070720063149.26341.84076.sendpatchset@localhost.localdomain>
-Cc: johnpol@2ka.mipt.ru, Robert.Olsson@data.slu.se, herbert@gondor.apana.org.au,
-	gaagaan@gmail.com, kumarkr@linux.ibm.com,
-	peter.p.waskiewicz.jr@intel.com, mcarlson@broadcom.com,
-	kaber@trash.net, jagana@us.ibm.com,
-	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
-	jeff@garzik.org, sri@us.ibm.com, hadi@cyberus.ca, netdev@vger.kernel.org
-To: davem@davemloft.net, rdreier@cisco.com
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <20070720063149.26341.84076.sendpatchset@localhost.localdomain>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+From: Cornelia Huck <cornelia.huck@de.ibm.com>
+Subject: Re: 2.6.22-git: known regressions with patches
+Date: Fri, 20 Jul 2007 08:46:32 +0200
+Message-ID: <20070720084632.15ea43e9@gondolin.boeblingen.de.ibm.com>
+References: <469F92B8.5090809@googlemail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Giacomo Catenazzi <cate@cateee.net>,
+	Jens Axboe <jens.axboe@oracle.com>,
+	Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
+	Stefan Richter <stefanr@s5r6.in-berlin.de>,
+	Jan Engelhardt <jengelh@linux01.gwdg.de>,
+	Jens Axboe <axboe@suse.de>,
+	"Peter M. Jones" <pjones@redhat.com>,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	"=?UTF-8?Q?S.=C3=87a=C4=9Flar?= Onur" <caglar@pardus.org.tr>,
+	Meelis Roos <mroos@linux.ee>,
+	David Howells <dhowells@redhat.com>, netdev@vger.kernel.org,
+	Randy Dunlap <randy.dunlap@oracle.com>,
+	Trond Myklebust <Trond.Myklebust@netapp.com>,
+	"J. Bruce Fields" <bfields@citi.umich.edu>
+To: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mtagate8.uk.ibm.com ([195.212.29.141]:18485 "EHLO
+	mtagate8.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754540AbXGTGqd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jul 2007 02:46:33 -0400
+In-Reply-To: <469F92B8.5090809@googlemail.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-IPoIB Multicast and CM changes for batching support.
+On Thu, 19 Jul 2007 18:35:04 +0200,
+Michal Piotrowski <michal.k.k.piotrowski@gmail.com> wrote:
 
-Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
----
- ipoib_cm.c        |   13 +++++++++----
- ipoib_multicast.c |    4 ++--
- 2 files changed, 11 insertions(+), 6 deletions(-)
+> FS
+> 
+> Subject         : AFS compile broken
+> References      : http://lkml.org/lkml/2007/7/19/218
+> Last known good : ?
+> Submitter       : Meelis Roos <mroos@linux.ee>
+> Caused-By       : ?
+> Handled-By      : Cornelia Huck <cornelia.huck@de.ibm.com>
+> Patch           : http://lkml.org/lkml/2007/7/19/223
+> Status          : patch available
+> 
 
-diff -ruNp org/drivers/infiniband/ulp/ipoib/ipoib_cm.c new/drivers/infiniband/ulp/ipoib/ipoib_cm.c
---- org/drivers/infiniband/ulp/ipoib/ipoib_cm.c	2007-07-20 07:49:28.000000000 +0530
-+++ new/drivers/infiniband/ulp/ipoib/ipoib_cm.c	2007-07-20 08:30:22.000000000 +0530
-@@ -493,14 +493,19 @@ static inline int post_send(struct ipoib
- 			    unsigned int wr_id,
- 			    u64 addr, int len)
- {
-+	int ret;
- 	struct ib_send_wr *bad_wr;
- 
--	priv->tx_sge.addr             = addr;
--	priv->tx_sge.length           = len;
-+	priv->tx_sge[0].addr          = addr;
-+	priv->tx_sge[0].length        = len;
-+
-+	priv->tx_wr[0].wr_id 	      = wr_id;
- 
--	priv->tx_wr.wr_id 	      = wr_id;
-+	priv->tx_wr[0].next = NULL;
-+	ret = ib_post_send(tx->qp, priv->tx_wr, &bad_wr);
-+	priv->tx_wr[0].next = &priv->tx_wr[1];
- 
--	return ib_post_send(tx->qp, &priv->tx_wr, &bad_wr);
-+	return ret;
- }
- 
- void ipoib_cm_send(struct net_device *dev, struct sk_buff *skb, struct ipoib_cm_tx *tx)
-diff -ruNp org/drivers/infiniband/ulp/ipoib/ipoib_multicast.c new/drivers/infiniband/ulp/ipoib/ipoib_multicast.c
---- org/drivers/infiniband/ulp/ipoib/ipoib_multicast.c	2007-07-20 07:49:28.000000000 +0530
-+++ new/drivers/infiniband/ulp/ipoib/ipoib_multicast.c	2007-07-20 08:30:22.000000000 +0530
-@@ -217,7 +217,7 @@ static int ipoib_mcast_join_finish(struc
- 	if (!memcmp(mcast->mcmember.mgid.raw, priv->dev->broadcast + 4,
- 		    sizeof (union ib_gid))) {
- 		priv->qkey = be32_to_cpu(priv->broadcast->mcmember.qkey);
--		priv->tx_wr.wr.ud.remote_qkey = priv->qkey;
-+		priv->tx_wr[0].wr.ud.remote_qkey = priv->qkey;
- 	}
- 
- 	if (!test_bit(IPOIB_MCAST_FLAG_SENDONLY, &mcast->flags)) {
-@@ -736,7 +736,7 @@ out:
- 			}
- 		}
- 
--		ipoib_send(dev, skb, mcast->ah, IB_MULTICAST_QPN);
-+		ipoib_send(dev, skb, mcast->ah, IB_MULTICAST_QPN, 1);
- 	}
- 
- unlock:
+Multiple people posted this fix, and Andrew's already made it to git
+(commit 275afcac9953ece0828972edeab9684cfe1a5ef3).
