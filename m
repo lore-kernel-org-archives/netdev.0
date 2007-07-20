@@ -1,29 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] net/core: merge the content of dev_mcast.c into
- dev.c
-Date: Thu, 19 Jul 2007 20:04:59 -0700 (PDT)
-Message-ID: <20070719.200459.41636483.davem@davemloft.net>
-References: <20070718.030306.50591269.davem@davemloft.net>
-	<1184758229305-git-send-email-crquan@gmail.com>
-	<91b13c310707191851h3bffaf2au7443d32c725dfb45@mail.gmail.com>
+From: Michael Neuling <mikey@neuling.org>
+Subject: Possible eHEA performance issue
+Date: Thu, 19 Jul 2007 20:02:04 -0700
+Message-ID: <4634.1184900524@neuling.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, kaber@trash.net,
-	pekkas@netcore.fi, jmorris@namei.org, linux-kernel@vger.kernel.org
-To: crquan@gmail.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753877AbXGTDFW@vger.kernel.org>
-In-Reply-To: <91b13c310707191851h3bffaf2au7443d32c725dfb45@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: anton@samba.org
+To: Thomas Klein <tklein@de.ibm.com>,
+	Jan-Bernd Themann <themann@de.ibm.com>,
+	netdev <netdev@vger.kernel.org>,
+	Christoph Raisch <raisch@de.ibm.com>,
+	Stefan Roscher <ossrosch@linux.vnet.ibm.com>,
+	linux-ppc <linuxppc-dev@ozlabs.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ozlabs.org ([203.10.76.45]:50765 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751306AbXGTDGU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Jul 2007 23:06:20 -0400
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "rae l" <crquan@gmail.com>
-Date: Fri, 20 Jul 2007 09:51:05 +0800
+>From ehea_start_xmit in ehea_main.c we have:
 
-> Is there any more comments on this?
+    if (unlikely(atomic_read(&pr->swqe_avail) <= 1)) {
+	    spin_lock_irqsave(&pr->netif_queue, flags);
+	    if (unlikely(atomic_read(&pr->swqe_avail) <= 1)) {
+		    pr->p_stats.queue_stopped++;
+		    netif_stop_queue(dev);
+		    pr->queue_stopped = 1;
+	    }
+	    spin_unlock_irqrestore(&pr->netif_queue, flags);
+    }
 
-Please don't quote a big huge patch just to say one sentence that
-doesn't apply to any particular specific part of a patch.
+Since the conditions are the same, isn't it likely that the second 'if'
+is going to be taken.  Hence, shouldn't the second 'unlikely' hint be
+removed or even changed to likely?
 
-That's wastes bandwidth, annoys people you might actually want
-a response from, and is bad netiquette in general.
+Either way, some documentation here as to why it's done this way would
+be useful.  I assume the atomic_read is cheap compared to the
+spin_unlock_irqsave, so we quickly check swqe_avail before we check it
+again properly with the lock on so we can change some stuff.
+
+Mikey
+
