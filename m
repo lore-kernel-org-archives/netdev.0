@@ -1,126 +1,219 @@
 From: Krishna Kumar <krkumar2@in.ibm.com>
-Subject: [PATCH 04/10] net-sysfs.c changes.
-Date: Fri, 20 Jul 2007 12:02:38 +0530
-Message-ID: <20070720063238.26341.41474.sendpatchset@localhost.localdomain>
+Subject: [ofa-general] [PATCH 05/10] sch_generic.c changes.
+Date: Fri, 20 Jul 2007 12:02:49 +0530
+Message-ID: <20070720063249.26341.125.sendpatchset@localhost.localdomain>
 References: <20070720063149.26341.84076.sendpatchset@localhost.localdomain>
 Cc: johnpol@2ka.mipt.ru, Robert.Olsson@data.slu.se,
 	peter.p.waskiewicz.jr@intel.com, herbert@gondor.apana.org.au,
-	gaagaan@gmail.com, kumarkr@linux.ibm.com, xma@us.ibm.com,
-	rick.jones2@hp.com, mcarlson@broadcom.com, jagana@us.ibm.com,
-	mchan@broadcom.com, general@lists.openfabrics.org,
-	netdev@vger.kernel.org, tgraf@suug.ch, jeff@garzik.org,
-	hadi@cyberus.ca, kaber@trash.net,
-	Krishna Kumar <krkumar2@in.ibm.com>, sri@us.ibm.com
+	gaagaan@gmail.com, kumarkr@linux.ibm.com, mcarlson@broadcom.com,
+	netdev@vger.kernel.org, jagana@us.ibm.com,
+	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
+	jeff@garzik.org, hadi@cyberus.ca, kaber@trash.net, sri@us.ibm.com
 To: davem@davemloft.net, rdreier@cisco.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ausmtp06.au.ibm.com ([202.81.18.155]:52915 "EHLO
-	ausmtp06.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755102AbXGTGee (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jul 2007 02:34:34 -0400
-Received: from sd0112e0.au.ibm.com (d23rh903.au.ibm.com [202.81.18.201])
-	by ausmtp06.au.ibm.com (8.13.8/8.13.8) with ESMTP id l6K6Z1wl798774
-	for <netdev@vger.kernel.org>; Fri, 20 Jul 2007 16:35:02 +1000
-Received: from d23av02.au.ibm.com (d23av02.au.ibm.com [9.190.250.243])
-	by sd0112e0.au.ibm.com (8.13.8/8.13.8/NCO v8.4) with ESMTP id l6K6ZuuZ212934
-	for <netdev@vger.kernel.org>; Fri, 20 Jul 2007 16:36:08 +1000
-Received: from d23av02.au.ibm.com (loopback [127.0.0.1])
-	by d23av02.au.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l6K6WDLu016073
-	for <netdev@vger.kernel.org>; Fri, 20 Jul 2007 16:32:16 +1000
+Return-path: <general-bounces@lists.openfabrics.org>
 In-Reply-To: <20070720063149.26341.84076.sendpatchset@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-Support to turn on/off batching from /sys.
+net/sched/sch_generic.c changes to support batching. Adds a batch
+aware function (get_skb) to get skbs to send.
 
 Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
 ---
- net-sysfs.c |   70 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 70 insertions(+)
+ sch_generic.c |   94 +++++++++++++++++++++++++++++++++++++++++++---------------
+ 1 files changed, 71 insertions(+), 23 deletions(-)
 
-diff -ruNp org/net/core/net-sysfs.c new/net/core/net-sysfs.c
---- org/net/core/net-sysfs.c	2007-07-20 07:49:28.000000000 +0530
-+++ new/net/core/net-sysfs.c	2007-07-20 08:34:45.000000000 +0530
-@@ -230,6 +230,74 @@ static ssize_t store_weight(struct devic
- 	return netdev_store(dev, attr, buf, len, change_weight);
+diff -ruNp org/net/sched/sch_generic.c new/net/sched/sch_generic.c
+--- org/net/sched/sch_generic.c	2007-07-20 07:49:28.000000000 +0530
++++ new/net/sched/sch_generic.c	2007-07-20 08:30:22.000000000 +0530
+@@ -9,6 +9,11 @@
+  * Authors:	Alexey Kuznetsov, <kuznet@ms2.inr.ac.ru>
+  *              Jamal Hadi Salim, <hadi@cyberus.ca> 990601
+  *              - Ingress support
++ *
++ * New functionality:
++ *		Krishna Kumar, <krkumar2@in.ibm.com>, July 2007
++ *		- Support for sending multiple skbs to devices that support
++ *		  new api - dev->hard_start_xmit_batch()
+  */
+ 
+ #include <linux/bitops.h>
+@@ -59,10 +64,12 @@ static inline int qdisc_qlen(struct Qdis
+ static inline int dev_requeue_skb(struct sk_buff *skb, struct net_device *dev,
+ 				  struct Qdisc *q)
+ {
+-	if (unlikely(skb->next))
+-		dev->gso_skb = skb;
+-	else
+-		q->ops->requeue(skb, q);
++	if (likely(skb)) {
++		if (unlikely(skb->next))
++			dev->gso_skb = skb;
++		else
++			q->ops->requeue(skb, q);
++	}
+ 
+ 	netif_schedule(dev);
+ 	return 0;
+@@ -91,18 +98,23 @@ static inline int handle_dev_cpu_collisi
+ 		/*
+ 		 * Same CPU holding the lock. It may be a transient
+ 		 * configuration error, when hard_start_xmit() recurses. We
+-		 * detect it by checking xmit owner and drop the packet when
+-		 * deadloop is detected. Return OK to try the next skb.
++		 * detect it by checking xmit owner and drop skb (or all
++		 * skbs in batching case) when deadloop is detected. Return
++		 * OK to try the next skb.
+ 		 */
+-		kfree_skb(skb);
++		if (likely(skb))
++			kfree_skb(skb);
++		else if (!skb_queue_empty(dev->skb_blist))
++			skb_queue_purge(dev->skb_blist);
++
+ 		if (net_ratelimit())
+ 			printk(KERN_WARNING "Dead loop on netdevice %s, "
+ 			       "fix it urgently!\n", dev->name);
+ 		ret = qdisc_qlen(q);
+ 	} else {
+ 		/*
+-		 * Another cpu is holding lock, requeue & delay xmits for
+-		 * some time.
++		 * Another cpu is holding lock. Requeue skb and delay xmits
++		 * for some time.
+ 		 */
+ 		__get_cpu_var(netdev_rx_stat).cpu_collision++;
+ 		ret = dev_requeue_skb(skb, dev, q);
+@@ -112,6 +124,39 @@ static inline int handle_dev_cpu_collisi
  }
  
-+static ssize_t show_tx_batch_skbs(struct device *dev,
-+				  struct device_attribute *attr, char *buf)
+ /*
++ * Algorithm to get skb(s) is:
++ *	- Non batching drivers, or if the batch list is empty and there is 1
++ *	  skb in the queue - dequeue skb and put it in *skbp to tell the
++ *	  caller to use the regular API.
++ *	- Batching drivers where the batch list already contains atleast one
++ *	  skb or if there are multiple skbs in the queue: keep dequeue'ing
++ *	  skb's upto a limit and set *skbp to NULL to tell the caller to use
++ *	  the new API.
++ *
++ * Returns:
++ *	1 - atleast one skb is to be sent out, *skbp contains skb or NULL
++ *	    (in case >1 skbs present in blist for batching)
++ *	0 - no skbs to be sent.
++ */
++static inline int get_skb(struct net_device *dev, struct Qdisc *q,
++			  struct sk_buff_head *blist,
++			  struct sk_buff **skbp)
 +{
-+	struct net_device *netdev = to_net_dev(dev);
-+
-+	return sprintf(buf, fmt_dec, netdev->skb_blist ? 1 : 0);
-+}
-+
-+static int change_tx_batch_skbs(struct net_device *net,
-+				unsigned long new_tx_batch_skbs)
-+{
-+	int ret = 0;
-+	struct sk_buff_head *blist;
-+
-+	if (!(net->features & NETIF_F_BATCH_SKBS) ||
-+	    (new_tx_batch_skbs && net->tx_queue_len < MIN_QUEUE_LEN_BATCH)) {
-+		/*
-+		 * Driver doesn't support batching SKBS, or the queue len
-+		 * is insufficient. TODO: Add similar check to disable
-+		 * batching in change_tx_queue_len() if queue_len becomes
-+		 * smaller than MIN_QUEUE_LEN_BATCH.
-+		 */
-+		ret = -ENOTSUPP;
-+		goto out;
-+	}
-+
-+	/* Handle invalid argument */
-+	if (new_tx_batch_skbs < 0) {
-+		ret = -EINVAL;
-+		goto out;
-+	}
-+
-+	/* Check if new value is same as the current */
-+	new_tx_batch_skbs = !!new_tx_batch_skbs;
-+	if (!!net->skb_blist == new_tx_batch_skbs)
-+		goto out;
-+
-+	if (new_tx_batch_skbs &&
-+	    (blist = kmalloc(sizeof *blist, GFP_KERNEL)) == NULL) {
-+		ret = -ENOMEM;
-+		goto out;
-+	}
-+
-+	spin_lock(&net->queue_lock);
-+	if (new_tx_batch_skbs) {
-+		skb_queue_head_init(blist);
-+		net->skb_blist = blist;
-+		net->tx_queue_len >>= 1;
++	if (likely(!blist) || (!skb_queue_len(blist) && qdisc_qlen(q) <= 1)) {
++		return likely((*skbp = dev_dequeue_skb(dev, q)) != NULL);
 +	} else {
-+		if (!skb_queue_empty(net->skb_blist))
-+			skb_queue_purge(net->skb_blist);
-+		kfree(net->skb_blist);
-+		net->skb_blist = NULL;
-+		net->tx_queue_len <<= 1;
++		int max = dev->tx_queue_len - skb_queue_len(blist);
++		struct sk_buff *skb;
++
++		while (max > 0 && (skb = dev_dequeue_skb(dev, q)) != NULL)
++			max -= dev_add_skb_to_blist(skb, dev);
++
++		*skbp = NULL;
++		return 1;	/* we have atleast one skb in blist */
 +	}
-+	spin_unlock(&net->queue_lock);
-+
-+out:
-+	return ret;
 +}
 +
-+static ssize_t store_tx_batch_skbs(struct device *dev,
-+				   struct device_attribute *attr,
-+				   const char *buf, size_t len)
-+{
-+	return netdev_store(dev, attr, buf, len, change_tx_batch_skbs);
-+}
-+
- static struct device_attribute net_class_attributes[] = {
- 	__ATTR(addr_len, S_IRUGO, show_addr_len, NULL),
- 	__ATTR(iflink, S_IRUGO, show_iflink, NULL),
-@@ -246,6 +314,8 @@ static struct device_attribute net_class
- 	__ATTR(flags, S_IRUGO | S_IWUSR, show_flags, store_flags),
- 	__ATTR(tx_queue_len, S_IRUGO | S_IWUSR, show_tx_queue_len,
- 	       store_tx_queue_len),
-+	__ATTR(tx_batch_skbs, S_IRUGO | S_IWUSR, show_tx_batch_skbs,
-+	       store_tx_batch_skbs),
- 	__ATTR(weight, S_IRUGO | S_IWUSR, show_weight, store_weight),
- 	{}
- };
++/*
+  * NOTE: Called under dev->queue_lock with locally disabled BH.
+  *
+  * __LINK_STATE_QDISC_RUNNING guarantees only one CPU can process this
+@@ -130,27 +175,28 @@ static inline int handle_dev_cpu_collisi
+  *				>0 - queue is not empty.
+  *
+  */
+-static inline int qdisc_restart(struct net_device *dev)
++static inline int qdisc_restart(struct net_device *dev,
++				struct sk_buff_head *blist)
+ {
+ 	struct Qdisc *q = dev->qdisc;
+ 	struct sk_buff *skb;
+-	unsigned lockless;
++	unsigned getlock;		/* whether we need to get lock or not */
+ 	int ret;
+ 
+ 	/* Dequeue packet */
+-	if (unlikely((skb = dev_dequeue_skb(dev, q)) == NULL))
++	if (unlikely(!get_skb(dev, q, blist, &skb)))
+ 		return 0;
+ 
+ 	/*
+ 	 * When the driver has LLTX set, it does its own locking in
+-	 * start_xmit. These checks are worth it because even uncongested
++	 * start_xmit. These checks are worth it because even uncontested
+ 	 * locks can be quite expensive. The driver can do a trylock, as
+ 	 * is being done here; in case of lock contention it should return
+ 	 * NETDEV_TX_LOCKED and the packet will be requeued.
+ 	 */
+-	lockless = (dev->features & NETIF_F_LLTX);
++	getlock = !(dev->features & NETIF_F_LLTX);
+ 
+-	if (!lockless && !netif_tx_trylock(dev)) {
++	if (getlock && !netif_tx_trylock(dev)) {
+ 		/* Another CPU grabbed the driver tx lock */
+ 		return handle_dev_cpu_collision(skb, dev, q);
+ 	}
+@@ -158,9 +204,12 @@ static inline int qdisc_restart(struct n
+ 	/* And release queue */
+ 	spin_unlock(&dev->queue_lock);
+ 
+-	ret = dev_hard_start_xmit(skb, dev);
++	if (likely(skb))
++		ret = dev_hard_start_xmit(skb, dev);
++	else
++		ret = dev->hard_start_xmit_batch(dev);
+ 
+-	if (!lockless)
++	if (getlock)
+ 		netif_tx_unlock(dev);
+ 
+ 	spin_lock(&dev->queue_lock);
+@@ -168,7 +217,7 @@ static inline int qdisc_restart(struct n
+ 
+ 	switch (ret) {
+ 	case NETDEV_TX_OK:
+-		/* Driver sent out skb successfully */
++		/* Driver sent out skb (or entire skb_blist) successfully */
+ 		ret = qdisc_qlen(q);
+ 		break;
+ 
+@@ -179,10 +228,9 @@ static inline int qdisc_restart(struct n
+ 
+ 	default:
+ 		/* Driver returned NETDEV_TX_BUSY - requeue skb */
+-		if (unlikely (ret != NETDEV_TX_BUSY && net_ratelimit()))
+-			printk(KERN_WARNING "BUG %s code %d qlen %d\n",
++		if (unlikely(ret != NETDEV_TX_BUSY) && net_ratelimit())
++			printk(KERN_WARNING " %s: BUG. code %d qlen %d\n",
+ 			       dev->name, ret, q->q.qlen);
+-
+ 		ret = dev_requeue_skb(skb, dev, q);
+ 		break;
+ 	}
+@@ -190,10 +238,10 @@ static inline int qdisc_restart(struct n
+ 	return ret;
+ }
+ 
+-void __qdisc_run(struct net_device *dev)
++void __qdisc_run(struct net_device *dev, struct sk_buff_head *blist)
+ {
+ 	do {
+-		if (!qdisc_restart(dev))
++		if (!qdisc_restart(dev, blist))
+ 			break;
+ 	} while (!netif_queue_stopped(dev));
+ 
