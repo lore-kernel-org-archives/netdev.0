@@ -1,42 +1,65 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [PATCH] make xfrm_audit_log more generic
-Date: Thu, 19 Jul 2007 21:45:45 -0400 (EDT)
-Message-ID: <Line.LNX.4.64.0707192140350.12692@d.namei>
-References: <200707192242.l6JMglVk029578@faith.austin.ibm.com>
+From: "rae l" <crquan@gmail.com>
+Subject: Re: [PATCH 2/2] nbd: change a parameter's type to remove a memcpy call
+Date: Fri, 20 Jul 2007 09:46:38 +0800
+Message-ID: <91b13c310707191846qc981c5bhbbac01502a7c8d95@mail.gmail.com>
+References: <11848376711601-git-send-email-crquan@gmail.com>
+	 <11848377013773-git-send-email-crquan@gmail.com>
+	 <469FA0F9.9090001@steeleye.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	linux-audit@redhat.com, sgrubb@redhat.com
-To: Joy Latten <latten@austin.ibm.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"Pavel Machek" <pavel@ucw.cz>,
+	"Steven Whitehouse" <steve@chygwyn.com>,
+	"Andrew Morton" <akpm@linux-foundation.org>,
+	debra <chdebra@gmail.com>
+To: "Paul Clements" <paul.clements@steeleye.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.sea5.speakeasy.net ([69.17.117.3]:43010 "EHLO
-	mail1.sea5.speakeasy.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750715AbXGTBpr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2007 21:45:47 -0400
-In-Reply-To: <200707192242.l6JMglVk029578@faith.austin.ibm.com>
+Received: from ug-out-1314.google.com ([66.249.92.168]:22835 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752994AbXGTBqk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2007 21:46:40 -0400
+Received: by ug-out-1314.google.com with SMTP id j3so529366ugf
+        for <netdev@vger.kernel.org>; Thu, 19 Jul 2007 18:46:38 -0700 (PDT)
+In-Reply-To: <469FA0F9.9090001@steeleye.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 19 Jul 2007, Joy Latten wrote:
+On 7/20/07, Paul Clements <paul.clements@steeleye.com> wrote:
+> Denis Cheng wrote:
+> > this memcpy looks so strange, in fact it's merely a pointer dereference,
+> > so I change the parameter's type to refer it more directly,
+> > this could make the memcpy not needed anymore.
+> >
+> > in the function nbd_read_stat where nbd_find_request is only once called,
+> > the parameter served should be transformed accordingly.
+>
+> This is really a matter of preference. The generated code ends up being
+> about the same, I think, while your patch makes the call to
+> nbd_find_request kind of obtuse. Also, the memcpy's are balanced between
+> send_req and find_request, so you can quickly see how the data is being
+> transferred (from req into handle, and then back again). Your patch
+> makes this less clear, at least to me.
+With one explicit memcpy stripped out, I think it's more clear to
+nbd_find_request.
+In nbd_read_stat, the cast to (struct request **) is not apparent, I
+must admit; but I think the best solution is declaring other few
+structs to make it clear, it's due to the lack of description of nbd
+client and server communication protocol.
 
-> --- linux-2.6.22/include/linux/audit.h	2007-07-19 13:17:22.000000000 -0500
-> +++ linux-2.6.22.patch/include/linux/audit.h	2007-07-19 13:21:29.000000000 -0500
-> @@ -108,10 +108,7 @@
->  #define AUDIT_MAC_CIPSOV4_DEL	1408	/* NetLabel: del CIPSOv4 DOI entry */
->  #define AUDIT_MAC_MAP_ADD	1409	/* NetLabel: add LSM domain mapping */
->  #define AUDIT_MAC_MAP_DEL	1410	/* NetLabel: del LSM domain mapping */
-> -#define AUDIT_MAC_IPSEC_ADDSA	1411	/* Add a XFRM state */
-> -#define AUDIT_MAC_IPSEC_DELSA	1412	/* Delete a XFRM state */
-> -#define AUDIT_MAC_IPSEC_ADDSPD	1413	/* Add a XFRM policy */
-> -#define AUDIT_MAC_IPSEC_DELSPD	1414	/* Delete a XFRM policy */
-> +#define AUDIT_MAC_IPSEC_EVENT	1411	/* Audit IPSec events */
+BTW, I think the nbd driver needs a clear documentation (its main site
+http://nbd.sourceforge.net/ does not give it):
 
-Will this cause existing applications to break?
+1. When nbd_find_request is needed to call, the 8 byte memory of char
+handle[8] field in struct nbd_reply actually stores a pointer (struct
+request *), that pointer is received from the network. Since a pointer
+is only meaningful to the host, transfering it over the network will
+be unreliable, I don't think it's a good design,
 
-
-
-
-- James
 -- 
-James Morris
-<jmorris@namei.org>
+Denis Cheng
+Linux Application Developer
+
+"One of my most productive days was throwing away 1000 lines of code."
+ - Ken Thompson.
