@@ -1,40 +1,38 @@
-From: Masakazu Mokuno <mokuno@sm.sony.co.jp>
-Subject: [PATCH 1/10] ps3: fix wrong calculation of rx descriptor address
-Date: Fri, 20 Jul 2007 17:20:54 +0900
-Message-ID: <20070720172015.6787.MOKUNO@sm.sony.co.jp>
+From: Stefan Rompf <stefan@loplof.de>
+Subject: Re: ANNOUNCE: igb: Intel 82575 Gigabit Ethernet driver (PCI-Express)
+Date: Fri, 20 Jul 2007 10:23:21 +0200
+Message-ID: <200707201023.21786.stefan@loplof.de>
+References: <46980ADA.5050104@intel.com> <469FF922.2090900@intel.com> <20070720073347.GA29575@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, cbe-oss-dev@ozlabs.org
-To: Jeff Garzik <jeff@garzik.org>
+Cc: "Kok, Auke" <auke-jan.h.kok@intel.com>,
+	Jeff Garzik <jeff@garzik.org>, NetDev <netdev@vger.kernel.org>,
+	Arjan van de Ven <arjan@linux.intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	Mitch Williams <mitch.a.williams@intel.com>
+To: Christoph Hellwig <hch@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from MGW2.Sony.CO.JP ([137.153.0.14]:58182 "EHLO mgw2.sony.co.jp"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1762718AbXGTIU7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Jul 2007 04:20:59 -0400
+Received: from cg-p07-fb.rzone.de ([81.169.146.215]:58923 "EHLO
+	cg-p07-fb.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1765694AbXGTIVO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jul 2007 04:21:14 -0400
+Received: from mo-p07-ob.rzone.de (mrclete-mo-p07-ob.mail [192.168.63.176])
+	by charnel-fb-04.store (RZmta 8.2) with ESMTP id R040bej6K8KvOp
+	for <netdev@vger.kernel.org>; Fri, 20 Jul 2007 10:21:12 +0200 (MEST)
+In-Reply-To: <20070720073347.GA29575@infradead.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fixed the bug that calculation of the address of rx descriptor was
-wrong.
+Am Freitag, 20. Juli 2007 09:33 schrieben Sie:
 
-Signed-off-by: Masakazu Mokuno <mokuno@sm.sony.co.jp>
----
- drivers/net/ps3_gelic_net.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> Well, these useless abstractions are really annoying and nothing we allow
+> into other drivers either.
 
---- a/drivers/net/ps3_gelic_net.c
-+++ b/drivers/net/ps3_gelic_net.c
-@@ -1107,7 +1107,7 @@ static int gelic_net_open(struct net_dev
- 			card->descr, GELIC_NET_TX_DESCRIPTORS))
- 		goto alloc_tx_failed;
- 	if (gelic_net_init_chain(card, &card->rx_chain,
--				 card->descr + GELIC_NET_RX_DESCRIPTORS,
-+				 card->descr + GELIC_NET_TX_DESCRIPTORS,
- 				 GELIC_NET_RX_DESCRIPTORS))
- 		goto alloc_rx_failed;
- 
+However, they make it easier for multiple developers to work as a team. This 
+is useful for development pace and makes maintainance less dependant on one 
+person.
 
---
-Masakazu MOKUNO
-
+Stefan
