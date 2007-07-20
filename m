@@ -1,43 +1,42 @@
-From: Michael Neuling <mikey@neuling.org>
-Subject: Possible eHEA performance issue
-Date: Thu, 19 Jul 2007 20:02:04 -0700
-Message-ID: <4634.1184900524@neuling.org>
+From: "rae l" <crquan@gmail.com>
+Subject: Re: [PATCH 1/2] net/core: merge the content of dev_mcast.c into dev.c
+Date: Fri, 20 Jul 2007 11:22:52 +0800
+Message-ID: <91b13c310707192022mf16cfefg8e05077697a4fef0@mail.gmail.com>
+References: <20070718.030306.50591269.davem@davemloft.net>
+	 <1184758229305-git-send-email-crquan@gmail.com>
+	 <91b13c310707191851h3bffaf2au7443d32c725dfb45@mail.gmail.com>
+	 <20070719.200459.41636483.davem@davemloft.net>
 Mime-Version: 1.0
-Cc: anton@samba.org
-To: Thomas Klein <tklein@de.ibm.com>,
-	Jan-Bernd Themann <themann@de.ibm.com>,
-	netdev <netdev@vger.kernel.org>,
-	Christoph Raisch <raisch@de.ibm.com>,
-	Stefan Roscher <ossrosch@linux.vnet.ibm.com>,
-	linux-ppc <linuxppc-dev@ozlabs.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, kaber@trash.net,
+	pekkas@netcore.fi, jmorris@namei.org, linux-kernel@vger.kernel.org
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:50765 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751306AbXGTDGU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Jul 2007 23:06:20 -0400
+Received: from ik-out-1112.google.com ([66.249.90.176]:25505 "EHLO
+	ik-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754333AbXGTDWx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2007 23:22:53 -0400
+Received: by ik-out-1112.google.com with SMTP id b32so725898ika
+        for <netdev@vger.kernel.org>; Thu, 19 Jul 2007 20:22:52 -0700 (PDT)
+In-Reply-To: <20070719.200459.41636483.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->From ehea_start_xmit in ehea_main.c we have:
+On 7/20/07, David Miller <davem@davemloft.net> wrote:
+> Please don't quote a big huge patch just to say one sentence that
+> doesn't apply to any particular specific part of a patch.
+>
+> That's wastes bandwidth, annoys people you might actually want
+> a response from, and is bad netiquette in general.
+Thanks.
 
-    if (unlikely(atomic_read(&pr->swqe_avail) <= 1)) {
-	    spin_lock_irqsave(&pr->netif_queue, flags);
-	    if (unlikely(atomic_read(&pr->swqe_avail) <= 1)) {
-		    pr->p_stats.queue_stopped++;
-		    netif_stop_queue(dev);
-		    pr->queue_stopped = 1;
-	    }
-	    spin_unlock_irqrestore(&pr->netif_queue, flags);
-    }
+>
 
-Since the conditions are the same, isn't it likely that the second 'if'
-is going to be taken.  Hence, shouldn't the second 'unlikely' hint be
-removed or even changed to likely?
+-- 
+Denis Cheng
+Linux Application Developer
 
-Either way, some documentation here as to why it's done this way would
-be useful.  I assume the atomic_read is cheap compared to the
-spin_unlock_irqsave, so we quickly check swqe_avail before we check it
-again properly with the lock on so we can change some stuff.
-
-Mikey
-
+"One of my most productive days was throwing away 1000 lines of code."
+ - Ken Thompson.
