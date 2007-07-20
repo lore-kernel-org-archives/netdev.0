@@ -1,49 +1,35 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: [patch 2/3] netdev: i82596 Ethernet needs <asm/cacheflush.h>
-Date: Fri, 20 Jul 2007 18:40:45 +0200
-Message-ID: <20070720164323.848002388@mail.of.borg>
-References: <20070720164043.523003359@mail.of.borg>
-Cc: linux-m68k@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S938435AbXGTQso@vger.kernel.org>
-Content-Disposition: inline; filename=m68k-82596-needs-asm-cacheflush.diff
-Sender: linux-kernel-owner@vger.kernel.org
+From: Steve.Glendinning@smsc.com
+Subject: Re: [PATCH] SMSC LAN911x and LAN921x vendor driver
+Date: Fri, 20 Jul 2007 17:22:58 +0100
+Message-ID: <OFE56EBEC8.1BEEC22C-ON8025731E.0057D9A8-8025731E.0059FE8A@smsc.com>
+References: <469E9648.6050209@garzik.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="US-ASCII"
+Cc: Bahadir Balban <Bahadir.Balban@arm.com>,
+	Bill Gatliff <bgat@billgatliff.com>,
+	Dustin Mcintire <dustin@sensoria.com>, ian.saturley@smsc.com,
+	netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.smsc.com ([170.129.50.11]:1643 "EHLO smsc.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1763227AbXGTQjI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Jul 2007 12:39:08 -0400
+In-Reply-To: <469E9648.6050209@garzik.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-netdev: i82596 Ethernet needs <asm/cacheflush.h> on m68k
+Hi Jeff,
 
-drivers/net/82596.c: In function 'init_rx_bufs':
-drivers/net/82596.c:552: error: implicit declaration of function 'cache_clear'
-drivers/net/82596.c: In function 'i596_start_xmit':
-drivers/net/82596.c:1104: error: implicit declaration of function 'cache_push'
+> Where is the hard_start_xmit/TX-completion locking?
 
-The driver still compiles on ia32 (CONFIG_APRICOT=y)
+The entire PIO Tx operation is performed within hard_start_xmit, so should 
+be covered by netif_tx_lock.
 
-Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
----
- drivers/net/82596.c |    1 +
- 1 file changed, 1 insertion(+)
-
---- a/drivers/net/82596.c
-+++ b/drivers/net/82596.c
-@@ -57,6 +57,7 @@
- #include <asm/io.h>
- #include <asm/dma.h>
- #include <asm/pgtable.h>
-+#include <asm/cacheflush.h>
- 
- static char version[] __initdata =
- 	"82596.c $Revision: 1.5 $\n";
-
--- 
-Gr{oetje,eeting}s,
-
-						Geert
-
+Regards,
 --
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+Steve Glendinning
+SMSC GmbH
+m: +44 777 933 9124
+e: steve.glendinning@smsc.com
 
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-							    -- Linus Torvalds
