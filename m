@@ -1,58 +1,51 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: Linux, tcpdump and vlan
-Date: Fri, 20 Jul 2007 13:34:28 -0700
-Message-ID: <46A11C54.2090100@candelatech.com>
-References: <997818.30021.qm@web56615.mail.re3.yahoo.com> <m31wf226fw.fsf@maximus.localdomain>
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: RE: Question: how to detect if a qdisc is root or not?
+Date: Fri, 20 Jul 2007 15:59:25 -0700
+Message-ID: <D5C1322C3E673F459512FB59E0DDC329034460BA@orsmsx414.amr.corp.intel.com>
+References: <469EA4CE.4000402@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: andrei radulescu-banu <iubica2@yahoo.com>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	Patrick McHardy <kaber@trash.net>,
-	linux-kernel@vger.kernel.org,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Krzysztof Halasa <khc@pm.waw.pl>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>
+To: "Patrick McHardy" <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:38028 "EHLO ns2.lanforge.com"
+Received: from mga09.intel.com ([134.134.136.24]:10028 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757349AbXGTUfK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Jul 2007 16:35:10 -0400
-In-Reply-To: <m31wf226fw.fsf@maximus.localdomain>
+	id S1763234AbXGTW71 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jul 2007 18:59:27 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <469EA4CE.4000402@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Krzysztof Halasa wrote:
-> Another idea - perhaps we could make the software VLANs behave
-> the same as hw ones? I.e., stripping the tag on RX while setting
-> some magic skb field?
+> Its set after grafting the parent, which is after initialization.
+> I think what should work is to set it in qdisc_create 
+> instead, sch_api.c around line 490:
 > 
-> The packets could go via main interface first (normal path, with
-> eth_type_trans stripping the tag and setting protocol = some 802.1Q),
-> netif_rx | netif_receive_skb, then through the VLAN device with
-> finally eth_type_trans setting the IPv4 etc. protocol to pass to
-> L3 layers.
+> +	sch->parent = handle;
+> 
+>         if (handle == TC_H_INGRESS) {
+>                 sch->flags |= TCQ_F_INGRESS;
+>                 sch->stats_lock = &dev->ingress_lock; ...
+> 
+> and remove the initialization in qdisc_graft. That would 
+> additionally have the benefit that ingress qdiscs also have 
+> it initialized properly.
 
-There is already a flag you can set on vlan devices (reorder-header)
-that strips the VLAN tag before presenting it to user-space.
+I just sent out a patch to fix this.  Sorry for the delay; my
+development machine oops'd in the middle of some disk I/O, and it
+corrupted part of the inode table...the ext3 journal application seemed
+to make it worse too.  Rebuilt the machine, so I'm back on my feet.
 
-> I can see potential problems on TX, the packets would have to be
-> presented without the tag (but with VLAN ID set somewhere in the skb)
-> and that probably means all drivers would have to be modified.
+Anyways, I tried a few different things, and what it looks like is
+sch->parent will be NULL (0) for the top-level device.  This is correct,
+and trying to mess with that screws up qdisc_graft() when unloading the
+qdisc.  I also tried adding a TCQ_F_ROOT flag to sch->flags when classid
+is TC_H_ROOT, but that also screwed up unloading the qdisc.
 
-On tx, if it shows up on the vlan device, we add that device's VID to
-the header if no VID is currently in the SKB.  If it is in the SKB header
-we change the VID to be the tx dev's VID (if it was different).  This allows user-space
-to send a raw ethernet frame on a vlan device and have it automatically
-go out of the box on the correct vlan.  User-space can also send raw VLAN frames
-and have those also go out on the correct VLAN.
+The ingress qdisc does have the parent handle set correctly, namely
+NULL, since it will always be the top-level qdisc on ingress sessions.
 
-> Seems a bit of work, I know my message is missing the patch...
-
-Unless I mis-understand, this has been working since 2.4 days :)
-
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
-
+Thx Patrick,
+-PJ Waskiewicz
