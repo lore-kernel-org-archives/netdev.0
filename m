@@ -1,42 +1,42 @@
-From: "rae l" <crquan@gmail.com>
-Subject: Re: [PATCH 1/2] net/core: merge the content of dev_mcast.c into dev.c
-Date: Fri, 20 Jul 2007 11:22:52 +0800
-Message-ID: <91b13c310707192022mf16cfefg8e05077697a4fef0@mail.gmail.com>
-References: <20070718.030306.50591269.davem@davemloft.net>
-	 <1184758229305-git-send-email-crquan@gmail.com>
-	 <91b13c310707191851h3bffaf2au7443d32c725dfb45@mail.gmail.com>
-	 <20070719.200459.41636483.davem@davemloft.net>
+From: "Dale Farnsworth" <dale@farnsworth.org>
+Subject: Re: [PATCH] Merge GT/MV642xx Support into MV643xx Driver [7/8]
+Date: Thu, 19 Jul 2007 20:40:43 -0700
+Message-ID: <20070720034043.GA28756@xyzzy.farnsworth.org>
+References: <469EEF13.2000607@realitydiluted.com> <20070719142159.GF12892@xyzzy.farnsworth.org> <46A01992.1060907@realitydiluted.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, kaber@trash.net,
-	pekkas@netcore.fi, jmorris@namei.org, linux-kernel@vger.kernel.org
-To: "David Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: "Steven J. Hill" <sjhill@realitydiluted.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ik-out-1112.google.com ([66.249.90.176]:25505 "EHLO
-	ik-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754333AbXGTDWx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2007 23:22:53 -0400
-Received: by ik-out-1112.google.com with SMTP id b32so725898ika
-        for <netdev@vger.kernel.org>; Thu, 19 Jul 2007 20:22:52 -0700 (PDT)
-In-Reply-To: <20070719.200459.41636483.davem@davemloft.net>
+Received: from xyzzy.farnsworth.org ([65.39.95.219]:3171 "HELO farnsworth.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1754546AbXGTDkq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Jul 2007 23:40:46 -0400
 Content-Disposition: inline
+In-Reply-To: <46A01992.1060907@realitydiluted.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 7/20/07, David Miller <davem@davemloft.net> wrote:
-> Please don't quote a big huge patch just to say one sentence that
-> doesn't apply to any particular specific part of a patch.
->
-> That's wastes bandwidth, annoys people you might actually want
-> a response from, and is bad netiquette in general.
-Thanks.
+On Thu, Jul 19, 2007 at 09:10:26PM -0500, Steven J. Hill wrote:
+> Dale Farnsworth wrote:
+> > 
+> > You have replaced the use of the global PHY spinlock with a per-port spinlock.
+> > However, the SMI register is shared by all ports.  The global lock is
+> > needed to prevent simultaneous updates of the register by drivers for
+> > multiple ports.
+> > 
+> > NAK
+> >
+> Are you sure? Notice that a majority of the spinlocks were changed to disable
+> IRQs. Secondly, the lowest level mv_read/mv_write functions have to acquire
+> the big mv64x60_lock before they can read or write registers. I see the PHY
+> spinlock as being an additional and unnecessary lock to contend with. Am I
+> make an improper assumption?
 
->
+I'm sure.  (Of course, I could be wrong.)  On an SMP (or fully
+preemptive) system, disabling IRQs doesn't provide sufficient
+protection.  Nor does a per-port spinlock, since multiple ports
+share the single register.  It seems to me that a driver-scope
+lock is required.
 
--- 
-Denis Cheng
-Linux Application Developer
-
-"One of my most productive days was throwing away 1000 lines of code."
- - Ken Thompson.
+-Dale
