@@ -1,22 +1,22 @@
 From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: [ofa-general] Re: [PATCH 02/10] Networking include file changes.
-Date: Fri, 20 Jul 2007 10:25:05 -0700
-Message-ID: <1184952305.12431.16.camel@localhost.localdomain>
+Subject: [ofa-general] Re: [PATCH 03/10] dev.c changes.
+Date: Fri, 20 Jul 2007 10:44:19 -0700
+Message-ID: <1184953459.12431.21.camel@localhost.localdomain>
 References: <20070720063149.26341.84076.sendpatchset@localhost.localdomain>
-	<20070720063216.26341.80316.sendpatchset@localhost.localdomain>
+	<20070720063227.26341.91868.sendpatchset@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: johnpol@2ka.mipt.ru, Robert.Olsson@data.slu.se, herbert@gondor.apana.org.au,
+Cc: johnpol@2ka.mipt.ru, Robert.Olsson@data.slu.se,
+	peter.p.waskiewicz.jr@intel.com, herbert@gondor.apana.org.au,
 	gaagaan@gmail.com, kumarkr@linux.ibm.com, rdreier@cisco.com,
-	peter.p.waskiewicz.jr@intel.com, mcarlson@broadcom.com,
-	kaber@trash.net, jagana@us.ibm.com,
+	mcarlson@broadcom.com, kaber@trash.net, jagana@us.ibm.com,
 	general@lists.openfabrics.org, netdev@vger.kernel.org,
 	tgraf@suug.ch, jeff@garzik.org, hadi@cyberus.ca,
 	davem@davemloft.net, mchan@broadcom.com
 To: Krishna Kumar <krkumar2@in.ibm.com>
 Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <20070720063216.26341.80316.sendpatchset@localhost.localdomain>
+In-Reply-To: <20070720063227.26341.91868.sendpatchset@localhost.localdomain>
 List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
 	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
 List-Archive: <http://lists.openfabrics.org/pipermail/general>
@@ -29,83 +29,94 @@ Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
 On Fri, 2007-07-20 at 12:02 +0530, Krishna Kumar wrote:
-> Networking include file changes for batching.
+> Changes in dev.c to support batching : add dev_add_skb_to_blist,
+> register_netdev recognizes batch aware drivers, and net_tx_action is
+> the sole user of batching.
 > 
 > Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
 > ---
->  linux/netdevice.h |   10 ++++++++++
->  net/pkt_sched.h   |    6 +++---
->  2 files changed, 13 insertions(+), 3 deletions(-)
+>  dev.c |   77 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++---
+>  1 files changed, 74 insertions(+), 3 deletions(-)
 > 
-> diff -ruNp org/include/linux/netdevice.h new/include/linux/netdevice.h
-> --- org/include/linux/netdevice.h	2007-07-20 07:49:28.000000000 +0530
-> +++ new/include/linux/netdevice.h	2007-07-20 08:30:55.000000000 +0530
-> @@ -264,6 +264,8 @@ enum netdev_state_t
->  	__LINK_STATE_QDISC_RUNNING,
->  };
+> diff -ruNp org/net/core/dev.c new/net/core/dev.c
+> --- org/net/core/dev.c	2007-07-20 07:49:28.000000000 +0530
+> +++ new/net/core/dev.c	2007-07-20 08:31:35.000000000 +0530
+
+<snip>
+
+> @@ -1566,7 +1605,7 @@ gso:
+>  			/* reset queue_mapping to zero */
+>  			skb->queue_mapping = 0;
+>  			rc = q->enqueue(skb, q);
+> -			qdisc_run(dev);
+> +			qdisc_run(dev, NULL);
+
+OK. So you are passing a NULL blist here. However, i am
+not sure why batching is not used in this situation.
+
+Thanks
+Sridhar
+
+>  			spin_unlock(&dev->queue_lock);
 > 
-> +/* Minimum length of device hardware queue for batching to work */
-> +#define MIN_QUEUE_LEN_BATCH	16
+>  			rc = rc == NET_XMIT_BYPASS ? NET_XMIT_SUCCESS : rc;
+> @@ -1763,7 +1802,11 @@ static void net_tx_action(struct softirq
+>  			clear_bit(__LINK_STATE_SCHED, &dev->state);
 > 
->  /*
->   * This structure holds at boot time configured netdevice settings. They
-> @@ -340,6 +342,7 @@ struct net_device
->  #define NETIF_F_VLAN_CHALLENGED	1024	/* Device cannot handle VLAN packets */
->  #define NETIF_F_GSO		2048	/* Enable software GSO. */
->  #define NETIF_F_LLTX		4096	/* LockLess TX */
-> +#define NETIF_F_BATCH_SKBS	8192	/* Driver supports batch skbs API */
->  #define NETIF_F_MULTI_QUEUE	16384	/* Has multiple TX/RX queues */
+>  			if (spin_trylock(&dev->queue_lock)) {
+> -				qdisc_run(dev);
+> +				/*
+> +				 * Try to send out all skbs if batching is
+> +				 * enabled.
+> +				 */
+> +				qdisc_run(dev, dev->skb_blist);
+>  				spin_unlock(&dev->queue_lock);
+>  			} else {
+>  				netif_schedule(dev);
+> @@ -3397,6 +3440,28 @@ int register_netdevice(struct net_device
+>  		}
+>  	}
 > 
->  	/* Segmentation offload features */
-> @@ -452,6 +455,8 @@ struct net_device
->  	struct Qdisc		*qdisc_sleeping;
->  	struct list_head	qdisc_list;
->  	unsigned long		tx_queue_len;	/* Max frames per queue allowed */
-> +	unsigned long		xmit_slots;	/* Device free slots */
-> +	struct sk_buff_head	*skb_blist;	/* List of batch skbs */
-> 
->  	/* Partially transmitted GSO packet. */
->  	struct sk_buff		*gso_skb;
-> @@ -472,6 +477,9 @@ struct net_device
->  	void			*priv;	/* pointer to private data	*/
->  	int			(*hard_start_xmit) (struct sk_buff *skb,
->  						    struct net_device *dev);
-> +	int			(*hard_start_xmit_batch) (struct net_device
-> +							  *dev);
+> +	if (dev->features & NETIF_F_BATCH_SKBS) {
+> +		if (!dev->hard_start_xmit_batch ||
+> +		    dev->tx_queue_len < MIN_QUEUE_LEN_BATCH) {
+> +			/*
+> +			 * Batch TX requires API support in driver plus have
+> +			 * a minimum sized queue.
+> +			 */
+> +			printk(KERN_ERR "%s: Dropping NETIF_F_BATCH_SKBS "
+> +					"since no API support or queue len "
+> +					"is smaller than %d.\n",
+> +					dev->name, MIN_QUEUE_LEN_BATCH);
+> +			dev->features &= ~NETIF_F_BATCH_SKBS;
+> +		} else {
+> +			dev->skb_blist = kmalloc(sizeof *dev->skb_blist,
+> +						 GFP_KERNEL);
+> +			if (dev->skb_blist) {
+> +				skb_queue_head_init(dev->skb_blist);
+> +				dev->tx_queue_len >>= 1;
+> +			}
+> +		}
+> +	}
 > +
->  	/* These may be needed for future network-power-down code. */
->  	unsigned long		trans_start;	/* Time (in jiffies) of last Tx	*/
+>  	/*
+>  	 *	nil rebuild_header routine,
+>  	 *	that should be never called and used as just bug trap.
+> @@ -3732,10 +3797,16 @@ void unregister_netdevice(struct net_dev
 > 
-> @@ -832,6 +840,8 @@ extern int		dev_set_mac_address(struct n
->  					    struct sockaddr *);
->  extern int		dev_hard_start_xmit(struct sk_buff *skb,
->  					    struct net_device *dev);
-> +extern int		dev_add_skb_to_blist(struct sk_buff *skb,
-> +					     struct net_device *dev);
+>  	synchronize_net();
 > 
->  extern void		dev_init(void);
+> +	/* Deallocate batching structure */
+> +	if (dev->skb_blist) {
+> +		skb_queue_purge(dev->skb_blist);
+> +		kfree(dev->skb_blist);
+> +		dev->skb_blist = NULL;
+> +	}
+> +
+>  	/* Shutdown queueing discipline. */
+>  	dev_shutdown(dev);
 > 
-> diff -ruNp org/include/net/pkt_sched.h new/include/net/pkt_sched.h
-> --- org/include/net/pkt_sched.h	2007-07-20 07:49:28.000000000 +0530
-> +++ new/include/net/pkt_sched.h	2007-07-20 08:30:22.000000000 +0530
-> @@ -80,13 +80,13 @@ extern struct qdisc_rate_table *qdisc_ge
->  		struct rtattr *tab);
->  extern void qdisc_put_rtab(struct qdisc_rate_table *tab);
-> 
-> -extern void __qdisc_run(struct net_device *dev);
-> +extern void __qdisc_run(struct net_device *dev, struct sk_buff_head *blist);
-
-Why do we need this additional 'blist' argument?
-Is this different from dev->skb_blist?
-
-> 
-> -static inline void qdisc_run(struct net_device *dev)
-> +static inline void qdisc_run(struct net_device *dev, struct sk_buff_head *blist)
->  {
->  	if (!netif_queue_stopped(dev) &&
->  	    !test_and_set_bit(__LINK_STATE_QDISC_RUNNING, &dev->state))
-> -		__qdisc_run(dev);
-> +		__qdisc_run(dev, blist);
->  }
-> 
->  extern int tc_classify_compat(struct sk_buff *skb, struct tcf_proto *tp,
+> -
+>  	/* Notify protocols, that we are about to destroy
+>  	   this device. They should clean all the things.
+>  	*/
