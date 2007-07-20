@@ -1,48 +1,47 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [ofa-general] Re: [PATCH 04/10] net-sysfs.c changes.
-Date: Fri, 20 Jul 2007 17:22:03 +0100
-Message-ID: <20070720172203.0eaeea86@oldman>
-References: <OF3743242C.0BC81AC3-ON6525731E.00397CC1-6525731E.00399244@in.ibm.com>
-	<46A09ACF.20805@trash.net>
+From: Scott Wood <scottwood@freescale.com>
+Subject: Re: [PATCH] [updated] PHY fixed driver: rework release path and
+	update phy_id notation
+Date: Fri, 20 Jul 2007 11:47:43 -0500
+Message-ID: <20070720164743.GA9659@ld0162-tx32.am.freescale.net>
+References: <20070718233804.24451.22543.stgit@localhost.localdomain>
+	<20070719232337.184942e0.akpm@linux-foundation.org>
+	<20070720115039.05f50f0f@localhost.localdomain>
+	<20070720005702.b2b644e7.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: jagana@us.ibm.com, herbert@gondor.apana.org.au, gaagaan@gmail.com,
-	Robert.Olsson@data.slu.se, kumarkr@linux.ibm.com,
-	rdreier@cisco.com, peter.p.waskiewicz.jr@intel.com,
-	hadi@cyberus.ca, mcarlson@broadcom.com, jeff@garzik.org,
-	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
-	netdev@vger.kernel.org, johnpol@2ka.mipt.ru, davem@davemloft.net,
-	sri@us.ibm.com
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <46A09ACF.20805@trash.net>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Jeff Garzik <jeff@garzik.org>, linuxppc-dev@ozlabs.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+Content-Disposition: inline
+In-Reply-To: <20070720005702.b2b644e7.akpm@linux-foundation.org>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 20 Jul 2007 13:21:51 +0200
-Patrick McHardy <kaber@trash.net> wrote:
-
-> Krishna Kumar2 wrote:
-> > Patrick McHardy <kaber@trash.net> wrote on 07/20/2007 03:37:20 PM:
-> >
-> >
-> >   
-> >> rtnetlink support seems more important than sysfs to me.
-> >>     
-> >
-> > Thanks, I will add that as a patch. The reason to add to sysfs is that
-> > it is easier to change for a user (and similar to tx_queue_len).
-> >   
+On Fri, Jul 20, 2007 at 12:57:02AM -0700, Andrew Morton wrote:
+> On Fri, 20 Jul 2007 11:50:39 +0400 Vitaly Bordug <vitb@kernel.crashing.org> wrote:
+> > On Thu, 19 Jul 2007 23:23:37 -0700
+> > Andrew Morton wrote:
+> > > Shouldn't these be runtime options (ie: module parameters)?
+> > > 
+> > I thought about it but this thing is more like the one that will never tend/required to change while\
+> > configured.. Will add if you see it appropriate though.
 > 
+> 99% of users don't compile their own kernels: their vendor will have to
+> make this decision for them, and it sounds like any decision which they
+> make will be wrong for some of their users?
 
-But since batching is so similar to TSO, i really should be part of the
-flags and controlled by ethtool like other offload flags.
+This is mostly of use on embedded hardware where the kernel will be
+rebuilt by someone who knows the hardware...  That said, I don't see why
+it needs to be configured at all.  Couldn't it use an idr table instead? 
+
+-Scott
