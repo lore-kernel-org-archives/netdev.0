@@ -1,52 +1,40 @@
-From: Cornelia Huck <cornelia.huck@de.ibm.com>
-Subject: Re: 2.6.22-git: known regressions with patches
-Date: Fri, 20 Jul 2007 08:46:32 +0200
-Message-ID: <20070720084632.15ea43e9@gondolin.boeblingen.de.ibm.com>
-References: <469F92B8.5090809@googlemail.com>
+From: "Reither Robert" <Robert.Reither@av-digital.at>
+Subject: AW: Problems receving multicasts with r8169.c driver from linux  kernel (2.6.21.5)
+Date: Fri, 20 Jul 2007 09:19:15 +0200
+Message-ID: <BA41E8A07B73A041948C2E3A4EF6239D062E05@av-digital-exch.avdigital.at>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Giacomo Catenazzi <cate@cateee.net>,
-	Jens Axboe <jens.axboe@oracle.com>,
-	Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
-	Stefan Richter <stefanr@s5r6.in-berlin.de>,
-	Jan Engelhardt <jengelh@linux01.gwdg.de>,
-	Jens Axboe <axboe@suse.de>,
-	"Peter M. Jones" <pjones@redhat.com>,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	"=?UTF-8?Q?S.=C3=87a=C4=9Flar?= Onur" <caglar@pardus.org.tr>,
-	Meelis Roos <mroos@linux.ee>,
-	David Howells <dhowells@redhat.com>, netdev@vger.kernel.org,
-	Randy Dunlap <randy.dunlap@oracle.com>,
-	Trond Myklebust <Trond.Myklebust@netapp.com>,
-	"J. Bruce Fields" <bfields@citi.umich.edu>
-To: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
+Content-Transfer-Encoding: 7BIT
+Cc: <netdev@vger.kernel.org>
+To: "Francois Romieu" <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate8.uk.ibm.com ([195.212.29.141]:18485 "EHLO
-	mtagate8.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754540AbXGTGqd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jul 2007 02:46:33 -0400
-In-Reply-To: <469F92B8.5090809@googlemail.com>
+Received: from mail.av-digital.at ([213.33.59.122]:25729 "EHLO
+	av-digital-exch.avdigital.at" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1761832AbXGTHTT convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Jul 2007 03:19:19 -0400
+Content-class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 19 Jul 2007 18:35:04 +0200,
-Michal Piotrowski <michal.k.k.piotrowski@gmail.com> wrote:
 
-> FS
-> 
-> Subject         : AFS compile broken
-> References      : http://lkml.org/lkml/2007/7/19/218
-> Last known good : ?
-> Submitter       : Meelis Roos <mroos@linux.ee>
-> Caused-By       : ?
-> Handled-By      : Cornelia Huck <cornelia.huck@de.ibm.com>
-> Patch           : http://lkml.org/lkml/2007/7/19/223
-> Status          : patch available
-> 
+Hi Francois ,
 
-Multiple people posted this fix, and Andrew's already made it to git
-(commit 275afcac9953ece0828972edeab9684cfe1a5ef3).
+i can spare some time now, so i ask:
+Would it help, if i code/send u a tool to simulate your multicast packet scenario ?
+Buts its possible for me to reproduce the problem with e.g. nc -u 224.1.1.1 10500 <dummy_file (does show me the same bad behaviour).
+Or can i help in another way ?
+
+Greetings
+Robert Reither
+Research & Development
+AV Digital Audio- Videotechnik GmbH
+Rampengasse 3-5
+A-1190 Wien/Austria
+Commercial Register No.: FN 201615v
+Commercial Court: Handelsgericht Wien
+VAT-No.: ATU 50461904
+Tel.: +43/1/3680368 43
+email: robert.reither@avdigital.at
+Visit: <http://www.av-digital.at> 
+
