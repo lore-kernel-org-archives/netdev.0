@@ -1,76 +1,39 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [ofa-general] Re: [PATCH 05/10] sch_generic.c changes.
-Date: Fri, 20 Jul 2007 20:16:36 +0200
-Message-ID: <46A0FC04.1000006@trash.net>
-References: <20070720063149.26341.84076.sendpatchset@localhost.localdomain>
-	<20070720063249.26341.125.sendpatchset@localhost.localdomain>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: tg3 issues
+Date: Fri, 20 Jul 2007 12:34:21 -0700
+Message-ID: <1184960061.4850.9.camel@dell>
+References: <469E78A2.80904@imperialnet.org>
+ <366312910707190419se33ddd2o3870b5684e077276@mail.gmail.com>
+ <20070719113755.GA1934@hmsreliant.homelinux.net>
+ <469F6601.20800@imperialnet.org> <1184866465.10854.45.camel@dell>
+ <46A0E9D7.7020904@imperialnet.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: johnpol@2ka.mipt.ru, Robert.Olsson@data.slu.se,
-	peter.p.waskiewicz.jr@intel.com, herbert@gondor.apana.org.au,
-	gaagaan@gmail.com, kumarkr@linux.ibm.com, rdreier@cisco.com,
-	mcarlson@broadcom.com, netdev@vger.kernel.org, jagana@us.ibm.com,
-	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
-	jeff@garzik.org, hadi@cyberus.ca, davem@davemloft.net, sri@us.ibm.com
-To: Krishna Kumar <krkumar2@in.ibm.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <20070720063249.26341.125.sendpatchset@localhost.localdomain>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Cc: "Neil Horman" <nhorman@tuxdriver.com>,
+	"netdev" <netdev@vger.kernel.org>
+To: "patric" <pakar@imperialnet.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms2.broadcom.com ([216.31.210.18]:1065 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753272AbXGTSl1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Jul 2007 14:41:27 -0400
+In-Reply-To: <46A0E9D7.7020904@imperialnet.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Krishna Kumar wrote:
-> +static inline int get_skb(struct net_device *dev, struct Qdisc *q,
-> +			  struct sk_buff_head *blist,
-> +			  struct sk_buff **skbp)
-> +{
-> +	if (likely(!blist) || (!skb_queue_len(blist) && qdisc_qlen(q) <= 1)) {
-> +		return likely((*skbp = dev_dequeue_skb(dev, q)) != NULL);
-> +	} else {
-> +		int max = dev->tx_queue_len - skb_queue_len(blist);
+On Fri, 2007-07-20 at 18:59 +0200, patric wrote:
 
-
-I'm assuming the driver will simply leave excess packets in the
-blist for the next run. The check for tx_queue_len is wrong though,
-its only a default which can be overriden and some qdiscs don't
-care for it at all.
-
-> +		struct sk_buff *skb;
-> +
-> +		while (max > 0 && (skb = dev_dequeue_skb(dev, q)) != NULL)
-> +			max -= dev_add_skb_to_blist(skb, dev);
-> +
-> +		*skbp = NULL;
-> +		return 1;	/* we have atleast one skb in blist */
-> +	}
-> +}
-
-
-
-> -void __qdisc_run(struct net_device *dev)
-> +void __qdisc_run(struct net_device *dev, struct sk_buff_head *blist)
-
-
-And the patches should really be restructured so this change is
-in the same patch changing the header and the caller, for example.
-
->  {
->  	do {
-> -		if (!qdisc_restart(dev))
-> +		if (!qdisc_restart(dev, blist))
->  			break;
->  	} while (!netif_queue_stopped(dev));
->  
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Thanks... That's a confirmation on what i  suspected.. I think i'll dig 
+> into the code instead and try to figure out some way of making it work a 
+> bit better for my setup atleast...
+> I'll post a patch later if i get something working... Btw, do you have 
+> any timings on how long it takes for the cards to get a lock on the link?
 > 
+
+Serdes link comes up very fast.  The clause 37 autoneg involves going
+through a few states and exchanging base pages and optional next pages.
+Each state completes in 10 msec, so the whole autoneg should complete in
+roughly 100 msec or so.  But because it is done in software for these
+older cards, it can take much longer because it can get out-of-sync. 
+
