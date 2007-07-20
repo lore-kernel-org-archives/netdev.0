@@ -1,46 +1,63 @@
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: [ofa-general] Re: [PATCH 03/10] dev.c changes.
-Date: Fri, 20 Jul 2007 17:39:18 +0530
-Message-ID: <OFA7D22363.1BE2EB19-ON6525731E.0042AA56-6525731E.0042C514@in.ibm.com>
-References: <46A09A85.7020500@trash.net>
+From: "Robert P. J. Day" <rpjday@mindspring.com>
+Subject: Re: [PATCH] IP_VS should depend on EXPERIMENTAL ?
+Date: Fri, 20 Jul 2007 08:11:45 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0707200805070.11571@localhost.localdomain>
+References: <46A0A01A.7030403@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: jagana@us.ibm.com, johnpol@2ka.mipt.ru, herbert@gondor.apana.org.au,
-	gaagaan@gmail.com, Robert.Olsson@data.slu.se,
-	kumarkr@linux.ibm.com, rdreier@cisco.com,
-	peter.p.waskiewicz.jr@intel.com, hadi@cyberus.ca,
-	mcarlson@broadcom.com, jeff@garzik.org,
-	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
-	netdev@vger.kernel.org, davem@davemloft.net, sri@us.ibm.com
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <46A09A85.7020500@trash.net>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Gabriel C <nix.or.die@googlemail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nic.NetDirect.CA ([216.16.235.2]:37909 "EHLO
+	rubicon.netdirect.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753260AbXGTMNk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jul 2007 08:13:40 -0400
+In-Reply-To: <46A0A01A.7030403@googlemail.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy <kaber@trash.net> wrote on 07/20/2007:
 
-> I can't really argue about the numbers, but it seems to me that only
-> devices which *usually* have a sufficient queue length will support
-> this, and anyone setting the queue length of a gbit device to <16 is
-> begging for trouble anyway. So it doesn't really seem worth to bloat
-> the code for handling an insane configuration as long as it doesn't
-> break.
+  as a short followup to my previous post, at the *very least*, a
+cleanup that could be done now is to find all entries which have an
+actual dependency on "EXPERIMENTAL" but don't advertise themselves as
+such:
 
-Ah, I get your point now. So if driver sets BATCHING and user then sets
-queue_len to (say) 4, then poor results are expected (and kernel doesn't
-need to try fix it). Same for driver setting BATCHING when it's queue is
-small in the first place, which no driver writer should do anyway. I think
-it makes the code a lot easier too. Will update.
+...
+config MA600_DONGLE
+        tristate "Mobile Action MA600 dongle"
+        depends on IRTTY_SIR && DONGLE && IRDA && EXPERIMENTAL
+	...
 
-thanks,
+and determine which of those should have the dependency on
+"EXPERIMENTAL" removed.  no, don't go adding "(EXPERIMENTAL)" to the
+prompt -- just deal with *only* those for which the dependency is
+clearly out of date and not relevant anymore, and delete it.
 
-- KK
+that would be, at least, a place to start.  and, yes, there's piles of
+potential (net/ipv4/Kconfig):
+
+config TCP_CONG_HSTCP
+        tristate "High Speed TCP"
+        depends on EXPERIMENTAL
+	...
+config TCP_CONG_HYBLA
+        tristate "TCP-Hybla congestion control algorithm"
+        depends on EXPERIMENTAL
+	...
+config TCP_CONG_VEGAS
+        tristate "TCP Vegas"
+        depends on EXPERIMENTAL
+	...
+... etc etc ...
+
+
+rday
+-- 
+========================================================================
+Robert P. J. Day
+Linux Consulting, Training and Annoying Kernel Pedantry
+Waterloo, Ontario, CANADA
+
+http://fsdev.net/wiki/index.php?title=Main_Page
+========================================================================
