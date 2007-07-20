@@ -1,94 +1,46 @@
-From: "Robert P. J. Day" <rpjday@mindspring.com>
-Subject: Re: [PATCH] IP_VS should depend on EXPERIMENTAL ?
-Date: Fri, 20 Jul 2007 07:59:56 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0707200753300.10966@localhost.localdomain>
-References: <46A0A01A.7030403@googlemail.com>
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Subject: [ofa-general] Re: [PATCH 03/10] dev.c changes.
+Date: Fri, 20 Jul 2007 17:39:18 +0530
+Message-ID: <OFA7D22363.1BE2EB19-ON6525731E.0042AA56-6525731E.0042C514@in.ibm.com>
+References: <46A09A85.7020500@trash.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Gabriel C <nix.or.die@googlemail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nic.NetDirect.CA ([216.16.235.2]:37424 "EHLO
-	rubicon.netdirect.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754473AbXGTMBr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jul 2007 08:01:47 -0400
-In-Reply-To: <46A0A01A.7030403@googlemail.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Cc: jagana@us.ibm.com, johnpol@2ka.mipt.ru, herbert@gondor.apana.org.au,
+	gaagaan@gmail.com, Robert.Olsson@data.slu.se,
+	kumarkr@linux.ibm.com, rdreier@cisco.com,
+	peter.p.waskiewicz.jr@intel.com, hadi@cyberus.ca,
+	mcarlson@broadcom.com, jeff@garzik.org,
+	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
+	netdev@vger.kernel.org, davem@davemloft.net, sri@us.ibm.com
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <46A09A85.7020500@trash.net>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 20 Jul 2007, Gabriel C wrote:
+Patrick McHardy <kaber@trash.net> wrote on 07/20/2007:
 
-> Hi,
->
-> IP_VS has :
->
-> ..
->
-> tristate "IP virtual server support (EXPERIMENTAL)"
->
-> ..
->
-> but it does not depend on EXPERIMENTAL.
->
->
-> Signed-off-by: Gabriel Craciunescu <nix.or.die@googlemail.com>
->
-> ---
->
->  net/ipv4/ipvs/Kconfig |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
->
-> diff --git a/net/ipv4/ipvs/Kconfig b/net/ipv4/ipvs/Kconfig
-> index 09d0c3f..3c594ec 100644
-> --- a/net/ipv4/ipvs/Kconfig
-> +++ b/net/ipv4/ipvs/Kconfig
-> @@ -3,7 +3,7 @@
->  #
->  menuconfig IP_VS
->  	tristate "IP virtual server support (EXPERIMENTAL)"
-> -	depends on NETFILTER
-> +	depends on NETFILTER && EXPERIMENTAL
->  	---help---
->  	  IP Virtual Server support will let you build a high-performance
->  	  virtual server based on cluster of two or more real servers. This
+> I can't really argue about the numbers, but it seems to me that only
+> devices which *usually* have a sufficient queue length will support
+> this, and anyone setting the queue length of a gbit device to <16 is
+> begging for trouble anyway. So it doesn't really seem worth to bloat
+> the code for handling an insane configuration as long as it doesn't
+> break.
 
-there's maturity-level inconsistency like that in a few places, like
-when stuff is tagged as EXPERIMENTAL, but labelled as OBSOLETE:
+Ah, I get your point now. So if driver sets BATCHING and user then sets
+queue_len to (say) 4, then poor results are expected (and kernel doesn't
+need to try fix it). Same for driver setting BATCHING when it's queue is
+small in the first place, which no driver writer should do anyway. I think
+it makes the code a lot easier too. Will update.
 
-./net/ipv6/netfilter/Kconfig-config IP6_NF_QUEUE
-./net/ipv6/netfilter/Kconfig-   tristate "IP6 Userspace queueing via NETLINK (OBSOLETE)"
-./net/ipv6/netfilter/Kconfig:   depends on INET && IPV6 && NETFILTER && EXPERIMENTAL
+thanks,
 
-and other examples:
-
-./net/ipv6/netfilter/Kconfig-config IP6_NF_IPTABLES
-./net/ipv6/netfilter/Kconfig-   tristate "IP6 tables support (required for filtering)"
-./net/ipv6/netfilter/Kconfig:   depends on INET && IPV6 && EXPERIMENTAL
-...
-./net/ipv6/Kconfig-config IPV6_MULTIPLE_TABLES
-./net/ipv6/Kconfig-     bool "IPv6: Multiple Routing Tables"
-./net/ipv6/Kconfig:     depends on IPV6 && EXPERIMENTAL
-...
-./net/ipv4/Kconfig-config TCP_CONG_HSTCP
-./net/ipv4/Kconfig-     tristate "High Speed TCP"
-./net/ipv4/Kconfig:     depends on EXPERIMENTAL
-...
-./net/rxrpc/Kconfig-config AF_RXRPC
-./net/rxrpc/Kconfig-    tristate "RxRPC session sockets"
-./net/rxrpc/Kconfig:    depends on INET && EXPERIMENTAL
-...
-
-  it might be a better investment in time to look through the Kconfig
-files, and decide which entries currently marked as "EXPERIMENTAL"
-really *shouldn't* be, and remove those silly dependencies.
-
-rday
--- 
-========================================================================
-Robert P. J. Day
-Linux Consulting, Training and Annoying Kernel Pedantry
-Waterloo, Ontario, CANADA
-
-http://fsdev.net/wiki/index.php?title=Main_Page
-========================================================================
+- KK
