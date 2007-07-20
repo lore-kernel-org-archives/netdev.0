@@ -1,141 +1,82 @@
-From: Masakazu Mokuno <mokuno@sm.sony.co.jp>
-Subject: [PATCH 10/10] ps3: reduce allocation size of rx skb buffers
-Date: Fri, 20 Jul 2007 17:39:25 +0900
-Message-ID: <20070720173613.67A4.MOKUNO@sm.sony.co.jp>
+From: arno@natisbad.org (Arnaud Ebalard)
+Subject: [Patch] Make ULA flagged unicast global
+Date: Fri, 20 Jul 2007 10:54:32 +0200
+Message-ID: <87ir8f8ng7.fsf@natisbad.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, cbe-oss-dev@ozlabs.org
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from MGW3.Sony.CO.JP ([137.153.0.15]:57627 "EHLO mgw3.sony.co.jp"
+Received: from main.gmane.org ([80.91.229.2]:51454 "EHLO ciao.gmane.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751595AbXGTIja (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Jul 2007 04:39:30 -0400
+	id S1751429AbXGTJAJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Jul 2007 05:00:09 -0400
+Received: from root by ciao.gmane.org with local (Exim 4.43)
+	id 1IBoLC-0001H3-QM
+	for netdev@vger.kernel.org; Fri, 20 Jul 2007 11:00:02 +0200
+Received: from moog.chdir.org ([88.191.42.160])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Fri, 20 Jul 2007 11:00:02 +0200
+Received: from arno by moog.chdir.org with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Fri, 20 Jul 2007 11:00:02 +0200
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Reduced allocation size for rx skb buffers, from 2308 bytes to 
-1356 per buffer.
+Hi,
 
-Signed-off-by: Masakazu Mokuno <mokuno@sm.sony.co.jp>
----
- drivers/net/ps3_gelic_net.c |   45 ++++++++++++++++++++++++++++++++++++--------
- drivers/net/ps3_gelic_net.h |   12 ++++++-----
- 2 files changed, 44 insertions(+), 13 deletions(-)
+Find attached a patch to get IPv6 Unique Local Addresses (FC00::/7)
+flagged unicast global in __ipv6_addr_type(), as expected by RFC 4193.
 
---- a/drivers/net/ps3_gelic_net.c
-+++ b/drivers/net/ps3_gelic_net.c
-@@ -917,31 +917,60 @@ static int gelic_net_decode_one_descr(st
- 		goto refill;
- 	}
+
+One easy way to see the current difference of handling with a more
+common unicast global address is by trying to insert a default route
+using a unique local address for the gateway: 
+
+$ sudo ip -6 addr add fd00::1/64 dev eth0
+$ sudo ip -6 route add default via fd00::2 dev eth0
+RTNETLINK answers: Invalid argument
+
+where sth like 2001:db8::1 (in fact, where first 3 bits are different of
+000 or 111) does work.
+
+
+The patch is against Linus git tree but the code in the modified file is
+pretty stable so it should apply without problems.
+
+One remark: as ULA get flagged as unicast global by that change, there
+might be a difference in address selection mechanism. Anyway, the
+longest prefix match rule should do his job if something better is
+available, i.e. a unique local address will not be selected as src or
+dst for something in 2000::/3, for instance. 
+
+Regards,
+
+a+
+
+ps : i'm aware LL addresses should be used for expressing gw, not global
+ones.
+
+
+diff --git a/net/ipv6/addrconf_core.c b/net/ipv6/addrconf_core.c
+index faaefb6..93b17d5 100644
+--- a/net/ipv6/addrconf_core.c
++++ b/net/ipv6/addrconf_core.c
+@@ -29,11 +29,13 @@ int __ipv6_addr_type(const struct in6_addr *addr)
  
--	if ((status != GELIC_NET_DESCR_COMPLETE) &&
--	    (status != GELIC_NET_DESCR_FRAME_END)) {
-+	if (status == GELIC_NET_DESCR_BUFFER_FULL) {
-+		/*
-+		 * Buffer full would occur if and only if
-+		 * the frame length was longer than the size of this
-+		 * descriptor's buffer.  If the frame length was equal
-+		 * to or shorter than buffer'size, FRAME_END condition
-+		 * would occur.
-+		 * Anyway this frame was longer than the MTU,
-+		 * just drop it.
-+		 */
-+		dev_info(ctodev(card), "overlength frame\n");
-+		goto refill;
-+	}
-+	/*
-+	 * descriptoers any other than FRAME_END here should
-+	 * be treated as error.
-+	 */
-+	if (status != GELIC_NET_DESCR_FRAME_END) {
- 		dev_dbg(ctodev(card), "RX descriptor with state %x\n",
- 			status);
- 		goto refill;
- 	}
+ 	st = addr->s6_addr32[0];
  
- 	/* ok, we've got a packet in descr */
--	gelic_net_pass_skb_up(descr, card); /* 1: skb_up sccess */
--
-+	gelic_net_pass_skb_up(descr, card);
- refill:
--	descr->next_descr_addr = 0; /* unlink the descr */
-+	/*
-+	 * So that always DMAC can see the end
-+	 * of the descriptor chain to avoid
-+	 * from unwanted DMAC overrun.
-+	 */
-+	descr->next_descr_addr = 0;
- 
- 	/* change the descriptor state: */
- 	gelic_net_set_descr_status(descr, GELIC_NET_DESCR_NOT_IN_USE);
- 
--	/* refill one desc
--	 * FIXME: this can fail, but for now, just leave this
--	 * descriptor without skb
-+	/*
-+	 * this call can fail, but for now, just leave this
-+	 * decriptor without skb
+-	/* Consider all addresses with the first three bits different of
+-	   000 and 111 as unicasts.
++	/* - Consider all addresses with the first three bits different of
++	     000 and 111 as unicasts.
++	   - Unique Local Addresses (FC00::/7, RFC 4193) are unicast global.
  	 */
- 	gelic_net_prepare_rx_descr(card, descr);
-+
- 	chain->head = descr;
- 	chain->tail = descr->next;
-+
-+	/*
-+	 * Set this descriptor the end of the chain.
-+	 */
- 	descr->prev->next_descr_addr = descr->bus_addr;
- 
-+	/*
-+	 * If dmac chain was met, DMAC stopped.
-+	 * thus re-enable it
-+	 */
- 	if (dmac_chain_ended) {
- 		card->rx_dma_restart_required = 1;
- 		dev_dbg(ctodev(card), "reenable rx dma scheduled\n");
---- a/drivers/net/ps3_gelic_net.h
-+++ b/drivers/net/ps3_gelic_net.h
-@@ -32,8 +32,8 @@
- #define GELIC_NET_RX_DESCRIPTORS        128 /* num of descriptors */
- #define GELIC_NET_TX_DESCRIPTORS        128 /* num of descriptors */
- 
--#define GELIC_NET_MAX_MTU               2308
--#define GELIC_NET_MIN_MTU               64
-+#define GELIC_NET_MAX_MTU               VLAN_ETH_FRAME_LEN
-+#define GELIC_NET_MIN_MTU               VLAN_ETH_ZLEN
- #define GELIC_NET_RXBUF_ALIGN           128
- #define GELIC_NET_RX_CSUM_DEFAULT       1 /* hw chksum */
- #define GELIC_NET_WATCHDOG_TIMEOUT      5*HZ
-@@ -81,7 +81,8 @@ enum gelic_net_int1_status {
- 					    */
- #define GELIC_NET_RXVLNPKT	0x00200000 /* VLAN packet */
- /* bit 20..16 reserved */
--#define GELIC_NET_RXRECNUM	0x0000ff00 /* reception receipt number */
-+#define GELIC_NET_RXRRECNUM	0x0000ff00 /* reception receipt number */
-+#define GELIC_NET_RXRRECNUM_SHIFT	8
- /* bit 7..0 reserved */
- 
- #define GELIC_NET_TXDESC_TAIL		0
-@@ -129,13 +130,14 @@ enum gelic_net_int1_status {
- 
- 
- enum gelic_net_descr_status {
--	GELIC_NET_DESCR_COMPLETE            = 0x00, /* used in rx and tx */
-+	GELIC_NET_DESCR_COMPLETE            = 0x00, /* used in tx */
-+	GELIC_NET_DESCR_BUFFER_FULL         = 0x00, /* used in rx */
- 	GELIC_NET_DESCR_RESPONSE_ERROR      = 0x01, /* used in rx and tx */
- 	GELIC_NET_DESCR_PROTECTION_ERROR    = 0x02, /* used in rx and tx */
- 	GELIC_NET_DESCR_FRAME_END           = 0x04, /* used in rx */
- 	GELIC_NET_DESCR_FORCE_END           = 0x05, /* used in rx and tx */
- 	GELIC_NET_DESCR_CARDOWNED           = 0x0a, /* used in rx and tx */
--	GELIC_NET_DESCR_NOT_IN_USE                  /* any other value */
-+	GELIC_NET_DESCR_NOT_IN_USE          = 0x0b  /* any other value */
- };
- /* for lv1_net_control */
- #define GELIC_NET_GET_MAC_ADDRESS               0x0000000000000001
-
---
-Masakazu MOKUNO
+-	if ((st & htonl(0xE0000000)) != htonl(0x00000000) &&
+-	    (st & htonl(0xE0000000)) != htonl(0xE0000000))
++	if (((st & htonl(0xE0000000)) != htonl(0x00000000) &&
++	     (st & htonl(0xE0000000)) != htonl(0xE0000000)) ||
++	    ((st & htonl(0xFE000000)) == htonl(0xFC000000)))
+ 		return (IPV6_ADDR_UNICAST |
+ 			IPV6_ADDR_SCOPE_TYPE(IPV6_ADDR_SCOPE_GLOBAL));
 
