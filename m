@@ -1,61 +1,88 @@
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: [ofa-general] Re: [PATCH 00/10] Implement batching skb API
-Date: Fri, 20 Jul 2007 18:32:50 +0530
-Message-ID: <OF7D4124DB.BCA4AB16-ON6525731E.00475350-6525731E.0047AC06@in.ibm.com>
-References: <20070720125423.GB13468@2ka.mipt.ru>
+From: "Robert P. J. Day" <rpjday@mindspring.com>
+Subject: Re: [PATCH] IP_VS should depend on EXPERIMENTAL ?
+Date: Fri, 20 Jul 2007 09:04:20 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0707200846170.13750@localhost.localdomain>
+References: <46A0A01A.7030403@googlemail.com> <Pine.LNX.4.64.0707200753300.10966@localhost.localdomain>
+ <46A0A7C2.3090006@googlemail.com> <Pine.LNX.4.64.0707200818010.12187@localhost.localdomain>
+ <46A0AB44.70009@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: jagana@us.ibm.com, mcarlson@broadcom.com, herbert@gondor.apana.org.au,
-	gaagaan@gmail.com, Robert.Olsson@data.slu.se,
-	kumarkr@linux.ibm.com, rdreier@cisco.com,
-	peter.p.waskiewicz.jr@intel.com, hadi@cyberus.ca,
-	kaber@trash.net, jeff@garzik.org, general@lists.openfabrics.org,
-	mchan@broadcom.com, tgraf@suug.ch, netdev@vger.kernel.org,
-	davem@davemloft.net, sri@us.ibm.com
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <20070720125423.GB13468@2ka.mipt.ru>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Gabriel C <nix.or.die@googlemail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1761715AbXGTNG3@vger.kernel.org>
+In-Reply-To: <46A0AB44.70009@googlemail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Evgeniy,
+On Fri, 20 Jul 2007, Gabriel C wrote:
 
-Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote on 07/20/2007 06:24:23 PM:
+> Robert P. J. Day wrote:
 
-> > After fine-tuning qdisc and other changes, I modified IPoIB to use this
-API,
-> > and now get good gains. Summary for TCP & No Delay: 1 process improves
-for
-> > all cases from 1.4% to 49.5%; 4 process has almost identical
-improvements
-> > from -1.7% to 59.1%; 16 process case also improves in the range of
--1.2% to
-> > 33.4%; while 64 process doesn't have much improvement (-3.3% to 12.4%).
-UDP
-> > was tested with 1 process netperf with small increase in BW but big
-> > improvement in Service Demand. Netperf latency tests show small drop in
-> > transaction rate (results in separate attachment).
+> > this has *nothing* to do with the aforementioned maturity levels.
+> > i understand entirely the inconsistency above.  what i'm
+> > suggesting is that it might very well be more appropriate to *drop
+> > the dependency* rather than munge the prompt to add the qualifier.
 >
-> What about round-robin tcp time and latency test? In theory such batching
-> mode should not change that timings, but practice can show new aspects.
-> I will review code later this week (likely tomorrow) and if there will
-> be some issues return back.
+> This is a thing the author/maintainer/subsystem maintainer should and need do.
+>
+> They know when something is not EXPERIMENTAL anymore.
 
-I had run RR test quite some time back and don't have the result at this
-time,
-other than remembering it was almost the same as the original. As I am
-running
-some tests on those systems at this time, I can send the results of RR
-tomorrow.
+agreed (sort of).  all i'm saying (and after this, i'll shut the heck
+up about it) is that, if you find a Kconfig entry of the form:
 
-Thanks,
+config FUBAR
+	prompt "whatever"
+	depends on ... && EXPERIMENTAL
 
-- KK
+and you want to make that selection consistent, you have two
+possibilities:
+
+1) add "(EXPERIMENTAL)" to the prompt to match the dependency, or
+2) drop the dependency on EXPERIMENTAL to match the prompt
+
+  i contend that, *for now*, it's a better investment in time to find
+entries like that that are *clearly* not experimental any more, and
+drop the dependency.  not only will that make it consistent, but it's
+unlikely that you'll ever have to *revert* that decision.
+
+  OTOH, it's quite possible that, after you add the prompt suffix of
+"(EXPERIMENTAL)" for consistency, the feature maintainer might come by
+tomorrow and say something like, "nah, that feature's been around for
+years, it's as stable as it gets," and will undo the patch you just
+made, wasting your time and effort.
+
+  lastly, i'm not convinced that it's *only* the feature maintainer
+that can make that decision.  surely, there's enough clever people
+here who can look at any given feature and say, "yeah, i've been using
+that for years, it's rock solid, it's stupid to keep that dependent on
+EXPERIMENTAL."
+
+  all i'm saying is, if you want to put some time in here, it's better
+invested in *removing* what are clearly ridiculous dependencies on
+EXPERIMENTAL, rather than *adding* even more of that labelling to the
+tree.
+
+rday
+
+p.s.  even if a given Kconfig entry *is* consistent, as in:
+
+config SNAFU
+	bool "... (EXPERIMENTAL)"
+	depends on ... && EXPERIMENTAL
+	...
+
+  it's clear that there's a pile of *that* stuff for which all
+references to EXPERIMENTAL can be dropped.  all in all, given the
+possible cleanup here, i'm thinking that going in and *adding* more
+EXPERIMENTAL clutter to the Kconfig files is going in exactly the
+wrong direction.
+
+--
+========================================================================
+Robert P. J. Day
+Linux Consulting, Training and Annoying Kernel Pedantry
+Waterloo, Ontario, CANADA
+
+http://fsdev.net/wiki/index.php?title=Main_Page
+========================================================================
