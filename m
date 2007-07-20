@@ -1,97 +1,47 @@
-From: Gabriel C <nix.or.die@googlemail.com>
-Subject: Re: [PATCH] IP_VS should depend on EXPERIMENTAL ?
-Date: Fri, 20 Jul 2007 14:32:04 +0200
-Message-ID: <46A0AB44.70009@googlemail.com>
-References: <46A0A01A.7030403@googlemail.com> <Pine.LNX.4.64.0707200753300.10966@localhost.localdomain> <46A0A7C2.3090006@googlemail.com> <Pine.LNX.4.64.0707200818010.12187@localhost.localdomain>
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Subject: [ofa-general] Re: [PATCH 03/10] dev.c changes.
+Date: Fri, 20 Jul 2007 17:55:18 +0530
+Message-ID: <OF5FB5DB1E.711307CE-ON6525731E.0043AC4C-6525731E.00443C1B@in.ibm.com>
+References: <46A09A85.7020500@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: "Robert P. J. Day" <rpjday@mindspring.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fonzie.hosting9000.com ([85.214.50.12]:42815 "EHLO
-	fonzie.hosting9000.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752660AbXGTMdr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jul 2007 08:33:47 -0400
-In-Reply-To: <Pine.LNX.4.64.0707200818010.12187@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
+Cc: jagana@us.ibm.com, johnpol@2ka.mipt.ru, herbert@gondor.apana.org.au,
+	gaagaan@gmail.com, Robert.Olsson@data.slu.se,
+	kumarkr@linux.ibm.com, rdreier@cisco.com,
+	peter.p.waskiewicz.jr@intel.com, hadi@cyberus.ca,
+	mcarlson@broadcom.com, jeff@garzik.org,
+	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
+	netdev@vger.kernel.org, davem@davemloft.net, sri@us.ibm.com
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <46A09A85.7020500@trash.net>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-Robert P. J. Day wrote:
-> On Fri, 20 Jul 2007, Gabriel C wrote:
-> 
->> Robert P. J. Day wrote:
->>> On Fri, 20 Jul 2007, Gabriel C wrote:
->>>
->>>> Hi,
->>>>
->>>> IP_VS has :
->>>>
->>>> ..
->>>>
->>>> tristate "IP virtual server support (EXPERIMENTAL)"
->>>>
->>>> ..
->>>>
->>>> but it does not depend on EXPERIMENTAL.
->>>>
->>>>
->>>> Signed-off-by: Gabriel Craciunescu <nix.or.die@googlemail.com>
->>>>
->>>> ---
->>>>
->>>>  net/ipv4/ipvs/Kconfig |    2 +-
->>>>  1 files changed, 1 insertions(+), 1 deletions(-)
->>>>
->>>> diff --git a/net/ipv4/ipvs/Kconfig b/net/ipv4/ipvs/Kconfig
->>>> index 09d0c3f..3c594ec 100644
->>>> --- a/net/ipv4/ipvs/Kconfig
->>>> +++ b/net/ipv4/ipvs/Kconfig
->>>> @@ -3,7 +3,7 @@
->>>>  #
->>>>  menuconfig IP_VS
->>>>  	tristate "IP virtual server support (EXPERIMENTAL)"
->>>> -	depends on NETFILTER
->>>> +	depends on NETFILTER && EXPERIMENTAL
->>>>  	---help---
->>>>  	  IP Virtual Server support will let you build a high-performance
->>>>  	  virtual server based on cluster of two or more real servers. This
->>> there's maturity-level inconsistency like that in a few places, like
->>> when stuff is tagged as EXPERIMENTAL, but labelled as OBSOLETE:
->>>
->> [ a lot examples ]
->>
->> I know that and there are a lot more things depending on
->> 'EXPERIMENTAL' and not having EXPERIMENTAL visible all over the tree
->> but that patch I've made for the _net_ part got NACK'ed while your
->> maturity idea and I rm -rf'ed all the other.
->>
->> This one has a missing depends on EXPERIMENTAL while saying it is.
->>
->> So *could* we please stop this maturity stuff for now ? I don't see
->> it in .23 nor .24 if at all.
-> 
-> this has *nothing* to do with the aforementioned maturity levels.  i
-> understand entirely the inconsistency above.  what i'm suggesting is
-> that it might very well be more appropriate to *drop the dependency*
-> rather than munge the prompt to add the qualifier.
+Patrick McHardy <kaber@trash.net> wrote on 07/20/2007 04:50:37 PM:
 
-This is a thing the author/maintainer/subsystem maintainer should and need do.
+> 32 bytes? I count 16, - 4 for the pointer, so its 12 bytes of waste.
+> If you'd use it for gso_skb it would come down to 8 bytes. struct
+> net_device is a pig already, and there are better ways to reduce this
+> than starting to allocating single members with a few bytes IMO.
 
-They know when something is not EXPERIMENTAL anymore.
+Currently, this allocated pointer is an indication to let kernel users
+(qdisc_restart, setting/resetting tx_batch_skbs) know whether batching
+is enabled or disabled. Removing the pointer and making it static means
+those users cannot figure out this information . Adding another field to
+netdev may be a bad idea, so I am thinking of overloading dev->features
+to add a new flag (other than NETIF_F_BATCH_SKBS, since that is a driver
+capabilities flag) which can be set/cleared based on NETIF_F_BATCH_SKBS
+bit. Does this approach sound OK ?
 
-> 
-> i think it's safe to say that there's *piles* of stuff in the Kconfig
-> files that is still saddled with an EXPERIMENTAL dependency that's
-> been around for years and has stabilized nicely.  
+Thanks,
 
-I agree with you , there may be a lot things are marked EXPERIMENTAL but aren't anymore.
-
->i mean, seriously,
-> is IP virtual server support still "experimental" in any way?
-> 
-> rday
-
-
-Gabriel
+- KK
