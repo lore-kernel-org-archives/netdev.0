@@ -1,40 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: ~3 hours old git tree: Virtual device lo asks to queue packet!
-Date: Fri, 20 Jul 2007 22:33:52 -0700 (PDT)
-Message-ID: <20070720.223352.71090112.davem@davemloft.net>
-References: <469F38BE.4030401@trash.net>
-	<20070720.194743.71090882.davem@davemloft.net>
-	<46A17FA2.8010906@trash.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH]: Resurrect napi_poll patch.
+Date: Sat, 21 Jul 2007 07:46:39 +0200
+Message-ID: <46A19DBF.6030902@trash.net>
+References: <20070720.223129.59470764.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: peter.p.waskiewicz.jr@intel.com, arekm@maven.pl,
-	netdev@vger.kernel.org
-To: kaber@trash.net
+Cc: netdev@vger.kernel.org, shemminger@linux-foundation.org,
+	rusty@rustcorp.com.au, jgarzik@pobox.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40757
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752817AbXGUFdx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jul 2007 01:33:53 -0400
-In-Reply-To: <46A17FA2.8010906@trash.net>
+Received: from stinky.trash.net ([213.144.137.162]:44358 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755384AbXGUFsN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jul 2007 01:48:13 -0400
+In-Reply-To: <20070720.223129.59470764.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Sat, 21 Jul 2007 05:38:10 +0200
+David Miller wrote:
+[ huge patch, not looked at it :) ]
 
-> Yes, some constant limit definitely makes sense. The Tx batching
-> patches motivated me to work through struct net_device with pahole
-> and I have some patches that rearrange it to save about 64 bytes and
-> move some members from very unfortunate positions to better ones,
-> but they still leave two 32 byte holes on SMP (with 64 byte
-> cachelines). Plugging one of these with a statically sized subqueue
-> array would be perfect since one of the holes is within the Tx
-> cachelines anyway (at least for now, until we add subqueue locks ..).
+> One area for discussion is what to do about rtnetlink, it allows
+> setting the dev->napi.weight, but we need to extend it so it can
+> do something sane in multi-napi-per-netdev situations.
 
-This sounds great.
 
-> Its 2.6.24 material though, and I very much hope they will clash
-> with Stephen's plans to introduce struct net_device_ops.
+I believe the compat attribute should work fine. One thing thing
+that is not explicitly supported as datatype, but works fine, is
+lists of attributes (using nla_for_each_attr), which looks like a
+good match for this case. But I think its questionable whether we
+should put any effort in NAPI rtnetlink support. It seems to driver
+specific for rtnetlink to me, and I'm not aware of any user of this.
+Ethtool might have its own compatibility issues, I'm not sure, but
+I don't think it would hurt to simply remove it from rtnetlink.
 
-Also see the napi_struct stuff I just posted as well.
