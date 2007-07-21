@@ -1,33 +1,60 @@
-From: Al Viro <viro@ftp.linux.org.uk>
-Subject: NET_DMA: where do we ever call dma_skb_copy_datagram_iovec() with NULL pinned_list?
-Date: Sat, 21 Jul 2007 04:48:29 +0100
-Message-ID: <20070721034829.GL21668@ftp.linux.org.uk>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: Question: how to detect if a qdisc is root or not?
+Date: Sat, 21 Jul 2007 06:01:07 +0200
+Message-ID: <46A18503.8000800@trash.net>
+References: <D5C1322C3E673F459512FB59E0DDC329034460BA@orsmsx414.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: christopher.leech@intel.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:37219 "EHLO
-	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761148AbXGUDsa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jul 2007 23:48:30 -0400
-Content-Disposition: inline
+Received: from stinky.trash.net ([213.144.137.162]:42851 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755128AbXGUECj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jul 2007 00:02:39 -0400
+In-Reply-To: <D5C1322C3E673F459512FB59E0DDC329034460BA@orsmsx414.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-	AFAICS, all callers of dma_skb_copy_datagram_iovec()
-are either
-	* recursive for fragments, pass pinned_list unchanged or
-	* called from tcp, with pinned_list coming from
-tp->ucopy.pinned_list and only when tp->ucopy.dma_chan is non-NULL.
+Waskiewicz Jr, Peter P wrote:
+>>Its set after grafting the parent, which is after initialization.
+>>I think what should work is to set it in qdisc_create 
+>>instead, sch_api.c around line 490:
+>>
+>>+	sch->parent = handle;
+>>
+>>        if (handle == TC_H_INGRESS) {
+>>                sch->flags |= TCQ_F_INGRESS;
+>>                sch->stats_lock = &dev->ingress_lock; ...
+>>
+>>and remove the initialization in qdisc_graft. That would 
+>>additionally have the benefit that ingress qdiscs also have 
+>>it initialized properly.
+> 
+> 
+> I just sent out a patch to fix this.
 
-Now, all non-NULL assignments to ->dma_chan have the same form:
-	if (!tp->ucopy.dma_chan && tp->ucopy.pinned_list)
-		tp->ucopy.dma_chan = get_softnet_dma();
-IOW, if ->ucopy.pinned_list stays NULL, ->ucopy.dma_chan will do the same.
 
-Moreover, any place that resets ->ucopy.pinned_list will also reset
-->ucopy.dma_chan.
+I didn't see it yet.
 
-IOW, we can't ever get non-NULL tp->ucopy.dma_chan while tp->ucopy.pinned_list
-is NULL.  So how can we ever get to the dma_memcpy_to_kernel_iovec()?
+> Sorry for the delay; my
+> development machine oops'd in the middle of some disk I/O, and it
+> corrupted part of the inode table...the ext3 journal application seemed
+> to make it worse too.  Rebuilt the machine, so I'm back on my feet.
+
+
+No worries :)
+
+> Anyways, I tried a few different things, and what it looks like is
+> sch->parent will be NULL (0) for the top-level device.  This is correct,
+> and trying to mess with that screws up qdisc_graft() when unloading the
+> qdisc.  I also tried adding a TCQ_F_ROOT flag to sch->flags when classid
+> is TC_H_ROOT, but that also screwed up unloading the qdisc.
+
+
+I dont think I understand. Whats the problem with setting sch->parent
+on initialization instead on grafting as I did in my example patch?
+Please explain the problems arrising on unload in detail.
+
+
