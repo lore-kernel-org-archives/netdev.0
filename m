@@ -1,90 +1,48 @@
-From: Chris Snook <csnook@redhat.com>
-Subject: Re: [PATCH][12/37] Clean up duplicate includes in drivers/net/
-Date: Sat, 21 Jul 2007 12:40:28 -0400
-Message-ID: <46A236FC.2080300@redhat.com>
-References: <200707211702.46375.jesper.juhl@gmail.com>
+From: Andi Kleen <ak@suse.de>
+Subject: Re: Virtual device lo asks to queue packet! since -git15 II
+Date: Sat, 21 Jul 2007 18:49:30 +0200
+Message-ID: <200707211849.30469.ak@suse.de>
+References: <200707210949.22880.ak@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: info@netxen.com, Patrick McHardy <kaber@coreworks.de>,
-	Judy Fischbach <jfisch@cs.pdx.edu>, Luke Yang <luke.yang@analog.com>,
-	bonding-devel@lists.sourceforge.net,
-	Bryan Wu <bryan.wu@analog.com>, kong.lai@tundra.com,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	James Morris <jmorris@namei.org>, linuxppc-embedded@ozlabs.org,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	Alex V Lasso <a_villacis@palosanto.com>,
-	Ulrich Kunitz <kune@deine-taler.de>,
-	Chad Tindel <ctindel@users.sourceforge.net>,
-	Amit S Kale <amitkale@netxen.com>, Jay Cliburn <jcliburn@gmail.com>,
-	Samuel Ortiz <samuel@sortiz.org>, Brian Pugh <bpugh@cs.pdx.edu>,
-	Daniel Drake <dsd@gentoo.org>, alexandre.bounine@tundra.com,
-	Pantelis Antoniou <panto@intracom.gr>, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Ralf Baechle <ralf@linux-mips.org>, Vitaly Bordug <vbord
-To: Jesper Juhl <jesper.juhl@gmail.com>, viro@ftp.linux.org.uk
-Return-path: <linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
-In-Reply-To: <200707211702.46375.jesper.juhl@gmail.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
-	<mailto:linuxppc-embedded-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-embedded>
-List-Post: <mailto:linuxppc-embedded@ozlabs.org>
-List-Help: <mailto:linuxppc-embedded-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
-	<mailto:linuxppc-embedded-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cantor2.suse.de ([195.135.220.15]:60277 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750933AbXGUQth (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 21 Jul 2007 12:49:37 -0400
+Received: from Relay1.suse.de (mail2.suse.de [195.135.221.8])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by mx2.suse.de (Postfix) with ESMTP id 632CC21662
+	for <netdev@vger.kernel.org>; Sat, 21 Jul 2007 18:49:36 +0200 (CEST)
+In-Reply-To: <200707210949.22880.ak@suse.de>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jesper Juhl wrote:
-> Hi,
+On Saturday 21 July 2007 09:49:22 Andi Kleen wrote:
 > 
-> This patch cleans up duplicate includes in
-> 	 drivers/net/
+> FYI
 > 
+> Since -git15 (probably David's merge) I see a lot of 
 > 
-> Signed-off-by: Jesper Juhl <jesper.juhl@gmail.com>
-> ---
+> Virtual device lo asks to queue packet!
+> Virtual device lo asks to queue packet!
+> Virtual device lo asks to queue packet!
+> Virtual device lo asks to queue packet!
+> Virtual device lo asks to queue packet!
+> Virtual device lo asks to queue packet!
 > 
-> diff --git a/drivers/net/atl1/atl1_main.c b/drivers/net/atl1/atl1_main.c
-> index fd1e156..4a18b88 100644
-> --- a/drivers/net/atl1/atl1_main.c
-> +++ b/drivers/net/atl1/atl1_main.c
-> @@ -75,7 +75,6 @@
->  #include <linux/compiler.h>
->  #include <linux/delay.h>
->  #include <linux/mii.h>
-> -#include <linux/interrupt.h>
->  #include <net/checksum.h>
->  
->  #include <asm/atomic.h>
+> during a LTP run on a nfsroot system
 
-Define "duplicate".  I ask because this patch just got posted a few days ago:
 
-Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
----
-  drivers/net/atl1/atl1_main.c |    1 +
-  1 files changed, 1 insertions(+), 0 deletions(-)
+... and my firefox just hung itself up trying to connect to localhost:111
+(in -git16 now)
 
-diff --git a/drivers/net/atl1/atl1_main.c b/drivers/net/atl1/atl1_main.c
-index 4a18b88..fd1e156 100644
---- a/drivers/net/atl1/atl1_main.c
-+++ b/drivers/net/atl1/atl1_main.c
-@@ -75,6 +75,7 @@
-  #include <linux/compiler.h>
-  #include <linux/delay.h>
-  #include <linux/mii.h>
-+#include <linux/interrupt.h>
-  #include <net/checksum.h>
+Network definitely seems to have issues
 
-  #include <asm/atomic.h>
+-Andi
 
-I've always been under the impression that one should include all the files 
-whose contents you use directly, because other includes that happen to include 
-them might no longer need to in the future and cease including them.  You can 
-fight it out with Al if you feel like it.  I'm keeping the rest of the CC list 
-because the other maintainers might have similar feelings about the 
-appropriateness of these includes in their drivers.
-
-	-- Chris
