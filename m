@@ -1,21 +1,20 @@
 From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: [ofa-general] Re: [PATCH 04/10] net-sysfs.c changes.
-Date: Sat, 21 Jul 2007 12:16:30 +0530
-Message-ID: <OFFAA4E4C4.F1496A54-ON6525731F.0025194E-6525731F.0025379C@in.ibm.com>
-References: <20070720172203.0eaeea86@oldman>
+Subject: [ofa-general] Re: [PATCH 05/10] sch_generic.c changes.
+Date: Sat, 21 Jul 2007 12:26:23 +0530
+Message-ID: <OF206CB1B7.31D1C39B-ON6525731F.00254E4C-6525731F.00261F1A@in.ibm.com>
+References: <46A0FC04.1000006@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Cc: jagana@us.ibm.com, johnpol@2ka.mipt.ru, herbert@gondor.apana.org.au,
 	gaagaan@gmail.com, Robert.Olsson@data.slu.se,
-	kumarkr@linux.ibm.com, mcarlson@broadcom.com,
+	kumarkr@linux.ibm.com, rdreier@cisco.com,
 	peter.p.waskiewicz.jr@intel.com, hadi@cyberus.ca,
-	Patrick McHardy <kaber@trash.net>, jeff@garzik.org,
+	mcarlson@broadcom.com, jeff@garzik.org,
 	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
-	netdev@vger.kernel.org, sri@us.ibm.com, davem@davemloft.net,
-	rdreier@cisco.com
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+	netdev@vger.kernel.org, davem@davemloft.net, sri@us.ibm.com
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <20070720172203.0eaeea86@oldman>
+In-Reply-To: <46A0FC04.1000006@trash.net>
 List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
 	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
 List-Archive: <http://lists.openfabrics.org/pipermail/general>
@@ -27,35 +26,55 @@ Sender: general-bounces@lists.openfabrics.org
 Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger <shemminger@linux-foundation.org> wrote on 07/20/2007
-09:52:03 PM:
-> Patrick McHardy <kaber@trash.net> wrote:
+Hi Patrick,
+
+Patrick McHardy <kaber@trash.net> wrote on 07/20/2007 11:46:36 PM:
+
+> Krishna Kumar wrote:
+> > +static inline int get_skb(struct net_device *dev, struct Qdisc *q,
+> > +           struct sk_buff_head *blist,
+> > +           struct sk_buff **skbp)
+> > +{
+> > +   if (likely(!blist) || (!skb_queue_len(blist) && qdisc_qlen(q) <=
+1)) {
+> > +      return likely((*skbp = dev_dequeue_skb(dev, q)) != NULL);
+> > +   } else {
+> > +      int max = dev->tx_queue_len - skb_queue_len(blist);
 >
-> > Krishna Kumar2 wrote:
-> > > Patrick McHardy <kaber@trash.net> wrote on 07/20/2007 03:37:20 PM:
-> > >
-> > >
-> > >
-> > >> rtnetlink support seems more important than sysfs to me.
-> > >>
-> > >
-> > > Thanks, I will add that as a patch. The reason to add to sysfs is
-that
-> > > it is easier to change for a user (and similar to tx_queue_len).
-> > >
-> >
 >
-> But since batching is so similar to TSO, i really should be part of the
-> flags and controlled by ethtool like other offload flags.
+> I'm assuming the driver will simply leave excess packets in the
+> blist for the next run.
 
-So should I add all three interfaces (or which ones) :
+Yes, and the next run will be scheduled even if no more xmits are called
+either
+due to qdisc_restart()'s call to driver returning :
+      BUSY : driver failed to send all, net_tx_action will handle this
+later (the
+             case you mentioned)
+      OK : and qlen is > 0, return 1 and __qdisc_run() will re-retry (where
+            blist len will become zero as driver processed EVERYTHING on
+blist)
 
-      1. /sys (like for tx_queue_len)
-      2. netlink
-      3. ethtool.
+> The check for tx_queue_len is wrong though,
+> its only a default which can be overriden and some qdiscs don't
+> care for it at all.
 
-Or only 2 & 3 are enough ?
+I think it should not matter whether qdiscs use this or not, or even if it
+is modified (unless it is made zero in which case this breaks). The
+intention behind this check is to make sure that not more than tx_queue_len
+skbs are in all queues put together (q->qdisc + dev->skb_blist), otherwise
+the blist can become too large and breaks the idea of tx_queue_len. Is that
+a good justification ?
 
-thanks,
+> > -void __qdisc_run(struct net_device *dev)
+> > +void __qdisc_run(struct net_device *dev, struct sk_buff_head *blist)
+>
+>
+> And the patches should really be restructured so this change is
+> in the same patch changing the header and the caller, for example.
+
+Ah, OK.
+
+Thanks,
 
 - KK
