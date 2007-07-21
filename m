@@ -1,80 +1,60 @@
 From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: [ofa-general] Re: [PATCH 05/10] sch_generic.c changes.
-Date: Sat, 21 Jul 2007 12:26:23 +0530
-Message-ID: <OF206CB1B7.31D1C39B-ON6525731F.00254E4C-6525731F.00261F1A@in.ibm.com>
-References: <46A0FC04.1000006@trash.net>
+Subject: Re: [PATCH 05/10] sch_generic.c changes.
+Date: Sat, 21 Jul 2007 12:54:08 +0530
+Message-ID: <OFF2224CCE.8045DF8B-ON6525731F.00287359-6525731F.0028A9BC@in.ibm.com>
+References: <OF206CB1B7.31D1C39B-ON6525731F.00254E4C-6525731F.00261F1A@LocalDomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Cc: jagana@us.ibm.com, johnpol@2ka.mipt.ru, herbert@gondor.apana.org.au,
-	gaagaan@gmail.com, Robert.Olsson@data.slu.se,
-	kumarkr@linux.ibm.com, rdreier@cisco.com,
-	peter.p.waskiewicz.jr@intel.com, hadi@cyberus.ca,
-	mcarlson@broadcom.com, jeff@garzik.org,
-	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
-	netdev@vger.kernel.org, davem@davemloft.net, sri@us.ibm.com
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <46A0FC04.1000006@trash.net>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Cc: davem@davemloft.net, gaagaan@gmail.com,
+	general@lists.openfabrics.org, hadi@cyberus.ca,
+	herbert@gondor.apana.org.au, jagana@us.ibm.com, jeff@garzik.org,
+	johnpol@2ka.mipt.ru, Patrick McHardy <kaber@trash.net>,
+	kumarkr@linux.ibm.com, mcarlson@broadcom.com, mchan@broadcom.com,
+	netdev@vger.kernel.org, peter.p.waskiewicz.jr@intel.com,
+	rdreier@cisco.com, rick.jones2@hp.com, Robert.Olsson@data.slu.se,
+	sri@us.ibm.com, tgraf@suug.ch, xma@us.ibm.com
+To: Krishna Kumar2 <krkumar2@in.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ausmtp04.au.ibm.com ([202.81.18.152]:49462 "EHLO
+	ausmtp04.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753913AbXGUItS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jul 2007 04:49:18 -0400
+Received: from d23relay01.au.ibm.com (d23relay01.au.ibm.com [202.81.18.232])
+	by ausmtp04.au.ibm.com (8.13.8/8.13.8) with ESMTP id l6L9CVG3122384
+	for <netdev@vger.kernel.org>; Sat, 21 Jul 2007 19:12:31 +1000
+Received: from d23av02.au.ibm.com (d23av02.au.ibm.com [9.190.250.243])
+	by d23relay01.au.ibm.com (8.13.8/8.13.8/NCO v8.4) with ESMTP id l6L8miQM059904
+	for <netdev@vger.kernel.org>; Sat, 21 Jul 2007 18:48:44 +1000
+Received: from d23av02.au.ibm.com (loopback [127.0.0.1])
+	by d23av02.au.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l6L8nDP6004339
+	for <netdev@vger.kernel.org>; Sat, 21 Jul 2007 18:49:16 +1000
+In-Reply-To: <OF206CB1B7.31D1C39B-ON6525731F.00254E4C-6525731F.00261F1A@LocalDomain>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Patrick,
+Krishna Kumar2/India/IBM wrote on 07/21/2007 12:26:23 PM:
 
-Patrick McHardy <kaber@trash.net> wrote on 07/20/2007 11:46:36 PM:
-
-> Krishna Kumar wrote:
-> > +static inline int get_skb(struct net_device *dev, struct Qdisc *q,
-> > +           struct sk_buff_head *blist,
-> > +           struct sk_buff **skbp)
-> > +{
-> > +   if (likely(!blist) || (!skb_queue_len(blist) && qdisc_qlen(q) <=
-1)) {
-> > +      return likely((*skbp = dev_dequeue_skb(dev, q)) != NULL);
-> > +   } else {
-> > +      int max = dev->tx_queue_len - skb_queue_len(blist);
+> Hi Patrick,
 >
+> Patrick McHardy <kaber@trash.net> wrote on 07/20/2007 11:46:36 PM:
 >
-> I'm assuming the driver will simply leave excess packets in the
-> blist for the next run.
+> > The check for tx_queue_len is wrong though,
+> > its only a default which can be overriden and some qdiscs don't
+> > care for it at all.
 
-Yes, and the next run will be scheduled even if no more xmits are called
-either
-due to qdisc_restart()'s call to driver returning :
-      BUSY : driver failed to send all, net_tx_action will handle this
-later (the
-             case you mentioned)
-      OK : and qlen is > 0, return 1 and __qdisc_run() will re-retry (where
-            blist len will become zero as driver processed EVERYTHING on
-blist)
+> I think it should not matter whether qdiscs use this or not, or even if
+it
+> is modified (unless it is made zero in which case this breaks). The
+> intention behind this check is to make sure that not more than
+tx_queue_len
+> skbs are in all queues put together (q->qdisc + dev->skb_blist),
+otherwise
+> the blist can become too large and breaks the idea of tx_queue_len. Is
+that
+> a good justification ?
 
-> The check for tx_queue_len is wrong though,
-> its only a default which can be overriden and some qdiscs don't
-> care for it at all.
+Also, if tx_queue_len is set to zero, I think my code will not execute and
+the existing code will break at rc = q->enqueue() (for sched's checking
+queue
+limits).
 
-I think it should not matter whether qdiscs use this or not, or even if it
-is modified (unless it is made zero in which case this breaks). The
-intention behind this check is to make sure that not more than tx_queue_len
-skbs are in all queues put together (q->qdisc + dev->skb_blist), otherwise
-the blist can become too large and breaks the idea of tx_queue_len. Is that
-a good justification ?
-
-> > -void __qdisc_run(struct net_device *dev)
-> > +void __qdisc_run(struct net_device *dev, struct sk_buff_head *blist)
->
->
-> And the patches should really be restructured so this change is
-> in the same patch changing the header and the caller, for example.
-
-Ah, OK.
-
-Thanks,
-
-- KK
