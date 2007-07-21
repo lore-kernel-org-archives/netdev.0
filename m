@@ -1,36 +1,80 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: RE: Question: how to detect if a qdisc is root or not?
-Date: Sat, 21 Jul 2007 11:31:23 -0700
-Message-ID: <D5C1322C3E673F459512FB59E0DDC32903446217@orsmsx414.amr.corp.intel.com>
-References: <20070720.223315.41635979.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Virtual device lo asks to queue packet! since -git15
+Date: Sat, 21 Jul 2007 11:53:04 -0700 (PDT)
+Message-ID: <20070721.115304.112624318.davem@davemloft.net>
+References: <200707210949.22880.ak@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
-To: "David Miller" <davem@davemloft.net>, <kaber@trash.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: ak@suse.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:26358 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753664AbXGUSbZ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jul 2007 14:31:25 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20070720.223315.41635979.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39990
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753134AbXGUSxG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jul 2007 14:53:06 -0400
+In-Reply-To: <200707210949.22880.ak@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> From: Patrick McHardy <kaber@trash.net>
-> Date: Sat, 21 Jul 2007 06:01:07 +0200
-> 
-> > Waskiewicz Jr, Peter P wrote:
-> > > I just sent out a patch to fix this.
-> > 
-> > I didn't see it yet.
-> 
-> VGER ate it for some reason and I didn't notice it during my 
-> daily bounce analysis.  I asked him on IRC to resend it, but 
-> he's away from the computer already :)
+From: Andi Kleen <ak@suse.de>
+Date: Sat, 21 Jul 2007 09:49:22 +0200
 
-I'll get it resent today.  Sorry for the delay.
+> Since -git15 (probably David's merge) I see a lot of 
+> 
+> Virtual device lo asks to queue packet!
+> Virtual device lo asks to queue packet!
+> Virtual device lo asks to queue packet!
+> Virtual device lo asks to queue packet!
+> Virtual device lo asks to queue packet!
+> Virtual device lo asks to queue packet!
+> 
+> during a LTP run on a nfsroot system
 
--PJ
+Yes I have a fix pending in my tree for this.
+
+commit 31ce72a6b1c7635259cf522459539c0611f2c50c
+Author: Patrick McHardy <kaber@trash.net>
+Date:   Fri Jul 20 19:45:45 2007 -0700
+
+    [NET]: Fix loopback crashes when multiqueue is enabled.
+    
+    From: Patrick McHardy <kaber@trash.net>
+    
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 9820ca1..4a616d7 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -575,7 +575,7 @@ struct net_device
+ 
+ 	/* The TX queue control structures */
+ 	unsigned int			egress_subqueue_count;
+-	struct net_device_subqueue	egress_subqueue[0];
++	struct net_device_subqueue	egress_subqueue[1];
+ };
+ #define to_net_dev(d) container_of(d, struct net_device, dev)
+ 
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 38212c3..ee40355 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3624,7 +3624,7 @@ struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
+ 
+ 	/* ensure 32-byte alignment of both the device and private area */
+ 	alloc_size = (sizeof(*dev) + NETDEV_ALIGN_CONST +
+-		     (sizeof(struct net_device_subqueue) * queue_count)) &
++		     (sizeof(struct net_device_subqueue) * (queue_count - 1))) &
+ 		     ~NETDEV_ALIGN_CONST;
+ 	alloc_size += sizeof_priv + NETDEV_ALIGN_CONST;
+ 
+@@ -3642,7 +3642,7 @@ struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
+ 		dev->priv = ((char *)dev +
+ 			     ((sizeof(struct net_device) +
+ 			       (sizeof(struct net_device_subqueue) *
+-				queue_count) + NETDEV_ALIGN_CONST)
++				(queue_count - 1)) + NETDEV_ALIGN_CONST)
+ 			      & ~NETDEV_ALIGN_CONST));
+ 	}
+ 
