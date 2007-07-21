@@ -1,60 +1,63 @@
 From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: Re: [PATCH 05/10] sch_generic.c changes.
-Date: Sat, 21 Jul 2007 12:54:08 +0530
-Message-ID: <OFF2224CCE.8045DF8B-ON6525731F.00287359-6525731F.0028A9BC@in.ibm.com>
-References: <OF206CB1B7.31D1C39B-ON6525731F.00254E4C-6525731F.00261F1A@LocalDomain>
+Subject: [ofa-general] Re: [PATCH 03/10] dev.c changes.
+Date: Sat, 21 Jul 2007 12:14:12 +0530
+Message-ID: <OF2F4CD3AD.13BD72EC-ON6525731F.00242872-6525731F.002501AC@in.ibm.com>
+References: <1184953459.12431.21.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Cc: davem@davemloft.net, gaagaan@gmail.com,
-	general@lists.openfabrics.org, hadi@cyberus.ca,
-	herbert@gondor.apana.org.au, jagana@us.ibm.com, jeff@garzik.org,
-	johnpol@2ka.mipt.ru, Patrick McHardy <kaber@trash.net>,
-	kumarkr@linux.ibm.com, mcarlson@broadcom.com, mchan@broadcom.com,
-	netdev@vger.kernel.org, peter.p.waskiewicz.jr@intel.com,
-	rdreier@cisco.com, rick.jones2@hp.com, Robert.Olsson@data.slu.se,
-	sri@us.ibm.com, tgraf@suug.ch, xma@us.ibm.com
-To: Krishna Kumar2 <krkumar2@in.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ausmtp04.au.ibm.com ([202.81.18.152]:49462 "EHLO
-	ausmtp04.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753913AbXGUItS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jul 2007 04:49:18 -0400
-Received: from d23relay01.au.ibm.com (d23relay01.au.ibm.com [202.81.18.232])
-	by ausmtp04.au.ibm.com (8.13.8/8.13.8) with ESMTP id l6L9CVG3122384
-	for <netdev@vger.kernel.org>; Sat, 21 Jul 2007 19:12:31 +1000
-Received: from d23av02.au.ibm.com (d23av02.au.ibm.com [9.190.250.243])
-	by d23relay01.au.ibm.com (8.13.8/8.13.8/NCO v8.4) with ESMTP id l6L8miQM059904
-	for <netdev@vger.kernel.org>; Sat, 21 Jul 2007 18:48:44 +1000
-Received: from d23av02.au.ibm.com (loopback [127.0.0.1])
-	by d23av02.au.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l6L8nDP6004339
-	for <netdev@vger.kernel.org>; Sat, 21 Jul 2007 18:49:16 +1000
-In-Reply-To: <OF206CB1B7.31D1C39B-ON6525731F.00254E4C-6525731F.00261F1A@LocalDomain>
-Sender: netdev-owner@vger.kernel.org
+Cc: jagana@us.ibm.com, johnpol@2ka.mipt.ru, herbert@gondor.apana.org.au,
+	gaagaan@gmail.com, Robert.Olsson@data.slu.se,
+	kumarkr@linux.ibm.com, mcarlson@broadcom.com,
+	peter.p.waskiewicz.jr@intel.com, hadi@cyberus.ca,
+	kaber@trash.net, jeff@garzik.org, general@lists.openfabrics.org,
+	mchan@broadcom.com, tgraf@suug.ch, netdev@vger.kernel.org,
+	davem@davemloft.net, rdreier@cisco.com
+To: Sridhar Samudrala <sri@us.ibm.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <1184953459.12431.21.camel@localhost.localdomain>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-Krishna Kumar2/India/IBM wrote on 07/21/2007 12:26:23 PM:
+Hi Sridhar,
 
-> Hi Patrick,
+Sridhar Samudrala <sri@us.ibm.com> wrote on 07/20/2007 11:14:19 PM:
+
+> > @@ -1566,7 +1605,7 @@ gso:
+> >           /* reset queue_mapping to zero */
+> >           skb->queue_mapping = 0;
+> >           rc = q->enqueue(skb, q);
+> > -         qdisc_run(dev);
+> > +         qdisc_run(dev, NULL);
 >
-> Patrick McHardy <kaber@trash.net> wrote on 07/20/2007 11:46:36 PM:
->
-> > The check for tx_queue_len is wrong though,
-> > its only a default which can be overriden and some qdiscs don't
-> > care for it at all.
+> OK. So you are passing a NULL blist here. However, i am
+> not sure why batching is not used in this situation.
 
-> I think it should not matter whether qdiscs use this or not, or even if
-it
-> is modified (unless it is made zero in which case this breaks). The
-> intention behind this check is to make sure that not more than
-tx_queue_len
-> skbs are in all queues put together (q->qdisc + dev->skb_blist),
-otherwise
-> the blist can become too large and breaks the idea of tx_queue_len. Is
-that
-> a good justification ?
+Actually it could be used, but in most cases there will be only
+one skb. If I pass the blist here, the result (for batching
+case) will be to put one single skb into the blist and call
+the new xmit API. That wastes cycles as we take a skb out
+from the queue (as in regular code) and then add it to the
+blist (different in the new code) and then the driver has to
+remove this skb from the blist (different in the new code).
+I could try batching but then require there are more than
+1 skbs before adding to the blist (or the blist doesn't already
+have skbs, in which case adding even one skb makes sense). Also,
+it will have a slight impact for regular drivers where for each
+xmit, one extra dereference for dev->skb_blist (which is always
+NULL) is made, which was another reason to always pass NULL.
 
-Also, if tx_queue_len is set to zero, I think my code will not execute and
-the existing code will break at rc = q->enqueue() (for sched's checking
-queue
-limits).
+I will check what the results are by giving passing blist here
+too and make the above change. I will run tests for that (as
+well as NETPERF RR test as asked by Evgeniy).
 
+Thanks,
+
+- KK
