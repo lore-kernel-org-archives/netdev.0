@@ -1,34 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: net/ipv4/inetpeer.c stack warnings
-Date: Fri, 20 Jul 2007 19:39:26 -0700 (PDT)
-Message-ID: <20070720.193926.92584343.davem@davemloft.net>
-References: <469F5941.7090900@googlemail.com>
-	<469F5DBB.3080106@trash.net>
+Subject: Re: ~3 hours old git tree: Virtual device lo asks to queue packet!
+Date: Fri, 20 Jul 2007 19:47:43 -0700 (PDT)
+Message-ID: <20070720.194743.71090882.davem@davemloft.net>
+References: <200707190819.53364.arekm@maven.pl>
+	<469F2E14.9050200@trash.net>
+	<469F38BE.4030401@trash.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nix.or.die@googlemail.com, linux-kernel@vger.kernel.org,
+Cc: peter.p.waskiewicz.jr@intel.com, arekm@maven.pl,
 	netdev@vger.kernel.org
 To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:32934
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53788
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1759062AbXGUCj1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jul 2007 22:39:27 -0400
-In-Reply-To: <469F5DBB.3080106@trash.net>
+	by vger.kernel.org with ESMTP id S1752458AbXGUCrn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jul 2007 22:47:43 -0400
+In-Reply-To: <469F38BE.4030401@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Patrick McHardy <kaber@trash.net>
-Date: Thu, 19 Jul 2007 14:48:59 +0200
+Date: Thu, 19 Jul 2007 12:11:10 +0200
 
-> Gabriel C wrote:
-> > Hello ,
-> >
-> > I noticed on current git this warning in net/ipv4/inetpeer.c
+> The easiest fix would be to use egress_subqueue[1] in struct
+> net_device, but I think that may cause warnings with newer gccs
+> when using a constant index that is > 0. OTOH using constant
+> indices doesn't seem to make much sense for the subqueue array.
 > 
-> Yeah, I have no idea why the gcc people thought that this was
-> something worth warning about. Especially since explicitly
-> checking for != NULL silences the warning again.
+> Arkadiusz, does this patch fix the problem?
 
-Sigh, applied :-)
+I've applied this, but long term we should either:
+
+1) Make loopback_dev dynamically allocated just like every
+   other netdev, so make loopback_init() a postcore_initcall()
+   to make sure that is setup early enough.
+
+   Then have to walk over the tree making everything able
+   to handle the fact that it's a pointer.  Several data
+   structures are compile time initialized to "&loopback_dev"
+   for example, and therefore will have to be transformed into
+   a run-time initialization.
+
+2) Pick some arbitrary limit for the queues, and just have that
+   many of them allocated in every netdev.
+
+I like #2 because it allows us to get back the netdev_priv()
+optimization.
