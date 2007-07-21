@@ -1,60 +1,61 @@
-From: samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org
-Subject: [PATCH 3/3] [IrDA] TOSHIBA_FIR depends on virt_to_bus
-Date: Sat, 21 Jul 2007 11:13:07 +0300
-Message-ID: <20070721081906.443279774@sortiz.org>
-References: <20070721081304.559769801@sortiz.org>
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Subject: [ofa-general] Re: [PATCH 04/10] net-sysfs.c changes.
+Date: Sat, 21 Jul 2007 12:16:30 +0530
+Message-ID: <OFFAA4E4C4.F1496A54-ON6525731F.0025194E-6525731F.0025379C@in.ibm.com>
+References: <20070720172203.0eaeea86@oldman>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Stephen Rothwell <sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org>,
-	irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-Content-Disposition: inline; filename=patch_fir_tosh
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
-	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=irda-users>
-List-Post: <mailto:irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
-	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Sender: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-Errors-To: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Content-Type: text/plain; charset=US-ASCII
+Cc: jagana@us.ibm.com, johnpol@2ka.mipt.ru, herbert@gondor.apana.org.au,
+	gaagaan@gmail.com, Robert.Olsson@data.slu.se,
+	kumarkr@linux.ibm.com, mcarlson@broadcom.com,
+	peter.p.waskiewicz.jr@intel.com, hadi@cyberus.ca,
+	Patrick McHardy <kaber@trash.net>, jeff@garzik.org,
+	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
+	netdev@vger.kernel.org, sri@us.ibm.com, davem@davemloft.net,
+	rdreier@cisco.com
+To: Stephen Hemminger <shemminger@linux-foundation.org>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <20070720172203.0eaeea86@oldman>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Rothwell <sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org>
+Stephen Hemminger <shemminger@linux-foundation.org> wrote on 07/20/2007
+09:52:03 PM:
+> Patrick McHardy <kaber@trash.net> wrote:
+>
+> > Krishna Kumar2 wrote:
+> > > Patrick McHardy <kaber@trash.net> wrote on 07/20/2007 03:37:20 PM:
+> > >
+> > >
+> > >
+> > >> rtnetlink support seems more important than sysfs to me.
+> > >>
+> > >
+> > > Thanks, I will add that as a patch. The reason to add to sysfs is
+that
+> > > it is easier to change for a user (and similar to tx_queue_len).
+> > >
+> >
+>
+> But since batching is so similar to TSO, i really should be part of the
+> flags and controlled by ethtool like other offload flags.
 
-Signed-off-by: Stephen Rothwell <sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org>
-Signed-off-by: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Signed-off-by: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
----
- drivers/net/irda/Kconfig |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+So should I add all three interfaces (or which ones) :
 
--- 
-Cheers,
-Stephen Rothwell                    sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org
+      1. /sys (like for tx_queue_len)
+      2. netlink
+      3. ethtool.
 
-Index: net-2.6-quilt/drivers/net/irda/Kconfig
-===================================================================
---- net-2.6-quilt.orig/drivers/net/irda/Kconfig	2007-07-21 02:40:48.000000000 +0300
-+++ net-2.6-quilt/drivers/net/irda/Kconfig	2007-07-21 02:40:48.000000000 +0300
-@@ -364,7 +364,7 @@
- 
- config TOSHIBA_FIR
- 	tristate "Toshiba Type-O IR Port"
--	depends on IRDA && PCI && !64BIT
-+	depends on IRDA && PCI && !64BIT && VIRT_TO_BUS
- 	help
- 	  Say Y here if you want to build support for the Toshiba Type-O IR
- 	  and Donau oboe chipsets. These chipsets are used by the Toshiba
+Or only 2 & 3 are enough ?
 
--- 
+thanks,
 
-
--------------------------------------------------------------------------
-This SF.net email is sponsored by: Microsoft
-Defy all challenges. Microsoft(R) Visual Studio 2005.
-http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+- KK
