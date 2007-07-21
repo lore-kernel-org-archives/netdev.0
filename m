@@ -1,60 +1,50 @@
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: [ofa-general] Re: [PATCH 02/10] Networking include file changes.
-Date: Sat, 21 Jul 2007 12:00:10 +0530
-Message-ID: <OF46F8CFAE.90A18F30-ON6525731F.0023182A-6525731F.0023B8DF@in.ibm.com>
-References: <1184952305.12431.16.camel@localhost.localdomain>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: Linux, tcpdump and vlan
+Date: Sat, 21 Jul 2007 13:32:31 +0200
+Message-ID: <m3sl7idmb4.fsf@maximus.localdomain>
+References: <997818.30021.qm@web56615.mail.re3.yahoo.com>
+	<m31wf226fw.fsf@maximus.localdomain>
+	<46A11C54.2090100@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: jagana@us.ibm.com, johnpol@2ka.mipt.ru, herbert@gondor.apana.org.au,
-	gaagaan@gmail.com, Robert.Olsson@data.slu.se,
-	kumarkr@linux.ibm.com, mcarlson@broadcom.com,
-	peter.p.waskiewicz.jr@intel.com, hadi@cyberus.ca,
-	kaber@trash.net, jeff@garzik.org, general@lists.openfabrics.org,
-	mchan@broadcom.com, tgraf@suug.ch, netdev@vger.kernel.org,
-	davem@davemloft.net, rdreier@cisco.com
-To: Sridhar Samudrala <sri@us.ibm.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <1184952305.12431.16.camel@localhost.localdomain>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: text/plain; charset=us-ascii
+Cc: andrei radulescu-banu <iubica2@yahoo.com>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	Patrick McHardy <kaber@trash.net>,
+	linux-kernel@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Ben Greear <greearb@candelatech.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from khc.piap.pl ([195.187.100.11]:55718 "EHLO khc.piap.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1761342AbXGULce (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 21 Jul 2007 07:32:34 -0400
+In-Reply-To: <46A11C54.2090100@candelatech.com> (Ben Greear's message of "Fri, 20 Jul 2007 13:34:28 -0700")
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Sridhar,
+Ben Greear <greearb@candelatech.com> writes:
 
-Sridhar Samudrala <sri@us.ibm.com> wrote on 07/20/2007 10:55:05 PM:
-> > diff -ruNp org/include/net/pkt_sched.h new/include/net/pkt_sched.h
-> > --- org/include/net/pkt_sched.h   2007-07-20 07:49:28.000000000 +0530
-> > +++ new/include/net/pkt_sched.h   2007-07-20 08:30:22.000000000 +0530
-> > @@ -80,13 +80,13 @@ extern struct qdisc_rate_table *qdisc_ge
-> >        struct rtattr *tab);
-> >  extern void qdisc_put_rtab(struct qdisc_rate_table *tab);
-> >
-> > -extern void __qdisc_run(struct net_device *dev);
-> > +extern void __qdisc_run(struct net_device *dev, struct sk_buff_head
-*blist);
->
-> Why do we need this additional 'blist' argument?
-> Is this different from dev->skb_blist?
+> There is already a flag you can set on vlan devices (reorder-header)
+> that strips the VLAN tag before presenting it to user-space.
 
-It is the same, but I want to call it mostly with NULL and rarely with the
-batch list pointer (so it is related to your other question). My original
-code didn't have this and was trying batching in all cases. But in most
-xmit's (probably almost all), there will be only one packet in the queue to
-send and batching will never happen. When there is a lock contention or if
-the queue is stopped, then the next iteration will find >1 packets. But I
-still will try no batching for the lock failure case as there be probably
-2 packets (one from previous time and 1 from this time, or 3 if two
-failures,
-etc), and try batching only when queue was stopped from net_tx_action (this
-was based on Dave Miller's idea).
+Sure, but isn't it only valid for VLAN device (not the main ethX)?
+I.e., can you have the tag stripped from frames captured on ethX?
 
-Thanks,
+> On tx, if it shows up on the vlan device, we add that device's VID to
+> the header if no VID is currently in the SKB.  If it is in the SKB header
+> we change the VID to be the tx dev's VID (if it was different).  This allows user-space
+> to send a raw ethernet frame on a vlan device and have it automatically
+> go out of the box on the correct vlan.  User-space can also send raw VLAN frames
+> and have those also go out on the correct VLAN.
 
-- KK
+Well... I think the tag should be added unconditionally (for things like
+QinQ) but that's trivial and minor.
+
+IOW: I think all Ethernet interfaces should always be VLAN-aware,
+stripping the tag (only one) early on RX and adding it late on TX.
+That means tcpdump would see packets with exactly one tag removed
+(unless there was no tag), in both RX and TX.
+
+Tcpdump would need other means to get VLAN id...
+-- 
+Krzysztof Halasa
