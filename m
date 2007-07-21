@@ -1,92 +1,185 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Virtual device lo asks to queue packet! since -git15 II
-Date: Sat, 21 Jul 2007 20:54:19 +0400
-Message-ID: <20070721165419.GA21038@2ka.mipt.ru>
-References: <200707210949.22880.ak@suse.de> <200707211849.30469.ak@suse.de>
+From: Natalie Protasevich <protasnb@gmail.com>
+Subject: [BUG] Open Kernel Bugs
+Date: Sat, 21 Jul 2007 10:16:12 -0700
+Message-ID: <200707211016.12205.protasnb@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: netdev@vger.kernel.org
-To: Andi Kleen <ak@suse.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:47468 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750745AbXGUQyX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 21 Jul 2007 12:54:23 -0400
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+To: linux-kernel@vger.kernel.org,
+ akpm@linux-foundation.org,
+ netdev@vger.kernel.org,
+ alsa-devel@alsa-project.org,
+ linux-ide@vger.kernel.org,
+ linux-pcmcia@lists.infradead.org,
+ linux-input@atrey.karlin.mff.cuni.cz,
+ bugme-daemon@kernel-bugs.osdl.org
+Return-path: <owner-linux-input@atrey.karlin.mff.cuni.cz>
 Content-Disposition: inline
-In-Reply-To: <200707211849.30469.ak@suse.de>
-Sender: netdev-owner@vger.kernel.org
+Sender: owner-linux-input@atrey.karlin.mff.cuni.cz
+List-Help: <mailto:majordomo@atrey.karlin.mff.cuni.cz?body=help>
+List-Owner: <mailto:owner-linux-input@atrey.karlin.mff.cuni.cz>
+List-Post: <mailto:linux-input@atrey.karlin.mff.cuni.cz>
+List-Unsubscribe: <mailto:linux-input-request@atrey.karlin.mff.cuni.cz?body=unsubscribe>
 List-Id: netdev.vger.kernel.org
 
-On Sat, Jul 21, 2007 at 06:49:30PM +0200, Andi Kleen (ak@suse.de) wrote:
-> On Saturday 21 July 2007 09:49:22 Andi Kleen wrote:
-> > 
-> > FYI
-> > 
-> > Since -git15 (probably David's merge) I see a lot of 
-> > 
-> > Virtual device lo asks to queue packet!
-> > Virtual device lo asks to queue packet!
-> > Virtual device lo asks to queue packet!
-> > Virtual device lo asks to queue packet!
-> > Virtual device lo asks to queue packet!
-> > Virtual device lo asks to queue packet!
-> > 
-> > during a LTP run on a nfsroot system
-> 
-> 
-> ... and my firefox just hung itself up trying to connect to localhost:111
-> (in -git16 now)
-> 
-> Network definitely seems to have issues
+This is the first listing of the open bugs that will  be sent out and will 
+contain bugs on specific areas.
 
-It should be in David's tree already.
-Patrick fixed this with folowing patch:
+The bugs on the list below are about a year old and most of them  confirmed 
+(or  claimed) to still  be a problem.
 
-[NET]: Fix loopback multiqueue bug
+It would be appreciated if the corresponding maintenance team could take a 
+look, close off any which are fixed and see if we can fix any which aren't.
 
-The loopback device is not allocated through netdev_alloc_mq and thus
-has no room for the subqueue states reserved. Change the net_device
-subqueue array to always include at least one element.
+NOTE: when replying to this email, please add the bug number to the Subject in 
+the form [Bug 1234] so that bugzilla will capture the discussion. 
+Thanks.
 
-Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index da7a13c..bf9399c 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -575,7 +575,7 @@ struct net_device
- 
- 	/* The TX queue control structures */
- 	unsigned int			egress_subqueue_count;
--	struct net_device_subqueue	egress_subqueue[0];
-+	struct net_device_subqueue	egress_subqueue[1];
- };
- #define to_net_dev(d) container_of(d, struct net_device, dev)
- 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 13a0d9f..4af0207 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3619,7 +3619,7 @@ struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
- 
- 	/* ensure 32-byte alignment of both the device and private area */
- 	alloc_size = (sizeof(*dev) + NETDEV_ALIGN_CONST +
--		     (sizeof(struct net_device_subqueue) * queue_count)) &
-+		     (sizeof(struct net_device_subqueue) * (queue_count - 1))) &
- 		     ~NETDEV_ALIGN_CONST;
- 	alloc_size += sizeof_priv + NETDEV_ALIGN_CONST;
- 
-@@ -3637,7 +3637,7 @@ struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
- 		dev->priv = ((char *)dev +
- 			     ((sizeof(struct net_device) +
- 			       (sizeof(struct net_device_subqueue) *
--				queue_count) + NETDEV_ALIGN_CONST)
-+				(queue_count - 1)) + NETDEV_ALIGN_CONST)
- 			      & ~NETDEV_ALIGN_CONST));
- 	}
- 
+bugzilla: timers
 
-> -Andi
+[BUG 7967] TIMER_ABSTIME cleared resulting in userland deadlock
+	http://bugzilla.kernel.org/show_bug.cgi?id=7967
 
--- 
-	Evgeniy Polyakov
+
+bugzilla: parallel
+
+[BUG 7492] parport doesn't work if DMA is used
+	http://bugzilla.kernel.org/show_bug.cgi?id=7492
+
+
+bugzilla: network
+
+[BUG 8106] tx_errors and tx_fifo_errors not updated consistantly
+	http://bugzilla.kernel.org/show_bug.cgi?id=8106  - error reporting
+
+[BUG 7856] b44 WOL problem (bcm4401)
+	http://bugzilla.kernel.org/show_bug.cgi?id=7856
+
+[BUG 5839] uli526x partially recognizing interface
+	http://bugzilla.kernel.org/show_bug.cgi?id=5839
+
+[BUG 6613] iptables broken on 32-bit PReP (ARCH=ppc)
+	 http://bugzilla.kernel.org/show_bug.cgi?id=6613
+
+
+bugzilla: sound (ALSA)
+
+[BUG 7195] pc doesn't correctly shut down because of hda_intel
+	http://bugzilla.kernel.org/show_bug.cgi?id=7195
+
+[BUG 6244] cs46xx in Thinkapad A21m after suspend/resume doesn't play
+	http://bugzilla.kernel.org/process_bug.cgi?id=6244
+
+
+bugzilla: scheduler
+
+[BUG 7372] Unusable system (ie slow) when copying large files.
+	http://bugzilla.kernel.org/show_bug.cgi?id=7372
+
+
+bugzilla: input
+
+[BUG 7746] Support for unicode dead keys
+	http://bugzilla.kernel.org/show_bug.cgi?id=7746
+
+[BUG 7941] The atkbd module makes system unusable
+	http://bugzilla.kernel.org/process_bug.cgi?id=7941
+
+
+bugzilla: dvb-usb
+
+[BUG 8179] Yuan ub300 card not working/tuning
+	http://bugzilla.kernel.org/show_bug.cgi?id=8179
+
+
+bugzilla: PCI
+
+[BUG 7528] pci=assign-busses needed on DELL Latitude D810
+	http://bugzilla.kernel.org/show_bug.cgi?id=7528
+
+[BUG 8187] 2.6.20 "PCI: Quirks" patch breaks X11 on I82801
+	http://bugzilla.kernel.org/show_bug.cgi?id=8187
+
+[BUG 7917] "PCI: Failed to allocate mem resource" for PCI E-to-PCI Bridge
+	http://bugzilla.kernel.org/show_bug.cgi?id=7917
+
+
+bugzilla: i386
+
+[BUG 5565] Guess of i386 APIC PTE area scribble
+	http://bugzilla.kernel.org/show_bug.cgi?id=5565
+
+[BUG 7589] libata: does not work anymore on VIA VT8251 AHCI/SATA 4-Port 
+Controller
+	http://bugzilla.kernel.org/show_bug.cgi?id=7589
+
+
+bugzilla: Interrupts
+
+[BUG 7673] Memory card reader 5-in-1 don't working on Lenovo N100 3000
+	http://bugzilla.kernel.org/show_bug.cgi?id=7673
+
+
+bugzilla: I/O - Storage
+
+[BUG 7921] oops in 2.6.20-rc6-git3 &&udf && pktcdvd
+	http://bugzilla.kernel.org/show_bug.cgi?id=7921
+
+[BUG 7507] pata_it821x: system freezes
+	http://bugzilla.kernel.org/show_bug.cgi?id=7507
+
+[BUG 7506] it821x: long wait time due to dma_timer_expiry
+	http://bugzilla.kernel.org/show_bug.cgi?id=7506
+
+[BUG 7703] hpt366 does not find drives
+	http://bugzilla.kernel.org/show_bug.cgi?id=7703
+
+[BUG 6516] wrong value for avgqu-sz
+	http://bugzilla.kernel.org/show_bug.cgi?id=6516
+
+bugzilla: serial
+
+[BUG 7750] open/close loop causes disabled irq
+	http://bugzilla.kernel.org/show_bug.cgi?id=7750
+
+
+bugzilla: PCMCIA
+
+[BUG 7788] System freeze as soon as PCMCIA card is inserted
+	http://bugzilla.kernel.org/show_bug.cgi?id=7788
+
+[BUG 8118] Wrong device identifiers returned in lspci for pccard with RL5c476 
+II (rev 80)
+	http://bugzilla.kernel.org/show_bug.cgi?id=8118
+
+[BUG 8262] PCMCIA: socket *** DANGER *** unable to remove socket power
+	http://bugzilla.kernel.org/show_bug.cgi?id=8262
+
+[BUG 7215] PCMCIA network card causes either X or kernel to freeze
+	http://bugzilla.kernel.org/show_bug.cgi?id=7215
+
+
+bugzilla: SCSI
+
+[BUG 4880] dpt_i2o.c does not register itself with sysfs
+	http://bugzilla.kernel.org/show_bug.cgi?id=4880
+
+
+bugzilla: File Systems
+
+[BUG 6124] mount of UDF fs ignores UID and GID options
+	http://bugzilla.kernel.org/show_bug.cgi?id=6124
+
+
+bugzilla: USB
+
+[BUG 8104] kernel floods console with "connect-debounce failed"
+	http://bugzilla.kernel.org/show_bug.cgi?id=8104
+
+-----------------------------------------------------------------------------
+-----------------------------------------------------------------------------
+-----------------------------
+
+-------------------------------------------------------
