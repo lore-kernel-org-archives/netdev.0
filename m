@@ -1,8 +1,8 @@
 From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: [ofa-general] Re: [PATCH 03/10] dev.c changes.
-Date: Sat, 21 Jul 2007 12:14:12 +0530
-Message-ID: <OF2F4CD3AD.13BD72EC-ON6525731F.00242872-6525731F.002501AC@in.ibm.com>
-References: <1184953459.12431.21.camel@localhost.localdomain>
+Subject: [ofa-general] Re: [PATCH 02/10] Networking include file changes.
+Date: Sat, 21 Jul 2007 12:00:10 +0530
+Message-ID: <OF46F8CFAE.90A18F30-ON6525731F.0023182A-6525731F.0023B8DF@in.ibm.com>
+References: <1184952305.12431.16.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Cc: jagana@us.ibm.com, johnpol@2ka.mipt.ru, herbert@gondor.apana.org.au,
@@ -14,7 +14,7 @@ Cc: jagana@us.ibm.com, johnpol@2ka.mipt.ru, herbert@gondor.apana.org.au,
 	davem@davemloft.net, rdreier@cisco.com
 To: Sridhar Samudrala <sri@us.ibm.com>
 Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <1184953459.12431.21.camel@localhost.localdomain>
+In-Reply-To: <1184952305.12431.16.camel@localhost.localdomain>
 List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
 	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
 List-Archive: <http://lists.openfabrics.org/pipermail/general>
@@ -28,35 +28,32 @@ List-Id: netdev.vger.kernel.org
 
 Hi Sridhar,
 
-Sridhar Samudrala <sri@us.ibm.com> wrote on 07/20/2007 11:14:19 PM:
-
-> > @@ -1566,7 +1605,7 @@ gso:
-> >           /* reset queue_mapping to zero */
-> >           skb->queue_mapping = 0;
-> >           rc = q->enqueue(skb, q);
-> > -         qdisc_run(dev);
-> > +         qdisc_run(dev, NULL);
+Sridhar Samudrala <sri@us.ibm.com> wrote on 07/20/2007 10:55:05 PM:
+> > diff -ruNp org/include/net/pkt_sched.h new/include/net/pkt_sched.h
+> > --- org/include/net/pkt_sched.h   2007-07-20 07:49:28.000000000 +0530
+> > +++ new/include/net/pkt_sched.h   2007-07-20 08:30:22.000000000 +0530
+> > @@ -80,13 +80,13 @@ extern struct qdisc_rate_table *qdisc_ge
+> >        struct rtattr *tab);
+> >  extern void qdisc_put_rtab(struct qdisc_rate_table *tab);
+> >
+> > -extern void __qdisc_run(struct net_device *dev);
+> > +extern void __qdisc_run(struct net_device *dev, struct sk_buff_head
+*blist);
 >
-> OK. So you are passing a NULL blist here. However, i am
-> not sure why batching is not used in this situation.
+> Why do we need this additional 'blist' argument?
+> Is this different from dev->skb_blist?
 
-Actually it could be used, but in most cases there will be only
-one skb. If I pass the blist here, the result (for batching
-case) will be to put one single skb into the blist and call
-the new xmit API. That wastes cycles as we take a skb out
-from the queue (as in regular code) and then add it to the
-blist (different in the new code) and then the driver has to
-remove this skb from the blist (different in the new code).
-I could try batching but then require there are more than
-1 skbs before adding to the blist (or the blist doesn't already
-have skbs, in which case adding even one skb makes sense). Also,
-it will have a slight impact for regular drivers where for each
-xmit, one extra dereference for dev->skb_blist (which is always
-NULL) is made, which was another reason to always pass NULL.
-
-I will check what the results are by giving passing blist here
-too and make the above change. I will run tests for that (as
-well as NETPERF RR test as asked by Evgeniy).
+It is the same, but I want to call it mostly with NULL and rarely with the
+batch list pointer (so it is related to your other question). My original
+code didn't have this and was trying batching in all cases. But in most
+xmit's (probably almost all), there will be only one packet in the queue to
+send and batching will never happen. When there is a lock contention or if
+the queue is stopped, then the next iteration will find >1 packets. But I
+still will try no batching for the lock failure case as there be probably
+2 packets (one from previous time and 1 from this time, or 3 if two
+failures,
+etc), and try batching only when queue was stopped from net_tx_action (this
+was based on Dave Miller's idea).
 
 Thanks,
 
