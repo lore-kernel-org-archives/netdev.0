@@ -1,47 +1,55 @@
-From: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
-Subject: [PATCH] NET: Fix sch_prio to detect the root qdisc loading
-Date: Sat, 21 Jul 2007 12:14:59 -0700
-Message-ID: <20070721191459.2146.48448.stgit@localhost.localdomain>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: Linux, tcpdump and vlan
+Date: Sat, 21 Jul 2007 23:15:43 +0200
+Message-ID: <m3ps2l5ugw.fsf@maximus.localdomain>
+References: <997818.30021.qm@web56615.mail.re3.yahoo.com>
+	<m31wf226fw.fsf@maximus.localdomain>
+	<46A11C54.2090100@candelatech.com>
+	<m3sl7idmb4.fsf@maximus.localdomain>
+	<46A248FA.1050403@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeff@garzik.org, kaber@trash.net
-To: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: andrei radulescu-banu <iubica2@yahoo.com>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	Patrick McHardy <kaber@trash.net>,
+	linux-kernel@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:33071 "EHLO mga02.intel.com"
+Received: from khc.piap.pl ([195.187.100.11]:49898 "EHLO khc.piap.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754711AbXGUTPE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 21 Jul 2007 15:15:04 -0400
+	id S1755291AbXGUVPr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 21 Jul 2007 17:15:47 -0400
+In-Reply-To: <46A248FA.1050403@candelatech.com> (Ben Greear's message of "Sat, 21 Jul 2007 10:57:14 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The sch->parent handle will be NULL for the scheduler that is TC_H_ROOT.
-Change this check in prio_tune() so that only the root qdisc can be
-multiqueue-enabled.
+Ben Greear <greearb@candelatech.com> writes:
 
-Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
----
+>> IOW: I think all Ethernet interfaces should always be VLAN-aware,
+>> stripping the tag (only one) early on RX and adding it late on TX.
+>> That means tcpdump would see packets with exactly one tag removed
+>> (unless there was no tag), in both RX and TX.
+>>
+>> Tcpdump would need other means to get VLAN id...
+>>
+> What benefit will this add?  It will certainly decrease performance to
+> copy around
+> the header for every VLAN packet, so there would have to be a good reason to
+> add this logic...
 
- net/sched/sch_prio.c |    6 ++++--
- 1 files changed, 4 insertions(+), 2 deletions(-)
+I'd have to do some tests... Hopefully in this decade, forget it for
+now.
 
-diff --git a/net/sched/sch_prio.c b/net/sched/sch_prio.c
-index 2d8c084..271051e 100644
---- a/net/sched/sch_prio.c
-+++ b/net/sched/sch_prio.c
-@@ -239,11 +239,13 @@ static int prio_tune(struct Qdisc *sch, struct rtattr *opt)
- 	/* If we're multiqueue, make sure the number of incoming bands
- 	 * matches the number of queues on the device we're associating with.
- 	 * If the number of bands requested is zero, then set q->bands to
--	 * dev->egress_subqueue_count.
-+	 * dev->egress_subqueue_count.  Also, the root qdisc must be the
-+	 * only one that is enabled for multiqueue, since it's the only one
-+	 * that interacts with the underlying device.
- 	 */
- 	q->mq = RTA_GET_FLAG(tb[TCA_PRIO_MQ - 1]);
- 	if (q->mq) {
--		if (sch->handle != TC_H_ROOT)
-+		if (sch->parent != NULL)
- 			return -EINVAL;
- 		if (netif_is_multiqueue(sch->dev)) {
- 			if (q->bands == 0)
+The primary reason - consistency with hw VLAN cards -> simpler
+code.
+
+The performance is already decreased (not sure if it's noticeable)
+most of the time, i.e., when not transparently bridging VLAN
+trunks. Bridging VLAN trunks is, of course, theoretically possible,
+but it's rather not a common operation when using .1Q.
+That is, with header reordering, of course.
+
+Anyway, -ENOPATCH from me for now.
+-- 
+Krzysztof Halasa
