@@ -1,61 +1,52 @@
-From: jamal <hadi@cyberus.ca>
-Subject: [ofa-general] TCP and batching WAS(Re: [PATCH 00/10] Implement
-	batching skb API
-Date: Sat, 21 Jul 2007 09:46:19 -0400
-Message-ID: <1185025579.5192.68.camel@localhost>
-References: <20070720063149.26341.84076.sendpatchset@localhost.localdomain>
-	<20070720081848.7cc652fb@oldman>
+From: "Andrew Gallatin" <gallatin@gmail.com>
+Subject: Re: [RFC 0/1] lro: Generic Large Receive Offload for TCP traffic
+Date: Sat, 21 Jul 2007 10:03:09 -0400
+Message-ID: <3cea2ee30707210703p5865ef77j103eb9e7499dd95b@mail.gmail.com>
+References: <200707201741.45079.ossthema@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: johnpol@2ka.mipt.ru, herbert@gondor.apana.org.au, gaagaan@gmail.com,
-	Robert.Olsson@data.slu.se, kumarkr@linux.ibm.com,
-	rdreier@cisco.com, peter.p.waskiewicz.jr@intel.com,
-	mcarlson@broadcom.com, kaber@trash.net, jeff@garzik.org,
-	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
-	netdev@vger.kernel.org, sri@us.ibm.com, jagana@us.ibm.com,
-	davem@davemloft.net
-To: Stephen Hemminger <shemminger@linux-foundation.org>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <20070720081848.7cc652fb@oldman>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Cc: netdev <netdev@vger.kernel.org>,
+	"Christoph Raisch" <raisch@de.ibm.com>,
+	"Jan-Bernd Themann" <themann@de.ibm.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	linux-ppc <linuxppc-dev@ozlabs.org>,
+	"Marcus Eder" <meder@de.ibm.com>,
+	"Thomas Klein" <tklein@de.ibm.com>,
+	"Stefan Roscher" <stefan.roscher@de.ibm.com>,
+	"David Miller" <davem@davemloft.net>,
+	"Jeff Garzik" <jeff@garzik.org>,
+	"Evgeniy Polyakov" <johnpol@2ka.mipt.ru>
+To: "Jan-Bernd Themann" <ossthema@de.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ug-out-1314.google.com ([66.249.92.174]:49208 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1763345AbXGUODL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jul 2007 10:03:11 -0400
+Received: by ug-out-1314.google.com with SMTP id j3so791636ugf
+        for <netdev@vger.kernel.org>; Sat, 21 Jul 2007 07:03:10 -0700 (PDT)
+In-Reply-To: <200707201741.45079.ossthema@de.ibm.com>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2007-20-07 at 08:18 +0100, Stephen Hemminger wrote:
+On 7/20/07, Jan-Bernd Themann <ossthema@de.ibm.com> wrote:
+> Hi,
+>
+> Thanks a lot for your comments so far.
+> This generic LRO patch differs from the last one in several points.
+> A new interface for a "receive in pages" mode has been added and tested
+> with an eHEA prototype. Seems to work well.
+>
+> Does this extended interface seem to be sufficient?
 
-> You may see worse performance with batching in the real world when
-> running over WAN's.  Like TSO, batching will generate back to back packet
-> trains that are subject to multi-packet synchronized loss. 
+Thank you for this!
 
-Has someone done any study on TSO effect? Doesnt ECN with a RED router
-help on something like this?
-I find it suprising that a single flow doing TSO would overwhelm a
-routers buffer. I actually think the value of batching as far as TCP is
-concerned is propotional to the number of flows. i.e the more flows you
-have the more batching you will end up doing. And if TCPs fairness is
-the legend talk it has been made to be, then i dont see this as
-problematic.
+At least for me, I find it is best to try to use an interface rather
+than simply reading a diff.  So I will port Myri10GE to use the new
+interface so that I can give better feedback,  I'll try my best to do
+this  by early next week.
 
-BTW, something i noticed regards to GSO when testing batching:
-For TCP packets slightly above MDU (upto 2K), GSO gives worse
-performance than non-GSO. Actually has nothing to do with batching,
-rather it works the same way with or without batching changes.
+Thank you again,
 
-Another oddity:
-Looking at the flow rate from a purely packets/second (I know thats a
-router centric view, but i found it strange nevertheless) - you see that
-as packet size goes up, the pps also goes up. I tried mucking around
-with nagle etc, but saw no observable changes. Any insight?
-My expectation was that the pps would stay at least the same or get
-better with smaller packets (assuming theres less data to push around).
-
-cheers,
-jamal
+Drew
