@@ -1,52 +1,46 @@
-From: "Andrew Gallatin" <gallatin@gmail.com>
-Subject: Re: [RFC 0/1] lro: Generic Large Receive Offload for TCP traffic
-Date: Sat, 21 Jul 2007 10:03:09 -0400
-Message-ID: <3cea2ee30707210703p5865ef77j103eb9e7499dd95b@mail.gmail.com>
-References: <200707201741.45079.ossthema@de.ibm.com>
+From: Jesper Juhl <jesper.juhl@gmail.com>
+Subject: [PATCH][26/37] Clean up duplicate includes in net/atm/
+Date: Sat, 21 Jul 2007 17:03:34 +0200
+Message-ID: <200707211703.34580.jesper.juhl@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	"Christoph Raisch" <raisch@de.ibm.com>,
-	"Jan-Bernd Themann" <themann@de.ibm.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	linux-ppc <linuxppc-dev@ozlabs.org>,
-	"Marcus Eder" <meder@de.ibm.com>,
-	"Thomas Klein" <tklein@de.ibm.com>,
-	"Stefan Roscher" <stefan.roscher@de.ibm.com>,
-	"David Miller" <davem@davemloft.net>,
-	"Jeff Garzik" <jeff@garzik.org>,
-	"Evgeniy Polyakov" <johnpol@2ka.mipt.ru>
-To: "Jan-Bernd Themann" <ossthema@de.ibm.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Jesper Juhl <jesper.juhl@gmail.com>, netdev@vger.kernel.org,
+	Marko Kiiskila <mkiiskila@yahoo.com>,
+	Chas Williams <chas@cmf.nrl.navy.mil>,
+	David S Miller <davem@davemloft.net>
+To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.174]:49208 "EHLO
+Received: from ug-out-1314.google.com ([66.249.92.173]:40095 "EHLO
 	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1763345AbXGUODL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jul 2007 10:03:11 -0400
-Received: by ug-out-1314.google.com with SMTP id j3so791636ugf
-        for <netdev@vger.kernel.org>; Sat, 21 Jul 2007 07:03:10 -0700 (PDT)
-In-Reply-To: <200707201741.45079.ossthema@de.ibm.com>
+	with ESMTP id S938249AbXGUPEe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jul 2007 11:04:34 -0400
+Received: by ug-out-1314.google.com with SMTP id j3so799909ugf
+        for <netdev@vger.kernel.org>; Sat, 21 Jul 2007 08:04:33 -0700 (PDT)
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 7/20/07, Jan-Bernd Themann <ossthema@de.ibm.com> wrote:
-> Hi,
->
-> Thanks a lot for your comments so far.
-> This generic LRO patch differs from the last one in several points.
-> A new interface for a "receive in pages" mode has been added and tested
-> with an eHEA prototype. Seems to work well.
->
-> Does this extended interface seem to be sufficient?
+Hi,
 
-Thank you for this!
+This patch cleans up duplicate includes in
+	net/atm/
 
-At least for me, I find it is best to try to use an interface rather
-than simply reading a diff.  So I will port Myri10GE to use the new
-interface so that I can give better feedback,  I'll try my best to do
-this  by early next week.
 
-Thank you again,
+Signed-off-by: Jesper Juhl <jesper.juhl@gmail.com>
+---
 
-Drew
+diff --git a/net/atm/lec.c b/net/atm/lec.c
+index 2770fb4..59d5aa3 100644
+--- a/net/atm/lec.c
++++ b/net/atm/lec.c
+@@ -21,7 +21,6 @@
+ #include <net/dst.h>
+ #include <linux/proc_fs.h>
+ #include <linux/spinlock.h>
+-#include <linux/proc_fs.h>
+ #include <linux/seq_file.h>
+ 
+ /* TokenRing if needed */
