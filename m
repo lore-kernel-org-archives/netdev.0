@@ -1,79 +1,56 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: Linux, tcpdump and vlan
-Date: Sat, 21 Jul 2007 10:57:14 -0700
-Message-ID: <46A248FA.1050403@candelatech.com>
-References: <997818.30021.qm@web56615.mail.re3.yahoo.com>	<m31wf226fw.fsf@maximus.localdomain>	<46A11C54.2090100@candelatech.com> <m3sl7idmb4.fsf@maximus.localdomain>
+From: Casey Schaufler <casey@schaufler-ca.com>
+Subject: Re: [PATCH 1/1] Allow LSM to use IP address/port number.
+Date: Sat, 21 Jul 2007 11:11:43 -0700 (PDT)
+Message-ID: <589819.72705.qm@web36605.mail.mud.yahoo.com>
+References: <200707211057.ACE39835.WUNtGEPSOFF@I-love.SAKURA.ne.jp>
+Reply-To: casey@schaufler-ca.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: andrei radulescu-banu <iubica2@yahoo.com>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	Patrick McHardy <kaber@trash.net>,
-	linux-kernel@vger.kernel.org,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Krzysztof Halasa <khc@pm.waw.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:45312 "EHLO ns2.lanforge.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753164AbXGUR5Y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 21 Jul 2007 13:57:24 -0400
-In-Reply-To: <m3sl7idmb4.fsf@maximus.localdomain>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org
+To: Tetsuo Handa <from-netdev@I-love.SAKURA.ne.jp>, kaber@trash.net,
+	jmorris@namei.org
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <200707211057.ACE39835.WUNtGEPSOFF@I-love.SAKURA.ne.jp>
+Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Krzysztof Halasa wrote:
-> Ben Greear <greearb@candelatech.com> writes:
->
->   
->> There is already a flag you can set on vlan devices (reorder-header)
->> that strips the VLAN tag before presenting it to user-space.
->>     
->
-> Sure, but isn't it only valid for VLAN device (not the main ethX)?
-> I.e., can you have the tag stripped from frames captured on ethX?
->   
-No.  I don't see a good reason to strip on ethX.  That hardware accel 
-VLANs strip
-is an inconvenience in my opinion, no need to force it in software as well.
->> On tx, if it shows up on the vlan device, we add that device's VID to
->> the header if no VID is currently in the SKB.  If it is in the SKB header
->> we change the VID to be the tx dev's VID (if it was different).  This allows user-space
->> to send a raw ethernet frame on a vlan device and have it automatically
->> go out of the box on the correct vlan.  User-space can also send raw VLAN frames
->> and have those also go out on the correct VLAN.
->>     
->
-> Well... I think the tag should be added unconditionally (for things like
-> QinQ) but that's trivial and minor.
->   
-I think that for Q in Q, we would need some explicit flag on each skb to 
-know when to add or modify
-the VID.  I was never able to think of an automatic solution that worked 
-in all cases
-(bridging, writing raw packets from user space, normal receive, normal 
-transmit, ...)
 
-Modifying the bridging code would fix that path, and adding a socket opt 
-to deal with writing
-raw packets from user-space should handle the other tricky case I believe.
+--- Tetsuo Handa <from-netdev@I-love.SAKURA.ne.jp> wrote:
 
-> IOW: I think all Ethernet interfaces should always be VLAN-aware,
-> stripping the tag (only one) early on RX and adding it late on TX.
-> That means tcpdump would see packets with exactly one tag removed
-> (unless there was no tag), in both RX and TX.
->
-> Tcpdump would need other means to get VLAN id...
->   
-What benefit will this add?  It will certainly decrease performance to 
-copy around
-the header for every VLAN packet, so there would have to be a good reason to
-add this logic...
+> 
+> Hello.
+> 
+> Patrick McHardy wrote:
+> > Quoting Tetsuo:
+> > > > So, my approach is not using security context associated with a socket
+> > > > but security context associated with a process.
+> > Isn't the socket context derived from the process context?
+> Not so regarding my case.
+> 
+> static int smack_sk_alloc_security(struct sock *sk, int family, gfp_t
+> priority)
+> {
+> 	sk->sk_security = current->security;
+> 	return 0;
+> }
+> 
+> will not help what I want to do.
+> So, I'm not planning to use "sk->sk_security".
 
-Ben
+Before you go too far down this path please note that the quoted
+code is bad* because back pointers from sockets to tasks can't be
+reliable. See later versions for more reasonable behavior.
+
+> I'm planning to use "current->security" at accept()/recvmsg() time.
+
+The delivery of packets and the completion of these syscalls are
+related but independent events. Be careful about the relationship
+between the events and the placement of your checks.
 
 
--- 
-Ben Greear <greearb@candelatech.com> 
-Candela Technologies Inc  http://www.candelatech.com
+----
+* Stephen had good comments on the details on list earlier.
 
-
+Casey Schaufler
+casey@schaufler-ca.com
