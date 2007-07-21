@@ -1,56 +1,36 @@
-From: Casey Schaufler <casey@schaufler-ca.com>
-Subject: Re: [PATCH 1/1] Allow LSM to use IP address/port number.
-Date: Sat, 21 Jul 2007 11:11:43 -0700 (PDT)
-Message-ID: <589819.72705.qm@web36605.mail.mud.yahoo.com>
-References: <200707211057.ACE39835.WUNtGEPSOFF@I-love.SAKURA.ne.jp>
-Reply-To: casey@schaufler-ca.com
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: RE: Question: how to detect if a qdisc is root or not?
+Date: Sat, 21 Jul 2007 11:31:23 -0700
+Message-ID: <D5C1322C3E673F459512FB59E0DDC32903446217@orsmsx414.amr.corp.intel.com>
+References: <20070720.223315.41635979.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org
-To: Tetsuo Handa <from-netdev@I-love.SAKURA.ne.jp>, kaber@trash.net,
-	jmorris@namei.org
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <200707211057.ACE39835.WUNtGEPSOFF@I-love.SAKURA.ne.jp>
-Sender: linux-security-module-owner@vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>
+To: "David Miller" <davem@davemloft.net>, <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:26358 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753664AbXGUSbZ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jul 2007 14:31:25 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <20070720.223315.41635979.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
---- Tetsuo Handa <from-netdev@I-love.SAKURA.ne.jp> wrote:
-
+> From: Patrick McHardy <kaber@trash.net>
+> Date: Sat, 21 Jul 2007 06:01:07 +0200
 > 
-> Hello.
+> > Waskiewicz Jr, Peter P wrote:
+> > > I just sent out a patch to fix this.
+> > 
+> > I didn't see it yet.
 > 
-> Patrick McHardy wrote:
-> > Quoting Tetsuo:
-> > > > So, my approach is not using security context associated with a socket
-> > > > but security context associated with a process.
-> > Isn't the socket context derived from the process context?
-> Not so regarding my case.
-> 
-> static int smack_sk_alloc_security(struct sock *sk, int family, gfp_t
-> priority)
-> {
-> 	sk->sk_security = current->security;
-> 	return 0;
-> }
-> 
-> will not help what I want to do.
-> So, I'm not planning to use "sk->sk_security".
+> VGER ate it for some reason and I didn't notice it during my 
+> daily bounce analysis.  I asked him on IRC to resend it, but 
+> he's away from the computer already :)
 
-Before you go too far down this path please note that the quoted
-code is bad* because back pointers from sockets to tasks can't be
-reliable. See later versions for more reasonable behavior.
+I'll get it resent today.  Sorry for the delay.
 
-> I'm planning to use "current->security" at accept()/recvmsg() time.
-
-The delivery of packets and the completion of these syscalls are
-related but independent events. Be careful about the relationship
-between the events and the placement of your checks.
-
-
-----
-* Stephen had good comments on the details on list earlier.
-
-Casey Schaufler
-casey@schaufler-ca.com
+-PJ
