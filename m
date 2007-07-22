@@ -1,64 +1,44 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [ofa-general] Re: [PATCH 02/12 -Rev2] Changes to netdevice.h
-Date: Sun, 22 Jul 2007 19:06:51 +0200
-Message-ID: <46A38EAB.6050300@trash.net>
-References: <20070722090457.7787.4601.sendpatchset@K50wks273871wss.in.ibm.com>
-	<20070722090516.7787.79695.sendpatchset@K50wks273871wss.in.ibm.com>
+Subject: Re: [PATCH 06/12 -Rev2] rtnetlink changes.
+Date: Sun, 22 Jul 2007 19:10:37 +0200
+Message-ID: <46A38F8D.6080109@trash.net>
+References: <20070722090457.7787.4601.sendpatchset@K50wks273871wss.in.ibm.com> <20070722090553.7787.28728.sendpatchset@K50wks273871wss.in.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: johnpol@2ka.mipt.ru, Robert.Olsson@data.slu.se, herbert@gondor.apana.org.au,
-	gaagaan@gmail.com, kumarkr@linux.ibm.com, rdreier@cisco.com,
-	peter.p.waskiewicz.jr@intel.com, mcarlson@broadcom.com,
-	jagana@us.ibm.com, general@lists.openfabrics.org,
-	netdev@vger.kernel.org, tgraf@suug.ch, jeff@garzik.org,
-	sri@us.ibm.com, hadi@cyberus.ca, davem@davemloft.net, mchan@broadcom.com
+Cc: davem@davemloft.net, rdreier@cisco.com, johnpol@2ka.mipt.ru,
+	Robert.Olsson@data.slu.se, peter.p.waskiewicz.jr@intel.com,
+	herbert@gondor.apana.org.au, gaagaan@gmail.com,
+	kumarkr@linux.ibm.com, xma@us.ibm.com, rick.jones2@hp.com,
+	mcarlson@broadcom.com, netdev@vger.kernel.org, jagana@us.ibm.com,
+	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
+	jeff@garzik.org, hadi@cyberus.ca, sri@us.ibm.com
 To: Krishna Kumar <krkumar2@in.ibm.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <20070722090516.7787.79695.sendpatchset@K50wks273871wss.in.ibm.com>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:44112 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750940AbXGVRMs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Jul 2007 13:12:48 -0400
+In-Reply-To: <20070722090553.7787.28728.sendpatchset@K50wks273871wss.in.ibm.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Krishna Kumar wrote:
-> @@ -472,6 +474,9 @@ struct net_device
->  	void			*priv;	/* pointer to private data	*/
->  	int			(*hard_start_xmit) (struct sk_buff *skb,
->  						    struct net_device *dev);
-> +	int			(*hard_start_xmit_batch) (struct net_device
-> +							  *dev);
-> +
+> diff -ruNp org/include/linux/if_link.h rev2/include/linux/if_link.h
+> --- org/include/linux/if_link.h	2007-07-20 16:33:35.000000000 +0530
+> +++ rev2/include/linux/if_link.h	2007-07-20 16:35:08.000000000 +0530
+> @@ -78,6 +78,8 @@ enum
+>  	IFLA_LINKMODE,
+>  	IFLA_LINKINFO,
+>  #define IFLA_LINKINFO IFLA_LINKINFO
+> +	IFLA_TXBTHSKB,		/* Driver support for Batch'd skbs */
+> +#define IFLA_TXBTHSKB IFLA_TXBTHSKB
 
 
-Os this function really needed? Can't you just call hard_start_xmit with
-a NULL skb and have the driver use dev->blist?
+Ughh what a name :) I prefer pronouncable names since they are
+much easier to remember and don't need comments explaining
+what they mean.
 
->  	/* These may be needed for future network-power-down code. */
->  	unsigned long		trans_start;	/* Time (in jiffies) of last Tx	*/
->  
-> @@ -582,6 +587,8 @@ struct net_device
->  #define	NETDEV_ALIGN		32
->  #define	NETDEV_ALIGN_CONST	(NETDEV_ALIGN - 1)
->  
-> +#define BATCHING_ON(dev)	((dev->features & NETIF_F_BATCH_ON) != 0)
-> +
->  static inline void *netdev_priv(const struct net_device *dev)
->  {
->  	return dev->priv;
-> @@ -832,6 +839,8 @@ extern int		dev_set_mac_address(struct n
->  					    struct sockaddr *);
->  extern int		dev_hard_start_xmit(struct sk_buff *skb,
->  					    struct net_device *dev);
-> +extern int		dev_add_skb_to_blist(struct sk_buff *skb,
-> +					     struct net_device *dev);
+But I actually think offering just an ethtool interface would
+be better, at least for now.
 
-
-Again, function signatures should be introduced in the same patch
-that contains the function. Splitting by file doesn't make sense.
