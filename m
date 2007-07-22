@@ -1,60 +1,41 @@
-From: "Michael S. Tsirkin" <mst@dev.mellanox.co.il>
-Subject: Re: [PATCH 11/12 -Rev2] IPoIB xmit API addition
-Date: Sun, 22 Jul 2007 12:41:36 +0300
-Message-ID: <20070722094136.GD7800@mellanox.co.il>
-References: <20070722090457.7787.4601.sendpatchset@K50wks273871wss.in.ibm.com>
-	<20070722090649.7787.47960.sendpatchset@K50wks273871wss.in.ibm.com>
-Reply-To: "Michael S. Tsirkin" <mst@dev.mellanox.co.il>
+From: Jan Engelhardt <jengelh@computergmbh.de>
+Subject: Re: [PATCH] CONFIG_NET=n - lots of link time errors
+Date: Sun, 22 Jul 2007 12:10:38 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0707221206280.15705@fbirervta.pbzchgretzou.qr>
+References: <Pine.LNX.4.64.0707211817490.21737@fbirervta.pbzchgretzou.qr>
+ <20070721.191223.15264470.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, rdreier@cisco.com, johnpol@2ka.mipt.ru,
-	Robert.Olsson@data.slu.se, peter.p.waskiewicz.jr@intel.com,
-	herbert@gondor.apana.org.au, gaagaan@gmail.com,
-	kumarkr@linux.ibm.com, mcarlson@broadcom.com, jagana@us.ibm.com,
-	general@lists.openfabrics.org, netdev@vger.kernel.org,
-	tgraf@suug.ch, jeff@garzik.org, hadi@cyberus.ca, kaber@trash.net,
-	mchan@broadcom.com, sri@us.ibm.com
-To: Krishna Kumar <krkumar2@in.ibm.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	akpm@linux-foundation.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.169]:49009 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753389AbXGVJlf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Jul 2007 05:41:35 -0400
-Received: by ug-out-1314.google.com with SMTP id j3so929529ugf
-        for <netdev@vger.kernel.org>; Sun, 22 Jul 2007 02:41:33 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20070722090649.7787.47960.sendpatchset@K50wks273871wss.in.ibm.com>
+Received: from sovereign.computergmbh.de ([85.214.69.204]:49941 "EHLO
+	sovereign.computergmbh.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750714AbXGVKKj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Jul 2007 06:10:39 -0400
+In-Reply-To: <20070721.191223.15264470.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> +	/*
-> +	 * Handle skbs completion from tx_tail to wr_id. It is possible to
-> +	 * handle WC's from earlier post_sends (possible multiple) in this
-> +	 * iteration as we move from tx_tail to wr_id, since if the last
-> +	 * WR (which is the one which had a completion request) failed to be
-> +	 * sent for any of those earlier request(s), no completion
-> +	 * notification is generated for successful WR's of those earlier
-> +	 * request(s).
-> +	 */
 
-AFAIK a signalled WR will always generate a completion.
-What am I missing?
+On Jul 21 2007 19:12, David Miller wrote:
+>> Enabling drivers from "Devices > Networking" (in menuconfig), for 
+>> example SLIP and/or PLIP, throws link time errors when CONFIG_NET itself 
+>> is =n. Have CONFIG_NETDEVICES depend on CONFIG_NET.
+>> 
+>> Signed-off-by: Jan Engelhardt <jengelh@gmx.de>
+>
+>This is the second time I've seen this change in the past few
+>days, and people seem to hit it quite readily with randconfig.
+>
+>It seems reasonable and I'll apply it, thanks Jan.
 
-> 
-> +			/*
-> +			 * Better error handling can be done here, like free
-> +			 * all untried skbs if err == -ENOMEM. However at this
-> +			 * time, we re-try all the skbs, all of which will
-> +			 * likely fail anyway (unless device finished sending
-> +			 * some out in the meantime). This is not a regression
-> +			 * since the earlier code is not doing this either.
-> +			 */
+While randconfig is nice and good, this error actually came by manually
+tuning the .config for a specific goal (namely: make a small kernel for an
+ancient i386 without modifying any code). Turning off CONFIG_NET
+was then just an idea away, because I knew that TCP was quite big.
 
-Are you retrying posting skbs? Why is this a good idea?
-AFAIK, earlier code did not retry posting WRs at all.
-The comment seems to imply that post send fails as a result of SQ overflow -
-do you see SQ overflow errors in your testing?
-AFAIK, IPoIB should never overflow the SQ.
 
+	Jan
 -- 
-MST
