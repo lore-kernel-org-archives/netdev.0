@@ -1,14 +1,14 @@
 From: Krishna Kumar <krkumar2@in.ibm.com>
-Subject: [ofa-general] [PATCH 04/12 -Rev2] Ethtool changes
-Date: Sun, 22 Jul 2007 14:35:35 +0530
-Message-ID: <20070722090534.7787.8673.sendpatchset@K50wks273871wss.in.ibm.com>
+Subject: [ofa-general] [PATCH 06/12 -Rev2] rtnetlink changes.
+Date: Sun, 22 Jul 2007 14:35:53 +0530
+Message-ID: <20070722090553.7787.28728.sendpatchset@K50wks273871wss.in.ibm.com>
 References: <20070722090457.7787.4601.sendpatchset@K50wks273871wss.in.ibm.com>
 Cc: johnpol@2ka.mipt.ru, Robert.Olsson@data.slu.se, herbert@gondor.apana.org.au,
 	gaagaan@gmail.com, kumarkr@linux.ibm.com,
 	peter.p.waskiewicz.jr@intel.com, mcarlson@broadcom.com,
-	kaber@trash.net, jagana@us.ibm.com,
-	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
-	jeff@garzik.org, sri@us.ibm.com, hadi@cyberus.ca, netdev@vger.kernel.org
+	jagana@us.ibm.com, general@lists.openfabrics.org,
+	netdev@vger.kernel.org, tgraf@suug.ch, jeff@garzik.org,
+	sri@us.ibm.com, hadi@cyberus.ca, kaber@trash.net, mchan@broadcom.com
 To: davem@davemloft.net, rdreier@cisco.com
 Return-path: <general-bounces@lists.openfabrics.org>
 In-Reply-To: <20070722090457.7787.4601.sendpatchset@K50wks273871wss.in.ibm.com>
@@ -23,58 +23,46 @@ Sender: general-bounces@lists.openfabrics.org
 Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-diff -ruNp org/include/linux/ethtool.h rev2/include/linux/ethtool.h
---- org/include/linux/ethtool.h	2007-07-21 13:39:50.000000000 +0530
-+++ rev2/include/linux/ethtool.h	2007-07-21 13:40:57.000000000 +0530
-@@ -414,6 +414,8 @@ struct ethtool_ops {
- #define ETHTOOL_SUFO		0x00000022 /* Set UFO enable (ethtool_value) */
- #define ETHTOOL_GGSO		0x00000023 /* Get GSO enable (ethtool_value) */
- #define ETHTOOL_SGSO		0x00000024 /* Set GSO enable (ethtool_value) */
-+#define ETHTOOL_GBTX		0x00000025 /* Get Batching (ethtool_value) */
-+#define ETHTOOL_SBTX		0x00000026 /* Set Batching (ethtool_value) */
+diff -ruNp org/include/linux/if_link.h rev2/include/linux/if_link.h
+--- org/include/linux/if_link.h	2007-07-20 16:33:35.000000000 +0530
++++ rev2/include/linux/if_link.h	2007-07-20 16:35:08.000000000 +0530
+@@ -78,6 +78,8 @@ enum
+ 	IFLA_LINKMODE,
+ 	IFLA_LINKINFO,
+ #define IFLA_LINKINFO IFLA_LINKINFO
++	IFLA_TXBTHSKB,		/* Driver support for Batch'd skbs */
++#define IFLA_TXBTHSKB IFLA_TXBTHSKB
+ 	__IFLA_MAX
+ };
  
- /* compatibility with older code */
- #define SPARC_ETH_GSET		ETHTOOL_GSET
-diff -ruNp org/net/core/ethtool.c rev2/net/core/ethtool.c
---- org/net/core/ethtool.c	2007-07-21 13:37:17.000000000 +0530
-+++ rev2/net/core/ethtool.c	2007-07-21 22:55:38.000000000 +0530
-@@ -648,6 +648,26 @@ static int ethtool_set_gso(struct net_de
- 	return 0;
- }
+diff -ruNp org/net/core/rtnetlink.c rev2/net/core/rtnetlink.c
+--- org/net/core/rtnetlink.c	2007-07-20 16:31:59.000000000 +0530
++++ rev2/net/core/rtnetlink.c	2007-07-21 22:27:10.000000000 +0530
+@@ -634,6 +634,7 @@ static int rtnl_fill_ifinfo(struct sk_bu
  
-+static int ethtool_get_batch(struct net_device *dev, char __user *useraddr)
-+{
-+	struct ethtool_value edata = { ETHTOOL_GBTX };
-+
-+	edata.data = BATCHING_ON(dev);
-+	if (copy_to_user(useraddr, &edata, sizeof(edata)))
-+		 return -EFAULT;
-+	return 0;
-+}
-+
-+static int ethtool_set_batch(struct net_device *dev, char __user *useraddr)
-+{
-+	struct ethtool_value edata;
-+
-+	if (copy_from_user(&edata, useraddr, sizeof(edata)))
-+		return -EFAULT;
-+
-+	return dev_change_tx_batching(dev, edata.data);
-+}
-+
- static int ethtool_self_test(struct net_device *dev, char __user *useraddr)
- {
- 	struct ethtool_test test;
-@@ -959,6 +979,12 @@ int dev_ethtool(struct ifreq *ifr)
- 	case ETHTOOL_SGSO:
- 		rc = ethtool_set_gso(dev, useraddr);
- 		break;
-+	case ETHTOOL_GBTX:
-+		rc = ethtool_get_batch(dev, useraddr);
-+		break;
-+	case ETHTOOL_SBTX:
-+		rc = ethtool_set_batch(dev, useraddr);
-+		break;
- 	default:
- 		rc =  -EOPNOTSUPP;
- 	}
+ 	NLA_PUT_STRING(skb, IFLA_IFNAME, dev->name);
+ 	NLA_PUT_U32(skb, IFLA_TXQLEN, dev->tx_queue_len);
++	NLA_PUT_U32(skb, IFLA_TXBTHSKB, BATCHING_ON(dev));
+ 	NLA_PUT_U32(skb, IFLA_WEIGHT, dev->weight);
+ 	NLA_PUT_U8(skb, IFLA_OPERSTATE,
+ 		   netif_running(dev) ? dev->operstate : IF_OPER_DOWN);
+@@ -833,7 +834,8 @@ static int do_setlink(struct net_device 
+ 
+ 	if (tb[IFLA_TXQLEN])
+ 		dev->tx_queue_len = nla_get_u32(tb[IFLA_TXQLEN]);
+-
++	if (tb[IFLA_TXBTHSKB])
++		dev_change_tx_batching(dev, nla_get_u32(tb[IFLA_TXBTHSKB]));
+ 	if (tb[IFLA_WEIGHT])
+ 		dev->weight = nla_get_u32(tb[IFLA_WEIGHT]);
+ 
+@@ -1072,6 +1074,9 @@ replay:
+ 			       nla_len(tb[IFLA_BROADCAST]));
+ 		if (tb[IFLA_TXQLEN])
+ 			dev->tx_queue_len = nla_get_u32(tb[IFLA_TXQLEN]);
++		if (tb[IFLA_TXBTHSKB])
++			dev_change_tx_batching(dev,
++					       nla_get_u32(tb[IFLA_TXBTHSKB]));
+ 		if (tb[IFLA_WEIGHT])
+ 			dev->weight = nla_get_u32(tb[IFLA_WEIGHT]);
+ 		if (tb[IFLA_OPERSTATE])
