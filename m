@@ -1,70 +1,64 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [ofa-general] Re: [PATCH 05/10] sch_generic.c changes.
-Date: Sun, 22 Jul 2007 19:03:01 +0200
-Message-ID: <46A38DC5.4040800@trash.net>
-References: <OF206CB1B7.31D1C39B-ON6525731F.00254E4C-6525731F.00261F1A@in.ibm.com>
+Subject: [ofa-general] Re: [PATCH 02/12 -Rev2] Changes to netdevice.h
+Date: Sun, 22 Jul 2007 19:06:51 +0200
+Message-ID: <46A38EAB.6050300@trash.net>
+References: <20070722090457.7787.4601.sendpatchset@K50wks273871wss.in.ibm.com>
+	<20070722090516.7787.79695.sendpatchset@K50wks273871wss.in.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: jagana@us.ibm.com, johnpol@2ka.mipt.ru,
-	herbert@gondor.apana.org.au, gaagaan@gmail.com,
-	Robert.Olsson@data.slu.se, kumarkr@linux.ibm.com,
-	rdreier@cisco.com, peter.p.waskiewicz.jr@intel.com,
-	hadi@cyberus.ca, mcarlson@broadcom.com, jeff@garzik.org,
-	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
-	netdev@vger.kernel.org, davem@davemloft.net, sri@us.ibm.com
-To: Krishna Kumar2 <krkumar2@in.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:43965 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753957AbXGVRFM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Jul 2007 13:05:12 -0400
-In-Reply-To: <OF206CB1B7.31D1C39B-ON6525731F.00254E4C-6525731F.00261F1A@in.ibm.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: johnpol@2ka.mipt.ru, Robert.Olsson@data.slu.se, herbert@gondor.apana.org.au,
+	gaagaan@gmail.com, kumarkr@linux.ibm.com, rdreier@cisco.com,
+	peter.p.waskiewicz.jr@intel.com, mcarlson@broadcom.com,
+	jagana@us.ibm.com, general@lists.openfabrics.org,
+	netdev@vger.kernel.org, tgraf@suug.ch, jeff@garzik.org,
+	sri@us.ibm.com, hadi@cyberus.ca, davem@davemloft.net, mchan@broadcom.com
+To: Krishna Kumar <krkumar2@in.ibm.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <20070722090516.7787.79695.sendpatchset@K50wks273871wss.in.ibm.com>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-Krishna Kumar2 wrote:
-> Patrick McHardy <kaber@trash.net> wrote on 07/20/2007 11:46:36 PM:
-> 
->>The check for tx_queue_len is wrong though,
->>its only a default which can be overriden and some qdiscs don't
->>care for it at all.
-> 
-> 
-> I think it should not matter whether qdiscs use this or not, or even if it
-> is modified (unless it is made zero in which case this breaks). The
-> intention behind this check is to make sure that not more than tx_queue_len
-> skbs are in all queues put together (q->qdisc + dev->skb_blist), otherwise
-> the blist can become too large and breaks the idea of tx_queue_len. Is that
-> a good justification ?
+Krishna Kumar wrote:
+> @@ -472,6 +474,9 @@ struct net_device
+>  	void			*priv;	/* pointer to private data	*/
+>  	int			(*hard_start_xmit) (struct sk_buff *skb,
+>  						    struct net_device *dev);
+> +	int			(*hard_start_xmit_batch) (struct net_device
+> +							  *dev);
+> +
 
 
-Its a good justification, but on second thought the entire idea of
-a single queue after qdiscs that is refilled independantly of
-transmissions times etc. make be worry a bit. By changing the
-timing you're effectively changing the qdiscs behaviour, at least
-in some cases. SFQ is a good example, but I believe it affects most
-work-conserving qdiscs. Think of this situation:
+Os this function really needed? Can't you just call hard_start_xmit with
+a NULL skb and have the driver use dev->blist?
 
-100 packets of flow 1 arrive
-50 packets of flow 1 are sent
-100 packets for flow 2 arrive
-remaining packets are sent
+>  	/* These may be needed for future network-power-down code. */
+>  	unsigned long		trans_start;	/* Time (in jiffies) of last Tx	*/
+>  
+> @@ -582,6 +587,8 @@ struct net_device
+>  #define	NETDEV_ALIGN		32
+>  #define	NETDEV_ALIGN_CONST	(NETDEV_ALIGN - 1)
+>  
+> +#define BATCHING_ON(dev)	((dev->features & NETIF_F_BATCH_ON) != 0)
+> +
+>  static inline void *netdev_priv(const struct net_device *dev)
+>  {
+>  	return dev->priv;
+> @@ -832,6 +839,8 @@ extern int		dev_set_mac_address(struct n
+>  					    struct sockaddr *);
+>  extern int		dev_hard_start_xmit(struct sk_buff *skb,
+>  					    struct net_device *dev);
+> +extern int		dev_add_skb_to_blist(struct sk_buff *skb,
+> +					     struct net_device *dev);
 
-On the wire you'll first see 50 packets of flow 1, than 100 packets
-alternate of flow 1 and 2, then 50 packets flow 2.
 
-With your additional queue all packets of flow 1 are pulled out of
-the qdisc immediately and put in the fifo. When the 100 packets of
-the second flow arrive they will also get pulled out immediately
-and are put in the fifo behind the remaining 50 packets of flow 1.
-So what you get on the wire is:
-
-100 packets of flow 1
-100 packets of flow 1
-
-So SFQ is without any effect. This is not completely avoidable of
-course, but you can and should limit the damage by only pulling
-out as much packets as the driver can take and have the driver
-stop the queue afterwards.
-
+Again, function signatures should be introduced in the same patch
+that contains the function. Splitting by file doesn't make sense.
