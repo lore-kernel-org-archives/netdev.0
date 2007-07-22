@@ -1,37 +1,28 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 1/3] [IrDA] Typo fix in irnetlink.c
-	copyright
-Date: Sat, 21 Jul 2007 19:07:01 -0700 (PDT)
-Message-ID: <20070721.190701.112852951.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/3] [IrDA] EP7211 IR driver port to the latest SIR API
+Date: Sat, 21 Jul 2007 19:07:43 -0700 (PDT)
+Message-ID: <20070721.190743.90118933.davem@davemloft.net>
 References: <20070721081304.559769801@sortiz.org>
-	<20070721081905.854286733@sortiz.org>
+	<20070721081906.145785934@sortiz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org
-Return-path: <irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <20070721081905.854286733-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
-	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=irda-users>
-List-Post: <mailto:irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
-	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Sender: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-Errors-To: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Cc: netdev@vger.kernel.org, irda-users@lists.sourceforge.net
+To: samuel@sortiz.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56989
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754485AbXGVCHo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jul 2007 22:07:44 -0400
+In-Reply-To: <20070721081906.145785934@sortiz.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org
-Date: Sat, 21 Jul 2007 11:13:05 +0300
+From: samuel@sortiz.org
+Date: Sat, 21 Jul 2007 11:13:06 +0300
 
-> Signed-off-by: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
+> The EP7211 SIR driver was the only one left without a new SIR API port.
+> 
+> Signed-off-by: Samuel Ortiz <samuel@sortiz.org>
 
 Applied.
-
--------------------------------------------------------------------------
-This SF.net email is sponsored by: Splunk Inc.
-Still grepping through log files to find problems?  Stop.
-Now Search log events and configuration files using AJAX and a browser.
-Download your FREE copy of Splunk now >>  http://get.splunk.com/
