@@ -1,31 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/3] [IrDA] TOSHIBA_FIR depends on virt_to_bus
-Date: Sat, 21 Jul 2007 19:08:22 -0700 (PDT)
-Message-ID: <20070721.190822.03112141.davem@davemloft.net>
-References: <20070721081304.559769801@sortiz.org>
-	<20070721081906.443279774@sortiz.org>
+Subject: Re: [PATCH] endianness bug in ip6_tunnel
+Date: Sat, 21 Jul 2007 19:10:05 -0700 (PDT)
+Message-ID: <20070721.191005.102771955.davem@davemloft.net>
+References: <20070721081231.GM21668@ftp.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, irda-users@lists.sourceforge.net,
-	sfr@canb.auug.org.au, akpm@linux-foundation.org
-To: samuel@sortiz.org
+Cc: netdev@vger.kernel.org
+To: viro@ftp.linux.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56994
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52301
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750866AbXGVCIX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jul 2007 22:08:23 -0400
-In-Reply-To: <20070721081906.443279774@sortiz.org>
+	by vger.kernel.org with ESMTP id S1750941AbXGVCKG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jul 2007 22:10:06 -0400
+In-Reply-To: <20070721081231.GM21668@ftp.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: samuel@sortiz.org
-Date: Sat, 21 Jul 2007 11:13:07 +0300
+From: Al Viro <viro@ftp.linux.org.uk>
+Date: Sat, 21 Jul 2007 09:12:31 +0100
 
-> From: Stephen Rothwell <sfr@canb.auug.org.au>
+> IPV6_TCLASS_MASK is net-endian; what happens here is that we take
+> a value and shove it into bits 20--27 of net-endian 32bit word.
+> IOW, it's misannotated (it's really htonl, not ntohl) *and* the
+> mask should be applied after conversion to net-endian, not before it.
+> The former is harmless, the latter gives the wrong value on little-endian;
+> As the matter of fact, on l-e it gives 0 - IPV6_TCLASS_MASK will be
+> htonl(0x0ff00000), i.e. on little-endian we have (something << 20) & 0xff0...
 > 
-> Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
-> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-> Signed-off-by: Samuel Ortiz <samuel@sortiz.org>
+> Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
 
-Also applied, thanks.
+Applied, thanks Al.
