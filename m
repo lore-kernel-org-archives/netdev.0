@@ -1,51 +1,55 @@
-From: Ken-ichirou MATSUZAWA <chamas@h4.dion.ne.jp>
-Subject: Re: checksum of lsrr
-Date: Mon, 23 Jul 2007 00:31:19 +0900 (JST)
-Message-ID: <20070723.003119.74728388.chamas@h4.dion.ne.jp>
-References: <20070704.222824.74749937.chamas@h4.dion.ne.jp>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: Question: how to detect if a qdisc is root or not?
+Date: Sun, 22 Jul 2007 18:24:16 +0200
+Message-ID: <46A384B0.2030404@trash.net>
+References: <D5C1322C3E673F459512FB59E0DDC3290344621B@orsmsx414.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm05mta.dion.ne.jp ([219.125.112.11]:1149 "HELO
-	nm05omta05b.dion.ne.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1758181AbXGVPbZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Jul 2007 11:31:25 -0400
-In-Reply-To: <20070704.222824.74749937.chamas@h4.dion.ne.jp>
+Received: from stinky.trash.net ([213.144.137.162]:43382 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755232AbXGVQ0Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Jul 2007 12:26:25 -0400
+In-Reply-To: <D5C1322C3E673F459512FB59E0DDC3290344621B@orsmsx414.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- Hello, 
+Waskiewicz Jr, Peter P wrote:
+>>I dont think I understand. Whats the problem with setting 
+>>sch->parent on initialization instead on grafting as I did in 
+>>my example patch?
+>>Please explain the problems arrising on unload in detail.
+> 
+> 
+> sch->parent is getting set on initialization, and for the root and
+> ingress qdiscs, it's left at zero.  If I change that value, when the
+> root qdisc is unloaded and pfifo_fast is put back into place, the
+> qdisc_destroy() walks the tree and attempts to free memory from the
+> handle pointed at by sch->parent.
 
-From: Ken-ichirou MATSUZAWA <chamas@h4.dion.ne.jp>
-Subject: checksum of lsrr
-Date: Wed, 04 Jul 2007 22:28:24 +0900 (JST)
 
-> if we change destination address, we need recompute not only ip
-> checksum but also tcp's, don't we? 
+First of all, qdisc destruction never propagates up, only down
+the tree. Secondly neither qdisc_destroy nor pfifo nor prio
+even look at sch->parent. So this is completely wrong, the only
+place where sch->parent is used for walking through the tree
+is qdisc_tree_decrease_qlen.
 
-I was ashamed of myself for much confused. My simple story is:
+> It stops when sch->parent is NULL,
 
-	rt1 ---- rt2 ---- mybox
+Where are you getting this? sch->parent is an *integer*.
 
-rt1 is far from rt2 and when I changed bandwith between rt1 and rt2,
-I want to confirm if it was changed correctly. A idea occured to me
-is using lsrr. Then I tried with nc but it was not worked. To accept
-packet from rt2 to mybox which src and dst address are mybox, I
-changed:
+> so
+> sch->parent is actually being set as intended.  The only thing that
+> confused me is that nowhere in the qdisc is TC_H_ROOT included
+> explicitly, rather, the root qdisc is where sch->parent is NULL.
+> 
+> So I misunderstood what was actually wrong.  The qdisc code is ok as-is,
+> it's just that the top-level qdisc (root and ingress) have a sch->parent
+> of NULL, which is being set correctly today.
+> 
+> Hope that clarifies.
 
---- net/ipv4/fib_frontend.c.orig	2007-07-23 00:01:17.000000000 +0900
-+++ net/ipv4/fib_frontend.c	2007-07-23 00:03:11.000000000 +0900
-@@ -206,7 +206,7 @@
- 
- 	if (fib_lookup(&fl, &res))
- 		goto last_resort;
--	if (res.type != RTN_UNICAST)
-+	if (res.type != RTN_UNICAST && likely(res.type != RTN_LOCAL))
- 		goto e_inval_res;
- 	*spec_dst = FIB_RES_PREFSRC(res);
- 	fib_combine_itag(itag, &res);
-
-Would you tell me is this acceptable? I'm afraid of security issue.
-thanks,
+Not at all :)
