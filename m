@@ -1,78 +1,48 @@
-From: Chris Snook <csnook@redhat.com>
-Subject: Re: [PATCH][12/37] Clean up duplicate includes in drivers/net/
-Date: Sat, 21 Jul 2007 12:50:26 -0400
-Message-ID: <46A23952.6060207@redhat.com>
-References: <200707211702.46375.jesper.juhl@gmail.com>	
-	<46A236FC.2080300@redhat.com>
-	<9a8748490707210948k468f8f32k718d84279aa56ce9@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH]: Resurrect napi_poll patch.
+Date: Sat, 21 Jul 2007 18:59:05 -0700 (PDT)
+Message-ID: <20070721.185905.18310463.davem@davemloft.net>
+References: <1185004811.6344.37.camel@localhost.localdomain>
+	<20070721.115428.48807536.davem@davemloft.net>
+	<1185059423.6344.53.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: info@netxen.com, Luke Yang <luke.yang@analog.com>,
-	Judy Fischbach <jfisch@cs.pdx.edu>, Patrick McHardy <kaber@coreworks.de>,
-	bonding-devel@lists.sourceforge.net,
-	Bryan Wu <bryan.wu@analog.com>, kong.lai@tundra.com,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	James Morris <jmorris@namei.org>, linuxppc-embedded@ozlabs.org,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	Alex V Lasso <a_villacis@palosanto.com>,
-	Ulrich Kunitz <kune@deine-taler.de>,
-	Chad Tindel <ctindel@users.sourceforge.net>,
-	Amit S Kale <amitkale@netxen.com>, Jay Cliburn <jcliburn@gmail.com>,
-	Samuel Ortiz <samuel@sortiz.org>, Daniel Drake <dsd@gentoo.org>,
-	Brian Pugh <bpugh@cs.pdx.edu>, viro@ftp.linux.org.uk,
-	alexandre.bounine@tundra.com,
-	Pantelis Antoniou <panto@intracom.gr>, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Ralf Baechle <ralf@linux-mips.or
-To: Jesper Juhl <jesper.juhl@gmail.com>
-Return-path: <linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
-In-Reply-To: <9a8748490707210948k468f8f32k718d84279aa56ce9@mail.gmail.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
-	<mailto:linuxppc-embedded-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-embedded>
-List-Post: <mailto:linuxppc-embedded@ozlabs.org>
-List-Help: <mailto:linuxppc-embedded-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
-	<mailto:linuxppc-embedded-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+Cc: netdev@vger.kernel.org, shemminger@linux-foundation.org,
+	jgarzik@pobox.com
+To: rusty@rustcorp.com.au
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52884
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750866AbXGVB7G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jul 2007 21:59:06 -0400
+In-Reply-To: <1185059423.6344.53.camel@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jesper Juhl wrote:
-> On 21/07/07, Chris Snook <csnook@redhat.com> wrote:
->> Jesper Juhl wrote:
->> > Hi,
->> >
->> > This patch cleans up duplicate includes in
->> >        drivers/net/
->> >
->> >
->> > Signed-off-by: Jesper Juhl <jesper.juhl@gmail.com>
->> > ---
->> >
->> > diff --git a/drivers/net/atl1/atl1_main.c 
->> b/drivers/net/atl1/atl1_main.c
->> > index fd1e156..4a18b88 100644
->> > --- a/drivers/net/atl1/atl1_main.c
->> > +++ b/drivers/net/atl1/atl1_main.c
->> > @@ -75,7 +75,6 @@
->> >  #include <linux/compiler.h>
->> >  #include <linux/delay.h>
->> >  #include <linux/mii.h>
->> > -#include <linux/interrupt.h>
->> >  #include <net/checksum.h>
->> >
->> >  #include <asm/atomic.h>
->>
->> Define "duplicate".  I ask because this patch just got posted a few 
->> days ago:
->>
-> 
-> duplicate == present more than once in the same source file.
-> Did you try looking at the includes in the source file the patch modifies?
+From: Rusty Russell <rusty@rustcorp.com.au>
+Date: Sun, 22 Jul 2007 09:10:23 +1000
 
-Nope!  Mea Culpa.
+> In five years' time, the "napi_struct for simple drivers" in net_device
+> will look confusing.  Since your change touches all NAPI drivers anyway,
+> it'd be nice to go straight to "everyone allocates their own NAPI
+> struct" in one jump.
 
-	-- Chris
+Good point.
+
+But note that you'd be adding a pointer deref, the current sequence:
+
+napi_struct --> netdev --> driver_private
+
+involves all pointer arithmetic and no derefs, whereas:
+
+napi_struct --> driver_private --> netdev
+
+will involve at least on deref to get to the netdev from the
+driver_private.
+
+(Ignore the fact that netdev_priv() is not currently optimized
+ as it used to be, that's an abberation of the current multi-queue
+ implementation and will be fixed).
+
+So this suggestion does have real downsides.
