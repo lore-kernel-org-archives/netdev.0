@@ -1,135 +1,86 @@
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: [ofa-general] Re: [PATCH 00/10] Implement batching skb API
-Date: Mon, 23 Jul 2007 10:19:53 +0530
-Message-ID: <OFFA8C2879.1D54F523-ON65257321.0010F240-65257321.001A8A31@in.ibm.com>
-References: <1185108670.5192.122.camel@localhost>
+From: "=?ISO-8859-2?Q?Marcin_=A6lusarz?=" <marcin.slusarz@gmail.com>
+Subject: Re: 2.6.20->2.6.21 - networking dies after random time
+Date: Mon, 23 Jul 2007 07:44:58 +0200
+Message-ID: <4bacf17f0707222244p664e7a6ap850b3357a57d73c@mail.gmail.com>
+References: <JKE37W$0126317E099DF36884CC046B6F8A7AA9@xandmail.com>
+	 <20070629150759.GC2771@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: jagana@us.ibm.com, johnpol@2ka.mipt.ru, gaagaan@gmail.com, jeff@garzik.org,
-	Robert.Olsson@data.slu.se, kumarkr@linux.ibm.com,
-	rdreier@cisco.com, peter.p.waskiewicz.jr@intel.com,
-	mcarlson@broadcom.com, kaber@trash.net, netdev@vger.kernel.org,
-	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
-	sri@us.ibm.com, davem@davemloft.net, herbert@gondor.apana.org.au
-To: hadi@cyberus.ca
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <1185108670.5192.122.camel@localhost>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: "Jarek Poplawski" <jarkao2@o2.pl>,
+	"Jean-Baptiste Vignaud" <vignaud@xandmail.fr>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	shemminger <shemminger@linux-foundation.org>,
+	linux-net <linux-net@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>, "Ingo Molnar" <mingo@elte.hu>,
+	"Thomas Gleixner" <tglx@linutronix.de>,
+	"Andrew Morton" <akpm@linux-foundation.org>,
+	"Linus Torvalds" <torvalds@linux-foundation.org>
+Return-path: <linux-net-owner@vger.kernel.org>
+In-Reply-To: <20070629150759.GC2771@ff.dom.local>
+Content-Disposition: inline
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Jamal,
+Ok, I've bisected this problem and found that this patch broke my NIC:
 
-J Hadi Salim <j.hadi123@gmail.com> wrote on 07/22/2007 06:21:09 PM:
+76d2160147f43f982dfe881404cfde9fd0a9da21 is first bad commit
+commit 76d2160147f43f982dfe881404cfde9fd0a9da21
+Author: Ingo Molnar <mingo@elte.hu>
+Date:   Fri Feb 16 01:28:24 2007 -0800
 
-> My concern is there is no consistency in results. I see improvements on
-> something which you say dont. You see improvement in something that
-> Evgeniy doesnt etc.
+    [PATCH] genirq: do not mask interrupts by default
 
-Hmmm ? Evgeniy has not even tested my code to find some regression :) And
-you may possibly not find much improvement in E1000 when you run iperf
-(which
-is what I do) compared to pktgen. I can re-run and confirm this since my
-last
-E1000 run was quite some time back.
+    Never mask interrupts immediately upon request.  Disabling interrupts in
+    high-performance codepaths is rare, and on the other hand this change could
+    recover lost edges (or even other types of lost interrupts) by
+conservatively
+    only masking interrupts after they happen.  (NOTE: with this change the
+    highlevel irq-disable code still soft-disables this IRQ line - and
+if such an
+    interrupt happens then the IRQ flow handler keeps the IRQ masked.)
 
-My point is that batching not being viable for E1000 (or tg3) need not be
-the
-sole criterea for inclusion. If IPoIB or other drivers can take advantage
-of
-it and get better results, then batching can be considered. Maybe E1000 too
-can get improvements if some one with more expertise tries to add this API
-(not judging your driver writing capabilities - just stating that driver
-writers will know more knobs to exploit a complex device like E1000).
+    Mark i8529A controllers as 'never loses an edge'.
 
-> > Since E1000 doesn't seem to use the TX lock on RX (atleast I couldn't
-find
-> > it),
-> > I feel having prep will not help as no other cpu can execute the
-queue/xmit
-> > code anyway (E1000 is also a LLTX driver).
->
-> My experiments show it is useful (in a very visible way using pktgen)
-> for e1000 to have the prep() interface.
+    Signed-off-by: Ingo Molnar <mingo@elte.hu>
+    Cc: Thomas Gleixner <tglx@linutronix.de>
+    Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+    Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
 
-I meant : have you compared results of batching with prep on vs prep off,
-and
-what is the difference in BW ?
+http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=76d2160147f43f982dfe881404cfde9fd0a9da21
 
-> >  Other driver that hold tx lock could get improvement however.
->
-> So you do see the value then with non LLTX drivers, right? ;->
+After reverting it on top of 2.6.21.3 (with
+d7e25f3394ba05a6d64cb2be42c2765fe72ea6b2 - [PATCH] genirq: remove
+IRQ_DISABLED (which ment "remove IRQ_DELAYED_DISABLE")), the problem
+didn't show up :)
+(http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=d7e25f3394ba05a6d64cb2be42c2765fe72ea6b2)
 
-No. I see value only in non-LLTX drivers which also gets the same TX lock
-in the RX path. If different locks are got by TX/RX, then since you are
-holding queue_lock before calling 'prep', this excludes other TX from
-running at the same time. In that case, pre-poning the get of the tx_lock
-to do the 'prep' will not cause any degradation (since no other tx can run
-anyway, while rx can run as it gets a different lock).
+So I cooked patch like below and everything is working fine (so far)
 
-> The value is also there in LLTX drivers even if in just formating a skb
-> ready for transmit. If this is not clear i could do a much longer
-> writeup on my thought evolution towards adding prep().
+Fix default_disable interrupt function (broken by [PATCH] genirq: do
+not mask interrupts by default) - revert removal of codepath which was
+invoked when removed flag (IRQ_DELAYED_DISABLE) wag NOT set
 
-In LLTX drivers, the driver does the 'prep' without holding the tx_lock in
-any case, so there should be no improvement. Could you send the write-up
-since
-I really don't see the value in prep unless the driver is non-LLTX *and*
-TX/RX holds the same TX lock. I think that is the sole criterea, right ?
+Signed-off-by: Marcin Slusarz <marcin.slusarz@gmail.com>
+---
+diff --git a/kernel/irq/chip.c b/kernel/irq/chip.c
+index 76a9106..0bb23cd 100644
+--- a/kernel/irq/chip.c
++++ b/kernel/irq/chip.c
+@@ -230,6 +230,8 @@ static void default_enable(unsigned int irq)
+  */
+ static void default_disable(unsigned int irq)
+ {
++	struct irq_desc *desc = irq_desc + irq;
++	desc->chip->mask(irq);
+ }
 
-> > If it helps, I guess you could send me a patch to
-> > add that and I can also test it to see what the effect is. I didn't add
-it
-> > since IPoIB wouldn't be able to exploit it (unless someone is kind
-enough
-> > to show me how to).
->
-> Such core code should not just be focussed on IPOIB.
+ /*
 
-There is *nothing* IPoIB specific or focus in my code. I said adding prep
-doesn't
-work for IPoIB and so it is pointless to add bloat to the code until some
-code can
-actually take advantage of this feature (I am sure you will agree). Which
-is why I
-also mentioned to please send me a patch if you find it useful for any
-driver
-rather than rejecting this idea.
+(Sorry for whitespace damage, but I have to send it from webmail :|)
+(I'm a kernel noob, so don't kill me if my patch is wrong ;)
+ps: Here is the beginning of this thread: http://lkml.org/lkml/2007/6/16/182
 
-> > I think the code I have is ready and stable,
->
-> I am not sure how to intepret that - are you saying all-is-good and we
-> should just push your code in?
 
-I am only too well aware that Dave will not accept any code (having
-experienced with Mobile IPv6 a long time back when he said to move most
-of it to userspace and he was absolutely correct :). What I meant to say
-is that there isn't much point in saying that your code is not ready or
-you are using old code base, or has multiple restart functions, or is not
-tested enough, etc, and then say let's re-do/rethink the whole
-implementation when my code is already working and giving good results.
-Unless you have some design issues with it, or code is written badly, is
-not maintainable, not linux style compliant, is buggy, will not handle
-some case/workload, type of issues.
-
-OTOH, if you find some cases that are better handled with :
-      1. prep handler
-      2. xmit_win (which I don't have now),
-then please send me patches and I will also test out and incorporate.
-
-> It sounds disingenuous but i may have misread you.
-
-("lacking in frankness, candor, or sincerity; falsely or hypocritically
-ingenuous; insincere") ???? Sorry, no response to personal comments and
-have a flame-war :)
-
-Thanks,
-
-- KK
+Regards,
+Marcin Slusarz
