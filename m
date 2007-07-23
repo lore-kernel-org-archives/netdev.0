@@ -1,37 +1,50 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH]: Resurrect napi_poll patch.
-Date: Mon, 23 Jul 2007 10:58:22 +0100
-Message-ID: <20070723105822.3a9fa152@oldman.hamilton.local>
-References: <20070720.223129.59470764.davem@davemloft.net>
-	<p73lkd9vqfr.fsf@bingen.suse.de>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [PATCH] [IrDA] KS959 USB IrDA dongle support
+Date: Mon, 23 Jul 2007 11:13:15 +0100
+Message-ID: <20070723111315.41e2b39f@the-village.bc.nu>
+References: <20070722.183506.121297628.davem@davemloft.net>
+	<kjg2gBqm.1185175506.5213420.samuel@sortiz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	rusty@rustcorp.com.au, jgarzik@pobox.com
-To: Andi Kleen <andi@firstfloor.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:33193 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756334AbXGWJ6a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jul 2007 05:58:30 -0400
-In-Reply-To: <p73lkd9vqfr.fsf@bingen.suse.de>
-Sender: netdev-owner@vger.kernel.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"irda-users@lists.sourceforge.net" <irda-users@lists.sourceforge.net>,
+	davem@davemloft.net,
+	"linux-usb-devel@lists.sourceforge.net" <linux-usb-devel@lists.sourceforge.net>,
+	"a_villacis@palosanto.com" <a_villacis@palosanto.com>
+To: "Samuel Ortiz" <samuel@sortiz.org>
+Return-path: <linux-usb-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <kjg2gBqm.1185175506.5213420.samuel@sortiz.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-usb-devel>,
+	<mailto:linux-usb-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-usb-devel>
+List-Post: <mailto:linux-usb-devel@lists.sourceforge.net>
+List-Help: <mailto:linux-usb-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-usb-devel>,
+	<mailto:linux-usb-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: linux-usb-devel-bounces@lists.sourceforge.net
+Errors-To: linux-usb-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On 21 Jul 2007 15:26:00 +0200
-Andi Kleen <andi@firstfloor.org> wrote:
+> >Too late, Linus just closed the merge window, you had two
+> >weeks to submit this :-)
+> Too bad...
+> I submitted it as soon as it was ready. Will we have to wait until the
+> 2.6.24 merge window, or can it be applied earlier as it's a fully
+> standalone driver ?
 
-> David Miller <davem@davemloft.net> writes:
-> > 
-> > Good candidates for taking advantage of multi-napi are:
-> > 
-> > 1) e1000
-> > 2) ucc_geth
-> > 3) ehea
-> > 4) sunvnet
-> 
-> s2io.c
+You can always send Linus a copy and ask but if its just finished then
+far better to send it to Andrew so that it can get testing and picked at
+in -mm then merged next time around when polished.
 
-sky2.c could use it because of issues with dual-port that share
-one napi for status.
+Alan
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Splunk Inc.
+Still grepping through log files to find problems?  Stop.
+Now Search log events and configuration files using AJAX and a browser.
+Download your FREE copy of Splunk now >>  http://get.splunk.com/
+_______________________________________________
+linux-usb-devel@lists.sourceforge.net
+To unsubscribe, use the last form field at:
+https://lists.sourceforge.net/lists/listinfo/linux-usb-devel
