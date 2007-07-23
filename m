@@ -1,96 +1,70 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: Re: 2.6.23-rc1: BUG_ON in kmap_atomic_prot()
-Date: Tue, 24 Jul 2007 00:40:45 +0400
-Message-ID: <20070723204045.GD5755@martell.zuzino.mipt.ru>
-References: <alpine.LFD.0.999.0707221351030.3607@woody.linux-foundation.org> <20070723183839.GA5874@martell.zuzino.mipt.ru> <20070723190152.GA5755@martell.zuzino.mipt.ru> <20070723132431.42afbae8.akpm@linux-foundation.org>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: tg3 issues
+Date: Mon, 23 Jul 2007 14:34:56 -0700
+Message-ID: <1185226496.7922.33.camel@dell>
+References: <469E78A2.80904@imperialnet.org>
+ <366312910707190419se33ddd2o3870b5684e077276@mail.gmail.com>
+ <20070719113755.GA1934@hmsreliant.homelinux.net>
+ <469F6601.20800@imperialnet.org> <1184866465.10854.45.camel@dell>
+ <46A0E9D7.7020904@imperialnet.org> <1184960061.4850.9.camel@dell>
+ <46A113BA.7050805@imperialnet.org> <46A342DC.1030305@imperialnet.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "netdev" <netdev@vger.kernel.org>, mcarlson@broadcom.com
+To: "patric" <pakar@imperialnet.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.172]:64790 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932197AbXGWUku (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jul 2007 16:40:50 -0400
-Received: by ug-out-1314.google.com with SMTP id j3so32237ugf
-        for <netdev@vger.kernel.org>; Mon, 23 Jul 2007 13:40:49 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20070723132431.42afbae8.akpm@linux-foundation.org>
+Received: from mms3.broadcom.com ([216.31.210.19]:4824 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1765287AbXGWUlg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Jul 2007 16:41:36 -0400
+In-Reply-To: <46A342DC.1030305@imperialnet.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 23, 2007 at 01:24:31PM -0700, Andrew Morton wrote:
-> On Mon, 23 Jul 2007 23:01:52 +0400
-> Alexey Dobriyan <adobriyan@gmail.com> wrote:
+On Sun, 2007-07-22 at 13:43 +0200, patric wrote:
+> patric wrote:
 > 
-> > On Mon, Jul 23, 2007 at 10:38:39PM +0400, Alexey Dobriyan wrote:
-> > > Managed to hit BUG_ON() in kmap_atomic_prot() three times while doing
-> > > nothing unusual for this box (two times it was under X, so I can't
-> > > guarantee, one time while trying to reproduce via ./configure in gdb
-> > > tarball)
+> > Hi,
+> >
+> > Think i got something working for me at least, and the fix is quite 
+> > minimal and only downside that i could see from it was that you might 
+> > get a small delay when bringing up the interface, but that's probably 
+> > better than getting a non-functional interface that reports that it's up.
+> >
+> > The fix seems to be quite simple with just a random sleep at the end 
+> > of  "tg3_setup_fiber_by_hand():"
+> >
+> >                tw32_f(MAC_MODE, tp->mac_mode);
+> >                udelay(40);
+> >        }
+> >
+> > out:
+> >        udelay( net_random() % 400 );
+> >        return current_link_up;
+> > }
+> >
+> > Not sure that this is a good fix or if it might break on other 
+> > systems, but maybe you could have a quick look at that?
+> >
+> > Regards,
+> > Patric
+> >
+> > -
+> > To unsubscribe from this list: send the line "unsubscribe netdev" in
+> > the body of a message to majordomo@vger.kernel.org
+> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> >
+> Last update on this.
 > 
-> Yeah, I hit this several times a few days ago.  Same story: it just
-> randomly went splat in response to no obvious stimulus.  Reported it to
-> netdev, was greeted with stunned silence.
+> "udelay( 100 + net_random % 300 )" seems to work much better and i have 
+> not had a single problem getting the link up within 10 seconds of a cold 
+> or warm-boot, and most often the link comes up directly without any sort 
+> of delay instead like before when it could hang for 30 seconds before 
+> getting a link, if you even got a link.
 > 
-> 
-> > > Box has 2.5G of RAM. 2.6.22 was OK.
-> > > 
-> > > [dives into framebuffer console setup for complete oops]
-> > 
-> > kernel BUG at arch/i386/mm/highmem.c:38
-> > PREEMPT DEBUG_PAGEALLOC SLAB
-> > EIP at kmap_atomic_prot+0x32/0x93
-> > 	get_page_from_freelist
-> > 	__alloc_pages
-> > 	cache_alloc_refill
-> > 	cache_alloc_refill
-> > 	kmem_cache_alloc
-> > 	dst_alloc
-> > 	dst_alloc
-> > 	__ip_route_output_key
-> > 	[some junk I don't trust]
-> > 
-> > eax: 0000000c
-> > ebx: 00000003
-> > ecx: c065efe0
-> > edx: 00000003
-> > edi: 00000163
-> > 
-> > 
-> > c010cc9b <kmap_atomic_prot>:
-> > c010cc9b:	57                   	push   %edi
-> > c010cc9c:	56                   	push   %esi
-> > c010cc9d:	53                   	push   %ebx
-> > c010cc9e:	89 c6                	mov    %eax,%esi
-> > c010cca0:	89 d3                	mov    %edx,%ebx
-> > c010cca2:	89 cf                	mov    %ecx,%edi
-> > c010cca4:	b8 01 00 00 00       	mov    $0x1,%eax
-> > c010cca9:	e8 dd 1b 00 00       	call   c010e88b <add_preempt_count>
-> > c010ccae:	e8 b1 ac 0e 00       	call   c01f7964 <debug_smp_processor_id>
-> > c010ccb3:	6b c0 0d             	imul   $0xd,%eax,%eax
-> > c010ccb6:	8d 14 03             	lea    (%ebx,%eax,1),%edx
-> > c010ccb9:	8d 04 95 00 00 00 00 	lea    0x0(,%edx,4),%eax
-> > c010ccc0:	8b 0d 30 a1 3e c0    	mov    0xc03ea130,%ecx
-> > c010ccc6:	29 c1                	sub    %eax,%ecx
-> > c010ccc8:	83 39 00             	cmpl   $0x0,(%ecx)
-> > c010cccb:	74 04                	je     c010ccd1 <kmap_atomic_prot+0x36>
-> > c010cccd:	0f 0b                	ud2a   
-> 
-> I had more complete info: http://article.gmane.org/gmane.linux.network/66966
-> 
-> You're using DEBUG_PAGEALLOC, but I was not, so I think we can rule that out.
-> 
-> I haven't worked out where that kmap_atomic() call is coming from yet. 
-> Both traces point up into the page allocator, but I _think_ that's stack
-> gunk.
 
-Ahh, you suspect networking.
-
-Here, setup is 2 cheap-ass 100Mb realtek 8139 NICs, one to campus network
-receiving ~20 junk packets per second, one gathering netconsole output
-and ssh to it, no conntracks and fancy stuff.
-
-[reboots with cables physically unplugged]
+We'll have to do some testing to see if we can find a better solution.
+Adding up to 400 usec of busy wait is not ideal.  Are you connecting two
+5701 fiber cards directly to each other in your setup?
 
