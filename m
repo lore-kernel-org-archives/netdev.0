@@ -1,78 +1,136 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH][12/37] Clean up duplicate includes in drivers/net/
-Date: Mon, 23 Jul 2007 09:22:25 -0400
-Message-ID: <20070723132225.GA3723@tuxdriver.com>
-References: <200707211702.46375.jesper.juhl@gmail.com>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: [2.6 patch] eepro100 resume patch
+Date: Mon, 23 Jul 2007 09:44:51 +0200
+Message-ID: <20070723074451.GA9169@elf.ucw.cz>
+References: <20070714000151.GA31482@spacedout.fries.net> <46984CF0.8080700@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: info@netxen.com, Luke Yang <luke.yang@analog.com>,
-	Judy Fischbach <jfisch@cs.pdx.edu>, Patrick McHardy <kaber@coreworks.de>,
-	bonding-devel@lists.sourceforge.net,
-	Bryan Wu <bryan.wu@analog.com>, kong.lai@tundra.com,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	James Morris <jmorris@namei.org>, linuxppc-embedded@ozlabs.org,
-	Daniel Drake <dsd@gentoo.org>, Alex V Lasso <a_villacis@palosanto.com>,
-	Ulrich Kunitz <kune@deine-taler.de>,
-	Chad Tindel <ctindel@users.sourceforge.net>,
-	Amit S Kale <amitkale@netxen.com>, Jay Cliburn <jcliburn@gmail.com>,
-	Samuel Ortiz <samuel@sortiz.org>, Brian Pugh <bpugh@cs.pdx.edu>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	Chris Snook <csnook@redhat.com>, alexandre.bounine@tundra.com,
-	Pantelis Antoniou <panto@intracom.gr>, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Ralf Baechle <ralf@linu
-To: Jesper Juhl <jesper.juhl@gmail.com>
-Return-path: <linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Fries <david@fries.net>, NetDev <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gprs189-60.eurotel.cz ([160.218.189.60]:55619 "EHLO amd.ucw.cz"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1765014AbXGWQIN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Jul 2007 12:08:13 -0400
 Content-Disposition: inline
-In-Reply-To: <200707211702.46375.jesper.juhl@gmail.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
-	<mailto:linuxppc-embedded-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-embedded>
-List-Post: <mailto:linuxppc-embedded@ozlabs.org>
-List-Help: <mailto:linuxppc-embedded-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
-	<mailto:linuxppc-embedded-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+In-Reply-To: <46984CF0.8080700@intel.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Jul 21, 2007 at 05:02:45PM +0200, Jesper Juhl wrote:
-> Hi,
+On Fri 2007-07-13 21:11:28, Kok, Auke wrote:
+> [adding netdev]
 > 
-> This patch cleans up duplicate includes in
-> 	 drivers/net/
+> David Fries wrote:
+> >When I did a software suspend to disk then resumed the Intel network
+> >card using eepro100 driver would be unable to transmit packets.  I
+> >tracked this down and found a register write after the print message
+> >"DP83840 specific setup" which wasn't being executed when the system
+> >was restored.  This fix moves that write and another write which
+> >forces the link speed and duplex.
+> >
+> >After doing this work and preparing the patch I checked out the
+> >mailing list only to find a patch that removes the eepro100.  I then
+> >updated Kconfig, though I wonder why it didn't have a similar message
+> >in it long time ago.
+> >
+> >I too had tried the e100 driver some time ago and it didn't work,
 > 
+> That argument is pretty useless right now. Please *test* e100 and *report 
+> issues*. I recently did some very intensive suspend/resume testing (and 
+> fixes) on e100 and I have yet to hear of any problems with it since... that 
+> was 2.6.18 or so even.
 > 
-> Signed-off-by: Jesper Juhl <jesper.juhl@gmail.com>
+> >eepro100 did and I've been using it so long that I've almost forgotten
+> >about that.  I just gave the e100 driver a try and I've been running
+> >for about an hour now without any problems and it does resume after a
+> >suspend to disk operation.
+> >
+> >Signed-off-by: David Fries <David@Fries.net>
+> 
+> I don't think I need to NAK this. I doubt that Jeff Garzik will apply this 
+> in the first place. eepro100 is on it's way out, so let's focus on what 
+> matters.
 
-> diff --git a/drivers/net/wireless/ipw2200.h b/drivers/net/wireless/ipw2200.h
-> index 626a240..9c973b9 100644
-> --- a/drivers/net/wireless/ipw2200.h
-> +++ b/drivers/net/wireless/ipw2200.h
-> @@ -45,7 +45,6 @@
->  
->  #include <linux/firmware.h>
->  #include <linux/wireless.h>
-> -#include <linux/dma-mapping.h>
->  #include <linux/jiffies.h>
->  #include <asm/io.h>
->  
-> diff --git a/drivers/net/wireless/zd1211rw/zd_def.h b/drivers/net/wireless/zd1211rw/zd_def.h
-> index deb99d1..505b4d7 100644
-> --- a/drivers/net/wireless/zd1211rw/zd_def.h
-> +++ b/drivers/net/wireless/zd1211rw/zd_def.h
-> @@ -21,7 +21,6 @@
->  #include <linux/kernel.h>
->  #include <linux/stringify.h>
->  #include <linux/device.h>
-> -#include <linux/kernel.h>
->  
->  typedef u16 __nocast zd_addr_t;
+Well, I believe we should either remove eepro100 _now_ or fix issues
+with it. "Keep it in the tree, and broken at the same time" is unnice.
 
-ACK
+
+> >@@ -743,20 +746,22 @@
+> > 				   phys[(eeprom[7]>>8)&7]);
+> > 		if (((eeprom[6]>>8) & 0x3f) == DP83840
+> > 			||  ((eeprom[6]>>8) & 0x3f) == DP83840A) {
+> >-			int mdi_reg23 = mdio_read(dev, eeprom[6] & 0x1f, 23) 
+> >| 0x0422;
+> >+			int mdi_reg23_orig = mdio_read(dev, eeprom[6] & 
+> >0x1f, 23);
+> >+			int mdi_reg23 = mdi_reg23_orig | 0x0422;
+> > 			if (congenb)
+> > 			  mdi_reg23 |= 0x0100;
+> >-			printk(KERN_INFO"  DP83840 specific setup, setting 
+> >register 23 to %4.4x.\n",
+> >-				   mdi_reg23);
+> >-			mdio_write(dev, eeprom[6] & 0x1f, 23, mdi_reg23);
+> >+			/* Print the message here, write in speedo_resume, 
+> >which
+> >+			 * is called both on module load and from
+> >+			 * eepro100_resume.
+> >+			 */
+> >+			printk(KERN_INFO"  DP83840 specific setup, setting 
+> >register 23 to %4.4x, was %4.4x.\n",
+> >+				   mdi_reg23, mdi_reg23_orig);
+> > 		}
+> > 		if ((option >= 0) && (option & 0x70)) {
+> >+			/* Print here, write in speedo_resume. */
+> > 			printk(KERN_INFO "  Forcing %dMbs %s-duplex 
+> > 			operation.\n",
+> > 				   (option & 0x20 ? 100 : 10),
+> > 				   (option & 0x10 ? "full" : "half"));
+> >-			mdio_write(dev, eeprom[6] & 0x1f, MII_BMCR,
+> >-					   ((option & 0x20) ? 0x2000 : 0) |  
+> >/* 100mbps? */
+> >-					   ((option & 0x10) ? 0x0100 : 0)); 
+> >/* Full duplex? */
+> > 		}
+> > 
+> > 		/* Perform a system self-test. */
+> >@@ -1050,6 +1055,24 @@
+> > 	struct speedo_private *sp = netdev_priv(dev);
+> > 	void __iomem *ioaddr = sp->regs;
+> > 
+> >+	/* DP83840 specific setup, moved here from from speedo_found1 because
+> >+	 * it needs to called after resume, ie suspend to disk.
+> >+	 * 07-11-2007 David Fries <david@fries.net>
+> >+	 */
+> >+	if (((sp->phy[0]>>8) & 0x3f) == DP83840
+> >+		||  ((sp->phy[0]>>8) & 0x3f) == DP83840A) {
+> >+		int mdi_reg23 = mdio_read(dev, sp->phy[0] & 0x1f, 23) | 
+> >0x0422;
+> >+		if (congenb)
+> >+			mdi_reg23 |= 0x0100;
+> >+		mdio_write(dev, sp->phy[0] & 0x1f, 23, mdi_reg23);
+> >+	}
+> >+	if ((sp->option >= 0) && (sp->option & 0x70)) {
+> >+		mdio_write(dev, sp->phy[0] & 0x1f, MII_BMCR,
+> >+			((sp->option & 0x20) ? 0x2000 : 0) | 	/* 100mbps? 
+> >*/
+> >+			((sp->option & 0x10) ? 0x0100 : 0)); /* Full duplex? 
+> >*/
+> >+	}
+> >+
+> >+
+> > 	/* Start with a Tx threshold of 256 (0x..20.... 8 byte units). */
+> > 	sp->tx_threshold = 0x01208000;
+> > 
+> >
+> >
+> 
+> -
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
 
 -- 
-John W. Linville
-linville@tuxdriver.com
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
