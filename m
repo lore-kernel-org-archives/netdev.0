@@ -1,53 +1,73 @@
-From: Veena Parat <Veena.Parat@neterion.com>
-Subject: [PATCH 2.6.22 4/4]S2IO: Implementing review comments from old patches
-Date: Mon, 23 Jul 2007 02:39:43 -0400 (EDT)
-Message-ID: <Pine.GSO.4.10.10707230237190.2793-100000@guinness>
+From: Jeremy Fitzhardinge <jeremy@goop.org>
+Subject: Re: drivers/net/xen-netfront.c: bogus code
+Date: Sun, 22 Jul 2007 23:46:12 -0700
+Message-ID: <46A44EB4.3070501@goop.org>
+References: <20070722232618.GO26212@stusta.de>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: support@neterion.com
-To: netdev@vger.kernel.org, jeff@garzik.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Jeremy Fitzhardinge <jeremy@xensource.com>,
+	Chris Wright <chrisw@sous-sol.org>,
+	Jeff Garzik <jeff@garzik.org>, xen-devel@lists.xensource.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Adrian Bunk <bunk@stusta.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from barracuda.s2io.com ([72.1.205.138]:55959 "EHLO
-	barracuda.s2io.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756026AbXGWGjp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jul 2007 02:39:45 -0400
+Received: from gw.goop.org ([64.81.55.164]:41559 "EHLO mail.goop.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755652AbXGWGrG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Jul 2007 02:47:06 -0400
+In-Reply-To: <20070722232618.GO26212@stusta.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- - Incorporated Jeff Garzik's comments on coding standards
+Adrian Bunk wrote:
+> The Coverity checker spotted the following bogus code
+> in drivers/net/xen-netfront.c:
+>
+> <--  snip  -->
+>
+> ...
+> static void xennet_alloc_rx_buffers(struct net_device *dev)
+> {
+> ...
+>         for (nr_flips = i = 0; ; i++) {
+>                 skb = __skb_dequeue(&np->rx_batch);
+>                 if (skb == NULL)
+>                         break;
+>
+>                 skb->dev = dev;
+>
+>                 id = xennet_rxidx(req_prod + i);
+>
+>                 BUG_ON(np->rx_skbs[id]);
+>                 np->rx_skbs[id] = skb;
+>
+>                 ref = gnttab_claim_grant_reference(&np->gref_rx_head);
+>                 BUG_ON((signed short)ref < 0);
+>                 np->grant_rx_ref[id] = ref;
+>
+>                 pfn = page_to_pfn(skb_shinfo(skb)->frags[0].page);
+>                 vaddr = page_address(skb_shinfo(skb)->frags[0].page);
+>
+>                 req = RING_GET_REQUEST(&np->rx, req_prod + i);
+>                 gnttab_grant_foreign_access_ref(ref,
+>                                                 np->xbdev->otherend_id,
+>                                                 pfn_to_mfn(pfn),
+>                                                 0);
+>
+>                 req->id = id;
+>                 req->gref = ref;
+>         }
+>
+>         if (nr_flips != 0) {
+> ...
+>
+> <--  snip  -->
+>
+> Note that "nr_flips" is always 0 in the last line.
+>   
 
-Signed-off-by: Veena Parat <veena.parat@neterion.com>
----
-diff -urpN patch_3/drivers/net/s2io.c patch_4/drivers/net/s2io.c
---- patch_3/drivers/net/s2io.c	2007-07-19 17:44:54.000000000 +0530
-+++ patch_4/drivers/net/s2io.c	2007-07-19 17:45:41.000000000 +0530
-@@ -84,7 +84,7 @@
- #include "s2io.h"
- #include "s2io-regs.h"
- 
--#define DRV_VERSION "2.0.23.1"
-+#define DRV_VERSION "2.0.24.1"
- 
- /* S2io Driver name & version. */
- static char s2io_driver_name[] = "Neterion";
-@@ -4818,15 +4818,15 @@ static void s2io_ethtool_gringparam(stru
- 		ering->rx_max_pending = MAX_RX_DESC_2;
- 
- 	ering->tx_max_pending = MAX_TX_DESC;
--	for (i = 0 ; i < sp->config.tx_fifo_num ; i++) {
-+	for (i = 0 ; i < sp->config.tx_fifo_num ; i++) 
- 		tx_desc_count += sp->config.tx_cfg[i].fifo_len;
--	}
-+	
- 	DBG_PRINT(INFO_DBG,"\nmax txds : %d\n",sp->config.max_txds);
- 	ering->tx_pending = tx_desc_count;
- 	rx_desc_count = 0;
--	for (i = 0 ; i < sp->config.rx_ring_num ; i++) {
-+	for (i = 0 ; i < sp->config.rx_ring_num ; i++) 
- 		rx_desc_count += sp->config.rx_cfg[i].num_rxd;
--	}
-+
- 	ering->rx_pending = rx_desc_count;
- 
- 	ering->rx_mini_max_pending = 0;
+Thanks.  That's probably a residual from me removing the page-flipping
+code.  I'll give it another pass.
 
+    J
