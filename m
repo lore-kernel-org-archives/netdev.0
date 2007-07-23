@@ -1,123 +1,360 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [Bugme-new] [Bug 8789] New: Error inserting ipt_LOG (mod_path):
- Device or resource busy
-Date: Mon, 23 Jul 2007 20:18:55 +0200
-Message-ID: <46A4F10F.1050700@trash.net>
-References: <bug-8789-10286@http.bugzilla.kernel.org/> <20070721010207.b88e1364.akpm@linux-foundation.org>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [2.6 patch] remove Documentation/networking/net-modules.txt
+Date: Mon, 23 Jul 2007 20:31:57 +0200
+Message-ID: <20070723183157.GN26212@stusta.de>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------060909020906080305090005"
-Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	bugme-daemon@bugzilla.kernel.org
-To: t.artem@mailcity.com
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:36253 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756435AbXGWSTH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jul 2007 14:19:07 -0400
-In-Reply-To: <20070721010207.b88e1364.akpm@linux-foundation.org>
+Received: from emailhub.stusta.mhn.de ([141.84.69.5]:42405 "EHLO
+	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1758562AbXGWScd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jul 2007 14:32:33 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------060909020906080305090005
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
+kAccording to git, the only one who touched this file during the last
+5 years was me when removing drivers...
 
-Andrew Morton wrote:
-> On Sat, 21 Jul 2007 00:44:08 -0700 (PDT) bugme-daemon@bugzilla.kernel.org wrote:
-> 
-> 
->>http://bugzilla.kernel.org/show_bug.cgi?id=8789
->>
->>           Summary: Error inserting ipt_LOG (mod_path): Device or resource
->>                    busy
-> 
-> 
-> A 2.6.12 -> 2.6.22 regression.
+modinfo offers a less ancient version of this information.
 
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
-Crap, that was my fault.
+---
 
-T., can you please test whether this patch fixes it?
+ Documentation/networking/00-INDEX        |    2 
+ Documentation/networking/net-modules.txt |  315 -----------------------
+ 2 files changed, 317 deletions(-)
 
+--- linux-2.6.22-rc6-mm1/Documentation/networking/00-INDEX.old	2007-07-23 20:28:51.000000000 +0200
++++ linux-2.6.22-rc6-mm1/Documentation/networking/00-INDEX	2007-07-23 20:28:59.000000000 +0200
+@@ -80,8 +80,6 @@
+ 	- Behaviour of cards under Multicast
+ ncsa-telnet
+ 	- notes on how NCSA telnet (DOS) breaks with MTU discovery enabled.
+-net-modules.txt
+-	- info and "insmod" parameters for all network driver modules.
+ netdevices.txt
+ 	- info on network device driver functions exported to the kernel.
+ olympic.txt
+--- linux-2.6.22-rc6-mm1/Documentation/networking/net-modules.txt	2007-07-12 20:43:37.000000000 +0200
++++ /dev/null	2006-09-19 00:45:31.000000000 +0200
+@@ -1,315 +0,0 @@
+-Wed 2-Aug-95  <matti.aarnio@utu.fi>
+-
+-		Linux network driver modules
+-
+-	Do not mistake this for "README.modules" at the top-level
+-	directory!  That document tells about modules in general, while
+-	this one tells only about network device driver modules.
+-
+-	This is a potpourri of INSMOD-time(*) configuration options
+-	(if such exists) and their default values of various modules
+-	in the Linux network drivers collection.
+-
+-	Some modules have also hidden (= non-documented) tunable values.
+-	The choice of not documenting them is based on general belief, that
+-	the less the user needs to know, the better.  (There are things that
+-	driver developers can use, others should not confuse themselves.)
+-
+-	In many cases it is highly preferred that insmod:ing is done
+-	ONLY with defining an explicit address for the card, AND BY
+-	NOT USING AUTO-PROBING!
+-
+-	Now most cards have some explicitly defined base address that they
+-	are compiled with (to avoid auto-probing, among other things).
+-	If that compiled value does not match your actual configuration,
+-	do use the "io=0xXXX" -parameter for the insmod, and give there
+-	a value matching your environment.
+-
+-	If you are adventurous, you can ask the driver to autoprobe
+-	by using the "io=0" parameter, however it is a potentially dangerous
+-	thing to do in a live system.  (If you don't know where the
+-	card is located, you can try autoprobing, and after possible
+-	crash recovery, insmod with proper IO-address..)
+-
+-	--------------------------
+-	(*)	"INSMOD-time" means when you load module with
+-		/sbin/insmod  you can feed it optional parameters.
+-		See "man insmod".
+-	--------------------------
+-
+-
+-	8390 based Network Modules		(Paul Gortmaker, Nov 12, 1995)
+-	--------------------------
+-
+-(Includes: smc-ultra, ne, wd, 3c503, hp, hp-plus, e2100 and ac3200)
+-
+-The 8390 series of network drivers now support multiple card systems without 
+-reloading the same module multiple times (memory efficient!) This is done by 
+-specifying multiple comma separated values, such as:
+-
+-	insmod 3c503.o io=0x280,0x300,0x330,0x350  xcvr=0,1,0,1
+-
+-The above would have the one module controlling four 3c503 cards, with card 2
+-and 4 using external transceivers. The "insmod" manual describes the usage
+-of comma separated value lists.
+-
+-It is *STRONGLY RECOMMENDED* that you supply "io=" instead of autoprobing.
+-If an "io=" argument is not supplied, then the ISA drivers will complain
+-about autoprobing being not recommended, and begrudgingly autoprobe for
+-a *SINGLE CARD ONLY* -- if you want to use multiple cards you *have* to 
+-supply an "io=0xNNN,0xQQQ,..." argument.
+-
+-The ne module is an exception to the above. A NE2000 is essentially an
+-8390 chip, some bus glue and some RAM. Because of this, the ne probe is
+-more invasive than the rest, and so at boot we make sure the ne probe is 
+-done last of all the 8390 cards (so that it won't trip over other 8390 based
+-cards) With modules we can't ensure that all other non-ne 8390 cards have
+-already been found. Because of this, the ne module REQUIRES an "io=0xNNN" 
+-argument passed in via insmod. It will refuse to autoprobe.
+-
+-It is also worth noting that auto-IRQ probably isn't as reliable during 
+-the flurry of interrupt activity on a running machine. Cards such as the 
+-ne2000 that can't get the IRQ setting from an EEPROM or configuration
+-register are probably best supplied with an "irq=M" argument as well.
+-
+-
+-----------------------------------------------------------------------
+-Card/Module List - Configurable Parameters and Default Values
+-----------------------------------------------------------------------
+-
+-3c501.c:
+-	io  = 0x280	IO base address
+-	irq = 5		IRQ
+-	(Probes ports:	0x280, 0x300)
+-
+-3c503.c:
+-	io = 0		(It will complain if you don't supply an "io=0xNNN")
+-	irq = 0		(IRQ software selected by driver using autoIRQ)
+-	xcvr = 0	(Use xcvr=1 to select external transceiver.)
+-	(Probes ports: 0x300, 0x310, 0x330, 0x350, 0x250, 0x280, 0x2A0, 0x2E0)
+-
+-3c505.c:
+-	io = 0
+-	irq = 0
+-	dma = 6         (not autoprobed)
+-	(Probes ports: 0x300, 0x280, 0x310)
+-
+-3c507.c:
+-	io = 0x300
+-	irq = 0
+-	(Probes ports: 0x300, 0x320, 0x340, 0x280)
+-
+-3c509.c:
+-	io = 0
+-	irq = 0
+-	( Module load-time probing Works reliably only on EISA, ISA ID-PROBE
+-	  IS NOT RELIABLE!  Compile this driver statically into kernel for
+-	  now, if you need it auto-probing on an ISA-bus machine. )
+-
+-8390.c:
+-	(No public options, several other modules need this one)
+-
+-a2065.c:
+-	Since this is a Zorro board, it supports full autoprobing, even for
+-	multiple boards. (m68k/Amiga)
+-
+-ac3200.c:
+-	io = 0		(Checks 0x1000 to 0x8fff in 0x1000 intervals)
+-	irq = 0		(Read from config register)
+-	(EISA probing..)
+-
+-apricot.c:
+-	io = 0x300  (Can't be altered!)
+-	irq = 10
+-
+-arcnet.c:
+-	io = 0
+-	irqnum = 0
+-	shmem = 0
+-	num = 0
+-	DO SET THESE MANUALLY AT INSMOD!
+-	(When probing, looks at the following possible addresses:
+-	 Suggested ones:
+-		0x300, 0x2E0, 0x2F0, 0x2D0
+-	 Other ones:
+-		0x200, 0x210, 0x220, 0x230, 0x240, 0x250, 0x260, 0x270,
+-		0x280, 0x290, 0x2A0, 0x2B0, 0x2C0,
+-		       0x310, 0x320, 0x330, 0x340, 0x350, 0x360, 0x370,
+-		0x380, 0x390, 0x3A0,			  0x3E0, 0x3F0  )
+-
+-ariadne.c:
+-	Since this is a Zorro board, it supports full autoprobing, even for
+-	multiple boards. (m68k/Amiga)
+-
+-at1700.c:
+-	io = 0x260
+-	irq = 0
+-	(Probes ports: 0x260, 0x280, 0x2A0, 0x240, 0x340, 0x320, 0x380, 0x300)
+-
+-atarilance.c:
+-	Supports full autoprobing. (m68k/Atari)
+-
+-atp.c: *Not modularized*
+-	(Probes ports: 0x378, 0x278, 0x3BC;
+-	 fixed IRQs: 5 and 7			)
+-
+-cops.c:
+-	io = 0x240
+-	irq = 5
+-	nodeid = 0	(AutoSelect = 0, NodeID 1-254 is hand selected.)
+-	(Probes ports: 0x240, 0x340, 0x200, 0x210, 0x220, 0x230, 0x260,
+-		       0x2A0, 0x300, 0x310, 0x320, 0x330, 0x350, 0x360)	
+-
+-de4x5.c:
+-	io = 0x000b
+-	irq = 10
+-	is_not_dec = 0  -- For non-DEC card using DEC 21040/21041/21140 chip, set this to 1
+-	(EISA, and PCI probing)
+-
+-de600.c:
+-	de600_debug = 0
+-	(On port 0x378, irq 7 -- lpt1;  compile time configurable)
+-
+-de620.c:
+-	bnc = 0, utp = 0  <-- Force media by setting either.
+-	io = 0x378	(also compile-time configurable)
+-	irq = 7
+-
+-depca.c:
+-	io = 0x200
+-	irq = 7
+-	(Probes ports:	ISA:  0x300, 0x200;
+-			EISA: 0x0c00		)
+-
+-dummy.c:
+-	No options
+-
+-e2100.c:
+-	io = 0		(It will complain if you don't supply an "io=0xNNN")
+-	irq = 0		(IRQ software selected by driver)
+-	mem = 0		(Override default shared memory start of 0xd0000)
+-	xcvr = 0	(Use xcvr=1 to select external transceiver.)
+-	(Probes ports: 0x300, 0x280, 0x380, 0x220)
+-
+-eepro.c:
+-	io = 0x200
+-	irq = 0
+-	(Probes ports: 0x200, 0x240, 0x280, 0x2C0, 0x300, 0x320, 0x340, 0x360)
+-
+-eexpress.c:
+-	io = 0x300
+-	irq = 0		(IRQ value read from EEPROM)
+-	(Probes ports: 0x300, 0x270, 0x320, 0x340)
+-
+-eql.c:
+-	(No parameters)
+-
+-ewrk3.c:
+-	io = 0x300
+-	irq = 5
+-	(With module no autoprobing!
+-	 On EISA-bus does EISA probing.
+-	 Static linkage probes ports on ISA bus:
+-		0x100, 0x120, 0x140, 0x160, 0x180, 0x1A0, 0x1C0,
+-		0x200, 0x220, 0x240, 0x260, 0x280, 0x2A0, 0x2C0, 0x2E0,
+-		0x300,        0x340, 0x360, 0x380, 0x3A0, 0x3C0)
+-
+-hp-plus.c:
+-	io = 0		(It will complain if you don't supply an "io=0xNNN")
+-	irq = 0		(IRQ read from configuration register)
+-	(Probes ports: 0x200, 0x240, 0x280, 0x2C0, 0x300, 0x320, 0x340)
+-
+-hp.c:
+-	io = 0		(It will complain if you don't supply an "io=0xNNN")
+-	irq = 0		(IRQ software selected by driver using autoIRQ)
+-	(Probes ports: 0x300, 0x320, 0x340, 0x280, 0x2C0, 0x200, 0x240)
+-
+-hp100.c:
+-	hp100_port = 0 (IO-base address)
+-	(Does EISA-probing, if on EISA-slot;
+-	 On ISA-bus probes all ports from 0x100 thru to 0x3E0
+-	 in increments of 0x020)
+-
+-hydra.c:
+-	Since this is a Zorro board, it supports full autoprobing, even for
+-	multiple boards. (m68k/Amiga)
+-
+-ibmtr.c:
+-	io = 0xa20, 0xa24 (autoprobed by default)
+-	irq = 0 (driver cannot select irq - read from hardware)
+-	mem = 0 (shared memory base set at 0xd0000 and not yet 
+-	         able to override thru mem= parameter.)
+-
+-lance.c: *Not modularized*
+-	(PCI, and ISA probing; "CONFIG_PCI" needed for PCI support)
+-	(Probes ISA ports: 0x300, 0x320, 0x340, 0x360)
+-
+-loopback.c: *Static kernel component*
+-
+-ne.c:
+-	io = 0		(Explicitly *requires* an "io=0xNNN" value)
+-	irq = 0		(Tries to determine configured IRQ via autoIRQ)
+-	(Probes ports: 0x300, 0x280, 0x320, 0x340, 0x360)
+-
+-net_init.c: *Static kernel component*
+-
+-ni52.c: *Not modularized*
+-	(Probes ports:	0x300, 0x280, 0x360, 0x320, 0x340
+-		mems:	0xD0000, 0xD2000, 0xC8000, 0xCA000,
+-			0xD4000, 0xD6000, 0xD8000 )
+-
+-ni65.c: *Not modularized*  **16MB MEMORY BARRIER BUG**
+-	(Probes ports:	0x300, 0x320, 0x340, 0x360)
+-
+-pi2.c:	*Not modularized* (well, NON-STANDARD modularization!)
+-	Only one card supported at this time.
+-	(Probes ports: 0x380, 0x300, 0x320, 0x340, 0x360, 0x3A0)
+-
+-plip.c:
+-	io = 0
+-	irq = 0		(by default, uses IRQ 5 for port at 0x3bc, IRQ 7
+-			for port at 0x378, and IRQ 2 for port at 0x278)
+-	(Probes ports: 0x278, 0x378, 0x3bc)
+-
+-ppp.c:
+-	No options (ppp-2.2+ has some, this is based on non-dynamic
+-	version from ppp-2.1.2d)
+-
+-seeq8005.c: *Not modularized*
+-	(Probes ports: 0x300, 0x320, 0x340, 0x360)
+-
+-skeleton.c: *Skeleton*
+-
+-slhc.c:
+-	No configuration parameters
+-
+-slip.c:
+-	slip_maxdev = 256 (default value from SL_NRUNIT on slip.h)
+-
+-
+-smc-ultra.c:
+-	io = 0		(It will complain if you don't supply an "io=0xNNN")
+-	irq = 0		(IRQ val. read from EEPROM)
+-	(Probes ports:	0x200, 0x220, 0x240, 0x280, 0x300, 0x340, 0x380)
+-
+-tulip.c: *Partial modularization*
+-	(init-time memory allocation makes problems..)
+-
+-tunnel.c:
+-	No insmod parameters
+-
+-wavelan.c:
+-	io = 0x390	(Settable, but change not recommended)
+-	irq = 0		(Not honoured, if changed..)
+-
+-wd.c:
+-	io = 0		(It will complain if you don't supply an "io=0xNNN")
+-	irq = 0		(IRQ val. read from EEPROM, ancient cards use autoIRQ)
+-	mem = 0		(Force shared-memory on address 0xC8000, or whatever..)
+-	mem_end = 0	(Force non-std. mem. size via supplying mem_end val.)
+-			(eg. for 32k WD8003EBT, use mem=0xd0000 mem_end=0xd8000)
+-	(Probes ports:	0x300, 0x280, 0x380, 0x240)
+-
+-znet.c: *Not modularized*
+-	(Only one device on  Zenith Z-Note (notebook?) systems,
+-	 configuration information from (EE)PROM)
 
---------------060909020906080305090005
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
-
-diff --git a/net/bridge/netfilter/ebt_log.c b/net/bridge/netfilter/ebt_log.c
-index 031bfa4..984e9c6 100644
---- a/net/bridge/netfilter/ebt_log.c
-+++ b/net/bridge/netfilter/ebt_log.c
-@@ -196,10 +196,8 @@ static int __init ebt_log_init(void)
- 	ret = ebt_register_watcher(&log);
- 	if (ret < 0)
- 		return ret;
--	ret = nf_log_register(PF_BRIDGE, &ebt_log_logger);
--	if (ret < 0 && ret != -EEXIST)
--		ebt_unregister_watcher(&log);
--	return ret;
-+	nf_log_register(PF_BRIDGE, &ebt_log_logger);
-+	return 0;
- }
- 
- static void __exit ebt_log_fini(void)
-diff --git a/net/bridge/netfilter/ebt_ulog.c b/net/bridge/netfilter/ebt_ulog.c
-index 9411db6..6fec352 100644
---- a/net/bridge/netfilter/ebt_ulog.c
-+++ b/net/bridge/netfilter/ebt_ulog.c
-@@ -308,12 +308,8 @@ static int __init ebt_ulog_init(void)
- 	else if ((ret = ebt_register_watcher(&ulog)))
- 		sock_release(ebtulognl->sk_socket);
- 
--	if (nf_log_register(PF_BRIDGE, &ebt_ulog_logger) < 0) {
--		printk(KERN_WARNING "ebt_ulog: not logging via ulog "
--		       "since somebody else already registered for PF_BRIDGE\n");
--		/* we cannot make module load fail here, since otherwise
--		 * ebtables userspace would abort */
--	}
-+	if (ret == 0)
-+		nf_log_register(PF_BRIDGE, &ebt_ulog_logger);
- 
- 	return ret;
- }
-diff --git a/net/ipv4/netfilter/ipt_LOG.c b/net/ipv4/netfilter/ipt_LOG.c
-index 5937ad1..127a5e8 100644
---- a/net/ipv4/netfilter/ipt_LOG.c
-+++ b/net/ipv4/netfilter/ipt_LOG.c
-@@ -479,10 +479,8 @@ static int __init ipt_log_init(void)
- 	ret = xt_register_target(&ipt_log_reg);
- 	if (ret < 0)
- 		return ret;
--	ret = nf_log_register(PF_INET, &ipt_log_logger);
--	if (ret < 0 && ret != -EEXIST)
--		xt_unregister_target(&ipt_log_reg);
--	return ret;
-+	nf_log_register(PF_INET, &ipt_log_logger);
-+	return 0;
- }
- 
- static void __exit ipt_log_fini(void)
-diff --git a/net/ipv6/netfilter/ip6t_LOG.c b/net/ipv6/netfilter/ip6t_LOG.c
-index b05327e..6ab9900 100644
---- a/net/ipv6/netfilter/ip6t_LOG.c
-+++ b/net/ipv6/netfilter/ip6t_LOG.c
-@@ -493,10 +493,8 @@ static int __init ip6t_log_init(void)
- 	ret = xt_register_target(&ip6t_log_reg);
- 	if (ret < 0)
- 		return ret;
--	ret = nf_log_register(PF_INET6, &ip6t_logger);
--	if (ret < 0 && ret != -EEXIST)
--		xt_unregister_target(&ip6t_log_reg);
--	return ret;
-+	nf_log_register(PF_INET6, &ip6t_logger);
-+	return 0;
- }
- 
- static void __exit ip6t_log_fini(void)
-
---------------060909020906080305090005--
