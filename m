@@ -1,116 +1,205 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: net/bluetooth/rfcomm/tty.c: use-after-free
-Date: Mon, 23 Jul 2007 09:47:12 +0200
-Message-ID: <1185176832.7111.32.camel@violet>
-References: <20070723012543.GW26212@stusta.de>
-Reply-To: BlueZ development <bluez-devel@lists.sourceforge.net>
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Subject: Re: [PATCH 4/4] Initialize and fill IPv6 route age
+Date: Mon, 23 Jul 2007 13:26:00 +0530
+Message-ID: <OFBE4EE7F7.F240778B-ON65257321.002B28E4-65257321.002B948B@in.ibm.com>
+References: <20070723101318.c773f600.varunc@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-EtPTDyWlzq4wPVJ9lUcf"
-Cc: Ville Tervo <ville.tervo@nokia.com>, netdev@vger.kernel.org,
-	bluez-devel@lists.sf.net, maxk@qualcomm.com,
-	linux-kernel@vger.kernel.org
-To: Adrian Bunk <bunk@stusta.de>
-Return-path: <bluez-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20070723012543.GW26212@stusta.de>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
-	<mailto:bluez-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=bluez-devel>
-List-Post: <mailto:bluez-devel@lists.sourceforge.net>
-List-Help: <mailto:bluez-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
-	<mailto:bluez-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: bluez-devel-bounces@lists.sourceforge.net
-Errors-To: bluez-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=US-ASCII
+Cc: dlstevens@us.ibm.com, netdev@vger.kernel.org, sri@us.ibm.com,
+	Varun Chandramohan <varuncha@in.ibm.com>
+To: Varun Chandramohan <varunc@linux.vnet.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ausmtp04.au.ibm.com ([202.81.18.152]:48011 "EHLO
+	ausmtp04.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755536AbXGWH4C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jul 2007 03:56:02 -0400
+Received: from sd0109e.au.ibm.com (d23rh905.au.ibm.com [202.81.18.225])
+	by ausmtp04.au.ibm.com (8.13.8/8.13.8) with ESMTP id l6N8JIi7297468
+	for <netdev@vger.kernel.org>; Mon, 23 Jul 2007 18:19:18 +1000
+Received: from d23av03.au.ibm.com (d23av03.au.ibm.com [9.190.250.244])
+	by sd0109e.au.ibm.com (8.13.8/8.13.8/NCO v8.4) with ESMTP id l6N7xT47185998
+	for <netdev@vger.kernel.org>; Mon, 23 Jul 2007 17:59:29 +1000
+Received: from d23av03.au.ibm.com (loopback [127.0.0.1])
+	by d23av03.au.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l6N7tuLG027732
+	for <netdev@vger.kernel.org>; Mon, 23 Jul 2007 17:55:56 +1000
+Received: from d23ml172.in.ibm.com (d23ml172.in.ibm.com [9.124.105.37])
+	by d23av03.au.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id l6N7NM0B002147
+	for <netdev@vger.kernel.org>; Mon, 23 Jul 2007 17:55:53 +1000
+In-Reply-To: <20070723101318.c773f600.varunc@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+> +   if (dumpflg)
+> +      NLA_PUT_U32(skb, RTA_AGE, timeval_to_sec(&tv) - rt->rt6i_age);
+> +   else
+> +      NLA_PUT_U32(skb, RTA_AGE, rt->rt6i_age);
 
---=-EtPTDyWlzq4wPVJ9lUcf
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Makes more sense (and easy to understand) if you use :
 
-Hi Adrian,
+if (dumpflg == RT6_GET_ROUTE_INFO)
+      ...
+so that your code does not break if someone changed the #define values.
 
-> Commit 8de0a15483b357d0f0b821330ec84d1660cadc4e added the following 
-> use-after-free in net/bluetooth/rfcomm/tty.c:
-> 
-> <--  snip  -->
-> 
-> ...
-> static int rfcomm_dev_add(struct rfcomm_dev_req *req, struct rfcomm_dlc *dlc)
-> {
-> ...
->         if (IS_ERR(dev->tty_dev)) {
->                 list_del(&dev->list);
->                 kfree(dev);
->                 return PTR_ERR(dev->tty_dev);
->         }
-> ...
-> 
-> <--  snip  -->
-> 
-> Spotted by the Coverity checker.
+- KK
 
-really good catch. I fully overlooked that one. The attached patch
-should fix it.
+netdev-owner@vger.kernel.org wrote on 07/23/2007 10:13:18 AM:
 
-Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
+> The age field of the ipv6 route structures are initilized with the
+current
+> timeval at the time of route       creation. When the route dump is
+called the
+> route age value stored in the structure is subtracted from the
+present
+> timeval and the difference is passed on as the route age.
+>
+> Signed-off-by: Varun Chandramohan <varunc@linux.vnet.ibm.com>
+> ---
+>  include/net/ip6_fib.h   |    1 +
+>  include/net/ip6_route.h |    3 +++
+>  net/ipv6/addrconf.c     |    5 +++++
+>  net/ipv6/route.c        |   23 +++++++++++++++++++----
+>  4 files changed, 28 insertions(+), 4 deletions(-)
+>
+> diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
+> index c48ea87..e30a1cf 100644
+> --- a/include/net/ip6_fib.h
+> +++ b/include/net/ip6_fib.h
+> @@ -98,6 +98,7 @@ struct rt6_info
+>
+>     u32            rt6i_flags;
+>     u32            rt6i_metric;
+> +   time_t            rt6i_age;
+>     atomic_t         rt6i_ref;
+>     struct fib6_table      *rt6i_table;
+>
+> diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
+> index 5456fdd..fc9716c 100644
+> --- a/include/net/ip6_route.h
+> +++ b/include/net/ip6_route.h
+> @@ -36,6 +36,9 @@ struct route_info {
+>  #define RT6_LOOKUP_F_REACHABLE   0x2
+>  #define RT6_LOOKUP_F_HAS_SADDR   0x4
+>
+> +#define RT6_SET_ROUTE_INFO 0x0
+> +#define RT6_GET_ROUTE_INFO 0x1
+> +
+>  extern struct rt6_info   ip6_null_entry;
+>
+>  #ifdef CONFIG_IPV6_MULTIPLE_TABLES
+> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+> index 5a5f8bd..715c766 100644
+> --- a/net/ipv6/addrconf.c
+> +++ b/net/ipv6/addrconf.c
+> @@ -4187,6 +4187,7 @@ EXPORT_SYMBOL(unregister_inet6addr_notif
+>
+>  int __init addrconf_init(void)
+>  {
+> +   struct timeval tv;
+>     int err = 0;
+>
+>     /* The addrconf netdev notifier requires that loopback_dev
+> @@ -4214,10 +4215,14 @@ int __init addrconf_init(void)
+>     if (err)
+>        return err;
+>
+> +   do_gettimeofday(&tv);
+>     ip6_null_entry.rt6i_idev = in6_dev_get(&loopback_dev);
+> +   ip6_null_entry.rt6i_age = timeval_to_sec(&tv);
+>  #ifdef CONFIG_IPV6_MULTIPLE_TABLES
+>     ip6_prohibit_entry.rt6i_idev = in6_dev_get(&loopback_dev);
+> +   ip6_prohibit_entry.rt6i_age = timeval_to_sec(&tv);
+>     ip6_blk_hole_entry.rt6i_idev = in6_dev_get(&loopback_dev);
+> +   ip6_blk_hole_entry.rt6i_age = timeval_to_sec(&tv);
+>  #endif
+>
+>     register_netdevice_notifier(&ipv6_dev_notf);
+> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+> index fe8d983..9386c05 100644
+> --- a/net/ipv6/route.c
+> +++ b/net/ipv6/route.c
+> @@ -600,7 +600,14 @@ static int __ip6_ins_rt(struct rt6_info
+>  {
+>     int err;
+>     struct fib6_table *table;
+> +   struct timeval tv;
+>
+> +   do_gettimeofday(&tv);
+> +   /* Update the timeval for new routes
+> +    * We add it here to make it common irrespective
+> +    * of how the new route is added.
+> +    */
+> +   rt->rt6i_age = timeval_to_sec(&tv);
+>     table = rt->rt6i_table;
+>     write_lock_bh(&table->tb6_lock);
+>     err = fib6_add(&table->tb6_root, rt, info);
+> @@ -2111,6 +2118,7 @@ static inline size_t rt6_nlmsg_size(void
+>            + nla_total_size(4) /* RTA_IIF */
+>            + nla_total_size(4) /* RTA_OIF */
+>            + nla_total_size(4) /* RTA_PRIORITY */
+> +          + nla_total_size(4) /*RTA_AGE*/
+>            + RTAX_MAX * nla_total_size(4) /* RTA_METRICS */
+>            + nla_total_size(sizeof(struct rta_cacheinfo));
+>  }
+> @@ -2118,10 +2126,11 @@ static inline size_t rt6_nlmsg_size(void
+>  static int rt6_fill_node(struct sk_buff *skb, struct rt6_info *rt,
+>            struct in6_addr *dst, struct in6_addr *src,
+>            int iif, int type, u32 pid, u32 seq,
+> -          int prefix, unsigned int flags)
+> +          int prefix, unsigned int flags, int dumpflg)
+>  {
+>     struct rtmsg *rtm;
+>     struct nlmsghdr *nlh;
+> +   struct timeval tv;
+>     long expires;
+>     u32 table;
+>
+> @@ -2185,6 +2194,12 @@ static int rt6_fill_node(struct sk_buff
+>        if (ipv6_get_saddr(&rt->u.dst, dst, &saddr_buf) == 0)
+>           NLA_PUT(skb, RTA_PREFSRC, 16, &saddr_buf);
+>     }
+> +
+> +   do_gettimeofday(&tv);
+> +   if (dumpflg)
+> +      NLA_PUT_U32(skb, RTA_AGE, timeval_to_sec(&tv) - rt->rt6i_age);
+> +   else
+> +      NLA_PUT_U32(skb, RTA_AGE, rt->rt6i_age);
+>
+>     if (rtnetlink_put_metrics(skb, rt->u.dst.metrics) < 0)
+>        goto nla_put_failure;
+> @@ -2222,7 +2237,7 @@ int rt6_dump_route(struct rt6_info *rt,
+>
+>     return rt6_fill_node(arg->skb, rt, NULL, NULL, 0, RTM_NEWROUTE,
+>             NETLINK_CB(arg->cb->skb).pid, arg->cb->nlh->nlmsg_seq,
+> -           prefix, NLM_F_MULTI);
+> +           prefix, NLM_F_MULTI, RT6_GET_ROUTE_INFO);
+>  }
+>
+>  static int inet6_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr*
+nlh, void *arg)
+> @@ -2287,7 +2302,7 @@ static int inet6_rtm_getroute(struct sk_
+>
+>     err = rt6_fill_node(skb, rt, &fl.fl6_dst, &fl.fl6_src, iif,
+>               RTM_NEWROUTE, NETLINK_CB(in_skb).pid,
+> -             nlh->nlmsg_seq, 0, 0);
+> +             nlh->nlmsg_seq, 0, 0, RT6_GET_ROUTE_INFO);
+>     if (err < 0) {
+>        kfree_skb(skb);
+>        goto errout;
+> @@ -2316,7 +2331,7 @@ void inet6_rt_notify(int event, struct r
+>     if (skb == NULL)
+>        goto errout;
+>
+> -   err = rt6_fill_node(skb, rt, NULL, NULL, 0, event, pid, seq, 0, 0);
+> +   err = rt6_fill_node(skb, rt, NULL, NULL, 0, event, pid, seq, 0, 0,
+> RT6_SET_ROUTE_INFO);
+>     if (err < 0) {
+>        /* -EMSGSIZE implies BUG in rt6_nlmsg_size() */
+>        WARN_ON(err == -EMSGSIZE);
+> --
+> 1.4.3.4
+>
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-Regards
-
-Marcel
-
-
---=-EtPTDyWlzq4wPVJ9lUcf
-Content-Disposition: attachment; filename=patch
-Content-Type: text/x-patch; name=patch; charset=utf-8
-Content-Transfer-Encoding: 7bit
-
-diff --git a/net/bluetooth/rfcomm/tty.c b/net/bluetooth/rfcomm/tty.c
-index 23ba61a..22a8320 100644
---- a/net/bluetooth/rfcomm/tty.c
-+++ b/net/bluetooth/rfcomm/tty.c
-@@ -267,7 +267,7 @@ static int rfcomm_dev_add(struct rfcomm_dev_req *req, struct rfcomm_dlc *dlc)
- out:
- 	write_unlock_bh(&rfcomm_dev_lock);
- 
--	if (err) {
-+	if (err < 0) {
- 		kfree(dev);
- 		return err;
- 	}
-@@ -275,9 +275,10 @@ out:
- 	dev->tty_dev = tty_register_device(rfcomm_tty_driver, dev->id, NULL);
- 
- 	if (IS_ERR(dev->tty_dev)) {
-+		err = PTR_ERR(dev->tty_dev);
- 		list_del(&dev->list);
- 		kfree(dev);
--		return PTR_ERR(dev->tty_dev);
-+		return err;
- 	}
- 
- 	return dev->id;
-
---=-EtPTDyWlzq4wPVJ9lUcf
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
--------------------------------------------------------------------------
-This SF.net email is sponsored by: Splunk Inc.
-Still grepping through log files to find problems?  Stop.
-Now Search log events and configuration files using AJAX and a browser.
-Download your FREE copy of Splunk now >>  http://get.splunk.com/
---=-EtPTDyWlzq4wPVJ9lUcf
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-Bluez-devel mailing list
-Bluez-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/bluez-devel
-
---=-EtPTDyWlzq4wPVJ9lUcf--
