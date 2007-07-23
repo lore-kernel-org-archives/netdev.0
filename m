@@ -1,79 +1,60 @@
-From: Jesper Juhl <jesper.juhl@gmail.com>
-Subject: [PATCH][28/37] Clean up duplicate includes in net/ipv4/
-Date: Sat, 21 Jul 2007 17:03:38 +0200
-Message-ID: <200707211703.38712.jesper.juhl@gmail.com>
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Subject: [ofa-general] Re: [PATCH 11/12 -Rev2] IPoIB xmit API addition
+Date: Mon, 23 Jul 2007 16:47:45 +0530
+Message-ID: <OF78ACF954.97C6291D-ON65257321.003BD95C-65257321.003E0CCE@in.ibm.com>
+References: <20070723104826.GD22877@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Alan Cox <Alan.Cox@linux.org>, waltje@uwalt.nl.mugnet.org,
-	Donald Becker <becker@super.org>,
-	Harald Welte <laforge@netfilter.org>, netdev@vger.kernel.org,
-	Jesper Juhl <jesper.juhl@gmail.com>, netfilter-devel@lists.netfilter.org,
-	Stefan Becker <stefanb@yello.ping.de>,
-	Fabio Olive Leite <olive@unixforge.org>,
-	Wensong Zhang <wensong@linuxvirtualserver.org>,
-	Hirokazu Takahashi <taka@valinux.co.jp>, Julian Anastasov <ja@ssi.bg>,
-	Jorge Cwik <jorge@laser.satlink.net>,
-	Arnt Gulbrandsen <agulbra@nvg.unit.no>, FredNvanKempen@dragon,
-	Andrew Morton <akpm@linux-foundation.org>,
-	David S Miller <davem@davemloft.net>, Peter Kese <peter.kese@ijs.si>
-To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Content-Type: text/plain; charset=US-ASCII
+Cc: jagana@us.ibm.com, mcarlson@broadcom.com, herbert@gondor.apana.org.au,
+	gaagaan@gmail.com, Robert.Olsson@data.slu.se,
+	kumarkr@linux.ibm.com, rdreier@cisco.com,
+	peter.p.waskiewicz.jr@intel.com, hadi@cyberus.ca,
+	kaber@trash.net, jeff@garzik.org, general@lists.openfabrics.org,
+	mchan@broadcom.com, tgraf@suug.ch, netdev@vger.kernel.org,
+	davem@davemloft.net, sri@us.ibm.com
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <20070723104826.GD22877@2ka.mipt.ru>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Hi Evgeniy,
 
-This patch cleans up duplicate includes in
-	net/ipv4/
+Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote on 07/23/2007 04:18:26 PM:
 
+> >  static void ipoib_ib_handle_tx_wc(struct net_device *dev, struct ib_wc
+*wc)
+> >  {
+> >     struct ipoib_dev_priv *priv = netdev_priv(dev);
+> > +   int i = 0, num_completions;
+> > +   int tx_ring_index = priv->tx_tail & (ipoib_sendq_size - 1);
+> >     unsigned int wr_id = wc->wr_id;
+> > -   struct ipoib_tx_buf *tx_req;
+> >     unsigned long flags;
+> >
+> >     ipoib_dbg_data(priv, "send completion: id %d, status: %d\n",
+> > @@ -255,23 +256,57 @@ static void ipoib_ib_handle_tx_wc(struct
+> >        return;
+> >     }
+> >
+> > -   tx_req = &priv->tx_ring[wr_id];
+> > +   num_completions = wr_id - tx_ring_index + 1;
+> > +   if (num_completions <= 0)
+> > +      num_completions += ipoib_sendq_size;
+>
+> Can this still be less than zero?
 
-Signed-off-by: Jesper Juhl <jesper.juhl@gmail.com>
----
+Should never happen, otherwise the TX code wrote on bad/unallocated
+memory and would have crashed first.
 
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index c9e2b5e..0f1d7be 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -75,7 +75,6 @@
- #include <net/icmp.h>
- #include <net/checksum.h>
- #include <net/inetpeer.h>
--#include <net/checksum.h>
- #include <linux/igmp.h>
- #include <linux/netfilter_ipv4.h>
- #include <linux/netfilter_bridge.h>
-diff --git a/net/ipv4/ipvs/ip_vs_ctl.c b/net/ipv4/ipvs/ip_vs_ctl.c
-index e1052bc..c32781d 100644
---- a/net/ipv4/ipvs/ip_vs_ctl.c
-+++ b/net/ipv4/ipvs/ip_vs_ctl.c
-@@ -29,7 +29,6 @@
- #include <linux/proc_fs.h>
- #include <linux/workqueue.h>
- #include <linux/swap.h>
--#include <linux/proc_fs.h>
- #include <linux/seq_file.h>
- 
- #include <linux/netfilter.h>
-diff --git a/net/ipv4/netfilter/ipt_CLUSTERIP.c b/net/ipv4/netfilter/ipt_CLUSTERIP.c
-index dcc12b1..69bd362 100644
---- a/net/ipv4/netfilter/ipt_CLUSTERIP.c
-+++ b/net/ipv4/netfilter/ipt_CLUSTERIP.c
-@@ -19,7 +19,6 @@
- #include <linux/udp.h>
- #include <linux/icmp.h>
- #include <linux/if_arp.h>
--#include <linux/proc_fs.h>
- #include <linux/seq_file.h>
- #include <linux/netfilter_arp.h>
- #include <linux/netfilter/x_tables.h>
+Thanks,
+
+- KK
