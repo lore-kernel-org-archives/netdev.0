@@ -1,41 +1,96 @@
-From: Christoph Lameter <clameter@sgi.com>
-Subject: Re: [Bugme-new] [Bug 8778] New: Ocotea board: kernel reports access
- of bad area during boot with DEBUG_SLAB=y
-Date: Mon, 23 Jul 2007 13:34:50 -0700
-Message-ID: <20070723133450.3de91b33@schroedinger.engr.sgi.com>
-References: <bug-8778-10286@http.bugzilla.kernel.org/>
-	<20070718005253.942f0464.akpm@linux-foundation.org>
-	<20070718083425.GA29722@gate.ebshome.net>
-	<1184766070.3699.2.camel@zod.rchland.ibm.com>
-	<20070718155940.GB29722@gate.ebshome.net>
-	<20070718095537.d344dc0a.akpm@linux-foundation.org>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: Re: 2.6.23-rc1: BUG_ON in kmap_atomic_prot()
+Date: Tue, 24 Jul 2007 00:40:45 +0400
+Message-ID: <20070723204045.GD5755@martell.zuzino.mipt.ru>
+References: <alpine.LFD.0.999.0707221351030.3607@woody.linux-foundation.org> <20070723183839.GA5874@martell.zuzino.mipt.ru> <20070723190152.GA5755@martell.zuzino.mipt.ru> <20070723132431.42afbae8.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Eugene Surovegin <ebs@ebshome.net>, linux-mm@kvack.org,
-	Josh Boyer <jwboyer@linux.vnet.ibm.com>,
-	bart.vanassche@gmail.com, netdev@vger.kernel.org,
-	"bugme-daemon@kernel-bugs.osdl.org"
-	<bugme-daemon@bugzilla.kernel.org>, linuxppc-embedded@ozlabs.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from netops-testserver-3-out.sgi.com ([192.48.171.28]:60915 "EHLO
-	relay.sgi.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1762780AbXGWUew (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jul 2007 16:34:52 -0400
-In-Reply-To: <20070718095537.d344dc0a.akpm@linux-foundation.org>
+Received: from ug-out-1314.google.com ([66.249.92.172]:64790 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932197AbXGWUku (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jul 2007 16:40:50 -0400
+Received: by ug-out-1314.google.com with SMTP id j3so32237ugf
+        for <netdev@vger.kernel.org>; Mon, 23 Jul 2007 13:40:49 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20070723132431.42afbae8.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 18 Jul 2007 09:55:37 -0700
-Andrew Morton <akpm@linux-foundation.org> wrote:
+On Mon, Jul 23, 2007 at 01:24:31PM -0700, Andrew Morton wrote:
+> On Mon, 23 Jul 2007 23:01:52 +0400
+> Alexey Dobriyan <adobriyan@gmail.com> wrote:
+> 
+> > On Mon, Jul 23, 2007 at 10:38:39PM +0400, Alexey Dobriyan wrote:
+> > > Managed to hit BUG_ON() in kmap_atomic_prot() three times while doing
+> > > nothing unusual for this box (two times it was under X, so I can't
+> > > guarantee, one time while trying to reproduce via ./configure in gdb
+> > > tarball)
+> 
+> Yeah, I hit this several times a few days ago.  Same story: it just
+> randomly went splat in response to no obvious stimulus.  Reported it to
+> netdev, was greeted with stunned silence.
+> 
+> 
+> > > Box has 2.5G of RAM. 2.6.22 was OK.
+> > > 
+> > > [dives into framebuffer console setup for complete oops]
+> > 
+> > kernel BUG at arch/i386/mm/highmem.c:38
+> > PREEMPT DEBUG_PAGEALLOC SLAB
+> > EIP at kmap_atomic_prot+0x32/0x93
+> > 	get_page_from_freelist
+> > 	__alloc_pages
+> > 	cache_alloc_refill
+> > 	cache_alloc_refill
+> > 	kmem_cache_alloc
+> > 	dst_alloc
+> > 	dst_alloc
+> > 	__ip_route_output_key
+> > 	[some junk I don't trust]
+> > 
+> > eax: 0000000c
+> > ebx: 00000003
+> > ecx: c065efe0
+> > edx: 00000003
+> > edi: 00000163
+> > 
+> > 
+> > c010cc9b <kmap_atomic_prot>:
+> > c010cc9b:	57                   	push   %edi
+> > c010cc9c:	56                   	push   %esi
+> > c010cc9d:	53                   	push   %ebx
+> > c010cc9e:	89 c6                	mov    %eax,%esi
+> > c010cca0:	89 d3                	mov    %edx,%ebx
+> > c010cca2:	89 cf                	mov    %ecx,%edi
+> > c010cca4:	b8 01 00 00 00       	mov    $0x1,%eax
+> > c010cca9:	e8 dd 1b 00 00       	call   c010e88b <add_preempt_count>
+> > c010ccae:	e8 b1 ac 0e 00       	call   c01f7964 <debug_smp_processor_id>
+> > c010ccb3:	6b c0 0d             	imul   $0xd,%eax,%eax
+> > c010ccb6:	8d 14 03             	lea    (%ebx,%eax,1),%edx
+> > c010ccb9:	8d 04 95 00 00 00 00 	lea    0x0(,%edx,4),%eax
+> > c010ccc0:	8b 0d 30 a1 3e c0    	mov    0xc03ea130,%ecx
+> > c010ccc6:	29 c1                	sub    %eax,%ecx
+> > c010ccc8:	83 39 00             	cmpl   $0x0,(%ecx)
+> > c010cccb:	74 04                	je     c010ccd1 <kmap_atomic_prot+0x36>
+> > c010cccd:	0f 0b                	ud2a   
+> 
+> I had more complete info: http://article.gmane.org/gmane.linux.network/66966
+> 
+> You're using DEBUG_PAGEALLOC, but I was not, so I think we can rule that out.
+> 
+> I haven't worked out where that kmap_atomic() call is coming from yet. 
+> Both traces point up into the page allocator, but I _think_ that's stack
+> gunk.
 
-> hm.  It should be the case that providing SLAB_HWCACHE_ALIGN at
-> kmem_cache_create() time will override slab-debugging's offsetting
-> of the returned addresses.
+Ahh, you suspect networking.
 
+Here, setup is 2 cheap-ass 100Mb realtek 8139 NICs, one to campus network
+receiving ~20 junk packets per second, one gathering netconsole output
+and ssh to it, no conntracks and fancy stuff.
 
-That is true for SLUB but not in SLAB. SLAB has always ignored
-SLAB_HWCACHE_ALIGN when debugging is on because of the issues involved
-in placing the redzone values etc.  Could be fun to fix.
+[reboots with cables physically unplugged]
 
