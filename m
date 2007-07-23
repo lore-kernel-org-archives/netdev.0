@@ -1,52 +1,60 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: 2.6.23-rc1: BUG_ON in kmap_atomic_prot()
-Date: Mon, 23 Jul 2007 14:11:37 -0700
-Message-ID: <20070723141137.171e4ac1.akpm@linux-foundation.org>
-References: <alpine.LFD.0.999.0707221351030.3607@woody.linux-foundation.org>
-	<20070723183839.GA5874@martell.zuzino.mipt.ru>
-	<20070723190152.GA5755@martell.zuzino.mipt.ru>
-	<20070723132431.42afbae8.akpm@linux-foundation.org>
-	<20070723204045.GD5755@martell.zuzino.mipt.ru>
-	<20070723210153.GA5753@martell.zuzino.mipt.ru>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH]: Resurrect napi_poll patch.
+Date: Mon, 23 Jul 2007 22:14:49 +0100
+Message-ID: <20070723221449.1b500447@oldman>
+References: <20070720.223129.59470764.davem@davemloft.net>
+	<p73lkd9vqfr.fsf@bingen.suse.de>
+	<20070723105822.3a9fa152@oldman.hamilton.local>
+	<20070723170642.GA13771@one.firstfloor.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Alexey Dobriyan <adobriyan@gmail.com>
+Cc: Andi Kleen <andi@firstfloor.org>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	rusty@rustcorp.com.au, jgarzik@pobox.com
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:47169 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:52181 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759470AbXGWVLp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jul 2007 17:11:45 -0400
-In-Reply-To: <20070723210153.GA5753@martell.zuzino.mipt.ru>
+	by vger.kernel.org with ESMTP id S1752315AbXGWVPR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jul 2007 17:15:17 -0400
+In-Reply-To: <20070723170642.GA13771@one.firstfloor.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 24 Jul 2007 01:01:53 +0400
-Alexey Dobriyan <adobriyan@gmail.com> wrote:
+On Mon, 23 Jul 2007 19:06:42 +0200
+Andi Kleen <andi@firstfloor.org> wrote:
 
-> On Tue, Jul 24, 2007 at 12:40:45AM +0400, Alexey Dobriyan wrote:
-> > > I had more complete info: http://article.gmane.org/gmane.linux.network/66966
+> On Mon, Jul 23, 2007 at 10:58:22AM +0100, Stephen Hemminger wrote:
+> > On 21 Jul 2007 15:26:00 +0200
+> > Andi Kleen <andi@firstfloor.org> wrote:
+> > 
+> > > David Miller <davem@davemloft.net> writes:
+> > > > 
+> > > > Good candidates for taking advantage of multi-napi are:
+> > > > 
+> > > > 1) e1000
+> > > > 2) ucc_geth
+> > > > 3) ehea
+> > > > 4) sunvnet
 > > > 
-> > > You're using DEBUG_PAGEALLOC, but I was not, so I think we can rule that out.
-> > > 
-> > > I haven't worked out where that kmap_atomic() call is coming from yet. 
-> > > Both traces point up into the page allocator, but I _think_ that's stack
-> > > gunk.
+> > > s2io.c
 > > 
-> > Ahh, you suspect networking.
-> > 
-> > Here, setup is 2 cheap-ass 100Mb realtek 8139 NICs, one to campus network
-> > receiving ~20 junk packets per second, one gathering netconsole output
-> > and ssh to it, no conntracks and fancy stuff.
-> > 
-> > [reboots with cables physically unplugged]
+> > sky2.c could use it because of issues with dual-port that share
+> > one napi for status.
 > 
-> OK, I run gdb recompile, cat(1) every file in /usr/portage (shitload of
-> small files) with both cables unplugged. It all went fine for ~5 minutes
-> after that it crashed exactly same way after 10 secs after plugging one
-> of them.
+> Sorry, I didn't parse the sentence. Did you mean "couldn't use it" ...? 
+> Also can you elaborate why it shouldn't work?
 
-It'd be nice to get a clean trace.  Are you able to obtain the full
-trace with CONFIG_FRAME_POINTER=y?
+Sky2 would make a good case for decoupling because it can have:
+
+	device0     device1
+	    \            /
+             napi poll
+
+Right now both device's share the NAPI instance on device 0,
+but it take some work to make sure that the core code doesn't
+upset device1 when device0 is down.
+
+Actually, dual port boards are rare, I have one but it is a PCI-E x4
+board so a pain to find a system with a slot.
