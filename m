@@ -1,73 +1,49 @@
-From: Jeremy Fitzhardinge <jeremy@goop.org>
-Subject: Re: drivers/net/xen-netfront.c: bogus code
-Date: Sun, 22 Jul 2007 23:46:12 -0700
-Message-ID: <46A44EB4.3070501@goop.org>
-References: <20070722232618.GO26212@stusta.de>
+From: "Samuel Ortiz" <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH] [IrDA] KS959 USB IrDA dongle support
+Date: 23 Jul 2007 07:25:06 -0000
+Message-ID: <kjg2gBqm.1185175506.5213420.samuel@sortiz.org>
+References: <20070722.183506.121297628.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Jeremy Fitzhardinge <jeremy@xensource.com>,
-	Chris Wright <chrisw@sous-sol.org>,
-	Jeff Garzik <jeff@garzik.org>, xen-devel@lists.xensource.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Adrian Bunk <bunk@stusta.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw.goop.org ([64.81.55.164]:41559 "EHLO mail.goop.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755652AbXGWGrG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Jul 2007 02:47:06 -0400
-In-Reply-To: <20070722232618.GO26212@stusta.de>
-Sender: netdev-owner@vger.kernel.org
+Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"a_villacis-5itmuRygkZmgSpxsJD1C4w@public.gmane.org" <a_villacis-5itmuRygkZmgSpxsJD1C4w@public.gmane.org>,
+	"linux-usb-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org" <linux-usb-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
+	"irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org" <irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <20070722.183506.121297628.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
+	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=irda-users>
+List-Post: <mailto:irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
+	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Sender: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Errors-To: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Adrian Bunk wrote:
-> The Coverity checker spotted the following bogus code
-> in drivers/net/xen-netfront.c:
->
-> <--  snip  -->
->
-> ...
-> static void xennet_alloc_rx_buffers(struct net_device *dev)
-> {
-> ...
->         for (nr_flips = i = 0; ; i++) {
->                 skb = __skb_dequeue(&np->rx_batch);
->                 if (skb == NULL)
->                         break;
->
->                 skb->dev = dev;
->
->                 id = xennet_rxidx(req_prod + i);
->
->                 BUG_ON(np->rx_skbs[id]);
->                 np->rx_skbs[id] = skb;
->
->                 ref = gnttab_claim_grant_reference(&np->gref_rx_head);
->                 BUG_ON((signed short)ref < 0);
->                 np->grant_rx_ref[id] = ref;
->
->                 pfn = page_to_pfn(skb_shinfo(skb)->frags[0].page);
->                 vaddr = page_address(skb_shinfo(skb)->frags[0].page);
->
->                 req = RING_GET_REQUEST(&np->rx, req_prod + i);
->                 gnttab_grant_foreign_access_ref(ref,
->                                                 np->xbdev->otherend_id,
->                                                 pfn_to_mfn(pfn),
->                                                 0);
->
->                 req->id = id;
->                 req->gref = ref;
->         }
->
->         if (nr_flips != 0) {
-> ...
->
-> <--  snip  -->
->
-> Note that "nr_flips" is always 0 in the last line.
->   
 
-Thanks.  That's probably a residual from me removing the page-flipping
-code.  I'll give it another pass.
+On 7/23/2007, "David Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
 
-    J
+>From: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
+>Date: Mon, 23 Jul 2007 00:32:17 +0300
+>
+>> Last IrDA patch for 2.6.23-rc1, if it's not too late...
+>
+>Too late, Linus just closed the merge window, you had two
+>weeks to submit this :-)
+Too bad...
+I submitted it as soon as it was ready. Will we have to wait until the
+2.6.24 merge window, or can it be applied earlier as it's a fully
+standalone driver ?
+
+Cheers,
+Samuel.
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Splunk Inc.
+Still grepping through log files to find problems?  Stop.
+Now Search log events and configuration files using AJAX and a browser.
+Download your FREE copy of Splunk now >>  http://get.splunk.com/
