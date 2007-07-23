@@ -1,431 +1,84 @@
-From: Joy Latten <latten@austin.ibm.com>
-Subject: [PATCH]: revised make xfrm_audit_log more generic patch
-Date: Mon, 23 Jul 2007 16:46:05 -0500
-Message-ID: <200707232146.l6NLk50u001083@faith.austin.ibm.com>
-Cc: davem@davemloft.net, linux-audit@redhat.com, sgrubb@redhat.com
-To: netdev@vger.kernel.org
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: Re: 2.6.23-rc1: BUG_ON in kmap_atomic_prot()
+Date: Tue, 24 Jul 2007 02:04:46 +0400
+Message-ID: <20070723220446.GA5822@martell.zuzino.mipt.ru>
+References: <alpine.LFD.0.999.0707221351030.3607@woody.linux-foundation.org> <20070723183839.GA5874@martell.zuzino.mipt.ru> <20070723190152.GA5755@martell.zuzino.mipt.ru> <20070723132431.42afbae8.akpm@linux-foundation.org> <20070723204045.GD5755@martell.zuzino.mipt.ru> <20070723210153.GA5753@martell.zuzino.mipt.ru> <20070723141137.171e4ac1.akpm@linux-foundation.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e6.ny.us.ibm.com ([32.97.182.146]:35606 "EHLO e6.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753482AbXGWVsM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Jul 2007 17:48:12 -0400
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e6.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l6NLnOrR021338
-	for <netdev@vger.kernel.org>; Mon, 23 Jul 2007 17:49:24 -0400
-Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.4) with ESMTP id l6NLm94V481610
-	for <netdev@vger.kernel.org>; Mon, 23 Jul 2007 17:48:09 -0400
-Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
-	by d01av01.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l6NLm9Oh022792
-	for <netdev@vger.kernel.org>; Mon, 23 Jul 2007 17:48:09 -0400
+Received: from ug-out-1314.google.com ([66.249.92.168]:30511 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750739AbXGWWEv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jul 2007 18:04:51 -0400
+Received: by ug-out-1314.google.com with SMTP id j3so46442ugf
+        for <netdev@vger.kernel.org>; Mon, 23 Jul 2007 15:04:49 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20070723141137.171e4ac1.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Revised patch that modifies xfrm_audit_log() such that it
-can accomodate auditing other ipsec events
-besides add/delete of an SA or SPD entry.
+On Mon, Jul 23, 2007 at 02:11:37PM -0700, Andrew Morton wrote:
+> On Tue, 24 Jul 2007 01:01:53 +0400
+> Alexey Dobriyan <adobriyan@gmail.com> wrote:
+> 
+> > On Tue, Jul 24, 2007 at 12:40:45AM +0400, Alexey Dobriyan wrote:
+> > > > I had more complete info: http://article.gmane.org/gmane.linux.network/66966
+> > > > 
+> > > > You're using DEBUG_PAGEALLOC, but I was not, so I think we can rule that out.
+> > > > 
+> > > > I haven't worked out where that kmap_atomic() call is coming from yet. 
+> > > > Both traces point up into the page allocator, but I _think_ that's stack
+> > > > gunk.
+> > > 
+> > > Ahh, you suspect networking.
+> > > 
+> > > Here, setup is 2 cheap-ass 100Mb realtek 8139 NICs, one to campus network
+> > > receiving ~20 junk packets per second, one gathering netconsole output
+> > > and ssh to it, no conntracks and fancy stuff.
+> > > 
+> > > [reboots with cables physically unplugged]
+> > 
+> > OK, I run gdb recompile, cat(1) every file in /usr/portage (shitload of
+> > small files) with both cables unplugged. It all went fine for ~5 minutes
+> > after that it crashed exactly same way after 10 secs after plugging one
+> > of them.
+> 
+> It'd be nice to get a clean trace.  Are you able to obtain the full
+> trace with CONFIG_FRAME_POINTER=y?
 
-This patch differs from original in that it does
-not remove existing ipsec audit defines so as
-to not break existing audit apps. 
+Sorry, no camera shot, finding camera requires wakening up M. :)
 
-This is a small change to accomodate updating
-ipsec protocol to RFCs 4301, 4302 and 4303 which
-require auditing some ipsec events if auditing
-is available. Please let me know if ok.
+It took longer that usual, but here it is
 
-Regards,
-Joy
+	kmap_atomic
+	get_page_from_freelist
+	__alloc_pages
+	cache_alloc_refill
+	__alloc_pages
+	cache_alloc_refill
+	kmem_cache_alloc
+	dst_alloc
+	ip_route_input
+	ip_rcv
+	netif_receive_skb
+	rtl8139_poll
+	net_rx_action
+	__do_softirq
+	do_softirq
+	irq_exit
+	do_IRQ
+	common_interrupt
+	handle_mm_fault
+	do_page_fault
+	error_core
 
-Signed-off-by: Joy Latten <latten@austin.ibm.com>
+much more loaded x86_64 box near also running 2.6.23-rc1 with debugging
+turned on, using atl1 driver doesn't experience any crashes.
 
+And I found 2.6.22-b91cba52e9b7b3f1c0037908a192d93a869ca9e5-x entry on
+top of grub config which means b91cba52e9b7b3f1c0037908a192d93a869ca9e5
+_without_ any debugging was OK.
 
-diff -urpN linux-2.6.22/include/linux/audit.h linux-2.6.22.patch/include/linux/audit.h
---- linux-2.6.22/include/linux/audit.h	2007-07-23 14:35:28.000000000 -0500
-+++ linux-2.6.22.patch/include/linux/audit.h	2007-07-23 14:38:51.000000000 -0500
-@@ -112,6 +112,7 @@
- #define AUDIT_MAC_IPSEC_DELSA	1412	/* Delete a XFRM state */
- #define AUDIT_MAC_IPSEC_ADDSPD	1413	/* Add a XFRM policy */
- #define AUDIT_MAC_IPSEC_DELSPD	1414	/* Delete a XFRM policy */
-+#define AUDIT_MAC_IPSEC_EVENT	1415	/* Audit IPSec events */
- 
- #define AUDIT_FIRST_KERN_ANOM_MSG   1700
- #define AUDIT_LAST_KERN_ANOM_MSG    1799
-diff -urpN linux-2.6.22/include/net/xfrm.h linux-2.6.22.patch/include/net/xfrm.h
---- linux-2.6.22/include/net/xfrm.h	2007-07-23 14:35:28.000000000 -0500
-+++ linux-2.6.22.patch/include/net/xfrm.h	2007-07-23 14:38:51.000000000 -0500
-@@ -427,9 +427,11 @@ struct xfrm_audit
- 
- #ifdef CONFIG_AUDITSYSCALL
- extern void xfrm_audit_log(uid_t auid, u32 secid, int type, int result,
--		    struct xfrm_policy *xp, struct xfrm_state *x);
-+			   u16 family, xfrm_address_t saddr, 
-+			   xfrm_address_t daddr, __be32 spi, __be32 flowid, 
-+			   struct xfrm_sec_ctx *sctx, char *buf);
- #else
--#define xfrm_audit_log(a,s,t,r,p,x) do { ; } while (0)
-+#define xfrm_audit_log(a,i,t,r,f,s,d,p,l,c,b) do { ; } while (0)
- #endif /* CONFIG_AUDITSYSCALL */
- 
- static inline void xfrm_pol_hold(struct xfrm_policy *policy)
-diff -urpN linux-2.6.22/net/key/af_key.c linux-2.6.22.patch/net/key/af_key.c
---- linux-2.6.22/net/key/af_key.c	2007-07-08 18:32:17.000000000 -0500
-+++ linux-2.6.22.patch/net/key/af_key.c	2007-07-23 14:38:51.000000000 -0500
-@@ -1459,7 +1459,9 @@ static int pfkey_add(struct sock *sk, st
- 		err = xfrm_state_update(x);
- 
- 	xfrm_audit_log(audit_get_loginuid(current->audit_context), 0,
--		       AUDIT_MAC_IPSEC_ADDSA, err ? 0 : 1, NULL, x);
-+		       AUDIT_MAC_IPSEC_EVENT, err ? 0 : 1, 
-+		       x->props.family, x->props.saddr, x->id.daddr, 
-+		       x->id.spi, 0, x->security, "SAD add");
- 
- 	if (err < 0) {
- 		x->km.state = XFRM_STATE_DEAD;
-@@ -1513,7 +1515,10 @@ static int pfkey_delete(struct sock *sk,
- 	km_state_notify(x, &c);
- out:
- 	xfrm_audit_log(audit_get_loginuid(current->audit_context), 0,
--		       AUDIT_MAC_IPSEC_DELSA, err ? 0 : 1, NULL, x);
-+		       AUDIT_MAC_IPSEC_EVENT, err ? 0 : 1, x->props.family,
-+		       x->props.saddr, x->id.daddr, x->id.spi, 0,
-+		       x->security, "SAD delete");
-+
- 	xfrm_state_put(x);
- 
- 	return err;
-@@ -2266,7 +2271,9 @@ static int pfkey_spdadd(struct sock *sk,
- 				 hdr->sadb_msg_type != SADB_X_SPDUPDATE);
- 
- 	xfrm_audit_log(audit_get_loginuid(current->audit_context), 0,
--		       AUDIT_MAC_IPSEC_ADDSPD, err ? 0 : 1, xp, NULL);
-+		       AUDIT_MAC_IPSEC_EVENT, err ? 0 : 1, 
-+		       xp->selector.family, xp->selector.saddr,
-+		       xp->selector.daddr, 0, 0, xp->security, "SPD add");
- 
- 	if (err)
- 		goto out;
-@@ -2350,7 +2357,9 @@ static int pfkey_spddelete(struct sock *
- 		return -ENOENT;
- 
- 	xfrm_audit_log(audit_get_loginuid(current->audit_context), 0,
--		       AUDIT_MAC_IPSEC_DELSPD, err ? 0 : 1, xp, NULL);
-+		       AUDIT_MAC_IPSEC_EVENT, err ? 0 : 1,
-+		       xp->selector.family, xp->selector.saddr,
-+		       xp->selector.daddr, 0, 0, xp->security, "SPD delete");
- 
- 	if (err)
- 		goto out;
-@@ -2611,7 +2620,10 @@ static int pfkey_spdget(struct sock *sk,
- 
- 	if (delete) {
- 		xfrm_audit_log(audit_get_loginuid(current->audit_context), 0,
--			       AUDIT_MAC_IPSEC_DELSPD, err ? 0 : 1, xp, NULL);
-+			       AUDIT_MAC_IPSEC_EVENT, err ? 0 : 1, 
-+			       xp->selector.family, xp->selector.saddr,
-+			       xp->selector.daddr, 0, 0, xp->security,
-+			       "SPD delete");
- 
- 		if (err)
- 			goto out;
-diff -urpN linux-2.6.22/net/xfrm/xfrm_policy.c linux-2.6.22.patch/net/xfrm/xfrm_policy.c
---- linux-2.6.22/net/xfrm/xfrm_policy.c	2007-07-23 14:35:29.000000000 -0500
-+++ linux-2.6.22.patch/net/xfrm/xfrm_policy.c	2007-07-23 14:38:51.000000000 -0500
-@@ -853,8 +853,11 @@ xfrm_policy_flush_secctx_check(u8 type, 
- 			if (err) {
- 				xfrm_audit_log(audit_info->loginuid,
- 					       audit_info->secid,
--					       AUDIT_MAC_IPSEC_DELSPD, 0,
--					       pol, NULL);
-+					       AUDIT_MAC_IPSEC_EVENT, 0,
-+					       pol->selector.family, 
-+					       pol->selector.saddr, 
-+					       pol->selector.daddr, 0, 0,
-+					       pol->security, "SPD delete");
- 				return err;
- 			}
- 		}
-@@ -868,8 +871,12 @@ xfrm_policy_flush_secctx_check(u8 type, 
- 				if (err) {
- 					xfrm_audit_log(audit_info->loginuid,
- 						       audit_info->secid,
--						       AUDIT_MAC_IPSEC_DELSPD,
--						       0, pol, NULL);
-+						       AUDIT_MAC_IPSEC_EVENT,
-+						       0, pol->selector.family, 
-+						       pol->selector.saddr, 
-+						       pol->selector.daddr, 
-+						       0, 0, pol->security, 
-+						       "SPD delete");
- 					return err;
- 				}
- 			}
-@@ -911,7 +918,11 @@ int xfrm_policy_flush(u8 type, struct xf
- 			write_unlock_bh(&xfrm_policy_lock);
- 
- 			xfrm_audit_log(audit_info->loginuid, audit_info->secid,
--				       AUDIT_MAC_IPSEC_DELSPD, 1, pol, NULL);
-+				       AUDIT_MAC_IPSEC_EVENT, 1, 
-+				       pol->selector.family,
-+				       pol->selector.saddr,
-+				       pol->selector.daddr, 0, 0,
-+				       pol->security, "SPD delete");
- 
- 			xfrm_policy_kill(pol);
- 			killed++;
-@@ -933,8 +944,11 @@ int xfrm_policy_flush(u8 type, struct xf
- 
- 				xfrm_audit_log(audit_info->loginuid,
- 					       audit_info->secid,
--					       AUDIT_MAC_IPSEC_DELSPD, 1,
--					       pol, NULL);
-+					       AUDIT_MAC_IPSEC_EVENT, 1,
-+					       pol->selector.family,
-+					       pol->selector.saddr,
-+					       pol->selector.daddr, 0, 0,
-+					       pol->security, "SPD delete");
- 
- 				xfrm_policy_kill(pol);
- 				killed++;
-@@ -2154,44 +2168,23 @@ EXPORT_SYMBOL(xfrm_bundle_ok);
- /* Audit addition and deletion of SAs and ipsec policy */
- 
- void xfrm_audit_log(uid_t auid, u32 sid, int type, int result,
--		    struct xfrm_policy *xp, struct xfrm_state *x)
-+                    u16 family, xfrm_address_t saddr, xfrm_address_t daddr,
-+                    __be32 spi, __be32 flowlabel, struct xfrm_sec_ctx *sctx,
-+                    char *buf)
- {
--
- 	char *secctx;
- 	u32 secctx_len;
--	struct xfrm_sec_ctx *sctx = NULL;
- 	struct audit_buffer *audit_buf;
--	int family;
- 	extern int audit_enabled;
- 
- 	if (audit_enabled == 0)
- 		return;
- 
--	BUG_ON((type == AUDIT_MAC_IPSEC_ADDSA ||
--		type == AUDIT_MAC_IPSEC_DELSA) && !x);
--	BUG_ON((type == AUDIT_MAC_IPSEC_ADDSPD ||
--		type == AUDIT_MAC_IPSEC_DELSPD) && !xp);
--
- 	audit_buf = audit_log_start(current->audit_context, GFP_ATOMIC, type);
- 	if (audit_buf == NULL)
- 		return;
- 
--	switch(type) {
--	case AUDIT_MAC_IPSEC_ADDSA:
--		audit_log_format(audit_buf, "SAD add: auid=%u", auid);
--		break;
--	case AUDIT_MAC_IPSEC_DELSA:
--		audit_log_format(audit_buf, "SAD delete: auid=%u", auid);
--		break;
--	case AUDIT_MAC_IPSEC_ADDSPD:
--		audit_log_format(audit_buf, "SPD add: auid=%u", auid);
--		break;
--	case AUDIT_MAC_IPSEC_DELSPD:
--		audit_log_format(audit_buf, "SPD delete: auid=%u", auid);
--		break;
--	default:
--		return;
--	}
-+	audit_log_format(audit_buf, "%s: auid=%u", buf, auid);
- 
- 	if (sid != 0 &&
- 		security_secid_to_secctx(sid, &secctx, &secctx_len) == 0)
-@@ -2199,16 +2192,6 @@ void xfrm_audit_log(uid_t auid, u32 sid,
- 	else
- 		audit_log_task_context(audit_buf);
- 
--	if (xp) {
--		family = xp->selector.family;
--		if (xp->security)
--			sctx = xp->security;
--	} else {
--		family = x->props.family;
--		if (x->security)
--			sctx = x->security;
--	}
--
- 	if (sctx)
- 		audit_log_format(audit_buf,
- 				" sec_alg=%u sec_doi=%u sec_obj=%s",
-@@ -2216,48 +2199,24 @@ void xfrm_audit_log(uid_t auid, u32 sid,
- 
- 	switch(family) {
- 	case AF_INET:
--		{
--			struct in_addr saddr, daddr;
--			if (xp) {
--				saddr.s_addr = xp->selector.saddr.a4;
--				daddr.s_addr = xp->selector.daddr.a4;
--			} else {
--				saddr.s_addr = x->props.saddr.a4;
--				daddr.s_addr = x->id.daddr.a4;
--			}
--			audit_log_format(audit_buf,
--					 " src=%u.%u.%u.%u dst=%u.%u.%u.%u",
--					 NIPQUAD(saddr), NIPQUAD(daddr));
--		}
--			break;
-+		audit_log_format(audit_buf,
-+				 " src=" NIPQUAD_FMT " dst=" NIPQUAD_FMT,
-+				 NIPQUAD(saddr.a4), NIPQUAD(daddr.a4));
-+		break;
- 	case AF_INET6:
--		{
--			struct in6_addr saddr6, daddr6;
--			if (xp) {
--				memcpy(&saddr6, xp->selector.saddr.a6,
--					sizeof(struct in6_addr));
--				memcpy(&daddr6, xp->selector.daddr.a6,
--					sizeof(struct in6_addr));
--			} else {
--				memcpy(&saddr6, x->props.saddr.a6,
--					sizeof(struct in6_addr));
--				memcpy(&daddr6, x->id.daddr.a6,
--					sizeof(struct in6_addr));
--			}
--			audit_log_format(audit_buf,
--					 " src=" NIP6_FMT " dst=" NIP6_FMT,
--					 NIP6(saddr6), NIP6(daddr6));
--		}
-+		audit_log_format(audit_buf, " src=" NIP6_FMT " dst=" NIP6_FMT,
-+				 NIP6(*((struct in6_addr *)&saddr.a6)),
-+				 NIP6(*((struct in6_addr *)&daddr.a6)));
- 		break;
- 	}
- 
--	if (x)
--		audit_log_format(audit_buf, " spi=%lu(0x%lx) protocol=%s",
--				(unsigned long)ntohl(x->id.spi),
--				(unsigned long)ntohl(x->id.spi),
--				x->id.proto == IPPROTO_AH ? "AH" :
--				(x->id.proto == IPPROTO_ESP ?
--				"ESP" : "IPCOMP"));
-+	if (flowlabel)
-+		audit_log_format(audit_buf, " flowlabel=%u", flowlabel);
-+
-+	if (spi)
-+		audit_log_format(audit_buf, " spi=%lu(0x%lx)",
-+				(unsigned long)ntohl(spi),
-+				(unsigned long)ntohl(spi));
- 
- 	audit_log_format(audit_buf, " res=%u", result);
- 	audit_log_end(audit_buf);
-diff -urpN linux-2.6.22/net/xfrm/xfrm_state.c linux-2.6.22.patch/net/xfrm/xfrm_state.c
---- linux-2.6.22/net/xfrm/xfrm_state.c	2007-07-23 14:35:29.000000000 -0500
-+++ linux-2.6.22.patch/net/xfrm/xfrm_state.c	2007-07-23 14:46:00.000000000 -0500
-@@ -303,7 +303,9 @@ expired:
- 		km_state_expired(x, 1, 0);
- 
- 	xfrm_audit_log(audit_get_loginuid(current->audit_context), 0,
--		       AUDIT_MAC_IPSEC_DELSA, err ? 0 : 1, NULL, x);
-+		       AUDIT_MAC_IPSEC_EVENT, err ? 0 : 1, 
-+		       x->props.family, x->props.saddr, x->id.daddr, x->id.spi,
-+		       0, x->security, "SAD delete");
- 
- out:
- 	spin_unlock(&x->lock);
-@@ -406,9 +408,10 @@ xfrm_state_flush_secctx_check(u8 proto, 
- 			   (err = security_xfrm_state_delete(x)) != 0) {
- 				xfrm_audit_log(audit_info->loginuid,
- 					       audit_info->secid,
--					       AUDIT_MAC_IPSEC_DELSA,
--					       0, NULL, x);
--
-+					       AUDIT_MAC_IPSEC_EVENT, 0,
-+					       x->props.family, x->props.saddr, 
-+					       x->id.daddr, x->id.spi, 0, 
-+					       x->security, "SAD delete");
- 				return err;
- 			}
- 		}
-@@ -446,8 +449,11 @@ restart:
- 				err = xfrm_state_delete(x);
- 				xfrm_audit_log(audit_info->loginuid,
- 					       audit_info->secid,
--					       AUDIT_MAC_IPSEC_DELSA,
--					       err ? 0 : 1, NULL, x);
-+					       AUDIT_MAC_IPSEC_EVENT, 
-+					       err ? 0 : 1, x->props.family,
-+					       x->props.saddr, x->id.daddr,
-+					       x->id.spi, 0, x->security,
-+					       "SAD delete");
- 				xfrm_state_put(x);
- 
- 				spin_lock_bh(&xfrm_state_lock);
-diff -urpN linux-2.6.22/net/xfrm/xfrm_user.c linux-2.6.22.patch/net/xfrm/xfrm_user.c
---- linux-2.6.22/net/xfrm/xfrm_user.c	2007-07-08 18:32:17.000000000 -0500
-+++ linux-2.6.22.patch/net/xfrm/xfrm_user.c	2007-07-23 14:38:51.000000000 -0500
-@@ -456,7 +456,9 @@ static int xfrm_add_sa(struct sk_buff *s
- 		err = xfrm_state_update(x);
- 
- 	xfrm_audit_log(NETLINK_CB(skb).loginuid, NETLINK_CB(skb).sid,
--		       AUDIT_MAC_IPSEC_ADDSA, err ? 0 : 1, NULL, x);
-+		       AUDIT_MAC_IPSEC_EVENT, err ? 0 : 1, 
-+		       x->props.family, x->props.saddr, x->id.daddr, 
-+		       x->id.spi, 0, x->security, "SAD add");
- 
- 	if (err < 0) {
- 		x->km.state = XFRM_STATE_DEAD;
-@@ -539,7 +541,9 @@ static int xfrm_del_sa(struct sk_buff *s
- 
- out:
- 	xfrm_audit_log(NETLINK_CB(skb).loginuid, NETLINK_CB(skb).sid,
--		       AUDIT_MAC_IPSEC_DELSA, err ? 0 : 1, NULL, x);
-+		       AUDIT_MAC_IPSEC_EVENT, err ? 0 : 1, 
-+		       x->props.family, x->props.saddr, x->id.daddr, 
-+		       x->id.spi, 0, x->security, "SAD delete");
- 	xfrm_state_put(x);
- 	return err;
- }
-@@ -1149,7 +1153,9 @@ static int xfrm_add_policy(struct sk_buf
- 	excl = nlh->nlmsg_type == XFRM_MSG_NEWPOLICY;
- 	err = xfrm_policy_insert(p->dir, xp, excl);
- 	xfrm_audit_log(NETLINK_CB(skb).loginuid, NETLINK_CB(skb).sid,
--		       AUDIT_MAC_IPSEC_DELSPD, err ? 0 : 1, xp, NULL);
-+		       AUDIT_MAC_IPSEC_EVENT, err ? 0 : 1, 
-+		       xp->selector.family, xp->selector.saddr, 
-+		       xp->selector.daddr, 0, 0, xp->security, "SPD delete");
- 
- 	if (err) {
- 		security_xfrm_policy_free(xp);
-@@ -1395,7 +1401,10 @@ static int xfrm_get_policy(struct sk_buf
- 		}
- 	} else {
- 		xfrm_audit_log(NETLINK_CB(skb).loginuid, NETLINK_CB(skb).sid,
--			       AUDIT_MAC_IPSEC_DELSPD, err ? 0 : 1, xp, NULL);
-+			       AUDIT_MAC_IPSEC_EVENT, err ? 0 : 1, 
-+			       xp->selector.family, xp->selector.saddr,
-+			       xp->selector.daddr, 0, 0, xp->security,
-+			       "SPD delete");
- 
- 		if (err != 0)
- 			goto out;
-@@ -1644,8 +1653,9 @@ static int xfrm_add_pol_expire(struct sk
- 	if (up->hard) {
- 		xfrm_policy_delete(xp, p->dir);
- 		xfrm_audit_log(NETLINK_CB(skb).loginuid, NETLINK_CB(skb).sid,
--				AUDIT_MAC_IPSEC_DELSPD, 1, xp, NULL);
--
-+			       AUDIT_MAC_IPSEC_EVENT, 1, xp->selector.family,
-+			       xp->selector.saddr, xp->selector.daddr, 0, 0,
-+			       xp->security, "SPD delete");
- 	} else {
- 		// reset the timers here?
- 		printk("Dont know what to do with soft policy expire\n");
-@@ -1680,7 +1690,9 @@ static int xfrm_add_sa_expire(struct sk_
- 	if (ue->hard) {
- 		__xfrm_state_delete(x);
- 		xfrm_audit_log(NETLINK_CB(skb).loginuid, NETLINK_CB(skb).sid,
--			       AUDIT_MAC_IPSEC_DELSA, 1, NULL, x);
-+			       AUDIT_MAC_IPSEC_EVENT, 1, x->props.family,
-+			       x->props.saddr, x->id.daddr, x->id.spi, 0,
-+			       x->security, "SAD delete");
- 	}
- 	err = 0;
- out:
