@@ -1,92 +1,78 @@
-From: Jan-Bernd Themann <ossthema@de.ibm.com>
-Subject: [PATCH] eHEA: net_poll support
-Date: Mon, 23 Jul 2007 16:05:03 +0200
-Message-ID: <200707231605.03459.ossthema@de.ibm.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [PATCH][12/37] Clean up duplicate includes in drivers/net/
+Date: Mon, 23 Jul 2007 09:22:25 -0400
+Message-ID: <20070723132225.GA3723@tuxdriver.com>
+References: <200707211702.46375.jesper.juhl@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Christoph Raisch <raisch@de.ibm.com>,
-	"Jan-Bernd Themann" <themann@de.ibm.com>,
-	"linux-kernel" <linux-kernel@vger.kernel.org>,
-	"linux-ppc" <linuxppc-dev@ozlabs.org>,
-	Marcus Eder <meder@de.ibm.com>,
-	Thomas Klein <tklein@de.ibm.com>,
-	Stefan Roscher <stefan.roscher@de.ibm.com>
-To: Jeff Garzik <jeff@garzik.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate6.de.ibm.com ([195.212.29.155]:9021 "EHLO
-	mtagate6.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752278AbXGWOdg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jul 2007 10:33:36 -0400
+Cc: info@netxen.com, Luke Yang <luke.yang@analog.com>,
+	Judy Fischbach <jfisch@cs.pdx.edu>, Patrick McHardy <kaber@coreworks.de>,
+	bonding-devel@lists.sourceforge.net,
+	Bryan Wu <bryan.wu@analog.com>, kong.lai@tundra.com,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	James Morris <jmorris@namei.org>, linuxppc-embedded@ozlabs.org,
+	Daniel Drake <dsd@gentoo.org>, Alex V Lasso <a_villacis@palosanto.com>,
+	Ulrich Kunitz <kune@deine-taler.de>,
+	Chad Tindel <ctindel@users.sourceforge.net>,
+	Amit S Kale <amitkale@netxen.com>, Jay Cliburn <jcliburn@gmail.com>,
+	Samuel Ortiz <samuel@sortiz.org>, Brian Pugh <bpugh@cs.pdx.edu>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	Chris Snook <csnook@redhat.com>, alexandre.bounine@tundra.com,
+	Pantelis Antoniou <panto@intracom.gr>, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Ralf Baechle <ralf@linu
+To: Jesper Juhl <jesper.juhl@gmail.com>
+Return-path: <linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <200707211702.46375.jesper.juhl@gmail.com>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
+	<mailto:linuxppc-embedded-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-embedded>
+List-Post: <mailto:linuxppc-embedded@ozlabs.org>
+List-Help: <mailto:linuxppc-embedded-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
+	<mailto:linuxppc-embedded-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-net_poll support for eHEA added
+On Sat, Jul 21, 2007 at 05:02:45PM +0200, Jesper Juhl wrote:
+> Hi,
+> 
+> This patch cleans up duplicate includes in
+> 	 drivers/net/
+> 
+> 
+> Signed-off-by: Jesper Juhl <jesper.juhl@gmail.com>
 
-Signed-off-by: Jan-Bernd Themann <themann@de.ibm.com>
----
+> diff --git a/drivers/net/wireless/ipw2200.h b/drivers/net/wireless/ipw2200.h
+> index 626a240..9c973b9 100644
+> --- a/drivers/net/wireless/ipw2200.h
+> +++ b/drivers/net/wireless/ipw2200.h
+> @@ -45,7 +45,6 @@
+>  
+>  #include <linux/firmware.h>
+>  #include <linux/wireless.h>
+> -#include <linux/dma-mapping.h>
+>  #include <linux/jiffies.h>
+>  #include <asm/io.h>
+>  
+> diff --git a/drivers/net/wireless/zd1211rw/zd_def.h b/drivers/net/wireless/zd1211rw/zd_def.h
+> index deb99d1..505b4d7 100644
+> --- a/drivers/net/wireless/zd1211rw/zd_def.h
+> +++ b/drivers/net/wireless/zd1211rw/zd_def.h
+> @@ -21,7 +21,6 @@
+>  #include <linux/kernel.h>
+>  #include <linux/stringify.h>
+>  #include <linux/device.h>
+> -#include <linux/kernel.h>
+>  
+>  typedef u16 __nocast zd_addr_t;
 
+ACK
 
- drivers/net/ehea/ehea.h      |    2 +-
- drivers/net/ehea/ehea_main.c |   22 +++++++++++++++++++++-
- 2 files changed, 22 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ehea/ehea.h b/drivers/net/ehea/ehea.h
-index 489c8b2..8ee2c2c 100644
---- a/drivers/net/ehea/ehea.h
-+++ b/drivers/net/ehea/ehea.h
-@@ -39,7 +39,7 @@
- #include <asm/io.h>
- 
- #define DRV_NAME	"ehea"
--#define DRV_VERSION	"EHEA_0071"
-+#define DRV_VERSION	"EHEA_0072"
- 
- /* eHEA capability flags */
- #define DLPAR_PORT_ADD_REM 1
-diff --git a/drivers/net/ehea/ehea_main.c b/drivers/net/ehea/ehea_main.c
-index 4c70a93..58702f5 100644
---- a/drivers/net/ehea/ehea_main.c
-+++ b/drivers/net/ehea/ehea_main.c
-@@ -589,6 +589,23 @@ static int ehea_poll(struct net_device *dev, int *budget)
- 	return 1;
- }
- 
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+static void ehea_netpoll(struct net_device *dev)
-+{
-+	struct ehea_port *port = netdev_priv(dev);
-+
-+	netif_rx_schedule(port->port_res[0].d_netdev);
-+}
-+#endif
-+
-+static int ehea_poll_firstqueue(struct net_device *dev, int *budget)
-+{
-+	struct ehea_port *port = netdev_priv(dev);
-+	struct net_device *d_dev = port->port_res[0].d_netdev;
-+
-+	return ehea_poll(d_dev, budget);
-+}
-+
- static irqreturn_t ehea_recv_irq_handler(int irq, void *param)
- {
- 	struct ehea_port_res *pr = param;
-@@ -2626,7 +2643,10 @@ struct ehea_port *ehea_setup_single_port(struct ehea_adapter *adapter,
- 	memcpy(dev->dev_addr, &port->mac_addr, ETH_ALEN);
- 
- 	dev->open = ehea_open;
--	dev->poll = ehea_poll;
-+	dev->poll = ehea_poll_firstqueue;
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	dev->poll_controller = ehea_netpoll;
-+#endif
- 	dev->weight = 64;
- 	dev->stop = ehea_stop;
- 	dev->hard_start_xmit = ehea_start_xmit;
 -- 
-1.5.2
-
+John W. Linville
+linville@tuxdriver.com
