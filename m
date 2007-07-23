@@ -1,63 +1,44 @@
-From: Ayaz Abdulla <aabdulla@nvidia.com>
-Subject: [PATCH 2/2] forcedeth: mcp73 device addition
-Date: Sun, 22 Jul 2007 20:43:26 -0400
-Message-ID: <46A3F9AE.9030605@nvidia.com>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: Re: 2.6.23-rc1: BUG_ON in kmap_atomic_prot()
+Date: Tue, 24 Jul 2007 01:01:53 +0400
+Message-ID: <20070723210153.GA5753@martell.zuzino.mipt.ru>
+References: <alpine.LFD.0.999.0707221351030.3607@woody.linux-foundation.org> <20070723183839.GA5874@martell.zuzino.mipt.ru> <20070723190152.GA5755@martell.zuzino.mipt.ru> <20070723132431.42afbae8.akpm@linux-foundation.org> <20070723204045.GD5755@martell.zuzino.mipt.ru>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------000003030009040605050004"
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Jeff Garzik <jgarzik@pobox.com>,
-	Manfred Spraul <manfred@colorfullife.com>,
-	Andrew Morton <akpm@osdl.org>, nedev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hqemgate01.nvidia.com ([216.228.112.170]:7757 "EHLO
-	HQEMGATE01.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753314AbXGWU6p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jul 2007 16:58:45 -0400
+Received: from ug-out-1314.google.com ([66.249.92.174]:24243 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760836AbXGWVB6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jul 2007 17:01:58 -0400
+Received: by ug-out-1314.google.com with SMTP id j3so35752ugf
+        for <netdev@vger.kernel.org>; Mon, 23 Jul 2007 14:01:57 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20070723204045.GD5755@martell.zuzino.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------000003030009040605050004
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+On Tue, Jul 24, 2007 at 12:40:45AM +0400, Alexey Dobriyan wrote:
+> > I had more complete info: http://article.gmane.org/gmane.linux.network/66966
+> > 
+> > You're using DEBUG_PAGEALLOC, but I was not, so I think we can rule that out.
+> > 
+> > I haven't worked out where that kmap_atomic() call is coming from yet. 
+> > Both traces point up into the page allocator, but I _think_ that's stack
+> > gunk.
+> 
+> Ahh, you suspect networking.
+> 
+> Here, setup is 2 cheap-ass 100Mb realtek 8139 NICs, one to campus network
+> receiving ~20 junk packets per second, one gathering netconsole output
+> and ssh to it, no conntracks and fancy stuff.
+> 
+> [reboots with cables physically unplugged]
 
-This patch contains new device settings for MCP73 chipset.
+OK, I run gdb recompile, cat(1) every file in /usr/portage (shitload of
+small files) with both cables unplugged. It all went fine for ~5 minutes
+after that it crashed exactly same way after 10 secs after plugging one
+of them.
 
-Signed-Off-By: Ayaz Abdulla <aabdulla@nvidia.com>
-
-
---------------000003030009040605050004
-Content-Type: text/plain;
- name="patch-forcedeth-mcp73"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="patch-forcedeth-mcp73"
-
---- old/drivers/net/forcedeth.c	2007-07-22 19:02:41.000000000 -0400
-+++ new/drivers/net/forcedeth.c	2007-07-22 19:31:56.000000000 -0400
-@@ -5550,6 +5550,22 @@
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_27),
- 		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
- 	},
-+	{	/* MCP73 Ethernet Controller */
-+		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_28),
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
-+	},
-+	{	/* MCP73 Ethernet Controller */
-+		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_29),
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
-+	},
-+	{	/* MCP73 Ethernet Controller */
-+		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_30),
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
-+	},
-+	{	/* MCP73 Ethernet Controller */
-+		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_31),
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
-+	},
- 	{0,},
- };
- 
-
---------------000003030009040605050004--
