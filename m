@@ -1,8 +1,8 @@
 From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: [ofa-general] Re: [PATCH 11/12 -Rev2] IPoIB xmit API addition
-Date: Mon, 23 Jul 2007 16:47:45 +0530
-Message-ID: <OF78ACF954.97C6291D-ON65257321.003BD95C-65257321.003E0CCE@in.ibm.com>
-References: <20070723104826.GD22877@2ka.mipt.ru>
+Subject: [ofa-general] Re: [PATCH 03/12 -Rev2] dev.c changes.
+Date: Mon, 23 Jul 2007 16:47:25 +0530
+Message-ID: <OFC6146D85.364CF696-ON65257321.003B4D10-65257321.003E0550@in.ibm.com>
+References: <20070723104428.GC22877@2ka.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Cc: jagana@us.ibm.com, mcarlson@broadcom.com, herbert@gondor.apana.org.au,
@@ -14,7 +14,7 @@ Cc: jagana@us.ibm.com, mcarlson@broadcom.com, herbert@gondor.apana.org.au,
 	davem@davemloft.net, sri@us.ibm.com
 To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <20070723104826.GD22877@2ka.mipt.ru>
+In-Reply-To: <20070723104428.GC22877@2ka.mipt.ru>
 List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
 	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
 List-Archive: <http://lists.openfabrics.org/pipermail/general>
@@ -28,32 +28,41 @@ List-Id: netdev.vger.kernel.org
 
 Hi Evgeniy,
 
-Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote on 07/23/2007 04:18:26 PM:
+Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote on 07/23/2007 04:14:28 PM:
+> > +/*
+> > + * dev_change_tx_batching - Enable or disable batching for a driver
+that
+> > + * supports batching.
 
-> >  static void ipoib_ib_handle_tx_wc(struct net_device *dev, struct ib_wc
-*wc)
-> >  {
-> >     struct ipoib_dev_priv *priv = netdev_priv(dev);
-> > +   int i = 0, num_completions;
-> > +   int tx_ring_index = priv->tx_tail & (ipoib_sendq_size - 1);
-> >     unsigned int wr_id = wc->wr_id;
-> > -   struct ipoib_tx_buf *tx_req;
-> >     unsigned long flags;
-> >
-> >     ipoib_dbg_data(priv, "send completion: id %d, status: %d\n",
-> > @@ -255,23 +256,57 @@ static void ipoib_ib_handle_tx_wc(struct
-> >        return;
-> >     }
-> >
-> > -   tx_req = &priv->tx_ring[wr_id];
-> > +   num_completions = wr_id - tx_ring_index + 1;
-> > +   if (num_completions <= 0)
-> > +      num_completions += ipoib_sendq_size;
+> > +   /* Check if new value is same as the current */
+> > +   if (!!(dev->features & NETIF_F_BATCH_ON) == !!new_batch_skb)
+> > +      goto out;
 >
-> Can this still be less than zero?
+> o_O
+>
+> Scratched head for too long before understood what it means :)
 
-Should never happen, otherwise the TX code wrote on bad/unallocated
-memory and would have crashed first.
+Is there a easy way to do this ?
+
+> > +   spin_lock(&dev->queue_lock);
+> > +   if (new_batch_skb) {
+> > +      dev->features |= NETIF_F_BATCH_ON;
+> > +      dev->tx_queue_len >>= 1;
+> > +   } else {
+> > +      if (!skb_queue_empty(&dev->skb_blist))
+> > +         skb_queue_purge(&dev->skb_blist);
+> > +      dev->features &= ~NETIF_F_BATCH_ON;
+> > +      dev->tx_queue_len <<= 1;
+> > +   }
+> > +   spin_unlock(&dev->queue_lock);
+>
+> Hmm, should this also stop interrupts?
+
+That is a good question, and I am not sure. I thought it
+is not required, though adding it doesn't affect code
+either. Can someone tell if disabling bh is required and
+why (couldn't figure out the intention of bh for
+dev_queue_xmit either, is this to disable preemption) ?
 
 Thanks,
 
