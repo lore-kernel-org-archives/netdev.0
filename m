@@ -1,42 +1,110 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [GENETLINK]: Question: global lock (genl_mutex) possible refinement?
-Date: Mon, 23 Jul 2007 12:29:09 +0200
-Message-ID: <20070723102909.GA9285@postel.suug.ch>
-References: <46A0B017.4080505@st.com> <46A0B6DE.1080904@trash.net> <46A0BF7F.80001@st.com> <46A0BFFF.5020000@trash.net> <46A0DF91.6000508@st.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [RFC 1/1] lro: Generic Large Receive Offload for TCP traffic
+Date: Mon, 23 Jul 2007 14:38:32 +0400
+Message-ID: <20070723103832.GB22877@2ka.mipt.ru>
+References: <200707201741.49290.ossthema@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: Richard MUSIL <richard.musil@st.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:56066 "EHLO postel.suug.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932939AbXGWK2t (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Jul 2007 06:28:49 -0400
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Klein <tklein@de.ibm.com>, Jan-Bernd Themann <themann@de.ibm.com>,
+	netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	linux-ppc <linuxppc-dev@ozlabs.org>, Christoph Raisch <raisch@de.ibm.com>,
+	Marcus Eder <meder@de.ibm.com>, Stefan Roscher <stefan.roscher@de.ibm.com>,
+	David Miller <davem@davemloft.net>
+To: Jan-Bernd Themann <ossthema@de.ibm.com>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
 Content-Disposition: inline
-In-Reply-To: <46A0DF91.6000508@st.com>
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <200707201741.49290.ossthema@de.ibm.com>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-* Richard MUSIL <richard.musil@st.com> 2007-07-20 18:15
-> Patrick McHardy wrote:
-> > Export the lock/unlock/.. functions. You'll also need a new version 
-> > similar to __rtnl_unlock.
-> 
-> Patrick, you might feel, I am not reading your lines, but in fact I do.
-> The problem is that I do not feel competent to follow/propose such
-> changes. So what I propose here (in included patch) is the least change
-> scenario, which I can think of and on which I feel safe.
-> 
-> If there are some other changes required, as you suggested for example
-> exporting lock from genetlink module, I hope authors of genetlink will
-> comment on that. Currently, I do not see any reason for that, but this
-> could be due to my limited knowledge.
+Hi Jan-Bernd.
 
-Actually there is no reason to not use separate locks for the
-message serialization and the protection of the list of registered
-families. There is only one lock simply for the reason that I've
-never thought of anybody could think of registering a new genetlink
-family while processing a message.
+On Fri, Jul 20, 2007 at 05:41:48PM +0200, Jan-Bernd Themann (ossthema@de.ibm.com) wrote:
+> Generic LRO patch
+> 
+> Signed-off-by: Jan-Bernd Themann <themann@de.ibm.com>
 
-Alternatively you could also postpone the registration of the new
-genetlink family to a workqueue.
+Besides couple trivial codyng/formatting nits I did not found any
+problematic places after review. Details below.
+
+Thanks.
+
+> +#define TCP_PAYLOAD_LENGTH(iph, tcph) \
+> +(ntohs(iph->tot_len) - IP_HDR_LEN(iph) - TCP_HDR_LEN(tcph))
+
+A tab?
+
+> +static void lro_add_common(struct net_lro_desc *lro_desc, struct iphdr *iph,
+> +			   struct tcphdr *tcph, int tcp_data_len)
+> +{
+> +	struct sk_buff *parent = lro_desc->parent;
+> +	u32 *topt;
+> +
+> +	lro_desc->pkt_aggr_cnt++;
+> +	lro_desc->ip_tot_len += tcp_data_len;
+> +	lro_desc->tcp_next_seq += tcp_data_len;
+> +	lro_desc->tcp_window = tcph->window;
+> +	lro_desc->tcp_ack = tcph->ack_seq;
+> +
+> +	/* don't update tcp_rcv_tsval, would not work with PAWS */
+> +	if (lro_desc->tcp_saw_tstamp) {
+> +		topt = (u32 *) (tcph + 1);
+> +		lro_desc->tcp_rcv_tsecr = *(topt + 2);
+> +	}
+> +
+> +	parent->len += tcp_data_len;
+> +	parent->data_len += tcp_data_len;
+> +
+> +	lro_desc->data_csum = csum_add(lro_desc->data_csum,
+> +				       lro_tcp_data_csum(iph, tcph,
+> +							 tcp_data_len));
+> +	return;
+> +}
+
+return from void? And in other places too.
+
+> +int __lro_proc_skb(struct net_lro_mgr *lro_mgr, struct sk_buff *skb,
+> +		   struct vlan_group *vgrp, u16 vlan_tag, void *priv)
+> +{
+> +	struct net_lro_desc *lro_desc;
+> +        struct iphdr *iph;
+> +        struct tcphdr *tcph;
+> +	u64 flags;
+
+Broken tab and spaces.
+
+> +struct sk_buff *lro_gen_skb(struct net_lro_mgr *lro_mgr,
+> +			    struct skb_frag_struct *frags,
+> +			    int len, int true_size,
+> +			    void *mac_hdr,
+> +			    int hlen)
+> +{
+> +	struct sk_buff *skb;
+> +        struct skb_frag_struct *skb_frags;
+> +	int data_len = len;
+
+The same.
+
+> +	skb = netdev_alloc_skb(lro_mgr->dev, hlen);
+> +	if (!skb)
+> +		return NULL;
+> +
+> +        skb->len = len;
+> +	skb->data_len = len - hlen;
+
+Here too.
+There is number of such places, ommitted others.
+
+
+-- 
+	Evgeniy Polyakov
