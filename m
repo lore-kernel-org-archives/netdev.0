@@ -1,43 +1,56 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH 2.6.22] TCP: Make TCP_RTO_MAX a variable (take 2)
-Date: Mon, 23 Jul 2007 11:40:00 -0700
-Message-ID: <46A4F600.90403@hp.com>
-References: <46969CA9.8030406@hp.com>	<Pine.LNX.4.64.0707130726550.30150@kivilampi-30.cs.helsinki.fi>	<4697AE6E.4070600@hp.com> <20070713.231926.74749058.davem@davemloft.net>
+From: Simon Arlott <simon@fire.lp0.eu>
+Subject: [PATCH [Bug 8756]] IPv6: Don't update ADVMSS on routes where the
+ MTU is not also updated
+Date: Mon, 23 Jul 2007 20:25:45 +0100
+Message-ID: <46A500B9.3030702@simon.arlott.org.uk>
+References: <bug-8756-10286@http.bugzilla.kernel.org/> <20070714214831.d9def8c6.akpm@linux-foundation.org> <4699D5C7.2090906@simon.arlott.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: ilpo.jarvinen@helsinki.fi, shemminger@linux-foundation.org,
-	noboru.obata.ar@hitachi.com, yoshfuji@linux-ipv6.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: bugme-daemon@bugzilla.kernel.org,
+	David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel13.hp.com ([156.153.255.238]:49927 "EHLO palrel13.hp.com"
+Received: from proxima.lp0.eu ([85.158.45.36]:49198 "EHLO proxima.lp0.eu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1762833AbXGWTOT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Jul 2007 15:14:19 -0400
-In-Reply-To: <20070713.231926.74749058.davem@davemloft.net>
+	id S1761816AbXGWTZt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Jul 2007 15:25:49 -0400
+In-Reply-To: <4699D5C7.2090906@simon.arlott.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Rick Jones <rick.jones2@hp.com>
-> Date: Fri, 13 Jul 2007 09:55:10 -0700
-> 
-> 
->>Fine, but so?  I suspect the point of the patch is to provide a
->>lower cap on the accumulated backoff so data starts flowing over the
->>connection within that lower cap once the link is
->>restored/failed-over.
-> 
-> 
-> The backoff is there for a reason.
+The ADVMSS value was incorrectly updated for ALL routes when the MTU 
+is updated because it's outside the effect of the if statement's 
+condition.
 
-I'm not disputing the general value of the backoff, nor about the value of an 
-initial value of 60 seconds.  In terms of avoiding congestive collapse one does 
-indeed want the exponential backoff.  I'm just in agreement with the person from 
-Hitachi that allowing someone to tweak the backoff has a certain value.
+Signed-off-by: Simon Arlott <simon@fire.lp0.eu>
+---
+This fixes http://bugzilla.kernel.org/show_bug.cgi?id=8756
 
-60 seconds is already a trade-off between a pure (non capped) exponential 
-backoff and capping the value.
+ net/ipv6/route.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
 
-rick
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 919de68..55ea80f 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1983,9 +1983,10 @@ static int rt6_mtu_change_route(struct rt6_info *rt, void *p_arg)
+ 	    !dst_metric_locked(&rt->u.dst, RTAX_MTU) &&
+ 	    (dst_mtu(&rt->u.dst) > arg->mtu ||
+ 	     (dst_mtu(&rt->u.dst) < arg->mtu &&
+-	      dst_mtu(&rt->u.dst) == idev->cnf.mtu6)))
++	      dst_mtu(&rt->u.dst) == idev->cnf.mtu6))) {
+ 		rt->u.dst.metrics[RTAX_MTU-1] = arg->mtu;
+-	rt->u.dst.metrics[RTAX_ADVMSS-1] = ipv6_advmss(arg->mtu);
++		rt->u.dst.metrics[RTAX_ADVMSS-1] = ipv6_advmss(arg->mtu);
++	}
+ 	return 0;
+ }
+ 
+-- 
+1.5.0.1
+
+-- 
+Simon Arlott
+
+
