@@ -1,60 +1,40 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH]: Resurrect napi_poll patch.
-Date: Mon, 23 Jul 2007 22:14:49 +0100
-Message-ID: <20070723221449.1b500447@oldman>
-References: <20070720.223129.59470764.davem@davemloft.net>
-	<p73lkd9vqfr.fsf@bingen.suse.de>
-	<20070723105822.3a9fa152@oldman.hamilton.local>
-	<20070723170642.GA13771@one.firstfloor.org>
+Subject: Re: [PATCH 1/2] forcedeth: new device ids in pci_ids.h
+Date: Mon, 23 Jul 2007 22:23:20 +0100
+Message-ID: <20070723222320.33591cda@oldman>
+References: <46A3F9A3.10508@nvidia.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Andi Kleen <andi@firstfloor.org>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	rusty@rustcorp.com.au, jgarzik@pobox.com
-To: Andi Kleen <andi@firstfloor.org>
+Cc: linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:52181 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752315AbXGWVPR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jul 2007 17:15:17 -0400
-In-Reply-To: <20070723170642.GA13771@one.firstfloor.org>
+Received: from main.gmane.org ([80.91.229.2]:42341 "EHLO ciao.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752590AbXGWVX4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Jul 2007 17:23:56 -0400
+Received: from list by ciao.gmane.org with local (Exim 4.43)
+	id 1ID5Nh-0001nR-4Z
+	for netdev@vger.kernel.org; Mon, 23 Jul 2007 23:23:53 +0200
+Received: from 87.192.216.40 ([87.192.216.40])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Mon, 23 Jul 2007 23:23:53 +0200
+Received: from shemminger by 87.192.216.40 with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Mon, 23 Jul 2007 23:23:53 +0200
+In-Reply-To: <46A3F9A3.10508@nvidia.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 23 Jul 2007 19:06:42 +0200
-Andi Kleen <andi@firstfloor.org> wrote:
+On Sun, 22 Jul 2007 20:43:15 -0400
+Ayaz Abdulla <aabdulla@nvidia.com> wrote:
 
-> On Mon, Jul 23, 2007 at 10:58:22AM +0100, Stephen Hemminger wrote:
-> > On 21 Jul 2007 15:26:00 +0200
-> > Andi Kleen <andi@firstfloor.org> wrote:
-> > 
-> > > David Miller <davem@davemloft.net> writes:
-> > > > 
-> > > > Good candidates for taking advantage of multi-napi are:
-> > > > 
-> > > > 1) e1000
-> > > > 2) ucc_geth
-> > > > 3) ehea
-> > > > 4) sunvnet
-> > > 
-> > > s2io.c
-> > 
-> > sky2.c could use it because of issues with dual-port that share
-> > one napi for status.
+> This patch contains new device ids for MCP73 chipset.
 > 
-> Sorry, I didn't parse the sentence. Did you mean "couldn't use it" ...? 
-> Also can you elaborate why it shouldn't work?
+> Signed-Off-By: Ayaz Abdulla <aabdulla@nvidia.com>
+> 
 
-Sky2 would make a good case for decoupling because it can have:
+no current practice is to stop cluttering pci_ids.h with specific sub-device id's
+and just have the vendor values.
 
-	device0     device1
-	    \            /
-             napi poll
-
-Right now both device's share the NAPI instance on device 0,
-but it take some work to make sure that the core code doesn't
-upset device1 when device0 is down.
-
-Actually, dual port boards are rare, I have one but it is a PCI-E x4
-board so a pain to find a system with a slot.
