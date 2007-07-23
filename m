@@ -1,98 +1,86 @@
 From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 8797] New: WARNING from skb_gso_segment
-Date: Mon, 23 Jul 2007 12:49:12 -0700
-Message-ID: <20070723124912.f43c53bb.akpm@linux-foundation.org>
-References: <bug-8797-10286@http.bugzilla.kernel.org/>
+Subject: Re: 2.6.23-rc1: BUG_ON in kmap_atomic_prot()
+Date: Mon, 23 Jul 2007 13:24:31 -0700
+Message-ID: <20070723132431.42afbae8.akpm@linux-foundation.org>
+References: <alpine.LFD.0.999.0707221351030.3607@woody.linux-foundation.org>
+	<20070723183839.GA5874@martell.zuzino.mipt.ru>
+	<20070723190152.GA5755@martell.zuzino.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: bugme-daemon@bugzilla.kernel.org, hmkash@arl.army.mil
-To: netdev@vger.kernel.org, wensong@linux-vs.org, horms@verge.net.au,
-	ja@ssi.bg
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Alexey Dobriyan <adobriyan@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:47572 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:38875 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933951AbXGWTtv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jul 2007 15:49:51 -0400
-In-Reply-To: <bug-8797-10286@http.bugzilla.kernel.org/>
+	by vger.kernel.org with ESMTP id S935701AbXGWUYj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jul 2007 16:24:39 -0400
+In-Reply-To: <20070723190152.GA5755@martell.zuzino.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 23 Jul 2007 09:36:08 -0700 (PDT)
-bugme-daemon@bugzilla.kernel.org wrote:
+On Mon, 23 Jul 2007 23:01:52 +0400
+Alexey Dobriyan <adobriyan@gmail.com> wrote:
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=8797
+> On Mon, Jul 23, 2007 at 10:38:39PM +0400, Alexey Dobriyan wrote:
+> > Managed to hit BUG_ON() in kmap_atomic_prot() three times while doing
+> > nothing unusual for this box (two times it was under X, so I can't
+> > guarantee, one time while trying to reproduce via ./configure in gdb
+> > tarball)
+
+Yeah, I hit this several times a few days ago.  Same story: it just
+randomly went splat in response to no obvious stimulus.  Reported it to
+netdev, was greeted with stunned silence.
+
+
+> > Box has 2.5G of RAM. 2.6.22 was OK.
+> > 
+> > [dives into framebuffer console setup for complete oops]
 > 
->            Summary: WARNING from skb_gso_segment
->            Product: Networking
->            Version: 2.5
->      KernelVersion: 2.6.22.1
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: IPV4
->         AssignedTo: shemminger@osdl.org
->         ReportedBy: hmkash@arl.army.mil
->                 CC: herbert@gondor.apana.org.au
+> kernel BUG at arch/i386/mm/highmem.c:38
+> PREEMPT DEBUG_PAGEALLOC SLAB
+> EIP at kmap_atomic_prot+0x32/0x93
+> 	get_page_from_freelist
+> 	__alloc_pages
+> 	cache_alloc_refill
+> 	cache_alloc_refill
+> 	kmem_cache_alloc
+> 	dst_alloc
+> 	dst_alloc
+> 	__ip_route_output_key
+> 	[some junk I don't trust]
 > 
-> 
-> Most recent kernel where this bug did not occur: 2.6.20.4
-> 
-> Distribution: kernel.org
-> 
-> Hardware Environment: x86, dual-core Xeon, tg3, e1000
-> 
-> Software Environment: ip_vs, bonding
-> 
-> Problem Description: After upgrading kernels from 2.6.20.4 to 2.6.22.1, I
-> started getting tons (27,000+ a day) of the warning messages below resulting
-> from this change:
-> 
-> http://git.kernel.org/?p=linux/kernel/git/stable/linux-2.6.22.y.git;a=commitdiff;h=f9d106a6d53b57b78eae5544f9582c643343a764
-> 
-> This is on a system that uses ip_vs to load balance DNS traffic. Other than
-> these warnings, everything appears to be normal with the load balanced DNS
-> traffic.
-> 
-> Jul 17 09:29:40 hlb1 kernel: WARNING: at net/core/dev.c:1286 skb_gso_segment()
-> Jul 17 09:29:40 hlb1 kernel:  [<c024d0c8>] skb_gso_segment+0x92/0x184
-> Jul 17 09:29:40 hlb1 kernel:  [<c024d224>] dev_gso_segment+0x10/0x34
-> Jul 17 09:29:40 hlb1 kernel:  [<c024d293>] dev_hard_start_xmit+0x4b/0xb1
-> Jul 17 09:29:40 hlb1 kernel:  [<c024d46b>] dev_queue_xmit+0x172/0x1fd
-> Jul 17 09:29:40 hlb1 kernel:  [<c0267828>] ip_output+0x274/0x2ad
-> Jul 17 09:29:40 hlb1 kernel:  [<c02673a7>] ip_finish_output+0x0/0x20d
-> Jul 17 09:29:40 hlb1 kernel:  [<c0267bbf>] ip_queue_xmit+0x35e/0x3a6
-> Jul 17 09:29:40 hlb1 kernel:  [<e0a2550c>] do_ip_vs_get_ctl+0x6f5/0x704 [ip_vs]
-> Jul 17 09:29:40 hlb1 kernel:  [<c0267828>] ip_output+0x274/0x2ad
-> Jul 17 09:29:40 hlb1 kernel:  [<e0a2687f>] ip_vs_dr_xmit+0x345/0x37b [ip_vs]
-> Jul 17 09:29:40 hlb1 kernel:  [<c02a336a>] _spin_lock_bh+0x8/0x10
-> Jul 17 09:29:40 hlb1 kernel:  [<c0276547>] tcp_cwnd_restart+0x17/0xad
-> Jul 17 09:29:40 hlb1 kernel:  [<c0276cbe>] tcp_transmit_skb+0x3e0/0x402
-> Jul 17 09:29:40 hlb1 kernel:  [<c0277846>] tso_fragment+0x15a/0x194
-> Jul 17 09:29:40 hlb1 kernel:  [<c0277f91>] tcp_write_xmit+0x1cc/0x22e
-> Jul 17 09:29:40 hlb1 kernel:  [<c0278004>] __tcp_push_pending_frames+0x11/0x60
-> Jul 17 09:29:40 hlb1 kernel:  [<c026e430>] tcp_sendmsg+0x9df/0xa95
-> Jul 17 09:29:40 hlb1 kernel:  [<c0287133>] inet_sendmsg+0x39/0x43
-> Jul 17 09:29:40 hlb1 kernel:  [<c0243be2>] do_sock_write+0xab/0xb2
-> Jul 17 09:29:40 hlb1 kernel:  [<c0243c39>] sock_aio_write+0x50/0x5c
-> Jul 17 09:29:40 hlb1 kernel:  [<c015c008>] do_sync_write+0xbf/0xfc
-> Jul 17 09:29:40 hlb1 kernel:  [<c02a2b70>] mutex_lock+0x13/0x22
-> Jul 17 09:29:40 hlb1 kernel:  [<c0129232>] autoremove_wake_function+0x0/0x33
-> Jul 17 09:29:40 hlb1 kernel:  [<c02472ad>] sock_common_getsockopt+0x1c/0x21
-> Jul 17 09:29:40 hlb1 kernel:  [<c0244c49>] sys_getsockopt+0x7d/0x9c
-> Jul 17 09:29:40 hlb1 kernel:  [<c015c10e>] vfs_write+0xc9/0x133
-> Jul 17 09:29:40 hlb1 kernel:  [<c015c220>] sys_write+0x41/0x67
-> Jul 17 09:29:40 hlb1 kernel:  [<c0103002>] sysenter_past_esp+0x5f/0x85
-> Jul 17 09:29:40 hlb1 kernel:  =======================
+> eax: 0000000c
+> ebx: 00000003
+> ecx: c065efe0
+> edx: 00000003
+> edi: 00000163
 > 
 > 
-> Steps to reproduce: Unsure
-> 
-> 
-> -- 
-> Configure bugmail: http://bugzilla.kernel.org/userprefs.cgi?tab=email
-> ------- You are receiving this mail because: -------
-> You are on the CC list for the bug, or are watching someone who is.
+> c010cc9b <kmap_atomic_prot>:
+> c010cc9b:	57                   	push   %edi
+> c010cc9c:	56                   	push   %esi
+> c010cc9d:	53                   	push   %ebx
+> c010cc9e:	89 c6                	mov    %eax,%esi
+> c010cca0:	89 d3                	mov    %edx,%ebx
+> c010cca2:	89 cf                	mov    %ecx,%edi
+> c010cca4:	b8 01 00 00 00       	mov    $0x1,%eax
+> c010cca9:	e8 dd 1b 00 00       	call   c010e88b <add_preempt_count>
+> c010ccae:	e8 b1 ac 0e 00       	call   c01f7964 <debug_smp_processor_id>
+> c010ccb3:	6b c0 0d             	imul   $0xd,%eax,%eax
+> c010ccb6:	8d 14 03             	lea    (%ebx,%eax,1),%edx
+> c010ccb9:	8d 04 95 00 00 00 00 	lea    0x0(,%edx,4),%eax
+> c010ccc0:	8b 0d 30 a1 3e c0    	mov    0xc03ea130,%ecx
+> c010ccc6:	29 c1                	sub    %eax,%ecx
+> c010ccc8:	83 39 00             	cmpl   $0x0,(%ecx)
+> c010cccb:	74 04                	je     c010ccd1 <kmap_atomic_prot+0x36>
+> c010cccd:	0f 0b                	ud2a   
+
+I had more complete info: http://article.gmane.org/gmane.linux.network/66966
+
+You're using DEBUG_PAGEALLOC, but I was not, so I think we can rule that out.
+
+I haven't worked out where that kmap_atomic() call is coming from yet. 
+Both traces point up into the page allocator, but I _think_ that's stack
+gunk.
