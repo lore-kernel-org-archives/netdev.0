@@ -1,43 +1,60 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [PATCH]: Resurrect napi_poll patch.
-Date: Mon, 23 Jul 2007 19:06:42 +0200
-Message-ID: <20070723170642.GA13771@one.firstfloor.org>
-References: <20070720.223129.59470764.davem@davemloft.net> <p73lkd9vqfr.fsf@bingen.suse.de> <20070723105822.3a9fa152@oldman.hamilton.local>
+From: Joy Latten <latten@austin.ibm.com>
+Subject: Re: [PATCH] make xfrm_audit_log more generic
+Date: Mon, 23 Jul 2007 12:49:17 -0500
+Message-ID: <1185212957.15699.322.camel@faith.austin.ibm.com>
+References: <200707192242.l6JMglVk029578@faith.austin.ibm.com>
+	 <Line.LNX.4.64.0707192140350.12692@d.namei>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <andi@firstfloor.org>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	rusty@rustcorp.com.au, jgarzik@pobox.com
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	linux-audit@redhat.com, sgrubb@redhat.com
+To: James Morris <jmorris@namei.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:41061 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755764AbXGWRGq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jul 2007 13:06:46 -0400
-Content-Disposition: inline
-In-Reply-To: <20070723105822.3a9fa152@oldman.hamilton.local>
+Received: from e31.co.us.ibm.com ([32.97.110.149]:38526 "EHLO
+	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760966AbXGWRvX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jul 2007 13:51:23 -0400
+Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
+	by e31.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l6NHpMfK006948
+	for <netdev@vger.kernel.org>; Mon, 23 Jul 2007 13:51:22 -0400
+Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
+	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v8.4) with ESMTP id l6NHpMHm228992
+	for <netdev@vger.kernel.org>; Mon, 23 Jul 2007 11:51:22 -0600
+Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l6NHpMdS012166
+	for <netdev@vger.kernel.org>; Mon, 23 Jul 2007 11:51:22 -0600
+In-Reply-To: <Line.LNX.4.64.0707192140350.12692@d.namei>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 23, 2007 at 10:58:22AM +0100, Stephen Hemminger wrote:
-> On 21 Jul 2007 15:26:00 +0200
-> Andi Kleen <andi@firstfloor.org> wrote:
+On Thu, 2007-07-19 at 21:45 -0400, James Morris wrote:
+> On Thu, 19 Jul 2007, Joy Latten wrote:
 > 
-> > David Miller <davem@davemloft.net> writes:
-> > > 
-> > > Good candidates for taking advantage of multi-napi are:
-> > > 
-> > > 1) e1000
-> > > 2) ucc_geth
-> > > 3) ehea
-> > > 4) sunvnet
-> > 
-> > s2io.c
+> > --- linux-2.6.22/include/linux/audit.h	2007-07-19 13:17:22.000000000 -0500
+> > +++ linux-2.6.22.patch/include/linux/audit.h	2007-07-19 13:21:29.000000000 -0500
+> > @@ -108,10 +108,7 @@
+> >  #define AUDIT_MAC_CIPSOV4_DEL	1408	/* NetLabel: del CIPSOv4 DOI entry */
+> >  #define AUDIT_MAC_MAP_ADD	1409	/* NetLabel: add LSM domain mapping */
+> >  #define AUDIT_MAC_MAP_DEL	1410	/* NetLabel: del LSM domain mapping */
+> > -#define AUDIT_MAC_IPSEC_ADDSA	1411	/* Add a XFRM state */
+> > -#define AUDIT_MAC_IPSEC_DELSA	1412	/* Delete a XFRM state */
+> > -#define AUDIT_MAC_IPSEC_ADDSPD	1413	/* Add a XFRM policy */
+> > -#define AUDIT_MAC_IPSEC_DELSPD	1414	/* Delete a XFRM policy */
+> > +#define AUDIT_MAC_IPSEC_EVENT	1411	/* Audit IPSec events */
 > 
-> sky2.c could use it because of issues with dual-port that share
-> one napi for status.
+> Will this cause existing applications to break?
+> 
 
-Sorry, I didn't parse the sentence. Did you mean "couldn't use it" ...? 
-Also can you elaborate why it shouldn't work?
+Perhaps someone in audit list could help answer this. 
 
--Andi
+During testing, because I changed the above defines, all
+IPSec events are listed as "MAC_IPSEC_ADDSA" for now without
+userspace change. Is this ok? Or is there a better way to 
+migrate this change in? Perhaps leave previous IPsec defines 
+and just add in a new one and use it? If that is better
+approach, let me know and I will change code to accomodate.
+
+Regards,
+Joy
+ 
