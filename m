@@ -1,270 +1,290 @@
-From: Richard MUSIL <richard.musil@st.com>
-Subject: Re: [GENETLINK]: Question: global lock (genl_mutex) possible refinement?
-Date: Tue, 24 Jul 2007 13:09:17 +0200
-Message-ID: <46A5DDDD.6070602@st.com>
-References: <46A0B017.4080505@st.com> <46A0B6DE.1080904@trash.net> <46A0BF7F.80001@st.com> <46A0BFFF.5020000@trash.net> <46A0DF91.6000508@st.com> <20070723102909.GA9285@postel.suug.ch> <46A4DB34.4040502@st.com> <20070724093558.GB9285@postel.suug.ch>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: [PATCH] virtio_net.c gso & feature support
+Date: Tue, 24 Jul 2007 21:56:02 +1000
+Message-ID: <1185278162.1803.339.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: Thomas Graf <tgraf@suug.ch>
+Cc: Christian Borntraeger <borntraeger@de.ibm.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	netdev <netdev@vger.kernel.org>
+To: virtualization <virtualization@lists.linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s200aog12.obsmtp.com ([207.126.144.126]:59538 "EHLO
-	s200aog12.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S935179AbXGXLI7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jul 2007 07:08:59 -0400
-In-Reply-To: <20070724093558.GB9285@postel.suug.ch>
+Received: from ozlabs.org ([203.10.76.45]:46493 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757913AbXGXL4Y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Jul 2007 07:56:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thomas Graf wrote:
-> Please provide a new overall patch which is not based on your
-> initial patch so I can review your idea properly.
+Feedback welcome, as always!
 
-Here it goes (merging two previous patches). I have diffed
-against v2.6.22, which I am using currently as my base:
+(There's been talk of a virtualization git tree, in which case there'll
+be a decent home for these patches soon).
 
- include/net/genetlink.h |    1 +
- net/netlink/genetlink.c |  106 +++++++++++++++++++++++++++++++++++------------
- 2 files changed, 80 insertions(+), 27 deletions(-)
+Cheers,
+Rusty.
+==
+Add feature and GSO support to virtio net driver.
 
-diff --git a/include/net/genetlink.h b/include/net/genetlink.h
-index b6eaca1..681ad13 100644
---- a/include/net/genetlink.h
-+++ b/include/net/genetlink.h
-@@ -25,6 +25,7 @@ struct genl_family
- 	struct nlattr **	attrbuf;	/* private */
- 	struct list_head	ops_list;	/* private */
- 	struct list_head	family_list;	/* private */
-+	struct mutex		lock;		/* private */
+If you don't do GSO, you can simply ignore the first sg element of
+every outgoing packet, and tack a dummy one on every incoming.
+
+Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+---
+ drivers/net/virtio_net.c   |  130 ++++++++++++++++++++++++++++++++++++++++----
+ include/linux/virtio_net.h |   25 +++++++-
+ 2 files changed, 143 insertions(+), 12 deletions(-)
+
+===================================================================
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -16,12 +16,13 @@
+  * along with this program; if not, write to the Free Software
+  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+  */
+-//#define DEBUG
++#define DEBUG
+ #include <linux/netdevice.h>
+ #include <linux/etherdevice.h>
+ #include <linux/module.h>
+ #include <linux/virtio.h>
+ #include <linux/scatterlist.h>
++#include <linux/virtio_net.h>
+ 
+ /* FIXME: Make dynamic */
+ #define MAX_PACKET_LEN (ETH_HLEN+ETH_DATA_LEN)
+@@ -40,6 +41,18 @@ struct virtnet_info
+ 	struct sk_buff_head send;
  };
  
- /**
-diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
-index b9ab62f..0104267 100644
---- a/net/netlink/genetlink.c
-+++ b/net/netlink/genetlink.c
-@@ -38,6 +38,32 @@ static void genl_unlock(void)
- 		genl_sock->sk_data_ready(genl_sock, 0);
- }
- 
-+static DEFINE_MUTEX(genl_fam_mutex);	/* serialization for family list management */
-+
-+static inline void genl_fam_lock(struct genl_family *family)
++static inline struct virtio_net_hdr *skb_vnet_hdr(struct sk_buff *skb)
 +{
-+	mutex_lock(&genl_fam_mutex);
-+	if (family)
-+		mutex_lock(&family->lock);
++	return (struct virtio_net_hdr *)skb->cb;
 +}
 +
-+static inline void genl_fam_unlock(struct genl_family *family)
++static void vnet_hdr_to_sg(struct scatterlist *sg, struct sk_buff *skb)
 +{
-+	if (family)
-+		mutex_unlock(&family->lock);
-+	mutex_unlock(&genl_fam_mutex);
++	sg->page = virt_to_page(skb_vnet_hdr(skb));
++	sg->offset = offset_in_page(skb_vnet_hdr(skb));
++	sg->length = sizeof(struct virtio_net_hdr);
 +}
 +
-+static inline void genl_onefam_lock(struct genl_family *family)
-+{
-+	mutex_lock(&family->lock);
-+}
-+
-+static inline void genl_onefam_unlock(struct genl_family *family)
-+{
-+	mutex_unlock(&family->lock);
-+}
-+
- #define GENL_FAM_TAB_SIZE	16
- #define GENL_FAM_TAB_MASK	(GENL_FAM_TAB_SIZE - 1)
- 
-@@ -150,9 +176,9 @@ int genl_register_ops(struct genl_family *family, struct genl_ops *ops)
- 	if (ops->policy)
- 		ops->flags |= GENL_CMD_CAP_HASPOL;
- 
--	genl_lock();
-+	genl_fam_lock(family);
- 	list_add_tail(&ops->ops_list, &family->ops_list);
--	genl_unlock();
-+	genl_fam_unlock(family);
- 
- 	genl_ctrl_event(CTRL_CMD_NEWOPS, ops);
- 	err = 0;
-@@ -180,16 +206,16 @@ int genl_unregister_ops(struct genl_family *family, struct genl_ops *ops)
+ static bool skb_xmit_done(struct virtqueue *vq)
  {
- 	struct genl_ops *rc;
- 
--	genl_lock();
-+	genl_fam_lock(family);
- 	list_for_each_entry(rc, &family->ops_list, ops_list) {
- 		if (rc == ops) {
- 			list_del(&ops->ops_list);
--			genl_unlock();
-+			genl_fam_unlock(family);
- 			genl_ctrl_event(CTRL_CMD_DELOPS, ops);
- 			return 0;
- 		}
- 	}
--	genl_unlock();
-+	genl_fam_unlock(family);
- 
- 	return -ENOENT;
- }
-@@ -216,8 +242,9 @@ int genl_register_family(struct genl_family *family)
- 		goto errout;
- 
- 	INIT_LIST_HEAD(&family->ops_list);
-+	mutex_init(&family->lock);
- 
--	genl_lock();
-+	genl_fam_lock(family);
- 
- 	if (genl_family_find_byname(family->name)) {
- 		err = -EEXIST;
-@@ -251,14 +278,14 @@ int genl_register_family(struct genl_family *family)
- 		family->attrbuf = NULL;
- 
- 	list_add_tail(&family->family_list, genl_family_chain(family->id));
--	genl_unlock();
-+	genl_fam_unlock(family);
- 
- 	genl_ctrl_event(CTRL_CMD_NEWFAMILY, family);
- 
- 	return 0;
- 
- errout_locked:
--	genl_unlock();
-+	genl_fam_unlock(family);
- errout:
- 	return err;
- }
-@@ -275,7 +302,7 @@ int genl_unregister_family(struct genl_family *family)
+ 	struct virtnet_info *vi = vq->priv;
+@@ -52,12 +65,14 @@ static void receive_skb(struct net_devic
+ static void receive_skb(struct net_device *dev, struct sk_buff *skb,
+ 			unsigned len)
  {
- 	struct genl_family *rc;
- 
--	genl_lock();
-+	genl_fam_lock(family);
- 
- 	list_for_each_entry(rc, genl_family_chain(family->id), family_list) {
- 		if (family->id != rc->id || strcmp(rc->name, family->name))
-@@ -283,14 +310,16 @@ int genl_unregister_family(struct genl_family *family)
- 
- 		list_del(&rc->family_list);
- 		INIT_LIST_HEAD(&family->ops_list);
--		genl_unlock();
+-	if (unlikely(len < ETH_HLEN)) {
++	struct virtio_net_hdr *hdr = skb_vnet_hdr(skb);
 +
-+		genl_fam_unlock(family);
-+		mutex_destroy(&family->lock);
- 
- 		kfree(family->attrbuf);
- 		genl_ctrl_event(CTRL_CMD_DELFAMILY, family);
- 		return 0;
- 	}
- 
--	genl_unlock();
-+	genl_fam_unlock(family);
- 
- 	return -ENOENT;
- }
-@@ -303,38 +332,57 @@ static int genl_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
- 	struct genlmsghdr *hdr = nlmsg_data(nlh);
- 	int hdrlen, err;
- 
-+	genl_fam_lock(NULL);
- 	family = genl_family_find_byid(nlh->nlmsg_type);
--	if (family == NULL)
-+	if (family == NULL) {
-+		genl_fam_unlock(NULL);
- 		return -ENOENT;
++	if (unlikely(len < sizeof(struct virtio_net_hdr) + ETH_HLEN)) {
+ 		pr_debug("%s: short packet %i\n", dev->name, len);
+ 		dev->stats.rx_length_errors++;
+-		dev_kfree_skb(skb);
+-		return;
+-	}
++		goto drop;
 +	}
++	len -= sizeof(struct virtio_net_hdr);
+ 	BUG_ON(len > MAX_PACKET_LEN);
+ 
+ 	skb_trim(skb, len);
+@@ -66,13 +81,70 @@ static void receive_skb(struct net_devic
+ 		 ntohs(skb->protocol), skb->len, skb->pkt_type);
+ 	dev->stats.rx_bytes += skb->len;
+ 	dev->stats.rx_packets++;
 +
-+	/* get particular family lock, but release global family lock
-+	 * so registering operations for other families are possible */
-+	genl_onefam_lock(family);
-+	genl_fam_unlock(NULL);
- 
- 	hdrlen = GENL_HDRLEN + family->hdrsize;
--	if (nlh->nlmsg_len < nlmsg_msg_size(hdrlen))
--		return -EINVAL;
-+	if (nlh->nlmsg_len < nlmsg_msg_size(hdrlen)) {
-+		err = -EINVAL;
-+		goto unlock_out;
-+	}
- 
- 	ops = genl_get_cmd(hdr->cmd, family);
--	if (ops == NULL)
--		return -EOPNOTSUPP;
-+	if (ops == NULL) {
-+		err = -EOPNOTSUPP;
-+		goto unlock_out;
-+	}
- 
- 	if ((ops->flags & GENL_ADMIN_PERM) &&
--	    security_netlink_recv(skb, CAP_NET_ADMIN))
--		return -EPERM;
-+	    security_netlink_recv(skb, CAP_NET_ADMIN)) {
-+		err = -EPERM;
-+		goto unlock_out;
-+	}
- 
- 	if (nlh->nlmsg_flags & NLM_F_DUMP) {
--		if (ops->dumpit == NULL)
--			return -EOPNOTSUPP;
-+		if (ops->dumpit == NULL) {
-+			err = -EOPNOTSUPP;
-+			goto unlock_out;
++	if (hdr->flags & VIRTIO_NET_F_NEEDS_CSUM) {
++		pr_debug("Needs csum!\n");
++		skb->ip_summed = CHECKSUM_PARTIAL;
++		skb->csum_start = hdr->csum_start;
++		skb->csum_offset = hdr->csum_offset;
++		if (skb->csum_start > skb->len - 2
++		    || skb->csum_offset > skb->len - 2) {
++			if (net_ratelimit())
++				printk(KERN_WARNING "%s: csum=%u/%u len=%u\n",
++				       dev->name, skb->csum_start,
++				       skb->csum_offset, skb->len);
++			goto frame_err;
 +		}
- 
--		return netlink_dump_start(genl_sock, skb, nlh,
-+		err = netlink_dump_start(genl_sock, skb, nlh,
- 					  ops->dumpit, ops->done);
-+		goto unlock_out;
- 	}
- 
--	if (ops->doit == NULL)
--		return -EOPNOTSUPP;
-+	if (ops->doit == NULL) {
-+		err = -EOPNOTSUPP;
-+		goto unlock_out;
 +	}
- 
- 	if (family->attrbuf) {
- 		err = nlmsg_parse(nlh, hdrlen, family->attrbuf, family->maxattr,
- 				  ops->policy);
- 		if (err < 0)
--			return err;
-+			goto unlock_out;
- 	}
- 
- 	info.snd_seq = nlh->nlmsg_seq;
-@@ -344,7 +392,11 @@ static int genl_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
- 	info.userhdr = nlmsg_data(nlh) + GENL_HDRLEN;
- 	info.attrs = family->attrbuf;
- 
--	return ops->doit(skb, &info);
-+	err = ops->doit(skb, &info);
 +
-+unlock_out:
-+	genl_onefam_unlock(family);
-+	return err;
++	if (hdr->gso_type != VIRTIO_NET_GSO_NONE) {
++		pr_debug("GSO!\n");
++		switch (hdr->gso_type) {
++		case VIRTIO_NET_GSO_TCP:
++			skb_shinfo(skb)->gso_type = SKB_GSO_TCPV4;
++			break;
++		case VIRTIO_NET_GSO_TCP_ECN:
++			skb_shinfo(skb)->gso_type = SKB_GSO_TCP_ECN;
++			break;
++		case VIRTIO_NET_GSO_UDP:
++			skb_shinfo(skb)->gso_type = SKB_GSO_UDP;
++			break;
++		case VIRTIO_NET_GSO_TCPV6:
++			skb_shinfo(skb)->gso_type = SKB_GSO_TCPV6;
++			break;
++		default:
++			if (net_ratelimit())
++				printk(KERN_WARNING "%s: bad gso type %u.\n",
++				       dev->name, hdr->gso_type);
++			goto frame_err;
++		}
++
++		skb_shinfo(skb)->gso_size = hdr->gso_size;
++		if (skb_shinfo(skb)->gso_size == 0) {
++			if (net_ratelimit())
++				printk(KERN_WARNING "%s: zero gso size.\n",
++				       dev->name);
++			goto frame_err;
++		}
++
++		/* Header must be checked, and gso_segs computed. */
++		skb_shinfo(skb)->gso_type |= SKB_GSO_DODGY;
++		skb_shinfo(skb)->gso_segs = 0;
++	}
++
+ 	netif_receive_skb(skb);
++	return;
++
++frame_err:
++	dev->stats.rx_frame_errors++;
++drop:
++	dev_kfree_skb(skb);
  }
  
- static void genl_rcv(struct sock *sk, int len)
-@@ -425,7 +477,7 @@ static int ctrl_dumpfamily(struct sk_buff *skb, struct netlink_callback *cb)
- 	int fams_to_skip = cb->args[1];
+ static void try_fill_recv(struct virtnet_info *vi)
+ {
+ 	struct sk_buff *skb;
+-	struct scatterlist sg[MAX_SKB_FRAGS];
++	struct scatterlist sg[1+MAX_SKB_FRAGS];
+ 	int num, err;
  
- 	if (chains_to_skip != 0)
--		genl_lock();
-+		genl_fam_lock(NULL);
+ 	for (;;) {
+@@ -81,7 +153,8 @@ static void try_fill_recv(struct virtnet
+ 			break;
  
- 	for (i = 0; i < GENL_FAM_TAB_SIZE; i++) {
- 		if (i < chains_to_skip)
-@@ -445,7 +497,7 @@ static int ctrl_dumpfamily(struct sk_buff *skb, struct netlink_callback *cb)
+ 		skb_put(skb, MAX_PACKET_LEN);
+-		num = skb_to_sgvec(skb, sg, 0, skb->len);
++		vnet_hdr_to_sg(sg, skb);
++		num = skb_to_sgvec(skb, sg+1, 0, skb->len) + 1;
+ 		skb_queue_head(&vi->recv, skb);
  
- errout:
- 	if (chains_to_skip != 0)
--		genl_unlock();
-+		genl_fam_unlock(NULL);
+ 		err = vi->vq_recv->ops->add_buf(vi->vq_recv, sg, 0, num, skb);
+@@ -161,7 +234,8 @@ static int start_xmit(struct sk_buff *sk
+ {
+ 	struct virtnet_info *vi = netdev_priv(dev);
+ 	int num, err;
+-	struct scatterlist sg[MAX_SKB_FRAGS];
++	struct scatterlist sg[1+MAX_SKB_FRAGS];
++	struct virtio_net_hdr *hdr;
+ 	const unsigned char *dest = ((struct ethhdr *)skb->data)->h_dest;
  
- 	cb->args[0] = i;
- 	cb->args[1] = n;
+ 	pr_debug("%s: xmit %p %02x:%02x:%02x:%02x:%02x:%02x\n",
+@@ -170,7 +244,41 @@ static int start_xmit(struct sk_buff *sk
+ 
+ 	free_old_xmit_skbs(vi);
+ 
+-	num = skb_to_sgvec(skb, sg, 0, skb->len);
++	/* Encode metadata header at front. */
++	hdr = skb_vnet_hdr(skb);
++	if (skb->ip_summed == CHECKSUM_PARTIAL) {
++		hdr->flags = VIRTIO_NET_F_NEEDS_CSUM;
++		hdr->csum_start = skb->csum_start - skb_headroom(skb);
++		hdr->csum_offset = skb->csum_offset;
++	} else {
++		hdr->flags = 0;
++		hdr->csum_offset = hdr->csum_start = 0;
++	}
++
++	if (skb_is_gso(skb)) {
++		printk("xmit: gso size %u len %u (%u/%u/%u)\n",
++		       skb_shinfo(skb)->gso_size, skb->len,
++		       skb_transport_header(skb) - skb->head,
++		       skb_network_header(skb) - skb->head,
++		       skb->data - skb->head);
++		hdr->gso_size = skb_shinfo(skb)->gso_size;
++		if (skb_shinfo(skb)->gso_type & SKB_GSO_TCP_ECN)
++			hdr->gso_type = VIRTIO_NET_GSO_TCP_ECN;
++		else if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV4)
++			hdr->gso_type = VIRTIO_NET_GSO_TCP;
++		else if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6)
++			hdr->gso_type = VIRTIO_NET_GSO_TCPV6;
++		else if (skb_shinfo(skb)->gso_type & SKB_GSO_UDP)
++			hdr->gso_type = VIRTIO_NET_GSO_UDP;
++		else
++			BUG();
++	} else {
++		hdr->gso_type = VIRTIO_NET_GSO_NONE;
++		hdr->gso_size = 0;
++	}
++
++	vnet_hdr_to_sg(sg, skb);
++	num = skb_to_sgvec(skb, sg+1, 0, skb->len) + 1;
+ 	__skb_queue_head(&vi->send, skb);
+ 	err = vi->vq_send->ops->add_buf(vi->vq_send, sg, num, 0, skb);
+ 	if (err) {
+@@ -220,7 +328,8 @@ struct net_device *virtnet_probe(struct 
+ struct net_device *virtnet_probe(struct virtqueue *vq_recv,
+ 				 struct virtqueue *vq_send,
+ 				 struct device *device,
+-				 const u8 mac[ETH_ALEN])
++				 const u8 mac[ETH_ALEN],
++				 unsigned long features)
+ {
+ 	int err;
+ 	struct net_device *dev;
+@@ -239,6 +348,7 @@ struct net_device *virtnet_probe(struct 
+ 	dev->poll = virtnet_poll;
+ 	dev->hard_start_xmit = start_xmit;
+ 	dev->weight = 16;
++	dev->features = features;
+ 	SET_NETDEV_DEV(dev, device);
+ 
+ 	vi = netdev_priv(dev);
+===================================================================
+--- a/include/linux/virtio_net.h
++++ b/include/linux/virtio_net.h
+@@ -1,6 +1,26 @@
+ #ifndef _LINUX_VIRTIO_NET_H
+ #define _LINUX_VIRTIO_NET_H
+ #include <linux/types.h>
++
++/* This is the first element of the scatter-gather list.
++ * If you don't specify GSO or CSUM features, you can simply ignore the
++ * header. */
++struct virtio_net_hdr
++{
++#define VIRTIO_NET_F_NEEDS_CSUM	1	// Use csum_start, csum_offset
++      __u16 flags;
++#define VIRTIO_NET_GSO_NONE	0	// Not a GSO frame
++#define VIRTIO_NET_GSO_TCP	1	// GSO frame, IPv4 TCP (TSO)
++#define VIRTIO_NET_GSO_TCP_ECN	2	// GSO frame, IPv4 TCP w/ ECN
++#define VIRTIO_NET_GSO_UDP	3	// GSO frame, IPv4 UDP (UFO)
++#define VIRTIO_NET_GSO_TCPV6	4	// GSO frame, IPv6 TCP
++      __u16 gso_type;
++      __u16 gso_size;
++      __u16 csum_start;
++      __u16 csum_offset;
++};
++
++#ifdef __KERNEL__
+ #include <linux/etherdevice.h>
+ struct device;
+ struct net_device;
+@@ -9,7 +29,8 @@ struct net_device *virtnet_probe(struct 
+ struct net_device *virtnet_probe(struct virtqueue *vq_recv,
+ 				 struct virtqueue *vq_send,
+ 				 struct device *dev,
+-				 const u8 mac[ETH_ALEN]);
++				 const u8 mac[ETH_ALEN],
++				 unsigned long features);
+ void virtnet_remove(struct net_device *dev);
+-
++#endif /* __KERNEL__ */
+ #endif /* _LINUX_VIRTIO_NET_H */
+
 
