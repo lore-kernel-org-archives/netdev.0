@@ -1,44 +1,56 @@
-From: Ken-ichirou MATSUZAWA <chamas@h4.dion.ne.jp>
-Subject: Re: Oops in xfrm_bundle_ok
-Date: Wed, 25 Jul 2007 00:51:14 +0900 (JST)
-Message-ID: <20070725.005114.74734738.chamas@h4.dion.ne.jp>
-References: <20070705.024710.74752219.chamas@h4.dion.ne.jp>
+From: Joy Latten <latten@austin.ibm.com>
+Subject: Re: [PATCH]: revised make xfrm_audit_log more generic patch
+Date: Tue, 24 Jul 2007 11:17:58 -0500
+Message-ID: <1185293878.15699.358.camel@faith.austin.ibm.com>
+References: <200707232146.l6NLk50u001083@faith.austin.ibm.com>
+	 <200707241104.56310.sgrubb@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, davem@davemloft.net, linux-audit@redhat.com
+To: Steve Grubb <sgrubb@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm05mta.dion.ne.jp ([219.125.112.3]:1068 "HELO
-	nm05omta053.dion.ne.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1750854AbXGXPvU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jul 2007 11:51:20 -0400
-In-Reply-To: <20070705.024710.74752219.chamas@h4.dion.ne.jp>
+Received: from e33.co.us.ibm.com ([32.97.110.151]:58100 "EHLO
+	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751204AbXGXQUF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jul 2007 12:20:05 -0400
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e33.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l6OGK5gL020771
+	for <netdev@vger.kernel.org>; Tue, 24 Jul 2007 12:20:05 -0400
+Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
+	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.4) with ESMTP id l6OGK4OP126402
+	for <netdev@vger.kernel.org>; Tue, 24 Jul 2007 10:20:04 -0600
+Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l6OGK4hN029479
+	for <netdev@vger.kernel.org>; Tue, 24 Jul 2007 10:20:04 -0600
+In-Reply-To: <200707241104.56310.sgrubb@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- Hello,
+On Tue, 2007-07-24 at 11:04 -0400, Steve Grubb wrote:
 
-From: Ken-ichirou MATSUZAWA <chamas@h4.dion.ne.jp>
-Subject: Oops in xfrm_bundle_ok
-Date: Thu, 05 Jul 2007 02:47:10 +0900 (JST)
+> > +       audit_log_format(audit_buf, "%s: auid=%u", buf, auid);
+> >  
+> >         if (sid != 0 &&
+> >                 security_secid_to_secctx(sid, &secctx, &secctx_len) == 0)
+> 
+> The operation in buf will not be parsed by the user space tools. Let's 
+> use "op=%s " where you have "%s: " above. Audit record fields are name=value 
+> and fields separated by spaces. "op" is what we are using in other places to 
+> mean operation. 
+> 
+> I know its a change from the records above, but we previously had some detail 
+> about what operation was being performed by the record type and this did not 
+> matter so much. Now that we only have one event type, the meaning of the 
+> event being recorded needs to be parsable and in a field. 
+> 
+> It also wouldn't hurt to change the text being sent to this function to have a 
+> hyphen instead of a space, so "SPD delete" becomes "SPD-delete". This keeps 
+> the parser happy.
+> 
+> This patch otherwise looks good.
 
-> I got Oops like below. I glanced xfrm_bundle_ok() in
-> xfrm_policy.c and __xfrm4.bundle_create() in xfrm4_policy.c.
+Sounds good. I will make the changes and resend. 
+Thanks!!
 
-It seems this was fixed by below, thanks a lot.
-
-> commit bd0bf0765ea1fba80d7085e1f0375ec045631dc1
-> Author: Patrick McHardy <kaber@trash.net>
-> Date:   Wed Jul 18 01:55:52 2007 -0700
->
->     [XFRM]: Fix crash introduced by struct dst_entry reordering
-....
-
-@@ -2141,7 +2141,7 @@ int xfrm_bundle_ok(struct xfrm_policy *pol, struct xfrm_dst *first,
- 		if (last == first)
- 			break;
- 
--		last = last->u.next;
-+		last = (struct xfrm_dst *)last->u.dst.next;
- 		last->child_mtu_cached = mtu;
- 	}
+Joy
