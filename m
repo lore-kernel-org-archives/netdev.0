@@ -1,55 +1,44 @@
-From: Nick Piggin <nickpiggin@yahoo.com.au>
-Subject: Re: [PATCH v3 1/7] fs: Use a percpu_counter to track nr_dentry
-Date: Tue, 24 Jul 2007 11:24:51 +1000
-Message-ID: <200707241124.52675.nickpiggin@yahoo.com.au>
-References: <Pine.LNX.4.64.0811201727070.9089@quilx.com> <493100B0.6090104@cosmosbay.com> <49419680.8010409@cosmosbay.com>
+From: Nick Piggin <nickpiggin-/E1597aS9LT0CCvOHzKKcA@public.gmane.org>
+Subject: Re: [PATCH v3 2/7] fs: Use a percpu_counter to track nr_inodes
+Date: Tue, 24 Jul 2007 11:30:55 +1000
+Message-ID: <200707241130.56767.nickpiggin@yahoo.com.au>
+References: <Pine.LNX.4.64.0811201727070.9089@quilx.com> <493100B0.6090104@cosmosbay.com> <4941968E.3020201@cosmosbay.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Ingo Molnar <mingo@elte.hu>,
-	Christoph Hellwig <hch@infradead.org>,
-	David Miller <davem@davemloft.net>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>, linux-kernel@vger.kernel.org,
-	"kernel-testers@vger.kernel.org >> Kernel Testers List"
-	<kernel-testers@vger.kernel.org>, Mike Galbraith <efault@gmx.de>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Christoph Lameter <cl@linux-foundation.org>,
-	linux-fsdevel@vger.kernel.org, Al Viro <viro@zeniv.linux.org.uk>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: Eric Dumazet <dada1@cosmosbay.com>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <49419680.8010409@cosmosbay.com>
+Cc: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>,
+	Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org >> Kernel Testers List"
+	<kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Mike Galbraith <efault-Mmb7MZpHnFY@public.gmane.org>,
+	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
+	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Christoph Lameter <cl-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Al Viro <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>,
+	"Paul E. McKenney" <paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+To: Eric Dumazet <dada1-fPLkHRcR87vqlBn2x/YWAg@public.gmane.org>
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4941968E.3020201-fPLkHRcR87vqlBn2x/YWAg@public.gmane.org>
 Content-Disposition: inline
-Sender: linux-fsdevel-owner@vger.kernel.org
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Friday 12 December 2008 09:38, Eric Dumazet wrote:
-> Adding a percpu_counter nr_dentry avoids cache line ping pongs
-> between cpus to maintain this metric, and dcache_lock is
-> no more needed to protect dentry_stat.nr_dentry
+On Friday 12 December 2008 09:39, Eric Dumazet wrote:
+> Avoids cache line ping pongs between cpus and prepare next patch,
+> because updates of nr_inodes dont need inode_lock anymore.
 >
-> We centralize nr_dentry updates at the right place :
-> - increments in d_alloc()
-> - decrements in d_free()
->
-> d_alloc() can avoid taking dcache_lock if parent is NULL
->
-> ("socketallocbench -n8" result : 27.5s to 25s)
+> (socket8 bench result : no difference at this point)
 
-Seems like a good idea.
+Looks good.
 
+But.... If we never actually need fast access to the approximate
+total, (which seems to apply to this and the previous patch) we
+could use something much simpler which does not have the spinlock
+or all this batching stuff that percpu counters have. I'd prefer
+that because it will be faster in a straight line...
 
-> @@ -696,7 +712,7 @@ static void shrink_dcache_for_umount_subtree(struct
-> dentry *dentry) * otherwise we ascend to the parent and move to the
->  			 * next sibling if there is one */
->  			if (!parent)
-> -				goto out;
-> +				return;
->
->  			dentry = parent;
->
-
-Andrew doesn't like return from middle of function.
+(BTW. percpu counters can't be used in interrupt context? That's
+nice.)
