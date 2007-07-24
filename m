@@ -1,135 +1,63 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: 2.6.23-rc1: BUG_ON in kmap_atomic_prot()
-Date: Tue, 24 Jul 2007 01:34:55 -0700
-Message-ID: <20070724013455.691e6752.akpm@linux-foundation.org>
-References: <alpine.LFD.0.999.0707221351030.3607@woody.linux-foundation.org>
-	<20070723183839.GA5874@martell.zuzino.mipt.ru>
-	<20070723190152.GA5755@martell.zuzino.mipt.ru>
-	<20070723132431.42afbae8.akpm@linux-foundation.org>
-	<20070723204045.GD5755@martell.zuzino.mipt.ru>
-	<20070723210153.GA5753@martell.zuzino.mipt.ru>
-	<20070723141137.171e4ac1.akpm@linux-foundation.org>
-	<20070723220446.GA5822@martell.zuzino.mipt.ru>
-	<20070723152712.02ded067.akpm@linux-foundation.org>
-	<20070724081750.GM3287@kernel.dk>
-	<20070724082207.GN3287@kernel.dk>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: 2.6.23-rc1 sky2 boot crash in sky2_mac_intr
+Date: Tue, 24 Jul 2007 09:50:08 +0100
+Message-ID: <20070724095008.0eb154fe@oldman.hamilton.local>
+References: <20070724082205.GA19480@paradigm.rfc822.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Alexey Dobriyan <adobriyan@gmail.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	mark.fasheh@oracle.com, dan.j.williams@intel.com,
-	"Nelson, Shannon" <shannon.nelson@intel.com>
-To: Jens Axboe <jens.axboe@oracle.com>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Florian Lohoff <flo@rfc822.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:51196 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:51047 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752480AbXGXIfp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jul 2007 04:35:45 -0400
-In-Reply-To: <20070724082207.GN3287@kernel.dk>
+	by vger.kernel.org with ESMTP id S1758812AbXGXIva (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jul 2007 04:51:30 -0400
+In-Reply-To: <20070724082205.GA19480@paradigm.rfc822.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 24 Jul 2007 10:22:07 +0200 Jens Axboe <jens.axboe@oracle.com> wrote:
+On Tue, 24 Jul 2007 10:22:05 +0200
+Florian Lohoff <flo@rfc822.org> wrote:
 
-> On Tue, Jul 24 2007, Jens Axboe wrote:
-> > On Mon, Jul 23 2007, Andrew Morton wrote:
-> > > I worked out that the crash I saw was in
-> > > 
-> > >         BUG_ON(!pte_none(*(kmap_pte-idx)));
-> > > 
-> > > in the read of kmap_pte[idx].  Which would be weird as the caller is using 
-> > > a literal KM_USER0.
-> > > 
-> > > So maybe I goofed, and that BUG_ON is triggering (it scrolled off, and I am
-> > > unable to reproduce it now).
-> > > 
-> > > If that BUG_ON _is_ triggering then it might indicate that someone is doing
-> > > a __GFP_HIGHMEM|__GFP_ZERO allocation while holding KM_USER0.
-> > 
-> > Or doing double kunmaps, or doing a kunmap_atomic() on the page, not the
-> > address. I've seen both of those end up triggering that BUG_ON() in a
-> > later kmap.
-> > 
-> > Looking over the 2.6.22..2.6.23-rc1 diff, I found one such error in
-> > ocfs2 at least. But you are probably not using that, so I'll keep
-> > looking...
 > 
-> What about the new async crypto stuff? I've been looking, but is it
-> guarenteed that async_memcpy() runs in process context with interrupts
-> enabled always? If not, there's a km type bug there.
-
-I think Shannon maintains that now.
-
-> In general, I think the highmem stuff could do with more safety checks:
+> Hi,
+> i am seeing irregular crashes on boot in the sky2_mac_intr. This is an
+> Fujitsu Siemens Lifebook E8110 with a Core Duo. Currently i suspect some
+> strange BIOS issues as the issues i see with the sky2 aka parity errors
+> etc i also see sometimes with the integrated ipw3945 which complains
+> about firmware errors. It seems the BIOS randomly fails to initialize
+> all the hardware. To reproduce this crash and catch it on the serial
+> console it took me around 12 boots. The machine is stable once correctly
+> booted and i work most of the day on it.
 > 
-> - People ALWAYS get the atomic unmaps wrong, passing in the page instead
->   of the address. I've seen tons of these. And since kunmap_atomic()
->   takes a void pointer, nobody notices until it goes boom.
-
-yeah, it's a real trap.  For a while I had a patch which converted
-kmap_atomic() to return a char*, and kunmap_atomic() to take a char*, so
-misuse got compile warnings.  But it was a pig to maintain so I tossed it. 
-It'd be somewhat easier to do now we've converted a lot of callers to
-clear_user_highpage() and similar.
-
-> - People easily get the km type wrong - they use KM_USERx in interrupt
->   context, or one of the irq variants without disabling interrupts.
+> [   46.479939] ACPI: PCI Interrupt 0000:02:00.0[A] -> GSI 16 (level, low) -> IRQ 19
+> [   46.568569] sky2 0000:02:00.0: v1.16 addr 0xf0000000 irq 19 Yukon-EC Ultra (0xb4) rev 2
+> [   46.664555] sky2 eth0: addr 00:17:42:13:45:8c
 > 
-> If we could just catch these two types of bugs, we've got a lot of these
-> problems covered.
+> [   61.958741] sky2 eth1: enabling interface
+> [   62.010834] sky2 eth1: phy write timeout
 
-Here's the -mm debug patch:
+The problem is related to power management. The PHY has a number of PCI configuration
+registers for power control, and the function of these changes based on the version and
+revision of the chip. The driver does work on older versions of the EC-U, in
+Fujitsu laptop's, it is just the new rev that is broken.
 
+The driver should probably fail smarter (by not loading) if the PHY isn't powered
+up correctly, but that doesn't help your problem.
 
-diff -puN arch/i386/mm/highmem.c~kmap_atomic-debugging arch/i386/mm/highmem.c
---- a/arch/i386/mm/highmem.c~kmap_atomic-debugging
-+++ a/arch/i386/mm/highmem.c
-@@ -30,7 +30,44 @@ void *kmap_atomic(struct page *page, enu
- {
- 	enum fixed_addresses idx;
- 	unsigned long vaddr;
-+	static unsigned warn_count = 10;
- 
-+	if (unlikely(warn_count == 0))
-+		goto skip;
-+
-+	if (unlikely(in_interrupt())) {
-+		if (in_irq()) {
-+			if (type != KM_IRQ0 && type != KM_IRQ1 &&
-+			    type != KM_BIO_SRC_IRQ && type != KM_BIO_DST_IRQ &&
-+			    type != KM_BOUNCE_READ) {
-+				WARN_ON(1);
-+				warn_count--;
-+			}
-+		} else if (!irqs_disabled()) {	/* softirq */
-+			if (type != KM_IRQ0 && type != KM_IRQ1 &&
-+			    type != KM_SOFTIRQ0 && type != KM_SOFTIRQ1 &&
-+			    type != KM_SKB_SUNRPC_DATA &&
-+			    type != KM_SKB_DATA_SOFTIRQ &&
-+			    type != KM_BOUNCE_READ) {
-+				WARN_ON(1);
-+				warn_count--;
-+			}
-+		}
-+	}
-+
-+	if (type == KM_IRQ0 || type == KM_IRQ1 || type == KM_BOUNCE_READ ||
-+			type == KM_BIO_SRC_IRQ || type == KM_BIO_DST_IRQ) {
-+		if (!irqs_disabled()) {
-+			WARN_ON(1);
-+			warn_count--;
-+		}
-+	} else if (type == KM_SOFTIRQ0 || type == KM_SOFTIRQ1) {
-+		if (irq_count() == 0 && !irqs_disabled()) {
-+			WARN_ON(1);
-+			warn_count--;
-+		}
-+	}
-+skip:
- 	/* even !CONFIG_PREEMPT needs this, for in_atomic in do_page_fault */
- 	pagefault_disable();
- 
-_
+The vendor has provided me with documentation on many versions
+of the chip, but I don't have doc's on the lastest revision differences of the EC Ultra, 
+so a proper solution is not easily available.  The best method for resolving this would
+be to first try the vendor driver version of sk98lin and see if that fixes it. If so,
+then it is easy to change sky2, to match the phy setup in the vendor driver.
+Another possibility is to look for places in sky2 driver where there are places
+that compare version/revision.
+
+The most likely bits that need to change are in PCI registers: 0x80, 0x84 and 0x88
+You could also load the windows driver and dump PCI config space (with lspci from
+cygwin), and see what the settings are there.
+
+I am away from my office for a month, and therefore away from any sky2
+hardware for testing. 
 
