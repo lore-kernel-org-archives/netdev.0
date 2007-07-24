@@ -1,60 +1,82 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: 2.6.23-rc1: BUG_ON in kmap_atomic_prot()
-Date: Tue, 24 Jul 2007 12:15:48 -0700 (PDT)
-Message-ID: <alpine.LFD.0.999.0707241207290.3607@woody.linux-foundation.org>
-References: <alpine.LFD.0.999.0707221351030.3607@woody.linux-foundation.org>
- <20070723183839.GA5874@martell.zuzino.mipt.ru> <20070723190152.GA5755@martell.zuzino.mipt.ru>
- <20070723132431.42afbae8.akpm@linux-foundation.org>
- <20070723204045.GD5755@martell.zuzino.mipt.ru> <20070723210153.GA5753@martell.zuzino.mipt.ru>
- <20070723141137.171e4ac1.akpm@linux-foundation.org>
- <alpine.LFD.0.999.0707231415511.3607@woody.linux-foundation.org>
- <20070724175951.GC6019@stusta.de> <alpine.LFD.0.999.0707241113180.3607@woody.linux-foundation.org>
- <20070724112843.0cc104c2.akpm@linux-foundation.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] Netfilter Kconfig:  Expose IPv4/6 connection tracking
+ options by selecting NF_CONNTRACK
+Date: Tue, 24 Jul 2007 21:17:53 +0200
+Message-ID: <46A65061.8010000@trash.net>
+References: <200707240836.33494.a1426z@gawab.com> <200707242031.58910.a1426z@gawab.com> <46A6387D.1030601@trash.net> <200707242205.07545.a1426z@gawab.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=us-ascii
-Cc: Adrian Bunk <bunk@stusta.de>,
-	Alexey Dobriyan <adobriyan@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:52113 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754768AbXGXTRD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jul 2007 15:17:03 -0400
-In-Reply-To: <20070724112843.0cc104c2.akpm@linux-foundation.org>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Sam Ravnborg <sam@ravnborg.org>, netdev@vger.kernel.org,
+	linux-net@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Al Boldi <a1426z@gawab.com>
+Return-path: <linux-net-owner@vger.kernel.org>
+In-Reply-To: <200707242205.07545.a1426z@gawab.com>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-
-On Tue, 24 Jul 2007, Andrew Morton wrote:
+Al Boldi wrote:
+> Patrick McHardy wrote:
 > 
-> fwiw, -fno-inline-functions-called-once (who knew?) takes i386 allnoconfig
-> vmlinux .text from 928360 up to 955362 bytes (27k larger).
+>>Al Boldi wrote:
+>>
+>>>Patrick McHardy wrote:
+>>>
+>>>>But I vaguely recall having tried this myself and it broke somewhere,
+>>>>maybe it was because of the NF_CONNTRACK_ENABLED option, I can't
+>>>>recall anymore. Al, if this also works without removal of
+>>>>NF_CONNTRACK_ENABLED, please resend without that part.
+>>>
+>>>It doesn't.  But how about this, if you really can't live without
+>>>NF_CONNTRACK_ENBLED:
+>>>
+>>>==================
+>>>--- Kconfig.old	2007-07-09 06:38:52.000000000 +0300
+>>>+++ Kconfig	2007-07-24 20:24:27.000000000 +0300
+>>>@@ -25,8 +25,7 @@ config NETFILTER_NETLINK_LOG
+>>> 	  and is also scheduled to replace the old syslog-based ipt_LOG
+>>> 	  and ip6t_LOG modules.
+>>>
+>>>-# Rename this to NF_CONNTRACK in a 2.6.25
+>>>-config NF_CONNTRACK_ENABLED
+>>>+config NF_CONNTRACK
+>>> 	tristate "Netfilter connection tracking support"
+>>> 	help
+>>> 	  Connection tracking keeps a record of what packets have passed
+>>>@@ -40,9 +39,9 @@ config NF_CONNTRACK_ENABLED
+>>>
+>>> 	  To compile it as a module, choose M here.  If unsure, say N.
+>>>
+>>>-config NF_CONNTRACK
+>>>+config NF_CONNTRACK_ENABLED
+>>> 	tristate
+>>>-	default NF_CONNTRACK_ENABLED
+>>>+	default NF_CONNTRACK
+>>>
+>>> config NF_CT_ACCT
+>>> 	bool "Connection tracking flow accounting"
+>>
+>>That defeats the only purpose why we kept it.
 > 
-> A surprisingly large increase - I wonder if it did something dumb.  It
-> appears to still correctly inline those things which we've manually marked
-> inline.  hm.
+> 
+> I'm not sure how this would defeat the only purpose.  Isn't the purpose of 
+> this to alias NF_CONNTRACK_ENABLED to NF_CONNTRACK?  And as such would yield 
+> the same result.
 
-I think inlining small enough functions is worth it, and the thing is, the 
-kernel is actually pretty damn good at having lots of small functions. 
-It's one of the few things I really care about from a coding style 
-standpoint.
 
-So I'm not surprised that "-fno-inline-functions-called-once" makes things 
-larger, because I think it's generally a good idea to inline things that 
-are just called once. But it does make things harder to debug, and the 
-performance advantages become increasingly small for bigger functions.
+The purpose is to avoid forcing people a second time to reconfigure
+the conntrack options since we've completed nf_conntrack and removed
+ip_conntrack. Previously NF_CONNTRACK was a bool (selecting the new
+implementation) and NF_CONNTRACK_ENABLED specified whether to build
+either nf_conntrack or ip_conntrack modular/static/not at all. So
+old configs only have the information whether to build modular in
+NF_CONNTRACK_ENABLED, but NF_CONNTRACK is what actually controls it.
+With your change, old configs will still build nf_conntrack properly,
+but they will always choose static linking.
 
-And that's a balancing act. Do we care about performance? Yes. But do we 
-care so much that it's worth inlining something like buffered_rmqueue()? 
+> Also, we could leave this as is, and select NF_CONNTRACK_ENABLED instead of 
+> NF_CONNTRACK.
 
-So I would not be surprised if "-fno-inline-functions-called-once" will 
-disable *all* the inlining heuristics, and say "oh, it's not an inline 
-function, and it's only called once, so we won't inline it at all".
+I guess so, and that would have to select NF_CONNTRACK.
 
-So "called once" should probably make the inlining weight bigger (ie 
-inline *larger* functions than you would otherwise), it just shouldn't 
-make it "infinite". It's not worth it.
-
-		Linus
