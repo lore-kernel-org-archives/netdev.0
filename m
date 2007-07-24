@@ -1,184 +1,209 @@
 From: bphilips@suse.de
-Subject: [PATCH 1/2][RFC] Update net core to use devres.
-Date: Tue, 24 Jul 2007 15:39:52 -0700
-Message-ID: <11853167964115-git-send-email-bphilips@suse.de>
-References: <11853167931415-git-send-email-bphilips@suse.de>
+Subject: [PATCH 2/2][RFC] Update e100 driver to use devres.
+Date: Tue, 24 Jul 2007 15:42:43 -0700
+Message-ID: <1185316963408-git-send-email-bphilips@suse.de>
 Cc: Brandon Philips <bphilips@suse.de>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:39229 "EHLO mx2.suse.de"
+Received: from mail.suse.de ([195.135.220.2]:36789 "EHLO mx1.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756134AbXGXWkA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Jul 2007 18:40:00 -0400
+	id S1751855AbXGXWmr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Jul 2007 18:42:47 -0400
 Received: from Relay1.suse.de (mail2.suse.de [195.135.221.8])
 	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
 	(No client certificate requested)
-	by mx2.suse.de (Postfix) with ESMTP id 0585E21951
-	for <netdev@vger.kernel.org>; Wed, 25 Jul 2007 00:40:00 +0200 (CEST)
-In-Reply-To: <11853167931415-git-send-email-bphilips@suse.de>
+	by mx1.suse.de (Postfix) with ESMTP id 6BCEA124DF
+	for <netdev@vger.kernel.org>; Wed, 25 Jul 2007 00:42:46 +0200 (CEST)
+In-Reply-To: 11853167964115-git-send-email-bphilips@suse.de
+References: 11853167964115-git-send-email-bphilips@suse.de
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* netdev_pci_remove_one() can replace simple pci device remove
-  functions
+devres manages device resources and is currently used by all libata low level
+drivers.   It can greatly reduce the complexity of the error handling on probe
+and the device removal functions.
 
-* devm_alloc_netdev() is like alloc_netdev but allocates memory using devres.
-  alloc_netdev() can be removed once all drivers use devres.
+For example the e100_free() function and all of the gotos in e100_probe have
+been removed.  Also, e100_remove() has been deleted and replaced with a much
+simpler netdev_pci_remove_one() function that should be able to handle any PCI
+net device that doesn't require any teardown besides resource deallocation.
 
-Applies against 2.6.22
+Applies against 2.6.22.
 
 Signed-off-by: Brandon Philips <bphilips@suse.de>
 
 ---
- include/linux/etherdevice.h |    2 +
- include/linux/netdevice.h   |    5 ++++
- net/core/dev.c              |   48 ++++++++++++++++++++++++++++++++++++++++----
- net/ethernet/eth.c          |    6 +++++
- 4 files changed, 57 insertions(+), 4 deletions(-)
+ drivers/net/e100.c |   73 +++++++++++++----------------------------------------
+ 1 file changed, 19 insertions(+), 54 deletions(-)
 
-Index: linux-2.6/include/linux/netdevice.h
+Index: linux-2.6/drivers/net/e100.c
 ===================================================================
---- linux-2.6.orig/include/linux/netdevice.h
-+++ linux-2.6/include/linux/netdevice.h
-@@ -622,6 +622,7 @@ extern int		dev_queue_xmit(struct sk_buf
- extern int		register_netdevice(struct net_device *dev);
- extern void		unregister_netdevice(struct net_device *dev);
- extern void		free_netdev(struct net_device *dev);
-+extern void		netdev_pci_remove_one(struct pci_dev *pdev);
- extern void		synchronize_net(void);
- extern int 		register_netdevice_notifier(struct notifier_block *nb);
- extern int		unregister_netdevice_notifier(struct notifier_block *nb);
-@@ -992,6 +993,10 @@ static inline void netif_tx_disable(stru
- extern void		ether_setup(struct net_device *dev);
+--- linux-2.6.orig/drivers/net/e100.c
++++ linux-2.6/drivers/net/e100.c
+@@ -2514,18 +2514,11 @@ static int e100_do_ioctl(struct net_devi
  
- /* Support for loadable net-drivers */
-+
-+extern struct net_device *devm_alloc_netdev(struct device *dev,
-+					    int sizeof_priv, const char *name,
-+					    void (*setup)(struct net_device *));
- extern struct net_device *alloc_netdev(int sizeof_priv, const char *name,
- 				       void (*setup)(struct net_device *));
- extern int		register_netdev(struct net_device *dev);
-Index: linux-2.6/net/core/dev.c
-===================================================================
---- linux-2.6.orig/net/core/dev.c
-+++ linux-2.6/net/core/dev.c
-@@ -89,6 +89,7 @@
- #include <linux/interrupt.h>
- #include <linux/if_ether.h>
- #include <linux/netdevice.h>
-+#include <linux/pci.h>
- #include <linux/etherdevice.h>
- #include <linux/notifier.h>
- #include <linux/skbuff.h>
-@@ -3343,7 +3344,8 @@ static struct net_device_stats *internal
- }
- 
- /**
-- *	alloc_netdev - allocate network device
-+ *	__alloc_netdev - allocate network device
-+ *	@dev:		managed device responsible for mem; NULL if not managed
-  *	@sizeof_priv:	size of private data to allocate space for
-  *	@name:		device name format string
-  *	@setup:		callback to initialize device
-@@ -3351,8 +3353,8 @@ static struct net_device_stats *internal
-  *	Allocates a struct net_device with private data area for driver use
-  *	and performs basic initialization.
-  */
--struct net_device *alloc_netdev(int sizeof_priv, const char *name,
--		void (*setup)(struct net_device *))
-+struct net_device *__alloc_netdev(struct device *gendev, int sizeof_priv,
-+		const char *name, void (*setup)(struct net_device *))
+ static int e100_alloc(struct nic *nic)
  {
- 	void *p;
- 	struct net_device *dev;
-@@ -3364,7 +3366,11 @@ struct net_device *alloc_netdev(int size
- 	alloc_size = (sizeof(*dev) + NETDEV_ALIGN_CONST) & ~NETDEV_ALIGN_CONST;
- 	alloc_size += sizeof_priv + NETDEV_ALIGN_CONST;
+-	nic->mem = pci_alloc_consistent(nic->pdev, sizeof(struct mem),
+-		&nic->dma_addr);
+-	return nic->mem ? 0 : -ENOMEM;
+-}
++	struct device *dev = &nic->pdev->dev;
  
--	p = kzalloc(alloc_size, GFP_KERNEL);
-+	if (dev == NULL)
-+		p = kzalloc(alloc_size, GFP_KERNEL);
-+	else
-+		p = devm_kzalloc(gendev, alloc_size, GFP_KERNEL);
-+
- 	if (!p) {
- 		printk(KERN_ERR "alloc_netdev: Unable to allocate device.\n");
- 		return NULL;
-@@ -3382,8 +3388,23 @@ struct net_device *alloc_netdev(int size
- 	strcpy(dev->name, name);
- 	return dev;
- }
-+
-+struct net_device *devm_alloc_netdev(struct device *dev, int sizeof_priv, const
-+				char *name, void (*setup)(struct net_device *))
-+{
-+	return __alloc_netdev(dev, sizeof_priv, name, setup);
-+}
-+EXPORT_SYMBOL(devm_alloc_netdev);
-+
-+struct net_device *alloc_netdev(int sizeof_priv, const char *name,
-+				void (*setup)(struct net_device *))
-+{
-+	return __alloc_netdev(NULL, sizeof_priv, name, setup);
-+}
- EXPORT_SYMBOL(alloc_netdev);
- 
-+
-+
- /**
-  *	free_netdev - free network device
-  *	@dev: device
-@@ -3411,6 +3432,25 @@ void free_netdev(struct net_device *dev)
- #endif
+-static void e100_free(struct nic *nic)
+-{
+-	if(nic->mem) {
+-		pci_free_consistent(nic->pdev, sizeof(struct mem),
+-			nic->mem, nic->dma_addr);
+-		nic->mem = NULL;
+-	}
++	nic->mem = dmam_alloc_coherent(dev, sizeof(struct mem),
++		&nic->dma_addr, GFP_ATOMIC);
++	return nic->mem ? 0 : -ENOMEM;
  }
  
-+/**
-+ *	free_netdev - free network device
-+ *	@dev: device
-+ *
-+ *	This function does the last stage of destroying an allocated device
-+ * 	interface. The reference to the device object is released.
-+ *	If this is the last reference then it will be freed.
-+ */
-+void netdev_pci_remove_one(struct pci_dev *pdev)
-+{
-+	struct net_device *netdev = pci_get_drvdata(pdev);
-+	if (netdev) {
-+		unregister_netdev(netdev);
-+		pci_set_drvdata(pdev, NULL);
-+	}
-+}
-+EXPORT_SYMBOL(netdev_pci_remove_one);
-+
-+
- /* Synchronize with packet receive processing. */
- void synchronize_net(void)
- {
-Index: linux-2.6/include/linux/etherdevice.h
-===================================================================
---- linux-2.6.orig/include/linux/etherdevice.h
-+++ linux-2.6/include/linux/etherdevice.h
-@@ -40,6 +40,8 @@ extern int		eth_header_cache(struct neig
- 					 struct hh_cache *hh);
+ static int e100_open(struct net_device *netdev)
+@@ -2552,7 +2545,7 @@ static int __devinit e100_probe(struct p
+ 	struct nic *nic;
+ 	int err;
  
- extern struct net_device *alloc_etherdev(int sizeof_priv);
-+extern struct net_device *devm_alloc_etherdev(struct device *dev,
-+					      int sizeof_priv);
- static inline void eth_copy_and_sum (struct sk_buff *dest, 
- 				     const unsigned char *src, 
- 				     int len, int base)
-Index: linux-2.6/net/ethernet/eth.c
-===================================================================
---- linux-2.6.orig/net/ethernet/eth.c
-+++ linux-2.6/net/ethernet/eth.c
-@@ -333,3 +333,9 @@ struct net_device *alloc_etherdev(int si
- 	return alloc_netdev(sizeof_priv, "eth%d", ether_setup);
- }
- EXPORT_SYMBOL(alloc_etherdev);
+-	if(!(netdev = alloc_etherdev(sizeof(struct nic)))) {
++	if (!(netdev = devm_alloc_etherdev(&pdev->dev, sizeof(struct nic)))) {
+ 		if(((1 << debug) - 1) & NETIF_MSG_PROBE)
+ 			printk(KERN_ERR PFX "Etherdev alloc failed, abort.\n");
+ 		return -ENOMEM;
+@@ -2582,26 +2575,26 @@ static int __devinit e100_probe(struct p
+ 	nic->msg_enable = (1 << debug) - 1;
+ 	pci_set_drvdata(pdev, netdev);
+ 
+-	if((err = pci_enable_device(pdev))) {
++	if ((err = pcim_enable_device(pdev))) {
+ 		DPRINTK(PROBE, ERR, "Cannot enable PCI device, aborting.\n");
+-		goto err_out_free_dev;
++		return err;
+ 	}
+ 
+ 	if(!(pci_resource_flags(pdev, 0) & IORESOURCE_MEM)) {
+ 		DPRINTK(PROBE, ERR, "Cannot find proper PCI device "
+ 			"base address, aborting.\n");
+ 		err = -ENODEV;
+-		goto err_out_disable_pdev;
++		return err;
+ 	}
+ 
+ 	if((err = pci_request_regions(pdev, DRV_NAME))) {
+ 		DPRINTK(PROBE, ERR, "Cannot obtain PCI resources, aborting.\n");
+-		goto err_out_disable_pdev;
++		return err;
+ 	}
+ 
+ 	if((err = pci_set_dma_mask(pdev, DMA_32BIT_MASK))) {
+ 		DPRINTK(PROBE, ERR, "No usable DMA configuration, aborting.\n");
+-		goto err_out_free_res;
++		return err;
+ 	}
+ 
+ 	SET_MODULE_OWNER(netdev);
+@@ -2610,11 +2603,11 @@ static int __devinit e100_probe(struct p
+ 	if (use_io)
+ 		DPRINTK(PROBE, INFO, "using i/o access mode\n");
+ 
+-	nic->csr = pci_iomap(pdev, (use_io ? 1 : 0), sizeof(struct csr));
++	nic->csr = pcim_iomap(pdev, (use_io ? 1 : 0), sizeof(struct csr));
+ 	if(!nic->csr) {
+ 		DPRINTK(PROBE, ERR, "Cannot map device registers, aborting.\n");
+ 		err = -ENOMEM;
+-		goto err_out_free_res;
++		return err;
+ 	}
+ 
+ 	if(ent->driver_data)
+@@ -2647,11 +2640,11 @@ static int __devinit e100_probe(struct p
+ 
+ 	if((err = e100_alloc(nic))) {
+ 		DPRINTK(PROBE, ERR, "Cannot alloc driver memory, aborting.\n");
+-		goto err_out_iounmap;
++		return err;
+ 	}
+ 
+ 	if((err = e100_eeprom_load(nic)))
+-		goto err_out_free;
++		return err;
+ 
+ 	e100_phy_init(nic);
+ 
+@@ -2661,8 +2654,8 @@ static int __devinit e100_probe(struct p
+ 		if (!eeprom_bad_csum_allow) {
+ 			DPRINTK(PROBE, ERR, "Invalid MAC address from "
+ 			        "EEPROM, aborting.\n");
+-			err = -EAGAIN;
+-			goto err_out_free;
 +
-+struct net_device *devm_alloc_etherdev(struct device *dev, int sizeof_priv)
-+{
-+	return devm_alloc_netdev(dev, sizeof_priv, "eth%d", ether_setup);
-+}
-+EXPORT_SYMBOL(devm_alloc_etherdev);
++			return -EAGAIN;
+ 		} else {
+ 			DPRINTK(PROBE, ERR, "Invalid MAC address from EEPROM, "
+ 			        "you MUST configure one.\n");
+@@ -2682,7 +2675,7 @@ static int __devinit e100_probe(struct p
+ 	strcpy(netdev->name, "eth%d");
+ 	if((err = register_netdev(netdev))) {
+ 		DPRINTK(PROBE, ERR, "Cannot register net device, aborting.\n");
+-		goto err_out_free;
++		return err;
+ 	}
+ 
+ 	DPRINTK(PROBE, INFO, "addr 0x%llx, irq %d, "
+@@ -2692,36 +2685,8 @@ static int __devinit e100_probe(struct p
+ 		netdev->dev_addr[3], netdev->dev_addr[4], netdev->dev_addr[5]);
+ 
+ 	return 0;
+-
+-err_out_free:
+-	e100_free(nic);
+-err_out_iounmap:
+-	pci_iounmap(pdev, nic->csr);
+-err_out_free_res:
+-	pci_release_regions(pdev);
+-err_out_disable_pdev:
+-	pci_disable_device(pdev);
+-err_out_free_dev:
+-	pci_set_drvdata(pdev, NULL);
+-	free_netdev(netdev);
+-	return err;
+ }
+ 
+-static void __devexit e100_remove(struct pci_dev *pdev)
+-{
+-	struct net_device *netdev = pci_get_drvdata(pdev);
+-
+-	if(netdev) {
+-		struct nic *nic = netdev_priv(netdev);
+-		unregister_netdev(netdev);
+-		e100_free(nic);
+-		iounmap(nic->csr);
+-		free_netdev(netdev);
+-		pci_release_regions(pdev);
+-		pci_disable_device(pdev);
+-		pci_set_drvdata(pdev, NULL);
+-	}
+-}
+ 
+ #ifdef CONFIG_PM
+ static int e100_suspend(struct pci_dev *pdev, pm_message_t state)
+@@ -2825,7 +2790,7 @@ static pci_ers_result_t e100_io_slot_res
+ 	struct net_device *netdev = pci_get_drvdata(pdev);
+ 	struct nic *nic = netdev_priv(netdev);
+ 
+-	if (pci_enable_device(pdev)) {
++	if (pcim_enable_device(pdev)) {
+ 		printk(KERN_ERR "e100: Cannot re-enable PCI device after reset.\n");
+ 		return PCI_ERS_RESULT_DISCONNECT;
+ 	}
+@@ -2872,7 +2837,7 @@ static struct pci_driver e100_driver = {
+ 	.name =         DRV_NAME,
+ 	.id_table =     e100_id_table,
+ 	.probe =        e100_probe,
+-	.remove =       __devexit_p(e100_remove),
++	.remove =       __devexit_p(netdev_pci_remove_one),
+ #ifdef CONFIG_PM
+ 	/* Power Management hooks */
+ 	.suspend =      e100_suspend,
