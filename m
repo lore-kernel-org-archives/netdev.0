@@ -1,99 +1,63 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH 4/4] Initialize and fill IPv6 route age
-Date: Tue, 24 Jul 2007 08:26:46 +0100
-Message-ID: <20070724082646.4cbd1ede@oldman>
-References: <20070723101318.c773f600.varunc@linux.vnet.ibm.com>
-	<20070723123429.15715972@oldman.hamilton.local>
-	<46A57E29.9040404@linux.vnet.ibm.com>
+From: patric <pakar@imperialnet.org>
+Subject: Re: tg3 issues
+Date: Tue, 24 Jul 2007 09:33:02 +0200
+Message-ID: <46A5AB2E.4070401@imperialnet.org>
+References: <469E78A2.80904@imperialnet.org> <366312910707190419se33ddd2o3870b5684e077276@mail.gmail.com> <20070719113755.GA1934@hmsreliant.homelinux.net> <469F6601.20800@imperialnet.org> <1184866465.10854.45.camel@dell> <46A0E9D7.7020904@imperialnet.org> <1184960061.4850.9.camel@dell> <46A113BA.7050805@imperialnet.org> <46A342DC.1030305@imperialnet.org> <1185226496.7922.33.camel@dell>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sri@us.ibm.com, dlstevens@us.ibm.com,
-	varuncha@in.ibm.com
-To: Varun Chandramohan <varunc@linux.vnet.ibm.com>
+Cc: netdev <netdev@vger.kernel.org>, mcarlson@broadcom.com
+To: Michael Chan <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:47343 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752788AbXGXH1z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jul 2007 03:27:55 -0400
-In-Reply-To: <46A57E29.9040404@linux.vnet.ibm.com>
+Received: from mailfront-6.lil-sth.crystone.net ([83.168.207.14]:37996 "HELO
+	mailfront-6.lil-sth.se.crystone.net" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with SMTP id S1759346AbXGXHdM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jul 2007 03:33:12 -0400
+In-Reply-To: <1185226496.7922.33.camel@dell>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 24 Jul 2007 09:50:57 +0530
-Varun Chandramohan <varunc@linux.vnet.ibm.com> wrote:
+Michael Chan wrote:
 
-> Stephen Hemminger wrote:
-> > On Mon, 23 Jul 2007 10:13:18 +0530
-> > Varun Chandramohan <varunc@linux.vnet.ibm.com> wrote:
-> >
-> >   
-> >> The age field of the ipv6 route structures are initilized with the current timeval at the time of route       creation. When the route dump is called the route age value stored in the structure is subtracted from the     present timeval and the difference is passed on as the route age.
-> >>
-> >> Signed-off-by: Varun Chandramohan <varunc@linux.vnet.ibm.com>
-> >> ---
-> >>  include/net/ip6_fib.h   |    1 +
-> >>  include/net/ip6_route.h |    3 +++
-> >>  net/ipv6/addrconf.c     |    5 +++++
-> >>  net/ipv6/route.c        |   23 +++++++++++++++++++----
-> >>  4 files changed, 28 insertions(+), 4 deletions(-)
-> >>
-> >> diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
-> >> index c48ea87..e30a1cf 100644
-> >> --- a/include/net/ip6_fib.h
-> >> +++ b/include/net/ip6_fib.h
-> >> @@ -98,6 +98,7 @@ struct rt6_info
-> >>  	
-> >>  	u32				rt6i_flags;
-> >>  	u32				rt6i_metric;
-> >> +	time_t				rt6i_age;
-> >>  	atomic_t			rt6i_ref;
-> >>  	struct fib6_table		*rt6i_table;
-> >>  
-> >> diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
-> >> index 5456fdd..fc9716c 100644
-> >> --- a/include/net/ip6_route.h
-> >> +++ b/include/net/ip6_route.h
-> >> @@ -36,6 +36,9 @@ struct route_info {
-> >>  #define RT6_LOOKUP_F_REACHABLE	0x2
-> >>  #define RT6_LOOKUP_F_HAS_SADDR	0x4
-> >>  
-> >> +#define RT6_SET_ROUTE_INFO 0x0
-> >> +#define RT6_GET_ROUTE_INFO 0x1
-> >> +
-> >>  extern struct rt6_info	ip6_null_entry;
-> >>  
-> >>  #ifdef CONFIG_IPV6_MULTIPLE_TABLES
-> >> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-> >> index 5a5f8bd..715c766 100644
-> >> --- a/net/ipv6/addrconf.c
-> >> +++ b/net/ipv6/addrconf.c
-> >> @@ -4187,6 +4187,7 @@ EXPORT_SYMBOL(unregister_inet6addr_notif
-> >>  
-> >>  int __init addrconf_init(void)
-> >>  {
-> >> +	struct timeval tv;
-> >>  	int err = 0;
-> >>  
-> >>  	/* The addrconf netdev notifier requires that loopback_dev
-> >> @@ -4214,10 +4215,14 @@ int __init addrconf_init(void)
-> >>  	if (err)
-> >>  		return err;
-> >>  
-> >> +	do_gettimeofday(&tv);
-> >>     
-> >
-> > Better to use ktime_t or timespec in new code.
-> >   
-> You are saying not to use timeval as its going to be removed sometime in
-> future? If not, may i know why should we use timespec or ktime?
-> I need only seconds granularity so i was wondering if that matters.
-> 
+>> Last update on this.
+>>
+>> "udelay( 100 + net_random % 300 )" seems to work much better and i have 
+>> not had a single problem getting the link up within 10 seconds of a cold 
+>> or warm-boot, and most often the link comes up directly without any sort 
+>> of delay instead like before when it could hang for 30 seconds before 
+>> getting a link, if you even got a link.
+>>
+>>     
+>
+> We'll have to do some testing to see if we can find a better solution.
+> Adding up to 400 usec of busy wait is not ideal.  Are you connecting two
+> 5701 fiber cards directly to each other in your setup?
+>
+>
+>   
 
-Timeval isn't going away, but ktime is easier for basic maths.
-If all you need is seconds resolution,  just use jiffies. Gettimeofday
-(and ktime_get) both require expensive hardware accesses on
-some platforms.
+Hi,
 
-For the specific case IPV6 route ageing, this isn't a big deal it is just
-that people tend to copy code. 
+Yea, it's and ugly hack, but it's a workaround that at least works for me.
+Have done some additional tests and to me it seems that the driver just 
+needs to wait a bit longer to detect the link + some random time to get 
+around the issues it might have when chasing the other systems state.
+Don't have the numbers in front of me, but i did some tests to get the 
+'optimum' delay to wait and it seems like the larger the wait time (even 
+up to around 40-50ms!) causes the autoneg to go much smoother and 
+faster. And remember that the link can be reported up, but no traffic 
+can be passed via the link before the autoneg is complete and both cards 
+reports back that flowcontrol is enabled so you need to verify the link 
+by trying to send some data and not just look at the link-status.
+
+Hope my conclusions might help, or atleast point you in the right direction.
+
+I have 2
+01:08.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5701 
+Gigabit Ethernet (rev 15)   ( 14e4:1645 )
+connected via a single FC cable.
+And the two systems are one single-core and one dual-core AMD system.
+
+Regards,
+Patric
+
