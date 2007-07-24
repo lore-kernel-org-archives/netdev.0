@@ -1,78 +1,90 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: specifying scopid's for link-local IPv6 addrs
-Date: Tue, 24 Jul 2007 03:01:15 -0400
-Message-ID: <20070724030115.3208229d.billfink@mindspring.com>
-References: <46A4FAFF.8010809@hp.com>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: 2.6.20->2.6.21 - networking dies after random time
+Date: Tue, 24 Jul 2007 09:18:58 +0200
+Message-ID: <20070724071858.GA2049@ff.dom.local>
+References: <JKE37W$0126317E099DF36884CC046B6F8A7AA9@xandmail.com> <20070629150759.GC2771@ff.dom.local> <4bacf17f0707222244p664e7a6ap850b3357a57d73c@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Linux Network Development list <netdev@vger.kernel.org>
-To: Rick Jones <rick.jones2@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-banded.atl.sa.earthlink.net ([209.86.89.70]:32781 "EHLO
-	elasmtp-banded.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753265AbXGXHBV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jul 2007 03:01:21 -0400
-In-Reply-To: <46A4FAFF.8010809@hp.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Marcin =?iso-8859-2?Q?=A6lusarz?= <marcin.slusarz@gmail.com>,
+	Jean-Baptiste Vignaud <vignaud@xandmail.fr>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	shemminger <shemminger@linux-foundation.org>,
+	linux-net <linux-net@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>, Ingo Molnar <mingo@elte.hu>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>
+To: Ingo Molnar <mingo@elte.hu>
+Return-path: <linux-net-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4bacf17f0707222244p664e7a6ap850b3357a57d73c@mail.gmail.com>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 23 Jul 2007, Rick Jones wrote:
+On Mon, Jul 23, 2007 at 07:44:58AM +0200, Marcin =A6lusarz wrote:
+> Ok, I've bisected this problem and found that this patch broke my NIC=
+:
+>=20
+> 76d2160147f43f982dfe881404cfde9fd0a9da21 is first bad commit
+> commit 76d2160147f43f982dfe881404cfde9fd0a9da21
+> Author: Ingo Molnar <mingo@elte.hu>
+> Date:   Fri Feb 16 01:28:24 2007 -0800
+>=20
+>    [PATCH] genirq: do not mask interrupts by default
+>=20
+>    Never mask interrupts immediately upon request.  Disabling interru=
+pts in
+>    high-performance codepaths is rare, and on the other hand this cha=
+nge=20
+>    could
+>    recover lost edges (or even other types of lost interrupts) by
+> conservatively
+>    only masking interrupts after they happen.  (NOTE: with this chang=
+e the
+>    highlevel irq-disable code still soft-disables this IRQ line - and
+> if such an
+>    interrupt happens then the IRQ flow handler keeps the IRQ masked.)
+>=20
+>    Mark i8529A controllers as 'never loses an edge'.
+>=20
+>    Signed-off-by: Ingo Molnar <mingo@elte.hu>
+>    Cc: Thomas Gleixner <tglx@linutronix.de>
+>    Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+>    Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
 
-> Folks -
-> 
-> People running netperf have reported that they have trouble with IPv6 under 
-> Linux.  Specifically, wereas the use of link-local IPv6 addresses "just works" 
-> in netperf under a number of "other OSes" they do not under Linux.  I'm 
-> ass-u-me-ing 2.6 here, but not sure exactly which ones - I've seen it on a 
-> 2.6.18-based RHEL5.
-> 
-> Some poking about and conversation has suggested that one has to set a 
-> sin6_scope_id in the sockaddr_in6.  This needs to be an index of one of the 
-> interfaces in the system, which I presume means walking some additional structures.
-> 
-> Is this a requirement which might be expected to remain in the future, or is it 
-> something which might just go away?  That will have an effect on netperf future 
-> development.
-> 
-> thanks,
-> 
-> rick jones
+So, it seems nobody (except the users) cares...
 
-Rick,
+BTW, maybe there should be created something like "Network Cards
+Producers Made Rich on Unnecessary Changed Cards Linux Foundation"?:
 
-I don't see any way around this.  For example, on one of my test
-systems, I have the following link local routes:
+On Fri, Jun 29, 2007 at 10:50:20AM +0200, Jean-Baptiste Vignaud wrote:
+=2E..
+> 2) changed the 3com cards
+> i replaced by two cards,
+> 01:06.0 Ethernet controller: VIA Technologies, Inc. VT6102 [Rhine-II]=
+ (rev 42)
+> 01:07.0 Ethernet controller: Realtek Semiconductor Co., Ltd. RTL-8029=
+(AS)
+>=20
+> reinstalled and stressed the network (small download from a laptop) a=
+nd :
+>=20
+> Jun 29 09:34:10 loki kernel: NETDEV WATCHDOG: eth0: transmit timed ou=
+t
+> Jun 29 09:34:51 loki last message repeated 14 times
+> Jun 29 09:35:18 loki last message repeated 8 times
 
-chance% netstat -A inet6 -rn | grep fe80::/64
-fe80::/64                                   ::                                      U     256    0        0 eth0
-fe80::/64                                   ::                                      U     256    0        0 eth2
-fe80::/64                                   ::                                      U     256    0        0 eth3
-fe80::/64                                   ::                                      U     256    0        0 eth4
-fe80::/64                                   ::                                      U     256    0        0 eth5
-fe80::/64                                   ::                                      U     256    0        0 eth6
+=2E..Of course, no response of any "serious" developer for this as well=
+=2E
 
-So if I want to run a link local test to fe80::202:b3ff:fed4:cd1,
-the system has no way to choose which is the correct interface to
-use for the test, and will give an error if the interface isn't
-specified.  Here's an example of this with nuttcp:
+BTW #2: I wonder how true is this (after above-mentioned patch):
 
-chance% nuttcp -P5100 fe80::202:b3ff:fed4:cd1
-nuttcp-t: Info: attempting to switch to deprecated "classic" mode
-nuttcp-t: Info: will use less reliable transmitter side statistics
-nuttcp-t: v5.5.5: Error: connect: Invalid argument
-errno=22
+=46rom include/linux/irq.h:
+> /**
+>  * struct irq_chip - hardware interrupt chip descriptor
+=2E..
+>  * @disable:		disable the interrupt (defaults to chip->mask if NULL)
 
-You must explicitly specify the desired interface.  For example,
-on my test system, the correct interface is eth6 which is interface 8
-(lo eth0 eth1 eth2 ... eth5 eth6).  Here is an example nuttcp test
-specifying interface 8:
-
-chance% nuttcp -P5100 fe80::202:b3ff:fed4:cd1%8
- 1178.5809 MB /  10.02 sec =  986.2728 Mbps 12 %TX 15 %RX
-
-nuttcp uses getaddrinfo() which parses the "%<ifindex>" field,
-and then copies the sin6_scope_id from the res structure to the
-server's sockaddr_in6 structure before initiating the connect().
-
-						-Bill
+Regards,
+Jarek P.
