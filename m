@@ -1,52 +1,75 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: 2.6.23-rc1: BUG_ON in kmap_atomic_prot()
-Date: Tue, 24 Jul 2007 11:28:43 -0700
-Message-ID: <20070724112843.0cc104c2.akpm@linux-foundation.org>
-References: <alpine.LFD.0.999.0707221351030.3607@woody.linux-foundation.org>
-	<20070723183839.GA5874@martell.zuzino.mipt.ru>
-	<20070723190152.GA5755@martell.zuzino.mipt.ru>
-	<20070723132431.42afbae8.akpm@linux-foundation.org>
-	<20070723204045.GD5755@martell.zuzino.mipt.ru>
-	<20070723210153.GA5753@martell.zuzino.mipt.ru>
-	<20070723141137.171e4ac1.akpm@linux-foundation.org>
-	<alpine.LFD.0.999.0707231415511.3607@woody.linux-foundation.org>
-	<20070724175951.GC6019@stusta.de>
-	<alpine.LFD.0.999.0707241113180.3607@woody.linux-foundation.org>
+From: Al Boldi <a1426z@gawab.com>
+Subject: Re: [PATCH] Netfilter Kconfig:  Expose IPv4/6 connection tracking options by selecting NF_CONNTRACK
+Date: Tue, 24 Jul 2007 22:05:07 +0300
+Message-ID: <200707242205.07545.a1426z@gawab.com>
+References: <200707240836.33494.a1426z@gawab.com> <200707242031.58910.a1426z@gawab.com> <46A6387D.1030601@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: Adrian Bunk <bunk@stusta.de>,
-	Alexey Dobriyan <adobriyan@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754483AbXGXS3u@vger.kernel.org>
-In-Reply-To: <alpine.LFD.0.999.0707241113180.3607@woody.linux-foundation.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Sam Ravnborg <sam@ravnborg.org>, netdev@vger.kernel.org,
+	linux-net@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [212.12.190.65] ([212.12.190.65]:33074 "EHLO raad.intranet"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1762153AbXGXTE5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Jul 2007 15:04:57 -0400
+In-Reply-To: <46A6387D.1030601@trash.net>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 24 Jul 2007 11:14:21 -0700 (PDT)
-Linus Torvalds <torvalds@linux-foundation.org> wrote:
+Patrick McHardy wrote:
+> Al Boldi wrote:
+> > Patrick McHardy wrote:
+> >>But I vaguely recall having tried this myself and it broke somewhere,
+> >>maybe it was because of the NF_CONNTRACK_ENABLED option, I can't
+> >>recall anymore. Al, if this also works without removal of
+> >>NF_CONNTRACK_ENABLED, please resend without that part.
+> >
+> > It doesn't.  But how about this, if you really can't live without
+> > NF_CONNTRACK_ENBLED:
+> >
+> > ==================
+> > --- Kconfig.old	2007-07-09 06:38:52.000000000 +0300
+> > +++ Kconfig	2007-07-24 20:24:27.000000000 +0300
+> > @@ -25,8 +25,7 @@ config NETFILTER_NETLINK_LOG
+> >  	  and is also scheduled to replace the old syslog-based ipt_LOG
+> >  	  and ip6t_LOG modules.
+> >
+> > -# Rename this to NF_CONNTRACK in a 2.6.25
+> > -config NF_CONNTRACK_ENABLED
+> > +config NF_CONNTRACK
+> >  	tristate "Netfilter connection tracking support"
+> >  	help
+> >  	  Connection tracking keeps a record of what packets have passed
+> > @@ -40,9 +39,9 @@ config NF_CONNTRACK_ENABLED
+> >
+> >  	  To compile it as a module, choose M here.  If unsure, say N.
+> >
+> > -config NF_CONNTRACK
+> > +config NF_CONNTRACK_ENABLED
+> >  	tristate
+> > -	default NF_CONNTRACK_ENABLED
+> > +	default NF_CONNTRACK
+> >
+> >  config NF_CT_ACCT
+> >  	bool "Connection tracking flow accounting"
+>
+> That defeats the only purpose why we kept it.
 
-> 
-> 
-> On Tue, 24 Jul 2007, Adrian Bunk wrote:
-> > 
-> > buffered_rmqueue() and prep_new_page() are static functions with only 
-> > one caller each, and for the normal non-debug case it's a really nice 
-> > optimization to have them inlined automatically.
-> 
-> I'm not at all sure I agree.
-> 
-> Inlining big functions doesn't actually tend to generally generate any 
-> better code, so if gcc's logic is "single callsite - always inline", then 
-> that logic is likely not right.
-> 
+I'm not sure how this would defeat the only purpose.  Isn't the purpose of 
+this to alias NF_CONNTRACK_ENABLED to NF_CONNTRACK?  And as such would yield 
+the same result.
 
-fwiw, -fno-inline-functions-called-once (who knew?) takes i386 allnoconfig
-vmlinux .text from 928360 up to 955362 bytes (27k larger).
+Also, we could leave this as is, and select NF_CONNTRACK_ENABLED instead of 
+NF_CONNTRACK.
 
-A surprisingly large increase - I wonder if it did something dumb.  It
-appears to still correctly inline those things which we've manually marked
-inline.  hm.
 
-It would be nice to defeat the autoinlining for debug purposes though.
+Thanks!
+
+--
+Al
+
