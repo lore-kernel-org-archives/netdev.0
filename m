@@ -1,64 +1,117 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH RFX]: napi_struct V3
-Date: Tue, 24 Jul 2007 14:47:19 +1000
-Message-ID: <1185252439.1803.174.camel@localhost.localdomain>
-References: <20070723.210748.63127793.davem@davemloft.net>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: Re: 2.6.23-rc1: BUG_ON in kmap_atomic_prot()
+Date: Tue, 24 Jul 2007 09:20:31 +0400
+Message-ID: <20070724052031.GA5811@martell.zuzino.mipt.ru>
+References: <alpine.LFD.0.999.0707221351030.3607@woody.linux-foundation.org> <20070723183839.GA5874@martell.zuzino.mipt.ru> <20070723190152.GA5755@martell.zuzino.mipt.ru> <20070723132431.42afbae8.akpm@linux-foundation.org> <20070723204045.GD5755@martell.zuzino.mipt.ru> <20070723210153.GA5753@martell.zuzino.mipt.ru> <20070723141137.171e4ac1.akpm@linux-foundation.org> <20070723220446.GA5822@martell.zuzino.mipt.ru> <20070723152712.02ded067.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@linux-foundation.org,
-	jgarzik@pobox.com, jamal <hadi@cyberus.ca>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:34141 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751361AbXGXErm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Jul 2007 00:47:42 -0400
-In-Reply-To: <20070723.210748.63127793.davem@davemloft.net>
+Received: from ug-out-1314.google.com ([66.249.92.173]:11618 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759373AbXGXFUg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jul 2007 01:20:36 -0400
+Received: by ug-out-1314.google.com with SMTP id j3so94148ugf
+        for <netdev@vger.kernel.org>; Mon, 23 Jul 2007 22:20:34 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20070723152712.02ded067.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2007-07-23 at 21:07 -0700, David Miller wrote:
-> Another area of consternation are drivers that were using
-> netif_rx_reschedule(), as that interface was removed because it
-> doesn't fit well with the caller managing the dev->quota et al.  I
-> left race conditions in the drivers that were using that interface,
-> but they should still basically work nonetheless.
+On Mon, Jul 23, 2007 at 03:27:12PM -0700, Andrew Morton wrote:
+> On Tue, 24 Jul 2007 02:04:46 +0400
+> Alexey Dobriyan <adobriyan@gmail.com> wrote:
+> 
+> > On Mon, Jul 23, 2007 at 02:11:37PM -0700, Andrew Morton wrote:
+> > > On Tue, 24 Jul 2007 01:01:53 +0400
+> > > Alexey Dobriyan <adobriyan@gmail.com> wrote:
+> > > 
+> > > > On Tue, Jul 24, 2007 at 12:40:45AM +0400, Alexey Dobriyan wrote:
+> > > > > > I had more complete info: http://article.gmane.org/gmane.linux.network/66966
+> > > > > > 
+> > > > > > You're using DEBUG_PAGEALLOC, but I was not, so I think we can rule that out.
+> > > > > > 
+> > > > > > I haven't worked out where that kmap_atomic() call is coming from yet. 
+> > > > > > Both traces point up into the page allocator, but I _think_ that's stack
+> > > > > > gunk.
+> > > > > 
+> > > > > Ahh, you suspect networking.
+> > > > > 
+> > > > > Here, setup is 2 cheap-ass 100Mb realtek 8139 NICs, one to campus network
+> > > > > receiving ~20 junk packets per second, one gathering netconsole output
+> > > > > and ssh to it, no conntracks and fancy stuff.
+> > > > > 
+> > > > > [reboots with cables physically unplugged]
+> > > > 
+> > > > OK, I run gdb recompile, cat(1) every file in /usr/portage (shitload of
+> > > > small files) with both cables unplugged. It all went fine for ~5 minutes
+> > > > after that it crashed exactly same way after 10 secs after plugging one
+> > > > of them.
+> > > 
+> > > It'd be nice to get a clean trace.  Are you able to obtain the full
+> > > trace with CONFIG_FRAME_POINTER=y?
+> > 
+> > Sorry, no camera shot, finding camera requires wakening up M. :)
+> > 
+> > It took longer that usual, but here it is
+> > 
+> > 	kmap_atomic
+> > 	get_page_from_freelist
+> > 	__alloc_pages
+> > 	cache_alloc_refill
+> > 	__alloc_pages
+> > 	cache_alloc_refill
+> > 	kmem_cache_alloc
+> > 	dst_alloc
+> > 	ip_route_input
+> > 	ip_rcv
+> > 	netif_receive_skb
+> > 	rtl8139_poll
+> > 	net_rx_action
+> > 	__do_softirq
+> > 	do_softirq
+> > 	irq_exit
+> > 	do_IRQ
+> > 	common_interrupt
+> > 	handle_mm_fault
+> > 	do_page_fault
+> > 	error_core
+> > 
+> > much more loaded x86_64 box near also running 2.6.23-rc1 with debugging
+> > turned on, using atl1 driver doesn't experience any crashes.
+> > 
+> > And I found 2.6.22-b91cba52e9b7b3f1c0037908a192d93a869ca9e5-x entry on
+> > top of grub config which means b91cba52e9b7b3f1c0037908a192d93a869ca9e5
+> > _without_ any debugging was OK.
+> 
+> I worked out that the crash I saw was in
+> 
+>         BUG_ON(!pte_none(*(kmap_pte-idx)));
+> 
+> in the read of kmap_pte[idx].  Which would be weird as the caller is using 
+> a literal KM_USER0.
+> 
+> So maybe I goofed, and that BUG_ON is triggering (it scrolled off, and I am
+> unable to reproduce it now).
+> 
+> If that BUG_ON _is_ triggering then it might indicate that someone is doing
+> a __GFP_HIGHMEM|__GFP_ZERO allocation while holding KM_USER0.
+> 
+> If they're holding an atomic kmap then they'll be running in_atomic so it
+> is unlikely that they accidentally added __GFP_WAIT because lots of people
+> would be getting lots of might_sleep() warnings.
+> 
+> Hence that first VM_BUG_ON in prep_zero_page() _should_ be triggering.
+> 
+> Do you have CONFIG_DEBUG_VM enabled?
 
-Hmm, virtio does this, if the implementation returns false from
-->restart.  But it's basically a bandaid for things like lguest which
-don't check irq status on irq enable, hence is subject to the race.
+Yes.
 
-But AFAICT netif_rx_reschedule() is implementable in a driver anyway.
-What am I missing?
+> Also, it might be useful to apply -mm's kmap_atomic-debugging.patch.  it
+> will detect lots of abuse.
 
-static void resched_me(struct work_struct *work)
-{
-	struct foo *foo = container_of(work, struct foo, work);
-
-	irq_disable();
-	netif_rx_schedule(foo->dev);
-	irq_enable();
-}
-
-struct foo {
-	...;
-	struct napi_struct napi;
-	struct work_struct rescheduler;
-};
-
-int foo_poll(struct napi_struct *napi, int budget)
-{
-...
-	enable_rx_interrupts();
-	netif_rx_complete(napi);
-
-	/* Broken interrupts, so we have race after enabling. */
-	if (unlikely(ring_has_new_packet(dev)))
-		schedule_work(&foo->rescheduler);
-	return used;
-}
-
-Cheers,
-Rusty.
+I hit it only once with this patch applied, but there were no additional
+warnings.
 
