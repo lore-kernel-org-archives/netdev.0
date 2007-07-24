@@ -1,73 +1,55 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: Re: 2.6.23-rc1: BUG_ON in kmap_atomic_prot()
-Date: Tue, 24 Jul 2007 19:59:51 +0200
-Message-ID: <20070724175951.GC6019@stusta.de>
-References: <alpine.LFD.0.999.0707221351030.3607@woody.linux-foundation.org> <20070723183839.GA5874@martell.zuzino.mipt.ru> <20070723190152.GA5755@martell.zuzino.mipt.ru> <20070723132431.42afbae8.akpm@linux-foundation.org> <20070723204045.GD5755@martell.zuzino.mipt.ru> <20070723210153.GA5753@martell.zuzino.mipt.ru> <20070723141137.171e4ac1.akpm@linux-foundation.org> <alpine.LFD.0.999.0707231415511.3607@woody.linux-foundation.org>
+From: "Nelson, Shannon" <shannon.nelson@intel.com>
+Subject: RE: NET_DMA: where do we ever call dma_skb_copy_datagram_iovec() with NULL pinned_list?
+Date: Tue, 24 Jul 2007 11:14:46 -0700
+Message-ID: <BAE9DCEF64577A439B3A37F36F9B691C02BBE409@orsmsx418.amr.corp.intel.com>
+References: <20070721034829.GL21668@ftp.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Alexey Dobriyan <adobriyan@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Linus Torvalds <torvalds@linux-foundation.org>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Leech, Christopher" <christopher.leech@intel.com>,
+	"Andrew Grover" <andy.grover@gmail.com>
+To: "Al Viro" <viro@ftp.linux.org.uk>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout.stusta.mhn.de ([141.84.69.5]:43251 "EHLO
-	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755310AbXGXSA1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jul 2007 14:00:27 -0400
-Content-Disposition: inline
-In-Reply-To: <alpine.LFD.0.999.0707231415511.3607@woody.linux-foundation.org>
+Received: from mga03.intel.com ([143.182.124.21]:51673 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1764324AbXGXSOt convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jul 2007 14:14:49 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <20070721034829.GL21668@ftp.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 23, 2007 at 02:28:11PM -0700, Linus Torvalds wrote:
-> 
-> 
-> On Mon, 23 Jul 2007, Andrew Morton wrote:
-> > 
-> > It'd be nice to get a clean trace.  Are you able to obtain the full
-> > trace with CONFIG_FRAME_POINTER=y?
-> 
-> If you are talking about
-> 
-> 	http://userweb.kernel.org/~akpm/dsc03659.jpg
-> 
-> then I think that _is_ a full trace. It's certainly not very messy, and it 
-> seems accurate. It's just that inlining makes it much harder to see the 
-> call-graphs, but that's what inlining does..
-> 
-> For example, missing from the call graph is
-> 
-> 	get_page_from_freelist ->
-> 	  buffered_rmqueue ->		[ missing - inlined ]
-> 	    prep_new_page ->		[ missing - inlined ]
-> 	      prep_zero_page ->		[ missing - inlined ]
-> 		clear_highpage ->	[ missing - inlined ]
-> 		  kmap_atomic ->	[ missing - tailcall ]
-> 		    kmap_atomic_prot
-> 
-> but I'm pretty sure the call trace is good (and I'm also pretty sure gcc 
-> is overly aggressive at inlining, and that it causes us pain for 
-> debugging, but whatever)
->...
+Al Viro:
+>
+>	AFAICS, all callers of dma_skb_copy_datagram_iovec()
+>are either
+>	* recursive for fragments, pass pinned_list unchanged or
+>	* called from tcp, with pinned_list coming from
+>tp->ucopy.pinned_list and only when tp->ucopy.dma_chan is non-NULL.
+>
+>Now, all non-NULL assignments to ->dma_chan have the same form:
+>	if (!tp->ucopy.dma_chan && tp->ucopy.pinned_list)
+>		tp->ucopy.dma_chan = get_softnet_dma();
+>IOW, if ->ucopy.pinned_list stays NULL, ->ucopy.dma_chan will 
+>do the same.
+>
+>Moreover, any place that resets ->ucopy.pinned_list will also reset
+>->ucopy.dma_chan.
+>
+>IOW, we can't ever get non-NULL tp->ucopy.dma_chan while 
+>tp->ucopy.pinned_list
+>is NULL.  So how can we ever get to the dma_memcpy_to_kernel_iovec()?
 
-For prep_zero_page() and clear_highpage() we can't blame gcc since we 
-force gcc to always inline them.
+It looks like this is "extra" code.  The history seems to be that it was
+thought to be useful for internal copying, perhaps for smbfs or iSCSI,
+as the comment suggests.  However, since no one is using it, it can
+probably come out.  If there is no argument, I'll post a patch to remove
+it.
 
-buffered_rmqueue() and prep_new_page() are static functions with only 
-one caller each, and for the normal non-debug case it's a really nice 
-optimization to have them inlined automatically. But it might make sense 
-to add -fno-inline-functions-called-once to the CFLAGS depending on some 
-debug option?
-
-> 			Linus
-
-cu
-Adrian
-
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
-
+sln
+--
+======================================================================
+Mr. Shannon Nelson                 LAN Access Division, Intel Corp.
+Shannon.Nelson@intel.com                I don't speak for Intel
+(503) 712-7659                    Parents can't afford to be squeamish.
