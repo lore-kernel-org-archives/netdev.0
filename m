@@ -1,46 +1,51 @@
-From: "Jesper Juhl" <jesper.juhl@gmail.com>
-Subject: Re: [PATCH][30/37] Clean up duplicate includes in net/netfilter/
-Date: Tue, 24 Jul 2007 18:59:02 +0200
-Message-ID: <9a8748490707240959n69154cccna58e8ae0f1788ea@mail.gmail.com>
-References: <200707211703.47827.jesper.juhl@gmail.com>
-	 <46A61B32.90302@trash.net>
+From: Steve Grubb <sgrubb@redhat.com>
+Subject: Re: [PATCH]: revised make xfrm_audit_log more generic patch
+Date: Tue, 24 Jul 2007 13:10:59 -0400
+Message-ID: <200707241310.59640.sgrubb@redhat.com>
+References: <200707232146.l6NLk50u001083@faith.austin.ibm.com>
+	<200707241104.56310.sgrubb@redhat.com>
+	<1185294806.15699.367.camel@faith.austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: "Linux Kernel Mailing List" <linux-kernel@vger.kernel.org>,
-	"Andrew Morton" <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, "David S Miller" <davem@davemloft.net>,
-	"Harald Welte" <laforge@netfilter.org>,
-	netfilter-devel@lists.netfilter.org,
-	"Rusty Russell" <rusty@rustcorp.com.au>,
-	"James Morris" <jmorris@redhat.com>,
-	"Netfilter Core Team" <coreteam@netfilter.org>,
-	"Bart De Schuymer" <bdschuym@pandora.be>
-To: "Patrick McHardy" <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.183]:62796 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755936AbXGXQ7D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jul 2007 12:59:03 -0400
-Received: by wa-out-1112.google.com with SMTP id v27so2450923wah
-        for <netdev@vger.kernel.org>; Tue, 24 Jul 2007 09:59:02 -0700 (PDT)
-In-Reply-To: <46A61B32.90302@trash.net>
+Cc: netdev@vger.kernel.org, linux-audit@redhat.com,
+	davem@davemloft.net
+To: Joy Latten <latten@austin.ibm.com>
+Return-path: <linux-audit-bounces@redhat.com>
+In-Reply-To: <1185294806.15699.367.camel@faith.austin.ibm.com>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+List-Unsubscribe: <https://www.redhat.com/mailman/listinfo/linux-audit>,
+	<mailto:linux-audit-request@redhat.com?subject=unsubscribe>
+List-Archive: <https://www.redhat.com/archives/linux-audit>
+List-Post: <mailto:linux-audit@redhat.com>
+List-Help: <mailto:linux-audit-request@redhat.com?subject=help>
+List-Subscribe: <https://www.redhat.com/mailman/listinfo/linux-audit>,
+	<mailto:linux-audit-request@redhat.com?subject=subscribe>
+Sender: linux-audit-bounces@redhat.com
+Errors-To: linux-audit-bounces@redhat.com
 List-Id: netdev.vger.kernel.org
 
-On 24/07/07, Patrick McHardy <kaber@trash.net> wrote:
-> Jesper Juhl wrote:
-> > This patch cleans up duplicate includes in
-> >       net/netfilter/
+On Tuesday 24 July 2007 12:33:26 pm Joy Latten wrote:
+> > It also wouldn't hurt to change the text being sent to this function to
+> > have a hyphen instead of a space, so "SPD delete" becomes "SPD-delete".
+> > This keeps the parser happy.
 >
->
-> I've queued this one and the bridge-netfilter patch (27/37), thanks
-> Jesper.
->
-Thanks for the feedback Patrick.
+> Steve, more for my education, should all entries have this sort of
+> syntax, that is, a hyphen in it?
 
--- 
-Jesper Juhl <jesper.juhl@gmail.com>
-Don't top-post  http://www.catb.org/~esr/jargon/html/T/top-post.html
-Plain text mails only, please      http://www.expita.com/nomime.html
+Only if its something that is important to have associated in reports. More 
+that 1 or 2 hyphens is probably not good.
+
+> I imagine some entries might be a bit more wordy and so I was wondering
+> ahead of time how to do it.
+
+The audit logs should be short as possible but contain everything necessary. 
+You can have language in the record that makes it more understandable for 
+people reading the raw record, but it won't necessarily be picked up by 
+report parsers for searching or presentation.
+
+If you want me to help review the choices, let me know offline and we can work 
+through it.
+
+-Steve
