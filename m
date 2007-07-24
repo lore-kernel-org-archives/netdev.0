@@ -1,42 +1,46 @@
-From: Joy Latten <latten@austin.ibm.com>
-Subject: Re: [PATCH]: revised make xfrm_audit_log more generic patch
-Date: Tue, 24 Jul 2007 11:33:26 -0500
-Message-ID: <1185294806.15699.367.camel@faith.austin.ibm.com>
-References: <200707232146.l6NLk50u001083@faith.austin.ibm.com>
-	 <200707241104.56310.sgrubb@redhat.com>
+From: "Dhananjay Phadke" <dhananjay.phadke@gmail.com>
+Subject: Re: [PATCH 0/2] netxen: bug fixes for multiport adapters
+Date: Tue, 24 Jul 2007 22:27:24 +0530
+Message-ID: <ab901500707240957n24d00cc0s8865956d88ff0166@mail.gmail.com>
+References: <20070720190749.535704712@netxen.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, linux-audit@redhat.com
-To: Steve Grubb <sgrubb@redhat.com>
+Cc: netdev@vger.kernel.org
+To: "Jeff Garzik" <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e6.ny.us.ibm.com ([32.97.182.146]:34576 "EHLO e6.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751393AbXGXQfg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Jul 2007 12:35:36 -0400
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e6.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l6OGandY007783
-	for <netdev@vger.kernel.org>; Tue, 24 Jul 2007 12:36:49 -0400
-Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.4) with ESMTP id l6OGZVoe209960
-	for <netdev@vger.kernel.org>; Tue, 24 Jul 2007 12:35:33 -0400
-Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
-	by d01av01.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l6OGZVs6031822
-	for <netdev@vger.kernel.org>; Tue, 24 Jul 2007 12:35:31 -0400
-In-Reply-To: <200707241104.56310.sgrubb@redhat.com>
+Received: from an-out-0708.google.com ([209.85.132.240]:10616 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761614AbXGXQ5Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jul 2007 12:57:25 -0400
+Received: by an-out-0708.google.com with SMTP id d31so389558and
+        for <netdev@vger.kernel.org>; Tue, 24 Jul 2007 09:57:24 -0700 (PDT)
+In-Reply-To: <20070720190749.535704712@netxen.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2007-07-24 at 11:04 -0400, Steve Grubb wrote:
+Jeff,
 
-> It also wouldn't hurt to change the text being sent to this function to have a 
-> hyphen instead of a space, so "SPD delete" becomes "SPD-delete". This keeps 
-> the parser happy.
-> 
-Steve, more for my education, should all entries have this sort of
-syntax, that is, a hyphen in it? I imagine some entries might be a 
-bit more wordy and so I was wondering ahead of time how to do it.
+Any chance of these patches getting committed soon?
 
-Thanks!!
+Thanks,
+-Dhananjay Phadke
 
-Joy
+On 7/21/07, dhananjay@netxen.com <dhananjay@netxen.com> wrote:
+> These patches include fix for problem with 2nd port of multiport adapters
+> on IBM blades. Also improves interrupt handling for multiport adapters
+> avoiding interrupt flood after interrupt is down.
+>
+> Generated against upstream-fixes.
+>
+>  drivers/net/netxen/netxen_nic.h          |    3 +-
+>  drivers/net/netxen/netxen_nic_main.c     |   85 +++++++++++++++---------------
+>  2 files changed, 43 insertions(+), 45 deletions(-)
+>
+> --
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
