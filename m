@@ -1,60 +1,37 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: [PATCH] e1000: repost work around 82571 completion timout on pseries HW
-Date: Tue, 24 Jul 2007 11:19:13 -0400
-Message-ID: <20070724151912.GA2293@gospo.rdu.redhat.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH][30/37] Clean up duplicate includes in net/netfilter/
+Date: Tue, 24 Jul 2007 17:30:58 +0200
+Message-ID: <46A61B32.90302@trash.net>
+References: <200707211703.47827.jesper.juhl@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org, Auke Kok <auke-jan.h.kok@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:34101 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753444AbXGXPTP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Jul 2007 11:19:15 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: James Morris <jmorris@redhat.com>, Rusty Russell <rusty@rustcorp.com.au>,
+	Bart De Schuymer <bdschuym@pandora.be>,
+	Harald Welte <laforge@netfilter.org>, netdev@vger.kernel.org,
+	netfilter-devel@lists.netfilter.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Netfilter Core Team <coreteam@netfilter.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	David S Miller <davem@davemloft.net>
+To: Jesper Juhl <jesper.juhl@gmail.com>
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+In-Reply-To: <200707211703.47827.jesper.juhl@gmail.com>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
+Jesper Juhl wrote:
+> This patch cleans up duplicate includes in
+> 	net/netfilter/
 
-There seems to have been some discussion about a patch like this in the
-past but I still haven't noticed any platforms fixes or noticed that
-this got included, so I'd like to propose this modified version.
 
-Thoughts?
-
-Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
----
-
- e1000_hw.c |    7 +++++++
- e1000_hw.h |    1 +
- 2 files changed, 8 insertions(+)
-
-diff --git a/drivers/net/e1000/e1000_hw.c b/drivers/net/e1000/e1000_hw.c
-index 9be4469..7c75b8b 100644
---- a/drivers/net/e1000/e1000_hw.c
-+++ b/drivers/net/e1000/e1000_hw.c
-@@ -1030,6 +1030,13 @@ e1000_init_hw(struct e1000_hw *hw)
-         break;
-     }
- 
-+#if defined(CONFIG_PPC_PSERIES)
-+    if (hw->mac_type == e1000_82571) {
-+        uint32_t gcr = E1000_READ_REG(hw, GCR);
-+        gcr |= E1000_GCR_DISABLE_TIMEOUT_MECHANISM;
-+        E1000_WRITE_REG(hw, GCR, gcr);
-+    }
-+#endif 
- 
-     if (hw->mac_type == e1000_82573) {
-         uint32_t gcr = E1000_READ_REG(hw, GCR);
-diff --git a/drivers/net/e1000/e1000_hw.h b/drivers/net/e1000/e1000_hw.h
-index bd000b8..71f4e2d 100644
---- a/drivers/net/e1000/e1000_hw.h
-+++ b/drivers/net/e1000/e1000_hw.h
-@@ -2211,6 +2211,7 @@ struct e1000_host_command_info {
- #define PCI_EX_82566_SNOOP_ALL PCI_EX_NO_SNOOP_ALL
- 
- #define E1000_GCR_L1_ACT_WITHOUT_L0S_RX 0x08000000
-+#define E1000_GCR_DISABLE_TIMEOUT_MECHANISM 0x80000000
- /* Function Active and Power State to MNG */
- #define E1000_FACTPS_FUNC0_POWER_STATE_MASK         0x00000003
- #define E1000_FACTPS_LAN0_VALID                     0x00000004
+I've queued this one and the bridge-netfilter patch (27/37), thanks
+Jesper.
