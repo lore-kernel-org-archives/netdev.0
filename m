@@ -1,44 +1,48 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: 2.6.23-rc1: BUG_ON in kmap_atomic_prot()
-Date: 24 Jul 2007 22:27:11 +0200
-Message-ID: <p73r6mxsg2o.fsf@bingen.suse.de>
-References: <alpine.LFD.0.999.0707221351030.3607@woody.linux-foundation.org>
-	<20070723183839.GA5874@martell.zuzino.mipt.ru>
-	<20070723190152.GA5755@martell.zuzino.mipt.ru>
-	<20070723132431.42afbae8.akpm@linux-foundation.org>
-	<20070723204045.GD5755@martell.zuzino.mipt.ru>
-	<20070723210153.GA5753@martell.zuzino.mipt.ru>
-	<20070723141137.171e4ac1.akpm@linux-foundation.org>
-	<alpine.LFD.0.999.0707231415511.3607@woody.linux-foundation.org>
-	<20070724175951.GC6019@stusta.de>
-	<alpine.LFD.0.999.0707241113180.3607@woody.linux-foundation.org>
-	<20070724112843.0cc104c2.akpm@linux-foundation.org>
-	<alpine.LFD.0.999.0707241207290.3607@woody.linux-foundation.org>
+From: Tom Tucker <tom@opengridcomputing.com>
+Subject: [ofa-general] [PATCH] amso1100: QP init bug in amso driver
+Date: Tue, 24 Jul 2007 14:31:52 -0500
+Message-ID: <1185305512.20489.6.camel@trinity.ogc.int>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Adrian Bunk <bunk@stusta.de>,
-	Alexey Dobriyan <adobriyan@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.suse.de ([195.135.220.2]:53443 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754507AbXGXTcW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Jul 2007 15:32:22 -0400
-In-Reply-To: <alpine.LFD.0.999.0707241207290.3607@woody.linux-foundation.org>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, OpenFabrics General <general@lists.openfabrics.org>
+To: Roland Dreier <rdreier@cisco.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-Linus Torvalds <torvalds@linux-foundation.org> writes:
-> 
-> So "called once" should probably make the inlining weight bigger (ie 
-> inline *larger* functions than you would otherwise), it just shouldn't 
-> make it "infinite". It's not worth it.
+Roland:
 
-There's probably a --param where it can be tweaked exactly. The
-problem is that --params tend to be very gcc version specific
-and might do something completely different on a newer or 
-older version. So it's better not to use them.
+The guys at UNH found this and fixed it. I'm surprised no
+one has hit this before. I guess it only breaks when the 
+refcount on the QP is non-zero.
 
--Andi
+Initialize the wait_queue_head_t in the c2_qp structure.
+
+Signed-off-by: Ethan Burns <eaburns@iol.unh.edu>
+Acked-by: Tom Tucker <tom@opengridcomputing.com>
+
+---
+ drivers/infiniband/hw/amso1100/c2_qp.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/infiniband/hw/amso1100/c2_qp.c b/drivers/infiniband/hw/amso1100/c2_qp.c
+index 420c138..01d0786 100644
+--- a/drivers/infiniband/hw/amso1100/c2_qp.c
++++ b/drivers/infiniband/hw/amso1100/c2_qp.c
+@@ -506,6 +506,7 @@ int c2_alloc_qp(struct c2_dev *c2dev,
+ 	qp->send_sgl_depth = qp_attrs->cap.max_send_sge;
+ 	qp->rdma_write_sgl_depth = qp_attrs->cap.max_send_sge;
+ 	qp->recv_sgl_depth = qp_attrs->cap.max_recv_sge;
++	init_waitqueue_head(&qp->wait);
+ 
+ 	/* Initialize the SQ MQ */
+ 	q_size = be32_to_cpu(reply->sq_depth);
