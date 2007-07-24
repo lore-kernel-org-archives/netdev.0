@@ -1,35 +1,31 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/1] netxen: Load firmware during probe, dma watchdog
- fix.
-Date: Tue, 24 Jul 2007 16:36:37 -0400
-Message-ID: <46A662D5.3020201@garzik.org>
-References: <20070719091108.839200259@netxen.com> <20070719091131.467737478@netxen.com>
+Subject: Re: [PATCH 1/10] ps3: fix wrong calculation of rx descriptor address
+Date: Tue, 24 Jul 2007 16:36:46 -0400
+Message-ID: <46A662DE.4020304@garzik.org>
+References: <20070720172015.6787.MOKUNO@sm.sony.co.jp>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rob@netxen.com,
-	Milan Bag <mbag@netxen.com>, Wen Xiong <wenxiong@us.ibm.com>
-To: dhananjay@netxen.com
+Cc: netdev@vger.kernel.org, cbe-oss-dev@ozlabs.org
+To: Masakazu Mokuno <mokuno@sm.sony.co.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:58969 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:58979 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757430AbXGXUgk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Jul 2007 16:36:40 -0400
-In-Reply-To: <20070719091131.467737478@netxen.com>
+	id S1757745AbXGXUgu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Jul 2007 16:36:50 -0400
+In-Reply-To: <20070720172015.6787.MOKUNO@sm.sony.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-dhananjay@netxen.com wrote:
-> The firmware should be loaded after resetting hardware during PCI probe,
-> besides module unload. This fixes issue with 2nd port of multiport adapter
-> on powerpc blades. This patch also fixes a bug that PCI resources are not
-> freed if dma watchdog shutdown failed. The dma watchdog poll messages
-> during module unload are also suppressed.
+Masakazu Mokuno wrote:
+> Fixed the bug that calculation of the address of rx descriptor was
+> wrong.
 > 
-> Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
-> Signed-off-by: Milan Bag <mbag@netxen.com>
-> Signed-off-by: Wen Xiong <wenxiong@us.ibm.com>
+> Signed-off-by: Masakazu Mokuno <mokuno@sm.sony.co.jp>
+> ---
+>  drivers/net/ps3_gelic_net.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 
-applied
+applied 1-10
 
 
