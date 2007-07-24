@@ -1,81 +1,86 @@
-From: Florian Lohoff <flo@rfc822.org>
-Subject: Re: 2.6.23-rc1 sky2 boot crash in sky2_mac_intr
-Date: Tue, 24 Jul 2007 11:40:42 +0200
-Message-ID: <20070724094042.GA6414@paradigm.rfc822.org>
-References: <20070724082205.GA19480@paradigm.rfc822.org> <20070724095008.0eb154fe@oldman.hamilton.local>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: 2.6.20->2.6.21 - networking dies after random time
+Date: Tue, 24 Jul 2007 11:42:02 +0200
+Message-ID: <20070724094202.GA11610@elte.hu>
+References: <JKE37W$0126317E099DF36884CC046B6F8A7AA9@xandmail.com> <20070629150759.GC2771@ff.dom.local> <4bacf17f0707222244p664e7a6ap850b3357a57d73c@mail.gmail.com> <20070724080534.GC18740@elte.hu>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="rwEMma7ioTxnRzrJ"
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S935254AbXGXJlS@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jarek Poplawski <jarkao2@o2.pl>,
+	Jean-Baptiste Vignaud <vignaud@xandmail.fr>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	shemminger <shemminger@linux-foundation.org>,
+	linux-net <linux-net@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>
+To: Marcin ??lusarz <marcin.slusarz@gmail.com>
+Return-path: <linux-net-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20070724095008.0eb154fe@oldman.hamilton.local>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20070724080534.GC18740@elte.hu>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---rwEMma7ioTxnRzrJ
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+* Ingo Molnar <mingo@elte.hu> wrote:
 
-On Tue, Jul 24, 2007 at 09:50:08AM +0100, Stephen Hemminger wrote:
-> The problem is related to power management. The PHY has a number of PCI c=
-onfiguration
-> registers for power control, and the function of these changes based on t=
-he version and
-> revision of the chip. The driver does work on older versions of the EC-U,=
- in
-> Fujitsu laptop's, it is just the new rev that is broken.
->=20
-> The driver should probably fail smarter (by not loading) if the PHY isn't=
- powered
-> up correctly, but that doesn't help your problem.
->=20
-> The vendor has provided me with documentation on many versions
-> of the chip, but I don't have doc's on the lastest revision differences o=
-f the EC Ultra,=20
-> so a proper solution is not easily available.  The best method for resolv=
-ing this would
-> be to first try the vendor driver version of sk98lin and see if that fixe=
-s it. If so,
-> then it is easy to change sky2, to match the phy setup in the vendor driv=
-er.
-> Another possibility is to look for places in sky2 driver where there are =
-places
-> that compare version/revision.
->=20
-> The most likely bits that need to change are in PCI registers: 0x80, 0x84=
- and 0x88
-> You could also load the windows driver and dump PCI config space (with ls=
-pci from
-> cygwin), and see what the settings are there.
->=20
-> I am away from my office for a month, and therefore away from any sky2
-> hardware for testing.=20
+> thanks for tracking it down! Could you try the patch below (ontop an 
+> otherwise unmodified kernel)? This tests the theory whether the 
+> problem is related to the disable_irq_nosync() call in the ne2k 
+> driver's xmit path. Does this solve the hangs too?
 
-I'll try the above and keep you posted. The crash itself seems to be a
-2.6.23-rc1 regression though. I never experienced this with 2.6.22-rc5
-which i was running before.
+please try the patch below instead.
 
-Flo
---=20
-Florian Lohoff                  flo@rfc822.org             +49-171-2280134
-	Those who would give up a little freedom to get a little=20
-          security shall soon have neither - Benjamin Franklin
+	Ingo
 
---rwEMma7ioTxnRzrJ
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.6 (GNU/Linux)
-
-iD8DBQFGpckaUaz2rXW+gJcRAoNYAKCt3aq5A3B1lqUbvoO57TRfnOQG1wCguTMG
-hCp1yaZ4hRGlLEem1zRgO4Q=
-=G1dI
------END PGP SIGNATURE-----
-
---rwEMma7ioTxnRzrJ--
+Index: linux/kernel/irq/chip.c
+===================================================================
+--- linux.orig/kernel/irq/chip.c
++++ linux/kernel/irq/chip.c
+@@ -231,7 +231,7 @@ static void default_enable(unsigned int 
+ /*
+  * default disable function
+  */
+-static void default_disable(unsigned int irq)
++void default_disable(unsigned int irq)
+ {
+ }
+ 
+Index: linux/kernel/irq/internals.h
+===================================================================
+--- linux.orig/kernel/irq/internals.h
++++ linux/kernel/irq/internals.h
+@@ -10,6 +10,8 @@ extern void irq_chip_set_defaults(struct
+ /* Set default handler: */
+ extern void compat_irq_chip_set_default_handler(struct irq_desc *desc);
+ 
++extern void default_disable(unsigned int irq);
++
+ #ifdef CONFIG_PROC_FS
+ extern void register_irq_proc(unsigned int irq);
+ extern void register_handler_proc(unsigned int irq, struct irqaction *action);
+Index: linux/kernel/irq/manage.c
+===================================================================
+--- linux.orig/kernel/irq/manage.c
++++ linux/kernel/irq/manage.c
+@@ -102,7 +102,19 @@ void disable_irq_nosync(unsigned int irq
+ 	spin_lock_irqsave(&desc->lock, flags);
+ 	if (!desc->depth++) {
+ 		desc->status |= IRQ_DISABLED;
+-		desc->chip->disable(irq);
++		/*
++		 * the _nosync variant of irq-disable suggests that the
++		 * caller is not worried about concurrency but about the
++		 * ordering of the irq flow itself. (such as hardware
++		 * getting confused about certain, normally valid irq
++		 * handling sequences.) So if the default disable handler
++		 * is in place then try the more conservative masking
++		 * instead:
++		 */
++		if (desc->chip->disable == default_disable && desc->chip->mask)
++			desc->chip->mask(irq);
++		else
++			desc->chip->disable(irq);
+ 	}
+ 	spin_unlock_irqrestore(&desc->lock, flags);
+ }
