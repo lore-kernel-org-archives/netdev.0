@@ -1,70 +1,47 @@
-From: Jens Axboe <jens.axboe@oracle.com>
-Subject: Re: 2.6.23-rc1: BUG_ON in kmap_atomic_prot()
-Date: Tue, 24 Jul 2007 10:17:50 +0200
-Message-ID: <20070724081750.GM3287@kernel.dk>
-References: <alpine.LFD.0.999.0707221351030.3607@woody.linux-foundation.org> <20070723183839.GA5874@martell.zuzino.mipt.ru> <20070723190152.GA5755@martell.zuzino.mipt.ru> <20070723132431.42afbae8.akpm@linux-foundation.org> <20070723204045.GD5755@martell.zuzino.mipt.ru> <20070723210153.GA5753@martell.zuzino.mipt.ru> <20070723141137.171e4ac1.akpm@linux-foundation.org> <20070723220446.GA5822@martell.zuzino.mipt.ru> <20070723152712.02ded067.akpm@linux-foundation.org>
+From: "Denis V. Lunev" <den@openvz.org>
+Subject: [PATCH] possible deadlock in tulip driver
+Date: Tue, 24 Jul 2007 11:49:08 +0400
+Message-ID: <20070724074908.GA15258@iris.sw.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Alexey Dobriyan <adobriyan@gmail.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	mark.fasheh@oracle.com
-To: Andrew Morton <akpm@linux-foundation.org>
+Cc: tulip-users@lists.sourceforge.net, devel@openvz.org
+To: netdev@vger.kernel.org, davem@davemloft.net, val@nmt.edu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from brick.kernel.dk ([80.160.20.94]:10072 "EHLO kernel.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752163AbXGXIRa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Jul 2007 04:17:30 -0400
+Received: from swsoft-mipt-nat.sw.ru ([195.214.233.10]:56628 "EHLO iris"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S932217AbXGXIVL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Jul 2007 04:21:11 -0400
 Content-Disposition: inline
-In-Reply-To: <20070723152712.02ded067.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 23 2007, Andrew Morton wrote:
-> I worked out that the crash I saw was in
-> 
->         BUG_ON(!pte_none(*(kmap_pte-idx)));
-> 
-> in the read of kmap_pte[idx].  Which would be weird as the caller is using 
-> a literal KM_USER0.
-> 
-> So maybe I goofed, and that BUG_ON is triggering (it scrolled off, and I am
-> unable to reproduce it now).
-> 
-> If that BUG_ON _is_ triggering then it might indicate that someone is doing
-> a __GFP_HIGHMEM|__GFP_ZERO allocation while holding KM_USER0.
+Calling flush_scheduled_work() may deadlock if called under rtnl_lock
+(from dev->stop) as linkwatch_event() may be on the workqueue and it will try
+to get the rtnl_lock
 
-Or doing double kunmaps, or doing a kunmap_atomic() on the page, not the
-address. I've seen both of those end up triggering that BUG_ON() in a
-later kmap.
-
-Looking over the 2.6.22..2.6.23-rc1 diff, I found one such error in
-ocfs2 at least. But you are probably not using that, so I'll keep
-looking...
-
+Signed-off-by: Denis V. Lunev <den@openvz.org>
 ---
 
-[PATCH] ocfs2: bad kunmap_atomic()
+ tulip_core.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-kunmap_atomic() takes the virtual address, not the mapped page as
-argument.
-
-Signed-off-by: Jens Axboe <jens.axboe@oracle.com>
-
-diff --git a/fs/ocfs2/file.c b/fs/ocfs2/file.c
-index 5727cd1..c4034f6 100644
---- a/fs/ocfs2/file.c
-+++ b/fs/ocfs2/file.c
-@@ -2153,7 +2153,7 @@ static int ocfs2_splice_write_actor(struct pipe_inode_info *pipe,
- 	src = buf->ops->map(pipe, buf, 1);
- 	dst = kmap_atomic(page, KM_USER1);
- 	memcpy(dst + offset, src + buf->offset, count);
--	kunmap_atomic(page, KM_USER1);
-+	kunmap_atomic(dst, KM_USER1);
- 	buf->ops->unmap(pipe, buf, src);
+--- ./drivers/net/tulip/tulip_core.c.tulip	2007-07-16 12:54:29.000000000 +0400
++++ ./drivers/net/tulip/tulip_core.c	2007-07-23 19:06:24.000000000 +0400
+@@ -726,8 +726,6 @@ static void tulip_down (struct net_devic
+ 	void __iomem *ioaddr = tp->base_addr;
+ 	unsigned long flags;
  
- 	copied = ocfs2_write_end(file, file->f_mapping, sd->pos, count, count,
-
--- 
-Jens Axboe
-
+-	flush_scheduled_work();
+-
+ 	del_timer_sync (&tp->timer);
+ #ifdef CONFIG_TULIP_NAPI
+ 	del_timer_sync (&tp->oom_timer);
+@@ -1788,6 +1786,8 @@ static void __devexit tulip_remove_one (
+ 	if (!dev)
+ 		return;
+ 
++	flush_scheduled_work();
++
+ 	tp = netdev_priv(dev);
+ 	unregister_netdev(dev);
+ 	pci_free_consistent (pdev,
