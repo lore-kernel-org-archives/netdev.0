@@ -1,68 +1,63 @@
-From: Varun Chandramohan <varunc@linux.vnet.ibm.com>
-Subject: Re: [PATCH 2/4] Add new timeval_to_sec function
-Date: Tue, 24 Jul 2007 19:20:48 +0530
-Message-ID: <46A603B8.6080308@linux.vnet.ibm.com>
-References: <20070723101159.32ef3bdd.varunc@linux.vnet.ibm.com> <46A48FFD.4070902@trash.net> <46A57CF3.6040505@linux.vnet.ibm.com> <46A59AAF.6090605@hartkopp.net> <46A59EDC.4060906@linux.vnet.ibm.com> <46A6021B.4070606@trash.net>
+From: "Dan Williams" <dan.j.williams@intel.com>
+Subject: Re: 2.6.23-rc1: BUG_ON in kmap_atomic_prot()
+Date: Tue, 24 Jul 2007 06:55:36 -0700
+Message-ID: <e9c3a7c20707240655j533f0882xe067903e5f0ac9b7@mail.gmail.com>
+References: <alpine.LFD.0.999.0707221351030.3607@woody.linux-foundation.org>
+	 <20070723190152.GA5755@martell.zuzino.mipt.ru>
+	 <20070723132431.42afbae8.akpm@linux-foundation.org>
+	 <20070723204045.GD5755@martell.zuzino.mipt.ru>
+	 <20070723210153.GA5753@martell.zuzino.mipt.ru>
+	 <20070723141137.171e4ac1.akpm@linux-foundation.org>
+	 <20070723220446.GA5822@martell.zuzino.mipt.ru>
+	 <20070723152712.02ded067.akpm@linux-foundation.org>
+	 <20070724081750.GM3287@kernel.dk> <20070724082207.GN3287@kernel.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Oliver Hartkopp <socketcan@hartkopp.net>, netdev@vger.kernel.org,
-	sri@us.ibm.com, dlstevens@us.ibm.com, varuncha@in.ibm.com,
-	Thomas Gleixner <tglx@linutronix.de>
-To: Patrick McHardy <kaber@trash.net>
+Cc: "Andrew Morton" <akpm@linux-foundation.org>,
+	"Alexey Dobriyan" <adobriyan@gmail.com>,
+	"Linus Torvalds" <torvalds@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	mark.fasheh@oracle.com
+To: "Jens Axboe" <jens.axboe@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e5.ny.us.ibm.com ([32.97.182.145]:53024 "EHLO e5.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752480AbXGXNup (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Jul 2007 09:50:45 -0400
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e5.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l6ODoi7a028532
-	for <netdev@vger.kernel.org>; Tue, 24 Jul 2007 09:50:45 -0400
-Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.4) with ESMTP id l6ODoijD404548
-	for <netdev@vger.kernel.org>; Tue, 24 Jul 2007 09:50:44 -0400
-Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
-	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l6ODohGi012578
-	for <netdev@vger.kernel.org>; Tue, 24 Jul 2007 09:50:44 -0400
-In-Reply-To: <46A6021B.4070606@trash.net>
+Received: from an-out-0708.google.com ([209.85.132.248]:26861 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754407AbXGXNzh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jul 2007 09:55:37 -0400
+Received: by an-out-0708.google.com with SMTP id d31so377673and
+        for <netdev@vger.kernel.org>; Tue, 24 Jul 2007 06:55:36 -0700 (PDT)
+In-Reply-To: <20070724082207.GN3287@kernel.dk>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy wrote:
-> Varun Chandramohan wrote:
->   
->> Oliver Hartkopp wrote:
->>
->>     
->>>>> I don't think you should round down timeout values.
->>>>>  
->>>>>    
->>>>>      
->>>>>           
->>>> Can you elaborate on that? As per the RFC of MIB ,we need only seconds
->>>> granularity. Taking that as the case i dont understand why round down
->>>> should not be done?
->>>>  
->>>>    
->>>>         
->>> When you like to create any timeout based on your calculated value, you
->>> might run into the problem that your calculated value is set to _zero_
->>> even if there was "some time" before the conversion. This might probably
->>> not what you indented to get.
->>>
->>> So what about rounding up with
->>>
->>> return (tv->tv_sec + (tv->tv_usec + 999999)/1000000);
->>>
->>> ???
->>>
->>>  
->>>       
->> This can done.  Is this what you were ref to me, Patrick?
->>     
+On 7/24/07, Jens Axboe <jens.axboe@oracle.com> wrote:
+> What about the new async crypto stuff? I've been looking, but is it
+> guarenteed that async_memcpy() runs in process context with interrupts
+> enabled always? If not, there's a km type bug there.
 >
->
-> Yes, timeouts should usually be at least as long as specified.
->   
-Thanks Patrick and Oliver, ill round it up. :-)
 
+Currently the only user is the MD raid456 driver, and yes, it only
+performs copies from the handle_stripe routine which is always run in
+process context with interrupts enabled.  However this is not
+documented.  Would it be advisable to add a WARN_ON for this
+condition?
+
+> In general, I think the highmem stuff could do with more safety checks:
+>
+> - People ALWAYS get the atomic unmaps wrong, passing in the page instead
+>   of the address. I've seen tons of these. And since kunmap_atomic()
+>   takes a void pointer, nobody notices until it goes boom.
+> - People easily get the km type wrong - they use KM_USERx in interrupt
+>   context, or one of the irq variants without disabling interrupts.
+>
+> If we could just catch these two types of bugs, we've got a lot of these
+> problems covered.
+>
+>
+> --
+> Jens Axboe
+>
+--
+Dan
