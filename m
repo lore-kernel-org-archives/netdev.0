@@ -1,48 +1,66 @@
-From: Tom Tucker <tom@opengridcomputing.com>
-Subject: [ofa-general] [PATCH] amso1100: QP init bug in amso driver
-Date: Tue, 24 Jul 2007 14:31:52 -0500
-Message-ID: <1185305512.20489.6.camel@trinity.ogc.int>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: Re: 2.6.23-rc1: BUG_ON in kmap_atomic_prot()
+Date: Tue, 24 Jul 2007 21:40:46 +0200
+Message-ID: <20070724194046.GD6019@stusta.de>
+References: <20070723190152.GA5755@martell.zuzino.mipt.ru> <20070723132431.42afbae8.akpm@linux-foundation.org> <20070723204045.GD5755@martell.zuzino.mipt.ru> <20070723210153.GA5753@martell.zuzino.mipt.ru> <20070723141137.171e4ac1.akpm@linux-foundation.org> <alpine.LFD.0.999.0707231415511.3607@woody.linux-foundation.org> <20070724175951.GC6019@stusta.de> <alpine.LFD.0.999.0707241113180.3607@woody.linux-foundation.org> <20070724112843.0cc104c2.akpm@linux-foundation.org> <alpine.LFD.0.999.0707241207290.3607@woody.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, OpenFabrics General <general@lists.openfabrics.org>
-To: Roland Dreier <rdreier@cisco.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: text/plain; charset=utf-8
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Alexey Dobriyan <adobriyan@gmail.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailout.stusta.mhn.de ([141.84.69.5]:43334 "EHLO
+	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752204AbXGXTlZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jul 2007 15:41:25 -0400
+Content-Disposition: inline
+In-Reply-To: <alpine.LFD.0.999.0707241207290.3607@woody.linux-foundation.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Roland:
+On Tue, Jul 24, 2007 at 12:15:48PM -0700, Linus Torvalds wrote:
+> 
+> 
+> On Tue, 24 Jul 2007, Andrew Morton wrote:
+> > 
+> > fwiw, -fno-inline-functions-called-once (who knew?) takes i386 allnoconfig
+> > vmlinux .text from 928360 up to 955362 bytes (27k larger).
+> > 
+> > A surprisingly large increase - I wonder if it did something dumb.  It
+> > appears to still correctly inline those things which we've manually marked
+> > inline.  hm.
+> 
+> I think inlining small enough functions is worth it, and the thing is, the 
+> kernel is actually pretty damn good at having lots of small functions. 
+> It's one of the few things I really care about from a coding style 
+> standpoint.
+> 
+> So I'm not surprised that "-fno-inline-functions-called-once" makes things 
+> larger, because I think it's generally a good idea to inline things that 
+> are just called once. But it does make things harder to debug, and the 
+> performance advantages become increasingly small for bigger functions.
+> 
+> And that's a balancing act. Do we care about performance? Yes.
 
-The guys at UNH found this and fixed it. I'm surprised no
-one has hit this before. I guess it only breaks when the 
-refcount on the QP is non-zero.
+When using CONFIG_CC_OPTIMIZE_FOR_SIZE=y we even actively tell gcc that 
+we only care about size and do not care about performance...
 
-Initialize the wait_queue_head_t in the c2_qp structure.
+> But do we 
+> care so much that it's worth inlining something like buffered_rmqueue()? 
+>...
 
-Signed-off-by: Ethan Burns <eaburns@iol.unh.edu>
-Acked-by: Tom Tucker <tom@opengridcomputing.com>
+Where is the problem with having buffered_rmqueue() inlined?
 
----
- drivers/infiniband/hw/amso1100/c2_qp.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+> 		Linus
 
-diff --git a/drivers/infiniband/hw/amso1100/c2_qp.c b/drivers/infiniband/hw/amso1100/c2_qp.c
-index 420c138..01d0786 100644
---- a/drivers/infiniband/hw/amso1100/c2_qp.c
-+++ b/drivers/infiniband/hw/amso1100/c2_qp.c
-@@ -506,6 +506,7 @@ int c2_alloc_qp(struct c2_dev *c2dev,
- 	qp->send_sgl_depth = qp_attrs->cap.max_send_sge;
- 	qp->rdma_write_sgl_depth = qp_attrs->cap.max_send_sge;
- 	qp->recv_sgl_depth = qp_attrs->cap.max_recv_sge;
-+	init_waitqueue_head(&qp->wait);
- 
- 	/* Initialize the SQ MQ */
- 	q_size = be32_to_cpu(reply->sq_depth);
+cu
+Adrian
+
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
+
