@@ -1,63 +1,73 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] Netfilter Kconfig:  Expose IPv4/6 connection tracking
- options by selecting NF_CONNTRACK
-Date: Tue, 24 Jul 2007 19:35:57 +0200
-Message-ID: <46A6387D.1030601@trash.net>
-References: <200707240836.33494.a1426z@gawab.com> <20070724055208.GB12946@uranus.ravnborg.org> <46A62FB0.2090405@trash.net> <200707242031.58910.a1426z@gawab.com>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: Re: 2.6.23-rc1: BUG_ON in kmap_atomic_prot()
+Date: Tue, 24 Jul 2007 19:59:51 +0200
+Message-ID: <20070724175951.GC6019@stusta.de>
+References: <alpine.LFD.0.999.0707221351030.3607@woody.linux-foundation.org> <20070723183839.GA5874@martell.zuzino.mipt.ru> <20070723190152.GA5755@martell.zuzino.mipt.ru> <20070723132431.42afbae8.akpm@linux-foundation.org> <20070723204045.GD5755@martell.zuzino.mipt.ru> <20070723210153.GA5753@martell.zuzino.mipt.ru> <20070723141137.171e4ac1.akpm@linux-foundation.org> <alpine.LFD.0.999.0707231415511.3607@woody.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Sam Ravnborg <sam@ravnborg.org>, netdev@vger.kernel.org,
-	linux-net@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Al Boldi <a1426z@gawab.com>
+Content-Type: text/plain; charset=utf-8
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Alexey Dobriyan <adobriyan@gmail.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:62669 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752617AbXGXRga (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jul 2007 13:36:30 -0400
-In-Reply-To: <200707242031.58910.a1426z@gawab.com>
+Received: from mailout.stusta.mhn.de ([141.84.69.5]:43251 "EHLO
+	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755310AbXGXSA1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jul 2007 14:00:27 -0400
+Content-Disposition: inline
+In-Reply-To: <alpine.LFD.0.999.0707231415511.3607@woody.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Al Boldi wrote:
-> Patrick McHardy wrote:
-> 
->>But I vaguely recall having tried this myself and it broke somewhere,
->>maybe it was because of the NF_CONNTRACK_ENABLED option, I can't
->>recall anymore. Al, if this also works without removal of
->>NF_CONNTRACK_ENABLED, please resend without that part.
+On Mon, Jul 23, 2007 at 02:28:11PM -0700, Linus Torvalds wrote:
 > 
 > 
-> It doesn't.  But how about this, if you really can't live without 
-> NF_CONNTRACK_ENBLED:
+> On Mon, 23 Jul 2007, Andrew Morton wrote:
+> > 
+> > It'd be nice to get a clean trace.  Are you able to obtain the full
+> > trace with CONFIG_FRAME_POINTER=y?
 > 
-> ==================
-> --- Kconfig.old	2007-07-09 06:38:52.000000000 +0300
-> +++ Kconfig	2007-07-24 20:24:27.000000000 +0300
-> @@ -25,8 +25,7 @@ config NETFILTER_NETLINK_LOG
->  	  and is also scheduled to replace the old syslog-based ipt_LOG
->  	  and ip6t_LOG modules.
->  
-> -# Rename this to NF_CONNTRACK in a 2.6.25
-> -config NF_CONNTRACK_ENABLED
-> +config NF_CONNTRACK
->  	tristate "Netfilter connection tracking support"
->  	help
->  	  Connection tracking keeps a record of what packets have passed
-> @@ -40,9 +39,9 @@ config NF_CONNTRACK_ENABLED
->  
->  	  To compile it as a module, choose M here.  If unsure, say N.
->  
-> -config NF_CONNTRACK
-> +config NF_CONNTRACK_ENABLED
->  	tristate
-> -	default NF_CONNTRACK_ENABLED
-> +	default NF_CONNTRACK
->  
->  config NF_CT_ACCT
->  	bool "Connection tracking flow accounting"
+> If you are talking about
+> 
+> 	http://userweb.kernel.org/~akpm/dsc03659.jpg
+> 
+> then I think that _is_ a full trace. It's certainly not very messy, and it 
+> seems accurate. It's just that inlining makes it much harder to see the 
+> call-graphs, but that's what inlining does..
+> 
+> For example, missing from the call graph is
+> 
+> 	get_page_from_freelist ->
+> 	  buffered_rmqueue ->		[ missing - inlined ]
+> 	    prep_new_page ->		[ missing - inlined ]
+> 	      prep_zero_page ->		[ missing - inlined ]
+> 		clear_highpage ->	[ missing - inlined ]
+> 		  kmap_atomic ->	[ missing - tailcall ]
+> 		    kmap_atomic_prot
+> 
+> but I'm pretty sure the call trace is good (and I'm also pretty sure gcc 
+> is overly aggressive at inlining, and that it causes us pain for 
+> debugging, but whatever)
+>...
 
+For prep_zero_page() and clear_highpage() we can't blame gcc since we 
+force gcc to always inline them.
 
-That defeats the only purpose why we kept it. How about we change this
-once we remove it, in 2.6.25?
+buffered_rmqueue() and prep_new_page() are static functions with only 
+one caller each, and for the normal non-debug case it's a really nice 
+optimization to have them inlined automatically. But it might make sense 
+to add -fno-inline-functions-called-once to the CFLAGS depending on some 
+debug option?
+
+> 			Linus
+
+cu
+Adrian
+
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
+
