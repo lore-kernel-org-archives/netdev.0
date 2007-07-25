@@ -1,40 +1,86 @@
-From: Mike Galbraith <efault@gmx.de>
-Subject: Re: 2.6.23-rc1: BUG_ON in kmap_atomic_prot()
-Date: Wed, 25 Jul 2007 07:09:03 +0200
-Message-ID: <1185340143.6528.1.camel@Homer.simpson.net>
-References: <alpine.LFD.0.999.0707221351030.3607@woody.linux-foundation.org>
-	 <20070723183839.GA5874@martell.zuzino.mipt.ru>
-	 <20070723190152.GA5755@martell.zuzino.mipt.ru>
-	 <20070723132431.42afbae8.akpm@linux-foundation.org>
-	 <1185271269.6479.7.camel@Homer.simpson.net>
-	 <20070724092839.f0556948.akpm@linux-foundation.org>
-	 <alpine.LFD.0.999.0707241124220.3607@woody.linux-foundation.org>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH RFX]: napi_struct V3
+Date: Wed, 25 Jul 2007 15:09:55 +1000
+Message-ID: <1185340196.1803.482.camel@localhost.localdomain>
+References: <1185326149.1803.421.camel@localhost.localdomain>
+	 <20070724.184759.111203672.davem@davemloft.net>
+	 <1185330794.1803.452.camel@localhost.localdomain>
+	 <20070724.212951.70218044.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Alexey Dobriyan <adobriyan@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Christoph Lameter <clameter@sgi.com>
-To: Linus Torvalds <torvalds@linux-foundation.org>
+Cc: netdev@vger.kernel.org, shemminger@linux-foundation.org,
+	jgarzik@pobox.com, hadi@cyberus.ca
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.gmx.net ([213.165.64.20]:42738 "HELO mail.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1750946AbXGYFJJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Jul 2007 01:09:09 -0400
-In-Reply-To: <alpine.LFD.0.999.0707241124220.3607@woody.linux-foundation.org>
+Received: from ozlabs.org ([203.10.76.45]:38555 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751558AbXGYFKV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Jul 2007 01:10:21 -0400
+In-Reply-To: <20070724.212951.70218044.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2007-07-24 at 11:25 -0700, Linus Torvalds wrote:
+On Tue, 2007-07-24 at 21:29 -0700, David Miller wrote:
+> From: Rusty Russell <rusty@rustcorp.com.au>
+> Date: Wed, 25 Jul 2007 12:33:14 +1000
 > 
-> On Tue, 24 Jul 2007, Andrew Morton wrote:
+> > Maybe by adding YA state bit?  Hold on, this might get ugly...
 > > 
-> > I guess this was the bug:
+> > Say netif_rx_schedule_prep() sets the MORE_TODO bit (atomically instead
+> > of setting __LINK_STATE_RX_SCHED) if it's going to fail, and
+> > netif_rx_complete() returns 0 if it was set, or 1 if it's OK.  Now
+> > callers do:
+> > 
+> > 	reenable_interrupts();
+> >         if (rx_pending() || !netif_rx_complete(netdev, napi))
+> >                 disable_interrupts();
 > 
-> Looks very likely to me. Mike, Alexey, does this fix things for you?
+> This is an interesting idea, and would work, but the extra atomics
+> for something that 2 or 3 drivers actually need.... unless I
+> misunderstand your suggestion?
 
-I don't have very much runtime on it yet, but yes, it seems to have.
+Well, netif_rx_schedule_prep() becomes a cmpxchg instead of a
+test_and_set_bit:
 
-	-Mike
+	/* We either set MORE_TODO or RX_SCHED. */
+	unsigned long state;
+
+again:
+	state = napi->state;
+	if (!(state & __LINK_STATE_RX_SCHED)) {
+		if (cmpxchg(&napi->state, state, state|__LINK_STATE_RX_SCHED) == state)
+			return 1;
+	} else {
+		if (cmpxchg(&napi->state, state, state|__LINK_STATE_MORE_TODO) == state)
+			return 0;
+	}
+	goto again;
+
+netif_rx_complete would need something more complex... hmm... 
+
+	unsigned long state;
+again:
+	state = napi->state;
+
+	if (state & __LINK_STATE_MORE_TODO)
+		return 0;
+
+	list_del(&napi->poll_list);
+	if (cmpxchg(&napi->state, state, state & ~__LINK_STATE_RX_SCHED) == state)
+		return 1;
+	list_add_tail(napi->poll_list, &__get_cpu_var(softnet_data).poll_list);
+	goto again;
+
+Not pretty 8(
+
+Rusty.
+
+
+	if (
+
+	
+
+
+
 
