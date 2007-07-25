@@ -1,60 +1,72 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH RFC]: napi_struct V4
-Date: Wed, 25 Jul 2007 08:01:14 -0400
-Message-ID: <1185364874.26013.192.camel@localhost>
-References: <20070725.013154.34764933.davem@davemloft.net>
-Reply-To: hadi@cyberus.ca
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [-mm patch] one e1000 driver should be enough for everyone
+Date: Wed, 25 Jul 2007 15:36:50 +0200
+Message-ID: <20070725133650.GB3572@stusta.de>
+References: <20070725040304.111550f4.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@linux-foundation.org,
-	jgarzik@pobox.com, rusty@rustcorp.com.au
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Cc: linux-kernel@vger.kernel.org, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>,
+	Auke Kok <auke-jan.h.kok@intel.com>, jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.232]:19899 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751780AbXGYMBU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jul 2007 08:01:20 -0400
-Received: by wx-out-0506.google.com with SMTP id h31so153905wxd
-        for <netdev@vger.kernel.org>; Wed, 25 Jul 2007 05:01:18 -0700 (PDT)
-In-Reply-To: <20070725.013154.34764933.davem@davemloft.net>
+Received: from mailout.stusta.mhn.de ([141.84.69.5]:43998 "EHLO
+	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756567AbXGYNhT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jul 2007 09:37:19 -0400
+Content-Disposition: inline
+In-Reply-To: <20070725040304.111550f4.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2007-25-07 at 01:31 -0700, David Miller wrote:
-> We're getting there, slowly...
-> 
-> 1) netif_napi_init() is added, the workqueue/requeue stuff
->    as discussed is not needed so you won't see that here
-..
-....
-> Another thing that's really apparent now is all the wacky
-> napi->weight values various drivers use.  Just grep for
-> netif_napi_init() in the patch or a patched tree to see what
-> I mean.  So much of it doesn't make any sense and I'm tempted
-> to just remove the argument and make everyone use 32 or 64
-> or something like that :-)  Or, default to some value across
-> the board, and let drivers override that on a case by case
-> basis with a BIG FAT COMMENT above the override describing
-> why the different value is being used and precisely what
-> tests were performed to validate that different value.
+On Wed, Jul 25, 2007 at 04:03:04AM -0700, Andrew Morton wrote:
+>...
+> Changes since 2.6.22-rc6-mm1:
+>...
+>  git-e1000new.patch
+>...
+>  git trees
+>...
 
-Sounds reasonable.
-32-64 for Gige seemed to work well as i recall. 10/100 was around 16.
-But that shouldnt matter i think: because the poll from the core is
-based on Varghese's DRR, it probably will be fine if you just gave all
-the same value and the "deficit" part will kick in when needed. Some
-testing maybe required but theoretically i dont see a problem. 
+Both e1000 drivers compiled into the kernel resulted in the following 
+compile error:
+
+<--  snip  -->
+
+...
+  LD      drivers/net/built-in.o
+drivers/net/e1000/built-in.o: In function `e1000_read_mac_addr':
+(.text+0xb9f2): multiple definition of `e1000_read_mac_addr'
+drivers/net/e1000new/built-in.o:(.text+0x821a): first defined here
+drivers/net/e1000/built-in.o: In function `e1000_phy_setup_autoneg':
+(.text+0x8799): multiple definition of `e1000_phy_setup_autoneg'
+drivers/net/e1000new/built-in.o:(.text+0xa9bd): first defined here
+...
+make[3]: *** [drivers/net/built-in.o] Error 1
+
+<--  snip  -->
+
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
+
+---
+
+BTW:
+Unless I'm misunderstanding anything, the new driver should support a 
+superset of what the old driver supported.
+Therefore, it would be good if the final merge into Linus' tree will
+do an
+  rm -r drivers/net/e1000
+  mv drivers/net/e1000new drivers/net/e1000
+
+--- linux-2.6.23-rc1-mm1/drivers/net/Kconfig.old	2007-07-25 15:06:13.000000000 +0200
++++ linux-2.6.23-rc1-mm1/drivers/net/Kconfig	2007-07-25 15:09:59.000000000 +0200
+@@ -2036,7 +2036,7 @@
  
-BTW: The current kernel code has a "bug" - where if a driver
-forgot to set its weight it would be indeterminate, so even for this
-reason it will be a good idea to enforce a default.
-
-Sorry, havent been following the thread - thanks for CCing me, will try
-to catch up at some point.
-
-cheers,
-jamal
-
-
+ config E1000
+ 	tristate "Intel(R) PRO/1000 Gigabit Ethernet support"
+-	depends on PCI
++	depends on PCI && E1000NEW=n
+ 	---help---
+ 	  This driver supports Intel(R) PRO/1000 gigabit ethernet family of
+ 	  adapters.  For more information on how to identify your adapter, go 
 
