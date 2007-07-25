@@ -1,41 +1,36 @@
-From: Sam Ravnborg <sam@ravnborg.org>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 Subject: Re: modpost warning question
-Date: Wed, 25 Jul 2007 09:52:05 +0200
-Message-ID: <20070725075205.GC24093@uranus.ravnborg.org>
+Date: Wed, 25 Jul 2007 17:55:03 +1000
+Message-ID: <1185350103.5439.314.camel@localhost.localdomain>
 References: <Pine.LNX.4.64.0707250210520.14366@blarg.am.freescale.net>
-	<20070725072712.GB24093@uranus.ravnborg.org>
-	<1409C32B-61A8-49D1-BF64-1CFAA5F8B93B@kernel.crashing.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, linux-kernel@vger.kernel.org,
-	Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org
+Cc: sam@ravnborg.org, linuxppc-dev@ozlabs.org,
+	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
+	netdev@vger.kernel.org
 To: Kumar Gala <galak@kernel.crashing.org>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-Content-Disposition: inline
-In-Reply-To: <1409C32B-61A8-49D1-BF64-1CFAA5F8B93B@kernel.crashing.org>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gate.crashing.org ([63.228.1.57]:54686 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751966AbXGYHzW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Jul 2007 03:55:22 -0400
+In-Reply-To: <Pine.LNX.4.64.0707250210520.14366@blarg.am.freescale.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> >
-> >For the popular architectures (i386,x86_64) we discard .exit.text at
-> >runtime so here we do not see the error from ld (sadly).
+On Wed, 2007-07-25 at 02:14 -0500, Kumar Gala wrote:
+> I'm seeing the following warning:
 > 
-> Fair point, wondering what we do with .exit on PPC, another thing for  
-> the list :)
+> WARNING: vmlinux.o(.init.text+0x1acdc): Section mismatch: reference to
+> .exit.text:gfar_mdio_exit (between 'gfar_init' and 'gfar_mdio_init')
+> 
+> I don't understand why its not ok to access .exit.text from .init.text
+> 
+> The following addresses the issue, however I don't particularly like it:
 
-from:
-arch/ppc/kernel/vmlinux.lds.S:
-  /* .exit.text is discarded at runtime, not link time,
-     to deal with references from __bug_table */
-  .exit.text : { *(.exit.text) }
+Because exit.text is removed when compiling built-in
 
-	Sam
+Ben.
+
+
