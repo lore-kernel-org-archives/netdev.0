@@ -1,104 +1,75 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: 2.6.20->2.6.21 - networking dies after random time
-Date: Wed, 25 Jul 2007 15:46:56 +0100
-Message-ID: <20070725154656.54fd6f13@the-village.bc.nu>
-References: <JKE37W$0126317E099DF36884CC046B6F8A7AA9@xandmail.com>
-	<20070629150759.GC2771@ff.dom.local>
-	<4bacf17f0707222244p664e7a6ap850b3357a57d73c@mail.gmail.com>
-	<20070724080534.GC18740@elte.hu>
-	<20070724094202.GA11610@elte.hu>
-	<alpine.LFD.0.999.0707241228291.3607@woody.linux-foundation.org>
-	<20070724200431.GA22190@elte.hu>
-	<1185322771.4175.102.camel@chaos>
-	<20070725135718.GB1843@ff.dom.local>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: Re: [-mm patch] one e1000 driver should be enough for everyone
+Date: Wed, 25 Jul 2007 16:46:16 +0200
+Message-ID: <20070725144615.GC3572@stusta.de>
+References: <20070725040304.111550f4.akpm@linux-foundation.org> <20070725133650.GB3572@stusta.de> <46A754C7.9080004@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@elte.hu>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Marcin ??lusarz <marcin.slusarz@gmail.com>,
-	Jean-Baptiste Vignaud <vignaud@xandmail.fr>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	shemminger <shemminger@linux-foundation.org>,
-	linux-net <linux-net@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Jarek Poplawski <jarkao2@o2.pl>
+Content-Type: text/plain; charset=utf-8
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Auke Kok <auke-jan.h.kok@intel.com>,
+	linux-kernel@vger.kernel.org, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from outpipe-village-512-1.bc.nu ([81.2.110.250]:51995 "EHLO
-	the-village.bc.nu" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754347AbXGYOms (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jul 2007 10:42:48 -0400
-In-Reply-To: <20070725135718.GB1843@ff.dom.local>
+Received: from emailhub.stusta.mhn.de ([141.84.69.5]:44037 "EHLO
+	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755056AbXGYOqn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jul 2007 10:46:43 -0400
+Content-Disposition: inline
+In-Reply-To: <46A754C7.9080004@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> > The code in question lib8390.c does
-> > 
-> > 	disable_irq();
-> > 	fiddle_with_the_network_card_hardware()
-> > 	enable_irq();
-> ...
-> > 
-> > No idea how this affects the network card, as the code there must be
-> > able to handle interrupts, which are not originated from the card due to
-> > interrupt sharing.
-> 
-> I think, in this last yesterday's patch Ingo could be right, yet!
-> The comment at the beginnig points this is done like that because
-> of chip's slowness. And problems with timing are mysterious.
-> 
-> On the other hand author of this code didn't use spin_lock_irqsave
-> for some reason, probably after testing this option too. So, I hope
-> this is the right path, but alas, I'm not sure this patch has to
-> prove this 100%.
+On Wed, Jul 25, 2007 at 09:48:55AM -0400, Jeff Garzik wrote:
+> Adrian Bunk wrote:
+>> BTW:
+>> Unless I'm misunderstanding anything, the new driver should support a 
+>> superset of what the old driver supported.
+>> Therefore, it would be good if the final merge into Linus' tree will
+>> do an
+>>   rm -r drivers/net/e1000
+>>   mv drivers/net/e1000new drivers/net/e1000
+>
+> Based on the most recent discussion, e1000new (or whatever it will be 
+> called) should support only the newer PCI-Express chips, while e1000 will 
+> retain support for the older chips.
 
-The author (me) didn't use spin_lock_irqsave because the slowness of the
-card means that approach caused horrible problems like losing serial data
-at 38400 baud on some chips. Rememeber many 8390 nics on PCI were ISA
-chips with FPGA front ends.
+I found the discussion, and Christoph's e1000e sounds like the best name 
+("new" doesn't say whether it's a new driver for old hardware or a 
+driver for new hardware).
 
-> Anyway, in my opinion this situation where interrupts could/have_to
-> be used for such strange things should confirm the need of more
-> options for handling irqs individually.
+> Over the long term this will allow e1000new to grow without affecting 
+> support for the older, stable chips.
+>
+> So, e1000 is not going away.
 
-Ok the logic behind the 8390 is very simple:
+No problem for me, but this obviously implies that global code in the 
+new driver has to be renamed.
 
-Things to know
-	- IRQ delivery is asynchronous to the PCI bus
-	- Blocking the local CPU IRQ via spin locks was too slow
-	- The chip has register windows needing locking work
+And please ensure that they will always support distinct PCI IDs, or 
+there will be the following common pattern if both drivers support
+a card:
+- user tries driver A
+- driver A doesn't work (although it should have worked)
+- user tries driver B
+- driver B works
+- a later kernel removes support for this card from driver B
+- user tries driver A
+- driver A still doesn't work
+- user writes bug report
 
-So the path was once (I say once as people appear to have changed it
-in the mean time and it now looks rather bogus if the changes to use
-disable_irq_nosync_irqsave are disabling the local IRQ)
+Users should report bugs early instead of bouncing between different 
+drivers.
 
+> 	Jeff
 
-	Take the page lock
-	Mask the IRQ on chip
-	Disable the IRQ (but not mask locally- someone seems to have
-		broken this with the lock validator stuff)
-		[This must be _nosync as the page lock may otherwise
-			deadlock us]
-	Drop the page lock and turn IRQs back on
-	
-	At this point an existing IRQ may still be running but we can't
-	get a new one
+cu
+Adrian
 
-	Take the lock (so we know the IRQ has terminated) but don't mask
-the IRQs on the processor
-	Set irqlock [for debug]
+-- 
 
-	Transmit (slow as ****)
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
 
-	re-enable the IRQ
-
-
-We have to use disable_irq because otherwise you will get delayed
-interrupts on the APIC bus deadlocking the transmit path.
-
-Quite hairy but the chip simply wasn't designed for SMP and you can't
-even ACK an interrupt without risking corrupting other parallel
-activities on the chip.
-
-Alan
