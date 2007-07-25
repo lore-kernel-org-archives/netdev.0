@@ -1,90 +1,86 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: specifying scopid's for link-local IPv6 addrs
-Date: Wed, 25 Jul 2007 02:15:05 -0400
-Message-ID: <20070725021505.62a646ea.billfink@mindspring.com>
-References: <46A4FAFF.8010809@hp.com>
-	<20070724030115.3208229d.billfink@mindspring.com>
-	<46A63327.6010705@hp.com>
-	<1185298111.17202.4.camel@localhost.localdomain>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: 2.6.20->2.6.21 - networking dies after random time
+Date: Wed, 25 Jul 2007 09:23:45 +0200
+Message-ID: <20070725072345.GA1843@ff.dom.local>
+References: <JKE37W$0126317E099DF36884CC046B6F8A7AA9@xandmail.com> <20070629150759.GC2771@ff.dom.local> <4bacf17f0707222244p664e7a6ap850b3357a57d73c@mail.gmail.com> <20070724080534.GC18740@elte.hu> <20070724094202.GA11610@elte.hu> <alpine.LFD.0.999.0707241228291.3607@woody.linux-foundation.org> <20070724200431.GA22190@elte.hu> <1185322771.4175.102.camel@chaos>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Rick Jones <rick.jones2@hp.com>,
-	Linux Network Development list <netdev@vger.kernel.org>
-To: Sridhar Samudrala <sri@us.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ingo Molnar <mingo@elte.hu>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Marcin ??lusarz <marcin.slusarz@gmail.com>,
+	Jean-Baptiste Vignaud <vignaud@xandmail.fr>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	shemminger <shemminger@linux-foundation.org>,
+	linux-net <linux-net@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Thomas Gleixner <tglx@linutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-masked.atl.sa.earthlink.net ([209.86.89.68]:55164 "EHLO
-	elasmtp-masked.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752744AbXGYGPM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jul 2007 02:15:12 -0400
-In-Reply-To: <1185298111.17202.4.camel@localhost.localdomain>
+Received: from mx10.go2.pl ([193.17.41.74]:37749 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1759788AbXGYHOd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Jul 2007 03:14:33 -0400
+Content-Disposition: inline
+In-Reply-To: <1185322771.4175.102.camel@chaos>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 24 Jul 2007, Sridhar Samudrala wrote:
-
-> On Tue, 2007-07-24 at 10:13 -0700, Rick Jones wrote:
-> > > Rick,
-> > > 
-> > > I don't see any way around this.  For example, on one of my test
-> > > systems, I have the following link local routes:
-> > > 
-> > > chance% netstat -A inet6 -rn | grep fe80::/64
-> > > fe80::/64                                   ::                                      U     256    0        0 eth0
-> > > fe80::/64                                   ::                                      U     256    0        0 eth2
-> > > fe80::/64                                   ::                                      U     256    0        0 eth3
-> > > fe80::/64                                   ::                                      U     256    0        0 eth4
-> > > fe80::/64                                   ::                                      U     256    0        0 eth5
-> > > fe80::/64                                   ::                                      U     256    0        0 eth6
-> > > 
-> > > So if I want to run a link local test to fe80::202:b3ff:fed4:cd1,
-> > > the system has no way to choose which is the correct interface to
-> > > use for the test, and will give an error if the interface isn't
-> > > specified. 
+On Wed, Jul 25, 2007 at 02:19:31AM +0200, Thomas Gleixner wrote:
+> On Tue, 2007-07-24 at 22:04 +0200, Ingo Molnar wrote:
+> > Marcin, could you try the patch below too? [without having any other 
+> > patch applied.] It basically turns the critical section into an irqs-off 
+> > critical section and thus checks whether your problem is related to that 
+> > particular area of code.
 > > 
-> > Yeah, I was wondering about that.  I'm not sure if the attempts on "those other 
-> > OSes" happened to involve multiple interfaces or not.  Even so, it "feels" 
-> > unpleasant for an application to deal with and I wonder if there is a way for a 
-> > stack to deal with it on the application's behalf.  I guess that might involve 
-> > some sort of layer violation between neightbor discovery and routing (typing 
-> > while I think about things I know little about...)
-> > 
-> > Is there RFC chapter and verse I might read about routing with multiple 
-> > link-local's on a system?
-> > 
-> > > You must explicitly specify the desired interface.  For example,
-> > > on my test system, the correct interface is eth6 which is interface 8
-> > > (lo eth0 eth1 eth2 ... eth5 eth6).  Here is an example nuttcp test
-> > > specifying interface 8:
-> > > 
-> > > chance% nuttcp -P5100 fe80::202:b3ff:fed4:cd1%8
-> > >  1178.5809 MB /  10.02 sec =  986.2728 Mbps 12 %TX 15 %RX
-> > > 
-> > > nuttcp uses getaddrinfo() which parses the "%<ifindex>" field,
-> > > and then copies the sin6_scope_id from the res structure to the
-> > > server's sockaddr_in6 structure before initiating the connect().
-> > 
-> > OK, I'll give that a quick try with netperf:
-> > 
-> > [root@hpcpc106 ~]# netperf -H 192.168.2.107 -c -C -i 30,3 -- -s 1M -S 1M -m 64K 
-> > -H fe80::207:43ff:fe05:9d%2
 > 
-> We can even specify the interface name instead of the interface index
->    <link-local>%ethX
-> 
-> getaddrinfo() uses if_nametoindex() internally to get the index.
-> 
-> Thanks
-> Sridhar
+> I read back on this thread and I think the problem is somewhere else:
 
-Cool!  That's much easier and works great.  :-)
+So do I. Of course, I certainly miss most of the details, but I can't
+imagine how this yesterday Ingo's patch couldn't work - unless
+Marcin's test wasn't long enough...
 
-chance% nuttcp -P5100 fe80::202:b3ff:fed4:cd1%eth6
- 1178.5468 MB /  10.02 sec =  986.3239 Mbps 13 %TX 15 %RX
+IMHO, the main problem is that such delicate things shouldn't be
+changed this way. If current ideas work for Marcin they will probably
+break other boxes. Very similar symptoms were reported before Ingo's
+patch too, so it looks like this place is very fragile. If such
+things could happen:
 
-Still learn something new every day.  Now if I just could remember
-it all when I needed it later.  :-)
+(from: arch/i386/kernel/io_apic.c)
+> static void ack_ioapic_quirk_irq(unsigned int irq)
+> ...
+> /*
+>  * It appears there is an erratum which affects at least version 0x11
+>  * of I/O APIC (that's the 82093AA and cores integrated into various
+>  * chipsets).  Under certain conditions a level-triggered interrupt is
+>  * erroneously delivered as edge-triggered one but the respective IRR
+>  * bit gets set nevertheless.  As a result the I/O unit expects an EOI
+>  * message but it will never arrive and further interrupts are blocked
+>  * from the source.  The exact reason is so far unknown, but the
+>  * phenomenon was observed when two consecutive interrupt requests
+>  * from a given source get delivered to the same CPU and the source is
+>  * temporarily disabled in between.
+...
 
-						-Thanks
+there is no reason to think this is all.
 
-						-Bill
+I can also see this comment in arch/x86_64/kernel/io_apic.c:
+
+> static void setup_IO_APIC_irq(int apic, int pin, unsigned int irq,
+>                               int trigger, int polarity)
+...
+>        /* Mask level triggered irqs.
+>         * Use IRQ_DELAYED_DISABLE for edge triggered irqs.
+>         */
+
+It seems somebody have seen a difference, probably after testing,
+but it wasn't respected.
+
+I also presume ne2k/lib8390.c solution could be a result of "real
+life", and I don't think Marcin's tests can be enough here. 
+
+So, my point is that such places first of all need some documented
+knobs in config or elsewere, which make it possible for users to
+easily go back to previous method (i.e. from 2.6.21 to 2.6.20 here).
+
+Regards,
+Jarek P.
