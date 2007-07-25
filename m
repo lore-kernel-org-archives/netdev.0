@@ -1,61 +1,104 @@
 From: shemminger@oldman.hamilton.local
-Subject: [PATCH 3/3] TCP: htcp - use measured rtt
-Date: Wed, 25 Jul 2007 11:44:38 +0100
-Message-ID: <20070725104826.760544771@oldman.hamilton.local>
+Subject: [PATCH 2/3] TCP: cubic - eliminate use of receive time stamp
+Date: Wed, 25 Jul 2007 11:44:37 +0100
+Message-ID: <20070725104826.586540934@oldman.hamilton.local>
 References: <20070725104434.998037763@oldman.hamilton.local>
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:44186 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:59046 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758919AbXGYLBr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jul 2007 07:01:47 -0400
-Content-Disposition: inline; filename=htcp-fix.patch
+	by vger.kernel.org with ESMTP id S1759118AbXGYLBs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jul 2007 07:01:48 -0400
+Content-Disposition: inline; filename=tcp-cubic-rtt.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Change HTCP to use measured RTT rather than smooth RTT.
-Srtt is computed using the TCP receive timestamp
-options, so it is vulnerable to hostile receivers. To avoid any problems
-this might cause use the measured RTT instead.
+Remove use of received timestamp option value from RTT calculation in Cubic.
+A hostile receiver may be returning a larger timestamp option than the original
+value. This would cause the sender to believe the malevolent receiver had
+a larger RTT and because Cubic tries to provide some RTT friendliness, the
+sender would then favor the liar.
+
+Instead, use the jiffie resolutionRTT value already computed and
+passed back after ack.
 
 Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
---- a/net/ipv4/tcp_htcp.c	2007-07-19 08:26:40.000000000 +0100
-+++ b/net/ipv4/tcp_htcp.c	2007-07-19 08:28:07.000000000 +0100
-@@ -76,12 +76,11 @@ static u32 htcp_cwnd_undo(struct sock *s
- 	return max(tp->snd_cwnd, (tp->snd_ssthresh << 7) / ca->beta);
+--- a/net/ipv4/tcp_cubic.c	2007-07-23 10:33:50.000000000 +0100
++++ b/net/ipv4/tcp_cubic.c	2007-07-23 10:35:26.000000000 +0100
+@@ -246,38 +246,12 @@ static inline void bictcp_update(struct 
+ 		ca->cnt = 1;
  }
  
--static inline void measure_rtt(struct sock *sk)
-+static inline void measure_rtt(struct sock *sk, u32 srtt)
+-
+-/* Keep track of minimum rtt */
+-static inline void measure_delay(struct sock *sk)
+-{
+-	const struct tcp_sock *tp = tcp_sk(sk);
+-	struct bictcp *ca = inet_csk_ca(sk);
+-	u32 delay;
+-
+-	/* No time stamp */
+-	if (!(tp->rx_opt.saw_tstamp && tp->rx_opt.rcv_tsecr) ||
+-	     /* Discard delay samples right after fast recovery */
+-	    (s32)(tcp_time_stamp - ca->epoch_start) < HZ)
+-		return;
+-
+-	delay = (tcp_time_stamp - tp->rx_opt.rcv_tsecr)<<3;
+-	if (delay == 0)
+-		delay = 1;
+-
+-	/* first time call or link delay decreases */
+-	if (ca->delay_min == 0 || ca->delay_min > delay)
+-		ca->delay_min = delay;
+-}
+-
+ static void bictcp_cong_avoid(struct sock *sk, u32 ack,
+ 			      u32 in_flight, int data_acked)
  {
- 	const struct inet_connection_sock *icsk = inet_csk(sk);
- 	const struct tcp_sock *tp = tcp_sk(sk);
- 	struct htcp *ca = inet_csk_ca(sk);
--	u32 srtt = tp->srtt >> 3;
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	struct bictcp *ca = inet_csk_ca(sk);
  
- 	/* keep track of minimum RTT seen so far, minRTT is zero at first */
- 	if (ca->minRTT > srtt || !ca->minRTT)
-@@ -108,6 +107,9 @@ static void measure_achieved_throughput(
- 	if (icsk->icsk_ca_state == TCP_CA_Open)
- 		ca->pkts_acked = pkts_acked;
- 
-+	if (rtt > 0)
-+		measure_rtt(sk, usecs_to_jiffies(rtt));
-+
- 	if (!use_bandwidth_switch)
+-	if (data_acked)
+-		measure_delay(sk);
+-
+ 	if (!tcp_is_cwnd_limited(sk, in_flight))
  		return;
  
-@@ -237,8 +239,6 @@ static void htcp_cong_avoid(struct sock 
- 	if (tp->snd_cwnd <= tp->snd_ssthresh)
- 		tcp_slow_start(tp);
- 	else {
--		measure_rtt(sk);
--
- 		/* In dangerous area, increase slowly.
- 		 * In theory this is tp->snd_cwnd += alpha / tp->snd_cwnd
- 		 */
+@@ -337,14 +311,30 @@ static void bictcp_state(struct sock *sk
+ static void bictcp_acked(struct sock *sk, u32 cnt, s32 rtt_us)
+ {
+ 	const struct inet_connection_sock *icsk = inet_csk(sk);
++	struct bictcp *ca = inet_csk_ca(sk);
++	u32 delay;
+ 
+ 	if (cnt > 0 && icsk->icsk_ca_state == TCP_CA_Open) {
+-		struct bictcp *ca = inet_csk_ca(sk);
+ 		cnt -= ca->delayed_ack >> ACK_RATIO_SHIFT;
+ 		ca->delayed_ack += cnt;
+ 	}
+-}
+ 
++	/* Some calls are for duplicates without timetamps */
++	if (rtt_us < 0)
++		return;
++
++	/* Discard delay samples right after fast recovery */
++	if ((s32)(tcp_time_stamp - ca->epoch_start) < HZ)
++		return;
++
++	delay = usecs_to_jiffies(rtt_us) << 3;
++	if (delay == 0)
++		delay = 1;
++
++	/* first time call or link delay decreases */
++	if (ca->delay_min == 0 || ca->delay_min > delay)
++		ca->delay_min = delay;
++}
+ 
+ static struct tcp_congestion_ops cubictcp = {
+ 	.init		= bictcp_init,
 
 -- 
 
