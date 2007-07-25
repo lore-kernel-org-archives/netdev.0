@@ -1,58 +1,45 @@
-From: Chris Snook <csnook@redhat.com>
-Subject: Re: atl1 driver corrupting memory?
-Date: Wed, 25 Jul 2007 17:35:57 -0400
-Message-ID: <46A7C23D.5030208@redhat.com>
-References: <46A79790.6050203@redhat.com> <46A7BEF9.1000600@redhat.com> <46A7C116.4010900@redhat.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: Tc filtering: broken 802_3 classifier?
+Date: Thu, 26 Jul 2007 01:11:14 +0200
+Message-ID: <46A7D892.3020505@trash.net>
+References: <D5C1322C3E673F459512FB59E0DDC329034BF7F6@orsmsx414.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: Jay Cliburn <jacliburn@bellsouth.net>,
-	Netdev <netdev@vger.kernel.org>, atl1-devel@lists.sourceforge.net
-To: Chuck Ebbert <cebbert@redhat.com>
+Cc: netdev@vger.kernel.org
+To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:53945 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752323AbXGYVgG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Jul 2007 17:36:06 -0400
-In-Reply-To: <46A7C116.4010900@redhat.com>
+Received: from stinky.trash.net ([213.144.137.162]:61233 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760295AbXGYXMS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jul 2007 19:12:18 -0400
+In-Reply-To: <D5C1322C3E673F459512FB59E0DDC329034BF7F6@orsmsx414.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Chuck Ebbert wrote:
-> On 07/25/2007 05:22 PM, Chris Snook wrote:
->> Chuck Ebbert wrote:
->>> I have a report of random errors when using the atl1 driver
->>> with kernel 2.6.22.1. Could that be a problem fixed by the
->>> recent changes to DMA setup in 2.6.23-rc?
->> I hope so.  As far as we can tell the driver and the NIC itself are
->> doing the right thing, and the pci layer or chipset is screwing up the
->> 64-bit DMA.  This only manifests when physical memory addresses cross
->> the 4 GB boundary, and as far as I'm aware atl1 is only used on desktop
->> boards, so we don't have a lot of testers.  If someone wants to buy me
->> and Jay more RAM so we can test it ourselves, I guess we wouldn't object :)
+Waskiewicz Jr, Peter P wrote:
+>>Waskiewicz Jr, Peter P wrote:
 >>
-> 
-> Our reporter has 8GB of memory in an x86_64 machine.
-> 
-> https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=249511
+>>I'm not sure what you're expecting. skb->protocol is usually not set
+>>to ETH_P_802_3, which is why the filter is not matching.
 > 
 > 
->> I favor disabling 64-bit DMA in atl1 until Atheros can track this down
->> in the lab.  If we don't get confirmation that this bug is fixed by the
->> DMA changes, I think we should revert to 32-bit DMA for 2.6.23. 
->> Limiting ourselves to 32-bit DMA on desktop systems is a lot less bad
->> than allowing arbitrary memory corruption.
->>
-> 
-> This is what was committed.
-> 
-> http://git.kernel.org/git/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=3f516c00d416bd39aab6cfb348b68919e295fe23
-> http://git.kernel.org/git/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=ef76e3e2505db01f7d4b537854f4a177220c26c8
+> I understand that.  I had two issues, which you cleared up one by
+> reminding me that the protocol matches on skb->protocol before it tries
+> to run the ->classify() routine.  The other issue I am seeing is with 8
+> bands, an 802_3 filter is affecting classification of IP traffic.  For
+> example, I have an 802_3 filter to look for dst MAC address, but an ssh
+> packet, which without any filters should go into flowid 1:3 on my
+> system, is getting pushed into flowid 1:1.  I remove the 802_3 filter,
+> and ssh traffic starts going back into 1:3.  No other filters on the
+> system.  That's the main issue I'm seeing, so I'll keep investigating to
+> see what's going on.
 
-Oh, I thought you were referring to a problem reproduced *after* those changes, 
-to be fixed by some generic DMA setup patch.  Has anyone reproduced the problem 
-after those changes?
 
-CCing atl1-devel to see if we can get some more testing...
+In case of prio, if your manually installed filters don't match, it will
+fall back to the skb->priority based classification, which is based
+on tos and is probably responsible for what you're seeing. Feel free to
+investigate, but you could save us all some time by simply posting what
+you're doing, what you're expecting and what is actually happening,
+there's probably a good explanation.
 
-	-- Chris
