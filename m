@@ -1,55 +1,54 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: 2.6.20->2.6.21 - networking dies after random time
-Date: Wed, 25 Jul 2007 15:57:18 +0200
-Message-ID: <20070725135718.GB1843@ff.dom.local>
-References: <JKE37W$0126317E099DF36884CC046B6F8A7AA9@xandmail.com> <20070629150759.GC2771@ff.dom.local> <4bacf17f0707222244p664e7a6ap850b3357a57d73c@mail.gmail.com> <20070724080534.GC18740@elte.hu> <20070724094202.GA11610@elte.hu> <alpine.LFD.0.999.0707241228291.3607@woody.linux-foundation.org> <20070724200431.GA22190@elte.hu> <1185322771.4175.102.camel@chaos>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [-mm patch] one e1000 driver should be enough for
+	everyone
+Date: Wed, 25 Jul 2007 09:48:55 -0400
+Message-ID: <46A754C7.9080004@garzik.org>
+References: <20070725040304.111550f4.akpm@linux-foundation.org>
+	<20070725133650.GB3572@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ingo Molnar <mingo@elte.hu>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Marcin ??lusarz <marcin.slusarz@gmail.com>,
-	Jean-Baptiste Vignaud <vignaud@xandmail.fr>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	shemminger <shemminger@linux-foundation.org>,
-	linux-net <linux-net@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Thomas Gleixner <tglx@linutronix.de>
-Return-path: <linux-net-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1185322771.4175.102.camel@chaos>
-Sender: linux-net-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Auke Kok <auke-jan.h.kok@intel.com>, linux-kernel@vger.kernel.org
+To: Adrian Bunk <bunk@stusta.de>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20070725133650.GB3572@stusta.de>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 25, 2007 at 02:19:31AM +0200, Thomas Gleixner wrote:
-...
-> Looking into the IO_APIC code, the resend via send_IPI_self() happens
-> unconditionally. So the resend is done for level and edge interrupts.
-> This makes the problem more mysterious.
-> 
-> The code in question lib8390.c does
-> 
-> 	disable_irq();
-> 	fiddle_with_the_network_card_hardware()
-> 	enable_irq();
-...
-> 
-> No idea how this affects the network card, as the code there must be
-> able to handle interrupts, which are not originated from the card due to
-> interrupt sharing.
+Adrian Bunk wrote:
+> BTW:
+> Unless I'm misunderstanding anything, the new driver should support a 
+> superset of what the old driver supported.
+> Therefore, it would be good if the final merge into Linus' tree will
+> do an
+>   rm -r drivers/net/e1000
+>   mv drivers/net/e1000new drivers/net/e1000
 
-I think, in this last yesterday's patch Ingo could be right, yet!
-The comment at the beginnig points this is done like that because
-of chip's slowness. And problems with timing are mysterious.
+Based on the most recent discussion, e1000new (or whatever it will be 
+called) should support only the newer PCI-Express chips, while e1000 
+will retain support for the older chips.
 
-On the other hand author of this code didn't use spin_lock_irqsave
-for some reason, probably after testing this option too. So, I hope
-this is the right path, but alas, I'm not sure this patch has to
-prove this 100%.
+Over the long term this will allow e1000new to grow without affecting 
+support for the older, stable chips.
 
-Anyway, in my opinion this situation where interrupts could/have_to
-be used for such strange things should confirm the need of more
-options for handling irqs individually.
+So, e1000 is not going away.
 
-Thanks,
-Jarek P.
+	Jeff
+
+
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Splunk Inc.
+Still grepping through log files to find problems?  Stop.
+Now Search log events and configuration files using AJAX and a browser.
+Download your FREE copy of Splunk now >>  http://get.splunk.com/
