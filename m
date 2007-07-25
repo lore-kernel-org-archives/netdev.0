@@ -1,54 +1,46 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [-mm patch] one e1000 driver should be enough for
-	everyone
-Date: Wed, 25 Jul 2007 09:48:55 -0400
-Message-ID: <46A754C7.9080004@garzik.org>
-References: <20070725040304.111550f4.akpm@linux-foundation.org>
-	<20070725133650.GB3572@stusta.de>
+Subject: Re: [PATCH 1/1] netxen: Load firmware during probe, dma watchdog
+ fix.
+Date: Wed, 25 Jul 2007 10:29:31 -0400
+Message-ID: <46A75E4B.4050504@garzik.org>
+References: <20070719091108.839200259@netxen.com>	 <20070719091131.467737478@netxen.com> <46A662D5.3020201@garzik.org> <ab901500707242118q27cb9eddqe69f01275b809b3@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Auke Kok <auke-jan.h.kok@intel.com>, linux-kernel@vger.kernel.org
-To: Adrian Bunk <bunk@stusta.de>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20070725133650.GB3572@stusta.de>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Cc: netdev@vger.kernel.org, rob@netxen.com,
+	Wen Xiong <wenxiong@us.ibm.com>
+To: Dhananjay Phadke <dhananjay@netxen.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:38054 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752059AbXGYO3g (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Jul 2007 10:29:36 -0400
+In-Reply-To: <ab901500707242118q27cb9eddqe69f01275b809b3@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Adrian Bunk wrote:
-> BTW:
-> Unless I'm misunderstanding anything, the new driver should support a 
-> superset of what the old driver supported.
-> Therefore, it would be good if the final merge into Linus' tree will
-> do an
->   rm -r drivers/net/e1000
->   mv drivers/net/e1000new drivers/net/e1000
+Dhananjay Phadke wrote:
+> Jeff,
+> 
+> You committed old patch, which I had asked to ignore for two newer patches.
+> 
+> [PATCH 1/1] netxen: Load firmware during probe, dma watchdog fix.
+> 
+> is wrong patch that went in, instead please commit:
+> 
+> [PATCH 1/2] netxen: IMEZ multiport card 2nd port issue, dma watchdog fix
+> [PATCH 2/2] netxen: Fix interrupt handling for multiport adapters
 
-Based on the most recent discussion, e1000new (or whatever it will be 
-called) should support only the newer PCI-Express chips, while e1000 
-will retain support for the older chips.
+Two responses:
 
-Over the long term this will allow e1000new to grow without affecting 
-support for the older, stable chips.
+1) I never received the two patches you mention.  It helps (though not 
+required) to CC me, in addition to sending patches to netdev.
 
-So, e1000 is not going away.
+2) Kernel history is fixed in stone, once committed upstream.  Thus, you 
+must regenerate your patches based on the fact that old-patch is now 
+upstream.
 
 	Jeff
 
 
 
--------------------------------------------------------------------------
-This SF.net email is sponsored by: Splunk Inc.
-Still grepping through log files to find problems?  Stop.
-Now Search log events and configuration files using AJAX and a browser.
-Download your FREE copy of Splunk now >>  http://get.splunk.com/
