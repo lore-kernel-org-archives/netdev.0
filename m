@@ -1,35 +1,75 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: Tc filtering: broken 802_3 classifier?
-Date: Wed, 25 Jul 2007 02:31:31 +0200
-Message-ID: <46A699E3.2000609@trash.net>
-References: <D5C1322C3E673F459512FB59E0DDC32903484027@orsmsx414.amr.corp.intel.com>
+From: Shannon Nelson <shannon.nelson@intel.com>
+Subject: [PATCH] NET_DMA: remove unused dma_memcpy_to_kernel_iovec
+Date: Tue, 24 Jul 2007 17:36:06 -0700
+Message-ID: <20070725003606.11018.15141.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Cc: viro@ftp.linux.org.uk, christopher.leech@intel.com,
+	andy.grover@gmail.com, shannon.nelson@intel.com
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:37050 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759329AbXGYAcL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jul 2007 20:32:11 -0400
-In-Reply-To: <D5C1322C3E673F459512FB59E0DDC32903484027@orsmsx414.amr.corp.intel.com>
+Received: from mga02.intel.com ([134.134.136.20]:51628 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759671AbXGYAg1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Jul 2007 20:36:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Waskiewicz Jr, Peter P wrote:
-> [...]
-> Now I add a filter for ethernet (802.3), and things aren't as happy:
-> 
-> # tc filter add dev eth0 protocol 802_3 parent 1: prio 2 u32 match u32
-> <first 4 bytes of dst mac address> 0xffffffff at 0 match u32 <last 2
-> bytes of dst mac address> 0xffff0000 at 4 flowid 1:1
-> 
-> This should match the destination MAC address of outgoing packets, and
-> put it into flowid 1:1.  For pings, using the normal priomap, they go
-> into 1:2, so ping should be a good candidate for seeing if it goes into
-> 1:1.  In this case, it does not filter into 1:1.
+(repost - original eaten by vger?)
 
+Al Viro pointed out that dma_memcpy_to_kernel_iovec() really was
+unreachable and thus unused.  The code originally was there to support
+in-kernel dma needs, but since it remains unused, we'll pull it out.
 
-The protocol match is on skb->protocol, so it case of ethernet its
-on the ethernet protocol, which is ETH_P_IP or "ip" for IPv4.
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+---
+
+ drivers/dma/iovlock.c |   27 ---------------------------
+ 1 files changed, 0 insertions(+), 27 deletions(-)
+
+diff --git a/drivers/dma/iovlock.c b/drivers/dma/iovlock.c
+index d637555..e763d72 100644
+--- a/drivers/dma/iovlock.c
++++ b/drivers/dma/iovlock.c
+@@ -143,29 +143,6 @@ void dma_unpin_iovec_pages(struct dma_pinned_list *pinned_list)
+ 	kfree(pinned_list);
+ }
+ 
+-static dma_cookie_t dma_memcpy_to_kernel_iovec(struct dma_chan *chan, struct
+-	iovec *iov, unsigned char *kdata, size_t len)
+-{
+-	dma_cookie_t dma_cookie = 0;
+-
+-	while (len > 0) {
+-		if (iov->iov_len) {
+-			int copy = min_t(unsigned int, iov->iov_len, len);
+-			dma_cookie = dma_async_memcpy_buf_to_buf(
+-					chan,
+-					iov->iov_base,
+-					kdata,
+-					copy);
+-			kdata += copy;
+-			len -= copy;
+-			iov->iov_len -= copy;
+-			iov->iov_base += copy;
+-		}
+-		iov++;
+-	}
+-
+-	return dma_cookie;
+-}
+ 
+ /*
+  * We have already pinned down the pages we will be using in the iovecs.
+@@ -187,10 +164,6 @@ dma_cookie_t dma_memcpy_to_iovec(struct dma_chan *chan, struct iovec *iov,
+ 	if (!chan)
+ 		return memcpy_toiovec(iov, kdata, len);
+ 
+-	/* -> kernel copies (e.g. smbfs) */
+-	if (!pinned_list)
+-		return dma_memcpy_to_kernel_iovec(chan, iov, kdata, len);
+-
+ 	iovec_idx = 0;
+ 	while (iovec_idx < pinned_list->nr_iovecs) {
+ 		struct dma_page_list *page_list;
