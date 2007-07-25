@@ -1,75 +1,36 @@
-From: Shannon Nelson <shannon.nelson@intel.com>
-Subject: [PATCH] NET_DMA: remove unused dma_memcpy_to_kernel_iovec
-Date: Tue, 24 Jul 2007 17:36:06 -0700
-Message-ID: <20070725003606.11018.15141.stgit@localhost.localdomain>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [FIX] NET: Fix sch_api and sch_prio to properly set and detect
+ the	root qdisc
+Date: Wed, 25 Jul 2007 02:35:50 +0200
+Message-ID: <46A69AE6.9030009@trash.net>
+References: <20070724223346.10658.80645.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: viro@ftp.linux.org.uk, christopher.leech@intel.com,
-	andy.grover@gmail.com, shannon.nelson@intel.com
-To: netdev@vger.kernel.org, davem@davemloft.net
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:51628 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759671AbXGYAg1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Jul 2007 20:36:27 -0400
+Received: from stinky.trash.net ([213.144.137.162]:37118 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932101AbXGYAgf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jul 2007 20:36:35 -0400
+In-Reply-To: <20070724223346.10658.80645.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-(repost - original eaten by vger?)
+PJ Waskiewicz wrote:
+> This is a patch from Patrick McHardy to fix the sch_api code, which I
+> went ahead and tested and made a slight fix to.  This also includes
+> the fix to sch_prio based on Patrick's patch.
+> 
+> The sch->parent handle should contain the parent qdisc ID.  When the
+> qdisc is the root qdisc (TC_H_ROOT), the parent handle should be the
+> value TC_H_ROOT.  This fixes sch_api to set this correctly on
+> qdisc_create() for both ingress and egress qdiscs.
+> 
+> Change this check in prio_tune() so that only the root qdisc can be
+> multiqueue-enabled; use sch->parent instead of sch->handle.
 
-Al Viro pointed out that dma_memcpy_to_kernel_iovec() really was
-unreachable and thus unused.  The code originally was there to support
-in-kernel dma needs, but since it remains unused, we'll pull it out.
+Both look good, thanks.
 
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
----
-
- drivers/dma/iovlock.c |   27 ---------------------------
- 1 files changed, 0 insertions(+), 27 deletions(-)
-
-diff --git a/drivers/dma/iovlock.c b/drivers/dma/iovlock.c
-index d637555..e763d72 100644
---- a/drivers/dma/iovlock.c
-+++ b/drivers/dma/iovlock.c
-@@ -143,29 +143,6 @@ void dma_unpin_iovec_pages(struct dma_pinned_list *pinned_list)
- 	kfree(pinned_list);
- }
- 
--static dma_cookie_t dma_memcpy_to_kernel_iovec(struct dma_chan *chan, struct
--	iovec *iov, unsigned char *kdata, size_t len)
--{
--	dma_cookie_t dma_cookie = 0;
--
--	while (len > 0) {
--		if (iov->iov_len) {
--			int copy = min_t(unsigned int, iov->iov_len, len);
--			dma_cookie = dma_async_memcpy_buf_to_buf(
--					chan,
--					iov->iov_base,
--					kdata,
--					copy);
--			kdata += copy;
--			len -= copy;
--			iov->iov_len -= copy;
--			iov->iov_base += copy;
--		}
--		iov++;
--	}
--
--	return dma_cookie;
--}
- 
- /*
-  * We have already pinned down the pages we will be using in the iovecs.
-@@ -187,10 +164,6 @@ dma_cookie_t dma_memcpy_to_iovec(struct dma_chan *chan, struct iovec *iov,
- 	if (!chan)
- 		return memcpy_toiovec(iov, kdata, len);
- 
--	/* -> kernel copies (e.g. smbfs) */
--	if (!pinned_list)
--		return dma_memcpy_to_kernel_iovec(chan, iov, kdata, len);
--
- 	iovec_idx = 0;
- 	while (iovec_idx < pinned_list->nr_iovecs) {
- 		struct dma_page_list *page_list;
+Acked-by: Patrick McHardy <kaber@trash.net>
