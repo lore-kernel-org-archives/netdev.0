@@ -1,72 +1,55 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [-mm patch] one e1000 driver should be enough for everyone
-Date: Wed, 25 Jul 2007 15:36:50 +0200
-Message-ID: <20070725133650.GB3572@stusta.de>
-References: <20070725040304.111550f4.akpm@linux-foundation.org>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: 2.6.20->2.6.21 - networking dies after random time
+Date: Wed, 25 Jul 2007 15:57:18 +0200
+Message-ID: <20070725135718.GB1843@ff.dom.local>
+References: <JKE37W$0126317E099DF36884CC046B6F8A7AA9@xandmail.com> <20070629150759.GC2771@ff.dom.local> <4bacf17f0707222244p664e7a6ap850b3357a57d73c@mail.gmail.com> <20070724080534.GC18740@elte.hu> <20070724094202.GA11610@elte.hu> <alpine.LFD.0.999.0707241228291.3607@woody.linux-foundation.org> <20070724200431.GA22190@elte.hu> <1185322771.4175.102.camel@chaos>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: linux-kernel@vger.kernel.org, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>,
-	Auke Kok <auke-jan.h.kok@intel.com>, jgarzik@pobox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout.stusta.mhn.de ([141.84.69.5]:43998 "EHLO
-	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756567AbXGYNhT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jul 2007 09:37:19 -0400
+Content-Type: text/plain; charset=us-ascii
+Cc: Ingo Molnar <mingo@elte.hu>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Marcin ??lusarz <marcin.slusarz@gmail.com>,
+	Jean-Baptiste Vignaud <vignaud@xandmail.fr>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	shemminger <shemminger@linux-foundation.org>,
+	linux-net <linux-net@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Thomas Gleixner <tglx@linutronix.de>
+Return-path: <linux-net-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20070725040304.111550f4.akpm@linux-foundation.org>
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <1185322771.4175.102.camel@chaos>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 25, 2007 at 04:03:04AM -0700, Andrew Morton wrote:
->...
-> Changes since 2.6.22-rc6-mm1:
->...
->  git-e1000new.patch
->...
->  git trees
->...
-
-Both e1000 drivers compiled into the kernel resulted in the following 
-compile error:
-
-<--  snip  -->
-
+On Wed, Jul 25, 2007 at 02:19:31AM +0200, Thomas Gleixner wrote:
 ...
-  LD      drivers/net/built-in.o
-drivers/net/e1000/built-in.o: In function `e1000_read_mac_addr':
-(.text+0xb9f2): multiple definition of `e1000_read_mac_addr'
-drivers/net/e1000new/built-in.o:(.text+0x821a): first defined here
-drivers/net/e1000/built-in.o: In function `e1000_phy_setup_autoneg':
-(.text+0x8799): multiple definition of `e1000_phy_setup_autoneg'
-drivers/net/e1000new/built-in.o:(.text+0xa9bd): first defined here
+> Looking into the IO_APIC code, the resend via send_IPI_self() happens
+> unconditionally. So the resend is done for level and edge interrupts.
+> This makes the problem more mysterious.
+> 
+> The code in question lib8390.c does
+> 
+> 	disable_irq();
+> 	fiddle_with_the_network_card_hardware()
+> 	enable_irq();
 ...
-make[3]: *** [drivers/net/built-in.o] Error 1
+> 
+> No idea how this affects the network card, as the code there must be
+> able to handle interrupts, which are not originated from the card due to
+> interrupt sharing.
 
-<--  snip  -->
+I think, in this last yesterday's patch Ingo could be right, yet!
+The comment at the beginnig points this is done like that because
+of chip's slowness. And problems with timing are mysterious.
 
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
+On the other hand author of this code didn't use spin_lock_irqsave
+for some reason, probably after testing this option too. So, I hope
+this is the right path, but alas, I'm not sure this patch has to
+prove this 100%.
 
----
+Anyway, in my opinion this situation where interrupts could/have_to
+be used for such strange things should confirm the need of more
+options for handling irqs individually.
 
-BTW:
-Unless I'm misunderstanding anything, the new driver should support a 
-superset of what the old driver supported.
-Therefore, it would be good if the final merge into Linus' tree will
-do an
-  rm -r drivers/net/e1000
-  mv drivers/net/e1000new drivers/net/e1000
-
---- linux-2.6.23-rc1-mm1/drivers/net/Kconfig.old	2007-07-25 15:06:13.000000000 +0200
-+++ linux-2.6.23-rc1-mm1/drivers/net/Kconfig	2007-07-25 15:09:59.000000000 +0200
-@@ -2036,7 +2036,7 @@
- 
- config E1000
- 	tristate "Intel(R) PRO/1000 Gigabit Ethernet support"
--	depends on PCI
-+	depends on PCI && E1000NEW=n
- 	---help---
- 	  This driver supports Intel(R) PRO/1000 gigabit ethernet family of
- 	  adapters.  For more information on how to identify your adapter, go 
-
+Thanks,
+Jarek P.
