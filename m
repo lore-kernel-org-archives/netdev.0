@@ -1,35 +1,61 @@
 From: shemminger@oldman.hamilton.local
-Subject: [PATCH 0/3] TCP timestamp hardening (update)
-Date: Wed, 25 Jul 2007 11:44:35 +0100
-Message-ID: <20070725104434.998037763@oldman.hamilton.local>
+Subject: [PATCH 3/3] TCP: htcp - use measured rtt
+Date: Wed, 25 Jul 2007 11:44:38 +0100
+Message-ID: <20070725104826.760544771@oldman.hamilton.local>
+References: <20070725104434.998037763@oldman.hamilton.local>
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:36663 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:44186 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758803AbXGYLB3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jul 2007 07:01:29 -0400
+	by vger.kernel.org with ESMTP id S1758919AbXGYLBr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jul 2007 07:01:47 -0400
+Content-Disposition: inline; filename=htcp-fix.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-These patches deal with issues brought up by Gavin McCullagh
-about reactions of Cubic and HTCP to hostile receivers that return
-bogus timestamp options. If the receiver crafts a timestamp that is
-larger than the original, then some of the congestion control algorithms
-maybe come unfair.
+Change HTCP to use measured RTT rather than smooth RTT.
+Srtt is computed using the TCP receive timestamp
+options, so it is vulnerable to hostile receivers. To avoid any problems
+this might cause use the measured RTT instead.
 
-The solution in these patches is to only use local values to measure
-RTT for congestion control.  The timestamp is still used as described
-in RFC's to measure RTT used for retransmit timer.
+Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
-Thank you to Sangtae Ha for testing, these, see:
-  http://netsrv.csc.ncsu.edu/net-2.6.22/stephen_lowres/
-He also found some pre-existing problems with TCP-LP that might
-be related to NAPI on the receiver.
-
-This should go into 2.6.23. But not into the stable kernel
-since the risk of causing regression is greater than the possible
-risk exposure.
+--- a/net/ipv4/tcp_htcp.c	2007-07-19 08:26:40.000000000 +0100
++++ b/net/ipv4/tcp_htcp.c	2007-07-19 08:28:07.000000000 +0100
+@@ -76,12 +76,11 @@ static u32 htcp_cwnd_undo(struct sock *s
+ 	return max(tp->snd_cwnd, (tp->snd_ssthresh << 7) / ca->beta);
+ }
+ 
+-static inline void measure_rtt(struct sock *sk)
++static inline void measure_rtt(struct sock *sk, u32 srtt)
+ {
+ 	const struct inet_connection_sock *icsk = inet_csk(sk);
+ 	const struct tcp_sock *tp = tcp_sk(sk);
+ 	struct htcp *ca = inet_csk_ca(sk);
+-	u32 srtt = tp->srtt >> 3;
+ 
+ 	/* keep track of minimum RTT seen so far, minRTT is zero at first */
+ 	if (ca->minRTT > srtt || !ca->minRTT)
+@@ -108,6 +107,9 @@ static void measure_achieved_throughput(
+ 	if (icsk->icsk_ca_state == TCP_CA_Open)
+ 		ca->pkts_acked = pkts_acked;
+ 
++	if (rtt > 0)
++		measure_rtt(sk, usecs_to_jiffies(rtt));
++
+ 	if (!use_bandwidth_switch)
+ 		return;
+ 
+@@ -237,8 +239,6 @@ static void htcp_cong_avoid(struct sock 
+ 	if (tp->snd_cwnd <= tp->snd_ssthresh)
+ 		tcp_slow_start(tp);
+ 	else {
+-		measure_rtt(sk);
+-
+ 		/* In dangerous area, increase slowly.
+ 		 * In theory this is tp->snd_cwnd += alpha / tp->snd_cwnd
+ 		 */
 
 -- 
 
