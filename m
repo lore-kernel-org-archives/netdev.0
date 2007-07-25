@@ -1,69 +1,61 @@
-From: Al Boldi <a1426z@gawab.com>
-Subject: [PATCH][v2] Netfilter Kconfig: Expose IPv4/6 connection tracking
-	options by selecting NF_CONNTRACK_ENABLED
-Date: Wed, 25 Jul 2007 18:02:22 +0300
-Message-ID: <200707251802.22200.a1426z@gawab.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [-mm patch] one e1000 driver should be enough for
+	everyone
+Date: Wed, 25 Jul 2007 11:05:00 -0400
+Message-ID: <46A7669C.5010104@garzik.org>
+References: <20070725040304.111550f4.akpm@linux-foundation.org>
+	<20070725133650.GB3572@stusta.de> <46A754C7.9080004@garzik.org>
+	<20070725144615.GC3572@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>, Sam Ravnborg <sam@ravnborg.org>,
-	Patrick McHardy <kaber@trash.net>, David Miller <davem@davemloft.net>
-To: netfilter-devel@lists.netfilter.org, netdev@vger.kernel.org
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Auke Kok <auke-jan.h.kok@intel.com>, linux-kernel@vger.kernel.org
+To: Adrian Bunk <bunk@stusta.de>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20070725144615.GC3572@stusta.de>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
+Adrian Bunk wrote:
+> I found the discussion, and Christoph's e1000e sounds like the best name 
+> ("new" doesn't say whether it's a new driver for old hardware or a 
+> driver for new hardware).
 
-Make NF_CONNTRACK_IPV4 and NF_CONNTRACK_IPV6 select NF_CONNTRACK_ENABLED.
+Yeah, I think "e1000new" is a lame name.
 
-This exposes IPv4/6 connection tracking options for easier Kconfig setup.
+e1000e is good, or even e1001e if we wanted even more symmetry :)
 
-Signed-off-by: Al Boldi <a1426z@gawab.com>
-Cc: Patrick McHardy <kaber@trash.net>
-Cc: David Miller <davem@davemloft.net>
-Cc: Sam Ravnborg <sam@ravnborg.org>
-Cc: Andrew Morton <akpm@linux-foundation.org>
----
---- a/net/netfilter/Kconfig	2007-07-09 06:38:52.000000000 +0300
-+++ b/net/netfilter/Kconfig	2007-07-25 17:37:16.000000000 +0300
-@@ -28,6 +28,7 @@ config NETFILTER_NETLINK_LOG
- # Rename this to NF_CONNTRACK in a 2.6.25
- config NF_CONNTRACK_ENABLED
- 	tristate "Netfilter connection tracking support"
-+	select NF_CONNTRACK
- 	help
- 	  Connection tracking keeps a record of what packets have passed
- 	  through your machine, in order to figure out how they are related
---- a/net/ipv4/netfilter/Kconfig	2007-07-09 06:38:50.000000000 +0300
-+++ b/net/ipv4/netfilter/Kconfig	2007-07-25 17:37:39.000000000 +0300
-@@ -7,7 +7,7 @@ menu "IP: Netfilter Configuration"
- 
- config NF_CONNTRACK_IPV4
- 	tristate "IPv4 connection tracking support (required for NAT)"
--	depends on NF_CONNTRACK
-+	select NF_CONNTRACK_ENABLED
- 	---help---
- 	  Connection tracking keeps a record of what packets have passed
- 	  through your machine, in order to figure out how they are related
---- a/net/ipv6/netfilter/Kconfig	2007-07-09 06:38:51.000000000 +0300
-+++ b/net/ipv6/netfilter/Kconfig	2007-07-25 17:37:57.000000000 +0300
-@@ -7,7 +7,8 @@ menu "IPv6: Netfilter Configuration (EXP
- 
- config NF_CONNTRACK_IPV6
- 	tristate "IPv6 connection tracking support (EXPERIMENTAL)"
--	depends on INET && IPV6 && EXPERIMENTAL && NF_CONNTRACK
-+	depends on INET && IPV6 && EXPERIMENTAL
-+	select NF_CONNTRACK_ENABLED
- 	---help---
- 	  Connection tracking keeps a record of what packets have passed
- 	  through your machine, in order to figure out how they are related
+
+> No problem for me, but this obviously implies that global code in the 
+> new driver has to be renamed.
+
+Yes.  A global namespace is a global namespace.
+
+
+> And please ensure that they will always support distinct PCI IDs, or 
+> there will be the following common pattern if both drivers support
+> a card:
+
+IIRC I think Auke said there is some minor PCI ID overlap that must be 
+addressed in the transition.  Disappointing and it raises transition 
+issues, but that's the way the split falls out naturally AFAICS.
+
+	Jeff
+
+
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Splunk Inc.
+Still grepping through log files to find problems?  Stop.
+Now Search log events and configuration files using AJAX and a browser.
+Download your FREE copy of Splunk now >>  http://get.splunk.com/
