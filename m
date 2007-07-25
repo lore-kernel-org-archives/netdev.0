@@ -1,53 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH]: 2nd revision of make xfrm_audit_log more generic
-Date: Wed, 25 Jul 2007 17:17:23 -0700 (PDT)
-Message-ID: <20070725.171723.45714101.davem@davemloft.net>
-References: <200707251921.l6PJLhxV015256@faith.austin.ibm.com>
+From: Dave Johnson <djohnson+linux-kernel@sw.starentnetworks.com>
+Subject: [PATCH] IPv6: ipv6_addr_type() doesn't know about RFC4193 addresses
+Date: Wed, 25 Jul 2007 19:49:09 -0400
+Message-ID: <18087.57717.495366.413571@zeus.sw.starentnetworks.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-audit@redhat.com, sgrubb@redhat.com
-To: latten@austin.ibm.com
+Cc: linux-kernel@vger.kernel.org,
+	lksctp-developers@lists.sourceforge.net,
+	"Srinivas Akkipeddi" <sakkiped@starentnetworks.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55440
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751675AbXGZARY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jul 2007 20:17:24 -0400
-In-Reply-To: <200707251921.l6PJLhxV015256@faith.austin.ibm.com>
+Received: from [12.38.223.190] ([12.38.223.190]:28445 "EHLO
+	mail.sw.starentnetworks.com" rhost-flags-FAIL-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751399AbXGZAS6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jul 2007 20:18:58 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Joy Latten <latten@austin.ibm.com>
-Date: Wed, 25 Jul 2007 14:21:43 -0500
 
-> This is 2nd revision of patch to modify xfrm_audit_log() such
-> that it can accomodate auditing other ipsec events
-> besides add/delete of an SA or SPD entry.
-> 
-> 2nd revision includes new define for all IPsec
-> events in audit.h and introduces "op=" entry
-> in logfile as well as add a hyphen in description
-> for report parsing. 
-> 
-> This is a small change to accomodate updating
-> ipsec protocol to RFCs 4301, 4302 and 4303 which
-> require auditing some ipsec events if auditing
-> is available. Please let me know if ok.
-> 
-> Signed-off-by: Joy Latten <latten@austin.ibm.com>
+ipv6_addr_type() doesn't check for 'Unique Local IPv6 Unicast
+Addresses' (RFC4193) and returns IPV6_ADDR_RESERVED for that range.
 
-I like very much how the implementation of xfrm_audit_log() got
-simplified.
+SCTP uses this function and will fail bind() and connect() calls that
+use RFC4193 addresses, SCTP will also ignore inbound connections from
+RFC4193 addresses if listening on IPV6_ADDR_ANY.
 
-But _TEN_ function call arguments, good grief!
+There may be other users of ipv6_addr_type() that could also have
+problems.
 
-That's at least twice as many as most cpus can pass in registers.
+Signed-off-by: Dave Johnson <djohnson+linux-kernel@sw.starentnetworks.com>
+Cc: Srinivas Akkipeddi <sakkiped@starentnetworks.com>
 
-Let's try an alternative where you have specialized
-xfrm_audit_log_foo() routines that take a user policy pointer, or
-whatever the main object is.
+===== net/ipv6/addrconf_core.c 1.2 vs edited =====
+--- 1.2/net/ipv6/addrconf_core.c	2007-02-26 14:42:57 -05:00
++++ edited/net/ipv6/addrconf_core.c	2007-07-25 15:21:41 -04:00
+@@ -50,6 +50,9 @@
+ 	if ((st & htonl(0xFFC00000)) == htonl(0xFEC00000))
+ 		return (IPV6_ADDR_SITELOCAL | IPV6_ADDR_UNICAST |
+ 			IPV6_ADDR_SCOPE_TYPE(IPV6_ADDR_SCOPE_SITELOCAL));		/* addr-select 3.1 */
++	if ((st & htonl(0xFE000000)) == htonl(0xFC000000))
++		return (IPV6_ADDR_UNICAST |
++			IPV6_ADDR_SCOPE_TYPE(IPV6_ADDR_SCOPE_GLOBAL));			/* RFC 4193 */
+ 
+ 	if ((addr->s6_addr32[0] | addr->s6_addr32[1]) == 0) {
+ 		if (addr->s6_addr32[2] == 0) {
 
-If internally this just unpacks the needed bits and calls some
-do_xfrm_audit_log() thing inside of the auditing code that takes lots
-of arguments, that's fine, but let's not expand all of that argument
-setup code in the main IPSEC code paths.
