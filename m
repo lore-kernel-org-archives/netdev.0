@@ -1,52 +1,86 @@
-From: chengong <g.chen@freescale.com>
-Subject: Re: modpost warning question
-Date: Wed, 25 Jul 2007 18:08:03 +0800
-Message-ID: <1185358083.4996.6.camel@localhost.localdomain>
-References: <Pine.LNX.4.64.0707250210520.14366@blarg.am.freescale.net>
-	<20070725072712.GB24093@uranus.ravnborg.org>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: 2.6.23-rc1 sky2 boot crash in sky2_mac_intr
+Date: Wed, 25 Jul 2007 11:27:52 +0100
+Message-ID: <20070725112752.11d21751@oldman.hamilton.local>
+References: <20070724082205.GA19480@paradigm.rfc822.org>
+	<20070724095008.0eb154fe@oldman.hamilton.local>
+	<20070724094042.GA6414@paradigm.rfc822.org>
+	<6bffcb0e0707241630p3599ad99sfd778097b307e78c@mail.gmail.com>
+	<20070725072202.GA4905@paradigm.rfc822.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
-	Jeff Garzik <jeff@garzik.org>, linux-kernel@vger.kernel.org
-To: Sam Ravnborg <sam@ravnborg.org>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-In-Reply-To: <20070725072712.GB24093@uranus.ravnborg.org>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Cc: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Florian Lohoff <flo@rfc822.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:41515 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756473AbXGYK14 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jul 2007 06:27:56 -0400
+In-Reply-To: <20070725072202.GA4905@paradigm.rfc822.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2007-07-25 at 09:27 +0200, Sam Ravnborg wrote:
-> On Wed, Jul 25, 2007 at 02:14:12AM -0500, Kumar Gala wrote:
-> > I'm seeing the following warning:
+On Wed, 25 Jul 2007 09:22:02 +0200
+Florian Lohoff <flo@rfc822.org> wrote:
+
+> On Wed, Jul 25, 2007 at 01:30:31AM +0200, Michal Piotrowski wrote:
+> > >I'll try the above and keep you posted. The crash itself seems to be a
+> > >2.6.23-rc1 regression though. I never experienced this with 2.6.22-rc5
+> > >which i was running before.
 > > 
-> > WARNING: vmlinux.o(.init.text+0x1acdc): Section mismatch: reference to
-> > .exit.text:gfar_mdio_exit (between 'gfar_init' and 'gfar_mdio_init')
-> > 
-> > I don't understand why its not ok to access .exit.text from .init.text
+> > Can you try to figure out what is causing this crash and then use 
+> > git-bisect?
 > 
-> Several architectures discards .exit.text in the final linker
-> script (arch/$(ARCH)/kernel/vmlinux.lds.S
+> Are there so many changes between 2.6.22-rc5 and 2.6.23-rc1 for the sky2?
 > 
-> So any references to .exit.text will when a module is build-in result
-> in a linker error because ld will flag it as an error when we reference
-> a symbol in a discarded section.
-But why? Just make kernel size smaller?
+> As the crash is not that reproducible, just occasionally on boot i guess
+> bisecting is more or less waste of time.
 > 
-> For the popular architectures (i386,x86_64) we discard .exit.text at
-> runtime so here we do not see the error from ld (sadly).
->From which version? On my machine I have seen the same problem when
-building i386 target with the version 2.6.21.
-> 
-> 	Sam
-> _______________________________________________
-> Linuxppc-dev mailing list
-> Linuxppc-dev@ozlabs.org
-> https://ozlabs.org/mailman/listinfo/linuxppc-dev
+> Flo
+> -- 
+> Florian Lohoff                  flo@rfc822.org             +49-171-2280134
+> 	Those who would give up a little freedom to get a little 
+>           security shall soon have neither - Benjamin Franklin
+
+I would suspect these as possible causes of the regression was one of these
+patches.
+
+commit 8f70920f2f2a699b4ad35e625071cd92f4ba6ca3
+Author: Stephen Hemminger <shemminger@linux-foundation.org>
+Date:   Mon Jun 4 17:23:25 2007 -0700
+
+    sky2: GPIO register
+    
+    The General Purpose I/O register is yet another hardware workaround
+    catchall. Enable workaround that vendor driver does to stay
+    but for bug compatiable.
+    
+    Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+    Signed-off-by: Jeff Garzik <jeff@garzik.org>
+
+commit 451af33552286b426940a32126bd3ece243223a3
+Author: Stephen Hemminger <shemminger@linux-foundation.org>
+Date:   Mon Jun 4 17:23:24 2007 -0700
+
+    sky2: enable clocks before probe
+    
+    Catch-22: On Yukon EX (88E8071) need to have internal clocks enabled
+    before reading chip id. It is harmless on other chips.
+    
+    Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+    Signed-off-by: Jeff Garzik <jeff@garzik.org>
+
+commit fc99fe0618f355b708ce88fedaca9783072ac3d5
+Author: Stephen Hemminger <shemminger@linux-foundation.org>
+Date:   Mon Jun 4 17:23:22 2007 -0700
+
+    sky2: Add PCI device specfic register 4 & 5
+    
+    Need to setup more PCI control control registers are on Yukon EX.
+    Some of these also exist on Yukon EC-U as well.
+    
+    Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+    Signed-off-by: Jeff Garzik <jeff@garzik.org>
+
