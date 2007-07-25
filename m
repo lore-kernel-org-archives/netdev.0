@@ -1,33 +1,41 @@
-From: "Eric Van Hensbergen" <ericvh@gmail.com>
-Subject: Re: net/9p/mux.c: use-after-free
-Date: Wed, 25 Jul 2007 14:45:38 -0500
-Message-ID: <a4e6962a0707251245i642eaf90jc7ccc30870958fa3@mail.gmail.com>
-References: <20070723012014.GV26212@stusta.de>
-	 <a4e6962a0707251143ie0b0ce8s7d4a9078fed7eb26@mail.gmail.com>
-	 <f158dc670707251213i65501f9eh6d35a8712583cd90@mail.gmail.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [-mm patch] one e1000 driver should be enough for
+	everyone
+Date: Wed, 25 Jul 2007 13:50:23 -0700
+Message-ID: <20070725135023.6a194c25.akpm@linux-foundation.org>
+References: <20070725040304.111550f4.akpm@linux-foundation.org>
+	<20070725133650.GB3572@stusta.de> <46A754C7.9080004@garzik.org>
+	<20070725144615.GC3572@stusta.de> <46A7669C.5010104@garzik.org>
+	<46A76A66.9000304@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "Adrian Bunk" <bunk@stusta.de>,
-	v9fs-developer@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Latchesar Ionkov" <lucho@ionkov.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.180]:34419 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754890AbXGYTpj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jul 2007 15:45:39 -0400
-Received: by wa-out-1112.google.com with SMTP id v27so327696wah
-        for <netdev@vger.kernel.org>; Wed, 25 Jul 2007 12:45:39 -0700 (PDT)
-In-Reply-To: <f158dc670707251213i65501f9eh6d35a8712583cd90@mail.gmail.com>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
+	Adrian Bunk <bunk@stusta.de>
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <46A76A66.9000304@intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On 7/25/07, Latchesar Ionkov <lucho@ionkov.net> wrote:
-> Yep, it's a leak.
->
+On Wed, 25 Jul 2007 08:21:10 -0700
+"Kok, Auke" <auke-jan.h.kok@intel.com> wrote:
 
-Okay, I'll roll that into the patch as well.
+> Moreover, Andrew should probably just drop this driver from -mm for now.
 
-           -eric
+gone..
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Splunk Inc.
+Still grepping through log files to find problems?  Stop.
+Now Search log events and configuration files using AJAX and a browser.
+Download your FREE copy of Splunk now >>  http://get.splunk.com/
