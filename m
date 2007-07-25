@@ -1,82 +1,52 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH RFC]: napi_struct V4
-Date: Wed, 25 Jul 2007 09:56:54 +0100
-Message-ID: <20070725095654.38a10abc@oldman.hamilton.local>
-References: <20070725.013154.34764933.davem@davemloft.net>
+From: chengong <g.chen@freescale.com>
+Subject: Re: modpost warning question
+Date: Wed, 25 Jul 2007 18:08:03 +0800
+Message-ID: <1185358083.4996.6.camel@localhost.localdomain>
+References: <Pine.LNX.4.64.0707250210520.14366@blarg.am.freescale.net>
+	<20070725072712.GB24093@uranus.ravnborg.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jgarzik@pobox.com, hadi@cyberus.ca,
-	rusty@rustcorp.com.au
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:48139 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753402AbXGYI5a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jul 2007 04:57:30 -0400
-In-Reply-To: <20070725.013154.34764933.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
+Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
+	Jeff Garzik <jeff@garzik.org>, linux-kernel@vger.kernel.org
+To: Sam Ravnborg <sam@ravnborg.org>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+In-Reply-To: <20070725072712.GB24093@uranus.ravnborg.org>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 25 Jul 2007 01:31:54 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
-
+On Wed, 2007-07-25 at 09:27 +0200, Sam Ravnborg wrote:
+> On Wed, Jul 25, 2007 at 02:14:12AM -0500, Kumar Gala wrote:
+> > I'm seeing the following warning:
+> > 
+> > WARNING: vmlinux.o(.init.text+0x1acdc): Section mismatch: reference to
+> > .exit.text:gfar_mdio_exit (between 'gfar_init' and 'gfar_mdio_init')
+> > 
+> > I don't understand why its not ok to access .exit.text from .init.text
 > 
-> We're getting there, slowly...
+> Several architectures discards .exit.text in the final linker
+> script (arch/$(ARCH)/kernel/vmlinux.lds.S
 > 
-> 1) netif_napi_init() is added, the workqueue/requeue stuff
->    as discussed is not needed so you won't see that here
+> So any references to .exit.text will when a module is build-in result
+> in a linker error because ld will flag it as an error when we reference
+> a symbol in a discarded section.
+But why? Just make kernel size smaller?
 > 
-> 2) all cases where netif_rx_complete() are invoked in contexts
->    where cpu interrupts are known to be disabled are replaced
->    with __netif_rx_complete()
+> For the popular architectures (i386,x86_64) we discard .exit.text at
+> runtime so here we do not see the error from ld (sadly).
+>From which version? On my machine I have seen the same problem when
+building i386 target with the version 2.6.21.
 > 
-> Most drivers are in good shape, although some still have very
-> questionable netif_rx_complete() handling, in that racy area that
-> Rusty and myself were discussing today.
-> 
-> My inclination is to wrap those sequences around with an IRQ
-> safe spinlock to fix the race provably, and then if driver
-> authors want to optimize that away with techniques like those
-> that tg3, bnx2, sky2, skge et al. use, that's fine but can
-> be done later.
-> 
-> To some extent it's mechanical work if you know what to look
-> for, so any relative patches for that stuff would be much
-> appreciated and I'll integrate such patches rapidly and without
-> delay.
-> 
-> Besides that the only major issue is netpoll and I have some
-> ideas on how to handle that, which I'll try to implement
-> tonight and tomorrow.
-> 
-> Another thing that's really apparent now is all the wacky
-> napi->weight values various drivers use.  Just grep for
-> netif_napi_init() in the patch or a patched tree to see what
-> I mean.  So much of it doesn't make any sense and I'm tempted
-> to just remove the argument and make everyone use 32 or 64
-> or something like that :-)  Or, default to some value across
-> the board, and let drivers override that on a case by case
-> basis with a BIG FAT COMMENT above the override describing
-> why the different value is being used and precisely what
-> tests were performed to validate that different value.
-> 
-
-The usage of NAPI on 8139cp and 8139too seems dodgy;
-these drivers expect this to work:
-
-		local_irq_save(flags);
-		cpw16_f(IntrMask, cp_intr_mask);
-		__netif_rx_complete(dev);
-		local_irq_restore(flags);
-
-It works on SMP only because if poll races with IRQ, 
-the IRQ is not masked or cleared so the IRQ will get restarted.
-
-Better would be to change it to:
-		spin_lock_irqsave(&cp->lock, flags);
-		cpw16_f(IntrMask, cp_intr_mask);
-		__netif_rx_complete(dev);
-		spin_unlock_irqrestore(&cp->lock, flags);
-
-Which actually is same code on UP.
+> 	Sam
+> _______________________________________________
+> Linuxppc-dev mailing list
+> Linuxppc-dev@ozlabs.org
+> https://ozlabs.org/mailman/listinfo/linuxppc-dev
