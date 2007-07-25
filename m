@@ -1,48 +1,60 @@
-From: Sam Ravnborg <sam@ravnborg.org>
-Subject: Re: modpost warning question
-Date: Wed, 25 Jul 2007 13:45:43 +0200
-Message-ID: <20070725114543.GC25580@uranus.ravnborg.org>
-References: <Pine.LNX.4.64.0707250210520.14366@blarg.am.freescale.net> <20070725072712.GB24093@uranus.ravnborg.org> <1185358083.4996.6.camel@localhost.localdomain>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH RFC]: napi_struct V4
+Date: Wed, 25 Jul 2007 08:01:14 -0400
+Message-ID: <1185364874.26013.192.camel@localhost>
+References: <20070725.013154.34764933.davem@davemloft.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Kumar Gala <galak@kernel.crashing.org>, linuxppc-dev@ozlabs.org,
-	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
-	netdev@vger.kernel.org
-To: chengong <g.chen@freescale.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, shemminger@linux-foundation.org,
+	jgarzik@pobox.com, rusty@rustcorp.com.au
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pasmtpa.tele.dk ([80.160.77.114]:55321 "EHLO pasmtpA.tele.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760109AbXGYLo2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Jul 2007 07:44:28 -0400
-Content-Disposition: inline
-In-Reply-To: <1185358083.4996.6.camel@localhost.localdomain>
+Received: from wx-out-0506.google.com ([66.249.82.232]:19899 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751780AbXGYMBU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jul 2007 08:01:20 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so153905wxd
+        for <netdev@vger.kernel.org>; Wed, 25 Jul 2007 05:01:18 -0700 (PDT)
+In-Reply-To: <20070725.013154.34764933.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 25, 2007 at 06:08:03PM +0800, chengong wrote:
-> On Wed, 2007-07-25 at 09:27 +0200, Sam Ravnborg wrote:
-> > On Wed, Jul 25, 2007 at 02:14:12AM -0500, Kumar Gala wrote:
-> > > I'm seeing the following warning:
-> > > 
-> > > WARNING: vmlinux.o(.init.text+0x1acdc): Section mismatch: reference to
-> > > .exit.text:gfar_mdio_exit (between 'gfar_init' and 'gfar_mdio_init')
-> > > 
-> > > I don't understand why its not ok to access .exit.text from .init.text
-> > 
-> > Several architectures discards .exit.text in the final linker
-> > script (arch/$(ARCH)/kernel/vmlinux.lds.S
-> > 
-> > So any references to .exit.text will when a module is build-in result
-> > in a linker error because ld will flag it as an error when we reference
-> > a symbol in a discarded section.
-> But why? Just make kernel size smaller?
-Yes - that the whole goal of init/exit sections.
+On Wed, 2007-25-07 at 01:31 -0700, David Miller wrote:
+> We're getting there, slowly...
+> 
+> 1) netif_napi_init() is added, the workqueue/requeue stuff
+>    as discussed is not needed so you won't see that here
+..
+....
+> Another thing that's really apparent now is all the wacky
+> napi->weight values various drivers use.  Just grep for
+> netif_napi_init() in the patch or a patched tree to see what
+> I mean.  So much of it doesn't make any sense and I'm tempted
+> to just remove the argument and make everyone use 32 or 64
+> or something like that :-)  Or, default to some value across
+> the board, and let drivers override that on a case by case
+> basis with a BIG FAT COMMENT above the override describing
+> why the different value is being used and precisely what
+> tests were performed to validate that different value.
 
-> > 
-> > For the popular architectures (i386,x86_64) we discard .exit.text at
-> > runtime so here we do not see the error from ld (sadly).
-> >From which version? On my machine I have seen the same problem when
-> building i386 target with the version 2.6.21.
-modpost has started to warn about it. I assume you did not see link errors.
+Sounds reasonable.
+32-64 for Gige seemed to work well as i recall. 10/100 was around 16.
+But that shouldnt matter i think: because the poll from the core is
+based on Varghese's DRR, it probably will be fine if you just gave all
+the same value and the "deficit" part will kick in when needed. Some
+testing maybe required but theoretically i dont see a problem. 
+ 
+BTW: The current kernel code has a "bug" - where if a driver
+forgot to set its weight it would be indeterminate, so even for this
+reason it will be a good idea to enforce a default.
 
-	Sam
+Sorry, havent been following the thread - thanks for CCing me, will try
+to catch up at some point.
+
+cheers,
+jamal
+
+
+
