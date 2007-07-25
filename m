@@ -1,111 +1,77 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: 2.6.20->2.6.21 - networking dies after random time
-Date: Wed, 25 Jul 2007 02:19:31 +0200
-Message-ID: <1185322771.4175.102.camel@chaos>
-References: <JKE37W$0126317E099DF36884CC046B6F8A7AA9@xandmail.com>
-	 <20070629150759.GC2771@ff.dom.local>
-	 <4bacf17f0707222244p664e7a6ap850b3357a57d73c@mail.gmail.com>
-	 <20070724080534.GC18740@elte.hu> <20070724094202.GA11610@elte.hu>
-	 <alpine.LFD.0.999.0707241228291.3607@woody.linux-foundation.org>
-	 <20070724200431.GA22190@elte.hu>
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: Tc filtering: broken 802_3 classifier?
+Date: Tue, 24 Jul 2007 17:19:20 -0700
+Message-ID: <D5C1322C3E673F459512FB59E0DDC32903484027@orsmsx414.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Marcin ??lusarz <marcin.slusarz@gmail.com>,
-	Jarek Poplawski <jarkao2@o2.pl>,
-	Jean-Baptiste Vignaud <vignaud@xandmail.fr>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	shemminger <shemminger@linux-foundation.org>,
-	linux-net <linux-net@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Ingo Molnar <mingo@elte.hu>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.osadl.org ([213.239.205.134]:57369 "EHLO mail.tglx.de"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932274AbXGYATg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Jul 2007 20:19:36 -0400
-In-Reply-To: <20070724200431.GA22190@elte.hu>
+Received: from mga02.intel.com ([134.134.136.20]:15561 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932347AbXGYATy convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jul 2007 20:19:54 -0400
+Content-class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2007-07-24 at 22:04 +0200, Ingo Molnar wrote:
-> Marcin, could you try the patch below too? [without having any other 
-> patch applied.] It basically turns the critical section into an irqs-off 
-> critical section and thus checks whether your problem is related to that 
-> particular area of code.
-> 
+I've been trying to use tc filtering to filter on ethertype, among other
+things in the MAC layer.  I'm running into multiple issues, and want to
+put this out there in case I'm using the filters wrong, or if there
+really is a bug in the filter code (I've stared at most of it today, and
+my head hurts).
 
-I read back on this thread and I think the problem is somewhere else:
+Here's the scenario.  I am running on a recent 2.6.23 GIT tree, and am
+using sch_prio with no multiqueue turned on in the qdisc.  The network
+interface in question is e1000 (no multiqueue).
 
-delayed disable relies on the ability to re-trigger the interrupt in the
-case that a real interrupt happens after the software disable was set.
-In this case we actually disable the interrupt on the hardware level
-_after_ it occurred.
+# tc qdisc add dev eth0 root handle 1: prio
 
-On enable_irq, we need to re-trigger the interrupt. On i386 this relies
-on a hardware resend mechanism (send_IPI_self()). 
+Now to see the flowid's packet counts incrementing, I add explicit
+classful qdiscs to the leaves:
 
-Actually we only need the resend for edge type interrupts. Level type
-interrupts come back once enable_irq() re-enables the interrupt line.
+# tc qdisc add dev eth0 parent 1:1 handle 10: pfifo
+# tc qdisc add dev eth0 parent 1:2 handle 20: pfifo
+# tc qdisc add dev eth0 parent 1:3 handle 30: pfifo
 
-I assume that the interrupt in question is level triggered because it is
-shared and above the legacy irqs 0-15:
+Now packet counts can be seen with:
 
-	17:         12   IO-APIC-fasteoi   eth1, eth0
+# tc -s qdisc ls dev eth0
 
-Looking into the IO_APIC code, the resend via send_IPI_self() happens
-unconditionally. So the resend is done for level and edge interrupts.
-This makes the problem more mysterious.
+I can add a filter for IP for ssh, and it works as intended:
 
-The code in question lib8390.c does
+# tc filter add dev eth0 protocol ip parent 1: prio 1 u32 match ip dport
+22 0xffff flowid 1:3
 
-	disable_irq();
-	fiddle_with_the_network_card_hardware()
-	enable_irq();
+This will shove ssh traffic into the 3rd pfifo queue, where by default
+it will flow into flowid 1:1.  This is good.
 
-The fiddle_with_the_network_card_hardware() might cause interrupts,
-which are cleared in the same code path again,
+Now I add a filter for ethernet (802.3), and things aren't as happy:
 
-Marcin found that when he disables the irq line on the hardware level
-(removing the delayed disable) the card is kept alive.
+# tc filter add dev eth0 protocol 802_3 parent 1: prio 2 u32 match u32
+<first 4 bytes of dst mac address> 0xffffffff at 0 match u32 <last 2
+bytes of dst mac address> 0xffff0000 at 4 flowid 1:1
 
-So the difference is that we can get a resend on enable_irq, when an
-interrupt happens during the time, where we are in the disabled region.
+This should match the destination MAC address of outgoing packets, and
+put it into flowid 1:1.  For pings, using the normal priomap, they go
+into 1:2, so ping should be a good candidate for seeing if it goes into
+1:1.  In this case, it does not filter into 1:1.
 
-No idea how this affects the network card, as the code there must be
-able to handle interrupts, which are not originated from the card due to
-interrupt sharing.
+If I expand this into 8 flows on a multiqueue NIC, using sch_prio or
+sch_rr, adding any 802_3 filter to the chain will cause any traffic that
+hits the classifier (i.e. no other filters match first) to go into
+flowid 1:1, regardless if it actually matches.  Remove the 802_3 filter
+from the chain, and all filtering starts working again.
 
-Marcin, can you please try the patch below ? It's just a debugging aid
-to gather some more data about that problem.
-
-If the patch fixes the problem, then we should try to disable the resend
-mechanism for not edge type irq lines on the irq_chip level (i.e. the
-IOAPIC code)
+I'm trying to get state from the classifier code now when it's running,
+but it's a really big mess of black magic.  I'm wondering if anyone is
+also seeing this behavior, and if they've tried to fix it.  If not, I'll
+continue to search for a solution, but I'm just polling the community to
+see if this is a known issue, or if I'm doing something wrong.
 
 Thanks,
 
-	tglx
-
---- linux-2.6.orig/kernel/irq/resend.c
-+++ linux-2.6/kernel/irq/resend.c
-@@ -62,6 +62,15 @@ void check_irq_resend(struct irq_desc *desc, unsigned int irq)
- 	 */
- 	desc->chip->enable(irq);
- 
-+	/*
-+	 * Temporary hack to figure out more about the problem, which
-+	 * is causing the ancient network cards to die.
-+	 */
-+	if (desc->handle_irq != handle_edge_irq) {
-+		printk(KERN_DEBUG "Skip resend for irq %u\n", irq);
-+		return;
-+	}
-+
- 	if ((status & (IRQ_PENDING | IRQ_REPLAY)) == IRQ_PENDING) {
- 		desc->status = (status & ~IRQ_PENDING) | IRQ_REPLAY;
- 
-
-
+-PJ Waskiewicz
+Intel Corporation
+peter.p.waskiewicz.jr@intel.com <mailto:peter.p.waskiewicz.jr@intel.com>
