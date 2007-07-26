@@ -1,37 +1,40 @@
-From: Meelis Roos <mroos@linux.ee>
-Subject: ipv4 conntrack module loading broken?
-Date: Thu, 26 Jul 2007 20:49:49 +0300 (EEST)
-Message-ID: <Pine.SOC.4.64.0707262045300.1921@math.ut.ee>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH] IPv6: ipv6_addr_type() doesn't know about RFC4193
+ addresses
+Date: Thu, 26 Jul 2007 13:34:52 -0500 (CDT)
+Message-ID: <20070726.133452.78498553.yoshfuji@linux-ipv6.org>
+References: <18087.57717.495366.413571@zeus.sw.starentnetworks.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	linux-kernel@vger.kernel.org,
+	lksctp-developers@lists.sourceforge.net,
+	sakkiped@starentnetworks.com, yoshfuji@linux-ipv6.org
+To: djohnson+linux-kernel@sw.starentnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.it.da.ut.ee ([193.40.5.67]:54230 "EHLO smtp2.it.da.ut.ee"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1763298AbXGZSYw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Jul 2007 14:24:52 -0400
-Received: from math.ut.ee (math.ut.ee [193.40.36.2])
-	by smtp2.it.da.ut.ee (Postfix) with ESMTP id A6E104C03669
-	for <netdev@vger.kernel.org>; Thu, 26 Jul 2007 20:49:49 +0300 (EEST)
-Received: from localhost (localhost [127.0.0.1])
-	by math.ut.ee (Postfix) with ESMTP id 918656ADEB
-	for <netdev@vger.kernel.org>; Thu, 26 Jul 2007 20:49:49 +0300 (EEST)
+Received: from yue.linux-ipv6.org ([203.178.140.15]:49321 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1763128AbXGZSeE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jul 2007 14:34:04 -0400
+In-Reply-To: <18087.57717.495366.413571@zeus.sw.starentnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+Hello.
 
-I tested 2.6.23-rc1 on my prep (arch=ppc) NAT firewall. iptables loaded 
-rules fine (simplest test was with single SNAT rule in POSTROUTING chain 
-in nat table) and iptables -L showed the rule was loaded. But no packets 
-matched the rule and traffic passed un-NATed (just routed). Adding LOG 
-rules showed that no packets reach POSTROUTING at all - and no packets 
-read PREROUTING (didn't test more).
+In article <18087.57717.495366.413571@zeus.sw.starentnetworks.com> (at Wed, 25 Jul 2007 19:49:09 -0400), Dave Johnson <djohnson+linux-kernel@sw.starentnetworks.com> says:
 
-However, after loading nf_conntrack_ipv4 module by hand, the existing 
-rules started working.
+> ipv6_addr_type() doesn't check for 'Unique Local IPv6 Unicast
+> Addresses' (RFC4193) and returns IPV6_ADDR_RESERVED for that range.
 
-Is autoloading of nf_conntrack_ipv4 broken?
+Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+
+I would say, it would be better to add IPV6_ADDR_UNICAST as well
+for "reserved" addresses unless we have good reason not to do it,
+anyway.
 
 -- 
-Meelis Roos (mroos@linux.ee)
+YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
+GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
