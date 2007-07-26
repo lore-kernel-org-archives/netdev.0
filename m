@@ -1,52 +1,47 @@
-From: "kalash nainwal" <kalash.nainwal@gmail.com>
-Subject: inconsistency in dev->hard_header() arguments?
-Date: Thu, 26 Jul 2007 15:25:20 +0530
-Message-ID: <416aa1ad0707260255h650468f5m67cef596523f949e@mail.gmail.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [0/6] Allow registration/change name notifications to fail
+Date: Thu, 26 Jul 2007 11:37:15 +0100
+Message-ID: <20070726113715.6a4b5af9@oldman.hamilton.local>
+References: <20070726090725.GA510@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel <linux-kernel@vger.kernel.org>
-To: netdev@vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Patrick McHardy <kaber@trash.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.173]:39263 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752869AbXGZJzW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jul 2007 05:55:22 -0400
-Received: by ug-out-1314.google.com with SMTP id j3so506234ugf
-        for <netdev@vger.kernel.org>; Thu, 26 Jul 2007 02:55:21 -0700 (PDT)
-Content-Disposition: inline
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:55891 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755030AbXGZKhw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jul 2007 06:37:52 -0400
+In-Reply-To: <20070726090725.GA510@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The function is called like this- dev->hard_header(skb, dev, ptype,
-dest_hw, src_hw, skb->len); where "skb->protocol" is same as "ptype",
-but the former is expected to be in network byte order before calling
-hard_header, while latter in host byte order (eth_header internally
-does its own conversion of ptype). Is this deliberate? or a bug?
+On Thu, 26 Jul 2007 17:07:25 +0800
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-We've a driver, which sends pkt over ethernet. Here's the sample send routine-
+> Hi Dave:
+> 
+> This series of patches adds support to let netdev registration
+> and change name events to fail.  Failures of the former kind
+> prevents the device from registered while the latter attempts
+> to roll back the change (which unfortunately can also fail).
+> 
+> If the failure occurs while a netdev is being registered,
+> then the registration as a whole will fail.  If it occurs
+> when a protocol is being registered, then that protocol
+> will fail to register instead.
+> 
+> Having this allows us to flag allocations failures in a 
+> meaningful way rather than letting the next action that
+> requires what is allocated to flag the failure.
+> 
+> In particular, this allows the reporting of failures to
+> allocate the IPv4/IPv6 device objects.
+> 
+> Cheers,
 
-my_eth_send(struct sk_buff * mp, struct net_device *dev, int linkno)
-{
-<snip>
-        mp->protocol = link->ln_sap;
-        mp->nh.raw = mp->data;
-        dev->hard_header(mp, mp->dev, ntohs(link->ln_sap),
-                dest_node->n_linkinfo[linkno].n_addr,
-                src_node->n_linkinfo[linkno].n_addr,
-                mp->len);
-         dev_queue_xmit(mp);
-}
-
-We store the type field (i.e., link->ln_sap) in our driver in network
-byte order only (as skb->protocol is expected to be in network byte
-order), but as eth_header internally does the conversion again, we've
-to un-convert it (for every outgoing pkt!!) unnecessarily. We can get
-away with this by using two different variables for ptype- one in n/w
-order, other in host order; but unless there's some hidden magic
-behind the current behavior, I'd like to send a patch to fix this in
-kernel. Or if you think it would touch too many files, might break too
-many things...we can let it be.
-
-Regards,
--Kalash
+Thanks for looking at this, are there bugs this fixes so it should
+go to stable?
