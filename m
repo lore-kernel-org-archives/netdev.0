@@ -1,32 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] NET_DMA: remove unused dma_memcpy_to_kernel_iovec
-Date: Thu, 26 Jul 2007 00:06:07 -0700 (PDT)
-Message-ID: <20070726.000607.18303016.davem@davemloft.net>
-References: <20070725003606.11018.15141.stgit@localhost.localdomain>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [PATCH RFC]: napi_struct V4
+Date: Thu, 26 Jul 2007 00:05:47 -0700
+Message-ID: <1551EAE59135BE47B544934E30FC4FC002AAB9F8@nt-irva-0751.brcm.ad.broadcom.com>
+References: <20070725.233808.41635535.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, viro@ftp.linux.org.uk,
-	christopher.leech@intel.com, andy.grover@gmail.com
-To: shannon.nelson@intel.com
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org, shemminger@linux-foundation.org,
+	jgarzik@pobox.com, hadi@cyberus.ca, rusty@rustcorp.com.au
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40633
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1760652AbXGZHGJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jul 2007 03:06:09 -0400
-In-Reply-To: <20070725003606.11018.15141.stgit@localhost.localdomain>
+Received: from mms3.broadcom.com ([216.31.210.19]:2997 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754596AbXGZHGB convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jul 2007 03:06:01 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <20070725.233808.41635535.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Shannon Nelson <shannon.nelson@intel.com>
-Date: Tue, 24 Jul 2007 17:36:06 -0700
+David Miller wrote:
 
-> (repost - original eaten by vger?)
+> So that ->poll_controller() can process TX acks by just having
+> the TX lock and interrupts disabled.
 > 
-> Al Viro pointed out that dma_memcpy_to_kernel_iovec() really was
-> unreachable and thus unused.  The code originally was there to support
-> in-kernel dma needs, but since it remains unused, we'll pull it out.
-> 
-> Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+> Can you think of another way to process TX acks from absolutely
+> any execution context whatsoever?  That's what we need and
+> preferably in some generic way, and the above is what I came
+> up with.
 
-Applied, thanks Shannon.
+What are we trying to protect against by taking the TX lock before
+calling ->poll_controller()?
+
+> 
+> To be honest I don't think the TX lock contention will matter, and
+> even if there were a small cost, the simplicity of the netpoll
+> implementation is worth it given how problematic and hard to debug
+> netpoll has been in the past.
+> 
+>
+
+There is a measurable difference in oprofile.  When passing small
+packets, there's a non-trivial difference in throughput.
+
