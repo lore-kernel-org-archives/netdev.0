@@ -1,35 +1,34 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: RE: [NET_SCHED]: Fix prio/ingress classification logic error
-Date: Thu, 26 Jul 2007 09:31:42 -0700
-Message-ID: <D5C1322C3E673F459512FB59E0DDC329034C0028@orsmsx414.amr.corp.intel.com>
-References: <46A88643.5010003@trash.net>
+From: Simon Arlott <simon@fire.lp0.eu>
+Subject: Re: [PATCH] IPv6: ipv6_addr_type() doesn't know about RFC4193 addresses
+Date: Thu, 26 Jul 2007 18:21:59 +0100
+Message-ID: <46A8D837.1030400@simon.arlott.org.uk>
+References: <18087.57717.495366.413571@zeus.sw.starentnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Linux Netdev List" <netdev@vger.kernel.org>
-To: "Patrick McHardy" <kaber@trash.net>,
-	"David Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	linux-kernel@vger.kernel.org,
+	lksctp-developers@lists.sourceforge.net,
+	Srinivas Akkipeddi <sakkiped@starentnetworks.com>
+To: Dave Johnson <djohnson+linux-kernel@sw.starentnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:36658 "EHLO mga03.intel.com"
+Received: from proxima.lp0.eu ([85.158.45.36]:37874 "EHLO proxima.lp0.eu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757918AbXGZQbp convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jul 2007 12:31:45 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <46A88643.5010003@trash.net>
+	id S1760575AbXGZRWG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Jul 2007 13:22:06 -0400
+In-Reply-To: <18087.57717.495366.413571@zeus.sw.starentnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> This is the final fix for the problem Peter reported.
-> Turns out most other schedulers get it right, the only other 
-> case is ingress setting skb->tc_index to the uninitialized 
-> value of res.classid.
+On 26/07/07 00:49, Dave Johnson wrote:
+> ipv6_addr_type() doesn't check for 'Unique Local IPv6 Unicast
+> Addresses' (RFC4193) and returns IPV6_ADDR_RESERVED for that range.
 
-I've applied this and tested prio and rr, and everything is happy again.
-Thanks for finding this and putting the patch together.
+> +	if ((st & htonl(0xFE000000)) == htonl(0xFC000000))
+> +		return (IPV6_ADDR_UNICAST |
+> +			IPV6_ADDR_SCOPE_TYPE(IPV6_ADDR_SCOPE_GLOBAL));			/* RFC 4193 */
 
-I got lost in looking for the bug in the u32_classify() code, and missed
-the easier defect...
+But ULA's scope isn't global, shouldn't it be IPV6_ADDR_SCOPE_ORGLOCAL ?
 
-Thanks again Patrick,
--PJ Waskiewicz
+-- 
+Simon Arlott
