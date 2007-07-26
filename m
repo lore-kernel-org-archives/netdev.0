@@ -1,69 +1,53 @@
-From: Yasuyuki KOZAKAI <yasuyuki.kozakai@toshiba.co.jp>
-Subject: Re: [PATCH][v2] Netfilter Kconfig: Expose IPv4/6 connection
- tracking options by selecting NF_CONNTRACK_ENABLED
-Date: Thu, 26 Jul 2007 10:18:22 +0900 (JST)
-Message-ID: <200707260118.l6Q1INsb011889@toshiba.co.jp>
-References: <200707251802.22200.a1426z@gawab.com>
-	<46A7EECD.9070801@trash.net>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH RFC]: napi_struct V4
+Date: Wed, 25 Jul 2007 21:55:08 -0400
+Message-ID: <46A7FEFC.4040005@pobox.com>
+References: <20070725.013154.34764933.davem@davemloft.net> <20070725095654.38a10abc@oldman.hamilton.local>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: a1426z@gawab.com, netdev@vger.kernel.org,
-	netfilter-devel@lists.netfilter.org, sam@ravnborg.org
-To: kaber@trash.net
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	hadi@cyberus.ca, rusty@rustcorp.com.au
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from imx9.toshiba.co.jp ([202.33.96.51]:58086 "EHLO
-	imx9.toshiba.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753248AbXGZBs1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jul 2007 21:48:27 -0400
-Received: from inet-tsb5.toshiba.co.jp (inet-tsb5 [202.33.96.24])
-	by imx9.toshiba.co.jp  with ESMTP id l6Q1mO6K023350
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Thu, 26 Jul 2007 10:48:25 +0900 (JST)
-Received: from tsb-wall.toshiba.co.jp ([133.199.160.134])
-	by inet-tsb5.toshiba.co.jp  with ESMTP id l6Q1IPDC017462
-	for <netdev@vger.kernel.org>; Thu, 26 Jul 2007 10:18:25 +0900 (JST)
-Received: (from root@localhost)
-	by tsb-wall.toshiba.co.jp  id l6Q1IOMQ004793
-	for netdev@vger.kernel.org; Thu, 26 Jul 2007 10:18:24 +0900 (JST)
-Received: from mx.toshiba.co.jp (localhost [127.0.0.1])
-	by ovp1.toshiba.co.jp  with ESMTP id l6Q1IOGX001312
-	for <netdev@vger.kernel.org>; Thu, 26 Jul 2007 10:18:24 +0900 (JST)
-In-Reply-To: <46A7EECD.9070801@trash.net>
+Received: from srv5.dvmed.net ([207.36.208.214]:43230 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756675AbXGZBzO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Jul 2007 21:55:14 -0400
+In-Reply-To: <20070725095654.38a10abc@oldman.hamilton.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Thu, 26 Jul 2007 02:46:05 +0200
-
-> [Removed a few CCs]
+Stephen Hemminger wrote:
+> The usage of NAPI on 8139cp and 8139too seems dodgy;
+> these drivers expect this to work:
 > 
-> Al Boldi wrote:
-> > Make NF_CONNTRACK_IPV4 and NF_CONNTRACK_IPV6 select NF_CONNTRACK_ENABLED.
+> 		local_irq_save(flags);
+> 		cpw16_f(IntrMask, cp_intr_mask);
+> 		__netif_rx_complete(dev);
+> 		local_irq_restore(flags);
 > 
+> It works on SMP only because if poll races with IRQ, 
+> the IRQ is not masked or cleared so the IRQ will get restarted.
+
+Expect?  This _does_ work on both UP and SMP.
+
+
+> Better would be to change it to:
+> 		spin_lock_irqsave(&cp->lock, flags);
+> 		cpw16_f(IntrMask, cp_intr_mask);
+> 		__netif_rx_complete(dev);
+> 		spin_unlock_irqrestore(&cp->lock, flags);
 > 
-> One thought that occured to me after the last of many false bugreports
-> that were actually caused by failure to configure the new options
-> properly. Most people know they want NF_CONNTRACK (and its selected by
-> default with old configs), what they're missing is that they now also
-> need to select IPv4 connection tracking. So what would really make sense
-> is to make NF_CONNTRACK_IPV4 default to "m" (and really *everyone*
-> using conntrack wants this). But with your proposed change this would
-> default to selecting NF_CONNTRACK by default, which I'm not so sure
-> is a good idea. So I'm leaning towards just using "m" as default for
-> IPv4 conntrack to save people trouble and myself some bugreports, but
-> I also like your simplification ...
-> 
-> Maybe we can do something to have the NF_CONNTRACK_ENABLED option select
-> NF_CONNTRACK_IPV4 (which really is what we actually want) and combine
-> that with automatic selection of NF_CONNTRACK? I believe the only case
-> with negative impact would be people that currently use only IPv6
-> connection tracking, which is most likely nobody.
+> Which actually is same code on UP.
 
-I agree. I've not heard trouble with NF_CONNTRACK_IPV6. I think that is
-because it is purely new feature.
+I'm missing your point?
 
-BTW, it's too late to restore IP_NF_CONNTRACK in stable and current tree
-for a while ?
+You claim local_irq_save() works only on SMP, then suggest a solution 
+that you agree produces the same result?
 
--- Yasuyuki Kozakai
+I don't see any logic to your request, only added overhead for no reason.
+
+	Jeff
+
+
