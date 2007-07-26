@@ -1,91 +1,63 @@
-From: Kyle Moffett <mrlinuxman@mac.com>
-Subject: Re: [DRIVER SUBMISSION] DRBD wants to go mainline
-Date: Wed, 25 Jul 2007 23:43:38 -0400
-Message-ID: <B3CFC70C-ADBC-406A-A2C8-908530FED007@mac.com>
-References: <20070721203819.GA10706@mail.linbit.com> <20070722213202.1f5d1cab.mrlinuxman@mac.com> <20070723133202.GB23495@mail.linbit.com> <a781481a0707230640h17e6d83l5c2359e41f3ec7b7@mail.gmail.com> <20070723211947.GD6477@mail.linbit.com> <a781481a0707241611v3c35f6bdsb7af97d382b9298f@mail.gmail.com> <20070725094638.GA2444@mail.linbit.com> <a781481a0707250512v29d41b1bh25bcd358e7381d38@mail.gmail.com> <Pine.LNX.4.64.0707251900410.21378@asgard.lang.hm>
-Mime-Version: 1.0 (Apple Message framework v752.2)
-Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
+From: Al Boldi <a1426z@gawab.com>
+Subject: Re: [PATCH][v2] Netfilter Kconfig: Expose IPv4/6 connection tracking options by selecting NF_CONNTRACK_ENABLED
+Date: Thu, 26 Jul 2007 06:53:23 +0300
+Message-ID: <200707260653.23527.a1426z@gawab.com>
+References: <200707251802.22200.a1426z@gawab.com> <46A7EECD.9070801@trash.net>
+Mime-Version: 1.0
+Content-Type: text/plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: Satyam Sharma <satyam.sharma@gmail.com>,
-	Lars Ellenberg <lars.ellenberg@linbit.com>,
-	Jens Axboe <axboe@kernel.dk>, Andrew Morton <akpm@osdl.org>,
-	LKML Kernel <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: david@lang.hm
+Cc: netfilter-devel@lists.netfilter.org, netdev@vger.kernel.org,
+	Sam Ravnborg <sam@ravnborg.org>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpout.mac.com ([17.250.248.173]:55422 "EHLO smtpout.mac.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756875AbXGZDnz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Jul 2007 23:43:55 -0400
-In-Reply-To: <Pine.LNX.4.64.0707251900410.21378@asgard.lang.hm>
+Received: from [212.12.190.146] ([212.12.190.146]:32820 "EHLO raad.intranet"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1757107AbXGZDyQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Jul 2007 23:54:16 -0400
+In-Reply-To: <46A7EECD.9070801@trash.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Jul 25, 2007, at 22:03:37, david@lang.hm wrote:
-> On Wed, 25 Jul 2007, Satyam Sharma wrote:
->> On 7/25/07, Lars Ellenberg <lars.ellenberg@linbit.com> wrote:
->>> On Wed, Jul 25, 2007 at 04:41:53AM +0530, Satyam Sharma wrote:
->>>> [...]
->>>> But where does the "send" come into the picture over here -- a  
->>>> send won't block forever, so I don't foresee any issues  
->>>> whatsoever w.r.t.  kthreads conversion for that. [ BTW I hope  
->>>> you're *not* using any signals-based interface for your kernel  
->>>> thread _at all_. Kthreads disallow (ignore) all signals by  
->>>> default, as they should, and you really shouldn't need to write  
->>>> any logic to handle or >  do-certain-things-on-seeing a signal  
->>>> in a well designed kernel thread. ] and the sending latency is  
->>>> crucial to performance, while the recv will not timeout for the  
->>>> next few seconds.  Again, I don't see what sending latency has  
->>>> to do with a kernel_thread to kthread conversion. Or with  
->>>> signals, for that matter. Anyway, as Kyle Moffett mentioned  
->>>> elsewhere, you could probably look at other examples (say  
->>>> cifs_demultiplexer_thread() in fs/cifs/connect.c).
->>>
->>> the basic problem, and what we use signals for, is:  it is  
->>> waiting in recv, waiting for the peer to say something.  but I  
->>> want it to stop recv, and go send something "right now".
->>
->> That's ... weird. Most (all?) communication between any two  
->> parties would follow a protocol where someone recv's stuff, does  
->> something with it, and sends it back ... what would you send  
->> "right now" if you didn't receive anything?
+Patrick McHardy wrote:
+> Al Boldi wrote:
+> > Make NF_CONNTRACK_IPV4 and NF_CONNTRACK_IPV6 select
+> > NF_CONNTRACK_ENABLED.
 >
-> becouse even though you didn't receive anything you now have  
-> something important to send.
->
-> remember that both sides can be sitting in receive mode. this puts  
-> them both in a position to respond to the other if the other has  
-> something to say.
+> One thought that occured to me after the last of many false bugreports
+> that were actually caused by failure to configure the new options
+> properly. Most people know they want NF_CONNTRACK (and its selected by
+> default with old configs), what they're missing is that they now also
+> need to select IPv4 connection tracking. So what would really make sense
+> is to make NF_CONNTRACK_IPV4 default to "m" (and really *everyone*
+> using conntrack wants this). But with your proposed change this would
+> default to selecting NF_CONNTRACK by default, which I'm not so sure
+> is a good idea.
 
-Why not just have 2 threads, one for "sending" and one for  
-"receiving".  When your receiving thread gets data it takes  
-appropriate locks and processes it, then releases the locks and goes  
-back to waiting for packets.  Your sending thread would take  
-appropriate locks, generate data to send, release locks, and transmit  
-packets.  You don't have to interrupt the receive thread to send  
-packets, so where's the latency problem, exactly?
+Making NF_CONNTRACK_IPV4 default to "m" would select NF_CONNTRACK to "m" if 
+it hasn't been selected by the user to be "y", which seems reasonable.
 
-If I were writing that in userspace I would have:
+> So I'm leaning towards just using "m" as default for
+> IPv4 conntrack to save people trouble and myself some bugreports, but
+> I also like your simplification ...
 
-(A) The pool of IO-generating threads (IE: What would ordinarily be  
-userspace)
-(B) One or a small number of data-reception threads.
-(C) One or a small number of data-transmission threads.
+I was also planning to submit another patch to make all netfilter 
+childoptions options default to their parent, i.e: NF_CONNTRACK_FTP would 
+default NF_CONNTRACK.  This could be one big Kconfig time-saver.
 
-When you get packets to process in your network-reception thread(s),  
-you queue appropriate disk IOs and any appropriate responses with  
-your transmission thread(s).  You can basically just sit in a loop on  
-tcp_recvmsg=>demultiplex=>do-stuff.  When your IO-generators actually  
-make stuff to send you queue such data for disk IO, then packetize it  
-and hand it off to your data-transmission threads.
+> Maybe we can do something to have the NF_CONNTRACK_ENABLED option select
+> NF_CONNTRACK_IPV4 (which really is what we actually want) and combine
+> that with automatic selection of NF_CONNTRACK? I believe the only case
+> with negative impact would be people that currently use only IPv6
+> connection tracking, which is most likely nobody.
 
-If you made all your sockets and inter-thread pipes nonblocking then  
-in userspace you would just epoll_wait() on the sockets and pipes and  
-be easily able to react to any IO from anywhere.
+I think that wouldn't be advisable, as this would add an unnecessary 
+dependency.  But of course,  it's your call...
 
-In kernel space there are similar nonblocking interfaces, although it  
-would probably be easier just to use a couple threads.
 
-Cheers,
-Kyle Moffett
+Thanks!
+
+--
+Al
 
