@@ -1,51 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RFC]: napi_struct V4
-Date: Thu, 26 Jul 2007 00:15:16 -0700 (PDT)
-Message-ID: <20070726.001516.48528000.davem@davemloft.net>
-References: <20070725.233808.41635535.davem@davemloft.net>
-	<1551EAE59135BE47B544934E30FC4FC002AAB9F8@nt-irva-0751.brcm.ad.broadcom.com>
+From: "=?ISO-8859-2?Q?Marcin_=A6lusarz?=" <marcin.slusarz@gmail.com>
+Subject: Re: 2.6.20->2.6.21 - networking dies after random time
+Date: Thu, 26 Jul 2007 09:16:10 +0200
+Message-ID: <4bacf17f0707260016x14fc1c92s628ae64353663833@mail.gmail.com>
+References: <JKE37W$0126317E099DF36884CC046B6F8A7AA9@xandmail.com>
+	 <20070629150759.GC2771@ff.dom.local>
+	 <4bacf17f0707222244p664e7a6ap850b3357a57d73c@mail.gmail.com>
+	 <20070724080534.GC18740@elte.hu> <20070724094202.GA11610@elte.hu>
+	 <alpine.LFD.0.999.0707241228291.3607@woody.linux-foundation.org>
+	 <20070724200431.GA22190@elte.hu> <1185322771.4175.102.camel@chaos>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@linux-foundation.org,
-	jgarzik@pobox.com, hadi@cyberus.ca, rusty@rustcorp.com.au
-To: mchan@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45192
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1757033AbXGZHPR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jul 2007 03:15:17 -0400
-In-Reply-To: <1551EAE59135BE47B544934E30FC4FC002AAB9F8@nt-irva-0751.brcm.ad.broadcom.com>
-Sender: netdev-owner@vger.kernel.org
+To: "Thomas Gleixner" <tglx@linutronix.de>,
+	"Ingo Molnar" <mingo@elte.hu>,
+	"Linus Torvalds" <torvalds@linux-foundation.org>,
+	"Jarek Poplawski" <jarkao2@o2.pl>,
+	"Jean-Baptiste Vignaud" <vignaud@xandmail.fr>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	shemminger <shemminger@linux-foundation.org>,
+	linux-net <linux-net@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	"Andrew Morton" <akpm@linux-foundation.org>
+Return-path: <linux-net-owner@vger.kernel.org>
+In-Reply-To: <1185322771.4175.102.camel@chaos>
+Content-Disposition: inline
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Thu, 26 Jul 2007 00:05:47 -0700
+2007/7/25, Thomas Gleixner <tglx@linutronix.de>:
+> (...)
 
-> David Miller wrote:
-> 
-> > So that ->poll_controller() can process TX acks by just having
-> > the TX lock and interrupts disabled.
-> > 
-> > Can you think of another way to process TX acks from absolutely
-> > any execution context whatsoever?  That's what we need and
-> > preferably in some generic way, and the above is what I came
-> > up with.
-> 
-> What are we trying to protect against by taking the TX lock before
-> calling ->poll_controller()?
+I've tested Jarek's patch, 2 Ingo's patches (2nd and 3rd) and Thomas'
+patch (one patch at time of course) - all of them fixed the problem,
+but the last one flooded my logs with "Skip resend for irq 17". All
+tests were done on 2.6.21.3.
 
-The netpoll code has to take that anyways in order to call
-into ->hard_start_xmit() to send out the packet it has
-pending, I'm leveraging that as a synchronization mechanism
-in the drivers because the locking options are limited
-given that netpoll can try to do this in any context whatsoever.
+I wanted to test them all on 2.6.22.1, but I didn't have enough time.
+I've verified only that 2.6.22.1 has the same problem. I can test it
+later, but I can report results back at beginning of next week.
 
-> There is a measurable difference in oprofile.  When passing small
-> packets, there's a non-trivial difference in throughput.
-
-Then please help come up with an alternate scheme, because these
-NAPI changes fix real limitations and bugs in the current code
-and unless we fix netpoll too we can't move forward.
-
-Thanks.
+Regards,
+Marcin Slusarz
