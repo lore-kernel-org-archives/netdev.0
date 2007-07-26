@@ -1,104 +1,179 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [NET_SCHED]: Fix prio/ingress classification logic error
-Date: Thu, 26 Jul 2007 13:32:19 +0200
-Message-ID: <46A88643.5010003@trash.net>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: [PATCH][netdrvr] lib8390: comment on locking by Alan Cox Re: 2.6.20->2.6.21 - networking dies after random time
+Date: Thu, 26 Jul 2007 14:44:01 +0200
+Message-ID: <20070726124401.GC3423@ff.dom.local>
+References: <JKE37W$0126317E099DF36884CC046B6F8A7AA9@xandmail.com> <20070629150759.GC2771@ff.dom.local> <4bacf17f0707222244p664e7a6ap850b3357a57d73c@mail.gmail.com> <20070724080534.GC18740@elte.hu> <20070724094202.GA11610@elte.hu> <alpine.LFD.0.999.0707241228291.3607@woody.linux-foundation.org> <20070724200431.GA22190@elte.hu> <1185322771.4175.102.camel@chaos> <20070725135718.GB1843@ff.dom.local> <20070725154656.54fd6f13@the-village.bc.nu>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------030404090709050601080000"
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:40873 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751562AbXGZLhV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jul 2007 07:37:21 -0400
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@elte.hu>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Marcin ??lusarz <marcin.slusarz@gmail.com>,
+	Jean-Baptiste Vignaud <vignaud@xandmail.fr>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	shemminger <shemminger@linux-foundation.org>,
+	linux-net <linux-net@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Paul Gortmaker <p_gortmaker@yahoo.com>,
+	Jeff Garzik <jeff@garzik.org>
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759358AbXGZMfR@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20070725154656.54fd6f13@the-village.bc.nu>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------030404090709050601080000
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
+Hi,
 
-This is the final fix for the problem Peter reported.
-Turns out most other schedulers get it right, the only
-other case is ingress setting skb->tc_index to the
-uninitialized value of res.classid.
+Very below is my patch proposal with a comment, which in my opinion
+is precious enough to save it for future help in reading and
+understanding the code.
 
+I hope Alan will not blame me I've not asked for his permission before
+sending, and he would ack this patch as it is or at least most of this.
 
+Thanks & regards,
+Jarek P.
 
---------------030404090709050601080000
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
+On Wed, Jul 25, 2007 at 03:46:56PM +0100, Alan Cox wrote:
+> > > The code in question lib8390.c does
+> > > 
+> > > 	disable_irq();
+> > > 	fiddle_with_the_network_card_hardware()
+> > > 	enable_irq();
+> > ...
+> > > 
+> > > No idea how this affects the network card, as the code there must be
+> > > able to handle interrupts, which are not originated from the card due to
+> > > interrupt sharing.
+> > 
+> > I think, in this last yesterday's patch Ingo could be right, yet!
+> > The comment at the beginnig points this is done like that because
+> > of chip's slowness. And problems with timing are mysterious.
+> > 
+> > On the other hand author of this code didn't use spin_lock_irqsave
+> > for some reason, probably after testing this option too. So, I hope
+> > this is the right path, but alas, I'm not sure this patch has to
+> > prove this 100%.
+> 
+> The author (me) didn't use spin_lock_irqsave because the slowness of the
+> card means that approach caused horrible problems like losing serial data
+> at 38400 baud on some chips. Rememeber many 8390 nics on PCI were ISA
+> chips with FPGA front ends.
+> 
+> > Anyway, in my opinion this situation where interrupts could/have_to
+> > be used for such strange things should confirm the need of more
+> > options for handling irqs individually.
+> 
+> Ok the logic behind the 8390 is very simple:
+> 
+> Things to know
+> 	- IRQ delivery is asynchronous to the PCI bus
+> 	- Blocking the local CPU IRQ via spin locks was too slow
+> 	- The chip has register windows needing locking work
+> 
+> So the path was once (I say once as people appear to have changed it
+> in the mean time and it now looks rather bogus if the changes to use
+> disable_irq_nosync_irqsave are disabling the local IRQ)
+> 
+> 
+> 	Take the page lock
+> 	Mask the IRQ on chip
+> 	Disable the IRQ (but not mask locally- someone seems to have
+> 		broken this with the lock validator stuff)
+> 		[This must be _nosync as the page lock may otherwise
+> 			deadlock us]
+> 	Drop the page lock and turn IRQs back on
+> 	
+> 	At this point an existing IRQ may still be running but we can't
+> 	get a new one
+> 
+> 	Take the lock (so we know the IRQ has terminated) but don't mask
+> the IRQs on the processor
+> 	Set irqlock [for debug]
+> 
+> 	Transmit (slow as ****)
+> 
+> 	re-enable the IRQ
+> 
+> 
+> We have to use disable_irq because otherwise you will get delayed
+> interrupts on the APIC bus deadlocking the transmit path.
+> 
+> Quite hairy but the chip simply wasn't designed for SMP and you can't
+> even ACK an interrupt without risking corrupting other parallel
+> activities on the chip.
+> 
+> Alan
+> 
+------>
 
-[NET_SCHED]: Fix prio/ingress classification logic error
+From: Jarek Poplawski <jarkao2@o2.pl>
 
-Fix handling of empty or completely non-matching filter chains. In
-that case -1 is returned and tcf_result is uninitialized, the
-qdisc should fall back to default classification in that case.
+Subject: lib8390: comment on locking by Alan Cox
 
-Noticed by PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>.
+Additional explanation of problems with locking by Alan Cox.
 
-Signed-off-by: Patrick McHardy <kaber@trash.net>
+Signed-off-by: Jarek Poplawski <jarkao2@o2.pl>
+Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Cc: Paul Gortmaker <p_gortmaker@yahoo.com>
+Cc: Jeff Garzik <jeff@garzik.org>
 
 ---
-commit c98436c161ff45850346b08f89cfb444be7c7817
-tree 07e3ea0f508243f41e70645b6c358e23244ea0b4
-parent e4903fb59590f86190280a549420f6cb85bd7f7e
-author Patrick McHardy <kaber@trash.net> Thu, 26 Jul 2007 13:32:26 +0200
-committer Patrick McHardy <kaber@trash.net> Thu, 26 Jul 2007 13:32:26 +0200
 
- net/sched/sch_ingress.c |    3 +--
- net/sched/sch_prio.c    |    7 +++----
- 2 files changed, 4 insertions(+), 6 deletions(-)
-
-diff --git a/net/sched/sch_ingress.c b/net/sched/sch_ingress.c
-index 51f16b0..2d32fd2 100644
---- a/net/sched/sch_ingress.c
-+++ b/net/sched/sch_ingress.c
-@@ -158,9 +158,8 @@ static int ingress_enqueue(struct sk_buff *skb,struct Qdisc *sch)
- 			break;
- 		case TC_ACT_RECLASSIFY:
- 		case TC_ACT_OK:
--		case TC_ACT_UNSPEC:
--		default:
- 			skb->tc_index = TC_H_MIN(res.classid);
-+		default:
- 			result = TC_ACT_OK;
- 			break;
- 	}
-diff --git a/net/sched/sch_prio.c b/net/sched/sch_prio.c
-index 2d8c084..71bafde 100644
---- a/net/sched/sch_prio.c
-+++ b/net/sched/sch_prio.c
-@@ -38,9 +38,11 @@ prio_classify(struct sk_buff *skb, struct Qdisc *sch, int *qerr)
- 	struct prio_sched_data *q = qdisc_priv(sch);
- 	u32 band = skb->priority;
- 	struct tcf_result res;
-+	int err;
+diff -Nurp 2.6.23-rc1-/drivers/net/lib8390.c 2.6.23-rc1/drivers/net/lib8390.c
+--- 2.6.23-rc1-/drivers/net/lib8390.c	2007-07-09 01:32:17.000000000 +0200
++++ 2.6.23-rc1/drivers/net/lib8390.c	2007-07-26 13:55:17.000000000 +0200
+@@ -143,6 +143,52 @@ static void __NS8390_init(struct net_dev
+  *	annoying the transmit function is called bh atomic. That places
+  *	restrictions on the user context callers as disable_irq won't save
+  *	them.
++ *
++ *	Additional explanation of problems with locking by Alan Cox:
++ *
++ *	"The author (me) didn't use spin_lock_irqsave because the slowness of the
++ *	card means that approach caused horrible problems like losing serial data
++ *	at 38400 baud on some chips. Rememeber many 8390 nics on PCI were ISA
++ *	chips with FPGA front ends.
++ *	
++ *	Ok the logic behind the 8390 is very simple:
++ *	
++ *	Things to know
++ *		- IRQ delivery is asynchronous to the PCI bus
++ *		- Blocking the local CPU IRQ via spin locks was too slow
++ *		- The chip has register windows needing locking work
++ *	
++ *	So the path was once (I say once as people appear to have changed it
++ *	in the mean time and it now looks rather bogus if the changes to use
++ *	disable_irq_nosync_irqsave are disabling the local IRQ)
++ *	
++ *	
++ *		Take the page lock
++ *		Mask the IRQ on chip
++ *		Disable the IRQ (but not mask locally- someone seems to have
++ *			broken this with the lock validator stuff)
++ *			[This must be _nosync as the page lock may otherwise
++ *				deadlock us]
++ *		Drop the page lock and turn IRQs back on
++ *		
++ *		At this point an existing IRQ may still be running but we can't
++ *		get a new one
++ *	
++ *		Take the lock (so we know the IRQ has terminated) but don't mask
++ *	the IRQs on the processor
++ *		Set irqlock [for debug]
++ *	
++ *		Transmit (slow as ****)
++ *	
++ *		re-enable the IRQ
++ *	
++ *	
++ *	We have to use disable_irq because otherwise you will get delayed
++ *	interrupts on the APIC bus deadlocking the transmit path.
++ *	
++ *	Quite hairy but the chip simply wasn't designed for SMP and you can't
++ *	even ACK an interrupt without risking corrupting other parallel
++ *	activities on the chip." [lkml, 25 Jul 2007]
+  */
  
- 	*qerr = NET_XMIT_BYPASS;
- 	if (TC_H_MAJ(skb->priority) != sch->handle) {
-+		err = tc_classify(skb, q->filter_list, &res);
- #ifdef CONFIG_NET_CLS_ACT
- 		switch (tc_classify(skb, q->filter_list, &res)) {
- 		case TC_ACT_STOLEN:
-@@ -49,11 +51,8 @@ prio_classify(struct sk_buff *skb, struct Qdisc *sch, int *qerr)
- 		case TC_ACT_SHOT:
- 			return NULL;
- 		}
--
--		if (!q->filter_list ) {
--#else
--		if (!q->filter_list || tc_classify(skb, q->filter_list, &res)) {
- #endif
-+		if (!q->filter_list || err < 0) {
- 			if (TC_H_MAJ(band))
- 				band = 0;
- 			band = q->prio2band[band&TC_PRIO_MAX];
-
---------------030404090709050601080000--
+ 
