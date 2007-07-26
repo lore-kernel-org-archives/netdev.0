@@ -1,44 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RFC]: napi_struct V4
-Date: Wed, 25 Jul 2007 17:37:31 -0700 (PDT)
-Message-ID: <20070725.173731.98526781.davem@davemloft.net>
-References: <20070725.013154.34764933.davem@davemloft.net>
-	<20070725095654.38a10abc@oldman.hamilton.local>
+From: Ramkrishna Vepa <ram.vepa@neterion.com>
+Subject: [PATCH 2.6.22 2/3]S2io: Fix crash when resetting adapter
+Date: 25 Jul 2007 19:40:33 -0700
+Message-ID: <1185417633.21141.45.camel@flash>
+Reply-To: ram.vepa@neterion.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jgarzik@pobox.com, hadi@cyberus.ca,
-	rusty@rustcorp.com.au
-To: shemminger@linux-foundation.org
+Cc: jeff@garzik.org, ram.vepa@neterion.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58589
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750962AbXGZAhc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jul 2007 20:37:32 -0400
-In-Reply-To: <20070725095654.38a10abc@oldman.hamilton.local>
+Received: from barracuda.s2io.com ([72.1.205.138]:56115 "EHLO
+	barracuda.s2io.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752239AbXGZApc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jul 2007 20:45:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Date: Wed, 25 Jul 2007 09:56:54 +0100
+- Removed the call to pci_set_power_state to reset the adapter as it was resulting
+  in system crash on some platforms.
 
-> The usage of NAPI on 8139cp and 8139too seems dodgy;
-> these drivers expect this to work:
-> 
-> 		local_irq_save(flags);
-> 		cpw16_f(IntrMask, cp_intr_mask);
-> 		__netif_rx_complete(dev);
-> 		local_irq_restore(flags);
-> 
-> It works on SMP only because if poll races with IRQ, 
-> the IRQ is not masked or cleared so the IRQ will get restarted.
-> 
-> Better would be to change it to:
-> 		spin_lock_irqsave(&cp->lock, flags);
-> 		cpw16_f(IntrMask, cp_intr_mask);
-> 		__netif_rx_complete(dev);
-> 		spin_unlock_irqrestore(&cp->lock, flags);
-> 
-> Which actually is same code on UP.
+(Resending; Removed HTML sections in the patch)
 
-I've made these fixes to my tree, thanks Stephen.
+Signed-off-by: Santosh Rastapur <santosh.rastapur@neterion.com>
+---
+diff -Nurp 2.0.24.1P1/drivers/net/s2io.c 2.0.24.1P2/drivers/net/s2io.c
+--- 2.0.24.1P1/drivers/net/s2io.c	2007-07-20 16:16:01.000000000 -0700
++++ 2.0.24.1P2/drivers/net/s2io.c	2007-07-20 16:26:13.000000000 -0700
+@@ -3382,23 +3382,8 @@ static void s2io_reset(struct s2io_nic *
+ 	/* Back up  the PCI-X CMD reg, dont want to lose MMRBC, OST settings */
+ 	pci_read_config_word(sp->pdev, PCIX_COMMAND_REGISTER, &(pci_cmd));
+ 
+-	if (sp->device_type == XFRAME_II_DEVICE) {
+-		int ret;
+-		ret = pci_set_power_state(sp->pdev, 3);
+-		if (!ret)
+-			ret = pci_set_power_state(sp->pdev, 0);
+-		else {
+-			DBG_PRINT(ERR_DBG,"%s PME based SW_Reset failed!\n",
+-					__FUNCTION__);
+-			goto old_way;
+-		}
+-		msleep(20);
+-		goto new_way;
+-	}
+-old_way:
+ 	val64 = SW_RESET_ALL;
+ 	writeq(val64, &bar0->sw_reset);
+-new_way:
+ 	if (strstr(sp->product_name, "CX4")) {
+ 		msleep(750);
+ 	}
+
+
+
