@@ -1,40 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RFC]: napi_struct V4
-Date: Wed, 25 Jul 2007 23:38:08 -0700 (PDT)
-Message-ID: <20070725.233808.41635535.davem@davemloft.net>
-References: <20070725.210943.122860438.davem@davemloft.net>
-	<1551EAE59135BE47B544934E30FC4FC002AAB9F6@nt-irva-0751.brcm.ad.broadcom.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH 3/4 -rev1] Initilize and populate age field
+Date: Thu, 26 Jul 2007 08:37:28 +0200
+Message-ID: <46A84128.1090207@cosmosbay.com>
+References: <20070726104554.cc95eedd.varunc@linux.vnet.ibm.com> <46A8391C.2020605@cosmosbay.com> <46A83EB9.6070903@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@linux-foundation.org,
-	jgarzik@pobox.com, hadi@cyberus.ca, rusty@rustcorp.com.au
-To: mchan@broadcom.com
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org, kaber@trash.net,
+	socketcan@hartkopp.net, shemminger@linux-foundation.org,
+	krkumar2@in.ibm.com
+To: Varun Chandramohan <varunc@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38407
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752047AbXGZGiJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jul 2007 02:38:09 -0400
-In-Reply-To: <1551EAE59135BE47B544934E30FC4FC002AAB9F6@nt-irva-0751.brcm.ad.broadcom.com>
+Received: from gw1.cosmosbay.com ([86.65.150.130]:40288 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754282AbXGZGiU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jul 2007 02:38:20 -0400
+In-Reply-To: <46A83EB9.6070903@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Wed, 25 Jul 2007 23:33:03 -0700
+Varun Chandramohan a =E9crit :
+> Eric Dumazet wrote:
+>> Varun Chandramohan a =E9crit :
+>>> The age field is filled with the current time at the time of creati=
+on
+>>> of the route. When the routes are dumped
+>>> then the age value stored in the route structure is subtracted from
+>>> the current time value and the difference is the age expressed in s=
+ecs.
+>>>
+>>>      }
+>>> +
+>>> +    do_gettimeofday(&tv);
+>>> +    if (!*age) {
+>>> +        *age =3D timeval_to_sec(&tv);
+>>> +        NLA_PUT_U32(skb, RTA_AGE, *age);
+>> here, what happens if sizeof(time_t) is not 4 ?
+>>
+> Same case as above :-) comments?
 
-> This will lead to more and longer lock contentions between
-> ->hard_start_xmit() and ->poll() in the normal fast path.  Why
-> do we need to widen the scope of netif_tx_lock() in this case?
+So you are confident it (truncation from 8 to 4 bytes) works well on Bi=
+g=20
+endian arches as well as Little endian arches ? :-)
 
-So that ->poll_controller() can process TX acks by just having
-the TX lock and interrupts disabled.
 
-Can you think of another way to process TX acks from absolutely
-any execution context whatsoever?  That's what we need and
-preferably in some generic way, and the above is what I came
-up with.
-
-To be honest I don't think the TX lock contention will matter, and
-even if there were a small cost, the simplicity of the netpoll
-implementation is worth it given how problematic and hard to debug
-netpoll has been in the past.
