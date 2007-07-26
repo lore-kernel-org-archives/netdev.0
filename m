@@ -1,45 +1,47 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH][v2] Netfilter Kconfig: Expose IPv4/6 connection tracking
- options by selecting NF_CONNTRACK_ENABLED
-Date: Thu, 26 Jul 2007 02:46:05 +0200
-Message-ID: <46A7EECD.9070801@trash.net>
-References: <200707251802.22200.a1426z@gawab.com>
+From: Ramkrishna Vepa <ram.vepa@neterion.com>
+Subject: [PATCH 2.6.22 3/3]S2io: Increment received packet count correctly
+Date: 25 Jul 2007 19:43:12 -0700
+Message-ID: <1185417791.21141.50.camel@flash>
+Reply-To: ram.vepa@neterion.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@lists.netfilter.org, netdev@vger.kernel.org,
-	Sam Ravnborg <sam@ravnborg.org>
-To: Al Boldi <a1426z@gawab.com>
+Cc: jeff@garzik.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:62691 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752403AbXGZArS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jul 2007 20:47:18 -0400
-In-Reply-To: <200707251802.22200.a1426z@gawab.com>
+Received: from barracuda.s2io.com ([72.1.205.138]:56151 "EHLO
+	barracuda.s2io.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752527AbXGZAsL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jul 2007 20:48:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[Removed a few CCs]
+ - Fix to increment the received packet count correctly.
 
-Al Boldi wrote:
-> Make NF_CONNTRACK_IPV4 and NF_CONNTRACK_IPV6 select NF_CONNTRACK_ENABLED.
+(Resending; Removed HTML sections in the patch)
+
+Signed-off-by: Santosh Rastapur <santosh.rastapur@neterion.com>
+---
+diff -Nurp 2.0.24.1P2/drivers/net/s2io.c 2.0.24.1P3/drivers/net/s2io.c
+--- 2.0.24.1P2/drivers/net/s2io.c	2007-07-20 16:26:13.000000000 -0700
++++ 2.0.24.1P3/drivers/net/s2io.c	2007-07-20 16:40:02.000000000 -0700
+@@ -84,7 +84,7 @@
+ #include "s2io.h"
+ #include "s2io-regs.h"
+ 
+-#define DRV_VERSION "2.0.24.1"
++#define DRV_VERSION "2.0.25.1"
+ 
+ /* S2io Driver name & version. */
+ static char s2io_driver_name[] = "Neterion";
+@@ -6734,6 +6734,7 @@ static int rx_osm_handler(struct ring_in
+ 	}
+ 
+ 	/* Updating statistics */
++	sp->stats.rx_packets++;
+ 	rxdp->Host_Control = 0;
+ 	if (sp->rxd_mode == RXD_MODE_1) {
+ 		int len = RXD_GET_BUFFER0_SIZE_1(rxdp->Control_2);
 
 
-One thought that occured to me after the last of many false bugreports
-that were actually caused by failure to configure the new options
-properly. Most people know they want NF_CONNTRACK (and its selected by
-default with old configs), what they're missing is that they now also
-need to select IPv4 connection tracking. So what would really make sense
-is to make NF_CONNTRACK_IPV4 default to "m" (and really *everyone*
-using conntrack wants this). But with your proposed change this would
-default to selecting NF_CONNTRACK by default, which I'm not so sure
-is a good idea. So I'm leaning towards just using "m" as default for
-IPv4 conntrack to save people trouble and myself some bugreports, but
-I also like your simplification ...
-
-Maybe we can do something to have the NF_CONNTRACK_ENABLED option select
-NF_CONNTRACK_IPV4 (which really is what we actually want) and combine
-that with automatic selection of NF_CONNTRACK? I believe the only case
-with negative impact would be people that currently use only IPv6
-connection tracking, which is most likely nobody.
 
