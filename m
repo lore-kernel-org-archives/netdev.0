@@ -1,47 +1,92 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [0/6] Allow registration/change name notifications to fail
-Date: Thu, 26 Jul 2007 11:37:15 +0100
-Message-ID: <20070726113715.6a4b5af9@oldman.hamilton.local>
-References: <20070726090725.GA510@gondor.apana.org.au>
+Subject: [RFT] fib_trie: macro cleanup
+Date: Thu, 26 Jul 2007 11:43:34 +0100
+Message-ID: <20070726114334.1e3e446c@oldman.hamilton.local>
+References: <20070725040304.111550f4.akpm@linux-foundation.org>
+	<20070725181557.GF3572@stusta.de>
+	<20070726094648.3b7301ae@oldman>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Patrick McHardy <kaber@trash.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: Adrian Bunk <bunk@stusta.de>,
+	Robert Olsson <Robert.Olsson@data.slu.se>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Ingo Molnar <mingo@elte.hu>, Josh Triplett <josh@kernel.org>,
+	netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:55891 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:35673 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755030AbXGZKhw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jul 2007 06:37:52 -0400
-In-Reply-To: <20070726090725.GA510@gondor.apana.org.au>
+	by vger.kernel.org with ESMTP id S1755421AbXGZKom (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jul 2007 06:44:42 -0400
+In-Reply-To: <20070726094648.3b7301ae@oldman>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 26 Jul 2007 17:07:25 +0800
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+This patch converts the messy macro for MASK_PFX to inline function
+and expands TKEY_GET_MASK in the one place it is used.
 
-> Hi Dave:
-> 
-> This series of patches adds support to let netdev registration
-> and change name events to fail.  Failures of the former kind
-> prevents the device from registered while the latter attempts
-> to roll back the change (which unfortunately can also fail).
-> 
-> If the failure occurs while a netdev is being registered,
-> then the registration as a whole will fail.  If it occurs
-> when a protocol is being registered, then that protocol
-> will fail to register instead.
-> 
-> Having this allows us to flag allocations failures in a 
-> meaningful way rather than letting the next action that
-> requires what is allocated to flag the failure.
-> 
-> In particular, this allows the reporting of failures to
-> allocate the IPv4/IPv6 device objects.
-> 
-> Cheers,
 
-Thanks for looking at this, are there bugs this fixes so it should
-go to stable?
+--- a/net/ipv4/fib_trie.c	2007-07-26 09:26:19.000000000 +0100
++++ b/net/ipv4/fib_trie.c	2007-07-26 10:17:21.000000000 +0100
+@@ -85,8 +85,6 @@
+ #define MAX_STAT_DEPTH 32
+ 
+ #define KEYLENGTH (8*sizeof(t_key))
+-#define MASK_PFX(k, l) (((l)==0)?0:(k >> (KEYLENGTH-l)) << (KEYLENGTH-l))
+-#define TKEY_GET_MASK(offset, bits) (((bits)==0)?0:((t_key)(-1) << (KEYLENGTH - bits) >> offset))
+ 
+ typedef unsigned int t_key;
+ 
+@@ -192,6 +190,11 @@ static inline int tnode_child_length(con
+ 	return 1 << tn->bits;
+ }
+ 
++static inline t_key mask_pfx(t_key k, unsigned short l)
++{
++	return (l == 0) ? 0 : k >> (KEYLENGTH-l) << (KEYLENGTH-l);
++}
++
+ static inline t_key tkey_extract_bits(t_key a, int offset, int bits)
+ {
+ 	if (offset < KEYLENGTH)
+@@ -676,7 +679,7 @@ static struct tnode *inflate(struct trie
+ 		    inode->pos == oldtnode->pos + oldtnode->bits &&
+ 		    inode->bits > 1) {
+ 			struct tnode *left, *right;
+-			t_key m = TKEY_GET_MASK(inode->pos, 1);
++			t_key m = ~0U << (KEYLENGTH - 1) >> inode->pos;
+ 
+ 			left = tnode_new(inode->key&(~m), inode->pos + 1,
+ 					 inode->bits - 1);
+@@ -1364,7 +1367,8 @@ fn_trie_lookup(struct fib_table *tb, con
+ 		bits = pn->bits;
+ 
+ 		if (!chopped_off)
+-			cindex = tkey_extract_bits(MASK_PFX(key, current_prefix_length), pos, bits);
++			cindex = tkey_extract_bits(mask_pfx(key, current_prefix_length),
++						   pos, bits);
+ 
+ 		n = tnode_get_child(pn, cindex);
+ 
+@@ -1450,8 +1454,8 @@ fn_trie_lookup(struct fib_table *tb, con
+ 		 * to find a matching prefix.
+ 		 */
+ 
+-		node_prefix = MASK_PFX(cn->key, cn->pos);
+-		key_prefix = MASK_PFX(key, cn->pos);
++		node_prefix = mask_pfx(cn->key, cn->pos);
++		key_prefix = mask_pfx(key, cn->pos);
+ 		pref_mismatch = key_prefix^node_prefix;
+ 		mp = 0;
+ 
+@@ -2327,7 +2331,7 @@ static int fib_trie_seq_show(struct seq_
+ 
+ 	if (IS_TNODE(n)) {
+ 		struct tnode *tn = (struct tnode *) n;
+-		__be32 prf = htonl(MASK_PFX(tn->key, tn->pos));
++		__be32 prf = htonl(mask_pfx(tn->key, tn->pos));
+ 
+ 		seq_indent(seq, iter->depth-1);
+ 		seq_printf(seq, "  +-- %d.%d.%d.%d/%d %d %d %d\n",
