@@ -1,48 +1,77 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: 2.6.20->2.6.21 - networking dies after random time
-Date: Thu, 26 Jul 2007 11:11:57 +0200
-Message-ID: <20070726091157.GB3423@ff.dom.local>
-References: <20070629150759.GC2771@ff.dom.local> <4bacf17f0707222244p664e7a6ap850b3357a57d73c@mail.gmail.com> <20070724080534.GC18740@elte.hu> <20070724094202.GA11610@elte.hu> <alpine.LFD.0.999.0707241228291.3607@woody.linux-foundation.org> <20070724200431.GA22190@elte.hu> <1185322771.4175.102.camel@chaos> <4bacf17f0707260016x14fc1c92s628ae64353663833@mail.gmail.com> <20070726081326.GA3197@ff.dom.local> <1185437431.3227.21.camel@chaos>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [RFT] fib_trie: cleanup
+Date: Thu, 26 Jul 2007 02:04:31 -0700
+Message-ID: <20070726020431.1e693866.akpm@linux-foundation.org>
+References: <20070725040304.111550f4.akpm@linux-foundation.org>
+	<20070725181557.GF3572@stusta.de>
+	<20070726094648.3b7301ae@oldman>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Marcin =?iso-8859-2?Q?=A6lusarz?= <marcin.slusarz@gmail.com>,
-	Ingo Molnar <mingo@elte.hu>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Jean-Baptiste Vignaud <vignaud@xandmail.fr>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	shemminger <shemminger@linux-foundation.org>,
-	linux-net <linux-net@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>
-To: Thomas Gleixner <tglx@linutronix.de>
-Return-path: <linux-net-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1185437431.3227.21.camel@chaos>
-Sender: linux-net-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Adrian Bunk <bunk@stusta.de>,
+	Robert Olsson <Robert.Olsson@data.slu.se>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Ingo Molnar <mingo@elte.hu>, Josh Triplett <josh@kernel.org>,
+	netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:60512 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753664AbXGZJFl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jul 2007 05:05:41 -0400
+In-Reply-To: <20070726094648.3b7301ae@oldman>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 26, 2007 at 10:10:31AM +0200, Thomas Gleixner wrote:
-> On Thu, 2007-07-26 at 10:13 +0200, Jarek Poplawski wrote:
-...
-> > PS: Now, it seems to me Thomas could be the nearest. BTW, could somebody
-> > give me some tip, how these re-triggered interrupts are skipped on dev's
-> > reset before enable_irq?
-> 
-> I think the correct solution is really not to resend level type
-> interrupts. If the interrupt line is still active, then the interrupt
-> comes up by itself. I'm cooking a patch for that.
-> 
-> The other question is: 
-> 
-> Is the driver confused by the resent irq or is the chip-set unhappy
-> about the resend ?
-> 
-> We could figure the latter out by activating the software based resend
-> method.
+On Thu, 26 Jul 2007 09:46:48 +0100 Stephen Hemminger <shemminger@linux-foundation.org> wrote:
 
-Probably I miss something, but isn't there any problem with level type,
-when APIC re-triggers an interrupt, which is not acked by driver nor
-card (after some hw reset/clear)?
+> Try this out:
+>      * replace macro's with inlines
+>      * get rid of places doing multiple evaluations of NODE_PARENT
 
-Jarek P.
+And it fixes the rcu abuse which resulted in
+http://lkml.org/lkml/2007/7/25/319.  Which I assume is what inspired the
+effort.
+
+
+your typecasting style is inconsistent:
+
+> +	return rcu_dereference((struct tnode *) (node->parent & ~NODE_TYPE_MASK));
+
+space
+
+> +			   (unsigned long)ptr | NODE_TYPE(node));
+
+no space
+
+> +	while (tn != NULL && (tp = node_parent((struct node *)tn)) != NULL) {
+
+no space
+
+> +		tp = node_parent((struct node *) tn);
+
+space
+
+> +		node_set_parent((struct node *)l, tp);
+
+no space
+
+> +		node_set_parent((struct node *)tn, tp);
+
+no space
+
+> +			struct tnode *parent = node_parent((struct node *) pn);
+
+space
+
+etc.
+
+
+"no space" seems to be more usual, by about a 50.1:49.9 ratio.  It is
+a lot more common in net/:
+
+box:/usr/src/25> grep '[(]unsigned long[)] ' net/*/*.c  | wc -l
+91
+box:/usr/src/25> grep '[(]unsigned long[)][^ ]' net/*/*.c  | wc -l 
+242
+
