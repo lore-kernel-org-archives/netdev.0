@@ -1,46 +1,37 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [PATCH RFC]: napi_struct V4
-Date: Thu, 26 Jul 2007 00:05:47 -0700
-Message-ID: <1551EAE59135BE47B544934E30FC4FC002AAB9F8@nt-irva-0751.brcm.ad.broadcom.com>
-References: <20070725.233808.41635535.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-2.6.22-rc7] xfrm state selection update to use
+ inner addresses
+Date: Thu, 26 Jul 2007 00:08:51 -0700 (PDT)
+Message-ID: <20070726.000851.95060327.davem@davemloft.net>
+References: <469FBECB.6080204@trash.net>
+	<200707231119.25457.joakim.koskela@hiit.fi>
+	<46A60D50.804@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org, shemminger@linux-foundation.org,
-	jgarzik@pobox.com, hadi@cyberus.ca, rusty@rustcorp.com.au
-To: "David Miller" <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: joakim.koskela@hiit.fi, netdev@vger.kernel.org
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2997 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754596AbXGZHGB convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jul 2007 03:06:01 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20070725.233808.41635535.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55300
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1762553AbXGZHIv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jul 2007 03:08:51 -0400
+In-Reply-To: <46A60D50.804@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
+From: Patrick McHardy <kaber@trash.net>
+Date: Tue, 24 Jul 2007 16:31:44 +0200
 
-> So that ->poll_controller() can process TX acks by just having
-> the TX lock and interrupts disabled.
+> Joakim Koskela wrote:
+> > This patch modifies the xfrm state selection logic to use the inner
+> > addresses where the outer have been (incorrectly) used. This is
+> > required for beet mode in general and interfamily setups in both
+> > tunnel and beet mode.
 > 
-> Can you think of another way to process TX acks from absolutely
-> any execution context whatsoever?  That's what we need and
-> preferably in some generic way, and the above is what I came
-> up with.
-
-What are we trying to protect against by taking the TX lock before
-calling ->poll_controller()?
-
 > 
-> To be honest I don't think the TX lock contention will matter, and
-> even if there were a small cost, the simplicity of the netpoll
-> implementation is worth it given how problematic and hard to debug
-> netpoll has been in the past.
+> Looks good.
 > 
->
+> Acked-by: Patrick McHardy <kaber@trash.net>
 
-There is a measurable difference in oprofile.  When passing small
-packets, there's a non-trivial difference in throughput.
-
+Applied, thanks everyone.
