@@ -1,33 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFT] fib_trie: cleanup
-Date: Thu, 26 Jul 2007 01:49:02 -0700 (PDT)
-Message-ID: <20070726.014902.89039353.davem@davemloft.net>
-References: <20070725040304.111550f4.akpm@linux-foundation.org>
-	<20070725181557.GF3572@stusta.de>
-	<20070726094648.3b7301ae@oldman>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [IPVS]: Use skb_forward_csum
+Date: Thu, 26 Jul 2007 16:59:39 +0800
+Message-ID: <20070726085939.GA442@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: bunk@stusta.de, Robert.Olsson@data.slu.se,
-	akpm@linux-foundation.org, paulmck@linux.vnet.ibm.com,
-	mingo@elte.hu, josh@kernel.org, netdev@vger.kernel.org
-To: shemminger@linux-foundation.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Simon Horman <horms@verge.net.au>
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59135
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1757287AbXGZItE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jul 2007 04:49:04 -0400
-In-Reply-To: <20070726094648.3b7301ae@oldman>
+Received: from rhun.apana.org.au ([64.62.148.172]:1238 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756119AbXGZI7u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jul 2007 04:59:50 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Date: Thu, 26 Jul 2007 09:46:48 +0100
+Hi Dave:
 
-> Try this out:
->      * replace macro's with inlines
->      * get rid of places doing multiple evaluations of NODE_PARENT
+Found this while looking at 8797.  Although it's not clear
+that this is the cause yet (it could only happen if a
+seemingly remote TCP stream is DNATed to a local address),
+we need this patch anyway to avoid clobbering incoming
+traffic with CHECKSUM_PARTIAL in its ip_summed field.
 
-No objections from me.
+[IPVS]: Use skb_forward_csum
 
-Robert?
+As a path that forwards packets, IPVS should be using
+skb_forward_csum instead of directly setting ip_summed
+to CHECKSUM_NONE.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+diff --git a/net/ipv4/ipvs/ip_vs_xmit.c b/net/ipv4/ipvs/ip_vs_xmit.c
+index 900ce29..666e080 100644
+--- a/net/ipv4/ipvs/ip_vs_xmit.c
++++ b/net/ipv4/ipvs/ip_vs_xmit.c
+@@ -128,7 +128,7 @@ ip_vs_dst_reset(struct ip_vs_dest *dest)
+ #define IP_VS_XMIT(skb, rt)				\
+ do {							\
+ 	(skb)->ipvs_property = 1;			\
+-	(skb)->ip_summed = CHECKSUM_NONE;		\
++	skb_forward_csum(skb);				\
+ 	NF_HOOK(PF_INET, NF_IP_LOCAL_OUT, (skb), NULL,	\
+ 		(rt)->u.dst.dev, dst_output);		\
+ } while (0)
