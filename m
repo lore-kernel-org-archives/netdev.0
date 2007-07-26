@@ -1,42 +1,59 @@
-From: Dave Johnson <djohnson+linux-kernel@sw.starentnetworks.com>
-Subject: Re: [PATCH] IPv6: ipv6_addr_type() doesn't know about RFC4193 addresses
-Date: Wed, 25 Jul 2007 21:11:28 -0400
-Message-ID: <18087.62656.490978.692574@zeus.sw.starentnetworks.com>
-References: <18087.57717.495366.413571@zeus.sw.starentnetworks.com>
-	<20070725.171203.102545287.davem@davemloft.net>
+From: Yasuyuki KOZAKAI <yasuyuki.kozakai@toshiba.co.jp>
+Subject: Re: [PATCH][v2] Netfilter Kconfig: Expose IPv4/6 connection
+ tracking options by selecting NF_CONNTRACK_ENABLED
+Date: Thu, 26 Jul 2007 10:18:22 +0900 (JST)
+Message-ID: <200707260118.l6Q1INGw004789@toshiba.co.jp>
+References: <200707251802.22200.a1426z@gawab.com> <46A7EECD.9070801@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	lksctp-developers@lists.sourceforge.net,
-	sakkiped@starentnetworks.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [12.38.223.190] ([12.38.223.190]:1158 "EHLO
-	mail.sw.starentnetworks.com" rhost-flags-FAIL-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752281AbXGZBLu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jul 2007 21:11:50 -0400
-In-Reply-To: <20070725.171203.102545287.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, a1426z@gawab.com,
+	netfilter-devel@lists.netfilter.org, sam@ravnborg.org
+To: kaber@trash.net
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+In-Reply-To: <46A7EECD.9070801@trash.net>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-David Miller writes:
-> Contrarily, there may be ipv6_addr_type() call sites that really
-> do want to reject rfc4193 addresses.
+From: Patrick McHardy <kaber@trash.net>
+Date: Thu, 26 Jul 2007 02:46:05 +0200
 
-A quick look through the callers and only these functions should be
-effected, they check either RESERVED or UNICAST from ipv6_addr_type():
+> [Removed a few CCs]
+> 
+> Al Boldi wrote:
+> > Make NF_CONNTRACK_IPV4 and NF_CONNTRACK_IPV6 select NF_CONNTRACK_ENABLED.
+> 
+> 
+> One thought that occured to me after the last of many false bugreports
+> that were actually caused by failure to configure the new options
+> properly. Most people know they want NF_CONNTRACK (and its selected by
+> default with old configs), what they're missing is that they now also
+> need to select IPv4 connection tracking. So what would really make sense
+> is to make NF_CONNTRACK_IPV4 default to "m" (and really *everyone*
+> using conntrack wants this). But with your proposed change this would
+> default to selecting NF_CONNTRACK by default, which I'm not so sure
+> is a good idea. So I'm leaning towards just using "m" as default for
+> IPv4 conntrack to save people trouble and myself some bugreports, but
+> I also like your simplification ...
+> 
+> Maybe we can do something to have the NF_CONNTRACK_ENABLED option select
+> NF_CONNTRACK_IPV4 (which really is what we actually want) and combine
+> that with automatic selection of NF_CONNTRACK? I believe the only case
+> with negative impact would be people that currently use only IPv6
+> connection tracking, which is most likely nobody.
 
-net/ipv6/addrconf.c:                ipv6_dev_get_saddr()
-net/ipv6/exthdrs.c:                 ipv6_dest_hao()   
-net/ipv6/ip6_tunnel.c:              ip6_tnl_set_cap()
-net/ipv6/netfilter/ip6t_REJECT.c:   send_reset()
-net/ipv6/route.c:                   ip6_route_add()
-net/ipv6/route.c:                   ip6_pkt_drop()
-net/sctp/ipv6.c:                    sctp_v6_available()
-net/sctp/ipv6.c:                    sctp_v6_addr_valid()
+I agree. I've not heard trouble with NF_CONNTRACK_IPV6. I think that is
+because it is purely new feature.
 
--- 
-Dave Johnson
-Starent Networks
+BTW, it's too late to restore IP_NF_CONNTRACK in stable and current tree
+for a while ?
 
+-- Yasuyuki Kozakai
