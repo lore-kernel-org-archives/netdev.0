@@ -1,33 +1,39 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] IPv6: ipv6_addr_type() doesn't know about RFC4193
- addresses
-Date: Thu, 26 Jul 2007 13:37:10 -0500 (CDT)
-Message-ID: <20070726.133710.12677267.yoshfuji@linux-ipv6.org>
-References: <18087.57717.495366.413571@zeus.sw.starentnetworks.com>
-	<20070725.171203.102545287.davem@davemloft.net>
+From: "Veeraiyan, Ayyappan" <ayyappan.veeraiyan@intel.com>
+Subject: RE: [PATCH 0/1] ixgbe: Support for Intel(R) 10GbE PCI Express	adapters -	Take #2
+Date: Thu, 26 Jul 2007 13:07:53 -0700
+Message-ID: <E35F4F4D7F6C9E4E826FEC1F86CEF583044867F4@orsmsx412.amr.corp.intel.com>
+References: <46A4F8F6.3010008@hp.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: djohnson+linux-kernel@sw.starentnetworks.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	lksctp-developers@lists.sourceforge.net,
-	sakkiped@starentnetworks.com, yoshfuji@linux-ipv6.org
-To: davem@davemloft.net
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Jeff Garzik" <jeff@garzik.org>, <netdev@vger.kernel.org>,
+	<arjan@linux.intel.com>, <akpm@linux-foundation.org>,
+	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>, <hch@infradead.org>,
+	<shemminger@linux-foundation.org>, <nhorman@tuxdriver.com>,
+	<inaky@linux.intel.com>, <mb@bu3sch.de>
+To: "Rick Jones" <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:49329 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934429AbXGZSgS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jul 2007 14:36:18 -0400
-In-Reply-To: <20070725.171203.102545287.davem@davemloft.net>
+Received: from mga03.intel.com ([143.182.124.21]:15753 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S935356AbXGZUID convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jul 2007 16:08:03 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <46A4F8F6.3010008@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In article <20070725.171203.102545287.davem@davemloft.net> (at Wed, 25 Jul 2007 17:12:03 -0700 (PDT)), David Miller <davem@davemloft.net> says:
+On 7/23/07, Rick Jones <rick.jones2@hp.com> wrote:
+>
+>The bidirectional looks like a two concurrent stream (TCP_STREAM +
+>TCP_MAERTS)
+>test right?
+>
+>If you want a single-stream bidirectional test, then with the top of
+trunk
+>netperf you can use:
+>
 
-> Contrarily, there may be ipv6_addr_type() call sites that really
-> do want to reject rfc4193 addresses.
-
-I do not think we have such users.
-
---yoshfuji
+Thanks for the feedback Rick. We haven't used the netperf trunk. The
+person who actually got these numbers will be trying the netperf trunk
+little later and we will post the results..
