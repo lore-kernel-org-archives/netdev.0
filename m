@@ -1,68 +1,109 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 6/6] [IPV6]: Remove circular dependency on if_inet6.h
-Date: Thu, 26 Jul 2007 17:09:40 +0800
-Message-ID: <E1IDzLo-0000AX-00@gondolin.me.apana.org.au>
-References: <20070726090725.GA510@gondor.apana.org.au>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Patrick McHardy <kaber@trash.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: 2.6.20->2.6.21 - networking dies after random time
+Date: Thu, 26 Jul 2007 11:12:54 +0200
+Message-ID: <20070726091254.GA8063@elte.hu>
+References: <20070724080534.GC18740@elte.hu> <20070724094202.GA11610@elte.hu> <alpine.LFD.0.999.0707241228291.3607@woody.linux-foundation.org> <20070724200431.GA22190@elte.hu> <1185322771.4175.102.camel@chaos> <4bacf17f0707260016x14fc1c92s628ae64353663833@mail.gmail.com> <20070726081326.GA3197@ff.dom.local> <1185437431.3227.21.camel@chaos> <20070726083120.GA26910@elte.hu> <20070726085523.GA3423@ff.dom.local>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Thomas Gleixner <tglx@linutronix.de>,
+	Marcin ??lusarz <marcin.slusarz@gmail.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Jean-Baptiste Vignaud <vignaud@xandmail.fr>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	shemminger <shemminger@linux-foundation.org>,
+	linux-net <linux-net@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>
+To: Jarek Poplawski <jarkao2@o2.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:1325 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1759416AbXGZJJn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jul 2007 05:09:43 -0400
+Received: from mx3.mail.elte.hu ([157.181.1.138]:42880 "EHLO mx3.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750969AbXGZJNG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Jul 2007 05:13:06 -0400
+Content-Disposition: inline
+In-Reply-To: <20070726085523.GA3423@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[IPV6]: Remove circular dependency on if_inet6.h
 
-net/if_inet6.h includes linux/ipv6.h which also tries to include
-net/if_inet6.h.  Since the latter only needs it for forward
-declarations, we can fix this by adding the declarations.
+* Jarek Poplawski <jarkao2@o2.pl> wrote:
 
-A number of files are implicitly including net/if_inet6.h through
-linux/ipv6.h.  They also use net/ipv6.h so this patch includes
-net/if_inet6.h there.
+> On Thu, Jul 26, 2007 at 10:31:20AM +0200, Ingo Molnar wrote:
+> ...
+> > yeah. The patch below enables sw-resend on x86, to test the theory 
+> > whether the APIC-driven hardware-vector-resend code has some problem.
+> 
+> I think Marcin is using x86_64 (Athlon 64) yet.
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+yeah - i meant to cover both arches but forgot about x86_64 - updated 
+patch attached below.
+
+	Ingo
+
+----------------->
+Subject: x86: activate HARDIRQS_SW_RESEND
+From: Ingo Molnar <mingo@elte.hu>
+
+activate the software-triggered IRQ-resend logic.
+
+it appears some chipsets/cpus do not handle local-APIC driven IRQ
+resends all that well, so always use the soft mechanism to trigger
+the execution of pending interrupts.
+
+Signed-off-by: Ingo Molnar <mingo@elte.hu>
 ---
+ arch/i386/Kconfig   |    4 ++++
+ arch/x86_64/Kconfig |    4 ++++
+ kernel/irq/manage.c |    8 ++++++++
+ 3 files changed, 16 insertions(+)
 
- include/linux/ipv6.h |    5 ++++-
- include/net/ipv6.h   |    1 +
- 2 files changed, 5 insertions(+), 1 deletion(-)
-
-diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-index 97983dc..4ca60c3 100644
---- a/include/linux/ipv6.h
-+++ b/include/linux/ipv6.h
-@@ -219,7 +219,6 @@ enum {
- #include <linux/tcp.h>
- #include <linux/udp.h>
+Index: linux-rt-rebase.q/arch/i386/Kconfig
+===================================================================
+--- linux-rt-rebase.q.orig/arch/i386/Kconfig
++++ linux-rt-rebase.q/arch/i386/Kconfig
+@@ -1284,6 +1284,10 @@ config GENERIC_PENDING_IRQ
+ 	depends on GENERIC_HARDIRQS && SMP
+ 	default y
  
--#include <net/if_inet6.h>       /* struct ipv6_mc_socklist */
- #include <net/inet_sock.h>
- 
- static inline struct ipv6hdr *ipv6_hdr(const struct sk_buff *skb)
-@@ -273,6 +272,10 @@ struct tcp6_request_sock {
- 	struct inet6_request_sock tcp6rsk_inet6;
- };
- 
-+struct ipv6_mc_socklist;
-+struct ipv6_ac_socklist;
-+struct ipv6_fl_socklist;
++config HARDIRQS_SW_RESEND
++	bool
++	default y
 +
- /**
-  * struct ipv6_pinfo - ipv6 private area
-  *
-diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index 46b9dce..9059e0e 100644
---- a/include/net/ipv6.h
-+++ b/include/net/ipv6.h
-@@ -17,6 +17,7 @@
+ config X86_SMP
+ 	bool
+ 	depends on SMP && !X86_VOYAGER
+Index: linux-rt-rebase.q/arch/x86_64/Kconfig
+===================================================================
+--- linux-rt-rebase.q.orig/arch/x86_64/Kconfig
++++ linux-rt-rebase.q/arch/x86_64/Kconfig
+@@ -721,6 +721,10 @@ config GENERIC_PENDING_IRQ
+ 	depends on GENERIC_HARDIRQS && SMP
+ 	default y
  
- #include <linux/ipv6.h>
- #include <linux/hardirq.h>
-+#include <net/if_inet6.h>
- #include <net/ndisc.h>
- #include <net/flow.h>
- #include <net/snmp.h>
++config HARDIRQS_SW_RESEND
++	bool
++	default y
++
+ menu "Power management options"
+ 
+ source kernel/power/Kconfig
+Index: linux-rt-rebase.q/kernel/irq/manage.c
+===================================================================
+--- linux-rt-rebase.q.orig/kernel/irq/manage.c
++++ linux-rt-rebase.q/kernel/irq/manage.c
+@@ -175,6 +175,14 @@ void enable_irq(unsigned int irq)
+ 		desc->depth--;
+ 	}
+ 	spin_unlock_irqrestore(&desc->lock, flags);
++#ifdef CONFIG_HARDIRQS_SW_RESEND
++	/*
++	 * Do a bh disable/enable pair to trigger any pending
++	 * irq resend logic:
++	 */
++	local_bh_disable();
++	local_bh_enable();
++#endif
+ }
+ EXPORT_SYMBOL(enable_irq);
+ 
