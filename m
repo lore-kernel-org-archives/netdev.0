@@ -1,40 +1,68 @@
-From: =?utf-8?q?R=C3=A9mi_Denis-Courmont?= <rdenis@simphalempin.com>
-Subject: Re: [PATCH] IPv6: ipv6_addr_type() doesn't know about RFC4193 addresses
-Date: Thu, 26 Jul 2007 21:06:48 +0300
-Message-ID: <200707262106.49131.rdenis@simphalempin.com>
-References: <18087.57717.495366.413571@zeus.sw.starentnetworks.com> <46A8D837.1030400@simon.arlott.org.uk>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: Re: 2.6.23-rc1: BUG_ON in kmap_atomic_prot()
+Date: Thu, 26 Jul 2007 20:07:21 +0200
+Message-ID: <20070726180721.GN3572@stusta.de>
+References: <20070723204045.GD5755@martell.zuzino.mipt.ru> <20070723210153.GA5753@martell.zuzino.mipt.ru> <20070723141137.171e4ac1.akpm@linux-foundation.org> <alpine.LFD.0.999.0707231415511.3607@woody.linux-foundation.org> <20070724175951.GC6019@stusta.de> <alpine.LFD.0.999.0707241113180.3607@woody.linux-foundation.org> <20070724112843.0cc104c2.akpm@linux-foundation.org> <alpine.LFD.0.999.0707241207290.3607@woody.linux-foundation.org> <20070724194046.GD6019@stusta.de> <alpine.LFD.0.999.0707241246130.3607@woody.linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Dave Johnson <djohnson+linux-kernel@sw.starentnetworks.com>,
-	netdev@vger.kernel.org, davem@davemloft.net,
-	linux-kernel@vger.kernel.org,
-	lksctp-developers@lists.sourceforge.net,
-	Srinivas Akkipeddi <sakkiped@starentnetworks.com>
-To: Simon Arlott <simon@fire.lp0.eu>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Alexey Dobriyan <adobriyan@gmail.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from poy.chewa.net ([194.242.114.73]:4713 "EHLO poy.chewa.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1765458AbXGZSGz convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jul 2007 14:06:55 -0400
-In-Reply-To: <46A8D837.1030400@simon.arlott.org.uk>
+Received: from emailhub.stusta.mhn.de ([141.84.69.5]:45768 "EHLO
+	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S932123AbXGZSHt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jul 2007 14:07:49 -0400
 Content-Disposition: inline
+In-Reply-To: <alpine.LFD.0.999.0707241246130.3607@woody.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 26 July 2007 20:21:59 Simon Arlott wrote:
-> On 26/07/07 00:49, Dave Johnson wrote:
-> > ipv6_addr_type() doesn't check for 'Unique Local IPv6 Unicast
-> > Addresses' (RFC4193) and returns IPV6_ADDR_RESERVED for that range.
-> >
-> > +	if ((st & htonl(0xFE000000)) =3D=3D htonl(0xFC000000))
-> > +		return (IPV6_ADDR_UNICAST |
-> > +			IPV6_ADDR_SCOPE_TYPE(IPV6_ADDR_SCOPE_GLOBAL));			/* RFC 4193 */
->
-> But ULA's scope isn't global, shouldn't it be IPV6_ADDR_SCOPE_ORGLOCA=
-L ?
+On Tue, Jul 24, 2007 at 12:48:13PM -0700, Linus Torvalds wrote:
+> 
+> 
+> On Tue, 24 Jul 2007, Adrian Bunk wrote:
+> > 
+> > > But do we 
+> > > care so much that it's worth inlining something like buffered_rmqueue()? 
+> > >...
+> > 
+> > Where is the problem with having buffered_rmqueue() inlined?
+> 
+> In this case, it was a pain to just even try to find the call chain, or 
+> read the asm.
 
-Yes it is - global.
+Optimization versus debugging is a common issue...
 
---=20
-R=C3=A9mi Denis-Courmont
+As I said, it might make sense to disable this optimization depending on 
+some debugging option.
+
+> I would encourage lots of kernel hackers to read the assembler code gcc 
+> generates. I suspect people being aware of code generation issues (and 
+> writing their code with that in mind) is a *much* bigger performance 
+> impact than gcc inlining random functions.
+> 
+> So maybe I'm old-fashioned and crazy, but "readability of the asm result" 
+> actually is a worthwhile goal. Not because we care directly, but because 
+> I'd like to encourage people to do it, due to the *indirect* benefits.
+
+This would lead to people trying to optimize code for one gcc version - 
+and the code might stay this way for 10 years.
+
+People should write readable C code. This also has the best chances of 
+resulting in good performance with the next gcc version on the next 
+generation hardware.
+
+> 		Linus
+
+cu
+Adrian
+
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
+
