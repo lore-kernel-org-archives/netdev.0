@@ -1,57 +1,59 @@
-From: Kumar Gala <galak@kernel.crashing.org>
-Subject: [PATCH] gfar: Fix modpost warning
-Date: Thu, 26 Jul 2007 00:52:34 -0500 (CDT)
-Message-ID: <Pine.LNX.4.64.0707260051550.30449@blarg.am.freescale.net>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH 2/4 -rev1] Add new timeval_to_sec function
+Date: Thu, 26 Jul 2007 07:58:22 +0200
+Message-ID: <46A837FE.5060900@cosmosbay.com>
+References: <20070726104526.0348e746.varunc@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
-To: Jeff Garzik <jeff@garzik.org>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org, kaber@trash.net,
+	socketcan@hartkopp.net, shemminger@linux-foundation.org,
+	krkumar2@in.ibm.com
+To: Varun Chandramohan <varunc@linux.vnet.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([86.65.150.130]:42497 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753677AbXGZF7Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jul 2007 01:59:16 -0400
+In-Reply-To: <20070726104526.0348e746.varunc@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fix the following modpost warning:
+Varun Chandramohan a =E9crit :
+> A new function for converting timeval to time_t is added in time.h. I=
+ts a common function used in different
+> places. The timeout is now rounded up as per the suggestion.
+>=20
+> Signed-off-by: Varun Chandramohan <varunc@linux.vnet.ibm.com>
+> ---
+>  include/linux/time.h |   11 +++++++++++
+>  1 files changed, 11 insertions(+), 0 deletions(-)
+>=20
+> diff --git a/include/linux/time.h b/include/linux/time.h
+> index dda9be6..908329a 100644
+> --- a/include/linux/time.h
+> +++ b/include/linux/time.h
+> @@ -147,6 +147,17 @@ static inline s64 timeval_to_ns(const st
+>  }
+> =20
+>  /**
+> + * timeval_to_sec - Convert timeval to seconds
+> + * @tv:         pointer to the timeval variable to be converted
+> + *
+> + * Returns the seconds representation of timeval parameter.
+> + */
+> +static inline time_t timeval_to_sec(const struct timeval *tv)
+> +{
+> +	return (tv->tv_sec + (tv->tv_usec + 999999)/1000000);
+> +}
+> +
+> +/**
 
-WARNING: vmlinux.o(.init.text+0x1aa6c): Section mismatch: reference to .exit.text:gfar_mdio_exit (between 'gfar_init' and 'gfar_mdio_init')
+return tv->tv_sec + (tv->tv_usec ? 1 : 0);
 
-Signed-off-by: Kumar Gala <galak@kernel.crashing.org>
----
- drivers/net/gianfar_mii.c |    2 +-
- drivers/net/gianfar_mii.h |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+is much faster
 
-diff --git a/drivers/net/gianfar_mii.c b/drivers/net/gianfar_mii.c
-index ac3596f..100bf41 100644
---- a/drivers/net/gianfar_mii.c
-+++ b/drivers/net/gianfar_mii.c
-@@ -245,7 +245,7 @@ int __init gfar_mdio_init(void)
- 	return driver_register(&gianfar_mdio_driver);
- }
+Also, the comment is not accurate, as it doesnt mention the roundup at =
+all.
 
--void __exit gfar_mdio_exit(void)
-+void gfar_mdio_exit(void)
- {
- 	driver_unregister(&gianfar_mdio_driver);
- }
-diff --git a/drivers/net/gianfar_mii.h b/drivers/net/gianfar_mii.h
-index 5d34004..b373091 100644
---- a/drivers/net/gianfar_mii.h
-+++ b/drivers/net/gianfar_mii.h
-@@ -42,5 +42,5 @@ struct gfar_mii {
- int gfar_mdio_read(struct mii_bus *bus, int mii_id, int regnum);
- int gfar_mdio_write(struct mii_bus *bus, int mii_id, int regnum, u16 value);
- int __init gfar_mdio_init(void);
--void __exit gfar_mdio_exit(void);
-+void gfar_mdio_exit(void);
- #endif /* GIANFAR_PHY_H */
--- 
-1.5.2.2
