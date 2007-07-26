@@ -1,37 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6.22-rc7] xfrm state selection update to use
- inner addresses
-Date: Thu, 26 Jul 2007 00:08:51 -0700 (PDT)
-Message-ID: <20070726.000851.95060327.davem@davemloft.net>
-References: <469FBECB.6080204@trash.net>
-	<200707231119.25457.joakim.koskela@hiit.fi>
-	<46A60D50.804@trash.net>
+Subject: Re: [PATCH [Bug 8756]] IPv6: Don't update ADVMSS on routes where
+ the MTU is not also updated
+Date: Thu, 26 Jul 2007 00:10:13 -0700 (PDT)
+Message-ID: <20070726.001013.07453787.davem@davemloft.net>
+References: <20070714214831.d9def8c6.akpm@linux-foundation.org>
+	<4699D5C7.2090906@simon.arlott.org.uk>
+	<46A500B9.3030702@simon.arlott.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: joakim.koskela@hiit.fi, netdev@vger.kernel.org
-To: kaber@trash.net
+Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org
+To: simon@fire.lp0.eu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55300
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55304
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1762553AbXGZHIv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jul 2007 03:08:51 -0400
-In-Reply-To: <46A60D50.804@trash.net>
+	by vger.kernel.org with ESMTP id S1760029AbXGZHKO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jul 2007 03:10:14 -0400
+In-Reply-To: <46A500B9.3030702@simon.arlott.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Tue, 24 Jul 2007 16:31:44 +0200
+From: Simon Arlott <simon@fire.lp0.eu>
+Date: Mon, 23 Jul 2007 20:25:45 +0100
 
-> Joakim Koskela wrote:
-> > This patch modifies the xfrm state selection logic to use the inner
-> > addresses where the outer have been (incorrectly) used. This is
-> > required for beet mode in general and interfamily setups in both
-> > tunnel and beet mode.
+> The ADVMSS value was incorrectly updated for ALL routes when the MTU 
+> is updated because it's outside the effect of the if statement's 
+> condition.
 > 
-> 
-> Looks good.
-> 
-> Acked-by: Patrick McHardy <kaber@trash.net>
+> Signed-off-by: Simon Arlott <simon@fire.lp0.eu>
 
-Applied, thanks everyone.
+Thanks for fixing this bug Simon, patch applied.
