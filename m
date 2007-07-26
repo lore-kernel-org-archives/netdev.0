@@ -1,32 +1,221 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: 2.6.20->2.6.21 - networking dies after random time
-Date: Thu, 26 Jul 2007 10:55:23 +0200
-Message-ID: <20070726085523.GA3423@ff.dom.local>
-References: <4bacf17f0707222244p664e7a6ap850b3357a57d73c@mail.gmail.com> <20070724080534.GC18740@elte.hu> <20070724094202.GA11610@elte.hu> <alpine.LFD.0.999.0707241228291.3607@woody.linux-foundation.org> <20070724200431.GA22190@elte.hu> <1185322771.4175.102.camel@chaos> <4bacf17f0707260016x14fc1c92s628ae64353663833@mail.gmail.com> <20070726081326.GA3197@ff.dom.local> <1185437431.3227.21.camel@chaos> <20070726083120.GA26910@elte.hu>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: [RFT] fib_trie: cleanup
+Date: Thu, 26 Jul 2007 09:46:48 +0100
+Message-ID: <20070726094648.3b7301ae@oldman>
+References: <20070725040304.111550f4.akpm@linux-foundation.org>
+	<20070725181557.GF3572@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Thomas Gleixner <tglx@linutronix.de>,
-	Marcin ??lusarz <marcin.slusarz@gmail.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Jean-Baptiste Vignaud <vignaud@xandmail.fr>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	shemminger <shemminger@linux-foundation.org>,
-	linux-net <linux-net@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>
-To: Ingo Molnar <mingo@elte.hu>
-Return-path: <linux-net-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20070726083120.GA26910@elte.hu>
-Sender: linux-net-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Ingo Molnar <mingo@elte.hu>, Josh Triplett <josh@kernel.org>,
+	netdev@vger.kernel.org
+To: Adrian Bunk <bunk@stusta.de>,
+	Robert Olsson <Robert.Olsson@data.slu.se>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:35900 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755798AbXGZIrt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jul 2007 04:47:49 -0400
+In-Reply-To: <20070725181557.GF3572@stusta.de>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 26, 2007 at 10:31:20AM +0200, Ingo Molnar wrote:
-...
-> yeah. The patch below enables sw-resend on x86, to test the theory 
-> whether the APIC-driven hardware-vector-resend code has some problem.
+Try this out:
+     * replace macro's with inlines
+     * get rid of places doing multiple evaluations of NODE_PARENT
 
-I think Marcin is using x86_64 (Athlon 64) yet.
 
-Jarek P.
+--- a/net/ipv4/fib_trie.c	2007-07-26 09:22:47.000000000 +0100
++++ b/net/ipv4/fib_trie.c	2007-07-26 09:26:19.000000000 +0100
+@@ -93,15 +93,8 @@ typedef unsigned int t_key;
+ #define T_TNODE 0
+ #define T_LEAF  1
+ #define NODE_TYPE_MASK	0x1UL
+-#define NODE_PARENT(node) \
+-	((struct tnode *)rcu_dereference(((node)->parent & ~NODE_TYPE_MASK)))
+-
+ #define NODE_TYPE(node) ((node)->parent & NODE_TYPE_MASK)
+ 
+-#define NODE_SET_PARENT(node, ptr)		\
+-	rcu_assign_pointer((node)->parent,	\
+-			   ((unsigned long)(ptr)) | NODE_TYPE(node))
+-
+ #define IS_TNODE(n) (!(n->parent & T_LEAF))
+ #define IS_LEAF(n) (n->parent & T_LEAF)
+ 
+@@ -174,6 +167,16 @@ static void tnode_free(struct tnode *tn)
+ static struct kmem_cache *fn_alias_kmem __read_mostly;
+ static struct trie *trie_local = NULL, *trie_main = NULL;
+ 
++static inline struct tnode *node_parent(struct node *node)
++{
++	return rcu_dereference((struct tnode *) (node->parent & ~NODE_TYPE_MASK));
++}
++
++static inline void node_set_parent(struct node *node, struct tnode *ptr)
++{
++	rcu_assign_pointer(node->parent,
++			   (unsigned long)ptr | NODE_TYPE(node));
++}
+ 
+ /* rcu_read_lock needs to be hold by caller from readside */
+ 
+@@ -446,7 +449,7 @@ static void tnode_put_child_reorg(struct
+ 		tn->full_children++;
+ 
+ 	if (n)
+-		NODE_SET_PARENT(n, tn);
++		node_set_parent(n, tn);
+ 
+ 	rcu_assign_pointer(tn->child[i], n);
+ }
+@@ -481,7 +484,7 @@ static struct node *resize(struct trie *
+ 				continue;
+ 
+ 			/* compress one level */
+-			NODE_SET_PARENT(n, NULL);
++			node_set_parent(n, NULL);
+ 			tnode_free(tn);
+ 			return n;
+ 		}
+@@ -636,7 +639,7 @@ static struct node *resize(struct trie *
+ 
+ 			/* compress one level */
+ 
+-			NODE_SET_PARENT(n, NULL);
++			node_set_parent(n, NULL);
+ 			tnode_free(tn);
+ 			return n;
+ 		}
+@@ -961,24 +964,21 @@ fib_find_node(struct trie *t, u32 key)
+ static struct node *trie_rebalance(struct trie *t, struct tnode *tn)
+ {
+ 	int wasfull;
+-	t_key cindex, key;
+-	struct tnode *tp = NULL;
+-
+-	key = tn->key;
++	t_key cindex, key = tn->key;
++	struct tnode *tp;
+ 
+-	while (tn != NULL && NODE_PARENT(tn) != NULL) {
+-
+-		tp = NODE_PARENT(tn);
++	while (tn != NULL && (tp = node_parent((struct node *)tn)) != NULL) {
+ 		cindex = tkey_extract_bits(key, tp->pos, tp->bits);
+ 		wasfull = tnode_full(tp, tnode_get_child(tp, cindex));
+ 		tn = (struct tnode *) resize (t, (struct tnode *)tn);
+ 		tnode_put_child_reorg((struct tnode *)tp, cindex,(struct node*)tn, wasfull);
+ 
+-		if (!NODE_PARENT(tn))
++		tp = node_parent((struct node *) tn);
++		if (!tp)
+ 			break;
+-
+-		tn = NODE_PARENT(tn);
++		tn = tp;
+ 	}
++
+ 	/* Handle last (top) tnode */
+ 	if (IS_TNODE(tn))
+ 		tn = (struct tnode*) resize(t, (struct tnode *)tn);
+@@ -1031,7 +1031,7 @@ fib_insert_node(struct trie *t, int *err
+ 			pos = tn->pos + tn->bits;
+ 			n = tnode_get_child(tn, tkey_extract_bits(key, tn->pos, tn->bits));
+ 
+-			BUG_ON(n && NODE_PARENT(n) != tn);
++			BUG_ON(n && node_parent(n) != tn);
+ 		} else
+ 			break;
+ 	}
+@@ -1083,7 +1083,7 @@ fib_insert_node(struct trie *t, int *err
+ 	if (t->trie && n == NULL) {
+ 		/* Case 2: n is NULL, and will just insert a new leaf */
+ 
+-		NODE_SET_PARENT(l, tp);
++		node_set_parent((struct node *)l, tp);
+ 
+ 		cindex = tkey_extract_bits(key, tp->pos, tp->bits);
+ 		put_child(t, (struct tnode *)tp, cindex, (struct node *)l);
+@@ -1114,7 +1114,7 @@ fib_insert_node(struct trie *t, int *err
+ 			goto err;
+ 		}
+ 
+-		NODE_SET_PARENT(tn, tp);
++		node_set_parent((struct node *)tn, tp);
+ 
+ 		missbit = tkey_extract_bits(key, newpos, 1);
+ 		put_child(t, tn, missbit, (struct node *)l);
+@@ -1495,12 +1495,13 @@ backtrace:
+ 		if (chopped_off <= pn->bits) {
+ 			cindex &= ~(1 << (chopped_off-1));
+ 		} else {
+-			if (NODE_PARENT(pn) == NULL)
++			struct tnode *parent = node_parent((struct node *) pn);
++			if (!parent)
+ 				goto failed;
+ 
+ 			/* Get Child's index */
+-			cindex = tkey_extract_bits(pn->key, NODE_PARENT(pn)->pos, NODE_PARENT(pn)->bits);
+-			pn = NODE_PARENT(pn);
++			cindex = tkey_extract_bits(pn->key, parent->pos, parent->bits);
++			pn = parent;
+ 			chopped_off = 0;
+ 
+ #ifdef CONFIG_IP_FIB_TRIE_STATS
+@@ -1536,7 +1537,7 @@ static int trie_leaf_remove(struct trie 
+ 		check_tnode(tn);
+ 		n = tnode_get_child(tn ,tkey_extract_bits(key, tn->pos, tn->bits));
+ 
+-		BUG_ON(n && NODE_PARENT(n) != tn);
++		BUG_ON(n && node_parent(n) != tn);
+ 	}
+ 	l = (struct leaf *) n;
+ 
+@@ -1551,7 +1552,7 @@ static int trie_leaf_remove(struct trie 
+ 	t->revision++;
+ 	t->size--;
+ 
+-	tp = NODE_PARENT(n);
++	tp = node_parent(n);
+ 	tnode_free((struct tnode *) n);
+ 
+ 	if (tp) {
+@@ -1703,7 +1704,7 @@ static struct leaf *nextleaf(struct trie
+ 
+ 		p = (struct tnode*) trie;  /* Start */
+ 	} else
+-		p = (struct tnode *) NODE_PARENT(c);
++		p = node_parent(c);
+ 
+ 	while (p) {
+ 		int pos, last;
+@@ -1740,7 +1741,7 @@ static struct leaf *nextleaf(struct trie
+ up:
+ 		/* No more children go up one step  */
+ 		c = (struct node *) p;
+-		p = (struct tnode *) NODE_PARENT(p);
++		p = node_parent(c);
+ 	}
+ 	return NULL; /* Ready. Root of trie */
+ }
+@@ -2043,7 +2044,7 @@ rescan:
+ 	}
+ 
+ 	/* Current node exhausted, pop back up */
+-	p = NODE_PARENT(tn);
++	p = node_parent((struct node *)tn);
+ 	if (p) {
+ 		cindex = tkey_extract_bits(tn->key, p->pos, p->bits)+1;
+ 		tn = p;
+@@ -2317,7 +2318,7 @@ static int fib_trie_seq_show(struct seq_
+ 	if (v == SEQ_START_TOKEN)
+ 		return 0;
+ 
+-	if (!NODE_PARENT(n)) {
++	if (!node_parent(n)) {
+ 		if (iter->trie == trie_local)
+ 			seq_puts(seq, "<local>:\n");
+ 		else
