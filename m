@@ -1,43 +1,42 @@
-From: Ramkrishna Vepa <ram.vepa@neterion.com>
-Subject: [PATCH 2.6.22 1/3]S2io: Mask spurious interrupts
-Date: 25 Jul 2007 19:35:09 -0700
-Message-ID: <1185417308.21141.33.camel@flash>
-Reply-To: ram.vepa@neterion.com
+From: Dave Johnson <djohnson+linux-kernel@sw.starentnetworks.com>
+Subject: Re: [PATCH] IPv6: ipv6_addr_type() doesn't know about RFC4193 addresses
+Date: Wed, 25 Jul 2007 21:11:28 -0400
+Message-ID: <18087.62656.490978.692574@zeus.sw.starentnetworks.com>
+References: <18087.57717.495366.413571@zeus.sw.starentnetworks.com>
+	<20070725.171203.102545287.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, ram.vepa@neterion.com
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	lksctp-developers@lists.sourceforge.net,
+	sakkiped@starentnetworks.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from barracuda.s2io.com ([72.1.205.138]:56174 "EHLO
-	barracuda.s2io.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752578AbXGZAv6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jul 2007 20:51:58 -0400
+Received: from [12.38.223.190] ([12.38.223.190]:1158 "EHLO
+	mail.sw.starentnetworks.com" rhost-flags-FAIL-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752281AbXGZBLu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jul 2007 21:11:50 -0400
+In-Reply-To: <20070725.171203.102545287.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-- Mask single and double bit ETQ ecc errors to inhibit spurious interrupts.
+David Miller writes:
+> Contrarily, there may be ipv6_addr_type() call sites that really
+> do want to reject rfc4193 addresses.
 
-(Resending; Removed HTML sections in the patch)
+A quick look through the callers and only these functions should be
+effected, they check either RESERVED or UNICAST from ipv6_addr_type():
 
-Signed-off-by: Santosh Rastapur <santosh.rastapur@neterion.com>
----
-diff -Nurp 2.0.24.1/drivers/net/s2io-regs.h 2.0.24.1P1/drivers/net/s2io-regs.h
---- 2.0.24.1/drivers/net/s2io-regs.h	2007-07-20 16:13:29.000000000 -0700
-+++ 2.0.24.1P1/drivers/net/s2io-regs.h	2007-07-20 16:18:27.000000000 -0700
-@@ -747,10 +747,9 @@ struct XENA_dev_config {
- #define MC_ERR_REG_MIRI_CRI_ERR_1          BIT(23)
- #define MC_ERR_REG_SM_ERR                  BIT(31)
- #define MC_ERR_REG_ECC_ALL_SNG		   (BIT(2) | BIT(3) | BIT(4) | BIT(5) |\
--					    BIT(6) | BIT(7) | BIT(17) | BIT(19))
-+					BIT(17) | BIT(19))
- #define MC_ERR_REG_ECC_ALL_DBL		   (BIT(10) | BIT(11) | BIT(12) |\
--					    BIT(13) | BIT(14) | BIT(15) |\
--					    BIT(18) | BIT(20))
-+					BIT(13) | BIT(18) | BIT(20))
- 	u64 mc_err_mask;
- 	u64 mc_err_alarm;
- 
+net/ipv6/addrconf.c:                ipv6_dev_get_saddr()
+net/ipv6/exthdrs.c:                 ipv6_dest_hao()   
+net/ipv6/ip6_tunnel.c:              ip6_tnl_set_cap()
+net/ipv6/netfilter/ip6t_REJECT.c:   send_reset()
+net/ipv6/route.c:                   ip6_route_add()
+net/ipv6/route.c:                   ip6_pkt_drop()
+net/sctp/ipv6.c:                    sctp_v6_available()
+net/sctp/ipv6.c:                    sctp_v6_addr_valid()
 
-
+-- 
+Dave Johnson
+Starent Networks
 
