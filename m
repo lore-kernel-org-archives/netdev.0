@@ -1,53 +1,48 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [IPVS]: Use skb_forward_csum
-Date: Thu, 26 Jul 2007 16:59:39 +0800
-Message-ID: <20070726085939.GA442@gondor.apana.org.au>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: 2.6.20->2.6.21 - networking dies after random time
+Date: Thu, 26 Jul 2007 11:11:57 +0200
+Message-ID: <20070726091157.GB3423@ff.dom.local>
+References: <20070629150759.GC2771@ff.dom.local> <4bacf17f0707222244p664e7a6ap850b3357a57d73c@mail.gmail.com> <20070724080534.GC18740@elte.hu> <20070724094202.GA11610@elte.hu> <alpine.LFD.0.999.0707241228291.3607@woody.linux-foundation.org> <20070724200431.GA22190@elte.hu> <1185322771.4175.102.camel@chaos> <4bacf17f0707260016x14fc1c92s628ae64353663833@mail.gmail.com> <20070726081326.GA3197@ff.dom.local> <1185437431.3227.21.camel@chaos>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Simon Horman <horms@verge.net.au>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:1238 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756119AbXGZI7u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jul 2007 04:59:50 -0400
+Cc: Marcin =?iso-8859-2?Q?=A6lusarz?= <marcin.slusarz@gmail.com>,
+	Ingo Molnar <mingo@elte.hu>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Jean-Baptiste Vignaud <vignaud@xandmail.fr>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	shemminger <shemminger@linux-foundation.org>,
+	linux-net <linux-net@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>
+To: Thomas Gleixner <tglx@linutronix.de>
+Return-path: <linux-net-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <1185437431.3227.21.camel@chaos>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dave:
+On Thu, Jul 26, 2007 at 10:10:31AM +0200, Thomas Gleixner wrote:
+> On Thu, 2007-07-26 at 10:13 +0200, Jarek Poplawski wrote:
+...
+> > PS: Now, it seems to me Thomas could be the nearest. BTW, could somebody
+> > give me some tip, how these re-triggered interrupts are skipped on dev's
+> > reset before enable_irq?
+> 
+> I think the correct solution is really not to resend level type
+> interrupts. If the interrupt line is still active, then the interrupt
+> comes up by itself. I'm cooking a patch for that.
+> 
+> The other question is: 
+> 
+> Is the driver confused by the resent irq or is the chip-set unhappy
+> about the resend ?
+> 
+> We could figure the latter out by activating the software based resend
+> method.
 
-Found this while looking at 8797.  Although it's not clear
-that this is the cause yet (it could only happen if a
-seemingly remote TCP stream is DNATed to a local address),
-we need this patch anyway to avoid clobbering incoming
-traffic with CHECKSUM_PARTIAL in its ip_summed field.
+Probably I miss something, but isn't there any problem with level type,
+when APIC re-triggers an interrupt, which is not acked by driver nor
+card (after some hw reset/clear)?
 
-[IPVS]: Use skb_forward_csum
-
-As a path that forwards packets, IPVS should be using
-skb_forward_csum instead of directly setting ip_summed
-to CHECKSUM_NONE.
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
---
-diff --git a/net/ipv4/ipvs/ip_vs_xmit.c b/net/ipv4/ipvs/ip_vs_xmit.c
-index 900ce29..666e080 100644
---- a/net/ipv4/ipvs/ip_vs_xmit.c
-+++ b/net/ipv4/ipvs/ip_vs_xmit.c
-@@ -128,7 +128,7 @@ ip_vs_dst_reset(struct ip_vs_dest *dest)
- #define IP_VS_XMIT(skb, rt)				\
- do {							\
- 	(skb)->ipvs_property = 1;			\
--	(skb)->ip_summed = CHECKSUM_NONE;		\
-+	skb_forward_csum(skb);				\
- 	NF_HOOK(PF_INET, NF_IP_LOCAL_OUT, (skb), NULL,	\
- 		(rt)->u.dst.dev, dst_output);		\
- } while (0)
+Jarek P.
