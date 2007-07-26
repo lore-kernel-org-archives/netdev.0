@@ -1,79 +1,68 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 5/6] [IPV4/IPV6]: Fail registration if inet device construction fails
-Date: Thu, 26 Jul 2007 17:09:38 +0800
-Message-ID: <E1IDzLm-0000AP-00@gondolin.me.apana.org.au>
+Subject: [PATCH 6/6] [IPV6]: Remove circular dependency on if_inet6.h
+Date: Thu, 26 Jul 2007 17:09:40 +0800
+Message-ID: <E1IDzLo-0000AX-00@gondolin.me.apana.org.au>
 References: <20070726090725.GA510@gondor.apana.org.au>
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	Patrick McHardy <kaber@trash.net>,
 	Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:1322 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:1325 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756880AbXGZJJl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jul 2007 05:09:41 -0400
+	with ESMTP id S1759416AbXGZJJn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jul 2007 05:09:43 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[IPV4/IPV6]: Fail registration if inet device construction fails
+[IPV6]: Remove circular dependency on if_inet6.h
 
-Now that netdev notifications can fail, we can use this to signal
-errors during registration for IPv4/IPv6.  In particular, if we
-fail to allocate memory for the inet device, we can fail the netdev
-registration.
+net/if_inet6.h includes linux/ipv6.h which also tries to include
+net/if_inet6.h.  Since the latter only needs it for forward
+declarations, we can fix this by adding the declarations.
+
+A number of files are implicitly including net/if_inet6.h through
+linux/ipv6.h.  They also use net/ipv6.h so this patch includes
+net/if_inet6.h there.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- net/ipv4/devinet.c  |    5 ++---
- net/ipv6/addrconf.c |    8 +++++---
- 2 files changed, 7 insertions(+), 6 deletions(-)
+ include/linux/ipv6.h |    5 ++++-
+ include/net/ipv6.h   |    1 +
+ 2 files changed, 5 insertions(+), 1 deletion(-)
 
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index abf6352..5b77bda 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -1056,10 +1056,9 @@ static int inetdev_event(struct notifier_block *this, unsigned long event,
- 	if (!in_dev) {
- 		if (event == NETDEV_REGISTER) {
- 			in_dev = inetdev_init(dev);
-+			if (!in_dev)
-+				return notifier_from_errno(-ENOMEM);
- 			if (dev == &loopback_dev) {
--				if (!in_dev)
--					panic("devinet: "
--					      "Failed to create loopback\n");
- 				IN_DEV_CONF_SET(in_dev, NOXFRM, 1);
- 				IN_DEV_CONF_SET(in_dev, NOPOLICY, 1);
- 			}
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 0601292..91ef3be 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -2256,14 +2256,14 @@ static int addrconf_notify(struct notifier_block *this, unsigned long event,
- 	struct net_device *dev = (struct net_device *) data;
- 	struct inet6_dev *idev = __in6_dev_get(dev);
- 	int run_pending = 0;
-+	int err;
+diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+index 97983dc..4ca60c3 100644
+--- a/include/linux/ipv6.h
++++ b/include/linux/ipv6.h
+@@ -219,7 +219,6 @@ enum {
+ #include <linux/tcp.h>
+ #include <linux/udp.h>
  
- 	switch(event) {
- 	case NETDEV_REGISTER:
- 		if (!idev && dev->mtu >= IPV6_MIN_MTU) {
- 			idev = ipv6_add_dev(dev);
- 			if (!idev)
--				printk(KERN_WARNING "IPv6: add_dev failed for %s\n",
--					dev->name);
-+				return notifier_from_errno(-ENOMEM);
- 		}
- 		break;
- 	case NETDEV_UP:
-@@ -2373,7 +2373,9 @@ static int addrconf_notify(struct notifier_block *this, unsigned long event,
- 					      NULL);
- 			addrconf_sysctl_register(idev, &idev->cnf);
- #endif
--			snmp6_register_dev(idev);
-+			err = snmp6_register_dev(idev);
-+			if (err)
-+				return notifier_from_errno(err);
- 		}
- 		break;
- 	}
+-#include <net/if_inet6.h>       /* struct ipv6_mc_socklist */
+ #include <net/inet_sock.h>
+ 
+ static inline struct ipv6hdr *ipv6_hdr(const struct sk_buff *skb)
+@@ -273,6 +272,10 @@ struct tcp6_request_sock {
+ 	struct inet6_request_sock tcp6rsk_inet6;
+ };
+ 
++struct ipv6_mc_socklist;
++struct ipv6_ac_socklist;
++struct ipv6_fl_socklist;
++
+ /**
+  * struct ipv6_pinfo - ipv6 private area
+  *
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index 46b9dce..9059e0e 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -17,6 +17,7 @@
+ 
+ #include <linux/ipv6.h>
+ #include <linux/hardirq.h>
++#include <net/if_inet6.h>
+ #include <net/ndisc.h>
+ #include <net/flow.h>
+ #include <net/snmp.h>
