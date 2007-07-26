@@ -1,109 +1,47 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: 2.6.20->2.6.21 - networking dies after random time
-Date: Thu, 26 Jul 2007 11:12:54 +0200
-Message-ID: <20070726091254.GA8063@elte.hu>
-References: <20070724080534.GC18740@elte.hu> <20070724094202.GA11610@elte.hu> <alpine.LFD.0.999.0707241228291.3607@woody.linux-foundation.org> <20070724200431.GA22190@elte.hu> <1185322771.4175.102.camel@chaos> <4bacf17f0707260016x14fc1c92s628ae64353663833@mail.gmail.com> <20070726081326.GA3197@ff.dom.local> <1185437431.3227.21.camel@chaos> <20070726083120.GA26910@elte.hu> <20070726085523.GA3423@ff.dom.local>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [RFT] fib_trie: cleanup
+Date: Thu, 26 Jul 2007 10:15:17 +0100
+Message-ID: <20070726101517.01bfca6b@oldman.hamilton.local>
+References: <20070725040304.111550f4.akpm@linux-foundation.org>
+	<20070725181557.GF3572@stusta.de>
+	<20070726094648.3b7301ae@oldman>
+	<20070726020431.1e693866.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Thomas Gleixner <tglx@linutronix.de>,
-	Marcin ??lusarz <marcin.slusarz@gmail.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Jean-Baptiste Vignaud <vignaud@xandmail.fr>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	shemminger <shemminger@linux-foundation.org>,
-	linux-net <linux-net@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>
-To: Jarek Poplawski <jarkao2@o2.pl>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Adrian Bunk <bunk@stusta.de>,
+	Robert Olsson <Robert.Olsson@data.slu.se>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Ingo Molnar <mingo@elte.hu>, Josh Triplett <josh@kernel.org>,
+	netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.mail.elte.hu ([157.181.1.138]:42880 "EHLO mx3.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750969AbXGZJNG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Jul 2007 05:13:06 -0400
-Content-Disposition: inline
-In-Reply-To: <20070726085523.GA3423@ff.dom.local>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:39942 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752573AbXGZJPo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jul 2007 05:15:44 -0400
+In-Reply-To: <20070726020431.1e693866.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Thu, 26 Jul 2007 02:04:31 -0700
+Andrew Morton <akpm@linux-foundation.org> wrote:
 
-* Jarek Poplawski <jarkao2@o2.pl> wrote:
-
-> On Thu, Jul 26, 2007 at 10:31:20AM +0200, Ingo Molnar wrote:
-> ...
-> > yeah. The patch below enables sw-resend on x86, to test the theory 
-> > whether the APIC-driven hardware-vector-resend code has some problem.
+> On Thu, 26 Jul 2007 09:46:48 +0100 Stephen Hemminger <shemminger@linux-foundation.org> wrote:
 > 
-> I think Marcin is using x86_64 (Athlon 64) yet.
+> > Try this out:
+> >      * replace macro's with inlines
+> >      * get rid of places doing multiple evaluations of NODE_PARENT
+> 
+> And it fixes the rcu abuse which resulted in
+> http://lkml.org/lkml/2007/7/25/319.  Which I assume is what inspired the
+> effort.
+> 
+> 
+> your typecasting style is inconsistent:
+> 
+> > +	return rcu_dereference((struct tnode *) (node->parent & ~NODE_TYPE_MASK));
+> 
+> space
 
-yeah - i meant to cover both arches but forgot about x86_64 - updated 
-patch attached below.
-
-	Ingo
-
------------------>
-Subject: x86: activate HARDIRQS_SW_RESEND
-From: Ingo Molnar <mingo@elte.hu>
-
-activate the software-triggered IRQ-resend logic.
-
-it appears some chipsets/cpus do not handle local-APIC driven IRQ
-resends all that well, so always use the soft mechanism to trigger
-the execution of pending interrupts.
-
-Signed-off-by: Ingo Molnar <mingo@elte.hu>
----
- arch/i386/Kconfig   |    4 ++++
- arch/x86_64/Kconfig |    4 ++++
- kernel/irq/manage.c |    8 ++++++++
- 3 files changed, 16 insertions(+)
-
-Index: linux-rt-rebase.q/arch/i386/Kconfig
-===================================================================
---- linux-rt-rebase.q.orig/arch/i386/Kconfig
-+++ linux-rt-rebase.q/arch/i386/Kconfig
-@@ -1284,6 +1284,10 @@ config GENERIC_PENDING_IRQ
- 	depends on GENERIC_HARDIRQS && SMP
- 	default y
- 
-+config HARDIRQS_SW_RESEND
-+	bool
-+	default y
-+
- config X86_SMP
- 	bool
- 	depends on SMP && !X86_VOYAGER
-Index: linux-rt-rebase.q/arch/x86_64/Kconfig
-===================================================================
---- linux-rt-rebase.q.orig/arch/x86_64/Kconfig
-+++ linux-rt-rebase.q/arch/x86_64/Kconfig
-@@ -721,6 +721,10 @@ config GENERIC_PENDING_IRQ
- 	depends on GENERIC_HARDIRQS && SMP
- 	default y
- 
-+config HARDIRQS_SW_RESEND
-+	bool
-+	default y
-+
- menu "Power management options"
- 
- source kernel/power/Kconfig
-Index: linux-rt-rebase.q/kernel/irq/manage.c
-===================================================================
---- linux-rt-rebase.q.orig/kernel/irq/manage.c
-+++ linux-rt-rebase.q/kernel/irq/manage.c
-@@ -175,6 +175,14 @@ void enable_irq(unsigned int irq)
- 		desc->depth--;
- 	}
- 	spin_unlock_irqrestore(&desc->lock, flags);
-+#ifdef CONFIG_HARDIRQS_SW_RESEND
-+	/*
-+	 * Do a bh disable/enable pair to trigger any pending
-+	 * irq resend logic:
-+	 */
-+	local_bh_disable();
-+	local_bh_enable();
-+#endif
- }
- EXPORT_SYMBOL(enable_irq);
- 
+I have a couple of followon cleanup patches, one of them is whitespace demunging
