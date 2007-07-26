@@ -1,77 +1,43 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [RFT] fib_trie: cleanup
-Date: Thu, 26 Jul 2007 02:04:31 -0700
-Message-ID: <20070726020431.1e693866.akpm@linux-foundation.org>
-References: <20070725040304.111550f4.akpm@linux-foundation.org>
-	<20070725181557.GF3572@stusta.de>
-	<20070726094648.3b7301ae@oldman>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [0/6] Allow registration/change name notifications to fail
+Date: Thu, 26 Jul 2007 17:07:25 +0800
+Message-ID: <20070726090725.GA510@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Adrian Bunk <bunk@stusta.de>,
-	Robert Olsson <Robert.Olsson@data.slu.se>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Ingo Molnar <mingo@elte.hu>, Josh Triplett <josh@kernel.org>,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:60512 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753664AbXGZJFl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jul 2007 05:05:41 -0400
-In-Reply-To: <20070726094648.3b7301ae@oldman>
+Received: from rhun.apana.org.au ([64.62.148.172]:1293 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755982AbXGZJHd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jul 2007 05:07:33 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 26 Jul 2007 09:46:48 +0100 Stephen Hemminger <shemminger@linux-foundation.org> wrote:
+Hi Dave:
 
-> Try this out:
->      * replace macro's with inlines
->      * get rid of places doing multiple evaluations of NODE_PARENT
+This series of patches adds support to let netdev registration
+and change name events to fail.  Failures of the former kind
+prevents the device from registered while the latter attempts
+to roll back the change (which unfortunately can also fail).
 
-And it fixes the rcu abuse which resulted in
-http://lkml.org/lkml/2007/7/25/319.  Which I assume is what inspired the
-effort.
+If the failure occurs while a netdev is being registered,
+then the registration as a whole will fail.  If it occurs
+when a protocol is being registered, then that protocol
+will fail to register instead.
 
+Having this allows us to flag allocations failures in a 
+meaningful way rather than letting the next action that
+requires what is allocated to flag the failure.
 
-your typecasting style is inconsistent:
+In particular, this allows the reporting of failures to
+allocate the IPv4/IPv6 device objects.
 
-> +	return rcu_dereference((struct tnode *) (node->parent & ~NODE_TYPE_MASK));
-
-space
-
-> +			   (unsigned long)ptr | NODE_TYPE(node));
-
-no space
-
-> +	while (tn != NULL && (tp = node_parent((struct node *)tn)) != NULL) {
-
-no space
-
-> +		tp = node_parent((struct node *) tn);
-
-space
-
-> +		node_set_parent((struct node *)l, tp);
-
-no space
-
-> +		node_set_parent((struct node *)tn, tp);
-
-no space
-
-> +			struct tnode *parent = node_parent((struct node *) pn);
-
-space
-
-etc.
-
-
-"no space" seems to be more usual, by about a 50.1:49.9 ratio.  It is
-a lot more common in net/:
-
-box:/usr/src/25> grep '[(]unsigned long[)] ' net/*/*.c  | wc -l
-91
-box:/usr/src/25> grep '[(]unsigned long[)][^ ]' net/*/*.c  | wc -l 
-242
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
