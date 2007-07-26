@@ -1,7 +1,7 @@
 From: Varun Chandramohan <varunc@linux.vnet.ibm.com>
-Subject: [PATCH 3/4 -rev1] Initilize and populate age field
-Date: Thu, 26 Jul 2007 10:45:54 +0530
-Message-ID: <20070726104554.cc95eedd.varunc@linux.vnet.ibm.com>
+Subject: [PATCH 4/4 -rev1] Initialize and fill IPv6 route age
+Date: Thu, 26 Jul 2007 10:46:21 +0530
+Message-ID: <20070726104621.d16dfb8f.varunc@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -9,146 +9,168 @@ Cc: netdev@vger.kernel.org, kaber@trash.net, socketcan@hartkopp.net,
 	shemminger@linux-foundation.org, krkumar2@in.ibm.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e6.ny.us.ibm.com ([32.97.182.146]:34192 "EHLO e6.ny.us.ibm.com"
+Received: from e6.ny.us.ibm.com ([32.97.182.146]:34634 "EHLO e6.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752223AbXGZFPj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Jul 2007 01:15:39 -0400
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e6.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l6Q5GrrR006817
-	for <netdev@vger.kernel.org>; Thu, 26 Jul 2007 01:16:53 -0400
+	id S1752368AbXGZFQG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Jul 2007 01:16:06 -0400
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e6.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l6Q5HKpJ007438
+	for <netdev@vger.kernel.org>; Thu, 26 Jul 2007 01:17:20 -0400
 Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
-	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.4) with ESMTP id l6Q5Fcve399740
-	for <netdev@vger.kernel.org>; Thu, 26 Jul 2007 01:15:38 -0400
+	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.4) with ESMTP id l6Q5G5QO533538
+	for <netdev@vger.kernel.org>; Thu, 26 Jul 2007 01:16:05 -0400
 Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
-	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l6Q5FbEc005586
-	for <netdev@vger.kernel.org>; Thu, 26 Jul 2007 01:15:38 -0400
+	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l6Q5G4Du007330
+	for <netdev@vger.kernel.org>; Thu, 26 Jul 2007 01:16:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The age field is filled with the current time at the time of creation of the route. When the routes are dumped
-then the age value stored in the route structure is subtracted from the current time value and the difference is the age expressed in secs.
+The age field of the ipv6 route structures are initilized with the current timeval at the time of route
+creation. When the route dump is called the route age value stored in the structure is subtracted from the
+present timeval and the difference is passed on as the route age. The dumpflg clarity is added as per
+suggestion.
 
 Signed-off-by: Varun Chandramohan <varunc@linux.vnet.ibm.com>
 ---
- net/ipv4/fib_hash.c      |    3 +++
- net/ipv4/fib_lookup.h    |    3 ++-
- net/ipv4/fib_semantics.c |   16 +++++++++++++---
- net/ipv4/fib_trie.c      |    1 +
- 4 files changed, 19 insertions(+), 4 deletions(-)
+ include/net/ip6_fib.h   |    1 +
+ include/net/ip6_route.h |    3 +++
+ net/ipv6/addrconf.c     |    5 +++++
+ net/ipv6/route.c        |   23 +++++++++++++++++++----
+ 4 files changed, 28 insertions(+), 4 deletions(-)
 
-diff --git a/net/ipv4/fib_hash.c b/net/ipv4/fib_hash.c
-index 07e843a..faa7364 100644
---- a/net/ipv4/fib_hash.c
-+++ b/net/ipv4/fib_hash.c
-@@ -448,6 +448,7 @@ static int fn_hash_insert(struct fib_tab
- 			fa->fa_info = fi;
- 			fa->fa_type = cfg->fc_type;
- 			fa->fa_scope = cfg->fc_scope;
-+			fa->fa_age = 0;
- 			state = fa->fa_state;
- 			fa->fa_state &= ~FA_S_ACCESSED;
- 			fib_hash_genid++;
-@@ -507,6 +508,7 @@ static int fn_hash_insert(struct fib_tab
- 	new_fa->fa_type = cfg->fc_type;
- 	new_fa->fa_scope = cfg->fc_scope;
- 	new_fa->fa_state = 0;
-+	new_fa->fa_age = 0;
+diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
+index c48ea87..e30a1cf 100644
+--- a/include/net/ip6_fib.h
++++ b/include/net/ip6_fib.h
+@@ -98,6 +98,7 @@ struct rt6_info
+ 	
+ 	u32				rt6i_flags;
+ 	u32				rt6i_metric;
++	time_t				rt6i_age;
+ 	atomic_t			rt6i_ref;
+ 	struct fib6_table		*rt6i_table;
  
- 	/*
- 	 * Insert new entry to the list.
-@@ -697,6 +699,7 @@ fn_hash_dump_bucket(struct sk_buff *skb,
- 					  f->fn_key,
- 					  fz->fz_order,
- 					  fa->fa_tos,
-+					  &fa->fa_age,
- 					  fa->fa_info,
- 					  NLM_F_MULTI) < 0) {
- 				cb->args[4] = i;
-diff --git a/net/ipv4/fib_lookup.h b/net/ipv4/fib_lookup.h
-index eef9eec..c9145b5 100644
---- a/net/ipv4/fib_lookup.h
-+++ b/net/ipv4/fib_lookup.h
-@@ -13,6 +13,7 @@ struct fib_alias {
- 	u8			fa_type;
- 	u8			fa_scope;
- 	u8			fa_state;
-+	time_t			fa_age;
- };
+diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
+index 5456fdd..fc9716c 100644
+--- a/include/net/ip6_route.h
++++ b/include/net/ip6_route.h
+@@ -36,6 +36,9 @@ struct route_info {
+ #define RT6_LOOKUP_F_REACHABLE	0x2
+ #define RT6_LOOKUP_F_HAS_SADDR	0x4
  
- #define FA_S_ACCESSED	0x01
-@@ -27,7 +28,7 @@ extern struct fib_info *fib_create_info(
- extern int fib_nh_match(struct fib_config *cfg, struct fib_info *fi);
- extern int fib_dump_info(struct sk_buff *skb, u32 pid, u32 seq, int event,
- 			 u32 tb_id, u8 type, u8 scope, __be32 dst,
--			 int dst_len, u8 tos, struct fib_info *fi,
-+			 int dst_len, u8 tos, time_t *age, struct fib_info *fi,
- 			 unsigned int);
- extern void rtmsg_fib(int event, __be32 key, struct fib_alias *fa,
- 		      int dst_len, u32 tb_id, struct nl_info *info,
-diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index c434119..1822d92 100644
---- a/net/ipv4/fib_semantics.c
-+++ b/net/ipv4/fib_semantics.c
-@@ -278,7 +278,8 @@ static inline size_t fib_nlmsg_size(stru
- 			 + nla_total_size(4) /* RTA_TABLE */
- 			 + nla_total_size(4) /* RTA_DST */
- 			 + nla_total_size(4) /* RTA_PRIORITY */
--			 + nla_total_size(4); /* RTA_PREFSRC */
-+			 + nla_total_size(4) /* RTA_PREFSRC */
-+			 + nla_total_size(4); /*RTA_AGE*/
++#define RT6_SET_ROUTE_INFO 0x0
++#define RT6_GET_ROUTE_INFO 0x1
++
+ extern struct rt6_info	ip6_null_entry;
  
- 	/* space for nested metrics */
- 	payload += nla_total_size((RTAX_MAX * nla_total_size(4)));
-@@ -313,7 +314,7 @@ void rtmsg_fib(int event, __be32 key, st
+ #ifdef CONFIG_IPV6_MULTIPLE_TABLES
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 5a5f8bd..715c766 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -4187,6 +4187,7 @@ EXPORT_SYMBOL(unregister_inet6addr_notif
  
- 	err = fib_dump_info(skb, info->pid, seq, event, tb_id,
- 			    fa->fa_type, fa->fa_scope, key, dst_len,
--			    fa->fa_tos, fa->fa_info, nlm_flags);
-+			    fa->fa_tos, &fa->fa_age, fa->fa_info, nlm_flags);
- 	if (err < 0) {
- 		/* -EMSGSIZE implies BUG in fib_nlmsg_size() */
- 		WARN_ON(err == -EMSGSIZE);
-@@ -940,11 +941,12 @@ __be32 __fib_res_prefsrc(struct fib_resu
- }
- 
- int fib_dump_info(struct sk_buff *skb, u32 pid, u32 seq, int event,
--		  u32 tb_id, u8 type, u8 scope, __be32 dst, int dst_len, u8 tos,
-+		  u32 tb_id, u8 type, u8 scope, __be32 dst, int dst_len, u8 tos, time_t *age,
- 		  struct fib_info *fi, unsigned int flags)
+ int __init addrconf_init(void)
  {
- 	struct nlmsghdr *nlh;
- 	struct rtmsg *rtm;
++	struct timeval tv;
+ 	int err = 0;
+ 
+ 	/* The addrconf netdev notifier requires that loopback_dev
+@@ -4214,10 +4215,14 @@ int __init addrconf_init(void)
+ 	if (err)
+ 		return err;
+ 
++	do_gettimeofday(&tv);
+ 	ip6_null_entry.rt6i_idev = in6_dev_get(&loopback_dev);
++	ip6_null_entry.rt6i_age = timeval_to_sec(&tv);
+ #ifdef CONFIG_IPV6_MULTIPLE_TABLES
+ 	ip6_prohibit_entry.rt6i_idev = in6_dev_get(&loopback_dev);
++	ip6_prohibit_entry.rt6i_age = timeval_to_sec(&tv);
+ 	ip6_blk_hole_entry.rt6i_idev = in6_dev_get(&loopback_dev);
++	ip6_blk_hole_entry.rt6i_age = timeval_to_sec(&tv);
+ #endif
+ 
+ 	register_netdevice_notifier(&ipv6_dev_notf);
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index fe8d983..686566f 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -600,7 +600,14 @@ static int __ip6_ins_rt(struct rt6_info
+ {
+ 	int err;
+ 	struct fib6_table *table;
 +	struct timeval tv;
  
- 	nlh = nlmsg_put(skb, pid, seq, event, sizeof(*rtm), flags);
- 	if (nlh == NULL)
-@@ -985,6 +987,14 @@ int fib_dump_info(struct sk_buff *skb, u
- 			NLA_PUT_U32(skb, RTA_FLOW, fi->fib_nh[0].nh_tclassid);
- #endif
- 	}
-+
 +	do_gettimeofday(&tv);
-+	if (!*age) {
-+		*age = timeval_to_sec(&tv);
-+		NLA_PUT_U32(skb, RTA_AGE, *age);
-+	} else {
-+		NLA_PUT_U32(skb, RTA_AGE, timeval_to_sec(&tv) - *age);
-+	}
- #ifdef CONFIG_IP_ROUTE_MULTIPATH
- 	if (fi->fib_nhs > 1) {
- 		struct rtnexthop *rtnh;
-diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index 30e332a..be2d1d6 100644
---- a/net/ipv4/fib_trie.c
-+++ b/net/ipv4/fib_trie.c
-@@ -1884,6 +1884,7 @@ static int fn_trie_dump_fa(t_key key, in
- 				  xkey,
- 				  plen,
- 				  fa->fa_tos,
-+				  &fa->fa_age,
- 				  fa->fa_info, 0) < 0) {
- 			cb->args[4] = i;
- 			return -1;
++	/* Update the timeval for new routes
++	 * We add it here to make it common irrespective
++	 * of how the new route is added.
++	 */
++	rt->rt6i_age = timeval_to_sec(&tv);
+ 	table = rt->rt6i_table;
+ 	write_lock_bh(&table->tb6_lock);
+ 	err = fib6_add(&table->tb6_root, rt, info);
+@@ -2111,6 +2118,7 @@ static inline size_t rt6_nlmsg_size(void
+ 	       + nla_total_size(4) /* RTA_IIF */
+ 	       + nla_total_size(4) /* RTA_OIF */
+ 	       + nla_total_size(4) /* RTA_PRIORITY */
++	       + nla_total_size(4) /*RTA_AGE*/
+ 	       + RTAX_MAX * nla_total_size(4) /* RTA_METRICS */
+ 	       + nla_total_size(sizeof(struct rta_cacheinfo));
+ }
+@@ -2118,10 +2126,11 @@ static inline size_t rt6_nlmsg_size(void
+ static int rt6_fill_node(struct sk_buff *skb, struct rt6_info *rt,
+ 			 struct in6_addr *dst, struct in6_addr *src,
+ 			 int iif, int type, u32 pid, u32 seq,
+-			 int prefix, unsigned int flags)
++			 int prefix, unsigned int flags, int dumpflg)
+ {
+ 	struct rtmsg *rtm;
+ 	struct nlmsghdr *nlh;
++	struct timeval tv;
+ 	long expires;
+ 	u32 table;
+ 
+@@ -2185,6 +2194,12 @@ static int rt6_fill_node(struct sk_buff
+ 		if (ipv6_get_saddr(&rt->u.dst, dst, &saddr_buf) == 0)
+ 			NLA_PUT(skb, RTA_PREFSRC, 16, &saddr_buf);
+ 	}
++	
++	do_gettimeofday(&tv);
++	if (dumpflg == RT6_GET_ROUTE_INFO)
++		NLA_PUT_U32(skb, RTA_AGE, timeval_to_sec(&tv) - rt->rt6i_age);
++	else
++		NLA_PUT_U32(skb, RTA_AGE, rt->rt6i_age);
+ 
+ 	if (rtnetlink_put_metrics(skb, rt->u.dst.metrics) < 0)
+ 		goto nla_put_failure;
+@@ -2222,7 +2237,7 @@ int rt6_dump_route(struct rt6_info *rt,
+ 
+ 	return rt6_fill_node(arg->skb, rt, NULL, NULL, 0, RTM_NEWROUTE,
+ 		     NETLINK_CB(arg->cb->skb).pid, arg->cb->nlh->nlmsg_seq,
+-		     prefix, NLM_F_MULTI);
++		     prefix, NLM_F_MULTI, RT6_GET_ROUTE_INFO);
+ }
+ 
+ static int inet6_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr* nlh, void *arg)
+@@ -2287,7 +2302,7 @@ static int inet6_rtm_getroute(struct sk_
+ 
+ 	err = rt6_fill_node(skb, rt, &fl.fl6_dst, &fl.fl6_src, iif,
+ 			    RTM_NEWROUTE, NETLINK_CB(in_skb).pid,
+-			    nlh->nlmsg_seq, 0, 0);
++			    nlh->nlmsg_seq, 0, 0, RT6_GET_ROUTE_INFO);
+ 	if (err < 0) {
+ 		kfree_skb(skb);
+ 		goto errout;
+@@ -2316,7 +2331,7 @@ void inet6_rt_notify(int event, struct r
+ 	if (skb == NULL)
+ 		goto errout;
+ 
+-	err = rt6_fill_node(skb, rt, NULL, NULL, 0, event, pid, seq, 0, 0);
++	err = rt6_fill_node(skb, rt, NULL, NULL, 0, event, pid, seq, 0, 0, RT6_SET_ROUTE_INFO);
+ 	if (err < 0) {
+ 		/* -EMSGSIZE implies BUG in rt6_nlmsg_size() */
+ 		WARN_ON(err == -EMSGSIZE);
 -- 
 1.4.3.4
 
