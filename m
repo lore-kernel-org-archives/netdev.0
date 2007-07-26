@@ -1,36 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] TIPC: fix tipc_link_create error handling
-Date: Thu, 26 Jul 2007 00:05:21 -0700 (PDT)
-Message-ID: <20070726.000521.88703127.davem@davemloft.net>
-References: <20070723183423.GA9380@Chamillionaire.breakpoint.cc>
-	<AF1602CB2550CE4381C0C75118A7856B015BE75E@ala-mail02.corp.ad.wrs.com>
-	<20070724220256.GC8732@Chamillionaire.breakpoint.cc>
+Subject: Re: [PATCH] NET_DMA: remove unused dma_memcpy_to_kernel_iovec
+Date: Thu, 26 Jul 2007 00:06:07 -0700 (PDT)
+Message-ID: <20070726.000607.18303016.davem@davemloft.net>
+References: <20070725003606.11018.15141.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, allan.stephens@windriver.com,
-	per.liden@ericsson.com, jon.maloy@ericsson.com,
-	tipc-discussion@lists.sourceforge.net
-To: fw@strlen.de
+Cc: netdev@vger.kernel.org, viro@ftp.linux.org.uk,
+	christopher.leech@intel.com, andy.grover@gmail.com
+To: shannon.nelson@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40628
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40633
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1758115AbXGZHFW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jul 2007 03:05:22 -0400
-In-Reply-To: <20070724220256.GC8732@Chamillionaire.breakpoint.cc>
+	by vger.kernel.org with ESMTP id S1760652AbXGZHGJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jul 2007 03:06:09 -0400
+In-Reply-To: <20070725003606.11018.15141.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Florian Westphal <fw@strlen.de>
-Date: Wed, 25 Jul 2007 00:02:56 +0200
+From: Shannon Nelson <shannon.nelson@intel.com>
+Date: Tue, 24 Jul 2007 17:36:06 -0700
 
-> if printbuf allocation or tipc_node_attach_link() fails, invalid
-> references to the link are left in the associated node and bearer
-> structures.
-> Fix by allocating printbuf early and moving timer initialization
-> and the addition of the new link to the b_ptr->links list after
-> tipc_node_attach_link() succeeded.
+> (repost - original eaten by vger?)
 > 
-> Signed-off-by: Florian Westphal <fw@strlen.de>
+> Al Viro pointed out that dma_memcpy_to_kernel_iovec() really was
+> unreachable and thus unused.  The code originally was there to support
+> in-kernel dma needs, but since it remains unused, we'll pull it out.
+> 
+> Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
 
-Looks good Florian, patch applied, thanks.
+Applied, thanks Shannon.
