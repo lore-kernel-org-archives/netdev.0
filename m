@@ -1,36 +1,46 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: Proposed interface for per-packet mesh-ttl
-Date: Fri, 27 Jul 2007 18:22:22 -0400
-Message-ID: <1185574942.17934.9.camel@xo-13-A4-25.localdomain>
-References: <445f43ac0707031149o2b50fc0en48aef4130b4b60ec@mail.gmail.com>
-	 <445f43ac0707031229m4ed60e0cg7960437c3e373c8e@mail.gmail.com>
-	 <20070727195616.GA31510@infradead.org>
+From: Mario Doering <mario@dedenet.de>
+Subject: Re: D-Link DFE-580TX 4 port NIC problems
+Date: Sat, 28 Jul 2007 01:41:38 +0200
+Message-ID: <20070728014138.43e8e16b@snibbles.dedenet.de>
+References: <20070509120142.2305a1d1@snibbles.dedenet.de>
+	<20070509032700.569789a0.akpm@linux-foundation.org>
+	<20070727113044.76630826@snibbles.dedenet.de>
+	<46A9E029.4080200@anagramm.de>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Javier Cardona <javier@cozybit.com>, netdev@vger.kernel.org
-To: Christoph Hellwig <hch@infradead.org>
+Cc: netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:37133 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S938236AbXG0WY2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Jul 2007 18:24:28 -0400
-In-Reply-To: <20070727195616.GA31510@infradead.org>
+Received: from relay.dedenet.de ([195.145.96.7]:2091 "HELO relay.dedenet.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S965154AbXG0Xlo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Jul 2007 19:41:44 -0400
+In-Reply-To: <46A9E029.4080200@anagramm.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2007-07-27 at 20:56 +0100, Christoph Hellwig wrote:
-> On Tue, Jul 03, 2007 at 12:29:24PM -0700, Javier Cardona wrote:
-> > I'm currently working on per-packet mesh ttl.  My plan is to register
-> > new mesh sockopts through netfilter.  The user interface will be:
+On Fri, 27 Jul 2007 14:08:09 +0200
+Clemens Koller <clemens.koller@anagramm.de> wrote:
+
+> Hi, Mario!
 > 
-> NACK.  Drivers should never add sockopt, and drivers should not abuse
-> netfilter hooks.
+> Mario Doering schrieb:
+> > Hello,
+> > 
+> > are there any news or questions on this issue?
+> 
+> Can you try the latest kernel to see if the same problem
+> persists?
+> Is there any kernel version where it was working fine?
 
-Do you have a suggestion for a better way to approach per-packet options
-that userspace programs can set?
 
-Thanks,
-Dan
+Hello Clemens,
 
+I have tried different kernerls with no success so far. I have not
+tried a 2.6.22 kernel yet, but I can do so of course.
 
+It would take some time then again to wait for the error to arise ;-)
+
+Bye,
+Mario.
