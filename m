@@ -1,109 +1,45 @@
-From: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
-Subject: Re: [2/3] 2.6.23-rc1: known regressions v2
-Date: Fri, 27 Jul 2007 22:53:13 +0200
-Message-ID: <46AA5B39.2010209@googlemail.com>
-References: <46AA581D.6080100@googlemail.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [PATCH 0/2] HW VLAN filtering control
+Date: Fri, 27 Jul 2007 14:06:23 -0700
+Message-ID: <46AA5E4F.4090005@candelatech.com>
+References: <1185569723.28574.8.camel@strongmad>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Eric Sesterhenn <snakebyte@gmx.de>,
-	Sid Boyce <g3vbv@blueyonder.co.uk>, linux-ide@vger.kernel.org,
-	Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
-	dth <dth@dth.net>, Netdev <netdev@vger.kernel.org>,
-	Stephen Hemminger <shemminger@osdl.org>,
-	Thomas Meyer <thomas@m3y3r.de>, Florian Lohoff <flo@rfc822.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>
+Cc: netdev@vger.kernel.org
+To: Mitch Williams <mitch.a.williams@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.171]:19649 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S936168AbXG0U4C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jul 2007 16:56:02 -0400
-Received: by ug-out-1314.google.com with SMTP id j3so770793ugf
-        for <netdev@vger.kernel.org>; Fri, 27 Jul 2007 13:56:01 -0700 (PDT)
-In-Reply-To: <46AA581D.6080100@googlemail.com>
+Received: from ns2.lanforge.com ([66.165.47.211]:39111 "EHLO ns2.lanforge.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S934323AbXG0VGZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Jul 2007 17:06:25 -0400
+In-Reply-To: <1185569723.28574.8.camel@strongmad>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+Mitch Williams wrote:
+> This patchset adds the capability to disable hardware VLAN filtering at
+> runtime via the existing vconfig utility.  It's useful for debugging
+> purposes.
+> 
+> The first patch modifies the VLAN subsystem to define the flag, and to
+> support passing the flag on to the base driver.
+> 
+> The second patch modifies e1000 to support the flag.  Since it's only
+> one function, other drivers can be easily modified to support this
+> functionality.
+> 
+> vconfig is used without modification to enable or disable filtering:
+> 	# vconfig [vlan-interface] 2 1
+> will disable filtering, and
+> 	# vconfig [vlan-interface] 2 0
+> will enable filtering.
 
-Here is a list of some known regressions in 2.6.23-rc1.
+This looks fine to me.
 
-Feel free to add new regressions/remove fixed etc.
-http://kernelnewbies.org/known_regressions
+Ben
 
-List of Aces
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
 
-Name                    Regressions fixed since 21-Jun-2007
-Adrian Bunk                            6
-Andi Kleen                             4
-Andrew Morton                          4
-Linus Torvalds                         4
-Al Viro                                3
-Jens Axboe                             3
-Tejun Heo                              3
-David Woodhouse                        2
-Hugh Dickins                           2
-
-
-
-Unclassified
-
-Subject         : 2.6.23-rc1-git3 init failure
-References      : http://lkml.org/lkml/2007/7/26/467
-Last known good : ?
-Submitter       : Sid Boyce <g3vbv@blueyonder.co.uk>
-Caused-By       : ?
-Handled-By      : ?
-Status          : unknown
-
-Subject         : Time Problems with 2.6.23-rc1-gf695baf2
-References      : http://lkml.org/lkml/2007/7/23/486
-Last known good : ?
-Submitter       : Eric Sesterhenn <snakebyte@gmx.de>
-Caused-By       : ?
-Handled-By      : ?
-Status          : problem is being debugged
-
-
-
-IDE
-
-Subject         : ide problems: 2.6.22-git17 working, 2.6.23-rc1* is not
-References      : http://lkml.org/lkml/2007/7/27/298
-Last known good : ?
-Submitter       : dth <dth@dth.net>
-Caused-By       : ?
-Handled-By      : ?
-Status          : unknown
-
-
-
-Networking
-
-Subject         : sky2 boot crash in sky2_mac_intr
-References      : http://lkml.org/lkml/2007/7/24/91
-Last known good : ?
-Submitter       : Florian Lohoff <flo@rfc822.org>
-Caused-By       : 
-Handled-By      : Stephen Hemminger <shemminger@osdl.org>
-Status          : unknown
-
-Subject         : New wake ups from sky2
-References      : http://lkml.org/lkml/2007/7/20/386
-Last known good : ?
-Submitter       : Thomas Meyer <thomas@m3y3r.de>
-Caused-By       : Stephen Hemminger <shemminger@osdl.org>
-                  commit eb35cf60e462491249166182e3e755d3d5d91a28
-Handled-By      : Stephen Hemminger <shemminger@osdl.org>
-Status          : unknown
-
-
-
-Regards,
-Michal
-
---
-LOG
-http://www.stardust.webpages.pl/log/
