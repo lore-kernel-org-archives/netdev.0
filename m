@@ -1,265 +1,114 @@
-From: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Subject: Re: [PATCH] Merge the Sonics Silicon Backplane subsystem
-Date: Fri, 27 Jul 2007 12:03:18 -0700
-Message-ID: <20070727120318.54d18cfc.akpm@linux-foundation.org>
-References: <200707271857.24162.mb@bu3sch.de>
+From: "Daniel J Blueman" <daniel.blueman@gmail.com>
+Subject: Re: sk98lin for 2.6.23-rc1
+Date: Fri, 27 Jul 2007 20:27:07 +0100
+Message-ID: <6278d2220707271227g51cb147ch2f6dbc05c73f618d@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "linux-kernel" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Gary Zambrano <zambrano-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-To: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <200707271857.24162.mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: "Linux Netdev" <netdev@vger.kernel.org>
+To: "Stephen Hemminger" <shemminger@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wr-out-0506.google.com ([64.233.184.238]:17058 "EHLO
+	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758445AbXG0T1J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jul 2007 15:27:09 -0400
+Received: by wr-out-0506.google.com with SMTP id i30so558926wra
+        for <netdev@vger.kernel.org>; Fri, 27 Jul 2007 12:27:08 -0700 (PDT)
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 27 Jul 2007 18:57:20 +0200
-Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org> wrote:
-
-> The Sonics Silicon Backplane is a mini-bus used on
-> various Broadcom chips and embedded devices.
-> Devices using the SSB include b44, bcm43xx and various
-> Broadcom based wireless routers.
-> A b44 and bcm43xx port and a SSB based OHCI driver is available.
-> 
-
-hm, slim pickings for me here.  Nice looking code.
-
-checkpatch finds a few coding style glitches.  Lots of 80-col violations
-which you might choose ignore (comments on #defines in headers are
-especially hard) but these guys:
-
-ERROR: "foo * bar" should be "foo *bar"
-#4156: FILE: drivers/ssb/ssb_private.h:119:
-+extern struct ssb_bus * ssb_pci_dev_to_bus(struct pci_dev *pdev);
-
-are worth addressing.
-
-> ...
+> If anyone still has hang issues with sky2, please send me the hardware
+> information (lspci, dmesg output), and capture the debugfs state after hang.
 >
-> --- /dev/null
-> +++ b/drivers/ssb/driver_pcicore.c
-> @@ -0,0 +1,564 @@
->
-> ...
->
-> +u32 pci_iobase = 0x100;
-> +u32 pci_membase = SSB_PCI_DMA;
+> At present the known open skge, sky2 issues are:
+[snip]
 
-These are quite poor names for global symbols.
+There is still this active issue which I believe is orthogonal from
+the interrupt hang. I just hit it again. The IRQ-hang recovery logic
+doesn't seem to kick in, so it's perhaps another issue:
 
-> +static struct resource ssb_pcicore_mem_resource = {
-> +	.name	= "SSB PCIcore external memory",
-> +	.start	= SSB_PCI_DMA,
-> +	.end	= (u32)SSB_PCI_DMA + (u32)SSB_PCI_DMA_SZ - 1,
-> +	.flags	= IORESOURCE_MEM,
-> +};
+# ifconfig lan0
+lan0      Link encap:Ethernet  HWaddr 00:03:2D:05:9C:27
+          inet addr:192.168.0.250  Bcast:192.168.0.255  Mask:255.255.255.0
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:13304841 errors:1 dropped:1 overruns:0 frame:2
+          TX packets:7493765 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000
+          RX bytes:232720755 (221.9 MiB)  TX bytes:3964088142 (3.6 GiB)
+          Interrupt:16
 
-start and end here are resource_size_t.  Forcing them to u32 seems
-inappropriate.
+# ethtool -S lan0
+NIC statistics:
+     tx_bytes: 44342166229
+     rx_bytes: 28807483162
+     tx_broadcast: 20071
+     rx_broadcast: 3309
+     tx_multicast: 0
+     rx_multicast: 31
+     tx_unicast: 45095221
+     rx_unicast: 43331790
+     tx_mac_pause: 0
+     rx_mac_pause: 278
+     collisions: 0
+     late_collision: 0
+     aborted: 0
+     single_collisions: 0
+     multi_collisions: 0
+     rx_short: 0
+     rx_runt: 0
+     rx_64_byte_packets: 1815009
+     rx_65_to_127_byte_packets: 18626585
+     rx_128_to_255_byte_packets: 788459
+     rx_256_to_511_byte_packets: 4880174
+     rx_512_to_1023_byte_packets: 1016831
+     rx_1024_to_1518_byte_packets: 16208350
+     rx_1518_to_max_byte_packets: 0
+     rx_too_long: 0
+     rx_fifo_overflow: 0
+     rx_jabber: 0
+     rx_fcs_error: 0
+     tx_64_byte_packets: 1632797
+     tx_65_to_127_byte_packets: 11211285
+     tx_128_to_255_byte_packets: 1628446
+     tx_256_to_511_byte_packets: 2042646
+     tx_512_to_1023_byte_packets: 637342
+     tx_1024_to_1518_byte_packets: 27962776
+     tx_1519_to_max_byte_packets: 0
+     tx_fifo_underrun: 0
 
-> +void ssb_pcicore_init(struct ssb_pcicore *pc)
+# dmesg
+[snip]
+sky2 0000:01:00.0: v1.16 addr 0xdfbfc000 irq 16 Yukon-EC (0xb6) rev 1
+sky2 eth1: addr 00:03:2d:05:9c:27
+sky2 lan0: enabling interface
+sky2 lan0: ram buffer 48K
+[snip]
+sky2 lan0: rx error, status 0xad78ad78 length 0
+lan0: hw csum failure.
+[stack-trace snipped]
+lan0: hw csum failure.
+...
 
-Please check that all newly-added global symbols do indeed need global scope.
+# cat /debug/sky2/lan0
+IRQ src=0 mask=c000001d control=0
+Status ring (empty)
+Tx ring pending=424...424 report=424 done=424
 
-> +static void ssb_pcie_mdio_write(struct ssb_pcicore *pc, u8 device,
-> +				u8 address, u16 data)
-> +{
-> +	const u16 mdio_control = 0x128;
-> +	const u16 mdio_data = 0x12C;
-> +	u32 v;
-> +	int i;
-> +
-> +	v = 0x80; /* Enable Preamble Sequence */
-> +	v |= 0x2; /* MDIO Clock Divisor */
-> +	pcicore_write32(pc, mdio_control, v);
-> +
-> +	v = (1 << 30); /* Start of Transaction */
-> +	v |= (1 << 28); /* Write Transaction */
-> +	v |= (1 << 17); /* Turnaround */
-> +	v |= (u32)device << 22;
-> +	v |= (u32)address << 18;
-> +	v |= data;
-> +	pcicore_write32(pc, mdio_data, v);
-> +	udelay(10);
+Rx ring hw get=252 put=405 last=1023
 
-mystery udelays are usually worth a comment.
+# cat /debug/sky2/lan0
+IRQ src=0 mask=c000001d control=0
+Status ring (empty)
+Tx ring pending=432...432 report=432 done=432
 
-> +	for (i = 0; i < 10; i++) {
-> +		v = pcicore_read32(pc, mdio_control);
-> +		if (v & 0x100 /* Trans complete */)
-> +			break;
-> +		msleep(1);
-> +	}
-> +	pcicore_write32(pc, mdio_control, 0);
-> +}
->
-> ...
->
-> +
-> +static void ssb_buses_lock(void)
-> +{
-> +	if (!ssb_is_early_boot)
-> +		mutex_lock(&buses_mutex);
-> +}
-> +
-> +static void ssb_buses_unlock(void)
-> +{
-> +	if (!ssb_is_early_boot)
-> +		mutex_unlock(&buses_mutex);
-> +}
+Rx ring hw get=252 put=415 last=1023
 
-Some comments are neeeded here to explain why we're jumping through this
-hoop.  It's normally OK to take a mutex early in boot, so one wonders
-what's happening.
+# cat /debug/sky2/lan0
+IRQ src=0 mask=c000001d control=0
+Status ring (empty)
+Tx ring pending=451...451 report=451 done=451
 
-> +EXPORT_SYMBOL(ssb_clockspeed);
-
-Please check that all newly-added exports really need to be exported (I'm
-sure they do, but..)
-
-> +static int ssb_wait_bit(struct ssb_device *dev, u16 reg, u32 bitmask,
-> +			int timeout, int set)
-> +{
-> +	int i;
-> +	u32 val;
-> +
-> +	for (i = 0; i < timeout; i++) {
-> +		val = ssb_read32(dev, reg);
-> +		if (set) {
-> +			if (val & bitmask)
-> +				return 0;
-> +		} else {
-> +			if (!(val & bitmask))
-> +				return 0;
-> +		}
-> +		udelay(10);
-> +	}
-> +	printk(KERN_ERR PFX "Timeout waiting for bitmask %08X on "
-> +			    "register %04X to %s.\n",
-> +	       bitmask, reg, (set ? "set" : "clear"));
-> +
-> +	return -ETIMEDOUT;
-> +}
-
-So `timeout' is in units of ten-microseconds.  Unusual.
-
-> +void ssb_device_disable(struct ssb_device *dev, u32 core_specific_flags)
-> +{
-> +	u32 reject;
-> +
-> +	if (ssb_read32(dev, SSB_TMSLOW) & SSB_TMSLOW_RESET)
-> +		return;
-> +
-> +	reject = ssb_tmslow_reject_bitmask(dev);
-> +	ssb_write32(dev, SSB_TMSLOW, reject | SSB_TMSLOW_CLOCK);
-> +	ssb_wait_bit(dev, SSB_TMSLOW, reject, 1000, 1);
-> +	ssb_wait_bit(dev, SSB_TMSHIGH, SSB_TMSHIGH_BUSY, 1000, 0);
-> +	ssb_write32(dev, SSB_TMSLOW,
-> +		    SSB_TMSLOW_FGC | SSB_TMSLOW_CLOCK |
-> +		    reject | SSB_TMSLOW_RESET |
-> +		    core_specific_flags);
-> +	/* flush */
-> +	ssb_read32(dev, SSB_TMSLOW);
-> +	udelay(1);
-> +
-> +	ssb_write32(dev, SSB_TMSLOW,
-> +		    reject | SSB_TMSLOW_RESET |
-> +		    core_specific_flags);
-> +	/* flush */
-> +	ssb_read32(dev, SSB_TMSLOW);
-> +	udelay(1);
-
-mystery udelay.
-
-> +}
-> +EXPORT_SYMBOL(ssb_device_disable);
->
-> ...
->
-> +const struct ssb_bus_ops ssb_pci_ops = {
-> +	.read16		= ssb_pci_read16,
-> +	.read32		= ssb_pci_read32,
-> +	.write16	= ssb_pci_write16,
-> +	.write32	= ssb_pci_write32,
-> +};
-
-static?
-
-> +static ssize_t ssb_pci_attr_sprom_show(struct device *pcidev,
-> +				       struct device_attribute *attr,
-> +				       char *buf)
-> +{
-> +	struct pci_dev *pdev = container_of(pcidev, struct pci_dev, dev);
-> +	struct ssb_bus *bus;
-> +	u16 *sprom;
-> +	int err = -ENODEV;
-> +	ssize_t count = 0;
-> +
-> +	bus = ssb_pci_dev_to_bus(pdev);
-> +	if (!bus)
-> +		goto out;
-> +	err = -ENOMEM;
-> +	sprom = kcalloc(SSB_SPROMSIZE_WORDS, sizeof(u16), GFP_KERNEL);
-> +	if (!sprom)
-> +		goto out;
-> +
-> +	err = -ERESTARTSYS;
-> +	if (mutex_lock_interruptible(&bus->pci_sprom_mutex))
-> +		goto out_kfree;
-> +	sprom_do_read(bus, sprom);
-> +	mutex_unlock(&bus->pci_sprom_mutex);
-> +
-> +	count = sprom2hex(sprom, buf, PAGE_SIZE);
-> +	err = 0;
-> +
-> +out_kfree:
-> +	kfree(sprom);
-> +out:
-> +	return err ? err : count;
-> +}
-
-The mutex_lock_interruptible() looks fishy.  Some commented explanation of
-what it's doing would be good here.  It's quite unobvious to this reader. 
-Cheesy deadlock avoidance?  Hope not.
-
-> +
-> +/* These are the main device register access functions.
-> + * do_select_core is inline to have the likely hotpath inline.
-> + * All unlikely codepaths are out-of-line. */
-> +static inline int do_select_core(struct ssb_bus *bus,
-> +				 struct ssb_device *dev,
-> +				 u16 *offset)
-> +{
-> +	int err;
-> +	u8 need_seg = (*offset >= 0x800) ? 1 : 0;
-> +
-> +	if (unlikely(dev != bus->mapped_device)) {
-> +		err = ssb_pcmcia_switch_core(bus, dev);
-> +		if (unlikely(err))
-> +			return err;
-> +	}
-> +	if (unlikely(need_seg != bus->mapped_pcmcia_seg)) {
-> +		err = ssb_pcmcia_switch_segment(bus, need_seg);
-> +		if (unlikely(err))
-> +			return err;
-> +	}
-> +	if (need_seg == 1)
-> +		*offset -= 0x800;
-> +
-> +	return 0;
-> +}
-
-Looks too large for inlining.
-
-> +const struct ssb_bus_ops ssb_pcmcia_ops = {
-> +	.read16		= ssb_pcmcia_read16,
-> +	.read32		= ssb_pcmcia_read32,
-> +	.write16	= ssb_pcmcia_write16,
-> +	.write32	= ssb_pcmcia_write32,
-> +};
-
-static?
+Rx ring hw get=316 put=440 last=1023
+-- 
+Daniel J Blueman
