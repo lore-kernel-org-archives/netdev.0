@@ -1,43 +1,48 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: sk98lin for 2.6.23-rc1
-Date: Fri, 27 Jul 2007 09:13:41 +0100
-Message-ID: <20070727091341.15681172@oldman>
-References: <46A8BAD4.8020004@akamai.com>
-	<20070726201731.03d3f590@oldman>
-	<46A8F3EE.3070102@krose.org>
+From: Glen Gray <glen@lincor.com>
+Subject: Re: Multicast issues with RTL8110SC in r8169.c
+Date: Fri, 27 Jul 2007 09:13:29 +0100
+Message-ID: <46A9A929.7020605@lincor.com>
+References: <F5A04EB7-0726-4CF5-A4B8-F32F00D9BC52@lincor.com> <20070718221107.GE9755@electric-eye.fr.zoreil.com> <46A84E59.6010803@lincor.com> <20070726213020.GB14306@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Kyle Rose <krose@krose.org>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:49320 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755939AbXG0INg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jul 2007 04:13:36 -0400
-In-Reply-To: <46A8F3EE.3070102@krose.org>
+Received: from mail.station1.mxsweep.com ([212.147.136.149]:2634 "EHLO
+	2out.mxsweep.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1761190AbXG0INk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jul 2007 04:13:40 -0400
+In-Reply-To: <20070726213020.GB14306@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-If anyone still has hang issues with sky2, please send me the hardware
-information (lspci, dmesg output), and capture the debugfs state after hang.
+Francois Romieu wrote:
+> Glen Gray <glen@lincor.com> :
+>> Hey Francois,
+>> I've CC'd the netdev list as requested
+> 
+> Your PR is not lost (nor are the pending ones btw...). I'm simply trying
+> to find a real explanation for
+> https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=242572
+> 
 
-At present the known open skge, sky2 issues are:
+Ah, apologies. When I couldn't see my follow up posts hitting the list, 
+I figured I'd sign up and post it again.
 
-1) Skge doesn't work with dual port fiber
-2) Sky2 (and vendor sk98lin) don't work on some MSI motherboards
-    due to PCI issues
-3) Skge and sky2 trigger problems with motherboards that don't
-    do >4GB DMA correctly. Not a driver but a PCI quirk problem.
-4) Sky2 does polling for lost irq even when interface not up
-5) Sky2 polling rate for lost irq maybe greater than TCP timeout so
-    connection may be lost even after link recovers
-6) Sky2 Yukon extreme support is still experimental and fragile,
-    but this hardware isn't in the wild yet
-7) Sky2 Yukon EC-U not powering up PHY correctly on some revisions
-8) Sky2 suspend to ram not working right on some chips
+The linked bug entry indicates issues with the driver initializing 
+certain cards etc. As previously stated, my issue was mainly in 
+multicast. I was able to get the machine up and on the network without 
+issue in the 2.6.21 kernel from F7. Though there's obviously issues with 
+the newer Realtek cards and the post 2.6.20 kernels.
 
-Hardware nuisances that are being masked:
-a) hardware can't DMA to unaligned address
-b) polling for lost irq is a hack, but until the root cause
-   is found it will have to stay.
+FYI, The Realtek driver release 1.06 (r1000.ko), although not officially 
+supporting the 2.6 kernel (the Makefile just needed modification) works 
+extremely well for us here.
+
+If I can help test experimental patchs or anything, please don't 
+hesitate to let me know.
+-- 
+Glen Gray <glen@lincor.com>              Digital Depot, Thomas Street
+Senior Software Engineer                            Dublin 8, Ireland
+Lincor Solutions Ltd.                          Ph: +353 (0) 1 4893682
