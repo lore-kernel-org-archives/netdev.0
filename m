@@ -1,74 +1,72 @@
-From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Subject: Re: [PATCH] Merge the Sonics Silicon Backplane subsystem
-Date: Fri, 27 Jul 2007 21:43:59 +0200
-Message-ID: <200707272143.59551.mb@bu3sch.de>
-References: <200707271857.24162.mb@bu3sch.de> <200707272130.48973.mb@bu3sch.de> <20070727123853.d16e875c.akpm@linux-foundation.org>
+From: "Veeraiyan, Ayyappan" <ayyappan.veeraiyan@intel.com>
+Subject: RE: [PATCH 1/1]ixgbe: Driver for Intel 82598 based 10GbE PCI Express family of adapters
+Date: Fri, 27 Jul 2007 12:45:59 -0700
+Message-ID: <E35F4F4D7F6C9E4E826FEC1F86CEF58304487242@orsmsx412.amr.corp.intel.com>
+References: <46A9F882.3000208@garzik.org>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "linux-kernel" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Gary Zambrano <zambrano-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-To: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20070727123853.d16e875c.akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, <arjan@linux.intel.com>,
+	<akpm@linux-foundation.org>,
+	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>, <hch@infradead.org>,
+	<nhorman@tuxdriver.com>, <inaky@linux.intel.com>, <mb@bu3sch.de>,
+	"Ronciak, John" <john.ronciak@intel.com>
+To: "Jeff Garzik" <jeff@garzik.org>,
+	"Stephen Hemminger" <shemminger@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([143.182.124.21]:17320 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S935563AbXG0TqB convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jul 2007 15:46:01 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <46A9F882.3000208@garzik.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Friday 27 July 2007 21:38:53 Andrew Morton wrote:
-> > > > +static ssize_t ssb_pci_attr_sprom_show(struct device *pcidev,
-> > > > +				       struct device_attribute *attr,
-> > > > +				       char *buf)
-> > > > +{
-> > > > +	struct pci_dev *pdev = container_of(pcidev, struct pci_dev, dev);
-> > > > +	struct ssb_bus *bus;
-> > > > +	u16 *sprom;
-> > > > +	int err = -ENODEV;
-> > > > +	ssize_t count = 0;
-> > > > +
-> > > > +	bus = ssb_pci_dev_to_bus(pdev);
-> > > > +	if (!bus)
-> > > > +		goto out;
-> > > > +	err = -ENOMEM;
-> > > > +	sprom = kcalloc(SSB_SPROMSIZE_WORDS, sizeof(u16), GFP_KERNEL);
-> > > > +	if (!sprom)
-> > > > +		goto out;
-> > > > +
-> > > > +	err = -ERESTARTSYS;
-> > > > +	if (mutex_lock_interruptible(&bus->pci_sprom_mutex))
-> > > > +		goto out_kfree;
-> > > > +	sprom_do_read(bus, sprom);
-> > > > +	mutex_unlock(&bus->pci_sprom_mutex);
-> > > > +
-> > > > +	count = sprom2hex(sprom, buf, PAGE_SIZE);
-> > > > +	err = 0;
-> > > > +
-> > > > +out_kfree:
-> > > > +	kfree(sprom);
-> > > > +out:
-> > > > +	return err ? err : count;
-> > > > +}
-> > > 
-> > > The mutex_lock_interruptible() looks fishy.  Some commented explanation of
-> > > what it's doing would be good here.  It's quite unobvious to this reader. 
-> > > Cheesy deadlock avoidance?  Hope not.
-> > 
-> > No, it's simply to avoid writing the SPROM concurrently.
-> > SPROM writing is hairy and we must make sure here that
-> > we are the only one accessing the whole bus. We do that
-> > by suspending all devices and taking a lock to protect
-> > the SPROM from write concurrency.
-> 
-> Sure, but why is the locking interruptible rather than plain old
-> mutex_lock()?
+>-----Original Message-----
+>From: Jeff Garzik [mailto:jeff@garzik.org]
+>
+>Stephen Hemminger wrote:
+>> Using module parameter for per device settings is bad idea.
+>> Please extend existing interfaces like ethtool, etc rather than
+>committing
+>> to a bad inflexible API.
+>
+>
+>I agreed with Stephen's comments here.
+>
+>In general, net driver policy is to use ethtool (per-interface
+>granularity) rather than module options.
+>
 
-Hm, well. We hold this mutex for several seconds, as writing takes
-this long. So I simply thought it was worth allowing the waiter
-to interrupt here. If you say that's not an issue, I'll be happy
-to use mutex_lock() and reduce code complexity in this area.
+Thanks Stephen and Jeff for the feedback. The flow control and
+InterruptThrottleRate parameters were carried over from e1000 and it was
+pointed out to me that some disros/customer's scripts used those
+parameters in the scripts. Ixgbe being a new driver, we can remove
+those.
 
--- 
-Greetings Michael.
+Yes the LLI parameters can be removed.
+
+> +RxQueues
+> +--------
+> +Valid Range: 1, 2, 4, 8
+> +Default Value: 8
+> +    Number of RX queues.
+> +
+> +
+
+Ok. The present driver being NAPI only and supports one Rx queue only.
+So this parameter needs to be removed .
+
+But, once we have DaveM/Stephen work of NAPI struct work is done, driver
+will support multiple Rx queues and with Multi Tx queue patch already in
+the kernel, driver will support multiple Tx queues also shortly.
+
+So, with driver/device supporting multiple Tx and Rx queues, I think, it
+would be very useful to have ethtool interface to manage the number of
+Tx and Rx queues of the interface. Current ethtool interface supports
+managing the ring size so, we need similar interface for managing the
+number of Tx and Rx queues of the interface.
+
+Ayyappan
