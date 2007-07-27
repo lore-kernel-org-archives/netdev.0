@@ -1,34 +1,42 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH 4/4] l2cap: don't mangle cmd.len
-Date: Fri, 27 Jul 2007 16:41:26 +0200
-Message-ID: <1185547286.13228.18.camel@violet>
-References: <E1IEPNw-0005TA-89@ZenIV.linux.org.uk>
+From: adi <adi@postpi.com>
+Subject: Re: D-Link DFE-580TX 4 port NIC problems
+Date: Fri, 27 Jul 2007 22:03:44 +0700
+Message-ID: <20070727150344.GA9071@postpi.com>
+References: <20070509120142.2305a1d1@snibbles.dedenet.de> <20070509032700.569789a0.akpm@linux-foundation.org> <20070727113044.76630826@snibbles.dedenet.de> <46A9E029.4080200@anagramm.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
+Content-Type: text/plain; charset=us-ascii
+Cc: Mario Doering <mario@dedenet.de>, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
-To: Al Viro <viro@ftp.linux.org.uk>
+To: Clemens Koller <clemens.koller@anagramm.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from coyote.holtmann.net ([217.160.111.169]:35550 "EHLO
-	mail.holtmann.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934502AbXG0OjZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jul 2007 10:39:25 -0400
-In-Reply-To: <E1IEPNw-0005TA-89@ZenIV.linux.org.uk>
+Received: from jade.padinet.com ([202.6.233.250]:4207 "HELO owl.postpi.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S932067AbXG0PKI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Jul 2007 11:10:08 -0400
+Content-Disposition: inline
+In-Reply-To: <46A9E029.4080200@anagramm.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Al,
+On Fri, Jul 27, 2007 at 02:08:09PM +0200, Clemens Koller wrote:
+> Can you try the latest kernel to see if the same problem
+> persists?
+> Is there any kernel version where it was working fine?
 
-> Since nobody uses it after we convert it to host-endian,
-> no need to do that at all.  At that point l2cap is endian-clean.
-> 
-> Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+In my case, this is 'problem' occur when I do run snmpd on
+the same machine, and I saw that snmpd doing something
+like this:
 
-Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
+    ...
+    } else if (ioctl(fd, SIOCDEVPRIVATE, &ifr) >= 0) {
+       new_ioctl_nums  = 1;
+    }
+    ....
 
-Regards
+That cause sundance printing a lot of debug messages (i.e netdev_ioctl()
+in sundance.c) .. periodically, as long as snmpd running :-)
 
-Marcel
+Regards,
 
+P.Y. Adi Prasaja
 
