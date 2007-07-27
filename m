@@ -1,47 +1,38 @@
-From: "Veeraiyan, Ayyappan" <ayyappan.veeraiyan@intel.com>
-Subject: RE: [PATCH 1/1]ixgbe: Driver for Intel 82598 based 10GbE PCI Express family of adapters
-Date: Fri, 27 Jul 2007 13:06:48 -0700
-Message-ID: <E35F4F4D7F6C9E4E826FEC1F86CEF58304487278@orsmsx412.amr.corp.intel.com>
-References: <46AA4F04.8070902@garzik.org>
+From: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Subject: Re: [PATCH] Merge the Sonics Silicon Backplane subsystem
+Date: Fri, 27 Jul 2007 13:12:49 -0700
+Message-ID: <20070727131249.74330a3d.akpm@linux-foundation.org>
+References: <200707271857.24162.mb@bu3sch.de>
+	<200707272130.48973.mb@bu3sch.de>
+	<20070727123853.d16e875c.akpm@linux-foundation.org>
+	<200707272143.59551.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Stephen Hemminger" <shemminger@linux-foundation.org>,
-	<netdev@vger.kernel.org>, <arjan@linux.intel.com>,
-	<akpm@linux-foundation.org>,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>, <hch@infradead.org>,
-	<nhorman@tuxdriver.com>, <inaky@linux.intel.com>, <mb@bu3sch.de>,
-	"Ronciak, John" <john.ronciak@intel.com>
-To: "Jeff Garzik" <jeff@garzik.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:34761 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934134AbXG0UGv convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jul 2007 16:06:51 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <46AA4F04.8070902@garzik.org>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "linux-kernel" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Gary Zambrano <zambrano-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+To: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <200707272143.59551.mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
->-----Original Message-----
->From: Jeff Garzik [mailto:jeff@garzik.org]
->Veeraiyan, Ayyappan wrote:
->> So, with driver/device supporting multiple Tx and Rx queues, I think,
-it
->> would be very useful to have ethtool interface to manage the number
-of
->> Tx and Rx queues of the interface.
->
->
->Absolutely!  ethtool patches welcome :)
->
->git://git.kernel.org/pub/scm/network/ethtool/ethtool.git
->
+On Fri, 27 Jul 2007 21:43:59 +0200
+Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org> wrote:
 
-We discussed this here today and we will try to come up with patches.
+> > Sure, but why is the locking interruptible rather than plain old
+> > mutex_lock()?
+> 
+> Hm, well. We hold this mutex for several seconds, as writing takes
+> this long. So I simply thought it was worth allowing the waiter
+> to interrupt here. If you say that's not an issue, I'll be happy
+> to use mutex_lock() and reduce code complexity in this area.
 
-Also, FWIW, I will be offline for next 2 months, and someone (Auke ? :))
-from our team will submit updated driver shortly..
+So..  is that what the _interruptible() is for?  To allow an impatient user to ^c
+a read?
 
-Ayyappan
+If so, that sounds reasonable.  It's worth a comment explaining these decisions
+to future readers, because it is hard to work out this sort of thinking just
+from the bare C code.
