@@ -1,56 +1,74 @@
-From: Michael Buesch <mb@bu3sch.de>
+From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
 Subject: Re: [PATCH] Merge the Sonics Silicon Backplane subsystem
-Date: Fri, 27 Jul 2007 21:39:45 +0200
-Message-ID: <200707272139.45629.mb@bu3sch.de>
-References: <200707271857.24162.mb@bu3sch.de> <20070727192120.GB7572@tuxdriver.com>
+Date: Fri, 27 Jul 2007 21:43:59 +0200
+Message-ID: <200707272143.59551.mb@bu3sch.de>
+References: <200707271857.24162.mb@bu3sch.de> <200707272130.48973.mb@bu3sch.de> <20070727123853.d16e875c.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	bcm43xx-dev@lists.berlios.de, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org,
-	Gary Zambrano <zambrano@broadcom.com>
-To: "John W. Linville" <linville@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:45833
-	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932236AbXG0Tlc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jul 2007 15:41:32 -0400
-In-Reply-To: <20070727192120.GB7572@tuxdriver.com>
+Cc: "linux-kernel" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Gary Zambrano <zambrano-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+To: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20070727123853.d16e875c.akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Friday 27 July 2007 21:21:20 John W. Linville wrote:
-> On Fri, Jul 27, 2007 at 06:57:20PM +0200, Michael Buesch wrote:
-> > The Sonics Silicon Backplane is a mini-bus used on
-> > various Broadcom chips and embedded devices.
-> > Devices using the SSB include b44, bcm43xx and various
-> > Broadcom based wireless routers.
-> > A b44 and bcm43xx port and a SSB based OHCI driver is available.
+On Friday 27 July 2007 21:38:53 Andrew Morton wrote:
+> > > > +static ssize_t ssb_pci_attr_sprom_show(struct device *pcidev,
+> > > > +				       struct device_attribute *attr,
+> > > > +				       char *buf)
+> > > > +{
+> > > > +	struct pci_dev *pdev = container_of(pcidev, struct pci_dev, dev);
+> > > > +	struct ssb_bus *bus;
+> > > > +	u16 *sprom;
+> > > > +	int err = -ENODEV;
+> > > > +	ssize_t count = 0;
+> > > > +
+> > > > +	bus = ssb_pci_dev_to_bus(pdev);
+> > > > +	if (!bus)
+> > > > +		goto out;
+> > > > +	err = -ENOMEM;
+> > > > +	sprom = kcalloc(SSB_SPROMSIZE_WORDS, sizeof(u16), GFP_KERNEL);
+> > > > +	if (!sprom)
+> > > > +		goto out;
+> > > > +
+> > > > +	err = -ERESTARTSYS;
+> > > > +	if (mutex_lock_interruptible(&bus->pci_sprom_mutex))
+> > > > +		goto out_kfree;
+> > > > +	sprom_do_read(bus, sprom);
+> > > > +	mutex_unlock(&bus->pci_sprom_mutex);
+> > > > +
+> > > > +	count = sprom2hex(sprom, buf, PAGE_SIZE);
+> > > > +	err = 0;
+> > > > +
+> > > > +out_kfree:
+> > > > +	kfree(sprom);
+> > > > +out:
+> > > > +	return err ? err : count;
+> > > > +}
+> > > 
+> > > The mutex_lock_interruptible() looks fishy.  Some commented explanation of
+> > > what it's doing would be good here.  It's quite unobvious to this reader. 
+> > > Cheesy deadlock avoidance?  Hope not.
 > > 
-> > Signed-off-by: Michael Buesch <mb@bu3sch.de>
+> > No, it's simply to avoid writing the SPROM concurrently.
+> > SPROM writing is hairy and we must make sure here that
+> > we are the only one accessing the whole bus. We do that
+> > by suspending all devices and taking a lock to protect
+> > the SPROM from write concurrency.
 > 
-> At first glance it looks like there might be some tab/space issues
-> in some of the #define blocks toward the end of the patch, although
-> those might be intentional.
+> Sure, but why is the locking interruptible rather than plain old
+> mutex_lock()?
 
-They are intentional. It's something like this:
-
-#define SSB_REGISTER_XX			0xF88
-#define  SSB_VALUE_FOR_REGISTER_XX	0x0001
-#define  SSB_MASK_FOR_REGISTER_XX	0xFF00
-#define SSB_REGISTER_YY			0xF99
-...
-
-> Aside from whatever other style issues that might be identified, I'll
-> state that this code has been carried in wireless-dev for months and
-> thereby also spent a lot of time in -mm as well as Fedora (rawhide
-> and F-7).  The code has proven to be reasonably stable and reliable.
-
-And it's in the OpenWRT trunk since quite some time.
+Hm, well. We hold this mutex for several seconds, as writing takes
+this long. So I simply thought it was worth allowing the waiter
+to interrupt here. If you say that's not an issue, I'll be happy
+to use mutex_lock() and reduce code complexity in this area.
 
 -- 
 Greetings Michael.
