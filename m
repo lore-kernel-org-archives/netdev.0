@@ -1,72 +1,77 @@
-From: "Veeraiyan, Ayyappan" <ayyappan.veeraiyan@intel.com>
-Subject: RE: [PATCH 1/1]ixgbe: Driver for Intel 82598 based 10GbE PCI Express family of adapters
-Date: Fri, 27 Jul 2007 12:45:59 -0700
-Message-ID: <E35F4F4D7F6C9E4E826FEC1F86CEF58304487242@orsmsx412.amr.corp.intel.com>
-References: <46A9F882.3000208@garzik.org>
+From: Andrew Gallatin <gallatin@myri.com>
+Subject: Re: [RFC 0/1] lro: Generic Large Receive Offload for TCP traffic
+Date: Fri, 27 Jul 2007 15:47:06 -0400
+Message-ID: <46AA4BBA.5060905@myri.com>
+References: <200707201741.45079.ossthema@de.ibm.com> <46A785C2.9090708@myri.com> <200707271418.49781.ossthema@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, <arjan@linux.intel.com>,
-	<akpm@linux-foundation.org>,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>, <hch@infradead.org>,
-	<nhorman@tuxdriver.com>, <inaky@linux.intel.com>, <mb@bu3sch.de>,
-	"Ronciak, John" <john.ronciak@intel.com>
-To: "Jeff Garzik" <jeff@garzik.org>,
-	"Stephen Hemminger" <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Christoph Raisch <raisch@de.ibm.com>,
+	Jan-Bernd Themann <themann@de.ibm.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	linux-ppc <linuxppc-dev@ozlabs.org>,
+	Marcus Eder <meder@de.ibm.com>,
+	Thomas Klein <tklein@de.ibm.com>,
+	Stefan Roscher <stefan.roscher@de.ibm.com>,
+	David Miller <davem@davemloft.net>,
+	Jeff Garzik <jeff@garzik.org>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+To: Jan-Bernd Themann <ossthema@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:17320 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S935563AbXG0TqB convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jul 2007 15:46:01 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <46A9F882.3000208@garzik.org>
+Received: from dsl.myri.com ([64.172.73.26]:1813 "EHLO myri.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S933638AbXG0Tra (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Jul 2007 15:47:30 -0400
+In-Reply-To: <200707271418.49781.ossthema@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->-----Original Message-----
->From: Jeff Garzik [mailto:jeff@garzik.org]
->
->Stephen Hemminger wrote:
->> Using module parameter for per device settings is bad idea.
->> Please extend existing interfaces like ethtool, etc rather than
->committing
->> to a bad inflexible API.
->
->
->I agreed with Stephen's comments here.
->
->In general, net driver policy is to use ethtool (per-interface
->granularity) rather than module options.
->
+Jan-Bernd Themann wrote:
 
-Thanks Stephen and Jeff for the feedback. The flow control and
-InterruptThrottleRate parameters were carried over from e1000 and it was
-pointed out to me that some disros/customer's scripts used those
-parameters in the scripts. Ixgbe being a new driver, we can remove
-those.
+ > On Wednesday 25 July 2007 19:17, Andrew Gallatin wrote:
 
-Yes the LLI parameters can be removed.
+ >> 3) Padded frames.
+ >>
+ >> I may be missing something, but I don't see where you
+ >> either strip padding from frames or reject padded frames.
+ >> (see the pskb_trim_rcsum() in net/ipv4/ip_input.c:ip_rcv()
+ >>
+ > I think I missed something :-) Will fix that.
+ > In lro_tcp_ip_check we check for the "SKB aggregation interface"
+ > the skb->len against ip->tot_len. This catches padded frames as
+ > eth_type_trans(skb, dev) reduces the length of the SKB.
+ > However, the possible VLAN header is not taken into account.
+ > And for the "receive in pages" interface a wrong length is passed
+ > as argument as well.
+ >
+ > I'd suggest to reject padded frames for aggregation as we do now
+ > (when bugs are fixed) and thus keep the code simple.
+ > I guess that padded frames don't occur too often in high load
+ > situations. If we detect a real performance issue we can still
+ > change that later.
 
-> +RxQueues
-> +--------
-> +Valid Range: 1, 2, 4, 8
-> +Default Value: 8
-> +    Number of RX queues.
-> +
-> +
+The one case where performance may be at issue is in aggregating Acks
+on connections w/o TCP timestamps where a frame size of 54 bytes is
+padded out to 60.  I did some very quick measurements using netperf
+-tTCP_SENDFILE on the same athlons mentioned earlier using our 1.3.1
+driver.  I see a roughly 8% CPU increase (~17% -> ~25%) when I disable
+LRO (and hence Ack aggregation) on the sender.  This works out to an
+increase in service demand from ~0.3 to ~0.44 according to netperf.
+With LRO enabled, our counters show we're aggregating acks at a
+roughly 3:1 ratio.  This is probably an optimization that can be done
+later, but it is helpful.
 
-Ok. The present driver being NAPI only and supports one Rx queue only.
-So this parameter needs to be removed .
+This reminds me.. what would you think about adding some sort of
+counters, ideally per-interface, to expose how well LRO is working?
+At the simplest level, you could add them to the lro mgr struct and
+let drivers export them via ethtool.  I think a central approach might
+be more appropriate.  At any rate, I'd prefer the final
+version to at least have counters to indicate how many packets were
+aggregated, how many packets were flushed, and how many times we
+failed to aggregate something due to insufficient net_lro_desc
+descriptors.
 
-But, once we have DaveM/Stephen work of NAPI struct work is done, driver
-will support multiple Rx queues and with Multi Tx queue patch already in
-the kernel, driver will support multiple Tx queues also shortly.
+Thanks again for taking the lead on this,
 
-So, with driver/device supporting multiple Tx and Rx queues, I think, it
-would be very useful to have ethtool interface to manage the number of
-Tx and Rx queues of the interface. Current ethtool interface supports
-managing the ring size so, we need similar interface for managing the
-number of Tx and Rx queues of the interface.
-
-Ayyappan
+Drew
