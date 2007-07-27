@@ -1,42 +1,42 @@
-From: adi <adi@postpi.com>
-Subject: Re: D-Link DFE-580TX 4 port NIC problems
-Date: Fri, 27 Jul 2007 22:03:44 +0700
-Message-ID: <20070727150344.GA9071@postpi.com>
-References: <20070509120142.2305a1d1@snibbles.dedenet.de> <20070509032700.569789a0.akpm@linux-foundation.org> <20070727113044.76630826@snibbles.dedenet.de> <46A9E029.4080200@anagramm.de>
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: RE: [FIX] NET: Fix sch_api and sch_prio to properly set and detect the	root qdisc
+Date: Fri, 27 Jul 2007 09:22:11 -0700
+Message-ID: <D5C1322C3E673F459512FB59E0DDC329034F503E@orsmsx414.amr.corp.intel.com>
+References: <46A69AE6.9030009@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Mario Doering <mario@dedenet.de>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Clemens Koller <clemens.koller@anagramm.de>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, "Patrick McHardy" <kaber@trash.net>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from jade.padinet.com ([202.6.233.250]:4207 "HELO owl.postpi.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S932067AbXG0PKI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Jul 2007 11:10:08 -0400
-Content-Disposition: inline
-In-Reply-To: <46A9E029.4080200@anagramm.de>
+Received: from mga03.intel.com ([143.182.124.21]:52821 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1762638AbXG0QWO convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jul 2007 12:22:14 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <46A69AE6.9030009@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 27, 2007 at 02:08:09PM +0200, Clemens Koller wrote:
-> Can you try the latest kernel to see if the same problem
-> persists?
-> Is there any kernel version where it was working fine?
+> From: Patrick McHardy [mailto:kaber@trash.net] 
+> Sent: Tuesday, July 24, 2007 5:36 PM
+> To: Waskiewicz Jr, Peter P
+> Cc: davem@davemloft.net; netdev@vger.kernel.org
+> Subject: Re: [FIX] NET: Fix sch_api and sch_prio to properly 
+> set and detect the root qdisc
+>
+[...]
+> Both look good, thanks.
+> 
+> Acked-by: Patrick McHardy <kaber@trash.net>
+> 
 
-In my case, this is 'problem' occur when I do run snmpd on
-the same machine, and I saw that snmpd doing something
-like this:
+Dave,
+	Are these queued for 2.6.24, or are they going to make it into
+2.6.23?  I know you're busy with patches and NAPI, but I was curious.
+Thanks!
 
-    ...
-    } else if (ioctl(fd, SIOCDEVPRIVATE, &ifr) >= 0) {
-       new_ioctl_nums  = 1;
-    }
-    ....
+Cheers,
 
-That cause sundance printing a lot of debug messages (i.e netdev_ioctl()
-in sundance.c) .. periodically, as long as snmpd running :-)
-
-Regards,
-
-P.Y. Adi Prasaja
-
+-PJ Waskiewicz
