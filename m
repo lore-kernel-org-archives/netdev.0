@@ -1,38 +1,39 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [RFC 0/1] lro: Generic Large Receive Offload for TCP traffic
-Date: Fri, 27 Jul 2007 09:00:27 -0400
-Message-ID: <46A9EC6B.3030208@garzik.org>
-References: <200707201741.45079.ossthema@de.ibm.com> <46A785C2.9090708@myri.com> <200707271418.49781.ossthema@de.ibm.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: sk98lin for 2.6.23-rc1
+Date: Fri, 27 Jul 2007 14:06:22 +0100
+Message-ID: <20070727140622.5cecc7c9@oldman.hamilton.local>
+References: <46A8BAD4.8020004@akamai.com>
+	<20070726201731.03d3f590@oldman>
+	<46A8F3EE.3070102@krose.org>
+	<20070727091341.15681172@oldman>
+	<46A9EC05.40503@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Gallatin <gallatin@myri.com>,
-	netdev <netdev@vger.kernel.org>,
-	Christoph Raisch <raisch@de.ibm.com>,
-	Jan-Bernd Themann <themann@de.ibm.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	linux-ppc <linuxppc-dev@ozlabs.org>,
-	Marcus Eder <meder@de.ibm.com>,
-	Thomas Klein <tklein@de.ibm.com>,
-	Stefan Roscher <stefan.roscher@de.ibm.com>,
-	David Miller <davem@davemloft.net>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-To: Jan-Bernd Themann <ossthema@de.ibm.com>
+Cc: Kyle Rose <krose@krose.org>, netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:57361 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755139AbXG0NAe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Jul 2007 09:00:34 -0400
-In-Reply-To: <200707271418.49781.ossthema@de.ibm.com>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:55663 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754139AbXG0NGT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jul 2007 09:06:19 -0400
+In-Reply-To: <46A9EC05.40503@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Just to chime in...
+On Fri, 27 Jul 2007 08:58:45 -0400
+Jeff Garzik <jeff@garzik.org> wrote:
 
-In general, I like where this LRO effort is going, and I really 
-appreciate you guys working on it.
+> Stephen Hemminger wrote:
+> > If anyone still has hang issues with sky2, please send me the hardware
+> > information (lspci, dmesg output), and capture the debugfs state after hang.
+> > 
+> > At present the known open skge, sky2 issues are:
+> 
+> Did you add Chris Stromsoe's skge-hangs problem to the list?
+> 
+> 	Jeff
 
-	Jeff
-
-
-
+That is the #1 on list, it is the dual port fiber problem.
+Seems to be specific to dual port, since can't reproduce on my only
+skge fiber board (single port) connected to e1000.
