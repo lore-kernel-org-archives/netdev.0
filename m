@@ -1,39 +1,31 @@
-From: Al Viro <viro@ftp.linux.org.uk>
-Subject: [PATCH 4/4] l2cap: don't mangle cmd.len
-Date: Fri, 27 Jul 2007 13:57:36 +0100
-Message-ID: <E1IEPNw-0005TA-89@ZenIV.linux.org.uk>
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	marcel@holtmann.org
-To: davem@davemloft.net
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: sk98lin for 2.6.23-rc1
+Date: Fri, 27 Jul 2007 08:58:45 -0400
+Message-ID: <46A9EC05.40503@garzik.org>
+References: <46A8BAD4.8020004@akamai.com>	<20070726201731.03d3f590@oldman>	<46A8F3EE.3070102@krose.org> <20070727091341.15681172@oldman>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Kyle Rose <krose@krose.org>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:45200 "EHLO
-	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934204AbXG0M5h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jul 2007 08:57:37 -0400
+Received: from srv5.dvmed.net ([207.36.208.214]:57335 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S936264AbXG0M6t (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Jul 2007 08:58:49 -0400
+In-Reply-To: <20070727091341.15681172@oldman>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Stephen Hemminger wrote:
+> If anyone still has hang issues with sky2, please send me the hardware
+> information (lspci, dmesg output), and capture the debugfs state after hang.
+> 
+> At present the known open skge, sky2 issues are:
 
-Since nobody uses it after we convert it to host-endian,
-no need to do that at all.  At that point l2cap is endian-clean.
+Did you add Chris Stromsoe's skge-hangs problem to the list?
 
-Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
----
- net/bluetooth/l2cap.c |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
+	Jeff
 
-diff --git a/net/bluetooth/l2cap.c b/net/bluetooth/l2cap.c
-index 03309d2..c4e4ce4 100644
---- a/net/bluetooth/l2cap.c
-+++ b/net/bluetooth/l2cap.c
-@@ -1754,7 +1754,6 @@ static inline void l2cap_sig_channel(struct l2cap_conn *conn, struct sk_buff *sk
- 		len  -= L2CAP_CMD_HDR_SIZE;
- 
- 		cmd_len = le16_to_cpu(cmd.len);
--		cmd.len = cmd_len;
- 
- 		BT_DBG("code 0x%2.2x len %d id 0x%2.2x", cmd.code, cmd_len, cmd.ident);
- 
--- 
-1.5.3.GIT
+
 
