@@ -1,25 +1,38 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: Proposed interface for per-packet mesh-ttl
-Date: Fri, 27 Jul 2007 20:56:16 +0100
-Message-ID: <20070727195616.GA31510@infradead.org>
-References: <445f43ac0707031149o2b50fc0en48aef4130b4b60ec@mail.gmail.com> <445f43ac0707031229m4ed60e0cg7960437c3e373c8e@mail.gmail.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 1/1]ixgbe: Driver for Intel 82598 based 10GbE PCI Express
+ family of adapters
+Date: Fri, 27 Jul 2007 16:01:08 -0400
+Message-ID: <46AA4F04.8070902@garzik.org>
+References: <E35F4F4D7F6C9E4E826FEC1F86CEF58304487242@orsmsx412.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Javier Cardona <javier@cozybit.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	netdev@vger.kernel.org, arjan@linux.intel.com,
+	akpm@linux-foundation.org,
+	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>, hch@infradead.org,
+	nhorman@tuxdriver.com, inaky@linux.intel.com, mb@bu3sch.de,
+	"Ronciak, John" <john.ronciak@intel.com>
+To: "Veeraiyan, Ayyappan" <ayyappan.veeraiyan@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:60892 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761231AbXG0T4R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jul 2007 15:56:17 -0400
-Content-Disposition: inline
-In-Reply-To: <445f43ac0707031229m4ed60e0cg7960437c3e373c8e@mail.gmail.com>
+Received: from srv5.dvmed.net ([207.36.208.214]:60677 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1764954AbXG0UBQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Jul 2007 16:01:16 -0400
+In-Reply-To: <E35F4F4D7F6C9E4E826FEC1F86CEF58304487242@orsmsx412.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 03, 2007 at 12:29:24PM -0700, Javier Cardona wrote:
-> I'm currently working on per-packet mesh ttl.  My plan is to register
-> new mesh sockopts through netfilter.  The user interface will be:
+Veeraiyan, Ayyappan wrote:
+> So, with driver/device supporting multiple Tx and Rx queues, I think, it
+> would be very useful to have ethtool interface to manage the number of
+> Tx and Rx queues of the interface.
 
-NACK.  Drivers should never add sockopt, and drivers should not abuse
-netfilter hooks.
+
+Absolutely!  ethtool patches welcome :)
+
+git://git.kernel.org/pub/scm/network/ethtool/ethtool.git
+
+	Jeff
+
+
