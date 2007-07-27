@@ -1,46 +1,37 @@
-From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Subject: Re: [PATCH] Merge the Sonics Silicon Backplane subsystem
-Date: Fri, 27 Jul 2007 22:28:01 +0200
-Message-ID: <200707272228.02152.mb@bu3sch.de>
-References: <200707271857.24162.mb@bu3sch.de> <200707272143.59551.mb@bu3sch.de> <20070727131249.74330a3d.akpm@linux-foundation.org>
+From: Mitch Williams <mitch.a.williams@intel.com>
+Subject: [PATCH 0/2] HW VLAN filtering control
+Date: Fri, 27 Jul 2007 13:55:23 -0700
+Message-ID: <1185569723.28574.8.camel@strongmad>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "linux-kernel" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Gary Zambrano <zambrano-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-To: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20070727131249.74330a3d.akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:12643 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1763066AbXG0UzZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Jul 2007 16:55:25 -0400
+Received: from strongmad.jf.intel.com (strongmad.jf.intel.com [10.23.35.99])
+	by nwlxmail01.jf.intel.com (8.12.11.20060308/8.12.9/MailSET/Hub) with ESMTP id l6RKtOYB008994
+	for <netdev@vger.kernel.org>; Fri, 27 Jul 2007 13:55:24 -0700
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Friday 27 July 2007 22:12:49 Andrew Morton wrote:
-> On Fri, 27 Jul 2007 21:43:59 +0200
-> Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org> wrote:
-> 
-> > > Sure, but why is the locking interruptible rather than plain old
-> > > mutex_lock()?
-> > 
-> > Hm, well. We hold this mutex for several seconds, as writing takes
-> > this long. So I simply thought it was worth allowing the waiter
-> > to interrupt here. If you say that's not an issue, I'll be happy
-> > to use mutex_lock() and reduce code complexity in this area.
-> 
-> So..  is that what the _interruptible() is for?  To allow an impatient user to ^c
-> a read?
+This patchset adds the capability to disable hardware VLAN filtering at
+runtime via the existing vconfig utility.  It's useful for debugging
+purposes.
 
-Yeah, I thought so.
+The first patch modifies the VLAN subsystem to define the flag, and to
+support passing the flag on to the base driver.
 
-> If so, that sounds reasonable.  It's worth a comment explaining these decisions
-> to future readers, because it is hard to work out this sort of thinking just
-> from the bare C code.
+The second patch modifies e1000 to support the flag.  Since it's only
+one function, other drivers can be easily modified to support this
+functionality.
 
-Ok, no problem.
+vconfig is used without modification to enable or disable filtering:
+	# vconfig [vlan-interface] 2 1
+will disable filtering, and
+	# vconfig [vlan-interface] 2 0
+will enable filtering.
 
-
--- 
-Greetings Michael.
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
