@@ -1,73 +1,138 @@
-From: Jesper Juhl <jesper.juhl@gmail.com>
-Subject: [PATCH] USB Pegasus driver - avoid a potential
-	NULL pointer dereference.
-Date: Sun, 29 Jul 2007 00:19:02 +0200
-Message-ID: <200707290019.02591.jesper.juhl@gmail.com>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: netdevice queueing / sendmsg issue?
+Date: Sun, 29 Jul 2007 00:25:07 +0200
+Message-ID: <m3lkd0upx8.fsf@maximus.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Greg Kroah-Hartman <greg@kroah.com>,
-	Jesper Juhl <jesper.juhl@gmail.com>, netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	linux-usb-devel@lists.sourceforge.net
-To: Petko Manolov <petkan@users.sourceforge.net>
-Return-path: <linux-usb-devel-bounces@lists.sourceforge.net>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-usb-devel>,
-	<mailto:linux-usb-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-usb-devel>
-List-Post: <mailto:linux-usb-devel@lists.sourceforge.net>
-List-Help: <mailto:linux-usb-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-usb-devel>,
-	<mailto:linux-usb-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: linux-usb-devel-bounces@lists.sourceforge.net
-Errors-To: linux-usb-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=us-ascii
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from khc.piap.pl ([195.187.100.11]:52369 "EHLO khc.piap.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756724AbXG1WZL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 28 Jul 2007 18:25:11 -0400
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+Hi,
 
-This patch makes sure we don't dereference a NULL pointer in 
-drivers/net/usb/pegasus.c::write_bulk_callback() in the initial 
-struct net_device *net = pegasus->net; assignment.
-The existing code checks if 'pegasus' is NULL and bails out if 
-it is, so we better not touch that pointer until after that check.
+I have noticed an unexpected behaviour of a userland program sending
+packets with AF_PACKET through a network device driver. The problem
+is that the userland program waits on sock_wait_for_wmem() for a long
+time even if the transmitter is ready and all skb packets have been
+transmitted and freed by the driver. Perhaps some clues?
+Does it work as designed?
 
-Please consider merging.
+The driver is actually ARM Intel IXP425 Ethernet doing bus mastering
+TX, it basically does:
 
+xmit()
+{
+	send_skb_to_hw(skb);
+        if (no_more_tx_skb_slots) /* there are 16 TX skb slots total */
+		netif_stop_queue(dev);
+	return NETDEV_TX_OK;
+}
 
-Signed-off-by: Jesper Juhl <jesper.juhl@gmail.com>
----
+xmit_ready_irq()
+{
+	count = free_tx_skb_slots;
+	while (packets_transmitted) {
+		dev_kfree_skb_irq(get_skb_from_hw());
+		free_tx_skb_slot();
+	}
+	if (count == 0)
+		netif_start_queue(dev);
+}
 
- drivers/net/usb/pegasus.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
+Now the userland program does something like:
 
-diff --git a/drivers/net/usb/pegasus.c b/drivers/net/usb/pegasus.c
-index a05fd97..04cba6b 100644
---- a/drivers/net/usb/pegasus.c
-+++ b/drivers/net/usb/pegasus.c
-@@ -768,11 +768,13 @@ done:
- static void write_bulk_callback(struct urb *urb)
- {
- 	pegasus_t *pegasus = urb->context;
--	struct net_device *net = pegasus->net;
-+	struct net_device *net;
- 
- 	if (!pegasus)
- 		return;
- 
-+	net = pegasus->net;
-+
- 	if (!netif_device_present(net) || !netif_running(net))
- 		return;
- 
+	struct sockaddr_ll tx_addr;
 
+	ip_sock = socket(PF_INET, SOCK_DGRAM, IPPROTO_IP);
+        strcpy(ifr.ifr_name, "eth0");
+	ioctl(ip_sock, SIOCGIFINDEX, &ifr);
+	memset(&tx_addr, 0, sizeof(tx_addr));
+	tx_addr.sll_family = AF_PACKET;
+	tx_addr.sll_protocol = htons(ETH_P_ALL);
+	tx_addr.sll_ifindex = ifr->ifr_ifindex;
 
--------------------------------------------------------------------------
-This SF.net email is sponsored by: Splunk Inc.
-Still grepping through log files to find problems?  Stop.
-Now Search log events and configuration files using AJAX and a browser.
-Download your FREE copy of Splunk now >>  http://get.splunk.com/
-_______________________________________________
-linux-usb-devel@lists.sourceforge.net
-To unsubscribe, use the last form field at:
-https://lists.sourceforge.net/lists/listinfo/linux-usb-devel
+	tx_sock = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL))
+	while (1) {
+		sendto(tx_sock, valid_packet_data, 1514, 0, tx_addr,
+                       sizeof(tx_addr));
+		print('X');
+	}
+
+The userland program sends multiple packets and then stops for a period
+of several seconds.
+
+What does it wait for?
+
+It seems it's waiting in sock_wait_for_wmem(), at the end of
+sock_alloc_send_pskb():
+
+(schedule+0x0/0x6a0) from (schedule_timeout+0x90/0xd0)
+(schedule_timeout+0x0/0xd0) from (sock_alloc_send_skb+0x178/0x268)
+    r7:c6d01d2c r6:7fffffff r5:c6d00000 r4:c6c13800
+(sock_alloc_send_skb+0x0/0x268) from (packet_sendmsg+0x100/0x28c)
+(packet_sendmsg+0x0/0x28c) from (sock_sendmsg+0xb4/0xe4)
+(sock_sendmsg+0x0/0xe4) from (sys_sendto+0xc8/0xf0)
+    r9:c7b5c500 r8:beeb6dac r7:000005ea r6:c73a5580 r5:c6d01e9c r4:00000000
+(sys_sendto+0x0/0xf0) from (sys_socketcall+0x154/0x1f4)
+(sys_socketcall+0x0/0x1f4) from (ret_fast_syscall+0x0/0x2c)
+    r4:00000014
+
+The sequence of events from the device driver POV is:
+...
+
+xmit entering and using last skb slot
+xmit queue full, netif_stop_queue(dev);
+xmit exiting
+
+(now the userland program waits)
+
+xmit_ready_irq entering
+xmit_ready_irq dev_kfree_skb_irq()
+xmit_ready_irq xmit ready, netif_start_queue(dev);
+xmit_ready_irq exiting
+
+(now the TX restarts and the userland program sends another packets)
+
+The above is repeated multiple times, then:
+
+xmit entering and using last skb slot
+xmit queue full, netif_stop_queue(dev);
+
+xmit_ready_irq entering
+xmit_ready_irq dev_kfree_skb_irq() (1 slot empty and ready for TX)
+xmit_ready_irq xmit ready, netif_start_queue(dev);
+xmit_ready_irq
+xmit_ready_irq dev_kfree_skb_irq() (2 slots empty)
+
+...
+
+xmit_ready_irq dev_kfree_skb_irq() (15 slots empty)
+xmit_ready_irq
+xmit_ready_irq dev_kfree_skb_irq() (all 16 slots empty)
+xmit_ready_irq exiting
+
+(transmitter idle, but the userland program doesn't wake up)
+
+The xmit() is not called again for several seconds, despite
+netif_start_queue(dev) called from IRQ handler, all TX skb slots are
+ready to be used for transmit.
+
+I wonder if it's dev_kfree_skb_irq() which should but fails to wake
+the thing up?
+
+Doing "echo 197665 > /proc/sys/net/core/wmem_default" or
+"echo 52824 > /proc/sys/net/core/wmem_default" apparently
+"fixes" the problem, anything < 197665 and >= 52825 doesn't.
+197665 = 65 * 3041, 52825 = 25 * 2113.
+
+Doing "echo 25560 > /proc/sys/net/core/wmem_default" causes the driver
+to never become "TX queue full" (IOW max 15 skb being transmitted),
+25561 allows for "TX queue full".
+25560 = 16 * 1597.5.
+--
+Krzysztof Halasa
