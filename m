@@ -1,47 +1,29 @@
-From: Gabriel C <nix.or.die@googlemail.com>
-Subject: NETPOLL=y , NETDEVICES=n compile error ( Re: 2.6.23-rc1-mm1 )
-Date: Sat, 28 Jul 2007 17:44:45 +0200
-Message-ID: <46AB646D.8020104@googlemail.com>
-References: <20070725040304.111550f4.akpm@linux-foundation.org>
+From: john <john@potentialcash.com>
+Subject: small bug in tcp
+Date: Sat, 28 Jul 2007 19:07:05 +0300
+Message-ID: <46AB69A9.2000003@potentialcash.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jason.wessel@windriver.com, amitkale@linsyssoft.com
-To: Andrew Morton <akpm@linux-foundation.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.175]:47045 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751241AbXG1Psu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Jul 2007 11:48:50 -0400
-Received: by ug-out-1314.google.com with SMTP id j3so843500ugf
-        for <netdev@vger.kernel.org>; Sat, 28 Jul 2007 08:48:49 -0700 (PDT)
-In-Reply-To: <20070725040304.111550f4.akpm@linux-foundation.org>
+Received: from mail.potentialcash.com ([213.180.119.146]:49090 "EHLO
+	mail.potentialcash.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753227AbXG1QHe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Jul 2007 12:07:34 -0400
+Received: from [10.1.0.10] (unknown [10.1.0.10])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by mail.potentialcash.com (Postfix) with ESMTP id 88494238C7
+	for <netdev@vger.kernel.org>; Sat, 28 Jul 2007 19:07:21 +0300 (EEST)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+When application closes socket with unread data in receive buffer, tcp 
+stack sends rst packet from the wrong source port, not the source port 
+of the socket being closed.
 
-I got this compile error with a randconfig ( http://194.231.229.228/MM/randconfig-auto-82.broken.netpoll.c ).
+This is the same problem that was described in my first post, witch 
+unfortunately nobody cared to look into.
 
-...
-
-net/core/netpoll.c: In function 'netpoll_poll':
-net/core/netpoll.c:155: error: 'struct net_device' has no member named 'poll_controller'
-net/core/netpoll.c:159: error: 'struct net_device' has no member named 'poll_controller'
-net/core/netpoll.c: In function 'netpoll_setup':
-net/core/netpoll.c:670: error: 'struct net_device' has no member named 'poll_controller'
-make[2]: *** [net/core/netpoll.o] Error 1
-make[1]: *** [net/core] Error 2
-make: *** [net] Error 2
-make: *** Waiting for unfinished jobs....
-
-...
-
-
-I think is because KGDBOE selects just NETPOLL.
-
-
-Regards,
-
-Gabriel
+This problem appeared in 2.4.0-test9-pre3 and is still present in kernel.
