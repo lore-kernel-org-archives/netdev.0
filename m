@@ -1,29 +1,39 @@
-From: john <john@potentialcash.com>
-Subject: small bug in tcp
-Date: Sat, 28 Jul 2007 19:07:05 +0300
-Message-ID: <46AB69A9.2000003@potentialcash.com>
+From: Edward Ando <edwardando-dbx96nzIXN7OeuqD6ShaSA@public.gmane.org>
+Subject: Removing the prism54 module
+Date: Sat, 28 Jul 2007 22:40:08 +0200
+Message-ID: <20070728224008.782a3be6@ed.anywhere>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.potentialcash.com ([213.180.119.146]:49090 "EHLO
-	mail.potentialcash.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753227AbXG1QHe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Jul 2007 12:07:34 -0400
-Received: from [10.1.0.10] (unknown [10.1.0.10])
-	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by mail.potentialcash.com (Postfix) with ESMTP id 88494238C7
-	for <netdev@vger.kernel.org>; Sat, 28 Jul 2007 19:07:21 +0300 (EEST)
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-When application closes socket with unread data in receive buffer, tcp 
-stack sends rst packet from the wrong source port, not the source port 
-of the socket being closed.
+Dear All,
+I am trying to set up software suspend 2 (TuxOnIce now it seems). This
+has decided it wants to remove the prism54 module before starting the
+hibernate process.
 
-This is the same problem that was described in my first post, witch 
-unfortunately nobody cared to look into.
+When it tries to do this, (or when I manually do: "ifconfig eth1
+down"), I start getting these messages on all terminals, ad infinitum:
 
-This problem appeared in 2.4.0-test9-pre3 and is still present in kernel.
+kernel: unregister_netdevice: waiting for eth1 to become free. Usage
+count = 4
+
+I asked a bit on #prism54 on freenode, and so I upgraded to
+linux 2.6.22.1 from kernel.org, always building prism54 as a module,
+but the problem continues.
+
+I have tried doing "ifconfig eth1 down" before rmmod, but this does not
+help.
+
+If you have any hints or answers as to what I should do, that would be
+great. I am not subscribed, so could you answer to this address please.
+
+
+Thanks in advance,
+Yours,
+
+Edward Ando
