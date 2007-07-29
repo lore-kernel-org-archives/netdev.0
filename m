@@ -1,56 +1,41 @@
-From: Domen Puncer <domen@coderock.org>
-Subject: Re: [PATCH] sb1000: prevent a potential NULL pointer dereference in sb1000_dev_ioctl()
-Date: Sun, 29 Jul 2007 06:37:08 +0200
-Message-ID: <20070729043707.GA8343@nd47.coderock.org>
-References: <200707290002.42722.jesper.juhl@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH RFX]: napi_struct V3
+Date: Sat, 28 Jul 2007 22:30:49 -0700 (PDT)
+Message-ID: <20070728.223049.78711264.davem@davemloft.net>
+References: <20070723.210748.63127793.davem@davemloft.net>
+	<ada6444y2nd.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, Steven Hirsch <shirsch@adelphia.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Franco Venturi <fventuri@mediaone.net>
-To: Jesper Juhl <jesper.juhl@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, shemminger@linux-foundation.org,
+	rusty@rustcorp.com.au, jgarzik@pobox.com
+To: rdreier@cisco.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kukmak.uni-mb.si ([164.8.100.3]:46666 "EHLO kukmak.uni-mb.si"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751773AbXG2E7v (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 29 Jul 2007 00:59:51 -0400
-Content-Disposition: inline
-In-Reply-To: <200707290002.42722.jesper.juhl@gmail.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59826
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752720AbXG2Fau (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Jul 2007 01:30:50 -0400
+In-Reply-To: <ada6444y2nd.fsf@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 29/07/07 00:02 +0200, Jesper Juhl wrote:
-> Hi,
+From: Roland Dreier <rdreier@cisco.com>
+Date: Sat, 28 Jul 2007 08:21:58 -0700
+
+>  > Another area of consternation are drivers that were using
+>  > netif_rx_reschedule(), as that interface was removed because it
+>  > doesn't fit well with the caller managing the dev->quota et al.  I
+>  > left race conditions in the drivers that were using that interface,
+>  > but they should still basically work nonetheless.
 > 
-> Here's a small patch, prompted by a find by the Coverity checker, 
-> that removes a potential NULL pointer dereference from 
-> drivers/net/sb1000.c::sb1000_dev_ioctl().
-> The checker spotted that we do a NULL test of 'dev', yet we 
-> dereference the pointer prior to that check.
-> This patch simply moves the dereference after the NULL test.
+> ...but this is a problem for IPoIB.  The underlying IB stuff only
+> allows us to register what is essentially a one-shot edge-triggered
+> interrupt.  So there is a race between calling netif_rx_complete() and
+> calling ib_req_notify_cq() (which enables the interrupt), since the
+> interrupt might never happen if a packet arrives between the two calls.
 
-But... it can't be called without a valid 'dev', no?
-A quick 'grep do_ioctl net/' confirms that all calls are in
-the form of 'dev->do_ioctl(dev, ...'.
+You will see further along in the thread that we have found
+a locking sequence by which this issue can be resolved.
 
-
-	Domen
-
-	
-> @@ -991,11 +991,13 @@ static int sb1000_dev_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
->  	short PID[4];
->  	int ioaddr[2], status, frequency;
->  	unsigned int stats[5];
-> -	struct sb1000_private *lp = netdev_priv(dev);
-> +	struct sb1000_private *lp;
->  
->  	if (!(dev && dev->flags & IFF_UP))
->  		return -ENODEV;
->  
-> +	lp = netdev_priv(dev);
-> +
->  	ioaddr[0] = dev->base_addr;
->  	/* mem_start holds the second I/O address */
->  	ioaddr[1] = dev->mem_start;
-> 
+Please read the full thread and the most recent patch before
+coming to conclusions :-)
