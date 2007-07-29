@@ -1,42 +1,70 @@
-From: Jan Engelhardt <jengelh@computergmbh.de>
-Subject: Re: TCP SACK issue, hung connection, tcpdump included
-Date: Sun, 29 Jul 2007 10:39:11 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0707291033420.9488@fbirervta.pbzchgretzou.qr>
-References: <46AC2CBE.5010500@netbauds.net> <20070729064511.GA18718@1wt.eu>
+From: Oliver Neukum <oliver@neukum.org>
+Subject: Re: [linux-usb-devel] [PATCH] USB Pegasus driver - avoid a potential NULL pointer dereference.
+Date: Sun, 29 Jul 2007 10:49:26 +0200
+Message-ID: <200707291049.26619.oliver@neukum.org>
+References: <200707290019.02591.jesper.juhl@gmail.com> <a781481a0707281637n5b123e4aib46c4e4b009b0018@mail.gmail.com> <9a8748490707281655u66e50bbfqba58687b579a85fe@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "Darryl L. Miles" <darryl-mailinglists@netbauds.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Willy Tarreau <w@1wt.eu>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760970AbXG2IjZ@vger.kernel.org>
-In-Reply-To: <20070729064511.GA18718@1wt.eu>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "Jesper Juhl" <jesper.juhl@gmail.com>,
+	"Satyam Sharma" <satyam.sharma@gmail.com>,
+	Greg Kroah-Hartman <greg@kroah.com>, netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Petko Manolov <petkan@users.sourceforge.net>
+To: linux-usb-devel@lists.sourceforge.net
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1761128AbXG2Irp@vger.kernel.org>
+In-Reply-To: <9a8748490707281655u66e50bbfqba58687b579a85fe@mail.gmail.com>
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Am Sonntag 29 Juli 2007 schrieb Jesper Juhl:
+> On 29/07/07, Satyam Sharma <satyam.sharma@gmail.com> wrote:
+> > Hi,
+> >
+> > On 7/29/07, Jesper Juhl <jesper.juhl@gmail.com> wrote:
+> > > Hello,
+> > >
+> > > This patch makes sure we don't dereference a NULL pointer in
+> > > drivers/net/usb/pegasus.c::write_bulk_callback() in the initial
+> > > struct net_device *net = pegasus->net; assignment.
+> > > The existing code checks if 'pegasus' is NULL and bails out if
+> > > it is, so we better not touch that pointer until after that check.
+> > > [...]
+> > > diff --git a/drivers/net/usb/pegasus.c b/drivers/net/usb/pegasus.c
+> > > index a05fd97..04cba6b 100644
+> > > --- a/drivers/net/usb/pegasus.c
+> > > +++ b/drivers/net/usb/pegasus.c
+> > > @@ -768,11 +768,13 @@ done:
+> > >  static void write_bulk_callback(struct urb *urb)
+> > >  {
+> > >         pegasus_t *pegasus = urb->context;
+> > > -       struct net_device *net = pegasus->net;
+> > > +       struct net_device *net;
+> > >
+> > >         if (!pegasus)
+> > >                 return;
+> > >
+> > > +       net = pegasus->net;
+> > > +
+> > >         if (!netif_device_present(net) || !netif_running(net))
+> > >                 return;
+> >
+> > Is it really possible that we're called into this function with
+> > urb->context == NULL? If not, I'd suggest let's just get rid of
+> > the check itself, instead.
+> >
+> I'm not sure. I am not very familiar with this code. I just figured
+> that moving the assignment is potentially a little safer and it is
+> certainly no worse than the current code, so that's a safe and
+> potentially benneficial change. Removing the check may be safe but I'm
+> not certain enough to make that call...
 
-On Jul 29 2007 08:45, Willy Tarreau wrote:
->On Sun, Jul 29, 2007 at 06:59:26AM +0100, Darryl L. Miles wrote:
->> CLIENT = Linux 2.6.20.1-smp [Customer build]
->> SERVER = Linux 2.6.9-55.ELsmp [Red Hat Enterprise Linux AS release 4 
->> (Nahant Update 5)]
->> 
->> The problems start around time index 09:21:39.860302 when the CLIENT issues 
->> a TCP packet with SACK option set (seemingly for a data segment which has 
->> already been seen) from that point on the connection hangs.
->
->Where was the capture taken ? on CLIENT or on SERVER (I suspect client from
->the timers) ? A possible, but very unlikely reason would be an MTU limitation
->somewhere, because the segment which never gets correctly ACKed is also the
->largest one in this trace.[...]
+pegasus == NULL there would be a kernel bug. Silently ignoring
+it, like the code now wants to do is bad. As the oops has never been
+reported, I figure turning it into an explicit debugging test is overkill,
+so removal seems to be the best option.
 
-I had something similar (and most strangely enough, it only seemed to happen
-when the source and/or destination address was outside a given subnet). It
-boiled down to that some switch acted really strange and God knows why. A
-tcpdump on *both* sides (server+client) each showed that the *other* peer sent
-a FIN/RST. Well in the end I settled with setting sys.net.ipv4.tcp_sack=0,
-no idea if the broken switch got replaced in the meantime.
-Well, just letting you know that it is not limited to computers.
-
-
-	Jan
--- 
+	Regards
+		Oliver
