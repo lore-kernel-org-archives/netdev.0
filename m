@@ -1,70 +1,77 @@
-From: Oliver Neukum <oliver@neukum.org>
-Subject: Re: [linux-usb-devel] [PATCH] USB Pegasus driver - avoid a potential NULL pointer dereference.
-Date: Sun, 29 Jul 2007 10:49:26 +0200
-Message-ID: <200707291049.26619.oliver@neukum.org>
-References: <200707290019.02591.jesper.juhl@gmail.com> <a781481a0707281637n5b123e4aib46c4e4b009b0018@mail.gmail.com> <9a8748490707281655u66e50bbfqba58687b579a85fe@mail.gmail.com>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: TCP SACK issue, hung connection, tcpdump included
+Date: Sun, 29 Jul 2007 10:54:27 +0200
+Message-ID: <20070729085427.GA22784@1wt.eu>
+References: <46AC2CBE.5010500@netbauds.net> <20070729064511.GA18718@1wt.eu> <Pine.LNX.4.64.0707291052300.10340@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "Jesper Juhl" <jesper.juhl@gmail.com>,
-	"Satyam Sharma" <satyam.sharma@gmail.com>,
-	Greg Kroah-Hartman <greg@kroah.com>, netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Petko Manolov <petkan@users.sourceforge.net>
-To: linux-usb-devel@lists.sourceforge.net
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1761128AbXG2Irp@vger.kernel.org>
-In-Reply-To: <9a8748490707281655u66e50bbfqba58687b579a85fe@mail.gmail.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Darryl L. Miles" <darryl-mailinglists@netbauds.net>,
+	linux-kernel@vger.kernel.org, Netdev <netdev@vger.kernel.org>
+To: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 1wt.eu ([62.212.114.60]:4060 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760663AbXG2Iyg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 29 Jul 2007 04:54:36 -0400
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <Pine.LNX.4.64.0707291052300.10340@kivilampi-30.cs.helsinki.fi>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am Sonntag 29 Juli 2007 schrieb Jesper Juhl:
-> On 29/07/07, Satyam Sharma <satyam.sharma@gmail.com> wrote:
-> > Hi,
-> >
-> > On 7/29/07, Jesper Juhl <jesper.juhl@gmail.com> wrote:
-> > > Hello,
-> > >
-> > > This patch makes sure we don't dereference a NULL pointer in
-> > > drivers/net/usb/pegasus.c::write_bulk_callback() in the initial
-> > > struct net_device *net = pegasus->net; assignment.
-> > > The existing code checks if 'pegasus' is NULL and bails out if
-> > > it is, so we better not touch that pointer until after that check.
-> > > [...]
-> > > diff --git a/drivers/net/usb/pegasus.c b/drivers/net/usb/pegasus.c
-> > > index a05fd97..04cba6b 100644
-> > > --- a/drivers/net/usb/pegasus.c
-> > > +++ b/drivers/net/usb/pegasus.c
-> > > @@ -768,11 +768,13 @@ done:
-> > >  static void write_bulk_callback(struct urb *urb)
-> > >  {
-> > >         pegasus_t *pegasus = urb->context;
-> > > -       struct net_device *net = pegasus->net;
-> > > +       struct net_device *net;
-> > >
-> > >         if (!pegasus)
-> > >                 return;
-> > >
-> > > +       net = pegasus->net;
-> > > +
-> > >         if (!netif_device_present(net) || !netif_running(net))
-> > >                 return;
-> >
-> > Is it really possible that we're called into this function with
-> > urb->context == NULL? If not, I'd suggest let's just get rid of
-> > the check itself, instead.
-> >
-> I'm not sure. I am not very familiar with this code. I just figured
-> that moving the assignment is potentially a little safer and it is
-> certainly no worse than the current code, so that's a safe and
-> potentially benneficial change. Removing the check may be safe but I'm
-> not certain enough to make that call...
+On Sun, Jul 29, 2007 at 11:26:00AM +0300, Ilpo J=E4rvinen wrote:
+> On Sun, 29 Jul 2007, Willy Tarreau wrote:
+>=20
+> > On Sun, Jul 29, 2007 at 06:59:26AM +0100, Darryl L. Miles wrote:
+> > > CLIENT =3D Linux 2.6.20.1-smp [Customer build]
+> > > SERVER =3D Linux 2.6.9-55.ELsmp [Red Hat Enterprise Linux AS rele=
+ase 4=20
+> > > (Nahant Update 5)]
+> > >=20
+> > > The problems start around time index 09:21:39.860302 when the CLI=
+ENT issues=20
+> > > a TCP packet with SACK option set (seemingly for a data segment w=
+hich has=20
+> > > already been seen) from that point on the connection hangs.
+>=20
+> ...That's DSACK and it's being correctly sent. To me, it seems unlike=
+ly to=20
+> be the cause for this breakage...
+>=20
+> > Where was the capture taken ? on CLIENT or on SERVER (I suspect cli=
+ent from
+> > the timers) ?=20
+>=20
+> ...I would guess the same based on SYN timestamps (and from the DSACK=
+=20
+> timestamps)...
+>=20
+> > A possible, but very unlikely reason would be an MTU limitation
+> > somewhere, because the segment which never gets correctly ACKed is =
+also the
+> > largest one in this trace.
+>=20
+> Limitation for 48 byte segments? You have to be kidding... :-) But ye=
+s,
+> it seems that one of the directions is dropping packets for some reas=
+on=20
+> though I would not assume MTU limitation... Or did you mean some othe=
+r=20
+> segment?
 
-pegasus == NULL there would be a kernel bug. Silently ignoring
-it, like the code now wants to do is bad. As the oops has never been
-reported, I figure turning it into an explicit debugging test is overkill,
-so removal seems to be the best option.
+No, I was talking about the 1448 bytes segments. But in fact I don't
+believe it much because the SACKs are always retransmitted just afterwa=
+rds.
 
-	Regards
-		Oliver
+BTW, some information are missing. It would have been better if the tra=
+ce
+had been read with tcpdump -Svv. We would have got seq numbers and ttl.
+Also, we do not know if there's a firewall between both sides. Sometime=
+s,
+some IDS identify attacks in crypted traffic and kill connections. It
+might have been the case here, with the connection closed one way on an
+intermediate firewall.
+
+Regards,
+Willy
+
