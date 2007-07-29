@@ -1,120 +1,97 @@
 From: Satyam Sharma <satyam@infradead.org>
-Subject: Re: [PATCH] USB Pegasus driver - avoid a
- potential NULL pointer dereference.
-Date: Sun, 29 Jul 2007 23:48:24 +0530 (IST)
-Message-ID: <alpine.LFD.0.999.0707292346150.30928@enigma.security.iitk.ac.in>
-References: <200707290019.02591.jesper.juhl@gmail.com>
-	<a781481a0707281637n5b123e4aib46c4e4b009b0018@mail.gmail.com>
-	<9a8748490707281655u66e50bbfqba58687b579a85fe@mail.gmail.com>
-	<200707291049.26619.oliver@neukum.org>
+Subject: Re: [PATCH] sb1000: prevent a potential NULL pointer dereference in
+ sb1000_dev_ioctl()
+Date: Mon, 30 Jul 2007 00:04:46 +0530 (IST)
+Message-ID: <alpine.LFD.0.999.0707300003440.30928@enigma.security.iitk.ac.in>
+References: <200707290002.42722.jesper.juhl@gmail.com>
+ <20070729043707.GA8343@nd47.coderock.org>
+ <alpine.LFD.0.999.0707291106500.30928@enigma.security.iitk.ac.in>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linux-usb-devel@lists.sourceforge.net,
-	Petko Manolov <petkan@users.sourceforge.net>,
-	Greg Kroah-Hartman <greg@kroah.com>,
-	Jesper Juhl <jesper.juhl@gmail.com>,
+Content-Type: TEXT/PLAIN; charset=us-ascii
+Cc: Jesper Juhl <jesper.juhl@gmail.com>,
 	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Oliver Neukum <oliver@neukum.org>
-Return-path: <linux-usb-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <200707291049.26619.oliver@neukum.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-usb-devel>,
-	<mailto:linux-usb-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-usb-devel>
-List-Post: <mailto:linux-usb-devel@lists.sourceforge.net>
-List-Help: <mailto:linux-usb-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-usb-devel>,
-	<mailto:linux-usb-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: linux-usb-devel-bounces@lists.sourceforge.net
-Errors-To: linux-usb-devel-bounces@lists.sourceforge.net
+	netdev@vger.kernel.org, Steven Hirsch <shirsch@adelphia.net>,
+	"David S. Miller" <davem@davemloft.net>
+To: Domen Puncer <domen@coderock.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from pentafluge.infradead.org ([213.146.154.40]:55223 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1762254AbXG2SW3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Jul 2007 14:22:29 -0400
+In-Reply-To: <alpine.LFD.0.999.0707291106500.30928@enigma.security.iitk.ac.in>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
 
-On Sun, 29 Jul 2007, Oliver Neukum wrote:
-
-> Am Sonntag 29 Juli 2007 schrieb Jesper Juhl:
-> > On 29/07/07, Satyam Sharma <satyam.sharma@gmail.com> wrote:
-> > > Hi,
-> > >
-> > > On 7/29/07, Jesper Juhl <jesper.juhl@gmail.com> wrote:
-> > > > Hello,
-> > > >
-> > > > This patch makes sure we don't dereference a NULL pointer in
-> > > > drivers/net/usb/pegasus.c::write_bulk_callback() in the initial
-> > > > struct net_device *net = pegasus->net; assignment.
-> > > > The existing code checks if 'pegasus' is NULL and bails out if
-> > > > it is, so we better not touch that pointer until after that check.
-> > > > [...]
-> > >
-> > > Is it really possible that we're called into this function with
-> > > urb->context == NULL? If not, I'd suggest let's just get rid of
-> > > the check itself, instead.
-> > >
-> > I'm not sure. I am not very familiar with this code. I just figured
-> > that moving the assignment is potentially a little safer and it is
-> > certainly no worse than the current code, so that's a safe and
-> > potentially benneficial change. Removing the check may be safe but I'm
-> > not certain enough to make that call...
+> On Sun, 29 Jul 2007, Domen Puncer wrote:
 > 
-> pegasus == NULL there would be a kernel bug. Silently ignoring
-> it, like the code now wants to do is bad. As the oops has never been
-> reported, I figure turning it into an explicit debugging test is overkill,
-> so removal seems to be the best option.
+> > On 29/07/07 00:02 +0200, Jesper Juhl wrote:
+> > > Hi,
+> > > 
+> > > Here's a small patch, prompted by a find by the Coverity checker, 
+> > > that removes a potential NULL pointer dereference from 
+> > > drivers/net/sb1000.c::sb1000_dev_ioctl().
+> > > The checker spotted that we do a NULL test of 'dev', yet we 
+> > > dereference the pointer prior to that check.
+> > > This patch simply moves the dereference after the NULL test.
+> > 
+> > But... it can't be called without a valid 'dev', no?
+> > A quick 'grep do_ioctl net/' confirms that all calls are in
+> > the form of 'dev->do_ioctl(dev, ...'.
+> 
+> Yup, I think so too ...
+> 
+> 
+> > > @@ -991,11 +991,13 @@ static int sb1000_dev_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+> > >  	short PID[4];
+> > >  	int ioaddr[2], status, frequency;
+> > >  	unsigned int stats[5];
+> > > -	struct sb1000_private *lp = netdev_priv(dev);
+> > > +	struct sb1000_private *lp;
+> > >  
+> > >  	if (!(dev && dev->flags & IFF_UP))
+> > >  		return -ENODEV;
+> 
+> I think we could get rid of the !dev check itself. Actually, the IFF_UP
+> check /also/ looks suspect to me for two reasons: (1) I remember Stephen
+> Hemminger once telling me dev->flags is legacy and unsafe, and one of
+> the netif_xxx() functions be used instead, and, (2) I wonder if we really
+> require the interface to be up and *running* when we do this ioctl.
 
-Ok, thanks. Updated patch below.
+Updated patch below.
 
-[PATCH] pegasus: Remove bogus checks in urb->complete() callbacks
+[PATCH] sb1000: Remove bogus checks
 
-urb->complete() callbacks registered in drivers/net/usb/pegasus.c needlessly
-check for urb->context != NULL, but that is not possible (the only way that
-can be possible would be a kernel bug elsewhere, and these checks would
-simply end up hiding that). So let's remove the bogus checks.
+In net_device->do_ioctl() of the sb1000 driver (sb1000_dev_ioctl):
+
+(1) !dev condition is always false -- this function cannot be called with
+NULL net_device.
+(2) !(dev->flags & IFF_UP) is bogus because the functions of this ioctl
+can (and should) be allowed even when the interface is not up and running.
+
+So let's remove these checks.
 
 Signed-off-by: Satyam Sharma <satyam@infradead.org>
+Cc: Jesper Juhl <jesper.juhl@gmail.com>
+Cc: Domen Puncer <domen@coderock.org>
 
 ---
 
- drivers/net/usb/pegasus.c |    9 +--------
- 1 files changed, 1 insertions(+), 8 deletions(-)
+ drivers/net/sb1000.c |    3 ---
+ 1 files changed, 0 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/usb/pegasus.c b/drivers/net/usb/pegasus.c
-index a05fd97..439ef9f 100644
---- a/drivers/net/usb/pegasus.c
-+++ b/drivers/net/usb/pegasus.c
-@@ -770,9 +770,6 @@ static void write_bulk_callback(struct urb *urb)
- 	pegasus_t *pegasus = urb->context;
- 	struct net_device *net = pegasus->net;
+diff --git a/drivers/net/sb1000.c b/drivers/net/sb1000.c
+index 1de3eec..f60fe98 100644
+--- a/drivers/net/sb1000.c
++++ b/drivers/net/sb1000.c
+@@ -993,9 +993,6 @@ static int sb1000_dev_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ 	unsigned int stats[5];
+ 	struct sb1000_private *lp = netdev_priv(dev);
  
--	if (!pegasus)
--		return;
+-	if (!(dev && dev->flags & IFF_UP))
+-		return -ENODEV;
 -
- 	if (!netif_device_present(net) || !netif_running(net))
- 		return;
- 
-@@ -805,13 +802,9 @@ static void write_bulk_callback(struct urb *urb)
- static void intr_callback(struct urb *urb)
- {
- 	pegasus_t *pegasus = urb->context;
--	struct net_device *net;
-+	struct net_device *net = pegasus->net;
- 	int status;
- 
--	if (!pegasus)
--		return;
--	net = pegasus->net;
--
- 	switch (urb->status) {
- 	case 0:
- 		break;
-
--------------------------------------------------------------------------
-This SF.net email is sponsored by: Splunk Inc.
-Still grepping through log files to find problems?  Stop.
-Now Search log events and configuration files using AJAX and a browser.
-Download your FREE copy of Splunk now >>  http://get.splunk.com/
-_______________________________________________
-linux-usb-devel@lists.sourceforge.net
-To unsubscribe, use the last form field at:
-https://lists.sourceforge.net/lists/listinfo/linux-usb-devel
+ 	ioaddr[0] = dev->base_addr;
+ 	/* mem_start holds the second I/O address */
+ 	ioaddr[1] = dev->mem_start;
