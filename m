@@ -1,94 +1,47 @@
-From: Corey Hickey <bugfood-ml@fatooh.org>
-Subject: [PATCH 7/7] Remove comments about hardcoded values.
-Date: Sun, 29 Jul 2007 00:08:54 -0700
-Message-ID: <1185692936479-git-send-email-bugfood-ml@fatooh.org>
-References: <11856929352537-git-send-email-bugfood-ml@fatooh.org>
- <11856929353322-git-send-email-bugfood-ml@fatooh.org>
- <11856929352132-git-send-email-bugfood-ml@fatooh.org>
- <11856929352115-git-send-email-bugfood-ml@fatooh.org>
- <11856929362692-git-send-email-bugfood-ml@fatooh.org>
- <1185692936660-git-send-email-bugfood-ml@fatooh.org>
- <11856929364083-git-send-email-bugfood-ml@fatooh.org>
-Cc: Corey Hickey <bugfood-ml@fatooh.org>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hot.fatooh.org ([208.78.103.127]:60046 "EHLO hot.fatooh.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759892AbXG2HIx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 29 Jul 2007 03:08:53 -0400
-In-Reply-To: <11856929364083-git-send-email-bugfood-ml@fatooh.org>
-Sender: netdev-owner@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/4] fix endianness bug in l2cap_sock_listen()
+Date: Sun, 29 Jul 2007 00:16:00 -0700 (PDT)
+Message-ID: <20070729.001600.74751290.davem@davemloft.net>
+References: <E1IEPNS-0005RS-7o@ZenIV.linux.org.uk>
+	<1185547278.13228.15.camel@violet>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: viro@ftp.linux.org.uk, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: marcel@holtmann.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760218AbXG2HQS@vger.kernel.org>
+In-Reply-To: <1185547278.13228.15.camel@violet>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-None of these are true anymore (hooray!).
+From: Marcel Holtmann <marcel@holtmann.org>
+Date: Fri, 27 Jul 2007 16:41:18 +0200
 
-Signed-off-by: Corey Hickey <bugfood-ml@fatooh.org>
----
- include/linux/pkt_sched.h |    8 --------
- net/sched/sch_sfq.c       |   17 +++--------------
- 2 files changed, 3 insertions(+), 22 deletions(-)
+> > We loop through psm values, calling __l2cap_get_sock_by_addr(psm, ...)
+> > until we get NULL; then we set ->psm of our socket to htobs(psm).
+> > IOW, we find unused psm value and put it into our socket.  So far, so
+> > good, but...  __l2cap_get_sock_by_addr() compares its argument with
+> > ->psm of sockets.  IOW, the entire thing works correctly only on
+> > little-endian.  On big-endian we'll get "no socket with such psm"
+> > on the first iteration, since we won't find a socket with ->psm == 0x1001.
+> > We will happily conclude that 0x1001 is unused and slap htobs(0x1001)
+> > (i.e. 0x110) into ->psm of our socket.  Of course, the next time around
+> > the same thing will repeat and we'll just get a fsckload of sockets
+> > with the same ->psm assigned.
+> > 
+> > Fix: pass htobs(psm) to __l2cap_get_sock_by_addr() there.  All other
+> > callers are already passing little-endian values and all places that
+> > store something in ->psm are storing little-endian.
+> > 
+> > Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+> 
+> Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
 
-diff --git a/include/linux/pkt_sched.h b/include/linux/pkt_sched.h
-index 268c515..58a0ea6 100644
---- a/include/linux/pkt_sched.h
-+++ b/include/linux/pkt_sched.h
-@@ -148,14 +148,6 @@ struct tc_sfq_qopt
- 	unsigned	flows;		/* Maximal number of flows  */
- };
- 
--/*
-- *  NOTE: limit, divisor and flows are hardwired to code at the moment.
-- *
-- *	limit=flows=128, divisor=1024;
-- *
-- *	The only reason for this is efficiency, it is possible
-- *	to change these parameters in compile time.
-- */
- 
- /* RED section */
- 
-diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
-index 4cd523f..8e84881 100644
---- a/net/sched/sch_sfq.c
-+++ b/net/sched/sch_sfq.c
-@@ -61,18 +61,7 @@
- 
- 	We still need true WFQ for top level CSZ, but using WFQ
- 	for the best effort traffic is absolutely pointless:
--	SFQ is superior for this purpose.
--
--	IMPLEMENTATION:
--	This implementation limits maximal queue length to 128;
--	maximal mtu to 2^15-1; number of hash buckets to 1024.
--	The only goal of this restrictions was that all data
--	fit into one 4K page :-). Struct sfq_sched_data is
--	organized in anti-cache manner: all the data for a bucket
--	are scattered over different locations. This is not good,
--	but it allowed me to put it into 4K.
--
--	It is easy to increase these values, but not in flight.  */
-+	SFQ is superior for this purpose. */
- 
- #define SFQ_DEPTH_DEFAULT	128
- #define SFQ_DIVISOR_DEFAULT	1024
-@@ -496,7 +485,7 @@ static int sfq_change(struct Qdisc *sch, struct rtattr *opt)
- 	struct sfq_sched_data tmp;
- 	struct sk_buff *skb;
- 	int err;
--	
-+
- 	/* set up tmp queue */
- 	memset(&tmp, 0, sizeof(struct sfq_sched_data));
- 	tmp.quantum = psched_mtu(sch->dev); /* default */
-@@ -509,7 +498,7 @@ static int sfq_change(struct Qdisc *sch, struct rtattr *opt)
- 		sfq_drop(sch);
- 	while ((skb = sfq_q_dequeue(q)) != NULL)
- 		sfq_q_enqueue(skb, &tmp, SFQ_TAIL);
--	
-+
- 	/* clean up the old queue */
- 	sfq_q_destroy(q);
- 
--- 
-1.5.2.4
+Applied.
 
+> Dave, all four patches are good and should go in sooner than later. If
+> you want me to put them into my tree first, then I can do that or you
+> can apply them directly. You choice.
+
+I'll take care of these, thanks.
