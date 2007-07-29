@@ -1,65 +1,81 @@
 From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] drivers/net/cxgb3/xgmac.c: remove dead code
-Date: Sun, 29 Jul 2007 16:55:45 +0200
-Message-ID: <20070729145544.GA16817@stusta.de>
+Subject: [-mm patch] e1000: #if 0 two functions
+Date: Sun, 29 Jul 2007 16:58:15 +0200
+Message-ID: <20070729145815.GX16817@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Divy Le Ray <divy@chelsio.com>, Jeff Garzik <jeff@garzik.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1763844AbXG2O4n@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: auke-jan.h.kok@intel.com, Peter Oruba <peter.oruba@amd.com>,
+	e1000-devel@lists.sourceforge.net, jgarzik@pobox.com,
+	jesse.brandeburg@intel.com, linux-kernel@vger.kernel.org,
+	john.ronciak@intel.com, jeffrey.t.kirsher@intel.com,
+	netdev@vger.kernel.org,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	cramerj@intel.com
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-This patch removes dead code ("tx_xcnt" can never be != 0 at this place) 
-spotted by the Coverity checker.
+e1000_{read,write}_pci_cfg() are no longer used.
 
 Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
 ---
 
- drivers/net/cxgb3/xgmac.c |    5 +----
- 1 file changed, 1 insertion(+), 4 deletions(-)
+This patch has been sent on:
+- 1 Jul 2007
+- 5 Jun 2007
 
---- linux-2.6.22-rc6-mm1/drivers/net/cxgb3/xgmac.c.old	2007-07-24 13:55:33.000000000 +0200
-+++ linux-2.6.22-rc6-mm1/drivers/net/cxgb3/xgmac.c	2007-07-24 13:57:06.000000000 +0200
-@@ -510,38 +510,35 @@ int t3b2_mac_watchdog_task(struct cmac *
- 	if (tx_mcnt == mac->tx_mcnt) {
- 		tx_xcnt = (G_TXSPI4SOPCNT(t3_read_reg(adap,
- 						A_XGM_TX_SPI4_SOP_EOP_CNT +
- 					       	mac->offset)));
- 		if (tx_xcnt == 0) {
- 			t3_write_reg(adap, A_TP_PIO_ADDR,
- 				     A_TP_TX_DROP_CNT_CH0 + macidx(mac));
- 			tx_tcnt = (G_TXDROPCNTCH0RCVD(t3_read_reg(adap,
- 						      A_TP_PIO_DATA)));
- 		} else {
- 			goto rxcheck;
- 		}
- 	} else {
- 		mac->toggle_cnt = 0;
- 		goto rxcheck;
- 	}
+ drivers/net/e1000/e1000_hw.h   |    2 --
+ drivers/net/e1000/e1000_main.c |    4 ++++
+ 2 files changed, 4 insertions(+), 2 deletions(-)
+
+--- linux-2.6.22-rc3-mm1/drivers/net/e1000/e1000_hw.h.old	2007-06-04 22:03:05.000000000 +0200
++++ linux-2.6.22-rc3-mm1/drivers/net/e1000/e1000_hw.h	2007-06-04 22:03:14.000000000 +0200
+@@ -421,8 +421,6 @@ void e1000_tbi_adjust_stats(struct e1000
+ void e1000_get_bus_info(struct e1000_hw *hw);
+ void e1000_pci_set_mwi(struct e1000_hw *hw);
+ void e1000_pci_clear_mwi(struct e1000_hw *hw);
+-void e1000_read_pci_cfg(struct e1000_hw *hw, uint32_t reg, uint16_t * value);
+-void e1000_write_pci_cfg(struct e1000_hw *hw, uint32_t reg, uint16_t * value);
+ int32_t e1000_read_pcie_cap_reg(struct e1000_hw *hw, uint32_t reg, uint16_t *value);
+ void e1000_pcix_set_mmrbc(struct e1000_hw *hw, int mmrbc);
+ int e1000_pcix_get_mmrbc(struct e1000_hw *hw);
+--- linux-2.6.22-rc3-mm1/drivers/net/e1000/e1000_main.c.old	2007-06-04 22:03:24.000000000 +0200
++++ linux-2.6.22-rc3-mm1/drivers/net/e1000/e1000_main.c	2007-06-04 22:03:40.000000000 +0200
+@@ -4888,6 +4888,8 @@ e1000_pci_clear_mwi(struct e1000_hw *hw)
+ 	pci_clear_mwi(adapter->pdev);
+ }
  
--	if (((tx_tcnt != mac->tx_tcnt) &&
--	     (tx_xcnt == 0) && (mac->tx_xcnt == 0)) ||
--	    ((mac->tx_mcnt == tx_mcnt) &&
--	     (tx_xcnt != 0) && (mac->tx_xcnt != 0))) {
-+	if ((tx_tcnt != mac->tx_tcnt) && (mac->tx_xcnt == 0))  {
- 		if (mac->toggle_cnt > 4) {
- 			status = 2;
- 			goto out;
- 		} else {
- 			status = 1;
- 			goto out;
- 		}
- 	} else {
- 		mac->toggle_cnt = 0;
- 		goto rxcheck;
- 	}
++#if 0
++
+ void
+ e1000_read_pci_cfg(struct e1000_hw *hw, uint32_t reg, uint16_t *value)
+ {
+@@ -4904,6 +4906,8 @@ e1000_write_pci_cfg(struct e1000_hw *hw,
+ 	pci_write_config_word(adapter->pdev, reg, *value);
+ }
  
- rxcheck:
- 	if (rx_mcnt != mac->rx_mcnt)
- 		rx_xcnt = (G_TXSPI4SOPCNT(t3_read_reg(adap,
- 						A_XGM_RX_SPI4_SOP_EOP_CNT +
- 						mac->offset)));
++#endif  /*  0  */
++
+ int
+ e1000_pcix_get_mmrbc(struct e1000_hw *hw)
+ {
+
+
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Splunk Inc.
+Still grepping through log files to find problems?  Stop.
+Now Search log events and configuration files using AJAX and a browser.
+Download your FREE copy of Splunk now >>  http://get.splunk.com/
