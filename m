@@ -1,32 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 4/4] l2cap: don't mangle cmd.len
-Date: Sun, 29 Jul 2007 00:18:37 -0700 (PDT)
-Message-ID: <20070729.001837.104033253.davem@davemloft.net>
-References: <E1IEPNw-0005TA-89@ZenIV.linux.org.uk>
-	<1185547286.13228.18.camel@violet>
+Subject: Re: [PATCH 0/7] SFQ: backport some features from ESFQ
+Date: Sun, 29 Jul 2007 00:19:47 -0700 (PDT)
+Message-ID: <20070729.001947.122615957.davem@davemloft.net>
+References: <11856929352537-git-send-email-bugfood-ml@fatooh.org>
+	<46AC3EFB.6040504@fatooh.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: viro@ftp.linux.org.uk, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: marcel@holtmann.org
+Cc: netdev@vger.kernel.org
+To: bugfood-ml@fatooh.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39383
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39386
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1759051AbXG2HSm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Jul 2007 03:18:42 -0400
-In-Reply-To: <1185547286.13228.18.camel@violet>
+	by vger.kernel.org with ESMTP id S1759070AbXG2HTr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Jul 2007 03:19:47 -0400
+In-Reply-To: <46AC3EFB.6040504@fatooh.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Marcel Holtmann <marcel@holtmann.org>
-Date: Fri, 27 Jul 2007 16:41:26 +0200
+From: Corey Hickey <bugfood-ml@fatooh.org>
+Date: Sun, 29 Jul 2007 00:17:15 -0700
 
-> > Since nobody uses it after we convert it to host-endian,
-> > no need to do that at all.  At that point l2cap is endian-clean.
+> Corey Hickey wrote:
+> > Hello,
 > > 
-> > Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+> > This set of patches adds some of ESFQ's modifications to the original 
+> > SFQ. Thus far, I have received support for this approach rather than for 
+> > trying to get ESFQ included as a separate qdisc.
 > 
-> Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
+> Crud; I wasn't expecting git-send-email to thread the messages that way. 
+> I guess I should have used --no-chain-reply-to. If I ought re-send this 
+> series with that option, somebody please say the word and I'll do so.
 
-Also applied, thanks a lot.
+It's not necessary, let some feedback come in first.
