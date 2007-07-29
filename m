@@ -1,74 +1,120 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: TCP SACK issue, hung connection, tcpdump included
-Date: Sun, 29 Jul 2007 19:28:09 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0707291922370.11113@kivilampi-30.cs.helsinki.fi>
-References: <46AC2CBE.5010500@netbauds.net> <20070729064511.GA18718@1wt.eu>
- <Pine.LNX.4.64.0707291052300.10340@kivilampi-30.cs.helsinki.fi>
- <20070729085427.GA22784@1wt.eu> <Pine.LNX.4.64.0707291208230.10340@kivilampi-30.cs.helsinki.fi>
- <20070729160721.GA31276@1wt.eu>
+From: Satyam Sharma <satyam@infradead.org>
+Subject: Re: [PATCH] USB Pegasus driver - avoid a
+ potential NULL pointer dereference.
+Date: Sun, 29 Jul 2007 23:48:24 +0530 (IST)
+Message-ID: <alpine.LFD.0.999.0707292346150.30928@enigma.security.iitk.ac.in>
+References: <200707290019.02591.jesper.juhl@gmail.com>
+	<a781481a0707281637n5b123e4aib46c4e4b009b0018@mail.gmail.com>
+	<9a8748490707281655u66e50bbfqba58687b579a85fe@mail.gmail.com>
+	<200707291049.26619.oliver@neukum.org>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; boundary="-696243703-2123637381-1185726287=:11113"
-Cc: "Ilpo =?iso-8859-1?Q?J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>,
-	"Darryl L. Miles" <darryl-mailinglists@netbauds.net>,
-	linux-kernel@vger.kernel.org, Netdev <netdev@vger.kernel.org>
-To: Willy Tarreau <w@1wt.eu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:53124 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1763549AbXG2Q2L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Jul 2007 12:28:11 -0400
-In-Reply-To: <20070729160721.GA31276@1wt.eu>
-Content-ID: <Pine.LNX.4.64.0707291926380.11113@kivilampi-30.cs.helsinki.fi>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linux-usb-devel@lists.sourceforge.net,
+	Petko Manolov <petkan@users.sourceforge.net>,
+	Greg Kroah-Hartman <greg@kroah.com>,
+	Jesper Juhl <jesper.juhl@gmail.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Oliver Neukum <oliver@neukum.org>
+Return-path: <linux-usb-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <200707291049.26619.oliver@neukum.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-usb-devel>,
+	<mailto:linux-usb-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-usb-devel>
+List-Post: <mailto:linux-usb-devel@lists.sourceforge.net>
+List-Help: <mailto:linux-usb-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-usb-devel>,
+	<mailto:linux-usb-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: linux-usb-devel-bounces@lists.sourceforge.net
+Errors-To: linux-usb-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
 
----696243703-2123637381-1185726287=:11113
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
-Content-ID: <Pine.LNX.4.64.0707291925011.11113@kivilampi-30.cs.helsinki.fi>
 
-On Sun, 29 Jul 2007, Willy Tarreau wrote:
+On Sun, 29 Jul 2007, Oliver Neukum wrote:
 
-> On Sun, Jul 29, 2007 at 12:28:04PM +0300, Ilpo Järvinen wrote:
+> Am Sonntag 29 Juli 2007 schrieb Jesper Juhl:
+> > On 29/07/07, Satyam Sharma <satyam.sharma@gmail.com> wrote:
+> > > Hi,
+> > >
+> > > On 7/29/07, Jesper Juhl <jesper.juhl@gmail.com> wrote:
+> > > > Hello,
+> > > >
+> > > > This patch makes sure we don't dereference a NULL pointer in
+> > > > drivers/net/usb/pegasus.c::write_bulk_callback() in the initial
+> > > > struct net_device *net = pegasus->net; assignment.
+> > > > The existing code checks if 'pegasus' is NULL and bails out if
+> > > > it is, so we better not touch that pointer until after that check.
+> > > > [...]
+> > >
+> > > Is it really possible that we're called into this function with
+> > > urb->context == NULL? If not, I'd suggest let's just get rid of
+> > > the check itself, instead.
+> > >
+> > I'm not sure. I am not very familiar with this code. I just figured
+> > that moving the assignment is potentially a little safer and it is
+> > certainly no worse than the current code, so that's a safe and
+> > potentially benneficial change. Removing the check may be safe but I'm
+> > not certain enough to make that call...
 > 
-> > [...snip...]
-> > 
-> > > BTW, some information are missing. It would have been better if the trace
-> > > had been read with tcpdump -Svv. We would have got seq numbers and ttl.
-> > > Also, we do not know if there's a firewall between both sides. Sometimes,
-> > > some IDS identify attacks in crypted traffic and kill connections. It
-> > > might have been the case here, with the connection closed one way on an
-> > > intermediate firewall.
-> > 
-> > Yeah, firewall or some other issue, I'd say it's quite unlikely a bug in 
-> > TCP because behavior to both directions indicate client -> sender 
-> > blackhole independently of each other...
-> 
-> It would also be possible that something stupid between both ends simply
-> drops packets with the SACK option set. Also something which sometimes
-> happen is that some firewalls automatically translate sequence numbers
-> but not necessarily SACK values, which could pretty well lead to this
-> packet being received but ignored on the server side.
+> pegasus == NULL there would be a kernel bug. Silently ignoring
+> it, like the code now wants to do is bad. As the oops has never been
+> reported, I figure turning it into an explicit debugging test is overkill,
+> so removal seems to be the best option.
 
-...One can toggle those off with /proc/sys/net/ipv4/tcp_dsack but I 
-suspect DSACKs are not the cause because these retransmissions neither
-are making it through (there are many of them also earlier in the log, 
-just quoted the easiest ones :-) ):
+Ok, thanks. Updated patch below.
 
-> > > > 09:36:44.335591 IP CLIENT.50727 > SERVER.ssh: P 2991:3039(48) ack 18464 win 
-> > > > 378 <nop,nop,timestamp 800227942 7692910>
-> > > > 09:38:44.351950 IP CLIENT.50727 > SERVER.ssh: P 2991:3039(48) ack 18464 win 
-> > > > 378 <nop,nop,timestamp 800257942 7692910>
-> > > > 09:40:44.368172 IP CLIENT.50727 > SERVER.ssh: P 2991:3039(48) ack 18464 win 
-> > > > 378 <nop,nop,timestamp 800287943 7692910>
+[PATCH] pegasus: Remove bogus checks in urb->complete() callbacks
 
-...there are no SACKs involved in them, yet no cumulative ACK ever 
-arrives from SERVER...
+urb->complete() callbacks registered in drivers/net/usb/pegasus.c needlessly
+check for urb->context != NULL, but that is not possible (the only way that
+can be possible would be a kernel bug elsewhere, and these checks would
+simply end up hiding that). So let's remove the bogus checks.
 
+Signed-off-by: Satyam Sharma <satyam@infradead.org>
 
--- 
- i.
----696243703-2123637381-1185726287=:11113--
+---
+
+ drivers/net/usb/pegasus.c |    9 +--------
+ 1 files changed, 1 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/usb/pegasus.c b/drivers/net/usb/pegasus.c
+index a05fd97..439ef9f 100644
+--- a/drivers/net/usb/pegasus.c
++++ b/drivers/net/usb/pegasus.c
+@@ -770,9 +770,6 @@ static void write_bulk_callback(struct urb *urb)
+ 	pegasus_t *pegasus = urb->context;
+ 	struct net_device *net = pegasus->net;
+ 
+-	if (!pegasus)
+-		return;
+-
+ 	if (!netif_device_present(net) || !netif_running(net))
+ 		return;
+ 
+@@ -805,13 +802,9 @@ static void write_bulk_callback(struct urb *urb)
+ static void intr_callback(struct urb *urb)
+ {
+ 	pegasus_t *pegasus = urb->context;
+-	struct net_device *net;
++	struct net_device *net = pegasus->net;
+ 	int status;
+ 
+-	if (!pegasus)
+-		return;
+-	net = pegasus->net;
+-
+ 	switch (urb->status) {
+ 	case 0:
+ 		break;
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Splunk Inc.
+Still grepping through log files to find problems?  Stop.
+Now Search log events and configuration files using AJAX and a browser.
+Download your FREE copy of Splunk now >>  http://get.splunk.com/
+_______________________________________________
+linux-usb-devel@lists.sourceforge.net
+To unsubscribe, use the last form field at:
+https://lists.sourceforge.net/lists/listinfo/linux-usb-devel
