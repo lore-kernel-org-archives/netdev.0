@@ -1,63 +1,69 @@
-From: Satyam Sharma <satyam@infradead.org>
-Subject: Re: [PATCH] sb1000: prevent a potential NULL pointer dereference in
- sb1000_dev_ioctl()
-Date: Sun, 29 Jul 2007 11:34:47 +0530 (IST)
-Message-ID: <alpine.LFD.0.999.0707291106500.30928@enigma.security.iitk.ac.in>
-References: <200707290002.42722.jesper.juhl@gmail.com>
- <20070729043707.GA8343@nd47.coderock.org>
+From: Florian Zumbiehl <florz@florz.de>
+Subject: [RESEND][PATCH 1/3] PPPoE: improved hashing routine
+Date: Sun, 29 Jul 2007 08:04:23 +0200
+Message-ID: <20070729060423.GA27573@florz.florz.dyndns.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=us-ascii
-Cc: Jesper Juhl <jesper.juhl@gmail.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, Steven Hirsch <shirsch@adelphia.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Franco Venturi <fventuri@mediaone.net>
-To: Domen Puncer <domen@coderock.org>
+Content-Type: text/plain; charset=us-ascii
+To: mostrows@earthlink.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:35349 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755559AbXG2Fwd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Jul 2007 01:52:33 -0400
-In-Reply-To: <20070729043707.GA8343@nd47.coderock.org>
+Received: from [77.10.166.84] ([77.10.166.84]:33225 "EHLO
+	rain.florz.dyndns.org" rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1759526AbXG2GgI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Jul 2007 02:36:08 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi,
 
+I'm not sure whether this is really worth it, but it looked so
+extremely inefficient that I couldn't resist - so let's hope providers
+will keep PPPoE around for a while, at least until terabit dsl ;-)
 
-On Sun, 29 Jul 2007, Domen Puncer wrote:
+The new code produces the same results as the old version and is
+~ 3 to 6 times faster for 4-bit hashes on the CPUs I tested.
 
-> On 29/07/07 00:02 +0200, Jesper Juhl wrote:
-> > Hi,
-> > 
-> > Here's a small patch, prompted by a find by the Coverity checker, 
-> > that removes a potential NULL pointer dereference from 
-> > drivers/net/sb1000.c::sb1000_dev_ioctl().
-> > The checker spotted that we do a NULL test of 'dev', yet we 
-> > dereference the pointer prior to that check.
-> > This patch simply moves the dereference after the NULL test.
-> 
-> But... it can't be called without a valid 'dev', no?
-> A quick 'grep do_ioctl net/' confirms that all calls are in
-> the form of 'dev->do_ioctl(dev, ...'.
+Florian
 
-Yup, I think so too ...
+---------------------------------------------------------------------------
+Signed-off-by: Florian Zumbiehl <florz@florz.de>
 
-
-> > @@ -991,11 +991,13 @@ static int sb1000_dev_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
-> >  	short PID[4];
-> >  	int ioaddr[2], status, frequency;
-> >  	unsigned int stats[5];
-> > -	struct sb1000_private *lp = netdev_priv(dev);
-> > +	struct sb1000_private *lp;
-> >  
-> >  	if (!(dev && dev->flags & IFF_UP))
-> >  		return -ENODEV;
-
-I think we could get rid of the !dev check itself. Actually, the IFF_UP
-check /also/ looks suspect to me for two reasons: (1) I remember Stephen
-Hemminger once telling me dev->flags is legacy and unsafe, and one of
-the netif_xxx() functions be used instead, and, (2) I wonder if we really
-require the interface to be up and *running* when we do this ioctl.
-
-
-Satyam
+diff --git a/drivers/net/pppoe.c b/drivers/net/pppoe.c
+index 9e51fcc..954328c 100644
+--- a/drivers/net/pppoe.c
++++ b/drivers/net/pppoe.c
+@@ -108,19 +108,24 @@ static inline int cmp_addr(struct pppoe_addr *a, unsigned long sid, char *addr)
+ 		(memcmp(a->remote,addr,ETH_ALEN) == 0));
+ }
+ 
+-static int hash_item(unsigned long sid, unsigned char *addr)
++#if 8%PPPOE_HASH_BITS
++#error 8 must be a multiple of PPPOE_HASH_BITS
++#endif
++
++static int hash_item(unsigned int sid, unsigned char *addr)
+ {
+-	char hash = 0;
+-	int i, j;
++	unsigned char hash = 0;
++	unsigned int i;
+ 
+-	for (i = 0; i < ETH_ALEN ; ++i) {
+-		for (j = 0; j < 8/PPPOE_HASH_BITS ; ++j) {
+-			hash ^= addr[i] >> ( j * PPPOE_HASH_BITS );
+-		}
++	for (i = 0 ; i < ETH_ALEN ; i++) {
++		hash ^= addr[i];
++	}
++	for (i = 0 ; i < sizeof(sid_t)*8 ; i += 8 ){
++		hash ^= sid>>i;
++	}
++	for (i = 8 ; (i>>=1) >= PPPOE_HASH_BITS ; ) {
++		hash ^= hash>>i;
+ 	}
+-
+-	for (i = 0; i < (sizeof(unsigned long)*8) / PPPOE_HASH_BITS ; ++i)
+-		hash ^= sid >> (i*PPPOE_HASH_BITS);
+ 
+ 	return hash & ( PPPOE_HASH_SIZE - 1 );
+ }
