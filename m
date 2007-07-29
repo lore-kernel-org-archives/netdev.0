@@ -1,84 +1,48 @@
-From: "Jesper Juhl" <jesper.juhl@gmail.com>
-Subject: Re: [PATCH] USB Pegasus driver - avoid a
-	potential NULL pointer dereference.
-Date: Sun, 29 Jul 2007 01:55:00 +0200
-Message-ID: <9a8748490707281655u66e50bbfqba58687b579a85fe@mail.gmail.com>
-References: <200707290019.02591.jesper.juhl@gmail.com>
-	<a781481a0707281637n5b123e4aib46c4e4b009b0018@mail.gmail.com>
+From: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>
+Subject: Re: [2/3] 2.6.23-rc1: known regressions v2
+Date: Sun, 29 Jul 2007 02:13:31 +0200
+Message-ID: <200707290213.32294.bzolnier@gmail.com>
+References: <46AA581D.6080100@googlemail.com> <46AA5B39.2010209@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain;
+  charset="iso-8859-2"
 Content-Transfer-Encoding: 7bit
-Cc: Greg Kroah-Hartman <greg@kroah.com>, netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Petko Manolov <petkan@users.sourceforge.net>,
-	linux-usb-devel@lists.sourceforge.net
-To: "Satyam Sharma" <satyam.sharma@gmail.com>
-Return-path: <linux-usb-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <a781481a0707281637n5b123e4aib46c4e4b009b0018@mail.gmail.com>
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Eric Sesterhenn <snakebyte@gmx.de>,
+	Sid Boyce <g3vbv@blueyonder.co.uk>, linux-ide@vger.kernel.org,
+	dth <dth@dth.net>, Netdev <netdev@vger.kernel.org>,
+	Stephen Hemminger <shemminger@osdl.org>,
+	Thomas Meyer <thomas@m3y3r.de>, Florian Lohoff <flo@rfc822.org>
+To: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nf-out-0910.google.com ([64.233.182.190]:61599 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754436AbXG2APJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Jul 2007 20:15:09 -0400
+Received: by nf-out-0910.google.com with SMTP id g13so98233nfb
+        for <netdev@vger.kernel.org>; Sat, 28 Jul 2007 17:15:07 -0700 (PDT)
+In-Reply-To: <46AA5B39.2010209@googlemail.com>
 Content-Disposition: inline
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-usb-devel>,
-	<mailto:linux-usb-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-usb-devel>
-List-Post: <mailto:linux-usb-devel@lists.sourceforge.net>
-List-Help: <mailto:linux-usb-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-usb-devel>,
-	<mailto:linux-usb-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: linux-usb-devel-bounces@lists.sourceforge.net
-Errors-To: linux-usb-devel-bounces@lists.sourceforge.net
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 29/07/07, Satyam Sharma <satyam.sharma@gmail.com> wrote:
-> Hi,
->
-> On 7/29/07, Jesper Juhl <jesper.juhl@gmail.com> wrote:
-> > Hello,
-> >
-> > This patch makes sure we don't dereference a NULL pointer in
-> > drivers/net/usb/pegasus.c::write_bulk_callback() in the initial
-> > struct net_device *net = pegasus->net; assignment.
-> > The existing code checks if 'pegasus' is NULL and bails out if
-> > it is, so we better not touch that pointer until after that check.
-> > [...]
-> > diff --git a/drivers/net/usb/pegasus.c b/drivers/net/usb/pegasus.c
-> > index a05fd97..04cba6b 100644
-> > --- a/drivers/net/usb/pegasus.c
-> > +++ b/drivers/net/usb/pegasus.c
-> > @@ -768,11 +768,13 @@ done:
-> >  static void write_bulk_callback(struct urb *urb)
-> >  {
-> >         pegasus_t *pegasus = urb->context;
-> > -       struct net_device *net = pegasus->net;
-> > +       struct net_device *net;
-> >
-> >         if (!pegasus)
-> >                 return;
-> >
-> > +       net = pegasus->net;
-> > +
-> >         if (!netif_device_present(net) || !netif_running(net))
-> >                 return;
->
-> Is it really possible that we're called into this function with
-> urb->context == NULL? If not, I'd suggest let's just get rid of
-> the check itself, instead.
->
-I'm not sure. I am not very familiar with this code. I just figured
-that moving the assignment is potentially a little safer and it is
-certainly no worse than the current code, so that's a safe and
-potentially benneficial change. Removing the check may be safe but I'm
-not certain enough to make that call...
+On Friday 27 July 2007, Michal Piotrowski wrote:
 
--- 
-Jesper Juhl <jesper.juhl@gmail.com>
-Don't top-post  http://www.catb.org/~esr/jargon/html/T/top-post.html
-Plain text mails only, please      http://www.expita.com/nomime.html
+> IDE
+> 
+> Subject         : ide problems: 2.6.22-git17 working, 2.6.23-rc1* is not
+> References      : http://lkml.org/lkml/2007/7/27/298
+> Last known good : ?
+> Submitter       : dth <dth@dth.net>
+> Caused-By       : ?
+> Handled-By      : ?
+> Status          : unknown
 
--------------------------------------------------------------------------
-This SF.net email is sponsored by: Splunk Inc.
-Still grepping through log files to find problems?  Stop.
-Now Search log events and configuration files using AJAX and a browser.
-Download your FREE copy of Splunk now >>  http://get.splunk.com/
-_______________________________________________
-linux-usb-devel@lists.sourceforge.net
-To unsubscribe, use the last form field at:
-https://lists.sourceforge.net/lists/listinfo/linux-usb-devel
+No IDE changes after 2.6.22-git17.
+
+Despite this I will try to follow this bugreport.
+
+Thanks,
+Bart
