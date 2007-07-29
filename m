@@ -1,58 +1,38 @@
 From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] make nf_ct_ipv6_skip_exthdr() static
-Date: Sun, 29 Jul 2007 16:58:46 +0200
-Message-ID: <20070729145846.GZ16817@stusta.de>
+Subject: [2.6 patch] make pktgen.c:get_ipsec_sa() static and non-inline
+Date: Sun, 29 Jul 2007 16:58:40 +0200
+Message-ID: <20070729145840.GY16817@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
-	linux-kernel@vger.kernel.org
-To: Yasuyuki Kozakai <yasuyuki.kozakai@toshiba.co.jp>,
-	Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Jamal Hadi Salim <hadi@cyberus.ca>,
+	Robert Olsson <robert.olsson@its.uu.se>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from emailhub.stusta.mhn.de ([141.84.69.5]:47833 "EHLO
+	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1764482AbXG2O7D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Jul 2007 10:59:03 -0400
 Content-Disposition: inline
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-nf_ct_ipv6_skip_exthdr() can now become static.
+Non-static inline code usually doesn't makes sense.
+
+In this case making is static and non-inline is the correct solution.
 
 Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
 ---
-
- include/net/netfilter/ipv6/nf_conntrack_ipv6.h |    3 ---
- net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c |    4 ++--
- 2 files changed, 2 insertions(+), 5 deletions(-)
-
---- linux-2.6.23-rc1-mm1/include/net/netfilter/ipv6/nf_conntrack_ipv6.h.old	2007-07-26 20:17:47.000000000 +0200
-+++ linux-2.6.23-rc1-mm1/include/net/netfilter/ipv6/nf_conntrack_ipv6.h	2007-07-26 20:17:53.000000000 +0200
-@@ -7,9 +7,6 @@
- extern struct nf_conntrack_l4proto nf_conntrack_l4proto_udp6;
- extern struct nf_conntrack_l4proto nf_conntrack_l4proto_icmpv6;
- 
--extern int nf_ct_ipv6_skip_exthdr(const struct sk_buff *skb, int start,
--				  u8 *nexthdrp, int len);
--
- extern int nf_ct_frag6_init(void);
- extern void nf_ct_frag6_cleanup(void);
- extern struct sk_buff *nf_ct_frag6_gather(struct sk_buff *skb);
---- linux-2.6.23-rc1-mm1/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c.old	2007-07-26 20:18:03.000000000 +0200
-+++ linux-2.6.23-rc1-mm1/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c	2007-07-26 20:18:27.000000000 +0200
-@@ -86,8 +86,8 @@
-  *        - Note also special handling of AUTH header. Thanks to IPsec wizards.
-  */
- 
--int nf_ct_ipv6_skip_exthdr(const struct sk_buff *skb, int start, u8 *nexthdrp,
--			   int len)
-+static int nf_ct_ipv6_skip_exthdr(const struct sk_buff *skb, int start,
-+				  u8 *nexthdrp, int len)
+--- linux-2.6.23-rc1-mm1/net/core/pktgen.c.old	2007-07-26 20:12:01.000000000 +0200
++++ linux-2.6.23-rc1-mm1/net/core/pktgen.c	2007-07-26 20:12:13.000000000 +0200
+@@ -2156,8 +2156,7 @@
+ /* If there was already an IPSEC SA, we keep it as is, else
+  * we go look for it ...
+ */
+-inline
+-void get_ipsec_sa(struct pktgen_dev *pkt_dev, int flow)
++static void get_ipsec_sa(struct pktgen_dev *pkt_dev, int flow)
  {
- 	u8 nexthdr = *nexthdrp;
- 
+ 	struct xfrm_state *x = pkt_dev->flows[flow].x;
+ 	if (!x) {
+
