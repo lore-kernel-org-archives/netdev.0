@@ -1,45 +1,56 @@
-From: Dmitry Torokhov <dtor@insightbb.com>
-Subject: Re: [PATCH] Merge the Sonics Silicon Backplane subsystem
-Date: Sun, 29 Jul 2007 00:45:06 -0400
-Message-ID: <200707290045.07990.dtor@insightbb.com>
-References: <200707271857.24162.mb@bu3sch.de> <200707272143.59551.mb@bu3sch.de> <20070727131249.74330a3d.akpm@linux-foundation.org>
+From: Domen Puncer <domen@coderock.org>
+Subject: Re: [PATCH] sb1000: prevent a potential NULL pointer dereference in sb1000_dev_ioctl()
+Date: Sun, 29 Jul 2007 06:37:08 +0200
+Message-ID: <20070729043707.GA8343@nd47.coderock.org>
+References: <200707290002.42722.jesper.juhl@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Michael Buesch <mb@bu3sch.de>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	bcm43xx-dev@lists.berlios.de, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org,
-	Gary Zambrano <zambrano@broadcom.com>
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756191AbXG2Epb@vger.kernel.org>
-In-Reply-To: <20070727131249.74330a3d.akpm@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, Steven Hirsch <shirsch@adelphia.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Franco Venturi <fventuri@mediaone.net>
+To: Jesper Juhl <jesper.juhl@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kukmak.uni-mb.si ([164.8.100.3]:46666 "EHLO kukmak.uni-mb.si"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751773AbXG2E7v (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 29 Jul 2007 00:59:51 -0400
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <200707290002.42722.jesper.juhl@gmail.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Friday 27 July 2007 16:12, Andrew Morton wrote:
-> On Fri, 27 Jul 2007 21:43:59 +0200
-> Michael Buesch <mb@bu3sch.de> wrote:
+On 29/07/07 00:02 +0200, Jesper Juhl wrote:
+> Hi,
 > 
-> > > Sure, but why is the locking interruptible rather than plain old
-> > > mutex_lock()?
-> > 
-> > Hm, well. We hold this mutex for several seconds, as writing takes
-> > this long. So I simply thought it was worth allowing the waiter
-> > to interrupt here. If you say that's not an issue, I'll be happy
-> > to use mutex_lock() and reduce code complexity in this area.
-> 
-> So..  is that what the _interruptible() is for?  To allow an impatient user to ^c
-> a read?
-> 
-> If so, that sounds reasonable.  It's worth a comment explaining these decisions
-> to future readers, because it is hard to work out this sort of thinking just
-> from the bare C code.
+> Here's a small patch, prompted by a find by the Coverity checker, 
+> that removes a potential NULL pointer dereference from 
+> drivers/net/sb1000.c::sb1000_dev_ioctl().
+> The checker spotted that we do a NULL test of 'dev', yet we 
+> dereference the pointer prior to that check.
+> This patch simply moves the dereference after the NULL test.
 
-I think most of sysfs ->show() and ->store() implementations use
-_interruptible() variant to allow user to interrupt and return early.
+But... it can't be called without a valid 'dev', no?
+A quick 'grep do_ioctl net/' confirms that all calls are in
+the form of 'dev->do_ioctl(dev, ...'.
 
--- 
-Dmitry
+
+	Domen
+
+	
+> @@ -991,11 +991,13 @@ static int sb1000_dev_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+>  	short PID[4];
+>  	int ioaddr[2], status, frequency;
+>  	unsigned int stats[5];
+> -	struct sb1000_private *lp = netdev_priv(dev);
+> +	struct sb1000_private *lp;
+>  
+>  	if (!(dev && dev->flags & IFF_UP))
+>  		return -ENODEV;
+>  
+> +	lp = netdev_priv(dev);
+> +
+>  	ioaddr[0] = dev->base_addr;
+>  	/* mem_start holds the second I/O address */
+>  	ioaddr[1] = dev->mem_start;
+> 
