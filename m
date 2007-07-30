@@ -1,23 +1,21 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 2/4][RFC] lro: Kconfig and Makefile
-Date: Mon, 30 Jul 2007 12:36:19 -0400
-Message-ID: <46AE1383.3050305@garzik.org>
-References: <200707301724.45781.ossthema@de.ibm.com>
-	<20070730172535.15993806@oldman.hamilton.local>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: [PATCH 3/4][RFC] ehea: LRO support
+Date: Mon, 30 Jul 2007 09:37:36 -0700
+Message-ID: <46AE13D0.7060902@intel.com>
+References: <200707301724.49829.ossthema@de.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Thomas Klein <tklein@de.ibm.com>, Jan-Bernd Themann <themann@de.ibm.com>,
-	netdev <netdev@vger.kernel.org>,
+Cc: Thomas Klein <tklein@de.ibm.com>, Jeff Garzik <jeff@garzik.org>,
+	Jan-Bernd Themann <themann@de.ibm.com>, netdev <netdev@vger.kernel.org>,
 	linux-kernel <linux-kernel@vger.kernel.org>,
-	Christoph Raisch <raisch@de.ibm.com>, linux-ppc <linuxppc-dev@ozlabs.org>,
-	Jan-Bernd Themann <ossthema@de.ibm.com>, Marcus Eder <meder@de.ibm.com>,
-	Andrew Gallatin <gallatin@myri.com>,
+	linux-ppc <linuxppc-dev@ozlabs.org>, Christoph Raisch <raisch@de.ibm.com>,
+	Marcus Eder <meder@de.ibm.com>, Andrew Gallatin <gallatin@myri.com>,
 	Stefan Roscher <stefan.roscher@de.ibm.com>,
 	David Miller <davem@davemloft.net>
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+To: Jan-Bernd Themann <ossthema@de.ibm.com>
 Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-In-Reply-To: <20070730172535.15993806@oldman.hamilton.local>
+In-Reply-To: <200707301724.49829.ossthema@de.ibm.com>
 List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
 	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
 List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
@@ -29,17 +27,23 @@ Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> Why make this a user selectable option at all? Unless you want
-> to deal with out of tree drivers (not my problem), it should be hidden
-> to avoid having to explain an support it.
+Jan-Bernd Themann wrote:
+> Added LRO support using the "SKB aggregate" interface
+> 
+> Signed-off-by: Jan-Bernd Themann <themann@de.ibm.com>
+> 
+> ---
+>  drivers/net/ehea/ehea.h         |    9 ++++-
+>  drivers/net/ehea/ehea_ethtool.c |   15 +++++++
+>  drivers/net/ehea/ehea_main.c    |   82 +++++++++++++++++++++++++++++++++++---
+>  3 files changed, 98 insertions(+), 8 deletions(-)
 
+<snip>
 
-In this case it's an optional library kernel module.  That seems to be a 
-common setup for library modules.  We do the same with CONFIG_MII and 
-drivers/net/mii.ko as well.
+> +module_param(use_lro, int, 0);
+> +module_param(lro_max_aggr, int, 0);
 
-Originally it was done purely in the Makefile, but that does not account 
-for net drivers in sub-directories (or out of tree as you point out).
+this should obviously (and Stephen H. probably agrees) be implemented in ethtool 
+instead, and opens up the question as to what changes we need to add to ethtool. ..
 
-	Jeff
+Auke
