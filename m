@@ -1,117 +1,71 @@
-From: Thomas Klein <osstklei@de.ibm.com>
-Subject: [PATCH 3/3] ehea: Eliminated some compiler warnings
-Date: Mon, 30 Jul 2007 17:52:01 +0200
-Message-ID: <200707301752.02404.osstklei@de.ibm.com>
+From: Jan-Bernd Themann <ossthema@de.ibm.com>
+Subject: [PATCH 2/4][RFC] lro: Kconfig and Makefile
+Date: Mon, 30 Jul 2007 17:24:45 +0200
+Message-ID: <200707301724.45781.ossthema@de.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Cc: Christoph Raisch <raisch@de.ibm.com>,
-	"Jan-Bernd Themann" <ossthema@de.ibm.com>,
 	"Jan-Bernd Themann" <themann@de.ibm.com>,
 	"linux-kernel" <linux-kernel@vger.kernel.org>,
 	"linux-ppc" <linuxppc-dev@ozlabs.org>,
 	Marcus Eder <meder@de.ibm.com>,
-	netdev <netdev@vger.kernel.org>,
 	Thomas Klein <tklein@de.ibm.com>,
-	Stefan Roscher <ossrosch@linux.vnet.ibm.com>
-To: Jeff Garzik <jeff@garzik.org>
+	Stefan Roscher <stefan.roscher@de.ibm.com>,
+	David Miller <davem@davemloft.net>,
+	Andrew Gallatin <gallatin@myri.com>,
+	Jeff Garzik <jeff@garzik.org>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate3.uk.ibm.com ([195.212.29.136]:62932 "EHLO
-	mtagate3.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754532AbXG3Pwb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jul 2007 11:52:31 -0400
+Received: from mtagate4.uk.ibm.com ([195.212.29.137]:31743 "EHLO
+	mtagate4.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760067AbXG3Pxw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jul 2007 11:53:52 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fixed wrongly casted pointers
+Kconfig and Makefile for LRO
 
-Signed-off-by: Thomas Klein <tklein@de.ibm.com>
+Signed-off-by: Jan-Bernd Themann <themann@de.ibm.com>
 
 ---
- drivers/net/ehea/ehea_main.c |   25 ++++++++++---------------
- 1 files changed, 10 insertions(+), 15 deletions(-)
+ net/ipv4/Kconfig  |    8 ++++++++
+ net/ipv4/Makefile |    1 +
+ 2 files changed, 9 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ehea/ehea_main.c b/drivers/net/ehea/ehea_main.c
-index 36ca322..9756211 100644
---- a/drivers/net/ehea/ehea_main.c
-+++ b/drivers/net/ehea/ehea_main.c
-@@ -1326,7 +1326,6 @@ static void write_swqe2_TSO(struct sk_buff *skb,
- 	u8 *imm_data = &swqe->u.immdata_desc.immediate_data[0];
- 	int skb_data_size = skb->len - skb->data_len;
- 	int headersize;
--	u64 tmp_addr;
+diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
+index fb79097..d894f61 100644
+--- a/net/ipv4/Kconfig
++++ b/net/ipv4/Kconfig
+@@ -394,6 +394,14 @@ config INET_XFRM_MODE_BEET
  
- 	/* Packet is TCP with TSO enabled */
- 	swqe->tx_control |= EHEA_SWQE_TSO;
-@@ -1347,9 +1346,8 @@ static void write_swqe2_TSO(struct sk_buff *skb,
- 			/* set sg1entry data */
- 			sg1entry->l_key = lkey;
- 			sg1entry->len = skb_data_size - headersize;
--
--			tmp_addr = (u64)(skb->data + headersize);
--			sg1entry->vaddr = ehea_map_vaddr(tmp_addr);
-+			sg1entry->vaddr =
-+				ehea_map_vaddr(skb->data + headersize);
- 			swqe->descriptors++;
- 		}
- 	} else
-@@ -1362,7 +1360,6 @@ static void write_swqe2_nonTSO(struct sk_buff *skb,
- 	int skb_data_size = skb->len - skb->data_len;
- 	u8 *imm_data = &swqe->u.immdata_desc.immediate_data[0];
- 	struct ehea_vsgentry *sg1entry = &swqe->u.immdata_desc.sg_entry;
--	u64 tmp_addr;
+ 	  If unsure, say Y.
  
- 	/* Packet is any nonTSO type
- 	 *
-@@ -1379,8 +1376,8 @@ static void write_swqe2_nonTSO(struct sk_buff *skb,
- 			/* copy sg1entry data */
- 			sg1entry->l_key = lkey;
- 			sg1entry->len = skb_data_size - SWQE2_MAX_IMM;
--			tmp_addr = (u64)(skb->data + SWQE2_MAX_IMM);
--			sg1entry->vaddr = ehea_map_vaddr(tmp_addr);
-+			sg1entry->vaddr =
-+				ehea_map_vaddr(skb->data + SWQE2_MAX_IMM);
- 			swqe->descriptors++;
- 		}
- 	} else {
-@@ -1395,7 +1392,6 @@ static inline void write_swqe2_data(struct sk_buff *skb, struct net_device *dev,
- 	struct ehea_vsgentry *sg_list, *sg1entry, *sgentry;
- 	skb_frag_t *frag;
- 	int nfrags, sg1entry_contains_frag_data, i;
--	u64 tmp_addr;
- 
- 	nfrags = skb_shinfo(skb)->nr_frags;
- 	sg1entry = &swqe->u.immdata_desc.sg_entry;
-@@ -1417,9 +1413,9 @@ static inline void write_swqe2_data(struct sk_buff *skb, struct net_device *dev,
- 			/* copy sg1entry data */
- 			sg1entry->l_key = lkey;
- 			sg1entry->len = frag->size;
--			tmp_addr =  (u64)(page_address(frag->page)
--					  + frag->page_offset);
--			sg1entry->vaddr = ehea_map_vaddr(tmp_addr);
-+			sg1entry->vaddr =
-+				ehea_map_vaddr(page_address(frag->page)
-+					       + frag->page_offset);
- 			swqe->descriptors++;
- 			sg1entry_contains_frag_data = 1;
- 		}
-@@ -1431,10 +1427,9 @@ static inline void write_swqe2_data(struct sk_buff *skb, struct net_device *dev,
- 
- 			sgentry->l_key = lkey;
- 			sgentry->len = frag->size;
--
--			tmp_addr = (u64)(page_address(frag->page)
--					 + frag->page_offset);
--			sgentry->vaddr = ehea_map_vaddr(tmp_addr);
-+			sgentry->vaddr =
-+				ehea_map_vaddr(page_address(frag->page)
-+					       + frag->page_offset);
- 			swqe->descriptors++;
- 		}
- 	}
++config INET_LRO
++	tristate "Large Receive Offload (ipv4/tcp)"
++
++	---help---
++	  Support for Large Receive Offload (ipv4/tcp).
++
++	  If unsure, say Y.
++
+ config INET_DIAG
+ 	tristate "INET: socket monitoring interface"
+ 	default y
+diff --git a/net/ipv4/Makefile b/net/ipv4/Makefile
+index fbf1674..a02c36d 100644
+--- a/net/ipv4/Makefile
++++ b/net/ipv4/Makefile
+@@ -25,6 +25,7 @@ obj-$(CONFIG_INET_ESP) += esp4.o
+ obj-$(CONFIG_INET_IPCOMP) += ipcomp.o
+ obj-$(CONFIG_INET_XFRM_TUNNEL) += xfrm4_tunnel.o
+ obj-$(CONFIG_INET_XFRM_MODE_BEET) += xfrm4_mode_beet.o
++obj-$(CONFIG_INET_LRO) += inet_lro.o
+ obj-$(CONFIG_INET_TUNNEL) += tunnel4.o
+ obj-$(CONFIG_INET_XFRM_MODE_TRANSPORT) += xfrm4_mode_transport.o
+ obj-$(CONFIG_INET_XFRM_MODE_TUNNEL) += xfrm4_mode_tunnel.o
 -- 
 1.5.2
-
 
