@@ -1,61 +1,34 @@
-From: Valerie Henson <val@nmt.edu>
-Subject: Re: [PATCH] possible deadlock in tulip driver
-Date: Mon, 30 Jul 2007 13:12:32 -0600
-Message-ID: <20070730191232.GC16182@rainbow>
-References: <20070724074908.GA15258@iris.sw.ru>
+From: Kyle McMartin <kyle@mcmartin.ca>
+Subject: Re: [TULIP] Need new maintainer
+Date: Mon, 30 Jul 2007 15:31:58 -0400
+Message-ID: <20070730193158.GA13808@fattire.cabal.ca>
+References: <20070730190412.GA16182@rainbow>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	tulip-users@lists.sourceforge.net, devel@openvz.org
-To: "Denis V. Lunev" <den@openvz.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	tulip-users@lists.sourceforge.net,
+	Grant Grundler <grundler@parisc-linux.org>,
+	Jeff Garzik <jeff@garzik.org>
+To: Valerie Henson <val@nmt.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhost.nmt.edu ([129.138.4.52]:36948 "EHLO mailhost.nmt.edu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S968175AbXG3TNE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Jul 2007 15:13:04 -0400
+Received: from stout.engsoc.carleton.ca ([134.117.69.22]:35692 "EHLO
+	stout.engsoc.carleton.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1764485AbXG3TcB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jul 2007 15:32:01 -0400
 Content-Disposition: inline
-In-Reply-To: <20070724074908.GA15258@iris.sw.ru>
+In-Reply-To: <20070730190412.GA16182@rainbow>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-(No longer maintainer, btw.)
-
-What situation have you tested this under?  Thanks,
-
--VAL
-
-On Tue, Jul 24, 2007 at 11:49:08AM +0400, Denis V. Lunev wrote:
-> Calling flush_scheduled_work() may deadlock if called under rtnl_lock
-> (from dev->stop) as linkwatch_event() may be on the workqueue and it will try
-> to get the rtnl_lock
+On Mon, Jul 30, 2007 at 01:04:13PM -0600, Valerie Henson wrote:
+> The Tulip network driver needs a new maintainer!  I no longer have
+> time to maintain the Tulip network driver and I'm stepping down.  Jeff
+> Garzik would be happy to get volunteers.
 > 
-> Signed-off-by: Denis V. Lunev <den@openvz.org>
-> ---
-> 
->  tulip_core.c |    4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> --- ./drivers/net/tulip/tulip_core.c.tulip	2007-07-16 12:54:29.000000000 +0400
-> +++ ./drivers/net/tulip/tulip_core.c	2007-07-23 19:06:24.000000000 +0400
-> @@ -726,8 +726,6 @@ static void tulip_down (struct net_devic
->  	void __iomem *ioaddr = tp->base_addr;
->  	unsigned long flags;
->  
-> -	flush_scheduled_work();
-> -
->  	del_timer_sync (&tp->timer);
->  #ifdef CONFIG_TULIP_NAPI
->  	del_timer_sync (&tp->oom_timer);
-> @@ -1788,6 +1786,8 @@ static void __devexit tulip_remove_one (
->  	if (!dev)
->  		return;
->  
-> +	flush_scheduled_work();
-> +
->  	tp = netdev_priv(dev);
->  	unregister_netdev(dev);
->  	pci_free_consistent (pdev,
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+Since I already take care of a major consumer of these devices (parisc,
+which pretty much all have tulip) I'm willing to take care of this.
+Alternately, Grant is probably willing.
+
+Cheers,
+	Kyle
