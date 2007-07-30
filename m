@@ -1,60 +1,43 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: 2.6.20->2.6.21 - networking dies after random time
-Date: Mon, 30 Jul 2007 10:49:25 +0200
-Message-ID: <20070730084925.GA12695@elte.hu>
-References: <alpine.LFD.0.999.0707241228291.3607@woody.linux-foundation.org> <20070724200431.GA22190@elte.hu> <1185322771.4175.102.camel@chaos> <4bacf17f0707260016x14fc1c92s628ae64353663833@mail.gmail.com> <20070726081326.GA3197@ff.dom.local> <1185437431.3227.21.camel@chaos> <20070726083120.GA26910@elte.hu> <20070726085523.GA3423@ff.dom.local> <20070726091254.GA8063@elte.hu> <4bacf17f0707300029g5116e70bq4808059dc8b069f1@mail.gmail.com>
+From: Erik Slagter <erik@slagter.name>
+Subject: Re: Linksys Gigabit USB2.0 adapter (asix) regression
+Date: Mon, 30 Jul 2007 11:27:55 +0200
+Message-ID: <46ADAF1B.4060500@slagter.name>
+References: <467915D9.3030900@slagter.name>	<1182523020.4938.20.camel@dhollis-lnx.sunera.com>	<467FF5DB.5090006@slagter.name> <1182923692.6644.4.camel@dhollis-lnx.sunera.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jarek Poplawski <jarkao2@o2.pl>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Jean-Baptiste Vignaud <vignaud@xandmail.fr>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	shemminger <shemminger@linux-foundation.org>,
-	linux-net <linux-net@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>
-To: Marcin =?utf-8?Q?=C5=9Alusarz?= <marcin.slusarz@gmail.com>
-Return-path: <linux-net-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4bacf17f0707300029g5116e70bq4808059dc8b069f1@mail.gmail.com>
-Sender: linux-net-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Hollis <dhollis@davehollis.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from erik-slagter.demon.nl ([83.160.41.216]:46505 "EHLO
+	artemis.slagter.name" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S932932AbXG3J15 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jul 2007 05:27:57 -0400
+In-Reply-To: <1182923692.6644.4.camel@dhollis-lnx.sunera.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+David Hollis wrote:
+> On Mon, 2007-06-25 at 19:05 +0200, Erik Slagter wrote:
+>> drivers/net/usb/asix.c: PHYID=0x01410cc2
+> 
+> Ok, it is using a Marvell PHY so that part should be fine.  You
+> mentioned that it looks like the packets are being transmitted, but are
+> garbled in some way.  The device does prepend a 'header' to ethernet
+> packets as they are transmitted down the USB pipe.  The device strips
+> this off and puts the packets on the wire.  This could be where the
+> issue lies.  Are you on x86 by chance or something else?
 
-* Marcin =C5=9Alusarz <marcin.slusarz@gmail.com> wrote:
+They are either garbled are they are not passed on the wire. The
+transmitted packets are shown by tshark, but a tshark run on "the other
+end of the line" does not show them.
 
-> > Subject: x86: activate HARDIRQS_SW_RESEND
-> > From: Ingo Molnar <mingo@elte.hu>
-> >
-> > activate the software-triggered IRQ-resend logic.
+Platform is indeed x86, to be precise: fedora 7, kernel 2.6.22-rc6, cpu
+pentium M, dell laptop inspiron 9300, ICH6.
 
-> This patch didn't help (tested on 2.6.22.1) - ne2k_pci timed out.
+If you want me to test something please yell, it's no trouble at all to
+change a few lines in the driver's source and recompile the module.
 
-ok. This makes it more likely that the driver itself (or the card) gets=
-=20
-confused by the resend.
+Please note I cannot send mail to you: "(conversation with
+dhollis.dyndns.org[71.251.104.159] timed out while sending MAIL FROM)"
 
-does the patch below fix those timeouts? It tests the theory whether an=
-y=20
-POST latency could expose this problem.
-
-	Ingo
-
-Index: linux/drivers/net/lib8390.c
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
---- linux.orig/drivers/net/lib8390.c
-+++ linux/drivers/net/lib8390.c
-@@ -375,6 +375,8 @@ static int ei_start_xmit(struct sk_buff=20
- 	/* Turn 8390 interrupts back on. */
- 	ei_local->irqlock =3D 0;
- 	ei_outb_p(ENISR_ALL, e8390_base + EN0_IMR);
-+	/* force POST: */
-+	ei_inb_p(e8390_base + EN0_IMR);
-=20
- 	spin_unlock(&ei_local->page_lock);
- 	enable_irq_lockdep_irqrestore(dev->irq, &flags);
