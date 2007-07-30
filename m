@@ -1,99 +1,90 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 6/7] Make qdisc changeable.
-Date: Mon, 30 Jul 2007 16:11:22 +0200
-Message-ID: <46ADF18A.4060008@trash.net>
-References: <11857548771998-git-send-email-bugfood-ml@fatooh.org> <11857548783311-git-send-email-bugfood-ml@fatooh.org>
+From: pravin <pravin.shelar@gmail.com>
+Subject: Re: [PATCH] NET_DMA: remove unused dma_memcpy_to_kernel_iovec
+Date: Mon, 30 Jul 2007 20:09:53 +0530
+Message-ID: <bab433300707300739s283bf15fp9d00235cf39fa08b@mail.gmail.com>
+References: <20070725003606.11018.15141.stgit@localhost.localdomain>
+	 <20070726.000607.18303016.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Corey Hickey <bugfood-ml@fatooh.org>
+Cc: shannon.nelson@intel.com, netdev@vger.kernel.org,
+	viro@ftp.linux.org.uk, christopher.leech@intel.com,
+	andy.grover@gmail.com
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:38185 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753685AbXG3OLn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jul 2007 10:11:43 -0400
-In-Reply-To: <11857548783311-git-send-email-bugfood-ml@fatooh.org>
+Received: from wx-out-0506.google.com ([66.249.82.239]:11805 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751688AbXG3Ojy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jul 2007 10:39:54 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so1374570wxd
+        for <netdev@vger.kernel.org>; Mon, 30 Jul 2007 07:39:53 -0700 (PDT)
+In-Reply-To: <20070726.000607.18303016.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Corey Hickey wrote:
-> Re-implement sfq_change() and enable Qdisc_opts.change so "tc qdisc
-> change" will work.
-> 
-> Signed-off-by: Corey Hickey <bugfood-ml@fatooh.org>
-> ---
->  net/sched/sch_sfq.c |   51 ++++++++++++++++++++++++++++++++++++++++++++++++++-
->  1 files changed, 50 insertions(+), 1 deletions(-)
-> 
-> diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
-> index e6a6a21..e042cd0 100644
-> --- a/net/sched/sch_sfq.c
-> +++ b/net/sched/sch_sfq.c
-> @@ -485,6 +485,55 @@ static int sfq_init(struct Qdisc *sch, struct rtattr *opt)
->  	return 0;
->  }
->  
-> +static int sfq_change(struct Qdisc *sch, struct rtattr *opt)
-> +{
-> +	struct sfq_sched_data *q = qdisc_priv(sch);
-> +	struct sfq_sched_data tmp;
-> +	struct sk_buff *skb;
-> +	int err;
-> +	
-> +	/* set up tmp queue */
-> +	memset(&tmp, 0, sizeof(struct sfq_sched_data));
-> +	tmp.quantum = psched_mtu(sch->dev); /* default */
+On 7/26/07, David Miller <davem@davemloft.net> wrote:
+> From: Shannon Nelson <shannon.nelson@intel.com>
+> Date: Tue, 24 Jul 2007 17:36:06 -0700
+>
+> > (repost - original eaten by vger?)
+> >
+> > Al Viro pointed out that dma_memcpy_to_kernel_iovec() really was
+> > unreachable and thus unused.  The code originally was there to support
+> > in-kernel dma needs, but since it remains unused, we'll pull it out.
+> >
+> > Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+>
+> Applied, thanks Shannon.
+
+NET_DMA on kernel buffer is pretty useful in ndb, iSCSI target and
+initiators which uses kernel buffer to receive data. Are there any
+other issues with dma-memcpy on kernel buffers, if not then following
+patch makes dma_memcpy_to_kernel_iovec() reachable from tcp_recvmsg.
+I tested this patch and it work fine with unh iSCSI target.
 
 
-If no value is given it should use the old value instead of
-reinitializing to the default.
+comments?
 
-> +	if ((err = sfq_q_init(&tmp, opt)))
-> +		return err;
+--pravin.
+
+Index: linux-2.6.23-rc1/net/ipv4/tcp.c
+===================================================================
+--- linux-2.6.23-rc1.orig/net/ipv4/tcp.c	2007-07-23 02:11:00.000000000 +0530
++++ linux-2.6.23-rc1/net/ipv4/tcp.c	2007-07-30 17:43:51.000000000 +0530
+@@ -1115,7 +1115,7 @@
+ 	int target;		/* Read at least this many bytes */
+  	long timeo;
+  	struct task_struct *user_recv = NULL;
+-	int copied_early = 0;
++	int copied_early = 0, kernel_dma = 0;
+  	struct sk_buff *skb;
+
+  	lock_sock(sk);
+@@ -1154,6 +1154,9 @@
+ 		    !sysctl_tcp_low_latency &&
+ 		    __get_cpu_var(softnet_data).net_dma) {
+ 			preempt_enable_no_resched();
++			if (segment_eq(get_fs(), KERNEL_DS))
++				kernel_dma = 1;
++			else
+  			tp->ucopy.pinned_list =
+  					dma_pin_iovec_pages(msg->msg_iov, len);
+ 		} else {
+@@ -1362,7 +1365,7 @@
+
+ 		if (!(flags & MSG_TRUNC)) {
+  #ifdef CONFIG_NET_DMA
+-			if (!tp->ucopy.dma_chan && tp->ucopy.pinned_list)
++			if (!tp->ucopy.dma_chan  && (kernel_dma || tp->ucopy.pinned_list))
+  				tp->ucopy.dma_chan = get_softnet_dma();
+
+  			if (tp->ucopy.dma_chan) {
 
 
-This will also use defaults for all unspecified values. It would
-be more consistent with other qdiscs to only change those values
-that are actually specified, so something like "tc qdisc change ...
-perturb 10" will *only* change the perturbation parameter.
-I'm not sure reusing the initialization function and copying the
-parameters is the best way to do this.
 
-> +
-> +	/* copy packets from the old queue to the tmp queue */
-> +	sch_tree_lock(sch);
-> +	while (sch->q.qlen >= tmp.limit - 1)
-> +		sfq_drop(sch);
-> +	while ((skb = sfq_q_dequeue(q)) != NULL)
-> +		sfq_q_enqueue(skb, &tmp, SFQ_TAIL);
-> +	
-> +	/* clean up the old queue */
-> +	sfq_q_destroy(q);
-> +
-> +	/* copy elements of the tmp queue into the old queue */
-> +	q->perturb_period = tmp.perturb_period;
-> +	q->quantum        = tmp.quantum;
-> +	q->limit          = tmp.limit;
-> +	q->depth          = tmp.depth;
-> +	q->hash_divisor   = tmp.hash_divisor;
-> +	q->tail           = tmp.tail;
-> +	q->max_depth      = tmp.max_depth;
-> +	q->ht    = tmp.ht;
-> +	q->dep   = tmp.dep;
-> +	q->next  = tmp.next;
-> +	q->allot = tmp.allot;
-> +	q->hash  = tmp.hash;
-> +	q->qs    = tmp.qs;
-> +
-> +	/* finish up */
-> +	if (q->perturb_period) {
-> +		q->perturb_timer.expires = jiffies + q->perturb_period;
-> +		add_timer(&q->perturb_timer);
-> +	} else {
-> +		q->perturbation = 0;
-> +	}
-> +	sch_tree_unlock(sch);
-> +	return 0;
-> +}
-> +
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
