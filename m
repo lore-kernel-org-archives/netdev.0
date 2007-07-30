@@ -1,48 +1,43 @@
-From: Flavio Leitner <fleitner@redhat.com>
-Subject: [PATCH] [NET]: fix multicast list when cloning sockets
-Date: Mon, 30 Jul 2007 13:04:48 -0300
-Message-ID: <20070730160448.GA4002@redhat.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 0/4][RFC] lro: Generic Large Receive Offload for TCP
+	traffic
+Date: Mon, 30 Jul 2007 12:17:58 -0400
+Message-ID: <46AE0F36.8030605@garzik.org>
+References: <200707301724.33865.ossthema@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, acme@ghostprotocols.net,
-	netdev@vger.kernel.org
-To: David L Stevens <dlstevens@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:35037 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761345AbXG3QMh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Jul 2007 12:12:37 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Klein <tklein@de.ibm.com>, Jan-Bernd Themann <themann@de.ibm.com>,
+	netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	linux-ppc <linuxppc-dev@ozlabs.org>, Christoph Raisch <raisch@de.ibm.com>,
+	Marcus Eder <meder@de.ibm.com>, Andrew Gallatin <gallatin@myri.com>,
+	Stefan Roscher <stefan.roscher@de.ibm.com>
+To: Jan-Bernd Themann <ossthema@de.ibm.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+In-Reply-To: <200707301724.33865.ossthema@de.ibm.com>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
+Seems pretty good to me, save for one minor detail:  patches #1/#2 
+should be combined together for greater git-bisect happiness.  Ditto for 
+patches #3/#4.  Largely harmless in this case, but keeps the git history 
+pollution to a minimum.
 
-The sock_copy() function uses memcpy() to clone the socket
-including the struct ip_mc_socklist *mc_list pointer.
+Caveat reviewer:  I'm not an expert of net/ipv4/* code, so I reviewed 
+largely from the driver API perspective.
 
-The ip_mc_drop_socket() function is called when socket is closed
-to free these objects leaving the other sockets cloned from the
-same master socket with invalid pointers.
+David, thoughts on merging?  I'm not We could stick this into your tree 
+or mine.  Whether yours or mine, I would like to keep the driver and 
+net-core patches together in the same git tree.
 
-This patch sets mc_list of cloned socket to NULL.
-
-Signed-off-by: Flavio Leitner <fleitner@redhat.com>
-
-diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
-index fbe7714..8ee0f54 100644
---- a/net/ipv4/inet_connection_sock.c
-+++ b/net/ipv4/inet_connection_sock.c
-@@ -506,6 +506,8 @@ struct sock *inet_csk_clone(struct sock *sk, const struct request_sock *req,
- 		newicsk->icsk_backoff	  = 0;
- 		newicsk->icsk_probes_out  = 0;
- 
-+		inet_sk(inet)->mc_list = NULL;
-+
- 		/* Deinitialize accept_queue to trap illegal accesses. */
- 		memset(&newicsk->icsk_accept_queue, 0, sizeof(newicsk->icsk_accept_queue));
- 
--- 
-1.5.2.4
-
--- 
-Flavio
+	Jeff
