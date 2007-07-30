@@ -1,144 +1,112 @@
-From: "nano bug" <linnewbye@gmail.com>
-Subject: Re: source interface ping bug ?
-Date: Mon, 30 Jul 2007 11:46:33 +0300
-Message-ID: <d39c36500707300146h72c72d69rce2f68595bdf6699@mail.gmail.com>
-References: <d39c36500707270130j3eac7f44qb3a4c87496a1296b@mail.gmail.com>
-	 <d39c36500707290448p599ff710hf79ba1911c818162@mail.gmail.com>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: 2.6.20->2.6.21 - networking dies after random time
+Date: Mon, 30 Jul 2007 10:46:51 +0200
+Message-ID: <20070730084651.GA14146@elte.hu>
+References: <JKE37W$0126317E099DF36884CC046B6F8A7AA9@xandmail.com> <20070629150759.GC2771@ff.dom.local> <4bacf17f0707222244p664e7a6ap850b3357a57d73c@mail.gmail.com> <20070724080534.GC18740@elte.hu> <20070724094202.GA11610@elte.hu> <alpine.LFD.0.999.0707241228291.3607@woody.linux-foundation.org> <20070724200431.GA22190@elte.hu> <1185322771.4175.102.camel@chaos> <20070725135718.GB1843@ff.dom.local> <20070725154656.54fd6f13@the-village.bc.nu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jarek Poplawski <jarkao2@o2.pl>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Marcin ??lusarz <marcin.slusarz@gmail.com>,
+	Jean-Baptiste Vignaud <vignaud@xandmail.fr>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	shemminger <shemminger@linux-foundation.org>,
+	linux-net <linux-net@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.191]:3796 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1763049AbXG3Iqf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jul 2007 04:46:35 -0400
-Received: by nf-out-0910.google.com with SMTP id g13so146233nfb
-        for <netdev@vger.kernel.org>; Mon, 30 Jul 2007 01:46:34 -0700 (PDT)
-In-Reply-To: <d39c36500707290448p599ff710hf79ba1911c818162@mail.gmail.com>
+Received: from mx3.mail.elte.hu ([157.181.1.138]:37350 "EHLO mx3.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1763446AbXG3IrG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Jul 2007 04:47:06 -0400
 Content-Disposition: inline
+In-Reply-To: <20070725154656.54fd6f13@the-village.bc.nu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Can someone have a look a this and tell if it's kernel related or if I
-posted this in the wrong place ? Thanks.
 
-On 7/29/07, nano bug <linnewbye@gmail.com> wrote:
-> Any news about this ?
->
-> On 7/27/07, nano bug <linnewbye@gmail.com> wrote:
-> > Hello there,
-> >
-> > I'm facing the following issue : when I try to ping using source
-> > interface instead of a source ip address the ping utility starts to
-> > send arp requests instead of icmp requests though the ip address I'm
-> > pinging it's not in the subnets directly connected to my linux box.
-> > I've noticed this situation since I upgraded from kernel 2.6.20 to
-> > 2.6.21. On 2.6.20 and lower I haven't had this problem. Now I upgraded
-> > to 2.6.22 but it's the same. I'm using latest iproute and iputils.
-> > Here is an output of tcpdump when I try to ping an outside ip address,
-> > like for example www.yahoo.com, using source interface :
-> >
-> > root@darkstar:~# uname -a
-> > Linux darkstar 2.6.22 #1 Thu Jul 26 21:22:11 EEST 2007 i686 Pentium II
-> > (Deschutes) GenuineIntel GNU/Linux
-> >
-> > root@darkstar:~# ip -V
-> > ip utility, iproute2-ss070710
-> > root@darkstar:~#
-> >
-> >
-> > root@darkstar:~# ip address show dev eth2
-> > 3: eth2: <BROADCAST,MULTICAST,NOTRAILERS,UP,LOWER_UP> mtu 1500 qdisc
-> > pfifo_fast qlen 1000
-> >    link/ether 00:90:27:0f:79:f3 brd ff:ff:ff:ff:ff:ff
-> >    inet 86.106.19.75/23 brd 86.106.19.255 scope global eth2
-> > root@darkstar:~# ip route get 87.248.113.14 from 86.106.19.75 oif eth2
-> > 87.248.113.14 from 86.106.19.75 via 86.106.18.1 dev eth2
-> >    cache  mtu 1500 advmss 1460 hoplimit 64
-> > root@darkstar:~#
-> >
-> >
-> > root@darkstar:~/iputils# ./ping -V
-> > ping utility, iputils-sss20070202
-> > root@darkstar:~/iputils# ./ping -I 86.106.19.75 87.248.113.14 -c 2
-> > PING 87.248.113.14 (87.248.113.14) from 86.106.19.75 : 56(84) bytes of data.
-> > 64 bytes from 87.248.113.14: icmp_seq=1 ttl=51 time=60.5 ms
-> > 64 bytes from 87.248.113.14: icmp_seq=2 ttl=51 time=63.2 ms
-> >
-> > --- 87.248.113.14 ping statistics ---
-> > 2 packets transmitted, 2 received, 0% packet loss, time 999ms
-> > rtt min/avg/max/mdev = 60.574/61.924/63.274/1.350 ms
-> > root@darkstar:~/iputils#
-> >
-> >
-> > root@darkstar:~# tcpdump -i eth2 -vvv -n host 87.248.113.14 and host
-> > 86.106.19.75
-> > tcpdump: listening on eth2, link-type EN10MB (Ethernet), capture size 96 bytes
-> > 01:18:09.572603 IP (tos 0x0, ttl  64, id 0, offset 0, flags [DF],
-> > proto: ICMP (1), length: 84) 86.106.19.75 > 87.248.113.14: ICMP echo
-> > request, id 27166, seq 1, length 64
-> > 01:18:09.632861 IP (tos 0x0, ttl  51, id 6100, offset 0, flags [none],
-> > proto: ICMP (1), length: 84) 87.248.113.14 > 86.106.19.75: ICMP echo
-> > reply, id 27166, seq 1, length 64
-> > 01:18:10.572746 IP (tos 0x0, ttl  64, id 0, offset 0, flags [DF],
-> > proto: ICMP (1), length: 84) 86.106.19.75 > 87.248.113.14: ICMP echo
-> > request, id 27166, seq 2, length 64
-> > 01:18:10.634951 IP (tos 0x0, ttl  51, id 8790, offset 0, flags [none],
-> > proto: ICMP (1), length: 84) 87.248.113.14 > 86.106.19.75: ICMP echo
-> > reply, id 27166, seq 2, length 64
-> >
-> >
-> >
-> > using source interface :
-> >
-> > root@darkstar:~/iputils# ./ping -I eth2 87.248.113.14
-> > PING 87.248.113.14 (87.248.113.14) from 86.106.19.75 eth2: 56(84) bytes of data.
-> > From 86.106.19.75 icmp_seq=1 Destination Host Unreachable
-> > From 86.106.19.75 icmp_seq=2 Destination Host Unreachable
-> > From 86.106.19.75 icmp_seq=3 Destination Host Unreachable
-> > From 86.106.19.75 icmp_seq=5 Destination Host Unreachable
-> > From 86.106.19.75 icmp_seq=6 Destination Host Unreachable
-> > From 86.106.19.75 icmp_seq=7 Destination Host Unreachable
-> > From 86.106.19.75 icmp_seq=9 Destination Host Unreachable
-> > From 86.106.19.75 icmp_seq=10 Destination Host Unreachable
-> > From 86.106.19.75 icmp_seq=11 Destination Host Unreachable
-> >
-> > --- 87.248.113.14 ping statistics ---
-> > 13 packets transmitted, 0 received, +9 errors, 100% packet loss, time 12006ms
-> > , pipe 3
-> > root@darkstar:~/iputils#
-> >
-> >
-> > root@darkstar:~# tcpdump -i eth2 -vvv -n host 87.248.113.14 and host
-> > 86.106.19.75
-> > tcpdump: listening on eth2, link-type EN10MB (Ethernet), capture size 96 bytes
-> > 01:19:24.292911 arp who-has 87.248.113.14 tell 86.106.19.75
-> > 01:19:25.292897 arp who-has 87.248.113.14 tell 86.106.19.75
-> > 01:19:26.292901 arp who-has 87.248.113.14 tell 86.106.19.75
-> > 01:19:27.302906 arp who-has 87.248.113.14 tell 86.106.19.75
-> > 01:19:28.302911 arp who-has 87.248.113.14 tell 86.106.19.75
-> > 01:19:29.302912 arp who-has 87.248.113.14 tell 86.106.19.75
-> > 01:19:31.302917 arp who-has 87.248.113.14 tell 86.106.19.75
-> > 01:19:32.302921 arp who-has 87.248.113.14 tell 86.106.19.75
-> > 01:19:33.302923 arp who-has 87.248.113.14 tell 86.106.19.75
-> > 01:19:35.302932 arp who-has 87.248.113.14 tell 86.106.19.75
-> > 01:19:36.302932 arp who-has 87.248.113.14 tell 86.106.19.75
-> > 01:19:37.302939 arp who-has 87.248.113.14 tell 86.106.19.75
-> >
-> > 12 packets captured
-> > 12 packets received by filter
-> > 0 packets dropped by kernel
-> > root@darkstar:~#
-> >
-> >
-> > There is one exception though, it works when using eth0. I'm
-> > administrating multiple linux boxes with 2 or 3 ethernet cards and if
-> > I try pinging with eth0 it does send icmp like it should but when
-> > specifying eth1 or eth2 is sends arp requests. The distro I'm using is
-> > Slackware 12.0. I already reported this to the iputils maintainer and
-> > he recommended to report it here. Thanks in advance.
-> >
-> > Regards.
-> >
->
+* Alan Cox <alan@lxorguk.ukuu.org.uk> wrote:
+
+> Ok the logic behind the 8390 is very simple:
+
+thanks for the explanation Alan! A few comments and a question:
+
+> Things to know
+> 	- IRQ delivery is asynchronous to the PCI bus
+> 	- Blocking the local CPU IRQ via spin locks was too slow
+> 	- The chip has register windows needing locking work
+> 
+> So the path was once (I say once as people appear to have changed it 
+> in the mean time and it now looks rather bogus if the changes to use 
+> disable_irq_nosync_irqsave are disabling the local IRQ)
+> 
+> 
+> 	Take the page lock
+> 	Mask the IRQ on chip
+> 	Disable the IRQ (but not mask locally- someone seems to have
+> 		broken this with the lock validator stuff)
+> 		[This must be _nosync as the page lock may otherwise
+> 			deadlock us]
+
+( side-note: you can ignore the lock validator stuff here, the validator
+  changes are supposed to a NOP on the !lockdep case. Local irqs will
+  only be disabled if the validator is running. This could cause dropped
+  serial irqs on very old boxes but i doubt anyone will want to run the
+  validator on those. )
+
+> 	Drop the page lock and turn IRQs back on
+> 	
+> 	At this point an existing IRQ may still be running but we can't
+> 	get a new one
+> 
+> 	Take the lock (so we know the IRQ has terminated) but don't mask
+> the IRQs on the processor
+> 	Set irqlock [for debug]
+> 
+> 	Transmit (slow as ****)
+> 
+> 	re-enable the IRQ
+> 
+> 
+> We have to use disable_irq because otherwise you will get delayed 
+> interrupts on the APIC bus deadlocking the transmit path.
+> 
+> Quite hairy but the chip simply wasn't designed for SMP and you can't 
+> even ACK an interrupt without risking corrupting other parallel 
+> activities on the chip.
+
+So the whole locking is to be able to keep irqs enabled for a long time, 
+without risking entry of the same IRQ handler on this same CPU, correct?
+
+Marcin's test results suggest that if an IRQ is resent right at the 
+enable_irq() point [be that via the hw irq-resend mechanism or the sw 
+irq-resend mechanism], the hang happens.
+
+In the previous 2.6.20 logic we'd not normally generate an IRQ at that 
+point (because we masked the irq and the card itself deasserts the line 
+so any level-triggered irq is now moot).
+
+Once Thomas hacked off this resend mechanism for level-triggered irqs, 
+Marcin saw the hangs go away.
+
+So it seems to me that maybe the driver could be surprised via these 
+spurious interrupts that happen right after the irq_enable(). Does the 
+patch below make any sense in your opinion?
+
+	Ingo
+
+Index: linux/drivers/net/lib8390.c
+===================================================================
+--- linux.orig/drivers/net/lib8390.c
++++ linux/drivers/net/lib8390.c
+@@ -375,6 +375,8 @@ static int ei_start_xmit(struct sk_buff 
+ 	/* Turn 8390 interrupts back on. */
+ 	ei_local->irqlock = 0;
+ 	ei_outb_p(ENISR_ALL, e8390_base + EN0_IMR);
++	/* force POST: */
++	ei_inb_p(e8390_base + EN0_IMR);
+ 
+ 	spin_unlock(&ei_local->page_lock);
+ 	enable_irq_lockdep_irqrestore(dev->irq, &flags);
