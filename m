@@ -1,111 +1,54 @@
-From: Moni Shoua <monis@voltaire.com>
-Subject: [ofa-general] [PATCH V3 7/7] net/bonding: Delay sending of
- gratuitous ARP to avoid failure
-Date: Mon, 30 Jul 2007 15:56:06 +0300
-Message-ID: <46ADDFE6.9000609@voltaire.com>
-References: <46ADDB89.5030601@voltaire.com>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: 2.6.20->2.6.21 - networking dies after random time
+Date: Mon, 30 Jul 2007 14:05:17 +0100
+Message-ID: <20070730140517.68babf76@the-village.bc.nu>
+References: <JKE37W$0126317E099DF36884CC046B6F8A7AA9@xandmail.com>
+	<20070629150759.GC2771@ff.dom.local>
+	<4bacf17f0707222244p664e7a6ap850b3357a57d73c@mail.gmail.com>
+	<20070724080534.GC18740@elte.hu>
+	<20070724094202.GA11610@elte.hu>
+	<alpine.LFD.0.999.0707241228291.3607@woody.linux-foundation.org>
+	<20070724200431.GA22190@elte.hu>
+	<1185322771.4175.102.camel@chaos>
+	<20070725135718.GB1843@ff.dom.local>
+	<20070725154656.54fd6f13@the-village.bc.nu>
+	<20070730084651.GA14146@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, general@lists.openfabrics.org
-To: rdreier@cisco.com,  davem@davemloft.net,  fubar@us.ibm.com
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <46ADDB89.5030601@voltaire.com>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Cc: Jarek Poplawski <jarkao2@o2.pl>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Marcin ??lusarz <marcin.slusarz@gmail.com>,
+	Jean-Baptiste Vignaud <vignaud@xandmail.fr>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	shemminger <shemminger@linux-foundation.org>,
+	linux-net <linux-net@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Ingo Molnar <mingo@elte.hu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from outpipe-village-512-1.bc.nu ([81.2.110.250]:38742 "EHLO
+	the-village.bc.nu" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1760057AbXG3M7A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jul 2007 08:59:00 -0400
+In-Reply-To: <20070730084651.GA14146@elte.hu>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+> So the whole locking is to be able to keep irqs enabled for a long time, 
+> without risking entry of the same IRQ handler on this same CPU, correct?
 
-Delay sending a gratuitous_arp when LINK_STATE_LINKWATCH_PENDING bit
-in dev->state field is on. This improves the chances for the arp packet to
-be transmitted.
+As implemented - on any CPU.
 
-Signed-off-by: Moni Shoua <monis@voltaire.com>
----
- drivers/net/bonding/bond_main.c |   25 +++++++++++++++++++++----
- drivers/net/bonding/bonding.h   |    1 +
- 2 files changed, 22 insertions(+), 4 deletions(-)
+We also need to know that the IRQ handler is not doing useful work on
+another processor which is why we take the lock after disabling the
+interrupt line everywhere. Without that we might be completing an IRQ on
+another CPU and that would race the transmit and make a nasty mess.
 
-Index: net-2.6/drivers/net/bonding/bond_main.c
-===================================================================
---- net-2.6.orig/drivers/net/bonding/bond_main.c	2007-07-25 15:33:25.000000000 +0300
-+++ net-2.6/drivers/net/bonding/bond_main.c	2007-07-26 18:42:59.296296622 +0300
-@@ -1134,8 +1134,13 @@ void bond_change_active_slave(struct bon
- 		if (new_active && !bond->do_set_mac_addr)
- 			memcpy(bond->dev->dev_addr,  new_active->dev->dev_addr,
- 				new_active->dev->addr_len);
--
--		bond_send_gratuitous_arp(bond);
-+		if (bond->curr_active_slave &&
-+			test_bit(__LINK_STATE_LINKWATCH_PENDING, &bond->curr_active_slave->dev->state)){
-+			dprintk("delaying gratuitous arp on %s\n",bond->curr_active_slave->dev->name);
-+			bond->send_grat_arp=1;
-+		}else{
-+			bond_send_gratuitous_arp(bond);
-+		}
- 	}
- }
- 
-@@ -2120,6 +2125,15 @@ void bond_mii_monitor(struct net_device 
- 	 * program could monitor the link itself if needed.
- 	 */
- 
-+	if (bond->send_grat_arp) {
-+		if (bond->curr_active_slave && test_bit(__LINK_STATE_LINKWATCH_PENDING, &bond->curr_active_slave->dev->state))
-+			dprintk("Needs to send gratuitous arp but not yet\n",__FUNCTION__);
-+		else {
-+			dprintk("sending delayed gratuitous arp on ond->curr_active_slave->dev->name\n");
-+			bond_send_gratuitous_arp(bond);
-+			bond->send_grat_arp=0;
-+		}
-+	}
- 	read_lock(&bond->curr_slave_lock);
- 	oldcurrent = bond->curr_active_slave;
- 	read_unlock(&bond->curr_slave_lock);
-@@ -2513,6 +2527,7 @@ static void bond_send_gratuitous_arp(str
- 	struct slave *slave = bond->curr_active_slave;
- 	struct vlan_entry *vlan;
- 	struct net_device *vlan_dev;
-+	int i;
- 
- 	dprintk("bond_send_grat_arp: bond %s slave %s\n", bond->dev->name,
- 				slave ? slave->dev->name : "NULL");
-@@ -2520,8 +2535,9 @@ static void bond_send_gratuitous_arp(str
- 		return;
- 
- 	if (bond->master_ip) {
--		bond_arp_send(slave->dev, ARPOP_REPLY, bond->master_ip,
--				  bond->master_ip, 0);
-+		for (i=0;i<3;i++)
-+			bond_arp_send(slave->dev, ARPOP_REPLY, bond->master_ip,
-+					  bond->master_ip, 0);
- 	}
- 
- 	list_for_each_entry(vlan, &bond->vlan_list, vlan_list) {
-@@ -4331,6 +4347,7 @@ static int bond_init(struct net_device *
- 	bond->current_arp_slave = NULL;
- 	bond->primary_slave = NULL;
- 	bond->dev = bond_dev;
-+	bond->send_grat_arp=0;
- 	INIT_LIST_HEAD(&bond->vlan_list);
- 
- 	/* Initialize the device entry points */
-Index: net-2.6/drivers/net/bonding/bonding.h
-===================================================================
---- net-2.6.orig/drivers/net/bonding/bonding.h	2007-07-25 15:20:10.000000000 +0300
-+++ net-2.6/drivers/net/bonding/bonding.h	2007-07-26 18:42:43.652087660 +0300
-@@ -203,6 +203,7 @@ struct bonding {
- 	struct   vlan_group *vlgrp;
- 	struct   packet_type arp_mon_pt;
- 	s8       do_set_mac_addr;
-+	int	 send_grat_arp;
- };
- 
- /**
+> So it seems to me that maybe the driver could be surprised via these 
+> spurious interrupts that happen right after the irq_enable(). Does the 
+> patch below make any sense in your opinion?
+
+For MMIO it does look like that may be needed. Looks sensible.
+
