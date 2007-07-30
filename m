@@ -1,27 +1,32 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] tulip: Remove tulip maintainer
-Date: Mon, 30 Jul 2007 15:50:36 -0400
-Message-ID: <46AE410C.2060204@garzik.org>
-References: <20070730191052.GB16182@rainbow>
+Subject: Re: [PATCH] forcedeth: mac address correct
+Date: Mon, 30 Jul 2007 15:50:29 -0400
+Message-ID: <46AE4105.7080602@garzik.org>
+References: <46A96A78.1050008@nvidia.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	tulip-users@lists.sourceforge.net
-To: Valerie Henson <val@nmt.edu>
+Cc: Manfred Spraul <manfred@colorfullife.com>,
+	Andrew Morton <akpm@osdl.org>, nedev <netdev@vger.kernel.org>
+To: Ayaz Abdulla <aabdulla@nvidia.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:51918 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:51920 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S967465AbXG3Tuh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Jul 2007 15:50:37 -0400
-In-Reply-To: <20070730191052.GB16182@rainbow>
+	id S965487AbXG3Tuo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Jul 2007 15:50:44 -0400
+In-Reply-To: <46A96A78.1050008@nvidia.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Valerie Henson wrote:
-> Remove Val Henson as tulip maintainer and let her roam free, FREE!
+Ayaz Abdulla wrote:
+> Resending:
 > 
-> Signed-off-by: Val Henson <val@nmt.edu>
+> In older chipsets, the mac address was stored in reversed order.
+> However, in newer chipsets, the mac address is in correct order. This
+> patch takes those newer chipsets into account and does not rely on a
+> special bit setup by BIOS'.
+> 
+> Signed-Off-By: Ayaz Abdulla <aabdulla@nvidia.com>
 
 applied
 
