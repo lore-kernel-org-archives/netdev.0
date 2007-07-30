@@ -1,55 +1,96 @@
 From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: [PATCH net-2.6 0/2] [TCP]: Fix bidirectional brokeness
-Date: Mon, 30 Jul 2007 20:16:54 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0707301947210.8788@kivilampi-30.cs.helsinki.fi>
+Subject: [PATCH net-2.6 1/2] [TCP]: Fix ratehalving with bidirectional flows
+Date: Mon, 30 Jul 2007 20:18:45 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0707302017290.8788@kivilampi-30.cs.helsinki.fi>
+References: <Pine.LNX.4.64.0707301947210.8788@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-1303777718-1185815925=:8788"
 Cc: Netdev <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:46773 "EHLO
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:48420 "EHLO
 	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760090AbXG3RQ5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jul 2007 13:16:57 -0400
+	with ESMTP id S933040AbXG3RSq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jul 2007 13:18:46 -0400
+In-Reply-To: <Pine.LNX.4.64.0707301947210.8788@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-While testing frto with bidirection TCP a while (months) ago, I 
-encountered time-seq graphs which made absolutely no sense as if 
-recoveries only completed after RTO. As a result, I noticed that 
-rate-halving has problem when a flow is bidirection but testing the
-patch has been on my todo list for ages.  ...Finally, here it is...
-...Please think the first one a bit because there might be some
-corner cases with reno.
-
-While testing it I came across with an additional issue that can
-occur with bidirectional traffic. And, even better, the second fix
-seems to also solves a third issue which affects both unidirectional
-and bidirectional flows, though it's a marginal case (cumulative
-ACK that causes a larger number of new SACKed skbs). I've never
-seen that third one to occur but it's there if you get enough ACK
-losses, subsequent ACKs (if one gets them) do solve it so that's
-not a very bad issue to begin with...
-
-I've verified these from time-seq graphs on top of tcp-2.6, which
-had some additional (mostly cleanup and the rebase I promised you
-earlier) though I added the tp->fackets_out > tp->reordering check
-afterwards as it seems necessary to avoid going to lost marker too
-often (wouldn't have had any effect in my test case anyway).
-
-...Please consider to net-2.6 and to stable too.
-
-These will generate you some hassle when you rebase tcp-2.6. Btw, you 
-forgot to push tcp-2.6 out last time though I could assume it's
-state... :-) In case you're going to now push it out, could you please
-drop "[TCP]: Remove num_acked>0 checks from cong.ctrl mods pkts_acked"
-from it as it seems to be out of place in tcp-2.6, I can resubmit it
-to net-2.6.24 when you open it (unless you want to put it to net-2.6 
-directly as it's rather trivial one).
+---696243703-1303777718-1185815925=:8788
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
 
 
+Actually, the ratehalving seems to work too well, as cwnd is
+reduced on every second ACK even though the packets in flight
+remains unchanged. Recoveries in a bidirectional flows suffer
+quite badly because of this, both NewReno and SACK are affected.
+
+After this patch, rate halving is performed for ACK only if
+packets in flight was supposedly changed too.
+
+Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+---
+ net/ipv4/tcp_input.c |   23 +++++++++++++----------
+ 1 files changed, 13 insertions(+), 10 deletions(-)
+
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 0163051..767f92c 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -1848,19 +1848,22 @@ static inline u32 tcp_cwnd_min(const struct sock *sk)
+ }
+ 
+ /* Decrease cwnd each second ack. */
+-static void tcp_cwnd_down(struct sock *sk)
++static void tcp_cwnd_down(struct sock *sk, int flag)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	int decr = tp->snd_cwnd_cnt + 1;
++	
++	if ((flag&FLAG_FORWARD_PROGRESS) ||
++	    (IsReno(tp) && !(flag&FLAG_NOT_DUP))) {
++		tp->snd_cwnd_cnt = decr&1;
++		decr >>= 1;
+ 
+-	tp->snd_cwnd_cnt = decr&1;
+-	decr >>= 1;
++		if (decr && tp->snd_cwnd > tcp_cwnd_min(sk))
++			tp->snd_cwnd -= decr;
+ 
+-	if (decr && tp->snd_cwnd > tcp_cwnd_min(sk))
+-		tp->snd_cwnd -= decr;
+-
+-	tp->snd_cwnd = min(tp->snd_cwnd, tcp_packets_in_flight(tp)+1);
+-	tp->snd_cwnd_stamp = tcp_time_stamp;
++		tp->snd_cwnd = min(tp->snd_cwnd, tcp_packets_in_flight(tp)+1);
++		tp->snd_cwnd_stamp = tcp_time_stamp;
++	}
+ }
+ 
+ /* Nothing was retransmitted or returned timestamp is less
+@@ -2057,7 +2060,7 @@ static void tcp_try_to_open(struct sock *sk, int flag)
+ 		}
+ 		tcp_moderate_cwnd(tp);
+ 	} else {
+-		tcp_cwnd_down(sk);
++		tcp_cwnd_down(sk, flag);
+ 	}
+ }
+ 
+@@ -2257,7 +2260,7 @@ tcp_fastretrans_alert(struct sock *sk, u32 prior_snd_una,
+ 
+ 	if (is_dupack || tcp_head_timedout(sk))
+ 		tcp_update_scoreboard(sk);
+-	tcp_cwnd_down(sk);
++	tcp_cwnd_down(sk, flag);
+ 	tcp_xmit_retransmit_queue(sk);
+ }
+ 
 -- 
- i.
+1.5.0.6
+
+---696243703-1303777718-1185815925=:8788--
