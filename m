@@ -1,61 +1,118 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH 2/4][RFC] lro: Kconfig and Makefile
-Date: Mon, 30 Jul 2007 17:25:35 +0100
-Message-ID: <20070730172535.15993806@oldman.hamilton.local>
-References: <200707301724.45781.ossthema@de.ibm.com>
+From: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
+Subject: Re: [2/3] 2.6.23-rc1: known regressions v3
+Date: Mon, 30 Jul 2007 18:33:57 +0200
+Message-ID: <46AE12F5.4030706@googlemail.com>
+References: <46AE0F5D.3000500@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Christoph Raisch <raisch@de.ibm.com>,
-	"Jan-Bernd Themann" <themann@de.ibm.com>,
-	"linux-kernel" <linux-kernel@vger.kernel.org>,
-	"linux-ppc" <linuxppc-dev@ozlabs.org>,
-	Marcus Eder <meder@de.ibm.com>,
-	Thomas Klein <tklein@de.ibm.com>,
-	Stefan Roscher <stefan.roscher@de.ibm.com>,
-	David Miller <davem@davemloft.net>,
-	Andrew Gallatin <gallatin@myri.com>,
-	Jeff Garzik <jeff@garzik.org>
-To: Jan-Bernd Themann <ossthema@de.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:41728 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1761081AbXG3Qam (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jul 2007 12:30:42 -0400
-In-Reply-To: <200707301724.45781.ossthema@de.ibm.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	LKML <linux-kernel@vger.kernel.org>, Len Brown <lenb@kernel.org>,
+	Denis Sadykov <denis.m.sadykov@intel.com>, dth <dth@dth.net>,
+	Netdev <netdev@vger.kernel.org>,
+	Stephen Hemminger <shemminger@osdl.org>,
+	Thomas Meyer <thomas@m3y3r.de>,
+	Florian Lohoff <flo@rfc822.org>,
+	=?ISO-8859-2?Q?Ismail_D=F6nmez?= <ismail@pardus.org.tr>,
+	linux-acpi@vger.kernel.org, linux-scsi@vger.kernel.org,
+	James Bottomley <James.Bottomley@steeleye.com>,
+	James Smart <James.Smart@emulex.com>,
+	Adrian Bunk <bunk@stusta.de>
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <46AE0F5D.3000500@googlemail.com>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 30 Jul 2007 17:24:45 +0200
-Jan-Bernd Themann <ossthema@de.ibm.com> wrote:
+Hi all,
 
-> Kconfig and Makefile for LRO
-> 
-> Signed-off-by: Jan-Bernd Themann <themann@de.ibm.com>
-> 
-> ---
->  net/ipv4/Kconfig  |    8 ++++++++
->  net/ipv4/Makefile |    1 +
->  2 files changed, 9 insertions(+), 0 deletions(-)
-> 
-> diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
-> index fb79097..d894f61 100644
-> --- a/net/ipv4/Kconfig
-> +++ b/net/ipv4/Kconfig
-> @@ -394,6 +394,14 @@ config INET_XFRM_MODE_BEET
->  
->  	  If unsure, say Y.
->  
-> +config INET_LRO
-> +	tristate "Large Receive Offload (ipv4/tcp)"
-> +
-> +	---help---
-> +	  Support for Large Receive Offload (ipv4/tcp).
-> +
-> +	  If unsure, say Y.
-> +
+Here is a list of some known regressions in 2.6.23-rc1.
 
-Why make this a user selectable option at all? Unless you want
-to deal with out of tree drivers (not my problem), it should be hidden
-to avoid having to explain an support it.
+=46eel free to add new regressions/remove fixed etc.
+http://kernelnewbies.org/known_regressions
+
+List of Aces
+
+Name                    Regressions fixed since 21-Jun-2007
+Adrian Bunk                            6
+Andi Kleen                             4
+Andrew Morton                          4
+Linus Torvalds                         4
+Al Viro                                3
+Jens Axboe                             3
+Tejun Heo                              3
+David Woodhouse                        2
+Hugh Dickins                           2
+
+
+
+CPUFREQ/ACPI
+
+Subject         : ide problems: 2.6.22-git17 working, 2.6.23-rc1* is no=
+t
+References      : http://lkml.org/lkml/2007/7/27/298
+                  http://lkml.org/lkml/2007/7/29/371
+Last known good : ?
+Submitter       : dth <dth@dth.net>
+Caused-By       : ?
+Handled-By      : ?
+Status          : unknown
+
+
+
+Networking
+
+Subject         : sky2 boot crash in sky2_mac_intr
+References      : http://lkml.org/lkml/2007/7/24/91
+Last known good : ?
+Submitter       : Florian Lohoff <flo@rfc822.org>
+Caused-By       :=20
+Handled-By      : Stephen Hemminger <shemminger@osdl.org>
+Status          : unknown
+
+Subject         : New wake ups from sky2
+References      : http://lkml.org/lkml/2007/7/20/386
+Last known good : ?
+Submitter       : Thomas Meyer <thomas@m3y3r.de>
+Caused-By       : Stephen Hemminger <shemminger@osdl.org>
+                  commit eb35cf60e462491249166182e3e755d3d5d91a28
+Handled-By      : Stephen Hemminger <shemminger@osdl.org>
+Status          : unknown
+
+
+
+Power Management
+
+Subject         : New ACPI error/warning with Linus' latest GIT
+References      : http://lkml.org/lkml/2007/7/26/395
+Last known good : ?
+Submitter       : Ismail D=F6nmez <ismail@pardus.org.tr>
+Caused-By       : ?
+Handled-By      : ?
+Status          : unknown
+
+
+
+SCSI
+
+Subject         : lpfc_sli.c: off-by-10
+References      : http://lkml.org/lkml/2007/7/22/284
+Last known good : ?
+Submitter       : Adrian Bunk <bunk@stusta.de>
+Caused-By       : ?
+Handled-By      : ?
+Status          : unknown
+
+
+
+Regards,
+Michal
+
+--
+LOG
+http://www.stardust.webpages.pl/log/
+-
+To unsubscribe from this list: send the line "unsubscribe linux-scsi" i=
+n
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
