@@ -1,38 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/6] [NET]: Take dev_base_lock when moving device name
- hash list entry
-Date: Mon, 30 Jul 2007 16:36:08 -0700 (PDT)
-Message-ID: <20070730.163608.35468199.davem@davemloft.net>
+Subject: Re: [PATCH 3/6] [NET] loopback: Panic if registration fails
+Date: Mon, 30 Jul 2007 16:38:19 -0700 (PDT)
+Message-ID: <20070730.163819.45740505.davem@davemloft.net>
 References: <20070726090725.GA510@gondor.apana.org.au>
-	<E1IDzLe-0000A4-00@gondolin.me.apana.org.au>
+	<E1IDzLh-0000AB-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, kaber@trash.net
 To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45147
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39836
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1760741AbXG3XgJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jul 2007 19:36:09 -0400
-In-Reply-To: <E1IDzLe-0000A4-00@gondolin.me.apana.org.au>
+	by vger.kernel.org with ESMTP id S1761434AbXG3XiU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jul 2007 19:38:20 -0400
+In-Reply-To: <E1IDzLh-0000AB-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Thu, 26 Jul 2007 17:09:30 +0800
+Date: Thu, 26 Jul 2007 17:09:33 +0800
 
-> [NET]: Take dev_base_lock when moving device name hash list entry
+> [NET] loopback: Panic if registration fails
 > 
-> When we added name-based hashing the dev_base_lock was designated as the
-> lock to take when changing the name hash list.  Unfortunately, because
-> it was a preexisting lock that just happened to be taken in the right
-> spots we neglected to take it in dev_change_name.
-> 
-> The race can affect calles of __dev_get_by_name that do so without taking
-> the RTNL.  They may end up walking down the wrong hash chain and end up
-> missing the device that they're looking for.
+> Because IPv4 and IPv6 both depend on the presence of the loopback device
+> to function, failure in registration the loopback device should be fatal.
 > 
 > Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Good catch, applied, thanks Herbert.
+Applied.
+
+It might be nice to tightly integrate the loopback driver into
+net/core/dev.c because that is what is happening anyways and it would
+allow us to cons the thing up by hand and deal with these dependencies
+more reliably.
