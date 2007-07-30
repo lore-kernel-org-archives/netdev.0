@@ -1,34 +1,48 @@
-From: Kyle McMartin <kyle@mcmartin.ca>
-Subject: Re: [TULIP] Need new maintainer
-Date: Mon, 30 Jul 2007 15:31:58 -0400
-Message-ID: <20070730193158.GA13808@fattire.cabal.ca>
-References: <20070730190412.GA16182@rainbow>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] [2.6.22] Fix a potential NULL pointer dereference in
+ write_bulk_callback() in drivers/net/usb/pegasus.c
+Date: Mon, 30 Jul 2007 15:45:04 -0400
+Message-ID: <46AE3FC0.4020600@garzik.org>
+References: <46A46160.9080508@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	tulip-users@lists.sourceforge.net,
-	Grant Grundler <grundler@parisc-linux.org>,
-	Jeff Garzik <jeff@garzik.org>
-To: Valerie Henson <val@nmt.edu>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: petkan@users.sourceforge.net, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Micah Gruber <micah.gruber@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stout.engsoc.carleton.ca ([134.117.69.22]:35692 "EHLO
-	stout.engsoc.carleton.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1764485AbXG3TcB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jul 2007 15:32:01 -0400
-Content-Disposition: inline
-In-Reply-To: <20070730190412.GA16182@rainbow>
+Received: from srv5.dvmed.net ([207.36.208.214]:52014 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S939024AbXG3TpK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Jul 2007 15:45:10 -0400
+In-Reply-To: <46A46160.9080508@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 30, 2007 at 01:04:13PM -0600, Valerie Henson wrote:
-> The Tulip network driver needs a new maintainer!  I no longer have
-> time to maintain the Tulip network driver and I'm stepping down.  Jeff
-> Garzik would be happy to get volunteers.
+Micah Gruber wrote:
+> This patch fixes a potential null dereference bug where we dereference 
+> pegasus before a null check. This patch simply moves the dereferencing 
+> after the null check.
 > 
+> Signed-off-by: Micah Gruber <micah.gruber@gmail.com>
+> 
+> ---
+> 
+> --- a/drivers/net/usb/pegasus.c
+> +++ b/drivers/net/usb/pegasus.c
+> @@ -768,11 +768,13 @@
+> static void write_bulk_callback(struct urb *urb)
+> {
+>        pegasus_t *pegasus = urb->context;
+> -       struct net_device *net = pegasus->net;
+> +       struct net_device *net;
+> 
+>        if (!pegasus)
+>                return;
+> 
+> +       net = pegasus->net;
+> +
 
-Since I already take care of a major consumer of these devices (parisc,
-which pretty much all have tulip) I'm willing to take care of this.
-Alternately, Grant is probably willing.
+applied (manually)
 
-Cheers,
-	Kyle
+
