@@ -1,184 +1,107 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 1/7] Preparatory refactoring part 1.
-Date: Mon, 30 Jul 2007 15:51:05 +0200
-Message-ID: <46ADECC9.7010303@trash.net>
-References: <11857548771998-git-send-email-bugfood-ml@fatooh.org> <11857548774008-git-send-email-bugfood-ml@fatooh.org>
+Subject: Re: [PATCH 2/7] Preparatory refactoring part 2.
+Date: Mon, 30 Jul 2007 15:59:33 +0200
+Message-ID: <46ADEEC5.9030600@trash.net>
+References: <11857548771998-git-send-email-bugfood-ml@fatooh.org> <11857548771609-git-send-email-bugfood-ml@fatooh.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: Corey Hickey <bugfood-ml@fatooh.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:37780 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:37953 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755312AbXG3Nv0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jul 2007 09:51:26 -0400
-In-Reply-To: <11857548774008-git-send-email-bugfood-ml@fatooh.org>
+	with ESMTP id S1752320AbXG3N7x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jul 2007 09:59:53 -0400
+In-Reply-To: <11857548771609-git-send-email-bugfood-ml@fatooh.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Corey Hickey wrote:
 > diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
-> index 9579573..8ae077f 100644
+> index 8ae077f..0c46938 100644
 > --- a/net/sched/sch_sfq.c
 > +++ b/net/sched/sch_sfq.c
-> @@ -77,6 +77,9 @@
->  #define SFQ_DEPTH		128
->  #define SFQ_HASH_DIVISOR	1024
+> @@ -380,71 +380,71 @@ static void sfq_perturbation(unsigned long arg)
+>  	}
+>  }
 >  
-> +#define SFQ_HEAD 0
-> +#define SFQ_TAIL 1
+> -static int sfq_change(struct Qdisc *sch, struct rtattr *opt)
+> +static int sfq_q_init(struct sfq_sched_data *q, struct rtattr *opt)
+>  {
+> -	struct sfq_sched_data *q = qdisc_priv(sch);
+>  	struct tc_sfq_qopt *ctl = RTA_DATA(opt);
+> -	unsigned int qlen;
+> +	int i;
+>  
+> -	if (opt->rta_len < RTA_LENGTH(sizeof(*ctl)))
+> +	if (opt && opt->rta_len < RTA_LENGTH(sizeof(*ctl)))
+
+
+opt is dereferenced above (RTA_DATA), so if it is NULL we've already
+crashed.
+
+>  		return -EINVAL;
+>  
+> -	sch_tree_lock(sch);
+> -	q->quantum = ctl->quantum ? : psched_mtu(sch->dev);
+> -	q->perturb_period = ctl->perturb_period*HZ;
+> -	if (ctl->limit)
+> -		q->limit = min_t(u32, ctl->limit, SFQ_DEPTH);
+> +	q->perturbation = 0;
+> +	q->max_depth = 0;
+> +	q->tail = q->limit = SFQ_DEPTH;
+> +	if (opt == NULL) {
+> +		q->perturb_period = 0;
+> +	} else {
+> +		struct tc_sfq_qopt *ctl = RTA_DATA(opt);
+> +		if (ctl->quantum)
+> +			q->quantum = ctl->quantum;
+> +		q->perturb_period = ctl->perturb_period*HZ;
+>  
+> -	qlen = sch->q.qlen;
+> -	while (sch->q.qlen >= q->limit-1)
+> -		sfq_drop(sch);
+> -	qdisc_tree_decrease_qlen(sch, qlen - sch->q.qlen);
+
+
+I hope that patch that makes changing possible brings this back ..
+<checking> .. it doesn't. Please either keep this or fix up 6/7
+to bring it back.
+
+> +		if (ctl->limit)
+> +			q->limit = min_t(u32, ctl->limit, SFQ_DEPTH);
+> +	}
+>  
+> -	del_timer(&q->perturb_timer);
+> -	if (q->perturb_period) {
+> -		q->perturb_timer.expires = jiffies + q->perturb_period;
+> -		add_timer(&q->perturb_timer);
+> +	for (i=0; i<SFQ_HASH_DIVISOR; i++)
+> +		q->ht[i] = SFQ_DEPTH;
+> +	for (i=0; i<SFQ_DEPTH; i++) {
+> +		skb_queue_head_init(&q->qs[i]);
+> +		q->dep[i+SFQ_DEPTH].next = i+SFQ_DEPTH;
+> +		q->dep[i+SFQ_DEPTH].prev = i+SFQ_DEPTH;
+>  	}
+> -	sch_tree_unlock(sch);
 > +
->  /* This type should contain at least SFQ_DEPTH*2 values */
->  typedef unsigned char sfq_index;
->  
-> @@ -244,10 +247,8 @@ static unsigned int sfq_drop(struct Qdisc *sch)
+> +	for (i=0; i<SFQ_DEPTH; i++)
+> +		sfq_link(q, i);
 >  	return 0;
 >  }
 >  
-> -static int
-> -sfq_enqueue(struct sk_buff *skb, struct Qdisc* sch)
-> +static void sfq_q_enqueue(struct sk_buff *skb, struct sfq_sched_data *q, unsigned int end)
 
-
-Please make sure to break at 80 chars and to keep the style
-in this file consistent (newline before function name).
-
->  {
-> -	struct sfq_sched_data *q = qdisc_priv(sch);
->  	unsigned hash = sfq_hash(q, skb);
->  	sfq_index x;
->  
-> @@ -256,8 +257,12 @@ sfq_enqueue(struct sk_buff *skb, struct Qdisc* sch)
->  		q->ht[hash] = x = q->dep[SFQ_DEPTH].next;
->  		q->hash[x] = hash;
->  	}
-> -	sch->qstats.backlog += skb->len;
-
-
-Why not keep this instead of having both callers do it?
-
-> -	__skb_queue_tail(&q->qs[x], skb);
-> +
-> +	if (end == SFQ_TAIL)
-> +		__skb_queue_tail(&q->qs[x], skb);
-> +	else
-> +		__skb_queue_head(&q->qs[x], skb);
-> +
->  	sfq_inc(q, x);
->  	if (q->qs[x].qlen == 1) {		/* The flow is new */
->  		if (q->tail == SFQ_DEPTH) {	/* It is the first flow */
-> @@ -270,12 +275,21 @@ sfq_enqueue(struct sk_buff *skb, struct Qdisc* sch)
->  			q->tail = x;
->  		}
->  	}
+> +static void sfq_q_destroy(struct sfq_sched_data *q)
+> +{
+> +	del_timer(&q->perturb_timer);
 > +}
 > +
-> +static int
-> +sfq_enqueue(struct sk_buff *skb, struct Qdisc* sch)
-> +{
-> +	struct sfq_sched_data *q = qdisc_priv(sch);
-
-
-newline please.
-
-> +	sfq_q_enqueue(skb, q, SFQ_TAIL);
-> +	sch->qstats.backlog += skb->len;
->  	if (++sch->q.qlen < q->limit-1) {
->  		sch->bstats.bytes += skb->len;
->  		sch->bstats.packets++;
->  		return 0;
->  	}
->  
-> +	sch->qstats.drops++;
-
-
-sfq_drop already increments this.
-
->  	sfq_drop(sch);
->  	return NET_XMIT_CN;
->  }
-> @@ -284,28 +298,8 @@ static int
->  sfq_requeue(struct sk_buff *skb, struct Qdisc* sch)
+>  static void sfq_destroy(struct Qdisc *sch)
 >  {
 >  	struct sfq_sched_data *q = qdisc_priv(sch);
-
-newline please
-
-> -	unsigned hash = sfq_hash(q, skb);
-> -	sfq_index x;
-> -
-> -	x = q->ht[hash];
-> -	if (x == SFQ_DEPTH) {
-> -		q->ht[hash] = x = q->dep[SFQ_DEPTH].next;
-> -		q->hash[x] = hash;
-> -	}
-> +	sfq_q_enqueue(skb, q, SFQ_HEAD);
->  	sch->qstats.backlog += skb->len;
-> -	__skb_queue_head(&q->qs[x], skb);
-> -	sfq_inc(q, x);
-> -	if (q->qs[x].qlen == 1) {		/* The flow is new */
-> -		if (q->tail == SFQ_DEPTH) {	/* It is the first flow */
-> -			q->tail = x;
-> -			q->next[x] = x;
-> -			q->allot[x] = q->quantum;
-> -		} else {
-> -			q->next[x] = q->next[q->tail];
-> -			q->next[q->tail] = x;
-> -			q->tail = x;
-> -		}
-> -	}
->  	if (++sch->q.qlen < q->limit - 1) {
->  		sch->qstats.requeues++;
->  		return 0;
-> @@ -316,13 +310,8 @@ sfq_requeue(struct sk_buff *skb, struct Qdisc* sch)
->  	return NET_XMIT_CN;
+> -	del_timer(&q->perturb_timer);
+> +	sfq_q_destroy(q);
 >  }
->  
-> -
-> -
-> -
-> -static struct sk_buff *
-> -sfq_dequeue(struct Qdisc* sch)
-> +static struct sk_buff *sfq_q_dequeue(struct sfq_sched_data *q)
 
-
-Keep style consistent please.
-
->  {
-> -	struct sfq_sched_data *q = qdisc_priv(sch);
->  	struct sk_buff *skb;
->  	sfq_index a, old_a;
->  
-> @@ -335,8 +324,6 @@ sfq_dequeue(struct Qdisc* sch)
->  	/* Grab packet */
->  	skb = __skb_dequeue(&q->qs[a]);
->  	sfq_dec(q, a);
-> -	sch->q.qlen--;
-> -	sch->qstats.backlog -= skb->len;
->  
->  	/* Is the slot empty? */
->  	if (q->qs[a].qlen == 0) {
-> @@ -353,6 +340,21 @@ sfq_dequeue(struct Qdisc* sch)
->  		a = q->next[a];
->  		q->allot[a] += q->quantum;
->  	}
-> +
-> +	return skb;
-> +}
-> +
-> +static struct sk_buff
-> +*sfq_dequeue(struct Qdisc* sch)
-> +{
-> +	struct sfq_sched_data *q = qdisc_priv(sch);
-> +	struct sk_buff *skb;
-> +
-> +	skb = sfq_q_dequeue(q);
-> +	if (skb == NULL)
-> +		return NULL;
-> +	sch->q.qlen--;
-> +	sch->qstats.backlog -= skb->len;
->  	return skb;
->  }
->  
-
+That really does look a bit pointless.
