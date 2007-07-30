@@ -1,35 +1,30 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH 0/4][RFC] lro: Generic Large Receive Offload for TCP
- traffic
-Date: Mon, 30 Jul 2007 20:57:02 +0100
-Message-ID: <20070730205702.69cd6af9@oldman>
-References: <200707301724.33865.ossthema@de.ibm.com>
-	<20070730170038.GA4884@austin.ibm.com>
-	<46AE232F.3080409@myri.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] [drivers/net/cxgb3] removed several unneeded zero initilization
+Date: Mon, 30 Jul 2007 16:04:19 -0400
+Message-ID: <46AE4443.7040904@garzik.org>
+References: <11847434891556-git-send-email-crquan@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Linas Vepstas <linas@austin.ibm.com>,
-	Jan-Bernd Themann <ossthema@de.ibm.com>,
-	netdev <netdev@vger.kernel.org>,
-	Thomas Klein <tklein@de.ibm.com>,
-	Jeff Garzik <jeff@garzik.org>,
-	Jan-Bernd Themann <themann@de.ibm.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	linux-ppc <linuxppc-dev@ozlabs.org>,
-	Christoph Raisch <raisch@de.ibm.com>,
-	Marcus Eder <meder@de.ibm.com>,
-	Stefan Roscher <stefan.roscher@de.ibm.com>,
-	David Miller <davem@davemloft.net>
-To: Andrew Gallatin <gallatin@myri.com>
+Cc: linux-bugs@chelsio.com, Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, cr_quan@163.com
+To: Denis Cheng <crquan@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:43396 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S968028AbXG3UCM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jul 2007 16:02:12 -0400
-In-Reply-To: <46AE232F.3080409@myri.com>
+Received: from srv5.dvmed.net ([207.36.208.214]:55798 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S968481AbXG3UEc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Jul 2007 16:04:32 -0400
+In-Reply-To: <11847434891556-git-send-email-crquan@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Could someone add this to:
-	http://linux-net.osdl.org Wiki?
+Denis Cheng wrote:
+> Cc: linux-bugs@chelsio.com
+> Signed-off-by: Denis Cheng <crquan@gmail.com>
+> ---
+>  drivers/net/cxgb3/cxgb3_main.c |    6 +++---
+>  1 files changed, 3 insertions(+), 3 deletions(-)
+
+applied
+
+
