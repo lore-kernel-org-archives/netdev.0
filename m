@@ -1,7 +1,7 @@
 From: Satyam Sharma <satyam@infradead.org>
-Subject: [PATCH v3 -mm 4/9] netconsole: Use netif_running() in write_msg()
-Date: Mon, 30 Jul 2007 08:18:21 +0530
-Message-ID: <20070730024821.10828.48960.sendpatchset@enigma.security.iitk.ac.in>
+Subject: [PATCH v3 -mm 5/9] netconsole: Add some useful tips to documentation
+Date: Mon, 30 Jul 2007 08:18:30 +0530
+Message-ID: <20070730024830.10828.34830.sendpatchset@enigma.security.iitk.ac.in>
 References: <20070730024741.10828.48209.sendpatchset@enigma.security.iitk.ac.in>
 Cc: Keiichi Kii <k-keiichi@bx.jp.nec.com>,
 	Netdev <netdev@vger.kernel.org>,
@@ -11,57 +11,69 @@ Cc: Keiichi Kii <k-keiichi@bx.jp.nec.com>,
 	David Miller <davem@davemloft.net>
 To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:43486 "EHLO
+Received: from pentafluge.infradead.org ([213.146.154.40]:43493 "EHLO
 	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966077AbXG3CgA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Jul 2007 22:36:00 -0400
+	with ESMTP id S966092AbXG3CgL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Jul 2007 22:36:11 -0400
 In-Reply-To: <20070730024741.10828.48209.sendpatchset@enigma.security.iitk.ac.in>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Satyam Sharma <satyam@infradead.org>
 
-[4/9] netconsole: Use netif_running() in write_msg()
+[5/9] netconsole: Add some useful tips to documentation
 
-Avoid unnecessarily disabling interrupts and calling netpoll_send_udp()
-if the corresponding local interface is not up.
+Add some useful general-purpose tips. Also suggest solution for the frequent
+problem of console loglevel set too low numerically (i.e. for high priority
+messages only) on the sender.
 
 Signed-off-by: Satyam Sharma <satyam@infradead.org>
 Acked-by: Keiichi Kii <k-keiichi@bx.jp.nec.com>
-Cc: Matt Mackall <mpm@selenic.com>
+Acked-by: Matt Mackall <mpm@selenic.com>
 
 ---
 
- drivers/net/netconsole.c |   18 +++++++++---------
- 1 files changed, 9 insertions(+), 9 deletions(-)
+ Documentation/networking/netconsole.txt |   25 +++++++++++++++++++++++++
+ 1 files changed, 25 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
-index e56aa6c..75cb761 100644
---- a/drivers/net/netconsole.c
-+++ b/drivers/net/netconsole.c
-@@ -75,16 +75,16 @@ static void write_msg(struct console *con, const char *msg, unsigned int len)
- 	int frag, left;
- 	unsigned long flags;
+diff --git a/Documentation/networking/netconsole.txt b/Documentation/networking/netconsole.txt
+index 1caa6c7..5962f45 100644
+--- a/Documentation/networking/netconsole.txt
++++ b/Documentation/networking/netconsole.txt
+@@ -44,11 +44,36 @@ WARNING: the default target ethernet setting uses the broadcast
+ ethernet address to send packets, which can cause increased load on
+ other systems on the same ethernet segment.
  
--	local_irq_save(flags);
--
--	for (left = len; left;) {
--		frag = min(left, MAX_PRINT_CHUNK);
--		netpoll_send_udp(&np, msg, frag);
--		msg += frag;
--		left -= frag;
-+	if (netif_running(np.dev)) {
-+		local_irq_save(flags);
-+		for (left = len; left;) {
-+			frag = min(left, MAX_PRINT_CHUNK);
-+			netpoll_send_udp(&np, msg, frag);
-+			msg += frag;
-+			left -= frag;
-+		}
-+		local_irq_restore(flags);
- 	}
--
--	local_irq_restore(flags);
- }
++TIP: some LAN switches may be configured to suppress ethernet broadcasts
++so it is advised to explicitly specify the remote agents' MAC addresses
++from the config parameters passed to netconsole.
++
++TIP: to find out the MAC address of, say, 10.0.0.2, you may try using:
++
++ ping -c 1 10.0.0.2 ; /sbin/arp -n | grep 10.0.0.2
++
++TIP: in case the remote logging agent is on a separate LAN subnet than
++the sender, it is suggested to try specifying the MAC address of the
++default gateway (you may use /sbin/route -n to find it out) as the
++remote MAC address instead.
++
+ NOTE: the network device (eth1 in the above case) can run any kind
+ of other network traffic, netconsole is not intrusive. Netconsole
+ might cause slight delays in other traffic if the volume of kernel
+ messages is high, but should have no other impact.
  
- static struct console netconsole = {
++NOTE: if you find that the remote logging agent is not receiving or
++printing all messages from the sender, it is likely that you have set
++the "console_loglevel" parameter (on the sender) to only send high
++priority messages to the console. You can change this at runtime using:
++
++ dmesg -n 8
++
++or by specifying "debug" on the kernel command line at boot, to send
++all kernel messages to the console. A specific value for this parameter
++can also be set using the "loglevel" kernel boot option. See the
++dmesg(8) man page and Documentation/kernel-parameters.txt for details.
++
+ Netconsole was designed to be as instantaneous as possible, to
+ enable the logging of even the most critical kernel bugs. It works
+ from IRQ contexts as well, and does not enable interrupts while
