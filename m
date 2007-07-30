@@ -1,43 +1,37 @@
-From: Erik Slagter <erik@slagter.name>
-Subject: Re: Linksys Gigabit USB2.0 adapter (asix) regression
-Date: Mon, 30 Jul 2007 11:27:55 +0200
-Message-ID: <46ADAF1B.4060500@slagter.name>
-References: <467915D9.3030900@slagter.name>	<1182523020.4938.20.camel@dhollis-lnx.sunera.com>	<467FF5DB.5090006@slagter.name> <1182923692.6644.4.camel@dhollis-lnx.sunera.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Hollis <dhollis@davehollis.com>
+From: James Chapman <jchapman@katalix.com>
+Subject: [PATCH 2.6.23-rc1] PPPOL2TP: Add CONFIG_INET Kconfig dependency
+Date: Mon, 30 Jul 2007 13:05:39 +0100
+Message-ID: <200707301205.l6UC5dmR026629@quickie.katalix.com>
+Cc: toralf.foerster@gmx.de
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from erik-slagter.demon.nl ([83.160.41.216]:46505 "EHLO
-	artemis.slagter.name" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932932AbXG3J15 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jul 2007 05:27:57 -0400
-In-Reply-To: <1182923692.6644.4.camel@dhollis-lnx.sunera.com>
+Received: from s36.avahost.net ([74.53.95.194]:52498 "EHLO s36.avahost.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759587AbXG3MGW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Jul 2007 08:06:22 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Hollis wrote:
-> On Mon, 2007-06-25 at 19:05 +0200, Erik Slagter wrote:
->> drivers/net/usb/asix.c: PHYID=0x01410cc2
-> 
-> Ok, it is using a Marvell PHY so that part should be fine.  You
-> mentioned that it looks like the packets are being transmitted, but are
-> garbled in some way.  The device does prepend a 'header' to ethernet
-> packets as they are transmitted down the USB pipe.  The device strips
-> this off and puts the packets on the wire.  This could be where the
-> issue lies.  Are you on x86 by chance or something else?
+[PPPOL2TP]: Add CONFIG_INET Kconfig dependency.
 
-They are either garbled are they are not passed on the wire. The
-transmitted packets are shown by tshark, but a tshark run on "the other
-end of the line" does not show them.
+PPPOL2TP uses UDP so it obviously depends on CONFIG_INET. 
 
-Platform is indeed x86, to be precise: fedora 7, kernel 2.6.22-rc6, cpu
-pentium M, dell laptop inspiron 9300, ICH6.
+Signed-off-by: James Chapman <jchapman@katalix.com>
 
-If you want me to test something please yell, it's no trouble at all to
-change a few lines in the driver's source and recompile the module.
+--- 
+Toralf Foerster reported that make rndconfig failed in 2.6.23-rc1
+when selecting CONFIG_PPPOL2TP without CONFIG_INET.
 
-Please note I cannot send mail to you: "(conversation with
-dhollis.dyndns.org[71.251.104.159] timed out while sending MAIL FROM)"
-
+Index: linux-2.6.23-rc1/drivers/net/Kconfig
+===================================================================
+--- linux-2.6.23-rc1.orig/drivers/net/Kconfig
++++ linux-2.6.23-rc1/drivers/net/Kconfig
+@@ -2851,7 +2851,7 @@ config PPPOATM
+ 
+ config PPPOL2TP
+ 	tristate "PPP over L2TP (EXPERIMENTAL)"
+-	depends on EXPERIMENTAL && PPP
++	depends on EXPERIMENTAL && PPP && INET
+ 	help
+ 	  Support for PPP-over-L2TP socket family. L2TP is a protocol
+ 	  used by ISPs and enterprises to tunnel PPP traffic over UDP
