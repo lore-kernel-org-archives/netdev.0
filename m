@@ -1,107 +1,99 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 2/7] Preparatory refactoring part 2.
-Date: Mon, 30 Jul 2007 15:59:33 +0200
-Message-ID: <46ADEEC5.9030600@trash.net>
-References: <11857548771998-git-send-email-bugfood-ml@fatooh.org> <11857548771609-git-send-email-bugfood-ml@fatooh.org>
+Subject: Re: [PATCH 6/7] Make qdisc changeable.
+Date: Mon, 30 Jul 2007 16:11:22 +0200
+Message-ID: <46ADF18A.4060008@trash.net>
+References: <11857548771998-git-send-email-bugfood-ml@fatooh.org> <11857548783311-git-send-email-bugfood-ml@fatooh.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: Corey Hickey <bugfood-ml@fatooh.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:37953 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:38185 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752320AbXG3N7x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jul 2007 09:59:53 -0400
-In-Reply-To: <11857548771609-git-send-email-bugfood-ml@fatooh.org>
+	with ESMTP id S1753685AbXG3OLn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jul 2007 10:11:43 -0400
+In-Reply-To: <11857548783311-git-send-email-bugfood-ml@fatooh.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Corey Hickey wrote:
+> Re-implement sfq_change() and enable Qdisc_opts.change so "tc qdisc
+> change" will work.
+> 
+> Signed-off-by: Corey Hickey <bugfood-ml@fatooh.org>
+> ---
+>  net/sched/sch_sfq.c |   51 ++++++++++++++++++++++++++++++++++++++++++++++++++-
+>  1 files changed, 50 insertions(+), 1 deletions(-)
+> 
 > diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
-> index 8ae077f..0c46938 100644
+> index e6a6a21..e042cd0 100644
 > --- a/net/sched/sch_sfq.c
 > +++ b/net/sched/sch_sfq.c
-> @@ -380,71 +380,71 @@ static void sfq_perturbation(unsigned long arg)
->  	}
->  }
->  
-> -static int sfq_change(struct Qdisc *sch, struct rtattr *opt)
-> +static int sfq_q_init(struct sfq_sched_data *q, struct rtattr *opt)
->  {
-> -	struct sfq_sched_data *q = qdisc_priv(sch);
->  	struct tc_sfq_qopt *ctl = RTA_DATA(opt);
-> -	unsigned int qlen;
-> +	int i;
->  
-> -	if (opt->rta_len < RTA_LENGTH(sizeof(*ctl)))
-> +	if (opt && opt->rta_len < RTA_LENGTH(sizeof(*ctl)))
-
-
-opt is dereferenced above (RTA_DATA), so if it is NULL we've already
-crashed.
-
->  		return -EINVAL;
->  
-> -	sch_tree_lock(sch);
-> -	q->quantum = ctl->quantum ? : psched_mtu(sch->dev);
-> -	q->perturb_period = ctl->perturb_period*HZ;
-> -	if (ctl->limit)
-> -		q->limit = min_t(u32, ctl->limit, SFQ_DEPTH);
-> +	q->perturbation = 0;
-> +	q->max_depth = 0;
-> +	q->tail = q->limit = SFQ_DEPTH;
-> +	if (opt == NULL) {
-> +		q->perturb_period = 0;
-> +	} else {
-> +		struct tc_sfq_qopt *ctl = RTA_DATA(opt);
-> +		if (ctl->quantum)
-> +			q->quantum = ctl->quantum;
-> +		q->perturb_period = ctl->perturb_period*HZ;
->  
-> -	qlen = sch->q.qlen;
-> -	while (sch->q.qlen >= q->limit-1)
-> -		sfq_drop(sch);
-> -	qdisc_tree_decrease_qlen(sch, qlen - sch->q.qlen);
-
-
-I hope that patch that makes changing possible brings this back ..
-<checking> .. it doesn't. Please either keep this or fix up 6/7
-to bring it back.
-
-> +		if (ctl->limit)
-> +			q->limit = min_t(u32, ctl->limit, SFQ_DEPTH);
-> +	}
->  
-> -	del_timer(&q->perturb_timer);
-> -	if (q->perturb_period) {
-> -		q->perturb_timer.expires = jiffies + q->perturb_period;
-> -		add_timer(&q->perturb_timer);
-> +	for (i=0; i<SFQ_HASH_DIVISOR; i++)
-> +		q->ht[i] = SFQ_DEPTH;
-> +	for (i=0; i<SFQ_DEPTH; i++) {
-> +		skb_queue_head_init(&q->qs[i]);
-> +		q->dep[i+SFQ_DEPTH].next = i+SFQ_DEPTH;
-> +		q->dep[i+SFQ_DEPTH].prev = i+SFQ_DEPTH;
->  	}
-> -	sch_tree_unlock(sch);
-> +
-> +	for (i=0; i<SFQ_DEPTH; i++)
-> +		sfq_link(q, i);
+> @@ -485,6 +485,55 @@ static int sfq_init(struct Qdisc *sch, struct rtattr *opt)
 >  	return 0;
 >  }
 >  
-
-> +static void sfq_q_destroy(struct sfq_sched_data *q)
+> +static int sfq_change(struct Qdisc *sch, struct rtattr *opt)
 > +{
-> +	del_timer(&q->perturb_timer);
+> +	struct sfq_sched_data *q = qdisc_priv(sch);
+> +	struct sfq_sched_data tmp;
+> +	struct sk_buff *skb;
+> +	int err;
+> +	
+> +	/* set up tmp queue */
+> +	memset(&tmp, 0, sizeof(struct sfq_sched_data));
+> +	tmp.quantum = psched_mtu(sch->dev); /* default */
+
+
+If no value is given it should use the old value instead of
+reinitializing to the default.
+
+> +	if ((err = sfq_q_init(&tmp, opt)))
+> +		return err;
+
+
+This will also use defaults for all unspecified values. It would
+be more consistent with other qdiscs to only change those values
+that are actually specified, so something like "tc qdisc change ...
+perturb 10" will *only* change the perturbation parameter.
+I'm not sure reusing the initialization function and copying the
+parameters is the best way to do this.
+
+> +
+> +	/* copy packets from the old queue to the tmp queue */
+> +	sch_tree_lock(sch);
+> +	while (sch->q.qlen >= tmp.limit - 1)
+> +		sfq_drop(sch);
+> +	while ((skb = sfq_q_dequeue(q)) != NULL)
+> +		sfq_q_enqueue(skb, &tmp, SFQ_TAIL);
+> +	
+> +	/* clean up the old queue */
+> +	sfq_q_destroy(q);
+> +
+> +	/* copy elements of the tmp queue into the old queue */
+> +	q->perturb_period = tmp.perturb_period;
+> +	q->quantum        = tmp.quantum;
+> +	q->limit          = tmp.limit;
+> +	q->depth          = tmp.depth;
+> +	q->hash_divisor   = tmp.hash_divisor;
+> +	q->tail           = tmp.tail;
+> +	q->max_depth      = tmp.max_depth;
+> +	q->ht    = tmp.ht;
+> +	q->dep   = tmp.dep;
+> +	q->next  = tmp.next;
+> +	q->allot = tmp.allot;
+> +	q->hash  = tmp.hash;
+> +	q->qs    = tmp.qs;
+> +
+> +	/* finish up */
+> +	if (q->perturb_period) {
+> +		q->perturb_timer.expires = jiffies + q->perturb_period;
+> +		add_timer(&q->perturb_timer);
+> +	} else {
+> +		q->perturbation = 0;
+> +	}
+> +	sch_tree_unlock(sch);
+> +	return 0;
 > +}
 > +
->  static void sfq_destroy(struct Qdisc *sch)
->  {
->  	struct sfq_sched_data *q = qdisc_priv(sch);
-> -	del_timer(&q->perturb_timer);
-> +	sfq_q_destroy(q);
->  }
-
-That really does look a bit pointless.
