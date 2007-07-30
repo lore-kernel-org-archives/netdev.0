@@ -1,30 +1,29 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 2.6.22 1/4]S2IO: Removing 3 buffer mode support from the
- driver
-Date: Mon, 30 Jul 2007 15:56:16 -0400
-Message-ID: <46AE4260.4010301@garzik.org>
-References: <Pine.GSO.4.10.10707230219300.2793-100000@guinness>
+Subject: Re: [PATCH 2.6.22 1/3]S2io: Mask spurious interrupts
+Date: Mon, 30 Jul 2007 15:56:26 -0400
+Message-ID: <46AE426A.7080401@garzik.org>
+References: <1185417308.21141.33.camel@flash>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, support@neterion.com
-To: Veena Parat <Veena.Parat@neterion.com>
+Cc: netdev@vger.kernel.org
+To: ram.vepa@neterion.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:48773 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:48781 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1762598AbXG3T4S (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Jul 2007 15:56:18 -0400
-In-Reply-To: <Pine.GSO.4.10.10707230219300.2793-100000@guinness>
+	id S1764379AbXG3T42 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Jul 2007 15:56:28 -0400
+In-Reply-To: <1185417308.21141.33.camel@flash>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Veena Parat wrote:
->  - Removed 3 buffer mode support from driver - unused feature
->  - Incorporated Jeff Garzik's comments on elimination of inline typecasting
->  - Code cleanup : Removed a few extra spaces
+Ramkrishna Vepa wrote:
+> - Mask single and double bit ETQ ecc errors to inhibit spurious interrupts.
 > 
-> Signed-off-by: Veena Parat <veena.parat@neterion.com>
+> (Resending; Removed HTML sections in the patch)
+> 
+> Signed-off-by: Santosh Rastapur <santosh.rastapur@neterion.com>
 
-applied 1-4
+applied 1-3
 
 
