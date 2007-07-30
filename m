@@ -1,8 +1,8 @@
 From: Moni Shoua <monis@voltaire.com>
-Subject: [ofa-general] [PATCH V3 2/7] IB/ipoib: Verify address handle
-	validity on send
-Date: Mon, 30 Jul 2007 15:49:43 +0300
-Message-ID: <46ADDE67.7030502@voltaire.com>
+Subject: [ofa-general] [PATCH V3 3/7] net/bonding: Enable bonding to enslave
+	non ARPHRD_ETHER
+Date: Mon, 30 Jul 2007 15:51:22 +0300
+Message-ID: <46ADDECA.8010605@voltaire.com>
 References: <46ADDB89.5030601@voltaire.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
@@ -22,32 +22,78 @@ Sender: general-bounces@lists.openfabrics.org
 Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-When the bonding device senses a carrier loss of its active slave it replaces
-that slave with a new one. In between the times when the carrier of an IPoIB
-device goes down and ipoib_neigh is destroyed, it is possible that the 
-bonding driver will send a packet on a new slave that uses an old ipoib_neigh.
-This patch detects and prevents this from happenning.
+This patch changes some of the bond netdevice attributes and functions
+to be that of the active slave for the case of the enslaved device not being
+of ARPHRD_ETHER type. Basically it overrides those setting done by ether_setup(),
+which are netdevice **type** dependent and hence might be not appropriate for
+devices of other types. It also enforces mutual exclusion on bonding slaves
+from dissimilar ether types, as was concluded over the v1 discussion.
+
+IPoIB (see Documentation/infiniband/ipoib.txt) MAC address is made of a 3 bytes
+IB QP (Queue Pair) number and 16 bytes IB port GID (Global ID) of the port this
+IPoIB device is bounded to. The QP is a resource created by the IB HW and the
+GID is an identifier burned into the HCA (i have omitted here some details which
+are not important for the bonding RFC).
 
 Signed-off-by: Moni Shoua <monis@voltaire.com>
 Signed-off-by: Or Gerlitz <ogerlitz@voltaire.com>
 ---
- drivers/infiniband/ulp/ipoib/ipoib_main.c |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
+ drivers/net/bonding/bond_main.c |   38 ++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 38 insertions(+)
 
-Index: net-2.6/drivers/infiniband/ulp/ipoib/ipoib_main.c
+Index: net-2.6/drivers/net/bonding/bond_main.c
 ===================================================================
---- net-2.6.orig/drivers/infiniband/ulp/ipoib/ipoib_main.c	2007-07-25 14:57:48.000000000 +0300
-+++ net-2.6/drivers/infiniband/ulp/ipoib/ipoib_main.c	2007-07-25 15:02:55.525131034 +0300
-@@ -685,9 +685,10 @@ static int ipoib_start_xmit(struct sk_bu
- 				goto out;
- 			}
- 		} else if (neigh->ah) {
--			if (unlikely(memcmp(&neigh->dgid.raw,
-+			if (unlikely((memcmp(&neigh->dgid.raw,
- 					    skb->dst->neighbour->ha + 4,
--					    sizeof(union ib_gid)))) {
-+					    sizeof(union ib_gid))) ||
-+						 (neigh->dev != dev))) {
- 				spin_lock(&priv->lock);
- 				/*
- 				 * It's safe to call ipoib_put_ah() inside
+--- net-2.6.orig/drivers/net/bonding/bond_main.c	2007-07-25 15:02:10.000000000 +0300
++++ net-2.6/drivers/net/bonding/bond_main.c	2007-07-29 16:24:30.913343981 +0300
+@@ -1277,6 +1277,26 @@ static int bond_compute_features(struct 
+ 	return 0;
+ }
+ 
++
++static void bond_setup_by_slave(struct net_device *bond_dev,
++				struct net_device *slave_dev)
++{
++	bond_dev->hard_header	        = slave_dev->hard_header;
++	bond_dev->rebuild_header        = slave_dev->rebuild_header;
++	bond_dev->hard_header_cache	= slave_dev->hard_header_cache;
++	bond_dev->header_cache_update   = slave_dev->header_cache_update;
++	bond_dev->hard_header_parse	= slave_dev->hard_header_parse;
++
++	bond_dev->neigh_setup           = slave_dev->neigh_setup;
++
++	bond_dev->type		    = slave_dev->type;
++	bond_dev->hard_header_len   = slave_dev->hard_header_len;
++	bond_dev->addr_len	    = slave_dev->addr_len;
++
++	memcpy(bond_dev->broadcast, slave_dev->broadcast,
++		slave_dev->addr_len);
++}
++
+ /* enslave device <slave> to bond device <master> */
+ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ {
+@@ -1351,6 +1371,24 @@ int bond_enslave(struct net_device *bond
+ 		goto err_undo_flags;
+ 	}
+ 
++	/* set bonding device ether type by slave - bonding netdevices are
++	 * created with ether_setup, so when the slave type is not ARPHRD_ETHER
++	 * there is a need to override some of the type dependent attribs/funcs.
++	 *
++	 * bond ether type mutual exclusion - don't allow slaves of dissimilar
++	 * ether type (eg ARPHRD_ETHER and ARPHRD_INFINIBAND) share the same bond
++	 */
++	if (bond->slave_cnt == 0) {
++		if (slave_dev->type != ARPHRD_ETHER)
++			bond_setup_by_slave(bond_dev, slave_dev);
++	} else if (bond_dev->type != slave_dev->type) {
++		printk(KERN_ERR DRV_NAME ": %s ether type (%d) is different from "
++			"other slaves (%d), can not enslave it.\n", slave_dev->name,
++			slave_dev->type, bond_dev->type);
++			res = -EINVAL;
++			goto err_undo_flags;
++	}
++
+ 	if (slave_dev->set_mac_address == NULL) {
+ 		printk(KERN_ERR DRV_NAME
+ 			": %s: Error: The slave device you specified does "
