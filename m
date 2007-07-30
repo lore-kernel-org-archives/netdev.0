@@ -1,99 +1,231 @@
 From: Corey Hickey <bugfood-ml@fatooh.org>
-Subject: [PATCH] [iproute2] SFQ: Support changing depth and divisor.
-Date: Sun, 29 Jul 2007 17:21:17 -0700
-Message-ID: <1185754878222-git-send-email-bugfood-ml@fatooh.org>
+Subject: [PATCH 4/7] Add "depth".
+Date: Sun, 29 Jul 2007 17:21:13 -0700
+Message-ID: <11857548783759-git-send-email-bugfood-ml@fatooh.org>
 References: <11857548771998-git-send-email-bugfood-ml@fatooh.org>
+Cc: Corey Hickey <bugfood-ml@fatooh.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hot.fatooh.org ([208.78.103.127]:37100 "EHLO hot.fatooh.org"
+Received: from hot.fatooh.org ([208.78.103.127]:37095 "EHLO hot.fatooh.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750751AbXG3AVY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 29 Jul 2007 20:21:24 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by hot.fatooh.org (Postfix) with ESMTP id D6ECC17C316
-	for <netdev@vger.kernel.org>; Sun, 29 Jul 2007 19:21:24 -0500 (CDT)
-Received: from hot.fatooh.org ([127.0.0.1])
-	by localhost (hot.fatooh.org [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id S+p9AvXjfnkU for <netdev@vger.kernel.org>;
-	Sun, 29 Jul 2007 19:21:24 -0500 (CDT)
-Received: from bugfood (c-76-102-59-34.hsd1.ca.comcast.net [76.102.59.34])
-	(using TLSv1 with cipher ADH-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by hot.fatooh.org (Postfix) with ESMTP id A00A417C318
-	for <netdev@vger.kernel.org>; Sun, 29 Jul 2007 19:21:23 -0500 (CDT)
+	id S1764939AbXG3AVX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 29 Jul 2007 20:21:23 -0400
 In-Reply-To: <11857548771998-git-send-email-bugfood-ml@fatooh.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This can safely be applied either before or after the kernel
-patches because the tc_sfq_qopt struct is unchanged:
+Make "depth" (number of queues) user-configurable:
 
-- old kernels will ignore the parameters from new iproute2
-- new kernels will use the same default parameters
+* replace #define with a parameter
+* use old hardcoded value as a default
+* kcalloc() arrays in sfq_q_init()
+* free() arrays in sfq_q_destroy()
+
+Signed-off-by: Corey Hickey <bugfood-ml@fatooh.org>
 ---
- include/linux/pkt_sched.h |    9 ---------
- tc/q_sfq.c                |   21 ++++++++++++++++++++-
- 2 files changed, 20 insertions(+), 10 deletions(-)
+ net/sched/sch_sfq.c |   81 +++++++++++++++++++++++++++++++++++----------------
+ 1 files changed, 56 insertions(+), 25 deletions(-)
 
-diff --git a/include/linux/pkt_sched.h b/include/linux/pkt_sched.h
-index d10f353..37946d4 100644
---- a/include/linux/pkt_sched.h
-+++ b/include/linux/pkt_sched.h
-@@ -139,15 +139,6 @@ struct tc_sfq_qopt
- 	unsigned	flows;		/* Maximal number of flows  */
+diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
+index 583f925..70124ac 100644
+--- a/net/sched/sch_sfq.c
++++ b/net/sched/sch_sfq.c
+@@ -74,14 +74,16 @@
+ 
+ 	It is easy to increase these values, but not in flight.  */
+ 
+-#define SFQ_DEPTH		128
++#define SFQ_DEPTH_DEFAULT	128
+ #define SFQ_HASH_DIVISOR	1024
+ 
+ #define SFQ_HEAD 0
+ #define SFQ_TAIL 1
+ 
+-/* This type should contain at least SFQ_DEPTH*2 values */
+-typedef unsigned char sfq_index;
++/* This type must contain greater than depth*2 values, so depth is constrained 
++ * accordingly. */
++typedef unsigned int sfq_index;
++#define SFQ_MAX_DEPTH (UINT_MAX / 2 - 1)
+ 
+ struct sfq_head
+ {
+@@ -95,6 +97,7 @@ struct sfq_sched_data
+ 	int		perturb_period;
+ 	unsigned	quantum;	/* Allotment per round: MUST BE >= MTU */
+ 	int		limit;
++	unsigned	depth;
+ 
+ /* Variables */
+ 	struct timer_list perturb_timer;
+@@ -103,11 +106,11 @@ struct sfq_sched_data
+ 	sfq_index	max_depth;	/* Maximal depth */
+ 
+ 	sfq_index	ht[SFQ_HASH_DIVISOR];	/* Hash table */
+-	sfq_index	next[SFQ_DEPTH];	/* Active slots link */
+-	short		allot[SFQ_DEPTH];	/* Current allotment per slot */
+-	unsigned short	hash[SFQ_DEPTH];	/* Hash value indexed by slots */
+-	struct sk_buff_head	qs[SFQ_DEPTH];		/* Slot queue */
+-	struct sfq_head	dep[SFQ_DEPTH*2];	/* Linked list of slots, indexed by depth */
++	sfq_index	*next;			/* Active slots link */
++	short		*allot;			/* Current allotment per slot */
++	unsigned short	*hash;			/* Hash value indexed by slots */
++	struct sk_buff_head	*qs;		/* Slot queue */
++	struct sfq_head	*dep;			/* Linked list of slots, indexed by depth */
  };
  
--/*
-- *  NOTE: limit, divisor and flows are hardwired to code at the moment.
-- *
-- *	limit=flows=128, divisor=1024;
-- *
-- *	The only reason for this is efficiency, it is possible
-- *	to change these parameters in compile time.
-- */
--
- /* RED section */
- 
- enum
-diff --git a/tc/q_sfq.c b/tc/q_sfq.c
-index 05385cf..7754db7 100644
---- a/tc/q_sfq.c
-+++ b/tc/q_sfq.c
-@@ -25,7 +25,7 @@
- 
- static void explain(void)
+ static __inline__ unsigned sfq_fold_hash(struct sfq_sched_data *q, u32 h, u32 h1)
+@@ -164,7 +167,7 @@ static unsigned sfq_hash(struct sfq_sched_data *q, struct sk_buff *skb)
+ static inline void sfq_link(struct sfq_sched_data *q, sfq_index x)
  {
--	fprintf(stderr, "Usage: ... sfq [ limit NUMBER ] [ perturb SECS ] [ quantum BYTES ]\n");
-+	fprintf(stderr, "Usage: ... sfq [ limit NUMBER ] [ depth FLOWS ] [ divisor HASHBITS ] [ perturb SECS ] [ quantum BYTES ]\n");
+ 	sfq_index p, n;
+-	int d = q->qs[x].qlen + SFQ_DEPTH;
++	int d = q->qs[x].qlen + q->depth;
+ 
+ 	p = d;
+ 	n = q->dep[d].next;
+@@ -215,7 +218,7 @@ static unsigned int sfq_drop(struct Qdisc *sch)
+ 	   drop a packet from it */
+ 
+ 	if (d > 1) {
+-		sfq_index x = q->dep[d+SFQ_DEPTH].next;
++		sfq_index x = q->dep[d + q->depth].next;
+ 		skb = q->qs[x].prev;
+ 		len = skb->len;
+ 		__skb_unlink(skb, &q->qs[x]);
+@@ -238,7 +241,7 @@ static unsigned int sfq_drop(struct Qdisc *sch)
+ 		kfree_skb(skb);
+ 		sfq_dec(q, d);
+ 		sch->q.qlen--;
+-		q->ht[q->hash[d]] = SFQ_DEPTH;
++		q->ht[q->hash[d]] = q->depth;
+ 		sch->qstats.drops++;
+ 		sch->qstats.backlog -= len;
+ 		return len;
+@@ -253,8 +256,8 @@ static void sfq_q_enqueue(struct sk_buff *skb, struct sfq_sched_data *q, unsigne
+ 	sfq_index x;
+ 
+ 	x = q->ht[hash];
+-	if (x == SFQ_DEPTH) {
+-		q->ht[hash] = x = q->dep[SFQ_DEPTH].next;
++	if (x == q->depth) {
++		q->ht[hash] = x = q->dep[q->depth].next;
+ 		q->hash[x] = hash;
+ 	}
+ 
+@@ -265,7 +268,7 @@ static void sfq_q_enqueue(struct sk_buff *skb, struct sfq_sched_data *q, unsigne
+ 
+ 	sfq_inc(q, x);
+ 	if (q->qs[x].qlen == 1) {		/* The flow is new */
+-		if (q->tail == SFQ_DEPTH) {	/* It is the first flow */
++		if (q->tail == q->depth) {	/* It is the first flow */
+ 			q->tail = x;
+ 			q->next[x] = x;
+ 			q->allot[x] = q->quantum;
+@@ -316,7 +319,7 @@ static struct sk_buff *sfq_q_dequeue(struct sfq_sched_data *q)
+ 	sfq_index a, old_a;
+ 
+ 	/* No active slots */
+-	if (q->tail == SFQ_DEPTH)
++	if (q->tail == q->depth)
+ 		return NULL;
+ 
+ 	a = old_a = q->next[q->tail];
+@@ -327,10 +330,10 @@ static struct sk_buff *sfq_q_dequeue(struct sfq_sched_data *q)
+ 
+ 	/* Is the slot empty? */
+ 	if (q->qs[a].qlen == 0) {
+-		q->ht[q->hash[a]] = SFQ_DEPTH;
++		q->ht[q->hash[a]] = q->depth;
+ 		a = q->next[a];
+ 		if (a == old_a) {
+-			q->tail = SFQ_DEPTH;
++			q->tail = q->depth;
+ 			return skb;
+ 		}
+ 		q->next[q->tail] = a;
+@@ -383,6 +386,11 @@ static void sfq_perturbation(unsigned long arg)
+ static void sfq_q_destroy(struct sfq_sched_data *q)
+ {
+ 	del_timer(&q->perturb_timer);
++	kfree(q->dep);
++	kfree(q->next);
++	kfree(q->allot);
++	kfree(q->hash);
++	kfree(q->qs);
  }
  
- #define usage() return(-1)
-@@ -63,6 +63,25 @@ static int sfq_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct nl
- 				return -1;
- 			}
- 			ok++;
-+		} else if (strcmp(*argv, "depth") == 0) {
-+			NEXT_ARG();
-+			if (get_unsigned(&opt.flows, *argv, 0)) {
-+				fprintf(stderr, "Illegal \"depth\"\n");
-+				return -1;
-+			}
-+			ok++;
-+		} else if (strcmp(*argv, "divisor") == 0) {
-+			NEXT_ARG();
-+			if (get_unsigned(&opt.divisor, *argv, 0)) {
-+				fprintf(stderr, "Illegal \"divisor\"\n");
-+				return -1;
-+			}
-+			if (opt.divisor >= 15) {
-+				fprintf(stderr, "Illegal \"divisor\", must be < 15\n");
-+				return -1;
-+			}
-+			opt.divisor = 1<<opt.divisor;
-+			ok++;
- 		} else if (strcmp(*argv, "help") == 0) {
- 			explain();
- 			return -1;
+ static void sfq_destroy(struct Qdisc *sch)
+@@ -401,30 +409,53 @@ static int sfq_q_init(struct sfq_sched_data *q, struct rtattr *opt)
+ 
+ 	q->perturbation = 0;
+ 	q->max_depth = 0;
+-	q->tail = q->limit = SFQ_DEPTH;
+ 	if (opt == NULL) {
+ 		q->perturb_period = 0;
++		q->tail = q->limit = q->depth = SFQ_DEPTH_DEFAULT;
+ 	} else {
+ 		struct tc_sfq_qopt *ctl = RTA_DATA(opt);
+ 		if (ctl->quantum)
+ 			q->quantum = ctl->quantum;
+ 		q->perturb_period = ctl->perturb_period*HZ;
++		q->tail = q->limit = q->depth = ctl->flows ? : SFQ_DEPTH_DEFAULT;
++
++		if (q->depth > SFQ_MAX_DEPTH)
++			return -EINVAL;
+ 
+ 		if (ctl->limit)
+-			q->limit = min_t(u32, ctl->limit, SFQ_DEPTH);
++			q->limit = min_t(u32, ctl->limit, q->depth);
+ 	}
+ 
++	q->dep = kcalloc(1 + q->depth*2, sizeof(struct sfq_head), GFP_KERNEL);
++	if (!q->dep)
++		goto err_case;
++	q->next = kcalloc(q->depth, sizeof(sfq_index), GFP_KERNEL);
++	if (!q->next)
++		goto err_case;
++	q->allot = kcalloc(q->depth, sizeof(short), GFP_KERNEL);
++	if (!q->allot)
++		goto err_case;
++	q->hash = kcalloc(q->depth, sizeof(unsigned short), GFP_KERNEL);
++	if (!q->hash)
++		goto err_case;
++	q->qs = kcalloc(q->depth, sizeof(struct sk_buff_head), GFP_KERNEL);
++	if (!q->qs)
++		goto err_case;
++
+ 	for (i=0; i<SFQ_HASH_DIVISOR; i++)
+-		q->ht[i] = SFQ_DEPTH;
+-	for (i=0; i<SFQ_DEPTH; i++) {
++		q->ht[i] = q->depth;
++	for (i=0; i < q->depth; i++) {
+ 		skb_queue_head_init(&q->qs[i]);
+-		q->dep[i+SFQ_DEPTH].next = i+SFQ_DEPTH;
+-		q->dep[i+SFQ_DEPTH].prev = i+SFQ_DEPTH;
++		q->dep[i + q->depth].next = i + q->depth;
++		q->dep[i + q->depth].prev = i + q->depth;
+ 	}
+ 
+-	for (i=0; i<SFQ_DEPTH; i++)
++	for (i=0; i < q->depth; i++)
+ 		sfq_link(q, i);
+ 	return 0;
++err_case:
++	sfq_q_destroy(q);
++	return -ENOBUFS;
+ }
+ 
+ static int sfq_init(struct Qdisc *sch, struct rtattr *opt)
+@@ -458,7 +489,7 @@ static int sfq_dump(struct Qdisc *sch, struct sk_buff *skb)
+ 
+ 	opt.limit = q->limit;
+ 	opt.divisor = SFQ_HASH_DIVISOR;
+-	opt.flows = q->limit;
++	opt.flows = q->depth;
+ 
+ 	RTA_PUT(skb, TCA_OPTIONS, sizeof(opt), &opt);
+ 
 -- 
 1.5.2.4
 
