@@ -1,96 +1,99 @@
 From: Corey Hickey <bugfood-ml@fatooh.org>
-Subject: [PATCH 6/7] Make qdisc changeable.
-Date: Sun, 29 Jul 2007 17:21:15 -0700
-Message-ID: <11857548783311-git-send-email-bugfood-ml@fatooh.org>
+Subject: [PATCH] [iproute2] SFQ: Support changing depth and divisor.
+Date: Sun, 29 Jul 2007 17:21:17 -0700
+Message-ID: <1185754878222-git-send-email-bugfood-ml@fatooh.org>
 References: <11857548771998-git-send-email-bugfood-ml@fatooh.org>
-Cc: Corey Hickey <bugfood-ml@fatooh.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hot.fatooh.org ([208.78.103.127]:37095 "EHLO hot.fatooh.org"
+Received: from hot.fatooh.org ([208.78.103.127]:37100 "EHLO hot.fatooh.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965441AbXG3AVX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 29 Jul 2007 20:21:23 -0400
+	id S1750751AbXG3AVY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 29 Jul 2007 20:21:24 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by hot.fatooh.org (Postfix) with ESMTP id D6ECC17C316
+	for <netdev@vger.kernel.org>; Sun, 29 Jul 2007 19:21:24 -0500 (CDT)
+Received: from hot.fatooh.org ([127.0.0.1])
+	by localhost (hot.fatooh.org [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id S+p9AvXjfnkU for <netdev@vger.kernel.org>;
+	Sun, 29 Jul 2007 19:21:24 -0500 (CDT)
+Received: from bugfood (c-76-102-59-34.hsd1.ca.comcast.net [76.102.59.34])
+	(using TLSv1 with cipher ADH-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by hot.fatooh.org (Postfix) with ESMTP id A00A417C318
+	for <netdev@vger.kernel.org>; Sun, 29 Jul 2007 19:21:23 -0500 (CDT)
 In-Reply-To: <11857548771998-git-send-email-bugfood-ml@fatooh.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Re-implement sfq_change() and enable Qdisc_opts.change so "tc qdisc
-change" will work.
+This can safely be applied either before or after the kernel
+patches because the tc_sfq_qopt struct is unchanged:
 
-Signed-off-by: Corey Hickey <bugfood-ml@fatooh.org>
+- old kernels will ignore the parameters from new iproute2
+- new kernels will use the same default parameters
 ---
- net/sched/sch_sfq.c |   51 ++++++++++++++++++++++++++++++++++++++++++++++++++-
- 1 files changed, 50 insertions(+), 1 deletions(-)
+ include/linux/pkt_sched.h |    9 ---------
+ tc/q_sfq.c                |   21 ++++++++++++++++++++-
+ 2 files changed, 20 insertions(+), 10 deletions(-)
 
-diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
-index e6a6a21..e042cd0 100644
---- a/net/sched/sch_sfq.c
-+++ b/net/sched/sch_sfq.c
-@@ -485,6 +485,55 @@ static int sfq_init(struct Qdisc *sch, struct rtattr *opt)
- 	return 0;
+diff --git a/include/linux/pkt_sched.h b/include/linux/pkt_sched.h
+index d10f353..37946d4 100644
+--- a/include/linux/pkt_sched.h
++++ b/include/linux/pkt_sched.h
+@@ -139,15 +139,6 @@ struct tc_sfq_qopt
+ 	unsigned	flows;		/* Maximal number of flows  */
+ };
+ 
+-/*
+- *  NOTE: limit, divisor and flows are hardwired to code at the moment.
+- *
+- *	limit=flows=128, divisor=1024;
+- *
+- *	The only reason for this is efficiency, it is possible
+- *	to change these parameters in compile time.
+- */
+-
+ /* RED section */
+ 
+ enum
+diff --git a/tc/q_sfq.c b/tc/q_sfq.c
+index 05385cf..7754db7 100644
+--- a/tc/q_sfq.c
++++ b/tc/q_sfq.c
+@@ -25,7 +25,7 @@
+ 
+ static void explain(void)
+ {
+-	fprintf(stderr, "Usage: ... sfq [ limit NUMBER ] [ perturb SECS ] [ quantum BYTES ]\n");
++	fprintf(stderr, "Usage: ... sfq [ limit NUMBER ] [ depth FLOWS ] [ divisor HASHBITS ] [ perturb SECS ] [ quantum BYTES ]\n");
  }
  
-+static int sfq_change(struct Qdisc *sch, struct rtattr *opt)
-+{
-+	struct sfq_sched_data *q = qdisc_priv(sch);
-+	struct sfq_sched_data tmp;
-+	struct sk_buff *skb;
-+	int err;
-+	
-+	/* set up tmp queue */
-+	memset(&tmp, 0, sizeof(struct sfq_sched_data));
-+	tmp.quantum = psched_mtu(sch->dev); /* default */
-+	if ((err = sfq_q_init(&tmp, opt)))
-+		return err;
-+
-+	/* copy packets from the old queue to the tmp queue */
-+	sch_tree_lock(sch);
-+	while (sch->q.qlen >= tmp.limit - 1)
-+		sfq_drop(sch);
-+	while ((skb = sfq_q_dequeue(q)) != NULL)
-+		sfq_q_enqueue(skb, &tmp, SFQ_TAIL);
-+	
-+	/* clean up the old queue */
-+	sfq_q_destroy(q);
-+
-+	/* copy elements of the tmp queue into the old queue */
-+	q->perturb_period = tmp.perturb_period;
-+	q->quantum        = tmp.quantum;
-+	q->limit          = tmp.limit;
-+	q->depth          = tmp.depth;
-+	q->hash_divisor   = tmp.hash_divisor;
-+	q->tail           = tmp.tail;
-+	q->max_depth      = tmp.max_depth;
-+	q->ht    = tmp.ht;
-+	q->dep   = tmp.dep;
-+	q->next  = tmp.next;
-+	q->allot = tmp.allot;
-+	q->hash  = tmp.hash;
-+	q->qs    = tmp.qs;
-+
-+	/* finish up */
-+	if (q->perturb_period) {
-+		q->perturb_timer.expires = jiffies + q->perturb_period;
-+		add_timer(&q->perturb_timer);
-+	} else {
-+		q->perturbation = 0;
-+	}
-+	sch_tree_unlock(sch);
-+	return 0;
-+}
-+
- static int sfq_dump(struct Qdisc *sch, struct sk_buff *skb)
- {
- 	struct sfq_sched_data *q = qdisc_priv(sch);
-@@ -519,7 +568,7 @@ static struct Qdisc_ops sfq_qdisc_ops = {
- 	.init		=	sfq_init,
- 	.reset		=	sfq_reset,
- 	.destroy	=	sfq_destroy,
--	.change		=	NULL,
-+	.change		=	sfq_change,
- 	.dump		=	sfq_dump,
- 	.owner		=	THIS_MODULE,
- };
+ #define usage() return(-1)
+@@ -63,6 +63,25 @@ static int sfq_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct nl
+ 				return -1;
+ 			}
+ 			ok++;
++		} else if (strcmp(*argv, "depth") == 0) {
++			NEXT_ARG();
++			if (get_unsigned(&opt.flows, *argv, 0)) {
++				fprintf(stderr, "Illegal \"depth\"\n");
++				return -1;
++			}
++			ok++;
++		} else if (strcmp(*argv, "divisor") == 0) {
++			NEXT_ARG();
++			if (get_unsigned(&opt.divisor, *argv, 0)) {
++				fprintf(stderr, "Illegal \"divisor\"\n");
++				return -1;
++			}
++			if (opt.divisor >= 15) {
++				fprintf(stderr, "Illegal \"divisor\", must be < 15\n");
++				return -1;
++			}
++			opt.divisor = 1<<opt.divisor;
++			ok++;
+ 		} else if (strcmp(*argv, "help") == 0) {
+ 			explain();
+ 			return -1;
 -- 
 1.5.2.4
 
