@@ -1,48 +1,34 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] [2.6.22] Fix a potential NULL pointer dereference in
- write_bulk_callback() in drivers/net/usb/pegasus.c
-Date: Mon, 30 Jul 2007 15:45:04 -0400
-Message-ID: <46AE3FC0.4020600@garzik.org>
-References: <46A46160.9080508@gmail.com>
+Subject: Re: [PATCH] gfar: Fix modpost warning
+Date: Mon, 30 Jul 2007 15:48:25 -0400
+Message-ID: <46AE4089.5060602@garzik.org>
+References: <Pine.LNX.4.64.0707260051550.30449@blarg.am.freescale.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: petkan@users.sourceforge.net, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Micah Gruber <micah.gruber@gmail.com>
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	Andy Fleming <afleming@freescale.com>
+To: Kumar Gala <galak@kernel.crashing.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:52014 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:51878 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S939024AbXG3TpK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Jul 2007 15:45:10 -0400
-In-Reply-To: <46A46160.9080508@gmail.com>
+	id S1763393AbXG3Ts2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Jul 2007 15:48:28 -0400
+In-Reply-To: <Pine.LNX.4.64.0707260051550.30449@blarg.am.freescale.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Micah Gruber wrote:
-> This patch fixes a potential null dereference bug where we dereference 
-> pegasus before a null check. This patch simply moves the dereferencing 
-> after the null check.
+Kumar Gala wrote:
+> Fix the following modpost warning:
 > 
-> Signed-off-by: Micah Gruber <micah.gruber@gmail.com>
+> WARNING: vmlinux.o(.init.text+0x1aa6c): Section mismatch: reference to .exit.text:gfar_mdio_exit (between 'gfar_init' and 'gfar_mdio_init')
 > 
+> Signed-off-by: Kumar Gala <galak@kernel.crashing.org>
 > ---
-> 
-> --- a/drivers/net/usb/pegasus.c
-> +++ b/drivers/net/usb/pegasus.c
-> @@ -768,11 +768,13 @@
-> static void write_bulk_callback(struct urb *urb)
-> {
->        pegasus_t *pegasus = urb->context;
-> -       struct net_device *net = pegasus->net;
-> +       struct net_device *net;
-> 
->        if (!pegasus)
->                return;
-> 
-> +       net = pegasus->net;
-> +
+>  drivers/net/gianfar_mii.c |    2 +-
+>  drivers/net/gianfar_mii.h |    2 +-
+>  2 files changed, 2 insertions(+), 2 deletions(-)
 
-applied (manually)
+applied
 
 
