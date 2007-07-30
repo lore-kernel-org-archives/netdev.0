@@ -1,44 +1,134 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 0/2] HW VLAN filtering control
-Date: Mon, 30 Jul 2007 14:43:56 +0200
-Message-ID: <46ADDD0C.7020200@trash.net>
-References: <1185569723.28574.8.camel@strongmad>
+From: Moni Shoua <monis@voltaire.com>
+Subject: [ofa-general] [PATCH V3 1/7] IB/ipoib: Bound the net device to the
+ ipoib_neigh structue
+Date: Mon, 30 Jul 2007 15:48:20 +0300
+Message-ID: <46ADDE14.7000708@voltaire.com>
+References: <46ADDB89.5030601@voltaire.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Mitch Williams <mitch.a.williams@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:36500 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750843AbXG3MoP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jul 2007 08:44:15 -0400
-In-Reply-To: <1185569723.28574.8.camel@strongmad>
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, rdreier@cisco.com, fubar@us.ibm.com,
+	davem@davemloft.net, general@lists.openfabrics.org
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <46ADDB89.5030601@voltaire.com>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-Mitch Williams wrote:
-> This patchset adds the capability to disable hardware VLAN filtering at
-> runtime via the existing vconfig utility.  It's useful for debugging
-> purposes.
-> 
-> The first patch modifies the VLAN subsystem to define the flag, and to
-> support passing the flag on to the base driver.
-> 
-> The second patch modifies e1000 to support the flag.  Since it's only
-> one function, other drivers can be easily modified to support this
-> functionality.
-> 
-> vconfig is used without modification to enable or disable filtering:
-> 	# vconfig [vlan-interface] 2 1
-> will disable filtering, and
-> 	# vconfig [vlan-interface] 2 0
-> will enable filtering.
+IPoIB uses a two layer neighboring scheme, such that for each struct neighbour
+whose device is an ipoib one, there is a struct ipoib_neigh buddy which is
+created on demand at the tx flow by an ipoib_neigh_alloc(skb->dst->neighbour)
+call.
 
+When using the bonding driver, neighbours are created by the net stack on behalf
+of the bonding (master) device. On the tx flow the bonding code gets an skb such
+that skb->dev points to the master device, it changes this skb to point on the
+slave device and calls the slave hard_start_xmit function.
 
-I think an ethtool option for this would be more consistent with
-configuration of other device features and its questionable whether
-new feature should be added to the ioctl interface at all. The
-vlan driver could perform the necessary reconfiguration in the
-FEAT_CHANGE notifier call.
+Under this scheme, ipoib_neigh_destructor assumption that for each struct
+neighbour it gets, n->dev is an ipoib device and hence netdev_priv(n->dev)
+can be casted to struct ipoib_dev_priv is buggy.
 
+To fix it, this patch adds a dev field to struct ipoib_neigh which is used
+instead of the struct neighbour dev one, when n->dev->flags has the
+IFF_MASTER bit set.
+
+Signed-off-by: Moni Shoua <monis@voltaire.com>
+Signed-off-by: Or Gerlitz <ogerlitz@voltaire.com>
+---
+ drivers/infiniband/ulp/ipoib/ipoib.h           |    4 +++-
+ drivers/infiniband/ulp/ipoib/ipoib_main.c      |   17 +++++++++++++++--
+ drivers/infiniband/ulp/ipoib/ipoib_multicast.c |    2 +-
+ 3 files changed, 19 insertions(+), 4 deletions(-)
+
+Index: net-2.6/drivers/infiniband/ulp/ipoib/ipoib.h
+===================================================================
+--- net-2.6.orig/drivers/infiniband/ulp/ipoib/ipoib.h	2007-07-25 14:56:13.000000000 +0300
++++ net-2.6/drivers/infiniband/ulp/ipoib/ipoib.h	2007-07-25 14:57:48.095724495 +0300
+@@ -328,6 +328,7 @@ struct ipoib_neigh {
+ 	struct sk_buff_head queue;
+ 
+ 	struct neighbour   *neighbour;
++	struct net_device *dev;
+ 
+ 	struct list_head    list;
+ };
+@@ -344,7 +345,8 @@ static inline struct ipoib_neigh **to_ip
+ 				     INFINIBAND_ALEN, sizeof(void *));
+ }
+ 
+-struct ipoib_neigh *ipoib_neigh_alloc(struct neighbour *neigh);
++struct ipoib_neigh *ipoib_neigh_alloc(struct neighbour *neigh,
++				      struct net_device *dev);
+ void ipoib_neigh_free(struct net_device *dev, struct ipoib_neigh *neigh);
+ 
+ extern struct workqueue_struct *ipoib_workqueue;
+Index: net-2.6/drivers/infiniband/ulp/ipoib/ipoib_main.c
+===================================================================
+--- net-2.6.orig/drivers/infiniband/ulp/ipoib/ipoib_main.c	2007-07-25 14:56:13.000000000 +0300
++++ net-2.6/drivers/infiniband/ulp/ipoib/ipoib_main.c	2007-07-25 15:03:11.291291271 +0300
+@@ -510,7 +510,7 @@ static void neigh_add_path(struct sk_buf
+ 	struct ipoib_path *path;
+ 	struct ipoib_neigh *neigh;
+ 
+-	neigh = ipoib_neigh_alloc(skb->dst->neighbour);
++	neigh = ipoib_neigh_alloc(skb->dst->neighbour, skb->dev);
+ 	if (!neigh) {
+ 		++priv->stats.tx_dropped;
+ 		dev_kfree_skb_any(skb);
+@@ -817,6 +817,16 @@ static void ipoib_neigh_cleanup(struct n
+ 	unsigned long flags;
+ 	struct ipoib_ah *ah = NULL;
+ 
++	if (n->dev->flags & IFF_MASTER) {
++		/* n->dev is not an IPoIB device and we have to take priv from elsewhere */
++		neigh = *to_ipoib_neigh(n);
++		if (neigh){
++			priv = netdev_priv(neigh->dev);
++			ipoib_dbg(priv, "neigh_destructor for bonding device: %s\n",
++				  n->dev->name);
++		} else
++			return;
++	}
+ 	ipoib_dbg(priv,
+ 		  "neigh_cleanup for %06x " IPOIB_GID_FMT "\n",
+ 		  IPOIB_QPN(n->ha),
+@@ -838,7 +848,9 @@ static void ipoib_neigh_cleanup(struct n
+ 		ipoib_put_ah(ah);
+ }
+ 
+-struct ipoib_neigh *ipoib_neigh_alloc(struct neighbour *neighbour)
++struct ipoib_neigh *ipoib_neigh_alloc(struct neighbour *neighbour,
++				      struct net_device *dev)
++
+ {
+ 	struct ipoib_neigh *neigh;
+ 
+@@ -847,6 +859,7 @@ struct ipoib_neigh *ipoib_neigh_alloc(st
+ 		return NULL;
+ 
+ 	neigh->neighbour = neighbour;
++	neigh->dev = dev;
+ 	*to_ipoib_neigh(neighbour) = neigh;
+ 	skb_queue_head_init(&neigh->queue);
+ 	ipoib_cm_set(neigh, NULL);
+Index: net-2.6/drivers/infiniband/ulp/ipoib/ipoib_multicast.c
+===================================================================
+--- net-2.6.orig/drivers/infiniband/ulp/ipoib/ipoib_multicast.c	2007-07-25 14:56:13.000000000 +0300
++++ net-2.6/drivers/infiniband/ulp/ipoib/ipoib_multicast.c	2007-07-25 14:57:48.097724142 +0300
+@@ -727,7 +727,7 @@ out:
+ 		if (skb->dst            &&
+ 		    skb->dst->neighbour &&
+ 		    !*to_ipoib_neigh(skb->dst->neighbour)) {
+-			struct ipoib_neigh *neigh = ipoib_neigh_alloc(skb->dst->neighbour);
++			struct ipoib_neigh *neigh = ipoib_neigh_alloc(skb->dst->neighbour, skb->dev);
+ 
+ 			if (neigh) {
+ 				kref_get(&mcast->ah->ref);
