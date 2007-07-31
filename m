@@ -1,36 +1,85 @@
-From: "Erik Ekman" <root@kryo.se>
-Subject: [PATCH] Trivial Kconfig fact correction
-Date: Tue, 31 Jul 2007 16:56:17 +0200
-Message-ID: <f50a3dc50707310756j4f9c8437maf4bc761c076c77@mail.gmail.com>
+From: Or Gerlitz <ogerlitz@voltaire.com>
+Subject: [ofa-general] Re: [PATCH V3 0/7] net/bonding: ADD IPoIB support
+ for	the	bonding driver
+Date: Tue, 31 Jul 2007 17:57:46 +0300
+Message-ID: <46AF4DEA.9050202@voltaire.com>
+References: <46ADDB89.5030601@voltaire.com>
+	<adaejipr3l5.fsf@cisco.com>	<46AF3CA8.6050201@gmail.com>	<20070731140436.GA16015@mellanox.co.il>	<46AF44E0.50700@voltaire.com>	<20070731142234.GC16015@mellanox.co.il>	<46AF48D5.9000502@voltaire.com>
+	<20070731144827.GB17331@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0910.google.com ([209.85.198.186]:63312 "EHLO
-	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761775AbXGaO4S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jul 2007 10:56:18 -0400
-Received: by rv-out-0910.google.com with SMTP id k20so614145rvb
-        for <netdev@vger.kernel.org>; Tue, 31 Jul 2007 07:56:17 -0700 (PDT)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, Roland Dreier <rdreier@cisco.com>, fubar@us.ibm.com,
+	davem@davemloft.net, general@lists.openfabrics.org
+To: "Michael S. Tsirkin" <mst@dev.mellanox.co.il>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <20070731144827.GB17331@mellanox.co.il>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-[PATCH] Trivial Kconfig fact correction
+Michael S. Tsirkin wrote:
+>> Quoting Or Gerlitz <ogerlitz@voltaire.com>:
+>> Michael S. Tsirkin wrote:
 
-This error seems to have been in the kernel for a long time.
+>>> It's always wrong to copy symbols from another module without
+>>> referencing it.
+>> Its the --first-- time you make this comment,
 
-Signed-off-by: Erik Ekman <root@kryo.se>
+> It's really a well known fact. That's where the crash
+> with modprobe -r comes from, right?
 
---- orig/drivers/net/wireless/Kconfig   2007-07-23 10:01:46.000000000 +0200
-+++ edit/drivers/net/wireless/Kconfig   2007-07-31 16:47:26.000000000 +0200
-@@ -130,7 +130,7 @@ comment "Wireless 802.11 Frequency Hoppi
-        depends on NET_RADIO && PCMCIA
+no, the crash --only-- comes from the neighbour cleanup function being 
+called while ipoib is now probed out of the kernel. The other symbols 
+are not problematic. I got positive feedback that this --is-- the 
+problem in the previous posts and from Roland during my Sonoma presentation.
 
- config PCMCIA_RAYCS
--       tristate "Aviator/Raytheon 2.4MHz wireless support"
-+       tristate "Aviator/Raytheon 2.4GHz wireless support"
-depends on NET_RADIO && PCMCIA
-        ---help---
-          Say Y here if you intend to attach an Aviator/Raytheon PCMCIA
+>> please suggest a different approach,
+
+> I don't know, really - if you want to access a module, you really must get
+> a reference to it, or to the device.
+> How about adding the module pointer to struct net_device?
+
+I think there used to be there owner field of type struct module and it 
+was removed... we will check that.
+
+>> the relevant code is below.
+> 
+>> +static void bond_setup_by_slave(struct net_device *bond_dev,
+>> +				struct net_device *slave_dev)
+>> +{
+>> +	bond_dev->hard_header	        = slave_dev->hard_header;
+>> +	bond_dev->rebuild_header        = slave_dev->rebuild_header;
+>> +	bond_dev->hard_header_cache	= slave_dev->hard_header_cache;
+>> +	bond_dev->header_cache_update   = slave_dev->header_cache_update;
+>> +	bond_dev->hard_header_parse	= slave_dev->hard_header_parse;
+>> +
+>> +	bond_dev->neigh_setup           = slave_dev->neigh_setup;
+>> +
+>> +	bond_dev->type		    = slave_dev->type;
+>> +	bond_dev->hard_header_len   = slave_dev->hard_header_len;
+>> +	bond_dev->addr_len	    = slave_dev->addr_len;
+>> +
+>> +	memcpy(bond_dev->broadcast, slave_dev->broadcast,
+>> +		slave_dev->addr_len);
+>> +}
+>> +
+> 
+> Hmm, it seems that switching to hard_header_cache as I suggested won't help at all.
+
+why? please clarify.
+
+> I wonder: is bonding currently broken with devices that implement
+> hard_header_cache/header_cache_update?
+
+I don't think so. Note that bond_setup_by_slave is only called for 
+slaves whose ether type is --not-- Ethernet.
+
+Or.
