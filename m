@@ -1,84 +1,81 @@
-From: Mariusz Kozlowski <m.kozlowski@tuxland.pl>
-Subject: [PATCH 76] drivers/net/via-velocity.c: mostly kmalloc + memset conversion to kcalloc
-Date: Wed, 1 Aug 2007 00:11:50 +0200
-Message-ID: <200708010011.50979.m.kozlowski@tuxland.pl>
-References: <200707311845.48807.m.kozlowski@tuxland.pl>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: ATA over ethernet swapping
+Date: Wed, 1 Aug 2007 00:27:42 +0200
+Message-ID: <20070731222742.GR2087@elf.ucw.cz>
+References: <20070731135831.GA4604@elf.ucw.cz> <20070731150324.GE3206@coraid.com> <20070731152924.GM2087@elf.ucw.cz> <20070731162140.GI3206@coraid.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-2"
-Content-Transfer-Encoding: 7bit
-Cc: kernel-janitors@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	romieu@fr.zoreil.com, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <200707311845.48807.m.kozlowski@tuxland.pl>
+Content-Type: text/plain; charset=us-ascii
+Cc: kernel list <linux-kernel@vger.kernel.org>, ak@suse.de,
+	Netdev list <netdev@vger.kernel.org>
+To: "Ed L. Cashin" <ecashin@coraid.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gprs189-60.eurotel.cz ([160.218.189.60]:35701 "EHLO amd.ucw.cz"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1762346AbXGaW2V (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 31 Jul 2007 18:28:21 -0400
 Content-Disposition: inline
-Sender: kernel-janitors-owner@vger.kernel.org
+In-Reply-To: <20070731162140.GI3206@coraid.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Mariusz Kozlowski <m.kozlowski@tuxland.pl>
+Hi!
 
- drivers/net/via-velocity.c | 88263 -> 88120 (-143 bytes)
- drivers/net/via-velocity.o | 254264 -> 253828 (-436 bytes)
+> ...
+> > Is the protocol documented somewhere? aoe.txt only points at
+> > HOWTO... aha, protocol is linked from wikipedia.
+> > http://www.coraid.com/documents/AoEr10.txt ... perhaps that should be
+> > linked from aoe.txt, too?
+> 
+> Perhaps.  Most people reading the aoe.txt file won't need to refer to
+> the protocol itself, though.
 
- drivers/net/via-velocity.c |   24 ++++++++++--------------
- 1 file changed, 10 insertions(+), 14 deletions(-)
+Some of your users are developers, too :-). Should I generate a patch?
 
---- linux-2.6.23-rc1-mm1-a/drivers/net/via-velocity.c	2007-07-26 13:07:43.000000000 +0200
-+++ linux-2.6.23-rc1-mm1-b/drivers/net/via-velocity.c	2007-07-31 13:50:28.000000000 +0200
-@@ -1071,14 +1071,12 @@ static int velocity_rx_refill(struct vel
+> > Hmm, aoe protocol is really trivial. Perhaps netpoll/netconsole
+> > infrastructure could be used to create driver good enough for
+> > swapping? (Ok, it would not neccessarily perform too well, but... we'd
+> > simply wait for the reply synchronously. It should be pretty simple).
+> 
+> I think that in general you still need a way to receive write
+> confirmations without allocating memory, and the driver can't provide
+> that mechanism.  The problem is that when memory is scarce, writes of
+> dirty data must be able to complete, but because memory is scarce,
+> there might not be enough to receive and process packets write-reponse
+> packets, and the driver has no way of affecting the situation.  That's
+> why I think a callback could work: The network layer could allow
+> storage drivers to register a callback that recognizes write
+> responses.
 
- static int velocity_init_rd_ring(struct velocity_info *vptr)
- {
--	int ret = -ENOMEM;
--	unsigned int rsize = sizeof(struct velocity_rd_info) *
--					vptr->options.numrx;
-+	int ret;
+Hmm, ok, it is not as simple as I thought. include/linux/netpoll.h
+already includes mechanism to notify interested parties really soon,
+but drivers still call dev_alloc_skb() before that.
 
--	vptr->rd_info = kmalloc(rsize, GFP_KERNEL);
--	if(vptr->rd_info == NULL)
--		goto out;
--	memset(vptr->rd_info, 0, rsize);
-+	vptr->rd_info = kcalloc(vptr->options.numrx,
-+				sizeof(struct velocity_rd_info), GFP_KERNEL);
-+	if (!vptr->rd_info)
-+		return -ENOMEM;
+> Usually the callback would not be used, but if free pages became so
+> scarce that network receives could not take place in a normal fashion,
+> the (zero or few) registered callbacks would be used to quickly
+> determine whether each packet was a write response.  The distinction
+> is important, because write responses can result in the freeing of
+> pages.
 
- 	vptr->rd_filled = vptr->rd_dirty = vptr->rd_curr = 0;
+Hmm, adding GFP_GIVE_ME_EMERGENCY_POOLS to dev_alloc_skb(), then doing
 
-@@ -1088,7 +1086,7 @@ static int velocity_init_rd_ring(struct
- 			"%s: failed to allocate RX buffer.\n", vptr->dev->name);
- 		velocity_free_rd_ring(vptr);
- 	}
--out:
-+
- 	return ret;
- }
+...
 
-@@ -1142,21 +1140,19 @@ static int velocity_init_td_ring(struct
- 	dma_addr_t curr;
- 	struct tx_desc *td;
- 	struct velocity_td_info *td_info;
--	unsigned int tsize = sizeof(struct velocity_td_info) *
--					vptr->options.numtx;
+int netif_rx(struct sk_buff *skb)
+{
+	struct softnet_data *queue;
+	unsigned long flags;
 
- 	/* Init the TD ring entries */
- 	for (j = 0; j < vptr->num_txq; j++) {
- 		curr = vptr->td_pool_dma[j];
+	/* if netpoll wants it, pretend we never saw it */
+	if (netpoll_rx(skb))
+		return NET_RX_DROP;
 
--		vptr->td_infos[j] = kmalloc(tsize, GFP_KERNEL);
--		if(vptr->td_infos[j] == NULL)
--		{
-+		vptr->td_infos[j] = kcalloc(vptr->options.numtx,
-+					    sizeof(struct velocity_td_info),
-+					    GFP_KERNEL);
-+		if (!vptr->td_infos[j])	{
- 			while(--j >= 0)
- 				kfree(vptr->td_infos[j]);
- 			return -ENOMEM;
- 		}
--		memset(vptr->td_infos[j], 0, tsize);
+	if (memory_is_still_very_low())
+		return NET_RX_DROP;
 
- 		for (i = 0; i < vptr->options.numtx; i++, curr += sizeof(struct tx_desc)) {
- 			td = &(vptr->td_rings[j][i]);
+...should do the trick. Would something like that be acceptable to
+network people?
+								Pavel
+-- 
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
