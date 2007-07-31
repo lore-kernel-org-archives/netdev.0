@@ -1,36 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: RFC: on [ab]use of skb->cb by VLAN code
-Date: Mon, 30 Jul 2007 22:18:47 -0700 (PDT)
-Message-ID: <20070730.221847.74747100.davem@davemloft.net>
-References: <1185847324.5162.31.camel@localhost>
-	<20070730.190621.13770511.davem@davemloft.net>
-	<46AEBADB.7030007@candelatech.com>
+Subject: Re: [PATCH net-2.6 1/2] [TCP]: Fix ratehalving with bidirectional
+ flows
+Date: Mon, 30 Jul 2007 22:21:12 -0700 (PDT)
+Message-ID: <20070730.222112.41634340.davem@davemloft.net>
+References: <Pine.LNX.4.64.0707302017290.8788@kivilampi-30.cs.helsinki.fi>
+	<20070730.194946.08653937.davem@davemloft.net>
+	<Pine.LNX.4.64.0707310751260.15079@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, kaber@trash.net, netdev@vger.kernel.org,
-	mcarlson@broadcom.com
-To: greearb@candelatech.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36645
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45716
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1758149AbXGaFSs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jul 2007 01:18:48 -0400
-In-Reply-To: <46AEBADB.7030007@candelatech.com>
+	by vger.kernel.org with ESMTP id S1756284AbXGaFVL convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 31 Jul 2007 01:21:11 -0400
+In-Reply-To: <Pine.LNX.4.64.0707310751260.15079@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ben Greear <greearb@candelatech.com>
-Date: Mon, 30 Jul 2007 21:30:19 -0700
+=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Tue, 31 Jul 2007 07:59:10 +0300 (EEST)
 
-> So, shall we add a new field to the skb in order to get the info out of cb?
-> 
-> Looks like a single 32-bit field would be sufficient.
+> I think it's probably good to add tp->snd_una !=3D prior_snd_una
+> check there too... It's not going to make a large difference,
+> mostly just to be conservative when skb collapse stuff got done
+> (and maybe to annoy cheaters too though I couldn't at this point
+> figure out how they could abuse it)...
+>=20
+> ...I think I can come up with that on Wednesday, so please hold
+> stable push until that.
 
-I'm trying to brainstorm how to avoid consuming new space in
-sk_buff and I'd like others to do so as well.
+It'll definitely need to wait at least a day as I cannot even make TCP
+or UDP connections out from my machine with the current net-2.6 tree,
+and this is what I'm debugging at the moment.
 
-This isn't super urgent at all so I'll just think about it
-on the backburner, things like the NAPI changes and dealing
-with all of today's networking bug fixes is my top priority
-at the moment.
+I'm hoping that it's just something stupid like the make not
+rebuilding everything necessary after I changed the __u16's into
+__u32's in skb_frag_t.
