@@ -1,44 +1,42 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: RE: [FIX] NET: Fix sch_api and sch_prio to properly set and detect the root qdisc
-Date: Mon, 30 Jul 2007 17:14:47 -0700
-Message-ID: <D5C1322C3E673F459512FB59E0DDC3290353A2D0@orsmsx414.amr.corp.intel.com>
-References: <20070730.171412.38711276.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] IPv6: ipv6_addr_type() doesn't know about RFC4193
+ addresses
+Date: Mon, 30 Jul 2007 17:21:05 -0700 (PDT)
+Message-ID: <20070730.172105.35015509.davem@davemloft.net>
+References: <18087.57717.495366.413571@zeus.sw.starentnetworks.com>
+	<20070726.133452.78498553.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, <kaber@trash.net>
-To: "David Miller" <davem@davemloft.net>
+Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Transfer-Encoding: 7bit
+Cc: djohnson+linux-kernel@sw.starentnetworks.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	lksctp-developers@lists.sourceforge.net,
+	sakkiped@starentnetworks.com
+To: yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:56179 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760933AbXGaAOt convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jul 2007 20:14:49 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20070730.171412.38711276.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45543
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1761278AbXGaAVG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jul 2007 20:21:06 -0400
+In-Reply-To: <20070726.133452.78498553.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net] 
-> Sent: Monday, July 30, 2007 5:14 PM
-> To: Waskiewicz Jr, Peter P
-> Cc: netdev@vger.kernel.org; kaber@trash.net
-> Subject: Re: [FIX] NET: Fix sch_api and sch_prio to properly 
-> set and detect the root qdisc
-> 
-> From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-> Date: Fri, 27 Jul 2007 09:22:11 -0700
-> 
-> > 	Are these queued for 2.6.24, or are they going to make it into 
-> > 2.6.23?  I know you're busy with patches and NAPI, but I 
-> was curious.  
-> > Thanks!
-> 
-> I've applied both fixes and will push them into 2.6.23
+From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
+Date: Thu, 26 Jul 2007 13:34:52 -0500 (CDT)
 
+> In article <18087.57717.495366.413571@zeus.sw.starentnetworks.com> (at Wed, 25 Jul 2007 19:49:09 -0400), Dave Johnson <djohnson+linux-kernel@sw.starentnetworks.com> says:
+> 
+> > ipv6_addr_type() doesn't check for 'Unique Local IPv6 Unicast
+> > Addresses' (RFC4193) and returns IPV6_ADDR_RESERVED for that range.
+> 
+> Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
-Many thanks Dave!
+Ok, I've applied Dave's patch.
 
-Cheers,
--PJ
+Dave, although it's customary and fine to use "+foo-list" email
+addresses for mailing list subscriptions and discussions, I
+ask that you don't add that cookie to your signoff lines in
+patch submissions and I've removed it from your's in this patch.
+
+Thanks a lot.
