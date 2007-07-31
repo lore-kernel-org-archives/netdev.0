@@ -1,40 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6 0/2] [TCP]: Fix bidirectional brokeness
-Date: Mon, 30 Jul 2007 19:54:24 -0700 (PDT)
-Message-ID: <20070730.195424.45876304.davem@davemloft.net>
-References: <Pine.LNX.4.64.0707301947210.8788@kivilampi-30.cs.helsinki.fi>
+From: "Arnaldo Carvalho de Melo" <acme@ghostprotocols.net>
+Subject: Re: [PATCH] [NET]: fix multicast list when cloning sockets
+Date: Tue, 31 Jul 2007 00:00:41 -0300
+Message-ID: <39e6f6c70707302000l52926c9ar927fd550467ce3e3@mail.gmail.com>
+References: <20070730160448.GA4002@redhat.com>
+	 <20070730.190144.26963470.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: ilpo.jarvinen@helsinki.fi
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: fleitner@redhat.com, dlstevens@us.ibm.com, netdev@vger.kernel.org
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40537
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755120AbXGaCyc convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Jul 2007 22:54:32 -0400
-In-Reply-To: <Pine.LNX.4.64.0707301947210.8788@kivilampi-30.cs.helsinki.fi>
+Received: from ug-out-1314.google.com ([66.249.92.168]:59916 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1764383AbXGaDAm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jul 2007 23:00:42 -0400
+Received: by ug-out-1314.google.com with SMTP id j3so36388ugf
+        for <netdev@vger.kernel.org>; Mon, 30 Jul 2007 20:00:41 -0700 (PDT)
+In-Reply-To: <20070730.190144.26963470.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-Date: Mon, 30 Jul 2007 20:16:54 +0300 (EEST)
+On 7/30/07, David Miller <davem@davemloft.net> wrote:
+> From: Flavio Leitner <fleitner@redhat.com>
+> Date: Mon, 30 Jul 2007 13:04:48 -0300
+>
+> >
+> > The sock_copy() function uses memcpy() to clone the socket
+> > including the struct ip_mc_socklist *mc_list pointer.
+> >
+> > The ip_mc_drop_socket() function is called when socket is closed
+> > to free these objects leaving the other sockets cloned from the
+> > same master socket with invalid pointers.
+> >
+> > This patch sets mc_list of cloned socket to NULL.
+> >
+> > Signed-off-by: Flavio Leitner <fleitner@redhat.com>
+>
+> Allowing non-datagram sockets to end up with a non-NULL inet->mc_list
+> in the first place is a bug.
+>
+> Multicast subscriptions cannot even be used with TCP and DCCP, which
+> are the only two users of these connection oriented socket functions.
+>
+> The first thing that TCP and DCCP do, in fact, for input packet
+> processing is drop the packet if it is not unicast.
+>
+> Therefore the fix really is for the inet layer to reject multicast
+> subscription requests on sockets for which that absolutely does not
+> make sense.  There is no reason these functions in
+> inet_connection_sock.c should need to be mindful of multicast
+> state. :-)
 
-> These will generate you some hassle when you rebase tcp-2.6. Btw, you=
-=20
-> forgot to push tcp-2.6 out last time though I could assume it's
-> state... :-) In case you're going to now push it out, could you pleas=
-e
-> drop "[TCP]: Remove num_acked>0 checks from cong.ctrl mods pkts_acked=
-"
-> from it as it seems to be out of place in tcp-2.6, I can resubmit it
-> to net-2.6.24 when you open it (unless you want to put it to net-2.6=20
-> directly as it's rather trivial one).
+Well, we can add a BUG_ON there then 8)
 
-It has been in the back of my mind to take care of the tcp-2.6
-tree and rebase it for you and others.
+Flavio, take a look at  do_ip_setsockopt in net/ipv4/ip_sockglue.c, in
+the IP_{ADD,DROP}_MEMBERSHIP labels.
 
-I'll take a stab at that soon hopefully.
+Don't forget IPV6 (net/ipv6/ipv6_sockglue.c)
 
-Thanks for reminding me.
+- Arnaldo
