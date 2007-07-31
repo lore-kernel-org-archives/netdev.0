@@ -1,46 +1,72 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RFC]: napi_struct V4
-Date: Mon, 30 Jul 2007 17:25:45 -0700 (PDT)
-Message-ID: <20070730.172545.59831449.davem@davemloft.net>
-References: <1551EAE59135BE47B544934E30FC4FC002AAB9F8@nt-irva-0751.brcm.ad.broadcom.com>
-	<20070726.001516.48528000.davem@davemloft.net>
-	<1185485889.7922.83.camel@dell>
+From: Satyam Sharma <satyam@infradead.org>
+Subject: Re: [PATCH v3 -mm 9/9] netconsole: Support dynamic reconfiguration
+ using configfs
+Date: Tue, 31 Jul 2007 06:10:21 +0530 (IST)
+Message-ID: <alpine.LFD.0.999.0707310603570.17287@enigma.security.iitk.ac.in>
+References: <20070730024741.10828.48209.sendpatchset@enigma.security.iitk.ac.in>
+ <20070730024910.10828.44721.sendpatchset@enigma.security.iitk.ac.in>
+ <20070730171306.49b49818.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@linux-foundation.org,
-	jgarzik@pobox.com, hadi@cyberus.ca, rusty@rustcorp.com.au
-To: mchan@broadcom.com
+Content-Type: TEXT/PLAIN; charset=us-ascii
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Keiichi Kii <k-keiichi@bx.jp.nec.com>,
+	Netdev <netdev@vger.kernel.org>,
+	Joel Becker <joel.becker@oracle.com>,
+	Matt Mackall <mpm@selenic.com>,
+	David Miller <davem@davemloft.net>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55316
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1760830AbXGaAZq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jul 2007 20:25:46 -0400
-In-Reply-To: <1185485889.7922.83.camel@dell>
+Received: from pentafluge.infradead.org ([213.146.154.40]:33394 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755079AbXGaA2B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jul 2007 20:28:01 -0400
+In-Reply-To: <20070730171306.49b49818.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Thu, 26 Jul 2007 14:38:09 -0700
 
-> If the driver wants a simple solution, it can do what you did in the
-> patch:  wrap the tx cleanup code with netif_tx_lock() and
-> netif_tx_unlock().
+
+On Mon, 30 Jul 2007, Andrew Morton wrote:
+
+> On Mon, 30 Jul 2007 08:19:10 +0530
+> Satyam Sharma <satyam@infradead.org> wrote:
 > 
-> If a NAPI driver wants to be more clever, it can do something such as
-> this in tg3's poll_controller:
+> > +/*
+> > + * Wrapper over simple_strtol (base 10) with sanity and range checking.
+> > + * We return (signed) long only because we may want to return errors.
+> > + * Do not use this to convert numbers that are allowed to be negative.
+> > + */
+> > +static long strtol10_check_range(const char *cp, long min, long max)
+> > +{
+> > +	long ret;
+> > +	char *p = (char *) cp;
+> > +
+> > +	WARN_ON(min < 0);
+> > +	WARN_ON(max < min);
+> > +
+> > +	ret = simple_strtol(p, &p, 10);
+> > +
+> > +	if (*p && (*p != '\n')) {
+> > +		printk(KERN_ERR "netconsole: invalid input\n");
+> > +		return -EINVAL;
+> > +	}
+> > +	if ((ret < min) || (ret > max)) {
+> > +		printk(KERN_ERR "netconsole: input %ld must be between "
+> > +				"%ld and %ld\n", ret, min, max);
+> > +		return -EINVAL;
+> > +	}
+> > +
+> > +	return ret;
+> > +}
 > 
-> if (netif_rx_schedule_prep(dev, &tp->napi)) {
-> 	tg3_tx(tp);
-> 	netif_poll_enable(tp->napi);
-> }
+> There's probably other code around the place which does this.  It might
+> be worth making this function a general-purpose thing.
 
-Thanks Michael, that's a good suggestion and would work.
+Probably, yes, I thought along similar lines.
 
-In thinking about this some more over the weekend I've decided
-that my plan to rip out RX support from netpoll is a bit too
-ambitious.
+[ BTW somewhere in the 9/9 patch I remember having to define a
+  __U16_MAX as well. That could be pushed out to some generic
+  or appropriate header as well, possibly. ]
 
-Therefore, for the time being, I'm going to add a special driver
-function for netpoll that will allow it to ask the driver to invoke
-->poll() over all the NAPI structs assosciated with the netdev.
+
+Satyam
