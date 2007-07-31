@@ -1,50 +1,39 @@
-From: Florian Zumbiehl <florz@florz.de>
-Subject: Re: [RESEND][PATCH 1/3] PPPoE: improved hashing routine
-Date: Tue, 31 Jul 2007 13:05:47 +0200
-Message-ID: <20070731110547.GC12071@florz.florz.dyndns.org>
-References: <20070731080719.GA12071@florz.florz.dyndns.org> <20070731.012609.41193630.davem@davemloft.net> <20070731090159.GB12071@florz.florz.dyndns.org> <20070731.021602.48807945.davem@davemloft.net>
+From: Joakim Koskela <joakim.koskela@hiit.fi>
+Subject: Re: [PATCH net-2.6.22-rc7] xfrm beet interfamily support
+Date: Tue, 31 Jul 2007 14:08:15 +0300
+Message-ID: <200707311408.15231.joakim.koskela@hiit.fi>
+References: <200707161506.47915.joakim.koskela@hiit.fi> <200707311339.39913.joakim.koskela@hiit.fi> <46AF143E.9080709@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: mostrows@earthlink.net, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [77.10.169.56] ([77.10.169.56]:53025 "EHLO
-	rain.florz.dyndns.org" rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1752309AbXGaLF4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jul 2007 07:05:56 -0400
+Received: from creon.otaverkko.fi ([212.68.0.5]:54266 "EHLO creon.otaverkko.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754137AbXGaLHP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 31 Jul 2007 07:07:15 -0400
+In-Reply-To: <46AF143E.9080709@trash.net>
 Content-Disposition: inline
-In-Reply-To: <20070731.021602.48807945.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Tuesday 31 July 2007 13:51:42 Patrick McHardy wrote:
+> Joakim Koskela wrote:
+> > I'm not sure I really got this. IPv6/IPv4 means IPv6 inner, IPv4 outer,
+> > right? Isn't that called from xfrm4_output_one and subsequently passed
+> > through the right filters as well (as it has a ipv4 header by then)?
+>
+> I think you're right, it uses xfrm4_output. But there's a mismatch
+> in either case, in both cases (IPv4 and IPv6) we first call the
+> POSTROUTING hook for this family, than do the transform (changing
+> the family), then call the OUTPUT hook for the same family. So
+> either the POSTROUTING or the OUTPUT hook is called for the wrong
+> family.
 
-> > > Actually it might be simpler and more efficient to just make
-> > > PPPOE_HASH_SHIFT be 8.
-> > 
-> > SHIFT? SIZE? BITS?
-> 
-> You know what I meant :-)
-> 
-> PPPOE_HASH_BITS.
+Ok, so changing int xfrm[46]_output(struct sk_buff*) to use the right PF & 
+hook based on the skb's [current] family should put things through the right 
+hoops, right?
 
-Actually, I wasn't sure, for "SHIFT" looks more similar to "SIZE"
-than to "BITS", plus numbers are somewhat same order of magnitude
-anyway, and I didn't quite see what you were up to, so ... whatever ;-)
-
-> I guess otherwise we degenerate back to your original patch :)
-
-Well, as I don't quite see what you were up to and as my patch doesn't
-change anything about the semantics of the code, I'd at least prefer
-that over your other suggestions so far ;-)
-
-A few variations I tried back when I created the patch, using larger
-things than a char for accumulating the pieces and then folding down
-from that, turned out to be slower than what I finally submitted, at
-least on the machines I tested it on. I didn't do comprehensive testing,
-as it really doesn't matter, after all, but I think the version I
-submitted is pretty fast, plus it's quite readable, and it keeps the
-flexibility of different hash sizes, but still should allow the
-compiler to optimize away the loops that allow for this flexibility.
-
-Florian
+br, j
