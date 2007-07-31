@@ -1,61 +1,76 @@
-From: "Siddharth Taneja" <siddharth.taneja@gmail.com>
-Subject: Scatter gather and TCP MD5
-Date: Tue, 31 Jul 2007 03:17:25 -0700
-Message-ID: <526ad3230707310317p537d6cfdj2820a0ffe77c059b@mail.gmail.com>
+From: Gabriel C <nix.or.die@googlemail.com>
+Subject: Re: NETPOLL=y , NETDEVICES=n compile error ( Re: 2.6.23-rc1-mm1 )
+Date: Tue, 31 Jul 2007 12:14:36 +0200
+Message-ID: <46AF0B8C.7070006@googlemail.com>
+References: <20070731083210.GA1797@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jason.wessel@windriver.com, amitkale@linsyssoft.com
+To: Jarek Poplawski <jarkao2@o2.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.182]:2997 "EHLO
-	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757631AbXGaKR1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jul 2007 06:17:27 -0400
-Received: by py-out-1112.google.com with SMTP id d32so3219199pye
-        for <netdev@vger.kernel.org>; Tue, 31 Jul 2007 03:17:26 -0700 (PDT)
-Content-Disposition: inline
+Received: from nf-out-0910.google.com ([64.233.182.186]:49916 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752860AbXGaKTX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jul 2007 06:19:23 -0400
+Received: by nf-out-0910.google.com with SMTP id g13so210929nfb
+        for <netdev@vger.kernel.org>; Tue, 31 Jul 2007 03:19:21 -0700 (PDT)
+In-Reply-To: <20070731083210.GA1797@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+Jarek Poplawski wrote:
+> On 28-07-2007 20:42, Gabriel C wrote:
+>> Andrew Morton wrote:
+>>> On Sat, 28 Jul 2007 17:44:45 +0200 Gabriel C <nix.or.die@googlemail.com> wrote:
+>>>
+>>>> Hi,
+>>>>
+>>>> I got this compile error with a randconfig ( http://194.231.229.228/MM/randconfig-auto-82.broken.netpoll.c ).
+>>>>
+>>>> ...
+>>>>
+>>>> net/core/netpoll.c: In function 'netpoll_poll':
+>>>> net/core/netpoll.c:155: error: 'struct net_device' has no member named 'poll_controller'
+>>>> net/core/netpoll.c:159: error: 'struct net_device' has no member named 'poll_controller'
+>>>> net/core/netpoll.c: In function 'netpoll_setup':
+>>>> net/core/netpoll.c:670: error: 'struct net_device' has no member named 'poll_controller'
+>>>> make[2]: *** [net/core/netpoll.o] Error 1
+>>>> make[1]: *** [net/core] Error 2
+>>>> make: *** [net] Error 2
+>>>> make: *** Waiting for unfinished jobs....
+>>>>
+>>>> ...
+>>>>
+>>>>
+>>>> I think is because KGDBOE selects just NETPOLL.
+>>>>
+>>> Looks like it.
+>>>
+>>> Select went and selected NETPOLL and NETPOLL_TRAP but things like
+>>> CONFIG_NETDEVICES and CONFIG_NET_POLL_CONTROLLER remain unset.  `select'
+>>> remains evil.
+> ...
+>> I think there may be a logical issue ( again if I got it right ).
+>> We need some ethernet card to work with kgdboe right ? but we don't have any if !NETDEVICES && !NET_ETHERNET.
+>>
+>> So maybe some ' depends on ... && NETDEVICES!=n && NET_ETHERNET!=n ' is needed too ? 
+> 
+> IMHO, the only logical issue here is netpoll.c mustn't use 
+> CONFIG_NET_POLL_CONTROLLER code without #ifdef if it doesn't
+> add this dependency itself.
+> 
 
-I am using a vanilla 2.6.22.1 kernel and I see the same kind of
-problem as had been mentioned some time back on this list
+Well it does if NETDEVICES && if NET_ETHERNET which booth are N when !NETDEVICES is why KGDBOE uses select and not depends on.
 
-http://lkml.org/lkml/2007/5/22/45
+Now KGDBOE just selects NETPOLL and NETPOLL_TRAP.
+Adding 'select CONFIG_NET_POLL_CONTROLLER' let kgdboe compiles but the question is does it work without any ethernet card ?
 
-The issue is essentially that with the MD5 option enabled for the
-specific TCP connection, the SYN and SYN-ACKS are passed ok and the
-connection establishes fine, but the other end (a cisco router)
-complains about incorrect MD5 signatures on any other message that is
-sent after this.
+> Cheers,
+> Jarek P. 
+> 
 
-Setting the scatter-gather offloading option to off on the NIC seems to
-correct this problem. Recently I had seen a checkin (as a response to
-the problem mentioned in the above link) where the TSO option was
-turned off to make MD5 work (my kernel has that fix). Is a similar
-solution needed here too?
 
-This is the information about my system:
-> uname -a
-Linux stdalone 2.6.22.1 #1 SMP Mon Jul 23 20:15:21 PDT 2007 i686 i686
-i386 GNU/Linux
-
-> ethtool -i eth0
-driver: e1000
-version: 7.3.20-k2
-firmware-version: N/A
-bus-info: 0000:01:0a.0
-
-> ethtool -k eth0
-Offload parameters for eth0:
-rx-checksumming: on
-tx-checksumming: on
-scatter-gather: off
-tcp segmentation offload: off
-
-Thanks for your help.
-
-Siddharth
-
-PS: I would like to be CC'ed on the reply to this email. Thanks.
+Gabriel
