@@ -1,106 +1,78 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: [patch] genirq: temporary fix for level-triggered IRQ resend
-Date: Tue, 31 Jul 2007 17:58:43 +0200
-Message-ID: <20070731155843.GA7033@elte.hu>
-References: <alpine.LFD.0.999.0707241228291.3607@woody.linux-foundation.org> <20070724200431.GA22190@elte.hu> <1185322771.4175.102.camel@chaos> <4bacf17f0707260016x14fc1c92s628ae64353663833@mail.gmail.com> <20070726081326.GA3197@ff.dom.local> <1185437431.3227.21.camel@chaos> <20070726083120.GA26910@elte.hu> <20070726085523.GA3423@ff.dom.local> <20070726091254.GA8063@elte.hu> <4bacf17f0707300029g5116e70bq4808059dc8b069f1@mail.gmail.com>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH net-2.6 1/2] [TCP]: Fix ratehalving with bidirectional
+ flows
+Date: Tue, 31 Jul 2007 18:59:06 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0707311817370.15687@kivilampi-30.cs.helsinki.fi>
+References: <Pine.LNX.4.64.0707310751260.15079@kivilampi-30.cs.helsinki.fi>
+ <20070730.222112.41634340.davem@davemloft.net> <20070731105113.4730d9bb@oldman.hamilton.local>
+ <20070731.025827.07638506.davem@davemloft.net> <20070731143726.3fecfe86@oldman.hamilton.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jarek Poplawski <jarkao2@o2.pl>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Jean-Baptiste Vignaud <vignaud@xandmail.fr>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	shemminger <shemminger@linux-foundation.org>,
-	linux-net <linux-net@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>, marcin.slusarz@gmail.com
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <linux-net-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4bacf17f0707300029g5116e70bq4808059dc8b069f1@mail.gmail.com>
-Sender: linux-net-owner@vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, Netdev <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:48191 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1762368AbXGaP7I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jul 2007 11:59:08 -0400
+In-Reply-To: <20070731143726.3fecfe86@oldman.hamilton.local>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, 31 Jul 2007, Stephen Hemminger wrote:
 
-Linus,
+> I noticed no difference in the two flow tests.  That is not a bad thing, just
+> that this test doesn't hit that code.
 
-with -rc2 approaching i think we should apply the minimal fix below to 
-get Marcin's ne2k-pci networking back in working order. The 
-WARN_ON_ONCE() will not prevent the system from working and it will be a 
-reminder.
+...I'm not too sure about your test setup but the bugs I fixed only cover 
+cases that occur if flow is bidirectional (and obviously active in both 
+directions at the same time), they won't occur in a case of unidirectional 
+transfer or in request-reply style connections (well, in the latter 
+case if there's some overlap, it can have effect but that's usually 
+not significant)...
 
-a better workaround would be to inhibit the resent vector via the 
-IO-APIC irqchip - but i'd still like to have the patch below because the 
-ne2k driver _should_ be able to survive the spurious irq that happens. 
-(even on Marcin's system that ne2k-pci irq line is shared with another 
-networking card, so an irq could happen at any moment - it's just that 
-with the delayed-disable logic it happens _all the time_.)
+In case of bidirectional transfers, you *should* see some difference as 
+previously the fast recovery was _very_ broken. Of course there could be 
+other issue with large cwnd TCP that hides it by going to RTO still, but 
+at least over 384k/200ms link (DBP sized buffers, IIRC), these change
+behavior very dramatically, mainly in the initial slow-start overshoot 
+recovery because in there losses per RTT is so high number compared to 
+what is experienced later on. One or a few losses are usually recovered 
+without RTO when congestion happens later on.
 
-	Ingo
+> The anomaly is that first flow does slow start then gets loss and ends up
+> reducing it's window size all the way to the bottom, finally it recovers.
+> This happens with Cubic, H-TCP and others as well; if the queue in the
+> network is large enough, they don't handle the initial loss well.
 
------------------------>
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: genirq: temporary fix for level-triggered IRQ resend
+...TCP related stuff that changed in /proc/net/netstat might shed 
+some light to this if none of the given explinations please you... :-)
 
-delayed disable relies on the ability to re-trigger the interrupt in the
-case that a real interrupt happens after the software disable was set.
-In this case we actually disable the interrupt on the hardware level
-_after_ it occurred.
+> See the graph.
 
-On enable_irq, we need to re-trigger the interrupt. On i386 this relies
-on a hardware resend mechanism (send_IPI_self()). 
+What exactly do you mean by "RENO" in the title, I mean what's tcp_sack 
+set to? There is occassionally a bit confusion in that respect in the 
+terminology @ netdev, I've used to reno refering to non-SACK stuff 
+elsewhere but in here that's not always the case... Usually it's possible 
+to derive the correct interpretation from the context, but in this case 
+I'm not too sure... :-)
 
-Actually we only need the resend for edge type interrupts. Level type
-interrupts come back once enable_irq() re-enables the interrupt line.
+What I often have often seen with non-SACK TCP is that initial slow-start 
+exhausts even very large advertised window on high DBP link and then due 
+to draining of ACK feedback, gets RTOed... That usually shows up as long 
+lasting recovery where one segment per RTT is recovered and new data is 
+being sent as duplicate ACKs arrive with nearly constant rate until the 
+window limit is hit (but I cannot see such periond in the graph you 
+posted, so I guess it's not the explanation in this case). And if your 
+"RENO" refers to something with SACK, that's not going to explain it 
+anyway.
 
-I assume that the interrupt in question is level triggered because it is
-shared and above the legacy irqs 0-15:
+...Another nasty one I know is RED+ECN, though I'd say it's a bit far 
+fetched one, as ECN cannot be used nicely in retransmission, 
+a retransmission gets dropped instead of marking if RED wanted to mark.
+I guess that doesn't occur in your test case either?
 
-	17:         12   IO-APIC-fasteoi   eth1, eth0
 
-Looking into the IO_APIC code, the resend via send_IPI_self() happens
-unconditionally. So the resend is done for level and edge interrupts.
-This makes the problem more mysterious.
-
-The code in question lib8390.c does
-
-	disable_irq();
-	fiddle_with_the_network_card_hardware()
-	enable_irq();
-
-The fiddle_with_the_network_card_hardware() might cause interrupts,
-which are cleared in the same code path again,
-
-Marcin found that when he disables the irq line on the hardware level
-(removing the delayed disable) the card is kept alive.
-
-So the difference is that we can get a resend on enable_irq, when an
-interrupt happens during the time, where we are in the disabled region.
-
-Signed-off-by: Ingo Molnar <mingo@elte.hu>
----
- kernel/irq/resend.c |    9 +++++++++
- 1 file changed, 9 insertions(+)
-
-Index: linux/kernel/irq/resend.c
-===================================================================
---- linux.orig/kernel/irq/resend.c
-+++ linux/kernel/irq/resend.c
-@@ -62,6 +62,15 @@ void check_irq_resend(struct irq_desc *d
- 	 */
- 	desc->chip->enable(irq);
- 
-+	/*
-+	 * Temporary hack to figure out more about the problem, which
-+	 * is causing the ancient network cards to die.
-+	 */
-+	if (desc->handle_irq != handle_edge_irq) {
-+		WARN_ON_ONCE(1);
-+		return;
-+	}
-+
- 	if ((status & (IRQ_PENDING | IRQ_REPLAY)) == IRQ_PENDING) {
- 		desc->status = (status & ~IRQ_PENDING) | IRQ_REPLAY;
- 
-
+-- 
+ i.
