@@ -1,72 +1,82 @@
-From: Satyam Sharma <satyam@infradead.org>
-Subject: Re: [PATCH v3 -mm 9/9] netconsole: Support dynamic reconfiguration
- using configfs
-Date: Tue, 31 Jul 2007 06:10:21 +0530 (IST)
-Message-ID: <alpine.LFD.0.999.0707310603570.17287@enigma.security.iitk.ac.in>
-References: <20070730024741.10828.48209.sendpatchset@enigma.security.iitk.ac.in>
- <20070730024910.10828.44721.sendpatchset@enigma.security.iitk.ac.in>
- <20070730171306.49b49818.akpm@linux-foundation.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RESEND][PATCH 1/3] PPPoE: improved hashing routine
+Date: Mon, 30 Jul 2007 17:47:21 -0700 (PDT)
+Message-ID: <20070730.174721.17862949.davem@davemloft.net>
+References: <20070729060423.GA27573@florz.florz.dyndns.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=us-ascii
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Keiichi Kii <k-keiichi@bx.jp.nec.com>,
-	Netdev <netdev@vger.kernel.org>,
-	Joel Becker <joel.becker@oracle.com>,
-	Matt Mackall <mpm@selenic.com>,
-	David Miller <davem@davemloft.net>
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: mostrows@earthlink.net, netdev@vger.kernel.org
+To: florz@florz.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:33394 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755079AbXGaA2B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jul 2007 20:28:01 -0400
-In-Reply-To: <20070730171306.49b49818.akpm@linux-foundation.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33307
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1756805AbXGaArW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jul 2007 20:47:22 -0400
+In-Reply-To: <20070729060423.GA27573@florz.florz.dyndns.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Florian Zumbiehl <florz@florz.de>
+Date: Sun, 29 Jul 2007 08:04:23 +0200
 
-
-On Mon, 30 Jul 2007, Andrew Morton wrote:
-
-> On Mon, 30 Jul 2007 08:19:10 +0530
-> Satyam Sharma <satyam@infradead.org> wrote:
+> Hi,
 > 
-> > +/*
-> > + * Wrapper over simple_strtol (base 10) with sanity and range checking.
-> > + * We return (signed) long only because we may want to return errors.
-> > + * Do not use this to convert numbers that are allowed to be negative.
-> > + */
-> > +static long strtol10_check_range(const char *cp, long min, long max)
-> > +{
-> > +	long ret;
-> > +	char *p = (char *) cp;
-> > +
-> > +	WARN_ON(min < 0);
-> > +	WARN_ON(max < min);
-> > +
-> > +	ret = simple_strtol(p, &p, 10);
-> > +
-> > +	if (*p && (*p != '\n')) {
-> > +		printk(KERN_ERR "netconsole: invalid input\n");
-> > +		return -EINVAL;
-> > +	}
-> > +	if ((ret < min) || (ret > max)) {
-> > +		printk(KERN_ERR "netconsole: input %ld must be between "
-> > +				"%ld and %ld\n", ret, min, max);
-> > +		return -EINVAL;
-> > +	}
-> > +
-> > +	return ret;
-> > +}
+> I'm not sure whether this is really worth it, but it looked so
+> extremely inefficient that I couldn't resist - so let's hope providers
+> will keep PPPoE around for a while, at least until terabit dsl ;-)
 > 
-> There's probably other code around the place which does this.  It might
-> be worth making this function a general-purpose thing.
+> The new code produces the same results as the old version and is
+> ~ 3 to 6 times faster for 4-bit hashes on the CPUs I tested.
+> 
+> Florian
+> 
+> ---------------------------------------------------------------------------
+> Signed-off-by: Florian Zumbiehl <florz@florz.de>
+> 
+> diff --git a/drivers/net/pppoe.c b/drivers/net/pppoe.c
+> index 9e51fcc..954328c 100644
+> --- a/drivers/net/pppoe.c
+> +++ b/drivers/net/pppoe.c
+> @@ -108,19 +108,24 @@ static inline int cmp_addr(struct pppoe_addr *a, unsigned long sid, char *addr)
+>  		(memcmp(a->remote,addr,ETH_ALEN) == 0));
+>  }
+>  
+> -static int hash_item(unsigned long sid, unsigned char *addr)
+> +#if 8%PPPOE_HASH_BITS
+> +#error 8 must be a multiple of PPPOE_HASH_BITS
+> +#endif
 
-Probably, yes, I thought along similar lines.
+Since PPPOE_HASH_BITS is "4" I would think this check will break the
+build. :-)
 
-[ BTW somewhere in the 9/9 patch I remember having to define a
-  __U16_MAX as well. That could be pushed out to some generic
-  or appropriate header as well, possibly. ]
+Anyways, I looked at this myself and half of the problem comes from
+the fact that "sid" is passed around as an "unsigned long" throughout
+this entire file yet the thing is just a "__u16".
 
+So the first thing to fix is to use __u16 consistently for sid values.
+Then the sid hash looks obviously wrong and is easy to fix.
 
-Satyam
+Then you end up with a hash_item() that simply looks like:
+
+static unsigned int hash_item(__u16 sid, unsigned char *addr)
+{
+	unsigned int hash;
+
+	hash = (((unsigned int)addr[0] << 24) |
+		((unsigned int)addr[1] << 16) |
+		((unsigned int)addr[2] <<  8) |
+		((unsigned int)addr[3] <<  0));
+
+	hash ^= (((unsigned int)addr[4] << 8) |
+		 ((unsigned int)addr[5] << 0));
+
+	hash ^= sid;
+
+	return ((hash ^ (hash >> 8) ^ (hash >> 16)) &
+		(PPPOE_HASH_SIZE - 1));
+}
+
+which is what I've checked into my tree.
+
+Thanks!
