@@ -1,39 +1,164 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: 2.6.20->2.6.21 - networking dies after random time
-Date: Tue, 31 Jul 2007 15:20:38 +0200
-Message-ID: <20070731132037.GC1046@ff.dom.local>
-References: <alpine.LFD.0.999.0707241228291.3607@woody.linux-foundation.org> <20070724200431.GA22190@elte.hu> <1185322771.4175.102.camel@chaos> <4bacf17f0707260016x14fc1c92s628ae64353663833@mail.gmail.com> <20070726081326.GA3197@ff.dom.local> <1185437431.3227.21.camel@chaos> <20070726083120.GA26910@elte.hu> <20070726085523.GA3423@ff.dom.local> <20070726091254.GA8063@elte.hu> <4bacf17f0707300029g5116e70bq4808059dc8b069f1@mail.gmail.com>
+From: Moni Shoua <monisonlists@gmail.com>
+Subject: Re: [ofa-general] Re: [PATCH V3 7/7] net/bonding: Delay sending of
+	gratuitous ARP to avoid failure
+Date: Tue, 31 Jul 2007 16:33:20 +0300
+Message-ID: <46AF3A20.8080700@gmail.com>
+References: <46ADDB89.5030601@voltaire.com> <46ADDFE6.9000609@voltaire.com>
+	<19319.1185827384@death>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ingo Molnar <mingo@elte.hu>, Thomas Gleixner <tglx@linutronix.de>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Jean-Baptiste Vignaud <vignaud@xandmail.fr>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	shemminger <shemminger@linux-foundation.org>,
-	linux-net <linux-net@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>
-To: Marcin =?iso-8859-2?Q?=A6lusarz?= <marcin.slusarz@gmail.com>
-Return-path: <linux-net-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4bacf17f0707300029g5116e70bq4808059dc8b069f1@mail.gmail.com>
-Sender: linux-net-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: rdreier@cisco.com, davem@davemloft.net, general@lists.openfabrics.org,
+	netdev@vger.kernel.org
+To: Jay Vosburgh <fubar@us.ibm.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <19319.1185827384@death>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 30, 2007 at 09:29:38AM +0200, Marcin =A6lusarz wrote:
-=2E..
-> ps: I retested all patches posted in this thread on top of 2.6.22.1
-> and behavior from 2.6.21.3 didn't changed. My next tests will be on
-> 2.6.22.x only.
+Jay Vosburgh wrote:
+> Moni Shoua <monis@voltaire.com> wrote:
+> 
+>> Delay sending a gratuitous_arp when LINK_STATE_LINKWATCH_PENDING bit
+>> in dev->state field is on. This improves the chances for the arp packet to
+>> be transmitted.
+> 
+> 	Under what circumstances were you seeing problems that delaying
+> the gratuitous ARP until linkwatch is done improves things?  Is this
+> really an IB thing, or did you experience problems here over regular
+> ethernet?
+> 
 
-Marcin,
+I tried to figure out what is the difference in the state/flags of the device when 
+grat. ARP send succeeds and when it fails. I found exact correlation with the 
+LINK_STATE_LINKWATCH_PENDING bit on.
+I don't think that this is an IB issue but I can't be sure. I didn't run tests
+for Ethernet.
 
-I see you're quite busy, but if after testing this next Ingo's patch
-you are alive yet, maybe you could try one more "idea"? No patch this
-time, but if you could try this after adding boot option "noirqdebug"
-(I'd like to be sure it's not about timinig after all).
+>> Signed-off-by: Moni Shoua <monis@voltaire.com>
+>> ---
+>> drivers/net/bonding/bond_main.c |   25 +++++++++++++++++++++----
+>> drivers/net/bonding/bonding.h   |    1 +
+>> 2 files changed, 22 insertions(+), 4 deletions(-)
+>>
+>> Index: net-2.6/drivers/net/bonding/bond_main.c
+>> ===================================================================
+>> --- net-2.6.orig/drivers/net/bonding/bond_main.c	2007-07-25 15:33:25.000000000 +0300
+>> +++ net-2.6/drivers/net/bonding/bond_main.c	2007-07-26 18:42:59.296296622 +0300
+>> @@ -1134,8 +1134,13 @@ void bond_change_active_slave(struct bon
+>> 		if (new_active && !bond->do_set_mac_addr)
+>> 			memcpy(bond->dev->dev_addr,  new_active->dev->dev_addr,
+>> 				new_active->dev->addr_len);
+>> -
+>> -		bond_send_gratuitous_arp(bond);
+>> +		if (bond->curr_active_slave &&
+>> +			test_bit(__LINK_STATE_LINKWATCH_PENDING, &bond->curr_active_slave->dev->state)){
+>> +			dprintk("delaying gratuitous arp on %s\n",bond->curr_active_slave->dev->name);
+>> +			bond->send_grat_arp=1;
+>> +		}else{
+>> +			bond_send_gratuitous_arp(bond);
+>> +		}
+> 
+> 	Style issues throughout the patch series: many lines are too
+> long, many things are all smashed together, e.g., "}else{" instead of
+> "} else {", "send_grat_arp=1" instead of "send_grat_arp = 1", and so on.
+> 
+OK thanks. I'll fix and repost.
+>> 	}
+>> }
+>>
+>> @@ -2120,6 +2125,15 @@ void bond_mii_monitor(struct net_device 
+>> 	 * program could monitor the link itself if needed.
+>> 	 */
+>>
+>> +	if (bond->send_grat_arp) {
+>> +		if (bond->curr_active_slave && test_bit(__LINK_STATE_LINKWATCH_PENDING, &bond->curr_active_slave->dev->state))
+>> +			dprintk("Needs to send gratuitous arp but not yet\n",__FUNCTION__);
+>> +		else {
+>> +			dprintk("sending delayed gratuitous arp on ond->curr_active_slave->dev->name\n");
+>> +			bond_send_gratuitous_arp(bond);
+>> +			bond->send_grat_arp=0;
+>> +		}
+>> +	}
+> 
+> 
+>> 	read_lock(&bond->curr_slave_lock);
+>> 	oldcurrent = bond->curr_active_slave;
+>> 	read_unlock(&bond->curr_slave_lock);
+>> @@ -2513,6 +2527,7 @@ static void bond_send_gratuitous_arp(str
+>> 	struct slave *slave = bond->curr_active_slave;
+>> 	struct vlan_entry *vlan;
+>> 	struct net_device *vlan_dev;
+>> +	int i;
+>>
+>> 	dprintk("bond_send_grat_arp: bond %s slave %s\n", bond->dev->name,
+>> 				slave ? slave->dev->name : "NULL");
+>> @@ -2520,8 +2535,9 @@ static void bond_send_gratuitous_arp(str
+>> 		return;
+>>
+>> 	if (bond->master_ip) {
+>> -		bond_arp_send(slave->dev, ARPOP_REPLY, bond->master_ip,
+>> -				  bond->master_ip, 0);
+>> +		for (i=0;i<3;i++)
+>> +			bond_arp_send(slave->dev, ARPOP_REPLY, bond->master_ip,
+>> +					  bond->master_ip, 0);
+>> 	}
+> 
+> 	If you delay the grat ARP until linkwatch is done, why is it
+> also necessary to shotgun several ARPs instead of one?  Why are the ARPs
+> sent for VLANs not also shotgunned in a similar fashion?
+Besides the linkwatch issue I also noticed that on rare occasions, grat. ARPs
+that found their way to the slave's xmit function were not xmitted.
+The 3 times send is just an another attempt to improve chances.
 
-Cheers & thanks,
-Jarek P.
+I'd like to emphasize here that with IB slaves, grat. ARP is much more crucial to 
+a successful change of slaves and that was my focus.
+
+> 	If shotgunning like this really is useful, would it not make
+> more sense to space them out a bit, e.g., over successive monitor
+> passes?
+> 
+I guess you are right about that.
+>> 	list_for_each_entry(vlan, &bond->vlan_list, vlan_list) {
+>> @@ -4331,6 +4347,7 @@ static int bond_init(struct net_device *
+>> 	bond->current_arp_slave = NULL;
+>> 	bond->primary_slave = NULL;
+>> 	bond->dev = bond_dev;
+>> +	bond->send_grat_arp=0;
+>> 	INIT_LIST_HEAD(&bond->vlan_list);
+>>
+>> 	/* Initialize the device entry points */
+>> Index: net-2.6/drivers/net/bonding/bonding.h
+>> ===================================================================
+>> --- net-2.6.orig/drivers/net/bonding/bonding.h	2007-07-25 15:20:10.000000000 +0300
+>> +++ net-2.6/drivers/net/bonding/bonding.h	2007-07-26 18:42:43.652087660 +0300
+>> @@ -203,6 +203,7 @@ struct bonding {
+>> 	struct   vlan_group *vlgrp;
+>> 	struct   packet_type arp_mon_pt;
+>> 	s8       do_set_mac_addr;
+>> +	int	 send_grat_arp;
+> 
+> 	This need not be a full int, and (this applies to
+> do_set_mac_addr, also) could probably be squeezed into gaps already
+> existing within the struct bonding somewhere.
+Thanks. Will be fixed.
+> 
+> 	-J
+> 
+> ---
+> 	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+> _______________________________________________
+> general mailing list
+> general@lists.openfabrics.org
+> http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general
+> 
+> To unsubscribe, please visit http://openib.org/mailman/listinfo/openib-general
+> 
