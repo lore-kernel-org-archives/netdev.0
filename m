@@ -1,39 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RESEND][PATCH 1/3] PPPoE: improved hashing routine
-Date: Tue, 31 Jul 2007 01:26:09 -0700 (PDT)
-Message-ID: <20070731.012609.41193630.davem@davemloft.net>
-References: <20070729060423.GA27573@florz.florz.dyndns.org>
-	<20070730.174721.17862949.davem@davemloft.net>
-	<20070731080719.GA12071@florz.florz.dyndns.org>
+From: Pekka Savola <pekkas@netcore.fi>
+Subject: Re: zd1211rw and mac80211: multicast/v6 doesn't work in 2.6.21.5
+Date: Tue, 31 Jul 2007 11:27:22 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0707311124560.8287@netcore.fi>
+References: <Pine.LNX.4.64.0706280814090.21541@netcore.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mostrows@earthlink.net, netdev@vger.kernel.org
-To: florz@florz.de
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:32973
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752235AbXGaI0K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jul 2007 04:26:10 -0400
-In-Reply-To: <20070731080719.GA12071@florz.florz.dyndns.org>
+Received: from netcore.fi ([193.94.160.1]:57749 "EHLO netcore.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751022AbXGaI1Z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 31 Jul 2007 04:27:25 -0400
+Received: from netcore.fi (localhost [127.0.0.1])
+	by netcore.fi (8.13.8/8.13.8) with ESMTP id l6V8RMfl008548
+	for <netdev@vger.kernel.org>; Tue, 31 Jul 2007 11:27:23 +0300
+Received: from localhost (pekkas@localhost)
+	by netcore.fi (8.13.8/8.13.8/Submit) with ESMTP id l6V8RMSA008545
+	for <netdev@vger.kernel.org>; Tue, 31 Jul 2007 11:27:22 +0300
+In-Reply-To: <Pine.LNX.4.64.0706280814090.21541@netcore.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Florian Zumbiehl <florz@florz.de>
-Date: Tue, 31 Jul 2007 10:07:19 +0200
+FWIW,
 
-> Erm, I'd say this not only produces different results than the old
-> version, but it also produces "wrong" results, in that it ignores quite
-> a bit of the data that's supposed to be hashed. If I didn't overlook
-> something, it only considers addr&0x0f0f0f0f0f00 and sid&0x0f0f, given
-> the right endianness of addr and that PPPOE_HASH_SIZE stays 16.
+multicast/v6 is still broken on zd1211rw on 2.6.22.1 based Fedora 7 
+kernel (2.6.22.1-33.fc7).
 
-You're right, I need to fix the shifts up.  How does this version
-look?
+On Thu, 28 Jun 2007, Pekka Savola wrote:
+> On Fedora 7 (kernel 2.6.21-1.3228.fc7, based on 2.6.21.5), my 
+> zd1211rw_mac80211 WLAN USB stick and multicast/v6 no longer works. On Fedora 
+> 6 (kernel 2.6.20, no mac80211) it was OK.
+>
+> I get "wlan0: duplicate address detected!" on dmesg when the kernel is trying 
+> to autoconfigure a global address.
+>
+> I suppose this is caused by the IPv6 stack seeing my own ICMPv6 neighbor 
+> solicitation and thinking it was originated by someone else:
+>
+> 08:46:21.762807 00:02:72:5b:dc:28 > 33:33:ff:5b:dc:28, ethertype IPv6 
+> (0x86dd), length 78: (hlim 255, next-header: ICMPv6 (58), length: 24) :: > 
+> ff02::1:ff5b:dc28: [icmp6 sum ok] ICMP6, neighbor solicitation, length 24, 
+> who has 2001:708:10:90:202:72ff:fe5b:dc28
+>
+> Strangely, the same error isn't printed with the link-local address which 
+> uses the same EUI-64.
+>
+> z1211rw Wiki seems to imply that this might be an issue in generic mac80211 
+> code:
+>
+> http://www.linuxwireless.org/en/users/Drivers/zd1211rw/mac80211Issues
+>
+> It'd be nice to get this fixed.  Or has it already been?
+>
+>
 
-	hash ^= (hash >> 4) ^ (hash >> 12) ^ (hash >> 20);
-	return (head ^ (hash >> 8) ^ (hash >> 24)) &
-		(PPPOE_HASH_SIZE - 1);
-
-Actually it might be simpler and more efficient to just make
-PPPOE_HASH_SHIFT be 8.
+-- 
+Pekka Savola                 "You each name yourselves king, yet the
+Netcore Oy                    kingdom bleeds."
+Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
