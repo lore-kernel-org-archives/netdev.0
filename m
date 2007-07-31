@@ -1,62 +1,119 @@
-From: "Arnaldo Carvalho de Melo" <acme@ghostprotocols.net>
-Subject: Re: [PATCH] [NET]: fix multicast list when cloning sockets
-Date: Tue, 31 Jul 2007 00:00:41 -0300
-Message-ID: <39e6f6c70707302000l52926c9ar927fd550467ce3e3@mail.gmail.com>
-References: <20070730160448.GA4002@redhat.com>
-	 <20070730.190144.26963470.davem@davemloft.net>
+From: "Leonid Grossman" <Leonid.Grossman@neterion.com>
+Subject: RE: [PATCH 0/4][RFC] lro: Generic Large Receive Offload for TCP traffic
+Date: Mon, 30 Jul 2007 23:58:07 -0400
+Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD7701F7A5DB@nekter>
+References: <200707301724.33865.ossthema@de.ibm.com> <20070730170038.GA4884@austin.ibm.com> <46AE232F.3080409@myri.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: fleitner@redhat.com, dlstevens@us.ibm.com, netdev@vger.kernel.org
-To: "David Miller" <davem@davemloft.net>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Jan-Bernd Themann" <ossthema@de.ibm.com>,
+	"netdev" <netdev@vger.kernel.org>,
+	"Thomas Klein" <tklein@de.ibm.com>,
+	"Jeff Garzik" <jeff@garzik.org>,
+	"Jan-Bernd Themann" <themann@de.ibm.com>,
+	"linux-kernel" <linux-kernel@vger.kernel.org>,
+	"linux-ppc" <linuxppc-dev@ozlabs.org>,
+	"Christoph Raisch" <raisch@de.ibm.com>,
+	"Marcus Eder" <meder@de.ibm.com>,
+	"Stefan Roscher" <stefan.roscher@de.ibm.com>,
+	"David Miller" <davem@davemloft.net>
+To: "Andrew Gallatin" <gallatin@myri.com>,
+	"Linas Vepstas" <linas@austin.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.168]:59916 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1764383AbXGaDAm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jul 2007 23:00:42 -0400
-Received: by ug-out-1314.google.com with SMTP id j3so36388ugf
-        for <netdev@vger.kernel.org>; Mon, 30 Jul 2007 20:00:41 -0700 (PDT)
-In-Reply-To: <20070730.190144.26963470.davem@davemloft.net>
-Content-Disposition: inline
+Received: from mx.neterion.com ([72.1.205.142]:19351 "EHLO owa.neterion.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751541AbXGaEND convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jul 2007 00:13:03 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <46AE232F.3080409@myri.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 7/30/07, David Miller <davem@davemloft.net> wrote:
-> From: Flavio Leitner <fleitner@redhat.com>
-> Date: Mon, 30 Jul 2007 13:04:48 -0300
->
-> >
-> > The sock_copy() function uses memcpy() to clone the socket
-> > including the struct ip_mc_socklist *mc_list pointer.
-> >
-> > The ip_mc_drop_socket() function is called when socket is closed
-> > to free these objects leaving the other sockets cloned from the
-> > same master socket with invalid pointers.
-> >
-> > This patch sets mc_list of cloned socket to NULL.
-> >
-> > Signed-off-by: Flavio Leitner <fleitner@redhat.com>
->
-> Allowing non-datagram sockets to end up with a non-NULL inet->mc_list
-> in the first place is a bug.
->
-> Multicast subscriptions cannot even be used with TCP and DCCP, which
-> are the only two users of these connection oriented socket functions.
->
-> The first thing that TCP and DCCP do, in fact, for input packet
-> processing is drop the packet if it is not unicast.
->
-> Therefore the fix really is for the inet layer to reject multicast
-> subscription requests on sockets for which that absolutely does not
-> make sense.  There is no reason these functions in
-> inet_connection_sock.c should need to be mindful of multicast
-> state. :-)
 
-Well, we can add a BUG_ON there then 8)
 
-Flavio, take a look at  do_ip_setsockopt in net/ipv4/ip_sockglue.c, in
-the IP_{ADD,DROP}_MEMBERSHIP labels.
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org [mailto:netdev-
+> owner@vger.kernel.org] On Behalf Of Andrew Gallatin
+> Sent: Monday, July 30, 2007 10:43 AM
+> To: Linas Vepstas
+> Cc: Jan-Bernd Themann; netdev; Thomas Klein; Jeff Garzik; Jan-Bernd
+> Themann; linux-kernel; linux-ppc; Christoph Raisch; Marcus Eder;
+Stefan
+> Roscher; David Miller
+> Subject: Re: [PATCH 0/4][RFC] lro: Generic Large Receive Offload for
+> TCP traffic
+> 
+> 
+> Here is a quick reply before something more official can
+> be written up:
+> 
+> Linas Vepstas wrote:
+> 
+>  > -- what is LRO?
+> 
+> Large Receive Offload
+> 
+>  > -- Basic principles of operation?
+> 
+> LRO is analogous to a receive side version of TSO.  The NIC (or
+> driver) merges several consecutive segments from the same connection,
+> fixing up checksums, etc.  Rather than up to 45 separate 1500 byte
+> frames (meaning up to 45 trips through the network stack), the driver
+> merges them into one 65212 byte frame.  It currently works only
+> with TCP over IPv4.
+> 
+> LRO was, AFAIK, first though of by Neterion.  They had a paper about
+> it at OLS2005.
+> http://www.linuxinsight.com/files/ols2005/grossman-reprint.pdf
+> 
+>  > -- Can I use it in my driver?
+> 
+> Yes, it can be used in any driver.
+> 
+>  > -- Does my hardware have to have some special feature before I can
+> use it?
+> 
+> No.
 
-Don't forget IPV6 (net/ipv6/ipv6_sockglue.c)
+Ditto. LRO hw assists (or full LRO offload, meaning that the merge
+happens in the ASIC but the merge criteria are set by the host) are
+quite beneficial, especially as the number of LRO connections gets very
+large (Neterion has IP around fw/hw LRO and will release full hw LRO
+offload in the next ASIC), but as Andrew indicated sw-only LRO
+implementation can be done for any NIC and provides good results -
+especially for non-jumbo workloads. 
 
-- Arnaldo
+> 
+>  > -- What sort of performance improvement does it provide?
+Throughput?
+>  >    Latency? CPU usage? How does it affect DMA allocation? Does it
+>  >    improve only a certain type of traffic (large/small packets,
+> etc.)
+> 
+> The benefit is directly proportional to the packet rate.
+> 
+> See my reply to the previous RFC for performance information.  The
+> executive summary is that for the myri10ge 10GbE driver on low end
+> hardware with 1500b frames, I've seen it increase throughput by a
+> factor of nearly 2.5x, while at the same time reducing CPU utilization
+> by 17%.  The affect for jumbo frames is less dramatic, but still
+> impressive (1.10x, 14% CPU reduction)
+> 
+> You can achieve better speedups if your driver receives into
+> high-order pages.
+> 
+>  > -- Example code? What's the API? How should my driver use it?
+> 
+> The 3/4 in this patch showed an example of converting a driver
+> to use LRO for skb based receive buffers.   I'm working on
+> a patch for myri10ge that shows how you would use it in a driver
+> which receives into pages.
+> 
+> Cheers,
+> 
+> Drew
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
