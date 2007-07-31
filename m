@@ -1,48 +1,55 @@
-From: david@lang.hm
-Subject: Re: [TULIP] Need new maintainer
-Date: Mon, 30 Jul 2007 19:52:17 -0700 (PDT)
-Message-ID: <Pine.LNX.4.64.0707301951211.6478@asgard.lang.hm>
-References: <20070730190412.GA16182@rainbow> <20070730193158.GA13808@fattire.cabal.ca>
- <20070731015710.GA4196@rainbow>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-2.6 2/2] [TCP]: Bidir flow must not disregard SACK
+ blocks for lost marking
+Date: Mon, 30 Jul 2007 19:53:46 -0700 (PDT)
+Message-ID: <20070730.195346.124870288.davem@davemloft.net>
+References: <Pine.LNX.4.64.0707301947210.8788@kivilampi-30.cs.helsinki.fi>
+	<Pine.LNX.4.64.0707302019110.8788@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Kyle McMartin <kyle@mcmartin.ca>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, tulip-users@lists.sourceforge.net,
-	Grant Grundler <grundler@parisc-linux.org>,
-	Jeff Garzik <jeff@garzik.org>
-To: Valerie Henson <val@nmt.edu>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl081-033-126.lax1.dsl.speakeasy.net ([64.81.33.126]:34281
-	"EHLO bifrost.lang.hm" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933126AbXGaCx3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jul 2007 22:53:29 -0400
-In-Reply-To: <20070731015710.GA4196@rainbow>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40534
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S934642AbXGaCxy convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Jul 2007 22:53:54 -0400
+In-Reply-To: <Pine.LNX.4.64.0707302019110.8788@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 30 Jul 2007, Valerie Henson wrote:
+=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Mon, 30 Jul 2007 20:19:40 +0300 (EEST)
 
-> On Mon, Jul 30, 2007 at 03:31:58PM -0400, Kyle McMartin wrote:
->> On Mon, Jul 30, 2007 at 01:04:13PM -0600, Valerie Henson wrote:
->>> The Tulip network driver needs a new maintainer!  I no longer have
->>> time to maintain the Tulip network driver and I'm stepping down.  Jeff
->>> Garzik would be happy to get volunteers.
->>>
->>
->> Since I already take care of a major consumer of these devices (parisc,
->> which pretty much all have tulip) I'm willing to take care of this.
->> Alternately, Grant is probably willing.
->
-> And I coulda handed you a suitcase full of cards and I missed my
-> chance!
->
-> It's fine by me, although Jeff is the final arbiter.
->
-> Thanks!
->
-> -VAL
+> It's possible that new SACK blocks that should trigger new LOST
+> markings arrive with new data (which previously made is_dupack
+> false). In addition, I think this fixes a case where we get
+> a cumulative ACK with enough SACK blocks to trigger the fast
+> recovery (is_dupack would be false there too).
+>=20
+> I'm not completely pleased with this solution because readability
+> of the code is somewhat questionable as 'is_dupack' in SACK case
+> is no longer about dupacks only but would mean something like
+> 'lost_marker_work_todo' too... But because of Eifel stuff done
+> in CA_Recovery, the FLAG_DATA_SACKED check cannot be placed to
+> the if statement which seems attractive solution. Nevertheless,
+> I didn't like adding another variable just for that either... :-)
+>=20
+> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
 
-when the maintainership gets settled send me a message and I can send you 
-a couple of different cards (including a d-link 4-port card)
+I've applied this as well.
 
-David Lang
+I don't mind the complex conditionals so much in loss
+handling, they are almost inevitable.  However I believe
+they could be simplified as a lot of pieces of code ask
+similar if not identical questions.
+
+We could ask several of these things up-front, regardless
+of path we will take (reno, DSACK, reorder, FRTO, etc.)
+and pass the answers along in a bitmask.  We do that to
+some extent already with how we analyze the retransmit
+queue at the beginning of ACK processing.
+
+
