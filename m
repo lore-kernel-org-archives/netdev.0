@@ -1,58 +1,39 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: fscked clock sources revisited
-Date: Mon, 30 Jul 2007 22:14:36 -0400
-Message-ID: <1185848076.5162.39.camel@localhost>
-References: <1185844239.5162.17.camel@localhost>
-	 <20070730.183750.77058266.davem@davemloft.net>
-Reply-To: hadi@cyberus.ca
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-2.6 1/2] [TCP]: Fix ratehalving with bidirectional
+ flows
+Date: Mon, 30 Jul 2007 19:49:46 -0700 (PDT)
+Message-ID: <20070730.194946.08653937.davem@davemloft.net>
+References: <Pine.LNX.4.64.0707301947210.8788@kivilampi-30.cs.helsinki.fi>
+	<Pine.LNX.4.64.0707302017290.8788@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Robert.Olsson@data.slu.se,
-	shemminger@linux-foundation.org, kaber@trash.net
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.233]:4771 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753032AbXGaCO6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jul 2007 22:14:58 -0400
-Received: by wx-out-0506.google.com with SMTP id h31so1519054wxd
-        for <netdev@vger.kernel.org>; Mon, 30 Jul 2007 19:14:57 -0700 (PDT)
-In-Reply-To: <20070730.183750.77058266.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42862
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1759081AbXGaCtz convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Jul 2007 22:49:55 -0400
+In-Reply-To: <Pine.LNX.4.64.0707302017290.8788@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2007-30-07 at 18:37 -0700, David Miller wrote:
+=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Mon, 30 Jul 2007 20:18:45 +0300 (EEST)
 
-> Relatively speaking, the acpi_pm numbers are at least consistent and
-> about as much as so as jiffies.  Jiffies numbers are also possibly
-> better, at least in part, because of the decreased accuracy and errors
-> propagating.
+> Actually, the ratehalving seems to work too well, as cwnd is
+> reduced on every second ACK even though the packets in flight
+> remains unchanged. Recoveries in a bidirectional flows suffer
+> quite badly because of this, both NewReno and SACK are affected.
+>=20
+> After this patch, rate halving is performed for ACK only if
+> packets in flight was supposedly changed too.
+>=20
+> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
 
-I am not sure jiffies gives innacurate results. It gives the best
-performance on the dual xeon i tested on, all the time. Very consistent.
-On its accuracy: I was able to validate it With pktgen generating
-traffic and some external hardware tool capturing the interpacket gaps
-etc.
+This fix looks great, and I see no potential problems with
+Reno after doing a bit of auditing.
 
-> tsc acts as expected, since every time your cpu changes power
-> management state (which it is going to do dynamically) the TSC
-> rates change and thus the accuracy goes into outer-space.
-
-Robert was saying he had even more bizare results with opteron given the
-NUMA nature.
-
-> There really isn't much that can be done by any of this.  These issues
-> exist because of hardware limitations, nobody bothered to build
-> x86/x86_64 systems with a system wide TICK register that is both
-> impervious to cpu frequence scaling and also cheap to access.
-> 
-> So the above is what we basically have to live with :-)
-
-That is a bummer. I am going to test with hpet when i get the chance
-and perhaps turn off all the other sources if nothing good comes out; i
-need my numbers ;->
-
-cheers,
-jamal
-
+Applied and I'll push to -stable too.
