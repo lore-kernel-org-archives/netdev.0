@@ -1,78 +1,123 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH net-2.6 1/2] [TCP]: Fix ratehalving with bidirectional
- flows
-Date: Tue, 31 Jul 2007 18:59:06 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0707311817370.15687@kivilampi-30.cs.helsinki.fi>
-References: <Pine.LNX.4.64.0707310751260.15079@kivilampi-30.cs.helsinki.fi>
- <20070730.222112.41634340.davem@davemloft.net> <20070731105113.4730d9bb@oldman.hamilton.local>
- <20070731.025827.07638506.davem@davemloft.net> <20070731143726.3fecfe86@oldman.hamilton.local>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [patch] genirq: temporary fix for level-triggered IRQ resend
+Date: Tue, 31 Jul 2007 18:00:08 +0200
+Message-ID: <20070731160008.GA7776@elte.hu>
+References: <20070724200431.GA22190@elte.hu> <1185322771.4175.102.camel@chaos> <4bacf17f0707260016x14fc1c92s628ae64353663833@mail.gmail.com> <20070726081326.GA3197@ff.dom.local> <1185437431.3227.21.camel@chaos> <20070726083120.GA26910@elte.hu> <20070726085523.GA3423@ff.dom.local> <20070726091254.GA8063@elte.hu> <4bacf17f0707300029g5116e70bq4808059dc8b069f1@mail.gmail.com> <20070731155843.GA7033@elte.hu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, Netdev <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:48191 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762368AbXGaP7I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jul 2007 11:59:08 -0400
-In-Reply-To: <20070731143726.3fecfe86@oldman.hamilton.local>
-Sender: netdev-owner@vger.kernel.org
+Cc: Jarek Poplawski <jarkao2@o2.pl>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Jean-Baptiste Vignaud <vignaud@xandmail.fr>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	shemminger <shemminger@linux-foundation.org>,
+	linux-net <linux-net@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>, marcin.slusarz@gmail.com
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <linux-net-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20070731155843.GA7033@elte.hu>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 31 Jul 2007, Stephen Hemminger wrote:
 
-> I noticed no difference in the two flow tests.  That is not a bad thing, just
-> that this test doesn't hit that code.
+* Ingo Molnar <mingo@elte.hu> wrote:
 
-...I'm not too sure about your test setup but the bugs I fixed only cover 
-cases that occur if flow is bidirectional (and obviously active in both 
-directions at the same time), they won't occur in a case of unidirectional 
-transfer or in request-reply style connections (well, in the latter 
-case if there's some overlap, it can have effect but that's usually 
-not significant)...
+> Linus,
+> 
+> with -rc2 approaching i think we should apply the minimal fix below to 
+> get Marcin's ne2k-pci networking back in working order. The 
+> WARN_ON_ONCE() will not prevent the system from working and it will be 
+> a reminder.
 
-In case of bidirectional transfers, you *should* see some difference as 
-previously the fast recovery was _very_ broken. Of course there could be 
-other issue with large cwnd TCP that hides it by going to RTO still, but 
-at least over 384k/200ms link (DBP sized buffers, IIRC), these change
-behavior very dramatically, mainly in the initial slow-start overshoot 
-recovery because in there losses per RTT is so high number compared to 
-what is experienced later on. One or a few losses are usually recovered 
-without RTO when congestion happens later on.
+there's one more test-patch that Marcin has not tested yet (see below) - 
+perhaps a POST artifact in ne2k could explain this bug.
 
-> The anomaly is that first flow does slow start then gets loss and ends up
-> reducing it's window size all the way to the bottom, finally it recovers.
-> This happens with Cubic, H-TCP and others as well; if the queue in the
-> network is large enough, they don't handle the initial loss well.
+	Ingo
 
-...TCP related stuff that changed in /proc/net/netstat might shed 
-some light to this if none of the given explinations please you... :-)
+------------------------->
 
-> See the graph.
+* Alan Cox <alan@lxorguk.ukuu.org.uk> wrote:
 
-What exactly do you mean by "RENO" in the title, I mean what's tcp_sack 
-set to? There is occassionally a bit confusion in that respect in the 
-terminology @ netdev, I've used to reno refering to non-SACK stuff 
-elsewhere but in here that's not always the case... Usually it's possible 
-to derive the correct interpretation from the context, but in this case 
-I'm not too sure... :-)
+> Ok the logic behind the 8390 is very simple:
 
-What I often have often seen with non-SACK TCP is that initial slow-start 
-exhausts even very large advertised window on high DBP link and then due 
-to draining of ACK feedback, gets RTOed... That usually shows up as long 
-lasting recovery where one segment per RTT is recovered and new data is 
-being sent as duplicate ACKs arrive with nearly constant rate until the 
-window limit is hit (but I cannot see such periond in the graph you 
-posted, so I guess it's not the explanation in this case). And if your 
-"RENO" refers to something with SACK, that's not going to explain it 
-anyway.
+thanks for the explanation Alan! A few comments and a question:
 
-...Another nasty one I know is RED+ECN, though I'd say it's a bit far 
-fetched one, as ECN cannot be used nicely in retransmission, 
-a retransmission gets dropped instead of marking if RED wanted to mark.
-I guess that doesn't occur in your test case either?
+> Things to know
+> 	- IRQ delivery is asynchronous to the PCI bus
+> 	- Blocking the local CPU IRQ via spin locks was too slow
+> 	- The chip has register windows needing locking work
+> 
+> So the path was once (I say once as people appear to have changed it 
+> in the mean time and it now looks rather bogus if the changes to use 
+> disable_irq_nosync_irqsave are disabling the local IRQ)
+> 
+> 
+> 	Take the page lock
+> 	Mask the IRQ on chip
+> 	Disable the IRQ (but not mask locally- someone seems to have
+> 		broken this with the lock validator stuff)
+> 		[This must be _nosync as the page lock may otherwise
+> 			deadlock us]
 
+( side-note: you can ignore the lock validator stuff here, the validator
+  changes are supposed to a NOP on the !lockdep case. Local irqs will
+  only be disabled if the validator is running. This could cause dropped
+  serial irqs on very old boxes but i doubt anyone will want to run the
+  validator on those. )
 
--- 
- i.
+> 	Drop the page lock and turn IRQs back on
+> 	
+> 	At this point an existing IRQ may still be running but we can't
+> 	get a new one
+> 
+> 	Take the lock (so we know the IRQ has terminated) but don't mask
+> the IRQs on the processor
+> 	Set irqlock [for debug]
+> 
+> 	Transmit (slow as ****)
+> 
+> 	re-enable the IRQ
+> 
+> 
+> We have to use disable_irq because otherwise you will get delayed 
+> interrupts on the APIC bus deadlocking the transmit path.
+> 
+> Quite hairy but the chip simply wasn't designed for SMP and you can't 
+> even ACK an interrupt without risking corrupting other parallel 
+> activities on the chip.
+
+So the whole locking is to be able to keep irqs enabled for a long time, 
+without risking entry of the same IRQ handler on this same CPU, correct?
+
+Marcin's test results suggest that if an IRQ is resent right at the 
+enable_irq() point [be that via the hw irq-resend mechanism or the sw 
+irq-resend mechanism], the hang happens.
+
+In the previous 2.6.20 logic we'd not normally generate an IRQ at that 
+point (because we masked the irq and the card itself deasserts the line 
+so any level-triggered irq is now moot).
+
+Once Thomas hacked off this resend mechanism for level-triggered irqs, 
+Marcin saw the hangs go away.
+
+So it seems to me that maybe the driver could be surprised via these 
+spurious interrupts that happen right after the irq_enable(). Does the 
+patch below make any sense in your opinion?
+
+	Ingo
+
+Index: linux/drivers/net/lib8390.c
+===================================================================
+--- linux.orig/drivers/net/lib8390.c
++++ linux/drivers/net/lib8390.c
+@@ -375,6 +375,8 @@ static int ei_start_xmit(struct sk_buff 
+ 	/* Turn 8390 interrupts back on. */
+ 	ei_local->irqlock = 0;
+ 	ei_outb_p(ENISR_ALL, e8390_base + EN0_IMR);
++	/* force POST: */
++	ei_inb_p(e8390_base + EN0_IMR);
+ 
+ 	spin_unlock(&ei_local->page_lock);
+ 	enable_irq_lockdep_irqrestore(dev->irq, &flags);
