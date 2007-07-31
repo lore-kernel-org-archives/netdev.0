@@ -1,59 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6 1/2] [TCP]: Fix ratehalving with bidirectional
- flows
-Date: Tue, 31 Jul 2007 02:58:27 -0700 (PDT)
-Message-ID: <20070731.025827.07638506.davem@davemloft.net>
-References: <Pine.LNX.4.64.0707310751260.15079@kivilampi-30.cs.helsinki.fi>
-	<20070730.222112.41634340.davem@davemloft.net>
-	<20070731105113.4730d9bb@oldman.hamilton.local>
+From: "Siddharth Taneja" <siddharth.taneja@gmail.com>
+Subject: Scatter gather and TCP MD5
+Date: Tue, 31 Jul 2007 03:17:25 -0700
+Message-ID: <526ad3230707310317p537d6cfdj2820a0ffe77c059b@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org
-To: shemminger@linux-foundation.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53054
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752561AbXGaJ61 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 31 Jul 2007 05:58:27 -0400
-In-Reply-To: <20070731105113.4730d9bb@oldman.hamilton.local>
+Received: from py-out-1112.google.com ([64.233.166.182]:2997 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757631AbXGaKR1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jul 2007 06:17:27 -0400
+Received: by py-out-1112.google.com with SMTP id d32so3219199pye
+        for <netdev@vger.kernel.org>; Tue, 31 Jul 2007 03:17:26 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: Stephen Hemminger <shemminger@linux-foundation.org>
-Date: Tue, 31 Jul 2007 10:51:13 +0100
+Hello,
 
-> On Mon, 30 Jul 2007 22:21:12 -0700 (PDT)
-> David Miller <davem@davemloft.net> wrote:
->=20
-> > From: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-> > Date: Tue, 31 Jul 2007 07:59:10 +0300 (EEST)
-> >=20
-> > > I think it's probably good to add tp->snd_una !=3D prior_snd_una
-> > > check there too... It's not going to make a large difference,
-> > > mostly just to be conservative when skb collapse stuff got done
-> > > (and maybe to annoy cheaters too though I couldn't at this point
-> > > figure out how they could abuse it)...
-> > >=20
-> > > ...I think I can come up with that on Wednesday, so please hold
-> > > stable push until that.
-> >=20
-> > It'll definitely need to wait at least a day as I cannot even make =
-TCP
-> > or UDP connections out from my machine with the current net-2.6 tre=
-e,
-> > and this is what I'm debugging at the moment.
-> >=20
-> > I'm hoping that it's just something stupid like the make not
-> > rebuilding everything necessary after I changed the __u16's into
-> > __u32's in skb_frag_t.
->=20
-> I running tests over emulator this morning.
-> Hopefully, this will fix the window collapse that occurs on startup
-> of large queue sizes.
+I am using a vanilla 2.6.22.1 kernel and I see the same kind of
+problem as had been mentioned some time back on this list
 
-Great.
+http://lkml.org/lkml/2007/5/22/45
 
-=46or the record the bug I was chasing was an IPSEC issue which
-Herbert fixed a few moments ago.
+The issue is essentially that with the MD5 option enabled for the
+specific TCP connection, the SYN and SYN-ACKS are passed ok and the
+connection establishes fine, but the other end (a cisco router)
+complains about incorrect MD5 signatures on any other message that is
+sent after this.
+
+Setting the scatter-gather offloading option to off on the NIC seems to
+correct this problem. Recently I had seen a checkin (as a response to
+the problem mentioned in the above link) where the TSO option was
+turned off to make MD5 work (my kernel has that fix). Is a similar
+solution needed here too?
+
+This is the information about my system:
+> uname -a
+Linux stdalone 2.6.22.1 #1 SMP Mon Jul 23 20:15:21 PDT 2007 i686 i686
+i386 GNU/Linux
+
+> ethtool -i eth0
+driver: e1000
+version: 7.3.20-k2
+firmware-version: N/A
+bus-info: 0000:01:0a.0
+
+> ethtool -k eth0
+Offload parameters for eth0:
+rx-checksumming: on
+tx-checksumming: on
+scatter-gather: off
+tcp segmentation offload: off
+
+Thanks for your help.
+
+Siddharth
+
+PS: I would like to be CC'ed on the reply to this email. Thanks.
