@@ -1,55 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6 2/2] [TCP]: Bidir flow must not disregard SACK
- blocks for lost marking
-Date: Mon, 30 Jul 2007 19:53:46 -0700 (PDT)
-Message-ID: <20070730.195346.124870288.davem@davemloft.net>
+Subject: Re: [PATCH net-2.6 0/2] [TCP]: Fix bidirectional brokeness
+Date: Mon, 30 Jul 2007 19:54:24 -0700 (PDT)
+Message-ID: <20070730.195424.45876304.davem@davemloft.net>
 References: <Pine.LNX.4.64.0707301947210.8788@kivilampi-30.cs.helsinki.fi>
-	<Pine.LNX.4.64.0707302019110.8788@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
 To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40534
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40537
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S934642AbXGaCxy convert rfc822-to-8bit
+	by vger.kernel.org with ESMTP id S1755120AbXGaCyc convert rfc822-to-8bit
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Jul 2007 22:53:54 -0400
-In-Reply-To: <Pine.LNX.4.64.0707302019110.8788@kivilampi-30.cs.helsinki.fi>
+	Mon, 30 Jul 2007 22:54:32 -0400
+In-Reply-To: <Pine.LNX.4.64.0707301947210.8788@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 =46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-Date: Mon, 30 Jul 2007 20:19:40 +0300 (EEST)
+Date: Mon, 30 Jul 2007 20:16:54 +0300 (EEST)
 
-> It's possible that new SACK blocks that should trigger new LOST
-> markings arrive with new data (which previously made is_dupack
-> false). In addition, I think this fixes a case where we get
-> a cumulative ACK with enough SACK blocks to trigger the fast
-> recovery (is_dupack would be false there too).
->=20
-> I'm not completely pleased with this solution because readability
-> of the code is somewhat questionable as 'is_dupack' in SACK case
-> is no longer about dupacks only but would mean something like
-> 'lost_marker_work_todo' too... But because of Eifel stuff done
-> in CA_Recovery, the FLAG_DATA_SACKED check cannot be placed to
-> the if statement which seems attractive solution. Nevertheless,
-> I didn't like adding another variable just for that either... :-)
->=20
-> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+> These will generate you some hassle when you rebase tcp-2.6. Btw, you=
+=20
+> forgot to push tcp-2.6 out last time though I could assume it's
+> state... :-) In case you're going to now push it out, could you pleas=
+e
+> drop "[TCP]: Remove num_acked>0 checks from cong.ctrl mods pkts_acked=
+"
+> from it as it seems to be out of place in tcp-2.6, I can resubmit it
+> to net-2.6.24 when you open it (unless you want to put it to net-2.6=20
+> directly as it's rather trivial one).
 
-I've applied this as well.
+It has been in the back of my mind to take care of the tcp-2.6
+tree and rebase it for you and others.
 
-I don't mind the complex conditionals so much in loss
-handling, they are almost inevitable.  However I believe
-they could be simplified as a lot of pieces of code ask
-similar if not identical questions.
+I'll take a stab at that soon hopefully.
 
-We could ask several of these things up-front, regardless
-of path we will take (reno, DSACK, reorder, FRTO, etc.)
-and pass the answers along in a bitmask.  We do that to
-some extent already with how we analyze the retransmit
-queue at the beginning of ACK processing.
-
-
+Thanks for reminding me.
