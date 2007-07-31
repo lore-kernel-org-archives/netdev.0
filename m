@@ -1,49 +1,40 @@
-From: Mariusz Kozlowski <m.kozlowski@tuxland.pl>
-Subject: [PATCH 20] net/decnet/dn_route.c: kmalloc + memset conversion to kzalloc
-Date: Tue, 31 Jul 2007 19:33:33 +0200
-Message-ID: <200707311933.33745.m.kozlowski@tuxland.pl>
-References: <200707311845.48807.m.kozlowski@tuxland.pl>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: RFC: on [ab]use of skb->cb by VLAN code
+Date: Tue, 31 Jul 2007 10:50:15 -0700
+Message-ID: <adair80o42w.fsf@cisco.com>
+References: <1185847324.5162.31.camel@localhost>
+	<20070730.190621.13770511.davem@davemloft.net>
+	<46AEBADB.7030007@candelatech.com>
+	<20070730.221847.74747100.davem@davemloft.net>
+	<46AEC99E.10809@candelatech.com> <46AF69C7.1090504@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-2"
-Content-Transfer-Encoding: 7bit
-Cc: kernel-janitors@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, patrick@tykepenguin.com
-To: linux-kernel@vger.kernel.org
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <200707311845.48807.m.kozlowski@tuxland.pl>
-Content-Disposition: inline
-Sender: kernel-janitors-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Ben Greear <greearb@candelatech.com>,
+	David Miller <davem@davemloft.net>, hadi@cyberus.ca,
+	kaber@trash.net, netdev@vger.kernel.org, mcarlson@broadcom.com
+To: Rick Jones <rick.jones2@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sj-iport-3-in.cisco.com ([171.71.176.72]:18253 "EHLO
+	sj-iport-3.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1763096AbXGaRue (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jul 2007 13:50:34 -0400
+In-Reply-To: <46AF69C7.1090504@hp.com> (Rick Jones's message of "Tue, 31 Jul 2007 09:56:39 -0700")
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Mariusz Kozlowski <m.kozlowski@tuxland.pl>
+ > > Do we really need an 'unsigned int' for mac_len?  Maybe we could use
+ > > a 16-bit counter here, and then use the other 16 bits for the VLAN bits?
+ > 
+ > Not knowing exactly if/how it interacts with that specific field I
+ > will point-out that IPoIB in OFED 1.2 just took their MTU to 65520.
+ > While that doesn't break the bitbank it does get rather close.
 
- net/decnet/dn_route.c | 45013 -> 44991 (-22 bytes)
- net/decnet/dn_route.o | 199388 -> 199580 (+192 bytes)
+Leaving aside OFED releases, the IPoIB connected mode code in the
+standard kernel also allows the MTU to go up to 65520.  And there's
+nothing magic about that value -- we could easily do bigger packets.
 
- net/decnet/dn_route.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+However, this is irrelevant for two reasons: mac_len is the length of
+the LL header, not the packet overall, *and* mac_len is already 16
+bits as of commit 334a8132.
 
---- linux-2.6.23-rc1-mm1-a/net/decnet/dn_route.c	2007-07-26 13:07:44.000000000 +0200
-+++ linux-2.6.23-rc1-mm1-b/net/decnet/dn_route.c	2007-07-31 15:15:11.000000000 +0200
-@@ -1737,8 +1737,9 @@ static int dn_rt_cache_seq_open(struct i
- {
- 	struct seq_file *seq;
- 	int rc = -ENOMEM;
--	struct dn_rt_cache_iter_state *s = kmalloc(sizeof(*s), GFP_KERNEL);
--
-+	struct dn_rt_cache_iter_state *s;
-+
-+	s = kzalloc(sizeof(*s), GFP_KERNEL);
- 	if (!s)
- 		goto out;
- 	rc = seq_open(file, &dn_rt_cache_seq_ops);
-@@ -1746,7 +1747,6 @@ static int dn_rt_cache_seq_open(struct i
- 		goto out_kfree;
- 	seq		= file->private_data;
- 	seq->private	= s;
--	memset(s, 0, sizeof(*s));
- out:
- 	return rc;
- out_kfree:
+ - R.
