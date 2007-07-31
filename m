@@ -1,164 +1,53 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH net-2.6 1/2] [TCP]: Fix ratehalving with bidirectional
- flows
-Date: Tue, 31 Jul 2007 14:37:26 +0100
-Message-ID: <20070731143726.3fecfe86@oldman.hamilton.local>
-References: <Pine.LNX.4.64.0707310751260.15079@kivilampi-30.cs.helsinki.fi>
-	<20070730.222112.41634340.davem@davemloft.net>
-	<20070731105113.4730d9bb@oldman.hamilton.local>
-	<20070731.025827.07638506.davem@davemloft.net>
+From: Moni Shoua <monisonlists@gmail.com>
+Subject: Re: [ofa-general] Re: [PATCH V3 0/7] net/bonding: ADD IPoIB support
+	for	the bonding driver
+Date: Tue, 31 Jul 2007 16:44:08 +0300
+Message-ID: <46AF3CA8.6050201@gmail.com>
+References: <46ADDB89.5030601@voltaire.com> <adaejipr3l5.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=MP_0GgvZqd1LgfkO8bQe_WrOcI
-Cc: ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:60761 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759661AbXGaNiA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jul 2007 09:38:00 -0400
-In-Reply-To: <20070731.025827.07638506.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: fubar@us.ibm.com, davem@davemloft.net, general@lists.openfabrics.org,
+	netdev@vger.kernel.org
+To: Roland Dreier <rdreier@cisco.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <adaejipr3l5.fsf@cisco.com>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
---MP_0GgvZqd1LgfkO8bQe_WrOcI
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Roland Dreier wrote:
+>  > 1. When bonding enslaves an IPoIB device the bonding neighbor holds a 
+>  > reference to a cleanup function in the IPoIB drives. This makes it unsafe to 
+>  > unload the IPoIB module if there are bonding neighbors in the air. So, to 
+>  > avoid this race one must unload bonding before unloading IPoIB. 
+> 
+> I think we really want to resolve this somehow.  Getting an oops by
+> doing "modprobe -r ipoib" isn't that friendly.
+> 
+You are right and we want to resolve that.
+One way is to clean the neigh destructor function from all IPoIB neighs.
+The other way is to prevent ipoib unload if device is a slave or is referenced from 
+somewhere else.
 
-I noticed no difference in the two flow tests.  That is not a bad thing, just
-that this test doesn't hit that code.
-
-The anomaly is that first flow does slow start then gets loss and ends up
-reducing it's window size all the way to the bottom, finally it recovers.
-This happens with Cubic, H-TCP and others as well; if the queue in the
-network is large enough, they don't handle the initial loss well.
-
-See the graph.
-
-
---MP_0GgvZqd1LgfkO8bQe_WrOcI
-Content-Type: image/png; name=reno2-after.png
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename=reno2-after.png
-
-iVBORw0KGgoAAAANSUhEUgAAAyAAAAJYCAMAAACtqHJCAAABKVBMVEX///8AAACgoKD/AAAAwAAA
-gP/AAP8A7u7AQADu7gAgIMD/wCAAgECggP+AQAD/gP8AwGAAwMAAYIDAYIAAgABA/4AwYICAYABA
-QEBAgAAAAICAYBCAYGCAYIAAAMAAAP8AYADjsMBAwIBgoMBgwABgwKCAAACAAIBgIIBgYGAgICAg
-QEAgQIBggCBggGBggICAgEAggCCAgICgoKCg0ODAICAAgIDAYACAwODAYMDAgADAgGD/QAD/QECA
-wP//gGD/gIDAoADAwMDA/8D/AAD/AP//gKDAwKD/YGAA/wD/gAD/oACA4OCg4OCg/yDAAADAAMCg
-ICCgIP+AIACAICCAQCCAQICAYMCAYP+AgADAwAD/gED/oED/oGD/oHD/wMD//wD//4D//8BUJrxz
-AAAZB0lEQVR4nO2diZajIBAA9WXG///k3YkXR9OKgjZa9XbjJFFsky4BRdN1AAAAAAAAAAAAAAAA
-AAAAAAAAAAAAADfS9/3yeN36zpYR/pF4fhffjTQSy8vpvyjvLbOMf45P3Xm6yZD9a5zLXtbgv7W1
-9NZc/eKsM5neGh8CQdYZNooOPxApemm1coBKuH23vZlwEdoX6SbkJMnsSbD07q9zzoNOKexQtELU
-0Rr8LYrK3Fav83YHS0pP2iQ3TA7Q3e+Ek54KxAru9xrsb7MFmVNFqmum+aIMc9PXq1akZ04wcQUU
-RS0Isu77O6d5GCZ8NPGKFgVxNsxbe7IUTZDODRruJb3j8xM2aGmts6RKSexFwzwXGiluBka71j37
-6Tk3l4m7Rc5yfi5ubsMSrrvR0Yb17trFz0xYMgwXP8ygC9L5yarXIEEp8pcc5FFc2FpkHxc2z7K8
-J66hdyq83tsifzOldFfW4O8O/BpkfeYne9+Hn4Tj+rJIGC5+2MH9lqNdXbg33ymIv6fto/xIVAFR
-vnqzJFM6WMM6S2rnrQoi+Bh8ILogcgXkbaUgT7hvCT40uA9VkDUn1JwWBXHScL8gqfUtmROm0zRv
-FFGeIFur9RZP65NYPCql98uUlqOXboUpSb7/uu3epD/LkmJrPyUuzJ/f7dgEfZDOa4+Iq13yyUu6
-1Bq0LfL2/cFqo4m3uCiIuNrUZ+aVKS0X7lXgwdT/ptvLpfYiBgAAAAAAAAAAAAAAAAAAAAC4EXnY
-XM8wNGiSKnm8MfQZoBWq5LEz5hlBoGlqCuJfUOldLgNgFimfxTw+44dghyPI2TVQBEVcVkQ/9ajj
-PD68huRVmIkQjqyDIijikiLW60NLNbGkEhGEItoswrnOuKwg6lXOJ9dAERRxVRFzt0TK42pY/CAo
-giKKFVElhM/5IgpEQREUcb6IKiHkCQJQCQSBJ3O+D10kjPIhIAiUwL3H3bECioVSNgQEgRLMp/WO
-F1AulqIhIAjkMB99nUc1LUdh+5M/VIUg8ADEE9HhbYS/fLbxS752QyQQBM4inuEWBckuuUyAZ0AQ
-OIszXgNBAELczgeCAITM3fLx3/K/X605WnDBIEuGgCBgAgQBUEAQAAUEAVBAEHgyDFYEUHAu/ztY
-QMFgSoaAIFCC01eOIwg8AW2wIoLA29EHK7qC/Gzjl3zthkggCJxla7AifRB4NepgxVNHshAEHoA2
-WPHckV4EgSfAYEWAO0AQAAUEAVBAEAAFBAHr7Ohh17vJOoKAXdYfl9k1Y+pVtYDfjZI3110dBIEE
-ZQTRD/IiCLSK82s168Qfl9jN907053THLG6cKny8IL/yNPFyuBRYZq1BUiMR1VGK202s3xEthKIb
-dIiDgqQM2BAkeBssEwnS5ejy8j4IgjyfbUHCC0G6bvhOBgT5bthcRQbTxMvzYtsVK5ig7+NBh+JI
-xMWMfuiH/5PBe/+FggQZL0zFl9fFsKMJwuphem3uq/s1yGjGf1P+6o/vX9/Htw5WpIkFwfUew9eK
-P0Pmx+H8Ck6XUCcEBIFdeLXD8P1zWAw578cDBMkEM5rHrSaCN+ZaIzlLNu0KAm9jyfpE42nqf0R/
-nwJBwDq922Ialj/dWuJ7FMt5Pv/15j4IPJ/5PMjacpoyfug6zwDhKNX3+FU3HstKHsTaboohCNhl
-OVE4+Kk8OBWJM2Ny8fSZkM1qJlxwLtMZFlYbBIER/+DT4J7qGM9nDON0GE8LdtOr+mDFYTpHklyn
-3gwLsnMWwzubXxlZEAx5EWEnY/6/1iDL+fFhOk3+l/JDP/ipKo7F+haWTuONbkofPEMQuIGwkzFN
-1z7IVHt0U9WxjLcatgX5eqSsOWVIL56Cd5tYYy11dJt3gyAQdjKcg1NzS2quBZbMHKYRWKMjQ1qQ
-dPvqaB/EsQNB4BLC/sdcg+wYrDgsDvl9kHlxpZuRfxTLSBPrgyDvIu5/TIbsGaw4uC2tbn1vXPw7
-crHYYEUrglx1GIuRJyYQ+h/7TvL1/XyeZH4mFX3ijGHQSffGEN94mBdBXsWJJJ5qkPlJsZCW8ouX
-WCQEBIHdlBlTkuDVgnBl4RMoN3JX4tWCdNQgpqmb+vtAELBL1cbTPhAEDFPkko5TvF0QsM3dfiAI
-WIYaJBECgkBHHyQdAoIAR7GUEBAEbIAgAAoIAqCAIAAKCAKgUF0Qf+S8NI4eQcAutQVR7zqRDgFB
-wAZXCNIlPFFCQBCwQX1B3Buk+BN3luBaMAQBG1zWxArtoAaBFqAPAqCAIAAKHOYFUOBEIYACggAo
-IAiAAoIAKLQnCPchgQtBEAAFBAFQaEwQ7qYL19KYIB01CFwKggAoIAiAQnuCAFwIggAoIAiAAoIA
-KCAIgAKCACggCIACggAoIAiAAoIAKCAIgEKYnePteKS781wWwh8IAjYIsnMWQ7i/21UhfEEQsEEf
-PFsE6ToEgTcj3VS965am1XrT6eqBCK8hCNggIYh7S/arQ/gDQcAGuiA0seDlIAiAQtBJX3ofHOYF
-6DhRCKCCIAAKCAKggCAACggCoIAgAAoIAqCAIAAKCAKggCAACggCoGBTkA+CgA2MCtIhCJgAQQAU
-EARAAUEAFBAEQAFBABQQBEABQQAUEARAAUEAFBAEQAFBABQQBEABQQAUEARAAUEAFBAEQAFBABQQ
-BEABQQAUEARAAUEAFBAEQAFBABRqCyL/LKj366AIAnapL8gyWX9Y2v99aQQBu1xSgyAItMoVNcio
-RB9Nlln68AfZEQSMcEUnXbSDGgRa4DJBaGJBi1zXxEIQaJDqNYh4fJfDvNAInCgEUAizc9mzO2f3
-Lg6hQxAwQ5CdixF91FW4KoQ/EASM0AfPljPfCALvRjg/181CzKcruivaWAgCdhEFWY7G9tQg8G4S
-gtDEAvhDO4qFIPB6gk762i3hMC8AJwoBVBAEQAFBABQQBEABQQAUEARAAUEAFBAEQAFBABQQBEAB
-QQAUEARAAUEAFBAEQAFBABQQBEABQQAUEARAAUEAFBAEQAFBABQQBEABQQAUEARAAUEAFBAEQAFB
-ABQQBEABQQAUEARAAUEAFBAEQMGuIBgCBjArCFUIWABBABQQBEABQQAUEARAAUEAFBAEQAFBABQQ
-BEAhT5C+ryAUgoBdchK+H7kgBAQBI4TZOeb/5IGvw/Ja5RA6BAEzBNk5S/D9P03CWREE3kMfPFME
-uSaELwgCtyP3KJYXRkGq9MrDVcYvIQgYISFIP9YefViD9BUODCMI2CXVSZ8ffUGq1CkIAnYRBVmq
-kUiQbzelcggdgoAZghbU2C2ZeydRH6Wv0cZCELBL/pn0VBPrcNsLQcAumUmdrEBOnGVHELBLofbS
-mbPsCAJ2ya1BEgqcOctuQZDfK1cGDZHdB3nmYEUEAZlMQbKXOBYCgoARCgqidODD8cFeRXS7IL8j
-l60PGuJAEyvRykqeZZ+PDUeTdAjUIGCEgoIkzrL3CALtUq5HkTjLPo8KnisSZ7LMEUl3nyCYAh75
-h3lTS8hn2Zc6Q5AkHcJ950EQBDyONLHSRUkVSBNNrAUEAY/8o1j5rbJmBOFwFoSUFaTNw7wu2AEe
-GYLMh7BSo3m7g1ewIwjYpawgzY7FWkAQ8Ch1mFeXJzcERvOCEXIyWj+PzvUg8ECyUnq7iVUoBAQB
-I+SeB7kmBAQBIxQUpD94wxMEAbsUbGIpN3TIDQFBwAilOuknbgmEIGCX6qN5D4WAIGCEgoJwHgSe
-R86Z9I1FOA8CzyNvqMnyWDkEBAEjHOikayXRxIJnkX3BlPLeE0bzAngUbC/RB4HnUbJDcbB3giBg
-l0KCbFwrkhsCgoAREARAocbw3PMhIAgYoWQn/WBpCAJ2KTnUhMO88DhKDlY8WByCgF0QBEAhP6O1
-sYo0seBh5N9ZUbt7NZ10eBhX3Js3PwQEASOUu+T28C98IgjYpeBwdwSB53GgiZV874nXpHOv3pcT
-ZudYB0i/UrBdEoLA4wiycxaji3/nZnpbu+3PA5tYOwXBo6fSB8+OC9IdvSDEoiBjwu//xal9gmRr
-hHc3Ine5Z0H66Mdo11lKBxK/VFWQT0Q8z75fvf0V/to3/05KCIJkp0gIIvwYbXKRddEbriiMs30T
-cW0BWYJsVTS5tumvqQirOi3IRgEPFzBVgxzog1xxJn3Hzj+fsBQ34Y/XIOGbCY3S9ngL5MahC5I1
-Wzrk7fLb54AgSkn1BTmygk3iUnd8w1v5q2atMJuUqzvrgfSq9luZ/mu3INlxt0DQSZ8MOHaY9y2C
-7Nv/Cimq7KVl23ZWDeGqNuue/YKsRcWry4q7VTJTWjHm8FXpjQiyr0aQ9tzpdJTtyZtt56qEBZzk
-F8pYZ0usLqXF/qZhC2TfOG5jqMlDBBHIEiTx147CSjSKTswmZHdShK0FMw6T2+XAcPcLQjAsyMaX
-floQef6oJbbVtlEbVvl9kGh1StNrc1uaAkF2lbqv2bCzcbE124leQ5rsllhYbqoGUebYGZppDjSx
-tJOHtYea3F+DdPqXvjMh1Nl2vpmde+diU3xQFkSQ5Y1O7cLnhfBuQQqEUXil4tLN5/4uSjWYjt9Y
-sT1Bzs91T3K9I6MLk3+YV/uV21IhpAQpc+ZcXB2AxJEmVv0QkoIUXnXdYuEBlLuisGQICAJGQJB6
-xcIDyEj5Mz9xkBkCgoAREKResfAAqjSaToeAIGCE7KNY2cscCQFBwAgHhruXbmTFpX0QBIyQfRSr
-H2+AVTWEz/IgvVEeBIEUhQQ504FHELBLucGKCAIPJLsPkmxh9QeKS4SAIGCFct0JBIEHUm6wIk0s
-yGVwHo1ScDRvuetBEOQtDJ1xP460ieoPNUGQ1zAY96OkIC9tYlVtJhQoXC1iZ/kVt9G4H/RBzhe7
-NBOENDqdWUIbRCtTek9txuxs42TM9n1c40hFtHxmxg0peOO4ciFcLMiPX6z2LYvJuXzJiWwe/KfJ
-dFEL95JKz70w5eIkFDJUj2JvIns7iyF+KXz3kX2Q0iVZE2TzW46+0WH9I6pKhlg1KV3jvAlT1Vly
-CKPyCosTTn5l8N/Uo/Anwgfjbq4fh7T/ED4ooxy4aYPyVuIce2qSCuFmQTa+ZcEPx5Bl4iael0dS
-uoaFS/PHq5GqlziTE3Pt2ETByaQb3uZ6f0T7D/9d49Tug/i/pCD+roI9QTa+ZWHmOI2CtBviDFLX
-J1USQqLF1UucyWoi67mtqqL/pYot7iZscuCa9Oy2VHOCZNUg3q5ab7i4y2/szvW50tWL3owRvN0T
-hTebtNOQNzcVka+lccoJkqhcxlf9Xz30LyqJhzm21gdxlku1auIE1guXO9ZBUse7/0QmByGKm7Ev
-Cr3ecDY33kRpC+xzxWFe0Q67NYj2LYtffEyUf346+3tsoXAhgYX1yXWD83byJa0wNYoNw1Va0mKl
-XCe9c5tN4cttNbF2oWRFlApybqRzJTuXtBpBfWmr0LSnO/cVrVN03Ih4EOupgojtjyuX94paH7Ne
-gi1yaxDlrecc5t3JWT9I1gbI7YNo77U6mveWGoTdeRscOIpVP4QmBKEGeAUFBekPCtSmINQA76Dk
-YV69CZYRwiiIkLaGBIF3UFCQ/OJSIXycR+GN0iAIJLF70wYEAQMcOFF40QVTCAIGsHvTBgQBAwTZ
-KZ3IS89dJYQOQcAOfnaKQ0GSc1cJ4Y9JkDhvEQQuJkOQM/ff3R/CHx9vEr9RGAQBATHbvas35AUQ
-BF5Eogbpj53zKxDCHwgCVsjrg8RLFA/hDwQBK+R30mliwYs4cJgXQeA95GQ7nXR4HQcEqR8CgoAV
-7F4whSBggMsO5uaE8Amm0RtlQRBIgiCTIFwhCBItCPIbvVGWsQbhGnMQQJClidXODZXhOhBk7YPg
-B0SYF+R3xH+jLNQgkMS8IB19ELgRBOEoFiggCOdBQKEFQeI3yoIgkARBEAQUEARBQMG2IGHmIghc
-jGlBIiEQBC4GQRAEFBAEQUABQRAEFBAEQUABQRAEFBAEQUChKUGkny0sAIJAkrYEqRMAgkASBEEQ
-UEAQBAEFBEEQUDAtyO9Fgvz81CkY2se4IB/x9cL8dAgCCWwL0iEI3ItdQbz7/TivlwdBIIldQTpq
-ELgfBEEQUDAqyNiyQhC4G9OChEogCFwNgiAIKFgUxDl+hSBwLxYFoQYBMyAIgoACgiAIKBgVJP4r
-flYMBIEkCIIgoIAgCAIKQXb2/1knt4TQIQjYwc/OPy3+/58mt4TwB4KAFWJBug5BAL7NqLAlNb3y
-rUQQBCDVxOqpQQA6+iB/IAgkQZC/e5ogCCSofpjXL1Eq/25Bpv8AArXrCb9OEmsoBAG7IAiCgMIV
-PY1RiT6aLG+Hx5sRBKxQX5DpzIogSTIEBAErVBdkFIEmFrTJFX2QDkGgVeoLMo9eOXaY9yO/XhAE
-AQXj14N0CAK3giAIAgoIgiCggCAIAgoIgiCggCAIAgoIgiCl+cTcHdJxEARBdiFkfYq7Qy0KgrxZ
-kLdmfQYI8jBBMnL+vVmfAYK0IAg5fxsIcpMg7OnbAEGKCkLOPw0E2SEIaf9eEGQShLQHCQT5CvKp
-dVM6aBwEQRBQQBAEeRo/CQ4VhiAI0iQpC46KkAJBEMQ0l1iggCAIYoFrqoMDIAiC1ERpCZnyIAmC
-IEg2e7PecuLvBUEQ5I+MnH9A1mfQkiB1Tmk/WRBy/jRNCVJl9e0JQtpfCILYEIQWjlEQpKIgJH37
-IEimIOzq3wWCTIKQ9CCBILMgVQqH1kEQBAEFBEEQUEAQBAEFBEEQUEAQBAEFBEEQUEAQBAGFODud
-H22+KwQEAStE2fmnxujIbSF8EASsEGZnb0GQHX+XA0FApB8JX1z+IQhAkJ1T1THXIneE0CEIGCIU
-hCYWgIN4FAtBAEYsHuZFEDCDxROFdwjyQRCQQBAEAQUEQRBQQBAEAQUEQRBQQBAEAQUEQRBQQBAE
-AQUEQRBQQBAEAQUEQRBQQBAEAQUEQRBQQBAEAQUEQRBQQBAEAQUEGQXhl3FABEEmQaqUDc3TkCB1
-fiYdQUCjJUHqrB5BQKG+IOPtH6bbQPiTRAgIAmaoLshshHs/If+2QggCdqktyHSLRruC/CAIKFzU
-xFrvZ+pMlhmCmwRfK8j3AUFA5jJBQjvM1CDfBwQBmetqEKtNrO8DgoAMgnwfEARkqnfSp/6F2cO8
-CAIarz9RiCCggSDfBwQBGQQZHxAERBBkfEAQEEGQ8QFBQARBxgcEAREE+T5wQSHIIMj4iCAggiDj
-I4KACIKMjwgCIggyPiIIiDQkyG+Nlf8gCGi8XpBpgiAggiDjBEFApBVBfkeKrxwxQKUVQbq6NQiA
-TJCd0gVNF4eAIGAIPzvFS2KvDaFDEDBEQ4JUOQ/yM3wnQ42yoWmi21Etrwf3raoeSPjCpYJ83cAP
-SBBm53yHhdfUIH924AekiDrp86M5QeqNNMEPSBL3Qbq3CUINAmlCQby7WN0RQne1IPRBQKGdE4WV
-BOEoFmi8XpAqpcJjQBAABQQBUEAQAAUEAVBAEAAFBAFQMCjI50JBuNQWdCwKIj+pNVYRQAFBABQQ
-BEABQQAUEARAAUEAFJoR5IMgcAPtCFJl3QgCOggCoIAgAAoIAqCAIAAKCAKggCAACggCoIAgAAoI
-AqCAIAAKrQhSZSjWD1fcwgbNCFJjzegBWyAIgAKCACggCICCPUE+CAJ2MCiI+AxB4BYaEYQLbuEe
-WhGkypoRBLZAEACFNwuCH7AJggAotCEIfXS4iUYEyStiJ54gBT4IiqCIGvghfC4SZPj+eM5wpogC
-UVDEC4ooG0LgwvfpZgvryFYMnh9GPkuKeGARR9b6HzmEX0GQ7R5IzlYM0+PP4Pph5LOkCONFeJlb
-jb91rOvZEmRHDz0r5qGbGliuHza/DoowVoSfudVIC/L5DWb97DqClRfy/6rj5+sHNQhF5BVxnSBO
-TdUD2EXJ3IqC9CkPwxqkBt+qY+6KAOxHydyyq0lWVBcIMnSIAce4pQ/iUV8Qqg44zEWCXHSwDKA0
-ZC4AAAAAAADAmzl9ZGBc/Ewx07I3F9HNxxEPFzGf/L13Q2xEcboIL61uPHx1+tjyvAXHi5mWvbmI
-bj1TeyaK7vbPYiqm8W/ES6urToDIgZz8KjoLgkzFnCuiPy9IPy9+o2PO4u0K4qfVzYKcrL7mLTlV
-zPgpnGtXnIxiDuF4EevXeaKI8xviBHLfx3n6s3DT6nySHuf8ALC5kXhu330+kvXDPLr42SKsRHH6
-GykRRT9VyEeLcDfiolGKyTjK1CBnPssSkZRoH93e0CvSpjj9jRRq2ZwqwlAT625Bevq2JYsosL+x
-sCFWBOlOHxk9fVDRyHHJbv4+bo2iSBFuSfdFcaaIICduPMwLAAAAAAAAAAAAAAAAAAAAkI060iFj
-GIQzK4MnoH3mLNayOSfT3XkxBJpnTxIjCLyVfh1N2i0Dr4Oxpf7gWWnilOKNF8YQaB2viSVfU+Vd
-frF/0iEItI8siFeFeNWB41CXsGb1AkGgdQJB1mZWYh6/8aRXHfgBzbN2O7rkBaDCe7uaWAgC7bP2
-st02kp/byd750klfl3MvI71hcwAAAAAAzvAPSAtjveQQUBkAAAAASUVORK5CYII=
-
---MP_0GgvZqd1LgfkO8bQe_WrOcI--
+I guess I would like an advice here.
+> Also, what happened to the problem of having an address handle
+> belonging to the wrong device on bond failover?  Did you figure out a
+> way to fix that one?
+This is what patch 2 handles.
+> 
+>  - R.
+> _______________________________________________
+> general mailing list
+> general@lists.openfabrics.org
+> http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general
+> 
+> To unsubscribe, please visit http://openib.org/mailman/listinfo/openib-general
+> 
