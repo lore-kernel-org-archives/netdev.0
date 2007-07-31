@@ -1,81 +1,76 @@
 From: Corey Hickey <bugfood-ml@fatooh.org>
-Subject: Re: [PATCH 2/7] Preparatory refactoring part 2.
-Date: Tue, 31 Jul 2007 00:43:43 -0700
-Message-ID: <46AEE82F.5040603@fatooh.org>
-References: <11857548771998-git-send-email-bugfood-ml@fatooh.org> <11857548771609-git-send-email-bugfood-ml@fatooh.org> <46ADEEC5.9030600@trash.net>
+Subject: Re: [PATCH 6/7] Make qdisc changeable.
+Date: Tue, 31 Jul 2007 00:43:49 -0700
+Message-ID: <46AEE835.8060509@fatooh.org>
+References: <11857548771998-git-send-email-bugfood-ml@fatooh.org> <11857548783311-git-send-email-bugfood-ml@fatooh.org> <46ADF18A.4060008@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-To: Patrick McHardy <kaber@trash.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hot.fatooh.org ([208.78.103.127]:55492 "EHLO hot.fatooh.org"
+Received: from hot.fatooh.org ([208.78.103.127]:55499 "EHLO hot.fatooh.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751344AbXGaHnk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 31 Jul 2007 03:43:40 -0400
-In-Reply-To: <46ADEEC5.9030600@trash.net>
+	id S1751716AbXGaHnp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 31 Jul 2007 03:43:45 -0400
+In-Reply-To: <46ADF18A.4060008@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Patrick McHardy wrote:
 > Corey Hickey wrote:
+>> Re-implement sfq_change() and enable Qdisc_opts.change so "tc qdisc
+>> change" will work.
+>>
+>> Signed-off-by: Corey Hickey <bugfood-ml@fatooh.org>
+>> ---
+>>  net/sched/sch_sfq.c |   51 ++++++++++++++++++++++++++++++++++++++++++++++++++-
+>>  1 files changed, 50 insertions(+), 1 deletions(-)
+>>
 >> diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
->> index 8ae077f..0c46938 100644
+>> index e6a6a21..e042cd0 100644
 >> --- a/net/sched/sch_sfq.c
 >> +++ b/net/sched/sch_sfq.c
->> @@ -380,71 +380,71 @@ static void sfq_perturbation(unsigned long arg)
->>  	}
+>> @@ -485,6 +485,55 @@ static int sfq_init(struct Qdisc *sch, struct rtattr *opt)
+>>  	return 0;
 >>  }
 >>  
->> -static int sfq_change(struct Qdisc *sch, struct rtattr *opt)
->> +static int sfq_q_init(struct sfq_sched_data *q, struct rtattr *opt)
->>  {
->> -	struct sfq_sched_data *q = qdisc_priv(sch);
->>  	struct tc_sfq_qopt *ctl = RTA_DATA(opt);
->> -	unsigned int qlen;
->> +	int i;
->>  
->> -	if (opt->rta_len < RTA_LENGTH(sizeof(*ctl)))
->> +	if (opt && opt->rta_len < RTA_LENGTH(sizeof(*ctl)))
+>> +static int sfq_change(struct Qdisc *sch, struct rtattr *opt)
+>> +{
+>> +	struct sfq_sched_data *q = qdisc_priv(sch);
+>> +	struct sfq_sched_data tmp;
+>> +	struct sk_buff *skb;
+>> +	int err;
+>> +	
+>> +	/* set up tmp queue */
+>> +	memset(&tmp, 0, sizeof(struct sfq_sched_data));
+>> +	tmp.quantum = psched_mtu(sch->dev); /* default */
 > 
 > 
-> opt is dereferenced above (RTA_DATA), so if it is NULL we've already
-> crashed.
-
-I think that test made ESFQ not crash when I did a "qdisc change" 
-without giving any parameters, but that was a while ago and I might be 
-mistaken. I'll need to rewrite much of this function anyway, and I'll 
-pay attention to what happens when I get there.
-
->>  		return -EINVAL;
->>  
->> -	sch_tree_lock(sch);
->> -	q->quantum = ctl->quantum ? : psched_mtu(sch->dev);
->> -	q->perturb_period = ctl->perturb_period*HZ;
->> -	if (ctl->limit)
->> -		q->limit = min_t(u32, ctl->limit, SFQ_DEPTH);
->> +	q->perturbation = 0;
->> +	q->max_depth = 0;
->> +	q->tail = q->limit = SFQ_DEPTH;
->> +	if (opt == NULL) {
->> +		q->perturb_period = 0;
->> +	} else {
->> +		struct tc_sfq_qopt *ctl = RTA_DATA(opt);
->> +		if (ctl->quantum)
->> +			q->quantum = ctl->quantum;
->> +		q->perturb_period = ctl->perturb_period*HZ;
->>  
->> -	qlen = sch->q.qlen;
->> -	while (sch->q.qlen >= q->limit-1)
->> -		sfq_drop(sch);
->> -	qdisc_tree_decrease_qlen(sch, qlen - sch->q.qlen);
+> If no value is given it should use the old value instead of
+> reinitializing to the default.
+> 
+>> +	if ((err = sfq_q_init(&tmp, opt)))
+>> +		return err;
 > 
 > 
-> I hope that patch that makes changing possible brings this back ..
-> <checking> .. it doesn't. Please either keep this or fix up 6/7
-> to bring it back.
+> This will also use defaults for all unspecified values. It would
+> be more consistent with other qdiscs to only change those values
+> that are actually specified, so something like "tc qdisc change ...
+> perturb 10" will *only* change the perturbation parameter.
 
-It got lost in translation; I will add it to 6/7.
+I somehow had it in my head that a qdisc change was supposed to work 
+that way. I'll change my patch.
 
-Thanks,
-Corey
+> I'm not sure reusing the initialization function and copying the
+> parameters is the best way to do this.
+
+I'm not sure either, but I do like that it's conceptually simple and it 
+keeps the parameter handling in one place. I've thought and stared for a 
+while, and I don't see a better way, but that could of course be due to 
+my limited understanding and general newbiehood in that regard.
+
+Thanks again for the review. I'll try to get a new batch of patches sent 
+off tomorrow.
+
+-Corey
