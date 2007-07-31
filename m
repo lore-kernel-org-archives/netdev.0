@@ -1,38 +1,30 @@
-From: jamal <hadi@cyberus.ca>
-Subject: RFC: on [ab]use of skb->cb by VLAN code
-Date: Mon, 30 Jul 2007 20:59:16 -0400
-Message-ID: <1185843556.5162.8.camel@localhost>
-Reply-To: hadi@cyberus.ca
+From: David Miller <davem@davemloft.net>
+Subject: Re: [2.6 patch] make pktgen.c:get_ipsec_sa() static and non-inline
+Date: Mon, 30 Jul 2007 18:04:20 -0700 (PDT)
+Message-ID: <20070730.180420.77404858.davem@davemloft.net>
+References: <20070729145840.GY16817@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Ben Greear <greearb@candelatech.com>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	Matt Carlson <mcarlson@broadcom.com>
-To: David Miller <davem@davemloft.net>
+Cc: hadi@cyberus.ca, robert.olsson@its.uu.se,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: bunk@stusta.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.238]:32654 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761675AbXGaA7f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jul 2007 20:59:35 -0400
-Received: by wx-out-0506.google.com with SMTP id h31so1504789wxd
-        for <netdev@vger.kernel.org>; Mon, 30 Jul 2007 17:59:34 -0700 (PDT)
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49851
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1757377AbXGaBE1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jul 2007 21:04:27 -0400
+In-Reply-To: <20070729145840.GY16817@stusta.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Adrian Bunk <bunk@stusta.de>
+Date: Sun, 29 Jul 2007 16:58:40 +0200
 
-I was going to forget this, but its been playing in the back of my head
-and wont go away....
-Matt Carlson recently (while fixing the tg3 driver in my batching
-patches) pointed to me that skb->cb[] was being used to pass around vlan
-data. 
-This seems like a bad use since there can be a lot of things between 
-a real hardware driver and something that sets a vlan tag (qdiscs come
-to mind).
+> Non-static inline code usually doesn't makes sense.
+> 
+> In this case making is static and non-inline is the correct solution.
+> 
+> Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
-Creating a new skb field be the reasonable thing to do here but i know
-that we are trying to avoid adding new fields. Thoughts?
-
-cheers,
-jamal 
-
+Applied, thanks Adrian.
