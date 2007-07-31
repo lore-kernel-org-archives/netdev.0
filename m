@@ -1,31 +1,32 @@
 From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: [PATCH] [NET] ethtool: Add support for multiple queues
-Date: Tue, 31 Jul 2007 13:21:48 -0700
-Message-ID: <20070731202148.15794.99084.stgit@localhost.localdomain>
+Subject: [PATCH] ethtool: Add support for setting multiple rx/tx queues
+Date: Tue, 31 Jul 2007 13:21:56 -0700
+Message-ID: <20070731202156.15813.98302.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: jgarzik@pobox.com, davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:57688 "EHLO mga03.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:43068 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757353AbXGaUVt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 31 Jul 2007 16:21:49 -0400
+	id S1751667AbXGaUV5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 31 Jul 2007 16:21:57 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 ---
 
- include/linux/ethtool.h |   23 +++++++++++++++++++++++
- net/core/ethtool.c      |   34 ++++++++++++++++++++++++++++++++++
- 2 files changed, 57 insertions(+), 0 deletions(-)
+ ethtool-copy.h |   23 +++++++++++++
+ ethtool.8      |   23 +++++++++++++
+ ethtool.c      |  103 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 149 insertions(+), 0 deletions(-)
 
-diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+diff --git a/ethtool-copy.h b/ethtool-copy.h
 index ab9d688..aefd580 100644
---- a/include/linux/ethtool.h
-+++ b/include/linux/ethtool.h
+--- a/ethtool-copy.h
++++ b/ethtool-copy.h
 @@ -196,6 +196,23 @@ struct ethtool_ringparam {
  	__u32	tx_pending;
  };
@@ -77,62 +78,221 @@ index ab9d688..aefd580 100644
  
  /* compatibility with older code */
  #define SPARC_ETH_GSET		ETHTOOL_GSET
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index 23ccaa1..f1a1234 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -443,6 +443,33 @@ static int ethtool_set_ringparam(struct net_device *dev, void __user *useraddr)
- 	return dev->ethtool_ops->set_ringparam(dev, &ringparam);
+diff --git a/ethtool.8 b/ethtool.8
+index 89abf08..3f2e0c0 100644
+--- a/ethtool.8
++++ b/ethtool.8
+@@ -120,6 +120,17 @@ ethtool \- Display or change ethernet card settings
+ .RB [ tx
+ .IR N ]
+ 
++
++.B ethtool \-q|\-\-show\-queue
++.I ethX
++
++.B ethtool \-Q|\-\-set\-queue
++.I ethX
++.RB [ rx
++.IR N ]
++.RB [ tx
++.IR N ]
++
+ .B ethtool \-i|\-\-driver
+ .I ethX
+ 
+@@ -243,6 +254,18 @@ Changes the number of ring entries for the Rx Jumbo ring.
+ .BI tx \ N
+ Changes the number of ring entries for the Tx ring.
+ .TP
++.B \-q \-\-show\-queue
++Queries the specified ethernet device for rx/tx queue parameter information.
++.TP
++.B \-Q \-\-set\-queue
++Changes the rx/tx queue parameters of the specified ethernet device.
++.TP
++.BI rx \ N
++Changes the number of Rx queues.
++.TP
++.BI tx \ N
++Changes the number of Tx queues.
++.TP
+ .B \-i \-\-driver
+ Queries the specified ethernet device for associated driver information.
+ .TP
+diff --git a/ethtool.c b/ethtool.c
+index 4c9844a..227349f 100644
+--- a/ethtool.c
++++ b/ethtool.c
+@@ -64,6 +64,8 @@ static int do_gpause(int fd, struct ifreq *ifr);
+ static int do_spause(int fd, struct ifreq *ifr);
+ static int do_gring(int fd, struct ifreq *ifr);
+ static int do_sring(int fd, struct ifreq *ifr);
++static int do_gqueue(int fd, struct ifreq *ifr);
++static int do_squeue(int fd, struct ifreq *ifr);
+ static int do_gcoalesce(int fd, struct ifreq *ifr);
+ static int do_scoalesce(int fd, struct ifreq *ifr);
+ static int do_goffload(int fd, struct ifreq *ifr);
+@@ -87,6 +89,8 @@ static enum {
+ 	MODE_SCOALESCE,
+ 	MODE_GRING,
+ 	MODE_SRING,
++	MODE_GQUEUE,
++	MODE_SQUEUE,
+ 	MODE_GOFFLOAD,
+ 	MODE_SOFFLOAD,
+ 	MODE_GSTATS,
+@@ -144,6 +148,10 @@ static struct option {
+ 		"		[ rx-mini N ]\n"
+ 		"		[ rx-jumbo N ]\n"
+ 	        "		[ tx N ]\n" },
++    { "-q", "--show-queue", MODE_GQUEUE, "Query RX/TX queue parameters" },
++    { "-Q", "--set-queue", MODE_SQUEUE, "Set RX/TX queue parameters",
++		"		[ rx N ]\n"
++	        "		[ tx N ]\n" },
+     { "-k", "--show-offload", MODE_GOFFLOAD, "Get protocol offload information" },
+     { "-K", "--offload", MODE_SOFFLOAD, "Set protocol offload",
+ 		"		[ rx on|off ]\n"
+@@ -216,6 +224,11 @@ static int ring_rx_mini_wanted = -1;
+ static int ring_rx_jumbo_wanted = -1;
+ static int ring_tx_wanted = -1;
+ 
++static struct ethtool_queueparam equeue;
++static int gqueue_changed = 0;
++static int queue_rx = -1;
++static int queue_tx = -1;
++
+ static struct ethtool_coalesce ecoal;
+ static int gcoalesce_changed = 0;
+ static int coal_stats_wanted = -1;
+@@ -328,6 +341,11 @@ static struct cmdline_info cmdline_ring[] = {
+ 	{ "tx", CMDL_INT, &ring_tx_wanted, &ering.tx_pending },
+ };
+ 
++static struct cmdline_info cmdline_queue[] = {
++	{ "rx", CMDL_INT, &queue_rx, &equeue.rx},
++	{ "tx", CMDL_INT, &queue_tx, &equeue.tx},
++};
++
+ static struct cmdline_info cmdline_coalesce[] = {
+ 	{ "adaptive-rx", CMDL_BOOL, &coal_adaptive_rx_wanted, &ecoal.use_adaptive_rx_coalesce },
+ 	{ "adaptive-tx", CMDL_BOOL, &coal_adaptive_tx_wanted, &ecoal.use_adaptive_tx_coalesce },
+@@ -430,6 +448,8 @@ static void parse_cmdline(int argc, char **argp)
+ 			    (mode == MODE_SCOALESCE) ||
+ 			    (mode == MODE_GRING) ||
+ 			    (mode == MODE_SRING) ||
++			    (mode == MODE_GQUEUE) ||
++			    (mode == MODE_SQUEUE) ||
+ 			    (mode == MODE_GOFFLOAD) ||
+ 			    (mode == MODE_SOFFLOAD) ||
+ 			    (mode == MODE_GSTATS) ||
+@@ -496,6 +516,14 @@ static void parse_cmdline(int argc, char **argp)
+ 				i = argc;
+ 				break;
+ 			}
++			if (mode == MODE_SQUEUE) {
++				parse_generic_cmdline(argc, argp, i,
++					&gqueue_changed,
++					cmdline_ring,
++					ARRAY_SIZE(cmdline_queue));
++				i = argc;
++				break;
++			}
+ 			if (mode == MODE_SCOALESCE) {
+ 				parse_generic_cmdline(argc, argp, i,
+ 					&gcoalesce_changed,
+@@ -1150,6 +1178,26 @@ static int dump_ring(void)
+ 	return 0;
  }
  
-+static int ethtool_get_queueparam(struct net_device *dev, void __user *useraddr)
++static int dump_queue(void)
 +{
-+	struct ethtool_queueparam queueparam = { ETHTOOL_GQUEUEPARAM };
++	fprintf(stdout,
++		"Pre-set maximums:\n"
++		"RX:		%u\n"
++		"TX:		%u\n",
++		equeue.rx_max,
++		equeue.tx_max);
 +
-+	if (!dev->ethtool_ops->get_queueparam)
-+		return -EOPNOTSUPP;
++	fprintf(stdout,
++		"Current hardware settings:\n"
++		"RX:		%u\n"
++		"TX:		%u\n",
++		equeue.rx,
++		equeue.tx);
 +
-+	dev->ethtool_ops->get_queueparam(dev, &queueparam);
-+
-+	if (copy_to_user(useraddr, &queueparam, sizeof(queueparam)))
-+		return -EFAULT;
++	fprintf(stdout, "\n");
 +	return 0;
 +}
 +
-+static int ethtool_set_queueparam(struct net_device *dev, void __user *useraddr)
+ static int dump_coalesce(void)
+ {
+ 	fprintf(stdout, "Adaptive RX: %s  TX: %s\n",
+@@ -1278,6 +1326,10 @@ static int doit(void)
+ 		return do_gring(fd, &ifr);
+ 	} else if (mode == MODE_SRING) {
+ 		return do_sring(fd, &ifr);
++	} else if (mode == MODE_GQUEUE) {
++		return do_gqueue(fd, &ifr);
++	} else if (mode == MODE_SQUEUE) {
++		return do_squeue(fd, &ifr);
+ 	} else if (mode == MODE_GOFFLOAD) {
+ 		return do_goffload(fd, &ifr);
+ 	} else if (mode == MODE_SOFFLOAD) {
+@@ -1435,6 +1487,57 @@ static int do_gring(int fd, struct ifreq *ifr)
+ 	return 0;
+ }
+ 
++static int do_squeue(int fd, struct ifreq *ifr)
 +{
-+	struct ethtool_queueparam queueparam;
++	int err, changed = 0;
 +
-+	if (!dev->ethtool_ops->set_queueparam)
-+		return -EOPNOTSUPP;
++	equeue.cmd = ETHTOOL_GQUEUEPARAM;
++	ifr->ifr_data = (caddr_t)&equeue;
++	err = ioctl(fd, SIOCETHTOOL, ifr);
++	if (err) {
++		perror("Cannot get device queue settings");
++		return 76;
++	}
 +
-+	if (copy_from_user(&queueparam, useraddr, sizeof(queueparam)))
-+		return -EFAULT;
++	do_generic_set(cmdline_queue, ARRAY_SIZE(cmdline_queue), &changed);
 +
-+	return dev->ethtool_ops->set_queueparam(dev, &queueparam);
++	if (!changed) {
++		fprintf(stderr, "no queue parameters changed, aborting\n");
++		return 80;
++	}
++
++	equeue.cmd = ETHTOOL_SQUEUEPARAM;
++	ifr->ifr_data = (caddr_t)&equeue;
++	err = ioctl(fd, SIOCETHTOOL, ifr);
++	if (err) {
++		perror("Cannot set device queue parameters");
++		return 81;
++	}
++
++	return 0;
 +}
 +
- static int ethtool_get_pauseparam(struct net_device *dev, void __user *useraddr)
++static int do_gqueue(int fd, struct ifreq *ifr)
++{
++	int err;
++
++	fprintf(stdout, "Queue parameters for %s:\n", devname);
++
++	equeue.cmd = ETHTOOL_GQUEUEPARAM;
++	ifr->ifr_data = (caddr_t)&equeue;
++	err = ioctl(fd, SIOCETHTOOL, ifr);
++	if (err == 0) {
++		err = dump_queue();
++		if (err)
++			return err;
++	} else {
++		perror("Cannot get device queue settings");
++		return 76;
++	}
++
++	return 0;
++}
++
+ static int do_gcoalesce(int fd, struct ifreq *ifr)
  {
- 	struct ethtool_pauseparam pauseparam = { ETHTOOL_GPAUSEPARAM };
-@@ -875,6 +902,7 @@ int dev_ethtool(struct ifreq *ifr)
- 	case ETHTOOL_GMSGLVL:
- 	case ETHTOOL_GCOALESCE:
- 	case ETHTOOL_GRINGPARAM:
-+	case ETHTOOL_GQUEUEPARAM:
- 	case ETHTOOL_GPAUSEPARAM:
- 	case ETHTOOL_GRXCSUM:
- 	case ETHTOOL_GTXCSUM:
-@@ -946,6 +974,12 @@ int dev_ethtool(struct ifreq *ifr)
- 	case ETHTOOL_SRINGPARAM:
- 		rc = ethtool_set_ringparam(dev, useraddr);
- 		break;
-+	case ETHTOOL_GQUEUEPARAM:
-+		rc = ethtool_get_queueparam(dev, useraddr);
-+		break;
-+	case ETHTOOL_SQUEUEPARAM:
-+		rc = ethtool_set_queueparam(dev, useraddr);
-+		break;
- 	case ETHTOOL_GPAUSEPARAM:
- 		rc = ethtool_get_pauseparam(dev, useraddr);
- 		break;
+ 	int err;
