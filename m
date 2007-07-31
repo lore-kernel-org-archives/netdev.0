@@ -1,76 +1,42 @@
-From: Gabriel C <nix.or.die@googlemail.com>
-Subject: Re: NETPOLL=y , NETDEVICES=n compile error ( Re: 2.6.23-rc1-mm1 )
-Date: Tue, 31 Jul 2007 12:14:36 +0200
-Message-ID: <46AF0B8C.7070006@googlemail.com>
-References: <20070731083210.GA1797@ff.dom.local>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [PATCH]: Fix sk_buff page offsets and lengths.
+Date: Tue, 31 Jul 2007 14:20:51 +0400
+Message-ID: <20070731102050.GB30330@2ka.mipt.ru>
+References: <20070730.185028.26532012.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jason.wessel@windriver.com, amitkale@linsyssoft.com
-To: Jarek Poplawski <jarkao2@o2.pl>
+Content-Type: text/plain; charset=koi8-r
+Cc: netdev@vger.kernel.org, sfr@canb.auug.org.au,
+	shemminger@linux-foundation.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.186]:49916 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752860AbXGaKTX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jul 2007 06:19:23 -0400
-Received: by nf-out-0910.google.com with SMTP id g13so210929nfb
-        for <netdev@vger.kernel.org>; Tue, 31 Jul 2007 03:19:21 -0700 (PDT)
-In-Reply-To: <20070731083210.GA1797@ff.dom.local>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:41138 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753892AbXGaKVg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 31 Jul 2007 06:21:36 -0400
+Content-Disposition: inline
+In-Reply-To: <20070730.185028.26532012.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jarek Poplawski wrote:
-> On 28-07-2007 20:42, Gabriel C wrote:
->> Andrew Morton wrote:
->>> On Sat, 28 Jul 2007 17:44:45 +0200 Gabriel C <nix.or.die@googlemail.com> wrote:
->>>
->>>> Hi,
->>>>
->>>> I got this compile error with a randconfig ( http://194.231.229.228/MM/randconfig-auto-82.broken.netpoll.c ).
->>>>
->>>> ...
->>>>
->>>> net/core/netpoll.c: In function 'netpoll_poll':
->>>> net/core/netpoll.c:155: error: 'struct net_device' has no member named 'poll_controller'
->>>> net/core/netpoll.c:159: error: 'struct net_device' has no member named 'poll_controller'
->>>> net/core/netpoll.c: In function 'netpoll_setup':
->>>> net/core/netpoll.c:670: error: 'struct net_device' has no member named 'poll_controller'
->>>> make[2]: *** [net/core/netpoll.o] Error 1
->>>> make[1]: *** [net/core] Error 2
->>>> make: *** [net] Error 2
->>>> make: *** Waiting for unfinished jobs....
->>>>
->>>> ...
->>>>
->>>>
->>>> I think is because KGDBOE selects just NETPOLL.
->>>>
->>> Looks like it.
->>>
->>> Select went and selected NETPOLL and NETPOLL_TRAP but things like
->>> CONFIG_NETDEVICES and CONFIG_NET_POLL_CONTROLLER remain unset.  `select'
->>> remains evil.
-> ...
->> I think there may be a logical issue ( again if I got it right ).
->> We need some ethernet card to work with kgdboe right ? but we don't have any if !NETDEVICES && !NET_ETHERNET.
->>
->> So maybe some ' depends on ... && NETDEVICES!=n && NET_ETHERNET!=n ' is needed too ? 
+On Mon, Jul 30, 2007 at 06:50:28PM -0700, David Miller (davem@davemloft.net) wrote:
 > 
-> IMHO, the only logical issue here is netpoll.c mustn't use 
-> CONFIG_NET_POLL_CONTROLLER code without #ifdef if it doesn't
-> add this dependency itself.
+> Stephen Rothwell pointed out to me that the skb_frag_struct
+> is broken on platforms using 64K or larger page sizes, it
+> even generates warnings when (for example) the myri10ge driver
+> tries to assign PAGE_SIZE into frag->size.
 > 
+> I've thus increased page offset and size to __u32 in the patch below.
 
-Well it does if NETDEVICES && if NET_ETHERNET which booth are N when !NETDEVICES is why KGDBOE uses select and not depends on.
+Maybe wrap it into 
+#if PAGE_OFFSET > 12
+#endif
 
-Now KGDBOE just selects NETPOLL and NETPOLL_TRAP.
-Adding 'select CONFIG_NET_POLL_CONTROLLER' let kgdboe compiles but the question is does it work without any ethernet card ?
+or something like that?
 
-> Cheers,
-> Jarek P. 
-> 
+I'm not sure actually why drivers would want to have list of 64k pages,
+instead driver could call give_me_pages(size) instead of alloc_pages 
+and per-arch allocator would return one page or set of pages. This is a
+handwaving for now...
 
-
-Gabriel
+-- 
+	Evgeniy Polyakov
