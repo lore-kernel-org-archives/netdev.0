@@ -1,36 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 6/6] [IPV6]: Remove circular dependency on if_inet6.h
-Date: Mon, 30 Jul 2007 17:06:27 -0700 (PDT)
-Message-ID: <20070730.170627.102770795.davem@davemloft.net>
-References: <20070726090725.GA510@gondor.apana.org.au>
-	<E1IDzLo-0000AX-00@gondolin.me.apana.org.au>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH v3 -mm 0/9] netconsole: Multiple targets and dynamic
+ reconfigurability
+Date: Mon, 30 Jul 2007 17:12:11 -0700
+Message-ID: <20070730171211.97e2f8f0.akpm@linux-foundation.org>
+References: <20070730024741.10828.48209.sendpatchset@enigma.security.iitk.ac.in>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kaber@trash.net
-To: herbert@gondor.apana.org.au
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Keiichi Kii <k-keiichi@bx.jp.nec.com>,
+	Netdev <netdev@vger.kernel.org>,
+	Joel Becker <joel.becker@oracle.com>,
+	Matt Mackall <mpm@selenic.com>,
+	David Miller <davem@davemloft.net>
+To: Satyam Sharma <satyam@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53664
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1765111AbXGaAG2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jul 2007 20:06:28 -0400
-In-Reply-To: <E1IDzLo-0000AX-00@gondolin.me.apana.org.au>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:56555 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754534AbXGaAMj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jul 2007 20:12:39 -0400
+In-Reply-To: <20070730024741.10828.48209.sendpatchset@enigma.security.iitk.ac.in>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Thu, 26 Jul 2007 17:09:40 +0800
+On Mon, 30 Jul 2007 08:17:41 +0530
+Satyam Sharma <satyam@infradead.org> wrote:
 
-> [IPV6]: Remove circular dependency on if_inet6.h
+> [0/9] netconsole: Multiple targets and dynamic reconfigurability
 > 
-> net/if_inet6.h includes linux/ipv6.h which also tries to include
-> net/if_inet6.h.  Since the latter only needs it for forward
-> declarations, we can fix this by adding the declarations.
-> 
-> A number of files are implicitly including net/if_inet6.h through
-> linux/ipv6.h.  They also use net/ipv6.h so this patch includes
-> net/if_inet6.h there.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> This is v3 of the patchset
 
-Also applied, thanks a lot.
+That all looks pretty reasonable, thanks.
+
+Are we all comfortable with the attributions?  As I have it now, everything
+will go in as having been authored by yourself.  There is no formal (ie:
+understood-by-git) way of recording joint authorship, unfortunately.  But one
+can make a record of such things in the changelog.
+
+I'll queue this material up in the to-be-sent-to-davem queue.
