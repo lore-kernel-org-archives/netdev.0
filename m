@@ -1,53 +1,60 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [PATCH]: Fix sk_buff page offsets and lengths.
-Date: Tue, 31 Jul 2007 18:00:55 +0400
-Message-ID: <20070731140054.GA11442@2ka.mipt.ru>
-References: <20070730.185028.26532012.davem@davemloft.net> <20070731102050.GB30330@2ka.mipt.ru> <20070731122329.GB11380@infradead.org>
+From: "Michael S. Tsirkin" <mst@dev.mellanox.co.il>
+Subject: [ofa-general] Re: Re: [PATCH V3 0/7] net/bonding: ADD IPoIB support
+	for	the bonding driver
+Date: Tue, 31 Jul 2007 17:04:36 +0300
+Message-ID: <20070731140436.GA16015@mellanox.co.il>
+References: <46ADDB89.5030601@voltaire.com> <adaejipr3l5.fsf@cisco.com>
+	<46AF3CA8.6050201@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	sfr@canb.auug.org.au, shemminger@linux-foundation.org
-To: Christoph Hellwig <hch@infradead.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:58118 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756984AbXGaOBn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 31 Jul 2007 10:01:43 -0400
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Roland Dreier <rdreier@cisco.com>, fubar@us.ibm.com,
+	davem@davemloft.net, general@lists.openfabrics.org
+To: Moni Shoua <monisonlists@gmail.com>
+Return-path: <general-bounces@lists.openfabrics.org>
 Content-Disposition: inline
-In-Reply-To: <20070731122329.GB11380@infradead.org>
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <46AF3CA8.6050201@gmail.com>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 31, 2007 at 01:23:29PM +0100, Christoph Hellwig (hch@infradead.org) wrote:
-> On Tue, Jul 31, 2007 at 02:20:51PM +0400, Evgeniy Polyakov wrote:
-> > On Mon, Jul 30, 2007 at 06:50:28PM -0700, David Miller (davem@davemloft.net) wrote:
-> > > 
-> > > Stephen Rothwell pointed out to me that the skb_frag_struct
-> > > is broken on platforms using 64K or larger page sizes, it
-> > > even generates warnings when (for example) the myri10ge driver
-> > > tries to assign PAGE_SIZE into frag->size.
-> > > 
-> > > I've thus increased page offset and size to __u32 in the patch below.
-> > 
-> > Maybe wrap it into 
-> > #if PAGE_OFFSET > 12
-> > #endif
-> > 
-> > or something like that?
-> > 
-> > I'm not sure actually why drivers would want to have list of 64k pages,
-> > instead driver could call give_me_pages(size) instead of alloc_pages 
-> > and per-arch allocator would return one page or set of pages. This is a
-> > handwaving for now...
+> Quoting Moni Shoua <monisonlists@gmail.com>:
+> Subject: Re: Re: [PATCH V3 0/7] net/bonding: ADD IPoIB support for?the bonding driver
 > 
-> What about sendfile/splice on hugetlbfs?
+> Roland Dreier wrote:
+> >  > 1. When bonding enslaves an IPoIB device the bonding neighbor holds a 
+> >  > reference to a cleanup function in the IPoIB drives. This makes it unsafe to 
+> >  > unload the IPoIB module if there are bonding neighbors in the air. So, to 
+> >  > avoid this race one must unload bonding before unloading IPoIB. 
+> > 
+> > I think we really want to resolve this somehow.  Getting an oops by
+> > doing "modprobe -r ipoib" isn't that friendly.
+> > 
+> You are right and we want to resolve that.
+> One way is to clean the neigh destructor function from all IPoIB neighs.
+> The other way is to prevent ipoib unload if device is a slave or is referenced from 
+> somewhere else.
+> 
+> I guess I would like an advice here.
 
-offset in tcp_sendpage() ends up being poffset % PAGE_SIZE,
-page is 
-struct page *page = pages[poffset / PAGE_SIZE];
+I had this idea:
 
-So, as far as I understand, it will split bigpage into PAGE_SIZEd
-chunks.
+
+Maybe we could use hard_header_cache/header_cache_update methods instead of
+neighbour cleanup calls.
+
+To do this, it is possible that we'll have to switch from storing pointers
+inside the neighbour to keeping an index there, but I expect the
+performance impact to be minimal.
+
+As a result, bonding would not have to copy pointers into ipoib module
+and module removal would get fixed.
 
 -- 
-	Evgeniy Polyakov
+MST
