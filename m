@@ -1,60 +1,55 @@
-From: Pekka Savola <pekkas@netcore.fi>
-Subject: Re: zd1211rw and mac80211: multicast/v6 doesn't work in 2.6.21.5
-Date: Tue, 31 Jul 2007 11:27:22 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0707311124560.8287@netcore.fi>
-References: <Pine.LNX.4.64.0706280814090.21541@netcore.fi>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [IPSEC]: Ensure that state inner family is set
+Date: Tue, 31 Jul 2007 16:53:56 +0800
+Message-ID: <20070731085356.GA22900@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from netcore.fi ([193.94.160.1]:57749 "EHLO netcore.fi"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751022AbXGaI1Z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 31 Jul 2007 04:27:25 -0400
-Received: from netcore.fi (localhost [127.0.0.1])
-	by netcore.fi (8.13.8/8.13.8) with ESMTP id l6V8RMfl008548
-	for <netdev@vger.kernel.org>; Tue, 31 Jul 2007 11:27:23 +0300
-Received: from localhost (pekkas@localhost)
-	by netcore.fi (8.13.8/8.13.8/Submit) with ESMTP id l6V8RMSA008545
-	for <netdev@vger.kernel.org>; Tue, 31 Jul 2007 11:27:22 +0300
-In-Reply-To: <Pine.LNX.4.64.0706280814090.21541@netcore.fi>
+Received: from rhun.apana.org.au ([64.62.148.172]:4315 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752680AbXGaIyB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jul 2007 04:54:01 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-FWIW,
+Hi Dave:
 
-multicast/v6 is still broken on zd1211rw on 2.6.22.1 based Fedora 7 
-kernel (2.6.22.1-33.fc7).
+[IPSEC]: Ensure that state inner family is set
 
-On Thu, 28 Jun 2007, Pekka Savola wrote:
-> On Fedora 7 (kernel 2.6.21-1.3228.fc7, based on 2.6.21.5), my 
-> zd1211rw_mac80211 WLAN USB stick and multicast/v6 no longer works. On Fedora 
-> 6 (kernel 2.6.20, no mac80211) it was OK.
->
-> I get "wlan0: duplicate address detected!" on dmesg when the kernel is trying 
-> to autoconfigure a global address.
->
-> I suppose this is caused by the IPv6 stack seeing my own ICMPv6 neighbor 
-> solicitation and thinking it was originated by someone else:
->
-> 08:46:21.762807 00:02:72:5b:dc:28 > 33:33:ff:5b:dc:28, ethertype IPv6 
-> (0x86dd), length 78: (hlim 255, next-header: ICMPv6 (58), length: 24) :: > 
-> ff02::1:ff5b:dc28: [icmp6 sum ok] ICMP6, neighbor solicitation, length 24, 
-> who has 2001:708:10:90:202:72ff:fe5b:dc28
->
-> Strangely, the same error isn't printed with the link-local address which 
-> uses the same EUI-64.
->
-> z1211rw Wiki seems to imply that this might be an issue in generic mac80211 
-> code:
->
-> http://www.linuxwireless.org/en/users/Drivers/zd1211rw/mac80211Issues
->
-> It'd be nice to get this fixed.  Or has it already been?
->
->
+Similar to the issue we had with template families which
+specified the inner families of policies, we need to set
+the inner families of states as the main xfrm user Openswan
+leaves it as zero.
 
+af_key is unaffected because the inner family is set by it
+and not the KM.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+Cheers,
 -- 
-Pekka Savola                 "You each name yourselves king, yet the
-Netcore Oy                    kingdom bleeds."
-Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index c06883b..61339e1 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -322,6 +322,13 @@ static void copy_from_user_state(struct xfrm_state *x, struct xfrm_usersa_info *
+ 	x->props.family = p->family;
+ 	memcpy(&x->props.saddr, &p->saddr, sizeof(x->props.saddr));
+ 	x->props.flags = p->flags;
++
++	/*
++	 * Set inner address family if the KM left it as zero.
++	 * See comment in validate_tmpl.
++	 */
++	if (!x->sel.family)
++		x->sel.family = p->family;
+ }
+ 
+ /*
