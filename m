@@ -1,59 +1,29 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH v3 -mm 9/9] netconsole: Support dynamic reconfiguration
- using configfs
-Date: Mon, 30 Jul 2007 17:13:06 -0700
-Message-ID: <20070730171306.49b49818.akpm@linux-foundation.org>
-References: <20070730024741.10828.48209.sendpatchset@enigma.security.iitk.ac.in>
-	<20070730024910.10828.44721.sendpatchset@enigma.security.iitk.ac.in>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [FIX] NET: Fix sch_api and sch_prio to properly set and detect
+ the root qdisc
+Date: Mon, 30 Jul 2007 17:14:12 -0700 (PDT)
+Message-ID: <20070730.171412.38711276.davem@davemloft.net>
+References: <46A69AE6.9030009@trash.net>
+	<D5C1322C3E673F459512FB59E0DDC329034F503E@orsmsx414.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Keiichi Kii <k-keiichi@bx.jp.nec.com>,
-	Netdev <netdev@vger.kernel.org>,
-	Joel Becker <joel.becker@oracle.com>,
-	Matt Mackall <mpm@selenic.com>,
-	David Miller <davem@davemloft.net>
-To: Satyam Sharma <satyam@infradead.org>
+Cc: netdev@vger.kernel.org, kaber@trash.net
+To: peter.p.waskiewicz.jr@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:38001 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S934671AbXGaAOE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jul 2007 20:14:04 -0400
-In-Reply-To: <20070730024910.10828.44721.sendpatchset@enigma.security.iitk.ac.in>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39084
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S939605AbXGaAOO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jul 2007 20:14:14 -0400
+In-Reply-To: <D5C1322C3E673F459512FB59E0DDC329034F503E@orsmsx414.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 30 Jul 2007 08:19:10 +0530
-Satyam Sharma <satyam@infradead.org> wrote:
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Date: Fri, 27 Jul 2007 09:22:11 -0700
 
-> +/*
-> + * Wrapper over simple_strtol (base 10) with sanity and range checking.
-> + * We return (signed) long only because we may want to return errors.
-> + * Do not use this to convert numbers that are allowed to be negative.
-> + */
-> +static long strtol10_check_range(const char *cp, long min, long max)
-> +{
-> +	long ret;
-> +	char *p = (char *) cp;
-> +
-> +	WARN_ON(min < 0);
-> +	WARN_ON(max < min);
-> +
-> +	ret = simple_strtol(p, &p, 10);
-> +
-> +	if (*p && (*p != '\n')) {
-> +		printk(KERN_ERR "netconsole: invalid input\n");
-> +		return -EINVAL;
-> +	}
-> +	if ((ret < min) || (ret > max)) {
-> +		printk(KERN_ERR "netconsole: input %ld must be between "
-> +				"%ld and %ld\n", ret, min, max);
-> +		return -EINVAL;
-> +	}
-> +
-> +	return ret;
-> +}
+> 	Are these queued for 2.6.24, or are they going to make it into
+> 2.6.23?  I know you're busy with patches and NAPI, but I was
+> curious.  Thanks!
 
-There's probably other code around the place which does this.  It might
-be worth making this function a general-purpose thing.
+I've applied both fixes and will push them into 2.6.23
