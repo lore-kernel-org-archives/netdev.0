@@ -1,138 +1,49 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: Re: [Lksctp-developers] [PATCH] SCTP: drop SACK if ctsn is not
-	less than the next tsn of assoc
-Date: Tue, 31 Jul 2007 10:28:14 -0700
-Message-ID: <1185902894.8234.5.camel@localhost.localdomain>
-References: <18087.57737.908842.337891@zeus.sw.starentnetworks.com>
-	 <46AEBE2B.1060702@cn.fujitsu.com>
-	 <20070731113709.GA28333@hmsreliant.homelinux.net>
+From: Mariusz Kozlowski <m.kozlowski@tuxland.pl>
+Subject: [PATCH 20] net/decnet/dn_route.c: kmalloc + memset conversion to kzalloc
+Date: Tue, 31 Jul 2007 19:33:33 +0200
+Message-ID: <200707311933.33745.m.kozlowski@tuxland.pl>
+References: <200707311845.48807.m.kozlowski@tuxland.pl>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="iso-8859-2"
 Content-Transfer-Encoding: 7bit
-Cc: Wei Yongjun <yjwei@cn.fujitsu.com>, netdev@vger.kernel.org,
-	lksctp-developers@lists.sourceforge.net
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e3.ny.us.ibm.com ([32.97.182.143]:44216 "EHLO e3.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758498AbXGaR2X (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 31 Jul 2007 13:28:23 -0400
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e3.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l6VGNu1g013293
-	for <netdev@vger.kernel.org>; Tue, 31 Jul 2007 12:23:56 -0400
-Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.4) with ESMTP id l6VHSMgd509658
-	for <netdev@vger.kernel.org>; Tue, 31 Jul 2007 13:28:22 -0400
-Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l6VHSLht002654
-	for <netdev@vger.kernel.org>; Tue, 31 Jul 2007 13:28:22 -0400
-In-Reply-To: <20070731113709.GA28333@hmsreliant.homelinux.net>
-Sender: netdev-owner@vger.kernel.org
+Cc: kernel-janitors@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, patrick@tykepenguin.com
+To: linux-kernel@vger.kernel.org
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <200707311845.48807.m.kozlowski@tuxland.pl>
+Content-Disposition: inline
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2007-07-31 at 07:37 -0400, Neil Horman wrote:
-> On Tue, Jul 31, 2007 at 12:44:27PM +0800, Wei Yongjun wrote:
-> > If SCTP data sender received a SACK which contains Cumulative TSN Ack is 
-> > not less than the Cumulative TSN Ack Point, and if this Cumulative TSN 
-> > Ack is not used by the data sender, SCTP data sender still accept this 
-> > SACK , and next SACK which send correctly to DATA sender be dropped, 
-> > because it is less than the new Cumulative TSN Ack Point.
-> > After received this SACK, data will be retrans again and again even if 
-> > correct SACK is received.
-> > So I think this SACK must be dropped to let data transmit  correctly.
-> > 
-> > Following is the tcpdump of my test. And patch in this mail can avoid 
-> > this problem.
-> > 
-> > 02:19:38.233278 sctp (1) [INIT] [init tag: 1250461886] [rwnd: 54784] [OS: 10] [MIS: 65535] [init TSN: 217114040] 
-> > 02:19:39.782160 sctp (1) [INIT ACK] [init tag: 1] [rwnd: 54784] [OS: 100] [MIS: 65535] [init TSN: 100] 
-> > 02:19:39.798583 sctp (1) [COOKIE ECHO] 
-> > 02:19:40.082125 sctp (1) [COOKIE ACK] 
-> > 02:19:40.097859 sctp (1) [DATA] (B)(E) [TSN: 217114040] [SID: 0] [SSEQ 0] [PPID 0xf192090b] 
-> > 02:19:40.100162 sctp (1) [DATA] (B)(E) [TSN: 217114041] [SID: 0] [SSEQ 1] [PPID 0x3e467007] 
-> > 02:19:40.100779 sctp (1) [DATA] (B)(E) [TSN: 217114042] [SID: 0] [SSEQ 2] [PPID 0x11b12a0a] 
-> > 02:19:40.101200 sctp (1) [DATA] (B)(E) [TSN: 217114043] [SID: 0] [SSEQ 3] [PPID 0x30e7d979] 
-> > 02:19:40.561147 sctp (1) [SACK] [cum ack 217114040] [a_rwnd 54784] [#gap acks 0] [#dup tsns 0] 
-> > 02:19:40.568498 sctp (1) [DATA] (B)(E) [TSN: 217114044] [SID: 0] [SSEQ 4] [PPID 0x251ff86f] 
-> > 02:19:40.569308 sctp (1) [DATA] (B)(E) [TSN: 217114045] [SID: 0] [SSEQ 5] [PPID 0xe5d5da5d] 
-> > 02:19:40.700584 sctp (1) [SACK] [cum ack 290855864] [a_rwnd 54784] [#gap acks 0] [#dup tsns 0] 
-> > 02:19:40.701562 sctp (1) [DATA] (B)(E) [TSN: 217114046] [SID: 0] [SSEQ 6] [PPID 0x87d8b423] 
-> > 02:19:40.701567 sctp (1) [DATA] (B)(E) [TSN: 217114047] [SID: 0] [SSEQ 7] [PPID 0xca47e645] 
-> > 02:19:40.701569 sctp (1) [DATA] (B)(E) [TSN: 217114048] [SID: 0] [SSEQ 8] [PPID 0x6c0ea150] 
-> > 02:19:40.701576 sctp (1) [DATA] (B)(E) [TSN: 217114049] [SID: 0] [SSEQ 9] [PPID 0x9cc1994f] 
-> > 02:19:40.701585 sctp (1) [DATA] (B)(E) [TSN: 217114050] [SID: 0] [SSEQ 10] [PPID 0xb1df4129] 
-> > 02:19:41.098201 sctp (1) [SACK] [cum ack 217114041] [a_rwnd 54784] [#gap acks 0] [#dup tsns 0] 
-> > 02:19:41.283257 sctp (1) [SACK] [cum ack 217114042] [a_rwnd 54784] [#gap acks 0] [#dup tsns 0] 
-> > 02:19:41.457217 sctp (1) [SACK] [cum ack 217114043] [a_rwnd 54784] [#gap acks 0] [#dup tsns 0] 
-> > 02:19:41.691528 sctp (1) [SACK] [cum ack 217114044] [a_rwnd 54784] [#gap acks 0] [#dup tsns 0] 
-> > 02:19:41.849636 sctp (1) [SACK] [cum ack 217114045] [a_rwnd 54784] [#gap acks 0] [#dup tsns 0] 
-> > 02:19:41.975473 sctp (1) [DATA] (B)(E) [TSN: 217114046] [SID: 0] [SSEQ 6] [PPID 0x87d8b423] 
-> > 02:19:42.021229 sctp (1) [SACK] [cum ack 217114046] [a_rwnd 54784] [#gap acks 0] [#dup tsns 0] 
-> > 02:19:42.196495 sctp (1) [SACK] [cum ack 217114047] [a_rwnd 54784] [#gap acks 0] [#dup tsns 0] 
-> > 02:19:42.424319 sctp (1) [SACK] [cum ack 217114048] [a_rwnd 54784] [#gap acks 0] [#dup tsns 0] 
-> > 02:19:42.586924 sctp (1) [SACK] [cum ack 217114049] [a_rwnd 54784] [#gap acks 0] [#dup tsns 0] 
-> > 02:19:42.744810 sctp (1) [SACK] [cum ack 217114050] [a_rwnd 54784] [#gap acks 0] [#dup tsns 0] 
-> > 02:19:42.965536 sctp (1) [SACK] [cum ack 217114046] [a_rwnd 54784] [#gap acks 0] [#dup tsns 0] 
-> > 02:19:43.106385 sctp (1) [DATA] (B)(E) [TSN: 217114046] [SID: 0] [SSEQ 6] [PPID 0x87d8b423] 
-> > 02:19:43.218969 sctp (1) [SACK] [cum ack 217114046] [a_rwnd 54784] [#gap acks 0] [#dup tsns 0] 
-> > 02:19:45.374101 sctp (1) [DATA] (B)(E) [TSN: 217114046] [SID: 0] [SSEQ 6] [PPID 0x87d8b423] 
-> > 02:19:45.489258 sctp (1) [SACK] [cum ack 217114046] [a_rwnd 54784] [#gap acks 0] [#dup tsns 0] 
-> > 02:19:49.830116 sctp (1) [DATA] (B)(E) [TSN: 217114046] [SID: 0] [SSEQ 6] [PPID 0x87d8b423] 
-> > 02:19:49.984577 sctp (1) [SACK] [cum ack 217114046] [a_rwnd 54784] [#gap acks 0] [#dup tsns 0] 
-> > 02:19:58.760300 sctp (1) [DATA] (B)(E) [TSN: 217114046] [SID: 0] [SSEQ 6] [PPID 0x87d8b423] 
-> > 02:19:58.931690 sctp (1) [SACK] [cum ack 217114046] [a_rwnd 54784] [#gap acks 0] [#dup tsns 0] 
-> > 
-> > 
-> > Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
-> > 
-> > --- net/sctp/sm_statefuns.c.orig	2007-07-29 18:11:01.000000000 -0400
-> > +++ net/sctp/sm_statefuns.c	2007-07-29 18:14:49.000000000 -0400
-> > @@ -2880,6 +2880,15 @@ sctp_disposition_t sctp_sf_eat_sack_6_2(
-> >  		return SCTP_DISPOSITION_DISCARD;
-> >  	}
-> >  
-> > +	/* If Cumulative TSN Ack is not less than the Cumulative TSN
-> > +	 * Ack which will be send in the next data, drop the SACK.
-> > +	 */
-> > +	if (!TSN_lt(ctsn, asoc->next_tsn)) {
-> > +		SCTP_DEBUG_PRINTK("ctsn %x\n", ctsn);
-> > +		SCTP_DEBUG_PRINTK("next_tsn %x\n", asoc->next_tsn);
-> > +		return SCTP_DISPOSITION_DISCARD;
-> > +	}
-> > +
-> >  	/* Return this SACK for further processing.  */
-> >  	sctp_add_cmd_sf(commands, SCTP_CMD_PROCESS_SACK, SCTP_SACKH(sackh));
-> >  
-> > 
-> > 
-> Whats the behavior on this in the event that a sack is received in which the
-> ctsn falls within a a missing space in a stream of gap acks?  I.e. what if the
-> sack being sent falls into a hole between the ack point and the first gap ack
-> range?  Does this patch impact that at all?
-> 
-> Also, what is this:
-> 02:19:40.700584 sctp (1) [SACK] [cum ack 290855864] ....
-> 
-> That ack value seems rather out of range for the rest of the trace. Was that
-> part of your test?  If so, what caused it?
+Signed-off-by: Mariusz Kozlowski <m.kozlowski@tuxland.pl>
 
-Yes. This SACK seems to be totally out of range and may be causing the problem.
+ net/decnet/dn_route.c | 45013 -> 44991 (-22 bytes)
+ net/decnet/dn_route.o | 199388 -> 199580 (+192 bytes)
 
-I would expect the following check in sctp_sf_eat_sack_6_2() to drop any SACKs
-with CTSN value lower than the earlier SACKs.
+ net/decnet/dn_route.c |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-        /* i) If Cumulative TSN Ack is less than the Cumulative TSN
-         *     Ack Point, then drop the SACK.  Since Cumulative TSN
-         *     Ack is monotonically increasing, a SACK whose
-         *     Cumulative TSN Ack is less than the Cumulative TSN Ack
-         *     Point indicates an out-of-order SACK.
-         */
-        if (TSN_lt(ctsn, asoc->ctsn_ack_point)) {
-                SCTP_DEBUG_PRINTK("ctsn %x\n", ctsn);
-                SCTP_DEBUG_PRINTK("ctsn_ack_point %x\n", asoc->ctsn_ack_point);
-                return SCTP_DISPOSITION_DISCARD;
-        }
-
-Thanks
-Sridhar
-
+--- linux-2.6.23-rc1-mm1-a/net/decnet/dn_route.c	2007-07-26 13:07:44.000000000 +0200
++++ linux-2.6.23-rc1-mm1-b/net/decnet/dn_route.c	2007-07-31 15:15:11.000000000 +0200
+@@ -1737,8 +1737,9 @@ static int dn_rt_cache_seq_open(struct i
+ {
+ 	struct seq_file *seq;
+ 	int rc = -ENOMEM;
+-	struct dn_rt_cache_iter_state *s = kmalloc(sizeof(*s), GFP_KERNEL);
+-
++	struct dn_rt_cache_iter_state *s;
++
++	s = kzalloc(sizeof(*s), GFP_KERNEL);
+ 	if (!s)
+ 		goto out;
+ 	rc = seq_open(file, &dn_rt_cache_seq_ops);
+@@ -1746,7 +1747,6 @@ static int dn_rt_cache_seq_open(struct i
+ 		goto out_kfree;
+ 	seq		= file->private_data;
+ 	seq->private	= s;
+-	memset(s, 0, sizeof(*s));
+ out:
+ 	return rc;
+ out_kfree:
