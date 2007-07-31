@@ -1,79 +1,49 @@
-From: Arjan van de Ven <arjan@infradead.org>
-Subject: Re: [BUG] ISIC + 2.6.22 (via-rhine)
-Date: Tue, 31 Jul 2007 14:23:33 -0700
-Message-ID: <1185917013.2766.12.camel@laptopd505.fenrus.org>
-References: <46AFA576.1060902@gmail.com>
+From: Mariusz Kozlowski <m.kozlowski@tuxland.pl>
+Subject: [PATCH 66] net/ipv4/raw.c: kmalloc + memset conversion to kzalloc
+Date: Tue, 31 Jul 2007 23:54:00 +0200
+Message-ID: <200707312354.00650.m.kozlowski@tuxland.pl>
+References: <200707311845.48807.m.kozlowski@tuxland.pl>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="iso-8859-2"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Xose Vazquez Perez <xose.vazquez@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:51764 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757147AbXGaVXx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jul 2007 17:23:53 -0400
-In-Reply-To: <46AFA576.1060902@gmail.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: kernel-janitors@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, davem@davemloft.net
+To: linux-kernel@vger.kernel.org
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <200707311845.48807.m.kozlowski@tuxland.pl>
+Content-Disposition: inline
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Signed-off-by: Mariusz Kozlowski <m.kozlowski@tuxland.pl>
 
-> =================================
-> [ INFO: inconsistent lock state ]
-> 2.6.22 #1
-> ---------------------------------
-> inconsistent {in-hardirq-W} -> {hardirq-on-W} usage.
-> swapper/0 [HC0[0]:SC1[1]:HE1:SE0] takes:
->   (&rp->lock){++..}, at: [<f8c890db>] rhine_tx_timeout+0x6f/0xf4 [via_rhine]
+ net/ipv4/raw.c | 21650 -> 21628 (-22 bytes)
+ net/ipv4/raw.o | 179112 -> 179272 (+160 bytes)
 
+ net/ipv4/raw.c |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
+--- linux-2.6.23-rc1-mm1-a/net/ipv4/raw.c	2007-07-26 13:07:44.000000000 +0200
++++ linux-2.6.23-rc1-mm1-b/net/ipv4/raw.c	2007-07-31 15:20:27.000000000 +0200
+@@ -900,8 +900,9 @@ static int raw_seq_open(struct inode *in
+ {
+ 	struct seq_file *seq;
+ 	int rc = -ENOMEM;
+-	struct raw_iter_state *s = kmalloc(sizeof(*s), GFP_KERNEL);
+-
++	struct raw_iter_state *s;
++
++	s = kzalloc(sizeof(*s), GFP_KERNEL);
+ 	if (!s)
+ 		goto out;
+ 	rc = seq_open(file, &raw_seq_ops);
+@@ -910,7 +911,6 @@ static int raw_seq_open(struct inode *in
 
-this is a case of homegrown locking: the via-rhine driver does
-
-        /* protect against concurrent rx interrupts */
-        disable_irq(rp->pdev->irq);
-
-        spin_lock(&rp->lock);
-
-        /* clear all descriptors */
-        free_tbufs(dev);
-        free_rbufs(dev);
-        alloc_tbufs(dev);
-        alloc_rbufs(dev);
-
-        /* Reinitialize the hardware. */
-        rhine_chip_reset(dev);
-        init_registers(dev);  
-
-        spin_unlock(&rp->lock);
-        enable_irq(rp->pdev->irq);
-
-
-as a way to protect code against interrupts... rather than using the
-normal mechanism.
-
-
-the annotation is pretty simple (untested, not even compiled):
-
---- linux-2.6.22/drivers/net/via-rhine.c.org	2007-07-31 14:22:06.000000000 -0700
-+++ linux-2.6.22/drivers/net/via-rhine.c	2007-07-31 14:22:26.000000000 -0700
-@@ -1191,7 +1191,7 @@
- 	       mdio_read(dev, rp->mii_if.phy_id, MII_BMSR));
- 
- 	/* protect against concurrent rx interrupts */
--	disable_irq(rp->pdev->irq);
-+	disable_irq_lockdep(rp->pdev->irq);
- 
- 	spin_lock(&rp->lock);
- 
-@@ -1206,7 +1206,7 @@
- 	init_registers(dev);
- 
- 	spin_unlock(&rp->lock);
--	enable_irq(rp->pdev->irq);
-+	enable_irq_lockdep(rp->pdev->irq);
- 
- 	dev->trans_start = jiffies;
- 	rp->stats.tx_errors++;
-
-
+ 	seq = file->private_data;
+ 	seq->private = s;
+-	memset(s, 0, sizeof(*s));
+ out:
+ 	return rc;
+ out_kfree:
