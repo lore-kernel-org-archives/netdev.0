@@ -1,133 +1,106 @@
-From: Gabriel C <nix.or.die@googlemail.com>
-Subject: Re: NETPOLL=y , NETDEVICES=n compile error ( Re: 2.6.23-rc1-mm1 )
-Date: Tue, 31 Jul 2007 17:05:00 +0200
-Message-ID: <46AF4F9C.5060000@googlemail.com>
-References: <20070731083210.GA1797@ff.dom.local> <46AF0B8C.7070006@googlemail.com> <20070731121735.GA1046@ff.dom.local>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: [patch] genirq: temporary fix for level-triggered IRQ resend
+Date: Tue, 31 Jul 2007 17:58:43 +0200
+Message-ID: <20070731155843.GA7033@elte.hu>
+References: <alpine.LFD.0.999.0707241228291.3607@woody.linux-foundation.org> <20070724200431.GA22190@elte.hu> <1185322771.4175.102.camel@chaos> <4bacf17f0707260016x14fc1c92s628ae64353663833@mail.gmail.com> <20070726081326.GA3197@ff.dom.local> <1185437431.3227.21.camel@chaos> <20070726083120.GA26910@elte.hu> <20070726085523.GA3423@ff.dom.local> <20070726091254.GA8063@elte.hu> <4bacf17f0707300029g5116e70bq4808059dc8b069f1@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jason.wessel@windriver.com, amitkale@linsyssoft.com
-To: Jarek Poplawski <jarkao2@o2.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.191]:23891 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762313AbXGaPJu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jul 2007 11:09:50 -0400
-Received: by nf-out-0910.google.com with SMTP id g13so229505nfb
-        for <netdev@vger.kernel.org>; Tue, 31 Jul 2007 08:09:48 -0700 (PDT)
-In-Reply-To: <20070731121735.GA1046@ff.dom.local>
-Sender: netdev-owner@vger.kernel.org
+Cc: Jarek Poplawski <jarkao2@o2.pl>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Jean-Baptiste Vignaud <vignaud@xandmail.fr>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	shemminger <shemminger@linux-foundation.org>,
+	linux-net <linux-net@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>, marcin.slusarz@gmail.com
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <linux-net-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4bacf17f0707300029g5116e70bq4808059dc8b069f1@mail.gmail.com>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jarek Poplawski wrote:
-> On Tue, Jul 31, 2007 at 12:14:36PM +0200, Gabriel C wrote:
->> Jarek Poplawski wrote:
->>> On 28-07-2007 20:42, Gabriel C wrote:
->>>> Andrew Morton wrote:
->>>>> On Sat, 28 Jul 2007 17:44:45 +0200 Gabriel C <nix.or.die@googlemail.com> wrote:
->>>>>
->>>>>> Hi,
->>>>>>
->>>>>> I got this compile error with a randconfig ( http://194.231.229.228/MM/randconfig-auto-82.broken.netpoll.c ).
->>>>>>
->>>>>> ...
->>>>>>
->>>>>> net/core/netpoll.c: In function 'netpoll_poll':
->>>>>> net/core/netpoll.c:155: error: 'struct net_device' has no member named 'poll_controller'
->>>>>> net/core/netpoll.c:159: error: 'struct net_device' has no member named 'poll_controller'
->>>>>> net/core/netpoll.c: In function 'netpoll_setup':
->>>>>> net/core/netpoll.c:670: error: 'struct net_device' has no member named 'poll_controller'
->>>>>> make[2]: *** [net/core/netpoll.o] Error 1
->>>>>> make[1]: *** [net/core] Error 2
->>>>>> make: *** [net] Error 2
->>>>>> make: *** Waiting for unfinished jobs....
->>>>>>
->>>>>> ...
->>>>>>
->>>>>>
->>>>>> I think is because KGDBOE selects just NETPOLL.
->>>>>>
->>>>> Looks like it.
->>>>>
->>>>> Select went and selected NETPOLL and NETPOLL_TRAP but things like
->>>>> CONFIG_NETDEVICES and CONFIG_NET_POLL_CONTROLLER remain unset.  `select'
->>>>> remains evil.
->>> ...
->>>> I think there may be a logical issue ( again if I got it right ).
->>>> We need some ethernet card to work with kgdboe right ? but we don't have any if !NETDEVICES && !NET_ETHERNET.
->>>>
->>>> So maybe some ' depends on ... && NETDEVICES!=n && NET_ETHERNET!=n ' is needed too ? 
->>> IMHO, the only logical issue here is netpoll.c mustn't use 
->>> CONFIG_NET_POLL_CONTROLLER code without #ifdef if it doesn't
->>> add this dependency itself.
->>>
->> Well it does if NETDEVICES && if NET_ETHERNET which booth are N when !NETDEVICES is why KGDBOE uses select and not depends on.
-> 
-> "does if XXX" means may "use if XXX".
 
->From what I know means only use "if xxx" on !xxx everything inside the "if xxx" is n and "depends on <something inside the if xxx> 
-does not work.
+Linus,
 
-...
+with -rc2 approaching i think we should apply the minimal fix below to 
+get Marcin's ne2k-pci networking back in working order. The 
+WARN_ON_ONCE() will not prevent the system from working and it will be a 
+reminder.
 
-menuconfig FOO
-	bool "FOO"
-	depends on BAR
-	default y 
-	-- help --
-	something
-if FOO
+a better workaround would be to inhibit the resent vector via the 
+IO-APIC irqchip - but i'd still like to have the patch below because the 
+ne2k driver _should_ be able to survive the spurious irq that happens. 
+(even on Marcin's system that ne2k-pci irq line is shared with another 
+networking card, so an irq could happen at any moment - it's just that 
+with the delayed-disable logic it happens _all the time_.)
 
-config BAZ
-	depends on WHATEVR && !NOT_THIS
+	Ingo
 
-menuconfig SOMETHING_ELSE
-	....
-if SOMETHING_ELSE
+----------------------->
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: genirq: temporary fix for level-triggered IRQ resend
 
-config BLUBB
-	depends on PCI && WHATNOT
+delayed disable relies on the ability to re-trigger the interrupt in the
+case that a real interrupt happens after the software disable was set.
+In this case we actually disable the interrupt on the hardware level
+_after_ it occurred.
 
-endif # SOMETHING_ELSE
+On enable_irq, we need to re-trigger the interrupt. On i386 this relies
+on a hardware resend mechanism (send_IPI_self()). 
 
-config NETPOLL
-        def_bool NETCONSOLE
-        
-config NETPOLL_TRAP
-        bool "Netpoll traffic trapping"
-        default n
-        depends on NETPOLL
-          
-config NET_POLL_CONTROLLER
-        def_bool NETPOLL
+Actually we only need the resend for edge type interrupts. Level type
+interrupts come back once enable_irq() re-enables the interrupt line.
 
-endif # FOO
+I assume that the interrupt in question is level triggered because it is
+shared and above the legacy irqs 0-15:
 
-Now if you set FOO=n all is gone and your driver have to select whatever it needs from there.
+	17:         12   IO-APIC-fasteoi   eth1, eth0
 
-> 
->> Now KGDBOE just selects NETPOLL and NETPOLL_TRAP.
->> Adding 'select CONFIG_NET_POLL_CONTROLLER' let kgdboe compiles but the question is does it work without any ethernet card ?
-> 
-> Why kgdboe should care what netpoll needs? So, I hope, you are adding
-> this select under config NETPOLL. On the other hand, if NETPOLL should
-> depend on NET_POLL_CONTROLLER there is probably no reason to have them
-> both.
+Looking into the IO_APIC code, the resend via send_IPI_self() happens
+unconditionally. So the resend is done for level and edge interrupts.
+This makes the problem more mysterious.
 
-NET_POLL_CONTROLLER has def_bool NETPOLL if NETDEVICES .
+The code in question lib8390.c does
 
-Net peoples ping ?:)
+	disable_irq();
+	fiddle_with_the_network_card_hardware()
+	enable_irq();
 
-> 
-> The "does it work" question isn't logical issue, so it's irrelevant
-> here...
+The fiddle_with_the_network_card_hardware() might cause interrupts,
+which are cleared in the same code path again,
 
-Right irrelevant for the compile error but relevant for the fix in my opinion.
+Marcin found that when he disables the irq line on the hardware level
+(removing the delayed disable) the card is kept alive.
 
-> 
-> Jarek P.
-> 
+So the difference is that we can get a resend on enable_irq, when an
+interrupt happens during the time, where we are in the disabled region.
 
-Gabriel
+Signed-off-by: Ingo Molnar <mingo@elte.hu>
+---
+ kernel/irq/resend.c |    9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+Index: linux/kernel/irq/resend.c
+===================================================================
+--- linux.orig/kernel/irq/resend.c
++++ linux/kernel/irq/resend.c
+@@ -62,6 +62,15 @@ void check_irq_resend(struct irq_desc *d
+ 	 */
+ 	desc->chip->enable(irq);
+ 
++	/*
++	 * Temporary hack to figure out more about the problem, which
++	 * is causing the ancient network cards to die.
++	 */
++	if (desc->handle_irq != handle_edge_irq) {
++		WARN_ON_ONCE(1);
++		return;
++	}
++
+ 	if ((status & (IRQ_PENDING | IRQ_REPLAY)) == IRQ_PENDING) {
+ 		desc->status = (status & ~IRQ_PENDING) | IRQ_REPLAY;
+ 
+
