@@ -1,33 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: RFC: on [ab]use of skb->cb by VLAN code
-Date: Mon, 30 Jul 2007 18:33:37 -0700 (PDT)
-Message-ID: <20070730.183337.27784025.davem@davemloft.net>
-References: <1185843556.5162.8.camel@localhost>
+Subject: Re: fscked clock sources revisited
+Date: Mon, 30 Jul 2007 18:37:50 -0700 (PDT)
+Message-ID: <20070730.183750.77058266.davem@davemloft.net>
+References: <1185844239.5162.17.camel@localhost>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: greearb@candelatech.com, kaber@trash.net, netdev@vger.kernel.org,
-	mcarlson@broadcom.com
+Cc: netdev@vger.kernel.org, Robert.Olsson@data.slu.se,
+	shemminger@linux-foundation.org, kaber@trash.net
 To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59331
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40183
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1760083AbXGaBdn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jul 2007 21:33:43 -0400
-In-Reply-To: <1185843556.5162.8.camel@localhost>
+	by vger.kernel.org with ESMTP id S1751417AbXGaBh7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jul 2007 21:37:59 -0400
+In-Reply-To: <1185844239.5162.17.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: jamal <hadi@cyberus.ca>
-Date: Mon, 30 Jul 2007 20:59:16 -0400
+Date: Mon, 30 Jul 2007 21:10:39 -0400
 
-> This seems like a bad use since there can be a lot of things between 
-> a real hardware driver and something that sets a vlan tag (qdiscs come
-> to mind).
+> acpi_pm: 108, 110, 111,  91, 108
+> tsc:     143, 108, 161, 129, 108
+> jiffies: 132, 138, 132, 146, 150
+> 
+> jiffies produces better results than tsc which produces better results
+> than acpi_pm. 
 
-I understand the concern, but how much qdisc stuff can possibly
-happen between those two ->hard_start_xmit() calls and do we
-want to support that in any way anyways?
+Relatively speaking, the acpi_pm numbers are at least consistent and
+about as much as so as jiffies.  Jiffies numbers are also possibly
+better, at least in part, because of the decreased accuracy and errors
+propagating.
 
-The only alternative I see is to add more things to struct sk_buff
-and that's usually very unpopular :-)
+tsc acts as expected, since every time your cpu changes power
+management state (which it is going to do dynamically) the TSC
+rates change and thus the accuracy goes into outer-space.
+
+There really isn't much that can be done by any of this.  These issues
+exist because of hardware limitations, nobody bothered to build
+x86/x86_64 systems with a system wide TICK register that is both
+impervious to cpu frequence scaling and also cheap to access.
+
+So the above is what we basically have to live with :-)
