@@ -1,85 +1,133 @@
-From: Or Gerlitz <ogerlitz@voltaire.com>
-Subject: [ofa-general] Re: [PATCH V3 0/7] net/bonding: ADD IPoIB support
- for	the	bonding driver
-Date: Tue, 31 Jul 2007 17:57:46 +0300
-Message-ID: <46AF4DEA.9050202@voltaire.com>
-References: <46ADDB89.5030601@voltaire.com>
-	<adaejipr3l5.fsf@cisco.com>	<46AF3CA8.6050201@gmail.com>	<20070731140436.GA16015@mellanox.co.il>	<46AF44E0.50700@voltaire.com>	<20070731142234.GC16015@mellanox.co.il>	<46AF48D5.9000502@voltaire.com>
-	<20070731144827.GB17331@mellanox.co.il>
+From: Gabriel C <nix.or.die@googlemail.com>
+Subject: Re: NETPOLL=y , NETDEVICES=n compile error ( Re: 2.6.23-rc1-mm1 )
+Date: Tue, 31 Jul 2007 17:05:00 +0200
+Message-ID: <46AF4F9C.5060000@googlemail.com>
+References: <20070731083210.GA1797@ff.dom.local> <46AF0B8C.7070006@googlemail.com> <20070731121735.GA1046@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Roland Dreier <rdreier@cisco.com>, fubar@us.ibm.com,
-	davem@davemloft.net, general@lists.openfabrics.org
-To: "Michael S. Tsirkin" <mst@dev.mellanox.co.il>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <20070731144827.GB17331@mellanox.co.il>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jason.wessel@windriver.com, amitkale@linsyssoft.com
+To: Jarek Poplawski <jarkao2@o2.pl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nf-out-0910.google.com ([64.233.182.191]:23891 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1762313AbXGaPJu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jul 2007 11:09:50 -0400
+Received: by nf-out-0910.google.com with SMTP id g13so229505nfb
+        for <netdev@vger.kernel.org>; Tue, 31 Jul 2007 08:09:48 -0700 (PDT)
+In-Reply-To: <20070731121735.GA1046@ff.dom.local>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michael S. Tsirkin wrote:
->> Quoting Or Gerlitz <ogerlitz@voltaire.com>:
->> Michael S. Tsirkin wrote:
-
->>> It's always wrong to copy symbols from another module without
->>> referencing it.
->> Its the --first-- time you make this comment,
-
-> It's really a well known fact. That's where the crash
-> with modprobe -r comes from, right?
-
-no, the crash --only-- comes from the neighbour cleanup function being 
-called while ipoib is now probed out of the kernel. The other symbols 
-are not problematic. I got positive feedback that this --is-- the 
-problem in the previous posts and from Roland during my Sonoma presentation.
-
->> please suggest a different approach,
-
-> I don't know, really - if you want to access a module, you really must get
-> a reference to it, or to the device.
-> How about adding the module pointer to struct net_device?
-
-I think there used to be there owner field of type struct module and it 
-was removed... we will check that.
-
->> the relevant code is below.
+Jarek Poplawski wrote:
+> On Tue, Jul 31, 2007 at 12:14:36PM +0200, Gabriel C wrote:
+>> Jarek Poplawski wrote:
+>>> On 28-07-2007 20:42, Gabriel C wrote:
+>>>> Andrew Morton wrote:
+>>>>> On Sat, 28 Jul 2007 17:44:45 +0200 Gabriel C <nix.or.die@googlemail.com> wrote:
+>>>>>
+>>>>>> Hi,
+>>>>>>
+>>>>>> I got this compile error with a randconfig ( http://194.231.229.228/MM/randconfig-auto-82.broken.netpoll.c ).
+>>>>>>
+>>>>>> ...
+>>>>>>
+>>>>>> net/core/netpoll.c: In function 'netpoll_poll':
+>>>>>> net/core/netpoll.c:155: error: 'struct net_device' has no member named 'poll_controller'
+>>>>>> net/core/netpoll.c:159: error: 'struct net_device' has no member named 'poll_controller'
+>>>>>> net/core/netpoll.c: In function 'netpoll_setup':
+>>>>>> net/core/netpoll.c:670: error: 'struct net_device' has no member named 'poll_controller'
+>>>>>> make[2]: *** [net/core/netpoll.o] Error 1
+>>>>>> make[1]: *** [net/core] Error 2
+>>>>>> make: *** [net] Error 2
+>>>>>> make: *** Waiting for unfinished jobs....
+>>>>>>
+>>>>>> ...
+>>>>>>
+>>>>>>
+>>>>>> I think is because KGDBOE selects just NETPOLL.
+>>>>>>
+>>>>> Looks like it.
+>>>>>
+>>>>> Select went and selected NETPOLL and NETPOLL_TRAP but things like
+>>>>> CONFIG_NETDEVICES and CONFIG_NET_POLL_CONTROLLER remain unset.  `select'
+>>>>> remains evil.
+>>> ...
+>>>> I think there may be a logical issue ( again if I got it right ).
+>>>> We need some ethernet card to work with kgdboe right ? but we don't have any if !NETDEVICES && !NET_ETHERNET.
+>>>>
+>>>> So maybe some ' depends on ... && NETDEVICES!=n && NET_ETHERNET!=n ' is needed too ? 
+>>> IMHO, the only logical issue here is netpoll.c mustn't use 
+>>> CONFIG_NET_POLL_CONTROLLER code without #ifdef if it doesn't
+>>> add this dependency itself.
+>>>
+>> Well it does if NETDEVICES && if NET_ETHERNET which booth are N when !NETDEVICES is why KGDBOE uses select and not depends on.
 > 
->> +static void bond_setup_by_slave(struct net_device *bond_dev,
->> +				struct net_device *slave_dev)
->> +{
->> +	bond_dev->hard_header	        = slave_dev->hard_header;
->> +	bond_dev->rebuild_header        = slave_dev->rebuild_header;
->> +	bond_dev->hard_header_cache	= slave_dev->hard_header_cache;
->> +	bond_dev->header_cache_update   = slave_dev->header_cache_update;
->> +	bond_dev->hard_header_parse	= slave_dev->hard_header_parse;
->> +
->> +	bond_dev->neigh_setup           = slave_dev->neigh_setup;
->> +
->> +	bond_dev->type		    = slave_dev->type;
->> +	bond_dev->hard_header_len   = slave_dev->hard_header_len;
->> +	bond_dev->addr_len	    = slave_dev->addr_len;
->> +
->> +	memcpy(bond_dev->broadcast, slave_dev->broadcast,
->> +		slave_dev->addr_len);
->> +}
->> +
+> "does if XXX" means may "use if XXX".
+
+>From what I know means only use "if xxx" on !xxx everything inside the "if xxx" is n and "depends on <something inside the if xxx> 
+does not work.
+
+...
+
+menuconfig FOO
+	bool "FOO"
+	depends on BAR
+	default y 
+	-- help --
+	something
+if FOO
+
+config BAZ
+	depends on WHATEVR && !NOT_THIS
+
+menuconfig SOMETHING_ELSE
+	....
+if SOMETHING_ELSE
+
+config BLUBB
+	depends on PCI && WHATNOT
+
+endif # SOMETHING_ELSE
+
+config NETPOLL
+        def_bool NETCONSOLE
+        
+config NETPOLL_TRAP
+        bool "Netpoll traffic trapping"
+        default n
+        depends on NETPOLL
+          
+config NET_POLL_CONTROLLER
+        def_bool NETPOLL
+
+endif # FOO
+
+Now if you set FOO=n all is gone and your driver have to select whatever it needs from there.
+
 > 
-> Hmm, it seems that switching to hard_header_cache as I suggested won't help at all.
+>> Now KGDBOE just selects NETPOLL and NETPOLL_TRAP.
+>> Adding 'select CONFIG_NET_POLL_CONTROLLER' let kgdboe compiles but the question is does it work without any ethernet card ?
+> 
+> Why kgdboe should care what netpoll needs? So, I hope, you are adding
+> this select under config NETPOLL. On the other hand, if NETPOLL should
+> depend on NET_POLL_CONTROLLER there is probably no reason to have them
+> both.
 
-why? please clarify.
+NET_POLL_CONTROLLER has def_bool NETPOLL if NETDEVICES .
 
-> I wonder: is bonding currently broken with devices that implement
-> hard_header_cache/header_cache_update?
+Net peoples ping ?:)
 
-I don't think so. Note that bond_setup_by_slave is only called for 
-slaves whose ether type is --not-- Ethernet.
+> 
+> The "does it work" question isn't logical issue, so it's irrelevant
+> here...
 
-Or.
+Right irrelevant for the compile error but relevant for the fix in my opinion.
+
+> 
+> Jarek P.
+> 
+
+Gabriel
