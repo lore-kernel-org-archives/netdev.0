@@ -1,31 +1,50 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [PATCH RFC]: napi_struct V4
-Date: Mon, 30 Jul 2007 19:01:55 -0700
-Message-ID: <adamyxdpbzg.fsf@cisco.com>
-References: <ada1wesy2eh.fsf@cisco.com>
-	<20070728.223206.112621083.davem@davemloft.net>
-	<ada7ioiszk7.fsf@cisco.com>
-	<20070730.154854.07455239.davem@davemloft.net>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: RFC: on [ab]use of skb->cb by VLAN code
+Date: Mon, 30 Jul 2007 22:02:04 -0400
+Message-ID: <1185847324.5162.31.camel@localhost>
+References: <1185843556.5162.8.camel@localhost>
+	 <20070730.183337.27784025.davem@davemloft.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, shemminger@linux-foundation.org,
-	jgarzik@pobox.com, hadi@cyberus.ca, rusty@rustcorp.com.au
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: greearb@candelatech.com, kaber@trash.net, netdev@vger.kernel.org,
+	mcarlson@broadcom.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-1-in.cisco.com ([171.71.176.70]:25442 "EHLO
-	sj-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753629AbXGaCCA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jul 2007 22:02:00 -0400
-In-Reply-To: <20070730.154854.07455239.davem@davemloft.net> (David Miller's message of "Mon, 30 Jul 2007 15:48:54 -0700 (PDT)")
+Received: from wx-out-0506.google.com ([66.249.82.233]:63305 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758515AbXGaCCX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jul 2007 22:02:23 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so1516613wxd
+        for <netdev@vger.kernel.org>; Mon, 30 Jul 2007 19:02:22 -0700 (PDT)
+In-Reply-To: <20070730.183337.27784025.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- > It is not a feature of these changes.
+On Mon, 2007-30-07 at 18:33 -0700, David Miller wrote:
 
- > These races exist in the current code, it is a bug fix.
+> I understand the concern, but how much qdisc stuff can possibly
+> happen between those two ->hard_start_xmit() calls and do we
+> want to support that in any way anyways?
 
-Not sure I follow.  What is the race in the current code?  Are you
-saying that netif_rx_reschedule() itself is racy?  Otherwise the code
-in ipoib looks OK to me.
+>From a quick glance only netem seems to use it in the fast path (in a
+legit way)
+Theoretically, you could have many generations (i.e parents and
+children, grandchildren etc) of netdevices stacked on top of each other
+each with qdiscs. In a simple example: dont know how well these days
+Vlans->bonding->somehardwarenetdevice works. 
+Redirect will could also result in a graph of unrelated netdevices (and
+it is fair game to trample on cb anywhere along the path)
+I came across the issue because i used cb in batching to store transient
+state which is used between qdisc dequeueing and hardware enqueueing
+(looked and smelled legit to me).
+ 
+> The only alternative I see is to add more things to struct sk_buff
+> and that's usually very unpopular :-)
 
- - R.
+I know ;-> Thats why i asked the question.
+
+cheers,
+jamal
+
