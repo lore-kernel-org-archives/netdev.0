@@ -1,106 +1,50 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: specifying scopid's for link-local IPv6 addrs
-Date: Wed, 01 Aug 2007 10:25:28 -0400
-Message-ID: <46B097D8.5060002@hp.com>
-References: <46A4FAFF.8010809@hp.com> <20070724030115.3208229d.billfink@mindspring.com> <46A63327.6010705@hp.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH]: Fix sk_buff page offsets and lengths.
+Date: Tue, 31 Jul 2007 10:52:15 +0200
+Message-ID: <20070731105215.b7e1044c.dada1@cosmosbay.com>
+References: <20070730.185028.26532012.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Bill Fink <billfink@mindspring.com>,
-	Linux Network Development list <netdev@vger.kernel.org>
-To: Rick Jones <rick.jones2@hp.com>
+Cc: netdev@vger.kernel.org, sfr@canb.auug.org.au,
+	shemminger@linux-foundation.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel9.hp.com ([156.153.255.214]:55652 "EHLO atlrel9.hp.com"
+Received: from pfx2.jmh.fr ([194.153.89.55]:53297 "EHLO pfx2.jmh.fr"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754890AbXHAOZp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Aug 2007 10:25:45 -0400
-In-Reply-To: <46A63327.6010705@hp.com>
+	id S1759013AbXHAOkF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Aug 2007 10:40:05 -0400
+In-Reply-To: <20070730.185028.26532012.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Rick Jones wrote:
->> Rick,
->>
->> I don't see any way around this.  For example, on one of my test
->> systems, I have the following link local routes:
->>
->> chance% netstat -A inet6 -rn | grep fe80::/64
->> fe80::/64                                  
->> ::                                      U     256    0        0 eth0
->> fe80::/64                                  
->> ::                                      U     256    0        0 eth2
->> fe80::/64                                  
->> ::                                      U     256    0        0 eth3
->> fe80::/64                                  
->> ::                                      U     256    0        0 eth4
->> fe80::/64                                  
->> ::                                      U     256    0        0 eth5
->> fe80::/64                                  
->> ::                                      U     256    0        0 eth6
->>
->> So if I want to run a link local test to fe80::202:b3ff:fed4:cd1,
->> the system has no way to choose which is the correct interface to
->> use for the test, and will give an error if the interface isn't
->> specified. 
-> 
-> Yeah, I was wondering about that.  I'm not sure if the attempts on
-> "those other OSes" happened to involve multiple interfaces or not.
-
-Yes, there have been attempts.   BSD has a concept of default interface.
-The default interface is used when the user did not specify the interface/
-scope_id.
-
-Other OSs do different things.  For example, Tru64 (to pick on a dead system)
-would try to find the right interface base on the preferences you could
-set up.
-
-But, in the end the whole thing is really utterly broken since no-one has
-truly implemented scoped address architecture for link-local addresses.
-The concept of the link is so closely tied to the 'interface' that I don't
-know anyone who has separated the two.
-
-
->  Even
-> so, it "feels" unpleasant for an application to deal with and I wonder
-> if there is a way for a stack to deal with it on the application's
-> behalf.  I guess that might involve some sort of layer violation between
-> neightbor discovery and routing (typing while I think about things I
-> know little about...)
-> 
-> Is there RFC chapter and verse I might read about routing with multiple
-> link-local's on a system?
-
-See RFC 4007 for the concepts.  
+On Mon, 30 Jul 2007 18:50:28 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
 > 
->> You must explicitly specify the desired interface.  For example,
->> on my test system, the correct interface is eth6 which is interface 8
->> (lo eth0 eth1 eth2 ... eth5 eth6).  Here is an example nuttcp test
->> specifying interface 8:
->>
->> chance% nuttcp -P5100 fe80::202:b3ff:fed4:cd1%8
->>  1178.5809 MB /  10.02 sec =  986.2728 Mbps 12 %TX 15 %RX
->>
->> nuttcp uses getaddrinfo() which parses the "%<ifindex>" field,
->> and then copies the sin6_scope_id from the res structure to the
->> server's sockaddr_in6 structure before initiating the connect().
+> Stephen Rothwell pointed out to me that the skb_frag_struct
+> is broken on platforms using 64K or larger page sizes, it
+> even generates warnings when (for example) the myri10ge driver
+> tries to assign PAGE_SIZE into frag->size.
 > 
-> OK, I'll give that a quick try with netperf:
+> I've thus increased page offset and size to __u32 in the patch below.
 > 
-> [root@hpcpc106 ~]# netperf -H 192.168.2.107 -c -C -i 30,3 -- -s 1M -S 1M
-> -m 64K -H fe80::207:43ff:fe05:9d%2
-> TCP STREAM TEST from ::0 (::) port 0 AF_INET6 to
-> fe80::207:43ff:fe05:9d%2 (fe80::207:43ff:fe05:9d) port 0 AF_INET6 :
-> +/-2.5% @ 99% conf.
+> I made this change much to even my own chagrin, but this is the
+> most direct fix and the ifdefs we could put here are both ugly
+> and also not something that we do with struct scatterlist so
+> no reason to do it in a place like this.
 > 
-> Cool - it establishes the data connection just fine.
+> Actually, the cost on 64-bit is zero because there existed 4 bytes of
+> alignment padding for skb_frag_struct because of the page pointer.
+> On 32-bit the cost is up to 64-bytes :-/
 > 
+> Stephen, this opens up the doors a bit for the scatterlist work
+> you wanted to do in sk_buff.
 > 
-> To further demonstrate my ignorance :)  is that %n suffix something one
-> might expect in most/all getaddrinfo()'s or is that unique to the one in
-> Linux?
 
-This is becoming more generic.  I believe HP-UX supports it (if the don't
-you should kick them :).
+Ouch... 
 
--vlad
+sizeof(struct skb_shared_info) is enlarged by 18*4 bytes on i386, a litle bit more than 64 bytes :(
+
+I understand ifdefs are ugly, but in the common case (PAGE_SIZE<64K), this change seems very unfortunate.
+
