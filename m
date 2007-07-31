@@ -1,73 +1,58 @@
-From: Joakim Koskela <joakim.koskela@hiit.fi>
-Subject: Re: [PATCH net-2.6.22-rc7] xfrm beet interfamily support
-Date: Tue, 31 Jul 2007 13:39:39 +0300
-Message-ID: <200707311339.39913.joakim.koskela@hiit.fi>
-References: <200707161506.47915.joakim.koskela@hiit.fi> <200707191708.58863.joakim.koskela@hiit.fi> <469F7952.207@trash.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 1/7] Preparatory refactoring part 1.
+Date: Tue, 31 Jul 2007 12:46:27 +0200
+Message-ID: <46AF1303.4040909@trash.net>
+References: <11857548771998-git-send-email-bugfood-ml@fatooh.org> <11857548774008-git-send-email-bugfood-ml@fatooh.org> <46ADECC9.7010303@trash.net> <46AE8FD7.3010201@fatooh.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-15"
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Patrick McHardy <kaber@trash.net>
+Cc: netdev@vger.kernel.org
+To: Corey Hickey <bugfood-ml@fatooh.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from creon.otaverkko.fi ([212.68.0.5]:53259 "EHLO creon.otaverkko.fi"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750873AbXGaKik (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 31 Jul 2007 06:38:40 -0400
-In-Reply-To: <469F7952.207@trash.net>
-Content-Disposition: inline
+Received: from stinky.trash.net ([213.144.137.162]:58477 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754746AbXGaKrI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jul 2007 06:47:08 -0400
+In-Reply-To: <46AE8FD7.3010201@fatooh.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 19 July 2007 17:46:42 Patrick McHardy wrote:
-> Joakim Koskela wrote:
-> > +		skb_push(skb, hdrlen);
-> > +		iphv6 = ipv6_hdr(skb);
-> > +
-> > +		skb_reset_network_header(skb);
-> > +		top_iphv6 = ipv6_hdr(skb);
-> > +
-> > +		protocol = iphv6->nexthdr;
-> > +		skb_pull(skb, delta);
-> > +		skb_reset_network_header(skb);
-> > +		top_iphv4 = ip_hdr(skb);
-> > +		skb_set_transport_header(skb, hdrlen);
-> > +		top_iphv4->ihl = (sizeof(struct iphdr) >> 2);
-> > +		top_iphv4->version = 4;
-> > +		top_iphv4->id = 0;
-> > +		top_iphv4->frag_off = htons(IP_DF);
-> > +		top_iphv4->ttl = dst_metric(dst->child, RTAX_HOPLIMIT);
-> > +		top_iphv4->saddr = x->props.saddr.a4;
-> > +		top_iphv4->daddr = x->id.daddr.a4;
-> > +		skb->transport_header += top_iphv4->ihl*4;
-> > +		top_iphv4->protocol = protocol;
-> > +
-> > +		skb->protocol = htons(ETH_P_IP);
-> > +#endif
->
-> The output function in the IPv6/IPv4 case is called from
-> xfrm6_output_one, which loops until after a tunnel mode
-> encapsulation is done and then returns to the outer loop
-> in xfrm6_output_finish2, which passes the packet through
-> the netfilter hooks and continues with the next transform.
->
+Corey Hickey wrote:
+> Patrick McHardy wrote:
+> 
+>>> -static int
+>>> -sfq_enqueue(struct sk_buff *skb, struct Qdisc* sch)
+>>> +static void sfq_q_enqueue(struct sk_buff *skb, struct sfq_sched_data
+>>> *q, unsigned int end)
+>>
+>>
+>>
+>> Please make sure to break at 80 chars and to keep the style
+>> in this file consistent (newline before function name).
+> 
+> 
+> Ok. For what it's worth, though, most of the original functions in the
+> file don't have a newline before the function name. Omitting the newline
+>  would thus make the new/changed functions more consistent with the rest
+> of the file. I don't have a preference either way, so unless you change
+> your mind I'll put the newline back in..
 
-I'm not sure I really got this. IPv6/IPv4 means IPv6 inner, IPv4 outer, right? 
-Isn't that called from xfrm4_output_one and subsequently passed through the 
-right filters as well (as it has a ipv4 header by then)?
 
-> There are multiple problems resulting from the inter-family
-> encapsulation. First of all, the inner loop continues after
-> beet mode encapsulation, skipping the netfilter hooks in
-> case there are more transforms. It should (as with decaps = 1
-> on input) at least call netfilter hooks after an inter-family
-> transform. If the beet transform is the last one, the IPv4
-> skb will be passed through the IPv6 netfilter hooks, which is
-> clearly wrong. To fix these problems some restructuring in
-> xfrm[46]_output.c seems to be necessary.
+You're right, just keep it consistent please and break at 80 chars.
 
-Couldn't this be solved just by ending the inner loop in case of beet mode (as 
-it is done for tunnel)?
+>>> -    sch->qstats.backlog += skb->len;
+>>
+>>
+>> Why not keep this instead of having both callers do it?
+> 
+> 
+> My idea was to have all the sfq_q_* functions operate on "struct
+> sfq_sched_data" and have no knowledge of the "struct Qdisc". I did this
+> in order to be able to use the new functions in sfq_change() when the
+> temporary sfq_sched_data doesn't have a parent Qdisc.
+> 
+> There's probably a better way, and I am of course open to suggestions,
+> but what I did made sense to me.
 
-br, j
 
+Also sounds fine.
