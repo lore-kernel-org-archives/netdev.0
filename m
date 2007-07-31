@@ -1,80 +1,37 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: NETPOLL=y , NETDEVICES=n compile error ( Re: 2.6.23-rc1-mm1 )
-Date: Tue, 31 Jul 2007 14:17:35 +0200
-Message-ID: <20070731121735.GA1046@ff.dom.local>
-References: <20070731083210.GA1797@ff.dom.local> <46AF0B8C.7070006@googlemail.com>
+From: Joakim Koskela <joakim.koskela@hiit.fi>
+Subject: Re: [PATCH net-2.6.22-rc7] xfrm beet interfamily support
+Date: Tue, 31 Jul 2007 15:13:09 +0300
+Message-ID: <200707311513.10032.joakim.koskela@hiit.fi>
+References: <200707161506.47915.joakim.koskela@hiit.fi> <200707311408.15231.joakim.koskela@hiit.fi> <46AF1996.7080401@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jason.wessel@windriver.com, amitkale@linsyssoft.com
-To: Gabriel C <nix.or.die@googlemail.com>
+Content-Type: text/plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx12.go2.pl ([193.17.41.142]:34402 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1759502AbXGaMIL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 31 Jul 2007 08:08:11 -0400
+Received: from creon.otaverkko.fi ([212.68.0.5]:57357 "EHLO creon.otaverkko.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750793AbXGaMMK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 31 Jul 2007 08:12:10 -0400
+In-Reply-To: <46AF1996.7080401@trash.net>
 Content-Disposition: inline
-In-Reply-To: <46AF0B8C.7070006@googlemail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 31, 2007 at 12:14:36PM +0200, Gabriel C wrote:
-> Jarek Poplawski wrote:
-> > On 28-07-2007 20:42, Gabriel C wrote:
-> >> Andrew Morton wrote:
-> >>> On Sat, 28 Jul 2007 17:44:45 +0200 Gabriel C <nix.or.die@googlemail.com> wrote:
-> >>>
-> >>>> Hi,
-> >>>>
-> >>>> I got this compile error with a randconfig ( http://194.231.229.228/MM/randconfig-auto-82.broken.netpoll.c ).
-> >>>>
-> >>>> ...
-> >>>>
-> >>>> net/core/netpoll.c: In function 'netpoll_poll':
-> >>>> net/core/netpoll.c:155: error: 'struct net_device' has no member named 'poll_controller'
-> >>>> net/core/netpoll.c:159: error: 'struct net_device' has no member named 'poll_controller'
-> >>>> net/core/netpoll.c: In function 'netpoll_setup':
-> >>>> net/core/netpoll.c:670: error: 'struct net_device' has no member named 'poll_controller'
-> >>>> make[2]: *** [net/core/netpoll.o] Error 1
-> >>>> make[1]: *** [net/core] Error 2
-> >>>> make: *** [net] Error 2
-> >>>> make: *** Waiting for unfinished jobs....
-> >>>>
-> >>>> ...
-> >>>>
-> >>>>
-> >>>> I think is because KGDBOE selects just NETPOLL.
-> >>>>
-> >>> Looks like it.
-> >>>
-> >>> Select went and selected NETPOLL and NETPOLL_TRAP but things like
-> >>> CONFIG_NETDEVICES and CONFIG_NET_POLL_CONTROLLER remain unset.  `select'
-> >>> remains evil.
-> > ...
-> >> I think there may be a logical issue ( again if I got it right ).
-> >> We need some ethernet card to work with kgdboe right ? but we don't have any if !NETDEVICES && !NET_ETHERNET.
-> >>
-> >> So maybe some ' depends on ... && NETDEVICES!=n && NET_ETHERNET!=n ' is needed too ? 
-> > 
-> > IMHO, the only logical issue here is netpoll.c mustn't use 
-> > CONFIG_NET_POLL_CONTROLLER code without #ifdef if it doesn't
-> > add this dependency itself.
-> > 
-> 
-> Well it does if NETDEVICES && if NET_ETHERNET which booth are N when !NETDEVICES is why KGDBOE uses select and not depends on.
+On Tuesday 31 July 2007 14:14:30 Patrick McHardy wrote:
+> Joakim Koskela wrote:
+> > Ok, so changing int xfrm[46]_output(struct sk_buff*) to use the right PF
+> > & hook based on the skb's [current] family should put things through the
+> > right hoops, right?
+>
+> Almost, in xfrm4_output the conditional calling of the hook should
+> only be done for IPv4 and the IPCB is not valid for IPv6 of course.
+> Speaking of which, shouldn't the entire cb be zeroed for interfamily
+> transforms? xfrm4_tunnel_output only clears out the options, and I
+> think your patch didn't touch it at all ..
 
-"does if XXX" means may "use if XXX".
+Right, thanks for pointing out (to my understanding both flags and opts should 
+be reset for 6-4, on 4-4 only the opts)!
 
-> Now KGDBOE just selects NETPOLL and NETPOLL_TRAP.
-> Adding 'select CONFIG_NET_POLL_CONTROLLER' let kgdboe compiles but the question is does it work without any ethernet card ?
-
-Why kgdboe should care what netpoll needs? So, I hope, you are adding
-this select under config NETPOLL. On the other hand, if NETPOLL should
-depend on NET_POLL_CONTROLLER there is probably no reason to have them
-both.
-
-The "does it work" question isn't logical issue, so it's irrelevant
-here...
-
-Jarek P.
+br ,j
