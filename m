@@ -1,63 +1,39 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: NETPOLL=y , NETDEVICES=n compile error ( Re: 2.6.23-rc1-mm1 )
-Date: Tue, 31 Jul 2007 10:32:10 +0200
-Message-ID: <20070731083210.GA1797@ff.dom.local>
-References: <46AB8DF9.8060903@googlemail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RESEND][PATCH 1/3] PPPoE: improved hashing routine
+Date: Tue, 31 Jul 2007 01:26:09 -0700 (PDT)
+Message-ID: <20070731.012609.41193630.davem@davemloft.net>
+References: <20070729060423.GA27573@florz.florz.dyndns.org>
+	<20070730.174721.17862949.davem@davemloft.net>
+	<20070731080719.GA12071@florz.florz.dyndns.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jason.wessel@windriver.com, amitkale@linsyssoft.com
-To: Gabriel C <nix.or.die@googlemail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: mostrows@earthlink.net, netdev@vger.kernel.org
+To: florz@florz.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx10.go2.pl ([193.17.41.74]:52748 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752154AbXGaIWp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 31 Jul 2007 04:22:45 -0400
-Content-Disposition: inline
-In-Reply-To: <46AB8DF9.8060903@googlemail.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:32973
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752235AbXGaI0K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jul 2007 04:26:10 -0400
+In-Reply-To: <20070731080719.GA12071@florz.florz.dyndns.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 28-07-2007 20:42, Gabriel C wrote:
-> Andrew Morton wrote:
->> On Sat, 28 Jul 2007 17:44:45 +0200 Gabriel C <nix.or.die@googlemail.com> wrote:
->>
->>> Hi,
->>>
->>> I got this compile error with a randconfig ( http://194.231.229.228/MM/randconfig-auto-82.broken.netpoll.c ).
->>>
->>> ...
->>>
->>> net/core/netpoll.c: In function 'netpoll_poll':
->>> net/core/netpoll.c:155: error: 'struct net_device' has no member named 'poll_controller'
->>> net/core/netpoll.c:159: error: 'struct net_device' has no member named 'poll_controller'
->>> net/core/netpoll.c: In function 'netpoll_setup':
->>> net/core/netpoll.c:670: error: 'struct net_device' has no member named 'poll_controller'
->>> make[2]: *** [net/core/netpoll.o] Error 1
->>> make[1]: *** [net/core] Error 2
->>> make: *** [net] Error 2
->>> make: *** Waiting for unfinished jobs....
->>>
->>> ...
->>>
->>>
->>> I think is because KGDBOE selects just NETPOLL.
->>>
->> Looks like it.
->>
->> Select went and selected NETPOLL and NETPOLL_TRAP but things like
->> CONFIG_NETDEVICES and CONFIG_NET_POLL_CONTROLLER remain unset.  `select'
->> remains evil.
-...
-> I think there may be a logical issue ( again if I got it right ).
-> We need some ethernet card to work with kgdboe right ? but we don't have any if !NETDEVICES && !NET_ETHERNET.
-> 
-> So maybe some ' depends on ... && NETDEVICES!=n && NET_ETHERNET!=n ' is needed too ? 
+From: Florian Zumbiehl <florz@florz.de>
+Date: Tue, 31 Jul 2007 10:07:19 +0200
 
-IMHO, the only logical issue here is netpoll.c mustn't use 
-CONFIG_NET_POLL_CONTROLLER code without #ifdef if it doesn't
-add this dependency itself.
+> Erm, I'd say this not only produces different results than the old
+> version, but it also produces "wrong" results, in that it ignores quite
+> a bit of the data that's supposed to be hashed. If I didn't overlook
+> something, it only considers addr&0x0f0f0f0f0f00 and sid&0x0f0f, given
+> the right endianness of addr and that PPPOE_HASH_SIZE stays 16.
 
-Cheers,
-Jarek P. 
+You're right, I need to fix the shifts up.  How does this version
+look?
+
+	hash ^= (hash >> 4) ^ (hash >> 12) ^ (hash >> 20);
+	return (head ^ (hash >> 8) ^ (hash >> 24)) &
+		(PPPOE_HASH_SIZE - 1);
+
+Actually it might be simpler and more efficient to just make
+PPPOE_HASH_SHIFT be 8.
