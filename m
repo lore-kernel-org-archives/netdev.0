@@ -1,64 +1,93 @@
-From: Simon Arlott <simon@fire.lp0.eu>
-Subject: Re: [Bugme-new] [Bug 8754] New: Kernel addrconf modifies MTU of non-kernel
- routes
-Date: Tue, 31 Jul 2007 21:32:35 +0100
-Message-ID: <46AF9C63.5090303@simon.arlott.org.uk>
-References: <bug-8754-10286@http.bugzilla.kernel.org/> <20070714150908.093eefdb.akpm@linux-foundation.org> <4699E915.5040904@simon.arlott.org.uk>
+From: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
+Subject: [RFC][PATCH] Get rid of dead code in net/wanrouter/wanmain.c
+Date: Tue, 31 Jul 2007 22:36:36 +0200
+Message-ID: <46AF9D54.6060807@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-2
 Content-Transfer-Encoding: 7bit
-Cc: bugme-daemon@bugzilla.kernel.org
-To: netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>,
+	"Netdev" <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from proxima.lp0.eu ([85.158.45.36]:35882 "EHLO proxima.lp0.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932501AbXGaUcj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 31 Jul 2007 16:32:39 -0400
-In-Reply-To: <4699E915.5040904@simon.arlott.org.uk>
+Received: from nf-out-0910.google.com ([64.233.182.185]:31748 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933213AbXGaUg7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jul 2007 16:36:59 -0400
+Received: by nf-out-0910.google.com with SMTP id g13so250160nfb
+        for <netdev@vger.kernel.org>; Tue, 31 Jul 2007 13:36:57 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 15/07/07 10:29, Simon Arlott wrote:
-> On 14/07/07 23:09, Andrew Morton wrote:
->> On Sat, 14 Jul 2007 14:54:32 -0700 (PDT) bugme-daemon@bugzilla.kernel.org wrote:
->>> http://bugzilla.kernel.org/show_bug.cgi?id=8754
->>> 
->>> I have an MTU of 16110 set on eth0 on a network where the MTU is 1500 as set by
->>> RAs. One of the other hosts on the network has an MRU/MTU of 7200 so I have a
->>> specific route to it with this MTU.
->>> 
->>> If I add the route early (i.e. on startup) before address autoconfiguration
->>> takes place, when the first RA is received the kernel changes the MTU on my
->>> route - this should not happen.
-> 
-> This also happens whenever I change the MTU on eth0 - it will alter the
-> MTU on routes *I* have added too. While this is valid behaviour for a
-> new MTU that is too low for the route it is not for an MTU above the route.
-> 
-> Changing the MTU also allows the "next RA with MTU set changes
-> non-kernel routes too" problem to occur again.
+Hi,
 
-The problem seems to be that because the IPv6 code maintains its own MTU for 
-each interface, which is set from RAs (router advertisements) and when the 
-interface MTU is set (it's also improperly modifiable via sysctl when it 
-shouldn't be, but that's another bug), it uses that to limit the MTU of every 
-route.
+File /home/devel/linux-rdc/net/wanrouter/wanmain.c line 569
+Unknown CONFIG option! CONFIG_WANPIPE_MULTPPP
+File /home/devel/linux-rdc/net/wanrouter/wanmain.c line 590
+Unknown CONFIG option! CONFIG_WANPIPE_MULTPPP
+File /home/devel/linux-rdc/net/wanrouter/wanmain.c line 663
+Unknown CONFIG option! CONFIG_WANPIPE_MULTPPP
 
-
-I propose that it should use the real interface MTU as the limit for non-kernel 
-routes and the RA MTU for kernel routes.
-
-
-Since IPv6 routes (appear to) always have an MTU (IPv4 routes don't and hence 
-inherit from the interface) this would have the side effect that a user-added 
-route's automatically set MTU would not be lowered by the RA MTU.
-
-New user IPv6 routes without an explicit MTU should not have one set and use 
-the RA MTU automatically.
-
-
-Is this ok? I'll send a patch to do this some time this week when I get around 
-to it.
+Regards,
+Michal
 
 -- 
-Simon Arlott
+LOG
+http://www.stardust.webpages.pl/log/
+
+Signed-off-by: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
+
+--- linux-rdc-clean/net/wanrouter/wanmain.c	2007-07-09 01:32:17.000000000 +0200
++++ linux-rdc/net/wanrouter/wanmain.c	2007-07-31 18:04:58.000000000 +0200
+@@ -566,9 +566,6 @@ static int wanrouter_device_new_if(struc
+ {
+ 	wanif_conf_t *cnf;
+ 	struct net_device *dev = NULL;
+-#ifdef CONFIG_WANPIPE_MULTPPP
+-	struct ppp_device *pppdev=NULL;
+-#endif
+ 	int err;
+ 
+ 	if ((wandev->state == WAN_UNCONFIGURED) || (wandev->new_if == NULL))
+@@ -587,25 +584,10 @@ static int wanrouter_device_new_if(struc
+ 		goto out;
+ 
+ 	if (cnf->config_id == WANCONFIG_MPPP) {
+-#ifdef CONFIG_WANPIPE_MULTPPP
+-		pppdev = kzalloc(sizeof(struct ppp_device), GFP_KERNEL);
+-		err = -ENOBUFS;
+-		if (pppdev == NULL)
+-			goto out;
+-		pppdev->dev = kzalloc(sizeof(struct net_device), GFP_KERNEL);
+-		if (pppdev->dev == NULL) {
+-			kfree(pppdev);
+-			err = -ENOBUFS;
+-			goto out;
+-		}
+-		err = wandev->new_if(wandev, (struct net_device *)pppdev, cnf);
+-		dev = pppdev->dev;
+-#else
+ 		printk(KERN_INFO "%s: Wanpipe Mulit-Port PPP support has not been compiled in!\n",
+ 				wandev->name);
+ 		err = -EPROTONOSUPPORT;
+ 		goto out;
+-#endif
+ 	} else {
+ 		dev = kzalloc(sizeof(struct net_device), GFP_KERNEL);
+ 		err = -ENOBUFS;
+@@ -660,16 +642,9 @@ static int wanrouter_device_new_if(struc
+ 	kfree(dev->priv);
+ 	dev->priv = NULL;
+ 
+-#ifdef CONFIG_WANPIPE_MULTPPP
+-	if (cnf->config_id == WANCONFIG_MPPP)
+-		kfree(pppdev);
+-	else
+-		kfree(dev);
+-#else
+ 	/* Sync PPP is disabled */
+ 	if (cnf->config_id != WANCONFIG_MPPP)
+ 		kfree(dev);
+-#endif
+ 
+ out:
+ 	kfree(cnf);
