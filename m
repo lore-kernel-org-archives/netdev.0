@@ -1,65 +1,43 @@
-From: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Subject: Re: [PATCH FINAL] Merge the Sonics Silicon Backplane subsystem
-Date: Wed, 1 Aug 2007 09:55:23 -0700
-Message-ID: <20070801095523.458e00c1.akpm@linux-foundation.org>
-References: <200707291324.58691.mb@bu3sch.de>
-	<20070731202648.e1a8c45f.akpm@linux-foundation.org>
-	<200708011133.37214.mb@bu3sch.de>
+From: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
+Subject: [RFC][PATCH] Removal of duplicated include net/wanrouter/wanmain.c
+Date: Wed, 01 Aug 2007 19:58:53 +0200
+Message-ID: <46B0C9DD.8040701@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-2
 Content-Transfer-Encoding: 7bit
-Cc: "linux-kernel" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Gary Zambrano <zambrano-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-To: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <200708011133.37214.mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Andrew Morton <akpm@linux-foundation.org>,
+	Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nf-out-0910.google.com ([64.233.182.190]:40332 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1764381AbXHAR7Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Aug 2007 13:59:25 -0400
+Received: by nf-out-0910.google.com with SMTP id g13so73300nfb
+        for <netdev@vger.kernel.org>; Wed, 01 Aug 2007 10:59:23 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 1 Aug 2007 11:33:36 +0200 Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org> wrote:
+Hi,
 
-> > 
-> > yup, it's `select':
-> > 
-> > Selected by: B44 && NETDEVICES && NET_ETHERNET || BCM43XX_MAC80211 && NETDEVICES && !S390 && MAC80211 && WLAN_80211 && EXPERIMENTAL
-> > 
-> > 
-> > Look.  Kconfig's `select' Just.  Does.  Not.  Work.  If you find yourself
-> > contemplating using it, please, don sackcloth, take a cold shower and
-> > several analgesics, then have another go, OK?
-> > 
-> > ho hum.
-> 
-> Ah, yeah. Crap select not caring about dependencies...
-> The problem is that people will kill me, if they don't find
-> bcm43xx in the kconfig anymore, as they have to enable ssb
-> before that. Ya know the flame with Uwe Bugla going crazy
-> about that? :D
-> Same goes for b44. It was always there in kconfig without
-> additional deps, but now (when we merge the b44 port) we would
-> need ssb selected before we see b44.
+There is no need to include linux/init.h twice
 
-We just don't have a good solution to this.
+Regards,
+Michal
 
-`select' is bust and it's unobvious how it can _not_ be bust.  If you're
-selecting something whose dependencies aren't met, what can we do?  Maybe
-select the thing it depends on as well?  What if it depends on (A||B)? 
-Which one do we force on?  Screwed.
+--
+LOG
+http://www.stardust.webpages.pl/log/
 
-And hiding options from the users until theyve gone elsewher and selected
-something else is most user-hostile.
+Signed-off-by: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
 
-At least we have menuconfig's "/" command, so if you know the option's name
-you can work out why it isn't appearing.
-
-I think what we should do is to continue to offer the unselectable option
-in manuconfig and friends, only "greyed out" in some fashion.  So the user
-can still navigate to it and select the "what do you depend on" button.
-
-> Maybe default SSB to M?
-
-People would complain about that too.  I don't know what to do, sorry. 
-Muddle through :(
+--- linux-mm-clean/net/wanrouter/wanmain.c	2007-07-09 01:32:17.000000000 +0200
++++ linux-mm/net/wanrouter/wanmain.c	2007-08-01 18:14:22.000000000 +0200
+@@ -46,7 +46,6 @@
+ #include <linux/capability.h>
+ #include <linux/errno.h>	/* return codes */
+ #include <linux/kernel.h>
+-#include <linux/init.h>
+ #include <linux/module.h>	/* support for loadable modules */
+ #include <linux/slab.h>		/* kmalloc(), kfree() */
+ #include <linux/mm.h>
