@@ -1,37 +1,59 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: ATA over ethernet swapping
-Date: Wed, 01 Aug 2007 11:18:29 +0200
-Message-ID: <1185959909.12034.38.camel@twins>
-References: <20070731135831.GA4604@elf.ucw.cz>
-	 <20070731150324.GE3206@coraid.com> <20070731152924.GM2087@elf.ucw.cz>
-	 <20070731162140.GI3206@coraid.com>  <20070731222742.GR2087@elf.ucw.cz>
+From: Edward Ando <edwardando-dbx96nzIXN7OeuqD6ShaSA@public.gmane.org>
+Subject: Re: Removing the prism54 module
+Date: Wed, 1 Aug 2007 11:21:59 +0200
+Message-ID: <20070801112159.47dc9689@ed.anywhere>
+References: <20070728224008.782a3be6@ed.anywhere>
+ <43e72e890707311820h59eebf6raf5b77058e2d23dc@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "Ed L. Cashin" <ecashin@coraid.com>,
-	kernel list <linux-kernel@vger.kernel.org>, ak@suse.de,
-	Netdev list <netdev@vger.kernel.org>
-To: Pavel Machek <pavel@ucw.cz>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:60916 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753300AbXHAJSd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Aug 2007 05:18:33 -0400
-In-Reply-To: <20070731222742.GR2087@elf.ucw.cz>
-Sender: netdev-owner@vger.kernel.org
+To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <43e72e890707311820h59eebf6raf5b77058e2d23dc-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-I've been working on this for quite some time. And should post again
-soon. Please see the patches:
+With pleasure:
 
-  http://programming.kicks-ass.net/kernel-patches/vm_deadlock/current/
+lsmod
+Module                  Size  Used by
+tun                     7680  1 
+snd_seq_oss            26816  0 
+snd_seq_device          5288  1 snd_seq_oss
+snd_seq_midi_event      5408  1 snd_seq_oss
+snd_seq                39856  4 snd_seq_oss,snd_seq_midi_event
+snd_pcm_oss            37344  0 
+snd_mixer_oss          13504  1 snd_pcm_oss
+pcmcia                 33184  0 
+snd_intel8x0           27108  2 
+snd_ac97_codec         88836  1 snd_intel8x0
+ac97_bus                1824  1 snd_ac97_codec
+snd_pcm                62896  3 snd_pcm_oss,snd_intel8x0,snd_ac97_codec
+snd_timer              17064  2 snd_seq,snd_pcm
+prism54                48848  0 
+snd_page_alloc          7080  2 snd_intel8x0,snd_pcm
+yenta_socket           22140  1 
+rsrc_nonstatic          8580  1 yenta_socket
 
-For now it requires one uses SLUB, I hope that SLAB will go away (will
-save me the trouble of adding support) and I guess I ought to do SLOB
-some time (if that does stay).
 
-You'd need the first 22 patches of that series, and then call
-sk_set_memalloc(sk) on the proper socket, and do some fiddling with the
-reconnect logic. See nfs-swapfile.patch for examples.
+Edward
 
+On Tue, 31 Jul 2007 21:20:57 -0400
+"Luis R. Rodriguez" <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
 
+> On 7/28/07, Edward Ando <edwardando-dbx96nzIXN7OeuqD6ShaSA@public.gmane.org> wrote:
+> > Dear All,
+> > I am trying to set up software suspend 2 (TuxOnIce now it seems).
+> > This has decided it wants to remove the prism54 module before
+> > starting the hibernate process.
+> >
+> > When it tries to do this, (or when I manually do: "ifconfig eth1
+> > down"), I start getting these messages on all terminals, ad
+> > infinitum:
+> >
+> > kernel: unregister_netdevice: waiting for eth1 to become free. Usage
+> > count = 4
+> 
+> Hmm... can you show lsmod output please?
+> 
+>   Luis
