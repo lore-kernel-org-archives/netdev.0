@@ -1,50 +1,55 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH]: Fix sk_buff page offsets and lengths.
-Date: Tue, 31 Jul 2007 10:52:15 +0200
-Message-ID: <20070731105215.b7e1044c.dada1@cosmosbay.com>
-References: <20070730.185028.26532012.davem@davemloft.net>
+From: Heiko Carstens <heiko.carstens@de.ibm.com>
+Subject: Re: [PATCH] prevent SSB compilation on s390 part 2
+Date: Wed, 1 Aug 2007 16:43:08 +0200
+Message-ID: <20070801144308.GC12124@osiris.boeblingen.de.ibm.com>
+References: <20070731230932.a9459617.akpm@linux-foundation.org> <20070801093404.GA12124@osiris.boeblingen.de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sfr@canb.auug.org.au,
-	shemminger@linux-foundation.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Michael Buesch <mb@bu3sch.de>,
+	Martin Schwidefsky <schwidefsky@de.ibm.com>,
+	Jeff Garzik <jeff@garzik.org>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfx2.jmh.fr ([194.153.89.55]:53297 "EHLO pfx2.jmh.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759013AbXHAOkF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Aug 2007 10:40:05 -0400
-In-Reply-To: <20070730.185028.26532012.davem@davemloft.net>
+Received: from mtagate5.uk.ibm.com ([195.212.29.138]:53528 "EHLO
+	mtagate5.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753900AbXHAOnz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Aug 2007 10:43:55 -0400
+Content-Disposition: inline
+In-Reply-To: <20070801093404.GA12124@osiris.boeblingen.de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 30 Jul 2007 18:50:28 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
+On Wed, Aug 01, 2007 at 11:34:04AM +0200, Heiko Carstens wrote:
+> From: Heiko Carstens <heiko.carstens@de.ibm.com>
+> 
+> drivers/ssb/Kconfig has already a depends on HAS_IOMEM which should
+> prevent SSB from being selected. But appearantly it looks like this
+> doesn't matter at all if it gets selected from somewhere else.
+> So add an explicit depends on HAS_IOMEM to the Broadcom driver to
+> prevent selection on s390.
+> 
+> Cc: "John W. Linville" <linville@tuxdriver.com>
+> Cc: Michael Buesch <mb@bu3sch.de>
+> Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>
+> Signed-off-by: Heiko Carstens <heiko.carstens@de.ibm.com>
+> ---
+>  drivers/net/Kconfig |    1 +
+>  1 files changed, 1 insertion(+)
+> 
+> Index: linux-2.6.22/drivers/net/Kconfig
+> ===================================================================
+> --- linux-2.6.22.orig/drivers/net/Kconfig
+> +++ linux-2.6.22/drivers/net/Kconfig
+> @@ -1434,6 +1434,7 @@ config APRICOT
+> 
+>  config B44
+>  	tristate "Broadcom 440x/47xx ethernet support"
+> +	depends on HAS_IOMEM
+>  	select SSB
+>  	select MII
+>  	help
 
-> 
-> Stephen Rothwell pointed out to me that the skb_frag_struct
-> is broken on platforms using 64K or larger page sizes, it
-> even generates warnings when (for example) the myri10ge driver
-> tries to assign PAGE_SIZE into frag->size.
-> 
-> I've thus increased page offset and size to __u32 in the patch below.
-> 
-> I made this change much to even my own chagrin, but this is the
-> most direct fix and the ifdefs we could put here are both ugly
-> and also not something that we do with struct scatterlist so
-> no reason to do it in a place like this.
-> 
-> Actually, the cost on 64-bit is zero because there existed 4 bytes of
-> alignment padding for skb_frag_struct because of the page pointer.
-> On 32-bit the cost is up to 64-bytes :-/
-> 
-> Stephen, this opens up the doors a bit for the scatterlist work
-> you wanted to do in sk_buff.
-> 
-
-Ouch... 
-
-sizeof(struct skb_shared_info) is enlarged by 18*4 bytes on i386, a litle bit more than 64 bytes :(
-
-I understand ifdefs are ugly, but in the common case (PAGE_SIZE<64K), this change seems very unfortunate.
-
+By the way.. wouldn't something like depends on NET_PCI or something
+similar more correct for this driver? Just wondering...
