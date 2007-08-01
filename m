@@ -1,74 +1,81 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: [PATCH 2/2] [TCP]: DSACK signals data receival, be conservative
-Date: Wed, 1 Aug 2007 21:06:55 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0708012106170.27657@kivilampi-30.cs.helsinki.fi>
-References: <Pine.LNX.4.64.0708012054180.27657@kivilampi-30.cs.helsinki.fi>
+From: "Gary Zambrano" <zambrano@broadcom.com>
+Subject: Re: [Bugme-new] [Bug 8808] New: Large file transfer causes
+ kernel panic showing b44_poll
+Date: Wed, 01 Aug 2007 09:36:45 -0700
+Message-ID: <1185986205.30383.7.camel@localhost.localdomain>
+References: <bug-8808-10286@http.bugzilla.kernel.org/>
+ <20070725115456.f7dac506.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-1171963027-1185991615=:27657"
-Cc: Netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	"bugme-daemon@bugzilla.kernel.org" <bugme-daemon@bugzilla.kernel.org>,
+	simsondem@gmail.com
+To: "Andrew Morton" <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:58742 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1764596AbXHASG5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Aug 2007 14:06:57 -0400
-In-Reply-To: <Pine.LNX.4.64.0708012054180.27657@kivilampi-30.cs.helsinki.fi>
+Received: from mms1.broadcom.com ([216.31.210.17]:3582 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1765700AbXHASfc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Aug 2007 14:35:32 -0400
+In-Reply-To: <20070725115456.f7dac506.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On Wed, 2007-07-25 at 11:54 -0700, Andrew Morton wrote:
+> On Wed, 25 Jul 2007 04:29:33 -0700 (PDT)
+> bugme-daemon@bugzilla.kernel.org wrote:
+> 
+> > http://bugzilla.kernel.org/show_bug.cgi?id=8808
+> > 
+> >            Summary: Large file transfer causes kernel panic showing b44_poll
+> >            Product: Drivers
+> >            Version: 2.5
+> >      KernelVersion: 2.6.22.1
+> >           Platform: All
+> >         OS/Version: Linux
+> >               Tree: Mainline
+> >             Status: NEW
+> >           Severity: blocking
+> >           Priority: P1
+> >          Component: Network
+> >         AssignedTo: jgarzik@pobox.com
+> >         ReportedBy: simsondem@gmail.com
+> > 
+> > 
+> > Most recent kernel where this bug did not occur: /
+> > Distribution: ttylinux 
+> > Hardware Environment: Dell Inspiron 1300
+> > Problem Description: 
+> > 
+> > A large file transfer (6.5GB) (tried http with wget and plain netcat) causes a
+> > kernel panic after more than several GB have been transferred. However, kernel
+> > panic does not occur consistently. That is, it has occurred after 1.2GB, 1.8GB,
+> > 2.3GB and even 3.4GB transferred. Transfer never finished though. 
+> > 
+I could not repro the problem, but please give this patch a try:
 
----696243703-1171963027-1185991615=:27657
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
-
-
-In case a DSACK is received, it's better to lower cwnd as it's
-a sign of data receival.
-
-Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
----
- net/ipv4/tcp_input.c |    5 ++++-
- 1 files changed, 4 insertions(+), 1 deletions(-)
-
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index c3124e6..f030435 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -103,6 +103,7 @@ int sysctl_tcp_abc __read_mostly;
- #define FLAG_SLOWPATH		0x100 /* Do not skip RFC checks for window update.*/
- #define FLAG_ONLY_ORIG_SACKED	0x200 /* SACKs only non-rexmit sent before RTO */
- #define FLAG_SND_UNA_ADVANCED	0x400 /* Snd_una was changed (!= FLAG_DATA_ACKED) */
-+#define FLAG_DSACKING_ACK	0x800 /* SACK blocks contained DSACK info */
+diff -rup a/b44.c b/b44.c
+--- a/b44.c	2007-07-31 15:31:08.000000000 -0700
++++ b/b44.c	2007-08-01 08:03:08.000000000 -0700
+@@ -792,15 +792,15 @@ static int b44_rx(struct b44 *bp, int bu
+ 			goto next_pkt;
+ 		}
  
- #define FLAG_ACKED		(FLAG_DATA_ACKED|FLAG_SYN_ACKED)
- #define FLAG_NOT_DUP		(FLAG_DATA|FLAG_WIN_UPDATE|FLAG_ACKED)
-@@ -966,12 +967,14 @@ tcp_sacktag_write_queue(struct sock *sk, struct sk_buff *ack_skb, u32 prior_snd_
+-		if (len == 0) {
++		if (len < 5) {
+ 			int i = 0;
  
- 	/* Check for D-SACK. */
- 	if (before(ntohl(sp[0].start_seq), TCP_SKB_CB(ack_skb)->ack_seq)) {
-+		flag |= FLAG_DSACKING_ACK;
- 		found_dup_sack = 1;
- 		tp->rx_opt.sack_ok |= 4;
- 		NET_INC_STATS_BH(LINUX_MIB_TCPDSACKRECV);
- 	} else if (num_sacks > 1 &&
- 			!after(ntohl(sp[0].end_seq), ntohl(sp[1].end_seq)) &&
- 			!before(ntohl(sp[0].start_seq), ntohl(sp[1].start_seq))) {
-+		flag |= FLAG_DSACKING_ACK;
- 		found_dup_sack = 1;
- 		tp->rx_opt.sack_ok |= 4;
- 		NET_INC_STATS_BH(LINUX_MIB_TCPDSACKOFORECV);
-@@ -1858,7 +1861,7 @@ static void tcp_cwnd_down(struct sock *sk, int flag)
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	int decr = tp->snd_cwnd_cnt + 1;
+ 			do {
+ 				udelay(2);
+ 				barrier();
+ 				len = le16_to_cpu(rh->len);
+-			} while (len == 0 && i++ < 5);
+-			if (len == 0)
++			} while (len < 5 && i++ < 5);
++			if (len < 5)
+ 				goto drop_it;
+ 		}
  
--	if ((flag&FLAG_ANY_PROGRESS) ||
-+	if ((flag&(FLAG_ANY_PROGRESS|FLAG_DSACKING_ACK)) ||
- 	    (IsReno(tp) && !(flag&FLAG_NOT_DUP))) {
- 		tp->snd_cwnd_cnt = decr&1;
- 		decr >>= 1;
--- 
-1.5.0.6
 
----696243703-1171963027-1185991615=:27657--
+
+
