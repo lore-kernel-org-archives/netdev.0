@@ -1,47 +1,47 @@
-From: maximilian attems <max@stro.at>
-Subject: [patch] sis190 check for ISA bridge on SiS966
-Date: Wed, 1 Aug 2007 17:52:04 +0200
-Message-ID: <20070801155204.GB21942@stro.at>
+From: "Michael S. Tsirkin" <mst@dev.mellanox.co.il>
+Subject: Re: [ofa-general] Re: Re: Re: [PATCH V3 0/7] net/bonding: ADD IPoIB
+	support for	the bonding driver
+Date: Wed, 1 Aug 2007 19:10:39 +0300
+Message-ID: <20070801161039.GC11758@mellanox.co.il>
+References: <46ADDB89.5030601@voltaire.com> <adaejipr3l5.fsf@cisco.com>
+	<46AF3CA8.6050201@gmail.com>
+	<20070731140436.GA16015@mellanox.co.il>
+	<46AF44E0.50700@voltaire.com>
+	<20070731142234.GC16015@mellanox.co.il>
+	<46B094CA.3080904@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: jgarzik@pobox.com, Neil Muller <drnlmuller+bugs@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from baikonur.stro.at ([213.239.196.228]:3370 "EHLO baikonur.stro.at"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758000AbXHAPyd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Aug 2007 11:54:33 -0400
+Cc: netdev@vger.kernel.org, Roland Dreier <rdreier@cisco.com>, fubar@us.ibm.com,
+	"Michael S. Tsirkin" <mst@dev.mellanox.co.il>,
+	general@lists.openfabrics.org, davem@davemloft.net
+To: Moni Shoua <monisonlists@gmail.com>
+Return-path: <general-bounces@lists.openfabrics.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <46B094CA.3080904@gmail.com>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-From: Neil Muller <drnlmuller+bugs@gmail.com>
+> Quoting Moni Shoua <monisonlists@gmail.com>:
+> Subject: Re: [ofa-general] Re: Re: Re: [PATCH V3 0/7] net/bonding: ADD IPoIB support for?the bonding driver
+> 
+> 
+> > It's always wrong to copy symbols from another module without
+> > referencing it.
+> 
+> Michael,
+> It seems like the preferred approach is to prevent ib_ipoib from being 
+> unloaded while bonding is on top it, right?
+> It seems like it would handle all safety issues (not just neigh cleanup).
 
-sis190 driver assumes to find ISA only on SiS965.
-similar fix is in sis900 driver, see bug report
-http://bugs.debian.org/435547
-
-Signed-off-by: maximilian attems <max@stro.at>
-
----
-
- drivers/net/sis190.c |    3 +++
- 1 file changed, 3 insertions(+)
-
-diff --git a/drivers/net/sis190.c b/drivers/net/sis190.c
-index ec2ad9f..d470b19 100644
---- a/drivers/net/sis190.c
-+++ b/drivers/net/sis190.c
-@@ -1593,6 +1593,9 @@ static int __devinit sis190_get_mac_addr_from_apc(struct pci_dev *pdev,
- 		  pci_name(pdev));
- 
- 	isa_bridge = pci_get_device(PCI_VENDOR_ID_SI, 0x0965, NULL);
-+	if (!isa_bridge)
-+		isa_bridge = pci_get_device(PCI_VENDOR_ID_SI, 0x0966, NULL);
-+
- 	if (!isa_bridge) {
- 		net_probe(tp, KERN_INFO "%s: Can not find ISA bridge.\n",
- 			  pci_name(pdev));
+Donnu about preferred, but that'll work I think.
 
 -- 
-maks
+MST
