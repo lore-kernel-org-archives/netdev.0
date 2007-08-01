@@ -1,50 +1,28 @@
-From: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Subject: Re: [PATCH FINAL] Merge the Sonics Silicon Backplane subsystem
-Date: Tue, 31 Jul 2007 21:56:50 -0700
-Message-ID: <20070731215650.84c7a26b.akpm@linux-foundation.org>
-References: <200707291324.58691.mb@bu3sch.de>
+From: Bongani Hlope <bonganilinux@mweb.co.za>
+Subject: Re: [OOPS] 2.6.23-rc1 Seems to be network related
+Date: Wed, 1 Aug 2007 08:42:28 +0200
+Message-ID: <200708010842.28122.bonganilinux@mweb.co.za>
+References: <200708010257.48417.bonganilinux@mweb.co.za> <20070731180407.a5c3136e.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "linux-kernel" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Gary Zambrano <zambrano-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Ralf Baechle <ralf-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org>
-To: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <200707291324.58691.mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758896AbXHAGnI@vger.kernel.org>
+In-Reply-To: <20070731180407.a5c3136e.akpm@linux-foundation.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 29 Jul 2007 13:24:54 +0200 Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org> wrote:
+On Wednesday 01 August 2007 03:04:07 Andrew Morton wrote:
+> On Wed, 1 Aug 2007 02:57:48 +0200 Bongani Hlope <bonganilinux@mweb.co.za> 
+wrote:
+> > I'm not sure if the first email went through, resending without .config
+> > attachment.
+>
+> It did come through, and I replied ;)
+>
 
-> The Sonics Silicon Backplane is a mini-bus used on
-> various Broadcom chips and embedded devices.
-
-A few probs with mips allmodconfig:
-
-drivers/ssb/driver_mipscore.c:121: warning: "struct ssb_serial_ports" declared inside parameter list
-drivers/ssb/driver_mipscore.c:121: warning: its scope is only this definition or declaration, which is probably not what you want
-drivers/ssb/driver_mipscore.c: In function `ssb_mips_serial_init':
-drivers/ssb/driver_mipscore.c:166: warning: passing arg 1 of `ssb_extif_serial_init' from incompatible pointer type
-drivers/ssb/driver_mipscore.c:166: warning: passing arg 2 of `ssb_extif_serial_init' from incompatible pointer type
-drivers/ssb/driver_mipscore.c: At top level:
-drivers/ssb/driver_mipscore.c:188: warning: 'ssb_cpu_clock' defined but not used
-drivers/ssb/driver_pcicore.c: In function `ssb_fixup_pcibridge':
-drivers/ssb/driver_pcicore.c:98: error: implicit declaration of function `pcibios_enable_device'
-drivers/ssb/driver_pcicore.c: At top level:
-drivers/ssb/driver_pcicore.c:278: warning: integer overflow in expression
-drivers/ssb/driver_pcicore.c:278: warning: integer overflow in expression       
-
-the latter is due to .end in
-
-static struct resource ssb_pcicore_mem_resource = {
-        .name   = "SSB PCIcore external memory",
-        .start  = SSB_PCI_DMA,
-        .end    = SSB_PCI_DMA + SSB_PCI_DMA_SZ - 1,
-        .flags  = IORESOURCE_MEM,
-};
-
-It could be more Kconfig select borkage, of course..
+Thank you ;) 
