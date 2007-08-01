@@ -1,43 +1,64 @@
-From: Jan Altenberg <jan.altenberg@linutronix.de>
-Subject: [PATCH] remove get_perm_addr from ucc_geth_ethtool.c
-Date: Wed, 01 Aug 2007 17:04:10 +0200
-Message-ID: <1185980650.3854.63.camel@bender.lan>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Linux Kernel list <linux-kernel@vger.kernel.org>
-To: leoli@freescale.com
+From: "Paul Moore" <paul.moore@hp.com>
+Subject: [PATCH 2/2] NET: fix memory leaks from security_secid_to_secctx()
+Date: Wed, 01 Aug 2007 11:12:59 -0400
+Message-ID: <20070801151557.264877461@hp.com>
+References: <20070801151257.475951538@hp.com>
+Cc: Paul Moore <paul.moore@hp.com>
+To: netdev@vger.kernel.org, selinux@tycho.nsa.gov
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.osadl.org ([213.239.205.134]:53198 "EHLO mail.tglx.de"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932372AbXHAPEM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Aug 2007 11:04:12 -0400
+Received: from atlrel6.hp.com ([156.153.255.205]:34366 "EHLO atlrel6.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933983AbXHAPRu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Aug 2007 11:17:50 -0400
+Content-Disposition: inline; filename=network-audit_ctx_leaks
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Remove get_perm_addr from ucc_geth_ethtool.c
+The security_secid_to_secctx() function returns memory that must be freed
+by a call to security_release_secctx() which was not always happening.  This
+patch fixes two of these problems (all that I could find in the kernel source
+at present).
 
-This is needed because commit 313674afa8fdced2fe79f50f38e1c387b63d8790
-inlines the generic function to the caller.
-
-Signed-off-by: Jan Altenberg <jan.altenberg@linutronix.de>
-
+Signed-off-by: Paul Moore <paul.moore@hp.com>
 ---
- drivers/net/ucc_geth_ethtool.c |    1 -
- 1 file changed, 1 deletion(-)
+ net/netlabel/netlabel_user.c |    4 +++-
+ net/xfrm/xfrm_policy.c       |    5 +++--
+ 2 files changed, 6 insertions(+), 3 deletions(-)
 
-Index: linux-2.6/drivers/net/ucc_geth_ethtool.c
+Index: linux-2.6_secctx-leaks/net/netlabel/netlabel_user.c
 ===================================================================
---- linux-2.6.orig/drivers/net/ucc_geth_ethtool.c
-+++ linux-2.6/drivers/net/ucc_geth_ethtool.c
-@@ -379,7 +379,6 @@ static const struct ethtool_ops uec_etht
- 	.get_stats_count        = uec_get_stats_count,
- 	.get_strings            = uec_get_strings,
- 	.get_ethtool_stats      = uec_get_ethtool_stats,
--	.get_perm_addr          = ethtool_op_get_perm_addr,
- };
+--- linux-2.6_secctx-leaks.orig/net/netlabel/netlabel_user.c
++++ linux-2.6_secctx-leaks/net/netlabel/netlabel_user.c
+@@ -113,8 +113,10 @@ struct audit_buffer *netlbl_audit_start_
+ 	if (audit_info->secid != 0 &&
+ 	    security_secid_to_secctx(audit_info->secid,
+ 				     &secctx,
+-				     &secctx_len) == 0)
++				     &secctx_len) == 0) {
+ 		audit_log_format(audit_buf, " subj=%s", secctx);
++		security_release_secctx(secctx, secctx_len);
++	}
  
- void uec_set_ethtool_ops(struct net_device *netdev)
+ 	return audit_buf;
+ }
+Index: linux-2.6_secctx-leaks/net/xfrm/xfrm_policy.c
+===================================================================
+--- linux-2.6_secctx-leaks.orig/net/xfrm/xfrm_policy.c
++++ linux-2.6_secctx-leaks/net/xfrm/xfrm_policy.c
+@@ -2195,9 +2195,10 @@ void xfrm_audit_log(uid_t auid, u32 sid,
+ 	}
+ 
+ 	if (sid != 0 &&
+-		security_secid_to_secctx(sid, &secctx, &secctx_len) == 0)
++	    security_secid_to_secctx(sid, &secctx, &secctx_len) == 0) {
+ 		audit_log_format(audit_buf, " subj=%s", secctx);
+-	else
++		security_release_secctx(secctx, secctx_len);
++	} else
+ 		audit_log_task_context(audit_buf);
+ 
+ 	if (xp) {
 
-
+-- 
+paul moore
+linux security @ hp
