@@ -1,25 +1,23 @@
 From: Brian King <brking@linux.vnet.ibm.com>
 Subject: [PATCH 1/1] ibmveth: Fix rx pool deactivate oops
 Date: Wed, 01 Aug 2007 15:26:50 -0500
-Message-ID: <41031.1648542576$1186000027@news.gmane.org>
-Cc: rcjenn@linux.vnet.ibm.com, netdev@vger.kernel.org,
-	linuxppc-dev@ozlabs.org, brking@linux.vnet.ibm.com
+Message-ID: <34696.2446965792$1186000094@news.gmane.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linuxppc-dev@ozlabs.org, rcjenn@linux.vnet.ibm.com,
+	brking@linux.vnet.ibm.com, netdev@vger.kernel.org
 To: santil@linux.vnet.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e33.co.us.ibm.com ([32.97.110.151]:56272 "EHLO
-	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750811AbXHAU0x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Aug 2007 16:26:53 -0400
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e33.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l71KQqnJ011013
-	for <netdev@vger.kernel.org>; Wed, 1 Aug 2007 16:26:52 -0400
-Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
-	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.4) with ESMTP id l71KQqNQ214732
-	for <netdev@vger.kernel.org>; Wed, 1 Aug 2007 14:26:52 -0600
-Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l71KQpC6010787
-	for <netdev@vger.kernel.org>; Wed, 1 Aug 2007 14:26:52 -0600
-Sender: netdev-owner@vger.kernel.org
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
 
